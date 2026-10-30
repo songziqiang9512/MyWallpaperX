@@ -336,8 +336,6 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         var graphTextureContentFacts: [Graph.TextureIdentity: SceneTextureContent] = [:]
         let preservedRGBADataTargets = preservedRGBADataTargets(in: product.graph)
         var materials: [MaterialKey: MaterialCapability] = [:]
-        var capturedMainSourceConsumerCount = 0
-        var firstCapturedMainMaterial: (node: Graph.Node, template: Template)?
         for node in product.graph.nodes {
             guard case .material = node.kind else {
                 if node.kind == .copy, node.conditions == nil,
@@ -428,9 +426,6 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             guard let activeTextureSlots = variants.launchEnvelopeActiveTextureSlots else {
                 return .failure(rejection("material-variant-envelope-invariant"))
             }
-            if firstCapturedMainMaterial == nil {
-                firstCapturedMainMaterial = (node, template)
-            }
             let activeDemandIssues = demandIssues.filter {
                 $0.key == key && activeTextureSlots.contains($0.slot)
             }
@@ -477,24 +472,6 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     template: template
                 ))
             }
-            if sourceRoute == .capturedMainTargetTexture {
-                if variants.capturedMainTargetSourceSlot(
-                    node: node,
-                    effect: effect
-                ) != nil {
-                    capturedMainSourceConsumerCount += 1
-                } else if !variants.supportsCapturedMainTargetInternalProgram(
-                    node: node,
-                    effect: effect
-                ) {
-                    return .failure(sourceRouteRejection(
-                        "utility-source-program-unsupported",
-                        cause: .capturedMainTargetTextureUnsupported,
-                        node: node,
-                        template: template
-                    ))
-                }
-            }
             if let failure = dynamicUniformExecutionRejection(
                 template,
                 node: node,
@@ -523,18 +500,6 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         }
         guard !materials.isEmpty else {
             return .failure(rejection("material-capability-empty"))
-        }
-        if sourceRoute == .capturedMainTargetTexture,
-           capturedMainSourceConsumerCount == 0 {
-            guard let first = firstCapturedMainMaterial else {
-                return .failure(rejection("utility-source-program-unsupported"))
-            }
-            return .failure(sourceRouteRejection(
-                "utility-source-program-unsupported",
-                cause: .capturedMainTargetTextureUnsupported,
-                node: first.node,
-                template: first.template
-            ))
         }
         if let failure = preservedChannelGraphRejection(
             product.graph,

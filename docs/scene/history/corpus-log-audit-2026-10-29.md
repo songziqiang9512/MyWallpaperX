@@ -198,3 +198,17 @@
 独审另指出：sole-node限制没有独立renderer必要性，逐variant直接升级角色还可能误拒混合internal/producer envelope。下次须先保留原source/internal一致性，再用真实整个envelope事实决定生成资格，不能靠新增数量门压缩证明。本轮按预定“无实际可见收益即停止扩大”退出，全部实验产品/测试和临时设计撤回至b8ad7998f，产品净变化0；队列仍开放，REFRACT粒子余项不混销。没有增加owner、状态、缓存或常规帧开销。
 
 必要失败原始报告、App身份、RED/GREEN/审查结论与未验收补丁归档`.artifacts/scene-evidence/runs/source-less-stage-stop-20261030/`；原生after保全尺寸无损decodedRGB8及原PNG身份，不作raw HDR证据。清理本轮原图、副本、临时HOME和重试产物，仅保连续构建缓存；后续使用前须按恢复后的产品源重建，不能把缓存中实验App称为HEAD构建。
+
+
+<a id="source-independent-graph-20261030"></a>
+## 捕获输入可选的完整Program图（2026-10-30）
+
+回到上述真实能力缺口后，136#137的实际ready envelope确认：cached reachability/输入身份齐全，binding/template为空，唯一variant实际texture/sampler/source facts为空，输出已为resolved straightAlpha；只有stored-channel事实unproven。原Stage末尾强制source consumer非零才是原有拒绝，首候选的redDefined、sole-node/footprint条件属于额外限制，不能反向成为正常颜色播放许可。临时诊断在另一Program的Int-key JSON序列化中退出，未到Ready；失败保留、诊断补丁已撤回，不能据该次运行宣播放通过或推287也已捕获。
+
+设计先落[捕获输入可用性](../capabilities/scene-format-and-render-graph.md#captured-source-availability)：背景是可用ingress，合法图可以由UV/audio、clear/seed和内部FBO产生输出。TemplateAdmission、Variant Finalization、TargetPlan/ExecutionState、Executor和compositor已分别拥有身份、实际ABI、初始化/读写/copy/history、typed publication及最终颜色，不增origin状态、producer角色或平行flow。普通Stage删来源分类、consumer计数及first诊断状态；private来源角色/internal Bool退出，精确common slot只留给attachment replay。DIRECTDRAW和必要资源/数据门保持。另在原OutputAnalyzer用非loop准入syntax恢复支配写出事实，bounded预算不改；Builder删除normalized改名源码上无用的重复color分析，typed data分支保所需事实。产品5文件净减89行。
+
+原行为Stage门5正例均ready/Plan通过却因旧source政策拒绝；修后生成→suffix两组改名、多节点seed→FBO→output、authored clear首读及source/generator混合variant均通过（82.202s），缺clear仍由Plan报historyRequired，foreign资源/target和data附件反例保原owner。初次夹具purpose拼错的编译失败及RED后依赖断言KeyError均原样保留，非产品失败。输出事实门原3自有/实际136共4项红；修后整模块31.377s通过，含旧正反例、冷暖Program transport和实际源码，bounded仍拒dynamicLoop。Finalizer整模块90.601s通过，保source-slot/replay、pending/incomplete、wrong layer/named/self、typed data及rollback边界。CPU准备/事实门不冒充GPU像素。
+
+最终Debug30.612s、严格签名及5产品输入无漂移；主体36c6cb3b…a033/dylib f08f50b8…3e67。原356同PCM fixture、Ready后3秒/运行4秒，136/137→139和287/289→310四Program在frame0/1各material1、rejected0、GPU完成，pulse准确消费前effectOutput并被compositor消费；frame6四Program取得非零16-bin音频。亲看旧图、候选和目录官方图，底部金橙多线从缺失恢复；原前景/蝴蝶保持。独立3782614820同最终App短播PASS，人物构图保持。两例均exit0/未timeout、surface1→0、GPU drained；原356 strict仍FAIL，REFRACT/unsupportedRenderState等粒子诊断原样保留。
+
+本批只退出136/287生成→pulse→末合成首门，不认精确频谱幅度/色相、相位、官方整景parity、HDR/多屏、长稳或性能收益；完整FBO/variant组合本批证明到CPU准备，原图资源执行owner未改。独审实际看前后、官方及heldout并核GPU/合成/停止，支持上述有界结论。全样本历史raw/统计与人工verdict不改。有效证据归`.artifacts/scene-evidence/runs/source-independent-graph-20261030/`，旧基线精确引用前包SHA；保必要原PNG、真实prepared源码和失败，清本轮副本/HOME/重试，只留一份连续构建缓存。日常能力优先及候选失败回到根因/设计的顺序已同步路线与顶层设计，不能再把实验失败当作改做覆盖小项的默认理由。

@@ -1013,10 +1013,10 @@
       "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "22c713a9adeacc9e96df19654383158007fbb9eb1ff6c8941f793c84e207d463",
+        "sourceSHA256": "754205b07382524d33133f141a572d1235e6435d6929700e1a7d389cd31093d6",
         "method": "document_registry --audit + document_health --check",
-        "scope": "声明FBO覆盖的原Template投影合同及唯一运行后验；现役队列只移出已闭首拒，因果和属性/验证边界保真。",
-        "limitations": "不授完整样本/四效果或单独MotionBlur因果、官方parity或性能结论。"
+        "scope": "能力优先、捕获输入可用性与完整graph职责；退役普通Stage重复source政策，保原资源/数据/replay边界及原包曲线恢复。",
+        "limitations": "新无源FBO/variant组合为CPU准备资格；原包粒子未闭，无完整官方parity或性能结论。"
       }
     },
     {
@@ -1102,13 +1102,13 @@
       "entrypoint": "docs/scene/development/source-index.md",
       "purpose": "专题参考或操作材料；不因登记取得现役计划或产品行为权威。",
       "commandPolicy": "reference-only",
-      "lastReviewed": "2026-10-18",
+      "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d0cc7e1d10e01ad964b1012dd2366524fa4c75367a20f4ea9d06cc038eab5db3",
+        "sourceSHA256": "af3dd06364d632a9f309ae3589a71fc45b2a0460100ad0c53d35d1385e0f189e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Maintain bounded modern neutral-track contract, actual original and heldout evidence, retired first fault and generated unreviewed sample note. Existing authority and archive navigation retained.",
-        "limitations": "Navigation and current bounded-result maintenance; no full sample, arbitrary state1, exact official phase or performance claim."
+        "scope": "能力优先、捕获输入可用性与完整graph职责；退役普通Stage重复source政策，保原资源/数据/replay边界及原包曲线恢复。",
+        "limitations": "新无源FBO/variant组合为CPU准备资格；原包粒子未闭，无完整官方parity或性能结论。"
       }
     },
     {
@@ -4417,13 +4417,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-16",
+      "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9a7fd395391e56d61f383149bfb38989aac9119b62e9d7f7b5fde2bcd27ac5a0",
+        "sourceSHA256": "4ffb60675a1fde5cfff497b5302472d037c2a9bbe7e0497ebeb0d34296cb9ed1",
         "method": "document_registry --audit + document_health --check",
-        "scope": "按用户要求统一允许参考阅读与同Agent独立实现，取消阅读触发停工及强制上下文隔离；规则和导航复核",
-        "limitations": "仅本次规则与链接复核，未重新验证既有研究结论、运行能力或官方parity"
+        "scope": "能力优先、捕获输入可用性与完整graph职责；退役普通Stage重复source政策，保原资源/数据/replay边界及原包曲线恢复。",
+        "limitations": "新无源FBO/variant组合为CPU准备资格；原包粒子未闭，无完整官方parity或性能结论。"
       }
     },
     {
@@ -4459,13 +4459,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/README.md",
       "retirementCondition": "冻结全集每个样本完成声明与条件场景覆盖、真实显示/动态/参数人工验收和固定官方一致性对照，P5 通过，旧 owner 撤权，unknown/unsupported 未被计作完成，稳定架构、能力与证据权威接管终态后转 historical-evidence；范围缩减须另有明确裁决。",
-      "lastReviewed": "2026-10-23",
+      "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1d89d2e9add6312bd01c7f9e7ced939191c6c9f7a09611442c4097cf78401d65",
+        "sourceSHA256": "385cdf1e11c6d7930ee48a3fbb33e627318c175d66c56c790254eb3d6db33a07",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅清单治理：已闭/已解释/身份债归历史；14静态缺口按owner合入12公共条目，未闭反馈ID/稳定锚点守恒，旧静态文档删除并统一入口。",
-        "limitations": "对照现代码及既有证据，不新增App/VM/样本运行、修复、整景通过或性能结果；待复核与静态拒绝不等于当前可见bug。"
+        "scope": "能力优先、捕获输入可用性与完整graph职责；退役普通Stage重复source政策，保原资源/数据/replay边界及原包曲线恢复。",
+        "limitations": "新无源FBO/variant组合为CPU准备资格；原包粒子未闭，无完整官方parity或性能结论。"
       }
     },
     {
@@ -4476,10 +4476,10 @@
       "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3f2724a871984f762a8e6ade9cdcf41033387b49fa070c0907d8d1e5195683d9",
+        "sourceSHA256": "99f7a4e9ddfecee33870e08bb8aff947a046c97f412f4df0711a57866dbb766b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "无纹理颜色生成两候选真实原包无收益，撤回实验实现并保首拒/后缀开放，唯一队列指向停止后验。",
-        "limitations": "未取得真实逐variant envelope拒绝事实，不授Program/GPU或波形恢复、官方parity与性能。"
+        "scope": "能力优先、捕获输入可用性与完整graph职责；退役普通Stage重复source政策，保原资源/数据/replay边界及原包曲线恢复。",
+        "limitations": "新无源FBO/variant组合为CPU准备资格；原包粒子未闭，无完整官方parity或性能结论。"
       }
     },
     {

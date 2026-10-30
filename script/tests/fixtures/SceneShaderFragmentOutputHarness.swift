@@ -56,21 +56,82 @@ private let outputCases: [OutputCase] = [
     .init(name: "ambiguous-helper", body: "gl_FragColor = vec4(0.25); gl_FragColor.xy = Pick(gl_FragColor.xy);", helpers: "vec2 Pick(vec2 v) { return v; } float Pick(float v) { return v; }")
 ]
 
-private func facts(_ source: String, compile: Bool = false) -> [String: Any] {
+private let dynamicOutputCases: [OutputCase] = [
+    .init(name: "float-accumulate-length", body: """
+        vec3 color = vec3(0.0);
+        for (float index = u - 1.0; index >= 0.0; index -= 1.0) {
+            color += vec3(sin(index) * 0.25 + 0.25, 0.2, 0.1);
+        }
+        float alpha = length(color);
+        gl_FragColor = vec4(color, alpha);
+        """),
+    .init(name: "renamed-accumulate-length", body: """
+        vec3 accumulated = vec3(0.0);
+        float count = u + 1.0;
+        for (float ordinal = count - 1.0; ordinal >= 0.0; ordinal -= 1.0) {
+            accumulated += vec3(ordinal) * 0.01;
+        }
+        gl_FragColor = vec4(accumulated, length((accumulated)));
+        """),
+    .init(name: "whole-write-after-loop", body: """
+        float sum = 0.0;
+        for (float turn = u; turn > 0.0; turn -= 1.0) { sum += turn; }
+        gl_FragColor = vec4(sum, 0.25, 0.5, 1.0);
+        """),
+    .init(name: "whole-write-inside-loop", body:
+        "for (float turn = u; turn > 0.0; turn -= 1.0) { gl_FragColor = vec4(turn); }"),
+    .init(name: "conditional-whole-write", body: """
+        float sum = 0.0;
+        for (float turn = u; turn > 0.0; turn -= 1.0) { sum += turn; }
+        if (u > 0.0) { gl_FragColor = vec4(sum); }
+        """),
+    .init(name: "early-return-after-loop", body: """
+        for (float turn = u; turn > 0.0; turn -= 1.0) {}
+        if (u < 0.0) return;
+        gl_FragColor = vec4(0.5);
+        """),
+    .init(name: "discard-after-loop", body: """
+        for (float turn = u; turn > 0.0; turn -= 1.0) {}
+        if (u < 0.0) discard;
+        gl_FragColor = vec4(0.5);
+        """),
+    .init(name: "partial-write-after-loop", body: """
+        for (float turn = u; turn > 0.0; turn -= 1.0) {}
+        gl_FragColor.rgb = vec3(0.5);
+        gl_FragColor.a = 1.0;
+        """)
+]
+
+private func facts(
+    _ source: String, compile: Bool = false,
+    genericSyntax: Bool = false, vertexSource: String = vertex
+) -> [String: Any] {
     let syntax = SceneAuthoredShaderSyntaxAnalyzer.analyze(
         lexerOutput: SceneAuthoredShaderLexer.lex(source: source, stage: .fragment),
         stage: .fragment
     )
     var result: [String: Any] = [
         "syntaxDiagnostics": syntax.diagnostics.count,
+        "syntaxCodes": syntax.diagnostics.map { $0.code.rawValue },
         "sourceFact": SceneAuthoredShaderFragmentOutputAnalyzer.analyze(source: source).rawValue
     ]
     if let unit = syntax.unit {
         result["unitFact"] = SceneAuthoredShaderFragmentOutputAnalyzer.analyze(unit).rawValue
     }
+    if genericSyntax {
+        let generic = SceneAuthoredShaderSyntaxAnalyzer.analyzeForTypeConversions(
+            lexerOutput: SceneAuthoredShaderLexer.lex(source: source, stage: .fragment),
+            stage: .fragment
+        )
+        result["genericSyntaxCodes"] = generic.diagnostics.map { $0.code.rawValue }
+        if let unit = generic.unit {
+            result["genericUnitFact"] = SceneAuthoredShaderFragmentOutputAnalyzer.analyze(unit).rawValue
+        }
+    }
     if compile {
-        let compiled = SceneAuthoredShaderFrontend.compile(vertexSource: vertex, fragmentSource: source)
+        let compiled = SceneAuthoredShaderFrontend.compile(vertexSource: vertexSource, fragmentSource: source)
         result["boundedDiagnostics"] = compiled.diagnostics.map { String(describing: $0) }
+        result["boundedDiagnosticCodes"] = compiled.diagnostics.map { $0.code.rawValue }
         result["boundedFact"] = compiled.program?.fragmentOutputChannelUse.rawValue ?? "no-program"
     }
     return result
@@ -154,6 +215,17 @@ private enum FragmentOutputProbe {
             output["completedAfter"] = SceneAuthoredShaderFrontend.completedCacheSnapshot.completedEntries
         } else if mode == "actual-variant" {
             output["variants"] = try actualVariant(CommandLine.arguments[2])
+        } else if mode == "dynamic-output" {
+            output["cases"] = Dictionary(uniqueKeysWithValues: dynamicOutputCases.map {
+                ($0.name, facts($0.source, compile: true, genericSyntax: true))
+            })
+        } else if mode == "prepared-source" {
+            let fragment = try String(contentsOfFile: CommandLine.arguments[2], encoding: .utf8)
+            let actualVertex = try String(contentsOfFile: CommandLine.arguments[3], encoding: .utf8)
+            output["facts"] = facts(fragment, compile: true, genericSyntax: true,
+                                    vertexSource: actualVertex)
+            output["fragmentSHA256"] = SceneShaderStableDigest.hash(Data(fragment.utf8))
+            output["vertexSHA256"] = SceneShaderStableDigest.hash(Data(actualVertex.utf8))
         } else {
             output["legacyColorPolicies"] = legacyColorPolicies()
             output["cases"] = Dictionary(uniqueKeysWithValues: outputCases.map {

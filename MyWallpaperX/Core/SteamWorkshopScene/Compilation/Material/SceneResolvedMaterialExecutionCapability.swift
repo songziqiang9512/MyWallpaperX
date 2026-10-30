@@ -7,24 +7,13 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         struct ProgramFailureAttribution {
             enum SourceRouteFailure {
                 case directDrawSourceDependent
-                case capturedMainTargetTextureUnsupported
 
                 var code: String {
-                    switch self {
-                    case .directDrawSourceDependent:
-                        "directDrawSourceDependent"
-                    case .capturedMainTargetTextureUnsupported:
-                        "capturedMainTargetTextureUnsupported"
-                    }
+                    "directDrawSourceDependent"
                 }
 
                 var details: [String] {
-                    switch self {
-                    case .directDrawSourceDependent:
-                        ["transparent-direct-draw-source-dependent"]
-                    case .capturedMainTargetTextureUnsupported:
-                        ["captured-main-target-program-contract-unproven"]
-                    }
+                    ["transparent-direct-draw-source-dependent"]
                 }
             }
 

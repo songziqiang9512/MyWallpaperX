@@ -1,36 +1,11 @@
 import Foundation
 
 extension SceneResolvedMaterialVariantCache {
-    private enum CapturedMainTargetProgramRole: Hashable {
-        case sourceConsumer(slot: Int)
-        case internalFramebufferOnly
-    }
-
-    /// Classifies one material in a captured-main stage without projecting the
-    /// stage source requirement onto internal framebuffer-only Programs.
+    /// Attachment replay needs every launch variant to sample the same ingress.
     func capturedMainTargetSourceSlot(
         node: Graph.Node,
         effect: Graph.Effect
     ) -> Int? {
-        guard case let .sourceConsumer(slot) = capturedMainTargetProgramRole(
-            node: node,
-            effect: effect
-        ) else { return nil }
-        return slot
-    }
-
-    func supportsCapturedMainTargetInternalProgram(
-        node: Graph.Node,
-        effect: Graph.Effect
-    ) -> Bool {
-        capturedMainTargetProgramRole(node: node, effect: effect)
-            == .internalFramebufferOnly
-    }
-
-    private func capturedMainTargetProgramRole(
-        node: Graph.Node,
-        effect: Graph.Effect
-    ) -> CapturedMainTargetProgramRole? {
         let snapshot = launchEnvelopeCapabilitySnapshot()
         guard node.kind == .material,
               node.effect == effect.key,
@@ -60,8 +35,8 @@ extension SceneResolvedMaterialVariantCache {
                       )
               }) else { return nil }
 
-        let roles = snapshot.variants.compactMap { variant in
-            variantRole(
+        let sourceSlots = snapshot.variants.compactMap { variant in
+            variantSourceSlot(
                 variant,
                 template: snapshot.template,
                 node: node,
@@ -69,38 +44,23 @@ extension SceneResolvedMaterialVariantCache {
                 sourceBinding: sourceBindings.first
             )
         }
-        guard roles.count == snapshot.variants.count,
-              Set(roles).count == 1,
-              let role = roles.first,
-              let target = node.target else { return nil }
-        switch role {
-        case .sourceConsumer:
-            guard target == effect.output
-                    || exactEffectFramebuffer(target, effect: effect.key)
-            else { return nil }
-        case .internalFramebufferOnly:
-            guard sourceBindings.allSatisfy({ binding in
-                      guard let slot = binding.slot else { return false }
-                      return snapshot.variants.allSatisfy { variant in
-                          !variant.frontendProgram.textureBindings.contains {
-                              $0.slot == slot
-                          }
-                      }
-                  }),
-                  target == effect.output
-                    || exactEffectFramebuffer(target, effect: effect.key)
-            else { return nil }
-        }
-        return role
+        guard sourceSlots.count == snapshot.variants.count,
+              Set(sourceSlots).count == 1,
+              let sourceSlot = sourceSlots.first,
+              let target = node.target,
+              target == effect.output
+                || exactEffectFramebuffer(target, effect: effect.key)
+        else { return nil }
+        return sourceSlot
     }
 
-    private func variantRole(
+    private func variantSourceSlot(
         _ variant: Variant,
         template: Template,
         node: Graph.Node,
         effect: Graph.Effect,
         sourceBinding: Graph.Binding?
-    ) -> CapturedMainTargetProgramRole? {
+    ) -> Int? {
         let activeSlots = Set(
             variant.frontendProgram.textureBindings.map(\.slot)
         )
@@ -148,7 +108,9 @@ extension SceneResolvedMaterialVariantCache {
         } else {
             sourceSlots = unboundSourceSlots
         }
-        guard sourceSlots.count <= 1 else { return nil }
+        guard sourceSlots.count == 1, let sourceSlot = sourceSlots.first else {
+            return nil
+        }
 
         for slot in activeSlots {
             guard template.textureSlots.indices.contains(slot) else { return nil }
@@ -165,9 +127,6 @@ extension SceneResolvedMaterialVariantCache {
             }) else { return nil }
         }
 
-        guard let sourceSlot = sourceSlots.first else {
-            return activeSourceBinding == nil ? .internalFramebufferOnly : nil
-        }
         guard let sourceSampler = variant.activeSamplers[sourceSlot],
               sourceSampler.mode == .regular else { return nil }
         if let activeSourceBinding {
@@ -203,7 +162,7 @@ extension SceneResolvedMaterialVariantCache {
         // graph-input identity and active sampler binding above; requiring a
         // color-preserving transfer would reject the very filters this route
         // exists to execute.
-        return .sourceConsumer(slot: sourceSlot)
+        return sourceSlot
     }
 
     private func exactGraphReferences(

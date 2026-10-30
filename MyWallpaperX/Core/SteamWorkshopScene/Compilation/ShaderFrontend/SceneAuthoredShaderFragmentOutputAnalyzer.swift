@@ -9,7 +9,7 @@ nonisolated enum SceneAuthoredShaderFragmentOutputAnalyzer {
     static func analyze(
         source: String
     ) -> SceneAuthoredShaderProgram.FragmentOutputChannelUse {
-        let syntax = SceneAuthoredShaderSyntaxAnalyzer.analyze(
+        let syntax = SceneAuthoredShaderSyntaxAnalyzer.analyzeForTypeConversions(
             lexerOutput: SceneAuthoredShaderLexer.lex(
                 source: source,
                 stage: .fragment

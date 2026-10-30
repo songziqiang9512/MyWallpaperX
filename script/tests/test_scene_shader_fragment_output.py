@@ -77,6 +77,9 @@ class SceneShaderFragmentOutputTests(unittest.TestCase):
         cls.inputs = [*SWIFT_SOURCES, FIXTURE, Path(__file__), resource,
                       Path(color.__file__), Path(preprocessor.__file__),
                       ROOT / "script/scene_swift_source_sets.py"]
+        cls.inputs.extend(Path(os.environ[name]) for name in (
+            "MWX_FRAGMENT_OUTPUT_PREPARED_FRAGMENT", "MWX_FRAGMENT_OUTPUT_PREPARED_VERTEX"
+        ) if os.environ.get(name))
         cls.before = [identity(path) for path in cls.inputs]
         cls.record("inputs-before.json", cls.before)
         cls.environment = {**os.environ, "CLANG_MODULE_CACHE_PATH": str(cls.work / "clang-cache"),
@@ -160,6 +163,39 @@ class SceneShaderFragmentOutputTests(unittest.TestCase):
             for variant in variants:
                 self.assertEqual(variant["facts"]["sourceFact"], "redDefined", variant)
                 self.assertEqual(variant["facts"]["unitFact"], "redDefined", variant)
+
+    def test_dynamic_loop_output_fact_is_independent_of_bounded_execution(self) -> None:
+        output = self.run_probe("dynamic-output", self.work / "dynamic-home")["cases"]
+        positive = {"float-accumulate-length", "renamed-accumulate-length", "whole-write-after-loop"}
+        negative = {"whole-write-inside-loop", "conditional-whole-write", "early-return-after-loop",
+                    "discard-after-loop", "partial-write-after-loop"}
+        self.assertEqual(set(output), positive | negative)
+        for name, fact in output.items():
+            with self.subTest(case=name):
+                expected = "redDefined" if name in positive else "unproven"
+                diagnostic = "unsupportedControlFlow" if name == "discard-after-loop" else "dynamicLoop"
+                self.assertEqual(fact["genericSyntaxCodes"], [], fact)
+                self.assertEqual(fact["genericUnitFact"], expected, fact)
+                self.assertEqual(fact["syntaxCodes"], [diagnostic], fact)
+                self.assertNotIn("unitFact", fact)
+                self.assertEqual(fact["boundedDiagnosticCodes"], [diagnostic], fact)
+                self.assertEqual(fact["boundedFact"], "no-program", fact)
+                self.assertEqual(fact["sourceFact"], expected, fact)
+        actual = os.environ.get("MWX_FRAGMENT_OUTPUT_PREPARED_FRAGMENT")
+        if actual:
+            actual_vertex = os.environ.get("MWX_FRAGMENT_OUTPUT_PREPARED_VERTEX")
+            self.assertIsNotNone(actual_vertex)
+            payload = self.run_probe("prepared-source", self.work / "prepared-home", actual, actual_vertex)
+            with self.subTest(case="actual-prepared-source"):
+                self.assertEqual(payload["fragmentSHA256"], identity(Path(actual))["sha256"], payload)
+                self.assertEqual(payload["vertexSHA256"], identity(Path(actual_vertex))["sha256"], payload)
+                fact = payload["facts"]
+                self.assertEqual(fact["genericSyntaxCodes"], [], fact)
+                self.assertEqual(fact["genericUnitFact"], "redDefined", fact)
+                self.assertEqual(fact["syntaxCodes"], ["dynamicLoop"], fact)
+                self.assertEqual(fact["boundedDiagnosticCodes"], ["dynamicLoop"], fact)
+                self.assertEqual(fact["boundedFact"], "no-program", fact)
+                self.assertEqual(fact["sourceFact"], "redDefined", fact)
 
     def test_frontend_cold_warm_processes_preserve_complete_program(self) -> None:
         home = self.work / "cache-home"

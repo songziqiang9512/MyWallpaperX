@@ -235,6 +235,15 @@ shader `// [PASS]` 又属于 shader frontend metadata，不占 effect material o
 
 当前内存 `SceneRuntimeInput` 继承逐帧 registry、binding program 与 ShaderContract，并保留 direct text content/point-size/color target。effect target table继续由普通graph admission和剩余bounded fallback消费；dynamic text 以 per-layer signature/generation 更新纹理，不塞进 effect graph。同帧 copy/swap 已有严格 plan/runtime；统一 node scheduler 可按 authored nodeIndex 在 Precise Blur 的两个 material node 之间执行一个 copy 或 swap，并把更新后的 logical texture mapping 交给后段 encoder；现役普通MaterialProgram/GraphExecutor与剩余bounded fallback可按作者顺序消费previous output、effect texture、scene time、pointer或effect-local RT；Shake、Foliage Sway、Water Ripple与Water Flow的已迁移profile不再拥有专用strict产品owner。classic primary named-provider不再由exact Clipping owner规划；现役共享binding允许任意已准入MaterialProgram的pass 0/slot 1消费一个primary `_a` hidden image graph，并沿acyclic、单活动依赖闭包依赖优先执行和发布effectful provider，最终author compositor顺序不变。author-disabled named alternative只有在active+inactive引用完整解释descriptor依赖集合时才不进入当前产品边；结构准入、binding编译与utility执行准入共用这份sole-active-provider证明，不再按原始依赖数量误拒；旧单声明provider的潜在准备及多活动provider的既有aggregate路径保留。unexplained dependency、authoredDependencies、secondary、未获既有strict aggregate准入的多活动provider、cycle、child与非image继续拒绝。其他dynamic variants、system/media/video、通用history/跨帧persistent、compose与Texture Variants仍未实现。
 
+<a id="captured-source-availability"></a>
+### 捕获背景是可用输入（2026-10-30 设计）
+
+captured-main给graph提供可采样的typed ingress，不要求每个stage或variant必须消费它。无外部纹理的UV/audio颜色生成、clear/seed→内部FBO→读取→effect.output以及source/generator变体沿同一准备与执行链，不另建producer角色或renderer。
+
+TemplateAdmission拥有admitted node/slot与模板身份，Finalization拥有实际Program ABI、sampler和输入事实；RenderTargetPlan/ExecutionState拥有初始化、read-before-write、copy/swap/history和可读内容代次，Executor发布实际typed输出并交唯一compositor。普通Stage退出重复来源分类、mandatory source consumer计数及其诊断状态；精确source-slot证明只保留给确需共同slot的background attachment replay。DIRECTDRAW、真实资源未就绪、foreign绑定、数据附件/颜色表示与取消释放仍由各原owner处理，不增加另一套图数据流证明。
+
+输出通道事实与执行资格分责：原FragmentOutputAnalyzer复用已有非loop准入的syntax入口判断支配写出；bounded编译仍独占其循环预算，generic仍经原compiler guard。颜色artifact不再对改名后的normalized源码重复分析并发布无用事实，Host沿原authored/prepared源码发布结果；typed data保原所需证明。redDefined是有限stored-channel事实，不升级为普通RGBA颜色的额外播放许可。验收复用原Stage/TargetPlan与实际generic原包，含无源多节点及source/generator变体、缺初始化/foreign/data反例、后继颜色与独立样本；失败时修正负责该事实的owner，不靠节点数或新profile缩小能力。
+
 ## 7. Material definition
 
 观察到的 material pass 合同：

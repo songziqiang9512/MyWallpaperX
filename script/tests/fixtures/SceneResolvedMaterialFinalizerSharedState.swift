@@ -196,8 +196,6 @@ final class SceneResolvedMaterialFinalizerFixture {
         let neutralTextureResolutionFailures =
             neutralTextureResolutionFinalizerFailures(device)
         let dormantGraphInputFacts = dormantGraphInputFactTokens(device)
-        let capturedMainInternalTerminal =
-            capturedMainInternalTerminalTokens()
         let mappedTextureResolution = mappedTextureResolutionTokens(device)
         let mixedSystemNamedProvider = mixedSystemNamedProviderTokens(device)
         let namedProviderRuntimePurpose = namedProviderRuntimePurposeTokens(device)
@@ -532,7 +530,6 @@ final class SceneResolvedMaterialFinalizerFixture {
             "dormantGraphInputFacts": dormantGraphInputFacts,
             "rtDefaultAdmission": rtDefaultAdmissionTokens(device),
             "sameLayerCompositeOverride": sameLayerCompositeOverrideTokens(device),
-            "capturedMainInternalTerminal": capturedMainInternalTerminal,
             "admittedEffectIngress": fixture.preparation.admittedEffectIngress,
             "failures": fixture.failures.failures,
             "arithmeticColorBoundary": fixture.failures.arithmeticColorBoundary,

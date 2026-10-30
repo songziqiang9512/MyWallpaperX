@@ -133,9 +133,7 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                 )
             )
             let uniformLayout = stagedUniforms.layout
-            var outputChannelUse = SceneAuthoredShaderFragmentOutputAnalyzer.analyze(
-                source: fragmentStage.source
-            )
+            var outputChannelUse = SceneAuthoredShaderProgram.FragmentOutputChannelUse.unproven
             let color: (
                 msl: String,
                 transfer: SceneGenericShaderProgramArtifact.Program.ColorTransfer

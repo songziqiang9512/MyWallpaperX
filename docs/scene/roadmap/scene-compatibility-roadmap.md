@@ -4,7 +4,7 @@
 
 > 当前主线：**公共能力补齐与逻辑正确性**。以真实作者内容、共享首断点和实际播放对照推进，最终逐步让样本根中的每一个Scene正确运行。
 >
-> 执行顺序更新：2026-10-16。全局优先级为 **影响画面正确合成与正常播放的问题 → 性能 → 属性调节项的热更新接线 → 其他**；安全与已有功能回归先处理。同档比较真实可达首断点、通用覆盖、风险与可验证性。用户反馈与静态可证缺口统一归[修复队列](scene-open-breakpoint-queue.md)，按证据类型区分；已修项归档并退出队列，不以完整官方golden未齐继续占用已关闭问题。
+> 执行顺序更新：2026-10-30。日常先补真实能力缺口，再扩大已有能力覆盖；发现实际处理链不完整时，优先回到该能力的完整职责与设计，不以兼容小项替代。全局结果优先级为 **画面合成/正常播放 → 性能 → 属性热更新 → 其他**；安全与已有回归先处理。同档比较真实consumer、覆盖、风险与可验证性。开放项归[修复队列](scene-open-breakpoint-queue.md)，已修项归档退出；不以完整golden未齐重开已闭首门。
 >
 > 本文只拥有阶段顺序和完成门。能力、owner、route、样本和运行结果分别由[能力台账](../capabilities/coverage-ledger.md)、专项表、[代码地图](../architecture/runtime-as-built-map.md)、[运行证据索引](../capabilities/runtime-evidence-current.md)、[样本调试台账](../capabilities/scene-sample-debug-ledger.md)和[样本验收台账](../capabilities/scene-sample-acceptance-ledger.md)拥有。本文中的新增字段和工具扩展是待实现交付要求，不表示工具已经支持。
 

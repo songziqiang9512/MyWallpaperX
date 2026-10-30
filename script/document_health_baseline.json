@@ -150,7 +150,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 221193
+      "bytes": 221391
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -262,7 +262,7 @@
     },
     "docs/scene/roadmap/engine-refactor-program.md": {
       "lines": 62,
-      "bytes": 7457
+      "bytes": 7605
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 70,
@@ -274,11 +274,11 @@
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 182,
-      "bytes": 22423
+      "bytes": 22465
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 182,
-      "bytes": 41279
+      "bytes": 41204
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1886,20 +1886,38 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "4afa5989a44448c27ec60964c7cf849da1a4b9be82e7b0c4922ec664ef5da561",
-      "after": "9e4a35fb21f86962394ddb8de27cafe93e84795d8aa118d24779648363c46494",
+      "before": "9e4a35fb21f86962394ddb8de27cafe93e84795d8aa118d24779648363c46494",
+      "after": "b81626b5eec9cba38be1cc4851e7f0db484fc6742d7f0ebdb4130f3b8cfe8011",
       "owner": "scene-engine-maintainer",
-      "reason": "原Template准备阶段投影不可达FBO低候选，保diagnostic与必要身份门；同步真实history链、注册因果UNKNOWN及新显隐/验证债，退出仅已闭首拒。",
-      "decision": "docs/scene/capabilities/sampler-alias-precedence.md#declared-framebuffer-binding"
+      "reason": "按能力优先更新选序与捕获输入/图执行分责，退出只已闭的356生成链；保旧失败与粒子余项，正文按现状收敛。",
+      "decision": "docs/scene/capabilities/scene-format-and-render-graph.md#captured-source-availability"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/engine-refactor-program.md",
+      "before": "18b9bbd658fb6d55a2c920488f366f9616cf0561b6d7da678b3e9b324b20e3ed",
+      "after": "565a157a0ba010611bccc3d0b7b1cb9a37b87f2dd284c5bccb1e54dd39d1bba2",
+      "owner": "scene-engine-maintainer",
+      "reason": "按能力优先更新选序与捕获输入/图执行分责，退出只已闭的356生成链；保旧失败与粒子余项，正文按现状收敛。",
+      "decision": "docs/scene/capabilities/scene-format-and-render-graph.md#captured-source-availability"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "a0c72e70d1779a56c92b17916a5c4a11640f4f62bd2259f4ec6e868b66694044",
-      "after": "cb69979b641f654674405c77aaceeedb1395abda1ee2a454d95ea1e84791e1eb",
+      "before": "cb69979b641f654674405c77aaceeedb1395abda1ee2a454d95ea1e84791e1eb",
+      "after": "0e304115145f61b20ece89b65ca83e0f8d70409a5cea22485cce4d587461e522",
       "owner": "scene-engine-maintainer",
-      "reason": "替换无纹理颜色生成的未证计数归因为原包失败停止与下一资格门；缩短现役描述，未验收产品实现撤回。",
-      "decision": "docs/scene/history/corpus-log-audit-2026-10-29.md#source-less-stage-stop-20261030"
+      "reason": "按能力优先更新选序与捕获输入/图执行分责，退出只已闭的356生成链；保旧失败与粒子余项，正文按现状收敛。",
+      "decision": "docs/scene/capabilities/scene-format-and-render-graph.md#captured-source-availability"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-compatibility-roadmap.md",
+      "before": "f5f758e92615493ab088238f6ede3cdc73019c9efee9d031baf7705f3dd673cc",
+      "after": "3592582351f55e96b69cbe82e61ad85f95da84d414b18749b0e8cd3208fcdbc5",
+      "owner": "scene-engine-maintainer",
+      "reason": "按能力优先更新选序与捕获输入/图执行分责，退出只已闭的356生成链；保旧失败与粒子余项，正文按现状收敛。",
+      "decision": "docs/scene/capabilities/scene-format-and-render-graph.md#captured-source-availability"
     }
   ]
 }

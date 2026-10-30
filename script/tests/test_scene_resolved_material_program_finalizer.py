@@ -225,23 +225,15 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
         for variant in ("original", "renamed"):
             prefix = f"self-{variant}"
             self.assertEqual(results[prefix + ":override:source"], "0", results)
-            self.assertEqual(results[prefix + ":override:internal"], "false", results)
             self.assertEqual(results[prefix + ":override:ready"], "graph-ingress", results)
             self.assertEqual(results[prefix + ":override:pending"], "texture/resourceSnapshotUnresolved", results)
             self.assertEqual(results[prefix + ":override:incomplete"], "texture/textureMetadataIncomplete", results)
             self.assertEqual(results[prefix + ":default:source"], "none", results)
-            self.assertEqual(results[prefix + ":default:internal"], "true", results)
             self.assertEqual(results[prefix + ":default:ready"], "asset-default", results)
         for case in ("chain", "previous"):
             self.assertEqual(results[f"self-original:{case}:source"], "0", results)
-            self.assertEqual(results[f"self-original:{case}:internal"], "false", results)
         for case in ("foreign", "mixed-foreign", "mixed-asset", "conflict", "unprepared"):
             self.assertEqual(results[f"self-original:{case}:source"], "none", results)
-            self.assertEqual(
-                results[f"self-original:{case}:internal"],
-                "true" if case in ("foreign", "mixed-foreign", "mixed-asset") else "false",
-                results,
-            )
 
     def test_rt_defaults_do_not_manufacture_authored_presence_or_reject_dead_sampler(self) -> None:
         results = self.result["rtDefaultAdmission"]
@@ -470,22 +462,6 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
                 "defaultBoundaryPreservesGraphFact": "preserved",
                 "arbitraryHiddenKeySlot0": "proven",
                 "unseenArbitraryHiddenKeySlot3": "proven",
-            },
-            self.result,
-        )
-
-    def test_captured_main_internal_program_can_terminate_its_exact_effect(
-        self,
-    ) -> None:
-        self.assertEqual(
-            self.result["capturedMainInternalTerminal"],
-            {
-                "exactEffectOutputAccepted": True,
-                "terminalRemainsInternalOnly": True,
-                "foreignEffectOutputRejected": True,
-                "foreignFramebufferBindingRejected": True,
-                "forgedEffectOutputRejected": True,
-                "missingTargetRejected": True,
             },
             self.result,
         )
