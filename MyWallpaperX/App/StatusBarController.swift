@@ -295,11 +295,13 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
 
 
     @objc private func quitApp() {
-        closeThen {
-            let alert = makeAppAlert(title: "确定要退出吗？", message: "壁纸将停止播放。", buttons: ["退出", "取消"])
-            presentAppAlert(alert, in: appModalHostWindow()) { response in
-                if response == .alertFirstButtonReturn { NSApp.terminate(nil) }
-            }
+        popover.performClose(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        // A no-window alert runs synchronously. Holding the main dispatch
+        // queue here would block the async flush after terminateLater.
+        let alert = makeAppAlert(title: "确定要退出吗？", message: "壁纸将停止播放。", buttons: ["退出", "取消"])
+        presentAppAlert(alert, in: appModalHostWindow()) { response in
+            if response == .alertFirstButtonReturn { NSApp.terminate(nil) }
         }
     }
 }

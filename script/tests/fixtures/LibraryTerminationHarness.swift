@@ -52,6 +52,16 @@ import SQLite3
     static let shared = SteamWorkshopService()
     func advanceWebLaunchIntentGeneration() {}
 }
+@MainActor private final class ScreenSaverCoordinator {
+    static let shared = ScreenSaverCoordinator()
+    var cancellations = 0
+    func cancel() { cancellations += 1 }
+}
+@MainActor private final class ScreenSaverActivityMonitor {
+    static let shared = ScreenSaverActivityMonitor()
+    var stops = 0
+    func stop() { stops += 1 }
+}
 @MainActor private final class DaemonPlaybackProcessRegistry {
     static let shared = DaemonPlaybackProcessRegistry()
     struct Result { var allExited: Bool; var remainingProcessIdentifiers: [Int32] { [] } }
@@ -165,6 +175,8 @@ nonisolated final class TestSQLGate: @unchecked Sendable {
             checks["failed-quit-restores-editing-and-reports-one-error"] = workspace.editingAllowed && !delegate.terminationReplyPending
                 && ProbeApplication.alerts.count == 1
             checks["failed-quit-does-not-release-system-desktop-ownership"] = manager.desktopRestorations == 0
+            checks["failed-quit-keeps-screen-saver-activity"] = ScreenSaverCoordinator.shared.cancellations == 0
+                && ScreenSaverActivityMonitor.shared.stops == 0
             try manager.play(b)
             checks["new-explicit-play-after-cancelled-quit-commits-new-original-ticket"] = manager.sequence.committed?.reference == b
                 && manager.playbackSwitch.committed?.ticket != originalTicket
@@ -180,6 +192,8 @@ nonisolated final class TestSQLGate: @unchecked Sendable {
                 && delegate.statusBarController == nil && WallpaperEngine.shared.cleanups == 1
                 && SceneDaemonClient.shared.shutdowns == 1 && DaemonPlaybackProcessRegistry.shared.drainCalls == 1
             checks["successful-quit-restores-desktop-once-after-the-durable-flush"] = manager.desktopRestorations == 1
+            checks["successful-quit-retires-screen-saver-activity-once"] = ScreenSaverCoordinator.shared.cancellations == 1
+                && ScreenSaverActivityMonitor.shared.stops == 1
         }
         print(String(data: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
     }

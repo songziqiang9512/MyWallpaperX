@@ -4582,7 +4582,8 @@
         "MyWallpaperX/App/StatusBarPanel*.swift",
         "MyWallpaperX/App/WallpaperLibraryPlaybackRestoration.swift",
         "script/tests/test_status_bar_panel.py",
-        "script/tests/fixtures/StatusBarPanelHarness.swift"
+        "script/tests/fixtures/StatusBarPanelHarness.swift",
+        "script/tests/fixtures/StatusBarQuitHarness.swift"
       ],
       "modules": [
         "test_status_bar_icon_projection",
