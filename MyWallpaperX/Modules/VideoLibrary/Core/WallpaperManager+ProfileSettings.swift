@@ -23,6 +23,7 @@ extension WallpaperManager {
             throw CocoaError(.fileWriteNoPermission, userInfo: [NSLocalizedDescriptionKey: migrationRecoveryMessage ?? "资料库需要恢复"])
         }
         guard didFinishInitialIndexLoad else { throw PersonalSettingsError.indexLoading }
+        guard patches.contains(where: { $0.target.reference.provider == .videoLibrary }) else { return }
         var target = wallpapers
         for patch in patches where patch.target.reference.provider == .videoLibrary {
             let ref = patch.target.reference

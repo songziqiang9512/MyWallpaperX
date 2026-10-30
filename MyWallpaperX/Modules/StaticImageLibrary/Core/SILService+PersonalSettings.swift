@@ -9,6 +9,7 @@ extension SILService {
         guard allowsLibraryMutation else {
             throw CocoaError(.fileWriteNoPermission, userInfo: [NSLocalizedDescriptionKey: migrationRecoveryMessage ?? "资料库需要恢复"])
         }
+        guard patches.contains(where: { $0.target.reference.provider == .staticImageLibrary }) else { return }
         var target = wallpapers
         for patch in patches where patch.target.reference.provider == .staticImageLibrary {
             let reference = patch.target.reference

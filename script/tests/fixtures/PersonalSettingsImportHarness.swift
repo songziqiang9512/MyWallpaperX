@@ -199,6 +199,12 @@ extension Notification.Name {
                 presentation: presentation)
             return
         }
+        if CommandLine.arguments.dropFirst(2).contains("source-persistence") {
+            let sourceChecks = try await runSourcePersistenceChecks(root: root, manager: manager, images: images,
+                controller: controller, presentation: presentation)
+            print(String(data: try JSONEncoder().encode(sourceChecks), encoding: .utf8)!)
+            return
+        }
         if CommandLine.arguments.dropFirst(2).contains("path-reuse") {
             let firstDirectory = root.appendingPathComponent("first", isDirectory: true)
             let secondDirectory = root.appendingPathComponent("second", isDirectory: true)
