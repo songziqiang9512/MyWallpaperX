@@ -637,6 +637,27 @@ nonisolated extension SceneAuthoredShaderTokenScanner {
         return result
     }
 
+    /// Compiler resource attributes are token facts, independent of texture
+    /// type/template syntax. Nil means an unproven attribute, not absence.
+    static func integerAttributeValues(
+        _ name: String, in range: Range<Int>, tokens: [SceneAuthoredShaderToken]
+    ) -> [Int]? {
+        var values: [Int] = []
+        for open in range.dropLast() where tokens[open].text == "["
+            && tokens[open + 1].text == "[" {
+            guard let close = SceneAuthoredShaderSyntaxAnalyzer.matchingDelimiter(
+                at: open, tokens: tokens), close < range.upperBound,
+                close > open + 2, tokens[close - 1].text == "]" else { return nil }
+            let attribute = tokens[(open + 2)..<(close - 1)]
+            guard attribute.contains(where: { $0.text == name }) else { continue }
+            let parts = attribute.map(\.text)
+            guard parts.count == 4, parts[0] == name, parts[1] == "(",
+                  let value = Int(parts[2]), parts[3] == ")" else { return nil }
+            values.append(value)
+        }
+        return values
+    }
+
     static func matchingClose(_ open: Int, tokens: [SceneAuthoredShaderToken]) -> Int? {
         guard tokens.indices.contains(open), tokens[open].text == "(" else {
             return nil

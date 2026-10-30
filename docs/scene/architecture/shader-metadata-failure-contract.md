@@ -12,6 +12,17 @@
 
 **验收与停止。** 扩现真实dead-binding编译门：无inactive sampler的死inverse、变量/资源改名、等价纯表达、无关audio动态loop与冷暖artifact/layout一致；上述活读、副作用及控制流反例须保留。以实际Program验证flat raster下死inverse退出、真正活读inverse仍拒奇异矩阵，再验原阻断样本及未参与修法样本真实画面、Debug与独审。若没有撤掉真实绑定或首断点，先查准备证据，不能借此放松矩阵guard、扩大helper/control-flow分析或仅凭源码变短宣称性能收益。
 
+<a id="optimized-texture-interface"></a>
+## 后端已删除的纹理绑定（2026-10-30）
+
+**目标与职责。** 编译器反射可保留未调用helper中的纹理，而生成MSL已删其物理参数。ArtifactBuilder不能仅因这些反射记录没有.sample就拒整个Program；也不能把read/query等未支持的活动读取当死资源。仅在原textureUnused首拒处，由既有Builder懒读取一次合并MSL的整数texture属性集合；明确不在接口且无Resolution依赖的反射纹理退出artifact绑定，其他输入保原流程。Resolution/neutral proof、通道/颜色闭包、loop预算及Program资源边界不变，不扩循环或shader算法。
+
+**取舍与退出。** 不改第三方反射器，不另造MSL parser/AST或资源owner。把现AttachmentReadLowering的compiler include/pragma词法投影移到既有LexicalScanner；其texture属性扫描由既有TokenScanner共享，attachment的参数/样本/删sampler证明保持。直接扫描token属性而非按逗号切参数，保不同纹理模板中的逗号；注释/字符串不作属性。空集合表示无属性，未知/残缺属性不能证明缺席；MSL出现反射未登记的binding仍拒，避免删除旧记录后留下未绑定读取。仍在接口的非sample资源继续原局部拒绝，不猜补texture。普通已消费输入不做新词法扫描，普通帧无解析；本地一次集合不跨请求持久化。生成build producer身份退出旧工件，不增版本、cache或认证链。
+
+**编译后事实发布。** 源schema继续保真，VariantAnalysis仍缓存原声明；最终Variant的activeSamplers与graph-input事实只投影到已编译Program的textureBindings。原finalizeVariantBindings把已有activeSlots计算提前并复用一次，未消费sampler不再进入运行期用途/捕获源资格；实际binding缺schema、错name或活跃source事实分歧仍拒。冷/暖使用同一finalization，不在captured-main等消费者追加例外或帧期过滤。这样artifact退出死绑定后不会把旧声明继续称为活动资源。
+
+**验收与停止。** 复用真实dead-binding compiler门，覆盖死helper、改名/改slot与变成活动调用；真实Builder反例保vertex采样、read/gather/query、不同precision/dimension/access模板、未知/错binding及Resolution依赖。原attachment门须保语义和Metal派生；原包Program/GPU/末合成与实际贡献及独立样本另验。若只进入下一个拒绝，保留该首门事实而不称整效果修复；若原资源仍存在或解析不全，停止投影，不删guard或扩大失败半径。无可比测量不认性能收益。
+
 <a id="malformed-combo-record"></a>
 
 ### 畸形 COMBO 的记录局部失败（2026-10-16 决策）

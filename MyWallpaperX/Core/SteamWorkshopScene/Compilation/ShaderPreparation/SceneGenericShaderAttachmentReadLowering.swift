@@ -24,7 +24,7 @@ nonisolated enum SceneGenericShaderAttachmentReadLowering {
         sourceSampleCallCount: Int
     ) -> String? {
         guard sourceSampleCallCount > 0, metalSource.utf8.count <= 512 * 1_024,
-              let lexicalSource = lexicalSource(metalSource) else { return nil }
+              let lexicalSource = SceneShaderLexicalScanner.compilerMetalSource(metalSource) else { return nil }
         let output = SceneAuthoredShaderLexer.lex(source: lexicalSource, stage: .fragment)
         let tokens = output.tokens
         guard output.diagnostics.isEmpty, !tokens.isEmpty,
@@ -48,9 +48,12 @@ nonisolated enum SceneGenericShaderAttachmentReadLowering {
         let candidates = parameters.indices.filter {
             textureName(parameters[$0].tokens, tokens: tokens, binding: 0) == sourceTextureName
         }
+        let textureAttributes = parameters.compactMap {
+            Scanner.integerAttributeValues("texture", in: $0.tokens, tokens: tokens)
+        }
         guard candidates.count == 1, let sourceParameter = candidates.first,
-              parameters.filter({ hasAttribute("texture", value: "0",
-                in: $0.tokens, tokens: tokens) }).count == 1,
+              textureAttributes.count == parameters.count,
+              textureAttributes.filter({ $0.contains(0) }).count == 1,
               !parameters.contains(where: { parameter in
                 parameter.tokens.contains { tokens[$0].text == "color" }
               }) else { return nil }
@@ -149,16 +152,6 @@ nonisolated enum SceneGenericShaderAttachmentReadLowering {
         return values[1]
     }
 
-    private static func hasAttribute(
-        _ name: String, value: String, in range: Range<Int>, tokens: [Token]
-    ) -> Bool {
-        let expected = ["[", "[", name, "(", value, ")", "]", "]"]
-        guard range.count >= expected.count else { return false }
-        return (range.lowerBound...(range.upperBound - expected.count)).contains {
-            tokens[$0..<($0 + expected.count)].map(\.text) == expected
-        }
-    }
-
     private static func sample(at start: Int, tokens: [Token]) -> Sample? {
         guard start + 3 < tokens.count, tokens[start].kind == .identifier,
               tokens[start + 1].text == ".", tokens[start + 2].text == "sample",
@@ -209,31 +202,6 @@ nonisolated enum SceneGenericShaderAttachmentReadLowering {
             }
         }
         return stack.isEmpty
-    }
-
-    /// Only compiler includes and diagnostic pragmas are non-semantic here.
-    /// Keep comments/line positions so the shared lexer still owns all tokens.
-    private static func lexicalSource(_ source: String) -> String? {
-        var inBlock = false
-        var lines: [String] = []
-        for line in source.components(separatedBy: "\n") {
-            let scanned = SceneShaderLexicalScanner.scan(line, inBlockComment: &inBlock)
-            let visible = scanned.segments.filter { $0.kind == .code || $0.kind == .quoted }
-                .map(\.text).joined().trimmingCharacters(in: .whitespacesAndNewlines)
-            if visible.hasPrefix("#") {
-                guard visible.range(of: #"^#include\s*<(?:metal_stdlib|simd/simd\.h)>\s*$"#,
-                    options: .regularExpression) != nil
-                    || visible.range(of: #"^#pragma\s+clang\s+diagnostic\s+ignored\s+\"-W[A-Za-z0-9_-]+\"\s*$"#,
-                        options: .regularExpression) != nil else { return nil }
-                lines.append(scanned.segments.map { segment in
-                    if segment.kind == .code || segment.kind == .quoted {
-                        return segment.text.unicodeScalars.map { $0 == "\r" ? "\r" : " " }.joined()
-                    }
-                    return segment.text
-                }.joined())
-            } else { lines.append(line) }
-        }
-        return lines.joined(separator: "\n")
     }
 
     private static func sourceRanges(_ tokens: [Token], in source: String)

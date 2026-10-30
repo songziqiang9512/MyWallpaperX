@@ -1698,6 +1698,22 @@
         "MyWallpaperX/Core/System/DynamicLockScreen*.swift"
       ],
       "contentPatterns": []
+    },
+    {
+      "id": "scene-generic-optimized-texture-interface",
+      "title": "generic已优化纹理接口投影",
+      "owner": "Scene existing ArtifactBuilder / lexical and token primitives",
+      "status": "approved",
+      "designDoc": "docs/scene/architecture/shader-metadata-failure-contract.md",
+      "design_notes": "原Builder只在textureUnused首拒确认实际接口缺席；复用scanner并退役attachment私有重复。Finalization沿原activeSlots统一发布实际sampler/graph-input投影，source schema/cache保真，不在消费者打补丁。保颜色、Resolution、活动读取及原失败边界。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderAttachmentReadLowering.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderSourceGraph.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderSyntax.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+Finalization.swift"
+      ],
+      "contentPatterns": []
     }
   ]
 }

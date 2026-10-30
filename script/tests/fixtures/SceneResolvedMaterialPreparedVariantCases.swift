@@ -1,7 +1,7 @@
 import Metal
 
 // Compiled with the finalizer fixtures in the same self-test module. Its input
-// builders are self-authored and this file owns only serial frame/cache cases.
+// builders are self-authored and cover prepared bindings plus serial frames.
 func scenePreparedVariantFrameCases(_ device: MTLDevice) -> [String: Bool] {
     let shader = contract(revision: "prepared-variant-serial-frames")
     let declarations = [dynamicDeclaration([.timeline])]
@@ -66,9 +66,9 @@ func scenePreparedVariantFrameCases(_ device: MTLDevice) -> [String: Bool] {
     return cases
 }
 
-/// Combined malformed facts must preserve the original earliest typed error.
+/// Prepared sampler projection and combined failures use the real admission owner.
 private func scenePreparedVariantFailurePriorityCases(
-    template: SceneResolvedMaterialTemplate,
+    template value: SceneResolvedMaterialTemplate,
     variant: SceneResolvedMaterialCompiledVariant
 ) -> [String: Bool] {
     typealias Frontend = SceneAuthoredShaderProgram
@@ -115,22 +115,35 @@ private func scenePreparedVariantFailurePriorityCases(
         readinessMask: variant.readinessMask, textureFormats: variant.textureFormats
     )!
     func token(_ candidate: Frontend, shader: SceneShaderPreparedProgram,
-               missingSampler: Bool = false, includeDetails: Bool = false) -> String {
+               missingSampler: Bool = false, includeDetails: Bool = false,
+               sourceSamplers: [Int: SceneResolvedMaterialShaderSchema.Sampler]? = nil,
+               candidateTemplate: SceneResolvedMaterialTemplate? = nil,
+               observeProjection: Bool = false) -> String {
+        let template = candidateTemplate ?? value
+        let samplers = missingSampler ? [:] : sourceSamplers ?? variant.activeSamplers
+        let input = observeProjection ? graphTexture() : nil
+        let facts = observeProjection ? SceneResolvedMaterialShaderSchema.graphInputSourceSlotFacts(
+            template: template, samplers: samplers, inputIdentity: input,
+            sourceColorTransfer: candidate.colorTransfer
+        ) : variant.graphInputSourceSlotFacts
         do {
-            _ = try SceneResolvedMaterialVariantCache.finalizeVariantBindings(
+            let finalized = try SceneResolvedMaterialVariantCache.finalizeVariantBindings(
                 template: template, variantKey: key, prepared: shader,
                 compilerSources: .init(vertex: shader.vertex.source, fragment: shader.fragment.source),
                 routeDecision: variant.routeDecision, compatibilityTargetAdmissionPending: true,
                 frontend: candidate, boundedOutput: nil, artifactFailure: [],
-                sourceActiveSamplers: missingSampler ? [:] : variant.activeSamplers,
-                implicitFramebufferIdentity: nil,
-                sourceGraphInputFacts: variant.graphInputSourceSlotFacts,
+                sourceActiveSamplers: samplers,
+                implicitFramebufferIdentity: input,
+                sourceGraphInputFacts: facts,
                 sourceColorTransfer: candidate.colorTransfer,
                 neutralTextureResolution: variant.neutralTextureResolution,
                 runtimeLoopBounds: variant.runtimeLoopBounds,
                 conditionalGeneratedRGBInputContract: variant.conditionalGeneratedRGBInputContract,
                 premultipliedColorInputSlots: variant.premultipliedColorInputSlots
             )
+            if observeProjection {
+                return "samplers:\(finalized.samplers.keys.sorted())|facts:\(finalized.graphInputFacts.keys.sorted())"
+            }
             return "success"
         } catch let failure as SceneResolvedMaterialFailure {
             let token = "\(failure.phase.rawValue)/\(failure.code.rawValue)"
@@ -139,7 +152,7 @@ private func scenePreparedVariantFailurePriorityCases(
     }
     let frontendFailure = "frontend/shaderFrontendFailed"
     let samplerFailure = "invariant/samplerBindingIdentityMismatch"
-    return [
+    var cases: [String: Bool] = [
         "invalidLayoutPrecedesMissingSampler": token(changed(layout: invalidLayout), shader: prepared,
             missingSampler: true) == frontendFailure,
         "invalidLayoutPrecedesMismatchedSampler": token(changed(layout: invalidLayout,
@@ -163,4 +176,39 @@ private func scenePreparedVariantFailurePriorityCases(
             .hasPrefix(samplerFailure + "|sampler-missing|"),
         "typedFailureThenOriginalAdmissionRecovers": token(frontend, shader: prepared) == "success",
     ]
+    let liveShader = contract(
+        revision: "prepared-live-second-sampler", uniformMetadata: nil, semanticProbes: false,
+        fragmentSourceOverride: """
+        varying vec2 v_TexCoord;
+        uniform sampler2D g_Texture0; // {"material":"framebuffer","hidden":true}
+        uniform sampler2D g_Texture2; // {"material":"framebuffer","hidden":true}
+        void main() {
+            vec4 first = texSample2D(g_Texture0, v_TexCoord);
+            vec4 second = texSample2D(g_Texture2, v_TexCoord);
+            gl_FragColor = mix(first, second, 0.5);
+        }
+        """
+    )
+    guard case let .accepted(livePrepared) = SceneAuthoredShaderPreparation.prepareShaderStages(
+        contract: liveShader, combos: [:], inactiveComboProviders: [], textureReadiness: [:]
+    ), let liveFrontend = SceneAuthoredShaderFrontend.compile(
+        vertexSource: livePrepared.vertex.source, fragmentSource: livePrepared.fragment.source
+    ).program, let sourceSamplers = try? SceneResolvedMaterialShaderSchema.activeSamplers(livePrepared)
+    else { cases["samplerProjectionFixtureReady"] = false; return cases }
+    let liveTemplate = template(liveShader)
+    let sourceFacts = SceneResolvedMaterialShaderSchema.graphInputSourceSlotFacts(
+        template: liveTemplate, samplers: sourceSamplers, inputIdentity: graphTexture(),
+        sourceColorTransfer: liveFrontend.colorTransfer
+    )
+    cases["samplerProjectionHasSurplusSourceFacts"] = sourceSamplers.keys.sorted() == [0, 2]
+        && sourceFacts.keys.sorted() == [0, 2]
+    cases["samplerProjectionDropsUnusedSourceSamplerAndFact"] = token(
+        frontend, shader: prepared, sourceSamplers: sourceSamplers, observeProjection: true
+    ) == "samplers:[0]|facts:[0]"
+    cases["samplerProjectionKeepsActuallyBoundSecondSamplerAndFact"] =
+        liveFrontend.textureBindings.map(\.slot) == [0, 2] && token(
+            liveFrontend, shader: livePrepared, sourceSamplers: sourceSamplers,
+            candidateTemplate: liveTemplate, observeProjection: true
+        ) == "samplers:[0, 2]|facts:[0, 2]"
+    return cases
 }

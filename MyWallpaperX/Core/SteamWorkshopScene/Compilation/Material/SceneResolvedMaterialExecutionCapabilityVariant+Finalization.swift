@@ -81,8 +81,9 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 } ?? []) + artifactFailure
             )
         }
-        let samplers = sourceActiveSamplers
         let bindings = frontend.textureBindings
+        let activeSlots = Set(bindings.map(\.slot))
+        let samplers = sourceActiveSamplers.filter { activeSlots.contains($0.key) }
         if let internalTarget = unsupportedInternalTarget(in: samplers, template: template, inputIdentity: implicitFramebufferIdentity, readinessMask: variantKey.readinessMask) {
             throw failure(
                 .samplerInternalTargetUnsupported,
@@ -105,7 +106,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 sourceColorTransfer: frontend.colorTransfer,
                 frontendBindings: bindings
             )
-        guard graphInputFacts == sourceGraphInputFacts else {
+        guard graphInputFacts == sourceGraphInputFacts.filter({ activeSlots.contains($0.key) }) else {
             let bindingFactTokens = bindings.map {
                 "\($0.slot):\($0.name):\($0.channelUse.rawValue)"
             }.sorted()
@@ -131,7 +132,6 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 details: ["active-pass"]
             )
         }
-        let activeSlots = Set(bindings.map(\.slot))
         let nonHost = frontend.uniformLayout.fields.filter {
             SceneResolvedMaterialUniformEncoder.hostUniform(
                 $0,

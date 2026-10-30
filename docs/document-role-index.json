@@ -808,10 +808,10 @@
       "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "360bab7a85bff856d1f57f86c464ad4c9578b7d009627382f66c0aa43db10527",
+        "sourceSHA256": "dfd0198e3b8bf411a1a9e4aee09a2e916e5baeb2821c821465dc9d923177b9f2",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Known float-vector return narrowing on existing scope/type owner; fixed official board, two actual native targets and heldout, with current UI build context separated.",
-        "limitations": "Only changed contract and navigation reviewed; no exact whole-scene official parity, full properties, long runtime, HDR/multi-screen or performance conclusion."
+        "scope": "后端物理纹理接口及最终Variant活动资源的唯一投影合同/有界后验导航；实际测试、运行身份与限制归链接历史，本登记仅核导航。",
+        "limitations": "不授完整shader/样本、官方整景parity、HDR/多屏或性能结论。"
       },
       "currentStateAuthority": "docs/scene/capabilities/runtime-evidence-current.md"
     },
@@ -1013,10 +1013,10 @@
       "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "bb041f2e8361bc4585448a90033235e3d0375600dacefd32d1297859ad1e8a8f",
+        "sourceSHA256": "48ea27f490549813a9b29ab1de8088a2ab500587fad2529c49d7d68606a2d543",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅同步previous shadow有界后验链接；实际Eligibility/GPU/静态图证及未验范围归链接历史，本登记仅复核导航。",
-        "limitations": "原289跨启动像素受相位影响；off rejected计数按inactive语义保留。未额外验磁盘暖重放、HDR/多屏、官方整景parity或性能。"
+        "scope": "后端物理纹理接口及最终Variant活动资源的唯一投影合同/有界后验导航；实际测试、运行身份与限制归链接历史，本登记仅核导航。",
+        "limitations": "不授完整shader/样本、官方整景parity、HDR/多屏或性能结论。"
       }
     },
     {
@@ -1541,7 +1541,7 @@
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
       "cutoffDate": "2026-10-30",
-      "uniqueValue": "453+38+31日志诊断与来源、LOD和previous遮蔽后验；正式时窗、静态因果图证、独立样本与未验边界。",
+      "uniqueValue": "453+38+31日志诊断及LOD、previous、优化纹理接口后验；保目标未执行的总分PASS反证、静态因果图证与边界。",
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "docs/scene/development/corpus-diagnostic-workflow.md",

@@ -81,6 +81,33 @@ nonisolated enum SceneShaderLexicalScanner {
     }
 }
 
+nonisolated extension SceneShaderLexicalScanner {
+    /// Only compiler includes and diagnostic pragmas are non-semantic here.
+    /// Keep comments/line positions so the shared lexer still owns all tokens.
+    static func compilerMetalSource(_ source: String) -> String? {
+        var inBlock = false
+        var lines: [String] = []
+        for line in source.components(separatedBy: "\n") {
+            let scanned = scan(line, inBlockComment: &inBlock)
+            let visible = scanned.segments.filter { $0.kind == .code || $0.kind == .quoted }
+                .map(\.text).joined().trimmingCharacters(in: .whitespacesAndNewlines)
+            if visible.hasPrefix("#") {
+                guard visible.range(of: #"^#include\s*<(?:metal_stdlib|simd/simd\.h)>\s*$"#,
+                    options: .regularExpression) != nil
+                    || visible.range(of: #"^#pragma\s+clang\s+diagnostic\s+ignored\s+\"-W[A-Za-z0-9_-]+\"\s*$"#,
+                        options: .regularExpression) != nil else { return nil }
+                lines.append(scanned.segments.map { segment in
+                    if segment.kind == .code || segment.kind == .quoted {
+                        return segment.text.unicodeScalars.map { $0 == "\r" ? "\r" : " " }.joined()
+                    }
+                    return segment.text
+                }.joined())
+            } else { lines.append(line) }
+        }
+        return lines.joined(separator: "\n")
+    }
+}
+
 nonisolated enum SceneShaderContractPath {
     nonisolated static func normalizedRelativePath(
         base: String,

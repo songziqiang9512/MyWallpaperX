@@ -184,6 +184,102 @@ void main() {
         self.assert_layout_uniform(result, "g_AudioSpectrum16Left", present=True,
                                    backends=("generic",))
 
+    def test_uncalled_helper_texture_is_absent_from_generic_bindings(self) -> None:
+        source = vertex("""v_Coordinates.xy = a_TexCoord;
+gl_Position = vec4(a_Position, 1.0);""", uniforms="")
+        sample = "texSample2D(g_Texture0, v_Coordinates.xy)"
+        for helper, slot in (("sampleUnused", 2), ("renamedLookup", 5)):
+            for active in (False, True):
+                with self.subTest(helper=helper, slot=slot, active=active):
+                    fragment = FRAGMENT.replace("g_Texture1", f"g_Texture{slot}")
+                    fragment = fragment.replace("void main()", f"""vec4 {helper}(vec2 uv) {{
+    return texSample2D(g_Texture{slot}, uv);
+}}
+void main()""")
+                    if active:
+                        fragment = fragment.replace(
+                            sample, f"mix({sample}, {helper}(v_Coordinates.xy), 0.5)")
+                    result = self.compile(source, fragment, metadata={"verifyWarmCache": True})
+                    self.assertEqual(result.get("genericSlots"), [0, slot] if active else [0],
+                                     result.get("genericFailure", result))
+                    self.assertEqual(result["genericMetalError"], "")
+                    self.assertEqual(result["genericWarmLayout"], result["genericLayout"])
+                    self.assertTrue(result["genericWarmArtifactEqual"])
+
+    def test_builder_projects_only_resources_absent_from_both_metal_interfaces(self) -> None:
+        uniform = "struct MWXUniforms { float2 mwxRenderSize; };\n"
+        reflection = {
+            "types": {"_1": {"members": [
+                {"name": "mwxRenderSize", "type": "vec2", "offset": 0}]}},
+            "ubos": [{"type": "_1", "block_size": 16, "set": 0, "binding": 8}],
+        }
+        vertex_msl = uniform + "vertex float4 v() { return float4(0.0); }"
+        fragment_msl = uniform + """struct Output { float4 mwxFragColor [[color(0)]]; };
+fragment Output f(texture2d<float> g_Texture0 [[texture(0)]],
+                  sampler sourceSampler [[sampler(0)]]EXTRA_PARAMETER) {
+    Output out;
+    EXTRA_USE
+    out.mwxFragColor = g_Texture0.sample(sourceSampler, float2(0.5));
+    return out;
+}
+"""
+
+        def build(slot: int, *, parameter: str = "", use: str = "",
+                  reflected: dict | None = None, vertex_sample: bool = False) -> dict:
+            ghost = {"name": f"g_Texture{slot}", "binding": slot}
+            vertex = vertex_msl
+            if vertex_sample:
+                vertex = uniform + f"""vertex float4 v(
+    texture2d<float> g_Texture{slot} [[texture({slot})]],
+    sampler vertexSampler [[sampler({slot})]]) {{
+    return g_Texture{slot}.sample(vertexSampler, float2(0.5), level(0.0));
+}}"""
+            stages = [{
+                "stage": stage, "source": source, "authoredSource": source, "msl": msl,
+                "reflection": dict(reflection, textures=textures),
+            } for stage, source, msl, textures in (
+                ("vertex", "void main() {}", vertex, [ghost] if vertex_sample else []),
+                ("fragment", ACTIVE_FRAGMENT, fragment_msl.replace(
+                    "EXTRA_PARAMETER", parameter).replace("EXTRA_USE", use),
+                 [{"name": "g_Texture0", "binding": 0}]
+                 + ([] if vertex_sample else [ghost if reflected is None else reflected])),
+            )]
+            return self.compile("", metadata={"builderStages": stages})
+
+        for slot in (2, 5):
+            with self.subTest(slot=slot, resource="absent"):
+                self.assertEqual(build(slot), {"builderBindings": [{"name": "g_Texture0", "slot": 0}]})
+            with self.subTest(slot=slot, resource="vertex-only"):
+                self.assertEqual(build(slot, vertex_sample=True), {"builderBindings": [
+                    {"name": "g_Texture0", "slot": 0}, {"name": f"g_Texture{slot}", "slot": slot}]})
+            for kind, access in (
+                ("texture2d<float>", "read(uint2(0))"),
+                ("texture2d<half, access::sample>", "gather(sourceSampler, float2(0.5))"),
+                ("texture3d<float, access::read>", "read(uint3(0))"),
+                ("texturecube<half, access::sample>", "get_width()"),
+                ("texture2d_array<float, access::read>", "get_width()"),
+            ):
+                with self.subTest(slot=slot, resource=kind, access=access):
+                    result = build(slot,
+                        parameter=f", {kind} g_Texture{slot} [[texture({slot})]]",
+                        use=f"auto observed = g_Texture{slot}.{access};")
+                    self.assertEqual(result, {"builderFailure": "textureUnused"})
+            for attribute in (f"texture({slot + 1})", "texture(unknownBinding)"):
+                with self.subTest(slot=slot, attribute=attribute):
+                    self.assertEqual(build(slot,
+                        parameter=f", texture2d<float> g_Texture{slot} [[{attribute}]]"),
+                        {"builderFailure": "texture"})
+            with self.subTest(slot=slot, attribute="comment-only"):
+                self.assertEqual(build(slot, use=f"// ghost [[texture({slot})]]"),
+                    {"builderBindings": [{"name": "g_Texture0", "slot": 0}]})
+            for reflected in (
+                {"name": "unknownTexture", "binding": slot},
+                {"name": f"g_Texture{slot}", "binding": slot + 1},
+                {"name": "g_Texture8", "binding": 8},
+            ):
+                with self.subTest(slot=slot, reflected=reflected):
+                    self.assertEqual(build(slot, reflected=reflected), {"builderFailure": "texture"})
+
     def test_live_inverse_varying_position_alias_and_fragment_reads_keep_abi(self) -> None:
         fixtures = [
             (INVERSE_CHAIN, ACTIVE_FRAGMENT.replace("v_Coordinates.xy", f"vec2(v_Coordinates.{c})"))

@@ -6,6 +6,31 @@ import Metal
         let arguments = CommandLine.arguments
         let input = try JSONSerialization.jsonObject(
             with: Data(contentsOf: URL(fileURLWithPath: arguments[1]))) as! [String: Any]
+        if let builderStages = input["builderStages"] as? [[String: Any]] {
+            let stages = try builderStages.map { stage in
+                SceneGenericShaderArtifactBuilder.Stage(
+                    name: stage["stage"] as! String, source: stage["source"] as! String,
+                    authoredSource: stage["authoredSource"] as! String,
+                    msl: stage["msl"] as! String,
+                    reflection: try JSONSerialization.data(withJSONObject: stage["reflection"]!)
+                )
+            }
+            var output: [String: Any] = [:]
+            switch SceneGenericShaderArtifactBuilder.build(
+                requestKey: String(repeating: "d", count: 64),
+                backendID: "glslang-spirv-cross-msl-v2", stages: stages,
+                maximumArtifactBytes: 1_000_000
+            ) {
+            case let .success(artifact):
+                output["builderBindings"] = artifact.program.textureBindings.map {
+                    ["name": $0.name, "slot": $0.slot] as [String: Any]
+                }
+            case let .failure(failure): output["builderFailure"] = String(describing: failure)
+            }
+            FileHandle.standardOutput.write(try JSONSerialization.data(
+                withJSONObject: output, options: [.sortedKeys]))
+            return
+        }
         let stages = input["stages"] as! [[String: Any]]
         let vertex = stages.first { $0["stage"] as? String == "vertex" }!["source"] as! String
         let fragment = stages.first { $0["stage"] as? String == "fragment" }!["source"] as! String

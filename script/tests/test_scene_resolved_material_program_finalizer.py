@@ -447,6 +447,20 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
         cases = self.result["preparedVariantFrames"]
         self.assertEqual([name for name, passed in cases.items() if not passed], [], cases)
 
+    def test_prepared_variant_sampler_schema_matches_executable_bindings(self) -> None:
+        for result in (self.result, self.warmed_result):
+            cases = result["preparedVariantFrames"]
+            for name in (
+                "samplerProjectionHasSurplusSourceFacts",
+                "samplerProjectionDropsUnusedSourceSamplerAndFact",
+                "samplerProjectionKeepsActuallyBoundSecondSamplerAndFact",
+                "validABIStillReportsMissingSampler",
+                "validABIStillReportsMismatchedSampler",
+                "validABIRejectsZeroPaddedSampler",
+            ):
+                with self.subTest(case=name):
+                    self.assertTrue(cases.get(name), cases)
+
     def test_dormant_unresolved_material_alias_is_a_typed_graph_input_fact(
         self,
     ) -> None:

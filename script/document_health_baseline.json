@@ -93,8 +93,8 @@
       "bytes": 7045
     },
     "docs/scene/architecture/shader-metadata-failure-contract.md": {
-      "lines": 109,
-      "bytes": 21273
+      "lines": 120,
+      "bytes": 23919
     },
     "docs/scene/architecture/variant-analysis-cache-contract.md": {
       "lines": 19,
@@ -150,7 +150,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 220670
+      "bytes": 220859
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -278,7 +278,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 179,
-      "bytes": 40193
+      "bytes": 40142
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1750,15 +1750,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "a58549aa7755e913f9aadcd80262f3da04a2184a4bf3af65ec0a0acf44a16b83",
-      "after": "cc0f191a306125144cad4027fc79b21528c80cc55903d0e535c41bd8fe49c3f9",
-      "owner": "scene-engine-maintainer",
-      "reason": "沿原采样/通道owner补已支持LOD的组件事实并退役重复解析；同步正式运行和有界因果图证，保协议局限及其他未闭问题。",
-      "decision": "docs/scene/capabilities/scalar-mask-data-purpose.md#lod-channel-use"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
       "before": "1380be8da4307adcdd0f5413f771fc69535bb59201f3160bda99c483bf0f3164",
       "after": "fc3619cd282e37ae7ad8729aa6bd3b5e98b2cecfb3c80240e06001c1c72ec0d2",
@@ -1858,15 +1849,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/shader-metadata-failure-contract.md",
-      "before": "867255c9f0b4ec24a62ecbc793709e92ef14ee4ac7437846f085bd02b49edc59",
-      "after": "f5a5fdb03cf579b0d16bf9f53692051c7f68cc446ea5c80cf66bf97faf9cecb1",
-      "owner": "scene-shader-vector-conversion",
-      "reason": "既有唯一shader准备合同新增已资格float3/4返回float2的来源/失败边界，沿原类型证明与suffix实现并有真实Program/GPU消费，不新增算法或第二设计文档；现役摘要/队列同步收缩。",
-      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#known-vector-return-narrowing"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/sampler-alias-precedence.md",
       "before": "b1da23cbc44deb4de495fe63c274fc703a3033aebb1073bca4eca887c9c39df5",
       "after": "9c035b195d24073a98436c93b1cc7160f421699108e5b6e2675a977d70758425",
@@ -1900,6 +1882,24 @@
       "owner": "scene-engine-maintainer",
       "reason": "原owner修正显式previous对同层旧来源的遮蔽资格，保原资源失败边界并登记静态因果图证；无新运行路径。",
       "decision": "docs/scene/capabilities/previous-blurred-composite-admission.md#previous-input-shadow"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/shader-metadata-failure-contract.md",
+      "before": "f5a5fdb03cf579b0d16bf9f53692051c7f68cc446ea5c80cf66bf97faf9cecb1",
+      "after": "59ecb656fe0545a71bd0893a18253e05c39e42e51b8349ffadabe1ef5608fa0a",
+      "owner": "scene-engine-maintainer",
+      "reason": "原ArtifactBuilder及Variant发布统一已优化资源的执行接口，复用scanner并保实际读取/ABI反例，记录首候选反证和最终背景软化贡献，无新产品owner。",
+      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#optimized-texture-interface"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "431fbe61ccd2511012c65b43c0c55a9ab2ec2b764543959e3c60afae71a38627",
+      "after": "f1a16c582060463255fbedfdb8c722cb89b65afa7da80e561b8b8564b1593629",
+      "owner": "scene-engine-maintainer",
+      "reason": "原ArtifactBuilder及Variant发布统一已优化资源的执行接口，复用scanner并保实际读取/ABI反例，记录首候选反证和最终背景软化贡献，无新产品owner。",
+      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#optimized-texture-interface"
     }
   ]
 }

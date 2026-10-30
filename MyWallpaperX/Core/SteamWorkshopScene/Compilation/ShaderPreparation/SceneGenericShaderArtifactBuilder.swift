@@ -449,17 +449,39 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
         for slot in resolutionTextureSlots {
             names[slot] = "g_Texture\(slot)"
         }
-        return try names.sorted(by: { $0.key < $1.key }).map { slot, name in
+        var interfaceSlots: Set<Int>?
+        return try names.sorted(by: { $0.key < $1.key }).compactMap { slot, name in
             let sampled = regexMatches(
                 #"\b"# + SceneShaderSourceTextFacts.escaped(name) + #"\.sample\s*\("#,
                 metalSource
             )
-            guard sampled || resolutionTextureSlots.contains(slot) else {
-                throw Failure.textureUnused
+            if !sampled && !resolutionTextureSlots.contains(slot) {
+                if interfaceSlots == nil {
+                    interfaceSlots = try textureInterfaceSlots(
+                        in: metalSource, reflectedSlots: Set(reflectedTextureNames.keys)
+                    )
+                }
+                guard interfaceSlots?.contains(slot) == false else {
+                    throw Failure.textureUnused
+                }
+                return nil
             }
             let use = sampled ? try channelUse(of: name, in: metalSource) : "unproven"
             return .init(name: name, slot: slot, channelUse: use)
         }
+    }
+
+    private static func textureInterfaceSlots(
+        in source: String, reflectedSlots: Set<Int>
+    ) throws -> Set<Int> {
+        guard let lexicalSource = SceneShaderLexicalScanner.compilerMetalSource(source)
+        else { throw Failure.texture }
+        let output = SceneAuthoredShaderLexer.lex(source: lexicalSource, stage: .fragment)
+        guard output.diagnostics.isEmpty,
+              let attributes = SceneAuthoredShaderTokenScanner.integerAttributeValues(
+                  "texture", in: output.tokens.indices, tokens: output.tokens
+              ), Set(attributes).isSubset(of: reflectedSlots) else { throw Failure.texture }
+        return Set(attributes)
     }
 
     private static func reflectedTextureNames(

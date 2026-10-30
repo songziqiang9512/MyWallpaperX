@@ -90,6 +90,8 @@ REJECTED = {
     'helperSamplerUse': BASE.replace('    float4 base', '    observeSampler(baseSampling);\n    float4 base'),
     'wrongTextureBinding': BASE.replace('sourceImage [[texture(0)]]', 'sourceImage [[texture(2)]]'),
     'duplicateTextureBinding': BASE.replace('overlayImage [[texture(1)]]', 'overlayImage [[texture(0)]]'),
+    'duplicateWithUnknownAttribute': BASE.replace('overlayImage [[texture(1)]]',
+        'overlayImage [[texture(0)]] [[texture(unknownBinding)]]'),
     'halfTexture': BASE.replace('texture2d<float> sourceImage', 'texture2d<half> sourceImage'),
     'texture3D': BASE.replace('texture2d<float> sourceImage', 'texture3d<float> sourceImage'),
     'arrayTexture': BASE.replace('sourceImage [[texture(0)]]', 'sourceImage[2] [[texture(0)]]'),

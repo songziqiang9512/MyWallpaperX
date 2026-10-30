@@ -142,3 +142,19 @@
 另用自有9000000585单背景载体保留原30层、水流和blur/mask，水流速度0、相机晃动关闭、无其他对象；唯一loose场景入口、原PKG字节副本，原件只读。仅Bool热切blur visible，单次strict PASS。两ON原图逐像素相同，四OFF亦相同；同window31681/surface1，live accepted，ON四blur pass→OFF typed activation-passthrough，两状态均GPU/末合成/次帧成立。预登记32px边界内RGB梯度ON0.997532、OFF1.723259，亲看右侧背景雪点和建筑按原mask组合软化；这是效果贡献而非性能指标。OFF rejectedNodes4表示visibility-disabled跳过四作者节点，failure=-，不当编译或GPU失败。只证明原shader与mask整体在静态输入有可见贡献，不分别授mask算法、原整景像素、完整Blur或官方parity。
 
 本批只退出286上述首门，其他effect与视觉问题继续留唯一队列；全样本原raw归档、统计及人工verdict不改。必要身份、红绿/资源失败门、原包与静态图、独审归档`.artifacts/scene-evidence/runs/previous-input-shadow-20261030/`；临时副本/HOME/App与重复帧提取后清理，保一份连续构建缓存。未做Release、HDR/多屏、跨进程暖缓存或性能比较。
+
+
+<a id="optimized-texture-interface-20261030"></a>
+## 后端纹理接口与Variant发布后验（2026-10-30）
+
+2832796442的活动project806#808单pass Bokeh在未调用depth helper中保有slot2声明；最终MSL只有0/1采样与接口，反射仍保旧声明，Builder先报textureUnused，使既有loop-guard重编也无法进入。修复仅在原unused且非Resolution分支懒扫一次编译MSL整数texture属性，明确不在物理接口才退出绑定；仍存在的read/gather/query、未知属性或反射/接口错配保原拒绝。原compiler词法投影移入既有LexicalScanner，属性扫描由既有TokenScanner共享，attachment私有重复退出；不新建MSL parser、owner或普通帧工作。合同先落[原metadata设计](../architecture/shader-metadata-failure-contract.md#optimized-texture-interface)，含失败与停止边界。
+
+首次候选清除artifact首拒，基准总分PASS，但806实际仍报utility-source-program-unsupported、没有目标Program；原静态载体也因无资格/live拒绝而失败。这些是反证，保原报告，不能用总分结清。最早后继为Finalization仍把sourceActiveSamplers全集作为活动列表，与编译Program已缩窄的0/1不一致。最终沿原发布处复用既有activeSlots，一次投影sampler及source graph-input事实；源schema/VariantAnalysis保真，真正binding缺schema、错name及活跃identity/provenance分歧继续拒绝，不改captured-main消费者。五个产品文件净增38行，增加的是缺失的接口投影与两处既有scanner复用，无新持久字段/route/资源或输出owner。
+
+真实compiler的两组helper/slot改名在旧Builder均textureUnused红、活动helper反例通过；直接Builder另两absent红，其余保留消费/错metadata反例通过。修后dead-binding19方法中18通过，1个旧固定请求因本机未提供其旧cache按原skip，非本批遗漏覆盖。包含真实Metal及同请求暖artifact一致性；此GREEN早于attachment未知值传播修正。独审新增重复texture0加未知属性反例，准确复现一次候选误准入后改正，最终attachment4方法/22.816s通过。原颜色2方法/37.634s保持，无须放宽旧失败helper。后继Finalization新投影及原资源/ingress/captured-main门共4方法/90.106s通过，覆盖cold/warm死2退出、活动0/2保留及missing/name/zero-padding反例；避免再跑已知源码直返的第二次RED，原包首候选反证承担前后基线。
+
+最终签名Debug29.548s、五输入无漂移，主体c3b3afca…2c65/dylib8b464930…a8bf。原283同静音、Ready后3秒/7秒运行，806#808实际Program fcf421…进入frame0/1 GPU、material1/rejected0并由compositor消费；背景横线与纹理确有软化，人物构图保留。独立3265157904原包同App严格PASS，七pass Bokeh及其余画面保持，两份均exit0/surface1→0/GPU排空。官方目录“已粘贴”图已查看；不同viewport与动画phase不作精确golden。
+
+自有9000000808保原project层/Bokeh shader和Strength1，仅给前级普通image换自绘静态棋盘，移除无关动画；原PKG副本与唯一loose入口，原件只读。载体输入未修正，首次失败由上述产品后继造成。最终单一Bool热切在同runtime7ea5…、window32179/surface1 accepted：两ON原图逐像素相同、四OFF亦同；ON同Program完成，OFF是明确visibility-disabled activation bypass（rejected1表示跳过作者节点、failure=-），两状态GPU/末合成/次帧成立。32px内ROI梯度ON8.295020、OFF13.733548，亲看格子软化/恢复锐利。这是实际原shader贡献，非性能指标，不外推完整Bokeh家族、原整景精确像素或官方parity。
+
+仅退出283这条公开首门，其他effect/335宏等继续留队列，原522统计、raw记录及人工裁决不改。必要基线/失败首候选、最终身份/图证、真实测试与独审归档`.artifacts/scene-evidence/runs/dead-helper-texture-20261030/`；运行HOME/App、临时PKG/棋盘及重复帧提取后清理，只保同一连续构建缓存。未做Release、HDR/多屏、长稳或同条件性能测量；不认性能收益。
