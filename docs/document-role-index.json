@@ -1214,13 +1214,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/capabilities/README.md",
       "currentStateAuthority": "docs/scene/development/source-index.md",
-      "lastReviewed": "2026-10-19",
+      "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "29b7f042d91318125fcce9ee5fe62a8486635a6def068e4ec61a7c023393fe68",
+        "sourceSHA256": "2fdb74ff03c63f981b9c4b0b2930eb6b91ba9d3693248586833981f703a10c50",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Fold verified hidden-file/encoding transport and original entry/PKG-VFS qualification into the existing official research method; distinguish nativeCUA positive controls from metadata and preserve authorized UI tools.",
-        "limitations": "Navigation and source identities only; no whole-sample or official-phase parity, measured blur visual gain, complete lighting/flicker closure, performance benefit or replay-crash cause claim."
+        "scope": "定点纠正VM脚本运输方法：同用户/执行策略下未证可执行时不推荐-File，优先官方CLI/短命令并区分策略拒绝与运输失败；其余研究合同未重审。",
+        "limitations": "仅资料、本机CLI帮助及已有拒绝/直接CLI收据复核；本轮未执行guest命令或GUI，不证明当前VM策略值、全分支成功或官方画面一致性。"
       }
     },
     {

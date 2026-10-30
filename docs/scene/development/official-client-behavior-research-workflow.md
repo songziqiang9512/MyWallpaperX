@@ -210,7 +210,7 @@ evidence_and_doc_updates:
 本机VM传输与装载资格沿现有研究记录复用，不另建VM框架或UI控制旁路：
 
 - 先资格原`project.file`、包内入口及关联资源的实际VFS；loose alias与PKG文件哈希相等不证明跨客户端挂载等价。首次复制本批owned destination后核完整文件集/bytes/SHA；已有有效副本走verify-existing，不因transport报错重拷或覆盖。hidden文件用`Get-Item -Force`，manifest读取显式编码；PowerShell5含Unicode脚本使用UTF-8 BOM或Unicode安全参数，不能把manifest值拼成PS代码。
-- 复用已资格的短`-File`与literal路径传递，分开保留传输退出、stage验证、官方CLI返回和窗口metadata；不从某次EncodedCommand失败猜通用长度上限，不自动重启VM或反复重放语义实验。
+- 优先官方CLI/短命令；`-File`须在同用户/策略下已证可执行，不编码/动态执行绕拒绝。分记传输、stage、CLI及窗口metadata；不猜EncodedCommand长度上限，不自动重启VM或重放实验。
 - exact title/class/owner/visible/client rect只证明窗口metadata；须由既有授权native CUA取得实际像素正控和注册后才裁ROI。`prlctl capture`全黑不等于渲染失败。现有官方CLI与native CUA按各自授权操作；不新增绕开既有UI工具的PostMessage、窗口定位/按键或guest截图自动化，旧脚本存在不追加这些授权。
 
 每次实验只改变一个变量。无法控制的变量必须写入 `still_unknown`，并限制结论范围。
