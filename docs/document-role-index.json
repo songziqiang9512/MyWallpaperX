@@ -1013,10 +1013,10 @@
       "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a8d1d7cc99bf8d2bc13d7df7e41bfae200548919676867bd7cf9c0374d0263d0",
+        "sourceSHA256": "22c713a9adeacc9e96df19654383158007fbb9eb1ff6c8941f793c84e207d463",
         "method": "document_registry --audit + document_health --check",
-        "scope": "原宏准备合同扩展同种作者对象的顺序替换；短链接指向真实恢复和本机载体未资格的唯一后验。",
-        "limitations": "仅导航与合同变更；不授官方整景parity、完整音频周期或性能结论。"
+        "scope": "声明FBO覆盖的原Template投影合同及唯一运行后验；现役队列只移出已闭首拒，因果和属性/验证边界保真。",
+        "limitations": "不授完整样本/四效果或单独MotionBlur因果、官方parity或性能结论。"
       }
     },
     {
@@ -1048,10 +1048,10 @@
       "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "949c1c315cd5e578aafa84003fdd755cb56dd5664998f939cc47f1c86d176998",
+        "sourceSHA256": "cf5158bf07b91194d945074d9760d04406ccc7f124e5e1f943dfb257ae5892cc",
         "method": "document_registry --audit + document_health --check",
-        "scope": "有效同层override与闲置default来源合同、624正式开场后输出和独立374邻例；队列仅退出对应子问题。",
-        "limitations": "不授同音频/动画相位、官方parity、HDR/多屏或性能；3秒过渡图与原hover误请求FAIL保留。"
+        "scope": "声明FBO覆盖的原Template投影合同及唯一运行后验；现役队列只移出已闭首拒，因果和属性/验证边界保真。",
+        "limitations": "不授完整样本/四效果或单独MotionBlur因果、官方parity或性能结论。"
       }
     },
     {
@@ -1541,7 +1541,7 @@
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
       "cutoffDate": "2026-10-30",
-      "uniqueValue": "453+38+31日志诊断及LOD、previous、优化纹理接口后验；保目标未执行的总分PASS反证、静态因果图证与边界。",
+      "uniqueValue": "453+38+31日志诊断及共享准备链修复后验；保失败资格、首候选反证、真实运行与未覆盖边界。",
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "docs/scene/development/corpus-diagnostic-workflow.md",

@@ -245,7 +245,16 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
             guard let slot else { continue }
             guard slot.index == index, !slot.candidates.isEmpty
             else { throw Failure(phase: .texture, code: .textureSlotsInvalid, slot: index) }
-            let candidates = try slot.candidates.enumerated().map { ordinal, candidate in
+            let firstExecutableIndex: Int
+            if let terminal = slot.candidates.last,
+               terminal.provenance == .explicitBinding,
+               case let .graph(identity) = terminal.source,
+               identity.kind == .framebuffer {
+                firstExecutableIndex = slot.candidates.count - 1
+            } else {
+                firstExecutableIndex = 0
+            }
+            let candidates = try slot.candidates.enumerated().compactMap { ordinal, candidate -> Template.TextureCandidate? in
                 let authoredValue: String
                 switch candidate.source {
                 case let .asset(value): authoredValue = value
@@ -254,15 +263,18 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
                 case let .graph(value):
                     authoredValue = "graph:\(value.kind.rawValue):\(value.layerID):\(value.name ?? "")"
                 }
-                let reference = try textureReference(
-                    candidate, slot: index, layerID: layerID, context: context
-                )
                 diagnostics.append(.init(
                     slot: index,
                     candidateIndex: ordinal,
                     provenance: candidate.provenance,
                     authoredValue: authoredValue
                 ))
+                // An explicit framebuffer never falls back to these lower
+                // values, but their original diagnostics remain available.
+                guard ordinal >= firstExecutableIndex else { return nil }
+                let reference = try textureReference(
+                    candidate, slot: index, layerID: layerID, context: context
+                )
                 return Template.TextureCandidate(
                     reference: reference, provenance: candidate.provenance
                 )

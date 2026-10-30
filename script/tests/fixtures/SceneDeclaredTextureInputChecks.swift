@@ -70,3 +70,132 @@ func declaredTextureInputChecks(shader: SceneShaderContract) -> [String: Bool] {
         "emptyAndNullRemainAbsent": parse("") == nil && parse(NSNull()) == nil,
     ]
 }
+
+func declaredFramebufferBindingChecks(shader: SceneShaderContract) -> [String: Bool] {
+    typealias Graph = SceneAuthoredEffectRenderPlan
+    typealias Material = SceneResolvedMaterialNode
+    typealias Template = SceneResolvedMaterialTemplate
+    var checks: [String: Bool] = [:]
+    for (variant, layer, index, descriptor, name, asset, property) in [
+        ("original", 128, 4, "394", "_rt_FullCompoBuffer1", "textures/idle.png", "skin"),
+        ("renamed", 947, 7, "unseen-effect", "_rt_unseen_history", "fixtures/other.png", "cover"),
+    ] {
+        let prefix = "framebufferShadow:\(variant):"
+        let key = Graph.EffectKey(layerID: layer, effectIndex: index, descriptorID: descriptor)
+        let input = Graph.TextureIdentity(kind: .layerSource, layerID: layer, effect: nil, name: nil)
+        let output = Graph.TextureIdentity(kind: .effectOutput, layerID: layer, effect: key, name: nil)
+        let target = Graph.TextureIdentity(kind: .framebuffer, layerID: layer, effect: key, name: name)
+        let unknown = "\(name)_\(layer)_\(descriptor)"
+        let lowerAsset = Material.TextureCandidate(source: .asset(asset), provenance: .material)
+        let lowerRT = Material.TextureCandidate(source: .asset(unknown), provenance: .instance)
+        let lowerUser = Material.TextureCandidate(
+            source: .userTexture(.init(kind: .property, value: property)), provenance: .userTexture)
+        let terminal = Material.TextureCandidate(source: .graph(target), provenance: .explicitBinding)
+        func material(_ candidates: [Material.TextureCandidate]) -> Material {
+            var slots = Array<Material.TextureSlot?>(repeating: nil, count: 8)
+            slots[1] = .init(index: 1, candidates: candidates)
+            return .init(nodeIndex: 7, shaderPath: shader.identity, textureSlots: slots,
+                combos: [:], constants: [:], userShaderValues: [:], renderState: .init(
+                    blending: "normal", depthTest: "disabled", depthWrite: "disabled",
+                    cullMode: "nocull", alphaWriting: nil))
+        }
+        func graph(declared: Bool = true, binding: Graph.TextureIdentity? = nil,
+                   bindingSlot: Int? = 1) -> Graph {
+            let node = Graph.Node(nodeIndex: 7, effect: key, definitionPassIndex: 0,
+                materialOrdinal: 0, instancePassIndex: 0, kind: .material,
+                materialPath: "materials/\(variant).json", materialPassID: "\(variant)#0", target: output,
+                bindings: bindingSlot.map { [.init(slot: $0, authoredName: name,
+                    texture: binding ?? target, conditions: nil)] } ?? [],
+                commandSource: nil, commandTarget: nil, compose: nil, conditions: nil)
+            return .init(layerID: layer, effects: [.init(key: key,
+                definitionPath: "effects/\(variant).json", input: input, output: output, nodeIndices: [7])],
+                renderTargets: declared ? [.init(texture: target,
+                    extent: .init(kind: .input, first: nil, second: nil), format: "rgba8888",
+                    declaredUnique: true, clear: nil, uvs: nil, conditions: nil)] : [],
+                nodes: [node], finalOutput: output, blockers: [])
+        }
+        func record(_ label: String, _ result: Result<Template, SceneResolvedMaterialFailure>) {
+            let observation: String
+            switch result {
+            case let .success(value):
+                observation = "references=" + (value.textureSlots[1]?.candidates.map {
+                    referenceToken($0.reference)
+                }.joined(separator: ",") ?? "absent")
+            case let .failure(error):
+                observation = "\(error.phase.rawValue)/\(error.code.rawValue) slot=\(error.slot ?? -1)"
+                    + " provenance=\(error.provenance?.rawValue ?? "none")"
+            }
+            FileHandle.standardError.write(Data("\(prefix)\(label) \(observation)\n".utf8))
+        }
+        func compile(_ label: String, _ candidates: [Material.TextureCandidate],
+                     context: Graph? = nil) -> Result<Template, SceneResolvedMaterialFailure> {
+            let result = SceneResolvedMaterialTemplateCompiler.compile(
+                material: material(candidates), graph: context ?? graph(), shaderContract: shader)
+            record(label, result)
+            return result
+        }
+        func value(_ result: Result<Template, SceneResolvedMaterialFailure>) -> Template? {
+            guard case let .success(value) = result else { return nil }
+            return value
+        }
+        func rejected(_ result: Result<Template, SceneResolvedMaterialFailure>,
+                      _ code: SceneResolvedMaterialFailure.Code) -> Bool {
+            guard case let .failure(error) = result else { return false }
+            return error.code == code
+        }
+        for (label, lower) in [("unknownRT", [lowerRT]), ("asset", [lowerAsset]),
+                               ("user", [lowerUser]), ("mixed", [lowerAsset, lowerRT, lowerUser])] {
+            let projected = value(compile(label, lower + [terminal]))
+            checks[prefix + label + ":execution"] = projected?.textureSlots[1]?.candidates.count == 1
+                && projected?.textureSlots[1]?.candidates.first?.reference == .graph(target)
+                && projected?.textureSlots[1]?.candidates.first?.provenance == .explicitBinding
+            if label == "mixed" {
+                checks[prefix + "mixed:rawDiagnostics"] = projected?.diagnosticProvenance.textureSources == [
+                    .init(slot: 1, candidateIndex: 0, provenance: .material, authoredValue: asset),
+                    .init(slot: 1, candidateIndex: 1, provenance: .instance, authoredValue: unknown),
+                    .init(slot: 1, candidateIndex: 2, provenance: .userTexture, authoredValue: "property:\(property)"),
+                    .init(slot: 1, candidateIndex: 3, provenance: .explicitBinding,
+                          authoredValue: "graph:framebuffer:\(layer):\(name)"),
+                ]
+            }
+        }
+        let foreign = Graph.TextureIdentity(kind: .framebuffer, layerID: layer + 1,
+            effect: .init(layerID: layer + 1, effectIndex: index, descriptorID: descriptor), name: name)
+        checks[prefix + "foreignRejected"] = rejected(compile("foreign", [
+            .init(source: .graph(foreign), provenance: .explicitBinding)]), .textureReferenceInvalid)
+        checks[prefix + "undeclaredRejected"] = rejected(compile("undeclared", [terminal],
+            context: graph(declared: false)), .graphNodeInvalid)
+        checks[prefix + "missingBindingRejected"] = rejected(compile("missing-binding", [lowerRT, terminal],
+            context: graph(bindingSlot: nil)), .textureReferenceInvalid)
+        checks[prefix + "wrongSlotRejected"] = rejected(compile("wrong-slot", [terminal],
+            context: graph(bindingSlot: 2)), .textureReferenceInvalid)
+        let source = SceneResolvedMaterialTemplateCompiler.compileSourceMaterial(
+            material: material([terminal]), layerID: layer, materialPath: "materials/\(variant).json",
+            passIndex: 0, shaderContract: shader, renderState: SceneMaterialRenderState.compile(
+                blending: "normal", depthTest: "disabled", depthWrite: "disabled", cullMode: "nocull",
+                alphaWriting: nil)!)
+        record("source-no-context", source)
+        checks[prefix + "sourceWithoutContextRejected"] = rejected(source, .textureReferenceInvalid)
+        for (label, last, context, expected) in [
+            ("nonexplicitFBO", Material.TextureCandidate(source: .graph(target), provenance: .instance),
+             graph(), "graph:framebuffer:\(layer)"),
+            ("assetTerminal", Material.TextureCandidate(source: .asset("textures/last.png"), provenance: .instance),
+             graph(), "asset:textures/last.png"),
+            ("providerTerminal", Material.TextureCandidate(source: .asset("_rt_FullFrameBuffer"), provenance: .instance),
+             graph(), "scene-background:\(layer)"),
+            ("previousTerminal", Material.TextureCandidate(source: .graph(input), provenance: .explicitBinding),
+             graph(binding: input), "graph:layerSource:\(layer)"),
+        ] {
+            let unchanged = value(compile(label, [lowerAsset, lowerUser, last], context: context))
+            checks[prefix + label + ":unchanged"] = unchanged?.textureSlots[1]?.candidates.map {
+                referenceToken($0.reference)
+            } == ["asset:\(asset)", "property:\(property)", expected]
+        }
+        checks[prefix + "nonexplicitFBOStillRejectsUnknownLower"] = rejected(compile("nonexplicit-invalid", [
+            lowerRT, .init(source: .graph(target), provenance: .instance)]), .textureReferenceInvalid)
+        checks[prefix + "previousStillRejectsUnknownLower"] = rejected(compile("previous-invalid", [
+            lowerRT, .init(source: .graph(input), provenance: .explicitBinding)], context: graph(binding: input)),
+            .textureReferenceInvalid)
+    }
+    return checks
+}

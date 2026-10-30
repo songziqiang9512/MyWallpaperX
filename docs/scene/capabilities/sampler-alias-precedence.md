@@ -6,6 +6,15 @@ Owner：`SceneResolvedMaterialShaderSchema`；支持范围见[能力台账](cove
 
 `implicitFramebufferSlots` 只补齐未声明 material 角色的 slot 0。显式 material 必须经现有 alias、authored candidate 或完整 effect-input/color-carrier 证明的 dormant 路径裁决；未知 material 不因 slot 0 自动成为 framebuffer，label 不提供来源身份。有证明的 hidden 任意 key 保留 dormant provenance；未知角色局部失败。已证作者中文 `material=上一个` 与 `ui_editor_properties_framebuffer` 共用隐藏、regular、slot 0 `g_Texture0` 的既有 alias 规则，绑定当前 layer source 或前一个 active effect；只写 label 不成立，显式资源和实际生效的 default 仍先裁决，缺图 identity 仍拒绝。不按样本分派，不另建绑定 owner。
 
+<a id="declared-framebuffer-binding"></a>
+## 显式声明 FBO 的准备期覆盖
+
+末候选为 explicitBinding 且指向 graph framebuffer 时，原 TextureSelection 的 immutable override 连 absent 也不回落 lower；launch/demand 同样先选 graph。原 TemplateCompiler 因先解析旧字符串而整拒有效pass，是准备职责与实际消费分歧。沿原 textureSlots 将此类执行候选一次投影到 terminal，raw diagnostic 保留每项原值、provenance 与 ordinal；terminal 仍经原 textureReference 的 context/universe/node-binding 证明，不复制校验，不解析实例后缀或扩大 RT Vocabulary。
+
+仅此 framebuffer 身份覆盖不可达值；previous 的 layerSource/effectOutput、普通资产、可选 provider 及 source material 路径原样。原 selected kind 自然进入模板/分析身份，无新字段、owner、缓存或普通帧工作。源数据与诊断保真；删去无消费者的低候选准备，不在 renderer 中补伪纹理或历史。
+
+验收沿真实Resolver/Template验证改名与等价输入、完整diagnostic及foreign/undeclared/错槽/无context拒绝，已有unavailable override门保持最小失败边界；Debug后原包须到实际Program/GPU/末合成/次帧和可见贡献，独立同类样本保history/后缀/停止。若进入新首拒或贡献无法归因，只记录当前边界，不称整层恢复；不为清日志增加fallback或扩motionblur算法。
+
 <a id="captured-main-self-override"></a>
 Captured-main 的当前源角色复用 schema 已证明的精确 slot/input ingress fact；`.sameLayerCompositeDefault` 同时覆盖 shader 自身的同层 default 与作者显式同层 composite 候选链。候选链已生效时，闲置 asset default 不再否定该证明；mode、身份、活跃唯一源、binding/target、完整ready闭包及全链同层约束仍归原 owner，foreign/mixed 不成为当前源。GraphExecutor 先成功捕获并发布精确 ready ingress，再沿同一 implicit identity finalize；不为通用 TextureSelection 合成 absent 状态增加第二关卡，其真实 fallback 规则保持。验收含有/无override、改名/等价表达、idle default与真实default、foreign/mixed、未ready、内部FB及原样本实际Program→GPU→输出，不以旧日志或sourceSlot单值代像素。
 

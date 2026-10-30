@@ -171,3 +171,16 @@
 最终Debug31.095s、单产品输入无漂移、strict deep签名通过，exe46583ae2…0dcbe/dylibee525aaf…674c。原335同PCM fixture、Ready后3秒/4秒窗口严格FAIL→PASS；两个目标Program a8dfb56d…ac27均在frame0/1完成material1/rejected0、GPU与最终compositor/次帧，frame10左右32band输入实际非零。亲看原包两条横向波形从无到有，主体/其余背景保留；独立3350026230同App严格PASS，当前波形与画面正常；未采集其修前基线，不认领前后像素不变。两者均exit0、surface1→0/GPU排空。目录官方参考已查看，viewport/音频phase不同，不认精确形状、幅度、整景parity或完整周期。
 
 原生自有板总报告PASS，六色可见，但全屏aspect-fill裁掉上下角标，违反其预登记定位门；像素资格保持UNKNOWN，不能以总分或肉眼相似追认本机板parity，也不为载体改产品/追加窗口链路。该限制独立于官方完整板与真实原包恢复。仅退出335这条首拒，原统计/verdict不重写。必要失败/成功报告、原335前后图、独立图、官方双图/manifest、测试和独审归`.artifacts/scene-evidence/runs/ordered-object-macro-20261030/`；本轮临时运行、复制输入及guest stage在停用后清理，保唯一既有构建缓存和VM主客户端。未测Release、HDR/多屏、长稳或同条件性能，不认性能收益。
+
+<a id="declared-framebuffer-shadow-20261030"></a>
+## 2026-10-30：声明 FBO 覆盖旧候选与整层效果链恢复
+
+2857410102的128/428默认活动，旧Template先校验被同槽explicit graph framebuffer覆盖的实例RT字符串，报textureReferenceInvalid，导致两整层source-passthrough。当前frame/launch/demand本就不回落terminal explicit framebuffer的lower值，含graph unavailable；在[原准备owner](../capabilities/sampler-alias-precedence.md#declared-framebuffer-binding)一次投影执行候选到terminal，raw diagnostics原值/provenance/ordinal全保留，terminal仍走原context/universe/node-binding校验。不解析FullCompoBuffer后缀、不扩Vocabulary；previous及普通asset/provider候选链不变，无新owner/持久状态/帧工作。产品净增12行是这一缺失投影，不在renderer打补丁。
+
+原真实Resolver/Template最近门两组改名32项RED22通过/10预期失败，GREEN32全通过；独审补lowerRT+无binding反例后仅补新方法9.481s。四个旧结构/graph/source/声明key邻门通过；首次调用拼错新方法名ERROR原样保留，没有重复四门。旧assetVFSBoundaries在RED/GREEN均false，未改VFS、未宣称全模板suite通过，作为旧口径债入队。原atomic GPU override门1/106.752s、Finalizer typed/unavailable门1/99.643s通过，保不可用graph不暴露lower资源。Debug30.709s、产品输入无漂移且strict deep签名通过；exe53600b96…291d4/dylibd3fea8b4…8257。
+
+同PCM、Ready后3秒/4秒原包严格FAIL→PASS。128五effect、428六effect均实际执行，含五Shake、四WaterWaves与两个末MotionBlur；frame0/1均GPU完成，末端2material+1copy/rejected0、history seeded→reused/rehydrate1、compositor/次帧成立。独立3265157904严格PASS，620中段MotionBlur及末935保持history/最终输出；两者正常stop1→0/GPU排空。原包前后弓/发丝有变化，跨启动phase不作精确因果；目录官方黑底与当前默认金底设置不同，不作golden。
+
+自有静态source载体仅灰底+原128、原模型/五效果/参数/masks/transform保真。v1用一Bool热切五效果被effectVisibility(128,4) consumer admission明确拒绝；这是已见三节点history效果显隐热更缺口，不改产品来迎合。唯一修正v2只切前四效果、MotionBlur始终开启：同一runtime/window32992/surface1（完整身份详ZIP），accepted=true；frame123四项inactive，MotionBlur继续history/末合成，正常停止。两次run均有连续PNG采样superseded，v1另有teardown capture失败；按预登记不再重跑，**注册因果资格UNKNOWN、原FAIL保留**。
+
+已有v2完成图的观察另列：两张晚窗OFF及第三张逐像素相同；固定中央90% ROI中ON/OFF的≥3/255变化比例8.053919%、MAE1.337629/255，亲看弓与手部变形。这些是保留下来的实际观察，不升级为注册验收PASS、单独MotionBlur贡献、官方parity或原整景完整验收。只退出128/428已证FBO首拒；91未选预设noise及新显隐/验证债保队列。必要原包、失败载体/唯一修正、身份/图证、测试和独审归`.artifacts/scene-evidence/runs/declared-framebuffer-shadow-20261030/`；复制PKG/运行HOME/App/重复采样在归档后清理，保同一迭代构建缓存。未测Release、HDR/多屏、长稳或可比性能，不认性能收益。

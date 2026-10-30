@@ -979,6 +979,7 @@ enum Harness {
         result.merge(namedScalarClassifierContracts()) { _, new in new }
         result.merge(sourceContracts()) { _, new in new }
         result.merge(declaredTextureInputChecks(shader: contract("images/renamed"))) { _, new in new }
+        result.merge(declaredFramebufferBindingChecks(shader: contract("images/renamed"))) { _, new in new }
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
     }

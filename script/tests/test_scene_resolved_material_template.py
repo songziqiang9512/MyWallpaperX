@@ -221,6 +221,13 @@ class SceneResolvedMaterialTemplateTests(unittest.TestCase):
             text=True,
             env=environment,
         )
+        evidence = os.environ.get("MWX_MATERIAL_TEMPLATE_EVIDENCE")
+        cls.evidence = Path(evidence) if evidence else None
+        if cls.evidence:
+            cls.evidence.mkdir(parents=True, exist_ok=True)
+            (cls.evidence / "compile.json").write_text(json.dumps({
+                "command": compilation.args, "returncode": compilation.returncode,
+                "stdout": compilation.stdout, "stderr": compilation.stderr}, indent=2))
         if compilation.returncode != 0:
             raise RuntimeError(compilation.stderr)
         completed = subprocess.run(
@@ -232,6 +239,9 @@ class SceneResolvedMaterialTemplateTests(unittest.TestCase):
             env=environment,
         )
         cls.result = json.loads(completed.stdout)
+        if cls.evidence:
+            (cls.evidence / "observations.json").write_text(json.dumps(cls.result, indent=2))
+            (cls.evidence / "observations.stderr").write_text(completed.stderr)
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -334,6 +344,13 @@ class SceneResolvedMaterialTemplateTests(unittest.TestCase):
             "explicitUnknownStaysUnknown", "explicitMalformedSystemStaysUnknown",
             "emptyAndNullRemainAbsent",
         ])
+
+    def test_declared_framebuffer_binding_shadows_only_execution_candidates(self) -> None:
+        cases = {key: value for key, value in self.result.items() if key.startswith("framebufferShadow:")}
+        self.assertTrue(cases)
+        for key, passed in cases.items():
+            with self.subTest(case=key):
+                self.assertTrue(passed, key)
 
 
 if __name__ == "__main__":
