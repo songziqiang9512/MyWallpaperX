@@ -113,3 +113,18 @@
 | Script异常 | 3028048463的init仅收visible player层，默认19层均隐藏，随后访问空数组playerLayers[0].alpha；现enumeration/visible/alpha/isScreensaver已有。3280903509的225.alpha挂了clearcolor脚本并返回Vec3，故BAD_RETURN；两者均未资格引擎缺API，不把Vec3强转标量。 302另有506.origin的authored mutation owner冲突（25条mutation、previous-current），不归入空数组错误，保原公共mutation待资格项。 |
 
 原491归档行逐值不变，只用full snapshot的31行明确subset投影追加；未再次扫原包，未修改人工verdict。生成台账包含全部522，旧失败与最新队列分层，不把本轮当旧491复验。必要raw报告、日志、声明、来源投影/身份/独审限量归档 .artifacts/scene-evidence/runs/corpus-incremental-20261030/；截图未请求，用户新放“截屏/已粘贴”仅供后继正式阶段对照。执行方法归原诊断合同，项目skill只补入口与高成本误判经验。
+
+<a id="lod-channel-use-20261030"></a>
+## 显式LOD采样组件用途后验（2026-10-30）
+
+原通道分析漏认已支持的二维LOD内建调用，2899371377的7810#7811两次直接.r因此无法沿已有redOnly/noise仲裁取得数据资源。修复在原TextureChannelAnalyzer复用现采样内建名/作者同名函数裁决、参数及括号解析，删两份私有解析；产品净减43行，无新owner、用途、MSL算法或普通帧分析。普通2D多参旧范围、仅普通2D的RGB颜色proof、非红/whole/间接调用及原资源边界保持。唯一语义归[标量数据合同](../capabilities/scalar-mask-data-purpose.md#lod-channel-use)。
+
+原真实schema门仅新增LOD方法红：原两方法通过，86.589s；同393行fixture修后3/3通过，66.344s，15项取得预期组件事实、12项拒绝保持，8项普通2D多参结果逐值不变。相邻straight-color原8方法另一次28.230s通过。两组输入无漂移；Debug30.569s、严格签名通过，主体e51a6179…be1d/dylib e351d509…ed95，包含但未提交并行非本批修改。独立静态终审通过。
+
+原289默认输入统一静音、无指针动作请求，沿原runner首图后复位outside；没有宣称全程从启动固定鼠标。取实际8s/约12s正式窗、运行15秒，不把粒子starttime15的预热误当延迟开场。旧原包为7811局部passthrough/两项strict FAIL；候选strict PASS，7811和7814均frame0/1 GPU完成、后缀末合成/次帧成立并正常释放。两次启动的背景形变、粒子、时钟相位不同，原图外围变化弱，**不从整图差值宣原包视觉强度恢复或官方parity**。
+
+补一份自有静态因果载体：只保原solid和7810，固定蓝灰底/速度0，原clouds shader与两个mask、tint及其余常量不变；仅Bool从on切off。一个原PKG副本沿现VFS供资源，唯一loose入口不改原件。一次实际运行即strict PASS，live accepted、同一window/surface；两on原图逐像素相同、两off亦相同，on/off有明确外围云纹差，RGB均差3.443/3.949/4.475 U8、峰40；root亲见关闭后纹理消失。这只证明原作者Program在受控输入的实际遮罩贡献，不替代原整景感知/官方验收。协议曾预计off无rejectedNodes，但现字段实际记1；其Program为明确visibility-disabled activation-passthrough、outcome成功/GPU完成，保原字段和这项协议局限，不改产品或重跑洗绿。
+
+未参与修法的3355587815原包短窗strict PASS，root亲看人物/背景与白色框形保留，实际Program/GPU及退出正常；不由非黑或加载数授整景通过。variant/demand key已有build producer语义identity，generator覆盖本次源码，未改持久字段、手工版本或新增运行时校验。跨进程磁盘暖重放、HDR/多屏、官方整景精确像素及性能未单独验；不报告性能收益。
+
+本批仅退出上述通道识别首门，原31份raw归档与人工裁决保持，其他前端/粒子/属性及日志问题继续留队列。必要输入、红绿/邻门、固定App身份、原包正式图与静态对照、独审归档 .artifacts/scene-evidence/runs/lod-channel-use-20261030/；临时HOME/副本与多余帧提取后清理，仅留连续构建缓存。

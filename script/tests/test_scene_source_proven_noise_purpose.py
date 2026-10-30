@@ -30,6 +30,7 @@ private func contract(
     samplerName: String = "g_Texture2",
     defaultPath: String = "util/clouds_256",
     material: String = "albedo",
+    declarations: String = "",
     body: String
 ) -> SceneShaderContract {
     let vertex = """
@@ -44,6 +45,7 @@ private func contract(
     let fragment = """
     varying vec2 v_TexCoord;
     uniform sampler2D \(samplerName); // {"material":"\(material)","default":"\(defaultPath)"}
+    \(declarations)
     void main() {
         \(body)
     }
@@ -107,12 +109,14 @@ private func activeSampler(
     samplerName: String = "g_Texture2",
     defaultPath: String = "util/clouds_256",
     material: String = "albedo",
+    declarations: String = "",
     body: String
 ) -> Schema.Sampler? {
     let shader = contract(
         samplerName: samplerName,
         defaultPath: defaultPath,
         material: material,
+        declarations: declarations,
         body: body
     )
     let samplerSlot = slot(samplerName)
@@ -125,9 +129,11 @@ private func activeSampler(
     return try? Schema.activeSamplers(prepared)[samplerSlot]
 }
 
-private func bootstrapSampler() -> Schema.Sampler {
+private func bootstrapSampler(
+    body: String = "gl_FragColor = vec4(texSample2D(g_Texture2, v_TexCoord).r);"
+) -> Schema.Sampler {
     let shader = contract(
-        body: "gl_FragColor = vec4(texSample2D(g_Texture2, v_TexCoord).r);"
+        body: body
     )
     let template = SceneResolvedMaterialTemplate.validated(
         textureSlots: Array(repeating: nil, count: 8),
@@ -199,7 +205,59 @@ private enum Main {
             vertexSource: "void main() { gl_Position = vec4(0.0); }",
             fragmentSource: "void main( { texSample2D(g_Texture2, vec2(0.0)).r; }"
         )
+        let lodBody = """
+        float firstSignal = texSample2DLod(g_Texture2, (v_TexCoord * 0.5), g_Mip).r;
+        float secondSignal = texture2DLod(g_Texture2, v_TexCoord * 2.0, 1.0).x;
+        gl_FragColor = vec4(firstSignal * secondSignal);
+        """
+        let lodRenamed = lodBody
+            .replacingOccurrences(of: "g_Texture2", with: "g_Texture5")
+            .replacingOccurrences(of: "firstSignal", with: "coarseField")
+            .replacingOccurrences(of: "secondSignal", with: "fineField")
+        var lod: [String: String] = [
+            "direct": token(activeSampler(declarations: "uniform float g_Mip;", body: lodBody)),
+            "renamed": token(activeSampler(samplerName: "g_Texture5", defaultPath: "util/perlin_256",
+                declarations: "uniform float g_Mip;", body: lodRenamed), path: "util/perlin_256"),
+            "bootstrap": token(bootstrapSampler(body: lodBody.replacingOccurrences(of: "g_Mip", with: "0.0"))),
+            "adjacentPath": token(activeSampler(declarations: "uniform float g_Mip;", body: lodBody), path: "util/clouds_257"),
+            "otherRegisteredRole": token(activeSampler(declarations: "uniform float g_Mip;", body: lodBody), path: "effects/waterripplenormal"),
+        ]
+        for sample in ["texSample2DLod", "texture2DLod"] {
+            let call = "\(sample)(g_Texture2, v_TexCoord, 0.0)"
+            for (name, body) in [
+                ("whole", "gl_FragColor = \(call);"),
+                ("alias", "vec4 value = \(call); gl_FragColor = vec4(value.r);"),
+                ("rgb", "vec3 value = \(call).rgb; gl_FragColor = vec4(value, 1.0);"),
+                ("green", "gl_FragColor = vec4(\(call).g);"),
+                ("redGreen", "gl_FragColor = vec4(\(call).rg, 0.0, 1.0);"),
+                ("alpha", "gl_FragColor = vec4(\(call).a);"),
+                ("mixed", "float value = \(call).r + \(call).b; gl_FragColor = vec4(value);"),
+                ("missingLevel", "gl_FragColor = vec4(\(sample)(g_Texture2, v_TexCoord).r);"),
+                ("extraArgument", "gl_FragColor = vec4(\(sample)(g_Texture2, v_TexCoord, 0.0, 1.0).r);"),
+                ("indirectSampler", "gl_FragColor = vec4(\(sample)((g_Texture2), v_TexCoord, 0.0).r);"),
+            ] {
+                lod[sample + ":" + name] = token(activeSampler(body: body))
+            }
+            lod[sample + ":authoredHelper"] = token(activeSampler(
+                declarations: "vec4 \(sample)(sampler2D source, vec2 uv, float mip) { return vec4(uv, mip, 1.0); }",
+                body: "gl_FragColor = vec4(\(call).r);"
+            ))
+        }
+        var ordinaryBias: [String: String] = [:]
+        for sample in ["texSample2D", "texture2D"] {
+            let call = "\(sample)(g_Texture2, v_TexCoord, 0.5)"
+            for (name, body) in [
+                ("red", "gl_FragColor = vec4(\(call).r);"),
+                ("green", "gl_FragColor = vec4(\(call).g);"),
+                ("whole", "gl_FragColor = \(call);"),
+                ("alpha", "gl_FragColor = vec4(\(call).a);"),
+            ] {
+                ordinaryBias[sample + ":" + name] = token(activeSampler(body: body))
+            }
+        }
         let results: [String: Any] = [
+            "lod": lod,
+            "ordinaryBias": ordinaryBias,
             "positive": [
                 "direct": token(activeSampler(body: directBody)),
                 "renamed": token(activeSampler(
@@ -302,6 +360,33 @@ class SceneSourceProvenNoisePurposeTests(unittest.TestCase):
             },
             self.result,
         )
+
+    def test_lod_projection_shares_noise_role_without_tightening_ordinary_samples(self) -> None:
+        expected = {
+            "direct": "redOnly/noise",
+            "renamed": "redOnly/noise",
+            "bootstrap": "redOnly/noise",
+            "adjacentPath": "redOnly/straight-albedo",
+            "otherRegisteredRole": "redOnly/nil",
+        }
+        for sample in ("texSample2DLod", "texture2DLod"):
+            expected.update({sample + ":" + name: token for name, token in {
+                "whole": "wholeVector/nil", "alias": "wholeVector/nil",
+                "rgb": "unproven/nil", "green": "greenOnly/nil",
+                "redGreen": "redGreenOnly/nil", "alpha": "alphaOnly/nil",
+                "mixed": "unproven/nil", "missingLevel": "unproven/nil",
+                "extraArgument": "unproven/nil", "indirectSampler": "unproven/nil",
+                "authoredHelper": "unproven/nil",
+            }.items()})
+        self.assertEqual(self.result["lod"], expected, self.result)
+        self.assertEqual(self.result["ordinaryBias"], {
+            sample + ":" + name: token
+            for sample in ("texSample2D", "texture2D")
+            for name, token in {
+                "red": "redOnly/noise", "green": "greenOnly/nil",
+                "whole": "wholeVector/nil", "alpha": "unproven/nil",
+            }.items()
+        }, self.result)
 
 
 if __name__ == "__main__":

@@ -1006,10 +1006,10 @@
       "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ec70d43997c18dc695cd8948bfb6eca27ea120eab2653df6bca1cf269795e3e9",
+        "sourceSHA256": "a40423babd6a0a4e3ece2049c30ff330aa835f7d5946e50a7ee72f1d2a2bd890",
         "method": "document_registry --audit + document_health --check",
-        "scope": "有效同层override与闲置default来源合同、624正式开场后输出和独立374邻例；队列仅退出对应子问题。",
-        "limitations": "不授同音频/动画相位、官方parity、HDR/多屏或性能；3秒过渡图与原hover误请求FAIL保留。"
+        "scope": "复用原采样primitive的LOD组件事实；289 Program/GPU恢复、自有静态on/off因果图证及独立335渲染，队列仅退出该首门。",
+        "limitations": "原289跨启动像素受相位影响；off rejected计数按inactive语义保留。未额外验磁盘暖重放、HDR/多屏、官方整景parity或性能。"
       }
     },
     {
@@ -1052,13 +1052,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/capabilities/render-graph-shader-coverage.md",
       "currentStateAuthority": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "lastReviewed": "2026-10-12",
+      "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9c78a127653de9071c4ced4d306fdbdb30fb3ccba60cad5c7fe4b3077aae4b24",
+        "sourceSHA256": "cd869814328a7734cdf84355c457101dcc194078da341e0590f37b4c8b168dd1",
         "method": "document_registry --audit + document_health --check",
-        "scope": "实施前二维data/直接red遮罩语义与现有owner设计",
-        "limitations": "设计登记不代表实现、GPU、真实画面或官方验收。"
+        "scope": "复用原采样primitive的LOD组件事实；289 Program/GPU恢复、自有静态on/off因果图证及独立335渲染，队列仅退出该首门。",
+        "limitations": "原289跨启动像素受相位影响；off rejected计数按inactive语义保留。未额外验磁盘暖重放、HDR/多屏、官方整景parity或性能。"
       }
     },
     {
@@ -1534,7 +1534,7 @@
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
       "cutoffDate": "2026-10-30",
-      "uniqueValue": "453+38+31样本增量短窗日志、公共首错因果与未触发/作者配置/诊断漏计分层；原包来源修复的正式时窗后验。",
+      "uniqueValue": "453+38+31日志诊断及来源/LOD通道后验；正式时窗、静态启停图证、独立样本与明确未验边界。",
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "docs/scene/development/corpus-diagnostic-workflow.md",
@@ -4469,10 +4469,10 @@
       "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0d8542d2426f4045ef2e15c9890057c6a4f75946fcbf39699cf8cdb2b6ae717a",
+        "sourceSHA256": "74d6eb6ecdb270961d1d223f2b9840a9f48b5368d1c3dd7bca14ec49a430601a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "522份静态生成/投影、仅31新增的优化DEBUG日志；旧491归档行/人工verdict不变，逐能力因果记录及待修队列。",
-        "limitations": "无截图/官方parity或性能验收；日志健康不授每个组件或未触发分支通过，作者配置与漏计不认引擎缺口。"
+        "scope": "复用原采样primitive的LOD组件事实；289 Program/GPU恢复、自有静态on/off因果图证及独立335渲染，队列仅退出该首门。",
+        "limitations": "原289跨启动像素受相位影响；off rejected计数按inactive语义保留。未额外验磁盘暖重放、HDR/多屏、官方整景parity或性能。"
       }
     },
     {

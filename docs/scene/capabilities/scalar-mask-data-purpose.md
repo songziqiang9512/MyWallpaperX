@@ -6,6 +6,9 @@
 
 **设计决定（2026-10-12，实施前）。** 既有直接红通道的 noise 用途协调继续保持；对 `opacityMask` sampler，只在 prepared `channelUse=redOnly`、没有冲突 source-purpose fact、候选注册用途为二维 data 时，允许消费该候选原注册用途。normal、noise、preserved、flow、phase、depth 等均保持原上传和 publication，用途不改标为 mask，不新增纹理、typed view 或转换算法。颜色资源与三维 LUT 不在此范围。规则按模式、通道与类型合取，不按样本、资源名称或 hash 选择。
 
+<a id="lod-channel-use"></a>
+**显式LOD采样的组件用途。** 原通道分析承接现有受支持二维LOD内建调用，仍按返回结果的直接swizzle合并组件事实；采样level不改变所读组件。复用原调用名/作者同名函数裁决与参数解析，不另造名单或用途owner。普通2D原准入范围和仅普通2D的RGB颜色proof保持；alpha沿原完整参数/escape约束承接LOD，level类型与实际采样仍由原typed emitter负责，不在用途层复验。真实default/candidate、注册资源角色、ABI与就绪边界不扩大；variant/demand缓存沿已有build producer语义identity更新事实，不新增手工版本或逐帧复验；验收核来源到实际输出，跨进程暖重放与性能结论须另有证据。
+
 **职责与数据流。** `Sampler.purpose(for:)` 沿已有候选/默认资源仲裁扩展 scalar-data 条件；`TextureSlotPurpose` 保持 ordinal/provenance，原 demand、loader、variant、finalizer、encoder 消费同一注册用途。将既有 variant 私有 data 分类移到 `SceneTextureLoadPurpose`，供两处复用并删除旧分类，避免第二份列表。source-purpose 冲突分支保持原拒绝；候选与 shader default 分别按实际用途检查，normal candidate 的缺席不把 noise default 改为 normal，也不合并二者 identity。
 
 **取舍。** 保留注册资源用途及原物理存储，可复用数据上传与缺席默认资源；把资源强制重标 mask 会改变 cache identity、噪声替代和失败边界，故不采用。只扩现有 scalar 读取链，不重写 Gradient/Mask/Blur。prepared sampler 分析字段不变，运行时用途由现代码重新协调，不盲目失效仍有效的 shader/demand cache。

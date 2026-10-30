@@ -150,7 +150,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 220515
+      "bytes": 220679
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -161,8 +161,8 @@
       "bytes": 3393
     },
     "docs/scene/capabilities/scalar-mask-data-purpose.md": {
-      "lines": 17,
-      "bytes": 3104
+      "lines": 20,
+      "bytes": 3880
     },
     "docs/scene/capabilities/scene-corpus-capability-inventory.md": {
       "lines": 247,
@@ -278,7 +278,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 179,
-      "bytes": 40270
+      "bytes": 40231
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1751,11 +1751,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "662fb1e3cd2fbad53fe1ca2753f9c2b2d3f92c91166b51084a565c0aa17ba179",
-      "after": "a58549aa7755e913f9aadcd80262f3da04a2184a4bf3af65ec0a0acf44a16b83",
+      "before": "a58549aa7755e913f9aadcd80262f3da04a2184a4bf3af65ec0a0acf44a16b83",
+      "after": "cc0f191a306125144cad4027fc79b21528c80cc55903d0e535c41bd8fe49c3f9",
       "owner": "scene-engine-maintainer",
-      "reason": "原owner承接已证明self ingress并删除idle default复验；同步有界运行后验、开场时机规则及唯一未闭队列，不新增产品链路。",
-      "decision": "docs/scene/capabilities/sampler-alias-precedence.md#captured-main-self-override"
+      "reason": "沿原采样/通道owner补已支持LOD的组件事实并退役重复解析；同步正式运行和有界因果图证，保协议局限及其他未闭问题。",
+      "decision": "docs/scene/capabilities/scalar-mask-data-purpose.md#lod-channel-use"
     },
     {
       "section": "bodies",
@@ -1882,6 +1882,15 @@
       "owner": "repository-maintainer",
       "reason": "沿原专项登记R11无消费属性读取、真实载荷/读取对照及用户要求的本批暂停边界，不新增状态或结构。",
       "decision": "docs/development/code-slimming-program.md#目标与边界"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scalar-mask-data-purpose.md",
+      "before": "d5b3fe85b18210d59eb4f3ab5f38c9949d5d36fd9ffaf3edb1ef026c658271b3",
+      "after": "f7a3175c56ee5b25343c45664d19a78f9251429fce93229d474b5ab8ef13471d",
+      "owner": "scene-engine-maintainer",
+      "reason": "沿原采样/通道owner补已支持LOD的组件事实并退役重复解析；同步正式运行和有界因果图证，保协议局限及其他未闭问题。",
+      "decision": "docs/scene/capabilities/scalar-mask-data-purpose.md#lod-channel-use"
     }
   ]
 }

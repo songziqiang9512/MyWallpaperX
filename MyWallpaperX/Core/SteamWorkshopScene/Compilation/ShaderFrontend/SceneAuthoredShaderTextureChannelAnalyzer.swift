@@ -51,7 +51,10 @@ nonisolated enum SceneAuthoredShaderTextureChannelAnalyzer {
         guard vertexUses.isEmpty, !fragmentUses.isEmpty else {
             return .unproven
         }
-        let uses = fragmentUses.compactMap { directSampleUse($0, in: fragment) }
+        let functionNames = Set(fragment.functions.map(\.name))
+        let uses = fragmentUses.compactMap {
+            directSampleUse($0, in: fragment, functionNames: functionNames)
+        }
         guard uses.count == fragmentUses.count else { return .unproven }
         if uses.contains(.wholeVector) { return .wholeVector }
         let mask = uses.reduce(0) { partial, use in
@@ -158,45 +161,49 @@ nonisolated enum SceneAuthoredShaderTextureChannelAnalyzer {
         }
     }
 
-    /// Accepts a direct complete-vector sample or an immediate `.r/.x`,
-    /// `.g/.y`, `.rg/.xy`, or `.a/.w` projection of `texSample2D` and `texture2D`.
-    /// The caller unions projected uses and preserves complete-vector use as a
-    /// separate fact; target-format admission owns any unstored-component
-    /// semantics. Permutations and other explicit swizzles remain unproven.
+    /// LOD changes the sampled level, not the component projection. Ordinary
+    /// 2D red/green/vector uses keep their existing argument-range policy.
     private static func directSampleUse(
         _ samplerIndex: Int,
-        in unit: SceneAuthoredShaderSyntaxUnit
+        in unit: SceneAuthoredShaderSyntaxUnit,
+        functionNames: Set<String>
     ) -> ChannelUse? {
         let tokens = unit.tokens
         guard samplerIndex >= 2,
               tokens[samplerIndex - 1].text == "(",
-              ["texSample2D", "texture2D"].contains(
-                  tokens[samplerIndex - 2].text
-              ),
-              let close = matchingClose(
-                  opening: samplerIndex - 1,
-                  tokens: tokens
-              ) else {
-            return nil
+              let expectedArgumentCount = SceneAuthoredShaderMetalEmitter
+                  .textureSampleArgumentCount(
+                      tokens[samplerIndex - 2].text,
+                      functionNames: functionNames
+                  ),
+              let close = SceneAuthoredShaderTokenScanner.matchingParenthesis(
+                  tokens: tokens,
+                  opening: samplerIndex - 1
+              ) else { return nil }
+        let hasProjection = close + 1 < tokens.count
+            && tokens[close + 1].text == "."
+        guard !hasProjection || close + 2 < tokens.count else { return nil }
+        let projection = hasProjection ? tokens[close + 2].text : nil
+        let isAlpha = projection == "a" || projection == "w"
+        if expectedArgumentCount == 3 || isAlpha {
+            guard let arguments = SceneAuthoredShaderMetalEmitter
+                      .textureSampleArguments(
+                          tokens: tokens, opening: samplerIndex - 1, closing: close
+                      ),
+                  arguments.count == expectedArgumentCount,
+                  arguments[0] == samplerIndex..<(samplerIndex + 1) else {
+                return nil
+            }
+            if isAlpha, arguments.dropFirst().contains(where: { argument in
+                argument.contains { tokens[$0].text == tokens[samplerIndex].text }
+            }) { return nil }
         }
-        guard close + 1 < tokens.count,
-              tokens[close + 1].text == "." else {
-            return .wholeVector
-        }
-        guard close + 2 < tokens.count else { return nil }
-        switch tokens[close + 2].text {
+        switch projection {
+        case nil: return .wholeVector
         case "r", "x": return .redOnly
         case "g", "y": return .greenOnly
         case "rg", "xy": return .redGreenOnly
-        case "a", "w":
-            // Alpha is independent of RGB representation. Prove the complete
-            // sampler argument and reject aliases/escapes before granting that
-            // exemption; scalar arithmetic after this projection is harmless.
-            guard let arguments = argumentRanges(in: samplerIndex..<close, tokens: tokens),
-                  arguments.count == 2, arguments[0] == samplerIndex..<(samplerIndex + 1),
-                  !arguments[1].contains(where: { tokens[$0].text == tokens[samplerIndex].text })
-            else { return nil }
-            return .alphaOnly
+        case "a", "w": return .alphaOnly
         default: return nil
         }
     }
@@ -212,13 +219,14 @@ nonisolated enum SceneAuthoredShaderTextureChannelAnalyzer {
               ["texSample2D", "texture2D"].contains(
                   tokens[samplerIndex - 2].text
               ),
-              let close = matchingClose(
-                  opening: samplerIndex - 1,
-                  tokens: tokens
+              let close = SceneAuthoredShaderTokenScanner.matchingParenthesis(
+                  tokens: tokens,
+                  opening: samplerIndex - 1
               ),
-              let arguments = argumentRanges(
-                  in: (samplerIndex)..<close,
-                  tokens: tokens
+              let arguments = SceneAuthoredShaderMetalEmitter.textureSampleArguments(
+                  tokens: tokens,
+                  opening: samplerIndex - 1,
+                  closing: close
               ),
               arguments.count == 2,
               arguments[0].count == 1,
@@ -244,58 +252,7 @@ nonisolated enum SceneAuthoredShaderTextureChannelAnalyzer {
         return true
     }
 
-    private static func argumentRanges(
-        in range: Range<Int>,
-        tokens: [SceneAuthoredShaderToken]
-    ) -> [Range<Int>]? {
-        guard range.lowerBound <= range.upperBound,
-              range.lowerBound >= 0,
-              range.upperBound <= tokens.count else { return nil }
-        var result: [Range<Int>] = []
-        var start = range.lowerBound
-        var depth = 0
-        for index in range {
-            switch tokens[index].text {
-            case "(", "[", "{":
-                depth += 1
-            case ")", "]", "}":
-                depth -= 1
-                if depth < 0 { return nil }
-            case "," where depth == 0:
-                guard start < index else { return nil }
-                result.append(start..<index)
-                start = index + 1
-            default:
-                break
-            }
-        }
-        guard depth == 0, start < range.upperBound else { return nil }
-        result.append(start..<range.upperBound)
-        return result
-    }
 
-    private static func matchingClose(
-        opening: Int,
-        tokens: [SceneAuthoredShaderToken]
-    ) -> Int? {
-        guard tokens.indices.contains(opening), tokens[opening].text == "(" else {
-            return nil
-        }
-        var depth = 0
-        for index in opening..<tokens.count {
-            switch tokens[index].text {
-            case "(":
-                depth += 1
-            case ")":
-                depth -= 1
-                if depth == 0 { return index }
-                if depth < 0 { return nil }
-            default:
-                break
-            }
-        }
-        return nil
-    }
 }
 
 private nonisolated extension SceneAuthoredShaderProgram.TextureBinding.ChannelUse {
