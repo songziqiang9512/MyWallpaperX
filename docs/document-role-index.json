@@ -765,13 +765,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-26",
+      "lastReviewed": "2026-10-31",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "73ecb5bfc1c0454c5e2967a0b7fcf46dab86521ac0bc5718a28784ced0e8fe1b",
+        "sourceSHA256": "d69a37b7911fd83b9cea665970befd0aa4ab0020786a60adc2dfb861e99a1a32",
         "method": "document_registry --audit + document_health --check",
-        "scope": "复核当前正文hash、入口、角色及职责：Video纯诊断事件和镜像退出Release，实际prepared/ready/失败/活动ACK与物理退出保原owner；本批实施/验证结果归精简方案。",
-        "limitations": "这是文档治理复核；不据日期或导航重新授予作者视觉、完整App冷暖、官方一致性、发布或历史证据范围。"
+        "scope": "首次真实视频元数据与原Session准备/clock合同，335默认PPT首门移出、338颜色Timeline能力缺口保唯一队列。",
+        "limitations": "视频末段非正式风格截图；不授官方init时序、完整AppKit重建、所有选项/媒体或性能。"
       }
     },
     {
@@ -899,10 +899,10 @@
       "lastReviewed": "2026-10-31",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2f9af513d246b35dbc7acf2ebab3a1bb649ad0cf0d4606181e9a48d5f8ac6726",
+        "sourceSHA256": "4c573e58174f69c28fb95dbe05ea47e487f4f40f5ed2dde8ed5a99382df904b7",
         "method": "document_registry --audit + document_health --check",
-        "scope": "rate/blend已实施设计退出、稳定共享Playback合同及真实314后验分责；335、环/Rope和382脚部仍开放。",
-        "limitations": "只认image原包参数链；direct输出、完整329、官方parity及性能未由本片资格。"
+        "scope": "382足部与轨道首门有界关闭，逐帧bind等价合同及历史归一；314环/动画与其他未验问题保留。",
+        "limitations": "不证明官方phase、任意尺度方向等价、全样本或性能。"
       },
       "title": "Direct model的骨骼动画合同",
       "authority": "advanced-object-animation-design"
@@ -4494,10 +4494,10 @@
       "lastReviewed": "2026-10-31",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "72bbbbffaa8ce624959485aea9792db09b59f730930e0b84f847b65999f2812c",
+        "sourceSHA256": "370138cce4a91b3f7bca12537ffa6a9a160f37d8a3b3b69435880c7a8acdebe5",
         "method": "document_registry --audit + document_health --check",
-        "scope": "rate/blend已实施设计退出、稳定共享Playback合同及真实314后验分责；335、环/Rope和382脚部仍开放。",
-        "limitations": "只认image原包参数链；direct输出、完整329、官方parity及性能未由本片资格。"
+        "scope": "首次真实视频元数据与原Session准备/clock合同，335默认PPT首门移出、338颜色Timeline能力缺口保唯一队列。",
+        "limitations": "视频末段非正式风格截图；不授官方init时序、完整AppKit重建、所有选项/媒体或性能。"
       }
     },
     {

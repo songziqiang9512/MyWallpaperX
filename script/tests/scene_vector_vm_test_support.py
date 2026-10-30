@@ -497,6 +497,7 @@ def compile_vector_harness(
     binary_name: str,
     *, extra_swift_sources: tuple[Path, ...] = (), preamble: str = SWIFT_PREAMBLE,
     whole_module_optimization: bool = False,
+    bridging_header: Path | None = None, extra_link_objects: tuple[Path, ...] = (),
 ) -> Path:
     clang = shutil.which("clang")
     if clang is None:
@@ -537,7 +538,7 @@ def compile_vector_harness(
             "-O",
             *(["-whole-module-optimization"] if whole_module_optimization else []),
             "-import-objc-header",
-            str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJS.h"),
+            str(bridging_header or ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJS.h"),
             "-Xcc",
             f"-I{VM}",
             "-o",
@@ -545,6 +546,7 @@ def compile_vector_harness(
             *map(str, dict.fromkeys([*SWIFT_SOURCES, *extra_swift_sources])),
             str(harness),
             *map(str, objects),
+            *map(str, extra_link_objects),
             "-Xlinker",
             "-lm",
         ],

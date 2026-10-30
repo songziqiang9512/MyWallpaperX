@@ -1,13 +1,19 @@
 """Run real AVPlayer/Metal provider commands; publication envelopes are shims."""
 from pathlib import Path
+import hashlib
 import json
 import math
+import os
 import shutil
 import subprocess
 import tempfile
 import unittest
 
 from script.tests import test_scene_initial_video_resource_readiness as readiness
+from script.tests import test_scene_user_property_textures as textures
+from script.tests.scene_vector_vm_test_support import (
+    C_SOURCES, SWIFT_PREAMBLE, SWIFT_SOURCES, compile_vector_harness,
+)
 from script.tests.scene_video_segment_delegate_fixture import compile_segment_delegate
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -328,6 +334,9 @@ class SceneVideoRepeatedCommandsTests(unittest.TestCase):
                 [str(work / "probe"), str(work), "--webm"],
                 check=True, capture_output=True, text=True, timeout=20).stdout)
             self.assertTrue(result["initialItemPending"])
+            self.assertTrue(result["metadataPendingBeforeInstall"])
+            self.assertTrue(result["snapshotAbsentBeforeInstall"])
+            self.assertTrue(result["metadataReadyAtFirstPublication"])
             self.assertTrue(result["pendingCommandsHeld"])
             self.assertTrue(result["preparedFilePresent"])
             self.assertAlmostEqual(result["duration"], 2, delta=0.002)
@@ -373,6 +382,287 @@ class SceneVideoRepeatedCommandsTests(unittest.TestCase):
             self.assertTrue(result["cancelLateFrameAbsent"])
             self.assertTrue(result["cancelLateItemAbsent"])
             self.assertEqual(result["cancelFilesAfterSettle"], [])
+
+METADATA_VM = r'''
+import AVFoundation
+import Metal
+import QuartzCore
+
+@main @MainActor enum MetadataVM {
+    static func main() async throws {
+        let root = URL(fileURLWithPath: CommandLine.arguments[1])
+        let empty = SceneVideoTextureSourceRegistry(epoch: 1)
+        let emptyPending = empty.pendingSceneScriptMetadataSources.isEmpty
+        empty.completeSceneScriptMetadataPreparation()
+        let noVideo = empty.sceneScriptSnapshots(sceneTime: 0)
+        empty.stop()
+        guard let device = MTLCreateSystemDefaultDevice() else { fatalError("Metal unavailable") }
+        var rows: [[String: Any]] = []
+        for (index, names) in [("clip.mp4", "primary-video"), ("renamed.mp4", "another video")].enumerated() {
+            rows.append(try await exercise(root, device, filename: names.0, name: names.1,
+                layerID: 17 + index * 301, model: "models/carrier-\(index)"))
+        }
+        print(String(decoding: try JSONSerialization.data(withJSONObject: [
+            "emptyRegistryHasNoPreparation": emptyPending && noVideo.sources.isEmpty && noVideo.layerBindings.isEmpty,
+            "rows": rows,
+        ], options: [.sortedKeys]), as: UTF8.self))
+    }
+
+    static func exercise(_ root: URL, _ device: MTLDevice, filename: String,
+                         name: String, layerID: Int, model: String) async throws -> [String: Any] {
+        let registry = SceneVideoTextureSourceRegistry(epoch: 40)
+        defer { registry.stop() }
+        let cache = root.appendingPathComponent("cache-\(layerID)")
+        let goodInput = SceneResourceView.FileInput.externalFile(root.appendingPathComponent(filename))
+        let badInput = SceneResourceView.FileInput.externalFile(root.appendingPathComponent("invalid.mp4"))
+        let goodKey = try goodInput.currentIdentity(), badKey = try badInput.currentIdentity()
+        let goodFile = try SceneVideoOwnedFile.snapshot(payload: Data(contentsOf: root.appendingPathComponent(filename)), cacheDirectory: cache)
+        let badFile = try SceneVideoOwnedFile.snapshot(payload: Data(contentsOf: root.appendingPathComponent("invalid.mp4")), cacheDirectory: cache)
+        // The failed row precedes the healthy one, so the real C publication
+        // must accept an unbound unavailable slot without losing its peer.
+        let badID = layerID + 1
+        guard let bad = try registry.source(sourceKey: badKey, preparedFile: badFile,
+                owner: .ordinary, layerID: badID, device: device),
+              let good = try registry.source(sourceKey: goodKey, preparedFile: goodFile,
+                owner: .ordinary, layerID: layerID, device: device) else { fatalError("Source construction failed") }
+        let resources: [String: ScenePreparedDynamicImageResource] = [
+            model: .init(product: .video(source: goodKey, file: goodFile, sizeWH: [32, 24])),
+            model + "-bad": .init(product: .video(source: badKey, file: badFile, sizeWH: [32, 24])),
+        ]
+        try registry.prepareDynamicVideoSources(resources: resources, modelPaths: Set(resources.keys), device: device)
+        let pending = registry.pendingSceneScriptMetadataSources
+        let unpublished = registry.sceneScriptSnapshots(sceneTime: 0).sources.compactMap { $0 }.isEmpty
+        for source in pending { _ = await source.preparePlaybackMetadata() }
+        registry.completeSceneScriptMetadataPreparation()
+        registry.bindPreparedVideoConsumers([layerID: model, badID: model + "-bad"])
+        let snapshot = registry.sceneScriptSnapshots(sceneTime: 0)
+        guard let index = snapshot.layerBindings[layerID], let prepared = snapshot.sources[index] else {
+            fatalError("healthy metadata unavailable")
+        }
+        let again = try registry.source(sourceKey: badKey, preparedFile: badFile,
+            owner: .ordinary, layerID: badID, device: device)
+        let terminalBadReused = again === bad && !bad.isPreparingItem && !bad.hasPlaybackMetadata
+
+        let source = """
+        let initialDuration = -1;
+        let end = -1;
+        export function init(value) {
+            const video = thisScene.getLayer("\(name)").getVideoTexture();
+            initialDuration = video.duration;
+            end = video.duration;
+            video.loop = false;
+            video.setCurrentTime(end / 4);
+            return value;
+        }
+        export function update(value) {
+            const video = thisScene.getLayer("\(name)").getVideoTexture();
+            if (video.getCurrentTime() >= end) video.stop();
+            else video.play();
+            return new Vec3(initialDuration, video.duration, video.getCurrentTime());
+        }
+        """
+        let badSource = "export function update(value) { return new Vec3(thisLayer.getVideoTexture().duration, 0, 0); }"
+        let descriptor = SceneRenderDescriptor(layers: [layerID, badID].enumerated().map { i, id in
+            .init(id: id, layerIndex: i, name: i == 0 ? name : "unavailable-\(name)", visible: true,
+                originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1], alpha: 1, effects: [])
+        })
+        let bindings = [source, badSource].enumerated().map { i, text in
+            SceneScriptBindingIR(source: text,
+                owner: .init(kind: .object, objectIndex: i, objectID: i == 0 ? layerID : badID,
+                    effectIndex: nil, effectID: nil, passIndex: nil, passID: nil),
+                targetPath: [.key("objects"), .index(i), .key("origin")], properties: [:],
+                authoredValue: .string("0 0 0"), valueType: .string, wrapperKeys: ["script", "value"])
+        }
+        let target = SceneDynamicTarget.layer(layerID: layerID, field: .origin)
+        let badTarget = SceneDynamicTarget.layer(layerID: badID, field: .origin)
+        let domain = try SceneScriptQuickJSDomain()
+        try domain.configureLayerCatalog(descriptor)
+        let program = SceneScriptVectorProgram.compile(domain: domain, descriptor: descriptor,
+            scriptBindings: bindings, userPropertyDefinitions: [], generation: 1)
+        let clock = CACurrentMediaTime()
+        var frame: UInt64 = 0
+        func timing(_ scene: Double) -> SceneFrameTiming {
+            frame += 1
+            return .init(wallDate: Date(timeIntervalSince1970: 0), simulationFrameTime: 1 / 60,
+                sceneTime: scene, frameIndex: frame, hostTime: CACurrentMediaTime())
+        }
+        func evaluate(_ videos: SceneScriptVideoFrameSnapshot, _ time: SceneFrameTiming) throws -> SceneScriptVectorFrameResult {
+            try domain.publishLayerSnapshot(SceneDynamicSnapshotResolver().resolve(
+                frameIndex: time.frameIndex, generation: time.frameIndex, definitions: []).snapshot,
+                descriptor: descriptor, videoSnapshots: videos)
+            return program.evaluate(inputs: [target: .vector3(0, 0, 0), badTarget: .vector3(0, 0, 0)],
+                effectivePropertyValues: [:], frame: .init(timing: time))
+        }
+        func ordered(_ result: SceneScriptVectorFrameResult) -> [SceneScriptMediaPlaybackCommand] {
+            SceneScriptMediaPlaybackCommandBridge.orderedCommands(in: result.ownerEffects)
+        }
+        func commit(_ result: SceneScriptVectorFrameResult, _ time: SceneFrameTiming) throws {
+            let commands = ordered(result)
+            try registry.validate(commands, timing: time).get()
+            for command in commands { registry.applyAdmitted(command, timing: time) }
+            program.finalizeLayerMutations(committing: true, rejectedOwnerTargets: Set(result.failures.keys))
+        }
+        func vector(_ result: SceneScriptVectorFrameResult) -> [Double] {
+            if case let .vector3(x, y, z)? = result.values[target] { return [x, y, z] }
+            return []
+        }
+        let firstTime = timing(0), first = try evaluate(snapshot, firstTime)
+        let firstCommands = ordered(first)
+        let seeks = firstCommands.compactMap { command -> Double? in
+            if case let .setCurrentTime(value) = command.action { return value }; return nil
+        }
+        try commit(first, firstTime)
+        let afterSeek = good.playbackSnapshot(sceneTime: 0)!
+        registry.beginSurfaceRebuild(sceneTime: 0, hostTime: CACurrentMediaTime())
+        try registry.prepareDynamicVideoSources(resources: resources, modelPaths: Set(resources.keys), device: device)
+        registry.bindPreparedVideoConsumers([layerID: model, badID: model + "-bad"])
+        let rebuilt = try registry.source(sourceKey: goodKey, preparedFile: goodFile,
+            owner: .ordinary, layerID: layerID, device: device)
+        registry.completeSurfaceRebuild()
+        let reused = rebuilt === good && registry.pendingSceneScriptMetadataSources.isEmpty
+            && good.hasPlaybackMetadata && registry.preparedVideoSourceReferences[model] == index
+        let secondTime = timing(0.01)
+        let second = try evaluate(registry.sceneScriptSnapshots(sceneTime: 0.01), secondTime)
+        try commit(second, secondTime)
+
+        let deadline = CACurrentMediaTime() + 5
+        while good.playbackSnapshot(sceneTime: CACurrentMediaTime() - clock)!.endedGeneration == 0,
+              CACurrentMediaTime() < deadline {
+            _ = good.currentFrame(for: timing(CACurrentMediaTime() - clock))
+            try await Task.sleep(for: .milliseconds(8))
+        }
+        let eofTime = timing(CACurrentMediaTime() - clock)
+        let eofSnapshot = good.playbackSnapshot(sceneTime: eofTime.sceneTime)!
+        let eof = try evaluate(registry.sceneScriptSnapshots(sceneTime: eofTime.sceneTime), eofTime)
+        let eofCommands = ordered(eof)
+        try commit(eof, eofTime)
+
+        guard let cancelled = SceneVideoTextureSource(owner: .ordinary, preparedFile: goodFile, device: device),
+              let shared = SceneVideoTextureSource(owner: .ordinary, preparedFile: goodFile, device: device) else {
+            fatalError("cancellation Source unavailable")
+        }
+        let cancellationStartedPending = cancelled.isPreparingItem && cancelled.playbackSnapshot(sceneTime: 0) == nil
+        cancelled.stop()
+        let cancelledReady = await cancelled.preparePlaybackMetadata()
+        let waiter = Task { await shared.preparePlaybackMetadata() }
+        waiter.cancel()
+        _ = await waiter.value
+        let sharedReady = await shared.preparePlaybackMetadata()
+        try await Task.sleep(for: .milliseconds(20))
+        let player = Mirror(reflecting: cancelled).children.compactMap { $0.value as? AVPlayer }.first!
+        let cancelledStayedUnavailable = !cancelledReady && !cancelled.hasPlaybackMetadata
+            && !cancelled.isPreparingItem && cancelled.playbackSnapshot(sceneTime: 0) == nil && player.currentItem == nil
+        shared.stop()
+        return [
+            "name": name, "layerID": layerID, "duration": prepared.duration,
+            "pendingSources": pending.count, "noUnpreparedNumericSnapshot": unpublished,
+            "pendingAfterPreparation": registry.pendingSceneScriptMetadataSources.count,
+            "failedSnapshotAbsent": bad.playbackSnapshot(sceneTime: 0) == nil,
+            "failedBindingAbsent": snapshot.layerBindings[badID] == nil,
+            "unavailableRowRetained": snapshot.sources.contains { $0 == nil },
+            "failedPreparedReferenceAbsent": registry.preparedVideoSourceReferences[model + "-bad"] == nil,
+            "failedSourceReusedWithoutRetry": terminalBadReused,
+            "initialVector": vector(first), "firstSeekCommands": seeks,
+            "healthyFailure": first.failures[target]?.code ?? "none",
+            "failedOwnerFailure": first.failures[badTarget]?.code ?? "none",
+            "firstStopCommands": firstCommands.filter { $0.action == .stop }.count,
+            "seekPosition": afterSeek.currentTime, "sourceReusedAcrossRebuild": reused,
+            "secondVector": vector(second), "rebuildSeekCommands": ordered(second).filter {
+                if case .setCurrentTime = $0.action { return true }; return false
+            }.count,
+            "realEOFGeneration": eofSnapshot.endedGeneration, "eofPosition": eofSnapshot.currentTime,
+            "eofStopCommands": eofCommands.filter { $0.action == .stop }.count,
+            "cancellationStartedPending": cancellationStartedPending,
+            "cancelledSourceCannotPublishLate": cancelledStayedUnavailable,
+            "cancelledWaiterKeepsSharedPreparation": waiter.isCancelled && sharedReady,
+        ]
+    }
+}
+'''
+
+
+class SceneVideoScriptMetadataTests(unittest.TestCase):
+    def test_real_source_registry_metadata_reaches_first_vm_callbacks_and_isolates_failure(self):
+        if any(not shutil.which(tool) for tool in ("swiftc", "ffmpeg")):
+            self.skipTest("Swift and ffmpeg are required")
+        evidence = Path(os.environ["MWX_VIDEO_METADATA_EVIDENCE"]) if os.environ.get("MWX_VIDEO_METADATA_EVIDENCE") else None
+        if evidence:
+            evidence.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix="mwx-video-metadata-vm-") as tmp:
+            work = Path(tmp)
+            subprocess.run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i",
+                "testsrc2=size=32x24:rate=20:duration=1.2", "-c:v", "libx264", "-pix_fmt", "yuv420p",
+                str(work / "clip.mp4")], check=True, capture_output=True, timeout=30)
+            shutil.copyfile(work / "clip.mp4", work / "renamed.mp4")
+            (work / "invalid.mp4").write_bytes(b"not a media container")
+            delegate = compile_segment_delegate(work, evidence_directory=evidence)
+            header = work / "VideoAndVM.h"
+            header.write_text(f'#include "{SCENE / "Systems/Script/SceneQuickJS.h"}"\n#include "{delegate[1]}"\n')
+            product_input = SCENE / "Runtime/Session/ScenePreparedDeviceResources.swift"
+            product = readiness.declaration(product_input.read_text(), "    nonisolated enum Product {")
+            carrier = work / "VideoMetadataCarriers.swift"
+            carrier.write_text("import Foundation\nstruct ScenePreparedDynamicImageResource {\n" + product
+                + "\nlet product: Product\n}\n" + readiness.write_readiness_source(work).read_text())
+            timing = readiness.declaration(SWIFT_PREAMBLE, "struct SceneFrameTiming {")
+            preamble = SWIFT_PREAMBLE.replace(timing, timing.replace("\n}",
+                "\n    var frameIndex: UInt64 = 0\n    var hostTime: Double = 0\n}"))
+            extras = tuple(dict.fromkeys([*textures.SWIFT_SOURCES,
+                PROVIDERS / "SceneVideoProviderLifecycleState.swift", PROVIDERS / "SceneVideoTextureSource.swift",
+                PROVIDERS / "SceneVideoTextureSourceRegistry.swift", carrier]))
+            inputs = list(dict.fromkeys([*SWIFT_SOURCES, *C_SOURCES, *extras, product_input,
+                SCENE / "Systems/Script/SceneQuickJS.h", Path(delegate[1]),
+                PROVIDERS / "SceneVideoSegmentDelegate.m", Path(__file__),
+                Path(compile_vector_harness.__code__.co_filename), Path(textures.__file__), Path(readiness.__file__),
+                Path(compile_segment_delegate.__code__.co_filename)]))
+            hashes = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in inputs}
+            if evidence:
+                (evidence / "inputs-before.json").write_text(json.dumps(hashes, indent=2) + "\n")
+            try:
+                binary = compile_vector_harness(work, METADATA_VM, "video-metadata-vm",
+                    extra_swift_sources=extras, preamble=preamble, whole_module_optimization=True,
+                    bridging_header=header, extra_link_objects=(Path(delegate[2]),))
+            except BaseException as error:
+                if evidence:
+                    (evidence / "compile-failure.txt").write_text(str(error))
+                raise
+            run = subprocess.run([str(binary), str(work)], capture_output=True, text=True, timeout=20)
+            if evidence:
+                (evidence / "stdout.json").write_text(run.stdout)
+                (evidence / "stderr.txt").write_text(run.stderr)
+                (evidence / "generated-inputs.json").write_text(json.dumps({
+                    str(p.name): hashlib.sha256(p.read_bytes()).hexdigest()
+                    for p in (header, Path(delegate[2]), binary, work / "clip.mp4", work / "renamed.mp4")
+                }, indent=2) + "\n")
+            self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+            result = json.loads(run.stdout)
+            self.assertTrue(result["emptyRegistryHasNoPreparation"])
+            self.assertEqual(len(result["rows"]), 2)
+            for row in result["rows"]:
+                with self.subTest(name=row["name"], layerID=row["layerID"]):
+                    self.assertAlmostEqual(row["duration"], 1.2, delta=0.05)
+                    self.assertEqual(row["pendingSources"], 2)
+                    self.assertEqual(row["pendingAfterPreparation"], 0)
+                    for key in ("noUnpreparedNumericSnapshot", "failedSnapshotAbsent", "failedBindingAbsent",
+                                "unavailableRowRetained", "failedPreparedReferenceAbsent", "failedSourceReusedWithoutRetry",
+                                "sourceReusedAcrossRebuild", "cancellationStartedPending", "cancelledSourceCannotPublishLate",
+                                "cancelledWaiterKeepsSharedPreparation"):
+                        self.assertTrue(row[key], (key, row))
+                    self.assertEqual(row["healthyFailure"], "none")
+                    self.assertEqual(row["failedOwnerFailure"], "exception")
+                    self.assertEqual(row["initialVector"], [row["duration"], row["duration"], 0])
+                    self.assertEqual(row["firstSeekCommands"], [row["duration"] / 4])
+                    self.assertEqual(row["firstStopCommands"], 0)
+                    self.assertAlmostEqual(row["seekPosition"], row["duration"] / 4, delta=0.001)
+                    self.assertEqual(row["rebuildSeekCommands"], 0)
+                    self.assertEqual(row["secondVector"][:2], [row["duration"], row["duration"]])
+                    self.assertGreater(row["realEOFGeneration"], 0)
+                    self.assertAlmostEqual(row["eofPosition"], row["duration"], delta=0.05)
+                    self.assertEqual(row["eofStopCommands"], 1)
+            after = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in inputs}
+            if evidence:
+                (evidence / "inputs-after.json").write_text(json.dumps(after, indent=2) + "\n")
+            self.assertEqual(after, hashes, "source inputs changed during compilation/run")
+
 
 if __name__ == "__main__":
     unittest.main()

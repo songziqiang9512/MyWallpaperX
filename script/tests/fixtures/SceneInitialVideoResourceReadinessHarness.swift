@@ -37,11 +37,11 @@ final class SceneVideoTextureSource {
     enum Status { case unknown, ready, failed }
     struct Item { let status: Status }
     let item: Item?
-    let payloadPreparationFailed: Bool
+    let itemPreparationFailed: Bool
     let frame: Frame?
     private(set) var prepares = 0
     init(frame: Frame? = nil, status: Status? = nil, payloadFailed: Bool = false) {
-        self.frame = frame; item = status.map(Item.init); payloadPreparationFailed = payloadFailed
+        self.frame = frame; item = status.map(Item.init); itemPreparationFailed = payloadFailed
     }
     func prepareFrame(for timing: SceneFrameTiming) -> Frame? { prepares += 1; return frame }
 }

@@ -77,8 +77,8 @@
       "bytes": 5956
     },
     "docs/scene/architecture/scene-launch-responsiveness-contract.md": {
-      "lines": 258,
-      "bytes": 45184
+      "lines": 269,
+      "bytes": 47440
     },
     "docs/scene/architecture/scene-resource-admission.md": {
       "lines": 90,
@@ -118,7 +118,7 @@
     },
     "docs/scene/capabilities/direct-model-skeletal-animation.md": {
       "lines": 92,
-      "bytes": 20274
+      "bytes": 20551
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 277,
@@ -277,8 +277,8 @@
       "bytes": 22465
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 188,
-      "bytes": 43934
+      "lines": 187,
+      "bytes": 43482
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1543,15 +1543,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
-      "before": "d5c7881941947003560d2a23975491d1f8592029617796b932186f642af89eff",
-      "after": "58d7a94f40960a292d5fb8ab5b2d3f991c4e6acc9c2fc5e0ad61265c2964d405",
-      "owner": "Scene/Web validation simplification",
-      "reason": "P10–P17同次减工；同步Video按需子层、纯诊断IPC退出Release、真实迁移/双配置/工作量证据与后继队列，其他预算不变。",
-      "decision": "docs/development/validation-simplification-plan.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/direct-model-bind-geometry.md",
       "before": "9b894dddf16c6732ae49df705d966c3f02bb4f5b0d1807f31a2d168417b2e616",
       "after": "ac1e385b3d245cb629749bce96403b397882ae0b75be5abf384e50289ea60edc",
@@ -1903,15 +1894,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "f8736d2417b91687783901d86be1208c965d5c65baf7a96dfb41a00330e26b6f",
-      "after": "d18c98242acf93cd3f3f78c8fe21a9b93a5f71a064eaaaad94cb6ef49c4c28f2",
-      "owner": "scene-puppet-parameter-timelines",
-      "reason": "将已实施rate/blend设计收敛为合同/后验指针，保必要值源、零速/失败边界，并把未闭环/Rope/脚部和329诊断留在唯一队列。",
-      "decision": "docs/scene/history/puppet-animation-visibility-2026-10-07.md#puppet-parameter-timelines-20261031"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
       "before": "fe23e1626f137214dcd252278169536698f982b37fadc36bafdf1f16bbd9f7da",
       "after": "ea712886c13bd6591c5f15bfd23a617b3271f35a432fa41122047c3236e22331",
@@ -1922,11 +1904,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/direct-model-skeletal-animation.md",
-      "before": "37a5d7a32f23034f898df437d1a22421abb0b3b2e7954c1e9731cba56a667171",
-      "after": "b2d716e734b29227048e9660931302c502cd208b2a7ff49ac106f91a5182a0ac",
-      "owner": "scene-puppet-parameter-timelines",
-      "reason": "将已实施rate/blend设计收敛为合同/后验指针，保必要值源、零速/失败边界，并把未闭环/Rope/脚部和329诊断留在唯一队列。",
-      "decision": "docs/scene/history/puppet-animation-visibility-2026-10-07.md#puppet-parameter-timelines-20261031"
+      "before": "b2d716e734b29227048e9660931302c502cd208b2a7ff49ac106f91a5182a0ac",
+      "after": "8544ab44752b2d9851271d7ceed7291140fca4ccea77a33f71cc556c4979dad5",
+      "owner": "scene-reference-bind-equivalence",
+      "reason": "移出已复验的382足部错误，替换位级常量资格为原逐帧bind矩阵容差，保314环/动画余项；必要合同增量不复制历史原件。",
+      "decision": "docs/scene/history/puppet-additive-local-fallback-2026-10-29.md#reference-bind-equivalence-20261031"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
+      "before": "58d7a94f40960a292d5fb8ab5b2d3f991c4e6acc9c2fc5e0ad61265c2964d405",
+      "after": "d803fece05275ba8edc04c2af3f15f1762d233129f276b2b8475012bf232312c",
+      "owner": "scene-script-video-metadata",
+      "reason": "首次视频metadata单item准备合同替换未知时长压0链，PPT已闭移历史，并记录338已证颜色Timeline丢失；不复制测试/官方过程。",
+      "decision": "docs/scene/architecture/scene-launch-responsiveness-contract.md#script-video-metadata-readiness"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "5b3627d13dacbd0f3247dcace98d128bf6994945a3709920774214569ac028da",
+      "after": "5369bb0a248abce7ad0a3474f5611afe649075c04f8816673b943ac7436ac6bf",
+      "owner": "scene-script-video-metadata",
+      "reason": "首次视频metadata单item准备合同替换未知时长压0链，PPT已闭移历史，并记录338已证颜色Timeline丢失；不复制测试/官方过程。",
+      "decision": "docs/scene/architecture/scene-launch-responsiveness-contract.md#script-video-metadata-readiness"
     }
   ]
 }

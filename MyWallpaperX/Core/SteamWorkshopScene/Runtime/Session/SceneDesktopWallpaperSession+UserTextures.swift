@@ -200,21 +200,31 @@ extension SceneDesktopWallpaperSession {
         }
     }
 
-    func prepareInitialUserPropertyVideos() {
-        guard !drainStarted, let context = launchContext, let registry = videoTextureSourceRegistry,
-              !userPropertyTextureLoad.videoDeclarations.isEmpty else { return }
-        let declarations = userPropertyTextureLoad.videoDeclarations
+    func prepareInitialVideos() -> Bool {
+        guard !drainStarted, let context = launchContext,
+              let registry = videoTextureSourceRegistry else { return false }
+        let pendingMetadata = registry.pendingSceneScriptMetadataSources
+        let declarations = evaluationTransaction.committedSnapshot == nil
+            ? userPropertyTextureLoad.videoDeclarations : [:]
+        if pendingMetadata.isEmpty && declarations.isEmpty {
+            return releaseInitialVideoPreparation(context: context, registry: registry, candidates: [])
+        }
         let device = context.preparedDeviceResources.device
         let retirementDrain = retiringSurfaceDrain
         retirementDrain.enter()
-        initialUserVideoPreparation = Task { @MainActor [weak self] in
+        initialVideoPreparation = Task { @MainActor [weak self] in
             defer { retirementDrain.leave() }
+            for source in pendingMetadata {
+                guard !Task.isCancelled else { return }
+                _ = await source.preparePlaybackMetadata()
+            }
             var candidates: [SceneVideoTextureSourceRegistry.UserPropertyCandidate] = []
             for declaration in declarations.values {
                 guard !Task.isCancelled,
                       let candidate = registry.makeUserPropertyCandidate(declaration: declaration, device: device),
                       await candidate.source.primeInitialFrame(isCancelled: { Task.isCancelled }) else {
                     if !Task.isCancelled, let self, let screen = self.surfaces.keys.first {
+                        self.initialVideoPreparation = nil
                         self.onFirstFrameCompletion?(screen, false)
                     }
                     return
@@ -222,20 +232,43 @@ extension SceneDesktopWallpaperSession {
                 candidates.append(candidate)
             }
             guard !Task.isCancelled, let self, self.videoTextureSourceRegistry === registry,
-                  self.launchContext?.recordID == context.recordID,
-                  candidates.allSatisfy(registry.canAdoptUserPropertyCandidate) else { return }
-            let hostTime = CACurrentMediaTime()
-            let sceneTime = self.sceneClock.currentSceneTime(hostTime: hostTime)
-            for candidate in candidates {
-                guard registry.adoptUserPropertyCandidate(candidate, sceneTime: sceneTime,
-                    hostTime: hostTime, isPaused: self.sceneClock.isPaused) else {
-                    if let screen = self.surfaces.keys.first { self.onFirstFrameCompletion?(screen, false) }
-                    return
-                }
+                  self.launchContext?.recordID == context.recordID else { return }
+            if !self.releaseInitialVideoPreparation(context: context, registry: registry, candidates: candidates),
+               let screen = self.surfaces.keys.first {
+                self.initialVideoPreparation = nil
+                self.onFirstFrameCompletion?(screen, false)
             }
-            self.initialUserVideoPreparation = nil
-            self.publishUserPropertyTextureBindings(registry: registry, device: device)
-            self.startFrameDriver()
         }
+        return true
+    }
+
+    private func releaseInitialVideoPreparation(
+        context: SceneDesktopWallpaperLaunchContext,
+        registry: SceneVideoTextureSourceRegistry,
+        candidates: [SceneVideoTextureSourceRegistry.UserPropertyCandidate]
+    ) -> Bool {
+        registry.completeSceneScriptMetadataPreparation()
+        do {
+            try context.propertyVectorScriptProgram.domain?
+                .configurePreparedVideoSources(registry.preparedVideoSourceReferences)
+        } catch { return false }
+        guard candidates.allSatisfy(registry.canAdoptUserPropertyCandidate) else { return false }
+        let hostTime = CACurrentMediaTime()
+        if evaluationTransaction.committedSnapshot == nil {
+            let remainsPaused = sceneClock.isPaused
+            sceneClock.reset(hostTime: hostTime)
+            if remainsPaused { sceneClock.pause(hostTime: hostTime) }
+        }
+        let sceneTime = sceneClock.currentSceneTime(hostTime: hostTime)
+        for candidate in candidates {
+            guard registry.adoptUserPropertyCandidate(candidate, sceneTime: sceneTime,
+                hostTime: hostTime, isPaused: sceneClock.isPaused) else { return false }
+        }
+        initialVideoPreparation = nil
+        if !candidates.isEmpty {
+            publishUserPropertyTextureBindings(registry: registry, device: context.preparedDeviceResources.device)
+        }
+        startFrameDriver()
+        return true
     }
 }

@@ -21,7 +21,7 @@ StaticModelReader 保留 validated Rig，PreparedStaticModelResources 准备 imm
 
 record ordinal 是源引用身份，exported animation ID 是作者层选择身份，二者不混用。保留完整有序记录、raw mode/flags和 typed source-reference、frame range、control、root-selector；派生引用只能指向已读取、非派生的 source record，范围有界且长度等于已物化 TRS 的 frameCount。源 take 与派生 clip 可有相同 exported ID，不能 first/last-wins或按名称特判。存在派生记录时，作者选择集合只发布派生 clip，源记录仅供引用；派生之间仍要求 ID 唯一。无派生的旧完整动画集合保持原 ID 唯一合同。
 
-首片导入标记只接受已核结构的0/0x401，派生控制为0、root selector为-1；其他标记/控制/root处理未资格，不静默丢弃。派生描述位于 bounds/scalar 后、原 u32 事件列表前，不能改事件计数宽度。TRS已经物化为当前 clip 样本，source range不再次截帧或取源 take 的时间。原 Rig 无reference pose，default34各track为sampled；后继输入仍须执行原 referenceCandidate 的 constant/bind-equivalence 门。
+首片导入标记只接受已核结构的0/0x401，派生控制为0、root selector为-1；其他标记/控制/root处理未资格，不静默丢弃。派生描述位于 bounds/scalar 后、原 u32 事件列表前，不能改事件计数宽度。TRS已经物化为当前 clip 样本，source range不再次截帧或取源 take 的时间。原 Rig 无reference pose，default34各track为sampled；后继referenceCandidate逐帧复用已准备Pose的矩阵，与bind按现0.0001容差比较；不再要求原TRS位级常量。实际偏离、独立reference及原组合限制不变；绝对矩阵容差不证明任意极小尺度的方向等价。[382有界后验](../history/puppet-additive-local-fallback-2026-10-29.md#reference-bind-equivalence-20261031)。
 
 固定2.8.0.42客户端的有界静态研究确认：MDLA实例把自身mode交原播放初始化，空值与显式loop选择相同默认状态，未观察到源mode继承或0x401改mode。实现只对上述已资格23派生 profile 显式canonicalize empty→loop，并保raw mode；其他未知字符串继续拒绝。官方动态模式对照未资格，不能由该 canonicalization 外推官方时间或像素 golden。
 
@@ -31,7 +31,7 @@ record ordinal 是源引用身份，exported animation ID 是作者层选择身�
 
 ## 默认选择、时间与站位
 
-AnimationSelector 与 AnimationPlaybackRuntime 继续拥有 authored layers、顺序、additive/blend/rate及已支持的 visibility/property/script 选择；可动态显现的合法 binding 也须准备，不能以初始不可见排除。原329的8个条件动画现由成功Bool Program投影动态准备来源，实际全部准备；同session模式1→2→1已消费具体34→35→34并改变模型姿态，沿原clock与surface私有stream，不重建窗口。该条件对象增量限direct model；image对象条件未开放，旧String/image合同保持。不能把16条可寻址clips外推成全部已播放，实际后验见[条件热切换](runtime-evidence-current.md#conditional-model-animation-20261020)。原 Rig 无 reference pose；后继 referenceCandidate仍过constant/bind-equivalence门。play/pause/seek/setRate、事件、bone override与多surface顺序沿原链，不另算elapsed time。
+AnimationSelector 与 AnimationPlaybackRuntime 继续拥有 authored layers、顺序、additive/blend/rate及已支持的 visibility/property/script 选择；可动态显现的合法 binding 也须准备，不能以初始不可见排除。原329的8个条件动画现由成功Bool Program投影动态准备来源，实际全部准备；同session模式1→2→1已消费具体34→35→34并改变模型姿态，沿原clock与surface私有stream，不重建窗口。该条件对象增量限direct model；image对象条件未开放，旧String/image合同保持。不能把16条可寻址clips外推成全部已播放，实际后验见[条件热切换](runtime-evidence-current.md#conditional-model-animation-20261020)。原 Rig 无 reference pose；后继referenceCandidate沿上述逐帧bind-equivalence门。play/pause/seek/setRate、事件、bone override与多surface顺序沿原链，不另算elapsed time。
 
 原329的8个rate Number脚本现经原ScalarProgram/QuickJS、accepted typed snapshot进入共享PlaybackRuntime，默认34实际随音频输入改变推进速度；[运行后验](runtime-evidence-current.md#puppet-animation-rate-script-20261020)只关闭该值源，保留原graph、全部模式及完整官方时相边界。
 

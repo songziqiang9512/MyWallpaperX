@@ -625,11 +625,12 @@ nonisolated struct ScenePuppetAnimationEvaluator {
             let unwrapped = poses.compactMap { $0 }
             let reference = unwrapped[0]
             if animation.transformTrackStates[boneIndex] == .referenceCandidate {
-                let matrix = Self.matrix(from: track[0])
                 let bind = Self.matrix(fromColumnMajor: rig.bones[boneIndex].bindLocalMatrixColumnMajor)
                 guard rig.referenceLocalMatricesColumnMajor == nil,
-                      track.dropFirst().allSatisfy({ $0 == track[0] }),
-                      Self.isFinite(matrix), Self.maxDifference(matrix, bind) <= 0.0001 else {
+                      unwrapped.allSatisfy({ pose in
+                          let matrix = Self.matrix(from: pose)
+                          return Self.isFinite(matrix) && Self.maxDifference(matrix, bind) <= 0.0001
+                      }) else {
                     throw ScenePuppetAnimationEvaluationFailure.invalidReferenceTrack(boneIndex)
                 }
                 referenceBones.insert(boneIndex)

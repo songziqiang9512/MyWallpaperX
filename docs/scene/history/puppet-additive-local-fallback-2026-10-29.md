@@ -28,3 +28,15 @@
 ## 证据与产物
 
 本机正式包`.artifacts/scene-evidence/runs/puppet-additive-local-fallback-20261029/`分`before/current/control/official`保存必要原PNG、日志、输入/App/源码身份、测试原失败与补验、官方自有recipe及STOP。原件只读，未归档私有PKG/模型/纹理或App；全部按单包32MiB、普通14天、总5GiB规则。重复截图、隔离HOME/App、样本副本和重试构建输出在提取后清理；连续开发只保原`.build-cache/scene-gravity-20261028`一份缓存。
+
+
+<a id="reference-bind-equivalence-20261031"></a>
+## 382 根轨道的绑定等价性（2026-10-31）
+
+原382的28为image Puppet、MDLV0023/MDLA0006、clip42、rate0.7。61帧root TR恒定，scale在0.99999994/1/1.000000119间波动，矩阵最大差约1.788e-7；旧位级常量前置门误拒整个动画，静态bind使足部出现在头脸附近。沿原Evaluator准备期，复用每帧已转换的unwrapped Pose及原0.0001 bind矩阵容差，删除位级常量前置条件和重复Euler计算；产品+4/−3，无新state/owner/普通帧工作。运动超差、单位bind镜像、独立reference、未知scalar及原组合限制保持；不把绝对矩阵容差升级为任意极小尺度或方向的严格等价证明。
+
+真实Reader→Selector→Evaluator门RED6→GREEN，改名/等价表示、微抖与超差/镜像反例均经产品实现；最终14方法18.318秒通过。该CPU门不是完整Playback消费者证明。最终签名Debug构建41.429秒、优化DEBUG39.072秒，输入无漂移；Debug exe/dylib为`1a6b42a8…946b88`/`a9f81db5…3275c1`，运行优化DEBUG exe为`d3c79fb2…240db9`。
+
+最终原382运行7秒、after3秒：28由实际single-absolute clip42进入world geometry draw，GPU completed，足部随腿部位于下方，报告PASS。独立314原包同窗口保人物/背景与动画，仍仅报既有particle incomplete。更早raw-TRS候选32秒有386次不同geometry hash，跨约28.57秒周期，但属于旧源码SHA；不宣称最终全周期/官方同phase或完整382通过。两轮最终App exit0、gpuDrained；独立审查复核最终Pose复用与原图后GO，无性能比较。
+
+必要原before/final after/早期30秒PNG、独立314粗图及原SHA、日志、构建/测试/审查边界归本机`.artifacts/scene-evidence/runs/reference-bind-equivalence-20261031/metadata/samples/0/runtime_evidence.zip`（16,679,129B，66项，SHA`578cfc9bc5200d19fc701bdfd7b7933bde8e8f15ea39898060d141bc3b0cd8ab`）。未归档私有资产或App；原工作目录在验存后清理，仅留原共享增量构建缓存。

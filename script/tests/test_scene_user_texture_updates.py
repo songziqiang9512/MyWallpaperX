@@ -10,6 +10,7 @@ import subprocess
 import tempfile
 import time
 import unittest
+from script.tests.test_scene_initial_video_resource_readiness import declaration
 
 ROOT = Path(__file__).resolve().parents[2]
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
@@ -31,19 +32,25 @@ class SceneUserTextureUpdateTests(unittest.TestCase):
             SCENE / "Resources/Assets/SceneResourceIdentity.swift",
             SCENE / "Resources/Assets/SceneResourceView+Backing.swift",
             SCENE / "Systems/Properties/SceneUserPropertyTextureLoader.swift",
+            SCENE / "Systems/Properties/SceneEvaluationTransaction.swift",
             SCENE / "Runtime/Session/SceneDesktopWallpaperSession+UserTextures.swift",
             ROOT / "script/tests/fixtures/SceneUserTextureUpdateChecks.swift",
         ]
-        source_hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in sources}
+        clock_input = SCENE / "Runtime/Frame/SceneFrameContext.swift"
+        inputs = sources + [clock_input, Path(__file__), Path(declaration.__code__.co_filename)]
+        source_hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}
         receipt = {"module": __name__, "sourceSHA256Before": source_hashes,
                    "scope": "production Loader/Session/live-state; scripted file/Registry/Source/publication/Metal boundaries"}
         receipt_root = os.environ.get("MWX_SCENE_USER_TEXTURE_TEST_RECEIPT")
         with tempfile.TemporaryDirectory(prefix="mwx-user-texture-updates-") as directory:
             binary = Path(directory) / "checks"
+            clock = Path(directory) / "SceneClock.swift"
+            clock.write_text("import Foundation\n" + "\n".join(declaration(clock_input.read_text(), signature)
+                for signature in ("nonisolated struct SceneFrameTiming:", "nonisolated struct SceneClock {")))
             environment = os.environ.copy()
             environment["CLANG_MODULE_CACHE_PATH"] = str(Path(directory) / "clang-cache")
             compile_argv = ["swiftc", "-swift-version", "5", "-default-isolation", "MainActor",
-                *map(str, sources), "-module-cache-path", str(Path(directory) / "module-cache"), "-o", str(binary)]
+                *map(str, sources), str(clock), "-module-cache-path", str(Path(directory) / "module-cache"), "-o", str(binary)]
             started = time.monotonic()
             compile_result = subprocess.run(compile_argv, env=environment,
                 capture_output=True, text=True, timeout=120)
@@ -63,7 +70,7 @@ class SceneUserTextureUpdateTests(unittest.TestCase):
                 cls.checks = json.loads(completed.stdout)
                 receipt["checks"] = cls.checks
             finally:
-                after = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in sources}
+                after = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}
                 receipt["sourceSHA256After"] = after
                 receipt["sourceDrift"] = [path for path, sha in source_hashes.items() if after[path] != sha]
                 if receipt_root:

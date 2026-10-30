@@ -14,7 +14,7 @@ final class SceneVideoTextureSourceRegistry {
     }
     private struct RegisteredSource {
         let source: SceneVideoTextureSource
-        let observationIndex: Int?
+        var observationIndex: Int?
         var retainedForPreparedCatalog = false
         var consumerCount = 0
     }
@@ -431,6 +431,21 @@ final class SceneVideoTextureSourceRegistry {
     func pause(sceneTime: TimeInterval, hostTime: TimeInterval) {
         sources.values.forEach {
             $0.source.pause(sceneTime: sceneTime, hostTime: hostTime)
+        }
+    }
+
+    var pendingSceneScriptMetadataSources: [SceneVideoTextureSource] {
+        ordinarySources.compactMap { source in
+            source?.isPreparingItem == true ? source : nil
+        }
+    }
+
+    func completeSceneScriptMetadataPreparation() {
+        for (identity, entry) in sources {
+            guard let index = entry.observationIndex,
+                  !entry.source.hasPlaybackMetadata else { continue }
+            ordinarySources[index] = nil
+            sources[identity]?.observationIndex = nil
         }
     }
 
