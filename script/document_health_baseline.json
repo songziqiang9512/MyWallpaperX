@@ -118,7 +118,7 @@
     },
     "docs/scene/capabilities/direct-model-skeletal-animation.md": {
       "lines": 92,
-      "bytes": 20274
+      "bytes": 20551
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 277,
@@ -278,7 +278,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 188,
-      "bytes": 43934
+      "bytes": 43781
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1903,15 +1903,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "f8736d2417b91687783901d86be1208c965d5c65baf7a96dfb41a00330e26b6f",
-      "after": "d18c98242acf93cd3f3f78c8fe21a9b93a5f71a064eaaaad94cb6ef49c4c28f2",
-      "owner": "scene-puppet-parameter-timelines",
-      "reason": "将已实施rate/blend设计收敛为合同/后验指针，保必要值源、零速/失败边界，并把未闭环/Rope/脚部和329诊断留在唯一队列。",
-      "decision": "docs/scene/history/puppet-animation-visibility-2026-10-07.md#puppet-parameter-timelines-20261031"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
       "before": "fe23e1626f137214dcd252278169536698f982b37fadc36bafdf1f16bbd9f7da",
       "after": "ea712886c13bd6591c5f15bfd23a617b3271f35a432fa41122047c3236e22331",
@@ -1922,11 +1913,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/direct-model-skeletal-animation.md",
-      "before": "37a5d7a32f23034f898df437d1a22421abb0b3b2e7954c1e9731cba56a667171",
-      "after": "b2d716e734b29227048e9660931302c502cd208b2a7ff49ac106f91a5182a0ac",
-      "owner": "scene-puppet-parameter-timelines",
-      "reason": "将已实施rate/blend设计收敛为合同/后验指针，保必要值源、零速/失败边界，并把未闭环/Rope/脚部和329诊断留在唯一队列。",
-      "decision": "docs/scene/history/puppet-animation-visibility-2026-10-07.md#puppet-parameter-timelines-20261031"
+      "before": "b2d716e734b29227048e9660931302c502cd208b2a7ff49ac106f91a5182a0ac",
+      "after": "8544ab44752b2d9851271d7ceed7291140fca4ccea77a33f71cc556c4979dad5",
+      "owner": "scene-reference-bind-equivalence",
+      "reason": "移出已复验的382足部错误，替换位级常量资格为原逐帧bind矩阵容差，保314环/动画余项；必要合同增量不复制历史原件。",
+      "decision": "docs/scene/history/puppet-additive-local-fallback-2026-10-29.md#reference-bind-equivalence-20261031"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "d18c98242acf93cd3f3f78c8fe21a9b93a5f71a064eaaaad94cb6ef49c4c28f2",
+      "after": "5b3627d13dacbd0f3247dcace98d128bf6994945a3709920774214569ac028da",
+      "owner": "scene-reference-bind-equivalence",
+      "reason": "移出已复验的382足部错误，替换位级常量资格为原逐帧bind矩阵容差，保314环/动画余项；必要合同增量不复制历史原件。",
+      "decision": "docs/scene/history/puppet-additive-local-fallback-2026-10-29.md#reference-bind-equivalence-20261031"
     }
   ]
 }

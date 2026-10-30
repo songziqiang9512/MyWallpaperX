@@ -9,6 +9,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from script.scene_capability_census_io import PkgArchive
 from .test_scene_timeline_target_compiler import SWIFT_SOURCES as TIMELINE_SOURCES
 
 
@@ -37,9 +38,23 @@ PARAMETER_SOURCES = list(dict.fromkeys([
     SCENE_ROOT / "Systems/Properties/ScenePuppetAnimationPropertyTarget.swift",
     SCENE_ROOT / "Systems/Puppet/ScenePuppetAnimationPlaybackRuntime.swift",
     SCENE_ROOT / "Systems/Puppet/ScenePuppetAnimationControl.swift",
+    SCENE_ROOT / "Format/SceneMdlPuppetAnimationReader.swift",
 ]))
 PARAMETER_FIXTURE = Path(__file__).with_name("fixtures") / "ScenePuppetParameterTimelineChecks.swift"
+REFERENCE_FIXTURE = Path(__file__).with_name("fixtures") / "ScenePuppetReferenceEquivalenceChecks.swift"
 PARAMETER_CARRIERS = (Path(__file__).with_name("fixtures") / "SceneTimelineTargetCompilerHarness.swift").read_text().split("@main", 1)[0]
+
+def prepare_reference_asset(directory: Path) -> None:
+    """Read only the scene declaration and one MDL; real media stays untouched."""
+    package = Path.home() / "Movies/MyWallpaperX/创意工坊/Scene/3828342721/scene.pkg"
+    if not package.exists():
+        return
+    with PkgArchive(package) as archive:
+        for source, output in [("scene.json", "reference-real-scene.json"),
+                               ("models/222-4_puppet.mdl", "reference-real.mdl")]:
+            payload = archive.read_entry(source)
+            assert payload is not None, source
+            (directory / output).write_bytes(payload)
 
 HARNESS = r'''
 import Foundation
@@ -505,6 +520,7 @@ enum Harness {
                 && malformedNumbers.blendTime == nil
                 && malformedNumbers.rate == nil,
             "parameterTimelines": try ScenePuppetParameterTimelineChecks.run(),
+            "referenceEquivalence": try ScenePuppetReferenceEquivalenceChecks.run(),
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -520,12 +536,14 @@ class ScenePuppetPlaybackTests(unittest.TestCase):
             raise unittest.SkipTest("swiftc is unavailable")
         cls.temporary_directory = tempfile.TemporaryDirectory(prefix="mwx-puppet-playback-")
         directory = Path(cls.temporary_directory.name)
+        prepare_reference_asset(directory)
         harness = directory / "Harness.swift"
         harness.write_text(PARAMETER_CARRIERS + HARNESS, encoding="utf-8")
         binary = directory / "puppet-playback"
         compilation = subprocess.run(
             ["swiftc", "-module-cache-path", str(directory / "modules"),
-             *map(str, PARAMETER_SOURCES), str(PARAMETER_FIXTURE), str(harness), "-o", str(binary)],
+             *map(str, PARAMETER_SOURCES), str(PARAMETER_FIXTURE), str(REFERENCE_FIXTURE),
+             str(harness), "-o", str(binary)],
             capture_output=True,
             text=True,
         )
@@ -544,6 +562,21 @@ class ScenePuppetPlaybackTests(unittest.TestCase):
         for behavior, passed in self.result["parameterTimelines"].items():
             with self.subTest(behavior=behavior):
                 self.assertTrue(passed)
+
+    def test_reference_tracks_use_each_frame_matrix_bind_equivalence(self) -> None:
+        for behavior, passed in self.result["referenceEquivalence"]["selfContained"].items():
+            with self.subTest(behavior=behavior):
+                self.assertTrue(passed)
+
+    def test_real_reference_track_and_renamed_clip_prepare_animation_when_available(self) -> None:
+        result = self.result["referenceEquivalence"]["realSource"]
+        if not result["available"]:
+            self.skipTest("real Workshop reference asset is unavailable")
+        for row in result["variants"]:
+            with self.subTest(renamed=row["renamed"]):
+                self.assertTrue(row["prepared"], row["failure"])
+                self.assertTrue(row["animated"])
+                self.assertEqual(row["vertexCount"], result["vertices"])
 
     def test_strict_single_clip_selection(self) -> None:
         self.assertEqual(self.result["selection"], "selected:single-absolute:100")
