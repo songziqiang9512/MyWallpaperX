@@ -23,10 +23,21 @@ class ThumbnailDemandSchedulingTests(unittest.TestCase):
             deletion = "if detached { try? FileManager.default.removeItem(at: retired) }"
             self.assertEqual(cache.count(deletion), 1)
             cache = cache.replace(deletion, "if detached { ThumbnailClearObservation.remove(retired) }")
+            # Observe actual encoders and finish returns in this temporary copy;
+            # cancellation, image decoding and publication stay production code.
+            for encoding in ("jpeg", "png"):
+                marker = f"private static func {encoding}Data(_ image: NSImage) -> Data? {{"
+                self.assertEqual(cache.count(marker), 1)
+                cache = cache.replace(marker, marker +
+                    f'\n        ThumbnailEncodingObservation.encodings.record("{encoding}")')
+            finish = "cachesFailure: Bool = false) -> Bool {"
+            self.assertEqual(cache.count(finish), 1)
+            cache = cache.replace(finish, finish +
+                "\n        defer { ThumbnailEncodingObservation.finishes.record(key) }")
             cache_copy = work / "ThumbnailCache.swift"
             cache_copy.write_text(cache.replace("private let imageCache:", "let imageCache:", 1))
             sources[1] = cache_copy
-            build = subprocess.run(["xcrun", "swiftc", "-parse-as-library", "-D", "D17_SCHEDULING",
+            build = subprocess.run(["xcrun", "swiftc", "-warnings-as-errors", "-parse-as-library", "-D", "D17_SCHEDULING",
                                     *map(str, sources), "-module-cache-path", str(work / "modules"),
                                     "-o", str(work / "checks")], capture_output=True, text=True, timeout=120)
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)

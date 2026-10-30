@@ -187,8 +187,7 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
     ) {
         loadSynchronously(forKey: key, priority: priority, cancellation: cancellation,
             cachesFailure: cachesFailure, decoder: Self.decodeStoredImage, generate: {
-                let image = loader()
-                return (image, image.flatMap(Self.jpegData))
+                (loader(), nil)
             }, completion: completion)
     }
 
@@ -267,7 +266,7 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
                 guard isCurrent(request, key: .image(key)) else { return }
                 let (image, data) = generate()
                 finishImageRequest(request, key: key, outputURL: outputURL, image: image,
-                    encodedData: data, cachesFailure: cachesFailure)
+                    encodedData: data ?? image.flatMap(Self.jpegData), cachesFailure: cachesFailure)
             }
         }
     }
@@ -503,11 +502,11 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
     }
 
     @discardableResult
-    private func finishImageRequest(_ request: Request, key: String, outputURL: URL, image: NSImage?, encodedData: Data? = nil,
-                                    sourceData: Data? = nil, sourceDataURL: URL? = nil,
+    private func finishImageRequest(_ request: Request, key: String, outputURL: URL, image: NSImage?,
+                                    encodedData: @autoclosure () -> Data? = nil, sourceData: Data? = nil, sourceDataURL: URL? = nil,
                                     cachesFailure: Bool = false) -> Bool {
         guard isCurrent(request, key: .image(key)) else { return false }
-        let staged = stageEncodedData(encodedData)
+        let staged = stageEncodedData(encodedData())
         let rawStaged = stageEncodedData(sourceDataURL == nil ? nil : sourceData)
         defer {
             if let staged { try? FileManager.default.removeItem(at: staged) }

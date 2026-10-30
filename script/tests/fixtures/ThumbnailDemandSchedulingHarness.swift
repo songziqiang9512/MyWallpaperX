@@ -36,6 +36,11 @@ enum ThumbnailClearObservation {
     }
 }
 
+enum ThumbnailEncodingObservation {
+    static let encodings = DemandEvents(), finishes = DemandEvents()
+    static func count(_ format: String) -> Int { encodings.values.filter { $0 == format }.count }
+}
+
 private final class DemandImageGate: @unchecked Sendable {
     private let lock = NSLock()
     private var continuation: CheckedContinuation<NSImage?, Never>?
@@ -144,16 +149,21 @@ private final class DemandDataGate: @unchecked Sendable {
         checks["sharedSyncGeneratorStarted"] = pump { sharedGate.started }
         cache.load(forKey: "shared-sync", cancellation: second,
             loader: { preconditionFailure("shared key regenerated") }) { secondFinished = $0 != nil }
+        let sharedJPEGCount = ThumbnailEncodingObservation.count("jpeg")
         first.cancel(); sharedGate.release()
         checks["cancelOnePreservesOtherConsumer"] = pump { secondFinished } && !firstFinished
+        checks["remainingSyncConsumerStillEncodesJPEG"] = ThumbnailEncodingObservation.count("jpeg") == sharedJPEGCount + 1
         let lateGate = DemandBlockingGate(), lateToken = ThumbnailCacheRequestCancellation()
         var lateDelivered = false
         cache.load(forKey: "late-sync", cancellation: lateToken,
             loader: { lateGate.wait(); return image }) { _ in lateDelivered = true }
         checks["lateSyncGeneratorStarted"] = pump { lateGate.started }
+        let lateJPEGCount = ThumbnailEncodingObservation.count("jpeg")
         lateToken.cancel(); lateGate.release()
-        checks["lateSyncGeneratorReturns"] = pump { lateGate.finished }
-        RunLoop.main.run(until: Date().addingTimeInterval(0.04))
+        checks["lateSyncGeneratorReturns"] = pump {
+            lateGate.finished && ThumbnailEncodingObservation.finishes.values.contains("late-sync")
+        }
+        checks["cancelledRunningGeneratorSkipsJPEGEncoding"] = ThumbnailEncodingObservation.count("jpeg") == lateJPEGCount
         checks["cancelledRunningGeneratorCannotPublish"] = !lateDelivered && cache.cachedImage(forKey: "late-sync") == nil
         var replacement: NSImage?
         cache.load(forKey: "late-sync", loader: { image }) { replacement = $0 }
@@ -165,8 +175,43 @@ private final class DemandDataGate: @unchecked Sendable {
             loader: { pinnedGate.wait(); return image }) { _ in }
         checks["pinnedSyncGeneratorStarted"] = pump { pinnedGate.started }
         cache.load(forKey: "pinned-sync", loader: { nil }) { legacyDelivered = $0 != nil }
+        let pinnedJPEGCount = ThumbnailEncodingObservation.count("jpeg")
         pinnedToken.cancel(); pinnedGate.release()
         checks["legacyUncancellableLoadPinsGenerator"] = pump { legacyDelivered }
+        checks["pinnedSyncConsumerStillEncodesJPEG"] = ThumbnailEncodingObservation.count("jpeg") == pinnedJPEGCount + 1
+
+        for mode in ["cancelled", "peer", "pinned"] {
+            let key = "png-decoder-" + mode
+            let gate = DemandBlockingGate(), token = ThumbnailCacheRequestCancellation()
+            var originalDelivered = false, survivorImage: NSImage?
+            cache.loadImageDataAsync(forKey: key, sourceDataKey: key + "-source", loader: { bytes },
+                decoder: { data in gate.wait(); return NSImage(data: data) }, cancellation: token) { _ in originalDelivered = true }
+            checks[key + "Started"] = pump { gate.started }
+            let pngCount = ThumbnailEncodingObservation.count("png")
+            if mode == "peer" {
+                cache.loadImageDataAsync(forKey: key, loader: { nil }, cancellation: ThumbnailCacheRequestCancellation()) {
+                    survivorImage = $0
+                }
+            } else if mode == "pinned" {
+                cache.loadImageDataAsync(forKey: key, loader: { nil }) { survivorImage = $0 }
+            }
+            token.cancel(); gate.release()
+            checks[key + "Finished"] = pump {
+                ThumbnailEncodingObservation.finishes.values.contains(key) && (mode == "cancelled" || survivorImage != nil)
+            }
+            checks[key + "EncodingAndPublication"] = !originalDelivered && (mode == "cancelled"
+                ? ThumbnailEncodingObservation.count("png") == pngCount && cache.cachedImage(forKey: key) == nil
+                : ThumbnailEncodingObservation.count("png") == pngCount + 1 && cache.cachedImage(forKey: key) != nil)
+        }
+
+        let originalBytes = bytes + Data("original-encoded-suffix".utf8)
+        let originalJPEGCount = ThumbnailEncodingObservation.count("jpeg")
+        var originalImage: NSImage?, originalDisk: Data?, originalDiskFinished = false
+        cache.loadImageData(forKey: "original-encoded", loader: { originalBytes }) { originalImage = $0 }
+        checks["syncImageDataRetainsOriginalEncoding"] = pump { originalImage != nil }
+            && ThumbnailEncodingObservation.count("jpeg") == originalJPEGCount
+        cache.loadRawDataAsync(forKey: "original-encoded", loader: { nil }) { originalDisk = $0; originalDiskFinished = true }
+        checks["syncImageDataPreservesOriginalDiskBytes"] = pump { originalDiskFinished } && originalDisk == originalBytes
 
         for clear in [false, true] {
             let gate = DemandBlockingGate()
@@ -176,8 +221,10 @@ private final class DemandDataGate: @unchecked Sendable {
             let label = clear ? "clear" : "remove"
             checks[label + "SyncLoadStarted"] = pump { gate.started }
             if clear { isolated.clearAll() } else { isolated.remove(forKey: "invalidated") }
+            let jpegCount = ThumbnailEncodingObservation.count("jpeg")
             gate.release()
             checks[label + "PreservesExistingSyncConsumer"] = pump { delivered }
+            checks[label + "StillEncodesForExistingConsumer"] = ThumbnailEncodingObservation.count("jpeg") == jpegCount + 1
             checks[label + "SyncResultDoesNotRepopulateMemory"] = isolated.cachedImage(forKey: "invalidated") == nil
             var readFinished = false, disk: Data?
             isolated.loadRawDataAsync(forKey: "invalidated", loader: { nil }) { disk = $0; readFinished = true }

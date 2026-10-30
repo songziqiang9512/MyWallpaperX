@@ -22,6 +22,8 @@ R5（e00c83b9f起）：CellAdapter在原viewport source/seen分派内只求一�
 
 R6（52e38ec26起）：QuickJS原snapshot owner仅在native font有提交消费者时复制该字符串，image_font_script_state保留JS record.font，省去完整runtime-field更新里最终只释放的native font副本；不是每个getter/静态reuse/整帧统一省一次。保原text、输入/数值校验与commit/abort/rollback/finalize，无新状态/helper/ABI，产品净+1行。App仅配置期设cap且签名包含它；不为无现役App caller的裸C pending期间切cap增加防御层，帧间cap切换仍保留。三层实际copy helper6→5、重复image2→1，native text/无cap仍2；旧产品六组713检查仅8项新复制计数红，原行为保持，最终及ASan均713/713，最近snapshot atomicity1方法通过；ASan无内存访问错误，不作泄漏或OOM故障注入声明。78输入及3文件SHA无漂移，werror、Debug构建（5854输入，0error/0warning）与固定快照结构/质量门通过。planner通用C底座关联62模块，本次按实际font分支选原六组、ASan和atomicity，未把宽选择当必跑覆盖数或GPU声明。GPU只读10对本机单service键/类型一致，但首对67/0无法区分动态/刷新窗口，低频候选暂保留原整表；不新增fallback。后继再从实际消费者选链，不扩font字段mask或快照缓存，未测渲染/帧率/时耗。
 
+R7（b6d53be68起）：ThumbnailCache在原finish身份检查后才求值非逃逸encodedData；同步image生成只交image，原tuple的非nil Data仍优先，异步PNG表达式与raw/source字节不变。省去loader/decoder运行中最后consumer取消、请求已退役后的JPEG/PNG编码，不保证首guard之后取消也免编码。产品净-1行，无新状态/helper/owner/guard；peer/pinned、clear/remove仍交付且禁止回填、锁外编码、二次锁内身份核及队列slot保持。真实编码入口/finish返回探针仅在临时完整源副本，零计数等真实finish defer，去掉旧40ms等待；旧源108项只两项新取消编码反例红，最终108/108、相邻原字节/GIF/缓存返回46/46通过，均werror，6283导出输入与三源SHA无漂移。独立静审、隔离Debug（5854输入，0error/0warning）及固定快照质量/文档门通过；未测完整App、动画可见、耗时/能耗。静态图片桌面恢复与跨异步身份检查有真实消费者；SIL导入路径解析跨发布/弹窗重入，暂不合并。下一批核强制中断时无消费的暂停条件查询；不改低频GPU整表与Scene topology冷miss子层语义。
+
 “无调用”须排查 selector、协议回调、独立进程、作者脚本、动态资源及调试工具；测试、文档或结构登记出现名字不等于产品调用。第一批只删除已确认不可达的链路，不以行数作为收益或验收目标。
 
 ## 第一批设计与停止条件
