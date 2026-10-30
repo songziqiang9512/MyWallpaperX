@@ -212,3 +212,18 @@
 最终Debug30.612s、严格签名及5产品输入无漂移；主体36c6cb3b…a033/dylib f08f50b8…3e67。原356同PCM fixture、Ready后3秒/运行4秒，136/137→139和287/289→310四Program在frame0/1各material1、rejected0、GPU完成，pulse准确消费前effectOutput并被compositor消费；frame6四Program取得非零16-bin音频。亲看旧图、候选和目录官方图，底部金橙多线从缺失恢复；原前景/蝴蝶保持。独立3782614820同最终App短播PASS，人物构图保持。两例均exit0/未timeout、surface1→0、GPU drained；原356 strict仍FAIL，REFRACT/unsupportedRenderState等粒子诊断原样保留。
 
 本批只退出136/287生成→pulse→末合成首门，不认精确频谱幅度/色相、相位、官方整景parity、HDR/多屏、长稳或性能收益；完整FBO/variant组合本批证明到CPU准备，原图资源执行owner未改。独审实际看前后、官方及heldout并核GPU/合成/停止，支持上述有界结论。全样本历史raw/统计与人工verdict不改。有效证据归`.artifacts/scene-evidence/runs/source-independent-graph-20261030/`，旧基线精确引用前包SHA；保必要原PNG、真实prepared源码和失败，清本轮副本/HOME/重试，只留一份连续构建缓存。日常能力优先及候选失败回到根因/设计的顺序已同步路线与顶层设计，不能再把实验失败当作改做覆盖小项的默认理由。
+
+<a id="layer-mutation-owner-capacity-20261030"></a>
+## 多owner图层事务容量（2026-10-30）
+
+优先比较Combined、动态层与REFRACT后选本首断点：Combined已有group evaluator，但357七physical pass的逻辑control alias尚未资格；REFRACT颜色/normal目前共用UV，独立周期仍待证明，不猜算法。本批以真实3632522893的31.visibility为锚：init导出256 dirty DTO、update256，再加798/810/832的4条；原Swift全帧raw512在owner分组前把五个bundle全部拒绝。C不是重复导出；拒绝撤native newborn并清initialization_pending，JS bars[]仍持旧handle，后续owned-handle失败是连锁结果，不能复活或声称任意JS heap回滚。
+
+按[现役设计](../roadmap/batch2/script-component-api-design.md#layer-mutation-owner-capacity)复用原grouped owner与fixed-point，在coalescing前按每owner raw512接纳；超额只拒责任owner。独立atomic apply保raw512，private重复入口guard退出，产品+8/−15净−7行，未新增owner、状态或配额数字。明确退役跨所有owner的全帧总raw512上界；总分组/应用成本随真实owner数增长，C每callback DTO256、topology8192、live动态256与VM预算不冒等价Swift全帧内存/墙钟上界。未来API规划的256 owner/frame与128live旧表述不再覆盖现役图层合同。
+
+真实CPU原16矩阵RED96差异→最终5方法3.046s全绿，含换owner/target与owner顺序、raw512+peer4、raw513虽合并1仍局部拒、净零出生、public513整体拒、preflight未发布、原冲突/拓扑容量与peer保留。513夹具拆256+257只证明Swift admission，不作两个合法C callback证明。首GREEN夹具错误反转owner内部birth/destroy，8差异仅测试时序，已修为只调owner先后；产品两次运行相同，失败收据保留，不改旧断言洗绿。
+
+Debug基于de1d6dc99+唯一Runtime文件，30.314s/零漂移/签名0；App `f07a0cb7…b660a`、dylib `876077e1…057dd`。同原包/确定性PCM/4秒窗，budget及VM拒绝5→0；frame1/2实际255 source publications/encoded、passthrough0、topologyRevision1，cacheHit false→true，GPU completed，原先缺失的山后白频谱实图恢复。两run仍有765#effect#772的原CPU/local-passthrough失败，不认整样本完成。独立3577990983的after人物、烟花、日期与底栏可见；ready确实黑、3.14秒后恢复，strict另有non-black失败。无修前同条件357，不能断新增/既存回归，也不能把入场截图当正式效果或洗成全门PASS。三run均正常stop1→0、GPU排空、VM teardown failures/timers/jobs/dynamicLayers全0；原图/身份与日志经独立Max审查，产品边界独立静态GO。
+
+新工作负载未优化Debug CPU p50 9.642→19.537ms、driver59.09→28.90fps；修前没有255动态绘制，不作同工作收益/退化。额外关execution observer后19.536ms/31.97fps，成本仍在，不能全归诊断；这只是一次短窗、非Release/普通优化配置/稳态或能耗结论。首个no-observer+log-only命令被既有runner前置拒绝、未启动App，纠正参数后的实际run另保，不能计两轮测量；其缺观察器的strict缺项仍保。下一项先资格优化普通帧热点，见唯一性能卡。没有原生面板、官方同音源幅度、完整fade/长稳/多屏/HDR或全样本parity结论。
+
+本机正式包`.artifacts/scene-evidence/runs/layer-mutation-owner-capacity-20261030/metadata/samples/0/runtime_evidence.zip`为14,834,101B/80成员、SHA `d5f14931…7c0a55`，普通14天；保363修前/修后原PNG与357 ready黑原PNG、完整日志/红绿/错误夹具/构建身份。357 after保1280px sRGB JPEG及原23.67MiB 16bit PNG的SHA，只证粗构图、不供原像素/亮度/HDR golden；初包38.34MB超单包上限未归档，去此非目标原图后重提取，无拆包规避。本轮临时执行环境归档后清理，仍只留`.build-cache/scene-gravity-20261028`连续缓存。VM/官方主客户端保持运行，未为本批重启或发起新官方实验。

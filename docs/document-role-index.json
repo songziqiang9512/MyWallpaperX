@@ -1013,10 +1013,10 @@
       "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f8ce975ec224f6b6b58c12cf209049487969e5979e27cfa28189647fd48ae8c5",
+        "sourceSHA256": "2fe98f8c11fa2c1ad4687a8665e133be35b7ad02c3d6d0a18cbed0634fc91a8b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步named材质输入/current/live登记及358音条有界后验，退出已闭子断点；设计集中原D4。",
-        "limitations": "官方只资格固定Number反馈；未测官方热更时序、同窗音频关闭淡出、原生面板、整景/HDR/多屏或性能。"
+        "scope": "同步owner raw准入职责、363频谱恢复与未闭特效/短窗CPU成本；保357 ready黑资格与失败。",
+        "limitations": "不认整景或全部独立门PASS，不认JS heap回滚、优化配置/Release/稳态性能及官方同音源parity。"
       }
     },
     {
@@ -1136,13 +1136,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-29",
+      "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d531729003b9daf6aa884e54e812b5830af2e8d4115f5f52d02e766fc6e18a4a",
+        "sourceSHA256": "5202319c18881405af9ba39cca133d6d56d33de602e48c13a75a78975187ba8f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "动态逻辑身份/slot共同回收合同与实际限定后验同步；修正旧64动态上限文案，337普通播放首错与性能资格分界、保净零出生待验。",
-        "limitations": "导航收据不替代实际运行；原生C寿命与独立样本只按批次历史已验范围，动态视频/官方身份、HDR多屏及稳定整体性能仍未闭。"
+        "scope": "同步owner raw准入职责、363频谱恢复与未闭特效/短窗CPU成本；保357 ready黑资格与失败。",
+        "limitations": "不认整景或全部独立门PASS，不认JS heap回滚、优化配置/Release/稳态性能及官方同音源parity。"
       }
     },
     {
@@ -1547,7 +1547,15 @@
         "docs/scene/development/corpus-diagnostic-workflow.md",
         "docs/scene/roadmap/scene-open-breakpoint-queue.md",
         "docs/scene/capabilities/scene-sample-acceptance-ledger.md"
-      ]
+      ],
+      "lastReviewed": "2026-10-30",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "30676f4e3c42a26452c8493e5b870c2a2d12ea41ca92a56f6eada4771eb6497b",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "同步owner raw准入职责、363频谱恢复与未闭特效/短窗CPU成本；保357 ready黑资格与失败。",
+        "limitations": "不认整景或全部独立门PASS，不认JS heap回滚、优化配置/Release/稳态性能及官方同音源parity。"
+      }
     },
     {
       "path": "docs/scene/history/coverage-ledger-batches-through-2026-10-03.md",
@@ -4386,10 +4394,10 @@
       "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "67d7a25038394c5b74a454ce9a0a704c1702cb5cf745458669d59b44ec8f975b",
+        "sourceSHA256": "6059b32887706dcc61d89c3f3afed7894eecd2923d2771211d6a22a5241e1ea2",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步named材质输入/current/live登记及358音条有界后验，退出已闭子断点；设计集中原D4。",
-        "limitations": "官方只资格固定Number反馈；未测官方热更时序、同窗音频关闭淡出、原生面板、整景/HDR/多屏或性能。"
+        "scope": "同步owner raw准入职责、363频谱恢复与未闭特效/短窗CPU成本；保357 ready黑资格与失败。",
+        "limitations": "不认整景或全部独立门PASS，不认JS heap回滚、优化配置/Release/稳态性能及官方同音源parity。"
       }
     },
     {
@@ -4442,10 +4450,10 @@
       "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1e15569b629f4a14c68877cca8c32a05a7c17f4edc821dc812edea9fcb85a9d3",
+        "sourceSHA256": "c026b5713168e4024d6a45a8168ee8199b1d26f6b93da99e2d4320ec0ec4cff1",
         "method": "document_registry --audit + document_health --check",
-        "scope": "按当前未改Source和原包非目标退步撤回输出退休候选；开放问题仅归队列，实验原数/停止理由归既有视频历史，保留新的AV定位完成资格项。",
-        "limitations": "状态与引用复核；未接受新引擎修复或整体性能收益。原6方法仍有间歇pending失败，正式Release、长稳态与官方空窗/全样本未资格。"
+        "scope": "同步owner raw准入职责、363频谱恢复与未闭特效/短窗CPU成本；保357 ready黑资格与失败。",
+        "limitations": "不认整景或全部独立门PASS，不认JS heap回滚、优化配置/Release/稳态性能及官方同音源parity。"
       }
     },
     {
@@ -4484,10 +4492,10 @@
       "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ab97e1da3fb5be6df1a081a691c83e10b94d2fab87e9387d586cf3b7ed7de027",
+        "sourceSHA256": "9150cb06807011e005b0bf979e1b73e8255eefa2c3a046a94016db4839093186",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步named材质输入/current/live登记及358音条有界后验，退出已闭子断点；设计集中原D4。",
-        "limitations": "官方只资格固定Number反馈；未测官方热更时序、同窗音频关闭淡出、原生面板、整景/HDR/多屏或性能。"
+        "scope": "同步owner raw准入职责、363频谱恢复与未闭特效/短窗CPU成本；保357 ready黑资格与失败。",
+        "limitations": "不认整景或全部独立门PASS，不认JS heap回滚、优化配置/Release/稳态性能及官方同音源parity。"
       }
     },
     {

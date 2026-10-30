@@ -150,7 +150,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 221632
+      "bytes": 221843
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -182,7 +182,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 419,
-      "bytes": 117983
+      "bytes": 118271
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -250,7 +250,7 @@
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
       "lines": 600,
-      "bytes": 161857
+      "bytes": 162315
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 59,
@@ -265,8 +265,8 @@
       "bytes": 7605
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
-      "lines": 70,
-      "bytes": 19267
+      "lines": 71,
+      "bytes": 19851
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 45,
@@ -278,7 +278,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 182,
-      "bytes": 41137
+      "bytes": 41166
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1750,15 +1750,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "1380be8da4307adcdd0f5413f771fc69535bb59201f3160bda99c483bf0f3164",
-      "after": "fc3619cd282e37ae7ad8729aa6bd3b5e98b2cecfb3c80240e06001c1c72ec0d2",
-      "owner": "Scene authored sound reference",
-      "reason": "Replace creator ownership with the existing authored referent policy for prepared Sound only, preserve executing journals and other attached capability limits, and retain downstream mutation failures.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#authored-sound-reference"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
       "before": "cc78eea5c8d1ff1fb2db0bd69b7092bd6ebaeb0bdb85be122421f10a3c06a693",
       "after": "f97e81768664fa94d3693132b645ebb198167472787ca0ab1c41c5d2985c4841",
@@ -1807,15 +1798,6 @@
       "path": "docs/scene/capabilities/material-video-assets.md",
       "before": "f6e39762fbd800f923245998375c6a8975f87511bcd469263bfd81a9cb44459f",
       "after": "0789d819da8f87be4e9a8e3e34d2722cee5518de7485fde59d06b96c613bad27",
-      "owner": "Scene video runtime qualification",
-      "reason": "记录已撤输出退休原型的非目标退步，避免把手动消融或有限Metal下降当已修；队列仅保仍开放驻留及新AV完成边界，原数和过程集中到既有历史，不新增问题文档或产品关卡。",
-      "decision": "docs/scene/history/video-instance-observations-2026-10-29.md#video-output-residency-20261030"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "bb7499f0f414fa3b05d705addfd69bd0bb20fb28098f1c11b7b35d75b94dda7b",
-      "after": "83340cdfefb179f46859db7e0b9a1771758f86d98155c7274eea639447c79876",
       "owner": "Scene video runtime qualification",
       "reason": "记录已撤输出退休原型的非目标退步，避免把手动消融或有限Metal下降当已修；队列仅保仍开放驻留及新AV完成边界，原数和过程集中到既有历史，不新增问题文档或产品关卡。",
       "decision": "docs/scene/history/video-instance-observations-2026-10-29.md#video-output-residency-20261030"
@@ -1894,24 +1876,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "0e304115145f61b20ece89b65ca83e0f8d70409a5cea22485cce4d587461e522",
-      "after": "d7e641142b548d11820924ae5083905410b93542b471fb4403f53f78dec8cf3a",
-      "owner": "scene-engine-maintainer",
-      "reason": "补齐named值+独立配置的单VM链，设计合并原D4、退出358已闭子断点并保留资格边界；非新增第二状态台账。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#named-pass-script-inputs"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "1cb98fc15f08e8999a0bc8ae1e5d87fe8a392a0e89104dc9b57652b149a57401",
-      "after": "5ad2c86d8b62c909bb23591533ed349483b3b176422244a7322efe3fdb8797d7",
-      "owner": "scene-engine-maintainer",
-      "reason": "补齐named值+独立配置的单VM链，设计合并原D4、退出358已闭子断点并保留资格边界；非新增第二状态台账。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#named-pass-script-inputs"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
       "before": "0d994f05026d4a9eaba99be3666b07937e4839d9b5ffabf35ee5ee8547bdb6d3",
       "after": "3c119486d72251274af64492c37efce1f2f55dde15d0a4ea643364c811deaa69",
@@ -1921,12 +1885,48 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "b81626b5eec9cba38be1cc4851e7f0db484fc6742d7f0ebdb4130f3b8cfe8011",
-      "after": "e549c1d6518f0f4448b2c26d2deb907defe79729c8549c882b0db98e89fdc8a5",
+      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "before": "5ad2c86d8b62c909bb23591533ed349483b3b176422244a7322efe3fdb8797d7",
+      "after": "e33e9299b4d3596dc6d904ffe94eb4289f672ab1ebd3a3fcaba402563b8d577b",
       "owner": "scene-engine-maintainer",
-      "reason": "补齐named值+独立配置的单VM链，设计合并原D4、退出358已闭子断点并保留资格边界；非新增第二状态台账。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#named-pass-script-inputs"
+      "reason": "退役跨owner全帧固定容量混责、保每owner raw/原atomic预算并记录总工作增长取舍；363子门退出、成本归原性能卡，其他失败不销账。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#layer-mutation-owner-capacity"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "d7e641142b548d11820924ae5083905410b93542b471fb4403f53f78dec8cf3a",
+      "after": "9d7694d3d80ff3dfb60b674e30fa8dd6b6f56ab1d30f6a44bcafb3b38fdad89b",
+      "owner": "scene-engine-maintainer",
+      "reason": "退役跨owner全帧固定容量混责、保每owner raw/原atomic预算并记录总工作增长取舍；363子门退出、成本归原性能卡，其他失败不销账。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#layer-mutation-owner-capacity"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "83340cdfefb179f46859db7e0b9a1771758f86d98155c7274eea639447c79876",
+      "after": "ee125427bbfbea5eaa02e1f50b07dddfd4488083569bfe1da8e35eeef1652e84",
+      "owner": "scene-engine-maintainer",
+      "reason": "退役跨owner全帧固定容量混责、保每owner raw/原atomic预算并记录总工作增长取舍；363子门退出、成本归原性能卡，其他失败不销账。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#layer-mutation-owner-capacity"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "e549c1d6518f0f4448b2c26d2deb907defe79729c8549c882b0db98e89fdc8a5",
+      "after": "a2d5006182bdcd0ca6e5ef1c0eb9945f2287d38b0183c8910c66cac43e1e98f0",
+      "owner": "scene-engine-maintainer",
+      "reason": "退役跨owner全帧固定容量混责、保每owner raw/原atomic预算并记录总工作增长取舍；363子门退出、成本归原性能卡，其他失败不销账。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#layer-mutation-owner-capacity"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "fc3619cd282e37ae7ad8729aa6bd3b5e98b2cecfb3c80240e06001c1c72ec0d2",
+      "after": "c3974310b070d1148ad9c2d6dcabc7cfe511956dd391fcc9505c7a52226add02",
+      "owner": "scene-engine-maintainer",
+      "reason": "退役跨owner全帧固定容量混责、保每owner raw/原atomic预算并记录总工作增长取舍；363子门退出、成本归原性能卡，其他失败不销账。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#layer-mutation-owner-capacity"
     }
   ]
 }

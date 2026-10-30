@@ -35,6 +35,7 @@ CAMERA_PROFILE = SCENE_SCRIPT.parent / "Properties/SceneDefault2DCameraInputProf
 HARNESS = HARNESS.replace('let payload: [String: Any] = [', 'var payload: [String: Any] = [').replace(
     '        let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])',
     '        payload["ownerCallbacks"] = callbackCoalescing()\n'
+    '        payload["ownerCapacity"] = ownerCapacity()\n'
     '        let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])')
 HARNESS += r'''
 extension Harness {
@@ -128,6 +129,76 @@ extension Harness {
                 && retired.renderOrderLayerIDs == [10,20] && born.dynamicLayers.count == 2
                 && retired.topologyRevision > born.topologyRevision]
     }
+
+    static func ownerCapacity() -> [[String: Any]] {
+        var rows: [[String: Any]] = []
+        for (aID, peerID, field) in [(10, 20, SceneDynamicLayerField.origin), (73, 91, .angles)] {
+            let descriptor = SceneRenderDescriptor(layers: [aID, peerID].map {
+                .init(id: $0, visible: true, originXYZ: [0,0,0], scaleXYZ: [1,1,1], anglesXYZ: [0,0,0])
+            }, renderOrderLayerIDs: [aID, peerID])
+            let a = SceneDynamicTarget.layer(layerID: aID, field: field)
+            let peer = SceneDynamicTarget.layer(layerID: peerID, field: field)
+            let aValue = SceneDynamicTarget.layer(layerID: aID, field: .alpha)
+            let peerValue = SceneDynamicTarget.layer(layerID: peerID, field: .alpha)
+            for reversed in [false, true] {
+                for count in [512, 513] {
+                    for netZero in [false, true] {
+                        var callbacks = (0..<count).map { _ in
+                            mutation(netZero ? -aID : aID, dynamic: netZero, alpha: 0.3,
+                                fields: [.alpha], ownerTarget: a)
+                        }
+                        if netZero {
+                            callbacks[0] = mutation(-aID, fields: [.created], ownerTarget: a)
+                            callbacks[count - 1] = mutation(-aID, kind: .destroy, ownerTarget: a)
+                        }
+                        let peerCallbacks = (0..<4).map { _ in
+                            mutation(peerID, dynamic: false, alpha: 0.7, fields: [.alpha], ownerTarget: peer)
+                        }
+                        let split = count / 2
+                        var effects = [
+                            SceneScriptOwnerEffects(ownerTarget: a, layerMutations: Array(callbacks[..<split])),
+                            SceneScriptOwnerEffects(ownerTarget: peer, layerMutations: peerCallbacks),
+                            SceneScriptOwnerEffects(ownerTarget: a, layerMutations: Array(callbacks[split...]))]
+                        if reversed { effects = [effects[1], effects[0], effects[2]] }
+                        let runtime = SceneScriptDynamicLayerRuntime(descriptor: descriptor, authoredMutationLayerIDs: [])
+                        let admission = runtime.preflightOwnerEffects(effects)
+                        let before = runtime.snapshot()
+                        runtime.commit(admission.layerPlan)
+                        let after = runtime.snapshot()
+                        let raw = SceneScriptDynamicLayerRuntime(descriptor: descriptor, authoredMutationLayerIDs: [])
+                        let publicOverflow = (0..<513).map { _ in
+                            mutation(aID, dynamic: false, alpha: 0.9, fields: [.alpha], ownerTarget: a)
+                        }
+                        let publicResult = raw.apply(publicOverflow)
+                        let publicOverflowRejected: Bool
+                        if case .failure(.mutationOverflow) = publicResult { publicOverflowRejected = true }
+                        else { publicOverflowRejected = false }
+                        rows.append([
+                            "variant": "\(aID)-\(peerID)-\(field)", "reversed": reversed,
+                            "rawCount": count, "peerRawCount": peerCallbacks.count, "netZero": netZero,
+                            "coalescedCount": SceneScriptLayerMutation.coalescing(callbacks).count,
+                            "preflightReadOnly": before.authoredLayerValues.isEmpty && before.dynamicLayers.isEmpty
+                                && before.renderOrderLayerIDs == [aID, peerID],
+                            "admittedA": admission.admittedEffects.contains { $0.ownerTarget == a },
+                            "admittedPeer": admission.admittedEffects.contains { $0.ownerTarget == peer },
+                            "rejectedA": admission.rejectedOwners.contains { $0.ownerTarget == a },
+                            "rejectedPeer": admission.rejectedOwners.contains { $0.ownerTarget == peer },
+                            "aOverflow": admission.rejectedOwners.contains {
+                                guard $0.ownerTarget == a else { return false }
+                                if case .mutationOverflow = $0.failure { return true }; return false
+                            },
+                            "committedCount": admission.layerPlan.outcome.committedMutationCount,
+                            "aPublished": after.authoredLayerValues[aValue] == .scalar(0.3),
+                            "peerPublished": after.authoredLayerValues[peerValue] == .scalar(0.7),
+                            "dynamicCount": after.dynamicLayers.count,
+                            "birthMarkers": admission.layerPlan.createdDynamicLayerMutations.count,
+                            "publicRaw513Rejected": publicOverflowRejected && raw.snapshot().authoredLayerValues.isEmpty])
+                    }
+                }
+            }
+        }
+        return rows
+    }
 }
 '''
 
@@ -214,6 +285,27 @@ class SceneScriptDynamicLayerRuntimeTests(unittest.TestCase):
     def test_ordered_owner_callbacks_coalesce_before_conflict_admission(self) -> None:
         for behavior, passed in self.result["ownerCallbacks"].items():
             self.assertTrue(passed, behavior)
+
+    def test_owner_raw_capacity_is_local_before_callback_coalescing(self) -> None:
+        for row in self.result["ownerCapacity"]:
+            with self.subTest(variant=row["variant"], reversed=row["reversed"],
+                              raw_count=row["rawCount"], net_zero=row["netZero"]):
+                within_capacity = row["rawCount"] == 512
+                expected = {
+                    "peerRawCount": 4, "coalescedCount": 1, "preflightReadOnly": True,
+                    "admittedA": within_capacity, "admittedPeer": True,
+                    "rejectedA": not within_capacity, "rejectedPeer": False,
+                    "aOverflow": not within_capacity, "committedCount": 2 if within_capacity else 1,
+                    "aPublished": within_capacity and not row["netZero"], "peerPublished": True,
+                    "dynamicCount": 0, "birthMarkers": int(within_capacity and row["netZero"]),
+                    "publicRaw513Rejected": True,
+                }
+                for fact, value in expected.items():
+                    with self.subTest(fact=fact):
+                        self.assertEqual(row[fact], value)
+        for behavior, passed in self.result["ownerCallbacks"].items():
+            with self.subTest(existing_callback_behavior=behavior):
+                self.assertTrue(passed)
 
     def test_perspective_is_typed_atomic_and_rejects_missing_consumers_locally(self) -> None:
         for key in ("perspectivePreflightReadOnly", "perspectiveImageTextAccepted",

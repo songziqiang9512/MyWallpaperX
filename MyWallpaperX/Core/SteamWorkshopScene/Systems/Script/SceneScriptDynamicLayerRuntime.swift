@@ -139,6 +139,9 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
     func apply(
         _ mutations: [SceneScriptLayerMutation]
     ) -> Result<Void, SceneScriptScalarRuntimeFailure> {
+        guard mutations.count <= 512 else {
+            return .failure(.mutationOverflow("frame layer mutation budget exceeded"))
+        }
         let result = apply(mutations, publishingTopologyRevision: true)
         if case .success = result, mutations.contains(where: \.isDynamic) {
             dynamicLayerValueRevision &+= 1
@@ -156,9 +159,6 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         deferringFinalization: Bool = false,
         committedDestroyedAuthoredLayerIDs: Set<Int>? = nil
     ) -> Result<AppliedChanges, SceneScriptScalarRuntimeFailure> {
-        guard mutations.count <= 512 else {
-            return .failure(.mutationOverflow("frame layer mutation budget exceeded"))
-        }
         var candidateOrder = order
         var candidateLayers = dynamicLayersByID
         var candidateCreators = dynamicLayerCreatorTargetsByID
@@ -818,18 +818,6 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         _ mutations: [SceneScriptLayerMutation],
         topologyOwners: [SceneDynamicTarget: UInt64]
     ) -> SceneScriptLayerMutationApplyOutcome {
-        guard mutations.count <= 512 else {
-            return .init(
-                committedMutationCount: 0,
-                committedDynamicMutationCount: 0,
-                failures: [.init(
-                    ownerTarget: nil,
-                    failure: .mutationOverflow(
-                        "frame layer mutation budget exceeded"
-                    )
-                )]
-            )
-        }
         var ownerOrder: [SceneDynamicTarget?] = []
         var grouped: [SceneDynamicTarget?: [SceneScriptLayerMutation]] = [:]
         for mutation in mutations {
@@ -845,6 +833,11 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         let committedDestroyedIDs = destroyedAuthoredLayerIDs
         for owner in ownerOrder {
             guard let callbacks = grouped[owner] else { continue }
+            guard callbacks.count <= 512 else {
+                failures.append(.init(ownerTarget: owner,
+                    failure: .mutationOverflow("owner layer mutation budget exceeded")))
+                continue
+            }
             let batch = SceneScriptLayerMutation.coalescing(callbacks)
             let authoredValues = batch.flatMap {
                 Self.authoredValues($0, cameraOriginInputLayerID: cameraOriginInputLayerID)
