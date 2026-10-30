@@ -67,6 +67,7 @@ TASK_SNAPSHOT_PREVIEW_CHECKS = r'''
                 history("missing", item: "missing-history", owner: account),
                 history("foreign", item: "foreign-history", owner: "other-account"),
                 history("active", item: "browser-only", owner: account, outcome: .failed),
+                history("empty-active", item: "missing-preview", owner: account, outcome: .failed),
                 history("decomposed", item: decomposedID, owner: account),
                 history("composed", item: composedID, owner: account)]
             let previewSnapshot = taskCommands.snapshot()
@@ -93,6 +94,25 @@ TASK_SNAPSHOT_PREVIEW_CHECKS = r'''
                 && row(composedID, in: previewSnapshot.history)?.thumbnailKey == browserURL.absoluteString + ":17"
                 && row(composedID, in: previewSnapshot.history)?.actions == [.removeHistory, .retry]
             checks["task-snapshot-does-not-repeat-record-array-lookups"] = service.latestDownloadRecordCalls == 0
+            let browserRows = (previewSnapshot.active + previewSnapshot.history).filter { $0.id.reference == reference("browser-only") }
+            let missingRows = (previewSnapshot.active + previewSnapshot.history).filter { $0.id.reference == reference("missing-preview") }
+            checks["task-snapshot-reuses-successful-fallback-across-active-and-history"] = browserRows.count == 2
+                && browserRows.allSatisfy { $0.thumbnailKey == browserURL.absoluteString + ":17" }
+                && service.browserPreviewRequests.filter { $0 == reference("browser-only") }.count == 1
+            checks["task-snapshot-reuses-nil-fallback-across-active-and-history"] = missingRows.count == 2
+                && missingRows.allSatisfy { $0.thumbnailKey == nil }
+                && service.browserPreviewRequests.filter { $0 == reference("missing-preview") }.count == 1
+            service.browserPreviews[reference("browser-only")] = skippedURL
+            service.browserPreviews[reference("missing-preview")] = browserURL
+            service.browserPreviewRequests = []
+            let refreshedSnapshot = taskCommands.snapshot()
+            checks["next-task-snapshot-refreshes-successful-and-nil-fallback-results"] =
+                row("browser-only", in: refreshedSnapshot.active)?.thumbnailKey == skippedURL.absoluteString + ":17"
+                && row("browser-only", in: refreshedSnapshot.history)?.thumbnailKey == skippedURL.absoluteString + ":17"
+                && row("missing-preview", in: refreshedSnapshot.active)?.thumbnailKey == browserURL.absoluteString + ":17"
+                && row("missing-preview", in: refreshedSnapshot.history)?.thumbnailKey == browserURL.absoluteString + ":17"
+                && service.browserPreviewRequests.filter { $0 == reference("browser-only") }.count == 1
+                && service.browserPreviewRequests.filter { $0 == reference("missing-preview") }.count == 1
             service.latestDownloadRecordCalls = 0
             checks["real-record-accessor-keeps-byte-distinct-identities"] = service.latestDownloadRecord(for: composedID) == nil
                 && service.latestDownloadRecordCalls == 1

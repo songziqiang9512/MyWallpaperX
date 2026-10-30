@@ -14,6 +14,8 @@ R1（af44ce421起）：身份标志改用现有别名接口，省去全catalog/l
 
 R2（cdb8e3fc1起）：单provider可见时跳过另一整库filter；源文件删除预检每操作复用一个既有Resolver（受控3→1次），仍逐项try?，三个索引保持private，不扩大请求错误半径。Catalog91项、真实worker40项及负例、Commands200项、Query101项、受控unlink/替换/reset23项均通过；精确旧源分别4项遍历反例、1项构造反例失败。隔离及3dbda8498整合Debug均通过（5854输入无漂移，两次日志0error/0warning），独立复核与代码/断言/设计/文档/产物门通过。测试仅校正Unicode原始路径、真实事务receipt等待、忠实提取discardableResult；原焦点/提示/文件断言保留，受控20ms排队窗口验证等待修正，正式产品无注入。最终列表/删除结果、owner/path/可用性与跨await重置边界保持；全下载根拒绝批次接受0→1次局部构造，不添lazy状态。产品净+3行，未验证完整App视觉、真实账户或性能幅度。下一轮核同快照预览fallback复用和同token可见集合；随后核Video初载批量发布及Web冷分析FIFO搬移。
 
+R3（20d348aef起）：下载快照在原owner用一次调用期URL字典复用同reference的完整预览结果（含nil），省去active/history重复进入同步detail-cache读取；每次新快照与loadThumbnail仍读取当前值，同一同步快照统一首个结果。可见需求同token/local不变时直接返回，避免两次全consumer并集；新token同ref仍登记租约，最后释放/重开和generation/单worker原语义保留，不抑制viewport或预取。产品净+9行，无长期状态/owner；变化token多一次有界Set比较。当前原生111项、Catalog97项、真实worker40项及负例通过；旧源三个预览/两个union反例红，旧原生另两项取消最小化断言失败、原因未定，当前通过不等于修复该UI问题。隔离Debug通过（5854输入无漂移，0error/0warning），独立复核及代码/断言/设计/隔离文档/产物门通过；工作区全仓文档门被并行Scene文档正文/导航receipt暂未同步阻断，该WIP保留。测试只观测原真实方法，预览文件IO为受控叶，未测性能幅度或完整App；后继在原Video初载owner合并大小发布、以标准slice消费Web冷分析FIFO，暂缓书签binding跨API改造。
+
 “无调用”须排查 selector、协议回调、独立进程、作者脚本、动态资源及调试工具；测试、文档或结构登记出现名字不等于产品调用。第一批只删除已确认不可达的链路，不以行数作为收益或验收目标。
 
 ## 第一批设计与停止条件

@@ -80,6 +80,7 @@ import Foundation
     /// and closed pickers release their leases; ordinary queries never stat files.
     func setVisibleReferences(_ references: Set<WallpaperReference>, sourceToken: UUID) {
         let local = references.filter { $0.provider == .videoLibrary || $0.provider == .staticImageLibrary }
+        guard (visibleReferences[sourceToken] ?? []) != local else { return }
         let previous = Set(visibleReferences.values.flatMap { $0 })
         if local.isEmpty { visibleReferences.removeValue(forKey: sourceToken) }
         else { visibleReferences[sourceToken] = local }

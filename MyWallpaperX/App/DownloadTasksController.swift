@@ -80,6 +80,14 @@ import Combine
         let pixabayTasks = pixabay.downloadActivities, imageTasks = images.downloadActivities
         let steamRecords = Dictionary(steam.downloads.map { (WallpaperReference(provider: .steamWorkshop, sourceID: $0.id), $0) },
             uniquingKeysWith: { first, _ in first })
+        var steamPreviewURLs: [WallpaperReference: URL?] = [:]
+        func steamPreview(for reference: WallpaperReference) -> URL? {
+            if let cached = steamPreviewURLs[reference] { return cached }
+            let url = steamPreviewURL(id: reference.sourceID, publishedPreviewURL: steamRecords[reference]?.previewURL)
+            // Keep the first resolved result, including nil, for this snapshot.
+            steamPreviewURLs[reference] = .some(url)
+            return url
+        }
         let pixabayRecords = Dictionary(pixabay.downloadedContent.entries.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         let imageRecords = Dictionary(images.snapshot.records.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         var current = jobs.map { job -> DownloadTaskRow in
@@ -92,7 +100,7 @@ import Combine
                 else if job.state == .running { actions.insert(.pause) }
                 else if job.state == .queued { actions.insert(.promote) }
             }
-            let url = steamPreviewURL(id: job.workshopItemId, publishedPreviewURL: steamRecords[reference]?.previewURL)
+            let url = steamPreview(for: reference)
             let progressKey = SteamWorkshopDownloadTaskProjection.jobKey(for: job)
             return .init(id: .init(reference: reference,
                 attemptID: progressKey ?? "\(job.id)-0"), title: job.title, phase: phase,
@@ -124,7 +132,7 @@ import Combine
             return .init(id: .init(reference: reference,
                 attemptID: "\(summary.jobID)-\(summary.latestAttempt)"), title: summary.title, phase: phase,
                 statusText: summary.attempts.first?.failureMessage, recordedAt: summary.latestTerminalAt,
-                thumbnailKey: steamPreviewURL(id: summary.workshopItemID, publishedPreviewURL: steamRecords[reference]?.previewURL)
+                thumbnailKey: steamPreview(for: reference)
                     .map { $0.absoluteString + ":\(steam.previewReloadToken)" }, actions: actions)
         }
         terminal += (history?.entries ?? []).map { receipt in

@@ -16,6 +16,7 @@ import ImageIO
 @MainActor enum CatalogVisibleFilterProbe {
     static var videoVisits = 0
     static var imageVisits = 0
+    static var unionBuilds = 0
 }
 
 // Instrument only the original detached file worker. FileManager and both
@@ -283,6 +284,41 @@ extension SteamWorkshopDownloadRecord { var isSceneLaunchable: Bool { false } }
         controller.setVisibleReferences([video.providerReference], sourceToken: boundedToken)
         _ = await wait { CatalogFileProbe.shared.snapshot.active == 1 }
         let firstVideoVisits = CatalogVisibleFilterProbe.videoVisits
+        let stableGeneration = controller.visibleAvailabilityGeneration
+        let remote = WallpaperReference(provider: .steamWorkshop, sourceID: "remote-viewport")
+        CatalogVisibleFilterProbe.unionBuilds = 0
+        for _ in 0..<8 {
+            controller.setVisibleReferences([video.providerReference], sourceToken: boundedToken)
+            controller.setVisibleReferences([video.providerReference, remote], sourceToken: boundedToken)
+        }
+        checks["same-token-local-demand-and-remote-only-changes-skip-both-unions"] = CatalogVisibleFilterProbe.unionBuilds == 0
+            && controller.visibleAvailabilityGeneration == stableGeneration && controller.visibleAvailabilityTask?.isCancelled == false
+        let emptyToken = UUID()
+        CatalogVisibleFilterProbe.unionBuilds = 0
+        for _ in 0..<3 {
+            controller.setVisibleReferences([], sourceToken: emptyToken)
+            controller.setVisibleReferences([remote], sourceToken: emptyToken)
+        }
+        checks["repeated-empty-or-remote-only-token-skips-both-unions"] = CatalogVisibleFilterProbe.unionBuilds == 0
+            && controller.visibleReferences[emptyToken] == nil && controller.visibleAvailabilityGeneration == stableGeneration
+        let peerToken = UUID()
+        controller.setVisibleReferences([video.providerReference], sourceToken: peerToken)
+        checks["another-consumer-retains-the-same-reference-without-changing-generation"] =
+            controller.visibleReferences[peerToken] == [video.providerReference] && controller.visibleAvailabilityGeneration == stableGeneration
+        controller.setVisibleReferences([], sourceToken: boundedToken)
+        checks["releasing-one-same-reference-consumer-keeps-the-other-worker-lease"] =
+            controller.visibleReferences[boundedToken] == nil && controller.visibleReferences[peerToken] == [video.providerReference]
+            && controller.visibleAvailabilityGeneration == stableGeneration && controller.visibleAvailabilityTask?.isCancelled == false
+        controller.setVisibleReferences([video.providerReference], sourceToken: boundedToken)
+        controller.setVisibleReferences([], sourceToken: peerToken)
+        controller.setVisibleReferences([], sourceToken: boundedToken)
+        let releasedGeneration = controller.visibleAvailabilityGeneration
+        checks["last-consumer-release-retires-the-original-worker-generation"] = controller.visibleReferences.isEmpty
+            && releasedGeneration != stableGeneration && controller.visibleAvailabilityTask?.isCancelled == true
+        controller.setVisibleReferences([video.providerReference], sourceToken: boundedToken)
+        checks["same-reference-reopen-waits-for-the-retained-cancelled-worker"] =
+            controller.visibleReferences[boundedToken] == [video.providerReference] && controller.visibleAvailabilityGeneration != releasedGeneration
+            && controller.visibleAvailabilityTask?.isCancelled == true && CatalogFileProbe.shared.snapshot.total == 1
         var mainQueueResponded = false
         DispatchQueue.main.async { mainQueueResponded = true }
         _ = await wait { mainQueueResponded }

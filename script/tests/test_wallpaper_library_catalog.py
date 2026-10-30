@@ -20,6 +20,12 @@ class WallpaperLibraryCatalogTests(unittest.TestCase):
             marker = f"references.contains(.init(provider: .{provider}, sourceID: $0.id))"
             self.assertEqual(controller.count(marker), 1, marker)
             controller = controller.replace(marker, f"CatalogVisibleFilterProbe.{counter} += 1; return {marker}")
+        for marker in (
+            "        let previous = Set(visibleReferences.values.flatMap { $0 })",
+            "        guard previous != Set(visibleReferences.values.flatMap({ $0 })) else { return }",
+        ):
+            self.assertEqual(controller.count(marker), 1, marker)
+            controller = controller.replace(marker, "        CatalogVisibleFilterProbe.unionBuilds += 1\n" + marker)
         with tempfile.TemporaryDirectory(prefix="mwx-live-catalog-", dir="/private/tmp") as directory:
             work = Path(directory)
             (work / "Checks.swift").write_text(fixture)
