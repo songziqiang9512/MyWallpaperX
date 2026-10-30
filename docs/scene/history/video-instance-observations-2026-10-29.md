@@ -74,3 +74,10 @@
 基线App SHA `41ee7438a2c7d2f82b90a304571706f88186277c821a9ebdae067091cf3b5e00`，最后候选 `d05f051df5515deba89469b046867250a89236db9f5ec6bc6cae04a6ef74e197`；均由同一Release+diagnostic xcconfig构建，单独签名隔离运行。常规Release、30s预热/60s稳态、长期循环和官方画面未验，不授整样本PASS。必要原日志、弱引用/预算、输入身份、探针/候选差异、失败及独审按普通14天归 `.artifacts/scene-evidence/runs/video-output-residency-stop-20261030/`；未查看自动截图不作画面证据，78MB测试媒体、App/HOME/解码文件只作临时执行物。
 
 另在完全未修改的Source/原6方法基线中，discard-before/after两子场景同frameIndex重试2s仍无新候选；合并重复编译后另两处same-inflight6/paused-discard-after失败，失败场景随运行变化。原6次及新1次编译的实际probe SHA均`7f54dd78041400fde09fd543458104044dda79769d02f7b690d439990c2f620b`，输入/进程仍各自隔离、断言未变；总时长120.993→53.371s，仅认测试准备节省，不报原门全绿。失败均有目标pixel buffer、playerTime=6而定位pending；Source/AV完成与测试执行边界待资格，不归因于已撤退休原型或编译复用，不判真实样本卡帧/官方差异，不放宽2s预算或绕过定位资格。
+
+<a id="video-item-stop-boundary-20261030"></a>
+### 单源复合stop：未隔离item寿命
+
+后继仅用原337单源A、未改Source，真实3750×2250供帧215代，decoded display time为.16→3.9833秒。保同Source/player/output/cache/file与末张view，先同cache flush控制10秒，再原stop10秒；device allocated 713,031,680→34,406,400B、footprint 13,140,760→10,322,688B，Scene预算均33,930,304B，旧view中心GPU读回相同。source.item/currentItem已撤，old item/asset weak却仍活，因此本轮没有隔离其物理寿命；对象仍活也不等于资源泄漏。只认复合stop边界的观测，不归因decoder独占字节，不授Host/Registry恢复或产品性能收益，原12切换NO-GO不变。
+
+单次probe exit0/24.591秒，无重试；新供帧恢复门未实施，不能以旧view代替。必要原日志、harness、编译/输入身份、独审和STOP归本机`.artifacts/scene-evidence/runs/video-item-stop-boundary-20261030/probe/`（ZIP55,950B，普通14天）；未存MP4/binary/cache。确认PID退出/无句柄后，三个可重建目录已清，逻辑295,747,945B；不改原媒体、产品或预算。

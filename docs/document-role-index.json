@@ -4218,8 +4218,8 @@
       "path": "docs/scene/history/video-instance-observations-2026-10-29.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
-      "cutoffDate": "2026-10-29",
-      "uniqueValue": "固定官方视频实例观察与原生通用动态MP4、12组合热改、68张实际窗口衔接采样；分列AV池驻留与未覆盖边界。",
+      "cutoffDate": "2026-10-30",
+      "uniqueValue": "固定官方视频实例、原生通用切换及12组合热改；分列输出退休非目标回退与单源复合stop的寿命资格、未覆盖边界。",
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "docs/scene/capabilities/material-video-assets.md",
@@ -4469,10 +4469,10 @@
       "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b08134c579a67980d87b938cd5a5debb5ef7307b79992fe4239b6b96c5d4eded",
+        "sourceSHA256": "855d766081bc5142c83edfecedbca3616d3489637216618e94a23f2d4da8b580",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅同步原模型snapshot半球坐标职责、真实343宽夜区修复与剩余亮侧/Cloud边界；原红绿门、Debug、实景与独审身份归既有模型后验。",
-        "limitations": "未复验整篇旧能力；不授完整Chroma、全屏闪烁、collision、全样本或性能结论。"
+        "scope": "同步原模型宽夜区退出后的剩余队列，以及单源复合stop未隔离item寿命的明确边界；数值与实验只归已有历史。",
+        "limitations": "仅复核本轮状态/指针；视频未接受产品优化或恢复供帧，原12切换NO-GO保持，未复验全部样本。"
       }
     },
     {

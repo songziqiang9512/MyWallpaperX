@@ -278,7 +278,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 177,
-      "bytes": 38350
+      "bytes": 38437
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1841,11 +1841,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "dde651afbcb07e7c67957ae9b9688f87fc933fc722886e4083e4ddb66dac7160",
-      "after": "113ec28572dcab3dc5c788ead79dde32314fd57d2efd0ecbb5c144781788cb39",
-      "owner": "Scene video runtime qualification",
-      "reason": "记录已撤输出退休原型的非目标退步，避免把手动消融或有限Metal下降当已修；队列仅保仍开放驻留及新AV完成边界，原数和过程集中到既有历史，不新增问题文档或产品关卡。",
-      "decision": "docs/scene/history/video-instance-observations-2026-10-29.md#video-output-residency-20261030"
+      "before": "8d2913bc89a111eed8502dda867c85dac3b6eab2717c78014a109d5ee23ae5aa",
+      "after": "56fd5ec1ea657c9eeb3816244c694e2958fc62973404a0245b49f23514a8267d",
+      "owner": "scene-video-residency-research",
+      "reason": "唯一待修行同步已完成单源物理寿命实验的停止边界，防止重试同一未资格路径或误记性能收益；原数和过程归已有历史，不新增文档。",
+      "decision": "docs/scene/history/video-instance-observations-2026-10-29.md#video-item-stop-boundary-20261030"
     },
     {
       "section": "bodies",
