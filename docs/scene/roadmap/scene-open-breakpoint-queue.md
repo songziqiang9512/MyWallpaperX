@@ -87,7 +87,7 @@
 | 2982559622 · 首帧资源/alpha余项 | 103.alpha仍badReturn；初5帧视频pending记resourceSnapshotUnresolved、utility capture实1/计划3，需区分真实启动等待与观测期待。普通图片/最终合成其余分支及官方同状态未全验；素材视频控制不得从effect slot推layer handle。 |
 | 3034166869 /3223543799 · 完整性待对照 | 303活动Dot Matrix的float复合余数首门已移[历史](../history/corpus-log-audit-2026-10-29.md#float-compound-remainder-20261031)，其他effect/媒体分支尚未与官方同输入复核；322用户仅疑似，4秒结构PASS，常开音条与条件隐藏不能混作缺图。两者无目录官方图，需有可区分缺失再实施，不能为旧报告猜算法。 |
 | 3141464346 · 动画与音频环余项 | 剩余木偶错位须按官方同phase核；右下音频环与188/332 world-space Rope、shader链分别开放，已闭的rate/blend/零速首门归[后验](../history/puppet-animation-visibility-2026-10-07.md#puppet-parameter-timelines-20261031)，不作全动作通过。 |
-| 2957870426 /3383210272 · 光线色彩/样式 | 295中央竖光应白、338样式差异仍待同phase/音频核；两包宽束birth Color Random与colorn组合未有合格官方正控，不能改gain/乘法。338的369/391宽束、323/124细线另有已证缺口：3lane absolute colorn.animation被丢弃，prepared particleTimelines=[]，现Vec3 normalizedColor writer可承接；先补Timeline到真实出生消费者，不能外推现存粒子重着色。338四秒宽束人口0，不据非空音频或静态颜色改动宣称样式闭合；该缺口不解释295。 |
+| 2957870426 /3383210272 · 光线色彩/样式 | 295中央竖光应白、338样式差异仍待同phase/有效音频核；两包birth Color Random与colorn组合无合格官方正控，不能改gain/乘法。338四colorn Timeline丢失已归[受控后验](../history/named-timeline-interaction-2026-10-10.md#normalized-color-timeline-20261031)；原8秒四目标仍人口0，别的频谱/叶片不代其出生证据。先用有实际出生的同输入核样式，不延窗碰结果；该首门不解释295。 |
 | 3347416586 /3589819394 · 虹彩与文字放射 | 用户报334虹彩光缺失、358中文字放射变黑。334候选为常开compose484#492 Lens Flare Sun及末层opacity/blend，隐藏particle129不作缺光。358有英文Clock/Day/Date三条blur→godrays，中文ROI尚未对应，不能先归字体；核实际source/signal/RGBA与末合成。旧solid计数漏报不作视觉根因。 |
 | 3351179520 · 文字环位置/尺度与旋转漂移 | 8原图跨53.496秒未见明显整圈平移/半径跳变，但未得同帧slot1/MVP/g_Time，精确贴合仍partial。仅有新可区分几何/官方ROI才再开，不重复长窗、不强制三组TRS同速同心或用glyph框补偿。[资格](../capabilities/runtime-evidence-current.md#ring-motion-qualification-20261018) |
 

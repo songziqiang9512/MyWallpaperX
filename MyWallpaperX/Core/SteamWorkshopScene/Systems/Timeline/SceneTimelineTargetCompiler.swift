@@ -448,6 +448,7 @@ nonisolated enum SceneTimelineTargetCompiler {
         case .speed: (boundValue, field) = (override?.speed, .speed)
         case .count: (boundValue, field) = (override?.count, .count)
         case .brightness: (boundValue, field) = (override?.brightness, .brightness)
+        case .normalizedColor: (boundValue, field) = (override?.normalizedColor, .normalizedColor)
         case .position:
             guard let index = timeline.index else { return nil }
             boundValue = override?.controlPoints[index]
@@ -460,7 +461,7 @@ nonisolated enum SceneTimelineTargetCompiler {
         guard boundValue?.userPropertyKey == nil,
               boundValue?.hasScript == false else { return nil }
         switch timeline.field {
-        case .position, .angles:
+        case .position, .angles, .normalizedColor:
             guard case let .vector(values)? = boundValue?.value,
                   values.count == 3, values.allSatisfy({ $0.isFinite }) else { return nil }
             return (field, .vector3, .vector3(values[0], values[1], values[2]))

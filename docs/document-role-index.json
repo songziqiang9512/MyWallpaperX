@@ -954,13 +954,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-29",
+      "lastReviewed": "2026-10-31",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a1f5e83995ad6fd841df0ada1aa7ce7b4cece3fae437e5bb498a3c117f31c653",
+        "sourceSHA256": "6f22f1046952589311a3d3c1612be735b5cb35e1233b730936f42e50af69277e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅更新particle缺省mode关闭合同、真实静止烟团恢复与颜色余项；旧音频启用推断已撤回，其余正文只核导航。",
-        "limitations": "非零FFT幅度、烟团颜色/完整轨迹、显式音频child emitter、全部样本、HDR/多屏及性能未闭。"
+        "scope": "原粒子Vec3颜色Timeline接通，旧Bloom过程归档/D4已实施片退出；338及295剩余光线仍归唯一队列。",
+        "limitations": "受控出生/GPU不授真实338人口0时的光线恢复、官方phase或性能；源码+3不等于性能收益。"
       }
     },
     {
@@ -4396,10 +4396,10 @@
       "lastReviewed": "2026-10-31",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "8d0ab575fbd50f0f7930faccbe31b9c110ce55245f440acf8ef34ad4e49df453",
+        "sourceSHA256": "c23d9f65f967664ad5cddd8c854d14832a9fe25a6755adbbcf12ea9eb090adde",
         "method": "document_registry --audit + document_health --check",
-        "scope": "rate/blend已实施设计退出、稳定共享Playback合同及真实314后验分责；335、环/Rope和382脚部仍开放。",
-        "limitations": "只认image原包参数链；direct输出、完整329、官方parity及性能未由本片资格。"
+        "scope": "原粒子Vec3颜色Timeline接通，旧Bloom过程归档/D4已实施片退出；338及295剩余光线仍归唯一队列。",
+        "limitations": "受控出生/GPU不授真实338人口0时的光线恢复、官方phase或性能；源码+3不等于性能收益。"
       }
     },
     {
@@ -4494,10 +4494,10 @@
       "lastReviewed": "2026-10-31",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "370138cce4a91b3f7bca12537ffa6a9a160f37d8a3b3b69435880c7a8acdebe5",
+        "sourceSHA256": "ff555c5880a36b1181c89e22d9766fdaf4d34eb72cf69027693c16eb73fd2337",
         "method": "document_registry --audit + document_health --check",
-        "scope": "首次真实视频元数据与原Session准备/clock合同，335默认PPT首门移出、338颜色Timeline能力缺口保唯一队列。",
-        "limitations": "视频末段非正式风格截图；不授官方init时序、完整AppKit重建、所有选项/媒体或性能。"
+        "scope": "原粒子Vec3颜色Timeline接通，旧Bloom过程归档/D4已实施片退出；338及295剩余光线仍归唯一队列。",
+        "limitations": "受控出生/GPU不授真实338人口0时的光线恢复、官方phase或性能；源码+3不等于性能收益。"
       }
     },
     {

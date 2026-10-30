@@ -17,6 +17,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from . import test_scene_particle_simulator as particle_simulator
+from .test_scene_initial_video_resource_readiness import declaration
 from .fixtures.scene_timeline_combined_cases import accepted_combined_scenes, combined_scene, rejected_combined_scenes
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -69,16 +71,8 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineTargetCompiler+Camera.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineRuntime.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneEvaluationTransaction.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRemapValue.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleReduceMovement.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCollisionPlane.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePositionAroundControlPoint.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinition.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleInitializer.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleVortex.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser+Operator.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser+InstanceOverride.swift",
+    *particle_simulator.SWIFT_SOURCES,
+    SOURCE_ROOT / "Systems/Particles/SceneParticleInstanceOverride+Dynamic.swift",
 ]
 
 
@@ -537,14 +531,19 @@ class SceneTimelineTargetCompilerTests(unittest.TestCase):
         directory = Path(cls.temporary_directory.name)
         harness = directory / "Harness.swift"
         harness.write_text(HARNESS_SOURCE, encoding="utf-8")
+        clock_input = (SOURCE_ROOT / "Runtime/Frame/SceneFrameContext.swift").read_text()
+        clock = directory / "SceneClock.swift"
+        clock.write_text("import Foundation\n" + "\n".join(declaration(clock_input, signature)
+            for signature in ("nonisolated struct SceneFrameTiming:", "nonisolated struct SceneClock {")))
         scene = directory / "scene.json"
         scene.write_text(json.dumps(SCENE_FIXTURE), encoding="utf-8")
         binary = directory / "scene-timeline-target"
         compilation = subprocess.run(
             [
                 "swiftc", "-module-cache-path", str(directory / "module-cache"),
-                *(str(source) for source in SWIFT_SOURCES),
+                *(str(source) for source in dict.fromkeys(SWIFT_SOURCES)),
                 str(harness),
+                str(clock),
                 "-o",
                 str(binary),
             ],
@@ -948,6 +947,16 @@ class SceneTimelineTargetCompilerTests(unittest.TestCase):
             "layer 80 instanceoverride.controlpoint4: invalidAuthoredValue",
             self.result["diagnostics"],
         )
+
+    def test_particle_normalized_color_timeline_reaches_new_births_without_recoloring_old_population(self):
+        scene = Path(self.temporary_directory.name) / "scene.json"
+        completed = subprocess.run([str(self.binary), str(scene), "particle-color"],
+            check=True, capture_output=True, text=True)
+        result = json.loads(completed.stdout)
+        self.assertTrue(result["checks"], result)
+        for name, passed in result["checks"].items():
+            with self.subTest(case=name):
+                self.assertTrue(passed, result["observations"])
 
     def test_only_expected_targets_are_produced(self) -> None:
         self.assertEqual(

@@ -28,12 +28,12 @@ extension SceneDocumentLoader {
         }
         var animations: [SceneDocument.SceneParticleTimeline] = []
         var diagnostics: [String] = []
-        let scalarHosts: [(String, SceneDocument.SceneParticleTimeline.Field)] = [
+        let instanceHosts: [(String, SceneDocument.SceneParticleTimeline.Field)] = [
             ("alpha", .alpha), ("size", .size), ("lifetime", .lifetime),
             ("rate", .rate), ("speed", .speed), ("count", .count),
-            ("brightness", .brightness),
+            ("brightness", .brightness), ("colorn", .normalizedColor),
         ]
-        for (host, field) in scalarHosts {
+        for (host, field) in instanceHosts {
             let result = SceneTimelineAnimationParser.parse(host: root[host])
             if let animation = result.animation {
                 animations.append(.init(index: nil, field: field, animation: animation))

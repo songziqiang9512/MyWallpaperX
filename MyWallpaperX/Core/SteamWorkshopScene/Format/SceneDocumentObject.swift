@@ -245,6 +245,7 @@ nonisolated extension SceneDocument {
             case speed
             case count
             case brightness
+            case normalizedColor
             case position
             case angles
         }
@@ -262,6 +263,7 @@ nonisolated extension SceneDocument {
             case .speed: "speed"
             case .count: "count"
             case .brightness: "brightness"
+            case .normalizedColor: "colorn"
             case .position: "controlpoint\(index ?? -1)"
             case .angles: "controlpointangle\(index ?? -1)"
             }
