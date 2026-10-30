@@ -888,7 +888,7 @@ private struct RemovalFileResult {
             _ = await wait { commands.steam.requested == [steam.sourceID] }
             view.publish(.init(downloads: Array(rows.dropFirst()), revision: 101))
             commands.steam.finish([steam.sourceID: true])
-            _ = await wait { view.presentation.selectionState.references == [pixabay] && view.catalog.refreshes == 1 }
+            _ = await wait { view.presentation.selectionState.references == [pixabay] && view.catalog.refreshes == 1 && !view.edited.isEmpty }
             checks["mixed-delete-dispatches-to-original-source-owners"] = commands.steam.requested == [steam.sourceID]
                 && commands.pixabay.requested == [firstURL] && FileManager.default.fileExists(atPath: firstURL.path)
             checks["actual-mixed-delete-receipt-retains-failure-selection-mode-and-file"] = view.presentation.selectionState.references == [pixabay]

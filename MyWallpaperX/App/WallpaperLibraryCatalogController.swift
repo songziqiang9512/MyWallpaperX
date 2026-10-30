@@ -118,7 +118,8 @@ import Foundation
         let generation = visibleAvailabilityGeneration
         let references = Set(visibleReferences.values.flatMap { $0 })
         let videoRevision = revisions[.videoLibrary]
-        let videoValues = manager.wallpapers.filter { references.contains(.init(provider: .videoLibrary, sourceID: $0.id)) }
+        let videoValues = references.contains(where: { $0.provider == .videoLibrary })
+            ? manager.wallpapers.filter { references.contains(.init(provider: .videoLibrary, sourceID: $0.id)) } : []
         if !videoValues.isEmpty {
             let updates = await manager.libraryContentItems(from: videoValues, reusing: [], refreshAvailability: true)
             guard !Task.isCancelled, generation == visibleAvailabilityGeneration else { return }
@@ -126,7 +127,8 @@ import Foundation
             if revisions[.videoLibrary] == videoRevision { visibleLocalFactsRefreshed.send() }
         }
         let imageRevision = revisions[.staticImageLibrary]
-        let imageValues = images.wallpapers.filter { references.contains(.init(provider: .staticImageLibrary, sourceID: $0.id)) }
+        let imageValues = references.contains(where: { $0.provider == .staticImageLibrary })
+            ? images.wallpapers.filter { references.contains(.init(provider: .staticImageLibrary, sourceID: $0.id)) } : []
         if !imageValues.isEmpty {
             let updates = await images.libraryContentItems(from: imageValues, reusing: [], refreshAvailability: true)
             guard !Task.isCancelled, generation == visibleAvailabilityGeneration else { return }

@@ -16,6 +16,10 @@ ROOT = Path(__file__).resolve().parents[2]
 class WallpaperLibraryCatalogTests(unittest.TestCase):
     def test_live_sources_resource_revisions_update_failure_and_namespace(self):
         fixture, controller, paths, inputs = assemble_catalog_fixture()
+        for provider, counter in (("videoLibrary", "videoVisits"), ("staticImageLibrary", "imageVisits")):
+            marker = f"references.contains(.init(provider: .{provider}, sourceID: $0.id))"
+            self.assertEqual(controller.count(marker), 1, marker)
+            controller = controller.replace(marker, f"CatalogVisibleFilterProbe.{counter} += 1; return {marker}")
         with tempfile.TemporaryDirectory(prefix="mwx-live-catalog-", dir="/private/tmp") as directory:
             work = Path(directory)
             (work / "Checks.swift").write_text(fixture)

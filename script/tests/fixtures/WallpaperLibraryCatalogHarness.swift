@@ -13,6 +13,11 @@ import ImageIO
 // WEB_PROJECT_GENERAL
 // WEB_PROJECT
 
+@MainActor enum CatalogVisibleFilterProbe {
+    static var videoVisits = 0
+    static var imageVisits = 0
+}
+
 // Instrument only the original detached file worker. FileManager and both
 // production projection bodies still execute; a barrier models one slow stat.
 nonisolated final class CatalogFileProbe: @unchecked Sendable {
@@ -225,6 +230,10 @@ extension SteamWorkshopDownloadRecord { var isSceneLaunchable: Bool { false } }
         manager.wallpapers.append(VideoWallpaper(id: "offscreen", title: "offscreen", path: offscreen.path))
         _ = await wait { controller.catalog.videos.count == 2 }
         let videoToken = UUID(), imageToken = UUID()
+        CatalogVisibleFilterProbe.videoVisits = 0; CatalogVisibleFilterProbe.imageVisits = 0
+        var visiblePreviewRepairs = 0
+        let previewRepairs = controller.visibleLocalFactsRefreshed.sink { visiblePreviewRepairs += 1 }
+        defer { previewRepairs.cancel() }
         controller.setVisibleReferences([video.providerReference], sourceToken: videoToken)
         controller.setVisibleReferences([still.providerReference], sourceToken: imageToken)
         try FileManager.default.removeItem(at: sharedFile)
@@ -232,6 +241,8 @@ extension SteamWorkshopDownloadRecord { var isSceneLaunchable: Bool { false } }
         checks["visible-video-and-image-detect-external-delete-without-source-publication"] = await wait {
             controller.catalog.videos[0].publishedAvailability == .unavailable && controller.catalog.images[0].publishedAvailability == .unavailable
         }
+        checks["mixed-visible-scope-traverses-both-providers-and-repairs-video-previews"] =
+            CatalogVisibleFilterProbe.videoVisits > 0 && CatalogVisibleFilterProbe.imageVisits > 0 && visiblePreviewRepairs > 0
         checks["visible-check-does-not-probe-offscreen-resources-or-remove-source-models"] = controller.catalog.videos[1].publishedAvailability == .available
             && manager.wallpapers.count == 2 && images.wallpapers.count == 1
         try Data([3]).write(to: sharedFile)
@@ -244,13 +255,22 @@ extension SteamWorkshopDownloadRecord { var isSceneLaunchable: Bool { false } }
         try await Task.sleep(for: .milliseconds(2100))
         checks["hidden-or-closed-consumers-release-file-probe-demand"] = controller.visibleAvailabilityTask == nil
             && controller.catalog.videos[0].publishedAvailability == .available && controller.catalog.images[0].publishedAvailability == .available
+        CatalogVisibleFilterProbe.videoVisits = 0; CatalogVisibleFilterProbe.imageVisits = 0; visiblePreviewRepairs = 0
+        await controller.refreshVisibleAvailability()
+        checks["empty-visible-scope-skips-both-provider-arrays-and-preview-repair"] =
+            CatalogVisibleFilterProbe.videoVisits == 0 && CatalogVisibleFilterProbe.imageVisits == 0 && visiblePreviewRepairs == 0
         controller.setVisibleReferences([still.providerReference], sourceToken: imageToken)
         checks["one-consumer-scope-never-refreshes-another-provider"] = await wait { controller.catalog.images[0].publishedAvailability == .unavailable }
             && controller.catalog.videos[0].publishedAvailability == .available
+        checks["image-only-visible-scope-skips-video-array-and-preview-repair"] =
+            CatalogVisibleFilterProbe.videoVisits == 0 && CatalogVisibleFilterProbe.imageVisits > 0 && visiblePreviewRepairs == 0
+        CatalogVisibleFilterProbe.videoVisits = 0; CatalogVisibleFilterProbe.imageVisits = 0
         controller.setVisibleReferences([video.providerReference], sourceToken: videoToken)
         controller.setVisibleReferences([], sourceToken: imageToken)
         checks["releasing-one-viewport-does-not-cancel-another-consumer"] = await wait { controller.catalog.videos[0].publishedAvailability == .unavailable }
             && controller.visibleAvailabilityTask != nil
+        checks["video-only-visible-scope-skips-image-array-and-keeps-preview-repair"] =
+            CatalogVisibleFilterProbe.videoVisits > 0 && CatalogVisibleFilterProbe.imageVisits == 0 && visiblePreviewRepairs > 0
         controller.setVisibleReferences([], sourceToken: videoToken)
         try Data([4]).write(to: sharedFile)
         controller.refreshAvailability()
@@ -259,8 +279,10 @@ extension SteamWorkshopDownloadRecord { var isSceneLaunchable: Bool { false } }
         // must wait for its real completion, not merely cancel its parent Task.
         let held = CatalogFileProbe.shared.holdNext()
         let boundedToken = UUID()
+        CatalogVisibleFilterProbe.videoVisits = 0; CatalogVisibleFilterProbe.imageVisits = 0
         controller.setVisibleReferences([video.providerReference], sourceToken: boundedToken)
         _ = await wait { CatalogFileProbe.shared.snapshot.active == 1 }
+        let firstVideoVisits = CatalogVisibleFilterProbe.videoVisits
         var mainQueueResponded = false
         DispatchQueue.main.async { mainQueueResponded = true }
         _ = await wait { mainQueueResponded }
@@ -276,13 +298,18 @@ extension SteamWorkshopDownloadRecord { var isSceneLaunchable: Bool { false } }
         checks["slow-source-finishes-before-exactly-one-current-scope-catchup"] = await wait {
             CatalogFileProbe.shared.snapshot.active == 0 && CatalogFileProbe.shared.snapshot.total == 2
         }
+        checks["same-reference-reopen-rechecks-only-the-current-provider-array"] =
+            CatalogVisibleFilterProbe.videoVisits > firstVideoVisits && CatalogVisibleFilterProbe.imageVisits == 0
         checks["coalesced-catchup-keeps-single-flight-through-uninterruptible-worker"] = CatalogFileProbe.shared.snapshot.maximum == 1
         controller.setVisibleReferences([], sourceToken: boundedToken)
         _ = await wait { controller.visibleAvailabilityTask == nil }
         let beforeHidden = CatalogFileProbe.shared.snapshot.total
+        CatalogVisibleFilterProbe.videoVisits = 0; CatalogVisibleFilterProbe.imageVisits = 0
         try await Task.sleep(for: .milliseconds(50))
         checks["empty-scope-never-restarts-a-retired-slow-file-worker"] = CatalogFileProbe.shared.snapshot.total == beforeHidden
             && controller.visibleAvailabilityTask == nil
+        checks["closed-visible-scope-never-traverses-either-provider-array"] =
+            CatalogVisibleFilterProbe.videoVisits == 0 && CatalogVisibleFilterProbe.imageVisits == 0
         CatalogFileProbe.shared.stop()
 
         let projectionBarrier = CatalogFileProbe.shared.holdNext()

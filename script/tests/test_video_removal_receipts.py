@@ -32,7 +32,7 @@ class VideoRemovalReceiptsTests(unittest.TestCase):
         source = removal.read_text()
         methods = "\n".join(declaration(source, signature) for signature in (
             "    struct RemovalRecord", "    func enqueueDeletionTask(",
-            "    func removeDerivedAssets(", "    func purgeMissingIndexedWallpapersFromLibrary(", "    func applyLibraryRemoval(",
+            "    @discardableResult\n    func removeDerivedAssets(", "    func purgeMissingIndexedWallpapersFromLibrary(", "    func applyLibraryRemoval(",
             "    func clearCurrentWallpaperReference(", "    func stopCurrentPlayback(",
             "    func removalRecord(", "    private func removeFileIfExists(",
             "    func deleteSourceFiles(", "    func isLocalSourceFileInUse("))

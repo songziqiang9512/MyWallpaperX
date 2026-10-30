@@ -294,10 +294,10 @@ nonisolated enum WallpaperLibraryQuery {
         return references
     }
 
-    private struct Resolver {
-        let aliases: [WallpaperReference: WallpaperReference]
-        var items: [WallpaperReference: WallpaperContentItem] = [:]
-        var locators: [WallpaperReference: WallpaperLocator] = [:]
+    struct Resolver {
+        private let aliases: [WallpaperReference: WallpaperReference]
+        private var items: [WallpaperReference: WallpaperContentItem] = [:]
+        private var locators: [WallpaperReference: WallpaperLocator] = [:]
 
         init(aliases: [WallpaperReferenceAlias]) throws {
             self.aliases = try WallpaperLibraryQuery.aliasMap(aliases)

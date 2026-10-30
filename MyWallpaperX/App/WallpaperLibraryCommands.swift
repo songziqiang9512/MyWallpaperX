@@ -409,6 +409,7 @@ import Combine
     private func deleteSourceFiles(_ fixed: [WallpaperContentItem], epoch: UUID) async -> WallpaperSourceDeletionResult {
         var results: [WallpaperSourceDeletionResult.Item] = []
         var targets: [WallpaperContentItem] = []
+        let resolver = try? WallpaperLibraryQuery.Resolver(catalog: workspace.catalog.catalog, relationships: workspace.relationships)
         for item in fixed {
             let url = URL(fileURLWithPath: item.locator.path ?? "")
             if item.reference.provider == .videoLibrary || item.reference.provider == .staticImageLibrary {
@@ -423,7 +424,7 @@ import Combine
                     continue
                 }
             }
-            guard let current = try? workspace.content(for: item.reference), current.reference == item.reference,
+            guard let current = try? resolver?.resolve(item.reference), current.reference == item.reference,
                   current.providerReference == item.providerReference,
                   current.locator.path.map({ Data($0.utf8) }) == item.locator.path.map({ Data($0.utf8) }),
                   current.publishedAvailability == .available, item.locator.path?.isEmpty == false else {

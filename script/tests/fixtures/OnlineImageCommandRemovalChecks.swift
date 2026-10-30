@@ -145,6 +145,118 @@
         && controller.snapshot.recent.contains { $0.reference == imageRef }
         && RecentAlertProbe.alert?.message.contains("Manifest save failed after unlink") == true
     library.deletion = nil; library.snapshot = .init()
+    checks.merge(try await runSourceDeletionQueryChecks(root: root), uniquingKeysWith: { _, newer in newer })
+    return checks
+}
+
+@MainActor private func runSourceDeletionQueryChecks(root: URL) async throws -> [String: Bool] {
+    var checks: [String: Bool] = [:], suites: [(UserDefaults, String)] = []
+    defer { for (defaults, suite) in suites { defaults.removePersistentDomain(forName: suite) } }
+    func wait(_ condition: () -> Bool) async -> Bool {
+        let deadline = Date().addingTimeInterval(3)
+        while !condition(), Date() < deadline { try? await Task.sleep(for: .milliseconds(3)) }
+        return condition()
+    }
+    func row(_ reference: WallpaperReference, path: String, backing: WallpaperReference? = nil,
+             availability: WallpaperPublishedAvailability = .available) -> WallpaperContentItem {
+        .init(reference: reference, providerReference: backing ?? reference, locator: .init(path: path, mediaKind: .video),
+            title: reference.sourceID, kind: .video, publishedAvailability: availability, capabilities: [.play, .organize, .delete],
+            metadata: .init(), acquisition: .idle, update: .idle, aliases: [])
+    }
+    func fixture(_ name: String, fixed: [WallpaperContentItem], current: [WallpaperContentItem],
+                 aliases: [WallpaperReferenceAlias] = []) async throws -> (RemovalCommands, RemovalWorkspace, UserCollectionsController) {
+        let store = UserCollectionsStore(url: root.appendingPathComponent("preflight-\(name).sqlite3")), initial = try await store.snapshot()
+        let snapshot = UserCollectionsSnapshot(revision: initial.revision, resetEpoch: initial.resetEpoch, migrationManifestID: nil,
+            playlists: [], members: [], favorites: [], recent: [], aliases: aliases, locators: [])
+        let controller = UserCollectionsController(store: store, snapshot: snapshot)
+        let suite = "mwx.removal.preflight." + UUID().uuidString, defaults = UserDefaults(suiteName: suite)!
+        suites.append((defaults, suite))
+        let view = RemovalWorkspace(controller, .init(videos: current, revision: 1), defaults: defaults)
+        view.presentation.switchPage(.videos)
+        view.presentation.setSelection(Set(fixed.map(\.reference)), focused: fixed.first?.reference, isSelecting: true)
+        let commands = RemovalCommands(view)
+        commands.manager.wallpapers = current.filter { $0.providerReference.provider == .videoLibrary }
+            .map { .init(id: $0.providerReference.sourceID, path: $0.locator.path!) }
+        return (commands, view, controller)
+    }
+    func begin(_ commands: RemovalCommands, _ fixed: [WallpaperContentItem]) {
+        commands.remove(fixed); RecentAlertProbe.alert?.suppressionButton?.state = .on
+        RecentAlertProbe.finish(.alertFirstButtonReturn)
+    }
+    let refs = (0..<7).map { WallpaperReference(provider: .videoLibrary, sourceID: "preflight-\($0)") }
+    let rows = refs.map { row($0, path: root.appendingPathComponent($0.sourceID + ".mp4").path) }
+    let remote = WallpaperReference(provider: .steamWorkshop, sourceID: "preflight-remote")
+    let remoteRow = row(remote, path: root.appendingPathComponent("preflight-steam.mp4").path, backing: refs[2])
+    do {
+        let fixed = [rows[0], rows[1], remoteRow]
+        let (commands, view, controller) = try await fixture("batch", fixed: fixed, current: fixed)
+        WallpaperLibraryQuery.resolverInitializationCount = 0
+        begin(commands, fixed)
+        let started = await wait { commands.manager.requested.count == 2 }
+        checks["delete-preflight-builds-one-resolver-for-a-mixed-batch"] = started && WallpaperLibraryQuery.resolverInitializationCount == 1
+        commands.manager.finish(Set(refs.prefix(2).map(\.sourceID)))
+        let steamStarted = await wait { commands.steam.requested == [remote.sourceID] }
+        checks["delete-preflight-keeps-a-proven-remote-identity-with-its-original-owner"] = steamStarted
+            && commands.manager.requested == refs.prefix(2).map(\.sourceID) && commands.pixabay.requested.isEmpty
+        commands.steam.finish([remote.sourceID: true])
+        _ = await wait { !view.edited.isEmpty }
+        checks["delete-preflight-preserves-each-canonical-success-receipt"] = Set(controller.snapshot.excludedLibraryReferences.map(\.reference)) == Set(fixed.map(\.reference))
+    }
+    do {
+        let cycle = [WallpaperReferenceAlias(alias: refs[1], canonical: refs[2], proof: .publishedDownload),
+                     .init(alias: refs[2], canonical: refs[1], proof: .publishedDownload)]
+        let (commands, view, controller) = try await fixture("cycle", fixed: Array(rows.prefix(2)), current: [rows[0]], aliases: cycle)
+        begin(commands, Array(rows.prefix(2)))
+        let started = await wait { commands.manager.requested == [refs[0].sourceID] }
+        commands.manager.finish([refs[0].sourceID])
+        _ = await wait { !view.edited.isEmpty }
+        checks["delete-preflight-keeps-a-requested-cycle-failure-local"] = started
+            && controller.snapshot.excludedLibraryReferences.map(\.reference) == [refs[0]]
+            && RecentAlertProbe.alert?.message.contains("源文件不可用或条目已变化") == true
+    }
+    do {
+        let conflicts = [WallpaperReferenceAlias(alias: refs[2], canonical: refs[3], proof: .publishedDownload),
+                         .init(alias: refs[2], canonical: refs[4], proof: .publishedDownload)]
+        let (commands, view, controller) = try await fixture("init-failure", fixed: Array(rows.prefix(2)), current: Array(rows.prefix(2)), aliases: conflicts)
+        begin(commands, Array(rows.prefix(2)))
+        _ = await wait { !view.edited.isEmpty }
+        checks["delete-preflight-initialization-failure-keeps-all-source-owners-idle"] = commands.manager.requested.isEmpty
+            && commands.steam.requested.isEmpty && commands.pixabay.requested.isEmpty && controller.snapshot.excludedLibraryReferences.isEmpty
+            && RecentAlertProbe.alert?.message.components(separatedBy: "源文件不可用或条目已变化").count == 3
+    }
+    do {
+        let unicodePath = root.path + "/preflight-\u{e9}.mp4"
+        let owned = row(refs[5], path: "/controlled/steam/borrowed.mp4")
+        let fixed = Array(rows.prefix(4)) + [row(refs[4], path: unicodePath), owned]
+        let current = [rows[0], row(refs[1], path: rows[1].locator.path!, backing: refs[6]),
+            row(refs[2], path: rows[2].locator.path!, availability: .unavailable), rows[3],
+            row(refs[4], path: root.path + "/preflight-e\u{301}.mp4"), owned]
+        precondition(!unicodePath.utf8.elementsEqual(current[4].locator.path!.utf8))
+        let aliases = [WallpaperReferenceAlias(alias: refs[3], canonical: remote, proof: .publishedDownload)]
+        let (commands, view, controller) = try await fixture("changed", fixed: fixed, current: current, aliases: aliases)
+        begin(commands, fixed)
+        let started = await wait { commands.manager.requested == [refs[0].sourceID] }
+        commands.manager.finish([refs[0].sourceID])
+        _ = await wait { !view.edited.isEmpty }
+        checks["delete-preflight-rejects-only-changed-backing-availability-canonical-and-path-bytes"] = started
+            && controller.snapshot.excludedLibraryReferences.map(\.reference) == [refs[0]] && commands.steam.requested.isEmpty
+            && RecentAlertProbe.alert?.message.components(separatedBy: "源文件不可用或条目已变化").count == 5
+        checks["delete-preflight-retains-the-source-owned-root-rejection"] = RecentAlertProbe.alert?.message.contains("该文件由下载来源管理") == true
+    }
+    do {
+        let pixabay = row(.init(provider: .pixabay, sourceID: "preflight-reset"), path: root.appendingPathComponent("preflight-reset.mp4").path)
+        try Data([29]).write(to: URL(fileURLWithPath: pixabay.locator.path!))
+        let fixed = [rows[0], pixabay]
+        let (commands, view, controller) = try await fixture("reset", fixed: fixed, current: fixed)
+        begin(commands, fixed)
+        let started = await wait { commands.manager.requested == [refs[0].sourceID] }
+        try await controller.reset()
+        commands.manager.finish([refs[0].sourceID])
+        let refreshed = await wait { view.catalog.refreshes == 1 }
+        checks["delete-preflight-reset-during-source-await-revokes-later-owners-and-relationship-writes"] = started && refreshed
+            && commands.pixabay.requested.isEmpty && FileManager.default.fileExists(atPath: pixabay.locator.path!)
+            && controller.snapshot.excludedLibraryReferences.isEmpty && view.edited.isEmpty
+    }
     return checks
 }
 
