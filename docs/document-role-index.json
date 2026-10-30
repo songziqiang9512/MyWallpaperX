@@ -4469,10 +4469,10 @@
       "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "855d766081bc5142c83edfecedbca3616d3489637216618e94a23f2d4da8b580",
+        "sourceSHA256": "6e791cb4d8578de049e5789899aad9f7844915fd996835255352c00206720b3d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步原模型宽夜区退出后的剩余队列，以及单源复合stop未隔离item寿命的明确边界；数值与实验只归已有历史。",
-        "limitations": "仅复核本轮状态/指针；视频未接受产品优化或恢复供帧，原12切换NO-GO保持，未复验全部样本。"
+        "scope": "仅将Puppet辅助标量下一门接到固定客户端存储/所有权静态证据，保原未知动作和播放拒绝；其余行未重审。",
+        "limitations": "没有新增产品实现、App/VM/官方运行或画面一致性证据；标量最终消费者及深度/排序语义仍未知。"
       }
     },
     {

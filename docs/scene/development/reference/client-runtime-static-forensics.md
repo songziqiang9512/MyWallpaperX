@@ -521,6 +521,22 @@ getter 都禁止 global phase，并读取调用时 host state；`CursorEvent` �
 
 这些都是中性生命周期和顺序合同，不证明 MyWallpaperX 已有相应 VM/handle，也不证明动画混合、视频像素、粒子轨迹或 material function 的视觉等价。
 
+<a id="mdla6-post-bounds-scalar"></a>
+#### 6.6.1 MDLA6 post-bounds 标量：存储已证，消费未知
+
+固定 §2 同哈希的 Wallpaper Engine 2.8.42 `wallpaper64.exe`，2026-10-30 用 DSH 0.2.1-rc.3 / REA 6.8.0 / Ghidra 12.1.2 做有界静态复核。这里只决定下一研究入口，不提升播放能力；未运行官方客户端，画面一致性为 `not-run`。
+
+| 已证事实 | 对开发的含义 / 未证边界 |
+|---|---|
+| 现代动画加载器读取 bounds 后的可选逐骨标量数组，并将其所有权转交给模型拥有的动画记录；另查记录移动路径复核了这一步 | 不能把它当成只需跳过的 padding，也不能由“成功解码”推成可播放；它离开加载临时对象后仍有明确存储归属 |
+| 本次未定位最终读取者 | 不等于官方忽略它；骨骼 TRS/顶点深度、绘制排序和其他状态仍未区分，单位、插值与混合也未知 |
+
+当前项目的 `SceneMdlPuppetAnimationReader` 只识别 framing/presence，播放资格由 `ScenePuppetAnimationSelection` / `ScenePuppetAnimationEvaluator` 拒绝未消费通道。3822822401 的235动作及相邻未知 profile 不能据这份存储证据放行；恒4700也不证明深度或排序。这里不授权新增假 metadata、归一化、丢弃曲线或替换动作。
+
+**下次直接从动画记录到消费者继续**：先证明读取来自同一已保存通道，再追到姿态/几何或排序/提交的实际输入。无需重做“有没有该字段、能否读完、是否保存”的调查。若静态消费仍不能区分，使用保持 TRS 不变、只改变单骨标量的自有正反例，分别观察几何位置与重叠顺序；官方同输入结果及混合语义另验，不从值域或公开功能名称猜实现。
+
+本机原始证据位于仓库外 `~/.codex/research/mdla6-scalar-consumer-20261030/`；`research/verification.md`（SHA-256 `ffed8759f810bbe3ab4ebdb015816ea04e8e3dc1aa472d9bbf666fb81d0fbc5f`）更正原报告的相邻字段清理位置并复核所有权，冲突处以更正为准；`research/events.jsonl` 与追问事件保留实际工具返回。原始地址、偏移、伪代码与工具工程不入库。证据缺失时按 §2 原件身份与研究问题重建，不能把路径存在当成运行验证。
+
 ### 6.7 仍需动态或自有 fixture 的部分
 
 静态路径不能无歧义确认：
