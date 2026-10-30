@@ -27,6 +27,81 @@ extension WallpaperLibraryWorkspace {
     }
 }
 
+// Selection admission is a recording boundary here; the native grid's own
+// selection/gesture implementation is covered by test_wallpaper_library_grid.
+private final class InspectorCardSelectionLeaf {
+    var acceptsSelection = true
+    var onSelection: ((Set<WallpaperReference>, WallpaperReference?) -> Void)?
+    func select(_ references: Set<WallpaperReference>, focus: WallpaperReference?) -> Bool {
+        guard acceptsSelection else { return false }
+        onSelection?(references, focus)
+        return true
+    }
+}
+
+private final class InspectorCardRouteProbe {
+    let grid = InspectorCardSelectionLeaf()
+    let inspector: WallpaperLibraryInspectorCoordinator
+    let workspace: WallpaperLibraryWorkspace
+    lazy var onInspect: (WallpaperContentItem) -> Void = // ACTUAL_CARD_INSPECT_CALLBACK
+    init(workspace: WallpaperLibraryWorkspace, inspector: WallpaperLibraryInspectorCoordinator) {
+        self.workspace = workspace; self.inspector = inspector
+        grid.onSelection = { [weak workspace] references, focus in
+            guard let workspace else { return }
+            var state = workspace.presentation.state
+            state.selectionState = .init(references: references, focusedReference: focus)
+            workspace.presentation.publish(state)
+        }
+    }
+    func synchronizeSelectedContent() {
+        let state = workspace.presentation.state
+        // ACTUAL_CARD_INSPECT_SELECTION_SYNC
+    }
+}
+
+@MainActor private func inspectorCardRouteChecks() async -> [String: Bool] {
+    let workspace = WallpaperLibraryWorkspace(), steam = SteamWorkshopService()
+    func content(_ id: String, title: String) -> WallpaperContentItem {
+        let ref = WallpaperReference(provider: .steamWorkshop, sourceID: id)
+        return .init(reference: ref, providerReference: ref, locator: .init(titleHint: title, mediaKind: .video),
+            title: title, kind: .video, publishedAvailability: .available, capabilities: [.inspect, .play],
+            metadata: .init(), acquisition: .idle, update: .idle, aliases: [])
+    }
+    let first = content("card-one", title: "First"), second = content("card-two", title: "Second")
+    steam.downloads = [.init(id: "card-one"), .init(id: "card-two")]
+    workspace.catalog.catalog.downloads = [first, second]
+    workspace.publishPresentation()
+    let coordinator = WallpaperLibraryInspectorCoordinator(workspace: workspace, manager: WallpaperManager(),
+        images: SILService(), steam: steam, pixabay: PixabayService(), makePrimaryAction: { _ in {} },
+        makeFavoriteAction: { _ in nil }, canOrganize: { true },
+        availabilityChanges: Empty<Void, Never>().eraseToAnyPublisher(), onChoosePlaylist: { _, _ in })
+    let route = InspectorCardRouteProbe(workspace: workspace, inspector: coordinator)
+    route.onInspect(first); await WallpaperLibraryInspectorHarness.pump()
+    let firstToken = coordinator.inspectorToken
+    workspace.catalog.catalog.downloads[0] = content("card-one", title: "First, details completed")
+    workspace.catalog.catalog.revision += 1
+    workspace.publishPresentation(); route.synchronizeSelectedContent(); await WallpaperLibraryInspectorHarness.pump()
+    var checks = ["first-card-details-completion-keeps-panel-open-with-its-original-token":
+        coordinator.inspectedReference == first.reference && coordinator.inspectorToken == firstToken && firstToken != nil]
+    _ = route.grid.select([first.reference], focus: first.reference)
+    route.onInspect(second); await WallpaperLibraryInspectorHarness.pump()
+    let secondToken = coordinator.inspectorToken
+    route.synchronizeSelectedContent(); await WallpaperLibraryInspectorHarness.pump()
+    checks["explicit-card-details-replaces-prior-selection-before-render-echo"] =
+        coordinator.inspectedReference == second.reference && coordinator.inspectorToken == secondToken
+    route.grid.acceptsSelection = false
+    route.onInspect(first); await WallpaperLibraryInspectorHarness.pump()
+    checks["rejected-grid-input-cannot-open-another-cards-details"] = coordinator.inspectorToken == secondToken
+    route.grid.acceptsSelection = true
+    route.onInspect(first); route.onInspect(second)
+    workspace.publishPresentation(); route.synchronizeSelectedContent(); await WallpaperLibraryInspectorHarness.pump()
+    checks["rapid-card-details-and-late-catalog-echo-keep-last-accepted-target"] = coordinator.inspectedReference == second.reference
+    coordinator.closeInspector()
+    workspace.publishPresentation(); route.synchronizeSelectedContent(); await WallpaperLibraryInspectorHarness.pump()
+    checks["catalog-echo-after-user-close-does-not-reopen-inspector"] = coordinator.inspectedReference == nil
+    return checks
+}
+
 @MainActor func inspectorPresentationRefreshChecks() async throws -> [String: Bool] {
     let workspace = WallpaperLibraryWorkspace(), manager = WallpaperManager()
     let reference = WallpaperReference(provider: .videoLibrary, sourceID: "refresh-input")
@@ -139,5 +214,6 @@ extension WallpaperLibraryWorkspace {
         && onlineCoordinator.inspectorToken == onlineToken && probe.mounts.count == mounts
         && workspace.presentation.publications == unchangedPresentation
     onlineCoordinator.closeInspector()
+    checks.merge(await inspectorCardRouteChecks(), uniquingKeysWith: { _, new in new })
     return checks
 }

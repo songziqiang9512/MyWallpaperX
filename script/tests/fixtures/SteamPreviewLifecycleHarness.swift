@@ -293,6 +293,32 @@ import ImageIO
         actionCard.prepareForReuse(); heldLocalPlay?(); heldLocalInspect?()
         checks["steamReuseRejectsRetainedBothBarActions"] = downloads == ["B", "B echo", "B local"]
             && openings == downloads && cancellations == ["B pending"]
+        let readyCard = AppKitSteamWorkshopBrowserItem(); _ = readyCard.view
+        var applied = 0, stopped = 0, obsoletePrimary = 0
+        readyCard.configureMetadataOnly(displayContext: .downloads, item: axItem, downloadRecord: nil,
+            downloadProgressStore: SteamWorkshopDownloadProgressStore(), isDownloading: false, isDownloaded: true,
+            isKeyboardFocused: false, organization: .init(isFavorite: false, canFavorite: false,
+                isSwitching: true, canPlay: false), onOpen: {}, onDownload: {},
+            onSetAsWallpaper: { obsoletePrimary += 1 }, onCancelDownload: {})
+        checks["readySteamPendingCardDisablesItsPrimaryButton"] = !readyCard.controlBar.playButton.isEnabled
+        func readyActions(playing: Bool) -> AppKitSteamWorkshopBrowserItem.OrganizationPresentation {
+            .init(isFavorite: false, canFavorite: false, onPrimary: {
+                if playing { stopped += 1 } else { applied += 1 }
+            })
+        }
+        readyCard.applyOrganizationState(readyActions(playing: false), isPlaying: false,
+            isMultiSelectMode: false, isKeyboardFocused: true)
+        readyCard.controlBar.playButton.performClick(nil)
+        checks["readySteamPendingCompletionUsesCurrentApplyWithoutMetadataReload"] = applied == 1 && obsoletePrimary == 0
+        let retainedApply = readyCard.controlBar.onPlay
+        readyCard.applyOrganizationState(readyActions(playing: true), isPlaying: true,
+            isMultiSelectMode: false, isKeyboardFocused: true)
+        retainedApply?(); readyCard.controlBar.playButton.performClick(nil)
+        checks["readySteamPlayToStopRebindsAndRejectsRetainedApply"] = applied == 1 && stopped == 1 && obsoletePrimary == 0
+        readyCard.applyOrganizationState(readyActions(playing: false), isPlaying: false,
+            isMultiSelectMode: false, isKeyboardFocused: true)
+        readyCard.controlBar.playButton.performClick(nil)
+        checks["readySteamCanPlayAgainAfterStopWithoutRecreatingTheCard"] = applied == 2 && stopped == 1 && obsoletePrimary == 0
         window.orderOut(nil)
         print(String(data: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
     }

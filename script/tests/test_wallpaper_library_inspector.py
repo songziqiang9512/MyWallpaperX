@@ -176,6 +176,7 @@ class WallpaperLibraryInspectorTests(unittest.TestCase):
             "Core/LibraryCollections/WallpaperLibraryQuery.swift", "Shared/UI/WallpaperInspectorActions.swift",
             "Shared/UI/InspectorHost.swift", "Shared/UI/InspectorHostActions.swift", "Shared/UI/InspectorHostBridge.swift",
             "Shared/UI/InspectorHostViewController.swift", "Shared/UI/ListThumbnailTintSource.swift",
+            "Shared/UI/WallpaperLibrarySheetPresentation.swift", "Shared/Components/WallpaperLibraryControlStyle.swift",
             "Shell/AppKitListBackgroundTint.swift", "Shell/AppKitMainSplitView.swift",
             "App/WallpaperLibraryInspectorCoordinator.swift")]
         sources.append(ROOT / "script/tests/fixtures/OnlineImageLibraryAppStub.swift")
@@ -189,7 +190,8 @@ class WallpaperLibraryInspectorTests(unittest.TestCase):
         image_browser = ROOT / "MyWallpaperX/Shared/UI/OnlineImageBrowserController.swift"
         image_assembly = ROOT / "MyWallpaperX/App/WallpaperLibraryOnlineImages.swift"
         presentation = ROOT / "MyWallpaperX/Shell/WallpaperLibraryPresentation.swift"
-        dependencies = sources + [harness, module, commands, undo, popover, image_browser, image_assembly, presentation]
+        composition = ROOT / "MyWallpaperX/App/WallpaperLibraryWindowComposition.swift"
+        dependencies = sources + [harness, module, commands, undo, popover, image_browser, image_assembly, presentation, composition]
         hashes = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in dependencies}
         with tempfile.TemporaryDirectory(prefix="mwx-inspector-", dir="/private/tmp") as directory:
             work = Path(directory)
@@ -206,8 +208,15 @@ class WallpaperLibraryInspectorTests(unittest.TestCase):
             for index, source in enumerate(sources + [harness]):
                 target = work / f"Source{index}.swift"
                 if source.name == "InspectorPresentationRefreshChecks.swift":
-                    target.write_text(source.read_text().replace("// ACTUAL_PRESENTATION_STATE", declaration(
-                        presentation.read_text(), "nonisolated struct WallpaperLibraryPresentationState:")))
+                    actual = source.read_text().replace("// ACTUAL_PRESENTATION_STATE", declaration(
+                        presentation.read_text(), "nonisolated struct WallpaperLibraryPresentationState:"))
+                    assembly = composition.read_text()
+                    callback = declaration(assembly[assembly.index("    private lazy var adapter:"):], "        onInspect:")
+                    actual = actual.replace("// ACTUAL_CARD_INSPECT_CALLBACK", callback.split(": ", 1)[1])
+                    render = declaration(assembly, "    private func render()")
+                    selection = render[render.index("        let selected = state.selectionState"):]
+                    actual = actual.replace("// ACTUAL_CARD_INSPECT_SELECTION_SYNC", "\n".join(selection.splitlines()[:2]))
+                    target.write_text(actual)
                 elif source == harness:
                     actual = source.read_text().replace("// ACTUAL_FAVORITE_ACTION_STATE", declaration(
                         commands.read_text(), "nonisolated struct WallpaperLibraryFavoriteActionState"))

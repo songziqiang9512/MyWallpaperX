@@ -19,6 +19,8 @@ class GridPlaybackPublicationTests(unittest.TestCase):
     def test_grid_follows_committed_selection_through_delayed_retirement(self):
         product = ROOT / 'MyWallpaperX'
         source = product_harness()
+        workspace_fixture = (ROOT / 'script/tests/fixtures/WallpaperLibraryWorkspaceHarness.swift').read_text()
+        source += '\n' + declaration(workspace_fixture, '@MainActor final class ScreenSaverCoordinator')
         source = source.replace('func stopCurrentPlayback(){_ = beginPlaybackIntent();currentWallpaper=nil;pendingWallpaper=nil;isPlaying=false;stopAutoSwitchTimer()}', '')
         source = source.replace('var libraryPlaybackStopped:(()->Void)?', 'var libraryPlaybackStopped:(()->Void)?\n    var libraryPlaybackResetRequested:(()->Void)?\n    var libraryBackingPublished:((WallpaperContentBackingPublication)->Void)?')
         removal = (MANAGER / 'WallpaperManager+Removal.swift').read_text()

@@ -169,7 +169,10 @@ final class AppKitSteamWorkshopBrowserView: NSView, ListThumbnailTintProviding {
 
         service.$selectedBrowserItem
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] item in self?.syncSelectedInspectorItem(item) }
+            .sink { [weak self] _ in
+                guard let self else { return }
+                self.syncSelectedInspectorItem(self.service.selectedBrowserItem)
+            }
             .store(in: &cancellables)
 
         service.$downloadError
@@ -418,7 +421,8 @@ final class AppKitSteamWorkshopBrowserView: NSView, ListThumbnailTintProviding {
 
     private func handleInspectorDidClose(_ notification: Notification) {
         guard let request = InspectorHostRequest(userInfo: notification.userInfo),
-              request.token.module == .steamWorkshop else {
+              request.token.module == .steamWorkshop,
+              request.token.cardID == (lastRequestedCardID ?? visibleCardID) else {
             return
         }
 
@@ -426,7 +430,7 @@ final class AppKitSteamWorkshopBrowserView: NSView, ListThumbnailTintProviding {
         visibleCardID = nil
         lastRequestedCardID = nil
         removeInspectorContent()
-        service.dismissItemDetail()
+        if service.selectedBrowserItem?.id == request.token.cardID { service.dismissItemDetail() }
         isHandlingHostClose = false
     }
 

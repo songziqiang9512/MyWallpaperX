@@ -1,6 +1,7 @@
 """Execute production detail and navigation owners with an offline Steam transport."""
 from pathlib import Path
 import os
+import json
 import subprocess
 import tempfile
 import unittest
@@ -10,6 +11,101 @@ ROOT = Path(__file__).resolve().parents[2]
 CORE = ROOT / 'MyWallpaperX/Modules/SteamWorkshop/Core'
 
 class SteamDetailNavigationTests(unittest.TestCase):
+    def test_inspector_publications_use_current_selection_and_own_close_token(self):
+        source = (ROOT / 'MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserView.swift').read_text()
+        observer = method(source, '        service.$selectedBrowserItem') + '.store(in: &cancellables)'
+        methods = '\n'.join(method(source, signature) for signature in (
+            '    private func syncSelectedInspectorItem(', '    private func makePresentation(',
+            '    private func handleInspectorDidPresent(', '    private func handleInspectorDidClose('))
+        harness = r'''
+import AppKit
+import Combine
+enum ModuleIdentifier: String { case steamWorkshop }
+extension Notification.Name {
+    static let inspectorHostOpenRequested = Notification.Name("open")
+    static let inspectorHostCloseRequested = Notification.Name("close")
+    static let inspectorHostMountContentRequested = Notification.Name("mount")
+}
+struct SteamWorkshopBrowserItem { let id: String; var title: String { id }; var author: String { "Author" } }
+@MainActor final class DetailServiceLeaf {
+    @Published var selectedBrowserItem: SteamWorkshopBrowserItem?
+    var currentPageTitle = "Workshop", dismissals = 0
+    func dismissItemDetail() { dismissals += 1; selectedBrowserItem = nil }
+}
+@MainActor final class BrowserInspectorProbe {
+    let service = DetailServiceLeaf()
+    var cancellables = Set<AnyCancellable>()
+    var latestInspectorItem: SteamWorkshopBrowserItem?
+    var visibleCardID: String?, lastRequestedCardID: String?
+    var isHandlingHostClose = false
+    var removals = 0, installs: [String] = []
+    func bind() { // OBSERVER
+    }
+    func installInspectorContent(for item: SteamWorkshopBrowserItem) { installs.append(item.id) }
+    func removeInspectorContent() { removals += 1 }
+    // METHODS
+}
+@main struct Checks {
+    @MainActor static func main() async throws {
+        let probe = BrowserInspectorProbe()
+        var opened: [String] = []
+        let observation = NotificationCenter.default.addObserver(forName: .inspectorHostOpenRequested,
+            object: nil, queue: .main) { note in
+            if let request = InspectorHostRequest(userInfo: note.userInfo) { opened.append(request.token.cardID) }
+        }
+        defer { NotificationCenter.default.removeObserver(observation) }
+        func note(_ id: String) -> Notification {
+            let request = InspectorHostRequest(token: .init(module: .steamWorkshop, cardID: id), title: id)
+            return Notification(name: Notification.Name("host-event"), userInfo: request.userInfo)
+        }
+        probe.bind()
+        probe.service.selectedBrowserItem = .init(id: "old-author-item")
+        probe.service.selectedBrowserItem = .init(id: "current-item")
+        try await Task.sleep(for: .milliseconds(40))
+        var checks = ["queued-publisher-never-reopens-a-superseded-inspector":
+            !opened.isEmpty && opened.allSatisfy { $0 == "current-item" }]
+        probe.handleInspectorDidPresent(note("current-item"))
+        probe.handleInspectorDidClose(note("old-author-item"))
+        checks["old-close-cannot-dismiss-current-browser-details"] = probe.service.selectedBrowserItem?.id == "current-item"
+            && probe.visibleCardID == "current-item" && probe.service.dismissals == 0
+        probe.service.selectedBrowserItem = .init(id: "current-item")
+        try await Task.sleep(for: .milliseconds(40))
+        probe.handleInspectorDidPresent(note("current-item"))
+        probe.handleInspectorDidClose(note("current-item:local-inspection-lease"))
+        checks["local-download-close-cannot-dismiss-browser-owned-inspector"] = probe.service.selectedBrowserItem?.id == "current-item"
+            && probe.visibleCardID == "current-item" && probe.service.dismissals == 0
+        probe.visibleCardID = "retired-item"; probe.lastRequestedCardID = "retired-item"
+        probe.service.selectedBrowserItem = .init(id: "current-item")
+        probe.handleInspectorDidClose(note("retired-item"))
+        checks["visible-old-close-before-new-publication-keeps-new-source-selection"] =
+            probe.service.selectedBrowserItem?.id == "current-item" && probe.service.dismissals == 0
+        try await Task.sleep(for: .milliseconds(40))
+        probe.handleInspectorDidPresent(note("current-item"))
+        let previousDismissals = probe.service.dismissals
+        probe.handleInspectorDidClose(note("current-item"))
+        checks["matching-browser-close-still-releases-details-once"] = probe.service.selectedBrowserItem == nil
+            && probe.visibleCardID == nil && probe.lastRequestedCardID == nil && probe.service.dismissals == previousDismissals + 1
+        probe.handleInspectorDidClose(note("current-item"))
+        checks["duplicate-close-cannot-repeat-source-dismissal"] = probe.service.dismissals == previousDismissals + 1
+        print(String(data: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
+    }
+}
+'''.replace('// OBSERVER', observer).replace('// METHODS', methods)
+        with tempfile.TemporaryDirectory(prefix='mwx-browser-inspector-', dir='/private/tmp') as directory:
+            work = Path(directory); actual = work / 'Checks.swift'; actual.write_text(harness)
+            sources = [ROOT / 'MyWallpaperX/Shared/UI' / name for name in (
+                'InspectorHost.swift', 'InspectorHostBridge.swift', 'InspectorHostActions.swift')]
+            binary = work / 'checks'
+            result = subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-swift-version', '5',
+                '-default-isolation', 'MainActor', *map(str, sources), str(actual), '-o', str(binary)],
+                capture_output=True, text=True, timeout=60)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            result = subprocess.run([str(binary)], capture_output=True, text=True, timeout=10)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            checks = json.loads(result.stdout)
+            for name, value in checks.items():
+                with self.subTest(name=name): self.assertIs(value, True)
+
     def test_detail_repair_and_author_navigation(self):
         browse = (CORE / 'SteamWorkshopService+SteamKitBrowse.swift').read_text()
         detail = (CORE / 'SteamWorkshopService+ItemDetailPresentation.swift').read_text()

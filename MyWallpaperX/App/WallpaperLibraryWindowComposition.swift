@@ -134,7 +134,10 @@ import Combine
         isPlaying: { [weak self] in self?.cardState?.isPlaying($0) ?? false },
         isSwitching: { [weak self] in self?.cardState?.isSwitching($0) ?? false },
         makePrimaryAction: { [weak self] in self?.makeCardPrimaryAction($0) },
-        onInspect: { [weak self] in self?.inspector.inspect(content: $0) })
+        onInspect: { [weak self] content in
+            guard let self, self.grid.select([content.reference], focus: content.reference) else { return }
+            self.inspector.inspect(content: content)
+        })
     private lazy var grid: WallpaperLibraryGridController = WallpaperLibraryGridController { [weak self] collection, path, content, state in
         guard let self else { return NSCollectionViewItem() }
         return self.adapter.makeCell(collection: collection, indexPath: path, content: content, state: state)

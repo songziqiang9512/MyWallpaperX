@@ -724,7 +724,8 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
         switch actionKind {
         case .download, .retry: primary = onDownload
         case .cancel: primary = onCancelDownload
-        case .setAsWallpaper: primary = onSetAsWallpaper
+        case .setAsWallpaper:
+            primary = organizationPresentation == nil ? onSetAsWallpaper : organizationPresentation?.onPrimary
         case .saving: primary = nil
         case .stop:
             if let organizationPresentation { primary = organizationPresentation.onPrimary }
