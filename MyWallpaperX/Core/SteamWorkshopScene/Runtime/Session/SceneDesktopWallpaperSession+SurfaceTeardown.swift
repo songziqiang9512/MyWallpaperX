@@ -13,10 +13,10 @@ extension SceneDesktopWallpaperSession {
 #endif
         initialPresentationCohort.reset()
         userShortcutInput.revoke()
+        initialVideoPreparation?.cancel()
+        initialVideoPreparation = nil
         if clearContext {
             releaseUserShortcutScopes()
-            initialUserVideoPreparation?.cancel()
-            initialUserVideoPreparation = nil
             cancelPendingUserTextureUpdates()
             screenReconciliationWorkItem?.cancel()
             screenReconciliationWorkItem = nil

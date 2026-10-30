@@ -86,9 +86,10 @@ final class SceneVideoTextureSource {
     let sourceIncarnation = UUID()
     private let capturesLifecycleObservations: Bool
     private var endObserver: NSObjectProtocol?
-    private var payloadPreparation: Task<Void, Error>?
-    private var payloadPreparationID: UUID?
-    private var payloadPreparationFailed = false
+    private var itemPreparation: Task<Void, Never>?
+    private var itemPreparationID: UUID?
+    private var itemPreparationFailed = false
+    private var preparedDuration: (seconds: TimeInterval, timescale: CMTimeScale)?
     private var lifecycle = SceneVideoProviderLifecycleState(epoch: 0)
     private var lastFrame: Frame?
     private var pendingFrame: Frame?
@@ -205,7 +206,7 @@ final class SceneVideoTextureSource {
         player.isMuted = true
         player.volume = 0
 
-        if installPreparedItem { installItem(at: fileLease.url) }
+        if installPreparedItem { prepareItem(fileLease) }
     }
 
     private func prepareWebMPayload(
@@ -213,8 +214,6 @@ final class SceneVideoTextureSource {
         onPrepared: (@Sendable (SceneVideoOwnedFile.Writer) throws -> Void)?
     ) {
         let file = output.file
-        let preparationID = UUID()
-        payloadPreparationID = preparationID
         let worker = Task.detached(priority: .utility) {
             // Cancellation is cooperative. Keep the destination lease until
             // the actual writer exits, even after Source.stop releases it.
@@ -223,29 +222,60 @@ final class SceneVideoTextureSource {
             try Task.checkCancellation()
             try onPrepared?(output)
         }
-        payloadPreparation = worker
-        Task { [weak self] in
+        prepareItem(file, payloadWriter: worker)
+    }
+
+    private func prepareItem(_ file: SceneVideoOwnedFile, payloadWriter: Task<Void, Error>? = nil) {
+        let preparationID = UUID()
+        itemPreparationID = preparationID
+        if payloadWriter == nil { installItem(file) }
+        itemPreparation = Task { [weak self] in
             defer { withExtendedLifetime(file) {} }
-            let result = await worker.result
-            guard let self, self.payloadPreparationID == preparationID else { return }
-            self.payloadPreparation = nil
-            self.payloadPreparationID = nil
-            switch result {
-            case .success:
-                self.installItem(at: file.url)
-            case let .failure(error):
-                self.payloadPreparationFailed = true
+            do {
+                if let payloadWriter {
+                    try await withTaskCancellationHandler {
+                        try await payloadWriter.value
+                    } onCancel: { payloadWriter.cancel() }
+                    try Task.checkCancellation()
+                    guard self?.itemPreparationID == preparationID else { return }
+                    self?.installItem(file)
+                }
+                guard let expectedItem = self?.item else { return }
+                let duration = try await expectedItem.asset.load(.duration)
+                try Task.checkCancellation()
+                let seconds = CMTimeGetSeconds(duration)
+                guard duration.isNumeric, seconds.isFinite, seconds > 0 else {
+                    throw SceneVideoPayloadPreparation.Failure.invalidMedia
+                }
+                guard let self, self.itemPreparationID == preparationID,
+                      self.item === expectedItem else { return }
+                preparedDuration = (seconds, duration.timescale)
+                itemPreparation = nil
+                itemPreparationID = nil
+            } catch {
+                guard let self, self.itemPreparationID == preparationID else { return }
+                itemPreparationFailed = true
+                itemPreparation = nil
+                itemPreparationID = nil
 #if DEBUG
                 NSLog("MWX video preparation failed: owner=%@ error=%@",
-                    String(describing: self.owner), String(describing: error))
+                    String(describing: owner), String(describing: error))
 #endif
             }
         }
     }
 
-    private func installItem(at fileURL: URL) {
-        payloadPreparationFailed = false
-        let item = AVPlayerItem(url: fileURL)
+    var isPreparingItem: Bool { itemPreparation != nil }
+    var hasPlaybackMetadata: Bool { preparedDuration != nil }
+
+    func preparePlaybackMetadata() async -> Bool {
+        if let itemPreparation { await itemPreparation.value }
+        return hasPlaybackMetadata
+    }
+
+    private func installItem(_ file: SceneVideoOwnedFile) {
+        let item = AVPlayerItem(url: file.url)
+        file.retainForLifetime(of: item.asset)
         item.add(videoOutput)
         self.item = item
         player.replaceCurrentItem(with: item)
@@ -298,6 +328,7 @@ final class SceneVideoTextureSource {
               case let .userProperty(property) = owner,
               property.purpose == .premultipliedColor,
               !isCancelled(), !Task.isCancelled else { return false }
+        guard await preparePlaybackMetadata(), !isCancelled(), !Task.isCancelled else { return false }
         if primedFrame != nil { return hasCompletePrimedPublication(for: property) }
         let operationID = UUID()
         primeOperationID = operationID
@@ -413,7 +444,7 @@ final class SceneVideoTextureSource {
     /// A usable last-ready frame still satisfies this ordinary consumer.
     func initialFrameReadiness(preparedFrame: Frame?) -> SceneOrdinaryVideoFrameReadiness {
         if preparedFrame?.owner == .ordinary { return .ready }
-        return payloadPreparationFailed || item?.status == .failed ? .unavailable : .pending
+        return itemPreparationFailed || item?.status == .failed ? .unavailable : .pending
     }
 
     /// Builds a frame candidate without advancing the provider publication.
@@ -584,8 +615,8 @@ final class SceneVideoTextureSource {
 
     func playbackSnapshot(
         sceneTime: TimeInterval
-    ) -> SceneScriptVideoPlaybackSnapshot {
-        let duration = self.duration
+    ) -> SceneScriptVideoPlaybackSnapshot? {
+        guard let duration = preparedDuration?.seconds else { return nil }
         let current = boundedCurrentTime(
             lifecycle.currentTime(at: sceneTime),
             duration: duration
@@ -731,17 +762,13 @@ final class SceneVideoTextureSource {
 
     func stop() {
         guard lifecycle.stop() else { return }
-        // Active playback owns the file here. Transfer it to the actual asset
-        // before retiring the item, so AV borrowers can outlive this Source.
-        if let ownedFile, let item {
-            ownedFile.retainForLifetime(of: item.asset)
-        }
         primeOperationID = nil
         primeSeekResult = nil
         primePrerollResult = nil
-        payloadPreparationID = nil
-        payloadPreparation?.cancel()
-        payloadPreparation = nil
+        itemPreparationID = nil
+        itemPreparation?.cancel()
+        itemPreparation = nil
+        preparedDuration = nil
         if let endObserver {
             NotificationCenter.default.removeObserver(endObserver)
             self.endObserver = nil
@@ -840,7 +867,7 @@ final class SceneVideoTextureSource {
     }
 
     private var endEventTolerance: TimeInterval {
-        let timescale = item?.duration.timescale ?? 0
+        let timescale = preparedDuration?.timescale ?? 0
         return timescale > 0 ? 1 / Double(timescale) : 1 / 600
     }
 
@@ -866,21 +893,20 @@ final class SceneVideoTextureSource {
     private func boundedItemTime(_ itemTime: TimeInterval) -> CMTime {
         let duration = self.duration
         let seconds: TimeInterval
-        if duration.isFinite, duration > 0 {
+        if duration > 0 {
             seconds = lifecycle.loop
                 ? max(0, itemTime).truncatingRemainder(dividingBy: duration)
                 : min(max(0, itemTime), duration)
         } else {
             seconds = max(0, itemTime)
         }
-        let itemTimescale = item?.duration.timescale ?? 0
+        let itemTimescale = preparedDuration?.timescale ?? 0
         let timescale = itemTimescale > 0 ? itemTimescale : CMTimeScale(600)
         return CMTime(seconds: seconds, preferredTimescale: timescale)
     }
 
     private var duration: TimeInterval {
-        let value = CMTimeGetSeconds(item?.duration ?? .invalid)
-        return value.isFinite && value > 0 ? value : 0
+        preparedDuration?.seconds ?? 0
     }
 
     private func boundedCurrentTime(

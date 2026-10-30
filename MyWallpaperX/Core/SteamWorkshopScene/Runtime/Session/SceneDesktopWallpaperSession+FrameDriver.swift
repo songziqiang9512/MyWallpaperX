@@ -36,6 +36,7 @@ extension SceneDesktopWallpaperSession {
     }()
 #endif
     func startFrameDriver() {
+        guard initialVideoPreparation == nil else { return }
         frameTimer?.invalidate()
         frameTimer = nil
         frameDriverDeadline = nil

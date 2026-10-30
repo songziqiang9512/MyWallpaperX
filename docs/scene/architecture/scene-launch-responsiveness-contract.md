@@ -137,6 +137,17 @@ promote释放cohort并恢复原driver；stop、surface对象替换及真实rende
 
 已接受但仍等待 deferred 图片资源的属性修改由 Session 的单个 pending transaction 保存：独立键累积，同键以最新值（含删除）覆盖，先验证完整候选，再按完整所需 layer 集合请求当前 generation。无重叠且无需 deferred 资源的新修改立即提交，不扩大到其他图片的等待/失败范围；新命令被拒绝时不得破坏已接受 pending；所有 surface 资源接入成功后才提交同一 typed liveState，部分接入失败沿现有回滚边界处理。
 
+<a id="script-video-metadata-readiness"></a>
+### 4.3 脚本首次可观察的视频元数据
+
+首次init/update只能观察已准备的真实视频时长，不能把AVPlayerItem尚未加载的indefinite压成合法0。原Source将payload准备收敛为一个item准备链：WebM自有writer完成→安装同item→异步加载同asset duration，一次保存实际有限正秒数及timescale；MP4复用同链，普通帧不重读元数据。lease在asset创建处交接，自有任务实际退出前仍持lease；取消不调用外部AV borrower的cancelLoading，late完成只核原item/当前任务身份。没有第二decoder、clock、raw缓存或全媒体验证。
+
+Registry只在准备边界收集pending ordinary Source，沿原SourceIdentity复用同一准备任务。失败同时撤ordinary观察槽与observationIndex，现prepared引用和layer binding自然不再指无效槽；保Source条目，避免坏源反复创建或available0绑定导致整次C snapshot拒绝。失败仅让该脚本句柄不可用，视觉provider沿原局部降级。首次callback前配置一次准备映射，不先配后重配。
+
+Session泛化原initialUserVideoPreparation，合入普通metadata等待与既有property priming。空集合同步快路，只有真实pending暂缓首driver；原active输出继续。所有等待结束后才做首次SceneClock anchor，再activatePrimed、释放首callback；已有committedSnapshot的rebuild保相位/JS。原teardown撤旧任务及timer，取消、旧registry/record不能释放新driver。metadata ready不等于pixel ready，首呈现仍归原cohort/Host，沿原失败与drain，不加另一超时或逐帧源扫描。
+
+真实Source→Registry→VM及Session边界门、原335首次duration/完整PPT与独立样本验收归[后验](../history/video-instance-observations-2026-10-29.md#script-video-metadata-20261031)。[Apple](https://developer.apple.com/documentation/avfoundation/avplayeritem/duration)的indefinite说明与[WE](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IVideoTexture.html)的秒数API不定义官方首次metadata可用时刻；不外推官方init时序、所有视频/渲染路径或性能。不能以fake时长、吞stop或重置JS掩盖准备不完整。
+
 ## 5. 缓存与预热
 
 缓存分三层，这是目标分工而非全部已实现。稳定职责与寿命边界归本文，实施取舍和验证状态按页首引用；历史目标与结算不等于当前实现：

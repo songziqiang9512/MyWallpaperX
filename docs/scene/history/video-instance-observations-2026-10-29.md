@@ -81,3 +81,19 @@
 后继仅用原337单源A、未改Source，真实3750×2250供帧215代，decoded display time为.16→3.9833秒。保同Source/player/output/cache/file与末张view，先同cache flush控制10秒，再原stop10秒；device allocated 713,031,680→34,406,400B、footprint 13,140,760→10,322,688B，Scene预算均33,930,304B，旧view中心GPU读回相同。source.item/currentItem已撤，old item/asset weak却仍活，因此本轮没有隔离其物理寿命；对象仍活也不等于资源泄漏。只认复合stop边界的观测，不归因decoder独占字节，不授Host/Registry恢复或产品性能收益，原12切换NO-GO不变。
 
 单次probe exit0/24.591秒，无重试；新供帧恢复门未实施，不能以旧view代替。必要原日志、harness、编译/输入身份、独审和STOP归本机`.artifacts/scene-evidence/runs/video-item-stop-boundary-20261030/probe/`（ZIP55,950B，普通14天）；未存MP4/binary/cache。确认PID退出/无句柄后，三个可重建目录已清，逻辑295,747,945B；不改原媒体、产品或预算。
+
+
+<a id="script-video-metadata-20261031"></a>
+## 首次脚本视频元数据与335的PPT（2026-10-31）
+
+原335默认选项5/PPT、61对象及655控制脚本不改。自有透明witness只观察同一帧不可变snapshot：修前init/首update duration0，frame0 pause/seek0/play，frame1起永久stop；Source把尚未加载的item.duration压成0，触发作者EOF分支。普通Debug首probe在Ready前超时，归诊断配置UNKNOWN，未当产品RED。优化DEBUG复现0与原包停止指纹；候选init origin原读127，first-update angles日志2.216568经现runtimeValue度→弧度转换回127，不能把日志角度当2.2秒。前三秒无stop，decoded时间由0推进3.133333，generation1→154。
+
+原Source替换为单item准备链并一次缓存duration/timescale；Registry只在准备边界撤坏源的观察槽/绑定；Session泛化原初始property视频任务后才释放首callback/clock，空集合仍同步。产品六文件净+62，无新owner/decoder/clock/普通帧扫描；lease从退出前交接移至实际asset创建，旧writer/任务/字段同批替换，失败/取消不调用AV borrower.cancelLoading。职责归[唯一合同](../architecture/scene-launch-responsiveness-contract.md#script-video-metadata-readiness)。
+
+真实Source→Registry→VM门实测1.2秒及seek0.3，双改名、坏源局部退出后健康peer继续、真实EOF仍stop；原WebM writer/stop/借用与property readiness通过。旧窄DTO缺preserved/data的编译失败收据保留，仅同步载体后重验，不伪称产品RED。最近Session门直接编译产品prepare/release、真实Clock/EvaluationTransaction，2方法/65行为断言10.803秒通过：pending不动clock/driver、首次reset且保paused、committed rebuild保完整Clock.State/phase、不重prime，cancel及换registry后的late完成不能清新任务或启动旧driver。driver为计数sink，Source异步准备为受控continuation，不证明完整AppKit窗口/teardown。
+
+最终签名Debug52.736秒、优化DEBUG76.642秒，输入无漂移；Debug exe/dylib `afe49081…7ba08`/`237f78fe…92d7`，实际运行exe `113eca18…1d761`。原335两份138秒窗口均exit0/gpuDrained：内部图片实际切换，首stop约127秒/frame7608；generation推进至6123。首窗最终13张periodic已覆盖约130秒，另有131秒after原图，均见底层夕阳/人物/摩托及作者BGM片尾。误把进行中的10张当最终数量而多跑后继，已纠正收据，不将两轮重复资格算两个收益。此图是作者结束阶段，不作正式风格或官方同phase真值；不宣称逐帧无黑闪、所有选项/无限循环或性能收益。
+
+Windows2.8.0.42原包预览晚时刻停在夕阳片尾；实际启动初期未及时取样，未充作官方首次metadata时序或完整转场oracle。公开Apple duration可indefinite、WE duration单位秒仅支撑API语义，不定义官方准备时刻。预览已定点关闭，主客户端/虚拟机保留。同候选独立原381普通视频与382无视频各7秒PASS/exit0/drained，after原图保内容/足部，381 decoded推进7.0667秒；冷paused真实首呈现门1方法12.143秒通过。两者只有候选有界画面，不由此前SHA补授像素等价。
+
+必要原始失败/日志、构建与source身份、CPU门/独审、原包早期/130秒PNG与131秒/独立样本粗图及原SHA、官方晚时刻UNKNOWN归本机`.artifacts/scene-evidence/runs/script-video-metadata-20261031/metadata/samples/0/runtime_evidence.zip`（21,029,226B，110项，SHA`49ee6d813d259a9a17b50c9d4ed9b9bcb9c35336447fea4674f302cba8ffa1fa`），普通14天/单包32MiB/本机5GiB。原媒体只读，未归档pkg/App；验存后清理本批副本/运行目录及自有guest staging，仅留原共享增量构建缓存。此片只关闭默认PPT的准备不足与过早EOF，余下光线/动画/其他效果按唯一队列继续。

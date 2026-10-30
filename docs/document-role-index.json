@@ -765,13 +765,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-26",
+      "lastReviewed": "2026-10-31",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "73ecb5bfc1c0454c5e2967a0b7fcf46dab86521ac0bc5718a28784ced0e8fe1b",
+        "sourceSHA256": "d69a37b7911fd83b9cea665970befd0aa4ab0020786a60adc2dfb861e99a1a32",
         "method": "document_registry --audit + document_health --check",
-        "scope": "复核当前正文hash、入口、角色及职责：Video纯诊断事件和镜像退出Release，实际prepared/ready/失败/活动ACK与物理退出保原owner；本批实施/验证结果归精简方案。",
-        "limitations": "这是文档治理复核；不据日期或导航重新授予作者视觉、完整App冷暖、官方一致性、发布或历史证据范围。"
+        "scope": "首次真实视频元数据与原Session准备/clock合同，335默认PPT首门移出、338颜色Timeline能力缺口保唯一队列。",
+        "limitations": "视频末段非正式风格截图；不授官方init时序、完整AppKit重建、所有选项/媒体或性能。"
       }
     },
     {
@@ -4494,10 +4494,10 @@
       "lastReviewed": "2026-10-31",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a56c175c03822f5e0933b1a1754bde1dbd40be4bf53a8cafeb1fe87f04cd27de",
+        "sourceSHA256": "370138cce4a91b3f7bca12537ffa6a9a160f37d8a3b3b69435880c7a8acdebe5",
         "method": "document_registry --audit + document_health --check",
-        "scope": "382足部与轨道首门有界关闭，逐帧bind等价合同及历史归一；314环/动画与其他未验问题保留。",
-        "limitations": "不证明官方phase、任意尺度方向等价、全样本或性能。"
+        "scope": "首次真实视频元数据与原Session准备/clock合同，335默认PPT首门移出、338颜色Timeline能力缺口保唯一队列。",
+        "limitations": "视频末段非正式风格截图；不授官方init时序、完整AppKit重建、所有选项/媒体或性能。"
       }
     },
     {

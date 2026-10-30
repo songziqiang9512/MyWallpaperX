@@ -94,7 +94,7 @@ final class SceneDesktopWallpaperSession {
     var pendingUserTextureUpdates: [UInt64: PendingUserTextureUpdate] = [:]
     var latestUserTextureRevisions: [String: UInt64] = [:]
     var nextUserTextureGeneration: UInt64 = 1
-    var initialUserVideoPreparation: Task<Void, Never>?
+    var initialVideoPreparation: Task<Void, Never>?
     let userTexturePreparationQueue = DispatchQueue(
         label: "com.mywallpaperx.scene-user-textures",
         qos: .userInitiated
@@ -169,8 +169,8 @@ final class SceneDesktopWallpaperSession {
         sharedLayerAlphaRuntime = .init(
             program: context.sharedLayerAlphaProgram
         )
-        // Surface installation evaluates the first script frame synchronously.
-        // Publish prepared Sound sources before that frame can call them.
+        // Sound sources must be installed before video preparation releases
+        // the first script frame.
         nextSoundPlaybackEpoch &+= 1
         let soundPlaybackRegistry = SceneSoundPlaybackRegistry(
             program: context.soundPlaybackProgram,
@@ -192,7 +192,6 @@ final class SceneDesktopWallpaperSession {
             context,
             rebuild: {
                 rebuildSurfaces(
-                    resetClock: true,
                     teardownReason: teardownReason
                 )
             },
@@ -204,7 +203,6 @@ final class SceneDesktopWallpaperSession {
         NSLog("MWX LAUNCH-STAGE: stage=activate-surfaces elapsedMs=%.0f", (CACurrentMediaTime() - activateStageStart) * 1000)
 #endif
         installPointerEventMonitorsIfNeeded()
-        prepareInitialUserPropertyVideos()
 #if DEBUG
         NSLog(
             "MWX LAUNCH-STAGE: stage=activate-end elapsedMs=%.0f",
@@ -430,7 +428,6 @@ final class SceneDesktopWallpaperSession {
 
     @discardableResult
     private func rebuildSurfaces(
-        resetClock: Bool = false,
         teardownReason: SceneGraphExecutionResetReason = .surfaceStop
     ) -> Bool {
         guard let launchContext, let videoTextureSourceRegistry else { return false }
@@ -500,7 +497,6 @@ final class SceneDesktopWallpaperSession {
                 resources: launchContext.preparedDeviceResources.baseImages.dynamicImageResources,
                 modelPaths: domain?.preparedVideoModelPaths ?? [],
                 device: launchContext.preparedDeviceResources.device)
-            try domain?.configurePreparedVideoSources(videoTextureSourceRegistry.preparedVideoSourceReferences)
         } catch { return false }
         videoTextureSourceRegistry.bindPreparedVideoConsumers(Dictionary(uniqueKeysWithValues:
             committedTopology.dynamicLayers.compactMap { layer in
@@ -679,14 +675,6 @@ final class SceneDesktopWallpaperSession {
         }
 
         preparedSurfaceIDs = Set(surfaceScreens.map(\.1))
-        if resetClock {
-            let hostTime = CACurrentMediaTime()
-            let remainsPaused = sceneClock.isPaused
-            sceneClock.reset(hostTime: hostTime)
-            if remainsPaused {
-                sceneClock.pause(hostTime: hostTime)
-            }
-        }
         updateAudioSpectrumDemand(launchContext, hasParticleAudioConsumer: surfaces.values.contains { $0.metalView.hasParticleAudioConsumer })
         rebuiltTopology = targetTopology
         let storageScreenIdentity = surfaces.count == 1
@@ -704,8 +692,7 @@ final class SceneDesktopWallpaperSession {
 #endif
         }
         videoTextureSourceRegistry.retire(layerIDs: committedTopology.destroyedAuthoredLayerIDs)
-        startFrameDriver()
-        return true
+        return prepareInitialVideos()
     }
 
     private static func screenID(for screen: NSScreen) -> CGDirectDisplayID? {

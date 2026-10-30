@@ -1,4 +1,5 @@
 import Foundation
+import QuartzCore
 
 // Control-plane fixture only. Loader, Session transaction and live state are
 // production methods. File IO, publication/Metal envelopes and Registry/Source
@@ -114,12 +115,22 @@ final class SceneVideoTextureSource {
     var activated = false
     var activationSceneTime: Double?
     var activationPaused: Bool?
+    private(set) var metadataStarted = false
+    private var metadataCompletion: CheckedContinuation<Bool, Never>?
     init(_ declaration: SceneUserPropertyVideoDeclaration) {
         identity = declaration.identity
         filename = declaration.file.url.lastPathComponent
     }
     nonisolated func stop() { stopState.stop() }
     var stopCount: Int { stopState.stops }
+    func preparePlaybackMetadata() async -> Bool {
+        metadataStarted = true
+        return await withCheckedContinuation { metadataCompletion = $0 }
+    }
+    func completeMetadata() {
+        metadataCompletion?.resume(returning: true)
+        metadataCompletion = nil
+    }
     func primeInitialFrame(isCancelled: @escaping () -> Bool = { false }) async -> Bool {
         primeStarted = true
         repeat {
@@ -161,6 +172,10 @@ final class SceneVideoTextureSourceRegistry {
     var active: [SceneUserPropertyTextureIdentity: SceneVideoTextureSource] = [:]
     var retiredKeys: [Set<String>] = []
     var allowAdoption = true
+    var pendingSceneScriptMetadataSources: [SceneVideoTextureSource] = []
+    var preparedVideoSourceReferences: [String: Int] = [:]
+    private(set) var metadataCompletions = 0
+    func completeSceneScriptMetadataPreparation() { metadataCompletions += 1 }
     func makeUserPropertyCandidate(
         declaration: SceneUserPropertyVideoDeclaration, device: MTLDevice
     ) -> UserPropertyCandidate? {
@@ -213,7 +228,13 @@ struct RenderDescriptor { let texturePropertyKeys: [String] }
 struct RuntimeInput { let renderDescriptor: RenderDescriptor }
 struct BaseImages { let textureLoader = SceneTextureLoader() }
 struct DeviceResources { var device = MTLDevice(); let baseImages = BaseImages() }
-struct ScriptProgram { var generation: UInt64 = 42 }
+final class ScriptDomain {
+    var configuredVideoSources: [[String: Int]] = []
+    func configurePreparedVideoSources(_ references: [String: Int]) throws {
+        configuredVideoSources.append(references)
+    }
+}
+struct ScriptProgram { var generation: UInt64 = 42; var domain: ScriptDomain? = .init() }
 struct SceneDesktopWallpaperLaunchContext {
     let recordID: String? = "record"
     var userPropertyTextureLoad: SceneUserPropertyTextureLoadResult = .empty
@@ -236,19 +257,16 @@ class SceneMetalView {
     }
 }
 final class SceneDesktopWallpaperSession {
-    struct Clock {
-        var isPaused = true
-        func currentSceneTime(hostTime: Double) -> Double { 12 }
-    }
     class Surface { let metalView = SceneMetalView(); var didSubmitSimulationFrame = true }
     var launchContext: SceneDesktopWallpaperLaunchContext?
     var userPropertyTextureLoad: SceneUserPropertyTextureLoadResult = .empty
     var pendingUserTextureUpdates: [UInt64: PendingUserTextureUpdate] = [:]
     var latestUserTextureRevisions: [String: UInt64] = [:]
     var nextUserTextureGeneration: UInt64 = 1
-    var sceneClock = Clock()
+    var sceneClock = SceneClock(hostTime: 0)
+    var evaluationTransaction = SceneEvaluationTransaction()
     var videoTextureSourceRegistry: SceneVideoTextureSourceRegistry? = .init()
-    var initialUserVideoPreparation: Task<Void, Never>?
+    var initialVideoPreparation: Task<Void, Never>?
     let retiringSurfaceDrain = DispatchGroup()
     var drainStarted = false
     var onFirstFrameCompletion: ((UInt64, Bool) -> Void)?
@@ -261,6 +279,7 @@ final class SceneDesktopWallpaperSession {
     func retiredPropertyCallbackTargets(in context: SceneDesktopWallpaperLaunchContext,
         propertyKeys: Set<String>) -> Set<SceneDynamicTarget> { [] }
     init() {
+        sceneClock.pause(hostTime: 12)
         let identities: Set<SceneUserPropertyTextureIdentity> = [.init(propertyKey: "photo", purpose: .preservedChannels)!,
             .init(propertyKey: "photo", purpose: .mask)!, .init(propertyKey: "photo", purpose: .normal)!]
         launchContext = .init(liveState: .init(program: .init(definitions: [], instructions: []),
@@ -363,6 +382,7 @@ final class SceneDesktopWallpaperSession {
         while releaseOutcome == nil { RunLoop.main.run(until: Date().addingTimeInterval(0.005)) }
         results["initialSnapshotRetiredFromContextAndSurfaces"] = releaseOutcome == .applied && retired == nil
         results.merge(videoChecks()) { _, new in new }
+        results.merge(initialPreparationChecks()) { _, new in new }
         let blocked = SceneDesktopWallpaperSession()
         let entered = DispatchSemaphore(value: 0), release = DispatchSemaphore(value: 0)
         blocked.userTexturePreparationQueue.async { entered.signal(); release.wait() }
@@ -396,6 +416,121 @@ final class SceneDesktopWallpaperSession {
         let encoded = try! JSONSerialization.data(withJSONObject: results, options: [.sortedKeys])
         print(String(data: encoded, encoding: .utf8)!)
         precondition(results.values.allSatisfy { $0 }, "failed checks")
+    }
+
+    static func initialPreparationChecks() -> [String: Bool] {
+        var results: [String: Bool] = [:]
+        func until(_ label: String, _ condition: () -> Bool) {
+            let deadline = Date().addingTimeInterval(2)
+            while !condition() && Date() < deadline { RunLoop.main.run(until: Date().addingTimeInterval(0.005)) }
+            precondition(condition(), "Session preparation boundary timed out: " + label)
+        }
+        func declaration(_ name: String) -> SceneUserPropertyVideoDeclaration {
+            let file = SceneVideoOwnedFile(URL(fileURLWithPath: "/fixture/" + name + ".mp4"))
+            return .init(identity: .init(propertyKey: "other", purpose: .premultipliedColor)!,
+                file: file, source: SceneTextureLoader.currentSourceKey(for: file.url)!)
+        }
+        func hold(_ session: SceneDesktopWallpaperSession, _ name: String, reference: Int = 7) -> SceneVideoTextureSource {
+            let source = SceneVideoTextureSource(declaration(name))
+            session.videoTextureSourceRegistry!.pendingSceneScriptMetadataSources = [source]
+            session.videoTextureSourceRegistry!.preparedVideoSourceReferences = [name: reference]
+            return source
+        }
+        func drained(_ session: SceneDesktopWallpaperSession) -> Bool {
+            session.retiringSurfaceDrain.wait(timeout: .now()) == .success
+        }
+        let empty = SceneDesktopWallpaperSession()
+        let host = CACurrentMediaTime()
+        empty.sceneClock = SceneClock(hostTime: host - 12)
+        _ = empty.sceneClock.advance(hostTime: host, wallDate: Date(timeIntervalSince1970: 0))
+        let synchronous = empty.prepareInitialVideos()
+        let first = empty.sceneClock.advance(hostTime: CACurrentMediaTime(), wallDate: Date(timeIntervalSince1970: 0))
+        results["emptyVideoPreparationReleasesSynchronously"] = synchronous
+            && empty.initialVideoPreparation == nil && drained(empty) && empty.staticFrameRequests == 1
+            && empty.videoTextureSourceRegistry!.metadataCompletions == 1
+            && empty.launchContext!.propertyVectorScriptProgram.domain!.configuredVideoSources == [[:]]
+        results["firstUnpausedPreparationResetsRealClock"] = first.frameIndex == 0
+            && first.sceneTime >= 0 && first.sceneTime < 0.5 && !empty.sceneClock.isPaused
+
+        let paused = SceneDesktopWallpaperSession()
+        let pending = hold(paused, "paused-metadata")
+        let beforePaused = paused.sceneClock.snapshot()
+        let pausedAccepted = paused.prepareInitialVideos()
+        until("paused metadata started") { pending.metadataStarted }
+        results["metadataWaitRetainsClockAndDriverUntilCompletion"] = pausedAccepted
+            && !drained(paused) && paused.staticFrameRequests == 0 && paused.initialVideoPreparation != nil
+            && paused.sceneClock.snapshot() == beforePaused
+            && paused.videoTextureSourceRegistry!.metadataCompletions == 0
+        pending.completeMetadata()
+        until("paused release") { drained(paused) }
+        results["firstPausedPreparationResetsWithoutResuming"] = paused.initialVideoPreparation == nil
+            && paused.sceneClock.isPaused && paused.sceneClock.currentSceneTime(hostTime: CACurrentMediaTime()) == 0
+            && paused.staticFrameRequests == 1 && paused.videoTextureSourceRegistry!.metadataCompletions == 1
+            && paused.launchContext!.propertyVectorScriptProgram.domain!.configuredVideoSources == [["paused-metadata": 7]]
+
+        let rebuilt = SceneDesktopWallpaperSession()
+        rebuilt.sceneClock = SceneClock(hostTime: host - 12)
+        _ = rebuilt.sceneClock.advance(hostTime: host, wallDate: Date(timeIntervalSince1970: 0))
+        _ = rebuilt.evaluationTransaction.evaluate(frameIndex: 23, definitions: [])
+        let committed = rebuilt.evaluationTransaction.committedSnapshot
+        let clock = rebuilt.sceneClock.snapshot()
+        let existing = declaration("manual-prime-existing")
+        rebuilt.userPropertyTextureLoad = .init(textures: [:], textureCandidates: [:], providerStates: [:],
+            videoDeclarations: ["other": existing], reportLines: [])
+        let rebuildPending = hold(rebuilt, "rebuild-metadata")
+        let rebuildAccepted = rebuilt.prepareInitialVideos()
+        until("rebuild metadata started") { rebuildPending.metadataStarted }
+        rebuildPending.completeMetadata()
+        until("rebuild release") { drained(rebuilt) }
+        let phasePreserved = rebuilt.sceneClock.snapshot() == clock
+        let continued = rebuilt.sceneClock.advance(hostTime: CACurrentMediaTime(), wallDate: Date(timeIntervalSince1970: 0))
+        results["committedRebuildPreservesRealClockAndSnapshot"] = rebuildAccepted && phasePreserved
+            && continued.frameIndex == 1 && continued.sceneTime >= 12
+            && rebuilt.evaluationTransaction.committedSnapshot == committed && rebuilt.staticFrameRequests == 1
+        results["committedRebuildDoesNotPrimeExistingPropertyVideo"] =
+            rebuilt.videoTextureSourceRegistry!.issuedSources.isEmpty && rebuilt.initialVideoPreparation == nil
+
+        let cancelled = SceneDesktopWallpaperSession()
+        let cancelPending = hold(cancelled, "cancelled-metadata")
+        let cancelClock = cancelled.sceneClock.snapshot()
+        _ = cancelled.prepareInitialVideos()
+        until("cancel metadata started") { cancelPending.metadataStarted }
+        cancelled.initialVideoPreparation!.cancel()
+        cancelled.initialVideoPreparation = nil
+        results["metadataCancellationStillWaitsForActualSourceReturn"] = !drained(cancelled)
+            && cancelled.staticFrameRequests == 0
+        // The Source boundary deliberately completes successfully despite
+        // cancellation, so only the production Session can reject the late result.
+        cancelPending.completeMetadata()
+        until("cancel metadata terminal") { drained(cancelled) }
+        results["cancelledMetadataCompletionCannotReleaseDriver"] = cancelled.staticFrameRequests == 0
+            && cancelled.sceneClock.snapshot() == cancelClock
+            && cancelled.videoTextureSourceRegistry!.metadataCompletions == 0
+            && cancelled.launchContext!.propertyVectorScriptProgram.domain!.configuredVideoSources.isEmpty
+
+        let replaced = SceneDesktopWallpaperSession()
+        let oldRegistry = replaced.videoTextureSourceRegistry!
+        let oldPending = hold(replaced, "old-metadata")
+        _ = replaced.prepareInitialVideos()
+        until("old metadata started") { oldPending.metadataStarted }
+        let oldTask = replaced.initialVideoPreparation!
+        replaced.videoTextureSourceRegistry = SceneVideoTextureSourceRegistry()
+        let newPending = hold(replaced, "new-metadata", reference: 19)
+        _ = replaced.prepareInitialVideos()
+        until("replacement metadata started") { newPending.metadataStarted }
+        var oldJoined = false
+        Task { @MainActor in await oldTask.value; oldJoined = true }
+        oldPending.completeMetadata()
+        until("old metadata terminal") { oldJoined }
+        results["replacedRegistryCompletionCannotReleaseOrClearNewTask"] = replaced.staticFrameRequests == 0
+            && replaced.initialVideoPreparation != nil && !drained(replaced) && oldRegistry.metadataCompletions == 0
+            && replaced.launchContext!.propertyVectorScriptProgram.domain!.configuredVideoSources.isEmpty
+        newPending.completeMetadata()
+        until("replacement release") { drained(replaced) }
+        results["replacementMetadataAloneReleasesCurrentDriver"] = replaced.staticFrameRequests == 1
+            && replaced.initialVideoPreparation == nil && replaced.videoTextureSourceRegistry!.metadataCompletions == 1
+            && replaced.launchContext!.propertyVectorScriptProgram.domain!.configuredVideoSources == [["new-metadata": 19]]
+        return results
     }
 
     static func videoChecks() -> [String: Bool] {
@@ -567,7 +702,7 @@ final class SceneDesktopWallpaperSession {
         }
         let startup = initial("manual-prime-startup.mp4")
         let startupRegistry = startup.videoTextureSourceRegistry!
-        startup.prepareInitialUserPropertyVideos()
+        _ = startup.prepareInitialVideos()
         until("startup prime") { startupRegistry.issuedSources.first?.primeStarted == true }
         results["initialVideoPrimeEntersOriginalRetirementGroup"] =
             startup.retiringSurfaceDrain.wait(timeout: .now()) == .timedOut
@@ -576,7 +711,7 @@ final class SceneDesktopWallpaperSession {
             && startup.surfaces.values.allSatisfy { $0.metalView.videoSources.isEmpty }
             && !startup.userPropertyTextureLoad.hasCompletePublications(for: [identity])
         startupSource.releasePrime = true
-        until("startup adopted") { startup.initialUserVideoPreparation == nil }
+        until("startup adopted") { startup.initialVideoPreparation == nil }
         results["initialVideoPrimeSuccessLeavesRetirementGroup"] =
             startup.retiringSurfaceDrain.wait(timeout: .now()) == .success
         results["videoStartupUsesSameSourceForEverySurfaceAfterPrime"] =
@@ -586,16 +721,16 @@ final class SceneDesktopWallpaperSession {
         let badStartup = initial("bad-prime-startup.mp4")
         var firstFrameFailure: Bool?
         badStartup.onFirstFrameCompletion = { _, succeeded in firstFrameFailure = succeeded }
-        badStartup.prepareInitialUserPropertyVideos()
+        _ = badStartup.prepareInitialVideos()
         until("startup failed") { firstFrameFailure != nil }
         results["initialVideoPrimeFailureLeavesRetirementGroup"] =
             badStartup.retiringSurfaceDrain.wait(timeout: .now()) == .success
         let cancelledStartup = initial("manual-prime-cancelled-startup.mp4")
-        cancelledStartup.prepareInitialUserPropertyVideos()
+        _ = cancelledStartup.prepareInitialVideos()
         until("cancelled startup prime") {
             cancelledStartup.videoTextureSourceRegistry!.issuedSources.first?.primeStarted == true
         }
-        cancelledStartup.initialUserVideoPreparation?.cancel()
+        cancelledStartup.initialVideoPreparation?.cancel()
         results["initialPrimeCancelIsNotImmediateJoin"] =
             cancelledStartup.retiringSurfaceDrain.wait(timeout: .now()) == .timedOut
         until("cancelled startup terminal") {
