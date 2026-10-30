@@ -499,33 +499,6 @@ enum Harness {
             material(constants: ["g_Fade": boundedNullUserScriptValue]),
             provenSceneScriptValueTargets: [boundedScriptTarget]
         ))
-        let boundedNamedUserScriptProven = template(compile(
-            material(constants: [
-                "g_Fade": .init(
-                    rawValue: "1",
-                    valueKind: "binding",
-                    userBinding: "mode",
-                    userValueKind: .string,
-                    components: [1],
-                    scriptSource: "project-owned bounded time-of-day source",
-                    bindingKeys: ["script", "user", "value"]
-                ),
-            ]),
-            provenSceneScriptValueTargets: [boundedScriptTarget]
-        ))
-        let boundedNumericUserScriptProven = template(compile(
-            material(constants: [
-                "g_Fade": .init(
-                    rawValue: "1",
-                    valueKind: "binding",
-                    userValueKind: .number,
-                    components: [1],
-                    scriptSource: "project-owned bounded time-of-day source",
-                    bindingKeys: ["script", "user", "value"]
-                ),
-            ]),
-            provenSceneScriptValueTargets: [boundedScriptTarget]
-        ))
         func colorUserBinding(_ user: String, proven: Bool, runtimeUser: String? = nil)
             -> SceneResolvedMaterialScriptBindingClassifier.Binding? {
             SceneResolvedMaterialScriptBindingClassifier.binding(
@@ -540,32 +513,6 @@ enum Harness {
         }
         let colorUserProven = colorUserBinding("palette", proven: true, runtimeUser: "palette")
         let colorUserUnproven = colorUserBinding("palette", proven: false)
-        let boundedMissingUserKindScriptProven = template(compile(
-            material(constants: [
-                "g_Fade": .init(
-                    rawValue: "1",
-                    valueKind: "binding",
-                    components: [1],
-                    scriptSource: "project-owned bounded time-of-day source",
-                    bindingKeys: ["script", "user", "value"]
-                ),
-            ]),
-            provenSceneScriptValueTargets: [boundedScriptTarget]
-        ))
-        let boundedTimelineScriptProven = template(compile(
-            material(constants: [
-                "g_Fade": .init(
-                    rawValue: "1",
-                    valueKind: "binding",
-                    userValueKind: .null,
-                    components: [1],
-                    timeline: true,
-                    scriptSource: "project-owned bounded time-of-day source",
-                    bindingKeys: ["script", "user", "value"]
-                ),
-            ]),
-            provenSceneScriptValueTargets: [boundedScriptTarget]
-        ))
         let boundedScriptWrongTarget = template(compile(
             material(constants: ["g_Fade": boundedScriptValue]),
             provenSceneScriptValueTargets: [.effectConstant(
@@ -877,30 +824,6 @@ enum Harness {
                     return value.target == boundedScriptTarget
                         && value.valueContributors == [.sceneScript]
                         && value.scriptAttachments.isEmpty
-                } == true,
-            "boundedNamedScalarAndOtherProducerBoundaries":
-                boundedNamedUserScriptProven?.uniformDeclarations.first.map { declaration in
-                    guard case let .dynamic(value) = declaration.value else { return false }
-                    return value.valueContributors == [.sceneScript]
-                        && value.scriptAttachments.isEmpty
-                } == true
-                && boundedTimelineScriptProven?.uniformDeclarations.first.map {
-                    declaration in
-                    guard case let .dynamic(value) = declaration.value else { return false }
-                    return value.valueContributors == [.timeline]
-                        && value.scriptAttachments == [.unproven]
-                } == true
-                && [
-                    boundedNumericUserScriptProven,
-                    boundedMissingUserKindScriptProven,
-                ].allSatisfy { template in
-                    template?.uniformDeclarations.first.map { declaration in
-                        guard case let .dynamic(value) = declaration.value else {
-                            return false
-                        }
-                        return value.valueContributors.isEmpty
-                            && value.scriptAttachments == [.unproven]
-                    } == true
                 } == true,
             "observedPlayShapesRemainUnproven": [
                 playOnlyTimelineScript, directPlayTimelineScript,

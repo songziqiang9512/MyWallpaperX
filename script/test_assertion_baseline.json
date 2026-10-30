@@ -1254,13 +1254,6 @@
       "count": 1
     },
     {
-      "path": "script/tests/test_scene_surface_evaluation_transaction.py",
-      "scope": "SceneEvaluationTransactionTests.test_previous_value_projection_reads_requested_target_identity",
-      "method": "assertIn",
-      "literal": "guard let resolved = values[target]",
-      "count": 1
-    },
-    {
       "path": "script/tests/test_scene_text_script_runtime.py",
       "scope": "SceneTextScriptRuntimeTests.test_wall_date_context_is_shared_only_by_date_script_bindings",
       "method": "assertIn",

@@ -33,17 +33,15 @@ nonisolated enum SceneScriptDynamicProviderHostContract {
         /// Hosts whose outer `user` key may carry a real user property key
         /// instead of being absent or null.
         var acceptsStringOuterUser: Bool {
-            self == .objectVisibility || self == .objectText || self == .soundVolume
+            self == .objectVisibility || self == .objectText
+                || self == .soundVolume || self == .passConstant
         }
     }
 
     static func supports(keys: [String], host: HostKind) -> Bool {
-        (host == .objectVisibility
+        ((host == .objectVisibility || host == .soundVolume || host == .passConstant)
             && (keys == ["script", "user", "value"]
                 || keys == ["script", "scriptproperties", "user", "value"]))
-            || (host == .soundVolume
-                && (keys == ["script", "user", "value"]
-                    || keys == ["script", "scriptproperties", "user", "value"]))
             || (host == .objectText
                 && (keys == ["script", "value"]
                     || keys == ["script", "user", "value"]))

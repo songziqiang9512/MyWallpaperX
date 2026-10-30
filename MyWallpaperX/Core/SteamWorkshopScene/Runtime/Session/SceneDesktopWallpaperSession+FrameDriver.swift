@@ -256,17 +256,14 @@ extension SceneDesktopWallpaperSession {
             .snapshot()
         // SceneScript `update(value)` receives the current published value;
         // the authored descriptor is only the seed. Carry forward typed
-        // targets when no higher-priority user/timeline producer is present.
+        // targets according to their user/timeline input contract.
         let frameUserValues = launchContext.sceneScriptDynamicLayerRuntime
             .projectPreparedTextUserValues(from: launchContext.liveState.userValues,
                 previousValue: evaluationTransaction.previousValue(for:))
         let sceneScriptStatefulTargets = launchContext.sceneScriptStatefulTargets
         let previousSceneScriptValues = evaluationTransaction
-            .previousValues(for: sceneScriptStatefulTargets)
-            .filter { target, _ in
-                frameUserValues[target] == nil
-                    && timelineValues[target] == nil
-            }
+            .previousValues(for: sceneScriptStatefulTargets,
+                userValues: frameUserValues, timelineValues: timelineValues)
         var commonSceneScriptValues = previousSceneScriptValues
         commonSceneScriptValues.merge(textScriptValues) { _, current in current }
         commonSceneScriptValues.merge(sharedLayerAlphaValues) { _, current in current }

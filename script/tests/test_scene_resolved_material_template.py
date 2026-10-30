@@ -131,35 +131,48 @@ nonisolated struct SceneRenderDescriptor {
 
 func namedScalarClassifierContracts() -> [String: Bool] {
     let target = SceneDynamicTarget.effectConstant(layerID: 41, effectIndex: 2, passIndex: 3, name: "turn")
+    let admittedTargets: Set<SceneDynamicTarget> = [target]
+    let unrelatedTargets: Set<SceneDynamicTarget> = [
+        .effectConstant(layerID: 41, effectIndex: 2, passIndex: 3, name: "other"),
+    ]
     func binding(_ components: [Double] = [0.6], keys: [String] = ["script", "user", "value"],
                  proof: Set<SceneDynamicTarget> = [], user: String = "dial", timeline: Bool? = nil,
-                 runtimeInput: String? = nil)
+                 runtimeInput: String? = nil,
+                 source: String = "export function update(value) { return value * 3 + 0.125; }")
         -> SceneResolvedMaterialScriptBindingClassifier.Binding? {
         SceneResolvedMaterialScriptBindingClassifier.binding(authored: .init(
             rawValue: "0.6", valueKind: "binding", userBinding: user, userValueKind: .string,
             components: components, timeline: timeline,
-            scriptSource: "export function update(value) { return value * 3 + 0.125; }", bindingKeys: keys),
+            scriptSource: source, bindingKeys: keys),
             userValue: runtimeInput, target: target, provenSceneScriptValueTargets: proof)
     }
     func unproven(_ value: SceneResolvedMaterialScriptBindingClassifier.Binding?) -> Bool {
         value?.valueContributors == [.userProperty("dial")] && value?.scriptAttachments == [.unproven]
     }
     let renamed = ["dial", "knob", "positionAmount"].allSatisfy { user in
-        let value = binding(proof: [target], user: user, runtimeInput: user)
+        let value = binding(proof: admittedTargets, user: user, runtimeInput: user)
         return value?.valueContributors == [.sceneScript] && value?.scriptAttachments.isEmpty == true
     }
+    let mixed = binding(keys: ["script", "scriptproperties", "user", "value"],
+        proof: admittedTargets, runtimeInput: "dial")
+    // Producer gates own input admission. Malformed cases never receive a
+    // fabricated prepared target in this consumer-only fixture.
+    let animation = binding(keys: ["animation", "script", "user", "value"], timeline: true)
     return [
         "namedScalarRenamedProofsSingleWriter": renamed,
         "namedScalarAbsentProofKeepsUserFallback": unproven(binding()),
-        "namedScalarWrongTargetProofKeepsAttachment": unproven(binding(proof: [
-            .effectConstant(layerID: 41, effectIndex: 2, passIndex: 3, name: "other")])),
-        "namedScalarMixedWrapperUnproven": unproven(binding(
-            keys: ["script", "scriptproperties", "user", "value"], proof: [target])),
-        "namedScalarVec2NotClaimed": unproven(binding([0.2, 0.3], proof: [target])),
-        "namedScalarNonFiniteNotClaimed": unproven(binding([.infinity], proof: [target])),
-        "namedScalarExtraNotClaimed": unproven(binding(keys: ["extra", "script", "user", "value"], proof: [target])),
-        "namedScalarAnimationNotClaimed": binding(keys: ["animation", "script", "user", "value"],
-            proof: [target], timeline: true)?.scriptAttachments == [.unproven],
+        "namedScalarWrongTargetProofKeepsAttachment": unproven(binding(proof: unrelatedTargets)),
+        "namedScalarPreparedMixedInputSingleWriter": mixed?.valueContributors == [.sceneScript]
+            && mixed?.scriptAttachments.isEmpty == true,
+        "unpreparedMixedInputKeepsUserFallback": unproven(binding(
+            keys: ["script", "scriptproperties", "user", "value"])),
+        "unpreparedUnknownSourceKeepsUserFallback": unproven(binding(source: "unknown unsupported source")),
+        "unpreparedVec2KeepsUserFallback": unproven(binding([0.2, 0.3])),
+        "unpreparedNonFiniteKeepsUserFallback": unproven(binding([.infinity])),
+        "unpreparedExtraKeyKeepsUserFallback": unproven(binding(keys: ["extra", "script", "user", "value"])),
+        "unpreparedNamedAnimationKeepsOriginalSources": animation?.valueContributors == [
+            .timeline, .userProperty("dial"),
+        ] && animation?.scriptAttachments == [.unproven],
     ]
 }
 
@@ -294,7 +307,6 @@ class SceneResolvedMaterialTemplateTests(unittest.TestCase):
             "boundedPropertyScriptExactProofBecomesSoleValue",
             "boundedNullUserScriptNeedsExactProof",
             "boundedNullUserScriptExactProofBecomesSoleValue",
-            "boundedNamedScalarAndOtherProducerBoundaries",
             "colorUserScriptOwnsSingleValue",
             "colorUserUnprovenRemainsAttached",
             "colorUserMalformedRejected",
@@ -305,9 +317,11 @@ class SceneResolvedMaterialTemplateTests(unittest.TestCase):
             "namedScalarRenamedProofsSingleWriter",
             "namedScalarAbsentProofKeepsUserFallback",
             "namedScalarWrongTargetProofKeepsAttachment",
-            "namedScalarMixedWrapperUnproven", "namedScalarVec2NotClaimed",
-            "namedScalarNonFiniteNotClaimed", "namedScalarExtraNotClaimed",
-            "namedScalarAnimationNotClaimed",
+            "namedScalarPreparedMixedInputSingleWriter",
+            "unpreparedMixedInputKeepsUserFallback",
+            "unpreparedUnknownSourceKeepsUserFallback",
+            "unpreparedVec2KeepsUserFallback", "unpreparedNonFiniteKeepsUserFallback",
+            "unpreparedExtraKeyKeepsUserFallback", "unpreparedNamedAnimationKeepsOriginalSources",
         ])
 
     def test_vfs_and_shader_lexical_boundaries_match_production(self) -> None:

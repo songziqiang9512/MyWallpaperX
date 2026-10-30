@@ -426,7 +426,9 @@ nonisolated enum SceneScriptBindingIRParser {
            !property.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains) {
             if let value = SceneJSONValue(jsonObject: wrapper["value"] as Any)?.numberValue {
                 directPassPropertyOwner = value.isFinite
-                    && wrapper.keys.sorted() == ["script", "user", "value"]
+                    && SceneScriptDynamicProviderHostContract.supports(
+                        wrapper, host: .passConstant
+                    )
             } else if let value = wrapper["value"] as? String {
                 let components = value.split(whereSeparator: \.isWhitespace)
                 directPassPropertyOwner = components.count == 3

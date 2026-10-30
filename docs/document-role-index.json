@@ -1013,10 +1013,10 @@
       "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "754205b07382524d33133f141a572d1235e6435d6929700e1a7d389cd31093d6",
+        "sourceSHA256": "f8ce975ec224f6b6b58c12cf209049487969e5979e27cfa28189647fd48ae8c5",
         "method": "document_registry --audit + document_health --check",
-        "scope": "能力优先、捕获输入可用性与完整graph职责；退役普通Stage重复source政策，保原资源/数据/replay边界及原包曲线恢复。",
-        "limitations": "新无源FBO/variant组合为CPU准备资格；原包粒子未闭，无完整官方parity或性能结论。"
+        "scope": "同步named材质输入/current/live登记及358音条有界后验，退出已闭子断点；设计集中原D4。",
+        "limitations": "官方只资格固定Number反馈；未测官方热更时序、同窗音频关闭淡出、原生面板、整景/HDR/多屏或性能。"
       }
     },
     {
@@ -1024,13 +1024,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-28",
+      "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e7f0cef6e4a0fd33cd289adbe0cb12654f6b3c886cf3fd662c4965aab2259486",
+        "sourceSHA256": "a17259f65e17ba3880d92cbb55e47212572b57a3affa88678a5d2bf5b38dbde0",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅同步本批Vec3.reflect和Slider Bool-seed的已证行为与边界；实际运行、失败及身份集中统一历史，其他能力顺序不改。",
-        "limitations": "导航/正文审计不代运行验收；本批有界运行见历史，不认面板Reset、IPC、官方parity或性能收益。"
+        "scope": "同步named材质输入/current/live登记及358音条有界后验，退出已闭子断点；设计集中原D4。",
+        "limitations": "官方只资格固定Number反馈；未测官方热更时序、同窗音频关闭淡出、原生面板、整景/HDR/多屏或性能。"
       }
     },
     {
@@ -2389,8 +2389,16 @@
         "docs/scene/capabilities/runtime-input-property-coverage.md",
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ],
-      "cutoffDate": "2026-10-16",
-      "uniqueValue": "named-user Number pass从当前slider经原Scalar VM到唯一uniform；raw/current分离、真实旋转热改、反例与独立渲染。"
+      "cutoffDate": "2026-10-30",
+      "uniqueValue": "named-user Number pass从当前slider经原Scalar VM到唯一uniform；raw/current分离、真实旋转热改、反例与独立渲染。",
+      "lastReviewed": "2026-10-30",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "b6fbb26d93b88cd1e563eaabd0795092709d83e0b6e7b8fc26a26c9f9f7ff7e5",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "同步named材质输入/current/live登记及358音条有界后验，退出已闭子断点；设计集中原D4。",
+        "limitations": "官方只资格固定Number反馈；未测官方热更时序、同窗音频关闭淡出、原生面板、整景/HDR/多屏或性能。"
+      }
     },
     {
       "path": "docs/scene/history/native-bc-memory-convergence-2026-10-12.md",
@@ -4375,13 +4383,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
       "retirementCondition": "公开 API 的限定表面、生命周期与预算通过双侧事务门并归入唯一脚本合同后归档，设计登记随实施关闭。",
-      "lastReviewed": "2026-10-29",
+      "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c38b9407aae262ddec6dccb90ab7cf714ee7485bf75bf8b090db87dd08fd5569",
+        "sourceSHA256": "67d7a25038394c5b74a454ce9a0a704c1702cb5cf745458669d59b44ec8f975b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "动态逻辑身份/slot共同回收合同与实际限定后验同步；修正旧64动态上限文案，337普通播放首错与性能资格分界、保净零出生待验。",
-        "limitations": "导航收据不替代实际运行；原生C寿命与独立样本只按批次历史已验范围，动态视频/官方身份、HDR多屏及稳定整体性能仍未闭。"
+        "scope": "同步named材质输入/current/live登记及358音条有界后验，退出已闭子断点；设计集中原D4。",
+        "limitations": "官方只资格固定Number反馈；未测官方热更时序、同窗音频关闭淡出、原生面板、整景/HDR/多屏或性能。"
       }
     },
     {
@@ -4476,10 +4484,10 @@
       "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "99f7a4e9ddfecee33870e08bb8aff947a046c97f412f4df0711a57866dbb766b",
+        "sourceSHA256": "ab97e1da3fb5be6df1a081a691c83e10b94d2fab87e9387d586cf3b7ed7de027",
         "method": "document_registry --audit + document_health --check",
-        "scope": "能力优先、捕获输入可用性与完整graph职责；退役普通Stage重复source政策，保原资源/数据/replay边界及原包曲线恢复。",
-        "limitations": "新无源FBO/variant组合为CPU准备资格；原包粒子未闭，无完整官方parity或性能结论。"
+        "scope": "同步named材质输入/current/live登记及358音条有界后验，退出已闭子断点；设计集中原D4。",
+        "limitations": "官方只资格固定Number反馈；未测官方热更时序、同窗音频关闭淡出、原生面板、整景/HDR/多屏或性能。"
       }
     },
     {

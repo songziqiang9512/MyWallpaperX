@@ -150,11 +150,11 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 221391
+      "bytes": 221632
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
-      "bytes": 203940
+      "bytes": 204031
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 25,
@@ -249,8 +249,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 599,
-      "bytes": 161160
+      "lines": 600,
+      "bytes": 161857
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 59,
@@ -278,7 +278,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 182,
-      "bytes": 41204
+      "bytes": 41137
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1759,15 +1759,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "580e116d93c4444d385366eba9282ba73862c3d77d05ca52c362a29b3283cdf8",
-      "after": "1cb98fc15f08e8999a0bc8ae1e5d87fe8a392a0e89104dc9b57652b149a57401",
-      "owner": "Scene authored sound reference",
-      "reason": "Replace creator ownership with the existing authored referent policy for prepared Sound only, preserve executing journals and other attached capability limits, and retain downstream mutation failures.",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#authored-sound-reference"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
       "before": "cc78eea5c8d1ff1fb2db0bd69b7092bd6ebaeb0bdb85be122421f10a3c06a693",
       "after": "f97e81768664fa94d3693132b645ebb198167472787ca0ab1c41c5d2985c4841",
@@ -1885,27 +1876,9 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "9e4a35fb21f86962394ddb8de27cafe93e84795d8aa118d24779648363c46494",
-      "after": "b81626b5eec9cba38be1cc4851e7f0db484fc6742d7f0ebdb4130f3b8cfe8011",
-      "owner": "scene-engine-maintainer",
-      "reason": "按能力优先更新选序与捕获输入/图执行分责，退出只已闭的356生成链；保旧失败与粒子余项，正文按现状收敛。",
-      "decision": "docs/scene/capabilities/scene-format-and-render-graph.md#captured-source-availability"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/engine-refactor-program.md",
       "before": "18b9bbd658fb6d55a2c920488f366f9616cf0561b6d7da678b3e9b324b20e3ed",
       "after": "565a157a0ba010611bccc3d0b7b1cb9a37b87f2dd284c5bccb1e54dd39d1bba2",
-      "owner": "scene-engine-maintainer",
-      "reason": "按能力优先更新选序与捕获输入/图执行分责，退出只已闭的356生成链；保旧失败与粒子余项，正文按现状收敛。",
-      "decision": "docs/scene/capabilities/scene-format-and-render-graph.md#captured-source-availability"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "cb69979b641f654674405c77aaceeedb1395abda1ee2a454d95ea1e84791e1eb",
-      "after": "0e304115145f61b20ece89b65ca83e0f8d70409a5cea22485cce4d587461e522",
       "owner": "scene-engine-maintainer",
       "reason": "按能力优先更新选序与捕获输入/图执行分责，退出只已闭的356生成链；保旧失败与粒子余项，正文按现状收敛。",
       "decision": "docs/scene/capabilities/scene-format-and-render-graph.md#captured-source-availability"
@@ -1918,6 +1891,42 @@
       "owner": "scene-engine-maintainer",
       "reason": "按能力优先更新选序与捕获输入/图执行分责，退出只已闭的356生成链；保旧失败与粒子余项，正文按现状收敛。",
       "decision": "docs/scene/capabilities/scene-format-and-render-graph.md#captured-source-availability"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "0e304115145f61b20ece89b65ca83e0f8d70409a5cea22485cce4d587461e522",
+      "after": "d7e641142b548d11820924ae5083905410b93542b471fb4403f53f78dec8cf3a",
+      "owner": "scene-engine-maintainer",
+      "reason": "补齐named值+独立配置的单VM链，设计合并原D4、退出358已闭子断点并保留资格边界；非新增第二状态台账。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#named-pass-script-inputs"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "before": "1cb98fc15f08e8999a0bc8ae1e5d87fe8a392a0e89104dc9b57652b149a57401",
+      "after": "5ad2c86d8b62c909bb23591533ed349483b3b176422244a7322efe3fdb8797d7",
+      "owner": "scene-engine-maintainer",
+      "reason": "补齐named值+独立配置的单VM链，设计合并原D4、退出358已闭子断点并保留资格边界；非新增第二状态台账。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#named-pass-script-inputs"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "before": "0d994f05026d4a9eaba99be3666b07937e4839d9b5ffabf35ee5ee8547bdb6d3",
+      "after": "3c119486d72251274af64492c37efce1f2f55dde15d0a4ea643364c811deaa69",
+      "owner": "scene-engine-maintainer",
+      "reason": "补齐named值+独立配置的单VM链，设计合并原D4、退出358已闭子断点并保留资格边界；非新增第二状态台账。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#named-pass-script-inputs"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "b81626b5eec9cba38be1cc4851e7f0db484fc6742d7f0ebdb4130f3b8cfe8011",
+      "after": "e549c1d6518f0f4448b2c26d2deb907defe79729c8549c882b0db98e89fdc8a5",
+      "owner": "scene-engine-maintainer",
+      "reason": "补齐named值+独立配置的单VM链，设计合并原D4、退出358已闭子断点并保留资格边界；非新增第二状态台账。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#named-pass-script-inputs"
     }
   ]
 }

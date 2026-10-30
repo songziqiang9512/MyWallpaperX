@@ -292,7 +292,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     candidate.properties, kinds: userPropertyKinds
                 ),
                 livePropertyInputTargets: candidate.livePropertyInputTargets
-                    .union(owner.handlesUserProperties ? [target] : []),
+                    .union(owner.handlesUserProperties || candidate.userPropertyInputKey != nil ? [target] : []),
                 hasCurrentAnimation: candidate.hasCurrentAnimation,
                 handlesMediaThumbnail: owner.handlesMediaThumbnail,
                 handlesMediaPlayback: owner.handlesMediaPlayback,

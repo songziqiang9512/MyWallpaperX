@@ -139,7 +139,7 @@ struct SceneParticleInstanceOverride: Equatable, Sendable {
 }
 
 struct SceneUtilityLayer {
-    enum Kind { case composition, project, fullscreen }
+    enum Kind: String { case composition, project, fullscreen }
     let kind: Kind
     let copyBackground: Bool
     let passthrough: Bool
@@ -158,7 +158,12 @@ struct SceneDocument {
 struct SceneRenderDescriptor {
     enum SceneShaderUserValueKind { case null, string }
     typealias CameraPath = SceneDocument.Scene2DCameraPathDefinition
+    struct Bloom { var hdr: Bool? = nil }
     struct Camera {
+        var bloom = Bloom()
+        var eye: [Float] = [0, 0, 0]
+        var center: [Float] = [0, 0, -1]
+        var up: [Float] = [0, 1, 0]
         var orthoWidth: Float? = nil
         var orthoHeight: Float? = nil
         var default2DInputLayerID: Int? = nil
@@ -271,6 +276,7 @@ struct SceneRenderDescriptor {
         var colorRGB: [Float]? = nil
         var spotLight: Bool? = nil
         var directionalLight: Bool? = nil
+        var pointLight: ScenePointLightDefinition? = nil
         var authoredLightIntensity: Float? { nil }
         let scaleHasScript: Bool?
         let alpha: Double?

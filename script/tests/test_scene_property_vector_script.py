@@ -5,6 +5,8 @@
 from __future__ import annotations
 
 import json
+import hashlib
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -22,6 +24,8 @@ SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 VM = SCENE / "Systems/Script"
 QUICKJS = VM / "QuickJSNG"
 SOURCES = [
+    ROOT / "MyWallpaperX/Core/PlaybackControl/ScenePlaybackShortcut.swift",
+    VM / "SceneScriptUserShortcutDispatch.swift",
     SCENE / "Systems/Script/SceneScriptLayerTopologyModels.swift",
     ROOT / "script/tests/fixtures/SceneProgramResourcePlanningUnavailableStub.swift",
     SCENE / "Format/SceneTimelineAnimation.swift",
@@ -32,6 +36,8 @@ SOURCES = [
     SCENE / "Runtime/Frame/SceneStaticModelMaterialBindings.swift",
     SCENE / "Runtime/Frame/SceneMaterialRenderState.swift",
     SCENE / "Format/SceneJSONValue.swift",
+    SCENE / "Format/SceneDirectionalLightDefinition.swift",
+    SCENE / "Format/ScenePointLightDefinition.swift",
     SCENE / "Format/SceneScriptBindingDefinition.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift",
     SCENE / "Systems/Properties/SceneDefault2DCameraInputProfile.swift",
@@ -93,7 +99,7 @@ SOURCES = [
 ]
 
 FIXTURES = ROOT / "script/tests/fixtures"
-HARNESS = "\n".join((FIXTURES / name).read_text(encoding="utf-8") for name in (
+FIXTURE_NAMES = (
     'ScenePropertyVectorSupport.swift',
     'ScenePropertyVectorBindings.swift',
     'ScenePropertyVectorHarness.swift',
@@ -103,7 +109,14 @@ HARNESS = "\n".join((FIXTURES / name).read_text(encoding="utf-8") for name in (
     'ScenePropertyVectorLayerCases.swift',
     'ScenePropertyVectorMediaCases.swift',
     'ScenePropertyVectorMaterialCases.swift',
-))
+)
+HARNESS = "\n".join((FIXTURES / name).read_text(encoding="utf-8") for name in FIXTURE_NAMES)
+DOCUMENT_MODELS = SCENE / "Format/SceneDocumentObject.swift"
+document_models = DOCUMENT_MODELS.read_text(encoding="utf-8")
+timeline_start = document_models.index("    struct SceneObjectTimeline:")
+timeline_end = document_models.index("\n    /// Particle", timeline_start)
+HARNESS = HARNESS.replace("struct SceneDocument {", "struct SceneDocument {\n"
+                          + document_models[timeline_start:timeline_end])
 # Use the production binding/program declarations without pulling the unrelated
 # descriptor compiler into this VM fixture; all sampling/playback stays real.
 HARNESS += (SCENE / "Systems/Timeline/SceneTimelineTargetCompiler.swift").read_text(
@@ -142,11 +155,29 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
     def test_named_pass_scalar_uses_saved_current_input_and_continuous_vm_transform(self) -> None:
         value = self.result()["namedUserScalar"]
         for observations in value["variantFacts"]:
+            self.assertTrue(observations["outerLiveInputRegistered"], observations)
             for key, passed in observations.items():
                 self.assertTrue(passed, (key, value))
         for actual in value["variantValues"]:
             for observed, expected in zip(actual, [1.925, 0.725, 1.325]):
                 self.assertAlmostEqual(observed, expected, places=10)
+
+    def test_named_pass_scalar_and_script_properties_feed_one_vm_result(self) -> None:
+        payload = self.result()
+        value = payload["namedUserScalar"]
+        self.assertEqual(set(value["propertyFacts"]), {"emptyProperties", "brightness", "rotation"})
+        for name, facts in value["propertyFacts"].items():
+            with self.subTest(case=name):
+                self.assertTrue(facts["outerLiveInputRegistered"], (name, facts))
+                self.assertTrue(all(facts.values()), (name, facts))
+                expected = [1.925, 0.725, 1.325] if name == "emptyProperties" else [1.925, 0.725, 0.525, 0.925, 1.325]
+                actual = value["propertyValues"][name]
+                self.assertEqual(len(actual), len(expected), (name, actual))
+                for observed, wanted in zip(actual, expected):
+                    self.assertAlmostEqual(observed, wanted, places=10)
+        self.assertEqual(payload["passTimelineBindings"], 1)
+        self.assertTrue(payload["passTimelineKeepsTimelineValueOwner"])
+        self.assertNotIn("mixedProperties", value["parserRejections"])
 
     def test_named_scalar_parser_and_projection_preserve_exact_boundaries(self) -> None:
         value = self.result()["namedUserScalar"]
@@ -157,49 +188,86 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
 
     def test_named_pass_return_boundary_keeps_current_user_fallback(self) -> None:
         value = self.result()["namedUserScalar"]
-        self.assertEqual(set(value["badReturnFacts"]),
-                         {"bool", "string", "vec2", "nan", "infinity", "throw", "undefined"})
+        cases = {"bool", "string", "vec2", "nan", "infinity", "throw", "undefined"}
+        self.assertEqual(set(value["badReturnFacts"]), cases | {"properties-" + name for name in cases})
         for key, passed in value["badReturnFacts"].items():
             self.assertTrue(passed, (key, value))
-            expected = {"bool": 1.0, "string": 0.5}.get(key, 0.4)
+            expected = {"bool": 1.0, "string": 0.5}.get(key.removeprefix("properties-"), 0.4)
             self.assertAlmostEqual(value["badFallbacks"][key], expected)
 
     @classmethod
     def setUpClass(cls) -> None:
+        cls.proof = Path(os.environ["MWX_NAMED_SCRIPT_PROOF"]) if os.environ.get("MWX_NAMED_SCRIPT_PROOF") else None
+        cls.proof_inputs = list(dict.fromkeys([
+            Path(__file__), Path(__file__).with_name("scene_vector_vm_test_support.py"),
+            *SOURCES, *C_SOURCES, *(FIXTURES / name for name in FIXTURE_NAMES),
+            DOCUMENT_MODELS,
+            SCENE / "Systems/Timeline/SceneTimelineTargetCompiler.swift",
+            *sorted(VM.glob("*.h")), *sorted(QUICKJS.glob("*.h")),
+        ]))
+        if cls.proof:
+            cls.proof.mkdir(parents=True, exist_ok=True)
+            cls.proof_before = {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
+                                for p in cls.proof_inputs}
+            (cls.proof / "inputs-before.json").write_text(json.dumps(cls.proof_before, indent=2) + "\n")
         clang = shutil.which("clang")
         if clang is None:
             raise unittest.SkipTest("clang is required")
         cls.temp_dir = tempfile.TemporaryDirectory(prefix="mwx-scene-vec3-")
         temp = Path(cls.temp_dir.name)
         objects: list[Path] = []
+        commands = []
         for source in C_SOURCES:
             output = temp / f"{source.stem}.o"
-            subprocess.run([
+            command = [
                 clang, "-std=c11", "-O0", "-c", str(source), "-o", str(output),
                 "-I", str(VM), "-I", str(QUICKJS),
-            ], check=True, capture_output=True, text=True)
+            ]
+            commands.append(command)
+            subprocess.run(command, check=True, capture_output=True, text=True)
             objects.append(output)
         harness = temp / "Harness.swift"
         harness.write_text(HARNESS, encoding="utf-8")
         cls.binary = temp / "property-vector-script"
-        compilation = subprocess.run([
+        command = [
             "xcrun", "swiftc", "-parse-as-library", "-O",
             "-import-objc-header", str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJS.h"),
             "-Xcc", f"-I{VM}",
             "-o", str(cls.binary), *map(str, SOURCES), str(harness),
             *map(str, objects), "-Xlinker", "-lm",
-        ], capture_output=True, text=True)
+        ]
+        commands.append(command)
+        compilation = subprocess.run(command, capture_output=True, text=True)
+        if cls.proof:
+            (cls.proof / "compile-commands.json").write_text(json.dumps(commands, indent=2) + "\n")
+            (cls.proof / "compile.stdout").write_text(compilation.stdout)
+            (cls.proof / "compile.stderr").write_text(compilation.stderr)
+            (cls.proof / "harness.swift").write_text(HARNESS)
         if compilation.returncode != 0:
             raise AssertionError(compilation.stdout + compilation.stderr)
 
     @classmethod
     def tearDownClass(cls) -> None:
-        cls.temp_dir.cleanup()
+        try:
+            if cls.proof:
+                after = {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
+                         for p in cls.proof_inputs}
+                (cls.proof / "inputs-after.json").write_text(json.dumps(after, indent=2) + "\n")
+                if after != cls.proof_before:
+                    raise AssertionError("frozen compiler/fixture inputs changed")
+        finally:
+            cls.temp_dir.cleanup()
+            if cls.proof:
+                (cls.proof / "retirement.json").write_text(json.dumps({
+                    "temporaryRemoved": not Path(cls.temp_dir.name).exists(), "GPUInvocations": 0}) + "\n")
 
     def result(self) -> dict[str, object]:
         completed = subprocess.run(
             [str(self.binary)], check=True, capture_output=True, text=True
         )
+        if self.proof:
+            (self.proof / "observations.json").write_text(completed.stdout)
+            (self.proof / "runtime.stderr").write_text(completed.stderr)
         return json.loads(completed.stdout)
 
     def test_layer_perspective_init_cross_lookup_reaches_typed_snapshot(self) -> None:
@@ -279,6 +347,8 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
 
     def test_pass_color_user_input_reaches_one_script_owner_before_update(self) -> None:
         value = self.result()
+        for key, passed in value["userColorLiveFacts"].items():
+            self.assertTrue(passed, (key, value["userColorLiveFacts"]))
         self.assertTrue(value["userColorExactInput"])
         self.assertFalse(value["userColorForeignInput"])
         self.assertFalse(value["userColorScalarInput"])

@@ -252,10 +252,31 @@ extension SceneDesktopWallpaperSession {
         }
         guard refreshPausedSoundProperties(in: context, candidate: candidateLiveState,
             changedPropertyKeys: acceptedKeys) else { return false }
+        reseedNamedMaterialInputs(in: context, candidate: candidateLiveState)
         context.liveState = candidateLiveState
         soundPlaybackRegistry?.apply(userValues: candidateLiveState.userValues)
         launchContext = context
         return true
+    }
+
+    private func reseedNamedMaterialInputs(
+        in context: SceneDesktopWallpaperLaunchContext,
+        candidate: ScenePropertyLiveUpdateState
+    ) {
+        let targets = Set(candidate.program.instructions.compactMap { instruction -> SceneDynamicTarget? in
+            let target = instruction.target
+            guard case .effectConstant = target,
+                  context.sceneScriptStatefulTargets.contains(target),
+                  context.liveState.userValues[target] != candidate.userValues[target]
+            else { return nil }
+            return target
+        })
+        guard !targets.isEmpty,
+              let pending = evaluationTransaction.prepareScoped(
+                  replacing: targets, index: context.dynamicDefinitionIndex,
+                  userValues: candidate.userValues.filter { targets.contains($0.key) })
+        else { return }
+        commitSceneDynamicEvaluation(pending)
     }
 
     func deferredLayerVisibilitySelection(
@@ -348,6 +369,7 @@ extension SceneDesktopWallpaperSession {
 #endif
             return
         }
+        reseedNamedMaterialInputs(in: context, candidate: candidateLiveState)
         context.liveState = candidateLiveState
         soundPlaybackRegistry?.apply(userValues: candidateLiveState.userValues)
         adoptedSurfaces.forEach {

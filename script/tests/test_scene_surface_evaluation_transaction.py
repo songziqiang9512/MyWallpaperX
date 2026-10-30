@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import hashlib
+import os
 import shutil
 import subprocess
 import tempfile
@@ -16,14 +18,6 @@ SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneEvaluationTransaction.swift",
 ]
-HOST_FRAME_DRIVER = (
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriver.swift"
-)
-HOST_FRAME_DRIVER_LIFECYCLE = (
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriverLifecycle.swift"
-)
-TRANSACTION = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneEvaluationTransaction.swift"
-
 HARNESS = r'''
 import Foundation
 
@@ -138,9 +132,79 @@ enum Harness {
                 [$0.source.rawValue, $0.code.rawValue]
             },
             "scoped": scopedSnapshots(),
+            "materialFeedback": materialFeedback(),
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
+    }
+
+    static func materialFeedback() -> [String: Any] {
+        let material = SceneDynamicTarget.effectConstant(layerID: 31, effectIndex: 2, passIndex: 1, name: "amount")
+        let peer = SceneDynamicTarget.effectConstant(layerID: 52, effectIndex: 0, passIndex: 3, name: "gain")
+        let layer = SceneDynamicTarget.layer(layerID: 31, field: .alpha)
+        let foreign = SceneDynamicTarget.effectConstant(layerID: 999, effectIndex: 0, passIndex: 0, name: "other")
+        let targets: Set<SceneDynamicTarget> = [material, peer, layer]
+        let definitions = targets.map {
+            SceneDynamicTargetDefinition(target: $0, valueType: .scalar, authoredValue: .scalar(0.1))
+        }
+        let index = SceneDynamicSnapshotResolver.prepare(definitions: definitions)
+        let users: [SceneDynamicTarget: SceneDynamicValue] = [material: .scalar(0.2), peer: .scalar(0.4), layer: .scalar(0.3)]
+        var transaction = SceneEvaluationTransaction()
+        let firstIsEmpty = transaction.previousValues(for: targets, userValues: users).isEmpty
+        _ = transaction.evaluate(frameIndex: 1, index: index)
+        let authoredDoesNotCarry = transaction.previousValues(for: targets, userValues: users).isEmpty
+        _ = transaction.evaluate(frameIndex: 2, index: index, userValues: users)
+        let userDoesNotCarry = transaction.previousValues(for: targets, userValues: users).isEmpty
+        _ = transaction.evaluate(frameIndex: 3, index: index, timelineValues: users)
+        let timelineDoesNotCarry = transaction.previousValues(for: targets, userValues: users).isEmpty
+        _ = transaction.evaluate(frameIndex: 4, index: index, userValues: users,
+            sceneScriptValues: [material: .scalar(0.75), peer: .scalar(1.25), layer: .scalar(0.5)])
+        let base = transaction.committedSnapshot!
+        let stable = transaction.previousValues(for: targets, userValues: users)
+        let legacy = transaction.previousValues(for: targets)
+        let timeline = transaction.previousValues(for: targets, userValues: users,
+            timelineValues: [material: .scalar(0.6)])
+        let requested = transaction.previousValues(for: [peer], userValues: users)
+        let readsKeepPublication = transaction.committedSnapshot == base
+            && transaction.previousValues(for: [foreign], userValues: users).isEmpty
+
+        let reseed = transaction.prepareScoped(replacing: [material], index: index,
+            userValues: [material: .scalar(0.3)])!
+        let discarded = transaction.prepareScoped(replacing: [peer], index: index,
+            sceneScriptValues: [peer: .scalar(9)])!
+        let pending = transaction.previousValues(for: targets, userValues: users)
+        let pendingIsPrivate = transaction.committedSnapshot == base
+            && reseed.snapshot[peer] == base[peer] && reseed.snapshot[layer] == base[layer]
+            && discarded.snapshot[peer]?.value == .scalar(9)
+        transaction.commit(reseed)
+        var changedUsers = users
+        changedUsers[material] = .scalar(0.3)
+        let reseeded = transaction.previousValues(for: targets, userValues: changedUsers)
+        let peersRemainCommitted = transaction.committedSnapshot?[peer] == base[peer]
+            && transaction.committedSnapshot?[layer] == base[layer]
+            && transaction.committedSnapshot?.frameIndex == base.frameIndex
+        let reseededSource = transaction.committedSnapshot?[material]?.source.rawValue ?? "missing"
+        _ = transaction.evaluate(frameIndex: 5, index: index, userValues: changedUsers,
+            sceneScriptValues: [material: .scalar(0.4), peer: .scalar(1.35)])
+        let resumed = transaction.previousValues(for: targets, userValues: changedUsers)
+        _ = transaction.evaluate(frameIndex: 6, index: index, userValues: changedUsers,
+            sceneScriptValues: [material: .scalar(0.5), peer: .scalar(1.45)])
+        let continued = transaction.previousValues(for: targets, userValues: changedUsers)
+        return [
+            "nonScriptSourcesDoNotCarry": [firstIsEmpty, authoredDoesNotCarry, userDoesNotCarry, timelineDoesNotCarry],
+            "stable": [scalar(stable[material]), scalar(stable[peer]), scalar(stable[layer])],
+            "legacy": [scalar(legacy[material]), scalar(legacy[peer]), scalar(legacy[layer])],
+            "timeline": [scalar(timeline[material]), scalar(timeline[peer]), scalar(timeline[layer])],
+            "requested": [String(requested.count), scalar(requested[peer])],
+            "readsKeepPublication": readsKeepPublication,
+            "pending": [scalar(pending[material]), scalar(pending[peer])],
+            "pendingIsPrivate": pendingIsPrivate,
+            "reseeded": [scalar(reseeded[material]), scalar(reseeded[peer])],
+            "reseededSource": reseededSource,
+            "peersRemainCommitted": peersRemainCommitted,
+            "resumed": [scalar(resumed[material]), scalar(resumed[peer])],
+            "continued": [scalar(continued[material]), scalar(continued[peer])],
+        ]
     }
 
     static func scopedSnapshots() -> [String: Any] {
@@ -333,24 +397,66 @@ class SceneEvaluationTransactionTests(unittest.TestCase):
             prefix="mwx-scene-surface-transaction-"
         )
         directory = Path(cls.temporary_directory.name)
+        cls.proof = Path(os.environ["MWX_TRANSACTION_PROOF"]) if os.environ.get("MWX_TRANSACTION_PROOF") else None
+        cls.inputs = [*SOURCES, Path(__file__)]
+        if cls.proof:
+            cls.proof.mkdir(parents=True, exist_ok=True)
+            cls.before = {str(p.relative_to(REPOSITORY_ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
+                          for p in cls.inputs}
+            (cls.proof / "inputs-before.json").write_text(json.dumps(cls.before, indent=2) + "\n")
         harness = directory / "Harness.swift"
         harness.write_text(HARNESS, encoding="utf-8")
         binary = directory / "scene-surface-transaction"
+        command = ["swiftc", *map(str, SOURCES), str(harness), "-o", str(binary)]
         compilation = subprocess.run(
-            ["swiftc", *map(str, SOURCES), str(harness), "-o", str(binary)],
+            command,
             capture_output=True,
             text=True,
         )
+        if cls.proof:
+            (cls.proof / "compile.json").write_text(json.dumps({"command": command,
+                "returncode": compilation.returncode, "stdout": compilation.stdout,
+                "stderr": compilation.stderr}, indent=2) + "\n")
         if compilation.returncode != 0:
             raise RuntimeError(compilation.stderr)
         completed = subprocess.run(
             [str(binary)], check=True, capture_output=True, text=True
         )
         cls.result = json.loads(completed.stdout)
+        if cls.proof:
+            (cls.proof / "observations.json").write_text(completed.stdout)
+            (cls.proof / "runtime.stderr").write_text(completed.stderr)
 
     @classmethod
     def tearDownClass(cls) -> None:
-        cls.temporary_directory.cleanup()
+        try:
+            if cls.proof:
+                after = {str(p.relative_to(REPOSITORY_ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
+                         for p in cls.inputs}
+                (cls.proof / "inputs-after.json").write_text(json.dumps(after, indent=2) + "\n")
+                if after != cls.before:
+                    raise AssertionError("transaction compiler inputs changed")
+        finally:
+            cls.temporary_directory.cleanup()
+            if cls.proof:
+                (cls.proof / "retirement.json").write_text(json.dumps({
+                    "temporaryRemoved": not Path(cls.temporary_directory.name).exists(), "GPUInvocations": 0}) + "\n")
+
+    def test_material_script_feedback_and_scoped_user_reseed_keep_committed_ownership(self) -> None:
+        value = self.result["materialFeedback"]
+        self.assertEqual(value["nonScriptSourcesDoNotCarry"], [True] * 4)
+        self.assertEqual(value["stable"], ["0.75", "1.25", "missing"])
+        self.assertEqual(value["legacy"], ["0.75", "1.25", "0.5"])
+        self.assertEqual(value["timeline"], ["missing", "1.25", "missing"])
+        self.assertEqual(value["requested"], ["1", "1.25"])
+        self.assertTrue(value["readsKeepPublication"])
+        self.assertEqual(value["pending"], ["0.75", "1.25"])
+        self.assertTrue(value["pendingIsPrivate"])
+        self.assertEqual(value["reseeded"], ["missing", "1.25"])
+        self.assertEqual(value["reseededSource"], "userProperty")
+        self.assertTrue(value["peersRemainCommitted"])
+        self.assertEqual(value["resumed"], ["0.4", "1.35"])
+        self.assertEqual(value["continued"], ["0.5", "1.45"])
 
     def test_first_empty_payload_stays_at_generation_zero(self) -> None:
         self.assertEqual(self.result["empty"], [[40, 0], [41, 0]])
@@ -424,17 +530,5 @@ class SceneEvaluationTransactionTests(unittest.TestCase):
         for key in ["noBase", "rejectedUnknown", "rejectedOutsideInputs",
                     "rejectedChangedSchema", "rejectedTopology", "rejectedUnselectedSchemaChange"]:
             self.assertTrue(self.result["scoped"][key], key)
-
-
-
-    def test_previous_value_projection_reads_requested_target_identity(self) -> None:
-        source = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift").read_text(
-            encoding="utf-8"
-        )
-        self.assertIn("for target in targets", source)
-        self.assertIn("guard let resolved = values[target]", source)
-        self.assertNotIn("values.reduce(into:", source)
-
-
 if __name__ == "__main__":
     unittest.main()

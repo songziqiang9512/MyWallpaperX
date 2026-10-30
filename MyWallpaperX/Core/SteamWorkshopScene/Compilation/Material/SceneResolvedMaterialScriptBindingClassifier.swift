@@ -88,39 +88,10 @@ nonisolated enum SceneResolvedMaterialScriptBindingClassifier {
         guard let source = authored.scriptSource, !source.isEmpty else {
             return nil
         }
-        if let target,
-           authored.valueKind.localizedLowercase == "binding",
-           authored.timelineDiagnostics.isEmpty,
-           isProvenValueWrapper(authored),
-           provenSceneScriptValueTargets.contains(target) {
+        if let target, provenSceneScriptValueTargets.contains(target) {
             return .value(.sceneScript)
         }
         return .scriptAttachment(.unproven)
-    }
-
-    private static func isProvenValueWrapper(
-        _ authored: SceneDocument.ShaderValue
-    ) -> Bool {
-        switch authored.bindingKeys {
-        case ["script", "value"],
-             ["script", "scriptproperties", "value"]:
-            authored.userValueKind == nil && authored.timeline == nil
-        case ["script", "user", "value"],
-             ["script", "scriptproperties", "user", "value"]:
-            authored.timeline == nil && (
-                (authored.userValueKind == .null && authored.userBinding == nil)
-                    || (authored.userValueKind == .string
-                        && authored.userBinding.flatMap(normalizedProviderValue) != nil
-                        && (authored.components?.count == 3
-                            || (authored.components?.count == 1
-                                && authored.bindingKeys == ["script", "user", "value"]))
-                        && authored.components?.allSatisfy(\.isFinite) == true)
-            )
-        case ["animation", "script", "value"]:
-            authored.userValueKind == nil && authored.timeline != nil
-        default:
-            false
-        }
     }
 
     private static func normalizedProviderValue(_ rawValue: String) -> String? {

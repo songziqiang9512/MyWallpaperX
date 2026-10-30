@@ -96,15 +96,16 @@ C ABI按职责组织：HostTypes保存既有opaque handles、DTO、字段枚举�
 验收复用真实 QuickJS owner harness：四方法直接调用及变量改名/等价表达式、返回新对象且两操作数不变、scalar 与显式 Vec3、零扩展构造及非有限 typed 返回反例；不新建 vector owner 或测试算法。最近门、Debug、原包1128首错消失及独立实图的身份归[限定证据](../../history/vec3-mixed-dimension-arithmetic-2026-10-16.md)，原包保owner-executed，未直接观测位置向量或完整motion；不据此关闭 U13 光束、媒体或整样本差异。失败保留原局部降级，不增加 cache、identity 或逐帧准备。
 
 <a id="named-user-pass-scalar"></a>
-## Named-user pass scalar 输入（2026-10-16，有界已实施）
+<a id="named-pass-script-inputs"></a>
+## Named材质值与独立脚本参数（2026-10-30设计）
 
-目标是让 effect pass 的有限 Number `script/user/value` 包装进入现有 Scalar owner；outer user 是当前属性输入，脚本返回值是唯一高优先级 uniform producer。真实 slider 包装已定位，原入口仅允许 named-user Vec3，故在 binding 解析即丢失 scalar owner。选择补接现有输入链，不加 VM、属性状态、frame writer 或特殊 shader profile。
+外层named `user`是现有callback值输入，`scriptproperties`是独立配置，两者不是竞争的uniform writer。IR Parser在入口保source、有限Number/既有Vec3与输入身份、解析properties一次；原DynamicProviderHostContract统一描述passConstant可带named输入及独立properties，退出Scalar投影中固定三键/空properties的政策。Scalar Program仍以原完整layer/effect/pass/path/source/user对应和唯一typed target创建同一VM owner；Material直接消费该准备期值目标，不重复复制wrapper准入。最终只保`.sceneScript`结果，外层user不再新增同uniform contributor。
 
-Binding reader 只扩有限非 Bool Number 与规范化命名 user；Scalar projection 校验完整 owner/path/source、wrapper、user identity 及单分量类型。matching named input 的 resolved descriptor 可以与 raw authored fallback 不同，owner definition 仍保 raw seed；无 user 分支保原 seed 一致性。Material classifier 仅消费 exact target proof，将 user 留作输入，不能忽略脚本或登记并行输出。原 property compiler→preliminary snapshot→Scalar VM→settled snapshot→Program uniform/graph/唯一 compositor 全链复用，普通帧不增加解析或全图扫描。
+外层热更复用PropertyBindingProgram→preliminary callback输入；内层user引用复用scriptInstanceProperty→Codec与revision缓存→scriptProperties JSON，两路由同一frame/effective property snapshot送入原QuickJS调用，再沿DynamicSnapshot→prepared uniform→GraphExecutor→compositor。原Scalar/Vector准备入口将已绑定named值本身登记为VM的live输入，连同内层参数共同进入现有consumer集合；不把下游uniform误登记成user writer，也不在Host另造准入。没有第二份value状态、VM、参数解析器或帧期准备。官方固定Number对照确认named输入不会每帧盖过callback current；原EvaluationTransaction沿用已提交材质sceneScript值，Timeline仍优先。LiveConsumers只在真实outer typed输入改变时用原scoped transaction重新播种；独立脚本参数、无关属性与同值重发不重置current，延迟资源提交沿同一入口承接。没有新current owner、历史revision或持久状态；热改重播种为本项目既有热更合同，不外推为已测官方时序。
 
-首片只扩无 animation 的 `script/user/value` Number；scriptproperties 混合、数值 String、Bool、Vec2、其他 host 与 Timeline 控制不扩。缺失/错误/重复定义的属性仍由原 property compiler 诊断并提供原 authored/current fallback；没有 VM proof 保留 unproven attachment，失败返回、事务拒绝与退休沿原局部回退，不提前确认事件或发布部分结果。
+保现有返回类型/非有限及失败回退、真实target/consumer ABI、取消/生命周期；Timeline event-only控制不取得值owner，init-only/sleeping仍按原回调合同处理。验收含空/非空及nested user参数、独立外/内热变、改名等价、原返回反例与Timeline邻例；真实原包须将VM发布与uniform字节诊断、GPU/末合成/次帧及画面关联，另验独立样本。公开update只说明当前property值，不直接授混合named优先级；失格对照不驱动时序修改，也不以清除附件日志代替正常音条与淡入淡出。
 
-验收用改名及等价表达式确认真实输入被脚本变换，覆盖非默认保存值启动、连续热改、错误类型/非有限返回、缺失或重复 owner、未知 wrapper/竞争 Timeline及健康旧 scalar/Vec3/property-only。最终隔离 App 须直接确认 target identity、typed 输入/输出与 encoded uniform、GPU/末合成/下一帧及实际旋转响应；未参与修法内容另作真实渲染。若没有实际 owner/consumer 或画面响应，保留未证边界，不扩大 wrapper 或颜色域；一个有效构建和最近门可复用。
+旧293的热改/旋转证据和后继358的音条恢复、Number反馈官方对照、真实live输入登记及反例集中在[同一历史记录](../../history/named-user-pass-scalar-2026-10-16.md#named-input-current-20261030)。typed target只授结构资格，不冒称VM执行成功；数值String、Bool、Vec2及其他host仍归各原合同。
 
 <a id="camera-layer-fov-scalar"></a>
 ## Camera layer FOV scalar（2026-10-15）

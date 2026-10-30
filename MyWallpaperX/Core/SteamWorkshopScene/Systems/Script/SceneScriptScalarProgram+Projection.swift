@@ -348,7 +348,6 @@ nonisolated extension SceneScriptScalarProgram {
         let namedPropertyInput = binding.userPropertyKey.map {
             !$0.isEmpty && $0 == value.userBinding
                 && value.userValueKind == .string
-                && binding.wrapperKeys == ["script", "user", "value"]
                 && value.bindingKeys == binding.wrapperKeys
                 && value.timeline == nil
         } == true
@@ -377,7 +376,7 @@ nonisolated extension SceneScriptScalarProgram {
             || (binding.wrapperKeys == ["script", "user", "value"]
                 && binding.properties.isEmpty
                 && value.userValueKind == .null)
-            || (namedPropertyInput && binding.properties.isEmpty)
+            || namedPropertyInput
         guard validWrapper else { return nil }
         return target
     }

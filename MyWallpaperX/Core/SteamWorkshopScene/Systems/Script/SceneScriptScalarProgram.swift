@@ -360,10 +360,9 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
                     valuePublishingTargets.insert(target)
                 }
                 propertyInputsByTarget[target] = properties
-                let inputTargets =
-                    SceneScriptPropertyInputCodec.liveConsumerTargets(
-                        binding: binding, inputs: properties
-                    )
+                var inputTargets = SceneScriptPropertyInputCodec.liveConsumerTargets(
+                    binding: binding, inputs: properties)
+                if binding.userPropertyKey != nil { inputTargets.insert(target) }
                 livePropertyInputTargetsByTarget[target] = inputTargets
                 livePropertyInputTargets.formUnion(
                     inputTargets

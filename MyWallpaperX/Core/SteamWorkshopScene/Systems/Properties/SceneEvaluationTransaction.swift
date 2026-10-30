@@ -35,9 +35,17 @@ nonisolated struct SceneEvaluationTransaction {
     /// the host can feed callback state forward without exposing or replacing
     /// the transaction's atomic snapshot publication.
     nonisolated func previousValues(
-        for targets: Set<SceneDynamicTarget>
+        for targets: Set<SceneDynamicTarget>,
+        userValues: [SceneDynamicTarget: SceneDynamicValue] = [:],
+        timelineValues: [SceneDynamicTarget: SceneDynamicValue] = [:]
     ) -> [SceneDynamicTarget: SceneDynamicValue] {
-        lastSnapshot?.values(for: targets, source: .sceneScript) ?? [:]
+        lastSnapshot?.values(for: targets, source: .sceneScript).filter { target, _ in
+            guard timelineValues[target] == nil else { return false }
+            // A material's named user value seeds its callback. Stable input
+            // does not replace the result published by the preceding callback.
+            if case .effectConstant = target { return true }
+            return userValues[target] == nil
+        } ?? [:]
     }
 
     nonisolated mutating func evaluate(
