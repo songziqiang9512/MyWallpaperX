@@ -184,3 +184,17 @@
 自有静态source载体仅灰底+原128、原模型/五效果/参数/masks/transform保真。v1用一Bool热切五效果被effectVisibility(128,4) consumer admission明确拒绝；这是已见三节点history效果显隐热更缺口，不改产品来迎合。唯一修正v2只切前四效果、MotionBlur始终开启：同一runtime/window32992/surface1（完整身份详ZIP），accepted=true；frame123四项inactive，MotionBlur继续history/末合成，正常停止。两次run均有连续PNG采样superseded，v1另有teardown capture失败；按预登记不再重跑，**注册因果资格UNKNOWN、原FAIL保留**。
 
 已有v2完成图的观察另列：两张晚窗OFF及第三张逐像素相同；固定中央90% ROI中ON/OFF的≥3/255变化比例8.053919%、MAE1.337629/255，亲看弓与手部变形。这些是保留下来的实际观察，不升级为注册验收PASS、单独MotionBlur贡献、官方parity或原整景完整验收。只退出128/428已证FBO首拒；91未选预设noise及新显隐/验证债保队列。必要原包、失败载体/唯一修正、身份/图证、测试和独审归`.artifacts/scene-evidence/runs/declared-framebuffer-shadow-20261030/`；复制PKG/运行HOME/App/重复采样在归档后清理，保同一迭代构建缓存。未测Release、HDR/多屏、长稳或可比性能，不认性能收益。
+
+
+<a id="source-less-stage-stop-20261030"></a>
+## 无纹理颜色生成候选停止（2026-10-30）
+
+3566323704的136/287活动audio_cable→pulse链仍缺金色波形；目录官方实机图可见底部曲线，native原包无该贡献。原AUDIOPROCESSING=3的最终fragment MSL无texture接口/采样，邻接pulse有slot0。仅此事实不能证明整个ready envelope已具备可执行颜色合同，不能直接把utility-source-program-unsupported归为一个consumer计数错误。
+
+候选沿原CapturedMainSourceConservation/Stages加入自足颜色角色，要求实际空读取、resolved color、whole-write及精确输出，保原capture/graph/compositor。最近CPU门调用真实Admission→Stages：初始79.793s准确两正例红，78.698s绿；审查发现color target已透明清屏，原geometry路线不需额外footprint证明，删门后80.029s含缩小geometry的11场景通过。原internal-terminal门94.653s通过。两次Debug/严格签名及输入无漂移通过，首候选主体3ed7a577…2f08/dylib7e230c9e…241f；删footprint候选主体bd7940f1…e2ef/dylib6fe6d45f…ba0e。以上是实验资格，均不作为有效修复交付。
+
+同PCM fixture、原包Ready后3秒/运行4秒，两候选136/287仍报同一source-route首拒，目标Program没有进入GPU，实际图底部波形未恢复；不能从总报告仅列particle loading incomplete认整链正常。独立3782614820在首候选短播PASS且实际人物构图保持，只是未受益当前运行；不冒充最终候选的完整回归。官方与native视口/音频相位不同，只作结构定位；不做精确像素或性能结论。正式阶段与预登记ROI按screen-top y64–97%，不把作者自底部Y误当屏幕顶部。
+
+独审另指出：sole-node限制没有独立renderer必要性，逐variant直接升级角色还可能误拒混合internal/producer envelope。下次须先保留原source/internal一致性，再用真实整个envelope事实决定生成资格，不能靠新增数量门压缩证明。本轮按预定“无实际可见收益即停止扩大”退出，全部实验产品/测试和临时设计撤回至b8ad7998f，产品净变化0；队列仍开放，REFRACT粒子余项不混销。没有增加owner、状态、缓存或常规帧开销。
+
+必要失败原始报告、App身份、RED/GREEN/审查结论与未验收补丁归档`.artifacts/scene-evidence/runs/source-less-stage-stop-20261030/`；原生after保全尺寸无损decodedRGB8及原PNG身份，不作raw HDR证据。清理本轮原图、副本、临时HOME和重试产物，仅保连续构建缓存；后续使用前须按恢复后的产品源重建，不能把缓存中实验App称为HEAD构建。

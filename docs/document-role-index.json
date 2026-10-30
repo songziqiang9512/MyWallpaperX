@@ -4476,10 +4476,10 @@
       "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "74d6eb6ecdb270961d1d223f2b9840a9f48b5368d1c3dd7bca14ec49a430601a",
+        "sourceSHA256": "3f2724a871984f762a8e6ade9cdcf41033387b49fa070c0907d8d1e5195683d9",
         "method": "document_registry --audit + document_health --check",
-        "scope": "复用原采样primitive的LOD组件事实；289 Program/GPU恢复、自有静态on/off因果图证及独立335渲染，队列仅退出该首门。",
-        "limitations": "原289跨启动像素受相位影响；off rejected计数按inactive语义保留。未额外验磁盘暖重放、HDR/多屏、官方整景parity或性能。"
+        "scope": "无纹理颜色生成两候选真实原包无收益，撤回实验实现并保首拒/后缀开放，唯一队列指向停止后验。",
+        "limitations": "未取得真实逐variant envelope拒绝事实，不授Program/GPU或波形恢复、官方parity与性能。"
       }
     },
     {

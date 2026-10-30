@@ -278,7 +278,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 182,
-      "bytes": 41312
+      "bytes": 41279
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1895,11 +1895,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "7d6533c8067f1d7a056d4b1e557215a87da36cd4efd96c0b705563945293733a",
-      "after": "a0c72e70d1779a56c92b17916a5c4a11640f4f62bd2259f4ec6e868b66694044",
+      "before": "a0c72e70d1779a56c92b17916a5c4a11640f4f62bd2259f4ec6e868b66694044",
+      "after": "cb69979b641f654674405c77aaceeedb1395abda1ee2a454d95ea1e84791e1eb",
       "owner": "scene-engine-maintainer",
-      "reason": "原Template准备阶段投影不可达FBO低候选，保diagnostic与必要身份门；同步真实history链、注册因果UNKNOWN及新显隐/验证债，退出仅已闭首拒。",
-      "decision": "docs/scene/capabilities/sampler-alias-precedence.md#declared-framebuffer-binding"
+      "reason": "替换无纹理颜色生成的未证计数归因为原包失败停止与下一资格门；缩短现役描述，未验收产品实现撤回。",
+      "decision": "docs/scene/history/corpus-log-audit-2026-10-29.md#source-less-stage-stop-20261030"
     }
   ]
 }
