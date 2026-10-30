@@ -730,6 +730,11 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         before["allowed_files"] = sorted(origin if path == destination else path for path in live["allowed_files"])
         sources = {path: (SCENE_SOURCE_ROOT / path).read_bytes().decode("utf-8")
                    for path in live["passive_result_correction"]["source_sha256"]}
+        # This copied fixture models one measured transaction; the registered
+        # historical receipt stays immutable as its production sources evolve.
+        live["passive_result_correction"]["source_sha256"] = {
+            path: hashlib.sha256(source.encode()).hexdigest() for path, source in sources.items()
+        }
         self.assertTrue(passive_result_inventory_correction_valid(before, live, sources))
         self.assertEqual(classification_transition_violations(before, live, sources), [])
         self.assertEqual(classification_transition_violations(live, copy.deepcopy(live)), [])
@@ -746,6 +751,9 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         self.assertTrue(classification_transition_violations(before, changed, sources))
         self.assertTrue(classification_transition_violations(live, changed, sources))
         self.assertTrue(classification_transition_violations(before, live))
+        drifted_sources = {**sources, origin: sources[origin] + "\n// fixture source drift\n"}
+        self.assertFalse(passive_result_inventory_correction_valid(before, live, drifted_sources))
+        self.assertTrue(classification_transition_violations(before, live, drifted_sources))
 
     def test_capability_addition_binds_exact_source_and_cannot_reopen_growth(self) -> None:
         old = next(rule for rule in json.loads(SCENE_LAYOUT_PATH.read_text())["render_chain_authority_ratchet"]["rules"]
