@@ -101,8 +101,8 @@
       "bytes": 2294
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 396,
-      "bytes": 84146
+      "lines": 401,
+      "bytes": 85043
     },
     "docs/scene/capabilities/alpha-display-fallback-design.md": {
       "lines": 124,
@@ -150,7 +150,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 220406
+      "bytes": 220360
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -278,7 +278,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 177,
-      "bytes": 38402
+      "bytes": 38350
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1670,11 +1670,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "8852e58ab0815bbd37bac67d6a0e4556a97d6e8702891096e7870a326dcddde9",
-      "after": "be93ca01972fe7257fe3aad32fef010b9004a455a59e038e6c6efc45befe3bc7",
-      "owner": "Scene additive local fallback",
-      "reason": "用既有preparedMap隔离未支持additive，结构/消费边界与实际原377六动作恢复、左手仍开放；合并旧state1/auxiliary状态，证据细节只归历史，保direct及未知语义边界。",
-      "decision": "docs/scene/history/puppet-additive-local-fallback-2026-10-29.md"
+      "before": "be93ca01972fe7257fe3aad32fef010b9004a455a59e038e6c6efc45befe3bc7",
+      "after": "bd08f9b43395042fed85ccc164dc4d3cb7b4fd1edc29ac726b4d684cffd5785f",
+      "owner": "scene-model-hemisphere-basis",
+      "reason": "在现有模型能力合同补齐canvas半球系数坐标职责及native/raw反例；不扩总架构正文、不建新文档，产品仅原snapshot交换两项。现役摘要/队列同步收缩，已闭宽夜区归历史。",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-hemisphere-basis"
     },
     {
       "section": "bodies",

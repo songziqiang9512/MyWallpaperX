@@ -165,13 +165,73 @@ enum SceneStaticModelVertexBasisChecks {
         let unchanged = worlds.allSatisfy { key, value in
             (0..<4).allSatisfy { value[$0] == canonical[key]![$0] }
         }
-        return ["variant": renamed ? "renamed" : "original", "mode": mode, "native": native,
+        var row: [String: Any] = ["variant": renamed ? "renamed" : "original", "mode": mode, "native": native,
             "dynamic": dynamic, "worldError": Double(worldError), "normalError": Double(normalError),
             "canonicalUnchanged": unchanged, "colorMatchesReference": colorMatches,
             "colorCullAndMirror": cullAndMirror, "encoded": renderer.dependencyRuntime.encoded[id] == true,
             "completed": true, "shadowKinds": ["directional", "spot", "point"],
             "shadowMatchesReference": shadowMatches, "shadowHasGeometry": shadowHasGeometry,
             "shadowCullMatchesGeometry": shadowCull, "shadowDepths": shadowDepths]
+        if mode == "positive" || native {
+            row["hemisphere"] = try hemisphere(root: root, renamed: renamed, native: native,
+                passes: passes, device: device, queue: queue)
+        }
+        return row
+    }
+
+    static func hemisphere(root: URL, renamed: Bool, native: Bool,
+                           passes: [SceneRenderDescriptor.MaterialPassDescriptor],
+                           device: MTLDevice, queue: MTLCommandQueue) throws -> [[String: Any]] {
+        var rows: [[String: Any]] = []
+        let id = renamed ? 73 : 4, lightID = renamed ? 97 : 8
+        func channels(_ value: SIMD3<Float>) -> [Float] { [value.x, value.y, value.z] }
+        for normal in ["up", "down"] {
+            var child = SceneRenderDescriptor.Layer(id: id,
+                staticModelPath: "models/\(renamed ? "renamed-" : "")hemi-\(normal).mdl")
+            child.utilityLayer = nil; child.usesPerspective = native
+            child.originXYZ = [44, 68, -4]; child.scaleXYZ = [1, 1, 1]
+            child.anglesXYZ = [0, 0, 0]
+            var lamp = SceneRenderDescriptor.Layer(id: lightID, contentKind: "object")
+            lamp.anglesXYZ = [0, 0, .pi / 2]
+            // A real, admitted direct lamp with zero energy isolates the two
+            // hemisphere endpoints while retaining its nonzero-Y direction.
+            lamp.directionalLight = .parse(["light": "ldirectional", "intensity": 0])
+            let layers = [child, lamp]
+            var descriptor = SceneRenderDescriptor(lighting: .init(
+                ambientColorRGB: [0.8, 0.2, 0.4], skylightColorRGB: [0.1, 0.6, 0.2]),
+                layers: layers, renderOrderLayerIDs: [id, lightID], materialPasses: passes)
+            descriptor.camera = .init(eye: native ? [80, 64, 200] : [0, 0, 0],
+                center: native ? [80, 64, 0] : [0, 0, -1], up: [0, 1, 0],
+                orthoWidth: native ? nil : 160, orthoHeight: native ? nil : 128,
+                fovDegrees: native ? 60 : nil, perspectiveOverrideFOVDegrees: nil, nearZ: 0.01, farZ: 1000)
+            let byID = Dictionary(uniqueKeysWithValues: layers.map { ($0.id, $0) })
+            let worlds = SceneLayerWorldFrameResolver.compute(descriptor: descriptor, byID: byID)
+            let snapshot = SceneDynamicSnapshotResolver().resolve(frameIndex: 1, generation: 1,
+                definitions: [], timelineValues: [:]).snapshot
+            let lighting = SceneLightSnapshot.make(descriptor: descriptor,
+                worldFramesByLayerID: worlds, dynamicSnapshot: snapshot)
+            let loader = try SceneTextureLoader(root: root, device: device)
+            var sources = try prepareModelSources(descriptor, view: .init(root: root))
+            let resources = try ScenePreparedStaticModelResources.prepare(descriptor: descriptor,
+                resourceView: .init(root: root), device: device, textureLoader: loader,
+                preparedSources: &sources, cancellationCheck: {})
+            let renderer = SceneMetalRenderer(device: device, resources: resources)
+            renderer.renderDescriptor = descriptor
+            let draws = renderer.staticModelDraws(layer: child, worldFrames: worlds, snapshot: snapshot)!
+            precondition(draws.count == 1)
+            let camera = SceneParticleCameraFrame(camera: descriptor.camera,
+                viewportSize: CGSize(width: width, height: height), dynamicValues: snapshot)
+            let bytes = color(renderer: renderer, layer: child, draws: draws, worldFrames: worlds,
+                snapshot: snapshot, camera: camera, lighting: lighting, device: device, queue: queue, actual: true)
+            let ndc = projected(camera.reverseDepthViewProjection(usesPerspective: native)
+                * draws[0].world, centers[0])
+            rows.append(["normal": normal, "pixel": pixel(bytes, ndc),
+                "sum": channels(lighting.ambient + lighting.skylight),
+                "rawAmbient": lighting.authoredShaderLighting.ambient.map(channels) ?? [],
+                "direction": lighting.directional.first.map { channels($0.directionTowardLight) } ?? [],
+                "encoded": renderer.dependencyRuntime.encoded[id] == true, "completed": true])
+        }
+        return rows
     }
 
     static func expectedNormal(_ world: simd_float4x4) -> SIMD3<Float> {

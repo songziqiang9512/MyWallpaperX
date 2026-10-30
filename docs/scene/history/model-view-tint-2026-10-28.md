@@ -25,7 +25,7 @@
 
 必要身份、输入冻结、红绿/治理日志、实际报告及固定姿态修前/修后原图归主仓`.artifacts/scene-evidence/runs/model-view-tint-20261028-baseline/`与`model-view-tint-20261028-candidate/`。同阶段合成一包，均小于32MiB；报告保留原裁决并明确未归档的默认343重复截图。普通结果14天、总预算5GiB。两个已停止的staged App、HOME、样本副本与冗余结果当轮清理；连续后继只留一份构建缓存。
 
-343 的完整夜侧光色/宽暗区因果、MR/specular/pigment、间歇全屏闪烁与collision继续由现役队列拥有。未做CPU/GPU/启动收益比较，无性能收益结论。
+当时未闭的宽暗区由[10-30后继](#hemisphere-basis-20261030)定点复验；完整光色、MR/specular/pigment、间歇全屏闪烁与collision仍归现役队列。未做CPU/GPU/启动收益比较。
 
 <a id="chroma-response-20261029"></a>
 ## 2026-10-29 Chroma独立响应资格
@@ -39,3 +39,16 @@
 ### 453快照中的真实直接模型范围
 
 同日定点盘点区分raw字段与真实引用：308个model叶值含52个null；256个string MDL引用分属12样本、105个sample/model路径身份，既非256独立网格也非37个加载consumer。仅查首部/材料关联得693个实例化pass，stock Chroma只有343 Cloud114，明确pigment=.2、roughness0、cyan specular与dynamic tintback；stock缺省pigment=.5，不能把缺省当0。基线中的neutral pigment0候选真实consumer为0，因此后续须面向该完整材料，不以只覆盖实验板的窄片代交付。原compact field/schema统计本来保留null/string，数字不改；此盘点不覆盖新增38或全部非二进制/Puppet材料。关联来源与未知项保在本机限期研究归档。
+
+<a id="hemisphere-basis-20261030"></a>
+## 2026-10-30：模型半球光随 canvas 轴转换
+
+原343在固定合法rotation0、相同1512×982视口与属性下，关Cloud后宽夜区跨端残差仍保留89.3%；Earth发光10→0及backlight .5→0亦未消退。仅Sky .3→0使残差19.735→.457U8，支持沿半球光查首错，不把Cloud缺参数当主因。各臂为隔离副本，原媒体只读；原JPEG同ICC转共同sRGB显示域，固定ROI、8px侵蚀及32px网格，不是线性HDR或精确parity。两次有效on来自独立启动；误取普通主窗帧被排除，截图未绑定GPU帧。
+
+Oct18模型矩阵改为`F·authoredWorld`后，normal也反射Y；旧半球光仍按未转换的系数消费。原`SceneLightSnapshot.make`对有效canvas高度仅交换已解析的两RGB，恢复作者±Y语义；native域、raw authored ambient、求和消费者、法线/direct/BRDF/发光均沿原链。产品净增7行，无新字段、API、owner、ABI或片元计算。[唯一合同](../capabilities/advanced-object-coverage.md#model-hemisphere-basis)。
+
+同一最近GPU门修前四个canvas原名/改名×±Y端点FAIL，修后PASS；literal不等双色oracle经过真实make/world/resources/draw/MSL与completion。native、raw ambient、sum、direct方向和原12个basis case保持。红绿夹具字节一致，唯一产品源变化为snapshot；未重跑全模块。Debug36.202秒成功，无Swift warning，仅AppIntents无依赖提示；原菜单并行改动已由`af44ce421`提交，构建前后该源SHA未变，不据此授UI或性能收益。
+
+候选exe `96003428…686c0b7`、实际Debug dylib `d583b2d6…3fe82`，Team H9QWU9XN8R签名严格校验通过。原343恢复Cloud on、Sky .3、emission10、backlight .5，Earth/Cloud前三帧实际encoded/GPU完成，world与基线一致；同窗口两张CUA JPEG相隔46.734秒。预定night网格残差22.105→.488U8（下降97.79%），54个明显偏亮块降为0，原图宽暗区恢复；sky控制低于3U8。全Earth仍约7.816U8残差及亮侧/云层余差，不能全部归Cloud；完整Chroma、r0/specular/pigment、coverage、闪烁与collision不销账。
+
+未参与修法的原361短窗strict PASS，真实罐体、圆环和文字保留；该样本ambient=sky=.3提供等色相邻反例，不授新光色收益或官方parity。两次产品运行均exit0、surface1→0/GPU排空；独立静态与原图审查GO，无性能收益结论。必要因果/修后原JPEG、原日志、输入身份、红绿、构建及独审归本机`.artifacts/scene-evidence/runs/model-hemisphere-basis-20261030/`，普通14天/单包32MiB/总5GiB；临时媒体/运行HOME退出后清理，连续迭代只保原单份构建缓存。

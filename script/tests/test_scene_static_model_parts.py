@@ -179,6 +179,17 @@ def vertex_basis_fixture(renamed=False):
             'textures': [stem+'.png'], 'combos': {'LIGHTING': 1},
             'cullmode': 'nocull' if nocull else 'back'}]}).encode()
     entries[model] = join_parts(parts)
+    stem = 'materials/renamed-hemi' if renamed else 'materials/hemi'
+    entries[stem+'.rgba'] = bytes([255,255,255,255])
+    entries[stem+'.png'] = png([255,255,255,255])
+    entries[stem+'.json'] = json.dumps({'passes': [{'shader': 'genericimage',
+        'textures': [stem+'.png'], 'combos': {'LIGHTING': 1}, 'cullmode': 'nocull'}]}).encode()
+    for name, normal in [('up', (0., 1., 0.)), ('down', (0., -1., 0.))]:
+        vertices = [((x, y, .4*y), normal, (1., 0., 0., 1.), uv) for x, y, uv in
+                    [(2,4,(0.,0.)), (10,4,(1.,0.)), (10,22,(1.,1.)), (2,22,(0.,1.))]]
+        path = f'models/{"renamed-" if renamed else ""}hemi-{name}.mdl'
+        entries[path] = reader.build_model(vertices=vertices, indices=(0,1,2,0,2,3),
+            bounds=(2,4,1.6,10,22,8.8), material=(stem+'.json').encode())
     return entries, {'model': model}
 
 
@@ -644,6 +655,20 @@ class SceneModelPartsNativeTests(unittest.TestCase):
                 self.assertTrue(all(row['shadowMatchesReference']), row)
                 self.assertTrue(all(row['shadowHasGeometry']), row)
                 self.assertTrue(all(row['shadowCullMatchesGeometry']), row)
+                for hemi in row.get('hemisphere', []):
+                    with self.subTest(hemisphere=hemi['normal']):
+                        expected = {'up': [204,51,102], 'down': [26,153,51]}[hemi['normal']]
+                        for actual, target in zip(hemi['pixel'], expected+[255]):
+                            self.assertLessEqual(abs(actual-target), 1, hemi)
+                        self.assertEqual(len(hemi['pixel']), 4)
+                        self.assertEqual([round(v,4) for v in hemi['sum']], [.9,.8,.6])
+                        self.assertEqual([round(v,4) for v in hemi['rawAmbient']],
+                                         [] if row['native'] else [.8,.2,.4])
+                        self.assertEqual(len(hemi['direction']), 3)
+                        for actual, target in zip(hemi['direction'], [0, -1 if row['native'] else 1, 0]):
+                            self.assertAlmostEqual(actual, target, delta=.00001)
+                        self.assertTrue(hemi['encoded'] and hemi['completed'])
+                self.assertEqual(len(row.get('hemisphere', [])), 2 if row['mode'] in ('positive','native') else 0)
         self.assertTrue(any(row['dynamic'] for row in self.basis))
         self.assertTrue(any(row['native'] for row in self.basis))
 

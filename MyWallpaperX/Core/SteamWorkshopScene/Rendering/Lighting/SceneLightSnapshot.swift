@@ -254,14 +254,21 @@ struct SceneLightSnapshot {
         }
         #endif
         let fog = descriptor.lighting?.distanceFog
+        var ambient = color(descriptor.lighting?.ambientColorRGB)
+        var skylight = color(descriptor.lighting?.skylightColorRGB)
+        if let height = descriptor.camera.orthoHeight, height > 0 {
+            // Canvas model normals reflect Y; reflect the two hemisphere
+            // coefficients into the same world basis before any draw consumes them.
+            swap(&ambient, &skylight)
+        }
         // An unauthored ambient stays black: official renders gated-away or
         // lightless scenes black for lit static models (own-fixture N-series
         // and ambient-omitted ADEF probes, 2026-10-06), and every corpus
         // sample that lights models authors ambient or skylight, so the
         // historical white unlit default is retired.
         return SceneLightSnapshot(
-            ambient: color(descriptor.lighting?.ambientColorRGB),
-            skylight: color(descriptor.lighting?.skylightColorRGB),
+            ambient: ambient,
+            skylight: skylight,
             directional: directionalLights,
             point: pointLights,
             spot: spotLights,

@@ -841,13 +841,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-28",
+      "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "bc25ee47324bd3a12d31730a1c5feb445c58ffd4e050382bc0307fa41e1ade38",
+        "sourceSHA256": "beaeb68cbae82f19f3a8ce8ab488922bc9542e103934bf492dc2aa75eb0d6d1d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅同步显式m/gd纯平移world持续力、坏physics逐骨失败及374/299/318三轮；保旧线性冲量与临时证据失效边界，移除已闭318交互队列，不升级整样本。",
-        "limitations": "未知缺省m/gd、角物理/IK/rope、宽parent链、官方动态相位/HDR/多屏及性能未验；其他专题未重审。"
+        "scope": "仅同步原模型snapshot半球坐标职责、真实343宽夜区修复与剩余亮侧/Cloud边界；原红绿门、Debug、实景与独审身份归既有模型后验。",
+        "limitations": "未复验整篇旧能力；不授完整Chroma、全屏闪烁、collision、全样本或性能结论。"
       }
     },
     {
@@ -1006,10 +1006,10 @@
       "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1ffa74279d2e5e063f2090e8736253532ca0f8c652c1325d21a76615464e1d5a",
+        "sourceSHA256": "9c89498ae9c7eb50f65c23c1f3ff19996f4df3937b8b9b698c673dc4591bd3f5",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Known float-vector return narrowing on existing scope/type owner; fixed official board, two actual native targets and heldout, with current UI build context separated.",
-        "limitations": "Only changed contract and navigation reviewed; no exact whole-scene official parity, full properties, long runtime, HDR/multi-screen or performance conclusion."
+        "scope": "仅同步原模型snapshot半球坐标职责、真实343宽夜区修复与剩余亮侧/Cloud边界；原红绿门、Debug、实景与独审身份归既有模型后验。",
+        "limitations": "未复验整篇旧能力；不授完整Chroma、全屏闪烁、collision、全样本或性能结论。"
       }
     },
     {
@@ -2329,7 +2329,9 @@
       "currentAuthorities": [
         "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
-      ]
+      ],
+      "cutoffDate": "2026-10-30",
+      "uniqueValue": "模型视角双色、Chroma资格及canvas半球光轴迁移的独立输入、红绿/原样本宽夜区与未闭边界。"
     },
     {
       "path": "docs/scene/history/named-input-desktop-startup-2026-10-10.md",
@@ -4467,10 +4469,10 @@
       "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "67f2f335dead5821727b0f51ee792a2ea2ae40a4efcf64f5e5665f0bcfabec6c",
+        "sourceSHA256": "b08134c579a67980d87b938cd5a5debb5ef7307b79992fe4239b6b96c5d4eded",
         "method": "document_registry --audit + document_health --check",
-        "scope": "按当前未改Source和原包非目标退步撤回输出退休候选；开放问题仅归队列，实验原数/停止理由归既有视频历史，保留新的AV定位完成资格项。",
-        "limitations": "状态与引用复核；未接受新引擎修复或整体性能收益。原6方法仍有间歇pending失败，正式Release、长稳态与官方空窗/全样本未资格。"
+        "scope": "仅同步原模型snapshot半球坐标职责、真实343宽夜区修复与剩余亮侧/Cloud边界；原红绿门、Debug、实景与独审身份归既有模型后验。",
+        "limitations": "未复验整篇旧能力；不授完整Chroma、全屏闪烁、collision、全样本或性能结论。"
       }
     },
     {
