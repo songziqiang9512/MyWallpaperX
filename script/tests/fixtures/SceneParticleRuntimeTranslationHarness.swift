@@ -5,7 +5,7 @@ import simd
 
 /// Own input and independent world-coordinate oracles. All admission, birth,
 /// checkpoint and model/parallax decisions are compiled production methods.
-private final class TranslationInput {
+final class TranslationInput {
     let directory: URL
     let device: MTLDevice
     init() throws {
@@ -38,11 +38,12 @@ private final class TranslationInput {
         value.originHasScript = writer
         return value
     }
-    func descriptor(_ layers: [SceneRenderDescriptor.Layer]) -> SceneRenderDescriptor {
+    func descriptor(_ layers: [SceneRenderDescriptor.Layer], authoredProjection: Bool? = nil) -> SceneRenderDescriptor {
         var value = SceneRenderDescriptor(layers: layers, renderOrderLayerIDs: layers.map(\.id), materialPasses: [
             .init(materialPath: "materials/owned.json", shaderPath: "genericparticle",
                   texturePaths: ["owned.png"], blending: "translucent"),
         ])
+        value.camera = .init(authoredOrthographicProjectionActive: authoredProjection)
         value.camera.orthoWidth = 1000
         value.camera.orthoHeight = 800
         return value
@@ -166,6 +167,25 @@ extension Harness {
             return ["admitted": false]
         }
         var result: [String: Bool] = ["admitted": true]
+        let referenceFrame = SceneMatrix.translation(SIMD3<Float>(100, 600, 0))
+            * SceneMatrix.rotationZ(0.4) * SceneMatrix.scale(SIMD3(2, 3, 1))
+        let finitePlan = SceneParticleRootWorldTranslationPlan(referenceWorldFrame: referenceFrame)!
+        var rejectsNonfiniteLanes = true
+        for column in 0..<4 { for row in 0..<4 {
+            for value in [Float.nan, Float.infinity, -Float.infinity] {
+                var invalid = referenceFrame
+                invalid[column][row] = value
+                rejectsNonfiniteLanes = rejectsNonfiniteLanes && finitePlan.frame(currentWorldFrame: invalid) == nil
+            }
+        }}
+        result["reference-plan-rejects-all-48-nonfinite-current-lanes"] = rejectsNonfiniteLanes
+        var translated = referenceFrame
+        translated.columns.3.x += 40; translated.columns.3.y -= 60
+        var changedBasis = translated
+        changedBasis.columns.0.x += 0.1
+        result["reference-plan-finite-offset-and-basis-recovery"] = finitePlan.frame(currentWorldFrame: translated) != nil
+            && finitePlan.frame(currentWorldFrame: changedBasis) == nil
+            && finitePlan.frame(currentWorldFrame: translated) != nil
         let reference = runtime.advance(by: 0, dynamicValues: current, layerWorldFrames: frames)
             .first(where: { $0.layerID == 31 })?.referenceWorldFrame
         for (name, bad) in ["missing": nil, "singular": simd_float4x4(),
@@ -231,11 +251,10 @@ extension Harness {
             if mode == "native-camera" { d.camera.orthoWidth = nil; d.camera.orthoHeight = nil }
             result["admission-\(mode)"] = !input.runtime(d).activeLayerIDs.contains(31)
         }
-        for mode in ["rope", "trail", "child", "pointer-cp", "force", "unknown-operator"] {
+        for mode in ["trail", "child", "pointer-cp", "force", "unknown-operator"] {
             let path = "particles/reject-\(mode).json"
             try input.particle(path) { value in
                 switch mode {
-                case "rope": value["renderer"] = [["name": "rope"]]
                 case "trail": value["renderer"] = [["name": "spritetrail"]]
                 case "child": value["children"] = [["name": "particles/local-peer.json", "type": "static"]]
                 case "pointer-cp":

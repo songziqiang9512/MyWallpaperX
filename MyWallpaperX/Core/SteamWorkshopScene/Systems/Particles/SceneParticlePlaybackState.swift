@@ -12,7 +12,7 @@ final class SceneParticlePlaybackState {
     var preparedLayerIDs: Set<Int> { didTeardown ? [] : retainedLayerIDs }
     /// Prepared once with the playback graph; no per-frame particle topology
     /// scan is needed to decide whether pointer projection is required.
-    let pointerControlPointLayerIDs: Set<Int>
+    let pointerControlPointDemands: [Int: SceneParticlePointerDemand]
     private(set) var batches: [SceneParticleDrawBatch]
     /// Resource admission history. Empty batches are valid and do not prove
     /// that a layer produced particles or reached the GPU.
@@ -62,7 +62,7 @@ final class SceneParticlePlaybackState {
         self.pipeline = pipeline
         self.runtime = runtime
         self.retainedLayerIDs = Set(runtime.activeLayerIDs)
-        self.pointerControlPointLayerIDs = runtime.pointerControlPointLayerIDs
+        self.pointerControlPointDemands = runtime.pointerControlPointDemands
         let layersByID = Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) })
         let initialWorldFrames = SceneLayerDynamicWorldFrameResolver.resolve(
             descriptor: descriptor, byID: layersByID, snapshot: initialDynamicValues,

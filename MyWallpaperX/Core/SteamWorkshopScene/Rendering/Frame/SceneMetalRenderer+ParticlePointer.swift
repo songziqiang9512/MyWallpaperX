@@ -2,13 +2,13 @@ import Foundation
 import simd
 
 extension SceneMetalRenderer {
-    func particlePointerLocalPositions(
+    func particlePointerLocalPositions<Demands: Collection>(
         frameContext: SceneFrameContext,
         cameraFrame: SceneParticleCameraFrame,
         frameProjection: SceneMetalRendererFrameWorldProjection,
-        demandedLayerIDs: Set<Int>
-    ) -> [Int: SIMD3<Double>] {
-        guard frameContext.pointer.isInside, !demandedLayerIDs.isEmpty else { return [:] }
+        demands: Demands
+    ) -> [Int: SIMD3<Double>] where Demands.Element == (key: Int, value: SceneParticlePointerDemand) {
+        guard frameContext.pointer.isInside, !demands.isEmpty else { return [:] }
         let viewportSize = frameContext.screenSize
         let configuration = parallaxConfiguration(
             cameraFrame: cameraFrame,
@@ -16,14 +16,15 @@ extension SceneMetalRenderer {
             viewportSize: viewportSize,
             dynamicValues: frameContext.dynamicValues
         )
-        return Dictionary(uniqueKeysWithValues: demandedLayerIDs.compactMap { layerID in
+        return Dictionary(uniqueKeysWithValues: demands.compactMap { layerID, demand in
             guard let layer = frameProjection.layersByID[layerID] else { return nil }
             guard layer.contentKind == "particle" else { return nil }
             let model = particleModelMatrix(
                 for: layer,
                 worldFramesByLayerID: frameProjection.worldFrames,
                 parallaxMouseNormalized: frameContext.cameraParallaxPosition,
-                configuration: configuration
+                configuration: configuration,
+                referenceWorldFrame: demand.referenceWorldFrame
             )
             let mvp = cameraFrame.orthographicViewProjection * model
             guard let position = SceneParticlePointerProjection.localPosition(

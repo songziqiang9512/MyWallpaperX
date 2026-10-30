@@ -31,7 +31,7 @@ final class SceneParticleRuntime {
     /// Launch-stable layer demand for pointer projection. Root and child
     /// template identities are prepared with the particle graph; frame-varying
     /// coordinates are still supplied by the host each advance.
-    private(set) var pointerControlPointLayerIDs: Set<Int> = []
+    private(set) var pointerControlPointDemands: [Int: SceneParticlePointerDemand] = [:]
     private(set) var requiresAlphaToCoverage = false
 #if DEBUG
     private var pendingAudioEvaluationObservations:
@@ -286,7 +286,7 @@ final class SceneParticleRuntime {
 #endif
 
         let builtInTextureRegistry = SceneParticleBuiltInTextureRegistry(device: device)
-        var pointerDemandLayerIDs = Set<Int>()
+        var pointerDemands: [Int: SceneParticlePointerDemand] = [:]
         var worldSpaceDemandLayerIDs = Set<Int>()
         for layer in particleLayers {
             guard let rawPath = layer.particlePath else {
@@ -313,9 +313,14 @@ final class SceneParticleRuntime {
                 continue
             }
             let layerImageMap = layerImageEmissionMaps[layer.id]
+            let render = asset.definition.renderers.isEmpty ? nil
+                : supportedRenderer(in: asset.definition, layerID: layer.id, path: path)
+            let forceEnvironment = descriptor.particleControlPointForceEnvironment(
+                for: layer, definition: asset.definition)
             let translation = staticWorldSpaceFrames[layer.id] == nil
                 ? preparedTranslations[layer.id].flatMap {
-                    $0.plan.supports(definition: asset.definition) && asset.refraction == nil ? $0 : nil
+                    $0.plan.supports(definition: asset.definition, rope: render?.rope,
+                        forceEnvironment: forceEnvironment) && asset.refraction == nil ? $0 : nil
                 } : nil
             let worldSpaceFrame = staticWorldSpaceFrames[layer.id] ?? translation?.frame
             guard !asset.definition.flags.isWorldSpace || worldSpaceFrame != nil else {
@@ -386,7 +391,7 @@ final class SceneParticleRuntime {
                     childRuntime: retainedChildRuntime
                 ))
                 if childRuntime.hasPointerControlPointConsumer {
-                    pointerDemandLayerIDs.insert(layer.id)
+                    pointerDemands[layer.id] = .init(referenceWorldFrame: nil)
                 }
                 if asset.definition.flags.isWorldSpace
                     || asset.definition.operators.contains(where: \.isWorldSpaceMovement)
@@ -401,9 +406,7 @@ final class SceneParticleRuntime {
                   admitsLayerImageEmitters(
                     asset.definition, map: layerImageMap, layerID: layer.id, path: path
                   ),
-                  let render = supportedRenderer(
-                    in: asset.definition, layerID: layer.id, path: path
-                  ),
+                  let render,
                   let rootRender = makeRootRenderRuntime(
                     asset: asset,
                     renderState: renderState,
@@ -413,6 +416,7 @@ final class SceneParticleRuntime {
                     layerImageMap: layerImageMap,
                     worldSpaceFrame: worldSpaceFrame,
                     rootWorldTranslation: translation?.plan,
+                    forceEnvironment: forceEnvironment,
                     initialWorldFrame: initialPointFrames[layer.id],
                     initialDynamicValues: initialDynamicValues,
                     initialPlayback: initialPlayback[layer.id] ?? .init(),
@@ -437,7 +441,7 @@ final class SceneParticleRuntime {
             if let translation { rootWorldTranslationPlans[layer.id] = translation.plan }
             if !rootRender.pointerControlPointIdentities.isEmpty
                 || childRuntime.hasPointerControlPointConsumer {
-                pointerDemandLayerIDs.insert(layer.id)
+                pointerDemands[layer.id] = .init(referenceWorldFrame: translation?.plan.referenceWorldFrame)
             }
             if asset.definition.flags.isWorldSpace
                 || asset.definition.operators.contains(where: \.isWorldSpaceMovement)
@@ -445,7 +449,7 @@ final class SceneParticleRuntime {
                 worldSpaceDemandLayerIDs.insert(layer.id)
             }
         }
-        pointerControlPointLayerIDs = pointerDemandLayerIDs
+        pointerControlPointDemands = pointerDemands
         worldSpaceRequiringLayerIDs = worldSpaceDemandLayerIDs
         requiresAlphaToCoverage = layers.contains {
             $0.rootRender?.renderState.blendMode == .alphaToCoverage
@@ -854,6 +858,7 @@ final class SceneParticleRuntime {
         layerImageMap: SceneParticleLayerImageEmissionMap?,
         worldSpaceFrame: SceneParticleWorldSpaceFrame?,
         rootWorldTranslation: SceneParticleRootWorldTranslationPlan?,
+        forceEnvironment: SceneParticleControlPointForceEnvironment,
         initialWorldFrame: simd_float4x4?,
         initialDynamicValues: SceneDynamicSnapshot,
         initialPlayback: SceneParticlePlaybackSnapshot,
@@ -937,8 +942,6 @@ final class SceneParticleRuntime {
         let initialInstanceOverride = SceneParticleInstanceOverride.resolving(
             authored: layer.particleInstanceOverride,
             dynamic: initialDynamicValues.particleInstanceValues(layerID: layer.id))
-        let forceEnvironment = descriptor.particleControlPointForceEnvironment(
-            for: layer, definition: asset.definition)
         let forceFrame = forceEnvironment.allowsWorldSource ? initialWorldFrame.flatMap { frame in
             descriptor.camera.orthoHeight.flatMap {
                 SceneParticleControlPointForceFrame(worldFrame: frame, sceneOrthoHeight: $0)

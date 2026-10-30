@@ -221,3 +221,10 @@ class SceneParticleWorldSpaceCases:
         for name, value in result.items():
             with self.subTest(fact=name):
                 self.assertTrue(value, result)
+
+    def test_root_world_rope_uses_reference_for_births_pointer_force_and_explicit_context(self):
+        result = self.run_harness("worldspace-rope-reference")
+        self.assertEqual(len(result["rows"]), 2, result)
+        for name, passed in result["checks"].items():
+            with self.subTest(case=name):
+                self.assertTrue(passed, result)

@@ -957,10 +957,10 @@
       "lastReviewed": "2026-10-31",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6f22f1046952589311a3d3c1612be735b5cb35e1233b730936f42e50af69277e",
+        "sourceSHA256": "8fd2d571419061f040db4629a0b1c1214b9e663eb9581dd9b7151aef1a1da55f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "原粒子Vec3颜色Timeline接通，旧Bloom过程归档/D4已实施片退出；338及295剩余光线仍归唯一队列。",
-        "limitations": "受控出生/GPU不授真实338人口0时的光线恢复、官方phase或性能；源码+3不等于性能收益。"
+        "scope": "root General-world Rope与pointer-force共用既有reference；314的188/332准备/几何/长窗后验退出队列，稳定合同与历史唯一承接。",
+        "limitations": "不作右下音频环、木偶官方phase、精确蒸汽样式、全world组合或性能结论。"
       }
     },
     {
@@ -4494,10 +4494,10 @@
       "lastReviewed": "2026-10-31",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ff555c5880a36b1181c89e22d9766fdaf4d34eb72cf69027693c16eb73fd2337",
+        "sourceSHA256": "2ad1d459b7ca7a193e4262ea9bcfcd9b0dc0e4f2be3d7c9b0ff4e8c026828012",
         "method": "document_registry --audit + document_health --check",
-        "scope": "原粒子Vec3颜色Timeline接通，旧Bloom过程归档/D4已实施片退出；338及295剩余光线仍归唯一队列。",
-        "limitations": "受控出生/GPU不授真实338人口0时的光线恢复、官方phase或性能；源码+3不等于性能收益。"
+        "scope": "root General-world Rope与pointer-force共用既有reference；314的188/332准备/几何/长窗后验退出队列，稳定合同与历史唯一承接。",
+        "limitations": "不作右下音频环、木偶官方phase、精确蒸汽样式、全world组合或性能结论。"
       }
     },
     {

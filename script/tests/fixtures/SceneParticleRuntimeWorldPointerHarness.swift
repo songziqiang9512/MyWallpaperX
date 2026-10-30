@@ -5,6 +5,148 @@ import Metal
 import simd
 
 extension Harness {
+    static func rootWorldRopeReference() throws -> [String: Any] {
+        let input = try TranslationInput()
+        func particle(_ path: String, force: Bool = false,
+                      edit: (inout [String: Any]) -> Void = { _ in }) throws {
+            try input.particle(path) { value in
+                value["renderer"] = [["name": "rope", "subdivision": 0, "orientation": "screen"]]
+                value["controlpoint"] = [["id": 0, "flags": 0], ["id": 1, "flags": 1]]
+                if force {
+                    value["operator"] = [["name": "movement", "gravity": "0 0 0"],
+                        ["name": "controlpointattract", "controlpoint": 1, "scale": 60]]
+                }
+                edit(&value)
+            }
+        }
+        func world(_ position: SIMD3<Double>, reference: simd_float4x4) -> SIMD3<Float> {
+            let model = SceneParticleCameraFrame.particleLayerModel(worldFrame: reference, parallaxOffset: .zero)
+            let p = model * SIMD4(Float(position.x), Float(position.y), Float(position.z), 1)
+            return SIMD3(p.x, p.y, p.z)
+        }
+        func near(_ a: SIMD3<Float>, _ b: SIMD3<Float>) -> Bool { simd_distance(a, b) < 0.002 }
+        func vector(_ p: SIMD3<Float>) -> [Float] { [p.x, p.y, p.z] }
+        var checks: [String: Bool] = [:], rows: [[String: Any]] = []
+        for (id, name, angle) in [(81, "steam", Float(0)), (781, "renamed-reference", Float.pi / 2)] {
+            let path = "particles/\(name).json", forcePath = "particles/\(name)-force.json"
+            let peerPath = "particles/\(name)-local.json"
+            try particle(path); try particle(forcePath, force: true)
+            try input.particle(peerPath, world: false)
+            var root = input.layer(id, path)
+            root.scaleXYZ = [2, 3, 1]; root.anglesXYZ = [0, 0, angle]
+            if id == 781 { root.originHasScript = false; root.timelines = [.init(host: .origin)] }
+            let peer = input.layer(id + 1, peerPath, writer: false)
+            let descriptor = input.descriptor([root, peer], authoredProjection: true)
+            let origins = [SIMD3<Double>(100, 200, 0), SIMD3(140, 260, 0), SIMD3(180, 220, 0)]
+            let snapshots = origins.map { input.snapshot([id: $0]) }
+            let frames = snapshots.map { input.frames(descriptor, $0) }
+            let runtime = input.runtime(descriptor, initial: snapshots[0])
+            guard let sim = runtime.playbackSimulators.first(where: { $0.0 == id })?.1,
+                  let reference = sim.rootWorldTranslation?.referenceWorldFrame else {
+                checks[name + "-admitted"] = false; rows.append(["name": name, "active": runtime.activeLayerIDs]); continue
+            }
+            var populations: [[SIMD3<Float>]] = [], batches: [SceneParticleDrawBatch] = []
+            for index in snapshots.indices {
+                batches = runtime.advance(by: 1.0 / 60, dynamicValues: snapshots[index], layerWorldFrames: frames[index])
+                populations.append(sim.particles.map { world($0.position, reference: reference) })
+            }
+            let expected = [SIMD3<Float>(100, 600, 0), SIMD3(140, 540, 0), SIMD3(180, 580, 0)]
+            checks[name + "-admitted"] = true
+            checks[name + "-old-world-points-and-current-birth"] = populations.map(\.count) == [1, 2, 3]
+                && populations.enumerated().allSatisfy { row, points in
+                    points.enumerated().allSatisfy { index, point in index <= row && near(point, expected[index]) }
+                }
+            let rope = batches.first { $0.layerID == id }
+            let centers = rope?.instances.map { value in
+                world(SIMD3(Double(value.positionAndSize.x), Double(value.positionAndSize.y),
+                    Double(value.positionAndSize.z)), reference: reference)
+            } ?? []
+            checks[name + "-actual-connected-rope"] = centers.count == 2
+                && near(centers[0], SIMD3(120, 570, 0)) && near(centers[1], SIMD3(160, 560, 0))
+                && rope?.referenceWorldFrame == reference
+            let prefix = input.snapshot([id: SIMD3(220, 180, 0)]), prefixFrames = input.frames(descriptor, prefix)
+            let context = try runtime.emissionContext(layerID: id, dynamicValues: prefix,
+                pointerLocalPosition: nil, audio: .silent, worldFrame: prefixFrames[id])
+            let before = sim.frameSnapshot()
+            let candidate = try sim.preparePlaybackCandidate(commands: [
+                (.init(layerID: id, action: .emit, revision: 1, count: 1), context)
+            ], charge: { _, _ in }, release: { _ in })
+            checks[name + "-explicit-prefix-birth"] = candidate.state.particles.count == before.particles.count + 1
+                && candidate.state.particles.last.map { near(world($0.position, reference: reference), SIMD3(220, 620, 0)) } == true
+                && sim.particles == before.particles
+            sim.restoreFrame(candidate.state)
+            let peerTime = runtime.playbackSimulators.first { $0.0 == id + 1 }!.1.simulationTime
+            let stable = sim.frameSnapshot()
+            var invalid = prefixFrames
+            invalid[id]!.columns.3.z += 1
+            _ = runtime.advance(by: 0.25, dynamicValues: prefix, layerWorldFrames: invalid)
+            checks[name + "-bad-z-local-freeze"] = sim.particles == stable.particles
+                && sim.simulationTime == stable.simulationTime
+                && runtime.playbackSimulators.first { $0.0 == id + 1 }!.1.simulationTime > peerTime
+            _ = runtime.advance(by: 1.0 / 60, dynamicValues: prefix, layerWorldFrames: prefixFrames)
+            checks[name + "-recovers-with-same-reference"] = sim.simulationTime > stable.simulationTime
+                && sim.rootWorldTranslation?.referenceWorldFrame == reference
+
+            var forceLayer = input.layer(id, forcePath)
+            forceLayer.scaleXYZ = root.scaleXYZ; forceLayer.anglesXYZ = root.anglesXYZ
+            forceLayer.originHasScript = root.originHasScript; forceLayer.timelines = root.timelines
+            let forceDescriptor = input.descriptor([forceLayer], authoredProjection: true)
+            var staticLayer = forceLayer; staticLayer.originHasScript = false; staticLayer.timelines = []
+            var staticDescriptor = input.descriptor([staticLayer])
+            staticDescriptor.camera = forceDescriptor.camera
+            let dynamic = input.runtime(forceDescriptor, initial: snapshots[0])
+            let stationary = input.runtime(staticDescriptor)
+            let pointer = SIMD3<Double>(40, 0, 0)
+            for index in 0..<2 {
+                _ = dynamic.advance(by: 1.0 / 60, dynamicValues: snapshots[index],
+                    pointerLocalPositions: [id: pointer], layerWorldFrames: input.frames(forceDescriptor, snapshots[index]))
+                _ = stationary.advance(by: 1.0 / 60, pointerLocalPositions: [id: pointer],
+                    layerWorldFrames: input.frames(staticDescriptor, .empty(frameIndex: 0)))
+            }
+            let movingSim = dynamic.playbackSimulators.first { $0.0 == id }?.1
+            let fixedSim = stationary.playbackSimulators.first { $0.0 == id }?.1
+            if let movingSim, let fixedSim, let moving = movingSim.particles.first, let fixed = fixedSim.particles.first {
+                checks[name + "-force-retained-in-reference"] = simd_length(moving.velocity) > 0
+                    && simd_distance(moving.position, fixed.position) < 1e-9
+                    && simd_distance(moving.velocity, fixed.velocity) < 1e-9
+                    && movingSim.dynamicControlPoints[1] == pointer
+                checks[name + "-prepared-pointer-reference"] = dynamic.pointerControlPointDemands[id]?.referenceWorldFrame == reference
+                    && stationary.pointerControlPointDemands[id] != nil && stationary.pointerControlPointDemands[id]?.referenceWorldFrame == nil
+                let emission = try dynamic.emissionContext(layerID: id, dynamicValues: snapshots[1],
+                    pointerLocalPosition: pointer, audio: .silent,
+                    worldFrame: input.frames(forceDescriptor, snapshots[1])[id])
+                checks[name + "-explicit-force-target-reference"] = emission.controlPoints[1] == pointer
+            } else { checks[name + "-force-retained-in-reference"] = false }
+            rows.append(["name": name, "populations": populations.map { $0.map(vector) },
+                "ropeCenters": centers.map(vector), "dynamicPointerDemand": dynamic.pointerControlPointDemands.keys.sorted()])
+        }
+        try input.particle("particles/safe-peer.json", world: false)
+        for mode in ["flags2", "nonzero-origin", "birth-pointer", "position-around", "refraction"] {
+            let path = "particles/rejected-\(mode).json"
+            try particle(path, force: true) { value in
+                switch mode {
+                case "flags2": value["controlpoint"] = [["id": 0, "flags": 0], ["id": 1, "flags": 2]]
+                case "nonzero-origin": value["operator"] = [["name": "controlpointattract", "controlpoint": 1,
+                    "origin": "1 0 0", "scale": 60]]
+                case "birth-pointer": value["emitter"] = [["name": "boxrandom", "rate": 60, "controlpoint": 1]]
+                case "position-around": value["initializer"] = [["name": "mapsequencearoundcontrolpoint",
+                    "controlpoint": 1, "bounds": "0 1", "count": 4, "speedmin": "1 1 0",
+                    "speedmax": "1 1 0", "limitbehavior": "repeat"]]
+                default: value["material"] = "materials/refract-owned.json"
+                }
+            }
+            let layers = [input.layer(891, path), input.layer(892, "particles/safe-peer.json", writer: false)]
+            let base = input.descriptor(layers, authoredProjection: true)
+            var descriptor = mode == "refraction" ? SceneRenderDescriptor(layers: layers, renderOrderLayerIDs: layers.map(\.id),
+                materialPasses: base.materialPasses + [.init(materialPath: "materials/refract-owned.json",
+                    shaderPath: "genericparticle", texturePaths: ["_rt_FullFrameBuffer"], blending: "translucent", combos: ["REFRACT": 1])]) : base
+            descriptor.camera = base.camera
+            let rejected = input.runtime(descriptor)
+            checks[mode + "-locally-rejected"] = !rejected.activeLayerIDs.contains(891) && rejected.activeLayerIDs.contains(892)
+        }
+        return ["checks": checks, "rows": rows]
+    }
+
     static func realPointerDemand(
         evidencePath: String,
         cachePath: String,
@@ -33,7 +175,7 @@ extension Harness {
             [$0.positionAndSize.x, $0.positionAndSize.y, $0.positionAndSize.z]
         } }
         var facts1: [String: Any] = [
-            "demandedLayerIDs": Array(runtime.pointerControlPointLayerIDs),
+            "demandedLayerIDs": Array(runtime.pointerControlPointDemands.keys),
             "activeLayerIDs": runtime.activeLayerIDs,
             "positionCount": positions.count,
             "positions": positions,
@@ -118,7 +260,7 @@ extension Harness {
             [$0.positionAndSize.x, $0.positionAndSize.y, $0.positionAndSize.z]
         } ?? []
         var facts2: [String: Any] = [
-            "demandedLayerIDs": Array(runtime.pointerControlPointLayerIDs),
+            "demandedLayerIDs": Array(runtime.pointerControlPointDemands.keys),
             "positions": positions,
         ]
 #if DEBUG
@@ -196,7 +338,7 @@ extension Harness {
             device: device
         )
         _ = runtime.advance(by: 1.0 / 60.0)
-        let demand = Array(runtime.pointerControlPointLayerIDs)
+        let demand = Array(runtime.pointerControlPointDemands.keys)
         // Pointer at +X with a negative-scale attract: particles near the
         // origin accelerate away from the pointer (negative X).
         let withPointer = positionsAfterAdvances(pointer: SIMD3(60, 0, 0))
@@ -273,7 +415,7 @@ extension Harness {
             "activeLayerIDs": runtime.activeLayerIDs,
             "instanceCount": ropeInstances.count,
             "firstPositions": positions,
-            "demandedLayerIDs": Array(runtime.pointerControlPointLayerIDs),
+            "demandedLayerIDs": Array(runtime.pointerControlPointDemands.keys),
         ]
 #if DEBUG
         facts4["diagnosticKinds"] = runtime.diagnostics.map(\.kind.rawValue)
@@ -391,7 +533,7 @@ extension Harness {
             "modeCenterSilentCount": modeSilent.count,
             "modeCenterLoudCount": modeActive.count,
             "childPositions": childPositions,
-            "childPointerDemand": Array(childRuntime.pointerControlPointLayerIDs),
+            "childPointerDemand": Array(childRuntime.pointerControlPointDemands.keys),
             "childHasAudioConsumer": childRuntime.hasAudioConsumer,
         ]
     }
@@ -449,7 +591,7 @@ extension Harness {
             [$0.positionAndSize.x, $0.positionAndSize.y, $0.positionAndSize.z]
         } ?? []
         var facts5: [String: Any] = [
-            "pointerDemandLayerIDs": Array(runtime.pointerControlPointLayerIDs),
+            "pointerDemandLayerIDs": Array(runtime.pointerControlPointDemands.keys),
             "positions": positions,
         ]
 #if DEBUG

@@ -88,24 +88,44 @@ extension SceneRenderDescriptor {
 }
 
 extension SceneParticleRootWorldTranslationPlan {
-    func supports(definition: SceneParticleDefinition) -> Bool {
+    func supports(
+        definition: SceneParticleDefinition,
+        rope: SceneParticleRopePlan? = nil,
+        forceEnvironment: SceneParticleControlPointForceEnvironment = .unavailable
+    ) -> Bool {
         guard definition.flags.isWorldSpace, !definition.flags.usesPerspective,
               definition.children.isEmpty, definition.renderers.count == 1,
-              let renderer = definition.renderers.first, renderer.kind == .sprite,
-              renderer.rawFlags == 0 || renderer.rawFlags == 1,
-              renderer.axis == nil, !renderer.hasMalformedFields,
-              renderer.unsupportedFieldNames.isEmpty,
-              renderer.orientation.map({ $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() })
-                .map({ $0.isEmpty || $0 == "screen" }) ?? true,
+              let renderer = definition.renderers.first,
               definition.controlPoints.allSatisfy({
-                  $0.rawFlags == 0 && $0.parentControlPoint == nil && !$0.hasMalformedFields
+                  ($0.rawFlags == 0 || $0.hasBoundedPointerInput)
+                    && $0.parentControlPoint == nil && !$0.hasMalformedFields
               }),
               definition.emitters.allSatisfy({ $0.kind == .sphereRandom || $0.kind == .boxRandom }),
+              definition.emitterPointerControlPointIdentities.isEmpty,
+              definition.positionAroundPointerControlPointIdentities.isEmpty,
               !definition.diagnostics.contains(where: { $0.path.hasPrefix("child") }) else { return false }
+        switch renderer.kind {
+        case .sprite:
+            guard renderer.rawFlags == 0 || renderer.rawFlags == 1,
+                  renderer.axis == nil, !renderer.hasMalformedFields,
+                  renderer.unsupportedFieldNames.isEmpty,
+                  renderer.orientation.map({ $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() })
+                    .map({ $0.isEmpty || $0 == "screen" }) ?? true else { return false }
+        case .rope:
+            guard rope != nil else { return false }
+        default: return false
+        }
         return definition.operators.allSatisfy { component in
             switch component.kind {
             case .movement, .alphaFade, .alphaChange, .sizeChange, .colorChange,
                  .angularMovement, .oscillateAlpha, .oscillateSize: return true
+            case .controlPointAttract:
+                guard let plan = definition.controlPointForcePlan(
+                    for: component, environment: forceEnvironment
+                ), plan.origin == .zero else { return false }
+                return definition.controlPoints.contains {
+                    $0.id == plan.controlPoint && $0.hasBoundedPointerInput
+                }
             default: return false
             }
         } && !definition.initializers.contains { if case .unsupported = $0.kind { return true }; return false }

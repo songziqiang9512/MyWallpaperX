@@ -27,10 +27,12 @@ extension SceneMetalView {
             audioSpectrum: audio)
         let projection = renderer.resolveFrameWorldProjection(layerTopology: topology,
             dynamicValues: dynamicValues, puppetAttachmentFrames: attachments)
-        let pointers = renderer.particlePointerLocalPositions(frameContext: context,
-            cameraFrame: renderer.makeCameraFrame(frameContext: context,
-                worldFrames: projection.worldFrames), frameProjection: projection,
-            demandedLayerIDs: particlePlayback.pointerControlPointLayerIDs.intersection([layerID]))
+        let pointers = particlePlayback.pointerControlPointDemands[layerID].map { demand in
+            renderer.particlePointerLocalPositions(frameContext: context,
+                cameraFrame: renderer.makeCameraFrame(frameContext: context,
+                    worldFrames: projection.worldFrames), frameProjection: projection,
+                demands: CollectionOfOne((key: layerID, value: demand)))
+        } ?? [:]
         return try particlePlayback.emissionContext(layerID: layerID, dynamicValues: dynamicValues,
             pointerLocalPosition: pointers[layerID],
             audio: .init(left: audio.left, right: audio.right, generation: audio.generation),
@@ -70,7 +72,7 @@ extension SceneMetalView {
             frameContext: frameContext,
             cameraFrame: cameraFrame,
             frameProjection: frameProjection,
-            demandedLayerIDs: particlePlayback.pointerControlPointLayerIDs
+            demands: particlePlayback.pointerControlPointDemands
         )
 #if DEBUG
         performanceTelemetry?.endStage("particle-pointer-projection")

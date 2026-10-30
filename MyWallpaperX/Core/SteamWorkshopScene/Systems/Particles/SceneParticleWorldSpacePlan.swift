@@ -66,7 +66,7 @@ nonisolated struct SceneParticleRootWorldTranslationPlan: Equatable, Sendable {
 
     func frame(currentWorldFrame current: simd_float4x4) -> SceneParticleWorldSpaceFrame? {
         let reference = referenceWorldFrame
-        guard Self.isFinite(current), current.columns.0 == reference.columns.0,
+        guard current.columns.0 == reference.columns.0,
               current.columns.1 == reference.columns.1, current.columns.2 == reference.columns.2,
               current.columns.3.z == reference.columns.3.z, current.columns.3.w == 1 else { return nil }
         let delta = SIMD3(Double(current.columns.3.x) - Double(reference.columns.3.x),

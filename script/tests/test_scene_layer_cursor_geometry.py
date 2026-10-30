@@ -9,10 +9,13 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from .scene_particle_runtime_configuration_cases import _declaration
+
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering"
 SWIFT_SOURCES = [
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Input/SceneLayerParallax.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+ParticlePointer.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneMatrix.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneLayerCursorGeometry.swift",
@@ -42,24 +45,29 @@ struct SceneFrameContext {
     struct Pointer { let current: SIMD2<Float>; let isInside: Bool }
     let pointer: Pointer
     let screenSize = SIMD2<Float>(1280, 720)
-    let cameraParallaxPosition = SIMD2<Float>.zero
+    var cameraParallaxPosition = SIMD2<Float>.zero
     let dynamicValues = 0
 }
 struct SceneParticleCameraFrame { let orthographicViewProjection: simd_float4x4 }
 struct SceneMetalRendererFrameWorldProjection {
-    struct Layer { let id: Int; let contentKind: String }
+    struct Layer {
+        let id: Int; let contentKind: String
+        var parentID: Int? = nil
+        var parallaxDepthXY: [Float]? = nil
+        var disablesParallaxPropagation = false
+    }
     let layersByID: [Int: Layer]
     let worldFrames: [Int: simd_float4x4]
 }
+struct SceneRenderDescriptor { typealias Layer = SceneMetalRendererFrameWorldProjection.Layer }
 struct SceneMetalRenderer {
+    var parallaxByLayerID: [Int: SceneLayerParallax.Resolution] = [:]
+    var configuration = SceneLayerParallax.Configuration(enabled: false, amount: 0, mouseInfluence: 0,
+        orthoSize: SIMD2(1280, 720), cameraPosition: .zero, worldYDown: true)
     func parallaxConfiguration(cameraFrame: SceneParticleCameraFrame,
-        viewportSize: SIMD2<Float>, dynamicValues: Int) -> Int { 0 }
-    func particleModelMatrix(for layer: SceneMetalRendererFrameWorldProjection.Layer,
-        worldFramesByLayerID: [Int: simd_float4x4],
-        parallaxMouseNormalized: SIMD2<Float>, configuration: Int) -> simd_float4x4 {
-        worldFramesByLayerID[layer.id] ?? matrix_identity_float4x4
-    }
+        viewportSize: SIMD2<Float>, dynamicValues: Int) -> SceneLayerParallax.Configuration { configuration }
 }
+// PRODUCTION_PARTICLE_MODEL_METHODS
 
 @main
 enum Harness {
@@ -193,18 +201,50 @@ enum Harness {
         let host = SceneMetalRenderer()
         let camera = SceneParticleCameraFrame(orthographicViewProjection: matrix_identity_float4x4)
         let pointerLayer = SceneMetalRendererFrameWorldProjection.Layer(id: 7, contentKind: "particle")
-        func hostPositions(_ model: simd_float4x4, demand: Set<Int> = [7],
+        // Inputs below name final particle models; supply authored world frames to the real model builder.
+        func hostPositions(_ model: simd_float4x4, demand: [Int: SceneParticlePointerDemand] = [7: .init(referenceWorldFrame: nil)],
                            inside: Bool = true) -> [Int: SIMD3<Double>] {
             host.particlePointerLocalPositions(
                 frameContext: .init(pointer: .init(current: normalized, isInside: inside)),
                 cameraFrame: camera,
                 frameProjection: .init(layersByID: [7: pointerLayer,
-                    8: .init(id: 8, contentKind: "image")], worldFrames: [7: model]),
-                demandedLayerIDs: demand)
+                    8: .init(id: 8, contentKind: "image")],
+                    worldFrames: [7: model * SceneMatrix.scale(SIMD3(1, -1, 1))]),
+                demands: demand)
         }
         let hostFirst = hostPositions(transformedMVP)
+        let referenceDemand = SceneParticlePointerDemand(referenceWorldFrame:
+            transformedMVP * SceneMatrix.scale(SIMD3(1, -1, 1)))
+        func referencePositions(_ model: simd_float4x4, view: simd_float4x4 = matrix_identity_float4x4,
+                                renderer: SceneMetalRenderer = .init(), inside: Bool = true,
+                                explicit: Bool = false) -> [Int: SIMD3<Double>] {
+            let frame = SceneFrameContext(pointer: .init(current: normalized, isInside: inside),
+                cameraParallaxPosition: SIMD2(0.2, -0.3))
+            let projection = SceneMetalRendererFrameWorldProjection(layersByID: [7: pointerLayer],
+                worldFrames: [7: model * SceneMatrix.scale(SIMD3(1, -1, 1))])
+            let camera = SceneParticleCameraFrame(orthographicViewProjection: view)
+            if explicit {
+                return renderer.particlePointerLocalPositions(frameContext: frame, cameraFrame: camera,
+                    frameProjection: projection, demands: CollectionOfOne((key: 7, value: referenceDemand)))
+            }
+            return renderer.particlePointerLocalPositions(frameContext: frame, cameraFrame: camera,
+                frameProjection: projection, demands: [7: referenceDemand])
+        }
         let movedFrame = SceneMatrix.translation(SIMD3(0.15, -0.12, 0)) * transformedMVP
         let hostNext = hostPositions(movedFrame)
+        let anchoredFirst = referencePositions(transformedMVP), anchoredNext = referencePositions(movedFrame)
+        let changedView = SceneMatrix.translation(SIMD3(0.04, -0.06, 0)) * SceneMatrix.scale(SIMD3(0.8, 1.2, 1))
+        let viewed = referencePositions(movedFrame, view: changedView)
+        let parallaxRenderer = SceneMetalRenderer(parallaxByLayerID: [7: .init(sourceLayerID: 7, depth: SIMD2(0.5, 0.25))],
+            configuration: .init(enabled: true, amount: 0.4, mouseInfluence: 0.75,
+                orthoSize: SIMD2(1280, 720), cameraPosition: .zero, worldYDown: true))
+        let referenceProjection: [String: Bool] = [
+            "fixed-pointer-retains-reference": anchoredFirst[7] != nil && anchoredFirst[7] == anchoredNext[7],
+            "outside-stays-unavailable": referencePositions(movedFrame, inside: false).isEmpty,
+            "explicit-prefix-shares-reference": referencePositions(movedFrame, explicit: true)[7] == anchoredNext[7],
+            "parallax-uses-reference-origin": referencePositions(transformedMVP, renderer: parallaxRenderer)[7]
+                == referencePositions(movedFrame, renderer: parallaxRenderer)[7],
+        ]
         func screenError(_ position: SIMD3<Double>?, model: simd_float4x4) -> Float {
             guard let p = position else { return 1000 }
             let clip = model * SIMD4<Float>(Float(p.x), Float(p.y), Float(p.z), 1)
@@ -315,8 +355,8 @@ enum Harness {
             "staleFrameError": screenError(hostFirst[7], model: movedFrame),
             "hostRecovery": hostPositions(transformedMVP) == hostFirst,
             "hostOutside": hostPositions(transformedMVP, inside: false).isEmpty,
-            "hostNoDemand": hostPositions(transformedMVP, demand: []).isEmpty,
-            "hostInvalidDemand": hostPositions(transformedMVP, demand: [8, 99]).isEmpty,
+            "hostNoDemand": hostPositions(transformedMVP, demand: [:]).isEmpty,
+            "hostInvalidDemand": hostPositions(transformedMVP, demand: [8: .init(referenceWorldFrame: nil), 99: .init(referenceWorldFrame: nil)]).isEmpty,
             "hostSingular": hostPositions(singular).isEmpty,
             "boneCoordinateErrors": boneCoordinateErrors,
             "perspectiveBoneUnchanged": perspectiveBoneUnchanged,
@@ -389,6 +429,8 @@ enum Harness {
                     transformedMVP,
                     required: true
                 ) != nil,
+            "referenceProjection": referenceProjection,
+            "referenceViewError": screenError(viewed[7], model: changedView * transformedMVP),
             "particleLocalPosition": triple(SceneParticlePointerProjection.localPosition(
                 mouseNormalized: normalized,
                 isInside: true,
@@ -417,7 +459,12 @@ class SceneLayerCursorGeometryTests(unittest.TestCase):
         cls.temporary_directory = tempfile.TemporaryDirectory(prefix="mwx-cursor-geometry-")
         root = Path(cls.temporary_directory.name)
         harness = root / "Harness.swift"
-        harness.write_text(HARNESS_SOURCE, encoding="utf-8")
+        transforms = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+LayerTransforms.swift").read_text()
+        camera = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCameraFrame.swift").read_text()
+        methods = "extension SceneMetalRenderer {\n" + "\n".join(_declaration(transforms, marker) for marker in (
+            "    func particleModelMatrix(", "    private func parallaxOffset(")) + "\n}\n"
+        methods += "extension SceneParticleCameraFrame {\n" + _declaration(camera, "    static func particleLayerModel(") + "\n}\n"
+        harness.write_text(HARNESS_SOURCE.replace("// PRODUCTION_PARTICLE_MODEL_METHODS", methods), encoding="utf-8")
         geometry = next(path for path in SWIFT_SOURCES if path.name == "SceneLayerCursorGeometry.swift")
         instrumented = root / geometry.name
         instrumented.write_text(instrument_inverse_count(geometry.read_text()), encoding="utf-8")
@@ -458,6 +505,12 @@ class SceneLayerCursorGeometryTests(unittest.TestCase):
         self.assertEqual(len(actual), len(expected))
         for actual_component, expected_component in zip(actual, expected):
             self.assertAlmostEqual(actual_component, expected_component, places=5)
+
+    def test_prepared_pointer_reference_keeps_world_target_and_uses_live_view(self):
+        for name, passed in self.result["referenceProjection"].items():
+            with self.subTest(case=name):
+                self.assertTrue(passed)
+        self.assertLess(self.result["referenceViewError"], 0.00001)
 
     def test_particle_host_uses_current_draw_frame_and_recovers_after_change(self) -> None:
         self.assert_pair_almost_equal(self.result["hostFirst"], [0.1, -0.2, 0])

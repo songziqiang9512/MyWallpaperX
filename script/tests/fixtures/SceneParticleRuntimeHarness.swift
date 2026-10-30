@@ -267,6 +267,8 @@ enum Harness {
             try printJSON(syntheticEventFollow())
         case "nested-synthetic":
             try printJSON(syntheticNestedChildren())
+        case "worldspace-rope-reference":
+            try printJSON(rootWorldRopeReference())
         case "worldspace-translation":
             try printJSON(translationAnchoring())
         case "worldspace-translation-edges":

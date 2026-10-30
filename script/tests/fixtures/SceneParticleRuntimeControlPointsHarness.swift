@@ -222,7 +222,7 @@ extension Harness {
             // authored child CP1 yields 15 + 4*2.5 = 25, while the old leak
             // would add child-local (10-15)/2.5 to CP1 and yield x=20.
             "rootPointerChildStaticPosition": rootPointerChildStaticPosition(),
-            "pointerDemandLayerIDs": demandRuntime.pointerControlPointLayerIDs.sorted(),
+            "pointerDemandLayerIDs": demandRuntime.pointerControlPointDemands.keys.sorted(),
             "rootWorldForce": try rootWorldForceRuntimeFacts(directory: directory, device: device),
         ]
     }

@@ -28,3 +28,18 @@ Debug build与严格签名校验通过。最终dylib SHA256 `797646edeff51d606ea
 附加`clockonlyfortheflipoption=true`配置使原先作者隐藏的417特效进入GPU并被合成，三配置联合实际触达37/37 authored effect stages。该附加配置保留`clock=true`，作者两个独立时钟开关同时开启，造成普通与镜像文字叠加；只作特效触达证据，不作完整画面验收。单镜像时钟需同时`clock=false`。纹理ready与text publication分别表示资源及发布链路状态，不能单凭这两者宣称像素正确。
 
 保留包：`.artifacts/scene-evidence/runs/particle-world-parallax-20261005/final/samples/3780119725/runtime_evidence.zip`，SHA256 `38734a88d0b82dd489d016c73835e12361f7733d7a53633c369545cb76df486c`，22488464 bytes、113个payload；含自有官方输入/六图、原生三帧、真实三配置日志/终图、CPU红绿证据和App身份，不含真实媒体包或App。独立审查核对代码、输入身份与原生像素；审查及提交后校验记录单独保留在同名`-commit`包。默认14天保留。
+
+<a id="world-rope-pointer-reference-20261031"></a>
+## Root平移Rope与pointer力共用reference（2026-10-31）
+
+基线`7195e3694`。原3141464346的188/332均为General-world、单Screen Rope/subdivision3、固定非均匀scale、relative XY origin Timeline及本地pointer CP1/controlpointattract。旧root平移profile仅Sprite并拒pointer/力，二者以dynamicSystemTransform未准备；只放Rope类型会令live pointer与旧粒子reference坐标不同。设计先落现役粒子合同，完成后窄登记退役，稳定职责见[reference输入](../capabilities/particle-component-coverage.md#root-world-rope-reference-inputs)。
+
+实现沿原W₀、出生offset、Rope geometry/model与pointer投影：准备期typed demand替换Set，仅携可选W₀；普通帧与显式emit消费同reference，无第二map/inverse/clock或输出owner。复用同一Rope plan与forceEnvironment，力沿原消费者资格；pointer出生源、world CP flags2、非零force origin、层级、refraction/native/perspective及变basis/Z仍不扩。移除被basis/Z/w与offset有限门覆盖的current全矩阵finite扫描。七产品净增30行是输入合同的必要传递，不作性能收益。
+
+最近十方法102.542秒全过，含原Runtime与真实Renderer：非均匀basis下旧世界点/新出生/实际连接、force reference、explicit前缀、outside/parallax、改名/等价曲线及反例；48个NaN/±Inf矩阵lane、变Z/变基冻结恢复保持。已有Rope邻例包含离屏GPU提交，已完成；新增world参考门本身是CPU行为门，不能借邻例称world像素通过。普通Debug构建42.06秒、签名通过、输入无漂移；exe SHA256 `d70510e3428cb922a0bbc3eb5d033b06a20954c901f5ab19dc34b10bfc6ea2a5`，dylib `daa2a07b2c6efc1aafc9bdee5e2de238f9c1a405edb52dd8e5d10226af44ee24`。
+
+自有两变体分别30/60FPS等价曲线、改layer/资源名，6秒原生输出可见弯曲world红绳与local蓝绳/绿标。原314最终普通Debug运行51秒、48秒终图，覆盖188移动、332约28.43秒显现及45秒wrap：两个root均加载，188完成1384帧/81356几何实例、332完成1384帧/50720实例，失败帧0；20/48秒原图见细灰轨迹，停止surface1→0且GPU drained。该run的nonempty字段来自启动预览summary，hover/after截图路径未追加settled粒子报告，不能据其空列表否定后段Rope；实际绘制由完成日志与原图取证。旧优化DEBUG的4秒基线只用于同首门拒绝对照，优化档、UI身份与时长不同，不作像素/性能对照。
+
+未参与修法的3742133044原包6秒普通Debug出图/退出通过，保留红月、人物、花/雾与雪的观察；无配对基线，不外推官方等价。独立审查覆盖七产品、测试及原生证据。右下音频环、木偶官方同phase、蒸汽精确形态/位置、全部world组合、HDR/长稳/性能仍未验，314不整例销账。两次matrix缺name是启动前失败，修正后复用同App；不记产品失败或隐藏重试。
+
+本片必要材料归`.artifacts/scene-evidence/runs/particle-world-rope-reference-20261031/metadata/samples/0/runtime_evidence.zip`，20,587,060 bytes/78成员，SHA256 `16db93da8e11fd35469b3698669a3497fa9cc9e47a745c048dbb89606677f803`，默认14天；含原始失败/最终日志、五张原PNG、自有载体、构建/测试/独审身份和两处材料更正，不含真实媒体包、App或DerivedData。

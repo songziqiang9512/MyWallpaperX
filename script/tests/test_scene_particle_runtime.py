@@ -31,6 +31,7 @@ SWIFT_SOURCES = [
     Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
     SOURCE_ROOT / "Systems/Properties/SceneDynamicLayerValues.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticleWorldSpacePlan+Descriptor.swift",
+    SOURCE_ROOT / "Systems/Particles/SceneParticlePointerProjection.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticleCameraFrame.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticleCameraFrame+LayerCamera.swift",
     SOURCE_ROOT / "Systems/Input/SceneCameraProjection.swift",
