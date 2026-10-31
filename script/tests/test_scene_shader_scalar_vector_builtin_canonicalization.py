@@ -196,6 +196,44 @@ void main() {
             )
             self.assertEqual(compiled.returncode, 0, compiled.stdout + compiled.stderr)
 
+    def test_pow_mixed_scalar_and_vector_arguments_link(self) -> None:
+        # The real 2879793348 gate is water_caustics.frag
+        # `pow(abs(c), u_WaveColor * u_Brightness)`: a proven float beside a
+        # declared vec3. Vulkan GLSL has no implicit overload, so only the
+        # scalar side is broadcast; a both-scalar call stays authored.
+        if not GLSLANG.is_file() or not os.access(GLSLANG, os.X_OK):
+            self.skipTest("bundled glslang is unavailable")
+        source = """
+void main() {
+    vec3 wave = vec3(1.0);
+    float c = 1.0;
+    vec3 colour = vec3(pow(abs(c), wave * 2.0));
+    float plain = pow(c, 1.4);
+    gl_FragColor = vec4(colour + vec3(plain), 1.0);
+}
+"""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            authored = root / "source.frag"
+            authored.write_text(source, encoding="utf-8")
+            output = json.loads(subprocess.check_output(
+                [str(self.binary), "--analyze", str(authored)], text=True,
+            ))
+            canonical = output["canonicalFragment"]
+            self.assertIn("pow(vec3(abs(c)), wave * 2.0)", canonical)
+            self.assertIn("pow(c, 1.4)", canonical)
+            self.assertTrue(output["idempotent"])
+            vertex = root / "author.vert"
+            vertex.write_text(output["normalizedVertex"], encoding="utf-8")
+            fragment = root / "author.frag"
+            fragment.write_text(output["normalizedFragment"], encoding="utf-8")
+            compiled = subprocess.run(
+                [str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations",
+                 "-l", str(vertex), str(fragment)],
+                cwd=root, capture_output=True, text=True, timeout=30,
+            )
+            self.assertEqual(compiled.returncode, 0, compiled.stdout + compiled.stderr)
+
     def test_swizzle_broadcast_preserves_member_bases_and_vector_values(self) -> None:
         # An array element or parenthesized base has no swizzle width in the
         # shared analyzer. A same-named whole vector must not turn that legal

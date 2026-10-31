@@ -65,17 +65,24 @@ nonisolated extension SceneAuthoredShaderBuiltInVectorConversion {
                   ),
                   let exponent = componentExpression(
                       arguments[1], tokens: unit.tokens, unit: unit
-                  ),
-                  let width = floatVectorWidth(base.type),
-                  exponent.type == .float,
-                  let start = tokenOffset(
-                      arguments[1].lowerBound,
-                      afterToken: false
-                  ),
-                  let end = tokenOffset(
-                      arguments[1].upperBound - 1,
-                      afterToken: true
                   ) else { continue }
+            // The authored surface also writes a scalar base against a vector
+            // exponent (`pow(abs(c), u_WaveColor * u_Brightness)`); Vulkan
+            // still needs both operands to share the vector width, so the
+            // scalar side is broadcast against the proven vector sibling.
+            let broadcast: (Range<Int>, Int)?
+            if let width = floatVectorWidth(base.type), exponent.type == .float {
+                broadcast = (arguments[1], width)
+            } else if let width = floatVectorWidth(exponent.type),
+                      base.type == .float {
+                broadcast = (arguments[0], width)
+            } else {
+                broadcast = nil
+            }
+            guard let (range, width) = broadcast,
+                  let start = tokenOffset(range.lowerBound, afterToken: false),
+                  let end = tokenOffset(range.upperBound - 1, afterToken: true)
+            else { continue }
             insertions.append((start, "vec\(width)("))
             insertions.append((end, ")"))
         }
