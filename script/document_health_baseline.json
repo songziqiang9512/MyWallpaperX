@@ -266,7 +266,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 71,
-      "bytes": 19851
+      "bytes": 20176
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 45,
@@ -1850,11 +1850,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "83340cdfefb179f46859db7e0b9a1771758f86d98155c7274eea639447c79876",
-      "after": "ee125427bbfbea5eaa02e1f50b07dddfd4488083569bfe1da8e35eeef1652e84",
-      "owner": "scene-engine-maintainer",
-      "reason": "记录同帧多owner写同一authored字段的顺序覆盖合同、真实样本验证与官方未对照边界，替换整批硬冲突拒绝；同值幂等与owner内失败隔离保持。",
-      "decision": "docs/scene/history/dynamic-layer-slot-lifetime-2026-10-29.md#owner-field-override-20261101"
+      "before": "ee125427bbfbea5eaa02e1f50b07dddfd4488083569bfe1da8e35eeef1652e84",
+      "after": "e70a735701cfee3701672595009d36eae357cdd519d60d83db411e1123a6605c",
+      "owner": "scene-363-ordinary-frame-qualification",
+      "reason": "用诊断Release同内容60fps记录363的普通帧成本与stage分布，关闭卡上待资格；未优化Debug数字不代表优化配置，也不认领功耗或正式A/B。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#performance-open"
     },
     {
       "section": "bodies",
