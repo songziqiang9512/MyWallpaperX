@@ -223,9 +223,12 @@ nonisolated enum SceneGenericShaderScalarVectorBroadcastNormalizer {
         declarations: DeclarationFacts
     ) -> (constructor: String, isInitializer: Bool)? {
         let name = index - 1
-        if name >= 2, tokens[name - 1].text == ".",
-           tokens[name - 2].kind == .identifier {
-            guard let base = declaredType(
+        if name >= 1, tokens[name - 1].text == "." {
+            // A member target never falls through to the whole-variable
+            // branch: an array element, parenthesized base or call result has
+            // no swizzle width here, so the authored assignment stays whole.
+            guard name >= 2, tokens[name - 2].kind == .identifier,
+                  let base = declaredType(
                       tokens[name - 2].text, before: index, declarations: declarations
                   ),
                   let baseWidth = vectorWidth(base),

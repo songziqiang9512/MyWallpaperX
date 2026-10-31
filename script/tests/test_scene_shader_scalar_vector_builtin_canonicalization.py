@@ -155,10 +155,12 @@ void main() {
             self.assertEqual(pixels, [0.015625, 0.140625, 0.390625, 0.75] * 2)
 
     def test_swizzle_window_broadcasts_proven_scalar_and_links(self) -> None:
-        # The actual 3435573282 vertex stage: a multi-component swizzle window
-        # receives an integer literal. Vulkan GLSL has no implicit broadcast,
-        # so the window keeps its own constructor while vector-valued and
-        # single-component writes stay authored.
+        # The real 3435573282 first gate is a vertex-stage multi-component
+        # swizzle window that receives an integer literal. This fragment
+        # fixture exercises the same assignment shape through the shared
+        # canonicalizer. Vulkan GLSL has no implicit broadcast, so the window
+        # keeps its own constructor while vector-valued and single-component
+        # writes stay authored.
         if not GLSLANG.is_file() or not os.access(GLSLANG, os.X_OK):
             self.skipTest("bundled glslang is unavailable")
         source = """
@@ -182,6 +184,58 @@ void main() {
             self.assertNotIn("color.zw = vec2(vec2", canonical)
             self.assertIn("vec2 window = color.xy", canonical)
             self.assertIn("color.x = 0.25", canonical)
+            self.assertTrue(output["idempotent"])
+            vertex = root / "author.vert"
+            vertex.write_text(output["normalizedVertex"], encoding="utf-8")
+            fragment = root / "author.frag"
+            fragment.write_text(output["normalizedFragment"], encoding="utf-8")
+            compiled = subprocess.run(
+                [str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations",
+                 "-l", str(vertex), str(fragment)],
+                cwd=root, capture_output=True, text=True, timeout=30,
+            )
+            self.assertEqual(compiled.returncode, 0, compiled.stdout + compiled.stderr)
+
+    def test_swizzle_broadcast_preserves_member_bases_and_vector_values(self) -> None:
+        # An array element or parenthesized base has no swizzle width in the
+        # shared analyzer. A same-named whole vector must not turn that legal
+        # single-component write into a vector assignment, and vector-valued
+        # right-hand sides stay authored.
+        if not GLSLANG.is_file() or not os.access(GLSLANG, os.X_OK):
+            self.skipTest("bundled glslang is unavailable")
+        source = """
+vec4 a;
+vec4 values[2];
+vec4 other;
+vec2 makeWindow() { return vec2(0.25); }
+void main() {
+    vec2 w = vec2(0.125, 0.25);
+    values[0].a = 0.5;
+    (other).a = 0.6;
+    other.zw = w;
+    other.zw = makeWindow();
+    other.zw = vec2(0.3, 0.4);
+    gl_FragColor = vec4(values[0].a, other.a, other.zw);
+}
+"""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            authored = root / "source.frag"
+            authored.write_text(source, encoding="utf-8")
+            output = json.loads(subprocess.check_output(
+                [str(self.binary), "--analyze", str(authored)], text=True,
+            ))
+            canonical = output["canonicalFragment"]
+            for authored_write in (
+                "values[0].a = 0.5",
+                "(other).a = 0.6",
+                "other.zw = w",
+                "other.zw = makeWindow()",
+                "other.zw = vec2(0.3, 0.4)",
+            ):
+                self.assertIn(authored_write, canonical)
+            self.assertNotIn("vec4(0.5)", canonical)
+            self.assertNotIn("vec4(0.6)", canonical)
             self.assertTrue(output["idempotent"])
             vertex = root / "author.vert"
             vertex.write_text(output["normalizedVertex"], encoding="utf-8")

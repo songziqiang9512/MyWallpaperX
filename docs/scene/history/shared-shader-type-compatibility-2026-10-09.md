@@ -153,7 +153,9 @@ MyWallpaperX保留同样响应：关闭/零谱效果的中心ROI相对官方MAE1
 
 基线 `e9d422258`。真实 `3435573282` 的 192#effect#198 与 3789#effect#3795（Lens 色差）在 launch-preparation 被 stage-link 拒绝：`author.vert:54` 的 `v_Distorsion.zw = 0` 把整数标量写入二分量子窗口，Vulkan GLSL 没有隐式广播，generic 前端随后记 `effect-local-passthrough-material-generic-owner-revoked`。官方客户端接受该作者写法，因此不是样本特例，也不是色差算法差异。
 
-`SceneGenericShaderScalarVectorBroadcastNormalizer` 是标量广播的唯一 owner；本片只把接纳目标从整变量声明扩到已声明数值向量的多分量 swizzle 窗口：2–4 个轴字母、宽度不超过基向量，构造子按基类型族取 `vecN/ivecN/uvecN`。单分量窗口、向量值 RHS、未声明/结构体/数组基、越界或重复分量保持原文交原编译器 fail-closed；`SceneAuthoredShaderVectorConversion` 的窄化转换与广播互斥，无新 parser、analyzer、缓存、pass 或帧路径工作。
+`SceneGenericShaderScalarVectorBroadcastNormalizer` 是标量广播的唯一 owner；本片只把接纳目标从整变量声明扩到已声明数值向量的多分量 swizzle 窗口：2–4 个轴字母、宽度不超过基向量，构造子按基类型族取 `vecN/ivecN/uvecN`。单分量窗口、向量值 RHS、数组/括号/未声明基与成员链保持原文；重复、越界或混字符集分量不在准入内，仍由原编译器拒绝，不另加校验；`SceneAuthoredShaderVectorConversion` 的窄化转换与广播互斥，无新 parser、analyzer、缓存、pass 或帧路径工作。
+
+独立审查复现了首个实现的一处合法回归：`values[0].a = 0.5` 与 `(other).a = 0.6` 的点号前不是标识符，曾落入整变量分支并被改写成 `vec4(0.5)`；修复改为成员目标只接受标识符基、其余直接保持原文，并以这两个反例加 glslang link 门守住。审查同时确认构造子按基族、向量 RHS 保持、幂等与窄化互斥成立。
 
 共享 shader 门 21/21 通过：新增用例在完整 canonicalize→normalize→glslang stage-link 链上断言 `color.zw = vec2(0)` 进入输出，同时保持 `vec2 window = color.xy` 与 `color.x = 0.25` 原文；同一 harness 的既有内建/mix/窄化用例不变。签名优化 Debug 构建通过，App SHA256 `d367652ca308ed0e19c2d60fbf08759a966ed2e8108437eddaf30e25669690df`。
 
