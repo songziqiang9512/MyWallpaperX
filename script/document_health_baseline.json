@@ -278,7 +278,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 187,
-      "bytes": 43481
+      "bytes": 43807
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1931,8 +1931,8 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "3f0e00203f7bfbdec8993fb86418989abf48565a49468bbfab3aad102ecc4727",
-      "after": "f6410e69c48a27ca26651131b2a246ac12d5f31432523d5f42c01360eaab5c8d",
+      "before": "f6410e69c48a27ca26651131b2a246ac12d5f31432523d5f42c01360eaab5c8d",
+      "after": "4561b8014beedafbc9baece902b6628c68f7970de3809c0e8bf9906cd95625ab",
       "owner": "scene-history-effect-visibility-qualification",
       "reason": "把复现后的根因、缺失的history状态语义与复现输入要求写入现役队列，避免按consumer注册或只删拓扑门重试。",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#properties-open"

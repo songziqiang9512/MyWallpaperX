@@ -846,6 +846,17 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                 claimedAuthoredValues[target].map { $0 != value } ?? false
             }
             if hasConflict {
+#if DEBUG
+                for (target, value) in authoredValues {
+                    guard let claimed = claimedAuthoredValues[target],
+                          claimed != value else { continue }
+                    NSLog(
+                        "MWX mutation owner conflict: owner=%@ target=%@ claimed=%@ incoming=%@",
+                        String(describing: owner), String(describing: target),
+                        String(describing: claimed), String(describing: value)
+                    )
+                }
+#endif
                 failures.append(.init(
                     ownerTarget: owner,
                     failure: .invalidArgument(
