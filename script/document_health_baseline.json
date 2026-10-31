@@ -146,7 +146,7 @@
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 600,
-      "bytes": 348370
+      "bytes": 348881
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
@@ -278,7 +278,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 187,
-      "bytes": 43207
+      "bytes": 43132
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1927,6 +1927,15 @@
       "owner": "scene-sprite-trail-aspect",
       "reason": "在已提交world Rope/pointer合同上整合SpriteTrail比例设计及真实原包/修前对照；保留两侧职责与证据边界，不新增重复链。",
       "decision": "docs/scene/capabilities/particle-component-coverage.md#sprite-trail-frame-aspect"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "04db6d60c2e16bce314f029b4fe60d7ffbf1142a35cdd5c3226c7ba661907e8f",
+      "after": "b94582ad277af9e8a21389bcbf88619f14d1fac007a83b4fffb02edac95202b5",
+      "owner": "scene-shader-scalar-swizzle-broadcast",
+      "reason": "在既有标量广播合同补充分量窗口目标与拒绝边界，并把真实Lens effect首错关闭的证据归历史；不复制运行过程到现役正文。",
+      "decision": "docs/scene/history/shared-shader-type-compatibility-2026-10-09.md#scalar-swizzle-window-20261101"
     }
   ]
 }

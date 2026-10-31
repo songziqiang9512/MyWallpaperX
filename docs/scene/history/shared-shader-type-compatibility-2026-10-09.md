@@ -146,3 +146,17 @@ MyWallpaperX保留同样响应：关闭/零谱效果的中心ROI相对官方MAE1
 另一次原包运行不带任何fixture选项，外部afplay播放自有WAV，真实system tap启动48kHz双声道：generation1进入inbox、原发光脚本输出1.7021、月亮uniform首值约0.311/0.312，最终画面有响应。系统tap可能混入其他应用，不能把幅度独占归因于该WAV；这是App直接Host的实采证据，不外推App UI→daemon、所有播放器、官方FFT映射或长稳。原project缺省窗光minvalue1仍是常亮，不应强制随音乐变动。
 
 最终签名Debug dylib SHA `bc86b3d85c514c9b2a26524200f7cbcfb0dfee6c67908213a11c36b977e8b396`，4239源码hash构建前后一致，7项正式App正反运行全部exit0、原包/project不变。11组相关门、结构13项及Debug布局2项通过；总wrapper被既有未知 `.mimosa` 218B残留挡住，保留未删，不声称全门绿；code-health/defense/design另行通过。证据 `.artifacts/tmp/u12-low-frequency-20261009`，`*-final`为最终构建，首版探索结果不冒充最终证据。本批补齐音源验证工具并关闭PCM/实采接线疑点，未新增渲染修复；U12余整景颜色及已记录外围光晕差异。
+
+<a id="scalar-swizzle-window-20261101"></a>
+
+## 多维 swizzle 窗口标量广播（2026-11-01）
+
+基线 `e9d422258`。真实 `3435573282` 的 192#effect#198 与 3789#effect#3795（Lens 色差）在 launch-preparation 被 stage-link 拒绝：`author.vert:54` 的 `v_Distorsion.zw = 0` 把整数标量写入二分量子窗口，Vulkan GLSL 没有隐式广播，generic 前端随后记 `effect-local-passthrough-material-generic-owner-revoked`。官方客户端接受该作者写法，因此不是样本特例，也不是色差算法差异。
+
+`SceneGenericShaderScalarVectorBroadcastNormalizer` 是标量广播的唯一 owner；本片只把接纳目标从整变量声明扩到已声明数值向量的多分量 swizzle 窗口：2–4 个轴字母、宽度不超过基向量，构造子按基类型族取 `vecN/ivecN/uvecN`。单分量窗口、向量值 RHS、未声明/结构体/数组基、越界或重复分量保持原文交原编译器 fail-closed；`SceneAuthoredShaderVectorConversion` 的窄化转换与广播互斥，无新 parser、analyzer、缓存、pass 或帧路径工作。
+
+共享 shader 门 21/21 通过：新增用例在完整 canonicalize→normalize→glslang stage-link 链上断言 `color.zw = vec2(0)` 进入输出，同时保持 `vec2 window = color.xy` 与 `color.x = 0.25` 原文；同一 harness 的既有内建/mix/窄化用例不变。签名优化 Debug 构建通过，App SHA256 `d367652ca308ed0e19c2d60fbf08759a966ed2e8108437eddaf30e25669690df`。
+
+同输入六包 log-only 对照：修前 `3435573282` 记 `effect execution CPU invocation failed` 与 `resolved material graph unexpected effect-local passthrough`，192#effect#198、3789#effect#3795 均 `family=visual-failure-passthrough outcome=failed`；修后两项失败消失，两 descriptor 均为 `family=resolved-material outcome=encoded-output`，`stage-link:rejected` 归零，`3435573282` 转 PASS。`303/314/334/358` 保持 PASS，`298` 保持自身既有失败（不在本批）。窗口截图修前/修后 ready 与 after 分别有 63%/67% 像素变化，但该包为动画场景、相位未对齐，故作存在性观察，不作 ROI 或官方色彩归因。
+
+证据包 `.artifacts/scene-evidence/runs/shader-swizzle-broadcast-20261101/` 为 29,706,247 B、manifest SHA256 `bda4b43c3f130f892c82102f0e61270218910b190c41cf39a8759b810664ee67`，含修前/修后两次六包运行的 report、逐样本 app/preview 日志与 runtime evidence；普通 14 天。剩余 343 的视觉差异（颜色/样式/其余 effect 分支）仍在队列，不因本片关闭整样本。

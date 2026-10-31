@@ -154,6 +154,46 @@ void main() {
             ))
             self.assertEqual(pixels, [0.015625, 0.140625, 0.390625, 0.75] * 2)
 
+    def test_swizzle_window_broadcasts_proven_scalar_and_links(self) -> None:
+        # The actual 3435573282 vertex stage: a multi-component swizzle window
+        # receives an integer literal. Vulkan GLSL has no implicit broadcast,
+        # so the window keeps its own constructor while vector-valued and
+        # single-component writes stay authored.
+        if not GLSLANG.is_file() or not os.access(GLSLANG, os.X_OK):
+            self.skipTest("bundled glslang is unavailable")
+        source = """
+void main() {
+    vec4 color = vec4(0.0);
+    color.zw = 0;
+    vec2 window = color.xy;
+    color.x = 0.25;
+    gl_FragColor = color + vec4(window, 0.0, 0.0);
+}
+"""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            authored = root / "source.frag"
+            authored.write_text(source, encoding="utf-8")
+            output = json.loads(subprocess.check_output(
+                [str(self.binary), "--analyze", str(authored)], text=True,
+            ))
+            canonical = output["canonicalFragment"]
+            self.assertIn("color.zw = vec2(0)", canonical)
+            self.assertNotIn("color.zw = vec2(vec2", canonical)
+            self.assertIn("vec2 window = color.xy", canonical)
+            self.assertIn("color.x = 0.25", canonical)
+            self.assertTrue(output["idempotent"])
+            vertex = root / "author.vert"
+            vertex.write_text(output["normalizedVertex"], encoding="utf-8")
+            fragment = root / "author.frag"
+            fragment.write_text(output["normalizedFragment"], encoding="utf-8")
+            compiled = subprocess.run(
+                [str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations",
+                 "-l", str(vertex), str(fragment)],
+                cwd=root, capture_output=True, text=True, timeout=30,
+            )
+            self.assertEqual(compiled.returncode, 0, compiled.stdout + compiled.stderr)
+
     def test_comma_vector_initializers_broadcast_each_proven_scalar_and_link(self) -> None:
         cases = [
             # The actual U06 stage-link failure: each declarator owns a

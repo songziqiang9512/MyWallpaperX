@@ -1,10 +1,11 @@
 import Foundation
 
 /// Vulkan GLSL does not implicitly broadcast a scalar expression assigned to
-/// a floating vector. Make only source-proven scalar arithmetic initializers
-/// and assignments explicit. Built-in calls reuse the shared typed expression
-/// proof; authored calls, unknown identifiers, and vector-valued expressions
-/// remain under the compiler's fail-closed boundary.
+/// a floating vector. Make only source-proven scalar arithmetic initializers,
+/// whole-vector assignments and multi-component swizzle windows explicit.
+/// Built-in calls reuse the shared typed expression proof; authored calls,
+/// unknown identifiers, and vector-valued expressions remain under the
+/// compiler's fail-closed boundary.
 nonisolated enum SceneGenericShaderScalarVectorBroadcastNormalizer {
     private typealias DeclarationFacts = [String: (type: String, indices: [Int])]
 
@@ -61,23 +62,19 @@ nonisolated enum SceneGenericShaderScalarVectorBroadcastNormalizer {
         var insertions: [(offset: Int, text: String)] = []
         for index in unit.tokens.indices {
             guard unit.tokens[index].text == "=", index > 0,
-                  unit.tokens[index - 1].kind == .identifier,
-                  index < 2 || unit.tokens[index - 2].text != "." else { continue }
+                  unit.tokens[index - 1].kind == .identifier else { continue }
             let exclusions = functionExclusions.first {
                 $0.range.contains(index)
             }?.excluded ?? globalExclusions
             let declarations = SceneAuthoredShaderSyntaxAnalyzer.consistentValueDeclarations(
                 in: unit.tokens, excluding: exclusions, before: index
             )
-            guard let declaration = declarations[unit.tokens[index - 1].text],
-                  let target = declaredType(
-                      unit.tokens[index - 1].text,
-                      before: index,
-                      declarations: declarations
-                  ), let constructor = vectorConstructor(target),
+            guard let target = assignmentTarget(
+                      at: index, tokens: unit.tokens, declarations: declarations
+                  ),
                   let end = statementEnd(
                       after: index, tokens: unit.tokens,
-                      isInitializer: declaration.indices.contains(index - 1)
+                      isInitializer: target.isInitializer
                   ),
                   index + 1 < end,
                   isScalarArithmetic(
@@ -87,7 +84,7 @@ nonisolated enum SceneGenericShaderScalarVectorBroadcastNormalizer {
                       declarations: declarations
                   ), let startOffset = offset(index + 1, after: false),
                   let endOffset = offset(end - 1, after: true) else { continue }
-            insertions.append((startOffset, "\(constructor)("))
+            insertions.append((startOffset, "\(target.constructor)("))
             insertions.append((endOffset, ")"))
         }
         guard !insertions.isEmpty else { return normalized }
@@ -214,6 +211,64 @@ nonisolated enum SceneGenericShaderScalarVectorBroadcastNormalizer {
             return nil
         }
         return SceneAuthoredShaderValueType(rawValue: declaration.type)
+    }
+
+    /// A whole declared value, or a multi-component swizzle window of one
+    /// numeric vector. The swizzle form is the authored dialect's scalar
+    /// broadcast into a component window (`v.zw = 0`); a single-component
+    /// window is already valid GLSL and stays untouched.
+    private static func assignmentTarget(
+        at index: Int,
+        tokens: [SceneAuthoredShaderToken],
+        declarations: DeclarationFacts
+    ) -> (constructor: String, isInitializer: Bool)? {
+        let name = index - 1
+        if name >= 2, tokens[name - 1].text == ".",
+           tokens[name - 2].kind == .identifier {
+            guard let base = declaredType(
+                      tokens[name - 2].text, before: index, declarations: declarations
+                  ),
+                  let baseWidth = vectorWidth(base),
+                  let components = swizzleWidth(tokens[name].text),
+                  components > 1, components <= baseWidth,
+                  let constructor = broadcastConstructor(base, components: components)
+            else { return nil }
+            return (constructor, false)
+        }
+        guard let declaration = declarations[tokens[name].text],
+              let target = declaredType(
+                  tokens[name].text, before: index, declarations: declarations
+              ),
+              let constructor = vectorConstructor(target) else { return nil }
+        return (constructor, declaration.indices.contains(name))
+    }
+
+    private static func swizzleWidth(_ text: String) -> Int? {
+        guard (2...4).contains(text.count),
+              text.allSatisfy({ "xyzwrgba".contains($0) }) else { return nil }
+        return text.count
+    }
+
+    private static func vectorWidth(_ type: SceneAuthoredShaderValueType) -> Int? {
+        switch type {
+        case .float2, .int2, .uint2: 2
+        case .float3, .int3, .uint3: 3
+        case .float4, .int4, .uint4: 4
+        default: nil
+        }
+    }
+
+    private static func broadcastConstructor(
+        _ base: SceneAuthoredShaderValueType, components: Int
+    ) -> String? {
+        let family: String
+        switch base {
+        case .float2, .float3, .float4: family = "vec"
+        case .int2, .int3, .int4: family = "ivec"
+        case .uint2, .uint3, .uint4: family = "uvec"
+        default: return nil
+        }
+        return "\(family)\(components)"
     }
 
     private static func statementEnd(
