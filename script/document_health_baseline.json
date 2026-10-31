@@ -265,8 +265,8 @@
       "bytes": 7605
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
-      "lines": 71,
-      "bytes": 20176
+      "lines": 72,
+      "bytes": 21457
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 45,
@@ -1849,15 +1849,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "ee125427bbfbea5eaa02e1f50b07dddfd4488083569bfe1da8e35eeef1652e84",
-      "after": "e70a735701cfee3701672595009d36eae357cdd519d60d83db411e1123a6605c",
-      "owner": "scene-363-ordinary-frame-qualification",
-      "reason": "用诊断Release同内容60fps记录363的普通帧成本与stage分布，关闭卡上待资格；未优化Debug数字不代表优化配置，也不认领功耗或正式A/B。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#performance-open"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
       "before": "e549c1d6518f0f4448b2c26d2deb907defe79729c8549c882b0db98e89fdc8a5",
       "after": "a2d5006182bdcd0ca6e5ef1c0eb9945f2287d38b0183c8910c66cac43e1e98f0",
@@ -1945,6 +1936,15 @@
       "owner": "scene-effect-activation-history",
       "reason": "记录source material目录不再为puppet/static-model层报告shape失败，并把314的8条render-state并入source材质/lookup条目；三样本log-only PASS、未做视觉对照。",
       "decision": "docs/scene/capabilities/effect-execution-coverage.md#effect-activation-history-20261101"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "e70a735701cfee3701672595009d36eae357cdd519d60d83db411e1123a6605c",
+      "after": "31626d3f7b54d58065f2132b225ae2313f5908b11235a722def13f0e97b22f82",
+      "owner": "scene-361-367-ordinary-frame-qualification",
+      "reason": "归档361/367同一Release短窗观察：submitted≈60/completed≈59.6fps、CPU/GPU超预算为0、stage p50/p95完整，但含execution observer、性能窗2.767s未稳态且361 present 1.84%>1%默认门；样本仍有已知失败，不作为优化或资格依据。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#performance-open"
     }
   ]
 }
