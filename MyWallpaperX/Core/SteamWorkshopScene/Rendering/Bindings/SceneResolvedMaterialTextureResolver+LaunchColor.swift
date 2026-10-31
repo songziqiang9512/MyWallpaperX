@@ -20,19 +20,6 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
         for variant in variants {
             for binding in variant.frontendProgram.textureBindings
             where readinessMask & (1 << UInt8(binding.slot)) == 0 {
-#if DEBUG
-                if let sampler = variant.activeSamplers[binding.slot] {
-                    NSLog(
-                        "MWX DEBUG SCENE: phase=launch-program-failure slot=%d material=%@ label=%@ hidden=%d mode=%@ alias=%d",
-                        binding.slot,
-                        sampler.materialKey ?? "-",
-                        sampler.labelKey ?? "-",
-                        sampler.isHidden ? 1 : 0,
-                        String(describing: sampler.mode),
-                        sampler.usesGraphInputMaterialAlias ? 1 : 0
-                    )
-                }
-#endif
                 guard !formatSlots.contains(binding.slot),
                       let sampler = variant.activeSamplers[binding.slot],
                       presenceIndependentDefault(
@@ -40,6 +27,19 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                           sampler: sampler,
                           slot: binding.slot
                       ) != nil else {
+#if DEBUG
+                    if let sampler = variant.activeSamplers[binding.slot] {
+                        NSLog(
+                            "MWX DEBUG SCENE: phase=launch-program-failure slot=%d material=%@ label=%@ hidden=%d mode=%@ alias=%d",
+                            binding.slot,
+                            sampler.materialKey ?? "-",
+                            sampler.labelKey ?? "-",
+                            sampler.isHidden ? 1 : 0,
+                            String(describing: sampler.mode),
+                            sampler.usesGraphInputMaterialAlias ? 1 : 0
+                        )
+                    }
+#endif
                     return failure(.textureBindingInvalid, slot: binding.slot)
                 }
             }
