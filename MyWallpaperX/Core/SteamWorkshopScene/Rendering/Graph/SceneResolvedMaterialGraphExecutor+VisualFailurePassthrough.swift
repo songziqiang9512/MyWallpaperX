@@ -146,9 +146,46 @@ extension SceneResolvedMaterialGraphExecutor {
         return nil
     }
 
+    /// Reasons whose inactivity is expected author/provider behaviour rather
+    /// than a visual failure or a fallback to an old renderer.
+    private static let activationBypassReasonCodes: Set<String> = [
+        "effect-activation-visibility-disabled",
+        "effect-activation-pointer-provider-unavailable",
+        "effect-activation-scalar-below-minimum",
+        "initially-inactive-property-stage-passthrough",
+        "inactive-dependency-preproof-mismatch",
+    ]
+
+    /// Read-only proof that an inactive stage may be bypassed without
+    /// disturbing the pair, committed transition or history closure. The
+    /// caller decides whether an unprovable bypass keeps the effect executed
+    /// or drops the frame; only optional visibility uses the non-fatal path.
+    func activationBypassIsProvable(
+        reasonCode: String,
+        dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
+        transition: State.Transition,
+        graph: Graph,
+        pairStep: Pair.EffectStep,
+        snapshot: VisualFailureSnapshot
+    ) -> Bool {
+        guard dependencyOwnership.preEncodeVisualFailureSlots(in: graph) != nil,
+              Self.activationBypassReasonCodes.contains(reasonCode) else {
+            return false
+        }
+        return visualFailureTopologyIsSupported(
+            reasonCode: reasonCode,
+            transition: transition,
+            graph: graph,
+            pairStep: pairStep,
+            snapshot: snapshot
+        )
+    }
+
     /// Expected author/provider inactivity is observable but is not a visual
     /// failure or a fallback to an old renderer. The same atomic pair copy
     /// preserves effect-entry current and discards uncommitted target history.
+    /// A caller that already proved the bypass passes `bypassProven` so the
+    /// frame does not repeat the topology proof.
     func prepareActivationPassthrough(
         reasonCode: String,
         dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
@@ -161,22 +198,12 @@ extension SceneResolvedMaterialGraphExecutor {
         publications: inout [Graph.TextureIdentity: SceneFrameTextureResource],
         commands: inout [Command],
         effectLocalActivationBypassReasonCode: inout String?,
+        bypassProven: Bool = false,
         rejection: Failure = .graphStructureRejected
     ) -> Failure? {
-        guard dependencyOwnership.preEncodeVisualFailureSlots(in: graph) != nil else {
-            return rejection
-        }
-        guard [
-            "effect-activation-visibility-disabled",
-            "effect-activation-pointer-provider-unavailable",
-            "effect-activation-scalar-below-minimum",
-            "initially-inactive-property-stage-passthrough",
-            "inactive-dependency-preproof-mismatch",
-        ].contains(reasonCode) else {
-            return rejection
-        }
-        guard visualFailureTopologyIsSupported(
+        guard bypassProven || activationBypassIsProvable(
             reasonCode: reasonCode,
+            dependencyOwnership: dependencyOwnership,
             transition: transition,
             graph: graph,
             pairStep: pairStep,

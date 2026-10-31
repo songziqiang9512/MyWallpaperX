@@ -95,9 +95,12 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         )
         // Reuse the already-admitted visual-failure passthrough topology: this
         // widens typed visibility activation, not graph or product ownership.
+        // The pre-encode form admits multi-node graphs, including a history
+        // seed; the frame still validates the concrete transition before the
+        // stage is actually bypassed.
         let framebufferVisibility = resolvedVisibilityTarget != nil
             && pairStep.map {
-                visualFailureFramebufferTopologyMayPassthrough(
+                Self.preEncodeVisualFailureGraphMayPassthrough(
                     product.graph,
                     effect: effect,
                     pairStep: $0

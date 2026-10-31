@@ -143,7 +143,7 @@
 | 反馈 | 未闭问题 / 下一门 |
 |---|---|
 | U42 · 面板打开/编辑、长Combo、语言 | 打开/编辑总延迟、完整系统键盘chrome、长Combo完整显示/更多locale仍待实际资格；有限AX滚动/本地化不代全范围，旧“严重卡顿/中文都变英文”不无条件沿用。先单个可达控件/动作与成本，沿Intent→store→consumer取证，未审词汇不直接算错译。 |
-| history effect显隐热更 · 已见三节点链 | 自有原128/394载体中MotionBlur静态Program/history/合成正常，但合法Bool映射effectVisibility(128,4)在value-or-consumer-admission被记inactive并拒热更；前四单pass同Bool可热切。11-01复现：五effect均admitted-generic，仅effect4缺activeConsumerTarget；根因在`stageActivationPolicy`的`pairLeaf||framebufferVisibility`双门，MotionBlur三节点graph被`acceptsFramebufferGraph`的`!requiresHistorySeed`拒，非consumer注册。须先定义history-seed effect的inactive状态/reseed语义；复现须带原包pkg。先沿现prepared可见消费者/activation资格区别多节点及history生命周期，不能仅删guard、重建全景或扩大成所有effect不可热更；[反证](../history/corpus-log-audit-2026-10-29.md#declared-framebuffer-shadow-20261030)。 |
+| history effect显隐热更 · 已修 | 128/394载体中原包五effect（三Shake、WaterWaves、三节点MotionBlur）现全部注册为typed effect-activation consumer；`mwxwarps=false`于frame124五effect均inactive，样本PASS、0 live rejection、0 effect-local-passthrough，只切前四的v2对照同PASS。沿原`stageActivationPolicy`/GraphExecutor唯一owner，帧内先只读证明transition可直通，不可证时保持effect执行、不丢整帧；inactive期间history不更新、重新启用首帧未验，官方同场景未对照，[后验](../capabilities/effect-execution-coverage.md#effect-activation-history-20261101)。 |
 | <a id="particle-color-target"></a>静态 · particle绝对color direct target | [TargetMapping](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyBindingCompiler+TargetMapping.swift)对particle .color返回nil，[binding编译](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyBindingProgram.swift)报unsupportedTarget，无direct typed instruction。先取得实际合法定义及绝对/归一化颜色单位，再复用同一instruction/出生consumer；不扩成全部粒子颜色或数值转换故障。 |
 
 <a id="contract-validation-debt"></a>

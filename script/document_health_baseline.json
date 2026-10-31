@@ -121,8 +121,8 @@
       "bytes": 20551
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
-      "lines": 277,
-      "bytes": 177807
+      "lines": 281,
+      "bytes": 178744
     },
     "docs/scene/capabilities/lighting-sample-inventory.md": {
       "lines": 126,
@@ -278,7 +278,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 187,
-      "bytes": 43648
+      "bytes": 43435
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1927,6 +1927,24 @@
       "owner": "scene-shader-scalar-swizzle-broadcast",
       "reason": "在既有标量广播合同补充分量窗口目标与拒绝边界，并把真实Lens effect首错关闭的证据归历史；不复制运行过程到现役正文。",
       "decision": "docs/scene/history/shared-shader-type-compatibility-2026-10-09.md#scalar-swizzle-window-20261101"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/effect-execution-coverage.md",
+      "before": "35469af1940d8f4568960a41a9fb7081990eca564c1b3997341b12ba42490e30",
+      "after": "cbc85bc8b7db12761378db1532fb3193ccf23dc063e86683545ac37dc7a009eb",
+      "owner": "scene-effect-activation-history",
+      "reason": "记录多节点/history graph 的 effectVisibility activation 放宽、128/394 载体五 effect 结果与 history 未更新边界，替换只限单节点 pairLeaf 的旧门。",
+      "decision": "docs/scene/capabilities/effect-execution-coverage.md#effect-activation-history-20261101"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "e9d2777c9c678eb748d6983950b2d5bbd8b3edde0f8616ce1245421bd9e62e15",
+      "after": "dbd0d49a9f08f4fab03e62b22b940ba1707b660211fa3f4c15625493efbf0dcd",
+      "owner": "scene-effect-activation-history",
+      "reason": "队列从待资格改为已修并记录非致命降级边界；inactive history 与重新启用首帧仍未验。",
+      "decision": "docs/scene/capabilities/effect-execution-coverage.md#effect-activation-history-20261101"
     }
   ]
 }

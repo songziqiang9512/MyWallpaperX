@@ -106,6 +106,18 @@ extension SceneResolvedMaterialGraphExecutor {
             case .active:
                 break
             case let .inactive(reasonCode):
+                guard activationBypassIsProvable(
+                    reasonCode: reasonCode,
+                    dependencyOwnership: capability.dependencyOwnership,
+                    transition: transition,
+                    graph: graph,
+                    pairStep: pairStep,
+                    snapshot: visualFailureSnapshot
+                ) else {
+                    // Optional visibility must not drop the whole frame. Keep
+                    // this effect executed until its bypass is provable.
+                    break
+                }
                 return prepareActivationPassthrough(
                     reasonCode: reasonCode,
                     dependencyOwnership: capability.dependencyOwnership,
@@ -118,7 +130,8 @@ extension SceneResolvedMaterialGraphExecutor {
                     publications: &publications,
                     commands: &commands,
                     effectLocalActivationBypassReasonCode:
-                        &effectLocalActivationBypassReasonCode
+                        &effectLocalActivationBypassReasonCode,
+                    bypassProven: true
                 )
             case let .rejected(reasonCode):
                 return prepareVisualFailurePassthrough(
