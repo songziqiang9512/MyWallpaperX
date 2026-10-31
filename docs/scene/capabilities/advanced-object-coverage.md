@@ -142,6 +142,8 @@ MDLV0021兼容补接只新增上述三reader的版本合同，rig限已证80-byt
 - 非有限加权 pose 或最终 skinned vertex 失败时不上传部分几何。bind inverse必须合法；animated forward world允许有限的零/近零缩放，求逆只由实际需要它的world setter/cursor等consumer局部检查，不能把合法收拢骨骼拒成整帧失败。PlaybackState 首次未取得完整顶点时 named publication 与直接 draw 都拒绝；后续失败保留上一完整 vertex/attachment，DEBUG 只报告成功顶点。现有 VM getter 仅验证完整有限骨骼矩阵，最终顶点溢出的帧仍可能给脚本提供新骨骼 snapshot；本合同不宣称 VM/geometry 全链原子回滚。
 - 最近门是 `test_scene_puppet_weights`、真实 Metal 的 `test_scene_puppet_buffer_publication`及原播放/骨骼发布门；覆盖非 bind reference、零/外推权重、非共轴 unit-weight 恒等、最短半球、scale、非法数值与首次失败/旧几何保留/恢复。alpha与动画层控制分别见第3.3/3.1节；最终合成差异归现役断点队列。
 
+source material 目录现提前跳过 `puppetMeshPath`/`staticModelPath` 层：它们由上述 puppet/static-model 绘制与材质 owner 消费，进入该目录只会产生无消费者的 `source-material-shape-unsupported`。真实 `3141464346` 的 5 条此类日志随此边界退出，3 样本 log-only PASS（未做视觉对照）；同批 8 条 `render-state-unsupported`（translucent 且无证明接口）仍开放，归[断点队列](../roadmap/scene-open-breakpoint-queue.md)的 source材质/lookup 条目。
+
 
 ### 3.2.1 独立角色参考姿态
 

@@ -101,8 +101,8 @@
       "bytes": 2294
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 401,
-      "bytes": 85043
+      "lines": 403,
+      "bytes": 85563
     },
     "docs/scene/capabilities/alpha-display-fallback-design.md": {
       "lines": 124,
@@ -278,7 +278,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 187,
-      "bytes": 43435
+      "bytes": 43660
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1661,11 +1661,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "be93ca01972fe7257fe3aad32fef010b9004a455a59e038e6c6efc45befe3bc7",
-      "after": "bd08f9b43395042fed85ccc164dc4d3cb7b4fd1edc29ac726b4d684cffd5785f",
-      "owner": "scene-model-hemisphere-basis",
-      "reason": "在现有模型能力合同补齐canvas半球系数坐标职责及native/raw反例；不扩总架构正文、不建新文档，产品仅原snapshot交换两项。现役摘要/队列同步收缩，已闭宽夜区归历史。",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#model-hemisphere-basis"
+      "before": "bd08f9b43395042fed85ccc164dc4d3cb7b4fd1edc29ac726b4d684cffd5785f",
+      "after": "1b1a77571ea2bc892b6544c98508c08b3e77cb7f0015af59e9e990fe29779595",
+      "owner": "scene-model-layer-source-material-boundary",
+      "reason": "记录source material目录不再为puppet/static-model层报告shape失败，真实314的5条日志退出、8条render-state仍开放。",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#3-puppet-warp"
     },
     {
       "section": "bodies",
@@ -1933,17 +1933,17 @@
       "path": "docs/scene/capabilities/effect-execution-coverage.md",
       "before": "35469af1940d8f4568960a41a9fb7081990eca564c1b3997341b12ba42490e30",
       "after": "cbc85bc8b7db12761378db1532fb3193ccf23dc063e86683545ac37dc7a009eb",
-      "owner": "scene-effect-activation-history",
+      "owner": "scene-model-layer-source-material-boundary",
       "reason": "记录多节点/history graph 的 effectVisibility activation 放宽、128/394 载体五 effect 结果与 history 未更新边界，替换只限单节点 pairLeaf 的旧门。",
-      "decision": "docs/scene/capabilities/effect-execution-coverage.md#effect-activation-history-20261101"
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#3-puppet-warp"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "e9d2777c9c678eb748d6983950b2d5bbd8b3edde0f8616ce1245421bd9e62e15",
-      "after": "dbd0d49a9f08f4fab03e62b22b940ba1707b660211fa3f4c15625493efbf0dcd",
+      "before": "dbd0d49a9f08f4fab03e62b22b940ba1707b660211fa3f4c15625493efbf0dcd",
+      "after": "c4870ecdfd521a3aa08e744441e4a6e3f95dd89a1444e6b96f368253c3938b06",
       "owner": "scene-effect-activation-history",
-      "reason": "队列从待资格改为已修并记录非致命降级边界；inactive history 与重新启用首帧仍未验。",
+      "reason": "记录source material目录不再为puppet/static-model层报告shape失败，并把314的8条render-state并入source材质/lookup条目；三样本log-only PASS、未做视觉对照。",
       "decision": "docs/scene/capabilities/effect-execution-coverage.md#effect-activation-history-20261101"
     }
   ]

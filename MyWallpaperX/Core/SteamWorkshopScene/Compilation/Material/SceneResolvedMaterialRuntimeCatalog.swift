@@ -397,6 +397,10 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         var result: [Int: SourceMaterialEntry] = [:]
         for layer in descriptor.layers where layer.contentKind == "image"
             || layer.utilityLayer?.framebufferSource != nil {
+            // A puppet or static-model layer is consumed by its model/material
+            // owner. Preparing it here only produced a shape failure for a
+            // layer this catalog never serves, so skip it before any lookup.
+            guard layer.puppetMeshPath == nil, layer.staticModelPath == nil else { continue }
             let capturesMainTarget = layer.utilityLayer?.framebufferSource != nil
             guard let modelPath = layer.imagePath,
                   capturesMainTarget || !loweredModelPaths.contains(normalized(modelPath)),
@@ -418,8 +422,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                     capturesMainTarget: capturesMainTarget)
             }
             guard materialPasses.count == 1, let pass = materialPasses.first,
-                  pass.passIndex == 0, layer.puppetMeshPath == nil,
-                  layer.staticModelPath == nil,
+                  pass.passIndex == 0,
                   capturesMainTarget || layer.usesPerspective != true else {
                 result[layer.id] = reject("shape-unsupported"); continue
             }
