@@ -28,6 +28,7 @@ private func shader(renamed: Bool = false, expression: String = "red", mode: Str
     case "whole": body = "gl_FragColor = \(sample);"
     case "rg": body = "vec2 pair = \(sample).rg; gl_FragColor = vec4(pair, 0.25, 1.0);"
     case "alpha": body = "float \(carrier) = \(sample).a; gl_FragColor = vec4(\(carrier), 0.0, 0.25, 1.0);"
+    case "ra": body = "vec2 pair = \(sample).ra; gl_FragColor = vec4(pair, 0.25, 1.0);"
     default:
         body = "float \(carrier) = \(sample).r; gl_FragColor = vec4(\(carrier), \(carrier) * 0.5, 0.25, 1.0);"
     }
@@ -43,6 +44,43 @@ private func shader(renamed: Bool = false, expression: String = "red", mode: Str
     void main() { \(body) }
     """
     let prefix = renamed ? "fixtures/moved/scalar-paint" : "fixtures/scalar-mask"
+    func stage(_ kind: SceneShaderContract.StageKind, _ suffix: String, _ source: String) -> SceneShaderContract.Stage {
+        let path = prefix + suffix
+        let parsed = SceneShaderContractSourceParser().parse(source, stageRelativePath: path)
+        return .init(kind: kind, relativePath: path, source: source,
+            rawSHA256: SceneShaderStableDigest.hash(Data(source.utf8)), includes: parsed.includes,
+            annotations: parsed.annotations, declarations: parsed.declarations)
+    }
+    let stages = [stage(.vertex, ".vert", vertex), stage(.fragment, ".frag", fragment)]
+    let digest = SceneShaderStableDigest.hash(stages)
+    return .init(identity: prefix, sourceKind: .authoredSource, stages: stages, diagnostics: [],
+        canonicalSHA256: digest, sourceGraph: .init(roots: stages.map {
+            .init(label: $0.kind == .vertex ? "vertex" : "fragment", virtualPath: $0.relativePath)
+        }, nodes: stages.map {
+            .init(virtualPath: $0.relativePath, provenance: .package, source: $0.source,
+                rawSHA256: $0.rawSHA256, byteCount: $0.source.utf8.count)
+        }, edges: [], diagnostics: [], dependencySHA256: digest))
+}
+
+private func regularShader(
+    _ expression: String,
+    defaultPath: String = "fixtures/unseen/red-alpha"
+) -> SceneShaderContract {
+    let prefix = "fixtures/regular-red-alpha"
+    let vertex = """
+    attribute vec3 a_Position;
+    attribute vec2 a_TexCoord;
+    varying vec2 v_UV;
+    void main() { v_UV = a_TexCoord; gl_Position = vec4(a_Position, 1.0); }
+    """
+    let body = expression == "ra"
+        ? "vec2 pair = texSample2D(g_Texture2, v_UV).ra; gl_FragColor = vec4(pair, 0.25, 1.0);"
+        : "gl_FragColor = texSample2D(g_Texture2, v_UV);"
+    let fragment = """
+    varying vec2 v_UV;
+    uniform sampler2D g_Texture2; // {"default":"\(defaultPath)"}
+    void main() { \(body) }
+    """
     func stage(_ kind: SceneShaderContract.StageKind, _ suffix: String, _ source: String) -> SceneShaderContract.Stage {
         let path = prefix + suffix
         let parsed = SceneShaderContractSourceParser().parse(source, stageRelativePath: path)
@@ -273,6 +311,17 @@ private enum Main {
             neighboring.append(["expression": expression, "mode": mode, "channelUse": sampler.channelUse.rawValue,
                 "sourcePurpose": token(sampler.sourceProvenPurpose), "normalPurpose": token(sampler.purpose(for: .asset(normalPath)))])
         }
+        let unseen = SceneVFSAssetPath("fixtures/unseen/red-alpha")!
+        let redAlpha = preparedSampler(regularShader("ra"), slot: 2)!
+        let redAlphaMasked = preparedSampler(shader(expression: "ra", mode: "opacitymask"), slot: 2)!
+        neighboring.append(["expression": "ra", "mode": "", "channelUse": redAlpha.channelUse.rawValue,
+            "sourcePurpose": token(redAlpha.sourceProvenPurpose), "normalPurpose": token(redAlpha.purpose(for: .asset(unseen)))])
+        neighboring.append(["expression": "ra", "mode": "opacitymask", "channelUse": redAlphaMasked.channelUse.rawValue,
+            "sourcePurpose": token(redAlphaMasked.sourceProvenPurpose), "normalPurpose": token(redAlphaMasked.purpose(for: .asset(unseen)))])
+        let noisePath = SceneVFSAssetPath("util/noise")!
+        let redAlphaRegistered = preparedSampler(regularShader("ra", defaultPath: "util/noise"), slot: 2)!
+        neighboring.append(["expression": "ra-noise", "mode": "", "channelUse": redAlphaRegistered.channelUse.rawValue,
+            "sourcePurpose": token(redAlphaRegistered.sourceProvenPurpose), "normalPurpose": token(redAlphaRegistered.purpose(for: .asset(noisePath)))])
         let plain = preparedSampler(shader(), slot: 2)!
         let conflict = plain.withSourceProvenPurpose(.mask)
         let wrongSource = plain.withSourceProvenPurpose(.straightAlbedo)
@@ -340,6 +389,21 @@ class SceneScalarMaskDataPurposeTests(unittest.TestCase):
                     red = ([32,96,160,224] if frame["frame"] == 1 else [224,160,96,32]) if row["candidateReady"] else [16,48,80,112]
                     self.assertEqual(frame["pixelsRGBA"], [value for r in red for value in [r,r//2,64,255]], row)
 
+    def test_red_alpha_channel_projects_only_untyped_regular_samplers(self) -> None:
+        rows = {row["expression"] + "/" + row["mode"]: row for row in self.result["neighboring"]}
+        regular = rows["ra/"]
+        self.assertEqual(regular["channelUse"], "redAlphaOnly")
+        self.assertEqual(regular["sourcePurpose"], "preserved-channels")
+        self.assertEqual(regular["normalPurpose"], "preserved-channels")
+        typed = rows["ra/opacitymask"]
+        self.assertEqual(typed["channelUse"], "redAlphaOnly")
+        self.assertEqual(typed["sourcePurpose"], "nil")
+        self.assertEqual(typed["normalPurpose"], "mask")
+        registered = rows["ra-noise/"]
+        self.assertEqual(registered["channelUse"], "redAlphaOnly")
+        self.assertEqual(registered["sourcePurpose"], "nil")
+        self.assertEqual(registered["normalPurpose"], "noise")
+
     def test_variable_resource_and_equivalent_red_expression_have_same_pixels(self) -> None:
         for ready in [True, False]:
             for default_ready in [True,False]:
@@ -354,6 +418,8 @@ class SceneScalarMaskDataPurposeTests(unittest.TestCase):
         self.assertEqual(self.result["oldNoiseRedRule"], "noise")
         self.assertEqual(self.result["sourceConflicts"], {"maskNormal":"nil","maskNoise":"nil","colorNormal":"nil"})
         for row in self.result["neighboring"]:
+            if row["expression"].startswith("ra"):
+                continue
             self.assertEqual(row["normalPurpose"], "nil", row)
         domains = {row["purpose"]: row for row in self.result["purposeDomains"]}
         self.assertFalse(domains["straight-albedo"]["data"])

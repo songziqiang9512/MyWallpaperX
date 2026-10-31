@@ -72,6 +72,15 @@ extension SceneResolvedMaterialShaderSchema {
             vertex: vertex, fragment: fragment
         )?.textureSlot
         for (slot, sampler) in auxiliary {
+            if sampler.channelUse == .redAlphaOnly,
+               sampler.permitsSourceChannelProjection {
+                // A red*alpha sample reads two stored channels, not a color
+                // projection. Only an otherwise-untyped regular sampler may
+                // receive that role; typed, hidden, aliased or conflicting
+                // defaults keep their existing admission.
+                result[slot] = sampler.withSourceProvenPurpose(.preservedChannels)
+                continue
+            }
             guard sampler.permitsSourceStraightColorProjection,
                   (sampler.channelUse == .wholeVector && colorGraphSlots.contains(slot))
                     || rgbGraphSlots.contains(slot)
@@ -315,6 +324,23 @@ extension SceneResolvedMaterialShaderSchema.Sampler {
     /// metadata can safely receive a source-proven straight-color role.
     /// Existing typed roles are left intact; conflicting defaults and graph
     /// aliases simply remain conservative and are never overwritten.
+    /// Same untyped-regular guard as the straight-color projection, without
+    /// requiring the default asset to resolve to a color role. A default that
+    /// already names another registered role keeps that role instead.
+    nonisolated var permitsSourceChannelProjection: Bool {
+        guard mode == .regular,
+              !isHidden,
+              sourceProvenPurpose == nil,
+              declaredPurpose == nil,
+              !usesGraphInputMaterialAlias else { return false }
+        switch defaultTexture {
+        case nil, .internalTarget:
+            return true
+        case let .asset(path):
+            return SceneStockTextureSemanticRegistry.purpose(for: path) == nil
+        }
+    }
+
     nonisolated var permitsSourceStraightColorProjection: Bool {
         guard mode == .regular,
               !isHidden,

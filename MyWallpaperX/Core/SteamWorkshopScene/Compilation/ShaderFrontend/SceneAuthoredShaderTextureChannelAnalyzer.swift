@@ -64,6 +64,7 @@ nonisolated enum SceneAuthoredShaderTextureChannelAnalyzer {
         case 1: return .redOnly
         case 2: return .greenOnly
         case 3: return .redGreenOnly
+        case 9: return .redAlphaOnly
         case 8: return .alphaOnly
         default: return .unproven
         }
@@ -203,6 +204,7 @@ nonisolated enum SceneAuthoredShaderTextureChannelAnalyzer {
         case "r", "x": return .redOnly
         case "g", "y": return .greenOnly
         case "rg", "xy": return .redGreenOnly
+        case "ra", "xw": return .redAlphaOnly
         case "a", "w": return .alphaOnly
         default: return nil
         }
@@ -261,6 +263,7 @@ private nonisolated extension SceneAuthoredShaderProgram.TextureBinding.ChannelU
         case .redOnly: 1
         case .greenOnly: 2
         case .redGreenOnly: 3
+        case .redAlphaOnly: 9
         case .alphaOnly: 8
         case .wholeVector, .unproven: 0
         }

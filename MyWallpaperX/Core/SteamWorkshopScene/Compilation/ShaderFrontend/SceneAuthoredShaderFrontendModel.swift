@@ -488,6 +488,9 @@ nonisolated struct SceneAuthoredShaderProgram: Codable {
             /// Active sample results observe a nonempty subset of red/green,
             /// with the aggregate use requiring both stored components.
             case redGreenOnly
+            /// Every active sample observes only red and alpha (`.ra` / `.xw`),
+            /// a premultiplied scalar intensity such as an X-Ray sprite.
+            case redAlphaOnly
             /// Every active sample observes only alpha (`.a` / `.w`).
             case alphaOnly
             /// At least one active sample observes the complete sampled vector.
