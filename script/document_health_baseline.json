@@ -182,7 +182,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 419,
-      "bytes": 118271
+      "bytes": 118394
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -278,7 +278,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 187,
-      "bytes": 43807
+      "bytes": 43648
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1853,8 +1853,8 @@
       "before": "83340cdfefb179f46859db7e0b9a1771758f86d98155c7274eea639447c79876",
       "after": "ee125427bbfbea5eaa02e1f50b07dddfd4488083569bfe1da8e35eeef1652e84",
       "owner": "scene-engine-maintainer",
-      "reason": "退役跨owner全帧固定容量混责、保每owner raw/原atomic预算并记录总工作增长取舍；363子门退出、成本归原性能卡，其他失败不销账。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#layer-mutation-owner-capacity"
+      "reason": "记录同帧多owner写同一authored字段的顺序覆盖合同、真实样本验证与官方未对照边界，替换整批硬冲突拒绝；同值幂等与owner内失败隔离保持。",
+      "decision": "docs/scene/history/dynamic-layer-slot-lifetime-2026-10-29.md#owner-field-override-20261101"
     },
     {
       "section": "bodies",
@@ -1868,11 +1868,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "fc3619cd282e37ae7ad8729aa6bd3b5e98b2cecfb3c80240e06001c1c72ec0d2",
-      "after": "c3974310b070d1148ad9c2d6dcabc7cfe511956dd391fcc9505c7a52226add02",
-      "owner": "scene-engine-maintainer",
-      "reason": "退役跨owner全帧固定容量混责、保每owner raw/原atomic预算并记录总工作增长取舍；363子门退出、成本归原性能卡，其他失败不销账。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#layer-mutation-owner-capacity"
+      "before": "c3974310b070d1148ad9c2d6dcabc7cfe511956dd391fcc9505c7a52226add02",
+      "after": "a57a86a0d23b45f159677db6f52e39bcb1f776f24aad8491d16d84d03d3d2132",
+      "owner": "scene-layer-mutation-owner-override",
+      "reason": "记录同帧多owner写同一authored字段的顺序覆盖合同、真实样本验证与官方未对照边界，替换整批硬冲突拒绝；同值幂等与owner内失败隔离保持。",
+      "decision": "docs/scene/history/dynamic-layer-slot-lifetime-2026-10-29.md#owner-field-override-20261101"
     },
     {
       "section": "bodies",
@@ -1927,15 +1927,6 @@
       "owner": "scene-shader-scalar-swizzle-broadcast",
       "reason": "在既有标量广播合同补充分量窗口目标与拒绝边界，并把真实Lens effect首错关闭的证据归历史；不复制运行过程到现役正文。",
       "decision": "docs/scene/history/shared-shader-type-compatibility-2026-10-09.md#scalar-swizzle-window-20261101"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "f6410e69c48a27ca26651131b2a246ac12d5f31432523d5f42c01360eaab5c8d",
-      "after": "4561b8014beedafbc9baece902b6628c68f7970de3809c0e8bf9906cd95625ab",
-      "owner": "scene-history-effect-visibility-qualification",
-      "reason": "把复现后的根因、缺失的history状态语义与复现输入要求写入现役队列，避免按consumer注册或只删拓扑门重试。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#properties-open"
     }
   ]
 }

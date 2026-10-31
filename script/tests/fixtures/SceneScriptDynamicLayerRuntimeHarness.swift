@@ -449,6 +449,8 @@ enum Harness {
                 )]
             ),
         ])
+        conflictingRuntime.commit(conflictingAdmission.layerPlan)
+        let afterConflicting = conflictingRuntime.snapshot()
         let budgetRuntime = SceneScriptDynamicLayerRuntime(
             descriptor: descriptor,
             authoredMutationLayerIDs: [10]
@@ -824,11 +826,13 @@ enum Harness {
             "identicalDuplicateValuePublished": afterDuplicate.authoredLayerValues[
                 .layer(layerID: 10, field: .visibility)
             ] == .bool(false),
-            "conflictingLaterOwnerRejected":
+            "laterOwnerWins":
                 conflictingAdmission.admittedEffects.map(\.ownerTarget)
-                    == [duplicateOwnerA]
-                    && conflictingAdmission.rejectedOwners.map(\.ownerTarget)
-                    == [duplicateOwnerB],
+                    == [duplicateOwnerA, duplicateOwnerB]
+                    && conflictingAdmission.rejectedOwners.isEmpty,
+            "laterOwnerValuePublished": afterConflicting.authoredLayerValues[
+                .layer(layerID: 10, field: .visibility)
+            ] == .bool(true),
             "fixedPointSeeded": seededFirstHalf && seededSecondHalf,
             "particleSeesCurrentExternalReject": particleRejectedSets.first?.contains(projectionOwnerA) == true,
             "particleFiltersWholeRejectedBundle": particleEligibleCommands == [[2], [2]],

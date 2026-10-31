@@ -75,9 +75,9 @@ HARNESS = r'''
   let conflict=enabled.layerMutations[0].owned(by:peer)
   let plan=runtime.preflightIsolatingOwners([first,conflict])
   out["preflightUnpublished"]=runtime.snapshot().authoredLayerValues.isEmpty
-  out["conflictIsolated"]=plan.outcome.failures.count == 1 && plan.outcome.failures[0].ownerTarget == peer
+  out["conflictOverridden"]=plan.outcome.failures.isEmpty
   runtime.commit(plan)
-  out["acceptedOwnerPreserved"]=runtime.snapshot().authoredLayerValues[solidTarget] == .bool(false)
+  out["laterOwnerValueApplied"]=runtime.snapshot().authoredLayerValues[solidTarget] == .bool(true)
   let(d,dt)=try make("let layer;export function update(v){if(v===0){layer=thisScene.createLayer({text:'probe',solid:false});}else if(v===1){layer.solid=true;}return layer.solid?.75:.25;}")
   let created=d.scalarProgram.evaluate(inputs:[dt:.scalar(0)],frame:frame)
   out["dynamicCreatedFalse"]=created.layerMutations.first?.solid == false && created.values[dt] == .scalar(0.25)
@@ -115,5 +115,5 @@ class DynamicSolidTests(unittest.TestCase):
   self.assertTrue(self.value["exceptionIsolated"])
 
  def test_conflicts_dynamic_journal_and_capture_release(self):
-  for key in ("preflightUnpublished","conflictIsolated","acceptedOwnerPreserved","dynamicCreatedFalse","dynamicStagedTrue","dynamicRollback","captureClosed","captureUpWithoutClick"):
+  for key in ("preflightUnpublished","conflictOverridden","laterOwnerValueApplied","dynamicCreatedFalse","dynamicStagedTrue","dynamicRollback","captureClosed","captureUpWithoutClick"):
    with self.subTest(key=key): self.assertTrue(self.value[key])

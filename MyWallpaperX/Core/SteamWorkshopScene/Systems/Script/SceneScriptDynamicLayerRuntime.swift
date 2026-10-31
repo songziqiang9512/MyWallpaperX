@@ -603,8 +603,10 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
     }
 
     /// Product frame commit keeps each VM owner atomic while allowing
-    /// disjoint owners to survive a bad peer mutation. Authored target
-    /// conflicts remain hard for the later owner in authored execution order.
+    /// disjoint owners to survive a bad peer mutation. Owners commit at their
+    /// first-authored position; a later owner that writes the same authored
+    /// field replaces the earlier value, and no cross-owner arbitration state
+    /// is retained.
     func applyIsolatingOwners(
         _ mutations: [SceneScriptLayerMutation]
     ) -> SceneScriptLayerMutationApplyOutcome {
@@ -814,6 +816,10 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         }
     }
 
+    /// Owners commit in callback order. A later owner that writes the same
+    /// authored field replaces the earlier value, mirroring the host property
+    /// assignment semantics; an owner's own failure still rolls back only its
+    /// batch. No cross-owner value-lane arbitration or second owner is added.
     private func applyIsolatingOwnersToCurrentState(
         _ mutations: [SceneScriptLayerMutation],
         topologyOwners: [SceneDynamicTarget: UInt64]
@@ -825,7 +831,6 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
             if grouped[owner] == nil { ownerOrder.append(owner) }
             grouped[owner, default: []].append(mutation)
         }
-        var claimedAuthoredValues: [SceneDynamicTarget: SceneDynamicValue] = [:]
         var failures: [SceneScriptLayerMutationOwnerFailure] = []
         var committedMutationCount = 0
         var committedDynamicMutationCount = 0
@@ -839,40 +844,10 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                 continue
             }
             let batch = SceneScriptLayerMutation.coalescing(callbacks)
-            let authoredValues = batch.flatMap {
-                Self.authoredValues($0, cameraOriginInputLayerID: cameraOriginInputLayerID)
-            }
-            let hasConflict = authoredValues.contains { target, value in
-                claimedAuthoredValues[target].map { $0 != value } ?? false
-            }
-            if hasConflict {
-#if DEBUG
-                for (target, value) in authoredValues {
-                    guard let claimed = claimedAuthoredValues[target],
-                          claimed != value else { continue }
-                    NSLog(
-                        "MWX mutation owner conflict: owner=%@ target=%@ claimed=%@ incoming=%@",
-                        String(describing: owner), String(describing: target),
-                        String(describing: claimed), String(describing: value)
-                    )
-                }
-#endif
-                failures.append(.init(
-                    ownerTarget: owner,
-                    failure: .invalidArgument(
-                        "conflicting authored layer mutation owner"
-                    )
-                ))
-                continue
-            }
             switch apply(batch, publishingTopologyRevision: false, deferringFinalization: true,
                          committedDestroyedAuthoredLayerIDs: committedDestroyedIDs) {
             case let .success(changes):
                 requiresRetirement = requiresRetirement || changes.requiresRetirement
-                for (target, value) in authoredValues
-                where claimedAuthoredValues[target] == nil {
-                    claimedAuthoredValues[target] = value
-                }
                 committedMutationCount += batch.count
                 committedDynamicMutationCount += batch.filter(\.isDynamic).count
             case let .failure(failure):

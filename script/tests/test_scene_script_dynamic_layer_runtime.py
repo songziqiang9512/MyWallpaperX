@@ -104,17 +104,30 @@ extension Harness {
         dynamic.commit(retire.layerPlan)
         let retired = dynamic.snapshot()
         let single = mutation(10, dynamic: false, fields: [.visibility], ownerTarget: a)
+        // Owner batches commit at their first-authored position.
+        let interleaved = SceneScriptDynamicLayerRuntime(
+            descriptor: descriptor, authoredMutationLayerIDs: [])
+        let interleavedPlan = interleaved.preflightIsolatingOwners([
+            mutation(10, dynamic: false, fields: [.origin], origin: .init(1, 0, 0), ownerTarget: a),
+            mutation(10, dynamic: false, fields: [.origin], origin: .init(2, 0, 0), ownerTarget: b),
+            mutation(10, dynamic: false, fields: [.origin], origin: .init(3, 0, 0), ownerTarget: a)])
+        interleaved.commit(interleavedPlan)
+        let interleavedOrigin = interleaved.snapshot().authoredLayerValues[
+            .layer(layerID: 10, field: .origin)]
         return [
             "preflightReadOnly": readOnly && birthReadOnly,
-            "lastCallbackWinsAndPreservesFields": snapshot.authoredLayerValues[.layer(layerID: 10, field: .alpha)] == .scalar(0.6)
+            "lastCallbackWinsAndPreservesFields": snapshot.authoredLayerValues[.layer(layerID: 10, field: .alpha)] == .scalar(0.8)
                 && snapshot.authoredLayerValues[.layer(layerID: 10, field: .scale)] == .vector3(2,3,4)
                 && snapshot.authoredLayerValues[.layer(layerID: 10, field: .visibility)] == .bool(false),
-            "conflictUsesFinalValues": admission.admittedEffects.map(\.ownerTarget) == [a,b,a,b,peer]
+            "allOwnersAdmitted": admission.admittedEffects.map(\.ownerTarget) == [a,b,a,b,bad,bad,peer]
                 && snapshot.authoredLayerValues[.text(layerID: 20, field: .content)] == .string("retained"),
-            "divergentOwnerRejectedAtomically": admission.rejectedOwners.map(\.ownerTarget) == [bad]
-                && snapshot.authoredLayerValues[.layer(layerID: 20, field: .visibility)] == nil,
+            "divergentOwnerCommitsLastValue": admission.rejectedOwners.isEmpty
+                && snapshot.authoredLayerValues[.layer(layerID: 10, field: .alpha)] == .scalar(0.8)
+                && snapshot.authoredLayerValues[.layer(layerID: 20, field: .visibility)] == .bool(false),
             "healthyPeerSurvives": snapshot.authoredLayerValues[.layer(layerID: 20, field: .scale)] == .vector3(5,6,7),
             "rawDuplicatesStillReject": rawRejected,
+            "interleavedOwnerPlanAdmitted": interleavedPlan.outcome.failures.isEmpty,
+            "ownerBatchesCommitAtFirstPosition": interleavedOrigin == .vector3(2, 0, 0),
             "emptyAndSingleInputUnchanged": SceneScriptLayerMutation.coalescing([]).isEmpty
                 && SceneScriptLayerMutation.coalescing([single]) == [single],
             "dynamicUsesCompleteLatestRecord": birth.rejectedOwners.isEmpty && final?.text == "complete final"
@@ -377,10 +390,11 @@ class SceneScriptDynamicLayerRuntimeTests(unittest.TestCase):
         self.assertTrue(self.result["isolatedDisjointAnglesPublished"])
         self.assertTrue(self.result["isolatedBadTextAbsent"])
 
-    def test_identical_duplicate_owner_writes_coalesce_but_disagreement_rejects(self) -> None:
+    def test_identical_duplicate_owner_writes_coalesce_and_later_owner_wins(self) -> None:
         self.assertTrue(self.result["identicalDuplicateOwnersAdmitted"])
         self.assertTrue(self.result["identicalDuplicateValuePublished"])
-        self.assertTrue(self.result["conflictingLaterOwnerRejected"])
+        self.assertTrue(self.result["laterOwnerWins"])
+        self.assertTrue(self.result["laterOwnerValuePublished"])
 
     def test_external_rejection_reaches_layer_admission_fixed_point(self) -> None:
         self.assertTrue(self.result["fixedPointSeeded"])

@@ -42,3 +42,13 @@
 旧三次视频探针的App、HOME、重复截图及构建输出已精确清理约1389MiB；后继只留一份显式构建缓存`.build-cache/scene-gravity-20261028`供连续迭代。原生槽位运行环境在提取必要证据后清理，不保Workshop包副本或安装App。
 
 同callback新生立即删除的净零拓扑，C导出最终destroy而Swift目前要求已发布实例，只有代码证据；已单列队列，不混成槽位回收失败。本批未实现动态视频、后台需求优化或官方实例身份，其他视觉/音频/属性问题按原队列保留。
+
+<a id="owner-field-override-20261101"></a>
+
+## 同字段多 owner 写入顺序覆盖（2026-11-01）
+
+真实 `3603711180`/`3028048463`/`3047405322` 的控制器层回调写相邻部件层 origin（565→626、506→517、83979→83991），与部件自身写入不同值。旧实现按 owner 分组后比较已提交 authored 值，把后一个 owner 的整批 23–25 条 mutation 全部丢弃，日志为 `conflicting authored layer mutation owner` 与 `fallback=previous-current`。
+
+现按回调顺序提交：后写覆盖前写，同值保持幂等；owner 自己的失败、512 条预算与 topology 拒绝仍只影响该 owner 批次，不引入第二 owner 或跨 owner 仲裁状态。只服务该判定的 `authoredValues` 辅助与 claimed lane 同批删除。
+
+验证：`test_scene_script_solid` 3/3、`test_scene_script_dynamic_layer_runtime` 20/20、`test_scene_script_layer_order`、`test_scene_cursor_capture_continuity`、`test_scene_cross_layer_effect_visibility` 通过；`test_scene_script_layer_creator_retirement` 在基提交与主仓库同样因 fixture 缺 `SceneDefault2DCameraInputProfile` 失败，属既有验证债。签名诊断构建后五样本 log-only 全 PASS，三冲突样本的 `callback=rejected` 与冲突拒绝归零；`3435573282`、`3141464346` 健康样本保持 PASS。未做官方客户端同场景对照，覆盖顺序取本地回调注册顺序，parity 仍属未验证边界。
