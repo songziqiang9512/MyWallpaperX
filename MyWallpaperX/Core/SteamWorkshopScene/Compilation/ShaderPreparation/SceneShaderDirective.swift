@@ -325,6 +325,26 @@ extension SceneShaderPreprocessor {
                           expression[index] == "_" || expression[index].isLetter || expression[index].isNumber {
                         index = expression.index(after: index)
                     }
+                    // Wallpaper Engine shaders compare runtime uniform members
+                    // in #if (`g_Texture0Resolution.x < ...`). This is the
+                    // authored dialect, not ISO C: the dotted chain becomes
+                    // one opaque identifier and an unresolved name evaluates
+                    // to 0, so keep the chain together instead of rejecting
+                    // the dot; a non-identifier after it still fails.
+                    while index < expression.endIndex, expression[index] == "." {
+                        let afterDot = expression.index(after: index)
+                        guard afterDot < expression.endIndex,
+                              expression[afterDot] == "_"
+                                || expression[afterDot].isLetter else {
+                            throw ExpressionError(message: "Unsupported token in shader condition.")
+                        }
+                        index = expression.index(after: afterDot)
+                        while index < expression.endIndex,
+                              expression[index] == "_" || expression[index].isLetter
+                                || expression[index].isNumber {
+                            index = expression.index(after: index)
+                        }
+                    }
                     try append(.identifier(String(expression[start..<index]))); continue
                 }
                 throw ExpressionError(message: "Unsupported token in shader condition.")

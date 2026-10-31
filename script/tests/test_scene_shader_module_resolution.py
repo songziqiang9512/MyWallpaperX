@@ -362,6 +362,33 @@ private enum HarnessMain {
             try expect(try diagnostic(source: "#define LIGHTING(x) (x)\n#require LightingV1") == .moduleLightingMacroNoninteger, "Function macro code.")
         }
 
+        try checked("uniform-member-conditions") {
+            // Authored shaders compare runtime uniform members in #if
+            // (`g_Texture0Resolution.x < ...`). The authored dialect turns
+            // the dotted chain into one opaque identifier and an unresolved
+            // name into 0 (ISO C rejects `a.b` here), so the branch stays
+            // inactive instead of rejecting the whole shader.
+            let member = try preprocess(
+                source: "#if g_Texture0Resolution.x < g_Texture0Resolution.y\n#require UnknownV1\n#endif\nvoid main() {}"
+            )
+            try expect(member.moduleDependencies.isEmpty, "Unresolved member condition did not evaluate to 0.")
+            try expect(
+                try diagnostic(source: "#if a..b\n#endif\nvoid main() {}")
+                    == .invalidExpression,
+                "Malformed member chain did not reject."
+            )
+            try expect(
+                try diagnostic(source: "#if a.\n#endif\nvoid main() {}")
+                    == .invalidExpression,
+                "Trailing member dot did not reject."
+            )
+            try expect(
+                try diagnostic(source: "#if a.b == a.c\n#require UnknownV1\n#endif\nvoid main() {}")
+                    == .moduleUnknown,
+                "Two unresolved members did not both evaluate to 0."
+            )
+        }
+
         try checked("inactive-syntax-only") {
             let inactive = try preprocess(
                 source: "#if 0\n#require UnknownV1\n#endif\nvoid main() {}"
@@ -610,7 +637,7 @@ class SceneShaderModuleResolutionTests(unittest.TestCase):
                 text=True,
             )
         result = json.loads(completed.stdout)
-        self.assertEqual(len(result["checks"]), 11, result)
+        self.assertEqual(len(result["checks"]), 12, result)
         self.assertEqual(len(result["fragmentPreparedSHA256"]), 64, result)
         self.assertEqual(len(result["fragmentModuleDependencySHA256"]), 64, result)
         self.assertEqual(len(result["programCacheKey"]), 64, result)
