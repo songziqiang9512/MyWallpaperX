@@ -278,7 +278,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 187,
-      "bytes": 43132
+      "bytes": 43481
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1912,15 +1912,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "5369bb0a248abce7ad0a3474f5611afe649075c04f8816673b943ac7436ac6bf",
-      "after": "743c73d04d2fe6f58029af12ef11c0a5329de54776d1b1992a744d49c6c20751",
-      "owner": "scene-particle-color-timeline",
-      "reason": "补真实丢失colorn Timeline的唯一合同/受控出生边界，已实施设计及旧Bloom过程退出D4；338/295光线仍未销账，不复制运行过程到现役正文。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#particle-normalized-color-timeline"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
       "before": "9f5b997570d0b8dbd2a4f902156c7c6760902bbfaa4bc63742bbf9016b1b3039",
       "after": "6ef77568eadcd5766004ef14fdb994ac95c161044f19f37c00ff707c800f5975",
@@ -1936,6 +1927,15 @@
       "owner": "scene-shader-scalar-swizzle-broadcast",
       "reason": "在既有标量广播合同补充分量窗口目标与拒绝边界，并把真实Lens effect首错关闭的证据归历史；不复制运行过程到现役正文。",
       "decision": "docs/scene/history/shared-shader-type-compatibility-2026-10-09.md#scalar-swizzle-window-20261101"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "3f0e00203f7bfbdec8993fb86418989abf48565a49468bbfab3aad102ecc4727",
+      "after": "f6410e69c48a27ca26651131b2a246ac12d5f31432523d5f42c01360eaab5c8d",
+      "owner": "scene-history-effect-visibility-qualification",
+      "reason": "把复现后的根因、缺失的history状态语义与复现输入要求写入现役队列，避免按consumer注册或只删拓扑门重试。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#properties-open"
     }
   ]
 }
