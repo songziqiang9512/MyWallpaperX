@@ -82,6 +82,9 @@ enum Harness {
             effectiveValues: initialValues,
             activeConsumerTargets: alphaTargets.union([color])
         )
+        var peer = ScenePropertyLiveUpdateState(program: liveProgram,
+            effectiveValues: initialValues, activeConsumerTargets: alphaTargets.union([color]))
+        let peerBeforeUpdate = peer
 
         let initialEvaluatedAllTargets = scalar(state, alphaOne) == 0.5
             && scalar(state, alphaTwo) == 0.5
@@ -101,6 +104,14 @@ enum Harness {
         let beforeTypeFailure = state
         let badTypeRejected = !state.apply(.string("0.2"), forPropertyKey: "opacity")
         let badTypeWasAtomic = unchanged(state, from: beforeTypeFailure)
+        let sharedProgramInstancesIndependent = unchanged(peer, from: peerBeforeUpdate)
+            && peer.apply(.number(0.2), forPropertyKey: "opacity")
+            && peer.apply(.number(0.4), forPropertyKey: "opacity")
+            && scalar(peer, alphaOne) == 0.4 && peer.revision == 2
+            && unchanged(state, from: beforeTypeFailure)
+        let peerBeforeFailure = peer
+        let failedInstancePreservesPeer = !peer.apply(.string("bad"), forPropertyKey: "opacity")
+            && unchanged(peer, from: peerBeforeFailure) && unchanged(state, from: beforeTypeFailure)
 
         let beforeNonFinite = state
         let nonFiniteRejected = !state.apply(.number(.nan), forPropertyKey: "opacity")
@@ -682,6 +693,8 @@ enum Harness {
                 && unchanged(repeated, from: before) && repeated.revision == before.revision
         }
         var payload: [String: Bool] = [
+            "sharedProgramInstancesIndependent": sharedProgramInstancesIndependent,
+            "failedInstancePreservesPeer": failedInstancePreservesPeer,
             "initialEvaluatedAllTargets": initialEvaluatedAllTargets,
             "revisionBumpedAfterAcceptedApply":
                 revisionBumpedAfterAcceptedApply,
@@ -817,6 +830,7 @@ enum Harness {
     ) -> Bool {
         state.effectiveValues == before.effectiveValues
             && state.userValues == before.userValues
+            && state.revision == before.revision
     }
 }
 '''
@@ -856,25 +870,9 @@ class ScenePropertyLiveUpdateStateTests(unittest.TestCase):
         self.assertTrue(self.result["singleAccepted"])
         self.assertTrue(self.result["singleUpdatedAllTargets"])
 
-    def test_live_updates_reuse_launch_validation_indexes(self) -> None:
-        source = (
-            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyLiveUpdateState.swift"
-        ).read_text(encoding="utf-8")
-        program_source = (
-            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyBindingProgram.swift"
-        ).read_text(encoding="utf-8")
-        self.assertIn("private let validation:", source)
-        self.assertIn("private let instructionsByPropertyKey:", source)
-        self.assertIn("private let rebuildRequiredKeys:", source)
-        self.assertIn(
-            "effectiveValues: candidateEffectiveValues,\n            validation: validation",
-            source,
-        )
-        self.assertEqual(source.count("ScenePropertyBindingProgramValidator().validate(program)"), 1)
-        self.assertIn(
-            "validation: ScenePropertyBindingProgramValidation",
-            program_source,
-        )
+    def test_shared_program_instances_keep_current_and_revision_independent(self) -> None:
+        self.assertTrue(self.result["sharedProgramInstancesIndependent"])
+        self.assertTrue(self.result["failedInstancePreservesPeer"])
 
     def test_missing_instruction_and_invalid_values_fail_atomically(self) -> None:
         self.assertTrue(self.result["missingRejected"])
@@ -992,13 +990,11 @@ class ScenePropertyLiveUpdateStateTests(unittest.TestCase):
             update.rindex("scheduleActiveScenePropertyRender"),
         )
 
-
     def test_retired_callbacks_preserve_surviving_typed_consumers_and_atomic_boundaries(self) -> None:
         facts = {key: value for key, value in self.result.items() if key.startswith("retired-callback-")}
         self.assertTrue(facts)
         for key, value in facts.items():
             self.assertTrue(value, key)
-
 
 if __name__ == "__main__":
     unittest.main()

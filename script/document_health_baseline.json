@@ -90,7 +90,7 @@
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 158,
-      "bytes": 18297
+      "bytes": 18406
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 31,
@@ -170,11 +170,11 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 223258
+      "bytes": 223463
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
-      "bytes": 204567
+      "bytes": 204900
     },
     "docs/scene/capabilities/runtime-systems-reference.md": {
       "lines": 375,
@@ -285,8 +285,8 @@
       "bytes": 29767
     },
     "docs/scene/roadmap/engine-refactor-program.md": {
-      "lines": 113,
-      "bytes": 17055
+      "lines": 123,
+      "bytes": 19107
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 73,
@@ -301,8 +301,8 @@
       "bytes": 22465
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 205,
-      "bytes": 47988
+      "lines": 204,
+      "bytes": 47557
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -2046,15 +2046,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-as-built-map.md",
-      "before": "116f970b167f7e8399d3d0fa2979212eb49ad756af4b47f2db12e28eb4fdba86",
-      "after": "ee59ed94720c4de029d44fc2194db10519f2725cedc7d426221412650dd9dc33",
-      "owner": "scene-architecture-convergence",
-      "reason": "架构迁移的文本能力批次：替换旧语言执行描述，保留冻结基线、真实输出及失败范围；正文预算随实际职责与证据更新。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#架构级迁移合同"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/coverage-ledger.md",
       "before": "4c0085ab59efdf5248982f6216b137ed009645ffcbf2a7f84ced5c77537e904d",
       "after": "eac78dad83e6a77ed765836996f9b33623369c33d103f929b29fd2496962dbd6",
@@ -2064,36 +2055,9 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "819ea5c3d8f50b7d040fd936d18fa780eb41a29312a6deb3c786334376e99104",
-      "after": "a8735c21acd46c241bd9810360da3f321067f7a70ca53e013a81775318992425",
-      "owner": "scene-architecture-convergence",
-      "reason": "共享alpha迁入原VM，模块形状关卡退出；更新真实有界贡献和未闭项，旧设计完整归档，预算对应实际职责内容。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#语言执行收敛共享状态与-alpha"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "979f21ae9e3fd33eb540b69dee243a434b25eca31c2f1b10ed56f1004f32ba20",
-      "after": "9e8170e3d074b9579fcfe9aff4cfd7cf60890f9875064ff1757d3e80d0f0699a",
-      "owner": "scene-architecture-convergence",
-      "reason": "共享alpha迁入原VM，模块形状关卡退出；更新真实有界贡献和未闭项，旧设计完整归档，预算对应实际职责内容。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#语言执行收敛共享状态与-alpha"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
       "before": "eff16b56a441ef8d8323e974240207f0f159febe6f046797bd065c24ac8eaa02",
       "after": "1e6dd93077e1ce9973fe868296bf799832fce14aa3fa12e5a731da4955866d5e",
-      "owner": "scene-architecture-convergence",
-      "reason": "共享alpha迁入原VM，模块形状关卡退出；更新真实有界贡献和未闭项，旧设计完整归档，预算对应实际职责内容。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#语言执行收敛共享状态与-alpha"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/engine-refactor-program.md",
-      "before": "b4069f69aa2dfe7bbf9a84921826b2e7b2bd33079bd19ec54ea3a58fedd50338",
-      "after": "b43e543ce9bac819052c4cb512532f43dbd4e45f8828d9084a739034e05f91f5",
       "owner": "scene-architecture-convergence",
       "reason": "共享alpha迁入原VM，模块形状关卡退出；更新真实有界贡献和未闭项，旧设计完整归档，预算对应实际职责内容。",
       "decision": "docs/scene/roadmap/engine-refactor-program.md#语言执行收敛共享状态与-alpha"
@@ -2115,6 +2079,42 @@
       "owner": "scene-architecture-convergence",
       "reason": "共享alpha迁入原VM，模块形状关卡退出；更新真实有界贡献和未闭项，旧设计完整归档，预算对应实际职责内容。",
       "decision": "docs/scene/roadmap/engine-refactor-program.md#语言执行收敛共享状态与-alpha"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/runtime-as-built-map.md",
+      "before": "ee59ed94720c4de029d44fc2194db10519f2725cedc7d426221412650dd9dc33",
+      "after": "0ea136a87fb97e0efd058aad650d9bf38f887e6ea8699c82a2e787039c852f9e",
+      "owner": "scene-property-program-preparation",
+      "reason": "记录不可变Program准备与实例值职责、既有边界及局部成本/真实热更证据；不新增运行校验、性能指标或并行状态。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#属性绑定程序的准备与实例值"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "a8735c21acd46c241bd9810360da3f321067f7a70ca53e013a81775318992425",
+      "after": "6a8adce090c7557e4bf526c8f05ce040f67925afd2d08e7ae3d52ffb30ba842f",
+      "owner": "scene-property-program-preparation",
+      "reason": "记录不可变Program准备与实例值职责、既有边界及局部成本/真实热更证据；不新增运行校验、性能指标或并行状态。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#属性绑定程序的准备与实例值"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "before": "9e8170e3d074b9579fcfe9aff4cfd7cf60890f9875064ff1757d3e80d0f0699a",
+      "after": "6ddde66705edeaa1e24dc3b98f17495312a335728ab0560ca04fb857ccd02820",
+      "owner": "scene-property-program-preparation",
+      "reason": "记录不可变Program准备与实例值职责、既有边界及局部成本/真实热更证据；不新增运行校验、性能指标或并行状态。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#属性绑定程序的准备与实例值"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/engine-refactor-program.md",
+      "before": "b43e543ce9bac819052c4cb512532f43dbd4e45f8828d9084a739034e05f91f5",
+      "after": "4b94632e290b84ad58bce8e0f1560c5a9b7ea97625aa4a8c844a35d886dc25eb",
+      "owner": "scene-property-program-preparation",
+      "reason": "记录不可变Program准备与实例值职责、既有边界及局部成本/真实热更证据；不新增运行校验、性能指标或并行状态。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#属性绑定程序的准备与实例值"
     }
   ]
 }

@@ -57,6 +57,16 @@
 
 复用现有 authored owner 顺序、初始化 barrier、cadence cache、property revision、surface commit 与生命周期；失败只撤受影响 typed 输出，不能为模拟旧 CPU candidate 而克隆或回滚 JS shared heap。先用真实 VM 正反门覆盖初始化、开关、2×上升/6×下降、上限热改、嵌套 fallback、等价 JS、异常与重复 cadence，再用原始作品的默认/点击/属性变化及健康文本邻例验证实际画面。旧语法白名单和与假 shared 状态绑定的断言同批退出；未过完整多屏、暂停/恢复或官方语义范围保持未闭。
 
+### 属性绑定程序的准备与实例值
+
+`ScenePropertyBindingProgram`是不可变作者绑定程序；结构验证和必要索引只在构造/解码入口形成一次。复用现有Validator与Validation，不新增PreparedScene、registry或缓存owner。Validation保存唯一有效definition查找；Program保存按property key分组、conditional组及rebuild-key集合。各准备期visibility投影读取这些结果，不为仅在准备期查询的target集合增加持久缓存。
+
+普通属性求值只转换当前输入、检查实际数值域并产生typed值；不再验证整Program、重建definition map或conditional组。LiveUpdateState只持实例输入、当前user值、revision及其实际consumer资格，撤销自身重复validation/group/rebuild集合；Session、Puppet准备与text template沿同一Program消费准备事实。旧外传validation的evaluate重载与接受完整Program的重复验证入口同批退出。Program构造仍可保有效子集及结构诊断，解码继续拒绝结构非法输入；不能对未经筛选的重复target直接创建唯一键字典。
+
+Codable保原四项作者字段，派生索引不进入IPC/磁盘载荷，Equatable继续只比较作者程序；新进程解码为自己准备一次。有效值每次仍按类型/finite/range和conditional组原子语义求值；same-value revision、active/unavailable/retired consumer、资源请求及异步newer-wins边界保持，不把本批扩大成增量求值算法或LaunchContext字段搬家。
+
+最近门验证compile/decode等价、坏结构拒绝、direct/conditional target、输入连续改变、两实例不共享current和失败不改revision；保现有真实行为断言，删除只锁LiveState旧私有字段的源码形状测试。再比较同输入旧/新真实求值成本与原包属性→VM/typed→compositor及正常退出；局部阶段成本不外推整体帧率、面板延迟或能耗收益。验收后按属性数据分期独立提交，其他descriptor、资源与组件寿命债继续按队列推进。
+
 ## 职责与数据流
 
 ```text

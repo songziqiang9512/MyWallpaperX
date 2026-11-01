@@ -5,10 +5,6 @@ nonisolated struct ScenePropertyLiveUpdateState {
     let activeConsumerTargets: Set<SceneDynamicTarget>
     let scriptUserPropertyConsumerTargetsByKey:
         [String: Set<SceneDynamicTarget>]
-    private let validation: ScenePropertyBindingProgramValidation
-    private let instructionsByPropertyKey:
-        [String: [ScenePropertyBindingInstruction]]
-    private let rebuildRequiredKeys: Set<String>
     private let unboundBooleanPropertyKeys: Set<String>
     private(set) var effectiveValues: [String: SceneUserPropertyValue]
     private(set) var userValues: [SceneDynamicTarget: SceneDynamicValue]
@@ -29,13 +25,6 @@ nonisolated struct ScenePropertyLiveUpdateState {
         self.activeConsumerTargets = activeConsumerTargets
         self.scriptUserPropertyConsumerTargetsByKey =
             scriptUserPropertyConsumerTargetsByKey
-        let validation = ScenePropertyBindingProgramValidator().validate(program)
-        self.validation = validation
-        self.instructionsByPropertyKey = Dictionary(
-            grouping: validation.instructions,
-            by: \.propertyKey
-        )
-        self.rebuildRequiredKeys = Set(program.rebuildRequiredPropertyKeys)
         // An unbound value may still control panel conditions. Keep catalog
         // type evidence here; effective values alone cannot distinguish a
         // resource key or an unknown/malformed definition.
@@ -46,10 +35,7 @@ nonisolated struct ScenePropertyLiveUpdateState {
             return key
         }).subtracting(program.instructions.map(\.propertyKey))
         self.effectiveValues = effectiveValues
-        self.userValues = program.evaluate(
-            effectiveValues: effectiveValues,
-            validation: validation
-        ).userValues
+        self.userValues = program.evaluate(effectiveValues: effectiveValues).userValues
     }
 
     @discardableResult
@@ -82,9 +68,9 @@ nonisolated struct ScenePropertyLiveUpdateState {
         if preparedTexturePropertyKeys.isDisjoint(with: changedPropertyKeys),
            changedPropertyKeys.allSatisfy({ key in
                guard let current = effectiveValues[key], let replacement = replacements[key] else { return false }
-               let known = instructionsByPropertyKey[key]?.isEmpty == false
+               let known = program.instructionsByPropertyKey[key]?.isEmpty == false
                    || scriptUserPropertyConsumerTargetsByKey[key]?.isEmpty == false
-                   || rebuildRequiredKeys.contains(key)
+                   || program.rebuildRequiredKeys.contains(key)
                if !known {
                    guard unboundBooleanPropertyKeys.contains(key),
                          case .bool = current, case .bool = replacement else { return false }
@@ -92,13 +78,13 @@ nonisolated struct ScenePropertyLiveUpdateState {
                return replacement == current
            }) { return true }
 
-        guard rebuildRequiredKeys.isDisjoint(with: changedPropertyKeys) else {
+        guard program.rebuildRequiredKeys.isDisjoint(with: changedPropertyKeys) else {
             return false
         }
 
         var expectedTargets: Set<SceneDynamicTarget> = []
         for propertyKey in changedPropertyKeys {
-            let instructions = instructionsByPropertyKey[propertyKey] ?? []
+            let instructions = program.instructionsByPropertyKey[propertyKey] ?? []
             // A committed layer deletion ends its event subscriptions. Keep
             // explicit value producers below: a live clone may still consume
             // a prepared input whose identity belongs to its source template.
@@ -145,10 +131,7 @@ nonisolated struct ScenePropertyLiveUpdateState {
         // consumers do not observe a false invalidation.
         guard candidateEffectiveValues != effectiveValues else { return true }
 
-        let evaluation = program.evaluate(
-            effectiveValues: candidateEffectiveValues,
-            validation: validation
-        )
+        let evaluation = program.evaluate(effectiveValues: candidateEffectiveValues)
         guard expectedTargets.allSatisfy({ evaluation.userValues[$0] != nil }) else {
             return false
         }

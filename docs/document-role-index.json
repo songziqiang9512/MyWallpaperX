@@ -766,10 +766,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5ce3d15042764c7f65e24000a56fb8281721be19f570db90fb13d228e9f40ec3",
+        "sourceSHA256": "a415e2bbec1947221d8249f6a421c8436383f224cdf947b3e6332a8c949df0da",
         "method": "document_registry --audit + document_health --check",
-        "scope": "文本能力迁移的当前职责、限定证据与未闭测试债；不重授未变化能力。",
-        "limitations": "不升级全Scene能力、官方parity、稳态性能、多屏、长稳或发行结论。"
+        "scope": "属性Program准备结果唯一持有；LiveState保实例current/revision，局部CPU对照与原包三属性热更分别记录。",
+        "limitations": "局部apply成本与单原包可见保持不证明整体面板延迟、FPS、能耗、多屏、全corpus或整个架构迁移。"
       },
       "purpose": "实际接线或已记录运行证据；不反向定义目标架构，不决定实施顺序。"
     },
@@ -1056,10 +1056,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f77246cab30ec408e5e0284ab6dbbeb5352b0cb91ba0c139d10d3769c5da59d3",
+        "sourceSHA256": "41bdc13cbdbcc7c5514a3155de22cbd3a41109b03aed3cd95025bfe303bc88c5",
         "method": "document_registry --audit + document_health --check",
-        "scope": "共享alpha独立语言/状态退出；Bool模块入口去除过时种类和utility关卡，真实VM及有界App输出与失败分开记录。",
-        "limitations": "原293属性遮罩贡献有界成立；297点击及粒子完整性、多屏、官方parity、稳态性能和整体迁移未闭。"
+        "scope": "属性Program准备结果唯一持有；LiveState保实例current/revision，局部CPU对照与原包三属性热更分别记录。",
+        "limitations": "局部apply成本与单原包可见保持不证明整体面板延迟、FPS、能耗、多屏、全corpus或整个架构迁移。"
       },
       "purpose": "实际接线或已记录运行证据；不反向定义目标架构，不决定实施顺序。"
     },
@@ -1071,10 +1071,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "19ee2d77d699c41028e372562452007fd011ea23eceff795c7acd47829aac5a8",
+        "sourceSHA256": "b17df281ec0b504493b5d2eee39230e47d962e8ec19b7728ee11f48b60d6e467",
         "method": "document_registry --audit + document_health --check",
-        "scope": "共享alpha独立语言/状态退出；Bool模块入口去除过时种类和utility关卡，真实VM及有界App输出与失败分开记录。",
-        "limitations": "原293属性遮罩贡献有界成立；297点击及粒子完整性、多屏、官方parity、稳态性能和整体迁移未闭。"
+        "scope": "属性Program准备结果唯一持有；LiveState保实例current/revision，局部CPU对照与原包三属性热更分别记录。",
+        "limitations": "局部apply成本与单原包可见保持不证明整体面板延迟、FPS、能耗、多屏、全corpus或整个架构迁移。"
       }
     },
     {
@@ -4549,10 +4549,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c230ea5b9cf670c16eaaf2dc0bc80c13b15e196f34c640b105914740262a2f66",
+        "sourceSHA256": "dedb52c0688abc8ad90b318aab3c71e8155592c77e7c9f5b9f71547d8774d942",
         "method": "document_registry --audit + document_health --check",
-        "scope": "共享alpha独立语言/状态退出；Bool模块入口去除过时种类和utility关卡，真实VM及有界App输出与失败分开记录。",
-        "limitations": "原293属性遮罩贡献有界成立；297点击及粒子完整性、多屏、官方parity、稳态性能和整体迁移未闭。"
+        "scope": "属性Program准备结果唯一持有；LiveState保实例current/revision，局部CPU对照与原包三属性热更分别记录。",
+        "limitations": "局部apply成本与单原包可见保持不证明整体面板延迟、FPS、能耗、多屏、全corpus或整个架构迁移。"
       }
     },
     {
@@ -4605,10 +4605,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "789edb534569c1b6296f5b0cb096250cccd51f7c36b32f58f26902f2a5b3130e",
+        "sourceSHA256": "9fd9b912caefc7b5a2714c7e1348613541ae82f42d8c4ef4d5c8eaf8124a41cf",
         "method": "document_registry --audit + document_health --check",
-        "scope": "共享alpha独立语言/状态退出；Bool模块入口去除过时种类和utility关卡，真实VM及有界App输出与失败分开记录。",
-        "limitations": "原293属性遮罩贡献有界成立；297点击及粒子完整性、多屏、官方parity、稳态性能和整体迁移未闭。"
+        "scope": "属性Program准备结果唯一持有；LiveState保实例current/revision，局部CPU对照与原包三属性热更分别记录。",
+        "limitations": "局部apply成本与单原包可见保持不证明整体面板延迟、FPS、能耗、多屏、全corpus或整个架构迁移。"
       }
     },
     {

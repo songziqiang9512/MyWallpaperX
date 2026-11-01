@@ -184,7 +184,7 @@ final class SceneDesktopWallpaperSession {
         let session = readySession(targets)
         let launch = context(targets)
         var facts: [String: Bool] = [:]
-        facts["valid-program"] = ScenePropertyBindingProgramValidator().validate(program).diagnostics.isEmpty
+        facts["valid-program"] = program.validation.diagnostics.isEmpty
         facts["initial-conditional-values"] = state.userValues[a] == .bool(true)
             && state.userValues[b] == .bool(false) && state.revision == 0
         facts["ready-switch"] = state.apply(.string("second"), forPropertyKey: key,

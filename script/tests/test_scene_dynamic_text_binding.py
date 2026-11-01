@@ -113,6 +113,9 @@ enum Harness {
                 "user": "probe_format",
                 "value": "clock",
             ], .objectText),
+            ("objectText/3keys+numeric-user", [
+                "script": textScript, "user": 7, "value": "clock",
+            ], .objectText),
         ]
         let wrapperShapeSupport = Dictionary(uniqueKeysWithValues: wrapperShapes.map {
             ($0.0, SceneScriptDynamicProviderHostContract.supports($0.1, host: $0.2))
@@ -246,13 +249,13 @@ class SceneDynamicTextBindingTests(unittest.TestCase):
             "objectText/script+user+value",
             "objectText/script+scriptproperties+value",
             "objectText/script+scriptproperties+user+value",
+            "objectText/animation+script+value",
             "objectVector/script+scriptproperties+user+value",
             "objectVector/script+scriptproperties+value",
             "objectScalar/script+scriptproperties+value",
         ):
             self.assertTrue(support[admitted], f"{admitted} must be admitted")
         for rejected in (
-            "objectText/animation+script+value",
             "objectText/script+scriptproperties",
             "objectScalar/script+scriptproperties+user+value",
         ):
@@ -264,6 +267,7 @@ class SceneDynamicTextBindingTests(unittest.TestCase):
         self.assertTrue(support["objectText/4keys+null-user"])
         self.assertTrue(support["objectVisibility/4keys+string-user"])
         self.assertTrue(support["objectText/3keys+string-user"])
+        self.assertFalse(support["objectText/3keys+numeric-user"])
         self.assertFalse(support["objectVector/4keys+string-user"])
         self.assertFalse(support["objectScalar/4keys+string-user"])
 

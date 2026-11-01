@@ -15,8 +15,8 @@ extension SceneDesktopWallpaperSession {
         let unavailable = unavailableLiveConsumerTargets(in: context)
         let retiredCallbacks = retiredPropertyCallbackTargets(
             in: context, propertyKeys: Set(definitions.map(\.key)))
-        let rebuild = Set(state.program.rebuildRequiredPropertyKeys)
-        let instructions = Dictionary(grouping: state.program.instructions, by: \.propertyKey)
+        let rebuild = state.program.rebuildRequiredKeys
+        let instructions = state.program.instructionsByPropertyKey
         return Set(Dictionary(grouping: definitions, by: \.key).compactMap { key, definitions in
             guard definitions.count == 1, let definition = definitions.first,
                   let targets = state.scriptUserPropertyConsumerTargetsByKey[key]?

@@ -30,6 +30,13 @@ nonisolated struct ScenePropertyBindingProgram: Codable, Equatable {
     /// disable every conditional target in the group.
     let conditionalValueDomainsByPropertyKey: [String: [String]]
     let rebuildRequiredPropertyKeys: [String]
+    // Derived at the construction boundary; Codable and equality preserve the
+    // authored program rather than its execution indexes.
+    let validation: ScenePropertyBindingProgramValidation
+    let instructionsByPropertyKey: [String: [ScenePropertyBindingInstruction]]
+    let rebuildRequiredKeys: Set<String>
+    private let conditionalInstructionsByPropertyKey:
+        [String: [ScenePropertyBindingInstruction]]
 
     nonisolated init(
         definitions: [SceneDynamicTargetDefinition],
@@ -41,30 +48,26 @@ nonisolated struct ScenePropertyBindingProgram: Codable, Equatable {
         self.instructions = instructions
         self.conditionalValueDomainsByPropertyKey =
             conditionalValueDomainsByPropertyKey
-        self.rebuildRequiredPropertyKeys = Array(Set(rebuildRequiredPropertyKeys)).sorted()
+        let rebuildRequiredKeys = Set(rebuildRequiredPropertyKeys)
+        self.rebuildRequiredPropertyKeys = rebuildRequiredKeys.sorted()
+        self.rebuildRequiredKeys = rebuildRequiredKeys
+        let validation = ScenePropertyBindingProgramValidator().validate(
+            definitions: definitions, instructions: instructions
+        )
+        self.validation = validation
+        self.instructionsByPropertyKey = Dictionary(
+            grouping: validation.instructions, by: \.propertyKey
+        )
+        self.conditionalInstructionsByPropertyKey = Dictionary(
+            grouping: validation.instructions.filter { $0.condition != nil },
+            by: \.propertyKey
+        )
     }
 
     nonisolated func evaluate(
         effectiveValues: [String: SceneUserPropertyValue]
     ) -> ScenePropertyBindingEvaluation {
-        let validation = ScenePropertyBindingProgramValidator().validate(self)
-        return evaluate(
-            effectiveValues: effectiveValues,
-            validation: validation
-        )
-    }
-
-    /// Evaluates a launch-validated binding program without rebuilding its
-    /// authored definition/instruction indexes.  The live-state owner uses
-    /// this overload for property updates; standalone callers keep the
-    /// validating entry point above so malformed programs still fail closed.
-    nonisolated func evaluate(
-        effectiveValues: [String: SceneUserPropertyValue],
-        validation: ScenePropertyBindingProgramValidation
-    ) -> ScenePropertyBindingEvaluation {
-        let definitionsByTarget = Dictionary(
-            uniqueKeysWithValues: validation.definitions.map { ($0.target, $0) }
-        )
+        let definitionsByTarget = validation.definitionsByTarget
         var userValues: [SceneDynamicTarget: SceneDynamicValue] = [:]
         var diagnostics = validation.diagnostics
 
@@ -114,11 +117,7 @@ nonisolated struct ScenePropertyBindingProgram: Codable, Equatable {
             }
         }
 
-        let conditionalGroups = Dictionary(
-            grouping: validation.instructions.filter { $0.condition != nil },
-            by: \.propertyKey
-        )
-        for (propertyKey, instructions) in conditionalGroups {
+        for (propertyKey, instructions) in conditionalInstructionsByPropertyKey {
             let allTargetsResolved = instructions.allSatisfy {
                 userValues[$0.target] != nil
             }
@@ -168,15 +167,8 @@ nonisolated struct ScenePropertyBindingProgram: Codable, Equatable {
     /// the launch graph while its current property value is false. The
     /// validated binding program remains the only property identity owner.
     nonisolated var directBoolEffectVisibilityTargets: Set<SceneDynamicTarget> {
-        let validation = ScenePropertyBindingProgramValidator().validate(self)
-        let definitions = Dictionary(
-            uniqueKeysWithValues: validation.definitions.map { ($0.target, $0) }
-        )
-        let instructionsByPropertyKey = Dictionary(
-            grouping: validation.instructions,
-            by: \.propertyKey
-        )
-        let rebuildRequired = Set(rebuildRequiredPropertyKeys)
+        let definitions = validation.definitionsByTarget
+        let rebuildRequired = rebuildRequiredKeys
         return Set(validation.instructions.compactMap { instruction in
             guard instruction.valueType == .bool,
                   instruction.condition == nil,
@@ -196,12 +188,9 @@ nonisolated struct ScenePropertyBindingProgram: Codable, Equatable {
     /// Sibling target kinds do not change this effect's preparation demand.
     nonisolated var liveEffectVisibilityTargets:
         Set<SceneDynamicTarget> {
-        let validation = ScenePropertyBindingProgramValidator().validate(self)
         guard validation.diagnostics.isEmpty else { return [] }
-        let definitions = Dictionary(
-            uniqueKeysWithValues: validation.definitions.map { ($0.target, $0) }
-        )
-        let rebuildRequired = Set(rebuildRequiredPropertyKeys)
+        let definitions = validation.definitionsByTarget
+        let rebuildRequired = rebuildRequiredKeys
         return Set(validation.instructions.compactMap { instruction in
             guard instruction.valueType == .bool,
                   case .effectVisibility = instruction.target,
@@ -219,11 +208,8 @@ nonisolated struct ScenePropertyBindingProgram: Codable, Equatable {
     /// controlling key may fan out to multiple layers; live-state still
     /// requires every sibling target to be active before committing the key.
     nonisolated var liveLayerVisibilityTargets: Set<SceneDynamicTarget> {
-        let validation = ScenePropertyBindingProgramValidator().validate(self)
-        let definitions = Dictionary(
-            uniqueKeysWithValues: validation.definitions.map { ($0.target, $0) }
-        )
-        let rebuildRequired = Set(rebuildRequiredPropertyKeys)
+        let definitions = validation.definitionsByTarget
+        let rebuildRequired = rebuildRequiredKeys
         return Set(validation.instructions.compactMap { instruction in
             guard !rebuildRequired.contains(instruction.propertyKey),
                   instruction.valueType == .bool,
@@ -241,6 +227,14 @@ nonisolated struct ScenePropertyBindingProgram: Codable, Equatable {
             instruction.condition == nil ? nil : instruction.target
         })
         return liveLayerVisibilityTargets.intersection(conditionalTargets)
+    }
+
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.definitions == rhs.definitions
+            && lhs.instructions == rhs.instructions
+            && lhs.conditionalValueDomainsByPropertyKey
+                == rhs.conditionalValueDomainsByPropertyKey
+            && lhs.rebuildRequiredPropertyKeys == rhs.rebuildRequiredPropertyKeys
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -264,7 +258,7 @@ nonisolated struct ScenePropertyBindingProgram: Codable, Equatable {
                 forKey: .rebuildRequiredPropertyKeys
             )
         )
-        let validation = ScenePropertyBindingProgramValidator().validate(program)
+        let validation = program.validation
         guard validation.diagnostics.isEmpty else {
             let codes = validation.diagnostics.map(\.code.rawValue).joined(separator: ", ")
             throw DecodingError.dataCorruptedError(

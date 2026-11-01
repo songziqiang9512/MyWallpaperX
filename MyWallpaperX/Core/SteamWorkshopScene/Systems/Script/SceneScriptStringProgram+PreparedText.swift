@@ -35,9 +35,10 @@ nonisolated extension SceneScriptStringProgram {
     ) -> [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] {
         guard preparedTextTemplateDomain == nil, let domain else { return [:] }
         preparedTextTemplateDomain = domain
-        let validation = ScenePropertyBindingProgramValidator().validate(propertyBindingProgram)
-        let instructions = Dictionary(grouping: validation.instructions, by: \.target)
-        let propertyDefinitions = Dictionary(grouping: validation.definitions, by: \.target)
+        let validation = propertyBindingProgram.validation
+        let instructions = Dictionary(uniqueKeysWithValues:
+            validation.instructions.map { ($0.target, $0) })
+        let propertyDefinitions = validation.definitionsByTarget
         let owners = Dictionary(uniqueKeysWithValues: bindings.map { ($0.target, $0) })
         var failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] = [:]
         for layer in descriptor.layers where layer.contentKind == "text" {
@@ -57,12 +58,11 @@ nonisolated extension SceneScriptStringProgram {
             guard hasScript
                 ? SceneScriptDynamicProviderHostContract.supports(keys: keys, host: .objectText)
                 : (keys == ["value"] || keys == ["user", "value"]) else { continue }
-            let instruction = instructions[target]?.count == 1 ? instructions[target]?.first : nil
+            let instruction = instructions[target]
             if hasUser {
                 guard let instruction, instruction.valueType == .string,
                       instruction.propertyKey == outerUserKey,
-                      propertyDefinitions[target]?.count == 1,
-                      propertyDefinitions[target]?.first?.authoredValue == .string(seed)
+                      propertyDefinitions[target]?.authoredValue == .string(seed)
                 else { continue }
             }
             let sourceOwner = hasScript ? owners[target] : nil

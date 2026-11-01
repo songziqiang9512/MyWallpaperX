@@ -38,7 +38,7 @@ App 产品意图与当前记录
 | 场景时间与模拟 | SceneDesktopWallpaperSession 持有 sceneClock、VM programs、活动状态、输入与媒体生命周期；每个模拟 cadence 推进一次 |
 | 作者 identity 与顺序 | Model、RenderDescriptor、material catalog 和已准备计划；运行修改通过原 typed topology/属性路径进入 |
 | SceneScript | 同一场景的 QuickJS domain、各属性绑定 program 和 typed host bridge；模块 heap 与 Swift typed mutation 具有不同撤回边界 |
-| 属性 | launchContext.liveState 与 typed 动态快照；普通值更新不自行取得资源或 topology 修改权 |
+| 属性 | 不可变BindingProgram在构造/解码时持有验证及索引；launchContext.liveState独占实例有效输入、current与revision，再发布typed快照；普通值更新不自行取得资源或topology修改权 |
 | 资源来源 | SceneResourceView、所选 Root/entry 与各实际资源 producer；共享 CPU/GPU 产物按其用途保留 |
 | 进程资源额度 | SceneResourceBudget.shared 统一计费应用持有的 Scene GPU 与 decoded 驻留；原 pool/cache 上限是子约束，不另建资源身份或淘汰 owner |
 | 每屏资源发布 | SceneMetalRenderer.textureRegistry；provider 在帧边界发布资源，提交或丢弃由该 Surface 的实际结果决定 |

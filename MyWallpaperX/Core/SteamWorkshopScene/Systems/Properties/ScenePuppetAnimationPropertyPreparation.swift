@@ -8,11 +8,10 @@ nonisolated enum ScenePuppetAnimationPropertyPreparation {
         report: SceneUserPropertyBindingReport,
         to descriptor: SceneRenderDescriptor
     ) -> SceneRenderDescriptor {
-        let validated = ScenePropertyBindingProgramValidator().validate(program)
-        let definitions = Dictionary(uniqueKeysWithValues:
-            validated.definitions.map { ($0.target, $0) })
+        let validated = program.validation
+        let definitions = validated.definitionsByTarget
         let bindingsByPath = Dictionary(grouping: report.bindings, by: \.path)
-        let rebuildRequired = Set(program.rebuildRequiredPropertyKeys)
+        let rebuildRequired = program.rebuildRequiredKeys
         let layerIndices = Dictionary(grouping: descriptor.layers.indices,
             by: { descriptor.layers[$0].id })
         var prepared = descriptor
