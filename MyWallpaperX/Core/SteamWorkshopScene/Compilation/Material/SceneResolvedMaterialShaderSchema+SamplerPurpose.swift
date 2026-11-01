@@ -300,6 +300,9 @@ extension SceneResolvedMaterialShaderSchema.Sampler {
         }
         return switch materialKey?.lowercased() {
         case "albedo": .straightAlbedo
+        // A framebuffer-role sampler may bind an ordinary color asset as its
+        // default (util/white); the sampled color is premultiplied.
+        case "framebuffer": .premultipliedColor
         case "noise": .noise
         case "normal": .normal
         default: nil
