@@ -352,3 +352,7 @@ SourceFacts在检查与launch准备队列同步建立，原类型却继承App默
 普通签名Debug基线34.753s、候选36.262s，4416输入各自无漂移/深度严格验签0；App基线exe `e45b240d…`/dylib `eb0d6a92…`，候选exe `2810c9a1…`/dylib `ccea7c63…`。同一自有三臂5s从只缺A到3层非空/画面有贡献；原包18s的531恢复，134 encoded/133 completed refraction batches、6643 completed instances/0 failed，完整人物/蝴蝶/金波形保持；非隔离雨ROI，不授整景parity。原样本仍因398/552/141失败，不能写PASS。未参与修法的2419444134原包5s，4/4粒子/1REFRACT与人物/粉环保持、门PASS。五次基线/修后运行均exit0、surface1→0/GPU排空，无用户原资源写入。独审无具体回归，未做性能、正式Release、HDR/多屏或更广动画时序验收。
 
 必要限期包`.artifacts/scene-evidence/runs/refraction-static-primary-20261101/metadata/samples/0/runtime_evidence.zip`：28,991,594B/248成员、SHA-256 `6e980b378644a7600584aa46eb85f8ac17fd144e8d2029ffdc179d4c70c53fa6`，普通14天。保输入/失败载体/官方原图、两App身份/原包与独立图、GPU原读回/首失败/最终oracle、源码与独审；App及编译二进制不入包。两个本轮guest stage与已停止raw已清理；保一份`.build-cache/scene-gravity-20261028`及有效Debug产物作连续开发基线。normal下一帧混合与duration权重静态债另留现役队列，不能以本批关闭；后续沿活动consumer取证，不复制stock算法。
+
+## 2026-11-01 源码目录登记核对
+
+在固定 `d6053643928355604fa52b33ac0317dca2e26b08` 工作树，真实 `test_scene_sources_follow_the_documented_directory_layout` 已通过，撤去队列中基于旧 `3ce7adae2` 的“6项漏登记”描述。本结果只确认当前完整源码布局与既有 manifest 一致，不代表依赖质量、构建、画面或性能验收。

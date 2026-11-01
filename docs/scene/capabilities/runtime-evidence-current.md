@@ -1,4 +1,4 @@
-<!-- document-role: stable-contract -->
+<!-- document-role: current-state -->
 # Scene 当前运行证据摘要
 
 > 按需证据库：先读[当前快照](#current-snapshot)与[证据深度](#evidence-levels)。Scene/Web启动专项已结算，不再另排启动队列；D36至D40产品结果、原失败/成本STOP及未覆盖边界统一查[完成记录](../../history/cross-topic/wallpaper-startup-optimization-completed-2026-10-25.md)，稳定职责归[启动合同](../architecture/scene-launch-responsiveness-contract.md)。

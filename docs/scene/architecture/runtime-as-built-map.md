@@ -1,158 +1,158 @@
-# Scene Runtime 事实架构地图（as-built）
+# Scene Runtime 事实架构地图
 
-<!-- document-role: stable-contract -->
+<!-- document-role: current-state -->
 
-> 状态：现役工程参考地图（代码实际接线的事实记录）
+> 复核：2026-11-01，依据当前工作树源码静态核对入口、构造、调用与释放；不代表本轮重新通过运行或性能验收。
 >
-> 接线复核边界保留各条原日期。本轮精简的当前源码、构建、有界运行和未完范围统一查[精简计划](../../development/validation-simplification-plan.md)；本图不重复保存批次完成状态。
->
-> 当前能力权威：[能力台账](../capabilities/coverage-ledger.md)。
->
-> 角色边界：`runtime-architecture.md` 是目标合同（应该怎样）；能力台账是能力现状；运行证据是跑过什么。**本图记录代码实际接线**：每类对象谁加载、分配到哪、存活期、失效域，以及不改就会出事的隐性不变量与耦合。目标与本图冲突时，以目标合同为准并按偏差债务处理；本图随批次更新。
->
-> 现状权威：`docs/scene/capabilities/coverage-ledger.md`。
->
-> 何时读：改任何 Scene runtime 代码之前；修改命令层/daemon 之前读 §3/§4；目标边界查[顶层设计](../roadmap/engine-refactor-program.md)。
->
-> 行号漂移规则：并行批次持续推进，本图 file:line 是 2026-09-14 前后基线，执行时以当次 HEAD 复核锚点。
-
-> 2026-09-15 目录重排：源码与第三方文件内容逐字节保持，目录职责见[Scene 入口](../README.md#去哪里改代码)。本次只改变路径及其消费者，不宣称运行性能或兼容能力提升。
+> 本图只回答实际代码怎样接线。长期职责归[运行时架构](runtime-architecture.md)，语言与进程边界归[技术栈合同](../../architecture/technology-stack-boundaries.md)，能力与实际运行分别查[能力台账](../capabilities/coverage-ledger.md)和[运行证据](../capabilities/runtime-evidence-current.md)。目标与现状不同的部分，按明确的重构事项处理，不把现状提升为规范。
 
 ## 1. 一页总览
 
-### 1.1 加载链（一次 launch）
+### 1.1 加载链
 
-```
-App 主线程  选壁纸 → 原service捕获当前记录/source/读取lease（属性Request复用同一入口）
-        → 收集属性覆盖与安全作用域书签 → SceneDaemonClient 保存 authored intent → newline JSON 管道
-daemon 主线程  解码 typed loadScene → Host.requestLaunch（世代号++，取消上一代）
-daemon 后台    launchPreparationQueue 串行：当前 loose Root → Project自持Data解析
-        → 同Reader/FD一次索引、单一逻辑Root按需entry读取 → Document
-        → IR/RenderDescriptor/资产目录 → 粒子定义图prepare → admission/catalog编译（concurrentPerform）
-        → 材质资产纹理内联解码 → 双后台 worker（基础纹理/模型、first-surface runtime）→ NSCondition join
-        → QuickJS全family编译 → launchContext组装（携粒子图、Sound file lease及独立privateMediaCacheDirectory）
-daemon 主线程  activate：QuickJS adoptCurrentThread → 逐屏建 SceneMetalView（安全作用域内同步加载用户属性纹理）
-        → loadImageLayers（缓存miss同步decode/puppet重组/文字；消费已备粒子图建每屏状态/GPU）→ 建窗口 → 立即首帧 → Timer帧循环
+```text
+App 产品意图与当前记录
+  → SceneDaemonClient：可重放请求、属性 revision、控制与显示配置
+  → DaemonProcessTransport：同二进制 --mwx-scene-daemon，newline JSON
+  → SceneDaemonRuntime：解码命令，私有 SceneDesktopWallpaperHost
+  → Host.requestLaunch：请求代次、取消、后台 preparation
+  → SceneRuntimeModelBuilder：项目/Document/ResourceView/descriptor/属性输入
+  → prepareLaunch：材质/graph/资源/Timeline/粒子/QuickJS 准备
+  → SceneDesktopWallpaperLaunchContext
+  → 候选 SceneDesktopWallpaperSession：接管 VM 线程、建立 Surface
+  → SceneMetalView / SceneMetalRenderer：首帧编码与 GPU 完成
+  → 父端 commit → 实际 presented → 父端 finalize → 旧 Session 退役
 ```
 
-播放不执行 receipt 升级或历史整树摘要核验；下载出版、读取 lease、取消与 App 退出边界查[启动合同 §4.1](scene-launch-responsiveness-contract.md#41-唯一请求与准备-owner)。下述 Host/Session 排空仅指 daemon 执行端。Host 停止沿原 launchPreparationQueue 尾 fence 汇合 Session 排空，没有 Session 也等待已接纳准备结束。Session 全 clearContext 先将共享 deferred 原 queue 尾纳原 retiringSurfaceDrain，再清 context；停止后才调用 drain 也保留该等待。字体与原退休 group 终态后再提交全停 surface GPU barrier，主线程不 wait；GPU 状态 Bool 不改称 AV drain。
+源码起点：应用的 [daemon 分支](../../../MyWallpaperX/App/MyWallpaperXApplication.swift)、[Scene client](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonClient.swift)、[daemon endpoint](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonRuntime.swift)、[加载准备](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift)、[RuntimeModelBuilder](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRuntimeModel.swift)与[候选激活](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Activation.swift)。
+
+准备阶段已有后台设备资源任务和首 Surface runtime 预热。Surface 建立仍会消费准备产物、建立实例并执行其必要加载；不能把全部首帧工作描述成已经离开 daemon 主线程。
 
 ### 1.2 所有权权威
 
-进程现状（M5.6 后）：普通产品 Scene 命令由主 App 的 `SceneDaemonClient` 唯一接收；client 只持有可重放 authored intent、请求/记录身份、属性 revision、控制意图、显示拓扑和轻量统计，不持有 Metal/registry/graph/compositor。它经公共 `DaemonProcessTransport` 孵化同一 App 二进制的 `--mwx-scene-daemon` accessory 子进程；子进程跳过 AppDelegate/MainWindowCoordinator，`SceneDaemonRuntime` 以 `private let host` 显式持有唯一产品 Host，运行五类 prepared 产品、frame loop、表面和 compositor。Host 不再提供全局 `shared` 入口，普通 App 调用面也不引用 Host 类型。同二进制设计要求渲染源码继续位于 app target；实际隔离由 `@main` daemon 分支和实例所有权保证。`DaemonNewlineFrameBuffer` / `DaemonNewlineJSON` 统一 Video/Scene 的分帧和编码，`DaemonRestartBackoff` 统一 0/1/2/4…有界退避；业务 payload、会话身份与重放裁决仍留在各 client。Scene launch/first-present 按 requestID/recordID 过滤，属性以 revision+recordID 确认；scalar 热更新拒绝时 client 用合并后的 authored intent 完整重载；文件纹理沿单 key 异步资源事务与独立回执，坏图保旧，只有真实非实时绑定才走带资源接纳约束的候选。App 的屏幕参数观察、系统暂停/恢复与热键控制均经 multiplexer/client 发送 coarse 命令；daemon Host 不依赖跨进程无效的 App notification。外部 SceneTexture 只跨管道传路径与书签，daemon 恢复 URL 后在后台纹理准备至完成范围内持有安全作用域。音频采集仍只由主 App 的 `SystemAudioSpectrumService` 持有单一系统 tap/FFT；daemon 的 typed demand经 client generation 回传，App 用独立 route epoch选择 direct DEBUG inbox 或产品 daemon，并把同一 16/32/64×L/R 快照送回 daemon-local inbox。Host切换时，prepared material/SceneScript/cursor consumer可在surface rebuild前直接决定demand；particle consumer在surface建立前是unknown，不得转换为false，而是保留旧demand与声源scope，成功后再提交实际结果。启动／切换和显示拓扑重建都经同一个demand-rebuild lifecycle seam；任一surface rebuild失败均调用完整`stop→teardownSurfaces(clearContext:true)`撤销demand、snapshot、tap scope与launch owner，不允许无surface时保留旧采集。overlay、Web 与 Scene 各自先经单槽 latest-only handoff进入App主线程，App→pipe和daemon reader→主线程再以普通控制命令为顺序屏障，只在相邻屏障之间保留一个高频帧。writer与reader两侧都把已接纳控制 backlog 限在256条/8 MiB；任一侧拒绝普通控制都失败关闭对应endpoint，不静默保留旧状态，关闭时只丢droppable并排空已接纳控制。Video/Web 的30 Hz `setSpectrumLevels`使用相同droppable入口。App tap 排除主 App 时仍自然包含独立 daemon 的 wallpaper Sound；daemon token继续拥有本地 scope identity。App 退出等待所有 retiring transport 终止；终止事件经主 RunLoop common modes 投递，2 秒强退计时不依赖主队列。`DebugScenePlaybackRunner` 仅在显式 DEBUG direct-host 证据入口持有自己的隔离 Host，不参与普通产品分发；daemon-client DEBUG runner与其互斥，只有显式product-entry模式才安装现有`MainWindowCoordinator`并经`SteamWorkshopService`通知链分发。该模式还要求fixed HOME、Workshop、样本目录实际存在且与POSIX账户真实HOME/Workshop双向不重叠；共享`--mwx-debug-scene-root`本身既不能跳过coordinator，也不能让旧direct/recovery/switch runner加载产品服务。M1.1 后 daemon 每秒把 21 槽定长 hub 投影为轻量 `frameStats`；主 App 只保存最新值，不参与采样或派生运行权威。
-（同一时刻各只有一个，禁止第二套）
+| 当前职责 | 实际 owner 与消费边界 |
+| --- | --- |
+| 产品选择与持久化设置 | App 的产品服务与跨引擎切换事务；SceneDaemonClient 保存已接纳的 authored intent 和重放身份，不持有图形资源 |
+| 进程端点 | SceneDaemonRuntime 私有持有唯一产品 Host；普通 App 经 client 控制，不构造产品 Host；显式 DEBUG direct runner 另持隔离 Host |
+| 当前输出与候选决策 | SceneDesktopWallpaperHost 持有 active、candidate 和 retiring Session，负责请求身份、候选提交与回滚 |
+| 场景时间与模拟 | SceneDesktopWallpaperSession 持有 sceneClock、VM programs、活动状态、输入与媒体生命周期；每个模拟 cadence 推进一次 |
+| 作者 identity 与顺序 | Model、RenderDescriptor、material catalog 和已准备计划；运行修改通过原 typed topology/属性路径进入 |
+| SceneScript | 同一场景的 QuickJS domain、各属性绑定 program 和 typed host bridge；模块 heap 与 Swift typed mutation 具有不同撤回边界 |
+| 属性 | launchContext.liveState 与 typed 动态快照；普通值更新不自行取得资源或 topology 修改权 |
+| 资源来源 | SceneResourceView、所选 Root/entry 与各实际资源 producer；共享 CPU/GPU 产物按其用途保留 |
+| 进程资源额度 | SceneResourceBudget.shared 统一计费应用持有的 Scene GPU 与 decoded 驻留；原 pool/cache 上限是子约束，不另建资源身份或淘汰 owner |
+| 每屏资源发布 | SceneMetalRenderer.textureRegistry；provider 在帧边界发布资源，提交或丢弃由该 Surface 的实际结果决定 |
+| 每屏图执行与完成 | SceneResolvedMaterialRuntimeBridge 暴露接口，其 submissions 持有 SceneResolvedMaterialSubmissionCoordinator；目标、history、claim 与完成沿原执行链管理 |
+| 最终视觉输出 | 每个 SceneMetalView 的 CAMetalLayer，SceneMetalRenderer 按作者顺序经唯一主合成出口编码和提交 |
+| 系统频谱 | App 的 SystemAudioSpectrumService 持有采集/分析；daemon 的 SceneAudioSpectrumInbox 消费 demand scope 对应快照 |
 
-| 权威 | 持有者 | 存活期 | 替换方式 |
-|---|---|---|---|
-| identity/作者顺序 | launchContext.renderDescriptor + catalog | 单次 launch | 场景切换整体替换 |
-| frame clock/typed channels | daemon Host 的 sceneClock + FrameDriver 状态机；各 Script Program 持有 target 事件确认 | daemon launch 期 | Host 合并执行失败、稳定 admission 拒绝与同帧 storage 读取依赖；成功帧仅恢复被拒 target 确认，整帧拒绝恢复原帧快照 |
-| cursor 观察 / 事件确认 | 现有 `SceneScriptCursorProgram` 的物理 hit/capture 与有界 target 事件记录 | scene launch / 未确认事件到接纳或 owner 失效 | 先识别后执行，原事件输入与当前时钟组合；按本次 simulation cadence 的最终 target 结果确认，局部 rejected owner 撤回；GPU 忙或失败不重放已消费的 VM/输入，不回滚 JS heap |
-| localStorage | 既有 `SceneScriptLocalStorageSession` 的唯一 frame candidate + 串行 writer | wallpaper launch / frame 内有界 journal | 按原 owner 批次撤回并传播同帧读依赖、重验 quota；随已消费的 simulation cadence 提交，不以全屏 GPU 成败重放；不恢复 JS retained 值或对象别名 |
-| SceneScript shared / 模块 heap | 单一 QuickJS scene domain 的真实 JS 对象 | VM domain lifetime，作者可显式替换 shared 根 | Host 不做每帧 shared 序列化或恢复根；typed 拒绝保留 heap 写入/别名/函数。共享读者可见失败写者留下的值，不据此放宽 typed、handle 或执行预算 |
-| property/state | liveState.effectiveValues + revision | launch 期，值变 revision++ | value-only 帧路径消费 |
-| audio capture / typed spectrum | 主 App `SystemAudioSpectrumService`持有tap/FFT；daemon `SceneAudioSpectrumInbox`持有当前 Scene demand/snapshot；client只做generation-bound投影 | App进程期 / daemon launch scope | demand/route epoch换代、daemon generation替换；切换rebuild未知期保留旧demand，成功后提交精确particle结果、失败完整撤权；控制屏障分段的高频帧latest-only |
-| resource/provider registry | SceneFrameTextureRegistry（per surface view） | per view | 每帧 beginFrame 重发布 |
-| graph/target/publication/completion | SceneResolvedMaterialRuntimeBridge（catalog+SubmissionCoordinator，**per surface**） | per surface/场景 | invalidate 整体重置；catalog 不可变、整体替换 |
-| compositor/drawable | SceneMetalView 的 CAMetalLayer + 唯一 main pass | per surface | — |
-
-SceneScript C host按layer catalog/baseline、native handle、typed value、journal、scene/asset、media与puppet bone完整职责分单元；仍共享唯一Domain/Owner/record、原C ABI和journal。已配置native authored字段引用保原referent，当前actor提交原transaction；附属API保owner-bound。retained callable复用Domain/creator identity与原active/module owner，无第二registry或generation owner；精确能力及策略边界归[API表](../capabilities/scenescript-api-coverage.md)，迁移过程归[历史证据](../history/layer-reference-responsibility-convergence-2026-10-13.md)。
+[Host](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost.swift)、[Session](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession.swift)、[LaunchContext](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperLaunchContext.swift)、[Renderer](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift)、[RuntimeBridge](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialRuntimeBridge.swift)与[资源父额度](../../../MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift)是核对这些所有权的起点。
 
 ### 1.3 线程地图
 
-| 工作 | 线程 | 备注 |
+| 工作 | 当前执行位置 | 修改时要保留的关系 |
+| --- | --- | --- |
+| App UI、选择与控制 | App 主线程及既有服务任务 | 不逐帧驱动 Scene；对异步端点保持请求身份 |
+| 场景 preparation | Host.launchPreparationQueue 与既有资源/预热 worker | 产物发布到当前请求；取消后不接管新请求身份 |
+| 帧驱动、QuickJS、模拟与编码 | daemon 主 RunLoop；Session 使用一次性 Timer 排帧 | 激活时 VM adoptCurrentThread；搬线程必须一起迁移 VM、输入、Surface 和提交生命周期 |
+| 作者 Shader 编译 | 固定编译工具的独立子进程 | 输出 artifact/reflection；不持有桌面或 compositor |
+| MTLLibrary/PSO | PassEncoder 的缓存与后台 launch warmup，保留缺失项的准备入口 | 缓存命中及 warmup 不等于普通帧绝不发生准备 miss，应追实际调用再宣称成本消除 |
+| 视频、文字、资源与存储 | 各已有 worker/inbox；Scene 在边界接纳结果 | pending 保留旧有效产物，迟到结果不能覆盖新来源 |
+| GPU 终结 | Metal completion 与既有 owner 回投 | 回调只提交原身份的完成事实；不能读取 mutable current 后重贴身份 |
+
+源码：[帧驱动](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriver.swift)、[编译子进程](../../../MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderCompilerProcess.swift)、[Pipeline warmup](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder+Warmup.swift)与[编码器缓存](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder.swift)。本图不使用“零 actor”或“全部后台化”等无法代表实际调用关系的概括。
+
+<a id="component-source-map"></a>
+### 1.4 组件源码入口
+
+| 职责 | 当前源码入口 | 专项权威 |
 |---|---|---|
-| frame tick / QuickJS / 粒子 / Metal encode / commit | **daemon 主线程**（Timer on RunLoop.main） | VM 经 adoptCurrentThread 绑定；0 actor / 0 类型级 @MainActor，全靠约定 |
-| GPU 完成终结 | Metal 完成线程 → 唯一每帧 hop：`Task{@MainActor}` 回主线程（SubmissionCoordinator+FrameCommit） | 其余 completion 只做锁内记账 |
-| 启动准备 / deferred 纹理 / 动态文字 / 音频分析 / localStorage | 各自后台串行队列 | 音频FFT在App采集队列；App主线程只做route/IPC enqueue，daemon主线程把latest帧发布到os_unfair_lock inbox；media仍经自身inbox |
-| shader 编译 | 外部子进程（glslang/spirv-cross，超时+字节+内存预算 SIGKILL） | 产物 MSL 字符串；makeLibrary 在 PassEncoder |
-| counter/resource gauge 快照 | draw/bind/fallback 点只更新定长 UInt64 槽；daemon 主线程 1Hz 从 owner 常数值与 `MTLDevice.currentAllocatedSize` 采样 | 不保留历史窗；IPC 只发送最新累计值/当前 gauge |
+| 作者与节点描述 | `Format/SceneDocument*`、`Runtime/Frame/SceneRenderDescriptor*` | [格式与图](../capabilities/scene-format-and-render-graph.md) |
+| 属性与帧值 | `Systems/Properties/ScenePropertyBindingProgram`、`ScenePropertyLiveUpdateState`、`SceneDynamicSnapshot` | [输入与属性](../capabilities/runtime-input-property-coverage.md) |
+| Timeline | `Systems/Timeline/SceneTimelinePlaybackRuntime`及 evaluator/compiler | [输入与属性](../capabilities/runtime-input-property-coverage.md) |
+| VM 与 typed owner | `Systems/Script/SceneScriptValueRuntime`、`SceneQuickJS*`及对应 bridge | [SceneScript API](../capabilities/scenescript-api-coverage.md) |
+| 粒子定义、实例与 GPU | `Systems/Particles/SceneParticleDefinitionParser`、`SceneParticleSimulator`、child/runtime；`Rendering/Particles/SceneParticleMetalInstanceBuffer`、`SceneParticleMetalPipeline` | [粒子组件](../capabilities/particle-component-coverage.md) |
+| 文本 | `Systems/Text/SceneTextTextureLoader`、`SceneDynamicTextTextureStore` | [输入与属性](../capabilities/runtime-input-property-coverage.md) |
+| 相机与光照 | `Systems/Input/SceneCameraProjection`；`Rendering/Lighting/SceneLightSnapshot`、`SceneSpotLightPlan`、`SceneSpotLightRuntime`和 pipeline | [组件合同](../capabilities/runtime-systems-reference.md#8-puppet3d-和-lighting) |
+| 声音实例 | `Systems/Media/SceneSoundPlaybackProgram`、`SceneSoundPlaybackRegistry` | [声音与频谱分工](../capabilities/runtime-systems-reference.md#72-audio) |
+| 几何与动画 | `Systems/Puppet/`、`Systems/Animation/`、`Rendering/Geometry/SceneGeometryProduct` | [高级对象](../capabilities/advanced-object-coverage.md) |
+| 资源与 provider | `Resources/Assets/`、`Resources/Textures/`、`Resources/Providers/`、`Systems/Media/` | [资源准入](../architecture/scene-resource-admission.md) |
+| 材质与 graph | `Compilation/Material/`、`Compilation/Graph/`、`Rendering/Graph/` | [Graph/Shader](../capabilities/render-graph-shader-coverage.md) |
+| 图层合成与输出 | `Rendering/Composition/`、`Rendering/Frame/SceneMetalRenderer`和 surface | [运行时架构](../architecture/runtime-architecture.md) |
 
-## 2. 加载与分配地图（按对象类）
+路径以 `MyWallpaperX/Core/SteamWorkshopScene/` 为根；这些是当前定位信息，不冻结未来目录或类型名称。
 
-| 对象类 | 谁加载/构建 | 分配到哪 | 存活期 | 失效域 |
-|---|---|---|---|---|
-| authored解码产物（IR/descriptor/资产目录）与粒子定义图 | launch队列原prepare中一次构建；粒子沿同ResourceView读取，不再独立枚举 | launchContext；定义图携所选纹理Input/Root引用，surface建立自身GPU/模拟 | 场景期 | topology（整体替换）；不是跨launch纯产物缓存 |
-| author shader 程序（MSL artifact） | admission 编译（子进程）+ 磁盘/内存 artifact cache | capability catalog（不可变，token 寻址） | catalog 生命周期 | program-variant |
-| PSO/MTLLibrary | PassEncoder PSO entries 以完整 MetalCompileStateKey 寻址；MTLLibrary 按完整 metalSource 内容寻址并合并并发 in-flight 编译；launch 期 warmup 预编 | pipeline repository | executor 生命周期；reset 只失效 PreparedPass 命令世代，保留不可变编译产物与负缓存 | program-variant；catalog/device 整体替换时随 executor 释放 |
-| layer colorBlend PSO / framebuffer snapshot | 非零blend由worker预热PSO；普通quad按最终MVP保守区域同坐标复制，custom/不可信/折射全屏 | launch repository唯一PSO，各surface独占完整snapshot | PSO场景期；snapshot surface期 | device/repository替换；surface teardown或extent变化；保容量与失效 |
-| source-less direct-draw 放置几何 | SceneResolvedMaterialDirectDrawGeometryCompiler 从不可变 Program 事实编译 | ScenePreparedDirectDrawOutputGeometry（capability 持有） | capability 生命周期 | program-variant；renderer 消费 typed 放置结果，不按 effect 名称选择算法 |
-| 材质静态准备 / 帧Program | variant admission唯一factory从同一frontend构建UniformBindings和PreparedAssembly；不可变identity只构造时哈希，查询完整判等；Finalizer直接消费bindings；forward投影仅消费者求逆，同次复用编码 | 原CompiledVariant持有PreparedAssembly及preparedUniformBindings；Finalizer物化当帧Program | variant期 / 帧期 | variant替换释放静态值；帧内仍验证publication、device、generation、extent/UV、purpose/content/sampling、graph及color/output，不缓存完整Program或跨commandBuffer PreparedPass；pipeline key沿用Program identity并保attachment/sample/writeMask |
-| 基础纹理 | FileInput区分已选Root handle与独立外部URL，SourceKey为FileIdentity；PreparedBaseImageResources 后台预解码；deferred 按需 worker（per 世代队列）；loose PNG/JPEG 与内嵌 TEX mip/payload 在每个 SceneTextureLoader 内按完整 SourceKey 复用 ImageIO CGImage 解码，Metal texture 仍按 source/device/purpose 分离；daemon Host 按性能档持有共享 `SceneTextureDecodeCacheBudget`（standard 1GB / efficient 512MB），统计TEX源数据、跨metadata→GPU留存的direct encoded bytes与解码CGImage，超限只跳过中间缓存或短值留存 | imageTextures store（per view）+ loader directImageResources/texEmbeddedImageResources；预算 lease 聚合一次 launch 的 material/base/deferred/user-property loader | view/场景期；loader释放归还预算；deferred仅全clearContext同锁关闭，原queue尾进Session退休group；热降档不驱逐既有纹理 | resource-generation / geometry-extent；文件 size/mtime/device/inode/ctime 任一变化即换 SourceKey；profile 只改准入帽，不新增失效域 |
-| 纹理上传 command queue | launch 创建一个 `SceneTextureUploadCommandQueue`，按 device registryID 缓存成功创建的 queue，创建失败允许后续请求重试；注入 material/base/deferred/static-model/particle/user-property/media-thumbnail/stock-noise 资源消费者 | launchContext 持有的共享 upload queue；renderer 另有 per-surface frame queue | scene/device 生命周期；跨 surface 共享 | device/scene 整体替换；不参与 value-only/resource-generation 帧失效 |
-| 材质资产纹理 | catalog准备静态纹理或视频声明；session由原video registry激活asset源 | 静态catalog；视频经各surface bridge→原帧registry | 场景/source期 | source/device换代；[媒体合同](../capabilities/material-video-assets.md) |
-| stock noise 替代纹理 | launch worker 在 capability catalog 前按 asset absent / 显式 system demand 生成；已有 upload queue 单批 mipmap，完成成功才交给统一默认选择及帧消费 | 不可变 SceneStockNoiseTextureStore，由 launchContext 持有并跨 surface 共享；普通帧只消费 states | scene/device 生命周期；失败 unavailable 不逐帧重试 | 新 launch preparation；不同 device 拒绝复用 |
-| 视频帧 | 原video registry的typed layer/asset源，AVPlayer + CVMetalTextureCache；普通TEX MP4/WebM、material video、初始/动态外部属性video共用Host直接构造的App私有cache根，经context.privateMediaCacheDirectory写私有池，作者cacheDirectory/ResourceView不改 | per-source pending → 原共享提交栅栏；Video保原AVPlayerItem(url:)及活跃路径，仅有效stop后、取消/replace/nil前由同OwnedFile helper将file交接给当前item.asset | 活跃期Source持file；stop交接后的实际AV asset借用或原WebM worker持lease，最后释放unlink；deinit仍stop，不等于AV drain | incarnation/epoch/contentGeneration；asset无脚本layerID；进程磁盘预约由原OwnedFile统一；当前package Root按实际entry范围读取，native workspace与跨provider文件共享仍开放 |
-| 作者Sound | 原Host launch队列内Program沿所选Root/FD流式完成原OwnedFile，复用同一显式私有写域，不从outputURL推断 | 原Program同compile共享file lease；Registry保D6的AVURLAsset(url:)→AVPlayerItem(asset:)，创建时由同OwnedFile helper给实际asset持pin | 最后AV asset借用释放才unlink；launch工作归原队列尾，不称通用AV drain | 原候选/Binding失败边界；进程磁盘预约由原OwnedFile统一；当前package Root按实际entry范围读取，native workspace与跨provider文件共享仍开放 |
-| 动态文字/媒体缩略图 | 原专用异步队列；文字字体沿完整ResourceView按package→loose作者优先级的literal handle→Data→CoreText，同次成功raster与动态当前raster持原sourceFont复用；原State单调token跨退休/reset不复用 | 原pending状态机→三段栅栏；失败保旧完整raster，无新字体cache | 帧/场景期；Store原锁关闭/入队/尾fence线性化，字体CPU并入该surface退休；媒体缩略图不据此泛称已join | resource-generation |
-| graph render target | 每个 surface 的 offscreen allocation cache（自动预算为设备建议工作集 `/16`、192 MiB floor、1.5 GiB cap；显式注入优先；submissionPin/historyPin + history rehydrate） | lease/table（per layer plan） | 跨帧（history）或帧内 | geometry-extent / topology；当前没有跨 surface 的进程级聚合 cap |
-| 性能 counter / 资源 gauge | frame/Metal 命令点定长累加；daemon 1Hz 读取 surface 的 offscreen、named、depth、framebuffer owner 值与 device allocation | `ScenePerformanceCounterHub` 21 槽；App client 仅最新快照 | daemon 进程期；无 history/percentile | 不参与五类产品失效；场景切换后累计 counter 延续、当前 gauge 覆盖 |
-| 帧 values | FrameDriver 每帧双 resolve 动态快照 | frameContext（值传递，字典 CoW） | 帧期 | value-only |
-| 完成态/history | SubmissionCoordinator pending → committedTails（finalTails 非空时阻塞下帧；completion 校验单调注册 observationID） | coordinator（per surface） | GPU 终结前 | topology/回滚 |
+<a id="diagnostic-source-map"></a>
+### 1.5 诊断截图源码入口
 
-## 3. 不变量清单（违反即出隐蔽 bug）
+| 职责 | 当前源码入口 |
+|---|---|
+| 请求、额度、readback、PNG 与 outstanding | `Diagnostics/SceneDebugFrameCapture.swift` |
+| submit 与取消 | `Rendering/Frame/SceneMetalRenderer+Submission.swift`、`SceneMetalRenderer+FrameOutcome.swift` |
+| active/retiring surface 与 GPU/export 排空 | `Runtime/Session/SceneDesktopWallpaperSession+Shutdown.swift` |
+| Runner 与 AppKit 退出 | App 的 `Debug/DebugScenePlaybackRunner+HostOwnership.swift`、`AppDelegate.swift` |
 
-1. **一帧一 command buffer**：本帧所有 ledger 共享同一 buffer；sealFrame 要求 `commandBuffer.status == .notEnqueued`。新增提前 enqueue/第二个 encode buffer → seal 拒帧、pin 泄漏。
-2. **ledger 相位机**：`prepared→allocationCommitted→encoded→outputConsumed→sealed`；claim/ticket/output 各只消费一次。新资源路径必须产生相位迁移，否则双消费/泄漏。
-3. **逐 surface 提交**：Renderer 返回持有 drawable/buffer/source/depth/particle 的 `PreparedFrame`；`Session.renderSurfaces` 每屏立即提交并单独 commit/discard 该屏资源，不存在收齐所有屏再统一提交的 GPU 栅栏。失败屏释放其未提交 ledger/pins；不能回滚另一屏已提交的 GPU。首帧 presentation 注册只在真正提交时消费。simulation cadence 已消费的 clock、VM 与输入不因 GPU deferred/dropped 重放。
-4. **provider 准备与提交**：material asset、frame texture publication、media thumbnail、dynamic text 按各 surface 的提交结果 commit/discard；共享 video 版本统一提交，不能被失败屏撤回。新增状态沿相应现有 owner 成对处理 prepare/commit/discard，不把共享 simulation 状态与逐屏 GPU 接纳混为一个全局事务。
-5. **in-flight 门**：最大提交数 2 且要求所有 pending 的 finalTails 已终结 → history 图实际单帧 in-flight；acceptance 翻转 100% 经过 completeCommandBuffer。pool 预算/history 保留/in-flight 容量三者联动。
-6. **digest = variant memo 键**：registry snapshot 的 SelectionDigest 只含 fact 层（布尔化 generation），跨视频帧稳定；是变体选择的 memo 键。M3.1 已改为随 entries 写入增量折叠；beginFrame/discard 清空并重置 digest；snapshot 仍遍历 entries 建 lookup 字典。本机有等值 harness，但尚未纳入正式回归入口。往 fact 加逐帧变化字段 = memo 永远 miss。
-7. **hasSameValuePayload 是 generation 闸门**：值不变则快照 generation 不递增，下游 memo 依赖此稳定；不能当冗余比较优化掉。
-8. **属性 lane 优先级**：user > timeline > sceneScript（合并顺序 + stateful script 值仅在无高优 producer 时前向携带）。动顺序 = 脚本动画被静默覆盖。
-9. **VM timer 每模拟cadence消费一次**：正常驱动无论surface提交、deferred或dropped均提交已消费的VM/timer/input；暂停首帧重试复用已求值simulation，不重跑回调。不能以GPU呈现成功作为JS heap回滚或timer重放条件。
-10. **QuickJS 线程绑定**：VM 创建于 launch 队列、adoptCurrentThread 迁移到使用线程；全部 VM 交互 Swift 状态无隔离标注（约定主线程）。换线程/进程必须 rebase 并迁移全部交互状态。
-11. **sticky 遥测只报首次**：effect/graph/失败类日志多为 once-per-subject；"不再报错"≠修复。
-12. **debug evidence 门三合一**：诊断 + benchmark 日志行（benchmark 恒传 flag+Debug 构建）+ **窗口层样式**。往门下加行为会改窗口表现；`#if DEBUG` 包裹物 Release 不存在。
-13. **Puppet 单一 geometry owner**：`puppetAtlas` 仅是 mesh UV 采样源，普通 layer 由 `SceneGeometryProduct` 采样 atlas 或 graph-final 并写唯一 compositor。placement-exact named dependency 使用同一 GeometryProduct 在 authored-local 坐标栅格化到等比受限 target，并经现有 registry/publication/completion 发布；不存在通用 Puppet-as-flat-quad 回退。
-14. **launch 世代**：newer-wins 世代号 + 取消令牌 + per-generation worker 队列；新后台准备必须持世代令牌，否则旧场景任务污染新场景。
-15. **catalog 不可变、整体替换**：capability catalog 无增量失效；token 含 ownerID 不跨 catalog 碰撞。"改一处能力"= 重建 catalog，不是 patch。
-16. **控制面单一通道与 Host 归属**（M5.6）：普通产品 UI/系统生命周期/屏幕变化→Scene 只经 `WallpaperEngineCommand` + multiplexer 或 client 的 typed display command → `SceneDaemonClient` → newline JSON；client 只投影 requestID/recordID 匹配的 daemon 事件。产品 Host 只由 daemon runtime 的私有实例持有，禁止恢复全局 singleton、让普通 App 调用面引用 Host，或在 Host 内监听只存在于 App 进程的通知。属性持久化仍只有 App 的 SteamWorkshopService，运行属性仍只有 daemon Host liveState；热更新拒绝由 client 完整重载，不产生第二 property owner。静音与主音量意图分别在 `PlaybackMuteState`、`PlaybackVolumeState`，设置/菜单只发公共命令；预算档运行权威在 daemon Host。暂停意图必须跨无活动 Scene/重连窗口保留，退出必须等 retiring transport 清空或完成有界强退。DEBUG direct Host 只准作为显式隔离证据入口。
-17. **常开统计不升级为诊断树**（M1.1）：Release 可更新的只有 21 个 UInt64 槽和 launch 首次时间戳；Metal command 计数只在真实 bind/draw/fallback 分支递增。资源 gauge 只由 daemon 1Hz 覆盖，读取已有 owner 常数值，且不得为统计调用 lazy pipeline `resolve()`。`gpuAllocatedBytes` 是 Metal device 的进程总分配量，不得改名冒充 texture-only；`renderTargetPoolBytes` 是受跟踪有界池预算和，不含 CAMetalLayer drawable。窗口、percentile、完整 observation/evidence 仍是 DEBUG/主动诊断旁路。
-18. **跨进程音频只有一个producer和一个目标inbox**：主 App 的系统tap/FFT是唯一producer；产品目标是daemon-local `SceneAudioSpectrumInbox`，direct-host DEBUG目标与其互斥。daemon需求携本地scope epoch，client再用session generation、active transport/retirement、App route epoch与capture token拒绝stale callback；不得把两进程的singleton当共享内存，也不得用阻塞pipe、主线程闭包或无界队列保存30Hz历史。普通控制命令是顺序屏障，屏障两侧的音频/Video-Web频谱各自只保留最新待处理值；关闭只排空已接纳控制，不重放droppable帧。
+前三行相对 Scene 源码根，最后一行相对 App 目录。生命周期语义由[诊断截图合同](gpu-stage-timestamp-diagnostics.md#debug-capture-lifecycle)维护。
 
-## 4. 改A坏B 雷区对照表
+## 2. 加载与分配地图
 
-| 你想做 | 必须同改 | 漏改症状 |
-|---|---|---|
-| 帧路径加"先准备后提交"的新状态/资源 | surface prepareX + FrameDriver commit 族 + 失败 restore/discard 族（不变量 3/4） | deferred 帧后跳变/残留；提交帧不生效 |
-| 新增动态纹理来源 | registry.beginFrame 发布类目 + publication generation + 三段栅栏 + snapshot fact | memo 全 miss 或 digest 抖动；纹理永不更新；tails 校验拒帧 |
-| 改 fact/digest 字段 | 先将 digest 等值 harness 接入正式测试并验证 entries 写入/清空与增量 fold 一致+ 检查 SelectionMemoKey 消费 | 每帧 memo miss（性能悬崖）或 memo 永不失效（陈旧选择） |
-| 加第二个 command buffer / 改提交时机 | ledger 相位机 + seal 检查 + 一帧一 buffer（不变量 1/2） | seal 拒帧；pin 泄漏；粒子槽位不释放 |
-| 改 in-flight/pool 预算/history 保留 | acceptance 门 + pin/rehydrate + busy 重试节奏一起评估 | .busy 风暴 / target hazard / 内存滞涨 |
-| 帧循环换线程/进程（M5） | VM adoptCurrentThread rebase + VM 交互状态全迁移 + AppKit 接触点（drawableSize 主线程写/帧读、指针链 NSEvent/window.convertPoint、surfaces 字典主线程独占、8 组 commit 栅栏）+ launch 状态改事件 + 完成回调落点 | 随机崩溃 / timer 双跑 / 状态漂移 |
-| 改属性生效/优先级 | lane 合并顺序 + revision 语义（userPropertiesJSON 缓存键）+ hasSameValuePayload 闸门 | 脚本动画被覆盖；属性改了画面不动 |
-| 改 SceneScript 定时器/帧状态 | 局部owner撤回与已消费cadence不重放、暂停重绘复用的约定（不变量 9） | timer 双触发/丢失；deferred 帧后 VM 漂移 |
-| 加 invalidation 触发（档位切换/重连/显示变化） | executor.reset() 推进 PreparedPass 命令世代但保留完整内容键 PSO；catalog/device 替换必须重建 executor | 旧命令被误接纳；错误跨 catalog/device 复用；重置后首帧重新编译 |
-| 加 per-frame 遥测/诊断 | 常开层只准定长整数更新（不变量 17）；完整 observation/evidence 仍服从 evidence 门三合一语义（不变量 12）+ sticky 行为 + Release 恒 false | Release 分配/字符串/遍历回归；窗口样式意外变化；统计触发 lazy pipeline 编译 |
-| 新 offscreen target 类型 | allocation cache key + pin 故事 + history-only 降级路径 | 在飞资源被逐出 → GPU target hazard |
-| 音量/静音/预算档/命令层（M0.2/M0.7 已落地，音量跨引擎闭环） | `PlaybackVolumeState` + `PlaybackMuteState` 作为公共播放意图；Video/Web 经 `VideoPlaybackCommandHandler → WallpaperEngine`，Scene 经 daemon `setVolume`/`setMuted` → `SceneSoundPlaybackRegistry` 的 master/base 增益；性能档同时更新 cadence 与共享 texture decode 准入帽 | video 音量恢复错档；Scene 音效/帧率/缓存预算不受控；第二静音、音量或预算权威 |
-| 动 puppet atlas/composed | coverage ledger + UV 合同 | puppet 采样错位（近期迁移高发区） |
-| launch 加后台准备 | 世代令牌 + per-generation 队列 | 旧场景任务写进新场景表面 |
-| 退役一条 effect 执行旁路 | route state（observe→prefer→generic-only）+ fixture/golden 转行为合同 | 静默双执行或能力回退 |
+| 产物 | 准备、持有与失效 |
+| --- | --- |
+| 场景、资源与作者描述 | RuntimeModelBuilder 从唯一 source facts 构造；launchContext 保留执行所需数据，相关内容改变后重新准备 |
+| 材质与 Shader artifact | Compilation 产生 catalog、variant、prepared uniform 来源和执行能力；后端产物进入同一 Program/Graph，不引入另一 renderer |
+| 纹理、模型与粒子定义 | 后台设备资源任务与资源 loader 准备；实例和 Surface 消费结果；资源来源、用途、device 与 revision 决定复用 |
+| MTLLibrary、PSO、sampler | 原 repository/PassEncoder 缓存；同一来源合并编译，launch warmup 提前准备当前需求 |
+| GPU 纹理和 buffer | 通过 makeSceneTexture/makeSceneBuffer 等分配入口绑定实际资源 lease；额度随实际对象释放，候选和退役资源仍计费 |
+| decoded 中间缓存 | SceneTextureDecodeCacheBudget 与进程父额度共同约束；不命中或不保留中间缓存仍可沿原解码/上传路径播放 |
+| 视频与 Sound | Session 的实际播放 registry 持有可变播放状态；私有媒体文件使用原 OwnedFile/AV borrower 生命周期，stop 不冒充全部 AV 借用已结束 |
+| 动态文字 | 每个 Surface 的动态文字 store 在后台生成完整 raster；提交新结果前保留旧结果；停止时关闭并等待已接纳工作 |
+| 目标与 history | 原 Surface pool、graph target 与 completion owner 管理；受 SceneResourceBudget 父额度约束，history 与 submission pin 决定可释放时机 |
+| 运行属性与脚本状态 | Session 的 LaunchContext、frame schema 和 program；JS heap 不随 typed admission 失败复制或回滚 |
+| 帧资源发布 | 每个 Renderer 的 SceneFrameTextureRegistry；beginFrame、commit/discard 和完成信息共同确定可见版本 |
+
+资源父额度计费应用通过入口分配和持有的部分，不等于 Metal/AV/WindowServer 全部内存。精确覆盖、限制与未计入项查[资源准入设计](scene-resource-admission.md)。已存在进程父额度，不能继续把“没有跨 Surface 聚合 cap”当作当前缺口。
+
+## 3. 一帧执行与隐性约束
+
+Session 冻结本次时间、属性、输入、音频和媒体，形成脚本可读的前置快照；执行回调与 typed mutation 后，准备最终模拟状态。每个 Surface 消费同一模拟 cadence 的状态，再作自身投影、资源发布、图编码与提交。
+
+1. **模拟与呈现分开。** 稳态 Surface 的 drawable 缺失或 GPU 忙，不重新执行已消费的 VM、timer 或输入；恢复屏采用最新模拟状态。
+2. **候选首帧单独协调。** 初始候选使用 SceneInitialPresentationCohort 跟踪当前 Surface 成员及 GPU 成功；这不要求稳态每帧等待全部屏幕。
+3. **提交前可以取消。** PreparedFrame 持有 submit/cancel，Surface 决定是否提交；提交后通过 GPU completion 终结，不能假装 CPU 撤回已经提交的命令。
+4. **图资源跟随同一提交。** claim、target、输出消费、seal、publication 与 completion 必须匹配原 command buffer 和执行身份；不能提前 enqueue 或私建第二个提交出口。
+5. **JS heap 与 typed 状态分开。** 当前 typed mutation、事件确认与 localStorage candidate 有自己的接纳或撤回规则；shared、闭包和模块对象不是可复制回滚的事务存储。
+6. **坐标与资源用途保持来源。** world/camera、logical/physical extent、UV、sampler 与颜色表示随准备产物和当帧输入传播，不由消费端重新猜测。
+7. **诊断只观察。** DEBUG readback、trace 和 HUD 消费真实执行；统计、截图或证据窗口不构成产品提交权威。
+
+源码：[Session Surface 提交](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceSubmission.swift)、[View 帧消费](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift)、[Renderer 提交](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+Submission.swift)与[纹理 registry](../../../MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneFrameTextureRegistry.swift)。顺序和失败目标由[运行时架构](runtime-architecture.md#83-一帧的有序工作与可见时间)维护，脚本具体语义查[API 合同](../capabilities/scenescript-api-coverage.md)。
+
+## 4. 修改边界与释放
+
+| 修改 | 当前应核对的 owner |
+| --- | --- |
+| 切换、取消、崩溃重放与外部设置 | SceneDaemonClient、SceneDaemonRuntime、Host 及跨引擎切换事务 |
+| 场景准备与首次资源 | RuntimeModelBuilder、prepareLaunch、LaunchContext 及原 prepared task |
+| 普通值、脚本与动态节点 | Session FrameDriver、frame schema、typed bridge 和实际消费者 |
+| 图、目标和最终合成 | RuntimeBridge/submissions、Renderer、MainPassEncoder 与 ImageLayerCompositor |
+| 资源更新与采样 | 原 producer、ResourceView、registry、相关 store 和 Program binding |
+| 停止与资源回收 | Host retiringSessions、Session SurfaceTeardown/Shutdown 及每类资源 owner |
+
+停止会先撤新工作、输入与订阅，关闭 store，停止媒体与脚本 owner。Session 保留已经退休 Surface 及其 CPU drain；已接纳文字、deferred worker 等结束后，再用原 command queue 的 GPU barrier 确认终态。Host 沿原 preparation queue 尾 fence 等待已接纳准备；没有当前 Session 也不能漏掉这部分工作。主线程不阻塞等待。
+
+[SurfaceTeardown](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceTeardown.swift)、[Shutdown](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+Shutdown.swift)与[Host 退役](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Activation.swift)分别给出关闭、排空及保留关系。GPU 成功不代表 AV borrower、文件借用或 DEBUG 导出已结束，释放结论按实际 owner 划定。
 
 ### 4.1 已落地缓存的边界
 
-- `6aa74ba2`：coordinator 按不可变 catalog token 缓存 ClaimedExecution，独立锁；不缓存当帧 publication/准入。
-- `08c70d53`：pool 按 capability token/layer/解析后尺寸/materialFunctionTargets 内容缓存 target plans；reset 清空，失败不缓存。键与输入同源性及缓存容量仍需正式反例门。
-- M4.2 texture decode cache：原Host共享字节预算与loader lease继续拥有TEX/decoded缓存；D4 direct短值用同预算source lease跨metadata→GPU，领取时先移出队列，操作完成释放。拒绝留存仅保小metadata，GPU按expected identity重捕获；deferred只保Input与身份。准入拒绝不拒绝同次解码/上传或改变Metal texture/publication owner，热降档只影响后续准入，原resident缓存随loader释放。
-- executor 的 `8b3a8d58` Bool memo 已撤回：同键不同 stored plan 可绕过命令表校验，失败结果也可污染后续合法 lease。当前恢复 `make + expected == lease.table.plan`；纹理、角色、generation 和 functionTargets 守卫全部保留。后续只能缓存 expected plan 或有完整内容/身份保证的 prepared 表示，不能缓存省略被比较对象身份的 Bool。
-- 同步 launch 与异步 requestLaunch 均在每次准备尝试前递增唯一 `nextSceneScriptGeneration`。`1a7e4020` 误删同步递增已在交接纠偏恢复；可执行入口测试覆盖成功/失败/成功得到 1/2/3，失败尝试不可复用身份。
-- 播放态 `isPlaying` 已补为 `PlaybackEngineControlling` 协议要求，multiplexer 读取具体处理端状态；回归测试覆盖 Scene 在播、广播暂停、video 定向恢复与注销。此前 extension-only 默认 false 的错误分发不得在 IPC client 中复现。Scene `.stop` 始终进入既有 Host.stop()（幂等），包括异步准备中尚无 launchContext 的阶段，避免 pending launch 在停止后继续激活。
+Shader artifact、variant 分析、decoded 资源、prepared geometry 与 Pipeline 都有各自缓存。复用条件在对应 owner，缓存命中不能重贴请求身份，也不授予已停止 owner 继续发布的权利。
 
-- UI pending 已按 recordID 闭合归属：Scene 终态携带 daemon 回传的 recordID，runtime switch 通知也携带活动记录；SteamWorkshopService 只清除匹配记录。旧 A 的终态不会清除仍在收集纹理书签或等待 accepted 的新 B；跨请求时序门覆盖该反例。
+当前已有设备资源后台准备、首 Surface runtime warmup、上传 queue 共享、进程父额度以及按资源实际存活期归还的 lease。后续优化先测对应准备、分配和编码成本；不能因旧计划曾列过缺口便重新建设这些能力。启动响应与缓存合同查[启动合同](scene-launch-responsiveness-contract.md)，Pipeline 源码查[PassEncoder](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder.swift)。
 
+## 5. 保留的底座与需要继续收敛的职责
 
-16. **validate 摘要门（M4.1）**：`SceneGraphRenderTargetTable.makeInputsDigest`（铸造期计算的 make 输入摘要，随 table 不可变）与 executor validate 的当帧输入摘要比对——命中跳过 make 重推导与全结构比较；未命中回退完整推导。纹理 `===` 门与 functionTargets 语义门不进摘要、每帧保留。
+保留同二进制 daemon、Swift/Metal 产品所有权、真实 QuickJS VM、唯一资源来源、prepared catalog/Program、每屏图与统一最终合成，以及模拟和呈现分离。外部通用设计中的同进程起步、JSC 优先或整套新目录，不覆盖这些已经存在的合理边界。
 
-## 5. 已做对、明确不动
-
-唯一权威五件套；offscreen 目标 LRU 池（字节预算+history pin）；粒子实例 ring buffer；视频 CVMetal 零拷贝+三段栅栏；动态文字异步光栅+签名去重；deferred base images；编译子进程三重预算 kill；userPropertiesJSON/topology/compiledOperations 等 revision 缓存族。
+当前 prepareLaunch 与 FrameDriver 仍负责装配多类 program、状态和资源，LaunchContext 同时携带不可变准备事实及可变实例。后续按实际数据寿命和消费者收敛准备/实例/Surface 职责，退役重复投影与准入；不在现有对象之外再包一层 SceneSession 或万能组件容器。具体改造与顺序进入现役顶层设计和路线，不由本图再开第二个队列。
 
 ## 6. 维护规则
 
-- 本图是 as-built 快照：结构/不变量长期有效，file:line 会漂移（每批执行时复核锚点）。
-- 任何批次改变了 §2 的一行或 §3 的一条不变量，必须同批更新本图（与对应[性能](../roadmap/performance-convergence-card.md)/[属性工作卡](../roadmap/properties-panel-card.md)一起），否则地图作废。
-
-
-> M0.2 闭环补记（2026-09-22）：静音与主音量都沿 `WallpaperEngineCommand` 公共控制面；`PlaybackMuteState` 保存并持久化静音意图（旧版本 `settings.volume == 0` 仅在 key 缺失时迁移一次），`PlaybackVolumeState` 保存归一化主增益。UI/热键/Scene daemon 回放不再直接触碰具体播放 owner；Video/Web 由 `WallpaperEngine` 投影，Scene Sound 由 registry 将 master gain 与作者/用户 base volume 相乘。音量滑杆 0 边界仍同步静音意图，但真实设置窗口和三引擎同输入电平尚待实机验收。
-> **Q1.4s 2026-09-28 收敛**：系统频谱开关只归属 video 叠加层（`overlayEnabled` 门与 video daemon 的 spectrum 配置命令）；原 coarse `WallpaperEngineCommand.setSystemAudioSpectrumEnabled` 广播与 scene-daemon `setSpectrumEnabled` 命令已删除。Web/Scene 的采集跟随样本声明的 demand（web listener / daemon generation-bound demand），唯一全局截止是共享暂停门；`WallpaperEngine` 仍是详细配置与 Video/Web projection 的唯一 owner。不引入第二 producer/provider/registry/compositor。
+变更 owner、构造、消费或释放点时更新对应行，并核当前源码。保留符号和文件入口，避免把易漂移行号、旧批次统计和一次样本结果当永久事实。能力和运行结果分别回各自权威，本图不记录支持率、PASS 数、临时产物或未来任务顺序。

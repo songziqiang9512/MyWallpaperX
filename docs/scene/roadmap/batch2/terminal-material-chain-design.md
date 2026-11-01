@@ -3,11 +3,24 @@
 
 目标：修正普通 solid 特效把屏幕尺寸当作源纹理尺寸造成的重复采样，同时保留末尾效果停用时前一有效材质的屏幕细节。沿用唯一 graph、Program、pool、submission 与 MainPass，不增加样本分支或第二输出链。
 
+<a id="terminal-material-raster"></a>
+## 终端优化的共同边界
+
+本页承接末材质重放、放置坐标和背景读取的有界优化。下列 simple-color、slot、stage、alpha、几何和坐标条件限定当前优化入口；它们不构成全部 Scene 内容的永久准入表。未取得可选终端资格的合法内容继续尝试原通用 Program/graph 路径，不能因优化不适用而阻止原本可执行的图层。新增组合先修正相应公共语义，不为每个未见组合再登记一项认证。
+
+同一 GraphExecutor 保留完整前序图、最后成功 active 材质和冻结输入，继续拥有原图事务、publication、state 与 completion。仅在后继确实覆盖该输入时，原 pool 创建同 descriptor 副本并沿原提交保持至 completion；没有冲突不复制，停用或 passthrough 阶段不抹掉先前有效材质。后继真实 material 成功但无 replay 时撤掉先前候选，不能重放过时阶段。终端准备失败或未开始写入时可保真实 graph-final；MainPass 已写入后失败拒绝当前不安全提交，不能再双重合成，也不能声称 CPU 已撤回 GPU 工作。
+
+终端 attachment 只需实际渲染用途；继续供 graph 采样的输出仍需 renderTarget 与 shaderRead。实际输入的采样权限、目标别名、epoch、Pass/command buffer、外层混合及 typed role 在原提交边界确认。同一 ticket 仅消费一次，输入 pair 和所需 pins 服从原编码/completion 使用期。straight 颜色只关联一次，associated/opaque 沿原混合，data 不进入颜色终端；不以优化为由放宽 SDR drawable 的 framebuffer-only，或把 MainPass attachment 冒充 graph 纹理。
+
+各入口的具体范围分别在[普通 solid/文字](#行为与范围)、[程序化 solid](#procedural-solid-local-source)、[背景密度](#background-terminal-density)、[加法密度](#additive-terminal-density)和[普通图片放置](#image-terminal-placement)维护。现有 native-3D solid 终端仍限单 Pass、无显式目标、外部消费者或 geometry mesh，并保持 terminal alpha=1；这只是该有界入口，不授予任意模型/3D 终端能力。
+
+原始取舍与接线记录见[原设计](../../history/terminal-material-raster-design-2026-10-06.md)和[原实施](../../history/terminal-material-raster-implementation-2026-10-06.md)，不据此扩大本页的可选优化范围。
+
 ## 行为与范围
 
 官方 2.8.0.42 自有实验（2026-10-11）确认：120×60 solid 经 identity 后，下一段 g_Texture0Resolution.xy/zw 仍为 120×60，不随世界缩放及窗口尺寸改变；10×10 solid 生成64周期条纹，末段 identity 停用时为屏幕密度，启用时经历小尺寸中间采样。固定输入、二进制和像素测量保存在 `.artifacts/tmp/effect-texture-extent-20261011/`，失败探针不作为合同。真实纹理替换的尺寸比例问题是该能力的消费者，不是准入键。
 
-首批限定可见、非 provider 的简单 color 链、普通 source-over、target-pixel 顶点、无 FBO/history/function/compose/几何网格；保留现高级混合职责。2026-10-12 补充：普通正交文字的单 stage 链复用同一证明与 terminal receipt，保留文字源尺寸、padding、pivot 和动态纹理 generation；作者顶点越过原矩形时直接进入既有 MainPass，不先采已裁的 graph-final。文字高级混合、透视及跨图输出暂不扩域。先验证无外部依赖，再依据同一资源生命周期合同接入已准入的外部只读输入。未验证的跨图 provider 与复杂图保持原路径。
+当前普通入口限定可见、非 provider 的简单 color 链、每 stage 单 material、普通 source-over、target-pixel 顶点、无 FBO/history/function/copy/swap/compose/几何网格；保留现高级混合职责。普通正交文字的单 stage 链复用同一证明与 terminal receipt，保留文字源尺寸、padding、pivot 和动态纹理 generation；作者顶点越过原矩形时直接进入既有 MainPass，不先采已裁的 graph-final。文字高级混合、透视及跨图输出暂不扩域。先验证无外部依赖，再依据同一资源生命周期合同接入已准入的外部只读输入。未验证的跨图 provider 与复杂图保持原路径。
 
 ## 外部只读输入扩域（2026-10-12）
 
@@ -20,7 +33,7 @@
 ## 职责与数据流
 
 1. Capability 用已有 prepared graph/material/variant 事实证明所有可能成为终端的材质；纯停用或局部失败阶段可透传，不独立发明材质。
-2. FramePreflight 使用真实静态源 mapped extent；无静态源的程序化 solid 使用作者尺寸。Resolution uniform 始终来自真实资源 descriptor，不伪造 Candidate 或修改 shader 数学。
+2. solid 显式 slot0 沿 resolver → prepared image → Candidate → Store 保留真实来源；无源仅使用既有程序化 solid 白载体，不伪造作者资源。FramePreflight 使用真实静态源 mapped extent；无静态源的程序化 solid 使用作者尺寸。Resolution uniform 始终来自真实资源 descriptor，不伪造 Candidate 或修改 shader 数学。
 3. GraphExecutor 仍准备和执行完整小尺寸 graph。最后成功 active material 的冻结 Program 通过现 PassEncoder 派生 terminal pass；后续透传不抹掉它。
 4. 若后续阶段会覆盖该 pass 所读的 pair 输入，现 pool 按层及纹理槽保留同 descriptor 的临时副本，现 resource encoder 在该阶段完成后、覆盖前追加一次精确 copy。PassEncoder 仅将相同 descriptor 的物理绑定换为副本，采样器、uniform、Program 和 epoch 不变。无覆盖不用副本，无成功材质不用 replay。不得每段复制或新增 registry publication。
 5. 副本 pin 由 PreparedGraph 随原 submission ledger 保持至 GPU completion；未编码失败立即释放，编码后取消沿现 ledger terminalizer。无独立生命周期 owner。最终仍由同一 MainPass 在原层顺序消费一次 terminal receipt。
@@ -49,7 +62,7 @@
 
 ## 无成员背景采集的终端密度（2026-10-19，有界实现）
 
-目标是避免把巨大屏外画布压到工作纹理后放大。原型只按屏幕密度重放末材质，实际284仅末弧清楚，后继背景capture仍低清先前弧，已撤回；必要证据 `../../../../.artifacts/scene-evidence/runs/arc-density-qualification-20261019/current/report.json`保留，不从单pass或回执计数认三弧修好。
+目标是避免把巨大屏外画布压到工作纹理后放大。仅按屏幕密度重放最后材质不能保证后继背景 capture 保留先前细节；该局部捷径已经退出。后继方案必须把背景读取与完整前序链一起验证，不从末段清晰或回执计数推导整链正确。
 
 后继沿现 Compiler/ArtifactBuilder→Program→pool/GraphExecutor→唯一MainPass保住背景与新细节。共享SyntaxUnit/binding facts证明canonical quad仅经原MVP、原UV的xy无改写、slot0全部普通2D采样读取原xy；改名、括号与恒等向量构造不改变资格。未知坐标/offset/LOD/helper传递/条件改写/vertex warp拒绝可选入口；targetPixels及prefix-link不能替代证明。先限单个resolved color stage、无成员capturedMain、普通正交、无provider/依赖/显式FBO、最终alpha=1及原完整输出合同；slot0精确ingress复用现capturedMainTargetSourceSlot，不以node.bindings遗漏合法材质alias。不能用当前背景偷换前序active效果，未准入的多段链保原图。
 
@@ -57,19 +70,19 @@
 
 同一artifact/frontend/Program携带版本化proof、可选source SHA/入口与物理texture槽；普通逻辑slot0/Resolution仍来自真实graph descriptor，terminal仅省texture0，保其它槽共享的sampler0及原资源pin。遵循既有build producer identity，同producer请求只给合资格源追加能力版本；变体源计入原缓存预算，PSO/archive均区分变体SHA。launch按实际资格预热，普通帧不分析或编译。现CaptureGeometry比较sourceUV与经实际enclosing-pass raster变换的outputMVP：有限且w恒定非零，四角误差每轴不超1/16目标像素，不随屏外坐标放宽。坐标/目标/PSO不支持保原graph-final；typed role/ticket核对一次消费、当前目标及completion pin，仍用原颜色表示的混合合同。不直接采样正在写的纹理、不放宽framebufferOnly、不增输出owner。
 
-先以自有非平凡alpha背景及连续三draw实际验证BGRA8/RGBA16Float attachment读取、普通冻结texture反例；本机signed cross的MSL2.0拒fetch、2.3才产生color(0)，不能声称原后端版本无条件支持。随后验共享proof改名/等价及邻反例、ordinary artifact不变、颜色转换一次、物理绑定/映射拒绝、停用/失败/stale/重复消费，再用原284三弧与独立样本实际出图。可选能力失败只保原图；如任一前弧再次低清，撤回route，不以末弧或回执计数结案。保2048预算、原uniform及UV，不伪造Candidate/Resolution、不偷换不同extent副本；未覆盖组合及整体性能仍开放。
+先以自有非平凡 alpha 背景及连续三 draw 实际验证 BGRA8/RGBA16Float attachment 读取、普通冻结 texture 反例及目标 MSL 部署版本的能力，不能声称任意后端版本无条件支持 color(0) 读取。随后验共享 proof 改名/等价及邻反例、ordinary artifact 不变、颜色转换一次、物理绑定/映射拒绝、停用/失败/stale/重复消费，再用多段真实链与独立样本实际出图。可选能力失败只保原图；如前序细节回退，撤回该优化。保现工作纹理预算、原 uniform 及 UV，不伪造 Candidate/Resolution、不偷换不同 extent 副本；未覆盖组合及整体性能由专项证据维护。
 
 <a id="additive-terminal-density"></a>
 
 ## 加法终端密度（2026-10-19，有界实现）
 
-当前 source-sized 程序化 solid 的高级混合会将小 graph-final 放大，最后一遍连续细线也丢失。先限定项目已有模式31的通用合同 `background + straightSource * alpha`：源为 PMA 时 RGB 系数 one，为 straight 时 sourceAlpha，目标 RGB 系数 one；alpha 保背景值。该模式可由 Metal 固定混合直接消费既有 terminal Program，不需要 framebuffer fetch、另建 scratch、提高全图预算或改作者 shader。其他模式不从此开放。
+当前 source-sized 程序化 solid 的高级混合会将小 graph-final 放大，最后一遍连续细线也丢失。先限定项目已有模式31的通用合同 `background + straightSource * alpha`：源为 PMA/opaque 时 RGB 系数 one，为 straight 时 sourceAlpha，目标 RGB 系数 one；alpha 源系数 zero、目标 one，保背景值。该模式可由 Metal 固定混合直接消费既有 terminal Program，不需要 framebuffer fetch、另建 scratch、提高全图预算或改作者 shader。其他模式不从此开放。
 
-沿原 capability 的 simple color、全终端变体 target-pixel 及输入保存证明；仅普通正交可见 solid、无依赖/provider/geometry、合法原源尺寸和现有最终覆盖资格。FramePreflight 通过原 frame request 传递模式，GraphExecutor/PassEncoder 派生 typed 加法 pass role，role 进入既有 cache key 和 launch warmup；ordinary frame 不编译。Compositor 与原 submission ticket 同时核对外层模式和 pass role，再在原 MainPass 原层序恰好消费一次；中间 extent/Resolution/UV、activation、失败后前一成功材质与 completion pin 均保持。准备不支持时保真实 graph-final，不能把已消耗的 ticket 再走另一输出。元数据记录实际 blend 资格，避免为所有普通层预热无用加法 PSO。
+沿原 capability 的 simple color、全终端变体 target-pixel 及输入保存证明；仅普通正交可见 solid、无依赖/provider/geometry/fog/depth/额外 material state、合法原源尺寸和 finalCompositeAlpha=1。FramePreflight 通过原 frame request 传递模式，GraphExecutor/PassEncoder 派生 typed 加法 pass role，role 进入既有 cache key 和 launch warmup；ordinary frame 不编译。Compositor 与原 submission ticket 同时核对外层模式和 pass role，再在原 MainPass 原层序恰好消费一次；中间 extent/Resolution/UV、activation、失败后前一成功材质与 completion pin 均保持。准备不支持时保真实 graph-final，不能把已消耗的 ticket 再走另一输出。元数据记录实际 blend 资格，避免为所有普通层预热无用加法 PSO。
 
 验收复用连续细线/非平凡源：同 Program 源 extent 不变、实际加法输出细节、straight/PMA/opaque 与背景非1 alpha，以及同 pixel 普通混合相邻反例；末段停用/失败、被覆盖输入、stale/重复消费、改名及等价表达式。GPU 门与 Debug 后，原293对照圆环重复亮段消除、人物/粒子保持，另验未参与修法的真实加法样本。透明边界、HDR/SDR、resize 与取消沿原约束；未覆盖组合保持开放。收益必须来自实际清晰度和可比开销，不从256²不变或通过测试推性能结论。
 
-实际运行与剩余边界归[当前证据](../../capabilities/runtime-evidence-current.md#additive-terminal-density-20261019)；284三弧仍开放，不由293连续环或单pass回执代验。
+实际运行与剩余边界归[当前证据](../../capabilities/runtime-evidence-current.md#additive-terminal-density-20261019)；一种连续细线结果不能代验背景捕获的多段链。
 
 <a id="image-terminal-placement"></a>
 
@@ -85,7 +98,7 @@
 
 最低验收：先用自有非平凡前序效果与局部 pointer shader，通过真实 image 准入和终端 consumer，验证 cover/不同尺寸放置下响应位置、前序颜色、冻结输入/Resolution、只变 MVP pair；改名/等价变体与 fragment raster read、缺 ABI、provider/高级混合/透视/几何等相邻反例。复用 active/inactive/失败末段、快照失败和一次消费门；在非不透明背景验证 straight/PMA alpha。有效 Debug 后，原199默认ROI需由旧偏移点响应改为可见目标点响应，并以未参与修法的真实 image 链检查画面与退出。人工官方观察仅支持功能方向，不声明精确官方像素一致；性能收益另测。
 
-实际结果、构建身份与原图由[本批后验](../../capabilities/runtime-evidence-current.md#image-terminal-placement-20261021)唯一维护。原199默认揭露位置、自有变体与独立真实图片链完成有界验收；PMA专项夹具未取得真实Program资格，未冒通过，完整alpha/profile与物理输入域仍待扩验。
+实际结果、构建身份、原图和未取得 Program 资格的用例由[对应证据](../../capabilities/runtime-evidence-current.md#image-terminal-placement-20261021)唯一维护；本节不保存移动的验收完成度。
 
 <a id="builtin-image-additive-rgb"></a>
 ## 内建图片材质的加法 RGB（2026-10-22，有界落地）
@@ -98,7 +111,7 @@
 
 源捕获继续不带terminal state的原bind；存在外层state时保原replay拒绝，完整前序graph和真实graph-final仍执行，末图仅合成一次。只在实际MainPass选择新PSO，group/任意透明RT不扩。可选PSO失败沿原source-over安全输出，不丢整层或启动；安全句柄/epoch失败仍严格拒绝。shape、custom/multi-pass、LIGHTING、其他state和高级混合维持原边界。
 
-实际动态createLayer材质Catalog仍只准translucent；本片未扩，手工prepared模板投影不等于真实动态创建支持。
+本片不授予动态 createLayer 的 additive 材质能力；手工 prepared 模板投影不等于实际动态创建支持，需要沿对应生命周期单独闭合。
 
 验收复用纯图片官方RGB板，补prepared准入/手工模板投影、非白straight/PMA与A0/0.5/1、layer alpha0/0.5/1、原Alpha结果不变、source bind不变及depth/cull/未知字段反例；有前序效果的图须证完整graph-final到末合成。改名/等价输入不改变资格。Debug后核原炫光默认/关闭亮度变化的实际颜色、三effect/GPU/次帧与健康独立样本；无实际改善或邻例回归即修正或撤回，不调作者亮度。HDR/SDR有限值沿原片元与目标，未做全HDR/任意RT/官方A或性能验收不认领。
 
@@ -107,7 +120,7 @@
 <a id="authored-direct-draw-domain"></a>
 ## 作者 direct-draw 四点域（2026-10-23，已实施，有界验收）
 
-无源 quad 的真实几何、shader 输入域与最终放置已由同一 prepared 链贯通，恢复越界光束的覆盖；光强、作者 origin 和 Linear/Radial/Corner 的效果数学继续归原作者 Program。不同光线/受光样式与声明归[光照样本清单](../../capabilities/lighting-sample-inventory.md)，执行顺序归现役队列。本节的官方输入、测量、候选失败与修后运行统一归[四点域证据](../../history/authored-direct-draw-domain-2026-10-23.md#authored-direct-draw-domain-20261023)。
+无源 quad 的几何、shader 输入域与最终放置沿同一 prepared 链传播；光强、作者 origin 和 Linear/Radial/Corner 的效果数学归原作者 Program。不同光线/受光样式与声明归[光照样本清单](../../capabilities/lighting-sample-inventory.md)，任务顺序归现役队列；官方输入、测量和实际结果归[四点域证据](../../history/authored-direct-draw-domain-2026-10-23.md#authored-direct-draw-domain-20261023)。
 
 原单位方形载体会裁掉越界四点域。官方自有 R3 板证明单位、越界矩形和越界凸四点的 polygon 覆盖，raw UV/position 的相对变化支持画布高度 H 尺度；本项目保留既有居中顶点合同 `L(p)=H*(p.x-.5,.5-p.y)`。官方与本项目窗口比例不同，CUA 原图含 ICC/JPEG，direct-draw 颜色也有共同偏移，绝对位置截距与 RGB 不据此认定为 ±2 数值一致或官方 parity。R1 缺依赖失败不作语义证据；R2 缺活跃 p0 的 UV/position 歧义由只补 witness 的 R3 消歧，不据此认领凹四边形、任意顶点位移或非仿射插值拓扑。
 
@@ -119,7 +132,7 @@
 
 nominal-output owner 现在同时表达已证 opaque 与 `.premultipliedAlpha`，signal passthrough 和 color boundary 仍优先，其他未知内容仍为 nil；这只补齐已证输出事实，不新增 shader 分类。fragment opaque 只证明覆盖内 A=1，现 attachment-storage owner 将透明 clear0 的部分覆盖颜色附件推导为 PMA；straight/PMA 表示保持，data/独立 alpha 不因此取得扩域资格。每帧沿原 clear、lease 与 publication 生命周期消除旧覆盖，物理范围/预算/旧 token 检查保持。
 
-修后同一候选 App 的四项运行已完成：R3 自有常量/UV/position 的 U/E/N 域通过真实 prepared source 到终端，R2 六格缺活跃 p0 保健康 unit 并有 typed 原因，三种方向的自有 Color 板均可见；332 layer292 实际加载 v3 几何并出现左上斜入的光束。两后端属性与透明留白、CPU 数学/准备反例及构建证据的范围由正式证据 owner 列明。原332仍有其他未准入项；独立 holdout、完整 Gradient/mask、动态点、后续过滤链、全 HDR、官方绝对 RGB/位置及性能须继续分别验收，视频和整场景状态不由本节改变。
+两后端属性、透明留白、相邻失败和实际图层结果由正式证据 owner 列明。独立内容、完整 Gradient/mask、动态点、后续过滤链、全 HDR、官方绝对 RGB/位置及性能须分别验收，视频和整场景状态不由此改变。
 
 <a id="prepared-frame-uniform-query"></a>
 ## Prepared 帧输入与统一数值查询（2026-10-23，已实施、有界回归）
@@ -132,4 +145,4 @@ nominal-output owner 现在同时表达已证 opaque 与 `.premultipliedAlpha`�
 
 验收复用真实Finalizer/Derivation正反门，补同一prepared四点binding/snapshot的几何Float2与Program uniform字节相等、wrong ABI/source、range/fallback及非有限反例；变量/资源改名不影响结果。依赖门须真实消掉两边，不调public白名单或todo上限。一次Debug、既有四点域/几何最近门和未参与修法样本实际输出/stop排空；共享设备未释放前仅记CPU/结构结果。任一原数值、失败码、Program/variant身份或生命周期回退即撤回迁移；不以目录移动、build或样本非黑冒验收。
 
-当前五个实际值定义已迁出，完整数值核由Program唯一拥有；依赖门45 todo边通过，只删一条真实退出的Projection旧登记，未扩公共白名单/预算。真实prepared四点与Finalizer独立字节/错误oracle的4方法34事实、相邻几何与路由69方法通过；数值核与DTO交叉独审无must-fix。固定5436输入无漂移、优化Debug及严格签名通过，App`d20c964f…3dc7402`。原332仍以geometry-v3/authored-quad加载292、实际encoded-output/GPU完成且左上斜光、人物视频与文字保持；独立311小提琴人物/星空/粒子保持。两原包各12s、静音/中心pointer/30FPS、3024×1964，矩阵PASS/App0/stop1→0/GPUdrain，原件/App/owned输入无漂移。执行观察关闭，不声称逐层compositor观察、官方同phase或新视觉能力；全部Finalizer/Derivation设备门、Release/HDR/多屏与性能未验。身份/必要原图、CPU失格首轮和最终4/34、69门、交叉及实际终审归`.artifacts/scene-evidence/runs/prepared-frame-uniform-query-20261023/`（普通14天），不把迁移数量计作收益。
+迁移身份、数值正反例和实际运行保存在现有证据链及 `.artifacts/scene-evidence/runs/prepared-frame-uniform-query-20261023/`；当前状态查[运行证据](../../capabilities/runtime-evidence-current.md)。本节维护唯一数值核及无反向依赖的职责，不复制方法数量、App 身份或 PASS，也不把源码迁移当性能收益。

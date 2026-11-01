@@ -1,12 +1,13 @@
 <!-- document-role: stable-contract -->
 
-# Scene GPU stage timestamp 诊断合同
+<a id="scene-gpu-stage-timestamp-诊断合同"></a>
+# Scene GPU 观测与诊断截图合同
 
-本合同限定原生一帧的公开 Metal stage 观测；现役选序归[性能卡](../roadmap/performance-convergence-card.md)，资格与边界归[原生记录](../history/gpu-stage-timestamp-qualification-2026-10-15.md)。不另建执行队列，不预支 GPU 或能耗收益。
+本合同分别管理公开 Metal stage 观测与[诊断截图](#debug-capture-lifecycle)。两者观察既有执行链，不决定普通内容的准入、资源发布或 GPU 提交。现役选序归[性能卡](../roadmap/performance-convergence-card.md)，stage 方法的资格与边界归[原生记录](../history/gpu-stage-timestamp-qualification-2026-10-15.md)。不另建执行队列，不预支 GPU 或能耗收益。
 
 ## 入口与唯一职责
 
-仅 DEBUG、显式设置绝对路径 `MWX_SCENE_GPU_STAGE_TIMESTAMPS_OUTPUT` 时启用；`MWX_SCENE_GPU_STAGE_TIMESTAMPS_DELAY_SECONDS` 默认30，合法0–600秒，从首个原帧CB开始观察后计时。实际暖态仍须核对首帧完成到选帧的间隔。每进程只消费一个请求，失败不重试；JSON最多512KiB。非DEBUG走原工厂；停用时不逐pass加锁或分配。
+本节仅管理 stage timestamps：DEBUG、显式设置绝对路径 `MWX_SCENE_GPU_STAGE_TIMESTAMPS_OUTPUT` 时启用；`MWX_SCENE_GPU_STAGE_TIMESTAMPS_DELAY_SECONDS` 默认30，合法0–600秒，从首个原帧CB开始观察后计时。实际暖态仍须核对首帧完成到选帧的间隔。每进程只消费一个请求，失败不重试；JSON最多512KiB。非DEBUG走原工厂；停用时不逐pass加锁或分配。
 
 `opt-in → 原Telemetry选定CB → 原descriptor附点/真实draw事件 → 原提交或取消 → 原completion后CPU resolve → 有界JSON`。
 
@@ -31,3 +32,47 @@ stage区间可重叠，累加不是整帧、独占成本或利用率；端点不
 本合同接管先落库并独审的有界设计；一次原生资格已使该方法可供后继同条件GPU筛选复用，设计窄登记退出。每次请求终结后退休观察和buffer，普通播放保持原提交链；方法无后继价值或失效时删hooks及门，不保第二诊断框架。
 
 公开依据：[采样](https://developer.apple.com/documentation/metal/sampling-gpu-data-into-counter-sample-buffers)、[resolve](https://developer.apple.com/documentation/metal/converting-a-gpus-counter-data-into-a-readable-format)、[时钟转换](https://developer.apple.com/documentation/metal/converting-gpu-timestamps-into-cpu-time)。
+
+<a id="debug-capture-lifecycle"></a>
+## 诊断截图生命周期
+
+截图只在 DEBUG 且显式使用 `--mwx-debug-scene-evidence-dir` 时启用。该模式为 readback 配置 surface，普通 SDR 播放保持原 framebuffer-only。`SceneDebugFrameCapture`拥有请求与独立 readback buffer，Session 负责把截图退出纳入既有停止链；它不持有第二套 Scene、资源图或输出 owner。关闭、替换、配额不足和导出失败只影响诊断请求，不能成为正常帧提交许可。
+
+### 请求与资源额度
+
+以下是可按实际内存和证据需求调整的项目诊断策略，不是 Scene 内容架构上限，也不承诺限制全部 RSS 或框架内部内存：
+
+| 范围 | 当前策略 |
+|---|---|
+| 每个 capture 的待编码 required | 最多 2 个，超额请求显式 rejected |
+| 每个 capture 的待编码 periodic | 最多 1 个，仅保留最新；被替换的已接纳请求报告 superseded 失败 |
+| 全进程在 GPU、排队或 CPU 导出的 readback buffer | 合计最多 2 个 |
+| 上述 buffer 的实际分配字节 | 合计不超过现有 resident 总额的四分之一 |
+| 每个已接纳请求 | 恰好一次 persisted 或 failed；PNG 实际写成才算 persisted |
+
+实际 buffer 只取得一份原生 allocation 租约，不能为诊断再登记相同资源的第二份成本。当前浮点导出使用 GPU 完成后的独立 buffer 原地转换；若增加可控 CPU 整帧副本，计入既有 decoded 子额。PNG 等框架内部暂存不冒充已被该额度完整覆盖。
+
+### Submit 与导出
+
+```text
+显式请求 → capture 待编码队列
+    → 原 PreparedFrame.submit 内追加 readback
+    → 原 command buffer present / commit
+    → 原 GPU completion
+    → 独立 buffer 交串行 utility 导出
+    → PNG 写成或显式失败 → 释放额度并结算请求
+```
+
+readback 只在原 submit 内、present/commit 前消费请求；cancel 或 seal 失败不消费。全进程 readback lane 暂满时请求仍留 pending，不阻塞普通提交。已选中的 stage timestamp command buffer 不追加独立诊断 readback，避免改变该次测量；请求仍由原队列等待后继提交或关闭结算。注册 completion 和 commit 前先计入 outstanding，覆盖 GPU 完成回调到导出排队的间隙。
+
+completion 只向导出队列交独立 buffer、尺寸、颜色与请求值数据，不把 drawable、源纹理或 command buffer 交给长期 CPU 工作。所有成功、GPU 失败、分配/编码失败和写入失败出口都结算请求并释放一次额度。诊断 GPU 错误与产品原提交结果分别记录，不补采、重放或伪造成功。
+
+### Close 与排空
+
+`closeAndDrain`立即拒绝新请求，把尚未编码的已接纳请求逐项结算为失败。只有 closed 且 outstanding 为零，导出 drain 才完成；GPU barrier 只证明 GPU 已终结，不能替代 CPU PNG 导出完成。
+
+Session 在 stop 清空 surface 前固定 active 与 retiring capture 集合；单个 surface 退役也保留 capture 到 GPU 与 export 均终结，失败出口不能漏掉集合。Runner 先进入 closing、拒绝迟到 launch/请求，再由唯一 Host 停止链排空；隔离 AppKit 退出沿 AppDelegate 的 `terminationReplyPending`等待并只 reply 一次。这不扩展 Web 或普通产品退出入口。外部 TERM/KILL 或框架强退不保证 graceful drain，不能添加假成功超时。
+
+### 源码与验证
+
+具体文件由[事实地图](runtime-as-built-map.md#diagnostic-source-map)维护。最近行为门为 `scene-debug-capture`，对应 `test_scene_debug_frame_capture.py`与`test_scene_debug_capture_shutdown.py`；GPU 接线变化再补真实截图与退出验证。历史设计和冻结结果分别见[生命周期设计](../history/debug-frame-capture-lifecycle-design-2026-10-06.md)和[原验收](../history/rf05-debug-capture-lifecycle-implementation-2026-10-02.md)，不代表当前环境重新运行通过。

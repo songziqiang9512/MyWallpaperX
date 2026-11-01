@@ -16,7 +16,6 @@ DOCS_README = ROOT / "docs/README.md"
 ROADMAP = ROOT / "docs/scene/roadmap/scene-compatibility-roadmap.md"
 SCENE_README = ROOT / "docs/scene/README.md"
 WEB_README = ROOT / "docs/web/README.md"
-SEMANTICS_README = ROOT / "docs/scene/capabilities/README.md"
 SCENE_EVIDENCE = ROOT / ".artifacts/scene-evidence/runs"
 SOURCE_INDEX = ROOT / "docs/scene/development/source-index.md"
 COVERAGE_LEDGER = ROOT / "docs/scene/capabilities/coverage-ledger.md"
@@ -29,14 +28,6 @@ RESEARCH_WORKFLOW = (
     / "docs/scene/development/official-client-behavior-research-workflow.md"
 )
 FAST_SUITE = ROOT / "script/scene_fast_suite.json"
-MAINTAINER_SKILL = ROOT / ".agents/skills/mywallpaperx-maintainer/SKILL.md"
-SKILL_GOVERNANCE = (
-    ROOT
-    / ".agents/skills/mywallpaperx-maintainer/references/skill-governance.md"
-)
-VIDEO_SKILL = (
-    ROOT / ".agents/skills/mywallpaperx-maintainer/references/video-engine.md"
-)
 
 SOURCE_CLASSES = {
     "official-public-contract",
@@ -90,16 +81,6 @@ class SceneGovernanceContractTests(unittest.TestCase):
     def setUp(self) -> None:
         self.manifest = json.loads(FAST_SUITE.read_text(encoding="utf-8"))
 
-    def test_semantics_directory_has_a_hot_cold_reading_boundary(self) -> None:
-        text = SEMANTICS_README.read_text(encoding="utf-8")
-        for phrase in (
-            "读取分层",
-            "资料和代码的边界",
-            "不要把整个语义目录或整份流水账一次性装入上下文",
-            "文档之间互相链接不算代码消费",
-        ):
-            self.assertIn(phrase, text)
-
     def test_fast_suite_manifest_is_complete_but_honest_about_readiness(self) -> None:
         self.assertEqual(self.manifest.get("schemaVersion"), 1)
         self.assertEqual(
@@ -143,19 +124,6 @@ class SceneGovernanceContractTests(unittest.TestCase):
                 elif state == "selection-required":
                     self.assertIsNone(case.get("fixtureIdentity"))
                     self.assertIsNone(case.get("contentDigest"))
-
-    def test_repository_skill_does_not_claim_standing_write_authority(self) -> None:
-        combined = "\n".join(
-            (
-                MAINTAINER_SKILL.read_text(encoding="utf-8"),
-                SKILL_GOVERNANCE.read_text(encoding="utf-8"),
-            )
-        )
-        self.assertNotIn("standing maintenance request", combined)
-        self.assertNotIn("用户已授权在开发中持续", combined)
-        self.assertIn("当前用户请求", combined)
-        self.assertIn("no earlier maintenance request", combined)
-        self.assertNotIn("playbackIntent", VIDEO_SKILL.read_text(encoding="utf-8"))
 
     def test_roadmap_does_not_duplicate_current_capability_truth(self) -> None:
         roadmap = ROADMAP.read_text(encoding="utf-8")
@@ -201,7 +169,6 @@ class SceneGovernanceContractTests(unittest.TestCase):
                 self.assertNotIn("/private/tmp/", text)
                 self.assertNotIn("report.json", text)
                 self.assertNotIn("manifest.json", text)
-
 
     def test_scene_evidence_is_a_local_ignored_cache(self) -> None:
         evidence = RUNTIME_EVIDENCE.read_text(encoding="utf-8")

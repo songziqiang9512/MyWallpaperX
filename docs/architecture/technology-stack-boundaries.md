@@ -30,7 +30,7 @@
 
 ## 1. 产品基线与迁移目标
 
-**硬件目标：仅支持 Apple Silicon（arm64），不承担 Intel／Rosetta 产品兼容。** 自有 App、helper、compiler/VM worker 的发行构建统一 arm64；第三方嵌套二进制必须具备可原生执行的 arm64 slice，不为减包盲目修改供应商签名。默认覆盖最低系统允许的 M1 及更新设备，具体 Metal 能力按 device/pipeline 查询，不把最新芯片能力作为全机型前提。最低 macOS 版本由构建与发布配置统一声明；取消 Intel 支持不等于提升最低系统版本。此处是目标合同，优化边界见[顶层设计](../scene/roadmap/engine-refactor-program.md#apple-silicon)，设备与性能验收归[性能卡](../scene/roadmap/performance-convergence-card.md)。
+**产品平台：macOS 26 及以上，仅支持 Apple Silicon（arm64），不承担 Intel／Rosetta 产品兼容。** 自有 App、helper、compiler/VM worker 的发行构建统一 arm64；第三方嵌套二进制必须具备可原生执行的 arm64 slice，不为减包盲目修改供应商签名。覆盖 M1 及更新目标设备，具体 Metal 能力按 device/pipeline 查询，不把最新芯片能力作为全机型前提。构建与发布配置保持同一最低系统声明，系统版本调整是独立验证事项。优化边界见[顶层设计](../scene/roadmap/engine-refactor-program.md#apple-silicon)，设备与性能验收归[性能卡](../scene/roadmap/performance-convergence-card.md)。
 
 产品基线是 Swift-first 的原生 macOS 工程：AppKit 承担 App 生命周期、主界面、窗口和桌面宿主，SwiftUI 只作为 [AppKit 迁移计划](appkit-migration.md)列出的受控残留；Swift 承担产品模型、播放生命周期与 Scene host/runtime 所有权，Metal 承担 Scene GPU 执行，Python 承担测试、矩阵和开发自动化。通用 JavaScript VM、shader compiler 或隔离 service 当前是否已取得产品执行权，不在长期合同中保存移动快照；只由当前源码、对应专项覆盖表和运行证据索引裁决。
 
@@ -83,7 +83,7 @@ sample ID、layer ID、路径、hash 和资产名称可以用于装载作者声�
 
 ### 3.2 失败按风险分级
 
-- 路径逃逸、越界 GPU range、资源/时间/内存预算、target hazard、stale handle、生命周期破坏、VM/compiler timeout 或 OOM 等安全与状态完整性问题 hard fail。
+- 路径逃逸、越界 GPU range、实际在用资源或执行超过硬预算、target hazard、stale handle、生命周期破坏、VM/compiler timeout 或 OOM 等安全与状态完整性问题拒绝最小不安全单元。可选缓存满、缺失或损坏只跳过缓存并沿原读取链重建，不成为壁纸播放许可。
 - shader/pipeline、optional provider、单个 effect/pass/script binding/particle system 等局部视觉问题默认 fail soft：停用失败单元，保持可安全执行的 base layer 和其他对象，并输出 typed status。
 - optional 输入使用作者默认、关闭 combo 或保持原始输入；未知且未被消费的非关键 metadata 保真并告警。
 - 不得伪造资源、target、history 或 binding，也不得静默切换到语义不同的算法。
@@ -128,8 +128,9 @@ Video、Web、Scene 采用一致的控制面/播放面隔离：主 App 管用户
 ## 4. 目标运行单元
 
 ```text
-MyWallpaperX.app                                  Swift + AppKit
-  -> Scene execution domain                      Swift + Metal
+MyWallpaperX.app                                  Swift + AppKit，用户意图与系统采集
+  -> 同二进制 Scene daemon                       独立 AppKit 播放进程
+     -> Scene Session / execution domain          Swift + Metal
        -> Scene IR / state / resources            Swift
        -> material + RenderGraph contracts        Swift
        -> SceneScript domain                      ECMAScript VM + Swift host bridge
@@ -137,10 +138,12 @@ MyWallpaperX.app                                  Swift + AppKit
        -> GraphExecutor / compositor              Swift + Metal / MSL
   -> compiler subprocess harness（开发隔离项）    无产品执行权、可终止
   -> compiler worker（条件隔离项）                in-process fault proof 不成立时采用
-  -> renderer helper app（条件评估项）            仅在窗口与恢复证据成立时
+  -> 每表面呈现                                  由现役 daemon 持有，不重复引入 helper
 ```
 
-compiler 在 scene load 或 variant 变化时工作，不持有 drawable、长期 GPU 资源或真实 Workshop 根目录权限。开发 harness 先稳定输入/输出协议；产品采用 in-process backend 还是 worker，按上一节的故障证明门决定。脚本按 surface 隔离，以批量 snapshot/mutation 与 Swift 交换，避免细粒度跨语言调用。renderer 的进程拆分晚于协议和每帧交换粒度稳定，不为形式分层提前引入。
+compiler 在 scene load 或 variant 变化时工作，不持有 drawable、长期 GPU 资源或真实 Workshop 根目录权限。开发 harness 先稳定输入/输出协议；编译执行的隔离形态与 Scene 播放进程分开决策，按上一节的实际故障边界选择。
+
+每个 Scene Session 独占一个 QuickJS domain；typed consumer 共享该 domain 与一次 simulation update，各 surface 消费已提交快照并保留自身投影、target、history 和提交资源。依赖屏幕输入的必要 CPU 状态由 Session 按实际身份组织，不建立第二 VM 或时钟。产品已采用同二进制独立 AppKit Scene daemon，控制协议只传会话级数据，draw、pass 与 VM 调用保持 daemon 内；不重新建设待评估的 renderer helper。
 
 ## 5. SceneScript 路线
 
@@ -155,7 +158,7 @@ VM 首次进入受控开发产品路径前至少满足：
 1. 项目 fixture 覆盖代表语法、module、数值、host API 和 lifecycle 正反例；
 2. 默认无 DOM、Node、WebWorker、文件、网络和任意 native module；
 3. heap、stack、单次执行、每帧总预算和 job/timer 数量有可测上限；
-4. surface domain、handle generation、reload 和 teardown 相互隔离；
+4. scene/session domain、handle generation、reload 和 teardown 相互隔离；
 5. 无限循环、异常、OOM、stale handle 和销毁竞态不会杀死主 App；
 6. 跨 VM/Swift 调用按帧批量化，并记录最小 CPU/内存基线；
 7. 上游、固定版本、许可证和可重复构建已登记。

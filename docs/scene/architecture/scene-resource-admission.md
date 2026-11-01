@@ -6,7 +6,7 @@
 
 ## 目标与所有权
 
-当前各屏 target pool、粒子 buffer 和 decode cache 分别限额，不能限制多屏或 active + candidate + retiring 的叠加峰值。增加唯一进程级 SceneResourceBudget，作为这些资源的总准入权威；已有本地预算保留为各 owner 的子上限，不是独立总额度。它只记字节和租约，不注册资源 identity、provider 或 graph，不替代它们的生命周期。所有 Scene 原生 Metal 分配及视频导入通过同一入口预留；decode cache 保留操作同时进入该总账。
+唯一进程级 `SceneResourceBudget` 是各屏 target pool、粒子 buffer、decode cache 及 active + candidate + retiring 叠加驻留的总准入权威；各 owner 的本地预算是它的子上限，不是独立总额度。它只记字节和租约，不注册资源 identity、provider 或 graph，不替代它们的生命周期。所有 Scene 原生 Metal 分配及视频导入通过同一入口预留；decode cache 保留操作同时进入该总账。
 
 总上限为 Metal recommended working set 的四分之一，封顶 3 GiB；设备未给建议时用 512 MiB。decoded cache 在此总账内另限总额四分之一，避免可重建缓存吃完 GPU 额度。性能配置降低本地 cache 上限不撤销已被使用的资源，只拒绝新增。此预算是应用可控 resident admission，**不等于进程 RSS 或 OS OOM 保证**：VM/解析对象、解码器瞬态和 AVFoundation 私有缓冲、driver/pipeline 内存、CAMetalLayer drawable 是未计入项；后者保持原有平台/单对象限制，不能在报告称全进程硬上限。
 
@@ -51,9 +51,16 @@ RF05（2026-10-02）纠偏属于①跨 Host/资源/provider 与②唯一资源�
 先以真实 pool/准备/提交门覆盖冷暖、多 graph、无关 resident、history、重复 generation、pin 与取消反例，再用短消融比较整体 CPU/准备成本及内存；显著收益才进入工作卡正式多轮对照、独立样本画面与最终独审。单 graph 或密集 resident 反例恶化、正确性退化或两次有区分力试验无收益时修正/撤回，不以局部查询计时替代整体收益。
 
 
+<a id="static-model-resource-admission"></a>
 ## 大型静态模型准备后继（已实施）
 
-大型模型的完整校验、累计工作预算及分块identity合同已并入[运行架构](runtime-architecture.md#34-通用执行不等于单体-renderer)相邻静态模型段；真实反例、取舍、CPU/GPU成本与剩余土星画面问题见[实施后验](../history/l1-heavy-retest-2026-10-07.md#large-static-model)，不再作为未执行工作卡。
+**入口与一次准备。** `SceneMdlStaticModelReader` 完整验证其消费的模型结构后才发布各 part，保留各段几何、局部索引、材质身份与作者绘制次序。`SceneRuntimeSourceFacts` 对每个唯一模型读取并解析一次，材质 links 与 GPU 准备消费同份 launch 局部 `PreparedSource`；`ScenePreparedStaticModelResources` 取得该值后移除源引用，完成上传交接后释放 CPU 准备对象。GPU 上传不重读文件或重复入口证明，普通帧不解析模型。不得恢复独立 metadata 全扫或用整模型序列化/哈希副本替代既有来源身份。
+
+**当前解析与工作预算。** MDLV0023 静态多段没有固定段数或材质路径字节白名单；路径由源内首个 NUL、合法 UTF-8 及既有相对资源路径语义界定。MDLV0016 与 rigged-bind 当前仍限单段。reader 对整个模型累计限制顶点输入 **256 MiB**、索引输入 **32 MiB**；段数、路径长度或单段大小不能替代真实字节范围、索引及累计预算检查。此处记录现有 reader 范围和准备成本策略，不把版本、单段或数值上限定为所有未来合法模型不可扩展的架构限制；扩展应在同一 reader 内证明所消费结构并复核实际成本。
+
+**CPU/GPU 边界与失败。** 64-byte 解码顶点及 UInt16→UInt32 索引等 CPU 准备瞬态不进入 GPU 父账；上传按实际 buffer 分配申请原父租约，因此输入预算不承诺进程 RSS 硬上限。坏的必需结构拒绝整个模型，不跳过损坏字节伪造完整成功；已合法解析模型的 mesh 上传或材质准备可按 part 局部退化，成功子集须保留不完整状态。重新 load 可重试，不承诺 partial cache 在原会话内自动补齐。普通帧、绘制次序和资源释放继续由原 model pipeline、Session 与资源租约负责，不新增模型专用预算或生命周期 owner。
+
+256 MiB 顶点预算、真实反例、CPU/GPU 成本与剩余画面问题见[大型模型实施后验](../history/l1-heavy-retest-2026-10-07.md#large-static-model)，多段材料过程见[RF16 记录](../history/rf16-model-material-segments-implementation-2026-10-03.md)。旧实施中的 identity 分块取舍保留在历史，不据此要求当前运行链新增几何摘要；bind-only 与 named 材质消费分别归[几何合同](../capabilities/direct-model-bind-geometry.md)。
 
 ## 同帧有序合成分段（已撤回）
 

@@ -61,9 +61,9 @@ allocation 未完成、encoder 创建失败或 command buffer 失败不能 advan
 
 本节替换 F5 的“首次消费前 main 前缀”项目策略，仅批准下述有界后继，不将 D12 其余触发点计为完成。用户结果是：合法作者 `_rt_MipMappedFrameBuffer` 读取与默认反射使用同一份历史 scene color，后置层也能进入下一次可读画面；不按 sampler 槽号改变资源语义。
 
-**分批裁决。** A 先纠正现有默认 F5 的真实历史源；独立设计审查接受其下述 member、intent、drawable 与 mandatory 保护边界。A 仅按现已准入的 builtin 反射消费需求生成历史，不开放作者 sampler，也不需要将零强度 flag 升为 producer。B 才实现第1项的 scene prerequisite/demand 汇总及第6、7项的作者绑定/回退；B 保持 `blocked-pending-design`，不得将 A 通过写成 B 可用。
+**分批关系。** A 纠正默认 F5 的真实历史源，B 接入 scene prerequisite/demand 汇总及作者绑定/回退。A 的通过不能证明 B 可用；B 的后继设计已在下节[实际资源准备与 Program 完成分相](#rf04-b-admission)裁决为 `approved`，不继续保留早期 `blocked-pending-design` 状态。设计批准与实际产品验收分别记录，已执行范围查[运行证据](../../capabilities/runtime-evidence-current.md)。
 
-B 的实际阶段环已确认：`admitResolvedMaterialFrameTargets` 的实际 Program finalize 在 `reserveOptionalEffectScratch` 之前；F5 可保存延迟闭包，作者 sampler 却需要真实 ready candidate。下述 [B 待实验合同](#rf04-b-admission)先验证共用 cache 的真实回收时点，再裁决 actual mandatory lease admission 与 Program finalize 的分离；仍为 `blocked-pending-design`。B 不反向阻塞 A，也不能借 A 的运行验收开放作者接口。
+B 的原阶段环来自 Program finalize 早于可选 scratch reservation、而作者 sampler 需要真实 ready candidate。原实验与弃选理由保留在[实施记录](../../history/rf04-completed-scene-environment-implementation-2026-10-03.md)，当前分相、mandatory 保护与失败半径由下节唯一维护。
 
 ### 新证据与可实施边界
 

@@ -147,7 +147,7 @@ XY超出单位圆时，方向落在正半球赤道并归一化，缺失Z取零�
 
 **准备与旧路径退出。** `ScenePreparedStaticModelResources` prepare沿`SceneResourceView`的package/loose/stock优先级排除同名generic4作者override，读取静态MR；非法或未解析user/script/Timeline仅不准入该可选profile，有限超域夹至0…1。material/viewTint值对象归`SceneStaticModelMaterial.swift`，两个dynamic copy保同一typed profile；普通帧只读prepared值与snapshot。新profile的point/spot退出0.30，directional按后继接入；albedo与材质色先合成，F0限制反射率域，镜面不重复乘albedo，coverage/雾/最终合成各一次。`.5 g_Color/无纹理`与`gray128纹理/白g_Color`保持等价。视角双色在原片元复用`materialFlags.w`：无Tint Mask使用signed facing，mask保既有bounded exponent；统一Float tint乘法，移除端点/乘法的提前Half，后续legacy光照Half边界仍在。此[有界修复](../../history/model-view-tint-2026-10-28.md)不扩展profile、mask纹理混合、动态MR或完整Chroma/HDR。ambient/emission与PMA/depth/取消仍归原职责。
 
-**范围与验收。** 上述六产品职责外，`SceneMaterialPropertyBindingCompiler`以完整scalar的显式选项验证新profile，旧调用默认不变。材质值对象整体搬出，pipeline从959行降至833行，不制造wrapper。复用最近typed profile/copy/ABI、2D PBR scalar/normal/HDR门；隔离Debug及GPU由统一运行owner验证H1–H10、灰纹理pair、旧directional/legacy/shadow及2D不回退，独审后才能声明本片验收。缺optional profile不夺整层；原资源安全边界不放松。稳定职责已移交[运行时架构](../../architecture/runtime-architecture.md)，窄登记退役；[实现与有界验证](../../history/static-model-light-input-semantics-2026-10-06.md#model-surface-response)归历史，未证范围保留。
+**范围与验收。** `SceneMaterialPropertyBindingCompiler`以完整scalar的显式选项验证该profile，旧调用默认不变。复用最近typed profile/copy/ABI、2D PBR scalar/normal/HDR门；隔离Debug及GPU由统一运行owner验证H1–H10、灰纹理pair、旧directional/legacy/shadow及2D不回退。缺optional profile不夺整层；原资源边界不放松。上述稳定职责由本节维护，窄登记已退役；[实现与有界验证](../../history/static-model-light-input-semantics-2026-10-06.md#model-surface-response)归历史，未证范围保留。
 
 **2026-10-10方向光消费补接（实施前决策）。** 同几何、相机、实际作者方向与强度的官方四法线黑盒对照中，唯一改变metallic从0到0.14，正受光面由238降至190；Native保持229，证明已准入profile在directional consumer被绕过。沿现有typed material及point/spot共用表面求值接入directional，删除该分量对已准入profile的旧旁路，不新建材质或光照算法。nil profile保持legacy；作者override、非法或动态MR保持既有准入/局部退出，不扩大shader准入。world/normal、shadow可见因子、ambient/emission、资源及唯一输出不迁移。验证限定同输入官方pair、无profile旧输出、point/spot及unlit/emission反例，再做冻结App的土星有影无Bloom与原完整包；若共享求值不能解释对照，停止该候选并继续定位，不用gain拟合。方向光新增消费与完整PBR/全样本parity分别验收。
 
@@ -404,7 +404,7 @@ MR继续用既有tier默认和合法slot2 R/G替代规则，reflection-only也�
 
 2026-10-03的官方有界时序证据推翻本片先前采用的“首次消费前main前缀”项目策略。该旧策略及其验收只作为[历史实施记录](../../history/d3-reflection-environment-implementation-2026-10-02.md)保留，不能继续约束当前运行源。后继裁决统一由[D12 RF04](copy-pass-unification-design.md#rf04-completed-scene-environment)拥有；A迁移默认F5至已完成raw历史，B作者sampler已按D12独立分相合同实施，有界验收不由F5原批准状态推定。
 
-稳定的唯一history owner、snapshot/persistence、mandatory优先级、真实producer receipt和失败/退出合同见[运行时架构](../../architecture/runtime-architecture.md)。plain与graph仍在实际source capture前消费同一个执行期解析闭包；prepared payload不冒充ready，原provider与作者合成顺序不变。无历史时沿原unlit source/draw降级，不改变合法direct分量或制造假纹理。两个surface各用其原pool、frame epoch与completion，不相互借历史。以下保留独立材质数值策略，其scene取样源服从RF04，不再表示当前main前缀。
+唯一history owner、snapshot/persistence、mandatory优先级、真实producer receipt和失败/退出合同由[D12 RF04](copy-pass-unification-design.md#rf04-completed-scene-environment)维护。plain与graph仍在实际source capture前消费同一个执行期解析闭包；prepared payload不冒充ready，原provider与作者合成顺序不变。无历史时沿原unlit source/draw降级，不改变合法direct分量或制造假纹理。两个surface各用其原pool、frame epoch与completion，不相互借历史。以下保留独立材质数值策略，其scene取样源服从RF04，不再表示当前main前缀。
 
 ### 独立数值方法与坐标职责
 
@@ -469,9 +469,18 @@ Launch现有profile normal/map聚合应能自然接入，不为环境建立第�
 
 
 <a id="f6-model-directional-shadow"></a>
-## F6 — 静态模型单方向光阴影（有界实现已验收）
+<a id="model-shadow-contract"></a>
+## F6 — 模型阴影与共享资源合同
 
-下文保存directional首片边界；后继聚光与完整球域点光的现役职责见[架构](../../architecture/runtime-architecture.md)，范围与证据见[RF14记录](../../history/rf14-model-spot-shadow-implementation-2026-10-02.md)、[RF15记录](../../history/rf15-model-point-shadow-implementation-2026-10-03.md)，不以首片的单图描述覆盖现多图owner。
+**当前多灯接线。** 三类灯共用原 `SceneLightSnapshot`、模型 prepared draw、`StaticModelFrame`、target pool 与唯一颜色输出。当前总四灯准入内，首个 cast-on directional 优先，其后 cast-on spot、可照亮静态模型的 cast-on point 各保作者顺序，使用同一最多四项 typed 记录与固定 ABI。原 pool 按本次候选位置提供有界 slot；单灯失败不压缩后续 slot，不按历史 light identity 积累缓存。mandatory 与模型主颜色只准备、消费一次，不随灯数重复。该数量是当前灯预算，不是未来多灯能力的永久架构限制。
+
+**投影与发布。** directional 以合格 caster/receiver bounds 拟合；spot 的作者 inner/outer 都是轴线到边缘角，snapshot 与投影共用，outer≥90°仅省略可选 shadow 并保 direct。point 每灯使用一张3×2六面 atlas，以径向深度覆盖完整球域，六面全部写完才发布；逐 tap 跨面，不能将相邻 tile 当连续图线性过滤。当前每面1024像素是项目质量策略。每灯 publication 绑定 frame epoch、light identity、allocation generation、投影、实际 texture 与同一 command buffer；模型只读该帧完整记录，不借前帧遮挡。范围与有界证据归[RF14](../../history/rf14-model-spot-shadow-implementation-2026-10-02.md)、[RF15](../../history/rf15-model-point-shadow-implementation-2026-10-03.md)。
+
+**几何、过滤与失败。** 三类 caster 以片元真实几何计算灯深度；receiver 的真实几何面校正到实际采样射线，导数在非一致分支前求值，不能用材质插值 normal 替代。共享 texel 中心四点加权 footprint，directional/spot 保边界夹紧，point 保逐 tap 跨面与射线重建；无效 tap 以原权重回无影，不重归一。这是项目过滤策略，非官方 kernel。可选 PSO 必须具备所需 vertex/fragment；无 fragment 的合法 Metal depth PSO不能冒充覆盖或自定义深度成功。只衰减对应灯 direct，保其他灯、ambient、emission、alpha与唯一输出，不以失影关闭整灯或整模型。
+
+**原资源生命周期。** 先保护实际 mandatory graph/history/group、scene-color、模型/粒子 depth、framebuffer 与终端需求，再尝试 shadow；只消费真实可绘集合，不另建需求账或预估余量。资源不足、caster不完整或当前 snapshot 单槽无法覆盖多个实际 target 时，仅关闭本次可选 shadow，原颜色保留；identity、epoch、reservation、publication 非法仍由原 owner 拒绝。已编码但未能发布的 map 也保原 pin 至 command buffer completion；未提交才 cancel，预算到最后资源引用退出才返还，不新建 shadow pool/registry。
+
+下文保留 directional 首片的输入、材质与深度边界；出现旧单灯描述时，以本节上述多灯接线为当前合同。真实首片反例与实施身份归[directional 执行历史](../../history/d3-model-directional-shadow-implementation-2026-10-02.md)，不以其单图验收覆盖后继。
 
 ### 目标、证据与范围纠正
 
@@ -480,7 +489,6 @@ Launch现有profile normal/map聚合应能自然接入，不为环境建立第�
 - `official-public-contract`：[3D Advanced Lighting](https://docs.wallpaperengine.io/en/scene/models/lighting.html) 明确 point/spot/directional 均支持、灯须开启投影、模型默认投影且可逐模型关闭；[模型介绍](https://docs.wallpaperengine.io/en/scene/models/introduction.html)允许 2D Scene 含真实 3D 模型。它们不公开投影数学、透明度规则或序列化字段。
 - `third-party-reference-pattern`：[Mirage 中性参考 §8.4](../../development/reference/miragewallpaper-rendering-reference.md#84-lightingfogshadow-和-volumetrics)记录 flags/uniform、缺 shadow atlas 及正交 image 抑制整灯。只采用输入/职责边界，不继承关整灯策略，不复制实现。它不能证明 image 投影合同。
 - `authored-corpus-observation`：只读 207 个合法包的 scene JSON，`3589454154/scene.pkg::scene.json:1206` 的 directional 259 声明 `castshadow=true`，同场 24 个 model 中 21 个省略、3 个显式 false；无 `receiveshadow` 声明。两个开启 spot 的样本没有对应默认 model caster。因此替换旧 one-spot 优先级，选择 directional。模型 metadata 中至少两个仍触及现 reader 上限，声明数量不是运行准入或受益数量。完整作者场景须另测，不能把模型缺省值当成所有模型已经绘制。
-- `MyWallpaperX-current-evidence`：以下路径前缀均为 `MyWallpaperX/Core/SteamWorkshopScene/`。`Format/SceneDirectionalLightDefinition.swift:7–20` 未投影 cast；`Rendering/Lighting/SceneLightSnapshot.swift:8–30` 没有灯身份/投影意图；model 的 object→descriptor 没有 cast 字段。`Resources/Textures/ScenePreparedStaticModelResources.swift:9–19` 已持有 mesh、typed albedo、material；`Rendering/Frame/SceneMetalRenderer.swift:744–855` 已从同帧 world/snapshot 画真实模型。`Rendering/Composition/SceneStaticModel.metal:146–154` 的 coverage 排除 tint-mask alpha。上述为静态首断点，旧 App 实际反例另验。
 
 ### 输入和唯一 owner
 
@@ -498,13 +506,11 @@ Launch现有profile normal/map聚合应能自然接入，不为环境建立第�
 
 一个 1024×1024 depth32Float 目标是本项目有界质量选择，非官方上限；本片不增加假质量 UI。用当前合格 caster/receiver 的 world bounds 和唯一方向光构造正交灯空间，覆盖主相机外、作者顺序较晚的 caster，不使用 F5 主画面前缀或屏幕深度。方向近坐标轴时采用确定的稳定 basis；平面/薄 bounds 给有限安全深度区间。bounds、偏移和深度比较的数学由本项目独立实现，有限邻域比较必须按实际接收几何平面把比较深度校正到各采样 texel 中心，只保有限精度所需的数值偏移：先从真实 world 导数求灯空间平面，数值裕量涵盖 world→shadow 变换及斜面传播的运算量级；其固定保守系数是项目策略，不是全域 GPU 误差定理。越过 map 有效深度域的外推 tap 只局部回无影并保留原权重；不能靠放大全局偏移吞掉近间隙真遮挡。真实几何导数与材质插值法线职责分开，光线趋于几何切面等退化输入只局部回无 shadow 分量；远近、clear 与 compare 方向配套，不误借相机 reverse-Z。不能按 sample、层名、路径或截图调整算法。范围扩大降低精度属于本质量边界，须有不同尺度/相机/变换的独立反例。
 
-**2026-10-10过滤修正（实施前决策）。** 土星同姿态有影无Bloom对照的差异集中于阴影过渡边缘。冻结实际27个prepared part及其中24个caster重放，保留真实alpha、UV、采样与绕序；去掉球体caster后该receiver区域全亮。同一深度图仅改变过滤的诊断确认现有9点比较扩大灰色过渡，尚未证明投影中心或贴图分辨率错误。优先验证沿现有shadow consumer以texel中心对齐的四点加权比较替换9点过滤；这是公开基本插值的项目实现，不声明官方kernel。沿同一共享采样职责供directional/spot/point使用，保留各自几何平面校正、边界权重和精度保护，不增加质量分支、资源或最终输出链。增大map有平方资源成本，重拟合会改变全caster投影，均不是本批首选；单点硬边仅作诊断，不交付。先在固定深度图验证过渡收窄且中心无异常移动，再验三光型、立方体接缝、薄片与近间隙真遮挡、alpha及自阴影反例；任一旧能力回退即停止候选，不能放大bias或排除合法caster。隔离Debug和原完整样本运行、独立审查后才更新当前验收；未通过前现役质量仍是旧实现。
+过滤与 caster 深度的职责已由上述三光型合同接管；旧9点/四点对照、细长共面三角首断点与实施前取舍保留在[几何灯光实施记录](../../history/static-model-light-input-semantics-2026-10-06.md)。回归继续覆盖三光型、立方体接缝、薄片与近间隙真遮挡、alpha、自阴影和细长共面几何；不能通过放大 bias、关闭合法 caster 或提高分辨率掩盖错误，不据机制门认领整体性能。
 
-**同批caster首断点补接。** 真实前环反例否决了仅换过滤的候选：固定投影下移除ring caster即消失，独立几何复算显示相邻共面三角与stored depth不一致。分离实验中，只补directional caster的片元几何depth即可让旧9点与新四点都消除暗线，且coverage、alpha及上后真实球体阴影保留。将directional接入现spot/point已有的片元几何depth职责，保原coverage/cull/投影及receiver比较，不增加bias、资源或按材质退出。非有限、几何退化或域外只拒绝当前不安全投影片元，不能关闭整模型；实现审查须核每项失败条件的真实产生者。代价为directional caster增加片元几何计算，性能待测。产品实施前先保存本决策；实施后保薄片、近间隙、倾斜面与alpha门，并增加自有细长共面几何的真实GPU反例；旧9+depth与四点+depth分别验因，最终三类灯及完整土星再验。
+已准入caster的透明覆盖策略为硬 cutout 阴影：采用原材质与 layer opacity、原 coverage alpha 共同决定是否覆盖；覆盖不超过一半的片元不投影，其余写灯深度。tint-mask alpha 不参与 coverage。该阈值和半透明不产生透射色是独立项目策略，非官方 alpha/parity 结论；不得因为 writesDepth 关闭便认为该材质不是 caster，也不得让透明 texel 整块遮挡。固定 zero/partial/opaque 与 tint-mask 对照。caster与颜色读取相同 prepared draw、实际 albedo/frame/sampler；现已准入的动态 named graph-final 沿[模型 named 合同](../../capabilities/direct-model-bind-geometry.md#model-effectful-named-output)消费同帧 publication，不借 stale texture，未准入 provider 仍只局部缺影。
 
-已准入caster的透明覆盖策略为硬 cutout 阴影：采用原材质与 layer opacity、原 coverage alpha 共同决定是否覆盖；覆盖不超过一半的片元不投影，其余写灯深度。tint-mask alpha 不参与 coverage。该阈值和半透明不产生透射色是独立项目策略，非官方 alpha/parity 结论；不得因为 writesDepth 关闭便认为该材质不是 caster，也不得让透明 texel 整块遮挡。预先固定 zero/partial/opaque 与 tint-mask 对照。首片 caster 使用现 ready 静态 albedo 与无变形 mesh；尚未可消费的 named/provider caster 明确局部不提供该 caster 阴影，原模型/灯照明保留，不能借 stale texture。动态 provider caster 是独立后继，不能声称本片完整覆盖它。
-
-同帧 light-space target 成功写入后才交给模型 receiver；receiver 使用自己的真实 world position，只调整选中方向光的 direct diffuse，保留 ambient、emission、其他灯、材质颜色/alpha、HDR 和后处理。cast=false 模型仍可接收。无当前 map、超额 shadow 灯或未支持光型保持原 direct，不能关整灯、改 image 受光或复用上一帧遮挡。
+同帧 light-space target 成功写入后才交给模型 receiver；receiver 使用自己的真实 world position，只调整对应灯的 direct 分量，保留 ambient、emission、其他灯、材质颜色/alpha、HDR 和后处理。cast=false 模型仍可接收。无当前 map、超额 shadow 灯或未支持光型保持原 direct，不能关整灯、改 image 受光或复用上一帧遮挡。
 
 ### 资源、失败与生命周期
 
@@ -556,6 +562,7 @@ one-spot 草案无当前可证 caster 受益，故后移；point 需要完整全
 **仍开放：正交距离域。** 官方常密度有响应，但两项距离控制全黑，不足以确定eye/距离；本片不启用正交画布或其perspective override，也不把solid terminal replay等未验路径记为支持。后继先用可见健康邻层及不饱和分段标尺区分Fog距离与失败，再沿现camera owner输出typed位置；不得猜默认距离、复制Fog或按样本分支。修复后验证距离、完整model变换、透明/shape、关闭和raw不变，补官方同输入、实际App与独立审查；全部profile闭合再退役本节。
 
 <a id="ordinary-effect-light-host-inputs"></a>
+<a id="ordinary-effect-lighting-host"></a>
 ## 普通 effect 宿主灯光输入（2026-10-21，point 正交首片）
 
 **目标与首门。** 原299默认流体的normal颜色首拒已由共享alpha-only合同解除；后继combine node17在vec3 `g_LightsPosition[4]`、vec4 `g_LightsColorPremultiplied[3]`数组拒绝，整effect仍透传。只开放数组语法不能补宿主来源；不重写流体、PBR或另建光照算法。公开[Shader Variables](https://docs.wallpaperengine.io/en/scene/shader/variables.html)说明effect→world矩阵及旧point灯参数，未裁定此三向量颜色打包、强度/半径、空槽或选择顺序。
@@ -564,13 +571,13 @@ one-spot 草案无当前可证 caster 受益，故后移；point 需要完整全
 
 **职责与数据流。** 同一SceneLightSnapshot采集循环同时发布native准入灯与不可变ordinary宿主投影；point的零半径候选须在native拒灯前保slot来源，不能重扫scene、重复执行脚本或从shader反推值。把现唯一快照生产移到Program beginFrame之前，原native消费者继续消费同值；typed全局值沿现FrameInputs→frame snapshot→UniformInputs→HostUniformSchema/Program/encoder，不在RuntimeBridge重复储存全局数组。正交render-world→authored-world变换由同投影发布，灯位置与effect模型共用，native消费者的坐标及预算不改。现2D lit gain、ambient+skylight及四灯payload不作为此ABI。
 
-**精确准入。** 首片只开放effect上下文的vec3 `g_LightsPosition[4]`、vec4 `g_LightsColorPremultiplied[3]`、vec3 `g_LightAmbientColor`及mat4 `g_EffectModelMatrix`。数组元素各16字节，分别64/48字节；两frontend、反射、工件和真实encoder同合同，generic历史scalar数组`.x`解包不得吞vec数组分量。正交、最多四个可见point按作者顺序；零半径合法，负/非有限/不可表示值局部拒绝且不伤其他typed值，正Double到Float零沿同静态量化。lpoint/spot/directional、超过四灯选择及native perspective的legacy宿主语义未裁，保持该宿主需求局部unavailable，原native路径不受影响。
+**精确准入。** 当前只开放effect上下文的vec3 `g_LightsPosition[4]`、vec4 `g_LightsColorPremultiplied[3]`、vec3 `g_LightAmbientColor`及mat4 `g_EffectModelMatrix`。数组元素各16字节，分别64/48字节；两frontend、反射、工件和真实encoder同合同，generic历史scalar数组`.x`解包不得吞vec数组分量。保留名的错误type/count、无effect上下文及作者来源冲突拒绝对应pass，不回退作者常量。正交、最多四个可见point按作者顺序；零半径合法，负/非有限/不可表示值局部拒绝且不伤其他typed值，正Double到Float零沿同静态量化。lpoint/spot/directional、超过四灯选择及native perspective的legacy宿主语义未裁，保持该宿主需求局部unavailable，原native路径不受影响；这些是当前证据与producer范围，后续仍沿同一快照和host schema扩展。
 
-**几何与失败。** 现geometry owner在乘camera VP前保实际unit-card→render-world模型，与原output MVP同行；每个node按其实际target W/H右乘pixel→unit，再经上述共享world边界生成EffectModel。父变换、Y方向、pivot/alignment、parallax与geometry尺寸只应用一次；不从屏幕或采样源尺寸猜、不用layer frame/terminal replay冒充。先支持已有world card的局部geometry；canonical clip/fullscreen若无已证world平面则该字段unavailable。未引用的声明不制造需求。四个新增可选host的缺值使用typed `hostUniformInputUnavailable`，仅经原topology及effect-entry回滚门局部透传；畸形ABI、非有限payload、字节跨度异常与旧host失败继续严格拒绝，不填identity或新建renderer。
+**几何与失败。** 现geometry owner在乘camera VP前保实际unit-card→render-world模型，与原output MVP同行；每个node按其实际target W/H右乘pixel→unit，再经上述共享world边界生成EffectModel。父变换、Y方向、pivot/alignment、parallax与geometry尺寸只应用一次；不从屏幕或采样源尺寸猜、不用layer frame/terminal replay冒充。先支持已有world card的局部geometry；canonical clip/fullscreen若无已证world平面则该字段unavailable。位置、颜色、ambient与basis分别保留availability，只拒绝实际需要而缺值的需求；未引用的声明不制造需求。取消/endFrame撤销该帧输入，下一帧重新冻结。四个可选host的缺值使用typed `hostUniformInputUnavailable`，仅经原topology及effect-entry回滚门局部透传；畸形ABI、非有限payload、字节跨度异常与旧host失败继续严格拒绝，不填identity或新建renderer。
 
 **研究停止与后继。** 本片数值裁决已够实施，停止扩实验矩阵；保有限区间和候选相容表，不把clamp黑白当精确原值。后继仅当新的真实断点要求其他灯型、选择或world平面时再做区分实验；当前没有证据的profile不扩准入。
 
-**验收与退出。** 两frontend/反射/数组stride、host来源冲突、动态同帧值与无效输入反例，source/resource改名及等价表达式；实际GPU核world位置、非中心Y、非等比父变换/pivot及两target同footprint。当前宿主链与nil-world局部降级已取得8帧GPU证据，稳定职责见[运行时合同](../../architecture/runtime-architecture.md#ordinary-effect-lighting-host)，实际证据见[当前记录](../../capabilities/runtime-evidence-current.md#ordinary-effect-light-host-20261021)。原299仍在combine node17颜色合同拒绝，金属背景未恢复，独立313/372仅默认路径保持；不得以宿主首门消失、非黑或测试通过关闭流体单。原2D/model、其他灯型、shadow、HDR数值及官方精确parity仍待相应后继，不追加猜测或扩数值实验。
+**验收与退出。** 两frontend/反射/数组stride、host来源冲突、动态同帧值与无效输入反例，source/resource改名及等价表达式；实际GPU核world位置、非中心Y、非等比父变换/pivot及两target同footprint。当前宿主链与nil-world局部降级已取得8帧GPU证据；上述同帧快照、数组ABI、world来源与局部失败职责由本节维护，实际证据见[当前记录](../../capabilities/runtime-evidence-current.md#ordinary-effect-light-host-20261021)。原299仍在combine node17颜色合同拒绝，金属背景未恢复，独立313/372仅默认路径保持；不得以宿主首门消失、非黑或测试通过关闭流体单。原2D/model、其他灯型、shadow、HDR数值及官方精确parity仍待相应后继，不追加猜测或扩数值实验。
 
 <a id="builtin-image-light-families"></a>
 ## 内建图片材质的灯光代际（2026-10-23）

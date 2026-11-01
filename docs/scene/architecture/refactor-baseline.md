@@ -1,12 +1,14 @@
-<!-- document-role: stable-contract -->
+<!-- document-role: reference -->
 
-# 重构调查与退役清单
+# Scene 重构历史调查线索
 
-> 2026-09-15 静态审计基线；不是任务队列，也不代表后续代码保持不变。
-> 当前能力以[能力台账](../capabilities/coverage-ledger.md)为准。
-> 本页是早期调查线索，逐项使用前核对当前代码；不拥有当前状态或实施顺序。设计见[顶层设计](../roadmap/engine-refactor-program.md)，当前顺序归[性能卡](../roadmap/performance-convergence-card.md)与[属性卡](../roadmap/properties-panel-card.md)；按职责选读。
+> 资料类型：固定历史调查与后续局部校正；原始盘点基点为 2026-09-15。
+>
+> 本页保留当时的规模、实验反例、退役候选和旧文档处置设想，供定位与避免重复无效方向。正文中的“本轮”“当前”、E/AS 卡号、旧目录和命令均属于原记录，不是现役设计、当前缺口或实施要求。
+>
+> 当前目标查[运行时总设计](runtime-architecture.md)，组件职责查[组件合同](../capabilities/runtime-systems-reference.md)，实际接线查[代码地图](runtime-as-built-map.md)。使用本页线索前核对当前代码和证据；实施与验证遵循现役工作流，不从旧统计重新开启任务。
 
-## 2. 调查基线与证据边界
+## 2. 历史调查基线与证据边界
 
 ### 2.1 盘点方法与体量
 
@@ -28,7 +30,7 @@
 
 本轮执行 `python3.12 -B script/check_code_health.py --check`：退出 1，19 个错误（既有）。包括 800 行上限、两个 locked allowance 增长、旧 Settings 路径残留。此结果只证明结构门未过，不能证明哪段运行最慢。
 
-### 2.2 已确认的当前链与保留项
+### 2.2 当时确认的链路与保留项
 
 | ID | 代码事实／定位 | 设计含义 |
 |---|---|---|
@@ -60,10 +62,12 @@
 - 旧记录 code-health 19 errors／181 warnings，与本轮错误数量一致，但旧“已验收”卡不构成当前树全绿。
 - Fast Suite 当前 7 项中 3 approved、4 selection-required；不能把两个代表内容或普通矩阵冒充完整 Suite PASS。
 
-历史具体身份与实验见归档；近期独立运行事实查[运行证据](../capabilities/runtime-evidence-current.md)。仍待本轮后续测量：正式签名正常模式的 p95/p99、分配／CoW、锁持有、GPU 带宽、多屏、功耗、冷／热启动、test 编译总时间。
+历史具体身份与实验见归档；现役运行事实查[运行证据](../capabilities/runtime-evidence-current.md)。当时未测范围包括正式签名正常模式的 p95/p99、分配／CoW、锁持有、GPU 带宽、多屏、功耗、冷／热启动、test 编译总时间；这些旧缺口不能不经核对就重新列为当前待办。
 
 
-## 6. 代码、测试与文档的退役清单
+## 6. 历史退役候选与文档处置设想
+
+以下表格保留原候选及旧路径，便于追溯原问题。它们不授予删除权，不建立第二份重构路线；已完成与仍有效的范围分别由当前代码、能力表及现役设计裁决。
 
 ### 6.1 代码按职责删除，不按大文件删除
 
@@ -93,7 +97,7 @@
 | [MyWallpaperX/Shared/Settings/](../../../MyWallpaperX/Shared/Settings) | `AppKitSettingsView.swift` | E2／E6：清除模块调用并按动作边界收敛 |
 | `script/tests/fixtures/` | `SceneMaterialCopyHistoryRenderingHarness.swift` | E6：拆除重复 harness，保留 copy/history 可执行反例 |
 
-### 6.2 文档逐项处置（当前文件全部保留或已无损归档）
+### 6.2 当时的文档逐项处置
 
 路径相对 `docs/`。体量是 §2 的基点，不是性能收益。
 
@@ -117,9 +121,11 @@
 | `web/current-state.md` 与 Web 专题合同 | 下次触达 Web 时刷新源码事实；删除重复历史数值 | 不将 2026-08-11 复核快照当当前运行 PASS |
 | `architecture/appkit-migration.md` | 只保留真实残留与退役门 | 工程 `.swift` 统计不是 SwiftUI 实际调用证据，先核对 target 与 import |
 
-当前层压缩验收：能力摘要、运行证据摘要分别以约 20 KB 的默认阅读段为设计预算；完整按需附录可以更大，不以硬删内容凑数。默认工程阅读只需“工作规则＋本计划当前卡＋一条相关合同”，不要求把 3.22 MB Scene 文档全部喂入上下文。统计 UTF-8 字节、默认段体量和重复维护点，不只统计行数。
+当时提出的阅读目标是缩短能力摘要和运行证据的默认段，按问题读取附录，而不是把当时约 3.22 MB Scene 文档全部装入上下文。旧 20 KB 阅读预算、旧路径及“本计划当前卡”不再作为现役约束；当前文档分工与预算由文档角色索引和仓库工作流统一维护。
 
-### 6.3 文档执行顺序与防丢失
+### 6.3 当时的归并顺序与防丢失原则
+
+这是原调查提出的处置方法。现役操作与验证以[仓库工作流](../../development/repository-workflow.md#代码与知识交付)为准。
 
 1. 列每个现役 anchor、引用文件、generator／测试 consumer；“文档互链”不等于 runtime 消费。
 2. 提取仍改变 owner／失效／失败／验证的内容；过期叙事完整归档并标截止日期。

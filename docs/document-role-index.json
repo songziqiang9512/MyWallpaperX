@@ -20,9 +20,7 @@
       "docs/release/release-signing.md",
       "docs/scene/architecture/dynamic-layer-storage-design.md",
       "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md",
-      "docs/scene/architecture/refactor-baseline.md",
       "docs/scene/architecture/runtime-architecture.md",
-      "docs/scene/architecture/runtime-as-built-map.md",
       "docs/scene/architecture/scene-dependency-boundaries.md",
       "docs/scene/architecture/scene-launch-responsiveness-contract.md",
       "docs/scene/architecture/scene-resource-admission.md",
@@ -35,7 +33,7 @@
       "docs/scene/capabilities/material-video-assets.md",
       "docs/scene/capabilities/previous-blurred-composite-admission.md",
       "docs/scene/capabilities/puppet-clipping-design.md",
-      "docs/scene/capabilities/runtime-evidence-current.md",
+      "docs/scene/capabilities/runtime-systems-reference.md",
       "docs/scene/capabilities/sampler-alias-precedence.md",
       "docs/scene/capabilities/scalar-mask-data-purpose.md",
       "docs/scene/capabilities/static-source-draw-only-degradation.md",
@@ -123,7 +121,15 @@
       "path": "docs/README.md",
       "role": "navigation",
       "entrypoint": "AGENTS.md",
-      "purpose": "按需链接所属专题的事实、合同与路线，不拥有当前能力结论。"
+      "purpose": "按需链接所属专题的事实、合同与路线，不拥有当前能力结论。",
+      "lastReviewed": "2026-11-01",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "4a5a0dad8ee5d1e569b9697d98b510a5cb073c11ea389e9b539fd2248745f776",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "Scene顶层、组件、源码owner与文档职责归整；静态代码及现役合同核对，保留专项运行证据原范围。",
+        "limitations": "不新增产品构建、GPU/VM运行、官方parity、性能、长稳或发布结论。"
+      }
     },
     {
       "path": "docs/architecture/appkit-migration.md",
@@ -184,13 +190,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/README.md",
-      "lastReviewed": "2026-11-01",
+      "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "fe0fc309f0e301dfb1e610ca9d1691d02e8577ff70c008b9e556e331a981fa1d",
+        "sourceSHA256": "30c57ef46535e7decb519749bd8e6c821a79ff3253c1ba0bb4b5f70729a7d2cf",
         "method": "document_registry --audit + document_health --check",
-        "scope": "复核本批单一Video原生屏保、不干涉桌面、唯一发布与AppGroup/签名路由；主动即时锁屏明确未完成。",
-        "limitations": "导航及本批接线边界复核；不重授其他引擎运行、正式时间戳/公证、macOS26真机或P3锁定/功耗资格。"
+        "scope": "Scene顶层、组件、源码owner与文档职责归整；静态代码及现役合同核对，保留专项运行证据原范围。",
+        "limitations": "不新增产品构建、GPU/VM运行、官方parity、性能、长稳或发布结论。"
       }
     },
     {
@@ -688,20 +694,21 @@
       "role": "navigation",
       "entrypoint": "docs/README.md",
       "purpose": "按需链接所属专题的事实、合同与路线，不拥有当前能力结论。",
-      "lastReviewed": "2026-10-23",
+      "lastReviewed": "2026-11-01",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "472ccdbc15f41f0bd3779c745c3a0349dcd54b4df977f49d8ce6bddfaae8f95f",
+        "sourceSHA256": "dd8983a2bf90dfe9f87565bf0fec1fa739af0e70cdba64bcb9bb0ef821d632b2",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅清单治理：已闭/已解释/身份债归历史；14静态缺口按owner合入12公共条目，未闭反馈ID/稳定锚点守恒，旧静态文档删除并统一入口。",
-        "limitations": "对照现代码及既有证据，不新增App/VM/样本运行、修复、整景通过或性能结果；待复核与静态拒绝不等于当前可见bug。"
+        "scope": "Scene顶层、组件、源码owner与文档职责归整；静态代码及现役合同核对，保留专项运行证据原范围。",
+        "limitations": "不新增产品构建、GPU/VM运行、官方parity、性能、长稳或发布结论。"
       }
     },
     {
       "path": "docs/scene/architecture/capability-dependency-map.md",
-      "role": "current-state",
+      "role": "reference",
       "entrypoint": "docs/scene/capabilities/README.md",
-      "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。"
+      "purpose": "公共能力依赖关系的读图参考；不保存能力等级、当前接线或执行门。",
+      "commandPolicy": "reference-only"
     },
     {
       "path": "docs/scene/architecture/dynamic-layer-storage-design.md",
@@ -722,56 +729,49 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/architecture/runtime-architecture.md",
       "currentStateAuthority": "docs/scene/roadmap/performance-convergence-card.md",
-      "lastReviewed": "2026-10-15",
+      "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "406e81381b5fead04675d12864545ae318f65035fec76b058d635ac308724cdc",
+        "sourceSHA256": "4a2dfd9408af31b5ca1ef2470de9081912b76a6ce43a32ee0c452d99867b3804",
         "method": "document_registry --audit + document_health --check",
-        "scope": "公开stage诊断唯一owner/原CB生命周期与资格历史/现性能卡导航接管，先设计登记已退役",
-        "limitations": "仅本次合同与证据职责/导航核对；不代表全部引擎、设备、官方parity或稳定性能验收"
+        "scope": "Scene顶层、组件、源码owner与文档职责归整；静态代码及现役合同核对，保留专项运行证据原范围。",
+        "limitations": "不新增产品构建、GPU/VM运行、官方parity、性能、长稳或发布结论。"
       }
     },
     {
       "path": "docs/scene/architecture/refactor-baseline.md",
-      "role": "stable-contract",
+      "role": "reference",
       "entrypoint": "docs/scene/roadmap/engine-refactor-program.md",
-      "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-14",
-      "reviewBasis": {
-        "kind": "navigation-audit",
-        "sourceSHA256": "d92e9c9981e099a35ea91cec13b66229229d63e6c92d5a9e5a96d81162adbaf0",
-        "method": "document_registry --audit + document_health --check",
-        "scope": "顶层设计/工作卡职责、当前入口和旧状态撤权核对",
-        "limitations": "仅文档职责与导航，不证明产品性能、兼容或发布验收"
-      }
+      "purpose": "固定历史调查线索，不规定现役设计、任务顺序或当前代码事实。",
+      "commandPolicy": "reference-only"
     },
     {
       "path": "docs/scene/architecture/runtime-architecture.md",
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-29",
+      "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b36a7c59e282ca09645e4625d8dd004337f7a265f1206656f4430543fb24c85a",
+        "sourceSHA256": "d2629362cacc4df1f0076ec37aed425638c2439db8ca5ab07664ce0732e2537a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Only geometry named-raster PMA versus graph-copy content contract and bounded 295/independent322 closure; retain prior historical claims.",
-        "limitations": "No full-document product revalidation; standalone pixel probe entry remains stale, no official parity/full-property/HDR/performance conclusion."
+        "scope": "Scene顶层、组件、源码owner与文档职责归整；静态代码及现役合同核对，保留专项运行证据原范围。",
+        "limitations": "不新增产品构建、GPU/VM运行、官方parity、性能、长稳或发布结论。"
       }
     },
     {
       "path": "docs/scene/architecture/runtime-as-built-map.md",
-      "role": "stable-contract",
+      "role": "current-state",
       "entrypoint": "docs/scene/README.md",
-      "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-27",
+      "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "262bcba8839f905f86ceedf2dd42ca1392994d23c430647df937f1be8eccfde1",
+        "sourceSHA256": "36048250843ce3388317fff5ce5cfa7abfc95c8f29190cd740c329ccc940176e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "P32核原inverse唯一输入与forward实际消费处求逆/同次编码复用；角色和导航绑定，运行结果仍以对应专项证据为准。",
-        "limitations": "这是导航与文档治理复核，不代表源码、编译、运行、视觉、性能、真实账号或发布复验；不重授旧证据的适用范围。"
-      }
+        "scope": "Scene顶层、组件、源码owner与文档职责归整；静态代码及现役合同核对，保留专项运行证据原范围。",
+        "limitations": "不新增产品构建、GPU/VM运行、官方parity、性能、长稳或发布结论。"
+      },
+      "purpose": "实际接线或已记录运行证据；不反向定义目标架构，不决定实施顺序。"
     },
     {
       "path": "docs/scene/architecture/scene-dependency-boundaries.md",
@@ -804,21 +804,29 @@
     {
       "path": "docs/scene/architecture/scene-resource-admission.md",
       "role": "active-plan",
-      "entrypoint": "docs/scene/README.md",
-      "retirementCondition": "对应实现与反例验证完成、稳定架构接管且设计登记退役后转为历史证据；设计批准不代表运行验收。"
+      "entrypoint": "docs/scene/architecture/runtime-architecture.md",
+      "retirementCondition": "对应实现与反例验证完成、稳定架构接管且设计登记退役后转为历史证据；设计批准不代表运行验收。",
+      "lastReviewed": "2026-11-02",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "a63e5c85078541a5c288eda655ebe72b0dd8f98c0b7ed0dfb9b11f34400329d8",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "Scene顶层、组件、源码owner与文档职责归整；静态代码及现役合同核对，保留专项运行证据原范围。",
+        "limitations": "不新增产品构建、GPU/VM运行、官方parity、性能、长稳或发布结论。"
+      }
     },
     {
       "path": "docs/scene/architecture/scene-runtime-daemon-contract.md",
       "role": "stable-contract",
       "entrypoint": "docs/scene/README.md",
-      "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-26",
+      "currentStateAuthority": "docs/scene/architecture/runtime-as-built-map.md",
+      "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e1dd359a559d44a74e5a2dd5cba002e91f742c0691ccfc5a2d8e4962fedc449e",
+        "sourceSHA256": "3d77942e34c6da0e459d2151199cc197f62d524507046c1dcce5d593b1d0b626",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅复核当前正文hash、文档角色、入口及现役/历史指针；精简方案拥有本轮实施与验证状态，历史结算保留原边界。",
-        "limitations": "这是导航与文档治理复核，不代表源码、编译、运行、视觉、性能、真实账号或发布复验；不重授旧证据的适用范围。"
+        "scope": "Scene顶层、组件、源码owner与文档职责归整；静态代码及现役合同核对，保留专项运行证据原范围。",
+        "limitations": "不新增产品构建、GPU/VM运行、官方parity、性能、长稳或发布结论。"
       }
     },
     {
@@ -861,13 +869,13 @@
       "role": "navigation",
       "entrypoint": "docs/scene/README.md",
       "purpose": "按需链接所属专题的事实、合同与路线，不拥有当前能力结论。",
-      "lastReviewed": "2026-10-29",
+      "lastReviewed": "2026-11-01",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c9c1cdb0cdabd5a6f18f55d7fba58a5f74a87e79fdf30fa3101d8a99783e54aa",
+        "sourceSHA256": "0f3b73c25ab8bc45e0b64aa46e21972c793c87d6a9313cce4ddeba271880be5b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Shared direct3D pose/XYZ stream and qualified imported clips; actual default34/crosssample image-static health; updated outstanding property and user edge feedback.",
-        "limitations": "No fullsample/officialsamephase/audio-rate/conditional-selection/HDR/performance claim. Edge feedback remains open."
+        "scope": "Scene顶层、组件、源码owner与文档职责归整；静态代码及现役合同核对，保留专项运行证据原范围。",
+        "limitations": "不新增产品构建、GPU/VM运行、官方parity、性能、长稳或发布结论。"
       }
     },
     {
@@ -887,7 +895,7 @@
     {
       "path": "docs/scene/capabilities/alpha-display-fallback-design.md",
       "role": "active-plan",
-      "entrypoint": "docs/scene/README.md",
+      "entrypoint": "docs/scene/architecture/runtime-architecture.md",
       "retirementCondition": "对应实现与反例验证完成、稳定架构接管且设计登记退役后转为历史证据；设计批准不代表运行验收。"
     },
     {
@@ -909,13 +917,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/capabilities/README.md",
       "currentStateAuthority": "docs/scene/capabilities/advanced-object-coverage.md",
-      "lastReviewed": "2026-10-26",
+      "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d892fefb2852e10407163f120355ce668e0117126c7d97758db3a285bc610878",
+        "sourceSHA256": "fe85531736831821e676f1af7ab985b37e5e69d1f5429a1b87e3958d290ddd6c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "复核当前正文hash、入口、角色及职责：同次ModelIR上传、tight bounds与资源路径沿原Root；本批实施/验证结果归精简方案。",
-        "limitations": "这是文档治理复核；不据日期或导航重新授予作者视觉、完整App冷暖、官方一致性、发布或历史证据范围。"
+        "scope": "Scene顶层、组件、源码owner与文档职责归整；静态代码及现役合同核对，保留专项运行证据原范围。",
+        "limitations": "不新增产品构建、GPU/VM运行、官方parity、性能、长稳或发布结论。"
       }
     },
     {
@@ -1034,17 +1042,17 @@
     },
     {
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "role": "stable-contract",
+      "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
-      "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-11-01",
+      "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "988780ad267ced81103774113ec2f265a7f718a5e766bb08582a78fe77a5711b",
+        "sourceSHA256": "17fef32562065e23d21c2f9361d9459f21079d2cbc89f5b54df52bff4221fd77",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步REFRACT只读同层深度、按模板准备变体及无writer免分配；398退出首门，552/141和呈现观察债保留。",
-        "limitations": "实际Metal/原包有限画面闭合；报告FAIL保留，不授整样本、官方parity、HDR、呈现时序或性能收益。"
-      }
+        "scope": "Scene顶层、组件、源码owner与文档职责归整；静态代码及现役合同核对，保留专项运行证据原范围。",
+        "limitations": "不新增产品构建、GPU/VM运行、官方parity、性能、长稳或发布结论。"
+      },
+      "purpose": "实际接线或已记录运行证据；不反向定义目标架构，不决定实施顺序。"
     },
     {
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
@@ -1062,23 +1070,30 @@
     },
     {
       "path": "docs/scene/capabilities/runtime-systems-reference.md",
-      "role": "reference",
-      "entrypoint": "docs/scene/development/source-index.md",
-      "purpose": "专题参考或操作材料；不因登记取得现役计划或产品行为权威。",
-      "commandPolicy": "reference-only"
+      "role": "stable-contract",
+      "entrypoint": "docs/scene/architecture/runtime-architecture.md",
+      "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
+      "lastReviewed": "2026-11-02",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "d3de013a76c7d59fe0a3bf373ba8ec6492fd03d25329361e3c7e544cf26fefed",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "Scene顶层、组件、源码owner与文档职责归整；静态代码及现役合同核对，保留专项运行证据原范围。",
+        "limitations": "不新增产品构建、GPU/VM运行、官方parity、性能、长稳或发布结论。"
+      }
     },
     {
       "path": "docs/scene/capabilities/sampler-alias-precedence.md",
       "role": "stable-contract",
       "entrypoint": "docs/scene/architecture/runtime-architecture.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-30",
+      "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "cf5158bf07b91194d945074d9760d04406ccc7f124e5e1f943dfb257ae5892cc",
+        "sourceSHA256": "5a7741178ebf6a507f3cfbd916c4f97ca96c7587112036763839b25aeaf8707a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "声明FBO覆盖的原Template投影合同及唯一运行后验；现役队列只移出已闭首拒，因果和属性/验证边界保真。",
-        "limitations": "不授完整样本/四效果或单独MotionBlur因果、官方parity或性能结论。"
+        "scope": "Scene顶层、组件、源码owner与文档职责归整；静态代码及现役合同核对，保留专项运行证据原范围。",
+        "limitations": "不新增产品构建、GPU/VM运行、官方parity、性能、长稳或发布结论。"
       }
     },
     {
@@ -1189,7 +1204,7 @@
     {
       "path": "docs/scene/capabilities/static-source-draw-only-degradation.md",
       "role": "active-plan",
-      "entrypoint": "docs/scene/README.md",
+      "entrypoint": "docs/scene/architecture/runtime-architecture.md",
       "retirementCondition": "对应实现与反例验证完成、稳定架构接管且设计登记退役后转为历史证据；设计批准不代表运行验收。"
     },
     {
@@ -1337,13 +1352,13 @@
       "role": "navigation",
       "entrypoint": "docs/scene/README.md",
       "purpose": "Scene固定历史与当前权威的按需索引，不产生现役任务。",
-      "lastReviewed": "2026-10-28",
+      "lastReviewed": "2026-11-01",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c0069bbb244568f4a5b320f82635670495a64418c4176bc04ff6ca74f4e76645",
+        "sourceSHA256": "bc097245f45931481e33f5c90ea68208787762c0c73146c3cb2a0d7f7aeb29c2",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅同步显式m/gd纯平移world持续力、坏physics逐骨失败及374/299/318三轮；保旧线性冲量与临时证据失效边界，移除已闭318交互队列，不升级整样本。",
-        "limitations": "未知缺省m/gd、角物理/IK/rope、宽parent链、官方动态相位/HDR/多屏及性能未验；其他专题未重审。"
+        "scope": "Scene顶层、组件、源码owner与文档职责归整；静态代码及现役合同核对，保留专项运行证据原范围。",
+        "limitations": "不新增产品构建、GPU/VM运行、官方parity、性能、长稳或发布结论。"
       }
     },
     {
@@ -1448,6 +1463,17 @@
         "docs/scene/capabilities/runtime-evidence-current.md",
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ]
+    },
+    {
+      "path": "docs/scene/history/capability-dependency-map-through-2026-11-01.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "currentAuthorities": [
+        "docs/scene/architecture/capability-dependency-map.md",
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/capabilities/coverage-ledger.md"
+      ],
+      "commandPolicy": "historical-only"
     },
     {
       "path": "docs/scene/history/color-blend-region-convergence-2026-10-13.md",
@@ -3268,6 +3294,17 @@
       "uniqueValue": "固定官方自有直线/曲线/倾斜输出与10-22缓存观测资格失败；保留未解world/负细分，不新增产品支持。"
     },
     {
+      "path": "docs/scene/history/runtime-architecture-through-2026-11-01.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/capabilities/runtime-systems-reference.md",
+        "docs/scene/architecture/runtime-as-built-map.md"
+      ]
+    },
+    {
       "path": "docs/scene/history/runtime-evidence-batches-through-2026-10-03.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -4320,13 +4357,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
       "retirementCondition": "材质受光和各可选光照子能力分别通过合同门并进入稳定架构后归档，未完成 profile 保持明确准入限制。",
-      "lastReviewed": "2026-10-19",
+      "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "8334a90a46a3167bc2346d4060323fae6cd155458581ff29af64149431a15910",
+        "sourceSHA256": "70343c87e5b440667609989896e91b370994dc6c7c3c21a7363506b52ff8245a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Reconcile current model pass/CB depth domain and retired geometry heuristic, mandatory/late inputs and failure lifecycle; link bounded owned pixel and real333/343 observations with still-open visual differences.",
-        "limitations": "Navigation and current source contract only. No official default-text policy, complete sample parity, intermittent-flicker closure or stable process performance benefit."
+        "scope": "Scene顶层、组件、源码owner与文档职责归整；静态代码及现役合同核对，保留专项运行证据原范围。",
+        "limitations": "不新增产品构建、GPU/VM运行、官方parity、性能、长稳或发布结论。"
       }
     },
     {
@@ -4340,13 +4377,13 @@
       "role": "navigation",
       "entrypoint": "docs/README.md",
       "purpose": "按需链接所属专题的事实、合同与路线，不拥有当前能力结论。",
-      "lastReviewed": "2026-10-18",
+      "lastReviewed": "2026-11-01",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "fa235d868958586aadc2150a5f983bacb1e3b52474f5e44ec5d7bbc3fbe7c5bb",
+        "sourceSHA256": "f2cbcbabb54cfcf15b152962e69111df46b73112f5e8cfd4d798dcc0620ffce9",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Record A2C prototype withdrawal after unproven real visual benefit; retain original rejection. Separate dense state1 reader gap and official counterexample from nested query errors; retain unfixed static constant script projection. Reconcile historical Bool fixture result without product changes.",
-        "limitations": "U19 target remains unattributed; prototype is not product capability. No full sample, cross-device, cadence, color or performance conclusion. Official state1 is one constant track; formal promotion awaits existing capacity response."
+        "scope": "Scene顶层、组件、源码owner与文档职责归整；静态代码及现役合同核对，保留专项运行证据原范围。",
+        "limitations": "不新增产品构建、GPU/VM运行、官方parity、性能、长稳或发布结论。"
       }
     },
     {
@@ -4367,13 +4404,29 @@
       "path": "docs/scene/roadmap/batch2/copy-pass-unification-design.md",
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
-      "retirementCondition": "四类触发点均使用唯一 typed graph transfer 合同，重复路径撤权且 publication 门通过后归档。"
+      "retirementCondition": "四类触发点均使用唯一 typed graph transfer 合同，重复路径撤权且 publication 门通过后归档。",
+      "lastReviewed": "2026-11-02",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "355734b9b72dca530f2e2368706fda4d957a23bd1dd07dc51c0eb3f9829ea45d",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "Scene顶层、组件、源码owner与文档职责归整；静态代码及现役合同核对，保留专项运行证据原范围。",
+        "limitations": "不新增产品构建、GPU/VM运行、官方parity、性能、长稳或发布结论。"
+      }
     },
     {
       "path": "docs/scene/roadmap/batch2/frame-admission-retry-design.md",
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
-      "retirementCondition": "现役帧准入的互斥、释放与短重试通过反例门且合同并入稳定时钟架构后归档，不新增平行定时器。"
+      "retirementCondition": "现役帧准入的互斥、释放与短重试通过反例门且合同并入稳定时钟架构后归档，不新增平行定时器。",
+      "lastReviewed": "2026-11-02",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "5562fa59d5ffd05465ab79641c1ddf735e844814d227f0ffe61d4b9b31d2e4d6",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "Scene顶层、组件、源码owner与文档职责归整；静态代码及现役合同核对，保留专项运行证据原范围。",
+        "limitations": "不新增产品构建、GPU/VM运行、官方parity、性能、长稳或发布结论。"
+      }
     },
     {
       "path": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md",
@@ -4460,13 +4513,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
       "retirementCondition": "无依赖简单链及外部输入扩域分别验收；稳定职责移交运行架构、剩余边界归队列后归档。批准不是运行验收。",
-      "lastReviewed": "2026-10-23",
+      "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ff7a3dea972058a7e2b1fae26f33498538c3cec167e601fa5cf91e0ab9fcd30f",
+        "sourceSHA256": "9427af28dc3f529724794d1bc6dbbf70e3a84e565d3763a57a79c6e748f0c606",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅prepared帧输入/唯一Program数值核等价迁移、依赖退休与CPU/Debug；原332/独立311实际画面和停止保持，其余主题未重审。",
-        "limitations": "执行观察关闭；无逐层compositor或完整官方同phase证据，无新算法/能力/policy/cache、CPU/GPU/内存收益声明；Release/HDR/多屏未验。"
+        "scope": "Scene顶层、组件、源码owner与文档职责归整；静态代码及现役合同核对，保留专项运行证据原范围。",
+        "limitations": "不新增产品构建、GPU/VM运行、官方parity、性能、长稳或发布结论。"
       }
     },
     {
@@ -4474,13 +4527,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-30",
+      "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4ffb60675a1fde5cfff497b5302472d037c2a9bbe7e0497ebeb0d34296cb9ed1",
+        "sourceSHA256": "1aea9cbd909ff4c49bc25bfebf5cea0c45a3bf15c0b18d778bf77c18f9e82473",
         "method": "document_registry --audit + document_health --check",
-        "scope": "能力优先、捕获输入可用性与完整graph职责；退役普通Stage重复source政策，保原资源/数据/replay边界及原包曲线恢复。",
-        "limitations": "新无源FBO/variant组合为CPU准备资格；原包粒子未闭，无完整官方parity或性能结论。"
+        "scope": "Scene顶层、组件、源码owner与文档职责归整；静态代码及现役合同核对，保留专项运行证据原范围。",
+        "limitations": "不新增产品构建、GPU/VM运行、官方parity、性能、长稳或发布结论。"
       }
     },
     {
@@ -4530,13 +4583,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/README.md",
       "retirementCondition": "当队列中的公共 authored target 首断点关闭，后续只剩路线 P0/P3/P4/P5 的系统性验收，且不再需要该派生执行入口时，删除或转为 historical-evidence。",
-      "lastReviewed": "2026-11-01",
+      "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7ac9be81782aa2495bca46e9012b9b099081b1df13865e58967338d6bcff1970",
+        "sourceSHA256": "4de2265f8054f48d295f28567bfea3f7209e6689825e2bc7e4feb4b564eba3a0",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步REFRACT只读同层深度、按模板准备变体及无writer免分配；398退出首门，552/141和呈现观察债保留。",
-        "limitations": "实际Metal/原包有限画面闭合；报告FAIL保留，不授整样本、官方parity、HDR、呈现时序或性能收益。"
+        "scope": "Scene顶层、组件、源码owner与文档职责归整；静态代码及现役合同核对，保留专项运行证据原范围。",
+        "limitations": "不新增产品构建、GPU/VM运行、官方parity、性能、长稳或发布结论。"
       }
     },
     {
@@ -4735,6 +4788,7 @@
       "documents": [
         "docs/scene/capabilities/coverage-ledger.md",
         "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/capabilities/runtime-systems-reference.md",
         "docs/scene/architecture/dynamic-layer-storage-design.md",
         "docs/scene/capabilities/sampler-alias-precedence.md",
         "docs/scene/capabilities/runtime-evidence-current.md",
@@ -4814,6 +4868,50 @@
             "--app",
             "--sample-root",
             "--output-dir"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "scene-architecture",
+      "title": "Scene 顶层设计与组件职责",
+      "keywords": [
+        "Scene架构",
+        "Scene 架构",
+        "Scene顶层设计",
+        "Scene 顶层设计",
+        "Scene组件",
+        "Scene 组件",
+        "组件职责",
+        "Scene目录"
+      ],
+      "documents": [
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/capabilities/runtime-systems-reference.md",
+        "docs/scene/architecture/runtime-as-built-map.md",
+        "docs/architecture/technology-stack-boundaries.md",
+        "docs/scene/roadmap/engine-refactor-program.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+        "docs/scene/development/development-workflow.md"
+      ],
+      "sourcePaths": [
+        "MyWallpaperX/Core/SteamWorkshopScene"
+      ],
+      "verification": "先核目标与当前owner；文档用既有文档/设计门，产品改动再按最近inner/checkpoint/integration验证，不新增组件认证。",
+      "owner": "Scene Host/Session, Compilation, Systems, Resources and Rendering owners",
+      "firstRead": "docs/scene/architecture/runtime-architecture.md#1-产品目标",
+      "nearestTestGroups": [
+        "documentation"
+      ],
+      "verificationPhases": [
+        {
+          "phase": "inner",
+          "gateRefs": [
+            "focused-tests",
+            "document-health"
+          ],
+          "requiredArguments": [
+            "--path"
           ]
         }
       ]

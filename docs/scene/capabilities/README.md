@@ -1,27 +1,30 @@
 # Scene 能力与语义索引
 
-本目录按能力主题提供设计、当前覆盖与语义参考；专项设计从[设计索引](../roadmap/batch2/batch2-design-index.md)进入，总体职责查[架构](../architecture/runtime-architecture.md)。它不是日常任务队列。日常开发先看[Scene 开发工作流](../development/development-workflow.md)，当前阶段看[执行路线](../roadmap/scene-compatibility-roadmap.md)，当前能力和运行事实分别从[能力阅读快照](coverage-ledger.md#current-overview)与[证据查询快照](runtime-evidence-current.md#current-snapshot)进入。不要把整个语义目录或整份流水账一次性装入上下文。
+<!-- document-role: navigation -->
+
+本目录按能力提供职责、覆盖和语义入口。先以[运行时总设计](../architecture/runtime-architecture.md)确定共同数据流，以[组件合同](runtime-systems-reference.md)确定具体能力如何组合；当前代码、能力和运行结果分别查询，不把它们混成实施顺序。
 
 <a id="reading-layers"></a>
 
 ## 读取分层
 
-默认只读当前层，只有首断点需要时才向下取证：
+按正在回答的问题选读：
 
 | 层 | 内容 | 日常用法 |
 | --- | --- | --- |
-| 当前合同 | [运行时架构](../architecture/runtime-architecture.md)、[Sampler 缺省输入优先级](sampler-alias-precedence.md)、命中主题的专项表 | 决定 owner、边界、fallback 和目标行为；执行顺序由[路线](../roadmap/scene-compatibility-roadmap.md)单独拥有 |
-| 当前状态 | [台账：当前能力阅读快照](coverage-ledger.md#current-overview) → [系统总表](coverage-ledger.md#capability-tables)与专项；[运行证据：当前证据快照](runtime-evidence-current.md#current-snapshot)与[运行证据深度 S0–S5](runtime-evidence-current.md#evidence-levels) | 只找当前首断点与所需证据等级；需要细节时按精确 `E-*` anchor 查询[一条证据包](runtime-evidence-current.md#evidence-packages) |
-| 按需研究 | [来源索引](../development/source-index.md)、[官方研究工作流](../development/official-client-behavior-research-workflow.md)、[官方页面映射](../development/reference/official-page-map.md)、客户端/Mirage 取证 | 公开资料和现有代码无法决定当前纵向切片时才读；研究原文不是实现输入 |
-| 冷档/附录 | [已归档的台账批次记录](../history/coverage-ledger-batches-through-2026-10-03.md)、[已归档的运行证据包](../history/runtime-evidence-batches-through-2026-10-03.md)、[更早运行证据归档](../history/runtime-evidence-index.md#archived-evidence-packages)、[客户端变更附录](../history/reference/client-changelog-appendix.md)、页面 catalog/crosswalk、[历史库](../../history/README.md) | 精确运行证据按问题查询；前序或已被后继取代的记录只为追溯、比较回归或恢复唯一失败现场而读，不整页读取 |
+| 架构与组件 | [总设计](../architecture/runtime-architecture.md)、[组件合同](runtime-systems-reference.md)、[实际代码地图](../architecture/runtime-as-built-map.md) | 分别回答目标职责、组合方式和当前源码 owner |
+| 能力状态 | [能力快照](coverage-ledger.md#current-overview) → [系统总表](coverage-ledger.md#capability-tables)与专项表 | 确认已执行范围、缺口和当前消费者 |
+| 运行证据 | [证据快照](runtime-evidence-current.md#current-snapshot)、[证据深度](runtime-evidence-current.md#evidence-levels)及[精确证据包](runtime-evidence-current.md#evidence-packages) | 确认真实验证、身份、限制和失败，不从字段存在推导画面正确 |
+| 设计与顺序 | [专项设计](../roadmap/batch2/batch2-design-index.md)、[兼容路线](../roadmap/scene-compatibility-roadmap.md)、[修复队列](../roadmap/scene-open-breakpoint-queue.md) | 设计决定边界，路线决定顺序，队列列出具体开放问题 |
+| 研究与历史 | [来源索引](../development/source-index.md)、[研究工作流](../development/official-client-behavior-research-workflow.md)、[历史索引](../history/README.md) | 按问题读取固定资料与独有证据，不作为当前能力或执行指令 |
 
-一条记录只有在仍然改变当前 owner、route、失败半径、验证门或未决问题时才留在当前层。单纯的日期、commit、hash、截图路径、重复 PASS/NON-PASS 和已经被后继证据取代的叙事属于冷档候选。
+稳定职责放合同，当前缺口放专项表，批次过程和被后继取代的记录放历史。条目保留在当前层的理由应是仍然影响当前实现或未决问题，而不是包含新的日期、commit 或截图。
 
 ## 资料和代码的边界
 
 | 资料 | 是否由运行时直接读取 | 进入产品的形态 |
 | --- | --- | --- |
-| 官方网页、页面 map/catalog、静态取证、Mirage 研究 | 否 | 人工提炼后的合同、正反 fixture 或研究边界；不得复制私有算法、payload、shader 或资产 |
+| 官方网页、页面 map/catalog、静态取证、Mirage 研究 | 否 | 提炼行为与边界后独立实现，用正反用例验证；不复制或移植参考实现 |
 | 语义专项表和能力台账 | 否 | 部分合同已独立转写到 Swift/Metal、测试和资源解析器；文档更新不会自动改变代码 |
 | `lib.sceneScript-v2.8.d.ts` 参考快照 | 否 | 仅作为注释、测试和人工核对依据，不进入 App bundle 或编译输入 |
 | `SceneStockAssets.bundle` 及其解析器 | 是 | 这是产品资源合同，不是研究资料；资源 identity 以 Swift resolver 和测试为准 |
@@ -33,18 +36,18 @@
 
 | 主题 | 当前权威 | 适用场景 |
 | --- | --- | --- |
-| Effect | [effect-execution-coverage.md](effect-execution-coverage.md) | effect 分类、执行 owner、fallback 和迁移状态 |
+| Effect | [effect-execution-coverage.md](effect-execution-coverage.md) | effect 分类、执行 owner、局部降级和迁移状态 |
 | Graph / Shader | [render-graph-shader-coverage.md](render-graph-shader-coverage.md)、[uniform 派生常量合同](uniform-invariant-shader-constants.md) | Program、pass、FBO、history、target、shader primitive |
 | SceneScript | [scenescript-api-coverage.md](scenescript-api-coverage.md) | ECMAScript、host API、handle、event、timer |
 | Particle | [particle-component-coverage.md](particle-component-coverage.md) | component 组合、实例生命周期、预算和局部失败 |
-| Input / Provider | [runtime-input-property-coverage.md](runtime-input-property-coverage.md) | Timeline、property、pointer、audio、media、text、provider |
+| 属性与输入 | [runtime-input-property-coverage.md](runtime-input-property-coverage.md) | Timeline、property、pointer、audio、media、text 和 provider |
 | 高级对象 | [advanced-object-coverage.md](advanced-object-coverage.md) | Puppet、lighting/HDR、3D、RGB、离线与发布 |
-| 全局依赖 | [capability-dependency-map.md](../architecture/capability-dependency-map.md) | 公共 owner、不可绕过边界和依赖关系 |
-| 样本验收 | [scene-sample-acceptance-ledger.md](scene-sample-acceptance-ledger.md) | 全部真实样本的首断点集群与人工视觉裁决，以及 P0.2 `sample → verdict` 关系的官方对照状态与缺口计数（逐样本的观看者/run/截图身份/剩余差异只进 `--json` 载荷，页面不逐条渲染）；裁决只改 `script/scene_sample_acceptance_verdicts.json` 后重新生成 |
+| 全局依赖 | [capability-dependency-map.md](../architecture/capability-dependency-map.md) | 公共能力依赖关系；当前差距查能力台账，不另设实施门 |
+| 样本验收 | [scene-sample-acceptance-ledger.md](scene-sample-acceptance-ledger.md) | 真实样本的首断点、人工裁决与官方对照状态；修改生成源 `script/scene_sample_acceptance_verdicts.json` 后重新生成 |
 | 样本调试 | [scene-sample-debug-ledger.md](scene-sample-debug-ledger.md) | 逐样本首断点定位与修复批次证据；不是视觉通过矩阵 |
 | 光线/光照样本 | [lighting-sample-inventory.md](lighting-sample-inventory.md) | 声明分类、去重样本身份与未知边界；不证明运行或官方parity |
 
-专项表只拥有稳定合同、当前 route、首断点、正反门和未支持边界。批次过程、截图流水账和旧命令回到运行证据、Git 或 `docs/scene/history/`，不要在专项表追加日志。
+共享架构与组件职责只在前述合同维护；专项表承接具体能力语义、当前消费者、首断点和未支持边界。窄合同如[采样缺省](sampler-alias-precedence.md)、[模型绑定几何](direct-model-bind-geometry.md)、[骨骼动画](direct-model-skeletal-animation.md)由对应专项入口链接，不复制成多份总设计。
 
 历史样本诊断仅按[Scene历史索引](../history/README.md)查证；旧失败解释不替代当前代码、能力台账和现役路线。
 
@@ -55,7 +58,7 @@
 - [官方页面映射](../development/reference/official-page-map.md)：公开页面到合同 anchor 的入口；目录和 crosswalk 仅作按需交叉参考。
 - [官方客户端静态取证](../development/reference/client-runtime-static-forensics.md)：版本有界的研究观察，不是稳定实现合同。
 - [MirageWallpaper 静态研究](../development/reference/miragewallpaper-rendering-reference.md)：固定 revision 的参考研究，不定义官方语义或像素真值。
-- [Scene corpus 清单](scene-corpus-capability-inventory.md)：保留的完整声明观察及作者输入影响面；后续新增见[增量观察](../history/corpus-log-audit-2026-10-29.md#incremental-38-20261029)，当前运行关联归原验收台账。声明不证明运行支持。
+- [Scene corpus 清单](scene-corpus-capability-inventory.md)：作者输入的声明范围与影响面，不证明执行或画面正确。
 
 研究资料按需阅读，不作为每批前置；可以在同一上下文研究后独立实现，不因阅读停工。不得直接复制、照译或移植参考实现，目标行为与验收仍归本项目现役合同。
 
@@ -64,6 +67,4 @@
 1. 一个事实只保留一个权威解释；其他入口只链接。
 2. `recognized`、`wired`、静态 census、compile success、route 数、matrix PASS、非黑像素和单样本通过都不能单独升级为视觉兼容、性能完成或官方 parity。
 3. 普通帧保持 prepare-once/execute-many；诊断、hash、完整 observation、census 和 full matrix 只在主动验证或 milestone 使用。
-4. 语义变化先更新对应专项表，再更新台账/运行证据；不要在 README、路线和报告之间复制当前数字。
-
-Direct模型的独立合法几何与动画降级边界见[bind几何合同](direct-model-bind-geometry.md)；三维姿态、通道与动态顶点接入按[骨骼动画设计](direct-model-skeletal-animation.md)。
+4. 架构变化更新总设计或组件合同，具体能力变化更新专项表，运行结果更新证据；不要在 README、路线和报告之间复制当前数字。

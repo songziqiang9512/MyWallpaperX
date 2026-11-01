@@ -25,8 +25,8 @@
       "bytes": 5740
     },
     "docs/architecture/technology-stack-boundaries.md": {
-      "lines": 261,
-      "bytes": 27233
+      "lines": 264,
+      "bytes": 27764
     },
     "docs/development/apple-silicon-optimization-plan.md": {
       "lines": 554,
@@ -36,13 +36,37 @@
       "lines": 464,
       "bytes": 102253
     },
+    "docs/development/lock-screen-screensaver-design.md": {
+      "lines": 117,
+      "bytes": 23214
+    },
+    "docs/development/main-window-playlists-redesign.md": {
+      "lines": 594,
+      "bytes": 110603
+    },
+    "docs/development/pixiv-online-browser-design.md": {
+      "lines": 166,
+      "bytes": 23241
+    },
     "docs/development/repository-workflow.md": {
       "lines": 100,
       "bytes": 14056
     },
+    "docs/development/status-bar-panel-redesign.md": {
+      "lines": 119,
+      "bytes": 19119
+    },
+    "docs/development/ui-quality-audit.md": {
+      "lines": 178,
+      "bytes": 37435
+    },
     "docs/development/validation-simplification-plan.md": {
       "lines": 263,
       "bytes": 63549
+    },
+    "docs/development/wallhaven-online-browser-design.md": {
+      "lines": 262,
+      "bytes": 38590
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -52,25 +76,21 @@
       "lines": 164,
       "bytes": 13288
     },
-    "docs/scene/architecture/capability-dependency-map.md": {
-      "lines": 220,
-      "bytes": 38973
+    "docs/scene/architecture/dynamic-layer-storage-design.md": {
+      "lines": 34,
+      "bytes": 4916
     },
     "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md": {
-      "lines": 33,
-      "bytes": 4594
-    },
-    "docs/scene/architecture/refactor-baseline.md": {
-      "lines": 128,
-      "bytes": 18461
+      "lines": 78,
+      "bytes": 8774
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 600,
-      "bytes": 135064
+      "lines": 304,
+      "bytes": 24119
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 158,
-      "bytes": 33208
+      "bytes": 18272
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 31,
@@ -81,12 +101,12 @@
       "bytes": 47440
     },
     "docs/scene/architecture/scene-resource-admission.md": {
-      "lines": 90,
-      "bytes": 19022
+      "lines": 97,
+      "bytes": 21040
     },
     "docs/scene/architecture/scene-runtime-daemon-contract.md": {
-      "lines": 131,
-      "bytes": 19466
+      "lines": 114,
+      "bytes": 10381
     },
     "docs/scene/architecture/scene-startup-pipeline.md": {
       "lines": 37,
@@ -113,8 +133,8 @@
       "bytes": 176439
     },
     "docs/scene/capabilities/direct-model-bind-geometry.md": {
-      "lines": 23,
-      "bytes": 3319
+      "lines": 32,
+      "bytes": 5726
     },
     "docs/scene/capabilities/direct-model-skeletal-animation.md": {
       "lines": 92,
@@ -150,15 +170,19 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 222654
+      "bytes": 222652
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
       "bytes": 204031
     },
+    "docs/scene/capabilities/runtime-systems-reference.md": {
+      "lines": 375,
+      "bytes": 31888
+    },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
-      "lines": 25,
-      "bytes": 4837
+      "lines": 61,
+      "bytes": 11287
     },
     "docs/scene/capabilities/scalar-mask-data-purpose.md": {
       "lines": 22,
@@ -205,8 +229,8 @@
       "bytes": 18380
     },
     "docs/scene/roadmap/batch2/2d-lighting-material-design.md": {
-      "lines": 584,
-      "bytes": 131793
+      "lines": 591,
+      "bytes": 132288
     },
     "docs/scene/roadmap/batch2/composition-render-target-design.md": {
       "lines": 155,
@@ -214,11 +238,11 @@
     },
     "docs/scene/roadmap/batch2/copy-pass-unification-design.md": {
       "lines": 120,
-      "bytes": 21915
+      "bytes": 21748
     },
     "docs/scene/roadmap/batch2/frame-admission-retry-design.md": {
-      "lines": 45,
-      "bytes": 8029
+      "lines": 47,
+      "bytes": 8404
     },
     "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md": {
       "lines": 131,
@@ -257,12 +281,12 @@
       "bytes": 13694
     },
     "docs/scene/roadmap/batch2/terminal-material-chain-design.md": {
-      "lines": 135,
-      "bytes": 28401
+      "lines": 148,
+      "bytes": 29767
     },
     "docs/scene/roadmap/engine-refactor-program.md": {
-      "lines": 62,
-      "bytes": 7605
+      "lines": 83,
+      "bytes": 10233
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 73,
@@ -277,8 +301,8 @@
       "bytes": 22465
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 189,
-      "bytes": 44029
+      "lines": 203,
+      "bytes": 47014
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -323,34 +347,6 @@
     "docs/web/web-wallpaper-benchmark-standard.md": {
       "lines": 86,
       "bytes": 8377
-    },
-    "docs/development/main-window-playlists-redesign.md": {
-      "lines": 594,
-      "bytes": 110603
-    },
-    "docs/development/status-bar-panel-redesign.md": {
-      "lines": 119,
-      "bytes": 19119
-    },
-    "docs/development/wallhaven-online-browser-design.md": {
-      "lines": 262,
-      "bytes": 38590
-    },
-    "docs/development/pixiv-online-browser-design.md": {
-      "lines": 166,
-      "bytes": 23241
-    },
-    "docs/development/ui-quality-audit.md": {
-      "lines": 178,
-      "bytes": 37435
-    },
-    "docs/development/lock-screen-screensaver-design.md": {
-      "lines": 117,
-      "bytes": 23214
-    },
-    "docs/scene/architecture/dynamic-layer-storage-design.md": {
-      "lines": 34,
-      "bytes": 4916
     }
   },
   "archives": [
@@ -1406,6 +1402,28 @@
       "originalBodySHA256": "76b07135a270596b7efe77a7916fff8a30160728506d0d0aec0386bf80a195d9",
       "originalLines": 50,
       "originalBytes": 34183
+    },
+    {
+      "source": "docs/scene/architecture/runtime-architecture.md",
+      "archive": "docs/scene/history/runtime-architecture-through-2026-11-01.md",
+      "anchors": [
+        "architecture-before-convergence"
+      ],
+      "preservedBodySHA256": "5b3a2fffc0c13bdb226c4f4d12666efd8bc89bae9b3ed3674cc88da100660bf0",
+      "originalBodySHA256": "b36a7c59e282ca09645e4625d8dd004337f7a265f1206656f4430543fb24c85a",
+      "originalLines": 600,
+      "originalBytes": 135065
+    },
+    {
+      "source": "docs/scene/architecture/capability-dependency-map.md",
+      "archive": "docs/scene/history/capability-dependency-map-through-2026-11-01.md",
+      "anchors": [
+        "dependency-map-before-convergence"
+      ],
+      "preservedBodySHA256": "1822fac916a945e381edb864afcbcb0946005aad11c54b9585b88beb547fe49a",
+      "originalBodySHA256": "19661983a2e50ec75dbfc99112cf075f8501ad90b9171f9f644c378a950caac6",
+      "originalLines": 220,
+      "originalBytes": 38974
     }
   ],
   "snapshots": [
@@ -1545,15 +1563,6 @@
       "after": "a71f1e4d757c36478e7021002f0a4606a2c8cceacbadd2a160fa326fd4d41c33",
       "owner": "Scene/Web validation simplification",
       "reason": "P10–P12同次减工和Release纯诊断整链剥离；同步实际回归、10项未验、片段对照及双配置App结算，退役旧产物，其他预算不变。",
-      "decision": "docs/development/validation-simplification-plan.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/direct-model-bind-geometry.md",
-      "before": "9b894dddf16c6732ae49df705d966c3f02bb4f5b0d1807f31a2d168417b2e616",
-      "after": "ac1e385b3d245cb629749bce96403b397882ae0b75be5abf384e50289ea60edc",
-      "owner": "Scene/Web validation simplification",
-      "reason": "P10–P14同次减工、纯诊断剥离及已有owner复用；同步ModelIR上传和合法资源路径、必要回归/对照/未验与产物结算，其他预算不变。",
       "decision": "docs/development/validation-simplification-plan.md"
     },
     {
@@ -1783,24 +1792,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/sampler-alias-precedence.md",
-      "before": "9c035b195d24073a98436c93b1cc7160f421699108e5b6e2675a977d70758425",
-      "after": "accfd34982e233836d58a2f953fec513c95c1c5566a53f419dfe1eb41a7f0893",
-      "owner": "scene-engine-maintainer",
-      "reason": "原Template准备阶段投影不可达FBO低候选，保diagnostic与必要身份门；同步真实history链、注册因果UNKNOWN及新显隐/验证债，退出仅已闭首拒。",
-      "decision": "docs/scene/capabilities/sampler-alias-precedence.md#declared-framebuffer-binding"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/engine-refactor-program.md",
-      "before": "18b9bbd658fb6d55a2c920488f366f9616cf0561b6d7da678b3e9b324b20e3ed",
-      "after": "565a157a0ba010611bccc3d0b7b1cb9a37b87f2dd284c5bccb1e54dd39d1bba2",
-      "owner": "scene-engine-maintainer",
-      "reason": "按能力优先更新选序与捕获输入/图执行分责，退出只已闭的356生成链；保旧失败与粒子余项，正文按现状收敛。",
-      "decision": "docs/scene/capabilities/scene-format-and-render-graph.md#captured-source-availability"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-compatibility-roadmap.md",
       "before": "f5f758e92615493ab088238f6ede3cdc73019c9efee9d031baf7705f3dd673cc",
       "after": "3592582351f55e96b69cbe82e61ad85f95da84d414b18749b0e8cd3208fcdbc5",
@@ -1945,27 +1936,9 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "a3897f788f1eaf97a28ef1b90ea36aa3c7537f505bc9da1d276b687053492da5",
-      "after": "c438f0a4fd413abb79b545a45e37027023dc9ab9e1effbd3643d492693baed3d",
-      "owner": "scene-particle-material-depth-variants",
-      "reason": "在既有粒子合同和同一队列/证据行记录新消费能力与边界；退役本批窄设计并折叠旧重复轨迹，不新增现役权威。",
-      "decision": "docs/scene/history/particle-material-depth-2026-11-01.md#bounded-result"
-    },
-    {
-      "section": "bodies",
       "path": "docs/architecture/repository-map.md",
       "before": "821783bf0ecf85b96934cd79f620237e1f0f1a50872e19381b58c48e1651bfb6",
       "after": "309ec6bacfde39f52298b7bf4ee675de2f4eca21fafac459e882f008f3806828",
-      "owner": "lock-screen-screensaver-design",
-      "reason": "原生Video屏保收敛、旧资源退役与锁屏边界澄清；保留主仓其他专题记录，合并重复过程说明。",
-      "decision": "docs/development/lock-screen-screensaver-design.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/architecture/technology-stack-boundaries.md",
-      "before": "e2b73234cfc58c5c33752a11dcbbe2e9b55a95ca1e76d0ac2b1267ca1e5b135a",
-      "after": "31f11c4aff88764fd9df1b6841e393244da5c9ccf170cc96793c5045caa15347",
       "owner": "lock-screen-screensaver-design",
       "reason": "原生Video屏保收敛、旧资源退役与锁屏边界澄清；保留主仓其他专题记录，合并重复过程说明。",
       "decision": "docs/development/lock-screen-screensaver-design.md"
@@ -1987,6 +1960,141 @@
       "owner": "lock-screen-screensaver-design",
       "reason": "原生Video屏保收敛、旧资源退役与锁屏边界澄清；保留主仓其他专题记录，合并重复过程说明。",
       "decision": "docs/development/lock-screen-screensaver-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/technology-stack-boundaries.md",
+      "before": "31f11c4aff88764fd9df1b6841e393244da5c9ccf170cc96793c5045caa15347",
+      "after": "f7feff9502ad91c53fb26c67f73ae5e4f09cfdb49b2977754275e971a74ace60",
+      "owner": "scene-architecture-governance",
+      "reason": "以当前代码与独立设计核对Scene整体/组件/专项/事实/历史职责；保留原文及有效锚点，按实际正文登记变化，不增加产品门或升级能力声明。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#顶层设计收敛决定"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/capability-dependency-map.md",
+      "before": "e8ae31fd5e6d7792c9d0b39c4745f6fe67b7b8cac75381d330c7915aeb966744",
+      "after": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "owner": "scene-architecture-governance",
+      "reason": "以当前代码与独立设计核对Scene整体/组件/专项/事实/历史职责；保留原文及有效锚点，按实际正文登记变化，不增加产品门或升级能力声明。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#顶层设计收敛决定"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md",
+      "before": "913d2102a539febbabfa9abf34b0cbbd7a576b48c9217537bde92aad02ed67bc",
+      "after": "9d18dc0dfbd402b407b7d741e5e255547af1f7e47e4ccba41e2496fb792403ba",
+      "owner": "scene-architecture-governance",
+      "reason": "以当前代码与独立设计核对Scene整体/组件/专项/事实/历史职责；保留原文及有效锚点，按实际正文登记变化，不增加产品门或升级能力声明。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#顶层设计收敛决定"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/refactor-baseline.md",
+      "before": "22c06b33af0ee8df4c34db7f8e71300e4055b031202f5b519984ed5c36c3cd85",
+      "after": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "owner": "scene-architecture-governance",
+      "reason": "以当前代码与独立设计核对Scene整体/组件/专项/事实/历史职责；保留原文及有效锚点，按实际正文登记变化，不增加产品门或升级能力声明。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#顶层设计收敛决定"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/scene-resource-admission.md",
+      "before": "fd098f884ffed53b4cc3e2534363713419fbcbb0d77a45bf6d9e4c2e6d500f66",
+      "after": "b02e8a42b510540ab872f28f89d6f0869099a0550af003b5b1b37df23bdb5c2c",
+      "owner": "scene-architecture-governance",
+      "reason": "以当前代码与独立设计核对Scene整体/组件/专项/事实/历史职责；保留原文及有效锚点，按实际正文登记变化，不增加产品门或升级能力声明。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#顶层设计收敛决定"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/direct-model-bind-geometry.md",
+      "before": "ac1e385b3d245cb629749bce96403b397882ae0b75be5abf384e50289ea60edc",
+      "after": "f68d0574896cd15e421a80c80ebab10aa86557f92c0beaed0e46eec4c18daae0",
+      "owner": "scene-architecture-governance",
+      "reason": "以当前代码与独立设计核对Scene整体/组件/专项/事实/历史职责；保留原文及有效锚点，按实际正文登记变化，不增加产品门或升级能力声明。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#顶层设计收敛决定"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-systems-reference.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "b7bffd1383fcd2ac897f7295023e9b72d783884290d8df2b269ae2df39222475",
+      "owner": "scene-architecture-governance",
+      "reason": "以当前代码与独立设计核对Scene整体/组件/专项/事实/历史职责；保留原文及有效锚点，按实际正文登记变化，不增加产品门或升级能力声明。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#顶层设计收敛决定"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/sampler-alias-precedence.md",
+      "before": "accfd34982e233836d58a2f953fec513c95c1c5566a53f419dfe1eb41a7f0893",
+      "after": "0cde3b3fd3d4c17db7f378247819a69db5c0eebc1b60ddb3804beb3ace8509b4",
+      "owner": "scene-architecture-governance",
+      "reason": "以当前代码与独立设计核对Scene整体/组件/专项/事实/历史职责；保留原文及有效锚点，按实际正文登记变化，不增加产品门或升级能力声明。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#顶层设计收敛决定"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
+      "before": "eef4b94815bc17a3545fcf2f25089a45ed0ec226d4e76cb2a7c56f9b6e3525fa",
+      "after": "d3dd269789f2a007bac0cf9e0b6f895baca119c72ff2ab67a7bd7dfbc01ed6b8",
+      "owner": "scene-architecture-governance",
+      "reason": "以当前代码与独立设计核对Scene整体/组件/专项/事实/历史职责；保留原文及有效锚点，按实际正文登记变化，不增加产品门或升级能力声明。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#顶层设计收敛决定"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/frame-admission-retry-design.md",
+      "before": "1540b6c506d44ec07f60127ee90a0bf187c012192fcb09f9ad31470d65aee6cb",
+      "after": "b3c7255d4dd687abd0d41531bd38155f7c85258ef8220cd52cb870b10b514532",
+      "owner": "scene-architecture-governance",
+      "reason": "以当前代码与独立设计核对Scene整体/组件/专项/事实/历史职责；保留原文及有效锚点，按实际正文登记变化，不增加产品门或升级能力声明。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#顶层设计收敛决定"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/terminal-material-chain-design.md",
+      "before": "3c81ac8bb029b3f161c6ec77ca3d4c94cd85243507fbd86a764ac897387cce4c",
+      "after": "eecd84cb2959cb422835502a46f9852176dbccd621943adf1730afdefeecfaac",
+      "owner": "scene-architecture-governance",
+      "reason": "以当前代码与独立设计核对Scene整体/组件/专项/事实/历史职责；保留原文及有效锚点，按实际正文登记变化，不增加产品门或升级能力声明。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#顶层设计收敛决定"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/engine-refactor-program.md",
+      "before": "565a157a0ba010611bccc3d0b7b1cb9a37b87f2dd284c5bccb1e54dd39d1bba2",
+      "after": "278d0f3c7dfe8f59922552d4df11c0c7e2cf7d6ae15a256d5c59d9e1fd9fd7d8",
+      "owner": "scene-architecture-governance",
+      "reason": "以当前代码与独立设计核对Scene整体/组件/专项/事实/历史职责；保留原文及有效锚点，按实际正文登记变化，不增加产品门或升级能力声明。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#顶层设计收敛决定"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "c438f0a4fd413abb79b545a45e37027023dc9ab9e1effbd3643d492693baed3d",
+      "after": "67036a4a3acceb98f816e868b2e50578abde1e1a0b7a1a095a9f3223311cd78b",
+      "owner": "scene-architecture-governance",
+      "reason": "以当前代码与独立设计核对Scene整体/组件/专项/事实/历史职责；保留原文及有效锚点，按实际正文登记变化，不增加产品门或升级能力声明。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#顶层设计收敛决定"
+    },
+    {
+      "section": "archives",
+      "path": "docs/scene/history/capability-dependency-map-through-2026-11-01.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "aaec4e1d38df52485dc28f51f6d35c4b5e5e433f87857383463c03ded5738cc6",
+      "owner": "scene-architecture-governance",
+      "reason": "以当前代码与独立设计核对Scene整体/组件/专项/事实/历史职责；保留原文及有效锚点，按实际正文登记变化，不增加产品门或升级能力声明。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#顶层设计收敛决定"
+    },
+    {
+      "section": "archives",
+      "path": "docs/scene/history/runtime-architecture-through-2026-11-01.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "455b10e77e8dd5e548db3caea6aa9d8a3c7c9fd4a70191a8420741132f3d1b44",
+      "owner": "scene-architecture-governance",
+      "reason": "以当前代码与独立设计核对Scene整体/组件/专项/事实/历史职责；保留原文及有效锚点，按实际正文登记变化，不增加产品门或升级能力声明。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#顶层设计收敛决定"
     }
   ]
 }

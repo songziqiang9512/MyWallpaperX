@@ -176,10 +176,24 @@
 | 验证债 · named geometry独立像素probe入口 | 当前老入口的编译源列表缺SceneMaterialRenderState，且引用DEBUG CounterHub却未传DEBUG；未取得fresh独立像素门结果。后继在原fixture职责中补齐真实依赖/配置，保来源身份与原断言；不据此改产品或把编译失败算像素失败。当前几何content修复已有真实Coordinator门及原包/独立样本App画面，见[关闭边界](../history/open-breakpoint-reconciliation-2026-10-23.md#geometry-named-content-20261029)。 |
 | 粒子unsupported与位置映射 | mapsequencebetweencontrolpoints、其余CP约束、Mirror、nested/event、非均匀child变换、深duration/9999 delay及322的68→64 matrix child预算独立开放，后者像素/成本待资格；只在真实active consumer有资格时实施。Position Around默认Z有效映射有反证，但斜轴六候选全拒；须新可区分出生/空间证据，不拟合phase/重跑旧板，不关闭311/379方向与速度。[位置边界](../capabilities/particle-component-coverage.md#position-around-position-mapping) |
 | <a id="particle-cp-distance"></a>3742497499 · CP距离/death child | [parseOperator](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser+Operator.swift)无maintaindistancetocontrolpoint case，Simulator无typed位置约束消费者；135默认活跃/GPU有输出但此算子未接。death child在multiplysize/setopacity拒，setcolor已接，174隐藏不算consumer。距离及六板均STOP；先资格distance/variable-strength/轨迹，不能替为maintaindistancebetweencontrolpoints；另分Alpha初始化、事件输入、尺寸消费与真实splash ROI，不跳未知mode或用root计数替child。[资格](../history/particle-initializer-qualification-2026-10-23.md#event-inheritance) |
-| 源码目录6项漏登记 | 3ce7adae2下Lighting输入、3个UserShortcuts、Puppet属性准备及shortcut dispatch仍不在filename合同；与本批已登记的两个prepared新源无关，只读核表同旧6项。按实际owner补登记，不移动/删合法代码消红；原收据在`native-text-bounds-20261022`正式包。 |
 | 运行诊断显隐归一 | 381隐藏/特殊solid聚合load-incomplete、380隐藏分支异常降级仍待核。先消费既有active/retired及实际outcome，保raw，不把结构标签当缺图。[诊断合同](../development/corpus-diagnostic-workflow.md) |
 | 粒子帧选择/normal采样的静态合同债 | 现selector按TEX duration加权（含random概率），[公开教程](https://docs.wallpaperengine.io/en/scene/particles/tutorial/spritesheet.html)称导入duration不影响粒子；现normal也mix下一帧，而固定stock仅采当前UV。两项尚无当前活跃非均匀duration/非零blend的可归因ROI，不据静态差异扩本批或改整个selector；先资格实际consumer，沿原帧选择/采样owner修正。static-primary后继仅闭元数据拒绝，不关闭这两项。 |
 | 历史GPU门/hidden extent覆盖 | 固定f79088a5输入的两条旧GPU红、hidden extent Python桩P2尚无fresh真实harness关闭链；先核生产可达分支与fixture，不称当前HEAD故障。[已闭graph债另归历史](../history/graph-color-purpose-reconciliation-2026-10-12.md) |
+
+### 5.1 顶层设计已裁决的代码职责重构
+
+以下是当前源码已经证明的结构债，按[统一设计](../architecture/runtime-architecture.md)纠正；本轮只完成设计与文档归整，未声称这些代码已经迁移。它们服务实际组件演进，不等待某个样本的官方像素资格才允许整理职责。改变可观察语义时再补相应对照，不能把纯结构清理扩成完整平台建设。
+
+| 重构要求与现有 owner | 目标及旧职责退出 | 最近验证与停止条件 |
+|---|---|---|
+| 文本脚本双执行：`SceneTextScriptCompiler`、Host Launch 与 Session FrameDriver | 将仍在产品使用的手写文本表达式执行迁入既有 QuickJS typed String 路线；文本 producer 仅持字符串、排版和纹理生成。移除 excluded-target 分流、旧 evaluator 和每帧值合并，不新增另一 VM | 日期、媒体文本、事件型/逐帧文本、异常回退、用户属性及真实文本作品；未迁移语言行为明确保留，不能只删 fallback 丢能力 |
+| `SceneRenderDescriptor.Layer` 同时保存字符串变换、数值变换及多类可选字段 | 明确 authored、prepared 与 live 分期；逐消费族收敛为类型化数据，身份和作者顺序仍唯一；退役不再需要的镜像与内容种类字符串分支 | 准备结果、默认值、动态属性、parent/相机、序列化兼容与代表组件；不先建无人消费的通用 ECS |
+| `SceneMetalView` 同时装配文字、视频、Puppet、粒子和延迟资源 | 按实际寿命把可共享 CPU 生命周期归 Session/type owner，必要每屏 CPU 实例仍按 surface 隔离，GPU 驻留归现有 Rendering；View 保 AppKit surface、输入与呈现职责 | 独立屏幕输入、热切、候选、退场和异步旧结果；不通过新 facade 隐藏原字段或把每屏状态误合并 |
+| `LaunchContext` 与 `prepareLaunch` 混合准备事实、liveState 和运行对象 | 沿现有 Host/Session 拆清不可变准备结果与运行实例，按真正消费者传最小数据；取消、资源 lease 和旧会话退出仍由原 owner 完成 | 冷暖准备、取消/newer-wins、首帧失败保旧及安全退出；不新增第二 Session、完整场景快照或重复解析 |
+| 粒子 runtime 混合模拟和 GPU 缓冲持有 | 保留现有 prepared 操作/通道计划，CPU 实例归粒子运行 owner，GPU 上传/几何与绘制状态归 Rendering/Particles；替换完成撤旧字段与转发 | 多 renderer、child、预热、脚本播放、不同视口及实际 GPU 输出；不并行保留永久不同语义的 CPU/GPU 实现 |
+| Pipeline warmup 与运行期 miss 路径 | 核对 `SceneResolvedMaterialPassEncoder.pipeline` 的真实 miss 原因与消费。可准备的产物移到加载/变体边界，保必要的设备与动态状态失效；撤销 draw 内无必要同步编译 | 冷/暖、合法变体改变和失败恢复，记录实际热路径编译次数；不凭有 warmup 就宣称零编译，也不缓存跨 command buffer 的完整帧 Program |
+
+FrameDriver 的前置与最终 snapshot 具有不同可观察阶段，不因表面上“双 resolve”直接合并；先确认字段消费者与时机，再删除无用计算。每批只改变一个真实职责闭环，完成后从本表退出并让源码地图反映新 owner。
 
 ## 6. 进入与退出
 

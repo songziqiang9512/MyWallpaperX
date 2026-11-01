@@ -1,131 +1,114 @@
-# Scene Runtime Daemon 契约（SceneRuntimeService 设计门 M5.1）
+# Scene Runtime Daemon 契约
 
 <!-- document-role: stable-contract -->
 
-> 状态：现役进程设计契约；实际接线查[代码地图](runtime-as-built-map.md)，后续专项顺序归[性能卡](../roadmap/performance-convergence-card.md)，工程边界查[顶层设计](../roadmap/engine-refactor-program.md)。
+> 状态：现役控制面与播放面进程合同。
 >
-> 复核：2026-10-21（Scene v2命令与频谱发送版本；不代表全样本或性能验收）
+> 复核：2026-11-01，按当前应用入口、SceneDaemonProtocol、client、endpoint 与 Session 生命周期静态核对；不代表本轮重新通过运行验收。
 >
-> 当前能力权威：[能力台账](../capabilities/coverage-ledger.md)。
->
-> 退役条件：daemon 化完成并稳定后，本契约并入长期架构合同（runtime-architecture.md 增补进程章节），本文转 historical-evidence。
+> 本文规定 App 与 Scene daemon 的职责、命令、发布与退出边界。引擎内部目标归[运行时架构](runtime-architecture.md)，实际 owner 与线程查[事实地图](runtime-as-built-map.md)，完整跨引擎交接查[播放切换事务](../../architecture/playback-lifecycle-transaction-design.md)。
 
 ## 1. 目标与非目标
 
-**目标**：Scene 播放引擎运行在独立 daemon 进程（与 Video/Web 共享控制／播放隔离边界，各自保留现役执行端）；主程序只做 UI/选择/设置/命令下发；崩溃/堆/QuickJS/编译器故障与主程序隔离。UI 响应、首帧与播放连续性分别验证。
+Scene 播放在独立 daemon 进程运行。主 App 负责 UI、用户选择、产品设置、共享系统采集和粗粒度会话控制；daemon 负责 Scene 窗口、时钟、输入、QuickJS、资源、Metal 执行与最终输出。隔离的收益是主界面与播放执行域分开、播放故障可重启；不能据此承诺总 CPU、GPU 或内存降低。
 
-**非目标（如实）**：不承诺总 CPU/GPU 下降；不改变引擎内部架构（唯一权威五件套、PreparedProduct 协议、失效域合同原样保留）；不在进程间传输任何 Metal 对象。
+进程隔离不建设第二 renderer、clock、property tree 或资源系统。普通帧不依赖主 App 心跳，也不跨管道逐节点、逐属性或逐 draw 调用。
 
 ## 2. 进程模型
 
-**实施裁决（2026-09-14，M5.2 动工前复核修订）**：Scene daemon = **同二进制 daemon 模式**——主程序 `Process()` 自孵化自身二进制（`--mwx-scene-daemon` 参数）作为 helper 进程，不建独立 tool target。
+当前采用同二进制 daemon：App 通过公共 DaemonProcessTransport 孵化自身可执行文件，传入 `--mwx-scene-daemon`。daemon 走应用入口的专用分支，设置 accessory，跳过主 UI 协调器；SceneDaemonRuntime 的私有 Host 是唯一产品执行入口。
 
-**裁决依据**：
-1. 契约原定独立 tool target 依赖同步组（PBXFileSystemSynchronizedRootGroup）共享整引擎源码（Core/SteamWorkshopScene + Properties + Format + QuickJS，数百文件）——同步组的例外机制（membershipExceptions）只支持逐文件附加，整引擎共享 = 数百条例外的维护灾难（video daemon 可行是因其自有源码面小）。
-2. 同二进制消除版本偏差（helper 签名校验、license bundle、artifact 缓存协议随 bundle 自动一致）；Scene 引擎无跨 target 同步组需求；video tool 若消费共享 DaemonKit，仍需为该共享子集登记双 target membership。
-3. 崩溃隔离目标不变：独立进程，主程序存活并按 §4 退避重启。
-4. XPC 评估后不采用：service target 同样面临整引擎共享问题；粗粒度命令（1Hz 统计+偶发命令）下 pipe+JSON 与 Mach 消息无性能差异；桌面窗口呈现路径以 Process+管道已在 video daemon 生产验证；launchd 托管由主程序自管退避替代。
+| 边界 | 职责 |
+| --- | --- |
+| App | 持有产品选择、可重放 authored intent、请求与属性 revision，配置系统输入和显示拓扑 |
+| Scene client | 端点生命周期、命令投影、回执过滤、候选授权及重放裁决 |
+| 公共 transport | Process、管道分帧、写入顺序、背压和进程终止通知 |
+| Scene endpoint | 按协议解码，调用私有 Host，发布对应请求的事件 |
+| Scene Host/Session | 候选与当前会话、帧推进、Surface、资源及释放 |
 
-| 项 | 裁决 |
-|---|---|
-| daemon 进程 | 主程序二进制 + `--mwx-scene-daemon`；NSApplication 配置为 accessory（无 Dock 图标、不参与激活）；主 UI 协调器（MainWindowCoordinator）在此模式**不装配** |
-| 孵化 | 主程序 `Process()` 启动自身可执行文件，三根管道；引擎 worker 源码住在 app target（零共享面问题） |
-| 传输 | stdin/stdout newline-delimited JSON；无 XPC |
-| 引擎代码 | Scene runtime **原样运行**（渲染/QuickJS/粒子/compositor/frame loop/预算执行）——不重写线程模型：帧循环仍在 daemon 主线程（AppKit 约束原样成立，见 §5） |
-| 状态存储 | daemon 拥有运行时状态；持久化设置由主程序经命令下发；daemon 无本地持久化（除既有 shader artifact 磁盘缓存，路径不变） |
-| 已知代价（接受） | ① daemon 二进制=完整 app（内存映射共享页，增量小）；② `@main` 分支需守护测试防 UI 初始化渗入 daemon 路径；③ launchd 无托管——退避重启由主程序负责（§4） |
+所有 Scene 源码继续属于原 App target，不为同二进制模式复制到另一 Target。实际运行隔离由入口分支和实例所有权保证。当前不采用 XPC，也不需要经主 App 共享或呈现 Scene 的 Metal 纹理。
 
-## 3. IPC 合同（= EngineCommand 的传输化）
+App 持久化产品设置，daemon 可维护已有 Shader 缓存和 SceneScript localStorage 等引擎数据。进程重启会丢失瞬时 VM/模拟状态，client 重放的是当前用户意图，不是完整场景 heap 或播放历史。
 
-### 3.1 命令（主程序 → daemon，逐行 JSON）
+源码：[应用入口](../../../MyWallpaperX/App/MyWallpaperXApplication.swift)、[client](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonClient.swift)与[endpoint](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonRuntime.swift)。
 
-| 命令 | 载荷 | 语义 |
-|---|---|---|
-| `loadScene` | `{rootURL, propertyOverrides, userPropertyTextures:{path,bookmark}, profile, recordID, requestID?, requiredUserTextureKeys?}` | 产品请求带 UUID，newer-wins；外部纹理书签在准备期间持有。仅纹理回退携带 requiredUserTextureKeys，指定 key 全用途 ready/reset absent 才准入，约束接受后清除，不进长期重放 |
-| `setProperty` | `{values, revision, recordID}` | 先尝试活动记录的 typed 热更新；daemon 回传接受结果，拒绝时 client 用合并后的 authored intent 走完整 load 兜底 |
-| `setUserTextures` | `{references, resetKeys, values, revision, recordID}` | 单 key selected/reset 事务；后台准备全部用途，成功回执后保存。坏图不重载；同记录 pending launch 等匹配 requestID 首次呈现后再提交。真正非实时绑定才带 requiredUserTextureKeys 走候选；其 accepted replay 保留旧值直到该候选首次呈现。停止、切记录及 transport 退出结清等待者 |
-| `cancelLaunch` | `{recordID}` | 只取消匹配记录的在途 launch |
-| `commitCandidate` / `finalizeCandidate` / `cancelCandidate` | `{requestID}` | 精确 UUID 授权提交、实际呈现后的确认或撤销；确认前保留旧 Scene 可回滚，迟到请求不能操作新候选 |
-| `setDisplayConfiguration` | `{screens:[{id, frame, scale}]}` | 多屏拓扑重建 |
-| `setPerformanceProfile` | `{maxFPS}` | 60/30 档热切换（下一次排帧生效） |
-| `setMuted` | `{muted}` | 静音公共态（Scene Sound 层 0 增益） |
-| `setVolume` | `{volume}` (`0...1`, finite) | 公共主音量增益；与作者/用户 Sound 音量相乘 |
-| `pause` / `resume` | — | 播放暂停/恢复（时钟+视频+音效） |
-| `shutdown` | — | 有序退出（先释放表面再退进程） |
+## 3. IPC 合同
 
-D23 强退役已接入：原 hello 的可选 requestRetirementSchemaVersion=1 与原 retireOutput 的 requireRequestRetirement=true 协商精确完整请求退役。普通命令缺省 false，保持原窗口撤回语义；强分支的 switchControlResult 另以 requestRetired=true 表示已知请求的原 preparation fence、Session 已接纳任务和 GPU 成功终态、窗口撤回及空 Host owners，不能由未知请求/字段缺失推导。原 launchResourcesReleased 增 resourcesRetired:true，失败不得退源租约；强屏障另保旧借用直到成功或实际退出。强分支暂停原 inbox drain 到一次终态再恢复，父端原2秒退出兜底不延长。音频 none 在 ACK 前按原 FIFO 发布，迟到 demand 须核完整当前 scope。原 registry/退出/Scene候选回滚继续唯一；最多30秒空进程复用不承诺AV borrower或RSS归零。新非Scene意图撤idle/强退役保留，物理retiring期间让Web可选空预热让位，真正Web准备保持。跨引擎产品交接归[切换事务](../../architecture/playback-lifecycle-transaction-design.md)，历史设计依据见[专项结算](../../history/cross-topic/wallpaper-startup-optimization-completed-2026-10-25.md)，限定运行与未闭性能门归[D23历史](../history/scene-startup-d23-2026-10-25.md)。
+### 3.1 命令
 
-### 3.2 事件（daemon → 主程序）
+传输采用 stdin/stdout newline JSON。实际字段、类型和版本由 [SceneDaemonProtocol](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonProtocol.swift)及其 typed command 定义维护，本文只保留语义，避免复制另一份 schema。
 
-| 事件 | 载荷 | 时机 |
-|---|---|---|
-| `launchStateChanged` | `{phase, message, requestID, recordID}` | 五阶段状态机（accepted/preparingModel/preparingPrograms/preparingResources/preparingSurfaces/launched/failed/cancelled） |
-| `candidatePrepared` | `{requestID}` | 当前全部候选 surface 的首帧 GPU 完成，等待父端授权；不等于可见输出 |
-| `firstFramePresented` | `{requestID, recordID, uptimeMs}` | 同请求 drawable 的实际 present 后 |
-| `launchResourcesReleased` | `{requestID}` | 对应 CPU preparation 与 GPU session 均结束，可释放请求版本租约；transport 退出也结清租约 |
-| `textureUpdateResult` | `{recordID, revision, outcome, message?}` | outcome 为 applied/failed/superseded/unavailable；按 transport generation、记录和 revision 接纳。applied 为 CPU 资源/属性采用完成，不等于所有屏同时呈现 |
-| `frameStats` | `{rendered,busy,dropped,drawCalls,pipelineStateBinds,geometryDrawCalls,fallbackBranches,gpuAllocatedBytes,renderTargetPoolBytes,cpuFrameMs?}` | 1Hz；前七项为 daemon 进程累计 counter，后两项为当前 gauge。`gpuAllocatedBytes` 是 Metal device 的进程总分配量；`renderTargetPoolBytes` 是已跟踪有界 RT 池预算和，不含 drawable |
-| `propertyUpdateResult` | `{revision, recordID, accepted}` | 热更新尝试完成；client 只消费自己登记的 revision/recordID |
-| `error` | `{code, message, context}` | 引擎内部失败的可上报子集 |
-| `exited` | `{code, gpuDrained}` | GPU barrier 终结后的进程退出前 |
+| 命令族 | 命令 | 语义 |
+| --- | --- | --- |
+| 内容准备 | loadScene、cancelLaunch | 完整 authored 请求及资源来源；按当前请求身份接纳与取消 |
+| 候选交接 | commitCandidate、finalizeCandidate、cancelCandidate | 授权推广、实际 presented 后确认或撤销，旧 active 在确认前可恢复 |
+| 输出控制 | setOutputActive、retireOutput | 暂停输出活动或撤回指定请求，和用户暂停、静音分别表达 |
+| 属性 | setProperty | typed values、revision、recordID；拒绝热更新时使用 client 已合并的当前意图重载 |
+| 外部纹理 | setUserTextures | selected/reset 的资源事务；成功回执后提交用户配置，坏资源保旧 |
+| 用户快捷方式 | setUserShortcuts | 用户明确配置的目标及版本，绑定到对应请求 |
+| 宿主配置 | setDisplayConfiguration、setPerformanceProfile | 显示拓扑和既有性能策略，daemon 持有帧驱动 |
+| 声音与播放 | setVolume、setMuted、pause、resume | 共享意图下发，保留作者自己的播放/停止状态 |
+| 外部输入 | publishAudioSpectrum、publishSystemMedia、publishSystemMediaArtwork、controlSystemMedia | 共享来源的 snapshot、需求控制和有序异步结果 |
+| 诊断与退出 | captureFrame、shutdown | 观察同一最终输出；有序停止并排空已接纳工作 |
 
-### 3.3 硬边界
+普通产品 load 带 requestID/recordID；属性和资源更新使用其 revision。首次准备、快速切换、重连和媒体结果的回执只能进入对应端点与请求，不能读取“当前请求”再给旧结果贴身份。
 
-- 进程间**只传** coarse 命令与轻量统计；`MTLTexture`/registry/coordinator/任何进程内对象不跨进程。
-- daemon 内保持唯一权威五件套与失效域合同；诊断旁路（evidence window/HUD）留在 daemon 内。
-- 协议版本：握手、全部命令和事件统一引用 `SceneDaemonProtocol.version`（当前 Scene v2；Video/Web各保原版本）；不匹配严格拒绝。后台频谱发送也遵守此规则；回归门须将真实发送字节交给实际 decoder 与 Inbox，不能只检查命令已写出。
+### 3.2 事件与完成语义
 
-### User Shortcut 的 coarse 扩展设计
+| 事件 | 可以说明什么 |
+| --- | --- |
+| launchStateChanged | 指定请求的当前准备阶段或终态；不等于实际呈现 |
+| candidatePrepared | 当前候选所需 Surface 已取得首帧 GPU 完成，等待父端授权 |
+| firstFramePresented | 同请求 drawable 的实际 presented；不能由已编码、已提交或 completed 代替 |
+| propertyUpdateResult、textureUpdateResult | 对应 revision 的接纳或失败；CPU 采用完成不等于所有屏同时可见 |
+| switchControlResult | 指定 operation 的输出控制/退役结果；强退役须显式确认 requestRetired |
+| launchResourcesReleased | 对应请求已接纳准备与会话资源到达定义的退役终态，才可归还请求读取租约 |
+| 音频与媒体 demand | 当前 daemon scope 的真实消费者需求；不是从历史 replay 自动恢复的采集许可 |
+| frameCaptured、frameStats、error | 按构建/请求启用的诊断观察与错误；不授予播放或提交资格 |
+| exited | 退出前的终态报告；实际进程退出由 transport 单独确认 |
 
-[macOS adapter](../roadmap/batch2/script-component-api-design.md#user-shortcut-macos-adapter)Scene协议独立升v2，保现有严格header/command/event版本校验，Video/Web及公共transport不改；旧版本不能静默吞授权字段。load与更新交付App独占选择、bookmark和存储的typed configuration（revision、registered property key及本机reference），绑定record/request；daemon仅准备执行lease，不持久化配置或逐帧解析书签。Session在真实native cursor scope同步调用NSWorkspace并返回实际native Bool；grant保捕获时request/config revision，每click及每frame至多一次attempt，消耗不随脚本/帧事务撤回，stop/reset/替换撤销未执行grant。无动作IPC或重连重放，不把此边界扩大为通用文件/网络或JS native模块。配置/执行接线已实施；真实目标和运行验收另记现役能力。
+频谱、媒体、控制和统计的具体 schema 以 decoder 与真实发送代码为准。诊断事件可以按当前构建能力关闭；产品不能等待 frameStats 才判定活性。
 
-## 4. 生命周期与崩溃语义
+### 3.3 传输与身份边界
 
-- **孵化**：主程序 `SceneDaemonClient` 经公共 `DaemonProcessTransport` 启动自身可执行文件并传 `--mwx-scene-daemon`，三根管道；单实例使用既有 Host 多表面模型。不得启动不存在的 Scene tool。
-- **崩溃/断连**：主程序侧持有公共 `DaemonRestartBackoff`（0s 立即一次，随后 1/2/4/8/16s，单次连续故障最多 6 次；通用上限 30s），重启后自动重放当前 authored intent；只有恢复请求的实际 first-present 才清零退避。连续失败超阈值 → 停止重试 + UI 错误态。
-- **有序退出**：`shutdown` → daemon 排空在飞 command buffer → `exited` → 进程退出；client 超时 2s 强杀。
-- **世代语义**：产品候选经 prepared → commit → 实际 first-present → finalize。父端在接受新意图时立即撤销 pending 身份，daemon 按 UUID 取消或回滚；旧 active 在确认前保持可恢复，暂停隐藏的 standby 至多一个。commit 后 5s 没有实际 presented 则回滚并报失败；同请求的 daemon 本地 presented 只撤计时，父 finalize 才退休旧输出，父 UI 阻塞不误判呈现超时。稳态帧不依赖父端心跳。请求版本租约保持到释放确认或进程真实退出。
+普通控制命令保序。高频可丢弃输入只在相邻控制屏障之间 latest-only，不能越过 load、pause 或 shutdown 改变时序。普通控制无法接纳时终结对应端点，不静默继续使用旧状态。公共 transport 的实际容量与退出排空逻辑由其实现和行为测试维护，不在本合同重复常量。
 
-## 5. 线程约束审计结论（M5.1 审计；细节查事实架构地图 §1.3/§4）
+Scene 的协议版本由 SceneDaemonProtocol.version 唯一发布。命令与事件一致使用该版本；不匹配拒绝本端点，不影响 Video/Web 自己的协议。进程间只传控制、typed 快照、资源引用与诊断；MTLTexture、registry、graph、coordinator 和内部对象均留在 daemon。
 
-daemon 化采用"runtime 原样搬迁"策略——**不重写线程模型**，以下主线程约束在 daemon 进程内原样成立，因此不构成迁移障碍：
+## 4. 候选、恢复与退出
 
-1. 帧循环/QuickJS/粒子/Metal encode 在 daemon 主线程（Timer on RunLoop.main）；AppKit 接触点（drawableSize 主线程写、指针链 NSEvent/window.convertPoint、surfaces 主线程独占、8 组 commit 栅栏）在 daemon 内与今天同构。
-2. QuickJS VM 线程绑定：launch 队列创建 → adoptCurrentThread 到 daemon 主线程，机制既有。
-3. 与主程序的边界只有管道 JSON：主线程事件（NSEvent 采样、窗口生命周期）全部是 daemon 进程自己的主线程事务。
-4. 需要防范的两点：①daemon 内 `Task { @MainActor }` 完成回调照旧；②`framesStats` 1Hz 事件从 hub 定长快照读取（锁内拷贝），不经帧路径。
+### 4.1 候选事务
 
-**帧线程隔离（RenderLoop 独立线程/DisplayLink）明确不在 M5 范围**——此前裁决：接触面大、无编译器护栏，daemon 边界已达成隔离目标。
+1. 父端接纳新的用户意图并撤销旧 pending 身份；daemon 后台准备候选，当前有效 Scene 保持。
+2. 候选所需首帧 GPU 完成后发送 candidatePrepared；父端确认当前请求后授权 commit。
+3. daemon 推广候选并保留一个可回滚旧 Session，直到实际 presented 后收到父端 finalize。
+4. 失败、取消或本地呈现超时回滚；本地真实 presented 撤销该呈现计时，父端 UI 繁忙不能被误判为尚未呈现。
+5. finalize 后才退役旧 Session，读取租约继续等待资源退役回执或实际进程退出。
 
-## 6. 迁移步骤（M5.2–M5.6）与验收门
+稳态逐屏呈现不受候选首帧 cohort 约束。某屏 drawable 不可用不重跑已消费的共享模拟，也不阻塞其他正常屏。
 
-| 步 | 内容 | 验收门 |
-|---|---|---|
-| M5.2 | 同二进制 daemon 模式起桌面窗口 + 命令框架（实际 present 证据独立验证） | 手动：样本文隔离副本出首帧 |
-| M5.3 | 先抽取已有双消费者的 newline 分帧/编码；Scene 同 app target，本批只新增该真实共用文件的 app + video tool 双 target membership | split/coalesced/空帧门 + video daemon 行为回归 |
-| M5.4 ✅ | Scene client 接入；孵化/退避抽入 DaemonKit；命令迁移（EngineCommand→管道）+ 请求过滤事件回传 + 退避重启 | 属性热更新/拒绝重载兜底、静音/FPS/暂停、强杀恢复已过隔离实测 |
-| M5.5 ✅ | 删除 Host 全局入口；daemon runtime 显式拥有唯一产品 Host，主 App 保持 client stub | 普通主程序调用面无 Host 类型引用；DEBUG direct evidence 独立持有 |
-| M5.6 ✅ | 生命周期收尾 + 旧路径删除（消融） | 切换/退出/多屏/暂停全链已过；能力语义与 prepared 产品未改 |
+### 4.2 重启
 
-每步过 checkpoint 构建；M5.4 起用 graph 样本隔离副本做 smoke（首帧 + setProperty 热更新 + 崩溃恢复）。
+进程断连或崩溃后，client 使用公共有界退避重启并重放当前 authored intent。仅恢复请求的实际 first-present 清零连续故障状态；持续失败停止重试并报告用户。旧 generation 或已退休端点的迟到事件不能进入新会话。
 
-## 7. 风险登记
+### 4.3 有序退出与强退役
 
-**M5.2 安全重做记录（2026-09-14）：** 历史 prototype 已撤回后重新实现。当前 endpoint 检查 v1 并将属性保留为 `SceneUserPropertyValue`；load 消费 profile，未知命令和坏载荷发送 error；launch/first-present 都携带请求身份。`firstFramePresented` 只在同请求 drawable 的 Core Animation presented handler 后产生，handler 先异步离开 Core Animation 回调再投递主队列，避免与主线程 `nextDrawable` 锁反转。EOF 与 shutdown 走同一路径：停止 Host，向每个现有 surface 的既有 command queue 提交空 barrier、等待 terminal，再写 `exited{code,gpuDrained}` 并退出。critical 事件串行，1Hz frameStats 只有一个可替换待写槽。签名 Debug 的 graph/simple 隔离样本均实测真实 present、持续渲染和 `gpuDrained=true`；未知命令负例也实测报错。`setDisplayConfiguration` 与主程序 Process/client/退避仍属于 M5.3/M5.4，当前普通 App 播放路径尚未迁移。
+shutdown 撤销新工作，关闭场景、worker 和 Surface，并等待已接纳的 CPU 准备及已提交 GPU 到达各自终态。窗口关闭不等于资源已释放，GPU barrier 也不能概括所有 AV borrower。父端只在匹配的成功回执或实际退出后退还来源租约；有界强退由 transport 负责。
 
-**M5.3 双消费者裁决（2026-09-14）：** Video App client、WallpaperDaemon tool 与 Scene endpoint 原先各自拼接 newline 或维护输入 buffer；现统一消费无业务依赖的 `DaemonNewlineFrameBuffer` / `DaemonNewlineJSON`，协议 payload 与事件背压策略仍留在各端。孵化与退避此时只有 video client 一个生产消费者，因此没有提前抽成公共 wrapper；它们随 M5.4 Scene client 首次接线迁移。真实 Video helper 已用拆段命令和空帧回归到 ready/stopped；两个隔离 Scene daemon 均取得实际 present、持续统计和 GPU drain。公共层只运行于 coarse IPC，不进入帧内渲染热路。
+强退役通过现有 requestRetirementSchemaVersion 协商，并在 requireRequestRetirement 请求中显式要求。成功必须确认已知请求的准备、Session、窗口和 GPU 定义范围全部退役；未知请求或缺字段不能冒充成功。它不承诺进程 RSS、AV 系统内部缓存或所有借用立即归零。
 
-**M5.4 控制面迁移记录（2026-09-14）：** 普通产品 Scene 已由 App 内 `SceneDaemonClient` 唯一接收 `WallpaperEngineCommand`，再经同二进制 daemon 管道控制既有 Host；App 侧只保留可重放 authored intent、请求身份、属性 revision 和 1Hz 统计。`loadScene` 携带 typed 属性及外部纹理书签，子进程恢复 URL 后由唯一 Host 在后台纹理准备范围内开闭安全作用域；`setProperty` 以 revision+recordID 回执，拒绝时用已经合并的 authored intent 全量重载。所有 launch/first-present 事件按 requestID/recordID 投影，旧终态不能清除新 pending。graph/simple 隔离副本都通过首帧、20 秒播放、SIGKILL 后自动重放与恢复 present；数值属性样本验证热更新在同一进程生效并在崩溃后保留，非 live 属性验证拒绝后完整重载。Video daemon 拆段/空帧回归仍通过。该迁移不增加 visual owner；Metal/registry/graph/compositor 全留在 daemon。
+App 退出使用原进程终止机制，等待 retiring transport；终止通知及强退时限不能被 AppKit 的嵌套主循环饿死。空进程复用只复用端点，不保留旧请求的输出权。
 
-**M5.5 Host 所有权收口（2026-09-14）：** `SceneDesktopWallpaperHost` 不再暴露全局 `shared`；`SceneDaemonRuntime` 的私有实例是唯一产品 Host。普通 App 的 AppDelegate、应用入口、窗口协调器、WallpaperEngine 与 Steam 服务调用面均无 Host 类型引用，Scene client stub 只保存控制意图和投影 daemon 事件。同二进制 daemon 仍必须让完整 runtime 源码属于 app target，因此“主程序无渲染路径”的可执行含义是主进程不装配、不实例化且无法经全局入口取得 Host，而不是复制或搬走数百个 runtime 源文件。显式 DEBUG direct evidence runner 拥有独立 Host，只用于隔离样本，并由同一 owner 停止。graph/simple 均在强杀后由新 daemon 恢复实际 present，截图构图完整；本步不触碰帧算法、prepared 产品或失效域。
+## 5. 输入、线程与存储边界
 
-**M5.6 生命周期闭合（2026-09-14）：** App 捕获 `NSScreen` 拓扑并通过 v1 `setDisplayConfiguration` 发送有限的 display ID/frame/scale 值；daemon 校验 ID 唯一、数值有限和尺寸有效后交给唯一 Host 做去抖重建。Host 删除跨进程失效的 runtime-switch 和 App screen notification 入口，活动 Space 只监听 `NSWorkspace.shared.notificationCenter`。系统睡眠/锁屏/全屏和全局热键均经 multiplexer/client 控制 Scene，暂停意图跨无活动请求及 daemon 重连保留。App 退出使用 `terminateLater` 等待 client retirement；daemon 仍先停止表面、排空 GPU barrier、发 `exited` 再退进程。Process 终止事件经主 RunLoop common modes 投递，避免 AppKit 终止内层循环阻塞主 GCD 队列；2 秒强退由 transport 后台计时。隔离 simple→graph 在同 PID 完成两个 record 的 actual present 后退出无孤儿，simple 强杀恢复后也无残留；两份最终截图构图完整且 dropped=0。本步只收敛 coarse 控制与生命周期，不改变 Metal/registry/graph/compositor、prepared 产品或帧内失效域。
+系统音频采集与分析唯一归 App，daemon 根据实际消费者发布 demand，接收同 scope 的 typed 频谱。来源重建期间 unknown demand 不得偷换为 false；成功后提交实际需求，失败停止并撤销旧 scope。当前 Scene 不接受退役的 setSpectrumEnabled 开关。
 
+系统媒体同样由共享来源投影，metadata 与封面需要保持请求身份。用户快捷方式只执行 App 选定的配置，通过既有 coarse configuration 和本地合法输入 scope 触发；不增加任意文件、网络或 JS native-module 能力。
 
-| 风险 | 缓解 |
-|---|---|
-| 多屏单实例 vs 多实例未定 | M5.2 原型实测（单实例多表面优先，与今天 surfaces 字典同构） |
-| QuickJS artifact 磁盘缓存并发（主程序预编译 + daemon 编译） | 缓存协议本就单写者原子替换；daemon 成为唯一编译者后主程序不再触发编译 |
-| 管道背压（frameStats 1Hz 足够小） | 事件丢弃策略：主程序忙时 daemon 侧只保留最新 frameStats |
-| 属性覆盖持久化迁移 | UserDefaults 键与持久化读写留在主程序；daemon 经命令消费运行值，重启由主程序重放 |
-> **音频采集门合同（2026-09-28 收敛）**：原 2026-09-22 的 `setSpectrumEnabled(bool)` coarse 命令已随"频谱开关仅归属 video 叠加层"的目标合同退役——协议 decode 对其返回 `unsupportedCommand`，client 不再发送或重放。Scene 的系统音频采集只由两条门控制：daemon 上报的样本 demand（generation 绑定，重启由 demand 事件自恢复）与共享暂停门（`isPlaybackPaused`）。`SceneAudioSpectrumInbox` 自身的 fail-closed 守卫（无 demand / stale token / 进程集不匹配即拒绝）保持不变。
+当前帧循环、VM、输入和 Metal 编码留在 daemon 主 RunLoop；准备和资源 worker 在后台。迁移 DisplayLink 或独立渲染线程属于另一个有实际证据支持的改造，不因 daemon 已隔离便默认安全。SceneScript localStorage 的范围、写入和 owner 生命周期归其原运行时，不能宣称 daemon 没有持久化。
+
+## 6. 验证与历史
+
+改进程、命令或生命周期时，使用实际 encoder/decoder 和 client/daemon 行为验证：拆帧与合帧、未知命令、版本冲突、A→B→C 迟到回执、候选失败保旧、热更新及重放、进程强杀恢复、停止与请求退役。改变播放算法时另验 GPU 和真实画面；进程 smoke 不证明完整兼容或性能。
+
+M5.2–M5.6 的实施过程、原型撤回与当时实测已归[2026-09-15 前工程档案](../history/engine-refactor-program-before-2026-09-15.md)。本合同不保留完成步骤或当时待确认风险；当前能力、运行证据和后继任务分别由其现役权威维护。daemon 已是合理的产品边界，不因外部起步方案建议同进程而回退。

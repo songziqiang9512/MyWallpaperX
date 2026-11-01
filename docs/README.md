@@ -12,6 +12,7 @@
 | 长期技术边界 | 技术栈、语言、进程、依赖和所有权 | [技术栈与架构路线](architecture/technology-stack-boundaries.md) |
 | Scene 目录依赖 | Compilation / Rendering 结构边及有界扫描合同 | [依赖边界试点](scene/architecture/scene-dependency-boundaries.md) |
 | Scene 目标架构 | 播放器职责、逐对象加载／更新／合成／释放与编码合同 | [Scene 兼容运行时架构](scene/architecture/runtime-architecture.md)、[Sampler 缺省输入优先级](scene/capabilities/sampler-alias-precedence.md) |
+| Scene 组件职责 | 节点、类型状态、行为、资源、Pass、系统输入及源码落点 | [组件与运行系统职责](scene/capabilities/runtime-systems-reference.md)；当前接线查[事实地图](scene/architecture/runtime-as-built-map.md)，重构要求归唯一开放队列 |
 | Scene 启动响应 | 属性准备、开发观测、候选首帧、回滚和分层缓存合同 | [Scene 启动响应与按需诊断合同](scene/architecture/scene-launch-responsiveness-contract.md) |
 | Scene/Web 启动 | 当前启动、依赖准备与宿主生命周期；专项结算另存历史 | [Scene 启动合同](scene/architecture/scene-launch-responsiveness-contract.md)、[Web 模型](web/web-project-json-runtime-model.md)、[完成记录](history/cross-topic/wallpaper-startup-optimization-completed-2026-10-25.md) |
 | Scene 日常开发 | 如何选首断点、做纵向切片、消融常驻成本和选择验证门 | [Scene 开发工作流](scene/development/development-workflow.md) |
@@ -31,6 +32,8 @@
 ## Scene
 
 从 [Scene 一页说明](scene/README.md)开始：先理解进程、准备、逐帧合成与代码职责，再选择重构或兼容路线。长期设计、能力表、研究和历史均按需进入，不把它们当成入仓必读清单。
+
+`python3.12 -B script/document_registry.py --query "Scene架构"` 直接定位总设计、组件合同与当前 owner；视觉问题仍从对应能力首断点进入。
 
 ## App、Web 与发布
 
