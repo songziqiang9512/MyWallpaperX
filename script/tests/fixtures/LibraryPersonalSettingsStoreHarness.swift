@@ -97,7 +97,10 @@ import SQLite3
             expectedOrganization: state.organizationState, expectedEpoch: epoch)
         checks["schema-six-same-uuid-still-applies-explicit-imported-metadata"] = state.playlists.first { $0.id == legacyA.id } == v6Metadata
         let rollbackPlaylist = WallpaperPlaylist(name: "Rollback", createdAt: date, sidebarRank: 6)
-        let failing = LibraryCollectionsPersonalSettingsImport(playlists: [rollbackPlaylist], favoriteStates: [.init(reference: b, isFavorite: true)],
+        let failing = LibraryCollectionsPersonalSettingsImport(playlists: [rollbackPlaylist],
+            members: [.init(playlistID: rollbackPlaylist.id, reference: a, position: 0, addedAt: date),
+                      .init(playlistID: rollbackPlaylist.id, reference: c, position: 0, addedAt: date)],
+            favoriteStates: [.init(reference: b, isFavorite: true)],
             legacyOrigins: [.init(playlistID: rollbackPlaylist.id, sourceKey: "failed-import", tag: "Rollback")])
         let failureCommand = UUID(), priorFailure = state
         try sql(url, "CREATE TRIGGER profile_fail BEFORE INSERT ON favorites BEGIN SELECT RAISE(ABORT,'controlled profile failure'); END")
@@ -108,6 +111,8 @@ import SQLite3
         try sql(url, "DROP TRIGGER profile_fail")
         state = try await store.applyPersonalSettings(failing, commandID: failureCommand, expectedOrganization: state.organizationState, expectedEpoch: epoch)
         checks["failed-profile-command-can-retry-and-commit-once"] = state.playlists.contains { $0.id == rollbackPlaylist.id }
+        checks["profile-member-positions-roll-back-and-restart-on-the-same-command-retry"] = state.members.filter { $0.playlistID == rollbackPlaylist.id }.map(\.reference) == [a,c]
+            && state.members.filter { $0.playlistID == rollbackPlaylist.id }.map(\.position) == [0,1]
         let aliasSafetyBefore = state
         let redirect = LibraryCollectionsPersonalSettingsImport(aliases: [.init(alias: b, canonical: a, proof: .restoredSourceRecord)])
         do {
@@ -157,6 +162,61 @@ import SQLite3
             checks["old-profile-recovery-cannot-cross-reset-epoch"] = false
         } catch UserCollectionsError.staleResetEpoch { checks["old-profile-recovery-cannot-cross-reset-epoch"] = try await store.snapshot() == reset }
         try await controllerChecks(root: root, checks: &checks)
+        let positionsURL = root.appendingPathComponent("positions.sqlite"), positionsStore = UserCollectionsStore(url: positionsURL)
+        let positionsInitial = try await positionsStore.snapshot()
+        let positionLists = (0..<6).map { WallpaperPlaylist(name: "Position-\($0)", createdAt: date, sidebarRank: $0) }
+        let seedReference = WallpaperReference(provider: .videoLibrary, sourceID: "position-seed")
+        let appendFirst = WallpaperReference(provider: .videoLibrary, sourceID: "append-a")
+        let appendSecond = WallpaperReference(provider: .videoLibrary, sourceID: "append-z")
+        let appendThird = WallpaperReference(provider: .videoLibrary, sourceID: "append-third")
+        let appendAlias = WallpaperReference(provider: .videoLibrary, sourceID: "append-alias")
+        var positionCommands: [UserCollectionsCommand] = positionLists.map { .createPlaylist($0) }
+        for list in positionLists.dropFirst() { positionCommands.append(.addMembers(list.id, [item(seedReference)], date)) }
+        positionCommands.append(.linkAlias(.init(alias: appendAlias, canonical: appendFirst, proof: .publishedDownload), date))
+        _ = try await positionsStore.apply(positionCommands, expectedEpoch: positionsInitial.resetEpoch)
+        let seeds: [Int64] = [9, .min, .max - 1, .max, 7]
+        for (index, position) in seeds.enumerated() {
+            try sql(positionsURL, "UPDATE members SET position=\(position) WHERE playlist_id='\(positionLists[index + 1].id.uuidString)'")
+        }
+        let positionsBefore = try await positionsStore.snapshot()
+        let mergeFirst = WallpaperPlaylist(name: positionLists[5].name, createdAt: date, sidebarRank: 6)
+        let mergeSecond = WallpaperPlaylist(name: positionLists[5].name, createdAt: date, sidebarRank: 7)
+        var positionPayload = LibraryCollectionsPersonalSettingsImport(playlists: positionLists + [mergeFirst, mergeSecond],
+            legacyOrigins: [.init(playlistID: mergeFirst.id, sourceKey: "position-import", tag: mergeFirst.name),
+                            .init(playlistID: mergeSecond.id, sourceKey: "position-import", tag: mergeSecond.name)])
+        let firstTargets = positionLists.prefix(5).map(\.id) + [mergeFirst.id]
+        let secondTargets = positionLists.prefix(5).map(\.id) + [mergeSecond.id]
+        let firstAdded = date.addingTimeInterval(20), secondAdded = date.addingTimeInterval(30), thirdAdded = date.addingTimeInterval(40)
+        positionPayload.members.append(.init(playlistID: positionLists[1].id, reference: seedReference, position: 0, addedAt: date.addingTimeInterval(999)))
+        for id in firstTargets { positionPayload.members.append(.init(playlistID: id, reference: appendFirst, position: 0, addedAt: firstAdded)) }
+        for id in firstTargets { positionPayload.members.append(.init(playlistID: id, reference: appendAlias, position: 0, addedAt: date.addingTimeInterval(999))) }
+        for id in secondTargets.dropFirst() { positionPayload.members.append(.init(playlistID: id, reference: seedReference, position: 0, addedAt: date.addingTimeInterval(999))) }
+        for id in secondTargets { positionPayload.members.append(.init(playlistID: id, reference: appendSecond, position: 0, addedAt: secondAdded)) }
+        positionPayload.members.append(.init(playlistID: mergeFirst.id, reference: appendThird, position: 0, addedAt: thirdAdded))
+        let positionsAfter = try await positionsStore.applyPersonalSettings(positionPayload, commandID: UUID(),
+            expectedOrganization: positionsBefore.organizationState, expectedEpoch: positionsBefore.resetEpoch)
+        let expectedPositions: [[Int]] = [[0,1], [10,11], [-9223372036854775807,-9223372036854775806],
+            [9223372036854775807,9223372036854775807], [9223372036854775807,9223372036854775807], [8,9]]
+        let expectedCounts = [2,3,3,3,3,4]
+        for (index, list) in positionLists.enumerated() {
+            let members = positionsAfter.members.filter { $0.playlistID == list.id }
+            let addedFirst = members.first { $0.reference == appendFirst }, addedSecond = members.first { $0.reference == appendSecond }
+            checks["profile-import-integer-position-boundary-\(index)"] = members.count == expectedCounts[index]
+                && addedFirst?.position == expectedPositions[index][0] && addedSecond?.position == expectedPositions[index][1]
+                && addedFirst?.addedAt == firstAdded && addedSecond?.addedAt == secondAdded
+        }
+        checks["profile-import-retains-existing-integer-positions-and-dates"] = positionsBefore.members.allSatisfy { positionsAfter.members.contains($0) }
+        checks["profile-import-equal-positions-preserve-input-offset-order"] = [0,1,2].allSatisfy { index in
+            positionsAfter.members.filter { $0.playlistID == positionLists[index].id && $0.reference != seedReference }.map(\.reference) == [appendFirst,appendSecond]
+        }
+        let mergedMembers = positionsAfter.members.filter { $0.playlistID == positionLists[5].id }
+        let addedThird = mergedMembers.first { $0.reference == appendThird }
+        checks["profile-import-legacy-ids-share-one-physical-append-position"] = !positionsAfter.playlists.contains { $0.id == mergeFirst.id || $0.id == mergeSecond.id }
+            && mergedMembers.filter { $0.reference != seedReference }.map(\.reference) == [appendFirst,appendSecond,appendThird]
+            && addedThird?.position == 10 && addedThird?.addedAt == thirdAdded
+            && positionsAfter.playlists.first { $0.id == positionLists[5].id }?.modifiedAt == thirdAdded
+        let positionsReopened = try await UserCollectionsStore(url: positionsURL, allowCreate: false).snapshot()
+        checks["profile-import-integer-positions-survive-reopening-the-real-store"] = positionsReopened == positionsAfter
         print(String(decoding: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), as: UTF8.self))
     }
 

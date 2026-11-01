@@ -254,14 +254,17 @@ actor UserCollectionsStore {
                 if $0.element.position != $1.element.position { return $0.element.position < $1.element.position }
                 return $0.offset < $1.offset
             }
+            var nextPositions: [UUID: Int64] = [:]
             for (_, member) in ordered {
                 let id = resolvedIDs[member.playlistID] ?? member.playlistID
                 guard member.position >= 0 else { throw UserCollectionsError.personalSettingsConflict }
                 try requirePlaylist(id); try requireFinite(member.addedAt)
                 let key = try canonical(member.reference).storageKey
-                let position = try integer("SELECT COALESCE(MAX(position),-1)+1 FROM members WHERE playlist_id=?", [.text(id.uuidString)])
+                let position = try nextPositions[id] ?? integer("SELECT COALESCE(MAX(position),-1)+1 FROM members WHERE playlist_id=?", [.text(id.uuidString)])
                 try execute("INSERT OR IGNORE INTO members VALUES(?,?,?,?)", [.text(id.uuidString), .text(key), .integer(position), .real(member.addedAt.timeIntervalSince1970)])
-                if legacyTargetIDs.contains(id), sqlite3_changes(database) > 0 { try touchPlaylist(id, at: member.addedAt) }
+                let inserted = sqlite3_changes(database) > 0
+                nextPositions[id] = inserted ? min(position, Int64.max - 1) + 1 : position
+                if legacyTargetIDs.contains(id), inserted { try touchPlaylist(id, at: member.addedAt) }
             }
             var seenFavorites: [WallpaperReference: Bool] = [:]
             for favorite in payload.favoriteStates {
