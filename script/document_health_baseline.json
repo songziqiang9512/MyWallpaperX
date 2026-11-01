@@ -134,7 +134,7 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 534,
-      "bytes": 170554
+      "bytes": 170870
     },
     "docs/scene/capabilities/previous-blurred-composite-admission.md": {
       "lines": 20,
@@ -150,7 +150,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 221843
+      "bytes": 222109
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -277,8 +277,8 @@
       "bytes": 22465
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 188,
-      "bytes": 43508
+      "lines": 189,
+      "bytes": 44008
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1855,15 +1855,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "e549c1d6518f0f4448b2c26d2deb907defe79729c8549c882b0db98e89fdc8a5",
-      "after": "a2d5006182bdcd0ca6e5ef1c0eb9945f2287d38b0183c8910c66cac43e1e98f0",
-      "owner": "scene-engine-maintainer",
-      "reason": "退役跨owner全帧固定容量混责、保每owner raw/原atomic预算并记录总工作增长取舍；363子门退出、成本归原性能卡，其他失败不销账。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#layer-mutation-owner-capacity"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/material-video-assets.md",
       "before": "0789d819da8f87be4e9a8e3e34d2722cee5518de7485fde59d06b96c613bad27",
       "after": "3c6bd738658d9758788076bf4e32cd53f0be6949d17ed259d65a5aeb85627dd0",
@@ -1888,15 +1879,6 @@
       "owner": "scene-script-video-metadata",
       "reason": "首次视频metadata单item准备合同替换未知时长压0链，PPT已闭移历史，并记录338已证颜色Timeline丢失；不复制测试/官方过程。",
       "decision": "docs/scene/architecture/scene-launch-responsiveness-contract.md#script-video-metadata-readiness"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "437c5f8b2c64051ba129ad6818356c959a71026bd7e7b1eef75a5fffd5ac8b17",
-      "after": "77befe002f0de9077f71a27b85af527c3eea970bd2a6340deb4bc5bff88e03c0",
-      "owner": "scene-particle-refraction-rg88",
-      "reason": "rg88 authored normal 准入并新增 single-image 逐像素等价门；frame/multi-image/clamp-border 仍只证加载/绑定。",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#refract-rg88-normal"
     },
     {
       "section": "bodies",
@@ -1954,15 +1936,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "c5a95dbd2cc3e4a844945064e45683226b382bf3a73559710cbd615fb117f4c9",
-      "after": "853e9c5af5eece0251587d6297bc64c0efdb45a3721d45bd773010e05a8b64c2",
-      "owner": "scene-shared-source-user-scalars",
-      "reason": "原owner完成共享source标量接线，381待修描述退出，旧净零怀疑撤销；同窗ROI/失败载体与静态host余项边界分清，不以日志PASS授整景。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-dynamic-image-material"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/composition-render-target-design.md",
       "before": "1011a8b8f6aa707fee2eb3612346b0fe47d674d4d2587ffec922329be5ade789",
       "after": "8e98eddecf54a5147f087172e2e6bcc24fbc4db0d06bba22d1e0c3c6e4656d22",
@@ -1987,6 +1960,33 @@
       "owner": "repository-maintainer",
       "reason": "逐字保留R1–R22、R24–R26原记录；唯一可逆转换为R9相对链接重定位，原文与新增归档锚点载荷分别记录身份；未解决R23留现役。",
       "decision": "docs/development/code-slimming-program.md#目标与边界"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "77befe002f0de9077f71a27b85af527c3eea970bd2a6340deb4bc5bff88e03c0",
+      "after": "cbabab9191db5dc7cf61f45ffa940f769c4871fe268161b1ff39375498858b5f",
+      "owner": "scene-refraction-static-primary",
+      "reason": "原绑定owner扩大已证static-primary secondary数据覆盖；531从待修退出，其他首门与时序/多image/静态债边界保留。",
+      "decision": "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md#refraction-static-primary-20261101"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "a2d5006182bdcd0ca6e5ef1c0eb9945f2287d38b0183c8910c66cac43e1e98f0",
+      "after": "b7d68b2ecf64a8f6b2ca83a2421e4f80533026bec451af8a30ff0c37f29a7d1d",
+      "owner": "scene-refraction-static-primary",
+      "reason": "原绑定owner扩大已证static-primary secondary数据覆盖；531从待修退出，其他首门与时序/多image/静态债边界保留。",
+      "decision": "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md#refraction-static-primary-20261101"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "853e9c5af5eece0251587d6297bc64c0efdb45a3721d45bd773010e05a8b64c2",
+      "after": "269eac905e91c71da903d09191d9666b13191f96711936251d131e9f482c36ec",
+      "owner": "scene-refraction-static-primary",
+      "reason": "原绑定owner扩大已证static-primary secondary数据覆盖；531从待修退出，其他首门与时序/多image/静态债边界保留。",
+      "decision": "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md#refraction-static-primary-20261101"
     }
   ]
 }

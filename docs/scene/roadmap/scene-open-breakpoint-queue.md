@@ -30,7 +30,7 @@
 | HSV粒子初始化缺省 · 8包/13系统候选 | 当前普通Debug的3585542943（253/257）、3761159935（453/457）均有nonempty输出却报`hsvColorUnsupported`，HSV为最后出生颜色writer；其余6包仍归旧census候选。官方新建组件读到steps6、Smax/Vmax1且仅保存`name/id`；五行原图仅第4行彩色，其余白色；行序及6/1阶正控未闭。静态record准备补missing6/1/1已证，实际出生消费/覆写仍未知，运行颜色资格STOP，不能据diagnostic认缺色。扩原prepare/initializer owner，不猜RNG/颜色空间，不以加载PASS结清。[定义边界](../capabilities/particle-component-coverage.md) |
 | N08 · 3337494481 world/负subdivision RopeTrail | 十个visible复制层仍unavailable，原hidden不计缺图；空间/细分语义UNKNOWN。先取可区分正控，不猜abs/clamp、不重复旧白线矩阵；[缓存观察资格](../history/rope-trail-profile-qualification-2026-10-15.md#cache-observer-20261022)失败保留。 |
 | <a id="incremental-effect-20261030"></a>活动effect输入/前端局部降级 · 全量与增量日志 | 2804817823 Shine缺secondary composite引用；357并入上方。288/344的Timeline控制须独立资格，不当普通值输入放行。旧四例frontend及3800572533 texture-binding仍待逐pass资格，见[旧档案](../history/corpus-log-audit-2026-10-29.md#remaining-findings)。以上仍保实际local passthrough，先锁原pass/正式ROI，不以同shader路径合算法。2857410102的91预设2 noise override来源仍未资格；[本轮记录](../history/corpus-log-audit-2026-10-29.md#incremental-31-20261030)。沿原frontend/variant/schema owner修通用合同，不按效果名补算法。 |
-| REFRACT粒子材料/纹理 · 3566323704 | 531的静态color与5帧normal不匹配，398的REFRACT depth enabled，552/141显式normal槽hole仍拒；保原M05/M11/M14/M16边界，先资格实际材质/帧/深度与可见consumer，不一并放开。3382111183的R8颜色加载首门已[退出](../history/open-breakpoint-reconciliation-2026-10-23.md#refract-r8-20261029)，不能据13/13加载关闭发射或整样本画面；两样本独立effect余项留上方。 |
+| REFRACT粒子depth/槽位 · 3566323704 | 398的REFRACT depth enabled，552/141显式normal槽hole仍拒；保原M05/M11/M14/M16边界，先资格实际材质/帧/深度与可见consumer，不一并放开。3382111183的R8颜色加载首门已[退出](../history/open-breakpoint-reconciliation-2026-10-23.md#refract-r8-20261029)，不能据13/13加载关闭发射或整样本画面；两样本独立effect余项留上方。 |
 
 
 <a id="qv-visual-repairs"></a>
@@ -178,6 +178,7 @@
 | <a id="particle-cp-distance"></a>3742497499 · CP距离/death child | [parseOperator](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser+Operator.swift)无maintaindistancetocontrolpoint case，Simulator无typed位置约束消费者；135默认活跃/GPU有输出但此算子未接。death child在multiplysize/setopacity拒，setcolor已接，174隐藏不算consumer。距离及六板均STOP；先资格distance/variable-strength/轨迹，不能替为maintaindistancebetweencontrolpoints；另分Alpha初始化、事件输入、尺寸消费与真实splash ROI，不跳未知mode或用root计数替child。[资格](../history/particle-initializer-qualification-2026-10-23.md#event-inheritance) |
 | 源码目录6项漏登记 | 3ce7adae2下Lighting输入、3个UserShortcuts、Puppet属性准备及shortcut dispatch仍不在filename合同；与本批已登记的两个prepared新源无关，只读核表同旧6项。按实际owner补登记，不移动/删合法代码消红；原收据在`native-text-bounds-20261022`正式包。 |
 | 运行诊断显隐归一 | 381隐藏/特殊solid聚合load-incomplete、380隐藏分支异常降级仍待核。先消费既有active/retired及实际outcome，保raw，不把结构标签当缺图。[诊断合同](../development/corpus-diagnostic-workflow.md) |
+| 粒子帧选择/normal采样的静态合同债 | 现selector按TEX duration加权（含random概率），[公开教程](https://docs.wallpaperengine.io/en/scene/particles/tutorial/spritesheet.html)称导入duration不影响粒子；现normal也mix下一帧，而固定stock仅采当前UV。两项尚无当前活跃非均匀duration/非零blend的可归因ROI，不据静态差异扩本批或改整个selector；先资格实际consumer，沿原帧选择/采样owner修正。static-primary后继仅闭元数据拒绝，不关闭这两项。 |
 | 历史GPU门/hidden extent覆盖 | 固定f79088a5输入的两条旧GPU红、hidden extent Python桩P2尚无fresh真实harness关闭链；先核生产可达分支与fixture，不称当前HEAD故障。[已闭graph债另归历史](../history/graph-color-purpose-reconciliation-2026-10-12.md) |
 
 ## 6. 进入与退出

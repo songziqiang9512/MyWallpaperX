@@ -336,3 +336,19 @@ SourceFacts在检查与launch准备队列同步建立，原类型却继承App默
 最终普通Debug构建与签名通过、4416输入前后无漂移；exe SHA256 `3408a8e519ab5175c7bd844f1c4e39f21141d5f946881e9973f093a964a9f425`，dylib `487241dbefc5b2fa727824b1fce2ae51c6566eeb6585b10bf11118b3fdac3392`。3435573282、3013504810、3603711180、未参与修法的3742133044及3175039950均5秒短窗/3秒终图PASS、退出0无超时；原317的5个可见capture成功、隐藏组不再误报，终图人物/雪人保留。仅观察合成与首门，无同phase官方像素、性能或长稳结论；因此移除该验证债，其他真实余项保持。
 
 17提交逐条审查、三个修正的独审/红绿/最近门、构建身份及四张原PNG归`.artifacts/scene-evidence/runs/independent-integration-review-20261101/metadata/samples/0/runtime_evidence.zip`，27,510,163 bytes/196成员，SHA256 `5be9c8fdceaa0b54b2f4bcab889d06ae23edf7363eeb35254f3554132962140d`，普通14天。另八份原工作树正式包按原manifest/期限迁入主仓证据库，源材料未动。候选App不含随后独立提交的54fdea339 OnlineImages改动，Scene产品输入均匹配本批验收，不外推该图片模块。
+
+
+<a id="refraction-static-primary-20261101"></a>
+## Static-primary 的 secondary sprite元数据（2026-11-01）
+
+原356的531为默认visible的Rain_secondary，static stock R8 shockwave_fill配RGBA normal：单image、1280×256、8 mip、TEXS五个横向256²格。当前普通Debug18s复验仍报textureProfileUnsupported；398 depth及552/141显式hole是独立首门，未并修。不能把normal带表命名为已证“独立动画缺失”。公开Sprite Sheet合同与合法stock文本只有共同当前UV；host全域driver来源、normal独立映射未知。
+
+固定官方2.8.0.42/wallpaper32（SHA `daac1ea7c991207fdb6098616757e3dae393850f6862845db55d04921b6bda07`）用自有三列板：A原normal，B同8级压缩/解码像素仅去sprite标记/181B尾表，C同B且amount0；同一static color、周期gradient、固定particle及ABC标记。v1背景key误用了native-only fixture写法，黄黑棋盘不授语义；唯一命名修正v2为canonical periodic_background，其他输入/ROI/阈值不变。guest16文件SHA全符、真实client1920×1080/完整标记/贡献成立。CUA原尺寸JPEG+ICC，非lossless GPU；预登记160² ROI两时刻AB每通道差0，AC/BC均24%像素差≥5，支持本static profile元数据不驱动。首帧在寿命内，第二帧距launch300.538s越过lifetime300，不授同个体稳定/时序证明；prlctl全黑捕获另保并排除，不用它判画面。两个独占预览已关闭，官方主客户端与VM运行保留。
+
+**公共修复。** 原RefractionTextureLoader仅由primary是否有帧决定能否分享帧UV；static primary的secondary表不建立animation，复用原baseV1/baseUV及mapped scale；primary/normal均有表时保原compatible。color driver、Sprite几何、format/purpose/sampler/mips、candidate/legacy、root/child/Rope与退出owner不变；无新clock/selector/字段/算法或重复检查。产品一文件+5/−6、净减1行，移走无消费者的拒绝条件，不按样本或路径分派。multi-image+TEXS新可达组合仍经现首image/BC首mip静态fallback，官方单image证据不覆盖它，不冒称新的多image播放器。
+
+**验证与收益边界。** 现loader→binding→真实Metal门8方法，两个冻结载体53源仅Loader不同；带表/去表/资源改名+变duration/格数的完整32²输出精确相同、mapped UV=.5/1、mips守恒，primary动画真正异表及R8 normal拒例保持。首轮候选唯一失败为测试自设“全部256可见像素均差≥5”；实际246强差、10个合法双线性near-neutral。删除无作者合同的面积要求，保≥5活动witness、完整等价与其余断言，Swift/输入/二进制/容差未改；对同一次有效Metal读回重放最终8方法为旧1预期失败/候选0失败，0error/skip/drift，不称新GPU运行。空SpriteAnimation stub不提供时序/RNG资格。
+
+普通签名Debug基线34.753s、候选36.262s，4416输入各自无漂移/深度严格验签0；App基线exe `e45b240d…`/dylib `eb0d6a92…`，候选exe `2810c9a1…`/dylib `ccea7c63…`。同一自有三臂5s从只缺A到3层非空/画面有贡献；原包18s的531恢复，134 encoded/133 completed refraction batches、6643 completed instances/0 failed，完整人物/蝴蝶/金波形保持；非隔离雨ROI，不授整景parity。原样本仍因398/552/141失败，不能写PASS。未参与修法的2419444134原包5s，4/4粒子/1REFRACT与人物/粉环保持、门PASS。五次基线/修后运行均exit0、surface1→0/GPU排空，无用户原资源写入。独审无具体回归，未做性能、正式Release、HDR/多屏或更广动画时序验收。
+
+必要限期包`.artifacts/scene-evidence/runs/refraction-static-primary-20261101/metadata/samples/0/runtime_evidence.zip`：28,991,594B/248成员、SHA-256 `6e980b378644a7600584aa46eb85f8ac17fd144e8d2029ffdc179d4c70c53fa6`，普通14天。保输入/失败载体/官方原图、两App身份/原包与独立图、GPU原读回/首失败/最终oracle、源码与独审；App及编译二进制不入包。两个本轮guest stage与已停止raw已清理；保一份`.build-cache/scene-gravity-20261028`及有效Debug产物作连续开发基线。normal下一帧混合与duration权重静态债另留现役队列，不能以本批关闭；后续沿活动consumer取证，不复制stock算法。

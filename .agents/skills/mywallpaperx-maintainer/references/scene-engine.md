@@ -114,6 +114,8 @@ route state 的名称、定义和进入条件只从当前 `AGENTS.md`、runtime 
 
 可见或动态声明沿同一 identity 证明：实际 input -> selected route/Program/VM/component -> execution completion -> resource/target publication -> terminal compositor -> next-frame -> 预登记 ROI/事件方向 -> local-failure counterexample。没有这条链，只报告 structural/compiled/routed/host-stage 的真实等级。
 
+像素正控只要求当前问题必需的真实贡献；先按既有几何、alpha与颜色合同确认oracle，未覆盖区及合法中性插值不必变化。仅断言误设且产品、输入、载体、二进制均未改时，保首失败并复用同身份有效GPU读回重放最终断言；不能称新GPU运行。
+
 分别处理当前 slice 可见、owner migration、官方 bounded parity 和 release readiness；等级定义查技术栈合同、对应路线与验证工作流，当前执行选择查 gate。recognized、wired、census、compile、route count、non-black、matrix 或单样本不能外推完整兼容。
 
 真实 Workshop/Scene 根只读；runtime home、属性注入、cache、output 和样本使用隔离副本。确认启动的是当前 App/build，不复用旧截图/report/terminal observation。

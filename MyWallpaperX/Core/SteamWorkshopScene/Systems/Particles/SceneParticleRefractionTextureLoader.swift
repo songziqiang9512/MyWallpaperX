@@ -32,6 +32,7 @@ enum SceneParticleRefractionTextureLoader {
               let color = colorContainer.format == 9
                 ? SceneParticleColorTextureAdapter.adapt(uploadedColor)
                 : uploadedColor else { return nil }
+        let colorFrames = colorContainer.spriteFrames
 
         let normalCandidate: SceneTextureCandidate?
         let normal: MTLTexture
@@ -90,13 +91,12 @@ enum SceneParticleRefractionTextureLoader {
             }
 
             let normalFrames = normalContainer.spriteFrames
-            if normalFrames.isEmpty {
-                normalUsesParticleFrames = false
-            } else {
-                guard compatible(colorContainer.spriteFrames, normalFrames) else {
+            // Secondary sprite metadata does not create a particle frame driver.
+            normalUsesParticleFrames = !colorFrames.isEmpty && !normalFrames.isEmpty
+            if normalUsesParticleFrames {
+                guard compatible(colorFrames, normalFrames) else {
                     return nil
                 }
-                normalUsesParticleFrames = true
             }
             normalUVScale = uvScale(
                 for: normalContainer,
@@ -104,7 +104,6 @@ enum SceneParticleRefractionTextureLoader {
             )
         }
 
-        let colorFrames = colorContainer.spriteFrames
         let colorEncoding: SceneParticleRefractionBinding.ColorEncoding =
             colorContainer.format == 8 ? .luminanceAlpha : .rgba
         let binding: SceneParticleRefractionBinding

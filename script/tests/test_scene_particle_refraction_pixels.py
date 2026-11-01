@@ -235,7 +235,7 @@ class SceneParticleRefractionPixelTests(unittest.TestCase):
         self.assertEqual(values["atlasMip"], [255, 255, 255, 32])
         self.assertEqual(values["atlasUVScale"], [1, 1])
         self.assertTrue(values["normalR8Rejected"])
-        self.assertTrue(values["normalFramesMismatchRejected"])
+        self.assertTrue(values["animatedNormalFramesMismatchRejected"])
         self.assertEqual(values["gradientAmounts"][0], values["gradientAmounts"][1])
         self.assertEqual(values["gradientAmounts"][2], values["gradientAmounts"][1])
         rows = values["samples"]
@@ -258,6 +258,37 @@ class SceneParticleRefractionPixelTests(unittest.TestCase):
         for actual, expected in zip(values["atlasPixels"], ([0, 0, 0, 0], [50, 25, 13, 64], [100, 50, 25, 128])):
             for channel, target in zip(actual, expected):
                 self.assertAlmostEqual(channel, target, delta=1)
+
+    def test_static_primary_ignores_secondary_frame_metadata_in_full_render(self) -> None:
+        self.require_metal()
+        rows = self.result["staticPrimaryNormal"]
+        self.assertEqual(set(rows), {"withTable", "withoutTable", "renamedMetadata", "amountZero"})
+        self.assertTrue(all(row["loaded"] for row in rows.values()),
+                        {name: row["loaded"] for name, row in rows.items()})
+        for name, row in rows.items():
+            with self.subTest(name=name):
+                self.assertFalse(row["colorHasAnimation"])
+                self.assertFalse(row["normalUsesParticleFrames"])
+                self.assertEqual(row["normalUVScale"], [0.5, 1])
+                self.assertEqual(len(row["pixels"]), 32 * 32 * 4)
+        reference = rows["withTable"]
+        self.assertEqual(reference["frameCount"], 5)
+        self.assertEqual(rows["withoutTable"]["frameCount"], 0)
+        self.assertEqual(rows["renamedMetadata"]["frameCount"], 2)
+        self.assertNotEqual(reference["duration"], rows["renamedMetadata"]["duration"])
+        self.assertEqual([(mip["width"], mip["height"]) for mip in reference["mips"]], [(8, 4), (4, 2)])
+        for row in rows.values():
+            self.assertEqual(row["mips"], reference["mips"])
+        for name in ("withoutTable", "renamedMetadata"):
+            self.assertEqual(rows[name]["pixels"], reference["pixels"], name)
+        # This static-primary slice runs the real loader/binding/Metal path;
+        # the fixture animation type provides no timing or RNG evidence.
+        zero = rows["amountZero"]["pixels"]
+        differences = [max(abs(a - b) for a, b in zip(
+            reference["pixels"][offset:offset + 3], zero[offset:offset + 3]))
+            for offset in range(0, len(zero), 4)]
+        # Interpolation may cross a neutral normal; only an active displacement witness is required.
+        self.assertGreater(sum(difference >= 5 for difference in differences), 0)
 
     def test_tilted_displacement_keeps_view_plane_width_and_normal_uv_direction(self) -> None:
         self.require_metal()

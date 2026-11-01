@@ -45,7 +45,7 @@ enum Harness {
 
         let loader = SceneTextureLoader()
         let dxt5nURL = directory.appendingPathComponent("packed-normal.tex")
-        try makeDXT5nTex().write(to: dxt5nURL)
+        try makeTex(format: 4, payload: dxt5nBlock()).write(to: dxt5nURL)
         let directDXT5nURL = directory.appendingPathComponent(
             "packed-normal-multi-image.tex"
         )
@@ -321,9 +321,24 @@ enum Harness {
             amount: 1, loader: loader, device: device)
         let absentStrong = try refraction(colorURL: opaqueURL, normalURL: nil,
             amount: 1, loader: loader, device: device)
+        var normalPixels: [String: [Int]] = [:]
+        for (name, value) in [("dxt5n", dxt5n), ("rgba", rgba), ("dxt5nDirect", directDXT5n),
+                              ("swapped", swapped), ("neutral", neutral),
+                              ("flatDefault", flatDefault), ("padded", padded)] {
+            normalPixels[name] = try draw(device: device, refraction: value,
+                particleAlpha: 1, blendMode: .translucent, gradientBackground: true)
+        }
+        for (name, url) in [("rg88", rg88EqualURL), ("rgbaA255", rgbaA255URL)] {
+            let value = try refraction(colorURL: opaqueURL, normalURL: url, amount: 0.25,
+                loader: loader, device: device)
+            normalPixels[name] = try draw(device: device, refraction: value,
+                particleAlpha: 1, blendMode: .translucent, gradientBackground: true)
+        }
         let result: [String: Any] = [
             "available": true,
             "r8Color": try r8ColorProfiles(device: device, loader: loader, directory: directory),
+            "staticPrimaryNormal": try staticPrimaryNormalProfiles(device: device,
+                loader: loader, directory: directory),
             "displacementProfiles": try displacementProfiles(device: device,
                 loader: loader, directory: directory, colorURL: opaqueURL),
             "sourceFormatPixels": sourceFormatPixels,
@@ -337,59 +352,7 @@ enum Harness {
             "loadedDXT5nNormal": try readPixel(
                 dxt5nNormal.texture
             ).map(Int.init),
-            "normalPixels": [
-                "dxt5n": try draw(
-                    device: device,
-                    refraction: dxt5n,
-                    particleAlpha: 1,
-                    blendMode: .translucent,
-                    gradientBackground: true
-                ),
-                "rgba": try draw(
-                    device: device,
-                    refraction: rgba,
-                    particleAlpha: 1,
-                    blendMode: .translucent,
-                    gradientBackground: true
-                ),
-                "dxt5nDirect": try draw(
-                    device: device,
-                    refraction: directDXT5n,
-                    particleAlpha: 1,
-                    blendMode: .translucent,
-                    gradientBackground: true
-                ),
-                "rg88": try draw(device: device, refraction: try refraction(colorURL: opaqueURL, normalURL: rg88EqualURL, amount: 0.25, loader: loader, device: device), particleAlpha: 1, blendMode: .translucent, gradientBackground: true),
-                "rgbaA255": try draw(device: device, refraction: try refraction(colorURL: opaqueURL, normalURL: rgbaA255URL, amount: 0.25, loader: loader, device: device), particleAlpha: 1, blendMode: .translucent, gradientBackground: true),
-                "swapped": try draw(
-                    device: device,
-                    refraction: swapped,
-                    particleAlpha: 1,
-                    blendMode: .translucent,
-                    gradientBackground: true
-                ),
-                "neutral": try draw(
-                    device: device,
-                    refraction: neutral,
-                    particleAlpha: 1,
-                    blendMode: .translucent,
-                    gradientBackground: true
-                ),
-                "flatDefault": try draw(
-                    device: device,
-                    refraction: flatDefault,
-                    particleAlpha: 1,
-                    blendMode: .translucent,
-                    gradientBackground: true
-                ),
-                "padded": try draw(
-                    device: device,
-                    refraction: padded,
-                    particleAlpha: 1,
-                    blendMode: .translucent,
-                    gradientBackground: true
-                ),
-            ],
+            "normalPixels": normalPixels,
             "normalRoutes": [
                 "dxt5nStaticCandidate":
                     dxt5n.binding.usesStaticNormalCandidate,
@@ -717,12 +680,12 @@ enum Harness {
         }
         let normalAtlasURL = directory.appendingPathComponent("different-normal-frames.tex")
         try makeTex(format: 0, payload: Data((0..<16).flatMap { _ in [UInt8(255),128,0,128] }),
-            frames: frames).write(to: normalAtlasURL)
+            frames: Array(frames.reversed())).write(to: normalAtlasURL)
         var rejected: [String: Bool] = [:]
-        for (name, normalURL) in [("normalR8Rejected", urls["fractional"]!),
-                                   ("normalFramesMismatchRejected", normalAtlasURL)] {
+        for (name, colorURL, normalURL) in [("normalR8Rejected", urls["fractional"]!, urls["fractional"]!),
+                ("animatedNormalFramesMismatchRejected", atlasURL, normalAtlasURL)] {
             rejected[name] = try SceneParticleRefractionTextureLoader.load(
-                colorSource: .file(.externalFile(urls["fractional"]!)),
+                colorSource: .file(.externalFile(colorURL)),
                 declaration: SceneParticleRefractionDeclaration(normalTextureSource: .file(.externalFile(normalURL)),
                     amount: 1, overbright: 1), textureLoader: loader, device: device) == nil
         }
@@ -737,7 +700,55 @@ enum Harness {
             "rawNormalSample": try readPixel(loaded(loader.load(from: urls["fractional"]!,
                 purpose: .normal, device: device))).map(Int.init),
             "normalR8Rejected": rejected["normalR8Rejected"]!,
-            "normalFramesMismatchRejected": rejected["normalFramesMismatchRejected"]!]
+            "animatedNormalFramesMismatchRejected": rejected["animatedNormalFramesMismatchRejected"]!]
+    }
+
+    private static func staticPrimaryNormalProfiles(device: MTLDevice, loader: SceneTextureLoader,
+                                                    directory: URL) throws -> [String: Any] {
+        let colorURL = directory.appendingPathComponent("static-coverage.tex")
+        try makeTex(format: 9, payload: Data(repeating: 255, count: 16)).write(to: colorURL)
+        let renamedColorURL = directory.appendingPathComponent("unrelated-coverage-copy.tex")
+        try Data(contentsOf: colorURL).write(to: renamedColorURL)
+        let palette: [[UInt8]] = [[255, 32, 0, 224], [255, 192, 0, 64],
+                                  [255, 64, 0, 32], [255, 224, 0, 192]]
+        var payload = Data(), mip = Data()
+        for y in 0..<4 { for x in 0..<8 {
+            payload.append(contentsOf: x < 4 ? palette[(y / 2) * 2 + x / 2] : [255,255,0,0])
+        } }
+        for y in 0..<2 { for x in 0..<4 {
+            mip.append(contentsOf: x < 2 ? palette[y * 2 + x] : [255,255,0,0])
+        } }
+        let frames: [[Float]] = (0..<5).map { [Float($0),0,2,0,0,4] }
+        let variants: [(String, [[Float]], Float, Float)] = [
+            ("withTable", frames, 0.1, 0.25), ("withoutTable", [], 0.1, 0.25),
+            ("renamedMetadata", [[3,1,0,2,1,0], [1,0,3,0,0,2]], 0.375, 0.25),
+            ("amountZero", frames, 0.1, 0)]
+        var rows: [String: Any] = [:]
+        for (name, table, duration, amount) in variants {
+            let url = directory.appendingPathComponent(name + "-direction-data.tex")
+            let bytes = makeTex(format: 0, flags: 2, textureWidth: 8, textureHeight: 4,
+                imageWidth: 4, imageHeight: 4, payload: payload, secondMip: mip,
+                frames: table, frameDuration: duration)
+            try bytes.write(to: url)
+            let container = try SceneTexContainerReader().read(data: bytes)
+            guard let value = try SceneParticleRefractionTextureLoader.load(
+                colorSource: .file(.externalFile(name == "renamedMetadata" ? renamedColorURL : colorURL)),
+                declaration: .init(normalTextureSource: .file(.externalFile(url)), amount: amount, overbright: 1),
+                textureLoader: loader, device: device) else {
+                rows[name] = ["loaded": false]; continue
+            }
+            let normal = try normalArguments(value.binding)
+            rows[name] = ["loaded": true, "colorHasAnimation": value.colorAnimation != nil,
+                "normalUsesParticleFrames": normal.usesParticleFrames,
+                "normalUVScale": [normal.uvScale.x, normal.uvScale.y],
+                "frameCount": container.spriteFrames.count,
+                "duration": container.spriteFrames.first?.duration ?? 0,
+                "mips": container.mips.map { mip -> [String: Any] in ["width": mip.width, "height": mip.height,
+                    "bytes": mip.data.map(Int.init)] },
+                "pixels": try drawPixels(device: device, refraction: value, particleAlpha: 1,
+                    blendMode: .translucent, gradientBackground: true).map(Int.init)]
+        }
+        return rows
     }
 
     private static func refraction(
@@ -761,13 +772,6 @@ enum Harness {
             throw HarnessError.texture
         }
         return loaded
-    }
-
-    private static func makeDXT5nTex() -> Data {
-        makeTex(
-            format: 4,
-            payload: dxt5nBlock()
-        )
     }
 
     private static func makeDirectDXT5nTex() -> Data {
@@ -891,7 +895,8 @@ enum Harness {
         imageHeight: UInt32 = 4,
         payload: Data,
         secondMip: Data? = nil,
-        frames: [[Float]] = []
+        frames: [[Float]] = [],
+        frameDuration: Float = 0.1
     ) -> Data {
         var data = Data("TEXV0005\0TEXI0001\0".utf8)
         func append(_ value: UInt32) {
@@ -923,7 +928,7 @@ enum Harness {
         if !frames.isEmpty {
             data.append(Data("TEXS0002\0".utf8)); append(UInt32(frames.count))
             for coordinates in frames {
-                append(0); append(Float(0.1).bitPattern)
+                append(0); append(frameDuration.bitPattern)
                 for value in coordinates { append(value.bitPattern) }
             }
         }

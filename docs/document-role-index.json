@@ -981,13 +981,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-31",
+      "lastReviewed": "2026-11-01",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9bf6fa872d828fba896a4e4925499d8e1cb115db80fd46d5d1dda31e37afaf66",
+        "sourceSHA256": "b6127be7793663a8f7bea819a36ba508777a923803ecc4fc59449a3fc05c3840",
         "method": "document_registry --audit + document_health --check",
-        "scope": "合并world Rope/pointer reference与普通SpriteTrail比例修正的唯一专题合同；分别保留各批运行证据。",
-        "limitations": "雨效139行为门通过/10缺样本跳过；378退出诊断修前同报。world/pointer保其有界验收，不外推全库/官方动态parity或性能。"
+        "scope": "同步static-primary secondary sprite元数据的原绑定覆盖、531首门退出和其他REFRACT余项；登记相邻静态帧语义债。",
+        "limitations": "官方仅单image空间正控，第二图越寿命无同个体时序证明；GPU最终断言复用读回，非新运行；不授整景、多image或性能。"
       }
     },
     {
@@ -1037,13 +1037,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/capabilities/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-30",
+      "lastReviewed": "2026-11-01",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2fe98f8c11fa2c1ad4687a8665e133be35b7ad02c3d6d0a18cbed0634fc91a8b",
+        "sourceSHA256": "5ac42e4a0348ca8dcc6e6999acc4ad9075f2b11708ac76d01aa7816a4a7611d2",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步owner raw准入职责、363频谱恢复与未闭特效/短窗CPU成本；保357 ready黑资格与失败。",
-        "limitations": "不认整景或全部独立门PASS，不认JS heap回滚、优化配置/Release/稳态性能及官方同音源parity。"
+        "scope": "同步static-primary secondary sprite元数据的原绑定覆盖、531首门退出和其他REFRACT余项；登记相邻静态帧语义债。",
+        "limitations": "官方仅单image空间正控，第二图越寿命无同个体时序证明；GPU最终断言复用读回，非新运行；不授整景、多image或性能。"
       }
     },
     {
@@ -2555,7 +2555,7 @@
         "docs/scene/roadmap/scene-open-breakpoint-queue.md",
         "docs/scene/capabilities/coverage-ledger.md"
       ],
-      "cutoffDate": "2026-10-30",
+      "cutoffDate": "2026-11-01",
       "uniqueValue": "保存10-23清单对账及后继有界关闭；10-28两封面与particle默认mode后验，保未资格gravity、烟团颜色与整样本余项。 10-29几何命名输出PMA恢复首帧、原/独立图与真实Aggregate夹具去重；保像素probe入口债。",
       "lastReviewed": "2026-10-30",
       "reviewBasis": {
@@ -4521,10 +4521,10 @@
       "lastReviewed": "2026-11-01",
       "reviewBasis": {
         "kind": "navigation-audit",
+        "sourceSHA256": "890286f7775837340f30bce129bb26b58912582cbac343e515cdde19d6ea3c1a",
         "method": "document_registry --audit + document_health --check",
-        "sourceSHA256": "2d8fea23963ee7e8da5d2859303acf99d938a0e979dc3452cd32135dd5800ac7",
-        "scope": "共享source直接user scalar、prototype唯一producer/动态seed1、原381可见音频条与配对热改；撤销已过时净零出生怀疑。",
-        "limitations": "不认官方数值/整景、连续多步、原生面板/性能；host默认lowering旧问题仅静态待资格。"
+        "scope": "同步static-primary secondary sprite元数据的原绑定覆盖、531首门退出和其他REFRACT余项；登记相邻静态帧语义债。",
+        "limitations": "官方仅单image空间正控，第二图越寿命无同个体时序证明；GPU最终断言复用读回，非新运行；不授整景、多image或性能。"
       }
     },
     {
