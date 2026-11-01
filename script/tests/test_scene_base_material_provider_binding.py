@@ -25,6 +25,8 @@ VISIBILITY_SOURCE = (
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneInitialMediaEffectVisibilityProjection.swift"
 )
 
+RUNTIME_CATALOG_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialRuntimeCatalog.swift"
+
 HARNESS = (ROOT / "script/tests/fixtures/SceneBaseMaterialProviderBindingHarness.swift").read_text(
     encoding="utf-8"
 )
@@ -40,6 +42,13 @@ class SceneBaseMaterialProviderBindingTests(unittest.TestCase):
             harness = root / "main.swift"
             harness.write_text(HARNESS, encoding="utf-8")
             binary = root / "binding"
+            catalog = RUNTIME_CATALOG_SOURCE.read_text(encoding="utf-8")
+            start = catalog.index("    private static func sourceUniformIsAdmitted(")
+            end = catalog.index("\n    }\n", start) + len("\n    }")
+            admission = root / "SourceUniformAdmission.swift"
+            admission.write_text("enum SceneSourceUniformAdmissionProbe {\n"
+                + catalog[start:end].replace("private static func", "static func", 1)
+                + "\n}\n", encoding="utf-8")
             subprocess.run(
                 [
                     "swiftc", *map(str, material.SOURCES), str(SOURCE), str(COMPILER_SOURCE),
@@ -52,7 +61,7 @@ class SceneBaseMaterialProviderBindingTests(unittest.TestCase):
                     str(ROOT / "script/tests/fixtures/SceneBaseMaterialAlphaChecks.swift"),
                     str(ROOT / "script/tests/fixtures/SceneBaseMaterialUserColorChecks.swift"),
                     str(ROOT / "script/tests/fixtures/ScenePreparedImageMaterialChecks.swift"),
-                    str(harness), "-module-cache-path", str(root / "cache"), "-o", str(binary),
+                    str(admission), str(harness), "-module-cache-path", str(root / "cache"), "-o", str(binary),
                 ],
                 check=True,
                 cwd=ROOT,
@@ -73,6 +82,9 @@ class SceneBaseMaterialProviderBindingTests(unittest.TestCase):
                 self.assertTrue(passed)
         for name, passed in result["customUserColor"].items():
             with self.subTest(user_color=name):
+                self.assertTrue(passed)
+        for name, passed in result["customUserScalars"].items():
+            with self.subTest(user_scalar=name):
                 self.assertTrue(passed)
         expected = [[.5,.5],[0,.7],[],[0,1],[.8,.2],[0,.7],[.5,.5],[1,0]]
         for actual, wanted in zip(result["scalarProfiles"], expected):

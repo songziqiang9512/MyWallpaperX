@@ -119,3 +119,106 @@ func customMaterialUserColorChecks() -> [String: Bool] {
         && source.sourceMaterialColor(layer: clone, snapshot: snapshot(state)) == SIMD3(0, 0.4, 1)
     return checks
 }
+
+func customMaterialUserScalarChecks() -> [String: Bool] {
+    var checks: [String: Bool] = [:]
+    for renamed in [false, true] {
+        let prefix = renamed ? "renamed" : "original"
+        let layerID = renamed ? 273 : 146
+        let model = "models/\(prefix)-scalar.json", material = "materials/\(prefix)-scalar.json"
+        let gain = renamed ? "luma-control" : "gain-key", power = renamed ? "curve-control" : "power-key"
+        let gainUser = renamed ? "other_gain" : "brightness_gain", powerUser = renamed ? "other_curve" : "response_power"
+        let colorKey = renamed ? "pigment-control" : "surface-key"
+        let colorTarget = SceneDynamicTarget.materialConstant(layerID: layerID, passIndex: 0, name: colorKey, materialPath: material)
+        func wrapped(_ property: String) -> SceneDocument.ShaderValue {
+            .init(rawValue: "1", userBinding: property, components: [1], userValueKind: .string, bindingKeys: ["user", "value"])
+        }
+        func definition(_ key: String, _ kind: SceneUserPropertyKind, _ fallback: SceneUserPropertyValue,
+                        maximum: Double = 1) -> SceneUserPropertyDefinition {
+            .init(key: key, title: key, kind: kind, runtimeType: kind.rawValue, order: 0, index: nil,
+                minimumValue: kind == .slider ? 0 : nil, maximumValue: kind == .slider ? maximum : nil,
+                stepValue: nil, allowsFractionalValues: true, fractionalPrecision: nil,
+                displayCondition: nil, defaultValue: fallback, options: [])
+        }
+        let definitions = [definition("palette", .color, .string("0.2 0.4 0.6")),
+            definition("opacity", .slider, .number(1)), definition(gainUser, .slider, .number(1), maximum: 2),
+            definition(powerUser, .slider, .number(1), maximum: 10)]
+        for mode in ["brightness", "power", "both"] {
+            let label = prefix + "_" + mode + "_"
+            let scalarKeys = mode == "brightness" ? [gain: gainUser] : mode == "power" ? [power: powerUser] : [gain: gainUser, power: powerUser]
+            let script = "export function update(value) { return value; }"
+            let color = SceneDocument.ShaderValue(rawValue: "0.2 0.4 0.6", userBinding: "palette", components: [0.2,0.4,0.6],
+                userValueKind: .string, scriptSource: script, bindingKeys: ["script", "user", "value"])
+            var constants = [colorKey: color, "opacity-key": wrapped("opacity")]
+            for (key, property) in scalarKeys { constants[key] = wrapped(property) }
+            let pass = SceneRenderDescriptor.MaterialPassDescriptor(materialPath: material, shaderPath: "unseen/source",
+                textureSlots: ["util/white"], userTextureInputs: [], constantShaderValues: constants)
+            let layer = SceneRenderDescriptor.Layer(id: layerID, contentKind: "image", imagePath: model, effects: [])
+            let descriptor = SceneRenderDescriptor(layers: [layer], modelMaterialLinks: [.init(modelPath: model, materialPath: material)],
+                materialPasses: [pass], texturePropertyKeys: [])
+            var fact = SceneBaseMaterialColorModulationCompiler.Binding(modelPath: model, sourceLayerID: layerID,
+                materialPath: material, colorKey: colorKey, scriptSource: script, scriptProperties: [:],
+                authoredColor: .init(0.2,0.4,0.6), alphaKey: "opacity-key", authoredAlpha: 1,
+                alphaUserPropertyKey: "opacity", colorUserPropertyKey: "palette")
+            fact.scalarUserPropertyKeys = scalarKeys; fact.canLowerToCompositor = false
+            let bindings = SceneMaterialPropertyBindingCompiler.provenPropertyBindings([fact], descriptor: descriptor, materialInstancesByLayerID: [:])
+            let compiled = ScenePropertyBindingCompiler().compile(report: .init(bindings: bindings, diagnostics: []), catalog: .init(definitions: definitions))
+            let program = compiled.program
+            let targets = Set(program.instructions.map(\.target))
+            func admitted(_ candidate: ScenePropertyBindingProgram) -> Bool {
+                SceneBaseMaterialProviderBindingCompiler.admittedSourceMaterials([fact], descriptor: descriptor,
+                    materialInstancesByLayerID: [:], propertyProgram: candidate, namedLayerIDs: []).count == 1
+            }
+            func producerSet(_ candidate: ScenePropertyBindingProgram) -> Set<SceneDynamicUserPropertyProducer> {
+                Set(candidate.instructions.map { .init(propertyKey: $0.propertyKey, target: $0.target, valueType: $0.valueType) })
+            }
+            checks[label + "realCompilerProducesEveryScalar"] = compiled.diagnostics.isEmpty && bindings.count == scalarKeys.count + 2
+                && program.instructions.count == scalarKeys.count + 2 && admitted(program)
+            let source = SceneBaseMaterialProviderBindingCompiler.compile(descriptor: descriptor, materialInstancesByLayerID: [:],
+                scriptBindings: [], materialPropertyTargets: targets, materialColorTargets: [model: colorTarget], provenBindings: [fact])
+            var state = ScenePropertyLiveUpdateState(program: program, effectiveValues: ["palette": .string("0.2 0.4 0.6"),
+                "opacity": .number(1), gainUser: .number(1), powerUser: .number(1)], activeConsumerTargets: targets)
+            var replacements: [String: SceneUserPropertyValue] = ["palette": .string("0.6 0.4 0.2"), "opacity": .number(0.3)]
+            for (_, property) in scalarKeys { replacements[property] = .number(property == powerUser ? 8 : 1.5) }
+            checks[label + "liveUpdateIsAtomic"] = state.apply(replacements: replacements, changedPropertyKeys: Set(replacements.keys))
+            let snapshot = SceneDynamicSnapshotResolver().resolve(frameIndex: state.revision, generation: 1,
+                definitions: program.definitions, userValues: state.userValues).snapshot
+            checks[label + "fullProgramHasNoCompositorMultipliers"] = source.sourceMaterialColor(layer: layer, snapshot: snapshot) == SIMD3(1,1,1)
+                && source.sourceMaterialAlpha(layer: layer, snapshot: snapshot) == 1
+            for (key, property) in scalarKeys {
+                let target = SceneDynamicTarget.materialConstant(layerID: layerID, passIndex: 0, name: key, materialPath: material)
+                let matches = program.instructions.filter { $0.target == target }
+                checks[label + key + "SingleTypedProducer"] = matches.count == 1 && matches.first?.propertyKey == property && matches.first?.valueType == .scalar
+                checks[label + key + "CurrentScalar"] = snapshot[target]?.value == .scalar(property == powerUser ? 8 : 1.5)
+                checks[label + key + "ProjectRange"] = snapshot.userPropertyNumericRange(for: target) == (0 ... (property == powerUser ? 10 : 2))
+                checks[label + key + "SourceAdmitted"] = SceneSourceUniformAdmissionProbe.sourceUniformIsAdmitted(name: key,
+                    value: constants[key]!, proof: fact, sceneScriptTargets: [colorTarget], userPropertyProducers: producerSet(program))
+                if let entry = matches.first {
+                    for corruption in ["missing", "duplicate", "property", "type"] {
+                        var instructions = program.instructions.filter { $0.target != target }
+                        switch corruption {
+                        case "duplicate": instructions += [entry, entry]
+                        case "property": instructions.append(.init(propertyKey: "foreign", path: entry.path, target: target, valueType: .scalar))
+                        case "type": instructions.append(.init(propertyKey: property, path: entry.path, target: target, valueType: .vector3))
+                        default: break
+                        }
+                        let invalid = ScenePropertyBindingProgram(definitions: program.definitions, instructions: instructions)
+                        checks[label + key + "Rejects_" + corruption] = !admitted(invalid)
+                    }
+                }
+                let badProducerSets: [Set<SceneDynamicUserPropertyProducer>] = [[],
+                    [.init(propertyKey: "foreign", target: target, valueType: .scalar)],
+                    [.init(propertyKey: property, target: target, valueType: .vector3)],
+                    [.init(propertyKey: property, target: target, valueType: .scalar), .init(propertyKey: "foreign", target: target, valueType: .scalar)]]
+                checks[label + key + "SourceRejectsMissingWrongAndAmbiguousProducer"] = badProducerSets.allSatisfy {
+                    !SceneSourceUniformAdmissionProbe.sourceUniformIsAdmitted(name: key, value: constants[key]!, proof: fact,
+                        sceneScriptTargets: [colorTarget], userPropertyProducers: $0)
+                }
+                let before = state.userValues, revision = state.revision
+                checks[label + key + "BadScalarPreservesOtherInputs"] = !state.apply(replacements: [property: .bool(true), "opacity": .number(0.9)],
+                    changedPropertyKeys: [property, "opacity"]) && state.userValues == before && state.revision == revision
+            }
+        }
+    }
+    return checks
+}

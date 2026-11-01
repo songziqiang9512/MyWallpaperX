@@ -21,9 +21,9 @@ private typealias Descriptor = SceneRenderDescriptor
     """
     static let fragment = """
     uniform sampler2D g_Texture0;
-    uniform float gain; // {"material":"gain-key","default":1}
+    uniform float gain; // {"material":"gain-key","default":1,"range":[0,2]}
     uniform float opacity; // {"material":"opacity-key","default":1}
-    uniform float exponent; // {"material":"power-key","default":1}
+    uniform float exponent; // {"material":"power-key","default":1,"range":[0,6]}
     uniform vec3 surfaceColor; // {"material":"surface-key","default":"1 1 1"}
     varying vec2 sampleUV;
     void main() {
@@ -84,6 +84,136 @@ private typealias Descriptor = SceneRenderDescriptor
                     passIndex: 0, name: $0, materialPath: first.materialPath)
             },
             "hasScript": first.scriptSource != nil, "properties": first.scriptProperties.count]
+    }
+
+    static func dynamicScalarCases() -> [[String: Any]] {
+        var rows: [[String: Any]] = []
+        for renamed in [false, true] {
+            let gainKey = renamed ? "luma-control" : "gain-key"
+            let powerKey = renamed ? "curve-control" : "power-key"
+            let gainUser = renamed ? "renamed_gain" : "brightness_gain"
+            let powerUser = renamed ? "renamed_curve" : "response_power"
+            let model = renamed ? "models/independent/scalar.json" : "models/unseen/tint.json"
+            let material = renamed ? "materials/independent/scalar.json" : "materials/unseen/tint.json"
+            let shaderName = renamed ? "independent/scalar" : "unseen/tint"
+            var fragment = self.fragment
+            if renamed {
+                for (old, new) in [("gain-key", gainKey), ("power-key", powerKey),
+                    ("gain", "lumaScale"), ("exponent", "curveExponent"),
+                    ("surfaceColor", "paletteRGB"), ("colorCarrier", "sampleColor")] {
+                    fragment = fragment.replacingOccurrences(of: old, with: new)
+                }
+                fragment = fragment.replacingOccurrences(of: "sampleUV.xy)", with: "sampleUV)")
+                    .replacingOccurrences(of: "CAST3(curveExponent)", with: "vec3(curveExponent)")
+            }
+            let shader = contract(fragment: fragment, identity: shaderName)
+            func user(_ key: String, _ seed: Double = 1) -> Value {
+                var value = Value(rawValue: String(seed), components: [seed])
+                value.userBinding = key; value.userValueKind = .string
+                value.bindingKeys = ["user", "value"]
+                return value
+            }
+            func descriptor(_ constants: [String: Value]) -> Descriptor {
+                var value = self.descriptor(.init(rawValue: "0.2 0.4 0.6", components: [0.2,0.4,0.6]))
+                value.layers[0].imagePath = model
+                value.modelMaterialLinks = [.init(modelPath: model, materialPath: material)]
+                value.materialPasses[0].materialPath = material
+                value.materialPasses[0].shaderPath = shaderName
+                value.materialPasses[0].constantShaderValues.merge(constants) { _, new in new }
+                return value
+            }
+            for mode in ["brightness", "power", "both", "nonneutral", "mixed"] {
+                var constants: [String: Value] = [:]
+                var expected: [String: String] = [:]
+                if mode != "power" { constants[gainKey] = user(gainUser, mode == "nonneutral" ? 1.5 : 1); expected[gainKey] = gainUser }
+                if mode != "brightness" { constants[powerKey] = user(powerUser, mode == "nonneutral" ? 0.5 : 1); expected[powerKey] = powerUser }
+                if mode == "mixed" {
+                    var color = Value(rawValue: "0.2 0.4 0.6", components: [0.2,0.4,0.6])
+                    color.userBinding = "palette"; color.userValueKind = .string
+                    color.scriptSource = "export function update(value) { return value; }"
+                    color.bindingKeys = ["script", "user", "value"]
+                    constants["surface-key"] = color; constants["opacity-key"] = user("opacity")
+                }
+                let value = descriptor(constants)
+                let facts = SceneBaseMaterialColorModulationCompiler.compile(descriptor: value,
+                    shaderContracts: [shader], dynamicImageModelPaths: [model], admittedLayerColorConsumerIDs: [57])
+                var row: [String: Any] = ["variant": renamed ? "renamed" : "original", "mode": mode,
+                    "count": facts.count, "expected": expected]
+                if let fact = facts.first {
+                    // Read output metadata across the frozen pre-feature baseline too.
+                    let keys = Mirror(reflecting: fact).children.first { $0.label == "scalarUserPropertyKeys" }?.value as? [String: String] ?? [:]
+                    row["keys"] = keys; row["canLower"] = fact.canLowerToCompositor
+                    row["model"] = fact.modelPath; row["material"] = fact.materialPath
+                    row["hasScript"] = fact.scriptSource != nil
+                    row["alphaUser"] = fact.alphaUserPropertyKey ?? ""
+                    if let property = keys[powerKey], let authored = constants[powerKey],
+                       case let .accepted(prepared) = SceneAuthoredShaderPreparation.prepareShaderStages(
+                        contract: shader, compatibilityTarget: .windowsDX11ShaderModel4,
+                        combos: [:], textureReadiness: [0: true]),
+                       let schema = SceneResolvedMaterialShaderSchema.uniqueActiveUniform(
+                        named: renamed ? "curveExponent" : "exponent", type: .float, stage: .fragment, prepared: prepared) {
+                        let target = SceneDynamicTarget.materialConstant(layerID: fact.sourceLayerID,
+                            passIndex: 0, name: powerKey, materialPath: fact.materialPath)
+                        let fallback = SceneResolvedMaterialTemplate.StaticUniformValue(valueKind: "binding",
+                            componentBitPatterns: authored.components!.map(\.bitPattern), authoredBindingKeys: ["user", "value"])
+                        let declaration = SceneResolvedMaterialTemplate.DynamicUniform(target: target,
+                            valueContributors: [.userProperty(property)], scriptAttachments: [],
+                            authoredFallback: fallback, authoredBindingKeys: ["user", "value"])
+                        let field = SceneAuthoredShaderUniformLayout.Field(name: schema.name, stage: .fragment, type: .float, offset: 0)
+                        let binding = SceneResolvedMaterialPreparedUniformBinding(field: field, source: .dynamic(.init(
+                            declaration: declaration, contributor: .userProperty(property), fallback: fallback, schema: schema)))
+                        var encoded: [Double] = []
+                        for scalar in [0.5, 2.0, 8.0] {
+                            let snapshot = SceneDynamicSnapshotResolver().resolve(frameIndex: 1, generation: 1,
+                                definitions: [.init(target: target, valueType: .scalar,
+                                    authoredValue: .scalar(authored.components![0]), userPropertyNumericRange: 0 ... 10)],
+                                userValues: [target: .scalar(scalar)]).snapshot
+                            if let resolved = try? SceneResolvedMaterialProgram.resolvedAuthoredUniform(binding, snapshot: snapshot),
+                               resolved.field.stage == .fragment, resolved.encodedValue.count == 4 {
+                                encoded.append(Double(resolved.encodedValue.withUnsafeBytes { $0.loadUnaligned(as: Float.self) }))
+                            }
+                        }
+                        row["fragmentFloatBytes"] = encoded
+                        row["schemaRange"] = schema.authoredRange.map { [$0.lowerBound, $0.upperBound] } ?? []
+                    }
+                }
+                rows.append(row)
+            }
+            for key in [gainKey, powerKey] {
+                for invalid in ["script", "timeline", "scroll", "alias", "host", "empty-user", "wrong-user-kind", "extra-key", "vector", "malformed"] {
+                    var scalar = user(key == gainKey ? gainUser : powerUser)
+                    switch invalid {
+                    case "script": scalar.scriptSource = "export function update(value){return value;}"; scalar.bindingKeys.append("script")
+                    case "timeline": scalar.timeline = true
+                    case "empty-user": scalar.userBinding = ""
+                    case "wrong-user-kind": scalar.userValueKind = .null
+                    case "extra-key": scalar.bindingKeys.append("extra")
+                    case "vector": scalar.rawValue = "1 1"; scalar.components = [1,1]
+                    case "malformed": scalar.rawValue = "1 junk"
+                    default: break
+                    }
+                    var constants = [key: scalar]
+                    var testShader = shader
+                    if invalid == "scroll" { constants = ["slide-x": scalar] }
+                    if invalid == "alias" { constants[key == gainKey ? (renamed ? "lumaScale" : "gain") : (renamed ? "curveExponent" : "exponent")] = scalar }
+                    if invalid == "host" {
+                        let symbol = key == gainKey ? (renamed ? "lumaScale" : "gain") : (renamed ? "curveExponent" : "exponent")
+                        let host = fragment.replacingOccurrences(of: "uniform float \(symbol);", with: "uniform float g_Time;")
+                            .replacingOccurrences(of: "*= \(symbol) *", with: "*= g_Time *")
+                            .replacingOccurrences(of: "CAST3(\(symbol))", with: "CAST3(g_Time)")
+                            .replacingOccurrences(of: "vec3(\(symbol))", with: "vec3(g_Time)")
+                        testShader = contract(fragment: host, identity: shaderName)
+                    }
+                    let result = output(descriptor(constants), dynamic: [model], shader: testShader)
+                    rows.append(["variant": renamed ? "renamed" : "original", "mode": "reject-\(key)-\(invalid)", "count": result["count"]!])
+                }
+            }
+            let multi = fragment.replacingOccurrences(of: "uniform sampler2D g_Texture0;", with: "uniform sampler2D g_Texture0;\nuniform sampler2D g_Texture1;")
+                .replacingOccurrences(of: "gl_FragColor =", with: "\(renamed ? "sampleColor" : "colorCarrier") *= texSample2D(g_Texture1, sampleUV); gl_FragColor =")
+            rows.append(["variant": renamed ? "renamed" : "original", "mode": "reject-multi", "count": output(
+                descriptor([powerKey: user(powerUser)]), dynamic: [model], shader: contract(fragment: multi, identity: shaderName))["count"]!])
+        }
+        return rows
     }
 
     static func main() throws {
@@ -318,7 +448,7 @@ private typealias Descriptor = SceneRenderDescriptor
         let sharedScalars = fragment.replacingOccurrences(
             of: "uniform float opacity; // {\"material\":\"opacity-key\",\"default\":1}\n", with: ""
         ).replacingOccurrences(
-            of: "uniform float exponent; // {\"material\":\"power-key\",\"default\":1}\n", with: ""
+            of: "uniform float exponent; // {\"material\":\"power-key\",\"default\":1,\"range\":[0,6]}\n", with: ""
         ).replacingOccurrences(of: "opacity", with: "gain")
             .replacingOccurrences(of: "exponent", with: "gain")
         results["sharedFragmentScalarUniform"] = output(base, shader: contract(fragment: sharedScalars))
@@ -409,6 +539,7 @@ private typealias Descriptor = SceneRenderDescriptor
         results["fullProgramMixedEffectConsumers"] = output(value, consumers: [])
         value.layers[1].parentID = 57
         results["fullProgramEffectSiblingWithDependency"] = output(value, consumers: [])
+        results["dynamicScalarRoles"] = ["rows": dynamicScalarCases()]
         let data = try JSONSerialization.data(withJSONObject: results, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
     }

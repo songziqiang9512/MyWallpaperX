@@ -134,6 +134,9 @@ nonisolated enum SceneMaterialPropertyBindingCompiler {
             if fact.alphaUserPropertyKey != nil, let key = fact.alphaKey,
                let value = binding(layerID: fact.sourceLayerID, pass: pass,
                    name: key, valueType: .scalar) { bindings.append(value) }
+            bindings += fact.scalarUserPropertyKeys.keys.sorted().compactMap {
+                binding(layerID: fact.sourceLayerID, pass: pass, name: $0, valueType: .scalar)
+            }
             if fact.colorUserPropertyKey != nil,
                let value = binding(layerID: fact.sourceLayerID, pass: pass,
                    name: fact.colorKey, valueType: .vector3, allowScript: fact.scriptSource != nil) {

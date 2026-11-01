@@ -1747,6 +1747,24 @@
         "dynamic_layer_created_indices",
         "authored_layer_mutation_capacity"
       ]
+    },
+    {
+      "id": "scene-shared-source-user-scalars",
+      "title": "Shared source-material user scalar roles",
+      "owner": "BaseMaterial proof / property producer / shared source Program",
+      "status": "approved",
+      "designDoc": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "design_notes": "#prepared-dynamic-image-material：已证明brightness/power角色直接user scalar接现prototype typed producer和完整source Program；动态seed1不lower，用户域不夹shader注解。不加输出owner/运行时解析，保未知接口及材质资格。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneBaseMaterialColorModulationCompiler.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneBaseMaterialProviderBindingCompiler.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneMaterialPropertyBindingCompiler.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialRuntimeCatalog.swift"
+      ],
+      "contentPatterns": [
+        "sourceScalar",
+        "scalarInputs"
+      ]
     }
   ]
 }

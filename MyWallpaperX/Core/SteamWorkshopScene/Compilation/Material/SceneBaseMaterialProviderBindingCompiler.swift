@@ -11,6 +11,12 @@ enum SceneBaseMaterialProviderBindingCompiler {
         namedLayerIDs: Set<Int>
     ) -> [SceneBaseMaterialColorModulationCompiler.Binding] {
         let targets = Set(propertyProgram.instructions.map(\.target))
+        func hasUserProducer(_ target: SceneDynamicTarget, key: String,
+                             type: SceneDynamicValueType) -> Bool {
+            let matches = propertyProgram.instructions.filter { $0.target == target }
+            return matches.count == 1 && matches.first?.propertyKey == key
+                && matches.first?.valueType == type
+        }
         return bindings.filter { fact in
             if fact.scriptSource != nil {
                 guard let inputs = SceneScriptPropertyInputCodec.inputs(fact.scriptProperties),
@@ -30,6 +36,11 @@ enum SceneBaseMaterialProviderBindingCompiler {
                       let range = propertyProgram.definitions.first(where: { $0.target == target })?
                         .userPropertyNumericRange,
                       range.lowerBound >= 0, range.upperBound <= 1 else { return false }
+            }
+            for (name, key) in fact.scalarUserPropertyKeys {
+                let target = SceneDynamicTarget.materialConstant(layerID: fact.sourceLayerID,
+                    passIndex: 0, name: name, materialPath: fact.materialPath)
+                guard hasUserProducer(target, key: key, type: .scalar) else { return false }
             }
             return descriptor.layers.filter {
                 $0.imagePath.map { normalized($0).trimmingCharacters(in: .whitespacesAndNewlines) }

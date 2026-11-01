@@ -442,13 +442,15 @@ U22实机副本点击命中后，`getLayer(...).getAnimation(name)` 缺方法，
 验收：原C/Swift门覆盖scene唯一与歧义、同parent同名layer/effect的旧layer隔离、仅effect名称scene可查而layer仍拒、改名/资源改名/等价表达式、坏scene_only/target索引、retained/cross-owner/stale/删除/16命令与throw整owner撤回；既有PlaybackRuntime实际消费play/pause/stop并使effect typed snapshot数值推进。一次最终Debug、自有同窗实际effect及原322点击控制与非零Timeline phase、独立原包/GPU排空和独审后才计入口恢复；2522 shader仍拒绝时只保其后继首断点，不把passthrough算作者滤镜。若需跨scope隐式猜名、重建图或第二时钟即停止重排。 实施沿本设计收敛；最近真实VM/typed门、自有特效像素与原322实际点击/非零phase归[限定运行证据](../../capabilities/runtime-evidence-current.md#scene-named-animation-scope-20261017)，不升级剩余目标或shader语义。
 
 <a id="prepared-dynamic-image-material"></a>
-## 已准备普通图片的动态复用（默认材质有界已实施）
+## 已准备普通图片的动态复用与完整材质输入
 
-原BaseImageResources按canonical model一次准备默认材质fact及已发布image candidate，literal、初始配置和registerAsset共用同一catalog；默认SourceKey必须对应真实成功Entry，layer override不污染默认源。Launch join以builtin LightingProfile、成功完整source Program或已准入compositor lowering发布同一C/Swift模板，原BaseMaterialProviderBindingProgram与lit预热消费该事实，新实例使用自身矩阵。ColorModulationCompiler仍只管source语义lowering，不重复编译资源；旧plain专用入口退役，无新provider/clock/帧内解析。
+**唯一链路。** 原BaseImageResources按canonical model一次准备默认材质fact及已发布image candidate，literal、初始配置和registerAsset共用catalog；默认SourceKey对应真实成功Entry，layer override不污染默认源。Launch join只以builtin LightingProfile、成功完整source Program或已准入compositor lowering发布同一C/Swift模板，原BaseMaterialProviderBindingProgram与lit预热消费该事实；实例用自身矩阵，无新provider/clock/帧内解析。旧plain专用入口退役。
 
-builtin首片只含唯一model/material/pass、slot0、VERSION2与静态LIGHTING/有限metallic和roughness，保原translucent、depth test/write disabled、nocull和alpha资格；未知combo/常量、动态wrapper/provider、normal/PBR map、reflection/emission及多pass不借纹理成功准入。失败、deferred、未完成GPU发布不出模板；Puppet/composition/动画仍用各自已批准消费者。源层脚本、property/effect、override及最终合成纹理不复制到新实例；创建/晚拒绝/throw/destroy/旧generation与GPU在途寿命沿原共同拓扑和launch退休，不缓存新ID或复活旧handle。
+**共享source动态标量（2026-11-01有界已实施）。** 目标是让已证明单纹理tint接口的brightness/power角色接受直接`{user,value}`有限scalar，并保现color user+script与Alpha user。角色和材质键由既有active uniform/schema证明，不按样本、路径或固定拼写；原Binding只携准备期最小scalar事实，PropertyBindingCompiler生成prototype layer/material/pass/key的唯一typed producer，原source准入核producer闭包，后端原snapshot→reflected uniform bytes→fragment buffer不另建owner。存在动态brightness/power即保完整source Program，初值1也不lower到compositor，避免热改无消费者或重复乘色；静态中性/非中性旧路径保持。备选全pass动态投影需重排准备且扩大未知接口，本片不选；可复用的scalar解析/事实在原owner合并，不叠加wrapper。用户值继续既有项目range语义，不另夹shader编辑器注解范围。
 
-固定官方仅支持genericimage2+LIGHTING1的alpha省略/default/enabled在自有SDR正交、白ambient、metallic/roughness0的注册ROI一致，因此只该consumer接受default；不扩大plain/genericimage4、通用write-mask或HDR。其余有限scalar沿原表达式是项目有界选择。三入口、改名/等价、override、失败/取消、独立样本与实际ROI的身份及限制归[后验](../../history/dynamic-image-default-material-2026-10-16.md)，资源就绪不代整样本/交互或性能验收；几何仍归前述创建合同，MP4扩展归[动态视频](#prepared-dynamic-video)。
+**范围与失败。** 本片不扩任意scalar script/Timeline、动态scroll、多纹理/多pass、host冲突、instance/named/geometry资格；builtin仍只含唯一model/material/pass、slot0、VERSION2及静态LIGHTING/有限metallic/roughness。普通default/alpha及泛型混合边界不变，未知配置不能借纹理成功准入；Puppet/composition/动画走各自合同。失败/deferred/未GPU发布不出模板，保健康层；源层property/effect/override与最终纹理不复制到clone，旧generation、throw、晚拒绝、销毁和GPU在途沿原共同寿命，不加fallback或缓存新ID。
+
+**验收与退出。** 真实compiler→property producer→source Program验证覆盖brightness/power各自及组合、默认1仍保source、Power超shader注解但在用户域、Alpha/color既有组合、改名/等价与静态邻例；未知wrapper、错误type、重复alias、scroll和host冲突保拒绝。普通Debug后用自有单clone双向热改uniform bytes/可归属ROI，原63柱及独立消费者另验；[限定结果](../../history/dynamic-image-default-material-2026-10-16.md#shared-source-user-scalars-20261101)已闭同窗热改与共享clone ROI，资源ready/日志PASS不能代整样本或性能。若更早shader/资源或后继消费仍缺，停止扩准入并重排，不只删guard。固定SDR alpha资格仍仅genericimage2+LIGHTING1的省略/default/enabled等价，不扩大plain/genericimage4、通用write-mask或HDR；既有default材质与三入口ROI边界归[后验](../../history/dynamic-image-default-material-2026-10-16.md)，动态MP4归[视频合同](#prepared-dynamic-video)。
 
 ## Sound 播放控制接入（2026-10-12）
 

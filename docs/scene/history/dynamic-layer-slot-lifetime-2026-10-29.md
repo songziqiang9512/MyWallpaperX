@@ -84,3 +84,6 @@
 普通签名Debug基于01adcdd945加本批14产品路径构建90.34s，4416输入无漂移、无warning；exe SHA256 `d9e703e14d91c706a1511103d2bacc0516fa492da19d573409a3748a9879aeae`。原380正/零音频及独立原3792817546各5s严格PASS；独立63bar绿色音频柱保持可见。三run正常退出、surface1→0且GPU完成；未验官方同phase、HDR/多屏、长稳与整场景全部能力。独立静态审查未发现新增回归。
 
 必要源/fixture、红绿与失败资格、布局、构建及三run日志/原PNG归`.artifacts/scene-evidence/runs/dynamic-layer-capacity-20261101/metadata/samples/0/runtime_evidence.zip`（普通14天）。原380容量子断点从现役队列退出；381自定义材质及其它资源/几何边界仍按队列推进，不以容量扩大宣整类兼容。
+
+
+11-01后续队列复核撤销“同callback出生后销毁必缺消费者”的旧静态怀疑：当前C CREATED标记、coalescing及Runtime newborn destroy路径均保留净零出生；容量批的真实C门与Runtime raw工作量/回滚门已覆盖各自边界，原静态描述不再成立。尚未将特定真实profile的单次C→Swift→GPU净零链单独联验，不把这种证据缺口继续记成已复现产品故障，也不据此授任意动态资源支持。

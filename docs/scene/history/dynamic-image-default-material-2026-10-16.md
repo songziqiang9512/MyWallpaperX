@@ -44,3 +44,21 @@
 本轮删除25个已退出隔离HOME/cache/sample目录及19份重复输出，并回收七个本轮失败后已修的定向门cache及六个已封存自有输入目录，合计释放864,624,050逻辑字节；两原样本逐文件哈希不变，四个精确guest fixture连同仅生成shader cache已回收，原receiver与VM保持。仅连续构建缓存`.artifacts/tmp/scene-constructor-runtime-20261011/DerivedData`及小型收据保留；没有按根目录清理其他会话。
 
 完整设备重建/多屏、physical HDR、任意model/material、所有脚本交互与官方逐帧golden未联验；default准入不推广为通用write-mask合同，1×1逻辑capture放大质量也不由本片验收。
+
+
+<a id="shared-source-user-scalars-20261101"></a>
+## 共享 source 的用户标量（2026-11-01）
+
+原3812473896的layer35需创建63根音频柱，但model材质的brightness/power绑定用户属性。fresh旧App明确先在ColorModulationCompiler报neutral-scalar-values，继而source报dynamic-declaration-unsupported，创建后写alignment抛null异常；不是容量或shader不合法。其color user+WEColor脚本与Alpha user已有typed消费者，两标量的准备证明/producer接线缺失。
+
+原Binding只新增material key→user property key的准备事实；原scalar解析合并Alpha/静态重复实现，保Alpha0…1及静态零scroll。PropertyBindingCompiler在prototype layer/material/pass/key生成typed producer，原source准备消费最终闭包，原snapshot→reflected float bytes→fragment buffer不变。任何动态brightness/power均保完整source Program，即使seed1也不lower，避免热改失联或compositor重复乘色。共享模型只求一次prototype Program，各clone沿原独立位置/publication消费；不加VM/renderer/clock/state owner。最终4产品净减2行；既有lowered color/Alpha入口检查保持，未收紧旧profile。
+
+同一冻结5测试文件对旧f54四产品跑26tests、54个新增subassert失败、0 errors，候选同门26/0/0；输入均稳定。实际preprocess/schema角色证明、原属性compiler/原snapshot/整段原source admission及预上传float bytes参与，Power在原/改名两变体均编码.5/2/8；用户域0…10不另夹shader注解0…6。正反例含两组等价/改名、brightness/power单独/组合、seed1、Alpha/color混合，未知wrapper/script/Timeline、scroll、host冲突、多纹理/重复alias等；静态证明不代GPU。独立review无本批新增finding，另发现的静态host默认值lowering旧缺口单列队列，未借本片扩动态接口。
+
+普通签名Debug构建41.16s，4416产品输入中一项并行SILInspectorView漂移，4Scene变更及其余Scene输入稳定；故只授本批Scene身份，不称全App最新源快照。exe SHA256 `e6b960f154a4597f818444153d5b97d5e9a605965b0476174c676ea1f92d9754`。无编译warning/error，签名deep/strict通过；后继UI/Library并行修改未混入本批结论。
+
+自有v1载体因autosize覆盖作者size、clone另有scale而几何不一致，且matrix的hover输入误启无关交互门，5run均不称PASS；只修输入生成v2（统一scale、撤错误hover预期），先neutral资格后跑四配对，未移动预登记ROI或改产品/容差。v2五项PASS：prototype/clone的固定内区逐像素相同，RGB分别neutral67/63/52；Brightness.5→1.5为36/34/28→98/92/75；Power1→.5为67/63/52→103/99/90；.5→8至5/5/5，再8→1回67/63/52。静态source与builtin邻区始终53/101/153、26/204/51；四次live编辑同window/surface，无重建。该组证明配对热改，不称一个连续多步进程或官方数值parity。
+
+原381当前init/update产生63个dynamic实例，完整source在frame1以prototype35一次编码、consumers64、4×4 target，音频generation2非零后真实红色柱条可见；原null异常退出，color脚本亦完成。独立原2890473419六图片owner及默认lit动态人物/相框保持可见，四个hidden粒子向未赋值shadowLayer写visible的旧错误仍在，不记整景完成。两原包均5s，v2五run及两原包正常退出/surface1→0、GPU drained；未做官方同phase、原生属性面板、HDR/多屏、长稳或性能收益验收。
+
+必要代码/fixture、红绿、v1资格失败、v2输入与ROI、原包日志/PNG、构建和独审归`.artifacts/scene-evidence/runs/shared-source-user-scalars-20261101/metadata/samples/0/runtime_evidence.zip`（普通14天）。普通source动态标量缺口从队列退出，其余未知shader/user texture/脚本标量等仍是未准入范围；纹理成功不授完整材质或任意模型兼容。

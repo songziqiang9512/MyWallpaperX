@@ -1,8 +1,8 @@
 import Foundation
 
 /// Proves the input interface of a single-texture base material. Neutral
-/// scalars lower to the image compositor; non-neutral static scalars retain
-/// the complete source Program while sharing the same typed value producers.
+/// scalars lower to the image compositor; non-neutral or user-bound scalars
+/// retain the complete source Program and the existing typed value producers.
 nonisolated enum SceneBaseMaterialColorModulationCompiler {
     struct Binding: Sendable {
         let modelPath: String
@@ -27,6 +27,7 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
         var alphaKey: String? = nil
         var authoredAlpha: Float = 1
         var alphaUserPropertyKey: String? = nil
+        var scalarUserPropertyKeys: [String: String] = [:]
         var canLowerToCompositor: Bool = true
 
         var alphaPropertyTarget: SceneDynamicTarget? {
@@ -175,17 +176,19 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
         matrixSchema.materialKeys.allSatisfy({ pass.constantShaderValues[$0] == nil }) else {
             return reject(modelPath, "position-matrix-binding")
         }
-        guard let brightness = staticScalar(
+        guard let brightness = scalarBinding(
                 uniformName: fact.brightnessUniformName,
                 stage: .fragment,
                 pass: pass,
-                prepared: prepared
+                prepared: prepared,
+                allowsUser: true
               ),
-              let power = staticScalar(
+              let power = scalarBinding(
                 uniformName: fact.powerUniformName,
                 stage: .fragment,
                 pass: pass,
-                prepared: prepared
+                prepared: prepared,
+                allowsUser: true
               ),
               fact.scrollUniformNames.count == 2,
               fact.scrollUniformNames.allSatisfy({
@@ -199,8 +202,15 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
               }) else {
             return reject(modelPath, "neutral-scalar-values")
         }
-        let canLowerToCompositor = brightness.bitPattern == Double(1).bitPattern
-            && power.bitPattern == Double(1).bitPattern
+        var scalarUserPropertyKeys: [String: String] = [:]
+        for scalar in [brightness, power] {
+            if let key = scalar.key, let userKey = scalar.userKey {
+                scalarUserPropertyKeys[key] = userKey
+            }
+        }
+        let canLowerToCompositor = scalarUserPropertyKeys.isEmpty
+            && brightness.value.bitPattern == Double(1).bitPattern
+            && power.value.bitPattern == Double(1).bitPattern
         // The proven host MVP and unmodified quad/UV use each instance's
         // existing projection in the direct compositor. A complete source
         // Program still has its narrower, non-perspective preparation domain.
@@ -212,9 +222,14 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
         guard !canLowerToCompositor || sourceLayers.allSatisfy({
             $0.effects.isEmpty && admittedLayerColorConsumerIDs.contains($0.id)
         }) else { return reject(modelPath, "source-layer-consumer") }
-        guard let alpha = alphaBinding(
-            uniformName: fact.alphaUniformName, pass: pass, prepared: prepared
-        ) else { return reject(modelPath, "alpha-binding") }
+        guard SceneResolvedMaterialHostUniformSchema.resolve(
+            .init(name: fact.alphaUniformName, stage: .fragment, type: .float, offset: 0),
+            activeTextureSlots: [0]
+        ) == nil,
+        let alpha = scalarBinding(
+            uniformName: fact.alphaUniformName, stage: .fragment,
+            pass: pass, prepared: prepared, allowsUser: true
+        ), (0 ... 1).contains(alpha.value) else { return reject(modelPath, "alpha-binding") }
         guard let colorUniform = SceneResolvedMaterialShaderSchema
                 .uniqueActiveUniform(
                     named: fact.tintUniformName,
@@ -261,8 +276,9 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
             scriptProperties: colorValue.scriptProperties ?? [:],
             authoredColor: .init(components[0], components[1], components[2]),
             colorUserPropertyKey: colorValue.userBinding,
-            alphaKey: alpha.key, authoredAlpha: alpha.value,
+            alphaKey: alpha.key, authoredAlpha: Float(alpha.value),
             alphaUserPropertyKey: alpha.userKey,
+            scalarUserPropertyKeys: scalarUserPropertyKeys,
             canLowerToCompositor: canLowerToCompositor
         )
     }
@@ -285,17 +301,15 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
         return nil
     }
 
-    private static func alphaBinding(
+    private static func scalarBinding(
         uniformName: String,
+        stage: SceneShaderContract.StageKind,
         pass: SceneRenderDescriptor.MaterialPassDescriptor,
-        prepared: SceneShaderPreparedProgram
-    ) -> (key: String?, value: Float, userKey: String?)? {
-        guard SceneResolvedMaterialHostUniformSchema.resolve(
-            .init(name: uniformName, stage: .fragment, type: .float, offset: 0),
-            activeTextureSlots: [0]
-        ) == nil,
-        let schema = SceneResolvedMaterialShaderSchema.uniqueActiveUniform(
-            named: uniformName, type: .float, stage: .fragment, prepared: prepared
+        prepared: SceneShaderPreparedProgram,
+        allowsUser: Bool = false
+    ) -> (key: String?, value: Double, userKey: String?)? {
+        guard let schema = SceneResolvedMaterialShaderSchema.uniqueActiveUniform(
+            named: uniformName, type: .float, stage: stage, prepared: prepared
         ) else { return nil }
         let authored = pass.constantShaderValues.filter { schema.materialKeys.contains($0.key) }
         guard !authored.isEmpty else {
@@ -303,24 +317,29 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
                   fallback.componentBitPatterns.count == 1,
                   fallback.authoredBindingKeys.isEmpty else { return nil }
             let value = Double(bitPattern: fallback.componentBitPatterns[0])
-            guard value.isFinite, (0 ... 1).contains(value) else { return nil }
-            return (nil, Float(value), nil)
+            guard value.isFinite, Float(value).isFinite else { return nil }
+            return (nil, value, nil)
         }
         guard authored.count == 1, let entry = authored.first else { return nil }
         let value = entry.value
         let tokens = value.rawValue.split(whereSeparator: { $0.isWhitespace || $0 == "," })
         guard tokens.count == 1, let scalar = Double(tokens[0]),
-              scalar.isFinite, (0 ... 1).contains(scalar), value.components == [scalar],
+              scalar.isFinite, Float(scalar).isFinite, value.components == [scalar],
               value.scriptSource == nil, value.scriptProperties == nil,
               value.timeline == nil, value.timelineDiagnostics.isEmpty else { return nil }
         if value.bindingKeys.isEmpty {
             guard value.userValueKind == nil, value.userBinding == nil else { return nil }
-            return (entry.key, Float(scalar), nil)
+            return (entry.key, scalar, nil)
         }
-        guard value.bindingKeys.sorted() == ["user", "value"],
-              value.userValueKind == .string, let key = value.userBinding, !key.isEmpty
+        guard allowsUser, value.bindingKeys.sorted() == ["user", "value"],
+              value.userValueKind == .string, let key = value.userBinding,
+              SceneScriptUserPropertyInputContract.validName(key),
+              SceneResolvedMaterialHostUniformSchema.resolve(
+                .init(name: uniformName, stage: stage, type: .float, offset: 0),
+                activeTextureSlots: [0]
+              ) == nil
         else { return nil }
-        return (entry.key, Float(scalar), key)
+        return (entry.key, scalar, key)
     }
 
     private static func neutralScalar(
@@ -330,44 +349,8 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
         pass: SceneRenderDescriptor.MaterialPassDescriptor,
         prepared: SceneShaderPreparedProgram
     ) -> Bool {
-        staticScalar(uniformName: uniformName, stage: stage, pass: pass,
-            prepared: prepared)?.bitPattern == expected.bitPattern
-    }
-
-    private static func staticScalar(
-        uniformName: String,
-        stage: SceneShaderContract.StageKind,
-        pass: SceneRenderDescriptor.MaterialPassDescriptor,
-        prepared: SceneShaderPreparedProgram
-    ) -> Double? {
-        guard let schema = SceneResolvedMaterialShaderSchema
-                .uniqueActiveUniform(
-                    named: uniformName,
-                    type: .float,
-                    stage: stage,
-                    prepared: prepared
-                ) else { return nil }
-        let authored = pass.constantShaderValues.filter {
-            schema.materialKeys.contains($0.key)
-        }
-        if !authored.isEmpty {
-            guard authored.count == 1, let value = authored.first?.value,
-                  value.bindingKeys.isEmpty,
-                  value.scriptSource == nil,
-                  value.timeline == nil,
-                  value.timelineDiagnostics.isEmpty,
-                  value.components?.count == 1,
-                  let scalar = value.components?.first else { return nil }
-            let tokens = value.rawValue.split(whereSeparator: { $0.isWhitespace || $0 == "," })
-            guard tokens.count == 1, Double(tokens[0]) == scalar,
-                  scalar.isFinite, Float(scalar).isFinite else { return nil }
-            return scalar
-        }
-        guard let fallback = schema.defaultValue,
-              fallback.componentBitPatterns.count == 1,
-              fallback.authoredBindingKeys.isEmpty else { return nil }
-        let scalar = Double(bitPattern: fallback.componentBitPatterns[0])
-        return scalar.isFinite && Float(scalar).isFinite ? scalar : nil
+        scalarBinding(uniformName: uniformName, stage: stage, pass: pass,
+            prepared: prepared)?.value.bitPattern == expected.bitPattern
     }
 
     private static func normalized(_ path: String) -> String {

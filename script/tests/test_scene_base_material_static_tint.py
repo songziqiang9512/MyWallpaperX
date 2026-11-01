@@ -127,6 +127,26 @@ class SceneBaseMaterialStaticTintTests(unittest.TestCase):
         )
         cls.result = json.loads(completed.stdout)
 
+    def test_dynamic_scalar_roles_keep_source_and_encode_the_user_domain(self) -> None:
+        rows = self.result["dynamicScalarRoles"]["rows"]
+        self.assertEqual(len(rows), 52)
+        for row in rows:
+            with self.subTest(variant=row["variant"], mode=row["mode"]):
+                if row["mode"].startswith("reject-"):
+                    self.assertEqual(row["count"], 0)
+                    continue
+                self.assertEqual(row["count"], 1)
+                self.assertFalse(row["canLower"])
+                self.assertEqual(row["keys"], row["expected"])
+                self.assertEqual(row["hasScript"], row["mode"] == "mixed")
+                self.assertEqual(row["alphaUser"], "opacity" if row["mode"] == "mixed" else "")
+                if row["mode"] != "brightness":
+                    self.assertEqual(row["schemaRange"], [0, 6])
+                    self.assertEqual(row["fragmentFloatBytes"], [0.5, 2, 8])
+                if row["variant"] == "renamed":
+                    self.assertEqual(row["model"], "models/independent/scalar.json")
+                    self.assertEqual(row["material"], "materials/independent/scalar.json")
+
     def test_static_black_and_nonwhite_are_immutable_bindings(self) -> None:
         self.assertEqual(self.result["staticBlack"]["color"], [0, 0, 0])
         self.assertEqual(self.result["staticNonwhite"]["color"], [0.2, 0.4, 0.6])

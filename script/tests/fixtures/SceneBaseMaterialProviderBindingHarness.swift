@@ -88,6 +88,7 @@ enum SceneBaseMaterialColorModulationCompiler {
         var alphaKey: String? = nil
         var authoredAlpha: Float = 1
         var alphaUserPropertyKey: String? = nil
+        var scalarUserPropertyKeys: [String: String] = [:]
         var canLowerToCompositor: Bool = true
         var alphaPropertyTarget: SceneDynamicTarget? {
             guard alphaUserPropertyKey != nil, let alphaKey else { return nil }
@@ -929,6 +930,7 @@ let result: [String: Any] = [
     "instanceFallback": instanceFallbackChecks(),
     "customAlpha": customMaterialAlphaChecks(),
     "customUserColor": customMaterialUserColorChecks(),
+    "customUserScalars": customMaterialUserScalarChecks(),
     "scalarProfiles": scalarProfiles,
     "authoredNormals": authoredNormals,
     "normalAdmission": [unsupportedNormalReported, unsupportedNormal.normalAsset == nil,

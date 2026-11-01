@@ -501,7 +501,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         return result
     }
 
-    /// Only the interface-proven color/Alpha inputs may borrow the existing
+    /// Only interface-proven material inputs may borrow the existing
     /// typed producers. Unknown dynamic fields keep the original rejection.
     private static func sourceUniformIsAdmitted(
         name: String, value: SceneDocument.ShaderValue,
@@ -534,7 +534,8 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
             }
             return value.bindingKeys.sorted() == keys.sorted()
         }
-        guard name == proof.alphaKey, let key = proof.alphaUserPropertyKey,
+        guard let key = name == proof.alphaKey
+                ? proof.alphaUserPropertyKey : proof.scalarUserPropertyKeys[name],
               value.bindingKeys.sorted() == ["user", "value"],
               value.userBinding == key, value.scriptSource == nil,
               value.scriptProperties == nil else { return false }

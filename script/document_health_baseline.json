@@ -182,7 +182,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 419,
-      "bytes": 118904
+      "bytes": 119175
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -249,8 +249,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 598,
-      "bytes": 161426
+      "lines": 600,
+      "bytes": 162692
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 59,
@@ -278,7 +278,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 188,
-      "bytes": 43331
+      "bytes": 43508
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1925,39 +1925,39 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "9b44ee36d8212d6534c08794cfcbc906eaa05c0b3dc72491eaead3468f122c9a",
-      "after": "b85f047c1021b664dac57f4ee3a28437f85649040ff9ae78de4752f4804dad02",
-      "owner": "scene-dynamic-layer-storage-capacity",
-      "reason": "同一journal容量合同替换旧256/512门；380容量从待修退出，保381材质缺口；布局与Debug短窗成本均不冒称产品性能收益。",
-      "decision": "docs/scene/architecture/dynamic-layer-storage-design.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "70ccd8ef65d0f2972392acd9a075b1f610e8c3c972abececa25833fb5f177632",
-      "after": "487145b38f97a6cd1cc6b7bb387cedba6830afbee21ec94bab9f6db671ed79d3",
-      "owner": "scene-dynamic-layer-storage-capacity",
-      "reason": "同一journal容量合同替换旧256/512门；380容量从待修退出，保381材质缺口；布局与Debug短窗成本均不冒称产品性能收益。",
-      "decision": "docs/scene/architecture/dynamic-layer-storage-design.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "e32fbedb19e450682596edc5f832ae3960439706ab872e1078893cd21de73505",
-      "after": "c5a95dbd2cc3e4a844945064e45683226b382bf3a73559710cbd615fb117f4c9",
-      "owner": "scene-dynamic-layer-storage-capacity",
-      "reason": "同一journal容量合同替换旧256/512门；380容量从待修退出，保381材质缺口；布局与Debug短窗成本均不冒称产品性能收益。",
-      "decision": "docs/scene/architecture/dynamic-layer-storage-design.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
       "before": "31626d3f7b54d58065f2132b225ae2313f5908b11235a722def13f0e97b22f82",
       "after": "25b4e75ddacff6f34b5c6ae22e8ca6ae8c3fcecda424b7a93653a834c6909112",
       "owner": "scene-dynamic-layer-storage-capacity",
       "reason": "同一journal容量合同替换旧256/512门；380容量从待修退出，保381材质缺口；布局与Debug短窗成本均不冒称产品性能收益。",
       "decision": "docs/scene/architecture/dynamic-layer-storage-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "before": "b85f047c1021b664dac57f4ee3a28437f85649040ff9ae78de4752f4804dad02",
+      "after": "e758b7d1842da8fb4864a0cde0d03b5478ba96ebfa6cadb4f44dff27d0f6a267",
+      "owner": "scene-shared-source-user-scalars",
+      "reason": "原owner完成共享source标量接线，381待修描述退出，旧净零怀疑撤销；同窗ROI/失败载体与静态host余项边界分清，不以日志PASS授整景。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-dynamic-image-material"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "487145b38f97a6cd1cc6b7bb387cedba6830afbee21ec94bab9f6db671ed79d3",
+      "after": "3d9dd88162f983650b5bccac01cc631eedc882fe44fdae732531adb6ddf0af29",
+      "owner": "scene-shared-source-user-scalars",
+      "reason": "原owner完成共享source标量接线，381待修描述退出，旧净零怀疑撤销；同窗ROI/失败载体与静态host余项边界分清，不以日志PASS授整景。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-dynamic-image-material"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "c5a95dbd2cc3e4a844945064e45683226b382bf3a73559710cbd615fb117f4c9",
+      "after": "853e9c5af5eece0251587d6297bc64c0efdb45a3721d45bd773010e05a8b64c2",
+      "owner": "scene-shared-source-user-scalars",
+      "reason": "原owner完成共享source标量接线，381待修描述退出，旧净零怀疑撤销；同窗ROI/失败载体与静态host余项边界分清，不以日志PASS授整景。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-dynamic-image-material"
     }
   ]
 }
