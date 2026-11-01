@@ -170,7 +170,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 223463
+      "bytes": 223650
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -285,8 +285,8 @@
       "bytes": 29767
     },
     "docs/scene/roadmap/engine-refactor-program.md": {
-      "lines": 123,
-      "bytes": 19107
+      "lines": 129,
+      "bytes": 19984
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 73,
@@ -302,7 +302,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 204,
-      "bytes": 47557
+      "bytes": 47680
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -2063,15 +2063,6 @@
       "decision": "docs/scene/roadmap/engine-refactor-program.md#语言执行收敛共享状态与-alpha"
     },
     {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "5167d63ee95b27ab70465477789e2cf2ab1acae5c4d3e0a3bbbc58d20a5721cf",
-      "after": "80876446b01da86a0ee67ab3bd626f39d5ca4f269616729e166137804b585792",
-      "owner": "scene-architecture-convergence",
-      "reason": "共享alpha迁入原VM，模块形状关卡退出；更新真实有界贡献和未闭项，旧设计完整归档，预算对应实际职责内容。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#语言执行收敛共享状态与-alpha"
-    },
-    {
       "section": "archives",
       "path": "docs/scene/history/alpha-display-fallback-design-2026-10-01.md",
       "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
@@ -2091,15 +2082,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "a8735c21acd46c241bd9810360da3f321067f7a70ca53e013a81775318992425",
-      "after": "6a8adce090c7557e4bf526c8f05ce040f67925afd2d08e7ae3d52ffb30ba842f",
-      "owner": "scene-property-program-preparation",
-      "reason": "记录不可变Program准备与实例值职责、既有边界及局部成本/真实热更证据；不新增运行校验、性能指标或并行状态。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#属性绑定程序的准备与实例值"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
       "before": "9e8170e3d074b9579fcfe9aff4cfd7cf60890f9875064ff1757d3e80d0f0699a",
       "after": "6ddde66705edeaa1e24dc3b98f17495312a335728ab0560ca04fb857ccd02820",
@@ -2109,12 +2091,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "6a8adce090c7557e4bf526c8f05ce040f67925afd2d08e7ae3d52ffb30ba842f",
+      "after": "34ebaf477bb40fdd0a7d21b454292b2602818328d680f6a453811a9608299eac",
+      "owner": "scene-prepared-image-geometry",
+      "reason": "自然尺寸回填退出重复Program/visibility/effect准备，记录实际几何保持及资格修正；不新增运行关卡或整体性能结论。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#自然尺寸回填保留准备事实"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/engine-refactor-program.md",
-      "before": "b43e543ce9bac819052c4cb512532f43dbd4e45f8828d9084a739034e05f91f5",
-      "after": "4b94632e290b84ad58bce8e0f1560c5a9b7ea97625aa4a8c844a35d886dc25eb",
-      "owner": "scene-property-program-preparation",
-      "reason": "记录不可变Program准备与实例值职责、既有边界及局部成本/真实热更证据；不新增运行校验、性能指标或并行状态。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#属性绑定程序的准备与实例值"
+      "before": "4b94632e290b84ad58bce8e0f1560c5a9b7ea97625aa4a8c844a35d886dc25eb",
+      "after": "2b5b1da7a1c26b6d927e8e1cb8d8f61ea73ed256501de14638544b46154482fc",
+      "owner": "scene-prepared-image-geometry",
+      "reason": "自然尺寸回填退出重复Program/visibility/effect准备，记录实际几何保持及资格修正；不新增运行关卡或整体性能结论。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#自然尺寸回填保留准备事实"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "015f08b56a1ded8a757df6a207261447db6a668d6d49bb9150e5a93866826808",
+      "after": "f62d2139d9822c4dda2137367a4e14a6056b0dee6b3b6cd71572799f66525e65",
+      "owner": "scene-prepared-image-geometry",
+      "reason": "自然尺寸回填退出重复Program/visibility/effect准备，记录实际几何保持及资格修正；不新增运行关卡或整体性能结论。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#自然尺寸回填保留准备事实"
     }
   ]
 }

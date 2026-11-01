@@ -1056,10 +1056,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "41bdc13cbdbcc7c5514a3155de22cbd3a41109b03aed3cd95025bfe303bc88c5",
+        "sourceSHA256": "5be327e138cb8f173b35b2b3c0c8163cb7594fa5d00d8ee5d2e84166b74eb4c8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "属性Program准备结果唯一持有；LiveState保实例current/revision，局部CPU对照与原包三属性热更分别记录。",
-        "limitations": "局部apply成本与单原包可见保持不证明整体面板延迟、FPS、能耗、多屏、全corpus或整个架构迁移。"
+        "scope": "自然尺寸回填保原准备计划；非空CPU事实保持与实际非方image/effect像素证据分开记录。",
+        "limitations": "自有canonical/改名两份输入与现有消费者门不证明完整corpus、多屏、条件schema、官方parity或整体启动/能耗收益。"
       },
       "purpose": "实际接线或已记录运行证据；不反向定义目标架构，不决定实施顺序。"
     },
@@ -4549,10 +4549,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "dedb52c0688abc8ad90b318aab3c71e8155592c77e7c9f5b9f71547d8774d942",
+        "sourceSHA256": "6ba99b4d74d07769df51740e565c41e073c5f109bb0608b848197aaa0bb4c45f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "属性Program准备结果唯一持有；LiveState保实例current/revision，局部CPU对照与原包三属性热更分别记录。",
-        "limitations": "局部apply成本与单原包可见保持不证明整体面板延迟、FPS、能耗、多屏、全corpus或整个架构迁移。"
+        "scope": "自然尺寸回填保原准备计划；非空CPU事实保持与实际非方image/effect像素证据分开记录。",
+        "limitations": "自有canonical/改名两份输入与现有消费者门不证明完整corpus、多屏、条件schema、官方parity或整体启动/能耗收益。"
       }
     },
     {
@@ -4605,10 +4605,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9fd9b912caefc7b5a2714c7e1348613541ae82f42d8c4ef4d5c8eaf8124a41cf",
+        "sourceSHA256": "cfb0d48cced935181e11696967c6ff7733549a90ec7bf93fd64727402eed980e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "属性Program准备结果唯一持有；LiveState保实例current/revision，局部CPU对照与原包三属性热更分别记录。",
-        "limitations": "局部apply成本与单原包可见保持不证明整体面板延迟、FPS、能耗、多屏、全corpus或整个架构迁移。"
+        "scope": "自然尺寸回填保原准备计划；非空CPU事实保持与实际非方image/effect像素证据分开记录。",
+        "limitations": "自有canonical/改名两份输入与现有消费者门不证明完整corpus、多屏、条件schema、官方parity或整体启动/能耗收益。"
       }
     },
     {

@@ -18,8 +18,8 @@ build 后 renderDescriptor 上的 displayScriptOwnership 与 SceneLayerVisibilit
    ownership 是非可选解析产物（SceneDocumentObject.swift），descriptor 原样
    携带；消费端把 nil 与 empty 同等对待（SceneLayerVisibility.isEmpty）。
 
-Harness 只编译真实链路文件；stub 仅限链路之外的叶子（QuickJS VM 运行时、
-launch 图 planner/路由准入、MDL 读取、粒子文本叶子），stub 形状沿用
+Harness 编译真实 builder、作者 effect planner 与 CPU 图计划；stub 仅限
+QuickJS VM、原生路由准入、隐式 shader schema 及 MDL/粒子文本叶子，形状沿用
 test_scene_solid_layers.py 与 test_scene_script_binding_parser.py 的既有
 先例。不构建 App。
 """
@@ -34,6 +34,10 @@ import unittest
 from pathlib import Path
 
 from script.tests.test_scene_prepared_script_resource_catalog import swift_declaration
+from script.tests.test_scene_effect_render_graph import (
+    HARNESS as EFFECT_GRAPH_HARNESS,
+    SWIFT_SOURCES as EFFECT_GRAPH_SOURCES,
+)
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -170,6 +174,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Resources/Textures/SceneTextureSampling.swift",
     SOURCE_ROOT / "Rendering/Dependencies/SceneNamedTextureDependencyReferenceAnalysis.swift",
 ]
+SWIFT_SOURCES = list(dict.fromkeys([*SWIFT_SOURCES, *EFFECT_GRAPH_SOURCES]))
 
 
 def _keyframe(frame: int, value: float) -> dict:
@@ -215,6 +220,12 @@ SCENE_FIXTURE = {
                 "script": "export function update(value) { return value; }",
                 "value": 0.5,
             },
+            "effects": [
+                {"id": 200, "file": "effects/geometry/effect.json",
+                 "visible": {"user": "effectEnabled", "value": True}},
+                {"id": 201, "file": "effects/geometry/effect.json",
+                 "visible": {"script": "export function update(value) { return value; }", "value": True}},
+            ],
         },
         {
             # c) 无脚本的 authored alpha 层：ownership 为空壳（非 nil）。
@@ -256,17 +267,18 @@ SCENE_FIXTURE = {
     ],
 }
 
-PROJECT_FIXTURE = {"type": "scene", "file": "scene.json"}
+PROJECT_FIXTURE = {"type": "scene", "file": "scene.json", "general": {"properties": {
+    "effectEnabled": {"type": "bool", "value": True},
+}}}
 
 
 HARNESS_SOURCE = r'''
 // Probe shell: run the real SceneRuntimeModelBuilder disk chain and dump the
 // post-build display-ownership state. Stubs below stand in for leaves outside
-// the asserted chain (QuickJS VM runtime, launch-graph planner/route
+// the asserted chain (QuickJS VM runtime, native route/schema
 // admission, base-material modulation); their shapes follow the
 // committed harness precedents in test_scene_solid_layers.py and
 // test_scene_script_binding_parser.py.
-enum SceneGraphRenderTargetPlan { enum TextureFormat { case rgba16f, rgbaBackbuffer } }
 import Foundation
 import Metal
 
@@ -409,17 +421,7 @@ enum SceneBaseMaterialProviderBindingCompiler {
     }
 }
 
-enum SceneAuthoredEffectRenderPlanner {
-    static func plans(
-        for descriptor: SceneRenderDescriptor,
-        startupInactiveEffectVisibilityTargets: Set<SceneDynamicTarget> = [],
-        shaderContracts: [SceneShaderContract] = []
-    ) -> [SceneAuthoredEffectRenderPlan] {
-        []
-    }
-}
-
-struct SceneAuthoredEffectRenderPlan: Codable, Equatable {}
+__GRAPH_CONDITION_SCHEMA_TRANSPORT__
 
 enum SceneDirectBoolEffectVisibilityRouteAdmission {
     static func startupInactiveTargets(
@@ -428,7 +430,8 @@ enum SceneDirectBoolEffectVisibilityRouteAdmission {
         dynamicLayerVisibilityOwnerTargets: Set<SceneDynamicTarget> = [],
         scriptOwnedCandidates: Set<SceneDynamicTarget> = []
     ) -> Set<SceneDynamicTarget> {
-        candidates
+        // No native route/consumer admission is supplied by this CPU fixture.
+        []
     }
 }
 
@@ -440,6 +443,16 @@ enum SceneTextGeometry {
 
 @main
 enum Harness {
+    static func samePreparedFacts(_ first: SceneRuntimeInput, _ second: SceneRuntimeInput) -> Bool {
+        first.authoredEffectRenderPlans == second.authoredEffectRenderPlans
+            && first.propertyBindingProgram == second.propertyBindingProgram
+            && first.directBoolEffectVisibilityTargets == second.directBoolEffectVisibilityTargets
+            && first.scriptOwnedEffectVisibilityTargets == second.scriptOwnedEffectVisibilityTargets
+            && first.startupInactiveEffectVisibilityTargets == second.startupInactiveEffectVisibilityTargets
+            && first.effectivePropertyValues == second.effectivePropertyValues
+            && first.shaderContracts == second.shaderContracts
+    }
+
     static func creationGeometry() -> [String: Any] {
         let template = SceneScriptPreparedResourceLayerTemplate(
             modelPath: "models/renamed-resource.json", renderSizeWH: [4, 4])
@@ -515,9 +528,16 @@ enum Harness {
                 ],
             ]
         }
-        let preparedSizes: [Int: [Float]] = [10: [200,100], 20: [1,1]]
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        let originalInput = try encoder.encode(model.runtimeInput)
+        let preparedSizes: [Int: [Float]] = [10: [200,100], 20: [1,1], 999: [16,8]]
         let preparedInput = model.runtimeInput.applyingPreparedImageGeometry(preparedSizes)
         let preparedAuthored = model.authoredRenderDescriptor.applyingPreparedImageGeometry(preparedSizes)
+        let emptyInput = model.runtimeInput.applyingPreparedImageGeometry([:])
+        let unknownInput = model.runtimeInput.applyingPreparedImageGeometry([999: [16,8]])
+        let emptyEncoded = try encoder.encode(emptyInput)
+        let unknownEncoded = try encoder.encode(unknownInput)
         let preparedLayers = preparedInput.renderDescriptor.layers
         let naturalLayer = preparedLayers.first { $0.id == 10 }!
         let defaultLayer = preparedLayers.first { $0.id == 20 }!
@@ -529,7 +549,19 @@ enum Harness {
             "configurationRetained": preparedLayers.map(\.initialConfiguration) == model.renderDescriptor.layers.map(\.initialConfiguration),
             "authorSizeRetained": naturalLayer.size == model.renderDescriptor.layers.first { $0.id == 10 }?.size,
             "peerUntouched": preparedLayers.first { $0.id == 30 }?.sizeWH == model.renderDescriptor.layers.first { $0.id == 30 }?.sizeWH,
-            "originalDescriptorUnchanged": model.renderDescriptor.layers.first { $0.id == 10 }?.sizeWH == [100,100]
+            "originalDescriptorUnchanged": model.renderDescriptor.layers.first { $0.id == 10 }?.sizeWH == [100,100],
+            "nonemptyPreparedPlans": !model.runtimeInput.authoredEffectRenderPlans.isEmpty
+                && model.runtimeInput.authoredEffectRenderPlans.allSatisfy { $0.isStructurallyResolved && !$0.nodes.isEmpty },
+            "nonemptyVisibilityChannels": model.runtimeInput.directBoolEffectVisibilityTargets == [.effectVisibility(layerID: 20, effectIndex: 0)]
+                && model.runtimeInput.scriptOwnedEffectVisibilityTargets.contains(.effectVisibility(layerID: 20, effectIndex: 1))
+                && !model.runtimeInput.startupInactiveEffectVisibilityTargets.isEmpty
+                && model.propertyVectorProjection.targets.contains(.effectVisibility(layerID: 20, effectIndex: 1)),
+            "nonemptyPropertyAndShaderFacts": !model.runtimeInput.propertyBindingProgram.instructions.isEmpty
+                && !model.runtimeInput.effectivePropertyValues.isEmpty && !model.runtimeInput.shaderContracts.isEmpty,
+            "preparedFactsRetained": samePreparedFacts(preparedInput, model.runtimeInput),
+            "emptyInputRetained": samePreparedFacts(emptyInput, model.runtimeInput) && emptyEncoded == originalInput,
+            "unknownIDRetained": samePreparedFacts(unknownInput, model.runtimeInput) && unknownEncoded == originalInput,
+            "originalInputUnchanged": (try encoder.encode(model.runtimeInput)) == originalInput,
         ]
         let catalogDimensions: [String: [String: Any]] = Dictionary(uniqueKeysWithValues:
             model.assetCatalog.models.filter { $0.relativePath.hasPrefix("models/field-presence-") }.map {
@@ -607,6 +639,8 @@ HARNESS_SOURCE = "\n".join(
 # outside this builder fixture's existing runtime leaves.
 _animation_bridge = (SOURCE_ROOT / "Systems/Script/SceneScriptPuppetAnimationBridge.swift").read_text()
 HARNESS_SOURCE = _animation_bridge[:_animation_bridge.index("    static func configure(")] + "}\n" + HARNESS_SOURCE
+HARNESS_SOURCE = HARNESS_SOURCE.replace("__GRAPH_CONDITION_SCHEMA_TRANSPORT__", swift_declaration(
+    EFFECT_GRAPH_HARNESS, "enum SceneGraphConditionSchemaEvidenceCompiler {"))
 
 
 class SceneAlphaDisplayBuilderFixtureTests(unittest.TestCase):
@@ -615,7 +649,9 @@ class SceneAlphaDisplayBuilderFixtureTests(unittest.TestCase):
         self.assertEqual(geometry["naturalSize"], [200, 100])
         self.assertEqual(geometry["defaultSize"], [1, 1])
         for key in ("naturalCursorAccepted", "defaultCursorAccepted", "sameAuthoredSize",
-                    "configurationRetained", "authorSizeRetained", "peerUntouched", "originalDescriptorUnchanged"):
+                    "configurationRetained", "authorSizeRetained", "peerUntouched", "originalDescriptorUnchanged",
+                    "nonemptyPreparedPlans", "nonemptyVisibilityChannels", "nonemptyPropertyAndShaderFacts",
+                    "preparedFactsRetained", "emptyInputRetained", "unknownIDRetained", "originalInputUnchanged"):
             self.assertTrue(geometry[key], key)
 
     def test_actual_model_parser_preserves_dimension_field_presence(self) -> None:
@@ -676,6 +712,10 @@ class SceneAlphaDisplayBuilderFixtureTests(unittest.TestCase):
         )
         (scene_root / "models").mkdir()
         (scene_root / "materials").mkdir()
+        (scene_root / "effects/geometry").mkdir(parents=True)
+        (scene_root / "effects/geometry/effect.json").write_text(json.dumps({"passes": [
+            {"material": "materials/field-presence.json", "bind": [{"name": "previous", "index": 0}]}
+        ]}))
         (scene_root / "materials/field-presence.json").write_text(json.dumps({"passes": [
             {"shader": "genericimage2", "textures": ["materials/field-presence.png"], "combos": {"VERSION": 2}}
         ]}))

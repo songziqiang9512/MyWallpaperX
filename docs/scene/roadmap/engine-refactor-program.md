@@ -67,6 +67,12 @@ Codable保原四项作者字段，派生索引不进入IPC/磁盘载荷，Equata
 
 最近门验证compile/decode等价、坏结构拒绝、direct/conditional target、输入连续改变、两实例不共享current和失败不改revision；保现有真实行为断言，删除只锁LiveState旧私有字段的源码形状测试。再比较同输入旧/新真实求值成本与原包属性→VM/typed→compositor及正常退出；局部阶段成本不外推整体帧率、面板延迟或能耗收益。验收后按属性数据分期独立提交，其他descriptor、资源与组件寿命债继续按队列推进。
 
+### 自然尺寸回填保留准备事实
+
+资源自然尺寸只回填descriptor的`sizeWH`，不重新生成与该字段无关的authored effect计划、visibility集合、属性程序或shader合同。沿原RuntimeInput值副本更新唯一descriptor，其他准备字段保`let`；Host继续让runtime与authored descriptor消费同一尺寸来源，不新增构造器、缓存或同步镜像。
+
+这里保留的是作者拓扑、slot、命令与尺寸表达式；后续preflight仍读取回填后的`renderSizeWH`，结合真实input extent求物理frame target，不能缓存回填前的物理计划。缺省、未知ID及资源失败沿原回填语义。用非空计划/visibility与自然非方尺寸、cursor、相对/绝对target extent验证保持，Debug及实际非方image/effect链补可见结果；消除重复调用不自动等于整体启动或能耗收益。
+
 ## 职责与数据流
 
 ```text

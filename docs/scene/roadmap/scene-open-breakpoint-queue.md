@@ -182,7 +182,7 @@
 
 ### 5.1 顶层设计已裁决的代码职责重构
 
-以下是架构级迁移的唯一执行清单，按[总设计](../architecture/runtime-architecture.md)与[迁移合同](engine-refactor-program.md#架构级迁移合同)推进，阶段状态不另开台账。先保留基线，再执行语言收敛→数据分期→组件寿命→粒子CPU/GPU→普通帧减工→整体能力与成本复核；发现依赖或收益反证时在本表纠偏。迁移前源码/App/输入基线已固定；文本与共享alpha的独立语言owner已退出，分别见[文本](../history/runtime-evidence-index.md#e-text-vm-convergence-20261102)与[共享alpha](../history/runtime-evidence-index.md#e-shared-alpha-vm-convergence-20261102)限定记录。后者已证属性→shared→遮罩贡献，点击资格仍开放。[属性Program准备与实例值](../history/runtime-evidence-index.md#e-property-program-preparation-20261102)已收回重复验证/索引；不能外推完整语言、数据分期、整景或整体迁移完成。
+以下是架构级迁移的唯一执行清单，按[总设计](../architecture/runtime-architecture.md)与[迁移合同](engine-refactor-program.md#架构级迁移合同)推进，阶段状态不另开台账。先保留基线，再执行语言收敛→数据分期→组件寿命→粒子CPU/GPU→普通帧减工→整体能力与成本复核；发现依赖或收益反证时在本表纠偏。迁移前源码/App/输入基线已固定；文本与共享alpha的独立语言owner已退出，分别见[文本](../history/runtime-evidence-index.md#e-text-vm-convergence-20261102)与[共享alpha](../history/runtime-evidence-index.md#e-shared-alpha-vm-convergence-20261102)限定记录。后者已证属性→shared→遮罩贡献，点击资格仍开放。[属性Program准备与实例值](../history/runtime-evidence-index.md#e-property-program-preparation-20261102)已收回重复验证/索引，[自然尺寸回填](../history/runtime-evidence-index.md#e-prepared-image-geometry-reuse-20261102)保留原准备计划；不能外推完整语言、数据分期、整景或整体迁移完成。
 
 | 重构要求与现有 owner | 目标及旧职责退出 | 最近验证与停止条件 |
 |---|---|---|
