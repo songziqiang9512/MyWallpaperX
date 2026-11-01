@@ -34,7 +34,7 @@
     },
     "docs/development/code-slimming-program.md": {
       "lines": 464,
-      "bytes": 102005
+      "bytes": 101906
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -1793,10 +1793,10 @@
     {
       "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
-      "before": "ded45dc1dbd83f02b112f73e1f99cae52253329b6bb0bad08d3cdd6e2c8fd8fb",
-      "after": "d4b18290bab9c74b8adfdfa67a36a4f9de09fa0f0b78a13cccc9c77df80d868c",
+      "before": "d4b18290bab9c74b8adfdfa67a36a4f9de09fa0f0b78a13cccc9c77df80d868c",
+      "after": "24469df0ba7f7620860645914c411de567dd7ef95af0077848889a4a5ef8c8f4",
       "owner": "repository-maintainer",
-      "reason": "原位替换最近验证为R29完整Web属性载荷单次消费字典退役、条件/fallback等价与真实工作量对照；保留并行Scene已提交基线和全部记录，不追加批次台账。",
+      "reason": "原位替换最近验证为R30退役无消费者Pixabay Inspector状态链；仅删产品37行与零用fixture字段1行，原门/断言和并行Scene记录保持，不追加批次台账。",
       "decision": "docs/development/code-slimming-program.md#目标与边界"
     },
     {

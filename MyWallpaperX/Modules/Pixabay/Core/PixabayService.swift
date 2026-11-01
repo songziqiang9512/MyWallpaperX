@@ -297,43 +297,6 @@ final class PixabayService: ObservableObject {
     @Published var downloadSuccessMessage: String? = nil
     /// OL-04：最近下载完成的 item ID，供 Toast「设为壁纸」按钮使用
     @Published var lastDownloadedItemID: Int? = nil
-    @Published private(set) var inspectedDownloadedItemID: Int? = nil
-
-    var selectedDownloadedItemIDForInspector: Int? {
-        inspectedDownloadedItemID
-    }
-
-    func presentInspectorForSelectedDownloadedItem(
-        _ selectedID: Int?,
-        isMultiSelectMode: Bool,
-        availableIDs: Set<Int>
-    ) {
-        guard !isMultiSelectMode,
-              let selectedID,
-              availableIDs.contains(selectedID) else {
-            return
-        }
-        inspectedDownloadedItemID = selectedID
-    }
-
-    func dismissSelectedDownloadedInspector() {
-        inspectedDownloadedItemID = nil
-    }
-
-    func syncSelectedDownloadedInspectorIfNeeded(
-        selectedID: Int?,
-        isMultiSelectMode: Bool,
-        availableIDs: Set<Int>
-    ) {
-        guard inspectedDownloadedItemID != nil else { return }
-        guard !isMultiSelectMode,
-              let selectedID,
-              availableIDs.contains(selectedID) else {
-            inspectedDownloadedItemID = nil
-            return
-        }
-        inspectedDownloadedItemID = selectedID
-    }
 
     /// 仅下载到本地，不触发播放
     func download(item: PixabayVideoItem) {

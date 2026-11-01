@@ -17,7 +17,6 @@ struct PixabayVideoItem: Equatable {
     @Published var downloadingIDs: Set<Int> = []
     @Published var downloadedIDs: Set<Int> = []
     @Published var downloadProgressByID: [Int: Double] = [:]
-    @Published var inspectedDownloadedItemID: Int?
     var prioritizedWindows: [[Int]] = []
     func prioritizeVisibleItemIDs(_ ids: [Int], maxPixelSize: Int = 512) { prioritizedWindows.append(ids) }
     func thumbnailPrefetchNeedsRefresh() -> Bool { false }
