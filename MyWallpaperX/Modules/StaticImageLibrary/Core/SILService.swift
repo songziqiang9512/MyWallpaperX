@@ -413,8 +413,18 @@ final class SILService: ObservableObject {
         let generation = metadataLoadGeneration
         var results: [WallpaperSourceDeletionResult.Item] = []
         var requests: [(WallpaperReference, WallpaperSourceFileDeletion.Prepared)] = []
-        for id in Set(ids.map { Data($0.utf8) }) {
-            guard let item = wallpapers.first(where: { Data($0.id.utf8) == id }) else { continue }
+        let requested = Set(ids.map { Data($0.utf8) })
+        var items: [Data: (id: String, path: String)] = [:]
+        if !requested.isEmpty {
+            for item in wallpapers {
+                let id = item.id, key = Data(id.utf8)
+                guard requested.contains(key), items[key] == nil else { continue }
+                items[key] = (id, item.path)
+                if items.count == requested.count { break }
+            }
+        }
+        for id in requested {
+            guard let item = items[id] else { continue }
             let reference = WallpaperReference(provider: .staticImageLibrary, sourceID: item.id)
             let url = URL(fileURLWithPath: item.path).standardizedFileURL
             do {

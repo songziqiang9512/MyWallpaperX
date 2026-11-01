@@ -2,7 +2,7 @@
 
 No App/window/runtime or user media. The original unlink body is paused at its
 admission/durability boundaries; real final unlink, epochs, identity and receipts run.
-Array reads and the real path normalizer are observed in the extracted fixture.
+Array/opaque-ID reads and the real path normalizer are observed in the extracted fixture.
 Retired index-only UI deletion is not preserved as a test-only product API.
 """
 import hashlib
@@ -93,6 +93,18 @@ class VideoRemovalReceiptsTests(unittest.TestCase):
                 with self.subTest(work=name):
                     self.assertGreaterEqual(work[name], 0)
                     self.assertLessEqual(work[name], limit, run.stderr)
+            image_work = [json.loads(line.removeprefix("Image removal work: "))
+                for line in run.stderr.splitlines() if line.startswith("Image removal work: ")]
+            self.assertEqual(len(image_work), 1, run.stderr)
+            image_budgets = {"batchArrayReads": 1, "batchIDReads": 18, "firstArrayReads": 1,
+                "firstIDReads": 1, "emptyArrayReads": 0, "emptyIDReads": 0}
+            self.assertEqual(set(image_work[0]), set(image_budgets))
+            print(json.dumps({"imageRemovalWork": image_work[0], "callbackReceipts": [line.removeprefix("Image callback receipts: ")
+                for line in run.stderr.splitlines() if line.startswith("Image callback receipts: ")]}, sort_keys=True))
+            for name, limit in image_budgets.items():
+                with self.subTest(image_work=name):
+                    self.assertGreaterEqual(image_work[0][name], 0)
+                    self.assertLessEqual(image_work[0][name], limit, run.stderr)
         self.assertEqual(hashes, {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in inputs})
 
 

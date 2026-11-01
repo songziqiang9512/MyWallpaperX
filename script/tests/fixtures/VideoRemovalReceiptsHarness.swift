@@ -128,8 +128,19 @@ private final class WallpaperManager {
 }
 
 private final class SILService {
-    struct Row { let id: String; let path: String }
-    var wallpapers: [Row] = []
+    struct Row {
+        static var idReads = 0
+        private let rawID: String
+        var id: String { Self.idReads += 1; return rawID }
+        let path: String
+        init(id: String, path: String) { rawID = id; self.path = path }
+    }
+    private var storedWallpapers: [Row] = []
+    var wallpaperReads = 0
+    var wallpapers: [Row] {
+        get { wallpaperReads += 1; return storedWallpapers }
+        set { storedWallpapers = newValue }
+    }
     var allowsLibraryMutation = true
     var metadataLoadGeneration: UInt64 = 0
     private static func normalizedPath(_ path: String) -> String { URL(fileURLWithPath: path).resolvingSymlinksInPath().standardizedFileURL.path }
@@ -153,6 +164,7 @@ private final class SILService {
         let root = URL(fileURLWithPath: CommandLine.arguments[1])
         var checks: [String: Bool] = [:]
         var work: [String: Int] = [:]
+        var imageWork: [String: Int] = [:]
         func row(_ group: String, _ id: String) throws -> VideoWallpaper {
             let directory = root.appendingPathComponent(group)
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -438,6 +450,71 @@ private final class SILService {
                 && intact(stale) && intact(neighbor) && derivedPresent(stale) && derivedPresent(neighbor)
                 && PhysicalFileProbe.shared.unlinkReads.isEmpty && manager.wallpapers == [neighbor] && manager.saves.isEmpty
         }
+        do {
+            let rows = try (0..<16).map { try row("image-batch", "row-\($0)") }
+                + [row("image-batch", "\u{e9}"), row("image-batch", "e\u{301}")]
+            let images = SILService(); images.wallpapers = rows.map { .init(id: $0.id, path: $0.path) }
+            _ = PhysicalFileProbe.shared.begin()
+            var prepared: [String] = [], result: WallpaperSourceDeletionResult?
+            images.wallpaperReads = 0; SILService.Row.idReads = 0
+            images.deleteSourceFiles(ids: rows.reversed().map(\.id) + [rows[3].id, rows[0].id], isInUse: {
+                prepared.append($0.path); return false
+            }) { result = $0 }
+            imageWork["batchArrayReads"] = images.wallpaperReads; imageWork["batchIDReads"] = SILService.Row.idReads
+            let order = prepared
+            checks["image-batch-preparation-keeps-sources-and-delays-final-admission"] = result == nil && rows.allSatisfy(intact)
+            wait("image batch completion missing") { result != nil }
+            checks["image-batch-deduplicates-raw-ids-and-retains-original-set-preparation-order"] = result?.items.count == rows.count
+                && result?.items.map(\.sourceURL.path) == order && result?.items.allSatisfy { $0.succeeded && $0.sourceFileDeleted } == true
+                && rows.allSatisfy { value in result!.items.contains { $0.reference.sourceID.utf8.elementsEqual(value.id.utf8) }
+                    && !FileManager.default.fileExists(atPath: value.path) && derivedPresent(value) }
+        }
+        for busy in [false, true] {
+            let first = try row("image-first-\(busy)", "first"), fallback = try row("image-first-\(busy)", "fallback")
+            if !busy { try FileManager.default.removeItem(atPath: first.path) }
+            let images = SILService(); images.wallpapers = [.init(id: first.id, path: first.path), .init(id: first.id, path: fallback.path)]
+            var result: WallpaperSourceDeletionResult?
+            images.wallpaperReads = 0; SILService.Row.idReads = 0
+            images.deleteSourceFiles(ids: [first.id, first.id], isInUse: { _ in busy }) { result = $0 }
+            imageWork["firstArrayReads"] = images.wallpaperReads; imageWork["firstIDReads"] = SILService.Row.idReads
+            checks["image-first-duplicate-\(busy ? "busy" : "missing")-never-falls-back"] = result?.items.count == 1
+                && result?.items.first?.sourceURL == URL(fileURLWithPath: first.path).standardizedFileURL
+                && result?.items.first?.succeeded == false && intact(fallback) && (!busy || intact(first))
+        }
+        for ids in [[], ["unknown"]] {
+            let source = try row("image-empty-\(ids.count)", "one"), images = SILService()
+            images.wallpapers = [.init(id: source.id, path: source.path)]
+            var result: WallpaperSourceDeletionResult?, busyCalls = 0
+            images.wallpaperReads = 0; SILService.Row.idReads = 0
+            images.deleteSourceFiles(ids: ids, isInUse: { _ in busyCalls += 1; return false }) { result = $0 }
+            if ids.isEmpty { imageWork["emptyArrayReads"] = images.wallpaperReads; imageWork["emptyIDReads"] = SILService.Row.idReads }
+            checks["image-empty-or-unknown-\(ids.count)-skips-file-preparation"] = result?.items.isEmpty == true && busyCalls == 0 && intact(source)
+        }
+        do {
+            let source = try row("image-generation", "one"), images = SILService()
+            images.wallpapers = [.init(id: source.id, path: source.path)]
+            let release = PhysicalFileProbe.shared.begin(holding: source.path, stage: .admission)
+            var result: WallpaperSourceDeletionResult?
+            images.deleteSourceFiles(ids: [source.id], isInUse: { _ in false }) { result = $0 }
+            wait("image generation boundary missing") { PhysicalFileProbe.shared.isHolding }
+            images.metadataLoadGeneration &+= 1
+            release.signal(); wait("image generation receipt missing") { result != nil }
+            checks["image-generation-revocation-before-final-admission-keeps-source"] = result?.items.first?.succeeded == false
+                && intact(source) && PhysicalFileProbe.shared.unlinkReads.isEmpty
+        }
+        do {
+            let rows = try [row("image-mutating-callback", "one"), row("image-mutating-callback", "two")], images = SILService()
+            images.wallpapers = rows.map { .init(id: $0.id, path: $0.path) }
+            _ = PhysicalFileProbe.shared.begin()
+            var result: WallpaperSourceDeletionResult?
+            images.deleteSourceFiles(ids: rows.map(\.id), isInUse: { _ in images.wallpapers = []; return false }) { result = $0 }
+            wait("mutating image callback receipt missing") { result != nil }
+            checks["image-nonproduct-mutating-callback-cannot-unlink-stale-prepared-source"] = result?.items.isEmpty == false
+                && result?.items.allSatisfy { !$0.succeeded && !$0.sourceFileDeleted } == true
+                && rows.allSatisfy(intact) && images.wallpapers.isEmpty && PhysicalFileProbe.shared.unlinkReads.isEmpty
+            FileHandle.standardError.write(Data("Image callback receipts: \(result!.items.count)\n".utf8))
+        }
+        FileHandle.standardError.write(Data("Image removal work: \(String(data: try JSONEncoder().encode(imageWork), encoding: .utf8)!)\n".utf8))
         FileHandle.standardError.write(Data("Video removal work: \(String(data: try JSONEncoder().encode(work), encoding: .utf8)!)\n".utf8))
         print(String(data: try JSONEncoder().encode(checks), encoding: .utf8)!)
     }
