@@ -35,4 +35,6 @@
 
 本导航不保存已完成过程、合并指令、固定开发分支或测试清单。开放问题归[队列](../scene-open-breakpoint-queue.md)，设计的长期合同保留；无独有合同/证据的过程在触达时删除，完成记录按原history链接查询。新增能力沿AGENTS与现设计门，不能把旧卡中的“仅文档/将实施”当作当前缺能力事实。
 
+文字首作者RT输入的设计与有界结果已[归档](../../history/text-effect-source-rgb-alpha-2026-11-02.md)，职责归[运行架构](../../architecture/runtime-architecture.md#text-offscreen-source-rgb-alpha)。
+
 后继见[终端材质链](terminal-material-chain-design.md)；视频asset设计已[归档](../../history/material-video-assets-2026-10-12.md)，合同归[材质合同](../../capabilities/material-video-assets.md)。

@@ -750,13 +750,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-29",
+      "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b36a7c59e282ca09645e4625d8dd004337f7a265f1206656f4430543fb24c85a",
+        "sourceSHA256": "a672328c4b6828c3cd17418847bb4c5ae808996dcf2a0cd02cbb517ae273027f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Only geometry named-raster PMA versus graph-copy content contract and bounded 295/independent322 closure; retain prior historical claims.",
-        "limitations": "No full-document product revalidation; standalone pixel probe entry remains stale, no official parity/full-property/HDR/performance conclusion."
+        "scope": "文字首作者RT输入RGB/alpha合同及首stage旁路职责；不重审全文旧合同。",
+        "limitations": "有界合同与引用维护，不代表全文件运行复验；扫描方向、group/lit/MSAA、实际HDR、完整parity与性能均未升级。"
       }
     },
     {
@@ -895,13 +895,13 @@
       "role": "current-state",
       "entrypoint": "docs/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-26",
+      "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "50a597283d905f2e6ab909e9f5b204ff464b4639224ba7375f24d9524a6f13bd",
+        "sourceSHA256": "777877e2b6237f6d94a575cd37427f6cae0983f0e9cd515244c5ba5667510f8f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "P20模型数量/路径准入合同及有界Builder/Root/native结果指针同步；仅复核当前正文、角色与导航，其余能力和历史边界保留。",
-        "limitations": "仅顶层正交普通成员且无utility后代；官方精确grid/FBO、完整HDR/alpha/属性/整景及性能未验。"
+        "scope": "新增文字首RT有界输入事实、358真实画面与不扩域边界；不改变旧样本计数或旧能力评级。",
+        "limitations": "有界合同与引用维护，不代表全文件运行复验；扫描方向、group/lit/MSAA、实际HDR、完整parity与性能均未升级。"
       }
     },
     {
@@ -1037,13 +1037,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/capabilities/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-11-01",
+      "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "988780ad267ced81103774113ec2f265a7f718a5e766bb08582a78fe77a5711b",
+        "sourceSHA256": "cbc208ad3b09e044429ea1ded1efde0cb8d03b73be08e7a7b868704ae5a9a4d6",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步REFRACT只读同层深度、按模板准备变体及无writer免分配；398退出首门，552/141和呈现观察债保留。",
-        "limitations": "实际Metal/原包有限画面闭合；报告FAIL保留，不授整样本、官方parity、HDR、呈现时序或性能收益。"
+        "scope": "导航本批358白亮恢复、25通道/旁路检查与静态调制；扫描报告已更正至3586308277。",
+        "limitations": "有界合同与引用维护，不代表全文件运行复验；扫描方向、group/lit/MSAA、实际HDR、完整parity与性能均未升级。"
       }
     },
     {
@@ -4180,6 +4180,19 @@
         "scope": "请求内元数据/视频/动画/typed上传复用、预算拒绝及SourceKey反例",
         "limitations": "不代表默认App稳定性能改善、全样本正确率、Release或官方parity。"
       }
+    },
+    {
+      "path": "docs/scene/history/text-effect-source-rgb-alpha-2026-11-02.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-11-02",
+      "uniqueValue": "文字首RT输入的官方空间RGB/独立alpha资格、implicit与动态首stage、候选首失败及连续扫描限界。"
     },
     {
       "path": "docs/scene/history/text-layer-pointsize-setter-2026-10-16.md",

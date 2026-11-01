@@ -30,6 +30,7 @@ struct SceneImageLayerFragmentUniforms {
     float4 textureFrame0;
     float4 textureFrame1;
     SceneImageDistanceFogUniforms distanceFog;
+    float4x4 sourceCaptureProjection;
 };
 
 static float2 sceneImageLayerTextureFrameUV(
@@ -162,7 +163,7 @@ fragment float4 sceneImageLayerFrag(
     // Association happens here for a straight final draw; source capture
     // keeps straight RGB and applies opacity only to coverage. True PMA
     // producers already carried their authored coverage into RGB.
-    if (uniforms.sourceSampling.y == 1u) color.rgb *= color.a;
+    if ((uniforms.sourceSampling.y & 3u) == 1u) color.rgb *= color.a;
 
     // Keep layer opacity linear: source coverage belongs to the authored
     // effect output, while uniforms.alpha belongs to the final layer.
@@ -173,5 +174,11 @@ fragment float4 sceneImageLayerFrag(
         uniforms.alpha, input.vertexCoverage, clipCoverage, (uniforms.sourceSampling.y & 2u) != 0u);
     result.rgb = sceneImageDistanceFog(result.rgb, input.modelPosition,
         uniforms.distanceFog, result.a * sourceCoverage.x);
+    if ((uniforms.sourceSampling.y & 4u) != 0u) {
+        const float4 prefixClip = uniforms.sourceCaptureProjection
+            * float4(input.modelPosition, 0.0, 1.0);
+        const float2 prefixUV = prefixClip.xy / prefixClip.w * float2(0.5, -0.5) + 0.5;
+        result.rgb += dependencyTexture.sample(linearClampSampler, prefixUV).rgb * (1.0 - result.a);
+    }
     return result;
 }

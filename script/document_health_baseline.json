@@ -66,7 +66,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 600,
-      "bytes": 135064
+      "bytes": 135887
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 158,
@@ -109,8 +109,8 @@
       "bytes": 20680
     },
     "docs/scene/capabilities/coverage-ledger.md": {
-      "lines": 371,
-      "bytes": 176439
+      "lines": 372,
+      "bytes": 176951
     },
     "docs/scene/capabilities/direct-model-bind-geometry.md": {
       "lines": 23,
@@ -150,7 +150,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 222654
+      "bytes": 222999
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -278,7 +278,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 189,
-      "bytes": 44029
+      "bytes": 43973
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1566,15 +1566,6 @@
       "reason": "P10–P18同次减工；同步完整音频窗/按需频带及缩略图请求局部键复用、实际值与工作量对照、双配置回归和后继边界，其他预算不变。"
     },
     {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/coverage-ledger.md",
-      "owner": "Scene/Web validation simplification",
-      "before": "9c8aa7c5bbf8561897baca3d874f4264ddf931ee5c8a99d30a6ac42b7f8368df",
-      "after": "97fecc8a58a28bae5c4f56102b5006bbba88d0946b284593b999e2e80106c4b4",
-      "reason": "P20退役模型64部件/4096路径固定政策；同步实际Root/Builder/native正反例、原输入对照、当前边界和治理指针，其他预算不变。",
-      "decision": "docs/development/validation-simplification-plan.md#p20-mdl-policy-retirement"
-    },
-    {
       "section": "archives",
       "path": "docs/history/development/main-window-playlists-q01-q09-integration-2026-10-26.md",
       "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
@@ -1699,15 +1690,6 @@
       "owner": "scene-engine-maintainer",
       "reason": "用户要求新增样本日志诊断与统计同步；原生成器一次盘点/纯投影到522，保旧运行及人工裁决，公共首错按实际因果并入唯一队列。",
       "decision": "docs/scene/development/corpus-diagnostic-workflow.md#log-first-corpus-audit"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "c31c83b1b22ed0dccfcc07aabf07febaa25011f4eb01dd16c113ccb86c6fbc98",
-      "after": "de82d6db2df0d2127b6620cd86ee8a493f62ffc16f72fb825c99a085d1865678",
-      "owner": "scene-geometry-named-publication",
-      "reason": "Clarify existing geometry PMA publication boundary, preserve direct-copy content, and record bounded first-frame closure without claiming full sample or pixel-probe acceptance.",
-      "decision": "docs/scene/architecture/runtime-architecture.md"
     },
     {
       "section": "bodies",
@@ -1936,24 +1918,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "4dad94b2e9c1d5c5d27ab70a78975df5b2e6f126c0dbbdfacb528af9ac9e99f7",
-      "after": "55d09ef7238cea413b9b5535336e2775da856c353e6ecf50e9a6e12da512d6c8",
-      "owner": "scene-particle-material-depth-variants",
-      "reason": "在既有粒子合同和同一队列/证据行记录新消费能力与边界；退役本批窄设计并折叠旧重复轨迹，不新增现役权威。",
-      "decision": "docs/scene/history/particle-material-depth-2026-11-01.md#bounded-result"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "a3897f788f1eaf97a28ef1b90ea36aa3c7537f505bc9da1d276b687053492da5",
-      "after": "c438f0a4fd413abb79b545a45e37027023dc9ab9e1effbd3643d492693baed3d",
-      "owner": "scene-particle-material-depth-variants",
-      "reason": "在既有粒子合同和同一队列/证据行记录新消费能力与边界；退役本批窄设计并折叠旧重复轨迹，不新增现役权威。",
-      "decision": "docs/scene/history/particle-material-depth-2026-11-01.md#bounded-result"
-    },
-    {
-      "section": "bodies",
       "path": "docs/architecture/repository-map.md",
       "before": "821783bf0ecf85b96934cd79f620237e1f0f1a50872e19381b58c48e1651bfb6",
       "after": "309ec6bacfde39f52298b7bf4ee675de2f4eca21fafac459e882f008f3806828",
@@ -1987,6 +1951,33 @@
       "owner": "lock-screen-screensaver-design",
       "reason": "原生Video屏保收敛、旧资源退役与锁屏边界澄清；保留主仓其他专题记录，合并重复过程说明。",
       "decision": "docs/development/lock-screen-screensaver-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "de82d6db2df0d2127b6620cd86ee8a493f62ffc16f72fb825c99a085d1865678",
+      "after": "a1871ace362a9f99af127cb3e8c804ec4df484d16ffa31eab0ab9bd004bdff21",
+      "owner": "scene-text-offscreen-source",
+      "reason": "替换/合并现源颜色合同与证据导航，新增首真实RT文字RGB/alpha能力事实；黑放射退出队列、扫描归3586308277，不新增重复现役问题清单或扩旧计数。",
+      "decision": "docs/scene/history/text-effect-source-rgb-alpha-2026-11-02.md#bounded-result"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/coverage-ledger.md",
+      "before": "97fecc8a58a28bae5c4f56102b5006bbba88d0946b284593b999e2e80106c4b4",
+      "after": "875df100393ef312727283a84e7379375711cc8b6ed3706e8869d80846778d92",
+      "owner": "scene-text-offscreen-source",
+      "reason": "替换/合并现源颜色合同与证据导航，新增首真实RT文字RGB/alpha能力事实；黑放射退出队列、扫描归3586308277，不新增重复现役问题清单或扩旧计数。",
+      "decision": "docs/scene/history/text-effect-source-rgb-alpha-2026-11-02.md#bounded-result"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "55d09ef7238cea413b9b5535336e2775da856c353e6ecf50e9a6e12da512d6c8",
+      "after": "224aac9a0d4b49f6cc962b9e4bc7f0880d005825edb8d4e9b69d51f7770b56ac",
+      "owner": "scene-text-offscreen-source",
+      "reason": "替换/合并现源颜色合同与证据导航，新增首真实RT文字RGB/alpha能力事实；黑放射退出队列、扫描归3586308277，不新增重复现役问题清单或扩旧计数。",
+      "decision": "docs/scene/history/text-effect-source-rgb-alpha-2026-11-02.md#bounded-result"
     }
   ]
 }

@@ -2,9 +2,11 @@
 
 这里保存已完成过程、退役计划与固定证据，不能据旧“当前”或“下一步”继续实施。现役任务从[Scene 开发入口](../README.md)选择路线；当前合同和能力按[能力索引](../capabilities/README.md)查询。研究材料只按[来源边界](../development/source-index.md)进入。
 
+跨专题的[冷暖启动专项结算](../../history/cross-topic/wallpaper-startup-optimization-completed-2026-10-25.md)保留最终限定验收、原失败与 STOP；统一登记见[全仓历史索引](../../history/README.md)，不产生新的 Scene 任务。
+
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
-跨专题的[冷暖启动专项结算](../../history/cross-topic/wallpaper-startup-optimization-completed-2026-10-25.md)保留最终限定验收、原失败与 STOP；统一登记见[全仓历史索引](../../history/README.md)，不产生新的 Scene 任务。
+| 2026-11-02 | 文字离屏输入 | 通道能力与有界验收 | [前缀RGB/字形alpha](text-effect-source-rgb-alpha-2026-11-02.md) | 官方空间正控、隐式入口与首旁路恢复；扫描动态与方向资格分开 | [运行架构](../architecture/runtime-architecture.md#text-offscreen-source-rgb-alpha)、[运行证据](../capabilities/runtime-evidence-current.md#text-offscreen-source-20261102)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-11-01 | 粒子材质执行 | 实施前设计与有界验收 | [变体需求与同层深度](particle-material-depth-2026-11-01.md) | REFRACT只读深度、mixed遮挡及零writer免分配；首失败和呈现计时缺失分开保留 | [粒子合同](../capabilities/particle-component-coverage.md#particle-material-depth-variants)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-29 | 全样本日志筛查 | 能力集合与公共错误归并 | [453目录短窗审计](corpus-log-audit-2026-10-29.md) | 一次声明观察、6并发4秒、超时优化profile补跑及原始/当前身份；分开首帧阻断、局部降级与未触发 | [诊断合同](../development/corpus-diagnostic-workflow.md)、[队列](../roadmap/scene-open-breakpoint-queue.md)、[验收台账](../capabilities/scene-sample-acceptance-ledger.md) |
 | 2026-10-29 | 视频实例/切换 | 通用播放与实显边界 | [共享来源与首帧衔接](video-instance-observations-2026-10-29.md) | 固定官方观察、原包12组合、窗口红蓝红及历史纹理退休；AV池驻留保持开放 | [视频合同](../capabilities/material-video-assets.md)、[API设计](../roadmap/batch2/script-component-api-design.md#prepared-dynamic-video)、[队列](../roadmap/scene-open-breakpoint-queue.md) |

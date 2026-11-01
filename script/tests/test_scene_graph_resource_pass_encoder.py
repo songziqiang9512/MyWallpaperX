@@ -37,6 +37,7 @@ nonisolated struct SceneGraphRenderTargetPlan {
 struct SceneLayerFragmentUniforms {
     let color: SIMD4<Float>
     var sourceSampling: SIMD2<UInt32> = .zero
+    var sourceCaptureProjection: simd_float4x4 = matrix_identity_float4x4
 
     static func neutral() -> Self {
         .init(color: SIMD4<Float>(repeating: 1))

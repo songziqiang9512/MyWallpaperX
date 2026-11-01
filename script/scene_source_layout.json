@@ -951,7 +951,7 @@
         "role": "inventory",
         "description": "Direct main-pass encoder writers remain explicit while object and utility paths migrate to the frame scheduler.",
         "pattern": "(?:\\bmainPass|\\bframe\\.mainPass)\\.encoder\\(\\)",
-        "baseline_occurrences": 5,
+        "baseline_occurrences": 4,
         "allowed_files": [
           "Rendering/Composition/SceneLayerColorBlendPipeline.swift",
           "Rendering/Frame/SceneMetalRenderer+Particles.swift",

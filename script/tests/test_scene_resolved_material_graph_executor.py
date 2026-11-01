@@ -516,7 +516,7 @@ final class SceneResolvedMaterialRuntimeBridge {
         let effectUnitModelMatrix: simd_float4x4? = nil
         let directDrawGeometry: SceneDirectDrawOutputGeometry.Resolved? = nil
         let directDrawSourceMaterialKey: SceneResolvedMaterialExecutionCapabilityCatalog.MaterialKey? = nil
-        let terminalReplayModelViewProjection: simd_float4x4? = nil
+        let terminalReplayModelViewProjection: simd_float4x4?
         let effectTextureProjectionMatrixInverse: simd_float4x4
         let effectDrawAlpha: Float = 1
         let effectDrawColor = SIMD3<Float>(repeating: 1)
@@ -529,13 +529,16 @@ final class SceneResolvedMaterialRuntimeBridge {
             dependencyEffects: [SceneDependencyEffectInput] = [],
             dependencyUnavailability: DependencyUnavailability? = nil,
             dynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
-            pointerIsInside: Bool = true
+            pointerIsInside: Bool = true,
+            effectOutputModelViewProjection: simd_float4x4 = matrix_identity_float4x4,
+            terminalReplayModelViewProjection: simd_float4x4? = nil
         ) {
             time = 0
             self.dynamicValues = dynamicValues
             self.pointerIsInside = pointerIsInside
             layerModelMatrix = matrix_identity_float4x4
-            effectOutputModelViewProjection = matrix_identity_float4x4
+            self.effectOutputModelViewProjection = effectOutputModelViewProjection
+            self.terminalReplayModelViewProjection = terminalReplayModelViewProjection
             effectTextureProjectionMatrixInverse = matrix_identity_float4x4
             self.dependencyEffects = dependencyEffects
             self.dependencyUnavailability = dependencyUnavailability
@@ -775,6 +778,7 @@ struct SceneLayerFragmentUniforms {
     var textureFrame0: SIMD4<Float>
     var textureFrame1: SIMD4<Float>
     var distanceFog: SceneImageDistanceFogUniforms = .init()
+    var sourceCaptureProjection: simd_float4x4 = matrix_identity_float4x4
 
     init(
         time: Float = 0,
@@ -804,7 +808,7 @@ struct SceneLayerFragmentUniforms {
 }
 
 struct SceneImageLayerPipeline {
-    let pixelFormat: MTLPixelFormat = .bgra8Unorm
+    var pixelFormat: MTLPixelFormat = .bgra8Unorm
     private struct Vertex {
         let position: SIMD2<Float>
         let texcoord: SIMD2<Float>
@@ -4023,6 +4027,8 @@ private func capabilities(
     assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState] = [:],
     assetFormatFacts: [String: Int] = [:],
     capturedMainTarget: Bool = false,
+    contentKind: String = "image",
+    parentID: Int? = nil,
     terminalReplayBlendMode: Int = 0,
     forcedInitiallyInactiveEffectKeys: Set<Graph.EffectKey> = []
 ) -> Capabilities {
@@ -4057,6 +4063,8 @@ private func capabilities(
             }
         )
     if capturedMainTarget { consumer.utilityLayer = .init(kind: .fullscreen) }
+    consumer.contentKind = contentKind
+    consumer.parentID = parentID
     consumer.colorBlendMode = terminalReplayBlendMode
     var layers: [SceneRenderDescriptor.Layer] = [consumer]
     if let namedProvider, let dependencyBinding {
@@ -4134,7 +4142,11 @@ private func capabilities(
         ]
     }
     let descriptor = SceneRenderDescriptor(
-        layers: layers,
+        layers: parentID.map { id in
+            var parent = SceneRenderDescriptor.Layer(id: id, effects: [])
+            parent.childLayerIDs = [consumer.id]
+            return [parent] + layers
+        } ?? layers,
         materialPasses: materialPasses,
         effectDefinitions: graph.effects.map {
             .init(
@@ -4174,6 +4186,7 @@ private func capabilities(
                     admitted.initiallyInactiveEffectKeys
                     .union(forcedInitiallyInactiveEffectKeys),
                 sourceRoute: admitted.sourceRoute,
+                isTopLevelTextSource: admitted.isTopLevelTextSource,
                 isVisibleExecutionRoot: admitted.isVisibleExecutionRoot,
                 isGraphOutputProvider: admitted.isGraphOutputProvider,
                 requiresGraphOutputProvider: admitted.requiresGraphOutputProvider,
