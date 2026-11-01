@@ -34,7 +34,7 @@
     },
     "docs/development/code-slimming-program.md": {
       "lines": 464,
-      "bytes": 102122
+      "bytes": 102317
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -1793,10 +1793,10 @@
     {
       "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
-      "before": "583af899acb24558c8cd4499bfecd9ff85e927e0090f8d6654527ac00369b51d",
-      "after": "36df789d89754a8d78191110102efcd83ce5eb9bc2e53a67316edc35ff192285",
+      "before": "36df789d89754a8d78191110102efcd83ce5eb9bc2e53a67316edc35ff192285",
+      "after": "6be5e4382077161139b44ac8bb4bb1baecc254a8d6002edb9211020f9ade6516",
       "owner": "repository-maintainer",
-      "reason": "原位替换最近验证为R32两个非Scene Debug CLI隔离修复及真实启动层反例；复用现有suite helper，无产品改动，不外推完整App/旧Runner结果；保留其他预算和并行Scene记录。",
+      "reason": "原位替换最近验证为R33无消费者Web失败镜像退役；只删产品40行/专属测试26行，原业务反例保留，五方法/Debug结果及旧Runner未验证边界如实区分；保留并行Scene全部预算与receipt。",
       "decision": "docs/development/code-slimming-program.md#目标与边界"
     },
     {

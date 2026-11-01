@@ -10,19 +10,4 @@ extension SteamWorkshopService {
         let entry = record.webEntryURL?.resolvingSymlinksInPath().standardizedFileURL
         return entry.flatMap { try? $0.resourceValues(forKeys: [.isRegularFileKey]) }?.isRegularFile == true
     }
-
-    func webPlaybackFailureMessage(for record: SteamWorkshopDownloadRecord) -> String? {
-        if let failureRecordID = lastWebPlaybackFailureRecordID {
-            guard failureRecordID == record.id else { return nil }
-            return lastWebPlaybackFailureMessage
-        }
-
-        guard let entryURL = record.webEntryURL,
-              let failurePath = lastWebPlaybackFailurePath else {
-            return nil
-        }
-        let entryPath = entryURL.resolvingSymlinksInPath().standardizedFileURL.path
-        guard failurePath == entryPath else { return nil }
-        return lastWebPlaybackFailureMessage
-    }
 }

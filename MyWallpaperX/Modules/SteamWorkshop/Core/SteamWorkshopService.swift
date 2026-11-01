@@ -306,10 +306,6 @@ final class SteamWorkshopService: ObservableObject {
 
     // MARK: - Web runtime state
 
-    @Published var lastWebPlaybackFailureRecordID: String?
-    @Published var lastWebPlaybackFailurePath: String?
-    @Published var lastWebPlaybackFailureMessage: String?
-
     var webProjectDescriptorCache: [String: CachedWebProjectDescriptor] = [:]
     var activeWebPropertySecurityScopedURLs: [String: URL] = [:]
     var scenePropertyRenderTask: Task<Void, Never>?
@@ -425,7 +421,6 @@ final class SteamWorkshopService: ObservableObject {
         // Public discovery is demand-loaded by prepareForBrowserEntry(). Keep
         // local-library startup free of helper/network work; an authorized
         // saved-session restore above remains the sole intentional exception.
-        observeWebPlaybackFailures()
         installLaunchPendingObservers()
         observeSteamAccountIdentityForPersonalSources()
         observeDownloadJobStoreForProjection()

@@ -776,9 +776,6 @@ class ReleaseDiagnosticIsolationTests(unittest.TestCase):
             var folderURL: URL
         }
         final class SteamWorkshopService {
-            var lastWebPlaybackFailureRecordID: String?
-            var lastWebPlaybackFailureMessage: String?
-            var lastWebPlaybackFailurePath: String?
         }
         @main enum Check {
             static func main() throws {
@@ -803,9 +800,6 @@ class ReleaseDiagnosticIsolationTests(unittest.TestCase):
                 precondition(!service.webLaunchEntryIsValid(for: record), "deleted file admitted")
                 try Data("<html>restored</html>".utf8).write(to: entry)
                 precondition(service.webLaunchEntryIsValid(for: record), "restored selected entry retained a stale refusal")
-                service.lastWebPlaybackFailureRecordID = record.id
-                service.lastWebPlaybackFailureMessage = "playback error"
-                precondition(service.webPlaybackFailureMessage(for: record) == "playback error")
                 print("release-web-admission-pass")
             }
         }

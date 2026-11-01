@@ -95,20 +95,6 @@ CACHE_CHECKS = r'''
         let resetJSON = try JSONSerialization.jsonObject(with: Data(reset.context.propertyPayloadJSON!.utf8)) as! [String: [String: Any]]
         check(resetJSON["speed"]?["value"] as? Double == 7 && trace.rows.isEmpty && trace.parseCount == 0
             && !reset.context.resourceGrants.contains { $0.url == external }, "actual reset clears current override/bookmark while author remains warm")
-        service.observeWebPlaybackFailures()
-        NotificationCenter.default.post(name: WallpaperEngine.playbackFailedNotification, object: nil,
-            userInfo: ["contentKind": "web", "recordID": record.id, "path": record.entryURL!.path, "message": "controlled runtime failure"])
-        for _ in 0..<100 {
-            if service.lastWebPlaybackFailureMessage == "controlled runtime failure" { break }
-            try await Task.sleep(for: .milliseconds(5))
-        }
-        check(service.lastWebPlaybackFailureRecordID == record.id
-            && service.lastWebPlaybackFailurePath == record.entryURL!.path
-            && service.lastWebPlaybackFailureMessage == "controlled runtime failure"
-            && service.webProjectDescriptorCache[record.id] == authorMemo, "actual failure observer publishes feedback without clearing author analysis")
-        trace.reset()
-        let recovered = await service.prepareWebPlaybackContext(for: record)!
-        check(recovered == reset && trace.rows.isEmpty && trace.parseCount == 0, "runtime failure leaves same-author preparation warm")
         let inputs = service.webRuntimeCacheManifestInputs(for: record, source: service.webPropertyDefinitionSource(for: record))
         for missing in [false, true] {
             if missing { try fm.removeItem(at: analysisURL) } else { try Data("corrupt".utf8).write(to: analysisURL) }
@@ -412,10 +398,6 @@ def harness_source() -> str:
     source = source.replace('import Foundation\n', 'import Foundation\nimport Combine\n', 1)
     source = source.replace('@MainActor final class SteamWorkshopService {', r'''@MainActor final class SteamWorkshopService {
     let objectWillChange = ObservableObjectPublisher()
-    var cancellables = Set<AnyCancellable>()
-    var lastWebPlaybackFailureRecordID: String?
-    var lastWebPlaybackFailurePath: String?
-    var lastWebPlaybackFailureMessage: String?
     func saveWebPropertyOverrides(_ values: [String: SteamWorkshopWebPropertyValue], for record: SteamWorkshopDownloadRecord) { overrides = values }
     func updateWebPropertyBookmark(for definition: SteamWorkshopWebPropertyDefinition,
         value: SteamWorkshopWebPropertyValue, record: SteamWorkshopDownloadRecord) {}
@@ -430,11 +412,9 @@ def harness_source() -> str:
         '    private func webPropertyChangesResources(', '    func currentWebPropertyValue(',
         '    func visibleWebPropertyOptions(',
     )) + '\n' + method(controls, '    func shouldRefreshFullWebPropertyPayload(') + '\n}\n'
-    source += (WEB / 'SteamWorkshopService+WebRuntimeState.swift').read_text()
     source += r'''
 @MainActor final class WallpaperEngine {
     static let shared = WallpaperEngine()
-    nonisolated static let playbackFailedNotification = Notification.Name("controlled-web-runtime-failed")
     var currentWebResourceGrants: [WebWallpaperResourceGrant] = []
     var currentWebResourceRootURL: URL?
     var payloads: [String] = []
