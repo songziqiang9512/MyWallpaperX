@@ -426,8 +426,13 @@ struct SceneTextureDecodeCacheBudget: Sendable { let control: PreparationControl
         return true
     }
 }
+struct SceneUserPropertyTextureLoadResult {}
 @MainActor final class SceneDesktopWallpaperHost {
-    struct PreparedLaunch { var context: SceneDesktopWallpaperLaunchContext; let model: SceneRuntimeModel }
+    struct PreparedLaunch {
+        var context: SceneDesktopWallpaperLaunchContext
+        let model: SceneRuntimeModel
+        let userPropertyTextureLoad: SceneUserPropertyTextureLoadResult
+    }
     let launchPreparationQueue = DispatchQueue(label: "self-authored-launch-boundary")
     let textureDecodeCacheBudget: SceneTextureDecodeCacheBudget
     var nextLaunchRequestGeneration: UInt64 = 0, nextSceneScriptGeneration: UInt64 = 0
@@ -449,7 +454,7 @@ struct SceneTextureDecodeCacheBudget: Sendable { let control: PreparationControl
         // A noncooperative leaf probes the production generation guards too.
         progress?(.preparingPrograms, "controlled late preparation")
         return .init(context: .init(values: propertyOverrides, generation: sceneScriptGeneration),
-                     model: .init(values: propertyOverrides))
+                     model: .init(values: propertyOverrides), userPropertyTextureLoad: .init())
     }
     func publishLaunchState(_ state: SceneWallpaperLaunchState) {
         launchState = state
@@ -464,6 +469,7 @@ struct SceneTextureDecodeCacheBudget: Sendable { let control: PreparationControl
         trace.append("rollback-unconfirmed")
     }
     func beginCandidate(_ context: SceneDesktopWallpaperLaunchContext,
+        userPropertyTextureLoad: SceneUserPropertyTextureLoadResult,
         firstPresentation: SceneFirstFramePresentationRegistration,
         completion: @escaping (Result<Void, Error>) -> Void) throws {
         began.append(context.generation)
@@ -488,9 +494,10 @@ struct SceneTextureDecodeCacheBudget: Sendable { let control: PreparationControl
     var pendingSwitchTicket:Int?,activeSwitchTicket:Int?
     var pendingSwitchExecution:SwitchExecution?,activeSwitchExecution:SwitchExecution?
     struct QueuedSwitchPreparation {
-        let request:ScenePlaybackLoadRequest;let ticket:Int;let resourceLifetime:Int?
+        let request:ScenePlaybackLoadRequest;let ticket:Int?;let resourceLifetime:Int?
     }
     var queuedSwitchPreparation:QueuedSwitchPreparation?
+    var hasRequestRetirementControl=false
     struct CommittedSwitchRecovery {let ticket:Int}
     var committedSwitchRecovery:CommittedSwitchRecovery?
     var switchPrepared:Bool?

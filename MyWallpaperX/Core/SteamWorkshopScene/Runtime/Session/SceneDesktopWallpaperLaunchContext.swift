@@ -47,7 +47,6 @@ struct SceneDesktopWallpaperLaunchContext {
     let baseMaterialProviderBindings: SceneBaseMaterialProviderBindingProgram
     let soundPlaybackProgram: SceneSoundPlaybackProgram
     var liveState: ScenePropertyLiveUpdateState
-    var userPropertyTextureLoad: SceneUserPropertyTextureLoadResult
     let privateMediaCacheDirectory: URL
     let resourceView: SceneResourceView
     let logURL: URL?

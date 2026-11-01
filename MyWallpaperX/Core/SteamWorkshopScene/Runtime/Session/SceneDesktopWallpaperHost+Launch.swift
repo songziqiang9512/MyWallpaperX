@@ -6,6 +6,7 @@ extension SceneDesktopWallpaperHost {
     struct PreparedLaunch {
         let model: SceneRuntimeModel
         var context: SceneDesktopWallpaperLaunchContext
+        let userPropertyTextureLoad: SceneUserPropertyTextureLoadResult
     }
 
     func requestLaunch(
@@ -73,6 +74,9 @@ extension SceneDesktopWallpaperHost {
                 prepared.context.userShortcuts = userShortcuts
                 prepared.context.userShortcutKeys = Set(prepared.model.project.userProperties.definitions
                     .filter { $0.kind == .userShortcut }.map(\.key))
+                let model = prepared.model
+                let context = prepared.context
+                let userPropertyTextureLoad = prepared.userPropertyTextureLoad
                 DispatchQueue.main.async { [weak self] in
                     guard let self,
                           self.nextLaunchRequestGeneration == requestGeneration else {
@@ -87,7 +91,8 @@ extension SceneDesktopWallpaperHost {
                             message: "正在准备显示器与 Scene 表面"
                         ))
                         try self.beginCandidate(
-                            prepared.context,
+                            context,
+                            userPropertyTextureLoad: userPropertyTextureLoad,
                             firstPresentation: .init(requestID: requestID, recordID: recordID)
                         ) { [weak self] result in
                             guard let self, self.nextLaunchRequestGeneration == requestGeneration else { return }
@@ -95,20 +100,20 @@ extension SceneDesktopWallpaperHost {
                             case .success:
                                 self.launchCancellation = nil
                                 let reachability: ScenePreparedCallbackPropertyReachability?
-                                if let projectWitness = prepared.model.project.sourceWitness,
-                                   let sceneWitness = prepared.model.sceneDocument.sourceWitness,
+                                if let projectWitness = model.project.sourceWitness,
+                                   let sceneWitness = model.sceneDocument.sourceWitness,
                                    let session = self.activeSession {
                                     reachability = .init(source: .init(
-                                        rootPath: prepared.model.project.rootURL.resolvingSymlinksInPath().standardizedFileURL.path,
+                                        rootPath: model.project.rootURL.resolvingSymlinksInPath().standardizedFileURL.path,
                                         projectWitness: projectWitness, sceneWitness: sceneWitness),
                                         scriptGeneration: scriptGeneration,
                                         propertyKeys: session.preparedCallbackPropertyKeys(
-                                            definitions: prepared.model.project.userProperties.definitions))
+                                            definitions: model.project.userProperties.definitions))
                                 } else { reachability = nil }
                                 self.publishLaunchState(.init(requestID: requestID,
                                     recordID: recordID, phase: .launched, message: "Scene 首帧已完成并切换",
                                     callbackPropertyReachability: reachability))
-                                complete(.success(prepared.model))
+                                complete(.success(model))
                             case let .failure(error):
                                 self.finishLaunchFailure(error, requestID: requestID,
                                     recordID: recordID, completion: complete)
@@ -852,7 +857,6 @@ extension SceneDesktopWallpaperHost {
                 sceneScriptStringProgram: sceneScriptStringProgram,
                 propertyDefinitions: model.project.userProperties.definitions
             ),
-            userPropertyTextureLoad: userPropertyTextureLoad,
             privateMediaCacheDirectory: privateMediaCacheDirectory,
             resourceView: model.resourceView,
             logURL: logURL,
@@ -864,7 +868,8 @@ extension SceneDesktopWallpaperHost {
 #if DEBUG
         NSLog("MWX LAUNCH-STAGE: stage=prepare-end elapsedMs=%.0f", (CACurrentMediaTime() - resourcesStageStart) * 1000)
 #endif
-        return PreparedLaunch(model: model, context: context)
+        return PreparedLaunch(model: model, context: context,
+                              userPropertyTextureLoad: userPropertyTextureLoad)
     }
 
     private func finishLaunchFailure(

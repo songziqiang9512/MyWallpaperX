@@ -188,7 +188,7 @@
 |---|---|---|
 | `SceneRenderDescriptor.Layer` 同时保存字符串变换、数值变换及多类可选字段 | 明确 authored、prepared 与 live 分期；逐消费族收敛为类型化数据，身份和作者顺序仍唯一；退役不再需要的镜像与内容种类字符串分支 | 准备结果、默认值、动态属性、parent/相机、序列化兼容与代表组件；不先建无人消费的通用 ECS |
 | `SceneMetalView` 同时装配文字、视频、Puppet、粒子和延迟资源 | 按实际寿命把可共享 CPU 生命周期归 Session/type owner，必要每屏 CPU 实例仍按 surface 隔离，GPU 驻留归现有 Rendering；View 保 AppKit surface、输入与呈现职责 | 独立屏幕输入、热切、候选、退场和异步旧结果；不通过新 facade 隐藏原字段或把每屏状态误合并 |
-| `LaunchContext` 与 `prepareLaunch` 混合准备事实、liveState 和运行对象 | 沿现有 Host/Session 拆清不可变准备结果与运行实例，按真正消费者传最小数据；取消、资源 lease 和旧会话退出仍由原 owner 完成 | 冷暖准备、取消/newer-wins、首帧失败保旧及安全退出；不新增第二 Session、完整场景快照或重复解析 |
+| `LaunchContext` 与 `prepareLaunch` 混合准备事实、liveState 和运行对象 | [用户纹理交接](../history/runtime-evidence-index.md#e-user-texture-session-ownership-20261102)已撤Context镜像，初始结果经PreparedLaunch交给Session唯一活动owner；继续按真正消费者拆清其他准备/实例职责，取消、lease和退出沿原owner | 冷暖准备、取消/newer-wins、首帧失败保旧及安全退出；不新增第二 Session、完整场景快照或重复解析 |
 | 粒子 runtime 混合模拟和 GPU 缓冲持有 | 保留现有 prepared 操作/通道计划，CPU 实例归粒子运行 owner，GPU 上传/几何与绘制状态归 Rendering/Particles；替换完成撤旧字段与转发 | 多 renderer、child、预热、脚本播放、不同视口及实际 GPU 输出；不并行保留永久不同语义的 CPU/GPU 实现 |
 | Pipeline warmup 与运行期 miss 路径 | 核对 `SceneResolvedMaterialPassEncoder.pipeline` 的真实 miss 原因与消费。可准备的产物移到加载/变体边界，保必要的设备与动态状态失效；撤销 draw 内无必要同步编译 | 冷/暖、合法变体改变和失败恢复，记录实际热路径编译次数；不凭有 warmup 就宣称零编译，也不缓存跨 command buffer 的完整帧 Program |
 

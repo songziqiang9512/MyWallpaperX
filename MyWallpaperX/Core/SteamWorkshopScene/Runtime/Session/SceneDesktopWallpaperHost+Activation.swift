@@ -4,6 +4,7 @@ import Foundation
 extension SceneDesktopWallpaperHost {
     func beginCandidate(
         _ context: SceneDesktopWallpaperLaunchContext,
+        userPropertyTextureLoad: SceneUserPropertyTextureLoadResult,
         firstPresentation: SceneFirstFramePresentationRegistration,
         completion: @escaping (Result<Void, Error>) -> Void
     ) throws {
@@ -66,7 +67,7 @@ extension SceneDesktopWallpaperHost {
             } else { promote() }
         }
         do {
-            try session.activate(context)
+            try session.activate(context, userPropertyTextureLoad: userPropertyTextureLoad)
         } catch {
             discardCandidate()
             throw error

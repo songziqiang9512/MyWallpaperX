@@ -170,7 +170,6 @@ extension SceneDesktopWallpaperSession {
                         .replacing(propertyKeys: keys, with: loaded)
                     var adoptedContext = current
                     adoptedContext.liveState = liveState
-                    adoptedContext.userPropertyTextureLoad = self.userPropertyTextureLoad
                     self.launchContext = adoptedContext
                     self.publishUserPropertyTextureBindings(registry: registry, device: device)
                     if self.sceneClock.isPaused { self.startFrameDriver() }

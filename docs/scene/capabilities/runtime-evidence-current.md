@@ -92,7 +92,7 @@
 | Vec3/Vec2混合算术 | [缺维保留后验](../history/vec3-mixed-dimension-arithmetic-2026-10-16.md)：固定官方24case、真实VM与原包1128非有限首错消失分列；两次属性热改同窗口，原包保owner-executed、位置motion未直接观测，独立314实图保持；保layer544作者异常及光束/封面余项，无性能或整样本结论。 |
 | 文字handle字号setter | [213 typed换词/314保持](../history/text-layer-pointsize-setter-2026-10-16.md)；非面板新能力，右黑块、完整媒体/字体parity及性能未验。 |
 | 连续Puppet拖动 | [原query/render资格](../history/repeated-puppet-drag-qualification-2026-10-16.md#official-pose-query-observation)保留；[线性kick及显式平移重力后继](../history/puppet-linear-impulse-2026-10-28.md#translation-gravity-20261028)已闭374/299/318三轮。缺省/角物理及官方动态parity未闭，无性能结论。 |
-| 视频用户纹理 | [U41本地视频记录](../history/user-property-video-2026-10-16.md)：自有连续GPU、原生选择/重放、真实前景可见与独立旧WebM回归分列；遮挡/错误输入不计视频可见。metadata反例、最终构建/审查与新App前景复验通过，非全专项或性能验收。 |
+| 视频用户纹理 | [Session单一活动结果](../history/runtime-evidence-index.md#e-user-texture-session-ownership-20261102)退出Context镜像，真实图片/视频A/B及退场保持；非性能验收。[U41本地视频记录](../history/user-property-video-2026-10-16.md)：自有连续GPU、原生选择/重放、真实前景可见与独立旧WebM回归分列；遮挡/错误输入不计视频可见。metadata反例、最终构建/审查与新App前景复验通过，非全专项或性能验收。 |
 | 畸形COMBO局部恢复 | [实际发丝与GPU](../history/malformed-combo-record-recovery-2026-10-16.md)：343恢复21目标/20层；余407/3226属性关闭、529作者隐藏，未证新编译缺口。独立376保持；激活后、全景及性能未验。 |
 | RopeTrail参数资格STOP | [固定客户端自有对照](../history/rope-trail-profile-qualification-2026-10-15.md)：20图有界观察；负值处理/world语义仍unknown，无产品变化、真实十层恢复或parity结论。 |
 | Puppet默认动态实例 | [prepared默认几何](../history/prepared-puppet-default-instances-2026-10-15.md)：原model/mesh与独立实例、真实shadow触发及退休反例；动画/effect配置、composition、完整视觉与性能未计完成。 |

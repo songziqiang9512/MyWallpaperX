@@ -144,7 +144,8 @@ final class SceneDesktopWallpaperSession {
     }
 
     func activate(
-        _ context: SceneDesktopWallpaperLaunchContext
+        _ context: SceneDesktopWallpaperLaunchContext,
+        userPropertyTextureLoad: SceneUserPropertyTextureLoadResult
     ) throws {
         // Preparation has completed and relinquished the shared VM domain.
         // Rebase QuickJS's stack guard before any main-thread provider/VM call.
@@ -158,7 +159,7 @@ final class SceneDesktopWallpaperSession {
         )
         launchContext = context
         installUserShortcuts(context.userShortcuts)
-        userPropertyTextureLoad = context.userPropertyTextureLoad
+        self.userPropertyTextureLoad = userPropertyTextureLoad
         evaluationTransaction = .init()
 #if DEBUG
         let activateStageStart = CACurrentMediaTime()

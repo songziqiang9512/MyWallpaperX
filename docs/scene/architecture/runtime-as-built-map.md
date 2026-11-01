@@ -104,6 +104,7 @@ App 产品意图与当前记录
 | MTLLibrary、PSO、sampler | 原 repository/PassEncoder 缓存；同一来源合并编译，launch warmup 提前准备当前需求 |
 | GPU 纹理和 buffer | 通过 makeSceneTexture/makeSceneBuffer 等分配入口绑定实际资源 lease；额度随实际对象释放，候选和退役资源仍计费 |
 | decoded 中间缓存 | SceneTextureDecodeCacheBudget 与进程父额度共同约束；不命中或不保留中间缓存仍可沿原解码/上传路径播放 |
+| 用户选择纹理 | PreparedLaunch短期携初始结果，候选激活显式移交Session；Session保存唯一活动结果，View仅保存绘制快照。LaunchContext无纹理镜像，新表面读Session当前结果，旧绑定沿原completion/drain释放 |
 | 视频与 Sound | Session 的实际播放 registry 持有可变播放状态；私有媒体文件使用原 OwnedFile/AV borrower 生命周期，stop 不冒充全部 AV 借用已结束 |
 | 动态文字 | 每个 Surface 的动态文字 store 在后台生成完整 raster；提交新结果前保留旧结果；停止时关闭并等待已接纳工作 |
 | 目标与 history | 原 Surface pool、graph target 与 completion owner 管理；受 SceneResourceBudget 父额度约束，history 与 submission pin 决定可释放时机 |

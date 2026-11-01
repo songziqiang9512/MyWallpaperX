@@ -73,6 +73,14 @@ Codable保原四项作者字段，派生索引不进入IPC/磁盘载荷，Equata
 
 这里保留的是作者拓扑、slot、命令与尺寸表达式；后续preflight仍读取回填后的`renderSizeWH`，结合真实input extent求物理frame target，不能缓存回填前的物理计划。缺省、未知ID及资源失败沿原回填语义。用非空计划/visibility与自然非方尺寸、cursor、相对/绝对target extent验证保持，Debug及实际非方image/effect链补可见结果；消除重复调用不自动等于整体启动或能耗收益。
 
+### 用户纹理的准备交接与活动所有权
+
+初始用户纹理与视频声明由既有`PreparedLaunch`短期携带，显式经过Host候选入口交给Session；LaunchContext不保存初始或当前纹理结果。Session持有唯一活动结果，异步采用时只替换这个结果并更新属性实例值，不再向Context写入纹理镜像。准备完成回调只保留模型，避免候选首帧闭包继续持有整个准备载体和已被替换的初始纹理。
+
+各SceneMetalView仍保留实际绘制所需的不可变绑定快照；新表面从Session当前结果构造，in-flight资源沿既有GPU completion/drain寿命释放。这不是第二资源权威。保留跨await的请求、revision、device和Registry检查、同key newer-wins、不同key重基及整key各purpose原子采用；不添加移交状态机或默认空结果兜底。
+
+用现有用户纹理事务与候选激活门验证初始交接、替换/重置释放、双表面一致、失败保旧及迟到拒绝；Debug与隔离真实App覆盖静态/视频选择、正常退出及GPU drain。不能以去掉一个字段声称整体峰值内存下降；释放与画面证据按实际经过的边界记录。
+
 ## 职责与数据流
 
 ```text

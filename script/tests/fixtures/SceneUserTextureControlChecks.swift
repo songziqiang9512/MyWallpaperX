@@ -14,9 +14,12 @@ import Foundation
     var pendingSwitchTicket: Int?, activeSwitchTicket: Int?
     var pendingSwitchExecution: SwitchExecution?, activeSwitchExecution: SwitchExecution?
     struct QueuedSwitchPreparation {
-        let request:ScenePlaybackLoadRequest;let ticket:Int;let resourceLifetime:Int?
+        let request:ScenePlaybackLoadRequest;let ticket:Int?;let resourceLifetime:Int?
     }
     var queuedSwitchPreparation:QueuedSwitchPreparation?
+    var hasRequestRetirementControl=false
+    var requestRetirementSchemaVersion:Int?
+    func discardIdleTransport() {}
     struct CommittedSwitchRecovery {let ticket:Int}
     var committedSwitchRecovery:CommittedSwitchRecovery?
     var switchPrepared: Bool?
