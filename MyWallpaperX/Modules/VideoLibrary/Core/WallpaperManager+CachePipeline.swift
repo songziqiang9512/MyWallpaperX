@@ -16,22 +16,6 @@ extension WallpaperManager {
         return cacheGeneration
     }
 
-    func cachedThumbnailPath(for key: String) -> String? {
-        thumbnailCacheLock.lock()
-        defer { thumbnailCacheLock.unlock() }
-        return thumbnailCache[key]
-    }
-
-    func setCachedThumbnailPath(_ path: String?, for key: String) {
-        thumbnailCacheLock.lock()
-        defer { thumbnailCacheLock.unlock() }
-        if let path {
-            thumbnailCache[key] = path
-        } else {
-            thumbnailCache.removeValue(forKey: key)
-        }
-    }
-
     func enqueueThumbnailCompletion(_ completion: @escaping (String?) -> Void, for normalizedPath: String) -> Bool {
         thumbnailInFlightLock.lock()
         defer { thumbnailInFlightLock.unlock() }
@@ -74,12 +58,6 @@ extension WallpaperManager {
         // Import's original serial pipeline waits for these completions; a
         // cache clear releases each existing consumer without publishing a path.
         DispatchQueue.main.async { handlers.forEach { $0(nil) } }
-    }
-
-    func clearThumbnailMemoryCache() {
-        thumbnailCacheLock.lock()
-        thumbnailCache.removeAll()
-        thumbnailCacheLock.unlock()
     }
 
     func markThumbnailGenerationFailure(for normalizedPath: String) {
@@ -158,15 +136,7 @@ extension WallpaperManager {
             return configuredPath
         }
 
-        let sourceURL = URL(fileURLWithPath: wallpaper.path)
-        let key = cacheKey(forNormalizedPath: normalizedPath(sourceURL.path))
-        if let memoryPath = cachedThumbnailPath(for: key),
-           pathExists(memoryPath) {
-            return memoryPath
-        }
-
-        let path = thumbnailOutputURL(forKey: key).path
-        return pathExists(path) ? path : nil
+        return existingThumbnailPath(for: URL(fileURLWithPath: wallpaper.path))
     }
 
     func generateThumbnail(for url: URL, completion: @escaping (String?) -> Void) {
@@ -174,22 +144,10 @@ extension WallpaperManager {
         let normalized = normalizedPath(url.path)
         let cacheKey = cacheKey(forNormalizedPath: normalized)
 
-        // 检查缓存
-        if let cachedPath = cachedThumbnailPath(for: cacheKey) {
-            if pathExists(cachedPath) {
-                clearThumbnailGenerationFailure(for: normalized)
-                completion(cachedPath)
-                return
-            } else {
-                setCachedThumbnailPath(nil, for: cacheKey)
-            }
-        }
-
         // 检查磁盘缓存（跨重启仍可命中），避免重复解码生成缩略图。
         let outputURL = thumbnailOutputURL(forKey: cacheKey)
         let diskCachedPath = outputURL.path
         if pathExists(diskCachedPath) {
-            setCachedThumbnailPath(diskCachedPath, for: cacheKey)
             clearThumbnailGenerationFailure(for: normalized)
             completion(diskCachedPath)
             return
@@ -249,7 +207,6 @@ extension WallpaperManager {
                                 self.cacheGenerationLock.lock()
                                 let published = self.cacheGeneration == capturedGeneration && rename(staged.path, outputURL.path) == 0
                                 if published {
-                                    self.setCachedThumbnailPath(outputURL.path, for: cacheKey)
                                     self.clearThumbnailGenerationFailure(for: normalized)
                                     outputPath = outputURL.path
                                 }

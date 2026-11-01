@@ -34,7 +34,7 @@
     },
     "docs/development/code-slimming-program.md": {
       "lines": 464,
-      "bytes": 104434
+      "bytes": 104355
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -1739,10 +1739,10 @@
     {
       "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
-      "before": "b71aa4eeefbde1b522544d340a5e2670032c4d6cf3a49f89ade41d1b6eec16c4",
-      "after": "1eb92861d44a75c8a6a796ac479de4ff63d6a3a2aa398b406b266608c9f707a4",
+      "before": "1eb92861d44a75c8a6a796ac479de4ff63d6a3a2aa398b406b266608c9f707a4",
+      "after": "5e7e7ce59aac5083414de7f42351db4bb58a105d08308fb093470d363fdb6844",
       "owner": "repository-maintainer",
-      "reason": "原位记录R50真实WK逻辑abort反证、非proxy先返的最小身份修复、旧新40行及准确验证边界；仅更新本authority预算与既有receipt，保Scene各叶及其它历史。",
+      "reason": "原位记录R51确定路径map退役及真实AV/JPEG/静帧/消费者旧新证据，准确保UUID/别名/负例边界；仅更新本authority预算和既有receipt，保其它历史与Scene叶。",
       "decision": "docs/development/code-slimming-program.md#目标与边界"
     },
     {

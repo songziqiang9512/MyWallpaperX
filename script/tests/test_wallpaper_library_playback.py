@@ -46,7 +46,6 @@ class WallpaperLibraryPlaybackTests(unittest.TestCase):
     let deletionQueue = DispatchQueue(label: "fixture.desktop-cache-deletion", qos: .utility)
     let cacheGenerationLock = NSLock()
     var cacheGeneration: UInt64 = 0
-    func clearThumbnailMemoryCache() {}
     func clearThumbnailInFlight() {}
     func clearStaticFrameSchedule() {}
 '''

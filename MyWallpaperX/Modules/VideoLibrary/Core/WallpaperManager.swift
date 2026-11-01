@@ -136,11 +136,8 @@ class WallpaperManager: ObservableObject {
     var currentIndex: Int = 0
     let deletionQueue = DispatchQueue(label: "com.mywallpaper.delete", qos: .utility)
     
-    // 缩略图缓存队列和缓存字典
     let thumbnailQueue = DispatchQueue(label: "com.mywallpaper.thumbnail", qos: .utility, attributes: .concurrent)
     let staticFrameQueue = DispatchQueue(label: "com.mywallpaper.staticframe", qos: .background)
-    var thumbnailCache: [String: String] = [:]
-    let thumbnailCacheLock = NSLock()
     let thumbnailGenerationLimiter = DispatchSemaphore(value: 2)
     var thumbnailInFlightHandlers: [String: [(String?) -> Void]] = [:]
     let thumbnailInFlightLock = NSLock()

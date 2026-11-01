@@ -43,7 +43,7 @@ def prepare_video_thumbnail_generator_sources(tree: Path, work: Path, fixture: P
     hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}
     manager_source = manager.read_text()
     fields = []
-    for name in ['thumbnailQueue', 'deletionQueue', 'importAssetPipelineQueue', 'thumbnailCache', 'thumbnailCacheLock', 'thumbnailGenerationLimiter',
+    for name in ['thumbnailQueue', 'deletionQueue', 'importAssetPipelineQueue', 'thumbnailGenerationLimiter',
                  'thumbnailInFlightHandlers', 'thumbnailInFlightLock', 'scheduledStaticFramePaths',
                  'staticFrameScheduleLock', 'cacheGeneration', 'cacheGenerationLock',
                  'thumbnailGenerationFailures', 'thumbnailGenerationFailureLock', 'thumbnailFailureRetryCooldown']:

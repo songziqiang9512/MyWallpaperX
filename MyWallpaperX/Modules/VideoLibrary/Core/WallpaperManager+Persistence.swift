@@ -404,7 +404,6 @@ extension WallpaperManager {
         // 预览缓存可重建；仅保留当前桌面或退出恢复基线仍引用的文件。
         cacheGenerationLock.lock()
         cacheGeneration &+= 1
-        clearThumbnailMemoryCache()
         clearThumbnailInFlight()
         clearStaticFrameSchedule()
 

@@ -97,7 +97,6 @@ extension WallpaperManager {
         removeFileIfExists(atPath: thumbnailOutputURL(forKey: cacheKey).path, title: record.title, failures: &failures)
         removeFileIfExists(atPath: staticFrameOutputURL(forKey: cacheKey).path, title: record.title, failures: &failures)
 
-        setCachedThumbnailPath(nil, for: cacheKey)
         clearThumbnailGenerationFailure(for: normalized)
         removeThumbnailInFlight(for: normalized)
         finishStaticFrameSchedule(for: normalized)
