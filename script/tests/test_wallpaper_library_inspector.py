@@ -89,6 +89,14 @@ def original_inspector_gate_source(path, tree=ROOT):
         if content.count("// ACTUAL_DOWNLOADED_STORE") != 1:
             raise ValueError("expected one real downloaded store insertion point")
         content = content.replace("// ACTUAL_DOWNLOADED_STORE", actual)
+    elif "final class SILInspectorView: NSView" in content:
+        method = declaration(content, "    private var notices:")
+        content = content.replace(method, method.replace("{",
+            '{\n        SILInspectorPreparationProbe.record("notices")', 1), 1)
+        constructor = "        let formatter = DateFormatter()"
+        if content.count(constructor) != 1:
+            raise ValueError("expected one real SIL formatter constructor")
+        content = content.replace(constructor, constructor + '\n        SILInspectorPreparationProbe.record("formatters")', 1)
     elif path.name == "ThumbnailCache.swift":
         method = declaration(content, "    func loadImageAsync(")
         boundary = "        guard let request = beginImageRequest"
@@ -314,7 +322,14 @@ class WallpaperLibraryInspectorTests(unittest.TestCase):
             self.assertEqual(len(report["functional"]["requestedKeys"]), 3)
             self.assertEqual(report["work"], {"warmReadyAtInitReturn": 1, "delayedReadyAtDeliveryReturn": 1,
                                              "deliveredCallbacks": 2, "suppressedCallbacks": 1})
-            print(json.dumps({"previewDelivery": report}, sort_keys=True))
+            phases = ("none", "missing", "active", "both")
+            self.assertTrue({"sil-facts-notices-" + phase for phase in phases} <= checks.keys())
+            preparation = [json.loads(line.removeprefix("SIL inspector preparation: "))
+                for line in run.stderr.splitlines() if line.startswith("SIL inspector preparation: ")]
+            self.assertEqual(len(preparation), 1, run.stderr)
+            print(json.dumps({"previewDelivery": report, "silPreparation": preparation}, sort_keys=True))
+            self.assertEqual(preparation[0], {phase: {"notices": 1, "desktop": 1, "formatters": 1}
+                for phase in phases}, run.stderr)
         self.assertEqual(hashes, {p: hashlib.sha256(Path(p).read_bytes()).hexdigest() for p in hashes})
 
 if __name__ == "__main__": unittest.main()

@@ -16,10 +16,18 @@ struct SILWallpaper: Equatable {
     var pixelWidth: Int? = nil
     var pixelHeight: Int? = nil
 }
+enum SILInspectorPreparationProbe {
+    static var counts: [String: Int] = [:]
+    static func record(_ name: String) { counts[name, default: 0] += 1 }
+}
 final class SILService {
     static let shared = SILService()
     var wallpapers: [SILWallpaper] = []
-    var currentActiveWallpaperPath: String?
+    private var activePath: String?
+    var currentActiveWallpaperPath: String? {
+        get { SILInspectorPreparationProbe.record("desktop"); return activePath }
+        set { activePath = newValue }
+    }
     var silTags: [String] = []
     var writes = 0
     func addSILTag(_ tag: String, toSelected ids: [String]) { writes += 1 }
@@ -852,6 +860,41 @@ extension Notification.Name { static let staticImageWallpaperReadyToApply = Noti
         checks["remote-download-completion-switches-the-existing-detail-to-local-metadata-and-actions"] = footerTitle(remoteFooter) == "设为壁纸"
             && views(remoteView).contains { ($0 as? NSTextField)?.stringValue == file.lastPathComponent }
             && remotePreview === views(remoteView).first { $0 is PixabayDownloadsPreviewSurfaceView }
+        let noticeFile = file.deletingLastPathComponent().appendingPathComponent("sil-notice.png")
+        let noticeService = SILService()
+        var noticeImage = SILWallpaper(id: "notice", title: "Notices", path: noticeFile.path)
+        noticeService.wallpapers = [noticeImage]
+        let noticeView = SILInspectorView(wallpaper: noticeImage, service: noticeService, libraryActions: actions())
+        mount(noticeView)
+        let phases: [(String, Bool, Bool, Bool, [String])] = [
+            ("none", true, false, false, []),
+            ("missing", false, false, false, ["原始图片文件当前不可用"]),
+            ("active", true, true, true, ["当前桌面正在使用这张图片"]),
+            ("both", false, true, true, ["原始图片文件当前不可用", "当前桌面正在使用这张图片"])
+        ]
+        var preparation: [String: [String: Int]] = [:]
+        for (index, phase) in phases.enumerated() {
+            let (name, exists, active, used, expectedNotices) = phase
+            if exists { try Data("notice source".utf8).write(to: noticeFile) }
+            else { try FileManager.default.removeItem(at: noticeFile) }
+            noticeImage.addedAt = Date(timeIntervalSince1970: 1_600_000_000 + Double(index) * 60)
+            noticeImage.lastUsed = used ? Date(timeIntervalSince1970: 1_700_000_000) : .distantPast
+            noticeService.wallpapers = [noticeImage]
+            noticeService.currentActiveWallpaperPath = active ? noticeFile.path : nil
+            SILInspectorPreparationProbe.counts = [:]
+            noticeView.updateLibraryActions(actions())
+            preparation[name] = SILInspectorPreparationProbe.counts
+            let texts = views(noticeView).compactMap { ($0 as? NSTextField)?.stringValue }
+            let notices = texts.filter { $0 == "原始图片文件当前不可用" || $0 == "当前桌面正在使用这张图片" }
+            let document = views(noticeView).compactMap { $0 as? InspectorFadingScrollView }.first?.documentView
+            let sections = document?.subviews.compactMap { $0 as? NSStackView }.first?.arrangedSubviews.count
+            checks["sil-facts-notices-\(name)"] = notices == expectedNotices && sections == (expectedNotices.isEmpty ? 3 : 4)
+                && texts.contains("添加时间") && texts.contains(DateFormatter.localizedString(from: noticeImage.addedAt, dateStyle: .medium, timeStyle: .short))
+                && texts.contains("最近使用") == used
+                && (!used || texts.contains(DateFormatter.localizedString(from: noticeImage.lastUsed, dateStyle: .medium, timeStyle: .short)))
+        }
+        let preparationJSON = String(decoding: try JSONSerialization.data(withJSONObject: preparation, options: [.sortedKeys]), as: UTF8.self)
+        FileHandle.standardError.write(Data("SIL inspector preparation: \(preparationJSON)\n".utf8))
         mount(imageView)
         print(String(data: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
     }

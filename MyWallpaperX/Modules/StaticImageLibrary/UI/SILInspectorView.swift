@@ -86,10 +86,13 @@ final class SILInspectorView: NSView {
     }
 
     private var metadataFacts: [(String, String)] {
-        [
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return [
             resolutionText.map { ("分辨率", $0) },
-            ("添加时间", dateFormatter.string(from: wallpaper.addedAt)),
-            wallpaper.lastUsed > .distantPast ? ("最近使用", dateFormatter.string(from: wallpaper.lastUsed)) : nil
+            ("添加时间", formatter.string(from: wallpaper.addedAt)),
+            wallpaper.lastUsed > .distantPast ? ("最近使用", formatter.string(from: wallpaper.lastUsed)) : nil
         ]
         .compactMap { $0 }
     }
@@ -175,8 +178,9 @@ final class SILInspectorView: NSView {
         addContentSection(makePreviewSection())
         addContentSection(makeContentSection())
         addContentSection(makeTagsSection())
+        let notices = self.notices
         if !notices.isEmpty {
-            addContentSection(makeNoticeSection())
+            addContentSection(makeNoticeSection(notices))
         }
     }
 
@@ -220,11 +224,9 @@ final class SILInspectorView: NSView {
     private func makeContentSection() -> NSView {
         let stack = SILInspectorViews.makeVerticalStack(spacing: 14)
 
-        if !metadataFacts.isEmpty {
-            WallpaperLibraryControlStyle.addSectionDivider(to: stack)
-            stack.addArrangedSubview(SILInspectorViews.makeSectionTitle("原数据"))
-            stack.addArrangedSubview(WallpaperLibraryControlStyle.inspectorFacts(metadataFacts))
-        }
+        WallpaperLibraryControlStyle.addSectionDivider(to: stack)
+        stack.addArrangedSubview(SILInspectorViews.makeSectionTitle("原数据"))
+        stack.addArrangedSubview(WallpaperLibraryControlStyle.inspectorFacts(metadataFacts))
 
         WallpaperLibraryControlStyle.addSectionDivider(to: stack)
         stack.addArrangedSubview(SILInspectorViews.makeSectionTitle("文件位置"))
@@ -262,7 +264,7 @@ final class SILInspectorView: NSView {
         return stack
     }
 
-    private func makeNoticeSection() -> NSView {
+    private func makeNoticeSection(_ notices: [(icon: String, text: String)]) -> NSView {
         let stack = SILInspectorViews.makeVerticalStack(spacing: 8)
         WallpaperLibraryControlStyle.addSectionDivider(to: stack)
         notices.forEach { notice in
@@ -379,13 +381,6 @@ final class SILInspectorView: NSView {
         guard let width = wallpaper.pixelWidth,
               let height = wallpaper.pixelHeight else { return nil }
         return "\(width) × \(height)"
-    }
-
-    private var dateFormatter: DateFormatter {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
-        return formatter
     }
 
     @objc private func revealInFinder() {

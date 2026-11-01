@@ -48,6 +48,8 @@ R18（01adcdd94起，整合f54ae2ef6）：元数据回填沿已有匹配记录�
 
 R19（784963bb5起）：Video Inspector footer仅消费注入libraryActions.state，删除$wallpapers分支重复刷新及整条manager.objectWillChange旧订阅；初始化/updateLibraryActions仍刷新，独立footer不随contentStack重建，播放/收藏/权限沿既有coordinator状态链更新。产品净-7行，无新状态/helper/owner；内容/文件缺失提示、预览/metadata与取消链不改。测试净+66行，原37项保持，新增2项真实setter成本及2项图标/标题/AX动作/权限反例，共41项；只在测试生成副本入口计数，未替换setter或改共享产品。旧源仅2项新成本反例红，其余39项与新源一致；两个存活Inspector受控objectWillChange符号/标题4/2→0/0，同值库publish8/4→0/0，不外推频率、耗时或整App。现役Video两方法及coordinator固定引用/原生QL门通过，werror、实际输入身份与独审通过，隔离构建/质量结果归本批证据；manager/metadata仍为原fixture叶，不声称全App状态链运行验证。AV共享轨道候选会改变失败重试且未证IO收益，暂缓；其他Inspector有远端忙态/fallback，不照搬删订阅。下一方向核同次内容重建的重复事实准备，不新增渲染摘要或缓存。
 
+R20（7d54f9323起）：SIL Inspector退出必有添加时间的metadataFacts空检查，原同轮两次facts准备收为一次；两日期共用一个局部formatter，原.medium/.short不变，旧getter退役。notices在原if位置一次读取并传既有helper，不增跨轮缓存、state或owner，产品12+/17-净-5。每轮采用首份提示及本轮formatter配置，外部文件/桌面/locale若在旧两次读取间变化，不宣称等于旧第二次结果，下轮仍重读。测试净+58行，977行fixture保原55项并加无/缺文件/当前桌面/双提示四相位，真实文案/顺序、3或4区块、添加与最近使用文本保持；原预览交付8项保持。基线两方法通过；同最终夹具旧新59+8业务结果相等全真，仅旧准备次数字典一项红：有最近使用formatter4→1，无最近使用2→1，非空notices及受控desktop getter2→1，空仍1。只在临时副本原getter/构造点计数，真实body未替换，交付路径仅归一化独立临时根；desktop计数不冒充NSWorkspace IPC/耗时。独审、werror和实际输入身份通过，隔离构建/质量结果归本批证据；未测整App/真实桌面变化、性能或能耗。下一方向核播放列表目录是否为只消费数量/首封面而完整排序和resolve全部成员，保所有canonical cycle检查、首项缺失/tie和provider owner，不添缓存补丁。
+
 “无调用”须排查 selector、协议回调、独立进程、作者脚本、动态资源及调试工具；测试、文档或结构登记出现名字不等于产品调用。第一批只删除已确认不可达的链路，不以行数作为收益或验收目标。
 
 ## 第一批设计与停止条件
