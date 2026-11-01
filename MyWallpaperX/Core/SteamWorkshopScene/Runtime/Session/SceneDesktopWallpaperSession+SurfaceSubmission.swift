@@ -14,12 +14,14 @@ extension SceneDesktopWallpaperSession {
 #endif
         var frameOutcomes: [SceneMetalRenderer.FrameOutcome] = []
         frameOutcomes.reserveCapacity(surfaces.count)
+        let dynamicTextSnapshot = dynamicTextTextures?.snapshot()
         for (displayID, surface) in surfaces {
             if sceneClock.isPaused && surface.didSubmitSimulationFrame && !awaitsInitialPresentation { continue }
 #if DEBUG
             let mainFrameStart = ProcessInfo.processInfo.systemUptime
 #endif
             let frameOutcome = surface.metalView.renderFrame(
+                dynamicTextSnapshot: dynamicTextSnapshot,
                 collectsInitialVideoReadiness: true,
                 performanceTelemetry: SceneDesktopWallpaperHost.usesDebugEvidenceWindow
                     ? SceneFramePerformanceTelemetry.debugEvidence : nil
@@ -111,7 +113,7 @@ extension SceneDesktopWallpaperSession {
                 surface.metalView.commitPreparedMaterialAssetFrame()
                 surface.metalView.commitPreparedFrameTexturePublication()
                 surface.metalView.commitPreparedMediaThumbnailUpdate()
-                surface.metalView.commitPreparedDynamicTextUpdate()
+                surface.metalView.commitPreparedDynamicTextFrame()
             } else {
                 if frameOutcome.isPrepared { surface.pendingPausedFrame = nil }
                 if !submitted.isDeferred, let deadline = surface.videoSwitchDeadline {
@@ -120,13 +122,21 @@ extension SceneDesktopWallpaperSession {
                 surface.metalView.discardPreparedMaterialAssetFrame()
                 surface.metalView.discardPreparedFrameTexturePublication()
                 surface.metalView.discardPreparedMediaThumbnailUpdate()
-                surface.metalView.discardPreparedDynamicTextUpdate()
+                surface.metalView.discardPreparedDynamicTextFrame()
             }
         }
         // The shared provider version is resolved once. A failed surface may
         // not roll back a source already referenced by another submitted GPU.
         if frameOutcomes.contains(where: \.isSubmitted) {
             videoTextureSourceRegistry?.commitPreparedFrame()
+            if let pendingDynamicTextUpdate {
+                self.pendingDynamicTextUpdate = nil
+                dynamicTextTextures?.update(
+                    from: pendingDynamicTextUpdate.snapshot,
+                    dynamicLayers: pendingDynamicTextUpdate.dynamicLayers,
+                    dynamicTextFieldsByLayerID: pendingDynamicTextUpdate.dynamicTextFieldsByLayerID
+                )
+            }
         } else {
             videoTextureSourceRegistry?.discardPreparedFrame()
         }

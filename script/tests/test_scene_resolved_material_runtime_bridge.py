@@ -14,6 +14,7 @@ import unittest
 from pathlib import Path
 
 from script.tests.scene_dependency_binding_test_support import (
+    SCENE_DEPENDENCY_AGGREGATE_SUPPORT,
     SCENE_DEPENDENCY_BINDING_SUPPORT,
 )
 
@@ -192,7 +193,7 @@ enum SceneGPUStageTimestampHook {
     static func endedMain(_ encoder: MTLRenderCommandEncoder) {}
 }
 #endif
-''' + "\n".join(
+''' + SCENE_DEPENDENCY_AGGREGATE_SUPPORT + "\n".join(
     (Path(__file__).with_name("fixtures") / name).read_text(encoding="utf-8")
     for name in (
         "SceneSubmissionCoordinatorDependencies.swift",
@@ -205,17 +206,16 @@ enum SceneGPUStageTimestampHook {
         "SceneSubmissionLifecycleChecks.swift",
         "SceneSubmissionCoordinatorMain.swift",
     )
-) + SCENE_DEPENDENCY_BINDING_SUPPORT + RESOURCE_PHASE_UNAVAILABLE_SUPPORT + (
-    "extension SceneDependencyRenderPlan {\n" + _declaration(
-        (SCENE_ROOT / "Rendering/Dependencies/SceneDependencyRenderPlan+Aggregate.swift").read_text(encoding="utf-8"),
-        "MultiProviderAggregate", marker="    nonisolated struct MultiProviderAggregate: Hashable {",
-    ) + "\n}\n"
-)
+) + SCENE_DEPENDENCY_BINDING_SUPPORT + RESOURCE_PHASE_UNAVAILABLE_SUPPORT
 
 
 STATIC_SOURCE_DRAW_ONLY_HARNESS = (
     REPOSITORY_ROOT / "script/tests/fixtures/SceneStaticSourceDrawOnlyHarness.swift"
 ).read_text(encoding="utf-8") + RESOURCE_PHASE_UNAVAILABLE_HANDLE_SUPPORT
+STATIC_SOURCE_DRAW_ONLY_HARNESS += _declaration(
+    (Path(__file__).with_name("fixtures") / "SceneColorBlendCaptureRegionHarness.swift").read_text(encoding="utf-8"),
+    "SceneGPUStageTimestampHook", marker="enum SceneGPUStageTimestampHook {",
+)
 
 
 class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
@@ -247,7 +247,8 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         self.assertIn("return nil", diagnostics)
 
         self.assertIn("renderer.effectRuntimeSummary(for:", view)
-        self.assertIn("effectSummary: textEffectSummary", view)
+        session = (SCENE_ROOT / "Runtime/Session/SceneDesktopWallpaperSession.swift").read_text(encoding="utf-8")
+        self.assertIn("effectSummary: textEffectSummary", session)
         self.assertIn(
             "effectSummary: (SceneRenderDescriptor.Layer) -> String? = { _ in nil }",
             text_loader,
@@ -523,7 +524,7 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
                 binary = root / name
                 compilation = subprocess.run(
                     [
-                        "xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library",
+                        "xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library", "-D", "DEBUG",
                         *(str(source) for source in sources), str(harness),
                         "-framework", "Metal", "-module-cache-path",
                         str(root / "module-cache"), "-o", str(binary),

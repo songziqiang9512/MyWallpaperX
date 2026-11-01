@@ -802,48 +802,53 @@ extension SceneDesktopWallpaperSession {
 #endif
             }
         }
+        let resolvedDynamicValues = pendingEvaluation.resolution.snapshot
+#if DEBUG
+        let dynamicValues: SceneDynamicSnapshot
+        if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
+           debugDropDynamicValuesFrameIndex == timing.frameIndex {
+            dynamicValues = .empty(
+                frameIndex: resolvedDynamicValues.frameIndex,
+                generation: resolvedDynamicValues.generation
+            )
+            if !debugDidDropDynamicValues {
+                debugDidDropDynamicValues = true
+                NSLog(
+                    "MWX DEBUG SCENE: phase=dynamic-snapshot-fault state=dropped frame=%llu generation=%llu resolvedValues=%d",
+                    resolvedDynamicValues.frameIndex,
+                    resolvedDynamicValues.generation,
+                    resolvedDynamicValues.count
+                )
+            }
+        } else {
+            dynamicValues = resolvedDynamicValues
+            if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
+               debugDidDropDynamicValues,
+               !debugDidLogDynamicValuesRecovery,
+               let faultFrameIndex = debugDropDynamicValuesFrameIndex,
+               timing.frameIndex > faultFrameIndex {
+                debugDidLogDynamicValuesRecovery = true
+                NSLog(
+                    "MWX DEBUG SCENE: phase=dynamic-snapshot-fault state=recovered frame=%llu generation=%llu resolvedValues=%d",
+                    resolvedDynamicValues.frameIndex,
+                    resolvedDynamicValues.generation,
+                    resolvedDynamicValues.count
+                )
+            }
+        }
+#else
+        let dynamicValues = resolvedDynamicValues
+#endif
+        pendingDynamicTextUpdate = (
+            snapshot: dynamicValues,
+            dynamicLayers: layerTopology.dynamicLayers,
+            dynamicTextFieldsByLayerID: launchContext.frameSchema.dynamicTextFieldsByLayerID
+        )
         for (displayID, surface) in surfaces {
             guard let mediaThumbnailSnapshot =
                 mediaThumbnailSnapshots[displayID] else {
                 continue
             }
-            let resolvedDynamicValues = pendingEvaluation.resolution.snapshot
-#if DEBUG
-            let dynamicValues: SceneDynamicSnapshot
-            if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
-               debugDropDynamicValuesFrameIndex == timing.frameIndex {
-                dynamicValues = .empty(
-                    frameIndex: resolvedDynamicValues.frameIndex,
-                    generation: resolvedDynamicValues.generation
-                )
-                if !debugDidDropDynamicValues {
-                    debugDidDropDynamicValues = true
-                    NSLog(
-                        "MWX DEBUG SCENE: phase=dynamic-snapshot-fault state=dropped frame=%llu generation=%llu resolvedValues=%d",
-                        resolvedDynamicValues.frameIndex,
-                        resolvedDynamicValues.generation,
-                        resolvedDynamicValues.count
-                    )
-                }
-            } else {
-                dynamicValues = resolvedDynamicValues
-                if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
-                   debugDidDropDynamicValues,
-                   !debugDidLogDynamicValuesRecovery,
-                   let faultFrameIndex = debugDropDynamicValuesFrameIndex,
-                   timing.frameIndex > faultFrameIndex {
-                    debugDidLogDynamicValuesRecovery = true
-                    NSLog(
-                        "MWX DEBUG SCENE: phase=dynamic-snapshot-fault state=recovered frame=%llu generation=%llu resolvedValues=%d",
-                        resolvedDynamicValues.frameIndex,
-                        resolvedDynamicValues.generation,
-                        resolvedDynamicValues.count
-                    )
-                }
-            }
-#else
-            let dynamicValues = resolvedDynamicValues
-#endif
 #if DEBUG
             logDebugDynamicLayerVisibilityIfChanged(
                 descriptor: launchContext.runtimeInput.renderDescriptor,
@@ -864,8 +869,6 @@ extension SceneDesktopWallpaperSession {
                 timing: timing, dynamicValues: dynamicValues,
                 puppetAnimationFrame: puppetAnimationFrame,
                 layerTopology: layerTopology,
-                dynamicTextFieldsByLayerID:
-                    launchContext.frameSchema.dynamicTextFieldsByLayerID,
                 materialFunctionMutations: materialFunctionMutations,
                 puppetBoneMutations: puppetBoneMutations,
                 mediaThumbnail: mediaThumbnailSnapshot,

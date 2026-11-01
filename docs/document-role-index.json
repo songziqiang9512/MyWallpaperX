@@ -766,10 +766,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "796dc643d108f71fcfe6b69b991d832363c1fd47a74859a963300503344af3a2",
+        "sourceSHA256": "edbd0478929c361d9eddc6d3485318398064d3e22cb45fede929841d8a1bf82a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "材质PSO仅在原graph/source准备编译，退出lazy miss/origin/cacheFailure；typed局部失败贯通实际图消费者，最终App三组A/B与native正反门分列。",
-        "limitations": "不授完整语料、多物理屏、官方parity、整体性能或完整架构迁移；原PMA bare fixture未接纳generic Program继续skip。"
+        "scope": "文字producer归Session，prepared/submitted几何归每屏；撤seed及孤立API，90项方法分轮复验、最终App与双Surface观测限制分列。",
+        "limitations": "双Surface benchmark保留呈现流观测FAIL；不授多物理屏、整体性能、全语料、官方parity或完整架构迁移。"
       },
       "purpose": "实际接线或已记录运行证据；不反向定义目标架构，不决定实施顺序。"
     },
@@ -1056,10 +1056,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "bad5c4e09d74b656661fdc46b0410fe82b019ccf583f737423ae7356092c3e39",
+        "sourceSHA256": "95e4322e8908ff320eae83ca58e0ea286b8cf44ab3b3c5f58f4361fbf39ce04e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "材质PSO仅在原graph/source准备编译，退出lazy miss/origin/cacheFailure；typed局部失败贯通实际图消费者，最终App三组A/B与native正反门分列。",
-        "limitations": "不授完整语料、多物理屏、官方parity、整体性能或完整架构迁移；原PMA bare fixture未接纳generic Program继续skip。"
+        "scope": "文字producer归Session，prepared/submitted几何归每屏；撤seed及孤立API，90项方法分轮复验、最终App与双Surface观测限制分列。",
+        "limitations": "双Surface benchmark保留呈现流观测FAIL；不授多物理屏、整体性能、全语料、官方parity或完整架构迁移。"
       },
       "purpose": "实际接线或已记录运行证据；不反向定义目标架构，不决定实施顺序。"
     },
@@ -1085,10 +1085,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0c7d8173da1ea38e6ece3ad15e4c1268a60d238484e65db424aed9e7fa34d7e6",
+        "sourceSHA256": "02201dac57b93fb4ecdf327f66a22146ec1d98213e397f109a0b0cb89a4ca8cb",
         "method": "document_registry --audit + document_health --check",
-        "scope": "文本能力迁移的当前职责、限定证据与未闭测试债；不重授未变化能力。",
-        "limitations": "不升级全Scene能力、官方parity、稳态性能、多屏、长稳或发行结论。"
+        "scope": "文字producer归Session，prepared/submitted几何归每屏；撤seed及孤立API，90项方法分轮复验、最终App与双Surface观测限制分列。",
+        "limitations": "双Surface benchmark保留呈现流观测FAIL；不授多物理屏、整体性能、全语料、官方parity或完整架构迁移。"
       }
     },
     {
@@ -3343,7 +3343,15 @@
       "currentAuthorities": [
         "docs/scene/capabilities/runtime-evidence-current.md",
         "docs/scene/capabilities/coverage-ledger.md"
-      ]
+      ],
+      "lastReviewed": "2026-11-02",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "f7f84d48fdb1e31b7e3cc69d41bbb727bf04fae661bfd4c601e3ae74989f160b",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "文字producer归Session，prepared/submitted几何归每屏；撤seed及孤立API，90项方法分轮复验、最终App与双Surface观测限制分列。",
+        "limitations": "双Surface benchmark保留呈现流观测FAIL；不授多物理屏、整体性能、全语料、官方parity或完整架构迁移。"
+      }
     },
     {
       "path": "docs/scene/history/sample339-media-sequence-implementation-2026-10-05.md",
@@ -4549,10 +4557,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6e8a1779528b94afccffea170159b2781a497f3340a45e9bfa9268f3dd493984",
+        "sourceSHA256": "719dd54f2d520663f18eea48b30bf79ccaa847acbbb28aa7b9a0120a1fb39e83",
         "method": "document_registry --audit + document_health --check",
-        "scope": "材质PSO仅在原graph/source准备编译，退出lazy miss/origin/cacheFailure；typed局部失败贯通实际图消费者，最终App三组A/B与native正反门分列。",
-        "limitations": "不授完整语料、多物理屏、官方parity、整体性能或完整架构迁移；原PMA bare fixture未接纳generic Program继续skip。"
+        "scope": "文字producer归Session，prepared/submitted几何归每屏；撤seed及孤立API，90项方法分轮复验、最终App与双Surface观测限制分列。",
+        "limitations": "双Surface benchmark保留呈现流观测FAIL；不授多物理屏、整体性能、全语料、官方parity或完整架构迁移。"
       }
     },
     {
@@ -4605,10 +4613,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1b2e42233049b2eaa8699a3ca7815171d7d7aff1cf9c1d6fda79cf254e64dcf9",
+        "sourceSHA256": "3416f5a9f2d0ba98bb7fc54d7b334c2c23491e573e27ebfc74a7ef061be49dcb",
         "method": "document_registry --audit + document_health --check",
-        "scope": "材质PSO仅在原graph/source准备编译，退出lazy miss/origin/cacheFailure；typed局部失败贯通实际图消费者，最终App三组A/B与native正反门分列。",
-        "limitations": "不授完整语料、多物理屏、官方parity、整体性能或完整架构迁移；原PMA bare fixture未接纳generic Program继续skip。"
+        "scope": "文字producer归Session，prepared/submitted几何归每屏；撤seed及孤立API，90项方法分轮复验、最终App与双Surface观测限制分列。",
+        "limitations": "双Surface benchmark保留呈现流观测FAIL；不授多物理屏、整体性能、全语料、官方parity或完整架构迁移。"
       }
     },
     {

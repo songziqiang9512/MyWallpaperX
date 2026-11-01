@@ -125,7 +125,7 @@ enum SceneLayerColorBlendRenderer {
 
 // Fog evaluation belongs to the real GPU gate; this routing fixture only
 // needs the typed request/default argument accepted by production callers.
-struct SceneImageDistanceFogUniforms {}
+struct SceneImageDistanceFogUniforms { var color = SIMD4<Float>(repeating: 0) }
 
 struct SceneLayerFragmentUniforms {
     let time: Float
@@ -608,7 +608,7 @@ struct StaticSourceDrawOnlyHarness {
             report.degradedPlanDrawsRequestTexture =
                 plan.source.texture === request.texture
             report.degradedPlanKeepsStaticFileAtom =
-                plan.source.kind == .staticFile
+                plan.source.kind == .staticResource
             report.degradedPlanCarriesLayerSourceIdentity =
                 plan.source.requestIdentity == .layerSource(875)
             report.degradedPlanKeepsResolvedSample =

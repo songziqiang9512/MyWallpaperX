@@ -190,7 +190,7 @@ CoreText/CoreGraphics 负责实际字体解析、shaping、glyph advances、base
 
 在 text-local 空间完成布局，再应用图层和场景变换。width/line/ellipsis、字体、字距和行距按作者开关与参数执行；关闭 width/row 限制时，保留的编辑器默认数值不能继续裁切文本。
 
-内容或布局依赖改变时只重做受影响文本。采用内容签名、generation 与 last-ready publication，连续变化合并在途工作。资源完成不自动授予过期 owner 发布权；释放时取消或排空真实任务。
+内容或布局依赖改变时只重做受影响文本。相同会话共享文字producer与就绪publication，采用内容签名、generation和单在途合并；每屏只保存自己prepared/submitted的完整纹理及几何，cursor消费本屏最后提交结果。初始与动态文字走同一layer-source入口，不在base image表保旧seed。单屏重建不关闭producer；会话停止排空真实任务，迟到结果不能取得发布权。
 
 字形呈现与布局分别设计。MSDF、轮廓、阴影和模糊的适用语义及与参考结果的差异查[文字专项](runtime-input-property-coverage.md)和[字体演进研究](../development/reference/client-changelog-forensics.md)，不从一个技术名推断全部字形质量或视觉等价。
 

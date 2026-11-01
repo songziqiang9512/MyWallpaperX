@@ -1,7 +1,7 @@
 """Run production frozen-frame scheduling with controlled transport completion.
 
-The existing method-extraction scaffold executes the driver, text-publication
-callback, invalidation, surface submission, cohort and PreparedFrame owners.
+The existing method-extraction scaffold executes the driver, Session text
+notification, invalidation, surface submission, cohort and PreparedFrame owners.
 Only the normal simulation branch is replaced by a trap. Timer, dispatch,
 raster readiness and Metal completion are hand-controlled transport boundaries;
 no scheduler or publication policy is reproduced.
@@ -144,16 +144,24 @@ final class SoundProviders { func pause() {}; func resume() {} }
 // their teardown leaves available without replacing the production teardown.
 final class UserShortcutInput { func revoke() {} }
 final class SceneDynamicTextTextureStore {
-    var generation = 0
-    func close() {}
+    struct Snapshot { let generation: Int }
+    var generation = 0, snapshotReads = 0
+    var updates: [Int] = []
+    var updatedLayers: [Int] = [], updatedFields: [Int: Set<Int>] = [:]
+    func snapshot() -> Snapshot { snapshotReads += 1; return .init(generation: generation) }
+    func update(from snapshot: Int, dynamicLayers: [Int], dynamicTextFieldsByLayerID: [Int: Set<Int>]) {
+        updates.append(snapshot)
+        updatedLayers = dynamicLayers; updatedFields = dynamicTextFieldsByLayerID
+    }
 }
 
 final class SceneMetalView {
     // INVALIDATION_TYPE
     enum Plan { case prepared, synchronousDrop, deferred, cancelled }
     var onRenderInvalidated: ((RenderInvalidation) -> Void)?
-    var dynamicTextTextures: SceneDynamicTextTextureStore? = .init()
-    var textPublication: ((SceneDynamicTextTextureStore) -> Void)?
+    var preparedTextSnapshot: SceneDynamicTextTextureStore.Snapshot?
+    var submittedTextSnapshot: SceneDynamicTextTextureStore.Snapshot?
+    var onRender: (() -> Void)?
     let hasSimulationFrame = true
     let simulationFrameIndex: UInt64 = 7
     struct Device { let registryID: UInt64 = 1 }
@@ -168,16 +176,13 @@ final class SceneMetalView {
     // Retain superseded candidates so identity tests do not pass merely because
     // a weak capture has already become nil.
     var candidates: [SceneMetalRenderer.PreparedFrame] = []
-    init() {
-        // TEXT_PUBLICATION
-    }
-    func publishText(_ generation: Int) {
-        dynamicTextTextures!.generation = generation
-        textPublication?(dynamicTextTextures!)
-    }
-    func renderFrame(collectsInitialVideoReadiness: Bool,
+    func renderFrame(dynamicTextSnapshot: SceneDynamicTextTextureStore.Snapshot?,
+                     collectsInitialVideoReadiness: Bool,
                      performanceTelemetry: Int?) -> SceneMetalRenderer.FrameOutcome {
         draws += 1
+        preparedTextSnapshot = dynamicTextSnapshot
+        drawnTextGenerations.append(dynamicTextSnapshot?.generation ?? -1)
+        onRender?()
         if plan == .synchronousDrop { return .dropped(reasonCode: "controlled-sync-failure") }
         if plan == .deferred { return .deferred(reasonCode: "controlled-in-flight") }
         let buffer = MTLCommandBuffer()
@@ -185,7 +190,6 @@ final class SceneMetalView {
             initialVideoPresentation: collectsInitialVideoReadiness ? (videoPresentation ?? .init()) : nil,
             submit: { [self] present in commits += 1; presentationFlags.append(present); buffer.commit() },
             cancel: { [self] in cancels += 1 })
-        drawnTextGenerations.append(dynamicTextTextures!.generation)
         buffers.append(buffer)
         candidates.append(candidate)
         if plan == .cancelled { candidate.cancel() }
@@ -194,11 +198,10 @@ final class SceneMetalView {
     func commitPreparedMaterialAssetFrame() { publicationCommits += 1 }
     func commitPreparedFrameTexturePublication() {}
     func commitPreparedMediaThumbnailUpdate() {}
-    func commitPreparedDynamicTextUpdate() {}
     func discardPreparedMaterialAssetFrame() { publicationDiscards += 1 }
     func discardPreparedFrameTexturePublication() {}
     func discardPreparedMediaThumbnailUpdate() {}
-    func discardPreparedDynamicTextUpdate() {}
+    // TEXT_FRAME_METHODS
     func invalidateResolvedMaterialRuntime(reason: SceneGraphExecutionResetReason) {}
     func teardownParticlePlayback(reason: SceneGraphExecutionResetReason) {}
 }
@@ -214,6 +217,9 @@ final class SceneDesktopWallpaperSession {
     }
     var sceneClock = SceneClock(hostTime: 0)
     var launchContext: Int? = 1
+    var dynamicTextTextures: SceneDynamicTextTextureStore? = .init()
+    var pendingDynamicTextUpdate: (snapshot: Int, dynamicLayers: [Int],
+        dynamicTextFieldsByLayerID: [Int: Set<Int>])?
     var surfaces: [CGDirectDisplayID: Surface] = [:]
     var preparedSurfaceIDs: Set<CGDirectDisplayID> = []
     var initialPresentationCohort = SceneInitialPresentationCohort()
@@ -236,6 +242,10 @@ final class SceneDesktopWallpaperSession {
     func removePointerEventMonitors() {}
     func releaseUserShortcutScopes() {}
     func retireSurface(_ surface: Surface) { retiredSurfaces += 1 }
+    func publishText(_ generation: Int) {
+        dynamicTextTextures!.generation = generation
+        textTexturePublicationDidChange(dynamicTextTextures!)
+    }
     // No new media input. The production driver still chooses its frozen path.
     func refreshPausedMediaPublications() -> Bool { false }
     func attach(_ screenID: CGDirectDisplayID = 1) -> Surface {
@@ -532,10 +542,8 @@ SCENARIOS = r'''
         precondition(owner.initialPresentationCohort.isHeld)
         precondition(!owner.initialPresentationCohort.hasDelivered)
         for surface in surfaces {
-            // Execute MetalView's real asynchronous text publication callback,
-            // including its store identity check, then Session's real callback.
-            surface.metalView.publishText(2)
-            surface.metalView.publishText(3)
+            owner.publishText(2)
+            owner.publishText(3)
             surface.metalView.onRenderInvalidated?(.mediaPublication)
         }
         DispatchQueue.main.drain()
@@ -547,7 +555,7 @@ SCENARIOS = r'''
             complete(surface.metalView, 0, true)
             if index < screens - 1 {
                 precondition(callbacks.isEmpty, "partial GPU cohort reached Host")
-                surface.metalView.publishText(4)
+                owner.publishText(4)
                 DispatchQueue.main.drain()
             }
         }
@@ -556,7 +564,7 @@ SCENARIOS = r'''
         // Parent may delay promotion. More ready data cannot silently replace
         // its delivered drawable or turn publication into a Host failure.
         for surface in surfaces {
-            surface.metalView.publishText(5)
+            owner.publishText(5)
             surface.metalView.onRenderInvalidated?(.mediaPublication)
         }
         DispatchQueue.main.drain()
@@ -611,7 +619,7 @@ SCENARIOS = r'''
             complete(view, 1, true)
             precondition(callbacks == [true] && owner.initialPresentationCohort.hasDelivered)
         }
-        view.publishText(1)
+        owner.publishText(1)
         DispatchQueue.main.drain()
         precondition(callbacks == (stale ? [true] : []) && !owner.surfaces.isEmpty,
                      "publication reached Host before actual GPU failure")
@@ -630,17 +638,58 @@ SCENARIOS = r'''
         owner.startFrameDriver()
         complete(view, 0, true)
         stopped(owner)
-        view.publishText(8)
+        owner.publishText(8)
         DispatchQueue.main.drain()
         precondition(view.draws == 2 && view.drawnTextGenerations == [0, 8],
                      "active paused text was routed into media-only refresh or never adopted")
         complete(view, 1, true)
-        // A retired raster store must not invalidate the live view.
-        view.textPublication?(SceneDynamicTextTextureStore())
+        precondition(view.submittedTextSnapshot?.generation == 8)
+        // A previously active store may deliver after the Session replaced it.
+        let retiredStore = owner.dynamicTextTextures!
+        owner.dynamicTextTextures = .init()
+        owner.textTexturePublicationDidChange(retiredStore)
         DispatchQueue.main.drain()
         precondition(view.draws == 2)
+        owner.publishText(9)
+        precondition(view.drawnTextGenerations == [0, 8, 9])
+        complete(view, 2, true)
         stopped(owner)
         frozen(owner, before)
+    }
+    static func textPending() {
+        for plan: SceneMetalView.Plan in [.deferred, .synchronousDrop, .cancelled] {
+            let (owner, surface, before) = fixture(), view = surface.metalView
+            let store = owner.dynamicTextTextures!
+            owner.pendingDynamicTextUpdate = (17, [23], [23: [4]])
+            view.plan = plan; owner.startFrameDriver()
+            precondition(owner.pendingDynamicTextUpdate?.snapshot == 17 && store.updates.isEmpty)
+            view.plan = .prepared
+            precondition(RunLoop.main.fireNext())
+            precondition(owner.pendingDynamicTextUpdate == nil && store.updates == [17])
+            precondition(store.updatedLayers == [23] && store.updatedFields == [23: [4]])
+            complete(view, view.buffers.count - 1, true)
+            _ = owner.renderSurfaces()
+            precondition(store.updates == [17]); stopped(owner); frozen(owner, before)
+        }
+        for rejected: SceneMetalView.Plan in [.deferred, .synchronousDrop] {
+            let (owner, a, before) = fixture(), b = owner.attach(2)
+            let store = owner.dynamicTextTextures!
+            b.metalView.plan = rejected
+            owner.pendingDynamicTextUpdate = (29, [31], [31: [5]])
+            for surface in [a, b] { surface.metalView.onRender = { store.generation += 1 } }
+            let result = owner.renderSurfaces()
+            if case .busy = result { precondition(rejected == .deferred) }
+            else if case .dropped = result { precondition(rejected == .synchronousDrop) }
+            else { preconditionFailure("partial paused attempt hid its failed surface") }
+            precondition(store.snapshotReads == 1 && store.generation == 2)
+            precondition([a, b].allSatisfy { $0.metalView.drawnTextGenerations == [0] },
+                         "worker readiness changed the frozen attempt between surfaces")
+            precondition(store.updates == [29] && owner.pendingDynamicTextUpdate == nil,
+                         "a submitted surface must consume pending input despite busy/dropped return")
+            precondition(a.metalView.submittedTextSnapshot?.generation == 0 && a.metalView.preparedTextSnapshot == nil)
+            precondition(b.metalView.submittedTextSnapshot == nil && b.metalView.preparedTextSnapshot == nil)
+            complete(a.metalView, 0, true); stopped(owner); frozen(owner, before)
+        }
     }
     static let videoA = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
     static let videoB = UUID(uuidString: "00000000-0000-0000-0000-000000000002")!
@@ -768,6 +817,7 @@ SCENARIOS = r'''
         case "candidateGPUFailure": candidateGPUFailure(false)
         case "staleGPUFailureAfterDelivery": candidateGPUFailure(true)
         case "activePausedText": activePausedText()
+        case "textPending": textPending()
         case "videoSwitchRecovery": videoSwitchRecovery()
         case "videoSwitchExpiry": videoSwitchExpiry()
         case "videoSwitchGPUFailure": videoSwitchRejected("gpu")
@@ -817,12 +867,14 @@ def production_harness(sources=None):
         ]),
         frame,
         method(pause, "func setPlaybackPaused("),
+        method(session, "func textTexturePublicationDidChange("),
         retirement,
     ])
     harness = STUBS.replace("// INVALIDATION\n", method(session, "metalView.onRenderInvalidated =") + "\n")
     harness = harness.replace("// INVALIDATION_TYPE", method(view, "enum RenderInvalidation {"))
-    text_callback = method(view, "onPublication: { [weak self] store in")
-    harness = harness.replace("// TEXT_PUBLICATION", "textPublication =" + text_callback.split(":", 1)[1])
+    harness = harness.replace("// TEXT_FRAME_METHODS", "\n".join(
+        method(view, signature) for signature in (
+            "func commitPreparedDynamicTextFrame(", "func discardPreparedDynamicTextFrame(")))
     harness = harness.replace("// METHODS", methods)
     return "\n".join([
         method(driver, "enum SceneFrameDriverAttempt"),
@@ -909,6 +961,9 @@ class ScenePausedFrameRecoveryTests(unittest.TestCase):
 
     def test_active_paused_text_adopts_latest_store_without_advancing_simulation(self):
         self.run_scenario("activePausedText")
+
+    def test_shared_text_pending_follows_submission_and_freezes_attempt_publication(self):
+        self.run_scenario("textPending")
 
     def test_video_switch_withheld_submissions_retry_resources_and_preserve_peer(self):
         for scenario in ("videoSwitchRecovery", "videoSwitchExpiry", "videoSwitchGPUFailure", "videoSwitchCancel", "videoSwitchDrop"):

@@ -89,6 +89,20 @@ Codable保原四项作者字段，派生索引不进入IPC/磁盘载荷，Equata
 
 先用冻结旧App及真实门确认现有准备/帧路径，再验证cold miss零compiler调用、加载成功/失败缓存、reset保PSO、合法format/variant与terminal/source的实际GPU结果；standalone fixture按真实加载→帧顺序显式warmup，不以旧测试依赖保lazy产品入口。实际App覆盖effect/source、属性变体、相邻内容与正常退出；若发现合法遗漏，在原准备owner修正计划再验，不能重新打开draw内同步编译。没有真实测量就不报启动、帧率或能耗改善。
 
+### 文字生产归会话、提交快照归表面
+
+同一Session的文字内容、样式、字体资源、typed值及Metal device相同；当前栅格不消费viewport或backingScale。因此初始CoreText栅格/纹理上传与动态串行worker沿既有`SceneDynamicTextTextureStore`只创建一次，由Session持有，屏幕重建复用。Store保存作者/动态层身份、最新请求、就绪raster和唯一publication；不另建内容hash缓存、跨层去重或producer管理器。相同内容的不同layer仍有各自身份、代次和寿命。
+
+首次成功构造View后、进入其资源装配前，Session完成一次初始load并交给Store；诊断消息只临时传给原启动报告，不保存第二份初始raster。初始generation 0已是合法完整的dynamicText layer-source atom，首帧与后续更新都经Store snapshot→FrameLayerTextureAssembly进入原source/graph/compositor。删除View向base image表merge初始文字的路径，避免动态更新后继续pin旧seed；现有image-only粒子发射图不消费该seed。资源失败仍只缺实际受影响文字，不加假texture、另路fallback或整景拒绝。
+
+prepared/submitted snapshot是每屏呈现事实，不归共享Store。每次Session `renderSurfaces`在循环前取一次就绪publication，直接传给各View；View只固定本次prepared snapshot，并在自己成功提交时替换submitted snapshot，失败或drawable不可用保原submitted。cursor的文字centerOffset继续读取本屏最后提交几何，不读最新异步就绪结果，也不把“已提交”改称GPU完成。Store撤旧prepare/commit/discard/submitted接口及字段，View撤producer、字段兴趣镜像、每屏pending更新与SimulationFrame.textFields。
+
+异步文字请求保持在“至少一个表面成功提交之后”更新，不能顺便提前到CPU cadence而改变初始/克隆可见时序。Session用一份既有pending tuple承接typed snapshot、dynamic layers和字段兴趣，替代各View副本；新cadence覆盖，全未提交时留待重试，首次成功提交后更新Store一次并清除。一个attempt内即使worker完成，后面的屏仍使用循环前固定的同一publication。暂停publication只触发既有driver重绘，不重放VM；初始cohort已held时继续忽略异步publication通知。
+
+单屏关闭/重建只退役自己的GPU与capture，不停止共享worker。清除Session时将唯一Store的closeAndDrain挂到既有retiringSurfaceDrain，然后清活动引用；stop-before-drain、没有surface和失败重建也须等待该CPU尾任务，再沿原surface队列barrier完成GPU释放。不新增退场状态机或第二release fence。
+
+最近门执行真实Store、真实View提交/丢弃与Session调度/退出方法：初始原子可用；连续值只保单任务及最新请求；A/B均提交R0后R1就绪，A提交/B取消时两屏cursor分别保持R1/R0；退役B不关producer且A可继续采用R2；所有surface未提交时不提前请求，暂停重试成功仅发一次；重建复用与stop-before-drain等待真实worker。再用冻结旧App同输入对照双surface动态文字、改名/克隆和原包邻例，核真实像素、字体几何、正常退出与drain。可证明重复生产次数减少，不在未测时宣称整体帧率、能耗或峰值内存收益；媒体、Puppet和粒子剩余寿命不在本批伪称完成。
+
 ## 职责与数据流
 
 ```text

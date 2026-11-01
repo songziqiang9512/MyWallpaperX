@@ -5,8 +5,6 @@ import simd
 
 class SceneMetalView: NSView {
     let metalDevice: MTLDevice
-    private let preparedDynamicTextFieldsByLayerID:
-        [Int: Set<SceneDynamicTextField>]
     private let presentationStreamID: UInt64
     private let textureAnimationPlaybackRuntime:
         SceneTextureAnimationPlaybackRuntime
@@ -47,12 +45,8 @@ class SceneMetalView: NSView {
         particlePlayback?.loadReportLines(descriptor: renderer.renderDescriptor)
     }
     #endif
-    private(set) var dynamicTextTextures: SceneDynamicTextTextureStore?
-    private var pendingDynamicTextUpdate: (
-        snapshot: SceneDynamicSnapshot,
-        dynamicLayers: [SceneRenderDescriptor.Layer],
-        dynamicTextFieldsByLayerID: [Int: Set<SceneDynamicTextField>]
-    )?
+    private var preparedTextSnapshot: SceneDynamicTextTextureStore.Snapshot?
+    private(set) var submittedTextSnapshot: SceneDynamicTextTextureStore.Snapshot?
     private var firstFramePresentationRegistration:
         ((CAMetalDrawable) -> Bool)?
     private var dynamicImageTextures: SceneDynamicImageTextureProvider?
@@ -106,7 +100,6 @@ class SceneMetalView: NSView {
         ),
         userPropertyTextureLoad: SceneUserPropertyTextureLoadResult = .empty,
         userPropertyVideoSources: [SceneUserPropertyTextureIdentity: SceneVideoTextureSource] = [:],
-        dynamicTextFieldsByLayerID: [Int: Set<SceneDynamicTextField>] = [:],
         presentationStreamID: UInt64,
         firstFramePresentationRegistration:
             ((CAMetalDrawable) -> Bool)? = nil,
@@ -124,7 +117,6 @@ class SceneMetalView: NSView {
             pipelineRepository: pipelineRepository, resolvedMaterialRuntime: resolvedMaterialRuntime
         ) else { return nil }
         metalDevice = renderer.device
-        preparedDynamicTextFieldsByLayerID = dynamicTextFieldsByLayerID
         self.presentationStreamID = presentationStreamID
         self.firstFramePresentationRegistration =
             firstFramePresentationRegistration
@@ -215,6 +207,7 @@ class SceneMetalView: NSView {
         preparedParticleVisibilityLayerIDs: Set<Int> = [],
         initialPlayback: [Int: SceneParticlePlaybackSnapshot] = [:],
         initialDynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
+        textLoadMessages: [String] = [],
         logURL: URL? = nil
     ) {
         let loader = preparedBaseImages.textureLoader
@@ -224,11 +217,6 @@ class SceneMetalView: NSView {
         )
 #if DEBUG
         var report = SceneStartupReportBuffer(enabled: logURL != nil)
-        let recordsDiagnostics = report.isEnabled
-        let textEffectSummary: (SceneRenderDescriptor.Layer) -> String? = { [renderer] in renderer.effectRuntimeSummary(for: $0) }
-#else
-        let recordsDiagnostics = false
-        let textEffectSummary: (SceneRenderDescriptor.Layer) -> String? = { _ in nil }
 #endif
         var loaded = SceneBaseImageTextureStore()
         var loadedSpriteAnimations: [Int: SceneSpriteAnimation] = [:]
@@ -479,36 +467,15 @@ class SceneMetalView: NSView {
         imageTextures = loaded
         spriteAnimations = loadedSpriteAnimations
         specializedBaseTextureSamplings = loadedSpecializedBaseTextureSamplings
-        let textLoad = SceneTextTextureLoader.load(
-            descriptor: renderer.renderDescriptor,
-            resourceView: resourceView,
-            device: metalDevice,
-            recordsDiagnostics: recordsDiagnostics,
-            effectSummary: textEffectSummary
-        )
-        imageTextures.merge(textLoad.rasters.mapValues(\.texture))
 #if DEBUG
         report.append(contentsOf: renderer.runtimeReportLines())
 #endif
 
-        dynamicTextTextures = SceneDynamicTextTextureStore(
-            descriptor: renderer.renderDescriptor,
-            resourceView: resourceView,
-            device: metalDevice,
-            initialRasters: textLoad.rasters,
-            dynamicTextFieldsByLayerID: preparedDynamicTextFieldsByLayerID,
-            onPublication: { [weak self] store in
-                DispatchQueue.main.async { [weak self] in
-                    guard let self, self.dynamicTextTextures === store else { return }
-                    self.onRenderInvalidated?(.textPublication)
-                }
-            }
-        )
         dynamicImageTextures = SceneDynamicImageTextureProvider(
             resources: preparedBaseImages.dynamicImageResources
         )
 #if DEBUG
-        report.append(contentsOf: textLoad.messages)
+        report.append(contentsOf: textLoadMessages)
 #endif
         self.videoSourceRegistry = videoSourceRegistry
         puppetPlaybackStates = loadedPuppetPlaybackStates
@@ -653,7 +620,6 @@ class SceneMetalView: NSView {
         let projection: SceneMetalRendererFrameWorldProjection
         let particles: [SceneParticleDrawBatch]
         let topology: SceneScriptLayerTopologySnapshot
-        let textFields: [Int: Set<SceneDynamicTextField>]
         var mediaThumbnail: SceneMediaThumbnailTextureStore.Snapshot
         let mediaInput: SceneMediaThumbnailInbox.Snapshot
         let spriteTimes: [Int: Float]
@@ -662,7 +628,7 @@ class SceneMetalView: NSView {
     }
     enum RenderInvalidation {
         case surface
-        case mediaPublication, textPublication
+        case mediaPublication
     }
     var onRenderInvalidated: ((RenderInvalidation) -> Void)?
     private var simulationFrame: SimulationFrame?
@@ -693,8 +659,6 @@ class SceneMetalView: NSView {
         timing: SceneFrameTiming, dynamicValues: SceneDynamicSnapshot,
         puppetAnimationFrame: ScenePuppetAnimationPlaybackRuntime.FrameSnapshot,
         layerTopology: SceneScriptLayerTopologySnapshot,
-        dynamicTextFieldsByLayerID:
-            [Int: Set<SceneDynamicTextField>] = [:],
         materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = [],
         puppetBoneMutations: [SceneScriptPuppetBoneMutation] = [],
         mediaThumbnail: SceneMediaThumbnailTextureStore.Snapshot,
@@ -702,7 +666,6 @@ class SceneMetalView: NSView {
         audioSpectrum: SceneAudioSpectrumSnapshot = .silent,
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil
     ) {
-        pendingDynamicTextUpdate = nil
         for playback in puppetPlaybackStates.values {
             playback.apply(scriptBoneMutations: puppetBoneMutations)
         }
@@ -751,7 +714,7 @@ class SceneMetalView: NSView {
         simulationFrame = SimulationFrame(
             timing: timing, context: frameContext, camera: cameraFrame,
             projection: frameProjection, particles: particleBatches,
-            topology: layerTopology, textFields: dynamicTextFieldsByLayerID,
+            topology: layerTopology,
             mediaThumbnail: mediaThumbnail, mediaInput: mediaInput,
             spriteTimes: spriteAnimationPlaybackTimes, puppetAnimationFrame: puppetAnimationFrame,
             attachmentFrames: attachmentFrames
@@ -759,6 +722,7 @@ class SceneMetalView: NSView {
     }
 
     func renderFrame(
+        dynamicTextSnapshot: SceneDynamicTextTextureStore.Snapshot? = nil,
         collectsInitialVideoReadiness: Bool = false,
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil
     ) -> SceneMetalRenderer.FrameOutcome {
@@ -783,14 +747,12 @@ class SceneMetalView: NSView {
         timelineFrameEvidence?.record(streamID: presentationStreamID,
             frameIndex: frameContext.frameIndex, sceneTime: frameContext.sceneTime, snapshot: frameContext.dynamicValues)
 #endif
-        let dynamicValues = frameContext.dynamicValues
         let frameProjection = simulationFrame.projection
         let cameraFrame = savedContext.screenSize == frameContext.screenSize
             ? simulationFrame.camera : renderer.makeCameraFrame(
                 frameContext: frameContext, worldFrames: frameProjection.worldFrames)
         let particleBatches = simulationFrame.particles
         let layerTopology = simulationFrame.topology
-        let dynamicTextFieldsByLayerID = simulationFrame.textFields
         let mediaThumbnail = simulationFrame.mediaThumbnail
         let spriteAnimationPlaybackTimes = simulationFrame.spriteTimes
         let puppetAnimationFrame = simulationFrame.puppetAnimationFrame
@@ -841,7 +803,7 @@ class SceneMetalView: NSView {
         let drawableAcquired = performanceTelemetry.map { _ in ProcessInfo.processInfo.systemUptime }
 #endif
 
-        let dynamicTextSnapshot = dynamicTextTextures?.prepareFrame()
+        preparedTextSnapshot = dynamicTextSnapshot
         let dynamicImageSnapshot = dynamicImageTextures?.snapshot(
             topology: layerTopology
         )
@@ -936,17 +898,7 @@ performanceTelemetry?.recordPreparation(
             displayOutput: displayOutput,
             to: drawable
         )
-        if outcome.isPrepared {
-            // Dynamic text is asynchronous; stage its next request for the
-            // surface's submission boundary.
-            pendingDynamicTextUpdate = (
-                snapshot: dynamicValues,
-                dynamicLayers: layerTopology.dynamicLayers,
-                dynamicTextFieldsByLayerID: dynamicTextFieldsByLayerID
-            )
-        } else {
-            dynamicTextTextures?.discardPreparedFrame()
-        }
+        if !outcome.isPrepared { preparedTextSnapshot = nil }
         return outcome
     }
 
@@ -978,23 +930,12 @@ performanceTelemetry?.recordPreparation(
         renderer.discardResolvedMaterialAssetFrame()
     }
 
-    func commitPreparedDynamicTextUpdate() {
-        guard let pendingDynamicTextUpdate else {
-            dynamicTextTextures?.commitPreparedFrame()
-            return
-        }
-        self.pendingDynamicTextUpdate = nil
-        dynamicTextTextures?.update(
-            from: pendingDynamicTextUpdate.snapshot,
-            dynamicLayers: pendingDynamicTextUpdate.dynamicLayers,
-            dynamicTextFieldsByLayerID:
-                pendingDynamicTextUpdate.dynamicTextFieldsByLayerID
-        )
-        dynamicTextTextures?.commitPreparedFrame()
+    func commitPreparedDynamicTextFrame() {
+        submittedTextSnapshot = preparedTextSnapshot ?? submittedTextSnapshot
+        preparedTextSnapshot = nil
     }
 
-    func discardPreparedDynamicTextUpdate() {
-        pendingDynamicTextUpdate = nil
-        dynamicTextTextures?.discardPreparedFrame()
+    func discardPreparedDynamicTextFrame() {
+        preparedTextSnapshot = nil
     }
 }

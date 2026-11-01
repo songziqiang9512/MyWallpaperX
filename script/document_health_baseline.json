@@ -90,7 +90,7 @@
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 159,
-      "bytes": 18740
+      "bytes": 18806
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 31,
@@ -170,7 +170,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 224032
+      "bytes": 224184
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -178,7 +178,7 @@
     },
     "docs/scene/capabilities/runtime-systems-reference.md": {
       "lines": 375,
-      "bytes": 31888
+      "bytes": 32099
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 61,
@@ -285,8 +285,8 @@
       "bytes": 29767
     },
     "docs/scene/roadmap/engine-refactor-program.md": {
-      "lines": 145,
-      "bytes": 22671
+      "lines": 159,
+      "bytes": 26067
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 73,
@@ -302,7 +302,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 203,
-      "bytes": 47611
+      "bytes": 47713
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1983,15 +1983,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-systems-reference.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "b7bffd1383fcd2ac897f7295023e9b72d783884290d8df2b269ae2df39222475",
-      "owner": "scene-architecture-governance",
-      "reason": "以当前代码与独立设计核对Scene整体/组件/专项/事实/历史职责；保留原文及有效锚点，按实际正文登记变化，不增加产品门或升级能力声明。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#顶层设计收敛决定"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/sampler-alias-precedence.md",
       "before": "accfd34982e233836d58a2f953fec513c95c1c5566a53f419dfe1eb41a7f0893",
       "after": "0cde3b3fd3d4c17db7f378247819a69db5c0eebc1b60ddb3804beb3ace8509b4",
@@ -2082,39 +2073,48 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "f62d2139d9822c4dda2137367a4e14a6056b0dee6b3b6cd71572799f66525e65",
-      "after": "9f4437229f33c1ef9733c837f49f7f382f3e6ef370e8304cfac1ca954f5e9f4b",
-      "owner": "scene-user-texture-ownership",
-      "reason": "撤用户纹理Context镜像，记录PreparedLaunch到Session交接、旧测试债与有界实际运行保持；无新关卡或整体性能结论。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#用户纹理的准备交接与活动所有权"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/runtime-as-built-map.md",
-      "before": "47906bbbbb9f55a550c49922d1cbb58af8272b79749961373ae23e91782e59a7",
-      "after": "d9ce34284bbf86ca9d1f173417beccb42ace004cd98e8fe7cda0d502c163d5d4",
-      "owner": "scene-pipeline-preparation",
-      "reason": "在原职责条目合并PSO准备入口，收敛普通帧编译与origin；记录typed局部失败、最终App与测试债，不扩大正文或准入关卡。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#材质管线只在准备边界编译"
+      "before": "d9ce34284bbf86ca9d1f173417beccb42ace004cd98e8fe7cda0d502c163d5d4",
+      "after": "110c805438d4da8cbb51269e24c8051cd4f7756d9469141373dc1fedcab785b2",
+      "owner": "scene-session-text-production",
+      "reason": "在原文字/组件职责和唯一队列同步Session生产、每屏提交、旧路径退出及有界证据；不提高硬限或复制Skill快照。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#文字生产归会话提交快照归表面"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "7a5d037808a7b248f50ffadd94d9142b738d1b43036542122b4288d3035b0e03",
-      "after": "322b6bd2a92e1bc4df68b5dacdd0eabf67da9e38bc4279e09c3cbf85ca94c8cd",
-      "owner": "scene-pipeline-preparation",
-      "reason": "在原职责条目合并PSO准备入口，收敛普通帧编译与origin；记录typed局部失败、最终App与测试债，不扩大正文或准入关卡。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#材质管线只在准备边界编译"
+      "before": "322b6bd2a92e1bc4df68b5dacdd0eabf67da9e38bc4279e09c3cbf85ca94c8cd",
+      "after": "0e1f0658f88add23f9dac110a1050c5d96172b3f95a971bce0f2e11b4c8f905b",
+      "owner": "scene-session-text-production",
+      "reason": "在原文字/组件职责和唯一队列同步Session生产、每屏提交、旧路径退出及有界证据；不提高硬限或复制Skill快照。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#文字生产归会话提交快照归表面"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-systems-reference.md",
+      "before": "b7bffd1383fcd2ac897f7295023e9b72d783884290d8df2b269ae2df39222475",
+      "after": "55c7756bcea2318fab6f01e1b4c2a9f0ddcce5ff0caa2ba6ea197bab5b44b6b1",
+      "owner": "scene-session-text-production",
+      "reason": "在原文字/组件职责和唯一队列同步Session生产、每屏提交、旧路径退出及有界证据；不提高硬限或复制Skill快照。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#文字生产归会话提交快照归表面"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/engine-refactor-program.md",
-      "before": "6bee501603befd3bdff654ef16ffad95b5a01ec524e077d8856b5c8c740eefa9",
-      "after": "58c29edb3fa9fa9be8e97ddab63d08ff1e9f2f3395f80b56af3c7aa7cda85c20",
-      "owner": "scene-pipeline-preparation",
-      "reason": "在原职责条目合并PSO准备入口，收敛普通帧编译与origin；记录typed局部失败、最终App与测试债，不扩大正文或准入关卡。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#材质管线只在准备边界编译"
+      "before": "58c29edb3fa9fa9be8e97ddab63d08ff1e9f2f3395f80b56af3c7aa7cda85c20",
+      "after": "ba77c8bcbb47aa5a71970cd2da4984c97531913ffd929cdc2258b1e93506181a",
+      "owner": "scene-session-text-production",
+      "reason": "在原文字/组件职责和唯一队列同步Session生产、每屏提交、旧路径退出及有界证据；不提高硬限或复制Skill快照。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#文字生产归会话提交快照归表面"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "b603b336ac0cdc48963ce309a6e00b2ba5010f6b88b111fc236924f4f832d242",
+      "after": "11fca75e542c90443acd0a455c4c8cfe623f70de1e85249de5749b734b72154a",
+      "owner": "scene-session-text-production",
+      "reason": "在原文字/组件职责和唯一队列同步Session生产、每屏提交、旧路径退出及有界证据；不提高硬限或复制Skill快照。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#文字生产归会话提交快照归表面"
     }
   ]
 }

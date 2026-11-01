@@ -1744,7 +1744,7 @@
       "owner": "Scene Session / typed programs and component owners",
       "status": "approved",
       "designDoc": "docs/scene/roadmap/engine-refactor-program.md",
-      "design_notes": "按架构级迁移合同固定可运行基线；文本统一原String VM，共享alpha沿原IR、同domain真实shared及scalar VM接管并撤旧语法/状态/帧合并。删除Bool投影中过时kind/utility形状关卡，模块寿命不代资源/graph消费准入；既有SourceRoute/UtilityRuntimePlanner保实际形态边界，不新增输出flag。保wall date、属性、事件、局部失败与实际退出；删除单一集合上的冗余互斥复验，保真实producer冲突。后续阶段按唯一队列细化实际owner再实施；不批准未设计的新能力，不授推送/发布或整体完成结论。 属性Program在构造/解码入口准备唯一validation/索引，实例只更新current/revision；退役外传validation与重复准备，保原Codable和实际consumer/值边界。 自然尺寸仅回填descriptor.sizeWH，保留不依赖尺寸的authored计划/visibility准备；物理target继续由后续preflight计算。 用户纹理由既有PreparedLaunch显式移交Session唯一活动结果，撤LaunchContext镜像与准备载体的异步整包捕获；保View GPU快照、真实异步身份和退场边界。 材质PSO只在既有graph/source准备边界编译，普通帧只消费；撤lazy miss编译、origin与孤立cacheFailure，缺准备结果按typed局部失败处理；合法遗漏回原warmup owner补计划。",
+      "design_notes": "按架构级迁移合同固定可运行基线；文本统一原String VM，共享alpha沿原IR、同domain真实shared及scalar VM接管并撤旧语法/状态/帧合并。删除Bool投影中过时kind/utility形状关卡，模块寿命不代资源/graph消费准入；既有SourceRoute/UtilityRuntimePlanner保实际形态边界，不新增输出flag。保wall date、属性、事件、局部失败与实际退出；删除单一集合上的冗余互斥复验，保真实producer冲突。后续阶段按唯一队列细化实际owner再实施；不批准未设计的新能力，不授推送/发布或整体完成结论。 属性Program在构造/解码入口准备唯一validation/索引，实例只更新current/revision；退役外传validation与重复准备，保原Codable和实际consumer/值边界。 自然尺寸仅回填descriptor.sizeWH，保留不依赖尺寸的authored计划/visibility准备；物理target继续由后续preflight计算。 用户纹理由既有PreparedLaunch显式移交Session唯一活动结果，撤LaunchContext镜像与准备载体的异步整包捕获；保View GPU快照、真实异步身份和退场边界。 材质PSO只在既有graph/source准备边界编译，普通帧只消费；撤lazy miss编译、origin与孤立cacheFailure，缺准备结果按typed局部失败处理；合法遗漏回原warmup owner补计划。 文字initial/dynamic生产由Session唯一Store承接，初始与动态统一layer-source publication，撤View seed merge；per-surface prepared/submitted几何仍归View。一次attempt固定同一publication，至少一次提交后用单份pending typed输入请求下一版；full stop沿既有retirement fence关闭并drain，单屏退役不关producer。 文字seed退出后同步退役唯一旧消费者使用的base-store merge入口。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextScript*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextMediaPropertiesCompiler.swift",
@@ -1771,7 +1771,14 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder+Warmup.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder+Failure.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+VisualFailurePassthrough.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+VisualFailurePassthrough.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneDynamicTextTextureStore.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+SceneScriptCursorInteraction.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceSubmission.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceTeardown.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+Shutdown.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneBaseImageTextureLoad.swift"
       ],
       "contentPatterns": []
     }

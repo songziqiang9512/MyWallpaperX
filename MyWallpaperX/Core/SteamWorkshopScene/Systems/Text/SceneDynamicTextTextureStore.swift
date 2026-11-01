@@ -20,8 +20,6 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
     private var currentRasters: [Int: SceneTextTextureLoader.RasterizedTexture]
     private var cachedSnapshot: Snapshot?
     private var snapshotDirty = true
-    private var preparedFrameSnapshot: Snapshot?
-    private var submittedFrameSnapshot: Snapshot?
 #if DEBUG
     private var debugLoggedDynamicLayers: Set<Int> = []
 #endif
@@ -146,13 +144,6 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
         }
     }
 
-    /// Stops admission without waiting for synchronous font drawing to return.
-    func close() {
-        lock.lock()
-        closeLocked()
-        lock.unlock()
-    }
-
     /// The tail runs after every admitted render has returned and released its
     /// temporary font/bitmap bytes. Admission and the tail share the same lock.
     func closeAndDrain(completion: @escaping @Sendable () -> Void) {
@@ -170,44 +161,9 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
         generationState.reset()
     }
 
-    /// Pins the currently published provider view for one host frame. Async
-    /// raster completion may replace `currentRasters` while another surface
-    /// is encoding; the host outcome decides when that replacement becomes
-    /// visible to the next frame.
-    func prepareFrame() -> Snapshot {
-        lock.lock()
-        defer { lock.unlock() }
-        if let preparedFrameSnapshot { return preparedFrameSnapshot }
-        let snapshot = makeSnapshotLocked()
-        preparedFrameSnapshot = snapshot
-        return snapshot
-    }
-
-    func commitPreparedFrame() {
-        lock.lock()
-        submittedFrameSnapshot = preparedFrameSnapshot ?? submittedFrameSnapshot
-        preparedFrameSnapshot = nil
-        lock.unlock()
-    }
-
-    /// Cursor callbacks run before the next texture frame is prepared. Use
-    /// the last submitted raster geometry, not a newer async-ready result.
-    func submittedSnapshot() -> Snapshot? {
-        lock.lock()
-        defer { lock.unlock() }
-        return submittedFrameSnapshot
-    }
-
-    func discardPreparedFrame() {
-        lock.lock()
-        preparedFrameSnapshot = nil
-        lock.unlock()
-    }
-
     func snapshot() -> Snapshot {
         lock.lock()
         defer { lock.unlock() }
-        if let preparedFrameSnapshot { return preparedFrameSnapshot }
         return makeSnapshotLocked()
     }
 

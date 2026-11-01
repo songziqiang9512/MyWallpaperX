@@ -56,7 +56,7 @@ App 产品意图与当前记录
 | 场景 preparation | Host.launchPreparationQueue 与既有资源/预热 worker | 产物发布到当前请求；取消后不接管新请求身份 |
 | 帧驱动、QuickJS、模拟与编码 | daemon 主 RunLoop；Session 使用一次性 Timer 排帧 | 激活时 VM adoptCurrentThread；搬线程必须一起迁移 VM、输入、Surface 和提交生命周期 |
 | 作者 Shader 编译 | 固定编译工具的独立子进程 | 输出 artifact/reflection；不持有桌面或 compositor |
-| MTLLibrary/PSO | PassEncoder 的缓存与后台 launch warmup，保留缺失项的准备入口 | 缓存命中及 warmup 不等于普通帧绝不发生准备 miss，应追实际调用再宣称成本消除 |
+| MTLLibrary/PSO | 既有graph/source准备入口写PassEncoder唯一正/负缓存 | 普通帧只查询；未准备key局部typed失败，合法遗漏回原warmup修正 |
 | 视频、文字、资源与存储 | 各已有 worker/inbox；Scene 在边界接纳结果 | pending 保留旧有效产物，迟到结果不能覆盖新来源 |
 | GPU 终结 | Metal completion 与既有 owner 回投 | 回调只提交原身份的完成事实；不能读取 mutable current 后重贴身份 |
 
@@ -106,7 +106,7 @@ App 产品意图与当前记录
 | decoded 中间缓存 | SceneTextureDecodeCacheBudget 与进程父额度共同约束；不命中或不保留中间缓存仍可沿原解码/上传路径播放 |
 | 用户选择纹理 | PreparedLaunch短期携初始结果，候选激活显式移交Session；Session保存唯一活动结果，View仅保存绘制快照。LaunchContext无纹理镜像，新表面读Session当前结果，旧绑定沿原completion/drain释放 |
 | 视频与 Sound | Session 的实际播放 registry 持有可变播放状态；私有媒体文件使用原 OwnedFile/AV borrower 生命周期，stop 不冒充全部 AV 借用已结束 |
-| 动态文字 | 每个 Surface 的动态文字 store 在后台生成完整 raster；提交新结果前保留旧结果；停止时关闭并等待已接纳工作 |
+| 动态文字 | Session唯一Store准备初始raster并后台更新；每attempt共享ready snapshot，View独立保存prepared/submitted几何。任一屏提交后消费单份pending输入；重建复用producer，完整stop挂既有retirement fence后清引用 |
 | 目标与 history | 原 Surface pool、graph target 与 completion owner 管理；受 SceneResourceBudget 父额度约束，history 与 submission pin 决定可释放时机 |
 | 运行属性与脚本状态 | Session 的 LaunchContext、frame schema 和 program；JS heap 不随 typed admission 失败复制或回滚 |
 | 帧资源发布 | 每个 Renderer 的 SceneFrameTextureRegistry；beginFrame、commit/discard 和完成信息共同确定可见版本 |

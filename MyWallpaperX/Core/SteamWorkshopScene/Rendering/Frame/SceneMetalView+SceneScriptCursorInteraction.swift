@@ -199,7 +199,7 @@ extension SceneMetalView {
             viewportSize: frameContext.screenSize,
             dynamicValues: dynamicValues
         )
-        let submittedText = dynamicTextTextures?.submittedSnapshot()
+        let submittedText = submittedTextSnapshot
         var hits: [Int: SceneScriptCursorHit] = [:]
         var projections: [Int: SceneScriptCursorHit] = [:]
         for ownerLayerID in ownerLayerIDs {

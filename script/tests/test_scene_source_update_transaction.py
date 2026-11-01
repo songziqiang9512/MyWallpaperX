@@ -429,30 +429,6 @@ enum Harness {
         self.assertEqual(output, "preserved")
 
 
-    def test_dynamic_text_provider_publishes_only_after_frame_submission(self) -> None:
-        view = VIEW.read_text(encoding="utf-8")
-        dynamic_text = DYNAMIC_TEXT.read_text(encoding="utf-8")
-        prepare = view.index(
-            "let dynamicTextSnapshot = dynamicTextTextures?.prepareFrame()"
-        )
-        local_discard = view.index(
-            "dynamicTextTextures?.discardPreparedFrame()", prepare
-        )
-        outcome = view.index("let outcome = renderer.renderFrame(", prepare)
-        pending = view.index("pendingDynamicTextUpdate = (", outcome)
-        commit = view.index("func commitPreparedDynamicTextUpdate()")
-        update = view.index("dynamicTextTextures?.update(", commit)
-
-        self.assertLess(prepare, outcome)
-        self.assertLess(outcome, local_discard)
-        self.assertLess(commit, update)
-        self.assertIn("func discardPreparedDynamicTextUpdate()", view)
-        self.assertIn("Dynamic text is asynchronous", view)
-        self.assertIn("private var generationState", dynamic_text)
-        self.assertIn("generationState.finish(request", dynamic_text)
-
-
-
 
 
 if __name__ == "__main__":

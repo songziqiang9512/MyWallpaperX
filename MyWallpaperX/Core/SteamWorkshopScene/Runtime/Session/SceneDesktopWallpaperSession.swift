@@ -89,6 +89,12 @@ final class SceneDesktopWallpaperSession {
     var pendingDeferredLayerVisibilityUpdate:
         PendingDeferredLayerVisibilityUpdate?
     var userPropertyTextureLoad: SceneUserPropertyTextureLoadResult = .empty
+    var dynamicTextTextures: SceneDynamicTextTextureStore?
+    var pendingDynamicTextUpdate: (
+        snapshot: SceneDynamicSnapshot,
+        dynamicLayers: [SceneRenderDescriptor.Layer],
+        dynamicTextFieldsByLayerID: [Int: Set<SceneDynamicTextField>]
+    )?
     var pendingUserTextureUpdates: [UInt64: PendingUserTextureUpdate] = [:]
     var latestUserTextureRevisions: [String: UInt64] = [:]
     var nextUserTextureGeneration: UInt64 = 1
@@ -548,8 +554,6 @@ final class SceneDesktopWallpaperSession {
                     .baseImages.textureLoader.decodeCacheBudget,
                 userPropertyTextureLoad: userPropertyTextureLoad,
                 userPropertyVideoSources: userVideoSources,
-                dynamicTextFieldsByLayerID:
-                    launchContext.frameSchema.dynamicTextFieldsByLayerID,
                 presentationStreamID: UInt64(screenID),
                 firstFramePresentationRegistration: {
                     [weak firstFramePresentationRegistration] drawable in
@@ -558,6 +562,36 @@ final class SceneDesktopWallpaperSession {
                 frame: frame
             ) else {
                 continue
+            }
+            var textLoadMessages: [String] = []
+            if dynamicTextTextures == nil {
+#if DEBUG
+                let recordsTextDiagnostics = launchContext.logURL != nil
+                let textEffectSummary: (SceneRenderDescriptor.Layer) -> String? = {
+                    [renderer = metalView.renderer] in renderer.effectRuntimeSummary(for: $0)
+                }
+#else
+                let recordsTextDiagnostics = false
+                let textEffectSummary: (SceneRenderDescriptor.Layer) -> String? = { _ in nil }
+#endif
+                let textLoad = SceneTextTextureLoader.load(
+                    descriptor: launchContext.runtimeInput.renderDescriptor,
+                    resourceView: launchContext.resourceView,
+                    device: launchContext.preparedDeviceResources.device,
+                    recordsDiagnostics: recordsTextDiagnostics,
+                    effectSummary: textEffectSummary
+                )
+                dynamicTextTextures = SceneDynamicTextTextureStore(
+                    descriptor: launchContext.runtimeInput.renderDescriptor,
+                    resourceView: launchContext.resourceView,
+                    device: launchContext.preparedDeviceResources.device,
+                    initialRasters: textLoad.rasters,
+                    dynamicTextFieldsByLayerID: launchContext.frameSchema.dynamicTextFieldsByLayerID,
+                    onPublication: { [weak self] store in
+                        DispatchQueue.main.async { [weak self] in self?.textTexturePublicationDidChange(store) }
+                    }
+                )
+                textLoadMessages = textLoad.messages
             }
 #if DEBUG
             if SceneDesktopWallpaperHost.usesDebugEvidenceWindow, screenID == surfaceScreens.last?.1,
@@ -579,7 +613,8 @@ final class SceneDesktopWallpaperSession {
                     preparedParticleVisibilityLayerIDs:
                         launchContext.preparedParticleVisibilityLayerIDs,
                     initialPlayback: launchContext.sceneScriptDynamicLayerRuntime.snapshot().particlePlayback,
-                    initialDynamicValues: initialParticleDynamicValues
+                    initialDynamicValues: initialParticleDynamicValues,
+                    textLoadMessages: textLoadMessages
                 )
             } else {
                 metalView.loadImageLayers(
@@ -595,6 +630,7 @@ final class SceneDesktopWallpaperSession {
                         launchContext.preparedParticleVisibilityLayerIDs,
                     initialPlayback: launchContext.sceneScriptDynamicLayerRuntime.snapshot().particlePlayback,
                     initialDynamicValues: initialParticleDynamicValues,
+                    textLoadMessages: textLoadMessages,
                     logURL: launchContext.logURL
                 )
 #if DEBUG
@@ -639,7 +675,7 @@ final class SceneDesktopWallpaperSession {
                         if self.initialPresentationCohort.isHeld {
                             // A publication notification has not changed this
                             // frozen frame. Do not replace its qualified output.
-                            if reason == .mediaPublication || reason == .textPublication { return }
+                            if reason == .mediaPublication { return }
                             let delivered = self.initialPresentationCohort.hasDelivered
                             self.initialPresentationCohort.invalidate()
                             if delivered {
@@ -685,6 +721,12 @@ final class SceneDesktopWallpaperSession {
         }
         videoTextureSourceRegistry.retire(layerIDs: committedTopology.destroyedAuthoredLayerIDs)
         return prepareInitialVideos()
+    }
+
+    func textTexturePublicationDidChange(_ store: SceneDynamicTextTextureStore) {
+        guard dynamicTextTextures === store, !initialPresentationCohort.isHeld else { return }
+        for surface in surfaces.values { surface.didSubmitSimulationFrame = false }
+        if sceneClock.isPaused || awaitsInitialPresentation { startFrameDriver() }
     }
 
     private static func screenID(for screen: NSScreen) -> CGDirectDisplayID? {

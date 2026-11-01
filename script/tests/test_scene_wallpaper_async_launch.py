@@ -207,6 +207,9 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
         # checks the Release value and lazy summary rather than their spelling.
         start = load.index("#if DEBUG")
         branch = load[start:load.index("#endif", start) + len("#endif")]
+        session = (FRAME_DRIVER.parent / "SceneDesktopWallpaperSession.swift").read_text(encoding="utf-8")
+        text_start = session.index("#if DEBUG\n                let recordsTextDiagnostics")
+        text_branch = session[text_start:session.index("#endif", text_start) + len("#endif")]
         buffer = "struct SceneStartupReportBuffer " + function_body(
             self.metal_view, "struct SceneStartupReportBuffer"
         )
@@ -220,20 +223,24 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
                 return "effect"
             }
         }
+        struct View { let renderer: Renderer }
+        struct LaunchContext { let logURL: URL? }
         @main enum Check {
             static func main() {
                 let renderer = Renderer()
+                let metalView = View(renderer: renderer)
                 let logURLs: [URL?] = [nil, URL(fileURLWithPath: "/unused-report")]
                 for logURL in logURLs {
-        ''' + branch + r'''
+                    let launchContext = LaunchContext(logURL: logURL)
+        ''' + branch + "\n" + text_branch + r'''
         #if DEBUG
                     report.append("probe")
-                    precondition(recordsDiagnostics == (logURL != nil))
+                    precondition(recordsTextDiagnostics == (logURL != nil))
                     let previousSummaries = renderer.summaries
                     precondition(textEffectSummary(.init()) == "effect")
                     precondition(renderer.summaries == previousSummaries + 1)
         #else
-                    precondition(!recordsDiagnostics)
+                    precondition(!recordsTextDiagnostics)
                     precondition(textEffectSummary(.init()) == nil)
                     precondition(renderer.summaries == 0)
         #endif
@@ -257,7 +264,7 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
                 executed = subprocess.run([str(binary)], capture_output=True, text=True)
                 self.assertEqual(executed.returncode, 0, executed.stdout + executed.stderr)
                 self.assertIn("launch-diagnostic-input-pass", executed.stdout)
-        self.assertIn("recordsDiagnostics: recordsDiagnostics", load)
+        self.assertIn("recordsDiagnostics: recordsTextDiagnostics", session)
         self.assertGreaterEqual(self.text_loader.count("if recordsDiagnostics"), 2)
         self.assertIn("renderer.installResolvedMaterialExecutionEvidence()", load)
         self.assertIn("installExecutionEvidence(", install)

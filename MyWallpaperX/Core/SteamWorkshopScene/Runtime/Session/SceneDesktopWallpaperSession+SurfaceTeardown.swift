@@ -29,7 +29,6 @@ extension SceneDesktopWallpaperSession {
         frameDriverDeadline = nil
         pausedFrameRetryDeadline = nil
         for surface in surfaces.values {
-            surface.metalView.dynamicTextTextures?.close()
             surface.metalView.invalidateResolvedMaterialRuntime(reason: reason)
             surface.metalView.teardownParticlePlayback(reason: reason)
             surface.window.orderOut(nil)
@@ -52,6 +51,13 @@ extension SceneDesktopWallpaperSession {
         }
 #endif
         if clearContext {
+            pendingDynamicTextUpdate = nil
+            if let dynamicTextTextures {
+                let retirementDrain = retiringSurfaceDrain
+                retirementDrain.enter()
+                dynamicTextTextures.closeAndDrain { retirementDrain.leave() }
+                self.dynamicTextTextures = nil
+            }
             SceneSystemMediaDemandRegistry.shared.release(lifecycleID)
             if let launchContext {
                 teardownSceneScriptOwners(launchContext, reason: reason)

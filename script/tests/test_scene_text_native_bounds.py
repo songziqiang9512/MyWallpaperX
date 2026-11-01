@@ -246,8 +246,11 @@ struct SceneRenderDescriptor {
         func observeRead() {
             let isOpen = (3..<256).contains { descriptor in
                 var path = [CChar](repeating: 0, count: Int(MAXPATHLEN))
-                return fcntl(Int32(descriptor), F_GETPATH, &path) == 0
-                    && observedPaths.contains(String(cString: path))
+                guard fcntl(Int32(descriptor), F_GETPATH, &path) == 0 else { return false }
+                // F_GETPATH may retain /var while Foundation resolves /private/var.
+                let observed = URL(fileURLWithPath: String(cString: path))
+                    .resolvingSymlinksInPath().standardizedFileURL.path
+                return observedPaths.contains(observed)
             }
             if isOpen && !wasOpen { readStarts += 1 }
             wasOpen = isOpen
