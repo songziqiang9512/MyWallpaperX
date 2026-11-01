@@ -16,7 +16,7 @@ from web_wallpaper_benchmark import load_sample_matrix
 class CIReleaseRoutingTests(unittest.TestCase):
     def test_screen_saver_sources_require_a_build(self):
         registry = verify.load_registry()
-        paths = ['ScreenSaverSources/MyWallpaperXScreenSaverView.swift', 'ScreenSaverSources/Info.plist']
+        paths = ['ScreenSaverSources/Native/SystemWallpaperRuntime.swift', 'ScreenSaverSources/Info.plist']
         for phase in ('checkpoint', 'integration'):
             for path in paths:
                 with self.subTest(phase=phase, path=path):

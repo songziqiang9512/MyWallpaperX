@@ -8,15 +8,14 @@ import json
 import plistlib
 import re
 import stat
-import struct
 import subprocess
 from pathlib import Path
 
 
-OWN_TARGETS = ("MyWallpaperX", "MyWallpaperXWallpaperDaemon", "MyWallpaperXScreenSaver")
+OWN_TARGETS = ("MyWallpaperX", "MyWallpaperXWallpaperDaemon", "MyWallpaperXSystemWallpaper")
 CONFIGURATIONS = ("Debug", "Release")
 MINIMUM_MACOS = "26.0"
-SCREEN_SAVER_BUNDLE = Path("Contents/PlugIns/MyWallpaperX.saver")
+SCREEN_SAVER_BUNDLE = Path("Contents/Extensions/MyWallpaperXSystemWallpaper.appex")
 REQUIRED_BUNDLE_EXECUTABLES = (
     Path("Contents/MacOS/MyWallpaperX"),
     Path("Contents/Helpers/MyWallpaperXWallpaperDaemon"),
@@ -24,7 +23,7 @@ REQUIRED_BUNDLE_EXECUTABLES = (
     Path("Contents/Helpers/spirv-cross"),
     Path("Contents/Resources/SteamService/SteamService"),
     Path("Contents/Resources/SceneMediaObserver/SceneMediaObserver.dylib"),
-    SCREEN_SAVER_BUNDLE / "Contents/MacOS/MyWallpaperX",
+    SCREEN_SAVER_BUNDLE / "Contents/MacOS/MyWallpaperXSystemWallpaper",
 )
 THIRD_PARTY_HELPERS = {
     Path("Contents/Helpers/glslang"),
@@ -223,6 +222,9 @@ def validate_resource_hygiene(app: Path, *, include_quickjs: bool = True) -> Non
 
 
 def validate_screen_saver(app: Path) -> None:
+    for retired in ("Contents/PlugIns/MyWallpaperX.saver", "Contents/PlugIns/MyWallpaperXSystemWallpaper.appex"):
+        if (app / retired).exists():
+            raise RuntimeError(f"Retired or misplaced system wallpaper component remains bundled: {retired}")
     saver = app / SCREEN_SAVER_BUNDLE
     try:
         info = plistlib.loads((saver / "Contents/Info.plist").read_bytes())
@@ -230,10 +232,9 @@ def validate_screen_saver(app: Path) -> None:
     except (OSError, ValueError, plistlib.InvalidFileException) as error:
         raise RuntimeError("ScreenSaver or App bundle metadata is missing or invalid") from error
     expected = {
-        "CFBundleIdentifier": "com.songziqiang.MyWallpaperX.ScreenSaver",
-        "CFBundleExecutable": "MyWallpaperX",
-        "CFBundlePackageType": "BNDL",
-        "NSPrincipalClass": "MyWallpaperXScreenSaverView",
+        "CFBundleIdentifier": "com.songziqiang.MyWallpaperX.WallpaperExtension",
+        "CFBundleExecutable": "MyWallpaperXSystemWallpaper",
+        "CFBundlePackageType": "XPC!",
         "LSMinimumSystemVersion": MINIMUM_MACOS,
     }
     if not isinstance(info, dict) or not isinstance(app_info, dict):
@@ -241,6 +242,8 @@ def validate_screen_saver(app: Path) -> None:
     for key, value in expected.items():
         if info.get(key) != value:
             raise RuntimeError(f"Unexpected ScreenSaver metadata: {key} -> {info.get(key)!r}")
+    if info.get("EXAppExtensionAttributes", {}).get("EXExtensionPointIdentifier") != "com.apple.wallpaper":
+        raise RuntimeError("Unexpected native wallpaper extension point")
     for key in ("CFBundleShortVersionString", "CFBundleVersion"):
         if not isinstance(app_info.get(key), str) or not app_info[key] or info.get(key) != app_info[key]:
             raise RuntimeError(f"ScreenSaver version differs from App: {key}")
@@ -253,17 +256,8 @@ def validate_screen_saver(app: Path) -> None:
     resources = saver / "Contents/Resources"
     if resources.is_dir():
         for path in resources.iterdir():
-            if path.name not in {"LICENSE", "NOTICE.md", "thumbnail.png", "thumbnail@2x.png"}:
+            if path.name not in {"LICENSE", "NOTICE.md"}:
                 raise RuntimeError(f"Unexpected Video-only ScreenSaver resource: {path.name}")
-    for name, dimensions in (("thumbnail.png", (90, 58)), ("thumbnail@2x.png", (180, 116))):
-        try:
-            with (resources / name).open("rb") as image:
-                header = image.read(24)
-            valid = header[:8] == b"\x89PNG\r\n\x1a\n" and struct.unpack(">II", header[16:24]) == dimensions
-        except (OSError, struct.error):
-            valid = False
-        if not valid:
-            raise RuntimeError(f"Missing or invalid ScreenSaver thumbnail: {name}")
     validate_resource_hygiene(saver, include_quickjs=False)
 
 
@@ -349,8 +343,15 @@ def validate_codesign(app: Path, expected_team_id: str | None = None) -> None:
         if entitlements.get("com.apple.security.get-task-allow") is True:
             raise RuntimeError(f"Development debugging entitlement in release: {path}")
     saver = app / SCREEN_SAVER_BUNDLE
-    if signed_entitlements(saver) != {}:
-        raise RuntimeError("Unexpected ScreenSaver signed entitlements; its Apple host owns permissions")
+    groups = signed_entitlements(app).get("com.apple.security.application-groups")
+    if (not isinstance(groups, list) or len(groups) != 1 or not isinstance(groups[0], str)
+            or not groups[0].endswith(".MWX")
+            or (expected_team_id is not None and groups != [f"{expected_team_id}.MWX"])):
+        raise RuntimeError("App shared-container entitlement is missing or incorrect")
+    expected_saver = {"com.apple.security.app-sandbox": True,
+                      "com.apple.security.application-groups": groups}
+    if signed_entitlements(saver) != expected_saver:
+        raise RuntimeError("Unexpected ScreenSaver signed entitlements; native host requires sandbox and shared group")
     sparkle = app / "Contents/Frameworks/Sparkle.framework/Versions/B"
     try:
         metadata = plistlib.loads((sparkle / "Resources/Info.plist").read_bytes())

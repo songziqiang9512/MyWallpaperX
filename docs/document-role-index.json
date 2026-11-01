@@ -184,13 +184,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/README.md",
-      "lastReviewed": "2026-10-29",
+      "lastReviewed": "2026-11-01",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f16f8bc58803ed26cd5df614b8f0da89c28ec9029fa368da747ed2b625c800c2",
+        "sourceSHA256": "fe0fc309f0e301dfb1e610ca9d1691d02e8577ff70c008b9e556e331a981fa1d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "屏保明确收敛为AVFoundation独立视频组件，保留主App原Scene/Web桌面职责与系统认证边界。",
-        "limitations": "仅文档和接线静态复核；不代表最终Release、公证、真实系统宿主或功耗资格已通过。"
+        "scope": "复核本批单一Video原生屏保、不干涉桌面、唯一发布与AppGroup/签名路由；主动即时锁屏明确未完成。",
+        "limitations": "导航及本批接线边界复核；不重授其他引擎运行、正式时间戳/公证、macOS26真机或P3锁定/功耗资格。"
       }
     },
     {
@@ -209,7 +209,7 @@
       "path": "docs/development/lock-screen-screensaver-design.md",
       "role": "active-plan",
       "entrypoint": "docs/README.md",
-      "retirementCondition": "仅Video的组件、App接线、真实系统宿主和资源验收完成后由稳定系统集成合同接管；已撤销的Scene/Web屏保及私有动态锁屏不在授权范围内。"
+      "retirementCondition": "Video原生动态锁屏与屏保的单组件、唯一发布、App接线及分阶段真实宿主验收完成后由稳定合同接管；Scene/Web屏保继续退役。"
     },
     {
       "path": "docs/development/main-window-playlists-redesign.md",
@@ -632,13 +632,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/release/bundle-content.md",
-      "lastReviewed": "2026-10-29",
+      "lastReviewed": "2026-11-01",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6eaee29bd739759d241fd06f971a6de8bf2be8035d3214d4501f8393e33b9d08",
+        "sourceSHA256": "c04336ae618e8364d61d4e73bdf4a1c0d4e6d5d883d7a53e49ddbe9af31cad5d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "轻量视频组件沿原版本、arm64、inside-out签名和符号包发布；撤销其shader助手与大资源要求，主App签名不变。",
-        "limitations": "仅文档和接线静态复核；不代表最终Release、公证、真实系统宿主或功耗资格已通过。"
+        "scope": "复核Video原生锁屏/屏保单组件、唯一发布、App Group及签名路由；同步当前owner与文档入口。",
+        "limitations": "导航及本批接线边界复核；不重授其他引擎运行、正式时间戳/公证、macOS26真机或P3锁定/功耗资格。"
       }
     },
     {

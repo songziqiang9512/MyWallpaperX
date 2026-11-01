@@ -5611,12 +5611,14 @@
         "MyWallpaperX/App/ScreenSaver*.swift",
         "MyWallpaperX/Models/ScreenSaverPreferences.swift",
         "MyWallpaperX/Shared/VideoStillFrame.swift",
-        "script/generate_screen_saver_thumbnails.swift",
         "script/tests/test_screen_saver_integration.py",
+        "script/tests/test_system_wallpaper_wire.py",
+        "script/tests/fixtures/SystemWallpaper*.swift",
         "script/tests/fixtures/ScreenSaver*.swift"
       ],
       "modules": [
         "test_screen_saver_integration",
+        "test_system_wallpaper_wire",
         "test_wallpaper_playlist_picker",
         "test_personal_settings_import",
         "test_playback_policy_delivery",

@@ -7,12 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A50000012FA10001005688A8 /* MyWallpaperX.saver in Embed Screen Saver */ = {isa = PBXBuildFile; fileRef = A50000112FA10001005688A8 /* MyWallpaperX.saver */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
-		A50000022FA10001005688A8 /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000122F6B0001005688A8 /* AppKit.framework */; };
-		A50000032FA10001005688A8 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000132F6B0001005688A8 /* AVFoundation.framework */; };
-		A50000042FA10001005688A8 /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000142F6B0001005688A8 /* CoreGraphics.framework */; };
-		A50000052FA10001005688A8 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000152F6B0001005688A8 /* QuartzCore.framework */; };
-		A50000062FA10001005688A8 /* ScreenSaver.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A50000122FA10001005688A8 /* ScreenSaver.framework */; };
+		A50000012FA10001005688A8 /* MyWallpaperXSystemWallpaper.appex in Embed System Wallpaper */ = {isa = PBXBuildFile; fileRef = A60000112FB10001005688A8 /* MyWallpaperXSystemWallpaper.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		A50000092FA10001005688A8 /* LICENSE in Screen Saver Resources */ = {isa = PBXBuildFile; fileRef = F80000112F810001005688A8 /* LICENSE */; };
 		A500000A2FA10001005688A8 /* NOTICE.md in Screen Saver Resources */ = {isa = PBXBuildFile; fileRef = F80000122F810001005688A8 /* NOTICE.md */; };
 		F80000012F810001005688A8 /* LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = F80000112F810001005688A8 /* LICENSE */; };
@@ -32,23 +27,23 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		A50000712FA10001005688A8 /* Screen Saver target proxy */ = {
+		A50000712FA10001005688A8 /* System Wallpaper target proxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 98CED6312F6AF877005688A8 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = A50000412FA10001005688A8;
-			remoteInfo = MyWallpaperXScreenSaver;
+			remoteGlobalIDString = A60000412FB10001005688A8;
+			remoteInfo = MyWallpaperXSystemWallpaper;
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		A50000352FA10001005688A8 /* Embed Screen Saver */ = {
+		A50000352FA10001005688A8 /* Embed System Wallpaper */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
-			dstPath = Contents/PlugIns;
+			dstPath = Contents/Extensions;
 			dstSubfolderSpec = 1;
-			files = (A50000012FA10001005688A8 /* MyWallpaperX.saver in Embed Screen Saver */, );
-			name = "Embed Screen Saver";
+			files = (A50000012FA10001005688A8 /* MyWallpaperXSystemWallpaper.appex in Embed System Wallpaper */, );
+			name = "Embed System Wallpaper";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F80000312F810001005688A8 /* Embed QuickJS license */ = {
@@ -77,8 +72,6 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		A50000112FA10001005688A8 /* MyWallpaperX.saver */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MyWallpaperX.saver; sourceTree = BUILT_PRODUCTS_DIR; };
-		A50000122FA10001005688A8 /* ScreenSaver.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ScreenSaver.framework; path = System/Library/Frameworks/ScreenSaver.framework; sourceTree = SDKROOT; };
 		F80000112F810001005688A8 /* LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE; sourceTree = SOURCE_ROOT; };
 		F80000122F810001005688A8 /* NOTICE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = NOTICE.md; sourceTree = SOURCE_ROOT; };
 		F80000132F810001005688A8 /* QuickJSNG LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; name = "QuickJSNG LICENSE"; path = MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/LICENSE; sourceTree = SOURCE_ROOT; };
@@ -92,17 +85,13 @@
 		A30000112F810001005688A8 /* MyWallpaperX/Resources/SceneShaderCompilerTools/glslang */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; path = MyWallpaperX/Resources/SceneShaderCompilerTools/glslang; sourceTree = SOURCE_ROOT; };
 		A30000122F810002005688A8 /* MyWallpaperX/Resources/SceneShaderCompilerTools/spirv-cross */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; path = "MyWallpaperX/Resources/SceneShaderCompilerTools/spirv-cross"; sourceTree = SOURCE_ROOT; };
 		F70000112F810001005688A8 /* MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneDistanceFog.metalh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneDistanceFog.metalh; sourceTree = SOURCE_ROOT; };
+		A60000112FB10001005688A8 /* MyWallpaperXSystemWallpaper.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MyWallpaperXSystemWallpaper.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		A50000262FA10001005688A8 /* Exceptions for ScreenSaverSources in MyWallpaperXScreenSaver */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (Info.plist, );
-			target = A50000412FA10001005688A8 /* MyWallpaperXScreenSaver */;
-		};
 		A50000292FA10001005688A8 /* Exceptions for ScreenSaverSources in MyWallpaperX */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (Info.plist, MyWallpaperXScreenSaverView.swift, thumbnail.png, "thumbnail@2x.png", );
+			membershipExceptions = (Info.plist, ScreenSaver.entitlements, Native/SystemWallpaperCatalog.swift, Native/SystemWallpaperConnection.swift, Native/SystemWallpaperHostProtocol.swift, Native/SystemWallpaperRuntime.swift, Native/SystemWallpaperVideoSurface.swift, Native/SystemWallpaperWire.swift, );
 			target = 98CED6382F6AF877005688A8 /* MyWallpaperX */;
 		};
 		98CED6592F6AF9E3005688A8 /* Exceptions for "MyWallpaperX" folder in "MyWallpaperX" target */ = {
@@ -129,6 +118,11 @@
 			);
 			target = A10000412F6B0001005688A8 /* MyWallpaperXWallpaperDaemon */;
 		};
+		A60000262FB10001005688A8 /* Exceptions for ScreenSaverSources */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (Info.plist, ScreenSaver.entitlements, );
+			target = A60000412FB10001005688A8 /* MyWallpaperXSystemWallpaper */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -153,19 +147,13 @@
 		};
 		A50000212FA10001005688A8 /* ScreenSaverSources */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (A50000262FA10001005688A8 /* Exceptions for ScreenSaverSources in MyWallpaperXScreenSaver */, A50000292FA10001005688A8 /* Exceptions for ScreenSaverSources in MyWallpaperX */, );
+			exceptions = (A60000262FB10001005688A8 /* Exceptions for Native System Wallpaper */, A50000292FA10001005688A8 /* Exceptions for ScreenSaverSources in MyWallpaperX */, );
 			path = ScreenSaverSources;
 			sourceTree = SOURCE_ROOT;
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		A50000312FA10001005688A8 /* Screen Saver Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (A50000022FA10001005688A8, A50000032FA10001005688A8, A50000042FA10001005688A8, A50000052FA10001005688A8, A50000062FA10001005688A8, );
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		98CED6362F6AF877005688A8 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -186,6 +174,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A60000312FB10001005688A8 /* System Wallpaper Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -210,7 +199,7 @@
 			children = (
 				98CED6392F6AF877005688A8 /* MyWallpaperX.app */,
 				A10000112F6B0001005688A8 /* MyWallpaperXWallpaperDaemon */,
-				A50000112FA10001005688A8 /* MyWallpaperX.saver */,
+				A60000112FB10001005688A8 /* MyWallpaperXSystemWallpaper.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -233,7 +222,6 @@
 				A10000132F6B0001005688A8 /* AVFoundation.framework */,
 				A10000142F6B0001005688A8 /* CoreGraphics.framework */,
 				A10000152F6B0001005688A8 /* QuartzCore.framework */,
-				A50000122FA10001005688A8 /* ScreenSaver.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -254,12 +242,12 @@
 				A40000022F810003005688A8 /* Embed stock runtime assets */,
 				A40000032F810003005688A8 /* Build Scene media observer */,
 				A40000042F810003005688A8 /* Generate Scene shader cache identity */,
-				A50000352FA10001005688A8 /* Embed Screen Saver */,
+				A50000352FA10001005688A8 /* Embed System Wallpaper */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				A50000722FA10001005688A8 /* MyWallpaperXScreenSaver */,
+				A50000722FA10001005688A8 /* MyWallpaperXSystemWallpaper */,
 			);
 			fileSystemSynchronizedGroups = (
 				98CED63B2F6AF877005688A8 /* MyWallpaperX */,
@@ -294,18 +282,18 @@
 			productReference = A10000112F6B0001005688A8 /* MyWallpaperXWallpaperDaemon */;
 			productType = "com.apple.product-type.tool";
 		};
-		A50000412FA10001005688A8 /* MyWallpaperXScreenSaver */ = {
+		A60000412FB10001005688A8 /* MyWallpaperXSystemWallpaper */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = A50000612FA10001005688A8 /* Build configuration list for MyWallpaperXScreenSaver */;
-			buildPhases = (A50000332FA10001005688A8 /* Screen Saver Sources */, A50000312FA10001005688A8 /* Screen Saver Frameworks */, A50000322FA10001005688A8 /* Screen Saver Resources */, );
+			buildConfigurationList = A60000612FB10001005688A8 /* Build configuration list for MyWallpaperXSystemWallpaper */;
+			buildPhases = (A60000332FB10001005688A8 /* System Wallpaper Sources */, A60000312FB10001005688A8 /* System Wallpaper Frameworks */, A60000322FB10001005688A8 /* System Wallpaper Resources */, );
 			buildRules = ();
 			dependencies = ();
 			fileSystemSynchronizedGroups = (A50000212FA10001005688A8 /* ScreenSaverSources */, );
-			name = MyWallpaperXScreenSaver;
+			name = MyWallpaperXSystemWallpaper;
 			packageProductDependencies = ();
-			productName = MyWallpaperX;
-			productReference = A50000112FA10001005688A8 /* MyWallpaperX.saver */;
-			productType = "com.apple.product-type.bundle";
+			productName = MyWallpaperXSystemWallpaper;
+			productReference = A60000112FB10001005688A8 /* MyWallpaperXSystemWallpaper.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -323,7 +311,7 @@
 					A10000412F6B0001005688A8 = {
 						CreatedOnToolsVersion = 26.3;
 					};
-					A50000412FA10001005688A8 = {
+					A60000412FB10001005688A8 = {
 						CreatedOnToolsVersion = 27.0;
 					};
 				};
@@ -348,18 +336,12 @@
 			targets = (
 				98CED6382F6AF877005688A8 /* MyWallpaperX */,
 				A10000412F6B0001005688A8 /* MyWallpaperXWallpaperDaemon */,
-				A50000412FA10001005688A8 /* MyWallpaperXScreenSaver */,
+				A60000412FB10001005688A8 /* MyWallpaperXSystemWallpaper */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		A50000322FA10001005688A8 /* Screen Saver Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (A50000092FA10001005688A8 /* LICENSE in Screen Saver Resources */, A500000A2FA10001005688A8 /* NOTICE.md in Screen Saver Resources */, );
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		98CED6372F6AF877005688A8 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -371,6 +353,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A60000322FB10001005688A8 /* System Wallpaper Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (A50000092FA10001005688A8 /* LICENSE */, A500000A2FA10001005688A8 /* NOTICE.md */, ); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
@@ -443,12 +426,6 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		A50000332FA10001005688A8 /* Screen Saver Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = ();
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		98CED6352F6AF877005688A8 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -463,77 +440,18 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A60000332FB10001005688A8 /* System Wallpaper Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		A50000722FA10001005688A8 /* MyWallpaperXScreenSaver */ = {
+		A50000722FA10001005688A8 /* MyWallpaperXSystemWallpaper */ = {
 			isa = PBXTargetDependency;
-			target = A50000412FA10001005688A8 /* MyWallpaperXScreenSaver */;
-			targetProxy = A50000712FA10001005688A8 /* Screen Saver target proxy */;
+			target = A60000412FB10001005688A8 /* MyWallpaperXSystemWallpaper */;
+			targetProxy = A50000712FA10001005688A8 /* System Wallpaper target proxy */;
 		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		A50000512FA10001005688A8 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_IDENTITY = "Developer ID Application";
-				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 285;
-				DEVELOPMENT_TEAM = H9QWU9XN8R;
-				ENABLE_APP_SANDBOX = NO;
-				ENABLE_HARDENED_RUNTIME = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = NO;
-				EXCLUDED_SOURCE_FILE_NAMES = ("$(inherited)", AGENTS.md, CLAUDE.md, .DS_Store, .mimosa, "*.source", "sess_*.json", );
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = ScreenSaverSources/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@loader_path/../Frameworks", );
-				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MACH_O_TYPE = mh_bundle;
-				MARKETING_VERSION = 2.12.1;
-				PRODUCT_BUNDLE_IDENTIFIER = com.songziqiang.MyWallpaperX.ScreenSaver;
-				PRODUCT_MODULE_NAME = MyWallpaperXScreenSaver;
-				PRODUCT_NAME = MyWallpaperX;
-				SKIP_INSTALL = YES;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				WRAPPER_EXTENSION = saver;
-			};
-			name = Debug;
-		};
-		A50000522FA10001005688A8 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_IDENTITY = "Developer ID Application";
-				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 285;
-				DEVELOPMENT_TEAM = H9QWU9XN8R;
-				ENABLE_APP_SANDBOX = NO;
-				ENABLE_HARDENED_RUNTIME = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = NO;
-				EXCLUDED_SOURCE_FILE_NAMES = ("$(inherited)", AGENTS.md, CLAUDE.md, .DS_Store, .mimosa, "*.source", "sess_*.json", );
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = ScreenSaverSources/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@loader_path/../Frameworks", );
-				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MACH_O_TYPE = mh_bundle;
-				MARKETING_VERSION = 2.12.1;
-				PRODUCT_BUNDLE_IDENTIFIER = com.songziqiang.MyWallpaperX.ScreenSaver;
-				PRODUCT_MODULE_NAME = MyWallpaperXScreenSaver;
-				PRODUCT_NAME = MyWallpaperX;
-				SKIP_INSTALL = YES;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				WRAPPER_EXTENSION = saver;
-			};
-			name = Release;
-		};
 		98CED6452F6AF879005688A8 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -810,15 +728,59 @@
 			};
 			name = Release;
 		};
+		A60000512FB10001005688A8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = ScreenSaverSources/ScreenSaver.entitlements;
+				CODE_SIGN_IDENTITY = "Developer ID Application";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 285;
+				DEVELOPMENT_TEAM = H9QWU9XN8R;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ScreenSaverSources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/../Frameworks", "@executable_path/../../../../Frameworks", );
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 2.12.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.songziqiang.MyWallpaperX.WallpaperExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		A60000522FB10001005688A8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = ScreenSaverSources/ScreenSaver.entitlements;
+				CODE_SIGN_IDENTITY = "Developer ID Application";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 285;
+				DEVELOPMENT_TEAM = H9QWU9XN8R;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ScreenSaverSources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/../Frameworks", "@executable_path/../../../../Frameworks", );
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 2.12.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.songziqiang.MyWallpaperX.WallpaperExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		A50000612FA10001005688A8 /* Build configuration list for MyWallpaperXScreenSaver */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (A50000512FA10001005688A8 /* Debug */, A50000522FA10001005688A8 /* Release */, );
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		98CED6342F6AF877005688A8 /* Build configuration list for PBXProject "MyWallpaperX" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -846,6 +808,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		A60000612FB10001005688A8 /* Build configuration list for MyWallpaperXSystemWallpaper */ = {isa = XCConfigurationList; buildConfigurations = (A60000512FB10001005688A8 /* Debug */, A60000522FB10001005688A8 /* Release */, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */

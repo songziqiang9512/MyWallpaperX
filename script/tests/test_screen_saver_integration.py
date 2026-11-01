@@ -3,8 +3,8 @@
 The publisher, configuration codec and VideoStillFrame are compiled unchanged.
 The fixture uses isolated files and a FileManager delegate to order real copies;
 no engine value declarations or replacement publication owner are supplied.
-Installation uses a real isolated, locally signed bundle to check code identity
-changes at an unchanged version without substituting an identity provider.
+Legacy removal checks an isolated bundle's actual identity metadata; shared-root migration
+executes the actual atomic directory/link exchange and verifies retained inode.
 The thumbnail gate executes the actual UI request/fallback/cancel methods with
 controlled source and disk completion leaves; it does not render UI pixels.
 The activity gate records only the policy-effect call; it compiles the actual
@@ -104,7 +104,7 @@ class ScreenSaverIntegrationTests(unittest.TestCase):
             print(json.dumps(checks, sort_keys=True))
         self.assertEqual(identities, {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs})
 
-    def test_real_video_publication_cancellation_leases_and_installation(self):
+    def test_real_video_publication_cancellation_leases_and_storage_migration(self):
         sources = [ROOT / path for path in (
             "MyWallpaperX/Core/System/ScreenSaverIntegration.swift",
             "MyWallpaperX/Shared/VideoStillFrame.swift",

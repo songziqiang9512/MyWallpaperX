@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 36,
-      "bytes": 8451
+      "bytes": 8545
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 80,
@@ -26,7 +26,7 @@
     },
     "docs/architecture/technology-stack-boundaries.md": {
       "lines": 261,
-      "bytes": 26983
+      "bytes": 27233
     },
     "docs/development/apple-silicon-optimization-plan.md": {
       "lines": 554,
@@ -50,7 +50,7 @@
     },
     "docs/release/release-signing.md": {
       "lines": 164,
-      "bytes": 13104
+      "bytes": 13288
     },
     "docs/scene/architecture/capability-dependency-map.md": {
       "lines": 220,
@@ -345,8 +345,8 @@
       "bytes": 37435
     },
     "docs/development/lock-screen-screensaver-design.md": {
-      "lines": 84,
-      "bytes": 17721
+      "lines": 117,
+      "bytes": 23214
     },
     "docs/scene/architecture/dynamic-layer-storage-design.md": {
       "lines": 34,
@@ -1495,15 +1495,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/architecture/repository-map.md",
-      "before": "496f292655c3baf3270063898925daf077ea78696a873daf6de71c0b9e00d750",
-      "after": "821783bf0ecf85b96934cd79f620237e1f0f1a50872e19381b58c48e1651bfb6",
-      "owner": "lock-screen-screensaver-design",
-      "reason": "登记视频屏保与共享App面板的唯一职责入口，不复制专项验收状态。",
-      "decision": "docs/development/lock-screen-screensaver-design.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/development/apple-silicon-optimization-plan.md",
       "before": "c09aa27626c7d2b0bb9141f79dc08139f4541ef283a056e69d762106981ddf7f",
       "after": "43ef68fa6c7c2930071ac93f644dbae61860118a57fc4300d2086683c3e1cc8c",
@@ -1717,33 +1708,6 @@
       "owner": "scene-geometry-named-publication",
       "reason": "Clarify existing geometry PMA publication boundary, preserve direct-copy content, and record bounded first-frame closure without claiming full sample or pixel-probe acceptance.",
       "decision": "docs/scene/architecture/runtime-architecture.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/lock-screen-screensaver-design.md",
-      "before": "229cb069609b0869c83c69cae04f45dc65bd72d182569e8638a2c3342559934e",
-      "after": "e7244b976f0eb1273c456d14f14363c7f073062671cb2f81ed5e2d344f552b69",
-      "owner": "lock-screen-screensaver-design",
-      "reason": "用最终整合Debug/Release、实际安装图标、签名符号和循环停止重启证据替换待验描述；保留真实锁屏与正式公证未覆盖边界，不改产品或其他专项预算。",
-      "decision": "docs/development/lock-screen-screensaver-design.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/architecture/technology-stack-boundaries.md",
-      "before": "27693b3b1884bff0272163c7446474cc090e379b33d5c24a17ff62237cc2b324",
-      "after": "e2b73234cfc58c5c33752a11dcbbe2e9b55a95ca1e76d0ac2b1267ca1e5b135a",
-      "owner": "lock-screen-screensaver-design",
-      "reason": "屏保明确收敛为AVFoundation独立视频组件，保留主App原Scene/Web桌面职责与系统认证边界。",
-      "decision": "docs/development/lock-screen-screensaver-design.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/release/release-signing.md",
-      "before": "cefc78996056700f33ba3e086c55189b3f82c4f89f65633abdd8af5117863a30",
-      "after": "b08aeefa06d35bb11fe31b6da32bbed0871d3089725bfa0652d5c5c486513726",
-      "owner": "lock-screen-screensaver-design",
-      "reason": "轻量视频组件沿原版本、arm64、inside-out签名和符号包发布；撤销其shader助手与大资源要求，主App签名不变。",
-      "decision": "docs/development/lock-screen-screensaver-design.md"
     },
     {
       "section": "bodies",
@@ -1987,6 +1951,42 @@
       "owner": "scene-particle-material-depth-variants",
       "reason": "在既有粒子合同和同一队列/证据行记录新消费能力与边界；退役本批窄设计并折叠旧重复轨迹，不新增现役权威。",
       "decision": "docs/scene/history/particle-material-depth-2026-11-01.md#bounded-result"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/repository-map.md",
+      "before": "821783bf0ecf85b96934cd79f620237e1f0f1a50872e19381b58c48e1651bfb6",
+      "after": "309ec6bacfde39f52298b7bf4ee675de2f4eca21fafac459e882f008f3806828",
+      "owner": "lock-screen-screensaver-design",
+      "reason": "原生Video屏保收敛、旧资源退役与锁屏边界澄清；保留主仓其他专题记录，合并重复过程说明。",
+      "decision": "docs/development/lock-screen-screensaver-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/technology-stack-boundaries.md",
+      "before": "e2b73234cfc58c5c33752a11dcbbe2e9b55a95ca1e76d0ac2b1267ca1e5b135a",
+      "after": "31f11c4aff88764fd9df1b6841e393244da5c9ccf170cc96793c5045caa15347",
+      "owner": "lock-screen-screensaver-design",
+      "reason": "原生Video屏保收敛、旧资源退役与锁屏边界澄清；保留主仓其他专题记录，合并重复过程说明。",
+      "decision": "docs/development/lock-screen-screensaver-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/lock-screen-screensaver-design.md",
+      "before": "e7244b976f0eb1273c456d14f14363c7f073062671cb2f81ed5e2d344f552b69",
+      "after": "f521826674cfca7a3f1509b4a92681788f54cfbfa57a30c460e23ffed0270b6c",
+      "owner": "lock-screen-screensaver-design",
+      "reason": "原生Video屏保收敛、旧资源退役与锁屏边界澄清；保留主仓其他专题记录，合并重复过程说明。",
+      "decision": "docs/development/lock-screen-screensaver-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/release/release-signing.md",
+      "before": "b08aeefa06d35bb11fe31b6da32bbed0871d3089725bfa0652d5c5c486513726",
+      "after": "4d79df180a9ff536854d31d79627a276b841c53da40e66260bf50ad218157e08",
+      "owner": "lock-screen-screensaver-design",
+      "reason": "原生Video屏保收敛、旧资源退役与锁屏边界澄清；保留主仓其他专题记录，合并重复过程说明。",
+      "decision": "docs/development/lock-screen-screensaver-design.md"
     }
   ]
 }

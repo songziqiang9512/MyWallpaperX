@@ -81,9 +81,9 @@ private nonisolated final class CopyController: @unchecked Sendable {
         owner.updateOptions(fillMode: "aspectFit", playsOnBattery: true, completion: receipt.receive)
         return try await receipt.value().get()
     }
-    @MainActor private static func install(_ owner: ScreenSaverIntegration) async throws {
+    @MainActor private static func prepareStorage(_ owner: ScreenSaverIntegration) async throws {
         let receipt = Receipt<Void>()
-        owner.installIfNeeded(completion: receipt.receive)
+        owner.prepareSharedStorage(completion: receipt.receive)
         try await receipt.value().get()
     }
     @MainActor private static func clear(_ owner: ScreenSaverIntegration) async throws -> ScreenSaverConfiguration {
@@ -106,29 +106,12 @@ private nonisolated final class CopyController: @unchecked Sendable {
         guard let content = value.content else { throw CheckFailure(description: "missing published content") }
         return try ScreenSaverPaths.mediaRoot(in: root, generation: content.mediaGeneration)
     }
-    private nonisolated static func makeComponent(_ url: URL, identifier: String, build: String = "1", revision: String = "A") throws {
+    private nonisolated static func makeComponent(_ url: URL, identifier: String) throws {
         let contents = url.appendingPathComponent("Contents", isDirectory: true)
-        let executable = contents.appendingPathComponent("MacOS/MyWallpaperX")
-        try FileManager.default.createDirectory(at: executable.deletingLastPathComponent(), withIntermediateDirectories: true)
-        if !FileManager.default.fileExists(atPath: executable.path) {
-            try FileManager.default.copyItem(at: URL(fileURLWithPath: CommandLine.arguments[0]), to: executable)
-        }
-        let info: [String: Any] = ["CFBundleIdentifier": identifier,
-                                  "CFBundleShortVersionString": "1.0", "CFBundleVersion": build,
-                                  "CFBundleExecutable": "MyWallpaperX", "CFBundlePackageType": "BNDL",
-                                  "FixtureRevision": revision]
+        try FileManager.default.createDirectory(at: contents, withIntermediateDirectories: true)
+        let info: [String: Any] = ["CFBundleIdentifier": identifier]
         try PropertyListSerialization.data(fromPropertyList: info, format: .xml, options: 0)
             .write(to: contents.appendingPathComponent("Info.plist"))
-        let resources = contents.appendingPathComponent("Resources", isDirectory: true)
-        try FileManager.default.createDirectory(at: resources, withIntermediateDirectories: true)
-        try Data("isolated-component-copy-only".utf8).write(to: resources.appendingPathComponent("fixture"))
-        let signer = Process()
-        signer.executableURL = URL(fileURLWithPath: "/usr/bin/codesign")
-        signer.arguments = ["--force", "--sign", "-", "--timestamp=none", url.path]
-        signer.standardOutput = FileHandle.nullDevice
-        signer.standardError = FileHandle.standardError
-        try signer.run(); signer.waitUntilExit()
-        try require(signer.terminationStatus == 0, "fixture component signing")
     }
     private nonisolated static func makeVideo(_ url: URL) throws {
         let writer = try AVAssetWriter(outputURL: url, fileType: .mov)
@@ -182,9 +165,9 @@ private nonisolated final class CopyController: @unchecked Sendable {
         try FileManager.default.createDirectory(at: cases, withIntermediateDirectories: true)
         var checks: [String: Bool] = [:]
         let root = cases.appendingPathComponent("published")
-        let component = cases.appendingPathComponent("source/MyWallpaperX.saver")
+        let component = cases.appendingPathComponent("source/MyWallpaperXSystemWallpaper.appex")
         let installed = cases.appendingPathComponent("installed/MyWallpaperX.saver")
-        try makeComponent(component, identifier: ScreenSaverIntegration.componentBundleIdentifier)
+        try makeComponent(component, identifier: "com.songziqiang.MyWallpaperX.WallpaperExtension")
         let copyController = CopyController()
         let owner = ScreenSaverIntegration(rootURL: root, installationURL: installed,
             componentSourceURL: component, copyFile: { try copyController.copy($0, $1) })
@@ -358,25 +341,38 @@ private nonisolated final class CopyController: @unchecked Sendable {
             }
         }
 
-        phase = "owned component installation"
-        try await install(owner)
-        let sentinel = installed.appendingPathComponent("Contents/keep-on-same-version")
-        try Data("same-version".utf8).write(to: sentinel)
-        try await install(owner)
-        checks["SameOwnedComponentBuildIsNotRecopied"] = owner.isInstalled && FileManager.default.fileExists(atPath: sentinel.path)
-        try makeComponent(component, identifier: ScreenSaverIntegration.componentBundleIdentifier, revision: "B")
-        try await install(owner)
-        let revisedInfo = try PropertyListSerialization.propertyList(
-            from: Data(contentsOf: installed.appendingPathComponent("Contents/Info.plist")), format: nil) as! [String: Any]
-        checks["ChangedSignedComponentAtSameVersionIsReplaced"] = revisedInfo["CFBundleVersion"] as? String == "1"
-            && revisedInfo["FixtureRevision"] as? String == "B" && !FileManager.default.fileExists(atPath: sentinel.path)
-        try Data("same-version".utf8).write(to: sentinel)
-        try makeComponent(component, identifier: ScreenSaverIntegration.componentBundleIdentifier, build: "2")
-        try await install(owner)
-        let upgradedInfo = try PropertyListSerialization.propertyList(
-            from: Data(contentsOf: installed.appendingPathComponent("Contents/Info.plist")), format: nil) as! [String: Any]
-        checks["NewOwnedComponentVersionReplacesPreviousComponent"] = upgradedInfo["CFBundleVersion"] as? String == "2"
-            && !FileManager.default.fileExists(atPath: sentinel.path)
+        phase = "native preparation and atomic shared storage"
+        try await prepareStorage(owner)
+        checks["NativePreparationDoesNotCopyLegacyComponent"] = owner.hasBundledComponent
+            && !FileManager.default.fileExists(atPath: installed.path)
+        let legacyRoot = cases.appendingPathComponent("storage/legacy")
+        let sharedRoot = cases.appendingPathComponent("group/ScreenSaver")
+        try FileManager.default.createDirectory(at: legacyRoot, withIntermediateDirectories: true)
+        let legacyFile = legacyRoot.appendingPathComponent("video")
+        try Data("immutable-video".utf8).write(to: legacyFile)
+        let attributes = try FileManager.default.attributesOfItem(atPath: legacyFile.path)
+        try ScreenSaverIntegration.migrateStorage(from: legacyRoot, to: sharedRoot)
+        checks["MigrationRetainsLegacyReadAndMediaInode"] = try Data(contentsOf: legacyFile) == Data("immutable-video".utf8)
+            && (try FileManager.default.attributesOfItem(atPath: sharedRoot.appendingPathComponent("video").path))[.systemFileNumber] as? NSNumber
+                == attributes[.systemFileNumber] as? NSNumber
+        try ScreenSaverIntegration.migrateStorage(from: legacyRoot, to: sharedRoot)
+        checks["MigrationCanRepeatWithoutRepublishing"] = try Data(contentsOf: legacyFile) == Data("immutable-video".utf8)
+        let interruptedSource = cases.appendingPathComponent("interrupted/source")
+        let interruptedTarget = cases.appendingPathComponent("interrupted/target")
+        try FileManager.default.createDirectory(at: interruptedSource, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(at: interruptedTarget, withDestinationURL: interruptedTarget)
+        try ScreenSaverIntegration.migrateStorage(from: interruptedSource, to: interruptedTarget)
+        checks["InterruptedMigrationSelfLinkCanRetry"] = try FileManager.default.destinationOfSymbolicLink(atPath: interruptedSource.path) == interruptedTarget.path
+        let conflictSource = cases.appendingPathComponent("conflict/source")
+        let conflictTarget = cases.appendingPathComponent("conflict/target")
+        try FileManager.default.createDirectory(at: conflictSource, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: conflictTarget, withIntermediateDirectories: true)
+        do {
+            try ScreenSaverIntegration.migrateStorage(from: conflictSource, to: conflictTarget)
+            checks["MigrationPreservesExistingDestination"] = false
+        } catch { checks["MigrationPreservesExistingDestination"] = FileManager.default.fileExists(atPath: conflictSource.path)
+            && FileManager.default.fileExists(atPath: conflictTarget.path) }
+        try makeComponent(installed, identifier: ScreenSaverIntegration.componentBundleIdentifier)
         phase = "foreign component rejection"
         let unknownInstall = cases.appendingPathComponent("foreign/MyWallpaperX.saver")
         try makeComponent(unknownInstall, identifier: "example.other-screen-saver")
@@ -384,9 +380,28 @@ private nonisolated final class CopyController: @unchecked Sendable {
         let foreignOwner = ScreenSaverIntegration(rootURL: cases.appendingPathComponent("foreign-config"),
             installationURL: unknownInstall, componentSourceURL: component)
         let rejected = Receipt<Void>()
-        foreignOwner.installIfNeeded(completion: rejected.receive)
-        checks["UnknownSameNameComponentIsPreservedAndRejected"] = try failed(await rejected.value())
+        foreignOwner.uninstallLegacy(completion: rejected.receive)
+        checks["ForeignLegacyComponentCannotBeRemoved"] = try failed(await rejected.value())
             && (try Data(contentsOf: unknownInstall.appendingPathComponent("Contents/Info.plist"))) == foreignBefore
+
+        phase = "legacy removal cannot revoke an active publication"
+        let removalGate = CopyGate(source: second)
+        copyController.setGate(removalGate)
+        let pendingDuringRemoval = await begin(owner, .init(videoURL: second, title: "survives legacy removal"))
+        let enteredRemoval = await Task.detached { removalGate.waitUntilEntered() }.value
+        try require(enteredRemoval, "real copy entered before legacy removal")
+        let removedDuringPublication = Receipt<Void>()
+        owner.uninstallLegacy(completion: removedDuringPublication.receive)
+        removalGate.release.signal()
+        let survivedPublication = try await pendingDuringRemoval.value().get()
+        try await removedDuringPublication.value().get()
+        guard let survivedContent = survivedPublication.content else { throw CheckFailure(description: "published media missing") }
+        let survivedMedia = try ScreenSaverPaths.mediaRoot(in: root, generation: survivedContent.mediaGeneration)
+        checks["LegacyRemovalPreservesInFlightPublicationAndMedia"] = try
+            JSONDecoder().decode(ScreenSaverConfiguration.self, from: currentData(root)) == survivedPublication
+            && FileManager.default.isReadableFile(atPath: survivedMedia.appendingPathComponent(survivedContent.entryRelativePath).path)
+            && !FileManager.default.fileExists(atPath: installed.path)
+        copyController.setGate(nil)
 
         phase = "corrupt configuration clear and uninstall"
         try Data("not-json".utf8).write(to: root.appendingPathComponent("current.json"))
@@ -394,7 +409,7 @@ private nonisolated final class CopyController: @unchecked Sendable {
         checks["ExplicitClearReplacesCorruptConfigurationWithValidEmptyConfig"] = try recovered.content == nil
             && (try JSONDecoder().decode(ScreenSaverConfiguration.self, from: currentData(root))).content == nil
         let removed = Receipt<Void>()
-        owner.uninstall(completion: removed.receive)
+        owner.uninstallLegacy(completion: removed.receive)
         try await removed.value().get()
         checks["UninstallRemovesOnlyOwnedComponentAndLeavesValidEmptyConfig"] = try !owner.isInstalled
             && !FileManager.default.fileExists(atPath: installed.path)

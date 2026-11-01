@@ -3,7 +3,7 @@
    <BuildAction parallelizeBuildables="YES" buildImplicitDependencies="YES" buildArchitectures="Automatic">
       <BuildActionEntries>
          <BuildActionEntry buildForTesting="NO" buildForRunning="YES" buildForProfiling="NO" buildForArchiving="YES" buildForAnalyzing="YES">
-            <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="A50000412FA10001005688A8" BuildableName="MyWallpaperX.saver" BlueprintName="MyWallpaperXScreenSaver" ReferencedContainer="container:MyWallpaperX.xcodeproj"/>
+            <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="A60000412FB10001005688A8" BuildableName="MyWallpaperXSystemWallpaper.appex" BlueprintName="MyWallpaperXSystemWallpaper" ReferencedContainer="container:MyWallpaperX.xcodeproj"/>
          </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>

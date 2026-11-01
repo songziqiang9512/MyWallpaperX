@@ -217,9 +217,10 @@ jobs:
               --sign "$DEVELOPER_ID_APPLICATION" "$APP_PATH/Contents/Helpers/$helper"
           done
 
-          # The video-only installed module is independently signed before the App.
-          SCREEN_SAVER="$APP_PATH/Contents/PlugIns/$APP_NAME.saver"
+          # The native video host is sandboxed and shares the single published input.
+          SCREEN_SAVER="$APP_PATH/Contents/Extensions/${APP_NAME}SystemWallpaper.appex"
           codesign --force --timestamp --options runtime \
+            --entitlements ScreenSaverSources/ScreenSaver.entitlements \
             --sign "$DEVELOPER_ID_APPLICATION" "$SCREEN_SAVER"
 
           # Sign Sparkle inside-out; preserve the stock distribution's entitlements.
@@ -390,7 +391,7 @@ jobs:
           (cd "$DIST_DIR" && shasum -a 256 "$PACKAGE_NAME.dmg" > "$PACKAGE_NAME.dmg.sha256")
           SYMBOLS_DIR="$RUNNER_TEMP/$PACKAGE_NAME-symbols"
           mkdir -p "$SYMBOLS_DIR"
-          for bundle in "$APP_NAME.app.dSYM" "${APP_NAME}WallpaperDaemon.dSYM" "$APP_NAME.saver.dSYM"; do
+          for bundle in "$APP_NAME.app.dSYM" "${APP_NAME}WallpaperDaemon.dSYM" "${APP_NAME}SystemWallpaper.appex.dSYM"; do
             SOURCE="$DERIVED_DATA_PATH/Build/Products/$CONFIGURATION/$bundle"
             test -d "$SOURCE"
             ditto "$SOURCE" "$SYMBOLS_DIR/$bundle"

@@ -274,7 +274,7 @@ if args[:2] == ['release', 'edit'] and os.environ.get('FAIL_EDIT') == '1': sys.e
         media_observer = app / "Contents/Resources/SceneMediaObserver/SceneMediaObserver.dylib"
         media_observer.parent.mkdir(parents=True)
         media_observer.touch()
-        saver = app / "Contents/PlugIns/MyWallpaperX.saver"
+        saver = app / "Contents/Extensions/MyWallpaperXSystemWallpaper.appex"
         saver.mkdir(parents=True)
         for name in ("MyWallpaperXWallpaperDaemon", "glslang", "spirv-cross"):
             path = app / "Contents/Helpers" / name
@@ -310,7 +310,8 @@ if args[:2] == ['release', 'edit'] and os.environ.get('FAIL_EDIT') == '1': sys.e
         saver_command = next(command for command in commands if command[-1] == saver_target)
         self.assertIn("--timestamp", saver_command)
         self.assertEqual(saver_command[saver_command.index("--options") + 1], "runtime")
-        self.assertNotIn("--entitlements", saver_command)
+        self.assertEqual(saver_command[saver_command.index("--entitlements") + 1],
+                         "ScreenSaverSources/ScreenSaver.entitlements")
         self.assertLess(commands.index(saver_command), len(commands) - 1)
 
         for missing in (media_observer, saver):

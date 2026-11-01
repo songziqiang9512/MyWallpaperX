@@ -2,9 +2,8 @@ import AppKit
 import Combine
 import Darwin
 import Foundation
-import Security
 
-/// Owns deployment and installation only. App assembly resolves library intent;
+/// Owns media publication and legacy migration. App assembly resolves intent;
 /// the system component consumes the resulting self-contained configuration.
 @MainActor
 final class ScreenSaverIntegration: NSObject, ObservableObject {
@@ -28,11 +27,12 @@ final class ScreenSaverIntegration: NSObject, ObservableObject {
         }
     }
 
-    enum Activity: Equatable { case idle, publishing, clearing, installing, uninstalling }
+    enum Activity: Equatable { case idle, publishing, clearing, preparing }
     @Published private(set) var activity: Activity = .idle
     @Published private(set) var configuration: ScreenSaverConfiguration?
     /// Installation is a filesystem fact, not the system's selected module.
     @Published private(set) var isInstalled = false
+    nonisolated let hasBundledComponent: Bool
     @Published private(set) var errorMessage: String?
     /// Preview consumers resolve only paths from the committed configuration.
     var configurationRoot: URL? { try? rootURL() }
@@ -42,7 +42,6 @@ final class ScreenSaverIntegration: NSObject, ObservableObject {
     private nonisolated let requests = Requests()
     private nonisolated let injectedRootURL: URL?
     private nonisolated let injectedInstallationURL: URL?
-    private nonisolated let componentSourceURL: URL?
     private nonisolated let copyFile: @Sendable (URL, URL) throws -> Void
     // Accessed only by queue. No persisted duplicate of the App's source intent.
     private nonisolated(unsafe) var reusablePublication: (PublicationInput, ScreenSaverConfiguration.Content)?
@@ -53,8 +52,9 @@ final class ScreenSaverIntegration: NSObject, ObservableObject {
          }) {
         injectedRootURL = rootURL
         injectedInstallationURL = installationURL
-        self.componentSourceURL = componentSourceURL
-            ?? Bundle.main.builtInPlugInsURL?.appendingPathComponent("MyWallpaperX.saver", isDirectory: true)
+        let source = componentSourceURL
+            ?? Bundle.main.bundleURL.appendingPathComponent("Contents/Extensions/MyWallpaperXSystemWallpaper.appex", isDirectory: true)
+        hasBundledComponent = FileManager.default.fileExists(atPath: source.path)
         self.copyFile = copyFile
         super.init()
         NotificationCenter.default.addObserver(self, selector: #selector(applicationWillTerminate),
@@ -125,38 +125,28 @@ final class ScreenSaverIntegration: NSObject, ObservableObject {
         }
     }
 
-    func installIfNeeded(completion: @escaping @MainActor (Result<Void, Error>) -> Void = { _ in }) {
-        let request = begin(.installing)
+    func prepareSharedStorage(completion: @escaping @MainActor (Result<Void, Error>) -> Void = { _ in }) {
+        let request = begin(.preparing)
         queue.async { [self] in
-            let result = Result { try install(request: request) }
-            let installed: Bool?
-            if case .success = result { installed = true } else { installed = nil }
-            complete(request, result: result, installed: installed, completion: completion)
+            let result = Result { try prepareStorage(request: request) }
+            complete(request, result: result, completion: completion)
         }
     }
 
-    func uninstall(completion: @escaping @MainActor (Result<Void, Error>) -> Void = { _ in }) {
-        let request = begin(.uninstalling)
+    func uninstallLegacy(completion: @escaping @MainActor (Result<Void, Error>) -> Void = { _ in }) {
         queue.async { [self] in
-            var cleared: ScreenSaverConfiguration?
             let result = Result {
                 let destination = try installationURL()
-                if FileManager.default.fileExists(atPath: destination.path) {
-                    _ = try componentInfo(at: destination)
+                guard FileManager.default.fileExists(atPath: destination.path) else { return }
+                guard try isLegacyComponent(at: destination) else {
+                    throw Failure.message("同名屏保组件不属于 MyWallpaperX，已保留现有文件")
                 }
-                cleared = try clear(request: request)
-                let retired = destination.deletingLastPathComponent()
-                    .appendingPathComponent(".MyWallpaperX-uninstall-\(UUID().uuidString).saver")
-                let moved = try requests.commit(request) {
-                    guard FileManager.default.fileExists(atPath: destination.path) else { return false }
-                    try FileManager.default.moveItem(at: destination, to: retired)
-                    return true
-                }
-                if moved { try? FileManager.default.removeItem(at: retired) }
+                try FileManager.default.removeItem(at: destination)
             }
-            let installed: Bool?
-            if case .success = result { installed = false } else { installed = nil }
-            complete(request, result: result, configuration: cleared, installed: installed, completion: completion)
+            DispatchQueue.main.async { [weak self] in
+                if case .success = result { self?.isInstalled = false }
+                completion(result)
+            }
         }
     }
 
@@ -164,7 +154,7 @@ final class ScreenSaverIntegration: NSObject, ObservableObject {
         let request = requests.current()
         queue.async { [self] in
             let result = Result { try readConfiguration(in: rootURL()) }
-            let installed = (try? componentInfo(at: installationURL())) != nil
+            let installed = (try? isLegacyComponent(at: installationURL())) == true
             DispatchQueue.main.async { [weak self] in
                 guard let self, self.requests.isCurrent(request), self.activity == .idle else { return }
                 if case let .success(value) = result { self.configuration = value }
@@ -185,7 +175,7 @@ final class ScreenSaverIntegration: NSObject, ObservableObject {
 
     private nonisolated func complete<Value: Sendable>(
         _ request: UInt64, result: Result<Value, Error>,
-        configuration: ScreenSaverConfiguration? = nil, installed: Bool? = nil,
+        configuration: ScreenSaverConfiguration? = nil,
         completion: @escaping @MainActor (Result<Value, Error>) -> Void
     ) {
         DispatchQueue.main.async { [weak self] in
@@ -193,7 +183,6 @@ final class ScreenSaverIntegration: NSObject, ObservableObject {
             // A commit linearized before cancel remains an actual disk fact.
             // FIFO callbacks from queue preserve the order of those facts.
             if let configuration { self.configuration = configuration }
-            if let installed { self.isInstalled = installed }
             guard self.requests.isCurrent(request) else {
                 completion(.failure(CocoaError(.userCancelled)))
                 return
@@ -376,55 +365,52 @@ final class ScreenSaverIntegration: NSObject, ObservableObject {
         }
     }
 
-    private nonisolated struct ComponentInfo: Equatable {
-        let version: String
-        let build: String
-    }
-
-    private nonisolated func componentInfo(at url: URL) throws -> ComponentInfo {
+    private nonisolated func isLegacyComponent(at url: URL) throws -> Bool {
         let infoURL = url.appendingPathComponent("Contents/Info.plist")
         let data = try Data(contentsOf: infoURL)
-        guard let info = try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
-              info["CFBundleIdentifier"] as? String == Self.componentBundleIdentifier,
-              let version = info["CFBundleShortVersionString"] as? String,
-              let build = info["CFBundleVersion"] as? String else {
-            throw Failure.message("同名屏保组件不属于 MyWallpaperX，已保留现有文件")
-        }
-        return ComponentInfo(version: version, build: build)
+        let info = try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
+        return info?["CFBundleIdentifier"] as? String == Self.componentBundleIdentifier
     }
 
-    private nonisolated func install(request: UInt64) throws {
-        try requests.check(request)
-        guard let componentSourceURL else { throw Failure.message("App 内缺少屏保组件") }
-        let sourceInfo = try componentInfo(at: componentSourceURL)
-        let destination = try installationURL()
-        let exists = FileManager.default.fileExists(atPath: destination.path)
-        if exists, try componentInfo(at: destination) == sourceInfo,
-           let sourceIdentity = componentBuildIdentity(at: componentSourceURL),
-           sourceIdentity == componentBuildIdentity(at: destination) { return }
-        let parent = destination.deletingLastPathComponent()
-        try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
-        let pending = parent.appendingPathComponent(".MyWallpaperX-install-\(UUID().uuidString).saver")
-        defer { try? FileManager.default.removeItem(at: pending) }
-        try copyFile(componentSourceURL, pending)
-        try requests.commit(request) {
-            if exists {
-                _ = try FileManager.default.replaceItemAt(destination, withItemAt: pending)
-            } else {
-                try FileManager.default.moveItem(at: pending, to: destination)
+    private nonisolated func prepareStorage(request: UInt64) throws {
+        guard hasBundledComponent else { throw Failure.message("App 内缺少系统墙纸组件，请使用完整的 App。") }
+        guard injectedRootURL == nil else { try requests.check(request); return }
+        let original = try rootURL()
+        let shared = try ScreenSaverPaths.sharedRoot()
+        try requests.commit(request) { try Self.migrateStorage(from: original, to: shared) }
+    }
+
+    nonisolated static func migrateStorage(from original: URL, to shared: URL) throws {
+        let files = FileManager.default
+        if original.standardizedFileURL.path == shared.standardizedFileURL.path {
+            try files.createDirectory(at: shared, withIntermediateDirectories: true)
+            return
+        }
+        if let target = try? files.destinationOfSymbolicLink(atPath: original.path) {
+            guard URL(fileURLWithPath: target).standardizedFileURL.path == shared.standardizedFileURL.path else {
+                throw CocoaError(.fileWriteFileExists)
             }
+            try files.createDirectory(at: shared, withIntermediateDirectories: true)
+            return
         }
-    }
-
-    /// Read the existing CodeDirectory identity, without validating resources or
-    /// authorizing playback. Unsigned development output is simply recopied.
-    private nonisolated func componentBuildIdentity(at url: URL) -> Data? {
-        var code: SecStaticCode?
-        guard SecStaticCodeCreateWithPath(url as CFURL, SecCSFlags(), &code) == errSecSuccess,
-              let code else { return nil }
-        var information: CFDictionary?
-        guard SecCodeCopySigningInformation(code, SecCSFlags(), &information) == errSecSuccess else { return nil }
-        return (information as? [String: Any])?[kSecCodeInfoUnique as String] as? Data
+        try files.createDirectory(at: original, withIntermediateDirectories: true,
+                                  attributes: [.posixPermissions: 0o700])
+        try files.createDirectory(at: shared.deletingLastPathComponent(), withIntermediateDirectories: true)
+        if let target = try? files.destinationOfSymbolicLink(atPath: shared.path) {
+            guard URL(fileURLWithPath: target).standardizedFileURL.path == shared.standardizedFileURL.path else {
+                throw CocoaError(.fileWriteFileExists)
+            }
+        } else {
+            guard !files.fileExists(atPath: shared.path) else { throw CocoaError(.fileWriteFileExists) }
+            try files.createSymbolicLink(at: shared, withDestinationURL: shared)
+        }
+        // Exchanging the directory with a self-pointing link makes both names
+        // valid in one filesystem operation, preserving active video/lease FDs.
+        if renameatx_np(AT_FDCWD, original.path, AT_FDCWD, shared.path, UInt32(RENAME_SWAP)) != 0 {
+            let error = POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+            try? files.removeItem(at: shared)
+            throw error
+        }
     }
 
     private nonisolated enum Failure: LocalizedError {

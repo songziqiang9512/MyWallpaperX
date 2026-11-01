@@ -34,6 +34,15 @@ nonisolated struct ScreenSaverConfiguration: Codable, Equatable, Sendable {
 }
 
 nonisolated enum ScreenSaverPaths {
+    static let applicationGroup = "H9QWU9XN8R.MWX"
+
+    static func sharedRoot() throws -> URL {
+        guard let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: applicationGroup) else {
+            throw CocoaError(.fileReadNoPermission)
+        }
+        return container.appendingPathComponent("ScreenSaver", isDirectory: true)
+    }
+
     static func currentUserRoot() throws -> URL {
         var entry = passwd()
         var resolved: UnsafeMutablePointer<passwd>?
@@ -61,4 +70,18 @@ nonisolated enum ScreenSaverPaths {
               canonical.path.hasPrefix(root.path + "/") else { throw CocoaError(.fileReadNoPermission) }
         return canonical
     }
+}
+
+nonisolated final class ScreenSaverMediaLease: Sendable {
+    private let descriptor: Int32
+    init(root: URL) throws {
+        let fd = Darwin.open(root.appendingPathComponent(".lease").path, O_RDONLY | O_CLOEXEC)
+        guard fd >= 0 else { throw CocoaError(.fileReadNoPermission) }
+        guard flock(fd, LOCK_SH | LOCK_NB) == 0 else {
+            Darwin.close(fd)
+            throw CocoaError(.fileReadUnknown)
+        }
+        descriptor = fd
+    }
+    deinit { Darwin.close(descriptor) }
 }

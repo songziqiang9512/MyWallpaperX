@@ -61,8 +61,8 @@ class AppleSiliconReleaseContractTests(unittest.TestCase):
             for name, kind, product, settings in [
                 ('MyWallpaperX', 'application', 'MyWallpaperX.app', {}),
                 ('MyWallpaperXWallpaperDaemon', 'tool', 'MyWallpaperXWallpaperDaemon', {}),
-                ('MyWallpaperXScreenSaver', 'bundle', 'MyWallpaperX.saver',
-                 {'PRODUCT_NAME': 'MyWallpaperX', 'WRAPPER_EXTENSION': 'saver'}),
+                ('MyWallpaperXSystemWallpaper', 'app-extension', 'MyWallpaperXSystemWallpaper.appex',
+                 {'APPLICATION_EXTENSION_API_ONLY': 'YES', 'LD_ENTRY_POINT': '_main'}),
             ]:
                 reference = add('PBXFileReference', path=product, sourceTree='BUILT_PRODUCTS_DIR')
                 products.append(reference)
@@ -88,7 +88,7 @@ class AppleSiliconReleaseContractTests(unittest.TestCase):
             for binary, symbols in [
                 (products / 'MyWallpaperX.app/Contents/MacOS/MyWallpaperX', products / 'MyWallpaperX.app.dSYM'),
                 (products / 'MyWallpaperXWallpaperDaemon', products / 'MyWallpaperXWallpaperDaemon.dSYM'),
-                (products / 'MyWallpaperX.saver/Contents/MacOS/MyWallpaperX', products / 'MyWallpaperX.saver.dSYM'),
+                (products / 'MyWallpaperXSystemWallpaper.appex/Contents/MacOS/MyWallpaperXSystemWallpaper', products / 'MyWallpaperXSystemWallpaper.appex.dSYM'),
             ]:
                 with self.subTest(binary=binary.name, symbols=symbols.name):
                     binary_uuid = subprocess.check_output(['dwarfdump', '--uuid', str(binary)], text=True).split()[:3]
@@ -98,8 +98,8 @@ class AppleSiliconReleaseContractTests(unittest.TestCase):
                     self.assertIn('DW_TAG_subprogram', dwarf)
                     names = subprocess.check_output(['nm', '-a', str(binary)], text=True, stderr=subprocess.DEVNULL)
                     self.assertNotIn('fixture.c', names, 'debug map must be removed from shipped binaries')
-                    if symbols.name == 'MyWallpaperX.saver.dSYM':
-                        self.assertEqual(ctypes.CDLL(str(binary)).release_fixture_value(), 42)
+                    if symbols.name == 'MyWallpaperXSystemWallpaper.appex.dSYM':
+                        subprocess.run([str(binary)], check=True, timeout=5)
                     else:
                         self.assertNotIn('_release_fixture_value', names)
                         subprocess.run([str(binary)], check=True, timeout=5)
@@ -127,7 +127,7 @@ class AppleSiliconReleaseContractTests(unittest.TestCase):
                 shutil.copy2(binary, target)
 
             bundle(app, 'MyWallpaperX', 'APPL')
-            bundle(app / validator.SCREEN_SAVER_BUNDLE, 'MyWallpaperX', 'BNDL')
+            bundle(app / validator.SCREEN_SAVER_BUNDLE, 'MyWallpaperXSystemWallpaper', 'XPC!')
             for relative in validator.REQUIRED_BUNDLE_EXECUTABLES:
                 target = app / relative
                 target.parent.mkdir(parents=True, exist_ok=True)
@@ -219,7 +219,7 @@ class AppleSiliconReleaseContractTests(unittest.TestCase):
             self.assertEqual(observer_call[observer_call.index("--options") + 1], "runtime")
             self.assertEqual(observer_call[observer_call.index("--sign") + 1], identity)
             self.assertTrue(all("--deep" not in call for call in signatures))
-            saver = app / "Contents/PlugIns/MyWallpaperX.saver"
+            saver = app / "Contents/Extensions/MyWallpaperXSystemWallpaper.appex"
             for name in ("glslang", "spirv-cross"):
                 app_helper = str(app / "Contents/Helpers" / name)
                 self.assertIn(app_helper, signed_paths)
@@ -229,7 +229,7 @@ class AppleSiliconReleaseContractTests(unittest.TestCase):
             self.assertFalse(any(path.startswith(str(saver / "Contents/Helpers")) for path in signed_paths))
             self.assertLess(signed_paths.index(str(saver)), signed_paths.index(str(app)))
             saver_call = signatures[signed_paths.index(str(saver))]
-            self.assertNotIn("--entitlements", saver_call)
+            self.assertEqual(saver_call[saver_call.index("--entitlements") + 1], "ScreenSaverSources/ScreenSaver.entitlements")
             self.assertNotIn("--preserve-metadata=entitlements", saver_call)
             app_call = signatures[signed_paths.index(str(app))]
             self.assertEqual(app_call[app_call.index("--entitlements") + 1],
@@ -352,7 +352,7 @@ class AppleSiliconReleaseContractTests(unittest.TestCase):
         self.assertTrue(validator.is_third_party(Path("Contents/Helpers/glslang")))
         self.assertTrue(validator.is_third_party(Path("Contents/Helpers/spirv-cross")))
         self.assertFalse(validator.is_third_party(
-            validator.SCREEN_SAVER_BUNDLE / "Contents/MacOS/MyWallpaperX"))
+            validator.SCREEN_SAVER_BUNDLE / "Contents/MacOS/MyWallpaperXSystemWallpaper"))
         self.assertTrue(
             validator.is_third_party(
                 Path("Contents/Frameworks/Sparkle.framework/Versions/B/Sparkle")
@@ -374,9 +374,9 @@ class AppleSiliconReleaseContractTests(unittest.TestCase):
             metadata.parent.mkdir(parents=True)
             metadata.write_bytes(plistlib.dumps({'CFBundleShortVersionString': '2.9.2'}))
             permissions = {
-                str(app): {'com.apple.security.automation.apple-events': True},
+                str(app): {'com.apple.security.automation.apple-events': True, 'com.apple.security.application-groups': ['TEAM.MWX']},
                 str(app / 'Contents/Resources/SteamService/SteamService'): {'com.apple.security.cs.allow-jit': True},
-                str(app / validator.SCREEN_SAVER_BUNDLE): {},
+                str(app / validator.SCREEN_SAVER_BUNDLE): {'com.apple.security.app-sandbox': True, 'com.apple.security.application-groups': ['TEAM.MWX']},
             }
             for relative, expected in validator.SPARKLE_SIGNED_ENTITLEMENTS.items():
                 target = sparkle / relative
@@ -407,13 +407,13 @@ class AppleSiliconReleaseContractTests(unittest.TestCase):
                     validator.validate_codesign(app, 'TEAM')
                 del permissions[str(app)]['com.apple.security.get-task-allow']
                 saver = str(app / validator.SCREEN_SAVER_BUNDLE)
-                for key in ('com.apple.security.app-sandbox', 'com.apple.security.get-task-allow',
+                for key in ('com.apple.security.network.client', 'com.apple.security.get-task-allow',
                             'com.apple.security.cs.allow-jit', 'com.apple.security.automation.apple-events'):
-                    permissions[saver] = {key: True}
+                    permissions[saver] = {'com.apple.security.app-sandbox': True, 'com.apple.security.application-groups': ['TEAM.MWX'], key: True}
                     with self.subTest(saver_entitlement=key), self.assertRaisesRegex(
                             RuntimeError, 'Unexpected ScreenSaver signed entitlements'):
                         validator.validate_codesign(app, 'TEAM')
-                permissions[saver] = {}
+                permissions[saver] = {'com.apple.security.app-sandbox': True, 'com.apple.security.application-groups': ['TEAM.MWX']}
                 # Compare stock claims exactly; reject injected App privileges,
                 # debugging and accidental sandboxing alike.
                 for relative, expected in validator.SPARKLE_SIGNED_ENTITLEMENTS.items():
@@ -504,7 +504,7 @@ class AppleSiliconReleaseContractTests(unittest.TestCase):
         workflow = (ROOT / '.github/workflows/build.yml').read_text()
         step = workflow.split('      - name: Archive release artifacts\n', 1)[1].split('      - name:', 1)[0]
         commands = textwrap.dedent(step.split('        run: |\n', 1)[1])
-        all_names = ['MyWallpaperX.app.dSYM', 'MyWallpaperXWallpaperDaemon.dSYM', 'MyWallpaperX.saver.dSYM']
+        all_names = ['MyWallpaperX.app.dSYM', 'MyWallpaperXWallpaperDaemon.dSYM', 'MyWallpaperXSystemWallpaper.appex.dSYM']
         for missing in [None, *all_names]:
             with self.subTest(missing=missing), tempfile.TemporaryDirectory() as raw:
                 directory = Path(raw)
@@ -535,7 +535,7 @@ class AppleSiliconReleaseContractTests(unittest.TestCase):
 
     def test_screen_saver_executable_is_required_arm64_only_and_app_helper_policy_is_preserved(self):
         validator = load_validator()
-        self.assertIn('MyWallpaperXScreenSaver', validator.OWN_TARGETS)
+        self.assertIn('MyWallpaperXSystemWallpaper', validator.OWN_TARGETS)
         with tempfile.TemporaryDirectory() as raw:
             app = Path(raw) / 'Test.app'
             for relative in validator.REQUIRED_BUNDLE_EXECUTABLES:
@@ -543,7 +543,7 @@ class AppleSiliconReleaseContractTests(unittest.TestCase):
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_bytes(b'fixture')
                 path.chmod(0o755)
-            saver_executable = validator.SCREEN_SAVER_BUNDLE / 'Contents/MacOS/MyWallpaperX'
+            saver_executable = validator.SCREEN_SAVER_BUNDLE / 'Contents/MacOS/MyWallpaperXSystemWallpaper'
             app_helpers = (Path('Contents/Helpers/glslang'), Path('Contents/Helpers/spirv-cross'))
             architectures = {path: 'arm64' for path in validator.REQUIRED_BUNDLE_EXECUTABLES}
 
@@ -587,26 +587,14 @@ class AppleSiliconReleaseContractTests(unittest.TestCase):
             saver = app / validator.SCREEN_SAVER_BUNDLE
             saver_resources = saver / 'Contents/Resources'
             saver_resources.mkdir(parents=True)
-            info = version | {'CFBundleIdentifier': 'com.songziqiang.MyWallpaperX.ScreenSaver',
-                'CFBundleExecutable': 'MyWallpaperX', 'CFBundlePackageType': 'BNDL',
-                'NSPrincipalClass': 'MyWallpaperXScreenSaverView', 'LSMinimumSystemVersion': '26.0'}
+            info = version | {'CFBundleIdentifier': 'com.songziqiang.MyWallpaperX.WallpaperExtension',
+                'CFBundleExecutable': 'MyWallpaperXSystemWallpaper', 'CFBundlePackageType': 'XPC!',
+                'EXAppExtensionAttributes': {'EXExtensionPointIdentifier': 'com.apple.wallpaper'}, 'LSMinimumSystemVersion': '26.0'}
             metadata = saver / 'Contents/Info.plist'
             metadata.write_bytes(plistlib.dumps(info))
             for name in ('LICENSE', 'NOTICE.md'):
                 shutil.copy2(ROOT / name, saver_resources / name)
-            for name in ('thumbnail.png', 'thumbnail@2x.png'):
-                shutil.copy2(ROOT / 'ScreenSaverSources' / name, saver_resources / name)
             validator.validate_screen_saver(app)
-            for name in ('thumbnail.png', 'thumbnail@2x.png'):
-                path = saver_resources / name
-                expected = path.read_bytes()
-                for content in (None, b'broken PNG'):
-                    if content is None: path.unlink()
-                    else: path.write_bytes(content)
-                    with self.subTest(thumbnail=name, content=content), self.assertRaisesRegex(
-                            RuntimeError, 'Missing or invalid ScreenSaver thumbnail'):
-                        validator.validate_screen_saver(app)
-                    path.write_bytes(expected)
             for name in ('LICENSE', 'NOTICE.md'):
                 path = saver_resources / name
                 expected = path.read_bytes()
@@ -621,7 +609,7 @@ class AppleSiliconReleaseContractTests(unittest.TestCase):
                     ('QuickJSNG', True), ('SceneStockAssets.bundle', True),
                     ('SceneShaderCompilerLicenses.bundle', True), ('WebRuntime.bundle', True),
                     ('default.metallib', False), ('SceneDistanceFog.metalh', False),
-                    ('SceneShaderCacheIdentity.json', False)):
+                    ('SceneShaderCacheIdentity.json', False), ('thumbnail.png', False), ('thumbnail@2x.png', False)):
                 path = saver_resources / name
                 if directory: path.mkdir()
                 else: path.write_bytes(b'retired engine resource')

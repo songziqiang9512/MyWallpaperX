@@ -2,7 +2,7 @@ import Combine
 import Foundation
 
 /// App assembly for explicit screen-saver commands. It resolves existing source
-/// inputs; ScreenSaverIntegration remains the only deployment/installation owner.
+/// inputs; ScreenSaverIntegration remains the only media publication owner.
 @MainActor
 public final class ScreenSaverCoordinator: ObservableObject {
     static let shared = ScreenSaverCoordinator()
@@ -18,7 +18,7 @@ public final class ScreenSaverCoordinator: ObservableObject {
 
     func configure(workspace: WallpaperLibraryWorkspace) { self.workspace = workspace }
 
-    func save(_ preferences: ScreenSaverPreferences, optionsOnly: Bool = false,
+    func save(_ preferences: ScreenSaverPreferences, optionsOnly: Bool = false, prepareSharedStorage: Bool = true,
               completion: @escaping @MainActor (Result<Void, Error>) -> Void = { _ in }) {
         guard workspace?.presentation.canEditCollections == true else {
             let error = Failure.message("资料库正在同步或重置，请稍后再保存屏保。")
@@ -31,7 +31,7 @@ public final class ScreenSaverCoordinator: ObservableObject {
         if accepted.mode == .followDesktop {
             let currentVideo = videoReference(manager.libraryPlaybackSequence.committed?.reference)
             // Keep an options-only target even after its library source was
-            // removed. This preserves intent; reuse is checked after install.
+            // removed. Reuse is checked after shared-storage preparation.
             let keepsPublishedReference = optionsOnly && previous.mode == accepted.mode
                 && previous.reference == accepted.reference && accepted.reference != nil
                 && integration.configuration?.content?.sourceIdentity == accepted.reference?.storageKey
@@ -53,9 +53,9 @@ public final class ScreenSaverCoordinator: ObservableObject {
         preparation = Task { [weak self] in
             guard let self else { completion(.failure(CocoaError(.userCancelled))); return }
             do {
-                try await self.install(request: request)
-                // The serial install barrier has delivered every earlier disk
-                // publication before this association is consumed.
+                if prepareSharedStorage { try await self.prepareStorage(request: request) }
+                else { try self.check(request) }
+                // Explicit preparation delivers earlier disk facts before reuse.
                 let reuseMedia = optionsOnly && previous.mode == accepted.mode && previous.reference == accepted.reference
                     && accepted.reference != nil
                     && self.integration.configuration?.content?.sourceIdentity == accepted.reference?.storageKey
@@ -95,7 +95,7 @@ public final class ScreenSaverCoordinator: ObservableObject {
         var preferences = manager.settings.screenSaver
         guard preferences.mode == .followDesktop, let reference = videoReference(reference) else { return }
         preferences.reference = reference
-        save(preferences)
+        save(preferences, prepareSharedStorage: false)
     }
 
     /// Cancelling pending work retains the accepted preference for retry. App
@@ -109,8 +109,7 @@ public final class ScreenSaverCoordinator: ObservableObject {
         errorMessage = nil
     }
 
-    func clear(uninstall: Bool = false,
-               completion: @escaping @MainActor (Result<Void, Error>) -> Void = { _ in }) {
+    func clear(completion: @escaping @MainActor (Result<Void, Error>) -> Void = { _ in }) {
         cancel()
         let request = epoch
         var preferences = manager.settings.screenSaver
@@ -126,8 +125,7 @@ public final class ScreenSaverCoordinator: ObservableObject {
             if case let .failure(error) = result { self.errorMessage = error.localizedDescription }
             completion(result)
         }
-        if uninstall { integration.uninstall(completion: finished) }
-        else { integration.clear { finished($0.map { _ in () }) } }
+        integration.clear { finished($0.map { _ in () }) }
     }
 
     /// The configuration thumbnail comes from the committed content only.
@@ -154,10 +152,10 @@ public final class ScreenSaverCoordinator: ObservableObject {
               workspace?.presentation.canEditCollections == true else { throw CocoaError(.userCancelled) }
     }
 
-    private func install(request: UInt64) async throws {
+    private func prepareStorage(request: UInt64) async throws {
         try check(request)
         try await withCheckedThrowingContinuation { continuation in
-            integration.installIfNeeded { continuation.resume(with: $0) }
+            integration.prepareSharedStorage { continuation.resume(with: $0) }
         }
         try check(request)
     }

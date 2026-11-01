@@ -17,6 +17,7 @@ import Combine
     private var actionFeedback = ""
     private let saveButton = NSButton(title: "保存屏保", target: nil, action: nil)
     private let chooseButton = NSButton(title: "选择视频", target: nil, action: nil)
+    private var legacyRemovalButton: NSButton?
     private lazy var artworkLoader = WallpaperLibraryArtworkProvider.liveLoader(manager: .shared, images: .shared, steam: .shared, pixabay: .shared)
     private let posterLoader = SILThumbnailProvider()
     private var selectedArtworkIdentity: WallpaperLibraryArtworkProvider.Identity?
@@ -120,7 +121,9 @@ import Combine
         WallpaperLibraryControlStyle.sheetCapsule(saveButton)
         let buttons = NSStackView(views: [cancel, saveButton])
         buttons.orientation = .horizontal; buttons.alignment = .centerY; buttons.spacing = 12
-        let management = NSStackView(views: [button("清除内容", #selector(clearAction)), button("卸载组件", #selector(uninstallAction))])
+        let legacyRemoval = button("移除旧组件", #selector(uninstallAction))
+        legacyRemovalButton = legacyRemoval
+        let management = NSStackView(views: [button("清除内容", #selector(clearAction)), legacyRemoval])
         management.orientation = .horizontal; management.alignment = .centerY; management.spacing = 8
         let footer = NSStackView(views: [management, NSView(), buttons])
         footer.orientation = .horizontal; footer.alignment = .centerY
@@ -198,9 +201,9 @@ import Combine
         let steps = NSStackView()
         steps.orientation = .vertical; steps.alignment = .leading; steps.spacing = 6
         steps.setHuggingPriority(.required, for: .vertical)
-        for text in ["1  点击右下角“保存屏保”，自动安装并保存视频。",
-                     "2  打开屏保设置：屏幕保护程序… → 自定义 →\n    其他 → 全部显示 → MyWallpaperX。",
-                     "3  设定“启动屏幕保护程序…”的时间，再点“完成”。"] {
+        for text in ["1  保存视频后，点击“打开屏保设置”。",
+                     "2  点击“屏幕保护程序…” → 自定义 → MyWallpaperX 分组，\n    选择已保存的视频。",
+                     "3  设置屏保开始时间，再点“完成”。无需更改桌面墙纸。"] {
             add(label(text, secondary: true), to: steps)
         }
         add(steps, to: guide)
@@ -209,7 +212,7 @@ import Combine
         let actions = NSStackView(views: [button("打开屏保设置", #selector(openScreenSaverSettings)), lockSettings])
         actions.orientation = .horizontal; actions.distribution = .fillEqually; actions.spacing = 12
         add(actions, to: guide)
-        add(label("屏保应早于熄屏；密码要求可在“锁屏设置”调整。", secondary: true), to: guide)
+        add(label("屏保开始时间应早于熄屏时间，桌面墙纸保持原样。", secondary: true), to: guide)
         feedback.font = .systemFont(ofSize: 12); feedback.textColor = .secondaryLabelColor
         feedback.maximumNumberOfLines = 2
         feedback.lineBreakMode = .byTruncatingTail
@@ -268,7 +271,8 @@ import Combine
         selectionHint.stringValue = draft.reference == nil ? "本地与已下载的视频均可选择"
             : (matchesSaved ? "当前屏保视频" : "所选视频 · 尚未保存")
         chooseButton.isEnabled = !isSaving
-        status.stringValue = integration.isInstalled ? "组件已安装" : "保存时自动安装组件"
+        status.stringValue = integration.hasBundledComponent ? "系统组件随 App 提供" : "系统组件缺失"
+        legacyRemovalButton?.isHidden = !integration.isInstalled
         refreshArtwork(content: content)
         let coordinator = ScreenSaverCoordinator.shared
         if isSaving { feedback.stringValue = actionFeedback }
@@ -405,27 +409,32 @@ import Combine
     private func confirmRemoval(uninstall: Bool) {
         guard let window else { return }
         let presentation = presentationEpoch
-        let alert = makeAppAlert(title: uninstall ? "卸载屏保组件？" : "清除屏保内容？",
-            message: "将停止跟随并清除已发布内容。桌面壁纸不受影响；系统屏保选择请在系统设置中调整。",
-            style: .warning, buttons: [uninstall ? "卸载" : "清除", "取消"])
+        let alert = makeAppAlert(title: uninstall ? "移除旧版屏保组件？" : "清除屏保内容？",
+            message: uninstall ? "请先在系统设置选择 MyWallpaperX 新分组中的视频。这里只移除旧版组件，已保存视频和新组件会保留。"
+                : "将停止跟随并清除已发布视频。系统的墙纸与屏保选择请在系统设置中调整。",
+            style: .warning, buttons: [uninstall ? "移除旧组件" : "清除", "取消"])
         presentAppAlert(alert, in: window) { [weak self] response in
             guard let self, self.presentationEpoch == presentation, response == .alertFirstButtonReturn else { return }
             self.presentationEpoch &+= 1
             let operation = self.presentationEpoch
             self.isSaving = true
-            self.actionFeedback = uninstall ? "正在卸载组件…" : "正在清除内容…"
+            self.actionFeedback = uninstall ? "正在移除旧组件…" : "正在清除内容…"
             self.refresh()
-            ScreenSaverCoordinator.shared.clear(uninstall: uninstall) { [weak self] result in
+            let finished: @MainActor (Result<Void, Error>) -> Void = { [weak self] result in
                 guard let self, self.presentationEpoch == operation else { return }
                 self.isSaving = false
-                self.original = WallpaperManager.shared.settings.screenSaver; self.draft = self.original
-                self.mode.selectItem(at: 0)
-                self.fill.selectItem(at: self.draft.fillMode == "aspectFit" ? 0 : 1)
-                self.battery.state = self.draft.playsOnBattery ? .on : .off
+                if !uninstall {
+                    self.original = WallpaperManager.shared.settings.screenSaver; self.draft = self.original
+                    self.mode.selectItem(at: 0)
+                    self.fill.selectItem(at: self.draft.fillMode == "aspectFit" ? 0 : 1)
+                    self.battery.state = self.draft.playsOnBattery ? .on : .off
+                }
                 if case .failure(let error) = result { self.actionFeedback = error.localizedDescription }
-                else { self.actionFeedback = uninstall ? "已卸载。系统可能在下次重新加载时退出旧组件。" : "已清除内容。" }
+                else { self.actionFeedback = uninstall ? "已移除旧组件。" : "已清除内容。" }
                 self.refresh()
             }
+            if uninstall { self.integration.uninstallLegacy(completion: finished) }
+            else { ScreenSaverCoordinator.shared.clear(completion: finished) }
         }
     }
 }
