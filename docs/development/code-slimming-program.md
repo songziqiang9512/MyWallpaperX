@@ -52,6 +52,8 @@ R20（7d54f9323起）：SIL Inspector退出必有添加时间的metadataFacts空
 
 R21（5e014c93b起）：目录成员只消费canonical去重数与(position,input offset)首项provider owner，原每列表完整排序/逐条resolve收为一次扫描canonical并strict位置选首，末尾仅resolve首项；保存terminal canonical，去重不阻止更早重复alias参与选首，同位仍保输入首。分组、Resolver初始化、全部有效列表member的canonical、search与末尾rank/UUID排序保持；孤儿组范围不扩。末尾沿原resolve仍有一次终端canonical检查，不加API/state/cache/helper，产品7+/8-净-1。测试净+138行，保101旧query检查，新增tie反转、极值、较早重复alias、native/backing owner、515原条目反序/513唯一、空列表、完整entry元数据及tail/init/filter错误反例；临时副本只计真实Resolver入口。基线Query101/Presentation144/原生目录235全绿；同最终夹具旧新query118仅旧2成本key红，其余116与Presentation144全真等价，4成员解析4→1、515→1，单项1和空0保持。Presentation只有9个case名带每轮随机首列表UUID，核源后仅规范化这些标签，不改业务值或身份断言；初次generator误匹配inline同名入口失败未计绿，限多行真实入口后通过。多坏member检测先后可能不同，但唯一固定alias-cycle错误与整次失败无部分发布保持。独审、werror/实际输入身份通过，隔离构建/质量结果归本批证据。原生目录沿未变输入复用，fixture entry不冒充Query→UI端到端；未测整App、耗时或能耗，也不保证所有小输入更快。下一方向核Sidebar单child读取是否全量投影播放列表，保displayed顺序与原节点身份、pending/epoch/revision和拖序责任，不加缓存补丁。
 
+R22（cef42e119起）：Sidebar原numberOfChildren/逐child回调每次完整map播放列表再compactMap节点，收为displayed playlists直接count/index；固定Node提前到dataSource绑定前准备，沿AppKit设置时可请求数据的生命周期，动态节点仍由原update维护。保固定偏移、rank同位输入顺序、UUID/Node身份、pending/epoch/revision、选择/折叠与拖序权限；产品14+/6-净+8，无新owner/state/helper/cache。原生夹具新增16/128列表、rename及身份/选择反例，临时副本只包装真实pages返回数组且原值原样返回。真实桌面CUA输入、标准NSApplication.run下旧新84业务断言逐key全真相等，仅旧4成本subtest失败；helper调用19/131→2、page值342/17030→4，未测整App耗时/能耗。werror、5859输入无漂移的隔离Debug32.702秒通过，日志0error/0warning。原自动sender在旧基线出现nil session，手动pump另出现额外导航；标准循环未复现该导航，未据此修改共享鼠标产品代码或削弱断言，也不宣称原自动门已修复。两臂仅临时适配事件输入、Escape退出native追踪后继续原断言，来源与失败保本批证据。后继先审自动夹具的标准事件投递；封面回调重复完整Sidebar.update另有同步reset/demand时序风险，须真实桥接证明再决定，不先堆状态补丁。
+
 “无调用”须排查 selector、协议回调、独立进程、作者脚本、动态资源及调试工具；测试、文档或结构登记出现名字不等于产品调用。第一批只删除已确认不可达的链路，不以行数作为收益或验收目标。
 
 ## 第一批设计与停止条件

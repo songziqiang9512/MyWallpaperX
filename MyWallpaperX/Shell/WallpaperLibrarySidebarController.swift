@@ -81,6 +81,9 @@ final class WallpaperLibrarySidebarController: NSViewController, NSOutlineViewDa
         column.resizingMask = .autoresizingMask
         outline.addTableColumn(column)
         outline.outlineTableColumn = column
+        for page in [WallpaperLibraryPage.videos, .images] + Group.allCases.flatMap({ pages(in: $0) }) {
+            pageNodes[page] = Node(.page(page))
+        }
         outline.dataSource = self
         outline.delegate = self
         outline.setDraggingSourceOperationMask(.move, forLocal: true)
@@ -90,9 +93,6 @@ final class WallpaperLibrarySidebarController: NSViewController, NSOutlineViewDa
         outline.rowContextMenuProvider = { [weak self] row in self?.menu(forRow: row) }
         outline.blankAreaMenuProvider = { [weak self] in self?.creationMenu() }
         outline.sameSelectionClickHandler = { [weak self] row in self?.navigate(row: row) }
-        for page in [WallpaperLibraryPage.videos, .images] + Group.allCases.flatMap({ pages(in: $0) }) {
-            pageNodes[page] = Node(.page(page))
-        }
         scrollView.documentView = outline
         view.addSubview(tintSurface)
         view.addSubview(scrollView)
@@ -228,7 +228,7 @@ final class WallpaperLibrarySidebarController: NSViewController, NSOutlineViewDa
         switch group {
         case .library: return [.downloads, .recent]
         case .browse: return [.workshop, .wallhaven, .pixiv, .pixabay]
-        case .playlists: return [.playlists, .favorites] + playlists.map { .playlist($0.id) }
+        case .playlists: return [.playlists, .favorites]
         }
     }
 
@@ -238,8 +238,16 @@ final class WallpaperLibrarySidebarController: NSViewController, NSOutlineViewDa
         return pages(in: group).compactMap { pageNodes[$0] }
     }
 
-    func outlineView(_ outlineView: NSOutlineView, numberOfChildrenOfItem item: Any?) -> Int { children(item).count }
-    func outlineView(_ outlineView: NSOutlineView, child index: Int, ofItem item: Any?) -> Any { children(item)[index] }
+    func outlineView(_ outlineView: NSOutlineView, numberOfChildrenOfItem item: Any?) -> Int {
+        if let node = item as? Node, case .group(.playlists) = node.kind { return playlists.count + 2 }
+        return children(item).count
+    }
+    func outlineView(_ outlineView: NSOutlineView, child index: Int, ofItem item: Any?) -> Any {
+        if let node = item as? Node, case .group(.playlists) = node.kind, index >= 2 {
+            return pageNodes[.playlist(playlists[index - 2].id)]!
+        }
+        return children(item)[index]
+    }
     func outlineView(_ outlineView: NSOutlineView, isItemExpandable item: Any) -> Bool {
         guard let node = item as? Node else { return false }
         if case .group = node.kind { return true }

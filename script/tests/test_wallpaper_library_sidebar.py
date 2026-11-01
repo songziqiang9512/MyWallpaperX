@@ -9,6 +9,7 @@ import unittest
 
 from script.tests.native_app_harness import prepare_native_app, run_native_app
 from script.tests.test_video_thumbnail_prefetch import SWIFT_ISOLATION_FLAGS
+from script.tests.test_ui_library_algorithms import declaration
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -56,6 +57,21 @@ class WallpaperLibrarySidebarTests(unittest.TestCase):
                         "test_copy_sha256": hashlib.sha256(target.read_bytes()).hexdigest(),
                         "purpose": "observe production willBegin native session; original body and delegate retained",
                     }
+                elif path == "MyWallpaperX/Shell/WallpaperLibrarySidebarController.swift":
+                    original = target.read_text()
+                    entry = declaration(original, "    private func pages(in group:")
+                    observed_entry = entry
+                    for line in entry.splitlines():
+                        if ": return " in line:
+                            prefix, value = line.split(": return ", 1)
+                            observed_entry = observed_entry.replace(line,
+                                prefix + ": return SidebarChildPreparationProbe.prepared(" + value + ")", 1)
+                    target.write_text(original.replace(entry, observed_entry, 1))
+                    instrumentation[path] = {
+                        "original_sha256": identities[path],
+                        "test_copy_sha256": hashlib.sha256(target.read_bytes()).hexdigest(),
+                        "purpose": "observe actual pages helper calls and returned page values; return each original array unchanged",
+                    }
                 sources.append(str(target))
             binary = prepare_native_app(work, "WallpaperLibrarySidebar")
             build = subprocess.run(["xcrun", "swiftc", *SWIFT_ISOLATION_FLAGS, "-warnings-as-errors", "-parse-as-library",
@@ -71,6 +87,15 @@ class WallpaperLibrarySidebarTests(unittest.TestCase):
                 self.assertIs(passed, True, name + "\n" + run.stdout + "\n" + run.stderr)
             print(json.dumps({"testOnlyNativeSessionInstrumentation": instrumentation}, sort_keys=True))
             print(json.dumps(checks, sort_keys=True))
+            preparation = [json.loads(line.removeprefix("Sidebar child preparation: "))
+                for line in run.stderr.splitlines() if line.startswith("Sidebar child preparation: ")]
+            self.assertEqual(len(preparation), 1, run.stderr)
+            print(json.dumps({"sidebarChildPreparation": preparation[0]}, sort_keys=True))
+            self.assertEqual(set(preparation[0]), {"16", "128"}, run.stderr)
+            for count, measured in preparation[0].items():
+                for metric, limit in (("calls", 2), ("pageValues", 4)):
+                    with self.subTest(playlistCount=count, metric=metric):
+                        self.assertLessEqual(measured[metric], limit, run.stderr)
         self.assertEqual(identities, {p: hashlib.sha256((ROOT / p).read_bytes()).hexdigest() for p in observed})
 
 

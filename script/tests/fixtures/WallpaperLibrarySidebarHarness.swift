@@ -6,6 +6,16 @@ private final class SidebarRecentMenuProbe: NSObject {
 }
 import Foundation
 
+@MainActor enum SidebarChildPreparationProbe {
+    static var calls = 0
+    static var pageValues = 0
+    static func prepared(_ pages: [WallpaperLibraryPage]) -> [WallpaperLibraryPage] {
+        calls += 1
+        pageValues += pages.count
+        return pages
+    }
+}
+
 enum MainWindowCoordinator { static func mainWindow() -> NSWindow? { nil } }
 
 @MainActor final class SidebarDropInfo: NSObject, NSDraggingInfo {
@@ -102,6 +112,39 @@ enum MainWindowCoordinator { static func mainWindow() -> NSWindow? { nil } }
             precondition(Date() < deadline, "native fixture did not become active")
             pump(0.005)
         }
+        let rootNodes = (0..<controller.outlineView(outline, numberOfChildrenOfItem: nil)).map {
+            controller.outlineView(outline, child: $0, ofItem: nil) as AnyObject
+        }
+        let projectionGroup = rootNodes[4]
+        let fixedNodes = (0..<2).map { controller.outlineView(outline, child: $0, ofItem: projectionGroup) as AnyObject }
+        var childPreparation: [String: [String: Int]] = [:]
+        for count in [16, 128] {
+            let many = (0..<count).map { WallpaperPlaylist(name: "Projected \($0)", sidebarRank: $0 == 1 ? 0 : $0) }
+            controller.update(page: .playlist(many[count / 2].id), playlists: Array(many.reversed()), counts: [:], covers: [:], canEdit: true)
+            window.contentView?.layoutSubtreeIfNeeded()
+            SidebarChildPreparationProbe.calls = 0
+            SidebarChildPreparationProbe.pageValues = 0
+            let childCount = controller.outlineView(outline, numberOfChildrenOfItem: projectionGroup)
+            let nodes = (0..<childCount).map { controller.outlineView(outline, child: $0, ofItem: projectionGroup) as AnyObject }
+            childPreparation[String(count)] = ["calls": SidebarChildPreparationProbe.calls, "pageValues": SidebarChildPreparationProbe.pageValues]
+            let projectedTitles = nodes.map {
+                (controller.outlineView(outline, viewFor: outline.outlineTableColumn, item: $0) as? NSTableCellView)?.textField?.stringValue ?? ""
+            }
+            let expectedTitles = ["所有播放列表", "特别喜爱", many[1].name, many[0].name] + many.dropFirst(2).map(\.name)
+            checks["sidebar-indexed-children-\(count)-keep-fixed-offset-rank-ties-and-selection"] = childCount == count + 2
+                && projectedTitles == expectedTitles && nodes[0] === fixedNodes[0] && nodes[1] === fixedNodes[1]
+                && outline.selectedRow == outline.row(forItem: nodes[count / 2 + 2])
+                && rootNodes.enumerated().allSatisfy { $0.element === (controller.outlineView(outline, child: $0.offset, ofItem: nil) as AnyObject) }
+            var refreshed = many
+            refreshed[0].name += " renamed"
+            controller.update(page: .playlist(many[count / 2].id), playlists: Array(refreshed.reversed()), counts: [:], covers: [:], canEdit: true)
+            checks["sidebar-indexed-children-\(count)-reuse-nodes-through-metadata-refresh"] = nodes.enumerated().allSatisfy {
+                $0.element === (controller.outlineView(outline, child: $0.offset, ofItem: projectionGroup) as AnyObject)
+            } && (controller.outlineView(outline, viewFor: outline.outlineTableColumn, item: nodes[3]) as? NSTableCellView)?.textField?.stringValue == refreshed[0].name
+        }
+        controller.update(page: .videos, playlists: [second, first], counts: [.videos: 7, .playlists: 2, .playlist(second.id): 0], covers: [:], canEdit: true)
+        window.contentView?.layoutSubtreeIfNeeded()
+        pump()
         func item(_ row: Int) -> Any { outline.item(atRow: row)! }
         func cell(_ row: Int) -> NSTableCellView { outline.view(atColumn: 0, row: row, makeIfNecessary: true) as! NSTableCellView }
         func titleX(_ cell: NSTableCellView) -> CGFloat { cell.textField!.convert(.zero, to: cell).x }
@@ -647,6 +690,8 @@ enum MainWindowCoordinator { static func mainWindow() -> NSWindow? { nil } }
             }
         }
         FileHandle.standardError.write(try! JSONSerialization.data(withJSONObject: ["sidebarIconGeometry": iconDiagnostics], options: [.sortedKeys]))
+        let preparationJSON = String(decoding: try! JSONSerialization.data(withJSONObject: childPreparation, options: [.sortedKeys]), as: UTF8.self)
+        FileHandle.standardError.write(Data("\nSidebar child preparation: \(preparationJSON)\n".utf8))
         print(String(data: try! JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
     }
 }
