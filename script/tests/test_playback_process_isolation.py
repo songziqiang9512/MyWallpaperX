@@ -14,6 +14,10 @@ from script.tests.test_web_compat_parity import source_block
 
 ROOT = Path(__file__).resolve().parents[2]
 
+with patch.object(sys, "path", [str(ROOT / "script"), *sys.path]):
+    import playback_process_isolation_benchmark as benchmark
+    from web_debug_defaults import DEBUG_DEFAULTS_PREFIX, make_debug_defaults_suite
+
 HARNESS = r'''
 import Foundation
 
@@ -485,3 +489,120 @@ final class WallpaperEngine {
                 text=True, capture_output=True, timeout=20)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertIn("playback-process-isolation-pass", result.stdout)
+
+
+class PlaybackProcessIsolationCLITests(unittest.TestCase):
+    def test_real_launch_confirms_its_suite_and_preserves_native_outcomes(self):
+        with tempfile.TemporaryDirectory(prefix="mwx-isolation-cli-") as temporary:
+            cases = [("confirmed", False, False), ("missing", False, False), ("foreign", False, False),
+                     ("confirmed", True, False), ("confirmed", True, True)]
+            for index, (mode, scene, incomplete) in enumerate(cases):
+                with self.subTest(log=mode, scene=scene, incomplete=incomplete):
+                    root = Path(temporary) / str(index)
+                    root.mkdir()
+                    output, home, app = root / "report", root / "home", root / "FakeApp"
+                    checks = {f"check-{number}": True for number in range(33 if scene else 25)}
+                    not_covered = {}
+                    if incomplete:
+                        checks.pop("check-0")
+                        not_covered["check-0"] = "fixture capability unavailable"
+                    native = {"checks": checks, "notCovered": not_covered,
+                              "outcome": "incomplete" if incomplete else "passed", "passed": not incomplete}
+                    app.write_text(f"""#!{sys.executable}
+import json, os, sys, time
+from pathlib import Path
+args = sys.argv[1:]
+suite = args[args.index('--mwx-debug-user-defaults-suite') + 1] if '--mwx-debug-user-defaults-suite' in args else None
+report = Path(args[args.index('--mwx-debug-web-process-isolation-report') + 1])
+(report.parent / 'launch.json').write_text(json.dumps(dict(argv=args, suite=suite, pid=os.getpid(),
+    home=os.environ.get('HOME'), fixed_home=os.environ.get('CFFIXED_USER_HOME'))))
+if {mode!r} == 'confirmed' and suite:
+    print('MWX DEBUG DEFAULTS: suite=' + suite, flush=True)
+elif {mode!r} == 'foreign':
+    print('MWX DEBUG DEFAULTS: suite={DEBUG_DEFAULTS_PREFIX}other', flush=True)
+temporary = report.with_suffix('.tmp')
+temporary.write_text({json.dumps(native)!r})
+temporary.replace(report)
+while True: time.sleep(1)
+""")
+                    app.chmod(0o755)
+                    argv = ["isolation", "--app", str(app), "--runtime-home", str(home),
+                            "--output-dir", str(output), "--timeout", "3"]
+                    if scene:
+                        scene_root = root / "scene"
+                        scene_root.mkdir()
+                        argv += ["--scene-root", str(scene_root)]
+                    identity = {"fixture": "signature-boundary"}
+
+                    def cleanup(suite, environment):
+                        launched = json.loads((output / "launch.json").read_text())
+                        self.assertEqual(suite, launched["suite"])
+                        self.assertEqual(environment["HOME"], launched["home"])
+                        self.assertEqual(environment["CFFIXED_USER_HOME"], launched["fixed_home"])
+                        stopped = terminate.call_args.args[0]
+                        self.assertEqual(stopped.pid, launched["pid"])
+                        self.assertIsNotNone(stopped.poll(), "suite cleanup preceded the owned process exit")
+
+                    with patch.object(sys, "argv", argv), \
+                         patch.object(benchmark, "stage_signed_app", return_value=(app, identity)) as stage, \
+                         patch.object(benchmark, "verify_staged_app") as verify, \
+                         patch.object(benchmark, "discard_staged_app") as discard, \
+                         patch.object(benchmark, "make_debug_defaults_suite",
+                            wraps=make_debug_defaults_suite, create=True) as make_suite, \
+                         patch.object(benchmark, "terminate_process", wraps=benchmark.terminate_process) as terminate, \
+                         patch.object(benchmark, "delete_debug_defaults_suite",
+                            side_effect=cleanup, create=True) as delete_suite:
+                        result = benchmark.main()
+                    launched = json.loads((output / "launch.json").read_text())
+                    report = json.loads((output / "report.json").read_text())
+                    self.assertEqual(launched["argv"].count("--mwx-debug-user-defaults-suite"), 1, launched)
+                    self.assertTrue(launched["suite"].startswith(DEBUG_DEFAULTS_PREFIX))
+                    make_suite.assert_called_once_with()
+                    delete_suite.assert_called_once()
+                    terminate.assert_called_once()
+                    stage.assert_called_once_with(app, output.resolve())
+                    verify.assert_called_once_with(identity)
+                    self.assertEqual(launched["home"], str(home.resolve()))
+                    self.assertEqual(launched["fixed_home"], launched["home"])
+                    if scene:
+                        flag = launched["argv"].index("--mwx-debug-isolation-scene-root")
+                        self.assertEqual(launched["argv"][flag + 1], str(scene_root.resolve()))
+                    self.assertEqual(report["result"], native)
+                    confirmed = mode == "confirmed"
+                    outcome = ("incomplete" if incomplete else "passed") if confirmed else "failed"
+                    self.assertEqual(result, {"passed": 0, "incomplete": 2, "failed": 1}[outcome])
+                    self.assertEqual(report["outcome"], outcome)
+                    self.assertEqual(report["passed"], outcome == "passed")
+                    self.assertEqual(report.get("debug_defaults_suite"), launched["suite"] if confirmed else None)
+                    if outcome == "passed":
+                        discard.assert_called_once_with(identity)
+                    else:
+                        discard.assert_not_called()
+
+    def test_failed_popen_cleans_only_its_suite_without_discarding_stage(self):
+        with tempfile.TemporaryDirectory(prefix="mwx-isolation-cli-exec-") as temporary:
+            root = Path(temporary)
+            app, home, output = root / "InvalidApp", root / "home", root / "report"
+            app.write_text("not an executable format\n")
+            app.chmod(0o755)
+            argv = ["isolation", "--app", str(app), "--runtime-home", str(home), "--output-dir", str(output)]
+            with patch.object(sys, "argv", argv), \
+                 patch.object(benchmark, "stage_signed_app", return_value=(app, {})) as stage, \
+                 patch.object(benchmark, "verify_staged_app") as verify, \
+                 patch.object(benchmark, "discard_staged_app") as discard, \
+                 patch.object(benchmark, "make_debug_defaults_suite",
+                    wraps=make_debug_defaults_suite, create=True) as make_suite, \
+                 patch.object(benchmark, "terminate_process", wraps=benchmark.terminate_process) as terminate, \
+                 patch.object(benchmark, "delete_debug_defaults_suite", create=True) as delete_suite:
+                with self.assertRaises(OSError):
+                    benchmark.main()
+            make_suite.assert_called_once_with()
+            delete_suite.assert_called_once()
+            suite, environment = delete_suite.call_args.args
+            self.assertTrue(suite.startswith(DEBUG_DEFAULTS_PREFIX))
+            self.assertEqual(environment["HOME"], str(home.resolve()))
+            self.assertEqual(environment["CFFIXED_USER_HOME"], environment["HOME"])
+            stage.assert_called_once_with(app, output.resolve())
+            verify.assert_not_called()
+            discard.assert_not_called()
+            terminate.assert_not_called()

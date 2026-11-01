@@ -34,7 +34,7 @@
     },
     "docs/development/code-slimming-program.md": {
       "lines": 464,
-      "bytes": 101971
+      "bytes": 102122
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -1793,10 +1793,10 @@
     {
       "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
-      "before": "24469df0ba7f7620860645914c411de567dd7ef95af0077848889a4a5ef8c8f4",
-      "after": "583af899acb24558c8cd4499bfecd9ff85e927e0090f8d6654527ac00369b51d",
+      "before": "583af899acb24558c8cd4499bfecd9ff85e927e0090f8d6654527ac00369b51d",
+      "after": "36df789d89754a8d78191110102efcd83ce5eb9bc2e53a67316edc35ff192285",
       "owner": "repository-maintainer",
-      "reason": "原位替换最近验证为R31零调用Web同步结构风险链退役；仅删产品29行与两个fixture stub，原profile断言/现役纯核/来源合同及并行Scene记录保持，不追加台账。",
+      "reason": "原位替换最近验证为R32两个非Scene Debug CLI隔离修复及真实启动层反例；复用现有suite helper，无产品改动，不外推完整App/旧Runner结果；保留其他预算和并行Scene记录。",
       "decision": "docs/development/code-slimming-program.md#目标与边界"
     },
     {

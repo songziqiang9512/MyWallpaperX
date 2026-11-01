@@ -10,7 +10,7 @@
 
 本轮按用户固定流程循环：并行子代理在每份审查任务中携带用户固定prompt，核无功能收益的校验/认证/重复计算/嵌套、持续转发和补丁、过量实现与耦合；主agent审核问题和方案并决定是否修改，子代理实施，主agent复核真实行为/成本证据和最近门后决定窄提交，再开启下一轮。每批报告问题、当前影响、方案、功能变化及下一候选。当前目标授权主agent作修复和本地提交裁决，不授权推送；共享构建、原生窗口和GPU仍串行，其他会话改动保留。
 
-最近产品验证：R31（`1064e6afc` 起）退役无调用的 Web 实例结构风险入口及其独占两层同步样本读取重载（产品-29行），删除仅供旧入口编译的两个夹具stub（测试-2行）。现役解析核仍用captured名称、已解析count/definitions调静态纯核；两个真实profile重载、静态分类/风险核、source准入及pinned/legacy发现逻辑逐字保留。原profile全部@main断言不变，旧源配原夹具、最终源配仅少两stub的夹具，两臂档位门均通过；不以混装缺stub的编译失败作反证。最终profile、作者准备与缓存发布三方法、独审及隔离Debug通过（28.954秒，5859输入稳定，0error/0warning），使用仓库原编译参数，无新测试/检查/owner。收益仅为退役旧职责与维护面，不认领现役IO/点击CPU、真实WK/账户或能耗改善；R23未解决边界不变。较早25段已结记录见R1–R26（不含R23）周期归档，旧候选不续为授权。
+最近产品验证：R32（`72d46b3de` 起）修两个非Scene Debug CLI 的 defaults 隔离缺口：旧 failure/process-isolation 入口仅改HOME，仍会构造真实Service并可能进入旧Keychain/WebKit清退。复用现有suite生成、传参、日志确认与进程结束后清理（脚本净+19行，无产品改动或新owner），保留原12/25/33项报告、notCovered及退出码。原5个报告校验方法与新增4个真实轻量子进程方法共9方法通过；新测试配旧CLI实际启动后分别4/6失败，修后正确suite通过、缺失/错误suite失败，启动OSError仍清本次suite，清理前确认自有进程已退出。原测试及native_outcome逐字保留，测试净+208行用于启动层反例；不触真实defaults/Keychain/WebKit。未启动完整App；缓存NoSign App签名无效，未用于运行，不认领旧Debug失败runner或真实失败UI已通过。仅脚本/文档变化未重建App，R31构建仍只属上批。Web失败镜像和陈旧Debug基准待后批，Scene工具同类缺口只记录不改，R23边界不变。较早25段见R1–R26（不含R23）归档，旧候选不续为授权。
 
 <a id="completed-r1-r26"></a> [归档记录](../history/cross-topic/code-slimming-r1-r26-2026-11-01.md#completed-r1-r26) <!-- archive-redirect -->
 

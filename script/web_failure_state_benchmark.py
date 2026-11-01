@@ -12,6 +12,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+from web_debug_defaults import debug_defaults_suites, delete_debug_defaults_suite, make_debug_defaults_suite
 from web_wallpaper_benchmark import APP_NAME, REPO_ROOT, terminate_process
 
 
@@ -67,6 +68,7 @@ def write_reports(output_dir: Path, report: dict[str, Any]) -> tuple[Path, Path]
         f"- Result: {'PASS' if report['passed'] else 'FAIL'}",
         f"- Process survived until report: {report['process_survived_until_report']}",
         f"- Isolated runtime home: `{report['runtime_home']}`",
+        f"- UserDefaults suite: `{report['debug_defaults_suite'] or '-'}`",
     ]
     if report["failures"]:
         lines.extend(["", "## Failures", ""])
@@ -94,8 +96,11 @@ def run_benchmark(args: argparse.Namespace) -> int:
     environment = os.environ.copy()
     environment["HOME"] = str(runtime_home)
     environment["CFFIXED_USER_HOME"] = str(runtime_home)
+    defaults_suite = make_debug_defaults_suite()
     command = [
         str(app_binary),
+        "--mwx-debug-user-defaults-suite",
+        defaults_suite,
         "--mwx-debug-suppress-main-window",
         "--mwx-debug-web-failure-state-report",
         str(app_report_path),
@@ -132,9 +137,13 @@ def run_benchmark(args: argparse.Namespace) -> int:
         finally:
             if process is not None:
                 terminate_process(process)
+            delete_debug_defaults_suite(defaults_suite, environment)
     if not process_survived:
         failures.append("app did not survive until the report was complete")
     failures.extend(validate_app_report(app_report))
+    defaults_confirmed = defaults_suite in debug_defaults_suites(log_path.read_text(encoding="utf-8", errors="replace"))
+    if not defaults_confirmed:
+        failures.append("isolated UserDefaults suite was not confirmed in app log")
 
     report = {
         "app_report": app_report,
@@ -142,6 +151,7 @@ def run_benchmark(args: argparse.Namespace) -> int:
         "passed": not failures,
         "process_survived_until_report": process_survived,
         "runtime_home": str(runtime_home),
+        "debug_defaults_suite": defaults_suite if defaults_confirmed else None,
     }
     json_path, markdown_path = write_reports(output_dir, report)
     print(f"Report JSON: {json_path}")

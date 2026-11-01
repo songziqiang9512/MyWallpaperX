@@ -14,6 +14,7 @@ import time
 from web_benchmark_capture import (
     discard_staged_app, require_fresh_output_dir, stage_signed_app, verify_staged_app,
 )
+from web_debug_defaults import debug_defaults_suites, delete_debug_defaults_suite, make_debug_defaults_suite
 from web_wallpaper_benchmark import terminate_process
 
 
@@ -54,7 +55,8 @@ def main() -> int:
     output.mkdir(parents=True, exist_ok=True)
     binary, identity = stage_signed_app(args.app, output)
     native_report = output / "native-report.json"
-    command = [str(binary), "--mwx-debug-suppress-main-window",
+    defaults_suite = make_debug_defaults_suite()
+    command = [str(binary), "--mwx-debug-user-defaults-suite", defaults_suite, "--mwx-debug-suppress-main-window",
         "--mwx-debug-web-process-isolation-report", str(native_report)]
     if args.scene_root:
         command += ["--mwx-debug-isolation-scene-root", str(args.scene_root.resolve())]
@@ -62,10 +64,11 @@ def main() -> int:
     environment.update(HOME=str(home), CFFIXED_USER_HOME=str(home))
     failure = None
     result = None
+    process = None
     with (output / "app.log").open("w") as log:
-        process = subprocess.Popen(command, env=environment, stdout=log,
-            stderr=subprocess.STDOUT, start_new_session=True)
         try:
+            process = subprocess.Popen(command, env=environment, stdout=log,
+                stderr=subprocess.STDOUT, start_new_session=True)
             deadline = time.monotonic() + args.timeout
             while time.monotonic() < deadline:
                 if native_report.exists():
@@ -78,14 +81,20 @@ def main() -> int:
             else:
                 failure = "native runner timed out"
         finally:
-            terminate_process(process)
+            if process is not None:
+                terminate_process(process)
+            delete_debug_defaults_suite(defaults_suite, environment)
     verify_staged_app(identity)
+    defaults_confirmed = defaults_suite in debug_defaults_suites((output / "app.log").read_text(errors="replace"))
+    if not defaults_confirmed:
+        failure = failure or "isolated UserDefaults suite was not confirmed in app log"
     expected = 33 if args.scene_root else 25
     outcome = native_outcome(result, expected) if failure is None else "failed"
     passed = outcome == "passed"
     if passed:
         discard_staged_app(identity)
-    report = {"passed": passed, "outcome": outcome, "failure": failure, "result": result, "appIdentity": identity}
+    report = {"passed": passed, "outcome": outcome, "failure": failure, "result": result, "appIdentity": identity,
+              "debug_defaults_suite": defaults_suite if defaults_confirmed else None}
     (output / "report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
     print(f"Playback process isolation: {outcome.upper()} — {output / 'report.json'}")
     if outcome == "incomplete":
