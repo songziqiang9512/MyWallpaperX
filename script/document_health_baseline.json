@@ -182,7 +182,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 419,
-      "bytes": 118467
+      "bytes": 118535
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -250,7 +250,7 @@
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
       "lines": 596,
-      "bytes": 161800
+      "bytes": 162100
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 59,
@@ -277,8 +277,8 @@
       "bytes": 22465
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 187,
-      "bytes": 42732
+      "lines": 188,
+      "bytes": 43397
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1876,15 +1876,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "ea712886c13bd6591c5f15bfd23a617b3271f35a432fa41122047c3236e22331",
-      "after": "d743130368923ed8bd05cdbf3782a9fe0af275076fb6d9a1028323f09d150545",
-      "owner": "scene-particle-color-timeline",
-      "reason": "补真实丢失colorn Timeline的唯一合同/受控出生边界，已实施设计及旧Bloom过程退出D4；338/295光线仍未销账，不复制运行过程到现役正文。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#particle-normalized-color-timeline"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
       "before": "437c5f8b2c64051ba129ad6818356c959a71026bd7e7b1eef75a5fffd5ac8b17",
       "after": "77befe002f0de9077f71a27b85af527c3eea970bd2a6340deb4bc5bff88e03c0",
@@ -1900,15 +1891,6 @@
       "owner": "scene-model-layer-source-material-boundary",
       "reason": "记录多节点/history graph 的 effectVisibility activation 放宽、128/394 载体五 effect 结果与 history 未更新边界，替换只限单节点 pairLeaf 的旧门。",
       "decision": "docs/scene/capabilities/advanced-object-coverage.md#3-puppet-warp"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "dbd0d49a9f08f4fab03e62b22b940ba1707b660211fa3f4c15625493efbf0dcd",
-      "after": "c4870ecdfd521a3aa08e744441e4a6e3f95dd89a1444e6b96f368253c3938b06",
-      "owner": "scene-effect-activation-history",
-      "reason": "记录source material目录不再为puppet/static-model层报告shape失败，并把314的8条render-state并入source材质/lookup条目；三样本log-only PASS、未做视觉对照。",
-      "decision": "docs/scene/capabilities/effect-execution-coverage.md#effect-activation-history-20261101"
     },
     {
       "section": "bodies",
@@ -1939,12 +1921,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "before": "d743130368923ed8bd05cdbf3782a9fe0af275076fb6d9a1028323f09d150545",
+      "after": "9b44ee36d8212d6534c08794cfcbc906eaa05c0b3dc72491eaead3468f122c9a",
+      "owner": "scene-authored-setter-intent",
+      "reason": "替换陈旧的跨owner异值拒绝说法，记录同值显式setter与无消费透视noop合同；新增当前已证HSV缺省首拒与官方参数资格，尚不关闭颜色能力。",
+      "decision": "docs/scene/history/dynamic-layer-slot-lifetime-2026-10-29.md#authored-setter-intent-20261101"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "a57a86a0d23b45f159677db6f52e39bcb1f776f24aad8491d16d84d03d3d2132",
-      "after": "7fa9ac1925e037896f584beeef398961beaefcc10e67ffa6ce483698d0ccac03",
-      "owner": "scene-independent-integration-review",
-      "reason": "合入逐条审查后修正swizzle token身份、owner plan投影及utility失败观测，补用途/成员条件边界；已闭问题移出队列，运行细节归历史。",
-      "decision": "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md#utility-dormant-review-20261101"
+      "before": "7fa9ac1925e037896f584beeef398961beaefcc10e67ffa6ce483698d0ccac03",
+      "after": "70ccd8ef65d0f2972392acd9a075b1f610e8c3c972abececa25833fb5f177632",
+      "owner": "scene-authored-setter-intent",
+      "reason": "替换陈旧的跨owner异值拒绝说法，记录同值显式setter与无消费透视noop合同；新增当前已证HSV缺省首拒与官方参数资格，尚不关闭颜色能力。",
+      "decision": "docs/scene/history/dynamic-layer-slot-lifetime-2026-10-29.md#authored-setter-intent-20261101"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "d490c02a1c55da4249f190c88e33e5b29458072798e5d735eae4c2aa02422115",
+      "after": "e32fbedb19e450682596edc5f832ae3960439706ab872e1078893cd21de73505",
+      "owner": "scene-authored-setter-intent",
+      "reason": "替换陈旧的跨owner异值拒绝说法，记录同值显式setter与无消费透视noop合同；新增当前已证HSV缺省首拒与官方参数资格，尚不关闭颜色能力。",
+      "decision": "docs/scene/history/dynamic-layer-slot-lifetime-2026-10-29.md#authored-setter-intent-20261101"
     }
   ]
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Event-only Boolean setters survive VM quiescence through the layer runtime."""
+"""Event setter intent survives callbacks, owner admission and runtime commit."""
 from __future__ import annotations
 
 import json
@@ -121,6 +121,195 @@ HARNESS = r'''
         }
         """
 
+    static func setterIntentCases() throws -> [String: Any] {
+        let frame = SceneScriptFrameInput(timing: .init(wallDate: Date(timeIntervalSince1970: 0),
+            simulationFrameTime: 1 / 60, sceneTime: 1))
+        func scene(_ id: Int, _ name: String, visible: Bool = true,
+                   kind: String = "text", perspective: Bool? = nil) -> SceneRenderDescriptor {
+            .init(layers: [.init(id: id, layerIndex: 0, name: name, usesPerspective: perspective, visible: visible,
+                originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1], alpha: 1, effects: [],
+                contentKind: kind, text: "seed", textStyle: .init(fontPath: "Arial",
+                    colorRGB: nil, pointSize: 32))])
+        }
+        func owner(_ domain: SceneScriptQuickJSDomain, _ id: Int, _ source: String,
+                   field: SceneDynamicLayerField = .origin) throws -> SceneScriptValueOwner {
+            try .init(domain: domain, source: source, target: .layer(layerID: id, field: field),
+                valueType: .vector3, effectNames: [], allowsStatefulLayerSideEffects: true,
+                generation: 1, budget: .default)
+        }
+        func evaluate(_ owner: SceneScriptValueOwner) throws -> SceneScriptValueEvaluation {
+            try owner.evaluate(input: .vector3(0, 0, 0), frame: frame, scriptPropertiesJSON: "",
+                userPropertiesJSON: "{}", expectedGeneration: 1, interruptBudget: nil).get()
+        }
+        func effects(_ owner: SceneScriptValueOwner, _ value: SceneScriptValueEvaluation) -> SceneScriptOwnerEffects {
+            var effects = SceneScriptOwnerEffects(ownerTarget: owner.target, materialFunctionMutations: [],
+                animationMutations: [], layerMutations: [], mediaPlaybackCommands: [])
+            effects.append(value)
+            return effects
+        }
+        func snapshot(_ runtime: SceneScriptDynamicLayerRuntime,
+                      _ values: [SceneDynamicTarget: SceneDynamicValue]) -> SceneDynamicSnapshot {
+            SceneDynamicSnapshotResolver().resolve(frameIndex: 0, generation: 1,
+                definitions: runtime.authoredLayerDefinitions, sceneScriptValues: values).snapshot
+        }
+        var baselines: [[String: Any]] = [], callbacks: [[String: Any]] = []
+        var interleaved: [[String: Any]] = [], immediate: [[String: Any]] = []
+        var returnFallback: [[String: Any]] = []
+        var perspectiveAdmission: [[String: Any]] = []
+        let fields: [(String, SceneScriptLayerMutation.Fields)] = [
+            ("origin", .origin), ("scale", .scale), ("angles", .angles),
+            ("perspective", .perspective), ("visible", .visibility), ("solid", .solid),
+            ("text", .text), ("font", .font), ("alpha", .alpha), ("color", .color),
+            ("pointsize", .pointSize)]
+        for (id, name, named) in [(7, "event-leaf", false), (27, "renamed-author", true)] {
+            let destination = named ? "thisScene.getLayer('\(name)')" : "thisLayer"
+            for (property, field) in fields {
+                let descriptor = scene(id, name)
+                let runtime = SceneScriptDynamicLayerRuntime(descriptor: descriptor, authoredMutationLayerIDs: [id])
+                let domain = try SceneScriptQuickJSDomain()
+                try domain.publishLayerSnapshot(snapshot(runtime, [:]), descriptor: descriptor)
+                let writer = try owner(domain, id, "export function update(v){const ref=\(destination);ref['\(property)']=ref['\(property)'];return v;}")
+                let value = try evaluate(writer)
+                baselines.append(["name": name, "field": property, "mutationCount": value.layerMutations.count,
+                    "recorded": value.layerMutations.contains { $0.layerID == id && $0.fields.contains(field) }])
+                writer.discardLayerMutations()
+            }
+            for writes in [true, false] {
+                let descriptor = scene(id, name)
+                let runtime = SceneScriptDynamicLayerRuntime(descriptor: descriptor, authoredMutationLayerIDs: [id])
+                let domain = try SceneScriptQuickJSDomain()
+                try domain.publishLayerSnapshot(snapshot(runtime, [:]), descriptor: descriptor)
+                let operation = writes ? "ref.origin=ref.origin;" : "const observed=ref.origin;"
+                let writer = try owner(domain, id, "export function update(v){const ref=\(destination);\(operation)return 'text-payload';}")
+                var row: [String: Any] = ["name": name, "writes": writes]
+                switch writer.evaluate(input: .vector3(0, 0, 0), frame: frame,
+                    scriptPropertiesJSON: "", userPropertiesJSON: "{}", expectedGeneration: 1, interruptBudget: nil) {
+                case let .success(value):
+                    row["accepted"] = true
+                    row["keptTypedInput"] = value.value == .vector3(0, 0, 0)
+                    row["ownSetter"] = value.layerMutations.contains { $0.layerID == id && $0.fields.contains(.origin) }
+                case let .failure(failure):
+                    row["accepted"] = false
+                    row["failure"] = failure.code
+                }
+                row["retainedMutations"] = mwx_scene_quickjs_owner_layer_mutation_count(writer.handle)
+                returnFallback.append(row)
+                writer.discardLayerMutations()
+            }
+            for initial in [true, false] {
+                let descriptor = scene(id, name, visible: initial)
+                let runtime = SceneScriptDynamicLayerRuntime(descriptor: descriptor, authoredMutationLayerIDs: [id])
+                let domain = try SceneScriptQuickJSDomain()
+                let source = "export function mediaThumbnailChanged(e){\(destination).visible=\(initial ? "false" : "true");}export function update(v){\(destination).visible=\(initial ? "true" : "false");return v;}"
+                let binding = SceneScriptBindingIR(source: source,
+                    owner: .init(kind: .object, objectIndex: 0, objectID: id,
+                        effectIndex: nil, effectID: nil, passIndex: nil, passID: nil),
+                    targetPath: [.key("objects"), .index(0), .key("origin")], properties: [:],
+                    authoredValue: .string("0 0 0"), valueType: .string, wrapperKeys: ["script", "value"])
+                let program = SceneScriptVectorProgram.compile(domain: domain, descriptor: descriptor,
+                    scriptBindings: [binding], userPropertyDefinitions: [], generation: 1)
+                try domain.publishLayerSnapshot(snapshot(runtime, [:]), descriptor: descriptor)
+                let result = program.evaluate(inputs: [.layer(layerID: id, field: .origin): .vector3(0, 0, 0)],
+                    effectivePropertyValues: [:], frame: frame,
+                    mediaThumbnailEvent: .init(hasThumbnail: true, generation: 1))
+                let admission = runtime.preflightOwnerEffects(result.ownerEffects)
+                let visibility = SceneDynamicTarget.layer(layerID: id, field: .visibility)
+                let current = snapshot(runtime, admission.layerPlan.authoredLayerValues)
+                runtime.commit(admission.layerPlan)
+                program.finalizeLayerMutations(committing: true, rejectedOwnerTargets: [])
+                let committed = snapshot(runtime, runtime.snapshot().authoredLayerValues)
+                callbacks.append(["name": name, "initial": initial, "bindingCount": program.bindings.count,
+                    "failures": result.failures.count, "mutationCount": result.layerMutations.count,
+                    "current": current[visibility]?.value == .bool(true),
+                    "committed": committed[visibility]?.value == .bool(true),
+                    "consumer": SceneLayerVisibility.visibleLayerIDs(in: descriptor, snapshot: current).contains(id)])
+            }
+            for mode in ["aa", "ab", "aba"] {
+                for rejection in mode == "aa" ? ["none"] : ["none", "a", "b", "both"] {
+                    let descriptor = scene(id, name)
+                    let runtime = SceneScriptDynamicLayerRuntime(descriptor: descriptor, authoredMutationLayerIDs: [id])
+                    let domain = try SceneScriptQuickJSDomain()
+                    try domain.publishLayerSnapshot(snapshot(runtime, [:]), descriptor: descriptor)
+                    let a = try owner(domain, id, "let writes=0;export function update(v){writes++;\(destination).visible=writes!==1;return v;}")
+                    let b = try owner(domain, id, "export function update(v){\(destination).visible=\(mode == "ab" ? "true" : "false");return v;}", field: .scale)
+                    var bundles = [effects(a, try evaluate(a))]
+                    if mode != "aa" { bundles.append(effects(b, try evaluate(b))) }
+                    if mode != "ab" { bundles.append(effects(a, try evaluate(a))) }
+                    let rejected: Set<SceneDynamicTarget> = rejection == "both" ? [a.target, b.target]
+                        : rejection == "a" ? [a.target] : rejection == "b" ? [b.target] : []
+                    let settled = runtime.preflightOwnerEffectsToFixedPoint(bundles) { _, _ in rejected }
+                    let visibility = SceneDynamicTarget.layer(layerID: id, field: .visibility)
+                    let current = snapshot(runtime, settled.admission.layerPlan.authoredLayerValues)
+                    runtime.commit(settled.admission.layerPlan)
+                    if rejected.contains(a.target) { a.discardLayerMutations() } else { a.commitLayerMutations() }
+                    if rejected.contains(b.target) { b.discardLayerMutations() } else { b.commitLayerMutations() }
+                    let committed = snapshot(runtime, runtime.snapshot().authoredLayerValues)
+                    interleaved.append(["name": name, "mode": mode, "rejection": rejection,
+                        "current": current[visibility]?.value == .bool(true),
+                        "committed": committed[visibility]?.value == .bool(true),
+                        "rejected": settled.externallyRejectedOwners.count,
+                        "failures": settled.admission.rejectedOwners.count])
+                }
+            }
+            let perspectiveCases: [(String, Bool?, String)] = [
+                ("particle", false, "roundtrip"), ("particle", true, "roundtrip"),
+                ("particle", false, "opposite"), ("particle", true, "opposite"),
+                ("particle", nil, "explicit-false"), ("particle", nil, "explicit-true"),
+                ("image", false, "opposite"), ("image", true, "opposite")]
+            for (kind, seed, mode) in perspectiveCases {
+                let descriptor = scene(id, name, kind: kind, perspective: seed)
+                let runtime = SceneScriptDynamicLayerRuntime(descriptor: descriptor, authoredMutationLayerIDs: [id])
+                let domain = try SceneScriptQuickJSDomain()
+                try domain.publishLayerSnapshot(snapshot(runtime, [:]), descriptor: descriptor)
+                let requested = mode == "roundtrip" ? "ref.perspective" : mode == "opposite"
+                    ? "!ref.perspective" : mode == "explicit-true" ? "true" : "false"
+                let writer = try owner(domain, id, "export function update(v){const ref=\(destination);ref.perspective=\(requested);ref.visible=false;return v;}")
+                let value = try evaluate(writer)
+                let admission = runtime.preflightOwnerEffects([effects(writer, value)])
+                let visibility = SceneDynamicTarget.layer(layerID: id, field: .visibility)
+                let perspective = SceneDynamicTarget.layer(layerID: id, field: .perspective)
+                runtime.commit(admission.layerPlan)
+                if admission.rejectedOwners.isEmpty { writer.commitLayerMutations() }
+                else { writer.discardLayerMutations() }
+                let committed = snapshot(runtime, runtime.snapshot().authoredLayerValues)
+                perspectiveAdmission.append(["name": name, "kind": kind,
+                    "seed": seed.map { $0 as Any } ?? NSNull(), "mode": mode,
+                    "exportedPerspective": value.layerMutations.contains { $0.fields.contains(.perspective) },
+                    "rejected": admission.rejectedOwners.count,
+                    "committedVisibility": committed[visibility]?.value == .bool(true),
+                    "candidatePerspective": admission.layerPlan.authoredLayerValues[perspective].map { $0 == .bool(true) } as Any? ?? NSNull(),
+                    "committedPerspective": committed[perspective].map { $0.value == .bool(true) } as Any? ?? NSNull(),
+                    "hasPerspectiveDefinition": runtime.authoredLayerDefinitions.contains { $0.target == perspective }])
+            }
+            let descriptor = scene(id, name)
+            let runtime = SceneScriptDynamicLayerRuntime(descriptor: descriptor, authoredMutationLayerIDs: [id])
+            let domain = try SceneScriptQuickJSDomain()
+            try domain.publishLayerSnapshot(snapshot(runtime, [:]), descriptor: descriptor)
+            let assignments = fields.map { "clone['\($0.0)']=clone['\($0.0)'];" }.joined()
+            let dynamic = try owner(domain, id, "let clone;export function init(v){clone=thisScene.createLayer({name:'\(name)-clone',text:'seed',font:'Arial',pointsize:32});return v;}export function update(v){\(assignments)return v;}")
+            let birth = try evaluate(dynamic)
+            dynamic.commitLayerMutations()
+            let unchanged = try evaluate(dynamic)
+            immediate.append(["name": name, "path": "dynamic", "birth": birth.layerMutations.count,
+                "unchanged": unchanged.layerMutations.count])
+            dynamic.discardLayerMutations()
+
+            let image = scene(id, name, kind: "image")
+            let imageDomain = try SceneScriptQuickJSDomain()
+            let imageRuntime = SceneScriptDynamicLayerRuntime(descriptor: image, authoredMutationLayerIDs: [])
+            try imageDomain.publishLayerSnapshot(snapshot(imageRuntime, [:]), descriptor: image)
+            let imageFont = try owner(imageDomain, id, "export function update(v){\(destination).font='image-state';if(\(destination).font!=='image-state')throw Error('font');return v;}")
+            let changedFont = try evaluate(imageFont)
+            imageFont.commitLayerMutations()
+            let unchangedFont = try evaluate(imageFont)
+            immediate.append(["name": name, "path": "image-font", "birth": changedFont.layerMutations.count,
+                "unchanged": unchangedFont.layerMutations.count])
+            imageFont.discardLayerMutations()
+        }
+        return ["baselines": baselines, "callbacks": callbacks, "interleaved": interleaved,
+            "immediate": immediate, "returnFallback": returnFallback, "perspectiveAdmission": perspectiveAdmission]
+    }
+
     static func main() throws {
         let event = try Context(eventSource)
         let events = try [
@@ -181,7 +370,8 @@ HARNESS = r'''
             update.step(invert: true, revision: 2, time: 2)]
         print(String(data: try JSONSerialization.data(withJSONObject: [
             "events": events, "rejected": rejected, "thrown": thrown,
-            "noWrites": noWrites, "updates": updates
+            "noWrites": noWrites, "updates": updates,
+            "setterIntents": try setterIntentCases()
         ], options: [.sortedKeys]), encoding: .utf8)!)
     }
 }
@@ -242,14 +432,15 @@ class SceneScriptEventVisibilityTests(unittest.TestCase):
         self.assertEqual(failed["effects"], 0, failed)
         self.assertEqual(failed["mutations"], 0, failed)
         self.assertTrue(failed["rejected"], failed)
-        # Exceptions retain the existing permanent owner fuse. Frame rejection
-        # retries are tested separately; neither failure policy publishes the
-        # setter or origin that preceded this throw.
+        # The failed revision stays fused; a later property revision can retry.
+        # Neither the throw nor its same-revision idle frame publishes partial writes.
         self.assertEqual([r["visible"] for r in rows], [True, True, True, True])
         self.assertEqual([r["persistentVisibility"] for r in rows], [True, True, True, True])
-        self.assertEqual([r["callbackCount"] for r in rows], [1, 1, 1, 1])
-        self.assertEqual([r["values"] for r in rows], [1, 0, 0, 0])
-        self.assertTrue(all(r["effects"] == r["mutations"] == 0 for r in rows[1:]))
+        self.assertEqual([r["callbackCount"] for r in rows], [1, 1, 1, 3])
+        self.assertEqual([r["values"] for r in rows], [1, 0, 0, 1])
+        self.assertTrue(all(r["effects"] == r["mutations"] == 0 for r in rows[1:3]))
+        self.assertEqual(rows[3]["effects"], 1, rows[3])
+        self.assertEqual(rows[3]["mutations"], 1, rows[3])
 
     def test_no_write_event_callback_does_not_pin_current_input(self) -> None:
         rows = self.value["noWrites"]
@@ -266,6 +457,81 @@ class SceneScriptEventVisibilityTests(unittest.TestCase):
         self.assertEqual([r["values"] for r in rows], [1, 1, 1, 1])
         self.assertTrue(all(r["persistentVisibility"] is None for r in rows))
         self.assertTrue(all(r["ownVisibilityWrites"] == 0 for r in rows))
+
+    def test_authored_roundtrip_setters_record_explicit_baseline_intent(self) -> None:
+        rows = self.value["setterIntents"]["baselines"]
+        self.assertEqual(len(rows), 22)
+        for row in rows:
+            with self.subTest(name=row["name"], field=row["field"]):
+                self.assertEqual(row["mutationCount"], 1, row)
+                self.assertTrue(row["recorded"], row)
+
+    def test_event_then_update_can_restore_either_authored_visibility(self) -> None:
+        rows = self.value["setterIntents"]["callbacks"]
+        self.assertEqual(len(rows), 4)
+        for row in rows:
+            with self.subTest(name=row["name"], initial=row["initial"]):
+                self.assertEqual(row["bindingCount"], 1, row)
+                self.assertEqual(row["failures"], 0, row)
+                self.assertEqual(row["mutationCount"], 1, row)
+                self.assertEqual(row["current"], row["initial"], row)
+                self.assertEqual(row["committed"], row["initial"], row)
+                self.assertEqual(row["consumer"], row["initial"], row)
+
+    def test_same_value_setter_retains_typed_fallback_but_getter_does_not(self) -> None:
+        rows = self.value["setterIntents"]["returnFallback"]
+        self.assertEqual(len(rows), 4)
+        for row in rows:
+            with self.subTest(name=row["name"], writes=row["writes"]):
+                self.assertEqual(row["accepted"], row["writes"], row)
+                if row["writes"]:
+                    self.assertTrue(row["keptTypedInput"], row)
+                    self.assertTrue(row["ownSetter"], row)
+                    self.assertEqual(row["retainedMutations"], 1, row)
+                else:
+                    self.assertEqual(row["failure"], "bad-return", row)
+                    self.assertEqual(row["retainedMutations"], 0, row)
+
+    def test_baseline_writes_survive_owner_coalescing_and_rejection(self) -> None:
+        rows = self.value["setterIntents"]["interleaved"]
+        self.assertEqual(len(rows), 18)
+        expected = {("aa", "none"): True,
+                    ("ab", "none"): True, ("ab", "a"): True,
+                    ("ab", "b"): False, ("ab", "both"): True,
+                    ("aba", "none"): False, ("aba", "a"): False,
+                    ("aba", "b"): True, ("aba", "both"): True}
+        for row in rows:
+            with self.subTest(name=row["name"], mode=row["mode"], rejection=row["rejection"]):
+                self.assertEqual(row["failures"], 0, row)
+                self.assertEqual(row["rejected"], {"none": 0, "a": 1, "b": 1, "both": 2}[row["rejection"]], row)
+                self.assertEqual(row["current"], expected[row["mode"], row["rejection"]], row)
+                self.assertEqual(row["committed"], row["current"], row)
+
+    def test_dynamic_and_image_font_paths_do_not_export_unchanged_dirty_records(self) -> None:
+        rows = self.value["setterIntents"]["immediate"]
+        self.assertEqual(len(rows), 4)
+        for row in rows:
+            with self.subTest(name=row["name"], path=row["path"]):
+                self.assertEqual(row["birth"], 1 if row["path"] == "dynamic" else 0, row)
+                self.assertEqual(row["unchanged"], 0, row)
+
+    def test_perspective_no_consumer_only_admits_explicit_prepared_noop(self) -> None:
+        rows = self.value["setterIntents"]["perspectiveAdmission"]
+        self.assertEqual(len(rows), 16)
+        for row in rows:
+            with self.subTest(name=row["name"], kind=row["kind"], seed=row["seed"], mode=row["mode"]):
+                consumes = row["kind"] == "image"
+                accepted = consumes or row["mode"] == "roundtrip"
+                self.assertTrue(row["exportedPerspective"], row)
+                self.assertEqual(row["rejected"], 0 if accepted else 1, row)
+                self.assertEqual(row["committedVisibility"], not accepted, row)
+                self.assertEqual(row["hasPerspectiveDefinition"], consumes, row)
+                if consumes:
+                    self.assertEqual(row["candidatePerspective"], not row["seed"], row)
+                    self.assertEqual(row["committedPerspective"], not row["seed"], row)
+                else:
+                    self.assertIsNone(row["candidatePerspective"], row)
+                    self.assertIsNone(row["committedPerspective"], row)
 
 
 if __name__ == "__main__":

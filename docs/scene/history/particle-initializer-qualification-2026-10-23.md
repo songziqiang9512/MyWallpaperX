@@ -40,3 +40,15 @@
 结果为 `STOP_UNKNOWN`。不补候选、挑最近、调整容差，也不从参照匹配推断父death终值、set/multiply内部操作或作者顺序。当前mode仍拒绝；后继须先区分Alpha初始化本身的组合语义、事件输入与尺寸消费，再资格真实水花，不能跳未知mode来放开模板。现373索引中未找到非374的新mode消费者；独立旧setcolor门只能证明不回归，不能冒充新mode受益。
 
 必要证据：`.artifacts/scene-evidence/runs/particle-event-inheritance-20261023/`，普通14天。两轮独审接受严格UNKNOWN；未构建修后App、未做候选性能对照。只关闭自有预览并清理自有stage，VM/官方主界面继续运行。
+
+
+<a id="hsv-default-qualification-20261101"></a>
+## HSV缺省与载体资格（2026-11-01）
+
+当前普通Debug的3585542943（253/257）与3761159935（453/457）存在实际nonempty粒子，最后出生颜色writer为sparse HSV，prepare因省略steps/Smax/Vmax报`hsvColorUnsupported`。旧census另有6包9系统，只作候选；这不证明官方应有彩色像素或这些系统在本轮均活动。
+
+固定官方2.8.42编辑器由用户新增HSV组件，页面为steps6、Smin.5/Smax1、Vmin.5/Vmax1；应用保存的自有JSON仅`id/name`，故合法缺省输入确实存在，不能以本项目七字段显式门反推官方合同。两个红色Hue控件未提供数值；UI默认不独自证明runtime读值或颜色空间。
+
+五臂自有输入首次漏带编辑器复制的材质声明，补为8文件、guest逐文件SHA相同；没有移植颜色算法。自动CUA持续展示旧V1标题，而guest进程为V2，故旧自动黑图没有当前语义资格。用户提供V2原PNG并确认**仅屏幕第4行彩色，其余白色**；屏幕与authored行序尚未注册，不能将第4行认作D或据此判A/B/C。运行色彩资格`STOP_UNDERQUALIFIED`，本轮未改产品HSV/颜色链，后继只在新的字段/consumer证据后重入，不重复原失格矩阵。
+
+编辑器导出、原PNG、两原包基线、载体/运输及停止说明归`.artifacts/scene-evidence/runs/particle-hsv-default-qualification-20261101/metadata/samples/0/runtime_evidence.zip`，普通14天。官方自有预览已定点关闭，receiver主窗口标题为空；保主客户端与VM运行。当前开放项归唯一队列。后继同版原生静态研究确认name分支在record准备前对missing字段补steps6、Smax/Vmax1，并从同一JSON作Int/Float读取；缺失与显式null不同。实际出生consumer及后续覆写仍未定位，原报告的“runtime consumer”表述已由审查降级为record preparation。选定小函数/有界view原Evidence、独立反汇编及更正摘要同包保存；未据此实施或声称像素等价。

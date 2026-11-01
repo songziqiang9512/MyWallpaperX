@@ -273,18 +273,10 @@ static JSValue layer_set(
             return JS_ThrowTypeError(context, "layer origin expects finite Vec3");
         if (numeric_nonfinite) return JS_UNDEFINED;
         if (authored_target) {
+            // Each callback exports a fresh journal. An explicit write equal
+            // to its baseline must still override earlier accepted writes.
             MWXSceneQuickJSAuthoredLayerMutationRecord *mutation =
-                mwx_scene_quickjs_authored_mutation_for_layer(owner, record_index);
-            MWXSceneQuickJSAuthoredLayerMutationRecord *baseline =
-                mwx_scene_quickjs_authored_mutation_baseline_for_layer(owner, record_index);
-            const double *current = mwx_scene_quickjs_layer_authored_transform_value(
-                owner, mutation, baseline, record_index,
-                MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ORIGIN,
-                mutation == NULL ? record->current_origin : mutation->origin,
-                record->current_origin
-            );
-            if (memcmp(value, current, sizeof(value)) == 0) break;
-            mutation = mwx_scene_quickjs_stage_authored_mutation(owner, record_index);
+                mwx_scene_quickjs_stage_authored_mutation(owner, record_index);
             if (mutation == NULL)
                 return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
             memcpy(mutation->origin, value, sizeof(value));
@@ -307,17 +299,7 @@ static JSValue layer_set(
         if (numeric_nonfinite) return JS_UNDEFINED;
         if (authored_target) {
             MWXSceneQuickJSAuthoredLayerMutationRecord *mutation =
-                mwx_scene_quickjs_authored_mutation_for_layer(owner, record_index);
-            MWXSceneQuickJSAuthoredLayerMutationRecord *baseline =
-                mwx_scene_quickjs_authored_mutation_baseline_for_layer(owner, record_index);
-            const double *current = mwx_scene_quickjs_layer_authored_transform_value(
-                owner, mutation, baseline, record_index,
-                MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_SCALE,
-                mutation == NULL ? record->scale : mutation->scale,
-                record->scale
-            );
-            if (memcmp(value, current, sizeof(value)) == 0) break;
-            mutation = mwx_scene_quickjs_stage_authored_mutation(owner, record_index);
+                mwx_scene_quickjs_stage_authored_mutation(owner, record_index);
             if (mutation == NULL)
                 return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
             memcpy(mutation->scale, value, sizeof(value));
@@ -340,28 +322,7 @@ static JSValue layer_set(
         if (numeric_nonfinite) return JS_UNDEFINED;
         if (authored_target) {
             MWXSceneQuickJSAuthoredLayerMutationRecord *mutation =
-                mwx_scene_quickjs_authored_mutation_for_layer(owner, record_index);
-            MWXSceneQuickJSAuthoredLayerMutationRecord *baseline =
-                mwx_scene_quickjs_authored_mutation_baseline_for_layer(owner, record_index);
-            const double *current = mwx_scene_quickjs_layer_authored_transform_value(
-                owner, mutation, baseline, record_index,
-                MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ANGLES,
-                mutation == NULL ? record->angles : mutation->angles,
-                record->angles
-            );
-            if (memcmp(value, current, sizeof(value)) == 0) {
-                // Preserve an authored setter invocation even when the value
-                // equals the current frame.  Some official scripts publish
-                // their typed value through thisLayer.angles while returning
-                // a text payload; the mutation journal is the ABI signal that
-                // the return payload must not be decoded as Vec3.
-                mutation = mwx_scene_quickjs_stage_authored_mutation(owner, record_index);
-                if (mutation == NULL)
-                    return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
-                mutation->fields |= MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ANGLES;
-                break;
-            }
-            mutation = mwx_scene_quickjs_stage_authored_mutation(owner, record_index);
+                mwx_scene_quickjs_stage_authored_mutation(owner, record_index);
             if (mutation == NULL)
                 return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
             memcpy(mutation->angles, value, sizeof(value));
@@ -383,15 +344,7 @@ static JSValue layer_set(
         const uint32_t value = JS_ToBool(context, argv[0]) != 0;
         if (authored_target) {
             MWXSceneQuickJSAuthoredLayerMutationRecord *mutation =
-                mwx_scene_quickjs_authored_mutation_for_layer(owner, record_index);
-            MWXSceneQuickJSAuthoredLayerMutationRecord *baseline =
-                mwx_scene_quickjs_authored_mutation_baseline_for_layer(owner, record_index);
-            const uint32_t current = mutation != NULL && (mutation->fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PERSPECTIVE) != 0
-                ? mutation->perspective
-                : baseline != NULL && (baseline->fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PERSPECTIVE) != 0
-                    ? baseline->perspective : record->perspective;
-            if (current != 2 && current == value) break;
-            mutation = mwx_scene_quickjs_stage_authored_mutation(owner, record_index);
+                mwx_scene_quickjs_stage_authored_mutation(owner, record_index);
             if (mutation == NULL)
                 return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
             mutation->perspective = value;
@@ -416,15 +369,7 @@ static JSValue layer_set(
         bool *record_value = solid ? &record->solid : &record->visible;
         if (authored_target || value_authored_target) {
             MWXSceneQuickJSAuthoredLayerMutationRecord *mutation =
-                mwx_scene_quickjs_authored_mutation_for_layer(owner, record_index);
-            MWXSceneQuickJSAuthoredLayerMutationRecord *baseline =
-                mwx_scene_quickjs_authored_mutation_baseline_for_layer(owner, record_index);
-            const bool current = mutation != NULL && (mutation->fields & field) != 0
-                ? (solid ? mutation->solid : mutation->visible)
-                : baseline != NULL && (baseline->fields & field) != 0
-                    ? (solid ? baseline->solid : baseline->visible) : *record_value;
-            if (current == (value != 0)) break;
-            mutation = mwx_scene_quickjs_stage_authored_mutation(owner, record_index);
+                mwx_scene_quickjs_stage_authored_mutation(owner, record_index);
             if (mutation == NULL)
                 return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
             *(solid ? &mutation->solid : &mutation->visible) = value != 0;
@@ -529,24 +474,9 @@ static JSValue layer_set(
         if (copy == NULL) { JS_FreeCString(context, value); return JS_EXCEPTION; }
         memcpy(copy, value, length); copy[length] = '\0';
         JS_FreeCString(context, value);
-        MWXSceneQuickJSAuthoredLayerMutationRecord *mutation =
-            authored_target ? mwx_scene_quickjs_authored_mutation_for_layer(owner, record_index) : NULL;
-        MWXSceneQuickJSAuthoredLayerMutationRecord *baseline =
-            authored_target
-                ? mwx_scene_quickjs_authored_mutation_baseline_for_layer(owner, record_index) : NULL;
-        const char *current = mutation != NULL &&
-                (mutation->fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_TEXT) != 0
-            ? mutation->text
-            : (baseline != NULL &&
-               (baseline->fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_TEXT) != 0
-                ? baseline->text
-                : (record->text == NULL ? "" : record->text));
-        if (strcmp(current, copy) == 0) {
-            free(copy);
-            break;
-        }
         if (authored_target) {
-            mutation = mwx_scene_quickjs_stage_authored_mutation(owner, record_index);
+            MWXSceneQuickJSAuthoredLayerMutationRecord *mutation =
+                mwx_scene_quickjs_stage_authored_mutation(owner, record_index);
             if (mutation == NULL) {
                 free(copy);
                 return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
@@ -554,6 +484,10 @@ static JSValue layer_set(
             free(mutation->text);
             mutation->text = copy;
             mutation->fields |= MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_TEXT;
+            break;
+        }
+        if (strcmp(record->text == NULL ? "" : record->text, copy) == 0) {
+            free(copy);
             break;
         }
         if (!mwx_scene_quickjs_layer_journal_dynamic_layer_value(owner, record_index)) {
@@ -576,14 +510,8 @@ static JSValue layer_set(
         size_t length = 0;
         const char *value = mwx_scene_quickjs_layer_read_font_path(context, argv[0], &length);
         if (value == NULL) return JS_EXCEPTION;
-        const char *current = authored_target
-            ? authored_font_value(
-                mwx_scene_quickjs_authored_mutation_for_layer(owner, record_index),
-                mwx_scene_quickjs_authored_mutation_baseline_for_layer(owner, record_index),
-                record
-            )
-            : (record->font == NULL ? "" : record->font);
-        if (strcmp(current, value) == 0) {
+        if ((!authored_target || record->image_font_script_state) &&
+            strcmp(record->font == NULL ? "" : record->font, value) == 0) {
             JS_FreeCString(context, value);
             break;
         }

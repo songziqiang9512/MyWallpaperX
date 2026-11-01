@@ -45,7 +45,7 @@ chooser取消、隐藏/窗口换绑或旧请求完成保原选择；选取/替�
 
 **Setter别名后继（2026-10-23，有界已实施）。** 实际304的visible回调经共享函数写prepared path的`thisLayer.origin`，getter已读camera，setter却使七项mutation整包撤回。公开ILayer仅证明origin可写，不定义camera别名/返回优先级；统一别名是本项目owner策略。DynamicLayerRuntime准备时保有的`default2DOriginInputLayerID`唯一决定origin目标，apply、跨owner冲突键、definition及退休一致归`.camera(.origin)`，其余field/path不变；保真实handle、C journal与owner bundle，无新camera store、VM API、clock或renderer。退出专门拒绝；最近VM/事务门与原包热改、相邻开场镜头已验，身份及剩余范围归[当前证据](../../capabilities/runtime-evidence-current.md#default-camera-origin-setter-20261023)。
 
-保普通origin setter的**下一cadence**消费和现Script返回/Timeline/user优先级，不加同帧抢占或return trim。Swift事务复用原camera有限幅度/clip-span门，越界/晚拒撤相关owner整包、保健康peer；C入口NaN/Inf既有忽略不变。同值writer保幂等、异值后owner拒绝；destroy/失败撤回清camera别名值及creator后代，不能留下退休来源。原相机与普通层能力保持；ICamera、zoom setter、多path、3D、复杂Timeline控制及官方仲裁不扩。
+保普通origin setter的**下一cadence**消费和现Script返回/Timeline/user优先级，不加同帧抢占或return trim。Swift事务复用原camera有限幅度/clip-span门，越界/晚拒撤相关owner整包、保健康peer；C入口NaN/Inf既有忽略不变。authored setter保留显式写意图，即使等于callback基线也进入原journal；同owner后callback可写回原值，跨owner按首次回调位置提交原子批、后批覆盖前批，不以同值比较抹去writer。无perspective消费者的层只将显式prepared原值回写视为无操作，不建lane，其余改变仍局部拒绝。destroy/失败撤回清camera别名值及creator后代，不能留下退休来源。原相机与普通层能力保持；ICamera、zoom setter、多path、3D、复杂Timeline控制及官方仲裁不扩。
 
 验收沿真实parser/VM→definition/resolver→下一snapshot/cameraFrame，含改名/等价Vec3、缓存handle、非整数canonical seed、throw/超幅/非有限、晚拒、同/异值peer及source/creator退休撤回；保非camera/坏path、静态/旧return/Timeline/direct zoom邻例。一次当前Debug、原304默认与属性offset热改、独立健康camera样本实际输出/stop排空；默认XY夹零不以无变化截图冒视觉收益，高频拒绝不冒性能热点。暂停/取消、generation/资源退出保持；双writer、退休残值或画面回退即撤。完整官方画面、跨比例和所有API未验。
 

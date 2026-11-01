@@ -54,3 +54,17 @@
 验证：`test_scene_script_solid` 3/3、`test_scene_script_dynamic_layer_runtime` 20/20、`test_scene_script_layer_order`、`test_scene_cursor_capture_continuity`、`test_scene_cross_layer_effect_visibility` 通过；`test_scene_script_layer_creator_retirement` 在基提交与主仓库同样因 fixture 缺 `SceneDefault2DCameraInputProfile` 失败，属既有验证债。签名诊断构建后五样本 log-only 全 PASS，三冲突样本的 `callback=rejected` 与冲突拒绝归零；`3435573282`、`3141464346` 健康样本保持 PASS。未做官方客户端同场景对照，覆盖顺序取本地回调注册顺序，parity 仍属未验证边界。
 
 合入审查补齐同帧投影：原FrameDriver按原始callback序再次拼visibility/particle alpha，与原子owner plan在A/B/A交错时可不一致。真实QuickJS→owner admission→生产frameScriptValues反例已复现alpha当前值与commit不一致；两处消费者现直接读同一plan的胜出字段，external/transition拒绝先收敛再prepare，避免被拒owner值影响健康peer。typed return优先级及其他setter下一cadence保持，不重分组、不新增状态。
+
+
+<a id="authored-setter-intent-20261101"></a>
+## 同值 authored setter 的明确写意图（2026-11-01）
+
+同一实际 `SceneScriptVectorProgram.evaluate` 内，`mediaThumbnailChanged` 隐藏后 `update` 写回 prepared 原值，旧 C setter 将后一次视为同值而不导出，native admission 与 commit 均保留错误显隐；A写false、B显式写基线true也会丢后writer。首错是callback局部journal的同值省略，不是Swift按字段合并或缺另一份pending状态。
+
+原authored origin/scale/angles/perspective/visible/solid/text/native-font setter现与既有alpha/color/pointsize一致，向原journal登记明确赋值；getter基准、原子owner批和dynamic即时写入不变，image.font仍为即时脚本状态。无geometry consumer层对显式prepared perspective原值仅作无操作，保其他字段；不生成该lane/definition，反值与nil仍拒绝该owner。原C重复查询/比较退出，C净减72行、Swift净增5行，无新owner或持久状态。同值写入仍占原journal预算，不声称无限target支持。
+
+同一538行永久fixture在冻结`0cc2f48a4`有28个预期失败、0 errors，候选11/11通过；覆盖实际event→update、字段/句柄变体、A/B/ABA与局部拒绝、typed-return和无consumer透视反例。原property revision恢复测试按既有`ccc2b4d67`合同更正陈旧断言，未改恢复产品。相邻真实C/Swift 30tests通过，独立审查通过；不把测试数当画面结果。
+
+普通签名Debug于`241d03f03`加本批两产品改动构建31.41s，4416输入无漂移；exe SHA256 `08a4ad4b619207b517a3e5b467bba9dbf60c22d7f0d32c4b130537c7b7fc3694`。自有原生载体双向property-event→update回写经普通VM/Metal显示红块、隐藏蓝块、保绿色peer，两Vec3 owner完成且无callback拒绝。独立原包3603711180及3742133044各5s严格PASS；三run均exit0、surface1→0/GPU drained。它们不证明所有作者图像、官方逐setter顺序、HDR/多屏、长稳或性能收益，后来的并行Web改动不在该App身份内。
+
+必要红绿输入、两产品旧/新源、fixture、构建/独审收据、三run日志及原PNG归`.artifacts/scene-evidence/runs/callback-setter-intent-20261101/metadata/samples/0/runtime_evidence.zip`（普通14天）。一份连续构建缓存复用，冻结测试编译物与中间探针在提取后清理。

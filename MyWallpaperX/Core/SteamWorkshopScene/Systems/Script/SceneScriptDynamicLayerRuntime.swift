@@ -306,15 +306,18 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                     .allSatisfy({ $0.isFinite && (0...1).contains($0) }) {
                     return .failure(.invalidArgument("invalid authored layer color"))
                 }
+                let consumesPerspective = authoredLayer.hasPerspectiveGeometryConsumer
+                    && (authoredLayer.utilityLayer == nil || supportsCompositionPerspective)
                 if mutation.fields.contains(.perspective),
-                   (mutation.perspective == nil || !authoredLayer.hasPerspectiveGeometryConsumer
-                    || (authoredLayer.utilityLayer != nil && !supportsCompositionPerspective)) {
+                   (mutation.perspective == nil || (!consumesPerspective
+                    && mutation.perspective != authoredLayer.usesPerspective)) {
                     return .failure(.invalidArgument("layer has no perspective geometry consumer"))
                 }
                 for (flag, field, value): (SceneScriptLayerMutation.Fields, SceneDynamicLayerField, Bool)
                     in [(.visibility, .visibility, mutation.visible), (.solid, .solid, mutation.solid),
                         (.perspective, .perspective, mutation.perspective ?? false)]
-                    where mutation.fields.contains(flag) {
+                    where mutation.fields.contains(flag)
+                        && (flag != .perspective || consumesPerspective) {
                     let target = SceneDynamicTarget.layer(layerID: mutation.layerID, field: field)
                     guard authoredTargets.insert(target).inserted else {
                         return .failure(.invalidArgument("conflicting authored layer mutation target"))
