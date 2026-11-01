@@ -49,7 +49,7 @@ All references are one level from this file. Do not load a reference merely beca
 |---|---|
 | Local/online video import, library, cache, playback, helper IPC, per-display sessions | [Video method](references/video-engine.md) |
 | Workshop Web model, WKWebView host, navigation, property/resource/media/input/audio lifecycle | [Web method](references/web-engine.md) |
-| Scene format, shader, graph, Metal, VM, particles, inputs, providers, visual evidence | [Scene method](references/scene-engine.md) |
+| Scene architecture, component responsibilities, format, shader, graph, Metal, VM, inputs, providers, visual evidence | [Scene method](references/scene-engine.md); use the `Scene架构` document query for target boundaries and the current source map |
 | Parallels Windows official-client comparison, guest command transport, console input or capture failures | [Parallels oracle method](references/parallels-official-oracle.md) |
 | Steam login/session, browsing, download, import and library publication | Repository map and `docs/architecture/steam-workshop-acquisition-contract.md`; the SteamKit migration plan is retired. Choose by acquisition/import responsibility, then load an engine reference when playback is affected |
 | AppKit Shell, menus, settings and product UI | Repository map and `docs/architecture/appkit-migration.md`, plus the applicable UI method in [Verification and macOS method](references/verification-and-handoff.md) |
@@ -90,7 +90,7 @@ Add module-specific identity, route, source, or evidence fields only when the lo
 ## Execute One Coherent Result
 
 1. Trace the real producer-to-consumer chain and locate the first incorrect identity, state transition, or output. Do not infer ownership from a similar filename or a dated report.
-2. Close one user-visible or executable vertical result. Cross directories when one responsibility requires it, but do not bundle independent behavior or opportunistic cleanup.
+2. Close a coherent user-visible or executable result. Cross directories when one responsibility requires it, and commit independent capability families separately when authorized. For an architecture migration, keep the complete requested outcome and preserved capabilities in the canonical migration contract; completing one batch does not complete the migration.
 3. Extend the existing responsible owner. If the canonical target requires a missing or replacement owner or process boundary, add only that owner and define delegation, route, transfer, teardown, rollback, and retirement. Never create an unregistered, independent, or long-lived second coordinator, host, renderer, resource registry, state tree, clock, pause policy, graph, or final output path; migration coexistence is allowed only behind an explicit route with one product output decision and typed fallback.
 4. Preserve identity across async boundaries: intent epoch, request, generation, display, session, surface, navigation, provider, target, and publication as applicable. Add stale/teardown counterexamples when these can change.
 5. Keep integrity failures fail-closed at the smallest unsafe unit. Keep ordinary visual or optional-provider failures local and observable when the canonical contract permits it.

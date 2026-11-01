@@ -59,7 +59,9 @@
 | visual/fidelity | producer-to-compositor identity、ROI/事件 | route/build success |
 | crash/GPU fault | symbolized stack、command buffer、现场 identity | 普通视觉差异 |
 
-修复后先复现原失败，再跑相邻反例和相称 checkpoint。测试若锁定已知错误现状，应按目标合同修测试和实现；目标本身被证伪则先走合同/Skill 纠偏。
+架构调整后，standalone source list、stub 和源码形状断言也可能过时。先看首个错误和实际编译输入；归因不清时用冻结的迁移前源码复现同一失败，分清存量测试债务、预期语义变化与新回归。不能为恢复过时断言而把重复 owner、无用校验或已退役路径放回产品，也不能只因产品文件未改就认定失败早已存在。修测试时优先断言真实输入、输出与失败反例。
+
+修复后先复现原失败，再跑相邻反例和相称 checkpoint。测试若锁定已知错误现状，应按目标合同修测试和实现；目标本身被证伪则先走合同/Skill 纠偏。报告测试债务与未覆盖范围，不把有失败的选择集称为通过。
 
 ## AppKit 与窗口
 

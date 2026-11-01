@@ -23,6 +23,7 @@
 | 问题 | 唯一入口 |
 |---|---|
 | 最终执行单元、语言/进程/失败目标 | `docs/scene/architecture/runtime-architecture.md` 与长期技术边界 |
+| 组件分类、准备/实例状态/消费/释放职责 | `docs/scene/capabilities/runtime-systems-reference.md`；物理源码位置由事实地图维护 |
 | 工程结构、生命周期与成本消融设计 | `docs/scene/roadmap/engine-refactor-program.md`；当前顺序和验收按其链接进入对应现役工作卡 |
 | 作者能力、可见正确性与兼容验收顺序 | `docs/scene/roadmap/scene-compatibility-roadmap.md` |
 | 实际接线、进程、装载与释放 owner | `docs/scene/architecture/runtime-as-built-map.md`，随后核对 live call sites |
@@ -52,13 +53,14 @@
 ```text
 authored project/scene/package/resource
   -> loss-preserving decode and authored identity/order
-  -> property/Timeline/script/input/provider state
-  -> material/shader/effect graph preparation
-  -> Program/reflection/binding/render state/targets
-  -> current GraphExecutor and specialized producers
+  -> prepared Program/graphs/bindings/resource requirements
+  -> typed frame update: properties/Timeline/VM/input/provider state
+  -> Metal encode through the existing executors and producers
   -> ordered layer and scene composition
   -> terminal drawable/readback observation
 ```
+
+准备工作发生在加载和实际失效边界；普通帧消费准备结果，只更新活动状态、采用就绪资源并编码。追踪时分清作者事实、不可变准备结果和实例当前值，以及变换依赖、行为更新顺序和渲染依赖；这些职责不要求新增平行状态树、管理器或统一组件框架。具体边界按运行时架构与组件合同裁决。
 
 “通用”表示共享 scene/object identity、frame semantics、typed state、resource/provider、Program、graph/target lifecycle 和唯一 compositor，不表示一个巨型 renderer。2D、3D、particle、text、media、lighting 可以保留必要 importer/simulation/geometry/provider，但不能拥有第二资源系统、clock、graph、property tree、history 或 final output。
 
@@ -66,7 +68,7 @@ authored project/scene/package/resource
 
 ## 定义 correctness atom
 
-每批只闭合一个可回滚纵向结果：
+常规兼容修复以一个可验证纵向结果限定范围：
 
 ```yaml
 capability_and_target: bounded author-visible result plus target contract
@@ -78,7 +80,9 @@ counterexamples: unsafe rejection; local failure; unseen composition/name
 evidence_limit: highest claim this batch can support
 ```
 
-先用隔离真实内容定位首断点，再实现服务该结果的最小公共 slice。parser、IR、diagnostic、census、完整 compiler/VM/particle platform、full matrix 或 release gate 只有实际服务当前 atom 或风险升级时才进入；它们单独通过不能记为视觉能力。
+先用隔离真实内容定位首断点，再实现服务该结果的最小公共 slice。parser、IR、diagnostic、census、完整 compiler/VM/particle platform、full matrix 或 release gate 只有实际服务当前结果或风险升级时才进入；它们单独通过不能记为视觉能力。
+
+架构级任务另按工程设计中的迁移合同核对完整范围、迁移前正确能力及最终退出条件，按能力族分批落实和提交。每批明确原 owner 的退出与独立收益，不能用一个易验证的小切片、目录搬迁或新增 facade 替代整体迁移；最终验证也不能缩成迁移中恰好通过的样本集合。
 
 checkpoint 使用新组合或未见 fixture 证明公共 primitive 不依赖 sample/layer/path/hash/asset/screenshot identity。只有 corpus fingerprint/schema/family 解释变化或现有 snapshot 无法回答影响面时刷新全 corpus。
 
@@ -106,7 +110,7 @@ eligible local failure 必须证明 previous current 与不受影响 suffix 仍�
 
 route state 的名称、定义和进入条件只从当前 `AGENTS.md`、runtime architecture、roadmap 与代码/diagnostics 读取。对每个迁移 owner 实时确认：谁发布产品输出；新旧路径是否静默双执行；fallback typed reason/identity/count；回滚是否原子；旧 owner 是否仍被产品引用。
 
-公共前置 slice 可以在旧 owner 仍存在时交付，但不能声称 owner migration。只有 canonical gate 要求的可见正证、局部失败反例、未见组合、fallback 审计和回滚演练成立，且旧产品引用已撤销，才能更新 route/owner 权威。禁止长期静默双输出或把故障回滚状态当稳态完成。
+公共前置 slice 可以在旧 owner 仍存在时交付，但不能声称 owner migration。按受影响合同验证可见行为、局部失败、未见组合及实际使用的 fallback/回滚边界，撤销旧产品引用后再更新 owner 权威。复用已有请求、失效和输出机制；直接替换重复职责不因此要求新建 route registry、认证关卡或迁移状态机。禁止长期静默双输出或把故障回滚状态当稳态完成。
 
 ## 验证与声明
 
