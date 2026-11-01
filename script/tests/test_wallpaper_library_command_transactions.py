@@ -12,6 +12,7 @@ import tempfile
 import unittest
 from script.tests.test_ui_library_algorithms import declaration
 from script.tests.test_video_thumbnail_prefetch import SWIFT_ISOLATION_FLAGS
+from script.tests.test_wallpaper_library_query import instrument_catalog_preparations
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -113,7 +114,8 @@ class WallpaperLibraryCommandTransactionsTests(unittest.TestCase):
         inputs = paths + [ROOT / 'MyWallpaperX/App/WallpaperLibraryCommands.swift',
                           ROOT / 'script/tests/fixtures/WallpaperLibraryCommandTransactionsHarness.swift', composition_path, steam_path,
                           grid_path, grid_fixture_path, restoration_fixture, image_removal_fixture, projection_fixture,
-                          organization_path, completion_fixture, recent_sidebar_fixture]
+                          organization_path, completion_fixture, recent_sidebar_fixture, Path(__file__),
+                          ROOT / 'script/tests/test_wallpaper_library_query.py']
         identities = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in inputs}
         with tempfile.TemporaryDirectory(prefix='mwx-command-transactions-', dir='/private/tmp') as directory:
             work = Path(directory)
@@ -121,7 +123,7 @@ class WallpaperLibraryCommandTransactionsTests(unittest.TestCase):
             for path in paths:
                 copied = work / path.name; shutil.copy2(path, copied); copies.append(str(copied))
                 if path.name == 'WallpaperLibraryQuery.swift':
-                    query = copied.read_text()
+                    query = instrument_catalog_preparations(copied.read_text())
                     enum_marker = 'nonisolated enum WallpaperLibraryQuery {'
                     resolver_marker = '            self.aliases = try WallpaperLibraryQuery.aliasMap(aliases)'
                     self.assertEqual(query.count(enum_marker), 1, enum_marker)
@@ -144,6 +146,15 @@ class WallpaperLibraryCommandTransactionsTests(unittest.TestCase):
             for name, passed in checks.items():
                 with self.subTest(name=name): self.assertIs(passed, True)
             print(json.dumps(checks, sort_keys=True))
+            preparations = [line.removeprefix('COMMAND PREPARATIONS ').split()
+                for line in ran.stderr.splitlines() if line.startswith('COMMAND PREPARATIONS ')]
+            self.assertEqual({label for label, _, _ in preparations},
+                {'empty-current', 'empty-explicit', 'nonempty-current', 'empty-corrupt', 'nonempty-corrupt'}, ran.stderr)
+            print(json.dumps({'commandPreparations': preparations}, sort_keys=True))
+            for label, ceiling, count in preparations:
+                with self.subTest(preparation=label):
+                    self.assertGreaterEqual(int(count), 0)
+                    self.assertLessEqual(int(count), int(ceiling))
             self.assertEqual(identities, {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in inputs})
 
 

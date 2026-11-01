@@ -158,6 +158,7 @@ import Combine
 
     private func resolveSelection(_ references: [WallpaperReference]?) -> [WallpaperContentItem]? {
         let references = references ?? selection.map(\.reference)
+        guard !references.isEmpty else { return [] }
         do { return try WallpaperLibraryQuery.resolve(references, catalog: workspace.catalog.catalog, relationships: workspace.relationships) }
         catch { workspace.presentation.report(error); return nil }
     }

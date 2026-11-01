@@ -57,6 +57,48 @@ import SQLite3
     let undo = WallpaperLibraryRelationshipUndo(collections: controller,
         report: { view.presentation.report($0) }, didRestore: { publish() })
 
+    let initialSnapshot = try await store.snapshot()
+    var preparations: [(String, Int, Int)] = []
+    let emptyInputs: [(String, [WallpaperReference]?)] = [("current", nil), ("explicit", [])]
+    for (label, references) in emptyInputs {
+        select(references == nil ? [] : [refs[0]])
+        let before = WallpaperLibraryQuery.fullResolverInitializations, selection = view.presentation.selectionState
+        let favorite = commands.makeFavoriteAction(references), menu = commands.makePlaylistMenu(references)
+        commands.toggleFavorite(references)
+        checks["empty-\(label)-selection-creates-no-command-menu-or-write"] = favorite == nil && menu == nil
+            && commands.admittedWrites == 0 && controller.snapshot == initialSnapshot && view.presentation.selectionState == selection
+        preparations.append(("empty-" + label, 0, WallpaperLibraryQuery.fullResolverInitializations - before))
+    }
+    select([refs[0]])
+    let beforeNonempty = WallpaperLibraryQuery.fullResolverInitializations
+    let nonemptyAction = commands.makeFavoriteAction()
+    checks["nil-reference-list-still-resolves-the-current-nonempty-selection"] = nonemptyAction != nil
+        && commands.admittedWrites == 0 && controller.snapshot == initialSnapshot
+    preparations.append(("nonempty-current", 1, WallpaperLibraryQuery.fullResolverInitializations - beforeNonempty))
+    let brokenSnapshot = UserCollectionsSnapshot(revision: initialSnapshot.revision, resetEpoch: initialSnapshot.resetEpoch,
+        migrationManifestID: nil, playlists: [], members: [], favorites: [], recent: [], aliases: [
+            .init(alias: refs[0], canonical: refs[1], proof: .publishedDownload),
+            .init(alias: refs[1], canonical: refs[0], proof: .publishedDownload)], locators: [])
+    let brokenController = UserCollectionsController(store: store, snapshot: brokenSnapshot)
+    let brokenView = RemovalWorkspace(brokenController, catalog, defaults: defaults), brokenCommands = RemovalCommands(brokenView)
+    let beforeBroken = WallpaperLibraryQuery.fullResolverInitializations, initialErrors = brokenView.presentation.state.lastErrorEvent
+    let implicitEmpty = brokenCommands.makeFavoriteAction(), explicitEmpty = brokenCommands.makeFavoriteAction([])
+    brokenCommands.toggleFavorite(); brokenCommands.toggleFavorite([])
+    checks["empty-corrupt-selection-cannot-create-action-or-admit-write"] = implicitEmpty == nil && explicitEmpty == nil
+        && brokenCommands.admittedWrites == 0 && brokenController.snapshot == brokenSnapshot
+    checks["empty-corrupt-selection-does-not-report-an-irrelevant-query-error"] = brokenView.presentation.state.lastErrorEvent == initialErrors
+    preparations.append(("empty-corrupt", 0, WallpaperLibraryQuery.fullResolverInitializations - beforeBroken))
+    let beforeBadSelection = WallpaperLibraryQuery.fullResolverInitializations, priorErrors = brokenView.presentation.state.lastErrorEvent
+    let badAction = brokenCommands.makeFavoriteAction([refs[0]])
+    checks["nonempty-corrupt-selection-still-resolves-and-reports-without-writing"] = badAction == nil
+        && brokenView.presentation.state.lastErrorEvent == priorErrors + 1
+        && brokenView.presentation.lastError == UserCollectionsError.corruptData("alias cycle").localizedDescription && brokenCommands.admittedWrites == 0
+    preparations.append(("nonempty-corrupt", 1, WallpaperLibraryQuery.fullResolverInitializations - beforeBadSelection))
+    checks["no-op-command-probes-leave-the-real-sqlite-snapshot-unchanged"] = try await store.snapshot() == initialSnapshot
+        && controller.snapshot == initialSnapshot && view.edited.isEmpty
+    for (label, ceiling, count) in preparations {
+        FileHandle.standardError.write(Data("COMMAND PREPARATIONS \(label) \(ceiling) \(count)\n".utf8))
+    }
     select()
     let beforeFavorite = view.presentation.selectionState
     commands.toggleFavorite()

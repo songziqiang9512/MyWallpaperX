@@ -34,7 +34,7 @@
     },
     "docs/development/code-slimming-program.md": {
       "lines": 464,
-      "bytes": 102662
+      "bytes": 102836
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -1739,10 +1739,10 @@
     {
       "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
-      "before": "1286042c0e1d5fd307ce2a9c85edb6046b27ca6d79bac11abbdb5ba5a4d81dfa",
-      "after": "afa99cfcb699ac69d61ec338943c6f1803f150bb5df115cafa75f60302d70dc7",
+      "before": "afa99cfcb699ac69d61ec338943c6f1803f150bb5df115cafa75f60302d70dc7",
+      "after": "91122a7b054e02702204149a4e350f45c4e38dd8b51aabf0887d15db97100c71",
       "owner": "repository-maintainer",
-      "reason": "原位记录R44直接消费已接受facet多重集，保kind/未知恢复路径与旧新getter成本、真实消费时机及既往原生待验界限；仅更新本authority预算及receipt，保Scene全部历史。",
+      "reason": "原位记录R45空命令短路、唯一获准报告差异与真实旧新成本/行为/构建界限；保留Steam提前取消职责及既往待验，仅更新本authority预算和同receipt。",
       "decision": "docs/development/code-slimming-program.md#目标与边界"
     },
     {
