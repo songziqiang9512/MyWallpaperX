@@ -16,6 +16,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-11-01 | 代码精简 R1–R26 | 已结批次与限定验证 | [已结记录（不含 R23）](cross-topic/code-slimming-r1-r26-2026-11-01.md) | 保存25段原记录、真实失败及有界验收；不续接旧候选 | [现役精简专项](../development/code-slimming-program.md#目标与边界)、[技术栈合同](../architecture/technology-stack-boundaries.md) |
 | 2026-10-27 | 主窗口 UI16/UI17 | 前轮实现与未验边界 | [完成记录](development/main-window-playlists-ui16-ui17-completed-2026-10-27.md) | 保留前轮实现、验证及未验边界 | [主界面专项](../development/main-window-playlists-redesign.md) |
 | 2026-10-27 | 主界面 V/T/F | 前轮完成卡与裁决 | [完成记录](development/main-window-playlists-v-t-f-completed-2026-10-27.md) | 保留99ba基线前卡片、输入与详情调整证据；不决定新M01–M16状态 | [主界面专项](../development/main-window-playlists-redesign.md#ui-simplification-sixteen) |
 | 2026-10-27 | App全仓UI | 正确性与调度结算 | [UI审计结算](cross-topic/ui-quality-audit-completed-2026-10-27.md) | 已证问题、工作卡、真实失败及限定回归；验收快照与未验边界 | [AppKit合同](../architecture/appkit-migration.md)、[主界面规范](../development/main-window-playlists-redesign.md)、[开发规则](../../AGENTS.md)、[播放生命周期](../architecture/playback-lifecycle-transaction-design.md) |
