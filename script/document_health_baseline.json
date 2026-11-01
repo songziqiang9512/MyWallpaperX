@@ -34,7 +34,7 @@
     },
     "docs/development/code-slimming-program.md": {
       "lines": 464,
-      "bytes": 101906
+      "bytes": 101971
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -1793,10 +1793,10 @@
     {
       "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
-      "before": "d4b18290bab9c74b8adfdfa67a36a4f9de09fa0f0b78a13cccc9c77df80d868c",
-      "after": "24469df0ba7f7620860645914c411de567dd7ef95af0077848889a4a5ef8c8f4",
+      "before": "24469df0ba7f7620860645914c411de567dd7ef95af0077848889a4a5ef8c8f4",
+      "after": "583af899acb24558c8cd4499bfecd9ff85e927e0090f8d6654527ac00369b51d",
       "owner": "repository-maintainer",
-      "reason": "原位替换最近验证为R30退役无消费者Pixabay Inspector状态链；仅删产品37行与零用fixture字段1行，原门/断言和并行Scene记录保持，不追加批次台账。",
+      "reason": "原位替换最近验证为R31零调用Web同步结构风险链退役；仅删产品29行与两个fixture stub，原profile断言/现役纯核/来源合同及并行Scene记录保持，不追加台账。",
       "decision": "docs/development/code-slimming-program.md#目标与边界"
     },
     {

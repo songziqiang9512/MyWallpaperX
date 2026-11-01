@@ -199,24 +199,6 @@ extension SteamWorkshopService {
             projectFileURL: hasProject ? project : nil)
     }
 
-    func webSampleStructure(for record: SteamWorkshopDownloadRecord) -> SteamWorkshopWebSampleStructure {
-        Self.webSampleStructure(
-            record: record,
-            source: webPropertyDefinitionSource(for: record) ?? SteamWorkshopWebPropertyDefinitionSource(record: record)
-        )
-    }
-
-    /// The lightweight source is captured by the caller, with no record rebuild.
-    nonisolated static func webSampleStructure(
-        record: SteamWorkshopDownloadRecord,
-        source: SteamWorkshopWebPropertyDefinitionSource
-    ) -> SteamWorkshopWebSampleStructure {
-        let root = Self.loadWebProjectRootStatic(projectFileURL: source.projectFileURL)
-        let count = ((root?["general"] as? [String: Any])?["properties"] as? [String: Any])?.count ?? 0
-        let names = Set((try? FileManager.default.contentsOfDirectory(atPath: source.folderURL.path)) ?? [])
-        return webSampleStructure(record: record, propertyCount: count, fileNames: names)
-    }
-
     nonisolated static func webSampleStructure(record: SteamWorkshopDownloadRecord,
         propertyCount: Int, fileNames: Set<String>) -> SteamWorkshopWebSampleStructure {
         if record.isDependencyBackedWeb { return .dependencyBackedShell }

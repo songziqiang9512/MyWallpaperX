@@ -49,8 +49,6 @@ final class SteamWorkshopService {
     // Intentionally no resolvedWebRuntimeModel: a launch profile must compile
     // and work without property, bookmark or inspector-model implementations.
     func resolvedWebProjectDescriptor(for _: SteamWorkshopDownloadRecord) -> ResolvedWebProjectDescriptor? { descriptor }
-    func webSampleStructure(for _: SteamWorkshopDownloadRecord) -> SteamWorkshopWebSampleStructure { .basicHTMLWeb }
-    func webPropertyDefinitions(for _: SteamWorkshopDownloadRecord) -> [SteamWorkshopWebPropertyDefinition] { [] }
     static func webDisplayConditionRequiresFallback(_: String?) -> Bool { false }
 }
 

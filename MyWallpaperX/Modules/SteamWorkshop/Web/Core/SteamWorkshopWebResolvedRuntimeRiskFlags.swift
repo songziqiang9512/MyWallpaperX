@@ -22,17 +22,6 @@ extension SteamWorkshopService {
         return requiresOriginCompatibility ? .highCompatibility : .standard
     }
 
-    func resolvedWebStructuralRiskFlags(
-        for record: SteamWorkshopDownloadRecord,
-        sampleStructure: SteamWorkshopWebSampleStructure? = nil
-    ) -> [ResolvedWebRuntimeRiskFlag] {
-        Self.resolvedWebStructuralRiskFlags(
-            record: record,
-            sampleStructure: sampleStructure ?? webSampleStructure(for: record),
-            propertyDefinitions: webPropertyDefinitions(for: record)
-        )
-    }
-
     /// 解析核：sampleStructure 与 definitions 由调用方解析后传入。
     nonisolated static func resolvedWebStructuralRiskFlags(
         record: SteamWorkshopDownloadRecord,
