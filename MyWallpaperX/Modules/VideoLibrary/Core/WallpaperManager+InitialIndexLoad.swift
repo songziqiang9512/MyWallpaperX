@@ -133,7 +133,7 @@ extension WallpaperManager {
         initialIndexLoadInFlight = false
         initialIndexInternalPublication = true
         defer { initialIndexInternalPublication = false }
-        let baseline = index.initialized ? migratedBundledVideoIndex(index.wallpapers) : initialIndexSeedWallpapers
+        let baseline = index.initialized ? index.wallpapers.map(migratedBundledVideoWallpaper) : initialIndexSeedWallpapers
         let merged = initialIndexChanges.merged(with: baseline, normalize: normalizedPath)
         let removed = initialIndexChanges.removedPaths
         didFinishInitialIndexLoad = true

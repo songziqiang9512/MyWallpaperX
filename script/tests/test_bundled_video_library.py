@@ -13,6 +13,8 @@ import unittest
 import zipfile
 from pathlib import Path
 
+from script.tests.test_ui_library_algorithms import declaration
+
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 ARCHIVE_PATH = REPOSITORY_ROOT / "MyWallpaperX/Resources/Videos.zip"
@@ -89,10 +91,8 @@ enum Harness {
 MIGRATION_HARNESS = r'''
 import Foundation
 
-@MainActor final class WallpaperManager {
-    var persistRequests = 0
-    func scheduleWallpapersAutoPersist() { persistRequests += 1 }
-}
+@MainActor final class WallpaperManager {}
+// ACTUAL_BUNDLED_MIGRATION
 
 @main enum MigrationHarness {
     @MainActor static func main() throws {
@@ -123,15 +123,15 @@ import Foundation
             precondition(BundledVideoLibrary.migratedURL(forPersistedPath: value.path) == nil)
             precondition(manager.migratedBundledVideoWallpaper(value) == value)
         }
-        precondition(manager.migratedBundledVideoIndex(untouched) == untouched && manager.persistRequests == 0)
+        precondition(untouched.map(manager.migratedBundledVideoWallpaper) == untouched)
         precondition(!fm.fileExists(atPath: destination.path))
         let retired = root.appendingPathComponent("Retired.app/Contents/Resources", isDirectory: true)
         try fm.createDirectory(at: retired, withIntermediateDirectories: true)
         let missing = retired.appendingPathComponent("Video2.mp4").path
         if mode == "missing-archive" {
             precondition(BundledVideoLibrary.migratedURL(forPersistedPath: missing) == nil)
-            precondition(manager.migratedBundledVideoIndex([record(missing)]) == [record(missing)])
-            precondition(manager.persistRequests == 0 && !fm.fileExists(atPath: destination.path))
+            precondition([record(missing)].map(manager.migratedBundledVideoWallpaper) == [record(missing)])
+            precondition(!fm.fileExists(atPath: destination.path))
         } else {
             // Lazy prepare must not have cached a failure during the probes above.
             try fm.copyItem(at: archive, to: Bundle.main.resourceURL!.appendingPathComponent("Videos.zip"))
@@ -149,13 +149,13 @@ import Foundation
             precondition(brokenContent == "migrated-owned")
             let input = untouched + [record(missing), record(equivalent, dated: false), record(broken.path)]
             let expected = untouched + [record(migrated.path), record(migrated.path, dated: false), record(brokenMigration.path)]
-            precondition(manager.migratedBundledVideoIndex(input) == expected && manager.persistRequests == 1)
-            precondition(manager.migratedBundledVideoIndex(expected) == expected && manager.persistRequests == 1)
+            precondition(input.map(manager.migratedBundledVideoWallpaper) == expected)
+            precondition(expected.map(manager.migratedBundledVideoWallpaper) == expected)
         }
         let existingContent = try String(contentsOf: existing, encoding: .utf8)
         let linkedContent = try String(contentsOf: symlink, encoding: .utf8)
         precondition(existingContent == "existing-owned" && linkedContent == "linked-owned")
-        print("{\"mode\":\"\(mode)\",\"untouched\":\(untouched.count),\"persistRequests\":\(manager.persistRequests),\"passed\":true}")
+        print("{\"mode\":\"\(mode)\",\"untouched\":\(untouched.count),\"passed\":true}")
     }
 
     static func record(_ path: String, dated: Bool = true) -> VideoWallpaper {
@@ -242,12 +242,15 @@ class BundledVideoLibraryTests(unittest.TestCase):
             "CFBundleVersion": "1", "CFBundleName": "Owned migration fixture",
         }))
         harness = root / "MigrationHarness.swift"
-        harness.write_text(MIGRATION_HARNESS)
-        inputs = [Path(__file__), SWIFT_SOURCE, MIGRATION_SOURCE, MODEL_SOURCE, harness]
+        migration = declaration(MIGRATION_SOURCE.read_text(), "    func migratedBundledVideoWallpaper(")
+        harness.write_text(MIGRATION_HARNESS.replace("// ACTUAL_BUNDLED_MIGRATION",
+            "extension WallpaperManager {\n" + migration + "\n}"))
+        inputs = [Path(__file__), SWIFT_SOURCE, MIGRATION_SOURCE, MODEL_SOURCE, harness,
+            REPOSITORY_ROOT / "script/tests/test_ui_library_algorithms.py"]
         before = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}
         environment = dict(os.environ, CLANG_MODULE_CACHE_PATH=str(root / "clang-cache"))
         command = ["xcrun", "swiftc", "-parse-as-library", "-O", str(SWIFT_SOURCE),
-            str(MIGRATION_SOURCE), str(MODEL_SOURCE), str(harness),
+            str(MODEL_SOURCE), str(harness),
             "-module-cache-path", str(root / "modules"), "-o", str(template / "MacOS/MigrationHarness")]
         built = subprocess.run(command, env=environment, capture_output=True, text=True, timeout=120)
         (root / "compile.json").write_text(json.dumps({"command": command, "returncode": built.returncode,
@@ -270,7 +273,6 @@ class BundledVideoLibraryTests(unittest.TestCase):
                 report = json.loads(ran.stdout)
                 self.assertTrue(report["passed"])
                 self.assertEqual(report["untouched"], 9)
-                self.assertEqual(report["persistRequests"], 1 if mode == "archive" else 0)
         self.assertEqual({str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}, before)
 
     @staticmethod

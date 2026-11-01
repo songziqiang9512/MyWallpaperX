@@ -6,14 +6,6 @@
 import Foundation
 
 extension WallpaperManager {
-    func migratedBundledVideoIndex(_ source: [VideoWallpaper]) -> [VideoWallpaper] {
-        let migrated = source.map(migratedBundledVideoWallpaper)
-        if migrated != source {
-            scheduleWallpapersAutoPersist()
-        }
-        return migrated
-    }
-
     func migratedBundledVideoWallpaper(_ wallpaper: VideoWallpaper) -> VideoWallpaper {
         guard let migratedURL = BundledVideoLibrary.migratedURL(forPersistedPath: wallpaper.path) else {
             return wallpaper

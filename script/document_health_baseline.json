@@ -34,7 +34,7 @@
     },
     "docs/development/code-slimming-program.md": {
       "lines": 464,
-      "bytes": 104355
+      "bytes": 104077
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -1739,10 +1739,10 @@
     {
       "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
-      "before": "1eb92861d44a75c8a6a796ac479de4ff63d6a3a2aa398b406b266608c9f707a4",
-      "after": "5e7e7ce59aac5083414de7f42351db4bb58a105d08308fb093470d363fdb6844",
+      "before": "5e7e7ce59aac5083414de7f42351db4bb58a105d08308fb093470d363fdb6844",
+      "after": "ff2c9bde8ea76f32c3cf261be075ae38061fd48062b495058f6f0a05e24216f5",
       "owner": "repository-maintainer",
-      "reason": "原位记录R51确定路径map退役及真实AV/JPEG/静帧/消费者旧新证据，准确保UUID/别名/负例边界；仅更新本authority预算和既有receipt，保其它历史与Scene叶。",
+      "reason": "原位记录R52必早返迁移wrapper退役、真实SQLite/三行重启证明及路径身份边界；仅本authority预算与既有receipt，保其它历史/Scene叶。",
       "decision": "docs/development/code-slimming-program.md#目标与边界"
     },
     {

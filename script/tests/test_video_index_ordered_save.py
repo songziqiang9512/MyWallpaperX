@@ -43,7 +43,7 @@ def prepare_asset_path_publication_sources(tree, work, cache_assets_override=Non
     state += "\n" + observer
     methods = "\n".join(declaration(persistence, signature) for signature in [
         "    var defaults:", "    private var wallpaperIndexStore:",
-        "    func saveWallpapers(", "    private func submitPendingWallpaperIndexSave(",
+        "    func saveWallpapers(", "    func scheduleWallpapersAutoPersist(", "    private func submitPendingWallpaperIndexSave(",
         "    private func applyWallpaperIndexSaveResult(", "    private func flushWallpaperIndex(",
         "    func persistWallpaperIndexNow(",
         "    private func invalidateWallpaperIndexPersistence(", "    func flushPersistentState(",
@@ -53,7 +53,6 @@ def prepare_asset_path_publication_sources(tree, work, cache_assets_override=Non
     ])
     imports = (core / "WallpaperManager+ImportProcessing.swift").read_text()
     bundled = (core / "WallpaperManager+BundledVideos.swift").read_text()
-    fixture = fixture.replace("// PRODUCTION_BUNDLED_COPY", declaration(bundled, "    func migratedBundledVideoWallpaper("))
     presentation = (core / "WallpaperManager+ImportPresentation.swift").read_text()
     for signature in ["    private struct ImportCounters", "    private struct PreparedImportEntry",
                       "    private struct ImportPreparationResult", "    private func applyPreparedImportResult(",
@@ -141,11 +140,10 @@ extension WallpaperIndexStore {
         sink_end = manager.index(".store(in: &cancellables)", sink_start) + len(".store(in: &cancellables)")
         actual_sink = manager[sink_start:sink_end]
         fixture = fixture.replace("// ACTUAL_ASSET_SINK", actual_sink)
-        methods += "\n" + declaration(persistence, "    func scheduleWallpapersAutoPersist(")
         methods += "\n" + "\n".join(declaration(asset_path.read_text(), marker) for marker in (
             "    func updateWallpaperAssetPaths(", "    private func applyAssetPaths("))
         methods = methods.replace("    func scheduleWallpapersAutoPersist() {", "    func scheduleWallpapersAutoPersist() {\n        auditScheduleEntries += 1")
-    source = startup.replace("import AppKit\n", "") + "\n" + import_types + "\n" + fixture.replace("// PRODUCTION_STATE", state).replace("// PRODUCTION_METHODS", methods)
+    source = startup.replace("import AppKit\n", "") + "\n" + import_types + "\n" + bundled + "\n" + fixture.replace("// PRODUCTION_STATE", state).replace("// PRODUCTION_METHODS", methods)
     swift = work / "Checks.swift"
     actual_store = work / "WallpaperIndexStore.swift"
     swift.write_text(source)
@@ -189,7 +187,8 @@ class VideoIndexOrderedSaveTests(unittest.TestCase):
                           ["startup-empty"], ["startup-global"], ["startup-import-context"], ["startup-size"], ["startup-corrupt"], ["read-interrupt"],
                           ["migration-readonly"], ["migration-legacy-index"], ["migration-missing-index"],
                           ["first-indexed"], ["first-indexed-sql-write", "first-indexed-sql-read"],
-                          ["first-indexed-fallback-write", "first-indexed-fallback-read"], ["first-indexed-legacy"]]:
+                          ["first-indexed-fallback-write", "first-indexed-fallback-read"], ["first-indexed-legacy"],
+                          ["startup-bundled-write", "startup-bundled-read"]]:
                 home = work / modes[0]
                 home.mkdir()
                 if modes[0] in ["migration-readonly", "migration-legacy-index", "first-indexed-legacy"]:

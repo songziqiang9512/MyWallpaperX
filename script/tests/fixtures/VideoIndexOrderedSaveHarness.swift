@@ -51,8 +51,6 @@ enum BundledVideoLibrary {
     // PRODUCTION_STATE
     // PRODUCTION_METHODS
 
-    // PRODUCTION_BUNDLED_COPY
-    func migratedBundledVideoIndex(_ value: [VideoWallpaper]) -> [VideoWallpaper] { value }
     nonisolated func normalizedSourcePathExists(_ path: String) -> Bool { path != "/fixture/bundled-old.mp4" }
     func scheduleMissingIndexedSourceFilesScan() {}
     func scanForMissingMetadata() {}
@@ -175,6 +173,33 @@ enum BundledVideoLibrary {
             let url = URL(fileURLWithPath: ProcessInfo.processInfo.environment["MWX_VIDEO_INDEX_TEST_ROOT"]!).appendingPathComponent("index.sqlite3")
             checks["failedMigrationReadDoesNotCreateMissingOldIndex"] = !FileManager.default.fileExists(atPath: url.path)
                 && !manager.didFinishInitialIndexLoad && manager.fallback == nil
+        case "startup-bundled-write", "startup-bundled-read":
+            let migrated = VideoWallpaper(id: "bundled-metadata", title: "Bundled metadata", path: "/fixture/bundled-current.mp4",
+                thumbnailPath: "/fixture/custom-thumb.jpg", staticFramePath: "/fixture/custom-frame.png", isFavorite: true,
+                lastUsed: Date(timeIntervalSince1970: 123.25), tags: ["原有", "metadata"], fileSize: 456,
+                duration: 78, resolution: "640x480", firstIndexedAt: Date(timeIntervalSince1970: 42.5))
+            let ordinaryZ = record("ordinary-z")
+            let ordinaryA = record("ordinary-a")
+            let expected = [ordinaryZ, migrated, ordinaryA]
+            if mode == "startup-bundled-write" {
+                let legacy = VideoWallpaper(id: "bundled-metadata", title: "Bundled metadata", path: "/fixture/bundled-old.mp4",
+                    thumbnailPath: "/fixture/custom-thumb.jpg", staticFramePath: "/fixture/custom-frame.png", isFavorite: true,
+                    lastUsed: Date(timeIntervalSince1970: 123.25), tags: ["原有", "metadata"], fileSize: 456,
+                    duration: 78, resolution: "640x480", firstIndexedAt: Date(timeIntervalSince1970: 42.5))
+                try store.saveWallpapers([ordinaryZ, legacy, ordinaryA])
+                checks["bundledMigrationStartsFromInitializedLegacySQLite"] = try store.loadInitialIndex().initialized
+                    && store.loadWallpapers() == [ordinaryZ, legacy, ordinaryA]
+            } else {
+                checks["restartSQLiteAlreadyContainsCompleteMigratedRows"] = try store.loadWallpapers() == expected
+            }
+            store.clearAudit()
+            manager.startInitialLoad()
+            wait("bundled initial migration did not settle and save") { manager.didFinishInitialIndexLoad && manager.idle }
+            checks["initialBundledMigrationKeepsAllMetadataAndNeighborOrder"] = manager.wallpapers == expected
+            checks["initialBundledMigrationDoesNotLeaveAutomaticPersistenceWork"] = manager.wallpapersAutoSaveWorkItem == nil
+                && !manager.initialIndexInternalPublication
+            checks["initialExplicitSaveCommitsTheCompleteMigratedSnapshot"] = try store.loadWallpapers() == expected
+                && store.savedIDsForAudit() == [expected.map(\.id)]
         case "first-indexed":
             let date = Date(timeIntervalSince1970: 1_700_000_000.375)
             var dated = record("dated"); dated.firstIndexedAt = date
