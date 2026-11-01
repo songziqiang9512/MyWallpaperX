@@ -159,8 +159,27 @@ extension UserCollectionsStore {
             let picker = WallpaperPlaylistPickerController(workspace: workspace, manager: manager, images: images,
                 steam: steam, pixabay: pixabay, destination: .playlist(id), hostWindow: { host })
             keepAlive.append(picker); picker.show()
-            try await wait("Picker did not become the actual native key sheet") {
-                host.attachedSheet?.delegate === picker && app.keyWindow === host.attachedSheet
+            do {
+                try await wait("Picker did not become the actual native key sheet") {
+                    host.attachedSheet?.delegate === picker && app.keyWindow === host.attachedSheet
+                }
+            } catch {
+                let sheet = host.attachedSheet, key = app.keyWindow, main = app.mainWindow
+                let facts: [String: Any] = [
+                    "diagnostic": "picker-open-key-sheet-timeout", "playlistID": id.uuidString,
+                    "pid": ProcessInfo.processInfo.processIdentifier, "appActive": app.isActive,
+                    "frontmostBundleID": NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "none",
+                    "hostVisible": host.isVisible, "hostKey": host.isKeyWindow, "hostWindowNumber": host.windowNumber,
+                    "sheetExists": sheet != nil, "sheetClass": sheet.map { String(describing: type(of: $0)) } ?? "none",
+                    "sheetVisible": sheet?.isVisible ?? false, "sheetKey": sheet?.isKeyWindow ?? false,
+                    "sheetParentIsHost": sheet?.sheetParent === host, "sheetDelegateIsPicker": sheet?.delegate === picker,
+                    "keyExists": key != nil, "keyClass": key.map { String(describing: type(of: $0)) } ?? "none",
+                    "keyWindowNumber": key?.windowNumber ?? -1, "keyIsHost": key === host,
+                    "keyIsAttachedSheet": key != nil && key === sheet,
+                    "mainExists": main != nil, "mainIsHost": main === host,
+                    "mainIsAttachedSheet": main != nil && main === sheet]
+                FileHandle.standardError.write(try! JSONSerialization.data(withJSONObject: facts, options: [.sortedKeys]) + Data([10]))
+                throw error
             }
             let panel = host.attachedSheet!
             await settle()
@@ -257,6 +276,8 @@ extension UserCollectionsStore {
         let search = descendants(panel.contentView!, NSSearchField.self).first!
         checks["native-background-input-probe-keeps-the-picker-search-and-all-eight-source-facts-unchanged"] = search.stringValue.isEmpty
             && Set(grid.items.map(\.reference)) == Set(values.map(\.reference))
+        checks["picker-all-source-order-retains-each-page-default-and-download-title-ties"] = grid.items.map(\.reference)
+            == [values[0], values[1], values[2], values[3], values[5], values[4], values[7], values[6]].map(\.reference)
         checks["picker-starts-at-five-columns-with-the-shared-native-zoom"] = WallpaperLibraryGridMetrics(
             clipWidth: grid.scrollView.contentView.bounds.width, preferredColumns: 5).columns == 5
             && zoom.segmentCount == 2 && zoom.trackingMode == .momentary && picker.canZoom(-1) && picker.canZoom(1)
@@ -467,6 +488,8 @@ extension UserCollectionsStore {
             && videoSource.segmentCount == 3 && videoSource.label(forSegment: 2) == "我的下载"
             && videoPanel.contentView is WallpaperPanelSurface && !videoGrid.collection.allowsMultipleSelection
             && videoGrid.selection.references == [values[6].reference]
+        checks["video-picker-retains-video-page-before-eligible-download-order"] = videoGrid.items.map(\.reference)
+            == [values[0], values[1], values[7], values[6]].map(\.reference)
         videoPanel.makeFirstResponder(videoGrid.collection)
         try await key(124, String(UnicodeScalar(NSRightArrowFunctionKey)!))
         try await key(0, "a", modifiers: .command)

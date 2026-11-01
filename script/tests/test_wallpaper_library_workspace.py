@@ -9,6 +9,7 @@ import unittest
 
 from script.tests.test_ui_library_algorithms import declaration
 from script.tests.test_video_thumbnail_prefetch import SWIFT_ISOLATION_FLAGS
+from script.tests.test_wallpaper_library_query import instrument_catalog_preparations
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -37,7 +38,8 @@ class WallpaperLibraryWorkspaceTests(unittest.TestCase):
                  "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+PlaybackControl.swift",
                  "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+PlaybackSettings.swift",
                  "script/tests/fixtures/WallpaperLibraryRotationSourceChecks.swift",
-                 "MyWallpaperX/Core/PlaybackControl/ImportedVideoAutoplayGate.swift"]
+                 "MyWallpaperX/Core/PlaybackControl/ImportedVideoAutoplayGate.swift",
+                 "script/tests/test_wallpaper_library_query.py"]
         hashes = {p: hashlib.sha256((ROOT / p).read_bytes()).hexdigest() for p in paths + extra}
         fixture = (ROOT / paths[-1]).read_text().replace("// STARTUP_OUTCOME", declaration((ROOT / extra[0]).read_text(), "nonisolated enum LibraryCollectionsStartupOutcome:"))
         fixture = fixture.replace("// PUBLICATION_VALUE", declaration((ROOT / extra[1]).read_text(), "nonisolated struct LibraryCollectionsMigrationPublicationResult:"))
@@ -66,9 +68,15 @@ class WallpaperLibraryWorkspaceTests(unittest.TestCase):
                     marker = "        Task { @MainActor [weak self, weak collections] in"
                     self.assertEqual(source.count(marker), 1, marker)
                     source = source.replace(marker, marker + "\n            defer { WorkspaceBackingProbe.completed += 1 }", 1)
+                    start = "                guard catalog.catalog.loadedProviders == Set(WallpaperProvider.allCases) else { return nil }"
+                    end = "                return try makeSnapshot(source: .global, items: values, query: nil)"
+                    self.assertEqual(source.count(start), 1)
+                    self.assertEqual(source.count(end), 1)
+                    source = source.replace(start, start + "\n                let preparationsBefore = WallpaperLibraryQuery.fullResolverInitializations", 1)
+                    source = source.replace(end, '                FileHandle.standardError.write(Data("CATALOG PREPARATIONS global 3 \\(WallpaperLibraryQuery.fullResolverInitializations - preparationsBefore)\\n".utf8))\n' + end, 1)
                     (work / Path(path).name).write_text(source)
                 elif path == "MyWallpaperX/Core/LibraryCollections/WallpaperLibraryQuery.swift":
-                    source = (ROOT / path).read_text()
+                    source = instrument_catalog_preparations((ROOT / path).read_text())
                     marker = "        init(catalog: WallpaperLibraryCatalog, relationships: UserCollectionsSnapshot) throws {"
                     self.assertEqual(source.count(marker), 1, marker)
                     source = source.replace(marker, marker + "\n            WorkspaceIdentityQueryProbe.catalogInitializations += 1", 1)
@@ -88,6 +96,15 @@ class WallpaperLibraryWorkspaceTests(unittest.TestCase):
             for name, passed in checks.items():
                 self.assertIs(passed, True, name + "\n" + run.stdout + "\n" + run.stderr)
             print(json.dumps(checks, sort_keys=True))
+            preparations = [line.removeprefix('CATALOG PREPARATIONS ').split()
+                for line in run.stderr.splitlines() if line.startswith('CATALOG PREPARATIONS ')]
+            self.assertTrue(any(scope == 'global' for scope, _, _ in preparations), run.stderr)
+            self.assertTrue(any(scope == 'global-not-ready' for scope, _, _ in preparations), run.stderr)
+            print(json.dumps({'catalogPreparations': preparations}, sort_keys=True))
+            for scope, pages, count in preparations:
+                with self.subTest(scope=scope, pages=pages):
+                    self.assertGreaterEqual(int(count), 0)
+                    self.assertLessEqual(int(count), 0 if scope == 'global-not-ready' else 1)
         self.assertEqual(hashes, {p: hashlib.sha256((ROOT / p).read_bytes()).hexdigest() for p in paths + extra})
 
 

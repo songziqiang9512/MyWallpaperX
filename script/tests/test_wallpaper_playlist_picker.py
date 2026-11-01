@@ -15,6 +15,7 @@ from script.tests.native_app_harness import prepare_native_app, run_native_app
 from script.tests.test_ui_library_algorithms import declaration
 from script.tests.test_video_thumbnail_prefetch import SWIFT_ISOLATION_FLAGS
 from script.tests.test_main_menu_commands import browser_menu_fixture
+from script.tests.test_wallpaper_library_query import instrument_catalog_preparations
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -44,7 +45,8 @@ class WallpaperPlaylistPickerTests(unittest.TestCase):
         observed = [*paths, fixture, menu_fixture, delegate, commands, Path(__file__),
                     ROOT / 'script/tests/native_app_harness.py', ROOT / 'script/tests/test_ui_library_algorithms.py',
                     ROOT / 'script/tests/test_main_menu_commands.py', ROOT / 'script/tests/fixtures/MainMenuBrowserSelectionHarness.swift',
-                    ROOT / 'MyWallpaperX/App/WallpaperLibraryWindowComposition.swift']
+                    ROOT / 'MyWallpaperX/App/WallpaperLibraryWindowComposition.swift',
+                    ROOT / 'script/tests/test_wallpaper_library_query.py']
         hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in observed}
         prelude = menu_fixture.read_text().split('@main enum MainMenuCommandChecks')[0] + '\n' + browser_menu_fixture()
         controlled_picker = declaration(prelude, 'final class WallpaperPlaylistPickerController:')
@@ -55,7 +57,7 @@ class WallpaperPlaylistPickerTests(unittest.TestCase):
         methods = declaration(delegate.read_text(), ' func validateMenuItem(')
         for action in ['createPlaylist', 'import', 'undo', 'redo', 'toggleMultiSelect', 'deleteSelected',
                        'focusSearch', 'zoomIn', 'zoomOut', 'setAsWallpaper', 'nextWallpaper', 'previousWallpaper',
-                       'toggleFavorite', 'addToPlaylist', 'showInfo', 'preview', 'revealInFinder', 'navigateLibraryPage']:
+                       'toggleFavorite', 'addToPlaylist', 'showInfo', 'preview', 'revealInFinder', 'navigateLibraryPage', 'closeWindow']:
             methods += '\n' + declaration(delegate.read_text(), ' @objc func ' + action + 'MenuAction(')
         prelude = prelude.replace('// ACTUAL_DELEGATE_MENU', methods)
         template = fixture.read_text()
@@ -67,7 +69,22 @@ class WallpaperPlaylistPickerTests(unittest.TestCase):
             copies = []
             for path in paths:
                 copied = work / path.name
-                shutil.copy2(path, copied)
+                if path.name == 'WallpaperLibraryQuery.swift':
+                    copied.write_text(instrument_catalog_preparations(path.read_text()))
+                elif path.name == 'WallpaperPlaylistPickerController.swift':
+                    content = path.read_text()
+                    refresh = declaration(content, '    private func refresh(')
+                    self.assertEqual(content.count(refresh), 1)
+                    start = '            var seen = Set<WallpaperReference>()'
+                    end = '            let committed = manager.libraryPlaybackSequence.committed'
+                    self.assertEqual(refresh.count(start), 1)
+                    self.assertEqual(refresh.count(end), 1)
+                    instrumented = refresh.replace(start, start + '\n            let preparationsBefore = WallpaperLibraryQuery.fullResolverInitializations', 1)
+                    instrumented = instrumented.replace(end, '            FileHandle.standardError.write(Data("CATALOG PREPARATIONS picker \\(pages.count) \\(WallpaperLibraryQuery.fullResolverInitializations - preparationsBefore)\\n".utf8))\n' + end, 1)
+                    content = content.replace(refresh, instrumented, 1)
+                    copied.write_text(content)
+                else:
+                    shutil.copy2(path, copied)
                 copies.append(str(copied))
             source = work / 'Checks.swift'
             source.write_text(prelude + '\n' + template)
@@ -89,6 +106,14 @@ class WallpaperPlaylistPickerTests(unittest.TestCase):
             for name, passed in checks.items():
                 with self.subTest(name=name):
                     self.assertIs(passed, True, diagnostic)
+            preparations = [line.removeprefix('CATALOG PREPARATIONS ').split()
+                for line in run.stderr.splitlines() if line.startswith('CATALOG PREPARATIONS ')]
+            self.assertTrue({1, 2, 3}.issubset({int(pages) for _, pages, _ in preparations}), run.stderr)
+            print(json.dumps({'catalogPreparations': preparations}, sort_keys=True))
+            for scope, pages, count in preparations:
+                with self.subTest(scope=scope, pages=pages):
+                    self.assertGreaterEqual(int(count), 0)
+                    self.assertLessEqual(int(count), 1)
             self.assertEqual(hashes, {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in observed})
 
 

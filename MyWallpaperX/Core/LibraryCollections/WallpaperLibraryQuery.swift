@@ -86,6 +86,23 @@ nonisolated enum WallpaperLibraryQuery {
             return WallpaperLibraryPageResult(items: [], unfilteredCount: 0)
         }
         let resolver = try Resolver(catalog: catalog, relationships: relationships)
+        return try project(page: page, state: state, catalog: catalog, relationships: relationships,
+                           resolver: resolver)
+    }
+
+    static func project(pages: [WallpaperLibraryPage], state: WallpaperLibraryQueryState,
+                        catalog: WallpaperLibraryCatalog, relationships: UserCollectionsSnapshot) throws -> [WallpaperContentItem] {
+        let localPages = pages.filter { $0 != .playlists && !$0.isRemoteBrowse }
+        guard !localPages.isEmpty else { return [] }
+        let resolver = try Resolver(catalog: catalog, relationships: relationships)
+        return try localPages.flatMap {
+            try project(page: $0, state: state, catalog: catalog, relationships: relationships, resolver: resolver).items
+        }
+    }
+
+    private static func project(page: WallpaperLibraryPage, state: WallpaperLibraryQueryState,
+                                catalog: WallpaperLibraryCatalog, relationships: UserCollectionsSnapshot,
+                                resolver: Resolver) throws -> WallpaperLibraryPageResult {
         func canonical(_ reference: WallpaperReference) throws -> WallpaperReference { try resolver.canonical(reference) }
         func resolve(_ reference: WallpaperReference) throws -> WallpaperContentItem { try resolver.resolve(reference) }
         let search = state.search.trimmingCharacters(in: .whitespacesAndNewlines)

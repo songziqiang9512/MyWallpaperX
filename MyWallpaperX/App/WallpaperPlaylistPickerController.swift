@@ -198,8 +198,8 @@ import Combine
             else { pages = source.selectedSegment == 1 ? [.videos] : source.selectedSegment == 2 ? [.images]
                 : source.selectedSegment == 3 ? [.downloads] : [.videos, .images, .downloads] }
             var seen = Set<WallpaperReference>()
-            let projected = try pages.flatMap { try WallpaperLibraryQuery.project(page: $0, state: query, catalog: catalog,
-                relationships: relationships).items }.filter {
+            let projected = try WallpaperLibraryQuery.project(pages: pages, state: query, catalog: catalog,
+                relationships: relationships).filter {
                     let eligible = isVideoSelection ? $0.kind == .video && $0.publishedAvailability.isPublishedLocally
                         && $0.publishedAvailability.isAvailable : $0.capabilities.contains(.organize)
                     return eligible && seen.insert($0.reference).inserted

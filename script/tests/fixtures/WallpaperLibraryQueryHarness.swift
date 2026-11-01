@@ -552,6 +552,80 @@ import Foundation
                 }
             }
         }
+        do {
+            let video = ref(.videoLibrary, "batch-video"), image = ref(.staticImageLibrary, "batch-image")
+            let a = ref(.steamWorkshop, "batch-a"), b = ref(.steamWorkshop, "batch-b")
+            let x = ref(.steamWorkshop, "batch-cycle-x"), y = ref(.steamWorkshop, "batch-cycle-y")
+            func batchRelationships(aliases: [WallpaperReferenceAlias] = [],
+                                    locators: [WallpaperReferenceLocator] = [], favorites: [WallpaperFavorite] = []) -> UserCollectionsSnapshot {
+                UserCollectionsSnapshot(revision: 1, resetEpoch: UUID(), migrationManifestID: nil,
+                    playlists: [], members: [], favorites: favorites, recent: [], aliases: aliases, locators: locators)
+            }
+            let sourceCatalog = WallpaperLibraryCatalog(videos: [item(video, "Batch Video"), item(backing, "Backing")],
+                images: [item(image, "Batch Image", kind: .image)], downloads: [
+                    item(b, "Batch B", date: Date(timeIntervalSince1970: 50)),
+                    item(a, "Batch A", date: Date(timeIntervalSince1970: 50))])
+            let sourceRelations = batchRelationships(aliases: [.init(alias: backing, canonical: a, proof: .publishedDownload)])
+            let cases: [(String, [WallpaperLibraryPage], WallpaperLibraryQueryState)] = [
+                ("default", [.videos, .images, .downloads], .init()),
+                ("filtered", [.videos, .images, .downloads], .init(search: "batch", providers: [.videoLibrary, .steamWorkshop],
+                    kinds: [.video], statuses: [.playable], sort: .name, ascending: false)),
+                ("mixed-repeat", [.workshop, .downloads, .playlists, .videos, .images, .downloads, .pixiv], .init())]
+            for (name, pages, state) in cases {
+                let single = try pages.flatMap { try WallpaperLibraryQuery.project(page: $0, state: state,
+                    catalog: sourceCatalog, relationships: sourceRelations).items }
+                let before = WallpaperLibraryQuery.fullResolverInitializations
+                let batch = try WallpaperLibraryQuery.project(pages: pages, state: state, catalog: sourceCatalog, relationships: sourceRelations)
+                FileHandle.standardError.write(Data("CATALOG PREPARATIONS query \(pages.count) \(WallpaperLibraryQuery.fullResolverInitializations - before)\n".utf8))
+                checks["batch-\(name)-matches-real-single-page-projections"] = batch == single
+                let expected = name == "default" ? [video, image, b, a]
+                    : name == "filtered" ? [video, b, a] : [b, a, video, image, b, a]
+                checks["batch-\(name)-keeps-page-order-default-ties-and-duplicate-pages"] = batch.map(\.reference) == expected
+            }
+            checks["single-page-unfiltered-count-remains-local"] = try WallpaperLibraryQuery.project(page: .videos, state: .init(),
+                catalog: sourceCatalog, relationships: sourceRelations).unfilteredCount == 1
+                && WallpaperLibraryQuery.project(page: .downloads, state: .init(), catalog: sourceCatalog, relationships: sourceRelations).unfilteredCount == 2
+            let cycle: [WallpaperReferenceAlias] = [.init(alias: x, canonical: y, proof: .publishedDownload),
+                .init(alias: y, canonical: x, proof: .publishedDownload)]
+            var brokenCatalog = sourceCatalog
+            brokenCatalog.downloads.append(item(x, "Unselected broken download"))
+            let cycleRelations = batchRelationships(aliases: cycle)
+            let emptyCases: [[WallpaperLibraryPage]] = [[], [.playlists, .workshop, .pixabay, .wallhaven, .pixiv]]
+            for pages in emptyCases {
+                let before = WallpaperLibraryQuery.fullResolverInitializations
+                checks["batch-empty-or-remote-\(pages.count)-ignores-unused-broken-catalog"] = try WallpaperLibraryQuery.project(
+                    pages: pages, state: .init(), catalog: brokenCatalog, relationships: cycleRelations).isEmpty
+                FileHandle.standardError.write(Data("CATALOG PREPARATIONS query-empty \(pages.count) \(WallpaperLibraryQuery.fullResolverInitializations - before)\n".utf8))
+            }
+            let missing = WallpaperLibraryPage.playlist(UUID())
+            let locatorCycle = batchRelationships(aliases: cycle, locators: [.init(reference: x, locator: .init(titleHint: "Cycle"))])
+            for (name, inputs, relations) in [("catalog", brokenCatalog, cycleRelations), ("locator", sourceCatalog, locatorCycle)] {
+                do {
+                    _ = try WallpaperLibraryQuery.project(pages: [.videos, missing], state: .init(), catalog: inputs, relationships: relations)
+                    checks["batch-rejects-unselected-\(name)-cycle-before-page-errors"] = false
+                } catch let error as UserCollectionsError {
+                    checks["batch-rejects-unselected-\(name)-cycle-before-page-errors"] = error == .corruptData("alias cycle")
+                }
+            }
+            let laterCycle = batchRelationships(aliases: cycle, favorites: [.init(reference: x, favoritedAt: nil)])
+            let errorCases: [(String, [WallpaperLibraryPage], UserCollectionsError)] = [
+                ("missing-first", [missing, .favorites], .missingPlaylist),
+                ("cycle-first", [.favorites, missing], .corruptData("alias cycle"))]
+            for (name, pages, expected) in errorCases {
+                do {
+                    _ = try WallpaperLibraryQuery.project(pages: pages, state: .init(), catalog: sourceCatalog, relationships: laterCycle)
+                    checks["batch-retains-first-page-error-\(name)"] = false
+                } catch let error as UserCollectionsError { checks["batch-retains-first-page-error-\(name)"] = error == expected }
+            }
+            let conflict = batchRelationships(aliases: [.init(alias: x, canonical: y, proof: .publishedDownload),
+                .init(alias: x, canonical: video, proof: .publishedDownload)])
+            do {
+                _ = try WallpaperLibraryQuery.project(pages: [missing], state: .init(), catalog: sourceCatalog, relationships: conflict)
+                checks["batch-retains-conflicting-alias-before-missing-playlist"] = false
+            } catch let error as UserCollectionsError {
+                checks["batch-retains-conflicting-alias-before-missing-playlist"] = error == .corruptData("conflicting alias")
+            }
+        }
         print(String(data: try JSONEncoder().encode(checks), encoding: .utf8)!)
         if checks.values.contains(false) { exit(1) }
     }

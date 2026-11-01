@@ -243,10 +243,8 @@ import Foundation
                 return try makeSnapshot(source: .single(item.reference), items: [item], query: nil)
             case .global:
                 guard catalog.catalog.loadedProviders == Set(WallpaperProvider.allCases) else { return nil }
-                let values = try [WallpaperLibraryPage.videos, .images, .downloads].flatMap {
-                    try WallpaperLibraryQuery.project(page: $0, state: .init(), catalog: catalog.catalog,
-                        relationships: relationships).items
-                }
+                let values = try WallpaperLibraryQuery.project(pages: [.videos, .images, .downloads], state: .init(),
+                    catalog: catalog.catalog, relationships: relationships)
                 return try makeSnapshot(source: .global, items: values, query: nil)
             case .page(let page):
                 let query: WallpaperLibraryQueryState

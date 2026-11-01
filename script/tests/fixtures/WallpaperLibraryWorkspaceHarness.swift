@@ -176,7 +176,9 @@ struct WorkspacePause { let isUserPaused: Bool }
         workspace.catalog.publish(catalog)
         checks["app-composes-one-injected-store-and-one-page-model"] = workspace.presentation.collections === workspace.collections
             && workspace.collections?.snapshot.resetEpoch == initial.resetEpoch
+        let beforeUnknownGlobal = WallpaperLibraryQuery.fullResolverInitializations
         checks["initial-unknown-providers-never-create-a-global-fallback"] = manager.libraryPlaybackSnapshotProvider?(video, .global, .manualNavigation) == nil
+        FileHandle.standardError.write(Data("CATALOG PREPARATIONS global-not-ready 0 \(WallpaperLibraryQuery.fullResolverInitializations - beforeUnknownGlobal)\n".utf8))
         catalog.loadedProviders = Set(WallpaperProvider.allCases)
         workspace.catalog.publish(catalog)
         checks["app-publishes-source-values-before-explicit-play"] = await wait { workspace.presentation.queryResult.items.map(\.reference) == [video] }
@@ -354,6 +356,14 @@ struct WorkspacePause { let isUserPaused: Bool }
         _ = applyWorkspace
         checks.merge(try runWorkspaceIdentityQueryChecks(store: store, epoch: initial.resetEpoch, defaults: defaults),
             uniquingKeysWith: { _, newer in newer })
+        let added = WallpaperReference(provider: .videoLibrary, sourceID: "fresh-global-video")
+        var freshCatalog = catalog
+        freshCatalog.revision += 1
+        freshCatalog.videos.insert(content(added, "Fresh global", .video), at: 0)
+        workspace.catalog.publish(freshCatalog)
+        let freshGlobal = manager.libraryPlaybackSnapshotProvider?(added, .global, .manualNavigation)
+        checks["next-global-request-uses-current-catalog-rather-than-a-retained-preparation"] = freshGlobal?.entries.map(\.reference)
+            == [added, video, image, download, pixabayReference]
         print(String(data: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
     }
 }

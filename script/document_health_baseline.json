@@ -34,7 +34,7 @@
     },
     "docs/development/code-slimming-program.md": {
       "lines": 464,
-      "bytes": 102438
+      "bytes": 102734
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -1739,10 +1739,10 @@
     {
       "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
-      "before": "bd454ffeb327ea945eeee10c794eb344e6ae7cc4720fa9d87ffca7886f034e27",
-      "after": "0348a8fa6505faa88475ca71f72a29ca3e939670bcb58f454bbaaf5cfd7b0b6a",
+      "before": "0348a8fa6505faa88475ca71f72a29ca3e939670bcb58f454bbaaf5cfd7b0b6a",
+      "after": "1286042c0e1d5fd307ce2a9c85edb6046b27ca6d79bac11abbdb5ba5a4d81dfa",
       "owner": "repository-maintainer",
-      "reason": "原位替换最近验证为R42同序joined遍历与旧新真实查询投影门；保仅标签UUID规范化、锁等待/非性能及Scene隔离界限，只改本authority预算及收据。",
+      "reason": "原位记录R43同轮共享、严格原生分步通过与未明首次失败；补480b已提交Scene整合构建并保双方预算历史，行为输入未变不虚构重跑，未扩产品边界。",
       "decision": "docs/development/code-slimming-program.md#目标与边界"
     },
     {
