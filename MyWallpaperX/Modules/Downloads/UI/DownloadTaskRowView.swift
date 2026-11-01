@@ -109,7 +109,11 @@ import AppKit
             button.toolTip = Self.title(action)
             button.setAccessibilityLabel("\(Self.title(action))：\(next.title)")
         }
-        if let progress = next.progress { apply(progress) }
+        if let progress = next.progress {
+            if changedAttempt || changedPhase || progress.phase != .transferring || progress.sequence != lastProgressSequence {
+                apply(progress)
+            }
+        }
         else if changedAttempt || changedPhase || next.phase != .transferring { applyFallback(next) }
         if !next.phase.isTerminal, needsProgressBinding {
             cancelProgress = bindings.observeProgress?(next) { [weak self] progress in

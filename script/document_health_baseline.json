@@ -34,7 +34,7 @@
     },
     "docs/development/code-slimming-program.md": {
       "lines": 464,
-      "bytes": 102281
+      "bytes": 102539
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -1757,10 +1757,10 @@
     {
       "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
-      "before": "174b7ce7caaec281458cec04fc4675f57d69a1a583d9e1e07fd4b90441f4779e",
-      "after": "f37c8d17e58c860212beab61687935357fbd149bf5ab2952d2734aa67aacdec8",
+      "before": "f37c8d17e58c860212beab61687935357fbd149bf5ab2952d2734aa67aacdec8",
+      "after": "a88c37906dc46293aac75a9bfd19df9706fadcec368f1523ca49443f7fd16ef0",
       "owner": "repository-maintainer",
-      "reason": "原位替换最近验证为R38等行为失败状态精简与真实请求数对照，明确夹具隔离修正和未通过的原生前置条件，不扩大政策/UI范围或新增台账；保全部并行预算及receipt。",
+      "reason": "原位替换最近验证为R39真实同序快照速率丢失反例及局部修正，记录产品/测试增量与内部边界；不包装高频性能收益，不新增台账并保全部并行预算及receipt。",
       "decision": "docs/development/code-slimming-program.md#目标与边界"
     },
     {

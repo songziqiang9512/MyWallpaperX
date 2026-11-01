@@ -221,6 +221,77 @@ final class TestItem: NSCollectionViewItem {
             "reused row cancels only its old leases and cannot accept old-attempt pixels")
         leaseRow.unbind()
         precondition(thumbnailCancels == 2 && progressCancels == 2)
+        do {
+            let initial = DownloadTaskProgress(phase: .transferring, statusText: "transfer-start", fraction: 0.1,
+                verifiedBytes: 100, totalBytes: 10000, sequence: 1)
+            let latest = DownloadTaskProgress(phase: .transferring, statusText: "transferring", fraction: 0.3,
+                verifiedBytes: 3000, totalBytes: 10000, sequence: 2)
+            var loads = 0, imageCancels = 0, observers = 0, observerCancels = 0
+            var deliver: ((DownloadTaskProgress) -> Void)?
+            let snapshotRow = DownloadTaskRowView(bindings: .init(perform: { _, _ in }, loadThumbnail: { value, receive in
+                loads += 1; receive(value.thumbnailKey == "first" ? firstImage : nextImage)
+                return { imageCancels += 1 }
+            }, observeProgress: { _, receive in
+                observers += 1; deliver = receive; receive(initial)
+                return { observerCancels += 1 }
+            }))
+            snapshotRow.configure(.init(id: firstID, title: "snapshot", phase: .preparing,
+                progress: initial, thumbnailKey: "first", actions: [.pause]))
+            precondition(snapshotRow.statusLabel.stringValue.hasPrefix("transfer-start") && snapshotRow.progressBar.doubleValue == 0.1,
+                "initial snapshot plus immediate observer delivery renders the real transfer sample")
+            RunLoop.current.run(until: Date().addingTimeInterval(0.12))
+            deliver?(latest)
+            let text = snapshotRow.statusLabel.stringValue
+            precondition(text.contains("/s"), "the second real observer sample produces a displayed byte rate")
+            snapshotRow.configure(.init(id: firstID, title: "renamed", phase: .preparing,
+                progress: latest, thumbnailKey: "first", actions: [.cancel]))
+            precondition(snapshotRow.statusLabel.stringValue == text && snapshotRow.statusLabel.toolTip == text
+                && (snapshotRow.progressBar.accessibilityValue() as? String) == text
+                && snapshotRow.progressBar.doubleValue == 0.3 && !snapshotRow.progressBar.isHidden,
+                "a structural snapshot echo of delivered Steam transfer progress must preserve rate, tooltip and AX value")
+            precondition(loads == 1 && imageCancels == 0 && observers == 1 && observerCancels == 0
+                && snapshotRow.thumbnailView.image === firstImage && snapshotRow.titleLabel.stringValue == "renamed"
+                && snapshotRow.buttons[.pause]?.isHidden == true && snapshotRow.buttons[.cancel]?.isHidden == false,
+                "ignoring echoed progress still configures title and actions while keeping the existing consumer leases")
+            snapshotRow.configure(.init(id: firstID, title: "renamed", phase: .preparing, progress: latest, thumbnailKey: "next"))
+            precondition(snapshotRow.statusLabel.stringValue == text && snapshotRow.thumbnailView.image === nextImage
+                && loads == 2 && imageCancels == 1 && observers == 1 && observerCancels == 0,
+                "an echoed sample cannot bypass configuration of a changed thumbnail key")
+            for phase in [DownloadTaskPhase.queued, .saving, .failed] {
+                snapshotRow.configure(.init(id: firstID, title: "phase", phase: .preparing,
+                    progress: .init(phase: phase, statusText: phase.rawValue, fraction: 0.4, sequence: 2), thumbnailKey: "next"))
+                precondition(snapshotRow.statusLabel.stringValue == phase.rawValue && snapshotRow.progressBar.doubleValue == 0.4,
+                    "non-transfer progress with an unchanged sequence still presents its new state")
+            }
+            snapshotRow.configure(.init(id: firstID, title: "metadata", phase: .transferring,
+                progress: .init(phase: .transferring, statusText: "metadata-phase", fraction: 0.3,
+                    verifiedBytes: 3000, totalBytes: 10000, sequence: 2), thumbnailKey: "next"))
+            precondition(snapshotRow.statusLabel.stringValue.hasPrefix("metadata-phase") && snapshotRow.progressBar.doubleValue == 0.3,
+                "metadata phase changes still apply a transfer sample even with the same sequence")
+            for (sequence, fraction, bytes) in [(3, 0.5, Int64(5000)), (1, 0.05, Int64(500))] {
+                snapshotRow.configure(.init(id: firstID, title: "sequence", phase: .transferring,
+                    progress: .init(phase: .transferring, statusText: "sequence-\(sequence)", fraction: fraction,
+                        verifiedBytes: bytes, totalBytes: 10000, sequence: sequence), thumbnailKey: "next"))
+                precondition(snapshotRow.statusLabel.stringValue.hasPrefix("sequence-\(sequence)") && snapshotRow.progressBar.doubleValue == fraction,
+                    "different transfer sequences retain existing presentation semantics, including lower sequences")
+            }
+            snapshotRow.configure(.init(id: nextID, title: "next-attempt", phase: .preparing,
+                progress: initial, thumbnailKey: "next"))
+            precondition(snapshotRow.statusLabel.stringValue.hasPrefix("transfer-start") && !snapshotRow.statusLabel.stringValue.contains("/s")
+                && snapshotRow.progressBar.doubleValue == 0.1 && observers == 2 && observerCancels == 1 && loads == 3 && imageCancels == 2,
+                "a new attempt resets byte sampling and binds its own consumers")
+            snapshotRow.unbind()
+            precondition(observerCancels == 2 && imageCancels == 3)
+            let online = DownloadTaskRowView(bindings: .init(perform: { _, _ in }))
+            let onlineID = DownloadTaskIdentity(reference: .init(provider: .pixabay, sourceID: "fraction"), attemptID: "online")
+            for fraction in [0.2, 0.6] {
+                online.configure(.init(id: onlineID, title: "online", phase: .transferring,
+                    progress: .init(phase: .transferring, statusText: "online-\(fraction)", fraction: fraction)))
+                precondition(online.statusLabel.stringValue == "online-\(fraction)" && online.progressBar.doubleValue == fraction,
+                    "online fraction-only progress continues updating with its default zero sequence")
+            }
+            online.unbind()
+        }
         window.orderOut(nil)
         let collection = SteamWorkshopKeyboardCollectionView(frame: NSRect(x: 0, y: 0, width: 300, height: 200))
         collection.isSelectable = false
