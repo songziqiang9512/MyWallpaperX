@@ -320,6 +320,7 @@ private func render(
     let output = target(device)
     let attachment: SceneResolvedMaterialAttachmentKind =
         program.outputContract == .preservedRGBAUnorm ? .preservedRGBAUnorm : .color
+    prepareMaterialPipeline(program, encoder: encoder, target: output, attachmentStorage: attachment)
     guard let pass = try? encoder.prepareResult(program: program, target: output,
             attachmentStorage: attachment).get(),
           let command = queue.makeCommandBuffer(),

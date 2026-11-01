@@ -201,6 +201,7 @@ private func runAlphaMaterial(_ value: AlphaCase, name: String, content: SceneTe
         guard let encoder = SceneResolvedMaterialPassEncoder(device: device),
               let command = queue.makeCommandBuffer() else { return row }
         let target = makeSource(device, width: 2, height: 2, usage: [.renderTarget, .shaderRead])
+        prepareMaterialPipeline(program, encoder: encoder, target: target)
         guard let pass = encoder.prepare(program: program, target: target),
               encoder.encode(pass, commandBuffer: command),
               let readback = appendReadback(target, commandBuffer: command) else { return row }

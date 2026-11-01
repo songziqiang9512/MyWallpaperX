@@ -692,8 +692,9 @@ func render(
     queue: MTLCommandQueue,
     target: MTLTexture
 ) -> (prepared: Bool, encoded: Bool, completed: Bool, pixels: [UInt8]) {
-    guard let program,
-          let prepared = encoder.prepare(program: program, target: target),
+    guard let program else { return (false, false, false, []) }
+    prepareMaterialPipeline(program, encoder: encoder, target: target)
+    guard let prepared = encoder.prepare(program: program, target: target),
           let command = queue.makeCommandBuffer() else {
         return (false, false, false, [])
     }

@@ -146,7 +146,7 @@ Session 冻结本次时间、属性、输入、音频和媒体（含完整 wall 
 
 Shader artifact、variant 分析、decoded 资源、prepared geometry 与 Pipeline 都有各自缓存。复用条件在对应 owner，缓存命中不能重贴请求身份，也不授予已停止 owner 继续发布的权利。
 
-当前已有设备资源后台准备、首 Surface runtime warmup、上传 queue 共享、进程父额度以及按资源实际存活期归还的 lease。后续优化先测对应准备、分配和编码成本；不能因旧计划曾列过缺口便重新建设这些能力。启动响应与缓存合同查[启动合同](scene-launch-responsiveness-contract.md)，Pipeline 源码查[PassEncoder](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder.swift)。
+当前已有设备资源后台准备、上传queue共享、进程父额度及实际存活期lease。材质Graph/source准备的warmup是唯一PSO编译点；PassEncoder帧内只消费正/负缓存，缺准备结果局部拒绝，reset仅撤旧command代次而保不可变PSO。后续优化先测准备、分配与编码成本，不重建已有能力。启动与缓存合同查[启动合同](scene-launch-responsiveness-contract.md)，Pipeline源码查[PassEncoder](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder.swift)。
 
 ## 5. 保留的底座与需要继续收敛的职责
 

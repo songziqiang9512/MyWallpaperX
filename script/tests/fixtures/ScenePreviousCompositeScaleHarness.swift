@@ -96,6 +96,7 @@ private func renderRuler(_ program: Program, device: MTLDevice,
         width: 2, height: 2, mipmapped: false)
     descriptor.storageMode = .shared; descriptor.usage = [.renderTarget, .shaderRead]
     let output = device.makeTexture(descriptor: descriptor)!
+    prepareMaterialPipeline(program, encoder: encoder, target: output)
     let pass = try encoder.prepareResult(program: program, target: output, attachmentStorage: .color).get()
     let command = queue.makeCommandBuffer()!
     guard encoder.encode(pass, commandBuffer: command) else { fatalError("ruler encode failed") }

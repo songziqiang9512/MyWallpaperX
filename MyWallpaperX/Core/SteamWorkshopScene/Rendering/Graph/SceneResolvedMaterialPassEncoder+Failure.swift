@@ -8,6 +8,7 @@ extension SceneResolvedMaterialPassEncoder {
         case bindingsRejected
         case compileStateKeyRejected
         case renderStateRejected
+        case pipelineNotPrepared
         case libraryCompilationRejected(diagnostic: String)
         case vertexFunctionRejected
         case fragmentFunctionRejected
@@ -21,6 +22,7 @@ extension SceneResolvedMaterialPassEncoder {
             case .bindingsRejected: "bindings"
             case .compileStateKeyRejected: "compile-state-key"
             case .renderStateRejected: "render-state"
+            case .pipelineNotPrepared: "pipeline-not-prepared"
             case .libraryCompilationRejected: "library-compilation"
             case .vertexFunctionRejected: "vertex-function"
             case .fragmentFunctionRejected: "fragment-function"
@@ -30,7 +32,8 @@ extension SceneResolvedMaterialPassEncoder {
 
         var effectLocalPreEncodeReasonCode: String? {
             switch self {
-            case .libraryCompilationRejected,
+            case .pipelineNotPrepared,
+                 .libraryCompilationRejected,
                  .vertexFunctionRejected,
                  .fragmentFunctionRejected,
                  .pipelineCompilationRejected:

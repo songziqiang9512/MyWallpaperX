@@ -328,7 +328,9 @@ private func overflowCase(
 private func terminalCase(
     device: MTLDevice, queue: MTLCommandQueue, count: Int,
     inactive: Set<Int> = [], failed: Set<Int> = [], budget: Int = 4096,
-    named: Bool = false, optionalReplayFailure: Bool = false
+    named: Bool = false, optionalReplayFailure: Bool = false,
+    preparationFailure: SceneResolvedMaterialPassEncoder.PreparationFailure =
+        .libraryCompilationRejected(diagnostic: "terminal tail regression")
 ) throws -> [String: Any] {
     let graph = terminalChain(count), admitted = orderedLayerGraph(graph)
     let targets = graph.effects.map {
@@ -387,7 +389,7 @@ private func terminalCase(
         let warm = try prepare(queue.makeCommandBuffer()!, active: true)
         for index in failed {
             executor.materialEncoder.installTestingPreparationFailure(
-                .libraryCompilationRejected(diagnostic: "terminal tail regression"),
+                preparationFailure,
                 preparedKey: warm.stages[index].programCacheKeys[0])
         }
     }
@@ -397,19 +399,17 @@ private func terminalCase(
         let variant = last.variants.launchEnvelopeCapabilitySnapshot().variants[0]
         let shader = SceneResolvedMaterialProgramIdentity.shader(variant.frontendProgram,
             schemaVersion: variant.preparedShader.vertex.frontendSchemaVersion)
-        let injected = executor.materialEncoder.withLock {
+        let removed = executor.materialEncoder.withLock {
             let keys = executor.materialEncoder.entries.keys.filter {
                 ($0.passRole == .terminalSourceOver || $0.passRole == .terminalStraightSourceOver)
                     && $0.shader == shader
             }
             for key in keys {
-                executor.materialEncoder.entries[key] = .failed(
-                    .pipelineCompilationRejected(diagnostic: "optional terminal regression"),
-                    origin: .framePreparation)
+                executor.materialEncoder.entries.removeValue(forKey: key)
             }
             return keys.count
         }
-        precondition(injected > 0)
+        precondition(removed > 0)
     }
     let command = queue.makeCommandBuffer()!, prepared = try prepare(command, active: false)
     let main = SceneMainPassEncoder(commandBuffer: command, target: target,
@@ -521,7 +521,7 @@ private func terminalCase(
             "activationIsLocal": inactive.allSatisfy {
                 prepared.stages[$0].effectLocalActivationBypassReasonCode != nil
             }, "failureIsLocal": failed.allSatisfy {
-                prepared.stages[$0].effectLocalFailureReasonCode == "material-pass-preparation-library-compilation"
+                prepared.stages[$0].effectLocalFailureReasonCode == preparationFailure.effectLocalPreEncodeReasonCode
             }, "graphEncoded": encoded, "terminalOrFallbackEncoded": replayEncoded,
             "mainFinished": finished, "gpuCompleted": command.status == .completed && command.error == nil,
             "outsideBackgroundPreserved": bytes[(32*256 + 10)*4] == 255
@@ -819,6 +819,8 @@ private func densityCase(
         "active": try terminalCase(device: device, queue: queue, count: 2),
         "inactive": try terminalCase(device: device, queue: queue, count: 2, inactive: [1]),
         "failed": try terminalCase(device: device, queue: queue, count: 2, failed: [1]),
+        "missingPipeline": try terminalCase(device: device, queue: queue, count: 2,
+            failed: [1], preparationFailure: .pipelineNotPrepared),
         "twoInactive": try terminalCase(device: device, queue: queue, count: 3, inactive: [1,2]),
         "identityThenInactive": try terminalCase(device: device, queue: queue, count: 3, inactive: [2]),
         "snapshotBudgetRejected": try terminalCase(device: device, queue: queue, count: 2,
@@ -922,7 +924,9 @@ class TerminalMaterialGraphTests(unittest.TestCase):
         self.check_cases(['single', 'active'])
 
     def test_inactive_and_failed_suffix_retain_last_active_input(self):
-        self.check_cases(['inactive', 'failed', 'twoInactive', 'identityThenInactive'])
+        self.check_cases(['inactive', 'failed', 'twoInactive', 'identityThenInactive', 'missingPipeline'])
+        self.assertEqual(self.result['rows']['missingPipeline']['failureReasons'][-1],
+                         'material-pass-preparation-pipeline-not-prepared')
 
     def test_no_active_material_or_snapshot_storage_uses_the_real_graph_route(self):
         self.check_cases(['singleInactive', 'snapshotBudgetRejected', 'optionalReplayFailure'])

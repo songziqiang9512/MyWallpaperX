@@ -81,6 +81,14 @@ Codable保原四项作者字段，派生索引不进入IPC/磁盘载荷，Equata
 
 用现有用户纹理事务与候选激活门验证初始交接、替换/重置释放、双表面一致、失败保旧及迟到拒绝；Debug与隔离真实App覆盖静态/视频选择、正常退出及GPU drain。不能以去掉一个字段声称整体峰值内存下降；释放与画面证据按实际经过的边界记录。
 
+### 材质管线只在准备边界编译
+
+现有GraphExecutor初始化已预备各合法variant、attachment格式与terminal role，source material也在设备准备入口单独warmup；reset仅作prepared command代次失效，不清不可变PSO。沿这两处准备owner补齐实际缺失计划，不能在普通帧遇到key缺失时重新调用Metal compiler。PassEncoder只查询已有结果并绑定当前纹理/目标/uniform，不持第二套lazy编译与origin状态。
+
+撤`framePreparation`编译分支、仅为它服务的cacheFailure和origin字段；warmup继续拥有唯一的正/负PSO缓存、并发源码合并与可选binary archive。正确key缺少准备结果使用独立typed失败，局部拒绝实际受影响的effect/source单元；不能假称key非法、重新编译整景或吞掉该失败。真实无效target、binding、代次与设备边界仍保留。普通帧不为此新增hash、完整诊断或准备关卡。
+
+先用冻结旧App及真实门确认现有准备/帧路径，再验证cold miss零compiler调用、加载成功/失败缓存、reset保PSO、合法format/variant与terminal/source的实际GPU结果；standalone fixture按真实加载→帧顺序显式warmup，不以旧测试依赖保lazy产品入口。实际App覆盖effect/source、属性变体、相邻内容与正常退出；若发现合法遗漏，在原准备owner修正计划再验，不能重新打开draw内同步编译。没有真实测量就不报启动、帧率或能耗改善。
+
 ## 职责与数据流
 
 ```text

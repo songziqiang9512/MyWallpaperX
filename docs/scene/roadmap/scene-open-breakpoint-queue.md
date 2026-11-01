@@ -182,7 +182,7 @@
 
 ### 5.1 顶层设计已裁决的代码职责重构
 
-以下是架构级迁移的唯一执行清单，按[总设计](../architecture/runtime-architecture.md)与[迁移合同](engine-refactor-program.md#架构级迁移合同)推进，阶段状态不另开台账。先保留基线，再执行语言收敛→数据分期→组件寿命→粒子CPU/GPU→普通帧减工→整体能力与成本复核；发现依赖或收益反证时在本表纠偏。迁移前源码/App/输入基线已固定；文本与共享alpha的独立语言owner已退出，分别见[文本](../history/runtime-evidence-index.md#e-text-vm-convergence-20261102)与[共享alpha](../history/runtime-evidence-index.md#e-shared-alpha-vm-convergence-20261102)限定记录。后者已证属性→shared→遮罩贡献，点击资格仍开放。[属性Program准备与实例值](../history/runtime-evidence-index.md#e-property-program-preparation-20261102)已收回重复验证/索引，[自然尺寸回填](../history/runtime-evidence-index.md#e-prepared-image-geometry-reuse-20261102)保留原准备计划；不能外推完整语言、数据分期、整景或整体迁移完成。
+以下是架构级迁移的唯一执行清单，按[总设计](../architecture/runtime-architecture.md)与[迁移合同](engine-refactor-program.md#架构级迁移合同)推进，阶段状态不另开台账。先保基线并收敛语言/准备事实，再按真实依赖分族迁组件寿命、粒子CPU/GPU和普通帧减工；已有准备owner完整的管线切片已独立提前，最终仍须整体能力与成本复核，不能跳过未闭职责。迁移前源码/App/输入基线已固定；文本与共享alpha的独立语言owner已退出，分别见[文本](../history/runtime-evidence-index.md#e-text-vm-convergence-20261102)与[共享alpha](../history/runtime-evidence-index.md#e-shared-alpha-vm-convergence-20261102)限定记录。后者已证属性→shared→遮罩贡献，点击资格仍开放。[属性Program准备与实例值](../history/runtime-evidence-index.md#e-property-program-preparation-20261102)已收回重复验证/索引，[自然尺寸回填](../history/runtime-evidence-index.md#e-prepared-image-geometry-reuse-20261102)保留原准备计划；[材质管线准备](../history/runtime-evidence-index.md#e-material-pipeline-preparation-20261102)已撤普通帧同步编译和origin状态，graph/source预备与typed局部失败贯通；不能外推完整语言、数据分期、整景或整体迁移完成。
 
 | 重构要求与现有 owner | 目标及旧职责退出 | 最近验证与停止条件 |
 |---|---|---|
@@ -190,7 +190,6 @@
 | `SceneMetalView` 同时装配文字、视频、Puppet、粒子和延迟资源 | 按实际寿命把可共享 CPU 生命周期归 Session/type owner，必要每屏 CPU 实例仍按 surface 隔离，GPU 驻留归现有 Rendering；View 保 AppKit surface、输入与呈现职责 | 独立屏幕输入、热切、候选、退场和异步旧结果；不通过新 facade 隐藏原字段或把每屏状态误合并 |
 | `LaunchContext` 与 `prepareLaunch` 混合准备事实、liveState 和运行对象 | [用户纹理交接](../history/runtime-evidence-index.md#e-user-texture-session-ownership-20261102)已撤Context镜像，初始结果经PreparedLaunch交给Session唯一活动owner；继续按真正消费者拆清其他准备/实例职责，取消、lease和退出沿原owner | 冷暖准备、取消/newer-wins、首帧失败保旧及安全退出；不新增第二 Session、完整场景快照或重复解析 |
 | 粒子 runtime 混合模拟和 GPU 缓冲持有 | 保留现有 prepared 操作/通道计划，CPU 实例归粒子运行 owner，GPU 上传/几何与绘制状态归 Rendering/Particles；替换完成撤旧字段与转发 | 多 renderer、child、预热、脚本播放、不同视口及实际 GPU 输出；不并行保留永久不同语义的 CPU/GPU 实现 |
-| Pipeline warmup 与运行期 miss 路径 | 核对 `SceneResolvedMaterialPassEncoder.pipeline` 的真实 miss 原因与消费。可准备的产物移到加载/变体边界，保必要的设备与动态状态失效；撤销 draw 内无必要同步编译 | 冷/暖、合法变体改变和失败恢复，记录实际热路径编译次数；不凭有 warmup 就宣称零编译，也不缓存跨 command buffer 的完整帧 Program |
 
 数据分期包含 descriptor 与 LaunchContext 两项，先以单一能力族贯通其生产、消费和退出，再扩大；组件寿命先迁文字/媒体等独立族，粒子的 CPU 移交与 GPU 分离同批闭环，避免先搬混合 owner 再拆一次。最终还须审查 Format、Compilation、Resources、Systems、Rendering、Runtime 的真实依赖和全部现役组件；已登记债务不穷尽整个目标，未发现证据前不制造新重构。
 

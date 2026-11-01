@@ -39,7 +39,7 @@ private func terminalReplayProbe(device: MTLDevice, queue: MTLCommandQueue) -> [
     let cold = encoder.prepareTerminalReplay(program: material, target: target,
         unitModelViewProjection: matrix_identity_float4x4)
     let coldRejected: Bool
-    if case .failure(.compileStateKeyRejected) = cold { coldRejected = true }
+    if case .failure(.pipelineNotPrepared) = cold { coldRejected = true }
     else { coldRejected = false }
     func plan(_ format: MTLPixelFormat, _ role: Program.PassRole)
         -> SceneResolvedMaterialPassEncoder.WarmupPlan {

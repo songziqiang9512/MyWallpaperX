@@ -267,6 +267,7 @@ private func run(device: MTLDevice, queue: MTLCommandQueue, renamed: Bool,
             let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba8Unorm, width: 2, height: 2, mipmapped: false)
             descriptor.storageMode = .shared; descriptor.usage = [.shaderRead,.renderTarget]
             let target = device.makeTexture(descriptor: descriptor)!
+            prepareMaterialPipeline(program, encoder: passEncoder, target: target)
             if let command = queue.makeCommandBuffer(), let pass = passEncoder.prepare(program: program, target: target),
                passEncoder.encode(pass, commandBuffer: command) {
                 command.commit(); command.waitUntilCompleted()

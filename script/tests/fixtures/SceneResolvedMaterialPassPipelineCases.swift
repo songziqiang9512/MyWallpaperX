@@ -49,6 +49,7 @@ func runSceneResolvedMaterialPassPipelineCases(
         uniformName: "operator"
     )!
     let attemptsBeforeFailure = encoder.pipelineCompilationAttemptCount
+    prepareMaterialPipeline(invalidMetal, encoder: encoder, target: rgbaTarget)
     let firstFailure = encoder.prepare(
         program: invalidMetal,
         target: rgbaTarget
@@ -91,6 +92,13 @@ func runSceneResolvedMaterialPassPipelineCases(
             == attemptsBeforePrepareAfterReset
 
     let warmupEncoder = SceneResolvedMaterialPassEncoder(device: device)!
+    let coldMiss = warmupEncoder.prepareResult(program: baseline, target: rgbaTarget)
+    let coldMissDoesNotCompile: Bool
+    if case .failure(.pipelineNotPrepared) = coldMiss {
+        coldMissDoesNotCompile = warmupEncoder.pipelineCompilationAttemptCount == 0
+            && warmupEncoder.metalLibraryCompilationAttemptCount == 0
+            && warmupEncoder.cachedPipelineCount == 0
+    } else { coldMissDoesNotCompile = false }
     let warmupPlan = SceneResolvedMaterialPassEncoder.WarmupPlan(
         identity: "fixture:baseline",
         preparedKey: baseline.preparedShader.cacheKey,
@@ -297,7 +305,7 @@ func runSceneResolvedMaterialPassPipelineCases(
             && countersAfterBgra.hits == countersBeforeBgra.hits
             && tierEntries().count == entriesBeforeBgra.count + 1
 
-        // Ordinary frame preparation compiles without the archive tier.
+        // A new valid Program needs preparation before its frame can draw.
         let countersBeforeFrame =
             SceneResolvedMaterialPipelineBinaryArchive.counterSnapshot()
         let frameOnlyProgram = program(
@@ -306,14 +314,17 @@ func runSceneResolvedMaterialPassPipelineCases(
             outputSlot: 3,
             uniformName: "g_FrameProbe"
         )
-        let frameOnlyPrepared = frameOnlyProgram.map {
-            firstLaunchEncoder.prepare(
-                program: $0,
-                target: rgbaTarget
-            ) != nil
+        let attemptsBeforeFrame = firstLaunchEncoder.pipelineCompilationAttemptCount
+        let librariesBeforeFrame = firstLaunchEncoder.metalLibraryCompilationAttemptCount
+        let frameOnlyRejected = frameOnlyProgram.map {
+            if case .failure(.pipelineNotPrepared) = firstLaunchEncoder.prepareResult(
+                program: $0, target: rgbaTarget) { return true }
+            return false
         } ?? false
         framePreparationSkipsArchiveTier =
-            frameOnlyPrepared
+            frameOnlyRejected
+            && firstLaunchEncoder.pipelineCompilationAttemptCount == attemptsBeforeFrame
+            && firstLaunchEncoder.metalLibraryCompilationAttemptCount == librariesBeforeFrame
             && SceneResolvedMaterialPipelineBinaryArchive.counterSnapshot()
                 == countersBeforeFrame
     }
@@ -343,6 +354,7 @@ func runSceneResolvedMaterialPassPipelineCases(
             .vertexFunctionRejected,
             .fragmentFunctionRejected,
             .pipelineCompilationRejected(diagnostic: "fixture"),
+            .pipelineNotPrepared,
         ].allSatisfy { $0.effectLocalPreEncodeReasonCode != nil }
             && [
                 SceneResolvedMaterialPassEncoder.PreparationFailure
@@ -364,6 +376,7 @@ func runSceneResolvedMaterialPassPipelineCases(
             && warmupReport.compilationAttemptCount == 1,
         "launchWarmupConsumedWithoutFrameCompile":
             launchWarmupConsumedWithoutCompile,
+        "coldMissRejectsWithoutCompiling": coldMissDoesNotCompile,
         "concurrentWarmupSharesMetalLibrary":
             concurrentWarmupSharesMetalLibrary,
         "launchWarmupFailureNegativeCached":

@@ -90,7 +90,7 @@
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 159,
-      "bytes": 18668
+      "bytes": 18740
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 31,
@@ -170,7 +170,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 223837
+      "bytes": 224032
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -285,8 +285,8 @@
       "bytes": 29767
     },
     "docs/scene/roadmap/engine-refactor-program.md": {
-      "lines": 137,
-      "bytes": 21178
+      "lines": 145,
+      "bytes": 22671
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 73,
@@ -301,8 +301,8 @@
       "bytes": 22465
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 204,
-      "bytes": 47790
+      "lines": 203,
+      "bytes": 47611
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -2082,39 +2082,39 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-as-built-map.md",
-      "before": "0ea136a87fb97e0efd058aad650d9bf38f887e6ea8699c82a2e787039c852f9e",
-      "after": "47906bbbbb9f55a550c49922d1cbb58af8272b79749961373ae23e91782e59a7",
-      "owner": "scene-user-texture-ownership",
-      "reason": "撤用户纹理Context镜像，记录PreparedLaunch到Session交接、旧测试债与有界实际运行保持；无新关卡或整体性能结论。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#用户纹理的准备交接与活动所有权"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "34ebaf477bb40fdd0a7d21b454292b2602818328d680f6a453811a9608299eac",
-      "after": "7a5d037808a7b248f50ffadd94d9142b738d1b43036542122b4288d3035b0e03",
-      "owner": "scene-user-texture-ownership",
-      "reason": "撤用户纹理Context镜像，记录PreparedLaunch到Session交接、旧测试债与有界实际运行保持；无新关卡或整体性能结论。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#用户纹理的准备交接与活动所有权"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/engine-refactor-program.md",
-      "before": "2b5b1da7a1c26b6d927e8e1cb8d8f61ea73ed256501de14638544b46154482fc",
-      "after": "6bee501603befd3bdff654ef16ffad95b5a01ec524e077d8856b5c8c740eefa9",
-      "owner": "scene-user-texture-ownership",
-      "reason": "撤用户纹理Context镜像，记录PreparedLaunch到Session交接、旧测试债与有界实际运行保持；无新关卡或整体性能结论。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#用户纹理的准备交接与活动所有权"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "before": "f62d2139d9822c4dda2137367a4e14a6056b0dee6b3b6cd71572799f66525e65",
       "after": "9f4437229f33c1ef9733c837f49f7f382f3e6ef370e8304cfac1ca954f5e9f4b",
       "owner": "scene-user-texture-ownership",
       "reason": "撤用户纹理Context镜像，记录PreparedLaunch到Session交接、旧测试债与有界实际运行保持；无新关卡或整体性能结论。",
       "decision": "docs/scene/roadmap/engine-refactor-program.md#用户纹理的准备交接与活动所有权"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/runtime-as-built-map.md",
+      "before": "47906bbbbb9f55a550c49922d1cbb58af8272b79749961373ae23e91782e59a7",
+      "after": "d9ce34284bbf86ca9d1f173417beccb42ace004cd98e8fe7cda0d502c163d5d4",
+      "owner": "scene-pipeline-preparation",
+      "reason": "在原职责条目合并PSO准备入口，收敛普通帧编译与origin；记录typed局部失败、最终App与测试债，不扩大正文或准入关卡。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#材质管线只在准备边界编译"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "7a5d037808a7b248f50ffadd94d9142b738d1b43036542122b4288d3035b0e03",
+      "after": "322b6bd2a92e1bc4df68b5dacdd0eabf67da9e38bc4279e09c3cbf85ca94c8cd",
+      "owner": "scene-pipeline-preparation",
+      "reason": "在原职责条目合并PSO准备入口，收敛普通帧编译与origin；记录typed局部失败、最终App与测试债，不扩大正文或准入关卡。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#材质管线只在准备边界编译"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/engine-refactor-program.md",
+      "before": "6bee501603befd3bdff654ef16ffad95b5a01ec524e077d8856b5c8c740eefa9",
+      "after": "58c29edb3fa9fa9be8e97ddab63d08ff1e9f2f3395f80b56af3c7aa7cda85c20",
+      "owner": "scene-pipeline-preparation",
+      "reason": "在原职责条目合并PSO准备入口，收敛普通帧编译与origin；记录typed局部失败、最终App与测试债，不扩大正文或准入关卡。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#材质管线只在准备边界编译"
     }
   ]
 }

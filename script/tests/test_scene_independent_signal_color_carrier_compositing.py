@@ -493,6 +493,7 @@ private func runSignalBridge(_ name: String, device: MTLDevice, queue: MTLComman
         }
         let target = makeSource(device, width: extent.width, height: extent.height,
             usage: [.shaderRead, .renderTarget], bgra: [0, 0, 0, 0])
+        prepareMaterialPipeline(program, encoder: encoder, target: target)
         guard let prepared = encoder.prepare(program: program, target: target),
               let command = queue.makeCommandBuffer(), encoder.encode(prepared, commandBuffer: command),
               let read = appendReadback(target, commandBuffer: command) else {

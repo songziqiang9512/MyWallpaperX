@@ -28,7 +28,7 @@ class ScenePreviousCompositeScaleTests(unittest.TestCase):
         sources = [*compiler.fixture_sources(root, bundle, compiler.GENERIC_SOURCES), support, harness]
         before = material.source_hashes(sources)
         environment = material.fixture_environment(root)
-        command = ["swiftc", "-parse-as-library", *map(str, sources), "-module-cache-path",
+        command = ["swiftc", "-parse-as-library", "-D", "SCENE_GRAPH_TESTING", *map(str, sources), "-module-cache-path",
                    str(root / "swift-cache"), "-o", str(root / "probe")]
         compiled = subprocess.run(command, cwd=compiler.REPOSITORY_ROOT, env=environment,
                                   capture_output=True, text=True)

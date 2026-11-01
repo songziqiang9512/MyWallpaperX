@@ -2,6 +2,9 @@ import CoreGraphics
 import Foundation
 import Metal
 
+private let quadUV01 = SIMD4<Float>(0, 1, 1, 1)
+private let quadUV23 = SIMD4<Float>(0, 0, 1, 0)
+
 nonisolated enum SceneTextureLoadPurpose: Hashable, Sendable {
     case premultipliedColor, straightAlbedo, preservedChannels, mask, noise
     case flow, phase, normal, depth, lookupTable
@@ -250,6 +253,10 @@ private func uniforms(
         let value: Data
         if field.name == "mwxRenderSize" {
             value = bytes(SIMD2<Float>(2, 2))
+        } else if field.authoredName == "mwxVertexCoordinates01" {
+            value = bytes(quadUV01)
+        } else if field.authoredName == "mwxVertexCoordinates23" {
+            value = bytes(quadUV23)
         } else {
             value = bytes(Float(0))
         }
@@ -327,6 +334,7 @@ private func execute(
     )
     var encoded = false
     var completed = false
+    if let program { prepareMaterialPipeline(program, encoder: encoder, target: target) }
     if let program,
        let prepared = encoder.prepare(program: program, target: target),
        let command = queue.makeCommandBuffer() {
@@ -462,6 +470,8 @@ private func renderBoundary(
         switch field.authoredName {
         case "mwxRenderSize": value = bytes(SIMD2<Float>(1, 1))
         case "g_ScalarWeight": value = bytes(Float(1))
+        case "mwxVertexCoordinates01": value = bytes(quadUV01)
+        case "mwxVertexCoordinates23": value = bytes(quadUV23)
         default:
             throw NSError(domain: "unbound-boundary-ABI-\(field.authoredName)", code: 1)
         }

@@ -31,14 +31,9 @@ final class SceneResolvedMaterialPassEncoder {
         let sampler: MTLSamplerState
     }
 
-    enum PipelineOrigin: Equatable {
-        case launchWarmup
-        case framePreparation
-    }
-
     enum PipelineEntry {
-        case ready(MTLRenderPipelineState, origin: PipelineOrigin)
-        case failed(PreparationFailure, origin: PipelineOrigin)
+        case ready(MTLRenderPipelineState)
+        case failed(PreparationFailure)
     }
 
     private enum MetalLibraryEntry {
@@ -185,25 +180,15 @@ final class SceneResolvedMaterialPassEncoder {
         ) else { return .failure(.compileStateKeyRejected) }
         let cached: (
             pipeline: MTLRenderPipelineState,
-            generation: UInt64,
-            origin: PipelineOrigin
+            generation: UInt64
         )
-        switch pipeline(
-            for: key,
-            frontend: program.frontendProgram,
-            renderState: program.renderState,
-            pixelFormat: target.pixelFormat,
-            sampleCount: target.sampleCount,
-            writeMask: writeMask,
-            origin: .framePreparation
-        ) {
+        switch pipeline(for: key) {
         case let .success(value): cached = value
         case let .failure(failure): return .failure(failure)
         }
 #if DEBUG || SCENE_GRAPH_TESTING
         recordLaunchWarmupConsumption(
             key: key,
-            origin: cached.origin,
             preparedKey: program.preparedShader.cacheKey
         )
 #endif
@@ -436,18 +421,11 @@ final class SceneResolvedMaterialPassEncoder {
     }
 
     func pipeline(
-        for key: SceneResolvedMaterialProgram.MetalCompileStateKey,
-        frontend: SceneAuthoredShaderProgram,
-        renderState: SceneMaterialRenderState,
-        pixelFormat: MTLPixelFormat,
-        sampleCount: Int,
-        writeMask: MTLColorWriteMask,
-        origin: PipelineOrigin
+        for key: SceneResolvedMaterialProgram.MetalCompileStateKey
     ) -> Result<
         (
             pipeline: MTLRenderPipelineState,
-            generation: UInt64,
-            origin: PipelineOrigin
+            generation: UInt64
         ),
         PreparationFailure
     > {
@@ -455,12 +433,11 @@ final class SceneResolvedMaterialPassEncoder {
         defer { lock.unlock() }
         if let entry = entries[key] {
             switch entry {
-            case let .ready(pipeline, entryOrigin):
-                return .success((pipeline, resetGeneration, entryOrigin))
-            case let .failed(failure, entryOrigin):
+            case let .ready(pipeline):
+                return .success((pipeline, resetGeneration))
+            case let .failed(failure):
 #if DEBUG || SCENE_GRAPH_TESTING
-                if entryOrigin == .launchWarmup,
-                   consumedLaunchWarmupFailureKeys.insert(key).inserted {
+                if consumedLaunchWarmupFailureKeys.insert(key).inserted {
                     launchWarmupFailureHits += 1
 #if DEBUG
                     NSLog(
@@ -475,36 +452,12 @@ final class SceneResolvedMaterialPassEncoder {
                 return .failure(failure)
             }
         }
-        // Terminal replay must consume launch-prepared state; a missing key
-        // cannot introduce shader/PSO compilation into an ordinary frame.
-        guard key.passRole == .offscreenOverwrite else {
-            return .failure(.compileStateKeyRejected)
-        }
-#if DEBUG || SCENE_GRAPH_TESTING
-        compilationAttempts += 1
-#endif
-        switch compileUncachedPipeline(
-            frontend: frontend,
-            renderState: renderState,
-            pixelFormat: pixelFormat,
-            sampleCount: sampleCount,
-            writeMask: writeMask,
-            passRole: key.passRole
-        ) {
-        case let .success(pipeline):
-            entries[key] = .ready(pipeline, origin: origin)
-            return .success((pipeline, resetGeneration, origin))
-        case let .failure(failure):
-            return cacheFailure(failure, for: key, origin: origin)
-        }
+        return .failure(.pipelineNotPrepared)
     }
 
     /// Creates one immutable pipeline without touching cache or generation
-    /// state. Ordinary frame preparation calls this under `lock`; launch
-    /// warmup may call it concurrently for already-deduplicated keys before
-    /// the owning graph executor is published. Only a launch-warmup session
-    /// attaches the persistent binary archive tier; the frame path passes no
-    /// session and never reads or writes it.
+    /// state. Preparation workers compile deduplicated keys before publication;
+    /// ordinary frames only consume the resulting cache.
     func compileUncachedPipeline(
         frontend: SceneAuthoredShaderProgram,
         renderState: SceneMaterialRenderState,
@@ -671,27 +624,6 @@ final class SceneResolvedMaterialPassEncoder {
         libraryCondition.broadcast()
         libraryCondition.unlock()
         return result
-    }
-
-    func cacheFailure(
-        _ failure: PreparationFailure,
-        for key: SceneResolvedMaterialProgram.MetalCompileStateKey,
-        origin: PipelineOrigin = .framePreparation
-    ) -> Result<
-        (
-            pipeline: MTLRenderPipelineState,
-            generation: UInt64,
-            origin: PipelineOrigin
-        ),
-        PreparationFailure
-    > {
-        if entries[key] == nil {
-            entries[key] = .failed(failure, origin: origin)
-#if DEBUG || SCENE_GRAPH_TESTING
-            failedPipelines += 1
-#endif
-        }
-        return .failure(failure)
     }
 
     func withLock<T>(_ body: () -> T) -> T {

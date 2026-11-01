@@ -137,9 +137,8 @@ extension SceneResolvedMaterialPassEncoder {
         )
     }
 
-    /// Warmup runs only from `SceneResolvedMaterialGraphExecutor.init`, before
-    /// the encoder can escape to a frame. Unique compile keys therefore may be
-    /// compiled concurrently, then published under the ordinary cache lock.
+    /// Graph and source-material preparation finish warmup before publication.
+    /// Unique keys may compile concurrently, then publish under the cache lock.
     /// The persistent binary archive session is prepared and serialized here
     /// on the background warmup workers; the frame path never touches it.
     private func warmupPipeline(_ plan: WarmupPlan) -> PreparationFailure? {
@@ -148,7 +147,7 @@ extension SceneResolvedMaterialPassEncoder {
             lock.unlock()
             switch existing {
             case .ready: return nil
-            case let .failed(failure, _): return failure
+            case let .failed(failure): return failure
             }
         }
 #if DEBUG || SCENE_GRAPH_TESTING
@@ -179,10 +178,10 @@ extension SceneResolvedMaterialPassEncoder {
         defer { lock.unlock() }
         switch result {
         case let .success(pipeline):
-            entries[plan.key] = .ready(pipeline, origin: .launchWarmup)
+            entries[plan.key] = .ready(pipeline)
             return nil
         case let .failure(failure):
-            entries[plan.key] = .failed(failure, origin: .launchWarmup)
+            entries[plan.key] = .failed(failure)
 #if DEBUG || SCENE_GRAPH_TESTING
             failedPipelines += 1
 #endif
@@ -193,10 +192,8 @@ extension SceneResolvedMaterialPassEncoder {
 #if DEBUG || SCENE_GRAPH_TESTING
     func recordLaunchWarmupConsumption(
         key: SceneResolvedMaterialProgram.MetalCompileStateKey,
-        origin: PipelineOrigin,
         preparedKey: String
     ) {
-        guard origin == .launchWarmup else { return }
         let observation: (attempts: Int, hits: Int)? = withLock {
             guard consumedLaunchWarmupKeys.insert(key).inserted else { return nil }
             launchWarmupHits += 1

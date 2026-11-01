@@ -77,6 +77,7 @@ extension SceneResolvedMaterialGraphExecutor {
             "material-pass-preparation-vertex-function",
             "material-pass-preparation-fragment-function",
             "material-pass-preparation-pipeline-compilation",
+            "material-pass-preparation-pipeline-not-prepared",
             "material-finalizer-dynamic-uniform-binding",
             "material-finalizer-host-input-unavailable",
             "material-finalizer-static-uniform-binding",

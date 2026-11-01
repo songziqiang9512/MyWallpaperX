@@ -112,6 +112,7 @@ private func traceMaterial(_ cache: SceneResolvedMaterialVariantCache,
         if let queue, let encoder = SceneResolvedMaterialPassEncoder(device: device),
            let command = queue.makeCommandBuffer() {
             let target = makeSource(device, width: 2, height: 2, usage: [.renderTarget, .shaderRead])
+            prepareMaterialPipeline(program, encoder: encoder, target: target)
             if let pass = encoder.prepare(program: program, target: target),
                encoder.encode(pass, commandBuffer: command),
                let read = appendReadback(target, commandBuffer: command) {

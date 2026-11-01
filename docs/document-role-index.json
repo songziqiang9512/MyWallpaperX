@@ -766,10 +766,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "53d5b51856189644f04b4588e0b57144e1f360be7f6bf72affa36d4882a49845",
+        "sourceSHA256": "796dc643d108f71fcfe6b69b991d832363c1fd47a74859a963300503344af3a2",
         "method": "document_registry --audit + document_health --check",
-        "scope": "用户纹理由PreparedLaunch显式移交Session唯一活动结果，撤Context镜像；现有事务、候选、视频GPU与实际App A/B的有界保持。",
-        "limitations": "初始移交App与热替换native/Session分别取证；不外推App全部热编辑、多屏、全语料、整体性能、官方parity或整个迁移。"
+        "scope": "材质PSO仅在原graph/source准备编译，退出lazy miss/origin/cacheFailure；typed局部失败贯通实际图消费者，最终App三组A/B与native正反门分列。",
+        "limitations": "不授完整语料、多物理屏、官方parity、整体性能或完整架构迁移；原PMA bare fixture未接纳generic Program继续skip。"
       },
       "purpose": "实际接线或已记录运行证据；不反向定义目标架构，不决定实施顺序。"
     },
@@ -1056,10 +1056,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f5b2144e2f6146d2df84c9c232ae07511ed3c042d0745346bafa4c75ea5e05ff",
+        "sourceSHA256": "bad5c4e09d74b656661fdc46b0410fe82b019ccf583f737423ae7356092c3e39",
         "method": "document_registry --audit + document_health --check",
-        "scope": "用户纹理由PreparedLaunch显式移交Session唯一活动结果，撤Context镜像；现有事务、候选、视频GPU与实际App A/B的有界保持。",
-        "limitations": "初始移交App与热替换native/Session分别取证；不外推App全部热编辑、多屏、全语料、整体性能、官方parity或整个迁移。"
+        "scope": "材质PSO仅在原graph/source准备编译，退出lazy miss/origin/cacheFailure；typed局部失败贯通实际图消费者，最终App三组A/B与native正反门分列。",
+        "limitations": "不授完整语料、多物理屏、官方parity、整体性能或完整架构迁移；原PMA bare fixture未接纳generic Program继续skip。"
       },
       "purpose": "实际接线或已记录运行证据；不反向定义目标架构，不决定实施顺序。"
     },
@@ -4549,10 +4549,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "8abcb334926488a3667d6758c5ea1217a0c2ac6e592c2df7b67fa8b75bdba057",
+        "sourceSHA256": "6e8a1779528b94afccffea170159b2781a497f3340a45e9bfa9268f3dd493984",
         "method": "document_registry --audit + document_health --check",
-        "scope": "用户纹理由PreparedLaunch显式移交Session唯一活动结果，撤Context镜像；现有事务、候选、视频GPU与实际App A/B的有界保持。",
-        "limitations": "初始移交App与热替换native/Session分别取证；不外推App全部热编辑、多屏、全语料、整体性能、官方parity或整个迁移。"
+        "scope": "材质PSO仅在原graph/source准备编译，退出lazy miss/origin/cacheFailure；typed局部失败贯通实际图消费者，最终App三组A/B与native正反门分列。",
+        "limitations": "不授完整语料、多物理屏、官方parity、整体性能或完整架构迁移；原PMA bare fixture未接纳generic Program继续skip。"
       }
     },
     {
@@ -4605,10 +4605,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "71a7ac2585865770713dc38136a0faf9ac4767c3f0e359d431c2a16d7577771d",
+        "sourceSHA256": "1b2e42233049b2eaa8699a3ca7815171d7d7aff1cf9c1d6fda79cf254e64dcf9",
         "method": "document_registry --audit + document_health --check",
-        "scope": "用户纹理由PreparedLaunch显式移交Session唯一活动结果，撤Context镜像；现有事务、候选、视频GPU与实际App A/B的有界保持。",
-        "limitations": "初始移交App与热替换native/Session分别取证；不外推App全部热编辑、多屏、全语料、整体性能、官方parity或整个迁移。"
+        "scope": "材质PSO仅在原graph/source准备编译，退出lazy miss/origin/cacheFailure；typed局部失败贯通实际图消费者，最终App三组A/B与native正反门分列。",
+        "limitations": "不授完整语料、多物理屏、官方parity、整体性能或完整架构迁移；原PMA bare fixture未接纳generic Program继续skip。"
       }
     },
     {
