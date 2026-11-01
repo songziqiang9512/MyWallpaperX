@@ -304,7 +304,7 @@ nonisolated enum WallpaperLibraryQuery {
 
         init(catalog: WallpaperLibraryCatalog, relationships: UserCollectionsSnapshot) throws {
             try self.init(aliases: relationships.aliases)
-            for item in catalog.videos + catalog.images + catalog.downloads {
+            for item in [catalog.videos, catalog.images, catalog.downloads].joined() {
                 let key = try canonical(item.reference)
                 let normalized = WallpaperLibraryQuery.replacingReference(item, with: key)
                 if items[key] == nil || normalized.providerReference == key { items[key] = normalized }

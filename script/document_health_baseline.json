@@ -34,7 +34,7 @@
     },
     "docs/development/code-slimming-program.md": {
       "lines": 464,
-      "bytes": 102507
+      "bytes": 102438
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -1757,10 +1757,10 @@
     {
       "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
-      "before": "c9d438ea29d43133bb06e179b3dbc31011dad24edac85cbe6ededd00742eb09d",
-      "after": "bd454ffeb327ea945eeee10c794eb344e6ae7cc4720fa9d87ffca7886f034e27",
+      "before": "bd454ffeb327ea945eeee10c794eb344e6ae7cc4720fa9d87ffca7886f034e27",
+      "after": "0348a8fa6505faa88475ca71f72a29ca3e939670bcb58f454bbaaf5cfd7b0b6a",
       "owner": "repository-maintainer",
-      "reason": "原位替换最近验证为R41视频预览同方法模型复用，保旧业务绿和仅成本红对照、负编译及Scene隔离界限；无逐批台账膨胀，保全部其他owner预算和调整链。",
+      "reason": "原位替换最近验证为R42同序joined遍历与旧新真实查询投影门；保仅标签UUID规范化、锁等待/非性能及Scene隔离界限，只改本authority预算及收据。",
       "decision": "docs/development/code-slimming-program.md#目标与边界"
     },
     {
