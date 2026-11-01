@@ -97,12 +97,13 @@ class ShaderProbe(unittest.TestCase):
         self.root = directory
         self.binary = binary
         self.results: list[dict] = []
-        self._compiled: dict[tuple[str, str], tuple[dict, Path]] = {}
+        self._compiled: dict[tuple[str, str, bool], tuple[dict, Path]] = {}
         self._generic: dict[Path, list[Path]] = {}
 
     def compile(self, fragment: str, vertex: str = backend.VERTEX,
-                resource: str = "self-owned") -> tuple[dict, Path]:
-        key = (vertex, fragment)
+                resource: str = "self-owned", *,
+                through_shared_preparation: bool = False) -> tuple[dict, Path]:
+        key = (vertex, fragment, through_shared_preparation)
         if key in self._compiled:
             return self._compiled[key]
         directory = Path(tempfile.mkdtemp(prefix=resource + "-", dir=self.root))
@@ -110,7 +111,8 @@ class ShaderProbe(unittest.TestCase):
         vertex_path.write_text(vertex)
         fragment_path.write_text(fragment)
         completed = subprocess.run([str(self.binary), str(vertex_path), str(fragment_path),
-            str(directory / "output.vert"), str(directory / "output.frag")],
+            str(directory / "output.vert"), str(directory / "output.frag"),
+            *(["--through-shared-preparation"] if through_shared_preparation else [])],
             capture_output=True, text=True, timeout=30)
         self.assertEqual(completed.returncode, 0, completed.stderr)
         result = json.loads(completed.stdout)
@@ -665,6 +667,126 @@ void main() { gl_FragColor = vec4(chosen, 0.25, 1.0); }
                 self.probe.results.append({"case": name, "genericNormalized": True,
                     "genericLinked": True,
                     "syntaxDiagnostics": result["syntaxDiagnostics"]})
+
+    def test_swizzle_window_broadcasts_proven_scalar_and_links(self) -> None:
+        fragment = """
+void main() {
+    vec4 color = vec4(0.0);
+    color.zw = 0;
+    vec2 window = color.xy;
+    color.x = 0.25;
+    gl_FragColor = color + vec4(window, 0.0, 0.0);
+}
+"""
+        result, directory = self.probe.compile(fragment, resource="scalar-swizzle-window",
+            through_shared_preparation=True)
+        canonical = result["canonicalFragment"]
+        self.assertIn("color.zw = vec2(0)", canonical)
+        self.assertNotIn("color.zw = vec2(vec2", canonical)
+        self.assertIn("vec2 window = color.xy", canonical)
+        self.assertIn("color.x = 0.25", canonical)
+        self.assertTrue(result["canonicalizationIsIdempotent"])
+        self.assertTrue(result["ok"], result)
+        self.probe.generic(directory)
+        self.probe.results.append({"case": "scalar-swizzle-window",
+            "genericNormalized": True, "genericLinked": True})
+
+    def test_swizzle_broadcast_preserves_member_bases_and_vector_values(self) -> None:
+        # A same-named vector cannot type an array or parenthesized member base.
+        fragment = """
+vec4 a;
+vec4 values[2];
+vec4 other;
+vec2 makeWindow() { return vec2(0.25); }
+void main() {
+    vec2 w = vec2(0.125, 0.25);
+    values[0].a = 0.5;
+    (other).a = 0.6;
+    other.zw = w;
+    other.zw = makeWindow();
+    other.zw = vec2(0.3, 0.4);
+    gl_FragColor = vec4(values[0].a, other.a, other.zw);
+}
+"""
+        result, directory = self.probe.compile(fragment, resource="swizzle-member-bases",
+            through_shared_preparation=True)
+        canonical = result["canonicalFragment"]
+        for authored_write in (
+            "values[0].a = 0.5",
+            "(other).a = 0.6",
+            "other.zw = w",
+            "other.zw = makeWindow()",
+            "other.zw = vec2(0.3, 0.4)",
+        ):
+            self.assertIn(authored_write, canonical)
+        self.assertNotIn("vec4(0.5)", canonical)
+        self.assertNotIn("vec4(0.6)", canonical)
+        self.assertTrue(result["canonicalizationIsIdempotent"])
+        self.assertTrue(result["ok"], result)
+        self.probe.generic(directory)
+        self.probe.results.append({"case": "swizzle-member-bases",
+            "genericNormalized": True, "genericLinked": True})
+
+    def test_swizzle_broadcast_preserves_aggregate_bindings_and_member_chains(self) -> None:
+        for name in ("value", "renamedCarrier"):
+            fragments = {
+                "aggregate-shadow": f"""struct Payload {{ float xy; }};
+vec4 {name};
+void main() {{
+    Payload {name} = Payload(0.0);
+    {name}.xy = 0.5;
+    gl_FragColor = vec4({name}.xy);
+}}
+""",
+                "nested-member": f"""struct Payload {{ float xy; }};
+struct Outer {{ Payload {name}; }};
+vec4 {name};
+void main() {{
+    Outer payload = Outer(Payload(0.0));
+    payload.{name}.xy = 0.5;
+    gl_FragColor = vec4(payload.{name}.xy);
+}}
+""",
+            }
+            for kind, fragment in fragments.items():
+                case = kind + "-" + name
+                with self.subTest(case=case):
+                    result, directory = self.probe.compile(fragment, resource=case,
+                        through_shared_preparation=True)
+                    self.assertEqual(result["syntaxDiagnostics"], [])
+                    self.assertEqual(result["canonicalFragment"], fragment)
+                    self.assertTrue(result["canonicalizationIsIdempotent"])
+                    self.assertTrue(result["ok"], result)
+                    self.probe.generic(directory)
+                    self.probe.results.append({"case": case, "canonicalPreserved": True,
+                        "genericNormalized": True, "genericLinked": True})
+
+    def test_swizzle_broadcast_uses_the_numeric_target_binding(self) -> None:
+        for name in ("value", "renamedCarrier"):
+            for target, window, literal, constructor in (
+                ("vec4", "zw", "0.5", "vec2"),
+                ("ivec4", "xy", "1", "ivec2"),
+                ("uvec4", "xy", "1u", "uvec2"),
+            ):
+                case = target + "-shadow-" + name
+                fragment = f"""vec2 {name};
+void main() {{
+    {target} {name} = {target}(0);
+    {name}.{window} = {literal};
+    gl_FragColor = vec4({name});
+}}
+"""
+                with self.subTest(case=case):
+                    result, directory = self.probe.compile(fragment, resource=case,
+                        through_shared_preparation=True)
+                    self.assertEqual(result["syntaxDiagnostics"], [])
+                    self.assertEqual(result["canonicalFragment"], fragment.replace(
+                        f"= {literal};", f"= {constructor}({literal});"))
+                    self.assertTrue(result["canonicalizationIsIdempotent"])
+                    self.assertTrue(result["ok"], result)
+                    self.probe.generic(directory)
+                    self.probe.results.append({"case": case, "numericTargetBroadcast": True,
+                        "genericNormalized": True, "genericLinked": True})
 
     def test_hinted_loop_and_real_global_mutation_keep_exact_live_tokens(self) -> None:
         sources = {

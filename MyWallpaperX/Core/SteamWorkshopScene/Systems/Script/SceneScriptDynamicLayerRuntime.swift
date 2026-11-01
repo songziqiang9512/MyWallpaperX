@@ -740,7 +740,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         excludingOwners: Set<SceneDynamicTarget> = [],
         particleObservations: [Int: SceneParticlePlaybackObservation] = [:],
         validateParticleTransitions: ([SceneParticlePlaybackTransition]) -> Bool = { $0.isEmpty },
-        rejectingParticleTransitions: ([SceneParticlePlaybackTransition], [SceneScriptOwnerEffects], Set<SceneDynamicTarget>) -> Set<SceneDynamicTarget> = { _, _, _ in [] },
+        rejectingParticleTransitions: (SceneScriptLayerMutationPlan, [SceneScriptOwnerEffects], Set<SceneDynamicTarget>) -> Set<SceneDynamicTarget> = { _, _, _ in [] },
         rejectingDependents: (Set<SceneDynamicTarget>) -> Set<SceneDynamicTarget> = { $0 },
         rejectingExternally: ([SceneScriptOwnerEffects], SceneScriptLayerMutationPlan)
             -> Set<SceneDynamicTarget>
@@ -758,12 +758,14 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
             var newlyRejected = rejectingExternally(
                 admission.admittedEffects, admission.layerPlan
             ).intersection(admittedOwners)
-            if !validateParticleTransitions(admission.layerPlan.particleTransitions) {
+            if newlyRejected.isEmpty && !validateParticleTransitions(admission.layerPlan.particleTransitions) {
                 newlyRejected.formUnion(admission.admittedEffects.filter { !$0.particlePlaybackCommands.isEmpty }.map(\.ownerTarget))
             }
-            newlyRejected.formUnion(rejectingParticleTransitions(
-                admission.layerPlan.particleTransitions, admission.admittedEffects,
-                externallyRejected.union(admission.rejectedOwners.compactMap(\.ownerTarget)).union(newlyRejected)))
+            if newlyRejected.isEmpty {
+                newlyRejected.formUnion(rejectingParticleTransitions(
+                    admission.layerPlan, admission.admittedEffects,
+                    externallyRejected.union(admission.rejectedOwners.compactMap(\.ownerTarget))))
+            }
             newlyRejected.subtract(externallyRejected)
             if !newlyRejected.isEmpty {
                 externallyRejected.formUnion(newlyRejected)

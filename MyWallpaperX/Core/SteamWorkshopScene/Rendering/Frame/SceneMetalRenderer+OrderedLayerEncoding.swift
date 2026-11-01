@@ -68,6 +68,7 @@ extension SceneMetalRenderer {
             defer {
                 if !stopsAfterClaimedFailure,
                    !renderUtilityPlans(triggeredBy: layer.id,
+                    frameVisibleLayerIDs: frameVisibleLayerIDs,
                     imagePipeline: imagePipeline,
                     offscreenTexturePool: offscreenTexturePool, frameContext: frameContext,
                     worldFramesByLayerID: frameWorldFrames, cameraFrame: cameraFrame,

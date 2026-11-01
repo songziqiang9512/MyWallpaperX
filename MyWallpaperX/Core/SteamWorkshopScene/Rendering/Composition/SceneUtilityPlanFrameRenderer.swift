@@ -11,6 +11,7 @@ enum SceneUtilityPlanFrameRenderer {
     static func render(
         renderer: SceneMetalRenderer,
         plans: [SceneUtilityLayerRuntimePlan],
+        frameVisibleLayerIDs: Set<Int>,
         dependencyRuntime: SceneDependencyFrameRuntime,
         imageCompositor: SceneImageLayerCompositor,
         utilityCaptureTelemetry: SceneGPUCompletionTelemetry,
@@ -117,10 +118,12 @@ enum SceneUtilityPlanFrameRenderer {
                 }
                 guard let compositePass,
                       !plan.usesIsolatedGroupTarget || isolatedGroupSource != nil else {
-                    // The guard also covers a hidden group without a reserved
-                    // pass or a failed target allocation. Those members are not
-                    // drawn, so the capture is skipped instead of reported as a
-                    // failed encode.
+                    if frameVisibleLayerIDs.contains(layer.id) || plan.requiresNamedTarget {
+                        utilityCaptureTelemetry.record(
+                            layerID: layer.id, encoded: false, on: commandBuffer)
+                        dependencyRuntime.recordBindingIfRequired(
+                            for: layer.id, encoded: false, on: commandBuffer)
+                    }
                     continue
                 }
                 let terminalDepth: SceneImageLayerTerminalDepthBinding?

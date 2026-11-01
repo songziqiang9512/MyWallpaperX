@@ -77,8 +77,8 @@ final class SceneDesktopWallpaperSession {
                 let state=SceneScriptDynamicLayerRuntime(descriptor:descriptor,authoredMutationLayerIDs:[])
                 let admitted=state.preflightOwnerEffectsToFixedPoint([effects(emitAuthor,evaluated)],
                     particleObservations:[42:emitSim.playbackObservation!],validateParticleTransitions:{_ in true},
-                    rejectingParticleTransitions:{ commands,bundles,_ in
-                        guard let failed=tx.prepare(commands) else{return []}
+                    rejectingParticleTransitions:{ plan,bundles,_ in
+                        guard let failed=tx.prepare(plan.particleTransitions) else{return []}
                         return Set(bundles.filter{$0.particlePlaybackCommands.contains{$0.callbackEpoch==failed.callbackEpoch && $0.ordinal==failed.ordinal}}.map(\.ownerTarget))
                     }){_, _ in []}
                 tx.install()
@@ -166,12 +166,10 @@ final class SceneDesktopWallpaperSession {
                 current = !failsPreparation
                 let admitted = runtime.preflightOwnerEffectsToFixedPoint([effects(author, evaluated)],
                     particleObservations: [42: a.playbackObservation!], validateParticleTransitions: { _ in true },
-                    rejectingParticleTransitions: { transitions, bundles, _ in
-                        let candidate = runtime.preflightOwnerEffects(bundles,
-                            particleObservations: [42: a.playbackObservation!]).layerPlan
+                    rejectingParticleTransitions: { candidate, bundles, _ in
                         guard case let .bool(visible)? = candidate.authoredLayerValues[
                             .layer(layerID: 42, field: .visibility)] else { return Set(bundles.map(\.ownerTarget)) }
-                        guard let failed = tx.prepare(transitions, visibility: { _ in
+                        guard let failed = tx.prepare(candidate.particleTransitions, visibility: { _ in
                             .init(isVisible: visible, resetsPopulation: true)
                         }) else { return [] }
                         return Set(bundles.filter { $0.particlePlaybackCommands.contains {
@@ -425,8 +423,8 @@ final class SceneDesktopWallpaperSession {
             _ bundles:[SceneScriptOwnerEffects],_ sim:SceneParticleSimulator, rejected:Set<SceneDynamicTarget> = []) -> SceneScriptOwnerEffectsFixedPointAdmission {
             state.preflightOwnerEffectsToFixedPoint(bundles,excludingOwners:rejected,
                 particleObservations:[42:sim.playbackObservation!],validateParticleTransitions:{_ in true},
-                rejectingParticleTransitions:{commands,admitted,_ in
-                    guard let failed=tx.prepare(commands) else{return []}
+                rejectingParticleTransitions:{plan,admitted,_ in
+                    guard let failed=tx.prepare(plan.particleTransitions) else{return []}
                     return Set(admitted.filter{$0.particlePlaybackCommands.contains{$0.callbackEpoch==failed.callbackEpoch && $0.ordinal==failed.ordinal}}.map(\.ownerTarget))
                 }){_, _ in []}
         }

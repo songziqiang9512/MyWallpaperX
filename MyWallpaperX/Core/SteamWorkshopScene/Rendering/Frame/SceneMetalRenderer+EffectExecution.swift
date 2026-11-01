@@ -6,6 +6,7 @@ import simd
 extension SceneMetalRenderer {
     func renderUtilityPlans(
         triggeredBy layerID: Int,
+        frameVisibleLayerIDs: Set<Int>,
         imagePipeline: SceneImageLayerPipeline?,
         offscreenTexturePool: SceneOffscreenTexturePool?,
         frameContext: SceneFrameContext,
@@ -40,6 +41,7 @@ extension SceneMetalRenderer {
         let encoded = SceneUtilityPlanFrameRenderer.render(
             renderer: self,
             plans: plans,
+            frameVisibleLayerIDs: frameVisibleLayerIDs,
             dependencyRuntime: dependencyRuntime,
             imageCompositor: imageCompositor,
             utilityCaptureTelemetry: utilityCaptureTelemetry,

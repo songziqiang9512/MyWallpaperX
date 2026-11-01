@@ -46,10 +46,11 @@ import simd
         let sceneScriptResult = SceneScriptScalarFrameResult(values:[:], failures:[:],
             materialFunctionMutations:[], animationMutations:[], layerMutations:[])
         // PRODUCTION_FRAME_SCRIPT_VALUES
-        func resolution(_ runtime:SceneScriptDynamicLayerRuntime,_ admitted:[SceneScriptOwnerEffects]) -> SceneDynamicSnapshot {
+        func resolution(_ runtime:SceneScriptDynamicLayerRuntime,_ admitted:[SceneScriptOwnerEffects],
+                        plan:SceneScriptLayerMutationPlan? = nil) -> SceneDynamicSnapshot {
             SceneDynamicSnapshotResolver().resolve(frameIndex:0,generation:1,
                 definitions:runtime.authoredLayerDefinitions,
-                sceneScriptValues:frameScriptValues(admitted,excluding:[],timelineValues:[:])).snapshot
+                sceneScriptValues:frameScriptValues(admitted,layerPlan:plan ?? runtime.preflightOwnerEffects(admitted).layerPlan,excluding:[],timelineValues:[:])).snapshot
         }
         func override(_ snapshot:SceneDynamicSnapshot,_ authored:SceneParticleInstanceOverride? = nil) -> SceneParticleInstanceOverride? {
             SceneParticleInstanceOverride.resolving(authored:authored,dynamic:snapshot.particleInstanceValues(layerID:42))
@@ -143,8 +144,8 @@ import simd
                 $0.0.particles==$0.1.particles && $0.0.frameSnapshot().nextParticleID==$0.1.nextParticleID}
             let admission = runtime.preflightOwnerEffectsToFixedPoint([effects(owner,value)],
                 particleObservations:[42:simulations[0].playbackObservation!],validateParticleTransitions:{_ in true},
-                rejectingParticleTransitions:{ transitions,bundles,_ in
-                    guard transaction.prepare(transitions) == nil else {return Set(bundles.map(\.ownerTarget))}
+                rejectingParticleTransitions:{ plan,bundles,_ in
+                    guard transaction.prepare(plan.particleTransitions) == nil else {return Set(bundles.map(\.ownerTarget))}
                     return []
                 }) {bundles, _ in rejected ? Set(bundles.map(\.ownerTarget)) : []}
             if rejected {
@@ -187,6 +188,53 @@ import simd
             _ = try runtime.apply([destroy]).get()
             results["destroy-clears-particle-alpha-value"] = runtime.snapshot().authoredLayerValues[alpha] == nil
         }
+        // Interleaved callbacks must publish the same winner now and after commit.
+        for rejectPeerWrite in [false,true] {
+            let runtime = SceneScriptDynamicLayerRuntime(descriptor:descriptor,authoredMutationLayerIDs:[])
+            let domain = try SceneScriptQuickJSDomain()
+            let simulation = try sim()
+            let observations = [42:simulation.playbackObservation!]
+            try domain.publishLayerSnapshot(resolution(runtime,[]),descriptor:descriptor,
+                particlePlaybackObservations:observations,particleInstanceLayerIDs:[42])
+            let first = try author(domain,"let writes=0;export function update(v){writes++;thisLayer.visible=true;thisLayer.instance.alpha=writes===1?.25:.75;return v;}")
+            let second = try author(domain,"export function update(v){thisLayer.visible=false;thisLayer.instance.alpha=.5;return v;}",
+                target:.layer(layerID:42,field:.scale))
+            let playing = try author(domain,"export function update(v){thisLayer.play();return v;}",
+                target:.layer(layerID:42,field:.angles))
+            let bundles = [effects(first,try evaluate(first)),effects(second,try evaluate(second)),
+                effects(first,try evaluate(first)),effects(playing,try evaluate(playing))]
+            let visible = SceneDynamicTarget.layer(layerID:42,field:.visibility)
+            var healthyPeerPrepared = false
+            let settled = runtime.preflightOwnerEffectsToFixedPoint(bundles,
+                particleObservations:observations,validateParticleTransitions:{_ in true},
+                rejectingParticleTransitions:{plan,admitted,rejected in
+                    let current = SceneDynamicSnapshotResolver().resolve(frameIndex:0,generation:1,
+                        definitions:runtime.authoredLayerDefinitions,
+                        sceneScriptValues:frameScriptValues(admitted,layerPlan:plan,excluding:rejected,timelineValues:[:])).snapshot
+                    if rejectPeerWrite && (current[visible]?.value != .bool(true)
+                        || current[alpha]?.value != .scalar(0.75)) {return [playing.target]}
+                    healthyPeerPrepared = plan.particleTransitions.contains{$0.action == .play}
+                    return []
+                }) {admitted,_ in
+                    rejectPeerWrite ? Set(admitted.filter{$0.ownerTarget == second.target}.map(\.ownerTarget)) : []
+                }
+            let current = resolution(runtime,settled.admission.admittedEffects,plan:settled.admission.layerPlan)
+            runtime.commit(settled.admission.layerPlan)
+            first.commitLayerMutations()
+            if rejectPeerWrite {second.discardLayerMutations()} else {second.commitLayerMutations()}
+            if settled.externallyRejectedOwners.contains(playing.target) {playing.discardLayerMutations()}
+            else {playing.commitLayerMutations()}
+            let next = SceneDynamicSnapshotResolver().resolve(frameIndex:1,generation:1,
+                definitions:runtime.authoredLayerDefinitions,
+                sceneScriptValues:runtime.snapshot().authoredLayerValues).snapshot
+            results["cross-owner-alpha-current-matches-commit-\(rejectPeerWrite)"] = current[alpha]?.value == next[alpha]?.value
+                && next[alpha]?.value == .scalar(rejectPeerWrite ? 0.75 : 0.5)
+            results["cross-owner-visibility-current-matches-commit-\(rejectPeerWrite)"] = current[visible]?.value == next[visible]?.value
+                && next[visible]?.value == .bool(rejectPeerWrite)
+            results["external-writer-rejection-keeps-healthy-peer-\(rejectPeerWrite)"] = healthyPeerPrepared
+                && settled.externallyRejectedOwners == (rejectPeerWrite ? [second.target] : [])
+                && settled.admission.layerPlan.particleTransitions.contains{$0.action == .play}
+        }
         // Missing actual instance resource and non-finite Number cannot become successful values.
         for available in [false,true] {
             let runtime = SceneScriptDynamicLayerRuntime(descriptor:descriptor,authoredMutationLayerIDs:[])
@@ -208,7 +256,7 @@ class ParticleInstanceAlphaTests(unittest.TestCase):
     def test_real_vm_typed_snapshot_and_birth_transactions(self):
         # Particle definitions and births are production code, replacing only unrelated VM fixture carriers.
         start = SWIFT_PREAMBLE.index("enum SceneParticleNumericValue:")
-        end = SWIFT_PREAMBLE.index("struct SceneRenderDescriptor", start)
+        end = SWIFT_PREAMBLE.index("struct SceneDocument", start)
         preamble = SWIFT_PREAMBLE[:start] + SWIFT_PREAMBLE[end:]
         source = (SCENE / "Runtime/Session/SceneDesktopWallpaperSession+FrameDriver.swift").read_text()
         start = source.index("        func frameScriptValues(")

@@ -326,3 +326,13 @@ SourceFacts在检查与launch准备队列同步建立，原类型却继承App默
 原338211整体模糊保留作者链，当前无同phase官方原景比较，不能将不同音频颜色/幅度、背景相位或pointer差当修复证据；本片只认透视pass从跳过到实际执行及上述可见组合，不认全画面精准parity。候选构建同时编入了预先存在的菜单关闭操作改动，身份单独记入source-context；该UI改动不由本批修改或提交，未做启动/性能同条件结论。完整属性、长稳、HDR/多屏及性能仍未验。
 
 最近真实normalizer/shared preparation/glslang/Metal门34项通过（54.301秒），涵盖旧4→3、local/参数/构造/唯一call改名、vertex→varying→fragment与幂等及相邻scope/type反例；Debug29.806秒、无构建诊断。正式包 `known-vector-return-20261030` 保固定输入/官方两帧、有效原包基线/修后/独立图、日志与身份；最终独审/治理和清理另保同名closure。只续用原一份构建缓存，样本原件不写。
+
+<a id="utility-dormant-review-20261101"></a>
+
+## 隐藏utility组与实际失败（2026-11-01）
+
+`7e0446814`补隐藏且未执行、非named target的dormant审计资格；合入审查保留其收益，但修正无差别省略failure记录：可见组先成功后分配/初始化失败仍须记录，不能被历史成功集合遮蔽。沿OrderedLayerEncoding现有frameVisibleLayerIDs传到原utility consumer，仅隐藏非provider可静默跳过；不新算visibility、不按alpha裁剪、不增加状态。Python门含失败在成功之前/之后、隐藏/重新可见及named反例；此片只修观测边界，没有新像素算法或资源分配策略。
+
+最终普通Debug构建与签名通过、4416输入前后无漂移；exe SHA256 `3408a8e519ab5175c7bd844f1c4e39f21141d5f946881e9973f093a964a9f425`，dylib `487241dbefc5b2fa727824b1fce2ae51c6566eeb6585b10bf11118b3fdac3392`。3435573282、3013504810、3603711180、未参与修法的3742133044及3175039950均5秒短窗/3秒终图PASS、退出0无超时；原317的5个可见capture成功、隐藏组不再误报，终图人物/雪人保留。仅观察合成与首门，无同phase官方像素、性能或长稳结论；因此移除该验证债，其他真实余项保持。
+
+17提交逐条审查、三个修正的独审/红绿/最近门、构建身份及四张原PNG归`.artifacts/scene-evidence/runs/independent-integration-review-20261101/metadata/samples/0/runtime_evidence.zip`，27,510,163 bytes/196成员，SHA256 `5be9c8fdceaa0b54b2f4bcab889d06ae23edf7363eeb35254f3554132962140d`，普通14天。另八份原工作树正式包按原manifest/期限迁入主仓证据库，源材料未动。候选App不含随后独立提交的54fdea339 OnlineImages改动，Scene产品输入均匹配本批验收，不外推该图片模块。

@@ -70,7 +70,7 @@ nonisolated enum SceneGenericShaderScalarVectorBroadcastNormalizer {
                 in: unit.tokens, excluding: exclusions, before: index
             )
             guard let target = assignmentTarget(
-                      at: index, tokens: unit.tokens, declarations: declarations
+                      at: index, unit: unit, declarations: declarations
                   ),
                   let end = statementEnd(
                       after: index, tokens: unit.tokens,
@@ -219,17 +219,18 @@ nonisolated enum SceneGenericShaderScalarVectorBroadcastNormalizer {
     /// window is already valid GLSL and stays untouched.
     private static func assignmentTarget(
         at index: Int,
-        tokens: [SceneAuthoredShaderToken],
+        unit: SceneAuthoredShaderSyntaxUnit,
         declarations: DeclarationFacts
     ) -> (constructor: String, isInitializer: Bool)? {
+        let tokens = unit.tokens
         let name = index - 1
         if name >= 1, tokens[name - 1].text == "." {
-            // A member target never falls through to the whole-variable
-            // branch: an array element, parenthesized base or call result has
-            // no swizzle width here, so the authored assignment stays whole.
+            // A member target never falls through to the whole-variable branch.
+            // Resolve the base token so aggregate shadows and member chains
+            // cannot borrow a same-named vector declaration.
             guard name >= 2, tokens[name - 2].kind == .identifier,
-                  let base = declaredType(
-                      tokens[name - 2].text, before: index, declarations: declarations
+                  let base = SceneAuthoredShaderGlobalReferenceAnalyzer.valueType(
+                      at: name - 2, tokens: tokens, in: unit
                   ),
                   let baseWidth = vectorWidth(base),
                   let components = swizzleWidth(tokens[name].text),

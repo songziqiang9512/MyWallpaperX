@@ -613,6 +613,7 @@ extension SceneDesktopWallpaperSession {
         // Visibility, instance alpha and explicit emission consume one admitted frame value.
         // Other authored setters retain their existing next-cadence contract.
         func frameScriptValues(_ admitted: [SceneScriptOwnerEffects],
+                               layerPlan: SceneScriptLayerMutationPlan,
                                excluding rejected: Set<SceneDynamicTarget>,
                                timelineValues: [SceneDynamicTarget: SceneDynamicValue])
             -> [SceneDynamicTarget: SceneDynamicValue] {
@@ -620,10 +621,12 @@ extension SceneDesktopWallpaperSession {
             for mutation in admitted.filter({ !rejected.contains($0.ownerTarget) }).flatMap(\.layerMutations)
                 where !mutation.isDynamic && mutation.kind == .upsert {
                 if mutation.fields.contains(.visibility) {
-                    values[.layer(layerID: mutation.layerID, field: .visibility)] = .bool(mutation.visible)
+                    let target = SceneDynamicTarget.layer(layerID: mutation.layerID, field: .visibility)
+                    values[target] = layerPlan.authoredLayerValues[target]
                 }
                 if mutation.fields.contains(.particleAlpha) {
-                    values[.particle(layerID: mutation.layerID, field: .alpha)] = .scalar(mutation.particleAlpha)
+                    let target = SceneDynamicTarget.particle(layerID: mutation.layerID, field: .alpha)
+                    values[target] = layerPlan.authoredLayerValues[target]
                 }
             }
             values.merge(sceneScriptStringResult.values.filter { !rejected.contains($0.key) }) { _, current in current }
@@ -670,7 +673,8 @@ extension SceneDesktopWallpaperSession {
                                 && $0.metalView.validateParticlePlaybackTransitions(transitions)
                         })
                 },
-                rejectingParticleTransitions: { transitions, admitted, rejected in
+                rejectingParticleTransitions: { plan, admitted, rejected in
+                    let transitions = plan.particleTransitions
                     guard transitions.contains(where: { $0.action == .emit }) else { return [] }
                     guard let particleEmission else {
                         return Set(admitted.filter { !$0.particlePlaybackCommands.isEmpty }.map(\.ownerTarget))
@@ -684,7 +688,7 @@ extension SceneDesktopWallpaperSession {
                     let resolution = SceneDynamicSnapshotResolver().resolve(
                         frameIndex: timing.frameIndex, generation: 0, index: definitionIndex,
                         base: preliminarySceneScriptResolution, timelineValues: timeline,
-                        sceneScriptValues: frameScriptValues(admitted, excluding: rejected, timelineValues: timeline))
+                        sceneScriptValues: frameScriptValues(admitted, layerPlan: plan, excluding: rejected, timelineValues: timeline))
                     guard let failed = particleEmission.prepare(transitions, visibility: { instance in
                         self.surfaces[instance.surfaceID]?.metalView.particlePlaybackVisibility(
                             layerID: instance.layerID, dynamicValues: resolution.snapshot)
@@ -794,7 +798,7 @@ extension SceneDesktopWallpaperSession {
         // timeline, and stateful SceneScript lanes. Overlay only the current
         // admitted results so surface preparation does not walk every
         // definition a second time on the same frame.
-        var admittedScriptValues = frameScriptValues(admittedOwnerEffects,
+        var admittedScriptValues = frameScriptValues(admittedOwnerEffects, layerPlan: admission.layerPlan,
             excluding: rejectedOwnerTargets, timelineValues: settledTimelineValues)
         admission.layerPlan.overlayCameraValues(into: &admittedScriptValues)
         let sharedSurfaceResolution = SceneDynamicSnapshotResolver().resolve(

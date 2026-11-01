@@ -369,6 +369,8 @@ def assert_utility_capture_respects_dormant_graph_members(
          [visible, hidden, success, "phase=utility-capture layer=265 status=failed"], {}, [reported]),
         ("success never erases earlier failure", preview,
          [visible, hidden, "phase=utility-capture layer=101 status=failed", success], {}, [reported]),
+        ("success never erases later visible failure", preview,
+         [visible, hidden, success, "phase=utility-capture layer=101 status=failed"], {}, [reported]),
         ("explicit requirement stronger than dormant", preview, [visible, hidden, success],
          {"required_utility_capture_succeeded_layer_ids": [265]},
          ["utility layer 265 capture should succeed"]),

@@ -146,7 +146,7 @@
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 600,
-      "bytes": 349080
+      "bytes": 349285
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
@@ -161,8 +161,8 @@
       "bytes": 4837
     },
     "docs/scene/capabilities/scalar-mask-data-purpose.md": {
-      "lines": 20,
-      "bytes": 3880
+      "lines": 22,
+      "bytes": 4397
     },
     "docs/scene/capabilities/scene-corpus-capability-inventory.md": {
       "lines": 247,
@@ -182,7 +182,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 419,
-      "bytes": 118394
+      "bytes": 118467
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -278,7 +278,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 187,
-      "bytes": 43660
+      "bytes": 42732
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1786,15 +1786,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scalar-mask-data-purpose.md",
-      "before": "d5b3fe85b18210d59eb4f3ab5f38c9949d5d36fd9ffaf3edb1ef026c658271b3",
-      "after": "f7a3175c56ee5b25343c45664d19a78f9251429fce93229d474b5ab8ef13471d",
-      "owner": "scene-engine-maintainer",
-      "reason": "沿原采样/通道owner补已支持LOD的组件事实并退役重复解析；同步正式运行和有界因果图证，保协议局限及其他未闭问题。",
-      "decision": "docs/scene/capabilities/scalar-mask-data-purpose.md#lod-channel-use"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/previous-blurred-composite-admission.md",
       "before": "fa17a1e9d415ae9ad367a8d3d951d987b79f51d47b2691c546ff98d7621634cb",
       "after": "44444e596744c6f8f9049725dd72472d8d7df25db770b4c006b55c0f45ba6a68",
@@ -1858,15 +1849,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "c3974310b070d1148ad9c2d6dcabc7cfe511956dd391fcc9505c7a52226add02",
-      "after": "a57a86a0d23b45f159677db6f52e39bcb1f776f24aad8491d16d84d03d3d2132",
-      "owner": "scene-layer-mutation-owner-override",
-      "reason": "记录同帧多owner写同一authored字段的顺序覆盖合同、真实样本验证与官方未对照边界，替换整批硬冲突拒绝；同值幂等与owner内失败隔离保持。",
-      "decision": "docs/scene/history/dynamic-layer-slot-lifetime-2026-10-29.md#owner-field-override-20261101"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/material-video-assets.md",
       "before": "0789d819da8f87be4e9a8e3e34d2722cee5518de7485fde59d06b96c613bad27",
       "after": "3c6bd738658d9758788076bf4e32cd53f0be6949d17ed259d65a5aeb85627dd0",
@@ -1912,15 +1894,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "44650ea359143d54272fac0a107e4e1108d6999a4710e35ceb0b244e5253b7ec",
-      "after": "3e203ada596cdc8bbd7cb2c31540b1254130a2abb9249daf74821f7423d28bc5",
-      "owner": "scene-shader-pow-bidirectional-broadcast",
-      "reason": "在既有pow广播条款补上scalar base/vector exponent镜像方向、swizzle与乘除链的可证明边界及作者重载拒绝面；真实287样本只消除stage-link，不声称画面恢复。",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#op-shader-syntax"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/effect-execution-coverage.md",
       "before": "35469af1940d8f4568960a41a9fb7081990eca564c1b3997341b12ba42490e30",
       "after": "cbc85bc8b7db12761378db1532fb3193ccf23dc063e86683545ac37dc7a009eb",
@@ -1945,6 +1918,33 @@
       "owner": "scene-361-367-ordinary-frame-qualification",
       "reason": "归档361/367同一Release短窗观察：submitted≈60/completed≈59.6fps、CPU/GPU超预算为0、stage p50/p95完整，但含execution observer、性能窗2.767s未稳态且361 present 1.84%>1%默认门；样本仍有已知失败，不作为优化或资格依据。",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#performance-open"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "3e203ada596cdc8bbd7cb2c31540b1254130a2abb9249daf74821f7423d28bc5",
+      "after": "aed6cf9eeb3d1e5c3c04528868be7fc2feb9bfbd64fe58b9773795159214151a",
+      "owner": "scene-independent-integration-review",
+      "reason": "合入逐条审查后修正swizzle token身份、owner plan投影及utility失败观测，补用途/成员条件边界；已闭问题移出队列，运行细节归历史。",
+      "decision": "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md#utility-dormant-review-20261101"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scalar-mask-data-purpose.md",
+      "before": "f7a3175c56ee5b25343c45664d19a78f9251429fce93229d474b5ab8ef13471d",
+      "after": "3e6af205cc600554c566ae22e86ad77cca64f3bc31beff6fef100d48e922b71e",
+      "owner": "scene-independent-integration-review",
+      "reason": "合入逐条审查后修正swizzle token身份、owner plan投影及utility失败观测，补用途/成员条件边界；已闭问题移出队列，运行细节归历史。",
+      "decision": "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md#utility-dormant-review-20261101"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "a57a86a0d23b45f159677db6f52e39bcb1f776f24aad8491d16d84d03d3d2132",
+      "after": "7fa9ac1925e037896f584beeef398961beaefcc10e67ffa6ce483698d0ccac03",
+      "owner": "scene-independent-integration-review",
+      "reason": "合入逐条审查后修正swizzle token身份、owner plan投影及utility失败观测，补用途/成员条件边界；已闭问题移出队列，运行细节归历史。",
+      "decision": "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md#utility-dormant-review-20261101"
     }
   ]
 }

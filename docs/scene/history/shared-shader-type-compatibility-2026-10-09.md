@@ -162,3 +162,5 @@ MyWallpaperX保留同样响应：关闭/零谱效果的中心ROI相对官方MAE1
 同输入六包 log-only 对照：修前 `3435573282` 记 `effect execution CPU invocation failed` 与 `resolved material graph unexpected effect-local passthrough`，192#effect#198、3789#effect#3795 均 `family=visual-failure-passthrough outcome=failed`；修后两项失败消失，两 descriptor 均为 `family=resolved-material outcome=encoded-output`，`stage-link:rejected` 归零，`3435573282` 转 PASS。`303/314/334/358` 保持 PASS，`298` 保持自身既有失败（不在本批）。窗口截图修前/修后 ready 与 after 分别有 63%/67% 像素变化，但该包为动画场景、相位未对齐，故作存在性观察，不作 ROI 或官方色彩归因。
 
 证据包 `.artifacts/scene-evidence/runs/shader-swizzle-broadcast-20261101/` 为 29,706,247 B、manifest SHA256 `bda4b43c3f130f892c82102f0e61270218910b190c41cf39a8759b810664ee67`，含修前/修后两次六包运行的 report、逐样本 app/preview 日志与 runtime evidence；普通 14 天。剩余 343 的视觉差异（颜色/样式/其余 effect 分支）仍在队列，不因本片关闭整样本。
+
+合入审查发现全局向量与局部结构体/成员链同名会令窗口广播借错类型；`Payload value; value.xy=0.5`曾被改成vec2赋值。原normalizer现复用已有token binding，结构体与成员链保原文，真正float/int/uint数值shadow按实际基类型广播。两名称变体共10子例在修前全部失败、修后通过；原swizzle正/反门迁入现有scope模块共享同一真实glslang/SPIRV-Cross carrier，旧builtin方法退出，两个文件均小于1000行。

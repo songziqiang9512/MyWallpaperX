@@ -49,6 +49,8 @@
 
 真实 `3603711180`/`3028048463`/`3047405322` 的控制器层回调写相邻部件层 origin（565→626、506→517、83979→83991），与部件自身写入不同值。旧实现按 owner 分组后比较已提交 authored 值，把后一个 owner 的整批 23–25 条 mutation 全部丢弃，日志为 `conflicting authored layer mutation owner` 与 `fallback=previous-current`。
 
-现按回调顺序提交：后写覆盖前写，同值保持幂等；owner 自己的失败、512 条预算与 topology 拒绝仍只影响该 owner 批次，不引入第二 owner 或跨 owner 仲裁状态。只服务该判定的 `authoredValues` 辅助与 claimed lane 同批删除。
+现按owner首次出现的回调位置提交原子批：后批覆盖前批，owner内多个callback保留最终字段，同值保持幂等；owner 自己的失败、512 条预算与 topology 拒绝仍只影响该 owner 批次，不引入第二 owner 或跨 owner 仲裁状态。只服务该判定的 `authoredValues` 辅助与 claimed lane 同批删除。
 
 验证：`test_scene_script_solid` 3/3、`test_scene_script_dynamic_layer_runtime` 20/20、`test_scene_script_layer_order`、`test_scene_cursor_capture_continuity`、`test_scene_cross_layer_effect_visibility` 通过；`test_scene_script_layer_creator_retirement` 在基提交与主仓库同样因 fixture 缺 `SceneDefault2DCameraInputProfile` 失败，属既有验证债。签名诊断构建后五样本 log-only 全 PASS，三冲突样本的 `callback=rejected` 与冲突拒绝归零；`3435573282`、`3141464346` 健康样本保持 PASS。未做官方客户端同场景对照，覆盖顺序取本地回调注册顺序，parity 仍属未验证边界。
+
+合入审查补齐同帧投影：原FrameDriver按原始callback序再次拼visibility/particle alpha，与原子owner plan在A/B/A交错时可不一致。真实QuickJS→owner admission→生产frameScriptValues反例已复现alpha当前值与commit不一致；两处消费者现直接读同一plan的胜出字段，external/transition拒绝先收敛再prepare，避免被拒owner值影响健康peer。typed return优先级及其他setter下一cadence保持，不重分组、不新增状态。

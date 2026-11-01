@@ -996,13 +996,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-30",
+      "lastReviewed": "2026-11-01",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3bc42f9470109e10ee94f4177d71eabdbed461f62f48ba80bb953dc752bca704",
+        "sourceSHA256": "9707597783fbd7792226de85e5b7df796d7c78e5306bafc9ce288f036ed8f844",
         "method": "document_registry --audit + document_health --check",
-        "scope": "B12 按授权退役隐藏详情报告，保属性、播放与独立开发工具；同步现役合同与失效链接。",
-        "limitations": "仅审查本次变更职责与导航；回归及构建结果归专项，不升级历史样本、性能或发布验收。"
+        "scope": "17提交逐条审查；能力/队列补绑定身份、原子plan投影、utility dormant与真实失败，以及颜色用途/预处理成员的当前边界。",
+        "limitations": "不授官方成员条件取值、history重新启用首帧、全world/全样本parity或性能结论。"
       }
     },
     {
@@ -1059,13 +1059,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/capabilities/render-graph-shader-coverage.md",
       "currentStateAuthority": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "lastReviewed": "2026-10-30",
+      "lastReviewed": "2026-11-01",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "cd869814328a7734cdf84355c457101dcc194078da341e0590f37b4c8b168dd1",
+        "sourceSHA256": "f988ab6cbe522fe17f2c30fe930071fc13cfa0eb67dbe152334dae16a538edf0",
         "method": "document_registry --audit + document_health --check",
-        "scope": "复用原采样primitive的LOD组件事实；289 Program/GPU恢复、自有静态on/off因果图证及独立335渲染，队列仅退出该首门。",
-        "limitations": "原289跨启动像素受相位影响；off rejected计数按inactive语义保留。未额外验磁盘暖重放、HDR/多屏、官方整景parity或性能。"
+        "scope": "17提交逐条审查；能力/队列补绑定身份、原子plan投影、utility dormant与真实失败，以及颜色用途/预处理成员的当前边界。",
+        "limitations": "不授官方成员条件取值、history重新启用首帧、全world/全样本parity或性能结论。"
       }
     },
     {
@@ -1136,13 +1136,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-30",
+      "lastReviewed": "2026-11-01",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5202319c18881405af9ba39cca133d6d56d33de602e48c13a75a78975187ba8f",
+        "sourceSHA256": "87718924852dab0478650d5e08ca62495bce750b5f659a88f25124657e136e98",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步owner raw准入职责、363频谱恢复与未闭特效/短窗CPU成本；保357 ready黑资格与失败。",
-        "limitations": "不认整景或全部独立门PASS，不认JS heap回滚、优化配置/Release/稳态性能及官方同音源parity。"
+        "scope": "17提交逐条审查；能力/队列补绑定身份、原子plan投影、utility dormant与真实失败，以及颜色用途/预处理成员的当前边界。",
+        "limitations": "不授官方成员条件取值、history重新启用首帧、全world/全样本parity或性能结论。"
       }
     },
     {
@@ -4491,13 +4491,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/README.md",
       "retirementCondition": "当队列中的公共 authored target 首断点关闭，后续只剩路线 P0/P3/P4/P5 的系统性验收，且不再需要该派生执行入口时，删除或转为 historical-evidence。",
-      "lastReviewed": "2026-10-31",
+      "lastReviewed": "2026-11-01",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2ad1d459b7ca7a193e4262ea9bcfcd9b0dc0e4f2be3d7c9b0ff4e8c026828012",
+        "sourceSHA256": "0c7a75fed71604146cd28f5c9110d85c4840de8ba28c9a22b8e869bd14547247",
         "method": "document_registry --audit + document_health --check",
-        "scope": "root General-world Rope与pointer-force共用既有reference；314的188/332准备/几何/长窗后验退出队列，稳定合同与历史唯一承接。",
-        "limitations": "不作右下音频环、木偶官方phase、精确蒸汽样式、全world组合或性能结论。"
+        "scope": "17提交逐条审查；能力/队列补绑定身份、原子plan投影、utility dormant与真实失败，以及颜色用途/预处理成员的当前边界。",
+        "limitations": "不授官方成员条件取值、history重新启用首帧、全world/全样本parity或性能结论。"
       }
     },
     {

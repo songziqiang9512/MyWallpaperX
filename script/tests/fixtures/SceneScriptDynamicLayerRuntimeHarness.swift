@@ -835,7 +835,7 @@ enum Harness {
             ] == .bool(true),
             "fixedPointSeeded": seededFirstHalf && seededSecondHalf,
             "particleSeesCurrentExternalReject": particleRejectedSets.first?.contains(projectionOwnerA) == true,
-            "particleFiltersWholeRejectedBundle": particleEligibleCommands == [[2], [2]],
+            "particleFiltersWholeRejectedBundle": particleEligibleCommands == [[2]],
             "particleKeepsValidPeer": projectionAdmission.admission.admittedEffects.map(\.ownerTarget) == [projectionOwnerB],
             "laterRejectionReplacesProjection": projectedCommandRounds == [[1, 2], [2]],
             "laterRejectionKeepsValidPeer": laterRejection.admission.admittedEffects.map(\.ownerTarget) == [projectionOwnerB],
