@@ -144,22 +144,6 @@ extension WallpaperDaemon {
 
     var inactiveSlot: Slot { activeSlot == .primary ? .secondary : .primary }
 
-    var pendingEndObservation: NSObjectProtocol? {
-        get { activeSlot == .primary ? primaryEndObservation : secondaryEndObservation }
-        set {
-            if activeSlot == .primary { primaryEndObservation = newValue }
-            else { secondaryEndObservation = newValue }
-        }
-    }
-
-    var loopEndObservation: NSObjectProtocol? {
-        get { activeSlot == .primary ? primaryLoopEndObservation : secondaryLoopEndObservation }
-        set {
-            if activeSlot == .primary { primaryLoopEndObservation = newValue }
-            else { secondaryLoopEndObservation = newValue }
-        }
-    }
-
     var activeLayer: AVPlayerLayer {
         activeSlot == .primary ? primaryLayer : secondaryLayer
     }
@@ -174,15 +158,6 @@ extension WallpaperDaemon {
             secondaryLooper = looper
         case .secondary:
             primaryLooper = looper
-        }
-    }
-
-    func clearActiveLooper() {
-        switch activeSlot {
-        case .primary:
-            primaryLooper = nil
-        case .secondary:
-            secondaryLooper = nil
         }
     }
 

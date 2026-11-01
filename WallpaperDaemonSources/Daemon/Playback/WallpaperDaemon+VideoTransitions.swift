@@ -186,8 +186,7 @@ extension WallpaperDaemon {
         }
     }
 
-    func observePlaybackEnd(for item: AVPlayerItem, requestID: Int?, videoPath: String, slot: Slot? = nil) {
-        let slot = slot ?? activeSlot
+    func observePlaybackEnd(for item: AVPlayerItem, requestID: Int?, videoPath: String, slot: Slot) {
         let observation = NotificationCenter.default.addObserver(
             forName: .AVPlayerItemDidPlayToEndTime,
             object: item,

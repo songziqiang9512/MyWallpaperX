@@ -268,7 +268,8 @@ import QuartzCore
             precondition(daemon.activePlayer.currentTime().seconds < 0.25, "commit started near the end")
             if !paused {
                 RunLoop.current.run(until: Date().addingTimeInterval(0.5))
-                precondition(daemon.pendingEndObservation == nil, "short committed clip did not emit ended")
+                precondition(daemon.primaryEndObservation == nil && daemon.secondaryEndObservation == nil,
+                    "short committed clip did not emit ended")
             }
             daemon.cancelVideoPreparation(requestID: 8)
         }
