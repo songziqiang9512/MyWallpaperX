@@ -15,13 +15,15 @@ internal static class WorkshopManifestSelfTest
             return file;
         }
         static DepotManifest.FileData Project() => File("project.json", 2, Chunk(0, 2));
-        void Check(string name, bool reject, params DepotManifest.FileData[] files)
+        WorkshopManifestValidation.Summary? Check(string name, bool reject, params DepotManifest.FileData[] files)
         {
             bool rejected = false;
-            try { WorkshopManifestValidation.Validate(files, 1024, 100, 64, CancellationToken.None); }
+            WorkshopManifestValidation.Summary? summary = null;
+            try { summary = WorkshopManifestValidation.Validate(files, 1024, 100, 64, CancellationToken.None); }
             catch (WorkshopManifestValidation.Rejected) { rejected = true; }
             if (reject != rejected) throw new Exception($"manifest check failed: {name}");
             count++;
+            return summary;
         }
         Check("valid", false, Project(), File("dir/file", 4, Chunk(2, 2), Chunk(0, 2)));
         Check("empty file", false, Project(), File("empty", 0));
@@ -53,6 +55,28 @@ internal static class WorkshopManifestSelfTest
         Check("explicit parent", false, Project(), File("dir/a", 0), new DepotManifest.FileData("dir",
             new byte[20], EDepotFileFlag.Directory, 0, new byte[20], "", false, 0));
         Check("path depth", true, Project(), File(string.Join('/', Enumerable.Repeat("a", 65)), 0));
+        var deepParent = string.Join('/', Enumerable.Repeat("deep", 63));
+        var deep = Check("64 components with shared parents", false, Project(),
+            File(deepParent + "/a.bin", 4, Chunk(0, 4)), File(deepParent + "/b.bin", 3, Chunk(0, 3)));
+        if (deep is not { Bytes: 9, Chunks: 3 }) throw new Exception("deep manifest totals changed");
+        count++;
+        var parentDirectory = new DepotManifest.FileData("assets\\nested\\", new byte[20],
+            EDepotFileFlag.Directory, 0, new byte[20], "", false, 0);
+        var separators = Check("backslash and trailing directory separator", false, Project(), parentDirectory,
+            File("assets/nested/a.bin", 5, Chunk(0, 5)), File("assets\\nested\\b.bin", 3, Chunk(0, 3)));
+        if (separators is not { Bytes: 10, Chunks: 3 }) throw new Exception("separator manifest totals changed");
+        count++;
+        Check("trailing explicit parent after child", false, Project(), File("assets\\nested\\a.bin", 0), parentDirectory);
+        Check("slash and backslash file collision", true, Project(), File("assets\\a.bin", 0), File("assets/a.bin", 0));
+        Check("normalized explicit directory collision", true, Project(), parentDirectory,
+            new DepotManifest.FileData("assets/nested/", new byte[20], EDepotFileFlag.Directory, 0, new byte[20], "", false, 0));
+        var unicode = Check("combining and astral shared parents", false, Project(),
+            File("图😀/e\u0301/a.bin", 4, Chunk(0, 4)), File("图😀/e\u0301/b.bin", 6, Chunk(0, 6)));
+        if (unicode is not { Bytes: 12, Chunks: 3 }) throw new Exception("unicode manifest totals changed");
+        count++;
+        Check("composed unicode shared parents", false, Project(), File("图😀/é/a.bin", 0), File("图😀/é/b.bin", 0));
+        Check("unicode parent spelling collision", true, Project(), File("图😀/é/a.bin", 0), File("图😀/e\u0301/b.bin", 0));
+        Check("astral parent file directory collision", true, Project(), File("图😀/node", 0), File("图😀/node/child", 0));
         using var cancelled = new CancellationTokenSource();
         cancelled.Cancel();
         try

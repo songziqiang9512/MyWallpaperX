@@ -34,10 +34,12 @@ internal static class WorkshopManifestValidation
                 throw new Rejected("invalid manifest path");
             var parts = path.Split('/');
             if (parts.Length > 64 || parts.Any(p => p is "" or "." or "..")) throw new Rejected("invalid manifest path component");
+            int prefixEnd = 0;
             for (int i = 0; i < parts.Length; i++)
             {
                 ct.ThrowIfCancellationRequested();
-                string prefix = string.Join('/', parts.Take(i + 1));
+                prefixEnd += parts[i].Length + (i == 0 ? 0 : 1);
+                string prefix = path[..prefixEnd];
                 string key = prefix.Normalize(NormalizationForm.FormC);
                 bool explicitEntry = i == parts.Length - 1;
                 bool isDirectory = !explicitEntry || directory;
