@@ -202,6 +202,19 @@ def utility_runtime_failures(
                 layer_id for layer_id, layer in planned.items()
                 if not layer["named_target_planned"]
             )
+            # A planned capture that never became visible is authored-hidden,
+            # not a missing encode. Its capture runs on the frame the layer
+            # first appears, so keep it out of the missing set now.
+            hidden = set(visibility.get("current_hidden_layer_ids") or [])
+            ever_visible = set(visibility["ever_visible_layer_ids"])
+            executed = set(observations.get("execution_observed_layer_ids") or [])
+            dormant.update(
+                layer_id for layer_id, layer in planned.items()
+                if layer_id in hidden
+                and layer_id not in ever_visible
+                and layer_id not in executed
+                and not layer["named_target_planned"]
+            )
         if len(planned) == metrics["capture_planned"]:
             missing_capture = bool(set(planned).difference(dormant, succeeded))
         else:

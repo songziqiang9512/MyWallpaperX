@@ -117,10 +117,10 @@ enum SceneUtilityPlanFrameRenderer {
                 }
                 guard let compositePass,
                       !plan.usesIsolatedGroupTarget || isolatedGroupSource != nil else {
-                    utilityCaptureTelemetry.record(
-                        layerID: layer.id, encoded: false, on: commandBuffer)
-                    dependencyRuntime.recordBindingIfRequired(
-                        for: layer.id, encoded: false, on: commandBuffer)
+                    // The guard also covers a hidden group without a reserved
+                    // pass or a failed target allocation. Those members are not
+                    // drawn, so the capture is skipped instead of reported as a
+                    // failed encode.
                     continue
                 }
                 let terminalDepth: SceneImageLayerTerminalDepthBinding?

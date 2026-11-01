@@ -397,10 +397,13 @@ def assert_utility_capture_respects_dormant_graph_members(
             "utility layer 265: capture kind=fullscreen trigger=265",
             "utility layer 265: capture kind=fullscreen trigger=265; named target planned"),
          [visible, hidden, success], {}, [below]),
-        ("hidden unaccepted layer not dormant", preview.replace(
+        # A capture plan may hold a composition that never reaches graph
+        # acceptance (the 495 shape): hidden and never visible is dormant even
+        # without a capability record.
+        ("hidden unaccepted layer dormant", preview.replace(
             "candidates=2 accepted=2", "candidates=1 accepted=1").replace(
             "resolved material execution capability: schema=layer-graph-route-v1 layer=265 status=accepted", ""),
-         [visible, hidden, success], {}, [below]),
+         [visible, hidden, success], {}, []),
         ("capture membership incomplete remains strict", preview.replace(
             "utility layer 265: capture kind=fullscreen trigger=265", ""),
          [visible, hidden, success], {}, [below]),
