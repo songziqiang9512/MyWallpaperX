@@ -348,6 +348,61 @@ import Foundation
         checks["type-facet-counts-ignore-all-selected-kinds-without-clearing-composed-provider-status-or-search"] =
             facets.mediaKindCounts == [.video: 2, .scene: 1] && facets.queryState == mixedFacetQuery
             && facets.queryResult.items.map(\.reference.sourceID) == ["scene"]
+        func facetCounts(_ view: WallpaperLibraryPresentation, _ label: String, ceiling: Int = 0) -> [WallpaperMediaKind: Int] {
+            let before = WallpaperLibraryQuery.fullResolverInitializations
+            let counts = view.mediaKindCounts
+            FileHandle.standardError.write(Data("FACET PREPARATIONS \(label) \(ceiling) \(WallpaperLibraryQuery.fullResolverInitializations - before)\n".utf8))
+            return counts
+        }
+        _ = facetCounts(facets, "active-kinds", ceiling: 1)
+        for (index, original) in [facetQuery, mixedFacetQuery].enumerated() {
+            var query = original
+            query.kinds = []; query.sort = index == 0 ? .fileSize : .name; query.ascending = index == 0
+            let expected: [WallpaperMediaKind: Int] = index == 0 ? [.video: 1] : [.video: 2, .scene: 1]
+            let accepted = facets.setQueryState(query), items = facets.queryResult.items
+            checks["unselected-kinds-count-accepted-sort-search-provider-status-\(index)"] = accepted
+                && facetCounts(facets, "known-\(index)") == expected && facets.queryState == query
+                && facets.queryResult.items == items && items.count == expected.values.reduce(0, +)
+        }
+        var updated = facetCatalog
+        updated.revision = 1
+        updated.downloads.append(facet("new-image", provider: .pixabay, kind: .image, title: "needle", available: true))
+        let acceptedQuery = facets.queryState
+        checks["type-counts-follow-the-next-accepted-catalog-without-reusing-old-members"] = facets.update(catalog: updated, relationships: relationships)
+            && facetCounts(facets, "updated-catalog") == [.image: 1, .video: 2, .scene: 1]
+            && facets.queryState == acceptedQuery && facets.queryResult.items.count == 4
+        let beforeFailure = facets.queryResult.items
+        let badRelationships = UserCollectionsSnapshot(revision: 2, resetEpoch: relationships.resetEpoch, migrationManifestID: nil,
+            playlists: [], members: [], favorites: [], recent: [], aliases: [
+                .init(alias: facetCatalog.downloads[0].reference, canonical: facetCatalog.downloads[1].reference, proof: .publishedDownload),
+                .init(alias: facetCatalog.downloads[1].reference, canonical: facetCatalog.downloads[0].reference, proof: .publishedDownload)], locators: [])
+        checks["failed-projection-keeps-visible-error-query-items-and-accepted-type-counts"] = !facets.update(catalog: updated, relationships: badRelationships)
+            && facets.lastError == UserCollectionsError.corruptData("alias cycle").localizedDescription
+            && facets.queryState == acceptedQuery && facets.queryResult.items == beforeFailure
+            && facetCounts(facets, "failed-update") == [.image: 1, .video: 2, .scene: 1]
+        defaults.removeObject(forKey: WallpaperLibraryPresentation.settingsKey)
+        let unknown = WallpaperLibraryPresentation(collections: nil, defaults: defaults)
+        let unknownRelationships = UserCollectionsSnapshot(revision: 1, resetEpoch: relationships.resetEpoch, migrationManifestID: nil,
+            playlists: [mixed], members: Array(facetCatalog.downloads.prefix(2)).enumerated().map {
+                .init(playlistID: shared, reference: $0.element.reference, position: $0.offset, addedAt: Date())
+            }, favorites: [], recent: [], aliases: [], locators: [])
+        checks["unknown-relationships-keep-main-playlist-empty-but-preserve-original-facet-query"] = unknown.update(
+            catalog: facetCatalog, relationships: unknownRelationships, relationshipsKnown: false)
+            && unknown.switchPage(.playlist(shared)) && unknown.queryResult.items.isEmpty
+            && facetCounts(unknown, "unknown-playlist", ceiling: 1) == [.video: 1, .scene: 1]
+            && unknown.page == .playlist(shared) && unknown.queryState == .init() && unknown.lastError == nil
+        let missing = WallpaperLibraryPage.playlist(UUID())
+        checks["unknown-missing-playlist-facet-failure-stays-empty-without-changing-main-state"] = unknown.switchPage(missing)
+            && facetCounts(unknown, "unknown-missing", ceiling: 1).isEmpty && unknown.page == missing
+            && unknown.queryState == .init() && unknown.queryResult.items.isEmpty && unknown.lastError == nil
+        for (index, page) in [WallpaperLibraryPage.playlists, .workshop, .pixabay, .wallhaven, .pixiv].enumerated() {
+            checks["directory-or-remote-type-counts-stay-empty-\(index)"] = unknown.switchPage(page)
+                && facetCounts(unknown, "empty-\(index)").isEmpty && unknown.page == page && unknown.queryResult.items.isEmpty
+        }
+        defaults.removeObject(forKey: WallpaperLibraryPresentation.settingsKey)
+        let uninitialized = WallpaperLibraryPresentation(collections: nil, defaults: defaults)
+        checks["type-counts-without-accepted-inputs-stay-empty"] = facetCounts(uninitialized, "uninitialized").isEmpty
+            && uninitialized.queryResult.items.isEmpty && uninitialized.queryState == .init()
         print(String(decoding: try JSONEncoder().encode(checks), as: UTF8.self))
     }
 }

@@ -34,7 +34,7 @@
     },
     "docs/development/code-slimming-program.md": {
       "lines": 464,
-      "bytes": 102734
+      "bytes": 102662
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -1739,10 +1739,10 @@
     {
       "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
-      "before": "0348a8fa6505faa88475ca71f72a29ca3e939670bcb58f454bbaaf5cfd7b0b6a",
-      "after": "1286042c0e1d5fd307ce2a9c85edb6046b27ca6d79bac11abbdb5ba5a4d81dfa",
+      "before": "1286042c0e1d5fd307ce2a9c85edb6046b27ca6d79bac11abbdb5ba5a4d81dfa",
+      "after": "afa99cfcb699ac69d61ec338943c6f1803f150bb5df115cafa75f60302d70dc7",
       "owner": "repository-maintainer",
-      "reason": "原位记录R43同轮共享、严格原生分步通过与未明首次失败；补480b已提交Scene整合构建并保双方预算历史，行为输入未变不虚构重跑，未扩产品边界。",
+      "reason": "原位记录R44直接消费已接受facet多重集，保kind/未知恢复路径与旧新getter成本、真实消费时机及既往原生待验界限；仅更新本authority预算及receipt，保Scene全部历史。",
       "decision": "docs/development/code-slimming-program.md#目标与边界"
     },
     {

@@ -40,10 +40,14 @@ nonisolated struct WallpaperLibrarySelectionReceipt: Sendable {
     /// active type is removed only for these counts; no source owner is read.
     var mediaKindCounts: [WallpaperMediaKind: Int] {
         guard let catalog, let relationships else { return [:] }
-        var query = queryState
-        query.kinds = []
-        query.sort = .sourceOrder
-        guard let result = try? WallpaperLibraryQuery.project(page: page, state: query, catalog: catalog, relationships: relationships) else { return [:] }
+        var result = queryResult
+        if !queryState.kinds.isEmpty || !relationshipsKnown {
+            var query = queryState
+            query.kinds = []
+            query.sort = .sourceOrder
+            guard let projected = try? WallpaperLibraryQuery.project(page: page, state: query, catalog: catalog, relationships: relationships) else { return [:] }
+            result = projected
+        }
         return result.items.reduce(into: [:]) { $0[$1.kind, default: 0] += 1 }
     }
     /// The injected relationship writer. Recovery can browse without one.
