@@ -521,7 +521,6 @@ final class DedicatedWebWallpaperHostPlaceholderAdapter: NSObject, WallpaperEngi
                 stopDirectoryWatchTimer()
                 resetRandomFileSnapshots()
             }
-            refreshRandomFileSnapshots(using: currentRequest?.propertiesJSON)
         }
     }
     var currentVolume: Float = 0.5

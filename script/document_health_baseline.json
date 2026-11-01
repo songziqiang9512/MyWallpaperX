@@ -34,7 +34,7 @@
     },
     "docs/development/code-slimming-program.md": {
       "lines": 464,
-      "bytes": 102836
+      "bytes": 102813
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -1739,10 +1739,10 @@
     {
       "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
-      "before": "afa99cfcb699ac69d61ec338943c6f1803f150bb5df115cafa75f60302d70dc7",
-      "after": "91122a7b054e02702204149a4e350f45c4e38dd8b51aabf0887d15db97100c71",
+      "before": "91122a7b054e02702204149a4e350f45c4e38dd8b51aabf0887d15db97100c71",
+      "after": "62289ae871ccb27ea7ab9ea3a5883914b54667d45be83ed4d83dbdee1398d91e",
       "owner": "repository-maintainer",
-      "reason": "原位记录R45空命令短路、唯一获准报告差异与真实旧新成本/行为/构建界限；保留Steam提前取消职责及既往待验，仅更新本authority预算和同receipt。",
+      "reason": "原位记录R46退出重复隐式random准备、真实入口旧新成本与异步/失败路径边界；只更新本authority预算和既有receipt，保所有Scene及其他历史。",
       "decision": "docs/development/code-slimming-program.md#目标与边界"
     },
     {

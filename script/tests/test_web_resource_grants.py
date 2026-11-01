@@ -5,6 +5,7 @@ methods with shell-only host collaborators. All files and bookmarks are isolated
 """
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import tempfile
@@ -26,7 +27,7 @@ def grant_declaration() -> str:
                         "struct WebWallpaperResourceGrant")
 
 
-def compile_and_run(source: str, sources: list[Path], marker: str) -> None:
+def compile_and_run(source: str, sources: list[Path], marker: str) -> subprocess.CompletedProcess[str]:
     with tempfile.TemporaryDirectory(prefix="mwx-web-resource-grants-") as temporary:
         task = Path(temporary)
         main = task / "Harness.swift"
@@ -44,6 +45,7 @@ def compile_and_run(source: str, sources: list[Path], marker: str) -> None:
                              capture_output=True, text=True, timeout=30)
         if run.returncode or marker not in run.stdout:
             raise AssertionError(run.stdout + run.stderr)
+        return run
 
 
 RESOURCE_HARNESS = r'''
@@ -144,6 +146,7 @@ final class DedicatedWebWallpaperHostPlaceholderAdapter {
     // not decide whether a normal property edit races the deferred callback.
     static let directorySyncDebounceInterval: TimeInterval = 3600
     var published = 0
+    var randomFilePreparations = 0
     func forEachWebView(_ body: (WKWebView) -> Void) { for view in views { body(view) } }
     func applyProperties(_ value: String, to view: WKWebView) {}
     func notifyFetchAllDirectoryChanges(propertyName: String, addedOrChangedFiles: [String], removedFiles: [String], webView: WKWebView) { published += 1 }
@@ -352,10 +355,12 @@ enum WebWallpaperHostSupport {
         let afterOrdinaryFile = directory.appendingPathComponent("after-ordinary-edits.png")
         try Data("updated after queue wait".utf8).write(to: afterOrdinaryFile)
         host.syncFetchAllDirectoryProperties(using: host.currentRequest!.propertiesJSON!)
+        let beforeOrdinaryPreparations = host.randomFilePreparations
         for revision in 2...50 {
             host.handle(.applyProperties(.init(requestID: requestID, revision: UInt64(revision), resourceRevision: 0,
                 propertiesJSON: json, resourceGrants: [directoryGrant])))
         }
+        let ordinaryPreparationCount = host.randomFilePreparations - beforeOrdinaryPreparations
         check(host.directoryWatchersByDirectory[watchedDirectoryPath] === preservedWatcher, "ordinary updates retain watcher")
         ordinaryGate.signal()
         spin { host.directorySnapshotsByProperty["renamedSlides"]?.filesByPath[afterOrdinaryFile.path] != nil }
@@ -375,7 +380,9 @@ enum WebWallpaperHostSupport {
             propertiesJSON: clearJSON, resourceGrants: [])
         let command = try JSONDecoder().decode(WallpaperEngine.WebWallpaperRuntimeCommand.self,
             from: JSONEncoder().encode(WallpaperEngine.WebWallpaperRuntimeCommand.applyProperties(update)))
+        let beforeResourcePreparations = host.randomFilePreparations
         host.handle(command)
+        let resourcePreparationCount = host.randomFilePreparations - beforeResourcePreparations
         let syncAfterClear = host.directorySyncRequestID
         revokedDirectoryEvent.perform()
         revokedDirectoryEvent.cancel()
@@ -458,9 +465,14 @@ enum WebWallpaperHostSupport {
         let randomJSON = String(data: try JSONSerialization.data(withJSONObject: ["renamedSlides":
             ["type":"directory", "mode":"random", "value":directory.path]]), encoding: .utf8)!
         randomOnly.currentRequest = request(0, randomJSON, [directoryGrant])
+        randomOnly.refreshReadableResourceRoots(using: randomJSON)
+        let randomPrimePreparationCount = randomOnly.randomFilePreparations
         spin { randomOnly.randomFileSnapshotsByDirectoryPath[directory.path]?.sourceDirectoryPath == directory.path }
         check(randomOnly.resolveRandomFilePath(forPropertyNamed: "renamedSlides") != nil,
               "non-fetchall directory retains its original random pool")
+        print("random-file-preparations=" + String(decoding: try JSONSerialization.data(withJSONObject: [
+            "ordinary": ordinaryPreparationCount, "resourceRevision": resourcePreparationCount,
+            "randomPrime": randomPrimePreparationCount], options: .sortedKeys), as: UTF8.self))
         print("web-resource-grants-pass")
     }
 }
@@ -614,6 +626,9 @@ func check(_ condition: @autoclosure () -> Bool, _ message: String) { if !condit
         types = (HOST / "WebWallpaperHostTypes.swift").read_text()
         lifecycle = (HOST / "DedicatedWebWallpaperHostPlaceholderAdapter+Lifecycle.swift").read_text()
         runtime = (HOST / "DedicatedWebWallpaperHostPlaceholderAdapter+RuntimeBridge.swift").read_text()
+        preparation_entry = "func refreshRandomFileSnapshots(using propertiesJSON: String?) {\n"
+        self.assertEqual(runtime.count(preparation_entry), 1)
+        runtime = runtime.replace(preparation_entry, preparation_entry + "        randomFilePreparations += 1\n", 1)
         directory = (HOST / "DedicatedWebWallpaperHostPlaceholderAdapter+DirectorySync.swift").read_text()
         watchers = (HOST / "DedicatedWebWallpaperHostPlaceholderAdapter+DirectoryWatchers.swift").read_text()
         ipc = (ROOT / "MyWallpaperX/Core/SteamWorkshopWeb/Process/WebDaemonProtocol.swift").read_text()
@@ -650,8 +665,15 @@ func check(_ condition: @autoclosure () -> Bool, _ message: String) { if !condit
             "// ENGINE TYPES", engine).replace("// IPC TYPES", ipc_types).replace(
             "// HOST MEMBERS", "\n".join(members)).replace("// APPLY BRANCH", branch).replace(
             "// CONTROL APPLY BRANCH", control_branch).replace("// EXECUTION REQUEST", source_block(control, "var executionRequest:"))
-        compile_and_run(source, TRANSFORMER_SOURCES + [SUPPORT / "WebWallpaperLoopbackServer.swift",
+        run = compile_and_run(source, TRANSFORMER_SOURCES + [SUPPORT / "WebWallpaperLoopbackServer.swift",
             SUPPORT / "WebWallpaperLoopbackServer+Connection.swift"], "web-resource-grants-pass")
+        preparations = json.loads(next(line.removeprefix("random-file-preparations=") for line in run.stdout.splitlines()
+                                       if line.startswith("random-file-preparations=")))
+        self.assertEqual(set(preparations), {"ordinary", "resourceRevision", "randomPrime"})
+        for scenario, limit in (("ordinary", 0), ("resourceRevision", 1), ("randomPrime", 1)):
+            with self.subTest(scenario=scenario):
+                self.assertGreaterEqual(preparations[scenario], 0)
+                self.assertLessEqual(preparations[scenario], limit)
 
 
 if __name__ == "__main__":
