@@ -236,11 +236,6 @@ extension SceneDesktopWallpaperSession {
             thumbnail: sceneScriptMediaThumbnailEvent,
             timeline: sceneScriptMediaTimelineEvent
         )
-        let pendingSharedLayerAlpha = sharedLayerAlphaRuntime.prepareValues(
-            effectivePropertyValues: launchContext.liveState.effectiveValues,
-            frameTime: timing.simulationFrameTime
-        )
-        let sharedLayerAlphaValues = pendingSharedLayerAlpha.values
         let layerMutationSnapshot = launchContext.sceneScriptDynamicLayerRuntime
             .snapshot()
         // SceneScript `update(value)` receives the current published value;
@@ -254,7 +249,6 @@ extension SceneDesktopWallpaperSession {
             .previousValues(for: sceneScriptStatefulTargets,
                 userValues: frameUserValues, timelineValues: timelineValues)
         var commonSceneScriptValues = previousSceneScriptValues
-        commonSceneScriptValues.merge(sharedLayerAlphaValues) { _, current in current }
         commonSceneScriptValues.merge(
             layerMutationSnapshot.authoredLayerValues
         ) { _, committedMutation in committedMutation }
@@ -889,7 +883,6 @@ extension SceneDesktopWallpaperSession {
         commitSimulatedSceneFrame(
             launchContext,
             pendingEvaluation: pendingEvaluation,
-            pendingSharedLayerAlpha: pendingSharedLayerAlpha,
             animationMutations: animationMutations,
             mediaPlaybackCommands: mediaPlaybackCommands,
             textureAnimationCommands: textureAnimationCommands,

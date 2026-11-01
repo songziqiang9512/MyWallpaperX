@@ -78,8 +78,6 @@ final class SceneDesktopWallpaperSession {
     var rebuiltTopology: [SceneScreenTopology] = []
     var evaluationTransaction = SceneEvaluationTransaction()
     var sceneClock = SceneClock(hostTime: CACurrentMediaTime())
-    var sharedLayerAlphaRuntime =
-        SceneSharedLayerAlphaRuntime(program: .empty)
     var videoTextureSourceRegistry: SceneVideoTextureSourceRegistry?
     var soundPlaybackRegistry: SceneSoundPlaybackRegistry?
     var nextVideoProviderEpoch: UInt64 = 0
@@ -166,9 +164,6 @@ final class SceneDesktopWallpaperSession {
         let activateStageStart = CACurrentMediaTime()
         debugDynamicLayerVisibilitySignature = nil
 #endif
-        sharedLayerAlphaRuntime = .init(
-            program: context.sharedLayerAlphaProgram
-        )
         // Sound sources must be installed before video preparation releases
         // the first script frame.
         nextSoundPlaybackEpoch &+= 1

@@ -123,7 +123,6 @@ extension SceneDesktopWallpaperSession {
     func commitSimulatedSceneFrame(
         _ context: SceneDesktopWallpaperLaunchContext,
         pendingEvaluation: SceneEvaluationTransaction.PendingEvaluation,
-        pendingSharedLayerAlpha: SceneSharedLayerAlphaRuntime.PendingValues,
         animationMutations: [SceneTimelinePlaybackMutation],
         mediaPlaybackCommands: [SceneScriptMediaPlaybackCommand],
         textureAnimationCommands:
@@ -134,7 +133,6 @@ extension SceneDesktopWallpaperSession {
         layerPlan: SceneScriptLayerMutationPlan,
         rejectedOwnerTargets: Set<SceneDynamicTarget>
     ) {
-        sharedLayerAlphaRuntime.commitValues(pendingSharedLayerAlpha)
         if !animationMutations.isEmpty,
            case .success = context.timelinePlaybackRuntime.apply(
                animationMutations, sceneTime: timing.sceneTime

@@ -333,44 +333,21 @@ extension SceneDesktopWallpaperHost {
                 key: $0.propertyKey, target: $0.target, valueType: $0.valueType
             )
         }.map(\.target))
-        let boundedProducerTargets: [(
-            String, Set<SceneDynamicTarget>, Int, Set<SceneDynamicTarget>,
-            Set<SceneDynamicTarget>
-        )] = [
-            ("property-vector", propertyVectorScriptTargets,
-             propertyVectorScriptTargets.count,
-             model.propertyVectorProjection.animationTargets, vectorPropertyInputTargets),
-            ("shared-alpha", Set(model.sharedLayerAlphaProgram.definitions.map(\.target)),
-             model.sharedLayerAlphaProgram.definitions.count, [], []),
-        ]
-        var boundedSceneScriptTargets: Set<SceneDynamicTarget> = []
-        var boundedProducerConflicts: [String] =
+        var vectorProducerConflicts: [String] =
             model.propertyVectorProjection.duplicateTargets.isEmpty
                 ? [] : ["property-vector/duplicate"]
-        for (name, targets, definitionCount, allowedTimelineTargets, allowedPropertyInputs)
-            in boundedProducerTargets {
-            if targets.count != definitionCount {
-                boundedProducerConflicts.append("\(name)/duplicate")
-            }
-            if !targets.isDisjoint(with: propertyBindingTargets) &&
-                !targets.intersection(propertyBindingTargets)
-                    .subtracting(allowedPropertyInputs).isEmpty {
-                boundedProducerConflicts.append("\(name)/property")
-            }
-            let unownedTimelineOverlap = targets.intersection(timelineTargets)
-                .subtracting(allowedTimelineTargets)
-            if !unownedTimelineOverlap.isEmpty {
-                boundedProducerConflicts.append("\(name)/timeline")
-            }
-            if !targets.isDisjoint(with: boundedSceneScriptTargets) {
-                boundedProducerConflicts.append("\(name)/bounded-peer")
-            }
-            boundedSceneScriptTargets.formUnion(targets)
+        if !propertyVectorScriptTargets.intersection(propertyBindingTargets)
+            .subtracting(vectorPropertyInputTargets).isEmpty {
+            vectorProducerConflicts.append("property-vector/property")
         }
-        guard boundedProducerConflicts.isEmpty else {
+        if !propertyVectorScriptTargets.intersection(timelineTargets)
+            .subtracting(model.propertyVectorProjection.animationTargets).isEmpty {
+            vectorProducerConflicts.append("property-vector/timeline")
+        }
+        guard vectorProducerConflicts.isEmpty else {
             throw SceneDesktopWallpaperHostLaunchError
                 .conflictingBoundedSceneScriptTargets(
-                    " phases=\(boundedProducerConflicts.joined(separator: ","))"
+                    " phases=\(vectorProducerConflicts.joined(separator: ","))"
                 )
         }
         var soundPlaybackProgram = try SceneSoundPlaybackProgram.compile(
@@ -383,27 +360,16 @@ extension SceneDesktopWallpaperHost {
             descriptor: authoredRenderDescriptor,
             scriptBindings: model.sceneDocument.scriptBindings,
             timelineTargets: timelineTargets,
-            excludedTargets: boundedSceneScriptTargets
+            excludedTargets: propertyVectorScriptTargets
         )
         let sceneScriptScalarTargets = Set(sceneScriptScalarDefinitions.map(\.target))
-        guard sceneScriptScalarTargets.isDisjoint(
-            with: boundedSceneScriptTargets
-        ) else {
-            throw SceneDesktopWallpaperHostLaunchError
-                .invalidBoundedSceneScriptProgramAt("scalar-target-ownership")
-        }
-        let sceneScriptStringExcludedTargets = boundedSceneScriptTargets
+        let sceneScriptStringExcludedTargets = propertyVectorScriptTargets
             .union(sceneScriptScalarTargets)
         let sceneScriptStringTargets = SceneScriptStringProgram.projectedTargets(
             descriptor: runtimeInput.renderDescriptor,
             scriptBindings: model.sceneDocument.scriptBindings,
             excludedTargets: sceneScriptStringExcludedTargets
         )
-        guard sceneScriptStringTargets.isDisjoint(with: boundedSceneScriptTargets),
-              sceneScriptStringTargets.isDisjoint(with: sceneScriptScalarTargets) else {
-            throw SceneDesktopWallpaperHostLaunchError
-                .invalidBoundedSceneScriptProgramAt("string-target-ownership")
-        }
         guard let sceneScriptVectorMediaRoute =
                 SceneScriptVectorMediaRouteState.resolve(
                     ProcessInfo.processInfo.environment[
@@ -589,7 +555,7 @@ extension SceneDesktopWallpaperHost {
         // Structural candidates need an actual prepared consumer. Partition
         // them before planning/evaluating modules; construction and fallback
         // use the same exclusions.
-        let scalarExcludedTargets = boundedSceneScriptTargets.union(
+        let scalarExcludedTargets = propertyVectorScriptTargets.union(
             sceneScriptScalarTargets.filter { target in
                 switch target {
                 case .layer(_, .brightness):
@@ -813,7 +779,6 @@ extension SceneDesktopWallpaperHost {
 #endif
         let frameSchema = SceneDesktopWallpaperLaunchFrameSchema(
             runtimeInput: runtimeInput,
-            sharedLayerAlphaProgram: model.sharedLayerAlphaProgram,
             propertyVectorScriptProgram: propertyVectorScriptProgram,
             sceneScriptFallbackDefinitions: sceneScriptFallbackDefinitions,
             sceneScriptScalarProgram: sceneScriptScalarProgram,
@@ -844,7 +809,6 @@ extension SceneDesktopWallpaperHost {
             textureAnimationPlaybackRuntime:
                 SceneTextureAnimationPlaybackRuntime(),
             puppetAnimationPlaybackRuntime: ScenePuppetAnimationPlaybackRuntime(),
-            sharedLayerAlphaProgram: model.sharedLayerAlphaProgram,
             sceneScriptCursorProgram: sceneScriptCursorProgram,
             propertyVectorScriptProgram: propertyVectorScriptProgram,
             propertyVectorPassCandidateTargets:

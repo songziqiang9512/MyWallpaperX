@@ -21,7 +21,6 @@ struct SceneDesktopWallpaperLaunchContext {
     let timelinePlaybackRuntime: SceneTimelinePlaybackRuntime
     let textureAnimationPlaybackRuntime: SceneTextureAnimationPlaybackRuntime
     let puppetAnimationPlaybackRuntime: ScenePuppetAnimationPlaybackRuntime
-    let sharedLayerAlphaProgram: SceneSharedLayerAlphaProgram
     let sceneScriptCursorProgram: SceneScriptCursorProgram
     let propertyVectorScriptProgram: SceneScriptVectorProgram
     let propertyVectorPassCandidateTargets: Set<SceneDynamicTarget>

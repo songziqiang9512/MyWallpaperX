@@ -82,8 +82,6 @@ final class TestResettable {func reset() {};func revoke() {};func cancel() {};fu
 final class TestWindow {func orderOut(_ sender:Any?) {};func close() {}}
 enum TestCursorState {case empty}
 struct TestCursorProgram {func restoreEdgeState(_ state:TestCursorState) {}}
-enum TestSharedProgram {case empty}
-struct TestSharedRuntime {init(program:TestSharedProgram) {}}
 enum TestUserTextureLoad {case empty}
 struct TestDeferredUpdate {let generation:UInt64;let layerIDs:Set<Int>}
 final class SceneSystemMediaDemandRegistry {static let shared=SceneSystemMediaDemandRegistry();func release(_ id:UUID) {}}
@@ -95,14 +93,13 @@ struct TestLaunchContext {let preparedDeviceResources:TestPreparedResources;let 
 
     let lifecycleID=UUID()
     let initialPresentationCohort=TestResettable(),userShortcutInput=TestResettable()
-    var initialUserVideoPreparation:TestResettable?,screenReconciliationWorkItem:DispatchWorkItem?
+    var initialVideoPreparation:TestResettable?,screenReconciliationWorkItem:DispatchWorkItem?
     var screenTopology:[Int]=[],rebuiltTopology:[Int]=[]
     var frameTimer:Timer?,frameDriverDeadline:Double?,pausedFrameRetryDeadline:Double?
     var debugSurfaceReferenceFrames:[Int:Int]=[:]
     var pendingDeferredLayerVisibilityUpdate:TestDeferredUpdate?
     var audioDemand=(false,false)
     var onAudioDemandChanged:(()->Void)?
-    var sharedLayerAlphaRuntime=TestSharedRuntime(program:.empty)
     var debugDropDynamicValuesFrameIndex:UInt64?
     var debugDidDropDynamicValues=false,debugDidLogDynamicValuesRecovery=false
     var videoTextureSourceRegistry:TestResettable?,soundPlaybackRegistry:TestResettable?
@@ -356,8 +353,6 @@ final class TestResettable {func reset() {};func revoke() {};func cancel() {};fu
 final class TestWindow {func orderOut(_ sender:Any?) {};func close() {}}
 enum TestCursorState {case empty}
 struct TestCursorProgram {func restoreEdgeState(_ state:TestCursorState) {}}
-enum TestSharedProgram {case empty}
-struct TestSharedRuntime {init(program:TestSharedProgram) {}}
 enum TestUserTextureLoad {case empty}
 struct TestDeferredUpdate {let generation:UInt64;let layerIDs:Set<Int>}
 final class SceneSystemMediaDemandRegistry {static let shared=SceneSystemMediaDemandRegistry();func release(_ id:UUID) {}}
@@ -369,14 +364,13 @@ struct TestLaunchContext {let preparedDeviceResources:TestPreparedResources;let 
 
     let lifecycleID=UUID()
     let initialPresentationCohort=TestResettable(),userShortcutInput=TestResettable()
-    var initialUserVideoPreparation:TestResettable?,screenReconciliationWorkItem:DispatchWorkItem?
+    var initialVideoPreparation:TestResettable?,screenReconciliationWorkItem:DispatchWorkItem?
     var screenTopology:[Int]=[],rebuiltTopology:[Int]=[]
     var frameTimer:Timer?,frameDriverDeadline:Double?,pausedFrameRetryDeadline:Double?
     var debugSurfaceReferenceFrames:[Int:Int]=[:]
     var pendingDeferredLayerVisibilityUpdate:TestDeferredUpdate?
     var audioDemand=(false,false)
     var onAudioDemandChanged:(()->Void)?
-    var sharedLayerAlphaRuntime=TestSharedRuntime(program:.empty)
     var debugDropDynamicValuesFrameIndex:UInt64?
     var debugDidDropDynamicValues=false,debugDidLogDynamicValuesRecovery=false
     var videoTextureSourceRegistry:TestResettable?,soundPlaybackRegistry:TestResettable?

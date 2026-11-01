@@ -261,13 +261,6 @@
     },
     {
       "path": "script/tests/test_scene_frame_vm_routing.py",
-      "scope": "SceneFrameVMRoutingTests.test_alpha_display_fallback_wiring_in_runtime_model",
-      "method": "assertIn",
-      "literal": "let alphaClaimedTargets = sharedAlphaTargets\n            .union(projectedScalarTargets)\n            .union(timelineTargets)",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_frame_vm_routing.py",
       "scope": "SceneFrameVMRoutingTests.test_layer_catalog_is_configured_once_per_snapshot",
       "method": "assertIn",
       "literal": "guard configured == catalogToken else",

@@ -85,7 +85,7 @@
     },
     {
       "name": "identifier",
-      "allowedCopies": 14,
+      "allowedCopies": 13,
       "canonical": "Compilation/ShaderFrontend/SceneAuthoredShaderSyntax.swift",
       "note": "Source-token scanner copy; the family merge picks the shared home.",
       "owner": "Compilation/ShaderFrontend family merge",

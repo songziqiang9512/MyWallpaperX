@@ -47,6 +47,16 @@
 
 媒体事件未到时保作者值；有效事件里的空字符串清空内容，不当缺数据。隐藏但已进入准备集合的文本、纯事件和 init-only 绑定、用户属性、错误回退及 owner 退出沿既有 VM/typed 状态语义。保留实际语言、日期、媒体、优先级和绘制行为用例；退役仅锁旧语法拒绝域或源码形状的断言。验证复用 StringProgram、QuickJS、动态文字与真实文本作品，不复制旧 evaluator 到测试。
 
+### 语言执行收敛：共享状态与 alpha
+
+共享 alpha 沿现有 IR → 同 domain 的模块初始化/事件 → scalar update(current) → typed snapshot → 原 compositor 执行。Bool/visible 模块的顶层初始化、cursor 与 applyUserProperties 写入真实 shared heap；alpha 读取同一对象，不再从源码抽取并保存第二份 flags。作者 rise/fall、上下界与条件属于脚本本身，VM 返回值仍按原 scalar/consumer 合同处理，不能先把合法上限 50 截成 1。
+
+模块生命周期不能以内容种类或旧utility源码准入代替。现有资源/graph准备已经保留依赖composition的可见消费者；真正不支持的project/fullscreen依赖、子层与effects仍在SourceRoute/UtilityRuntimePlanner实际消费处局部拒绝。删除Bool投影中重复且更严的kind白名单与utility形状关卡，让旧初始化路径接受的模型、带依赖或层级utility沿同一Bool owner构造、事件与退出；不新增output-admission flag或模块管理器。Bool值仍进入原typed snapshot，不能凭该值产生不存在的资源/target plan。验证无callback初始化、属性事件/返回值与无prepared plan的真实consumer反例，不能仅测无依赖project。
+
+退出四个 SharedLayerAlpha Syntax/Compiler/Program/Runtime 文件、RuntimeModel 的独立投影与 claimed-target 分流，以及 LaunchContext/FrameSchema/Session 的旧字段、预求值/合并、pending/commit 与启动报告。仅剩一个 vector producer 的通用集合循环改为原集合直接使用；由投影已排除的 target 不在同一同步准备中重复校验互斥，不删除真实 duplicate/property/Timeline 冲突检查。
+
+复用现有 authored owner 顺序、初始化 barrier、cadence cache、property revision、surface commit 与生命周期；失败只撤受影响 typed 输出，不能为模拟旧 CPU candidate 而克隆或回滚 JS shared heap。先用真实 VM 正反门覆盖初始化、开关、2×上升/6×下降、上限热改、嵌套 fallback、等价 JS、异常与重复 cadence，再用原始作品的默认/点击/属性变化及健康文本邻例验证实际画面。旧语法白名单和与假 shared 状态绑定的断言同批退出；未过完整多屏、暂停/恢复或官方语义范围保持未闭。
+
 ## 职责与数据流
 
 ```text

@@ -11,8 +11,8 @@ build 后 renderDescriptor 上的 displayScriptOwnership 与 SceneLayerVisibilit
    （SceneScriptScalarDisplayProjection.applyUnclaimedFallback）把
    displayScriptOwnership.alpha 释放为 false，层回到 authored alpha 显示。
 2. 被发布路径认领的 alpha 目标不被第二 tier 释放：timeline-only 认领的层
-   （claimed 集合是 shared ∪ scalar-projected ∪ timeline 的并集）保持
-   alpha == true；scalar/shared 认领的层由各自的第一 tier 投影更早释放，
+   （claimed 集合是 scalar-projected ∪ timeline 的并集）保持
+   alpha == true；scalar 认领的层由第一 tier 投影更早释放，
    同样以 alpha == false 落地（admit 桶既有语义，本 fixture 一并钉死终态）。
 3. 无脚本的层 ownership 为空（visible:false, alpha:false）——文档对象上
    ownership 是非可选解析产物（SceneDocumentObject.swift），descriptor 原样
@@ -113,9 +113,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Systems/Properties/ScenePropertyBindingCompiler+TargetMapping.swift",
     SOURCE_ROOT / "Systems/Properties/ScenePropertyBindingProgramValidator.swift",
     SOURCE_ROOT / "Systems/Properties/SceneMaterialPropertyBindingCompiler.swift",
-    SOURCE_ROOT / "Systems/Properties/SceneSharedLayerAlphaCompiler.swift",
-    SOURCE_ROOT / "Systems/Properties/SceneSharedLayerAlphaProgram.swift",
-    SOURCE_ROOT / "Systems/Properties/SceneSharedLayerAlphaSyntax.swift",
     SOURCE_ROOT / "Systems/Properties/SceneIdentityDisplayScriptProjection.swift",
     SOURCE_ROOT / "Systems/Properties/SceneLaunchOriginTransitionCompiler+SyntaxLexer.swift",
     SOURCE_ROOT / "Systems/Script/SceneScriptScalarProgram+Projection.swift",
@@ -151,6 +148,11 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Systems/Particles/SceneParticlePlaybackModels.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticleDefinition.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticleInitializer.swift",
+    SOURCE_ROOT / "Systems/Particles/SceneParticleAudioResponsePlan.swift",
+    SOURCE_ROOT / "Systems/Particles/SceneParticleSimulationSupport.swift",
+    SOURCE_ROOT / "Systems/Particles/SceneParticleControlPointForce.swift",
+    SOURCE_ROOT / "Systems/Particles/SceneParticlePeriodicEmission.swift",
+    SOURCE_ROOT / "Systems/Particles/SceneParticleRopePlan.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticleVortex.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticleRemapValue.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticleReduceMovement.swift",
@@ -237,7 +239,7 @@ SCENE_FIXTURE = {
         },
         {
             # Timeline 认领（[animation,script,scriptproperties,value] 形态
-            # 不满足 scalar 准入的 wrapper 白名单）但 scalar/shared 不认领：
+            # 不满足 scalar 准入的 wrapper 白名单）但 scalar 不认领：
             # claimed 并集里的 timeline 成员让第二 tier 保持 alpha == true
             # ——构建后唯一以 alpha == true 落地的认领形态。
             "id": 50,
@@ -380,33 +382,7 @@ struct SceneScriptMediaPlaybackCommand: Equatable, Sendable {}
 struct SceneScriptParticlePlaybackCommand: Equatable, Sendable {}
 
 enum SceneBaseMaterialColorModulationCompiler {
-    struct Binding {
-        let scriptSource: String?
-        let scriptProperties: [String: SceneJSONValue]
-        let sourceLayerID: Int
-        let materialPath: String
-        let colorKey: String
-        let authoredColor: SIMD3<Double>
-        let modelPath: String
-        var alphaKey: String? = nil
-        var authoredAlpha: Float = 1
-        var alphaUserPropertyKey: String? = nil
-        var alphaPropertyTarget: SceneDynamicTarget? {
-            guard alphaUserPropertyKey != nil, let alphaKey else { return nil }
-            return .materialConstant(layerID: sourceLayerID, passIndex: 0,
-                name: alphaKey, materialPath: materialPath)
-        }
-        var colorUserPropertyKey: String? = nil
-        var colorPropertyTarget: SceneDynamicTarget? {
-            guard colorUserPropertyKey != nil else { return nil }
-            return .materialConstant(layerID: sourceLayerID, passIndex: 0,
-                name: colorKey, materialPath: materialPath)
-        }
-        var colorBindingPath: [SceneUserPropertyPathComponent] {
-            [.key("materials"), .key(materialPath), .key("passes"), .index(0),
-             .key("constantshadervalues"), .key(colorKey)]
-        }
-    }
+__BASE_MATERIAL_BINDING__
 
     static func compile(
         descriptor: SceneRenderDescriptor,
@@ -580,9 +556,6 @@ enum Harness {
             "visibleLayerIDs": SceneLayerVisibility.visibleLayerIDs(
                 in: model.renderDescriptor
             ).sorted(),
-            "sharedAlphaTargets": model.sharedLayerAlphaProgram.definitions.map {
-                "\($0.target)"
-            },
         ]
         let data = try JSONSerialization.data(
             withJSONObject: payload,
@@ -621,13 +594,13 @@ HARNESS_SOURCE = "\n".join(
         (SOURCE_ROOT / "Systems/Script/SceneScriptLayerMutation.swift").read_text(),
         "    var isNewborn:",
     ),
+).replace(
+    "__BASE_MATERIAL_BINDING__",
+    swift_declaration(
+        (SOURCE_ROOT / "Compilation/Material/SceneBaseMaterialColorModulationCompiler.swift").read_text(),
+        "    struct Binding: Sendable {",
+    ),
 )
-
-# Every consumer of this shared builder needs the same real data-only leaf.
-# Particle simulation remains outside this solid/text preparation fixture.
-_force_source = (SOURCE_ROOT / "Systems/Particles/SceneParticleControlPointForce.swift").read_text()
-_environment_start = _force_source.index("nonisolated struct SceneParticleControlPointForceEnvironment:")
-HARNESS_SOURCE = _force_source[_environment_start:_force_source.index("\n}", _environment_start) + 2] + "\n" + HARNESS_SOURCE
 
 # Scalar preparation uses this production identity proof. Retain the complete
 # method from its owner; the remaining bridge methods require the VM, which is
@@ -765,8 +738,6 @@ class SceneAlphaDisplayBuilderFixtureTests(unittest.TestCase):
         self.assertEqual(
             [l["id"] for l in self.result["layers"]], [10, 20, 30, 40, 50, 101, 102, 103, 104, 105, 91, 92, 93, 94]
         )
-        # 本 fixture 无 shared-alpha 形态：shared 发布路径认领为零。
-        self.assertEqual(self.result["sharedAlphaTargets"], [])
 
     def test_null_valued_inline_alpha_wrapper_releases_to_authored_display(
         self,

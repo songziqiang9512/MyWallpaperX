@@ -666,12 +666,7 @@ nonisolated extension SceneScriptVectorProgram {
               layer.layerIndex == objectIndex,
               binding.targetPath == [
                   .key("objects"), .index(objectIndex), .key("visible"),
-              ],
-              ["image", "solid", "text", "container", "composition", "project", "fullscreen", "particle",
-               "pointLight", "spotLight", "directionalLight"].contains(
-                  layer.contentKind
-              ),
-              Self.admitsUtilityLayerVisibility(layer, descriptor: descriptor) else { return nil }
+              ] else { return nil }
         let validWrapper =
             (binding.wrapperKeys == ["script", "value"]
                 && binding.properties.isEmpty)
@@ -707,28 +702,6 @@ nonisolated extension SceneScriptVectorProgram {
             dynamicMaterialModelPath: nil,
             userPropertyInputKey: binding.userPropertyKey
         )
-    }
-
-    /// Fixed composition groups and standalone project/fullscreen captures consume the
-    /// committed visibility snapshot. Other utility shapes still lack the
-    /// preparation contract needed to reveal them after launch.
-    private static func admitsUtilityLayerVisibility(
-        _ layer: SceneRenderDescriptor.Layer,
-        descriptor: SceneRenderDescriptor
-    ) -> Bool {
-        guard let utilityLayer = layer.utilityLayer else {
-            return layer.contentKind != "project" && layer.contentKind != "fullscreen"
-        }
-        guard layer.dependencyLayerIDs.isEmpty,
-              layer.authoredDependencies.isEmpty else { return false }
-        switch utilityLayer.kind {
-        case .composition:
-            return layer.contentKind != "project" && layer.contentKind != "fullscreen"
-        case .project, .fullscreen:
-            return layer.contentKind == utilityLayer.kind.rawValue
-                && layer.parentID == nil && layer.childLayerIDs.isEmpty
-                && !descriptor.layers.contains { $0.parentID == layer.id }
-        }
     }
 
     /// This is deliberately narrower than general Vec3 execution. It does not

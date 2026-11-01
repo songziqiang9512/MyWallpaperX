@@ -356,12 +356,12 @@ class SceneValidationRoutingTests(unittest.TestCase):
             with self.subTest(module=module):
                 self.assertIn(module, focused.command)
 
-    def test_properties_change_selects_shared_alpha_and_generic_vector_contracts(
+    def test_properties_change_selects_property_and_generic_vector_contracts(
         self,
     ) -> None:
         gates, groups = verify.build_plan(
             [
-                'MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneSharedLayerAlphaRuntime.swift'
+                'MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyBindings.swift'
             ],
             arguments(),
             self.registry,

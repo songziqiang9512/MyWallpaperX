@@ -6,6 +6,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-11-02 | Scene alpha | 已完设计原文 | [显示权旧设计](alpha-display-fallback-design-2026-10-01.md) | 保留独立 shared-alpha 退出前的完整设计；旧范围不再限制当前迁移 | [现役合同](../capabilities/alpha-display-fallback-design.md)、[能力状态](../capabilities/scenescript-api-coverage.md) |
 | 2026-11-01 | 公共依赖图归整 | 完整原文 | [归整前依赖图](capability-dependency-map-through-2026-11-01.md) | 保留旧等级、来源与实施门；现役仅维护关系 | [依赖参考](../architecture/capability-dependency-map.md)、[运行架构](../architecture/runtime-architecture.md)、[能力台账](../capabilities/coverage-ledger.md) |
 | 2026-11-01 | 顶层设计归整 | 完整原文与链接重定位 | [归整前架构](runtime-architecture-through-2026-11-01.md) | 保留旧限定及原始身份，现役整体与专项重新分工 | [运行架构](../architecture/runtime-architecture.md)、[组件合同](../capabilities/runtime-systems-reference.md)、[代码地图](../architecture/runtime-as-built-map.md) |
 | 2026-11-01 | 粒子材质执行 | 实施前设计与有界验收 | [变体需求与同层深度](particle-material-depth-2026-11-01.md) | REFRACT只读深度、mixed遮挡及零writer免分配；首失败和呈现计时缺失分开保留 | [粒子合同](../capabilities/particle-component-coverage.md#particle-material-depth-variants)、[队列](../roadmap/scene-open-breakpoint-queue.md) |

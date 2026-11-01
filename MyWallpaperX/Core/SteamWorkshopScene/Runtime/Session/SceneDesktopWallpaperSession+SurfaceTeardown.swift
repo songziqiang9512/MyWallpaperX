@@ -74,7 +74,6 @@ extension SceneDesktopWallpaperSession {
             pendingDeferredLayerVisibilityUpdate = nil
             audioDemand = (false, false)
             onAudioDemandChanged?()
-            sharedLayerAlphaRuntime = .init(program: .empty)
 #if DEBUG
             debugDropDynamicValuesFrameIndex = nil
             debugDidDropDynamicValues = false

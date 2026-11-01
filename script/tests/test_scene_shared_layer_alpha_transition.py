@@ -1,396 +1,442 @@
 #!/usr/bin/env python3
-
-"""Strict shared-boolean layer-alpha compilation and scene-lifetime runtime."""
-
+"""Shared alpha uses the production Bool/scalar QuickJS domain and typed state."""
 from __future__ import annotations
 
 import json
 from pathlib import Path
-import shutil
 import subprocess
 import tempfile
 import unittest
 
+from .scene_vector_vm_test_support import SCENE, VM, compile_vector_harness
 
-ROOT = Path(__file__).resolve().parents[2]
-SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
-SOURCES = [
-    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift",
-    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift",
-    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneLaunchOriginTransitionCompiler+SyntaxLexer.swift",
-    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneSharedLayerAlphaProgram.swift",
-    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneSharedLayerAlphaSyntax.swift",
-    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneSharedLayerAlphaCompiler.swift",
-    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneSharedLayerAlphaRuntime.swift",
-]
 
 HARNESS = r'''
-import Foundation
+@main enum Harness {
+    final class Fixture {
+        let candidate: SceneScriptQuickJSProgramCandidate
+        let scheduler: SceneScriptMediaFrameCoordinator
+        let writerTarget: SceneDynamicTarget
+        let targets: [SceneDynamicTarget]
+        let definitions: [SceneDynamicTargetDefinition]
+        let parserDiagnostics: [SceneScriptBindingDiagnostic]
+        var transaction = SceneEvaluationTransaction()
+        var frameIndex: UInt64 = 0
+        var sceneTime: Double = 0
 
-enum SceneJSONValue: Equatable {
-    case bool(Bool), number(Double), string(String), object([String: SceneJSONValue])
-    var boolValue: Bool? { if case let .bool(value) = self { value } else { nil } }
-    var stringValue: String? { if case let .string(value) = self { value } else { nil } }
-}
-enum SceneScriptBindingValueType { case boolean, number, string }
-enum SceneScriptBindingPathComponent: Equatable { case key(String), index(Int) }
-struct SceneScriptBindingOwner: Equatable {
-    enum Kind: Equatable { case object }
-    let kind: Kind
-    let objectIndex: Int?, objectID: Int?
-}
-struct SceneScriptBindingIR {
-    let source: String, owner: SceneScriptBindingOwner
-    let targetPath: [SceneScriptBindingPathComponent]
-    let properties: [String: SceneJSONValue]
-    let authoredValue: SceneJSONValue?, valueType: SceneScriptBindingValueType
-    let wrapperKeys: [String]?
-    var targetKey: String { if case let .key(key) = targetPath.last { key } else { "" } }
-}
-struct SceneScriptSourceEvidenceIR {
-    let source: String, owner: SceneScriptBindingOwner
-    let targetPath: [SceneScriptBindingPathComponent], wrapperKeys: [String]
-}
-struct SceneLayerDisplayScriptOwnership: Equatable {
-    let visible: Bool, alpha: Bool
-}
-struct SceneScriptBindingDefinition {
-    let host: String, source: String
-    let properties: [String: SceneJSONValue]
-    let authoredValue: SceneJSONValue?
-}
-struct SceneRenderDescriptor {
-    struct Layer {
-        let id: Int, layerIndex: Int, visible: Bool?, alpha: Double?
-        var displayScriptOwnership: SceneLayerDisplayScriptOwnership?
-        let scriptBindings: [SceneScriptBindingDefinition]?
+        init(_ alphaWrappers: [[String: Any]], writer: String = Harness.writer,
+             renamed: Bool = false, writerUtility: SceneUtilityLayer.Kind? = nil,
+             writerVisible: Bool = true, writerDependencies: Bool = false,
+             writerModel: Bool = false) throws {
+            let writerID = renamed ? 71 : 11
+            let visibilityTarget = SceneDynamicTarget.layer(layerID: writerID, field: .visibility)
+            writerTarget = visibilityTarget
+            let firstAlphaID = renamed ? 930 : 100
+            var objects: [[String: Any]] = [["id": writerID,
+                "visible": ["value": writerVisible, "script": writer]]]
+            var layers: [SceneRenderDescriptor.Layer] = [
+                .init(id: writerID, layerIndex: 0, name: renamed ? "toggle renamed" : "toggle",
+                    visible: writerVisible, originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1],
+                    alpha: 1, effects: [])]
+            if let kind = writerUtility {
+                let image = "models/util/\(kind.rawValue)layer.json"
+                objects[0]["image"] = image
+                layers[0].contentKind = kind.rawValue
+                layers[0].imagePath = image
+                layers[0].utilityLayer = .init(kind: kind, copyBackground: false,
+                    passthrough: false)
+            }
+            if writerModel {
+                let model = renamed ? "models/alternate-controller.mdl" : "models/controller.mdl"
+                objects[0]["model"] = model
+                layers[0].contentKind = "model"
+                layers[0].staticModelPath = model
+            }
+            for (index, wrapper) in alphaWrappers.enumerated() {
+                let id = firstAlphaID + index
+                let image = renamed ? "materials/alternate-\(index).json" : "materials/image-\(index).json"
+                objects.append(["id": id, "image": image, "alpha": wrapper])
+                layers.append(.init(id: id, layerIndex: layers.count,
+                    name: renamed ? "renamed image \(index)" : "image \(index)",
+                    visible: true, originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1],
+                    alpha: wrapper["value"] as? Double, effects: [], imagePath: image))
+            }
+            if writerDependencies {
+                objects[0]["dependencies"] = [firstAlphaID]
+                layers[0].dependencyLayerIDs = [firstAlphaID]
+            }
+            let parsed = SceneScriptBindingIRParser.parse(document: ["objects": objects])
+            parserDiagnostics = parsed.diagnostics
+            let descriptor = SceneRenderDescriptor(layers: layers)
+            candidate = try SceneScriptQuickJSProgramCandidate.compile(
+                authoredDescriptor: descriptor, runtimeDescriptor: descriptor,
+                scriptBindings: parsed.bindings,
+                vectorProjection: SceneScriptVectorProgram.project(
+                    descriptor: descriptor, scriptBindings: parsed.bindings),
+                userPropertyDefinitions: [Harness.property("enabled", .bool),
+                    Harness.property("ceiling", .slider), Harness.property("percentage", .slider)],
+                timelineTargets: [], scalarExcludedTargets: [], stringExcludedTargets: [],
+                admittedVectorPassTargets: [], generation: 1)
+            scheduler = SceneScriptMediaFrameCoordinator(vectorProgram: candidate.vectorProgram,
+                stringProgram: candidate.stringProgram, scalarProgram: candidate.scalarProgram)
+            targets = alphaWrappers.indices.map { .layer(layerID: firstAlphaID + $0, field: .alpha) }
+            let programDefinitions = candidate.vectorProgram.definitions + candidate.scalarProgram.definitions
+            let claimed = Set(programDefinitions.map(\.target))
+            let authored = SceneScriptDynamicLayerRuntime(descriptor: descriptor,
+                authoredMutationLayerIDs: []).authoredLayerDefinitions
+            definitions = programDefinitions + authored.filter {
+                $0.target == visibilityTarget && !claimed.contains($0.target)
+            }
+        }
+
+        func step(_ delta: Double, enabled: Bool = true, ceiling: Double? = nil,
+                  percentage: Double? = nil, revision: UInt64 = 1,
+                  userValues: [SceneDynamicTarget: SceneDynamicValue] = [:],
+                  timelineValues: [SceneDynamicTarget: SceneDynamicValue] = [:]) -> [String: Any] {
+            frameIndex += 1
+            sceneTime += delta
+            let frame = SceneScriptFrameInput(timing: .init(
+                wallDate: Date(timeIntervalSince1970: 0),
+                simulationFrameTime: delta, sceneTime: sceneTime))
+            var properties: [String: SceneUserPropertyValue] = ["enabled": .bool(enabled)]
+            if let ceiling { properties["ceiling"] = .number(ceiling) }
+            if let percentage { properties["percentage"] = .number(percentage) }
+            let json = SceneScriptPropertyInputCodec.userPropertiesJSON(
+                values: properties, kinds: ["enabled": .bool, "ceiling": .slider, "percentage": .slider])
+            let previous = transaction.previousValues(for: Set(definitions.map(\.target)),
+                userValues: userValues, timelineValues: timelineValues)
+            let preliminary = SceneDynamicSnapshotResolver().resolve(
+                frameIndex: frameIndex, generation: 0, definitions: definitions,
+                userValues: userValues, timelineValues: timelineValues,
+                sceneScriptValues: previous).snapshot
+            let vectorInputs = preliminary.values(for: candidate.vectorProgram.inputTargets)
+            let scalarInputs = preliminary.values(for: candidate.scalarProgram.inputTargets)
+            let initialized = scheduler.initialize(vectorInputs: vectorInputs, stringInputs: [:],
+                scalarInputs: scalarInputs, effectivePropertyValues: properties,
+                frame: frame, userPropertiesJSON: json, audioSpectrum: .silent)
+            let result = scheduler.evaluate(vectorInputs: vectorInputs, stringInputs: [:],
+                scalarInputs: scalarInputs, effectivePropertyValues: properties,
+                frame: frame, userPropertiesJSON: json, propertyRevision: revision,
+                events: .init(playback: nil, properties: nil, thumbnail: nil, timeline: nil),
+                audioSpectrum: .silent, initializationFailures: initialized.failures)
+            candidate.vectorProgram.finalizeLayerMutations(committing: true)
+            candidate.scalarProgram.finalizeLayerMutations(committing: true)
+            candidate.stringProgram.finalizeLayerMutations(committing: true)
+            scheduler.finalizeInitializations()
+            var values = previous
+            values.merge(result.vector.values) { _, next in next }
+            values.merge(result.scalar.values) { _, next in next }
+            let resolution = transaction.evaluate(frameIndex: frameIndex,
+                definitions: definitions, userValues: userValues, timelineValues: timelineValues,
+                sceneScriptValues: values)
+            var report = committed()
+            report["failures"] = targets.map { result.scalar.failures[$0]?.code ?? "ok" }
+            report["vectorFailures"] = result.vector.failures.count
+            report["initializationFailures"] = initialized.failures.count
+            report["snapshotDiagnostics"] = resolution.diagnostics.count
+            report["scalarPublications"] = result.scalar.values.count
+            report["boolPublications"] = result.vector.values.count
+            report["disabled"] = targets.map { candidate.scalarProgram.disabledTargets.contains($0) }
+            return report
+        }
+
+        func committed() -> [String: Any] {
+            let snapshot = transaction.committedSnapshot
+            return ["values": targets.map { Harness.scalar(snapshot?[$0]?.value) },
+                "sources": targets.map { snapshot?[$0]?.source.rawValue ?? "missing" },
+                "frameIndex": snapshot?.frameIndex ?? 0,
+                "generation": snapshot?.generation ?? 0,
+                "complete": candidate.constructionReport.isComplete,
+                "scalarOwners": candidate.scalarProgram.bindings.count,
+                "boolOwners": candidate.vectorProgram.bindings.count,
+                "writerVisible": snapshot?[writerTarget]?.value == .bool(true),
+                "writerSource": snapshot?[writerTarget]?.source.rawValue ?? "missing",
+                "writerIdle": candidate.vectorProgram.bindings.first?.owner.requiresFrameEvaluation == false,
+                "writerNeedsInitialization": candidate.vectorProgram.bindings.first?.owner.needsInitialization == true,
+                "parserDiagnostics": parserDiagnostics.map { $0.code.rawValue }]
+        }
     }
-    var layers: [Layer]
-}
 
-@main
-enum Harness {
-    static func main() throws {
-        let sourceWithProperty = ramp(
-            condition: true, upper: "scriptProperties.limit", rise: 1, fall: 1,
-            property: true
-        )
-        let exactWorkshopSource = """
-        'use strict';
-
-        export var scriptProperties = createScriptProperties()
-          .addSlider({
-            name: 'touming',
-            label: 'New Slider',
-            value: 50,
-            min: 0,
-            max: 100,
-            integer: false
-          })
-          .finish();
-
-        export function update(value) {
-          if(shared.b == true){
-            value += engine.frametime;
-            if (value >= scriptProperties.touming) {
-              value = scriptProperties.touming;
-            }
-          }else if(shared.b != true){
-            value -= engine.frametime;
-            if (value <= 0.0) {
-              value = 0.0;
-            }
-          }
-          return value;
+    static let writer = """
+        export function init(value) { shared.enabled=true; return value; }
+        export function applyUserProperties(properties) {
+            if ('enabled' in properties) shared.enabled=properties.enabled;
         }
         """
-        let bindings = [
-            binding(index: 1, id: 101, value: 0, source: sourceWithProperty,
-                    properties: ["limit": .object([
-                        "user": .string("opacity"),
-                        "value": .object(["user": .string("legacy"), "value": .number(50)])
-                    ])]),
-            binding(index: 2, id: 102, value: 0,
-                    source: ramp(condition: true, upper: "1.0", rise: 2, fall: 6)),
-            binding(index: 3, id: 103, value: 1,
-                    source: ramp(condition: false, upper: "1.0", rise: 2, fall: 6)),
-            binding(index: 5, id: 105, value: 0,
-                    source: exactWorkshopSource,
-                    properties: ["touming": .object([
-                        "user": .string("newproperty22"),
-                        "value": .object([
-                            "user": .string("legacy"),
-                            "value": .number(50)
-                        ])
-                    ])]),
-        ]
-        let descriptor = makeDescriptor(exactWorkshopSource: exactWorkshopSource)
-        let evidences = [initializer()] + bindings.map(evidence)
-        let program = SceneSharedLayerAlphaProgramCompiler.compile(
-            descriptor: descriptor, scriptBindings: bindings,
-            scriptSourceEvidence: evidences
-        )!
-        let projected = SceneSharedLayerAlphaProjection.apply(program: program, to: descriptor)
-        var runtime = SceneSharedLayerAlphaRuntime(program: program)
-        let inputs: [String: SceneUserPropertyValue] = [
-            "opacity": .number(0.5),
-            "newproperty22": .number(0.5),
-        ]
-        let first = runtime.values(effectivePropertyValues: inputs, frameTime: 0.25)
-        let second = runtime.values(effectivePropertyValues: inputs, frameTime: 0.25)
-        let badFrame = runtime.values(effectivePropertyValues: inputs, frameTime: -.infinity)
-        let changedInputs: [String: SceneUserPropertyValue] = [
-            "opacity": .number(0.3)
-        ]
-        let changed = runtime.values(
-            effectivePropertyValues: changedInputs, frameTime: 0.1
-        )
-        var transactionalRuntime = SceneSharedLayerAlphaRuntime(program: program)
-        let staged = transactionalRuntime.prepareValues(
-            effectivePropertyValues: inputs, frameTime: 0.25
-        )
-        let discarded = transactionalRuntime.prepareValues(
-            effectivePropertyValues: inputs, frameTime: 0.25
-        )
-        transactionalRuntime.commitValues(staged)
-        let afterCommit = transactionalRuntime.prepareValues(
-            effectivePropertyValues: inputs, frameTime: 0.25
-        )
 
-        let malformed = binding(
-            index: 4, id: 104, value: 0,
-            source: ramp(condition: true, upper: "1.0", rise: 2, fall: 6)
-                .replacingOccurrences(of: "engine.frametime", with: "engine.runtime"),
-            properties: [:]
-        )
-        let malformedProgram = SceneSharedLayerAlphaProgramCompiler.compile(
-            descriptor: descriptor,
-            scriptBindings: bindings + [malformed],
-            scriptSourceEvidence: evidences + [evidence(malformed)]
-        )!
-        let wrongIdentity = binding(
-            index: 4, id: 999, value: 0,
-            source: ramp(condition: true, upper: "1.0", rise: 2, fall: 6),
-            properties: [:]
-        )
-        let wrongProgram = SceneSharedLayerAlphaProgramCompiler.compile(
-            descriptor: descriptor,
-            scriptBindings: bindings + [wrongIdentity],
-            scriptSourceEvidence: evidences + [evidence(wrongIdentity)]
-        )!
-        let duplicateInitializerProgram = SceneSharedLayerAlphaProgramCompiler.compile(
-            descriptor: descriptor, scriptBindings: bindings,
-            scriptSourceEvidence: evidences + [initializer(source: "'use strict'; shared={b:false};")]
-        )!
-        let unknownFlag = binding(
-            index: 4, id: 104, value: 0,
-            source: ramp(condition: true, upper: "1.0", rise: 2, fall: 6)
-                .replacingOccurrences(of: "shared.b", with: "shared.unknown"),
-            properties: [:]
-        )
-        let unknownProgram = SceneSharedLayerAlphaProgramCompiler.compile(
-            descriptor: descriptor,
-            scriptBindings: bindings + [unknownFlag],
-            scriptSourceEvidence: evidences + [evidence(unknownFlag)]
-        )!
-        let attacks = [
-            sourceWithProperty + " shared.b=true;",
-            sourceWithProperty.replacingOccurrences(of: "shared.b", with: "shared['b']"),
-            sourceWithProperty.replacingOccurrences(of: "return value;", with: "eval('x'); return value;"),
-            sourceWithProperty.replacingOccurrences(of: "value +=", with: "value *=")
-        ]
-        let result: [String: Any] = [
-            "bindingCount": program.bindings.count,
-            "flags": program.initialFlags,
-            "layerIDs": program.layerIDs,
-            "projectedOwnership": projected.layers[1...3].map {
-                [$0.displayScriptOwnership!.visible, $0.displayScriptOwnership!.alpha]
-            },
-            "first": [scalar(first, 101), scalar(first, 102), scalar(first, 103)],
-            "second": [scalar(second, 101), scalar(second, 102), scalar(second, 103)],
-            "exactWorkshopValue": scalar(second, 105),
-            "badFrame": scalar(badFrame, 101),
-            "changedUpper": scalar(changed, 101),
-            "staged": [scalar(staged.values, 101), scalar(staged.values, 102)],
-            "discarded": [scalar(discarded.values, 101), scalar(discarded.values, 102)],
-            "afterCommit": [scalar(afterCommit.values, 101), scalar(afterCommit.values, 102)],
-            "malformedBindingCount": malformedProgram.bindings.count,
-            "wrongIdentityBindingCount": wrongProgram.bindings.count,
-            "duplicateInitializerBindingCount": duplicateInitializerProgram.bindings.count,
-            "unknownFlagBindingCount": unknownProgram.bindings.count,
-            "attackRejections": attacks.map { SceneSharedLayerAlphaSyntax.parse($0) == nil },
-            "formatVariantAccepted": SceneSharedLayerAlphaSyntax.parse(
-                sourceWithProperty.replacingOccurrences(of: "name: 'limit',\nlabel: 'Limit',", with: "label:'Limit', name:'limit',")
-            ) != nil,
-            "exactWorkshopAccepted": SceneSharedLayerAlphaSyntax.parse(exactWorkshopSource) != nil,
-        ]
-        let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
-        print(String(decoding: data, as: UTF8.self))
+    static func property(_ key: String, _ kind: SceneUserPropertyKind) -> SceneUserPropertyDefinition {
+        .init(key: key, title: key, kind: kind, runtimeType: kind.rawValue, order: 0,
+            index: nil, minimumValue: nil, maximumValue: nil, stepValue: nil,
+            allowsFractionalValues: true, fractionalPrecision: nil, displayCondition: nil,
+            defaultValue: nil, options: [])
     }
 
-    static func makeDescriptor(exactWorkshopSource: String) -> SceneRenderDescriptor {
-        .init(layers: [
-            .init(id: 200, layerIndex: 0, visible: true, alpha: nil,
-                  displayScriptOwnership: .init(visible: true, alpha: false),
-                  scriptBindings: nil),
-            .init(id: 101, layerIndex: 1, visible: nil, alpha: 0,
-                  displayScriptOwnership: .init(visible: false, alpha: true),
-                  scriptBindings: [resolvedBinding(
-                    source: ramp(condition: true, upper: "scriptProperties.limit", rise: 1, fall: 1, property: true),
-                    value: 0, properties: ["limit": .object(["user": .string("opacity"), "value": .number(0.5)])]
-                  )]),
-            .init(id: 102, layerIndex: 2, visible: nil, alpha: 0,
-                  displayScriptOwnership: .init(visible: false, alpha: true),
-                  scriptBindings: [resolvedBinding(
-                    source: ramp(condition: true, upper: "1.0", rise: 2, fall: 6), value: 0
-                  )]),
-            .init(id: 103, layerIndex: 3, visible: nil, alpha: 1,
-                  displayScriptOwnership: .init(visible: false, alpha: true),
-                  scriptBindings: [resolvedBinding(
-                    source: ramp(condition: false, upper: "1.0", rise: 2, fall: 6), value: 1
-                  )]),
-            .init(id: 104, layerIndex: 4, visible: nil, alpha: 0,
-                  displayScriptOwnership: .init(visible: false, alpha: true),
-                  scriptBindings: nil),
-            .init(id: 105, layerIndex: 5, visible: nil, alpha: 0,
-                  displayScriptOwnership: .init(visible: false, alpha: true),
-                  scriptBindings: [resolvedBinding(
-                    source: exactWorkshopSource, value: 0,
-                    properties: ["touming": .object([
-                        "user": .string("newproperty22"),
-                        "value": .number(0.5)
-                    ])]
-                  )]),
-        ])
+    static func scalar(_ value: SceneDynamicValue?) -> Double {
+        guard case let .scalar(number)? = value else { return -999 }
+        return number
     }
 
-    static func resolvedBinding(
-        source: String, value: Double,
-        properties: [String: SceneJSONValue] = [:]
-    ) -> SceneScriptBindingDefinition {
-        .init(host: "alpha", source: source, properties: properties,
-              authoredValue: .number(value))
+    static func wrapper(_ source: String, seed: Double = 0,
+                        properties: [String: Any] = [:]) -> [String: Any] {
+        ["value": seed, "script": source, "scriptproperties": properties]
     }
 
-    static func initializer(source: String = "'use strict'; shared={a:false,b:true,c:true};") -> SceneScriptSourceEvidenceIR {
-        .init(source: source, owner: .init(kind: .object, objectIndex: 0, objectID: 200),
-              targetPath: [.key("objects"), .index(0), .key("visible")],
-              wrapperKeys: ["script", "value"])
-    }
-
-    static func binding(
-        index: Int, id: Int, value: Double, source: String,
-        properties: [String: SceneJSONValue] = [:]
-    ) -> SceneScriptBindingIR {
-        .init(source: source, owner: .init(kind: .object, objectIndex: index, objectID: id),
-              targetPath: [.key("objects"), .index(index), .key("alpha")],
-              properties: properties, authoredValue: .number(value), valueType: .number,
-              wrapperKeys: properties.isEmpty ? ["script", "value"] : ["script", "scriptproperties", "value"])
-    }
-
-    static func evidence(_ binding: SceneScriptBindingIR) -> SceneScriptSourceEvidenceIR {
-        .init(source: binding.source, owner: binding.owner, targetPath: binding.targetPath,
-              wrapperKeys: binding.wrapperKeys!)
-    }
-
-    static func ramp(
-        condition: Bool, upper: String, rise: Double, fall: Double,
-        property: Bool = false
-    ) -> String {
-        let builder = property ? """
-        export var scriptProperties=createScriptProperties()
-          .addSlider({
-        name: 'limit',
-        label: 'Limit',
-        value: 50,
-        min: 0,
-        max: 100,
-        integer: false
-        }).finish();
-        """ : ""
+    static func ramp(inverse: Bool = false, equivalent: Bool = false) -> String {
+        if equivalent {
+            return """
+                export function update(opacity) {
+                    const flagKey=['en','abled'].join('');
+                    const active=shared[flagKey]===\(inverse ? "false" : "true");
+                    let next=opacity;
+                    for(let i=0;i<(active?2:6);i++) next+=(active?1:-1)*engine.frametime;
+                    return Math.max(0,Math.min(scriptProperties.cap,next));
+                }
+                """
+        }
         return """
-        'use strict';
-        \(builder)
-        export function update(value) {
-          if (shared.b == \(condition)) {
-            value += engine.frametime * \(rise);
-            if (value >= \(upper)) { value = \(upper); }
-          } else if (shared.b != \(condition)) {
-            value -= engine.frametime * \(fall);
-            if (value <= 0.0) { value = 0.0; }
-          }
-          return value;
-        }
-        """
+            export function update(value) {
+                if (shared.enabled == \(inverse ? "false" : "true")) {
+                    value += engine.frametime * 2;
+                    if (value >= scriptProperties.cap) value = scriptProperties.cap;
+                } else {
+                    value -= engine.frametime * 6;
+                    if (value <= 0) value = 0;
+                }
+                return value;
+            }
+            """
     }
 
-    static func scalar(
-        _ values: [SceneDynamicTarget: SceneDynamicValue], _ layerID: Int
-    ) -> Double {
-        guard case let .scalar(value)? = values[.layer(layerID: layerID, field: .alpha)] else {
-            return -999
+    static func progression(_ renamed: Bool) throws -> [[String: Any]] {
+        let f = try Fixture([
+            wrapper(ramp(equivalent: renamed), properties: ["cap": 1]),
+            wrapper(ramp(inverse: true, equivalent: renamed), seed: 1, properties: ["cap": 1])
+        ], renamed: renamed)
+        return [f.step(0.1), f.step(0.1),
+            f.step(0.05, enabled: false, revision: 2),
+            f.step(0.1, enabled: false, revision: 2), f.step(1, revision: 3)]
+    }
+
+    static func main() throws {
+        var out: [String: Any] = [:]
+        let initialized = try Fixture([wrapper(ramp(), properties: ["cap": 1])],
+            writer: "export function init(v){shared.enabled=true;return v;}")
+        out["initialization"] = [initialized.step(0.1), initialized.step(0.1)]
+        out["projectModuleOnly"] = try [false, true].map { seed in
+            let project = try Fixture([wrapper(ramp(), properties: ["cap": 1])],
+                writer: "shared={enabled:true};", writerUtility: .project, writerVisible: seed)
+            return [project.step(0.1), project.step(0.1)]
         }
-        return value
+        for shape in ["dependentProject", "model"] {
+            out[shape + "ModuleOnly"] = try [false, true].map { renamed in
+                let flag = renamed ? "renamedSwitch" : "enabled"
+                var source = ramp().replacingOccurrences(of: "enabled", with: flag)
+                if renamed { source = source.replacingOccurrences(of: "value", with: "opacity") }
+                let fixture = try Fixture([wrapper(source, properties: ["cap": 1])],
+                    writer: "shared={\(flag):true};", renamed: renamed,
+                    writerUtility: shape == "dependentProject" ? .project : nil,
+                    writerDependencies: shape == "dependentProject", writerModel: shape == "model")
+                return [fixture.step(0.1), fixture.step(0.1)]
+            }
+        }
+        out["dependencyCompositionCallbacks"] = try [false, true].map { renamed in
+            let fixture = try Fixture([wrapper(ramp(equivalent: renamed), properties: ["cap": 1])],
+                writer: """
+                    shared={enabled:true};
+                    export function applyUserProperties(properties) {
+                        if ('enabled' in properties) shared.enabled=properties.enabled;
+                    }
+                    export function update(value) { return false; }
+                    """, renamed: renamed, writerUtility: .composition, writerDependencies: true)
+            return [fixture.step(0.1), fixture.step(0.1, enabled: false, revision: 2)]
+        }
+        out["progression"] = try progression(false)
+        out["equivalent"] = try progression(true)
+
+        let live = try Fixture([wrapper(ramp(), properties: [
+            "cap": ["value": ["user": "ceiling", "value": 1]]])])
+        out["liveUpper"] = [live.step(0.25, ceiling: 0.8), live.step(0.25, ceiling: 0.8),
+            live.step(0.1, ceiling: 0.3, revision: 2),
+            live.step(0.1, ceiling: 0.9, revision: 3)]
+
+        let percentage = try Fixture([wrapper("""
+            export var scriptProperties = createScriptProperties()
+                .addSlider({name:'cap',value:50,min:0,max:100,integer:false}).finish();
+            export function update(value) {
+                return shared.enabled ? Math.min(value+engine.frametime*2,scriptProperties.cap/100) : 0;
+            }
+            """, properties: ["cap": ["value": ["user": "percentage", "value": 50]]])])
+        out["nestedFallback"] = [percentage.step(0.4),
+            percentage.step(0.2, percentage: 75, revision: 2),
+            percentage.step(0.1, percentage: 25, revision: 3)]
+
+        let failed = try Fixture([
+            wrapper("export function update(v){shared.failedWrites=7;throw new Error('one owner');}", seed: 0.4),
+            wrapper("export function update(v){return shared.failedWrites/10;}"),
+            wrapper("""
+                export function update(v){
+                    shared.attempts=(shared.attempts||0)+1;
+                    if(shared.attempts===1)return {};
+                    return v+0.1;
+                }
+                """, seed: 0.3)
+        ])
+        out["exceptionLocality"] = [failed.step(0.1), failed.step(0.1)]
+
+        let limited = try Fixture([
+            wrapper("export function update(v){shared.beforeBudget=2;while(true){}return v;}", seed: 0.6),
+            wrapper("export function update(v){return shared.beforeBudget/10;}")])
+        out["budgetLocality"] = [limited.step(0.1), limited.step(0.1)]
+
+        let cached = try Fixture([wrapper("""
+            export function update(v) {
+                shared.alphaUpdates=(shared.alphaUpdates||0)+1;
+                return shared.alphaUpdates/10;
+            }
+            """)])
+        let first = cached.step(0.1)
+        // Session owns whether to evaluate. These reads exercise the real
+        // committed typed state; they deliberately do not call a VM owner.
+        let rereads = (0..<4).map { _ in cached.committed() }
+        out["committedReads"] = ["first": first, "rereads": rereads, "next": cached.step(0.1)]
+
+        let priority = try Fixture([wrapper("export function update(v){return shared.enabled?v+0.2:v;}")])
+        let target = priority.targets[0]
+        out["typedPriority"] = priority.step(0.1,
+            userValues: [target: .scalar(0.4)], timelineValues: [target: .scalar(0.7)])
+        print(String(data: try JSONSerialization.data(withJSONObject: out, options: [.sortedKeys]), encoding: .utf8)!)
     }
 }
 '''
 
 
-class SceneSharedLayerAlphaTransitionTests(unittest.TestCase):
+class SharedLayerAlphaTransitionTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        swiftc = shutil.which("swiftc")
-        if swiftc is None:
-            raise unittest.SkipTest("swiftc is unavailable")
-        cls.tempdir = tempfile.TemporaryDirectory()
-        directory = Path(cls.tempdir.name)
-        harness = directory / "Harness.swift"
-        executable = directory / "harness"
-        harness.write_text(HARNESS, encoding="utf-8")
-        result = subprocess.run(
-            [swiftc, *map(str, SOURCES), str(harness), "-o", str(executable)],
-            cwd=ROOT, capture_output=True, text=True,
+        cls.temporary = tempfile.TemporaryDirectory(prefix="mwx-shared-alpha-vm-")
+        cls.addClassCleanup(cls.temporary.cleanup)
+        binary = compile_vector_harness(
+            Path(cls.temporary.name), HARNESS, "shared-alpha-vm",
+            extra_swift_sources=(VM / "SceneScriptMediaFrameCoordinator.swift",
+                                 SCENE / "Systems/Properties/SceneEvaluationTransaction.swift"),
         )
-        if result.returncode != 0:
-            raise AssertionError(result.stderr)
-        output = subprocess.run(
-            [str(executable)], cwd=ROOT, check=True, capture_output=True, text=True,
-        ).stdout
-        cls.result = json.loads(output)
+        run = subprocess.run([str(binary)], check=True, capture_output=True,
+                             text=True, timeout=30)
+        cls.result = json.loads(run.stdout)
 
-    @classmethod
-    def tearDownClass(cls) -> None:
-        cls.tempdir.cleanup()
+    def assert_values(self, report: dict, expected: list[float]) -> None:
+        self.assertTrue(report["complete"])
+        self.assertEqual(report["parserDiagnostics"], [])
+        self.assertEqual(report["boolOwners"], 1)
+        self.assertEqual(report["scalarOwners"], len(expected))
+        self.assertEqual(report["vectorFailures"], 0)
+        self.assertEqual(report["initializationFailures"], 0)
+        self.assertEqual(report["snapshotDiagnostics"], 0)
+        for actual, value in zip(report["values"], expected, strict=True):
+            self.assertAlmostEqual(actual, value, places=7)
 
-    def test_complete_public_family_advances_once_per_frame(self) -> None:
-        self.assertEqual(self.result["flags"], {"a": False, "b": True, "c": True})
-        self.assertEqual(self.result["bindingCount"], 4)
-        self.assertEqual(self.result["layerIDs"], [101, 102, 103, 105])
-        self.assertEqual(self.result["first"], [0.25, 0.5, 0])
-        self.assertEqual(self.result["second"], [0.5, 1, 0])
-        self.assertEqual(self.result["badFrame"], 0.5)
-        self.assertEqual(self.result["changedUpper"], 0.3)
-        self.assertEqual(self.result["exactWorkshopValue"], 0.5)
+    def test_bool_init_and_live_shared_toggle_drive_two_and_six_rates(self) -> None:
+        expected = [[0.2, 0.4], [0.4, 0], [0.1, 0.1], [0, 0.3], [1, 0]]
+        for report, values in zip(self.result["progression"], expected, strict=True):
+            self.assert_values(report, values)
+            self.assertEqual(report["failures"], ["ok", "ok"])
+            self.assertEqual(report["sources"], ["sceneScript", "sceneScript"])
 
-    def test_shared_alpha_candidate_is_published_only_after_commit(self) -> None:
-        self.assertEqual(self.result["staged"], [0.25, 0.5])
-        self.assertEqual(self.result["discarded"], [0.25, 0.5])
-        self.assertEqual(self.result["afterCommit"], [0.5, 1])
+    def test_bool_initialization_precedes_scalar_without_property_callback(self) -> None:
+        for report, value in zip(self.result["initialization"], [0.2, 0.4], strict=True):
+            self.assert_values(report, [value])
+            self.assertEqual(report["failures"], ["ok"])
 
-    def test_only_admitted_alpha_ownership_is_released(self) -> None:
-        self.assertEqual(
-            self.result["projectedOwnership"],
-            [[False, False], [False, False], [False, False]],
-        )
-        self.assertEqual(self.result["malformedBindingCount"], 4)
-        self.assertEqual(self.result["wrongIdentityBindingCount"], 4)
-        self.assertEqual(self.result["unknownFlagBindingCount"], 4)
-        self.assertEqual(self.result["duplicateInitializerBindingCount"], 0)
+    def test_project_module_only_shared_seed_keeps_authored_visibility(self) -> None:
+        for seed, frames in zip([False, True], self.result["projectModuleOnly"], strict=True):
+            for report, value in zip(frames, [0.2, 0.4], strict=True):
+                self.assert_values(report, [value])
+                self.assertEqual(report["failures"], ["ok"])
+                self.assertEqual(report["boolPublications"], 0)
+                self.assertEqual(report["writerVisible"], seed)
+                self.assertEqual(report["writerSource"], "authored")
+                self.assertTrue(report["writerIdle"])
+                self.assertFalse(report["writerNeedsInitialization"])
 
-    def test_parser_is_format_tolerant_but_semantically_closed(self) -> None:
-        self.assertTrue(self.result["formatVariantAccepted"])
-        self.assertTrue(self.result["exactWorkshopAccepted"])
-        self.assertTrue(all(self.result["attackRejections"]))
+    def test_dependent_project_module_keeps_shared_initialization(self) -> None:
+        self.assert_module_only_writer("dependentProjectModuleOnly")
+
+    def test_model_module_keeps_shared_initialization(self) -> None:
+        self.assert_module_only_writer("modelModuleOnly")
+
+    def test_dependency_composition_callbacks_publish_bool_with_shared_state(self) -> None:
+        for renamed, frames in zip([False, True], self.result["dependencyCompositionCallbacks"], strict=True):
+            with self.subTest(renamed=renamed):
+                for report, value in zip(frames, [0.2, 0], strict=True):
+                    self.assert_values(report, [value])
+                    self.assertEqual(report["failures"], ["ok"])
+                    self.assertEqual(report["boolPublications"], 1)
+                    self.assertFalse(report["writerVisible"])
+                    self.assertEqual(report["writerSource"], "sceneScript")
+                    self.assertFalse(report["writerIdle"])
+                    self.assertFalse(report["writerNeedsInitialization"])
+
+    def assert_module_only_writer(self, key: str) -> None:
+        for renamed, frames in zip([False, True], self.result[key], strict=True):
+            with self.subTest(renamed=renamed,
+                             alpha=[frame["values"] for frame in frames],
+                             owners=[frame["boolOwners"] for frame in frames]):
+                for report, value in zip(frames, [0.2, 0.4], strict=True):
+                    self.assert_values(report, [value])
+                    self.assertEqual(report["failures"], ["ok"])
+                    self.assertEqual(report["boolPublications"], 0)
+                    self.assertTrue(report["writerVisible"])
+                    self.assertEqual(report["writerSource"], "authored")
+                    self.assertTrue(report["writerIdle"])
+                    self.assertFalse(report["writerNeedsInitialization"])
+
+    def test_renamed_resources_and_equivalent_loop_and_bracket_access(self) -> None:
+        for original, alternate in zip(self.result["progression"], self.result["equivalent"], strict=True):
+            self.assert_values(alternate, original["values"])
+            self.assertEqual(alternate["failures"], ["ok", "ok"])
+
+    def test_live_upper_limit_replaces_fallback_without_recompilation(self) -> None:
+        for report, value in zip(self.result["liveUpper"], [0.5, 0.8, 0.3, 0.5], strict=True):
+            self.assert_values(report, [value])
+            self.assertEqual(report["failures"], ["ok"])
+
+    def test_nested_user_fallback_keeps_author_units_before_javascript(self) -> None:
+        for report, value in zip(self.result["nestedFallback"], [0.5, 0.75, 0.25], strict=True):
+            self.assert_values(report, [value])
+            self.assertEqual(report["failures"], ["ok"])
+
+    def test_exception_is_local_and_shared_writes_are_not_rolled_back(self) -> None:
+        first, second = self.result["exceptionLocality"]
+        self.assert_values(first, [0.4, 0.7, 0.3])
+        self.assertEqual(first["failures"], ["exception", "ok", "bad-return"])
+        self.assertEqual(first["disabled"], [True, False, False])
+        self.assertEqual(first["sources"], ["authored", "sceneScript", "authored"])
+        self.assert_values(second, [0.4, 0.7, 0.4])
+        self.assertEqual(second["failures"], ["ok", "ok", "ok"])
+        self.assertEqual(second["scalarPublications"], 2)
+
+    def test_budget_exhaustion_keeps_healthy_peer_and_prior_shared_write(self) -> None:
+        first, second = self.result["budgetLocality"]
+        self.assert_values(first, [0.6, 0.2])
+        self.assertEqual(first["failures"], ["budget-exceeded", "ok"])
+        self.assertEqual(first["disabled"], [True, False])
+        self.assert_values(second, [0.6, 0.2])
+        self.assertEqual(second["scalarPublications"], 1)
+
+    def test_committed_snapshot_reads_do_not_reenter_update(self) -> None:
+        result = self.result["committedReads"]
+        self.assert_values(result["first"], [0.1])
+        for reread in result["rereads"]:
+            self.assertEqual(reread["values"], result["first"]["values"])
+            self.assertEqual(reread["frameIndex"], result["first"]["frameIndex"])
+            self.assertEqual(reread["generation"], result["first"]["generation"])
+        self.assert_values(result["next"], [0.2])
+
+    def test_scalar_result_publishes_through_typed_snapshot_priority(self) -> None:
+        report = self.result["typedPriority"]
+        self.assert_values(report, [0.9])
+        self.assertEqual(report["sources"], ["sceneScript"])
+        self.assertEqual(report["failures"], ["ok"])
 
 
 if __name__ == "__main__":

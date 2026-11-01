@@ -33,14 +33,9 @@ nonisolated enum SceneScriptScalarDisplayProjection {
         return projected
     }
 
-    /// Second-tier launch release: alpha ownership that no current owner can
-    /// ever claim. `claimedTargets` is the union of every alpha publication
-    /// path (shared-alpha, scalar-projected, timeline); a layer whose
-    /// `.layer(id, .alpha)` target is absent from it can never receive a
-    /// script publication in this runtime, so retaining ownership only keeps
-    /// the layer fail-closed forever. The release keeps the visible bit and
-    /// the authored descriptor alpha; it does not construct any script owner
-    /// and does not authorize script composition.
+    /// Prepared scalar and Timeline targets retain their display driver.
+    /// An unclaimed alpha binding releases only its suppression bit, keeping
+    /// the authored current and independent visibility ownership intact.
     nonisolated static func applyUnclaimedFallback(
         claimedTargets: Set<SceneDynamicTarget>,
         to descriptor: SceneRenderDescriptor

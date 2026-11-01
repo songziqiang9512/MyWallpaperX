@@ -97,7 +97,7 @@ import simd
             report: SceneUserPropertyBindingParser().parse(root: document), catalog: catalog()).program
         let schema = SceneDesktopWallpaperLaunchFrameSchema(
             runtimeInput: .init(propertyBindingProgram: propertyProgram, renderDescriptor: scene),
-            sharedLayerAlphaProgram: .init(), propertyVectorScriptProgram: candidate.vectorProgram,
+            propertyVectorScriptProgram: candidate.vectorProgram,
             sceneScriptFallbackDefinitions: [], sceneScriptScalarProgram: candidate.scalarProgram,
             sceneScriptStringProgram: candidate.stringProgram, sceneScriptOwnerLayerIDs: [7, 8],
             preparedResourceLayerTemplates: [:], timelineProgram: .init())

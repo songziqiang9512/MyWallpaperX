@@ -226,7 +226,7 @@ final class SceneDesktopWallpaperSession {
     let userShortcutInput = UserShortcutInput()
     var isVisible = true
     var isOutputActive = true
-    var initialUserVideoPreparation: WorkItem?
+    var initialVideoPreparation: WorkItem?
     var performanceProfile = PlaybackPerformanceProfile()
     var screenReconciliationWorkItem: WorkItem?
     var screenTopology: [Int] = [], rebuiltTopology: [Int] = []

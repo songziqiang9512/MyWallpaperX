@@ -157,7 +157,6 @@ nonisolated final class SceneDesktopWallpaperLaunchFrameSchema: @unchecked Senda
 
     init(
         runtimeInput: SceneRuntimeInput,
-        sharedLayerAlphaProgram: SceneSharedLayerAlphaProgram,
         propertyVectorScriptProgram: SceneScriptVectorProgram,
         sceneScriptFallbackDefinitions: [SceneDynamicTargetDefinition],
         sceneScriptScalarProgram: SceneScriptScalarProgram,
@@ -207,8 +206,7 @@ nonisolated final class SceneDesktopWallpaperLaunchFrameSchema: @unchecked Senda
         self.launchDefinitions = SceneDynamicDefinitionMerger.merge(
             propertyDefinitions: runtimeInput.propertyBindingProgram.definitions,
             timelineProgram: timelineProgram,
-            additionalDefinitions: sharedLayerAlphaProgram.definitions
-                + propertyVectorScriptProgram.definitions
+            additionalDefinitions: propertyVectorScriptProgram.definitions
                 + sceneScriptFallbackDefinitions
                 + sceneScriptScalarProgram.definitions
                 + sceneScriptStringProgram.definitions

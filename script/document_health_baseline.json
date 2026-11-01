@@ -125,12 +125,12 @@
       "bytes": 85563
     },
     "docs/scene/capabilities/alpha-display-fallback-design.md": {
-      "lines": 124,
-      "bytes": 20680
+      "lines": 39,
+      "bytes": 3835
     },
     "docs/scene/capabilities/coverage-ledger.md": {
       "lines": 371,
-      "bytes": 176601
+      "bytes": 176858
     },
     "docs/scene/capabilities/direct-model-bind-geometry.md": {
       "lines": 32,
@@ -170,11 +170,11 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 223042
+      "bytes": 223258
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
-      "bytes": 204417
+      "bytes": 204567
     },
     "docs/scene/capabilities/runtime-systems-reference.md": {
       "lines": 375,
@@ -206,7 +206,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 418,
-      "bytes": 119444
+      "bytes": 119538
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -285,8 +285,8 @@
       "bytes": 29767
     },
     "docs/scene/roadmap/engine-refactor-program.md": {
-      "lines": 103,
-      "bytes": 14747
+      "lines": 113,
+      "bytes": 17055
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 73,
@@ -302,7 +302,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 205,
-      "bytes": 47820
+      "bytes": 47988
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1424,6 +1424,17 @@
       "originalBodySHA256": "19661983a2e50ec75dbfc99112cf075f8501ad90b9171f9f644c378a950caac6",
       "originalLines": 220,
       "originalBytes": 38974
+    },
+    {
+      "source": "docs/scene/capabilities/alpha-display-fallback-design.md",
+      "archive": "docs/scene/history/alpha-display-fallback-design-2026-10-01.md",
+      "anchors": [
+        "alpha-display-before-convergence"
+      ],
+      "preservedBodySHA256": "157205c01f7823109e9f2414d2f6be68945940450dbad4167d984cbc68638e67",
+      "originalBodySHA256": "6784196c0a04061bc9c2b8021dee4e81e1fa25b82b9df92c03fe588b96365b66",
+      "originalLines": 124,
+      "originalBytes": 20681
     }
   ],
   "snapshots": [
@@ -2045,56 +2056,65 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/coverage-ledger.md",
-      "before": "97fecc8a58a28bae5c4f56102b5006bbba88d0946b284593b999e2e80106c4b4",
-      "after": "4c0085ab59efdf5248982f6216b137ed009645ffcbf2a7f84ced5c77537e904d",
+      "before": "4c0085ab59efdf5248982f6216b137ed009645ffcbf2a7f84ced5c77537e904d",
+      "after": "eac78dad83e6a77ed765836996f9b33623369c33d103f929b29fd2496962dbd6",
       "owner": "scene-architecture-convergence",
-      "reason": "架构迁移的文本能力批次：替换旧语言执行描述，保留冻结基线、真实输出及失败范围；正文预算随实际职责与证据更新。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#架构级迁移合同"
+      "reason": "共享alpha迁入原VM，模块形状关卡退出；更新真实有界贡献和未闭项，旧设计完整归档，预算对应实际职责内容。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#语言执行收敛共享状态与-alpha"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "ac9eaa50cccbfa512606f24cc824beaa8b0826e1875958304242401630f610dd",
-      "after": "819ea5c3d8f50b7d040fd936d18fa780eb41a29312a6deb3c786334376e99104",
+      "before": "819ea5c3d8f50b7d040fd936d18fa780eb41a29312a6deb3c786334376e99104",
+      "after": "a8735c21acd46c241bd9810360da3f321067f7a70ca53e013a81775318992425",
       "owner": "scene-architecture-convergence",
-      "reason": "架构迁移的文本能力批次：替换旧语言执行描述，保留冻结基线、真实输出及失败范围；正文预算随实际职责与证据更新。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#架构级迁移合同"
+      "reason": "共享alpha迁入原VM，模块形状关卡退出；更新真实有界贡献和未闭项，旧设计完整归档，预算对应实际职责内容。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#语言执行收敛共享状态与-alpha"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "3c119486d72251274af64492c37efce1f2f55dde15d0a4ea643364c811deaa69",
-      "after": "979f21ae9e3fd33eb540b69dee243a434b25eca31c2f1b10ed56f1004f32ba20",
+      "before": "979f21ae9e3fd33eb540b69dee243a434b25eca31c2f1b10ed56f1004f32ba20",
+      "after": "9e8170e3d074b9579fcfe9aff4cfd7cf60890f9875064ff1757d3e80d0f0699a",
       "owner": "scene-architecture-convergence",
-      "reason": "架构迁移的文本能力批次：替换旧语言执行描述，保留冻结基线、真实输出及失败范围；正文预算随实际职责与证据更新。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#架构级迁移合同"
+      "reason": "共享alpha迁入原VM，模块形状关卡退出；更新真实有界贡献和未闭项，旧设计完整归档，预算对应实际职责内容。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#语言执行收敛共享状态与-alpha"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "3d9dd88162f983650b5bccac01cc631eedc882fe44fdae732531adb6ddf0af29",
-      "after": "eff16b56a441ef8d8323e974240207f0f159febe6f046797bd065c24ac8eaa02",
+      "before": "eff16b56a441ef8d8323e974240207f0f159febe6f046797bd065c24ac8eaa02",
+      "after": "1e6dd93077e1ce9973fe868296bf799832fce14aa3fa12e5a731da4955866d5e",
       "owner": "scene-architecture-convergence",
-      "reason": "架构迁移的文本能力批次：替换旧语言执行描述，保留冻结基线、真实输出及失败范围；正文预算随实际职责与证据更新。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#架构级迁移合同"
+      "reason": "共享alpha迁入原VM，模块形状关卡退出；更新真实有界贡献和未闭项，旧设计完整归档，预算对应实际职责内容。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#语言执行收敛共享状态与-alpha"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/engine-refactor-program.md",
-      "before": "278d0f3c7dfe8f59922552d4df11c0c7e2cf7d6ae15a256d5c59d9e1fd9fd7d8",
-      "after": "b4069f69aa2dfe7bbf9a84921826b2e7b2bd33079bd19ec54ea3a58fedd50338",
+      "before": "b4069f69aa2dfe7bbf9a84921826b2e7b2bd33079bd19ec54ea3a58fedd50338",
+      "after": "b43e543ce9bac819052c4cb512532f43dbd4e45f8828d9084a739034e05f91f5",
       "owner": "scene-architecture-convergence",
-      "reason": "架构迁移的文本能力批次：替换旧语言执行描述，保留冻结基线、真实输出及失败范围；正文预算随实际职责与证据更新。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#架构级迁移合同"
+      "reason": "共享alpha迁入原VM，模块形状关卡退出；更新真实有界贡献和未闭项，旧设计完整归档，预算对应实际职责内容。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#语言执行收敛共享状态与-alpha"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "67036a4a3acceb98f816e868b2e50578abde1e1a0b7a1a095a9f3223311cd78b",
-      "after": "5167d63ee95b27ab70465477789e2cf2ab1acae5c4d3e0a3bbbc58d20a5721cf",
+      "before": "5167d63ee95b27ab70465477789e2cf2ab1acae5c4d3e0a3bbbc58d20a5721cf",
+      "after": "80876446b01da86a0ee67ab3bd626f39d5ca4f269616729e166137804b585792",
       "owner": "scene-architecture-convergence",
-      "reason": "架构迁移的文本能力批次：替换旧语言执行描述，保留冻结基线、真实输出及失败范围；正文预算随实际职责与证据更新。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#架构级迁移合同"
+      "reason": "共享alpha迁入原VM，模块形状关卡退出；更新真实有界贡献和未闭项，旧设计完整归档，预算对应实际职责内容。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#语言执行收敛共享状态与-alpha"
+    },
+    {
+      "section": "archives",
+      "path": "docs/scene/history/alpha-display-fallback-design-2026-10-01.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "a9c43395b3a4d7d510e19c6d517f48b76f7d72dbc2c0d014ab186ed0d27fee37",
+      "owner": "scene-architecture-convergence",
+      "reason": "共享alpha迁入原VM，模块形状关卡退出；更新真实有界贡献和未闭项，旧设计完整归档，预算对应实际职责内容。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#语言执行收敛共享状态与-alpha"
     }
   ]
 }

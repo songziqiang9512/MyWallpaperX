@@ -1740,11 +1740,11 @@
     },
     {
       "id": "scene-runtime-architecture-convergence",
-      "title": "Scene架构级迁移及文本语言收敛",
+      "title": "Scene架构级迁移与语言执行收敛",
       "owner": "Scene Session / typed programs and component owners",
       "status": "approved",
       "designDoc": "docs/scene/roadmap/engine-refactor-program.md",
-      "design_notes": "先按架构级迁移合同固定可运行基线；文本首批统一到现QuickJS domain，保冻结日期、属性输入、媒体空清除、隐藏已准备层与真实异常/退出语义，撤旧解释器/重复描述/帧合并。后续阶段按唯一队列细化实际owner再实施；本登记不批准未设计的新能力，也不授予推送/发布或完整能力完成结论。",
+      "design_notes": "按架构级迁移合同固定可运行基线；文本统一原String VM，共享alpha沿原IR、同domain真实shared及scalar VM接管并撤旧语法/状态/帧合并。删除Bool投影中过时kind/utility形状关卡，模块寿命不代资源/graph消费准入；既有SourceRoute/UtilityRuntimePlanner保实际形态边界，不新增输出flag。保wall date、属性、事件、局部失败与实际退出；删除单一集合上的冗余互斥复验，保真实producer冲突。后续阶段按唯一队列细化实际owner再实施；不批准未设计的新能力，不授推送/发布或整体完成结论。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextScript*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextMediaPropertiesCompiler.swift",
@@ -1753,7 +1753,13 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSHostTypes.h",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperLaunchContext.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperLaunchFrameSchema.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+TextScriptReport.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneSharedLayerAlpha*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptVectorCandidate*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptVectorProgram*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRuntimeModel.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriver.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriverLifecycle.swift"
       ],
       "contentPatterns": []
     }

@@ -182,11 +182,11 @@
 
 ### 5.1 顶层设计已裁决的代码职责重构
 
-以下是架构级迁移的唯一执行清单，按[总设计](../architecture/runtime-architecture.md)与[迁移合同](engine-refactor-program.md#架构级迁移合同)推进，阶段状态不另开台账。先保留基线，再执行语言收敛→数据分期→组件寿命→粒子CPU/GPU→普通帧减工→整体能力与成本复核；发现依赖或收益反证时在本表纠偏。迁移前源码/App/输入基线已固定；文本语言首批已替换旧 owner，证据及映射测试债见[限定记录](../history/runtime-evidence-index.md#e-text-vm-convergence-20261102)。语言阶段继续收敛共享 alpha，整体架构迁移尚未完成。
+以下是架构级迁移的唯一执行清单，按[总设计](../architecture/runtime-architecture.md)与[迁移合同](engine-refactor-program.md#架构级迁移合同)推进，阶段状态不另开台账。先保留基线，再执行语言收敛→数据分期→组件寿命→粒子CPU/GPU→普通帧减工→整体能力与成本复核；发现依赖或收益反证时在本表纠偏。迁移前源码/App/输入基线已固定；文本与共享alpha的独立语言owner已退出，分别见[文本](../history/runtime-evidence-index.md#e-text-vm-convergence-20261102)与[共享alpha](../history/runtime-evidence-index.md#e-shared-alpha-vm-convergence-20261102)限定记录。后者已证属性→shared→遮罩贡献，点击资格仍开放；不能外推完整语言、整景或整体迁移完成。
 
 | 重构要求与现有 owner | 目标及旧职责退出 | 最近验证与停止条件 |
 |---|---|---|
-| 语言收敛后续：共享 alpha 的手写 Syntax/Compiler/Program/Runtime、RuntimeModel 与 Session 分流 | 文本已迁入既有 QuickJS typed String 路线并退役重复 owner；继续将 alpha 接真实 shared heap 与原 scalar VM，撤旧投影、flags/计数、excluded-target、帧合并及提交参数，不新增另一 VM | 初始化→点击/用户属性改 shared→alpha→原 compositor，以及上升/下降、上限热改、暂停/失败、健康邻例；文本限定保持证据保留，未迁移语言行为不能只删 fallback 丢能力 |
+| 数据分期首批：`ScenePropertyBindingProgram` 与 `ScenePropertyLiveUpdateState` 重复验证、分组与建立target索引 | 同一不可变Program在构造/解码入口准备必要索引，live state只持有效输入、当前值和revision；evaluate/target投影直接消费准备结果，撤重复验证与索引镜像，不新增PreparedScene facade | direct/conditional target、错型/范围、same-value、原子失败与revision行为；最近property Program/live-state门及真实属性邻例。保持Codable线形状、异步newer-wins与实际资源失效边界 |
 | `SceneRenderDescriptor.Layer` 同时保存字符串变换、数值变换及多类可选字段 | 明确 authored、prepared 与 live 分期；逐消费族收敛为类型化数据，身份和作者顺序仍唯一；退役不再需要的镜像与内容种类字符串分支 | 准备结果、默认值、动态属性、parent/相机、序列化兼容与代表组件；不先建无人消费的通用 ECS |
 | `SceneMetalView` 同时装配文字、视频、Puppet、粒子和延迟资源 | 按实际寿命把可共享 CPU 生命周期归 Session/type owner，必要每屏 CPU 实例仍按 surface 隔离，GPU 驻留归现有 Rendering；View 保 AppKit surface、输入与呈现职责 | 独立屏幕输入、热切、候选、退场和异步旧结果；不通过新 facade 隐藏原字段或把每屏状态误合并 |
 | `LaunchContext` 与 `prepareLaunch` 混合准备事实、liveState 和运行对象 | 沿现有 Host/Session 拆清不可变准备结果与运行实例，按真正消费者传最小数据；取消、资源 lease 和旧会话退出仍由原 owner 完成 | 冷暖准备、取消/newer-wins、首帧失败保旧及安全退出；不新增第二 Session、完整场景快照或重复解析 |
