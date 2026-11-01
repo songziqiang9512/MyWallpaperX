@@ -154,3 +154,33 @@ App exit0、无timeout、测量窗failedFrames0，停止后surface1→0且gpuDra
 一次独立短筛逐字冻结生产resource encoder/Census，M4上同queue、两个private RGBA16F target、同一非均匀前置写；A保两copy、B无copy，20对预热后3块各64对交替。192配对增量中位0.568375ms，三块0.56415/0.57667/0.56360ms，最大块中位漂移0.005417ms，满足预登记信号门。前后每次16,826,368字节读回差0且phase内容不同；384次生产copy、6,461,325,312字节精确，源无漂移，独立复算一致。
 
 测量块仅0.301秒、helper总0.65秒，VM进程仍存在；这是独立机制信号，不能从原App 12.445ms相减，既非普通App收益也非收益上界。未改产品、未做正式性能验收；若以后有足够覆盖收益，再沿[D12](../roadmap/batch2/copy-pass-unification-design.md)设计原owner内合法alias与publication/取消/下一帧门，当前不为两copy扩大架构。限期必要材料：`.artifacts/scene-evidence/runs/inactive-stage-copy-screen-20261016/`。
+
+
+<a id="dead-source-capture-stop-20261101"></a>
+## 本帧死source编码筛选：STOP、产品已撤（2026-11-01）
+
+380的511动态层恢复后，原ordinary Release WMO/-O加DEBUG证据入口在3024×1964/60FPS/固定PCM、关闭execution observer下，30s预热后实测63.492s：submitted45.045/completed45.013fps、CPU p50/p95=7.075/8.383ms、GPU=21.419/25.383ms；0 failed/dropped。CPU只指renderer encode；整进程CPU49.138s约77.39%单核等价。此时VM运行，不能称引擎固有瓶颈或温度/能耗结论。旧363实际为single-file优化诊断、5s预热/53.5s计量，非正式WMO稳态，现性能卡已纠正。
+
+另开一次延后30s的硬件stage窗口，65个descriptor/260点全部合格，CB18.912ms。六层73/82/102/109/70/81的1920² audio ring材质无texture输入，随后真实mask消费其输出；各fragment区间约2.22–2.61ms，但区间重叠，不能相加或推独占节省。476的缩略图源归一化与191的先X后Y blur确有原图消费者，保留捕获。把64循环端点搬CPU需要未有的派生表达式evaluator/ABI，未实施。
+
+**候选与退出。** 原GraphExecutor完整prepare后，仅在captured-layer source capture、首stage成功无旁路、无FBO/单节点/单material、offscreenOverwrite color且实际bindings空、writtenTexture为真实stage输出时省编码。保source command/资源强引用、extent/UV/alpha、pair/base atom、generation/pin及publication，不按作者名字或路径分派，不解析shader、不增owner/cache；单个prepared Bool与一个无分配bindings查询承接决定。失败/activation/PSO旁路仍编码原source；后继失败沿原事务退出，不迟到补画。
+
+自有实际GPU载体覆盖14变体、每臂30帧：非白半透明源、无采样程序→mask、source采样、首多pass/FBO、activation、坏uniform、PSO失败/恢复与改名等价。首轮20/8失败中两臂各8项共同失败是Python把既有PMA→straight边界当raw拷贝的期望错误，保UNDERQUALIFIED；只修两处RGB期望、容差/Swift载体/二进制/产品不变，用保留的实际GPU读回重放最终断言为旧12失败、候选0失败/0错误，不冒称新GPU运行。独立静态审查未见可行动缺陷。普通Debug原380及独立293各5s实际画面保持、exit0/surface1→0/GPU排空，380 source15→9、offscreen43→37、material27与main22保持；不授整样本或官方parity。
+
+**事前协议与一对结果。** B1→C1先筛，GPU p50≥10%且非目标保持才补反序/最终3+3；首对未过即停。两个WMO构建4416输入各自零漂移，基线exe `e042d408…`、候选`aabc7170…`，两者深度严格验签通过。除两Scene产品输入外，仅下载metadata持久化复用有差异，该入口不在隔离Scene Host运行中；不称全App纯HEAD性能。保单surface/原包/PCM/默认属性/95s时长/30s预热/无observer，未开profiler或counter；新鲜两臂时VM已suspended，本批未更改状态，前后收据一致，早前running-VM一轮不混作本对基线。
+
+| 指标 | B1 | C1 | 有界变化 |
+|---|---:|---:|---:|
+| 实际计量秒 | 63.491 | 63.494 | 均steady-eligible |
+| GPU p50/p95 ms | 22.184 / 26.586 | 21.362 / 25.191 | p50−3.71%，p95−5.25% |
+| Renderer CPU p50/p95 ms | 7.200 / 8.529 | 7.359 / 8.838 | 未证改善 |
+| 完成FPS | 43.707 | 44.130 | +0.97%，仍未达60 |
+| 进程CPU ms/完成帧 | 17.86255 | 18.76178 | +5.03%，单对观察 |
+| 进程CPU ms/秒 | 780.718 | 827.960 | +6.05%，非整进程收益 |
+| present超1.5倍预算比例 | 27.6235% | 28.8111% | 均未达≤1% |
+| footprint采样峰值B | 611271928 | 605193560 | −0.99%，非稳定内存收益 |
+| GPU allocated采样峰值B | 1548959744 | 1551695872 | +0.18%，非物理驻留 |
+
+首对GPU降幅未达事前继续门，且CPU/呈现未改善；即刻STOP，不追加反序或3+3、不放宽阈值。两产品及只服务候选的测试恢复到原HEAD，设计登记撤销，保现有播放链；不将少6pass本身计作收益。主专项仍开放；无新实际成本/消费机制证据不重复同型原型。未验正式Release、全样本、HDR/多屏、长稳、真实温度或能耗，未关闭380的60FPS问题。
+
+必要本机证据：`.artifacts/scene-evidence/runs/dead-source-capture-stop-20261101/metadata/samples/0/runtime_evidence.zip`（29,194,491B/458成员，SHA-256 `94084059821b87743aa645c957a1727d2afffd9c1e3057235f927670d94ba766`，普通14天）。保存方案边界、两构建身份/源码、硬件选帧/归源、有效及UNDERQUALIFIED GPU读回、自有原型、原包图、首对原数、独审与退出收据；不保存App/编译二进制。原始任务App/副本/运行目录提取后清理，单份连续构建缓存继续服务长期Scene开发。

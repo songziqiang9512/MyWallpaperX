@@ -209,8 +209,8 @@
       "bytes": 131793
     },
     "docs/scene/roadmap/batch2/composition-render-target-design.md": {
-      "lines": 149,
-      "bytes": 35149
+      "lines": 155,
+      "bytes": 35863
     },
     "docs/scene/roadmap/batch2/copy-pass-unification-design.md": {
       "lines": 120,
@@ -266,7 +266,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 73,
-      "bytes": 22158
+      "bytes": 22778
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 45,
@@ -1925,15 +1925,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "31626d3f7b54d58065f2132b225ae2313f5908b11235a722def13f0e97b22f82",
-      "after": "25b4e75ddacff6f34b5c6ae22e8ca6ae8c3fcecda424b7a93653a834c6909112",
-      "owner": "scene-dynamic-layer-storage-capacity",
-      "reason": "同一journal容量合同替换旧256/512门；380容量从待修退出，保381材质缺口；布局与Debug短窗成本均不冒称产品性能收益。",
-      "decision": "docs/scene/architecture/dynamic-layer-storage-design.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
       "before": "b85f047c1021b664dac57f4ee3a28437f85649040ff9ae78de4752f4804dad02",
       "after": "e758b7d1842da8fb4864a0cde0d03b5478ba96ebfa6cadb4f44dff27d0f6a267",
@@ -1958,6 +1949,24 @@
       "owner": "scene-shared-source-user-scalars",
       "reason": "原owner完成共享source标量接线，381待修描述退出，旧净零怀疑撤销；同窗ROI/失败载体与静态host余项边界分清，不以日志PASS授整景。",
       "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-dynamic-image-material"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/composition-render-target-design.md",
+      "before": "1011a8b8f6aa707fee2eb3612346b0fe47d674d4d2587ffec922329be5ade789",
+      "after": "8e98eddecf54a5147f087172e2e6bcc24fbc4db0d06bba22d1e0c3c6e4656d22",
+      "owner": "scene-dead-source-capture-stop",
+      "reason": "保一次有效WMO首对、真实GPU/原包资格与撤回结论；活跃卡和D1只保短指针，避免无收益重复试验。",
+      "decision": "docs/scene/history/gpu-cost-screening-2026-10-14.md#dead-source-capture-stop-20261101"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "25b4e75ddacff6f34b5c6ae22e8ca6ae8c3fcecda424b7a93653a834c6909112",
+      "after": "9b29a6364da99d3d8c4211994db7b785496d1ea79d0d1f0184292e7c6cc00e6f",
+      "owner": "scene-dead-source-capture-stop",
+      "reason": "保一次有效WMO首对、真实GPU/原包资格与撤回结论；活跃卡和D1只保短指针，避免无收益重复试验。",
+      "decision": "docs/scene/history/gpu-cost-screening-2026-10-14.md#dead-source-capture-stop-20261101"
     }
   ]
 }

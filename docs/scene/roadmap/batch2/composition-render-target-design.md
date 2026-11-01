@@ -147,3 +147,9 @@ CaptureGeometry 的源采样使用 enclosing attachment 的相同映射与实际
 本轮官方直接覆盖单个 parent child、根前后数组位置、一个非 child 前后移动、copybackground 三态和空 child 组；没有证明所有 transform/clip、passthrough、alpha 混合或动态 topology 与官方等价。used-input 完整哈希属于运行后 guest 收据，不能回填成事前全输入冻结；Scene/fragment 和窗口身份在实际捕获时登记。私有资源仅由官方客户端正常加载，不读取实现表达；自写片段与项目算法独立。
 
 有界实现、真实正反例及独审完成后，将稳定输入/顺序/失败合同交回架构，结果只保存在运行证据。剩余模式保留明确 unknown 和可证伪后继，不能从局部 PASS 宣称 Scene 全兼容，也不能永久保留已证错误的 prefix/末后代 route。
+
+
+<a id="dead-source-capture-20261101"></a>
+## 无像素消费者的 source capture：候选已撤（2026-11-01）
+
+仅跳过成功、无采样单pass overwrite前的source编码，保资源、表示、pair、pin及失败回退的原型已完成正确性资格；原380实减6次capture，但事前固定的一对WMO稳态GPU p50只降3.71%，未达10%继续门，未证明稳定收益。产品与专用测试均撤回，不新增owner、字段或运行分支；设计边界、原数及停止条件归[有界后验](../../history/gpu-cost-screening-2026-10-14.md#dead-source-capture-stop-20261101)。无新实际成本/消费机制证据不重复这份原型，也不重开旧capture缓存或有序双层分段。

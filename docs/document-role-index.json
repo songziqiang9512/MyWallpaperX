@@ -1992,8 +1992,8 @@
       "currentAuthorities": [
         "docs/scene/roadmap/performance-convergence-card.md"
       ],
-      "cutoffDate": "2026-10-15",
-      "uniqueValue": "真实帧GPU成本分母、附件原型撤回、两条shader短筛未达门及行级执行证据边界"
+      "cutoffDate": "2026-11-01",
+      "uniqueValue": "真实GPU帧归因、附件/shader短筛STOP；含WMO死source捕获首对、正确性资格与产品撤回边界"
     },
     {
       "path": "docs/scene/history/gpu-stage-timestamp-qualification-2026-10-15.md",
@@ -4330,13 +4330,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
       "retirementCondition": "composition采集范围、顺序、实际source及目标生命周期获得明确行为合同并通过实施门，稳定架构接管且无依据分派撤权或由已证profile接管后归档。",
-      "lastReviewed": "2026-10-20",
+      "lastReviewed": "2026-11-01",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d8ee07b62179ce737f8d932127026c353bedaacba0c5adb94d54b1f373d2bd5c",
+        "sourceSHA256": "c936ba2570ac26fbf848d9a69d737a85aa9733ca897be1c1cfddbf384106c68a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "当前局部源/隐藏准备职责与固定实际运行已同步；本收据只复核导航与文档角色。",
-        "limitations": "仅顶层正交普通成员且无utility后代；官方精确grid/FBO、完整HDR/alpha/属性/整景及性能未验。"
+        "scope": "同步380优化稳态归因、死source编码首对STOP与产品/测试撤回，纠正363旧配置资格；仅文档导航复核。",
+        "limitations": "一次WMO首对非3+3收益验收，GPU重放不称新运行；官方parity/正式Release/能耗及全样本未验。"
       }
     },
     {
@@ -4467,10 +4467,10 @@
       "lastReviewed": "2026-11-01",
       "reviewBasis": {
         "kind": "navigation-audit",
+        "sourceSHA256": "e6c0c00c2a86cb3d4527a0f8ab78e78a35d2ff0ef120bf006e3d579974ede17e",
         "method": "document_registry --audit + document_health --check",
-        "sourceSHA256": "43efc085eda7b8d054466a0168e3068486da1ddfc0b4d08ef2740c7aeebc4744",
-        "scope": "容量及按需journal职责、真实512段/零音频、Runtime DTO预算与Debug短窗证据边界复核。",
-        "limitations": "不认全样本/官方parity、所有callback原始写预算或整体性能收益。"
+        "scope": "同步380优化稳态归因、死source编码首对STOP与产品/测试撤回，纠正363旧配置资格；仅文档导航复核。",
+        "limitations": "一次WMO首对非3+3收益验收，GPU重放不称新运行；官方parity/正式Release/能耗及全样本未验。"
       }
     },
     {
