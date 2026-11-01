@@ -131,7 +131,8 @@ extension WallpaperIndexStore {
         size_receipt = "                guard let self, self.wallpaperIndexSaveEpoch == epoch else { return }"
         if startup.count(size_receipt) != 1:
             raise AssertionError("one initial size callback receipt required")
-        startup = startup.replace(size_receipt, "                defer { self?.auditInitialSizeCallbacks += 1 }\n" + size_receipt, 1)
+        startup = startup.replace(size_receipt, "                defer { self?.auditInitialSizeCallbacks += 1 }\n" + size_receipt
+            + "\n                let updates = self.auditInitialSizeUpdates ?? updates", 1)
         fixture = fixture.replace("@MainActor final class WallpaperManager {", "@MainActor final class WallpaperManager: ObservableObject {")
         current_field = next(line for line in manager.splitlines() if "    @Published var currentWallpaper:" in line)
         fixture = fixture.replace("    var currentWallpaper: VideoWallpaper?", current_field)
@@ -227,6 +228,8 @@ class VideoIndexOrderedSaveTests(unittest.TestCase):
             "initialSizeBatch": (1, 0, 1, 1), "initialSizeCurrentRows": (1, 0, 1, 1),
             "initialSizeMetadataWins": (0, 0, 0, 0), "initialSizeRemoved": (0, 0, 0, 0),
             "initialSizeRevoked": (0, 0, 0, 0),
+            "initialSizeReverseBatch": (1, 0, 1, 1), "initialSizeFirstRow": (1, 0, 1, 1),
+            "initialSizeTypedPairs": (1, 0, 0, 0),
         }
         with tempfile.TemporaryDirectory(prefix="mwx-video-assets-", dir="/private/tmp") as directory:
             root = Path(directory)

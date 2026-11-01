@@ -170,14 +170,21 @@ extension WallpaperManager {
             guard !updates.isEmpty else { return }
             DispatchQueue.main.async { [weak self] in
                 guard let self, self.wallpaperIndexSaveEpoch == epoch else { return }
+                var wanted: [String: [String: Int64]] = [:]
+                for update in updates where wanted[update.id]?[update.path] == nil {
+                    wanted[update.id, default: [:]][update.path] = update.size
+                }
                 var updated = self.wallpapers
                 var changed = false
-                for update in updates {
-                    if let index = updated.firstIndex(where: { $0.id == update.id && $0.path == update.path }),
-                       updated[index].fileSize == nil {
-                        updated[index].fileSize = update.size
+                for index in updated.indices {
+                    let id = updated[index].id, path = updated[index].path
+                    guard let size = wanted[id]?.removeValue(forKey: path) else { continue }
+                    if wanted[id]?.isEmpty == true { wanted.removeValue(forKey: id) }
+                    if updated[index].fileSize == nil {
+                        updated[index].fileSize = size
                         changed = true
                     }
+                    if wanted.isEmpty { break }
                 }
                 if changed { self.wallpapers = updated }
             }

@@ -41,6 +41,7 @@ enum BundledVideoLibrary {
     var auditCurrentPublications = 0
     var auditScheduleEntries = 0
     var auditInitialSizeCallbacks = 0
+    var auditInitialSizeUpdates: [(id: String, path: String, size: Int64)]?
     func observeAssetPublication() {
         $wallpapers.dropFirst().sink { [weak self] _ in self?.auditPublications += 1 }.store(in: &cancellables)
         $currentWallpaper.dropFirst().sink { [weak self] _ in self?.auditCurrentPublications += 1 }.store(in: &cancellables)
@@ -665,6 +666,7 @@ extension VideoIndexOrderedSaveChecks {
             try store.saveWallpapers(rows); store.clearAudit()
             manager.auditPublications = 0; manager.auditCurrentPublications = 0; manager.auditScheduleEntries = 0
             manager.auditInitialSizeCallbacks = 0
+            manager.auditInitialSizeUpdates = nil
             manager.observeAssetPublication()
         }
         func settle() {
@@ -822,6 +824,67 @@ extension VideoIndexOrderedSaveChecks {
         try seed([added], current: added)
         wait("initial size revoked-epoch callback") { manager.auditInitialSizeCallbacks == 1 }
         try capture("initialSizeRevoked", expectedRows: [added], expectedCurrent: added)
+        let batch = try (0..<128).map { index -> VideoWallpaper in
+            let file = root.appendingPathComponent("size-\(index).mp4")
+            try Data(repeating: 9, count: index + 1).write(to: file)
+            var row = record("size-\(index)", path: file.path); row.fileSize = nil
+            return row
+        }
+        let filledBatch = batch.enumerated().map { index, row in
+            var filled = row; filled.fileSize = Int64(index + 1); return filled
+        }
+        try seed(batch, current: batch[0])
+        manager.settleInitialIndex(.init(wallpapers: batch, initialized: true))
+        try seed(Array(batch.reversed()), current: batch[0])
+        wait("reversed long size batch callback") { manager.auditInitialSizeCallbacks == 1 }
+        try capture("initialSizeReverseBatch", expectedRows: Array(filledBatch.reversed()), expectedCurrent: batch[0])
+
+        let firstRows = [missingA] + batch
+        try seed(firstRows, current: missingA)
+        manager.settleInitialIndex(.init(wallpapers: [missingA], initialized: true))
+        try seed(firstRows, current: missingA)
+        wait("single first-row size callback") { manager.auditInitialSizeCallbacks == 1 }
+        try capture("initialSizeFirstRow", expectedRows: [filledA] + batch, expectedCurrent: missingA,
+            extra: ["unrequestedTailStaysMissing": manager.wallpapers.dropFirst().allSatisfy { $0.fileSize == nil }])
+
+        let duplicateA = missingA
+        var knownB = missingB; knownB.fileSize = 77
+        var idFirst = record("shared-id", path: root.appendingPathComponent("pair-first.mp4").path)
+        var idSecond = record("shared-id", path: root.appendingPathComponent("pair-second.mp4").path)
+        let sharedPath = root.appendingPathComponent("shared-path.mp4").path
+        var pathFirst = record("path-first", path: sharedPath), pathSecond = record("path-second", path: sharedPath)
+        var unicodeFirst = record("caf\u{e9}", path: root.appendingPathComponent("caf\u{e9}.mp4").path)
+        var unicodeSecond = record("cafe\u{301}", path: root.appendingPathComponent("cafe\u{301}.mp4").path)
+        var wrongID = record("wrong-id", path: missingA.path)
+        var wrongPath = record(missingA.id, path: root.appendingPathComponent("wrong-path.mp4").path)
+        idFirst.fileSize = nil; idSecond.fileSize = nil; pathFirst.fileSize = nil; pathSecond.fileSize = nil
+        unicodeFirst.fileSize = nil; unicodeSecond.fileSize = nil; wrongID.fileSize = nil; wrongPath.fileSize = nil
+        let typedRows = [missingA, duplicateA, knownB, missingB, idFirst, idSecond,
+            pathFirst, pathSecond, unicodeFirst, unicodeSecond, wrongID, wrongPath]
+        var typedA = missingA, typedIDFirst = idFirst, typedIDSecond = idSecond
+        var typedPathFirst = pathFirst, typedPathSecond = pathSecond, typedUnicode = unicodeFirst
+        typedA.fileSize = 101; typedIDFirst.fileSize = 11; typedIDSecond.fileSize = 12
+        typedPathFirst.fileSize = 13; typedPathSecond.fileSize = 14; typedUnicode.fileSize = 515
+        let expectedTyped = [typedA, duplicateA, knownB, missingB, typedIDFirst, typedIDSecond,
+            typedPathFirst, typedPathSecond, typedUnicode, unicodeSecond, wrongID, wrongPath]
+        try seed([a, b], current: a)
+        manager.settleInitialIndex(.init(wallpapers: [missingA], initialized: true))
+        try seed([a, b], current: a)
+        // This typed callback boundary deliberately contains rows SQLite's
+        // id/path constraints reject. Keep its original legal database and
+        // observe the real publication without installing the persistence sink.
+        manager.cancellables.removeAll()
+        manager.wallpapers = typedRows
+        manager.auditInitialSizeUpdates = [(missingA.id, missingA.path, 101), (missingA.id, missingA.path, 202),
+            (missingB.id, missingB.path, 303), (missingB.id, missingB.path, 404),
+            (idSecond.id, idSecond.path, 12), (idFirst.id, idFirst.path, 11),
+            (pathSecond.id, sharedPath, 14), (pathFirst.id, sharedPath, 13),
+            (unicodeSecond.id, unicodeSecond.path, 515), (unicodeFirst.id, unicodeFirst.path, 616)]
+        manager.$wallpapers.dropFirst().sink { [weak manager] _ in manager?.auditPublications += 1 }.store(in: &manager.cancellables)
+        manager.$currentWallpaper.dropFirst().sink { [weak manager] _ in manager?.auditCurrentPublications += 1 }.store(in: &manager.cancellables)
+        wait("typed first-pair size callback") { manager.auditInitialSizeCallbacks == 1 }
+        try capture("initialSizeTypedPairs", expectedRows: expectedTyped, expectedCurrent: a, expectedDatabase: [a, b],
+            extra: ["unicodeStringsUseOriginalEquality": unicodeFirst.id == unicodeSecond.id && unicodeFirst.path == unicodeSecond.path])
         print(String(data: try JSONSerialization.data(withJSONObject: ["functional": functional, "work": work],
             options: [.sortedKeys]), encoding: .utf8)!)
     }
