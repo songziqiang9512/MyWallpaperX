@@ -39,6 +39,65 @@ import AppKit
     }
 }
 
+@MainActor private final class SettingsPanelView: NSView {
+    private var backgroundClicks = 0
+    @objc private func clickBackground() { backgroundClicks += 1 }
+    // ACTUAL_SETTINGS_PANEL_METHODS
+
+    func checkChooserHandoffs() async throws -> [String: Bool] {
+        let host = window!
+        let background = NSButton(title: "设置操作", target: self, action: #selector(clickBackground))
+        background.frame = NSRect(x: 20, y: 20, width: 140, height: 32)
+        addSubview(background)
+        var checks: [String: Bool] = [:]
+        for (kind, chooser) in [("open", NSOpenPanel() as NSSavePanel), ("save", NSSavePanel())] {
+            var callbacks = 0
+            var responses: [NSApplication.ModalResponse] = []
+            let confirmation = makeAppAlert(title: "选择面板结束后确认", buttons: ["继续", "取消"])
+            var feedback: NSWindow?
+            let completion: (URL?) -> Void = { url in
+                callbacks += 1
+                checks[kind + "-chooser-cancel-delivers-nil-once"] = callbacks == 1 && url == nil
+                checks[kind + "-chooser-retires-before-its-completion-consumer"] = !chooser.isVisible
+                    && chooser.sheetParent == nil && host.attachedSheet == nil
+                // Cancel has no import URL; this consumer isolates the native sheet handoff.
+                feedback = presentAppAlert(confirmation, in: self.preferredHostWindow()) { responses.append($0) }
+            }
+            if let open = chooser as? NSOpenPanel { presentOpenPanel(open, completion: completion) }
+            else { presentSavePanel(chooser, completion: completion) }
+            try await AppModalPresentationHarness.wait(kind + " chooser did not attach to settings") {
+                chooser.isVisible && chooser.isKeyWindow && chooser.sheetParent === host && host.attachedSheet === chooser
+            }
+            chooser.cancel(nil)
+            try await AppModalPresentationHarness.wait(kind + " chooser feedback did not remain on settings") {
+                callbacks == 1 && feedback?.isVisible == true && feedback?.isKeyWindow == true
+                    && feedback?.sheetParent === host && host.attachedSheet === feedback
+            }
+            checks[kind + "-chooser-feedback-stays-on-settings-not-on-the-retired-chooser"] = feedback === confirmation.window
+                && feedback?.sheetParent !== chooser && !chooser.isVisible && chooser.attachedSheet == nil
+            let previousClicks = backgroundClicks
+            try await AppModalPresentationHarness.click(background)
+            checks[kind + "-chooser-feedback-blocks-real-settings-mouse-input"] = backgroundClicks == previousClicks
+                && responses.isEmpty && !WallpaperLibrarySheetPresentation.permitsInput(in: host)
+            try await AppModalPresentationHarness.click(confirmation.buttons[1])
+            try await AppModalPresentationHarness.wait(kind + " chooser feedback left settings blocked", diagnostic: {
+                AppModalPresentationHarness.traceKeys(confirmation, responses: responses, phase: kind + "-chooser-cancel")
+                let state = "ChooserCancel kind=\(kind) callbacks=\(callbacks) hostKey=\(host.isKeyWindow) hostAttached=\(host.attachedSheet === feedback) feedbackVisible=\(feedback?.isVisible == true) feedbackKey=\(feedback?.isKeyWindow == true) feedbackOnHost=\(feedback?.sheetParent === host) chooserVisible=\(chooser.isVisible) modal=\(String(describing: NSApp.modalWindow)) buttonFrames=\(confirmation.buttons.map { $0.frame })\n"
+                FileHandle.standardError.write(Data(state.utf8))
+            }) {
+                responses == [.alertSecondButtonReturn] && host.attachedSheet == nil && host.isKeyWindow
+                    && feedback?.isVisible == false && feedback?.sheetParent == nil
+                    && WallpaperLibrarySheetPresentation.permitsInput(in: host)
+            }
+            try await AppModalPresentationHarness.click(background)
+            checks[kind + "-chooser-feedback-cancel-restores-settings-input-without-orphans"] = callbacks == 1
+                && responses == [.alertSecondButtonReturn] && backgroundClicks == previousClicks + 1
+                && !chooser.isVisible && chooser.sheetParent == nil && chooser.attachedSheet == nil
+        }
+        return checks
+    }
+}
+
 @main enum AppModalPresentationHarness {
     @MainActor static func wait(_ reason: String, diagnostic: (() -> Void)? = nil, _ condition: () -> Bool) async throws {
         let deadline = Date().addingTimeInterval(2)
@@ -327,6 +386,9 @@ import AppKit
         try await wait("single-button native cancellation did not settle") { settingsResponses.count == 1 && !settingsPanel.isVisible }
         checks["native-single-button-cancel-keeps-original-response-and-exact-once-completion"] = settingsResponses == [.alertFirstButtonReturn]
             && settings.attachedSheet == nil && settingsPanel.sheetParent == nil
+        let settingsView = SettingsPanelView(frame: settings.contentView!.bounds)
+        settings.contentView = settingsView
+        checks.merge(try await settingsView.checkChooserHandoffs()) { _, new in new }
         settings.orderOut(nil); settings.close()
 
         let field = NSTextField(string: "原附件值")

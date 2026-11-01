@@ -8,6 +8,7 @@ import tempfile
 import unittest
 
 from script.tests.native_app_harness import prepare_native_app, run_native_app
+from script.tests.test_ui_library_algorithms import declaration
 from script.tests.test_video_thumbnail_prefetch import SWIFT_ISOLATION_FLAGS
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -20,14 +21,26 @@ class AppModalPresentationTests(unittest.TestCase):
             'MyWallpaperX/Shared/UI/WallpaperLibrarySheetPresentation.swift',
             'script/tests/fixtures/AppModalPresentationHarness.swift',
             'script/tests/fixtures/NativeAppHarness.swift')]
-        observed = [*sources, Path(__file__), ROOT / 'script/tests/native_app_harness.py']
+        settings = ROOT / 'MyWallpaperX/Shared/Settings/AppKitSettingsView.swift'
+        observed = [*sources, settings, Path(__file__), ROOT / 'script/tests/native_app_harness.py',
+                    ROOT / 'script/tests/test_ui_library_algorithms.py']
         hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in observed}
         with tempfile.TemporaryDirectory(prefix='mwx-app-modal-', dir='/private/tmp') as directory:
             work = Path(directory)
             copied = []
             for path in sources:
                 target = work / path.name
-                shutil.copy2(path, target)
+                if path.name == 'AppModalPresentationHarness.swift':
+                    fixture = path.read_text()
+                    self.assertEqual(fixture.count('    // ACTUAL_SETTINGS_PANEL_METHODS'), 1)
+                    fixture = fixture.replace('    // ACTUAL_SETTINGS_PANEL_METHODS', '\n\n'.join(
+                        declaration(settings.read_text(), signature) for signature in (
+                            '    private func preferredHostWindow()',
+                            '    private func presentOpenPanel(',
+                            '    private func presentSavePanel(')))
+                    target.write_text(fixture)
+                else:
+                    shutil.copy2(path, target)
                 copied.append(str(target))
             binary = prepare_native_app(work, 'AppModalPresentation')
             build = subprocess.run(['xcrun', 'swiftc', *SWIFT_ISOLATION_FLAGS, '-warnings-as-errors', '-parse-as-library',

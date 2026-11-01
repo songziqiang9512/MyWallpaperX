@@ -34,7 +34,7 @@
     },
     "docs/development/code-slimming-program.md": {
       "lines": 464,
-      "bytes": 103195
+      "bytes": 103798
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -1739,10 +1739,10 @@
     {
       "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
-      "before": "ff2c9bde8ea76f32c3cf261be075ae38061fd48062b495058f6f0a05e24216f5",
-      "after": "f02980224b950b3c4101b23166009c21682fdd541b021f80b10209f026217305",
+      "before": "f02980224b950b3c4101b23166009c21682fdd541b021f80b10209f026217305",
+      "after": "df9a7e274eb9ad06464c65082c429b318e898e9dd9e4c02663f4df84212492db",
       "owner": "repository-maintainer",
-      "reason": "原位记录R53同锁内冗余Concurrent容器和死Reset退役、实际offline/Release隔离及App内嵌helper边界；仅本authority预算和既有receipt，保其他历史/Scene叶。",
+      "reason": "原位记录R55 chooser退场根因、两公开API最小修复、native红绿与未明单次Save取消边界；仅本authority预算/既有receipt，保其它历史及Scene叶。",
       "decision": "docs/development/code-slimming-program.md#目标与边界"
     },
     {

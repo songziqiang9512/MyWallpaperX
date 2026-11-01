@@ -87,7 +87,17 @@ enum PersonalSettingsError: Error { case recoveryRequired(String) }
     func updateVolume(_: Double) {}
 }
 
+@MainActor final class ScreenSaverCoordinator {
+    static let shared = ScreenSaverCoordinator()
+    func cancel() {}
+}
+@MainActor final class ScreenSaverWindowController {
+    static let shared = ScreenSaverWindowController()
+    func show(relativeTo window: NSWindow?) {}
+}
+
 @MainActor final class SettingsContentViewController {
+    let view = NSView()
     var personalSettings: PersonalSettingsImportCoordinator?
     var resetAction: (() -> Void)?
     // ACTUAL_ACTION_FACTORY
@@ -190,7 +200,7 @@ enum PersonalSettingsError: Error { case recoveryRequired(String) }
         view.resetSettingsButton.performClick(nil)
         check("reset-app-names-the-destructive-scope-and-defaults-to-cancel", view.resetSettingsButton.title == "重置应用"
               && Trace.alerts == ["重置应用"] && Trace.alertButtons == [["取消", "重置"]] && Trace.events.isEmpty
-              && Trace.alertMessages == ["将清空应用中的入库记录、喜爱、播放列表和最近使用，并恢复默认设置。磁盘上的媒体与下载文件保留，此操作不可撤销。"])
+              && Trace.alertMessages == ["将清空应用中的入库记录、喜爱、播放列表、最近使用及已保存的屏保内容，并恢复默认设置。磁盘上的原始媒体与下载文件保留，此操作不可撤销。"])
         Trace.reset(); Trace.response = .alertSecondButtonReturn
         view.resetSettingsButton.performClick(nil)
         check("only-explicit-reset-runs-the-existing-fresh-install-owner-once", Trace.events == ["fresh-install.reset"])

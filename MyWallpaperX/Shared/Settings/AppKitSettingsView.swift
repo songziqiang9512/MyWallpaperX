@@ -898,6 +898,7 @@ final class AppKitSettingsContainerView: NSView {
 
             if let hostWindow, hostWindow.isVisible {
                 panel.beginSheetModal(for: hostWindow) { response in
+                    panel.orderOut(nil)
                     completion(response == .OK ? panel.url : nil)
                 }
                 return
@@ -921,6 +922,7 @@ final class AppKitSettingsContainerView: NSView {
 
             if let hostWindow, hostWindow.isVisible {
                 panel.beginSheetModal(for: hostWindow) { response in
+                    panel.orderOut(nil)
                     completion(response == .OK ? panel.url : nil)
                 }
                 return
