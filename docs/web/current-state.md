@@ -55,7 +55,7 @@ project.json / Workshop directory
 
 ## 2. 稳定实现合同
 
-Web Combo使用显式原生菜单项保留同标题不同值，按原option identity选择/提交；共享滑块只提升tracking控件，不改变原preview/去抖/store职责。2026-10-14已编译实际Web编辑器验证同标题A/B两项及B→A提交，未重跑Web样本矩阵；见[相邻修复边界](../scene/history/native-property-list-convergence-2026-10-14.md#接受的实现)。
+Web Combo使用显式原生菜单项保留同标题不同值，按原option identity选择/提交；Web滑块非tracking动作直接提交，tracking期间preview、结束复用同一action提交，持久化仍归原Service。2026-10-14已编译实际Web编辑器验证同标题A/B两项及B→A提交，未重跑Web样本矩阵；见[相邻修复边界](../scene/history/native-property-list-convergence-2026-10-14.md#接受的实现)。
 
 - 原始 `project.json`、目录和资源布局保持只读；本地 descriptor/cache 是派生执行数据，不反向改写样本。
 - loopback（`httpLoopback`）按本token路径或本租约cookie准入，原root/grants仍校验：入口HTML下发`SameSite=Strict`、Path=/ cookie，供`fetch('/x')`等无前缀资源；缺本cookie的无前缀请求403。cookie不按端口隔离，名称须按原lease token区分；surface退出仅从其原WK store精确删除本name/domain/path，不清其他租约。异步删除不证明在途Set-Cookie排空，也不授跨端口文档隔离。落点`WebWallpaperLoopbackServer.authorizedRequestPath(_:cookieHeader:)`和原`removeSurface`。

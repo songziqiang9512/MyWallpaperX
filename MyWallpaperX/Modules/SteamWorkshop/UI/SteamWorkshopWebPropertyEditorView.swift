@@ -208,7 +208,7 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
             slider.identifier = NSUserInterfaceItemIdentifier(definition.key)
             slider.translatesAutoresizingMaskIntoConstraints = false
             slider.onTrackingEnded = { [weak target] slider in
-                target?.sliderTrackingEnded(slider)
+                target?.sliderChanged(slider)
             }
             retainActionTarget(target, for: slider)
             return slider
@@ -481,14 +481,8 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
             let normalized = view?.normalizedSliderValue(sender.doubleValue, definition: definition) ?? sender.doubleValue
             sender.doubleValue = normalized
             summaryLabel?.stringValue = view?.valueSummary(.number(normalized), definition: definition) ?? String(normalized)
-            view?.updateWebProperty(.number(normalized), definition: definition, record: record, preview: true)
-            if let slider = sender as? WorkshopPropertySlider {
-                if !slider.isTrackingMouse {
-                    commitSliderValue(sender)
-                }
-            } else if !sender.isHighlighted {
-                commitSliderValue(sender)
-            }
+            let isTracking = (sender as? WorkshopPropertySlider)?.isTrackingMouse ?? sender.isHighlighted
+            view?.updateWebProperty(.number(normalized), definition: definition, record: record, preview: isTracking)
         }
 
         @objc func textChanged(_ sender: NSTextField) {
@@ -544,17 +538,6 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
             ) { [weak self] _ in
                 self?.commitPendingColor()
             }
-        }
-
-        private func commitSliderValue(_ sender: NSSlider) {
-            let normalized = view?.normalizedSliderValue(sender.doubleValue, definition: definition) ?? sender.doubleValue
-            sender.doubleValue = normalized
-            summaryLabel?.stringValue = view?.valueSummary(.number(normalized), definition: definition) ?? String(normalized)
-            view?.updateWebProperty(.number(normalized), definition: definition, record: record)
-        }
-
-        func sliderTrackingEnded(_ sender: NSSlider) {
-            commitSliderValue(sender)
         }
 
         private func previewTextFieldValue(_ rawValue: String) {

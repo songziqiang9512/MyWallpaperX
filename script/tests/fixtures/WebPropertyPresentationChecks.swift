@@ -1,7 +1,8 @@
 @main enum WebPropertyPresentationChecks {
     @MainActor static func main() {
-        _ = NSApplication.shared
+        initializeNativeAppHarness()
         let service = SteamWorkshopService.shared
+        var sliderDispatchChecks: [String: Bool] = [:]
         let raw = "<b>First line</b><br/>Second line<br/>作者中文标题<br/>完整的中文说明"
         let text = WorkshopPropertyDisplayResolver.plainText(raw)!
         let labels = ["toggle", "rate", "color", "mode", "input", "note"]
@@ -32,7 +33,13 @@
             (view as? T).map { [$0] } ?? view.subviews.flatMap { descendants($0, type) }
         }
         func settle(_ view: NSView) {
-            for _ in 0..<5 { RunLoop.main.run(until: Date().addingTimeInterval(0.008)); view.layoutSubtreeIfNeeded() }
+            for _ in 0..<5 {
+                RunLoop.main.run(until: Date().addingTimeInterval(0.008))
+                while let event = NSApp.nextEvent(matching: .any, until: .distantPast, inMode: .default, dequeue: true) {
+                    NSApp.sendEvent(event)
+                }
+                view.layoutSubtreeIfNeeded()
+            }
         }
         for width: CGFloat in [324, 356, 480] {
             service.webDescriptor = .init(propertyDefinitions: definitions)
@@ -199,6 +206,105 @@
             precondition(service.webEvents.count == committed && service.webValues["color"] == .string("0.1 0.2 0.3"), "late color commit must not undo reset")
             for window in windows { window.contentView = nil; window.close() }
         }
+        service.webDescriptor = .init(propertyDefinitions: [definitions[1]])
+        service.webValues = ["rate": .number(0.5)]
+        let sliderEditor = SteamWorkshopWebPropertyEditorView(record: .init(id: "slider-events", title: "slider-events"))
+        let sliderWindow = NSWindow(contentRect: NSRect(x: 14000, y: 14000, width: 356, height: 300),
+            styleMask: [.titled], backing: .buffered, defer: false)
+        sliderWindow.center()
+        sliderWindow.isReleasedWhenClosed = false; sliderWindow.contentView = sliderEditor
+        sliderWindow.makeKeyAndOrderFront(nil); NSApp.activate()
+        settle(sliderEditor)
+        precondition(NSApp.isActive && sliderWindow.isKeyWindow, "native slider keyboard checks require an active key window")
+        let keyboardSlider = descendants(sliderEditor, WorkshopPropertySlider.self).first!
+        precondition(sliderWindow.makeFirstResponder(keyboardSlider))
+        let beforeKeyCommit = service.webEvents.count, beforeKeyPreview = service.webPreviews.count
+        let right = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+            windowNumber: sliderWindow.windowNumber, context: nil, characters: "\u{f703}",
+            charactersIgnoringModifiers: "\u{f703}", isARepeat: false, keyCode: 124)!
+        NSApp.sendEvent(right)
+        precondition(service.webEvents.count == beforeKeyCommit + 1 && keyboardSlider.doubleValue > 0.5
+            && service.webEvents.last?.0 == "rate" && service.webEvents.last?.1 == .number(keyboardSlider.doubleValue),
+            "native slider arrow input must commit its normalized value once")
+        sliderDispatchChecks["native-keyboard-action-does-not-preview-before-commit"] = service.webPreviews.count == beforeKeyPreview
+        settle(sliderEditor)
+        let accessibleSlider = descendants(sliderEditor, WorkshopPropertySlider.self).first!
+        precondition(accessibleSlider !== keyboardSlider && sliderWindow.firstResponder === accessibleSlider
+            && accessibleSlider.doubleValue == keyboardSlider.doubleValue,
+            "the asynchronous Web rebuild must restore slider value and keyboard focus")
+        let beforeAXCommit = service.webEvents.count, beforeAXPreview = service.webPreviews.count
+        let beforeAXValue = accessibleSlider.doubleValue
+        // AppKit can report false after dispatching the increment; verify its actual value and action below.
+        _ = accessibleSlider.accessibilityPerformIncrement()
+        precondition(service.webEvents.count == beforeAXCommit + 1 && accessibleSlider.doubleValue > beforeAXValue
+            && service.webEvents.last?.1 == .number(accessibleSlider.doubleValue),
+            "the native accessibility increment must commit once")
+        sliderDispatchChecks["native-accessibility-action-does-not-preview-before-commit"] = service.webPreviews.count == beforeAXPreview
+        settle(sliderEditor)
+        for (raw, expected, summary) in [(0.626, 0.63, "0.63"), (-2.0, 0.0, "0.00"), (3.0, 1.0, "1.00")] {
+            let slider = descendants(sliderEditor, WorkshopPropertySlider.self).first!
+            let beforeCommit = service.webEvents.count, beforePreview = service.webPreviews.count
+            slider.doubleValue = raw; slider.sendAction(slider.action, to: slider.target)
+            precondition(service.webEvents.count == beforeCommit + 1 && service.webEvents.last?.0 == "rate"
+                && service.webEvents.last?.1 == .number(expected) && slider.doubleValue == expected,
+                "nontracking Web slider actions must retain precision and native bounds")
+            precondition(descendants(sliderEditor, NSTextField.self).contains { $0.stringValue == summary },
+                "slider summary must use the normalized value before rebuilding")
+            sliderDispatchChecks["nontracking-\(raw)-does-not-preview-before-commit"] = service.webPreviews.count == beforePreview
+            settle(sliderEditor)
+            precondition(descendants(sliderEditor, WorkshopPropertySlider.self).first!.doubleValue == expected)
+        }
+        let senderOwner = descendants(sliderEditor, WorkshopPropertySlider.self).first!
+        let plain = NSSlider(value: 0.346, minValue: 0, maxValue: 1, target: senderOwner.target, action: senderOwner.action)
+        let beforePlainCommit = service.webEvents.count, beforePlainPreview = service.webPreviews.count
+        plain.isHighlighted = true; plain.sendAction(plain.action, to: plain.target)
+        precondition(service.webEvents.count == beforePlainCommit && service.webPreviews.count == beforePlainPreview + 1
+            && service.webPreviews.last?.1 == .number(0.35) && plain.doubleValue == 0.35,
+            "a highlighted plain NSSlider sender must preserve its preview fallback")
+        plain.isHighlighted = false; plain.doubleValue = 0.474
+        let beforePlainReleasePreview = service.webPreviews.count
+        plain.sendAction(plain.action, to: plain.target)
+        precondition(service.webEvents.count == beforePlainCommit + 1 && service.webEvents.last?.1 == .number(0.47)
+            && plain.doubleValue == 0.47, "an unhighlighted plain NSSlider sender must commit once")
+        sliderDispatchChecks["plain-unhighlighted-action-does-not-preview-before-commit"] = service.webPreviews.count == beforePlainReleasePreview
+        withExtendedLifetime(senderOwner) {}
+        settle(sliderEditor)
+        let trackingSlider = descendants(sliderEditor, WorkshopPropertySlider.self).first!
+        let beforeTrackingCommit = service.webEvents.count, beforeTrackingPreview = service.webPreviews.count
+        // The tracking state is controlled; the action target and end callback remain production.
+        trackingSlider.isTrackingMouse = true
+        for raw in [0.234, 0.678] {
+            trackingSlider.doubleValue = raw; trackingSlider.sendAction(trackingSlider.action, to: trackingSlider.target)
+        }
+        precondition(service.webEvents.count == beforeTrackingCommit && service.webPreviews.count == beforeTrackingPreview + 2
+            && service.webPreviews.suffix(2).map(\.1) == [.number(0.23), .number(0.68)]
+            && trackingSlider.doubleValue == 0.68,
+            "tracking slider actions must preview each normalized value without committing")
+        precondition(descendants(sliderEditor, NSTextField.self).contains { $0.stringValue == "0.68" })
+        trackingSlider.isTrackingMouse = false
+        trackingSlider.onTrackingEnded!(trackingSlider)
+        precondition(service.webEvents.count == beforeTrackingCommit + 1 && service.webPreviews.count == beforeTrackingPreview + 2
+            && service.webEvents.last?.0 == "rate" && service.webEvents.last?.1 == .number(0.68),
+            "the original tracking-ended callback must commit the final value once without another preview")
+        settle(sliderEditor)
+        let integer = SteamWorkshopWebPropertyDefinition(key: "integer-rate", title: "Integer slider", kind: .slider,
+            runtimeType: "slider", order: 0, minimumValue: -2, maximumValue: 3, allowsFractionalValues: false,
+            fractionalPrecision: nil, displayCondition: nil, directoryMode: nil, fileType: nil, defaultValue: .number(0), options: [])
+        service.webDescriptor = .init(propertyDefinitions: [integer]); service.webValues = [integer.key: .number(0)]
+        let integerEditor = SteamWorkshopWebPropertyEditorView(record: .init(id: "integer-slider", title: "integer-slider"))
+        sliderWindow.contentView = integerEditor; settle(integerEditor)
+        for (raw, expected) in [(-1.6, -2.0), (1.6, 2.0)] {
+            let slider = descendants(integerEditor, WorkshopPropertySlider.self).first!
+            let beforeCommit = service.webEvents.count, beforePreview = service.webPreviews.count
+            slider.doubleValue = raw; slider.sendAction(slider.action, to: slider.target)
+            precondition(service.webEvents.count == beforeCommit + 1 && service.webEvents.last?.0 == integer.key
+                && service.webEvents.last?.1 == .number(expected) && slider.doubleValue == expected)
+            precondition(descendants(integerEditor, NSTextField.self).contains { $0.stringValue == String(Int(expected)) },
+                "integer slider normalization must retain its integer summary")
+            sliderDispatchChecks["integer-\(raw)-does-not-preview-before-commit"] = service.webPreviews.count == beforePreview
+            settle(integerEditor)
+        }
+        sliderWindow.contentView = nil; sliderWindow.close()
         let resourceKinds: [SteamWorkshopWebPropertyKind] = [.file, .directory]
         service.webDescriptor = .init(propertyDefinitions: resourceKinds.enumerated().map { index, kind in
             var definition = SteamWorkshopWebPropertyDefinition(key: "resource\(index)", title: "resource",
@@ -392,6 +498,9 @@
         service.webDescriptor = .init(propertyDefinitions: [])
         let empty = SteamWorkshopWebPropertyEditorView(record: .init(id: "empty", title: "empty"))
         precondition(empty.presentsOnlyMessage && empty.emptyStateMessage!.contains("\n"))
+        print("Web slider dispatch checks", String(decoding: try! JSONSerialization.data(withJSONObject: sliderDispatchChecks, options: [.sortedKeys]), as: UTF8.self))
+        fflush(stdout)
+        precondition(sliderDispatchChecks.values.allSatisfy { $0 }, "nontracking Web slider actions must use only the commit service entry")
         print("Web/Scene presentation PASS: scrolling first-row reset, authored rules and bilingual rows, hidden scroller hit/wheel, original option payload and color/reset")
     }
 }

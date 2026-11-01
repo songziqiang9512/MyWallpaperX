@@ -33,8 +33,8 @@
       "bytes": 116594
     },
     "docs/development/code-slimming-program.md": {
-      "lines": 477,
-      "bytes": 113858
+      "lines": 479,
+      "bytes": 115257
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -294,7 +294,7 @@
     },
     "docs/web/current-state.md": {
       "lines": 140,
-      "bytes": 53607
+      "bytes": 53654
     },
     "docs/web/dedicated-host-process-design.md": {
       "lines": 80,
@@ -1526,11 +1526,11 @@
     {
       "section": "bodies",
       "path": "docs/web/current-state.md",
-      "before": "bedb7ae020ad3bb8a55c4b17af3ec49673df945b2f642e32d400bb2de2bfe8fc",
-      "after": "6d5213ed5d9533fad955a264ce22e78ee8d152a646f145174dd6ff38e37094db",
-      "owner": "Scene/Web validation simplification",
-      "reason": "P10–P12同次减工和Release纯诊断整链剥离；同步实际回归、10项未验、片段对照及双配置App结算，退役旧产物，其他预算不变。",
-      "decision": "docs/development/validation-simplification-plan.md"
+      "before": "e0eba04541d3a5e432a7db0f179b4d4125154f8f29694a4e665805151cc3562b",
+      "after": "5fa94c3a7dab8c115957363dfc0c113c9b3d637b382b5fd6867b7cdf6875e39e",
+      "owner": "repository-maintainer",
+      "reason": "沿现役权威登记R13单一滑块分派、退役转发及真实验证边界；复用已有原生测试流程。",
+      "decision": "docs/development/code-slimming-program.md#目标与边界"
     },
     {
       "section": "bodies",
@@ -1778,10 +1778,10 @@
     {
       "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
-      "before": "a311d83a035b0132d50c0343edb2794bd557ce9d6f35bb4dc93f263b2ed6a2dc",
-      "after": "760e94f8ab17a1d92927350ea8548da4d3c841ee1c66ce9427accd777d37a40e",
+      "before": "760e94f8ab17a1d92927350ea8548da4d3c841ee1c66ce9427accd777d37a40e",
+      "after": "9e15a294d5374f4ab1e20613175f2764379906de96dcf715ac0f3ce5401d9f49",
       "owner": "repository-maintainer",
-      "reason": "按用户恢复全仓审查，沿原专项登记R12分页批量发布、旧新行为门与并行Scene隔离边界。",
+      "reason": "沿现役权威登记R13单一滑块分派、退役转发及真实验证边界；复用已有原生测试流程。",
       "decision": "docs/development/code-slimming-program.md#目标与边界"
     },
     {

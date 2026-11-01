@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Execute the native Scene list with production context/conditions and service leaves."""
 from pathlib import Path
+import os
 import subprocess
 import tempfile
 import unittest
 
+from script.tests.native_app_harness import prepare_native_app, run_native_app
 from script.tests.test_scene_property_live_routing import method_body
 from script.tests.test_video_thumbnail_prefetch import SWIFT_ISOLATION_FLAGS
 
@@ -705,7 +707,7 @@ struct InspectorHostRequest {
     enum Chrome { case infoPanel }
     let token: InspectorCardToken
     let title: String
-    let subtitle: String
+    let subtitle: String?
     let chromeStyle: Chrome
 }
 enum InspectorHostActions {
@@ -903,7 +905,7 @@ LOCALIZATION_HARNESS = r'''
 
 class NativeScenePropertyListTests(unittest.TestCase):
     def test_web_scene_shared_property_presentation(self):
-        self.run_probe((ROOT / "script/tests/fixtures/WebPropertyPresentationChecks.swift").read_text())
+        self.run_probe((ROOT / "script/tests/fixtures/WebPropertyPresentationChecks.swift").read_text(), active_app=True)
 
     def test_authored_paragraphs_types_and_narrow_layout(self):
         self.run_probe((ROOT / "script/tests/fixtures/ScenePropertyPresentationChecks.swift").read_text())
@@ -921,7 +923,7 @@ class NativeScenePropertyListTests(unittest.TestCase):
         card = card[card.index('final class InspectorHostCardView:'):]
         self.run_probe(KEYBOARD_HARNESS + panel + card)
 
-    def run_probe(self, harness):
+    def run_probe(self, harness, active_app=False):
         context = SERVICE.read_text().split('\nextension SteamWorkshopService {', 1)[0]
         service = SERVICE.read_text()
         normalization = NORMALIZATION.read_text()
@@ -939,6 +941,9 @@ class NativeScenePropertyListTests(unittest.TestCase):
             prefix = '    private nonisolated static func ' if name in {'normalizedWebDisplaySegments', 'collapseRepeatedWebDisplaySegments', 'normalizeWebColorTriplet', 'parseHexWebColor'} else '    nonisolated static func '
             methods.append(method_body(normalization, prefix + name + '('))
         with tempfile.TemporaryDirectory(prefix='mwx-native-property-', dir='/private/tmp') as folder:
+            runtime_home = Path(folder) / 'home'
+            runtime_home.mkdir()
+            runtime_environment = dict(os.environ, HOME=str(runtime_home), CFFIXED_USER_HOME=str(runtime_home))
             path = Path(folder) / 'Probe.swift'
             outcome = method_body((ROOT / 'MyWallpaperX/Core/PlaybackControl/WallpaperEngineCommand.swift').read_text(),
                                   'nonisolated enum ScenePlaybackTextureUpdateOutcome:')
@@ -951,6 +956,7 @@ class NativeScenePropertyListTests(unittest.TestCase):
             web_editor.write_text((MODULE / 'UI/SteamWorkshopWebPropertyEditorView.swift').read_text().replace('NSOpenPanel()', 'PickerProbe()'))
             (Path(folder) / 'WorkshopPropertyDisplayStrings.json').write_bytes((ROOT / 'MyWallpaperX/Resources/WorkshopPropertyDisplayStrings.json').read_bytes())
             sources = [ROOT / 'MyWallpaperX/Shared/WorkshopPropertyDisplayResolver.swift',
+                       ROOT / 'MyWallpaperX/Shared/Components/WallpaperLibraryControlStyle.swift',
                        ROOT / 'MyWallpaperX/Shared/Components/WallpaperFormFieldStyle.swift',
                        ROOT / 'MyWallpaperX/Core/PlaybackControl/ScenePlaybackShortcut.swift',
                        ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperLaunchModels.swift',
@@ -965,12 +971,19 @@ class NativeScenePropertyListTests(unittest.TestCase):
                        ROOT / 'MyWallpaperX/Shared/UI/WorkshopPropertyPanelViews.swift',
                        web_editor,
                        MODULE / 'UI/WorkshopPropertySlider.swift', editor, path]
-            binary = Path(folder) / 'Probe'
+            if active_app:
+                sources.append(ROOT / 'script/tests/fixtures/NativeAppHarness.swift')
+            binary = prepare_native_app(Path(folder), 'Probe') if active_app else Path(folder) / 'Probe'
             compiled = subprocess.run(['xcrun', 'swiftc', *SWIFT_ISOLATION_FLAGS, '-Onone', '-parse-as-library', *map(str, sources), '-o', str(binary)],
-                                      capture_output=True, text=True, timeout=90)
+                                      capture_output=True, text=True, timeout=90, env=runtime_environment)
             self.assertEqual(compiled.returncode, 0, compiled.stderr)
-            result = subprocess.run([str(binary)], capture_output=True, text=True, timeout=30)
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            if active_app:
+                result = run_native_app(binary, timeout=30)
+                self.assertEqual(result.launch_returncode, 0, result.stderr)
+                self.assertIn('Web/Scene presentation PASS:', result.stdout, result.stdout + result.stderr)
+            else:
+                result = subprocess.run([str(binary)], capture_output=True, text=True, timeout=30, env=runtime_environment)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertNotIn('Unable to simultaneously satisfy constraints', result.stderr)
             print(result.stdout.strip())
 

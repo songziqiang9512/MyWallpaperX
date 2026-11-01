@@ -5582,6 +5582,7 @@
         "test_native_ui_equivalence",
         "test_online_image_toolbar",
         "test_playlist_directory",
+        "test_scene_native_property_list",
         "test_scene_test_runner",
         "test_sil_square_cards",
         "test_sil_thumbnail_demand",
