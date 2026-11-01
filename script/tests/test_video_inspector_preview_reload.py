@@ -9,6 +9,7 @@
 - 旧代数异步完成不得覆盖新资源状态；
 - 面板关闭（视图释放）后的迟到回调安全；
 - 无关 manager 发布不重写 footer，注入动作状态仍更新真实按钮与操作。
+- 两个预览准备方法按各自作用域观察真实模型查找，内容重建不计入。
 
 缓存与模块编译输出均置于每次运行的临时目录；Foundation 的缓存根通过
 CFFIXED_USER_HOME 隔离，harness 在首次构造共享缓存前断言该根生效。
@@ -18,6 +19,7 @@ from __future__ import annotations
 
 import os
 import hashlib
+import json
 import pathlib
 import subprocess
 import tempfile
@@ -64,6 +66,19 @@ class VideoInspectorPreviewReloadTests(unittest.TestCase):
                     for signature, counter in (("    func setSymbol(", "symbols"), ("    func setTitle(", "titles")):
                         entry = declaration(content, signature)
                         observed = entry.replace("{", "{\n        InspectorFooterWorkProbe." + counter + " += 1", 1)
+                        content = content.replace(entry, observed, 1)
+                elif source == INSPECTOR_VIEW_SOURCE:
+                    entry = declaration(content, "    private var currentWallpaper:")
+                    observed = entry.replace("{\n", "{\n        if let scope = InspectorPreviewLookupProbe.scope { InspectorPreviewLookupProbe.reads[scope, default: 0] += 1 }\n", 1)
+                    observed = observed.replace("        wallpaperManager.wallpapers.first", "        return wallpaperManager.wallpapers.first", 1)
+                    content = content.replace(entry, observed, 1)
+                    for signature, scope in (("    private func loadPreviewImage(", "load"),
+                                             ("    private func reloadPreviewIfAssetIdentityChanged(", "reload")):
+                        entry = declaration(content, signature)
+                        observed = entry.replace("{\n", "{\n        let previousLookupScope = InspectorPreviewLookupProbe.scope\n"
+                            f'        InspectorPreviewLookupProbe.scope = "{scope}"\n'
+                            f'        InspectorPreviewLookupProbe.calls["{scope}", default: 0] += 1\n'
+                            "        defer { InspectorPreviewLookupProbe.scope = previousLookupScope }\n", 1)
                         content = content.replace(entry, observed, 1)
                 frozen.write_text(content)
                 sources.append(frozen)
@@ -147,6 +162,23 @@ class VideoInspectorPreviewReloadTests(unittest.TestCase):
             failed = {name: verdict for name, verdict in results.items() if verdict != "PASS"}
             self.assertEqual(failed, {}, output)
             self.assertIn("ALL SCENARIOS PASS", run.stdout)
+            observations = [json.loads(line.removeprefix("PREVIEW LOOKUPS "))
+                for line in run.stdout.splitlines() if line.startswith("PREVIEW LOOKUPS ")]
+            self.assertEqual(len(observations), 1, output)
+            work = observations[0]
+            self.assertEqual(set(work), {"unchanged", "changed"})
+            print(json.dumps({"previewLookupWork": work}, sort_keys=True))
+            for phase, observation in work.items():
+                calls, reads = observation["calls"], observation["reads"]
+                self.assertGreater(calls.get("reload", 0), 0, observation)
+                self.assertGreater(reads.get("reload", 0), 0, observation)
+                if phase == "changed":
+                    self.assertGreater(calls.get("load", 0), 0, observation)
+                    self.assertGreater(reads.get("load", 0), 0, observation)
+                for method in ("reload", "load"):
+                    with self.subTest(phase=phase, method=method):
+                        self.assertGreaterEqual(reads.get(method, 0), 0)
+                        self.assertLessEqual(reads.get(method, 0), calls.get(method, 0), observation)
         self.assertEqual(hashes, {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in INSPECTOR_SOURCES})
 
     def test_unbound_video_inspector_cannot_be_constructed(self) -> None:

@@ -88,14 +88,14 @@ final class VideoLibraryInspectorView: NSView {
         previewCancellation?.cancel()
         let cancellation = ThumbnailCacheRequestCancellation()
         previewCancellation = cancellation
+        let wallpaper = currentWallpaper
         // 重载开始回到「加载中」：占位不算缺失，缺失提示由本轮完成时裁决
         lastPreviewLoadIdentity = PreviewAssetIdentity(
-            path: currentWallpaper.path,
-            thumbnailPath: currentWallpaper.thumbnailPath,
-            staticFramePath: currentWallpaper.staticFramePath
+            path: wallpaper.path,
+            thumbnailPath: wallpaper.thumbnailPath,
+            staticFramePath: wallpaper.staticFramePath
         )
         let manager = wallpaperManager
-        let wallpaper = currentWallpaper
         weak let weakSelf = self
         // 路径解析含文件存在性 stat，放后台执行
         DispatchQueue.global(qos: .userInitiated).async {
@@ -139,10 +139,11 @@ final class VideoLibraryInspectorView: NSView {
     /// 源路径或派生资产路径变化（资源替换/静帧补齐）时重载预览；
     /// 身份未变化的 publish（收藏切换等）不重复触发磁盘解码。
     private func reloadPreviewIfAssetIdentityChanged() {
+        let wallpaper = currentWallpaper
         let identity = PreviewAssetIdentity(
-            path: currentWallpaper.path,
-            thumbnailPath: currentWallpaper.thumbnailPath,
-            staticFramePath: currentWallpaper.staticFramePath
+            path: wallpaper.path,
+            thumbnailPath: wallpaper.thumbnailPath,
+            staticFramePath: wallpaper.staticFramePath
         )
         guard identity != lastPreviewLoadIdentity else { return }
         loadPreviewImage()

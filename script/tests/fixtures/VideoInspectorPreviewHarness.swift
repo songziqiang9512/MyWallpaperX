@@ -20,6 +20,12 @@ import Foundation
     static var titles = 0
 }
 
+@MainActor enum InspectorPreviewLookupProbe {
+    static var scope: String?
+    static var calls: [String: Int] = [:]
+    static var reads: [String: Int] = [:]
+}
+
 // MARK: - 视图消费面桩（不复制产品逻辑）
 
 struct InspectorSelectionStub {}
@@ -352,6 +358,7 @@ enum Harness {
         writeJPEG(thumbGreen, red: 0.10, green: 0.82, blue: 0.25, width: 70, height: 44)
 
         let manager = WallpaperManager()
+        var previewLookupWork: [String: [String: [String: Int]]] = [:]
         let wallpaperA = VideoWallpaper(id: "card-a", title: "A", path: videoA, tags: ["保留原标签"])
         manager.wallpapers = [wallpaperA]
 
@@ -449,12 +456,14 @@ enum Harness {
 
         // 场景 3：无关 publish（收藏切换，资产身份不变）不重复读取预览
         _ = manager.drainResolveLog()
+        InspectorPreviewLookupProbe.calls = [:]; InspectorPreviewLookupProbe.reads = [:]
         manager.wallpapers = [
             VideoWallpaper(id: "card-a", title: "A", path: videoA, isFavorite: true, tags: ["保留原标签"])
         ]
         drain(0.5)
         check(!noticeVisible(in: inspector) && looksRed(centerPixel(in: inspector))
               && manager.drainResolveLog().isEmpty, "s3-unrelated-publish-keeps-preview")
+        previewLookupWork["unchanged"] = ["calls": InspectorPreviewLookupProbe.calls, "reads": InspectorPreviewLookupProbe.reads]
 
         check(initialPreview.constraints.count == initialPreviewConstraintCount,
               "s10-preview-constraints-do-not-grow-on-metadata-or-source-echoes")
@@ -462,11 +471,13 @@ enum Harness {
         // 场景 4：资源替换（同 id 换源路径，新源无预览）→ 旧图清空、缺失提示回归
         manager.setResolvedThumbnail(nil, for: videoD)
         _ = manager.drainResolveLog()
+        InspectorPreviewLookupProbe.calls = [:]; InspectorPreviewLookupProbe.reads = [:]
         manager.wallpapers = [VideoWallpaper(id: "card-a", title: "A", path: videoD, isFavorite: true)]
         let cleared = waitFor(timeout: 4.0) { noticeVisible(in: inspector) && placeholderVisible(in: inspector) }
         print("DETAIL s4-resolves \(manager.drainResolveLog())")
         print("DETAIL s4-state notice=\(noticeVisible(in: inspector)) placeholder=\(placeholderVisible(in: inspector))")
         check(cleared && !looksRed(centerPixel(in: inspector)), "s4-replacement-clears-stale-preview")
+        previewLookupWork["changed"] = ["calls": InspectorPreviewLookupProbe.calls, "reads": InspectorPreviewLookupProbe.reads]
 
         // 场景 5：新源的缩略图后到 → 再次按事件刷新为新图
         manager.setResolvedThumbnail(thumbBlue, for: videoD)
@@ -760,6 +771,7 @@ enum Harness {
               "s13-completed-metadata-remount-does-not-reread")
         metadataView.removeFromSuperview()
 
+        print("PREVIEW LOOKUPS " + String(data: try! JSONEncoder().encode(previewLookupWork), encoding: .utf8)!)
         if failureNames.isEmpty {
             print("ALL SCENARIOS PASS")
         } else {

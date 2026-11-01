@@ -34,7 +34,7 @@
     },
     "docs/development/code-slimming-program.md": {
       "lines": 464,
-      "bytes": 102352
+      "bytes": 102507
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -1757,10 +1757,10 @@
     {
       "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
-      "before": "a88c37906dc46293aac75a9bfd19df9706fadcec368f1523ca49443f7fd16ef0",
-      "after": "c9d438ea29d43133bb06e179b3dbc31011dad24edac85cbe6ededd00742eb09d",
+      "before": "c9d438ea29d43133bb06e179b3dbc31011dad24edac85cbe6ededd00742eb09d",
+      "after": "bd454ffeb327ea945eeee10c794eb344e6ae7cc4720fa9d87ffca7886f034e27",
       "owner": "repository-maintainer",
-      "reason": "原位替换最近验证为R40无消费者metadata请求退役、真实SDK默认与映射等价门；准确保留原C#警告和在线未验界限，维护较小预算并保全其他owner叶及receipt。",
+      "reason": "原位替换最近验证为R41视频预览同方法模型复用，保旧业务绿和仅成本红对照、负编译及Scene隔离界限；无逐批台账膨胀，保全部其他owner预算和调整链。",
       "decision": "docs/development/code-slimming-program.md#目标与边界"
     },
     {
