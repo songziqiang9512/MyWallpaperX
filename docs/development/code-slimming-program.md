@@ -46,6 +46,8 @@ R17（ffb632829起）：视频导入结果准备只在有新候选时建应用�
 
 R18（01adcdd94起，整合f54ae2ef6）：元数据回填沿已有匹配记录保留raw path及index，最终仅比较命中行，索引全部在赋wallpapers前消费，发布后通知只读原路径；原首匹配、重复最终回原零发布和逐条通知顺序保持。产品7+/7-、净0，无新Set/helper/持久状态或owner，每条匹配多一个临时Int。退役fixture中复制的applyLegacy及实例/调用，仅删除与完整expected重复的纯legacy等价key；保17项独立业务检查，新增长前缀、反序命中、通知中删/重排及通知间别名改向，共21项。冻结基线18项通过；同最终夹具旧新21项结果全真且相等，真实模型Equatable/Subject/产品notify未替换；不为计比较次数重写模型。初次仅新alias预期红，实证为B创建前/private/tmp与创建后/tmp规范路径差异，模型/发布/快照均真，只修新相位创建后期望，未计该失败为通过。独审、werror及实际输入身份稳定，隔离构建/质量结果归本批证据。收益只限最终无关行比较，不减少COW、路径/AV或保存，单项早命中/多重复输入不声明更快，未测整App或时耗。启动两次扫描确有重叠窗口，普通DB-only分支早期仅临时seeds，fallback/失败路径需要早扫描；删除会改时机，精确合并需额外任务/epoch状态且未量频率，暂缓。下一方向核AV元数据属性的重复准备与现有批量读取接口，不凭理论值状态加防御。
 
+R19（784963bb5起）：Video Inspector footer仅消费注入libraryActions.state，删除$wallpapers分支重复刷新及整条manager.objectWillChange旧订阅；初始化/updateLibraryActions仍刷新，独立footer不随contentStack重建，播放/收藏/权限沿既有coordinator状态链更新。产品净-7行，无新状态/helper/owner；内容/文件缺失提示、预览/metadata与取消链不改。测试净+66行，原37项保持，新增2项真实setter成本及2项图标/标题/AX动作/权限反例，共41项；只在测试生成副本入口计数，未替换setter或改共享产品。旧源仅2项新成本反例红，其余39项与新源一致；两个存活Inspector受控objectWillChange符号/标题4/2→0/0，同值库publish8/4→0/0，不外推频率、耗时或整App。现役Video两方法及coordinator固定引用/原生QL门通过，werror、实际输入身份与独审通过，隔离构建/质量结果归本批证据；manager/metadata仍为原fixture叶，不声称全App状态链运行验证。AV共享轨道候选会改变失败重试且未证IO收益，暂缓；其他Inspector有远端忙态/fallback，不照搬删订阅。下一方向核同次内容重建的重复事实准备，不新增渲染摘要或缓存。
+
 “无调用”须排查 selector、协议回调、独立进程、作者脚本、动态资源及调试工具；测试、文档或结构登记出现名字不等于产品调用。第一批只删除已确认不可达的链路，不以行数作为收益或验收目标。
 
 ## 第一批设计与停止条件

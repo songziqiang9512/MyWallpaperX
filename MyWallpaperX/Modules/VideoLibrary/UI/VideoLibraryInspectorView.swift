@@ -252,7 +252,6 @@ final class VideoLibraryInspectorView: NSView {
                     self.loadDetails()
                 } else {
                     self.rebuildContent()
-                    self.refreshFooterActions()
                 }
             }
             .store(in: &cancellables)
@@ -267,12 +266,6 @@ final class VideoLibraryInspectorView: NSView {
                       self.wallpaperManager.normalizedPath(self.currentWallpaper.path) == changedPath else { return }
                 self.loadPreviewImage()
             }
-            .store(in: &cancellables)
-        // 播放态变化（停止/切换）不一定伴随库内容变化；按钮的互斥形态
-        // 需要跟随播放状态即时刷新。
-        wallpaperManager.objectWillChange
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.refreshFooterActions() }
             .store(in: &cancellables)
     }
 

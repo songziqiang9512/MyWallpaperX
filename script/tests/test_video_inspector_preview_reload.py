@@ -7,7 +7,8 @@
 - 无关 publish 不破坏已显示预览；
 - 资源替换清空旧图、新源缩略图后到再次刷新；
 - 旧代数异步完成不得覆盖新资源状态；
-- 面板关闭（视图释放）后的迟到回调安全。
+- 面板关闭（视图释放）后的迟到回调安全；
+- 无关 manager 发布不重写 footer，注入动作状态仍更新真实按钮与操作。
 
 缓存与模块编译输出均置于每次运行的临时目录；Foundation 的缓存根通过
 CFFIXED_USER_HOME 隔离，harness 在首次构造共享缓存前断言该根生效。
@@ -58,6 +59,12 @@ class VideoInspectorPreviewReloadTests(unittest.TestCase):
                     entry = declaration(content, "    func load(")
                     observed = entry[:-1] + "    InspectorCacheDemandProbe.shared.registered(key, cancellation: cancellation)\n    }"
                     content = content.replace(entry, observed, 1)
+                elif source == FOOTER_METRICS_SOURCE:
+                    # Count actual setter entries without replacing their UI work.
+                    for signature, counter in (("    func setSymbol(", "symbols"), ("    func setTitle(", "titles")):
+                        entry = declaration(content, signature)
+                        observed = entry.replace("{", "{\n        InspectorFooterWorkProbe." + counter + " += 1", 1)
+                        content = content.replace(entry, observed, 1)
                 frozen.write_text(content)
                 sources.append(frozen)
             build = subprocess.run(
@@ -125,6 +132,10 @@ class VideoInspectorPreviewReloadTests(unittest.TestCase):
                 "s13-first-mount-does-not-duplicate-inflight-metadata",
                 "s13-pending-metadata-remount-restarts-and-reaches-final-values",
                 "s13-completed-metadata-remount-does-not-reread",
+                "s15-unrelated-manager-change-does-not-rewrite-footer",
+                "s15-identical-library-publish-does-not-rewrite-footer",
+                "s15-injected-playing-favorite-and-permissions-update-native-footer",
+                "s15-stopped-and-disabled-footer-restores-icons-and-refuses-actions",
             )
             results: dict[str, str] = {}
             for line in run.stdout.splitlines():

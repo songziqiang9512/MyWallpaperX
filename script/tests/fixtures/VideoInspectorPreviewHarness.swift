@@ -15,6 +15,11 @@ import QuartzCore
 import Combine
 import Foundation
 
+@MainActor enum InspectorFooterWorkProbe {
+    static var symbols = 0
+    static var titles = 0
+}
+
 // MARK: - 视图消费面桩（不复制产品逻辑）
 
 struct InspectorSelectionStub {}
@@ -581,6 +586,56 @@ enum Harness {
         let readonlyFavoriteControl = firstSubview(of: organized) { ($0 as? InspectorFooterButton)?.action == NSSelectorFromString("toggleFavorite") } as? InspectorFooterButton
         check(readonlyFavoriteControl?.isEnabled == false && readonlyFavoriteControl?.accessibilityPerformPress() == false
             && newFavorite == 2, "s9-native-readonly-favorite-refuses-accessibility-press")
+
+        drain(0.1)
+        let beforeObjectChange = (InspectorFooterWorkProbe.symbols, InspectorFooterWorkProbe.titles)
+        manager.objectWillChange.send()
+        drain(0.1)
+        let objectChangeWork = (InspectorFooterWorkProbe.symbols - beforeObjectChange.0,
+            InspectorFooterWorkProbe.titles - beforeObjectChange.1)
+        check(objectChangeWork == (0, 0), "s15-unrelated-manager-change-does-not-rewrite-footer")
+        let unchangedWallpapers = manager.wallpapers
+        let beforeLibraryPublish = (InspectorFooterWorkProbe.symbols, InspectorFooterWorkProbe.titles)
+        manager.wallpapers = unchangedWallpapers
+        drain(0.1)
+        let libraryPublishWork = (InspectorFooterWorkProbe.symbols - beforeLibraryPublish.0,
+            InspectorFooterWorkProbe.titles - beforeLibraryPublish.1)
+        check(libraryPublishWork == (0, 0), "s15-identical-library-publish-does-not-rewrite-footer")
+        print("DETAIL s15-footer-work object=\(objectChangeWork) identical-library=\(libraryPublishWork)")
+
+        let primaryControl = firstSubview(of: organized) { ($0 as? InspectorFooterButton)?.action == NSSelectorFromString("setAsWallpaper") } as! InspectorFooterButton
+        let favoriteFooter = readonlyFavoriteControl!
+        let primaryIcon = firstSubview(of: primaryControl) { $0 is NSImageView } as! NSImageView
+        let favoriteIcon = firstSubview(of: favoriteFooter) { $0 is NSImageView } as! NSImageView
+        let idlePrimaryImage = primaryIcon.image?.tiffRepresentation
+        let filledFavoriteImage = favoriteIcon.image?.tiffRepresentation
+        var injectedStops = 0, injectedFavorites = 0
+        let playingActions = WallpaperInspectorActions(state: .init(isPlaying: true, isFavorite: false, canPerformPrimary: true,
+            canFavorite: true, canOrganize: false, playlistNames: ["New Store List"]), onPrimary: { injectedStops += 1 },
+            onToggleFavorite: { injectedFavorites += 1 }, onChoosePlaylist: { _ in newMembership += 1 })
+        organized.updateLibraryActions(playingActions)
+        let stopTitle = firstSubview(of: primaryControl) { ($0 as? NSTextField)?.stringValue == "停止播放" } != nil
+        let stopPrimaryImage = primaryIcon.image?.tiffRepresentation
+        let outlineFavoriteImage = favoriteIcon.image?.tiffRepresentation
+        let primaryChanged = idlePrimaryImage != nil && stopPrimaryImage != nil && stopPrimaryImage != idlePrimaryImage
+        let favoriteChanged = filledFavoriteImage != nil && outlineFavoriteImage != nil && outlineFavoriteImage != filledFavoriteImage
+        let stopPressed = primaryControl.accessibilityPerformPress()
+        let favoritePressed = favoriteFooter.accessibilityPerformPress()
+        check(stopTitle && primaryChanged && favoriteChanged && primaryControl.isEnabled && favoriteFooter.isEnabled
+            && playlistControl?.isEnabled == false && stopPressed && favoritePressed && injectedStops == 1 && injectedFavorites == 1
+            && manager.primaryWrites == 0 && UIActionHelper.favoriteWrites == 0,
+            "s15-injected-playing-favorite-and-permissions-update-native-footer")
+        let stoppedActions = WallpaperInspectorActions(state: .init(isPlaying: false, isFavorite: true, canPerformPrimary: false,
+            canFavorite: false, canOrganize: false, playlistNames: ["New Store List"]), onPrimary: { injectedStops += 1 },
+            onToggleFavorite: { injectedFavorites += 1 }, onChoosePlaylist: { _ in newMembership += 1 })
+        organized.updateLibraryActions(stoppedActions)
+        let playTitle = firstSubview(of: primaryControl) { ($0 as? NSTextField)?.stringValue == "设为壁纸" } != nil
+        check(playTitle && primaryIcon.image?.tiffRepresentation == idlePrimaryImage
+            && favoriteIcon.image?.tiffRepresentation == filledFavoriteImage
+            && !primaryControl.isEnabled && !favoriteFooter.isEnabled && playlistControl?.isEnabled == false
+            && !primaryControl.accessibilityPerformPress() && !favoriteFooter.accessibilityPerformPress()
+            && injectedStops == 1 && injectedFavorites == 1,
+            "s15-stopped-and-disabled-footer-restores-icons-and-refuses-actions")
         organized.removeFromSuperview()
 
         // Hold the actual single generation lane. A separate public consumer
