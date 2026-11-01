@@ -63,6 +63,11 @@ enum WallpaperLibrarySheetPresentation {
 }
 
 @main struct OnlineImageInspectorHarness {
+    @MainActor static var assetVisits = 0
+    @MainActor static var membershipVisits = 0
+    @MainActor static var controlsCalls = 0
+    @MainActor static var progressObservations: [(marker: Double?, calls: Int, visits: Int)] = []
+    @MainActor static let progressMarker = OnlineImageAssetID(source: .wallhaven, artworkID: "unrelated-progress-marker")
     @MainActor static func pump(_ until: () -> Bool) async {
         for _ in 0..<120 { if until() { return }; try? await Task.sleep(for: .milliseconds(8)) }
     }
@@ -268,6 +273,183 @@ enum WallpaperLibrarySheetPresentation {
         PixivSession.shared.state = .init(scopeID: "fixture-new-account")
         await pump { pending.observedScope == "fixture-new-account" }
         checks["account-change-retires-old-grid-url-without-reissuing-it"] = cache.requests.count == beforeScope && pending.preview.image == nil
+        pending.retire()
+
+        let lookupLibrary = OnlineImageLibrary()
+        let lookupArtwork = OnlineImageArtwork(source: .pixiv, artworkID: "lookup-pages", title: "Lookup pages",
+            sourceURL: art.sourceURL, author: "Artwork Author", authorID: "artwork-author", kind: .image)
+        let lookupPages = (0..<64).map { page in
+            OnlineImageAsset(id: .init(source: .pixiv, artworkID: "lookup-pages", pageIndex: page),
+                title: "Page \(page)", sourceURL: art.sourceURL, originalURL: asset.originalURL,
+                author: "Asset \(page)", authorID: "asset-\(page)")
+        }
+        lookupLibrary.detailResolver = { _ in lookupArtwork }; lookupLibrary.assetResolver = { _ in lookupPages }
+        var lookupSwitching = false
+        let lookupActions: (WallpaperReference) -> WallpaperInspectorActions? = { reference in
+            guard lookupLibrary.record(for: reference) != nil else { return nil }
+            return .init(state: .init(isPlaying: false, isSwitching: lookupSwitching, isFavorite: false,
+                canPerformPrimary: !lookupSwitching && lookupLibrary.content(for: reference)?.publishedAvailability.isAvailable == true,
+                canFavorite: true, canOrganize: true, playlistNames: []), onPrimary: {}, onToggleFavorite: {}, onChoosePlaylist: { _ in })
+        }
+        let lookupView = OnlineImageInspectorView(artwork: lookupArtwork, library: lookupLibrary,
+            makeLibraryActions: lookupActions, onAuthor: { _ in }, initialPageIndex: 63)
+        await pump { !lookupView.isResolving && lookupView.assets == lookupPages }
+        checks["lookup-multi-page-details-reach-the-real-tail-page"] = lookupView.assets == lookupPages
+            && lookupView.pageIndex == 63 && lookupView.pageLabel.stringValue == "第64 / 共64张"
+            && title(lookupView.primaryButton) == "下载图片" && lookupView.primaryButton.isEnabled
+        func lookupRecord(_ author: String?, _ authorID: String?) -> OnlineImageLocalRecord {
+            .init(assetID: lookupPages[63].id, title: "Local lookup", sourceURL: art.sourceURL,
+                author: author, authorID: authorID, tags: [], relativePath: "lookup.png", pixelWidth: 10, pixelHeight: 10,
+                fileSizeBytes: 10, firstDownloadedAt: .distantPast, revision: UUID())
+        }
+        let completeRecord = lookupRecord("Local Author", "local-author")
+        var progressWork: [String: [String: Int]] = [:], authorWork: [String: Int] = [:]
+        var metadataWork: [String: [String: Int]] = [:]
+        func deliverProgress(_ values: [OnlineImageAssetID: Double]) async -> (marker: Double?, calls: Int, visits: Int)? {
+            let before = progressObservations.count, marker = values[progressMarker]
+            lookupLibrary.progress = values
+            await pump { progressObservations.dropFirst(before).contains { $0.marker == marker } }
+            return progressObservations.dropFirst(before).last { $0.marker == marker }
+        }
+        for (index, phase) in ["remote", "local", "switchingRemote", "remoteAgain"].enumerated() {
+            lookupSwitching = phase == "switchingRemote"
+            lookupLibrary.snapshot = .init(records: phase == "local" || lookupSwitching ? [completeRecord] : [],
+                unavailable: lookupSwitching ? [completeRecord.id] : [])
+            let previous = lookupLibrary.progress[lookupPages[63].id]
+            let preparedTitle = lookupSwitching ? "正在切换壁纸" : phase == "local" ? "设为壁纸" : previous != nil ? "取消下载" : "下载图片"
+            await pump { title(lookupView.primaryButton) == preparedTitle && lookupView.primaryButton.isEnabled == (!lookupSwitching || previous != nil) }
+            checks["lookup-independent-snapshot-controls-\(phase)"] = title(lookupView.primaryButton) == preparedTitle
+                && lookupView.primaryButton.isEnabled == (!lookupSwitching || previous != nil)
+            let current: Double? = phase == "remote" ? 0.2 : lookupSwitching ? 0.4 : nil
+            let marker = Double(index + 1) / 10
+            var values = [progressMarker: marker]; values[lookupPages[63].id] = current
+            let observed = await deliverProgress(values)
+            if let observed { progressWork[phase] = ["calls": observed.calls, "asset": observed.visits] }
+            let expectedTitle = lookupSwitching ? "正在切换壁纸" : phase == "local" ? "设为壁纸" : current != nil ? "取消下载" : "下载图片"
+            checks["lookup-real-progress-delivery-\(phase)"] = observed != nil && !lookupView.isRetired
+                && title(lookupView.primaryButton) == expectedTitle && lookupView.primaryButton.isEnabled == (!lookupSwitching || current != nil)
+                && lookupView.renderedProgress == current
+            for suffix in ["Unrelated", "Duplicate"] {
+                if suffix == "Unrelated" { values[progressMarker] = marker + 0.01 }
+                let repeated = await deliverProgress(values)
+                if let repeated { progressWork[phase + suffix] = ["calls": repeated.calls, "asset": repeated.visits] }
+                checks["lookup-unchanged-progress-preserves-controls-\(phase)-\(suffix)"] = repeated != nil
+                    && title(lookupView.primaryButton) == expectedTitle && lookupView.renderedProgress == current
+                    && lookupView.primaryButton.isEnabled == (!lookupSwitching || current != nil)
+            }
+            let beforeAsset = assetVisits, beforeMembership = membershipVisits
+            lookupView.refreshContent()
+            metadataWork[phase] = ["asset": assetVisits - beforeAsset, "membership": membershipVisits - beforeMembership]
+            checks["lookup-metadata-keeps-tail-page-and-author-\(phase)"] = lookupView.pageLabel.stringValue == "第64 / 共64张"
+                && lookupView.authorButton.isEnabled && title(lookupView.primaryButton) == expectedTitle
+        }
+        lookupLibrary.snapshot = .init(records: [completeRecord])
+        await pump { title(lookupView.primaryButton) == "设为壁纸" }
+        var sameProgress = [progressMarker: 0.5, lookupPages[63].id: 0.6, lookupPages[62].id: 0.6]
+        let setup = await deliverProgress(sameProgress)
+        if let setup { progressWork["sameProgressSetup"] = ["calls": setup.calls, "asset": setup.visits] }
+        checks["lookup-equal-page-progress-starts-through-real-controls"] = setup != nil
+            && lookupView.renderedProgress == 0.6 && title(lookupView.primaryButton) == "设为壁纸"
+        let beforeQueued = progressObservations.count
+        sameProgress[progressMarker] = 0.51
+        lookupLibrary.progress = sameProgress
+        _ = lookupView.previousButton.accessibilityPerformPress()
+        await pump { progressObservations.dropFirst(beforeQueued).contains { $0.marker == 0.51 } }
+        let queued = progressObservations.dropFirst(beforeQueued).last { $0.marker == 0.51 }
+        if let queued { progressWork["queuedPageSameProgress"] = ["calls": queued.calls, "asset": queued.visits] }
+        _ = lookupView.primaryButton.accessibilityPerformPress()
+        checks["lookup-queued-progress-after-equal-value-page-change-cancels-current-page"] = queued != nil
+            && lookupView.pageIndex == 62 && lookupView.renderedProgress == 0.6 && title(lookupView.primaryButton) == "取消下载"
+            && lookupLibrary.cancellations == [lookupPages[62].id]
+        _ = lookupView.nextButton.accessibilityPerformPress()
+        let ended = await deliverProgress([progressMarker: 0.6])
+        if let ended { progressWork["localEndAfterPage"] = ["calls": ended.calls, "asset": ended.visits] }
+        checks["lookup-page-return-and-current-progress-end-refresh-local-controls"] = ended != nil
+            && lookupView.pageIndex == 63 && lookupView.renderedProgress == nil && title(lookupView.primaryButton) == "设为壁纸"
+        let beforeStale = progressObservations.count
+        lookupLibrary.progress = [progressMarker: 0.61, lookupPages[63].id: 0.8]
+        lookupLibrary.progress = [progressMarker: 0.62]
+        await pump { progressObservations.dropFirst(beforeStale).contains { $0.marker == 0.62 } }
+        var sawQueuedPayloads = true
+        for (name, marker) in [("stalePayloadFirst", 0.61), ("stalePayloadLatest", 0.62)] {
+            let delivered = progressObservations.dropFirst(beforeStale).last { $0.marker == marker }
+            if let delivered { progressWork[name] = ["calls": delivered.calls, "asset": delivered.visits] }
+            sawQueuedPayloads = sawQueuedPayloads && delivered != nil
+        }
+        checks["lookup-queued-payloads-cannot-replace-the-latest-current-progress"] = sawQueuedPayloads
+            && lookupView.renderedProgress == nil && title(lookupView.primaryButton) == "设为壁纸"
+        lookupView.pageIndex = 67
+        let beforeMissingAsset = assetVisits, beforeMissingMembership = membershipVisits
+        lookupView.refreshContent()
+        metadataWork["missing"] = ["asset": assetVisits - beforeMissingAsset, "membership": membershipVisits - beforeMissingMembership]
+        checks["lookup-missing-page-keeps-fallback-label-and-disabled-download"] = lookupView.pageLabel.stringValue == "第68张"
+            && !lookupView.primaryButton.isEnabled && lookupView.previousButton.isEnabled && !lookupView.nextButton.isEnabled
+        _ = lookupView.previousButton.accessibilityPerformPress()
+        checks["lookup-following-page-input-restores-the-real-tail-asset"] = lookupView.pageIndex == 63
+            && lookupView.pageLabel.stringValue == "第64 / 共64张" && lookupView.primaryButton.isEnabled
+
+        let authorCases: [(String, Bool, String?, String?, Int, OnlineImageAuthor?)] = [
+            ("remote", false, nil, nil, 63, .init(source: .pixiv, id: "asset-63", name: "Asset 63")),
+            ("missing", false, nil, nil, 67, .init(source: .pixiv, id: "artwork-author", name: "Artwork Author")),
+            ("completeLocal", true, "Local Author", "local-author", 63, .init(source: .pixiv, id: "local-author", name: "Local Author")),
+            ("partialLocal", true, "Local Author", nil, 63, .init(source: .pixiv, id: "asset-63", name: "Local Author")),
+            ("nameMissingLocal", true, nil, "local-author", 63, .init(source: .pixiv, id: "local-author", name: "Asset 63")),
+            ("bothMissingLocal", true, nil, nil, 63, .init(source: .pixiv, id: "asset-63", name: "Asset 63")),
+            ("emptyID", true, "Local Author", "", 63, nil),
+            ("emptyName", true, "", nil, 63, .init(source: .pixiv, id: "asset-63", name: ""))
+        ]
+        for (name, local, author, authorID, page, expected) in authorCases {
+            lookupLibrary.snapshot = .init(records: local ? [lookupRecord(author, authorID)] : [])
+            lookupView.pageIndex = page
+            let before = assetVisits
+            let resolved = lookupView.resolvedAuthor
+            authorWork[name] = assetVisits - before
+            checks["lookup-author-result-\(name)"] = resolved == expected
+        }
+        var noIdentity = lookupArtwork; noIdentity.authorID = nil
+        lookupView.artwork = noIdentity; lookupView.pageIndex = 67; lookupLibrary.snapshot = .init()
+        let beforeAbsent = assetVisits
+        let absentAuthor = lookupView.resolvedAuthor
+        authorWork["absentIdentity"] = assetVisits - beforeAbsent
+        checks["lookup-missing-pixiv-author-identity-remains-unavailable"] = absentAuthor == nil
+        let wallhavenName = OnlineImageArtwork(source: .wallhaven, artworkID: "name-only", title: "Name only",
+            sourceURL: art.sourceURL, author: "Wallhaven Author", kind: .unknown)
+        let wallhavenView = OnlineImageInspectorView(artwork: wallhavenName, library: OnlineImageLibrary(), makeLibraryActions: { _ in nil })
+        let beforeWallhaven = assetVisits
+        let wallhavenAuthor = wallhavenView.resolvedAuthor
+        authorWork["wallhavenName"] = assetVisits - beforeWallhaven
+        checks["lookup-wallhaven-keeps-name-as-author-identity-fallback"] = wallhavenAuthor == OnlineImageAuthor(source: .wallhaven, id: "Wallhaven Author", name: "Wallhaven Author")
+        wallhavenView.retire()
+
+        lookupView.artwork = lookupArtwork; lookupView.pageIndex = 63
+        lookupLibrary.snapshot = .init(records: [completeRecord])
+        await pump { title(lookupView.primaryButton) == "设为壁纸" }
+        host.addSubview(lookupView)
+        lookupView.removeFromSuperview()
+        let retiredForRemount = lookupView.isRetired && lookupView.hasMounted
+        lookupLibrary.progress = [progressMarker: 0.9, lookupPages[63].id: 0.8]
+        host.addSubview(lookupView)
+        await pump { !lookupView.isResolving && lookupView.assets == lookupPages && lookupView.renderedProgress == 0.8 }
+        checks["lookup-remount-replays-current-progress-without-a-source-action"] = retiredForRemount && !lookupView.isRetired
+            && lookupView.window === window && lookupView.renderedProgress == 0.8 && title(lookupView.primaryButton) == "设为壁纸"
+            && lookupLibrary.downloads.isEmpty && lookupLibrary.cancellations == [lookupPages[62].id]
+        let remountEnd = await deliverProgress([progressMarker: 0.91])
+        if let remountEnd { progressWork["remountEnd"] = ["calls": remountEnd.calls, "asset": remountEnd.visits] }
+        checks["lookup-remount-current-progress-end-still-enters-controls"] = remountEnd != nil
+            && lookupView.renderedProgress == nil && title(lookupView.primaryButton) == "设为壁纸"
+        PixivSession.shared.state = .init(scopeID: "r26-account-after-pages")
+        await pump { lookupView.observedScope == "r26-account-after-pages" }
+        checks["lookup-account-change-retires-pages-but-keeps-local-receipt-action"] = lookupView.assets.isEmpty
+            && lookupView.primaryButton.isEnabled && title(lookupView.primaryButton) == "设为壁纸"
+            && lookupView.resolvedAuthor == OnlineImageAuthor(source: .pixiv, id: "local-author", name: "Local Author")
+        lookupLibrary.snapshot = .init()
+        await pump { !lookupView.primaryButton.isEnabled }
+        checks["lookup-account-change-cannot-reuse-retired-pages-after-local-removal"] = lookupView.assets.isEmpty
+            && !lookupView.primaryButton.isEnabled && !lookupView.authorButton.isEnabled && lookupView.preview.image == nil
+        lookupView.removeFromSuperview()
+        let lookupWork: [String: Any] = ["progress": progressWork, "metadata": metadataWork, "authors": authorWork]
+        let lookupJSON = String(decoding: try JSONSerialization.data(withJSONObject: lookupWork, options: [.sortedKeys]), as: UTF8.self)
+        FileHandle.standardError.write(Data("Inspector lookup work: \(lookupJSON)\n".utf8))
         let report = try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys])
         print(String(decoding: report, as: UTF8.self))
     }

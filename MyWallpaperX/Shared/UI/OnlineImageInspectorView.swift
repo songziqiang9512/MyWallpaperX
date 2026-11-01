@@ -166,7 +166,10 @@ final class OnlineImageInspectorView: NSView {
             guard let self, !isRetired else { return }
             refreshContent(); loadPreview()
         }.store(in: &subscriptions)
-        library.$progress.receive(on: DispatchQueue.main).sink { [weak self] _ in self?.updateControls() }.store(in: &subscriptions)
+        library.$progress.receive(on: DispatchQueue.main).sink { [weak self] _ in
+            guard let self, renderedProgress != library.progress[assetID] else { return }
+            updateControls()
+        }.store(in: &subscriptions)
         observeSession()
     }
 
@@ -233,7 +236,7 @@ final class OnlineImageInspectorView: NSView {
         previousButton.isEnabled = position > 0
         nextButton.isEnabled = position + 1 < indices.count
         previousButton.isHidden = indices.count < 2; nextButton.isHidden = indices.count < 2
-        pageLabel.stringValue = assets.contains(where: { $0.id == assetID })
+        pageLabel.stringValue = asset != nil
             ? "第\(pageIndex + 1) / 共\(assets.count)张" : "第\(pageIndex + 1)张\(record == nil ? "" : " · 本地图片")"
         facts.arrangedSubviews.forEach { facts.removeArrangedSubview($0); $0.removeFromSuperview() }
         var values: [(String, String)] = [("来源", artwork.source.displayName)]
@@ -270,12 +273,12 @@ final class OnlineImageInspectorView: NSView {
         guard !isRetired else { return }
         let progress = library.progress[assetID]
         let local = isLocalAvailable
-        let canDownload = currentAsset != nil && artwork.kind == .image && artwork.isMasked != true
         let actions = currentActions?.state
         let switching = actions?.isSwitching == true
         let state = ControlState(local: local, downloading: progress != nil,
             switching: switching, applied: actions?.isPlaying == true,
-            canApply: !switching && (local ? actions?.canPerformPrimary == true : canDownload))
+            canApply: !switching && (local ? actions?.canPerformPrimary == true
+                : currentAsset != nil && artwork.kind == .image && artwork.isMasked != true))
         if renderedProgress != progress { renderedProgress = progress; primaryButton.setProgressFill(progress) }
         guard state != renderedControls else { return }
         renderedControls = state
@@ -347,8 +350,10 @@ final class OnlineImageInspectorView: NSView {
         onAuthor?(author)
     }
     private var resolvedAuthor: OnlineImageAuthor? {
-        let name = currentRecord?.author ?? currentAsset?.author ?? artwork.author
-        guard let id = currentRecord?.authorID ?? currentAsset?.authorID ?? artwork.authorID
+        let record = currentRecord
+        let asset = record?.author == nil || record?.authorID == nil ? currentAsset : nil
+        let name = record?.author ?? asset?.author ?? artwork.author
+        guard let id = record?.authorID ?? asset?.authorID ?? artwork.authorID
             ?? (artwork.source == .wallhaven ? name : nil), !id.isEmpty else { return nil }
         return .init(source: artwork.source, id: id, name: name)
     }
