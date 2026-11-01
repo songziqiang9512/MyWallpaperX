@@ -178,6 +178,7 @@ jobs:
 
       - name: Build app
         run: |
+          # Keep product-type strip styles and separate Release dSYMs.
           xcodebuild \
             -project "$PROJECT_PATH" \
             -scheme "$SCHEME" \
@@ -188,6 +189,8 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             ARCHS=arm64 \
             ONLY_ACTIVE_ARCH=NO \
+            DEPLOYMENT_POSTPROCESSING=YES \
+            STRIP_INSTALLED_PRODUCT=YES \
             build
 
       - name: Validate Apple Silicon release contract

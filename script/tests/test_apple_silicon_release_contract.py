@@ -28,6 +28,82 @@ def load_validator():
 
 
 class AppleSiliconReleaseContractTests(unittest.TestCase):
+    def test_release_build_strips_products_and_preserves_matching_dsyms(self):
+        import ctypes
+
+        workflow = (ROOT / '.github/workflows/build.yml').read_text()
+        build_step = workflow.split('      - name: Build app\n', 1)[1].split('      - name:', 1)[0]
+        commands = textwrap.dedent(build_step.split('        run: |\n', 1)[1])
+        original = plistlib.loads(subprocess.check_output([
+            'plutil', '-convert', 'xml1', '-o', '-', str(ROOT / 'MyWallpaperX.xcodeproj/project.pbxproj')]))
+        project = original['objects'][original['rootObject']]
+        configurations = original['objects'][project['buildConfigurationList']]['buildConfigurations']
+        release = next(original['objects'][key]['buildSettings'] for key in configurations
+                       if original['objects'][key]['name'] == 'Release')
+        objects = {}
+
+        def add(isa, **fields):
+            key = f'{len(objects) + 1:024X}'
+            objects[key] = dict(isa=isa, **fields)
+            return key
+
+        def configuration(settings):
+            release = add('XCBuildConfiguration', name='Release', buildSettings=settings)
+            return add('XCConfigurationList', buildConfigurations=[release], defaultConfigurationName='Release')
+
+        with tempfile.TemporaryDirectory(prefix='mwx-release-strip-') as raw:
+            root = Path(raw)
+            (root / 'fixture.c').write_text(
+                '__attribute__((noinline, visibility("default"))) int release_fixture_value(void) { volatile int value = 42; return value; }\n'
+                'int main(void) { return release_fixture_value() - 42; }\n')
+            source = add('PBXFileReference', path='fixture.c', sourceTree='<group>', lastKnownFileType='sourcecode.c.c')
+            targets, products = [], []
+            for name, kind, product, settings in [
+                ('MyWallpaperX', 'application', 'MyWallpaperX.app', {}),
+                ('MyWallpaperXWallpaperDaemon', 'tool', 'MyWallpaperXWallpaperDaemon', {}),
+                ('MyWallpaperXScreenSaver', 'bundle', 'MyWallpaperX.saver',
+                 {'PRODUCT_NAME': 'MyWallpaperX', 'WRAPPER_EXTENSION': 'saver'}),
+            ]:
+                reference = add('PBXFileReference', path=product, sourceTree='BUILT_PRODUCTS_DIR')
+                products.append(reference)
+                phase = add('PBXSourcesBuildPhase', files=[add('PBXBuildFile', fileRef=source)])
+                targets.append(add('PBXNativeTarget', name=name, productName=name, productReference=reference,
+                    productType='com.apple.product-type.' + kind, buildPhases=[phase], dependencies=[],
+                    buildConfigurationList=configuration(dict(PRODUCT_NAME=name, GENERATE_INFOPLIST_FILE='YES',
+                        PRODUCT_BUNDLE_IDENTIFIER='test.mwx.' + name) | settings)))
+            objects[targets[0]]['dependencies'] = [add('PBXTargetDependency', target=key) for key in targets[1:]]
+            group = add('PBXGroup', sourceTree='<group>', children=[source, *products])
+            project = add('PBXProject', mainGroup=group, projectDirPath='', targets=targets,
+                buildConfigurationList=configuration({key: release[key] for key in (
+                    'ARCHS', 'MACOSX_DEPLOYMENT_TARGET', 'DEBUG_INFORMATION_FORMAT', 'DEAD_CODE_STRIPPING', 'SDKROOT')}))
+            fixture = root / 'Fixture.xcodeproj'; fixture.mkdir()
+            (fixture / 'project.pbxproj').write_bytes(plistlib.dumps({
+                'archiveVersion': '1', 'objectVersion': '56', 'rootObject': project, 'objects': objects}))
+            env = os.environ | {'PROJECT_PATH': str(fixture), 'SCHEME': 'MyWallpaperX', 'CONFIGURATION': 'Release',
+                'DERIVED_DATA_PATH': str(root / 'derived'), 'MARKETING_VERSION': '1.0', 'BUILD_VERSION': '1'}
+            result = subprocess.run(['/bin/bash', '-euo', 'pipefail', '-c', commands], cwd=root, env=env,
+                                    capture_output=True, text=True, timeout=90)
+            self.assertEqual(result.returncode, 0, result.stdout[-8000:] + result.stderr)
+            products = root / 'derived/Build/Products/Release'
+            for binary, symbols in [
+                (products / 'MyWallpaperX.app/Contents/MacOS/MyWallpaperX', products / 'MyWallpaperX.app.dSYM'),
+                (products / 'MyWallpaperXWallpaperDaemon', products / 'MyWallpaperXWallpaperDaemon.dSYM'),
+                (products / 'MyWallpaperX.saver/Contents/MacOS/MyWallpaperX', products / 'MyWallpaperX.saver.dSYM'),
+            ]:
+                with self.subTest(binary=binary.name, symbols=symbols.name):
+                    binary_uuid = subprocess.check_output(['dwarfdump', '--uuid', str(binary)], text=True).split()[:3]
+                    symbols_uuid = subprocess.check_output(['dwarfdump', '--uuid', str(symbols)], text=True).split()[:3]
+                    self.assertEqual(binary_uuid, symbols_uuid)
+                    dwarf = subprocess.check_output(['dwarfdump', '--name', 'release_fixture_value', str(symbols)], text=True)
+                    self.assertIn('DW_TAG_subprogram', dwarf)
+                    names = subprocess.check_output(['nm', '-a', str(binary)], text=True, stderr=subprocess.DEVNULL)
+                    self.assertNotIn('fixture.c', names, 'debug map must be removed from shipped binaries')
+                    if symbols.name == 'MyWallpaperX.saver.dSYM':
+                        self.assertEqual(ctypes.CDLL(str(binary)).release_fixture_value(), 42)
+                    else:
+                        self.assertNotIn('_release_fixture_value', names)
+                        subprocess.run([str(binary)], check=True, timeout=5)
+
     def test_workflow_and_permission_gate_use_actual_signed_nested_bundles(self):
         validator = load_validator()
         workflow = (ROOT / '.github/workflows/build.yml').read_text()
