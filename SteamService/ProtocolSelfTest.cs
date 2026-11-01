@@ -224,6 +224,37 @@ internal static class ProtocolSelfTest
         admissionTracker.TryBegin("queued-0");
         Check("terminal-releases-admission",
             admissionTracker.TryAccept("next") == TerminalTracker.Admission.Accepted);
+        var concurrentTracker = new TerminalTracker();
+        var concurrentAdmissions = 0;
+        var concurrentTerminals = 0;
+        Parallel.For(0, 64, _ =>
+        {
+            if (concurrentTracker.TryAccept("concurrent") == TerminalTracker.Admission.Accepted)
+                Interlocked.Increment(ref concurrentAdmissions);
+        });
+        Parallel.For(0, 64, _ =>
+        {
+            if (concurrentTracker.TryBegin("concurrent")) Interlocked.Increment(ref concurrentTerminals);
+        });
+        Check("concurrent-admission-once", concurrentAdmissions == 1);
+        Check("concurrent-terminal-once", concurrentTerminals == 1
+            && concurrentTracker.TryAccept("concurrent") == TerminalTracker.Admission.Duplicate
+            && !concurrentTracker.TryBegin("concurrent"));
+
+        var fifoTracker = new TerminalTracker();
+        for (var index = 0; index < ProtocolLimits.TerminalRetentionCapacity; index++)
+            fifoTracker.TryBegin($"retained-{index}");
+        Check("terminal-retention-keeps-full-window", !fifoTracker.TryBegin("retained-0")
+            && !fifoTracker.TryBegin($"retained-{ProtocolLimits.TerminalRetentionCapacity - 1}"));
+        Check("terminal-retention-duplicate-does-not-refresh-fifo", fifoTracker.TryBegin("overflow")
+            && fifoTracker.TryAccept("retained-0") == TerminalTracker.Admission.Accepted
+            && fifoTracker.TryAccept("retained-1") == TerminalTracker.Admission.Duplicate
+            && fifoTracker.TryAccept("overflow") == TerminalTracker.Admission.Duplicate);
+        Check("terminal-retention-preserves-next-order", fifoTracker.TryBegin("retained-0")
+            && fifoTracker.TryAccept("retained-1") == TerminalTracker.Admission.Accepted
+            && fifoTracker.TryAccept("retained-2") == TerminalTracker.Admission.Duplicate
+            && fifoTracker.TryAccept("overflow") == TerminalTracker.Admission.Duplicate);
+
         Check("numeric-version-rejected-without-throwing",
             !ProtocolDecode.Parse("{\"v\":1.5,\"type\":\"ready\"}").Ok
             && !ProtocolDecode.Parse("{\"v\":9999999999999999999999,\"type\":\"ready\"}").Ok);

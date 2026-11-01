@@ -1,5 +1,4 @@
 using System.Buffers;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
@@ -302,16 +301,16 @@ internal sealed class TerminalTracker
     internal enum Admission { Accepted, Duplicate, AtCapacity }
     private readonly object gate = new();
     private readonly HashSet<string> pending = new();
-    private readonly ConcurrentDictionary<string, byte> terminals = new();
+    private readonly HashSet<string> terminals = new();
     // terminal 完成序（FIFO）：驱动有界保留窗。
-    private readonly ConcurrentQueue<string> terminalOrder = new();
+    private readonly Queue<string> terminalOrder = new();
 
     // Reserve before dispatch, not after a remote side effect has completed.
     public Admission TryAccept(string requestId, bool control = false)
     {
         lock (gate)
         {
-            if (pending.Contains(requestId) || terminals.ContainsKey(requestId)) return Admission.Duplicate;
+            if (pending.Contains(requestId) || terminals.Contains(requestId)) return Admission.Duplicate;
             var limit = ProtocolLimits.MaxPendingRequests + (control ? ProtocolLimits.ReservedControlRequests : 0);
             if (pending.Count >= limit) return Admission.AtCapacity;
             pending.Add(requestId);
@@ -324,27 +323,16 @@ internal sealed class TerminalTracker
         lock (gate)
         {
             pending.Remove(requestId);
-            if (!terminals.TryAdd(requestId, 0)) return false;
+            if (!terminals.Add(requestId)) return false;
             terminalOrder.Enqueue(requestId);
             // 有界保留窗：仅保留最近 N 个 terminal。超窗的最旧记录移除后，
             // 同 ID 重复帧理论上可重新获得 terminal——Swift 按 generation
             // 丢弃陈旧帧，实际不可达；换取进程生命周期内的有界内存。
-            while (terminalOrder.Count > ProtocolLimits.TerminalRetentionCapacity
-                   && terminalOrder.TryDequeue(out var oldest))
+            while (terminalOrder.Count > ProtocolLimits.TerminalRetentionCapacity)
             {
-                terminals.TryRemove(oldest, out _);
+                terminals.Remove(terminalOrder.Dequeue());
             }
             return true;
-        }
-    }
-
-    public void Reset()
-    {
-        lock (gate)
-        {
-            pending.Clear();
-            terminals.Clear();
-            terminalOrder.Clear();
         }
     }
 }
