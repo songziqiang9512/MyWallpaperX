@@ -90,7 +90,7 @@
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 158,
-      "bytes": 18272
+      "bytes": 18297
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 31,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/coverage-ledger.md": {
       "lines": 371,
-      "bytes": 176439
+      "bytes": 176601
     },
     "docs/scene/capabilities/direct-model-bind-geometry.md": {
       "lines": 32,
@@ -170,11 +170,11 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 222652
+      "bytes": 223042
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
-      "bytes": 204031
+      "bytes": 204417
     },
     "docs/scene/capabilities/runtime-systems-reference.md": {
       "lines": 375,
@@ -205,8 +205,8 @@
       "bytes": 127865
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
-      "lines": 419,
-      "bytes": 119175
+      "lines": 418,
+      "bytes": 119444
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -285,8 +285,8 @@
       "bytes": 29767
     },
     "docs/scene/roadmap/engine-refactor-program.md": {
-      "lines": 83,
-      "bytes": 10233
+      "lines": 103,
+      "bytes": 14747
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 73,
@@ -301,8 +301,8 @@
       "bytes": 22465
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 203,
-      "bytes": 47014
+      "lines": 205,
+      "bytes": 47820
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1459,15 +1459,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-as-built-map.md",
-      "before": "c67828ee5b8bb077f95a301262d941a85399d77d2eba411ea07088f73716772a",
-      "after": "e9157f09976a8c38b9cd73c24d1af0046a1c077df1742329a8c790cdca06654c",
-      "owner": "Scene现役源码职责导航",
-      "reason": "用当前来源挂载、引用闭包、模型/字体与快照消费职责替换历史认证和重复准备描述；本次按实际正文收紧此前未提交预算，不重授旧运行资格。",
-      "decision": "docs/development/validation-simplification-plan.md#已证问题与裁决"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/scene-runtime-daemon-contract.md",
       "before": "b8a77268253eebfe53257a56bc26eaf2cd927fa947ccea0b98d9cfda84047072",
       "after": "32aaea72d248b271d42224c87843b090e6f10cf8232d486f189b869f45a124de",
@@ -1573,15 +1564,6 @@
       "before": "f5bdb1c83f171f85ad93497139cf6671628ec2b09fbce6f23278803d3c1512b9",
       "after": "1cdaf2f3cbf8a565186ff3ba4ec30507501cd741f02e68738b8d74d3a327b4da",
       "reason": "P10–P18同次减工；同步完整音频窗/按需频带及缩略图请求局部键复用、实际值与工作量对照、双配置回归和后继边界，其他预算不变。"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/coverage-ledger.md",
-      "owner": "Scene/Web validation simplification",
-      "before": "9c8aa7c5bbf8561897baca3d874f4264ddf931ee5c8a99d30a6ac42b7f8368df",
-      "after": "97fecc8a58a28bae5c4f56102b5006bbba88d0946b284593b999e2e80106c4b4",
-      "reason": "P20退役模型64部件/4096路径固定政策；同步实际Root/Builder/native正反例、原输入对照、当前边界和治理指针，其他预算不变。",
-      "decision": "docs/development/validation-simplification-plan.md#p20-mdl-policy-retirement"
     },
     {
       "section": "archives",
@@ -1801,15 +1783,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "0d994f05026d4a9eaba99be3666b07937e4839d9b5ffabf35ee5ee8547bdb6d3",
-      "after": "3c119486d72251274af64492c37efce1f2f55dde15d0a4ea643364c811deaa69",
-      "owner": "scene-engine-maintainer",
-      "reason": "补齐named值+独立配置的单VM链，设计合并原D4、退出358已闭子断点并保留资格边界；非新增第二状态台账。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#named-pass-script-inputs"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/material-video-assets.md",
       "before": "0789d819da8f87be4e9a8e3e34d2722cee5518de7485fde59d06b96c613bad27",
       "after": "3c6bd738658d9758788076bf4e32cd53f0be6949d17ed259d65a5aeb85627dd0",
@@ -1873,15 +1846,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "487145b38f97a6cd1cc6b7bb387cedba6830afbee21ec94bab9f6db671ed79d3",
-      "after": "3d9dd88162f983650b5bccac01cc631eedc882fe44fdae732531adb6ddf0af29",
-      "owner": "scene-shared-source-user-scalars",
-      "reason": "原owner完成共享source标量接线，381待修描述退出，旧净零怀疑撤销；同窗ROI/失败载体与静态host余项边界分清，不以日志PASS授整景。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-dynamic-image-material"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/composition-render-target-design.md",
       "before": "1011a8b8f6aa707fee2eb3612346b0fe47d674d4d2587ffec922329be5ade789",
       "after": "8e98eddecf54a5147f087172e2e6bcc24fbc4db0d06bba22d1e0c3c6e4656d22",
@@ -1921,15 +1885,6 @@
       "path": "docs/scene/capabilities/particle-component-coverage.md",
       "before": "cbabab9191db5dc7cf61f45ffa940f769c4871fe268161b1ff39375498858b5f",
       "after": "06e4a171b9ad67a7695eac89cf91acebd635b4094bc0bac8968ec1198817b27b",
-      "owner": "scene-particle-material-depth-variants",
-      "reason": "在既有粒子合同和同一队列/证据行记录新消费能力与边界；退役本批窄设计并折叠旧重复轨迹，不新增现役权威。",
-      "decision": "docs/scene/history/particle-material-depth-2026-11-01.md#bounded-result"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "4dad94b2e9c1d5c5d27ab70a78975df5b2e6f126c0dbbdfacb528af9ac9e99f7",
-      "after": "55d09ef7238cea413b9b5535336e2775da856c353e6ecf50e9a6e12da512d6c8",
       "owner": "scene-particle-material-depth-variants",
       "reason": "在既有粒子合同和同一队列/证据行记录新消费能力与边界；退役本批窄设计并折叠旧重复轨迹，不新增现役权威。",
       "decision": "docs/scene/history/particle-material-depth-2026-11-01.md#bounded-result"
@@ -2061,24 +2016,6 @@
       "decision": "docs/scene/roadmap/engine-refactor-program.md#顶层设计收敛决定"
     },
     {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/engine-refactor-program.md",
-      "before": "565a157a0ba010611bccc3d0b7b1cb9a37b87f2dd284c5bccb1e54dd39d1bba2",
-      "after": "278d0f3c7dfe8f59922552d4df11c0c7e2cf7d6ae15a256d5c59d9e1fd9fd7d8",
-      "owner": "scene-architecture-governance",
-      "reason": "以当前代码与独立设计核对Scene整体/组件/专项/事实/历史职责；保留原文及有效锚点，按实际正文登记变化，不增加产品门或升级能力声明。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#顶层设计收敛决定"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "c438f0a4fd413abb79b545a45e37027023dc9ab9e1effbd3643d492693baed3d",
-      "after": "67036a4a3acceb98f816e868b2e50578abde1e1a0b7a1a095a9f3223311cd78b",
-      "owner": "scene-architecture-governance",
-      "reason": "以当前代码与独立设计核对Scene整体/组件/专项/事实/历史职责；保留原文及有效锚点，按实际正文登记变化，不增加产品门或升级能力声明。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#顶层设计收敛决定"
-    },
-    {
       "section": "archives",
       "path": "docs/scene/history/capability-dependency-map-through-2026-11-01.md",
       "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
@@ -2095,6 +2032,69 @@
       "owner": "scene-architecture-governance",
       "reason": "以当前代码与独立设计核对Scene整体/组件/专项/事实/历史职责；保留原文及有效锚点，按实际正文登记变化，不增加产品门或升级能力声明。",
       "decision": "docs/scene/roadmap/engine-refactor-program.md#顶层设计收敛决定"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/runtime-as-built-map.md",
+      "before": "116f970b167f7e8399d3d0fa2979212eb49ad756af4b47f2db12e28eb4fdba86",
+      "after": "ee59ed94720c4de029d44fc2194db10519f2725cedc7d426221412650dd9dc33",
+      "owner": "scene-architecture-convergence",
+      "reason": "架构迁移的文本能力批次：替换旧语言执行描述，保留冻结基线、真实输出及失败范围；正文预算随实际职责与证据更新。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#架构级迁移合同"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/coverage-ledger.md",
+      "before": "97fecc8a58a28bae5c4f56102b5006bbba88d0946b284593b999e2e80106c4b4",
+      "after": "4c0085ab59efdf5248982f6216b137ed009645ffcbf2a7f84ced5c77537e904d",
+      "owner": "scene-architecture-convergence",
+      "reason": "架构迁移的文本能力批次：替换旧语言执行描述，保留冻结基线、真实输出及失败范围；正文预算随实际职责与证据更新。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#架构级迁移合同"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "ac9eaa50cccbfa512606f24cc824beaa8b0826e1875958304242401630f610dd",
+      "after": "819ea5c3d8f50b7d040fd936d18fa780eb41a29312a6deb3c786334376e99104",
+      "owner": "scene-architecture-convergence",
+      "reason": "架构迁移的文本能力批次：替换旧语言执行描述，保留冻结基线、真实输出及失败范围；正文预算随实际职责与证据更新。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#架构级迁移合同"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "before": "3c119486d72251274af64492c37efce1f2f55dde15d0a4ea643364c811deaa69",
+      "after": "979f21ae9e3fd33eb540b69dee243a434b25eca31c2f1b10ed56f1004f32ba20",
+      "owner": "scene-architecture-convergence",
+      "reason": "架构迁移的文本能力批次：替换旧语言执行描述，保留冻结基线、真实输出及失败范围；正文预算随实际职责与证据更新。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#架构级迁移合同"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "3d9dd88162f983650b5bccac01cc631eedc882fe44fdae732531adb6ddf0af29",
+      "after": "eff16b56a441ef8d8323e974240207f0f159febe6f046797bd065c24ac8eaa02",
+      "owner": "scene-architecture-convergence",
+      "reason": "架构迁移的文本能力批次：替换旧语言执行描述，保留冻结基线、真实输出及失败范围；正文预算随实际职责与证据更新。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#架构级迁移合同"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/engine-refactor-program.md",
+      "before": "278d0f3c7dfe8f59922552d4df11c0c7e2cf7d6ae15a256d5c59d9e1fd9fd7d8",
+      "after": "b4069f69aa2dfe7bbf9a84921826b2e7b2bd33079bd19ec54ea3a58fedd50338",
+      "owner": "scene-architecture-convergence",
+      "reason": "架构迁移的文本能力批次：替换旧语言执行描述，保留冻结基线、真实输出及失败范围；正文预算随实际职责与证据更新。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#架构级迁移合同"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "67036a4a3acceb98f816e868b2e50578abde1e1a0b7a1a095a9f3223311cd78b",
+      "after": "5167d63ee95b27ab70465477789e2cf2ab1acae5c4d3e0a3bbbc58d20a5721cf",
+      "owner": "scene-architecture-convergence",
+      "reason": "架构迁移的文本能力批次：替换旧语言执行描述，保留冻结基线、真实输出及失败范围；正文预算随实际职责与证据更新。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#架构级迁移合同"
     }
   ]
 }

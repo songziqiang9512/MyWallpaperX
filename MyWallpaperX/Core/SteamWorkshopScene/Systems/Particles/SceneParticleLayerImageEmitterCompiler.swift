@@ -99,7 +99,7 @@ nonisolated enum SceneParticleLayerImageEmitterCompiler {
             && (layer.scriptBindings?.isEmpty ?? true)
             && (layer.textureAnimationScripts?.isEmpty ?? true)
             && !layer.hasInlineScript
-            && layer.puppetMeshPath == nil && layer.text == nil && layer.textScript == nil
+            && layer.puppetMeshPath == nil && layer.text == nil
     }
 
     private nonisolated static func supportsStaticConsumer(

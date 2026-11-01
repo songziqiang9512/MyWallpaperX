@@ -164,9 +164,6 @@ final class SceneMediaThumbnailInbox {
     }
 }
 
-struct SceneTextScriptDefinition {
-    let source: String
-}
 
 struct SceneShaderContract {}
 
@@ -423,7 +420,7 @@ struct SceneRenderDescriptor {
         let effects: [EffectDescriptor]
         var contentKind: String = "image"
         var particleInstanceOverride: SceneParticleInstanceOverride? = nil
-        var textScript: SceneTextScriptDefinition? = nil
+
         var text: String? = nil
         var textStyle: TextStyle? = nil
         var sizeWH: [Float]? = nil

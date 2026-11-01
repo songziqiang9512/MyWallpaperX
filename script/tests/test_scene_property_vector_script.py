@@ -516,12 +516,13 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
             "script+scriptproperties+value",
             "script+user+value",
             "script+scriptproperties+user+value",
+            "animation+script+value",
         ):
             self.assertTrue(
                 admission[admitted],
                 f"text wrapper {admitted} must own a text content target",
             )
-        for rejected in ("animation+script+value", "script+scriptproperties"):
+        for rejected in ("script+scriptproperties",):
             self.assertFalse(
                 admission[rejected],
                 f"text wrapper {rejected} must stay unowned",
@@ -610,7 +611,7 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         self.assertFalse(value["dynamicScalarWrongTypePublished"])
         self.assertAlmostEqual(value["dynamicScalarRecovered"], -0.4)
         self.assertEqual(value["dynamicScalarFallback"], -50)
-        self.assertTrue(value["dynamicScalarMalformedRejected"])
+        self.assertAlmostEqual(value["dynamicScalarMetadataValue"], -0.7)
         self.assertTrue(value["dynamicScalarLiveTarget"])
         self.assertTrue(value["dynamicVectorLiveTarget"])
         self.assertTrue(value["nullOuterUserScalarAdmitted"])

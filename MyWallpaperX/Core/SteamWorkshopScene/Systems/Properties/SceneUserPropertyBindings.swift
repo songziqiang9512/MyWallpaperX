@@ -135,9 +135,9 @@ nonisolated struct SceneUserPropertyBindingReport {
 }
 
 /// Shared structural contract for a SceneScript property that delegates its
-/// value to the existing user-property snapshot. It intentionally accepts only
-/// the exact authored provider wrapper; runtime codecs may add primitive static
-/// inputs separately, but must use this contract for dynamic providers.
+/// value to the existing user-property snapshot. It consumes the provider
+/// fields independently of editor metadata; runtime codecs use the same
+/// contract for dynamic providers.
 nonisolated struct SceneScriptUserPropertyInputDefinition: Equatable, Sendable {
     let userPropertyKey: String
     let fallback: SceneJSONValue
@@ -159,7 +159,6 @@ nonisolated enum SceneScriptUserPropertyInputContract {
     ) -> SceneScriptUserPropertyInputDefinition? {
         guard depth < maximumProviderDepth else { return nil }
         guard case let .object(wrapper) = value,
-              wrapper.keys.sorted() == ["user", "value"],
               let rawFallback = wrapper["value"],
               let fallback = primitiveFallback(rawFallback, depth: depth),
               let user = wrapper["user"] else { return nil }
@@ -191,6 +190,12 @@ nonisolated enum SceneScriptUserPropertyInputContract {
         _ value: SceneJSONValue,
         depth: Int
     ) -> SceneJSONValue? {
+        var value = value
+        while case let .object(wrapper) = value,
+              (wrapper["user"] == nil || wrapper["user"] == .null),
+              let nested = wrapper["value"] {
+            value = nested
+        }
         if isPrimitive(value) { return value }
         return dynamicInput(value, depth: depth + 1)?.fallback
     }

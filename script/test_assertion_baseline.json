@@ -1254,20 +1254,6 @@
       "count": 1
     },
     {
-      "path": "script/tests/test_scene_text_script_runtime.py",
-      "scope": "SceneTextScriptRuntimeTests.test_wall_date_context_is_shared_only_by_date_script_bindings",
-      "method": "assertIn",
-      "literal": "if wallDateContext == nil",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_text_script_runtime.py",
-      "scope": "SceneTextScriptRuntimeTests.test_wall_date_context_is_shared_only_by_date_script_bindings",
-      "method": "assertIn",
-      "literal": "var wallDateContext: SceneTextScriptSubsetRuntime.FrameContext?",
-      "count": 1
-    },
-    {
       "path": "script/tests/test_scene_texture_animation_script.py",
       "scope": "SceneTextureAnimationScriptTests.test_atlas_transform_reuses_prepared_frame_end_times",
       "method": "assertIn",

@@ -76,7 +76,6 @@ nonisolated extension SceneRenderDescriptor {
         let puppetMeshPath: String?
         let text: String?
         let textStyle: SceneTextDescriptor?
-        var textScript: SceneTextScriptDefinition? = nil
         var scriptBindings: [SceneScriptBindingDefinition]? = nil
         var textureAnimationScripts: [SceneTextureAnimationScriptDefinition]? = nil
         let hasInlineScript: Bool

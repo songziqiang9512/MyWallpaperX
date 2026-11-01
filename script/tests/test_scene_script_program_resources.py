@@ -31,7 +31,7 @@ import Foundation
     static func descriptor(_ sources: [String], _ models: [String]) -> SceneRenderDescriptor {
         var result = SceneRenderDescriptor(layers: [.init(id: 17, layerIndex: 0, name: "anchor",
             visible: true, originXYZ: [0,0,0], scaleXYZ: [1,1,1], alpha: 1, effects: [],
-            contentKind: "text", textScript: .init(source: sources[3]), text: "authored",
+            contentKind: "text", text: "authored",
             textStyle: .init(fontPath: nil, colorRGB: [1,1,1], pointSize: 24))])
         result.modelMaterialLinks = models.map { .init(modelPath: $0, materialPath: "material") }
         return result

@@ -30,7 +30,7 @@ extension SceneRenderDescriptor.Layer {
          disablesParallaxPropagation: Bool, timelines: [SceneDocument.SceneObjectTimeline],
          timelineDiagnostics: [String], particleTimelines: [Int], particleTimelineDiagnostics: [String],
          modelCropOffsetXY: [Float]?, puppetMeshPath: String?, text: String?,
-         textStyle: SceneRenderDescriptor.TextStyle?, textScript: SceneTextScriptDefinition?,
+         textStyle: SceneRenderDescriptor.TextStyle?,
          scriptBindings: [SceneScriptBindingDefinition]?, textureAnimationScripts: [Int]?,
          hasInlineScript: Bool, effects: [SceneRenderDescriptor.EffectDescriptor],
          effectFiles: [String], texturePaths: [String]) {
@@ -39,7 +39,7 @@ extension SceneRenderDescriptor.Layer {
             scaleXYZ: scaleXYZ, anglesXYZ: anglesXYZ, colorRGB: colorRGB,
             scaleHasScript: scaleHasScript, alpha: alpha, brightness: brightness, effects: effects,
             contentKind: contentKind, particleInstanceOverride: particleInstanceOverride,
-            textScript: textScript, text: text, textStyle: textStyle, sizeWH: sizeWH,
+            text: text, textStyle: textStyle, sizeWH: sizeWH,
             imagePath: imagePath, puppetMeshPath: puppetMeshPath, spotLight: spotLight,
             utilityLayer: utilityLayer, parentID: parentID, childLayerIDs: childLayerIDs,
             dependencyLayerIDs: dependencyLayerIDs, authoredDependencies: authoredDependencies,

@@ -114,7 +114,7 @@ App 产品意图与当前记录
 
 ## 3. 一帧执行与隐性约束
 
-Session 冻结本次时间、属性、输入、音频和媒体，形成脚本可读的前置快照；执行回调与 typed mutation 后，准备最终模拟状态。每个 Surface 消费同一模拟 cadence 的状态，再作自身投影、资源发布、图编码与提交。
+Session 冻结本次时间、属性、输入、音频和媒体（含完整 wall date），形成脚本可读的前置快照；执行回调与 typed mutation 后，准备最终模拟状态。每个 Surface 消费同一模拟 cadence 的状态，再作自身投影、资源发布、图编码与提交。
 
 1. **模拟与呈现分开。** 稳态 Surface 的 drawable 缺失或 GPU 忙，不重新执行已消费的 VM、timer 或输入；恢复屏采用最新模拟状态。
 2. **候选首帧单独协调。** 初始候选使用 SceneInitialPresentationCohort 跟踪当前 Surface 成员及 GPU 成功；这不要求稳态每帧等待全部屏幕。

@@ -21,7 +21,6 @@ struct SceneDesktopWallpaperLaunchContext {
     let timelinePlaybackRuntime: SceneTimelinePlaybackRuntime
     let textureAnimationPlaybackRuntime: SceneTextureAnimationPlaybackRuntime
     let puppetAnimationPlaybackRuntime: ScenePuppetAnimationPlaybackRuntime
-    let textScriptProgram: SceneTextScriptProgram
     let sharedLayerAlphaProgram: SceneSharedLayerAlphaProgram
     let sceneScriptCursorProgram: SceneScriptCursorProgram
     let propertyVectorScriptProgram: SceneScriptVectorProgram
@@ -62,7 +61,6 @@ struct SceneDesktopWallpaperLaunchContext {
         !propertyVectorScriptProgram.mediaOwnerRegistrations.isEmpty
             || !sceneScriptScalarProgram.mediaOwnerRegistrations.isEmpty
             || !sceneScriptStringProgram.mediaOwnerRegistrations.isEmpty
-            || textScriptProgram.bindings.contains { $0.profile == .ecmaMediaPropertiesChangedSubset }
             || !baseMaterialProviderBindings.systemProviderDemands.isEmpty
             || resolvedMaterialCatalog.systemProviderDemands.contains {
                 $0.name == SceneBaseMaterialProviderBindingProgram.currentIdentity

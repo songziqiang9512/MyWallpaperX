@@ -1737,6 +1737,25 @@
         "sourceScalar",
         "scalarInputs"
       ]
+    },
+    {
+      "id": "scene-runtime-architecture-convergence",
+      "title": "Scene架构级迁移及文本语言收敛",
+      "owner": "Scene Session / typed programs and component owners",
+      "status": "approved",
+      "designDoc": "docs/scene/roadmap/engine-refactor-program.md",
+      "design_notes": "先按架构级迁移合同固定可运行基线；文本首批统一到现QuickJS domain，保冻结日期、属性输入、媒体空清除、隐藏已准备层与真实异常/退出语义，撤旧解释器/重复描述/帧合并。后续阶段按唯一队列细化实际owner再实施；本登记不批准未设计的新能力，也不授予推送/发布或完整能力完成结论。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextScript*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextMediaPropertiesCompiler.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptStringProgram*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSValueHost.c",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSHostTypes.h",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperLaunchContext.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperLaunchFrameSchema.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+TextScriptReport.swift"
+      ],
+      "contentPatterns": []
     }
   ]
 }

@@ -603,10 +603,6 @@ final class SceneDesktopWallpaperSession {
                 )
 #if DEBUG
                 launchContext.appendResolvedMaterialStartupReport()
-                Self.appendTextScriptReport(
-                    to: launchContext.logURL,
-                    program: launchContext.textScriptProgram
-                )
 #endif
                 wroteLog = true
             }

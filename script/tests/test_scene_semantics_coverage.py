@@ -722,6 +722,9 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
 
         live = copy.deepcopy(next(rule for rule in json.loads(SCENE_LAYOUT_PATH.read_text())[
             "render_chain_authority_ratchet"]["rules"] if rule["id"] == "shape-derived-analyzer-fleet"))
+        # This fixture models the historical 66-declaration correction;
+        # later owner retirement changes the live inventory independently.
+        live["baseline_occurrences"] = 66
         before = copy.deepcopy(live)
         del before["passive_result_correction"]
         before["classifications"].pop()
@@ -735,6 +738,8 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         live["passive_result_correction"]["source_sha256"] = {
             path: hashlib.sha256(source.encode()).hexdigest() for path, source in sources.items()
         }
+        live["passive_result_correction"]["from_contract_sha256"] = authority_metric_digest(before)
+        live["passive_result_correction"]["to_contract_sha256"] = authority_metric_digest(live)
         self.assertTrue(passive_result_inventory_correction_valid(before, live, sources))
         self.assertEqual(classification_transition_violations(before, live, sources), [])
         self.assertEqual(classification_transition_violations(live, copy.deepcopy(live)), [])

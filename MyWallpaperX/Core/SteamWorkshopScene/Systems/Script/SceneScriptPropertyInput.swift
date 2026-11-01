@@ -5,6 +5,7 @@ nonisolated enum SceneScriptHostValue: Equatable, Sendable {
     case number(Double)
     case string(String)
     case vector3(Double, Double, Double)
+    case json(SceneJSONValue)
 
     var jsonObject: Any {
         switch self {
@@ -12,6 +13,7 @@ nonisolated enum SceneScriptHostValue: Equatable, Sendable {
         case let .number(value): value
         case let .string(value): value
         case let .vector3(x, y, z): ["x": x, "y": y, "z": z]
+        case let .json(value): value.foundationValue
         }
     }
 }
@@ -96,19 +98,24 @@ nonisolated enum SceneScriptPropertyInputCodec {
     static func propertyInput(
         _ value: SceneJSONValue
     ) -> SceneScriptPropertyInput? {
+        var value = value
+        while case let .object(wrapper) = value,
+              (wrapper["user"] == nil || wrapper["user"] == .null),
+              let nested = wrapper["value"] {
+            value = nested
+        }
         if let fallback = hostValue(value) {
             return .init(
                 fallback: fallback, userPropertyKey: nil, condition: nil
             )
         }
-        guard let definition =
-                SceneScriptUserPropertyInputContract.dynamicInput(value),
-              let fallback = hostValue(definition.fallback) else { return nil }
-        return .init(
-            fallback: fallback,
-            userPropertyKey: definition.userPropertyKey,
-            condition: definition.condition
-        )
+        if case let .object(wrapper) = value, wrapper["user"] != nil {
+            guard let definition = SceneScriptUserPropertyInputContract.dynamicInput(value),
+                  let fallback = hostValue(definition.fallback) else { return nil }
+            return .init(fallback: fallback, userPropertyKey: definition.userPropertyKey,
+                         condition: definition.condition)
+        }
+        return .init(fallback: .json(value), userPropertyKey: nil, condition: nil)
     }
 
     static func validName(_ value: String) -> Bool {

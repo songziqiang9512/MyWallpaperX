@@ -182,16 +182,18 @@
 
 ### 5.1 顶层设计已裁决的代码职责重构
 
-以下是当前源码已经证明的结构债，按[统一设计](../architecture/runtime-architecture.md)纠正；本轮只完成设计与文档归整，未声称这些代码已经迁移。它们服务实际组件演进，不等待某个样本的官方像素资格才允许整理职责。改变可观察语义时再补相应对照，不能把纯结构清理扩成完整平台建设。
+以下是架构级迁移的唯一执行清单，按[总设计](../architecture/runtime-architecture.md)与[迁移合同](engine-refactor-program.md#架构级迁移合同)推进，阶段状态不另开台账。先保留基线，再执行语言收敛→数据分期→组件寿命→粒子CPU/GPU→普通帧减工→整体能力与成本复核；发现依赖或收益反证时在本表纠偏。迁移前源码/App/输入基线已固定；文本语言首批已替换旧 owner，证据及映射测试债见[限定记录](../history/runtime-evidence-index.md#e-text-vm-convergence-20261102)。语言阶段继续收敛共享 alpha，整体架构迁移尚未完成。
 
 | 重构要求与现有 owner | 目标及旧职责退出 | 最近验证与停止条件 |
 |---|---|---|
-| 文本脚本双执行：`SceneTextScriptCompiler`、Host Launch 与 Session FrameDriver | 将仍在产品使用的手写文本表达式执行迁入既有 QuickJS typed String 路线；文本 producer 仅持字符串、排版和纹理生成。移除 excluded-target 分流、旧 evaluator 和每帧值合并，不新增另一 VM | 日期、媒体文本、事件型/逐帧文本、异常回退、用户属性及真实文本作品；未迁移语言行为明确保留，不能只删 fallback 丢能力 |
+| 语言收敛后续：共享 alpha 的手写 Syntax/Compiler/Program/Runtime、RuntimeModel 与 Session 分流 | 文本已迁入既有 QuickJS typed String 路线并退役重复 owner；继续将 alpha 接真实 shared heap 与原 scalar VM，撤旧投影、flags/计数、excluded-target、帧合并及提交参数，不新增另一 VM | 初始化→点击/用户属性改 shared→alpha→原 compositor，以及上升/下降、上限热改、暂停/失败、健康邻例；文本限定保持证据保留，未迁移语言行为不能只删 fallback 丢能力 |
 | `SceneRenderDescriptor.Layer` 同时保存字符串变换、数值变换及多类可选字段 | 明确 authored、prepared 与 live 分期；逐消费族收敛为类型化数据，身份和作者顺序仍唯一；退役不再需要的镜像与内容种类字符串分支 | 准备结果、默认值、动态属性、parent/相机、序列化兼容与代表组件；不先建无人消费的通用 ECS |
 | `SceneMetalView` 同时装配文字、视频、Puppet、粒子和延迟资源 | 按实际寿命把可共享 CPU 生命周期归 Session/type owner，必要每屏 CPU 实例仍按 surface 隔离，GPU 驻留归现有 Rendering；View 保 AppKit surface、输入与呈现职责 | 独立屏幕输入、热切、候选、退场和异步旧结果；不通过新 facade 隐藏原字段或把每屏状态误合并 |
 | `LaunchContext` 与 `prepareLaunch` 混合准备事实、liveState 和运行对象 | 沿现有 Host/Session 拆清不可变准备结果与运行实例，按真正消费者传最小数据；取消、资源 lease 和旧会话退出仍由原 owner 完成 | 冷暖准备、取消/newer-wins、首帧失败保旧及安全退出；不新增第二 Session、完整场景快照或重复解析 |
 | 粒子 runtime 混合模拟和 GPU 缓冲持有 | 保留现有 prepared 操作/通道计划，CPU 实例归粒子运行 owner，GPU 上传/几何与绘制状态归 Rendering/Particles；替换完成撤旧字段与转发 | 多 renderer、child、预热、脚本播放、不同视口及实际 GPU 输出；不并行保留永久不同语义的 CPU/GPU 实现 |
 | Pipeline warmup 与运行期 miss 路径 | 核对 `SceneResolvedMaterialPassEncoder.pipeline` 的真实 miss 原因与消费。可准备的产物移到加载/变体边界，保必要的设备与动态状态失效；撤销 draw 内无必要同步编译 | 冷/暖、合法变体改变和失败恢复，记录实际热路径编译次数；不凭有 warmup 就宣称零编译，也不缓存跨 command buffer 的完整帧 Program |
+
+数据分期包含 descriptor 与 LaunchContext 两项，先以单一能力族贯通其生产、消费和退出，再扩大；组件寿命先迁文字/媒体等独立族，粒子的 CPU 移交与 GPU 分离同批闭环，避免先搬混合 owner 再拆一次。最终还须审查 Format、Compilation、Resources、Systems、Rendering、Runtime 的真实依赖和全部现役组件；六项已知债务不穷尽整个目标，未发现证据前不制造新重构。
 
 FrameDriver 的前置与最终 snapshot 具有不同可观察阶段，不因表面上“双 resolve”直接合并；先确认字段消费者与时机，再删除无用计算。每批只改变一个真实职责闭环，完成后从本表退出并让源码地图反映新 owner。
 

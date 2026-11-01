@@ -354,7 +354,8 @@
         "script/tests/fixtures/SceneScriptQuickJSFixture.h",
         "script/tests/fixtures/SceneLayerPerspectiveQuickJSCases.c",
         "script/tests/fixtures/SceneImageFontStateQuickJSCases.c",
-        "script/tests/fixtures/SceneScriptBooleanTextCloneChecks.swift"
+        "script/tests/fixtures/SceneScriptBooleanTextCloneChecks.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneJSONValue.swift"
       ],
       "modules": [
         "test_scene_script_layer_order",
@@ -5623,6 +5624,17 @@
         "test_personal_settings_import",
         "test_playback_policy_delivery",
         "test_apple_silicon_release_contract"
+      ]
+    },
+    {
+      "id": "particle-layer-image",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleLayerImageEmitterCompiler.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleLayerImageEmissionMap.swift",
+        "script/tests/test_scene_particle_layer_image_emitter.py"
+      ],
+      "modules": [
+        "test_scene_particle_layer_image_emitter"
       ]
     }
   ],

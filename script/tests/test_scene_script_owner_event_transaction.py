@@ -84,7 +84,6 @@ HARNESS = r'''
             let bindings = ids.enumerated().map { i, id in binding(id,
                 family == "sameLayer" && i == 1 ? "scale" : field, source) }
             var d = descriptor()
-            if family == "string" { for i in d.layers.indices { d.layers[i].textScript = .init(source: source) } }
             let domain = try SceneScriptQuickJSDomain()
             try domain.configureLayerCatalog(d)
             let targets: [SceneDynamicTarget] = ids.enumerated().map { i, id in

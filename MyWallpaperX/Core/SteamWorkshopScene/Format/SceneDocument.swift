@@ -268,7 +268,6 @@ nonisolated struct SceneDocumentLoader {
             usesPerspective: root["perspective"] as? Bool,
             text: text,
             textStyle: text == nil ? nil : SceneTextDescriptor.parse(root),
-            textScript: SceneTextScriptDefinition.parse(root["text"]),
             scriptBindings: SceneScriptBindingDefinition.parseLayerProperties(in: root),
             textureAnimationScripts:
                 SceneTextureAnimationScriptDefinition.parseLayerProperties(in: root),

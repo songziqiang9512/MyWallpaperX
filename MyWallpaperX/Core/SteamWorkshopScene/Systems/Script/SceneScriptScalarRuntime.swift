@@ -251,6 +251,7 @@ nonisolated enum SceneScriptScalarRuntimeFailure: Error, Equatable, Sendable {
 
 nonisolated struct SceneScriptFrameInput: Equatable, Sendable {
     let timeOfDay: Double
+    let wallTimeMilliseconds: Double
     let frameTime: TimeInterval
     let runtime: TimeInterval
     let surface: SceneScriptSurfaceInput?
@@ -271,12 +272,15 @@ nonisolated struct SceneScriptFrameInput: Equatable, Sendable {
             + Double(components.second ?? 0)
             + Double(components.nanosecond ?? 0) / 1_000_000_000
         timeOfDay = min(max(seconds / 86_400, 0), 1)
+        wallTimeMilliseconds = (timing.wallDate.timeIntervalSince1970 * 1_000)
+            .rounded(.towardZero)
         frameTime = max(timing.simulationFrameTime, 0)
         runtime = max(timing.sceneTime, 0)
         self.surface = surface
     }
     init(replacingSurfaceOf frame: SceneScriptFrameInput, with surface: SceneScriptSurfaceInput?) {
         timeOfDay = frame.timeOfDay
+        wallTimeMilliseconds = frame.wallTimeMilliseconds
         frameTime = frame.frameTime
         runtime = frame.runtime
         self.surface = surface
@@ -296,7 +300,8 @@ nonisolated struct SceneScriptFrameInput: Equatable, Sendable {
             cursor_world_z: surface?.cursorWorldPosition.z ?? 0,
             cursor_screen_x: surface?.cursorScreenPosition.x ?? 0,
             cursor_screen_y: surface?.cursorScreenPosition.y ?? 0,
-            cursor_left_down: surface?.cursorLeftDown == true ? 1 : 0
+            cursor_left_down: surface?.cursorLeftDown == true ? 1 : 0,
+            wall_time_milliseconds: wallTimeMilliseconds
         )
     }
 }

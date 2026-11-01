@@ -269,6 +269,7 @@ typedef struct MWXSceneQuickJSFrameInput {
     double cursor_screen_x;
     double cursor_screen_y;
     uint32_t cursor_left_down;
+    double wall_time_milliseconds;
 } MWXSceneQuickJSFrameInput;
 
 typedef struct MWXSceneQuickJSLifecycleSnapshot {

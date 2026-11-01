@@ -47,7 +47,7 @@ def preamble() -> str:
     # Scene document, descriptor, camera profile and all numeric owners are real.
     source = vm.SWIFT_PREAMBLE
     media = source[source.index("struct SceneFrameTiming {"):
-                   source.index("struct SceneTextScriptDefinition {")]
+                   source.index("struct SceneShaderContract {}")]
     materials = source[source.index("enum SceneBaseMaterialColorModulationCompiler {"):
                        source.index("enum SceneTimelinePlaybackCommand:")]
     source = timeline.HARNESS_SOURCE
@@ -58,10 +58,6 @@ def preamble() -> str:
     return "import Foundation\nimport simd\n" + media + materials + assets + """
 enum SceneGraphRenderTargetPlan {
     enum TextureFormat { case rgba16f, rgbaBackbuffer }
-}
-struct SceneTextScriptProgram {
-    struct Binding { let definition: SceneDynamicTargetDefinition }
-    let bindings: [Binding] = []
 }
 """
 

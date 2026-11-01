@@ -119,7 +119,7 @@ struct SceneMetalRenderer {
                 descriptor: descriptor, timelineTargets: timelineTargets)
             definitions = SceneDynamicDefinitionMerger.merge(
                 propertyDefinitions: property.program.definitions, timelineProgram: timeline,
-                textScriptProgram: .init(), additionalDefinitions: vector.definitions
+                additionalDefinitions: vector.definitions
                     + scalarProgram.definitions + cameraDefinitions + layers.authoredLayerDefinitions)
             live = ScenePropertyLiveUpdateState(program: property.program,
                 effectiveValues: catalog.effectiveValues(overrides: [:]),
@@ -138,7 +138,7 @@ struct SceneMetalRenderer {
             currentSceneTime = time
             definitions = SceneDynamicDefinitionMerger.merge(
                 propertyDefinitions: property.program.definitions, timelineProgram: timeline,
-                textScriptProgram: .init(), additionalDefinitions: vector.definitions
+                additionalDefinitions: vector.definitions
                     + scalarProgram.definitions
                     + SceneDefault2DCameraInputProfile.definitions(descriptor: descriptor,
                         timelineTargets: Set(timeline.bindings.map(\.target)))

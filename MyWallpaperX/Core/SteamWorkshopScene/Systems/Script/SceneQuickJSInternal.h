@@ -484,6 +484,7 @@ typedef struct MWXSceneQuickJSDynamicImageAliasRecord {
 struct MWXSceneQuickJSOwner {
     MWXSceneQuickJSDomain *domain;
     JSValue module;
+    JSValue implicit_script_properties;
     uint64_t identity;
     uint64_t generation;
     JSValue text_template_source;

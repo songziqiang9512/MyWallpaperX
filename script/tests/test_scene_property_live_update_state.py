@@ -524,7 +524,7 @@ enum Harness {
         )
         let unsupportedScriptPathRebuilds = unsupportedScriptPathCompilation.program
             .rebuildRequiredPropertyKeys.contains("scriptSpeed")
-        let malformedProviderRoot: [String: Any] = [
+        let metadataProviderRoot: [String: Any] = [
             "objects": [[
                 "id": 10,
                 "effects": [[
@@ -546,12 +546,18 @@ enum Harness {
                 ]],
             ]],
         ]
-        let malformedProviderCompilation = ScenePropertyBindingCompiler().compile(
-            report: SceneUserPropertyBindingParser().parse(root: malformedProviderRoot),
+        let metadataProviderCompilation = ScenePropertyBindingCompiler().compile(
+            report: SceneUserPropertyBindingParser().parse(root: metadataProviderRoot),
             catalog: scriptCatalog
         )
-        let malformedProviderRebuilds = malformedProviderCompilation.program
+        var metadataProviderState = ScenePropertyLiveUpdateState(
+            program: metadataProviderCompilation.program,
+            effectiveValues: scriptCatalog.defaultValues,
+            activeConsumerTargets: Set(metadataProviderCompilation.program.instructions.map(\.target)))
+        let metadataProviderStaysLive = !metadataProviderCompilation.program
             .rebuildRequiredPropertyKeys.contains("scriptSpeed")
+            && metadataProviderState.apply(.number(0.25), forPropertyKey: "scriptSpeed")
+            && metadataProviderState.revision == 1
         let nullOuterUserRoot: [String: Any] = [
             "objects": [[
                 "id": 10,
@@ -745,7 +751,7 @@ enum Harness {
             "disabledScriptConsumerWasAtomic": disabledScriptConsumerWasAtomic,
             "ordinaryUnknownStillRebuilds": ordinaryUnknownStillRebuilds,
             "unsupportedScriptPathRebuilds": unsupportedScriptPathRebuilds,
-            "malformedProviderRebuilds": malformedProviderRebuilds,
+            "metadataProviderStaysLive": metadataProviderStaysLive,
             "nullOuterUserProviderClassified": nullOuterUserProviderClassified,
             "colorProviderClassified": !unsupportedColorProviderRebuilds,
             "scriptEventAccepted": scriptEventAccepted,
@@ -957,7 +963,7 @@ class ScenePropertyLiveUpdateStateTests(unittest.TestCase):
     def test_scriptproperties_name_without_a_script_wrapper_still_rebuilds(self) -> None:
         self.assertTrue(self.result["ordinaryUnknownStillRebuilds"])
         self.assertTrue(self.result["unsupportedScriptPathRebuilds"])
-        self.assertTrue(self.result["malformedProviderRebuilds"])
+        self.assertTrue(self.result["metadataProviderStaysLive"])
         self.assertTrue(self.result["nullOuterUserProviderClassified"])
         self.assertTrue(self.result["colorProviderClassified"])
 

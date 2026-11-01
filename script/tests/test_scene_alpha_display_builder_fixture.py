@@ -147,7 +147,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Systems/Script/SceneScriptVectorProgramModels.swift",
     SOURCE_ROOT / "Systems/Properties/SceneScriptValueOwnership.swift",
     SOURCE_ROOT / "Systems/Text/SceneTextDescriptor.swift",
-    SOURCE_ROOT / "Systems/Text/SceneTextScriptDefinition.swift",
     SOURCE_ROOT / "Systems/Script/SceneScriptLayerTopologyModels.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticlePlaybackModels.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticleDefinition.swift",

@@ -5,7 +5,6 @@ struct SceneRenderDescriptor { var layers: [Layer] }
 struct SceneParticleInstanceOverride: Codable {}
 struct ScenePuppetAnimationLayer: Codable {}
 struct SceneTextDescriptor: Codable { let padding: Float }
-struct SceneTextScriptDefinition: Codable {}
 
 struct SceneDocument {
     struct Scene2DCameraPathDefinition: Codable {}

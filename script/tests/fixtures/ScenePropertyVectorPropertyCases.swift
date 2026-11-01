@@ -298,7 +298,7 @@ extension Harness {
                 SceneScriptPropertyTargetPath.keyComponent("x"),
             ]
         )
-        let malformedDynamicScalar = SceneScriptScalarProgram.compile(
+        let metadataDynamicScalar = SceneScriptScalarProgram.compile(
             domain: domain,
             descriptor: descriptor,
             scriptBindings: [passBinding(
@@ -314,6 +314,9 @@ extension Harness {
             )],
             generation: 29
         )
+        let metadataDynamicScalarValue = metadataDynamicScalar.evaluate(
+            inputs: [dynamicScalarTarget: .scalar(-0.2)], frame: frame,
+            effectivePropertyValues: ["renamedProperty": .number(0.7)])
         let failingDynamicScalarInitiallyActive =
             dynamicScalarProgram.activeLivePropertyInputTargets
                 == [dynamicScalarLiveTarget, dynamicScalarTarget]
@@ -429,7 +432,7 @@ extension Harness {
             frame: frame,
             audioSpectrum: audioSnapshot
         )
-        defer { fixture.retained += [currentPropertyProgram, invalidCurrentPropertyProgram, propertyEventProgram, audioScaleProgram, passAudioProgram, dynamicScalarProgram, dynamicScalarFallbackProgram, nullOuterUserScalarProgram, dynamicVectorProgram, malformedDynamicScalar, rejectedPassAudioWrapper, rejectedPassAudioProvider] }
+        defer { fixture.retained += [currentPropertyProgram, invalidCurrentPropertyProgram, propertyEventProgram, audioScaleProgram, passAudioProgram, dynamicScalarProgram, dynamicScalarFallbackProgram, nullOuterUserScalarProgram, dynamicVectorProgram, metadataDynamicScalar, rejectedPassAudioWrapper, rejectedPassAudioProvider] }
         let observations: PropertyVectorObservations = [
             "currentPropertyFirst": { scalar(
                 currentPropertyFirst.values[currentPropertyTarget]
@@ -484,8 +487,8 @@ extension Harness {
             "dynamicScalarFallback": { scalar(
                 dynamicScalarFallback.values[dynamicScalarTarget]
             ) },
-            "dynamicScalarMalformedRejected": {
-                malformedDynamicScalar.bindings.isEmpty },
+            "dynamicScalarMetadataValue": {
+                scalar(metadataDynamicScalarValue.values[dynamicScalarTarget]) },
             "dynamicScalarLiveTarget": {
                 dynamicScalarProgram.livePropertyInputTargets
                     == [dynamicScalarLiveTarget, dynamicScalarTarget] },

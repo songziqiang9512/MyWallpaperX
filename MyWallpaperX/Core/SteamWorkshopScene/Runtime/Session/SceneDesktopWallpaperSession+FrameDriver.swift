@@ -236,18 +236,6 @@ extension SceneDesktopWallpaperSession {
             thumbnail: sceneScriptMediaThumbnailEvent,
             timeline: sceneScriptMediaTimelineEvent
         )
-        let mediaProperties = mediaInput.properties.map {
-            SceneTextMediaPropertiesSnapshot(
-                title: $0.title,
-                artist: $0.artist,
-                generation: mediaInput.propertiesGeneration
-            )
-        } ?? .empty
-        let textScriptValues = SceneTextScriptRuntime.values(
-            program: launchContext.textScriptProgram,
-            wallDate: timing.wallDate,
-            mediaProperties: mediaProperties
-        )
         let pendingSharedLayerAlpha = sharedLayerAlphaRuntime.prepareValues(
             effectivePropertyValues: launchContext.liveState.effectiveValues,
             frameTime: timing.simulationFrameTime
@@ -266,7 +254,6 @@ extension SceneDesktopWallpaperSession {
             .previousValues(for: sceneScriptStatefulTargets,
                 userValues: frameUserValues, timelineValues: timelineValues)
         var commonSceneScriptValues = previousSceneScriptValues
-        commonSceneScriptValues.merge(textScriptValues) { _, current in current }
         commonSceneScriptValues.merge(sharedLayerAlphaValues) { _, current in current }
         commonSceneScriptValues.merge(
             layerMutationSnapshot.authoredLayerValues

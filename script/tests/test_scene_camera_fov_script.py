@@ -76,10 +76,6 @@ struct SceneTimelineProgram {
     struct Binding { let definition: SceneDynamicTargetDefinition }
     let bindings: [Binding] = []
 }
-struct SceneTextScriptProgram {
-    struct Binding { let definition: SceneDynamicTargetDefinition }
-    let bindings: [Binding] = []
-}
 struct SceneSharedLayerAlphaProgram { let definitions: [SceneDynamicTargetDefinition] = [] }
 struct SceneScriptMediaFrameCoordinator {
     init(vectorProgram: SceneScriptVectorProgram, stringProgram: SceneScriptStringProgram,

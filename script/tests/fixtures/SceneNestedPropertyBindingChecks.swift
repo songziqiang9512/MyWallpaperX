@@ -36,11 +36,12 @@ enum SceneNestedPropertyBindingChecks {
         sliderBooleanFallbackChecks(facts: &facts)
 
         let nested: [String: Any] = ["user": "outer", "value": ["user": "old", "value": "MM|dd"]]
-        var extra = nested
-        extra["unexpected"] = true
-        rejected("extra-provider-field", input: extra, facts: &facts)
-        rejected("extra-inner-field", input: ["user": "outer", "value": [
-            "user": "old", "value": "MM|dd", "unexpected": true]], facts: &facts)
+        positive(key: "outerMetadata", oldKey: "old", inputName: "pattern", layerID: 62,
+            depth: 2, input: ["user": "outerMetadata", "value": ["user": "old", "value": "MM|dd"],
+                             "unexpected": true], facts: &facts)
+        positive(key: "innerMetadata", oldKey: "old", inputName: "pattern", layerID: 64,
+            depth: 2, input: ["user": "innerMetadata", "value": [
+                "user": "old", "value": "MM|dd", "unexpected": true]], facts: &facts)
         rejected("over-depth", input: provider(key: "outer", oldKey: "old", depth: 17), facts: &facts)
         rejected("missing-terminal", input: ["user": "outer", "value": ["user": "old"]], facts: &facts)
         rejected("array-terminal", input: ["user": "outer", "value": ["MM|dd"]], facts: &facts)
@@ -205,8 +206,8 @@ enum SceneNestedPropertyBindingChecks {
     }
 
     static func positive(key: String, oldKey: String, inputName: String, layerID: Int,
-                         depth: Int, facts: inout [String: Bool]) {
-        let input = provider(key: key, oldKey: oldKey, depth: depth)
+                         depth: Int, input: [String: Any]? = nil, facts: inout [String: Bool]) {
+        let input = input ?? provider(key: key, oldKey: oldKey, depth: depth)
         let document = root(input: input, inputName: inputName, layerID: layerID,
                             script: "export function update(value) { return scriptProperties.\(inputName); }",
                             host: "text")

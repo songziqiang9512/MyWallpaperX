@@ -93,4 +93,15 @@ nonisolated indirect enum SceneJSONValue: Codable, Equatable, Sendable {
         guard case .string(let value) = self else { return nil }
         return value
     }
+
+    nonisolated var foundationValue: Any {
+        switch self {
+        case .null: NSNull()
+        case let .bool(value): value
+        case let .number(value): value
+        case let .string(value): value
+        case let .array(values): values.map(\.foundationValue)
+        case let .object(values): values.mapValues(\.foundationValue)
+        }
+    }
 }

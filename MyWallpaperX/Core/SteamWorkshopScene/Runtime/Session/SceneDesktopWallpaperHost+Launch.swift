@@ -448,11 +448,6 @@ extension SceneDesktopWallpaperHost {
                 checkCancellation: { try cancellation?.check() }
             )
         }
-        let textScriptProgram = SceneTextScriptCompiler.compile(
-            descriptor: runtimeInput.renderDescriptor,
-            excludedTargets: sceneScriptStringTargets,
-            preparationLayerIDs: projectedLayerVisibilityRootLayerIDs
-        )
         let resolvedMaterialVisibleExecutionRootLayerIDs = SceneLayerVisibility
             .visibleLayerIDs(in: runtimeInput.renderDescriptor)
                 .union(projectedLayerVisibilityRootLayerIDs)
@@ -825,8 +820,7 @@ extension SceneDesktopWallpaperHost {
             sceneScriptStringProgram: sceneScriptStringProgram,
             sceneScriptOwnerLayerIDs: sceneScriptOwnerLayerIDs,
             preparedResourceLayerTemplates: preparedResourceLayerTemplates,
-            timelineProgram: timelineProgram,
-            textScriptProgram: textScriptProgram
+            timelineProgram: timelineProgram
         )
         try cancellation?.check()
         let context = SceneDesktopWallpaperLaunchContext(
@@ -850,7 +844,6 @@ extension SceneDesktopWallpaperHost {
             textureAnimationPlaybackRuntime:
                 SceneTextureAnimationPlaybackRuntime(),
             puppetAnimationPlaybackRuntime: ScenePuppetAnimationPlaybackRuntime(),
-            textScriptProgram: textScriptProgram,
             sharedLayerAlphaProgram: model.sharedLayerAlphaProgram,
             sceneScriptCursorProgram: sceneScriptCursorProgram,
             propertyVectorScriptProgram: propertyVectorScriptProgram,

@@ -63,7 +63,7 @@ enum SceneDocumentLoader {
         .init(id: id, layerIndex: index, name: name, visible: true,
               originXYZ: [0,0,0], scaleXYZ: [1,1,1], alpha: 1,
               effects: sourceEffect ? [.init(name:"source-effect")] : [],
-              contentKind: "text", textScript: source.map { .init(source: $0) }, text: "base",
+              contentKind: "text", text: "base",
               textStyle: .init(fontPath: nil, colorRGB: [1,1,1], pointSize: 32),
               initialConfiguration: .object(["name": .string(name), "text": text]))
     }

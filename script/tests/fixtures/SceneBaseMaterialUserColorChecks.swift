@@ -74,13 +74,20 @@ func customMaterialUserColorChecks() -> [String: Bool] {
         "missingInnerInstructionRejectsLowering": !admitted(.init(definitions: program.definitions,
             instructions: program.instructions.filter { $0.target != nestedTarget })),
     ]
-    let malformed = SceneBaseMaterialColorModulationCompiler.Binding(modelPath: model,
+    let metadata = SceneBaseMaterialColorModulationCompiler.Binding(modelPath: model,
         sourceLayerID: original.id, materialPath: material, colorKey: fact.colorKey,
         scriptSource: script,
         scriptProperties: ["ifchange": .object(["user": .string("animate"), "value": .bool(true), "extra": .number(1)])],
         authoredColor: fact.authoredColor, alphaKey: "Alpha", authoredAlpha: 1,
         alphaUserPropertyKey: "opacity", colorUserPropertyKey: "palette")
-    checks["malformedInnerProviderRejectsLowering"] = !admitted(program, [malformed])
+    checks["innerProviderMetadataKeepsLowering"] = admitted(program, [metadata])
+    let invalidReference = SceneBaseMaterialColorModulationCompiler.Binding(modelPath: model,
+        sourceLayerID: original.id, materialPath: material, colorKey: fact.colorKey,
+        scriptSource: script,
+        scriptProperties: ["ifchange": .object(["user": .number(1), "value": .bool(true)])],
+        authoredColor: fact.authoredColor, alphaKey: "Alpha", authoredAlpha: 1,
+        alphaUserPropertyKey: "opacity", colorUserPropertyKey: "palette")
+    checks["invalidInnerReferenceRejectsLowering"] = !admitted(program, [invalidReference])
     var state = ScenePropertyLiveUpdateState(program: program, effectiveValues: [
         "palette": .string("0.729 0.345 0.729"), "animate": .bool(true), "opacity": .number(1)
     ], activeConsumerTargets: targets)

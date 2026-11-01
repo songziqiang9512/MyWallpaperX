@@ -624,7 +624,7 @@
           "SceneDesktopWallpaperSession+Shutdown.swift",
           "SceneDesktopWallpaperSession+SoundProperties.swift",
           "SceneDesktopWallpaperSession+SurfaceTeardown.swift",
-          "SceneDesktopWallpaperSession+TextScriptReport.swift",
+          "SceneDesktopWallpaperSession+DynamicLayerVisibility.swift",
           "SceneDesktopWallpaperSession+VideoProviders.swift",
           "SceneDesktopWallpaperHost.swift",
           "SceneDesktopWallpaperHost+Activation.swift",
@@ -858,15 +858,7 @@
           "SceneTextDescriptor.swift",
           "SceneTextFontResolver.swift",
           "SceneTextGeometry.swift",
-          "SceneTextMediaPropertiesCompiler.swift",
           "SceneTextRowLimit.swift",
-          "SceneTextScriptCompiler.swift",
-          "SceneTextScriptDefinition.swift",
-          "SceneTextScriptProgram.swift",
-          "SceneTextScriptRuntime.swift",
-          "SceneTextScriptSubsetCompiler.swift",
-          "SceneTextScriptSubsetProgram.swift",
-          "SceneTextScriptSubsetRuntime.swift",
           "SceneTextTextureLoader.swift"
         ],
         "responsibility": "Text: Capability-owned state, evaluation and preparation; uses the existing clock, resource registry and compositor."
@@ -951,7 +943,7 @@
         "role": "inventory",
         "description": "Direct main-pass encoder writers remain explicit while object and utility paths migrate to the frame scheduler.",
         "pattern": "(?:\\bmainPass|\\bframe\\.mainPass)\\.encoder\\(\\)",
-        "baseline_occurrences": 5,
+        "baseline_occurrences": 4,
         "allowed_files": [
           "Rendering/Composition/SceneLayerColorBlendPipeline.swift",
           "Rendering/Frame/SceneMetalRenderer+Particles.swift",
@@ -1275,9 +1267,9 @@
       {
         "id": "shape-derived-analyzer-fleet",
         "role": "inventory",
-        "description": "Global five-suffix analyzer discovery retains its fixed 66-owner inventory, including the public WebM format parser. The frame input contract is registered at its actual Runtime/Frame owner. Exact passive results are classified individually; neither discovery nor execution ownership is exempted.",
+        "description": "Global five-suffix analyzer discovery tracks the remaining measured inventory, including the public WebM format parser. The frame input contract is registered at its actual Runtime/Frame owner. Exact passive results are classified individually; neither discovery nor execution ownership is exempted.",
         "pattern": "^[ \\t]*(?:@\\w+[ \\t]+)*(?:nonisolated[ \\t]+|public[ \\t]+|internal[ \\t]+|private[ \\t]+|fileprivate[ \\t]+|final[ \\t]+)*(?:struct|enum|class)[ \\t]+\\w*(?:Contract|Link|Parser|Admission|Conversion)\\b",
-        "baseline_occurrences": 66,
+        "baseline_occurrences": 64,
         "allowed_files": [
           "Compilation/Material/SceneDirectBoolEffectVisibilityRouteAdmission.swift",
           "Compilation/Material/SceneEffectStageAdmission.swift",
@@ -1327,9 +1319,7 @@
           "Systems/Properties/SceneUserPropertyBindings.swift",
           "Systems/Properties/SceneUserPropertyDefinitionParser.swift",
           "Systems/Script/SceneScriptCursorHitAdmission.swift",
-          "Systems/Script/SceneScriptLayerTopologyModels.swift",
-          "Systems/Text/SceneTextMediaPropertiesCompiler.swift",
-          "Systems/Text/SceneTextScriptSubsetCompiler.swift"
+          "Systems/Script/SceneScriptLayerTopologyModels.swift"
         ],
         "metric": "classified-declarations",
         "classifications": [

@@ -833,7 +833,6 @@ nonisolated final class SceneScriptStringProgram: SceneScriptValueOwnerProgramRe
                   keys: binding.wrapperKeys ?? [],
                   host: .objectText
               ),
-              layer.textScript?.source == binding.source,
               case let .string(authored)? = binding.authoredValue,
               layer.text == authored,
               let properties = SceneScriptPropertyInputCodec.inputs(

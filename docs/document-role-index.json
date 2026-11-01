@@ -766,10 +766,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "36048250843ce3388317fff5ce5cfa7abfc95c8f29190cd740c329ccc940176e",
+        "sourceSHA256": "5ce3d15042764c7f65e24000a56fb8281721be19f570db90fb13d228e9f40ec3",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Scene顶层、组件、源码owner与文档职责归整；静态代码及现役合同核对，保留专项运行证据原范围。",
-        "limitations": "不新增产品构建、GPU/VM运行、官方parity、性能、长稳或发布结论。"
+        "scope": "文本能力迁移的当前职责、限定证据与未闭测试债；不重授未变化能力。",
+        "limitations": "不升级全Scene能力、官方parity、稳态性能、多屏、长稳或发行结论。"
       },
       "purpose": "实际接线或已记录运行证据；不反向定义目标架构，不决定实施顺序。"
     },
@@ -903,13 +903,13 @@
       "role": "current-state",
       "entrypoint": "docs/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-26",
+      "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "50a597283d905f2e6ab909e9f5b204ff464b4639224ba7375f24d9524a6f13bd",
+        "sourceSHA256": "9d36e64ee86c9fe503965f838f2b3fcab8903a0cf369e9cd69429225a5080f26",
         "method": "document_registry --audit + document_health --check",
-        "scope": "P20模型数量/路径准入合同及有界Builder/Root/native结果指针同步；仅复核当前正文、角色与导航，其余能力和历史边界保留。",
-        "limitations": "仅顶层正交普通成员且无utility后代；官方精确grid/FBO、完整HDR/alpha/属性/整景及性能未验。"
+        "scope": "文本能力迁移的当前职责、限定证据与未闭测试债；不重授未变化能力。",
+        "limitations": "不升级全Scene能力、官方parity、稳态性能、多屏、长稳或发行结论。"
       }
     },
     {
@@ -1047,10 +1047,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "17fef32562065e23d21c2f9361d9459f21079d2cbc89f5b54df52bff4221fd77",
+        "sourceSHA256": "f10efdebc80442bd332cc07a33c81133c76e5087ab77412cd85cdbb33eaff3c8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Scene顶层、组件、源码owner与文档职责归整；静态代码及现役合同核对，保留专项运行证据原范围。",
-        "limitations": "不新增产品构建、GPU/VM运行、官方parity、性能、长稳或发布结论。"
+        "scope": "文本能力迁移的当前职责、限定证据与未闭测试债；不重授未变化能力。",
+        "limitations": "不升级全Scene能力、官方parity、稳态性能、多屏、长稳或发行结论。"
       },
       "purpose": "实际接线或已记录运行证据；不反向定义目标架构，不决定实施顺序。"
     },
@@ -1059,13 +1059,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-30",
+      "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a17259f65e17ba3880d92cbb55e47212572b57a3affa88678a5d2bf5b38dbde0",
+        "sourceSHA256": "b76b47a9fbaae7fb6321a67eafc3a7d758cc30c7a17e2330d7a2164303e5e9e5",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步named材质输入/current/live登记及358音条有界后验，退出已闭子断点；设计集中原D4。",
-        "limitations": "官方只资格固定Number反馈；未测官方热更时序、同窗音频关闭淡出、原生面板、整景/HDR/多屏或性能。"
+        "scope": "文本能力迁移的当前职责、限定证据与未闭测试债；不重授未变化能力。",
+        "limitations": "不升级全Scene能力、官方parity、稳态性能、多屏、长稳或发行结论。"
       }
     },
     {
@@ -1076,10 +1076,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d3de013a76c7d59fe0a3bf373ba8ec6492fd03d25329361e3c7e544cf26fefed",
+        "sourceSHA256": "0c7d8173da1ea38e6ece3ad15e4c1268a60d238484e65db424aed9e7fa34d7e6",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Scene顶层、组件、源码owner与文档职责归整；静态代码及现役合同核对，保留专项运行证据原范围。",
-        "limitations": "不新增产品构建、GPU/VM运行、官方parity、性能、长稳或发布结论。"
+        "scope": "文本能力迁移的当前职责、限定证据与未闭测试债；不重授未变化能力。",
+        "limitations": "不升级全Scene能力、官方parity、稳态性能、多屏、长稳或发行结论。"
       }
     },
     {
@@ -1178,13 +1178,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-11-01",
+      "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
+        "sourceSHA256": "6ffd2aa2aa8f7bd7fa31b952fc4fcfa378931354c73ee2137b0db442b99b64a8",
         "method": "document_registry --audit + document_health --check",
-        "sourceSHA256": "41537fb80cee32f7d3714b3ab2519abaa0cf1119bf8fa2832e6f206b593fbcc7",
-        "scope": "共享source直接user scalar、prototype唯一producer/动态seed1、原381可见音频条与配对热改；撤销已过时净零出生怀疑。",
-        "limitations": "不认官方数值/整景、连续多步、原生面板/性能；host默认lowering旧问题仅静态待资格。"
+        "scope": "文本能力迁移的当前职责、限定证据与未闭测试债；不重授未变化能力。",
+        "limitations": "不升级全Scene能力、官方parity、稳态性能、多屏、长稳或发行结论。"
       }
     },
     {
@@ -4530,10 +4530,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1aea9cbd909ff4c49bc25bfebf5cea0c45a3bf15c0b18d778bf77c18f9e82473",
+        "sourceSHA256": "3544d7f1a4b560fc27f15d964ff764931d454defdbafc6bc48d2831bc6fce459",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Scene顶层、组件、源码owner与文档职责归整；静态代码及现役合同核对，保留专项运行证据原范围。",
-        "limitations": "不新增产品构建、GPU/VM运行、官方parity、性能、长稳或发布结论。"
+        "scope": "文本能力迁移的当前职责、限定证据与未闭测试债；不重授未变化能力。",
+        "limitations": "不升级全Scene能力、官方parity、稳态性能、多屏、长稳或发行结论。"
       }
     },
     {
@@ -4586,10 +4586,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4de2265f8054f48d295f28567bfea3f7209e6689825e2bc7e4feb4b564eba3a0",
+        "sourceSHA256": "244a71d22697229977a58dbfb346967eb840520e66099276b58a2db08979bbf7",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Scene顶层、组件、源码owner与文档职责归整；静态代码及现役合同核对，保留专项运行证据原范围。",
-        "limitations": "不新增产品构建、GPU/VM运行、官方parity、性能、长稳或发布结论。"
+        "scope": "文本能力迁移的当前职责、限定证据与未闭测试债；不重授未变化能力。",
+        "limitations": "不升级全Scene能力、官方parity、稳态性能、多屏、长稳或发行结论。"
       }
     },
     {

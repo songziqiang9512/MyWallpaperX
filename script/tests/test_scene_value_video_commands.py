@@ -64,7 +64,6 @@ HARNESS = r'''
                 var descriptor=SceneRenderDescriptor(layers:(1...2).map { id in .init(id:id,layerIndex:id-1,name:"video\(id)",visible:true,
                     originXYZ:[0,0,0],scaleXYZ:[1,1,1],scaleHasScript:nil,alpha:1,effects:[],contentKind:"text",text:"0",
                     textStyle:.init(fontPath:nil,colorRGB:nil,pointSize:20),sizeWH:[100,100]) })
-                if family=="string" {for i in descriptor.layers.indices {descriptor.layers[i].textScript = .init(source:sources[i])}}
                 let bindings=sources.enumerated().map { i,source in SceneScriptBindingIR(source:source,
                     owner:.init(kind:.object,objectIndex:i,objectID:i+1,effectIndex:nil,effectID:nil,passIndex:nil,passID:nil),
                     targetPath:[.key("objects"),.index(i),.key(field)],properties:[:],

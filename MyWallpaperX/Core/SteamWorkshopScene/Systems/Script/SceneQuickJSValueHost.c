@@ -142,6 +142,22 @@ bool mwx_scene_quickjs_restore_active_engine(
     return true;
 }
 
+static JSValue frame_wall_time(JSContext *context, JSValueConst this_value,
+                              int argc, JSValueConst *argv) {
+    MWXSceneQuickJSDomain *domain = JS_GetContextOpaque(context);
+    return domain->frame_input_active
+        ? JS_NewFloat64(context, domain->active_frame_input.wall_time_milliseconds)
+        : JS_UNDEFINED;
+}
+
+static JSValue implicit_script_properties(JSContext *context, JSValueConst this_value,
+                                          int argc, JSValueConst *argv) {
+    MWXSceneQuickJSDomain *domain = JS_GetContextOpaque(context);
+    MWXSceneQuickJSOwner *owner = current_owner(domain);
+    return owner == NULL ? JS_UNDEFINED
+        : JS_DupValue(context, owner->implicit_script_properties);
+}
+
 bool mwx_scene_quickjs_install_value_host(MWXSceneQuickJSDomain *domain) {
     // Author console output is a compatibility sink. User-requested diagnostics
     // own collection and serialization, so normal launch/frame work stays clean.
@@ -224,7 +240,17 @@ bool mwx_scene_quickjs_install_value_host(MWXSceneQuickJSDomain *domain) {
         "function deepFreeze(value){if(value&&typeof value==='object'){Object.getOwnPropertyNames(value).forEach(k=>deepFreeze(value[k]));Object.freeze(value);}return value;}"
         "const console={log(...args){},error(...args){}};"
         "const MediaPlaybackEvent=Object.freeze({PLAYBACK_STOPPED:0,PLAYBACK_PLAYING:1,PLAYBACK_PAUSED:2});"
-        "return {Vec2,Vec3,Mat4,createScriptProperties,assignScriptProperties,deepFreeze,console,MediaPlaybackEvent};"
+        "function createDate(wallTime){"
+        "const NativeDate=Date,nativeNow=NativeDate.now;"
+        "const constructDate=Reflect.construct,formatDate=Reflect.apply,dateString=NativeDate.prototype.toString;"
+        "const now=()=>wallTime()??nativeNow();"
+        "NativeDate.now=function now(){return wallTime()??nativeNow();};"
+        "const SceneDate=new Proxy(NativeDate,{"
+        "construct(target,args,newTarget){return constructDate(target,args.length?args:[now()],newTarget);},"
+        "apply(target){return formatDate(dateString,new target(now()),[]);}});"
+        "Object.defineProperty(NativeDate.prototype,'constructor',{value:SceneDate,writable:true,configurable:true});"
+        "return SceneDate;}"
+        "return {Vec2,Vec3,Mat4,createScriptProperties,assignScriptProperties,deepFreeze,console,MediaPlaybackEvent,createDate};"
         "})()";
     JSContext *context = domain->context;
     JSValue host = JS_Eval(
@@ -250,13 +276,19 @@ bool mwx_scene_quickjs_install_value_host(MWXSceneQuickJSDomain *domain) {
         context, host, "assignScriptProperties"
     );
     domain->deep_freeze = JS_GetPropertyStr(context, host, "deepFreeze");
+    JSValue date_factory = JS_GetPropertyStr(context, host, "createDate");
+    JSValue wall_time = JS_NewCFunction(context, frame_wall_time, "frameWallTime", 0);
+    JSValue date = JS_Call(context, date_factory, JS_UNDEFINED, 1, &wall_time);
+    JS_FreeValue(context, date_factory);
+    JS_FreeValue(context, wall_time);
     JS_FreeValue(context, host);
     if (!JS_IsFunction(context, vec2) || !JS_IsFunction(context, vec3) ||
         !JS_IsFunction(context, mat4) ||
         !JS_IsFunction(context, builder) ||
         !JS_IsObject(media_playback) || !JS_IsObject(console) ||
         !JS_IsFunction(context, domain->script_property_assigner) ||
-        !JS_IsFunction(context, domain->deep_freeze)) {
+        !JS_IsFunction(context, domain->deep_freeze) || !JS_IsFunction(context, date)) {
+        JS_FreeValue(context, date);
         JS_FreeValue(context, vec2);
         JS_FreeValue(context, vec3);
         JS_FreeValue(context, mat4);
@@ -273,6 +305,13 @@ bool mwx_scene_quickjs_install_value_host(MWXSceneQuickJSDomain *domain) {
     domain->vec3_constructor = JS_DupValue(context, vec3);
     domain->mat4_constructor = JS_DupValue(context, mat4);
     JSValue global = JS_GetGlobalObject(context);
+    int date_result = JS_DefinePropertyValueStr(context, global, "Date", date,
+                                               JS_PROP_WRITABLE | JS_PROP_CONFIGURABLE);
+    JSAtom properties_atom = JS_NewAtom(context, "scriptProperties");
+    int properties_result = JS_DefinePropertyGetSet(context, global, properties_atom,
+        JS_NewCFunction(context, implicit_script_properties, "get scriptProperties", 0),
+        JS_UNDEFINED, 0);
+    JS_FreeAtom(context, properties_atom);
     const int read_only = JS_PROP_ENUMERABLE;
     int vec2_result = JS_DefinePropertyValueStr(
         context, global, "Vec2", vec2, read_only
@@ -335,7 +374,7 @@ bool mwx_scene_quickjs_install_value_host(MWXSceneQuickJSDomain *domain) {
     JS_FreeValue(context, global);
     return vec2_result >= 0 && vec3_result >= 0 && mat4_result >= 0 && builder_result >= 0
         && media_playback_result >= 0 && console_result >= 0
-        && shared_result >= 0;
+        && shared_result >= 0 && date_result >= 0 && properties_result >= 0;
 }
 
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_scalar(

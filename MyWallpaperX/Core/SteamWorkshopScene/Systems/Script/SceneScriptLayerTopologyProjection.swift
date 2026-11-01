@@ -95,7 +95,7 @@ nonisolated extension SceneRenderDescriptor.Layer {
             disablesParallaxPropagation: false, timelines: [],
             timelineDiagnostics: [], particleTimelines: [],
             particleTimelineDiagnostics: [], modelCropOffsetXY: nil,
-            puppetMeshPath: template.puppetMeshPath, text: nil, textStyle: nil, textScript: nil,
+            puppetMeshPath: template.puppetMeshPath, text: nil, textStyle: nil,
             scriptBindings: nil, textureAnimationScripts: nil,
             hasInlineScript: false, effects: [], effectFiles: [],
             texturePaths: []
@@ -131,7 +131,7 @@ nonisolated extension SceneRenderDescriptor.Layer {
             scaleXYZ: scale, anglesXYZ: angles, parallaxDepthXY: [0, 0],
             disablesParallaxPropagation: false, timelines: [], timelineDiagnostics: [],
             particleTimelines: [], particleTimelineDiagnostics: [], modelCropOffsetXY: nil,
-            puppetMeshPath: nil, text: mutation.text, textStyle: style, textScript: nil,
+            puppetMeshPath: nil, text: mutation.text, textStyle: style,
             scriptBindings: nil, textureAnimationScripts: nil, hasInlineScript: false,
             effects: [], effectFiles: [], texturePaths: []
         )
