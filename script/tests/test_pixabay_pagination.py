@@ -1,9 +1,10 @@
 """Real Pixabay fetch/search publication and URLSession cancellation boundaries.
 
 The production response decoder, search/reset/loadNextPage, fetchPage, buildURL
-and published fields are compiled unchanged. URLProtocol supplies controlled
-HTTP/transport outcomes; only thumbnail cancellation is a recording leaf. This
-does not test external Pixabay availability or downloaded-content scanning.
+and published fields run in an extracted copy. Only a transparent loop-entry
+counter is inserted; URLProtocol supplies controlled HTTP/transport outcomes
+and thumbnail cancellation is a recording leaf. This does not test external
+Pixabay availability, buffer copying or downloaded-content scanning.
 """
 import hashlib
 import json
@@ -39,6 +40,9 @@ class PixabayPaginationTests(unittest.TestCase):
         owner = "\n".join(declaration(source, signature) for signature in (
             "    func clearAPIKeyAndReset(", "    func setAPIKeyAndSearch(", "    func search(params:", "    func loadNextPage(",
             "    private func fetchPage(", "    private func buildURL(", "    func searchWithCurrentContext("))
+        loop_body = "                        if let index = nextIndex[value.id]"
+        self.assertEqual(owner.count(loop_body), 1)
+        owner = owner.replace(loop_body, "                        self.mergeVisits += 1\n" + loop_body, 1)
         template = FIXTURE.read_text().replace("// PRODUCTION_DECODER", decoder)
         template = template.replace("// PRODUCTION_FIELDS", fields).replace("// PRODUCTION_OWNER", owner)
         paths = [selected, MODELS, FIXTURE, Path(__file__).resolve(),
@@ -59,7 +63,7 @@ class PixabayPaginationTests(unittest.TestCase):
                 proof = Path(tempfile.mkdtemp(prefix="paging-", dir=destination))
                 (proof / "compile.log").write_text(build.stdout + build.stderr)
                 (proof / "inputs.json").write_text(json.dumps({"inputs": inputs, "command": command,
-                    "scope": __doc__, "transforms": ["extract unchanged owner/fields/decoder; inject ephemeral URLSession in fixture"]}, indent=2))
+                    "scope": __doc__, "transforms": ["extract owner/fields/decoder; count real merge loop entries; inject ephemeral URLSession in fixture"]}, indent=2))
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
             modes = [os.environ["MWX_ONLINE_PAGINATION_MODE"]] if os.environ.get("MWX_ONLINE_PAGINATION_MODE") else ["pages", "cancellation"]
             for mode in modes:
@@ -75,6 +79,18 @@ class PixabayPaginationTests(unittest.TestCase):
                     print(json.dumps(checks, sort_keys=True))
                     for name, passed in checks.items():
                         self.assertIs(passed, True, name + "\n" + run.stderr)
+                    if mode == "pages":
+                        observations = [json.loads(line.removeprefix("Pagination merge work: "))
+                            for line in run.stderr.splitlines() if line.startswith("Pagination merge work: ")]
+                        self.assertEqual(len(observations), 1, run.stderr)
+                        print(json.dumps({"mergeWork": observations[0]}, sort_keys=True))
+                        budgets = {"longFirst": 128, "mixedContinuation": 7, "emptyContinuation": 0,
+                            "afterEmpty": 2, "afterSearch": 2, "afterReset": 3}
+                        self.assertEqual(set(observations[0]), set(budgets))
+                        for phase, limit in budgets.items():
+                            with self.subTest(merge=phase):
+                                self.assertGreaterEqual(observations[0][phase], 0)
+                                self.assertLessEqual(observations[0][phase], limit, run.stderr)
             self.assertEqual(inputs, {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in paths})
 
 

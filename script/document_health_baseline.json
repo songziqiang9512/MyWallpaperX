@@ -34,7 +34,7 @@
     },
     "docs/development/code-slimming-program.md": {
       "lines": 464,
-      "bytes": 101290
+      "bytes": 101759
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -1793,10 +1793,10 @@
     {
       "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
-      "before": "6d0e3039ff9780141c76a07bd17b19420de74d4933e332d1471e8e1b988bc406",
-      "after": "2eccd475f9504850f9876b8cec690a0e8775a609f48fe38458d4493b819ac953",
+      "before": "2eccd475f9504850f9876b8cec690a0e8775a609f48fe38458d4493b819ac953",
+      "after": "ded45dc1dbd83f02b112f73e1f99cae52253329b6bb0bad08d3cdd6e2c8fd8fb",
       "owner": "repository-maintainer",
-      "reason": "现役首读改到目标与边界；25段已结R记录归单份周期历史，R23与既有B/UI及批准设计保留，正文预算按实际下降收紧，不新增产品流程。",
+      "reason": "原位替换最近验证为R28 Pixabay续页现役索引复用、真实业务与工作量对照；退役已结归档维护范围描述，不追加批次台账。",
       "decision": "docs/development/code-slimming-program.md#目标与边界"
     },
     {

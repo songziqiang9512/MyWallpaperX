@@ -10,6 +10,7 @@ import Foundation
     var apiKey = "fixture-key"
     var hasValidAPIKey: Bool { !apiKey.isEmpty }
     var thumbnailCancellations = 0
+    var mergeVisits = 0
     init(session: URLSession) { self.session = session }
     func cancelThumbnailPrefetch() { thumbnailCancellations += 1 }
     // PRODUCTION_OWNER
@@ -175,6 +176,69 @@ nonisolated private final class ControlledPageProtocol: URLProtocol, @unchecked 
             && defaultParameters["order"] == "popular" && defaultParameters["safesearch"] == "true"
             && ["category", "video_type", "min_width", "min_height", "editors_choice"].allSatisfy { defaultParameters[$0] == nil }
         transport.reply("kept filters:1", data: response([(22, "cleared")], total: 1)); await owner.task()?.value
+        var mergeWork: [String: Int] = [:]
+        owner.search(params: .init(query: "long-prefix", perPage: 128))
+        await wait("long first page") { transport.count("long-prefix:1") == 1 }
+        var beforeMerge = owner.mergeVisits
+        transport.reply("long-prefix:1", data: response((0..<128).map { ($0, "prefix-\($0)") }, total: 512))
+        await owner.task()?.value
+        mergeWork["longFirst"] = owner.mergeVisits - beforeMerge
+        checks["long-first-page-replaces-the-previous-search-and-builds-a-complete-index"] = owner.items.map(\.id) == Array(0..<128)
+            && owner.items[127].tags == "prefix-127" && owner.auditIndex() && owner.page() == 1 && owner.hasMore
+        owner.loadNextPage()
+        await wait("long mixed continuation") { transport.count("long-prefix:2") == 1 }
+        beforeMerge = owner.mergeVisits
+        transport.reply("long-prefix:2", data: response([(127, "tail-first"), (126, "tail-reverse"), (127, "tail-latest"),
+            (128, "new-first"), (129, "new-neighbor"), (128, "new-latest"), (0, "head-latest")], total: 512))
+        await owner.task()?.value
+        mergeWork["mixedContinuation"] = owner.mergeVisits - beforeMerge
+        await wait("long mixed native snapshot") { snapshots.last == Array(0..<130) }
+        checks["long-prefix-reverse-overlap-and-new-duplicates-preserve-first-position-and-last-metadata"] = owner.items.map(\.id) == Array(0..<130)
+            && owner.items[0].tags == "head-latest" && owner.items[125].tags == "prefix-125"
+            && owner.items[126].tags == "tail-reverse" && owner.items[127].tags == "tail-latest"
+            && owner.items[128].tags == "new-latest" && owner.items[129].tags == "new-neighbor" && owner.auditIndex()
+        let beforeEmpty = owner.items, publicationsBeforeEmpty = deliveredArrays.count, snapshotsBeforeEmpty = snapshots.count
+        owner.loadNextPage()
+        await wait("empty long continuation") { transport.count("long-prefix:3") == 1 }
+        beforeMerge = owner.mergeVisits
+        transport.reply("long-prefix:3", data: response([], total: 512)); await owner.task()?.value
+        mergeWork["emptyContinuation"] = owner.mergeVisits - beforeMerge
+        await wait("empty-page native snapshot") { snapshots.count == snapshotsBeforeEmpty + 1 }
+        checks["empty-continuation-still-publishes-and-advances-the-server-page-without-losing-the-index"] = owner.items == beforeEmpty
+            && deliveredArrays.count == publicationsBeforeEmpty + 1 && snapshots.last == Array(0..<130)
+            && owner.page() == 3 && owner.hasMore && owner.totalHits == 512 && owner.auditIndex()
+        owner.loadNextPage()
+        await wait("page after empty continuation") { transport.count("long-prefix:4") == 1 }
+        beforeMerge = owner.mergeVisits
+        transport.reply("long-prefix:4", data: response([(129, "after-empty-update"), (130, "after-empty-new")], total: 512))
+        await owner.task()?.value
+        mergeWork["afterEmpty"] = owner.mergeVisits - beforeMerge
+        checks["page-after-empty-reuses-current-rows-and-reaches-the-server-terminal-page"] = owner.items.map(\.id) == Array(0..<131)
+            && owner.items[129].tags == "after-empty-update" && owner.items[130].tags == "after-empty-new"
+            && owner.page() == 4 && !owner.hasMore && owner.auditIndex()
+        owner.search(params: .init(query: "replacement", perPage: 2))
+        checks["search-clears-the-long-array-and-index-before-admitting-its-new-response"] = owner.items.isEmpty && owner.auditIndex()
+        await wait("replacement search") { transport.count("replacement:1") == 1 }
+        beforeMerge = owner.mergeVisits
+        transport.reply("replacement:1", data: response([(800, "replacement-first"), (800, "replacement-latest")], total: 2))
+        await owner.task()?.value
+        mergeWork["afterSearch"] = owner.mergeVisits - beforeMerge
+        checks["replacement-search-keeps-only-its-own-unique-latest-row"] = owner.items.map(\.id) == [800]
+            && owner.items[0].tags == "replacement-latest" && owner.auditIndex() && !owner.hasMore
+        owner.clearAPIKeyAndReset()
+        checks["key-reset-clears-the-array-and-index-after-long-pagination"] = owner.items.isEmpty && owner.auditIndex() && !owner.hasLoadedOnce
+        owner.setAPIKeyAndSearch("fresh-key")
+        await wait("new-key replacement search") { transport.count("replacement:1") == 2 }
+        beforeMerge = owner.mergeVisits
+        transport.reply("replacement:1", data: response([(900, "reset-first"), (901, "reset-neighbor"), (900, "reset-latest")], total: 3))
+        await owner.task()?.value
+        mergeWork["afterReset"] = owner.mergeVisits - beforeMerge
+        await wait("post-reset native snapshot") { snapshots.last == [900, 901] }
+        checks["key-reset-rebuilds-first-position-last-metadata-and-real-publisher-pairs"] = owner.items.map(\.id) == [900, 901]
+            && owner.items.map(\.tags) == ["reset-latest", "reset-neighbor"] && owner.auditIndex()
+            && storedPairsValid && deferredPairsValid && publishedUnique
+        let workJSON = String(decoding: try! JSONSerialization.data(withJSONObject: mergeWork, options: [.sortedKeys]), as: UTF8.self)
+        FileHandle.standardError.write(Data("Pagination merge work: \(workJSON)\n".utf8))
         return checks
     }
     @MainActor static func cancellation() async -> [String: Bool] {

@@ -632,11 +632,11 @@ final class PixabayService: ObservableObject {
                 case 200:
                     let decoded  = try JSONDecoder().decode(PixabayResponse.self, from: data)
                     let newItems = decoded.hits.map { $0.toItem() }
-                    var nextItems: [PixabayVideoItem] = []
-                    var nextIndex: [Int: Int] = [:]
+                    var nextItems: [PixabayVideoItem] = appending ? self.items : []
+                    var nextIndex: [Int: Int] = appending ? self.itemIndexByID : [:]
                     // Page overlap and repeated hits share one stable row:
                     // preserve first position, accept the latest metadata.
-                    for value in (appending ? self.items : []) + newItems {
+                    for value in newItems {
                         if let index = nextIndex[value.id] { nextItems[index] = value }
                         else { nextIndex[value.id] = nextItems.count; nextItems.append(value) }
                     }
