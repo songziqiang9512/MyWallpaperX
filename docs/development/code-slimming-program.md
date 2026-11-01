@@ -54,6 +54,10 @@ R21（5e014c93b起）：目录成员只消费canonical去重数与(position,inpu
 
 R22（cef42e119起）：Sidebar原numberOfChildren/逐child回调每次完整map播放列表再compactMap节点，收为displayed playlists直接count/index；固定Node提前到dataSource绑定前准备，沿AppKit设置时可请求数据的生命周期，动态节点仍由原update维护。保固定偏移、rank同位输入顺序、UUID/Node身份、pending/epoch/revision、选择/折叠与拖序权限；产品14+/6-净+8，无新owner/state/helper/cache。原生夹具新增16/128列表、rename及身份/选择反例，临时副本只包装真实pages返回数组且原值原样返回。真实桌面CUA输入、标准NSApplication.run下旧新84业务断言逐key全真相等，仅旧4成本subtest失败；helper调用19/131→2、page值342/17030→4，未测整App耗时/能耗。werror、5859输入无漂移的隔离Debug32.702秒通过，日志0error/0warning。原自动sender在旧基线出现nil session，手动pump另出现额外导航；标准循环未复现该导航，未据此修改共享鼠标产品代码或削弱断言，也不宣称原自动门已修复。两臂仅临时适配事件输入、Escape退出native追踪后继续原断言，来源与失败保本批证据。后继先审自动夹具的标准事件投递；封面回调重复完整Sidebar.update另有同步reset/demand时序风险，须真实桥接证明再决定，不先堆状态补丁。
 
+R23（4ba9e1b23起）：复核原生自动sender；当前原夹具编译无诊断但native40秒超时。标准NSApp.run候选到达真实outline begin，随后local mouseUp观察不返回；单waiter提前注册begin/end、async Timer让出actor的后继版本在active/key前置失败，未进入drag，不能据此判定产品或权限根因。按收益递减停止，已将两个测试路径精确恢复HEAD，全部原业务/成本断言保持，无产品改动或新增测试框架；候选未提交，自动门仍未通过，不以R22真实桌面替代验证宣称修复。最小失败证据保护保留，后续须先证明标准宿主激活和事件流再选方法，不继续加状态、延时或权限补丁。
+
+R24（4ba9e1b23起）：legacy项目persist已先load project供video选择，单调用preview wrapper随后重复load同文件；现直接把首份project交现役preferredPreview并退役wrapper，产品1+/10-净-9，无新state/cache/helper/owner。正常稳定文件的选图优先级、路径边界、JSON/atomic写入及首下载日期保持；单次同步准备共享首份结果含nil，若外部在旧两读间改文件，不再消费第二份project，下次persist仍重读。上层managed commit/Video早返回未改，未由新增门动态覆盖。原两方法基线通过；原10组选图/metadata fallback保留并迁至真实persist→实际loader/视频选择/preview/writer→落盘snapshot，新增坏JSON、首选video及同目录changed/missing/malformed/recovered，共17相位。探针仅外包真实project Data读取，记录读取尝试而非总IO/解析次数；旧新52业务/字段/日期统计检查相等全真，仅旧17读取成本key红，当前69全真，每相位project读尝试2→1。旧方法执行顺序误选曾导致一次重复旧源运行，已按实际输入身份排除并重做verified-new；不是候选通过证据。两臂werror/实际输入无漂移、独审通过；隔离Debug33.986秒、5859输入稳定且0error/0warning，质量结果归本批证据。未注入单次调用内文件替换，未测真实Steam账户、整App交互或耗时/能耗。后继核Manifest逐级prefix的重复Take/Join，保NFC、路径/文件目录碰撞、预算、取消与准入全部检查，不把必要校验当冗余删除。
+
 “无调用”须排查 selector、协议回调、独立进程、作者脚本、动态资源及调试工具；测试、文档或结构登记出现名字不等于产品调用。第一批只删除已确认不可达的链路，不以行数作为收益或验收目标。
 
 ## 第一批设计与停止条件

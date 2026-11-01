@@ -541,7 +541,7 @@ extension SteamWorkshopService {
         let project = Self.loadWorkshopProject(from: targetURL.appendingPathComponent("project.json"))
         try? FileManager.default.createDirectory(at: downloadMetadataIndexDirectoryURL(), withIntermediateDirectories: true)
         let sourceVideoURL = Self.resolveVideoURL(in: targetURL, preferredFileName: project?.file)
-        let previewRelativePath = resolvePreviewRelativePath(in: targetURL)
+        let previewRelativePath = Self.preferredPreviewRelativePath(in: targetURL, project: project)
         let sourceVideoRelativePath = sourceVideoURL.map { url in
             let basePath = targetURL.standardizedFileURL.path
             let filePath = url.standardizedFileURL.path
@@ -618,15 +618,6 @@ extension SteamWorkshopService {
             return downloadMetadataFileURL(forVideoURL: videoURL)
         }
         return downloadMetadataFileURL(for: record.id)
-    }
-
-    private func resolvePreviewRelativePath(in directory: URL) -> String? {
-        let projectURL = directory.appendingPathComponent("project.json")
-        let project = Self.loadWorkshopProject(from: projectURL)
-        return Self.preferredPreviewRelativePath(
-            in: directory,
-            project: project
-        )
     }
 
 }
