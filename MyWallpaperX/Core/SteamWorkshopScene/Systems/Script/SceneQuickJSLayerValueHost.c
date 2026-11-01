@@ -59,10 +59,8 @@ bool mwx_scene_quickjs_layer_read_vec3(
 }
 
 const double *mwx_scene_quickjs_layer_authored_transform_value(
-    const MWXSceneQuickJSOwner *owner,
     const MWXSceneQuickJSAuthoredLayerMutationRecord *mutation,
     const MWXSceneQuickJSAuthoredLayerMutationRecord *baseline,
-    uint32_t layer_index,
     uint32_t field,
     const double staged[3],
     const double current[3]
@@ -74,15 +72,6 @@ const double *mwx_scene_quickjs_layer_authored_transform_value(
         if (field == MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_SCALE)
             return baseline->scale;
         return baseline->angles;
-    }
-    if (owner->target_layer_configured &&
-        layer_index == owner->target_layer_index &&
-        owner->authored_layer_baseline_available) {
-        if (field == MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ORIGIN)
-            return owner->authored_layer_baseline_origin;
-        if (field == MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_SCALE)
-            return owner->authored_layer_baseline_scale;
-        return owner->authored_layer_baseline_angles;
     }
     return current;
 }
@@ -138,7 +127,7 @@ static JSValue layer_get(
         return mwx_scene_quickjs_layer_make_vec3(
             context, handle->domain,
             !record->dynamic ? mwx_scene_quickjs_layer_authored_transform_value(
-                owner, authored_mutation, authored_baseline, record_index,
+                authored_mutation, authored_baseline,
                 MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ORIGIN,
                 authored_mutation == NULL ? record->current_origin
                                           : authored_mutation->origin,
@@ -153,7 +142,7 @@ static JSValue layer_get(
         return mwx_scene_quickjs_layer_make_vec3(
             context, handle->domain,
             !record->dynamic ? mwx_scene_quickjs_layer_authored_transform_value(
-                owner, authored_mutation, authored_baseline, record_index,
+                authored_mutation, authored_baseline,
                 MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_SCALE,
                 authored_mutation == NULL ? record->scale
                                           : authored_mutation->scale,
@@ -164,7 +153,7 @@ static JSValue layer_get(
         return mwx_scene_quickjs_layer_make_vec3(
             context, handle->domain,
             !record->dynamic ? mwx_scene_quickjs_layer_authored_transform_value(
-                owner, authored_mutation, authored_baseline, record_index,
+                authored_mutation, authored_baseline,
                 MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ANGLES,
                 authored_mutation == NULL ? record->angles
                                           : authored_mutation->angles,

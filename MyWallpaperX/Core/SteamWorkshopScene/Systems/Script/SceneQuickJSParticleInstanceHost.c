@@ -194,11 +194,11 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_particle_transform(
         if (!record->configured || record->destroyed || record->layer_id != layer_id) continue;
         MWXSceneQuickJSAuthoredLayerMutationRecord *mutation = mwx_scene_quickjs_authored_mutation_for_layer(owner, index);
         MWXSceneQuickJSAuthoredLayerMutationRecord *baseline = mwx_scene_quickjs_authored_mutation_baseline_for_layer(owner, index);
-        memcpy(origin, mwx_scene_quickjs_layer_authored_transform_value(owner, mutation, baseline, index,
+        memcpy(origin, mwx_scene_quickjs_layer_authored_transform_value(mutation, baseline,
             MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ORIGIN, mutation ? mutation->origin : record->current_origin, record->current_origin), 3 * sizeof(double));
-        memcpy(scale, mwx_scene_quickjs_layer_authored_transform_value(owner, mutation, baseline, index,
+        memcpy(scale, mwx_scene_quickjs_layer_authored_transform_value(mutation, baseline,
             MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_SCALE, mutation ? mutation->scale : record->scale, record->scale), 3 * sizeof(double));
-        memcpy(angles, mwx_scene_quickjs_layer_authored_transform_value(owner, mutation, baseline, index,
+        memcpy(angles, mwx_scene_quickjs_layer_authored_transform_value(mutation, baseline,
             MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ANGLES, mutation ? mutation->angles : record->angles, record->angles), 3 * sizeof(double));
         return MWX_SCENE_QUICKJS_OK;
     }

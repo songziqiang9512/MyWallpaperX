@@ -4,6 +4,9 @@
 #include "SceneQuickJSHostTypes.h"
 #include "SceneQuickJSUserShortcutHost.h"
 
+// Authored and dynamic records share the domain's stable slot catalog.
+#define MWX_SCENE_QUICKJS_MAX_LAYERS 4096
+
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_puppet_animation(
     MWXSceneQuickJSOwner *owner, int64_t layer_id, uint32_t authored_index,
     int64_t animation_layer_id, uint32_t has_animation_layer_id,
@@ -533,20 +536,6 @@ bool mwx_scene_quickjs_define_property_animation_accessor(
     MWXSceneQuickJSOwner *owner
 );
 
-MWXSceneQuickJSResult mwx_scene_quickjs_owner_set_authored_layer_baseline(
-    MWXSceneQuickJSOwner *owner,
-    uint64_t expected_generation,
-    const double origin[3],
-    const double scale[3],
-    const double angles[3],
-    char *diagnostic,
-    size_t diagnostic_capacity
-);
-
-void mwx_scene_quickjs_owner_clear_authored_layer_baseline(
-    MWXSceneQuickJSOwner *owner
-);
-
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseline(
     MWXSceneQuickJSOwner *owner,
     uint64_t expected_generation,
@@ -712,20 +701,6 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_scalar_with_user_properties
     uint64_t expected_generation,
     double input,
     const MWXSceneQuickJSFrameInput *frame,
-    const char *user_properties_json,
-    size_t user_properties_length,
-    double *output,
-    char *diagnostic,
-    size_t diagnostic_capacity
-);
-
-MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_scalar_with_properties(
-    MWXSceneQuickJSOwner *owner,
-    uint64_t expected_generation,
-    double input,
-    const MWXSceneQuickJSFrameInput *frame,
-    const char *script_properties_json,
-    size_t script_properties_length,
     const char *user_properties_json,
     size_t user_properties_length,
     double *output,

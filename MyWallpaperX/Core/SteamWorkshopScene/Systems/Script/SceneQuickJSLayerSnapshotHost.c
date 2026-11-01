@@ -531,7 +531,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_text_clone_value(
     if (index == domain->layer_count) return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
     MWXSceneQuickJSTextCloneSnapshot *entry = domain->pending_text_clone_snapshot;
     for (; entry; entry = entry->next) if (entry->layer_index == index) break;
-    if (!entry && domain->pending_text_clone_count >= MWX_SCENE_QUICKJS_MAX_SCENE_DYNAMIC_LAYERS)
+    if (!entry && domain->pending_text_clone_count >= MWX_SCENE_QUICKJS_MAX_LAYERS)
         return MWX_SCENE_QUICKJS_BUDGET_EXCEEDED;
     char *copy = copy_snapshot_string(text, length);
     if (!copy) return MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;

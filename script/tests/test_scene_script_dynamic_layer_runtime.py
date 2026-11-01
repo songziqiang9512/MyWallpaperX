@@ -154,7 +154,7 @@ extension Harness {
             let aValue = SceneDynamicTarget.layer(layerID: aID, field: .alpha)
             let peerValue = SceneDynamicTarget.layer(layerID: peerID, field: .alpha)
             for reversed in [false, true] {
-                for count in [512, 513] {
+                for count in [4096, 4097] {
                     for netZero in [false, true] {
                         var callbacks = (0..<count).map { _ in
                             mutation(netZero ? -aID : aID, dynamic: netZero, alpha: 0.3,
@@ -179,7 +179,7 @@ extension Harness {
                         runtime.commit(admission.layerPlan)
                         let after = runtime.snapshot()
                         let raw = SceneScriptDynamicLayerRuntime(descriptor: descriptor, authoredMutationLayerIDs: [])
-                        let publicOverflow = (0..<513).map { _ in
+                        let publicOverflow = (0..<4097).map { _ in
                             mutation(aID, dynamic: false, alpha: 0.9, fields: [.alpha], ownerTarget: a)
                         }
                         let publicResult = raw.apply(publicOverflow)
@@ -205,7 +205,7 @@ extension Harness {
                             "peerPublished": after.authoredLayerValues[peerValue] == .scalar(0.7),
                             "dynamicCount": after.dynamicLayers.count,
                             "birthMarkers": admission.layerPlan.createdDynamicLayerMutations.count,
-                            "publicRaw513Rejected": publicOverflowRejected && raw.snapshot().authoredLayerValues.isEmpty])
+                            "publicRaw4097Rejected": publicOverflowRejected && raw.snapshot().authoredLayerValues.isEmpty])
                     }
                 }
             }
@@ -303,7 +303,7 @@ class SceneScriptDynamicLayerRuntimeTests(unittest.TestCase):
         for row in self.result["ownerCapacity"]:
             with self.subTest(variant=row["variant"], reversed=row["reversed"],
                               raw_count=row["rawCount"], net_zero=row["netZero"]):
-                within_capacity = row["rawCount"] == 512
+                within_capacity = row["rawCount"] == 4096
                 expected = {
                     "peerRawCount": 4, "coalescedCount": 1, "preflightReadOnly": True,
                     "admittedA": within_capacity, "admittedPeer": True,
@@ -311,7 +311,7 @@ class SceneScriptDynamicLayerRuntimeTests(unittest.TestCase):
                     "aOverflow": not within_capacity, "committedCount": 2 if within_capacity else 1,
                     "aPublished": within_capacity and not row["netZero"], "peerPublished": True,
                     "dynamicCount": 0, "birthMarkers": int(within_capacity and row["netZero"]),
-                    "publicRaw513Rejected": True,
+                    "publicRaw4097Rejected": True,
                 }
                 for fact, value in expected.items():
                     with self.subTest(fact=fact):

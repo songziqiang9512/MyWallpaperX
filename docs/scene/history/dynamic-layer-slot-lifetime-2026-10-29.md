@@ -4,7 +4,7 @@
 
 > **历史证据 — 非现役入口**
 
-截止：2026-10-29。当前职责归[D4实例寿命](../roadmap/batch2/script-component-api-design.md#dynamic-layer-slot-lifetime)、[API台账](../capabilities/scenescript-api-coverage.md)和[视频合同](../capabilities/material-video-assets.md)，未闭项只归[队列](../roadmap/scene-open-breakpoint-queue.md)。本记录不授动态视频创建或官方时钟语义。
+截止：2026-11-01。当前职责归[D4实例寿命](../roadmap/batch2/script-component-api-design.md#dynamic-layer-slot-lifetime)、[API台账](../capabilities/scenescript-api-coverage.md)和[视频合同](../capabilities/material-video-assets.md)，未闭项只归[队列](../roadmap/scene-open-breakpoint-queue.md)。本记录不授动态视频创建或官方时钟语义。
 
 ## 实施与必要边界
 
@@ -68,3 +68,19 @@
 普通签名Debug于`241d03f03`加本批两产品改动构建31.41s，4416输入无漂移；exe SHA256 `08a4ad4b619207b517a3e5b467bba9dbf60c22d7f0d32c4b130537c7b7fc3694`。自有原生载体双向property-event→update回写经普通VM/Metal显示红块、隐藏蓝块、保绿色peer，两Vec3 owner完成且无callback拒绝。独立原包3603711180及3742133044各5s严格PASS；三run均exit0、surface1→0/GPU drained。它们不证明所有作者图像、官方逐setter顺序、HDR/多屏、长稳或性能收益，后来的并行Web改动不在该App身份内。
 
 必要红绿输入、两产品旧/新源、fixture、构建/独审收据、三run日志及原PNG归`.artifacts/scene-evidence/runs/callback-setter-intent-20261101/metadata/samples/0/runtime_evidence.zip`（普通14天）。一份连续构建缓存复用，冻结测试编译物与中间探针在提取后清理。
+
+
+<a id="capacity-storage-20261101"></a>
+## 动态层容量与按需 journal（2026-11-01）
+
+原3806202923的默认SCAV配置需要511次普通图片创建。旧真实C在第257次返回null；资源catalog或owner alias缺失反例同样抛alignment异常，但在第一次即null，故不能只看异常文字判容量。候选普通App实际导出并准入512条（511动态+1作者层），原资源准备/alias、Swift模板及唯一合成链未绕开；不再出现该owner异常。实际非零音频generation2、peak0.385后，画面中心绿色分段出现；同App原包零音频反例不显示分段。3024×1964图的ROI(846,392)–(1663,1139)有2048/0个绿色像素；相机/时钟未配准，此数仅证明可归属分段出现，不是像素parity或音频数值正确性。
+
+现C沿原4096个共享总槽及8192拓扑操作退出重复256 live扫描/journal门，Swift ABI消费同一公共总槽常量并退出候选256门；Runtime实收DTO在本处合并前按owner限4096。Program上游已有coalescing，不声称所有callback原始写次数累计受此门限制。旧槽仍待原共同事务终态回收，满catalog不保证有双份空间原子重建。
+
+四组原owner journal改为pointer/count/capacity按需增长、暖态复用，active owned payload照原清理；普通终态退出16KiB created全清，成功永久退役和owner destroy释放storage，peer/snapshot等待边界保留。无caller旧单目标baseline及单caller scalar转发整链退出，逐layer mutation baseline仍是当前读值来源；未新增owner、registry或fallback。Owner结构requested从336008B降到196728B，libc usable从344064B到212992B；这些是布局/分配事实，**不是phys_footprint、CPU/GPU或整引擎性能收益**。
+
+实际C/Swift事务门覆盖511/512首建、同cadence init与update不提前commit、同callback销毁511再创建511的1023条重建、资源/变量改名、throw/晚拒绝/整frame取消、旧ID/order/value回滚、共享4096槽及旧handle拒绝/释放复用。4097实收DTO先局部拒绝；资源/alias缺失和image.font脚本状态反例保留。四buffer空闲零payload、增长失败、暖复用及永久退役分别检查；完整QuickJS普通及ASAN各2门、Runtime20门、真实Program组合12门通过；旧Runtime的4096输入仍在旧512策略处有40条subassert红，旧Program以birth256失败。首轮及中间夹具资格失败独立保留，不当最终成功。其它边界见归档报告。text工厂未由普通image组合门授予新能力，alignment/parallaxDepth脚本状态亦不等于native几何已支持。
+
+普通签名Debug基于01adcdd945加本批14产品路径构建90.34s，4416输入无漂移、无warning；exe SHA256 `d9e703e14d91c706a1511103d2bacc0516fa492da19d573409a3748a9879aeae`。原380正/零音频及独立原3792817546各5s严格PASS；独立63bar绿色音频柱保持可见。三run正常退出、surface1→0且GPU完成；未验官方同phase、HDR/多屏、长稳与整场景全部能力。独立静态审查未发现新增回归。
+
+必要源/fixture、红绿与失败资格、布局、构建及三run日志/原PNG归`.artifacts/scene-evidence/runs/dynamic-layer-capacity-20261101/metadata/samples/0/runtime_evidence.zip`（普通14天）。原380容量子断点从现役队列退出；381自定义材质及其它资源/几何边界仍按队列推进，不以容量扩大宣整类兼容。

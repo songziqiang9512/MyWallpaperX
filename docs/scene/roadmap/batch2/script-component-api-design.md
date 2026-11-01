@@ -218,6 +218,8 @@ size 是只读创建几何：C 原 layer record/journal 保存已验证的创建
 验收沿原准备 owner、原真实 descriptor builder 和 VM catalog，覆盖自然尺寸不同于上传尺寸、同资源不同作者尺寸、显式/省略、资源与变量改名、等价表达式以及相邻专用资源/模型声明/显式零尺寸不误命中。deferred 必须证明 metadata 可用于几何而加载次数仍为零、outcome 缺席且状态 pending，随后原 worker ready/失败/取消保持原生命周期。真实 App 使用既有合法自有普通模型矩阵与独立 heldout，仅声明实测范围，不从大部分作者 size 恰等于自然尺寸推断新增画面收益或性能结论。
 
 <a id="dynamic-layer-slot-lifetime"></a>
+
+动态层数量、原子重建与按需journal存储由[容量与事务存储合同](../../architecture/dynamic-layer-storage-design.md)接管；同一owner/slot/snapshot链保留，批准设计不授512段画面通过。
 ## 动态实例槽位寿命（2026-10-29，有界已实施）
 
 **目标与差距。** 合法脚本可持续销毁/创建图层；当前 C record 只追加至4096，失败出生又可能重发负 ID。保留旧 JS handle 的作者会遇到容量耗尽，直接回收则可能把旧 handle、journal 或 rollback 索引指向新对象。本片只替换实例存储记账，不增加 create 资源能力、播放时钟、事务或 renderer。
@@ -289,7 +291,7 @@ init/cursor/update命令按原callback epoch/ordinal合回同一ownerEffects，�
 同callback查询读取已验证overlay；stop/pause/play的query按D11实际存活及排放工作推导，不能直接返回playing Bool。其他callback含同owner的timer/event/update均读本cadence已提交镜像；本callback drain的microtask归当前journal。共享模拟后renderer观察结果，不等GPU。candidate保留domain.callback_epoch/ordinal顺序、转移及revision，不按owner分组猜序或把stop→play压扁；owner拒绝须移除其命令并重算。每surface模拟前消费一次；committed只留intent/revision供rebuild，旧transitions不重放。
 
 首次init/cursor/update前，完整同代surface必须完成粒子准备并发布真实query projection；prepareLaunch模块装载不算init。各scalar/string/vector/cursor共用该顺序，不能从缺失屏或空集合发布假查询。首launch保留现warm-up的prepared-live：init.pause只阻止后续出生，init.stop在首次模拟前清live/batch/history。rebuild须在构造前注入committed paused/stopped，禁止先warm-up再补开关。官方warm-up/init次序未知，不声称parity。
-<a id="layer-mutation-owner-capacity"></a>**图层mutation容量（2026-10-30设计）。** 原DynamicLayerRuntime以已有owner分组，在coalescing前按每owner raw≤512准入；同owner的init/event/update合并收费，净零出生/重复写仍算raw，超额只拒该owner并沿原fixed-point撤其依赖，健康peer继续。独立atomic `apply`入口保单请求raw512，private apply不再重复入口预算；不增owner、状态、关卡或数字。此举退出跨所有owner的全帧总raw512上界，总分组/应用工作随真实owner数增长；C每callback dirty DTO256、原topology操作8192、live动态256和VM time/memory/stack各管原维度，不冒等价的Swift全帧内存/墙钟限制。已有合法owner的init256+update256不应被peer4挤掉；失败仍撤native newborn，不复活JS保存的旧handle，也不承诺JS heap回滚。验收含512+peer、513局部拒绝（合并成1亦拒）、净零出生与改名/换序、实际原包音频→动态层/绘制/ROI及独立回归；资源或handle余错未闭即停止扩大。未来新增API命令仍保规划的scene/frame1024条、128动态对象、单emit1024、存活粒子65536与待销毁resident-byte配额；这些是未实施profile的计划，不能反向覆盖现役图层事务的实际容量。新API配额调高仍须压力证据，不能借本设计顺带扩张。
+<a id="layer-mutation-owner-capacity"></a>**图层mutation容量。** 现役边界与按需journal归[容量与事务存储合同](../../architecture/dynamic-layer-storage-design.md)：C共享总槽4096，Swift Runtime按owner对实收DTO在本处coalescing前限4096；上游Program已合并的写不重新展开。owner原子接纳/撤回、健康peer、snapshot与JS句柄寿命不变，不将此界限冒称全场景墙钟或所有callback原始写次数预算。
 
 ## 作者图层跨层删除后继（2026-10-07）
 

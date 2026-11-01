@@ -16,10 +16,7 @@
 #define MWX_SCENE_QUICKJS_MAX_MATERIAL_FUNCTION_NAME 128
 #define MWX_SCENE_QUICKJS_MAX_EFFECTS 1024
 #define MWX_SCENE_QUICKJS_MAX_EFFECT_NAME 256
-#define MWX_SCENE_QUICKJS_MAX_LAYERS 4096
 #define MWX_SCENE_QUICKJS_MAX_LAYER_NAME 256
-#define MWX_SCENE_QUICKJS_MAX_LAYER_MUTATIONS 256
-#define MWX_SCENE_QUICKJS_MAX_SCENE_DYNAMIC_LAYERS 256
 #define MWX_SCENE_QUICKJS_MAX_LAYER_TEXT 4096
 #define MWX_SCENE_QUICKJS_MAX_LAYER_FONT 1024
 #define MWX_SCENE_QUICKJS_MAX_LAYER_ASSET_PATH 1024
@@ -609,29 +606,23 @@ struct MWXSceneQuickJSOwner {
     bool dynamic_layer_transaction_active;
     bool dynamic_layer_topology_participating;
     size_t dynamic_layer_created_count;
-    uint32_t dynamic_layer_created_indices[MWX_SCENE_QUICKJS_MAX_LAYERS];
+    size_t dynamic_layer_created_capacity;
+    uint32_t *dynamic_layer_created_indices;
     size_t dynamic_layer_value_baseline_count;
-    MWXSceneQuickJSDynamicLayerValueBaseline dynamic_layer_value_baselines[
-        MWX_SCENE_QUICKJS_MAX_LAYER_MUTATIONS
-    ];
+    size_t dynamic_layer_value_baseline_capacity;
+    MWXSceneQuickJSDynamicLayerValueBaseline *dynamic_layer_value_baselines;
     size_t storage_mutation_count;
     size_t storage_mutation_bytes;
     bool storage_mutation_overflow;
     bool storage_transaction_active;
     char *storage_screen_identity;
-    bool authored_layer_baseline_available;
-    double authored_layer_baseline_origin[3];
-    double authored_layer_baseline_scale[3];
-    double authored_layer_baseline_angles[3];
     bool layer_mutation_overflow;
     size_t authored_layer_mutation_count;
-    MWXSceneQuickJSAuthoredLayerMutationRecord authored_layer_mutations[
-        MWX_SCENE_QUICKJS_MAX_LAYER_MUTATIONS
-    ];
+    size_t authored_layer_mutation_capacity;
+    MWXSceneQuickJSAuthoredLayerMutationRecord *authored_layer_mutations;
     size_t authored_layer_mutation_baseline_count;
-    MWXSceneQuickJSAuthoredLayerMutationRecord authored_layer_mutation_baselines[
-        MWX_SCENE_QUICKJS_MAX_LAYER_MUTATIONS
-    ];
+    size_t authored_layer_mutation_baseline_capacity;
+    MWXSceneQuickJSAuthoredLayerMutationRecord *authored_layer_mutation_baselines;
     MWXSceneQuickJSRejectionRecord rejections[
         MWX_SCENE_QUICKJS_MAX_UNHANDLED_REJECTIONS
     ];
@@ -822,6 +813,10 @@ bool mwx_scene_quickjs_assign_script_properties(
 
 
 // Internal layer responsibilities share the existing Domain/Owner state and ABI.
+void *mwx_scene_quickjs_layer_grow_journal_buffer(
+    void *buffer, size_t *capacity, size_t entry_size
+);
+void mwx_scene_quickjs_owner_release_layer_journal_storage(MWXSceneQuickJSOwner *owner);
 int32_t mwx_scene_quickjs_layer_active_count(MWXSceneQuickJSDomain *domain);
 bool mwx_scene_quickjs_layer_append_dynamic_layer_topology_operation(
     MWXSceneQuickJSOwner *owner,
@@ -830,10 +825,8 @@ bool mwx_scene_quickjs_layer_append_dynamic_layer_topology_operation(
     int32_t order_index
 );
 const double *mwx_scene_quickjs_layer_authored_transform_value(
-    const MWXSceneQuickJSOwner *owner,
     const MWXSceneQuickJSAuthoredLayerMutationRecord *mutation,
     const MWXSceneQuickJSAuthoredLayerMutationRecord *baseline,
-    uint32_t layer_index,
     uint32_t field,
     const double staged[3],
     const double current[3]

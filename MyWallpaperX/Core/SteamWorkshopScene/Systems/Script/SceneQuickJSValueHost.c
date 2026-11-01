@@ -355,23 +355,9 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_scalar_with_user_properties
     const char *user_properties_json, size_t user_properties_length,
     double *output, char *diagnostic, size_t diagnostic_capacity
 ) {
-    return mwx_scene_quickjs_owner_update_scalar_with_properties(
-        owner, expected_generation, input, frame, NULL, 0,
-        user_properties_json, user_properties_length, output,
-        diagnostic, diagnostic_capacity
-    );
-}
-
-MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_scalar_with_properties(
-    MWXSceneQuickJSOwner *owner, uint64_t expected_generation, double input,
-    const MWXSceneQuickJSFrameInput *frame,
-    const char *script_properties_json, size_t script_properties_length,
-    const char *user_properties_json, size_t user_properties_length,
-    double *output, char *diagnostic, size_t diagnostic_capacity
-) {
     return mwx_scene_quickjs_owner_update_primitive_with_properties(
         owner, expected_generation, input, 0, frame,
-        script_properties_json, script_properties_length,
+        NULL, 0,
         user_properties_json, user_properties_length, output,
         diagnostic, diagnostic_capacity
     );

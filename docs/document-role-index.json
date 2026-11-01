@@ -18,6 +18,7 @@
       "docs/development/validation-simplification-plan.md",
       "docs/development/wallhaven-online-browser-design.md",
       "docs/release/release-signing.md",
+      "docs/scene/architecture/dynamic-layer-storage-design.md",
       "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md",
       "docs/scene/architecture/refactor-baseline.md",
       "docs/scene/architecture/runtime-architecture.md",
@@ -691,6 +692,20 @@
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。"
     },
     {
+      "path": "docs/scene/architecture/dynamic-layer-storage-design.md",
+      "role": "stable-contract",
+      "entrypoint": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "currentStateAuthority": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "lastReviewed": "2026-11-01",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "method": "document_registry --audit + document_health --check",
+        "sourceSHA256": "7f24ba41ed5ee038b052276f9fe6baa044c57b936d8a24345dd9b4963964e620",
+        "scope": "容量及按需journal职责、真实512段/零音频、Runtime DTO预算与Debug短窗证据边界复核。",
+        "limitations": "不认全样本/官方parity、所有callback原始写预算或整体性能收益。"
+      }
+    },
+    {
       "path": "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md",
       "role": "stable-contract",
       "entrypoint": "docs/scene/architecture/runtime-architecture.md",
@@ -1139,10 +1154,10 @@
       "lastReviewed": "2026-11-01",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "87718924852dab0478650d5e08ca62495bce750b5f659a88f25124657e136e98",
         "method": "document_registry --audit + document_health --check",
-        "scope": "17提交逐条审查；能力/队列补绑定身份、原子plan投影、utility dormant与真实失败，以及颜色用途/预处理成员的当前边界。",
-        "limitations": "不授官方成员条件取值、history重新启用首帧、全world/全样本parity或性能结论。"
+        "sourceSHA256": "aa470c82840b185c186667f78901fa548fa25da74f6ab53bcb4928a38884cb4d",
+        "scope": "容量及按需journal职责、真实512段/零音频、Runtime DTO预算与Debug短窗证据边界复核。",
+        "limitations": "不认全样本/官方parity、所有callback原始写预算或整体性能收益。"
       }
     },
     {
@@ -1835,8 +1850,8 @@
       "path": "docs/scene/history/dynamic-layer-slot-lifetime-2026-10-29.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
-      "cutoffDate": "2026-10-29",
-      "uniqueValue": "动态slot与逻辑ID分离、原生6704次出生/8存活与独立63层；337供帧轨道消融、未资格官方实例与新生净零边界分列。",
+      "cutoffDate": "2026-11-01",
+      "uniqueValue": "动态slot/逻辑ID、实例原子寿命及511普通image容量/1023重建、四journal按需存储、真实音频分段与零PCM反例；视频资格和未验证范围分列。",
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "docs/scene/roadmap/batch2/script-component-api-design.md",
@@ -4393,13 +4408,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
       "retirementCondition": "公开 API 的限定表面、生命周期与预算通过双侧事务门并归入唯一脚本合同后归档，设计登记随实施关闭。",
-      "lastReviewed": "2026-10-31",
+      "lastReviewed": "2026-11-01",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c23d9f65f967664ad5cddd8c854d14832a9fe25a6755adbbcf12ea9eb090adde",
         "method": "document_registry --audit + document_health --check",
-        "scope": "原粒子Vec3颜色Timeline接通，旧Bloom过程归档/D4已实施片退出；338及295剩余光线仍归唯一队列。",
-        "limitations": "受控出生/GPU不授真实338人口0时的光线恢复、官方phase或性能；源码+3不等于性能收益。"
+        "sourceSHA256": "cd9de504ae5038f8ddab0fb81e564f4232a94101ad6c68746fa3dca22366a194",
+        "scope": "容量及按需journal职责、真实512段/零音频、Runtime DTO预算与Debug短窗证据边界复核。",
+        "limitations": "不认全样本/官方parity、所有callback原始写预算或整体性能收益。"
       }
     },
     {
@@ -4449,13 +4464,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "retirementCondition": "用户结束该专项，或本卡已证问题及对应实际验收完成后退役到历史，不保第二执行路线。",
-      "lastReviewed": "2026-10-30",
+      "lastReviewed": "2026-11-01",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c026b5713168e4024d6a45a8168ee8199b1d26f6b93da99e2d4320ec0ec4cff1",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步owner raw准入职责、363频谱恢复与未闭特效/短窗CPU成本；保357 ready黑资格与失败。",
-        "limitations": "不认整景或全部独立门PASS，不认JS heap回滚、优化配置/Release/稳态性能及官方同音源parity。"
+        "sourceSHA256": "43efc085eda7b8d054466a0168e3068486da1ddfc0b4d08ef2740c7aeebc4744",
+        "scope": "容量及按需journal职责、真实512段/零音频、Runtime DTO预算与Debug短窗证据边界复核。",
+        "limitations": "不认全样本/官方parity、所有callback原始写预算或整体性能收益。"
       }
     },
     {
@@ -4494,10 +4509,10 @@
       "lastReviewed": "2026-11-01",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0c7a75fed71604146cd28f5c9110d85c4840de8ba28c9a22b8e869bd14547247",
         "method": "document_registry --audit + document_health --check",
-        "scope": "17提交逐条审查；能力/队列补绑定身份、原子plan投影、utility dormant与真实失败，以及颜色用途/预处理成员的当前边界。",
-        "limitations": "不授官方成员条件取值、history重新启用首帧、全world/全样本parity或性能结论。"
+        "sourceSHA256": "16a09fa56fd72b1c5c57eca566e6aa190ff42fe85e5a4bbfca47bfa8c9bb3ef3",
+        "scope": "容量及按需journal职责、真实512段/零音频、Runtime DTO预算与Debug短窗证据边界复核。",
+        "limitations": "不认全样本/官方parity、所有callback原始写预算或整体性能收益。"
       }
     },
     {
@@ -4696,6 +4711,7 @@
       "documents": [
         "docs/scene/capabilities/coverage-ledger.md",
         "docs/scene/architecture/runtime-architecture.md",
+        "docs/scene/architecture/dynamic-layer-storage-design.md",
         "docs/scene/capabilities/sampler-alias-precedence.md",
         "docs/scene/capabilities/runtime-evidence-current.md",
         "docs/scene/architecture/refactor-baseline.md",

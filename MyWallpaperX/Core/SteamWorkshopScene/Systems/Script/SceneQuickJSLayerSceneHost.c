@@ -372,17 +372,9 @@ static JSValue create_layer(
         return JS_ThrowTypeError(
             context, "createLayer expects one configuration or asset path"
         );
-    size_t scene_dynamic = 0;
-    for (uint32_t i = 0; i < domain->layer_count; ++i)
-        if (domain->layers[i].dynamic && !domain->layers[i].destroyed) {
-            scene_dynamic += 1;
-        }
-    // Creation is bounded by the shared scene capacity; the callback journal
-    // independently limits the number of distinct records it can publish.
-    if (scene_dynamic >= MWX_SCENE_QUICKJS_MAX_SCENE_DYNAMIC_LAYERS ||
-        (domain->layer_count >= MWX_SCENE_QUICKJS_MAX_LAYERS &&
+    if ((domain->layer_count >= MWX_SCENE_QUICKJS_MAX_LAYERS &&
          domain->free_dynamic_layer_head == UINT32_MAX) ||
-        owner->layer_mutation_count >= MWX_SCENE_QUICKJS_MAX_LAYER_MUTATIONS)
+        owner->layer_mutation_count >= MWX_SCENE_QUICKJS_MAX_LAYERS)
         return JS_NULL;
     char *text = NULL, *font = NULL, *name = NULL;
     uint64_t text_template_identity = 0;

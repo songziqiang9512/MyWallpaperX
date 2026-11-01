@@ -16,7 +16,7 @@ bool mwx_scene_quickjs_layer_mark_dirty(MWXSceneQuickJSOwner *owner, MWXSceneQui
     }
     if (!record->dirty) {
         record->dirty_fields = 0;
-        if (owner->layer_mutation_count >= MWX_SCENE_QUICKJS_MAX_LAYER_MUTATIONS) {
+        if (owner->layer_mutation_count >= MWX_SCENE_QUICKJS_MAX_LAYERS) {
             owner->layer_mutation_overflow = true;
             return false;
         }
@@ -34,6 +34,31 @@ static char *duplicate_optional_layer_string(const char *source) {
     if (copy == NULL) return NULL;
     memcpy(copy, source, length + 1);
     return copy;
+}
+
+void *mwx_scene_quickjs_layer_grow_journal_buffer(
+    void *buffer, size_t *capacity, size_t entry_size
+) {
+    size_t next = *capacity == 0 ? 4 : *capacity * 2;
+    if (next > MWX_SCENE_QUICKJS_MAX_LAYERS) next = MWX_SCENE_QUICKJS_MAX_LAYERS;
+    void *grown = realloc(buffer, next * entry_size);
+    if (grown != NULL) *capacity = next;
+    return grown;
+}
+
+void mwx_scene_quickjs_owner_release_layer_journal_storage(MWXSceneQuickJSOwner *owner) {
+    free(owner->dynamic_layer_created_indices);
+    owner->dynamic_layer_created_indices = NULL;
+    owner->dynamic_layer_created_capacity = 0;
+    free(owner->dynamic_layer_value_baselines);
+    owner->dynamic_layer_value_baselines = NULL;
+    owner->dynamic_layer_value_baseline_capacity = 0;
+    free(owner->authored_layer_mutations);
+    owner->authored_layer_mutations = NULL;
+    owner->authored_layer_mutation_capacity = 0;
+    free(owner->authored_layer_mutation_baselines);
+    owner->authored_layer_mutation_baselines = NULL;
+    owner->authored_layer_mutation_baseline_capacity = 0;
 }
 
 bool mwx_scene_quickjs_layer_ensure_dynamic_layer_transaction(
@@ -71,6 +96,13 @@ bool mwx_scene_quickjs_layer_journal_dynamic_layer_creation(
     if (created_layer_slot_for_owner(owner, layer_index)) return true;
     if (owner->dynamic_layer_created_count >= MWX_SCENE_QUICKJS_MAX_LAYERS)
         return false;
+    if (owner->dynamic_layer_created_count == owner->dynamic_layer_created_capacity) {
+        void *buffer = mwx_scene_quickjs_layer_grow_journal_buffer(
+            owner->dynamic_layer_created_indices, &owner->dynamic_layer_created_capacity,
+            sizeof(*owner->dynamic_layer_created_indices));
+        if (buffer == NULL) return false;
+        owner->dynamic_layer_created_indices = buffer;
+    }
     owner->dynamic_layer_created_indices[
         owner->dynamic_layer_created_count++
     ] = layer_index;
@@ -107,7 +139,14 @@ bool mwx_scene_quickjs_layer_journal_dynamic_layer_value(
     if (created_layer_slot_for_owner(owner, layer_index)) return true;
     if (value_baseline_for_layer(owner, layer_index) != NULL) return true;
     if (owner->dynamic_layer_value_baseline_count >=
-        MWX_SCENE_QUICKJS_MAX_LAYER_MUTATIONS) return false;
+        MWX_SCENE_QUICKJS_MAX_LAYERS) return false;
+    if (owner->dynamic_layer_value_baseline_count == owner->dynamic_layer_value_baseline_capacity) {
+        void *buffer = mwx_scene_quickjs_layer_grow_journal_buffer(
+            owner->dynamic_layer_value_baselines, &owner->dynamic_layer_value_baseline_capacity,
+            sizeof(*owner->dynamic_layer_value_baselines));
+        if (buffer == NULL) return false;
+        owner->dynamic_layer_value_baselines = buffer;
+    }
     MWXSceneQuickJSLayerRecord *record = &owner->domain->layers[layer_index];
     MWXSceneQuickJSDynamicLayerValueBaseline *baseline =
         &owner->dynamic_layer_value_baselines[
@@ -481,10 +520,6 @@ static void clear_dynamic_layer_journal(
         free(baseline->font);
         *baseline = (MWXSceneQuickJSDynamicLayerValueBaseline){0};
     }
-    memset(
-        owner->dynamic_layer_created_indices, 0,
-        sizeof(owner->dynamic_layer_created_indices)
-    );
     owner->dynamic_layer_created_count = 0;
     owner->dynamic_layer_value_baseline_count = 0;
     owner->dynamic_layer_transaction_active = false;
@@ -683,10 +718,7 @@ bool mwx_scene_quickjs_owner_remove_dynamic_layers(MWXSceneQuickJSOwner *owner) 
     // state or mutate its records.  The scene-wide lifecycle barrier releases
     // every owner first, and a direct caller can retry after the peer commits
     // or discards its journal.
-    if (!layer_indices_are_released(domain)) {
-        owner->authored_layer_baseline_available = false;
-        return false;
-    }
+    if (!layer_indices_are_released(domain)) return false;
     bool removed_layers = false;
     for (uint32_t index = 0; index < domain->layer_count; ++index) {
         MWXSceneQuickJSLayerRecord *record = &domain->layers[index];
@@ -697,10 +729,10 @@ bool mwx_scene_quickjs_owner_remove_dynamic_layers(MWXSceneQuickJSOwner *owner) 
         recycle_dynamic_layer(domain, index);
     }
     if (removed_layers) mwx_scene_quickjs_compact_layer_order(domain);
-    owner->authored_layer_baseline_available = false;
     mwx_scene_quickjs_layer_finalize_topology(domain);
     clear_dynamic_layer_journal(owner);
     clear_layer_mutation_buffers(owner);
+    mwx_scene_quickjs_owner_release_layer_journal_storage(owner);
     owner->particle_playback_command_count = 0;
     owner->particle_playback_command_overflow = false;
     return true;

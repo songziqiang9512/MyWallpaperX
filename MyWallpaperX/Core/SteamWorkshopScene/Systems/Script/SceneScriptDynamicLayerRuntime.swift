@@ -4,6 +4,8 @@ import Foundation
 /// mutations; rendering reads one immutable snapshot and commits successful
 /// dynamic topology or authored fields only after the current frame.
 nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
+    private static let maximumOwnerMutationWork = 4096
+
     var authoredLayerDefinitions: [SceneDynamicTargetDefinition] {
         authoredDefinitionOrder.compactMap { authoredDefinitionsByTarget[$0] }
     }
@@ -139,7 +141,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
     func apply(
         _ mutations: [SceneScriptLayerMutation]
     ) -> Result<Void, SceneScriptScalarRuntimeFailure> {
-        guard mutations.count <= 512 else {
+        guard mutations.count <= Self.maximumOwnerMutationWork else {
             return .failure(.mutationOverflow("frame layer mutation budget exceeded"))
         }
         let result = apply(mutations, publishingTopologyRevision: true)
@@ -533,8 +535,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                 definitionOrder: &candidateDefinitionOrder, definitions: &candidateDefinitions,
                 values: &candidateAuthoredValues)
         }
-        guard candidateLayers.count <= 256,
-              Set(candidateOrder).count == candidateOrder.count,
+        guard Set(candidateOrder).count == candidateOrder.count,
               candidateLayers.keys.allSatisfy(candidateOrder.contains) else {
             return .failure(.mutationOverflow("dynamic layer topology budget exceeded"))
         }
@@ -843,7 +844,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         let committedDestroyedIDs = destroyedAuthoredLayerIDs
         for owner in ownerOrder {
             guard let callbacks = grouped[owner] else { continue }
-            guard callbacks.count <= 512 else {
+            guard callbacks.count <= Self.maximumOwnerMutationWork else {
                 failures.append(.init(ownerTarget: owner,
                     failure: .mutationOverflow("owner layer mutation budget exceeded")))
                 continue

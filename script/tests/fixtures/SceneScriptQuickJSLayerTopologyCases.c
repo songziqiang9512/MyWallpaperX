@@ -1,8 +1,154 @@
 #include "SceneScriptQuickJSFixture.h"
+#include "SceneQuickJSInternal.h"
 
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+
+static void *watched_storage[4];
+static size_t watched_reallocations, watched_frees;
+
+void *mwx_fixture_storage_realloc(void *pointer, size_t size) {
+    int matched = -1;
+    for (int i = 0; i < 4; ++i)
+        if (pointer != NULL && pointer == watched_storage[i]) matched = i;
+    void *result = realloc(pointer, size);
+    if (matched >= 0) {
+        ++watched_reallocations;
+        if (result != NULL) watched_storage[matched] = result;
+    }
+    return result;
+}
+
+void mwx_fixture_storage_free(void *pointer) {
+    for (int i = 0; i < 4; ++i)
+        if (pointer != NULL && pointer == watched_storage[i]) {
+            ++watched_frees;
+            watched_storage[i] = NULL;
+        }
+    free(pointer);
+}
+
+static size_t watch_layer_storage(MWXSceneQuickJSOwner *owner) {
+    watched_storage[0] = owner->dynamic_layer_created_indices;
+    watched_storage[1] = owner->dynamic_layer_value_baselines;
+    watched_storage[2] = owner->authored_layer_mutations;
+    watched_storage[3] = owner->authored_layer_mutation_baselines;
+    watched_reallocations = watched_frees = 0;
+    size_t count = 0;
+    for (int i = 0; i < 4; ++i) count += watched_storage[i] != NULL;
+    return count;
+}
+
+static void dynamic_storage_cases(MWXSceneScriptQuickJSFixture *fixture) {
+    const double zero[3] = {0, 0, 0}, one[3] = {1, 1, 1}, size[2] = {5, 5};
+    const char *source =
+        "let peers=[],old;function build(){for(const p of peers)thisScene.destroyLayer(p);"
+        "peers=[];for(let n=0;n<511;n++){const p=thisScene.createLayer({name:'tile'+n,text:'tile'});"
+        "if(!p)throw Error('birth '+n);peers.push(p);}}"
+        "export function init(){build();thisLayer.alpha=.25;}"
+        "export function update(v){if(v<3){for(const p of peers)p.scale=new Vec3(v);"
+        "thisLayer.alpha=v/10;}"
+        "if(v===3||v===5){old=peers[0];build();thisLayer.alpha=.75;"
+        "if(v===5)throw Error('throw after rebuild');}"
+        "if(v===6)build();if(v===4){try{old.visible;return 0;}catch(e){return 1;}}return peers.length;}";
+    for (int outcome = 0; outcome < 3; ++outcome) {
+        MWXSceneQuickJSDomain *domain = mwx_scene_quickjs_domain_create(
+            32 * 1024 * 1024, 512 * 1024, 100000, fixture->diagnostic, sizeof(fixture->diagnostic));
+        fixture->failures += mwx_fixture_check(domain != NULL, "storage domain", fixture->diagnostic);
+        if (domain == NULL) continue;
+        fixture->failures += mwx_fixture_check(mwx_scene_quickjs_domain_configure_layer_catalog(
+            domain, 1, 0, fixture->diagnostic, sizeof(fixture->diagnostic)) == MWX_SCENE_QUICKJS_OK,
+            "one authored slot", fixture->diagnostic);
+        fixture->failures += mwx_fixture_check(mwx_scene_quickjs_domain_set_layer_runtime_descriptor(
+            domain, 0, 17, 0, 0, "root", 4, zero, size, one, zero, 1, 1, "root", 4, "", 0, 32,
+            one, fixture->diagnostic, sizeof(fixture->diagnostic)) == MWX_SCENE_QUICKJS_OK,
+            "storage authored record", fixture->diagnostic);
+        const char *idle_source = "export function update(v){return v;}";
+        MWXSceneQuickJSOwner *idle = mwx_scene_quickjs_owner_create(domain,
+            idle_source, strlen(idle_source), 900, fixture->diagnostic, sizeof(fixture->diagnostic));
+        fixture->failures += mwx_fixture_check(idle != NULL, "empty owner", fixture->diagnostic);
+        if (idle != NULL) {
+            fixture->failures += mwx_fixture_check(watch_layer_storage(idle) == 0,
+                "empty owner allocates no four journal payloads", fixture->diagnostic);
+            memset(watched_storage, 0, sizeof(watched_storage));
+            mwx_scene_quickjs_owner_destroy(idle);
+        }
+        MWXSceneQuickJSOwner *owner = mwx_scene_quickjs_owner_create(domain, source, strlen(source),
+            901, fixture->diagnostic, sizeof(fixture->diagnostic));
+        fixture->failures += mwx_fixture_check(owner != NULL, "511 writer compiles", fixture->diagnostic);
+        if (owner == NULL) { mwx_scene_quickjs_domain_destroy(domain); continue; }
+        fixture->failures += mwx_fixture_configure_owner_layer(owner, 17, "511 writer identity");
+        int initial = mwx_fixture_update(owner, 901, 1, MWX_SCENE_QUICKJS_OK, 511,
+            "init and update create 511 without intermediate commit");
+        fixture->failures += initial;
+        if (initial) { mwx_scene_quickjs_owner_destroy(owner); mwx_scene_quickjs_domain_destroy(domain); continue; }
+        fixture->failures += mwx_fixture_check(mwx_scene_quickjs_owner_layer_mutation_count(owner) == 512,
+            "511 births plus authored value exported", fixture->diagnostic);
+        mwx_scene_quickjs_owner_commit_layer_mutations(owner);
+        fixture->failures += mwx_fixture_update(owner, 901, 2, MWX_SCENE_QUICKJS_OK, 511,
+            "writer grows dynamic value baseline on demand");
+        mwx_scene_quickjs_owner_commit_layer_mutations(owner);
+        fixture->failures += mwx_fixture_check(mwx_scene_quickjs_owner_add_authored_layer_mutation_baseline(
+            owner, 901, 17, MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ALPHA, zero, one, zero,
+            1, 1, 0, "", 0, "", 0, .2, 1, 32, one, 0, NULL,
+            fixture->diagnostic, sizeof(fixture->diagnostic)) == MWX_SCENE_QUICKJS_OK,
+            "host publishes authored baseline through real ABI", fixture->diagnostic);
+        fixture->failures += mwx_fixture_check(watch_layer_storage(owner) == 4,
+            "one writer allocates the four used buffers", fixture->diagnostic);
+        for (int repeat = 0; repeat < 4; ++repeat) {
+            fixture->failures += mwx_fixture_update(owner, 901, 1 + repeat % 2, MWX_SCENE_QUICKJS_OK, 511,
+                "same high-water writer callback");
+            if (repeat % 2) mwx_scene_quickjs_owner_discard_layer_mutations(owner);
+            else mwx_scene_quickjs_owner_commit_layer_mutations(owner);
+        }
+        fixture->failures += mwx_fixture_check(watched_reallocations == 0,
+            "warm commit and discard do not realloc journal buffers", fixture->diagnostic);
+        memset(watched_storage, 0, sizeof(watched_storage));
+        fixture->failures += mwx_fixture_update(owner, 901, outcome == 2 ? 5 : 3,
+            outcome == 2 ? MWX_SCENE_QUICKJS_EXCEPTION : MWX_SCENE_QUICKJS_OK,
+            outcome == 2 ? 0 : 511, "same callback destroy511 create511 and authored write");
+        if (outcome != 2) {
+            fixture->failures += mwx_fixture_check(mwx_scene_quickjs_owner_layer_mutation_count(owner) == 1023,
+                "rebuild exports 1023 distinct affected records", fixture->diagnostic);
+            if (outcome == 1) mwx_scene_quickjs_owner_discard_layer_mutations(owner);
+            else mwx_scene_quickjs_owner_commit_layer_mutations(owner);
+        }
+        if (outcome == 0) {
+            const uint32_t recycled = domain->free_dynamic_layer_head;
+            fixture->failures += mwx_fixture_check(recycled != UINT32_MAX,
+                "accepted destruction releases physical slots at frame barrier", fixture->diagnostic);
+            fixture->failures += mwx_fixture_update(owner, 901, 6, MWX_SCENE_QUICKJS_OK, 511,
+                "third generation reuses released physical slots");
+            fixture->failures += mwx_fixture_check(recycled < domain->layer_count
+                && domain->layers[recycled].configured && !domain->layers[recycled].destroyed,
+                "free-list slot contains replacement generation", fixture->diagnostic);
+            mwx_scene_quickjs_owner_commit_layer_mutations(owner);
+            fixture->failures += mwx_fixture_update(owner, 901, 4, MWX_SCENE_QUICKJS_OK, 1,
+                "retired handle stays stale after its physical slot is reused");
+        }
+        const char *observer_source = "export function update(){return thisScene.getLayerCount();}";
+        MWXSceneQuickJSOwner *observer = mwx_scene_quickjs_owner_create(domain, observer_source,
+            strlen(observer_source), 902, fixture->diagnostic, sizeof(fixture->diagnostic));
+        fixture->failures += mwx_fixture_update(observer, 902, 0, MWX_SCENE_QUICKJS_OK, 512,
+            "accepted rebuild or rejected callback preserves 512 live layers");
+        mwx_scene_quickjs_owner_destroy(observer);
+        size_t allocated = watch_layer_storage(owner);
+        if (outcome == 0) {
+            fixture->failures += mwx_fixture_check(mwx_scene_quickjs_owner_remove_dynamic_layers(owner),
+                "permanent teardown reaches existing lifecycle barrier", fixture->diagnostic);
+            fixture->failures += mwx_fixture_check(watched_frees == allocated && watch_layer_storage(owner) == 0,
+                "permanent teardown releases all allocated journal buffers", fixture->diagnostic);
+        }
+        allocated = watch_layer_storage(owner);
+        mwx_scene_quickjs_owner_destroy(owner);
+        fixture->failures += mwx_fixture_check(watched_frees == allocated,
+            "owner destroy releases any retained journal buffers", fixture->diagnostic);
+        memset(watched_storage, 0, sizeof(watched_storage));
+        mwx_scene_quickjs_domain_destroy(domain);
+    }
+}
 
 void mwx_fixture_dynamic_layer_creation_cases(MWXSceneScriptQuickJSFixture *fixture) {
     const char *dynamic_layer_source =
@@ -184,6 +330,7 @@ void mwx_fixture_dynamic_layer_creation_cases(MWXSceneScriptQuickJSFixture *fixt
 }
 
 void mwx_fixture_dynamic_layer_transaction_cases(MWXSceneScriptQuickJSFixture *fixture) {
+    dynamic_storage_cases(fixture);
     const char *dynamic_budget_source =
         "export function update(value){let created=0;for(let i=0;i<65;i+=1)"
         "if(thisScene.createLayer({text:'x'}))created+=1;return created;}";
@@ -208,15 +355,16 @@ void mwx_fixture_dynamic_layer_transaction_cases(MWXSceneScriptQuickJSFixture *f
     // One owner may consume the existing scene-wide capacity. A second owner
     // cannot bypass it, and every admitted value still participates in rollback.
     MWXSceneQuickJSDomain *capacity_domain = mwx_scene_quickjs_domain_create(
-        2 * 1024 * 1024, 512 * 1024, 100000, fixture->diagnostic, sizeof(fixture->diagnostic)
+        128 * 1024 * 1024, 512 * 1024, 100000, fixture->diagnostic, sizeof(fixture->diagnostic)
     );
     fixture->failures += mwx_fixture_check(capacity_domain != NULL, "capacity domain", fixture->diagnostic);
     fixture->failures += mwx_fixture_configure_layers(capacity_domain);
+    mwx_scene_quickjs_domain_finalize_layer_snapshot(capacity_domain);
     const char *capacity_source =
         "let layers=[];export function update(v){"
-        "if(v===1){for(let i=0;i<257;i++){"
+        "if(v===1){for(let i=0;i<4097;i++){"
         "let x=thisScene.createLayer({text:'x',name:'wide'+i});"
-        "if(x)layers.push(x);}return layers.length;}"
+        "if(x)layers.push(x);}thisLayer.alpha=.5;thisScene.getLayer(1).alpha=.25;return layers.length;}"
         "if(v===2){for(let x of layers)x.scale=new Vec3(2);return layers.length;}"
         "if(v===3){for(let x of layers)if(x.scale.x!==1)throw new Error('leak');"
         "return layers.length;}"
@@ -228,9 +376,9 @@ void mwx_fixture_dynamic_layer_transaction_cases(MWXSceneScriptQuickJSFixture *f
     );
     fixture->failures += mwx_fixture_check(capacity_owner != NULL, "capacity owner", fixture->diagnostic);
     fixture->failures += mwx_fixture_configure_owner_layer(capacity_owner, 17, "capacity target");
-    fixture->failures += mwx_fixture_update(capacity_owner, 800, 1, MWX_SCENE_QUICKJS_OK, 256,
+    fixture->failures += mwx_fixture_update(capacity_owner, 800, 1, MWX_SCENE_QUICKJS_OK, 4094,
         "single owner can fill scene capacity and excess returns null");
-    fixture->failures += mwx_fixture_check(mwx_scene_quickjs_owner_layer_mutation_count(capacity_owner) == 256,
+    fixture->failures += mwx_fixture_check(mwx_scene_quickjs_owner_layer_mutation_count(capacity_owner) == 4096,
         "all creations publish", fixture->diagnostic);
     mwx_scene_quickjs_owner_commit_layer_mutations(capacity_owner);
     const char *competitor_source =
@@ -244,12 +392,13 @@ void mwx_fixture_dynamic_layer_transaction_cases(MWXSceneScriptQuickJSFixture *f
     fixture->failures += mwx_fixture_configure_owner_layer(competitor, 42, "competing target");
     fixture->failures += mwx_fixture_update(competitor, 801, 1, MWX_SCENE_QUICKJS_OK, 0,
         "scene capacity applies across owners");
-    fixture->failures += mwx_fixture_update(capacity_owner, 800, 2, MWX_SCENE_QUICKJS_OK, 256,
+    mwx_scene_quickjs_owner_commit_layer_mutations(competitor);
+    fixture->failures += mwx_fixture_update(capacity_owner, 800, 2, MWX_SCENE_QUICKJS_OK, 4094,
         "full-capacity values stage");
-    fixture->failures += mwx_fixture_check(mwx_scene_quickjs_owner_layer_mutation_count(capacity_owner) == 256,
+    fixture->failures += mwx_fixture_check(mwx_scene_quickjs_owner_layer_mutation_count(capacity_owner) == 4094,
         "full-capacity values publish", fixture->diagnostic);
     mwx_scene_quickjs_owner_discard_layer_mutations(capacity_owner);
-    fixture->failures += mwx_fixture_update(capacity_owner, 800, 3, MWX_SCENE_QUICKJS_OK, 256,
+    fixture->failures += mwx_fixture_update(capacity_owner, 800, 3, MWX_SCENE_QUICKJS_OK, 4094,
         "discard restores every value above old owner cap");
     fixture->failures += mwx_fixture_update(capacity_owner, 800, 4, MWX_SCENE_QUICKJS_OK, 128,
         "destroy releases scene capacity");

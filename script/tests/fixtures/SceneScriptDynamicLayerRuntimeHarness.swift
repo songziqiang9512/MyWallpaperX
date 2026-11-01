@@ -480,7 +480,7 @@ enum Harness {
             SceneScriptOwnerEffects(
                 ownerTarget: budgetOwnerB,
                 layerMutations: (257...384).map {
-                    mutation(-$0, order: $0 - 256, ownerTarget: budgetOwnerB)
+                    mutation(-$0, kind: .destroy, ownerTarget: budgetOwnerB)
                 }
             ),
             SceneScriptOwnerEffects(

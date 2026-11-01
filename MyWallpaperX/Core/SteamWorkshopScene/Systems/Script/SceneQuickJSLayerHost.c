@@ -45,10 +45,16 @@ MWXSceneQuickJSAuthoredLayerMutationRecord *mwx_scene_quickjs_stage_authored_mut
         mwx_scene_quickjs_authored_mutation_for_layer(owner, layer_index);
     if (mutation != NULL) return mutation;
     if (layer_index >= owner->domain->authored_layer_count) return NULL;
-    if (owner->layer_mutation_count >= MWX_SCENE_QUICKJS_MAX_LAYER_MUTATIONS ||
-        owner->authored_layer_mutation_count >= MWX_SCENE_QUICKJS_MAX_LAYER_MUTATIONS) {
+    if (owner->layer_mutation_count >= MWX_SCENE_QUICKJS_MAX_LAYERS) {
         owner->layer_mutation_overflow = true;
         return NULL;
+    }
+    if (owner->authored_layer_mutation_count == owner->authored_layer_mutation_capacity) {
+        void *buffer = mwx_scene_quickjs_layer_grow_journal_buffer(
+            owner->authored_layer_mutations, &owner->authored_layer_mutation_capacity,
+            sizeof(*owner->authored_layer_mutations));
+        if (buffer == NULL) return NULL;
+        owner->authored_layer_mutations = buffer;
     }
     MWXSceneQuickJSLayerRecord *record = &owner->domain->layers[layer_index];
     mutation = &owner->authored_layer_mutations[
@@ -89,21 +95,6 @@ MWXSceneQuickJSAuthoredLayerMutationRecord *mwx_scene_quickjs_stage_authored_mut
             mutation->particle_alpha = baseline->particle_alpha;
         if ((baseline->fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_POINT_SIZE) != 0)
             mutation->point_size = baseline->point_size;
-    } else if (owner->target_layer_configured &&
-        layer_index == owner->target_layer_index &&
-        owner->authored_layer_baseline_available) {
-        memcpy(
-            mutation->origin, owner->authored_layer_baseline_origin,
-            sizeof(mutation->origin)
-        );
-        memcpy(
-            mutation->scale, owner->authored_layer_baseline_scale,
-            sizeof(mutation->scale)
-        );
-        memcpy(
-            mutation->angles, owner->authored_layer_baseline_angles,
-            sizeof(mutation->angles)
-        );
     }
     owner->layer_mutation_count += 1;
     return mutation;
@@ -468,51 +459,6 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_layer_identity(
     return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
 }
 
-MWXSceneQuickJSResult mwx_scene_quickjs_owner_set_authored_layer_baseline(
-    MWXSceneQuickJSOwner *owner, uint64_t expected_generation,
-    const double origin[3], const double scale[3], const double angles[3],
-    char *diagnostic, size_t diagnostic_capacity
-) {
-    mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
-    if (owner == NULL || owner->domain == NULL || origin == NULL || scale == NULL ||
-        angles == NULL || owner->domain->callback_active ||
-        !owner->target_layer_configured) {
-        mwx_scene_quickjs_write_diagnostic(
-            diagnostic, diagnostic_capacity,
-            "invalid authored layer baseline"
-        );
-        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
-    }
-    if (owner->generation != expected_generation) {
-        mwx_scene_quickjs_write_diagnostic(
-            diagnostic, diagnostic_capacity,
-            "stale SceneScript owner generation"
-        );
-        return MWX_SCENE_QUICKJS_STALE_OWNER;
-    }
-    for (size_t index = 0; index < 3; ++index) {
-        if (!isfinite(origin[index]) || !isfinite(scale[index]) ||
-            !isfinite(angles[index])) {
-            mwx_scene_quickjs_write_diagnostic(
-                diagnostic, diagnostic_capacity,
-                "non-finite authored layer baseline"
-            );
-            return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
-        }
-    }
-    memcpy(owner->authored_layer_baseline_origin, origin, sizeof(double) * 3);
-    memcpy(owner->authored_layer_baseline_scale, scale, sizeof(double) * 3);
-    memcpy(owner->authored_layer_baseline_angles, angles, sizeof(double) * 3);
-    owner->authored_layer_baseline_available = true;
-    return MWX_SCENE_QUICKJS_OK;
-}
-
-void mwx_scene_quickjs_owner_clear_authored_layer_baseline(
-    MWXSceneQuickJSOwner *owner
-) {
-    if (owner != NULL) owner->authored_layer_baseline_available = false;
-}
-
 void mwx_scene_quickjs_owner_clear_authored_layer_mutation_baselines(
     MWXSceneQuickJSOwner *owner
 ) {
@@ -579,7 +525,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
         memchr(text, '\0', text_length) != NULL ||
         memchr(font, '\0', font_length) != NULL ||
         owner->authored_layer_mutation_baseline_count >=
-            MWX_SCENE_QUICKJS_MAX_LAYER_MUTATIONS) {
+            MWX_SCENE_QUICKJS_MAX_LAYERS) {
         mwx_scene_quickjs_write_diagnostic(
             diagnostic, diagnostic_capacity,
             "invalid authored layer mutation baseline"
@@ -633,6 +579,13 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
         return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
     for (uint32_t i = 0; i < effect_count; ++i)
         if (effect_visible[i] > 2) return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    if (owner->authored_layer_mutation_baseline_count == owner->authored_layer_mutation_baseline_capacity) {
+        void *buffer = mwx_scene_quickjs_layer_grow_journal_buffer(
+            owner->authored_layer_mutation_baselines, &owner->authored_layer_mutation_baseline_capacity,
+            sizeof(*owner->authored_layer_mutation_baselines));
+        if (buffer == NULL) return MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
+        owner->authored_layer_mutation_baselines = buffer;
+    }
     char *text_copy = NULL;
     char *font_copy = NULL;
     if ((fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_TEXT) != 0) {

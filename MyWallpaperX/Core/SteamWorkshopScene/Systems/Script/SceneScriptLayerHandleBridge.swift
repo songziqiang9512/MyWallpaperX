@@ -1,6 +1,6 @@
 import Foundation
 
-private nonisolated let sceneScriptMaximumOwnerLayerMutations = 256
+private nonisolated let sceneScriptMaximumOwnerLayerMutations = Int(MWX_SCENE_QUICKJS_MAX_LAYERS)
 
 /// Scene JSON and the renderer keep Euler angles in radians, while the public
 /// SceneScript layer API exposes degrees. Convert only at the VM boundary so

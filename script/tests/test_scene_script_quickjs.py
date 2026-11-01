@@ -48,17 +48,33 @@ class SceneScriptQuickJSTest(unittest.TestCase):
         )
         root = Path(cls._temporary_directory.name)
         binary = root / "harness"
+        flags = (["-fsanitize=address", "-fno-omit-frame-pointer"]
+                 if os.environ.get("MWX_SCENE_QUICKJS_ASAN") == "1" else [])
+        observed = {"SceneQuickJS.c", "SceneQuickJSLayerHost.c",
+                    "SceneQuickJSLayerJournalHost.c", "SceneQuickJSLayerSceneHost.c",
+                    "SceneQuickJSLayerSnapshotHost.c"}
+        sources = []
+        for source in C_SOURCES:
+            if source.name not in observed:
+                sources.append(source)
+                continue
+            output = root / (source.stem + ".o")
+            compilation = subprocess.run(
+                [clang, "-std=c11", "-O0", *flags, "-I", str(VM), "-I", str(QUICKJS),
+                 "-Drealloc=mwx_fixture_storage_realloc", "-Dfree=mwx_fixture_storage_free",
+                 "-c", str(source), "-o", str(output)],
+                cwd=ROOT, capture_output=True, text=True, check=True)
+            sources.append(output)
         command = [
             clang,
             "-std=c11",
             "-O0",
-            *(["-fsanitize=address", "-fno-omit-frame-pointer"]
-              if os.environ.get("MWX_SCENE_QUICKJS_ASAN") == "1" else []),
+            *flags,
             "-I",
             str(VM),
             "-I",
             str(QUICKJS),
-            *map(str, C_SOURCES),
+            *map(str, sources),
             *map(str, FIXTURE_SOURCES),
             "-lm",
             "-o",
@@ -98,7 +114,7 @@ class SceneScriptQuickJSTest(unittest.TestCase):
             {
                 "positive": 1,
                 "renamed": 1,
-                "sameValueNoMutation": 1,
+                "sameValueIntentRetained": 1,
                 "invalidInputs": 1,
                 "unicodeBytes": 1024,
                 "rollback": 1,

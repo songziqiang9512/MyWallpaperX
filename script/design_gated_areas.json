@@ -1717,6 +1717,36 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+Finalization.swift"
       ],
       "contentPatterns": []
+    },
+    {
+      "id": "scene-dynamic-layer-storage-capacity",
+      "title": "Dynamic layer journal storage and capacity",
+      "owner": "Scene C owner journal / Swift layer bridge",
+      "status": "approved",
+      "designDoc": "docs/scene/architecture/dynamic-layer-storage-design.md",
+      "design_notes": "同一owner四组layer journal按需增长复用，沿既有4096总槽退出重复256门；Runtime实收DTO在本处coalescing前有界，不冒称上游所有callback原始写计数。保资源资格、原子重建及回滚，退役无caller旧baseline与单调用转发，不新增状态owner；原生画面仍待验。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJS.h",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSInternal.h",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJS.c",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerHost.c",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerJournalHost.c",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerSceneHost.c",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerSnapshotHost.c",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerHandleBridge.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptDynamicLayerRuntime.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerValueHost.c",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSHandleHost.c",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSValueHost.c",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSParticleInstanceHost.c",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptValueOwner+Cursor.swift"
+      ],
+      "contentPatterns": [
+        "MWX_SCENE_QUICKJS_MAX_LAYER_MUTATIONS",
+        "MWX_SCENE_QUICKJS_MAX_SCENE_DYNAMIC_LAYERS",
+        "dynamic_layer_created_indices",
+        "authored_layer_mutation_capacity"
+      ]
     }
   ]
 }

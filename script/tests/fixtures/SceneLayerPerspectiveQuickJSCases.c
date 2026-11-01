@@ -141,8 +141,9 @@ int mwx_test_layer_perspective_cases(void) {
         "export function update(v){thisLayer.perspective=false;thisLayer.perspective=1;"
         "if(thisLayer.perspective!==false)throw Error('explicit no-op');return v;}");
     perspective_update(owner, 6, MWX_SCENE_QUICKJS_OK);
-    perspective_check(mwx_scene_quickjs_owner_layer_mutation_count(owner) == 0,
-        "same explicit Boolean and non-Boolean values produce no DTO");
+    perspective_check(mwx_scene_quickjs_owner_layer_mutation_count(owner) == 1
+        && perspective_mutation(owner).perspective == 0,
+        "same explicit Boolean retains intent and non-Boolean is ignored");
     mwx_scene_quickjs_owner_destroy(owner);
     perspective_publish(domain, 2, 1, 2);
     owner = perspective_owner(domain,

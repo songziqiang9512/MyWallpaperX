@@ -182,7 +182,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 419,
-      "bytes": 118535
+      "bytes": 118904
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -249,8 +249,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 596,
-      "bytes": 162100
+      "lines": 598,
+      "bytes": 161426
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 59,
@@ -265,8 +265,8 @@
       "bytes": 7605
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
-      "lines": 72,
-      "bytes": 21457
+      "lines": 73,
+      "bytes": 22158
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 45,
@@ -278,7 +278,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 188,
-      "bytes": 43397
+      "bytes": 43331
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -347,6 +347,10 @@
     "docs/development/lock-screen-screensaver-design.md": {
       "lines": 84,
       "bytes": 17721
+    },
+    "docs/scene/architecture/dynamic-layer-storage-design.md": {
+      "lines": 34,
+      "bytes": 4916
     }
   },
   "archives": [
@@ -1894,15 +1898,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "e70a735701cfee3701672595009d36eae357cdd519d60d83db411e1123a6605c",
-      "after": "31626d3f7b54d58065f2132b225ae2313f5908b11235a722def13f0e97b22f82",
-      "owner": "scene-361-367-ordinary-frame-qualification",
-      "reason": "归档361/367同一Release短窗观察：submitted≈60/completed≈59.6fps、CPU/GPU超预算为0、stage p50/p95完整，但含execution observer、性能窗2.767s未稳态且361 present 1.84%>1%默认门；样本仍有已知失败，不作为优化或资格依据。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#performance-open"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
       "before": "3e203ada596cdc8bbd7cb2c31540b1254130a2abb9249daf74821f7423d28bc5",
       "after": "aed6cf9eeb3d1e5c3c04528868be7fc2feb9bfbd64fe58b9773795159214151a",
@@ -1921,30 +1916,48 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/architecture/dynamic-layer-storage-design.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "45ce94a495b23ae73bcc09c91161b34051b1e5ef8ef32bc9e8ea883a071364e2",
+      "owner": "scene-dynamic-layer-storage-capacity",
+      "reason": "同一journal容量合同替换旧256/512门；380容量从待修退出，保381材质缺口；布局与Debug短窗成本均不冒称产品性能收益。",
+      "decision": "docs/scene/architecture/dynamic-layer-storage-design.md"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "d743130368923ed8bd05cdbf3782a9fe0af275076fb6d9a1028323f09d150545",
-      "after": "9b44ee36d8212d6534c08794cfcbc906eaa05c0b3dc72491eaead3468f122c9a",
-      "owner": "scene-authored-setter-intent",
-      "reason": "替换陈旧的跨owner异值拒绝说法，记录同值显式setter与无消费透视noop合同；新增当前已证HSV缺省首拒与官方参数资格，尚不关闭颜色能力。",
-      "decision": "docs/scene/history/dynamic-layer-slot-lifetime-2026-10-29.md#authored-setter-intent-20261101"
+      "before": "9b44ee36d8212d6534c08794cfcbc906eaa05c0b3dc72491eaead3468f122c9a",
+      "after": "b85f047c1021b664dac57f4ee3a28437f85649040ff9ae78de4752f4804dad02",
+      "owner": "scene-dynamic-layer-storage-capacity",
+      "reason": "同一journal容量合同替换旧256/512门；380容量从待修退出，保381材质缺口；布局与Debug短窗成本均不冒称产品性能收益。",
+      "decision": "docs/scene/architecture/dynamic-layer-storage-design.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "7fa9ac1925e037896f584beeef398961beaefcc10e67ffa6ce483698d0ccac03",
-      "after": "70ccd8ef65d0f2972392acd9a075b1f610e8c3c972abececa25833fb5f177632",
-      "owner": "scene-authored-setter-intent",
-      "reason": "替换陈旧的跨owner异值拒绝说法，记录同值显式setter与无消费透视noop合同；新增当前已证HSV缺省首拒与官方参数资格，尚不关闭颜色能力。",
-      "decision": "docs/scene/history/dynamic-layer-slot-lifetime-2026-10-29.md#authored-setter-intent-20261101"
+      "before": "70ccd8ef65d0f2972392acd9a075b1f610e8c3c972abececa25833fb5f177632",
+      "after": "487145b38f97a6cd1cc6b7bb387cedba6830afbee21ec94bab9f6db671ed79d3",
+      "owner": "scene-dynamic-layer-storage-capacity",
+      "reason": "同一journal容量合同替换旧256/512门；380容量从待修退出，保381材质缺口；布局与Debug短窗成本均不冒称产品性能收益。",
+      "decision": "docs/scene/architecture/dynamic-layer-storage-design.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "d490c02a1c55da4249f190c88e33e5b29458072798e5d735eae4c2aa02422115",
-      "after": "e32fbedb19e450682596edc5f832ae3960439706ab872e1078893cd21de73505",
-      "owner": "scene-authored-setter-intent",
-      "reason": "替换陈旧的跨owner异值拒绝说法，记录同值显式setter与无消费透视noop合同；新增当前已证HSV缺省首拒与官方参数资格，尚不关闭颜色能力。",
-      "decision": "docs/scene/history/dynamic-layer-slot-lifetime-2026-10-29.md#authored-setter-intent-20261101"
+      "before": "e32fbedb19e450682596edc5f832ae3960439706ab872e1078893cd21de73505",
+      "after": "c5a95dbd2cc3e4a844945064e45683226b382bf3a73559710cbd615fb117f4c9",
+      "owner": "scene-dynamic-layer-storage-capacity",
+      "reason": "同一journal容量合同替换旧256/512门；380容量从待修退出，保381材质缺口；布局与Debug短窗成本均不冒称产品性能收益。",
+      "decision": "docs/scene/architecture/dynamic-layer-storage-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "31626d3f7b54d58065f2132b225ae2313f5908b11235a722def13f0e97b22f82",
+      "after": "25b4e75ddacff6f34b5c6ae22e8ca6ae8c3fcecda424b7a93653a834c6909112",
+      "owner": "scene-dynamic-layer-storage-capacity",
+      "reason": "同一journal容量合同替换旧256/512门；380容量从待修退出，保381材质缺口；布局与Debug短窗成本均不冒称产品性能收益。",
+      "decision": "docs/scene/architecture/dynamic-layer-storage-design.md"
     }
   ]
 }

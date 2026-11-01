@@ -32,7 +32,7 @@ static MWXSceneQuickJSDomain *font_contract_domain(MWXSceneScriptQuickJSFixture 
 }
 
 static void font_path_contract_cases(MWXSceneScriptQuickJSFixture *fixture) {
-    int positive[2] = {0, 0}, no_op[2] = {0, 0}, invalid = 0, rollback = 0;
+    int positive[2] = {0, 0}, same_intent[2] = {0, 0}, invalid = 0, rollback = 0;
     size_t unicode_bytes = 0;
     for (size_t variant = 0; variant < 2; ++variant) {
         MWXSceneQuickJSDomain *domain = font_contract_domain(fixture);
@@ -105,9 +105,15 @@ static void font_path_contract_cases(MWXSceneScriptQuickJSFixture *fixture) {
         mwx_scene_quickjs_domain_finalize_layer_snapshot(domain);
         fixture->failures += mwx_fixture_update(owner, 900, 2, MWX_SCENE_QUICKJS_OK, 3,
             "same font String assignment after commit");
-        fixture->failures += mwx_fixture_check(mwx_scene_quickjs_owner_layer_mutation_count(owner) == 0,
-            "same font String emits no mutation", fixture->diagnostic);
-        no_op[variant] = fixture->failures == before_no_op;
+        MWXSceneQuickJSLayerMutation same = {0};
+        fixture->failures += mwx_fixture_check(mwx_scene_quickjs_owner_layer_mutation_count(owner) == 1
+            && mwx_scene_quickjs_owner_layer_mutation_at(owner, 0, &same,
+                fixture->diagnostic, sizeof(fixture->diagnostic)) == MWX_SCENE_QUICKJS_OK
+            && same.layer_id == 17 && !same.dynamic
+            && (same.fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_FONT) != 0
+            && same.font != NULL && strcmp(same.font, registered) == 0,
+            "same native authored font String retains intent", fixture->diagnostic);
+        same_intent[variant] = fixture->failures == before_no_op;
         mwx_scene_quickjs_owner_destroy(owner);
         mwx_scene_quickjs_domain_destroy(domain);
     }
@@ -192,9 +198,9 @@ static void font_path_contract_cases(MWXSceneScriptQuickJSFixture *fixture) {
         mwx_scene_quickjs_owner_destroy(owner);
         mwx_scene_quickjs_domain_destroy(domain);
     }
-    printf("MWX_FONT_PATH_CONTRACT {\"positive\":%d,\"renamed\":%d,\"sameValueNoMutation\":%d,"
+    printf("MWX_FONT_PATH_CONTRACT {\"positive\":%d,\"renamed\":%d,\"sameValueIntentRetained\":%d,"
         "\"invalidInputs\":%d,\"unicodeBytes\":%zu,\"rollback\":%d}\n",
-        positive[0], positive[1], no_op[0] && no_op[1], invalid, unicode_bytes, rollback);
+        positive[0], positive[1], same_intent[0] && same_intent[1], invalid, unicode_bytes, rollback);
 }
 
 void mwx_fixture_authored_layer_mutation_cases(MWXSceneScriptQuickJSFixture *fixture) {

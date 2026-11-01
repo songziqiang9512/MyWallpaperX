@@ -147,10 +147,10 @@ void mwx_fixture_layer_catalog_admission_cases(MWXSceneScriptQuickJSFixture *fix
     if (authored_budget_domain != NULL) {
         MWXSceneQuickJSResult budget_catalog_result =
             mwx_scene_quickjs_domain_configure_layer_catalog(
-                authored_budget_domain, 257, 0, fixture->diagnostic, sizeof(fixture->diagnostic)
+                authored_budget_domain, 4096, 0, fixture->diagnostic, sizeof(fixture->diagnostic)
             );
         for (uint32_t index = 0;
-             index < 257 && budget_catalog_result == MWX_SCENE_QUICKJS_OK;
+             index < 4096 && budget_catalog_result == MWX_SCENE_QUICKJS_OK;
              ++index) {
             char name[32] = {0};
             snprintf(name, sizeof(name), "authored-%u", index);
@@ -167,7 +167,7 @@ void mwx_fixture_layer_catalog_admission_cases(MWXSceneScriptQuickJSFixture *fix
             "authored mutation budget catalog", fixture->diagnostic
         );
         const char *authored_budget_source =
-            "export function update(value){for(let i=0;i<257;i+=1)"
+            "export function update(value){for(let i=0;i<4096;i+=1)"
             "thisScene.getLayerByID(1000+i).visible=false;return value;}";
         MWXSceneQuickJSOwner *authored_budget = mwx_scene_quickjs_owner_create(
             authored_budget_domain, authored_budget_source,
@@ -181,12 +181,12 @@ void mwx_fixture_layer_catalog_admission_cases(MWXSceneScriptQuickJSFixture *fix
                 authored_budget, 1000, "authored mutation budget owner identity"
             );
             fixture->failures += mwx_fixture_update(
-                authored_budget, 61, 1, MWX_SCENE_QUICKJS_EXCEPTION, 0,
-                "authored mutation budget rejects target 257"
+                authored_budget, 61, 1, MWX_SCENE_QUICKJS_OK, 1,
+                "authored mutation budget admits 4096 targets"
             );
             fixture->failures += mwx_fixture_check(
-                mwx_scene_quickjs_owner_layer_mutation_count(authored_budget) == 0,
-                "authored mutation overflow rolls back 256 staged targets", fixture->diagnostic
+                mwx_scene_quickjs_owner_layer_mutation_count(authored_budget) == 4096,
+                "all 4096 authored intents reach the public journal", fixture->diagnostic
             );
             mwx_scene_quickjs_owner_destroy(authored_budget);
         }
@@ -347,9 +347,14 @@ void mwx_fixture_layer_read_snapshot_cases(MWXSceneScriptQuickJSFixture *fixture
         fixture->value_only_layers, 52, 1, MWX_SCENE_QUICKJS_OK, 1,
         "value-only enumeration preserves exact target authority"
     );
+    MWXSceneQuickJSLayerMutation own_intent = {0};
     fixture->failures += mwx_fixture_check(
-        mwx_scene_quickjs_owner_layer_mutation_count(fixture->value_only_layers) == 0,
-        "value-only enumeration rejected peers and kept target stable",
+        mwx_scene_quickjs_owner_layer_mutation_count(fixture->value_only_layers) == 1
+            && mwx_scene_quickjs_owner_layer_mutation_at(fixture->value_only_layers, 0, &own_intent,
+                fixture->diagnostic, sizeof(fixture->diagnostic)) == MWX_SCENE_QUICKJS_OK
+            && own_intent.layer_id == 42 && own_intent.visible
+            && own_intent.fields == MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VISIBILITY,
+        "value-only enumeration rejects peers and retains target visibility intent",
         fixture->diagnostic
     );
 

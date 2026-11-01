@@ -9,7 +9,48 @@ import tempfile
 import unittest
 
 from .scene_vector_vm_test_support import SCENE, SWIFT_PREAMBLE, compile_vector_harness
+from .test_scene_prepared_script_resource_catalog import swift_declaration
 
+
+# Data-only adapter for the shared VM fixture's descriptor carrier. Validation
+# and prepared image construction below come unchanged from the production owner.
+LAYER_CARRIER = r'''
+extension SceneRenderDescriptor.Layer {
+    init(id: Int, layerIndex: Int, name: String?, cameraPath: SceneRenderDescriptor.CameraPath?,
+         contentKind: String, imagePath: String?, imageMaterialRenderState: SceneMaterialRenderState?,
+         usesPerspective: Bool?, particlePath: String?, spotLight: Int?,
+         particleInstanceOverride: SceneParticleInstanceOverride?, utilityLayer: SceneUtilityLayer?,
+         dependencyLayerIDs: [Int], authoredDependencies: [Int], parentID: Int?, childLayerIDs: [Int],
+         attachmentName: String?, parentAttachmentBindFrame: [Float]?,
+         puppetAnimationLayers: [ScenePuppetAnimationLayer], solid: Bool, visible: Bool, alpha: Double,
+         displayScriptOwnership: SceneLayerDisplayScriptOwnership?, colorRGB: [Float],
+         colorBlendMode: Int?, brightness: Double?, imageAlignment: String?, origin: String?,
+         size: String?, scale: String?, scaleHasScript: Bool, angles: String?, originXYZ: [Float],
+         sizeWH: [Float], scaleXYZ: [Float], anglesXYZ: [Float], parallaxDepthXY: [Float],
+         disablesParallaxPropagation: Bool, timelines: [SceneDocument.SceneObjectTimeline],
+         timelineDiagnostics: [String], particleTimelines: [Int], particleTimelineDiagnostics: [String],
+         modelCropOffsetXY: [Float]?, puppetMeshPath: String?, text: String?,
+         textStyle: SceneRenderDescriptor.TextStyle?, textScript: SceneTextScriptDefinition?,
+         scriptBindings: [SceneScriptBindingDefinition]?, textureAnimationScripts: [Int]?,
+         hasInlineScript: Bool, effects: [SceneRenderDescriptor.EffectDescriptor],
+         effectFiles: [String], texturePaths: [String]) {
+        self.init(cameraPath: cameraPath, id: id, layerIndex: layerIndex, name: name, solid: solid,
+            usesPerspective: usesPerspective, visible: visible, originXYZ: originXYZ,
+            scaleXYZ: scaleXYZ, anglesXYZ: anglesXYZ, colorRGB: colorRGB,
+            scaleHasScript: scaleHasScript, alpha: alpha, brightness: brightness, effects: effects,
+            contentKind: contentKind, particleInstanceOverride: particleInstanceOverride,
+            textScript: textScript, text: text, textStyle: textStyle, sizeWH: sizeWH,
+            imagePath: imagePath, puppetMeshPath: puppetMeshPath, spotLight: spotLight,
+            utilityLayer: utilityLayer, parentID: parentID, childLayerIDs: childLayerIDs,
+            dependencyLayerIDs: dependencyLayerIDs, authoredDependencies: authoredDependencies,
+            effectFiles: effectFiles, parallaxDepthXY: parallaxDepthXY,
+            attachmentName: attachmentName, parentAttachmentBindFrame: parentAttachmentBindFrame,
+            puppetAnimationLayers: puppetAnimationLayers)
+        self.displayScriptOwnership = displayScriptOwnership
+        self.imageMaterialRenderState = imageMaterialRenderState
+    }
+}
+'''
 
 HARNESS = r'''
 @main enum Harness {
@@ -310,6 +351,181 @@ HARNESS = r'''
             "immediate": immediate, "returnFallback": returnFallback, "perspectiveAdmission": perspectiveAdmission]
     }
 
+    static func capacityABICase() throws -> [String: Any] {
+        let path = "models/abi-capacity.json"
+        let descriptor = SceneRenderDescriptor(layers: [.init(id: 7, layerIndex: 0,
+            name: "ABI", visible: true, originXYZ: [0,0,0], scaleXYZ: [1,1,1],
+            alpha: 1, effects: [], contentKind: "image", sizeWH: [5,5])])
+        let templates = [path: SceneScriptPreparedResourceLayerTemplate(modelPath: path,
+            renderSizeWH: [5,5], autosize: true)]
+        let domain = try SceneScriptQuickJSDomain()
+        try domain.configurePreparedResourceLayerCatalog(templates)
+        try domain.publishLayerSnapshot(.empty(frameIndex: 0), descriptor: descriptor)
+        let owner = try SceneScriptValueOwner(domain: domain, source: """
+            export function update(v){let n=0;for(let i=0;i<(v===1?4096:1);i++)
+                if(thisScene.createLayer({image:'\(path)'}))n++;
+                if(v===1)thisLayer.alpha=.5;return n;}
+            """, target: .layer(layerID: 7, field: .alpha), valueType: .scalar,
+            effectNames: [], dynamicImagePathsByAuthoredIdentity: [path: path],
+            allowsStatefulLayerSideEffects: true, generation: 1, budget: .default)
+        let frame = SceneScriptFrameInput(timing: .init(wallDate: Date(timeIntervalSince1970: 0),
+            simulationFrameTime: 1/60, sceneTime: 0))
+        let value = try owner.evaluate(input: .scalar(1), frame: frame,
+            scriptPropertiesJSON: "", userPropertiesJSON: "{}", expectedGeneration: 1,
+            interruptBudget: nil).get()
+        var effect = SceneScriptOwnerEffects(ownerTarget: owner.target, materialFunctionMutations: [],
+            animationMutations: [], layerMutations: [], mediaPlaybackCommands: [])
+        effect.append(value)
+        let runtime = SceneScriptDynamicLayerRuntime(descriptor: descriptor,
+            authoredMutationLayerIDs: [7], preparedResourceLayerTemplates: templates,
+            layerOrderProjection: { domain.projectPendingLayerOrder(accepting: $0) })
+        let admission = runtime.preflightOwnerEffects([effect])
+        runtime.commit(admission.layerPlan)
+        owner.commitLayerMutations()
+        domain.finalizeCommittedLayerSnapshot()
+        let excess = try owner.evaluate(input: .scalar(2), frame: frame,
+            scriptPropertiesJSON: "", userPropertiesJSON: "{}", expectedGeneration: 1,
+            interruptBudget: nil).get()
+        owner.discardLayerMutations()
+        return ["raw": value.layerMutations.count, "accepted": admission.rejectedOwners.isEmpty,
+            "creates4095": value.value == .scalar(4095), "excessIsNull": excess.value == .scalar(0),
+            "layers": runtime.snapshot().dynamicLayers.count,
+            "live": runtime.snapshot().renderOrderLayerIDs.count]
+    }
+
+    static func capacityCases() throws -> [[String: Any]] {
+        var rows: [[String: Any]] = []
+        for (id, name, path, variable) in [(7, "capacity", "models/capacity.json", "tiles"),
+                (73, "renamed-capacity", "models/renamed-capacity.json", "nodes")] {
+            for outcome in ["commit", "late", "cancel", "throw"] {
+                var descriptor = SceneRenderDescriptor(layers: [.init(id: id, layerIndex: 0,
+                    name: name, visible: true, originXYZ: [0,0,0], scaleXYZ: [1,1,1],
+                    alpha: 1, effects: [], contentKind: "image", sizeWH: [5,5])])
+                descriptor.modelMaterialLinks = [.init(modelPath: path, materialPath: "material")]
+                let template = SceneScriptPreparedResourceLayerTemplate(modelPath: path,
+                    renderSizeWH: [5,5], autosize: true)
+                let templates = [path: template]
+                let domain = try SceneScriptQuickJSDomain()
+                try domain.configurePreparedResourceLayerCatalog(templates)
+                let source = """
+                    let \(variable)=[],old;
+                    function build(){for(const p of \(variable))thisScene.destroyLayer(p);
+                        \(variable)=[];for(let n=0;n<511;n++){
+                            const p=thisScene.createLayer({image:'\(path)',name:'tile'+n});
+                            if(!p)throw Error('birth '+n);\(variable).push(p);}}
+                    export function init(v){build();thisLayer.alpha=.25;return v;}
+                    export function update(v){if(engine.runtime===0){
+                            for(const p of \(variable))p.scale=new Vec3(2);thisLayer.alpha=.5;}
+                        if(engine.runtime===2||engine.runtime===3){old=\(variable)[0];
+                            build();thisLayer.alpha=.75;
+                            if(engine.runtime===3)throw Error('after rebuild');}
+                        if(engine.runtime===4){let stale=false;try{old.visible;}catch(e){stale=true;}
+                            thisLayer.origin=new Vec3(stale?1:0,thisScene.getLayerCount(),0);}
+                        return v;}
+                    """
+                let binding = SceneScriptBindingIR(source: source,
+                    owner: .init(kind: .object, objectIndex: 0, objectID: id,
+                        effectIndex: nil, effectID: nil, passIndex: nil, passID: nil),
+                    targetPath: [.key("objects"), .index(0), .key("visible")], properties: [:],
+                    authoredValue: .bool(true), valueType: .boolean, wrapperKeys: ["script", "value"])
+                let program = SceneScriptVectorProgram.compile(domain: domain, descriptor: descriptor,
+                    scriptBindings: [binding], userPropertyDefinitions: [], generation: 1)
+                let ownerTarget = SceneDynamicTarget.layer(layerID: id, field: .visibility)
+                let runtime = SceneScriptDynamicLayerRuntime(descriptor: descriptor,
+                    authoredMutationLayerIDs: [id], preparedResourceLayerTemplates: templates,
+                    layerOrderProjection: { domain.projectPendingLayerOrder(accepting: $0) })
+                func frame(_ time: Double) -> SceneScriptFrameInput {
+                    .init(timing: .init(wallDate: Date(timeIntervalSince1970: 0),
+                        simulationFrameTime: 1/60, sceneTime: time))
+                }
+                func publish(_ time: Double) throws {
+                    let snapshot = SceneDynamicSnapshotResolver().resolve(frameIndex: UInt64(time),
+                        generation: 1, definitions: runtime.authoredLayerDefinitions,
+                        sceneScriptValues: runtime.snapshot().authoredLayerValues).snapshot
+                    try domain.publishLayerSnapshot(snapshot, descriptor: descriptor)
+                }
+                try publish(0)
+                let entry = program.initializationOwners.first!
+                let initialization = try entry.owner.initializeIfNeeded(input: .bool(true), frame: frame(0),
+                    scriptPropertiesJSON: "", userPropertiesJSON: "{}", expectedGeneration: 1,
+                    interruptBudget: nil, retainsValueForNextUpdate: true).get()!
+                var birth = SceneScriptOwnerEffects(ownerTarget: ownerTarget, materialFunctionMutations: [],
+                    animationMutations: [], layerMutations: [], mediaPlaybackCommands: [])
+                birth.append(initialization)
+                // Initialization and ordinary update share one finalization barrier.
+                let first = program.evaluate(inputs: [ownerTarget: .bool(true)],
+                    effectivePropertyValues: [:], frame: frame(0))
+                let initialAdmission = runtime.preflightOwnerEffects([birth] + first.ownerEffects)
+                let unpublished = runtime.snapshot()
+                runtime.commit(initialAdmission.layerPlan)
+                program.finalizeLayerMutations(committing: true)
+                domain.finalizeCommittedLayerSnapshot()
+                let committed = runtime.snapshot()
+                let originalIDs = committed.dynamicLayers.map(\.id)
+                try publish(2)
+                let saved = program.frameStateSnapshot()
+                let rebuilt = program.evaluate(inputs: [ownerTarget: .bool(true)],
+                    effectivePropertyValues: [:], frame: frame(outcome == "throw" ? 3 : 2))
+                let rejected: Set<SceneDynamicTarget> = outcome == "late" ? [ownerTarget] : []
+                let admission = runtime.preflightOwnerEffectsToFixedPoint(rebuilt.ownerEffects,
+                    excludingOwners: Set(rebuilt.failures.keys)) { _, _ in rejected }
+                if outcome == "cancel" {
+                    program.restoreFrameState(saved)
+                    program.finalizeLayerMutations(committing: false)
+                    domain.discardCommittedLayerSnapshot()
+                } else {
+                    runtime.commit(admission.admission.layerPlan)
+                    if !rejected.isEmpty { program.restoreFrameState(saved, rejectedOwnerTargets: rejected) }
+                    program.finalizeLayerMutations(committing: true, rejectedOwnerTargets: rejected)
+                    domain.finalizeCommittedLayerSnapshot()
+                }
+                let after = runtime.snapshot()
+                var stale = false
+                if outcome == "commit" {
+                    try publish(4)
+                    let probe = program.evaluate(inputs: [ownerTarget: .bool(true)],
+                        effectivePropertyValues: [:], frame: frame(4))
+                    let plan = runtime.preflightOwnerEffects(probe.ownerEffects)
+                    runtime.commit(plan.layerPlan)
+                    program.finalizeLayerMutations(committing: true)
+                    domain.finalizeCommittedLayerSnapshot()
+                    stale = runtime.snapshot().authoredLayerValues[.layer(layerID: id, field: .origin)]
+                        == .vector3(1,512,0)
+                }
+                let observer = try SceneScriptValueOwner(domain: domain,
+                    source: "export function update(v){return thisScene.getLayerCount();}",
+                    target: .layer(layerID: id, field: .alpha), valueType: .scalar,
+                    effectNames: [], generation: 1, budget: .default)
+                let observed = try observer.evaluate(input: .scalar(1), frame: frame(5),
+                    scriptPropertiesJSON: "", userPropertiesJSON: "{}", expectedGeneration: 1,
+                    interruptBudget: nil).get()
+                observer.discardLayerMutations()
+                rows.append(["name": name, "outcome": outcome, "bindings": program.bindings.count,
+                    "initialization": initialization.layerMutations.count, "update": first.layerMutations.count,
+                    "initialFailures": first.failures.count, "initialRejected": initialAdmission.rejectedOwners.count,
+                    "initialRejection": initialAdmission.rejectedOwners.map { String(describing: $0.failure) },
+                    "noEarlyPublication": unpublished.dynamicLayers.isEmpty,
+                    "births": committed.dynamicLayers.count, "live": committed.renderOrderLayerIDs.count,
+                    "preparedImageConsumers": committed.dynamicLayers.allSatisfy {
+                        $0.contentKind == "image" && $0.imagePath == path && $0.sizeWH == [5,5]
+                            && $0.scaleXYZ == [2,2,2] && $0.visible == true
+                    },
+                    "rebuiltMutations": rebuilt.layerMutations.count, "failures": rebuilt.failures.count,
+                    "externalOrFailed": admission.externallyRejectedOwners.count,
+                    "remaining": after.dynamicLayers.count, "cLive512": observed.value == .scalar(512),
+                    "replacedIDs": Set(after.dynamicLayers.map(\.id)).isDisjoint(with: originalIDs),
+                    "preservedIDs": after.dynamicLayers.map(\.id) == originalIDs,
+                    "preservedOrder": after.renderOrderLayerIDs == committed.renderOrderLayerIDs,
+                    "preservedValues": after.authoredLayerValues == committed.authoredLayerValues,
+                    "dynamicScale": after.dynamicLayers.allSatisfy {
+                        $0.scaleXYZ == (outcome == "commit" ? [1,1,1] : [2,2,2])
+                    },
+                    "staleRetiredHandle": stale])
+            }
+        }
+        return rows
+    }
+
     static func main() throws {
         let event = try Context(eventSource)
         let events = try [
@@ -371,7 +587,8 @@ HARNESS = r'''
         print(String(data: try JSONSerialization.data(withJSONObject: [
             "events": events, "rejected": rejected, "thrown": thrown,
             "noWrites": noWrites, "updates": updates,
-            "setterIntents": try setterIntentCases()
+            "setterIntents": try setterIntentCases(), "capacity": try capacityCases(),
+            "capacityABI": try capacityABICase()
         ], options: [.sortedKeys]), encoding: .utf8)!)
     }
 }
@@ -388,7 +605,14 @@ class SceneScriptEventVisibilityTests(unittest.TestCase):
         preamble = SWIFT_PREAMBLE.replace(
             "var particleInstanceOverride:",
             "var displayScriptOwnership: SceneLayerDisplayScriptOwnership? = nil\n"
+            "        var imageMaterialRenderState: SceneMaterialRenderState? = nil\n"
             "        var particleInstanceOverride:")
+        projection = (SCENE / "Systems/Script/SceneScriptLayerTopologyProjection.swift").read_text()
+        preamble = preamble.replace(
+            swift_declaration(preamble, "    static func preparedResourceLayer("),
+            swift_declaration(projection, "    static func preparedResourceLayer("))
+        preamble += LAYER_CARRIER + "\nextension SceneRenderDescriptor.Layer {\n" + swift_declaration(
+            projection, "    private static func descriptorTransform(") + "\n}\n"
         binary = compile_vector_harness(Path(cls.temporary.name), HARNESS,
             "event-visibility", preamble=preamble,
             extra_swift_sources=(SCENE / "Rendering/Geometry/SceneLayerVisibility.swift",),
@@ -397,6 +621,27 @@ class SceneScriptEventVisibilityTests(unittest.TestCase):
         result = subprocess.run([str(binary)], capture_output=True, text=True,
                                 check=True, timeout=30)
         cls.value = json.loads(result.stdout.strip().splitlines()[-1])
+
+    def test_capacity_program_bridge_and_frame_transactions(self) -> None:
+        self.assertEqual(self.value["capacityABI"], {"raw": 4096, "accepted": True,
+            "creates4095": True, "excessIsNull": True, "layers": 4095, "live": 4096})
+        self.assertEqual(len(self.value["capacity"]), 8)
+        for row in self.value["capacity"]:
+            with self.subTest(name=row["name"], outcome=row["outcome"]):
+                for key, expected in {"bindings": 1, "initialization": 512, "update": 512,
+                        "initialFailures": 0, "initialRejected": 0, "noEarlyPublication": True,
+                        "births": 511, "live": 512, "preparedImageConsumers": True,
+                        "remaining": 511, "cLive512": True, "dynamicScale": True}.items():
+                    self.assertEqual(row[key], expected, row)
+                accepted = row["outcome"] == "commit"
+                thrown = row["outcome"] == "throw"
+                self.assertEqual(row["rebuiltMutations"], 0 if thrown else 1023, row)
+                self.assertEqual(row["failures"], int(thrown), row)
+                self.assertEqual(row["externalOrFailed"], int(row["outcome"] in ["late", "throw"]), row)
+                self.assertEqual(row["replacedIDs"], accepted, row)
+                for key in ["preservedIDs", "preservedOrder", "preservedValues"]:
+                    self.assertEqual(row[key], not accepted, row)
+                self.assertEqual(row["staleRetiredHandle"], accepted, row)
 
     def assert_valid_rows(self, rows: list[dict]) -> None:
         for row in rows:
