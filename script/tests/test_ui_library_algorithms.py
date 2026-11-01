@@ -71,7 +71,21 @@ class UILibraryAlgorithmsTests(unittest.TestCase):
                 if line.startswith("UI algorithm observations:"):
                     print(line)
             checks = json.loads(run.stdout)
-            self.assertEqual(len(checks), 18)
+            self.assertEqual(set(checks), {
+                "metadataBatchFinalValuesAndOrder", "metadataSamePathMatchesFirstRecord",
+                "metadataDuplicateUpdatesKeepLastValue", "metadataNullableFieldsCanBeCleared",
+                "metadataOnePublishedSnapshot", "metadataNotificationsKeepOrderAndDuplicates",
+                "metadataNotificationsSeeCommittedBatch", "metadataPathWorkIsLinear",
+                "metadataUnchangedBatchDoesNotPublish", "metadataUnchangedMatchesStillNotify",
+                "metadataRevertedBatchDoesNotPublish", "metadataRevertedBatchRetainsBothNotifications",
+                "metadataSingleFirstMatchOnlyNormalizesFirstRecord",
+                "metadataMissScansOnceThenReusesEarlierFirstMatch",
+                "metadataLateDeletedAndUnknownPathsDoNotResurrect", "metadataEmptyBatchHasNoWorkOrEvents",
+                "metadataEmptyLibraryDoesNotInsert", "metadataLongPrefixUpdatesOnlyMatchedRow",
+                "metadataReverseOrderCommitsAllMatchedRowsOnce",
+                "metadataNotificationReentryKeepsPathsAndExternalMutation",
+                "metadataNotificationsResolveRawAliasesAtDelivery",
+            })
             for name, passed in checks.items():
                 with self.subTest(name=name):
                     self.assertTrue(passed, run.stderr)

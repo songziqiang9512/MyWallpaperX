@@ -12,6 +12,7 @@ private typealias MetadataInput = (path: String, size: Int64, duration: Int?, re
     var publishedSnapshots: [[VideoWallpaper]] = []
     var notifiedPaths: [String] = []
     var notificationSnapshots: [[VideoWallpaper]] = []
+    var notificationAction: ((String) -> Void)?
     var normalizationCount = 0
 
     init(_ wallpapers: [VideoWallpaper]) {
@@ -23,6 +24,7 @@ private typealias MetadataInput = (path: String, size: Int64, duration: Int?, re
             guard let self else { return }
             self.notifiedPaths.append(path)
             self.notificationSnapshots.append(self.wallpapers)
+            self.notificationAction?(path)
         }.store(in: &cancellables)
     }
 
@@ -30,21 +32,6 @@ private typealias MetadataInput = (path: String, size: Int64, duration: Int?, re
         applyImportedAssetMetadataUpdates(values.map {
             ImportedAssetMetadataUpdate(path: $0.path, size: $0.size, duration: $0.duration, resolution: $0.resolution)
         })
-    }
-
-    /// Frozen original owner loop, using the same production notify method.
-    /// Its normalized notification keys, order and duplicates are the contract;
-    /// the candidate intentionally publishes only the final model snapshot.
-    func applyLegacy(_ values: [MetadataInput]) {
-        for update in values {
-            let normalized = normalizedPath(update.path)
-            if let index = wallpapers.firstIndex(where: { normalizedPath($0.path) == normalized }) {
-                wallpapers[index].fileSize = update.size
-                wallpapers[index].duration = update.duration
-                wallpapers[index].resolution = update.resolution
-                notifyThumbnailReady(forPath: update.path)
-            }
-        }
     }
 
     func resetObservations() {
@@ -88,8 +75,6 @@ private typealias MetadataInput = (path: String, size: Int64, duration: Int?, re
             (missing.path, 999, 99, "missing"),
         ]
         probe.apply(updates)
-        let legacy = MetadataProbe([first, duplicate, second])
-        legacy.applyLegacy(updates)
         // notifyThumbnailReady publishes canonical keys, not the raw input URL.
         let normalizedA = URL(fileURLWithPath: a.path).resolvingSymlinksInPath().standardizedFileURL.path
         let normalizedB = URL(fileURLWithPath: b.path).resolvingSymlinksInPath().standardizedFileURL.path
@@ -103,29 +88,21 @@ private typealias MetadataInput = (path: String, size: Int64, duration: Int?, re
         checks["metadataDuplicateUpdatesKeepLastValue"] = probe.wallpapers[0] == expectedFirst
         checks["metadataNullableFieldsCanBeCleared"] = probe.wallpapers[2].duration == nil && probe.wallpapers[2].resolution == nil
         checks["metadataOnePublishedSnapshot"] = probe.publishedSnapshots == [expected]
-        checks["metadataNotificationsKeepOrderAndDuplicates"] = probe.notifiedPaths == legacy.notifiedPaths
-            && probe.notifiedPaths == [normalizedA, normalizedB, normalizedA]
-        checks["metadataBatchMatchesLegacyFinalValues"] = probe.wallpapers == legacy.wallpapers
+        checks["metadataNotificationsKeepOrderAndDuplicates"] = probe.notifiedPaths == [normalizedA, normalizedB, normalizedA]
         checks["metadataNotificationsSeeCommittedBatch"] = probe.notificationSnapshots == [expected, expected, expected]
         checks["metadataPathWorkIsLinear"] = probe.normalizationCount == 3 + updates.count + 3
 
         probe.resetObservations()
         let unchangedUpdates: [MetadataInput] = [(a.path, 110, 11, "110x110"), (alias.path, 110, 11, "110x110")]
         probe.apply(unchangedUpdates)
-        legacy.resetObservations()
-        legacy.applyLegacy(unchangedUpdates)
         checks["metadataUnchangedBatchDoesNotPublish"] = probe.publishedSnapshots.isEmpty && probe.wallpapers == expected
-        checks["metadataUnchangedMatchesStillNotify"] = probe.notifiedPaths == legacy.notifiedPaths
-            && probe.notifiedPaths == [normalizedA, normalizedA]
+        checks["metadataUnchangedMatchesStillNotify"] = probe.notifiedPaths == [normalizedA, normalizedA]
 
         probe.resetObservations()
         let revertedUpdates: [MetadataInput] = [(a.path, 500, nil, nil), (a.path, 110, 11, "110x110")]
         probe.apply(revertedUpdates)
-        legacy.resetObservations()
-        legacy.applyLegacy(revertedUpdates)
         checks["metadataRevertedBatchDoesNotPublish"] = probe.publishedSnapshots.isEmpty && probe.wallpapers == expected
-        checks["metadataRevertedBatchRetainsBothNotifications"] = probe.notifiedPaths == legacy.notifiedPaths
-            && probe.notifiedPaths == [normalizedA, normalizedA]
+        checks["metadataRevertedBatchRetainsBothNotifications"] = probe.notifiedPaths == [normalizedA, normalizedA]
 
         let single = MetadataProbe([first, duplicate, second])
         single.apply([(a.path, 99, 9, "single")])
@@ -151,6 +128,54 @@ private typealias MetadataInput = (path: String, size: Int64, duration: Int?, re
         empty.apply([(a.path, 10, nil, nil)])
         checks["metadataEmptyLibraryDoesNotInsert"] = empty.wallpapers.isEmpty
             && empty.publishedSnapshots.isEmpty && empty.notifiedPaths.isEmpty
+
+        let prefix = (0..<256).map { index in
+            VideoWallpaper(id: "prefix-\(index)", title: "Prefix \(index)",
+                           path: root.appendingPathComponent("prefix-\(index).mp4").path,
+                           lastUsed: .distantPast, fileSize: Int64(index), duration: index, resolution: "kept")
+        }
+        let longPrefix = MetadataProbe(prefix + [first, duplicate, second])
+        longPrefix.apply([(alias.path, 110, 11, "110x110")])
+        let longExpected = prefix + [expectedFirst, duplicate, second]
+        checks["metadataLongPrefixUpdatesOnlyMatchedRow"] = longPrefix.wallpapers == longExpected
+            && longPrefix.publishedSnapshots == [longExpected] && longPrefix.notifiedPaths == [normalizedA]
+            && longPrefix.notificationSnapshots == [longExpected]
+
+        let reversed = MetadataProbe([first, duplicate, second])
+        reversed.apply([(b.path, 200, nil, nil), (alias.path, 110, 11, "110x110")])
+        checks["metadataReverseOrderCommitsAllMatchedRowsOnce"] = reversed.wallpapers == expected
+            && reversed.publishedSnapshots == [expected] && reversed.notifiedPaths == [normalizedB, normalizedA]
+            && reversed.notificationSnapshots == [expected, expected]
+
+        let reentrant = MetadataProbe([first, duplicate, second])
+        reentrant.notificationAction = { [weak reentrant] _ in
+            guard let reentrant, reentrant.notifiedPaths.count == 1 else { return }
+            reentrant.wallpapers = [reentrant.wallpapers[2], reentrant.wallpapers[1]]
+        }
+        reentrant.apply(updates)
+        let reentered = [expectedSecond, duplicate]
+        checks["metadataNotificationReentryKeepsPathsAndExternalMutation"] = reentrant.wallpapers == reentered
+            && reentrant.publishedSnapshots == [expected, reentered]
+            && reentrant.notifiedPaths == [normalizedA, normalizedB, normalizedA]
+            && reentrant.notificationSnapshots == [expected, reentered, reentered]
+
+        try Data().write(to: b)
+        let retargetNormalizedB = b.resolvingSymlinksInPath().standardizedFileURL.path
+        let retargeted = MetadataProbe([first, second])
+        var retargetError: Error?
+        retargeted.notificationAction = { [weak retargeted] _ in
+            guard let retargeted, retargeted.notifiedPaths.count == 1 else { return }
+            do {
+                try FileManager.default.removeItem(at: alias)
+                try FileManager.default.createSymbolicLink(at: alias, withDestinationURL: b)
+            } catch { retargetError = error }
+        }
+        retargeted.apply([(alias.path, 500, nil, nil), (alias.path, 110, 11, "110x110")])
+        let retargetExpected = [expectedFirst, second]
+        checks["metadataNotificationsResolveRawAliasesAtDelivery"] = retargetError == nil
+            && retargeted.wallpapers == retargetExpected && retargeted.publishedSnapshots == [retargetExpected]
+            && retargeted.notifiedPaths == [normalizedA, retargetNormalizedB]
+            && retargeted.notificationSnapshots == [retargetExpected, retargetExpected]
 
         let data = try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))

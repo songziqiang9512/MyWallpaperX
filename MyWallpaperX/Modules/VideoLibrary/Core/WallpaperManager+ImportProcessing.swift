@@ -237,8 +237,8 @@ extension WallpaperManager {
         var nextUnindexedIndex = 0
 
         var updatedWallpapers = wallpapers
-        var matchedPaths: [String] = []
-        matchedPaths.reserveCapacity(updates.count)
+        var matchedUpdates: [(path: String, index: Int)] = []
+        matchedUpdates.reserveCapacity(updates.count)
         for update in updates {
             let normalized = normalizedPath(update.path)
             while indexByPath[normalized] == nil, nextUnindexedIndex < wallpapers.count {
@@ -251,15 +251,15 @@ extension WallpaperManager {
             updatedWallpapers[index].fileSize = update.size
             updatedWallpapers[index].duration = update.duration
             updatedWallpapers[index].resolution = update.resolution
-            matchedPaths.append(update.path)
+            matchedUpdates.append((update.path, index))
         }
-        // 完整状态一次提交；重复更新最终没有变化时也不发布整库。
-        if updatedWallpapers != wallpapers {
+        // 仅比较命中行的最终状态；重复更新最终没有变化时也不发布整库。
+        if matchedUpdates.contains(where: { updatedWallpapers[$0.index] != wallpapers[$0.index] }) {
             wallpapers = updatedWallpapers
         }
         // 保留每条匹配更新的通知及顺序，包括字段未变化的匹配项。
-        for path in matchedPaths {
-            notifyThumbnailReady(forPath: path)
+        for update in matchedUpdates {
+            notifyThumbnailReady(forPath: update.path)
         }
     }
 
