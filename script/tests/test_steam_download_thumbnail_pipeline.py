@@ -1,4 +1,4 @@
-"""Real video extraction, identity and cache returns, plus opt-in nil/held invalidation cases."""
+"""Real video extraction, dark-frame preference, cache returns and held invalidation cases."""
 import hashlib
 import json
 import os
@@ -40,6 +40,17 @@ INVALIDATION_CHECKS = {'completedFailureStillDeduplicatesBeforeInvalidation',
     'inflightFailureStillCompletesOnce', 'inflightFailureCannotRefillNegativeCache',
     'newFailureRecoveryCachesNormally', 'invalidationKeepsCapturedIdentityCounts',
     'invalidationGenerationsStaySerialAndOffMain', 'allInvalidationCompletionsOnceOnMain'}
+DARK_CHECKS = {'blackVideoKeepsDecodedFrame', 'nearBlackVideoKeepsDecodedFrame',
+    'laterBrightCandidateStillWins', 'darkFallbackKeepsFirstDecodedFrame',
+    'darkCandidatesKeepOriginalOrder', 'mixedCandidatesReallyStartDarkThenBright',
+    'smallVideoStillFails', 'smallVideoFailureStaysNegativeCached',
+    'darkMemoryHitsKeepImages', 'darkFramesPersistAsJPEG',
+    'darkIdentityReadsStayFresh', 'darkGenerationsStaySerialAndOffMain', 'darkCompletionsOnceOnMain'}
+DARK_DISK_CHECKS = {'darkDiskHitsKeepDecodedFrames', 'darkDiskHitsSkipAVGeneration',
+    'darkDiskThenMemoryKeepsImage', 'darkDiskIdentityReadsStayFresh', 'darkDiskCompletionsOnceOnMain'}
+REPAIR_CHECKS = {'invalidCacheBytesRegenerate', 'truncatedCacheFollowsActualDecode',
+    'smallCacheRegenerates', 'repairKeepsSourceIdentity', 'repairOutputsDecode',
+    'repairGenerationsStaySerialAndOffMain', 'repairCompletionsOnceOnMain'}
 
 
 def observed_pipeline(source):
@@ -52,11 +63,16 @@ def observed_pipeline(source):
             '        CacheKeyProbe.shared.keyCall(videoURL)',
         '        let key = cacheKey(for: videoURL)':
             '        CacheKeyProbe.shared.capture(key, for: videoURL)',
+        '        return result\n':
+            '        GenerationProbe.shared.frame(CMTimeGetSeconds(time), image: result)\n',
     }
     for entry, observation in transforms.items():
         if source.count(entry) != 1:
             raise ValueError('actual pipeline observation entry must be unique: ' + entry)
-        source = source.replace(entry, entry + '\n' + observation, 1)
+        if entry == '        return result\n':
+            source = source.replace(entry, observation + entry, 1)
+        else:
+            source = source.replace(entry, entry + '\n' + observation, 1)
     return source
 
 
@@ -94,6 +110,18 @@ class SteamDownloadThumbnailPipelineTests(unittest.TestCase):
                 capture_output=True, text=True, timeout=15)
             save('ffmpeg.log', generate.stdout + generate.stderr)
             self.assertEqual(generate.returncode, 0, generate.stdout + generate.stderr)
+            for name, seed in (
+                ('black.mp4', 'color=c=black:s=512x288:r=4:d=2'),
+                ('near-black.mp4', "color=c=0x020202:s=512x288:r=4:d=2,drawbox=color=0x060606:t=fill:enable='gte(t,0.5)'"),
+                ('mixed.mp4', "testsrc2=size=512x288:rate=4:duration=2,drawbox=color=black:t=fill:enable='gte(t,0.5)'"),
+                ('small.mp4', 'color=c=white:s=2x2:r=4:d=2'),
+            ):
+                generated = subprocess.run(['ffmpeg', '-nostdin', '-v', 'error', '-f', 'lavfi',
+                    '-i', seed, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '18', '-preset', 'fast',
+                    '-g', '1', '-keyint_min', '1', '-sc_threshold', '0', '-threads', '1', str(work / name)],
+                    capture_output=True, text=True, timeout=15)
+                save(name + '-ffmpeg.log', generated.stdout + generated.stderr)
+                self.assertEqual(generated.returncode, 0, generated.stdout + generated.stderr)
             shutil.copyfile(clip, work / 'second.mp4')
             shutil.copyfile(clip, work / 'changing.mp4')
             for name in ('clear-failure.mp4', 'clear-flight-success.mp4', 'clear-flight-failure.mp4'):
@@ -118,7 +146,8 @@ class SteamDownloadThumbnailPipelineTests(unittest.TestCase):
                 'clipSHA256': hashlib.sha256(clip.read_bytes()).hexdigest(),
                 'transforms': ['actual generation leaf begin/defer end', 'actual key and metadata API counts',
                                'capture actual generateThumbnail request key after its original computation',
-                               'invalidation mode alone can hold the generation leaf or return nil before real AV; recovery uses real AV'],
+                               'invalidation mode alone can hold the generation leaf or return nil before real AV; recovery uses real AV',
+                               'observe requested candidate time and the real returned CGImage without changing AV timing'],
                 'scope': __doc__}, indent=2) + '\n')
             compilation_sources = [support if path == IMAGE_SUPPORT else path for path in SOURCES]
             build = subprocess.run(['xcrun', 'swiftc', *SWIFT_ISOLATION_FLAGS, '-warnings-as-errors', '-parse-as-library',
@@ -129,7 +158,8 @@ class SteamDownloadThumbnailPipelineTests(unittest.TestCase):
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
             self.assertEqual(inputs, fingerprints())
             for mode, checks in [('cold', CHECKS), ('disk', DISK_CHECKS), ('mutation', MUTATION_CHECKS),
-                                 ('invalidation', INVALIDATION_CHECKS)]:
+                                 ('invalidation', INVALIDATION_CHECKS), ('dark', DARK_CHECKS),
+                                 ('dark-disk', DARK_DISK_CHECKS), ('repair', REPAIR_CHECKS)]:
                 result = subprocess.run([str(binary), str(work), mode], env=environment,
                     capture_output=True, text=True, timeout=45)
                 prefix = '' if mode == 'cold' else mode + '-'
@@ -172,11 +202,14 @@ nonisolated final class GenerationProbe: @unchecked Sendable {
     private var allOffMain = true
     private var failures = Set<String>()
     private var holds: [String: GenerationHold] = [:]
+    private var currentPath: String?
+    private var frames: [String: [(seconds: Double, image: CGImage?)]] = [:]
     func begin(_ url: URL) {
         lock.lock()
         let first = starts.isEmpty
         let hold = holds.removeValue(forKey: url.path)
         starts[url.path, default: 0] += 1
+        currentPath = url.path
         active += 1; maximum = max(maximum, active)
         allOffMain = allOffMain && !Thread.isMainThread
         lock.unlock()
@@ -192,7 +225,17 @@ nonisolated final class GenerationProbe: @unchecked Sendable {
         lock.lock(); defer { lock.unlock() }
         let hold = GenerationHold(); holds[url.path] = hold; return hold
     }
-    func end() { lock.lock(); active -= 1; lock.unlock() }
+    func end() { lock.lock(); active -= 1; currentPath = nil; lock.unlock() }
+    func frame(_ seconds: Double, image: CGImage?) {
+        lock.lock(); defer { lock.unlock() }
+        guard let path = currentPath else { return }
+        frames[path, default: []].append((seconds, image))
+    }
+    func candidates(_ url: URL) -> (times: [Double], images: [CGImage?]) {
+        lock.lock(); defer { lock.unlock() }
+        let values = frames[url.path] ?? []
+        return (values.map(\.seconds), values.map(\.image))
+    }
     func count(_ url: URL) -> Int { lock.lock(); defer { lock.unlock() }; return starts[url.path, default: 0] }
     var serialAndOffMain: Bool {
         lock.lock(); defer { lock.unlock() }
@@ -201,6 +244,15 @@ nonisolated final class GenerationProbe: @unchecked Sendable {
     var metrics: [String: Int] {
         lock.lock(); defer { lock.unlock() }
         return ["active": active, "maximumActive": maximum, "totalStarts": starts.values.reduce(0, +)]
+    }
+    var frameObservations: [String: [[String: Any]]] {
+        lock.lock(); defer { lock.unlock() }
+        return frames.mapValues { values in
+            values.map { time, image in
+                ["requestedSeconds": time, "decoded": image != nil, "width": image?.width ?? 0,
+                 "height": image?.height ?? 0, "nearBlack": image.map(steamWorkshopSampledLumaIsSuspicious) ?? false]
+            }
+        }
     }
 }
 
@@ -273,7 +325,7 @@ nonisolated final class CompletionProbe: @unchecked Sendable {
         func realFrame(_ image: NSImage?) -> Bool {
             guard let image, let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil),
                   cg.width == 512, cg.height == 288,
-                  !steamWorkshopPreviewImageLooksSuspicious(image) else { return false }
+                  !steamWorkshopSampledLumaIsSuspicious(cg) else { return false }
             // This is the known colorful testsrc2 seed, not a rule for authored wallpapers.
             // A decoder-produced uniform green bitmap has the right dimensions and is not near-black.
             var pixels = [UInt8](repeating: 0, count: 16 * 9 * 4)
@@ -298,10 +350,139 @@ nonisolated final class CompletionProbe: @unchecked Sendable {
             context.fill(CGRect(x: 0, y: 0, width: 512, height: 288))
             return NSImage(cgImage: context.makeImage()!, size: NSSize(width: 512, height: 288))
         }
+        func decodedFrame(_ image: NSImage?) -> CGImage? {
+            guard let cg = image?.cgImage(forProposedRect: nil, context: nil, hints: nil),
+                  cg.width == 512, cg.height == 288 else { return nil }
+            return cg
+        }
+        func sampleRGB(_ image: CGImage?) -> [UInt8]? {
+            guard let image else { return nil }
+            var pixels = [UInt8](repeating: 0, count: 4)
+            return pixels.withUnsafeMutableBytes { bytes in
+                guard let context = CGContext(data: bytes.baseAddress, width: 1, height: 1, bitsPerComponent: 8,
+                    bytesPerRow: 4, space: CGColorSpaceCreateDeviceRGB(),
+                    bitmapInfo: CGBitmapInfo.byteOrder32Big.rawValue | CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+                context.draw(image, in: CGRect(x: 0, y: 0, width: 1, height: 1))
+                return Array(bytes.bindMemory(to: UInt8.self).prefix(3))
+            }
+        }
+        func darkFrame(_ image: NSImage?) -> Bool {
+            decodedFrame(image).map(steamWorkshopSampledLumaIsSuspicious) ?? false
+        }
         func outputURL(_ key: String) -> URL { disk.appendingPathComponent(key).appendingPathExtension("jpg") }
         func emit() throws {
             print(String(data: try JSONSerialization.data(withJSONObject: ["checks": checks,
-                "mode": mode, "generation": generations.metrics, "identity": keys.metrics], options: [.sortedKeys]), encoding: .utf8)!)
+                "mode": mode, "generation": generations.metrics, "identity": keys.metrics,
+                "frameCandidates": generations.frameObservations], options: [.sortedKeys]), encoding: .utf8)!)
+        }
+        if mode == "dark" || mode == "dark-disk" {
+            let black = root.appendingPathComponent("black.mp4")
+            let nearBlack = root.appendingPathComponent("near-black.mp4")
+            let mixed = root.appendingPathComponent("mixed.mp4")
+            generations.firstEntryGate.signal()
+            for (name, url) in [("black", black), ("near-black", nearBlack), ("mixed", mixed)] {
+                request(name, url)
+            }
+            let finished = pump { ["black", "near-black", "mixed"].allSatisfy { completions.count($0) == 1 } }
+            let blackImage = completions.image("black"), nearImage = completions.image("near-black")
+            let mixedImage = completions.image("mixed")
+            request("black-warm", black); request("near-warm", nearBlack)
+            let warmFinished = pump { completions.count("black-warm") == 1 && completions.count("near-warm") == 1 }
+            let memoryMatches = warmFinished && blackImage != nil && nearImage != nil
+                && blackImage === completions.image("black-warm") && nearImage === completions.image("near-warm")
+            if mode == "dark-disk" {
+                checks["darkDiskHitsKeepDecodedFrames"] = finished && darkFrame(blackImage)
+                    && darkFrame(nearImage) && realFrame(mixedImage)
+                checks["darkDiskHitsSkipAVGeneration"] = generations.metrics["totalStarts"] == 0
+                checks["darkDiskThenMemoryKeepsImage"] = memoryMatches
+                checks["darkDiskIdentityReadsStayFresh"] = keys.hasQueries(2, for: black)
+                    && keys.hasQueries(2, for: nearBlack) && keys.hasQueries(1, for: mixed)
+                checks["darkDiskCompletionsOnceOnMain"] = completions.allOnceOnMain(expectedCount: 5)
+                try emit()
+                return
+            }
+            let blackPixels = sampleRGB(decodedFrame(blackImage)), nearPixels = sampleRGB(decodedFrame(nearImage))
+            checks["blackVideoKeepsDecodedFrame"] = finished && darkFrame(blackImage)
+                && (blackPixels?.allSatisfy { $0 <= 1 } ?? false)
+            checks["nearBlackVideoKeepsDecodedFrame"] = darkFrame(nearImage)
+                && (nearPixels?.allSatisfy { $0 > 0 && $0 < 8 } ?? false)
+            checks["laterBrightCandidateStillWins"] = realFrame(mixedImage)
+            let blackFrames = generations.candidates(black), nearFrames = generations.candidates(nearBlack)
+            let mixedFrames = generations.candidates(mixed)
+            checks["darkFallbackKeepsFirstDecodedFrame"] = blackPixels != nil && nearPixels != nil
+                && blackPixels == sampleRGB(blackFrames.images.first ?? nil)
+                && nearPixels == sampleRGB(nearFrames.images.first ?? nil)
+                && nearPixels != sampleRGB(nearFrames.images.last ?? nil)
+            checks["darkCandidatesKeepOriginalOrder"] = blackFrames.times == [1, 0.25, 0]
+                && nearFrames.times == [1, 0.25, 0]
+            checks["mixedCandidatesReallyStartDarkThenBright"] = mixedFrames.times == [1, 0.25]
+                && mixedFrames.images.count == 2
+                && mixedFrames.images[0].map(steamWorkshopSampledLumaIsSuspicious) == true
+                && mixedFrames.images[1].map(steamWorkshopSampledLumaIsSuspicious) == false
+            let small = root.appendingPathComponent("small.mp4")
+            request("small", small)
+            let smallFinished = pump { completions.count("small") == 1 }
+            let smallFrames = generations.candidates(small)
+            checks["smallVideoStillFails"] = smallFinished
+                && completions.image("small") == nil && generations.count(small) == 1
+                && smallFrames.times == [1, 0.25, 0]
+                && smallFrames.images.allSatisfy { image in image.map { $0.width <= 4 || $0.height <= 4 } ?? true }
+            request("small-again", small)
+            checks["smallVideoFailureStaysNegativeCached"] = pump { completions.count("small-again") == 1 }
+                && completions.image("small-again") == nil && generations.count(small) == 1
+            checks["darkMemoryHitsKeepImages"] = memoryMatches && generations.count(black) == 1 && generations.count(nearBlack) == 1
+            checks["darkFramesPersistAsJPEG"] = [black, nearBlack].allSatisfy { url in
+                let key = keys.captures(url).first ?? ""
+                return !key.isEmpty && darkFrame(NSImage(contentsOf: outputURL(key)))
+            }
+            checks["darkIdentityReadsStayFresh"] = keys.hasQueries(2, for: black) && keys.hasQueries(2, for: nearBlack)
+                && keys.hasQueries(1, for: mixed) && keys.hasQueries(2, for: small)
+            checks["darkGenerationsStaySerialAndOffMain"] = generations.serialAndOffMain && generations.metrics["totalStarts"] == 4
+            checks["darkCompletionsOnceOnMain"] = completions.allOnceOnMain(expectedCount: 7)
+            try emit()
+            return
+        }
+        if mode == "repair" {
+            generations.firstEntryGate.signal()
+            var sameIdentity = true, repairedOutputs = true
+            for (kind, url) in [("invalid", first), ("truncated", second), ("small", root.appendingPathComponent("changing.mp4"))] {
+                request(kind + "-seed", url)
+                let seeded = pump { completions.count(kind + "-seed") == 1 }
+                let key = keys.captures(url).first ?? ""
+                let output = outputURL(key)
+                let original = (try? Data(contentsOf: output)) ?? Data()
+                var damaged = Data("owned invalid thumbnail bytes".utf8)
+                if kind == "truncated" { damaged = Data(original.prefix(original.count / 2)) }
+                if kind == "small" {
+                    let context = CGContext(data: nil, width: 2, height: 2, bitsPerComponent: 8, bytesPerRow: 8,
+                        space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+                    context.setFillColor(CGColor(gray: 1, alpha: 1)); context.fill(CGRect(x: 0, y: 0, width: 2, height: 2))
+                    damaged = NSBitmapImageRep(cgImage: context.makeImage()!).representation(using: .jpeg, properties: [:])!
+                }
+                let decodes = decodedFrame(NSImage(data: damaged)) != nil
+                let before = generations.count(url)
+                pipeline.invalidateCachedResults()
+                try damaged.write(to: output)
+                request(kind + "-repair", url)
+                let finished = pump { completions.count(kind + "-repair") == 1 }
+                let result = completions.image(kind + "-repair")
+                let regenerated = generations.count(url) == before + 1
+                let name = kind == "invalid" ? "invalidCacheBytesRegenerate"
+                    : (kind == "small" ? "smallCacheRegenerates" : "truncatedCacheFollowsActualDecode")
+                checks[name] = seeded && realFrame(completions.image(kind + "-seed")) && finished
+                    && (decodes ? (decodedFrame(result) != nil && generations.count(url) == before)
+                                : (realFrame(result) && regenerated))
+                sameIdentity = sameIdentity && !key.isEmpty && keys.hasQueries(2, for: url)
+                    && Set(keys.captures(url)).count == 1
+                repairedOutputs = repairedOutputs && decodedFrame(NSImage(contentsOf: output)) != nil
+                    && (decodes || realFrame(NSImage(contentsOf: output)))
+            }
+            checks["repairKeepsSourceIdentity"] = sameIdentity
+            checks["repairOutputsDecode"] = repairedOutputs
+            checks["repairGenerationsStaySerialAndOffMain"] = generations.serialAndOffMain
+            checks["repairCompletionsOnceOnMain"] = completions.allOnceOnMain(expectedCount: 6)
+            try emit()
+            return
         }
         if mode == "disk" {
             // A new process has no in-memory entries; use the previous cold run's

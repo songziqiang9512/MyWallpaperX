@@ -132,7 +132,6 @@ func steamWorkshopLoadPreviewImage(from url: URL, maxPixelSize: Int = 800,
 func steamWorkshopInvalidatePreview(_ url: URL) {
     SteamWorkshopPreviewImageCache.shared.remove(forKey: steamWorkshopPreviewCacheKey(for: url))
 }
-func steamWorkshopPreviewImageLooksSuspicious(_ image: NSImage) -> Bool { false }
 func steamWorkshopPreviewImageIsUsable(_ image: NSImage) -> Bool { true }
 func steamWorkshopPreviewImage(from data: Data) -> NSImage? { nil }
 final class SteamWorkshopDownloadThumbnailPipeline {

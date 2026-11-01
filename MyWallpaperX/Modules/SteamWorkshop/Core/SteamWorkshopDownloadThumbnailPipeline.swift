@@ -20,7 +20,7 @@ final class SteamWorkshopDownloadThumbnailPipeline {
     private var inFlight: [String: Job] = [:]
     /// 已生成缩略图的内存缓存：卡片配置链路重复刷新时不再磁盘读+解码。
     private let memoryCache = DecodedThumbnailMemoryCache(countLimit: 320, totalCostLimit: 64 * 1024 * 1024)
-    /// 失败负缓存：损坏/可疑视频记录一次结论，避免每次刷新重复 IO 与 AVAsset 重试。
+    /// 失败负缓存：无法提帧的视频记录一次结论，避免每次刷新重复 IO 与 AVAsset 重试。
     /// key 含文件 mtime+size，内容变化后自然换新 key，无需显式过期。
     private let failureCache = NSCache<NSString, NSNumber>()
 
@@ -84,10 +84,11 @@ final class SteamWorkshopDownloadThumbnailPipeline {
         }
     }
 
-    /// 从磁盘读取已生成缩略图并做可疑检测，统一完成入口负责缓存发布。
+    /// 缓存命中要求可解码且尺寸有效，亮度不决定图像是否可用。
     private func diskCachedThumbnail(at outputURL: URL) -> NSImage? {
         guard let image = NSImage(contentsOf: outputURL),
-              !steamWorkshopPreviewImageLooksSuspicious(image) else {
+              steamWorkshopPreviewImageIsUsable(image),
+              image.cgImage(forProposedRect: nil, context: nil, hints: nil) != nil else {
             return nil
         }
         return image
@@ -137,14 +138,17 @@ final class SteamWorkshopDownloadThumbnailPipeline {
             CMTime.zero
         ]
 
+        var firstImage: NSImage?
         for time in candidateTimes {
             guard let cgImage = generateCGImage(using: imageGenerator, at: time) else { continue }
             let image = NSImage(cgImage: cgImage, size: .zero)
-            if !steamWorkshopPreviewImageLooksSuspicious(image) {
+            guard steamWorkshopPreviewImageIsUsable(image) else { continue }
+            firstImage = firstImage ?? image
+            if !steamWorkshopSampledLumaIsSuspicious(cgImage) {
                 return image
             }
         }
-        return nil
+        return firstImage
     }
 
     private func generateCGImage(

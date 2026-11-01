@@ -21,6 +21,8 @@ import subprocess
 import tempfile
 import unittest
 
+from script.tests.test_thumbnail_return_reuse import SWIFT_ISOLATION_FLAGS
+
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 UI = ROOT / "MyWallpaperX/Modules/SteamWorkshop/UI"
@@ -88,7 +90,7 @@ enum SteamSubscriptionProbeState: Equatable {
 }
 
 // Mirror of the Web/Core validation enum referenced by the shared models.
-enum SteamWorkshopWebDependencyStatus: Equatable {
+nonisolated enum SteamWorkshopWebDependencyStatus: Equatable {
     case none
     case available(itemID: String)
     case missing(itemID: String)
@@ -372,10 +374,10 @@ import ImageIO
         precondition(steamWorkshopAnimatedPreviewImage(from: blackLead) != nil,
             "hover animation must still decode the full animated GIF")
 
-        // 5. The shared suspicious check still flags a static black image.
+        // 5. Black pixels keep the same candidate-preference score.
         let blackOnly = steamWorkshopPreviewImage(from: singleBlack)!
-        precondition(steamWorkshopPreviewImageLooksSuspicious(blackOnly),
-            "static black image must remain suspicious for fallback flows")
+        precondition(steamWorkshopSampledLumaIsSuspicious(blackOnly.cgImage(forProposedRect: nil, context: nil, hints: nil)!),
+            "static black image keeps its near-black candidate score")
 
         print("Steam static preview black-lead skip PASS")
     }
@@ -398,6 +400,8 @@ class SteamListThumbnailAnimationTests(unittest.TestCase):
                 [
                     "xcrun",
                     "swiftc",
+                    *SWIFT_ISOLATION_FLAGS,
+                    "-warnings-as-errors",
                     "-parse-as-library",
                     str(support),
                     *map(str, SOURCES),
@@ -445,6 +449,8 @@ class SteamListThumbnailAnimationTests(unittest.TestCase):
                 [
                     "xcrun",
                     "swiftc",
+                    *SWIFT_ISOLATION_FLAGS,
+                    "-warnings-as-errors",
                     "-parse-as-library",
                     str(support),
                     *map(str, SOURCES),

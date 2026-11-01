@@ -42,22 +42,8 @@ nonisolated func steamWorkshopLocalPreviewCacheKey(for url: URL) -> String {
     return "steam-local-preview:\(fileURL.path):\(device):\(inode):\(fileSize):\(modificationTime)"
 }
 
-func steamWorkshopPreviewImageLooksSuspicious(_ image: NSImage) -> Bool {
-    guard image.size.width > 0, image.size.height > 0 else { return true }
-    if image.size.width <= 4 || image.size.height <= 4 {
-        return true
-    }
-    if steamWorkshopPreviewImageIsAnimated(image) {
-        return false
-    }
-    guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
-        return false
-    }
-    return steamWorkshopSampledLumaIsSuspicious(cgImage)
-}
-
 /// 8×8 亮度采样：近全黑（均值 <0.03 且极差 <0.025，即几乎无内容起伏）
-/// 判为可疑。这是"首帧黑底"GIF 的判定核心，静态解码与可疑检测共用。
+/// 作为近黑候选评分，供视频与 GIF 择帧共用。
 nonisolated func steamWorkshopSampledLumaIsSuspicious(_ cgImage: CGImage) -> Bool {
     let sampleWidth = 8
     let sampleHeight = 8
@@ -168,14 +154,6 @@ func steamWorkshopLoadAnimatedPreview(
                 if cancellation?.cancelled != true { completion(image) }
             }
         }
-    }
-}
-
-private nonisolated func steamWorkshopPreviewImageIsAnimated(_ image: NSImage) -> Bool {
-    image.representations.contains { representation in
-        guard let bitmap = representation as? NSBitmapImageRep else { return false }
-        let frameCount = bitmap.value(forProperty: .frameCount) as? Int ?? 1
-        return frameCount > 1
     }
 }
 
