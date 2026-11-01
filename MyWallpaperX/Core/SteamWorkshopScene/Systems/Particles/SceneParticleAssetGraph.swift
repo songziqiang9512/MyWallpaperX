@@ -181,9 +181,24 @@ nonisolated struct SceneParticleAssetGraphLoader {
                 diagnose(.unsupportedShader, path, materialPass?.shaderPath)
             }
 
-            let refractionPlan = materialPass.flatMap(
-                SceneParticleRefractionPlanner.plan(for:)
-            )
+            let compiledRenderState = materialPass.flatMap {
+                SceneMaterialRenderState.compile(
+                    blending: $0.blending,
+                    depthTest: $0.depthTest,
+                    depthWrite: $0.depthWrite,
+                    cullMode: $0.cullMode,
+                    alphaWriting: $0.alphaWriting,
+                    missingBlending: .translucent
+                )
+            }
+            let refractionPlan: SceneParticleRefractionPlanner.Plan?
+            if let materialPass, let compiledRenderState {
+                refractionPlan = SceneParticleRefractionPlanner.plan(
+                    for: materialPass, renderState: compiledRenderState
+                )
+            } else {
+                refractionPlan = nil
+            }
             let textureName = refractionPlan?.colorReference
                 ?? materialPass?.textureSlots.first.flatMap { $0 }
                 ?? materialPass?.texturePaths.first
@@ -234,21 +249,12 @@ nonisolated struct SceneParticleAssetGraphLoader {
                 }
             }
 
-            let compiledRenderState = materialPass.flatMap {
-                SceneMaterialRenderState.compile(
-                    blending: $0.blending,
-                    depthTest: $0.depthTest,
-                    depthWrite: $0.depthWrite,
-                    cullMode: $0.cullMode,
-                    alphaWriting: $0.alphaWriting,
-                    missingBlending: .translucent
-                )
-            }
             let pipelineState = compiledRenderState.flatMap {
                 SceneParticlePipelineRenderStateCompiler.compile(
                     $0,
                     definition: definition,
-                    materialPass: materialPass
+                    materialPass: materialPass,
+                    isRefraction: refraction != nil
                 )
             }
             let renderState = pipelineState == nil ? nil : compiledRenderState

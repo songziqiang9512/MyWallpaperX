@@ -984,10 +984,10 @@
       "lastReviewed": "2026-11-01",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b6127be7793663a8f7bea819a36ba508777a923803ecc4fc59449a3fc05c3840",
+        "sourceSHA256": "3c10d9322560837023bdae62973e5180337dcd46edb00fff89e06ca0fa76e1f3",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步static-primary secondary sprite元数据的原绑定覆盖、531首门退出和其他REFRACT余项；登记相邻静态帧语义债。",
-        "limitations": "官方仅单image空间正控，第二图越寿命无同个体时序证明；GPU最终断言复用读回，非新运行；不授整景、多image或性能。"
+        "scope": "同步REFRACT只读同层深度、按模板准备变体及无writer免分配；398退出首门，552/141和呈现观察债保留。",
+        "limitations": "实际Metal/原包有限画面闭合；报告FAIL保留，不授整样本、官方parity、HDR、呈现时序或性能收益。"
       }
     },
     {
@@ -1040,10 +1040,10 @@
       "lastReviewed": "2026-11-01",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0edfe02fd5792295f2bfcb9fcd2448155ec2a8151857908affe6d52944010596",
+        "sourceSHA256": "988780ad267ced81103774113ec2f265a7f718a5e766bb08582a78fe77a5711b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "原compiler保宿主动态writer与完整source；CPU红绿和自有prototype/clone时变ROI闭合后退出静态首门。",
-        "limitations": "非已确认Workshop故障；独立381画面保持但呈现流观测FAIL，不记整次PASS、官方parity或性能。"
+        "scope": "同步REFRACT只读同层深度、按模板准备变体及无writer免分配；398退出首门，552/141和呈现观察债保留。",
+        "limitations": "实际Metal/原包有限画面闭合；报告FAIL保留，不授整样本、官方parity、HDR、呈现时序或性能收益。"
       }
     },
     {
@@ -2624,6 +2624,18 @@
         "scope": "Record A2C prototype withdrawal after unproven real visual benefit; retain original rejection. Separate dense state1 reader gap and official counterexample from nested query errors; retain unfixed static constant script projection. Reconcile historical Bool fixture result without product changes.",
         "limitations": "U19 target remains unattributed; prototype is not product capability. No full sample, cross-device, cadence, color or performance conclusion. Official state1 is one constant track; formal promotion awaits existing capacity response."
       }
+    },
+    {
+      "path": "docs/scene/history/particle-material-depth-2026-11-01.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/particle-component-coverage.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-11-01",
+      "uniqueValue": "实施前变体/同层深度设计；实际只读与mixed遮挡、dormant准备、原包398恢复、夹具首失败及呈现计时缺失的限定证据。"
     },
     {
       "path": "docs/scene/history/particle-scalar-remap-implementation-2026-10-05.md",
@@ -4521,10 +4533,10 @@
       "lastReviewed": "2026-11-01",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "60f1a426c20f86cd8c29b98c9822763660042369601b294c725b7f65414e5339",
+        "sourceSHA256": "7ac9be81782aa2495bca46e9012b9b099081b1df13865e58967338d6bcff1970",
         "method": "document_registry --audit + document_health --check",
-        "scope": "原compiler保宿主动态writer与完整source；CPU红绿和自有prototype/clone时变ROI闭合后退出静态首门。",
-        "limitations": "非已确认Workshop故障；独立381画面保持但呈现流观测FAIL，不记整次PASS、官方parity或性能。"
+        "scope": "同步REFRACT只读同层深度、按模板准备变体及无writer免分配；398退出首门，552/141和呈现观察债保留。",
+        "limitations": "实际Metal/原包有限画面闭合；报告FAIL保留，不授整样本、官方parity、HDR、呈现时序或性能收益。"
       }
     },
     {

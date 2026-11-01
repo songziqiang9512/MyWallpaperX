@@ -27,12 +27,13 @@ extension SceneMetalRenderer {
                 return nil
             }
         }
-        let usesDepth = batches.contains { $0.renderState.requiresDepthAttachment }
+        let usesDepth = batches.contains { $0.renderState.depthWriteEnabled }
         let targetExtent = mainPass.targetExtent
         let depthLease: SceneParticleDepthTargetLease?
-        if let acquisition = preparedDepth?.acquisition ?? (usesDepth
-            ? pipeline.acquireDepthTarget(width: targetExtent.width,
-                height: targetExtent.height, on: commandBuffer) : nil) {
+        if usesDepth {
+            let acquisition = preparedDepth?.acquisition ?? pipeline.acquireDepthTarget(
+                width: targetExtent.width, height: targetExtent.height, on: commandBuffer
+            )
             switch acquisition {
             case let .acquired(lease): depthLease = lease
             case .busyOtherFrame, .currentFrameCapacityExceeded, .invalidExtent, .allocationFailed:
@@ -64,7 +65,10 @@ extension SceneMetalRenderer {
                     pipeline.snapshot(target: target, commandBuffer: buffer)
                 }
                 if let background = captured ?? nil,
-                   let encoder = mainPass.encoder() {
+                   let encoder = mainPass.encoder(
+                       depthTexture: depthLease?.texture,
+                       clearsDepth: clearsDepth
+                   ) {
                     didEncode = pipeline.drawRefraction(
                         texture: batch.texture,
                         binding: refraction,
@@ -74,6 +78,7 @@ extension SceneMetalRenderer {
                         renderState: batch.renderState,
                         colorUVScale: batch.colorUVScale,
                         colorSampling: batch.colorSampling,
+                        usesDepthAttachment: usesDepth,
                         encoder: encoder
                     )
                 } else {
@@ -85,7 +90,7 @@ extension SceneMetalRenderer {
                     clearsDepth: clearsDepth
                 )
                 : mainPass.encoder() {
-                let encoded = pipeline.draw(
+                didEncode = pipeline.draw(
                     texture: batch.texture,
                     instances: batch.instanceBuffer,
                     uniforms: uniforms,
@@ -95,12 +100,11 @@ extension SceneMetalRenderer {
                     usesDepthAttachment: usesDepth,
                     encoder: encoder
                 )
-                if encoded { clearsDepth = false }
-                didEncode = encoded
             } else {
                 didEncode = false
             }
             if didEncode {
+                clearsDepth = false
 #if DEBUG
                 performanceObservations?.append(SceneParticlePerformanceObservation(
                     layerID: batch.layerID,

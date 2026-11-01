@@ -3,27 +3,193 @@
 from __future__ import annotations
 
 import unittest
+import os
+import ast
+from pathlib import Path
 
 from script.tests.scene_particle_render_test_support import run_particle_harness
-from script.tests.test_scene_particle_rendering import HARNESS_SOURCE, SWIFT_SOURCES
+from script.tests.test_scene_particle_rendering import SWIFT_SOURCES
+from script.tests.scene_particle_runtime_configuration_cases import _declaration
 
 
-# Reuse the maintained DTO preamble and source set, running only camera probes.
-CAMERA_HARNESS_SOURCE = HARNESS_SOURCE.split("@main", 1)[0] + r'''
+# Reuse the runtime gate's maintained leaves; frame decisions below are the
+# complete production renderer and MainPassEncoder sources, not fixture copies.
+ROOT = Path(__file__).resolve().parents[2]
+SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+RUNTIME_TEST = Path(__file__).with_name("test_scene_particle_runtime.py")
+RUNTIME_FIXTURE = Path(__file__).with_name("fixtures") / "SceneParticleRuntimeHarness.swift"
+CAMERA_FIXTURE = Path(__file__).with_name("fixtures") / "SceneParticleCameraRenderingHarness.swift"
+TELEMETRY_SOURCE = SCENE / "Diagnostics/SceneFramePerformanceTelemetry.swift"
+# Evaluate only the maintained path-list expression. Importing the Runtime test
+# module would also resolve unrelated real-sample caches at module import time.
+runtime_module = RUNTIME_TEST.read_text()
+runtime_sources = next(node.value for node in ast.parse(runtime_module).body
+                       if isinstance(node, ast.Assign)
+                       and any(isinstance(target, ast.Name) and target.id == "SWIFT_SOURCES"
+                               for target in node.targets))
+RUNTIME_SOURCES = eval(ast.get_source_segment(runtime_module, runtime_sources), {
+    "Path": Path, "__file__": str(RUNTIME_TEST),
+    "SOURCE_ROOT": SCENE, "REPOSITORY_ROOT": ROOT,
+})
+CAMERA_SWIFT_SOURCES = tuple(dict.fromkeys(
+    path.resolve() for path in [*SWIFT_SOURCES, *RUNTIME_SOURCES,
+        SCENE / "Rendering/Frame/SceneMetalRenderer+Particles.swift",
+        SCENE / "Rendering/Composition/SceneMainPassEncoder.swift"]
+    if path.name not in {"SceneLayerPerspectiveSnapshotHarness.swift", CAMERA_FIXTURE.name}
+))
+runtime_support = RUNTIME_FIXTURE.read_text()
+CAMERA_HARNESS_SOURCE = runtime_support.split("@main", 1)[0] + _declaration(
+    runtime_support, "struct SceneMetalRenderer {"
+) + "\n" + _declaration(
+    TELEMETRY_SOURCE.read_text(), "nonisolated struct SceneParticlePerformanceObservation:"
+) + r'''
+extension SceneMetalRenderer {
+    struct StaticModelFrame {
+        struct Depth { let acquisition: SceneParticleDepthTargetPool.Acquisition }
+    }
+}
+// No graph pin enters this camera gate; its signature is peripheral to particles.
+final class SceneGraphRenderTargetResidencyPin {
+    func release() { fatalError("graph-pin lifetime is outside the camera gate") }
+}
+extension SceneRenderDescriptor.Layer {
+    init(utilityLayer: Bool?, usesPerspective: Bool?) {
+        self.init(id: 0, name: nil, contentKind: "particle", particlePath: nil,
+            particleInstanceOverride: nil, parentID: nil, visible: true, alpha: 1)
+        self.utilityLayer = utilityLayer; self.usesPerspective = usesPerspective
+    }
+}
+extension SceneRenderDescriptor.CameraDescriptor {
+    init(eye: [Float], center: [Float], up: [Float], orthoWidth: Float?, orthoHeight: Float?,
+         fovDegrees: Float?, perspectiveOverrideFOVDegrees: Float?, nearZ: Float, farZ: Float) {
+        self.init()
+        self.eye = eye; self.center = center; self.up = up
+        self.orthoWidth = orthoWidth; self.orthoHeight = orthoHeight
+        self.fovDegrees = fovDegrees; self.perspectiveOverrideFOVDegrees = perspectiveOverrideFOVDegrees
+        self.nearZ = nearZ; self.farZ = farZ
+    }
+}
+''' + CAMERA_FIXTURE.read_text().replace(
+    "    #if MWX_PARTICLE_CAMERA_DEPTH_PROBES\n", ""
+).replace("    #endif // MWX_PARTICLE_CAMERA_DEPTH_PROBES\n", "") + r'''
 @main enum CameraHarness {
     static func main() throws {
-        let result = SceneParticleCameraRenderingHarness.run()
+        var result = SceneParticleCameraRenderingHarness.run()
+        result["refractionDepth"] = SceneParticleCameraRenderingHarness.refractionDepthProfiles()
+        result["particleVariantDemand"] = SceneParticleCameraRenderingHarness.particleVariantDemand()
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
     }
 }
 '''
+CAMERA_HARNESS_SOURCE += "\nextension CameraHarness {\n" + "\n".join(
+    _declaration(runtime_support, marker) for marker in [
+        "    static func writeAnimatedTEX(",
+        "    static func appendUInt32(",
+        "    static func appendFloat32(",
+    ]
+) + "\n}\n"
 
 
 class SceneParticleCameraRenderingTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        cls.result = run_particle_harness(tuple(SWIFT_SOURCES), CAMERA_HARNESS_SOURCE)
+        previous = os.environ.get("MWX_PARTICLE_CAMERA_READBACK_DIR")
+        os.environ.setdefault("MWX_PARTICLE_CAMERA_READBACK_DIR", str(
+            ROOT / ".artifacts/refraction-depth-qualification-20261101/tests-camera/readbacks"))
+        try:
+            cls.result = run_particle_harness(CAMERA_SWIFT_SOURCES, CAMERA_HARNESS_SOURCE)
+        finally:
+            if previous is None:
+                os.environ.pop("MWX_PARTICLE_CAMERA_READBACK_DIR", None)
+
+    def test_readonly_refraction_keeps_pixels_and_avoids_depth_for_both_orders(self) -> None:
+        rows = self.result["refractionDepth"]["readonly"]
+        self.assertEqual(len(rows), 4, rows)
+        for row in rows:
+            with self.subTest(variant=row["variant"], order=row["order"]):
+                self.assertTrue(row["completed"], row)
+                self.assertTrue(row["equalPixels"], row)
+                self.assertGreater(row["changedPixels"], 30, row)
+                self.assertEqual(row["depthBytes"], [0, 0], row)
+                self.assertEqual(row["hasLease"], [False, False], row)
+
+    def test_mixed_writer_refraction_reader_retains_depth_across_snapshot(self) -> None:
+        rows = self.result["refractionDepth"]["mixed"]
+        self.assertEqual(len(rows), 4, rows)
+        self.assertEqual(self.result["refractionDepth"]["compiledVariants"], [
+            "ordinary/alphatocoverage/depth", "ordinary/translucent/depth",
+            "refraction/additive/depth", "refraction/additive/plain",
+            "refraction/translucent/depth", "refraction/translucent/plain",
+        ])
+        for row in rows:
+            with self.subTest(variant=row["variant"], order=row["order"]):
+                self.assertTrue(row["completed"], row)
+                self.assertTrue(all(row["hasLease"]), row)
+                self.assertTrue(all(value > 0 for value in row["depthBytes"]), row)
+                self.assertEqual(row["onCenter"], row["writerCenter"], row)
+                self.assertEqual(row["greenProbePixels"], [0, 0], row)
+                for pixel in row["coveragePixels"]:
+                    self.assertEqual(pixel, [255, 0, 0, 255], row)
+                if row["order"] == "writer-first":
+                    self.assertNotEqual(row["offCenter"], row["writerCenter"], row)
+                    self.assertGreater(row["differentPixels"], 20, row)
+                else:
+                    self.assertEqual(row["offCenter"], row["writerCenter"], row)
+
+    def test_refraction_depth_elision_preserves_perspective_and_clip(self) -> None:
+        self.assertAlmostEqual(self.result["refractionDepth"]["nearDepth"], 0, places=5)
+        self.assertAlmostEqual(self.result["refractionDepth"]["farDepth"], 1, places=5)
+        self.assertAlmostEqual(self.result["refractionDepth"]["fov90Edge"], 1, places=5)
+        rows = self.result["refractionDepth"]["clip"]
+        self.assertEqual(len(rows), 10, rows)
+        for row in rows:
+            with self.subTest(variant=row["variant"], geometry=row["geometry"]):
+                self.assertTrue(row["completed"], row)
+                self.assertTrue(row["sameMVP"], row)
+                self.assertTrue(row["equalPixels"], row)
+                self.assertEqual(row["depthBytes"], [0, 0], row)
+                if row["geometry"] == "behind-eye":
+                    self.assertEqual(row["changedPixels"], 0, row)
+                    self.assertEqual(row["outsideCorners"], 4, row)
+                else:
+                    self.assertGreater(row["changedPixels"], 5, row)
+                    if row["geometry"].startswith("cross-"):
+                        self.assertGreater(row["outsideCorners"], 0, row)
+                        self.assertLess(row["outsideCorners"], 4, row)
+                    else:
+                        self.assertEqual(row["outsideCorners"], 0, row)
+
+    def test_dormant_child_requirements_feed_only_actual_pipeline_variants(self) -> None:
+        rows = self.result["particleVariantDemand"]
+        self.assertEqual(len(rows), 3, rows)
+        expected = {
+            "ordinary": ["ordinary/translucent/plain"],
+            "readonly": ["refraction/translucent/plain"],
+            "mixed": ["ordinary/additive/depth", "ordinary/additive/plain",
+                      "ordinary/alphatocoverage/depth", "ordinary/alphatocoverage/plain",
+                      "ordinary/translucent/depth", "refraction/translucent/depth",
+                      "refraction/translucent/plain"],
+        }
+        for row in rows:
+            with self.subTest(scenario=row["scenario"]):
+                self.assertTrue(row["completed"], row)
+                self.assertEqual(row["initialInstances"], 0, row)
+                self.assertGreater(row["laterBatches"], 0, row)
+                self.assertEqual(row["required"], expected[row["scenario"]], row)
+                self.assertEqual(row["compiledBefore"], row["required"], row)
+                self.assertEqual(row["compiledAfter"], row["compiledBefore"], row)
+                if row["scenario"] == "mixed":
+                    self.assertGreaterEqual(row["writerIndex"], 0, row)
+                    self.assertLess(row["writerIndex"], row["readerIndex"], row)
+                    self.assertTrue(row["hasLease"], row)
+                    self.assertGreater(row["depthBytes"], 0, row)
+                    self.assertEqual(row["center"], [255, 255, 255, 255], row)
+                else:
+                    self.assertFalse(row["hasLease"], row)
+                    self.assertEqual(row["depthBytes"], 0, row)
+                self.assertEqual(row["refractionUsesSceneCamera"],
+                                 [] if row["scenario"] == "ordinary" else [False], row)
 
     def test_metal_right_handed_perspective_matches_scene_camera(self) -> None:
         self.assertAlmostEqual(self.result["nearNDC"][2], 0, places=5)

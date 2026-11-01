@@ -330,7 +330,7 @@ enum Harness {
         } else {
             missingExplicitNormalRejected = false
         }
-        let singleSlotPlan = SceneParticleRefractionPlanner.plan(
+        let singleSlotPlan = refractionPlan(
             for: SceneParticleMaterialPass(
                 materialPath: "materials/particle/refract.json",
                 shaderPath: "shaders/genericparticle.json",
@@ -380,7 +380,7 @@ enum Harness {
                 && normalCullTrail?.renderState == nil,
             "customShaderRejected": customShader?.supportsBuiltInShaderExecution == false,
             "missingShaderRejected": missingShader?.supportsBuiltInShaderExecution == false,
-            "unknownEnabledComboRejected": SceneParticleRefractionPlanner.plan(
+            "unknownEnabledComboRejected": refractionPlan(
                 for: SceneParticleMaterialPass(
                     materialPath: "materials/particle/refract.json",
                     shaderPath: "shaders/genericparticle.json",
@@ -389,7 +389,7 @@ enum Harness {
                     combos: ["REFRACT": 1, "LIGHTING": 1]
                 )
             ) == nil,
-            "normalCullRefractionRejected": SceneParticleRefractionPlanner.plan(
+            "normalCullRefractionRejected": refractionPlan(
                 for: SceneParticleMaterialPass(
                     materialPath: "materials/particle/refract.json",
                     shaderPath: "shaders/genericparticle.json",
@@ -402,7 +402,7 @@ enum Harness {
             "singleSlotRefractionUsesFlatNormal": singleSlotPlan.map {
                 $0.normalReference == nil
             } ?? false,
-            "twoSlotRefractionPreservesNormal": SceneParticleRefractionPlanner.plan(
+            "twoSlotRefractionPreservesNormal": refractionPlan(
                 for: SceneParticleMaterialPass(
                     materialPath: "materials/particle/refract.json",
                     shaderPath: "shaders/genericparticle.json",
@@ -411,7 +411,7 @@ enum Harness {
                     combos: ["REFRACT": 1]
                 )
             )?.normalReference == "particle/refract-normal",
-            "normalSlotHoleRejected": SceneParticleRefractionPlanner.plan(
+            "normalSlotHoleRejected": refractionPlan(
                 for: SceneParticleMaterialPass(
                     materialPath: "materials/particle/refract.json",
                     shaderPath: "shaders/genericparticle.json",
@@ -421,7 +421,7 @@ enum Harness {
                     combos: ["REFRACT": 1]
                 )
             ) == nil,
-            "depthRefractionRejected": SceneParticleRefractionPlanner.plan(
+            "depthRefractionReadOnly": refractionPlan(
                 for: SceneParticleMaterialPass(
                     materialPath: "materials/particle/renamed-mask.json",
                     shaderPath: "shaders/genericparticle.json",
@@ -429,9 +429,17 @@ enum Harness {
                     blending: "additive", combos: ["REFRACT": 1],
                     depthTest: "enabled", depthWrite: "disabled", cullMode: "nocull"
                 )
-            ) == nil,
+            ) != nil,
             "diagnostics": diagnostics
         ]
+    }
+
+    private static func refractionPlan(for pass: SceneParticleMaterialPass) -> SceneParticleRefractionPlanner.Plan? {
+        guard let state = SceneMaterialRenderState.compile(
+            blending: pass.blending, depthTest: pass.depthTest, depthWrite: pass.depthWrite,
+            cullMode: pass.cullMode, alphaWriting: pass.alphaWriting, missingBlending: .translucent
+        ) else { return nil }
+        return SceneParticleRefractionPlanner.plan(for: pass, renderState: state)
     }
 
     private static func renderStateProfileResults() throws -> [String: Any] {
@@ -440,6 +448,7 @@ enum Harness {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
         try write(Data([0x54, 0x45, 0x58]), relativePath: "materials/particle/profile.tex", under: directory)
+        try write(Data([0x54, 0x45, 0x58]), relativePath: "materials/particle/rebadged.tex", under: directory)
         let states: [(String, Bool, Bool, String)] = [
             ("plain", false, false, "nocull"),
             ("test-write", true, true, "nocull"),
@@ -450,14 +459,14 @@ enum Harness {
         ]
         var roots: [String] = []
         var passes: [SceneParticleMaterialPass] = []
-        var expected: [String: (Bool, Bool, Bool, String, Int, Int, Bool)] = [:]
+        var expected: [String: (Bool, Bool, Bool, String, Int, Int, Bool, Bool)] = [:]
         func add(
             _ name: String, flags: Int = 5,
             renderers: [[String: Any]] = [["name": "sprite", "flags": 1]],
             state: (String, Bool, Bool, String) = ("test-write-cull", true, true, "normal"),
             allowed: Bool = false, combos: [String: Int] = ["REFRACT": 0],
             userTexture: Bool = false, userValues: Bool = false,
-            cameraProfile: Bool? = nil
+            cameraProfile: Bool? = nil, blending: String = "translucent", texture: String = "particle/profile"
         ) throws {
             let path = "particles/\(name).json"
             let material = "materials/particle/\(name).json"
@@ -468,14 +477,15 @@ enum Harness {
             roots.append(path)
             passes.append(.init(
                 materialPath: material, shaderPath: "shaders/genericparticle.json",
-                texturePaths: ["particle/profile"], blending: "translucent", combos: combos,
+                texturePaths: [texture], blending: blending, combos: combos,
                 constantValues: ["ui_editor_properties_overbright": .init(components: [1.19], isStatic: true)],
                 hasUserTextureInputs: userTexture, hasUserShaderValues: userValues,
                 depthTest: state.1 ? "enabled" : "disabled",
                 depthWrite: state.2 ? "enabled" : "disabled", cullMode: state.3
             ))
             expected[path] = (allowed, state.1, state.2, state.3, flags,
-                              renderers.first?["flags"] as? Int ?? 0, cameraProfile ?? allowed)
+                              renderers.first?["flags"] as? Int ?? 0, cameraProfile ?? allowed,
+                              allowed && combos["REFRACT"] == 1)
         }
         for flags in [0, 1, 4, 5] {
             for rendererFlags in [0, 1] {
@@ -484,7 +494,18 @@ enum Harness {
                         renderers: [["name": "sprite", "flags": rendererFlags, "orientation": "screen"]],
                         state: state, allowed: true)
                 }
+                try add("refract-read-only-\(flags)-\(rendererFlags)", flags: flags,
+                    renderers: [["name": "sprite", "flags": rendererFlags, "orientation": "screen"]],
+                    state: ("read-only", true, false, "nocull"), allowed: true,
+                    combos: ["REFRACT": 1], cameraProfile: false)
             }
+        }
+        try add("refract-renamed-additive", flags: 4, state: ("read-only", true, false, "nocull"),
+            allowed: true, combos: ["REFRACT": 1], cameraProfile: false,
+            blending: "additive", texture: "particle/rebadged")
+        for state in states where state.2 || state.3 == "normal" {
+            try add("refract-unsupported-\(state.0)", state: state,
+                combos: ["REFRACT": 1], cameraProfile: false)
         }
         try add("default-world-screen", allowed: true)
         for orientation in ["fixed", "upright"] {
@@ -515,6 +536,14 @@ enum Harness {
                 state: ("plain", false, false, "nocull"), allowed: true,
                 combos: pass.combos, userTexture: pass.hasUserTextureInputs,
                 userValues: pass.hasUserShaderValues, cameraProfile: false)
+            if pass.combos != ["REFRACT": 1] {
+                try add("refract-read-only-\(URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent)",
+                    renderers: definition["renderer"] as! [[String: Any]],
+                    state: ("read-only", true, false, "nocull"),
+                    combos: pass.combos.merging(["REFRACT": 1]) { _, selected in selected },
+                    userTexture: pass.hasUserTextureInputs, userValues: pass.hasUserShaderValues,
+                    cameraProfile: false)
+            }
         }
         let graph = try SceneParticleAssetGraphLoader(resourceView: .init(
             projectRootURL: directory, packageRootURL: nil, stockAssetsRootURL: nil
@@ -530,6 +559,7 @@ enum Harness {
                 "expectedCull": expectation.3 == "normal" ? "back" : "none",
                 "expectedSystemFlags": expectation.4, "expectedRendererFlags": expectation.5,
                 "expectedSceneCamera": expectation.6,
+                "expectedRefraction": expectation.7, "hasRefraction": asset?.refraction != nil,
                 "systemFlags": asset?.definition.flags.rawValue ?? -1,
                 "rendererFlags": asset?.definition.renderers.first?.rawFlags ?? -1,
                 "textureAvailable": asset?.textureSource != nil,
@@ -543,7 +573,17 @@ enum Harness {
                 }
             ]
         }
-        return ["rows": rows]
+        let ordinary = SceneParticlePipelineVariant(blendMode: .translucent)
+        let refract = SceneParticlePipelineVariant(isRefraction: true, blendMode: .additive)
+        let readers: Set<SceneParticlePipelineVariant> = [ordinary, refract]
+        let writer = SceneParticlePipelineVariant(blendMode: .additive, usesDepthAttachment: true)
+        let expectedMixed: Set<SceneParticlePipelineVariant> = [ordinary, refract, writer,
+            .init(blendMode: .translucent, usesDepthAttachment: true),
+            .init(isRefraction: true, blendMode: .additive, usesDepthAttachment: true)]
+        return ["rows": rows, "variantPrimitive": [
+            "readOnly": SceneParticlePipelineVariant.includingLayerDepth(readers) == readers,
+            "mixed": SceneParticlePipelineVariant.includingLayerDepth(readers.union([writer])) == expectedMixed
+        ]]
     }
 
     private static func censusResult(rootPath: String) throws -> [String: Any] {
@@ -850,8 +890,10 @@ class SceneParticleAssetTests(unittest.TestCase):
         return json.loads(result.stdout)
 
     def test_single_screen_sprite_depth_cull_profiles_preserve_authored_spaces(self) -> None:
-        rows = self.run_harness("render-state-profiles")["rows"]
-        self.assertEqual(len(rows), 83)
+        result = self.run_harness("render-state-profiles")
+        rows = result["rows"]
+        self.assertEqual(result["variantPrimitive"], {"readOnly": True, "mixed": True})
+        self.assertEqual(len(rows), 116)
         for row in rows:
             with self.subTest(profile=row["name"]):
                 self.assertTrue(row["builtInShader"])
@@ -862,6 +904,7 @@ class SceneParticleAssetTests(unittest.TestCase):
                 self.assertEqual(row["usesSceneCamera"], row["expectedSceneCamera"])
                 self.assertEqual(row["unsupportedRenderState"], not row["expectedAllowed"])
                 if row["expectedAllowed"]:
+                    self.assertEqual(row["hasRefraction"], row["expectedRefraction"])
                     self.assertTrue(row["textureAvailable"])
                     self.assertEqual(row["test"], row["expectedTest"])
                     self.assertEqual(row["write"], row["expectedWrite"])
@@ -926,7 +969,7 @@ class SceneParticleAssetTests(unittest.TestCase):
         self.assertTrue(result["singleSlotRefractionUsesFlatNormal"])
         self.assertTrue(result["twoSlotRefractionPreservesNormal"])
         self.assertTrue(result["normalSlotHoleRejected"])
-        self.assertTrue(result["depthRefractionRejected"])
+        self.assertTrue(result["depthRefractionReadOnly"])
         self.assertEqual(
             result["diagnostics"],
             {

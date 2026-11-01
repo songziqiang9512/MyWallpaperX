@@ -1,9 +1,44 @@
 import simd
 
-nonisolated enum SceneParticlePipelineBlendMode: String, Equatable, Sendable {
+nonisolated enum SceneParticlePipelineBlendMode: String, Hashable, Sendable {
     case translucent
     case additive
     case alphaToCoverage = "alphatocoverage"
+}
+
+nonisolated struct SceneParticlePipelineVariant: Hashable, Sendable {
+    let isRefraction: Bool
+    let blendMode: SceneParticlePipelineBlendMode
+    let usesDepthAttachment: Bool
+
+    init(
+        isRefraction: Bool = false,
+        blendMode: SceneParticlePipelineBlendMode,
+        usesDepthAttachment: Bool = false
+    ) {
+        self.isRefraction = isRefraction
+        self.blendMode = blendMode
+        self.usesDepthAttachment = usesDepthAttachment
+    }
+
+    static let standaloneDefaults: Set<Self> = [
+        .init(blendMode: .translucent),
+        .init(blendMode: .additive),
+        .init(blendMode: .translucent, usesDepthAttachment: true),
+        .init(blendMode: .additive, usesDepthAttachment: true),
+        .init(isRefraction: true, blendMode: .translucent),
+        .init(isRefraction: true, blendMode: .additive),
+    ]
+
+    /// Input keys carry depth only for writers. A dormant writer makes every
+    /// shader/blend in its layer reachable with the shared attachment too.
+    static func includingLayerDepth(_ variants: Set<Self>) -> Set<Self> {
+        guard variants.contains(where: \.usesDepthAttachment) else { return variants }
+        return variants.union(variants.map {
+            Self(isRefraction: $0.isRefraction, blendMode: $0.blendMode,
+                 usesDepthAttachment: true)
+        })
+    }
 }
 
 nonisolated enum SceneParticlePipelineCullMode: String, Equatable, Sendable {
@@ -34,10 +69,6 @@ nonisolated struct SceneParticlePipelineRenderState: Equatable, Sendable {
         self.usesSceneCamera = usesSceneCamera
         self.depthWriteEnabled = depthWriteEnabled
         self.overbright = overbright
-    }
-
-    var requiresDepthAttachment: Bool {
-        depthTestEnabled || depthWriteEnabled
     }
 }
 

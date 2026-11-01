@@ -134,7 +134,7 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 534,
-      "bytes": 170870
+      "bytes": 171280
     },
     "docs/scene/capabilities/previous-blurred-composite-admission.md": {
       "lines": 20,
@@ -150,7 +150,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 222362
+      "bytes": 222654
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -277,8 +277,8 @@
       "bytes": 22465
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 188,
-      "bytes": 43595
+      "lines": 189,
+      "bytes": 44029
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1954,15 +1954,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "77befe002f0de9077f71a27b85af527c3eea970bd2a6340deb4bc5bff88e03c0",
-      "after": "cbabab9191db5dc7cf61f45ffa940f769c4871fe268161b1ff39375498858b5f",
-      "owner": "scene-refraction-static-primary",
-      "reason": "原绑定owner扩大已证static-primary secondary数据覆盖；531从待修退出，其他首门与时序/多image/静态债边界保留。",
-      "decision": "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md#refraction-static-primary-20261101"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
       "before": "e758b7d1842da8fb4864a0cde0d03b5478ba96ebfa6cadb4f44dff27d0f6a267",
       "after": "3267d1b8cf90c50b274dab343cb50a9796ab5331d8297e03c2515ff452f8ddf3",
@@ -1972,12 +1963,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "cbabab9191db5dc7cf61f45ffa940f769c4871fe268161b1ff39375498858b5f",
+      "after": "06e4a171b9ad67a7695eac89cf91acebd635b4094bc0bac8968ec1198817b27b",
+      "owner": "scene-particle-material-depth-variants",
+      "reason": "在既有粒子合同和同一队列/证据行记录新消费能力与边界；退役本批窄设计并折叠旧重复轨迹，不新增现役权威。",
+      "decision": "docs/scene/history/particle-material-depth-2026-11-01.md#bounded-result"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "b7d68b2ecf64a8f6b2ca83a2421e4f80533026bec451af8a30ff0c37f29a7d1d",
-      "after": "4dad94b2e9c1d5c5d27ab70a78975df5b2e6f126c0dbbdfacb528af9ac9e99f7",
-      "owner": "scene-source-host-default-writer",
-      "reason": "在原标量合同及现有证据索引内补宿主default不代writer的必要约束/有限实图结果，不增owner或新权威；原静态首门退出队列。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#prepared-dynamic-image-material"
+      "before": "4dad94b2e9c1d5c5d27ab70a78975df5b2e6f126c0dbbdfacb528af9ac9e99f7",
+      "after": "55d09ef7238cea413b9b5535336e2775da856c353e6ecf50e9a6e12da512d6c8",
+      "owner": "scene-particle-material-depth-variants",
+      "reason": "在既有粒子合同和同一队列/证据行记录新消费能力与边界；退役本批窄设计并折叠旧重复轨迹，不新增现役权威。",
+      "decision": "docs/scene/history/particle-material-depth-2026-11-01.md#bounded-result"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "a3897f788f1eaf97a28ef1b90ea36aa3c7537f505bc9da1d276b687053492da5",
+      "after": "c438f0a4fd413abb79b545a45e37027023dc9ab9e1effbd3643d492693baed3d",
+      "owner": "scene-particle-material-depth-variants",
+      "reason": "在既有粒子合同和同一队列/证据行记录新消费能力与边界；退役本批窄设计并折叠旧重复轨迹，不新增现役权威。",
+      "decision": "docs/scene/history/particle-material-depth-2026-11-01.md#bounded-result"
     }
   ]
 }

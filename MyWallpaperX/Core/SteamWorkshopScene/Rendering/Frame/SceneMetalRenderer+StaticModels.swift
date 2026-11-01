@@ -420,7 +420,7 @@ extension SceneMetalRenderer {
                 if state.depthDeferralReason != nil || state.sceneDepthFailureReason != nil { return false }
             }
             if let particlePipeline, let layerBatches = batches[layer.id],
-               layerBatches.contains(where: { $0.renderState.requiresDepthAttachment }) {
+               layerBatches.contains(where: { $0.renderState.depthWriteEnabled }) {
                 let extent = pass.targetExtent
                 if let existing = state.particleDepth[layer.id] {
                     complete = complete && existing.lease != nil
@@ -462,7 +462,7 @@ extension SceneMetalRenderer {
         for layer in orderedLayers where visible.contains(layer.id) {
             let requiresDepth = staticModelResources.pipeline != nil && layer.contentKind == "model"
                 || (particlePipeline != nil && batches[layer.id]?.contains(where: {
-                    $0.renderState.requiresDepthAttachment
+                    $0.renderState.depthWriteEnabled
                 }) == true)
             if requiresDepth, let groups, groups.renderPass(forLayerID: layer.id) == nil { return consumers }
         }
@@ -541,7 +541,7 @@ extension SceneMetalRenderer {
                             guard depth.lease != nil else { return nil }
                         }
                     }
-                    if let particlePipeline, batches[layer.id]?.contains(where: { $0.renderState.requiresDepthAttachment }) == true {
+                    if let particlePipeline, batches[layer.id]?.contains(where: { $0.renderState.depthWriteEnabled }) == true {
                         if let existing = state.particleDepth[layer.id] {
                             guard existing.lease != nil else { return nil }
                         } else {

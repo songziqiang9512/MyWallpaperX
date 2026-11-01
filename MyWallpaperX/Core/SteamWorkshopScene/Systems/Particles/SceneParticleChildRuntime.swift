@@ -49,7 +49,7 @@ final class SceneParticleChildRuntime {
     /// for particle layers whose prepared child graph cannot consume it.
     let hasPointerControlPointConsumer: Bool
     /// Includes dormant/event templates before their first particle exists.
-    let requiresAlphaToCoverage: Bool
+    let requiredPipelineVariants: Set<SceneParticlePipelineVariant>
 #if DEBUG
     /// One-line launch summary for the DEBUG evidence path: how many child
     /// systems the expansion produced versus how many declarations it saw.
@@ -131,9 +131,10 @@ final class SceneParticleChildRuntime {
             rootInstanceOverride: rootInstanceOverride
         )
         templates = expansion.templates
-        requiresAlphaToCoverage = expansion.templates.contains {
-            $0.renderState.blendMode == .alphaToCoverage
-        }
+        requiredPipelineVariants = Set(expansion.templates.map {
+            .init(isRefraction: $0.refraction != nil, blendMode: $0.renderState.blendMode,
+                  usesDepthAttachment: $0.renderState.depthWriteEnabled)
+        })
         templatesByIndex = Dictionary(
             expansion.templates.map { ($0.index, $0) },
             uniquingKeysWith: { first, _ in first }

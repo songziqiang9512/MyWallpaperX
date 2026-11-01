@@ -178,7 +178,7 @@ enum SceneParticleMaterialCoverageHarness {
                 preparedParticleVisibilityLayerIDs: prepared)
             let lifecycle = runtime.lifecycleSnapshot
             rows[name] = [
-                "required": runtime.requiresAlphaToCoverage,
+                "required": runtime.requiredPipelineVariants.contains { $0.blendMode == .alphaToCoverage },
                 "activeLayerIDs": runtime.activeLayerIDs,
                 "rootSystems": lifecycle.rootSystemCount,
                 "childSystems": lifecycle.childSystemCount,

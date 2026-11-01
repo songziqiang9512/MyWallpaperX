@@ -19,16 +19,11 @@ nonisolated enum SceneParticleRefractionPlanner {
         let overbright: Float
     }
 
-    static func plan(for pass: SceneParticleMaterialPass) -> Plan? {
-        guard let renderState = SceneMaterialRenderState.compile(
-                  blending: pass.blending,
-                  depthTest: pass.depthTest,
-                  depthWrite: pass.depthWrite,
-                  cullMode: pass.cullMode,
-                  alphaWriting: pass.alphaWriting,
-                  missingBlending: .translucent
-              ),
-              pass.passIndex == 0,
+    static func plan(
+        for pass: SceneParticleMaterialPass,
+        renderState: SceneMaterialRenderState
+    ) -> Plan? {
+        guard pass.passIndex == 0,
               pass.combos["REFRACT"] == 1,
               pass.combos.allSatisfy({
                   $0.key == "REFRACT"
@@ -39,7 +34,6 @@ nonisolated enum SceneParticleRefractionPlanner {
               !color.isEmpty,
               !pass.hasUserTextureInputs,
               !pass.hasUserShaderValues,
-              renderState.depthTest == .disabled,
               renderState.depthWrite == .disabled,
               renderState.cullMode == .noCull,
               [.unspecified, .default].contains(renderState.alphaWriting),

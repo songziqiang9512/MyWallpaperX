@@ -6,14 +6,14 @@ nonisolated enum SceneParticlePipelineRenderStateCompiler {
     static func compile(
         _ state: SceneMaterialRenderState,
         definition: SceneParticleDefinition,
-        materialPass: SceneParticleMaterialPass?
+        materialPass: SceneParticleMaterialPass?,
+        isRefraction: Bool = false
     ) -> SceneParticlePipelineRenderState? {
         guard [.unspecified, .default].contains(state.alphaWriting),
               let overbright = overbright(in: materialPass) else { return nil }
 
-        let spriteProfile = supportsSpriteStateProfile(
-            definition: definition, materialPass: materialPass
-        )
+        let screenSprite = supportsScreenSprite(definition)
+        let spriteProfile = screenSprite && supportsOrdinaryMaterialProfile(materialPass)
         let blendMode: SceneParticlePipelineBlendMode
         switch state.blending {
         case .translucent: blendMode = .translucent
@@ -32,7 +32,9 @@ nonisolated enum SceneParticlePipelineRenderStateCompiler {
         let needsSpriteStateProfile = state.cullMode == .normal
             || state.depthTest == .enabled
             || state.depthWrite == .enabled
-        if needsSpriteStateProfile, !spriteProfile {
+        let readOnlyRefraction = isRefraction && screenSprite
+            && state.depthWrite == .disabled && state.cullMode == .noCull
+        if needsSpriteStateProfile, !spriteProfile, !readOnlyRefraction {
             return nil
         }
 
@@ -58,9 +60,8 @@ nonisolated enum SceneParticlePipelineRenderStateCompiler {
         return Float(authored)
     }
 
-    private static func supportsSpriteStateProfile(
-        definition: SceneParticleDefinition,
-        materialPass: SceneParticleMaterialPass?
+    private static func supportsOrdinaryMaterialProfile(
+        _ materialPass: SceneParticleMaterialPass?
     ) -> Bool {
         guard let materialPass,
               !materialPass.hasUserTextureInputs,
@@ -68,8 +69,12 @@ nonisolated enum SceneParticlePipelineRenderStateCompiler {
               materialPass.combos.allSatisfy({ key, value in
                   ["REFRACT", "CUTOUT", "LIGHTING"].contains(key.uppercased())
                       && value == 0
-              }),
-              definition.renderers.count == 1,
+              }) else { return false }
+        return true
+    }
+
+    private static func supportsScreenSprite(_ definition: SceneParticleDefinition) -> Bool {
+        guard definition.renderers.count == 1,
               let renderer = definition.renderers.first,
               renderer.rawFlags == 0 || renderer.rawFlags == 1,
               renderer.axis == nil,

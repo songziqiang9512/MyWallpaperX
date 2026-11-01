@@ -30,7 +30,10 @@ enum SceneParticleCoverageRenderingHarness {
         guard let device = MTLCreateSystemDefaultDevice(),
               let queue = device.makeCommandQueue(),
               let coveragePipeline = SceneParticleMetalPipeline(
-                device: device, requiresAlphaToCoverage: true),
+                device: device, requiredVariants: SceneParticlePipelineVariant.standaloneDefaults.union([
+                    .init(blendMode: .alphaToCoverage),
+                    .init(blendMode: .alphaToCoverage, usesDepthAttachment: true)
+                ])),
               let ordinaryPipeline = SceneParticleMetalPipeline(device: device)
         else { throw failure("device-or-pipeline") }
         let library = try device.makeLibrary(source: particleCoverageReferenceSource, options: nil)

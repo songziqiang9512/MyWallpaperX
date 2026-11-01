@@ -15,14 +15,7 @@ struct SceneParticleMetalPipeline {
     }
 
     private let device: MTLDevice
-    private let translucentState: MTLRenderPipelineState
-    private let additiveState: MTLRenderPipelineState
-    private let depthTranslucentState: MTLRenderPipelineState
-    private let depthAdditiveState: MTLRenderPipelineState
-    private let refractTranslucentState: MTLRenderPipelineState
-    private let refractAdditiveState: MTLRenderPipelineState
-    private let coverageState: MTLRenderPipelineState?
-    private let depthCoverageState: MTLRenderPipelineState?
+    let pipelineStates: [SceneParticlePipelineVariant: MTLRenderPipelineState]
     private let depthStates: [Int: MTLDepthStencilState]
     private let samplerStates: SceneParticleSamplerStateSet
     let framebufferSnapshot: SceneFramebufferSnapshot
@@ -41,11 +34,11 @@ struct SceneParticleMetalPipeline {
 
     init?(
         device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm,
-        requiresAlphaToCoverage: Bool = false
+        requiredVariants: Set<SceneParticlePipelineVariant> = SceneParticlePipelineVariant.standaloneDefaults
     ) {
         let library: MTLLibrary?
         let coverageLibrary: MTLLibrary?
-        if requiresAlphaToCoverage {
+        if requiredVariants.contains(where: { $0.blendMode == .alphaToCoverage }) {
             let candidate = try? device.makeLibrary(
                 source: sceneParticleShaderSource + sceneParticleCoverageShaderSource,
                 options: nil
@@ -59,81 +52,35 @@ struct SceneParticleMetalPipeline {
             library = try? device.makeLibrary(source: sceneParticleShaderSource, options: nil)
         }
         guard let library,
-              let vertex = library.makeFunction(name: "sceneParticleVert"),
-              let fragment = library.makeFunction(name: "sceneParticleFrag"),
-              let refractFragment = library.makeFunction(name: "sceneParticleRefractFrag"),
-              let translucent = Self.makeState(
-                  device: device,
-                  vertex: vertex,
-                  fragment: fragment,
-                  pixelFormat: pixelFormat,
-                  blendMode: .translucent
-              ),
-              let additive = Self.makeState(
-                  device: device,
-                  vertex: vertex,
-                  fragment: fragment,
-                  pixelFormat: pixelFormat,
-                  blendMode: .additive
-              ),
-              let depthTranslucent = Self.makeState(
-                  device: device,
-                  vertex: vertex,
-                  fragment: fragment,
-                  pixelFormat: pixelFormat,
-                  blendMode: .translucent,
-                  depthPixelFormat: .depth32Float
-              ),
-              let depthAdditive = Self.makeState(
-                  device: device,
-                  vertex: vertex,
-                  fragment: fragment,
-                  pixelFormat: pixelFormat,
-                  blendMode: .additive,
-                  depthPixelFormat: .depth32Float
-              ),
-              let refractTranslucent = Self.makeState(
-                  device: device,
-                  vertex: vertex,
-                  fragment: refractFragment,
-                  pixelFormat: pixelFormat,
-                  blendMode: .translucent
-              ),
-              let refractAdditive = Self.makeState(
-                  device: device,
-                  vertex: vertex,
-                  fragment: refractFragment,
-                  pixelFormat: pixelFormat,
-                  blendMode: .additive
-              ),
               let samplerStates = SceneParticleSamplerStateSet(device: device),
               let depthStates = Self.makeDepthStates(device: device) else {
             return nil
         }
-        translucentState = translucent
-        self.device = device
-        additiveState = additive
-        depthTranslucentState = depthTranslucent
-        depthAdditiveState = depthAdditive
-        refractTranslucentState = refractTranslucent
-        refractAdditiveState = refractAdditive
-        if let coverageVertex = coverageLibrary?.makeFunction(name: "sceneParticleCoverageVert"),
-           let coverageFragment = coverageLibrary?.makeFunction(name: "sceneParticleCoverageFrag") {
-            coverageState = Self.makeState(
-                device: device, vertex: coverageVertex, fragment: coverageFragment,
-                pixelFormat: pixelFormat, blendMode: .alphaToCoverage
-            )
-            // Another prepared batch may require a shared depth attachment
-            // even though this coverage material itself does not test/write it.
-            depthCoverageState = Self.makeState(
-                device: device, vertex: coverageVertex, fragment: coverageFragment,
-                pixelFormat: pixelFormat, blendMode: .alphaToCoverage,
-                depthPixelFormat: .depth32Float
-            )
-        } else {
-            coverageState = nil
-            depthCoverageState = nil
+        let vertex = library.makeFunction(name: "sceneParticleVert")
+        let fragment = library.makeFunction(name: "sceneParticleFrag")
+        let refractFragment = library.makeFunction(name: "sceneParticleRefractFrag")
+        let coverageVertex = coverageLibrary?.makeFunction(name: "sceneParticleCoverageVert")
+        let coverageFragment = coverageLibrary?.makeFunction(name: "sceneParticleCoverageFrag")
+        var states: [SceneParticlePipelineVariant: MTLRenderPipelineState] = [:]
+        for variant in requiredVariants {
+            let usesCoverage = variant.blendMode == .alphaToCoverage
+            if usesCoverage && variant.isRefraction { continue }
+            let variantVertex = usesCoverage ? coverageVertex : vertex
+            let variantFragment = usesCoverage ? coverageFragment
+                : (variant.isRefraction ? refractFragment : fragment)
+            if let variantVertex, let variantFragment,
+               let state = Self.makeState(
+                   device: device, vertex: variantVertex, fragment: variantFragment,
+                   pixelFormat: pixelFormat, blendMode: variant.blendMode,
+                   depthPixelFormat: variant.usesDepthAttachment ? .depth32Float : .invalid
+               ) {
+                states[variant] = state
+            } else if !usesCoverage {
+                return nil
+            }
         }
+        self.device = device
+        pipelineStates = states
         self.depthStates = depthStates
         self.samplerStates = samplerStates
         framebufferSnapshot = SceneFramebufferSnapshot(
@@ -169,16 +116,11 @@ struct SceneParticleMetalPipeline {
         usesDepthAttachment: Bool = false,
         encoder: MTLRenderCommandEncoder
     ) -> Bool {
-        let state: MTLRenderPipelineState?
-        switch renderState.blendMode {
-        case .translucent:
-            state = usesDepthAttachment ? depthTranslucentState : translucentState
-        case .additive:
-            state = usesDepthAttachment ? depthAdditiveState : additiveState
-        case .alphaToCoverage:
-            state = usesDepthAttachment ? depthCoverageState : coverageState
-        }
-        guard let state, let drawState = instances.currentDrawState() else { return false }
+        let variant = SceneParticlePipelineVariant(
+            blendMode: renderState.blendMode, usesDepthAttachment: usesDepthAttachment
+        )
+        guard let state = pipelineStates[variant],
+              let drawState = instances.currentDrawState() else { return false }
 #if DEBUG
         ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
 #endif
@@ -252,20 +194,23 @@ struct SceneParticleMetalPipeline {
         renderState: SceneParticlePipelineRenderState,
         colorUVScale: SIMD2<Float>,
         colorSampling: SceneParticleTextureSampling,
+        usesDepthAttachment: Bool = false,
         encoder: MTLRenderCommandEncoder
     ) -> Bool {
-        let state: MTLRenderPipelineState
-        switch renderState.blendMode {
-        case .translucent: state = refractTranslucentState
-        case .additive: state = refractAdditiveState
-        case .alphaToCoverage: return false
-        }
-        guard let drawState = instances.currentDrawState(),
+        let variant = SceneParticlePipelineVariant(
+            isRefraction: true, blendMode: renderState.blendMode,
+            usesDepthAttachment: usesDepthAttachment
+        )
+        guard let state = pipelineStates[variant],
+              let drawState = instances.currentDrawState(),
               let normal = binding.resolvedNormalArguments() else { return false }
 #if DEBUG
         ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
 #endif
         encoder.setRenderPipelineState(state)
+        if usesDepthAttachment {
+            encoder.setDepthStencilState(depthState(for: renderState))
+        }
         configureCull(renderState.cullMode, encoder: encoder)
         defer { encoder.setCullMode(.none) }
         bindGeometry(

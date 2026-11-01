@@ -32,7 +32,7 @@ final class SceneParticleRuntime {
     /// template identities are prepared with the particle graph; frame-varying
     /// coordinates are still supplied by the host each advance.
     private(set) var pointerControlPointDemands: [Int: SceneParticlePointerDemand] = [:]
-    private(set) var requiresAlphaToCoverage = false
+    private(set) var requiredPipelineVariants: Set<SceneParticlePipelineVariant> = []
 #if DEBUG
     private var pendingAudioEvaluationObservations:
         [SceneParticleRuntimeAudioEvaluationObservation] = []
@@ -451,9 +451,14 @@ final class SceneParticleRuntime {
         }
         pointerControlPointDemands = pointerDemands
         worldSpaceRequiringLayerIDs = worldSpaceDemandLayerIDs
-        requiresAlphaToCoverage = layers.contains {
-            $0.rootRender?.renderState.blendMode == .alphaToCoverage
-                || $0.childRuntime?.requiresAlphaToCoverage == true
+        requiredPipelineVariants = layers.reduce(into: []) { variants, layer in
+            var layerVariants = layer.childRuntime?.requiredPipelineVariants ?? []
+            if let root = layer.rootRender {
+                layerVariants.insert(.init(isRefraction: root.refraction != nil,
+                    blendMode: root.renderState.blendMode,
+                    usesDepthAttachment: root.renderState.depthWriteEnabled))
+            }
+            variants.formUnion(SceneParticlePipelineVariant.includingLayerDepth(layerVariants))
         }
     }
 

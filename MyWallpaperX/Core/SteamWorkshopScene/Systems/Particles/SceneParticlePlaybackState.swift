@@ -54,7 +54,7 @@ final class SceneParticlePlaybackState {
         )
         guard let pipeline = SceneParticleMetalPipeline(
             device: device, pixelFormat: descriptor.colorTargetFormat.metalPixelFormat,
-            requiresAlphaToCoverage: runtime.requiresAlphaToCoverage
+            requiredVariants: runtime.requiredPipelineVariants
         ) else {
             runtime.teardown()
             return nil
