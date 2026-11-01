@@ -417,6 +417,141 @@ import Foundation
             _ = try WallpaperLibraryQuery.canonicalReferences([backing], relationships: loop)
             checks["light-alias-resolution-still-refuses-requested-cycles"] = false
         } catch UserCollectionsError.corruptData { checks["light-alias-resolution-still-refuses-requested-cycles"] = true }
+        do {
+            let date = Date(timeIntervalSince1970: 123)
+            let list = WallpaperPlaylist(id: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!,
+                name: "Directory Café", createdAt: date, modifiedAt: date.addingTimeInterval(5), sidebarRank: 7)
+            let empty = WallpaperPlaylist(id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
+                name: "Empty", createdAt: date, sidebarRank: 7)
+            let canonical = ref(.steamWorkshop, "directory-native"), backing = ref(.videoLibrary, "directory-backing")
+            let relocated = ref(.videoLibrary, "directory-relocated"), healthy = ref(.staticImageLibrary, "directory-healthy")
+            let missing = ref(.pixabay, "directory-missing")
+            let aliases: [WallpaperReferenceAlias] = [
+                .init(alias: relocated, canonical: backing, proof: .explicitUserRelocation),
+                .init(alias: backing, canonical: canonical, proof: .publishedDownload)]
+            let directoryCatalog = WallpaperLibraryCatalog(videos: [item(backing, "Backing")],
+                images: [item(healthy, "Healthy", kind: .image)], downloads: [item(canonical, "Native")])
+            func directorySnapshot(_ values: [(WallpaperReference, Int)], aliases: [WallpaperReferenceAlias] = [],
+                                   locators: [WallpaperReferenceLocator] = []) -> UserCollectionsSnapshot {
+                .init(revision: 9, resetEpoch: relations.resetEpoch, migrationManifestID: nil, playlists: [list, empty],
+                    members: values.map { .init(playlistID: list.id, reference: $0.0, position: $0.1, addedAt: date) },
+                    favorites: [], recent: [], aliases: aliases, locators: locators)
+            }
+            func expectedEntry(count: Int, cover: WallpaperReference?) -> WallpaperPlaylistDirectoryEntry {
+                .init(id: list.id, name: list.name, count: count, coverReference: cover,
+                    createdAt: list.createdAt, modifiedAt: list.modifiedAt)
+            }
+            let emptyEntry = WallpaperPlaylistDirectoryEntry(id: empty.id, name: empty.name, count: 0,
+                coverReference: nil, createdAt: empty.createdAt, modifiedAt: empty.modifiedAt)
+            let tied = directorySnapshot([(canonical, Int.max), (missing, Int.min), (healthy, Int.min), (relocated, 5)],
+                aliases: aliases)
+            var before = WallpaperLibraryQuery.contentResolutions
+            let tiedEntries = try WallpaperLibraryQuery.directory(state: .init(), catalog: directoryCatalog, relationships: tied)
+            let tiedResolutions = WallpaperLibraryQuery.contentResolutions - before
+            checks["directory-position-ties-retain-input-first-missing-cover-and-canonical-count"] = tiedEntries
+                == [emptyEntry, expectedEntry(count: 3, cover: missing)]
+            before = WallpaperLibraryQuery.contentResolutions
+            let reversedTies = try WallpaperLibraryQuery.directory(state: .init(), catalog: directoryCatalog,
+                relationships: directorySnapshot([(canonical, Int.max), (healthy, Int.min), (missing, Int.min), (relocated, 5)],
+                    aliases: aliases))
+            let reversedTieResolutions = WallpaperLibraryQuery.contentResolutions - before
+            checks["directory-reversing-equal-position-members-reverses-only-cover-choice"] = reversedTies
+                == [emptyEntry, expectedEntry(count: 3, cover: healthy)]
+            before = WallpaperLibraryQuery.contentResolutions
+            let maximum = try WallpaperLibraryQuery.directory(state: .init(), catalog: directoryCatalog,
+                relationships: directorySnapshot([(healthy, Int.max)]))
+            let maximumResolutions = WallpaperLibraryQuery.contentResolutions - before
+            checks["directory-int-max-first-position-still-supplies-cover"] = maximum
+                == [emptyEntry, expectedEntry(count: 1, cover: healthy)] && maximumResolutions == 1
+
+            let earlierAlias = directorySnapshot([(canonical, 100), (healthy, 0), (relocated, -1), (backing, 1000)],
+                aliases: aliases)
+            before = WallpaperLibraryQuery.contentResolutions
+            let native = try WallpaperLibraryQuery.directory(state: .init(), catalog: directoryCatalog, relationships: earlierAlias)
+            let nativeResolutions = WallpaperLibraryQuery.contentResolutions - before
+            checks["directory-earlier-duplicate-alias-can-replace-previously-seen-cover-candidate"] = native
+                == [emptyEntry, expectedEntry(count: 2, cover: canonical)]
+            var backingOnly = directoryCatalog
+            backingOnly.downloads.removeAll()
+            before = WallpaperLibraryQuery.contentResolutions
+            let fallback = try WallpaperLibraryQuery.directory(state: .init(), catalog: backingOnly, relationships: earlierAlias)
+            let backingResolutions = WallpaperLibraryQuery.contentResolutions - before
+            checks["directory-canonical-first-member-retains-real-backing-cover-owner"] = fallback
+                == [emptyEntry, expectedEntry(count: 2, cover: backing)]
+            checks["directory-name-search-keeps-rank-metadata-and-complete-member-count"] = try WallpaperLibraryQuery.directory(
+                state: .init(search: "cafe"), catalog: directoryCatalog, relationships: earlierAlias)
+                == [expectedEntry(count: 2, cover: canonical)]
+
+            let longMembers: [(WallpaperReference, Int)] = [(canonical, 1000)] + (0..<512).reversed().map {
+                (ref(.videoLibrary, "directory-reverse-\($0)"), $0)
+            } + [(relocated, Int.max), (backing, 999)]
+            before = WallpaperLibraryQuery.contentResolutions
+            let longEntries = try WallpaperLibraryQuery.directory(state: .init(), catalog: directoryCatalog,
+                relationships: directorySnapshot(longMembers, aliases: aliases))
+            let longResolutions = WallpaperLibraryQuery.contentResolutions - before
+            checks["directory-reverse-long-members-keep-missing-manual-first-and-full-deduplicated-count"] = longEntries
+                == [emptyEntry, expectedEntry(count: 513, cover: ref(.videoLibrary, "directory-reverse-0"))]
+            before = WallpaperLibraryQuery.contentResolutions
+            let emptyEntries = try WallpaperLibraryQuery.directory(state: .init(), catalog: directoryCatalog,
+                relationships: directorySnapshot([], aliases: aliases))
+            let emptyResolutions = WallpaperLibraryQuery.contentResolutions - before
+            checks["directory-empty-lists-retain-rank-and-nil-cover"] = emptyEntries
+                == [emptyEntry, expectedEntry(count: 0, cover: nil)]
+            checks["directory-resolves-only-cover-for-tied-and-aliased-members"] =
+                [tiedResolutions, reversedTieResolutions, nativeResolutions, backingResolutions].allSatisfy { $0 == 1 }
+            checks["directory-reverse-long-members-resolve-only-cover"] = longResolutions == 1
+            checks["directory-empty-members-do-not-resolve-content"] = emptyResolutions == 0
+            FileHandle.standardError.write(Data(("directory resolve calls tied=\(tiedResolutions) reversed-ties=\(reversedTieResolutions) "
+                + "max=\(maximumResolutions) native=\(nativeResolutions) backing=\(backingResolutions) "
+                + "reverse-long=\(longResolutions) empty=\(emptyResolutions)\n").utf8))
+
+            let cycleA = ref(.videoLibrary, "directory-cycle-a"), cycleB = ref(.videoLibrary, "directory-cycle-b")
+            let cycleAliases: [WallpaperReferenceAlias] = [
+                .init(alias: cycleA, canonical: cycleB, proof: .explicitUserRelocation),
+                .init(alias: cycleB, canonical: cycleA, proof: .explicitUserRelocation)]
+            for (name, values) in [("tail", [(healthy, 0), (cycleA, 100)]),
+                                   ("unsorted", [(cycleA, 100), (healthy, 0)])] {
+                do {
+                    _ = try WallpaperLibraryQuery.directory(state: .init(search: "not-a-list-name"), catalog: directoryCatalog,
+                        relationships: directorySnapshot(values, aliases: cycleAliases))
+                    checks["directory-still-rejects-unmatched-list-member-cycle-\(name)"] = false
+                } catch let error as UserCollectionsError {
+                    checks["directory-still-rejects-unmatched-list-member-cycle-\(name)"] = error == .corruptData("alias cycle")
+                }
+            }
+            let conflicting = directorySnapshot([(healthy, 0)], aliases: [
+                .init(alias: relocated, canonical: canonical, proof: .explicitUserRelocation),
+                .init(alias: relocated, canonical: healthy, proof: .explicitUserRelocation)])
+            do {
+                _ = try WallpaperLibraryQuery.directory(state: .init(), catalog: directoryCatalog, relationships: conflicting)
+                checks["directory-retains-conflicting-alias-error"] = false
+            } catch let error as UserCollectionsError {
+                checks["directory-retains-conflicting-alias-error"] = error == .corruptData("conflicting alias")
+            }
+            let beforeInvalidFilter = WallpaperLibraryQuery.resolverInitializations
+            do {
+                _ = try WallpaperLibraryQuery.directory(state: .init(kinds: [.video]), catalog: directoryCatalog,
+                    relationships: conflicting)
+                checks["directory-unsupported-filter-still-precedes-resolver-errors"] = false
+            } catch WallpaperLibraryQueryError.unsupportedDirectoryFilter {
+                checks["directory-unsupported-filter-still-precedes-resolver-errors"] =
+                    WallpaperLibraryQuery.resolverInitializations == beforeInvalidFilter
+            }
+            for (name, inputs, locators) in [
+                ("catalog", WallpaperLibraryCatalog(videos: [item(cycleA, "Cycle")]), [WallpaperReferenceLocator]()),
+                ("locator", WallpaperLibraryCatalog(), [.init(reference: cycleA, locator: .init())])
+            ] {
+                before = WallpaperLibraryQuery.contentResolutions
+                do {
+                    _ = try WallpaperLibraryQuery.directory(state: .init(), catalog: inputs,
+                        relationships: directorySnapshot([(healthy, 0)], aliases: cycleAliases, locators: locators))
+                    checks["directory-\(name)-cycle-still-precedes-member-resolution"] = false
+                } catch let error as UserCollectionsError {
+                    checks["directory-\(name)-cycle-still-precedes-member-resolution"] = error == .corruptData("alias cycle")
+                        && WallpaperLibraryQuery.contentResolutions == before
+                }
+            }
+        }
         print(String(data: try JSONEncoder().encode(checks), encoding: .utf8)!)
         if checks.values.contains(false) { exit(1) }
     }

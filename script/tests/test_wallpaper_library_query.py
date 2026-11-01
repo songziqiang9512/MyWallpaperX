@@ -29,7 +29,8 @@ class WallpaperLibraryQueryTests(unittest.TestCase):
             query = query_path.read_text()
             enum_marker = 'nonisolated enum WallpaperLibraryQuery {'
             self.assertEqual(query.count(enum_marker), 1, enum_marker)
-            counters = ('resolverInitializations', 'locatorReads', 'membershipReads', 'favoriteDateReads', 'recentDateReads')
+            counters = ('resolverInitializations', 'locatorReads', 'membershipReads', 'favoriteDateReads', 'recentDateReads',
+                        'contentResolutions')
             query = query.replace(enum_marker, enum_marker + '\n' + '\n'.join(
                 f'    nonisolated(unsafe) static var {name} = 0' for name in counters), 1)
             seams = {
@@ -43,6 +44,8 @@ class WallpaperLibraryQueryTests(unittest.TestCase):
                     '            for favorite in relationships.favorites {\n                WallpaperLibraryQuery.favoriteDateReads += 1',
                 '            for recent in relationships.recent {':
                     '            for recent in relationships.recent {\n                WallpaperLibraryQuery.recentDateReads += 1',
+                '        func resolve(_ reference: WallpaperReference) throws -> WallpaperContentItem {\n':
+                    '        func resolve(_ reference: WallpaperReference) throws -> WallpaperContentItem {\n            WallpaperLibraryQuery.contentResolutions += 1\n',
             }
             for marker, instrumented in seams.items():
                 self.assertEqual(query.count(marker), 1, marker)

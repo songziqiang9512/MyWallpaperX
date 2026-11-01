@@ -257,15 +257,14 @@ nonisolated enum WallpaperLibraryQuery {
         var entries: [WallpaperPlaylistDirectoryEntry] = []
         for playlist in relationships.playlists {
             var seen = Set<WallpaperReference>()
-            var coverReference: WallpaperReference?
-            let ordered = (members[playlist.id] ?? []).enumerated().sorted {
-                $0.element.position == $1.element.position ? $0.offset < $1.offset : $0.element.position < $1.element.position
+            var firstMember: (position: Int, reference: WallpaperReference)?
+            for member in members[playlist.id] ?? [] {
+                let reference = try resolver.canonical(member.reference)
+                seen.insert(reference)
+                if let firstMember, firstMember.position <= member.position { continue }
+                firstMember = (member.position, reference)
             }
-            for member in ordered {
-                let item = try resolver.resolve(member.element.reference)
-                guard seen.insert(item.reference).inserted else { continue }
-                if seen.count == 1 { coverReference = item.providerReference }
-            }
+            let coverReference = try firstMember.map { try resolver.resolve($0.reference).providerReference }
             entries.append(.init(id: playlist.id, name: playlist.name, count: seen.count, coverReference: coverReference,
                                  createdAt: playlist.createdAt, modifiedAt: playlist.modifiedAt))
         }

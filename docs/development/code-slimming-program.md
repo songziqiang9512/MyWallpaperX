@@ -50,6 +50,8 @@ R19（784963bb5起）：Video Inspector footer仅消费注入libraryActions.stat
 
 R20（7d54f9323起）：SIL Inspector退出必有添加时间的metadataFacts空检查，原同轮两次facts准备收为一次；两日期共用一个局部formatter，原.medium/.short不变，旧getter退役。notices在原if位置一次读取并传既有helper，不增跨轮缓存、state或owner，产品12+/17-净-5。每轮采用首份提示及本轮formatter配置，外部文件/桌面/locale若在旧两次读取间变化，不宣称等于旧第二次结果，下轮仍重读。测试净+58行，977行fixture保原55项并加无/缺文件/当前桌面/双提示四相位，真实文案/顺序、3或4区块、添加与最近使用文本保持；原预览交付8项保持。基线两方法通过；同最终夹具旧新59+8业务结果相等全真，仅旧准备次数字典一项红：有最近使用formatter4→1，无最近使用2→1，非空notices及受控desktop getter2→1，空仍1。只在临时副本原getter/构造点计数，真实body未替换，交付路径仅归一化独立临时根；desktop计数不冒充NSWorkspace IPC/耗时。独审、werror和实际输入身份通过，隔离构建/质量结果归本批证据；未测整App/真实桌面变化、性能或能耗。下一方向核播放列表目录是否为只消费数量/首封面而完整排序和resolve全部成员，保所有canonical cycle检查、首项缺失/tie和provider owner，不添缓存补丁。
 
+R21（5e014c93b起）：目录成员只消费canonical去重数与(position,input offset)首项provider owner，原每列表完整排序/逐条resolve收为一次扫描canonical并strict位置选首，末尾仅resolve首项；保存terminal canonical，去重不阻止更早重复alias参与选首，同位仍保输入首。分组、Resolver初始化、全部有效列表member的canonical、search与末尾rank/UUID排序保持；孤儿组范围不扩。末尾沿原resolve仍有一次终端canonical检查，不加API/state/cache/helper，产品7+/8-净-1。测试净+138行，保101旧query检查，新增tie反转、极值、较早重复alias、native/backing owner、515原条目反序/513唯一、空列表、完整entry元数据及tail/init/filter错误反例；临时副本只计真实Resolver入口。基线Query101/Presentation144/原生目录235全绿；同最终夹具旧新query118仅旧2成本key红，其余116与Presentation144全真等价，4成员解析4→1、515→1，单项1和空0保持。Presentation只有9个case名带每轮随机首列表UUID，核源后仅规范化这些标签，不改业务值或身份断言；初次generator误匹配inline同名入口失败未计绿，限多行真实入口后通过。多坏member检测先后可能不同，但唯一固定alias-cycle错误与整次失败无部分发布保持。独审、werror/实际输入身份通过，隔离构建/质量结果归本批证据。原生目录沿未变输入复用，fixture entry不冒充Query→UI端到端；未测整App、耗时或能耗，也不保证所有小输入更快。下一方向核Sidebar单child读取是否全量投影播放列表，保displayed顺序与原节点身份、pending/epoch/revision和拖序责任，不加缓存补丁。
+
 “无调用”须排查 selector、协议回调、独立进程、作者脚本、动态资源及调试工具；测试、文档或结构登记出现名字不等于产品调用。第一批只删除已确认不可达的链路，不以行数作为收益或验收目标。
 
 ## 第一批设计与停止条件
