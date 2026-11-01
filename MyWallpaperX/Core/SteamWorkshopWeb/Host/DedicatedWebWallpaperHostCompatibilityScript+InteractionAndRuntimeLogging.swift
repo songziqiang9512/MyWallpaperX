@@ -310,7 +310,10 @@ let webCompatibilityScriptInteractionAndRuntimeLogging = #"""
         hostLogger?.post('fetch.compat', String(rawURL));
         return Promise.resolve(companionResponse);
       }
+      let signal = init?.signal;
+      if (signal === undefined) signal = resource?.signal;
       return originalFetch(resource, init).catch(error => {
+        if (signal?.aborted || error?.name === 'AbortError') throw error;
         try {
           const url = new URL(String(rawURL || ''), document.location.href);
           const localPath = url.pathname.replace(/^\/+/, '');

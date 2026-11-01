@@ -305,6 +305,9 @@ final class PageHost {
         } else {
             crossOriginSchemeHandler = nil
         }
+        configuration.userContentController.addUserScript(WKUserScript(
+            source: "window.__mwxNativeFetch = window.fetch.bind(window);",
+            injectionTime: .atDocumentStart, forMainFrameOnly: false))
         if stubNativeFetch {
             // 生产里 fetch 代理的触发点是原生 fetch 的跨域失败；这里用同样必然
             // 失败的桩替换原生 fetch，令用例完全不发真实网络请求。
@@ -375,6 +378,7 @@ enum Scenarios {
         case "f40": try await domContentLoadedListenerIdentity()
         case "f29": try await dynamicMediaVolumeBackfill()
         case "f19": try await networkBridgeBinaryRestore()
+        case "native-abort-matrix": try await nativeAbortMatrix()
         case "frames": try await frameInjectionBoundaries()
         case "release-diagnostics": try await releaseWithoutDiagnosticBridge()
         case "bridge-budget": try await bridgeBudgetConservation()
@@ -384,6 +388,93 @@ enum Scenarios {
             ])
         }
         print("web-compat-parity-pass: \(name)")
+    }
+
+    static func nativeAbortMatrix() async throws {
+        let stub = NetworkBridgeStub()
+        let host = PageHost(html: "<meta http-equiv=\"Content-Security-Policy\" content=\"connect-src 'none'\"><body>abort probe</body>",
+                            stubNativeFetch: false, networkStub: stub)
+        defer { host.close() }
+        try await host.open()
+        try await host.waitUntil("window.__mwxHostReplyReachable === true", label: "native abort probe reply channel")
+        _ = try await host.script(#"""
+        window.__mwxAbortProbeResults = [];
+        window.__mwxAbortProbeCases = [
+          {name:'url-default', input:'url', reason:'default', override:'aborted', method:'GET'},
+          {name:'url-custom', input:'url', reason:'object', override:'aborted', method:'GET'},
+          {name:'url-null-reason', input:'url', reason:'null', override:'aborted', method:'HEAD'},
+          {name:'request-inherit', input:'request', reason:'default', override:'missing', method:'GET'},
+          {name:'request-undefined', input:'request', reason:'object', override:'undefined', method:'HEAD'},
+          {name:'request-null', input:'request', reason:'object', override:'null', method:'GET'},
+          {name:'request-active', input:'request', reason:'object', override:'active', method:'HEAD'},
+          {name:'url-active', input:'url', reason:'object', override:'active', method:'GET'},
+          {name:'replace-custom-with-active', input:'url', reason:'object', override:'aborted', replace:'active', method:'GET'},
+          {name:'replace-active-with-aborted', input:'url', reason:'object', override:'active', replace:'aborted', method:'HEAD'}
+        ];
+        window.__mwxAbortProbeRun = async (index, phase) => {
+          const spec = window.__mwxAbortProbeCases[index];
+          const aborted = new AbortController(), active = new AbortController();
+          if (spec.reason === 'default') aborted.abort();
+          else aborted.abort(spec.reason === 'null' ? null : {probe:spec.name});
+          const url = 'https://mwx-r48.invalid/abort-probe/' + spec.method;
+          const input = spec.input === 'request' ? new Request(url, {signal:aborted.signal, method:spec.method}) : url;
+          const init = {method:spec.method};
+          if (spec.override === 'undefined') init.signal = undefined;
+          if (spec.override === 'null') init.signal = null;
+          if (spec.override === 'active') init.signal = active.signal;
+          if (spec.override === 'aborted') init.signal = aborted.signal;
+          const constructed = new Request(input, init);
+          const row = {phase, name:spec.name, input:spec.input, method:spec.method, reasonKind:spec.reason,
+            override:spec.override, replace:spec.replace || null,
+            constructedSignalAborted:constructed.signal.aborted,
+            constructedReasonMatches:Object.is(constructed.signal.reason, aborted.signal.reason)};
+          const fetcher = phase === 'native' ? window.__mwxNativeFetch : window.fetch.bind(window);
+          try {
+            const pending = fetcher(input, init);
+            if (spec.replace) init.signal = spec.replace === 'active' ? active.signal : aborted.signal;
+            const response = await pending;
+            row.outcome = 'fulfilled'; row.status = response.status;
+            row.errorName = null; row.reasonMatches = false;
+          } catch (error) {
+            row.outcome = 'rejected'; row.errorName = error?.name || null;
+            row.reasonMatches = Object.is(error, aborted.signal.reason);
+          }
+          window.__mwxAbortProbeResults.push(row);
+        };
+        true;
+        """#)
+        let count = try await host.script("window.__mwxAbortProbeCases.length") as! Int
+        var ordinal = 0
+        var facts: [[String: Any]] = []
+        for phase in ["native", "product"] {
+            for index in 0..<count {
+                let before = stub.receivedRequestCount
+                _ = try await host.script("window.__mwxAbortProbeRun(\(index), '\(phase)'); true")
+                ordinal += 1
+                try await host.waitUntil("window.__mwxAbortProbeResults.length === \(ordinal)", label: "abort matrix \(phase) \(index)")
+                let json = try await host.script("JSON.stringify(window.__mwxAbortProbeResults[\(ordinal - 1)])") as! String
+                var row = try JSONSerialization.jsonObject(with: Data(json.utf8)) as! [String: Any]
+                row["bridgeRequests"] = stub.receivedRequestCount - before
+                let data = try JSONSerialization.data(withJSONObject: row, options: [.sortedKeys])
+                print("WK_ABORT_FACT=" + String(decoding: data, as: UTF8.self))
+                facts.append(row)
+            }
+        }
+        var failures: [String] = []
+        for index in 0..<count {
+            let native = facts[index], product = facts[index + count]
+            let cancelled = native["constructedSignalAborted"] as? Bool == true
+            let nativeValid = native["bridgeRequests"] as? Int == 0 && native["outcome"] as? String == "rejected"
+                && (cancelled ? native["reasonMatches"] as? Bool == true : native["errorName"] as? String == "TypeError")
+            let expectedOutcome = cancelled ? native["outcome"] as? String : "fulfilled"
+            let expectedReason = cancelled ? native["reasonMatches"] as? Bool : false
+            let productValid = product["outcome"] as? String == expectedOutcome
+                && product["reasonMatches"] as? Bool == expectedReason
+                && product["bridgeRequests"] as? Int == (cancelled ? 0 : 1)
+                && (cancelled || product["status"] as? Int == 200)
+            if !nativeValid || !productValid { failures.append(native["name"] as! String) }
+        }
+        expect(failures.isEmpty, "native abort matrix mismatches: \(failures)")
     }
 
     static func emptySourceLateAssignment() async throws {

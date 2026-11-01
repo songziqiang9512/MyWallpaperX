@@ -10,6 +10,8 @@
 - F40：DOMContentLoaded 包装器破坏 addEventListener/removeEventListener 同一性。
 - F29：宿主音量只对快照节点生效，动态新建的媒体节点以默认音量播放。
 - F19：网络代理回填非 UTF-8 响应体时缺少编码标志，fetch/XHR 只能拿到文本。
+- native-abort：真实 Request/fetch 在 CSP connect-src 'none' 下核取消与 signal 覆盖；
+  不发外部请求，代理仍用既有回包桩，全部事实先打印再统一断言。
 - frames：D5 frame 定向投递合同——每个注入文档 hello 登记后宿主按 frame 定向
   回写 ack；属性/音量推送经宿主逐 endpoint 定向投递直达全部已注册 frame（含
   跨源子 frame，无需主 frame 中继）；网络回包按发送 frame 定向送达；dom.ready
@@ -145,6 +147,10 @@ class WebCompatibilityParityTests(unittest.TestCase):
 
     def test_f19_network_bridge_binary_restore(self) -> None:
         self.scenario("f19")
+
+    def test_native_fetch_cancellation_preserves_signal_overrides(self) -> None:
+        """Compare the product wrapper with native WK fetch, including custom reasons."""
+        self.scenario("native-abort-matrix")
 
     def test_release_has_no_diagnostics_but_keeps_ready_and_audio(self) -> None:
         self.scenario("release-diagnostics")

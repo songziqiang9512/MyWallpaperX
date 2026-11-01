@@ -34,7 +34,7 @@
     },
     "docs/development/code-slimming-program.md": {
       "lines": 464,
-      "bytes": 103176
+      "bytes": 103416
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -1739,10 +1739,10 @@
     {
       "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
-      "before": "62289ae871ccb27ea7ab9ea3a5883914b54667d45be83ed4d83dbdee1398d91e",
-      "after": "e1fc47e612786e3b6666b4c453730ed5a56f763c7024d5ca27bf801b03a198db",
+      "before": "e1fc47e612786e3b6666b4c453730ed5a56f763c7024d5ca27bf801b03a198db",
+      "after": "9d0427e16bee6b8339ea1a3d985c0fd69b828815b9154ad15af9fbb444011f94",
       "owner": "repository-maintainer",
-      "reason": "原位记录R47旧slot便利链退出、真实H264/可见性旧新证据及独立门SDK警告边界；仅更新本authority预算和既有receipt，不动Scene与其他历史。",
+      "reason": "原位记录R48真实WK取消误代理反证、三语句最小修复及原生/四控制旧新证据；仅更新本authority预算和既有receipt，保其他历史与Scene全部叶。",
       "decision": "docs/development/code-slimming-program.md#目标与边界"
     },
     {
