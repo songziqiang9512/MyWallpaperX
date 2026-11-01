@@ -709,9 +709,18 @@ enum Harness {
                 blendMode: .translucent, gradientBackground: false, instance: instance)
             return Array(pixels[((16 * 32 + 16) * 4)..<((16 * 32 + 16) * 4 + 4)]).map(Int.init)
         }
+        let rg88NormalURL = directory.appendingPathComponent("rg88-normal.tex")
+        try makeTex(format: 8, payload: Data((0..<16).flatMap { _ in [UInt8(128), UInt8(0)] }))
+            .write(to: rg88NormalURL)
         let normalAtlasURL = directory.appendingPathComponent("different-normal-frames.tex")
         try makeTex(format: 0, payload: Data((0..<16).flatMap { _ in [UInt8(255),128,0,128] }),
             frames: frames).write(to: normalAtlasURL)
+        let rg88Accepted = try SceneParticleRefractionTextureLoader.load(
+            colorSource: .file(.externalFile(urls["fractional"]!)),
+            declaration: SceneParticleRefractionDeclaration(
+                normalTextureSource: .file(.externalFile(rg88NormalURL)),
+                amount: 1, overbright: 1),
+            textureLoader: loader, device: device) != nil
         var rejected: [String: Bool] = [:]
         for (name, normalURL) in [("normalR8Rejected", urls["fractional"]!),
                                    ("normalFramesMismatchRejected", normalAtlasURL)] {
@@ -731,6 +740,7 @@ enum Harness {
             "rawNormalSample": try readPixel(loaded(loader.load(from: urls["fractional"]!,
                 purpose: .normal, device: device))).map(Int.init),
             "normalR8Rejected": rejected["normalR8Rejected"]!,
+            "normalRg88Accepted": rg88Accepted,
             "normalFramesMismatchRejected": rejected["normalFramesMismatchRejected"]!]
     }
 

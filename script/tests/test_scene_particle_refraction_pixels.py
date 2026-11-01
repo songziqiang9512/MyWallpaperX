@@ -234,6 +234,7 @@ class SceneParticleRefractionPixelTests(unittest.TestCase):
         self.assertEqual(values["atlasMip"], [255, 255, 255, 32])
         self.assertEqual(values["atlasUVScale"], [1, 1])
         self.assertTrue(values["normalR8Rejected"])
+        self.assertTrue(values["normalRg88Accepted"])
         self.assertTrue(values["normalFramesMismatchRejected"])
         self.assertEqual(values["gradientAmounts"][0], values["gradientAmounts"][1])
         self.assertEqual(values["gradientAmounts"][2], values["gradientAmounts"][1])

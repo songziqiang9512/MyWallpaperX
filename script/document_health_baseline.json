@@ -133,8 +133,8 @@
       "bytes": 10869
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 533,
-      "bytes": 170209
+      "lines": 534,
+      "bytes": 170454
     },
     "docs/scene/capabilities/previous-blurred-composite-admission.md": {
       "lines": 20,
@@ -1904,11 +1904,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "9f5b997570d0b8dbd2a4f902156c7c6760902bbfaa4bc63742bbf9016b1b3039",
-      "after": "6ef77568eadcd5766004ef14fdb994ac95c161044f19f37c00ff707c800f5975",
-      "owner": "scene-sprite-trail-aspect",
-      "reason": "在已提交world Rope/pointer合同上整合SpriteTrail比例设计及真实原包/修前对照；保留两侧职责与证据边界，不新增重复链。",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#sprite-trail-frame-aspect"
+      "before": "6ef77568eadcd5766004ef14fdb994ac95c161044f19f37c00ff707c800f5975",
+      "after": "437c5f8b2c64051ba129ad6818356c959a71026bd7e7b1eef75a5fffd5ac8b17",
+      "owner": "scene-particle-refraction-rg88",
+      "reason": "rg88 authored normal 现可准入折射：normal 白名单 0/4/8、rg8Unorm 采样补 A=1；仅证明可加载与绑定，无像素门。",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#refract-rg88-normal"
     },
     {
       "section": "bodies",

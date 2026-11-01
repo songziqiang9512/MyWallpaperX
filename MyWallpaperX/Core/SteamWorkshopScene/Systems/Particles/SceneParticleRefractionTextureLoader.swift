@@ -56,7 +56,7 @@ enum SceneParticleRefractionTextureLoader {
                     : textureLoader.prepareTexSource(from: normalInput)),
                   let normalContainer = prepared.container,
                   let format = SceneShaderTextureFormat(rawValue: normalContainer.format),
-                  format == .rgba8888 || format == .dxt5 else {
+                  [.rgba8888, .rg88, .dxt5].contains(format) else {
                 return nil
             }
             normalFormat = format

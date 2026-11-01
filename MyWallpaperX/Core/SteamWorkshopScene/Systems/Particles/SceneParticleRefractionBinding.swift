@@ -73,9 +73,11 @@ struct SceneParticleRefractionBinding {
             return Self.resolve(candidate)
         case let .baseV1(texture, usesParticleFrames, uvScale, sampling, authoredFormat):
             guard authoredFormat == nil || authoredFormat == .rgba8888
-                || authoredFormat == .dxt5 else { return nil }
+                || authoredFormat == .rg88 || authoredFormat == .dxt5
+                else { return nil }
             if let authoredFormat {
                 guard texture.pixelFormat == .rgba8Unorm
+                    || (texture.pixelFormat == .rg8Unorm && authoredFormat == .rg88)
                     || (texture.pixelFormat == .bc3_rgba && authoredFormat == .dxt5)
                     else { return nil }
             }
@@ -99,11 +101,18 @@ struct SceneParticleRefractionBinding {
     private static func resolve(
         _ candidate: SceneTextureCandidate
     ) -> NormalArguments? {
+        // A two-channel authored normal (rg88) has no blue or alpha storage.
+        // The particle refraction shader decodes X from the sampled alpha and
+        // Y from green, with red as mask; an rg8Unorm sample supplies A=1, so
+        // rg88 reads as X=+1 with the authored red mask. stock light_shafts_0
+        // keeps red at 255, which matches that decode.
         guard let authoredFormat = candidate.authoredFormat,
-              authoredFormat == .rgba8888 || authoredFormat == .dxt5,
+              authoredFormat == .rgba8888 || authoredFormat == .rg88
+                || authoredFormat == .dxt5,
               let uvScale = candidate.axisAlignedMappedUVScale(
             expectedPurpose: .normal
         ), candidate.pixelFormat == .rgba8Unorm
+            || (candidate.pixelFormat == .rg8Unorm && authoredFormat == .rg88)
             || (candidate.pixelFormat == .bc3_rgba && authoredFormat == .dxt5),
               candidate.texture.textureType == .type2D,
               candidate.texture.sampleCount == 1,
