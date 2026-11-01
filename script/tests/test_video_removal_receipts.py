@@ -2,6 +2,7 @@
 
 No App/window/runtime or user media. The original unlink body is paused at its
 admission/durability boundaries; real final unlink, epochs, identity and receipts run.
+Array reads and the real path normalizer are observed in the extracted fixture.
 Retired index-only UI deletion is not preserved as a test-only product API.
 """
 import hashlib
@@ -24,6 +25,7 @@ class VideoRemovalReceiptsTests(unittest.TestCase):
         model = ROOT / "MyWallpaperX/Models/VideoWallpaper.swift"
         fixture = ROOT / "script/tests/fixtures/VideoRemovalReceiptsHarness.swift"
         runtime = ROOT / "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+RuntimeSwitching.swift"
+        manager = ROOT / "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager.swift"
         images = ROOT / "MyWallpaperX/Modules/StaticImageLibrary/Core/SILService.swift"
         shared = [ROOT / "MyWallpaperX" / p for p in (
             "Models/WallpaperReference.swift", "Models/WallpaperSourceImportResult.swift",
@@ -40,13 +42,17 @@ class VideoRemovalReceiptsTests(unittest.TestCase):
         if methods.count(boundary) != 1: raise AssertionError("Video final admission boundary must be unique")
         methods = methods.replace(boundary, "                PhysicalFileProbe.shared.beforeAdmission(request.url)\n" + boundary)
         methods += "\n" + declaration(runtime.read_text(), "    enum RuntimeSwitchSelection")
+        normalizer = declaration(manager.read_text(), "    func normalizedPath(")
+        normalizer = normalizer.replace("{\n", "{\n        normalizationCalls += 1\n", 1)
+        normalizer = normalizer.replace("\n        URL(fileURLWithPath:", "\n        return URL(fileURLWithPath:", 1)
+        methods += "\n" + normalizer
         value_types = declaration(support.read_text(), "struct WallpaperDeletionFailure")
         body = fixture.read_text().replace("// ACTUAL_REMOVAL_METHODS", methods).replace("// ACTUAL_RESULT_TYPES", value_types)
         image_delete = declaration(images.read_text(), "    func deleteSourceFiles(")
         if image_delete.count(boundary) != 1: raise AssertionError("Image final admission boundary must be unique")
         image_delete = image_delete.replace(boundary, "                PhysicalFileProbe.shared.beforeAdmission(request.url)\n" + boundary)
         body = body.replace("// ACTUAL_IMAGE_SOURCE_DELETE", image_delete)
-        inputs = [Path(__file__).resolve(), removal, support, model, fixture, runtime, images, *shared]
+        inputs = [Path(__file__).resolve(), removal, support, model, fixture, runtime, manager, images, *shared]
         hashes = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in inputs}
         with tempfile.TemporaryDirectory(prefix="mwx-video-removal-", dir="/private/tmp") as directory:
             work = Path(directory)
@@ -75,6 +81,18 @@ class VideoRemovalReceiptsTests(unittest.TestCase):
             for name, passed in checks.items():
                 with self.subTest(name=name): self.assertIs(passed, True, run.stdout + run.stderr)
             print(json.dumps(checks, sort_keys=True))
+            observations = [json.loads(line.removeprefix("Video removal work: "))
+                for line in run.stderr.splitlines() if line.startswith("Video removal work: ")]
+            self.assertEqual(len(observations), 1, run.stderr)
+            work = observations[0]
+            print(json.dumps({"removalWork": work}, sort_keys=True))
+            budgets = {"preparationReads": 0, "preparationNormalizations": 16,
+                "finalNormalizations": 48, "busyConsumerNormalizations": 1}
+            self.assertEqual(set(work), set(budgets))
+            for name, limit in budgets.items():
+                with self.subTest(work=name):
+                    self.assertGreaterEqual(work[name], 0)
+                    self.assertLessEqual(work[name], limit, run.stderr)
         self.assertEqual(hashes, {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in inputs})
 
 

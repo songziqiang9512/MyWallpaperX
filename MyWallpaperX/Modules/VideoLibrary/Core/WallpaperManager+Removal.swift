@@ -22,6 +22,7 @@ extension WallpaperManager {
     /// Only the explicit checked removal uses this file operation. Source rows
     /// remain facts; the relationship Store owns durable library exclusion.
     func deleteSourceFiles(_ targets: [VideoWallpaper], completion: @escaping (WallpaperSourceDeletionResult) -> Void) {
+        // The command supplies current rows in this Main turn; queued work rechecks them at unlink.
         let epoch = wallpaperIndexSaveEpoch
         var results: [WallpaperSourceDeletionResult.Item] = []
         var requests: [(WallpaperReference, WallpaperSourceFileDeletion.Prepared)] = []
@@ -32,10 +33,7 @@ extension WallpaperManager {
             let url = URL(fileURLWithPath: target.path).standardizedFileURL
             do {
                 guard allowsLibraryMutation else { throw CocoaError(.fileWriteNoPermission) }
-                guard wallpapers.contains(where: { $0.id.utf8.elementsEqual(target.id.utf8) && normalizedPath($0.path) == normalizedPath(url.path) }) else {
-                    throw CocoaError(.fileNoSuchFile, userInfo: [NSLocalizedDescriptionKey: "资料库条目已变化"])
-                }
-                guard !isLocalSourceFileInUse(normalizedPath(url.path)) else {
+                guard !isLocalSourceFileInUse(url.path) else {
                     throw CocoaError(.fileWriteNoPermission, userInfo: [NSLocalizedDescriptionKey: "源视频正在播放或准备，请先停止播放后重试"])
                 }
                 requests.append((reference, try WallpaperSourceFileDeletion.prepare(url)))
@@ -54,7 +52,7 @@ extension WallpaperManager {
                 let unlinked = DispatchQueue.main.sync {
                     guard self.wallpaperIndexSaveEpoch == epoch && self.allowsLibraryMutation
                         && self.wallpapers.contains(where: { $0.id.utf8.elementsEqual(reference.sourceID.utf8) && self.normalizedPath($0.path) == self.normalizedPath(request.url.path) })
-                        && !self.isLocalSourceFileInUse(self.normalizedPath(request.url.path)) else {
+                        && !self.isLocalSourceFileInUse(request.url.path) else {
                         return WallpaperSourceFileDeletion.Outcome(sourceFileDeleted: false,
                             failureMessage: "资料库或播放状态已变化，未删除源文件")
                     }

@@ -81,7 +81,13 @@ private final class WallpaperManager {
     var protectedSystemDesktopURLs = Set<URL>()
     let deletionQueue = DispatchQueue(label: "mwx.tests.video-removal", qos: .utility)
     let probe = DerivedFileProbe()
-    var wallpapers: [VideoWallpaper] = []
+    private var storedWallpapers: [VideoWallpaper] = []
+    var wallpaperReads = 0
+    var normalizationCalls = 0
+    var wallpapers: [VideoWallpaper] {
+        get { wallpaperReads += 1; return storedWallpapers }
+        set { storedWallpapers = newValue }
+    }
     var playbackSwitch = PlaybackSwitchTransaction()
     var switchSelections: [UUID: RuntimeSwitchSelection] = [:]
     var currentWallpaper: VideoWallpaper?
@@ -100,7 +106,6 @@ private final class WallpaperManager {
     var saves: [Bool] = []
     var autoRemovedTitles: [[String]] = []
     func saveWallpapers() { saves.append(Thread.isMainThread) }
-    func normalizedPath(_ path: String) -> String { URL(fileURLWithPath: path).resolvingSymlinksInPath().standardizedFileURL.path }
     func pathExists(_ path: String) -> Bool { probe.exists(path) }
     func thumbnailOutputURL(forKey key: String) -> URL { URL(fileURLWithPath: key).appendingPathExtension("generated-thumb") }
     func staticFrameOutputURL(forKey key: String) -> URL { URL(fileURLWithPath: key).appendingPathExtension("generated-frame") }
@@ -147,6 +152,7 @@ private final class SILService {
     static func main() throws {
         let root = URL(fileURLWithPath: CommandLine.arguments[1])
         var checks: [String: Bool] = [:]
+        var work: [String: Int] = [:]
         func row(_ group: String, _ id: String) throws -> VideoWallpaper {
             let directory = root.appendingPathComponent(group)
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -387,6 +393,52 @@ private final class SILService {
                 && manager.wallpapers[0].id.utf8.elementsEqual(nfc.id.utf8) && manager.wallpapers[1].id == replacement.id
                 && intact(nfc) && intact(nfd)
         }
+        do {
+            let manager = WallpaperManager()
+            let rows = try (0..<16).map { try row("reverse-batch", "row-\($0)") }
+            manager.wallpapers = rows
+            let targets = Array(manager.wallpapers.reversed()) + [rows[3], rows[0]]
+            manager.normalizationCalls = 0
+            let busy = manager.isLocalSourceFileInUse(rows[0].path)
+            work["busyConsumerNormalizations"] = manager.normalizationCalls
+            checks["actual-busy-consumer-normalizes-its-one-raw-input"] = !busy && manager.normalizationCalls == 1
+            let hold = manager.holdQueue(); precondition(hold.0.wait(timeout: .now() + 3) == .success)
+            _ = PhysicalFileProbe.shared.begin()
+            manager.wallpaperReads = 0; manager.normalizationCalls = 0
+            var receipts: [WallpaperSourceDeletionResult] = []
+            manager.deleteSourceFiles(targets) { receipts.append($0) }
+            let preparationReads = manager.wallpaperReads, preparationNormalizations = manager.normalizationCalls
+            work["preparationReads"] = preparationReads
+            work["preparationNormalizations"] = preparationNormalizations
+            checks["batch-preparation-retains-all-files-until-the-original-queue-runs"] = receipts.isEmpty && rows.allSatisfy(intact)
+            hold.1.signal(); wait("reversed batch receipt missing") { receipts.count == 1 }; drain(manager)
+            let finalReads = manager.wallpaperReads - preparationReads
+            work["finalNormalizations"] = manager.normalizationCalls - preparationNormalizations
+            checks["reverse-current-row-batch-deduplicates-targets-and-returns-one-complete-receipt"] = receipts.count == 1
+                && receipts[0].items.map(\.reference.sourceID) == rows.reversed().map(\.id)
+                && receipts[0].items.allSatisfy { $0.succeeded && $0.sourceFileDeleted }
+                && rows.allSatisfy { !FileManager.default.fileExists(atPath: $0.path) && derivedPresent($0) }
+                && manager.wallpapers == rows && manager.saves.isEmpty
+            checks["batch-final-admission-reloads-current-rows-before-each-real-unlink"] = finalReads == rows.count
+                && PhysicalFileProbe.shared.unlinkReads.count == rows.count
+                && PhysicalFileProbe.shared.unlinkReads.allSatisfy { $0.1 }
+                && PhysicalFileProbe.shared.reads.count == rows.count && PhysicalFileProbe.shared.reads.allSatisfy { !$0.1 }
+        }
+        do {
+            let manager = WallpaperManager(), stale = try row("direct-stale", "old"), neighbor = try row("direct-stale", "neighbor")
+            manager.wallpapers = [neighbor]
+            let hold = manager.holdQueue(); precondition(hold.0.wait(timeout: .now() + 3) == .success)
+            _ = PhysicalFileProbe.shared.begin()
+            var receipts: [WallpaperSourceDeletionResult] = []
+            manager.deleteSourceFiles([stale]) { receipts.append($0) }
+            hold.1.signal(); wait("stale direct input did not settle") { receipts.count == 1 }; drain(manager)
+            checks["stale-direct-input-eventually-refuses-with-one-receipt-and-preserves-every-file"] = receipts.count == 1
+                && receipts[0].items.count == 1 && receipts[0].items[0].reference == .init(provider: .videoLibrary, sourceID: stale.id)
+                && !receipts[0].items[0].succeeded && !receipts[0].items[0].sourceFileDeleted
+                && intact(stale) && intact(neighbor) && derivedPresent(stale) && derivedPresent(neighbor)
+                && PhysicalFileProbe.shared.unlinkReads.isEmpty && manager.wallpapers == [neighbor] && manager.saves.isEmpty
+        }
+        FileHandle.standardError.write(Data("Video removal work: \(String(data: try JSONEncoder().encode(work), encoding: .utf8)!)\n".utf8))
         print(String(data: try JSONEncoder().encode(checks), encoding: .utf8)!)
     }
 
