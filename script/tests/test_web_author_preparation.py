@@ -1,11 +1,12 @@
 """Real author parser, cheap warm cache, binding and cancellation behavior.
 
-Production files are compiled verbatim; only library/card/defaults/bookmark/UI
-collaborators are controlled. Instrumentation observes real IO/parse entry and
-can pause those leaves; it never supplies a replacement parser or traversal.
+Production methods run in a compiled copy; library/card/defaults/bookmark/UI
+collaborators are controlled. Temporary probes observe IO/parse and option-method
+entry; only IO/parse leaves pause. Parser, traversal and option filter run unchanged.
 """
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -58,6 +59,7 @@ nonisolated final class Trace: @unchecked Sendable {
     let lock = NSLock()
     var reads: [(String, Int, Bool)] = []
     var parses = 0
+    var optionCalls: [String: Int] = [:]
     var readGate: Gate?
     var parseGate: Gate?
     func record(_ url: URL, _ count: Int, _ certified: Bool) {
@@ -65,9 +67,11 @@ nonisolated final class Trace: @unchecked Sendable {
         gate?.pause()
     }
     func parse() { let gate = lock.withLock { parses += 1; return parseGate }; gate?.pause() }
-    func reset() { lock.withLock { reads = []; parses = 0; readGate = nil; parseGate = nil } }
+    func options(_ key: String) { lock.withLock { optionCalls[key, default: 0] += 1 } }
+    func reset() { lock.withLock { reads = []; parses = 0; optionCalls = [:]; readGate = nil; parseGate = nil } }
     var rows: [(String, Int, Bool)] { lock.withLock { reads } }
     var parseCount: Int { lock.withLock { parses } }
+    var optionsByKey: [String: Int] { lock.withLock { optionCalls } }
 }
 nonisolated final class Gate: @unchecked Sendable {
     let entered = DispatchSemaphore(value: 0)
@@ -321,6 +325,66 @@ CHECKS = r'''
                 check(repairedObject == expectedMinimal, "invalid optional metadata retains the original minimal-value fallback")
             }
         }
+        let mixedRoot = try JSONSerialization.jsonObject(with: Data(#"""
+        {"general":{"properties":{
+          "notice":{"type":"text","value":"Heading","options":[{"label":"Unused","value":"n","condition":"mode.text == 'Automatic'"}]},
+          "section":{"type":"group","value":"Group","options":[{"label":"Unused","value":"g","condition":"enabled.value"}]},
+          "enabled":{"type":"bool","value":true},
+          "mode":{"type":"combo","value":"auto","options":[{"label":"Automatic","value":"auto","condition":"enabled.value == false"},{"label":"Custom","value":"custom"}]},
+          "dependent":{"type":"combo","value":"yes","options":[{"label":"Matches","value":"yes","condition":"mode.text == 'Automatic'"},{"label":"Other","value":"no","condition":"mode.text == 'Custom'"}]}
+        }}}
+        """#.utf8)) as! [String: Any]
+        let mixed = SteamWorkshopService.webPropertyDefinitions(projectRoot: mixedRoot)
+        var mixedValues = Dictionary(uniqueKeysWithValues: mixed.map { ($0.key, $0.defaultValue) })
+        var optionWork: [String: [String: Int]] = [:]
+        trace.reset()
+        let mixedObject = try object(service.effectiveWebPropertiesJSONString(for: record, definitions: mixed,
+            valuesOverride: mixedValues, bindingContext: noBindings))
+        optionWork["mixed"] = trace.optionsByKey
+        let mixedExpected = try object(#"{"enabled":{"type":"bool","value":true},"mode":{"type":"combo","value":"auto","text":"Automatic","options":[{"label":"Custom","value":"custom"}]},"dependent":{"type":"combo","value":"yes","text":"Matches","options":[{"label":"Matches","value":"yes"}]}}"#)
+        check(mixedObject == mixedExpected, "static controls are omitted while hidden selected text drives cross-property options")
+        mixedValues["mode"] = .string("custom")
+        trace.reset()
+        let changedObject = try object(service.effectiveWebPropertiesJSONString(for: record, definitions: mixed,
+            valuesOverride: mixedValues, bindingContext: noBindings))
+        optionWork["changed"] = trace.optionsByKey
+        let changedExpected = try object(#"{"enabled":{"type":"bool","value":true},"mode":{"type":"combo","value":"custom","text":"Custom","options":[{"label":"Custom","value":"custom"}]},"dependent":{"type":"combo","value":"yes","text":"Matches","options":[{"label":"Other","value":"no"}]}}"#)
+        check(changedObject == changedExpected, "a new value updates dependent options without replacing hidden selected text")
+
+        let staticDefinitions = mixed.filter { $0.kind == .label || $0.kind == .group }
+        let staticValues = Dictionary(uniqueKeysWithValues: staticDefinitions.map { ($0.key, $0.defaultValue) })
+        trace.reset()
+        let staticObject = try object(service.effectiveWebPropertiesJSONString(for: record, definitions: staticDefinitions,
+            valuesOverride: staticValues, bindingContext: noBindings))
+        optionWork["static"] = trace.optionsByKey
+        let staticExpected = try object(#"{"notice":{"type":"text","value":"Heading","options":[]},"section":{"type":"text","value":"Group","options":[]}}"#)
+        check(staticObject == staticExpected, "all-static definitions preserve the original runtime-value fallback")
+        trace.reset()
+        let emptyObject = try object(service.effectiveWebPropertiesJSONString(for: record, definitions: [],
+            valuesOverride: [:], bindingContext: noBindings))
+        optionWork["empty"] = trace.optionsByKey
+        check(emptyObject == NSDictionary(), "empty definitions and values still encode an empty object")
+
+        try write("fixture", "preview.png", own)
+        let presetBindings = SteamWorkshopService.WebAuthorBindingContext(
+            candidateRoots: [.init(source: .recordFolder, url: own)],
+            pathlikePresetValues: ["background_image": .string("preview.png")])
+        trace.reset()
+        let presetObject = try object(service.effectiveWebPropertiesJSONString(for: record, definitions: [],
+            valuesOverride: ["background_image": .string("preview.png")], bindingContext: presetBindings))
+        optionWork["preset"] = trace.optionsByKey
+        let presetExpected: NSDictionary = ["background_image": ["type": "file", "filetype": "image",
+            "value": own.appendingPathComponent("preview.png").path]]
+        check(presetObject == presetExpected, "a definition-free pathlike preset keeps its bound file payload")
+        // Compare the actual payload across isolated fixture roots after its full path assertion.
+        var projectedPreset = presetObject["background_image"] as! [String: Any]
+        projectedPreset["value"] = String((projectedPreset["value"] as! String).dropFirst(own.path.count))
+        let optionProjection = try JSONSerialization.data(withJSONObject: ["mixed": mixedObject,
+            "changed": changedObject, "static": staticObject, "empty": emptyObject,
+            "preset": ["background_image": projectedPreset]], options: [.sortedKeys])
+        let work = try JSONSerialization.data(withJSONObject: optionWork, options: [.sortedKeys])
+        print("web-option-payload-projection:" + String(decoding: optionProjection, as: UTF8.self))
+        print("web-option-work:" + String(decoding: work, as: UTF8.self))
         let projection = try JSONSerialization.data(withJSONObject: ["full": fullObject, "single": singleObject,
             "fallback": fallbackObject, "nonfiniteCases": 3, "metadataCases": 9], options: [.sortedKeys])
         print("web-json-payload-projection:" + String(decoding: projection, as: UTF8.self))
@@ -347,7 +411,11 @@ def harness_source() -> str:
     front = (WEB / 'SteamWorkshopService+WebValidation.swift').read_text()
     access = (CORE / 'SteamWorkshopService+DownloadAccessors.swift').read_text()
     pieces += ['extension SteamWorkshopService {\n' + method(front, 'func webLaunchEntryIsValid(') + '\n' + method(access, 'func canLaunchDownloadRecord(') + '\n' + method(access, 'func cachedCanLaunchDownloadRecord(') + '\n}']
-    pieces += ['extension SteamWorkshopService {\n' + method(reclamation, 'func libraryVersionLifetime(recordID:') + '\n' + method(reclamation, 'func libraryVersionLifetime(for record:') + '\n' + '\n'.join(method(props, name) for name in ('nonisolated func visibleWebPropertyOptions(', 'nonisolated func shouldDisplayWebProperty(')) + '\n' + '\n'.join(method(risk, name) for name in ('nonisolated static func resolvedWebStructuralRiskFlags(', 'nonisolated static func webHasKnownSafariIncompatibility(', 'nonisolated func resolvedWebStaticContentRiskFlags(')) + '\n}']
+    visible_options = method(props, 'nonisolated func visibleWebPropertyOptions(')
+    assert visible_options.count('        definition.options.filter') == 1
+    visible_options = visible_options.replace('        definition.options.filter',
+        '        trace.options(definition.key)\n        return definition.options.filter', 1)
+    pieces += ['extension SteamWorkshopService {\n' + method(reclamation, 'func libraryVersionLifetime(recordID:') + '\n' + method(reclamation, 'func libraryVersionLifetime(for record:') + '\n' + visible_options + '\n' + method(props, 'nonisolated func shouldDisplayWebProperty(') + '\n' + '\n'.join(method(risk, name) for name in ('nonisolated static func resolvedWebStructuralRiskFlags(', 'nonisolated static func webHasKnownSafariIncompatibility(', 'nonisolated func resolvedWebStaticContentRiskFlags(')) + '\n}']
     for name in FILES:
         text = (WEB / name).read_text()
         if name == 'SteamWorkshopService+WebAuthorInput.swift':
@@ -385,6 +453,18 @@ def run_harness(test: unittest.TestCase, source_text: str, sentinel: str, *, wit
 
 class WebAuthorPreparationTests(unittest.TestCase):
     def test_real_author_pipeline(self):
-        run_harness(self, harness_source(), 'web-author-preparation-pass')
+        output = run_harness(self, harness_source(), 'web-author-preparation-pass')
+        print(output, end='')
+        observations = json.loads(next(line.removeprefix('web-option-work:') for line in output.splitlines()
+            if line.startswith('web-option-work:')))
+        budgets = {'mixed': {'enabled': 1, 'mode': 1, 'dependent': 1},
+                   'changed': {'enabled': 1, 'mode': 1, 'dependent': 1},
+                   'static': {}, 'empty': {}, 'preset': {}}
+        self.assertEqual(observations.keys(), budgets.keys())
+        for scenario, calls in observations.items():
+            for key, count in calls.items():
+                with self.subTest(scenario=scenario, property=key):
+                    self.assertGreaterEqual(count, 0, output)
+                    self.assertLessEqual(count, budgets[scenario].get(key, 0), output)
 
 if __name__ == '__main__': unittest.main()

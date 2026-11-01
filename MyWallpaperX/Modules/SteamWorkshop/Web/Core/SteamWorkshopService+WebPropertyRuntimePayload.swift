@@ -90,17 +90,6 @@ extension SteamWorkshopService {
             return Self.webRuntimePropertyPayloadJSON(definitions: [], values: runtimeProperties.mapValues { $0.value })
         }
 
-        let visibleOptionsByKey = Dictionary(uniqueKeysWithValues: resolvedDefinitions.map { definition in
-            (
-                definition.key,
-                visibleWebPropertyOptions(
-                    for: definition,
-                    values: effectiveValues,
-                    definitions: resolvedDefinitions
-                )
-            )
-        })
-
         var normalizedProperties: [String: [String: Any]] = [:]
         for definition in resolvedDefinitions where definition.kind != .label && definition.kind != .group {
             let property = runtimeProperties[definition.key]
@@ -108,7 +97,11 @@ extension SteamWorkshopService {
                 for: definition,
                 runtimeValue: property?.value ?? definition.defaultValue,
                 binding: property?.binding,
-                visibleOptions: visibleOptionsByKey[definition.key] ?? []
+                visibleOptions: visibleWebPropertyOptions(
+                    for: definition,
+                    values: effectiveValues,
+                    definitions: resolvedDefinitions
+                )
             )
         }
 
