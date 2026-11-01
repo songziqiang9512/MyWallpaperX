@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Real prepared single-texture interface admission and compositor lowering.
 
-The fixture uses self-authored shader stages. Only descriptor/value leaves are
-doubled; preprocessing, schema, the neutral shader proof and compiler are real.
+The fixture uses self-authored shader stages. Only descriptor/value, Template
+and reflected-field leaves are doubled; preprocessing, schema, neutral proof,
+compiler, Finalizer uniform ownership and uniform byte encoding are real.
+The RuntimeCatalog and complete Program/GPU execution are outside this gate.
 No Metal device, Workshop shader body or VM is executed.
 """
 
@@ -126,6 +128,61 @@ class SceneBaseMaterialStaticTintTests(unittest.TestCase):
             env=environment, check=True, timeout=30,
         )
         cls.result = json.loads(completed.stdout)
+
+    def test_host_scalar_defaults_retain_the_interface_and_real_frame_writer(self) -> None:
+        rows = self.result["scalarHostDefaults"]["rows"]
+        self.assertEqual(len(rows), 72)
+        for row in rows:
+            if row["mode"] not in {"host-time", "host-frame-time"}:
+                continue
+            with self.subTest(variant=row["variant"], role=row["role"], mode=row["mode"]):
+                self.assertEqual(row["count"], 1)
+                self.assertFalse(row["canLower"])
+                self.assertEqual(row["default"], [row["neutral"]])
+                self.assertEqual(row["schemaKeys"], [row["symbol"], row["alias"]])
+                self.assertEqual(row["declarationCount"], 0)
+                self.assertEqual(row["mvpOwner"], "host.modelViewProjection")
+                is_time = row["mode"] == "host-time"
+                self.assertEqual(row["owner"], "host.time" if is_time else "host.frameTime")
+                self.assertEqual(row["floatBytes"], [0.25, 0.75] if is_time else [0.125, 0.375])
+                if row["variant"] == "renamed":
+                    self.assertEqual(row["model"], "models/independent/host-default.json")
+                    self.assertEqual(row["material"], "materials/independent/host-default.json")
+
+    def test_host_name_and_alias_declarations_reach_the_real_finalizer_conflict(self) -> None:
+        for row in self.result["scalarHostDefaults"]["rows"]:
+            if not row["mode"].startswith(("host-name", "host-alias")):
+                continue
+            with self.subTest(variant=row["variant"], role=row["role"], mode=row["mode"]):
+                self.assertEqual(row["count"], 1)
+                self.assertFalse(row["canLower"])
+                self.assertEqual(row["declarationCount"], 1)
+                self.assertEqual(row["owner"], "uniform/hostUniformDeclarationConflict")
+
+    def test_author_scalar_and_host_like_aliases_keep_neutral_lowering(self) -> None:
+        for row in self.result["scalarHostDefaults"]["rows"]:
+            if not row["mode"].startswith("author-"):
+                continue
+            with self.subTest(variant=row["variant"], role=row["role"], mode=row["mode"]):
+                self.assertEqual(row["count"], 1)
+                self.assertTrue(row["canLower"])
+                self.assertEqual(row["owner"], "static")
+                self.assertEqual(row["floatBytes"], [row["neutral"]])
+                self.assertEqual(row["mvpOwner"], "host.modelViewProjection")
+                if row["mode"] == "author-host-alias":
+                    self.assertEqual(row["alias"], "g_Daytime")
+                    self.assertEqual(row["declarationCount"], 1)
+
+    def test_unannotated_scalar_hosts_do_not_gain_compiler_admission(self) -> None:
+        for row in self.result["scalarHostDefaults"]["rows"]:
+            if row["mode"] != "unannotated-host":
+                continue
+            with self.subTest(variant=row["variant"], role=row["role"]):
+                self.assertEqual(row["count"], 0)
+                self.assertEqual(row["default"], [])
+                is_time = row["symbol"] == "g_Time"
+                self.assertEqual(row["owner"], "host.time" if is_time else "host.frameTime")
+                self.assertEqual(row["floatBytes"], [0.25, 0.75] if is_time else [0.125, 0.375])
 
     def test_dynamic_scalar_roles_keep_source_and_encode_the_user_domain(self) -> None:
         rows = self.result["dynamicScalarRoles"]["rows"]

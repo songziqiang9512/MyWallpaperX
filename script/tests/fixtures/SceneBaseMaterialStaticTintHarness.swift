@@ -1,4 +1,5 @@
 import Foundation
+import simd
 
 private typealias Value = SceneDocument.ShaderValue
 private typealias Descriptor = SceneRenderDescriptor
@@ -212,6 +213,156 @@ private typealias Descriptor = SceneRenderDescriptor
                 .replacingOccurrences(of: "gl_FragColor =", with: "\(renamed ? "sampleColor" : "colorCarrier") *= texSample2D(g_Texture1, sampleUV); gl_FragColor =")
             rows.append(["variant": renamed ? "renamed" : "original", "mode": "reject-multi", "count": output(
                 descriptor([powerKey: user(powerUser)]), dynamic: [model], shader: contract(fragment: multi, identity: shaderName))["count"]!])
+        }
+        return rows
+    }
+
+    static func scalarOwner(_ shader: SceneShaderContract, symbol: String,
+        stage: SceneShaderContract.StageKind,
+        declarations: [SceneResolvedMaterialTemplate.UniformDeclaration]) -> [String: Any] {
+        typealias Template = SceneResolvedMaterialTemplate
+        guard case let .accepted(prepared) = SceneAuthoredShaderPreparation.prepareShaderStages(
+            contract: shader, compatibilityTarget: .windowsDX11ShaderModel4,
+            combos: [:], textureReadiness: [0: true]),
+            let scalar = SceneResolvedMaterialShaderSchema.uniqueActiveUniform(
+                named: symbol, type: .float, stage: stage, prepared: prepared) else {
+            return ["owner": "schema-rejected"]
+        }
+        let fields: [SceneAuthoredShaderUniformLayout.Field] = [
+            .init(name: scalar.name, authoredName: symbol, stage: stage, type: .float, offset: 0),
+            .init(name: "g_ModelViewProjectionMatrix", stage: .vertex, type: .float4x4, offset: 16),
+        ]
+        var slots = Array<Template.TextureSlot?>(repeating: nil, count: 8)
+        slots[0] = .init(index: 0, candidates: [
+            .init(reference: .asset(.init("fixtures/host-default/source")!), provenance: .material),
+        ])
+        // Template and reflected fields are leaf DTOs; ownership comes only
+        // from the real schema and Finalizer, never a fixture-created host binding.
+        let template = Template.validated(textureSlots: slots, combos: [],
+            uniformDeclarations: declarations,
+            renderState: SceneMaterialRenderState.compile(blending: "normal", depthTest: "disabled",
+                depthWrite: "disabled", cullMode: "nocull", alphaWriting: "enabled")!,
+            graphRole: .init(effectInput: .layerSource, effectOutput: .effectOutput,
+                nodeTarget: .effectOutput, bindings: []),
+            compatibilityTarget: .windowsDX11ShaderModel4, shaderContract: shader,
+            diagnosticProvenance: .init(nodeIndex: 0, authoredShaderPath: shader.identity,
+                contractIdentity: shader.identity, contractCanonicalSHA256: shader.canonicalSHA256,
+                textureSources: [], uniformSources: []))!
+        var row: [String: Any] = ["schemaKeys": scalar.materialKeys,
+            "default": scalar.defaultValue?.componentBitPatterns.map { Double(bitPattern: $0) } ?? [],
+            "declarationCount": template.uniformDeclarations.count]
+        do {
+            let schemas = try SceneResolvedMaterialShaderSchema.activeUniforms(fields, prepared: prepared)
+            let bindings = try SceneResolvedMaterialProgramFinalizer.prepareUniformBindings(
+                template: template, fields: fields, activeUniforms: schemas,
+                activeTextureSlots: [0], neutralTextureResolution: nil)
+            if case .host(.modelViewProjection) = bindings[1].source { row["mvpOwner"] = "host.modelViewProjection" }
+            switch bindings[0].source {
+            case let .host(host):
+                row["owner"] = "host.\(host)"
+                var encoded: [Double] = []
+                for (index, time) in [Float(0.25), 0.75].enumerated() {
+                    let inputs = SceneAuthoredShaderUniformInputs(frameIndex: UInt64(index + 1),
+                        renderSize: .init(width: 64, height: 32), screenSize: .init(width: 64, height: 32),
+                        modelViewProjection: matrix_identity_float4x4, layerModelMatrix: matrix_identity_float4x4,
+                        effectOutputModelViewProjection: matrix_identity_float4x4,
+                        effectTextureProjectionMatrixInverse: matrix_identity_float4x4,
+                        sceneTime: time, dayTime: 0.5, frameTime: time / 2,
+                        pointerCurrentNDC: .zero, pointerPreviousNDC: .zero)
+                    if case let .encoded(bytes) = SceneResolvedMaterialUniformEncoder.resolveHost(
+                        host, type: bindings[0].field.type, inputs: inputs, slots: []), bytes.count == 4 {
+                        encoded.append(Double(bytes.withUnsafeBytes { $0.loadUnaligned(as: Float.self) }))
+                    }
+                }
+                row["floatBytes"] = encoded
+            case let .staticValue(bytes):
+                row["owner"] = "static"
+                row["floatBytes"] = [Double(bytes.withUnsafeBytes { $0.loadUnaligned(as: Float.self) })]
+            default: row["owner"] = "other"
+            }
+        } catch let failure as SceneResolvedMaterialFailure {
+            row["owner"] = "\(failure.phase.rawValue)/\(failure.code.rawValue)"
+        } catch { row["owner"] = "unexpected-error" }
+        return row
+    }
+
+    static func scalarHostDefaultCases() -> [[String: Any]] {
+        var rows: [[String: Any]] = []
+        let roles: [(String, String, String, SceneShaderContract.StageKind, Double)] = [
+            ("brightness", "gain", "gain-key", .fragment, 1),
+            ("power", "exponent", "power-key", .fragment, 1),
+            ("scroll-x", "slideX", "slide-x", .vertex, 0),
+            ("scroll-y", "slideY", "slide-y", .vertex, 0),
+        ]
+        for renamed in [false, true] {
+            for (role, originalSymbol, originalAlias, stage, neutral) in roles {
+                let modes = (stage == .vertex ? ["host-frame-time", "host-time"] : ["host-time", "host-frame-time"])
+                    + ["host-name", "host-alias",
+                    "unannotated-host", "author-default", "author-name", "author-host-alias"]
+                    + (stage == .fragment ? ["host-name-nonneutral", "host-alias-nonneutral"] : [])
+                for mode in modes {
+                    let isHost = !mode.hasPrefix("author-")
+                    let symbol = isHost ? (mode == "host-frame-time"
+                        || (stage == .vertex && mode != "host-time") ? "g_Frametime" : "g_Time")
+                        : (renamed ? "renamedScalar" : originalSymbol)
+                    let alias = mode == "author-host-alias" ? "g_Daytime"
+                        : (renamed ? "renamed-\(role)-parameter" : originalAlias)
+                    var vertex = self.vertex
+                    var fragment = self.fragment
+                    if stage == .vertex && symbol == "g_Time" {
+                        // Keep the time multiplier distinct from both scroll
+                        // roles, as required by the existing neutral proof.
+                        vertex = vertex.replacingOccurrences(of: "g_Time", with: "g_Daytime")
+                    }
+                    var source = stage == .vertex ? vertex : fragment
+                    source = source.replacingOccurrences(of: originalAlias, with: "__fixture_scalar_alias__")
+                        .replacingOccurrences(of: originalSymbol, with: symbol)
+                        .replacingOccurrences(of: "__fixture_scalar_alias__", with: alias)
+                    if mode == "unannotated-host" {
+                        let line = source.components(separatedBy: "\n").first {
+                            $0.contains("uniform float \(symbol);")
+                        }!
+                        source = source.replacingOccurrences(of: line, with: "uniform float \(symbol);")
+                    }
+                    if stage == .vertex { vertex = source } else { fragment = source }
+                    if renamed {
+                        for (old, new) in [("sampleUV", "imageCoordinates"), ("colorCarrier", "paintSample"),
+                            ("surfaceColor", "paletteRGB"), ("shift", "uvMotion")] {
+                            vertex = vertex.replacingOccurrences(of: old, with: new)
+                            fragment = fragment.replacingOccurrences(of: old, with: new)
+                        }
+                        fragment = fragment.replacingOccurrences(of: "imageCoordinates.xy)", with: "imageCoordinates)")
+                            .replacingOccurrences(of: "CAST3(", with: "vec3(")
+                    }
+                    var descriptor = self.descriptor(.init(rawValue: "0.2 0.4 0.6", components: [0.2, 0.4, 0.6]))
+                    let model = renamed ? "models/independent/host-default.json" : "models/unseen/tint.json"
+                    let material = renamed ? "materials/independent/host-default.json" : "materials/unseen/tint.json"
+                    let identity = renamed ? "independent/host-default" : "unseen/tint"
+                    descriptor.layers[0].imagePath = model
+                    descriptor.modelMaterialLinks = [.init(modelPath: model, materialPath: material)]
+                    descriptor.materialPasses[0].materialPath = material
+                    descriptor.materialPasses[0].shaderPath = identity
+                    descriptor.materialPasses[0].textureSlots = [renamed ? "independent/renamed-input" : "unseen/source"]
+                    descriptor.materialPasses[0].texturePaths = descriptor.materialPasses[0].textureSlots.compactMap { $0 }
+                    var declarations: [SceneResolvedMaterialTemplate.UniformDeclaration] = []
+                    let declarationKey: String? = mode.hasPrefix("host-name") || mode == "author-name" ? symbol
+                        : (mode.hasPrefix("host-alias") || mode == "author-host-alias" ? alias : nil)
+                    if let declarationKey {
+                        let scalar = mode.hasSuffix("nonneutral") ? 2 : neutral
+                        descriptor.materialPasses[0].constantShaderValues[declarationKey] = .init(
+                            rawValue: String(scalar), components: [scalar])
+                        declarations = [.init(name: declarationKey, value: .staticExact(.init(valueKind: "number",
+                            componentBitPatterns: [scalar.bitPattern], authoredBindingKeys: [])))]
+                    }
+                    let shader = contract(vertex: vertex, fragment: fragment, identity: identity)
+                    var row = output(descriptor, shader: shader)
+                    row.merge(scalarOwner(shader, symbol: symbol, stage: stage, declarations: declarations)) { _, new in new }
+                    row["variant"] = renamed ? "renamed" : "original"
+                    row["role"] = role; row["mode"] = mode
+                    row["symbol"] = symbol; row["alias"] = alias; row["neutral"] = neutral
+                    rows.append(row)
+                }
+            }
         }
         return rows
     }
@@ -540,6 +691,7 @@ private typealias Descriptor = SceneRenderDescriptor
         value.layers[1].parentID = 57
         results["fullProgramEffectSiblingWithDependency"] = output(value, consumers: [])
         results["dynamicScalarRoles"] = ["rows": dynamicScalarCases()]
+        results["scalarHostDefaults"] = ["rows": scalarHostDefaultCases()]
         let data = try JSONSerialization.data(withJSONObject: results, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
     }

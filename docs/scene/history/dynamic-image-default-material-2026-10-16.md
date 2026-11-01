@@ -62,3 +62,18 @@
 原381当前init/update产生63个dynamic实例，完整source在frame1以prototype35一次编码、consumers64、4×4 target，音频generation2非零后真实红色柱条可见；原null异常退出，color脚本亦完成。独立原2890473419六图片owner及默认lit动态人物/相框保持可见，四个hidden粒子向未赋值shadowLayer写visible的旧错误仍在，不记整景完成。两原包均5s，v2五run及两原包正常退出/surface1→0、GPU drained；未做官方同phase、原生属性面板、HDR/多屏、长稳或性能收益验收。
 
 必要代码/fixture、红绿、v1资格失败、v2输入与ROI、原包日志/PNG、构建和独审归`.artifacts/scene-evidence/runs/shared-source-user-scalars-20261101/metadata/samples/0/runtime_evidence.zip`（普通14天）。普通source动态标量缺口从队列退出，其余未知shader/user texture/脚本标量等仍是未准入范围；纹理成功不授完整材质或任意模型兼容。
+
+<a id="source-host-default-writer-20261101"></a>
+## 注解默认值不能替代宿主 writer（2026-11-01）
+
+已证单纹理tint接口把canonical host放到brightness/power或零scroll角色时，旧compiler可将注解default1/0当成常量而lower，绕开既有动态writer；显式中性作者声明也可绕过原host冲突。修正在原canLower判断复用HostUniformSchema，仅准备期区分writer，保留接口proof与原完整source Program；原Finalizer/SceneClock/uniform encoder/publication/compositor继续唯一负责，不另造host名单、状态、clock或帧内工作。纯作者neutral及既有user/nonneutral路径不变，未开放无注解host或其他source profile。产品净增15行，测试净增209行用于真实角色/owner/bytes正反表；无新产品抽象。
+
+同一冻结257文件、实际252依赖加harness，旧/新各执行一次完整29方法。旧32个subtest只在canLower错误为true处失败；候选29/0/0，72表行含16宿主default、24真实Finalizer冲突、24普通作者及8无注解拒绝，两组资源/变量改名与等价表达式、两种canonical host和两scroll角色。实际UniformEncoder编码两组.time/.frameTime，未复制业务writer；leaf模板门不代实际App。独审无新增问题；code health/防御/依赖/设计门通过。
+
+普通签名Debug一次43.415秒、4416输入无漂移，exe`2db56daa859805b9158e5b84213768c3f9fdb6fdf55ec8d93a5471bb4fc760d1`、dylib`764209aa421cb7a218309a1308c3032fb53b231f935f50b2dec14e78f77d7fa4`。修前复用已归档2810c9a1/ccea7c63的普通Debug，明确compiler为旧b0274530；不是全App同HEAD对照，期间其他UI/Web版本不同。
+
+自有已资格v2载体只改power为g_Time，保三卡几何、PNG、原clone和静态正控。固定70×100世界ROI的修前七帧均RGB100/124/148；修后prototype与clone逐帧一致，ready为94/119/145，after为24/47/81，五张series由67/94/125递减至7/16/40；正控七帧仍100/124/148。已有frame observer将ready/after夹在真实SceneTime约1.05–1.25/3.12–3.33，不拿Ready延时冒充时钟，也不称同帧uniform读回或官方数值parity。source101完整Program成功、frame1起consumers2，静态201不增source；两臂均5秒/exit0/工具PASS/stop1→0/GPU排空。
+
+独立原3812473896默认属性、同源PCM5秒保63柱、人物/叶片/水泡，source35仍consumers64，无source准入或创建异常。实际exit0/排空，但工具因performance presentation stream count与surfaces不符为FAIL；保原观测，不重复跑或改阈值，也不记整次PASS/性能收益。首调用因默认matrix未含381在启动前拒绝，改显式subset成员后只实际跑一次。未授真实Workshop故障恢复、全语法/全样本/HDR/多屏/长稳或性能结论。
+
+必要红绿/源码、输入、原图、当前时钟与固定ROI、构建/独审及原失败归`.artifacts/scene-evidence/runs/source-host-default-writer-20261101/metadata/samples/0/runtime_evidence.zip`（普通14天）。该静态首门退出队列，其余材质、资源和更宽producer缺口保持。

@@ -1,7 +1,7 @@
 import Foundation
 
 /// Proves the input interface of a single-texture base material. Neutral
-/// scalars lower to the image compositor; non-neutral or user-bound scalars
+/// scalars lower to the image compositor; non-neutral, host or user-bound scalars
 /// retain the complete source Program and the existing typed value producers.
 nonisolated enum SceneBaseMaterialColorModulationCompiler {
     struct Binding: Sendable {
@@ -211,6 +211,21 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
         let canLowerToCompositor = scalarUserPropertyKeys.isEmpty
             && brightness.value.bitPattern == Double(1).bitPattern
             && power.value.bitPattern == Double(1).bitPattern
+            // Annotation defaults prove the interface, not a constant writer.
+            && SceneResolvedMaterialHostUniformSchema.resolve(
+                .init(name: fact.brightnessUniformName, stage: .fragment, type: .float, offset: 0),
+                activeTextureSlots: [0], hasEffectContext: false
+            ) == nil
+            && SceneResolvedMaterialHostUniformSchema.resolve(
+                .init(name: fact.powerUniformName, stage: .fragment, type: .float, offset: 0),
+                activeTextureSlots: [0], hasEffectContext: false
+            ) == nil
+            && fact.scrollUniformNames.allSatisfy({
+                SceneResolvedMaterialHostUniformSchema.resolve(
+                    .init(name: $0, stage: .vertex, type: .float, offset: 0),
+                    activeTextureSlots: [0], hasEffectContext: false
+                ) == nil
+            })
         // The proven host MVP and unmodified quad/UV use each instance's
         // existing projection in the direct compositor. A complete source
         // Program still has its narrower, non-perspective preparation domain.

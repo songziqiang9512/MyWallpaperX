@@ -1040,10 +1040,10 @@
       "lastReviewed": "2026-11-01",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5ac42e4a0348ca8dcc6e6999acc4ad9075f2b11708ac76d01aa7816a4a7611d2",
+        "sourceSHA256": "0edfe02fd5792295f2bfcb9fcd2448155ec2a8151857908affe6d52944010596",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步static-primary secondary sprite元数据的原绑定覆盖、531首门退出和其他REFRACT余项；登记相邻静态帧语义债。",
-        "limitations": "官方仅单image空间正控，第二图越寿命无同个体时序证明；GPU最终断言复用读回，非新运行；不授整景、多image或性能。"
+        "scope": "原compiler保宿主动态writer与完整source；CPU红绿和自有prototype/clone时变ROI闭合后退出静态首门。",
+        "limitations": "非已确认Workshop故障；独立381画面保持但呈现流观测FAIL，不记整次PASS、官方parity或性能。"
       }
     },
     {
@@ -1836,7 +1836,7 @@
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ],
       "cutoffDate": "2026-11-01",
-      "uniqueValue": "默认lit材质alpha/三入口ROI及共享source用户标量、prototype/clone热改像素、381的63柱和失败载体资格边界。"
+      "uniqueValue": "默认材质alpha/三入口ROI、共享source用户标量热改，以及canonical host默认值lowering的红绿与原/clone时变ROI；保失败/观测边界。"
     },
     {
       "path": "docs/scene/history/dynamic-layer-geometry-2026-10-12.md",
@@ -4423,10 +4423,10 @@
       "lastReviewed": "2026-11-01",
       "reviewBasis": {
         "kind": "navigation-audit",
+        "sourceSHA256": "b7911e0760325632c8ba20fc7e269adf8cdb635029444f4cab20f137b0073e26",
         "method": "document_registry --audit + document_health --check",
-        "sourceSHA256": "314b6ebf54c4986ac69ad4930f42eb769b69325437f14e35035f5f67d4c9d0a4",
-        "scope": "共享source直接user scalar、prototype唯一producer/动态seed1、原381可见音频条与配对热改；撤销已过时净零出生怀疑。",
-        "limitations": "不认官方数值/整景、连续多步、原生面板/性能；host默认lowering旧问题仅静态待资格。"
+        "scope": "原compiler保宿主动态writer与完整source；CPU红绿和自有prototype/clone时变ROI闭合后退出静态首门。",
+        "limitations": "非已确认Workshop故障；独立381画面保持但呈现流观测FAIL，不记整次PASS、官方parity或性能。"
       }
     },
     {
@@ -4521,10 +4521,10 @@
       "lastReviewed": "2026-11-01",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "890286f7775837340f30bce129bb26b58912582cbac343e515cdde19d6ea3c1a",
+        "sourceSHA256": "60f1a426c20f86cd8c29b98c9822763660042369601b294c725b7f65414e5339",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步static-primary secondary sprite元数据的原绑定覆盖、531首门退出和其他REFRACT余项；登记相邻静态帧语义债。",
-        "limitations": "官方仅单image空间正控，第二图越寿命无同个体时序证明；GPU最终断言复用读回，非新运行；不授整景、多image或性能。"
+        "scope": "原compiler保宿主动态writer与完整source；CPU红绿和自有prototype/clone时变ROI闭合后退出静态首门。",
+        "limitations": "非已确认Workshop故障；独立381画面保持但呈现流观测FAIL，不记整次PASS、官方parity或性能。"
       }
     },
     {
