@@ -2,7 +2,7 @@
 
 <!-- document-role: active-plan -->
 
-复核日期：2026-11-01。负责人：repository-maintainer。本轮起点：`af44ce421`；下文前批结算只对应各自基线。
+复核日期：2026-11-02。负责人：repository-maintainer。本轮起点：`af44ce421`；下文前批结算只对应各自基线。
 
 ## 目标与边界
 
@@ -10,7 +10,7 @@
 
 本轮按用户固定流程循环：并行子代理在每份审查任务中携带用户固定prompt，核无功能收益的校验/认证/重复计算/嵌套、持续转发和补丁、过量实现与耦合；主agent审核问题和方案并决定是否修改，子代理实施，主agent复核真实行为/成本证据和最近门后决定窄提交，再开启下一轮。每批报告问题、当前影响、方案、功能变化及下一候选。当前目标授权主agent作修复和本地提交裁决，不授权推送；共享构建、原生窗口和GPU仍串行，其他会话改动保留。
 
-最近产品验证：R39（`a02245c77` 起）修下载行结构快照echo擦速率：当前Steam行metadata.preparing携已observer交付的transfer同seq，旧configure重apply使sampleRate返回nil，速率/tooltip/AX值暂消失。只在原if-let内复用attempt/metadata phase/transfer phase/既有seq跳过该echo，避免落fallback；产品+4行，无新state/helper/缓存，observer/apply/sampleRate和其余字段配置不动。低频UX修正，不称高频整表优化：三源纯进度本已独立投递。保同seq非transfer、metadata phase改变、异/低seq、新attempt和无byte默认seq0更新；内部直接篡改同identity/phase/transferseq载荷会按echo忽略，实际producer不生成，Store.begin API可直接重置的边界不外推。测试净+71，原全部断言/装配保留，补真实preparing+progress及即时observer、速率/tooltip/AX/bar、租约/像素/title/actions/thumbnail与phase/sequence反例。原门5.159秒通过，新test配旧product编译无诊断后在确切echo断言-5；同test配修复及真实ProgressStore两方法5.382秒全过、编译/运行零诊断。Debug28.268秒、5865输入稳定、原签名strict通过、零诊断；两源码独审无阻断。直接原生控件/事件与面板门不代替真实Steam下载或active/key系统拖拽；R23/R38原生前置待验边界保留。非Scene设置/暂停差分链后继只读复核保留原状，不为低频IPC增加缓存；下一候选核Steam helper事件分派，先证实际消费者再裁决。较早25段见R1–R26（不含R23）归档。
+最近产品验证：R40（`1bbc843369` 起）仅停止Browse/Details向Steam索取无消费者的opaque metadata：C# MapItems逐字段白名单、作者名补全和Swift QueryItem均不读PublishedFileDetails.metadata；不等同description、tags、children依赖或本地库metadata。删除两项true请求，锁定SteamKit2 3.4.0实际默认均false；产品净−2、测试净+9，无新owner/state/helper。保两条原查询的筛选、30项分页、详情80项限额、错误/错app计数、作者名和独立Probe请求。原查询28检查，补两默认值及真实MapItems完整Items/WrongApp/PartialErrors有/无metadata等价到31；扩展test配旧产品14.932秒、同test配候选及Swift查询/协议共18测试24.538秒通过，实际编译/运行输入稳定。App签名Debug14.055秒、5865输入稳定、strict deep通过；C#离线Debug两警告、Release另两警告与原版集合相同，App构建保同两Debug警告，无新增诊断。独审两源码接受。没有实测服务端响应字节、时耗或在线账号结果，不称IPC减负或已测提速；Swift帧本来单次解码，实际身份检查保留。R23/R38原生激活/拖拽待验边界不变。本批达到最小删改即停，下一候选只读核helper查询排队与结果出站的重复等待/转发，先证消费者再裁决。较早25段见R1–R26（不含R23）归档。
 
 <a id="completed-r1-r26"></a> [归档记录](../history/cross-topic/code-slimming-r1-r26-2026-11-01.md#completed-r1-r26) <!-- archive-redirect -->
 

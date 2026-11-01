@@ -34,7 +34,7 @@
     },
     "docs/development/code-slimming-program.md": {
       "lines": 464,
-      "bytes": 102539
+      "bytes": 102352
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -1757,10 +1757,10 @@
     {
       "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
-      "before": "f37c8d17e58c860212beab61687935357fbd149bf5ab2952d2734aa67aacdec8",
-      "after": "a88c37906dc46293aac75a9bfd19df9706fadcec368f1523ca49443f7fd16ef0",
+      "before": "a88c37906dc46293aac75a9bfd19df9706fadcec368f1523ca49443f7fd16ef0",
+      "after": "c9d438ea29d43133bb06e179b3dbc31011dad24edac85cbe6ededd00742eb09d",
       "owner": "repository-maintainer",
-      "reason": "原位替换最近验证为R39真实同序快照速率丢失反例及局部修正，记录产品/测试增量与内部边界；不包装高频性能收益，不新增台账并保全部并行预算及receipt。",
+      "reason": "原位替换最近验证为R40无消费者metadata请求退役、真实SDK默认与映射等价门；准确保留原C#警告和在线未验界限，维护较小预算并保全其他owner叶及receipt。",
       "decision": "docs/development/code-slimming-program.md#目标与边界"
     },
     {

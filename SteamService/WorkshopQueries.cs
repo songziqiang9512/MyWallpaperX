@@ -59,7 +59,6 @@ internal sealed partial class SteamSession
                 query_type = queryType,
                 numperpage = QueryPageSize,
                 page = page,
-                return_metadata = true,
                 return_tags = true,
                 return_children = true,
             };
@@ -128,7 +127,6 @@ internal sealed partial class SteamSession
             {
                 appid = ProtocolLimits.AppId,
                 includetags = true,
-                includemetadata = true,
                 includechildren = true,
             };
             foreach (var id in ids)

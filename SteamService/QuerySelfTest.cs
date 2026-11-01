@@ -10,6 +10,8 @@ internal sealed partial class SteamSession
     {
         int count = 0;
         void Check(bool ok) { if (!ok) throw new Exception("query selftest failed"); count++; }
+        Check(new CPublishedFile_QueryFiles_Request().return_metadata == false);
+        Check(new CPublishedFile_GetDetails_Request().includemetadata == false);
         foreach (var (result, code) in new[] { (EResult.AccessDenied, "accessDenied"),
             (EResult.RateLimitExceeded, "rateLimited"), (EResult.Timeout, "network"),
             (EResult.FileNotFound, "unsupportedContent") })
@@ -22,8 +24,9 @@ internal sealed partial class SteamSession
             result = 1, consumer_appid = 431960, title = "test" };
         valid.children.Add(new() { publishedfileid = 456 });
         for (int i = 0; i < 12; i++) valid.tags.Add(new() { tag = "tag" + i });
-        var mapped = MapItems([valid, new PublishedFileDetails { publishedfileid = 456, result = 9 },
-            new PublishedFileDetails { publishedfileid = 789, result = 1, consumer_appid = 1 }]);
+        var files = new[] { valid, new PublishedFileDetails { publishedfileid = 456, result = 9 },
+            new PublishedFileDetails { publishedfileid = 789, result = 1, consumer_appid = 1 } };
+        var mapped = MapItems(files);
         Check(mapped.Items.Count == 1 && mapped.WrongApp == 1 && mapped.PartialErrors.Count == 1);
         using var item = JsonDocument.Parse(JsonSerializer.Serialize(mapped.Items[0]));
         Check(item.RootElement.GetProperty("tags").GetArrayLength() == 12);
@@ -45,6 +48,12 @@ internal sealed partial class SteamSession
         using var namedItem = JsonDocument.Parse(JsonSerializer.Serialize(named.Items[0]));
         Check(namedItem.RootElement.GetProperty("creatorName").GetString() == "海岸作者");
         Check(item.RootElement.GetProperty("creatorName").ValueKind == JsonValueKind.Null);
+        var creatorNames = new Dictionary<ulong, string> { [valid.creator] = "海岸作者" };
+        var withoutMetadata = MapItems(files, creatorNames);
+        var baseline = JsonSerializer.Serialize(new { withoutMetadata.Items, withoutMetadata.WrongApp, withoutMetadata.PartialErrors });
+        foreach (var file in files) file.metadata = "作者附加数据：不覆盖标题、标签或子项";
+        var withMetadata = MapItems(files, creatorNames);
+        Check(JsonSerializer.Serialize(new { withMetadata.Items, withMetadata.WrongApp, withMetadata.PartialErrors }) == baseline);
         string? ReadName(string xml, ulong id = 76561198000000000) {
             using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(xml));
             return ParsePublicCreatorName(stream, id);
