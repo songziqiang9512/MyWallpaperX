@@ -1,4 +1,4 @@
-"""Shared thumbnail leases preserve generations; real disk maintenance preserves expiry and LRU budgets."""
+"""Real-time leases/disk maintenance, then the actual coordinator with a fixture-only controlled failure clock."""
 import json
 import os
 import pathlib
@@ -19,6 +19,14 @@ class ThumbnailCacheLeaseTests(unittest.TestCase):
             sources = [ROOT / "MyWallpaperX/Shared/UI/GridThumbnailDecoder.swift", ROOT / "MyWallpaperX/Shared/UI/DecodedThumbnailMemoryCache.swift", ROOT / "MyWallpaperX/Shared/UI/ThumbnailCache.swift",
                 core / "SteamWorkshopPreviewRequestCoordinator.swift", core / "SteamWorkshopPreviewImageSupport.swift", core / "SteamWorkshopPreviewSource.swift", core / "SteamWorkshopModels.swift",
                 ROOT / "script/tests/fixtures/SteamThumbnailLeaseChecks.swift"]
+            coordinator = core / "SteamWorkshopPreviewRequestCoordinator.swift"
+            source = coordinator.read_text()
+            self.assertEqual(source.count("Date()"), 3)
+            self.assertEqual(source.count(".timeIntervalSinceNow"), 1)
+            observed = work / coordinator.name
+            observed.write_text(source.replace("Date()", "LeaseClock.now")
+                .replace(".timeIntervalSinceNow", ".timeIntervalSince(LeaseClock.now)"))
+            sources[sources.index(coordinator)] = observed
             stub = work / "Dependencies.swift"
             stub.write_text("nonisolated enum SteamWorkshopWebDependencyStatus: Equatable { case none, available(itemID: String), missing(itemID: String) }\n")
             sources.append(stub)
@@ -27,12 +35,17 @@ class ThumbnailCacheLeaseTests(unittest.TestCase):
                 "-module-cache-path", str(work / "modules"), "-o", str(binary)],
                 capture_output=True, text=True, timeout=120)
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
+            self.assertNotIn("warning:", build.stderr, build.stdout + build.stderr)
             home = work / "home"
             home.mkdir()
             result = subprocess.run([str(binary)], env=dict(os.environ, HOME=str(home), CFFIXED_USER_HOME=str(home)),
                 capture_output=True, text=True, timeout=45)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             checks = json.loads(result.stdout)
+            counts = [json.loads(line.removeprefix("Lease request counts: "))
+                for line in result.stderr.splitlines() if line.startswith("Lease request counts: ")]
+            self.assertEqual(len(counts), 1, result.stderr)
+            print(json.dumps({"requestCounts": counts[0]}, sort_keys=True))
             if proof := os.environ.get("MWX_LEASE_PROOF_DIR"):
                 target = pathlib.Path(proof)
                 target.mkdir(parents=True, exist_ok=True)

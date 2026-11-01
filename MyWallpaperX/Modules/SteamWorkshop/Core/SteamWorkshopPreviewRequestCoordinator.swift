@@ -59,8 +59,8 @@ final class SteamWorkshopPreviewRequestCoordinator {
     private struct FailureState {
         var attempts: Int
         var firstFailureAt: Date
-        var retryAfter: Date
-        var isPermanent: Bool
+        // nil represents a permanent failure with no retry deadline.
+        var retryAfter: Date?
     }
 
     init(session: URLSession) { self.session = session }
@@ -78,12 +78,11 @@ final class SteamWorkshopPreviewRequestCoordinator {
     func loadData(
         from url: URL,
         priority: SteamWorkshopPreviewRequestPriority,
-        ignoringBackoff: Bool = false,
         cancellation: SteamWorkshopPreviewLoadCancellation? = nil,
         priorityProvider: (@Sendable () -> SteamWorkshopPreviewRequestPriority)? = nil
     ) async -> Data? {
         guard cancellation?.cancelled != true else { return nil }
-        if !ignoringBackoff, !shouldAttemptLoad(for: url, priority: priorityProvider?() ?? priority) {
+        if !shouldAttemptLoad(for: url, priority: priorityProvider?() ?? priority) {
             return nil
         }
         do {
@@ -111,13 +110,12 @@ final class SteamWorkshopPreviewRequestCoordinator {
     ) -> TimeInterval? {
         stateQueue.sync {
             guard let state = failureStates[url.absoluteString] else { return nil }
-            if hasExceededRetryWindow(state: state, priority: priority) {
-                return nil
-            }
+            guard let retryAfter = state.retryAfter,
+                  !hasExceededRetryWindow(state: state, priority: priority) else { return nil }
             if priority == .userInitiated {
                 return 0
             }
-            return max(0, state.retryAfter.timeIntervalSinceNow)
+            return max(0, retryAfter.timeIntervalSinceNow)
         }
     }
 
@@ -194,13 +192,12 @@ final class SteamWorkshopPreviewRequestCoordinator {
     ) -> Bool {
         stateQueue.sync {
             guard let state = failureStates[url.absoluteString] else { return true }
-            if hasExceededRetryWindow(state: state, priority: priority) {
-                return false
-            }
+            guard let retryAfter = state.retryAfter,
+                  !hasExceededRetryWindow(state: state, priority: priority) else { return false }
             if priority == .userInitiated {
                 return true
             }
-            return Date() >= state.retryAfter
+            return Date() >= retryAfter
         }
     }
 
@@ -221,13 +218,12 @@ final class SteamWorkshopPreviewRequestCoordinator {
             let prior = self.failureStates[key]
             let nextAttempts = (prior?.attempts ?? 0) + 1
             let firstFailureAt = prior?.firstFailureAt ?? now
-            let nsError = error as NSError
-            let statusCode = nsError.code
-            let isPermanent = statusCode == 404 || statusCode == NSURLErrorFileDoesNotExist
-            let delay: TimeInterval
-            if isPermanent {
-                delay = 60 * 10
+            let statusCode = (error as NSError).code
+            let retryAfter: Date?
+            if statusCode == 404 || statusCode == NSURLErrorFileDoesNotExist {
+                retryAfter = nil
             } else {
+                let delay: TimeInterval
                 switch priority {
                 case .userInitiated:
                     delay = min(8, pow(2, Double(min(nextAttempts, 3))))
@@ -236,12 +232,12 @@ final class SteamWorkshopPreviewRequestCoordinator {
                 case .prefetch:
                     delay = min(24, pow(2, Double(min(nextAttempts + 2, 5))))
                 }
+                retryAfter = now.addingTimeInterval(delay)
             }
             self.failureStates[key] = FailureState(
                 attempts: nextAttempts,
                 firstFailureAt: firstFailureAt,
-                retryAfter: now.addingTimeInterval(delay),
-                isPermanent: isPermanent
+                retryAfter: retryAfter
             )
         }
     }
@@ -250,7 +246,6 @@ final class SteamWorkshopPreviewRequestCoordinator {
         state: FailureState,
         priority: SteamWorkshopPreviewRequestPriority
     ) -> Bool {
-        guard !state.isPermanent else { return true }
         return Date().timeIntervalSince(state.firstFailureAt) >= maxRetryWindow(for: priority)
     }
 

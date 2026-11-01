@@ -2,16 +2,27 @@ import AppKit
 import Darwin
 import ImageIO
 
+nonisolated enum LeaseClock {
+    private static let lock = NSLock()
+    private static var fixed: Date?
+    static var now: Date { lock.lock(); defer { lock.unlock() }; return fixed ?? Date() }
+    static func set(_ value: Date?) { lock.lock(); fixed = value; lock.unlock() }
+    static func advance(_ interval: TimeInterval) {
+        lock.lock(); fixed = (fixed ?? Date()).addingTimeInterval(interval); lock.unlock()
+    }
+}
+
 final class LeaseURLProtocol: URLProtocol, @unchecked Sendable {
     private static let lock = NSLock()
     private static var pending: [String: LeaseURLProtocol] = [:]
     private static var started = Set<String>()
     private static var stopped = Set<String>()
+    private static var starts: [String: Int] = [:]
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
         let key = request.url!.lastPathComponent
-        Self.lock.lock(); Self.pending[key] = self; Self.started.insert(key); Self.lock.unlock()
+        Self.lock.lock(); Self.pending[key] = self; Self.started.insert(key); Self.starts[key, default: 0] += 1; Self.lock.unlock()
     }
     override func stopLoading() {
         let key = request.url!.lastPathComponent
@@ -19,10 +30,13 @@ final class LeaseURLProtocol: URLProtocol, @unchecked Sendable {
     }
     static func hasStarted(_ key: String) -> Bool { lock.lock(); defer { lock.unlock() }; return started.contains(key) }
     static func hasStopped(_ key: String) -> Bool { lock.lock(); defer { lock.unlock() }; return stopped.contains(key) }
-    static func complete(_ key: String, data: Data) {
+    static func startCount(_ key: String) -> Int { lock.lock(); defer { lock.unlock() }; return starts[key, default: 0] }
+    static var requestCounts: [String: Int] { lock.lock(); defer { lock.unlock() }; return starts }
+    static func complete(_ key: String, data: Data, status: Int = 200, error: URLError? = nil) {
         lock.lock(); let operation = pending.removeValue(forKey: key); lock.unlock()
         guard let operation else { return }
-        let response = HTTPURLResponse(url: operation.request.url!, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: nil)!
+        if let error { operation.client?.urlProtocol(operation, didFailWithError: error); return }
+        let response = HTTPURLResponse(url: operation.request.url!, statusCode: status, httpVersion: "HTTP/1.1", headerFields: nil)!
         operation.client?.urlProtocol(operation, didReceive: response, cacheStoragePolicy: .notAllowed)
         operation.client?.urlProtocol(operation, didLoad: data)
         operation.client?.urlProtocolDidFinishLoading(operation)
@@ -51,7 +65,7 @@ final class LeaseDataGate: @unchecked Sendable {
     }
 }
 
-final class LeaseDiskWriteGate: @unchecked Sendable {
+nonisolated final class LeaseDiskWriteGate: @unchecked Sendable {
     private let semaphore = DispatchSemaphore(value: 0)
     private let lock = NSLock()
     private var isWaiting = false
@@ -68,7 +82,7 @@ final class LeaseDiskWriteGate: @unchecked Sendable {
     func release() { semaphore.signal() }
 }
 
-final class LeaseWriteSequence: @unchecked Sendable {
+nonisolated final class LeaseWriteSequence: @unchecked Sendable {
     private let lock = NSLock()
     private var count = 0
     func isSecondWrite() -> Bool { lock.lock(); defer { lock.unlock() }; count += 1; return count == 2 }
@@ -334,6 +348,68 @@ final class LeaseWriteSequence: @unchecked Sendable {
         prefetchCache.loadRawDataAsync(forKey: "prefetch-key", loader: { nil }) { prefetchDisk = $0 }
         checks["oldRawPrefetchCannotOverwriteRefreshedDisk"] = pump { prefetchDisk != nil } && prefetchDisk == blue
         checks.merge(try diskMaintenanceChecks(), uniquingKeysWith: { _, current in current })
+        // Existing lease/disk checks use real time; only failure-window cases freeze it.
+        let failureBase = Date(timeIntervalSince1970: 1_700_000_000)
+        LeaseClock.set(failureBase)
+        defer { LeaseClock.set(nil) }
+        func fetch(_ key: String, priority: SteamWorkshopPreviewRequestPriority = .visible,
+                   status: Int = 200, error: URLError? = nil) -> Data? {
+            var finished = false, value: Data?
+            let before = LeaseURLProtocol.startCount(key)
+            Task { value = await coordinator.loadData(from: URL(string: "https://example.invalid/" + key)!, priority: priority); finished = true }
+            precondition(pump { finished || LeaseURLProtocol.startCount(key) > before })
+            if !finished { LeaseURLProtocol.complete(key, data: red, status: status, error: error) }
+            precondition(pump { finished })
+            return value
+        }
+        let windows: [(String, SteamWorkshopPreviewRequestPriority, TimeInterval, TimeInterval, TimeInterval)] = [
+            ("user", .userInitiated, 2, 8, 12), ("visible", .visible, 4, 16, 35), ("prefetch", .prefetch, 8, 24, 18)]
+        for (name, priority, firstDelay, thirdDelay, window) in windows {
+            LeaseClock.set(failureBase)
+            let key = "failure-" + name, url = URL(string: "https://example.invalid/failure-" + name)!
+            let failed = fetch(key, priority: priority, status: 503) == nil
+            let delay = coordinator.nextRetryDelay(for: url, priority: .visible)
+            let denied = fetch(key) == nil && LeaseURLProtocol.startCount(key) == 1
+            let userRetry = fetch(key, priority: .userInitiated, status: 503) == nil && LeaseURLProtocol.startCount(key) == 2
+                && coordinator.nextRetryDelay(for: url, priority: .visible) == 4
+            LeaseClock.advance(4)
+            let third = fetch(key, priority: priority, status: 503) == nil
+            checks["retry-\(name)-delays-and-user-only-interval-bypass"] = failed && delay == firstDelay && denied && userRetry && third
+                && LeaseURLProtocol.startCount(key) == 3 && coordinator.nextRetryDelay(for: url, priority: .visible) == thirdDelay
+            LeaseClock.set(failureBase.addingTimeInterval(window - 0.1))
+            let beforeWindow = coordinator.nextRetryDelay(for: url, priority: priority) != nil
+            LeaseClock.set(failureBase.addingTimeInterval(window))
+            let exhausted = coordinator.nextRetryDelay(for: url, priority: priority) == nil
+                && fetch(key, priority: priority) == nil && fetch(key, priority: .userInitiated) == nil
+            LeaseClock.advance(601)
+            checks["retry-\(name)-window-is-terminal-not-state-ttl"] = beforeWindow && exhausted
+                && coordinator.nextRetryDelay(for: url, priority: priority) == nil
+                && fetch(key, priority: priority) == nil && LeaseURLProtocol.startCount(key) == 3
+        }
+        LeaseClock.set(failureBase)
+        let httpURL = URL(string: "https://example.invalid/failure-http404")!
+        let httpFailed = fetch("failure-http404", status: 404) == nil
+        checks["http404-remains-temporary-bad-server-response"] = httpFailed
+            && coordinator.nextRetryDelay(for: httpURL, priority: .visible) == 4
+        checks["http-success-clears-failure-state-for-immediate-prefetch"] = fetch("failure-http404", priority: .userInitiated) == red
+            && coordinator.nextRetryDelay(for: httpURL, priority: .visible) == nil
+            && fetch("failure-http404", priority: .prefetch) == red && LeaseURLProtocol.startCount("failure-http404") == 3
+        let permanentURL = URL(string: "https://example.invalid/failure-missing")!
+        let missing = fetch("failure-missing", error: URLError(.fileDoesNotExist)) == nil
+            && coordinator.nextRetryDelay(for: permanentURL, priority: .visible) == nil
+            && fetch("failure-missing", priority: .userInitiated) == nil && LeaseURLProtocol.startCount("failure-missing") == 1
+        LeaseClock.advance(601)
+        checks["missing-transport-remains-permanent-beyond-old-unused-600-seconds"] = missing
+            && coordinator.nextRetryDelay(for: permanentURL, priority: .visible) == nil
+            && fetch("failure-missing", priority: .userInitiated) == nil && LeaseURLProtocol.startCount("failure-missing") == 1
+        coordinator.resetFailureState(for: permanentURL)
+        checks["explicit-reset-restores-permanently-blocked-preview"] = fetch("failure-missing") == red
+            && LeaseURLProtocol.startCount("failure-missing") == 2 && coordinator.nextRetryDelay(for: permanentURL, priority: .visible) == nil
+        let cancelURL = URL(string: "https://example.invalid/failure-cancelled")!
+        checks["transport-cancellation-does-not-record-failure"] = fetch("failure-cancelled", error: URLError(.cancelled)) == nil
+            && coordinator.nextRetryDelay(for: cancelURL, priority: .visible) == nil
+            && fetch("failure-cancelled") == red && LeaseURLProtocol.startCount("failure-cancelled") == 2
+        FileHandle.standardError.write(Data("Lease request counts: \(String(data: try JSONEncoder().encode(LeaseURLProtocol.requestCounts), encoding: .utf8)!)\n".utf8))
         session.invalidateAndCancel()
         print(String(data: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
     }
