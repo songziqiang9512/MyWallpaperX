@@ -335,6 +335,7 @@ enum Scenarios {
         case "f19": try await networkBridgeBinaryRestore()
         case "native-abort-matrix": try await nativeAbortMatrix()
         case "native-xhr-lifecycle": try await nativeXHRLifecycle()
+        case "native-xhr-abort": try await nativeXHRAbort()
         case "frames": try await frameInjectionBoundaries()
         case "release-diagnostics": try await releaseWithoutDiagnosticBridge()
         case "bridge-budget": try await bridgeBudgetConservation()

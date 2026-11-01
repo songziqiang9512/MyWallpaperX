@@ -76,6 +76,245 @@ final class NetworkBridgeStub: NSObject, WKScriptMessageHandler {
 
 @MainActor
 extension Scenarios {
+    static func nativeXHRAbort() async throws {
+        let cases = ["new-abort", "opened-abort-send", "active-abort-success", "active-abort-failure",
+                     "active-abort-arraybuffer", "active-abort-resend", "opened-abort-send-abort", "rs2-abort", "abort-rs4-open", "abort-rs4-open-send",
+                     "abort-rs4-nested", "abort-event-open", "abort-event-open-send", "abort-end-open", "abort-end-open-send",
+                     "done-abort", "done-double-abort", "done-abort-arraybuffer", "success-done-abort", "error-done-abort"]
+        var checks: [String: Bool] = [:]
+        let success = ["property:load", "listener:load", "property:loadend", "listener:loadend"]
+        let failure = ["property:error", "listener:error", "property:loadend", "listener:loadend"]
+        let cancelled = ["property:abort", "listener:abort", "property:loadend", "listener:loadend"]
+        for phase in ["native", "proxy"] {
+            for name in cases {
+                let stub = NetworkBridgeStub()
+                stub.holdReplies = true
+                let host = PageHost(html: "<meta http-equiv=\"Content-Security-Policy\" content=\"connect-src data: blob:\"><body>R50 abort facts</body>", networkStub: stub)
+                defer { host.close() }
+                var observations: [[String: Any]] = []
+                var probeError: String?
+                var replies = 0
+                do {
+                    try await host.open()
+                    try await host.waitUntil("window.__mwxHostReplyReachable === true", label: "abort fact reply channel")
+                    _ = try await host.script(#"""
+                    window.__mwxAbortXHRStart = function(phase, name) {
+                      const original = window.__mwxNativeXHR;
+                      const xhr = new original.Constructor();
+                      const facts = window.__mwxAbortXHRFacts = {phase, name, events: [], operations: []};
+                      const native = phase === 'native';
+                      let stage = 'A', order = 0, aborting = false, reopened = false, hookAborted = false;
+                      function attempt(body) { try { return body(); } catch (error) { return {error: error.name, message: String(error.message)}; } }
+                      function response() {
+                        return attempt(() => {
+                          const value = xhr.response;
+                          if (value === null) return {type: 'null'};
+                          if (value instanceof ArrayBuffer) return {type: 'ArrayBuffer', byteLength: value.byteLength};
+                          return {type: typeof value, length: typeof value === 'string' ? value.length : null};
+                        });
+                      }
+                      function state() {
+                        return {stage, readyState: attempt(() => xhr.readyState), status: attempt(() => xhr.status),
+                          text: attempt(() => xhr.responseText), url: attempt(() => xhr.responseURL), response: response(),
+                          contentType: attempt(() => xhr.getResponseHeader('content-type')),
+                          allHeaders: attempt(() => xhr.getAllResponseHeaders())};
+                      }
+                      function op(operation, body) {
+                        const row = {operation, orderBefore: ++order, before: state()};
+                        facts.operations.push(row);
+                        row.eventsBefore = facts.events.length;
+                        try { body(); row.ok = true; }
+                        catch (error) { row.ok = false; row.error = error.name; row.message = String(error.message); }
+                        row.orderAfter = ++order; row.after = state(); row.eventsAfter = facts.events.length;
+                      }
+                      function url(label) {
+                        return !native || name === 'error-done-abort' ? 'https://assets.example.com/r50/' + label : 'data:text/plain;charset=utf-8,R50_' + label;
+                      }
+                      function open(label) { return native ? original.open.call(xhr, 'GET', url(label), true) : xhr.open('GET', url(label), true); }
+                      function send() { return native ? original.send.call(xhr) : xhr.send(); }
+                      function runAbort(operation) {
+                        op(operation, () => {
+                          const previouslyAborting = aborting;
+                          aborting = true;
+                          try { return native ? original.abort.call(xhr) : xhr.abort(); }
+                          finally { aborting = previouslyAborting; }
+                        });
+                      }
+                      function hook(type) {
+                        if (name === 'abort-rs4-nested' && !hookAborted && aborting && type === 'readystatechange' && xhr.readyState === 4) {
+                          hookAborted = true; runAbort('nested-abort-at-RS4');
+                        }
+                        const reopen = aborting && ((name.startsWith('abort-rs4-open') && type === 'readystatechange' && xhr.readyState === 4)
+                          || (name.startsWith('abort-event-') && type === 'abort') || (name.startsWith('abort-end-') && type === 'loadend'));
+                        if (reopen && !reopened) {
+                          reopened = true; stage = 'B';
+                          op('abort-callback-open-B', () => open('B'));
+                          if (name.endsWith('-send')) op('abort-callback-send-B', send);
+                        }
+                        const abortAtState = name === 'rs2-abort' ? 2 : ['success-done-abort', 'error-done-abort'].includes(name) ? 4 : null;
+                        if (!hookAborted && type === 'readystatechange' && xhr.readyState === abortAtState) {
+                          hookAborted = true;
+                          runAbort('readystatechange-' + abortAtState + '-abort');
+                        }
+                      }
+                      for (const type of ['readystatechange', 'loadstart', 'progress', 'load', 'error', 'abort', 'timeout', 'loadend']) {
+                        xhr['on' + type] = function(event) {
+                          facts.events.push({order: ++order, source: 'property', type, duringAbort: aborting,
+                            eventType: event ? event.type : null, targetIsXHR: !!event && event.target === xhr,
+                            currentTargetIsXHR: !!event && event.currentTarget === xhr, thisIsXHR: this === xhr, ...state()});
+                          hook(type);
+                        };
+                        xhr.addEventListener(type, function(event) {
+                          facts.events.push({order: ++order, source: 'listener', type, duringAbort: aborting,
+                            eventType: event.type, targetIsXHR: event.target === xhr,
+                            currentTargetIsXHR: event.currentTarget === xhr, thisIsXHR: this === xhr, ...state()});
+                        });
+                      }
+                      facts.capture = {constructorType: typeof original.Constructor, openType: typeof original.open, sendType: typeof original.send, abortType: typeof original.abort, openIsPatched: original.open !== XMLHttpRequest.prototype.open,
+                        sendIsPatched: original.send !== XMLHttpRequest.prototype.send,
+                        abortIsPatched: original.abort !== XMLHttpRequest.prototype.abort};
+                      window.__mwxAbortXHRState = state;
+                      window.__mwxAbortXHRSnapshot = () => ({...facts, state: state(), reopened, hookAborted,
+                        targetsValid: facts.events.every(event => event.targetIsXHR && event.currentTargetIsXHR && event.thisIsXHR),
+                        terminalOrder: facts.events.filter(event => ['abort', 'load', 'error', 'loadend'].includes(event.type)).map(event => event.source + ':' + event.type),
+                        counts: facts.events.reduce((counts, event) => { const key = event.source + ':' + event.type; counts[key] = (counts[key] || 0) + 1; return counts; }, {})});
+                      window.__mwxAbortXHRAfterDone = () => {
+                        runAbort('abort-after-DONE');
+                        if (name === 'done-double-abort') runAbort('second-abort-after-DONE');
+                      };
+                      if (name === 'new-abort') { runAbort('new-object-abort'); return; }
+                      op('open-A', () => open('A'));
+                      if (name.endsWith('arraybuffer')) op('set-arraybuffer', () => { xhr.responseType = 'arraybuffer'; });
+                      if (name.startsWith('opened-abort-send')) {
+                        runAbort('opened-unsent-abort'); op('send-after-unsent-abort', send);
+                        if (name === 'opened-abort-send-abort') runAbort('active-abort-after-unsent-abort');
+                        return;
+                      }
+                      op('send-A', send);
+                      if (name.startsWith('active-') || name.startsWith('abort-')) runAbort('active-abort');
+                      if (name === 'active-abort-resend') op('send-after-active-abort', send);
+                    };
+                    true;
+                    """#)
+                    let arguments = try JSONSerialization.data(withJSONObject: [phase, name])
+                    _ = try await host.script("window.__mwxAbortXHRStart(...\(String(data: arguments, encoding: .utf8)!)); true;")
+                    if phase == "proxy" {
+                        let pending = try await host.script("Object.keys(window.__myWallpaperNetworkRequests).length") as! Int
+                        for _ in 0..<50 where stub.heldRequests.count < pending { try await host.wait(0.02) }
+                    }
+                    try await host.wait(0.15)
+                    observations.append(["point": "after-initial-operations", "bridgeRequests": stub.receivedRequestCount,
+                                         "bridgeReplies": replies, "facts": try await host.script("window.__mwxAbortXHRSnapshot()")])
+                    if phase == "proxy" {
+                        for index in stub.heldRequests.indices.reversed() {
+                            let fails = name == "error-done-abort" || (name == "active-abort-failure" && index == 0)
+                            try await stub.reply(index, body: "reply-\(index)", error: fails ? "controlled-old-error" : nil)
+                            replies += 1
+                            try await host.wait(0.05)
+                            observations.append(["point": "reply-\(index)", "bridgeRequests": stub.receivedRequestCount,
+                                                 "bridgeReplies": replies, "facts": try await host.script("window.__mwxAbortXHRSnapshot()")])
+                        }
+                    }
+                    if name.hasPrefix("done-") {
+                        try await host.waitUntil("window.__mwxAbortXHRState().readyState === 4", seconds: 3, label: "DONE abort premise")
+                        _ = try await host.script("window.__mwxAbortXHRAfterDone(); true;")
+                        observations.append(["point": "after-DONE-abort", "bridgeRequests": stub.receivedRequestCount,
+                                             "bridgeReplies": replies, "facts": try await host.script("window.__mwxAbortXHRSnapshot()")])
+                    }
+                    try await host.wait(0.15)
+                } catch { probeError = String(describing: error) }
+                let final = (try? await host.script("window.__mwxAbortXHRSnapshot ? window.__mwxAbortXHRSnapshot() : null")) as? [String: Any] ?? [:]
+                var row: [String: Any] = ["phase": phase, "case": name, "bridgeRequests": stub.receivedRequestCount,
+                    "bridgeReplies": replies, "heldURLs": stub.heldURLs, "observations": observations, "final": final]
+                if let probeError { row["probeError"] = probeError }
+                let data = try JSONSerialization.data(withJSONObject: row, options: [.sortedKeys])
+                print("WK_XHR_ABORT_FACT=" + String(decoding: data, as: UTF8.self))
+                let key = phase + "/" + name
+                let state = final["state"] as? [String: Any] ?? [:]
+                let capture = final["capture"] as? [String: Any] ?? [:]
+                let response = state["response"] as? [String: Any] ?? [:]
+                let events = final["events"] as? [[String: Any]] ?? []
+                let operations = final["operations"] as? [[String: Any]] ?? []
+                let terminal = final["terminalOrder"] as? [String] ?? []
+                let counts = final["counts"] as? [String: Int] ?? [:]
+                let reopens = name.hasPrefix("abort-") && name.contains("-open")
+                let sendsB = reopens && name.hasSuffix("-send")
+                let remainsOpen = name == "opened-abort-send" || reopens
+                let doneCallback = name == "success-done-abort" || name == "error-done-abort"
+                checks[key + "/collected"] = probeError == nil && !final.isEmpty
+                checks[key + "/native-capture"] = ["constructorType", "openType", "sendType", "abortType"].allSatisfy { capture[$0] as? String == "function" }
+                    && capture["openIsPatched"] as? Bool == true && capture["sendIsPatched"] as? Bool == true
+                checks[key + "/targets"] = final["targetsValid"] as? Bool == true
+                if phase == "native" { checks[key + "/no-bridge"] = stub.receivedRequestCount == 0 }
+                if !remainsOpen {
+                    checks[key + "/reset-state"] = state["readyState"] as? Int == 0 && state["status"] as? Int == 0
+                        && state["contentType"] is NSNull && state["allHeaders"] as? String == ""
+                    if name.hasSuffix("arraybuffer") {
+                        checks[key + "/empty-response"] = response["type"] as? String == "null"
+                    } else if !(phase == "native" && name == "rs2-abort") {
+                        checks[key + "/empty-response"] = state["text"] as? String == "" && response["length"] as? Int == 0
+                    }
+                }
+                if name == "new-abort" {
+                    checks[key + "/no-events"] = events.isEmpty
+                } else if name == "opened-abort-send" || name == "opened-abort-send-abort" {
+                    let unsent = operations.first { $0["operation"] as? String == "opened-unsent-abort" }
+                    let after = unsent?["after"] as? [String: Any] ?? [:]
+                    checks[key + "/unsent-remains-open"] = unsent?["ok"] as? Bool == true && after["readyState"] as? Int == 1
+                    checks[key + "/send-after-unsent-abort"] = operations.first { $0["operation"] as? String == "send-after-unsent-abort" }?["ok"] as? Bool == true
+                    if name == "opened-abort-send" {
+                        checks[key + "/completes"] = state["readyState"] as? Int == 4 && state["status"] as? Int == 200 && terminal == success
+                    }
+                }
+                if reopens {
+                    checks[key + "/keeps-new-request"] = final["reopened"] as? Bool == true && state["stage"] as? String == "B"
+                        && state["readyState"] as? Int == (sendsB ? 4 : 1) && state["status"] as? Int == (sendsB ? 200 : 0)
+                    checks[key + "/abort-chain-and-new-terminal"] = terminal == cancelled + (sendsB ? success : [])
+                    if phase == "proxy" { checks[key + "/new-body"] = state["text"] as? String == (sendsB ? "reply-1" : "") }
+                } else if name.hasPrefix("done-") || doneCallback {
+                    checks[key + "/keeps-original-terminal"] = terminal == (name == "error-done-abort" ? failure : success)
+                    checks[key + "/no-extra-abort"] = (counts["property:abort"] ?? 0) == 0 && (counts["listener:abort"] ?? 0) == 0
+                    for operation in operations where (operation["operation"] as? String)?.contains("abort") == true {
+                        checks[key + "/no-event-in-" + (operation["operation"] as! String)] = operation["eventsBefore"] as? Int == operation["eventsAfter"] as? Int
+                        let before = operation["before"] as? [String: Any] ?? [:], after = operation["after"] as? [String: Any] ?? [:]
+                        checks[key + "/keeps-url-in-" + (operation["operation"] as! String)] = before["url"] as? String != nil && before["url"] as? String == after["url"] as? String
+                    }
+                    if name == "done-abort-arraybuffer" {
+                        let before = operations.first { $0["operation"] as? String == "abort-after-DONE" }?["before"] as? [String: Any] ?? [:]
+                        let loaded = before["response"] as? [String: Any] ?? [:]
+                        checks[key + "/loaded-before-reset"] = loaded["type"] as? String == "ArrayBuffer" && (loaded["byteLength"] as? Int ?? 0) > 0
+                            && before["contentType"] as? String != nil
+                    }
+                } else if name != "new-abort" && name != "opened-abort-send" {
+                    checks[key + "/one-abort-chain"] = terminal == cancelled
+                }
+                if (counts["property:abort"] ?? 0) > 0 {
+                    let ready = events.first { $0["source"] as? String == "property" && $0["type"] as? String == "readystatechange" && $0["duringAbort"] as? Bool == true && $0["readyState"] as? Int == 4 }
+                    let abort = events.first { $0["source"] as? String == "property" && $0["type"] as? String == "abort" }
+                    checks[key + "/RS4-before-abort"] = ready != nil && (ready?["order"] as? Int ?? 0) < (abort?["order"] as? Int ?? 0)
+                }
+                if name == "active-abort-resend" {
+                    let rejected = operations.first { $0["operation"] as? String == "send-after-active-abort" }
+                    checks[key + "/send-requires-new-open"] = rejected?["ok"] as? Bool == false && rejected?["error"] as? String == "InvalidStateError"
+                }
+                if name == "abort-rs4-nested" {
+                    checks[key + "/nested-abort-ran"] = operations.first { $0["operation"] as? String == "nested-abort-at-RS4" }?["ok"] as? Bool == true
+                }
+                if phase == "proxy" {
+                    checks[key + "/bridge-count"] = stub.receivedRequestCount == (name == "new-abort" || name == "rs2-abort" ? 0 : sendsB ? 2 : 1)
+                    if !(name.hasPrefix("done-") || doneCallback || name == "opened-abort-send" || name == "new-abort") {
+                        let point = sendsB ? "reply-1" : "after-initial-operations"
+                        let settled = observations.first { $0["point"] as? String == point }?["facts"] as? [String: Any] ?? [:]
+                        checks[key + "/old-reply-no-events"] = !settled.isEmpty && (settled["events"] as? [[String: Any]])?.count == events.count
+                    }
+                }
+            }
+        }
+        let data = try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys])
+        print("WK_XHR_ABORT_CHECKS=" + String(decoding: data, as: UTF8.self))
+        expect(checks.values.allSatisfy { $0 }, "native XHR abort mismatches: \(checks.filter { !$0.value }.keys.sorted())")
+    }
+
     static func nativeXHRLifecycle() async throws {
         let cases = ["single", "reuse-success", "reuse-failure", "reuse-abort-success", "opened-reopen-send",
                      "headers-reopen", "done-reopen", "load-reopen", "failed-open", "second-send",
@@ -219,7 +458,8 @@ extension Scenarios {
                     checks[key + "/new-completes"] = state["readyState"] as? Int == 4 && state["status"] as? Int == 200 && state["stage"] as? String == "B"
                     if phase == "proxy" {
                         let beforeOld = observations.first { $0["point"] as? String == "reply-1" }?["facts"] as? [String: Any] ?? [:]
-                        checks[key + "/old-response-ignored"] = stub.receivedRequestCount == 2 && state["text"] as? String == "reply-1" && terminal == success
+                        checks[key + "/old-response-ignored"] = stub.receivedRequestCount == 2 && state["text"] as? String == "reply-1"
+                            && terminal == (name == "reuse-abort-success" ? ["property:loadend", "listener:loadend"] + success : success)
                             && (beforeOld["events"] as? [[String: Any]])?.count == (final["events"] as? [[String: Any]])?.count
                     }
                 }

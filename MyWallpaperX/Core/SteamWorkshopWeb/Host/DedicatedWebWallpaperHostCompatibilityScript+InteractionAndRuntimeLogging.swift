@@ -364,6 +364,7 @@ let webCompatibilityScriptInteractionAndRuntimeLogging = #"""
   }
   const originalOpen = XMLHttpRequest.prototype.open;
   const originalSend = XMLHttpRequest.prototype.send;
+  const originalAbort = XMLHttpRequest.prototype.abort;
   XMLHttpRequest.prototype.open = function(method, url, ...rest) {
     const previousOpenToken = this.__mwx_openToken;
     const openToken = {};
@@ -424,6 +425,25 @@ let webCompatibilityScriptInteractionAndRuntimeLogging = #"""
       }
     } catch (_) {}
     return originalGetAllResponseHeaders.call(this);
+  };
+  XMLHttpRequest.prototype.abort = function() {
+    if (this.__mwx_proxied !== true) return originalAbort.call(this);
+    this.__mwx_openToken = null;
+    const active = this.readyState === 2;
+    originalAbort.call(this);
+    this.__mwx_responseHeaders = {};
+    for (const key of ['status', 'statusText', 'responseText', 'response']) {
+      try { delete this[key]; } catch (_) {}
+    }
+    if (active) {
+      try { Object.defineProperty(this, 'readyState', { configurable: true, get: () => 4 }); } catch (_) {}
+      try { this.dispatchEvent(new Event('readystatechange')); } catch (_) {}
+      try { this.dispatchEvent(new ProgressEvent('abort')); } catch (_) {}
+      try { this.dispatchEvent(new ProgressEvent('loadend')); } catch (_) {}
+    }
+    if (this.__mwx_openToken === null) {
+      try { Object.defineProperty(this, 'readyState', { configurable: true, get: () => 0 }); } catch (_) {}
+    }
   };
   XMLHttpRequest.prototype.send = function(body) {
     const xhr = this;
