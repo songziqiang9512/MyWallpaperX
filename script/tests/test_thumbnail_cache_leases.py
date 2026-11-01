@@ -6,6 +6,8 @@ import subprocess
 import tempfile
 import unittest
 
+from script.tests.test_thumbnail_return_reuse import SWIFT_ISOLATION_FLAGS
+
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 
@@ -18,10 +20,10 @@ class ThumbnailCacheLeaseTests(unittest.TestCase):
                 core / "SteamWorkshopPreviewRequestCoordinator.swift", core / "SteamWorkshopPreviewImageSupport.swift", core / "SteamWorkshopPreviewSource.swift", core / "SteamWorkshopModels.swift",
                 ROOT / "script/tests/fixtures/SteamThumbnailLeaseChecks.swift"]
             stub = work / "Dependencies.swift"
-            stub.write_text("enum SteamWorkshopWebDependencyStatus: Equatable { case none, available(itemID: String), missing(itemID: String) }\n")
+            stub.write_text("nonisolated enum SteamWorkshopWebDependencyStatus: Equatable { case none, available(itemID: String), missing(itemID: String) }\n")
             sources.append(stub)
             binary = work / "leases"
-            build = subprocess.run(["xcrun", "swiftc", "-parse-as-library", *map(str, sources),
+            build = subprocess.run(["xcrun", "swiftc", *SWIFT_ISOLATION_FLAGS, "-warnings-as-errors", "-parse-as-library", *map(str, sources),
                 "-module-cache-path", str(work / "modules"), "-o", str(binary)],
                 capture_output=True, text=True, timeout=120)
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)

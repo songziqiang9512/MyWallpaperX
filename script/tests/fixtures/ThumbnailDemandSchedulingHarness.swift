@@ -215,21 +215,113 @@ private final class DemandDataGate: @unchecked Sendable {
 
         for clear in [false, true] {
             let gate = DemandBlockingGate()
-            let isolated = ThumbnailCache(namespace: "sync-clear-" + UUID().uuidString)
+            let writes = DemandEvents()
+            let isolated = ThumbnailCache(namespace: "sync-clear-" + UUID().uuidString, writeEncodedData: { data, url in
+                writes.record("write"); try data.write(to: url)
+            })
             var delivered = false
-            isolated.load(forKey: "invalidated", loader: { gate.wait(); return image }) { delivered = $0 != nil }
+            var originalCallbacks = 0, joinedCallbacks = 0
+            isolated.load(forKey: "invalidated", loader: { gate.wait(); return image }) {
+                delivered = $0 != nil; originalCallbacks += 1
+            }
             let label = clear ? "clear" : "remove"
             checks[label + "SyncLoadStarted"] = pump { gate.started }
             if clear { isolated.clearAll() } else { isolated.remove(forKey: "invalidated") }
+            var joined: NSImage?
+            isolated.load(forKey: "invalidated", loader: { preconditionFailure("invalidated live request must still coalesce") }) {
+                joined = $0; joinedCallbacks += 1
+            }
             let jpegCount = ThumbnailEncodingObservation.count("jpeg")
             gate.release()
             checks[label + "PreservesExistingSyncConsumer"] = pump { delivered }
-            checks[label + "StillEncodesForExistingConsumer"] = ThumbnailEncodingObservation.count("jpeg") == jpegCount + 1
+            checks[label + "InvalidatedConsumerSkipsOptionalJPEGEncoding"] = ThumbnailEncodingObservation.count("jpeg") == jpegCount
+            checks[label + "InvalidatedConsumerSkipsStagedWrites"] = writes.values.isEmpty
+            checks[label + "JoinAfterInvalidationStillReceivesOneCurrentResult"] = pump { joined != nil }
+                && originalCallbacks == 1 && joinedCallbacks == 1 && joined === image
             checks[label + "SyncResultDoesNotRepopulateMemory"] = isolated.cachedImage(forKey: "invalidated") == nil
             var readFinished = false, disk: Data?
             isolated.loadRawDataAsync(forKey: "invalidated", loader: { nil }) { disk = $0; readFinished = true }
             checks[label + "SyncResultDoesNotRepopulateDisk"] = pump { readFinished } && disk == nil
+            var fresh: NSImage?
+            isolated.load(forKey: "invalidated", loader: { image }) { fresh = $0 }
+            checks[label + "CompletedInvalidatedRequestAllowsFreshCachedRequest"] = pump { fresh != nil }
+                && isolated.cachedImage(forKey: "invalidated") != nil
             isolated.clearAll()
+        }
+        for clear in [false, true] {
+            let gate = DemandDataGate(), writes = DemandEvents()
+            let rawCache = ThumbnailCache(namespace: "raw-invalidated-" + UUID().uuidString, writeEncodedData: { data, url in
+                writes.record("write"); try data.write(to: url)
+            })
+            let label = clear ? "clearRaw" : "removeRaw"
+            var original: Data?, joined: Data?, originalCallbacks = 0, joinedCallbacks = 0
+            rawCache.loadRawDataAsync(forKey: "raw", loader: { await gate.wait(); return bytes }) {
+                original = $0; originalCallbacks += 1
+            }
+            checks[label + "SourceHeldBeforeInvalidation"] = pump { gate.waiting }
+            if clear { rawCache.clearAll() } else { rawCache.remove(forKey: "raw") }
+            rawCache.loadRawDataAsync(forKey: "raw", loader: { preconditionFailure("invalidated live raw request must still coalesce") }) {
+                joined = $0; joinedCallbacks += 1
+            }
+            gate.release()
+            checks[label + "ExistingAndJoinedConsumersReceiveOriginalBytesOnce"] = pump { original != nil && joined != nil }
+                && original == bytes && joined == bytes && originalCallbacks == 1 && joinedCallbacks == 1
+            checks[label + "SkipsStagedWrite"] = writes.values.isEmpty
+            var finished = false, persisted: Data?
+            rawCache.loadRawDataAsync(forKey: "raw", loader: { nil }) { persisted = $0; finished = true }
+            checks[label + "DoesNotRepopulateDisk"] = pump { finished } && persisted == nil
+            rawCache.clearAll()
+        }
+        let derivedGate = DemandBlockingGate(), derivedWrites = DemandEvents()
+        let derived = ThumbnailCache(namespace: "derived-invalidated-" + UUID().uuidString, writeEncodedData: { data, url in
+            derivedWrites.record("write"); try data.write(to: url)
+        })
+        var derivedImage: NSImage?, derivedJoin: NSImage?, derivedCallbacks = 0, derivedJoinCallbacks = 0
+        derived.loadImageDataAsync(forKey: "still", sourceDataKey: "original", loader: { bytes }, decoder: {
+            derivedGate.wait(); return NSImage(data: $0)
+        }) { derivedImage = $0; derivedCallbacks += 1 }
+        checks["derivedDecoderHeldBeforeSourceKeyInvalidation"] = pump { derivedGate.started }
+        derived.remove(forKey: "original")
+        derived.loadImageDataAsync(forKey: "still", sourceDataKey: "original",
+            loader: { preconditionFailure("source-key invalidation must not create a second producer") }) {
+            derivedJoin = $0; derivedJoinCallbacks += 1
+        }
+        let invalidatedPNGCount = ThumbnailEncodingObservation.count("png")
+        derivedGate.release()
+        checks["sourceKeyInvalidationPreservesExistingAndJoinedConsumers"] = pump { derivedImage != nil && derivedJoin != nil }
+            && derivedCallbacks == 1 && derivedJoinCallbacks == 1 && derivedImage === derivedJoin
+        checks["sourceKeyInvalidationSkipsOptionalPNGEncoding"] = ThumbnailEncodingObservation.count("png") == invalidatedPNGCount
+        checks["sourceKeyInvalidationSkipsStillAndRawStagedWrites"] = derivedWrites.values.isEmpty
+        checks["sourceKeyInvalidationDoesNotRepopulateDerivedMemory"] = derived.cachedImage(forKey: "still") == nil
+        var derivedReads = 0, derivedFiles: [Data] = []
+        for key in ["still", "original"] {
+            derived.loadRawDataAsync(forKey: key, loader: { nil }) {
+                if let data = $0 { derivedFiles.append(data) }
+                derivedReads += 1
+            }
+        }
+        checks["sourceKeyInvalidationDoesNotRepopulateEitherDiskKey"] = pump { derivedReads == 2 } && derivedFiles.isEmpty
+        derived.clearAll()
+        for clear in [false, true] {
+            let stageGate = DemandBlockingGate(), writes = DemandEvents()
+            let late = ThumbnailCache(namespace: "late-invalidation-" + UUID().uuidString, writeEncodedData: { data, url in
+                stageGate.wait(); try data.write(to: url); writes.record("write")
+            })
+            let label = clear ? "clearAfterEncoding" : "removeAfterEncoding"
+            var delivered: NSImage?, callbacks = 0
+            let jpegCount = ThumbnailEncodingObservation.count("jpeg")
+            late.load(forKey: "encoded", loader: { image }) { delivered = $0; callbacks += 1 }
+            checks[label + "HasAlreadyEncodedBeforeInvalidation"] = pump { stageGate.started }
+                && ThumbnailEncodingObservation.count("jpeg") == jpegCount + 1
+            if clear { late.clearAll() } else { late.remove(forKey: "encoded") }
+            stageGate.release()
+            checks[label + "StillDeliversOriginalConsumerExactlyOnce"] = pump { delivered != nil }
+                && callbacks == 1 && delivered === image && writes.values == ["write"]
+            checks[label + "FinalPermissionCheckStillBlocksMemoryPublication"] = late.cachedImage(forKey: "encoded") == nil
+            var finished = false, persisted: Data?
+            late.loadRawDataAsync(forKey: "encoded", loader: { nil }) { persisted = $0; finished = true }
+            checks[label + "FinalPermissionCheckStillBlocksDiskPublication"] = pump { finished } && persisted == nil
+            late.clearAll()
         }
         let negative = ThumbnailCache(namespace: "failure-" + UUID().uuidString, usesFailureCache: true)
         let deleteGate = ThumbnailClearObservation.gate, deletionEvents = ThumbnailClearObservation.events

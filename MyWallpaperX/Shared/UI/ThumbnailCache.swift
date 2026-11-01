@@ -79,6 +79,7 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
         var priority: ThumbnailCacheRequestPriority {
             max(pinnedPriority ?? .prefetch, consumers.values.max() ?? .prefetch)
         }
+        // Invalidation revokes this request's cache permission; joining cannot restore it.
         var allowsCaching = true
         var sourceDataKey: String?
         var onPriorityPromotion: (@Sendable () -> Void)?
@@ -505,9 +506,12 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
     private func finishImageRequest(_ request: Request, key: String, outputURL: URL, image: NSImage?,
                                     encodedData: @autoclosure () -> Data? = nil, sourceData: Data? = nil, sourceDataURL: URL? = nil,
                                     cachesFailure: Bool = false) -> Bool {
-        guard isCurrent(request, key: .image(key)) else { return false }
-        let staged = stageEncodedData(encodedData())
-        let rawStaged = stageEncodedData(sourceDataURL == nil ? nil : sourceData)
+        lock.lock()
+        guard requests[.image(key)] === request else { lock.unlock(); return false }
+        let allowsCaching = request.allowsCaching
+        lock.unlock()
+        let staged = allowsCaching ? stageEncodedData(encodedData()) : nil
+        let rawStaged = allowsCaching ? stageEncodedData(sourceDataURL == nil ? nil : sourceData) : nil
         defer {
             if let staged { try? FileManager.default.removeItem(at: staged) }
             if let rawStaged { try? FileManager.default.removeItem(at: rawStaged) }
@@ -586,8 +590,11 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
     }
 
     private func finishRawData(_ request: Request, key: String, outputURL: URL, data: Data?, persist: Bool) {
-        guard isCurrent(request, key: .raw(key)) else { return }
-        let staged = stageEncodedData(persist ? data : nil)
+        lock.lock()
+        guard requests[.raw(key)] === request else { lock.unlock(); return }
+        let allowsCaching = request.allowsCaching
+        lock.unlock()
+        let staged = allowsCaching ? stageEncodedData(persist ? data : nil) : nil
         defer { if let staged { try? FileManager.default.removeItem(at: staged) } }
         lock.lock()
         guard requests[.raw(key)] === request else { lock.unlock(); return }
