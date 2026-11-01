@@ -73,6 +73,10 @@ enum Harness {
 
         let fractionalURL = directory.appendingPathComponent("fractional-albedo.tex")
         try makeRawTex(pixel: [255, 255, 255, 128]).write(to: fractionalURL)
+        let rg88EqualURL = directory.appendingPathComponent("rg88-equal-normal.tex")
+        try makeTex(format: 8, payload: Data((0..<16).flatMap { _ in [decoded[0], decoded[1]] })).write(to: rg88EqualURL)
+        let rgbaA255URL = directory.appendingPathComponent("rgba-a255-normal.tex")
+        try makeRawTex(pixel: [decoded[0], decoded[1], decoded[2], 255]).write(to: rgbaA255URL)
         let dxt5n = try refraction(
             colorURL: opaqueURL,
             normalURL: dxt5nURL,
@@ -355,6 +359,8 @@ enum Harness {
                     blendMode: .translucent,
                     gradientBackground: true
                 ),
+                "rg88": try draw(device: device, refraction: try refraction(colorURL: opaqueURL, normalURL: rg88EqualURL, amount: 0.25, loader: loader, device: device), particleAlpha: 1, blendMode: .translucent, gradientBackground: true),
+                "rgbaA255": try draw(device: device, refraction: try refraction(colorURL: opaqueURL, normalURL: rgbaA255URL, amount: 0.25, loader: loader, device: device), particleAlpha: 1, blendMode: .translucent, gradientBackground: true),
                 "swapped": try draw(
                     device: device,
                     refraction: swapped,
@@ -709,18 +715,9 @@ enum Harness {
                 blendMode: .translucent, gradientBackground: false, instance: instance)
             return Array(pixels[((16 * 32 + 16) * 4)..<((16 * 32 + 16) * 4 + 4)]).map(Int.init)
         }
-        let rg88NormalURL = directory.appendingPathComponent("rg88-normal.tex")
-        try makeTex(format: 8, payload: Data((0..<16).flatMap { _ in [UInt8(128), UInt8(0)] }))
-            .write(to: rg88NormalURL)
         let normalAtlasURL = directory.appendingPathComponent("different-normal-frames.tex")
         try makeTex(format: 0, payload: Data((0..<16).flatMap { _ in [UInt8(255),128,0,128] }),
             frames: frames).write(to: normalAtlasURL)
-        let rg88Accepted = try SceneParticleRefractionTextureLoader.load(
-            colorSource: .file(.externalFile(urls["fractional"]!)),
-            declaration: SceneParticleRefractionDeclaration(
-                normalTextureSource: .file(.externalFile(rg88NormalURL)),
-                amount: 1, overbright: 1),
-            textureLoader: loader, device: device) != nil
         var rejected: [String: Bool] = [:]
         for (name, normalURL) in [("normalR8Rejected", urls["fractional"]!),
                                    ("normalFramesMismatchRejected", normalAtlasURL)] {
@@ -740,7 +737,6 @@ enum Harness {
             "rawNormalSample": try readPixel(loaded(loader.load(from: urls["fractional"]!,
                 purpose: .normal, device: device))).map(Int.init),
             "normalR8Rejected": rejected["normalR8Rejected"]!,
-            "normalRg88Accepted": rg88Accepted,
             "normalFramesMismatchRejected": rejected["normalFramesMismatchRejected"]!]
     }
 

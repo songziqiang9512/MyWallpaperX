@@ -124,6 +124,7 @@ class SceneParticleRefractionPixelTests(unittest.TestCase):
         self.assertEqual(self.result["decodedDXT5n"], [255, 130, 0, 64])
         self.assertEqual(self.result["loadedDXT5nNormal"], [255, 130, 0, 64])
         pixels = self.result["normalPixels"]
+        self.assertEqual(pixels["rg88"], pixels["rgbaA255"])
         self.assertLessEqual(max(abs(a - b) for a, b in zip(
             pixels["dxt5n"], pixels["dxt5nDirect"])), 2)
         self.assertGreater(
@@ -234,7 +235,6 @@ class SceneParticleRefractionPixelTests(unittest.TestCase):
         self.assertEqual(values["atlasMip"], [255, 255, 255, 32])
         self.assertEqual(values["atlasUVScale"], [1, 1])
         self.assertTrue(values["normalR8Rejected"])
-        self.assertTrue(values["normalRg88Accepted"])
         self.assertTrue(values["normalFramesMismatchRejected"])
         self.assertEqual(values["gradientAmounts"][0], values["gradientAmounts"][1])
         self.assertEqual(values["gradientAmounts"][2], values["gradientAmounts"][1])

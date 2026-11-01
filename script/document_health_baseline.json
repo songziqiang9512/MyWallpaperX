@@ -134,7 +134,7 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 534,
-      "bytes": 170454
+      "bytes": 170554
     },
     "docs/scene/capabilities/previous-blurred-composite-admission.md": {
       "lines": 20,
@@ -1904,10 +1904,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "6ef77568eadcd5766004ef14fdb994ac95c161044f19f37c00ff707c800f5975",
-      "after": "437c5f8b2c64051ba129ad6818356c959a71026bd7e7b1eef75a5fffd5ac8b17",
+      "before": "437c5f8b2c64051ba129ad6818356c959a71026bd7e7b1eef75a5fffd5ac8b17",
+      "after": "77befe002f0de9077f71a27b85af527c3eea970bd2a6340deb4bc5bff88e03c0",
       "owner": "scene-particle-refraction-rg88",
-      "reason": "rg88 authored normal 现可准入折射：normal 白名单 0/4/8、rg8Unorm 采样补 A=1；仅证明可加载与绑定，无像素门。",
+      "reason": "rg88 authored normal 准入并新增 single-image 逐像素等价门；frame/multi-image/clamp-border 仍只证加载/绑定。",
       "decision": "docs/scene/capabilities/particle-component-coverage.md#refract-rg88-normal"
     },
     {
