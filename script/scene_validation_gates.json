@@ -5537,6 +5537,7 @@
         "MyWallpaperX/Shared/UI/WallpaperFilterPanelController.swift",
         "MyWallpaperX/Shared/UI/OnlineImageInspectorView.swift",
         "MyWallpaperX/Shared/UI/OnlineImageBrowserController.swift",
+        "MyWallpaperX/Core/OnlineImages/OnlineImageBrowserSession.swift",
         "MyWallpaperX/App/OnlineImageFilterPanel.swift",
         "MyWallpaperX/App/OnlineImageToolbarController.swift",
         "MyWallpaperX/Core/OnlineImages/OnlineImageLibrary.swift",

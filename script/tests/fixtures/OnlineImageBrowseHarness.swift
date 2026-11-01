@@ -113,6 +113,8 @@ private struct BrowseFixtureFailure: LocalizedError {
     session.loadMore()
     let continuation = try await request(library, count: 2)
     checks[prefix + "pagination-preserves-source-continuation-facts"] = library.client.requests[continuation].page == second
+    var continuationItems: [[OnlineImageArtwork]] = []
+    let continuationObservation = session.$state.map(\.items).removeDuplicates().dropFirst().sink { continuationItems.append($0) }
     try await respond(library, index: continuation, result: .success(.init(items: [
         artwork(source, "12", "updated-12"), artwork(source, "13", "old-13"),
         artwork(source, "13", "updated-13"), artwork(source, "11", "updated-11"), artwork(source, "14")
@@ -120,6 +122,10 @@ private struct BrowseFixtureFailure: LocalizedError {
     try await waitFor("second page") { !session.state.isLoading }
     checks[prefix + "append-deduplicates-updates-existing-values-and-keeps-first-position"] = session.state.items.map(\.artworkID) == ["11", "12", "13", "14"]
         && session.state.items.map(\.title) == ["updated-11", "updated-12", "updated-13", "14"]
+    checks[prefix + "continuation-publishes-one-merged-items-change"] = continuationItems.count == 1
+    checks[prefix + "continuation-never-publishes-partially-merged-items"] = !continuationItems.isEmpty
+        && continuationItems.allSatisfy { $0 == session.state.items }
+    continuationObservation.cancel()
 
     session.fixtureExpireCache(); session.enter()
     let background = try await request(library, count: 3)
@@ -314,9 +320,13 @@ private struct BrowseFixtureFailure: LocalizedError {
     checks[source.rawValue + ":author-back-restarts-an-unloaded-origin"] = session.state.query == query
         && library.client.requests[restored].query == query && session.state.isLoading && !session.state.hasLoaded
         && !session.hasReturnContext && session.state.author == nil
+    var latePublications = 0
+    let lateObservation = session.$state.dropFirst().sink { _ in latePublications += 1 }
     try await respond(library, index: origin, result: .success(.init(items: [artwork(source, "old-origin")], next: nil)))
     try await respond(library, index: author, result: .success(.init(items: [artwork(source, "old-author")], next: nil)))
     checks[source.rawValue + ":late-origin-and-author-do-not-overwrite-restarted-origin"] = session.state.items.isEmpty && session.state.isLoading
+    checks[source.rawValue + ":late-origin-and-author-produce-no-state-publication"] = latePublications == 0
+    lateObservation.cancel()
     try await respond(library, index: restored, result: .success(.init(items: [artwork(source, "current-origin")], next: nil)))
     try await waitFor("restored unloaded origin") { !session.state.isLoading }
     checks[source.rawValue + ":unloaded-origin-eventually-publishes-current-request"] = session.state.hasLoaded
@@ -476,11 +486,17 @@ private struct BrowseFixtureFailure: LocalizedError {
     try await respond(library, index: initial, result: .success(.init(items: [artwork(source, "103")], next: second)))
     try await waitFor("author initial") { !session.state.isLoading }
     session.loadMore(); let empty = try await request(library, count: 2)
+    let beforeEmptyItems = session.state.items
+    var emptyItems: [[OnlineImageArtwork]] = []
+    let emptyObservation = session.$state.map(\.items).removeDuplicates().dropFirst().sink { emptyItems.append($0) }
     try await respond(library, index: empty, result: .success(.init(items: [], next: third)))
     try await waitFor("author empty continuation") { !session.state.isLoading }
     checks[source.rawValue + "-author-empty-page-reports-status-without-dropping-items-or-next"] =
         session.state.notice == "暂未获取到更多内容" && session.state.next == third
         && session.state.items.map(\.artworkID) == ["103"]
+    checks[source.rawValue + "-author-empty-page-produces-no-items-change"] = emptyItems.isEmpty
+    checks[source.rawValue + "-author-empty-page-retains-complete-original-items"] = session.state.items == beforeEmptyItems
+    emptyObservation.cancel()
     session.loadMore(); let continued = try await request(library, count: 3)
     try await respond(library, index: continued, result: .success(.init(items: [artwork(source, "104")], next: nil)))
     try await waitFor("author resumes after empty page") { !session.state.isLoading }
