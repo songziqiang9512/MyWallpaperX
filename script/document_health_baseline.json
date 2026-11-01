@@ -34,7 +34,7 @@
     },
     "docs/development/code-slimming-program.md": {
       "lines": 464,
-      "bytes": 102255
+      "bytes": 102446
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -1793,10 +1793,10 @@
     {
       "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
-      "before": "6be5e4382077161139b44ac8bb4bb1baecc254a8d6002edb9211020f9ade6516",
-      "after": "50b5f74f3a8adddb0394a033069f2c62da10ce4dfea8f90f95720e3342732121",
+      "before": "50b5f74f3a8adddb0394a033069f2c62da10ce4dfea8f90f95720e3342732121",
+      "after": "fcd7dc09a556c5e31cc86baa3944224d3f97244a0789f5b5162e4004c68989e8",
       "owner": "repository-maintainer",
-      "reason": "原位替换最近验证为R35请求规模尺寸回填查找；只增产品7行/测试66行，保原发布与真实SQLite边界，计时收益不外推；保留并行Scene预算与receipt。",
+      "reason": "原位替换最近验证为R34真实Web故障诊断收口；保12项及系统暂停边界，记录用户解锁实跑与未覆盖范围，不新增台账；承接R35预算链并保Scene记录。",
       "decision": "docs/development/code-slimming-program.md#目标与边界"
     },
     {

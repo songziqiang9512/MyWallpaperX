@@ -36,6 +36,7 @@ enum DebugWebPlaybackRunner {
         isStartupMeasurementRequested
             || arguments.contains("--mwx-debug-web-process-isolation-report")
             || arguments.contains("--mwx-debug-web-runtime-switch-sequence")
+            || arguments.contains("--mwx-debug-web-failure-state-report")
     }
 
     /// Check before product singletons can read preferences or restore playback.

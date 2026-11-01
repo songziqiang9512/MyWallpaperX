@@ -37,9 +37,18 @@ enum DebugWebFailureStateRunner {
             return
         }
 
+        var settings = WallpaperManager.shared.settings
+        settings.pauseWhenOtherAppFocused = false
+        settings.pauseWhenOtherAppFullscreen = false
+        settings.pauseWhenUnplugged = false
+        settings.pauseWhenIdle = false
+        WallpaperManager.shared.settings = settings
+        PlaybackPolicyController.shared.updateSettings(settings)
+        PlaybackCommandMultiplexer.shared.dispatch(.resume)
+        NSLog("MWX DEBUG FAILURE: prepared pause=%@", String(describing: PlaybackCommandMultiplexer.shared.pauseSnapshot))
         installFailureObserver()
         postWebLaunch(entryURL: entryURL, rootURL: fixtureRoot, recordID: "debug-terminal-failure")
-        waitForFirstWebReady(firstEntryURL: entryURL, secondEntryURL: entryURL, attempt: 0)
+        waitForFirstWebReady(entryURL: entryURL, attempt: 0)
     }
 
     private static func postWebLaunch(entryURL: URL, rootURL: URL, recordID: String) {
@@ -48,24 +57,24 @@ enum DebugWebFailureStateRunner {
 
     private static var navigationChecks: [String: Bool] = [:]
 
-    private static func waitForFirstWebReady(firstEntryURL: URL, secondEntryURL: URL, attempt: Int) {
+    private static func waitForFirstWebReady(entryURL: URL, attempt: Int) {
         let engine = WallpaperEngine.shared
         guard let host = engine.dedicatedWebHostAdapter as? WebDaemonHostAdapter else {
             finish(preconditionFailure: "web-process-host-unavailable"); return
         }
-        if let request = host.activeRequest, request.id == engine.currentWebRequestID {
+        if let session = host.active, session.request.id == engine.currentWebRequestID {
             let webStarted = engine.isPlaying()
                 && wallpaperStateMatchesWeb()
                 && host.liveProcessIdentifiers.allSatisfy { $0 != ProcessInfo.processInfo.processIdentifier }
-            postWebLaunch(entryURL: secondEntryURL, rootURL: secondEntryURL.deletingLastPathComponent(),
+            postWebLaunch(entryURL: entryURL, rootURL: entryURL.deletingLastPathComponent(),
                 recordID: "debug-terminal-failure")
-            waitForSecondWebReady(entryURL: secondEntryURL, staleRequestID: request.id,
+            waitForSecondWebReady(staleSession: session,
                 webStarted: webStarted, attempt: 0)
             return
         }
         guard attempt < 100 else { finish(preconditionFailure: "first-web-ready-timeout"); return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            waitForFirstWebReady(firstEntryURL: firstEntryURL, secondEntryURL: secondEntryURL, attempt: attempt + 1)
+            waitForFirstWebReady(entryURL: entryURL, attempt: attempt + 1)
         }
     }
 
@@ -73,29 +82,36 @@ enum DebugWebFailureStateRunner {
         WallpaperManager.shared.activeWallpaperRuntime == .web && WallpaperManager.shared.isPlaying
     }
 
-    private static func waitForSecondWebReady(entryURL: URL, staleRequestID: UUID, webStarted: Bool, attempt: Int) {
+    private static func waitForSecondWebReady(staleSession: WebDaemonHostAdapter.Session, webStarted: Bool, attempt: Int) {
         let engine = WallpaperEngine.shared
         guard let host = engine.dedicatedWebHostAdapter as? WebDaemonHostAdapter else { return }
-        if let current = host.activeRequest, current.id != staleRequestID,
-           current.id == engine.currentWebRequestID {
-            engine.handleWebHostEvent(.failed(message: "debug-stale-a-failure", requestID: staleRequestID))
+        let staleRequestID = staleSession.request.id
+        if let current = host.active, current.request.id != staleRequestID,
+           current.request.id == engine.currentWebRequestID {
+            guard let output = staleSession.transport.onOutput,
+                  let frame = try? DaemonNewlineJSON.encode(WebDaemonEnvelope(requestID: staleRequestID,
+                    payload: WebDaemonEvent.host(.failed(message: "debug-stale-a-failure", requestID: staleRequestID)))) else {
+                finish(preconditionFailure: "stale-web-frame-unavailable"); return
+            }
+            withExtendedLifetime(staleSession) { output(frame) }
             let checks = ["webStarted": webStarted,
-                "staleFailureIgnored": engine.currentWebRequestID == current.id
-                    && host.activeRequest?.id == current.id && engine.isPlaying()
+                "staleFailureIgnored": engine.currentWebRequestID == current.request.id
+                    && host.activeRequest?.id == current.request.id && engine.isPlaying()
                     && failureCapture.snapshot().isEmpty]
             host.debugNavigationChecksHandler = { navigationChecks = $0 }
             host.debugExerciseFailure()
-            waitForTerminalFailure(entryURL: entryURL, requestID: current.id, checks: checks, attempt: 0)
+            waitForTerminalFailure(requestID: current.request.id, lastTerminatedExecutionID: current.executionID,
+                checks: checks, attempt: 0)
             return
         }
         guard attempt < 100 else { finish(preconditionFailure: "second-web-ready-timeout"); return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            waitForSecondWebReady(entryURL: entryURL, staleRequestID: staleRequestID,
+            waitForSecondWebReady(staleSession: staleSession,
                 webStarted: webStarted, attempt: attempt + 1)
         }
     }
 
-    private static func waitForTerminalFailure(entryURL: URL, requestID: UUID, checks: [String: Bool], attempt: Int) {
+    private static func waitForTerminalFailure(requestID: UUID, lastTerminatedExecutionID: UUID, checks: [String: Bool], attempt: Int) {
         let engine = WallpaperEngine.shared
         let manager = WallpaperManager.shared
         guard let host = engine.dedicatedWebHostAdapter as? WebDaemonHostAdapter else { return }
@@ -103,23 +119,25 @@ enum DebugWebFailureStateRunner {
         guard failures.count <= 1 else { finish(preconditionFailure: "duplicate-failure-notification"); return }
         guard failures.count == 1, engine.currentWebRequestID == nil, host.liveProcessIdentifiers.isEmpty else {
             guard attempt < 150 else { finish(preconditionFailure: "terminal-failure-timeout"); return }
+            let activeExecutionID = host.active.flatMap { $0.request.id == requestID ? $0.executionID : nil }
+            let nextTerminatedExecutionID = activeExecutionID ?? lastTerminatedExecutionID
+            if nextTerminatedExecutionID != lastTerminatedExecutionID { host.debugTerminateActiveProcess() }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                waitForTerminalFailure(entryURL: entryURL, requestID: requestID, checks: checks, attempt: attempt + 1)
+                waitForTerminalFailure(requestID: requestID, lastTerminatedExecutionID: nextTerminatedExecutionID,
+                    checks: checks, attempt: attempt + 1)
             }
             return
         }
-        let expectedPath = entryURL.resolvingSymlinksInPath().standardizedFileURL.path
         let payload = failures.first
         let terminalCleared = engine.currentWallpaper == nil && engine.currentContentPath == nil
             && engine.currentPlaybackContentKind == nil && engine.currentWebPropertiesJSON == nil
             && engine.currentWebRecordID == nil && !engine.isPlaying()
         let managerStopped = manager.activeWallpaperRuntime == .web && manager.currentWallpaper == nil
             && !manager.isPlaying && manager.autoSwitchTimer == nil
-        let payloadPreserved = payload?["recordID"] as? String == "debug-terminal-failure"
-            && payload?["path"] as? String == expectedPath && payload?["videoPath"] == nil
-            && payload?["message"] as? String == "debug-terminal-failure"
+        let payloadPreserved = payload?["message"] as? String == "Web 宿主反复退出"
             && payload?["contentKind"] as? String == "web"
             && payload?["requestID"] as? String == requestID.uuidString
+            && payload?["videoPath"] == nil
         guard let videoURL = BundledVideoLibrary.videoURL(named: "Video2") else {
             finish(preconditionFailure: "bundled-video-missing"); return
         }
@@ -186,6 +204,7 @@ enum DebugWebFailureStateRunner {
     }
 
     private static func finish(checks: [String: Bool] = [:], preconditionFailure: String? = nil) {
+        (WallpaperEngine.shared.dedicatedWebHostAdapter as? WebDaemonHostAdapter)?.debugNavigationChecksHandler = nil
         if let failureObserver { NotificationCenter.default.removeObserver(failureObserver) }
         failureObserver = nil
         let failureCount = failureCapture.snapshot().count

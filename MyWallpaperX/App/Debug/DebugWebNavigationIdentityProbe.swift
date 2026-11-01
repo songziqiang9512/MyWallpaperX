@@ -48,6 +48,7 @@ enum DebugWebNavigationIdentityProbe {
             surface: surface,
             failureCount: failureCount
         )
+            && host.phase == .ready
 
         host.handleWebContentTermination(for: surface.webView)
         guard let recoveryWorkItem = host.webContentRecoveryWorkItems[surface.screenID] else { return nil }
@@ -87,6 +88,7 @@ enum DebugWebNavigationIdentityProbe {
             surface: surface,
             failureCount: failureCount
         )
+            && host.phase == .launching
             && host.recoveringWebContentScreenIDs.contains(surface.screenID)
             && !host.readyScreenIDs.contains(surface.screenID)
             && host.frameEndpointRegistry.contains(audioEndpoint, in: surface.webView)
@@ -103,6 +105,7 @@ enum DebugWebNavigationIdentityProbe {
             surface: surface,
             failureCount: failureCount
         )
+            && host.phase == .ready
             && !host.recoveringWebContentScreenIDs.contains(surface.screenID)
             && host.readyScreenIDs.contains(surface.screenID)
 
@@ -125,6 +128,7 @@ enum DebugWebNavigationIdentityProbe {
                 surface: surface,
                 failureCount: failureCount
             )
+            && host.phase == .ready
             && host.readyScreenIDs.contains(surface.screenID)
 
         guard let terminalNavigation = surface.webView.reload(),
@@ -159,7 +163,6 @@ enum DebugWebNavigationIdentityProbe {
     ) -> Bool {
         isCurrentRequest()
             && host.currentRequest?.id == requestID
-            && host.phase == .ready
             && host.surfaces.count == baselineSurfaceCount
             && host.navigationOwnershipByScreen[surface.screenID]?.navigation === navigation
             && failureCount() == 0
