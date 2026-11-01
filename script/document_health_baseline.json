@@ -34,7 +34,7 @@
     },
     "docs/development/code-slimming-program.md": {
       "lines": 464,
-      "bytes": 103416
+      "bytes": 103789
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -1739,10 +1739,10 @@
     {
       "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
-      "before": "e1fc47e612786e3b6666b4c453730ed5a56f763c7024d5ca27bf801b03a198db",
-      "after": "9d0427e16bee6b8339ea1a3d985c0fd69b828815b9154ad15af9fbb444011f94",
+      "before": "9d0427e16bee6b8339ea1a3d985c0fd69b828815b9154ad15af9fbb444011f94",
+      "after": "b71aa4eeefbde1b522544d340a5e2670032c4d6cf3a49f89ade41d1b6eec16c4",
       "owner": "repository-maintainer",
-      "reason": "原位记录R48真实WK取消误代理反证、三语句最小修复及原生/四控制旧新证据；仅更新本authority预算和既有receipt，保其他历史与Scene全部叶。",
+      "reason": "原位记录R49真实WK旧回包/重复事件反证、单身份最小修复和24行99检查及复验边界；仅更新本authority预算与既有receipt，保Scene全部叶与历史。",
       "decision": "docs/development/code-slimming-program.md#目标与边界"
     },
     {

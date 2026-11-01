@@ -365,6 +365,10 @@ let webCompatibilityScriptInteractionAndRuntimeLogging = #"""
   const originalOpen = XMLHttpRequest.prototype.open;
   const originalSend = XMLHttpRequest.prototype.send;
   XMLHttpRequest.prototype.open = function(method, url, ...rest) {
+    const previousOpenToken = this.__mwx_openToken;
+    const openToken = {};
+    // 原生 open() 会同步投递 OPENED，页面回调可以在返回前 send 或再次 open。
+    this.__mwx_openToken = openToken;
     this.__mwx_method = method;
     this.__mwx_url = url;
     this.__mwx_responseHeaders = {};
@@ -377,7 +381,12 @@ let webCompatibilityScriptInteractionAndRuntimeLogging = #"""
       try { delete this[proxiedKey]; } catch (_) {}
     }
     \#(webCompatibilityScriptXHRDiagnosticListeners)
-    return originalOpen.call(this, method, url, ...rest);
+    try {
+      return originalOpen.call(this, method, url, ...rest);
+    } catch (error) {
+      if (this.__mwx_openToken === openToken) this.__mwx_openToken = previousOpenToken;
+      throw error;
+    }
   };
   // 代理路径下 send 被拦截、真实请求不再发出，但页面显式设置的请求头仍然要
   // 在代理调用里透传（否则 accept / accept-language / content-type 静默丢失）。
@@ -418,6 +427,7 @@ let webCompatibilityScriptInteractionAndRuntimeLogging = #"""
   };
   XMLHttpRequest.prototype.send = function(body) {
     const xhr = this;
+    const openToken = xhr.__mwx_openToken;
     const method = String(xhr.__mwx_method || 'GET').toUpperCase();
     const rawURL = xhr.__mwx_url;
     let shouldProxy = false;
@@ -434,11 +444,13 @@ let webCompatibilityScriptInteractionAndRuntimeLogging = #"""
       }
     } catch (_) {}
     if (shouldProxy && networkRequestHandler && typeof networkRequestHandler.postMessage === 'function') {
+      if (xhr.__mwx_proxied === true) throw new DOMException('XMLHttpRequest.send() has already been called.', 'InvalidStateError');
       xhr.__mwx_proxied = true;
       try { Object.defineProperty(xhr, 'readyState', { configurable: true, get: () => 2 }); } catch (_) {}
-      try { xhr.onreadystatechange && xhr.onreadystatechange.call(xhr); } catch (_) {}
       try { xhr.dispatchEvent(new Event('readystatechange')); } catch (_) {}
+      if (xhr.__mwx_openToken !== openToken) return;
       hostNetworkRequest(proxyURL, method, normalizedProxiedRequestHeaders(xhr.__mwx_requestHeaders)).then(payload => {
+        if (xhr.__mwx_openToken !== openToken) return;
         try {
           xhr.__mwx_responseHeaders = payload.headers || {};
           const responseStatus = payload.status || 200;
@@ -471,20 +483,17 @@ let webCompatibilityScriptInteractionAndRuntimeLogging = #"""
           Object.defineProperty(xhr, 'responseText', { configurable: true, get: () => decodeResponseText() });
           Object.defineProperty(xhr, 'response', { configurable: true, get: () => responseValue });
         } catch (_) {}
-        try { xhr.onreadystatechange && xhr.onreadystatechange.call(xhr); } catch (_) {}
-        try { xhr.onload && xhr.onload.call(xhr, new Event('load')); } catch (_) {}
-        try { xhr.onloadend && xhr.onloadend.call(xhr, new Event('loadend')); } catch (_) {}
         try { xhr.dispatchEvent(new Event('readystatechange')); } catch (_) {}
         try { xhr.dispatchEvent(new Event('load')); } catch (_) {}
         try { xhr.dispatchEvent(new Event('loadend')); } catch (_) {}
         hostLogger?.post('xhr.proxy', `${method} ${proxyURL} status=${payload.status}`);
       }).catch(error => {
+        if (xhr.__mwx_openToken !== openToken) return;
         try {
           Object.defineProperty(xhr, 'readyState', { configurable: true, get: () => 4 });
           Object.defineProperty(xhr, 'status', { configurable: true, get: () => 0 });
         } catch (_) {}
-        try { xhr.onerror && xhr.onerror.call(xhr, new Event('error')); } catch (_) {}
-        try { xhr.onloadend && xhr.onloadend.call(xhr, new Event('loadend')); } catch (_) {}
+        try { xhr.dispatchEvent(new Event('readystatechange')); } catch (_) {}
         try { xhr.dispatchEvent(new Event('error')); } catch (_) {}
         try { xhr.dispatchEvent(new Event('loadend')); } catch (_) {}
         hostLogger?.post('xhr.proxy.error', `${method} ${proxyURL} ${error && error.message ? error.message : error}`);

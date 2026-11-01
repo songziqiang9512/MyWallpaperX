@@ -83,54 +83,6 @@ final class WebWallpaperFrameEndpointRegistry {
     }
 }
 
-/// 网络桥接桩：与 DedicatedWebWallpaperHostPlaceholderAdapter+RuntimeBridge 的
-/// 成功回包同形状——响应体统一 base64 + bodyIsBase64 标志 + responseURL，且
-/// 与宿主同形状按发送 frame 定向回包（D5）。
-final class NetworkBridgeStub: NSObject, WKScriptMessageHandler {
-    static let primaryBytes: [UInt8] = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0xFF, 0xFE, 0x80, 0x7F]
-    static let secondaryBytes: [UInt8] = [0x00, 0x10, 0x80, 0xFF, 0x41]
-    weak var webView: WKWebView?
-    /// 到达宿主网络桥的代理请求数。
-    private(set) var receivedRequestCount = 0
-
-    static func hexadecimal(_ bytes: [UInt8]) -> String {
-        bytes.map { String(format: "%02x", $0) }.joined()
-    }
-
-    func userContentController(
-        _ userContentController: WKUserContentController,
-        didReceive message: WKScriptMessage
-    ) {
-        guard
-            let body = message.body as? [String: Any],
-            let requestID = body["requestID"] as? String,
-            let url = body["url"] as? String
-        else { return }
-        receivedRequestCount += 1
-        let bytes = url.contains("secondary") ? Self.secondaryBytes : Self.primaryBytes
-        let payload: [String: Any] = [
-            "requestID": requestID,
-            "ok": true,
-            "status": 200,
-            "headers": ["content-type": "application/octet-stream"],
-            "body": Data(bytes).base64EncodedString(),
-            "bodyIsBase64": true,
-            "responseURL": url
-        ]
-        guard
-            let data = try? JSONSerialization.data(withJSONObject: payload),
-            let json = String(data: data, encoding: .utf8)
-        else { return }
-        // D5：回包只回发送请求的 frame，不改发主 frame。
-        webView?.evaluateJavaScript(
-            "window.__myWallpaperResolveNetworkRequest(\(json));",
-            in: message.frameInfo,
-            in: .page,
-            completionHandler: nil
-        )
-    }
-}
-
 /// D5 frame endpoint hello 桩：与宿主 Lifecycle.handleFrameEndpointHello 同形状
 /// ——登记后向发送 frame 定向回写 ack（token + 可达标志），不重放快照。
 final class FrameEndpointHelloStub: NSObject, WKScriptMessageHandler {
@@ -306,6 +258,9 @@ final class PageHost {
             crossOriginSchemeHandler = nil
         }
         configuration.userContentController.addUserScript(WKUserScript(
+            source: "window.__mwxNativeXHR = { Constructor: XMLHttpRequest, open: XMLHttpRequest.prototype.open, send: XMLHttpRequest.prototype.send, abort: XMLHttpRequest.prototype.abort };",
+            injectionTime: .atDocumentStart, forMainFrameOnly: false))
+        configuration.userContentController.addUserScript(WKUserScript(
             source: "window.__mwxNativeFetch = window.fetch.bind(window);",
             injectionTime: .atDocumentStart, forMainFrameOnly: false))
         if stubNativeFetch {
@@ -379,6 +334,7 @@ enum Scenarios {
         case "f29": try await dynamicMediaVolumeBackfill()
         case "f19": try await networkBridgeBinaryRestore()
         case "native-abort-matrix": try await nativeAbortMatrix()
+        case "native-xhr-lifecycle": try await nativeXHRLifecycle()
         case "frames": try await frameInjectionBoundaries()
         case "release-diagnostics": try await releaseWithoutDiagnosticBridge()
         case "bridge-budget": try await bridgeBudgetConservation()
@@ -388,93 +344,6 @@ enum Scenarios {
             ])
         }
         print("web-compat-parity-pass: \(name)")
-    }
-
-    static func nativeAbortMatrix() async throws {
-        let stub = NetworkBridgeStub()
-        let host = PageHost(html: "<meta http-equiv=\"Content-Security-Policy\" content=\"connect-src 'none'\"><body>abort probe</body>",
-                            stubNativeFetch: false, networkStub: stub)
-        defer { host.close() }
-        try await host.open()
-        try await host.waitUntil("window.__mwxHostReplyReachable === true", label: "native abort probe reply channel")
-        _ = try await host.script(#"""
-        window.__mwxAbortProbeResults = [];
-        window.__mwxAbortProbeCases = [
-          {name:'url-default', input:'url', reason:'default', override:'aborted', method:'GET'},
-          {name:'url-custom', input:'url', reason:'object', override:'aborted', method:'GET'},
-          {name:'url-null-reason', input:'url', reason:'null', override:'aborted', method:'HEAD'},
-          {name:'request-inherit', input:'request', reason:'default', override:'missing', method:'GET'},
-          {name:'request-undefined', input:'request', reason:'object', override:'undefined', method:'HEAD'},
-          {name:'request-null', input:'request', reason:'object', override:'null', method:'GET'},
-          {name:'request-active', input:'request', reason:'object', override:'active', method:'HEAD'},
-          {name:'url-active', input:'url', reason:'object', override:'active', method:'GET'},
-          {name:'replace-custom-with-active', input:'url', reason:'object', override:'aborted', replace:'active', method:'GET'},
-          {name:'replace-active-with-aborted', input:'url', reason:'object', override:'active', replace:'aborted', method:'HEAD'}
-        ];
-        window.__mwxAbortProbeRun = async (index, phase) => {
-          const spec = window.__mwxAbortProbeCases[index];
-          const aborted = new AbortController(), active = new AbortController();
-          if (spec.reason === 'default') aborted.abort();
-          else aborted.abort(spec.reason === 'null' ? null : {probe:spec.name});
-          const url = 'https://mwx-r48.invalid/abort-probe/' + spec.method;
-          const input = spec.input === 'request' ? new Request(url, {signal:aborted.signal, method:spec.method}) : url;
-          const init = {method:spec.method};
-          if (spec.override === 'undefined') init.signal = undefined;
-          if (spec.override === 'null') init.signal = null;
-          if (spec.override === 'active') init.signal = active.signal;
-          if (spec.override === 'aborted') init.signal = aborted.signal;
-          const constructed = new Request(input, init);
-          const row = {phase, name:spec.name, input:spec.input, method:spec.method, reasonKind:spec.reason,
-            override:spec.override, replace:spec.replace || null,
-            constructedSignalAborted:constructed.signal.aborted,
-            constructedReasonMatches:Object.is(constructed.signal.reason, aborted.signal.reason)};
-          const fetcher = phase === 'native' ? window.__mwxNativeFetch : window.fetch.bind(window);
-          try {
-            const pending = fetcher(input, init);
-            if (spec.replace) init.signal = spec.replace === 'active' ? active.signal : aborted.signal;
-            const response = await pending;
-            row.outcome = 'fulfilled'; row.status = response.status;
-            row.errorName = null; row.reasonMatches = false;
-          } catch (error) {
-            row.outcome = 'rejected'; row.errorName = error?.name || null;
-            row.reasonMatches = Object.is(error, aborted.signal.reason);
-          }
-          window.__mwxAbortProbeResults.push(row);
-        };
-        true;
-        """#)
-        let count = try await host.script("window.__mwxAbortProbeCases.length") as! Int
-        var ordinal = 0
-        var facts: [[String: Any]] = []
-        for phase in ["native", "product"] {
-            for index in 0..<count {
-                let before = stub.receivedRequestCount
-                _ = try await host.script("window.__mwxAbortProbeRun(\(index), '\(phase)'); true")
-                ordinal += 1
-                try await host.waitUntil("window.__mwxAbortProbeResults.length === \(ordinal)", label: "abort matrix \(phase) \(index)")
-                let json = try await host.script("JSON.stringify(window.__mwxAbortProbeResults[\(ordinal - 1)])") as! String
-                var row = try JSONSerialization.jsonObject(with: Data(json.utf8)) as! [String: Any]
-                row["bridgeRequests"] = stub.receivedRequestCount - before
-                let data = try JSONSerialization.data(withJSONObject: row, options: [.sortedKeys])
-                print("WK_ABORT_FACT=" + String(decoding: data, as: UTF8.self))
-                facts.append(row)
-            }
-        }
-        var failures: [String] = []
-        for index in 0..<count {
-            let native = facts[index], product = facts[index + count]
-            let cancelled = native["constructedSignalAborted"] as? Bool == true
-            let nativeValid = native["bridgeRequests"] as? Int == 0 && native["outcome"] as? String == "rejected"
-                && (cancelled ? native["reasonMatches"] as? Bool == true : native["errorName"] as? String == "TypeError")
-            let expectedOutcome = cancelled ? native["outcome"] as? String : "fulfilled"
-            let expectedReason = cancelled ? native["reasonMatches"] as? Bool : false
-            let productValid = product["outcome"] as? String == expectedOutcome
-                && product["reasonMatches"] as? Bool == expectedReason
-                && product["bridgeRequests"] as? Int == (cancelled ? 0 : 1)
-                && (cancelled || product["status"] as? Int == 200)
-            if !nativeValid || !productValid { failures.append(native["name"] as! String) }
-        }
-        expect(failures.isEmpty, "native abort matrix mismatches: \(failures)")
     }
 
     static func emptySourceLateAssignment() async throws {
@@ -899,82 +768,7 @@ enum Scenarios {
         )
     }
 
-    /// F19：桥接回包的 base64 响应体必须按 bodyIsBase64 还原成字节——fetch 的
-    /// arrayBuffer 与 XHR 的 responseType='arraybuffer' 都要逐字节一致。
-    static func networkBridgeBinaryRestore() async throws {
-        let page = """
-        <html><body>
-        <script>
-        window.__f19 = { fetch: null, xhr: null };
-        const toHex = (bytes) => Array.from(bytes).map(byte => byte.toString(16).padStart(2, '0')).join('');
-        (async () => {
-          try {
-            const response = await fetch('https://assets.example.com/mwx/primary.bin');
-            window.__f19.fetch = {
-              status: response.status,
-              url: response.url,
-              contentType: response.headers.get('content-type'),
-              hex: toHex(new Uint8Array(await response.arrayBuffer()))
-            };
-          } catch (error) {
-            window.__f19.fetch = { error: String((error && error.message) || error) };
-          }
-        })();
-        const xhr = new XMLHttpRequest();
-        xhr.open('GET', 'https://assets.example.com/mwx/secondary.bin');
-        xhr.responseType = 'arraybuffer';
-        xhr.onload = () => {
-          window.__f19.xhr = {
-            status: xhr.status,
-            responseURL: xhr.responseURL,
-            contentType: xhr.getResponseHeader('Content-Type'),
-            hex: toHex(new Uint8Array(xhr.response))
-          };
-        };
-        xhr.onerror = () => { window.__f19.xhr = { error: 'xhr_error' }; };
-        xhr.send();
-        </script>
-        </body></html>
-        """
-        let stub = NetworkBridgeStub()
-        let host = PageHost(html: page, stubNativeFetch: true, networkStub: stub)
-        defer { host.close() }
-        try await host.open()
-        try await host.waitUntil(
-            "window.__f19.fetch !== null && window.__f19.xhr !== null",
-            label: "proxied fetch and xhr"
-        )
-        let fetchError = try await host.script("window.__f19.fetch.error ? String(window.__f19.fetch.error) : ''") as? String
-        let xhrError = try await host.script("window.__f19.xhr.error ? String(window.__f19.xhr.error) : ''") as? String
-        expect(fetchError == "", "fetch 代理失败: \(fetchError ?? "nil")")
-        expect(xhrError == "", "XHR 代理失败: \(xhrError ?? "nil")")
-        let fetchHex = try await host.script("String(window.__f19.fetch.hex)") as? String
-        let xhrHex = try await host.script("String(window.__f19.xhr.hex)") as? String
-        expect(
-            fetchHex == NetworkBridgeStub.hexadecimal(NetworkBridgeStub.primaryBytes),
-            "fetch arrayBuffer 未按 base64 还原字节: \(fetchHex ?? "nil")"
-        )
-        expect(
-            xhrHex == NetworkBridgeStub.hexadecimal(NetworkBridgeStub.secondaryBytes),
-            "XHR arrayBuffer 未按 base64 还原字节: \(xhrHex ?? "nil")"
-        )
-        let fetchURL = try await host.script("String(window.__f19.fetch.url)") as? String
-        expect(
-            fetchURL == "https://assets.example.com/mwx/primary.bin",
-            "fetch Response.url 未回填作者可见 URL: \(fetchURL ?? "nil")"
-        )
-        let fetchStatus = try await host.script("window.__f19.fetch.status") as? Int
-        let xhrStatus = try await host.script("window.__f19.xhr.status") as? Int
-        expect(
-            fetchStatus == 200 && xhrStatus == 200,
-            "代理回包状态码未透传: fetch=\(String(describing: fetchStatus)) xhr=\(String(describing: xhrStatus))"
-        )
-        let xhrContentType = try await host.script("String(window.__f19.xhr.contentType)") as? String
-        expect(
-            xhrContentType == "application/octet-stream",
-            "XHR getResponseHeader 未透传代理响应头: \(xhrContentType ?? "nil")"
-        )
-    }
+
 }
 
 @main
