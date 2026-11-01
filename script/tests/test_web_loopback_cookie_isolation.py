@@ -71,12 +71,10 @@ final class HTTPResult: @unchecked Sendable {
         let endpointA = aURL!, endpointB = bURL!
         check(endpointA.port != endpointB.port, "two actual listener endpoints")
         let store = WKWebsiteDataStore.nonPersistent()
-        let pool = WKProcessPool()
         let messagesA = Messages(), messagesB = Messages()
         func view(_ messages: Messages) -> WKWebView {
             let configuration = WKWebViewConfiguration()
             configuration.websiteDataStore = store
-            configuration.processPool = pool
             configuration.userContentController.add(messages, name: "cookieProbe")
             return WKWebView(frame: .zero, configuration: configuration)
         }

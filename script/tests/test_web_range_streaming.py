@@ -162,6 +162,7 @@ final class TCP {
 }
 @main enum Harness {
     static func main() throws {
+        var requestCosts: [String: Int] = [:]
         let fm = FileManager.default
         let base = URL(fileURLWithPath: fm.currentDirectoryPath).resolvingSymlinksInPath()
         let root = base.appendingPathComponent("project")
@@ -227,6 +228,7 @@ final class TCP {
             && head.response?.value(forHTTPHeaderField: "Content-Length") == "100", "scheme HEAD preserves range headers/no body")
         check(resourceIOTrace.count("open") == 0 && resourceIOTrace.count("pathStat") == 1,
             "HEAD keeps the metadata-only path")
+        requestCosts["scheme-head-date"] = resourceIOTrace.count("httpDate")
         let unsatisfied = deliver(SchemeTask(url, range: "bytes=99999999-"))
         check(unsatisfied.response?.statusCode == 416 && unsatisfied.failure == nil && unsatisfied.bytes.isEmpty
             && unsatisfied.response?.value(forHTTPHeaderField: "Content-Range") == "bytes */\(body.count)", "scheme 416 is recoverable HTTP")
@@ -236,6 +238,14 @@ final class TCP {
         check(unchanged.response?.statusCode == 304 && unchanged.bytes.isEmpty, "scheme 304")
         check(resourceIOTrace.count("open") == 0 && resourceIOTrace.count("pathStat") == 1,
             "304 does not open a body FD")
+        requestCosts["scheme-304-date"] = resourceIOTrace.count("httpDate")
+        resourceIOTrace.reset()
+        let changed = deliver(SchemeTask(url, range: "bytes=3-7", etag: "\"not-current\""))
+        check(changed.response?.statusCode == 206 && changed.bytes == body[3...7]
+            && changed.response?.value(forHTTPHeaderField: "ETag") == ranged.response?.value(forHTTPHeaderField: "ETag")
+            && changed.response?.value(forHTTPHeaderField: "Last-Modified") == ranged.response?.value(forHTTPHeaderField: "Last-Modified"),
+            "scheme conditional miss retains current validators and exact Range body")
+        requestCosts["scheme-conditional-miss-date"] = resourceIOTrace.count("httpDate")
         check(deliver(SchemeTask(absolute(peer), range: "bytes=0-2")).failure != nil, "Range cannot grant sibling")
         let insideLink = root.appendingPathComponent("escape.bin")
         try fm.createSymbolicLink(at: insideLink, withDestinationURL: peer)
@@ -506,19 +516,43 @@ final class TCP {
             check(resourceIOTrace.count("open") == 1 && resourceIOTrace.count("fstat") == 1
                 && resourceIOTrace.count("range") == 1 && resourceIOTrace.count("pathStat") == 0
                 && resourceIOTrace.count("revalidate") == 0, "TCP Range keeps one FD and does not repeat path validation")
+            requestCosts["tcp-range-header-splits"] = resourceIOTrace.count("headerSplit")
+            requestCosts["tcp-range-date"] = resourceIOTrace.count("httpDate")
             resourceIOTrace.reset()
             client.request(selectedPath, method: "HEAD", range: "bytes=17-119")
             let head = client.response(head: true)
             check(head.status == 206 && head.count == 0 && head.headers["content-length"] == "103", "TCP HEAD")
             check(resourceIOTrace.count("open") == 0 && resourceIOTrace.count("pathStat") == 1,
                 "TCP HEAD remains metadata-only")
+            requestCosts["tcp-head-header-splits"] = resourceIOTrace.count("headerSplit")
+            requestCosts["tcp-head-date"] = resourceIOTrace.count("httpDate")
             client.request(selectedPath, range: "bytes=-123")
             check(client.response().body == body.suffix(123), "TCP suffix after previous Range on same socket")
             client.request(selectedPath, range: "bytes=99999999-")
             let rejected = client.response()
             check(rejected.status == 416 && rejected.count == 0 && rejected.headers["content-range"] == "bytes */\(body.count)", "TCP recoverable 416")
+            resourceIOTrace.reset()
             client.request(selectedPath, range: "bytes=0-3", extra: "If-None-Match: \(response.headers["etag"]!)\r\n")
             check(client.response().status == 304, "TCP 304")
+            requestCosts["tcp-304-header-splits"] = resourceIOTrace.count("headerSplit")
+            requestCosts["tcp-304-date"] = resourceIOTrace.count("httpDate")
+            resourceIOTrace.reset()
+            client.request(selectedPath, range: "bytes=0-3",
+                extra: "If-None-Match: \"not-current\"\r\nIf-Modified-Since: Fri, 01 Jan 2100 00:00:00 GMT\r\n")
+            let changed = client.response()
+            check(changed.status == 206 && changed.body == body[0...3]
+                && changed.headers["etag"] == response.headers["etag"]
+                && changed.headers["last-modified"] == response.headers["last-modified"],
+                "TCP conditional miss preserves validators and If-None-Match priority over future date")
+            requestCosts["tcp-conditional-miss-header-splits"] = resourceIOTrace.count("headerSplit")
+            requestCosts["tcp-conditional-miss-date"] = resourceIOTrace.count("httpDate")
+            for (date, status) in [("Thu, 01 Jan 1970 00:00:00 GMT", 206), ("Fri, 01 Jan 2100 00:00:00 GMT", 304)] {
+                client.request(selectedPath, range: "bytes=0-3", extra: "If-Modified-Since: \(date)\r\n")
+                let dated = client.response()
+                check(dated.status == status && dated.body == (status == 304 ? Data() : Data(body[0...3]))
+                    && dated.headers["last-modified"] == response.headers["last-modified"],
+                    "TCP past/future conditional dates retain original response semantics")
+            }
             client.send("GET \(selectedPath) HTTP/1.1\r\nHost: localhost\r\nRange: bytes=11-18\r\n\r\n"
                 + "GET \(selectedPath) HTTP/1.1\r\nHost: localhost\r\nRange: bytes=21-27\r\nConnection: close\r\n\r\n")
             check(client.response().body == body[11...18] && client.response().body == body[21...27], "pipelined Range bytes preserve response boundaries")
@@ -580,6 +614,45 @@ final class TCP {
                 && resourceIOTrace.count("open") == 2 && resourceIOTrace.count("fstat") == 1,
                 "TCP missing actual candidate recovers once through original resolution")
         }
+        network {
+            let mixed = TCP(endpointURL)
+            resourceIOTrace.reset()
+            mixed.send("gEt \(selectedPath) HTTP/1.1\r\nhOsT: localhost\r\nrAnGe:\t bytes=5-9 \t\r\nRange: bytes=20-29\r\n"
+                + "cOnNeCtIoN:\t keep-alive \t\r\nConnection: close\r\ncOnTeNt-LeNgTh: 0\r\nContent-Length: 4\r\n\r\n")
+            let first = mixed.response()
+            check(first.status == 206 && first.body == body[5...9] && first.headers["connection"] != "close",
+                "mixed header names and whitespace keep first Range, Connection and Content-Length values")
+            requestCosts["tcp-mixed-header-splits"] = resourceIOTrace.count("headerSplit")
+            mixed.send("GET \(selectedPath) HTTP/1.1\r\nHost: localhost\r\nRange: bytes=11-13\r\n"
+                + "iF-nOnE-mAtCh: \"first-miss\"\r\nIf-None-Match: \(first.headers["etag"]!)\r\n"
+                + "If-Modified-Since: Fri, 01 Jan 2100 00:00:00 GMT\r\nConnection: close\r\n\r\n")
+            check(mixed.response().body == body[11...13], "duplicate conditional headers keep the first case-insensitive match")
+            let unprefixed = "/" + selectedPath.dropFirst(prefix.count)
+            for firstIsValid in [true, false] {
+                let cookie = TCP(endpointURL)
+                let valid = "\(server.accessCookieName.uppercased())=\(server.accessToken)"
+                let fields = firstIsValid ? [valid, "other=invalid"] : ["other=invalid", valid]
+                cookie.send("GET \(unprefixed) HTTP/1.1\r\nHost: localhost\r\nRange: bytes=0-2\r\n"
+                    + "cOoKiE:\t \(fields[0]) \t\r\nCookie: \(fields[1])\r\nConnection: close\r\n\r\n")
+                let response = cookie.response()
+                check(response.status == (firstIsValid ? 206 : 403)
+                    && (!firstIsValid || response.body == body[0...2]),
+                    "Cookie header lookup keeps first-match authority and existing cookie-name matching")
+            }
+            for hasBody in [false, true] {
+                let closing = TCP(endpointURL)
+                let version = hasBody ? "HTTP/1.1" : "HTTP/1.0"
+                closing.send("GET \(selectedPath) \(version)\r\nHost: localhost\r\nRange: bytes=0-2\r\nConnection: keep-alive\r\n"
+                    + (hasBody ? "Content-Length: 4\r\n\r\nBODYGET \(selectedPath) HTTP/1.1\r\nHost: localhost\r\n\r\n" : "\r\n"))
+                let response = closing.response()
+                check(response.status == 206 && response.body == body[0...2] && response.headers["connection"] == "close",
+                    "HTTP/1.0 and nonzero request bodies must still close after the original response")
+                var byte: UInt8 = 0
+                let received = Darwin.recv(closing.fd, &byte, 1, 0)
+                check(closing.pending.isEmpty && (received == 0 || (received < 0 && errno == ECONNRESET)),
+                    "body bytes and pipelined data cannot become another request on a closing connection")
+            }
+        }
         // Sparse synthetic bytes exceed network buffering; changing the file
         // after the first body receipt distinguishes streaming from old read-all.
         let large = external.appendingPathComponent("sparse-range.bin")
@@ -632,6 +705,9 @@ final class TCP {
             client.request(prefix + "__absolute__/" + absolute(file).absoluteString.components(separatedBy: "/__absolute__/")[1], range: "bytes=5-12", connection: "close")
             check(client.response().body == body[5...12], "new listener remains healthy after stop and old completions")
         }
+        print("web-request-costs", String(decoding: try JSONSerialization.data(withJSONObject: requestCosts, options: [.sortedKeys]), as: UTF8.self))
+        fflush(stdout)
+        check(requestCosts.values.allSatisfy { $0 == 1 }, "each request splits its header once and formats only its delivered Last-Modified")
         print("web-range-streaming-pass")
     }
 }
@@ -651,7 +727,9 @@ class WebRangeStreamingTests(unittest.TestCase):
                  '    func revalidatedResource(_ resource: ResolvedResource) -> ResolvedResource? {\n        resourceIOTrace.record("revalidate")\n        resourceIOTrace.hook("revalidate", at: resource.fileURL)')],
             "WebWallpaperLocalSchemeHandler+Resolve.swift": [
                 ("    static func fileStat(for fileURL: URL) -> FileStat? {",
-                 '    static func fileStat(for fileURL: URL) -> FileStat? {\n        resourceIOTrace.record("pathStat")')],
+                 '    static func fileStat(for fileURL: URL) -> FileStat? {\n        resourceIOTrace.record("pathStat")'),
+                ("    static func httpDateString(from date: Date) -> String {",
+                 '    static func httpDateString(from date: Date) -> String {\n        resourceIOTrace.record("httpDate")')],
             "WebWallpaperLocalSchemeHandler+IO.swift": [
                 ("        let outcome = resolveResource(for: requestURL, allowsDirectoryIndexFallback: true)",
                  '        resourceIOTrace.record("prepare")\n        let outcome = resolveResource(for: requestURL, allowsDirectoryIndexFallback: true)'),
@@ -665,20 +743,26 @@ class WebRangeStreamingTests(unittest.TestCase):
                  '    static func byteRange(for request: URLRequest, totalSize: Int64) throws -> ClosedRange<Int64>? {\n        resourceIOTrace.record("range")'),
             ],
         }
-        # Instrument actual IO leaves only in temporary source copies. The
-        # hooks control a real filesystem race; they never supply parsed data,
-        # an authorization decision, a response, or replacement IO methods.
+        # Observe actual IO, header splitting and date formatting in temporary
+        # source copies; hooks never supply parsed data, authorization or responses.
         with tempfile.TemporaryDirectory(prefix="mwx-web-resource-io-leaves-") as raw:
             observed = []
+            split_expression = r'requestText.components(separatedBy: "\r\n")'
+            split_sites = 0
             for path in sources:
-                if path.name not in edits:
+                if path.name not in edits and not path.name.startswith("WebWallpaperLoopbackServer"):
                     observed.append(path); continue
                 text = path.read_text()
-                for old, new in edits[path.name]:
+                for old, new in edits.get(path.name, []):
                     self.assertEqual(text.count(old), 1, old)
                     text = text.replace(old, new, 1)
+                if path.name.startswith("WebWallpaperLoopbackServer"):
+                    split_sites += text.count(split_expression)
+                    text = text.replace(split_expression,
+                        '({ resourceIOTrace.record("headerSplit"); return ' + split_expression + ' })()')
                 target = Path(raw) / path.name; target.write_text(text)
                 observed.append(target)
+            self.assertGreater(split_sites, 0)
             compile_and_run(source, observed, "web-range-streaming-pass")
 
 

@@ -279,9 +279,9 @@ final class WebWallpaperLoopbackServer {
     }
 
     /// HTTP 文本助手：请求头取值与状态行文案（＋Connection 复用）。
-    func headerValue(named name: String, in requestText: String) -> String? {
+    func headerValue(named name: String, in headerLines: [String]) -> String? {
         let prefix = "\(name):"
-        for line in requestText.components(separatedBy: "\r\n") {
+        for line in headerLines {
             if line.range(of: prefix, options: [.caseInsensitive, .anchored]) != nil {
                 return String(line.dropFirst(prefix.count)).trimmingCharacters(in: .whitespacesAndNewlines)
             }

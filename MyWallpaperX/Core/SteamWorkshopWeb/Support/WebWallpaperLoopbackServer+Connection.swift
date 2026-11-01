@@ -125,7 +125,8 @@ extension WebWallpaperLoopbackServer {
 
     private func respond(to requestText: String, leftover: Data, on context: ConnectionContext) {
         guard !context.cancellation.isCancelled else { context.connection.cancel(); return }
-        guard let firstLine = requestText.components(separatedBy: "\r\n").first else {
+        let headerLines = requestText.components(separatedBy: "\r\n")
+        guard let firstLine = headerLines.first else {
             sendError(400, message: "bad_request", on: context)
             return
         }
@@ -139,7 +140,7 @@ extension WebWallpaperLoopbackServer {
             sendError(405, message: "method_not_allowed", on: context)
             return
         }
-        let cookieHeader = headerValue(named: "Cookie", in: requestText)
+        let cookieHeader = headerValue(named: "Cookie", in: headerLines)
         guard let requestPath = authorizedRequestPath(lineParts[1], cookieHeader: cookieHeader) else {
 #if DEBUG
             diagnosticHandler?("loopback.request.rejected", .warning, "reason=missing_access_token", nil)
@@ -172,13 +173,13 @@ extension WebWallpaperLoopbackServer {
         // 必须显式声明 `Connection: close`，否则客户端会继续复用随后被关闭的
         // 连接（第 65 个请求以连接错误告终）。声明在 do 之外：catch 里的
         // 416 分支同样要按此复用语义续接。
-        let keepAlive = shouldKeepConnectionAlive(requestText: requestText, firstLine: firstLine)
+        let keepAlive = shouldKeepConnectionAlive(headerLines: headerLines, firstLine: firstLine)
             && context.servedRequestCount + 1 < Self.maxRequestsPerConnection
         do {
             try sendResourceResponse(
                 resource,
                 method: method,
-                requestText: requestText,
+                headerLines: headerLines,
                 requestURL: requestURL,
                 keepAlive: keepAlive,
                 leftover: leftover,
@@ -204,7 +205,7 @@ extension WebWallpaperLoopbackServer {
     private func sendResourceResponse(
         _ resolved: WebWallpaperLocalSchemeHandler.ResolvedResource,
         method: String,
-        requestText: String,
+        headerLines: [String],
         requestURL: URL,
         keepAlive: Bool,
         leftover: Data,
@@ -213,10 +214,10 @@ extension WebWallpaperLoopbackServer {
         var resolved = resolved
         let isHeadRequest = method == "HEAD"
         let transformsResponse = WebWallpaperResponseTransformer.supportsTransformation(for: resolved.fileURL)
-        let ifNoneMatch = headerValue(named: "If-None-Match", in: requestText)
-        let ifModifiedSince = headerValue(named: "If-Modified-Since", in: requestText)
+        let ifNoneMatch = headerValue(named: "If-None-Match", in: headerLines)
+        let ifModifiedSince = headerValue(named: "If-Modified-Since", in: headerLines)
         var request = URLRequest(url: requestURL)
-        if let rangeHeader = headerValue(named: "Range", in: requestText) {
+        if let rangeHeader = headerValue(named: "Range", in: headerLines) {
             request.setValue(rangeHeader, forHTTPHeaderField: "Range")
         }
         if (isHeadRequest && !transformsResponse) || (!isHeadRequest && (ifNoneMatch != nil || ifModifiedSince != nil)) {
@@ -307,13 +308,13 @@ extension WebWallpaperLoopbackServer {
 
     /// HTTP/1.1 且未声明 `Connection: close`、无非零请求体时才复用连接。
     /// 请求体不做解析，带体的请求响应后即关闭，避免把请求体当作下一个请求。
-    private func shouldKeepConnectionAlive(requestText: String, firstLine: String) -> Bool {
+    private func shouldKeepConnectionAlive(headerLines: [String], firstLine: String) -> Bool {
         guard firstLine.hasSuffix("HTTP/1.1") else { return false }
-        if let connectionHeader = headerValue(named: "Connection", in: requestText),
+        if let connectionHeader = headerValue(named: "Connection", in: headerLines),
            connectionHeader.lowercased().contains("close") {
             return false
         }
-        if let contentLength = headerValue(named: "Content-Length", in: requestText),
+        if let contentLength = headerValue(named: "Content-Length", in: headerLines),
            let length = Int(contentLength),
            length > 0 {
             return false

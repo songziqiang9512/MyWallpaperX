@@ -40,7 +40,9 @@ extension WebWallpaperLocalSchemeHandler {
     /// 响应验证器：由 size+mtime 派生，供 ETag/Last-Modified 与条件请求复用。
     struct ResponseValidators {
         let entityTag: String
-        let lastModified: String?
+        var lastModified: String? {
+            modificationDate.map { WebWallpaperLocalSchemeHandler.httpDateString(from: $0) }
+        }
         let modificationDate: Date?
     }
 
@@ -312,7 +314,6 @@ extension WebWallpaperLocalSchemeHandler {
     static func responseValidators(for stat: FileStat) -> ResponseValidators {
         ResponseValidators(
             entityTag: entityTag(fileSize: stat.fileSize, modificationDate: stat.modificationDate),
-            lastModified: stat.modificationDate.map { httpDateString(from: $0) },
             modificationDate: stat.modificationDate
         )
     }
