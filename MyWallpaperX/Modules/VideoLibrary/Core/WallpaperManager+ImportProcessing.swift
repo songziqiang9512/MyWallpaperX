@@ -400,22 +400,17 @@ extension WallpaperManager {
         var counters = prepared.counters
         var playableExistingPaths = prepared.existingPathsToLink
         var indexByPath: [String: Int] = [:]
-        indexByPath.reserveCapacity(wallpapers.count + prepared.preparedImports.count)
-        for index in wallpapers.indices {
-            indexByPath[normalizedPath(wallpapers[index].path)] = index
+        if !prepared.preparedImports.isEmpty {
+            indexByPath.reserveCapacity(wallpapers.count + prepared.preparedImports.count)
+            for index in wallpapers.indices {
+                indexByPath[normalizedPath(wallpapers[index].path)] = index
+            }
         }
         var newWallpapers: [VideoWallpaper] = []
         newWallpapers.reserveCapacity(prepared.preparedImports.count)
         var insertedURLs: [URL] = []
         insertedURLs.reserveCapacity(prepared.preparedImports.count)
-        for path in prepared.existingPathsToLink {
-            guard wallpaperIndexSaveEpoch == indexEpoch else { return }
-            guard indexByPath[path] != nil else {
-                counters.duplicate += 1
-                continue
-            }
-            counters.duplicate += 1
-        }
+        counters.duplicate += prepared.existingPathsToLink.count
 
         for entry in prepared.preparedImports {
             guard wallpaperIndexSaveEpoch == indexEpoch else { return }
@@ -450,14 +445,14 @@ extension WallpaperManager {
         appendWallpapersInBatches(newWallpapers)
         guard wallpaperIndexSaveEpoch == indexEpoch else { return }
 
-        let importedBacking = newWallpapers.first ?? playableExistingPaths.first.flatMap { path in
-            wallpapers.first(where: { normalizedPath($0.path) == path })
-        }
         // The successful import publisher supplies provenance independently of
         // playback admission. Stop cancels playback, not an accepted download.
-        if let admission, prepared.requestedCount == 1, let importedBacking,
+        if let admission, prepared.requestedCount == 1,
            (context == .pixabayPlayback && admission.reference.provider == .pixabay)
-            || (context == .steamPlayback && admission.reference.provider == .steamWorkshop) {
+            || (context == .steamPlayback && admission.reference.provider == .steamWorkshop),
+           let importedBacking = newWallpapers.first ?? playableExistingPaths.first.flatMap({ path in
+               wallpapers.first(where: { normalizedPath($0.path) == path })
+           }) {
             libraryBackingPublished?(WallpaperContentBackingPublication(backingVideoID: importedBacking.id,
                 publishedReference: admission.reference, proof: .publishedDownload))
         }
@@ -488,15 +483,31 @@ extension WallpaperManager {
         withExtendedLifetime(resourceLifetime) {}
         guard wallpaperIndexSaveEpoch == indexEpoch else { return }
         if let completion {
-            let accepted = Set(playableExistingPaths + newWallpapers.map { normalizedPath($0.path) })
             let added = Set(newWallpapers.map { normalizedPath($0.path) })
+            let accepted = Set(playableExistingPaths).union(added)
+            // Summary, model publication and playback callbacks can replace the
+            // library. Receipt lookup starts from the current committed rows.
+            let currentWallpapers = wallpapers
+            indexByPath.removeAll(keepingCapacity: true)
+            var nextUnindexedIndex = 0
             var reportedNew = Set<String>()
             let results = prepared.orderedPaths.map { path -> WallpaperSourceImportResult.Item in
                 let url = URL(fileURLWithPath: path)
-                guard accepted.contains(path), let item = wallpapers.first(where: { normalizedPath($0.path) == path }) else {
+                var matchedIndex: Int?
+                if accepted.contains(path) {
+                    while indexByPath[path] == nil, nextUnindexedIndex < currentWallpapers.count {
+                        let index = nextUnindexedIndex
+                        nextUnindexedIndex += 1
+                        let candidate = normalizedPath(currentWallpapers[index].path)
+                        if indexByPath[candidate] == nil { indexByPath[candidate] = index }
+                    }
+                    matchedIndex = indexByPath[path]
+                }
+                guard let matchedIndex else {
                     return .init(sourceURL: url, disposition: .failed, organizationItem: nil,
                                  failureMessage: counters.failures[path] ?? "资料库内容已变化，未完成入库")
                 }
+                let item = currentWallpapers[matchedIndex]
                 let disposition: WallpaperSourceImportResult.Disposition = added.contains(path) && reportedNew.insert(path).inserted ? .added : .existing
                 return .init(sourceURL: url, disposition: disposition,
                     organizationItem: .init(reference: .init(provider: .videoLibrary, sourceID: item.id),

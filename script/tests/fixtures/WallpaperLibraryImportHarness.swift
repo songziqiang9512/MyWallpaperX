@@ -5,6 +5,8 @@ import Foundation
 import ImageIO
 import UniformTypeIdentifiers
 
+private func importFixtureIsMainThread() -> Bool { Thread.isMainThread }
+
 // PRODUCTION_IMAGE_MODEL
 // PRODUCTION_IMPORT_VALUES
 
@@ -108,7 +110,7 @@ extension WallpaperLibraryImportHarness {
             let items = receipt?.items ?? []
             let byID = Dictionary(uniqueKeysWithValues: rows.map { ($0.id, $0) })
             var checks = [
-                "mainThread": Thread.isMainThread,
+                "mainThread": importFixtureIsMainThread(),
                 "currentMembershipAndPersistence": rows.map(\.path) == expectedPaths && rows == persisted,
                 "callbackRevocation": callbacks == (needsReceipt && !revoked ? 1 : 0),
                 "realUUIDAndMetadata": rows.allSatisfy { UUID(uuidString: $0.id) != nil && $0.fileSize != nil
@@ -350,7 +352,7 @@ extension WallpaperLibraryImportHarness {
             let revoked = phase == "reset" || phase == "summaryEpochReentry"
             let rows = manager.wallpapers
             var checks: [String: Bool] = [
-                "mainThread": Thread.isMainThread,
+                "mainThread": importFixtureIsMainThread(),
                 "rowCountAndCurrentSource": revoked ? rows.isEmpty : rows.count == 1 && rows[0].path == canonical,
                 "callbackOwnership": callbacks == (needsReceipt && !revoked ? 1 : 0),
                 "noAutoplayFromReceipt": manager.automaticPlays == 0,
@@ -412,6 +414,88 @@ extension WallpaperLibraryImportHarness {
             work[phase] = measured
             manager.summaryAction = nil
         }
+        let indexed = (0..<96).map { sourceRoot.appendingPathComponent("indexed-\($0).mp4") }
+        let bulk = (0..<48).map { sourceRoot.appendingPathComponent("bulk-\($0).mp4") }
+        for url in indexed + bulk { try Data("owned import source".utf8).write(to: url) }
+        for phase in ["bulkReceipt", "firstExistingReceipt", "firstExistingNoReceipt", "aliasFirstReceipt",
+                      "summaryReordered", "summaryDeleted", "assetReordered", "assetDeleted", "assetReset"] {
+            let directory = root.appendingPathComponent(phase, isDirectory: true)
+            let manager = WallpaperManager(cacheRoot: directory)
+            try FileManager.default.createDirectory(at: manager.thumbnailCacheDirectory, withIntermediateDirectories: true)
+            try FileManager.default.createDirectory(at: manager.staticFrameCacheDirectory, withIntermediateDirectories: true)
+            let alias = directory.appendingPathComponent("source-alias.mp4")
+            try FileManager.default.createSymbolicLink(at: alias, withDestinationURL: a)
+            let firstExisting = phase.hasPrefix("firstExisting") || phase.hasPrefix("summary")
+            let seedURLs = phase == "aliasFirstReceipt" ? [a, alias, b]
+                : firstExisting ? [a] + Array(indexed.dropFirst()) : indexed
+            manager.wallpapers = seedURLs.enumerated().map {
+                VideoWallpaper(id: "seed-\($0.offset)", title: "Seed \($0.offset)", path: $0.element.path, lastUsed: .distantPast)
+            }
+            let inputs = phase == "bulkReceipt" ? bulk + [bulk[0], missing]
+                : phase == "aliasFirstReceipt" ? [alias, b, a, missing] : [alias]
+            let needsReceipt = phase != "firstExistingNoReceipt"
+            let summary = phase.hasPrefix("summary")
+            if phase == "summaryReordered" { manager.summaryAction = { manager.wallpapers.reverse() } }
+            if phase == "summaryDeleted" { manager.summaryAction = { manager.wallpapers.removeFirst() } }
+            if phase == "assetReordered" { manager.assetAction = { manager.wallpapers.reverse() } }
+            if phase == "assetDeleted" { manager.assetAction = { manager.wallpapers.removeLast() } }
+            if phase == "assetReset" { manager.assetAction = { manager.resetForAudit() } }
+            var callbacks = 0, receipt: WallpaperSourceImportResult?
+            let completion: ((WallpaperSourceImportResult) -> Void)? = needsReceipt ? { callbacks += 1; receipt = $0 } : nil
+            ImportRequestWorkProbe.shared.reset()
+            manager.processImportedVideos(from: inputs, presentingIn: nil, context: .library,
+                presentsSummary: summary, completion: completion)
+            await drain(manager)
+            let measured = ImportRequestWorkProbe.shared.snapshot(), rows = manager.wallpapers
+            func canonical(_ path: String) -> String {
+                URL(fileURLWithPath: path).resolvingSymlinksInPath().standardizedFileURL.path
+            }
+            let items = receipt?.items ?? []
+            let noReceipt = !needsReceipt || phase == "assetReset"
+            let expectedInputs = phase == "bulkReceipt" ? bulk.map { canonical($0.path) } + [canonical(bulk[0].path), missing.path]
+                : phase == "aliasFirstReceipt" ? [canonical(a.path), canonical(b.path), canonical(a.path), missing.path] : [canonical(a.path)]
+            let removed = phase == "summaryDeleted" || phase == "assetDeleted"
+            let expectedDispositions = noReceipt ? [] : phase == "bulkReceipt"
+                ? Array(repeating: "added", count: 48) + ["existing", "failed"]
+                : phase == "aliasFirstReceipt" ? ["existing", "existing", "existing", "failed"]
+                : removed ? ["failed"] : firstExisting ? ["existing"] : ["added"]
+            let expectedCount = phase == "assetReset" ? 0 : phase == "bulkReceipt" ? 144
+                : phase == "aliasFirstReceipt" ? 3 : phase == "summaryDeleted" ? 95 : phase == "assetReordered" ? 97 : 96
+            let checks: [String: Bool] = [
+                "callbackOwnership": callbacks == (noReceipt ? 0 : 1),
+                "rowCount": rows.count == expectedCount,
+                "receiptInputOrder": items.map(\.sourceURL.path) == (noReceipt ? [] : expectedInputs),
+                "receiptClassifications": items.map { String(describing: $0.disposition) } == expectedDispositions,
+                "receiptReferencesCurrentRows": items.allSatisfy { item in
+                    guard let organization = item.organizationItem else { return item.disposition == .failed }
+                    return rows.contains { $0.id == organization.reference.sourceID && $0.path == organization.locator.path }
+                        && organization.reference.provider == .videoLibrary
+                        && organization.locator.path.map(canonical) == canonical(item.sourceURL.path)
+                        && organization.isPublishedLocally && organization.isAvailable
+                },
+                "firstAliasKeepsFirstRow": phase != "aliasFirstReceipt"
+                    || items.count == 4 && items[0].organizationItem?.reference.sourceID == "seed-0"
+                        && items[2].organizationItem?.reference.sourceID == "seed-0"
+                        && items[1].organizationItem?.reference.sourceID == "seed-2",
+                "summaryUsesExistingDuplicateCount": !summary || manager.summaries.count == 1
+                    && manager.summaries[0].requestedCount == 1 && manager.summaries[0].importedCount == 0
+                    && manager.summaries[0].failureBreakdown == ["1 个文件已存在于列表中"],
+                "removedRowsStayFailed": !removed || items.first?.failureMessage == "资料库内容已变化，未完成入库",
+                "missingSourceKeepsFailure": !(phase == "bulkReceipt" || phase == "aliasFirstReceipt")
+                    || items.last?.failureMessage == "文件不存在",
+                "noAutoplay": manager.automaticPlays == 0,
+                "sourcesRemain": FileManager.default.fileExists(atPath: a.path)
+                    && FileManager.default.fileExists(atPath: bulk[0].path),
+                "lateResetKeepsEpochBoundary": phase != "assetReset" || manager.wallpaperIndexSaveEpoch == 1,
+            ]
+            functional[phase] = ["checks": checks, "rowPaths": rows.map(\.path), "rowTitles": rows.map(\.title),
+                "receiptPaths": items.map(\.sourceURL.path), "dispositions": items.map { String(describing: $0.disposition) },
+                "receiptBackingTitles": items.map { $0.organizationItem?.locator.titleHint as Any? ?? NSNull() },
+                "failures": items.map { $0.failureMessage as Any? ?? NSNull() },
+                "assetJobs": manager.assetJobs.map { $0.map(\.path) }, "indexEpoch": manager.wallpaperIndexSaveEpoch]
+            work[phase] = measured
+            manager.summaryAction = nil; manager.assetAction = nil
+        }
         print(String(data: try JSONSerialization.data(withJSONObject: ["functional": functional, "work": work], options: [.sortedKeys]), encoding: .utf8)!)
     }
 }
@@ -462,7 +546,7 @@ nonisolated final class ImageImportProbe: @unchecked Sendable {
         pair.0.signal(); precondition(pair.1.wait(timeout: .now() + 5) == .success)
     }
 }
-@MainActor final class SILService {
+final class SILService {
     var allowsLibraryMutation = true
     var migrationRecoveryMessage: String?
     var metadataLoadGeneration: UInt64 = 0
@@ -498,6 +582,7 @@ nonisolated final class ImageImportProbe: @unchecked Sendable {
     let thumbnailCacheDirectory: URL
     let staticFrameCacheDirectory: URL
     var summaryAction: (() -> Void)?
+    var assetAction: (() -> Void)?
     init(cacheRoot: URL? = nil) {
         let root = cacheRoot ?? URL(fileURLWithPath: CommandLine.arguments[1]).appendingPathComponent("video-cache")
         thumbnailCacheDirectory = root.appendingPathComponent("thumbnails")
@@ -509,7 +594,7 @@ nonisolated final class ImageImportProbe: @unchecked Sendable {
     }
     // ACTUAL_VIDEO_CACHE_LEAVES
     func recordInitialIndexImportContext(_ context: ImportContext, wallpaper: VideoWallpaper) {}
-    func scheduleImportedAssetsProcessing(_ urls: [URL]) { assetJobs.append(urls) }
+    func scheduleImportedAssetsProcessing(_ urls: [URL]) { assetJobs.append(urls); assetAction?() }
     func acceptsImportedVideoPlayback(_ admission: ImportedVideoPlaybackAdmission) -> Bool { false }
     func setAsWallpaper(_ value: VideoWallpaper, admission: ImportedVideoPlaybackAdmission) { automaticPlays += 1 }
     func failImportedVideoPlayback(_ admission: ImportedVideoPlaybackAdmission, reason: String) {}

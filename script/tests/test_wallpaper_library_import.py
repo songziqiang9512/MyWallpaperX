@@ -70,7 +70,7 @@ def actual_import_fixture(tree=ROOT, import_processing_override=None, fixture_tr
             '        ImageWorkProbe.shared.model(id: id, path: path, addedAt: addedAt, width: pixelWidth, height: pixelHeight)')
         image_model = image_model.replace(initializer, observed)
     fixture = fixture.replace('// PRODUCTION_IMAGE_MODEL', image_model)
-    fixture = fixture.replace('@MainActor final class SILService {', '@MainActor final class SILService: ObservableObject {')
+    fixture = fixture.replace('final class SILService {', 'final class SILService: ObservableObject {')
     image_field = next(line for line in image.splitlines() if '    @Published var wallpapers:' in line)
     fixture = fixture.replace('    var wallpapers: [SILWallpaper] = []', image_field)
     image_methods = '\n'.join(declaration(image, marker) for marker in (
@@ -160,8 +160,16 @@ def prepare_sil_import_work_sources(tree, work, sil_service_override=None, fixtu
 class WallpaperLibraryImportTests(unittest.TestCase):
     def test_actual_request_paths_cache_queries_and_reentrant_boundaries(self):
         results = []
-        expected_normalize = {"nilMiss": 1, "receiptMixed": 7, "bothHits": 4, "thumbnailOnly": 4,
-            "staticOnly": 4, "queuedAliasRetarget": 4, "reset": 1, "summaryEpochReentry": 1, "summaryAliasRetarget": 4}
+        expected_work = {phase: {"normalize": normalizations, "key": keys, "thumbnailOutput": keys,
+            "staticFrameOutput": keys, "exists": exists} for phase, (normalizations, keys, exists) in {
+                "nilMiss": (1, 1, 3), "receiptMixed": (5, 1, 5), "bothHits": (3, 1, 3),
+                "thumbnailOnly": (3, 1, 3), "staticOnly": (3, 1, 3), "queuedAliasRetarget": (3, 1, 3),
+                "reset": (1, 1, 3), "summaryEpochReentry": (1, 1, 3), "summaryAliasRetarget": (3, 1, 3),
+                "bulkReceipt": (434, 48, 146), "firstExistingReceipt": (98, 0, 1),
+                "firstExistingNoReceipt": (97, 0, 1), "aliasFirstReceipt": (10, 0, 4),
+                "summaryReordered": (193, 0, 1), "summaryDeleted": (192, 0, 1),
+                "assetReordered": (195, 1, 3), "assetDeleted": (290, 1, 3), "assetReset": (193, 1, 3),
+            }.items()}
         with tempfile.TemporaryDirectory(prefix='mwx-import-work-', dir='/private/tmp') as directory:
             root = Path(directory)
             runtime = root / 'runtime'
@@ -191,14 +199,15 @@ class WallpaperLibraryImportTests(unittest.TestCase):
                 self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
                 result = json.loads(run.stdout)
                 self.assertEqual(set(result), {'functional', 'work'})
-                self.assertEqual(set(result['functional']), set(expected_normalize))
-                self.assertEqual(set(result['work']), set(expected_normalize))
-                for phase, normalizations in expected_normalize.items():
+                self.assertEqual(set(result['functional']), set(expected_work))
+                self.assertEqual(set(result['work']), set(expected_work))
+                for phase, expected in expected_work.items():
                     for check, passed in result['functional'][phase]['checks'].items():
                         with self.subTest(configuration=configuration, phase=phase, check=check):
                             self.assertIs(passed, True, run.stdout)
-                    self.assertEqual(result['work'][phase], {'normalize': normalizations, 'key': 1,
-                        'thumbnailOutput': 1, 'staticFrameOutput': 1, 'exists': 5 if phase == 'receiptMixed' else 3}, run.stdout)
+                    with self.subTest(configuration=configuration, phase=phase, check='requestWork'):
+                        self.assertEqual(result['work'][phase], expected,
+                            {'configuration': configuration, 'phase': phase, 'work': result['work'][phase]})
                 self.assertEqual(inputs, {path: hashlib.sha256(Path(path).read_bytes()).hexdigest() for path in inputs})
                 results.append(result)
                 print(json.dumps({'configuration': configuration, **result}, sort_keys=True))

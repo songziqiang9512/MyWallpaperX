@@ -42,6 +42,8 @@ R15（5397f6ab9起）：Steam视频缩略图把近黑改为择帧评分，保原
 
 R16（3081a3b5f起，整合4afd26354）：ThumbnailCache在原首次身份锁同时读取只能撤销的allowsCaching，clear/remove及sourceDataKey已失效则跳过可选JPEG/PNG编码和raw/still staging；原load/decode、join、消费者交付、槽位与最终发布锁保持。首次读取后才失效仍可能编码/写暂存，最终锁继续禁止回填，不扩大强保证。产品净+7行用于展开原锁并读取许可，无新锁、helper、owner或持久状态；测试净+94行，只替换两项旧编码成本断言，其余功能断言保留。同最终真实门旧源仅8项可选工作反例红，新源136项全真；原租约52、返回复用46及视频69检查通过，输入及实际编译文件身份稳定。租约夹具复用现役产品隔离参数并对齐真实nonisolated枚举，不删产品await或压警告。产品独审通过，隔离构建/质量结果归本批证据，不认领完整App或耗时/能耗改善。在线多像素tier重复raw存储已证，但HTTP owner没有cache generation、scope或解码成功资格；前移会改变坏响应、撤权/clear/全取消与并行写失败再尝试边界，简单Data比较也不能证明已落盘，暂缓，不为省写入另加状态层。下一方向转查非Scene库导入/持久化的重复数据准备。
 
+R17（ffb632829起）：视频导入结果准备只在有新候选时建应用索引，退役无消费的已有项查询循环；added路径只规范化一次，匹配admission/来源/单项条件后才准备provenance backing，Stop后成功下载发布仍独立于播放许可。最终completion在所有callout之后读取当前库，清空复用原局部索引、按需扫描前缀并保首匹配，避免逐receipt重扫；无completion不做该工作。产品净+11行用于游标/当前COW行，未增helper、长期索引、owner或防御层，未改metadata/保存/SQLite。同最终夹具旧新Debug/Release各18相位、225业务检查全真，领域结果逐对象等价（只归一化任务临时根及已单独验证的4个派生缓存定位符）；旧源仅28项成本反例红。真实normalize调用大批6219→434，首项已有195→98、无receipt194→97、别名越过重复项再回查16→10；keys/输出路径/exists调用保持。现役导入/混合关系入库、workspace alias、35项真实admission/Stop及metadata门通过。补现有receipt门遗漏的ImportProcessing精确路径关联。最初SDK夹具编译和新路径预期失败未计绿：线程检查保实际Thread读数，SIL及Manager夹具声明对齐默认隔离，提取保原discardable注解/产品flags，成功source与原row路径按canonical对应，原业务断言不删。独审及输入身份通过，隔离构建/质量结果归本批证据；普通var夹具不冒充Combine或已发生的生产重排故障，不外推整App/播放、时耗或能耗。下一候选是同owner元数据回填只比较最终命中行，保通知路径/顺序及恢复原值零发布。
+
 “无调用”须排查 selector、协议回调、独立进程、作者脚本、动态资源及调试工具；测试、文档或结构登记出现名字不等于产品调用。第一批只删除已确认不可达的链路，不以行数作为收益或验收目标。
 
 ## 第一批设计与停止条件

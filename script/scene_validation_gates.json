@@ -5144,6 +5144,7 @@
       "id": "main-library-import-receipts",
       "patterns": [
         "MyWallpaperX/App/WallpaperLibraryImportCoordinator.swift",
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+ImportProcessing.swift",
         "MyWallpaperX/Models/WallpaperSourceImportResult.swift",
         "MyWallpaperX/Models/WallpaperReference.swift",
         "MyWallpaperX/Core/LibraryCollections/UserCollectionsStore.swift",

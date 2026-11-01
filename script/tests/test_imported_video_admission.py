@@ -8,8 +8,8 @@ import unittest
 import uuid
 
 from script.tests.test_imported_video_autoplay_gate import GATE_SOURCES, MANAGER, product_harness
-from script.tests.test_steam_library_interactions import method
 from script.tests.test_ui_library_algorithms import declaration
+from script.tests.test_video_thumbnail_prefetch import SWIFT_ISOLATION_FLAGS
 from script.tests.test_wallpaper_library_import import video_import_cache_methods
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -48,7 +48,7 @@ class ImportedVideoAdmissionTests(unittest.TestCase):
 '''
         marker = '@MainActor final class WallpaperManager: ObservableObject {'
         self.assertEqual(source.count(marker), 1)
-        source = source.replace(marker, marker + fields)
+        source = source.replace(marker, marker.removeprefix('@MainActor ') + fields)
         # This richer harness replaces the bounded Stop leaf with the actual
         # product Stop body below, retaining all reentrant endpoint assertions.
         source = source.replace('func stopCurrentPlayback(){_ = beginPlaybackIntent();currentWallpaper=nil;pendingWallpaper=nil;isPlaying=false;stopAutoSwitchTimer()}', '')
@@ -82,8 +82,9 @@ class ImportedVideoAdmissionTests(unittest.TestCase):
         methods += '\n' + declaration(persistence, '    func saveCodableValue<')
         methods += '\n' + declaration(persistence, '    private func encode<')
         pixabay = (ROOT / 'MyWallpaperX/Modules/Pixabay/Core/PixabayService.swift').read_text()
-        online_methods = '\n'.join(method(pixabay, sig) for sig in [
-            'func downloadAndSet(', 'private func postReadyToPlay(', 'func setLocalFileAsWallpaper(',
+        online_methods = '\n'.join(declaration(pixabay, sig) for sig in [
+            'func downloadAndSet(', '    @discardableResult\n    private func postReadyToPlay(',
+            '    @discardableResult\n    func setLocalFileAsWallpaper(',
             'private func existingDownloadedURL(', 'private func publishDownloadedContent(',
         ])
         online_methods += '\n' + declaration(pixabay, '    static var legacyDownloadDirectory:')
@@ -104,7 +105,7 @@ class ImportedVideoAdmissionTests(unittest.TestCase):
                 target.write_bytes(original.read_bytes())
                 copied.append(str(target))
             binary = work / 'checks'
-            build = subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', '-parse-as-library',
+            build = subprocess.run(['xcrun', 'swiftc', *SWIFT_ISOLATION_FLAGS, '-warnings-as-errors', '-parse-as-library',
                 *copied, str(harness), '-module-cache-path', str(work / 'modules'), '-o', str(binary)],
                 capture_output=True, text=True, timeout=120)
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
