@@ -153,11 +153,13 @@ Shader artifact、variant 分析、decoded 资源、prepared geometry 与 Pipeli
 
 当前已有设备资源后台准备、上传queue共享、进程父额度及实际存活期lease。材质Graph/source准备的warmup是唯一PSO编译点；PassEncoder帧内只消费正/负缓存，缺准备结果局部拒绝，reset仅撤旧command代次而保不可变PSO。后续优化先测准备、分配与编码成本，不重建已有能力。启动与缓存合同查[启动合同](scene-launch-responsiveness-contract.md)，Pipeline源码查[PassEncoder](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder.swift)。
 
-## 5. 保留的底座与需要继续收敛的职责
+## 5. 准备、实例与跨层消费边界
 
 保留同二进制 daemon、Swift/Metal 产品所有权、真实 QuickJS VM、唯一资源来源、prepared catalog/Program、每屏图与统一最终合成，以及模拟和呈现分离。外部通用设计中的同进程起步、JSC 优先或整套新目录，不覆盖这些已经存在的合理边界。
 
-当前 prepareLaunch 与 FrameDriver 仍负责装配多类 program、状态和资源，LaunchContext 同时携带不可变准备事实及可变实例。后续按实际数据寿命和消费者收敛准备/实例/Surface 职责，退役重复投影与准入；不在现有对象之外再包一层 SceneSession 或万能组件容器。具体改造与顺序进入现役顶层设计和路线，不由本图再开第二个队列。
+prepareLaunch 产出临时 PreparedLaunch，释放准备线程所有权后由 Session 激活并接管同一 LaunchContext；Context 内的不可变准备引用与活动 owner 不构成第二执行器。用户纹理活动结果由 Session 单独持有。descriptor 的作者文本/默认值、准备计划和 typed 当前值有不同消费者；自然尺寸回填保留准备结果，拓扑投影与 frame schema 分别只在实际 revision 改变时重建。不能仅因同一容器含多种寿命或字段形似重复，再复制一套场景或机械搬字段。
+
+依赖发布消费既有 graph 输出，实际执行仍沿同一 submission coordinator 和最终 compositor；FrameDriver 的前置与最终 snapshot 对应不同阶段。后续发现重复工作时从真实消费者、失效边界和成本定位，按[重构设计](../roadmap/engine-refactor-program.md)与[唯一队列](../roadmap/scene-open-breakpoint-queue.md)处理，不由本图另开待办。
 
 ## 6. 维护规则
 

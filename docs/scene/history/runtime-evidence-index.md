@@ -5384,3 +5384,69 @@ Session唯一既有Store生产current/previous及各purpose，每cadence一次sn
 - **出生/销毁载体26**：只复用Lan原模型资源、自写阶段控制器；两侧各2条clone ready，`playback=0`只证默认bind GPU。7张/侧捕获包含双Puppet→右clone→仅peer；phase0未捕获，ready仅作者动画左区10815像素不同，其余6对全图RGB一致；最终28558纯绿像素/其余黑。旧作者962 clock继续0…210帧、148条骨骼GPU输出至7.319445s；新仅0/30、32条至1.517977s。故原作者销毁后无消费者的持续采样/蒙皮已退出；不将诊断采样数量当整体CPU/能耗测量。
 - **失败与方法修正**：保首轮漏CPU preparePose、旧GPU错误枚举引用及独立CPU NSLog import的整合失败；未以加桩掩盖。旧publication载体缺Timeline枚举、preparation以合法0速充当非法输入、邻门缺既有生产依赖的基线失败均留存，改用负速反例/真实源闭包；原source SHA对照可复查。新增白paint的1×1边缘采样失败保留，改2×2后实测旧/新alpha255/128，未改产品或阈值。专用Skill只补调度时基与有界窗口方法，独立fresh-context审查后明确“已覆盖仍无事件”须定位首错，不能无限等候；无新增产品认证或固定重跑时长。
 - **保留与上限**：15次实际App运行全部exit0、stop至0Surface且GPU drained；必要原图、压缩原始日志/runtime、完整raw reports、身份/协议/失败与门结果归`.artifacts/scene-evidence/runs/scene-puppet-surface-gpu-ownership-20261102/`，普通14天、单包32MiB内，原FAIL不改写。重放输入与分析在忽略的`scene-engine-convergence/puppet-*`。不证明FPS、能耗、完整语料、物理多屏或官方parity。完整goal仍待最终跨族App集成、可比成本与现役文档归整；本族闭环不等于整体完成。
+
+
+<a id="e-architecture-final-integration-20261102"></a>
+## E · 架构迁移冻结后验（2026-11-02）
+
+本记录结算[架构级迁移合同](../roadmap/engine-refactor-program.md#架构级迁移合同)的本轮实施与有界能力保持。独立兼容缺口、未资格输入和性能专项不由架构结算关闭，仍从[唯一队列](../roadmap/scene-open-breakpoint-queue.md)进入。没有新增renderer、VM、clock、graph、资源registry或最终输出，也没有按样本、路径或截图选择算法。
+
+### 实施与职责退出
+
+产品源码/App基线为`e350cf2fb2d649f95a5711cac6d9bbca9f82c3d7`，最终产品为`bd92f0ee35d85f90063cdb84865f9456f6909107`。能力族独立提交，设计先落库：
+
+| 能力族 | 提交与已退出职责 |
+|---|---|
+| 文字语言 | `1c27274c0`：[旧文本解释器](#e-text-vm-convergence-20261102)退出，现有String/QuickJS VM承接日期、属性、媒体事件和fallback |
+| shared/alpha | `b58949bd9`：[独立共享alpha语法/状态](#e-shared-alpha-vm-convergence-20261102)退出，复用同一VM与typed alpha |
+| 属性准备 | `bbc30ab38`：[Program索引/验证](#e-property-program-preparation-20261102)只在准备边界，实例只求当前值 |
+| 图片自然尺寸 | `c5edee022`：[几何回填](#e-prepared-image-geometry-reuse-20261102)不重建已有prepared plans |
+| 用户纹理 | `628e8fa8e`：[PreparedLaunch短期交接](#e-user-texture-session-ownership-20261102)，Session独占活动结果，Context镜像退出 |
+| 材质PSO | `42f92b5c2`：[准备期编译](#e-material-pipeline-preparation-20261102)，普通帧仅绑定已准备正/负缓存 |
+| 文字生产 | `f37014416`：[Session一份生产](#e-session-text-production-20261102)，Surface独立提交，不重复栅格化 |
+| 媒体封面 | `299df7e7d`：[会话唯一store](#e-session-media-production-20261102)，共享cadence和冻结消费 |
+| 动态出生 | `7b99ed69a`：[出生一次准备](#e-dynamic-layer-preparation-20261102)，普通值更新不重建descriptor/每屏patch |
+| 粒子 | `f7532df95`：[Surface CPU实例与GPU上传](#e-particle-surface-gpu-ownership-20261102)分开，View/renderer重复状态与转发退出 |
+| Puppet/direct | `bd92f0ee3`：[Surface姿态与MeshGeometry](#e-puppet-surface-gpu-ownership-20261102)分开，GPU不回调CPU，已销毁作者实例不继续采样/蒙皮 |
+
+与该源码基线比较，产品109个Git diff条目合计+1699/−4213，净−2514行；测试净+867，文档净+375，Skill净+8，其他工作流/登记净−58（不含本次文档收口）。这是职责/维护成本说明，不是性能计时。最终有限Context、descriptor及依赖输出审查绑定6份源码SHA：临时PreparedLaunch交给唯一Session，必要作者/准备/live表示有不同消费者，依赖发布消费既有graph输出；未发现需要继续拆容器、复制状态树或添加owner的证据。FrameDriver前置/最终snapshot仍有不同阶段，不强行合并。
+
+另逐调用复核依赖门仍保留的44条Rendering→Compilation词法边：SourceParser仅准备期，StableDigest位于DEBUG观察或失败字符串；Targets普通帧通过plansMemoIdentity、plans/layerPlans和cachedAllocation复用，未重跑InputValidator/plan或table创建。其余主要为已准备Capability/Token数据、准备期PSO/cache identity、当前纹理/uniform绑定和局部失败谓词。`final-architecture-dependency-audit.json`保存44/44性质与源码身份；混合namespace债仍按机器库存和队列保留，不冒充清零，也不为此公开内部算法、加缓存/转发或重复已STOP原型。有限审查未发现新的必要运行改造，不代表未来所有路径已证明。
+
+### 冻结App与跨族保持
+
+- 两端均为2.12.1(285)、同Team的优化Debug（`SWIFT_OPTIMIZATION_LEVEL=-O`），不称正式Release。旧App SHA `fba4c7622d9af8b9dc89f938c26bd289fcc4efed5d7162682340251752bd8657`；最终App SHA `7f53c0969eed829c679276c18dbc8ebe93140c5df7eae9bdd5f6f6a444883d56`，CDHash `7326e8ef1924bc1bbc9560ee7eef9307220cb7c1`。最终Debug构建、24份产品源身份与严格签名校验已在Puppet批完成；后续只改测试日志期望和文档，没有再改产品。
+- 最终计划先冻结7组/12次实际App：原293/335/366文字、改名14/15文字、16封面current/previous/clear、12/13图片/视频用户纹理、改名23/24动态层、原293属性→shared→alpha、原376事件child/粒子。复用各自既有输入、属性、音源、时间及窗口协议；结果为5 raw PASS、7原有FAIL，全部App exit0、输入/App/协议身份无漂移、stop至0Surface且GPU drained。旧失败文本/数量及VM异常文本/计数保持；准备/绑定统计并非全相等（如293 scalar 23→26、旧文本计数0→5/28/42），报告保原数，不用绑定数量代替画面。
+- 210张历史PNG身份逐一匹配，分析97张最终截图。14、16、12/13全部同名捕获RGB精确一致；15两份主文字ROI一致，clone就绪相位不同仍保原图。15的预设健康peer三侧原本都没有纹理资格，只证明文字/clone；有效green/blue正控来自14，不将空背景充作健康贡献。
+- 23/24四阶段均可见，删除后image/text ROI各无残留。首过渡同输入仍有488228像素不同；最终23该阶段精确匹配旧24基线，最终24匹配旧23两侧/旧24候选，只能证明等价改名输入存在相同可达状态，不证明同cadence或整段序列像素等价。原24过渡另有`dynamic24-transition-semantic-audit.json`：旧147的23与后299的24首过渡PNG字节相同，分清callback marker、下一cadence setter及异步文字栅格三阶段；不为凑截图而强制同步文字。
+- 原293/335日期、动画/封面及原376烟花/child没有相同墙钟/随机/呈现身份；实看主体和既有可见贡献，不称逐像素等价。原366仍有effect517/pass0的`[P1] Data`读取`p1_longNode` undefined一次，原376双Surface仍有238.angles的screen localStorage身份异常两次，旧/中间/最终相同；这些回原Script/effect或storage身份owner排查，不因本批迁粒子/文字重修或吞错。
+- 补跑动态文字generation与sound Program门通过。暂停文字真实App首失败源于旧per-View日志计数2，现会话store只发布1次；保留首失败及两屏frame0完成、未重放VM、静态NEW TEXT对照与PNG字节一致证据，仅将该日志期望改1，其他输入/断言/Swift不变。修正后同一最终App重新运行通过，原失败与通过均保留，不把断言重放称新GPU运行。
+- 各族原有GPU、候选激活/取消、暂停恢复、资源替换与退出门及新旧真实App的职责证据仍各自归前述锚点；本段不将它们拼成物理多屏、所有交互或全语料通过。297点击旧新都未取得目标760的命中资格，19封面等独立未闭输入也不补写通过。
+
+### 同条件成本，未认领整体提速
+
+固定原335、单Surface/30FPS/静音、无execution observer、每轮独立进程和HOME，按旧1→新1→旧2→新2→旧3→新3执行。每轮30s预热、61.499–61.501s有效测量；各63份process/resource样本，六轮raw PASS。未并行构建、测试、profiler或PNG分析。协议和旧/新优化等级、身份、输入及阈值均事前固定；OS cache未清、温度/功率未测。
+
+| 指标（三轮中位数） | 旧 → 新 | 判定 |
+|---|---|---|
+| 进程CPU时间率 | 33.200% → 34.318%（相对+3.369%） | 无改善；旧噪声4.289%，未越事前非目标8.578%门 |
+| renderer CPU p95 | 3.582 → 3.596ms | +0.391%，未越5%门，不计提速 |
+| GPU p50 / p95 | 9.445/12.431 → 9.377/9.872ms | 旧噪声24.542%/10.578%超5%归因门，下降不授收益 |
+| sampled footprint peak | 870057424 → 929695304B | +6.854%，旧噪声4.728%，未越9.457%门；不认内存收益 |
+| sampled GPU allocated peak | 564625408 → 605978624B | +7.324%，旧噪声8.453%，未越16.906%门；保留上移原数 |
+| sampled target-pool peak | 244925440 → 244925440B | 中位不变；新首轮峰另有上移，不称所有轮相同 |
+| completed FPS | 29.984 → 29.984 | 两侧全部failed/drawable-missed/dropped为0，present超1.5倍比例为0 |
+
+六轮CPU/GPU p95均在冻结33.33ms预算内，指标中位未越各自事前非目标门；这不证明相等或全引擎性能提升。不加跑追好数字、不放宽噪声门。普通daemon、Release、首帧尾分位、长期切换、最低设备、能耗和全语料未验，性能专项继续开放。最初`--log-only`与关闭observer不兼容的六次CLI exit2没有启动App，原失败也保留，未计入六轮测量。
+
+### 文档、Skill与材料
+
+当前入口按生命周期、脚本/属性、输入/媒体、文字/图片、材质/graph、粒子、Puppet/模型、相机/显示分类，固定实验正文归一次[历史快照](runtime-evidence-current-through-2026-11-02.md)。源1192行/366075B SHA `fb5eae0d1e419004ef547d84b5d036fe0304f04d0acf7ad78bc659949d45681c`，保留正文1192行/366619B SHA `ea26319973fbfed3dae53241c63c8c1eb43bb870ff83a884c650e2f04783f988`；只转换34个必要相对链接，逆变换恢复原字节，808个旧anchor仍可达，不称字节相同移动。合同、现况、执行顺序、开发方法和历史各有职责，不重复保存当前结果。
+
+专用Skill已在`7b2374521`重写为职责/方法入口，各族只补经证实可复用的方法；最终fresh-context复核，退出旧View/GPU/回滚与任务阶段快照，不用Skill反向定义架构或保存本次PASS。最终文档修正旧all-surface回滚、direct per-View CPU及GeometryProduct抓CPU State的误导描述；生成记忆只读，未改记忆。
+
+必要结果归`.artifacts/scene-evidence/runs/scene-architecture-final-integration-20261102/`：32包228773561B，最大23013862B，普通14天；保135张原PNG、2张对照图、66个无损gzip日志/runtime及109份无损metadata（含18份完整raw reports）。235个manifest SHA、312项源SHA及全部解压原字节校验一致，原FAIL未改。复验入口为忽略任务根的`final-architecture-promotion-run.py verify --check-sources`；代码身份、有限owner审查、native比较、成本协议/原数/分析与首失败均可定位。正式签名发行、安装、合并、推送及发布均未执行。
+
+最终文档/链接/登记/role/治理5模块通过；独立断言棘轮、依赖、设计与Git产物门通过，未改阈值。首次收口文档门查出同一历史文件重复导航行、同一预算路径重复调整记录，已在原owner合并，首失败日志保留，没有修改门本身。44边/61份源码的补充审查、最终门禁与退出记录另封`closeout-metadata`，不回写已冻结的32份运行/比较包。
+
+材料退出按`final-architecture-cleanup-plan.json`先核当前原件的冻结文件SHA，14/14副本可字节复现；缺历史writer来源的text/Puppet不追认来源。根复核后逐文件重哈希并确认无候选句柄，回收14份原始Scene运行副本、已闭pre-Puppet App与唯一DerivedData共16个精确目录，3278096684个逻辑regular-file字节，未测物理磁盘释放。矩阵、身份、原始报告/PNG/log与自有小fixture保留；迁移前e350签名基线、297未闭pre-alpha App/输入及一份独立最终7f53签名App明确保留，后者退出构建缓存后再次验签/验身份通过。原用户树和其他工作树的系统wallpaper进程未动；没有清工作树、分支或整个产物根。

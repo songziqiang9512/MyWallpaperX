@@ -51,7 +51,7 @@
 | 3577990983 · 远距离提前hover放大 | 先同设置官方/原生及真实鼠标对照；作者约602场景单位半径只解释部分观察，不调全局倍率，也不与已正常的199固定视口认同根。[入口边界](../capabilities/runtime-evidence-current.md#physical-pointer-ingress-20261023) |
 | 2887542690 · 音频ROI、黑遮挡/字体、片区布局 | 图框内音频缺可重复正证，pointer消融已STOP；先取得可区分输入/ROI，不把旧外悬蓝条消失当音频恢复。[资格](../history/composition-local-perspective-2026-10-16.md) |
 | 2134765860 · 旧右黑块 | 默认日景/Night选项4未定位独立黑矩形；旧ROI、媒体和phase不齐。仅待同状态可区分复现，不列当前已证缺图，不据无归属mask实施。旧`213-black-region-night-qualification-20261016`收据按[可用性边界](../capabilities/runtime-evidence-current.md#local-evidence-availability)使用 |
-| 3768903841 · 云形/烟花色彩细节 | 同phase对照source/Program和ROI；四束spot已执行不关闭横向深云片反馈，也不证明新光照根因。[边界](../history/runtime-evidence-index.md#e-spot-light) |
+| 3768903841 · 云形/烟花色彩细节 | 同phase对照source/Program和ROI；四束spot已执行不关闭横向深云片反馈，也不证明新光照根因。另双Surface协议中layer238.angles的cursor/update各一次`screen localStorage requires an exact single-screen identity`，旧/中间/最终7f53文本及计数相同；先在Script storage/screen身份入口核资格，不按该异常重修粒子或猜视觉根因，原日志定位见`final-architecture-native-comparison.json`。[边界](../history/runtime-evidence-index.md#e-spot-light) |
 | 3226487183 · 手部 | 原1028手部未闭；实际origin/reference/effect链正常、MDL source Z全零。先定位同phase形变，不改坐标或由别的XYZ修复推受益。 |
 | 3809618616 · 布局裁切/音频活动 | 先确认当前具体差异和状态，不重开已闭int compound/TEX照片入口。[最后整合](../history/committed-range-review-repairs-2026-10-07.md#整合验证) |
 | 3791967416 · 局部图案/合成、眼部完整周期 | 对齐完整周期/ROI；单次闭眼无虹膜已证，不重修barcode/seek/bone alpha。[边界](../history/puppet-clipping-2026-10-08.md#跨样本app与最终冻结) |
@@ -69,7 +69,7 @@
 | 3768724269 · 旧光束范围/根部、右上渐变 | 用户称近官方、当前未确认新gross缺陷，仅待新同状态ROI；不按观感调gain，不重开已闭sunrays热显隐。[边界](../capabilities/runtime-evidence-current.md#quad-visibility-live-20261020) |
 | 3287715210 · 眼周过亮/渐变弱、横移细竖纹 | 两个余项分别复验。终端8位量化有证，不证明内部F16或条纹根因，不额外压暗/重复优先消融Bloom。[证据](../capabilities/runtime-evidence-current.md#e-2026-10-08-gradient-storage-isolation) |
 | 3750813609 /3363252053 · 相机过强/纵向反转 | 用户三轮未接受且曾挂起，保低优先同输入体验复验；不以默认camera后继代验或补偿不同viewport。 |
-| 3662790108 · 球体/曲率、点击交互 | 只保旧具体视觉/交互余项，同条件复验；首帧文字发布已闭，未消费Data不作引擎缺口，旧8.8FPS不作当前结论。[后验边界](../history/text-publication-first-frame-2026-10-23.md) |
+| 3662790108 · 球体/曲率、点击交互 | 只保旧具体视觉/交互余项，同条件复验；首帧文字发布已闭。全迁移前/中间/最终7f53均有effect517/pass0的`[P1] Data`读取`p1_longNode` undefined一次，先追作者数据/Script value owner与effect constant，未消费Data不直接作引擎缺口；精确对照在`final-architecture-native-comparison.json`，旧8.8FPS不作当前结论。[后验边界](../history/text-publication-first-frame-2026-10-23.md) |
 | 3589454154 · Bloom、细线微颗粒、轮廓布局 | 用户调序暂缓；保持合法屏外投影，不用视锥剔除消影。[边界](../history/saturn-light-delivery-2026-10-07.md) |
 | 3747492842 · 闪烁/光束位置/crop/文字构图 | 固定当前输入/phase找首个不同stage，不重开正交near-plane。 |
 | N07 · 3248220186运动/密度/亮度 | 同phase/音源复验旧具体余项，不再排world Sprite不支持。[边界](../history/particle-world-depth-2026-10-11.md) |
@@ -173,6 +173,8 @@
 | 诊断计数 · instanced solid | 新增3280903509/3303319749/3347416586/3350026230/3357689320中21层已沿普通asset通道加载white，却因成功正则只计procedural solid而报不全。沿原producer/parser用真实solid身份统一分母/分子；保真加载失败与普通image反例，不能把所有white纹理都当solid。原报告保留，不将其记成引擎缺纹理。 |
 | 短窗未决资源/graph观察 | 旧453默认4秒：56例solid、7例image、4例particle候选数未全加载，15例layer-source-not-ready；含隐藏、alpha0、按需或已退休层，非全部缺图。2804817823/3039882306旧窗虽Ready但图单元缺完成，先锁active consumer/媒体或延迟；3292370168已用f753/7f53同原包/静音复验：direct29各123条animated GPU完成且实图保持，loaded0.8333及8项utility/graph期待失败相同（含505 capture，planned3），按[冻结后验](../history/runtime-evidence-index.md#e-puppet-surface-gpu-ownership-20261102)回原图像资源/utility与graph观测owner核活动consumer，保raw，不属本轮架构回退；正常双视频告警不重开已确认正常的Xray。新增3186328539的1045未ready后alpha0/hidden不代表缺图。3763323436缺project归输入不完整，不改引擎迎合。 |
 | 验证债 · 连续PNG采样 | 同一自有载体0.5s及1.5s连续采样均有superseded，前者另有teardown capture失败；原包普通两图成功，不能当播放器缺图。现有晚窗图虽完成，注册因果仍UNKNOWN。先核实际snapshot队列/导出与采样职责，不重复高频全图或改变产品渲染来消报告；[反证](../history/corpus-log-audit-2026-10-29.md#declared-framebuffer-shadow-20261030)。 |
+| 验证债 · 文本改名载体15的健康peer资格 | 自有9000000015的90/91/92在旧基线、旧候选和最终App均无texture URL、solidLayerCount0，预设green/blue ROI实为背景；它只证主文字/clone生命周期，不能证健康peer。14的对应ROI三侧均正常；若后续需15的peer反例，先修自有输入/矩阵资格，不改产品迎合。[冻结对照](../history/runtime-evidence-index.md#e-architecture-final-integration-20261102)及`final-architecture-native-comparison.json`保原图/计数。 |
+| 静态依赖债 · Rendering→Compilation混合namespace | [机器库存](../../../script/scene_dependency_baseline.json)仍有44条词法边，未归零。逐调用审查区分prepared数据/Token、准备期parser/PSO/cache、DEBUG或失败诊断、当前帧资源绑定；Targets准备走实际memo，未证普通帧重解析/全文hash或第二执行器。不能据namespace名称新增wrapper/cache或把内部算法公开清数字。后继有真实消费者、重复工作或模块拆分依据，再沿原prepared/typed owner收敛并收紧库存；[冻结审查](../history/runtime-evidence-index.md#e-architecture-final-integration-20261102)保逐边来源/阶段和未证热点边界。 |
 | 验证债 · 模板VFS旧case | 原Template harness在本批RED/GREEN均assetVFSBoundaries=false；旧escapedAssets将Windows盘符样式一并预期拒绝，而当前VFS将其规范为相对token。未证实际越界/壁纸故障；按VFS及ResourceView入口合同复核旧口径，不为刷绿重新添加路径拒绝。 |
 | 验证债 · named geometry独立像素probe入口 | 当前老入口的编译源列表缺SceneMaterialRenderState，且引用DEBUG CounterHub却未传DEBUG；未取得fresh独立像素门结果。后继在原fixture职责中补齐真实依赖/配置，保来源身份与原断言；不据此改产品或把编译失败算像素失败。当前几何content修复已有真实Coordinator门及原包/独立样本App画面，见[关闭边界](../history/open-breakpoint-reconciliation-2026-10-23.md#geometry-named-content-20261029)。 |
 | 粒子unsupported与位置映射 | mapsequencebetweencontrolpoints、其余CP约束、Mirror、nested/event、非均匀child变换、深duration/9999 delay及322的68→64 matrix child预算独立开放，后者像素/成本待资格；只在真实active consumer有资格时实施。Position Around默认Z有效映射有反证，但斜轴六候选全拒；须新可区分出生/空间证据，不拟合phase/重跑旧板，不关闭311/379方向与速度。[位置边界](../capabilities/particle-component-coverage.md#position-around-position-mapping) |
@@ -183,16 +185,14 @@
 
 ### 5.1 顶层设计已裁决的代码职责重构
 
-以下是架构级迁移的唯一执行清单，按[总设计](../architecture/runtime-architecture.md)与[迁移合同](engine-refactor-program.md#架构级迁移合同)推进，阶段状态不另开台账。先保基线并收敛语言/准备事实，再按真实依赖分族迁组件寿命、粒子CPU/GPU和普通帧减工；已有准备owner完整的管线切片已独立提前，最终仍须整体能力与成本复核，不能跳过未闭职责。迁移前源码/App/输入基线已固定；文本与共享alpha的独立语言owner已退出，分别见[文本](../history/runtime-evidence-index.md#e-text-vm-convergence-20261102)与[共享alpha](../history/runtime-evidence-index.md#e-shared-alpha-vm-convergence-20261102)限定记录。后者已证属性→shared→遮罩贡献，点击资格仍开放。[属性Program准备与实例值](../history/runtime-evidence-index.md#e-property-program-preparation-20261102)已收回重复验证/索引，[自然尺寸回填](../history/runtime-evidence-index.md#e-prepared-image-geometry-reuse-20261102)保留原准备计划；[材质管线准备](../history/runtime-evidence-index.md#e-material-pipeline-preparation-20261102)已撤普通帧同步编译和origin状态，graph/source预备与typed局部失败贯通；不能外推完整语言、数据分期、整景或整体迁移完成。
+本轮按[总设计](../architecture/runtime-architecture.md)与[迁移合同](engine-refactor-program.md#架构级迁移合同)分族实施，旧语言执行、重复准备/验证、每屏文字/封面生产、动态出生重建、粒子及Puppet的CPU/GPU混持均已分别退出。各族提交、冻结后跨族运行与成本边界统一查[架构迁移后验](../history/runtime-evidence-index.md#e-architecture-final-integration-20261102)；当前owner查[代码地图](../architecture/runtime-as-built-map.md)。不再保留已完成批次的执行顺序，独立兼容缺口继续按本队列其他节定位。
 
-| 重构要求与现有 owner | 目标及旧职责退出 | 最近验证与停止条件 |
+| 收尾审查项 | 当前消费事实与裁决 | 后续进入条件 |
 |---|---|---|
-| `SceneRenderDescriptor.Layer` 同时保存字符串变换、数值变换及多类可选字段 | [动态出生/typed分离](../history/runtime-evidence-index.md#e-dynamic-layer-preparation-20261102)已撤普通upsert重建与每屏patch，保模板String和原cadence；继续明确 authored、prepared 与 live 分期，逐消费族收敛为类型化数据，身份和作者顺序仍唯一；退役不再需要的镜像与内容种类字符串分支 | 准备结果、默认值、动态属性、parent/相机、序列化兼容与代表组件；不先建无人消费的通用 ECS |
-| `LaunchContext` 与 `prepareLaunch` 混合准备事实、liveState 和运行对象 | [用户纹理交接](../history/runtime-evidence-index.md#e-user-texture-session-ownership-20261102)已撤Context镜像，初始结果经PreparedLaunch交给Session唯一活动owner；继续按真正消费者拆清其他准备/实例职责，取消、lease和退出沿原owner | 冷暖准备、取消/newer-wins、首帧失败保旧及安全退出；不新增第二 Session、完整场景快照或重复解析 |
+| `SceneRenderDescriptor.Layer` 的作者、准备与实例数据 | 自然尺寸回填保准备计划；未变拓扑revision复用投影，schema索引仅随definition revision重建。作者字符串/默认值与typed当前值有不同消费者，未发现需要继续同步的重复活动树；本轮审查关闭 | 新的真实消费者或重复计算证据才重开，不按字段外观搬家或新建ECS |
+| `LaunchContext` 与 `prepareLaunch` 的交接 | PreparedLaunch是短期交接，Session接管同一Context；用户纹理已撤镜像，文字/封面各一份生产，CPU实例与GPU存储职责已分清；未发现第二活动owner，本轮审查关闭 | 新的取消、串台、退出或重复准备反例才重开，不另造Session或完整场景快照 |
 
-数据分期包含 descriptor 与 LaunchContext 两项，先以单一能力族贯通其生产、消费和退出，再扩大；组件寿命先迁文字/媒体等独立族，[粒子CPU/GPU同批闭环](../history/runtime-evidence-index.md#e-particle-surface-gpu-ownership-20261102)已撤View实例/转发及CPU buffer持有；[Puppet完整族](../history/runtime-evidence-index.md#e-puppet-surface-gpu-ownership-20261102)也已退出View CPU与State GPU混持；其余字段按真实消费者审查，不机械搬家。最终还须审查 Format、Compilation、Resources、Systems、Rendering、Runtime 的真实依赖和全部现役组件；已登记债务不穷尽整个目标，未发现证据前不制造新重构。
-
-FrameDriver 的前置与最终 snapshot 具有不同可观察阶段，不因表面上“双 resolve”直接合并；先确认字段消费者与时机，再删除无用计算。每批只改变一个真实职责闭环，完成后从本表退出并让源码地图反映新 owner。
+Format、Compilation、Resources、Systems、Rendering、Runtime的现役依赖已随各族与最终有限审查核对；依赖发布消费现有graph输出，未发现第二graph执行器。FrameDriver前置/最终snapshot仍有不同阶段消费者，不能强行合并。静态审查不证明未来所有路径、完整语料或官方parity；点击/过渡资格、既有VM/资源失败及性能专项不因架构结算自动关闭。
 
 ## 6. 进入与退出
 

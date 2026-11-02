@@ -11,9 +11,9 @@ StaticModelReader 保留 validated Rig，PreparedStaticModelResources 准备 imm
 | 职责 | 唯一承接者与数据流 |
 | --- | --- |
 | 格式与准备 | 原 StaticModel/Rig/Animation readers → 现 prepared resources；按原资源 identity 保留 validated bind vertices、indices、Rig、normalized influences、有序 records 与可寻址 clips。`geometryByPath`只可共享 immutable 数据，不存可变 pose/buffer。 |
-| 选择与当前 pose | 原 AnimationSelector → AnimationPlaybackRuntime，在同一 SceneClock/launch cadence 推进；各 surface 消费同一 immutable LayerFrame。现 PuppetPlaybackState 复用 TRS、blend、bone override、bone world 与 SkinMatrixProjection，为 image/direct 提供 typed geometry sink。 |
+| 选择与当前 pose | 原 AnimationSelector → AnimationPlaybackRuntime，在同一 SceneClock/launch cadence 推进；各Surface消费同一immutable LayerFrame，独占CPU PuppetPlaybackState的TRS、blend、bone override、bone world与SkinMatrixProjection，并冻结RenderFrame供GPU消费。 |
 | 几何与绘制 | 现 evaluator 的共同顶点贡献计算保留 XYZ，image 只在最后适配 XY；direct 输出原 StaticModel.Vertex，由原 StaticModelFrame/材质/阴影/共享 depth/compositor 消费。不得制造第二份 Puppet 顶点模型或平行变形算法。 |
-| 提交生命周期 | 原 StaticModel mesh/binding owner 承接有界 dynamic vertex stream；当前绑定归 layer/surface 与具体 command submission，immutable mesh、index、material 可共享。现 SourceUpdateTransaction 管 CPU 更新签名，不替代 GPU storage lease。 |
+| 提交生命周期 | 原 StaticModel mesh/binding owner 承接有界 dynamic vertex stream；当前绑定归 layer/surface 与具体 command submission，immutable mesh、index、material 可共享。SourceUpdateTransaction管理本次GPU源更新资格，不替代GPU storage lease；CPU/GPU分工归[现役组件合同](runtime-systems-reference.md#8-puppet3d-和-lighting)。 |
 
 ## 先决格式资格
 
@@ -61,7 +61,7 @@ Scalar结果由原accepted typed snapshot发布，PlaybackRuntime在下一cadenc
 
 采用 `现 parser/report → 编译成功的 Bool Program → prepared animation metadata → 原 Selector/资源/PlaybackState → typed snapshot → 原 pose/stream`。仅解析到object引用会把无producer的fallback误隐藏，按当前条件或startupValuePaths准备又会漏掉以后可选动画，因此两者均不作资格。RuntimeModel在唯一Program产生后，按该Program的definition/instruction与原report精确核parent、animation索引/ID、path、property key/condition，排除整key仍需重建的输入，再为direct model现DTO补动态来源标记；不重解析wrapper、不在Format复制条件算法。无成功producer保旧resolved fallback；旧String绑定缺typed值时仍隐藏/冻结。该投影只在准备期发生，原始SceneDocument保持作者事实。属性context复用同Compiler/投影判定可展示项；真实正常App已显示原生String动作Combo并完成保存/重开/reset，确切身份与用户画面反馈归运行证据；不外推App重启持久化或全模式。
 
-Host候选仅来自成功的direct动画selection/evaluator、可绘制Entry和原pipeline；沿现direct channel资格，不把有mesh或一般prepared layer当可消费动画。Session继续在同一live-state入口扣除unavailable targets：要求完整surface集合、同generation，每个view都持有成功构造且注册至原clock的direct playback state和准确动画身份，并扣除现topology已提交删除的parent。复用同一channel判定，unsupported alpha/aux不能冒充可热改；短暂GPU slot busy/奇异帧沿旧局部fallback，不重置clock或抹掉准备资格。不建立第二份availability registry。
+Host候选仅来自成功的direct动画selection/evaluator、可绘制Entry和原pipeline；沿现direct channel资格，不把有mesh或一般prepared layer当可消费动画。Session继续在同一live-state入口扣除unavailable targets：要求完整surface集合、同generation，每个Surface都持有成功构造且注册至原clock的CPU direct playback state和准确动画身份，并扣除现topology已提交删除的parent。复用同一channel判定，unsupported alpha/aux不能冒充可热改；短暂GPU slot busy/奇异帧沿旧局部fallback，不重置clock或抹掉准备资格。不建立第二份availability registry。
 
 验收复用现Document/PropertyProgram/Selector/PlaybackRuntime/DirectModel门：改名与等价条件、missing catalog/非法条件保fallback、合法producer当前无效值后恢复、path/index/ID错配及冲突、完整八目标原子切换、准备/注册/缺surface/旧generation失败、健康image邻例。真实原包同session1→2→1应有对应clip/姿态和画面收益，不能有重建或新clock；未知clip、多alpha/reference composition等原门不放宽，音频rate独立保留。若需跳坏clip、猜phase/参数、旁路surface失败或新建动画执行链才能出图，停止并保旧能力；无实际切换收益则撤回候选。
 

@@ -165,6 +165,12 @@ clipping PSO 在已有 PipelineRepository 按真实 clip demand 准备一次，�
 
 验收复用准备、动画 clock、真实 GPU publication/clipping/pool、direct stream、physics 和真实 QuickJS bones/pose 门。新增冻结 A→CPU 准备 B→GPU 仍发布 A 的 vertices/coverage/ROI、重复 GPU 发布不推进 CPU、两 Surface 独立以及 authored destroy/clone 保持反例。旧源码形状断言退役，独立行为保留；嵌入 Swift fixture 只按完整载体抽出，避免测试文件超限。完成 Debug build，再用冻结旧 App 对原始多 clip、optional additive、physics 交互、健康邻例及动态出生/销毁作同输入新旧运行，核正常退出与 GPU drain。成本只按实际准备次数和可比较测量声明，不凭 owner 数量宣称 FPS、能耗、完整语料或官方 parity。完成后按 Puppet 完整族独立提交；随后只做一次有限 Context/descriptor/dependency 审计与整体迁移保真、同条件成本验收，不将独立兼容缺口扩成无限重构前置项。
 
+### 现役证据阅读与固定历史
+
+运行证据入口按组件职责索引有界结果，不把固定实验全文、旧App身份和流水账当当前HEAD状态。原页600行正文仍约225KB，首读百余巨长表格行妨碍定位；本轮在既有architecture/capabilities/development/roadmap/history分类内，将固定正文移一份history，当前页保短职责入口、证据深度与未验边界，不重写其他历史、能力合同或新建治理工具。
+
+迁移以完成Puppet提交的原页Git blob与完整字节SHA为源；全部旧anchor保可达，已有兼容跳转不改。capabilities→history只转换必要相对链接，登记原文/保留正文两个不同SHA及可逆转换清单，不冒充字节相同移动；沿现有archive schema保存源版本、正文边界与永久锚点。当前正文预算同步收紧，保原600行/150行硬限，现有任务路由只补自然查询关键词，不新增执行owner。验证原链接目标、全部旧URL、原失败/STOP载荷及现有文档门；不以整理文档补写新的运行、性能或兼容结论。
+
 ## 职责与数据流
 
 ```text

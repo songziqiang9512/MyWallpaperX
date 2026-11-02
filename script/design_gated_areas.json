@@ -1744,7 +1744,7 @@
       "owner": "Scene Session / typed programs and component owners",
       "status": "approved",
       "designDoc": "docs/scene/roadmap/engine-refactor-program.md",
-      "design_notes": "批准范围、数据流及退出条件由designDoc各专题维护。粒子族已完成；Puppet完整族先按同页设计：Surface唯一CPU实例/骨骼阶段与冻结frame，MeshGeometry接管image/direct GPU上传/clipping/stream；View只同步准备hook和GPU资源，不保存CPU/clock。PSO/paint在既有准备owner形成，移除出生编译/读取；保完整旧帧与direct bind失败、shared clock、提交/取消/局部失败，退休authored/dynamic实例。真实门/新旧App/交互与成本另验，随后有限Context/descriptor/dependency审计与整体保真，不授推送发布或提前整体完成。主pass库存owner迁移仍保原pattern/count/scope/role和已批准设计，历史凭据不可改写。",
+      "design_notes": "批准范围、数据流与退出条件由designDoc维护：文字/shared alpha复用既有VM，属性与资源在准备边界形成，Session唯一活动与文字/封面生产，Surface独占CPU粒子/Puppet及冻结帧，既有Rendering owner独占GPU上传/clipping/stream，保持唯一clock/graph/compositor和原提交/取消/局部失败。迁移后做有限Context/descriptor/dependency审查及冻结App保真与成本验证；职责退出不自动计性能或官方parity，不授推送发布。主pass库存迁移仍保原pattern/count/scope/role与冻结历史凭据。现役证据/固定历史在原分类内分工，固定源Git/blob/SHA，保全部anchor和必要链接转换双SHA及可逆清单，沿已有archive schema，不改原结果或门限。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextScript*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextMediaPropertiesCompiler.swift",
@@ -1817,7 +1817,9 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+Puppet*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfacePuppet*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResources.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneImageEffectPipelineRepository.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneImageEffectPipelineRepository.swift",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/history/runtime-evidence-current-through-2026-11-02.md"
       ],
       "contentPatterns": []
     }

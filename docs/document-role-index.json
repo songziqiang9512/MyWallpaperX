@@ -766,10 +766,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1365495b22ccc75b986cfdaddb0c35353636f8fa456996ec07464a4a9c445939",
+        "sourceSHA256": "a01ebb07641a0acb5628ea57b7c27b9c6ed2bc1c1ec7584cdd325be01881cca8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Puppet完整CPU/GPU族：Surface姿态/骨骼与冻结frame、GPU MeshGeometry/clipping/direct stream、已有资源准备及销毁出口；原生和门禁范围只归证据，退出旧View/State混持。",
-        "limitations": "本批行为/原包/交互仅证明登记范围，原raw失败保留；全goal最终跨族集成、可比成本和文档分类仍待结算，不外推官方或完整语料。"
+        "scope": "按真实消费者结算架构迁移：分族职责退出、有限Context/descriptor/依赖审查、冻结App跨族与成本结果、旧文档owner纠正及现役/固定历史分工；具体证据归历史锚点。",
+        "limitations": "导航和正文身份复核不独立证明运行或性能；原FAIL、过渡/点击资格、完整语料、物理多屏、长期切换、能耗及正式Release边界均保留。"
       },
       "purpose": "实际接线或已记录运行证据；不反向定义目标架构，不决定实施顺序。"
     },
@@ -940,13 +940,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/capabilities/README.md",
       "currentStateAuthority": "docs/scene/capabilities/advanced-object-coverage.md",
-      "lastReviewed": "2026-10-31",
+      "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4c573e58174f69c28fb95dbe05ea47e487f4f40f5ed2dde8ed5a99382df904b7",
+        "sourceSHA256": "4beab3e6f4d7cc882c02f712288c34843c53b8f9647e3e46f4f5d454757a4c0e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "382足部与轨道首门有界关闭，逐帧bind等价合同及历史归一；314环/动画与其他未验问题保留。",
-        "limitations": "不证明官方phase、任意尺度方向等价、全样本或性能。"
+        "scope": "按真实消费者结算架构迁移：分族职责退出、有限Context/descriptor/依赖审查、冻结App跨族与成本结果、旧文档owner纠正及现役/固定历史分工；具体证据归历史锚点。",
+        "limitations": "导航和正文身份复核不独立证明运行或性能；原FAIL、过渡/点击资格、完整语料、物理多屏、长期切换、能耗及正式Release边界均保留。"
       },
       "title": "Direct model的骨骼动画合同",
       "authority": "advanced-object-animation-design"
@@ -1056,10 +1056,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "fb5eae0d1e419004ef547d84b5d036fe0304f04d0acf7ad78bc659949d45681c",
+        "sourceSHA256": "91fa0cf62df91ab346ecce3c161e825eaf879e6cd626ac16783fd8f720b104f2",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Puppet完整CPU/GPU族：Surface姿态/骨骼与冻结frame、GPU MeshGeometry/clipping/direct stream、已有资源准备及销毁出口；原生和门禁范围只归证据，退出旧View/State混持。",
-        "limitations": "本批行为/原包/交互仅证明登记范围，原raw失败保留；全goal最终跨族集成、可比成本和文档分类仍待结算，不外推官方或完整语料。"
+        "scope": "按真实消费者结算架构迁移：分族职责退出、有限Context/descriptor/依赖审查、冻结App跨族与成本结果、旧文档owner纠正及现役/固定历史分工；具体证据归历史锚点。",
+        "limitations": "导航和正文身份复核不独立证明运行或性能；原FAIL、过渡/点击资格、完整语料、物理多屏、长期切换、能耗及正式Release边界均保留。"
       },
       "purpose": "实际接线或已记录运行证据；不反向定义目标架构，不决定实施顺序。"
     },
@@ -1071,10 +1071,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "06377e2b86a1bb5936dcf1c7d0d78be42cdfe356c9c770ef7a137388bd440e6f",
+        "sourceSHA256": "60ccc59c2e1569a15924d9c2e8c4ee67ee22e15e25e5d63bba3c994b9d9c1dd3",
         "method": "document_registry --audit + document_health --check",
-        "scope": "修正动态Layer完整upsert与typed当前值路由，保literal/template content分工、raw pointSize、font归一及显式默认、两条颜色消费者与既有cadence。",
-        "limitations": "本批退出旧完整Layer覆盖、value revision及patch描述；合格自有输入不等于全语料能力，24过渡及特殊clone等未闭项保留，不据少量App或方法通过升级整体parity。"
+        "scope": "按真实消费者结算架构迁移：分族职责退出、有限Context/descriptor/依赖审查、冻结App跨族与成本结果、旧文档owner纠正及现役/固定历史分工；具体证据归历史锚点。",
+        "limitations": "导航和正文身份复核不独立证明运行或性能；原FAIL、过渡/点击资格、完整语料、物理多屏、长期切换、能耗及正式Release边界均保留。"
       }
     },
     {
@@ -1364,10 +1364,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2241c75a32488744162e00b50f0242867986ac090c13df32d5c309e3fa434c54",
+        "sourceSHA256": "3bd2e9d2b7138673ee0483261929d2007b1fa1ef498f9a00e5a819063af6b92a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "共享alpha独立语言/状态退出；Bool模块入口去除过时种类和utility关卡，真实VM及有界App输出与失败分开记录。",
-        "limitations": "原293属性遮罩贡献有界成立；297点击及粒子完整性、多屏、官方parity、稳态性能和整体迁移未闭。"
+        "scope": "按真实消费者结算架构迁移：分族职责退出、有限Context/descriptor/依赖审查、冻结App跨族与成本结果、旧文档owner纠正及现役/固定历史分工；具体证据归历史锚点。",
+        "limitations": "导航和正文身份复核不独立证明运行或性能；原FAIL、过渡/点击资格、完整语料、物理多屏、长期切换、能耗及正式Release边界均保留。"
       }
     },
     {
@@ -3336,6 +3336,26 @@
       "uniqueValue": "原批次全文及永久锚点；保留原身份，页首纠正10-28已撤回的缺省音频推断。"
     },
     {
+      "path": "docs/scene/history/runtime-evidence-current-through-2026-11-02.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/coverage-ledger.md",
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ],
+      "cutoff": "2026-11-02",
+      "uniqueValue": "归整前运行证据页完整固定正文、原始失败/STOP与永久锚点；仅重定位必要链接基址并分别登记原文和保留正文身份。",
+      "lastReviewed": "2026-11-02",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "c2e669e924617ddae3b8cd5f0948db4b85cb1e5125f3733ef21e9485d95e8cc6",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "按真实消费者结算架构迁移：分族职责退出、有限Context/descriptor/依赖审查、冻结App跨族与成本结果、旧文档owner纠正及现役/固定历史分工；具体证据归历史锚点。",
+        "limitations": "导航和正文身份复核不独立证明运行或性能；原FAIL、过渡/点击资格、完整语料、物理多屏、长期切换、能耗及正式Release边界均保留。"
+      }
+    },
+    {
       "path": "docs/scene/history/runtime-evidence-index.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -3347,10 +3367,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f0083ffb786a8db5b91012331fcf917366812ea2bd1fa498fc0c98eb774bcb92",
+        "sourceSHA256": "01b4eed6f774ac479e1656dd5d5a3772814f46b526a1905d429fab30fd36e69e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Puppet完整CPU/GPU族：Surface姿态/骨骼与冻结frame、GPU MeshGeometry/clipping/direct stream、已有资源准备及销毁出口；原生和门禁范围只归证据，退出旧View/State混持。",
-        "limitations": "本批行为/原包/交互仅证明登记范围，原raw失败保留；全goal最终跨族集成、可比成本和文档分类仍待结算，不外推官方或完整语料。"
+        "scope": "按真实消费者结算架构迁移：分族职责退出、有限Context/descriptor/依赖审查、冻结App跨族与成本结果、旧文档owner纠正及现役/固定历史分工；具体证据归历史锚点。",
+        "limitations": "导航和正文身份复核不独立证明运行或性能；原FAIL、过渡/点击资格、完整语料、物理多屏、长期切换、能耗及正式Release边界均保留。"
       }
     },
     {
@@ -4512,13 +4532,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
       "retirementCondition": "公开 API 的限定表面、生命周期与预算通过双侧事务门并归入唯一脚本合同后归档，设计登记随实施关闭。",
-      "lastReviewed": "2026-11-01",
+      "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b7911e0760325632c8ba20fc7e269adf8cdb635029444f4cab20f137b0073e26",
+        "sourceSHA256": "be7b433ac322ef323644c35c7e246cd29474867f940fa4b1a249bd237d575751",
         "method": "document_registry --audit + document_health --check",
-        "scope": "原compiler保宿主动态writer与完整source；CPU红绿和自有prototype/clone时变ROI闭合后退出静态首门。",
-        "limitations": "非已确认Workshop故障；独立381画面保持但呈现流观测FAIL，不记整次PASS、官方parity或性能。"
+        "scope": "按真实消费者结算架构迁移：分族职责退出、有限Context/descriptor/依赖审查、冻结App跨族与成本结果、旧文档owner纠正及现役/固定历史分工；具体证据归历史锚点。",
+        "limitations": "导航和正文身份复核不独立证明运行或性能；原FAIL、过渡/点击资格、完整语料、物理多屏、长期切换、能耗及正式Release边界均保留。"
       }
     },
     {
@@ -4557,10 +4577,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c3417ec3d1dc4cb06ee68b835a74149b886115ff1c30091943d9f48eb44b1de1",
+        "sourceSHA256": "b4066babb0efc1824f21fccb3b8e3952e62e37c6b42de572a12fe76cdd549ef4",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Puppet完整CPU/GPU族：Surface姿态/骨骼与冻结frame、GPU MeshGeometry/clipping/direct stream、已有资源准备及销毁出口；原生和门禁范围只归证据，退出旧View/State混持。",
-        "limitations": "本批行为/原包/交互仅证明登记范围，原raw失败保留；全goal最终跨族集成、可比成本和文档分类仍待结算，不外推官方或完整语料。"
+        "scope": "按真实消费者结算架构迁移：分族职责退出、有限Context/descriptor/依赖审查、冻结App跨族与成本结果、旧文档owner纠正及现役/固定历史分工；具体证据归历史锚点。",
+        "limitations": "导航和正文身份复核不独立证明运行或性能；原FAIL、过渡/点击资格、完整语料、物理多屏、长期切换、能耗及正式Release边界均保留。"
       }
     },
     {
@@ -4568,13 +4588,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "retirementCondition": "用户结束该专项，或本卡已证问题及对应实际验收完成后退役到历史，不保第二执行路线。",
-      "lastReviewed": "2026-11-01",
+      "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e6c0c00c2a86cb3d4527a0f8ab78e78a35d2ff0ef120bf006e3d579974ede17e",
+        "sourceSHA256": "95a49059b1a7b451d3bcdc6c3a4333b06956559cadd5e96f1e24fad0b4d05055",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步380优化稳态归因、死source编码首对STOP与产品/测试撤回，纠正363旧配置资格；仅文档导航复核。",
-        "limitations": "一次WMO首对非3+3收益验收，GPU重放不称新运行；官方parity/正式Release/能耗及全样本未验。"
+        "scope": "按真实消费者结算架构迁移：分族职责退出、有限Context/descriptor/依赖审查、冻结App跨族与成本结果、旧文档owner纠正及现役/固定历史分工；具体证据归历史锚点。",
+        "limitations": "导航和正文身份复核不独立证明运行或性能；原FAIL、过渡/点击资格、完整语料、物理多屏、长期切换、能耗及正式Release边界均保留。"
       }
     },
     {
@@ -4613,10 +4633,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0344750198e321d8be0289da8dbaac20a0d0fb4cf99d2922a181b119ef642a3a",
+        "sourceSHA256": "c1b13181dddfc607f3f122c87723c7485fc06021056a88a699bbcc07cc9f0ffa",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Puppet完整CPU/GPU族：Surface姿态/骨骼与冻结frame、GPU MeshGeometry/clipping/direct stream、已有资源准备及销毁出口；原生和门禁范围只归证据，退出旧View/State混持。",
-        "limitations": "本批行为/原包/交互仅证明登记范围，原raw失败保留；全goal最终跨族集成、可比成本和文档分类仍待结算，不外推官方或完整语料。"
+        "scope": "按真实消费者结算架构迁移：分族职责退出、有限Context/descriptor/依赖审查、冻结App跨族与成本结果、旧文档owner纠正及现役/固定历史分工；具体证据归历史锚点。",
+        "limitations": "导航和正文身份复核不独立证明运行或性能；原FAIL、过渡/点击资格、完整语料、物理多屏、长期切换、能耗及正式Release边界均保留。"
       }
     },
     {
@@ -4810,7 +4830,9 @@
         "光束",
         "lighting",
         "Light Shafts",
-        "God Rays"
+        "God Rays",
+        "Scene 运行证据",
+        "运行证据"
       ],
       "documents": [
         "docs/scene/capabilities/coverage-ledger.md",

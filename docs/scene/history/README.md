@@ -2,10 +2,13 @@
 
 这里保存已完成过程、退役计划与固定证据，不能据旧“当前”或“下一步”继续实施。现役任务从[Scene 开发入口](../README.md)选择路线；当前合同和能力按[能力索引](../capabilities/README.md)查询。研究材料只按[来源边界](../development/source-index.md)进入。
 
+本轮[架构迁移冻结后验](runtime-evidence-index.md#e-architecture-final-integration-20261102)汇总分族职责退出、跨族运行及成本边界，当前任务仍按现役路线进入。
+
 跨专题的[冷暖启动专项结算](../../history/cross-topic/wallpaper-startup-optimization-completed-2026-10-25.md)保留最终限定验收、原失败与 STOP；统一登记见[全仓历史索引](../../history/README.md)，不产生新的 Scene 任务。
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-11-02 | 运行证据入口归整 | 完整原文与链接重定位 | [归整前运行证据](runtime-evidence-current-through-2026-11-02.md) | 保留原始失败、STOP、身份和永久锚点；原文/转换后正文分开登记SHA | [现役证据](../capabilities/runtime-evidence-current.md#current-snapshot)、[能力台账](../capabilities/coverage-ledger.md#current-overview) |
 | 2026-11-02 | Scene alpha | 已完设计原文 | [显示权旧设计](alpha-display-fallback-design-2026-10-01.md) | 保留独立 shared-alpha 退出前的完整设计；旧范围不再限制当前迁移 | [现役合同](../capabilities/alpha-display-fallback-design.md)、[能力状态](../capabilities/scenescript-api-coverage.md) |
 | 2026-11-01 | 公共依赖图归整 | 完整原文 | [归整前依赖图](capability-dependency-map-through-2026-11-01.md) | 保留旧等级、来源与实施门；现役仅维护关系 | [依赖参考](../architecture/capability-dependency-map.md)、[运行架构](../architecture/runtime-architecture.md)、[能力台账](../capabilities/coverage-ledger.md) |
 | 2026-11-01 | 顶层设计归整 | 完整原文与链接重定位 | [归整前架构](runtime-architecture-through-2026-11-01.md) | 保留旧限定及原始身份，现役整体与专项重新分工 | [运行架构](../architecture/runtime-architecture.md)、[组件合同](../capabilities/runtime-systems-reference.md)、[代码地图](../architecture/runtime-as-built-map.md) |
