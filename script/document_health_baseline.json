@@ -34,7 +34,7 @@
     },
     "docs/development/code-slimming-program.md": {
       "lines": 481,
-      "bytes": 105279
+      "bytes": 105417
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -1743,10 +1743,10 @@
     {
       "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
-      "before": "e5a6c33a5b66da7efe000c12ad9973496f69182d2a77dfeb25ebb15b54a30762",
-      "after": "25c0571b73156a704b088337c7ad2298c175dfe9fa87380bdcef814245b35edd",
+      "before": "25c0571b73156a704b088337c7ad2298c175dfe9fa87380bdcef814245b35edd",
+      "after": "dfa2cbbabc0a8eed377ec4a7397b8a02580b9b9542c3da521a9025d1fa177db1",
       "owner": "repository-maintainer",
-      "reason": "Close resumed R61 cold navigation with real equivalent behavior and build evidence; keep R62 manual limits as a focused pointer and identify separately frozen next candidates.",
+      "reason": "Record proven artifact Skill routing correction with a direct pointer and leave the separate random-selection candidate unverified.",
       "decision": "docs/development/code-slimming-program.md#目标与边界"
     },
     {

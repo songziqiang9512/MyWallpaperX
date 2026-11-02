@@ -8,8 +8,9 @@
 |---|---|
 | DerivedData、staged App、运行样本副本、临时 HOME、重试输出 | 独立任务临时目录；进程结束并提取必要结果后当轮删除。默认 checkpoint build 已自动清理。 |
 | 连续迭代的构建缓存 | 显式 `--cache-dir`，同一任务只留一份；任务结束清理，跨轮保留须报告路径和用途，下一轮先复核是否仍需。 |
-| 最终日志、必要截图、身份与报告 | `promote_scene_evidence.py` 提取至 `.artifacts/scene-evidence/runs/`；默认14天、单包32 MiB、总量5 GiB，达到总预算停止新增，不静默删除未知材料。 |
-| 未解决失败的最小复现 | 使用 `--protect-reason` 说明问题，不自动到期；仍计入总预算，问题解决后重新提取普通有期限结果并清理原包。 |
+| Scene benchmark最终日志、必要截图、身份与报告 | 报告符合原samples schema（数字Workshop ID或数字ID-UUID）时，用 `promote_scene_evidence.py` 提取至 `.artifacts/scene-evidence/runs/`；默认14天、单包32 MiB、总量5 GiB，达到总预算停止新增，不静默删除未知材料。 |
+| 非Scene本地构建、AppKit与其他测试证据 | 在本任务忽略目录按批保留一份有界归档及manifest，沿用上述期限/字节预算；登记相对路径、逐文件SHA256、包大小、复核期限和用途，迁移前后逐文件验证。不要伪造Workshop ID迎合Scene工具；该工具不登记或清理这些包。 |
+| 未解决失败的最小复现 | Scene包使用 `--protect-reason`，非Scene包在manifest登记保护原因；不自动到期，仍计入总预算，问题解决后改为普通有期限结果并清理原包。 |
 | 既有未分类证据 | `.artifacts/scene-evidence/archive/` 保存迁移的旧证据，按需查询，不继续写入；缓存普查在 `census/`。迁移保留原字节，不假称释放磁盘。 |
 | 长期结论 | 按 `docs/README.md` 的角色分工：合同拥有目标，路线拥有顺序，能力台账与运行证据拥有当前结果；Scene过程进 `docs/scene/history/`，跨专题过程进 `docs/history/`，不把整个输出纳入版本库。 |
 
@@ -17,8 +18,8 @@
 
 1. 启动前选精确输出目录。真实用户媒体、Workshop/Scene原件只读；不把仓库根、`.codex`根或样本根当输出。
 2. 运行时限制时长、截图和重试数量；只留最终候选和有诊断价值的失败，避免同内容反复复制。
-3. 需要保留时运行 `python3.12 -B script/promote_scene_evidence.py --run final=/绝对路径/report.json --destination 任务名`；失败尚未解决加 `--protect-reason 原因`。
-4. 收尾运行 `python3.12 -B script/promote_scene_evidence.py --prune-expired`，只清工具登记、已到期、哈希未变且无打开句柄的包；改过、未登记或正在使用的内容保留并报告。
+3. 按证据类型选上表入口。Scene benchmark运行 `python3.12 -B script/promote_scene_evidence.py --run final=/绝对路径/report.json --destination 任务名`；失败尚未解决加 `--protect-reason 原因`。非Scene沿本批有界归档/manifest保原字节，不改工具或样本身份来迁就格式。
+4. Scene登记包收尾运行 `python3.12 -B script/promote_scene_evidence.py --prune-expired`；非Scene包按manifest复核。两者只清已登记、已到期、哈希未变且无保护原因/打开句柄的精确路径；改过、未登记或正在使用的内容保留并报告，不声称Scene工具代管非Scene包。
 5. 删除本轮可重建产物前确认进程已退出，逐项记录精确路径；用户已授权常规清理，无需每次重复询问。未知归属、唯一未解决证据和原始资料先列清单，不批量猜删。
 6. 最终报告用一段说明保留路径/原因和清理结果。外部引用或仍在执行的目录明确保留；不要声称移动到忽略目录就减少了磁盘占用。
 

@@ -27,7 +27,7 @@
 
 前批裁决与待验保留：R54（65522bee6）事务内复用resolved UUID追加位置，25成员/6物理列表的MAX查询25→6仅属连接级计数。R55选择器退出后再显示反馈，原配置完整导入与未归因Save取消超时保持待验。R56拒绝绕过TIFF候选，保留原编码。R57（b761fdb80）独立暂存、原main守卫后rename至原stable，保Scene/编码/copy fallback/所有权；受控5秒utility/文件探针与122项检查、Debug通过，未证自然频率或真实Web/NSWorkspace。R58（9be599202）已取消metadata Task的AV准备1→0，保同步模板和后两异步检查，不当性能/真实UI证明。R59（87c27c3e3）成功尾部一次发布完整状态，54组4→1、216→54，其他阶段相同；保89项、新增6项typed终态/reset回调及20项视口检查通过；原73/73只属reset调用点note。内部同步中间通知明确退出，不承诺任意同步订阅者等价。较早保护边界和精确证据仍归各批记录及提交，不在这里追加过程流水账。
 
-后续候选：R63修正证据归档Skill把非Scene材料误路由到只接受Workshop ID的工具，单文件私有候选已静态复核，未进产品；R64按实际选择分支退出随机轮换未消费的候选字典，产品/夹具私有候选已冻结，未overlay/测试/构建/提交。两项各自裁决，不与R61合批，不触Scene引擎。
+已完成R63方法纠偏：归档入口按[产物保留规则](../../.agents/skills/mywallpaperx-maintainer/references/artifact-governance.md)区分真实Scene benchmark与非Scene本地构建/AppKit证据；后者沿既有有界包/逐文件SHA manifest，保预算、期限和失败保护，不伪造Workshop ID、不修改工具。产品/测试净0。后续R64随机轮换字典的产品/夹具私有候选已冻结，尚未overlay/测试/构建/提交，另批裁决；不触Scene引擎。
 
 <a id="completed-r1-r26"></a> [归档记录](../history/cross-topic/code-slimming-r1-r26-2026-11-01.md#completed-r1-r26) <!-- archive-redirect -->
 
