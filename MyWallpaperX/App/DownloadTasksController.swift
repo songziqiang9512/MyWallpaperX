@@ -120,18 +120,18 @@ import Combine
                 thumbnailKey: task.previewURL.map { $0.absoluteString + images.requestScope(task.assetID.source) }, actions: [.cancel])
         }
         let activeReferences = Set(current.map { $0.id.reference })
-        var terminal = SteamWorkshopDownloadHistoryProjection.summaries(from: steam.downloadJobStore.history).map { summary -> DownloadTaskRow in
-            let reference = WallpaperReference(provider: .steamWorkshop, sourceID: summary.workshopItemID)
-            let phase: DownloadTaskPhase = summary.latestOutcome == .completed ? .completed
-                : summary.latestOutcome == .failed ? .failed : .cancelled
+        var terminal = SteamWorkshopDownloadHistoryProjection.latestEntries(from: steam.downloadJobStore.history).map { entry -> DownloadTaskRow in
+            let reference = WallpaperReference(provider: .steamWorkshop, sourceID: entry.workshopItemId)
+            let phase: DownloadTaskPhase = entry.outcome == .completed ? .completed
+                : entry.outcome == .failed ? .failed : .cancelled
             var actions: Set<DownloadTaskAction> = [.removeHistory]
-            if summary.accountSteamID == steam.steamAuth.steamId, !activeReferences.contains(reference) {
+            if entry.accountSteamId == steam.steamAuth.steamId, !activeReferences.contains(reference) {
                 if phase == .failed || phase == .cancelled || steamRecords[reference]?.status != .ready { actions.insert(.retry) }
             }
             if steamRecords[reference]?.status == .ready { actions.insert(.revealFile) }
             return .init(id: .init(reference: reference,
-                attemptID: "\(summary.jobID)-\(summary.latestAttempt)"), title: summary.title, phase: phase,
-                statusText: summary.attempts.first?.failureMessage, recordedAt: summary.latestTerminalAt,
+                attemptID: "\(entry.jobID)-\(entry.attempt)"), title: entry.title, phase: phase,
+                statusText: entry.failureMessage, recordedAt: entry.terminalAt,
                 thumbnailKey: steamPreview(for: reference)
                     .map { $0.absoluteString + ":\(steam.previewReloadToken)" }, actions: actions)
         }

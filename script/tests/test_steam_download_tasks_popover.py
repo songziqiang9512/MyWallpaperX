@@ -157,12 +157,33 @@ struct SteamWorkshopDownloadRecord: Equatable {
             history("done", 1, .completed, 150),
             history("retry", 2, .completed, 200)
         ]
-        let summaries = SteamWorkshopDownloadHistoryProjection.summaries(from: entries)
-        precondition(summaries.map(\.jobID) == ["other", "retry", "done"])
-        precondition(summaries[0].accountSteamID == "B" && summaries[1].accountSteamID == "A")
-        precondition(summaries[1].attempts.map(\.attempt) == [2, 1] && summaries[1].latestAttempt == 2)
-        precondition(summaries[1].latestOutcome == .completed)
-        precondition(summaries[1].recordID == "item-retry")
+        let originalEntries = entries
+        let latestEntries = SteamWorkshopDownloadHistoryProjection.latestEntries(from: entries)
+        precondition(latestEntries.map(\.jobID) == ["other", "retry", "done"])
+        precondition(latestEntries[0].accountSteamId == "B" && latestEntries[1].accountSteamId == "A")
+        precondition(latestEntries[1] == entries[3] && latestEntries[1].attempt == 2)
+        precondition(latestEntries[1].outcome == .completed)
+        precondition(latestEntries[1].recordID == "item-retry")
+
+        let orderCases = [
+            history("date-first", 9, .failed, 100),
+            history("date-first", 1, .cancelled, 300),
+            history("attempt-first", 2, .failed, 200),
+            history("attempt-first", 4, .completed, 200),
+            history("tie", 3, .failed, 200),
+            history("tie", 3, .completed, 200, account: "B"),
+            history("a", 1, .failed, 200),
+            history("z", 1, .completed, 200)
+        ]
+        let originalOrderCases = orderCases
+        precondition(SteamWorkshopDownloadHistoryProjection.latestEntries(from: []).isEmpty)
+        precondition(SteamWorkshopDownloadHistoryProjection.latestEntries(from: orderCases)
+            == [orderCases[1], orderCases[6], orderCases[3], orderCases[4], orderCases[7]],
+            "date wins over attempt, then higher attempt wins, then first input; tied jobs sort by id")
+        precondition(SteamWorkshopDownloadHistoryProjection.latestEntries(from: Array(orderCases.reversed()))
+            == [orderCases[1], orderCases[6], orderCases[3], orderCases[5], orderCases[7]],
+            "reversing an exact date/attempt tie must select the new first complete entry")
+        precondition(entries == originalEntries && orderCases == originalOrderCases)
         print("Download queries/projections: account isolation, states, first tied failure, ready record lookup and stable ordering PASS")
     }
 }

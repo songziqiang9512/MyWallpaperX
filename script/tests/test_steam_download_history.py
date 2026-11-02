@@ -85,16 +85,16 @@ import Foundation
         precondition(store.history.filter { $0.accountSteamId == "B" }.count == 1)
         precondition(store.history.count == 3, "local terminal history does not require a current login identity")
 
-        let summaries = SteamWorkshopDownloadHistoryProjection.summaries(
+        let latestEntries = SteamWorkshopDownloadHistoryProjection.latestEntries(
             from: store.history
         )
-        precondition(summaries.count == 2 && Set(summaries.map(\.accountSteamID)) == ["A", "B"],
+        precondition(latestEntries.count == 2 && Set(latestEntries.map(\.accountSteamId)) == ["A", "B"],
                      "local terminal history must remain readable without a current account")
-        let retrySummary = summaries.first { $0.jobID == retry.id }!
-        precondition(retrySummary.accountSteamID == "A" && retrySummary.latestAttempt == 2)
-        precondition(retrySummary.attempts.map(\.attempt) == [2, 1])
-        precondition(retrySummary.latestOutcome == .failed)
-        precondition(retrySummary.attempts.first?.failureMessage == "disk")
+        let latestRetry = latestEntries.first { $0.jobID == retry.id }!
+        precondition(latestRetry.accountSteamId == "A" && latestRetry.attempt == 2)
+        precondition(store.history.filter { $0.jobID == retry.id }.map(\.attempt) == [2, 1])
+        precondition(latestRetry.outcome == .failed)
+        precondition(latestRetry.failureMessage == "disk")
 
         let reloaded = SteamDownloadJobStore(persistenceURL: url, now: { clock })
         precondition(reloaded.history == store.history, "restart must not duplicate terminal attempts")
