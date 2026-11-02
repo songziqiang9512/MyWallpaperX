@@ -179,9 +179,13 @@ private func compile(
     inheritedInactiveCombos: Set<String> = [],
     provenSceneScriptValueTargets: Set<SceneDynamicTarget> = []
 ) -> Result<Template, SceneResolvedMaterialFailure> {
-    SceneResolvedMaterialTemplateCompiler.compile(
+    guard case let .success(product) = admitTemplateGraph(value) else {
+        preconditionFailure("invalid graphs must be checked at graph admission")
+    }
+    return SceneResolvedMaterialTemplateCompiler.compile(
         material: material,
-        graph: value,
+        node: product.graph.nodes[0],
+        graphScope: .init(effect: product.graph.effects[0], renderTargets: product.graph.renderTargets),
         shaderContract: shaderContract ?? contract(material.shaderPath),
         inheritedInactiveCombos: inheritedInactiveCombos,
         provenSceneScriptValueTargets: provenSceneScriptValueTargets
@@ -577,18 +581,14 @@ enum Harness {
         let chainedTemplate = template(compile(
             material(slots: chainedSlots), graph: graph(input: previousOutput)
         ))
-        let selfInputFailure = failure(compile(
-            material(), graph: graph(input: effectOutput(effectKey()))
-        ))
+        let selfInputFailure = templateGraphRejection(graph(input: effectOutput(effectKey())))
         let foreignLayerInput = Graph.TextureIdentity(
             kind: .effectOutput,
             layerID: 99,
             effect: .init(layerID: 99, effectIndex: 1, descriptorID: "foreign"),
             name: nil
         )
-        let foreignInputFailure = failure(compile(
-            material(), graph: graph(input: foreignLayerInput)
-        ))
+        let foreignInputFailure = templateGraphRejection(graph(input: foreignLayerInput))
         let blockedGraph = graph(blockers: [.init(
             effect: effectKey(),
             definitionPassIndex: nil,
@@ -840,25 +840,14 @@ enum Harness {
                         && value.scriptAttachments == [.unproven]
                 } == true
             },
-            "blockedGraphRejected": failure(compile(material(), graph: blockedGraph))?.phase
-                == .graph,
-            "invalidEffectIngressRejected": selfInputFailure?.code == .graphNodeInvalid
-                && foreignInputFailure?.code == .graphNodeInvalid,
-            "duplicateNodeRejected": failure(compile(
-                material(), graph: duplicateNodeGraph
-            ))?.code == .graphNodeInvalid,
-            "orphanNodeRejected": failure(compile(
-                material(), graph: orphanNodeGraph
-            ))?.code == .graphNodeInvalid,
-            "duplicatePartitionRejected": failure(compile(
-                material(), graph: duplicatePartitionGraph
-            ))?.code == .graphNodeInvalid,
-            "ownerMismatchRejected": failure(compile(
-                material(), graph: ownerMismatchGraph
-            ))?.code == .graphNodeInvalid,
-            "graphUniverseRejected": failure(compile(
-                material(), graph: invalidBindingGraph
-            ))?.code == .graphNodeInvalid
+            "blockedGraphRejected": templateGraphRejection(blockedGraph)?.code == .graphBlocked,
+            "invalidEffectIngressRejected": selfInputFailure?.code == .invalidGraph
+                && foreignInputFailure?.code == .invalidGraph,
+            "duplicateNodeRejected": templateGraphRejection(duplicateNodeGraph)?.code == .invalidGraph,
+            "orphanNodeRejected": templateGraphRejection(orphanNodeGraph)?.code == .invalidGraph,
+            "duplicatePartitionRejected": templateGraphRejection(duplicatePartitionGraph)?.code == .invalidGraph,
+            "ownerMismatchRejected": templateGraphRejection(ownerMismatchGraph)?.code == .invalidGraph,
+            "graphUniverseRejected": templateGraphRejection(invalidBindingGraph)?.code == .prunedResourceReferenced
                 && failure(compile(material(slots: ghostSlots)))?.code
                     == .textureReferenceInvalid
                 && failure(compile(material(slots: wrongBindingSlot)))?.code

@@ -132,3 +132,13 @@ Warmup及binary archive直接消费PreparedAssembly既有shader/render-state ide
 新增文件承接同一类型声明及其必要初始化赋值；不是把整个Material变成纯leaf或对外公开namespace。execution_capability、quad_visibility实际门、六个GraphExecutor及联合Debug通过；主Graph fixture按真实短期prepared tuple与最终StageCapability区分，没有恢复subject兼容字段。旧Rendering对Catalog的11条内部词法边随真实定义归属退出，此阶段15条余项仍按实际caller裁决，不以计数代表所有架构完成。
 
 本机provenance归`.artifacts/scene-architecture-continuation-20261102/`的`catalog-boundary-*`、`catalog-preparation-core-v2-*`及Graph/Debug联合报告；不额外声称GPU/VM/输入/生命周期或性能的普遍保证。
+
+
+<a id="catalog-scope-and-cancellation"></a>
+## Template静态范围与Catalog批准备取消
+
+固定2026-11-03：每个已准入product共享一次临时GraphScope（effect/targets），Template只核实际material、shader/state/path及slot；整图结构检查归原GraphAdmission的条件剪枝后入口。没有持久graph cache、二次scope owner或更大失败半径，条件剪去的无关非法FBO不阻止有效product。
+
+真实RuntimeCatalog构造接Host原取消检查，在批开始、entry/resolve/material/demand/source边界响应；已进入工作沿原flight完成/加入，未进入项停止，不杀共享flight、不返回半Catalog或新增取消状态机。Template、GraphAdmission及真实SourcePreparationCancellation门通过：plain六个成功template与noop保持，batch/resolve/queued取消不准未入工作；阻挡已进入worker时取消等待其结束，恢复构造不被污染；缺左contract仅401三个shaderIdentityMismatch，402三个template与plain一致。
+
+保原两次资格失败：driver最初effect路径不符真实资源分类，改为effects/{name}/effect.json；material缺四个必需state导致六项可全为failure，补合法state并增强正控与健康peer精确断言。没有放宽产品admission、默认state或取消期待。联合Debug已编译本链，原始失败及冻输入归`.artifacts/scene-architecture-continuation-20261102/`的`catalog-preparation-*`、`catalog-healthy-fixture-*`与`catalog-cancel-v4`；本段不冒充真实用户取消延迟、启动或能耗收益。

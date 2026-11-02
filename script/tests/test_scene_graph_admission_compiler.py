@@ -707,12 +707,39 @@ enum Harness {
         ]
     }
 
+    static func graphScopeEvidence() -> [String: Bool] {
+        let healthy = graph(targets: [], nodes: [material(nodeIndex: 0, ordinal: 0, target: output)])
+        let inputDescriptor = descriptor(materialCombos: [["MODE": 0]])
+        func replacingInput(_ input: Graph.TextureIdentity) -> Graph {
+            .init(layerID: layerID, effects: [.init(key: key, definitionPath: "effects/fluid/effect.json",
+                input: input, output: output, nodeIndices: [0])], renderTargets: [],
+                nodes: healthy.nodes, finalOutput: output, blockers: [])
+        }
+        let foreign = Graph.TextureIdentity(kind: .framebuffer, layerID: layerID + 1, effect: key, name: "foreign")
+        let foreignInput = Graph.TextureIdentity(kind: .effectOutput, layerID: layerID + 1,
+            effect: .init(layerID: layerID + 1, effectIndex: 0, descriptorID: "foreign"), name: nil)
+        let foreignTarget = graph(targets: [target(foreign)], nodes: healthy.nodes)
+        let prunedForeign = graph(targets: [target(foreign, conditions: condition("MODE", 1))],
+            nodes: healthy.nodes, blockers: [.unsupportedCondition])
+        let selfBinding = graph(targets: [], nodes: [material(nodeIndex: 0, ordinal: 0,
+            target: output, bindings: [binding(output)])])
+        return [
+            "healthyNeighbor": failureCode(compile(healthy, inputDescriptor)) == "success",
+            "selfInput": failureCode(compile(replacingInput(output), inputDescriptor)) == "invalidGraph",
+            "foreignInput": failureCode(compile(replacingInput(foreignInput), inputDescriptor)) == "invalidGraph",
+            "foreignTarget": failureCode(compile(foreignTarget, inputDescriptor)) == "invalidGraph",
+            "prunedDeclarationDoesNotRejectHealthyStage": failureCode(compile(prunedForeign, inputDescriptor)) == "success",
+            "selfOutputBinding": failureCode(compile(selfBinding, inputDescriptor)) == "prunedResourceReferenced",
+        ]
+    }
+
     static func main() throws {
         let report: [String: Any] = [
             "fluid": fluidEvidence(),
             "conditions": conditionEvidence(),
             "compose": composeEvidence(),
             "functions": functionEvidence(),
+            "scope": graphScopeEvidence(),
         ]
         let data = try JSONSerialization.data(
             withJSONObject: report,
@@ -761,6 +788,7 @@ class SceneGraphAdmissionCompilerTests(unittest.TestCase):
             )
 
         report = json.loads(completed.stdout)
+        self.assertTrue(all(report["scope"].values()), report["scope"])
         self.assertEqual(
             report["fluid"],
             {

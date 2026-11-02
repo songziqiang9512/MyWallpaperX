@@ -450,7 +450,7 @@ extension SceneDesktopWallpaperHost {
         let materialPropertyTargets = Set(runtimeInput.propertyBindingProgram.instructions.map(\.target))
         let provenMaterialBindings = model.propertyVectorProjection.materialBindings
         let loweredMaterialModelPaths = Set(provenMaterialBindings.filter(\.canLowerToCompositor).map(\.modelPath))
-        let resolvedMaterialCatalog = SceneResolvedMaterialRuntimeCatalog(
+        let resolvedMaterialCatalog = try SceneResolvedMaterialRuntimeCatalog(
             descriptor: runtimeInput.renderDescriptor,
             admissionCandidates: resolvedMaterialAdmissionCandidates,
             shaderContracts: runtimeInput.shaderContracts,
@@ -460,7 +460,8 @@ extension SceneDesktopWallpaperHost {
             provenSceneScriptValueTargets: provisionalSceneScriptValueTargets,
             materialInstancesByLayerID: model.sceneDocument.materialInstancesByLayerID,
             loweredSourceMaterialModelPaths: loweredMaterialModelPaths,
-            provenSourceMaterialBindings: provenMaterialBindings
+            provenSourceMaterialBindings: provenMaterialBindings,
+            cancellationCheck: { try cancellation?.check() }
         )
 #if DEBUG
         logPrepareStage("prepare-catalog")
