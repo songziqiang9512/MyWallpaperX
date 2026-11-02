@@ -7,6 +7,9 @@ The controllable cache-image/data transports deliver cancelled and out-of-order
 replies. This gate does not exercise HTTP, thumbnail decoding or cache policy, and
 does not measure scrolling performance.
 
+The OnlineImage copy counts real controls/visibility method entries only around
+warm transfer configuration and updates; no rendering or material cost is inferred.
+
 The Downloads click case compiles the complete shared production GridController
 and the real card. It dispatches real window mouse events across the native
 button and its neighbors; only application actions are recording leaves.
@@ -90,6 +93,18 @@ def card_copy(source: Path) -> tuple[str, list[str]]:
             raise AssertionError("Downloads thumbnail constructor injection is no longer unique")
         text = text.replace(old, "static let sharedCache = CardThumbnailTransport(")
         transforms.append("replace shared thumbnail transport constructor only")
+    if source.name == "OnlineImageGridItem.swift":
+        for old, new in (
+            ("    static let reuseIdentifier =",
+             "    var testControlsUpdateCount = 0, testVisibilityUpdateCount = 0\n    static let reuseIdentifier ="),
+            ("    func updateControls() {\n", "    func updateControls() {\n        testControlsUpdateCount += 1\n"),
+            ("    func updateVisibility(animated: Bool = false) {\n",
+             "    func updateVisibility(animated: Bool = false) {\n        testVisibilityUpdateCount += 1\n"),
+        ):
+            if text.count(old) != 1:
+                raise AssertionError("OnlineImage method-entry observation seam is no longer unique: " + old)
+            text = text.replace(old, new, 1)
+        transforms.append("count complete controls/visibility method entries for warm transfer updates")
     return text, transforms
 
 

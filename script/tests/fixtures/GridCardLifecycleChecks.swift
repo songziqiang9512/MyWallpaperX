@@ -840,13 +840,20 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
         let card = OnlineImageGridItem(); _ = card.view
         card.view.frame = NSRect(x: 10, y: 10, width: 240, height: 240); host.addSubview(card.view)
         var plays: [String] = [], inspections: [String] = []
-        func bind(_ id: String, _ label: String, switching: Bool = false) {
+        func bind(_ id: String, _ label: String, selecting: Bool = false, playing: Bool = false, switching: Bool = false,
+                  busy: Bool = false, fraction: Double? = nil, scope: String? = nil) {
             let reference = WallpaperReference(provider: provider, sourceID: id)
             let item = WallpaperContentItem(reference: reference, providerReference: reference,
                 locator: .init(mediaKind: .image), title: label, kind: .image, publishedAvailability: .remote,
                 capabilities: [.inspect, .download], metadata: .init(), acquisition: .idle, update: .idle, aliases: [])
-            card.configure(content: item, request: nil, selected: false, selecting: false, playing: false, switching: switching,
+            if scope != nil { card.testControlsUpdateCount = 0; card.testVisibilityUpdateCount = 0 }
+            card.configure(content: item, request: nil, selected: false, selecting: selecting, playing: playing, switching: switching,
+                busy: busy, fraction: fraction,
                 onPrimary: { plays.append(label) }, onInspect: { inspections.append(label) })
+            if let scope {
+                facts.expect(provider.rawValue + "." + scope + ".updates-controls-and-visibility-once",
+                    card.testControlsUpdateCount == 1 && card.testVisibilityUpdateCount == 1)
+            }
             card.setThumbnailVisible(true); card.view.layoutSubtreeIfNeeded(); card.viewDidLayout()
             card.hovering = true; card.updateVisibility()
         }
@@ -861,6 +868,36 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
         facts.expect(name + ".current-online-image-native-actions-deliver-once", plays == ["B"] && inspections == plays)
         bind("B", "echo"); bar.playButton.performClick(nil); bar.detailButton.performClick(nil)
         facts.expect(name + ".same-ID-online-image-echo-rebinds-current-callbacks", plays == ["B", "echo"] && inspections == plays)
+        bind("B", "transferring", busy: true, fraction: 0.4, scope: "configure-changed")
+        bar.playButton.performClick(nil)
+        facts.expect(name + ".transfer-configure-keeps-real-controls", card.busy && card.fraction == 0.4
+            && bar.primaryState == .switching && !bar.playButton.isEnabled && bar.primaryActionTitle == "正在下载原图"
+            && bar.playButton.toolTip == "正在下载原图" && bar.playButton.accessibilityLabel() == "正在下载原图"
+            && bar.titleView.text == "transferring" && plays == ["B", "echo"] && inspections == plays)
+        bind("B", "transferring", busy: true, fraction: 0.4, scope: "configure-same")
+        for (scope, fraction, expected) in [("transfer-same", 0.4, 0), ("transfer-changed", 0.6, 1)] {
+            card.testControlsUpdateCount = 0; card.testVisibilityUpdateCount = 0
+            card.applyTransfer(busy: true, fraction: fraction)
+            facts.expect(name + "." + scope + ".updates-only-when-changed",
+                card.testControlsUpdateCount == expected && card.testVisibilityUpdateCount == expected)
+            facts.expect(name + "." + scope + ".keeps-transfer-and-primary", card.busy && card.fraction == fraction
+                && bar.primaryState == .switching && !bar.playButton.isEnabled && bar.detailButton.isEnabled)
+        }
+        bind("B", "playing", playing: true, busy: true, fraction: 0.6)
+        facts.expect(name + ".playing-wins-over-busy", bar.primaryState == .playing
+            && bar.playButton.isEnabled && bar.playButton.accessibilityLabel() == "停止播放")
+        bind("B", "switching", switching: true, busy: true, fraction: 0.6)
+        facts.expect(name + ".switching-wins-over-busy", bar.primaryState == .switching
+            && !bar.playButton.isEnabled && bar.playButton.accessibilityLabel() == "正在切换壁纸")
+        bind("B", "echo", scope: "configure-ended")
+        facts.expect(name + ".transfer-end-restores-download", !card.busy && card.fraction == nil
+            && bar.primaryState == .download && bar.playButton.isEnabled && bar.titleView.text == "echo"
+            && bar.playButton.accessibilityLabel() == "下载原图")
+        bind("B", "selecting", selecting: true)
+        bar.playButton.performClick(nil); bar.detailButton.performClick(nil)
+        facts.expect(name + ".selection-hides-bar-and-rejects-native-actions", card.selecting
+            && bar.superview == nil && bar.alphaValue == 0 && plays == ["B", "echo"] && inspections == plays)
+        bind("B", "echo")
         let heldPlay = bar.onPlay, heldInspect = bar.onInspect
         bind("B", "pending", switching: true); heldPlay?(); bar.playButton.performClick(nil)
         facts.expect(name + ".pending-online-image-rejects-retained-and-native-primary", plays == ["B", "echo"] && bar.primaryState == .switching)

@@ -4445,6 +4445,7 @@
       "id": "appkit-grid-scroll-presentation",
       "patterns": [
         "MyWallpaperX/Shared/UI/OnlineImageThumbnailPipeline.swift",
+        "MyWallpaperX/Shared/UI/OnlineImageGridItem.swift",
         "MyWallpaperX/Modules/Pixabay/UI/AppKitPixabayBrowserGridView.swift",
         "MyWallpaperX/Modules/Pixabay/UI/AppKitPixabayBrowserItem.swift",
         "MyWallpaperX/Modules/Pixabay/UI/AppKitPixabayDownloadsItem.swift",

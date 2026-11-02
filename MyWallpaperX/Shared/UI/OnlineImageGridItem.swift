@@ -93,12 +93,12 @@ final class OnlineImageGridItem: WallpaperCardCollectionViewItem, WallpaperGridH
         self.refreshToken = refreshToken
         self.content = content; self.request = request
         self.selecting = selecting; self.playing = playing; self.switching = switching
+        self.busy = busy; self.fraction = fraction
         self.cardSelected = selected
         self.onPrimary = onPrimary; self.onInspect = onInspect
         view.setAccessibilityElement(true); view.setAccessibilityRole(.group)
         view.setAccessibilityLabel(content.title)
         updateControls()
-        applyTransfer(busy: busy, fraction: fraction)
         badgeIcon.isHidden = !selected
         updateAppearance()
         if changed {
