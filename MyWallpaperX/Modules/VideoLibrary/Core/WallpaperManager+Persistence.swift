@@ -209,7 +209,12 @@ extension WallpaperManager {
 
     func loadSettings() {
         // 设置是轻量配置，优先从 UserDefaults 读取；没有就使用默认值。
-        if let loadedSettings: WallpaperSettings = loadCodableValue(forKey: settingsKey) {
+        if var loadedSettings: WallpaperSettings = loadCodableValue(forKey: settingsKey) {
+            let hotkeys = WallpaperSettings.normalizedHotkeyBindings(
+                previous: loadedSettings.previousWallpaperHotkey, next: loadedSettings.nextWallpaperHotkey,
+                playPause: loadedSettings.togglePlaybackHotkey, muteToggle: loadedSettings.toggleMuteHotkey)
+            (loadedSettings.previousWallpaperHotkey, loadedSettings.nextWallpaperHotkey,
+             loadedSettings.togglePlaybackHotkey, loadedSettings.toggleMuteHotkey) = hotkeys
             settings = loadedSettings
             if loadedSettings.volume > 0 {
                 previousAudibleVolume = loadedSettings.volume

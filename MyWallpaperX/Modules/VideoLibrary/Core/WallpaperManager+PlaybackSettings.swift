@@ -187,39 +187,6 @@ extension WallpaperManager {
         settings = next
     }
 
-    @discardableResult
-    func sanitizeSystemHotkeySettingsIfNeeded() -> Bool {
-        // 热键必须保证互斥；重复项会自动去重成 none。
-        var sanitized = settings
-        var usedShortcuts = Set<FunctionKeyShortcut>()
-
-        func sanitize(_ shortcut: inout FunctionKeyShortcut) {
-            guard shortcut != .none else { return }
-            if usedShortcuts.contains(shortcut) {
-                shortcut = .none
-            } else {
-                usedShortcuts.insert(shortcut)
-            }
-        }
-
-        sanitize(&sanitized.previousWallpaperHotkey)
-        sanitize(&sanitized.nextWallpaperHotkey)
-        sanitize(&sanitized.togglePlaybackHotkey)
-        sanitize(&sanitized.toggleMuteHotkey)
-
-        let changed =
-            sanitized.previousWallpaperHotkey != settings.previousWallpaperHotkey ||
-            sanitized.nextWallpaperHotkey != settings.nextWallpaperHotkey ||
-            sanitized.togglePlaybackHotkey != settings.togglePlaybackHotkey ||
-            sanitized.toggleMuteHotkey != settings.toggleMuteHotkey
-
-        if changed {
-            settings = sanitized
-        }
-
-        return changed
-    }
-
     func performSystemHotkeyAction(_ action: SystemHotkeyAction) {
         // 全局快捷键只做动作分发，不直接改 UI 状态。
         switch action {

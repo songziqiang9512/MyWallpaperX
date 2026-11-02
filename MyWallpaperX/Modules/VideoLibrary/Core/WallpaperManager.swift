@@ -231,7 +231,6 @@ class WallpaperManager: ObservableObject {
         migrationRecoveryMessage = Self.startupMigrationRecoveryMessage
         // Publish source facts before App resolves saved runtime intent; Store owns relationships/history.
         loadSettings()
-        sanitizeSystemHotkeySettingsIfNeeded()
         normalizePlaybackSettings()
         loadWallpapers()
         if !preservesLegacyMigrationInputs { loadSampleData() }
@@ -247,7 +246,6 @@ class WallpaperManager: ObservableObject {
         .dropFirst()
         .sink { [weak self] newSettings in
             guard let self else { return }
-            self.sanitizeSystemHotkeySettingsIfNeeded()
             self.scheduleSettingsAutoPersist()
             let hotkeySnapshot = HotkeySettingsSnapshot(settings: newSettings)
             if self.lastAppliedHotkeySettings != hotkeySnapshot {

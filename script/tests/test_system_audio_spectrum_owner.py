@@ -323,7 +323,6 @@ extension Notification.Name {
     func bindSettings() {
         // SETTINGS_BINDINGS
     }
-    func sanitizeSystemHotkeySettingsIfNeeded() {}
     func scheduleSettingsAutoPersist() {}
     func switchPrepared(_ ticket: PlaybackSwitchTicket, endpoint: PlaybackSwitchEndpoint) {}
     func switchVisible(_ ticket: PlaybackSwitchTicket, executionID: UUID) {}
@@ -470,6 +469,7 @@ extension Notification.Name {
                 *map(str, GATE_SOURCES),
                 str(ROOT / 'MyWallpaperX/Models/WallpaperSettings.swift'),
                 str(ROOT / 'MyWallpaperX/Models/WallpaperControls.swift'),
+                str(ROOT / 'MyWallpaperX/Models/ScreenSaverPreferences.swift'),
                 str(PLAYBACK / 'DaemonProtocol.swift'), str(source),
                 '-module-cache-path', str(work / 'modules'), '-o', str(binary)],
                 capture_output=True, text=True, timeout=120)

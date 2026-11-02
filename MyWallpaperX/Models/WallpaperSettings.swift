@@ -57,6 +57,20 @@ public struct WallpaperSettings: Codable, Equatable {
     /// 全字段默认值单点（重置/缺 key 回退共用）。
     static let defaults = WallpaperSettings()
 
+    /// A repeated non-none key belongs to the first action in this fixed priority.
+    nonisolated static func normalizedHotkeyBindings(
+        previous: FunctionKeyShortcut, next: FunctionKeyShortcut,
+        playPause: FunctionKeyShortcut, muteToggle: FunctionKeyShortcut
+    ) -> (previous: FunctionKeyShortcut, next: FunctionKeyShortcut,
+          playPause: FunctionKeyShortcut, muteToggle: FunctionKeyShortcut) {
+        var used = Set<FunctionKeyShortcut>()
+        func unique(_ shortcut: FunctionKeyShortcut) -> FunctionKeyShortcut {
+            guard shortcut != .none else { return .none }
+            return used.insert(shortcut).inserted ? shortcut : .none
+        }
+        return (unique(previous), unique(next), unique(playPause), unique(muteToggle))
+    }
+
     /// 升级兼容解码：每个字段缺 key 时回退字段默认值，新增设置字段
     /// 不再使旧持久化整体解码失败（那会让升级用户一次性丢掉全部设置）。
     /// 历史遗留别名 key 仍然废弃：旧别名在此解码为默认值，不做错乱映射。

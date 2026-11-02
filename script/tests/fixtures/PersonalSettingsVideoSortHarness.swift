@@ -256,6 +256,110 @@ extension PersonalSettingsImportHarness {
             checks["FutureRecoveryStaysIntactWithoutGuessingViewOrSourceState"] = try Data(contentsOf: futureRecovery) == futureBytes
                 && presentation.videoSortPreference() == currentSort && manager.wallpapers == sourceBefore && !futureImporter.allowsEditing
         }
+        do {
+            let hotkeyRecovery = root.appendingPathComponent("legacy-hotkey-sort-recovery.json")
+            var beforeHotkeys = manager.settings
+            beforeHotkeys.volume = 71; beforeHotkeys.systemHotkeysEnabled = true
+            beforeHotkeys.previousWallpaperHotkey = .f1; beforeHotkeys.nextWallpaperHotkey = .f3
+            beforeHotkeys.togglePlaybackHotkey = .f5; beforeHotkeys.toggleMuteHotkey = .f7
+            manager.settings = beforeHotkeys
+            presentation.setQueryState(.init(sort: .name, ascending: false))
+            var canonicalRestart = beforeHotkeys
+            canonicalRestart.volume = 23
+            canonicalRestart.previousWallpaperHotkey = .f2; canonicalRestart.nextWallpaperHotkey = .none
+            canonicalRestart.togglePlaybackHotkey = .none; canonicalRestart.toggleMuteHotkey = .none
+            var importedPreferences = PersonalSettingsPreferences(from: canonicalRestart)
+            importedPreferences.previousWallpaperHotkey = "f2"; importedPreferences.nextWallpaperHotkey = "f2"
+            importedPreferences.togglePlaybackHotkey = "f2"; importedPreferences.toggleMuteHotkey = "f2"
+            importedPreferences.videoLibrarySort = .init(mode: .fileSize, ascending: true)
+            try write(.init(exportedAt: Date(timeIntervalSince1970: 100), preferences: importedPreferences,
+                sources: [], collections: .init()), to: profile)
+            let historyBeforeHotkeys = controller.snapshot.recent, sourcesBeforeHotkeys = manager.wallpapers
+            let recentWritesBeforeHotkeys = manager.recentWrites, timerBeforeHotkeys = manager.timerRefreshes
+            let oldWriter = coordinator(presentation, recoveryURL: hotkeyRecovery)
+            rejectBeforeViewSave = true
+            var stoppedBeforeViewSave = false
+            do { _ = try await oldWriter.importPersonalSettings(from: profile) }
+            catch WallpaperLibraryVideoSortError.persistenceFailed { stoppedBeforeViewSave = true }
+            rejectBeforeViewSave = false
+            var hotkeyRecord = try JSONSerialization.jsonObject(with: Data(contentsOf: hotkeyRecovery)) as! [String: Any]
+            var hotkeyPlan = hotkeyRecord["plan"] as! [String: Any]
+            var legacyTarget = hotkeyPlan["targetPreferences"] as! [String: Any]
+            let bindingFields = ["previousWallpaperHotkey", "nextWallpaperHotkey", "togglePlaybackHotkey", "toggleMuteHotkey"]
+            let durableHotkeys = try JSONDecoder().decode(WallpaperSettings.self,
+                from: manager.defaults.data(forKey: manager.settingsKey)!)
+            checks["DuplicateImportHotkeysAreCanonicalBeforeViewSaveInPlanDefaultsAndManager"] = stoppedBeforeViewSave
+                && hotkeyRecord["stage"] as? Int == 4
+                && legacyTarget["previousWallpaperHotkey"] as? String == "f2"
+                && legacyTarget["nextWallpaperHotkey"] as? String == "none"
+                && legacyTarget["togglePlaybackHotkey"] as? String == "none"
+                && legacyTarget["toggleMuteHotkey"] as? String == "none"
+                && durableHotkeys == canonicalRestart && manager.settings == canonicalRestart
+            // Old-writer input changes only the four target bindings. The
+            // literal current value below represents its normalized restart.
+            for field in bindingFields { legacyTarget[field] = "f2" }
+            hotkeyPlan["targetPreferences"] = legacyTarget; hotkeyRecord["plan"] = hotkeyPlan
+            try JSONSerialization.data(withJSONObject: hotkeyRecord).write(to: hotkeyRecovery, options: .atomic)
+            manager.settings = canonicalRestart
+            checks["LegacyDuplicateHotkeyJournalStopsAtStageFourWithOnlyTargetBindingsDuplicated"] = stoppedBeforeViewSave
+                && hotkeyRecord["stage"] as? Int == 4 && legacyTarget["volume"] as? Double == 23
+                && (hotkeyPlan["beforePreferences"] as? [String: Any])?["volume"] as? Double == 71
+                && bindingFields.allSatisfy { legacyTarget[$0] as? String == "f2" }
+                && manager.settings == canonicalRestart
+            let hotkeyView = WallpaperLibraryPresentation(collections: controller, defaults: manager.defaults)
+            refresh(hotkeyView)
+            let recoveredHotkeys = coordinator(hotkeyView, recoveryURL: hotkeyRecovery)
+            var resumedHotkeys = false
+            do { _ = try await recoveredHotkeys.resumeIfNeeded(); resumedHotkeys = true } catch {}
+            checks["LegacyDuplicateHotkeyTargetRecoveryAcceptsCanonicalRestartAndClearsJournal"] = try resumedHotkeys
+                && recoveredHotkeys.allowsEditing && !FileManager.default.fileExists(atPath: hotkeyRecovery.path)
+                && manager.settings == canonicalRestart && hotkeyView.videoSortPreference() == .init(mode: .fileSize, ascending: true)
+            checks["LegacyDuplicateHotkeyRecoveryPreservesSourcesOtherSettingsAndHistory"] = manager.settings == canonicalRestart
+                && manager.wallpapers == sourcesBeforeHotkeys && controller.snapshot.recent == historyBeforeHotkeys
+                && manager.recentWrites == recentWritesBeforeHotkeys && manager.timerRefreshes == timerBeforeHotkeys
+
+            var duplicatePreferences = PersonalSettingsPreferences(from: canonicalRestart)
+            duplicatePreferences.nextWallpaperHotkey = "f2"; duplicatePreferences.togglePlaybackHotkey = "f2"
+            duplicatePreferences.toggleMuteHotkey = "f2"
+            var nextPreferences = PersonalSettingsPreferences(from: canonicalRestart); nextPreferences.volume = 24
+            manager.settings = canonicalRestart
+            var acceptedExpected = false
+            do {
+                try manager.applyPersonalSettingsPreferences(expected: duplicatePreferences, target: nextPreferences)
+                acceptedExpected = true
+            } catch {}
+            var expectedSettings = canonicalRestart; expectedSettings.volume = 24
+            checks["ProfileSettingsAcceptsCanonicalizedExpectedBeforeApplyingDifferentTarget"] = acceptedExpected
+                && manager.settings == expectedSettings
+            manager.settings = canonicalRestart
+            var acceptedTarget = false
+            do {
+                try manager.applyPersonalSettingsPreferences(expected: .init(from: beforeHotkeys), target: duplicatePreferences)
+                acceptedTarget = true
+            } catch {}
+            checks["ProfileSettingsAcceptsCanonicalizedTargetOnDurableRetry"] = acceptedTarget && manager.settings == canonicalRestart
+
+            var partialPreferences = duplicatePreferences
+            partialPreferences.previousWallpaperHotkey = nil; partialPreferences.toggleMuteHotkey = nil
+            var changedMissingBindings = canonicalRestart
+            changedMissingBindings.previousWallpaperHotkey = .f4; changedMissingBindings.nextWallpaperHotkey = .f2
+            changedMissingBindings.toggleMuteHotkey = .f8
+            checks["LegacyPartialHotkeysBorrowCurrentPriorityWithoutOwningMissingBindings"] = partialPreferences.matchesForRecovery(.init(from: canonicalRestart))
+                && partialPreferences.matchesForRecovery(.init(from: changedMissingBindings))
+                && partialPreferences.previousWallpaperHotkey == nil && partialPreferences.toggleMuteHotkey == nil
+            var distinctBinding = duplicatePreferences; distinctBinding.previousWallpaperHotkey = "f4"
+            var unknownBinding = duplicatePreferences; unknownBinding.nextWallpaperHotkey = "future-key"
+            var conflictingVolume = duplicatePreferences; conflictingVolume.volume = 22
+            for (name, conflicting) in [("ExplicitOtherHotkey", distinctBinding), ("UnknownHotkeyRaw", unknownBinding), ("OtherVolume", conflictingVolume)] {
+                manager.settings = canonicalRestart
+                let settingsDataBefore = manager.defaults.data(forKey: manager.settingsKey)
+                var rejected = false
+                do { try manager.applyPersonalSettingsPreferences(expected: conflicting, target: conflicting) }
+                catch PersonalSettingsError.preferencesChanged { rejected = true }
+                checks["ProfileSettingsRejects\(name)WithoutChangingOrPersistingSettings"] = rejected
+                    && manager.settings == canonicalRestart && manager.defaults.data(forKey: manager.settingsKey) == settingsDataBefore
+            }
+        }
         print(String(data: try JSONEncoder().encode(checks), encoding: .utf8)!)
     }
 }

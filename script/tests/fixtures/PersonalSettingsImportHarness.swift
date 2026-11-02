@@ -17,6 +17,7 @@ import SQLite3
     static var defersMissingFileCleanupForPersonalSettingsRecovery = false
     var migrationRecoveryMessage: String?
     var allowsLibraryMutation: Bool { migrationRecoveryMessage == nil }
+    private var metadataLoadGeneration: UInt64 = 0
     var wallpapers: [SILWallpaper] = []
     var selectedIDs = Set<String>()
     var selectedID: String?, inspectedWallpaperID: String?

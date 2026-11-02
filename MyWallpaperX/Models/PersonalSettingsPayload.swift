@@ -123,19 +123,41 @@ nonisolated struct PersonalSettingsPreferences: Codable, Equatable, Sendable {
     /// over that field. All older fields and explicit background values retain
     /// the original full-snapshot conflict check.
     func matchesForRecovery(_ current: Self) -> Bool {
+        var expected = self
+        expected.previousWallpaperHotkey = previousWallpaperHotkey ?? current.previousWallpaperHotkey
+        expected.nextWallpaperHotkey = nextWallpaperHotkey ?? current.nextWallpaperHotkey
+        expected.togglePlaybackHotkey = togglePlaybackHotkey ?? current.togglePlaybackHotkey
+        expected.toggleMuteHotkey = toggleMuteHotkey ?? current.toggleMuteHotkey
         var comparable = current
+        // Unowned keys still participate in priority; unknown raw values retain strict comparison.
+        if let expectedKeys = expected.normalizedHotkeyBindings, let currentKeys = comparable.normalizedHotkeyBindings {
+            (expected.previousWallpaperHotkey, expected.nextWallpaperHotkey,
+             expected.togglePlaybackHotkey, expected.toggleMuteHotkey) = expectedKeys
+            (comparable.previousWallpaperHotkey, comparable.nextWallpaperHotkey,
+             comparable.togglePlaybackHotkey, comparable.toggleMuteHotkey) = currentKeys
+        }
         if libraryBackgroundStyle == nil { comparable.libraryBackgroundStyle = nil }
         if libraryCardClickAction == nil { comparable.libraryCardClickAction = nil }
         if screenSaver == nil { comparable.screenSaver = nil }
         if systemHotkeysEnabled == nil { comparable.systemHotkeysEnabled = nil }
-        if previousWallpaperHotkey == nil { comparable.previousWallpaperHotkey = nil }
-        if nextWallpaperHotkey == nil { comparable.nextWallpaperHotkey = nil }
-        if togglePlaybackHotkey == nil { comparable.togglePlaybackHotkey = nil }
-        if toggleMuteHotkey == nil { comparable.toggleMuteHotkey = nil }
+        if previousWallpaperHotkey == nil { expected.previousWallpaperHotkey = nil; comparable.previousWallpaperHotkey = nil }
+        if nextWallpaperHotkey == nil { expected.nextWallpaperHotkey = nil; comparable.nextWallpaperHotkey = nil }
+        if togglePlaybackHotkey == nil { expected.togglePlaybackHotkey = nil; comparable.togglePlaybackHotkey = nil }
+        if toggleMuteHotkey == nil { expected.toggleMuteHotkey = nil; comparable.toggleMuteHotkey = nil }
         if sceneHDRDisplayEnabled == nil { comparable.sceneHDRDisplayEnabled = nil }
         if sceneMediaInfoEnabled == nil { comparable.sceneMediaInfoEnabled = nil }
         if playbackPerformanceProfile == nil { comparable.playbackPerformanceProfile = nil }
-        return self == comparable
+        return expected == comparable
+    }
+
+    private var normalizedHotkeyBindings: (String, String, String, String)? {
+        guard let previous = previousWallpaperHotkey.flatMap(FunctionKeyShortcut.init(rawValue:)),
+              let next = nextWallpaperHotkey.flatMap(FunctionKeyShortcut.init(rawValue:)),
+              let playPause = togglePlaybackHotkey.flatMap(FunctionKeyShortcut.init(rawValue:)),
+              let muteToggle = toggleMuteHotkey.flatMap(FunctionKeyShortcut.init(rawValue:)) else { return nil }
+        let bindings = WallpaperSettings.normalizedHotkeyBindings(
+            previous: previous, next: next, playPause: playPause, muteToggle: muteToggle)
+        return (bindings.previous.rawValue, bindings.next.rawValue, bindings.playPause.rawValue, bindings.muteToggle.rawValue)
     }
 
     @MainActor func applying(to current: WallpaperSettings) -> WallpaperSettings {
@@ -158,6 +180,11 @@ nonisolated struct PersonalSettingsPreferences: Codable, Equatable, Sendable {
         if let nextWallpaperHotkey, let key = FunctionKeyShortcut(rawValue: nextWallpaperHotkey) { result.nextWallpaperHotkey = key }
         if let togglePlaybackHotkey, let key = FunctionKeyShortcut(rawValue: togglePlaybackHotkey) { result.togglePlaybackHotkey = key }
         if let toggleMuteHotkey, let key = FunctionKeyShortcut(rawValue: toggleMuteHotkey) { result.toggleMuteHotkey = key }
+        let hotkeys = WallpaperSettings.normalizedHotkeyBindings(
+            previous: result.previousWallpaperHotkey, next: result.nextWallpaperHotkey,
+            playPause: result.togglePlaybackHotkey, muteToggle: result.toggleMuteHotkey)
+        (result.previousWallpaperHotkey, result.nextWallpaperHotkey,
+         result.togglePlaybackHotkey, result.toggleMuteHotkey) = hotkeys
         if let idleTimeoutMinutes { result.idleTimeoutMinutes = Self.nearest([5, 10, 15, 20, 30, 60], to: idleTimeoutMinutes) }
         if let multiDisplayEnabled { result.multiDisplayEnabled = multiDisplayEnabled }
         if let videoFillMode, let value = VideoFillMode(rawValue: videoFillMode) { result.videoFillMode = value }
