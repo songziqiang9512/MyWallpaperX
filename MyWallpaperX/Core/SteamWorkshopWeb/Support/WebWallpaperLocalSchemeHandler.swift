@@ -47,7 +47,6 @@ final class WebWallpaperLocalSchemeHandler: NSObject, WKURLSchemeHandler {
         case outsideRootAfterSymlink
         case symlinkRejected
         case missing
-        case directoryWithoutIndex
         case notRegularFile
     }
 

@@ -195,18 +195,22 @@ enum WebWallpaperHostSupport {
             return result
         }
         check(task(URL(string: "mwx-local://wallpaper/index.html")!).bytes == Data("project".utf8), "project namespace")
+        check(task(URL(string: "mwx-local://wallpaper/")!).bytes == Data("project".utf8), "project directory resolves index bytes")
         check(task(absolute(file)).error != nil, "raw absolute path has no authority")
         let fileGrant = WebWallpaperResourceGrant(kind: .file, url: file)
         for surface in [handler, second] { surface.updateResourceGrants([fileGrant]) }
         check(task(absolute(file)).bytes == Data("selected-media".utf8), "file exact bytes with literal percent and spaces")
         check(task(absolute(sibling)).error != nil, "file must not grant its parent/sibling")
         check(task(absolute(sibling), handler: second).error != nil, "second surface same exact authority")
-        let old = handler.resolveResource(for: absolute(file), allowsDirectoryIndexFallback: false).resource!
+        let old = handler.resolveResource(for: absolute(file)).resource!
         let directoryGrant = WebWallpaperResourceGrant(kind: .directory, url: directory)
         handler.updateResourceGrants([directoryGrant])
         check(handler.revalidatedResource(old) == nil, "replacement revokes prepared resolution")
         check(task(absolute(file)).error != nil, "grants replace rather than accumulate")
         check(task(absolute(child)).bytes == Data("slide".utf8), "directory descendant")
+        let missingIndex = task(absolute(directory))
+        check((missingIndex.error as? WebWallpaperLocalSchemeHandler.AccessDenied)?.reason == .missing
+            && missingIndex.bytes.isEmpty, "directory without index keeps missing rejection")
         let escape = directory.appendingPathComponent("escape.png")
         try fm.createSymbolicLink(at: escape, withDestinationURL: sibling)
         check(task(absolute(escape)).error != nil, "directory symlink escape")

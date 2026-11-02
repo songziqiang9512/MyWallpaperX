@@ -52,11 +52,11 @@ extension WebWallpaperLocalSchemeHandler {
     /// `updateResourceGrants` 决定，根集合每次变更都会让旧条目不可达，
     /// 因此缓存命中不会绕过 root 校验。
     func resolveResource(
-        for requestURL: URL, allowsDirectoryIndexFallback: Bool, refreshCachedResolution: Bool = false
+        for requestURL: URL, refreshCachedResolution: Bool = false
     ) -> ResolveOutcome {
         let (roots, generation) = readableRootsSnapshot()
         let decodedPath = Self.decodedRequestPath(for: requestURL)
-        let cacheKey = "\(generation)|\(allowsDirectoryIndexFallback ? 1 : 0)|\(decodedPath)"
+        let cacheKey = "\(generation)|\(decodedPath)"
         if refreshCachedResolution {
             stateLock.lock()
             resolveCache.removeValue(forKey: cacheKey)
@@ -69,7 +69,6 @@ extension WebWallpaperLocalSchemeHandler {
         let outcome = computeResolution(
             for: requestURL,
             decodedPath: decodedPath,
-            allowsDirectoryIndexFallback: allowsDirectoryIndexFallback,
             roots: roots, generation: generation
         )
         if let resource = outcome.resource {
@@ -124,7 +123,6 @@ extension WebWallpaperLocalSchemeHandler {
     private func computeResolution(
         for requestURL: URL,
         decodedPath: String,
-        allowsDirectoryIndexFallback: Bool,
         roots: [WebWallpaperResourceGrant], generation: UInt64
     ) -> ResolveOutcome {
         let originalURL: URL
@@ -146,14 +144,6 @@ extension WebWallpaperLocalSchemeHandler {
         var isDirectory: ObjCBool = false
         let targetURL: URL
         if FileManager.default.fileExists(atPath: resolvedRequestedURL.path, isDirectory: &isDirectory), isDirectory.boolValue {
-            guard allowsDirectoryIndexFallback else {
-                return .denied(AccessDenied(
-                    reason: .directoryWithoutIndex,
-                    requestURL: requestURL,
-                    candidateURL: originalURL,
-                    resolvedURL: resolvedRequestedURL
-                ))
-            }
             targetURL = existingFileURL(for: resolvedRequestedURL.appendingPathComponent("index.html", isDirectory: false))
                 ?? resolvedRequestedURL.appendingPathComponent("index.html", isDirectory: false)
         } else {

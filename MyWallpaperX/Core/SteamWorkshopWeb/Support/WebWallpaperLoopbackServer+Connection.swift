@@ -153,7 +153,7 @@ extension WebWallpaperLoopbackServer {
             return
         }
 
-        let outcome = schemeHandler.resolveResource(for: requestURL, allowsDirectoryIndexFallback: true)
+        let outcome = schemeHandler.resolveResource(for: requestURL)
         guard let resource = outcome.resource else {
             let denial = outcome.denial ?? WebWallpaperLocalSchemeHandler.AccessDenied(
                 reason: .invalidURL,
@@ -224,7 +224,7 @@ extension WebWallpaperLoopbackServer {
             if let current = schemeHandler.revalidatedResource(resolved) {
                 resolved = current
             } else {
-                let refreshed = schemeHandler.resolveResource(for: requestURL, allowsDirectoryIndexFallback: true,
+                let refreshed = schemeHandler.resolveResource(for: requestURL,
                     refreshCachedResolution: true)
                 guard let current = refreshed.resource else {
                     throw refreshed.denial ?? WebWallpaperLocalSchemeHandler.AccessDenied(reason: .invalidURL,

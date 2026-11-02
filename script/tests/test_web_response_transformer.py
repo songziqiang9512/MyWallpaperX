@@ -386,7 +386,7 @@ class WebResponseTransformerTests(unittest.TestCase):
             let schemeHandler = WebWallpaperLocalSchemeHandler(rootURL: resolveRoot)
             func resolvedLastComponent(_ urlString: String) -> String? {
                 guard let url = URL(string: urlString) else { return nil }
-                return schemeHandler.resolveResource(for: url, allowsDirectoryIndexFallback: false).resource?.fileURL.lastPathComponent
+                return schemeHandler.resolveResource(for: url).resource?.fileURL.lastPathComponent
             }
             expect(resolvedLastComponent("mwx-local://wallpaper/assets/bg%2520cover.png") == "bg%20cover.png",
                    "literal %20 filename must resolve to itself")

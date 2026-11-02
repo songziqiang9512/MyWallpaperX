@@ -79,7 +79,7 @@ self.recordDeny(denied)
         isHeadRequest: Bool,
         diagnosticHandler: WebRuntimeDiagnosticHandler?
     ) -> PreparedDelivery {
-        let outcome = resolveResource(for: requestURL, allowsDirectoryIndexFallback: true)
+        let outcome = resolveResource(for: requestURL)
         guard var resolved = outcome.resource else {
             return .failure(outcome.denial ?? AccessDenied(
                 reason: .invalidURL, requestURL: requestURL, candidateURL: nil, resolvedURL: nil))
@@ -93,7 +93,7 @@ self.recordDeny(denied)
                 if let current = revalidatedResource(resolved) {
                     resolved = current
                 } else {
-                    let refreshed = resolveResource(for: requestURL, allowsDirectoryIndexFallback: true,
+                    let refreshed = resolveResource(for: requestURL,
                         refreshCachedResolution: true)
                     guard let current = refreshed.resource else {
                         throw refreshed.denial ?? AccessDenied(reason: .invalidURL, requestURL: requestURL,
@@ -382,7 +382,7 @@ recordDeny(denied)
             // compatibility candidate exists. Retry the original resolver once
             // only after a real missing-path open; authorization failures below
             // never enter this branch or search for another candidate.
-            let refreshed = resolveResource(for: requestURL, allowsDirectoryIndexFallback: true,
+            let refreshed = resolveResource(for: requestURL,
                 refreshCachedResolution: true)
             guard let current = refreshed.resource else {
                 throw refreshed.denial ?? AccessDenied(reason: .invalidURL, requestURL: requestURL,

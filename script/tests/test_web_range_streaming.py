@@ -288,7 +288,7 @@ final class TCP {
         try Data("allowed".utf8).write(to: changing)
         let changingURL = URL(string: "mwx-local://wallpaper/changing.bin")!
         func replaceBeforeOpen(_ change: @escaping () -> Void) -> SchemeTask {
-            check(handler.resolveResource(for: changingURL, allowsDirectoryIndexFallback: true).resource != nil,
+            check(handler.resolveResource(for: changingURL).resource != nil,
                 "warm candidate exists before mutation")
             resourceIOTrace.arm("before", at: changing, body: change)
             return deliver(SchemeTask(changingURL))
@@ -322,7 +322,7 @@ final class TCP {
         try fm.createDirectory(at: fallbackImage.deletingLastPathComponent(), withIntermediateDirectories: true)
         let imageURL = URL(string: "mwx-local://wallpaper/background.png")!
         try Data("old-fallback".utf8).write(to: fallbackImage)
-        let imageCandidate = handler.resolveResource(for: imageURL, allowsDirectoryIndexFallback: true).resource!
+        let imageCandidate = handler.resolveResource(for: imageURL).resource!
         check(imageCandidate.fileURL == fallbackImage, "initial compatibility candidate")
         resourceIOTrace.reset()
         resourceIOTrace.arm("before", at: fallbackImage) {
@@ -336,7 +336,7 @@ final class TCP {
         check(resourceIOTrace.count("open") == 2 && resourceIOTrace.count("fstat") == 1,
             "only actual missing-path failure opens a second candidate")
         try fm.removeItem(at: directImage); try Data("old-authorized".utf8).write(to: fallbackImage)
-        let deniedCandidate = handler.resolveResource(for: imageURL, allowsDirectoryIndexFallback: true,
+        let deniedCandidate = handler.resolveResource(for: imageURL,
             refreshCachedResolution: true).resource!
         resourceIOTrace.reset()
         resourceIOTrace.arm("before", at: fallbackImage) {
@@ -357,7 +357,7 @@ final class TCP {
         let currentSpelling = root.appendingPathComponent("Cafe.bin")
         try Data("old-spelling".utf8).write(to: originalSpelling)
         let spellingURL = URL(string: "mwx-local://wallpaper/caf%C3%A9.bin")!
-        let spellingCandidate = handler.resolveResource(for: spellingURL, allowsDirectoryIndexFallback: true).resource!
+        let spellingCandidate = handler.resolveResource(for: spellingURL).resource!
         resourceIOTrace.reset()
         resourceIOTrace.arm("before", at: spellingCandidate.fileURL) {
             try! fm.removeItem(at: originalSpelling); try! Data("current-spelling".utf8).write(to: currentSpelling)
@@ -375,7 +375,7 @@ final class TCP {
         try fm.createDirectory(at: fallbackMap.deletingLastPathComponent(), withIntermediateDirectories: true)
         try Data("old-map".utf8).write(to: fallbackMap)
         let mapURL = URL(string: "mwx-local://wallpaper/map/tile.bin")!
-        let mapCandidate = handler.resolveResource(for: mapURL, allowsDirectoryIndexFallback: true).resource!
+        let mapCandidate = handler.resolveResource(for: mapURL).resource!
         resourceIOTrace.reset()
         resourceIOTrace.arm("before", at: fallbackMap) {
             try! fm.removeItem(at: oldMapRoot); try! Data("directory-replaced".utf8).write(to: oldMapRoot)
@@ -399,7 +399,7 @@ final class TCP {
         for method in ["HEAD", "GET"] {
             try fm.removeItem(at: directImage); try Data("metadata-old".utf8).write(to: fallbackImage)
             let metadataHandler = WebWallpaperLocalSchemeHandler(rootURL: root)
-            let metadataCandidate = metadataHandler.resolveResource(for: imageURL, allowsDirectoryIndexFallback: true).resource!
+            let metadataCandidate = metadataHandler.resolveResource(for: imageURL).resource!
             check(metadataCandidate.fileURL == fallbackImage, "metadata path starts from original fallback")
             resourceIOTrace.reset()
             resourceIOTrace.arm("revalidate", at: fallbackImage) {
@@ -427,7 +427,7 @@ final class TCP {
         let retryHandler = WebWallpaperLocalSchemeHandler(rootURL: root)
         retryHandler.updateResourceGrants([.init(kind: .directory, url: retryDirectory)])
         let retryURL = absolute(retryOld)
-        let retryCandidate = retryHandler.resolveResource(for: retryURL, allowsDirectoryIndexFallback: true).resource!
+        let retryCandidate = retryHandler.resolveResource(for: retryURL).resource!
         resourceIOTrace.reset()
         resourceIOTrace.arm("before", at: retryOld) {
             try! fm.removeItem(at: retryOld); try! Data("current-selected".utf8).write(to: retryCurrent)
@@ -450,7 +450,7 @@ final class TCP {
         try Data("allowed-parent".utf8).write(to: parentFile)
         try Data("private-parent".utf8).write(to: outsideParent.appendingPathComponent("same-name.bin"))
         let parentURL = URL(string: "mwx-local://wallpaper/parent/same-name.bin")!
-        check(handler.resolveResource(for: parentURL, allowsDirectoryIndexFallback: true).resource != nil, "parent warm candidate")
+        check(handler.resolveResource(for: parentURL).resource != nil, "parent warm candidate")
         resourceIOTrace.arm("before", at: parentFile) {
             try! fm.moveItem(at: parent, to: savedParent)
             try! fm.createSymbolicLink(at: parent, withDestinationURL: outsideParent)
@@ -589,7 +589,7 @@ final class TCP {
                 "TCP reusable 304 does not create a body FD")
             for method in ["HEAD", "GET"] {
                 try! fm.removeItem(at: directImage); try! Data("TCP-metadata-old".utf8).write(to: fallbackImage)
-                _ = handler.resolveResource(for: imageURL, allowsDirectoryIndexFallback: true, refreshCachedResolution: true)
+                _ = handler.resolveResource(for: imageURL, refreshCachedResolution: true)
                 resourceIOTrace.reset()
                 resourceIOTrace.arm("revalidate", at: fallbackImage) {
                     try! fm.removeItem(at: fallbackImage); try! metadataBody.write(to: directImage)
@@ -603,7 +603,7 @@ final class TCP {
                     "TCP stale metadata keeps HEAD/304 response without a body FD")
             }
             try! fm.removeItem(at: directImage); try! Data("TCP-old-fallback".utf8).write(to: fallbackImage)
-            _ = handler.resolveResource(for: imageURL, allowsDirectoryIndexFallback: true, refreshCachedResolution: true)
+            _ = handler.resolveResource(for: imageURL, refreshCachedResolution: true)
             resourceIOTrace.reset()
             resourceIOTrace.arm("before", at: fallbackImage) {
                 try! fm.removeItem(at: fallbackImage); try! metadataBody.write(to: directImage)
@@ -731,8 +731,8 @@ class WebRangeStreamingTests(unittest.TestCase):
                 ("    static func httpDateString(from date: Date) -> String {",
                  '    static func httpDateString(from date: Date) -> String {\n        resourceIOTrace.record("httpDate")')],
             "WebWallpaperLocalSchemeHandler+IO.swift": [
-                ("        let outcome = resolveResource(for: requestURL, allowsDirectoryIndexFallback: true)",
-                 '        resourceIOTrace.record("prepare")\n        let outcome = resolveResource(for: requestURL, allowsDirectoryIndexFallback: true)'),
+                ("        let outcome = resolveResource(for: requestURL)",
+                 '        resourceIOTrace.record("prepare")\n        let outcome = resolveResource(for: requestURL)'),
                 ("        var descriptor = Darwin.open(resource.fileURL.path, O_RDONLY | O_NONBLOCK | O_CLOEXEC)",
                  '        resourceIOTrace.record("open")\n        resourceIOTrace.hook("before", at: resource.fileURL)\n        var descriptor = Darwin.open(resource.fileURL.path, O_RDONLY | O_NONBLOCK | O_CLOEXEC)'),
                 ("            descriptor = Darwin.open(resource.fileURL.path, O_RDONLY | O_NONBLOCK | O_CLOEXEC)",
