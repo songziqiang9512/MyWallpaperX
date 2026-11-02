@@ -283,14 +283,19 @@ import Foundation
 
     private func replaceOnlineImages(_ snapshot: OnlineImageLocalSnapshot) {
         let records = Dictionary(grouping: snapshot.records, by: { $0.assetID.source })
+        var sources = Dictionary(grouping: catalog.downloads, by: { $0.providerReference.provider })
+        var next = catalog
         for source in OnlineImageSource.allCases {
-            let items = (records[source] ?? []).compactMap { record -> WallpaperContentItem? in
+            sources[source.provider] = (records[source] ?? []).compactMap { record -> WallpaperContentItem? in
                 guard let url = onlineImages.localURL(for: record) else { return nil }
                 return OnlineImageContentProjection.local(record, url: url, available: !snapshot.unavailable.contains(record.id))
             }
-            publish(items, provider: source.provider, revision: nextRevision(source.provider),
-                loaded: snapshot.status.hasSuccessfulScan, scanStatus: snapshot.status)
+            publishedRevisions[source.provider] = nextRevision(source.provider)
+            if snapshot.status.hasSuccessfulScan { next.loadedProviders.insert(source.provider) }
+            next.sourceScanStatuses[source.provider] = snapshot.status
         }
+        next.downloads = [.steamWorkshop, .pixabay, .wallhaven, .pixiv].flatMap { sources[$0] ?? [] }
+        install(next)
     }
 
     @discardableResult private func publish(_ items: [WallpaperContentItem], provider: WallpaperProvider, revision: UInt64,
@@ -308,11 +313,16 @@ import Foundation
         }
         if loaded { next.loadedProviders.insert(provider) }
         if let scanStatus { next.sourceScanStatuses[provider] = scanStatus }
+        install(next)
+        return true
+    }
+
+    private func install(_ value: WallpaperLibraryCatalog) {
+        var next = value
         if next.videos != catalog.videos || next.images != catalog.images || next.downloads != catalog.downloads
             || next.loadedProviders != catalog.loadedProviders || next.sourceScanStatuses != catalog.sourceScanStatuses {
             next.revision &+= 1
             catalog = next
         }
-        return true
     }
 }

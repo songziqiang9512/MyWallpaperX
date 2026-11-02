@@ -712,6 +712,9 @@ extension SteamWorkshopDownloadRecord { var isSceneLaunchable: Bool { false } }
                 fileSizeBytes: 3, firstDownloadedAt: Date(timeIntervalSince1970: 9), revision: UUID())
         }
         let wallhaven = onlineRecord(.wallhaven), pixiv = onlineRecord(.pixiv, page: 2)
+        await controller.videoTask?.value; await controller.imageTask?.value; await controller.steamTask?.value
+        var imagePublications: [WallpaperLibraryCatalog] = []
+        let imagePublicationObserver = controller.$catalog.dropFirst().sink { imagePublications.append($0) }
         let earlierDownloads = Set(controller.catalog.downloads.map(\.reference))
         OnlineImageLibrary.shared.snapshot = .init(records: [wallhaven, pixiv], unavailable: [pixiv.id],
             status: .init(phase: .ready(warnings: []), hasSuccessfulScan: true), revision: 2)
@@ -720,6 +723,11 @@ extension SteamWorkshopDownloadRecord { var isSceneLaunchable: Bool { false } }
             && controller.catalog.downloads.contains { $0.reference == wallhaven.id.reference && $0.kind == .image && $0.capabilities.contains(.play) }
             && controller.catalog.downloads.contains { $0.reference == pixiv.id.reference && $0.publishedAvailability == .unavailable && !$0.capabilities.contains(.play) }
             && controller.catalog.loadedProviders.isSuperset(of: [.wallhaven, .pixiv])
+        checks["first-online-image-scan-publishes-both-complete-provider-subsets-together"] = imagePublications.count == 1
+            && imagePublications.first?.downloads == controller.catalog.downloads
+            && imagePublications.first?.loadedProviders.isSuperset(of: [.wallhaven, .pixiv]) == true
+            && imagePublications.first?.sourceScanStatuses[.wallhaven] == .init(phase: .ready(warnings: []), hasSuccessfulScan: true)
+            && imagePublications.first?.sourceScanStatuses[.pixiv] == imagePublications.first?.sourceScanStatuses[.wallhaven]
         steam.downloads = []
         _ = await wait { controller.catalog.downloads.allSatisfy { $0.reference.provider != .steamWorkshop } }
         checks["later-steam-and-pixabay-publications-preserve-new-image-provider-subsets"] = controller.catalog.downloads.contains { $0.reference == wallhaven.id.reference }
@@ -729,6 +737,60 @@ extension SteamWorkshopDownloadRecord { var isSceneLaunchable: Bool { false } }
         checks["successful-empty-image-scan-clears-only-image-subsets-without-network-readiness"] = controller.catalog.downloads == otherProviders
             && controller.catalog.loadedProviders.isSuperset(of: [.wallhaven, .pixiv])
         await controller.steamTask?.value
+        await controller.videoTask?.value; await controller.imageTask?.value
+        let preservedVideos = controller.catalog.videos, preservedImages = controller.catalog.images
+        var imageSnapshot = OnlineImageLocalSnapshot(records: [pixiv, wallhaven], unavailable: [pixiv.id],
+            status: .init(phase: .ready(warnings: []), hasSuccessfulScan: true), revision: 4)
+        imagePublications.removeAll()
+        OnlineImageLibrary.shared.snapshot = imageSnapshot
+        checks["two-image-provider-replacements-publish-once-in-the-original-source-order"] = imagePublications.count == 1
+            && imagePublications.first?.downloads.map(\.reference) == otherProviders.map(\.reference) + [wallhaven.id.reference, pixiv.id.reference]
+            && imagePublications.first?.downloads == controller.catalog.downloads
+        let imageDownloads = controller.catalog.downloads
+        imagePublications.removeAll()
+        imageSnapshot.status = .init(phase: .failed(message: "Shared image scan failed"), hasSuccessfulScan: true)
+        imageSnapshot.revision += 1
+        OnlineImageLibrary.shared.snapshot = imageSnapshot
+        checks["shared-image-scan-failure-publishes-one-complete-status-without-losing-content-or-readiness"] = imagePublications.count == 1
+            && imagePublications.first?.downloads == imageDownloads
+            && imagePublications.first?.loadedProviders.isSuperset(of: [.wallhaven, .pixiv]) == true
+            && imagePublications.first?.sourceScanStatuses[.wallhaven] == imageSnapshot.status
+            && imagePublications.first?.sourceScanStatuses[.pixiv] == imageSnapshot.status
+        imagePublications.removeAll()
+        imageSnapshot.unavailable = [wallhaven.id]
+        imageSnapshot.revision += 1
+        OnlineImageLibrary.shared.snapshot = imageSnapshot
+        checks["both-image-availability-changes-arrive-in-one-catalog-value"] = imagePublications.count == 1
+            && imagePublications.first?.downloads.first { $0.reference == wallhaven.id.reference }?.publishedAvailability == .unavailable
+            && imagePublications.first?.downloads.first { $0.reference == pixiv.id.reference }?.publishedAvailability == .available
+        imagePublications.removeAll()
+        imageSnapshot.records.removeFirst()
+        imageSnapshot.revision += 1
+        OnlineImageLibrary.shared.snapshot = imageSnapshot
+        checks["single-image-provider-removal-preserves-the-other-provider-and-download-subsets"] = imagePublications.count == 1
+            && imagePublications.first?.downloads.map(\.reference) == otherProviders.map(\.reference) + [wallhaven.id.reference]
+            && imagePublications.first?.downloads.first { $0.reference == wallhaven.id.reference }?.publishedAvailability == .unavailable
+        imagePublications.removeAll()
+        let imageRevisions = controller.revisions
+        imageSnapshot.revision += 1
+        OnlineImageLibrary.shared.snapshot = imageSnapshot
+        checks["identical-image-rescan-does-not-publish-but-advances-both-source-receipts"] = imagePublications.isEmpty
+            && OnlineImageSource.allCases.allSatisfy { source in
+                controller.revisions[source.provider] == (imageRevisions[source.provider] ?? 0) &+ 1
+                    && controller.publishedRevisions[source.provider] == controller.revisions[source.provider]
+            }
+        imagePublications.removeAll()
+        imageSnapshot.records = []; imageSnapshot.unavailable = []
+        imageSnapshot.status = .init(phase: .ready(warnings: []), hasSuccessfulScan: true)
+        imageSnapshot.revision += 1
+        OnlineImageLibrary.shared.snapshot = imageSnapshot
+        checks["successful-empty-image-rescan-publishes-both-ready-subsets-once-and-preserves-other-sources"] = imagePublications.count == 1
+            && imagePublications.first?.downloads == otherProviders
+            && imagePublications.first?.videos == preservedVideos && imagePublications.first?.images == preservedImages
+            && imagePublications.first?.loadedProviders.isSuperset(of: [.wallhaven, .pixiv]) == true
+            && imagePublications.first?.sourceScanStatuses[.wallhaven] == imageSnapshot.status
+            && imagePublications.first?.sourceScanStatuses[.pixiv] == imageSnapshot.status
+        imagePublicationObserver.cancel()
         do {
             let warmRoot = root.appendingPathComponent("steam-warm", isDirectory: true)
             try FileManager.default.createDirectory(at: warmRoot, withIntermediateDirectories: true)

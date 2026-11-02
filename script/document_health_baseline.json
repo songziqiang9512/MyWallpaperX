@@ -34,7 +34,7 @@
     },
     "docs/development/code-slimming-program.md": {
       "lines": 481,
-      "bytes": 105387
+      "bytes": 106072
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -326,7 +326,7 @@
     },
     "docs/development/main-window-playlists-redesign.md": {
       "lines": 596,
-      "bytes": 110743
+      "bytes": 110936
     },
     "docs/development/status-bar-panel-redesign.md": {
       "lines": 119,
@@ -1716,11 +1716,11 @@
     {
       "section": "bodies",
       "path": "docs/development/main-window-playlists-redesign.md",
-      "before": "1059de2c3925244b4242c22943336e42275149b458132370f492912eb0fc6b54",
-      "after": "700485f75edf7e154b7ffdf7a8eba474377653d8b5822f09e2e2abb1d3fe4b10",
+      "before": "700485f75edf7e154b7ffdf7a8eba474377653d8b5822f09e2e2abb1d3fe4b10",
+      "after": "0908fea04b7a33166d77e1645d34a45431db478725c3c79613e83d4a1d06fd71",
       "owner": "repository-maintainer",
-      "reason": "Record current local-loading priority and link its focused design; retain completed repairs and defer R61.",
-      "decision": "docs/development/code-slimming-program.md#目标与边界"
+      "reason": "Record one coherent Catalog publication for one online-image snapshot and the actual behavior/consumer evidence; keep separate asynchronous source publications and bounded verification limits.",
+      "decision": "docs/development/main-window-playlists-redesign.md#73-页面命令和快照"
     },
     {
       "section": "bodies",
@@ -1743,11 +1743,11 @@
     {
       "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
-      "before": "dfa2cbbabc0a8eed377ec4a7397b8a02580b9b9542c3da521a9025d1fa177db1",
-      "after": "4cf56049f4661763b32e0a785468e0c1ab8058e8bbd25d9f7c5b56939e25cf97",
+      "before": "4cf56049f4661763b32e0a785468e0c1ab8058e8bbd25d9f7c5b56939e25cf97",
+      "after": "c7689c564c334e5a14aaaeb27a1024b08a1892901cda77b80249e9f75931a557",
       "owner": "repository-maintainer",
-      "reason": "Close R64 conditional lookup preparation with exact typed behavior and build evidence; shorten completed R61/R63 pointers and keep R62 native/manual limits, then identify the independent unverified Catalog candidate.",
-      "decision": "docs/development/code-slimming-program.md#目标与边界"
+      "reason": "Record one coherent Catalog publication for one online-image snapshot and the actual behavior/consumer evidence; keep separate asynchronous source publications and bounded verification limits.",
+      "decision": "docs/development/main-window-playlists-redesign.md#73-页面命令和快照"
     },
     {
       "section": "bodies",
