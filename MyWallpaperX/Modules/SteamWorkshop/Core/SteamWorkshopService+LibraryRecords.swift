@@ -839,7 +839,8 @@ extension SteamWorkshopService {
         } else {
             bytes = standaloneFile.flatMap(Self.localFileSizeBytes(at:))
         }
-        let creationDate = Self.localCreationDate(at: sampleDirectory ?? standaloneFile)
+        let creationDate = metadata?.firstDownloadedAt == nil && metadata?.commit?.committedAt == nil
+            ? Self.localCreationDate(at: sampleDirectory ?? standaloneFile) : nil
         return (metadata?.resolvedFirstDownloadDate(fallbackCreationDate: creationDate) ?? creationDate,
                 bytes, bytes.map(Self.fileSizeText(forBytes:)) ?? "未知大小")
     }

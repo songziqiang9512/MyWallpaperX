@@ -54,11 +54,19 @@ struct SteamWorkshopBrowserItem: Codable { let id: String }
         legacyJSON.removeValue(forKey: "firstDownloadedAt")
         let old = try JSONDecoder().decode(SteamWorkshopDownloadMetadataSnapshot.self, from: JSONSerialization.data(withJSONObject: legacyJSON))
         checks["olderMetadataWithoutNewDateStillDecodes"] = old.firstDownloadedAt == nil
+        let fetchedOnly = SteamWorkshopService.localDownloadStatistics(metadata: old,
+            sampleDirectory: sample, standaloneFile: entry)
+        let createdOnDisk = try sample.resourceValues(forKeys: [.creationDateKey]).creationDate
+        checks["fetchedAtDoesNotOverrideRealCreationDate"] = createdOnDisk != nil
+            && fetchedOnly.createdAt == createdOnDisk && fetchedOnly.createdAt != old.fetchedAt
         var committed = snapshot(900)
         committed.commit = SteamWorkshopLibraryCommit(version: 3, workshopId: "1", jobId: "job", attempt: 1,
             directoryName: "1", manifestId: "manifest", contentDigest: "digest", contentType: "scene",
             entryPath: nil, committedAt: first)
         checks["existingCommitDateSurvivesFreshDetailTimestamp"] = committed.resolvedFirstDownloadDate(fallbackCreationDate: changed) == first
+        let committedStatistics = SteamWorkshopService.localDownloadStatistics(metadata: committed,
+            sampleDirectory: sample, standaloneFile: entry)
+        checks["commitDateIsUsedByRealLocalStatistics"] = committedStatistics.createdAt == first
         let hidden = sample.appendingPathComponent(".assets", isDirectory: true)
         let package = sample.appendingPathComponent("resources.bundle", isDirectory: true)
         for directory in [hidden, package] {

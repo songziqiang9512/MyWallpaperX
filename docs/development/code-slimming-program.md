@@ -6,8 +6,8 @@
 
 开批速览（每批动手前先读这里，再核 Git 状态；按需查对应 owner 和下文，不顺读全文）：
 
-- 已裁决至R103（R61按优先级后补）。个人设置导入弹窗消失/设置变暗已由 R55（`ad1f3142d`）修复；测试 App 已交付，原配置完整导入仅待用户实测，没有新复现不重新修复、构建或复跑。
-- 近期已完成：R103 网格顺序比较退出临时数组；R102 状态栏速率字符串局部复用；R101 媒体需求只准备布尔值。R89–R99 结案见[历史记录](../history/cross-topic/code-slimming-r89-r99-closeouts-2026-11-03.md#completed-r89-r99)，保原载荷与验证上限；已完成项不作为新候选。
+- 已裁决至R104（R61按优先级后补）。个人设置导入弹窗消失/设置变暗已由 R55（`ad1f3142d`）修复；测试 App 已交付，原配置完整导入仅待用户实测，没有新复现不重新修复、构建或复跑。
+- 近期已完成：R104 库统计跳过未消费创建日期准备；R103 网格顺序比较退出临时数组；R102 状态栏速率字符串局部复用；R101 媒体需求只准备布尔值。R89–R99 结案见[历史记录](../history/cross-topic/code-slimming-r89-r99-closeouts-2026-11-03.md#completed-r89-r99)，保原载荷与验证上限；已完成项不作为新候选。
 - 保留/拒绝：R55 一次 Save 取消超时尚未归因；R56 绕过 TIFF 的候选因像素/尺寸差异已拒绝。较早 R23/R38/R43 的保护边界仍有效。
 - R62已交付：[本地资源先呈现与缩略图回访](local-library-loading-design.md#overview)。先解决启动短暂不可用和本地网格滚回黑卡，覆盖视频、图片及自建列表；已完成实现、最近门、Steam消费者及签名Debug；保留三项原生限制，真实用户库体感待人工验收。R61冷态导航已完成验证，见下文；不重复本专项。
 
@@ -25,7 +25,9 @@
 
 最近文档整理：R100将R89–R99非连续十段已结摘要逐字移入历史，仅可逆重定位一条相对链接；现役范围、待验、保留项和永久入口不变。产品/测试0；本批只核文档载荷、角色、预算与引用，不复验旧产品。
 
-最近产品验证：R103网格update原双map reference数组仅供orderChanged Bool；改count差异短路加elementsEqual原reference ==，产品2增1删净+1、测试0，无新state/helper。保provider+原始UTF8、位置/重复/空/数量与同序metadata语义；真实动画diff数组、queued/provider替换、gesture/viewport其他字节保。相同原animations模式旧/新各13个运行事实全真且解析JSON严格等值，各6306源码输入/2实际子过程稳定，无约束冲突；真实Controller的动画回调与Reduce Motion受控，不外推全交互/拖拽、R23宿主或性能。旧臂含共享锁等待，不用墙钟比速度。签名Debug25.517秒/5867输入稳定、strict/deep过，仅原两C#警告，独立静审接受。只认入口显式两数组退出，不称实际分配/FPS/时耗，原R62待验及三项宿主限制不变。
+最近产品验证：R104后台localDownloadStatistics在firstDownloadedAt或commit日期已存在时不准备localCreationDate，产品2增1删净+1、fixture8增；原日期helper/return与bytes枚举次序逐字保，无新helper/state/API或Scene/存储格式变化。优先级仍first→commit→creation→有效fetched，非nil distantPast提示值、metadata nil/创建缺失回退保。原14事实全留，补真实stats的commit与fetched不能盖过磁盘creation两项；同最终夹具旧/新16项全真等值，实际localCreationDate入口10→6（四次已知日期场景）。外部不可变extract hook只在生成Swift加stderr入口标记，产品和永久测试源不插桩；未另跑未观测sorting门，不称物理IO/时耗。Legacy初/变各31功能+12工作事实、42记录身份和错误9项均过；resolver事件仅按实际command的cases目录前缀归一（各294/314叶）后相等，不归一或认领真实文件时间/整记录对象等值。各6306源码输入/8实际子过程稳定；签名Debug26.161秒/5867输入稳定、strict/deep过，仅原两C#警告，独立静审接受。
+
+前批R103网格update原双map reference数组仅供orderChanged Bool；改count差异短路加elementsEqual原reference ==，产品2增1删净+1、测试0，无新state/helper。保provider+原始UTF8、位置/重复/空/数量与同序metadata语义；真实动画diff数组、queued/provider替换、gesture/viewport其他字节保。相同原animations模式旧/新各13个运行事实全真且解析JSON严格等值，各6306源码输入/2实际子过程稳定，无约束冲突；真实Controller的动画回调与Reduce Motion受控，不外推全交互/拖拽、R23宿主或性能。旧臂含共享锁等待，不用墙钟比速度。签名Debug25.517秒/5867输入稳定、strict/deep过，仅原两C#警告，独立静审接受。只认入口显式两数组退出，不称实际分配/FPS/时耗，原R62待验及三项宿主限制不变。
 
 前批R102状态栏applyMetrics原为可见文本/AX重复取netUpString和netDownString；改两个局部let复用，产品6增4删净+2、测试0，无新state/helper/cache，值类型输入、格式算法及采样owner不改。源码getter读取4处→2处，仅面板刷新时的小收益，不称采样/IO或实测formatter次数、时耗/能耗。旧/新现役面板门编完整真实四文件和原动作片段，均6306输入/2实际进程稳定、PASS标记同且无约束冲突诊断；SystemStats为固定字符串叶，未测完整App计时器接线或真实格式化成本。签名Debug23.621秒/5867输入稳定、strict/deep过，仅原两C#警告，独立静审接受；UI文案、AX上传/下载对应、alignment和布局保持；仅两局部声明及四插值引用改变，不涉及Scene引擎/接口。
 
@@ -44,7 +46,7 @@
 - 视频屏保：播放器/海报/租约有复用；重复resize仅宿主acquire，不为低频事务调整接口或新增电源缓存。
 - Video IPC：边界事件单次解码，光谱多屏前已一次编码；cohort/session/request与activation/generation/可见证据检查职责不同，保留。Release日志trim无频度证据，不改。Web每命令共享lazy频谱body，忙端点只保最新pending；序号/回调归各文档，IPC各目标requestID不同，均RO保留，不新增缓存/协议组装或重跑音频门。
 - Video持久化：全表save的0.25s合并、单inflight/pending和rollback/退出屏障有消费者；currentWallpaper旧值订阅仅可能多做单模型encode/defaults读取，已有字节去重，不称重复磁盘写，涉及派生路径更新及重入时机，低收益候选暂缓。metadata连带预览/静帧有暖缓存和系统同步消费者，当前不拆。
-- 下载/导入：在线图片可解码准入与原子Store发布属于不同边界；Video导入磁盘检查跨后台排队，缩略图与桌面静帧也有各自消费者，保留。Steam fresh publish/签名若跳过需覆盖源码、依赖、配置与权限失效，当前不新增缓存认证链。R94旁支只读保留：CDN安全文案/外层脱敏服务不同错误来源，worker保首异常并排空；图片终态回执与即时提示分工明确，Store清理后抛已捕获error，提交后取消只撤旧自动播放。未重跑这些旁支门，不把静审升级为网络/原生或故障实测。
+- 下载/导入：在线图片可解码准入与原子Store发布属于不同边界；Video导入磁盘检查跨后台排队，缩略图与桌面静帧也有各自消费者，保留。Steam fresh publish/签名若跳过需覆盖源码、依赖、配置与权限失效，当前不新增缓存认证链。R94旁支只读保留：CDN安全文案/外层脱敏服务不同错误来源，worker保首异常并排空；图片终态回执与即时提示分工明确，Store清理后抛已捕获error，提交后取消只撤旧自动播放。未重跑这些旁支门，不把静审升级为网络/原生或故障实测。 LibraryRecords旁支单目录wrapper有Web旧依赖发现消费者，整库single-flight与限频detail sweep保；此次只改统计回退，R68已结发布入口不重做。
 - Wallhaven入口只读保留：DTO承担URL/缩略图/作者/分级/尺寸归一并保部分页面成功；每响应一次解码/每条一次转换。凭据revision跨排队/限速/返回，浏览scope保护当前页，职责不同；429日期格式化不足以支持新增缓存。本轮未重跑HTTP门，不认领真实网络/账号。
 - 系统事件/媒体只读保留：采样两秒供常驻GPU图标，网络/进程指标按面板可见读取；屏保activity租约/marker/EOF及generation/revision各有消费者。热键已有字段快照去重，音频监听安装失败沿原teardown清理。Web媒体pending/ack/封面key有JS回包消费；WeakSet只去重挂接，后续DOM/shadow/iframe控制仍须遍历以覆盖后来媒体和作者修改；异步暂停后的revision/策略/surface复核保。32px palette与512px Web PNG职责/缓存各异；本轮只静审这些旁支，不以provider门外推真实宿主或重跑其余原生门。
 - App控制层只读保留：Inspector已去无关scroll/zoom并在无详情/预览时退出准备；关系/catalog/选择/播放/可用性仍各有消费者，不拼跨语义canonical map。状态栏仅开窗订阅并合并willSet，封面按来源/token去重，两秒指标有UI消费；设置回声位与互斥启动菜单装配保。所查Inspector metadata无uniqueKeys initializer，不把其他Grid/Web命中外推。本轮仅静审这些旁支，未重跑其原生门。
