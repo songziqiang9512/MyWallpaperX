@@ -1,5 +1,3 @@
-using System.Collections.Concurrent;
-
 namespace SteamService.Probe;
 
 // stdout 只输出机器可读 JSON 行；提示与交互一律走 stderr。
@@ -10,13 +8,6 @@ internal static class ProbeReport
     public static void Emit(object payload)
     {
         var json = System.Text.Json.JsonSerializer.Serialize(payload, ReportOptions);
-        lock (Gate) Console.Out.WriteLine(json);
-    }
-
-    public static void Emit(object payload, string key, object value)
-    {
-        var json = System.Text.Json.JsonSerializer.Serialize(payload, ReportOptions);
-        json = json.Insert(json.Length - 1, $",\"{key}\":{System.Text.Json.JsonSerializer.Serialize(value, ReportOptions)}");
         lock (Gate) Console.Out.WriteLine(json);
     }
 

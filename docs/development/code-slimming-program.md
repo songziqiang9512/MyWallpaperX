@@ -6,7 +6,7 @@
 
 开批速览（每批动手前先读这里，再核 Git 状态；按需查对应 owner 和下文，不顺读全文）：
 
-- 已裁决至R75（R61按优先级后补）。个人设置导入弹窗消失/设置变暗已由 R55（`ad1f3142d`）修复；测试 App 已交付，原配置完整导入仅待用户实测，没有新复现不重新修复、构建或复跑。
+- 已裁决至R76（R61按优先级后补）。个人设置导入弹窗消失/设置变暗已由 R55（`ad1f3142d`）修复；测试 App 已交付，原配置完整导入仅待用户实测，没有新复现不重新修复、构建或复跑。
 - 近期已完成：R54 合并成员查询复用、R57 Web 快照暂存隔离、R58 已取消元数据任务提前退出、R59 成功状态一次发布、R60 在线图片卡片一次装配。详情见下文；已完成项不作为新候选。
 - 保留/拒绝：R55 一次 Save 取消超时尚未归因；R56 绕过 TIFF 的候选因像素/尺寸差异已拒绝。较早 R23/R38/R43 的保护边界仍有效。
 - R62已交付：[本地资源先呈现与缩略图回访](local-library-loading-design.md#overview)。先解决启动短暂不可用和本地网格滚回黑卡，覆盖视频、图片及自建列表；已完成实现、最近门、Steam消费者及签名Debug；保留三项原生限制，真实用户库体感待人工验收。R61冷态导航已完成验证，见下文；不重复本专项。
@@ -23,7 +23,9 @@
 
 本轮按用户固定流程循环：并行子代理在每份审查任务中携带用户固定prompt，核无功能收益的校验/认证/重复计算/嵌套、持续转发和补丁、过量实现与耦合；主agent审核问题和方案并决定是否修改，子代理实施，主agent复核真实行为/成本证据和最近门后决定窄提交，再开启下一轮。每批报告问题、当前影响、方案、功能变化及下一候选。当前目标授权主agent作修复和本地提交裁决，不授权推送；共享构建、原生窗口和GPU仍串行，其他会话改动保留。
 
-最近产品验证：R75在原Query内为single/batch两入口复用纯searchMemberships准备，normalized search和成员名称表显式传给私有页投影，同一同步batch只建一次。产品23增13删净+10，用于原页内准备无法跨页复用时的两个真实入口及最小值参数；不新建context/inout懒状态、长期cache或owner。早退仍在Resolver/准备前，空搜索不读members；原first重复playlist名、member append/alias/orphan、页顺序与重复、排序/unfilteredCount、strict/pending默认保持。原成员循环插桩口径未变；测试Python+9、夹具净+60，原断言保留，新增11业务项。真实Query旧/候选163项字典全等全真、进程0，仅旧4新增工作预算红；6成员三页18→6、重复页24→6、次名/重复列表名两项各18→6，whitespace/empty/remote仍0，原Resolver准备次数全同。签名Debug24.639秒/5866输入稳定、strict/deep通过，仅原两条C#警告；实际临时Swift输入hash留存，独立静审接受。成员准备前移至exclusion canonical之前，当前两处只会抛相同alias-cycle且无callout/IO，conflicting alias仍由原Resolver初始化先拒绝；不宣称内部求值顺序完全相同。只认实际成员循环减少，不认领键入延迟/FPS/真实大库或原生Picker验收，R62人工/原生限制不变。
+最近产品验证：R76删除Debug ProbeReport未用三参Emit及Concurrent导入/空行，产品0增9删（35行），无新测试/API/helper/state。21个具名调用全是单参，未见method group/静态导入/反射/dynamic消费者；internal报告器单参输出、ReportOptions、stdout锁与HTTP槽位逐字保留，Probe命令仍在，非Debug原就排除整个Probe。现役offline门9.579秒通过：Debug六suite、Release类型/指定诊断方法缺席、Probe/selftest静默拒绝码2及普通stdin ping/unknown/shutdown协议，16个实际进程调用的已观测输入稳定，Debug/Release实际拷贝Probe源码hash命中。使用现有SDK/依赖缓存及独立CLI HOME，无新依赖；未执行报告器输出或真实账号Probe，不以离线门认领二者，不认领运行性能收益。签名Debug App15.392秒/5866输入稳定、strict/deep通过，仅原两条C#警告。独立静审接受；临时C# inspector只记录实际输入hash，不假称其原字节全留。原R55/R62人工/原生限制不变。
+
+前批R75（377ad615b）Query两入口共用一次batch搜索成员表，产品净+10用于纯helper/最小值参数，无新持久cache/context。真实Query163项两臂等值，成员遍历18→6/24→6/18→6/18→6，空白/空页/remote仍0，Resolver次数不变，签名Debug24.639秒通过。成员准备前于exclusion canonical，当前同类alias-cycle错误无callout，conflicting alias原初始化先拒；不称内部次序全同、键入延迟/FPS或原生Picker实测。
 
 前批R74（b93f175f8）组织恢复的原局部查重容器保position后按组验证，产品净0、测试净+81；代价每成员临时Int，无持久状态。原校验/expected-state/alias/epoch、SQL和rollback保持。真实SQLite58项两臂等值、数组读取请求6→2，Store45与CAPI故障11项及签名Debug24.461秒过；非物理复制/IO/全事务复杂度或原生UndoManager/用户DB验收。
 
@@ -43,15 +45,16 @@
 
 前批裁决与待验保留：R54（65522bee6）事务内复用resolved UUID追加位置，25成员/6物理列表的MAX查询25→6仅属连接级计数。R55选择器退出后再显示反馈，原配置完整导入与未归因Save取消超时保持待验。R56拒绝绕过TIFF候选，保留原编码。R57（b761fdb80）独立暂存、原main守卫后rename至原stable，保Scene/编码/copy fallback/所有权；受控5秒utility/文件探针与122项检查、Debug通过，未证自然频率或真实Web/NSWorkspace。R58（9be599202）已取消metadata Task的AV准备1→0，保同步模板和后两异步检查，不当性能/真实UI证明。R59（87c27c3e3）成功尾部一次发布完整状态，54组4→1、216→54，其他阶段相同；保89项、新增6项typed终态/reset回调及20项视口检查通过；原73/73只属reset调用点note。内部同步中间通知明确退出，不承诺任意同步订阅者等价。较早保护边界和精确证据仍归各批记录及提交，不在这里追加过程流水账。
 
-已完成R63（9499365）方法纠偏：[产物保留规则](../../.agents/skills/mywallpaperx-maintainer/references/artifact-governance.md)是证据保留/清理的唯一说明。下一批：R76 Debug Probe未用三参报告重载已批准私有退役，待现役离线门/构建验证；主产品协议单次Parse/必要Clone、单次Serialize与options复用只读保留。
+已完成R63（9499365）方法纠偏：[产物保留规则](../../.agents/skills/mywallpaperx-maintainer/references/artifact-governance.md)是证据保留/清理的唯一说明。下一只读方向：非Scene下载面板/历史投影的按需准备与重复构造，先排除R3预览复用、R59终态发布及现有保留项，不从旧候选直接实施。
 
-近期只读保留项（没有实施或运行验证，不因压缩上下文重复开批）：
+近期审查保留项（本轮未修改，验证范围见对应批次；不因压缩上下文重复开批）：
 
 - 视频屏保：播放器/海报/租约有复用；重复resize仅宿主acquire，不为低频事务调整接口或新增电源缓存。
 - Video IPC：边界事件单次解码，光谱多屏前已一次编码；cohort/session/request与activation/generation/可见证据检查职责不同，保留。Release日志trim无频度证据，不改。
 - Video持久化：全表save的0.25s合并、单inflight/pending和rollback/退出屏障有消费者；currentWallpaper旧值订阅仅可能多做单模型encode/defaults读取，已有字节去重，不称重复磁盘写，涉及派生路径更新及重入时机，低收益候选暂缓。metadata连带预览/静帧有暖缓存和系统同步消费者，当前不拆。
 - 下载/导入：在线图片可解码准入与原子Store发布属于不同边界；Video导入磁盘检查跨后台排队，缩略图与桌面静帧也有各自消费者，保留。Steam fresh publish/签名若跳过需覆盖源码、依赖、配置与权限失效，当前不新增缓存认证链。
 - 设置/初始化：双向同步回声位解决Published willSet，登录项查询已有Key周期缓存；SIL相等补丁同步ACK及恢复清理开关有真实事务消费者，保留。App启动路径重复组装少量URL不足以支持新增缓存或状态。
+- Query目录计数已一次分组；单次过滤不另加索引，目录/Artwork有不同搜索和更新职责。Steam主产品协议只Parse一次，Clone服务JSON文档释放后的所有权，Writer只Serialize一次且options已复用，保留。
 
 <a id="completed-r1-r26"></a> [归档记录](../history/cross-topic/code-slimming-r1-r26-2026-11-01.md#completed-r1-r26) <!-- archive-redirect -->
 
