@@ -308,9 +308,13 @@ nonisolated struct WallpaperPlaybackSequence: Sendable {
         let eligible = traversal.snapshot.entries.filter {
             $0.isPlayable && $0.reference != committed.reference && !traversal.visited.contains($0.reference)
         }
-        let byReference = Dictionary(eligible.map { ($0.reference, $0) }, uniquingKeysWith: { first, _ in first })
-        var target: Entry?, history: HistoryChange = .append
         let historical = traversal.cause == .manualNavigation && traversal.policy == .randomHistory && traversal.mode == .random
+        let random = traversal.mode == .random && (traversal.cause == .timer || traversal.cause == .ended || traversal.cause == .failureRecovery
+            || historical && traversal.direction == .next)
+        let byReference = historical || !random
+            ? Dictionary(eligible.map { ($0.reference, $0) }, uniquingKeysWith: { first, _ in first })
+            : [:]
+        var target: Entry?, history: HistoryChange = .append
         if historical {
             let values = traversal.direction == .previous ? backHistory : forwardHistory
             if let index = values.indices.reversed().first(where: { byReference[values[$0]] != nil }) {
@@ -318,8 +322,6 @@ nonisolated struct WallpaperPlaybackSequence: Sendable {
                 history = traversal.direction == .previous ? .back(index) : .forward(index)
             }
         }
-        let random = traversal.mode == .random && (traversal.cause == .timer || traversal.cause == .ended || traversal.cause == .failureRecovery
-            || historical && traversal.direction == .next)
         if target == nil, random, !eligible.isEmpty {
             let index = chooseIndex(eligible.count)
             guard eligible.indices.contains(index) else { return nil }

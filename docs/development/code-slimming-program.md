@@ -6,10 +6,10 @@
 
 开批速览（每批动手前先读这里，再核 Git 状态；按需查对应 owner 和下文，不顺读全文）：
 
-- 已裁决R62及恢复后的R61。个人设置导入弹窗消失/设置变暗已由 R55（`ad1f3142d`）修复；测试 App 已交付，原配置完整导入仅待用户实测，没有新复现不重新修复、构建或复跑。
+- 已裁决至R64（R61按优先级后补）。个人设置导入弹窗消失/设置变暗已由 R55（`ad1f3142d`）修复；测试 App 已交付，原配置完整导入仅待用户实测，没有新复现不重新修复、构建或复跑。
 - 近期已完成：R54 合并成员查询复用、R57 Web 快照暂存隔离、R58 已取消元数据任务提前退出、R59 成功状态一次发布、R60 在线图片卡片一次装配。详情见下文；已完成项不作为新候选。
 - 保留/拒绝：R55 一次 Save 取消超时尚未归因；R56 绕过 TIFF 的候选因像素/尺寸差异已拒绝。较早 R23/R38/R43 的保护边界仍有效。
-- 当前优先 R62：[本地资源先呈现与缩略图回访](local-library-loading-design.md#overview)。先解决启动短暂不可用和本地网格滚回黑卡，覆盖视频、图片及自建列表；已完成实现、最近门、Steam消费者及签名Debug；保留三项原生限制，真实用户库体感待人工验收。R61冷态导航已完成验证，见下文；不重复本专项。
+- R62已交付：[本地资源先呈现与缩略图回访](local-library-loading-design.md#overview)。先解决启动短暂不可用和本地网格滚回黑卡，覆盖视频、图片及自建列表；已完成实现、最近门、Steam消费者及签名Debug；保留三项原生限制，真实用户库体感待人工验收。R61冷态导航已完成验证，见下文；不重复本专项。
 
 后续范围（2026-11-02）：按goal持续审查、优化所有非Scene代码及对应分类文档，Scene引擎不修改；现有能力须以原行为门和反例保持，不能用删功能换精简。
 
@@ -21,13 +21,13 @@
 
 本轮按用户固定流程循环：并行子代理在每份审查任务中携带用户固定prompt，核无功能收益的校验/认证/重复计算/嵌套、持续转发和补丁、过量实现与耦合；主agent审核问题和方案并决定是否修改，子代理实施，主agent复核真实行为/成本证据和最近门后决定窄提交，再开启下一轮。每批报告问题、当前影响、方案、功能变化及下一候选。当前目标授权主agent作修复和本地提交裁决，不授权推送；共享构建、原生窗口和GPU仍串行，其他会话改动保留。
 
-最近产品验证：R61恢复后只在WallpaperManager冷态全局导航内，把filter后取首尾替换为first(where:)/last(where:)；isPlayable为不可变存储字段，完整快照、pending守卫、intent/request及已有会话路径保持。产品2增2删、净0，退出显式中间数组及多余遍历；不是热帧优化，未测耗时/CPU/分配次数。扩原真实Manager门6项next/previous×mixed/empty/unplayable，原122项保留，旧/候选各128项全真；125个原始标签一致，3个playlist标签仅独立运行生成UUID不同，限定该标签归一化后128逐值一致。fixture36增0删。签名Debug27.224秒/5866输入稳定且strict/deep通过，仅原两条C#警告；不冒称完整App或原生画面验证。
+最近产品验证：R64仅在WallpaperPlaybackSequence.nextProposal内前移已有historical/random值，按historical或非random准备原byReference；非历史自动random直接从eligible索引取项，退出未消费的候选map/哈希准备。历史/顺序、空来源、RNG越界拒绝、visited/票据与原重试保持。产品6增4删、净+2仅为这一局部条件，无helper、owner或持久状态增长。fixture25增0删，补真实自动随机3→2→1候选失败到耗尽；旧/候选109项逐值全真一致，真实Manager128项通过。签名Debug28.381秒/5866输入稳定且strict/deep通过，仅原两条C#警告。不是普通帧工作，未测耗时/CPU/分配次数，不外推媒体渲染或完整App。
 
-上一产品批R62（27d836e50）已交付[本地加载专项](local-library-loading-design.md#overview)：source索引首发、后台原代次对账、UI待载成员、暖图与有界缓存/预取、Steam展示快照及消费者验证均归该卡。真实用户库体验与三项原生限制仍待验，测试App保留；不因上下文切换再修R55或重跑R62。R60（9642abbc2）一次配置controls/visibility已验，作为已完成历史复用。
+前批R61（367840fc2）冷态导航退出filter中间数组，产品净0，旧/候选各128项通过（3个独立生成playlist UUID标签的限定归一化差异已记录），签名Debug通过。R62（27d836e50）实现与证据归[本地加载专项](local-library-loading-design.md#overview)，真实用户库体验和三项原生限制仍待验，测试App保留；不重开R55或重跑已验项。R60（9642abbc2）一次配置controls/visibility已验。
 
 前批裁决与待验保留：R54（65522bee6）事务内复用resolved UUID追加位置，25成员/6物理列表的MAX查询25→6仅属连接级计数。R55选择器退出后再显示反馈，原配置完整导入与未归因Save取消超时保持待验。R56拒绝绕过TIFF候选，保留原编码。R57（b761fdb80）独立暂存、原main守卫后rename至原stable，保Scene/编码/copy fallback/所有权；受控5秒utility/文件探针与122项检查、Debug通过，未证自然频率或真实Web/NSWorkspace。R58（9be599202）已取消metadata Task的AV准备1→0，保同步模板和后两异步检查，不当性能/真实UI证明。R59（87c27c3e3）成功尾部一次发布完整状态，54组4→1、216→54，其他阶段相同；保89项、新增6项typed终态/reset回调及20项视口检查通过；原73/73只属reset调用点note。内部同步中间通知明确退出，不承诺任意同步订阅者等价。较早保护边界和精确证据仍归各批记录及提交，不在这里追加过程流水账。
 
-已完成R63方法纠偏：归档入口按[产物保留规则](../../.agents/skills/mywallpaperx-maintainer/references/artifact-governance.md)区分真实Scene benchmark与非Scene本地构建/AppKit证据；后者沿既有有界包/逐文件SHA manifest，保预算、期限和失败保护，不伪造Workshop ID、不修改工具。产品/测试净0。后续R64随机轮换字典的产品/夹具私有候选已冻结，尚未overlay/测试/构建/提交，另批裁决；不触Scene引擎。
+已完成R63（9499365）方法纠偏：[产物保留规则](../../.agents/skills/mywallpaperx-maintainer/references/artifact-governance.md)是证据保留/清理的唯一说明；产品/测试净0。后续R65拟在原Catalog owner内把同份Wallhaven/Pixiv本地快照一次安装，退出两个同步投影/通知；两文件私有候选已冻结，未overlay/测试/构建/提交，最终状态之外的中间通知变化须单独验证，不触Scene引擎。
 
 <a id="completed-r1-r26"></a> [归档记录](../history/cross-topic/code-slimming-r1-r26-2026-11-01.md#completed-r1-r26) <!-- archive-redirect -->
 

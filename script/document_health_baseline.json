@@ -34,7 +34,7 @@
     },
     "docs/development/code-slimming-program.md": {
       "lines": 481,
-      "bytes": 105417
+      "bytes": 105387
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -1743,10 +1743,10 @@
     {
       "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
-      "before": "25c0571b73156a704b088337c7ad2298c175dfe9fa87380bdcef814245b35edd",
-      "after": "dfa2cbbabc0a8eed377ec4a7397b8a02580b9b9542c3da521a9025d1fa177db1",
+      "before": "dfa2cbbabc0a8eed377ec4a7397b8a02580b9b9542c3da521a9025d1fa177db1",
+      "after": "4cf56049f4661763b32e0a785468e0c1ab8058e8bbd25d9f7c5b56939e25cf97",
       "owner": "repository-maintainer",
-      "reason": "Record proven artifact Skill routing correction with a direct pointer and leave the separate random-selection candidate unverified.",
+      "reason": "Close R64 conditional lookup preparation with exact typed behavior and build evidence; shorten completed R61/R63 pointers and keep R62 native/manual limits, then identify the independent unverified Catalog candidate.",
       "decision": "docs/development/code-slimming-program.md#目标与边界"
     },
     {

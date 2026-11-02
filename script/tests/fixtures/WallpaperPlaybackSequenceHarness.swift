@@ -298,6 +298,31 @@ typealias Sequence = WallpaperPlaybackSequence
         checks["randomLostOutputUsesInjectedChoiceWithinSameSource"] = randomLost.proposeAdvance(mode: .random,
             cause: .failureRecovery, chooseIndex: { $0 - 1 })?.entry == d
 
+        var randomRound = start()
+        let randomRoundOriginal = randomRound.committed
+        var randomSamples: [Int] = []
+        var randomAttempt = randomRound.proposeAdvance(mode: .random, cause: .timer, chooseIndex: { count in
+            randomSamples.append(count)
+            return count - 1
+        })
+        var randomAttempts: [Sequence.Proposal] = []
+        for _ in 0..<all.entries.count {
+            guard let attempt = randomAttempt else { break }
+            randomAttempts.append(attempt)
+            let t = ticket(attempt.entry.runtime!)
+            precondition(randomRound.stage(attempt, ticket: t))
+            randomAttempt = randomRound.retryAfterFailure(t, chooseIndex: { count in
+                randomSamples.append(count)
+                return count - 1
+            })
+        }
+        checks["automaticRandomFailuresExhaustOnlyRemainingSourceCandidates"] = randomAttempts.map(\.entry.reference) == [d.reference, c.reference, b.reference]
+            && randomSamples == [3, 2, 1] && randomAttempt == nil && randomRound.isExhausted
+            && randomAttempts.allSatisfy { $0.snapshot == all && $0.cause == .timer }
+            && randomRound.committed == randomRoundOriginal && randomRound.pending == nil
+            && randomRound.backHistory.isEmpty && randomRound.forwardHistory.isEmpty
+            && randomRound.proposeAdvance(mode: .random, cause: .timer, chooseIndex: { _ in 0 }) == nil
+
         var filteredQuery = WallpaperLibraryQueryState()
         filteredQuery.search = "blue"
         filteredQuery.providers = [.videoLibrary, .steamWorkshop]
