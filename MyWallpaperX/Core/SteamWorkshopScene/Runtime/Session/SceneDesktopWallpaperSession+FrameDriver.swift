@@ -255,12 +255,15 @@ extension SceneDesktopWallpaperSession {
         // Only the already committed topology may create surface geometry. This
         // occurs before the launch clock samples any newly registered instance.
         for surface in surfaces.values {
-            surface.metalView.synchronizeDynamicPuppets(layerMutationSnapshot)
+            surface.synchronizeDynamicPuppets(layerMutationSnapshot,
+                preparedResources: launchContext.preparedDeviceResources,
+                playbackRuntime: launchContext.puppetAnimationPlaybackRuntime)
         }
         launchContext.puppetAnimationPlaybackRuntime.synchronizeDynamicLayers(
             topologyRevision: layerMutationSnapshot.topologyRevision,
             liveLayerIDs: Set(layerMutationSnapshot.dynamicLayers.lazy
-                .filter { $0.puppetMeshPath != nil }.map(\.id)))
+                .filter { $0.puppetMeshPath != nil }.map(\.id)),
+            destroyedAuthoredLayerIDs: layerMutationSnapshot.destroyedAuthoredLayerIDs)
         let puppetAnimationFrame = launchContext.puppetAnimationPlaybackRuntime.advance(
             frameIndex: timing.frameIndex, sceneTime: timing.sceneTime,
             dynamicValues: preliminaryForSceneScript)
@@ -291,7 +294,7 @@ extension SceneDesktopWallpaperSession {
         let sceneScriptTextureAnimationSnapshots = launchContext.textureAnimationPlaybackRuntime.snapshots(
             sceneTime: timing.sceneTime)
         let puppetPoseFrames = surfaces.mapValues {
-            $0.metalView.prepareSceneScriptPuppetPoseFrame(
+            $0.prepareSceneScriptPuppetPoseFrame(
                 timing: timing, puppetAnimationFrame: puppetAnimationFrame,
                 dynamicValues: preliminaryForSceneScript
             )
@@ -345,14 +348,13 @@ extension SceneDesktopWallpaperSession {
                 puppetAnimationFrame.animationEvents,
                 failures: puppetAnimationFrame.eventFailures)
             if surfaces.count == 1 {
-                try surfaces.values.first?.metalView
-                    .publishSceneScriptPuppetPoseFrame(
-                        sceneScriptPuppetPoseFrame,
-                        context: launchContext,
-                        timing: timing,
-                        dynamicValues: preliminaryForSceneScript,
-                        worldFrames: sceneScriptWorldFramesBySurface.values.first ?? [:]
-                    )
+                try surfaces.values.first?.publishSceneScriptPuppetPoseFrame(
+                    sceneScriptPuppetPoseFrame,
+                    context: launchContext,
+                    timing: timing,
+                    dynamicValues: preliminaryForSceneScript,
+                    worldFrames: sceneScriptWorldFramesBySurface.values.first ?? [:]
+                )
             }
             sceneScriptLayerSnapshotFailure = nil
         } catch let failure as SceneScriptScalarRuntimeFailure {

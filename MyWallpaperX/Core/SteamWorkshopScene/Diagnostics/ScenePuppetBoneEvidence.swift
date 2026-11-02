@@ -18,11 +18,12 @@ final class ScenePuppetBoneEvidence {
 
     /// Direct geometry is authored model-space XYZ, before the one layer world
     /// transform. Pack each Float bit pattern explicitly: SIMD3 has padding.
-    func recordDirect(layerID: Int, revision: UInt64, frame: UInt64, sceneTime: Double,
+    func recordDirect<Vertices: RandomAccessCollection, BindVertices: RandomAccessCollection>(layerID: Int, revision: UInt64, frame: UInt64, sceneTime: Double,
                       poseStatus: String, selection: ScenePuppetAnimationSelection,
                       animationFrame: ScenePuppetAnimationPlaybackRuntime.LayerFrame,
-                      vertices: [SceneMdlStaticModel.Vertex],
-                      bindVertices: [SceneMdlStaticModel.Vertex], commandBuffer: MTLCommandBuffer) {
+                      vertices: Vertices, bindVertices: BindVertices, commandBuffer: MTLCommandBuffer)
+    where Vertices.Element == SceneMdlStaticModel.Vertex,
+          BindVertices.Element == SceneMdlStaticModel.Vertex {
         guard Self.layerIDs.contains(layerID), count < 1200,
               sceneTime - lastTime >= 0.08, !vertices.isEmpty,
               vertices.count == bindVertices.count else { return }

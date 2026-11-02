@@ -171,7 +171,7 @@
 | 日志API候选 · 3605722997 | 作者调用console.warn而现只有log/error，但实际notfunction callee仍未资格。先实际调用/堆栈与consumer，不将标量上调Vec.add或文本上调纹理动画一并当缺API。 |
 | 样本脚本/配置归属 · 3028048463 /3280903509 | 当前302的531.alpha在默认player层全隐藏时访问空数组；328的225.alpha返回Vec3并报BAD_RETURN，脚本本属clearcolor。未证缺API；保原回退，不吞错、不强转scalar。若要修样本可见缺失，先核官方同默认/媒体/属性时序，区分作者配置与引擎语义；不能因同样TypeError合修。 |
 | 诊断计数 · instanced solid | 新增3280903509/3303319749/3347416586/3350026230/3357689320中21层已沿普通asset通道加载white，却因成功正则只计procedural solid而报不全。沿原producer/parser用真实solid身份统一分母/分子；保真加载失败与普通image反例，不能把所有white纹理都当solid。原报告保留，不将其记成引擎缺纹理。 |
-| 短窗未决资源/graph观察 | 旧453默认4秒：56例solid、7例image、4例particle候选数未全加载，15例layer-source-not-ready；含隐藏、alpha0、按需或已退休层，非全部缺图。2804817823/3039882306旧窗虽Ready但图单元缺完成，先锁active consumer/媒体或延迟；329新Debug可见骷髅/视频且模型draw，仍七项utility/graph期待失败（含505 capture），无同条件修前，不判新/旧回归，按活动consumer核口径；正常双视频告警不重开已确认正常的Xray。新增3186328539的1045未ready后alpha0/hidden不代表缺图。3763323436缺project归输入不完整，不改引擎迎合。 |
+| 短窗未决资源/graph观察 | 旧453默认4秒：56例solid、7例image、4例particle候选数未全加载，15例layer-source-not-ready；含隐藏、alpha0、按需或已退休层，非全部缺图。2804817823/3039882306旧窗虽Ready但图单元缺完成，先锁active consumer/媒体或延迟；3292370168已用f753/7f53同原包/静音复验：direct29各123条animated GPU完成且实图保持，loaded0.8333及8项utility/graph期待失败相同（含505 capture，planned3），按[冻结后验](../history/runtime-evidence-index.md#e-puppet-surface-gpu-ownership-20261102)回原图像资源/utility与graph观测owner核活动consumer，保raw，不属本轮架构回退；正常双视频告警不重开已确认正常的Xray。新增3186328539的1045未ready后alpha0/hidden不代表缺图。3763323436缺project归输入不完整，不改引擎迎合。 |
 | 验证债 · 连续PNG采样 | 同一自有载体0.5s及1.5s连续采样均有superseded，前者另有teardown capture失败；原包普通两图成功，不能当播放器缺图。现有晚窗图虽完成，注册因果仍UNKNOWN。先核实际snapshot队列/导出与采样职责，不重复高频全图或改变产品渲染来消报告；[反证](../history/corpus-log-audit-2026-10-29.md#declared-framebuffer-shadow-20261030)。 |
 | 验证债 · 模板VFS旧case | 原Template harness在本批RED/GREEN均assetVFSBoundaries=false；旧escapedAssets将Windows盘符样式一并预期拒绝，而当前VFS将其规范为相对token。未证实际越界/壁纸故障；按VFS及ResourceView入口合同复核旧口径，不为刷绿重新添加路径拒绝。 |
 | 验证债 · named geometry独立像素probe入口 | 当前老入口的编译源列表缺SceneMaterialRenderState，且引用DEBUG CounterHub却未传DEBUG；未取得fresh独立像素门结果。后继在原fixture职责中补齐真实依赖/配置，保来源身份与原断言；不据此改产品或把编译失败算像素失败。当前几何content修复已有真实Coordinator门及原包/独立样本App画面，见[关闭边界](../history/open-breakpoint-reconciliation-2026-10-23.md#geometry-named-content-20261029)。 |
@@ -188,10 +188,9 @@
 | 重构要求与现有 owner | 目标及旧职责退出 | 最近验证与停止条件 |
 |---|---|---|
 | `SceneRenderDescriptor.Layer` 同时保存字符串变换、数值变换及多类可选字段 | [动态出生/typed分离](../history/runtime-evidence-index.md#e-dynamic-layer-preparation-20261102)已撤普通upsert重建与每屏patch，保模板String和原cadence；继续明确 authored、prepared 与 live 分期，逐消费族收敛为类型化数据，身份和作者顺序仍唯一；退役不再需要的镜像与内容种类字符串分支 | 准备结果、默认值、动态属性、parent/相机、序列化兼容与代表组件；不先建无人消费的通用 ECS |
-| Puppet实例与GPU数据仍混在View/PlaybackState | [文字](../history/runtime-evidence-index.md#e-session-text-production-20261102)及[媒体封面](../history/runtime-evidence-index.md#e-session-media-production-20261102)生产已归Session，撤每屏worker/Coordinator、seed与媒体pin/转发；文字提交几何仍归本屏，继续收敛Puppet等实际寿命。必要每屏CPU实例按surface隔离，GPU驻留归Rendering，View保AppKit surface/输入/呈现 | 独立屏幕输入、热切、候选、退场和异步旧结果；不通过新 facade 隐藏原字段或把每屏状态误合并 |
 | `LaunchContext` 与 `prepareLaunch` 混合准备事实、liveState 和运行对象 | [用户纹理交接](../history/runtime-evidence-index.md#e-user-texture-session-ownership-20261102)已撤Context镜像，初始结果经PreparedLaunch交给Session唯一活动owner；继续按真正消费者拆清其他准备/实例职责，取消、lease和退出沿原owner | 冷暖准备、取消/newer-wins、首帧失败保旧及安全退出；不新增第二 Session、完整场景快照或重复解析 |
 
-数据分期包含 descriptor 与 LaunchContext 两项，先以单一能力族贯通其生产、消费和退出，再扩大；组件寿命先迁文字/媒体等独立族，[粒子CPU/GPU同批闭环](../history/runtime-evidence-index.md#e-particle-surface-gpu-ownership-20261102)已撤View实例/转发及CPU buffer持有；下一组件族沿Puppet实际寿命推进，不机械搬其余字段。最终还须审查 Format、Compilation、Resources、Systems、Rendering、Runtime 的真实依赖和全部现役组件；已登记债务不穷尽整个目标，未发现证据前不制造新重构。
+数据分期包含 descriptor 与 LaunchContext 两项，先以单一能力族贯通其生产、消费和退出，再扩大；组件寿命先迁文字/媒体等独立族，[粒子CPU/GPU同批闭环](../history/runtime-evidence-index.md#e-particle-surface-gpu-ownership-20261102)已撤View实例/转发及CPU buffer持有；[Puppet完整族](../history/runtime-evidence-index.md#e-puppet-surface-gpu-ownership-20261102)也已退出View CPU与State GPU混持；其余字段按真实消费者审查，不机械搬家。最终还须审查 Format、Compilation、Resources、Systems、Rendering、Runtime 的真实依赖和全部现役组件；已登记债务不穷尽整个目标，未发现证据前不制造新重构。
 
 FrameDriver 的前置与最终 snapshot 具有不同可观察阶段，不因表面上“双 resolve”直接合并；先确认字段消费者与时机，再删除无用计算。每批只改变一个真实职责闭环，完成后从本表退出并让源码地图反映新 owner。
 

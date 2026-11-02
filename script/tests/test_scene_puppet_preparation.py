@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""CPU preparation through complete production Puppet sources and self-owned MDL inputs.
-
-Metal types are linked so the entire LayerLoad/PlaybackState source is compiled.
-The cases never create a device, pipeline, texture, buffer or command buffer.
-"""
+"""CPU Puppet preparation through production sources and owned MDL inputs."""
 
 from __future__ import annotations
 
@@ -17,7 +13,6 @@ import unittest
 from pathlib import Path
 
 from script.tests.test_scene_puppet_mesh import build_mdl
-from script.tests.test_scene_puppet_direct_playback import EXTRA_SOURCES, PIPELINE, static_model_carrier_source
 from script.tests.scene_pkg_fixture import make_package
 from script.tests.test_scene_puppet_animation import animation_record
 
@@ -52,22 +47,10 @@ SOURCES = [
     "Systems/Puppet/ScenePuppetTranslationMotion.swift",
     "Systems/Puppet/ScenePuppetAnimationControl.swift",
     "Systems/Puppet/ScenePuppetAnimationPlaybackRuntime.swift",
-    "Systems/Puppet/ScenePuppetPlaybackState.swift",
-    "Systems/Puppet/ScenePuppetClipping.swift",
-    "Systems/Puppet/ScenePuppetMeshGeometry.swift",
     "Systems/Properties/ScenePuppetAnimationPropertyTarget.swift",
     "Rendering/Geometry/SceneMatrix.swift",
-    "Rendering/Geometry/SceneGeometryProduct.swift",
-    "Rendering/Metal/SceneMetalPipeline.swift",
-    "Rendering/Frame/SceneSourceUpdateTransaction.swift",
-    "Rendering/Targets/SceneOffscreenResolutionPolicy.swift",
-    "Resources/Textures/SceneResourceBudget.swift",
-    "Diagnostics/ScenePerformanceCounterHub.swift",
     "Runtime/Session/ScenePreparedPuppetResources.swift",
 ]
-
-SOURCES += [item for item in EXTRA_SOURCES if item not in SOURCES]
-
 
 def matrix(x: float = 0, y: float = 0) -> list[float]:
     result = [0.0] * 16
@@ -142,15 +125,14 @@ class ScenePuppetPreparationTests(unittest.TestCase):
             raise unittest.SkipTest("swiftc unavailable")
         cls._temporary = tempfile.TemporaryDirectory(prefix="mwx-puppet-preparation-")
         directory = Path(cls._temporary.name)
-        source_paths = [LAYER_LOAD, CASES, PIPELINE, Path(static_model_carrier_source.__code__.co_filename),
+        source_paths = [LAYER_LOAD, CASES,
                         Path(make_package.__code__.co_filename), Path(animation_record.__code__.co_filename),
                         *(SCENE / item for item in SOURCES)]
         identity = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in source_paths}
         # Keep the complete production file unchanged; append test cases in the
         # same file only to observe its fileprivate immutable CPU products.
         harness = directory / "preparation.swift"
-        harness.write_bytes(LAYER_LOAD.read_bytes() + b"\n" + CASES.read_bytes()
-                            + static_model_carrier_source().encode())
+        harness.write_bytes(LAYER_LOAD.read_bytes() + b"\n" + CASES.read_bytes())
         binary = directory / "preparation"
         compilation = subprocess.run(
             ["swiftc", *(str(SCENE / item) for item in SOURCES), str(harness),
@@ -364,6 +346,9 @@ class ScenePuppetPreparationTests(unittest.TestCase):
                           ("no-reference-script", "animation data rejected")):
             self.assertEqual(rows[key]["kind"], "bind", rows[key])
             self.assertIn(text, rows[key]["fallback"], rows[key])
+        self.assertEqual(rows["zero-rate"]["kind"], "animation", rows["zero-rate"])
+        self.assertEqual(rows["zero-rate"]["animationIDs"], [101])
+        self.assertEqual(rows["zero-rate"]["fallback"], "")
 
     def test_failed_animation_requests_keep_independent_reference_and_original_diagnostic(self) -> None:
         rows = self.result["reference-fallbacks"]

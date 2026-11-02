@@ -31,6 +31,7 @@ extension SceneDesktopWallpaperSession {
         for surface in surfaces.values {
             surface.metalView.invalidateResolvedMaterialRuntime(reason: reason)
             surface.teardownParticlePlayback(reason: reason)
+            surface.puppetPlaybackStates.removeAll()
             surface.window.orderOut(nil)
             surface.window.close()
             if !drainStarted { retireSurface(surface) }

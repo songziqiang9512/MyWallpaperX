@@ -41,7 +41,8 @@ class ScenePreparedBaseImageResourceTests(unittest.TestCase):
              str(SCENE / "Resources/Assets/SceneResourceIndex.swift"),
              str(SCENE / "../SteamWorkshopStorage/ScenePlaybackSource.swift"), str(SCENE / "Format/ScenePkgReader.swift"),
              str(SCENE / "Resources/Assets/SceneResourceIdentity.swift"), str(SCENE / "Resources/Assets/SceneResourceView+Backing.swift"),
-             str(SCENE / "Resources/Assets/SceneResourceView.swift"), str(source), str(SOURCE_MATERIALS), str(RESOLVER),
+             str(SCENE / "Resources/Assets/SceneResourceView.swift"), str(source), str(SOURCE_MATERIALS),
+             str(SCENE / "Runtime/Session/ScenePreparedDeviceResources+Puppets.swift"), str(RESOLVER),
              str(BUILTIN), str(RENDER_STATE), str(RENDER_STATE_COMPILATION),
              str(SCENE / "Format/SceneJSONValue.swift"),
              str(SCENE / "Resources/Assets/SceneModelResourceIdentity.swift"),
@@ -61,6 +62,12 @@ class ScenePreparedBaseImageResourceTests(unittest.TestCase):
             raise unittest.SkipTest(cls.facts["skip"])
         if output := os.environ.get("MWX_PREPARED_BASE_IMAGE_RESULT"):
             Path(output).write_text(json.dumps(cls.facts, indent=2, sort_keys=True) + "\n")
+
+    def test_puppet_paints_are_prepared_once_and_keep_failures_mesh_local(self) -> None:
+        case = self.facts["puppetPaints"]
+        self.assertEqual(case["loads"], 4)
+        for key in ("shared", "missingLocal", "readFailure", "healthy", "stable", "cancelled"):
+            self.assertTrue(case[key], case)
 
     def test_static_geometry_uses_natural_metadata_independent_of_dynamic_alias_admission(self) -> None:
         for name in ("staticAuto", "staticAutoMissing", "staticBroad", "staticDeclaredAuto", "staticDeclaredExplicitAuto"):

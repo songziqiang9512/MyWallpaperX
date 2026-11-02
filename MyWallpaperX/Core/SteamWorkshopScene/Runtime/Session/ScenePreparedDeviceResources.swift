@@ -64,6 +64,7 @@ final class ScenePreparedBaseImageResources {
 
     let textureLoader: SceneTextureLoader
     let puppets: ScenePreparedPuppetResources
+    let puppetClipping: [String: PuppetClippingPreparation]
     private let deferredTextureLoader: SceneTextureLoader
     private let deferredSpriteTextureLoader = SceneMultiImageSpriteTextureLoader()
     private let deferredLock = NSLock()
@@ -86,6 +87,7 @@ final class ScenePreparedBaseImageResources {
     private init(
         textureLoader: SceneTextureLoader,
         puppets: ScenePreparedPuppetResources,
+        puppetClipping: [String: PuppetClippingPreparation],
         sceneGeneration: UInt64,
         device: MTLDevice,
         deviceRegistryID: UInt64,
@@ -97,6 +99,7 @@ final class ScenePreparedBaseImageResources {
     ) {
         self.textureLoader = textureLoader
         self.puppets = puppets
+        self.puppetClipping = puppetClipping
         self.deferredTextureLoader = SceneTextureLoader(
             uploadCommandQueue: textureLoader.uploadCommandQueue,
             decodeCacheBudget: textureLoader.decodeCacheBudget
@@ -369,6 +372,10 @@ final class ScenePreparedBaseImageResources {
                     lightingProfile: profile
                 )
             }
+            let puppetClipping = try preparePuppetClipping(resources: puppets,
+                dynamicResources: dynamicImageResources, resolver: resolver,
+                textureLoader: textureLoader, device: device,
+                cancellationCheck: cancellationCheck)
             // Every launch texture is GPU-published past this point: drop the
             // loader's CPU-side decoded bytes so they do not sit next to their
             // GPU copies for the whole session. Later loads hit the GPU cache;
@@ -377,6 +384,7 @@ final class ScenePreparedBaseImageResources {
             return ScenePreparedBaseImageResources(
                 textureLoader: textureLoader,
                 puppets: puppets,
+                puppetClipping: puppetClipping,
                 sceneGeneration: sceneGeneration,
                 device: device,
                 deviceRegistryID: device.registryID,
@@ -787,6 +795,9 @@ final class ScenePreparedDeviceResourcesTask {
                     decodeCacheBudget: textureDecodeCacheBudget,
                     cancellationCheck: checkCancellation
                 )
+                if !baseImages.puppetClipping.isEmpty {
+                    _ = pipelineRepository.preparePuppetClipping()
+                }
                 let staticModels = try ScenePreparedStaticModelResources.prepare(
                     descriptor: descriptor,
                     resourceView: resourceView,

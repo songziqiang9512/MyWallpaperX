@@ -6,7 +6,6 @@ import simd
 class SceneMetalView: NSView {
     let metalDevice: MTLDevice
     private let presentationStreamID: UInt64
-    let puppetAnimationPlaybackRuntime: ScenePuppetAnimationPlaybackRuntime
     let renderer: SceneMetalRenderer
     let metalLayer: CAMetalLayer
     let usesLinearDisplayOutput: Bool
@@ -21,15 +20,11 @@ class SceneMetalView: NSView {
     private var specializedBaseTextureSamplings: [Int: SceneTextureSampling] = [:]
     private var videoSourceRegistry: SceneVideoTextureSourceRegistry?
 #if DEBUG
-    var recordedPuppetPoseLayerIDs: Set<Int> = []
     var debugDrawableUnavailableFrameCount: UInt64 = 0
     private let timelineFrameEvidence = SceneTimelineFrameEvidence.make(
         evidenceWindow: SceneDesktopWallpaperHost.usesDebugEvidenceWindow)
 #endif
-    var puppetPlaybackStates: [Int: ScenePuppetPlaybackState] = [:]
-    var puppetResourceView: SceneResourceView?
-    var dynamicPuppetTopologyRevision: UInt64?
-    var dynamicPuppetLayerIDs: Set<Int> = []
+    var puppetGeometries: [Int: ScenePuppetMeshGeometry] = [:]
     var imagePipeline: SceneImageLayerPipeline?
     var particlePipeline: SceneParticleMetalPipeline?
     private var preparedTextSnapshot: SceneDynamicTextTextureStore.Snapshot?
@@ -77,7 +72,6 @@ class SceneMetalView: NSView {
         pipelineRepository: SceneImageEffectPipelineRepository,
         imageLayerPipeline: SceneImageLayerPipeline,
         resolvedMaterialRuntime: SceneResolvedMaterialRuntimeBridge,
-        puppetAnimationPlaybackRuntime: ScenePuppetAnimationPlaybackRuntime,
         userPropertyTextureLoad: SceneUserPropertyTextureLoadResult = .empty,
         userPropertyVideoSources: [SceneUserPropertyTextureIdentity: SceneVideoTextureSource] = [:],
         presentationStreamID: UInt64,
@@ -100,7 +94,6 @@ class SceneMetalView: NSView {
         self.presentationStreamID = presentationStreamID
         self.firstFramePresentationRegistration =
             firstFramePresentationRegistration
-        self.puppetAnimationPlaybackRuntime = puppetAnimationPlaybackRuntime
         self.renderer = renderer
         solidLayerTexture = SceneSolidLayerTexture.make(device: renderer.device)
         self.userPropertyTextureLoad = userPropertyTextureLoad
@@ -175,6 +168,8 @@ class SceneMetalView: NSView {
         preparedBaseImages: ScenePreparedBaseImageResources,
         spriteTextureLoader: SceneMultiImageSpriteTextureLoader,
         textureAnimationPlaybackRuntime: SceneTextureAnimationPlaybackRuntime,
+        preparePuppet: (SceneRenderDescriptor.Layer, ScenePuppetLayerLoad.PreparedPose, MTLTexture)
+            -> ScenePuppetMeshGeometry.Outcome,
         textLoadMessages: [String] = [],
         logURL: URL? = nil
     ) {
@@ -190,15 +185,12 @@ class SceneMetalView: NSView {
         var loadedSpriteAnimations: [Int: SceneSpriteAnimation] = [:]
         var loadedSpecializedBaseTextureSamplings: [Int: SceneTextureSampling] = [:]
         var loadedVideoLayerCount = 0
-        var loadedPuppetPlaybackStates: [Int: ScenePuppetPlaybackState] = [:]
         var preparedBaseImageHitCount = 0
 #if DEBUG
         renderer.installResolvedMaterialExecutionEvidence()
 #endif
         self.preparedBaseImages = preparedBaseImages
-        puppetResourceView = resourceView
-        dynamicPuppetTopologyRevision = nil
-        dynamicPuppetLayerIDs.removeAll(keepingCapacity: true)
+        puppetGeometries.removeAll(keepingCapacity: true)
         deferredBaseImageURLs.removeAll(keepingCapacity: true)
         adoptedDeferredBaseImageURLs.removeAll(keepingCapacity: true)
 #if DEBUG
@@ -340,19 +332,13 @@ class SceneMetalView: NSView {
 #if DEBUG
                 var puppetMessage: String?
 #endif
-                if let pose = preparedBaseImages.puppets.posesByLayerID[layer.id],
-                   let puppetOutcome = instantiatePuppetGeometry(
-                       for: layer, pose: pose, atlasTexture: texture,
-                       resources: preparedBaseImages, resolver: resolver
-                   ) {
+                if let pose = preparedBaseImages.puppets.posesByLayerID[layer.id] {
+                    let puppetOutcome = preparePuppet(layer, pose, texture)
                     if let product = puppetOutcome.geometryProduct {
                         loaded.setPuppetGeometry(product, samplingAtlas: texture,
                             samplingCandidate: baseLoad.candidate, layerID: layer.id)
                     } else if puppetOutcome.allowsMissingMeshTextureProduct {
                         loaded.set(texture, candidate: nil, layerID: layer.id)
-                    }
-                    if let playback = puppetOutcome.playback {
-                        loadedPuppetPlaybackStates[layer.id] = playback
                     }
 #if DEBUG
                     if report.isEnabled { puppetMessage = "; \(puppetOutcome.message)" }
@@ -446,8 +432,6 @@ class SceneMetalView: NSView {
         report.append(contentsOf: textLoadMessages)
 #endif
         self.videoSourceRegistry = videoSourceRegistry
-        puppetPlaybackStates = loadedPuppetPlaybackStates
-        installDirectModelAnimations()
 #if DEBUG
         report.append("")
 #endif
@@ -543,6 +527,7 @@ class SceneMetalView: NSView {
         let mediaInputGeneration: UInt64
         let spriteTimes: [Int: Float]
         let puppetAnimationFrame: ScenePuppetAnimationPlaybackRuntime.FrameSnapshot
+        let puppetRenderFrames: [Int: ScenePuppetPlaybackState.RenderFrame]
         let attachmentFrames: ScenePuppetAttachmentFrameSnapshot
     }
     var onRenderInvalidated: (() -> Void)?
@@ -583,6 +568,7 @@ class SceneMetalView: NSView {
         let mediaThumbnail = simulationFrame.mediaThumbnail
         let spriteAnimationPlaybackTimes = simulationFrame.spriteTimes
         let puppetAnimationFrame = simulationFrame.puppetAnimationFrame
+        let puppetRenderFrames = simulationFrame.puppetRenderFrames
         // Paused retries reuse this prepared frame without executing VM,
         // physics or pointer smoothing a second time.
         guard !shouldDeferResolvedMaterialFrame else {
@@ -694,7 +680,7 @@ performanceTelemetry?.recordPreparation(
             offscreenTexturePool: offscreenTexturePool,
             frameContext: frameContext,
             cameraFrame: cameraFrame,
-            encodeSourceUpdates: { [puppetPlaybackStates, puppetAnimationFrame, spriteAnimations, spriteAnimationPlaybackTimes] commandBuffer, transaction, modelFrame in
+            encodeSourceUpdates: { [puppetGeometries, puppetRenderFrames, puppetAnimationFrame, spriteAnimations, spriteAnimationPlaybackTimes] commandBuffer, transaction, modelFrame in
                 for (layerID, animation) in spriteAnimations {
                     guard let playbackTime =
                         spriteAnimationPlaybackTimes[layerID] else { continue }
@@ -703,17 +689,15 @@ performanceTelemetry?.recordPreparation(
                         commandBuffer: commandBuffer, transaction: transaction
                     )
                 }
-                for (layerID, playback) in puppetPlaybackStates {
-                    guard let samples = puppetAnimationFrame[layerID] else { continue }
-                    _ = playback.encode(
-                        animationFrame: samples,
+                for (layerID, frame) in puppetRenderFrames {
+                    guard let geometry = puppetGeometries[layerID],
+                          let samples = puppetAnimationFrame[layerID] else { continue }
+                    geometry.publish(frame: frame, animationFrame: samples,
                         sceneTime: frameContext.sceneTime,
-                        dynamicValues: frameContext.dynamicValues,
-                        commandBuffer: commandBuffer,
-                        transaction: transaction
-                    )
-                    if playback.isDirectModel {
-                        modelFrame.publishDirectModelMesh(playback.directModelMesh(on: commandBuffer),
+                        frameIndex: frameContext.dynamicValues.frameIndex,
+                        commandBuffer: commandBuffer, transaction: transaction)
+                    if case .direct = frame.geometry {
+                        modelFrame.publishDirectModelMesh(geometry.directModelMesh(on: commandBuffer),
                             for: layerID, on: commandBuffer)
                     }
                 }

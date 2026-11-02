@@ -22,6 +22,12 @@ final class SceneDesktopWallpaperSession {
         let metalView: SceneMetalView
         let scriptGeneration: UInt64
         var particlePlayback: SceneParticlePlaybackState?
+        var puppetPlaybackStates: [Int: ScenePuppetPlaybackState] = [:]
+        var dynamicPuppetTopologyRevision: UInt64?
+        var dynamicPuppetLayerIDs: Set<Int> = []
+#if DEBUG
+        var recordedPuppetPoseLayerIDs: Set<Int> = []
+#endif
         var simulationFrame: SceneMetalView.SimulationFrame?
         var didSubmitSimulationFrame = false
         var pendingPausedFrame: SceneMetalRenderer.PreparedFrame?
@@ -32,7 +38,7 @@ final class SceneDesktopWallpaperSession {
             window: NSWindow,
             metalView: SceneMetalView,
             scriptGeneration: UInt64,
-            particlePlayback: SceneParticlePlaybackState?
+            particlePlayback: SceneParticlePlaybackState? = nil
         ) {
             self.window = window
             self.metalView = metalView
@@ -558,7 +564,6 @@ final class SceneDesktopWallpaperSession {
                 imageLayerPipeline:
                     launchContext.preparedDeviceResources.imageLayerPipeline,
                 resolvedMaterialRuntime: materialRuntime,
-                puppetAnimationPlaybackRuntime: launchContext.puppetAnimationPlaybackRuntime,
                 userPropertyTextureLoad: userPropertyTextureLoad,
                 userPropertyVideoSources: userVideoSources,
                 presentationStreamID: UInt64(screenID),
@@ -570,6 +575,15 @@ final class SceneDesktopWallpaperSession {
             ) else {
                 continue
             }
+            let window = HostWindow(
+                contentRect: frame,
+                styleMask: [.borderless],
+                backing: .buffered,
+                defer: false,
+                screen: screen
+            )
+            let surface = Surface(window: window, metalView: metalView,
+                scriptGeneration: launchContext.propertyVectorScriptProgram.generation)
             var textLoadMessages: [String] = []
             if dynamicTextTextures == nil {
 #if DEBUG
@@ -615,9 +629,21 @@ final class SceneDesktopWallpaperSession {
                 preparedBaseImages: launchContext.preparedDeviceResources.baseImages,
                 spriteTextureLoader: launchContext.preparedDeviceResources.spriteTextureLoader,
                 textureAnimationPlaybackRuntime: launchContext.textureAnimationPlaybackRuntime,
+                preparePuppet: { layer, pose, atlas in
+                    guard !committedTopology.destroyedAuthoredLayerIDs.contains(layer.id) else {
+                        return .init(geometryProduct: nil, allowsMissingMeshTextureProduct: false,
+                            message: "puppet layer retired")
+                    }
+                    return surface.instantiatePuppetGeometry(for: layer, pose: pose,
+                        atlasTexture: atlas, preparedResources: launchContext.preparedDeviceResources,
+                        playbackRuntime: launchContext.puppetAnimationPlaybackRuntime)
+                },
                 textLoadMessages: textLoadMessages,
                 logURL: surfaceLogURL
             )
+            surface.installDirectModelAnimations(
+                playbackRuntime: launchContext.puppetAnimationPlaybackRuntime,
+                destroyedAuthoredLayerIDs: committedTopology.destroyedAuthoredLayerIDs)
             let candidateParticles = SceneParticlePlaybackState(
                 descriptor: metalView.renderer.renderDescriptor,
                 preparedAssets: launchContext.preparedParticleAssets,
@@ -632,27 +658,26 @@ final class SceneDesktopWallpaperSession {
                 initialDynamicValues: initialParticleDynamicValues,
                 initialPlayback: committedTopology.particlePlayback
             )
-            let particlePlayback: SceneParticlePlaybackState?
             let particleVariants = candidateParticles.requiredPipelineVariants
             if particleVariants.isEmpty {
-                particlePlayback = candidateParticles
+                surface.particlePlayback = candidateParticles
             } else if let pipeline = SceneParticleMetalPipeline(
                 device: metalView.metalDevice,
                 pixelFormat: metalView.renderer.renderDescriptor.colorTargetFormat.metalPixelFormat,
                 requiredVariants: particleVariants
             ) {
                 metalView.particlePipeline = pipeline
-                particlePlayback = candidateParticles
+                surface.particlePlayback = candidateParticles
             } else {
                 _ = candidateParticles.teardown(reason: "pipelineUnavailable")
-                particlePlayback = nil
+                surface.particlePlayback = nil
             }
             // Both specialized images and particle resources now own their GPU
             // products; release the loader's decoded CPU copies after both loads.
             launchContext.preparedDeviceResources.baseImages.textureLoader.evictDecodedCaches()
 #if DEBUG
             var particleReport = SceneStartupReportBuffer(enabled: surfaceLogURL != nil)
-            if let particlePlayback {
+            if let particlePlayback = surface.particlePlayback {
                 particleReport.append(contentsOf: particlePlayback.loadReportLines(
                     descriptor: metalView.renderer.renderDescriptor))
             } else {
@@ -663,13 +688,6 @@ final class SceneDesktopWallpaperSession {
 #endif
             wroteLog = true
 
-            let window = HostWindow(
-                contentRect: frame,
-                styleMask: [.borderless],
-                backing: .buffered,
-                defer: false,
-                screen: screen
-            )
             window.isReleasedWhenClosed = false
             window.animationBehavior = .none
             window.ignoresMouseEvents = !SceneDesktopWallpaperHost.usesDebugEvidenceWindow
@@ -687,12 +705,7 @@ final class SceneDesktopWallpaperSession {
             } else {
                 window.orderFrontRegardless()
             }
-            surfaces[screenID] = Surface(
-                window: window,
-                metalView: metalView,
-                scriptGeneration: launchContext.propertyVectorScriptProgram.generation,
-                particlePlayback: particlePlayback
-            )
+            surfaces[screenID] = surface
             if let surface = surfaces[screenID] {
                 metalView.onRenderInvalidated = { [weak self, weak surface] in
                     DispatchQueue.main.async { [weak self, weak surface] in

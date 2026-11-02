@@ -1744,7 +1744,7 @@
       "owner": "Scene Session / typed programs and component owners",
       "status": "approved",
       "designDoc": "docs/scene/roadmap/engine-refactor-program.md",
-      "design_notes": "批准范围、数据流及退出条件由designDoc各专题维护。粒子实例与GPU完整族：Surface唯一拥有每屏CPU PlaybackState和原SimulationFrame，View消费冻结帧并只持粒子pipeline；State退出GPU引用与纯转发，原坐标/VM/回滚及paused cohort阶段保持。既有pipeline按layerID+child模板索引拥有buffer及上传/draw/提交/取消，保slot协议；出生装配与GPU失败局部退出、诊断和原loader驱逐同批接线。Puppet实例是下一族债务，本片不扩能力。每个后继先在同设计落具体职责；不授推送、发布或整体完成。 主pass调用库存的非字节相同owner迁移复用现有凭据：去名称特判、读取frozen Git源码用同Python正则；保原pattern/count/scope/role、唯一完整调用移交和已批准设计，历史凭据不可改写，不扩大任何产品或门禁许可。",
+      "design_notes": "批准范围、数据流及退出条件由designDoc各专题维护。粒子族已完成；Puppet完整族先按同页设计：Surface唯一CPU实例/骨骼阶段与冻结frame，MeshGeometry接管image/direct GPU上传/clipping/stream；View只同步准备hook和GPU资源，不保存CPU/clock。PSO/paint在既有准备owner形成，移除出生编译/读取；保完整旧帧与direct bind失败、shared clock、提交/取消/局部失败，退休authored/dynamic实例。真实门/新旧App/交互与成本另验，随后有限Context/descriptor/dependency审计与整体保真，不授推送发布或提前整体完成。主pass库存owner迁移仍保原pattern/count/scope/role和已批准设计，历史凭据不可改写。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextScript*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextMediaPropertiesCompiler.swift",
@@ -1811,7 +1811,13 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceSimulation.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+ParticleEmission.swift",
         "script/source_authority.py",
-        "script/tests/test_scene_semantics_coverage.py"
+        "script/tests/test_scene_semantics_coverage.py",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/ScenePuppet*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+Puppet*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfacePuppet*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResources.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneImageEffectPipelineRepository.swift"
       ],
       "contentPatterns": []
     }

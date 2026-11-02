@@ -383,8 +383,6 @@
           "SceneMetalView+Geometry.swift",
           "SceneMetalView+Pointer.swift",
           "SceneMetalView+PointerEvents.swift",
-          "SceneMetalView+PuppetBones.swift",
-          "SceneMetalView+PuppetResources.swift",
           "SceneMetalView+SceneScriptCursorInteraction.swift",
           "SceneMetalView.swift",
           "SceneResolvedMaterialFramePreflight+Admission.swift",
@@ -414,7 +412,9 @@
           "SceneLayerVisibility.swift",
           "SceneLayerWorldFrameResolver.swift",
           "SceneMatrix.swift",
-          "SceneTextLayerPivot.swift"
+          "SceneTextLayerPivot.swift",
+          "ScenePuppetMeshGeometry.swift",
+          "ScenePuppetClipping.swift"
         ],
         "responsibility": "Geometry: Prepared-product consumption, live frame binding, GPU encoding and unique output lifecycle."
       },
@@ -642,7 +642,10 @@
           "SceneInitialPresentationCohort.swift",
           "SceneDesktopWallpaperSession+SurfaceSubmission.swift",
           "SceneDesktopWallpaperSession+SurfaceParticles.swift",
-          "SceneDesktopWallpaperSession+SurfaceSimulation.swift"
+          "SceneDesktopWallpaperSession+SurfaceSimulation.swift",
+          "SceneDesktopWallpaperSession+SurfacePuppetBones.swift",
+          "SceneDesktopWallpaperSession+SurfacePuppets.swift",
+          "ScenePreparedDeviceResources+Puppets.swift"
         ],
         "responsibility": "Session: Scene process/session orchestration and frame handoff; capability algorithms stay with their systems."
       }
@@ -780,10 +783,7 @@
           "ScenePuppetAnimationSelection.swift",
           "ScenePuppetAttachmentFrameSnapshot.swift",
           "ScenePuppetAttachmentPoseProjection.swift",
-          "ScenePuppetBoneEvidence.swift",
-          "ScenePuppetClipping.swift",
           "ScenePuppetLayerLoad.swift",
-          "ScenePuppetMeshGeometry.swift",
           "ScenePuppetPlaybackState.swift",
           "ScenePuppetSkinMatrixProjection.swift",
           "ScenePuppetTranslationMotion.swift",
@@ -1506,6 +1506,7 @@
         "SceneGraphExecutionTelemetry.swift",
         "ScenePerformanceCounterHub.swift",
         "ScenePerformanceHUD.swift",
+        "ScenePuppetBoneEvidence.swift",
         "SceneSignposts.swift",
         "SceneTimelineFrameEvidence.swift"
       ],

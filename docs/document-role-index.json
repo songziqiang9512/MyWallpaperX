@@ -766,10 +766,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1c1a673d6c45fc641ff17326a2473968ddcdd370b8286aace9e66ded06313be0",
+        "sourceSHA256": "1365495b22ccc75b986cfdaddb0c35353636f8fa456996ec07464a4a9c445939",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对Session.Surface唯一持粒子PlaybackState与SimulationFrame、View消费冻结帧及每屏pipeline的buffer/上传/draw/取消落点，退出View CPU构造、保存和ABI转发。",
-        "limitations": "接线图不替代运行验收；最终App与20模块分次、35次App的有界结果归历史，Runtime旧skip及原报告FAIL保留，Puppet和整体迁移未闭。"
+        "scope": "Puppet完整CPU/GPU族：Surface姿态/骨骼与冻结frame、GPU MeshGeometry/clipping/direct stream、已有资源准备及销毁出口；原生和门禁范围只归证据，退出旧View/State混持。",
+        "limitations": "本批行为/原包/交互仅证明登记范围，原raw失败保留；全goal最终跨族集成、可比成本和文档分类仍待结算，不外推官方或完整语料。"
       },
       "purpose": "实际接线或已记录运行证据；不反向定义目标架构，不决定实施顺序。"
     },
@@ -1056,10 +1056,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "74a7a162efe659207e8d94a8e3ce7e5d62a29531a33e5294054be15a9ad7b26d",
+        "sourceSHA256": "fb5eae0d1e419004ef547d84b5d036fe0304f04d0acf7ad78bc659949d45681c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "将粒子Surface CPU实例与pipeline GPU上传的完整闭环接入现役证据入口，引用最终App、分次行为门、native生命周期、五原包及RopeTrail/无粒子对照后验。",
-        "limitations": "20模块分次通过且Runtime原10项skip保留；35次App含旧新和初稿运行，双Surface原报告FAIL不改，Rope25仅有界方向/覆盖证据，不授全图相位等价、FPS、能耗、物理多屏或parity。"
+        "scope": "Puppet完整CPU/GPU族：Surface姿态/骨骼与冻结frame、GPU MeshGeometry/clipping/direct stream、已有资源准备及销毁出口；原生和门禁范围只归证据，退出旧View/State混持。",
+        "limitations": "本批行为/原包/交互仅证明登记范围，原raw失败保留；全goal最终跨族集成、可比成本和文档分类仍待结算，不外推官方或完整语料。"
       },
       "purpose": "实际接线或已记录运行证据；不反向定义目标架构，不决定实施顺序。"
     },
@@ -1085,10 +1085,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "af39dd2a059fa13c98032468c395f75404940cd7c85eb2a16905b3399b314811",
+        "sourceSHA256": "6e33772825cfb5e39a68c03b59aa099017d85bc780564454872ceffe8d4372a6",
         "method": "document_registry --audit + document_health --check",
-        "scope": "粒子合同明确CPU实例与GPU上传分责、Surface所有权及冻结帧消费，保root/child/history和slot使用期；prepared variants为空时保CPU状态与报告而跳过无消费者GPU准备。",
-        "limitations": "本族职责收敛不升级所有粒子组件、空间或材质兼容；不可变准备资源仍沿原链，Puppet等职责和性能验收不由本批结清。"
+        "scope": "Puppet完整CPU/GPU族：Surface姿态/骨骼与冻结frame、GPU MeshGeometry/clipping/direct stream、已有资源准备及销毁出口；原生和门禁范围只归证据，退出旧View/State混持。",
+        "limitations": "本批行为/原包/交互仅证明登记范围，原raw失败保留；全goal最终跨族集成、可比成本和文档分类仍待结算，不外推官方或完整语料。"
       }
     },
     {
@@ -3347,10 +3347,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "fb2cc9d92c819815a18be52bf7a5719d651e9b67a03dcdb12cb0b7440f621cd6",
+        "sourceSHA256": "f0083ffb786a8db5b91012331fcf917366812ea2bd1fa498fc0c98eb774bcb92",
         "method": "document_registry --audit + document_health --check",
-        "scope": "记录最终8737…9a16 App与27产品输入稳定、20行为模块分次及Runtime旧skip、35次App与原FAIL；核粒子CPU/GPU闭环、空prepared需求、main-pass仍4处及有据owner_relocation，保初稿/载体失败。",
-        "limitations": "五原包为同语义及同失败集合，Rope25仅预登记覆盖/质心方向，空需求155非静态像素资格；不授完整语料、同phase、FPS/能耗、物理多屏、parity或整体迁移，24过渡仍独立未闭。"
+        "scope": "Puppet完整CPU/GPU族：Surface姿态/骨骼与冻结frame、GPU MeshGeometry/clipping/direct stream、已有资源准备及销毁出口；原生和门禁范围只归证据，退出旧View/State混持。",
+        "limitations": "本批行为/原包/交互仅证明登记范围，原raw失败保留；全goal最终跨族集成、可比成本和文档分类仍待结算，不外推官方或完整语料。"
       }
     },
     {
@@ -4557,10 +4557,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "52f3a58098ddcfef261bc0b13139ab16fbcf4d98dadece8244b848b46943ba71",
+        "sourceSHA256": "c3417ec3d1dc4cb06ee68b835a74149b886115ff1c30091943d9f48eb44b1de1",
         "method": "document_registry --audit + document_health --check",
-        "scope": "补齐粒子完整CPU/GPU所有权：Surface独占实例与冻结帧，pipeline负责上传/提交存储，空prepared variants免无用GPU准备；沿既有owner_relocation规定库存职责迁移。",
-        "limitations": "每屏物理、pointer/world与模拟顺序不共享或重排；空batch不取消dormant child需求，库存迁移不增加main-pass调用；Puppet、其余数据分期及完整目标仍开放，不外推性能。"
+        "scope": "Puppet完整CPU/GPU族：Surface姿态/骨骼与冻结frame、GPU MeshGeometry/clipping/direct stream、已有资源准备及销毁出口；原生和门禁范围只归证据，退出旧View/State混持。",
+        "limitations": "本批行为/原包/交互仅证明登记范围，原raw失败保留；全goal最终跨族集成、可比成本和文档分类仍待结算，不外推官方或完整语料。"
       }
     },
     {
@@ -4613,10 +4613,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c1cb0890d39d3531ac88beafe8f57a5570712a12a2e5f09af8626569a3991ca0",
+        "sourceSHA256": "0344750198e321d8be0289da8dbaac20a0d0fb4cf99d2922a181b119ef642a3a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "唯一队列退出已闭粒子CPU/GPU职责，注明Surface实例/冻结帧及原pipeline接管，后续沿Puppet实际寿命推进，保descriptor/LaunchContext的有据收口范围。",
-        "limitations": "粒子本族闭合不等于所有权迁移或完整兼容目标全部完成；不机械搬其余字段，也不将分次门、旧新同失败集合或有界App升级为整体性能结论。"
+        "scope": "Puppet完整CPU/GPU族：Surface姿态/骨骼与冻结frame、GPU MeshGeometry/clipping/direct stream、已有资源准备及销毁出口；原生和门禁范围只归证据，退出旧View/State混持。",
+        "limitations": "本批行为/原包/交互仅证明登记范围，原raw失败保留；全goal最终跨族集成、可比成本和文档分类仍待结算，不外推官方或完整语料。"
       }
     },
     {

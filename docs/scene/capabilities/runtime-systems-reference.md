@@ -341,7 +341,13 @@ macOS provider 的可用能力不能由内部事件模型的存在推导。A→B
 
 ## 8. Puppet、3D 和 Lighting
 
-模型与 Puppet 共享网格、材质、变换和最终合成，保留各自的动画与变形语义。准备阶段保留骨骼、weights、clip、附加通道、附件与子材质；实例更新 pose 和播放状态；GeometryProduct 向唯一输出提供实际几何。
+模型与Puppet保各自动画/变形语义，共用材质、变换与唯一合成。不可变准备保骨骼、weights、clip、附加通道、附件与子材质；会话动画runtime唯一持动画位置、命令和事件。Surface独占每屏CPU pose、physics、骨骼修改及成员，不因共享clock合并屏幕相关物理。
+
+前置脚本query pose与获准骨骼写入后的render pose保原阶段，attachment/world/cursor消费相应canonical结果。CPU完成顶点与coverage后冻结typed RenderFrame，后续CPU修改不得改变该值；Rendering几何owner只消费冻结结果，持buffer、clipping、FIFO/stream与command发布，不反调CPU求值。GPU失败只撤相关publication，不重放模拟或VM；image以GeometryProduct、direct model以原mesh binding进入既有输出。
+
+clipping PSO与只读paint按准备集合（含creation templates）在设备准备时共享，出生只读准备结果；缺PSO/paint局部隐藏受影响target，真实paint读取失败拒该Puppet产品。装配保持atlas、资源分配与诊断顺序，有播放实例时CPU/GPU与clock注册成功后采用，静态bind不制造CPU实例；不能将不完整geometry当atlas quad。mask仍按本次consumer的MVP/extent生成，相同pose不授予跨consumer复用。
+
+动态及已删除作者成员沿已提交topology在原cadence同步退休CPU/GPU引用、clock事件与命令，重建不复活；共享资产/default template保留，单屏退出不重置peer clock。在途buffer、mask pin和发布沿原GPU completion/cancel/drain释放。
 
 - Puppet 包含部件顺序、depth、纹理通道、嵌套 mask、attachment、blend shape/rule、交互和 spring/rigid/rope/wind/IK；遮罩与主体消费同一变形状态。
 - 3D 包含 model/node、材质、骨骼动画、attachment、camera、fog 与物理，不能由静态 mesh 可画推成全部兼容。
@@ -378,4 +384,4 @@ atlas 和 graph-final 是几何采样资源，不能冒充已组合输出。worl
 4. 为真实输入、变化、失败和退出增加最近行为用例，使用真实实现；可见变化补独立内容与实际输出。
 5. 完成替换后撤销旧产品调用和重叠状态，同步专项、代码地图与索引；短期 fallback 明确对应缺口和退出条件。
 
-重叠语言执行路径、surface 承担过多组件装配、宽泛 descriptor 的阶段/类型混合，以及粒子 CPU/GPU 状态边界等结构偏差，纳入工程设计统一处理；不通过新增总管理器、通用组件框架或重复状态树掩盖。每批检查产品、测试和文档净变化，保持职责直接。
+结构偏差按实际重复状态、错位准备或释放消费者纳入工程设计，不以组件数量、目录纯净或新增总管理器代替职责收敛。每批检查产品、测试和文档净变化，保持职责直接。

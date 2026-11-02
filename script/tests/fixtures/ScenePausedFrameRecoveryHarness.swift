@@ -194,6 +194,8 @@ final class SceneDesktopWallpaperSession {
     final class Surface {
         let window = Window()
         let metalView = SceneMetalView()
+        // The frozen scheduler only observes owner retirement, not pose work.
+        var puppetPlaybackStates: [Int: Int] = [17: 1]
         var simulationFrame: SceneMetalView.SimulationFrame? = .init()
         var didSubmitSimulationFrame = false
         var pendingPausedFrame: SceneMetalRenderer.PreparedFrame?
@@ -435,6 +437,7 @@ final class SceneDesktopWallpaperSession {
         owner.teardownSurfaces(clearContext: false, reason: .testTeardown)
         precondition(owner.surfaces.isEmpty && owner.pausedFrameRetryDeadline == nil)
         precondition(owner.retiredSurfaces == 1 && surface.window.closes == 1)
+        precondition(surface.puppetPlaybackStates.isEmpty, "teardown retained CPU Puppet owners")
         complete(surface.metalView, 0, false)
         surface.metalView.onRenderInvalidated?()
         DispatchQueue.main.drain()

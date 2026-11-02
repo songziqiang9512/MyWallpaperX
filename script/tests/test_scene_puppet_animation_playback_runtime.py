@@ -658,7 +658,7 @@ func denseStateRuntimeReport() throws -> [[String: Any]] {
 
         let retirement = ScenePuppetAnimationPlaybackRuntime()
         let liveDefinition = selection(layer(binding: nil), animation())
-        for id in [42, -1, -2] {
+        for id in [42, 77, -1, -2] {
             try retirement.register(layerID: id, selection: liveDefinition,
                 authoredLayers: [liveDefinition.clips[0].layer]).get()
         }
@@ -679,6 +679,19 @@ func denseStateRuntimeReport() throws -> [[String: Any]] {
             afterRetirement[-1] == nil,
             report(afterRetirement, layerID: -2) != report(beforeRetirement, layerID: -2),
             !sameRetirement.animationSnapshots.contains { $0.identity.layerID == -1 }]
+
+        retirement.synchronizeDynamicLayers(topologyRevision: 4, liveLayerIDs: [],
+            destroyedAuthoredLayerIDs: [42])
+        let authoredRetired = retirement.advance(frameIndex: 2, sceneTime: 90,
+            dynamicValues: visible([:]))
+        let nextAuthoredRetired = retirement.advance(frameIndex: 3, sceneTime: 3,
+            dynamicValues: visible([:]))
+        output["authoredRetirement"] = [authoredRetired[42] == nil,
+            nextAuthoredRetired[42] == nil, authoredRetired[77] != nil,
+            report(authoredRetired, layerID: 77) == report(rebuiltWithoutHistory, layerID: 77),
+            !authoredRetired.animationSnapshots.contains { $0.identity.layerID == 42 },
+            !authoredRetired.animationEvents.contains { $0.identity.layerID == 42 },
+            !authoredRetired.eventFailures.keys.contains { $0.layerID == 42 }]
 
         output["animationEvents"] = try animationEventReport()
         output["denseState"] = try denseStateRuntimeReport()
@@ -768,6 +781,9 @@ class PuppetAnimationPlaybackRuntimeTests(unittest.TestCase):
         self.assertEqual([event["parent"] for event in result["events"]], [42])
         self.assertEqual(result["failures"], 0)
         self.assertTrue(result["removedPose"])
+
+    def test_authored_retirement_removes_pose_and_events_without_resampling_peers(self) -> None:
+        self.assertTrue(all(self.result["authoredRetirement"]), self.result["authoredRetirement"])
 
     def test_dynamic_retirement_removes_only_the_retired_instance_and_preserves_consumed_peers(self) -> None:
         self.assertEqual(self.result["dynamicRetirement"], [True] * 9)

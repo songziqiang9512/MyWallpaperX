@@ -13,7 +13,7 @@ struct ScenePuppetScriptPoseFrame {
     let worldFrames: [Int: simd_float4x4]
 }
 
-extension SceneMetalView {
+extension SceneDesktopWallpaperSession.Surface {
     /// Prepares the current animated hierarchy once before SceneScript. The
     /// resulting typed frame is also the attachment authority for layer world
     /// matrices and cursor collision in this callback snapshot.
@@ -27,24 +27,24 @@ extension SceneMetalView {
         var framesByParentLayerID: [Int: [String: simd_float4x4]] = [:]
         posesByLayerID.reserveCapacity(puppetPlaybackStates.count)
         framesByParentLayerID.reserveCapacity(puppetPlaybackStates.count)
-        let frame = makeFrameContext(timing: timing, dynamicValues: dynamicValues,
+        let frame = metalView.makeFrameContext(timing: timing, dynamicValues: dynamicValues,
             parallax: .zero, audioSpectrum: .silent)
-        let camera = renderer.makeCameraFrame(frameContext: frame, worldFrames: renderer.worldFramesByLayerID)
-        let parallax = renderer.parallaxConfiguration(cameraFrame: camera,
+        let camera = metalView.renderer.makeCameraFrame(frameContext: frame, worldFrames: metalView.renderer.worldFramesByLayerID)
+        let parallax = metalView.renderer.parallaxConfiguration(cameraFrame: camera,
             viewportSize: frame.screenSize, dynamicValues: dynamicValues)
         let prepareAttachments: (SceneRenderDescriptor.Layer, [Int: simd_float4x4]) -> [String: simd_float4x4]? = { layer, worlds in
             let layerID = layer.id
             guard let playback = self.puppetPlaybackStates[layerID],
                   let samples = puppetAnimationFrame[layerID] else { return nil }
             let model = layer.staticModelPath != nil
-                ? self.renderer.staticModelWorld(for: layerID, worldFrames: worlds)
-                : self.renderer.geometryModelMatrix(for: layer, worldFramesByLayerID: worlds,
+                ? self.metalView.renderer.staticModelWorld(for: layerID, worldFrames: worlds)
+                : self.metalView.renderer.geometryModelMatrix(for: layer, worldFramesByLayerID: worlds,
                     authoredSize: SIMD2<Float>(layer.renderSizeWH ?? [], fill: 0),
                     parallaxMouseNormalized: .zero, configuration: parallax,
                     visibleHalfExtents: camera.coverHalfExtents,
                     usesPerspective: camera.resolvesPerspective(for: layer))
             let meshToWorld = SceneLayerCursorGeometry.authoredWorldTransform(
-                model, sceneOrthoHeight: self.renderer.renderDescriptor.camera.orthoHeight)
+                model, sceneOrthoHeight: self.metalView.renderer.renderDescriptor.camera.orthoHeight)
             playback.advanceBonePhysics(
                 animationFrame: samples, deltaTime: timing.simulationFrameTime,
                 frameIndex: timing.frameIndex, meshToWorld: meshToWorld
@@ -61,15 +61,15 @@ extension SceneMetalView {
         let worldFrames: [Int: simd_float4x4]
         if puppetPlaybackStates.values.contains(where: { $0.hasTranslationPhysics || $0.hasAttachments }) {
             worldFrames = SceneLayerDynamicWorldFrameResolver.resolve(
-                descriptor: renderer.renderDescriptor, byID: renderer.layersByID,
-                snapshot: dynamicValues, staticFrames: renderer.worldFramesByLayerID,
+                descriptor: metalView.renderer.renderDescriptor, byID: metalView.renderer.layersByID,
+                snapshot: dynamicValues, staticFrames: metalView.renderer.worldFramesByLayerID,
                 prepareLayerAttachments: prepareAttachments)
         } else {
             // Ordinary static rigs retain the cached hierarchy path.
-            worldFrames = sceneScriptCursorWorldFrames(dynamicValues: dynamicValues,
+            worldFrames = metalView.sceneScriptCursorWorldFrames(dynamicValues: dynamicValues,
                 puppetAttachmentFrames: .empty)
             for layerID in puppetPlaybackStates.keys {
-                if let layer = renderer.layersByID[layerID] {
+                if let layer = metalView.renderer.layersByID[layerID] {
                     _ = prepareAttachments(layer, worldFrames)
                 }
             }
@@ -95,12 +95,12 @@ extension SceneMetalView {
     ) throws {
         guard !poseFrame.posesByLayerID.isEmpty else { return }
 #if DEBUG
-        let frame = makeFrameContext(timing: timing, dynamicValues: dynamicValues,
+        let frame = metalView.makeFrameContext(timing: timing, dynamicValues: dynamicValues,
             parallax: .zero, audioSpectrum: .silent)
-        let camera = renderer.makeCameraFrame(frameContext: frame, worldFrames: worldFrames)
+        let camera = metalView.renderer.makeCameraFrame(frameContext: frame, worldFrames: worldFrames)
 #endif
         for (layerID, pose) in poseFrame.posesByLayerID {
-            guard let layer = renderer.layersByID[layerID] else { continue }
+            guard let layer = metalView.renderer.layersByID[layerID] else { continue }
             let bones = pose.bones
             let meshToWorld = pose.meshToWorld
             let transform = [meshToWorld.columns.0, meshToWorld.columns.1,
@@ -124,7 +124,7 @@ extension SceneMetalView {
                     // Qualification only: project the already-published pose,
                     // without exposing names or evaluating another hierarchy.
                     let model = SceneLayerCursorGeometry.authoredWorldTransform(meshToWorld,
-                        sceneOrthoHeight: renderer.renderDescriptor.camera.orthoHeight)
+                        sceneOrthoHeight: metalView.renderer.renderDescriptor.camera.orthoHeight)
                     let projection = camera.viewProjection(for: layer) * model
                     let count = min(bones.parentIndices.count, bones.worldMatrices.count / 16)
                     for index in 0..<count {

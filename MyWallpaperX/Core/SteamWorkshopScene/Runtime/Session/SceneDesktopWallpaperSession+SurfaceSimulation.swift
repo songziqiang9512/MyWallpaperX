@@ -34,7 +34,7 @@ extension SceneDesktopWallpaperSession.Surface {
         audioSpectrum: SceneAudioSpectrumSnapshot = .silent,
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil
     ) {
-        for playback in metalView.puppetPlaybackStates.values {
+        for playback in puppetPlaybackStates.values {
             playback.apply(scriptBoneMutations: puppetBoneMutations)
         }
         let cameraProperty = dynamicValues.cameraPropertyProjection()
@@ -58,7 +58,7 @@ extension SceneDesktopWallpaperSession.Surface {
         )
         metalView.pointerState.previous = metalView.pointerState.current
         let attachmentFrames = ScenePuppetAttachmentFrameSnapshot(
-            framesByParentLayerID: metalView.puppetPlaybackStates.reduce(into: [:]) { result, entry in
+            framesByParentLayerID: puppetPlaybackStates.reduce(into: [:]) { result, entry in
                 guard let samples = puppetAnimationFrame[entry.key] else { return }
                 result[entry.key] = entry.value.prepareFrame(animationFrame: samples)
             }
@@ -81,6 +81,7 @@ extension SceneDesktopWallpaperSession.Surface {
             topology: layerTopology,
             mediaThumbnail: mediaThumbnail, mediaInputGeneration: mediaInputGeneration,
             spriteTimes: spriteAnimationPlaybackTimes, puppetAnimationFrame: puppetAnimationFrame,
+            puppetRenderFrames: puppetPlaybackStates.compactMapValues { $0.renderFrame },
             attachmentFrames: attachmentFrames
         )
     }

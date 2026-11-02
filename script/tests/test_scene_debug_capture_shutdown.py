@@ -131,6 +131,8 @@ struct TestLaunchContext {let preparedDeviceResources:TestPreparedResources;let 
     final class Surface {
         let metalView: View
         let window=TestWindow()
+        // CPU owners are opaque here; the real teardown must release the set.
+        var puppetPlaybackStates: [Int: Int] = [17: 1]
         var particleTeardownCalls=0
         func teardownParticlePlayback(reason:SceneGraphExecutionResetReason) {particleTeardownCalls += 1}
         init(_ q: MTLCommandQueue, _ c: SceneDebugFrameCapture) { metalView=View(q,c) }
@@ -300,6 +302,8 @@ enum PlaybackPerformanceProfile:Int {case fps60=60;var maxFPS:Int {rawValue}}
         fontSession.teardownSurfaces(clearContext:false,reason:.surfaceStop)
         check(rebuiltSurfaces.allSatisfy {$0.particleTeardownCalls == 1},
               "surface rebuild did not retire each CPU particle owner once")
+        check(rebuiltSurfaces.allSatisfy {$0.puppetPlaybackStates.isEmpty},
+              "surface rebuild retained CPU Puppet owners")
         let rebuilt=DispatchSemaphore(value:0)
         fontSession.retiringSurfaceDrain.notify(queue:.global()) {rebuilt.signal()}
         await wait(rebuilt)
@@ -471,14 +475,25 @@ struct TestLaunchContext {let preparedDeviceResources:TestPreparedResources;let 
 
     final class Renderer { let commandQueue: MTLCommandQueue; init(_ queue: MTLCommandQueue) {commandQueue=queue} }
     final class View { let renderer:Renderer;let debugFrameCapture:SceneDebugFrameCapture;func invalidateResolvedMaterialRuntime(reason:SceneGraphExecutionResetReason) {};init(_ queue:MTLCommandQueue,_ capture:SceneDebugFrameCapture) {renderer=Renderer(queue);debugFrameCapture=capture} }
-    final class Surface { let metalView:View;let window=TestWindow();func teardownParticlePlayback(reason:SceneGraphExecutionResetReason) {};init(_ queue:MTLCommandQueue,_ capture:SceneDebugFrameCapture) {metalView=View(queue,capture)} }
+    final class Surface {
+        let metalView:View
+        let window=TestWindow()
+        var puppetPlaybackStates: [Int: Int] = [17: 1]
+        func teardownParticlePlayback(reason:SceneGraphExecutionResetReason) {}
+        init(_ queue:MTLCommandQueue,_ capture:SceneDebugFrameCapture) {metalView=View(queue,capture)}
+    }
     var surfaces:[Int:Surface]=[:]
     var retiringSurfaces:[ObjectIdentifier:Surface]=[:]
     let retiringSurfaceDrain=DispatchGroup()
     var surfaceDrainFailed=false,drainStarted=false
     var drainResult:Bool?
     var drainCallbacks:[@MainActor(Bool)->Void]=[]
-    func stop() {teardownSurfaces(clearContext:true,reason:.surfaceStop)}
+    func stop() {
+        let previous = Array(surfaces.values)
+        teardownSurfaces(clearContext:true,reason:.surfaceStop)
+        precondition(previous.allSatisfy {$0.puppetPlaybackStates.isEmpty},
+                     "AppKit shutdown retained CPU Puppet owners")
+    }
 }
 enum PlaybackPerformanceProfile:Int {case fps60=60;var maxFPS:Int {rawValue}}
 @MainActor final class SceneDesktopWallpaperHost {

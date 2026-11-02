@@ -14,11 +14,22 @@ struct SceneAssetCatalog {
 }
 // Puppet model parsing is outside this controlled ordinary-image ownership
 // gate. The complete CPU preparation contract has its own production-source gate.
-enum ScenePuppetLayerLoad { struct PreparedPose {} }
+enum ScenePuppetLayerLoad {
+    struct Clip { let maskTexturePath: String }
+    struct Mesh { let clipRecords: [Clip] }
+    struct PreparedAsset { let meshPath: String; let mesh: Mesh }
+    enum AssetPreparation { case ready(PreparedAsset), unavailable }
+    struct PreparedPose {
+        enum Geometry { case bind(PreparedAsset, Int), evaluated(PreparedAsset, Int, Int, Int, Int), unavailable }
+        let geometry: Geometry
+    }
+}
 struct ScenePreparedPuppetResources {
+    static var fixtureAssets: [String: ScenePuppetLayerLoad.AssetPreparation] = [:]
+    let assetsByMeshPath: [String: ScenePuppetLayerLoad.AssetPreparation]
     static func prepare(descriptor: SceneRenderDescriptor, resourceView: SceneResourceView,
                         cancellationCheck: () throws -> Void) throws -> Self {
-        try cancellationCheck(); return .init()
+        try cancellationCheck(); return .init(assetsByMeshPath: fixtureAssets)
     }
     func defaultPose(for layer: SceneRenderDescriptor.Layer) -> ScenePuppetLayerLoad.PreparedPose? { nil }
 }
@@ -207,6 +218,19 @@ final class SceneTextureLoader {
         self.uploadCommandQueue = uploadCommandQueue
         self.decodeCacheBudget = decodeCacheBudget
     }
+    enum DataOutcome { case loaded(MTLTexture) }
+    var dataLoads = 0
+    func loadDataTexture(from input: SceneResourceView.FileInput, device: MTLDevice) throws -> DataOutcome {
+        dataLoads += 1
+        let key = input.lastPathComponent
+        if key == "paint-read-failure.tex" { throw NSError(domain: "controlled-paint-read", code: 1) }
+        if let texture = textures[key] { return .loaded(texture) }
+        let format: MTLPixelFormat = key == "paint-wrong.tex" ? .bgra8Unorm : .r8Unorm
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: format, width: 2, height: 2, mipmapped: false)
+        let texture = device.makeTexture(descriptor: descriptor)!
+        textures[key] = texture
+        return .loaded(texture)
+    }
     func sourceKey(for url: SceneResourceView.FileInput,
                    checkCancellation: (() throws -> Void)? = nil) throws -> SourceKey? {
         try checkCancellation?(); try Self.sourceHook?()
@@ -309,6 +333,7 @@ final class SceneImageEffectPipelineRepository {
     let device: MTLDevice
     init(device: MTLDevice, pixelFormat: MTLPixelFormat) { self.device = device }
     func prepareDirectDraw() -> Bool { true }
+    func preparePuppetClipping() -> Bool { fatalError("device factory is outside this carrier") }
     func layerColorBlendState() -> Int { 0 }
 }
 enum SceneMdlStaticModel { struct PreparedSource {} }
@@ -865,6 +890,41 @@ enum Checks {
         sourceCase("sourceCapturedMissing", variants: mainVariants, slots: [], capturesMainTarget: true)
         sourceCase("sourceCapturedWarmupFailure", variants: mainVariants, slots: mainSlots,
                    capturesMainTarget: true, warmupReport: .init(failedKeyCount: 1, readyKeyCount: 1))
+        for name in ["paint-r8.tex", "paint-wrong.tex", "paint-read-failure.tex"] {
+            try Data(name.utf8).write(to: root.appendingPathComponent("materials/" + name))
+        }
+        let goodAsset = ScenePuppetLayerLoad.PreparedAsset(meshPath: "models/healthy.mdl",
+            mesh: .init(clipRecords: [.init(maskTexturePath: "materials/paint-r8.tex")]))
+        let badAsset = ScenePuppetLayerLoad.PreparedAsset(meshPath: "models/local-failure.mdl",
+            mesh: .init(clipRecords: ["paint-r8.tex", "paint-absent.tex", "paint-wrong.tex", "paint-read-failure.tex"]
+                .map { .init(maskTexturePath: "materials/" + $0) }))
+        ScenePreparedPuppetResources.fixtureAssets = ["models/healthy.mdl": .ready(goodAsset),
+            "models/local-failure.mdl": .ready(badAsset)]
+        let paintView = SceneResourceView(projectRootURL: root, packageRootURL: nil)
+        let paintDescriptor = SceneRenderDescriptor(layers: [], materialPasses: [])
+        let paintResources = try ScenePreparedBaseImageResources.prepare(descriptor: paintDescriptor,
+            resourceView: paintView, device: device, spriteTextureLoader: .init(),
+            sceneGeneration: 1, cacheDirectory: root, cancellationCheck: {})
+        let paints = paintResources.puppetClipping
+        let good = paints["models/healthy.mdl"]!, bad = paints["models/local-failure.mdl"]!
+        try FileManager.default.removeItem(at: root.appendingPathComponent("materials/paint-r8.tex"))
+        let loads = paintResources.textureLoader.dataLoads
+        for _ in 0..<128 { _ = paintResources.puppetClipping["models/healthy.mdl"] }
+        var cancelled = false
+        do {
+            _ = try ScenePreparedBaseImageResources.preparePuppetClipping(
+                resources: paintResources.puppets, dynamicResources: [:],
+                resolver: .init(resourceView: paintView, descriptor: paintDescriptor),
+                textureLoader: paintResources.textureLoader, device: device,
+                cancellationCheck: { throw CancellationError() })
+        } catch is CancellationError { cancelled = true }
+        results["puppetPaints"] = ["loads": loads,
+            "shared": good.paintTextures[0] === bad.paintTextures[0],
+            "missingLocal": bad.paintTextures.count == 1,
+            "readFailure": bad.readFailed, "healthy": !good.readFailed && good.paintTextures.count == 1,
+            "stable": paintResources.textureLoader.dataLoads == loads,
+            "cancelled": cancelled]
+
         let data = try JSONSerialization.data(withJSONObject: results, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
     }

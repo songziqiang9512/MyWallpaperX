@@ -31,6 +31,11 @@ import simd
 
 final class SceneSpotLightPipeline { init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {} }
 final class SceneLayerColorBlendPipelineState { init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {} }
+enum ScenePuppetClipping {
+    static func makePipeline(device: MTLDevice) -> MTLRenderPipelineState? {
+        fatalError("direct-draw composition must not prepare Puppet clipping")
+    }
+}
 
 struct SceneResolvedMaterialFrameTargetPlan {}
 struct SceneEffectExecutionFrameTrace {}

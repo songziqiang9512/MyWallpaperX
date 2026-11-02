@@ -11,6 +11,7 @@ SCENE = Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopSc
 FOG_HEADER = SCENE / "Rendering/Composition/SceneDistanceFog.metalh"
 SOURCES = [SCENE / path for path in (
     "Rendering/Metal/SceneMetalPipeline.swift",
+    "Runtime/Frame/SceneMaterialRenderState.swift",
     "Rendering/Composition/SceneBlendModeShaderSource.swift",
     "Rendering/Composition/SceneFramebufferSnapshot.swift",
     "Resources/Textures/SceneResourceBudget.swift",

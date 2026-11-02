@@ -124,6 +124,8 @@ route state 的名称、定义和进入条件只从当前 `AGENTS.md`、runtime 
 
 真实 Workshop/Scene 根只读；runtime home、属性注入、cache、output 和样本使用隔离副本。确认启动的是当前 App/build，不复用旧截图/report/terminal observation。
 
+先核输入协议的调度时基：墙钟秒位、启动后时长与 simulation cadence 不能混用。运行窗口须覆盖协议规定的触发与尾部观测；窗口尚未覆盖该区间时，缺输入边或截图只能记取证未完成。已覆盖仍无事件则定位输入调度链，不能无限归为等待。延长窗口仍保原输入和失败记录，不以移动触发时间或取消断言冒充行为恢复；实例见[有界交互取证](../../../../docs/scene/history/runtime-evidence-index.md#e-puppet-surface-gpu-ownership-20261102)。
+
 ## 反漂移终审
 
 冻结 owned diff 后确认：没有 identity-based 视觉算法；没有为新 effect/script/particle family 新增名称专用产品 owner；没有第二 renderer/resource/clock/graph/property/history/compositor；作者顺序、slot hole、target/publication 未丢失；现役 runtime architecture 定义的 typed frame channels 和最小失效域未混淆；local visual failure 保留 previous current 而 unsafe error 仍 fail closed；route 可观察且声明不超过证据；研究来源与局限已标清，实现未直接复制、照译或移植参考代码；Skill 没有覆盖当前 roadmap、ledger、evidence 或机器 manifest。

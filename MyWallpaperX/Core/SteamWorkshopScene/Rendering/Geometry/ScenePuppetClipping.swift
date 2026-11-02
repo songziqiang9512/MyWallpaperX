@@ -126,10 +126,13 @@ final class ScenePuppetClipping {
     func prepare(commandBuffer: MTLCommandBuffer, extent: SIMD2<Int>, mvp: simd_float4x4,
                  retainAuxiliary: SceneGeometryProduct.AuxiliaryRetainer,
                  vertexCoverageVaries: Bool = true,
-                 vertices: [SceneQuadVertex], vertexBuffer: MTLBuffer, indexBuffer: MTLBuffer) {
+                 vertexBuffer: MTLBuffer, indexBuffer: MTLBuffer) {
         prepared.removeAll(keepingCapacity: true)
         opaqueSources.removeAll(keepingCapacity: true)
         guard let pipeline else { return }
+        let vertices = UnsafeBufferPointer(
+            start: vertexBuffer.contents().assumingMemoryBound(to: SceneQuadVertex.self),
+            count: mesh.vertices.count)
         for index in preparationOrder {
             let targetPart = targets[index]
             let sources = targetPart.sourceParts
@@ -216,7 +219,7 @@ final class ScenePuppetClipping {
         let transform: SIMD4<Float>
     }
 
-    private func region(part: SceneMdlPuppetMesh.DrawPart, vertices: [SceneQuadVertex],
+    private func region(part: SceneMdlPuppetMesh.DrawPart, vertices: UnsafeBufferPointer<SceneQuadVertex>,
                         extent: SIMD2<Int>, mvp: simd_float4x4) -> Region? {
         var low = SIMD2<Float>(repeating: .greatestFiniteMagnitude)
         var high = SIMD2<Float>(repeating: -.greatestFiniteMagnitude)

@@ -46,11 +46,8 @@ struct SceneDesktopWallpaperLaunchContext {
 }
 
 final class SceneDesktopWallpaperSession {
-    struct View {
-        var preparedDirectModelAnimationVisibilityTargets: Set<SceneDynamicTarget>
-    }
     struct Surface {
-        var metalView: View
+        var preparedDirectModelAnimationVisibilityTargets: Set<SceneDynamicTarget>
         var scriptGeneration: UInt64
     }
     var surfaces: [Int: Surface] = [:]
@@ -75,7 +72,7 @@ final class SceneDesktopWallpaperSession {
 
     static func surface(_ targets: Set<SceneDynamicTarget>, generation: UInt64 = 37)
         -> SceneDesktopWallpaperSession.Surface {
-        .init(metalView: .init(preparedDirectModelAnimationVisibilityTargets: targets),
+        .init(preparedDirectModelAnimationVisibilityTargets: targets,
             scriptGeneration: generation)
     }
 

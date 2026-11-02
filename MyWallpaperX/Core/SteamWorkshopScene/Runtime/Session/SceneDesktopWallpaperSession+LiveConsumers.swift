@@ -91,7 +91,7 @@ extension SceneDesktopWallpaperSession {
                 unavailable.formUnion(candidates)
                 return
             }
-            unavailable.formUnion(candidates.subtracting(surface.metalView
+            unavailable.formUnion(candidates.subtracting(surface
                 .preparedDirectModelAnimationVisibilityTargets))
         }
     }

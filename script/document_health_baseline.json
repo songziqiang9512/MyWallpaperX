@@ -89,8 +89,8 @@
       "bytes": 24119
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
-      "lines": 163,
-      "bytes": 20073
+      "lines": 164,
+      "bytes": 20943
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 31,
@@ -170,15 +170,15 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 224826
+      "bytes": 225191
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
       "bytes": 197432
     },
     "docs/scene/capabilities/runtime-systems-reference.md": {
-      "lines": 381,
-      "bytes": 33935
+      "lines": 387,
+      "bytes": 35124
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 61,
@@ -285,8 +285,8 @@
       "bytes": 29767
     },
     "docs/scene/roadmap/engine-refactor-program.md": {
-      "lines": 203,
-      "bytes": 38657
+      "lines": 221,
+      "bytes": 43967
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 73,
@@ -301,8 +301,8 @@
       "bytes": 22465
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 203,
-      "bytes": 48225
+      "lines": 202,
+      "bytes": 47946
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -2065,38 +2065,38 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-as-built-map.md",
-      "before": "e6cf9a19ba6284498240726a3fe3842434cecaf60f661e0830ae6f4ffb461c07",
-      "after": "31d34f61bfb50dcf634efb33c8a253bfea134d785f693cc53f839a1c9e6f97d2",
-      "owner": "scene-particle-surface-gpu-ownership",
-      "reason": "按既有粒子设计同步Surface实例/冻结帧、pipeline上传及无需求准备退出，沿原owner_relocation登记职责迁移；以7b99ed69a正文预算为before，运行范围与原失败归历史，不提高600行正文/150行初读快照硬限。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#粒子实例与-gpu-上传的所有权"
+      "before": "31d34f61bfb50dcf634efb33c8a253bfea134d785f693cc53f839a1c9e6f97d2",
+      "after": "618669200ca85084bd4ab7858c6a08abf3714424c0ad9f27be797302e8f43f36",
+      "owner": "scene-puppet-surface-gpu-ownership",
+      "reason": "按先落库Puppet完整族设计替换实际owner及退役路径，保普通帧冻结与局部失败，正文只记合同/当前入口，运行过程归历史；不提高600行正文或150行初读快照硬限。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#puppet-姿态实例与-gpu-几何的所有权"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "da5bef1f52bbf896a67e759893284c9f08448b7a9c1fda46b9ee2d20484011ef",
-      "after": "79aa66de71b8413d8356b64ffd33f793d61fb7db8d88f21928005c6b16588c90",
-      "owner": "scene-particle-surface-gpu-ownership",
-      "reason": "按既有粒子设计同步Surface实例/冻结帧、pipeline上传及无需求准备退出，沿原owner_relocation登记职责迁移；以7b99ed69a正文预算为before，运行范围与原失败归历史，不提高600行正文/150行初读快照硬限。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#粒子实例与-gpu-上传的所有权"
+      "before": "79aa66de71b8413d8356b64ffd33f793d61fb7db8d88f21928005c6b16588c90",
+      "after": "f204425dda549361caa8c3aef0db15b391951245fbb4f68adfc82271c0fdb0d7",
+      "owner": "scene-puppet-surface-gpu-ownership",
+      "reason": "按先落库Puppet完整族设计替换实际owner及退役路径，保普通帧冻结与局部失败，正文只记合同/当前入口，运行过程归历史；不提高600行正文或150行初读快照硬限。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#puppet-姿态实例与-gpu-几何的所有权"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-systems-reference.md",
-      "before": "da4e42fe590e05120f3c0d13e22411d527119c3786bf0c93d5370e20d679bcb7",
-      "after": "870d4f051341731b4f289858145a7cefbae6a5fc7784ae3e41c1e1cc2b1af8f1",
-      "owner": "scene-particle-surface-gpu-ownership",
-      "reason": "按既有粒子设计同步Surface实例/冻结帧、pipeline上传及无需求准备退出，沿原owner_relocation登记职责迁移；以7b99ed69a正文预算为before，运行范围与原失败归历史，不提高600行正文/150行初读快照硬限。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#粒子实例与-gpu-上传的所有权"
+      "before": "870d4f051341731b4f289858145a7cefbae6a5fc7784ae3e41c1e1cc2b1af8f1",
+      "after": "4c81d38c0c791a22d0de2aa98d3ff34cab11f993dd5bb37a74f8d65d2c1e11b4",
+      "owner": "scene-puppet-surface-gpu-ownership",
+      "reason": "按先落库Puppet完整族设计替换实际owner及退役路径，保普通帧冻结与局部失败，正文只记合同/当前入口，运行过程归历史；不提高600行正文或150行初读快照硬限。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#puppet-姿态实例与-gpu-几何的所有权"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/engine-refactor-program.md",
-      "before": "07d3aba26fc95e7ecded83abdfc7d93f0236e42e70215e7da550aee0bd840048",
-      "after": "b74d58894316ebfefe3876d82444fc26e894bd79a38de67181efe4559f8272bb",
-      "owner": "scene-particle-surface-gpu-ownership",
-      "reason": "按既有粒子设计同步Surface实例/冻结帧、pipeline上传及无需求准备退出，沿原owner_relocation登记职责迁移；以7b99ed69a正文预算为before，运行范围与原失败归历史，不提高600行正文/150行初读快照硬限。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#粒子实例与-gpu-上传的所有权"
+      "before": "b74d58894316ebfefe3876d82444fc26e894bd79a38de67181efe4559f8272bb",
+      "after": "c669b4bfa0b3899055354afe18682576b9597d555b4b8f0d7f6416f369997697",
+      "owner": "scene-puppet-surface-gpu-ownership",
+      "reason": "按先落库Puppet完整族设计替换实际owner及退役路径，保普通帧冻结与局部失败，正文只记合同/当前入口，运行过程归历史；不提高600行正文或150行初读快照硬限。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#puppet-姿态实例与-gpu-几何的所有权"
     }
   ]
 }

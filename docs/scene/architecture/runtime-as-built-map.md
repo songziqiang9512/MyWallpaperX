@@ -35,7 +35,7 @@ App 产品意图与当前记录
 | 产品选择与持久化设置 | App 的产品服务与跨引擎切换事务；SceneDaemonClient 保存已接纳的 authored intent 和重放身份，不持有图形资源 |
 | 进程端点 | SceneDaemonRuntime 私有持有唯一产品 Host；普通 App 经 client 控制，不构造产品 Host；显式 DEBUG direct runner 另持隔离 Host |
 | 当前输出与候选决策 | SceneDesktopWallpaperHost 持有 active、candidate 和 retiring Session，负责请求身份、候选提交与回滚 |
-| 场景时间与模拟 | Session持sceneClock、VM programs、活动状态、输入与媒体；Surface持本屏粒子实例与唯一冻结帧，每cadence推进一次，View消费结果 |
+| 场景时间与模拟 | Session持sceneClock、VM programs、活动状态、输入与媒体；Surface持本屏粒子/Puppet CPU实例与唯一冻结帧，每cadence推进一次，View消费结果 |
 | 作者 identity 与顺序 | Model、RenderDescriptor、material catalog 和已准备计划；运行修改通过原 typed topology/属性路径进入 |
 | SceneScript | 同一场景的 QuickJS domain、各属性绑定 program 和 typed host bridge；模块 heap 与 Swift typed mutation 具有不同撤回边界 |
 | 属性 | 不可变BindingProgram在构造/解码时持有验证及索引；launchContext.liveState独占实例有效输入、current与revision，再发布typed快照；普通值更新不自行取得资源或topology修改权 |
@@ -77,7 +77,7 @@ App 产品意图与当前记录
 | 文本 | `Systems/Text/SceneTextTextureLoader`、`SceneDynamicTextTextureStore` | [输入与属性](../capabilities/runtime-input-property-coverage.md) |
 | 相机与光照 | `Systems/Input/SceneCameraProjection`；`Rendering/Lighting/SceneLightSnapshot`、`SceneSpotLightPlan`、`SceneSpotLightRuntime`和 pipeline | [组件合同](../capabilities/runtime-systems-reference.md#8-puppet3d-和-lighting) |
 | 声音实例 | `Systems/Media/SceneSoundPlaybackProgram`、`SceneSoundPlaybackRegistry` | [声音与频谱分工](../capabilities/runtime-systems-reference.md#72-audio) |
-| 几何与动画 | `Systems/Puppet/`、`Systems/Animation/`、`Rendering/Geometry/SceneGeometryProduct` | [高级对象](../capabilities/advanced-object-coverage.md) |
+| Puppet/模型与动画 | `Systems/Puppet/`、`Systems/Animation/`；[Surface装配](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfacePuppets.swift)、[骨骼帧](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfacePuppetBones.swift)、[GPU几何](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/ScenePuppetMeshGeometry.swift)及同目录`ScenePuppetClipping` | [高级对象](../capabilities/advanced-object-coverage.md) |
 | 资源与 provider | `Resources/Assets/`、`Resources/Textures/`、`Resources/Providers/`、`Systems/Media/` | [资源准入](../architecture/scene-resource-admission.md) |
 | 材质与 graph | `Compilation/Material/`、`Compilation/Graph/`、`Rendering/Graph/` | [Graph/Shader](../capabilities/render-graph-shader-coverage.md) |
 | 图层合成与输出 | `Rendering/Composition/`、`Rendering/Frame/SceneMetalRenderer`和 surface | [运行时架构](../architecture/runtime-architecture.md) |
@@ -104,6 +104,7 @@ App 产品意图与当前记录
 | 材质与 Shader artifact | Compilation 产生 catalog、variant、prepared uniform 来源和执行能力；后端产物进入同一 Program/Graph，不引入另一 renderer |
 | 纹理、模型与粒子定义 | 后台设备资源任务与资源 loader 准备；实例和 Surface 消费结果；资源来源、用途、device 与 revision 决定复用 |
 | MTLLibrary、PSO、sampler | 原 repository/PassEncoder 缓存；同一来源合并编译，launch warmup 提前准备当前需求 |
+| Puppet准备与实例 | PreparedPuppetResources保CPU资产及作者/default pose，`ScenePreparedDeviceResources+Puppets`在BaseImageResources一次准备paint，PipelineRepository按需准备clipping PSO；Surface经同步资源hook装配几何，有播放实例时注册会话动画runtime后安装CPU/GPU。Surface负责成员、骨骼ABI与冻结RenderFrame，View.puppetGeometries保GPU存储/发布；已提交删除同步退休实例，表面退出清CPU后沿原GPU drain释放 |
 | GPU 纹理和 buffer | 通过 makeSceneTexture/makeSceneBuffer 等分配入口绑定实际资源 lease；额度随实际对象释放，候选和退役资源仍计费 |
 | decoded 中间缓存 | SceneTextureDecodeCacheBudget 与进程父额度共同约束；不命中或不保留中间缓存仍可沿原解码/上传路径播放 |
 | 用户选择纹理 | PreparedLaunch短期携初始结果，候选激活显式移交Session；Session保存唯一活动结果，View仅保存绘制快照。LaunchContext无纹理镜像，新表面读Session当前结果，旧绑定沿原completion/drain释放 |

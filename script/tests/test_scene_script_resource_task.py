@@ -24,14 +24,21 @@ struct SceneRenderDescriptor {
     struct Format { var metalPixelFormat: Int { 0 } }
     var layers: [Layer] = []
     var colorTargetFormat = Format()
+    var requiresImageDepthAttachment = false
+    var requiresImageAdditiveRGB = false
 }
 enum SceneDesktopWallpaperHostLaunchError: Error { case requiredImagePipelineUnavailable }
 struct SceneImageLayerPipeline {
-    init?(device: MTLDevice, pixelFormat: Int) { if Backend.rejectPipeline { return nil } }
+    init?(device: MTLDevice, pixelFormat: Int, preparesDepth: Bool, preparesAdditive: Bool) {
+        if Backend.rejectPipeline { return nil }
+    }
 }
 struct SceneImageEffectPipelineRepository {
     init(device: MTLDevice, pixelFormat: Int) {}
     func prepareDirectDraw() -> Bool { true }
+    func preparePuppetClipping() -> Bool {
+        fatalError("resource handoff must not prepare unrelated Puppet pipelines")
+    }
     func layerColorBlendState() -> Int { 0 }
 }
 struct SceneMultiImageSpriteTextureLoader {}
@@ -39,9 +46,10 @@ struct Loader { func evictDecodedCaches() {} }
 struct ScenePreparedBaseImageResources {
     let textureLoader = Loader()
     let models: Set<String>
+    let puppetClipping: [String: Int] = [:]
     static func prepare(descriptor: SceneRenderDescriptor, resourceView: SceneResourceView,
         device: MTLDevice, spriteTextureLoader: SceneMultiImageSpriteTextureLoader,
-        sceneGeneration: UInt64, dynamicImageModelPathsProvider: (() throws -> Set<String>)?,
+        sceneGeneration: UInt64, cacheDirectory: URL, dynamicImageModelPathsProvider: (() throws -> Set<String>)?,
         deferredBaseImageLayerIDs: Set<Int>, imageGeometryModels: [SceneAssetCatalog.ModelAsset],
         geometryPrepared: ([Int: [Float]]) -> Void, uploadCommandQueue: SceneTextureUploadCommandQueue,
         decodeCacheBudget: SceneTextureDecodeCacheBudget, cancellationCheck: () throws -> Void) throws -> Self {
@@ -52,9 +60,12 @@ struct ScenePreparedBaseImageResources {
         return .init(models: models)
     }
 }
+enum SceneMdlStaticModel { struct PreparedSource {} }
 struct ScenePreparedStaticModelResources {
     static func prepare(descriptor: SceneRenderDescriptor, resourceView: SceneResourceView,
-        device: MTLDevice, textureLoader: Loader, cancellationCheck: () throws -> Void) throws -> Self {
+        device: MTLDevice, textureLoader: Loader,
+        preparedSources: inout [String: SceneMdlStaticModel.PreparedSource],
+        cancellationCheck: () throws -> Void) throws -> Self {
         try cancellationCheck(); return .init()
     }
 }
@@ -72,6 +83,7 @@ HARNESS = r'''
 @main enum Harness {
     static func task(_ waiting: Bool = true, models: Set<String> = []) -> ScenePreparedDeviceResourcesTask {
         .init(descriptor: .init(), resourceView: .init(), device: .init(), sceneGeneration: 1,
+            cacheDirectory: URL(fileURLWithPath: "/unused-resource-task-cache", isDirectory: true),
             dynamicImageModelPaths: models, awaitsScriptResourcePlanning: waiting, cancellationCheck: {})
     }
     static func main() throws {

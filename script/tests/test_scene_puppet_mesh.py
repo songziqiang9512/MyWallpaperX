@@ -692,10 +692,7 @@ class SceneMdlPuppetMeshReaderTests(unittest.TestCase):
 class PuppetMeshWorldGeometryContractTests(unittest.TestCase):
     def test_static_and_animated_puppets_share_world_geometry_mapping(self) -> None:
         recomposer = (
-            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetMeshGeometry.swift"
-        ).read_text(encoding="utf-8")
-        playback = (
-            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetPlaybackState.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/ScenePuppetMeshGeometry.swift"
         ).read_text(encoding="utf-8")
         load = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetLayerLoad.swift").read_text(
             encoding="utf-8"
@@ -703,10 +700,6 @@ class PuppetMeshWorldGeometryContractTests(unittest.TestCase):
         base = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneBaseImageTextureLoad.swift").read_text(
             encoding="utf-8"
         )
-        view = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift").read_text(
-            encoding="utf-8"
-        )
-        view += (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+PuppetResources.swift").read_text(encoding="utf-8")
         preflight = (
             REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight.swift"
         ).read_text(encoding="utf-8")
@@ -726,31 +719,19 @@ class PuppetMeshWorldGeometryContractTests(unittest.TestCase):
         self.assertNotIn("contentFit", recomposer)
         self.assertNotIn("ContentFit", recomposer)
         self.assertNotIn("coverageExtent", recomposer)
-        self.assertIn("position: SIMD2(vertex.x, vertex.y)", recomposer)
-        self.assertNotIn("contentFit", playback)
-        self.assertNotIn("coverageWidth", playback)
-        self.assertNotIn("coverageHeight", playback)
-        self.assertIn("position: position", playback)
         self.assertIn(
             "effectSourceExtentContract: .exactSamplingTexture", recomposer
-        )
-        self.assertIn(
-            "effectSourceExtentContract: .exactSamplingTexture", playback
         )
         self.assertNotIn("var renderSize:", load)
         self.assertIn("let geometryProducts: [Int: SceneGeometryProduct]", base)
         self.assertIn("func setPuppetGeometry(", base)
         self.assertIn("samplingAtlas: MTLTexture", base)
         self.assertIn("samplingCandidate: SceneTextureCandidate?", base)
-        self.assertIn("ScenePuppetLayerLoad.preparedGeometry(", view)
-        self.assertIn("loaded.setPuppetGeometry(", view)
         self.assertNotIn("setPuppetSource(", base)
-        self.assertNotIn("setPuppetSource(", view)
         self.assertNotIn("recomposeByteBudget", recomposer)
         self.assertNotIn("targetDimensions", recomposer)
         self.assertNotIn("makeTexture", recomposer)
         self.assertIn("allowsMissingMeshTextureProduct: true", load)
-        self.assertIn("puppetOutcome.allowsMissingMeshTextureProduct", view)
         self.assertIn("puppet mesh path rejected", load)
         self.assertIn("desiredSize = selectedSource.candidate?.mappedSize", preflight)
         self.assertIn("?.effectSourceExtentContract ?? .scalableStandard", preflight)
@@ -771,8 +752,6 @@ class PuppetMeshWorldGeometryContractTests(unittest.TestCase):
             "geometryProduct: request.geometryProduct", compositor
         )
         self.assertNotIn("mainPass.encoder()", compositor)
-        self.assertIn("bindColorBlend(encoder, sourceTexture, mvp)", recomposer)
-        self.assertIn("bindColorBlend(encoder, sourceTexture, mvp)", playback)
         self.assertIn("func bindGeometry(", blend_pipeline)
         self.assertIn("if let geometryProduct", blend_pipeline)
         # Atlas/source fallback still refuses Puppet, while a successful graph

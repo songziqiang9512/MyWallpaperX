@@ -147,6 +147,24 @@ DrawBatch 作为 CPU 生产的绘制输入，唯一声明归现有粒子 pipelin
 
 先冻结旧 App 和最近粒子门，再用真实 Metal 验证 key 隔离、暂隐再现复用、两 pipeline 独立、连续上传、in-flight/取消及坏实例局部过滤；CPU 门保 child 末帧、history、脚本控制、世界坐标与回滚，并复用 Session/暂停媒体门验证同帧交接、屏间完成与 stale Surface 拒绝。保启动报告的初始/后继两阶段，不因移 owner 丢弃诊断。补原始 root、event child、refraction、RopeTrail 和健康邻例的同输入旧/新 App 运行与正常退出。逐像素等价仅对时间、输入与呈现相位可冻结的结果声明；不因减少 owner 或一个 GPU 门宣称 FPS、能耗、全语料及官方 parity。验收后按粒子实例与 GPU 能力族独立提交，其他准备数据与组件职责按唯一队列继续。
 
+### Puppet 姿态、实例与 GPU 几何的所有权
+
+本族完整迁移 image Puppet 与 direct model animation，不以移动文件或增加转发层结算。现有 State 混持 pose/physics、Metal buffers、clipping 和提交状态，GPU encode 又调用 CPU prepare；View 保存每屏 CPU 字典及动态成员，动态出生现场编译 clipping PSO、读取 paint。目标是 Surface 拥有 CPU 实例，既有 MeshGeometry 拥有 GPU 几何，普通 encode 只消费冻结结果，准备期共享 PSO/paint，保持旧可见能力与局部失败。
+
+Surface 唯一保存 Puppet PlaybackState、动态 topology revision/成员及骨骼脚本阶段状态。原骨骼 pose/physics、VM 发布和坐标计算迁到 Surface 的实际实现，直接借现有 renderer 的 world/camera 查询，不保 View ABI 转发或第二时钟。LaunchContext 的 animation playback runtime 仍是唯一 clock/command/event owner。提交后的拓扑在下一 cadence 先同步成员，再采样 clock、准备 pre-script pose、执行 VM、应用骨骼写入、完成 skinning/attachments，最后连同原 SimulationFrame 冻结。暂停、无 drawable 与 GPU 重试只消费该帧，不重算 pose 或 physics。
+
+State 保 evaluator/selection、骨骼修改与物理、矩阵/position/coverage scratch、完整顶点输出和签名；退出 Metal import、设备、PSO、texture、buffer、stream、clipping、FIFO 及 command qualification。RenderFrame 是 revision 与 image/direct 顶点及必要状态的值，不是另一个持久 registry；Surface 冻结时取得值，CPU 后续写入遵循数组值语义。image 的完整 vertex 输出只有一份，失败前的部分 position/coverage 不覆盖它；direct 保不可变 bind 与 deform scratch，失败选择完整 bind 并发布新 revision。冻结旧帧仍在消费时的数组 COW 属必要隔离，不主动复制整帧或另存 RenderFrame 镜像；重复 pose 签名不写顶点。GPU clipping/DEBUG 优先读取已上传 shared buffer，不为 ROI 长期保留 CPU 数组。
+
+既有 ScenePuppetMeshGeometry 接管静态 image、动画 image 和 direct stream 的实际 GPU 工作并归 Rendering/Geometry；ScenePuppetClipping 同归该目录。静态保持单 buffer，动画保持原三槽/FIFO 与完成/取消合同，不为统一类型增加资源。FIFO 只记录上传 revision/槽位，退出完整 CPU 签名、bone revision 与 attachments 副本。GeometryProduct 在安装时产生一次，闭包只捕获 GPU owner；owner 不反持该 product 形成环。direct publication 复用原 vertex stream 的 transaction/lease 检查，不另造状态机。CPU prepare 退出 GPU 回调；同一冻结 revision 重复发布不能推进 CPU。
+
+资源装配保持原 atlas 到达、Puppet 分配、geometry/缺 mesh fallback、诊断的作者顺序。View.loadImageLayers 在原 Puppet 分支同步调用不保存的 nonescaping preparation hook；Surface 真实装配 CPU/GPU、注册 shared clock，全部成功才安装，hook 只返回 GPU outcome。Surface 在资源装配前建立，窗口仍在准备完成后显示；不新增临时 atlas publication 或事后重扫/修报告。direct 在原图像加载后安装。PreparedPose 只保 CPU 准备事实，LayerLoad 的 Metal factory/Outcome 与 State 的 GPU factory 同批退役。
+
+clipping PSO 在已有 PipelineRepository 按真实 clip demand 准备一次，帧和出生只读已准备结果，失败 nil 也不重复编译。已有 PreparedBaseImageResources 按准备集合（含 creation templates）读取共享只读 paint；不在 CPU PreparedPuppetResources 放 Metal，亦不建独立资源 owner。缺 paint 仍局部隐藏受影响目标；真实读取失败拒绝该 Puppet，不能误降成整幅 atlas quad。clipping 的 extent/MVP/ROI、mask union、嵌套/循环、domain/pin 与下一 ordinary draw mask reset 保持；pose revision 相同不意味着 mask 可跨 consumer 复用。
+
+动态成员同步同时消费 destroyed authored IDs：退出对应 CPU/GPU references 及 shared clock 的 state/event/command，不在 screen 重建时复活；默认 creation template 与共享资产保留，单屏退出不重置其他屏 clock。只在既有 committed topology/cadence 边界执行，不能提前撤当前冻结帧。failed/bind-only 动态 ID 的成员记录保留，避免每帧重试。
+
+验收复用准备、动画 clock、真实 GPU publication/clipping/pool、direct stream、physics 和真实 QuickJS bones/pose 门。新增冻结 A→CPU 准备 B→GPU 仍发布 A 的 vertices/coverage/ROI、重复 GPU 发布不推进 CPU、两 Surface 独立以及 authored destroy/clone 保持反例。旧源码形状断言退役，独立行为保留；嵌入 Swift fixture 只按完整载体抽出，避免测试文件超限。完成 Debug build，再用冻结旧 App 对原始多 clip、optional additive、physics 交互、健康邻例及动态出生/销毁作同输入新旧运行，核正常退出与 GPU drain。成本只按实际准备次数和可比较测量声明，不凭 owner 数量宣称 FPS、能耗、完整语料或官方 parity。完成后按 Puppet 完整族独立提交；随后只做一次有限 Context/descriptor/dependency 审计与整体迁移保真、同条件成本验收，不将独立兼容缺口扩成无限重构前置项。
+
 ## 职责与数据流
 
 ```text
