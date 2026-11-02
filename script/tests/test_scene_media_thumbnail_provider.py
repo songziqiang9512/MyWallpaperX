@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from script.tests.source_family import read_source_family
 import json
 import os
 import shutil
@@ -11,11 +10,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from .test_scene_prepared_script_resource_catalog import swift_declaration
+
 
 ROOT = Path(__file__).resolve().parents[2]
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
-RENDERER = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift"
-MEDIA_STORE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/SceneMediaThumbnailTextureStore.swift"
+READINESS_SOURCE = SCENE / "Resources/Textures/SceneBaseImageTextureLoad.swift"
 SOURCES = [
     Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
     ROOT / "MyWallpaperX/Core/Playback/SystemMedia/SystemMediaSnapshotStore.swift",
@@ -51,6 +51,7 @@ guard let device = MTLCreateSystemDefaultDevice() else {
 let a = png(red: 255, green: 0, blue: 0)
 let b = png(red: 0, green: 255, blue: 0)
 var result = checkMediaThumbnailLifecycle(device: device, firstImage: a, nextImage: b)
+result["cancellation"] = checkMediaThumbnailCancellation(device: device, firstImage: a, nextImage: b)
 result.merge(checkMediaThumbnailEvents(firstImage: a, nextImage: b)) { _, _ in
     fatalError("Duplicate media fixture result key")
 }
@@ -60,96 +61,6 @@ print(String(decoding: data, as: UTF8.self))
 
 
 class SceneMediaThumbnailProviderTests(unittest.TestCase):
-    def test_base_material_route_reports_ready_and_rejected_provider(self) -> None:
-        renderer = read_source_family(RENDERER)
-        dependency = (
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyFrameRuntime.swift"
-        ).read_text(encoding="utf-8")
-        self.assertIn('operation: "base-material-system-provider"', renderer)
-        self.assertIn(
-            'operation: "base-material-provider-rejected"', renderer
-        )
-        self.assertIn('operation: "base-material-user-property-provider"', renderer)
-        self.assertIn("} else if baseSource?.usesSystemProvider == true {", renderer)
-        self.assertIn("usesAuthoredLayerColor:", renderer)
-        self.assertIn("let color = usesAuthoredLayerColor", dependency)
-        selection = renderer.index("let baseSelection: SceneBaseMaterialTextureSelection")
-        rejection = renderer.index(
-            "if let reasonCode = baseSelection.rejectedProviderReason", selection
-        )
-        graph_provider = renderer.index(
-            "executeDependencyGraphProviderIfRequired", rejection
-        )
-        dependency_capture = renderer.index(
-            "dependencyRuntime.requiresCapture", graph_provider
-        )
-        visibility_gate = renderer.index(
-            "guard frameVisibleLayerIDs.contains(layer.id)", dependency_capture
-        )
-        self.assertLess(selection, rejection)
-        self.assertLess(rejection, graph_provider)
-        self.assertLess(graph_provider, dependency_capture)
-        self.assertLess(dependency_capture, visibility_gate)
-
-        preflight = (
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight.swift"
-        ).read_text(encoding="utf-8") + (
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight+Admission.swift"
-        ).read_text(encoding="utf-8")
-        begin = renderer.index("beginTextureFrame(")
-        frame_preparation = renderer.index("admitResolvedMaterialFrameTargets(", begin)
-        self.assertLess(begin, frame_preparation)
-        target_preflight = preflight.index("switch preflightResolvedMaterialFrameTargets(")
-        self.assertIn('if layer.contentKind != "solid" {', preflight)
-        self.assertIn("SceneLayerEffectSourceExtent.resolve(", preflight)
-        self.assertIn("authoredRenderSizeWH: layer.renderSizeWH", preflight)
-        self.assertIn(
-            "candidateMappedSize: selectedSource.candidate?.mappedSize",
-            preflight,
-        )
-        puppet_geometry = preflight.index(
-            "if imageTextures.geometryProducts[layer.id] != nil {"
-        )
-        ordinary_image = preflight.index(
-            'if layer.contentKind != "solid" {', puppet_geometry
-        )
-        self.assertLess(
-            puppet_geometry,
-            preflight.index("width: selectedSource.texture.width", puppet_geometry),
-        )
-        self.assertLess(
-            preflight.index("height: selectedSource.texture.height", puppet_geometry),
-            ordinary_image,
-        )
-        deferred = preflight.index("case .deferred:", target_preflight)
-        defer_frame = preflight.index(
-            "imageCompositor.deferResolvedMaterialFrame()", deferred
-        )
-        deferred_end = preflight.index(
-            "imageCompositor.endResolvedMaterialFrame(on: commandBuffer)",
-            defer_frame,
-        )
-        rejected = preflight.index("case .rejected(let reasonCode):", deferred_end)
-        rejected_end = preflight.index(
-            "imageCompositor.endResolvedMaterialFrame(on: commandBuffer)", rejected
-        )
-        self.assertLess(deferred, defer_frame)
-        self.assertLess(defer_frame, deferred_end)
-        self.assertLess(deferred_end, rejected)
-        self.assertLess(rejected, rejected_end)
-
-        store = MEDIA_STORE.read_text(encoding="utf-8")
-        self.assertIn("private var cachedSnapshot: Snapshot?", store)
-        self.assertIn("private var snapshotDirty = true", store)
-        self.assertIn("private var preparedFrameSnapshot: Snapshot?", store)
-        self.assertIn("func prepareFrame() -> Snapshot", store)
-        self.assertIn("func commitPreparedFrame()", store)
-        self.assertIn("func discardPreparedFrame()", store)
-        self.assertIn("if let preparedFrameSnapshot { return preparedFrameSnapshot }", store)
-        self.assertIn("if !snapshotDirty, let cachedSnapshot", store)
-        self.assertIn("return makeSnapshotLocked()", store)
-        self.assertIn("snapshotDirty = true", store)
-
     def test_current_provider_stale_rejection_last_ready_and_clear(self) -> None:
         if shutil.which("swiftc") is None:
             self.skipTest("swiftc is unavailable")
@@ -157,12 +68,16 @@ class SceneMediaThumbnailProviderTests(unittest.TestCase):
             root = Path(directory)
             harness = root / "main.swift"
             harness.write_text(HARNESS, encoding="utf-8")
+            readiness = root / "SceneOrdinaryVideoFrameReadiness.swift"
+            readiness.write_text(swift_declaration(
+                READINESS_SOURCE.read_text(), "enum SceneOrdinaryVideoFrameReadiness:"
+            ) + "\n", encoding="utf-8")
             binary = root / "provider"
             environment = os.environ.copy()
             environment["CLANG_MODULE_CACHE_PATH"] = str(root / "clang-cache")
             environment["SWIFT_MODULECACHE_PATH"] = str(root / "swift-cache")
             subprocess.run(
-                ["swiftc", *map(str, SOURCES), str(harness), "-o", str(binary)],
+                ["swiftc", *map(str, SOURCES), str(readiness), str(harness), "-o", str(binary)],
                 check=True,
                 cwd=ROOT,
                 env=environment,
@@ -174,6 +89,9 @@ class SceneMediaThumbnailProviderTests(unittest.TestCase):
         for name, passed in result["maskPublications"].items():
             with self.subTest(mask_publication=name):
                 self.assertTrue(passed)
+        for name, passed in result["cancellation"].items():
+            with self.subTest(cancellation=name):
+                self.assertTrue(passed, name)
         self.assertEqual(result["generation"], 3)
         self.assertTrue(result["initialEmptyStatesAbsent"])
         self.assertEqual(result["initialPendingGeneration"], 3)

@@ -1,7 +1,7 @@
 """Run production frozen-frame scheduling with controlled transport completion.
 
-The existing method-extraction scaffold executes the driver, Session text
-notification, invalidation, surface submission, cohort and PreparedFrame owners.
+The existing method-extraction scaffold executes the driver, Session text/media
+notifications, invalidation, surface submission, cohort and PreparedFrame owners.
 Only the normal simulation branch is replaced by a trap. Timer, dispatch,
 raster readiness and Metal completion are hand-controlled transport boundaries;
 no scheduler or publication policy is reproduced.
@@ -106,18 +106,6 @@ struct SceneMetalRenderer {}
 struct SceneResolvedMaterialFrameTargetPlan {}
 struct SceneResolvedMaterialRuntimeBridge { struct FramePreparationRequest {} }
 struct SceneResolvedMaterialFrameResourceBundle {}
-enum Counter {
-    case frameAttempts, cpuFrameMicros, framesRendered, framesBusy, framesDropped, framesInactive
-}
-enum Phase { case firstVisibleFrame }
-struct ScenePerformanceCounterHub {
-    static let shared = ScenePerformanceCounterHub()
-    func bump(_ counter: Counter) {}
-    func add(_ counter: Counter, _ value: UInt64) {}
-    func recordLaunchPhase(_ phase: Phase, uptimeMicros: UInt64) {}
-    static func nowUptimeMicros() -> UInt64 { 0 }
-    static func micros(since: TimeInterval) -> UInt64 { 0 }
-}
 enum SceneDesktopWallpaperHost { static let usesDebugEvidenceWindow = false }
 enum SceneFramePerformanceTelemetry { static let debugEvidence: Int? = nil }
 struct PlaybackPerformanceProfile { var maxFPS = 60 }
@@ -155,15 +143,30 @@ final class SceneDynamicTextTextureStore {
     }
 }
 
+enum SceneMediaThumbnailInbox { struct Snapshot { let generation: UInt64 } }
+final class SceneMediaThumbnailTextureStore {
+    struct Snapshot { var generation: UInt64 = 0; var pendingGeneration: UInt64? }
+    var publication = Snapshot(), updates: [UInt64] = []
+    var onUpdate: (() -> Void)?
+    func snapshot() -> Snapshot { publication }
+    func update(from input: SceneMediaThumbnailInbox.Snapshot) {
+        updates.append(input.generation); onUpdate?()
+    }
+}
+
 final class SceneMetalView {
-    // INVALIDATION_TYPE
     enum Plan { case prepared, synchronousDrop, deferred, cancelled }
-    var onRenderInvalidated: ((RenderInvalidation) -> Void)?
+    var onRenderInvalidated: (() -> Void)?
     var preparedTextSnapshot: SceneDynamicTextTextureStore.Snapshot?
     var submittedTextSnapshot: SceneDynamicTextTextureStore.Snapshot?
     var onRender: (() -> Void)?
+    struct SimulationFrame {
+        var mediaInputGeneration: UInt64 = 0
+        var mediaThumbnail = SceneMediaThumbnailTextureStore.Snapshot()
+    }
+    var simulationFrame: SimulationFrame? = .init()
     let hasSimulationFrame = true
-    let simulationFrameIndex: UInt64 = 7
+    var simulationFrameIndex: UInt64 = 7
     struct Device { let registryID: UInt64 = 1 }
     let metalDevice = Device()
     var videoPresentation: SceneMetalRenderer.InitialVideoPresentation?
@@ -197,10 +200,8 @@ final class SceneMetalView {
     }
     func commitPreparedMaterialAssetFrame() { publicationCommits += 1 }
     func commitPreparedFrameTexturePublication() {}
-    func commitPreparedMediaThumbnailUpdate() {}
     func discardPreparedMaterialAssetFrame() { publicationDiscards += 1 }
     func discardPreparedFrameTexturePublication() {}
-    func discardPreparedMediaThumbnailUpdate() {}
     // TEXT_FRAME_METHODS
     func invalidateResolvedMaterialRuntime(reason: SceneGraphExecutionResetReason) {}
     func teardownParticlePlayback(reason: SceneGraphExecutionResetReason) {}
@@ -218,8 +219,9 @@ final class SceneDesktopWallpaperSession {
     var sceneClock = SceneClock(hostTime: 0)
     var launchContext: Int? = 1
     var dynamicTextTextures: SceneDynamicTextTextureStore? = .init()
-    var pendingDynamicTextUpdate: (snapshot: Int, dynamicLayers: [Int],
-        dynamicTextFieldsByLayerID: [Int: Set<Int>])?
+    var mediaThumbnailTextures: SceneMediaThumbnailTextureStore? = .init()
+    var pendingProviderUpdate: (dynamicValues: Int, dynamicLayers: [Int],
+        dynamicTextFieldsByLayerID: [Int: Set<Int>], mediaInput: SceneMediaThumbnailInbox.Snapshot)?
     var surfaces: [CGDirectDisplayID: Surface] = [:]
     var preparedSurfaceIDs: Set<CGDirectDisplayID> = []
     var initialPresentationCohort = SceneInitialPresentationCohort()
@@ -246,8 +248,6 @@ final class SceneDesktopWallpaperSession {
         dynamicTextTextures!.generation = generation
         textTexturePublicationDidChange(dynamicTextTextures!)
     }
-    // No new media input. The production driver still chooses its frozen path.
-    func refreshPausedMediaPublications() -> Bool { false }
     func attach(_ screenID: CGDirectDisplayID = 1) -> Surface {
         let surface = Surface()
         let metalView = surface.metalView
@@ -293,7 +293,7 @@ SCENARIOS = r'''
         TransportTime.now += 5
         precondition(!RunLoop.main.fireNext() && surface.metalView.draws == 1)
         // A real surface invalidation requests exactly one new frozen image.
-        surface.metalView.onRenderInvalidated?(.surface)
+        surface.metalView.onRenderInvalidated?()
         DispatchQueue.main.drain()
         precondition(surface.metalView.draws == 2)
         complete(surface.metalView, 1, true)
@@ -370,7 +370,7 @@ SCENARIOS = r'''
         let (owner, surface, before) = fixture()
         owner.startFrameDriver()
         let old = surface.metalView.candidates[0]
-        surface.metalView.onRenderInvalidated?(.surface)
+        surface.metalView.onRenderInvalidated?()
         DispatchQueue.main.drain()
         let current = surface.metalView.candidates[1]
         precondition(old !== current && surface.pendingPausedFrame === current)
@@ -392,7 +392,7 @@ SCENARIOS = r'''
             let previousDeadline = busyOwner.pausedFrameRetryDeadline!
             TransportTime.now += 0.3
             view.plan = .deferred
-            view.onRenderInvalidated?(.surface)
+            view.onRenderInvalidated?()
             DispatchQueue.main.drain()
             let currentDeadline = busyOwner.pausedFrameRetryDeadline!
             precondition(currentDeadline > previousDeadline)
@@ -433,7 +433,7 @@ SCENARIOS = r'''
         owner.startFrameDriver()
         complete(current.metalView, 0, true)
         complete(old.metalView, 0, false)
-        old.metalView.onRenderInvalidated?(.surface)
+        old.metalView.onRenderInvalidated?()
         DispatchQueue.main.drain()
         precondition(deliveries == 0 && current.didSubmitSimulationFrame)
         precondition(current.pendingPausedFrame == nil && current.metalView.draws == 1)
@@ -449,7 +449,7 @@ SCENARIOS = r'''
         precondition(owner.surfaces.isEmpty && owner.pausedFrameRetryDeadline == nil)
         precondition(owner.retiredSurfaces == 1 && surface.window.closes == 1)
         complete(surface.metalView, 0, false)
-        surface.metalView.onRenderInvalidated?(.surface)
+        surface.metalView.onRenderInvalidated?()
         DispatchQueue.main.drain()
         precondition(deliveries == 0 && surface.metalView.draws == 1)
         stopped(owner)
@@ -502,7 +502,7 @@ SCENARIOS = r'''
         owner.setPlaybackPaused(true)
         let before = owner.sceneClock.snapshot()
         owner.launchContext = 1
-        surface.metalView.onRenderInvalidated?(.surface)
+        surface.metalView.onRenderInvalidated?()
         DispatchQueue.main.drain()
         precondition(surface.pendingPausedFrame !== old)
         complete(surface.metalView, 1, true)
@@ -541,15 +541,15 @@ SCENARIOS = r'''
         owner.startFrameDriver()
         precondition(owner.initialPresentationCohort.isHeld)
         precondition(!owner.initialPresentationCohort.hasDelivered)
-        for surface in surfaces {
-            owner.publishText(2)
-            owner.publishText(3)
-            surface.metalView.onRenderInvalidated?(.mediaPublication)
-        }
+        for surface in surfaces { surface.metalView.simulationFrame?.mediaThumbnail.pendingGeneration = 0 }
+        owner.publishText(2)
+        owner.publishText(3)
+        owner.enqueueMediaThumbnailPublication(owner.mediaThumbnailTextures!)
         DispatchQueue.main.drain()
         precondition(surfaces.allSatisfy { $0.metalView.draws == 1 },
                      "unadopted publication replaced the qualified candidate")
         precondition(owner.initialPresentationCohort.isHeld && callbacks.isEmpty)
+        precondition(surfaces.allSatisfy(\.didSubmitSimulationFrame))
         stopped(owner)
         for (index, surface) in surfaces.enumerated() {
             complete(surface.metalView, 0, true)
@@ -563,10 +563,8 @@ SCENARIOS = r'''
         precondition(owner.initialPresentationCohort.hasDelivered)
         // Parent may delay promotion. More ready data cannot silently replace
         // its delivered drawable or turn publication into a Host failure.
-        for surface in surfaces {
-            owner.publishText(5)
-            surface.metalView.onRenderInvalidated?(.mediaPublication)
-        }
+        owner.publishText(5)
+        owner.enqueueMediaThumbnailPublication(owner.mediaThumbnailTextures!)
         DispatchQueue.main.drain()
         precondition(callbacks.count == screens)
         precondition(owner.initialPresentationCohort.isHeld)
@@ -582,7 +580,7 @@ SCENARIOS = r'''
         owner.startFrameDriver()
         complete(a, 0, true)
         precondition(callbacks.isEmpty)
-        b.onRenderInvalidated?(.surface)
+        b.onRenderInvalidated?()
         DispatchQueue.main.drain()
         precondition(a.draws == 2 && b.draws == 2)
         precondition(owner.initialPresentationCohort.isHeld)
@@ -593,7 +591,7 @@ SCENARIOS = r'''
         complete(a, 1, true)
         precondition(callbacks == ["1:true", "2:true"])
         precondition(owner.initialPresentationCohort.hasDelivered)
-        a.onRenderInvalidated?(.surface)
+        a.onRenderInvalidated?()
         DispatchQueue.main.drain()
         precondition(callbacks == ["1:true", "2:true", "1:false"],
                      "real invalidation after delivery must reach original Host failure")
@@ -613,7 +611,7 @@ SCENARIOS = r'''
         }
         owner.startFrameDriver()
         if stale {
-            view.onRenderInvalidated?(.surface)
+            view.onRenderInvalidated?()
             DispatchQueue.main.drain()
             precondition(view.draws == 2)
             complete(view, 1, true)
@@ -653,6 +651,13 @@ SCENARIOS = r'''
         owner.publishText(9)
         precondition(view.drawnTextGenerations == [0, 8, 9])
         complete(view, 2, true)
+        let retiredMedia = owner.mediaThumbnailTextures!
+        view.simulationFrame?.mediaInputGeneration = 9
+        retiredMedia.publication = .init(generation: 9)
+        owner.enqueueMediaThumbnailPublication(retiredMedia)
+        owner.mediaThumbnailTextures = .init()
+        DispatchQueue.main.drain()
+        precondition(view.draws == 3)
         stopped(owner)
         frozen(owner, before)
     }
@@ -660,23 +665,33 @@ SCENARIOS = r'''
         for plan: SceneMetalView.Plan in [.deferred, .synchronousDrop, .cancelled] {
             let (owner, surface, before) = fixture(), view = surface.metalView
             let store = owner.dynamicTextTextures!
-            owner.pendingDynamicTextUpdate = (17, [23], [23: [4]])
+            owner.pendingProviderUpdate = (17, [23], [23: [4]], .init(generation: 17))
             view.plan = plan; owner.startFrameDriver()
-            precondition(owner.pendingDynamicTextUpdate?.snapshot == 17 && store.updates.isEmpty)
+            precondition(owner.pendingProviderUpdate?.dynamicValues == 17 && store.updates.isEmpty)
+            precondition(owner.mediaThumbnailTextures!.updates.isEmpty)
+            precondition(!owner.refreshPausedMediaPublications(.init(generation: 17)))
+            precondition(!owner.refreshPausedMediaPublications(.init(generation: 0, pendingGeneration: 1)))
             view.plan = .prepared
             precondition(RunLoop.main.fireNext())
-            precondition(owner.pendingDynamicTextUpdate == nil && store.updates == [17])
+            precondition(owner.pendingProviderUpdate == nil && store.updates == [17])
             precondition(store.updatedLayers == [23] && store.updatedFields == [23: [4]])
             complete(view, view.buffers.count - 1, true)
             _ = owner.renderSurfaces()
-            precondition(store.updates == [17]); stopped(owner); frozen(owner, before)
+            precondition(store.updates == [17] && owner.mediaThumbnailTextures!.updates == [17])
+            stopped(owner); frozen(owner, before)
         }
         for rejected: SceneMetalView.Plan in [.deferred, .synchronousDrop] {
             let (owner, a, before) = fixture(), b = owner.attach(2)
             let store = owner.dynamicTextTextures!
             b.metalView.plan = rejected
-            owner.pendingDynamicTextUpdate = (29, [31], [31: [5]])
-            for surface in [a, b] { surface.metalView.onRender = { store.generation += 1 } }
+            owner.pendingProviderUpdate = (29, [31], [31: [5]], .init(generation: 29))
+            let media = owner.mediaThumbnailTextures!
+            media.publication = .init(generation: 29)
+            media.onUpdate = { owner.enqueueMediaThumbnailPublication(media) }
+            for surface in [a, b] {
+                surface.metalView.simulationFrame?.mediaInputGeneration = 29
+                surface.metalView.onRender = { store.generation += 1 }
+            }
             let result = owner.renderSurfaces()
             if case .busy = result { precondition(rejected == .deferred) }
             else if case .dropped = result { precondition(rejected == .synchronousDrop) }
@@ -684,11 +699,16 @@ SCENARIOS = r'''
             precondition(store.snapshotReads == 1 && store.generation == 2)
             precondition([a, b].allSatisfy { $0.metalView.drawnTextGenerations == [0] },
                          "worker readiness changed the frozen attempt between surfaces")
-            precondition(store.updates == [29] && owner.pendingDynamicTextUpdate == nil,
+            precondition(store.updates == [29] && owner.pendingProviderUpdate == nil,
                          "a submitted surface must consume pending input despite busy/dropped return")
             precondition(a.metalView.submittedTextSnapshot?.generation == 0 && a.metalView.preparedTextSnapshot == nil)
             precondition(b.metalView.submittedTextSnapshot == nil && b.metalView.preparedTextSnapshot == nil)
-            complete(a.metalView, 0, true); stopped(owner); frozen(owner, before)
+            precondition(media.updates == [29] && a.metalView.draws == 1 && b.metalView.draws == 1,
+                         "synchronous producer notification reentered the post-submit attempt")
+            b.metalView.plan = .prepared
+            complete(a.metalView, 0, true)
+            precondition(media.updates == [29] && [a, b].allSatisfy(\.didSubmitSimulationFrame))
+            stopped(owner); frozen(owner, before)
         }
     }
     static let videoA = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
@@ -711,7 +731,7 @@ SCENARIOS = r'''
         let view = surface.metalView, healthy = owner.attach(2)
         healthy.metalView.videoPresentation = .init(readyLayerIDs: [1])
         view.videoPresentation = .init(pendingLayerIDs: [2], pendingSurfaceLayerIDs: [2])
-        view.onRenderInvalidated?(.surface); DispatchQueue.main.drain()
+        view.onRenderInvalidated?(); DispatchQueue.main.drain()
         let deadline = surface.videoSwitchDeadline!
         precondition(view.presentationFlags == [true, false] && !surface.didSubmitSimulationFrame)
         precondition(view.commits == 2 && view.publicationCommits == 2 && providers.commits == 2)
@@ -736,7 +756,7 @@ SCENARIOS = r'''
         let (owner, surface, before, _) = seededVideo()
         let view = surface.metalView
         view.videoPresentation = .init(pendingLayerIDs: [2], pendingSurfaceLayerIDs: [2])
-        view.onRenderInvalidated?(.surface); DispatchQueue.main.drain()
+        view.onRenderInvalidated?(); DispatchQueue.main.drain()
         let deadline = surface.videoSwitchDeadline!
         complete(view, 1, true)
         TransportTime.now = deadline
@@ -754,7 +774,7 @@ SCENARIOS = r'''
         let (owner, surface, before, _) = seededVideo()
         let view = surface.metalView
         view.videoPresentation = .init(pendingLayerIDs: [2], pendingSurfaceLayerIDs: [2])
-        view.onRenderInvalidated?(.surface); DispatchQueue.main.drain()
+        view.onRenderInvalidated?(); DispatchQueue.main.drain()
         let deadline = surface.videoSwitchDeadline!
         TransportTime.now = deadline - 0.05
         if kind == "gpu" { complete(view, 1, false) }
@@ -779,12 +799,12 @@ SCENARIOS = r'''
         let view = surface.metalView
         for ids: Set<Int> in [[1, 2], [1]] {
             view.videoPresentation = .init(readyLayerIDs: ids)
-            view.onRenderInvalidated?(.surface); DispatchQueue.main.drain()
+            view.onRenderInvalidated?(); DispatchQueue.main.drain()
             precondition(surface.lastSubmittedPresentationSources == (ids.count == 2 ? [videoA, videoB] : [videoA]))
         }
         // Older GPU callbacks have not run; optional C cannot revive retired B.
         view.videoPresentation = .init(readyLayerIDs: [1], pendingLayerIDs: [3], pendingSurfaceLayerIDs: [3])
-        view.onRenderInvalidated?(.surface); DispatchQueue.main.drain()
+        view.onRenderInvalidated?(); DispatchQueue.main.drain()
         precondition(view.presentationFlags.allSatisfy { $0 } && surface.videoSwitchDeadline == nil)
         precondition(!surface.didSubmitSimulationFrame && owner.frameTimer != nil)
         complete(view, 1, true); complete(view, 2, true); complete(view, 3, true)
@@ -868,13 +888,15 @@ def production_harness(sources=None):
         frame,
         method(pause, "func setPlaybackPaused("),
         method(session, "func textTexturePublicationDidChange("),
+        method(session, "func enqueueMediaThumbnailPublication("),
+        method(driver, "func refreshPausedMediaPublications("),
         retirement,
     ])
     harness = STUBS.replace("// INVALIDATION\n", method(session, "metalView.onRenderInvalidated =") + "\n")
-    harness = harness.replace("// INVALIDATION_TYPE", method(view, "enum RenderInvalidation {"))
     harness = harness.replace("// TEXT_FRAME_METHODS", "\n".join(
         method(view, signature) for signature in (
-            "func commitPreparedDynamicTextFrame(", "func discardPreparedDynamicTextFrame(")))
+            "func commitPreparedDynamicTextFrame(", "func discardPreparedDynamicTextFrame(",
+            "var simulationMediaInputGeneration:", "func refreshPausedMediaThumbnail(")))
     harness = harness.replace("// METHODS", methods)
     return "\n".join([
         method(driver, "enum SceneFrameDriverAttempt"),

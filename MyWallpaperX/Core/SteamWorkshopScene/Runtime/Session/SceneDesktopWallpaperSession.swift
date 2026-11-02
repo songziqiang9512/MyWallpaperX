@@ -90,10 +90,12 @@ final class SceneDesktopWallpaperSession {
         PendingDeferredLayerVisibilityUpdate?
     var userPropertyTextureLoad: SceneUserPropertyTextureLoadResult = .empty
     var dynamicTextTextures: SceneDynamicTextTextureStore?
-    var pendingDynamicTextUpdate: (
-        snapshot: SceneDynamicSnapshot,
+    var mediaThumbnailTextures: SceneMediaThumbnailTextureStore?
+    var pendingProviderUpdate: (
+        dynamicValues: SceneDynamicSnapshot,
         dynamicLayers: [SceneRenderDescriptor.Layer],
-        dynamicTextFieldsByLayerID: [Int: Set<SceneDynamicTextField>]
+        dynamicTextFieldsByLayerID: [Int: Set<SceneDynamicTextField>],
+        mediaInput: SceneMediaThumbnailInbox.Snapshot
     )?
     var pendingUserTextureUpdates: [UInt64: PendingUserTextureUpdate] = [:]
     var latestUserTextureRevisions: [String: UInt64] = [:]
@@ -164,6 +166,11 @@ final class SceneDesktopWallpaperSession {
             capturesLifecycleObservations: context.capturesExecutionObservations
         )
         launchContext = context
+        mediaThumbnailTextures = SceneMediaThumbnailTextureStore(
+            device: context.preparedDeviceResources.device,
+            textureUploadCommandQueue: context.preparedDeviceResources.baseImages.textureLoader.uploadCommandQueue,
+            onPublication: { [weak self] store in self?.enqueueMediaThumbnailPublication(store) }
+        )
         installUserShortcuts(context.userShortcuts)
         self.userPropertyTextureLoad = userPropertyTextureLoad
         evaluationTransaction = .init()
@@ -242,7 +249,9 @@ final class SceneDesktopWallpaperSession {
         // A paused candidate already rendered its frame while transparent.
         // Present it once visibly without rerunning its simulation.
         surfaces.values.forEach { $0.didSubmitSimulationFrame = false }
-        if sceneClock.isPaused { _ = refreshPausedMediaPublications() }
+        if sceneClock.isPaused, let mediaThumbnailTextures {
+            _ = refreshPausedMediaPublications(mediaThumbnailTextures.snapshot())
+        }
         if sceneClock.isPaused || heldInitialFrame { startFrameDriver() }
     }
 
@@ -548,10 +557,6 @@ final class SceneDesktopWallpaperSession {
                 textureAnimationPlaybackRuntime:
                     launchContext.textureAnimationPlaybackRuntime,
                 puppetAnimationPlaybackRuntime: launchContext.puppetAnimationPlaybackRuntime,
-                textureUploadCommandQueue: launchContext.preparedDeviceResources
-                    .baseImages.textureLoader.uploadCommandQueue,
-                textureDecodeCacheBudget: launchContext.preparedDeviceResources
-                    .baseImages.textureLoader.decodeCacheBudget,
                 userPropertyTextureLoad: userPropertyTextureLoad,
                 userPropertyVideoSources: userVideoSources,
                 presentationStreamID: UInt64(screenID),
@@ -669,13 +674,10 @@ final class SceneDesktopWallpaperSession {
                 scriptGeneration: launchContext.propertyVectorScriptProgram.generation
             )
             if let surface = surfaces[screenID] {
-                metalView.onRenderInvalidated = { [weak self, weak surface] reason in
+                metalView.onRenderInvalidated = { [weak self, weak surface] in
                     DispatchQueue.main.async { [weak self, weak surface] in
                         guard let self, let surface, self.surfaces[screenID] === surface else { return }
                         if self.initialPresentationCohort.isHeld {
-                            // A publication notification has not changed this
-                            // frozen frame. Do not replace its qualified output.
-                            if reason == .mediaPublication { return }
                             let delivered = self.initialPresentationCohort.hasDelivered
                             self.initialPresentationCohort.invalidate()
                             if delivered {
@@ -684,12 +686,7 @@ final class SceneDesktopWallpaperSession {
                                 return
                             }
                         }
-                        if reason == .mediaPublication {
-                            guard self.sceneClock.isPaused,
-                                  self.refreshPausedMediaPublications() else { return }
-                        } else {
-                            surface.didSubmitSimulationFrame = false
-                        }
+                        surface.didSubmitSimulationFrame = false
                         if self.sceneClock.isPaused || self.awaitsInitialPresentation { self.startFrameDriver() }
                     }
                 }
@@ -727,6 +724,15 @@ final class SceneDesktopWallpaperSession {
         guard dynamicTextTextures === store, !initialPresentationCohort.isHeld else { return }
         for surface in surfaces.values { surface.didSubmitSimulationFrame = false }
         if sceneClock.isPaused || awaitsInitialPresentation { startFrameDriver() }
+    }
+
+    func enqueueMediaThumbnailPublication(_ store: SceneMediaThumbnailTextureStore) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.mediaThumbnailTextures === store,
+                  !self.initialPresentationCohort.isHeld, self.sceneClock.isPaused,
+                  self.refreshPausedMediaPublications(store.snapshot()) else { return }
+            self.startFrameDriver()
+        }
     }
 
     private static func screenID(for screen: NSScreen) -> CGDirectDisplayID? {

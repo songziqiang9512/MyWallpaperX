@@ -162,41 +162,6 @@
       "count": 1
     },
     {
-      "path": "script/tests/test_scene_dynamic_text_generation.py",
-      "scope": "SceneDynamicTextGenerationTests.test_ready_texture_publication_declares_premultiplied_metadata",
-      "method": "assertNotIn",
-      "literal": "let renderSizes:",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_dynamic_text_generation.py",
-      "scope": "SceneDynamicTextGenerationTests.test_static_text_layers_leave_generation_state_untouched_after_preparation",
-      "method": "assertIn",
-      "literal": "guard !dynamicFields.isEmpty",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_dynamic_text_generation.py",
-      "scope": "SceneDynamicTextGenerationTests.test_static_text_layers_leave_generation_state_untouched_after_preparation",
-      "method": "assertIn",
-      "literal": "var signatureRefreshLayerIDs: Set<Int> = []",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_dynamic_text_generation.py",
-      "scope": "SceneDynamicTextGenerationTests.test_static_text_update_has_a_quiescent_gate_without_bypassing_dynamic_state",
-      "method": "assertIn",
-      "literal": "if !hasAdmittedDynamicLayer && !hasAuthoredDynamicFields",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_dynamic_text_generation.py",
-      "scope": "SceneDynamicTextGenerationTests.test_text_provider_frame_pin_is_cleared_only_at_host_outcome",
-      "method": "assertIn",
-      "literal": "let dynamicTextSnapshot = dynamicTextTextures?.prepareFrame()",
-      "count": 1
-    },
-    {
       "path": "script/tests/test_scene_effect_execution_telemetry.py",
       "scope": "SceneEffectExecutionTelemetryTests.test_unified_execution_uses_single_backend_identity",
       "method": "assertNotIn",
@@ -390,55 +355,6 @@
       "scope": "SceneLayerWorldFrameTests.test_dynamic_world_frame_uses_snapshot_transform_index",
       "method": "assertIn",
       "literal": "guard let layer = byID[layerID]",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_media_thumbnail_provider.py",
-      "scope": "SceneMediaThumbnailProviderTests.test_base_material_route_reports_ready_and_rejected_provider",
-      "method": "assertIn",
-      "literal": "func commitPreparedFrame()",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_media_thumbnail_provider.py",
-      "scope": "SceneMediaThumbnailProviderTests.test_base_material_route_reports_ready_and_rejected_provider",
-      "method": "assertIn",
-      "literal": "func discardPreparedFrame()",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_media_thumbnail_provider.py",
-      "scope": "SceneMediaThumbnailProviderTests.test_base_material_route_reports_ready_and_rejected_provider",
-      "method": "assertIn",
-      "literal": "func prepareFrame() -> Snapshot",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_media_thumbnail_provider.py",
-      "scope": "SceneMediaThumbnailProviderTests.test_base_material_route_reports_ready_and_rejected_provider",
-      "method": "assertIn",
-      "literal": "if !snapshotDirty, let cachedSnapshot",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_media_thumbnail_provider.py",
-      "scope": "SceneMediaThumbnailProviderTests.test_base_material_route_reports_ready_and_rejected_provider",
-      "method": "assertIn",
-      "literal": "if layer.contentKind != \"solid\" {",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_media_thumbnail_provider.py",
-      "scope": "SceneMediaThumbnailProviderTests.test_base_material_route_reports_ready_and_rejected_provider",
-      "method": "assertIn",
-      "literal": "if let preparedFrameSnapshot { return preparedFrameSnapshot }",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_media_thumbnail_provider.py",
-      "scope": "SceneMediaThumbnailProviderTests.test_base_material_route_reports_ready_and_rejected_provider",
-      "method": "assertIn",
-      "literal": "let color = usesAuthoredLayerColor",
       "count": 1
     },
     {
@@ -1153,13 +1069,6 @@
       "scope": "SceneShaderVariantEnvironmentTests.test_product_target_opt_in_is_carried_by_one_program_candidate",
       "method": "assertIn",
       "literal": "let compatibilityTargetAdmissionPending = prepared.all.allSatisfy",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_source_update_transaction.py",
-      "scope": "SceneSourceUpdateTransactionTests.test_dynamic_text_provider_publishes_only_after_frame_submission",
-      "method": "assertIn",
-      "literal": "func discardPreparedDynamicTextUpdate()",
       "count": 1
     },
     {

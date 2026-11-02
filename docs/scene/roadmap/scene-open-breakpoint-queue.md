@@ -2,7 +2,7 @@
 
 # Scene 当前断点修复队列
 
-> 更新：2026-11-01。这里只保具体未闭问题；按**画面合成/正常播放 → 有证性能成本 → 属性接线 → 合同与验证债**选序，同档先补真实缺失能力、再扩大既有覆盖，服从[兼容路线](scene-compatibility-roadmap.md)。已闭首门、正常/误报及旧批背景移入[退出记录](../history/open-breakpoint-reconciliation-2026-10-23.md)。部分修复按子现象退出，不销整样本账。
+> 更新：2026-11-02。这里只保具体未闭问题；按**画面合成/正常播放 → 有证性能成本 → 属性接线 → 合同与验证债**选序，同档先补真实缺失能力、再扩大既有覆盖，服从[兼容路线](scene-compatibility-roadmap.md)。已闭首门、正常/误报及旧批背景移入[退出记录](../history/open-breakpoint-reconciliation-2026-10-23.md)。部分修复按子现象退出，不销整样本账。
 
 “运行首拒”不等于缺图；“待复验”不等于当前HEAD缺陷。默认隐藏、空媒体、作者入场/延迟、未ready、没有golden或未验更宽profile均不单独排实现。矩阵PASS/FAIL不代视觉裁决。样本原verdict及运行关联归[台账](../capabilities/scene-sample-acceptance-ledger.md)，分母归[声明统计](../capabilities/scene-corpus-capability-inventory.md)，现存证据身份归[运行记录](../capabilities/runtime-evidence-current.md#local-evidence-availability)。
 
@@ -18,6 +18,7 @@
 | 公共首断点 / 样本 | 未闭问题与最小下一门 |
 |---|---|
 | childless passthrough composition透视资格 · 2731896598 | 五层init写true、update写三维angles；[原D1](batch2/composition-render-target-design.md#无子层-composition-的透视回绘决定2026-10-16)仅资格非passthrough。10-29新自有A/B及一次FOV修正仍未建立内部倾斜正控，STOP_UNKNOWN，见[记录](../history/open-breakpoint-reconciliation-2026-10-23.md#childless-perspective-qualification-20261029)。先有合格正控再修订资格，不据矩形输出删setter/Camera门或以false-only绕过真实输入；保group/parent/dependency/native边界。 |
+| solid颜色Script投影/consumer不一致 · 自有19 | [有界首断点](../history/runtime-evidence-index.md#e-solid-color-vm-projection-20261102)：wrapper/script已解析，consumer接纳solid，但Vec3颜色投影在definition前退出，旧/新均无VM owner。先核solid作者seed/fallback及同一typed消费者，补非白seed、改名、image邻例和真实输出；20改image只资格媒体事件，不作solid恢复或实际语料故障结论。 |
 | SceneScript typed事件余项 · 3028048463 | 531.alpha作者空数组与506.origin的typed事件资格仍需分别对照，不能归缺API或扩大容错。360/304/302的跨owner写入首门已归[后验](../history/dynamic-layer-slot-lifetime-2026-10-29.md#owner-field-override-20261101)，回调批顺序不外推官方逐setter顺序。 |
 | Sound跨callback查询时序 · 3603711180 | 566 pending play407同callback查询为true，641新callback读旧snapshot为false，触发作者skip到532；非默认选曲或时长解析。短窗532已播放，无长稳结论。现门刻意隔离callback投影，官方只有同callback证据；先补跨callback/owner正反臂，再决定意图可见性，不直接扩全域pending状态。 |
 | 视频热切后的AV资源驻留 · 3372715909 | 12切换原型因footprint峰值3.83倍及呈现超预算比例上升撤回；[反证](../history/video-instance-observations-2026-10-29.md#video-output-residency-20261030)。后继[单源复合stop](../history/video-instance-observations-2026-10-29.md#video-item-stop-boundary-20261030)虽降device分配，item/asset weak仍活，寿命未隔离、不计产品收益。仅凭新物理驻留及新供帧证据重入；保clock/预算，不重复原型或延时清池。group/named/effect衔接及官方完整空窗仍未知。 |
@@ -187,7 +188,7 @@
 | 重构要求与现有 owner | 目标及旧职责退出 | 最近验证与停止条件 |
 |---|---|---|
 | `SceneRenderDescriptor.Layer` 同时保存字符串变换、数值变换及多类可选字段 | 明确 authored、prepared 与 live 分期；逐消费族收敛为类型化数据，身份和作者顺序仍唯一；退役不再需要的镜像与内容种类字符串分支 | 准备结果、默认值、动态属性、parent/相机、序列化兼容与代表组件；不先建无人消费的通用 ECS |
-| `SceneMetalView` 同时装配文字、视频、Puppet、粒子和延迟资源 | [文字生产已归Session](../history/runtime-evidence-index.md#e-session-text-production-20261102)，撤每屏worker/seed，提交几何仍归本屏；继续收敛媒体、Puppet等实际寿命。必要每屏CPU实例按surface隔离，GPU驻留归Rendering，View保AppKit surface/输入/呈现 | 独立屏幕输入、热切、候选、退场和异步旧结果；不通过新 facade 隐藏原字段或把每屏状态误合并 |
+| `SceneMetalView` 同时装配文字、视频、Puppet、粒子和延迟资源 | [文字](../history/runtime-evidence-index.md#e-session-text-production-20261102)及[媒体封面](../history/runtime-evidence-index.md#e-session-media-production-20261102)生产已归Session，撤每屏worker/Coordinator、seed与媒体pin/转发；文字提交几何仍归本屏，继续收敛Puppet等实际寿命。必要每屏CPU实例按surface隔离，GPU驻留归Rendering，View保AppKit surface/输入/呈现 | 独立屏幕输入、热切、候选、退场和异步旧结果；不通过新 facade 隐藏原字段或把每屏状态误合并 |
 | `LaunchContext` 与 `prepareLaunch` 混合准备事实、liveState 和运行对象 | [用户纹理交接](../history/runtime-evidence-index.md#e-user-texture-session-ownership-20261102)已撤Context镜像，初始结果经PreparedLaunch交给Session唯一活动owner；继续按真正消费者拆清其他准备/实例职责，取消、lease和退出沿原owner | 冷暖准备、取消/newer-wins、首帧失败保旧及安全退出；不新增第二 Session、完整场景快照或重复解析 |
 | 粒子 runtime 混合模拟和 GPU 缓冲持有 | 保留现有 prepared 操作/通道计划，CPU 实例归粒子运行 owner，GPU 上传/几何与绘制状态归 Rendering/Particles；替换完成撤旧字段与转发 | 多 renderer、child、预热、脚本播放、不同视口及实际 GPU 输出；不并行保留永久不同语义的 CPU/GPU 实现 |
 

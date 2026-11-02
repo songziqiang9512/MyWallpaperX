@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 import Metal
 
@@ -811,4 +812,82 @@ func checkMediaThumbnailLifecycle(
             && oversizedSource.preservedPrevious?.contentGeneration
                 == oversizedSource.generation,
     ]
+}
+
+private final class HeldMediaThumbnailDecoder: @unchecked Sendable {
+    let entered = DispatchSemaphore(value: 0)
+    let release = DispatchSemaphore(value: 0)
+    let published = DispatchSemaphore(value: 0)
+    let counter = DecodeCounter()
+    private let heldData: Data
+    private let lock = NSLock()
+    private var events: [String] = []
+
+    init(heldData: Data) { self.heldData = heldData }
+
+    func decode(_ data: Data) -> CGImage? {
+        guard data == heldData else { return counter.decode(data) }
+        note("decoder-entered")
+        entered.signal()
+        precondition(release.wait(timeout: .now() + 5) == .success)
+        defer { note("decoder-returned") }
+        return counter.decode(data)
+    }
+
+    func note(_ event: String) {
+        lock.lock(); events.append(event); lock.unlock()
+    }
+
+    func capturedEvents() -> [String] {
+        lock.lock(); defer { lock.unlock() }; return events
+    }
+}
+
+func checkMediaThumbnailCancellation(
+    device: MTLDevice, firstImage: Data, nextImage: Data
+) -> [String: Bool] {
+    let work = HeldMediaThumbnailDecoder(heldData: nextImage)
+    let inbox = SceneMediaThumbnailInbox()
+    let store = SceneMediaThumbnailTextureStore(device: device,
+        imageDecoder: work.decode,
+        onPublication: { _ in work.note("publication"); work.published.signal() })
+    _ = inbox.publish(firstImage)
+    store.update(from: inbox.latest())
+    precondition(work.published.wait(timeout: .now() + 5) == .success)
+    let ready = store.snapshot()
+    _ = inbox.publish(nextImage)
+    store.update(from: inbox.latest())
+    precondition(work.entered.wait(timeout: .now() + 5) == .success)
+
+    let drained = DispatchSemaphore(value: 0)
+    for _ in 0..<2 {
+        store.cancelAndDrain { work.note("drain"); drained.signal() }
+    }
+    var checks = [
+        "tailsWaitForActualDecoderReturn": drained.wait(timeout: .now()) == .timedOut,
+        "heldDecoderHasNotPublished": work.published.wait(timeout: .now()) == .timedOut,
+    ]
+    work.release.signal()
+    checks["bothTailsComplete"] = drained.wait(timeout: .now() + 5) == .success
+        && drained.wait(timeout: .now() + 5) == .success
+    checks["tailsFollowDecoderAndNoLatePublication"] = work.capturedEvents()
+        == ["publication", "decoder-entered", "decoder-returned", "drain", "drain"]
+        && work.published.wait(timeout: .now()) == .timedOut
+    let afterCancel = store.snapshot()
+    checks["cancelRetainsWholeReadyAtom"] = ready.generation == 1
+        && afterCancel.generation == ready.generation
+        && ready.publications.count == 3 && afterCancel.publications.count == 3
+        && ready.publications.allSatisfy { identity, atom in
+            guard case let .ready(stateAtom)? = afterCancel.providerStates[identity] else { return false }
+            return afterCancel.publications[identity]?.isSameAtom(as: atom) == true
+                && stateAtom.isSameAtom(as: atom)
+                && afterCancel.systemTextures[identity] === atom.texture
+        }
+        && afterCancel.previous == nil && afterCancel.preservedPrevious == nil
+        && pixel(afterCancel.current?.texture) == [255, 0, 0, 255]
+        && pixel(afterCancel.preservedCurrent?.texture) == [255, 0, 0, 255]
+    checks["actualDecoderEnteredTwice"] = work.counter.value == 2
+    store.cancelAndDrain { drained.signal() }
+    checks["completedDrainCanBeJoinedAgain"] = drained.wait(timeout: .now() + 5) == .success
+    return checks
 }

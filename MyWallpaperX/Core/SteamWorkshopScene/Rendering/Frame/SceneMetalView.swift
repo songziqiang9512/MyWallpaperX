@@ -53,7 +53,6 @@ class SceneMetalView: NSView {
     weak var preparedBaseImages: ScenePreparedBaseImageResources?
     private var deferredBaseImageURLs: [Int: SceneResourceView.FileInput] = [:]
     private var adoptedDeferredBaseImageURLs: [Int: SceneResourceView.FileInput] = [:]
-    private let mediaThumbnailCoordinator: SceneMediaThumbnailCoordinator
     let offscreenTexturePool: SceneOffscreenTexturePool
     var pointerState = SceneSurfacePointerState()
     var sceneScriptPointerEvents = SceneSurfacePointerEventBuffer()
@@ -94,10 +93,6 @@ class SceneMetalView: NSView {
         textureAnimationPlaybackRuntime:
             SceneTextureAnimationPlaybackRuntime,
         puppetAnimationPlaybackRuntime: ScenePuppetAnimationPlaybackRuntime,
-        textureUploadCommandQueue: SceneTextureUploadCommandQueue = .init(),
-        textureDecodeCacheBudget: SceneTextureDecodeCacheBudget = .init(
-            maximumBytes: 1_024 * 1_024 * 1_024
-        ),
         userPropertyTextureLoad: SceneUserPropertyTextureLoadResult = .empty,
         userPropertyVideoSources: [SceneUserPropertyTextureIdentity: SceneVideoTextureSource] = [:],
         presentationStreamID: UInt64,
@@ -123,11 +118,6 @@ class SceneMetalView: NSView {
         self.textureAnimationPlaybackRuntime = textureAnimationPlaybackRuntime
         self.puppetAnimationPlaybackRuntime = puppetAnimationPlaybackRuntime
         self.renderer = renderer
-        mediaThumbnailCoordinator = .init(
-            program: baseMaterialProviderBindings,
-            textureUploadCommandQueue: textureUploadCommandQueue,
-            device: renderer.device
-        )
         solidLayerTexture = SceneSolidLayerTexture.make(device: renderer.device)
         self.userPropertyTextureLoad = userPropertyTextureLoad
         self.userPropertyVideoSources = userPropertyVideoSources
@@ -166,9 +156,6 @@ class SceneMetalView: NSView {
         )
         parallaxPointerSmoother = SceneParallaxPointerSmoother()
         super.init(frame: frame)
-        mediaThumbnailCoordinator.setPublicationHandler { [weak self] in
-            DispatchQueue.main.async { [weak self] in self?.onRenderInvalidated?(.mediaPublication) }
-        }
         self.layer = layer
         wantsLayer = true
         imagePipeline = imageLayerPipeline
@@ -267,7 +254,7 @@ class SceneMetalView: NSView {
 #endif
 
 #if DEBUG
-        report.append(contentsOf: mediaThumbnailCoordinator.program.reportLines())
+        report.append(contentsOf: renderer.baseMaterialProviderBindings.reportLines())
 #endif
 
         for layer in imageLayers {
@@ -587,21 +574,9 @@ class SceneMetalView: NSView {
         }
     }
 
-    func prepareMediaThumbnail() -> SceneMediaThumbnailTextureStore.Snapshot {
-        mediaThumbnailCoordinator.prepareFrame()
-    }
-
-    func pausedMediaThumbnailPublication() -> SceneMediaThumbnailTextureStore.Snapshot? {
-        guard let simulationFrame else { return nil }
-        let snapshot = mediaThumbnailCoordinator.snapshot()
-        guard snapshot.generation == simulationFrame.mediaInput.generation,
-              snapshot.pendingGeneration == nil else { return nil }
-        return snapshot
-    }
-
     func refreshPausedMediaThumbnail(_ snapshot: SceneMediaThumbnailTextureStore.Snapshot) -> Bool {
         guard let frame = simulationFrame,
-              snapshot.generation == frame.mediaInput.generation,
+              snapshot.generation == frame.mediaInputGeneration,
               snapshot.pendingGeneration == nil,
               frame.mediaThumbnail.generation != snapshot.generation
                 || frame.mediaThumbnail.pendingGeneration != nil else { return false }
@@ -621,19 +596,16 @@ class SceneMetalView: NSView {
         let particles: [SceneParticleDrawBatch]
         let topology: SceneScriptLayerTopologySnapshot
         var mediaThumbnail: SceneMediaThumbnailTextureStore.Snapshot
-        let mediaInput: SceneMediaThumbnailInbox.Snapshot
+        let mediaInputGeneration: UInt64
         let spriteTimes: [Int: Float]
         let puppetAnimationFrame: ScenePuppetAnimationPlaybackRuntime.FrameSnapshot
         let attachmentFrames: ScenePuppetAttachmentFrameSnapshot
     }
-    enum RenderInvalidation {
-        case surface
-        case mediaPublication
-    }
-    var onRenderInvalidated: ((RenderInvalidation) -> Void)?
+    var onRenderInvalidated: (() -> Void)?
     private var simulationFrame: SimulationFrame?
     var hasSimulationFrame: Bool { simulationFrame != nil }
     var simulationFrameIndex: UInt64 { simulationFrame?.timing.frameIndex ?? 0 }
+    var simulationMediaInputGeneration: UInt64? { simulationFrame?.mediaInputGeneration }
 
     /// Scoped paused property publication can change snapshot generation
     /// without advancing simulation. Reuse its frozen pose, not a stale camera.
@@ -662,7 +634,7 @@ class SceneMetalView: NSView {
         materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = [],
         puppetBoneMutations: [SceneScriptPuppetBoneMutation] = [],
         mediaThumbnail: SceneMediaThumbnailTextureStore.Snapshot,
-        mediaInput: SceneMediaThumbnailInbox.Snapshot,
+        mediaInputGeneration: UInt64,
         audioSpectrum: SceneAudioSpectrumSnapshot = .silent,
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil
     ) {
@@ -715,7 +687,7 @@ class SceneMetalView: NSView {
             timing: timing, context: frameContext, camera: cameraFrame,
             projection: frameProjection, particles: particleBatches,
             topology: layerTopology,
-            mediaThumbnail: mediaThumbnail, mediaInput: mediaInput,
+            mediaThumbnail: mediaThumbnail, mediaInputGeneration: mediaInputGeneration,
             spriteTimes: spriteAnimationPlaybackTimes, puppetAnimationFrame: puppetAnimationFrame,
             attachmentFrames: attachmentFrames
         )
@@ -810,7 +782,6 @@ class SceneMetalView: NSView {
         let frameImageTextures = SceneFrameLayerTextureAssembly.make(
             base: imageTextures, dynamicImage: dynamicImageSnapshot,
             dynamicText: dynamicTextSnapshot,
-            mediaThumbnail: mediaThumbnail, mediaBindings: mediaThumbnailCoordinator.program,
             videoSources: videoSourceRegistry?.layerSources(deviceRegistryID: metalDevice.registryID) ?? [:],
             retiredLayerIDs: layerTopology.destroyedAuthoredLayerIDs, timing: timing,
             collectsInitialVideoReadiness: collectsInitialVideoReadiness
@@ -900,18 +871,6 @@ performanceTelemetry?.recordPreparation(
         )
         if !outcome.isPrepared { preparedTextSnapshot = nil }
         return outcome
-    }
-
-    func commitPreparedMediaThumbnailUpdate() {
-        if let simulationFrame {
-            _ = mediaThumbnailCoordinator.update(from: simulationFrame.mediaInput)
-        }
-        mediaThumbnailCoordinator.commitPreparedFrame()
-    }
-
-    func discardPreparedMediaThumbnailUpdate() {
-        // Keep the sampled input in the frozen frame for a paused retry.
-        mediaThumbnailCoordinator.discardPreparedFrame()
     }
 
     func commitPreparedFrameTexturePublication() {

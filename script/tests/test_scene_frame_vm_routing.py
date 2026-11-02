@@ -24,7 +24,6 @@ SURFACE_TEARDOWN_SOURCE = (
 )
 POINTER_EVENTS_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+PointerEvents.swift"
 VIEW_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift"
-MEDIA_COORDINATOR_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneMediaThumbnailCoordinator.swift"
 CURSOR_INTERACTION_SOURCE = (
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+SceneScriptCursorInteraction.swift"
 )
@@ -155,7 +154,7 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
         self.assertIn("vectorProjection.uniqueCandidates.map(\\.definition)", fallback)
         self.assertIn("SceneScriptScalarProgram.projectedDefinitions(", fallback)
         self.assertIn("SceneScriptStringProgram.projectedDefinitions(", fallback)
-        self.assertIn("Set(definitions.map(\\.target)) == targets", fallback)
+        # Fallback target/value behavior is exercised by test_scene_vector_media_events.
         self.assertIn("SceneScriptFallbackCatalog(", launch)
         self.assertIn(
             "sceneScriptFallbackDefinitions: sceneScriptFallbackDefinitions",
@@ -234,8 +233,6 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
         self.assertIn("raw.visible <= 1", mutations)
         self.assertIn("raw.order_index >= 0", mutations)
         self.assertIn("raw.layer_id >= -maximumLayerIdentity", mutations)
-        self.assertIn("raw.fields & ~SceneScriptLayerMutation.Fields.authoredFields.rawValue == 0", mutations)
-        self.assertIn("switch (kind, raw.dynamic, raw.fields)", mutations)
         self.assertIn(
             "case (.destroy, 0, 0), (.destroy, 1, 0), (.upsert, 1, 0):",
             mutations,

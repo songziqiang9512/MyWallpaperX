@@ -766,10 +766,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "edbd0478929c361d9eddc6d3485318398064d3e22cb45fede929841d8a1bf82a",
+        "sourceSHA256": "bc67bb7b22ea8e38610a7925c84c1bee4c592eb2cb6430625e618c0e404880a2",
         "method": "document_registry --audit + document_health --check",
-        "scope": "文字producer归Session，prepared/submitted几何归每屏；撤seed及孤立API，90项方法分轮复验、最终App与双Surface观测限制分列。",
-        "limitations": "双Surface benchmark保留呈现流观测FAIL；不授多物理屏、整体性能、全语料、官方parity或完整架构迁移。"
+        "scope": "核对Session唯一媒体Store、cadence共享snapshot、pendingProviderUpdate及stop/drain接线；撤Coordinator、View媒体转发和Store帧pin。",
+        "limitations": "本次为源码接线复核；53方法分轮与18次App的有界结果归历史，不授整体性能、物理多屏或完整迁移，solid颜色投影仍未修。"
       },
       "purpose": "实际接线或已记录运行证据；不反向定义目标架构，不决定实施顺序。"
     },
@@ -1056,10 +1056,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "95e4322e8908ff320eae83ca58e0ea286b8cf44ab3b3c5f58f4361fbf39ce04e",
+        "sourceSHA256": "5891b0262e6df5b8e6210a5ffe0c516f1667bf83caa3995af7bba9b04dac7a2d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "文字producer归Session，prepared/submitted几何归每屏；撤seed及孤立API，90项方法分轮复验、最终App与双Surface观测限制分列。",
-        "limitations": "双Surface benchmark保留呈现流观测FAIL；不授多物理屏、整体性能、全语料、官方parity或完整架构迁移。"
+        "scope": "将会话封面生产、冻结帧消费与退出后验接入当前证据入口；具体方法、App身份、像素及原失败保留在历史记录。",
+        "limitations": "53方法为分轮通过；18次App含8 native及10 benchmark样本结果，8份原benchmark报告仍FAIL；18/20候选仅三个动态阶段，solid19未修，不授FPS、能耗、物理多屏或调色板抽取。"
       },
       "purpose": "实际接线或已记录运行证据；不反向定义目标架构，不决定实施顺序。"
     },
@@ -1071,10 +1071,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b17df281ec0b504493b5d2eee39230e47d962e8ec19b7728ee11f48b60d6e467",
+        "sourceSHA256": "792a503f4a663944886bf394c5f85194e3e1e5e939fa83f804cf4e9208d8a49a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "属性Program准备结果唯一持有；LiveState保实例current/revision，局部CPU对照与原包三属性热更分别记录。",
-        "limitations": "局部apply成本与单原包可见保持不证明整体面板延迟、FPS、能耗、多屏、全corpus或整个架构迁移。"
+        "scope": "旧View/Coordinator及全屏请求屏障仅保历史指针；修正Session共享property/Timeline/VM cadence、每屏呈现及唯一scene generation，保局部typed、storage和候选边界。",
+        "limitations": "纠正既有职责描述未新增对应产品能力；局部拒绝不等于surface失败全景回滚，媒体53方法及App证据仍按历史限定，solid颜色投影未修。"
       }
     },
     {
@@ -1085,10 +1085,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "02201dac57b93fb4ecdf327f66a22146ec1d98213e397f109a0b0cb89a4ca8cb",
+        "sourceSHA256": "d1a634b267bc0f46da85cf490a3dfd44a7e0a7d174fce9ab9c2b076e786ef220",
         "method": "document_registry --audit + document_health --check",
-        "scope": "文字producer归Session，prepared/submitted几何归每屏；撤seed及孤立API，90项方法分轮复验、最终App与双Surface观测限制分列。",
-        "limitations": "双Surface benchmark保留呈现流观测FAIL；不授多物理屏、整体性能、全语料、官方parity或完整架构迁移。"
+        "scope": "媒体合同补会话共享producer、每cadence固定publication、任一提交后请求、暂停冻结cohort及停止排空；原system-provider用途和失败语义保持。",
+        "limitations": "稳定职责不等于macOS live来源或完整转场已验；53方法分轮及有界App不授物理多屏、帧率、能耗或调色板抽取，solid颜色投影不由本批关闭。"
       }
     },
     {
@@ -3347,10 +3347,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f7f84d48fdb1e31b7e3cc69d41bbb727bf04fae661bfd4c601e3ae74989f160b",
+        "sourceSHA256": "eaacce3a7b5f4b203248742d379261c48a485c0e2c96a0150d84d6e13585a87e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "文字producer归Session，prepared/submitted几何归每屏；撤seed及孤立API，90项方法分轮复验、最终App与双Surface观测限制分列。",
-        "limitations": "双Surface benchmark保留呈现流观测FAIL；不授多物理屏、整体性能、全语料、官方parity或完整架构迁移。"
+        "scope": "记录媒体迁移53独立方法分轮通过、8 native及10 benchmark样本运行，保8份原报告FAIL；分列16四阶段、18/20候选三个动态阶段及未修solid19；核正式16包SHA与精确路径回收。",
+        "limitations": "App像素仅选定Surface、两Surface同一物理显示器；缺失initial不补授，17载体失格与19旧缺口保留，不授FPS、能耗、物理多屏、调色板抽取、官方parity或完整架构迁移。"
       }
     },
     {
@@ -4557,10 +4557,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "719dd54f2d520663f18eea48b30bf79ccaa847acbbb28aa7b9a0120a1fb39e83",
+        "sourceSHA256": "b26e1283a68dfded52208ee8a0f8034874b7c81b8b34c1c8b8b6b3274fca5c0c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "文字producer归Session，prepared/submitted几何归每屏；撤seed及孤立API，90项方法分轮复验、最终App与双Surface观测限制分列。",
-        "limitations": "双Surface benchmark保留呈现流观测FAIL；不授多物理屏、整体性能、全语料、官方parity或完整架构迁移。"
+        "scope": "沿既有迁移设计增加会话媒体生产合同：共享Store/snapshot/pending输入、暂停消费和取消排空，明确Coordinator、View转发、Store帧pin等旧职责退出。",
+        "limitations": "合同与单批有界验证不完成全架构目标；53方法分轮及App范围归后验，solid投影、其他媒体、Puppet和粒子职责继续开放，不推断整体性能。"
       }
     },
     {
@@ -4613,10 +4613,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3416f5a9f2d0ba98bb7fc54d7b334c2c23491e573e27ebfc74a7ef061be49dcb",
+        "sourceSHA256": "49ba24658fad3fcbdccd4c684d56263e26da79c1db84ffa8dbe510c4d7e688ee",
         "method": "document_registry --audit + document_health --check",
-        "scope": "文字producer归Session，prepared/submitted几何归每屏；撤seed及孤立API，90项方法分轮复验、最终App与双Surface观测限制分列。",
-        "limitations": "双Surface benchmark保留呈现流观测FAIL；不授多物理屏、整体性能、全语料、官方parity或完整架构迁移。"
+        "scope": "唯一队列标明文字及媒体封面生产已归Session，并登记自有19的solid颜色脚本投影/consumer首断点；保数据分期、Puppet、粒子与最终整体复核范围。",
+        "limitations": "20的image正控不关闭solid缺口，不把自有载体认作真实语料故障；53分轮方法和部分阶段App结果不授整景、物理多屏、性能或整体迁移完成。"
       }
     },
     {

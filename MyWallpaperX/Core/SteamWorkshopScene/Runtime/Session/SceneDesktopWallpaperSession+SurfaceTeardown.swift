@@ -51,12 +51,18 @@ extension SceneDesktopWallpaperSession {
         }
 #endif
         if clearContext {
-            pendingDynamicTextUpdate = nil
+            pendingProviderUpdate = nil
             if let dynamicTextTextures {
                 let retirementDrain = retiringSurfaceDrain
                 retirementDrain.enter()
                 dynamicTextTextures.closeAndDrain { retirementDrain.leave() }
                 self.dynamicTextTextures = nil
+            }
+            if let mediaThumbnailTextures {
+                let retirementDrain = retiringSurfaceDrain
+                retirementDrain.enter()
+                mediaThumbnailTextures.cancelAndDrain { retirementDrain.leave() }
+                self.mediaThumbnailTextures = nil
             }
             SceneSystemMediaDemandRegistry.shared.release(lifecycleID)
             if let launchContext {

@@ -151,10 +151,10 @@ extension SceneDesktopWallpaperSession {
             )
 #endif
         }
-        guard launchContext != nil, !surfaces.isEmpty,
+        guard let mediaThumbnailTextures, launchContext != nil, !surfaces.isEmpty,
               !initialPresentationCohort.isHeld else { return .inactive }
         if sceneClock.isPaused && surfaces.values.allSatisfy({ $0.metalView.hasSimulationFrame }) {
-            _ = refreshPausedMediaPublications()
+            _ = refreshPausedMediaPublications(mediaThumbnailTextures.snapshot())
             return renderSurfaces()
         }
         promotePendingDeferredLayerVisibilityIfReady()
@@ -208,20 +208,10 @@ extension SceneDesktopWallpaperSession {
             sceneTime: timing.sceneTime
         )
         let mediaInput = SceneMediaThumbnailInbox.shared.latest()
-        let mediaThumbnailSnapshots = Dictionary(uniqueKeysWithValues:
-            surfaces.map { displayID, surface in
-                (
-                    displayID,
-                    surface.metalView.prepareMediaThumbnail()
-                )
-            }
-        )
+        let mediaThumbnailSnapshot = mediaThumbnailTextures.snapshot()
         let mediaThumbnailGenerationIsTerminal =
-            !mediaThumbnailSnapshots.isEmpty
-            && mediaThumbnailSnapshots.values.allSatisfy {
-                $0.generation == mediaInput.generation
-                    && $0.pendingGeneration == nil
-            }
+            mediaThumbnailSnapshot.generation == mediaInput.generation
+                && mediaThumbnailSnapshot.pendingGeneration == nil
         let sceneScriptMediaThumbnailEvent = mediaThumbnailGenerationIsTerminal
             ? SceneScriptMediaThumbnailEventInput(snapshot: mediaInput) : nil
         let sceneScriptMediaPlaybackEvent =
@@ -382,7 +372,7 @@ extension SceneDesktopWallpaperSession {
         }
         let particleEmission = beginParticleEmissionFrame(context: launchContext, timing: timing,
             preliminary: preliminarySceneScriptResolution, topology: layerMutationSnapshot,
-            poses: puppetPoseFrames, audio: audioSpectrum, inputSurfaceIDs: Set(mediaThumbnailSnapshots.keys))
+            poses: puppetPoseFrames, audio: audioSpectrum, inputSurfaceIDs: Set(surfaces.keys))
         defer {
             particleEmission?.discard()
             launchContext.propertyVectorScriptProgram.domain?.endParticlePlaybackFrame()
@@ -839,16 +829,13 @@ extension SceneDesktopWallpaperSession {
 #else
         let dynamicValues = resolvedDynamicValues
 #endif
-        pendingDynamicTextUpdate = (
-            snapshot: dynamicValues,
+        pendingProviderUpdate = (
+            dynamicValues: dynamicValues,
             dynamicLayers: layerTopology.dynamicLayers,
-            dynamicTextFieldsByLayerID: launchContext.frameSchema.dynamicTextFieldsByLayerID
+            dynamicTextFieldsByLayerID: launchContext.frameSchema.dynamicTextFieldsByLayerID,
+            mediaInput: mediaInput
         )
         for (displayID, surface) in surfaces {
-            guard let mediaThumbnailSnapshot =
-                mediaThumbnailSnapshots[displayID] else {
-                continue
-            }
 #if DEBUG
             logDebugDynamicLayerVisibilityIfChanged(
                 descriptor: launchContext.runtimeInput.renderDescriptor,
@@ -872,7 +859,7 @@ extension SceneDesktopWallpaperSession {
                 materialFunctionMutations: materialFunctionMutations,
                 puppetBoneMutations: puppetBoneMutations,
                 mediaThumbnail: mediaThumbnailSnapshot,
-                mediaInput: mediaInput,
+                mediaInputGeneration: mediaInput.generation,
                 audioSpectrum: audioSpectrum,
                 performanceTelemetry: SceneDesktopWallpaperHost.usesDebugEvidenceWindow
                     ? SceneFramePerformanceTelemetry.debugEvidence : nil
@@ -900,19 +887,17 @@ extension SceneDesktopWallpaperSession {
         // A later cadence samples fresh state; it never replays this VM frame.
         return attempt
     }
-    /// Refresh resources for the already-consumed cadence only when the whole
-    /// current surface cohort is terminal. A partial completion is not a draw.
+    /// Refresh the already-consumed cadence only when every current surface
+    /// expects this terminal publication. Do not sample a new inbox event.
     @discardableResult
-    func refreshPausedMediaPublications() -> Bool {
-        let publications = surfaces.mapValues { $0.metalView.pausedMediaThumbnailPublication() }
+    func refreshPausedMediaPublications(_ publication: SceneMediaThumbnailTextureStore.Snapshot) -> Bool {
         guard !surfaces.isEmpty, Set(surfaces.keys) == preparedSurfaceIDs,
               Set(surfaces.values.map { $0.metalView.simulationFrameIndex }).count == 1,
-              publications.values.allSatisfy({ $0 != nil }),
-              Set(publications.values.compactMap { $0?.generation }).count == 1 else { return false }
+              publication.pendingGeneration == nil,
+              surfaces.values.allSatisfy({ $0.metalView.simulationMediaInputGeneration == publication.generation }) else { return false }
         var changed = false
-        for (id, surface) in surfaces {
-            if let publication = publications[id] ?? nil,
-               surface.metalView.refreshPausedMediaThumbnail(publication) {
+        for surface in surfaces.values {
+            if surface.metalView.refreshPausedMediaThumbnail(publication) {
                 surface.didSubmitSimulationFrame = false
                 changed = true
             }

@@ -323,6 +323,8 @@ status、playback、properties、thumbnail 与 timeline 使用各自可用事件
 
 `$mediaThumbnail`是系统 provider，不是普通路径。准备阶段确定需求，变化时解码和发布；last-ready、作者 fallback、清空和失败分开。无消费者时解除不必要订阅，停止后撤销 observer 和任务。
 
+同一会话共享封面producer与就绪publication，每cadence一次snapshot供VM及各屏消费；请求沿会话待提交输入在任一表面提交后发出一次，全未提交保留。暂停只刷新输入generation匹配、完整且同frame的冻结cohort，不采新Inbox或重放VM；held候选保原输出。表面重建不关闭producer，完整停止撤权并排空已接纳任务。
+
 macOS provider 的可用能力不能由内部事件模型的存在推导。A→B→C 且 B 延迟的用例应证明 B 不覆盖 C；真实系统切歌与合成输入测试分别报告。
 
 ### 7.4 Scene Texture

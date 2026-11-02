@@ -96,6 +96,7 @@ struct SceneRenderDescriptor {
 struct SceneBaseImageTextureSnapshot {
     let textures: [Int: MTLTexture]
     let candidates: [Int: SceneTextureCandidate]
+    let initialVideoReadiness: [Int: SceneOrdinaryVideoFrameReadiness]? = nil
 
     subscript(layerID: Int) -> MTLTexture? { textures[layerID] }
 

@@ -71,13 +71,17 @@ final class ControlledFontWorker: @unchecked Sendable {
     let entered=DispatchSemaphore(value:0),release=DispatchSemaphore(value:0)
     private let queue=DispatchQueue(label:"test.font-work")
     private let lock=NSLock()
-    private var closeCalls=0
+    private var closeCalls=0,cancelCalls=0
     var closeCallCount:Int {lock.lock();defer {lock.unlock()};return closeCalls}
+    var cancelCallCount:Int {lock.lock();defer {lock.unlock()};return cancelCalls}
     init() {queue.async { [self] in entered.signal();release.wait() }}
     func close() {lock.lock();closeCalls += 1;lock.unlock()}
     func enqueue(_ work:@escaping @Sendable ()->Void) {queue.async(execute:work)}
     func cancelDeferredPreparation() {}
     func closeAndDrain(completion:@escaping @Sendable ()->Void) {close();queue.async {completion()}}
+    func cancelAndDrain(completion:@escaping @Sendable ()->Void) {
+        lock.lock();cancelCalls += 1;lock.unlock();queue.async {completion()}
+    }
     func cancelAndDrainDeferredPreparation(completion:@escaping @Sendable ()->Void) {closeAndDrain(completion:completion)}
 }
 
@@ -95,7 +99,8 @@ struct TestLaunchContext {let preparedDeviceResources:TestPreparedResources;let 
 @MainActor final class SceneDesktopWallpaperSession {
     var launchContext:TestLaunchContext?
     var dynamicTextTextures:ControlledFontWorker?
-    var pendingDynamicTextUpdate:(snapshot:Int,dynamicLayers:[Int],dynamicTextFieldsByLayerID:[Int:Set<Int>])?
+    var mediaThumbnailTextures:ControlledFontWorker?
+    var pendingProviderUpdate:(dynamicValues:Int,dynamicLayers:[Int],dynamicTextFieldsByLayerID:[Int:Set<Int>],mediaInput:Int)?
 
     let lifecycleID=UUID()
     let initialPresentationCohort=TestResettable(),userShortcutInput=TestResettable()
@@ -280,10 +285,13 @@ enum PlaybackPerformanceProfile:Int {case fps60=60;var maxFPS:Int {rawValue}}
         check(results == [true,true,true],"completed drain not idempotent")
         let fontSession=SceneDesktopWallpaperSession()
         let fontWork=ControlledFontWorker()
+        let mediaWork=ControlledFontWorker()
         fontSession.dynamicTextTextures=fontWork
+        fontSession.mediaThumbnailTextures=mediaWork
         fontSession.surfaces[1] = .init(queue,SceneDebugFrameCapture())
         fontSession.surfaces[2] = .init(queue,SceneDebugFrameCapture())
         await wait(fontWork.entered)
+        await wait(mediaWork.entered)
         let deferredWork=ControlledFontWorker()
         fontSession.launchContext = .init(preparedDeviceResources:.init(baseImages:deferredWork))
         await wait(deferredWork.entered)
@@ -295,20 +303,27 @@ enum PlaybackPerformanceProfile:Int {case fps60=60;var maxFPS:Int {rawValue}}
               "surface rebuild retained GPU/export work or disposed the Session")
         check(fontSession.dynamicTextTextures === fontWork && fontWork.closeCallCount == 0,
               "two-surface rebuild closed or replaced the shared font producer")
+        check(fontSession.mediaThumbnailTextures === mediaWork && mediaWork.cancelCallCount == 0,
+              "two-surface rebuild cancelled or replaced the shared media producer")
         fontSession.surfaces[1] = .init(queue,SceneDebugFrameCapture())
         fontSession.surfaces[2] = .init(queue,SceneDebugFrameCapture())
         let nextFontEntered=DispatchSemaphore(value:0),nextFontRelease=DispatchSemaphore(value:0)
+        let nextMediaEntered=DispatchSemaphore(value:0),nextMediaRelease=DispatchSemaphore(value:0)
         fontWork.enqueue {nextFontEntered.signal();nextFontRelease.wait()}
+        mediaWork.enqueue {nextMediaEntered.signal();nextMediaRelease.wait()}
         fontWork.release.signal()
+        mediaWork.release.signal()
         await wait(nextFontEntered)
+        await wait(nextMediaEntered)
         var fontResult:Bool?
         let fontDone=DispatchSemaphore(value:0)
-        fontSession.pendingDynamicTextUpdate = (snapshot:1,dynamicLayers:[1],dynamicTextFieldsByLayerID:[:])
+        fontSession.pendingProviderUpdate = (dynamicValues:1,dynamicLayers:[1],dynamicTextFieldsByLayerID:[:],mediaInput:2)
         fontSession.stop()
         check(fontSession.launchContext == nil && fontSession.dynamicTextTextures == nil
-                && fontSession.pendingDynamicTextUpdate == nil,
-              "stop did not clear Session text/context ownership")
+                && fontSession.mediaThumbnailTextures == nil && fontSession.pendingProviderUpdate == nil,
+              "stop did not clear Session provider/context ownership")
         check(fontWork.closeCallCount == 1,"stop did not drain the sole text producer once")
+        check(mediaWork.cancelCallCount == 1,"stop did not drain the sole media producer once")
         fontSession.stopAndDrainGPU {fontResult=$0;fontDone.signal()}
         check(fontResult == nil,"stop-before-drain bypassed the Session font worker")
         let prematureFontDrain = await withCheckedContinuation {continuation in
@@ -316,27 +331,43 @@ enum PlaybackPerformanceProfile:Int {case fps60=60;var maxFPS:Int {rawValue}}
         }
         check(!prematureFontDrain && fontResult == nil,"drain completed while rebuilt producer work was held")
         nextFontRelease.signal()
+        nextMediaRelease.signal()
         let prematureSharedDrain = await withCheckedContinuation {continuation in
             DispatchQueue.global().async {continuation.resume(returning:fontDone.wait(timeout:.now()+0.1) == .success)}
         }
         check(!prematureSharedDrain && fontResult == nil,"stop-before-drain lost shared deferred worker")
         deferredWork.release.signal();await wait(fontDone)
         check(fontResult == true && fontSession.retiringSurfaces.isEmpty,"font work drain did not settle")
-        check(fontWork.closeCallCount == 1,"drain enumerated a disposed or per-surface text owner")
-        let noSurface=SceneDesktopWallpaperSession()
-        let orphanWork=ControlledFontWorker()
-        noSurface.dynamicTextTextures=orphanWork
-        await wait(orphanWork.entered)
-        var orphanResult:Bool?
-        let orphanDone=DispatchSemaphore(value:0)
-        noSurface.stopAndDrainGPU {orphanResult=$0;orphanDone.signal()}
-        let prematureOrphanDrain = await withCheckedContinuation {continuation in
-            DispatchQueue.global().async {continuation.resume(returning:orphanDone.wait(timeout:.now()+0.1) == .success)}
+        check(fontWork.closeCallCount == 1 && mediaWork.cancelCallCount == 1,
+              "drain enumerated a disposed or per-surface provider owner")
+        for textFinishesFirst in [true,false] {
+            let noSurface=SceneDesktopWallpaperSession()
+            let text=ControlledFontWorker(),media=ControlledFontWorker()
+            noSurface.dynamicTextTextures=text
+            noSurface.mediaThumbnailTextures=media
+            noSurface.pendingProviderUpdate = (dynamicValues:1,dynamicLayers:[1],dynamicTextFieldsByLayerID:[:],mediaInput:2)
+            await wait(text.entered);await wait(media.entered)
+            if textFinishesFirst {noSurface.stop()}
+            var providerResult:Bool?
+            let providerDone=DispatchSemaphore(value:0)
+            noSurface.stopAndDrainGPU {providerResult=$0;providerDone.signal()}
+            check(noSurface.dynamicTextTextures == nil && noSurface.mediaThumbnailTextures == nil
+                    && noSurface.pendingProviderUpdate == nil,
+                  "surface-free stop retained provider ownership or pending input")
+            check(text.closeCallCount == 1 && media.cancelCallCount == 1,
+                  "surface-free stop did not drain each producer exactly once")
+            (textFinishesFirst ? text : media).release.signal()
+            let prematureProviderDrain = await withCheckedContinuation {continuation in
+                DispatchQueue.global().async {continuation.resume(returning:providerDone.wait(timeout:.now()+0.1) == .success)}
+            }
+            check(!prematureProviderDrain && providerResult == nil,
+                  "Session finished while one provider tail was still held")
+            (textFinishesFirst ? media : text).release.signal();await wait(providerDone)
+            check(providerResult == true,"surface-free provider drain did not settle")
+            noSurface.stopAndDrainGPU {check($0,"repeated provider drain failed")}
+            check(text.closeCallCount == 1 && media.cancelCallCount == 1,
+                  "completed drain re-admitted a disposed provider owner")
         }
-        check(!prematureOrphanDrain && orphanResult == nil && noSurface.dynamicTextTextures == nil,
-              "empty surface set lost the Session font worker")
-        orphanWork.release.signal();await wait(orphanDone)
-        check(orphanResult == true && orphanWork.closeCallCount == 1,"surface-free text drain did not settle once")
         let empty=SceneDesktopWallpaperSession()
         let emptyDone=DispatchSemaphore(value:0)
         empty.stopAndDrainGPU {check($0,"empty failed");emptyDone.signal()};await wait(emptyDone)
@@ -372,7 +403,7 @@ enum PlaybackPerformanceProfile:Int {case fps60=60;var maxFPS:Int {rawValue}}
         DebugScenePlaybackRunner.finish {finished.append($0)}
         check(finished == [true,true,true] && host.drainCalls == 1,"repeated finish")
         check(host.launchCalls == 1 && host.pauseCalls == 1 && host.resumeCalls == 0 && DebugScenePlaybackRunner.snapshotCalls == 0,"late launch resumed closed runner")
-        print("PASS: real retired capture drain, Session text rebuild/no-surface/stop-before-drain, Runner coalesced finish and late launch")
+        print("PASS: real retired capture drain, Session text/media rebuild/no-surface/stop-before-drain, Runner coalesced finish and late launch")
     }
 }
 '''
@@ -385,12 +416,16 @@ final class ControlledFontWorker: @unchecked Sendable {
     let entered=DispatchSemaphore(value:0),release=DispatchSemaphore(value:0)
     private let queue=DispatchQueue(label:"test.font-work")
     private let lock=NSLock()
-    private var closeCalls=0
+    private var closeCalls=0,cancelCalls=0
     var closeCallCount:Int {lock.lock();defer {lock.unlock()};return closeCalls}
+    var cancelCallCount:Int {lock.lock();defer {lock.unlock()};return cancelCalls}
     init() {queue.async { [self] in entered.signal();release.wait() }}
     func close() {lock.lock();closeCalls += 1;lock.unlock()}
     func cancelDeferredPreparation() {}
     func closeAndDrain(completion:@escaping @Sendable ()->Void) {close();queue.async {completion()}}
+    func cancelAndDrain(completion:@escaping @Sendable ()->Void) {
+        lock.lock();cancelCalls += 1;lock.unlock();queue.async {completion()}
+    }
     func cancelAndDrainDeferredPreparation(completion:@escaping @Sendable ()->Void) {closeAndDrain(completion:completion)}
 }
 
@@ -408,7 +443,8 @@ struct TestLaunchContext {let preparedDeviceResources:TestPreparedResources;let 
 @MainActor final class SceneDesktopWallpaperSession {
     var launchContext:TestLaunchContext?
     var dynamicTextTextures:ControlledFontWorker?
-    var pendingDynamicTextUpdate:(snapshot:Int,dynamicLayers:[Int],dynamicTextFieldsByLayerID:[Int:Set<Int>])?
+    var mediaThumbnailTextures:ControlledFontWorker?
+    var pendingProviderUpdate:(dynamicValues:Int,dynamicLayers:[Int],dynamicTextFieldsByLayerID:[Int:Set<Int>],mediaInput:Int)?
 
     let lifecycleID=UUID()
     let initialPresentationCohort=TestResettable(),userShortcutInput=TestResettable()
@@ -511,23 +547,29 @@ enum PlaybackPerformanceProfile:Int {case fps60=60;var maxFPS:Int {rawValue}}
         let args=CommandLine.arguments
         if args.contains("--terminal-failed") {DebugScenePlaybackRunner.runtimeHost.session.surfaceDrainFailed=true}
         if args.contains("--font-work") || args.contains("--font-without-surface")
-            || args.contains("--font-stopped-before-drain") || args.contains("--deferred-work") {
+            || args.contains("--font-stopped-before-drain") || args.contains("--deferred-work")
+            || args.contains("--media-work") || args.contains("--media-without-surface")
+            || args.contains("--media-stopped-before-drain") {
             let queue=MTLCreateSystemDefaultDevice()!.makeCommandQueue()!
             let work=ControlledFontWorker()
             let surface=SceneDesktopWallpaperSession.Surface(queue,SceneDebugFrameCapture())
             if args.contains("--deferred-work") {
                 DebugScenePlaybackRunner.runtimeHost.session.launchContext = .init(preparedDeviceResources:.init(baseImages:work))
+            } else if args.contains("--media-work") || args.contains("--media-without-surface")
+                || args.contains("--media-stopped-before-drain") {
+                DebugScenePlaybackRunner.runtimeHost.session.mediaThumbnailTextures=work
             } else {DebugScenePlaybackRunner.runtimeHost.session.dynamicTextTextures=work}
-            if !args.contains("--font-without-surface") {
+            if !args.contains("--font-without-surface") && !args.contains("--media-without-surface") {
                 DebugScenePlaybackRunner.runtimeHost.session.surfaces[1]=surface
             }
-            if args.contains("--deferred-work") || args.contains("--font-stopped-before-drain") {
+            if args.contains("--deferred-work") || args.contains("--font-stopped-before-drain")
+                || args.contains("--media-stopped-before-drain") {
                 DebugScenePlaybackRunner.runtimeHost.session.stop()
             }
             DispatchQueue.global().async {
                 precondition(work.entered.wait(timeout:.now()+5) == .success)
                 precondition(self.terminationEntered.wait(timeout:.now()+5) == .success)
-                NSLog("APPKIT TEST font worker release")
+                NSLog("APPKIT TEST provider worker release")
                 work.release.signal()
             }
             DispatchQueue.main.async {NSApp.terminate(nil)}
@@ -680,7 +722,7 @@ class SceneDebugCaptureShutdownTests(unittest.TestCase):
             compilation = subprocess.run(["xcrun", "swiftc", "-D", "DEBUG", *[str(ROOT / "MyWallpaperX" / p) for p in sources],
                                           str(harness), "-o", str(binary)], capture_output=True, text=True)
             self.assertEqual(compilation.returncode, 0, compilation.stderr)
-            for mode in ("predrained", "pending", "terminal-failed", "owned", "export", "retiring-export", "overlap-owned", "invalid-profile", "font-work", "font-without-surface", "font-stopped-before-drain", "deferred-work"):
+            for mode in ("predrained", "pending", "terminal-failed", "owned", "export", "retiring-export", "overlap-owned", "invalid-profile", "font-work", "font-without-surface", "font-stopped-before-drain", "media-work", "media-without-surface", "media-stopped-before-drain", "deferred-work"):
                 with self.subTest(mode=mode):
                     evidence = directory / mode
                     evidence.mkdir()
@@ -690,8 +732,8 @@ class SceneDebugCaptureShutdownTests(unittest.TestCase):
                     self.assertEqual(result.stderr.count("APPKIT TEST did-terminate"), 1, result.stderr)
                     self.assertEqual(result.stderr.count("APPKIT TEST reply=true"), 1, result.stderr)
                     self.assertLess(result.stderr.index("phase=stopped"), result.stderr.index("APPKIT TEST did-terminate"))
-                    if mode in ("font-work", "font-without-surface", "font-stopped-before-drain", "deferred-work"):
-                        self.assertLess(result.stderr.index("APPKIT TEST font worker release"), result.stderr.index("phase=stopped"))
+                    if mode in ("font-work", "font-without-surface", "font-stopped-before-drain", "media-work", "media-without-surface", "media-stopped-before-drain", "deferred-work"):
+                        self.assertLess(result.stderr.index("APPKIT TEST provider worker release"), result.stderr.index("phase=stopped"))
                     if mode in ("export", "retiring-export", "overlap-owned", "invalid-profile"):
                         self.assertTrue((evidence / "scene-appkit-pending-window.png").is_file())
                         self.assertLess(result.stderr.index("phase=snapshot "), result.stderr.index("phase=stopped"))

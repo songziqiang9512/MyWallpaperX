@@ -1076,7 +1076,6 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Input/**",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePointerProjection.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleWorldSpacePlan+Descriptor.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneMediaThumbnailCoordinator.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneDistanceFog.metalh",
         "script/tests/test_scene_image_distance_fog.py",
         "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneGPUCensus.swift",
@@ -3337,9 +3336,7 @@
     {
       "id": "system-media",
       "patterns": [
-        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneMusicPlayerSource.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneSystemMediaProvider.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneMediaThumbnailInbox.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/**",
         "MyWallpaperX/Shared/Settings/SceneMediaSourcePreference.swift",
         "MyWallpaperX/Shared/Settings/AppKitSettingsView.swift",
         "MyWallpaperX/Shared/Settings/AppKitSettingsView+Layout.swift",
@@ -3348,20 +3345,18 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceTeardown.swift",
         "script/tests/test_scene_music_player_source.py",
         "script/tests/test_scene_system_media_provider.py",
-        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneSystemMediaSource.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/Observer/SceneMediaObserver.m",
         "MyWallpaperX/Core/DaemonKit/DaemonNewlineJSON.swift",
         "script/build-scene-media-observer.sh",
         "script/tests/test_scene_system_media_source.py",
         "script/tests/test_scene_media_observer.py",
-        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneMediaArtworkPalette.swift",
         "script/tests/test_scene_media_artwork_palette.py",
         "MyWallpaperX/Core/Playback/SystemMedia/**",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemon*Media*.swift",
         "MyWallpaperX/App/Debug/DebugSystemMediaRunner.swift",
         "script/tests/test_scene_system_media_ipc.py",
         "script/tests/test_web_system_media.py",
-        "script/tests/fixtures/SceneSystemMediaIPCChecks.swift"
+        "script/tests/fixtures/SceneSystemMediaIPCChecks.swift",
+        "script/tests/fixtures/SceneMediaThumbnail*.swift"
       ],
       "modules": [
         "test_scene_music_player_source",

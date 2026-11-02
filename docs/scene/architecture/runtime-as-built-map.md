@@ -72,6 +72,7 @@ App 产品意图与当前记录
 | Timeline | `Systems/Timeline/SceneTimelinePlaybackRuntime`及 evaluator/compiler | [输入与属性](../capabilities/runtime-input-property-coverage.md) |
 | VM 与 typed owner | `Systems/Script/SceneScriptValueRuntime`、`SceneQuickJS*`及对应 bridge | [SceneScript API](../capabilities/scenescript-api-coverage.md) |
 | 粒子定义、实例与 GPU | `Systems/Particles/SceneParticleDefinitionParser`、`SceneParticleSimulator`、child/runtime；`Rendering/Particles/SceneParticleMetalInstanceBuffer`、`SceneParticleMetalPipeline` | [粒子组件](../capabilities/particle-component-coverage.md) |
+| 媒体封面 | `Systems/Media/SceneMediaThumbnailInbox`、`Resources/Providers/SceneMediaThumbnailTextureStore` | [组件合同](../capabilities/runtime-systems-reference.md#73-media) |
 | 文本 | `Systems/Text/SceneTextTextureLoader`、`SceneDynamicTextTextureStore` | [输入与属性](../capabilities/runtime-input-property-coverage.md) |
 | 相机与光照 | `Systems/Input/SceneCameraProjection`；`Rendering/Lighting/SceneLightSnapshot`、`SceneSpotLightPlan`、`SceneSpotLightRuntime`和 pipeline | [组件合同](../capabilities/runtime-systems-reference.md#8-puppet3d-和-lighting) |
 | 声音实例 | `Systems/Media/SceneSoundPlaybackProgram`、`SceneSoundPlaybackRegistry` | [声音与频谱分工](../capabilities/runtime-systems-reference.md#72-audio) |
@@ -107,6 +108,7 @@ App 产品意图与当前记录
 | 用户选择纹理 | PreparedLaunch短期携初始结果，候选激活显式移交Session；Session保存唯一活动结果，View仅保存绘制快照。LaunchContext无纹理镜像，新表面读Session当前结果，旧绑定沿原completion/drain释放 |
 | 视频与 Sound | Session 的实际播放 registry 持有可变播放状态；私有媒体文件使用原 OwnedFile/AV borrower 生命周期，stop 不冒充全部 AV 借用已结束 |
 | 动态文字 | Session唯一Store准备初始raster并后台更新；每attempt共享ready snapshot，View独立保存prepared/submitted几何。任一屏提交后消费单份pending输入；重建复用producer，完整stop挂既有retirement fence后清引用 |
+| 媒体封面 | Session唯一Store生产current/previous及各purpose；每cadence一次snapshot供VM/各View，View只保冻结snapshot与输入generation。共享pending在任一屏提交后请求一次，重建复用，完整stop撤权后沿retirement group排空 |
 | 目标与 history | 原 Surface pool、graph target 与 completion owner 管理；受 SceneResourceBudget 父额度约束，history 与 submission pin 决定可释放时机 |
 | 运行属性与脚本状态 | Session 的 LaunchContext、frame schema 和 program；JS heap 不随 typed admission 失败复制或回滚 |
 | 帧资源发布 | 每个 Renderer 的 SceneFrameTextureRegistry；beginFrame、commit/discard 和完成信息共同确定可见版本 |
@@ -138,7 +140,7 @@ Session 冻结本次时间、属性、输入、音频和媒体（含完整 wall 
 | 资源更新与采样 | 原 producer、ResourceView、registry、相关 store 和 Program binding |
 | 停止与资源回收 | Host retiringSessions、Session SurfaceTeardown/Shutdown 及每类资源 owner |
 
-停止会先撤新工作、输入与订阅，关闭 store，停止媒体与脚本 owner。Session 保留已经退休 Surface 及其 CPU drain；已接纳文字、deferred worker 等结束后，再用原 command queue 的 GPU barrier 确认终态。Host 沿原 preparation queue 尾 fence 等待已接纳准备；没有当前 Session 也不能漏掉这部分工作。主线程不阻塞等待。
+停止会先撤新工作、输入与订阅，关闭 store，停止媒体与脚本 owner。Session 保留已经退休 Surface 及其 CPU drain；已接纳文字、媒体封面及deferred worker结束后，再用原 command queue 的 GPU barrier 确认终态。Host 沿原 preparation queue 尾 fence 等待已接纳准备；没有当前 Session 也不能漏掉这部分工作。主线程不阻塞等待。
 
 [SurfaceTeardown](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceTeardown.swift)、[Shutdown](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+Shutdown.swift)与[Host 退役](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Activation.swift)分别给出关闭、排空及保留关系。GPU 成功不代表 AV borrower、文件借用或 DEBUG 导出已结束，释放结论按实际 owner 划定。
 

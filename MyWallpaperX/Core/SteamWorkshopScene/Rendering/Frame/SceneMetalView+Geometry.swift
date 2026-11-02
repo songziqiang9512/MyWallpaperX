@@ -22,13 +22,13 @@ extension SceneMetalView {
         SceneHDRDisplayPreference.refresh()
         hdrDisplayRequested = SceneHDRDisplayPreference.isEnabled
         refreshDisplayOutput()
-        onRenderInvalidated?(.surface)
+        onRenderInvalidated?()
     }
 
     @objc func displayEnvironmentChanged(_ notification: Notification) {
         if let changedWindow = notification.object as? NSWindow, changedWindow !== window { return }
         refreshDisplayOutput()
-        onRenderInvalidated?(.surface)
+        onRenderInvalidated?()
     }
 
     /// Potential admits the request; current headroom bounds this frame. The
@@ -65,7 +65,7 @@ extension SceneMetalView {
                 || renderer.hasPreparedReflectionConsumers {
                 invalidateResolvedMaterialRuntime(reason: .allocationReprepare)
             } else {
-                onRenderInvalidated?(.surface)
+                onRenderInvalidated?()
             }
         }
     }

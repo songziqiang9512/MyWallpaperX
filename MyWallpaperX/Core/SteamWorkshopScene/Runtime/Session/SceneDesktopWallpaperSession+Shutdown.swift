@@ -4,7 +4,7 @@ import Metal
 extension SceneDesktopWallpaperSession {
     /// Stops all Scene owners, then submits one empty barrier to each surface's
     /// existing command queue. Completion means every command submitted before
-    /// teardown has reached a terminal GPU state and admitted font work ended.
+    /// teardown has reached a terminal GPU state and admitted resource work ended.
     func stopAndDrainGPU(
         completion: @escaping @MainActor (Bool) -> Void
     ) {

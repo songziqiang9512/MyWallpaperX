@@ -112,7 +112,6 @@ extension SceneDesktopWallpaperSession {
                 surface.didSubmitSimulationFrame = presentsFrame && !hasPendingVideo
                 surface.metalView.commitPreparedMaterialAssetFrame()
                 surface.metalView.commitPreparedFrameTexturePublication()
-                surface.metalView.commitPreparedMediaThumbnailUpdate()
                 surface.metalView.commitPreparedDynamicTextFrame()
             } else {
                 if frameOutcome.isPrepared { surface.pendingPausedFrame = nil }
@@ -121,7 +120,6 @@ extension SceneDesktopWallpaperSession {
                 }
                 surface.metalView.discardPreparedMaterialAssetFrame()
                 surface.metalView.discardPreparedFrameTexturePublication()
-                surface.metalView.discardPreparedMediaThumbnailUpdate()
                 surface.metalView.discardPreparedDynamicTextFrame()
             }
         }
@@ -129,13 +127,14 @@ extension SceneDesktopWallpaperSession {
         // not roll back a source already referenced by another submitted GPU.
         if frameOutcomes.contains(where: \.isSubmitted) {
             videoTextureSourceRegistry?.commitPreparedFrame()
-            if let pendingDynamicTextUpdate {
-                self.pendingDynamicTextUpdate = nil
+            if let pendingProviderUpdate {
+                self.pendingProviderUpdate = nil
                 dynamicTextTextures?.update(
-                    from: pendingDynamicTextUpdate.snapshot,
-                    dynamicLayers: pendingDynamicTextUpdate.dynamicLayers,
-                    dynamicTextFieldsByLayerID: pendingDynamicTextUpdate.dynamicTextFieldsByLayerID
+                    from: pendingProviderUpdate.dynamicValues,
+                    dynamicLayers: pendingProviderUpdate.dynamicLayers,
+                    dynamicTextFieldsByLayerID: pendingProviderUpdate.dynamicTextFieldsByLayerID
                 )
+                mediaThumbnailTextures?.update(from: pendingProviderUpdate.mediaInput)
             }
         } else {
             videoTextureSourceRegistry?.discardPreparedFrame()
