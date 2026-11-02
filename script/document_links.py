@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import html
+from bisect import bisect_right
+from itertools import accumulate
 from pathlib import Path
 import re
 import subprocess
@@ -15,10 +17,10 @@ EXPLICIT_ANCHOR_PATTERN = re.compile(
 )
 
 
-def markdown_without_fenced_code(text: str) -> str:
-    visible_lines: list[str] = []
+def _markdown_visible_lines(text: str) -> list[tuple[int, str]]:
+    visible_lines: list[tuple[int, str]] = []
     fence: str | None = None
-    for line in text.splitlines():
+    for number, line in enumerate(text.splitlines()):
         match = re.match(r"^\s*(```|~~~)", line)
         if match:
             marker = match.group(1)
@@ -28,8 +30,12 @@ def markdown_without_fenced_code(text: str) -> str:
                 fence = None
             continue
         if fence is None:
-            visible_lines.append(line)
-    return "\n".join(visible_lines)
+            visible_lines.append((number, line))
+    return visible_lines
+
+
+def markdown_without_fenced_code(text: str) -> str:
+    return "\n".join(line for _, line in _markdown_visible_lines(text))
 
 
 def markdown_link_targets(text: str) -> list[str]:
@@ -51,11 +57,23 @@ def github_heading_slug(value: str) -> str:
     return re.sub(r"[ _]+", "-", value).strip("-")
 
 
-def markdown_anchors(text: str) -> set[str]:
-    visible = markdown_without_fenced_code(text)
-    anchors = set(EXPLICIT_ANCHOR_PATTERN.findall(visible))
+def markdown_outline(text: str) -> tuple[dict[str, int], list[tuple[int, int]]]:
+    """Return zero-based source-line anchor positions and heading levels."""
+    visible_lines = _markdown_visible_lines(text)
+    visible = "\n".join(line for _, line in visible_lines)
+    offsets = list(accumulate([0] + [len(line) + 1 for _, line in visible_lines]))
+    anchors: dict[str, int] = {}
+    # Explicit IDs may span lines; match the same visible text as link validation.
+    for match in EXPLICIT_ANCHOR_PATTERN.finditer(visible):
+        source_line = visible_lines[bisect_right(offsets, match.start()) - 1][0]
+        anchors.setdefault(match.group(1), source_line)
     generated: set[str] = set()
-    for line in visible.splitlines():
+    headings: list[tuple[int, int]] = []
+    for number, line in visible_lines:
+        heading = re.match(r"^\s{0,3}(#{1,6})\s+", line)
+        if not heading:
+            continue
+        headings.append((number, len(heading.group(1))))
         match = re.match(r"^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$", line)
         if not match:
             continue
@@ -66,8 +84,12 @@ def markdown_anchors(text: str) -> set[str]:
             slug = f"{original}-{suffix}"
         generated.add(slug)
         if slug:
-            anchors.add(slug)
-    return anchors
+            anchors[slug] = min(anchors.get(slug, number), number)
+    return anchors, headings
+
+
+def markdown_anchors(text: str) -> set[str]:
+    return set(markdown_outline(text)[0])
 
 
 def relative_link_violations(root: Path, documents: Iterable[str]) -> list[str]:

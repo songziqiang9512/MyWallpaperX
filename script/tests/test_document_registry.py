@@ -7,7 +7,7 @@ import subprocess
 import tempfile
 import unittest
 
-from script.document_registry import ROOT, INDEX, managed_documents, query, validate, audit, local_targets, ROLES, REQUIRED
+from script.document_registry import ROOT, INDEX, managed_documents, query, validate, audit, local_targets, first_read_lines, ROLES, REQUIRED
 
 
 class DocumentRegistryTests(unittest.TestCase):
@@ -145,6 +145,43 @@ class DocumentRegistryTests(unittest.TestCase):
         (self.root / 'docs/a.md').write_text('# A\n' + 'detail\n' * 151)
         self.assertTrue(any('snapshot exceeds 150' in e for e in audit(self.root, self.index)['errors']))
         self.assertTrue(any('no task route' in e for e in errors))
+
+    def test_first_read_uses_document_wide_duplicate_heading_suffixes(self):
+        (self.root / 'docs/a.md').write_text(
+            '# Root\n## Same\none\n## Same\ntwo\nthree\n## Same-1\nlast\n')
+        self.assertEqual(first_read_lines(self.root, 'docs/a.md#same'), 2)
+        self.assertEqual(first_read_lines(self.root, 'docs/a.md#same-1'), 3)
+        self.assertEqual(first_read_lines(self.root, 'docs/a.md#same-1-1'), 2)
+
+    def test_first_read_ignores_fenced_starts_and_ends_but_counts_source_lines(self):
+        (self.root / 'docs/a.md').write_text(
+            '# Root\n```md\n<a id="target"></a>\n## Target\n```\nintro\n'
+            '<a id="visible"></a>\n## Target\nfirst\n~~~sh\n# shell comment\n'
+            '<a id="inside"></a>\n~~~\n### Nested\nnested\nlast\n## End\nend\n')
+        self.assertEqual(first_read_lines(self.root, 'docs/a.md#target'), 9)
+        self.assertEqual(first_read_lines(self.root, 'docs/a.md#visible'), 10)
+        self.assertEqual(first_read_lines(self.root, 'docs/a.md#inside'), 0)
+        self.index['taskRoutes'][0]['firstRead'] = 'docs/a.md#inside'
+        self.assertIn('sample: firstRead anchor missing', validate(self.root, self.index))
+
+    def test_first_read_preserves_explicit_ids_nested_sections_eof_and_bare_documents(self):
+        (self.root / 'docs/a.md').write_text(
+            '<a\n class="x" id="explicit"></a>\n## Section\nbody\n### Child\nnested\n')
+        self.assertEqual(first_read_lines(self.root, 'docs/a.md#explicit'), 6)
+        self.assertEqual(first_read_lines(self.root, 'docs/a.md#section'), 4)
+        self.assertEqual(first_read_lines(self.root, 'docs/a.md#child'), 2)
+        self.assertEqual(first_read_lines(self.root, 'docs/a.md'), 6)
+        (self.root / 'docs/a.md').write_text('# Root\n## Chosen\nbody\n## \ntail\n')
+        self.assertEqual(first_read_lines(self.root, 'docs/a.md#chosen'), 2)
+
+    def test_duplicate_fragment_over_budget_cannot_select_a_later_literal_heading(self):
+        (self.root / 'docs/a.md').write_text(
+            '# Root\n## Same\nshort\n## Same\n' + 'detail\n' * 151 + '## Same-1\nshort\n')
+        self.index['taskRoutes'][0]['firstRead'] = 'docs/a.md#same-1'
+        self.assertEqual(validate(self.root, self.index), [])
+        result = audit(self.root, self.index)
+        self.assertEqual(result['firstReadLines']['sample'], 152)
+        self.assertIn('sample: first-read snapshot exceeds 150 lines (152)', result['errors'])
 
     def test_repository_machine_acceptance_and_unique_terminology(self):
         index = json.loads((ROOT / INDEX).read_text())

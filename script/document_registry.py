@@ -265,22 +265,24 @@ def query(index: dict, term: str, root: Path) -> dict:
 
 def first_read_lines(root: Path, pointer: str) -> int:
     """Count the selected Markdown section, including its nested subsections."""
-    from script.document_health import anchors
+    from script.document_links import markdown_outline
     path, _, fragment = pointer.partition('#')
-    lines = (root / path).read_text().splitlines()
+    text = (root / path).read_text()
+    lines = text.splitlines()
     if not fragment:
         return len(lines)
-    start = next((i for i, line in enumerate(lines) if fragment in anchors(line)), None)
+    positions, headings = markdown_outline(text)
+    start = positions.get(fragment)
     if start is None:
         return 0  # validate_routing reports the missing anchor.
     level = None
-    for i in range(start, len(lines)):
-        heading = re.match(r'^\s{0,3}(#{1,6})\s+', lines[i])
-        if heading:
-            if level is None:
-                level = len(heading[1])
-            elif len(heading[1]) <= level:
-                return i - start
+    for number, depth in headings:
+        if number < start:
+            continue
+        if level is None:
+            level = depth
+        elif depth <= level:
+            return number - start
     return len(lines) - start
 
 
