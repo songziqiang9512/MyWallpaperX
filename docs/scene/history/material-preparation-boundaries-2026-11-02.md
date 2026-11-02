@@ -150,3 +150,15 @@ Warmup及binary archive直接消费PreparedAssembly既有shader/render-state ide
 固定2026-11-03：三个实际准备caller（Finalizer、Variant finalization和ColorBlend）直接调用既有HostUniformSchema.resolve；UniformEncoder两个hostUniform转发退役，帧继续编码prepared host/current值。4产品路径净减28行，无新owner、字段、source set或兼容API；测试旧slots入口转换为同一真实Schema输入，不复制分类逻辑。
 
 PreparedUniformQuery、MaterialTextureTransform、EffectDrawAlpha、SharedPresence、PreviousCompositeScale、DirectDrawVertexAttributes及ProgramFinalizer当前真实门全部通过，保错误类型/array/缺active sampler/slot 8、source/effect归属、bytes与实际GPU邻例。旧Rendering→Schema内部边退出，阶段基线15→14；声明与帧编码的合法关系保持，不把去转发或构建成功计作FPS/能耗改善。provenance见`.artifacts/scene-architecture-continuation-20261102/`的`uniform-schema-*`及`final-neighbor-*`。
+
+
+<a id="minimum-admission-observation-handoff"></a>
+## Admission与观测的最小交接
+
+固定2026-11-03：Release的View/Renderer只接原verified XRay stage keys，不再持有完整AdmissionCatalog。DEBUG在既有Surface装配点按该Surface的实际subjects构造Disposition；原Telemetry接准备后的report、summary和执行证据，诊断消费者不再反向调用compiler。保留原守恒归因和每Surface证据安装，无新carrier、捕获整Catalog的closure或第二观测owner。
+
+7个产品路径净增20行，用于既有Telemetry中的必要准备结果及装配，换出运行层整compiler载体；这不是减少运行开销的测量结果。真实EffectExecutionTelemetry、RuntimeBridge及AsyncLaunch门通过，含原执行归因、rollback反例和启动取消；联合Debug编译包含该交接。阶段依赖基线14→9，只退出5条真实Catalog内部引用，public_contracts不扩。
+
+DependencyRenderPlan载体同批改为7个完整Swift职责fixture及原一次编译入口，公共导出和5个外部source-set消费者保持；31个Python方法中30个AST不变，唯一退休的是已经失效的Renderer持Catalog源码形状断言。原117个行为输出、输入和状态顺序保留，当前真实门全部通过；不把fixture搬迁视为产品能力提升。
+
+provenance归`.artifacts/scene-architecture-continuation-20261102/`的`admission-handoff-*`、`dependency-carrier-*`、`graph-catalog-admission-qualification-v5-results.json`和`final-neighbor-dependency_render_plan.log`；未据此认领完整App链、官方parity或CPU/GPU/能耗改善。

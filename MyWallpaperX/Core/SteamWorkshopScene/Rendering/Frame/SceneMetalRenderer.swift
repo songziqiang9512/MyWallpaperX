@@ -28,7 +28,6 @@ struct SceneMetalRenderer {
     /// Prepared group membership and execution order; passes remain frame-local.
     let utilityExecution: SceneUtilityLayerRuntimePlanner.Execution
     var utilityCaptureLayerIDs: Set<Int> { utilityExecution.captureLayerIDs }
-    let effectAdmissionCatalog: SceneEffectAdmissionCatalog
     let baseMaterialProviderBindings: SceneBaseMaterialProviderBindingProgram
     let staticModelResources: ScenePreparedStaticModelResources
     let spotLightRuntime: SceneSpotLightRuntime

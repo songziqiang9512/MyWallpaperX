@@ -187,9 +187,10 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
 
     def test_product_launch_does_not_construct_startup_diagnostics(self) -> None:
         load = function_body(self.metal_view, "func loadImageLayers(")
-        install = function_body(
-            RENDERER_EXECUTION_EVIDENCE.read_text(encoding="utf-8"),
-            "func installResolvedMaterialExecutionEvidence()",
+        evidence_source = RENDERER_EXECUTION_EVIDENCE.read_text(encoding="utf-8")
+        install_start = evidence_source.index("func installResolvedMaterialExecutionEvidence(")
+        install = evidence_source[install_start:evidence_source.index("{", install_start)] + function_body(
+            evidence_source, "func installResolvedMaterialExecutionEvidence("
         )
         runtime_report = function_body(
             self.renderer_diagnostics,
@@ -213,15 +214,29 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
         buffer = "struct SceneStartupReportBuffer " + function_body(
             self.metal_view, "struct SceneStartupReportBuffer"
         )
+        scene = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+        subject_source = (scene / "Compilation/Material/SceneEffectStageRuntimeDisposition.swift").read_text()
+        subject_start = subject_source.index("nonisolated struct SceneEffectExactRuntimeSubject:")
+        subject = subject_source[subject_start:subject_source.index("{", subject_start)] + function_body(
+            subject_source, "nonisolated struct SceneEffectExactRuntimeSubject"
+        )
         harness = r'''
         import Foundation
-        enum SceneRenderDescriptor { struct Layer {} }
+        enum SceneRenderDescriptor { struct Layer { let id: Int } }
+        #if DEBUG
+        enum SceneResolvedMaterialRuntimeBridge { typealias ExactEffectSubject = SceneEffectExactRuntimeSubject }
+        final class RuntimeInbox {
+            var subjects: [SceneEffectExactRuntimeSubject] = []
+            func installExecutionEvidence(_ subjects: [SceneEffectExactRuntimeSubject]) { self.subjects = subjects }
+        }
+        struct Compositor { let resolvedMaterialRuntime: RuntimeInbox? }
+        #endif
         final class Renderer {
-            var summaries = 0
-            func effectRuntimeSummary(for layer: SceneRenderDescriptor.Layer) -> String? {
-                summaries += 1
-                return "effect"
-            }
+        #if DEBUG
+            let effectExecutionTelemetry = SceneEffectExecutionTelemetry(logSink: { _ in })
+            let imageCompositor = Compositor(resolvedMaterialRuntime: RuntimeInbox())
+            __INSTALL__
+        #endif
         }
         struct View { let renderer: Renderer }
         struct LaunchContext { let logURL: URL? }
@@ -229,36 +244,48 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
             static func main() {
                 let renderer = Renderer()
                 let metalView = View(renderer: renderer)
+        #if DEBUG
+                let subject = SceneEffectExactRuntimeSubject(
+                    key: .init(layerID: 7, effectIndex: 0, descriptorID: "owned"), family: "resolved-material")
+                renderer.installResolvedMaterialExecutionEvidence(
+                    reportLines: ["prepared"], resolvedMaterialLayerIDs: [7], subjects: [subject])
+                precondition(renderer.effectExecutionTelemetry.preparedRuntimeReportLines == ["prepared"])
+                precondition(renderer.imageCompositor.resolvedMaterialRuntime?.subjects == [subject])
+        #endif
                 let logURLs: [URL?] = [nil, URL(fileURLWithPath: "/unused-report")]
                 for logURL in logURLs {
                     let launchContext = LaunchContext(logURL: logURL)
         ''' + branch + "\n" + text_branch + r'''
         #if DEBUG
-                    report.append("probe")
+                    var reportReads = 0
+                    report.append({ reportReads += 1; return "probe" }())
+                    precondition(reportReads == (logURL == nil ? 0 : 1))
                     precondition(recordsTextDiagnostics == (logURL != nil))
-                    let previousSummaries = renderer.summaries
-                    precondition(textEffectSummary(.init()) == "effect")
-                    precondition(renderer.summaries == previousSummaries + 1)
+                    precondition(textEffectSummary(.init(id: 7)) == "effect runtime resolved-material-graph; graph owner")
+                    precondition(textEffectSummary(.init(id: 8)) == nil)
         #else
                     precondition(!recordsTextDiagnostics)
-                    precondition(textEffectSummary(.init()) == nil)
-                    precondition(renderer.summaries == 0)
+                    precondition(textEffectSummary(.init(id: 7)) == nil)
         #endif
                 }
                 print("launch-diagnostic-input-pass")
             }
         }
         '''
+        harness = harness.replace("__INSTALL__", install)
         for debug in [False, True]:
             with self.subTest(debug=debug), tempfile.TemporaryDirectory(prefix="mwx-launch-input-") as raw:
                 directory = Path(raw)
                 source = directory / "Check.swift"
-                source.write_text("#if DEBUG\n" + buffer + "\n#endif\n" + harness)
+                source.write_text("#if DEBUG\n" + buffer + "\n" + subject + "\n#endif\n" + harness)
                 binary = directory / "check"
                 command = ["xcrun", "swiftc", "-parse-as-library", "-O"]
                 if debug:
                     command += ["-D", "DEBUG"]
-                command += [str(source), "-o", str(binary)]
+                command += [*[str(scene / name) for name in (
+                    "Format/SceneJSONValue.swift", "Compilation/Graph/SceneAuthoredEffectRenderPlan.swift",
+                    "Diagnostics/SceneEffectExecutionFrameTrace.swift", "Diagnostics/SceneEffectExecutionTelemetry.swift")],
+                    str(source), "-framework", "Metal", "-o", str(binary)]
                 compiled = subprocess.run(command, capture_output=True, text=True)
                 self.assertEqual(compiled.returncode, 0, compiled.stderr)
                 executed = subprocess.run([str(binary)], capture_output=True, text=True)
@@ -266,7 +293,6 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
                 self.assertIn("launch-diagnostic-input-pass", executed.stdout)
         self.assertIn("recordsDiagnostics: recordsTextDiagnostics", session)
         self.assertGreaterEqual(self.text_loader.count("if recordsDiagnostics"), 2)
-        self.assertIn("renderer.installResolvedMaterialExecutionEvidence()", load)
         self.assertIn("installExecutionEvidence(", install)
         self.assertNotIn("installExecutionEvidence(", runtime_report)
 

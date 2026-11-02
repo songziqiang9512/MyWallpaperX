@@ -553,7 +553,7 @@ final class SceneDesktopWallpaperSession {
                 declaredIdentities: Set(launchContext.materialAssetCatalog.videoDeclarations.keys))
             guard let metalView = SceneMetalView(
                 renderDescriptor: launchContext.runtimeInput.renderDescriptor,
-                effectAdmissionCatalog: launchContext.effectAdmissionCatalog,
+                verifiedXRayStageKeys: launchContext.effectAdmissionCatalog.verifiedXRayStageKeys,
                 baseMaterialProviderBindings:
                     launchContext.baseMaterialProviderBindings,
                 stockNoiseTextures: launchContext.stockNoiseTextures,
@@ -584,6 +584,22 @@ final class SceneDesktopWallpaperSession {
             ) else {
                 continue
             }
+            let surfaceLogURL = wroteLog ? nil : launchContext.logURL
+#if DEBUG
+            let dispositionCatalog = SceneEffectRuntimeDispositionCatalog(
+                descriptor: launchContext.runtimeInput.renderDescriptor,
+                admissionCatalog: launchContext.effectAdmissionCatalog,
+                resolvedMaterialSubjects: materialRuntime.runtimeDispositionSubjects
+            )
+            let effectReportLines = surfaceLogURL == nil ? []
+                : launchContext.effectAdmissionCatalog.reportLines + dispositionCatalog.reportLines
+            metalView.renderer.installResolvedMaterialExecutionEvidence(
+                reportLines: effectReportLines,
+                resolvedMaterialLayerIDs: surfaceLogURL == nil ? []
+                    : launchContext.effectAdmissionCatalog.resolvedMaterialExecutionLayerIDs,
+                subjects: dispositionCatalog.resolvedMaterialExecutionEvidenceSubjects
+            )
+#endif
             let window = HostWindow(
                 contentRect: frame,
                 styleMask: [.borderless],
@@ -598,7 +614,8 @@ final class SceneDesktopWallpaperSession {
 #if DEBUG
                 let recordsTextDiagnostics = launchContext.logURL != nil
                 let textEffectSummary: (SceneRenderDescriptor.Layer) -> String? = {
-                    [renderer = metalView.renderer] in renderer.effectRuntimeSummary(for: $0)
+                    [telemetry = metalView.renderer.effectExecutionTelemetry] in
+                    telemetry.effectRuntimeSummary(for: $0.id)
                 }
 #else
                 let recordsTextDiagnostics = false
@@ -630,7 +647,6 @@ final class SceneDesktopWallpaperSession {
                 metalView.debugDrawableUnavailableFrameCount = count
             }
 #endif
-            let surfaceLogURL = wroteLog ? nil : launchContext.logURL
             metalView.loadImageLayers(
                 privateMediaCacheDirectory: launchContext.privateMediaCacheDirectory,
                 resourceView: launchContext.resourceView,

@@ -62,7 +62,8 @@ class SceneMetalView: NSView {
         userPropertyVideoSources = videoSources
     }
     init?(
-        renderDescriptor: SceneRenderDescriptor, effectAdmissionCatalog: SceneEffectAdmissionCatalog,
+        renderDescriptor: SceneRenderDescriptor,
+        verifiedXRayStageKeys: Set<SceneAuthoredEffectRenderPlan.EffectKey>,
         baseMaterialProviderBindings: SceneBaseMaterialProviderBindingProgram = .empty,
         stockNoiseTextures: SceneStockNoiseTextureStore = .empty,
         staticModelResources: ScenePreparedStaticModelResources = .empty,
@@ -81,7 +82,7 @@ class SceneMetalView: NSView {
     ) {
         guard let renderer = SceneMetalRenderer(
             renderDescriptor: renderDescriptor,
-            effectAdmissionCatalog: effectAdmissionCatalog,
+            verifiedXRayStageKeys: verifiedXRayStageKeys,
             baseMaterialProviderBindings: baseMaterialProviderBindings,
             stockNoiseTextures: stockNoiseTextures,
             staticModelResources: staticModelResources,
@@ -187,9 +188,6 @@ class SceneMetalView: NSView {
         var loadedSpecializedBaseTextureSamplings: [Int: SceneTextureSampling] = [:]
         var loadedVideoLayerCount = 0
         var preparedBaseImageHitCount = 0
-#if DEBUG
-        renderer.installResolvedMaterialExecutionEvidence()
-#endif
         self.preparedBaseImages = preparedBaseImages
         puppetGeometries.removeAll(keepingCapacity: true)
         deferredBaseImageURLs.removeAll(keepingCapacity: true)
@@ -258,7 +256,7 @@ class SceneMetalView: NSView {
                         format: "layer %d \"%@\": OK procedural solid tint=(%.5f, %.5f, %.5f)",
                         layer.id, name, color.x, color.y, color.z
                     )
-                    if let effectSummary = renderer.effectRuntimeSummary(for: layer) {
+                    if let effectSummary = renderer.effectExecutionTelemetry.effectRuntimeSummary(for: layer.id) {
                         message += "; \(effectSummary)"
                     }
                     message += "; \(placementSummary)"
@@ -314,7 +312,7 @@ class SceneMetalView: NSView {
                 loadedVideoLayerCount += 1
 #if DEBUG
                 report.append("layer \(layer.id) \"\(name)\": mp4 payload video source ready (\(url.lastPathComponent)) [\(url.diagnosticPath)]"
-                    + (renderer.effectRuntimeSummary(for: layer).map { "; \($0)" } ?? "") + "; \(placementSummary)")
+                    + (renderer.effectExecutionTelemetry.effectRuntimeSummary(for: layer.id).map { "; \($0)" } ?? "") + "; \(placementSummary)")
 #endif
 
                 continue
@@ -393,7 +391,7 @@ class SceneMetalView: NSView {
                     if let animation = baseLoad.animation {
                         message += animation.reportSummary
                     }
-                    if let effectSummary = renderer.effectRuntimeSummary(for: layer) {
+                    if let effectSummary = renderer.effectExecutionTelemetry.effectRuntimeSummary(for: layer.id) {
                         message += "; \(effectSummary)"
                     }
                     message += "; \(placementSummary)"

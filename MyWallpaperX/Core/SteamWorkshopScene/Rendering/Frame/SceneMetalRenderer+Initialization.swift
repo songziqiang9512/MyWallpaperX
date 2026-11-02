@@ -18,7 +18,7 @@ extension SceneMetalRenderer {
 
     init?(
         renderDescriptor: SceneRenderDescriptor,
-        effectAdmissionCatalog: SceneEffectAdmissionCatalog,
+        verifiedXRayStageKeys: Set<SceneAuthoredEffectRenderPlan.EffectKey>,
         baseMaterialProviderBindings: SceneBaseMaterialProviderBindingProgram = .empty,
         stockNoiseTextures: SceneStockNoiseTextureStore = .empty,
         staticModelResources: ScenePreparedStaticModelResources = .empty,
@@ -63,7 +63,6 @@ extension SceneMetalRenderer {
         )
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: renderDescriptor)
         self.visibleLayerIDs = visibleLayerIDs
-        self.effectAdmissionCatalog = effectAdmissionCatalog
         self.spotLightRuntime = SceneSpotLightRuntime(
             descriptor: renderDescriptor,
             instantiatedSceneScriptTargets: instantiatedSceneScriptTargets,
@@ -83,7 +82,7 @@ extension SceneMetalRenderer {
             visibleLayerIDs:
                 visibleLayerIDs.union(resolvedMaterialVisibleRootLayerIDs),
             executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs,
-            verifiedXRayStageKeys: effectAdmissionCatalog.verifiedXRayStageKeys,
+            verifiedXRayStageKeys: verifiedXRayStageKeys,
             admittedResolvedMaterialReferences: resolvedMaterialRuntime?
                 .admittedResolvedMaterialReferences ?? [],
             device: device

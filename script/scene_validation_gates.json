@@ -1492,7 +1492,8 @@
         "script/tests/test_scene_model_graph_albedo.py",
         "script/tests/test_scene_dependency_frame_demand.py",
         "script/tests/test_scene_source_color_named_and_lit.py",
-        "script/tests/fixtures/SceneDependencyRenderPlanTestSupport.swift"
+        "script/tests/fixtures/SceneDependencyRenderPlanTestSupport.swift",
+        "script/tests/fixtures/SceneDependencyRenderPlan*.swift"
       ],
       "modules": [
         "test_scene_dependency_capture_fault",

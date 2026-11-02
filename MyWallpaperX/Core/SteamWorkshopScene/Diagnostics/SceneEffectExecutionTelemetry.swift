@@ -27,9 +27,32 @@ nonisolated final class SceneEffectExecutionTelemetry: @unchecked Sendable {
     private var invocationFacts: [SceneEffectInvocationSubject: StickyFacts] = [:]
     private var routeFacts: [SceneEffectRouteSubject: StickyFacts] = [:]
     private var frameFacts: Set<SceneFrameCommandBufferStatus> = []
+    private var admissionReportLines: [String] = []
+    private var resolvedMaterialSummaryLayerIDs: Set<Int> = []
 
     init(logSink: @escaping LogSink = { NSLog("%@", $0) }) {
         self.logSink = logSink
+    }
+
+    func installPreparedAdmission(
+        reportLines: [String],
+        resolvedMaterialLayerIDs: Set<Int>
+    ) {
+        withLock {
+            admissionReportLines = reportLines
+            resolvedMaterialSummaryLayerIDs = resolvedMaterialLayerIDs
+        }
+    }
+
+    var preparedRuntimeReportLines: [String] {
+        withLock { admissionReportLines }
+    }
+
+    func effectRuntimeSummary(for layerID: Int) -> String? {
+        withLock {
+            resolvedMaterialSummaryLayerIDs.contains(layerID)
+                ? "effect runtime resolved-material-graph; graph owner" : nil
+        }
     }
 
     func makeFrame(frameIndex: UInt64) -> SceneEffectExecutionFrameTrace {
