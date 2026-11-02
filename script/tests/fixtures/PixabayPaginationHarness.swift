@@ -239,6 +239,50 @@ nonisolated private final class ControlledPageProtocol: URLProtocol, @unchecked 
             && storedPairsValid && deferredPairsValid && publishedUnique
         let workJSON = String(decoding: try! JSONSerialization.data(withJSONObject: mergeWork, options: [.sortedKeys]), as: UTF8.self)
         FileHandle.standardError.write(Data("Pagination merge work: \(workJSON)\n".utf8))
+        let typedJSON = #"""
+        {"totalHits":3,"futureResponse":true,"hits":[
+          {"id":701,"pageURL":"https://pixabay.com/videos/701/","tags":"雪, night","duration":65,"user":"作者","futureItem":true,
+           "videos":{"large":{"url":"https://media.test/large.mp4","width":3840,"height":2160,"size":4096,"thumbnail":"https://media.test/large.jpg","futureFile":true},
+                     "medium":{"url":"https://media.test/medium.mp4","width":1280,"height":720,"size":2048,"thumbnail":"https://media.test/medium.jpg"},
+                     "small":{"url":"https://media.test/small.mp4","width":640,"height":360,"size":1024,"thumbnail":"https://media.test/small.jpg"},
+                     "tiny":{"url":"https://media.test/tiny.mp4","width":320,"height":180,"size":512,"thumbnail":"https://media.test/tiny.jpg"},"futureVariant":false}},
+          {"id":702,"pageURL":"","tags":"missing","duration":0,"user":"","videos":{}},
+          {"id":703,"pageURL":"","tags":"null","duration":0,"user":"","videos":{"large":null,"medium":null,"small":null,"tiny":null}}
+        ]}
+        """#
+        owner.search(params: .init(query: "typed-models", perPage: 3))
+        await wait("typed model HTTP") { transport.count("typed-models:1") == 1 }
+        transport.reply("typed-models:1", data: Data(typedJSON.utf8))
+        await owner.task()?.value
+        let expected = PixabayVideoItem(id: 701, pageURL: "https://pixabay.com/videos/701/", tags: "雪, night", duration: 65, user: "作者",
+            videos: .init(
+                large: .init(url: "https://media.test/large.mp4", width: 3840, height: 2160, size: 4096, thumbnail: "https://media.test/large.jpg"),
+                medium: .init(url: "https://media.test/medium.mp4", width: 1280, height: 720, size: 2048, thumbnail: "https://media.test/medium.jpg"),
+                small: .init(url: "https://media.test/small.mp4", width: 640, height: 360, size: 1024, thumbnail: "https://media.test/small.jpg"),
+                tiny: .init(url: "https://media.test/tiny.mp4", width: 320, height: 180, size: 512, thumbnail: "https://media.test/tiny.jpg")))
+        checks["http-model-fields-and-all-four-variants-survive-with-unknown-keys-ignored"] = owner.items.first == expected
+            && owner.items.map(\.id) == [701, 702, 703] && owner.totalHits == 3 && !owner.hasMore
+            && !owner.isLoading && owner.errorMessage == nil && owner.auditIndex()
+        let emptyVideos = PixabayVideoFiles(large: nil, medium: nil, small: nil, tiny: nil)
+        checks["http-missing-and-null-optional-variants-both-remain-nil"] = owner.items.dropFirst().map(\.videos) == [emptyVideos, emptyVideos]
+        let invalidResponses = [
+            ("missing-item-field", typedJSON.replacingOccurrences(of: #""user":"作者","#, with: "")),
+            ("wrong-item-type", typedJSON.replacingOccurrences(of: #""duration":65"#, with: #""duration":"65""#)),
+            ("missing-file-field", typedJSON.replacingOccurrences(of: #""thumbnail":"https://media.test/large.jpg","#, with: "")),
+            ("wrong-file-type", typedJSON.replacingOccurrences(of: #""width":3840"#, with: #""width":"3840""#))
+        ]
+        var schemaErrors: [String: String] = [:]
+        for (label, body) in invalidResponses {
+            owner.search(params: .init(query: label, perPage: 3))
+            await wait(label + " HTTP") { transport.count(label + ":1") == 1 }
+            transport.reply(label + ":1", data: Data(body.utf8))
+            await owner.task()?.value
+            schemaErrors[label] = owner.errorMessage
+            checks["http-required-field-rejection-" + label] = owner.items.isEmpty && owner.auditIndex()
+                && !owner.isLoading && !owner.hasMore && owner.errorMessage?.hasPrefix("网络错误：") == true
+        }
+        let errorsJSON = String(decoding: try! JSONSerialization.data(withJSONObject: schemaErrors, options: [.sortedKeys]), as: UTF8.self)
+        FileHandle.standardError.write(Data("Pixabay schema errors: \(errorsJSON)\n".utf8))
         return checks
     }
     @MainActor static func cancellation() async -> [String: Bool] {

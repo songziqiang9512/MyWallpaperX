@@ -15,43 +15,7 @@ import Darwin
 
 private struct PixabayResponse: Decodable {
     let totalHits: Int
-    let hits:      [PixabayHit]
-}
-
-private struct PixabayHit: Decodable {
-    let id: Int; let pageURL: String; let tags: String
-    let duration: Int; let user: String
-    let videos: PixabayHitVideos
-    enum CodingKeys: String, CodingKey {
-        case id, pageURL, tags, duration, user, videos
-    }
-}
-
-private struct PixabayHitVideos: Decodable {
-    let large: PixabayHitFile?; let medium: PixabayHitFile?
-    let small: PixabayHitFile?; let tiny:   PixabayHitFile?
-}
-
-private struct PixabayHitFile: Decodable {
-    let url: String; let width: Int; let height: Int
-    let size: Int;   let thumbnail: String
-}
-
-private extension PixabayHit {
-    func toItem() -> PixabayVideoItem {
-        func map(_ f: PixabayHitFile?) -> PixabayVideoFile? {
-            f.map { PixabayVideoFile(url: $0.url, width: $0.width,
-                                          height: $0.height, size: $0.size,
-                                          thumbnail: $0.thumbnail) }
-        }
-        return PixabayVideoItem(
-            id: id, pageURL: pageURL, tags: tags, duration: duration, user: user,
-            videos: PixabayVideoFiles(
-                large: map(videos.large), medium: map(videos.medium),
-                small: map(videos.small), tiny:   map(videos.tiny)
-            )
-        )
-    }
+    let hits:      [PixabayVideoItem]
 }
 
 // MARK: - 服务
@@ -441,7 +405,7 @@ final class PixabayService: ObservableObject {
         }
         let responseValue = try JSONDecoder().decode(PixabayResponse.self, from: data)
         guard let item = responseValue.hits.first(where: { $0.id == id }) else { throw downloadFailure("该视频当前不可访问。") }
-        return item.toItem()
+        return item
     }
 
     private func downloadFailure(_ message: String) -> NSError {
@@ -594,7 +558,7 @@ final class PixabayService: ObservableObject {
                 switch http.statusCode {
                 case 200:
                     let decoded  = try JSONDecoder().decode(PixabayResponse.self, from: data)
-                    let newItems = decoded.hits.map { $0.toItem() }
+                    let newItems = decoded.hits
                     var nextItems: [PixabayVideoItem] = appending ? self.items : []
                     var nextIndex: [Int: Int] = appending ? self.itemIndexByID : [:]
                     // Page overlap and repeated hits share one stable row:

@@ -108,7 +108,7 @@ struct PixabaySearchParams: Equatable {
 
 // MARK: - 数据模型
 
-struct PixabayVideoItem: Identifiable, Equatable {
+struct PixabayVideoItem: Decodable, Identifiable, Equatable {
     let id:           Int
     let pageURL:      String
     let tags:         String
@@ -176,14 +176,14 @@ struct PixabayVideoItem: Identifiable, Equatable {
     }
 }
 
-struct PixabayVideoFiles: Equatable {
+struct PixabayVideoFiles: Decodable, Equatable {
     let large:  PixabayVideoFile?
     let medium: PixabayVideoFile?
     let small:  PixabayVideoFile?
     let tiny:   PixabayVideoFile?
 }
 
-struct PixabayVideoFile: Equatable {
+struct PixabayVideoFile: Decodable, Equatable {
     let url:       String
     let width:     Int
     let height:    Int

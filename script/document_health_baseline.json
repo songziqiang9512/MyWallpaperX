@@ -33,8 +33,8 @@
       "bytes": 116594
     },
     "docs/development/code-slimming-program.md": {
-      "lines": 133,
-      "bytes": 26690
+      "lines": 135,
+      "bytes": 27071
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -1777,10 +1777,10 @@
     {
       "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
-      "before": "060a1989e67a98456fc6ae370b258f608a27fdb5c264ded0d8607ed9e098cd73",
-      "after": "f1cb8132075555772639ede7d1551db47fec20a5192b06b1b715d365bf7098a7",
+      "before": "f1cb8132075555772639ede7d1551db47fec20a5192b06b1b715d365bf7098a7",
+      "after": "a0257b0aa32a367cb3e3fec1deb8b8b7e8984c9e6657efbfc6e99818426b6748",
       "owner": "repository-maintainer",
-      "reason": "Close R78 demand-scoped Music preparation with original/expanded gates, compact R77 result and retain enumerator/UI decisions and manual limits.",
+      "reason": "Close R79 duplicate DTO retirement with same-fixture HTTP/error/transfer observations and signed build; compact prior media result and distinguish unexecuted R80 private candidate.",
       "decision": "docs/development/code-slimming-program.md#目标与边界"
     },
     {

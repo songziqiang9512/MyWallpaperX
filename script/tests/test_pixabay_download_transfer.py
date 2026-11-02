@@ -113,9 +113,7 @@ class PixabayDownloadTransferTests(unittest.TestCase):
         state = '\n'.join(declaration(service, signature) for signature in (
             '    struct DownloadActivity {', '    private struct DownloadSlot {'))
         state += '\n' + method(service, '    var downloadActivities:') + '\n' + method(service, '    func downloadActivity(')
-        responses = '\n'.join(declaration(service, signature) for signature in (
-            'private struct PixabayResponse:', 'private struct PixabayHit:',
-            'private struct PixabayHitVideos:', 'private struct PixabayHitFile:', 'private extension PixabayHit'))
+        responses = service[service.index("private struct PixabayResponse:"):service.index("// MARK: - 服务")]
         adoption = 'rename(tmp.path, dest.path)'
         self.assertEqual(methods.count(adoption), 1)
         methods = methods.replace(adoption, 'TransferProbe.shared.renameStaged(tmp, to: dest)')
