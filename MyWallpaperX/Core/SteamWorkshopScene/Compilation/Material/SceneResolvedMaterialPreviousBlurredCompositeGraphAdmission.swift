@@ -23,11 +23,9 @@ nonisolated enum SceneResolvedMaterialPreviousBlurredCompositeGraphAdmission {
         let effect = graph.effects[0]
         let nodes = graph.nodes
         guard effect.nodeIndices == nodes.map(\.nodeIndex),
-              SceneAuthoredEffectInputValidator.accepts(
-                  effect.input,
-                  layerID: graph.layerID,
-                  role: inputRole
-              ),
+              effect.input.inputRole(
+                  layerID: graph.layerID
+              ) == inputRole,
               effect.output == effectOutput(effect.key),
               graph.finalOutput == effect.output,
               nodes.indices.allSatisfy({

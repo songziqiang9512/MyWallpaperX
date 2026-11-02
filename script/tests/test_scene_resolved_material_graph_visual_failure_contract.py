@@ -245,8 +245,9 @@ SOURCE_INDEPENDENT_GRAPH_HARNESS = r'''
         var plans: [String] = []
         var initializedReads = 0
         for product in admitted.products {
-            let inputRole = SceneAuthoredEffectInputValidator.role(for: product.graph.effects[0].input,
-                layerID: layer)!
+            let inputRole = product.graph.effects[0].input.inputRole(
+                layerID: layer
+            )!
             switch Plan.make(graph: product.graph, inputRole: inputRole,
                 inputWidth: 8, inputHeight: 8) {
             case let .success(plan):
@@ -266,9 +267,8 @@ SOURCE_INDEPENDENT_GRAPH_HARNESS = r'''
         switch result {
         case let .failure(failure): observed["stageFailure"] = failure.code
         case let .success(compiled):
-            observed["stages"] = compiled.stages.map { $0.subject?.family ?? "none" }
             observed["resolved"] = compiled.stages.count == effects.count
-                && compiled.stages.allSatisfy { if case .resolved = $0 { return true }; return false }
+                && compiled.stages.allSatisfy { if case .resolved = $0.execution { return true }; return false }
             observed["materialCount"] = compiled.materials.count
             let first = compiled.materials[.init(effect: owner, nodeIndex: firstIndex)]!
             let snapshots = first.variants.launchEnvelopeCapabilitySnapshot()
@@ -431,7 +431,7 @@ class SceneResolvedMaterialGraphVisualFailureContractTests(unittest.TestCase):
         let claim = missing.claim(chain)
         let compiled = claim.flatMap { missing.resolve($0.token, for: chain) }
         let stages = compiled?.stages.map { $0.subject?.family ?? "none" } ?? []
-        let reasons = compiled?.stages.map { $0.visualFailureReasonCode ?? "none" } ?? []
+        let reasons = compiled?.stages.map { $0.execution.visualFailureReasonCode ?? "none" } ?? []
         let survivingMaterials = graph.nodes.map { node in
             compiled?.material(effect: node.effect, nodeIndex: node.nodeIndex) != nil
         }

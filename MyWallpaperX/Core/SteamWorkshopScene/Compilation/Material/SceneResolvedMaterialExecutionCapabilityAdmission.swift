@@ -781,7 +781,7 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
               !graph.effects.isEmpty else {
             throw failure("active-effect-conservation")
         }
-        var expectedInput = SceneAuthoredEffectInputValidator.layerSource(
+        var expectedInput = Graph.TextureIdentity.layerSource(
             layerID: layer.id
         )
         var seenKeys = Set<Graph.EffectKey>()

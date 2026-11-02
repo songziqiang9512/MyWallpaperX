@@ -197,7 +197,8 @@ private final class CancellationCompletion {
         checks["uncancelledParallelStagesKeepAuthoredOrder"] = serialStages.stages.count == 3
             && serialStages.materials.count == 3
             && serialStages.stages.map(\.product.graph) == parallelStages.stages.map(\.product.graph)
-            && serialStages.stages.map(\.subject) == parallelStages.stages.map(\.subject)
+            && serialStages.stages.allSatisfy { if case .resolved = $0.execution { return true }; return false }
+            && parallelStages.stages.allSatisfy { if case .resolved = $0.execution { return true }; return false }
             && Set(serialStages.materials.keys) == Set(parallelStages.materials.keys)
         let stageToken = SceneWallpaperLaunchCancellation()
         let stageProbe = CancellationEntryProbe { _ in stageToken.cancel() }

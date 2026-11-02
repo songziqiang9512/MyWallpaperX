@@ -220,7 +220,7 @@ nonisolated enum SceneGraphAdmissionCompiler {
     ) throws -> Graph.Effect {
         guard graph.effects.count == 1, let effect = graph.effects.first,
               graph.layerID == effect.key.layerID,
-              SceneAuthoredEffectInputValidator.role(for: effect.input, layerID: graph.layerID) != nil,
+              effect.input.inputRole(layerID: graph.layerID) != nil,
               effect.input.effect != effect.key,
               effect.output == Graph.TextureIdentity(kind: .effectOutput, layerID: graph.layerID,
                   effect: effect.key, name: nil),

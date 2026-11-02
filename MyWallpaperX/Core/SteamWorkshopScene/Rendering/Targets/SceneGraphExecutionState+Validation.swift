@@ -37,11 +37,9 @@ nonisolated extension SceneGraphExecutionState {
               pairStep.effect == effect.key,
               pairStep.inputIdentity == effect.input,
               pairStep.outputIdentity == effect.output,
-              SceneAuthoredEffectInputValidator.accepts(
-                  targetPlan.input,
-                  layerID: targetPlan.layerID,
-                  role: targetPlan.inputRole
-              ),
+              targetPlan.input.inputRole(
+                  layerID: targetPlan.layerID
+              ) == targetPlan.inputRole,
               effect.nodeIndices == graph.nodes.map(\.nodeIndex),
               graph.nodes.allSatisfy({ $0.effect == effect.key }),
               graph.nodes.count == pairStep.nodes.count else {

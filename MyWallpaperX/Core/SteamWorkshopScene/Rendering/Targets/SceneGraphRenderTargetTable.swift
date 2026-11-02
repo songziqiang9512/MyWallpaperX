@@ -140,11 +140,9 @@ struct SceneGraphRenderTargetTable {
         for plan: SceneGraphRenderTargetPlan
     ) -> [Specification]? {
         guard let effect = plan.output.effect,
-              SceneAuthoredEffectInputValidator.accepts(
-                plan.input,
-                layerID: plan.layerID,
-                role: plan.inputRole
-              ),
+              plan.input.inputRole(
+                layerID: plan.layerID
+              ) == plan.inputRole,
               validOutput(plan.output, effect: effect, layerID: plan.layerID),
               validExtent(plan.inputExtent) else {
             return nil

@@ -343,8 +343,7 @@ nonisolated enum SceneEffectLocalPreviousCurrentTopology {
               graph.nodes.count >= 2,
               SceneGraphRenderTargetPlan
                 .authoredCommandStorageDescriptorsAreCompatible(in: graph),
-              let inputRole = SceneAuthoredEffectInputValidator.role(
-                  for: effect.input,
+              let inputRole = effect.input.inputRole(
                   layerID: graph.layerID
               ),
               case let .success(targetPlan) = SceneGraphRenderTargetPlan.make(

@@ -74,8 +74,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
               !graph.nodes.isEmpty,
               graph.nodes.count == pairStep.nodes.count,
               pairStep.effect == effect.key,
-              let inputRole = SceneAuthoredEffectInputValidator.role(
-                  for: effect.input,
+              let inputRole = effect.input.inputRole(
                   layerID: graph.layerID
               ), case .success = SceneGraphRenderTargetPlan.make(
                   graph: graph,

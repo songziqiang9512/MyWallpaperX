@@ -162,3 +162,15 @@ PreparedUniformQuery、MaterialTextureTransform、EffectDrawAlpha、SharedPresen
 DependencyRenderPlan载体同批改为7个完整Swift职责fixture及原一次编译入口，公共导出和5个外部source-set消费者保持；31个Python方法中30个AST不变，唯一退休的是已经失效的Renderer持Catalog源码形状断言。原117个行为输出、输入和状态顺序保留，当前真实门全部通过；不把fixture搬迁视为产品能力提升。
 
 provenance归`.artifacts/scene-architecture-continuation-20261102/`的`admission-handoff-*`、`dependency-carrier-*`、`graph-catalog-admission-qualification-v5-results.json`和`final-neighbor-dependency_render_plan.log`；未据此认领完整App链、官方parity或CPU/GPU/能耗改善。
+
+
+<a id="typed-input-value-semantics"></a>
+## Graph输入身份归现有值类型
+
+固定2026-11-03：layerSource构造和inputRole分类并回既有TextureIdentity，必要的layer/effect/index/descriptor/name身份条件逐项保持；旧InputValidator namespace及accepts转发退出。Compilation与Rendering共同消费该值语义，没有新增wire字段、wrapper、缓存、运行状态或公开内部算法。11个产品路径净减25行，阶段基线9→4，public_contracts仍为原26项。
+
+真实ConditionalFBOCommand、LayerFullFramePairPlan和GraphVisualFailureContract门通过，保留非法来源/目标、初始化与history、颜色局部降级及健康effect。最后一个门的旧短期tuple.subject访问改为真实Execution断言，取消夹具同时要求串并行每个stage均为resolved；最终StageCapability的subject与真实失败reason继续检查。未向产品补回旧兼容字段、放宽reason allowlist或降低像素标准。
+
+剩余4条保守词法库存是错误摘要、显式DEBUG观察和launch archive共享cache/digest工具；逐调用复核未发现普通帧整图哈希或重编译，故保留单份实现，不为数字归零再造owner。本段只关闭本次输入值与转发职责债；官方能力及性能按各自权威验证。
+
+provenance见`.artifacts/scene-architecture-continuation-20261102/`的`typed-input-*`、`visual-failure-test-api-current-*`、`visual-source-current-v3-results.json`及`final-neighbor-*`；首轮旧API编译失败保留，不算产品视觉失败。

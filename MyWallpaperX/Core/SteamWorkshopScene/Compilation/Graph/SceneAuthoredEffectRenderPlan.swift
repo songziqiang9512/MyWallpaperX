@@ -19,6 +19,25 @@ nonisolated struct SceneAuthoredEffectRenderPlan: Codable, Equatable {
         let layerID: Int
         let effect: EffectKey?
         let name: String?
+
+        nonisolated static func layerSource(layerID: Int) -> Self {
+            .init(kind: .layerSource, layerID: layerID, effect: nil, name: nil)
+        }
+
+        nonisolated func inputRole(layerID: Int) -> SceneAuthoredEffectInputRole? {
+            if self == Self.layerSource(layerID: layerID) {
+                return .layerSource
+            }
+            guard kind == .effectOutput,
+                  self.layerID == layerID,
+                  effect?.layerID == layerID,
+                  (effect?.effectIndex ?? -1) >= 0,
+                  effect?.descriptorID.isEmpty == false,
+                  name == nil else {
+                return nil
+            }
+            return .priorEffectOutput
+        }
     }
 
     enum TargetExtentKind: String, Codable {
@@ -263,38 +282,4 @@ nonisolated struct SceneAuthoredEffectRenderPlan: Codable, Equatable {
 nonisolated enum SceneAuthoredEffectInputRole: Equatable, Hashable {
     case layerSource
     case priorEffectOutput
-}
-
-enum SceneAuthoredEffectInputValidator {
-    typealias Graph = SceneAuthoredEffectRenderPlan
-
-    nonisolated static func role(
-        for input: Graph.TextureIdentity,
-        layerID: Int
-    ) -> SceneAuthoredEffectInputRole? {
-        if input == layerSource(layerID: layerID) {
-            return .layerSource
-        }
-        guard input.kind == .effectOutput,
-              input.layerID == layerID,
-              input.effect?.layerID == layerID,
-              (input.effect?.effectIndex ?? -1) >= 0,
-              input.effect?.descriptorID.isEmpty == false,
-              input.name == nil else {
-            return nil
-        }
-        return .priorEffectOutput
-    }
-
-    nonisolated static func accepts(
-        _ input: Graph.TextureIdentity,
-        layerID: Int,
-        role: SceneAuthoredEffectInputRole
-    ) -> Bool {
-        self.role(for: input, layerID: layerID) == role
-    }
-
-    nonisolated static func layerSource(layerID: Int) -> Graph.TextureIdentity {
-        .init(kind: .layerSource, layerID: layerID, effect: nil, name: nil)
-    }
 }

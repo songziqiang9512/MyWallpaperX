@@ -39,7 +39,7 @@ private func key(_ index: Int) -> Graph.EffectKey {
 }
 
 private func layerSource() -> Graph.TextureIdentity {
-    SceneAuthoredEffectInputValidator.layerSource(layerID: layerID)
+    Graph.TextureIdentity.layerSource(layerID: layerID)
 }
 
 private func output(_ effect: Graph.EffectKey) -> Graph.TextureIdentity {
