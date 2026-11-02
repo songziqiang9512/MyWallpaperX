@@ -14,6 +14,7 @@ It launches no product App, visible window, WebView, renderer or system saver.
 """
 from __future__ import annotations
 
+import errno
 import hashlib
 import json
 import os
@@ -135,6 +136,56 @@ class ScreenSaverIntegrationTests(unittest.TestCase):
                 with self.subTest(name=name):
                     self.assertIs(passed, True, run.stderr)
             print(json.dumps(checks, sort_keys=True))
+        self.assertEqual(identities, {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs})
+
+    def test_lease_open_failure_preserves_errno_through_cleanup(self):
+        sources = [ROOT / path for path in (
+            "MyWallpaperX/Core/System/ScreenSaverIntegration.swift",
+            "MyWallpaperX/Shared/VideoStillFrame.swift",
+            "ScreenSaverSources/ScreenSaverConfiguration.swift",
+            "script/tests/fixtures/ScreenSaverLeaseOpenFailureChecks.swift",
+        )]
+        inputs = [*sources, Path(__file__).resolve(), ROOT / "script/tests/test_video_thumbnail_prefetch.py"]
+        identities = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}
+        with tempfile.TemporaryDirectory(prefix="mwx-screen-saver-lease-open-", dir="/private/tmp") as temporary:
+            work = Path(temporary)
+            binary = work / "checks"
+            built = subprocess.run([
+                "xcrun", "swiftc", *SWIFT_ISOLATION_FLAGS, "-parse-as-library",
+                *map(str, sources), "-module-cache-path", str(work / "modules"), "-o", str(binary),
+            ], capture_output=True, text=True, timeout=120)
+            self.assertEqual(built.returncode, 0, built.stdout + built.stderr)
+            home = work / "home"; home.mkdir()
+            scratch = work / "tmp"; scratch.mkdir()
+            observations = []
+            for name in ("ENOSPC", "EACCES", "EMFILE"):
+                run = subprocess.run([str(binary), str(work / name), name, str(getattr(errno, name))], cwd=work,
+                    env=dict(os.environ, HOME=str(home), CFFIXED_USER_HOME=str(home), TMPDIR=str(scratch) + "/"),
+                    capture_output=True, text=True, timeout=20)
+                observations.append((name, run))
+                print(run.stdout, end="", flush=True)
+                if run.stderr:
+                    print(run.stderr, end="", file=sys.stderr, flush=True)
+            for name, run in observations:
+                with self.subTest(errno=name):
+                    self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+                    fact = json.loads(run.stdout)
+                    expected = getattr(errno, name)
+                    self.assertEqual(fact["case"], name)
+                    self.assertIs(fact["assemblyValid"], True, "lease shadow did not match: " + run.stdout)
+                    self.assertEqual(len(fact["calls"]), 1)
+                    self.assertEqual(fact["desiredErrno"], expected)
+                    self.assertEqual(fact["calls"][0]["desiredErrno"], expected)
+                    self.assertEqual(fact["callbackCount"], 1)
+                    self.assertIs(fact["callbackSuccess"], False)
+                    self.assertEqual(fact["callbackError"]["domain"], "NSPOSIXErrorDomain")
+                    self.assertIs(fact["candidateMediaRemoved"], True)
+                    self.assertEqual(len(fact["mediaBefore"]), 2)
+                    self.assertEqual(fact["mediaAfter"], fact["mediaBefore"])
+                    self.assertIs(fact["currentUnchanged"], True)
+                    self.assertIs(fact["previousUnchanged"], True)
+                    self.assertIs(fact["baselineConfigurationsDecode"], True)
+                    self.assertEqual(fact["callbackError"]["code"], expected)
         self.assertEqual(identities, {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs})
 
 

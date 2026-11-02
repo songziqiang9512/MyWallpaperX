@@ -236,8 +236,9 @@ final class ScreenSaverIntegration: NSObject, ObservableObject {
         let leaseURL = media.appendingPathComponent(".lease")
         let descriptor = open(leaseURL.path, O_RDWR | O_CREAT | O_EXCL | O_CLOEXEC, 0o600)
         guard descriptor >= 0 else {
+            let error = POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
             try? FileManager.default.removeItem(at: media)
-            throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+            throw error
         }
         var committed = false
         defer {
