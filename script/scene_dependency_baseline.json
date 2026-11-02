@@ -40,87 +40,6 @@
   "todo": [
     {
       "rule": "rendering-no-compilation-internals",
-      "consumer": "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureResolver+GraphSelection.swift",
-      "symbol": "SceneResolvedMaterialShaderSchema",
-      "declaration": "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialShaderSchema.swift",
-      "owner": "Scene Compilation / Rendering",
-      "reason": "试点前存在的直接内部类型引用；namespace混合合同与算法亦保守保留，不将当前使用自动公开",
-      "retirement": "由现有preparation owner产出typed合同并移除本直接边，或经独立设计迁移实际职责；同批ratchet删除此todo"
-    },
-    {
-      "rule": "rendering-no-compilation-internals",
-      "consumer": "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureResolver+Launch.swift",
-      "symbol": "SceneResolvedMaterialShaderSchema",
-      "declaration": "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialShaderSchema.swift",
-      "owner": "Scene Compilation / Rendering",
-      "reason": "试点前存在的直接内部类型引用；namespace混合合同与算法亦保守保留，不将当前使用自动公开",
-      "retirement": "由现有preparation owner产出typed合同并移除本直接边，或经独立设计迁移实际职责；同批ratchet删除此todo"
-    },
-    {
-      "rule": "rendering-no-compilation-internals",
-      "consumer": "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureResolver+LaunchColor.swift",
-      "symbol": "SceneResolvedMaterialProgramDerivation",
-      "declaration": "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgram+Derivation.swift",
-      "owner": "Scene Compilation / Rendering",
-      "reason": "试点前存在的直接内部类型引用；namespace混合合同与算法亦保守保留，不将当前使用自动公开",
-      "retirement": "由现有preparation owner产出typed合同并移除本直接边，或经独立设计迁移实际职责；同批ratchet删除此todo"
-    },
-    {
-      "rule": "rendering-no-compilation-internals",
-      "consumer": "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureResolver+LaunchColor.swift",
-      "symbol": "SceneResolvedMaterialShaderSchema",
-      "declaration": "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialShaderSchema.swift",
-      "owner": "Scene Compilation / Rendering",
-      "reason": "试点前存在的直接内部类型引用；namespace混合合同与算法亦保守保留，不将当前使用自动公开",
-      "retirement": "由现有preparation owner产出typed合同并移除本直接边，或经独立设计迁移实际职责；同批ratchet删除此todo"
-    },
-    {
-      "rule": "rendering-no-compilation-internals",
-      "consumer": "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureResolver+LaunchSelection.swift",
-      "symbol": "SceneResolvedMaterialMixedProviderSlotFact",
-      "declaration": "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+ProviderSlots.swift",
-      "owner": "Scene Compilation / Rendering",
-      "reason": "混合namespace仍承担identity推导或作者形状解析，不能仅因返回typed值就公开其算法入口",
-      "retirement": "由现有preparation owner产出typed合同并移除本直接边，或经独立设计迁移实际职责；同批ratchet删除此todo"
-    },
-    {
-      "rule": "rendering-no-compilation-internals",
-      "consumer": "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureResolver+LaunchSelection.swift",
-      "symbol": "SceneResolvedMaterialShaderSchema",
-      "declaration": "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialShaderSchema.swift",
-      "owner": "Scene Compilation / Rendering",
-      "reason": "试点前存在的直接内部类型引用；namespace混合合同与算法亦保守保留，不将当前使用自动公开",
-      "retirement": "由现有preparation owner产出typed合同并移除本直接边，或经独立设计迁移实际职责；同批ratchet删除此todo"
-    },
-    {
-      "rule": "rendering-no-compilation-internals",
-      "consumer": "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureResolver+LaunchSelection.swift",
-      "symbol": "SceneResolvedMaterialVariantCache",
-      "declaration": "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant.swift",
-      "owner": "Scene Compilation / Rendering",
-      "reason": "试点前存在的直接内部类型引用；namespace混合合同与算法亦保守保留，不将当前使用自动公开",
-      "retirement": "由现有preparation owner产出typed合同并移除本直接边，或经独立设计迁移实际职责；同批ratchet删除此todo"
-    },
-    {
-      "rule": "rendering-no-compilation-internals",
-      "consumer": "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureResolver.swift",
-      "symbol": "SceneResolvedMaterialShaderSchema",
-      "declaration": "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialShaderSchema.swift",
-      "owner": "Scene Compilation / Rendering",
-      "reason": "试点前存在的直接内部类型引用；namespace混合合同与算法亦保守保留，不将当前使用自动公开",
-      "retirement": "由现有preparation owner产出typed合同并移除本直接边，或经独立设计迁移实际职责；同批ratchet删除此todo"
-    },
-    {
-      "rule": "rendering-no-compilation-internals",
-      "consumer": "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureSelection.swift",
-      "symbol": "SceneResolvedMaterialShaderSchema",
-      "declaration": "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialShaderSchema.swift",
-      "owner": "Scene Compilation / Rendering",
-      "reason": "试点前存在的直接内部类型引用；namespace混合合同与算法亦保守保留，不将当前使用自动公开",
-      "retirement": "由现有preparation owner产出typed合同并移除本直接边，或经独立设计迁移实际职责；同批ratchet删除此todo"
-    },
-    {
-      "rule": "rendering-no-compilation-internals",
       "consumer": "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialUniformEncoder.swift",
       "symbol": "SceneResolvedMaterialHostUniformSchema",
       "declaration": "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialHostUniformSchema.swift",
@@ -265,15 +184,6 @@
     },
     {
       "rule": "rendering-no-compilation-internals",
-      "consumer": "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder+Warmup.swift",
-      "symbol": "SceneResolvedMaterialProgramIdentity",
-      "declaration": "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgramIdentity.swift",
-      "owner": "Scene Compilation / Rendering",
-      "reason": "混合namespace仍承担identity推导或作者形状解析，不能仅因返回typed值就公开其算法入口",
-      "retirement": "由现有preparation owner产出typed合同并移除本直接边，或经独立设计迁移实际职责；同批ratchet删除此todo"
-    },
-    {
-      "rule": "rendering-no-compilation-internals",
       "consumer": "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPipelineBinaryArchive.swift",
       "symbol": "ScenePersistentCacheDigest",
       "declaration": "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/ScenePersistentCacheSupport.swift",
@@ -288,15 +198,6 @@
       "declaration": "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/ScenePersistentCacheSupport.swift",
       "owner": "Scene Compilation / Rendering",
       "reason": "试点前存在的直接内部类型引用；namespace混合合同与算法亦保守保留，不将当前使用自动公开",
-      "retirement": "由现有preparation owner产出typed合同并移除本直接边，或经独立设计迁移实际职责；同批ratchet删除此todo"
-    },
-    {
-      "rule": "rendering-no-compilation-internals",
-      "consumer": "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPipelineBinaryArchive.swift",
-      "symbol": "SceneResolvedMaterialProgramIdentity",
-      "declaration": "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgramIdentity.swift",
-      "owner": "Scene Compilation / Rendering",
-      "reason": "混合namespace仍承担identity推导或作者形状解析，不能仅因返回typed值就公开其算法入口",
       "retirement": "由现有preparation owner产出typed合同并移除本直接边，或经独立设计迁移实际职责；同批ratchet删除此todo"
     },
     {
@@ -400,27 +301,62 @@
     }
   ],
   "last_ratchet": {
-    "reason": "M1 hands prepared texture format and slot facts through Catalog/CompiledVariant; Rendering parser and four retired internal references exit, remaining real duties remain open",
+    "reason": "M3 prepares sampler/purpose/RT values and launch algorithms at Schema/Variant owners; warmup/archive consume existing PreparedAssembly identity. Eleven direct internal edges retired, remaining catalog/capability duties stay open.",
     "removed": [
       [
         "rendering-no-compilation-internals",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureResolver+Launch.swift",
-        "SceneShaderContractSourceParser"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureResolver+GraphSelection.swift",
+        "SceneResolvedMaterialShaderSchema"
       ],
       [
         "rendering-no-compilation-internals",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureResolver.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureResolver+Launch.swift",
+        "SceneResolvedMaterialShaderSchema"
+      ],
+      [
+        "rendering-no-compilation-internals",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureResolver+LaunchColor.swift",
+        "SceneResolvedMaterialProgramDerivation"
+      ],
+      [
+        "rendering-no-compilation-internals",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureResolver+LaunchColor.swift",
+        "SceneResolvedMaterialShaderSchema"
+      ],
+      [
+        "rendering-no-compilation-internals",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureResolver+LaunchSelection.swift",
         "SceneResolvedMaterialMixedProviderSlotFact"
       ],
       [
         "rendering-no-compilation-internals",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureResolver.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureResolver+LaunchSelection.swift",
+        "SceneResolvedMaterialShaderSchema"
+      ],
+      [
+        "rendering-no-compilation-internals",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureResolver+LaunchSelection.swift",
         "SceneResolvedMaterialVariantCache"
       ],
       [
         "rendering-no-compilation-internals",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureResolver.swift",
+        "SceneResolvedMaterialShaderSchema"
+      ],
+      [
+        "rendering-no-compilation-internals",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureSelection.swift",
-        "SceneResolvedMaterialMixedProviderSlotFact"
+        "SceneResolvedMaterialShaderSchema"
+      ],
+      [
+        "rendering-no-compilation-internals",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder+Warmup.swift",
+        "SceneResolvedMaterialProgramIdentity"
+      ],
+      [
+        "rendering-no-compilation-internals",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPipelineBinaryArchive.swift",
+        "SceneResolvedMaterialProgramIdentity"
       ]
     ]
   }

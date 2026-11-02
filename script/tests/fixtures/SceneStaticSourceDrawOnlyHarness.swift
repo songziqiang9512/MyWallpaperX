@@ -8,11 +8,6 @@ struct SceneFrameTiming { let sceneTime: TimeInterval }
 // Harness stubs mirror the exact member surface the compiled product files
 // touch. Product files listed in STATIC_SOURCE_DRAW_ONLY_SOURCES stay verbatim.
 
-nonisolated enum SceneTextureLoadPurpose: Hashable, Sendable {
-    case premultipliedColor, straightAlbedo, preservedChannels, mask, noise
-    case flow, phase, normal, depth, lookupTable
-}
-
 enum SceneFrameTextureIdentity: Equatable { case layerSource(Int) }
 
 nonisolated struct SceneTextureProviderPublication {
@@ -330,8 +325,6 @@ struct ScenePersistentGraphTargetFramePlan {
 enum ScenePersistentGraphTargetPlanningFailure {
     static func isLocalFallbackReasonCode(_ reasonCode: String) -> Bool { false }
 }
-
-struct SceneSystemProviderTextureIdentity: Hashable {}
 
 enum SceneFrameTextureRegistry {
     enum ProviderStatus: Hashable { case ready }

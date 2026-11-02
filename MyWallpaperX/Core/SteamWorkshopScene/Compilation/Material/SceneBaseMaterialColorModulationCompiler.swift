@@ -155,13 +155,13 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
         }
         guard let samplers = try? SceneResolvedMaterialShaderSchema.activeSamplers(prepared),
               samplers.count == 1, let sampler = samplers[0], sampler.mode == .regular,
-              !sampler.hasExplicitNonColorPurpose, !sampler.usesGraphInputMaterialAlias else {
+              !SceneResolvedMaterialShaderSchema.hasExplicitNonColorPurpose(sampler), !SceneResolvedMaterialShaderSchema.usesGraphInputMaterialAlias(sampler) else {
             return reject(modelPath, "sampler-color-contract")
         }
-        let colorSampler = sampler.permitsSourceStraightColorProjection
+        let colorSampler = SceneResolvedMaterialShaderSchema.permitsSourceStraightColorProjection(sampler)
             ? sampler.withSourceProvenPurpose(.straightAlbedo) : sampler
         guard let asset = pass.textureSlots[0].flatMap(SceneVFSAssetPath.init),
-              colorSampler.purpose(for: .asset(asset)) == .straightAlbedo else {
+              SceneResolvedMaterialShaderSchema.purpose(for: .asset(asset), sampler: colorSampler) == .straightAlbedo else {
             return reject(modelPath, "sampler-asset-purpose")
         }
         // Shape alone cannot prove an arbitrary mat4 is the quad's host MVP.

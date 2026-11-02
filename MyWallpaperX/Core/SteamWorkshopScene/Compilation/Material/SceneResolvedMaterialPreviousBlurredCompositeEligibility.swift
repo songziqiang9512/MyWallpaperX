@@ -126,7 +126,7 @@ nonisolated enum SceneResolvedMaterialPreviousBlurredCompositeEligibility {
         // typed asset default through the ordinary texture resolver. Defaults
         // cannot rescue an unsupported or malformed authored candidate.
         guard let declaration = template.textureSlots[slot] else {
-            return sampler.hasTypedAuxiliaryDefault
+            return SceneResolvedMaterialShaderSchema.hasTypedAuxiliaryDefault(sampler)
         }
         guard !declaration.candidates.isEmpty else { return false }
         return declaration.candidates.allSatisfy {

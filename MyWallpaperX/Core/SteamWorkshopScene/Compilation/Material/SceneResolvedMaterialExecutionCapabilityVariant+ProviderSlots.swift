@@ -28,7 +28,7 @@ nonisolated enum SceneResolvedMaterialMixedProviderSlotFact {
               let optionalInput = SceneResolvedMaterialCompiledVariant.MixedProviderSlot.OptionalInput(
                   textureSlot.candidates[1].reference
               ),
-              sampler.purpose(for: textureSlot.candidates[1].reference)
+              SceneResolvedMaterialShaderSchema.purpose(for: textureSlot.candidates[1].reference, sampler: sampler)
                 == .preservedChannels else { return nil }
         return .init(
             slot: textureSlot.index,
@@ -122,7 +122,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         var defaults: [Int: Variant.TextureSelectionFacts.DefaultSource] = [:]
         for (slot, sampler) in samplers {
             if sampler.readinessCombo != nil,
-               SceneResolvedMaterialTextureResolver.presenceIndependentDefault(
+               SceneResolvedMaterialShaderSchema.presenceIndependentDefault(
                    template: template, sampler: sampler, slot: slot
                ) == nil { continue }
             let reference: Template.TextureReference
@@ -132,10 +132,10 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             case let .asset(path):
                 reference = .asset(path)
                 noiseFallback = SceneStockTextureSemanticRegistry.canSubstituteNoise(
-                    path, purpose: sampler.purpose(for: reference)
+                    path, purpose: SceneResolvedMaterialShaderSchema.purpose(for: reference, sampler: sampler)
                 ) ? .provider(.system(path.value)) : nil
             case let .internalTarget(target):
-                guard let resolved = SceneResolvedMaterialTextureResolver.renderTargetDefault(
+                guard let resolved = SceneResolvedMaterialShaderSchema.renderTargetDefault(
                     template: template, sampler: sampler, slot: slot,
                     inputIdentity: implicitFramebufferIdentity
                 ) else {
@@ -156,7 +156,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             }
             defaults[slot] = .reference(.init(
                 reference: reference,
-                purpose: sampler.purpose(for: reference),
+                purpose: SceneResolvedMaterialShaderSchema.purpose(for: reference, sampler: sampler),
                 graphInputSourceFact: sourceFact,
                 noiseFallback: noiseFallback,
                 requiresPresenceIndependentAllowance: sampler.readinessCombo != nil
@@ -164,7 +164,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         }
         let graphPurposes = Dictionary(uniqueKeysWithValues: graphInputSourceSlotFacts.compactMap {
             slot, fact -> (Int, SceneTextureLoadPurpose)? in
-            samplers[slot]?.purpose(for: .graph(fact.inputIdentity)).map { (slot, $0) }
+            samplers[slot].flatMap { SceneResolvedMaterialShaderSchema.purpose(for: .graph(fact.inputIdentity), sampler: $0) }.map { (slot, $0) }
         })
         return .init(
             candidatePurposes: purposes,
@@ -191,7 +191,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             // publication before binding; an idle default grants no resource.
             if readinessMask & (UInt8(1) << UInt8(slot)) != 0,
                template.textureSlots[slot]?.candidates.isEmpty == false { continue }
-            guard SceneResolvedMaterialTextureResolver.renderTargetDefault(
+            guard SceneResolvedMaterialShaderSchema.renderTargetDefault(
                 template: template, sampler: sampler, slot: slot,
                 inputIdentity: inputIdentity
             ) != nil else { return (slot, name.authoredName) }
@@ -227,7 +227,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         ).filter { slot in
             guard let sampler = samplers[slot], sampler.mode == .regular,
                   sampler.defaultTexture == nil,
-                  !sampler.usesGraphInputMaterialAlias,
+                  !SceneResolvedMaterialShaderSchema.usesGraphInputMaterialAlias(sampler),
                   let candidates = template.textureSlots[slot]?.candidates,
                   candidates.count == 1,
                   case let .provider(.namedLayerTarget(reference)) =
@@ -281,4 +281,29 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             return index
         })
     }
+
+    static func restrictTextureSelectionFacts(
+        _ facts: Variant.TextureSelectionFacts,
+        to activeSlots: Set<Int>
+    ) -> Variant.TextureSelectionFacts {
+        var candidates = facts.candidates
+        for (slot, values) in candidates where !activeSlots.contains(slot) {
+            candidates[slot] = values.map {
+                Variant.TextureSelectionFacts.Candidate(
+                    graphInputSourceFact: nil,
+                    preservesAbsentOverride: $0.preservesAbsentOverride,
+                    defersUnreadyOptionalPromotion: false
+                )
+            }
+        }
+        return .init(
+            candidatePurposes: facts.candidatePurposes.filter { activeSlots.contains($0.key) },
+            candidates: candidates,
+            defaults: facts.defaults.filter { activeSlots.contains($0.key) },
+            graphInputPurposes: facts.graphInputPurposes.filter { activeSlots.contains($0.key) },
+            mixedProviderSlots: facts.mixedProviderSlots.filter { activeSlots.contains($0.key) },
+            regularNamedProviderPurposeSlots: facts.regularNamedProviderPurposeSlots.intersection(activeSlots)
+        )
+    }
+
 }

@@ -148,6 +148,7 @@ TEXTURE_SAMPLING_TYPES = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureSampling.swift"
 )
 STATIC_SOURCE_DRAW_ONLY_SOURCES = [
+    SCENE_ROOT / "Resources/Textures/SceneTextureLookupIdentity.swift",
     SCENE_ROOT / "Runtime/Frame/SceneMaterialRenderState.swift",
     SCENE_ROOT / "Rendering/Composition/SceneFramebufferSnapshot.swift",
     SCENE_ROOT / "Resources/Textures/SceneResourceBudget.swift",
@@ -163,11 +164,6 @@ STATIC_SOURCE_DRAW_ONLY_SOURCES = [
     TEXTURE_UV_TRANSFORM,
     TEXTURE_SAMPLING_TYPES,
 ]
-
-
-ASSET_HARNESS = (
-    Path(__file__).with_name("fixtures") / "SceneAssetCatalogHarness.swift"
-).read_text(encoding="utf-8")
 
 
 VFS_SUPPORT = (

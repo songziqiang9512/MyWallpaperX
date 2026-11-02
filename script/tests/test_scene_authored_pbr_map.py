@@ -269,7 +269,7 @@ struct SceneAssetTextureIdentity: Equatable, Sendable {
                 output=work/(name+'.air');subprocess.run(['xcrun','-sdk','macosx','metal','-c',str(scene/'Rendering/Composition'/(name+'.metal')),'-o',str(output)],check=True,capture_output=True);air.append(str(output))
             library=work/'test.metallib';subprocess.run(['xcrun','-sdk','macosx','metallib',*air,'-o',str(library)],check=True,capture_output=True)
             sources=list(dict.fromkeys(texture.SWIFT_SOURCES+[scene/p for p in ['Rendering/Metal/SceneLitImageLayerPipeline.swift','Rendering/Composition/SceneOffscreenEffectRenderer+Capture.swift','Diagnostics/SceneGPUCensus.swift','Resources/Assets/SceneResourceIndex.swift','Resources/Assets/SceneResourceView.swift','Resources/Textures/SceneTexturePathResolver.swift','Resources/Textures/SceneMaterialAssetTextureCatalog.swift']]))
-            support=texture.HARNESS.split('@main',1)[0]
+            support=texture.HARNESS_SUPPORT_SOURCE
             support=support.replace('struct SceneRenderDescriptor {','struct SceneRenderDescriptor { struct ModelMaterialLink { let modelPath:String; let materialPath:String }; struct MaterialPass { let materialPath:String; let texturePaths:[String] }; var modelMaterialLinks:[ModelMaterialLink]=[]; var materialPasses:[MaterialPass]=[];')
             support=support.replace('let contentKind: String\n        let brightness:', 'var imagePath:String?=nil\n        var staticBaseTexturePath:String?=nil\n        let contentKind: String\n        let brightness:')
             (work/'Support.swift').write_text(support+'\nimport simd\nenum SceneMatrix { static func scale(_ v: SIMD3<Float>) -> simd_float4x4 { simd_float4x4(diagonal: SIMD4(v,1)) } }')

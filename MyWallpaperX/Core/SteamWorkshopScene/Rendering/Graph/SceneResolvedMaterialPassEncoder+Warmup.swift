@@ -15,10 +15,7 @@ extension SceneResolvedMaterialPassEncoder {
 
         init?(
             identity: String,
-            preparedKey: String,
-            frontend: SceneAuthoredShaderProgram,
-            renderState: SceneMaterialRenderState,
-            frontendSchemaVersion: Int,
+            prepared: SceneResolvedMaterialProgram.PreparedAssembly,
             pixelFormat: MTLPixelFormat,
             sampleCount: Int = 1,
             writeMask: MTLColorWriteMask,
@@ -26,26 +23,29 @@ extension SceneResolvedMaterialPassEncoder {
             device: MTLDevice
         ) {
             if passRole.readsCurrentAttachment {
-                guard SceneResolvedMaterialProgram.PassRole.supportsAttachmentReadTarget(
+                guard prepared.frontendProgram.attachmentReadVariant != nil,
+                      SceneResolvedMaterialProgram.PassRole.supportsAttachmentReadTarget(
                     pixelFormat: pixelFormat, sampleCount: sampleCount, device: device
                 ) else { return nil }
             }
-            guard !identity.isEmpty, !preparedKey.isEmpty,
-                  let key = SceneResolvedMaterialProgramIdentity.metalCompileStateKey(
-                      frontend: frontend,
-                      renderState: renderState,
-                      frontendSchemaVersion: frontendSchemaVersion,
-                      attachmentPixelFormatRawValue: pixelFormat.rawValue,
-                      sampleCount: sampleCount,
-                      colorWriteMaskRawValue: writeMask.rawValue,
-                      passRole: passRole,
-                      deviceRegistryID: device.registryID
-                  ) else { return nil }
+            guard !identity.isEmpty, pixelFormat != .invalid,
+                  sampleCount > 0, !writeMask.isEmpty,
+                  device.registryID != 0 else { return nil }
             self.identity = identity
-            self.preparedKey = preparedKey
-            self.key = key
-            self.frontend = frontend
-            self.renderState = renderState
+            preparedKey = prepared.preparedIdentity.cacheKey
+            key = .init(
+                passRole: passRole,
+                shader: prepared.shaderIdentity,
+                renderState: prepared.renderStateIdentity,
+                attachmentPixelFormatRawValue: pixelFormat.rawValue,
+                sampleCount: sampleCount,
+                colorWriteMaskRawValue: writeMask.rawValue,
+                deviceRegistryID: device.registryID,
+                attachmentReadMetalSourceSHA256: passRole.readsCurrentAttachment
+                    ? prepared.frontendProgram.attachmentReadVariant?.metalSourceSHA256 : nil
+            )
+            frontend = prepared.frontendProgram
+            renderState = prepared.renderState
             self.pixelFormat = pixelFormat
             self.sampleCount = sampleCount
             self.writeMask = writeMask
@@ -157,12 +157,7 @@ extension SceneResolvedMaterialPassEncoder {
 
         let binaryArchiveSession = SceneResolvedMaterialPipelineBinaryArchive
             .prepareSession(
-                frontend: plan.frontend,
-                renderState: plan.renderState,
-                pixelFormat: plan.pixelFormat,
-                sampleCount: plan.sampleCount,
-                writeMask: plan.writeMask,
-                passRole: plan.key.passRole,
+                key: plan.key,
                 device: device
             )
         let result = compileUncachedPipeline(

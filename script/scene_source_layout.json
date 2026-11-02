@@ -300,9 +300,6 @@
           "SceneAuthoredShaderFrameInputs.swift",
           "SceneResolvedMaterialRuntimeLoopBoundResolver.swift",
           "SceneResolvedMaterialTextureResolver+GraphSelection.swift",
-          "SceneResolvedMaterialTextureResolver+Launch.swift",
-          "SceneResolvedMaterialTextureResolver+LaunchColor.swift",
-          "SceneResolvedMaterialTextureResolver+LaunchSelection.swift",
           "SceneResolvedMaterialTextureResolver.swift",
           "SceneResolvedMaterialTextureSelection.swift",
           "SceneResolvedMaterialUniformEncoder.swift",
@@ -566,7 +563,8 @@
           "SceneTextureSampling.swift",
           "SceneTextureSlotBinding.swift",
           "SceneTextureUVTransform.swift",
-          "SceneResourceBudget.swift"
+          "SceneResourceBudget.swift",
+          "SceneTextureLookupIdentity.swift"
         ],
         "responsibility": "Textures: Shared resource identity, resolution, upload, residency and asynchronous publication."
       }
@@ -588,7 +586,8 @@
           "SceneScreenTopology.swift",
           "SceneStaticModelMaterialBindings.swift",
           "SceneSurfacePointerState.swift",
-          "SceneResolvedMaterialPreparedFrameInput.swift"
+          "SceneResolvedMaterialPreparedFrameInput.swift",
+          "SceneResolvedMaterialPreparedSamplerSchema.swift"
         ],
         "responsibility": "Frame: Scene process/session orchestration and frame handoff; capability algorithms stay with their systems."
       },

@@ -348,7 +348,7 @@ func resolverInvariantTokens(_ device: MTLDevice) -> [String: String] {
         effectOutputModelViewProjection: effectOutputModelViewProjection,
         effectTextureProjectionMatrixInverse: effectProjectionInverse
     )
-    let reachableTexturePurposes = SceneResolvedMaterialCompiledVariant.TextureSelectionFacts.consensusPurposes(
+    let reachableTexturePurposes = SceneResolvedMaterialVariantCache.consensusPurposes(
         cache.launchEnvelopeCapabilitySnapshot().variants.map { $0.textureSelectionFacts.candidatePurposes })
 
     func token(_ body: () throws -> Void) -> String {

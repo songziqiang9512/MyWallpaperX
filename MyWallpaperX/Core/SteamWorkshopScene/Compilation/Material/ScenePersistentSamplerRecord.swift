@@ -40,7 +40,7 @@ nonisolated struct ScenePersistentSamplerRecord: Codable, Equatable {
         readinessCombo = sampler.readinessCombo
         channelUse = sampler.channelUse.rawValue
         sourceProvenPurpose = sampler.sourceProvenPurpose
-            .map(Self.purposeName)
+            .map(\.reportToken)
     }
 
     /// Deterministic order key so payloads stay byte-stable across
@@ -78,23 +78,15 @@ nonisolated struct ScenePersistentSamplerRecord: Codable, Equatable {
         case 1:
             guard let value = defaultTextureValue,
                   !value.isEmpty else { return nil }
-            defaultTexture = .internalTarget(.init(authoredName: value))
+            defaultTexture = .internalTarget(SceneResolvedMaterialShaderSchema.renderTargetDefault(authoredName: value))
         default: return nil
         }
         let purpose: SceneTextureLoadPurpose?
-        switch sourceProvenPurpose {
-        case nil: purpose = nil
-        case "premultiplied-color": purpose = .premultipliedColor
-        case "straight-albedo": purpose = .straightAlbedo
-        case "preserved-channels": purpose = .preservedChannels
-        case "mask": purpose = .mask
-        case "noise": purpose = .noise
-        case "flow": purpose = .flow
-        case "phase": purpose = .phase
-        case "normal": purpose = .normal
-        case "depth": purpose = .depth
-        case "lookup-table": purpose = .lookupTable
-        default: return nil
+        if let sourceProvenPurpose {
+            guard let decoded = SceneTextureLoadPurpose(reportToken: sourceProvenPurpose) else { return nil }
+            purpose = decoded
+        } else {
+            purpose = nil
         }
         guard let channelUse = SceneAuthoredShaderProgram
             .TextureBinding.ChannelUse(rawValue: channelUse)
@@ -123,23 +115,6 @@ nonisolated struct ScenePersistentSamplerRecord: Codable, Equatable {
         case .rgbMask: return "rgb-mask"
         case .flowMask: return "flow-mask"
         case .depth: return "depth"
-        }
-    }
-
-    private static func purposeName(
-        _ purpose: SceneTextureLoadPurpose
-    ) -> String {
-        switch purpose {
-        case .premultipliedColor: return "premultiplied-color"
-        case .straightAlbedo: return "straight-albedo"
-        case .preservedChannels: return "preserved-channels"
-        case .mask: return "mask"
-        case .noise: return "noise"
-        case .flow: return "flow"
-        case .phase: return "phase"
-        case .normal: return "normal"
-        case .depth: return "depth"
-        case .lookupTable: return "lookup-table"
         }
     }
 }

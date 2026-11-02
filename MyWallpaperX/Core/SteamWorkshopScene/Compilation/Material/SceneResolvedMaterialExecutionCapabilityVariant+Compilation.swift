@@ -144,7 +144,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             selectedPurposes: variantKey.selectedTexturePurposes,
             graphColorSlots: graphInputTextureSlots.union(graphTextureSlots),
             providerColorSlots: premultipliedColorAuxiliarySlots.union(
-                SceneResolvedMaterialTextureResolver.sceneBackgroundColorSlots(
+                SceneResolvedMaterialShaderSchema.sceneBackgroundColorSlots(
                     template: template, samplers: sourceActiveSamplers
                 )
             ),
@@ -288,7 +288,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             ),
             routeDecision: routeDecision,
             activeSamplers: samplers,
-            textureSelectionFacts: textureSelectionFacts.restricting(to: Set(samplers.keys)),
+            textureSelectionFacts: restrictTextureSelectionFacts(textureSelectionFacts, to: Set(samplers.keys)),
             graphInputSourceSlotFacts: graphInputFacts,
             preservedAlphaRGBColorSlots: preservedAlphaRGBColorSlots,
             sourceProvenOpaqueColorSlots: sourceProvenOpaqueColorSlots,
@@ -365,7 +365,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         for (slot, sampler) in samplers {
             let references = (template.textureSlots.indices.contains(slot)
                 ? template.textureSlots[slot]?.candidates.map(\.reference) : nil) ?? []
-            let purposes = references.compactMap { sampler.purpose(for: $0) }
+            let purposes = references.compactMap { SceneResolvedMaterialShaderSchema.purpose(for: $0, sampler: sampler) }
             if purposes.contains(.straightAlbedo) || purposes.contains(.premultipliedColor)
                 || sampler.sourceProvenPurpose == .straightAlbedo
                 || sampler.sourceProvenPurpose == .premultipliedColor {

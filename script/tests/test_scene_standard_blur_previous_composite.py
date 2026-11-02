@@ -31,6 +31,8 @@ SWIFT_SOURCES = list(dict.fromkeys([
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneNamedTextureReference.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneAuthoredEffectRenderPlan.swift",
     SCENE_ROOT / "Compilation/Material/SceneRenderTargetVocabulary.swift",
+    SCENE_ROOT / "Resources/Textures/SceneTextureLookupIdentity.swift",
+    SCENE_ROOT / "Runtime/Frame/SceneResolvedMaterialPreparedSamplerSchema.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialShaderSchema.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneStockTextureSemanticRegistry.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialRuntimeLoopBoundResolver.swift",
@@ -79,13 +81,6 @@ nonisolated struct SceneResolvedMaterialNode {
 }
 nonisolated enum SceneDynamicTarget: Hashable {
     case effectConstant(layerID: Int, effectIndex: Int, passIndex: Int, name: String)
-}
-nonisolated struct SceneVFSAssetPath: Hashable, Sendable {
-    let value: String
-    init?(_ value: String) {
-        guard !value.isEmpty else { return nil }
-        self.value = value
-    }
 }
 nonisolated struct SceneResolvedMaterialTemplate {
     typealias Graph = SceneAuthoredEffectRenderPlan
@@ -711,13 +706,7 @@ class StandardBlurPreviousCompositeTests(unittest.TestCase):
         )
         if not marker:
             raise RuntimeError("Sampler purpose projection boundary was not found")
-        uploader = (SCENE_ROOT / "Resources/Textures/SceneImageTextureUploader.swift").read_text()
-        _, marker, purpose_enum = uploader.partition("nonisolated enum SceneTextureLoadPurpose:")
-        purpose_enum, end_marker, _ = purpose_enum.partition("\nnonisolated enum SceneImageTextureUploader")
-        if not marker or not end_marker:
-            raise RuntimeError("Product texture purpose enum boundary was not found")
-        purpose.write_text("import Foundation\nnonisolated enum SceneTextureLoadPurpose:"
-                           + purpose_enum + purpose_projection, encoding="utf-8")
+        purpose.write_text(purpose_projection, encoding="utf-8")
         frame_input = (SCENE_ROOT / "Runtime/Frame/SceneResolvedMaterialPreparedFrameInput.swift").read_text()
         uniform_schema, schema_boundary, _ = frame_input.partition(
             "\n/// Immutable identity of one admitted material node."

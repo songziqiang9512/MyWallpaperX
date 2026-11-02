@@ -14,9 +14,7 @@ func prepareMaterialPipeline(
         program.outputContract, attachmentStorage: attachmentStorage,
         partialCoverage: partialCoverage)!
     let plan = SceneResolvedMaterialPassEncoder.WarmupPlan(
-        identity: "standalone-material", preparedKey: program.preparedShader.cacheKey,
-        frontend: program.frontendProgram, renderState: program.renderState,
-        frontendSchemaVersion: program.semanticIdentity.shader.frontendSchemaVersion,
+        identity: "standalone-material", prepared: program.preparedAssembly,
         pixelFormat: target.pixelFormat, sampleCount: target.sampleCount,
         writeMask: SceneResolvedMaterialAttachmentStorage.writeMask(for: output.content),
         device: encoder.device)!

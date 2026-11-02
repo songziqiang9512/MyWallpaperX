@@ -81,7 +81,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         }
         let activeSceneBackgroundTextureSlots = Set(
             sourceActiveSamplers.compactMap { slot, sampler in
-                SceneResolvedMaterialTextureResolver.sceneBackgroundDefault(
+                SceneResolvedMaterialShaderSchema.sceneBackgroundDefault(
                     template: template,
                     sampler: sampler,
                     slot: slot
@@ -89,7 +89,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             }
         )
         let activeSceneEnvironmentTextureSlots = Set(sourceActiveSamplers.compactMap { slot, sampler in
-            SceneResolvedMaterialTextureResolver.sceneEnvironmentReference(
+            SceneResolvedMaterialShaderSchema.sceneEnvironmentReference(
                 template: template, sampler: sampler, slot: slot) == nil ? nil : slot
         })
         let activeExternalProviderTextureSlots = externalProviderTextureSlots(

@@ -2324,8 +2324,8 @@
         "docs/scene/capabilities/runtime-evidence-current.md",
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ],
-      "cutoffDate": "2026-11-02",
-      "uniqueValue": "M1格式/槽位交接与M2唯一静态uniform计划、帧template退出、冻结源码/签名App、真实GPU/原包/暖复用和首失败载体修正；不关闭整Scene架构。"
+      "cutoffDate": "2026-11-03",
+      "uniqueValue": "M1格式/槽位、M2唯一静态uniform与M3 Launch/设备准备身份/资源叶值交接，固定源码/签名App、真实GPU及载体首失败；不关闭整Scene架构。"
     },
     {
       "path": "docs/scene/history/material-video-assets-2026-10-12.md",

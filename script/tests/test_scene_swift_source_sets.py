@@ -203,6 +203,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         uniform = scene_swift_source_relpaths(
             "resolved_material_uniform_encoding"
         )
+        sampler = scene_swift_source_relpaths("resolved_material_sampler_schema")
         schema = scene_swift_source_relpaths("resolved_material_shader_schema")
         texture_finalization = scene_swift_source_relpaths(
             "resolved_material_texture_finalization"
@@ -218,15 +219,20 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         )
         complete = scene_swift_source_relpaths("resolved_material_program_all")
 
-        self.assertEqual(len(model), 8)
+        self.assertEqual(len(model), 9)
         self.assertEqual(set(uniform), {
             'MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneAuthoredShaderLightingInputs.swift',
             'MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialUniformEncoder.swift',
             'MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialUniformProjection.swift',
             'MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgram+PreparedUniformResolution.swift',
         })
-        self.assertEqual(len(schema), 7)
-        self.assertEqual(len(texture_finalization), 8)
+        self.assertEqual(sampler, (
+            'MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureLookupIdentity.swift',
+            'MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneResolvedMaterialPreparedSamplerSchema.swift',
+        ))
+        self.assertEqual(len(schema), 9)
+        self.assertEqual(schema[:len(sampler)], sampler)
+        self.assertEqual(len(texture_finalization), 5)
         self.assertEqual(len(variant_preparation), 31)
         self.assertIn(
             'MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialCompiledVariant.swift',
@@ -258,31 +264,34 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         )
         self.assertEqual(
             frame_finalization,
-            (
+            tuple(dict.fromkeys((
                 *model,
                 *uniform,
                 *schema,
                 *variant_preparation,
                 *texture_finalization,
-            ),
+            ))),
         )
-        self.assertEqual(len(frame_finalization), 58)
-        self.assertEqual(len(template_compilation), 3)
+        self.assertEqual(len(frame_finalization), 57)
+        self.assertEqual(len(template_compilation), 4)
         self.assertEqual(
             complete,
-            (
+            tuple(dict.fromkeys((
                 *template_compilation,
                 *frame_finalization,
-            ),
+            ))),
         )
-        self.assertEqual(len(complete), 61)
+        self.assertEqual(len(complete), 60)
 
         # The producer set now crosses preparation and live-binding boundaries.
         # Keep its explicit cardinality/order above and verify those boundaries.
         neutral_input = 'MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneResolvedMaterialPreparedFrameInput.swift'
         shared_query = 'MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgram+PreparedUniformResolution.swift'
         self.assertIn(neutral_input, model)
-        self.assertTrue(all("/Compilation/Material/" in path for path in model if path != neutral_input))
+        lookup_input = 'MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureLookupIdentity.swift'
+        self.assertIn(lookup_input, model)
+        self.assertTrue(all("/Compilation/Material/" in path for path in model
+                            if path not in {neutral_input, lookup_input}))
         self.assertIn(shared_query, uniform)
         self.assertTrue(all("/Rendering/" in path for path in uniform if path != shared_query))
         self.assertTrue(all("/Rendering/Bindings/" in path for path in texture_finalization
@@ -401,6 +410,10 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
             "duplicate": {
                 "a": {"includes": [], "sources": ["One.swift", "One.swift"]},
             },
+            "duplicate_between_sets": {
+                "a": {"includes": ["b"], "sources": ["One.swift"]},
+                "b": {"includes": [], "sources": ["One.swift"]},
+            },
             "unsafe": {
                 "a": {"includes": [], "sources": ["../One.swift"]},
             },
@@ -464,6 +477,21 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                     manifest_path=manifest,
                 )
 
+
+    def test_shared_named_dependency_is_expanded_once_in_first_use_order(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name in ("Leaf", "Left", "Right"):
+                (root / f"{name}.swift").write_text(f"struct {name} {{}}\n")
+            manifest = root / "diamond.json"
+            manifest.write_text(json.dumps({"schema_version": 1, "source_root": ".", "sets": {
+                "root": {"includes": ["left", "right"], "sources": []},
+                "left": {"includes": ["leaf"], "sources": ["Left.swift"]},
+                "right": {"includes": ["leaf"], "sources": ["Right.swift"]},
+                "leaf": {"includes": [], "sources": ["Leaf.swift"]},
+            }}))
+            self.assertEqual(scene_swift_source_relpaths("root", root, manifest),
+                             ("Leaf.swift", "Left.swift", "Right.swift"))
 
 if __name__ == "__main__":
     unittest.main()

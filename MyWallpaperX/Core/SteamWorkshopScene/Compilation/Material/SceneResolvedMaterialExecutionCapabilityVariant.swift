@@ -270,7 +270,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
             guard (0 ..< template.textureSlots.count).contains(slot) else {
                 return false
             }
-            if samplers.contains(where: \.usesGraphInputMaterialAlias) {
+            if samplers.contains(where: SceneResolvedMaterialShaderSchema.usesGraphInputMaterialAlias) {
                 return false
             }
             if template.textureSlots[slot]?.candidates.contains(where: {
@@ -353,8 +353,8 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
             var seen = Set<UInt8>()
             var stable = false
             for _ in 0 ..< Self.maximumReadinessPasses {
-                let projection: SceneResolvedMaterialTextureResolver.LaunchReadinessProjection
-                switch SceneResolvedMaterialTextureResolver.launchReadinessProjection(
+                let projection: LaunchReadinessProjection
+                switch Self.launchReadinessProjection(
                     template: template, samplers: samplers,
                     implicitFramebufferIdentity: implicitFramebufferIdentity,
                     assetStates: assetStates,
@@ -374,8 +374,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                     )))
                 }
                 let profiles: [[SceneShaderTextureFormat?]]
-                switch SceneResolvedMaterialTextureResolver
-                    .launchTextureFormatProfiles(
+                switch Self.launchTextureFormatProfiles(
                         template: template,
                         samplers: samplers,
                         readinessMask: mask,
@@ -392,8 +391,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                 }
                 let purposeProfiles: [[SceneTextureLoadPurpose?]]
                 do {
-                    purposeProfiles = try SceneResolvedMaterialTextureResolver
-                        .launchSelectedTexturePurposeProfiles(
+                    purposeProfiles = try Self.launchSelectedTexturePurposeProfiles(
                             template: template,
                             samplers: samplers,
                             readinessMask: mask
@@ -463,8 +461,8 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                         details: ["graph-input-source-fact-divergence"]
                     )))
                 }
-                let nextProjection: SceneResolvedMaterialTextureResolver.LaunchReadinessProjection
-                switch SceneResolvedMaterialTextureResolver.launchReadinessProjection(
+                let nextProjection: LaunchReadinessProjection
+                switch Self.launchReadinessProjection(
                     template: template, samplers: variant.activeSamplers,
                     implicitFramebufferIdentity: implicitFramebufferIdentity,
                     assetStates: assetStates,
@@ -478,8 +476,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                 }
                 let next = nextProjection.mask(optionalAvailability: availability)
                 if next == mask {
-                    if let failure = SceneResolvedMaterialTextureResolver
-                        .launchProgramFailure(
+                    if let failure = Self.launchProgramFailure(
                             template: template,
                             variants: variants,
                             readinessMask: mask,
@@ -556,7 +553,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
         memoizedSelections.removeAll()
         cachedReachability = .init(
             samplers: reachableSamplers,
-            candidatePurposes: Variant.TextureSelectionFacts.consensusPurposes(
+            candidatePurposes: Self.consensusPurposes(
                 admittedKeys.compactMap { key in
                     guard case let .ready(variant)? = entries[key] else { return nil }
                     return variant.textureSelectionFacts.candidatePurposes
@@ -789,13 +786,12 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                   of: conditionalFact.generatedOpaqueColorSlots
               ), sceneBackgroundSlots.allSatisfy({ slot in
                   guard let sampler = samplers[slot],
-                        let reference = SceneResolvedMaterialTextureResolver
-                            .sceneBackgroundDefault(
+                        let reference = SceneResolvedMaterialShaderSchema.sceneBackgroundDefault(
                                 template: template,
                                 sampler: sampler,
                                 slot: slot
                             ) else { return false }
-                  return sampler.purpose(for: reference) == .premultipliedColor
+                  return SceneResolvedMaterialShaderSchema.purpose(for: reference, sampler: sampler) == .premultipliedColor
               }) else { return result }
         result.formUnion(sceneBackgroundSlots)
         return result

@@ -269,9 +269,18 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderAttachmentReadLowering.swift"
       ]
     },
-    "resolved_material_program_model": {
-      "description": "Shared immutable Program model, host schema, identity, and derivation boundary.",
+    "scene_texture_lookup_identity": {
+      "description": "Foundation-only logical resource paths, representation purposes, and qualified lookup identities.",
       "includes": [],
+      "sources": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureLookupIdentity.swift"
+      ]
+    },
+    "resolved_material_program_model": {
+      "description": "Shared immutable Program values, host schema, identity, and derivation boundary.",
+      "includes": [
+        "scene_texture_lookup_identity"
+      ],
       "sources": [
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneResolvedMaterialPreparedFrameInput.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgram.swift",
@@ -293,9 +302,20 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgram+PreparedUniformResolution.swift"
       ]
     },
+    "resolved_material_sampler_schema": {
+      "description": "Immutable sampler values shared by schema preparation and current-frame texture binding.",
+      "includes": [
+        "scene_texture_lookup_identity"
+      ],
+      "sources": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneResolvedMaterialPreparedSamplerSchema.swift"
+      ]
+    },
     "resolved_material_shader_schema": {
       "description": "Active shader schema, loop-bound resolution, sampler purpose, and reachability.",
-      "includes": [],
+      "includes": [
+        "resolved_material_sampler_schema"
+      ],
       "sources": [
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneRenderTargetVocabulary.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialEffectIngress.swift",
@@ -307,15 +327,12 @@
       ]
     },
     "resolved_material_texture_finalization": {
-      "description": "Frame texture selection, launch resolution, color checks, and atomic Program finalization.",
+      "description": "Frame texture selection, publication checks, and atomic Program finalization.",
       "includes": [],
       "sources": [
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureResolver.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureSelection.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureResolver+GraphSelection.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureResolver+Launch.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureResolver+LaunchSelection.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureResolver+LaunchColor.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgramFinalizer+ColorInputs.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgramFinalizer.swift"
       ]
@@ -324,11 +341,11 @@
       "description": "Launch variant preparation, captured-main targeting, envelope compilation, and diagnostics.",
       "includes": [],
       "sources": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialCompiledVariant.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneMaterialDemandAnalysisPersistentCache.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/ScenePersistentCacheSupport.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialAlphaAttenuationEligibility.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialColorBlendEligibility.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialCompiledVariant.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+Diagnostics.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainSourceConservation.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainTarget.swift",
@@ -370,7 +387,9 @@
     },
     "resolved_material_template_compilation": {
       "description": "Authored material ingress, script binding classification, and immutable Template compilation.",
-      "includes": [],
+      "includes": [
+        "scene_texture_lookup_identity"
+      ],
       "sources": [
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneScriptValueOwnership.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialScriptBindingClassifier.swift",

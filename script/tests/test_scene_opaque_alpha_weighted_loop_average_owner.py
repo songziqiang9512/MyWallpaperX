@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-from script.tests.source_family import read_source_family
 import json
 import os
 from pathlib import Path
@@ -146,7 +145,7 @@ private func launchGateToken(
     content: SceneTextureContent?
 ) -> String {
     let facts = content.map { [internalTarget: $0] } ?? [:]
-    guard let failure = SceneResolvedMaterialTextureResolver.launchProgramFailure(
+    guard let failure = SceneResolvedMaterialVariantCache.launchProgramFailure(
         template: template,
         variants: [variant],
         readinessMask: variant.readinessMask,
@@ -518,39 +517,6 @@ class SceneOpaqueAlphaWeightedLoopAverageOwnerTests(unittest.TestCase):
                     **facts,
                 )
                 self.assertNotEqual(observed["routeProfile"], PROFILE)
-
-    def test_typed_opaque_input_contract_reaches_frame_finalization(self) -> None:
-        compilation = read_source_family(REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift")
-        finalizer = (
-            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgramFinalizer+ColorInputs.swift"
-        ).read_text(encoding="utf-8")
-        launch = (
-            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureResolver+LaunchColor.swift"
-        ).read_text(encoding="utf-8")
-
-        self.assertIn(
-            ".sourceProvenGraphTargetOpaqueAlphaWeightedLoopAverage.rawValue",
-            compilation,
-        )
-        self.assertIn(
-            "sourceProvenOpaqueColorSlots = [fact.sourceSlot]", compilation
-        )
-        self.assertIn(
-            "let associatedOverOverlaySlot =", compilation
-        )
-        self.assertIn(
-            "associatedOverOverlaySlot: associatedOverOverlaySlot", compilation
-        )
-        for source in (finalizer, launch):
-            self.assertIn(
-                "hasResolvedOpaqueColorSampleContract(", source
-            )
-            self.assertIn("variant.sourceProvenOpaqueColorSlots", source)
-        self.assertIn(
-            "associatedOverOverlaySlot:\n"
-            "                        variant.associatedOverOverlaySlot",
-            launch,
-        )
 
 class SceneOrdinaryColorBoundaryLaunchTests(unittest.TestCase):
     @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")

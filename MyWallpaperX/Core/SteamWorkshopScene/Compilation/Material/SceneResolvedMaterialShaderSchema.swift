@@ -7,141 +7,39 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
     typealias Template = SceneResolvedMaterialTemplate
     typealias ChannelUse = SceneAuthoredShaderProgram.TextureBinding.ChannelUse
 
-    enum TextureMode: Hashable {
-        case regular
-        case opacityMask
-        case rgbMask
-        case flowMask
-        case depth
+    typealias TextureMode = SceneResolvedMaterialPreparedSamplerSchema.TextureMode
+    typealias DefaultTexture = SceneResolvedMaterialPreparedSamplerSchema.DefaultTexture
+    typealias RenderTargetDefault = SceneResolvedMaterialPreparedSamplerSchema.RenderTargetDefault
+    typealias Sampler = SceneResolvedMaterialPreparedSamplerSchema
+
+    static func renderTargetDefault(authoredName: String) -> RenderTargetDefault {
+        .init(authoredName: authoredName,
+              admission: SceneRenderTargetVocabulary.dispatch(authoredName: authoredName))
     }
 
-    enum DefaultTexture: Hashable {
-        case asset(SceneVFSAssetPath)
-        case internalTarget(RenderTargetDefault)
-    }
-
-    struct RenderTargetDefault: Hashable {
-        let authoredName: String
-        let admission: SceneRenderTargetVocabulary.Fate
-
-        init(authoredName: String) {
-            self.authoredName = authoredName
-            admission = SceneRenderTargetVocabulary.dispatch(authoredName: authoredName)
-        }
-    }
-
-    struct Sampler: Hashable {
-        let name: String
-        let slot: Int
-        let mode: TextureMode
-        let materialKey: String?
-        /// Authored annotation `label`. Wallpaper Engine editors express the
-        /// slot-0 framebuffer input either through `material: framebuffer` or
-        /// through the framebuffer label; the label lane must survive schema
-        /// parsing for that alias to be recognized.
-        let labelKey: String?
-        /// Authored annotation `format` (e.g. `normalmap`). It declares the
-        /// asset's data role for samplers that carry no mode/material fact.
-        let formatKey: String?
-        let isHidden: Bool
-        let defaultTexture: DefaultTexture?
-        /// An unmarked sampler combo describes whether an authored texture is
-        /// actually bound. Its annotation default must not manufacture that
-        /// presence fact, although an active combo-off sampler may consume the
-        /// typed default as a separate resource fallback.
-        let readinessCombo: String?
-        /// Source-derived use for one prepared variant. Bootstrap schemas have
-        /// no active syntax proof and therefore retain the conservative default.
-        let channelUse: ChannelUse
-        /// A role proven from complete active shader dataflow. This may type an
-        /// otherwise ambiguous authored asset/property slot, but it may never
-        /// override a conflicting explicit or registered resource contract.
-        let sourceProvenPurpose: SceneTextureLoadPurpose?
-
-        init(
-            name: String,
-            slot: Int,
-            mode: TextureMode,
-            materialKey: String?,
-            labelKey: String? = nil,
-            formatKey: String? = nil,
-            isHidden: Bool,
-            defaultTexture: DefaultTexture?,
-            readinessCombo: String?,
-            channelUse: ChannelUse = .unproven,
-            sourceProvenPurpose: SceneTextureLoadPurpose? = nil
-        ) {
-            self.name = name
-            self.slot = slot
-            self.mode = mode
-            self.materialKey = materialKey
-            self.labelKey = labelKey
-            self.formatKey = formatKey
-            self.isHidden = isHidden
-            self.defaultTexture = defaultTexture
-            self.readinessCombo = readinessCombo
-            self.channelUse = channelUse
-            self.sourceProvenPurpose = sourceProvenPurpose
-        }
-
-        func withChannelUse(_ value: ChannelUse) -> Self {
-            .init(
-                name: name,
-                slot: slot,
-                mode: mode,
-                materialKey: materialKey,
-                labelKey: labelKey,
-                formatKey: formatKey,
-                isHidden: isHidden,
-                defaultTexture: defaultTexture,
-                readinessCombo: readinessCombo,
-                channelUse: value,
-                sourceProvenPurpose: sourceProvenPurpose
-            )
-        }
-
-        func withSourceProvenPurpose(
-            _ value: SceneTextureLoadPurpose
-        ) -> Self {
-            .init(
-                name: name,
-                slot: slot,
-                mode: mode,
-                materialKey: materialKey,
-                labelKey: labelKey,
-                formatKey: formatKey,
-                isHidden: isHidden,
-                defaultTexture: defaultTexture,
-                readinessCombo: readinessCombo,
-                channelUse: channelUse,
-                sourceProvenPurpose: value
-            )
-        }
-
-        func mergingVariantFacts(from active: Self) -> Self? {
-            guard name == active.name,
-                  slot == active.slot,
-                  mode == active.mode,
-                  materialKey == active.materialKey,
-                  labelKey == active.labelKey,
-                  formatKey == active.formatKey,
-                  isHidden == active.isHidden,
-                  defaultTexture == active.defaultTexture,
-                  readinessCombo == active.readinessCombo else { return nil }
-            return .init(
-                name: name,
-                slot: slot,
-                mode: mode,
-                materialKey: materialKey,
-                labelKey: labelKey,
-                formatKey: formatKey,
-                isHidden: isHidden,
-                defaultTexture: defaultTexture,
-                readinessCombo: readinessCombo,
-                channelUse: active.channelUse,
-                sourceProvenPurpose: active.sourceProvenPurpose
-            )
-        }
+    static func mergingVariantFacts(_ seed: Sampler, from active: Sampler) -> Sampler? {
+        guard seed.name == active.name,
+              seed.slot == active.slot,
+              seed.mode == active.mode,
+              seed.materialKey == active.materialKey,
+              seed.labelKey == active.labelKey,
+              seed.formatKey == active.formatKey,
+              seed.isHidden == active.isHidden,
+              seed.defaultTexture == active.defaultTexture,
+              seed.readinessCombo == active.readinessCombo else { return nil }
+        return .init(
+            name: seed.name,
+            slot: seed.slot,
+            mode: seed.mode,
+            materialKey: seed.materialKey,
+            labelKey: seed.labelKey,
+            formatKey: seed.formatKey,
+            isHidden: seed.isHidden,
+            defaultTexture: seed.defaultTexture,
+            readinessCombo: seed.readinessCombo,
+            channelUse: active.channelUse,
+            sourceProvenPurpose: active.sourceProvenPurpose
+        )
     }
 
     typealias Uniform = SceneResolvedMaterialPreparedUniformSchema
@@ -268,7 +166,7 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
         if let bootstrap = try? bootstrapSamplers(template) {
             for (slot, active) in bootstrap {
                 guard let seed = result[slot],
-                      let merged = seed.mergingVariantFacts(from: active) else {
+                      let merged = mergingVariantFacts(seed, from: active) else {
                     continue
                 }
                 result[slot] = merged
@@ -306,7 +204,7 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
         guard let samplers = try? samplerSchemas(selected),
               let sampler = samplers[slot], sampler.mode == .regular,
               sampler.formatKey == nil, sampler.readinessCombo == nil,
-              !sampler.hasExplicitNonColorPurpose, !sampler.usesGraphInputMaterialAlias,
+              !hasExplicitNonColorPurpose(sampler), !usesGraphInputMaterialAlias(sampler),
               case let .asset(path) = sampler.defaultTexture else { return nil }
         if let purpose = SceneStockTextureSemanticRegistry.purpose(for: path),
            purpose != .straightAlbedo { return nil }
@@ -468,7 +366,7 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
             // transfer or mask semantics attach to this proof.
             case .dataChannels: purpose = .preservedChannels
             }
-            // A typed stock default keeps its authority: the purpose(for:)
+            // A typed stock default keeps its authority: the Self.purpose(for:)
             // arbitration rejects the proof when the default's registry role
             // conflicts, so the fact never overrides registry semantics.
             if case let .asset(defaultPath)? = samplers[fact.slot]?.defaultTexture,
@@ -879,7 +777,7 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
             throw Issue.sampler(name)
         }
         if raw.isEmpty { return nil }
-        let target = RenderTargetDefault(authoredName: raw)
+        let target = renderTargetDefault(authoredName: raw)
         switch target.admission {
         case .typedFrameInput, .sceneEnvironment, .namedLayerTarget:
             return .internalTarget(target)

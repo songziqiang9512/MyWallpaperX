@@ -46,7 +46,7 @@ private func traceMaterial(_ cache: SceneResolvedMaterialVariantCache,
     graphStatus: SceneFrameTextureLookupStatus? = nil,
     queue: MTLCommandQueue? = nil) -> [String: Any] {
     let snapshot = cache.launchEnvelopeCapabilitySnapshot()
-    let reachableTexturePurposes = SceneResolvedMaterialCompiledVariant.TextureSelectionFacts.consensusPurposes(
+    let reachableTexturePurposes = SceneResolvedMaterialVariantCache.consensusPurposes(
         snapshot.variants.map { $0.textureSelectionFacts.candidatePurposes })
     let resource = graphAtom(device, identity: graphInput)
     var entries = extraEntries
@@ -73,7 +73,7 @@ private func traceMaterial(_ cache: SceneResolvedMaterialVariantCache,
                 "candidatePurposes": slot.candidates.indices.map { ordinal -> [String: Any] in
                     let reference = slot.candidates[ordinal].reference
                     return ["ordinal": ordinal, "reference": String(describing: reference),
-                        "directPurpose": String(describing: sampler.purpose(for: reference)),
+                        "directPurpose": String(describing: SceneResolvedMaterialShaderSchema.purpose(for: reference, sampler: sampler)),
                         "factPurpose": SceneResolvedMaterialTextureSlotPurpose.fact(in: slot,
                             candidateOrdinal: ordinal, sampler: sampler)?.purpose.reportToken ?? "nil",
                         "fact": String(describing: SceneResolvedMaterialTextureSlotPurpose.fact(in: slot,

@@ -114,7 +114,7 @@ func propertyFormatProfileChecks(path: SceneVFSAssetPath, variant: Int, device: 
     let facts = SceneResolvedMaterialVariantCache.prepareTextureSelectionFacts(
         in: template, samplers: [slot: sampler], implicitFramebufferIdentity: nil,
         graphInputSourceSlotFacts: [:])
-    let profiles = try SceneResolvedMaterialTextureResolver.launchTextureFormatProfiles(template: template,
+    let profiles = try SceneResolvedMaterialVariantCache.launchTextureFormatProfiles(template: template,
         samplers: [slot: sampler], readinessMask: UInt8(1) << UInt8(slot), formatSlots: formatSlots,
         graphTextureFormatFacts: [:], assetFormatFacts: [:], assetStates: [:]).get()
     let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba8Unorm,
@@ -190,14 +190,14 @@ func propertyFormatProfileChecks(path: SceneVFSAssetPath, variant: Int, device: 
             return false
         }
         checks["preparedProviderColorEnvelope"] = envelope(.preparedVideo(.color(.resolved(.premultipliedAlpha))))
-        let selected = try SceneResolvedMaterialTextureResolver.launchDefaultReference(sampler: active,
+        let selected = try SceneResolvedMaterialVariantCache.launchDefaultReference(sampler: active,
             slot: slot, assetStates: catalog.launchStates, systemProviderStates: [:])
         if case let .selected(reference, purpose) = selected {
             checks["preparedVideoCanPrepareSampler"] = reference == .asset(identity.path) && purpose == .premultipliedColor
         } else { checks["preparedVideoCanPrepareSampler"] = false }
         for state in [SceneAssetTextureLaunchState.pending, .unavailable] {
             do {
-                _ = try SceneResolvedMaterialTextureResolver.launchDefaultReference(sampler: active,
+                _ = try SceneResolvedMaterialVariantCache.launchDefaultReference(sampler: active,
                     slot: slot, assetStates: [identity: state], systemProviderStates: [:])
                 checks[String(describing: state) + "DoesNotAcquirePreparedAuthority"] = false
             } catch { checks[String(describing: state) + "DoesNotAcquirePreparedAuthority"] = true }

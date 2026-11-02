@@ -267,9 +267,11 @@ private func sourceSlots(_ prepared: Prepared, _ candidate: Template) -> Eligibi
             "defaultAssetSourceEntry": sourceSlots(first, firstTemplate) == expected,
             "renamedResourceAndVariables": validated(renamed) == expected
                 && sourceSlots(renamed, template(renamed)!) == expected,
-            "originalPurposePath": first.samplers[1]?.hasTypedAuxiliaryDefault == true
-                && first.samplers[1]?.purpose(for: .asset(
-                    SceneVFSAssetPath("fixtures/unseen-mask-one.tex")!)) == .mask,
+            "originalPurposePath": first.samplers[1].map {
+                Schema.hasTypedAuxiliaryDefault($0)
+                    && Schema.purpose(for: .asset(
+                        SceneVFSAssetPath("fixtures/unseen-mask-one.tex")!), sampler: $0) == .mask
+            } == true,
             "explicitAssetOverrideStillAccepted": validated(first, template: template(first,
                 maskCandidates: [.init(reference: .asset(
                     SceneVFSAssetPath("self-authored/explicit-mask.tex")!),
@@ -314,7 +316,7 @@ private func sourceSlots(_ prepared: Prepared, _ candidate: Template) -> Eligibi
         }
         var conflicting = first.samplers
         conflicting[1] = conflicting[1]!.withSourceProvenPurpose(.straightAlbedo)
-        negatives["conflictingDefaultPurpose"] = conflicting[1]?.hasTypedAuxiliaryDefault == false
+        negatives["conflictingDefaultPurpose"] = conflicting[1].map(Schema.hasTypedAuxiliaryDefault) == false
             && validated(first, samplers: conflicting) == nil
         let output: [String: Any] = [
             "schema": "self-authored-prepared-default-mask-v1",

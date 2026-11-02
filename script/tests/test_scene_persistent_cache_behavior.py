@@ -146,6 +146,9 @@ EXPECTED_TIER_CHECKS = {
         "wrong-key-miss",
     ],
     "variant": [
+        "sampler-purpose-roundtrip",
+        "sampler-purpose-absent",
+        "sampler-purpose-unknown-miss",
         "read-only-miss",
         "publish",
         "hit",

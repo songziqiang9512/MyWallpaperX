@@ -54,12 +54,6 @@ import Metal
 
 final class SceneGraphRenderTargetResidencyPin { func release() {} }
 
-nonisolated enum SceneTextureLoadPurpose: Hashable, Sendable {
-    case premultipliedColor, straightAlbedo, preservedChannels, mask, noise
-    case flow, phase, normal, depth, lookupTable
-    var requiresVolumeTexture: Bool { self == .lookupTable }
-}
-
 nonisolated struct SceneResolvedMaterialNode {
     enum TextureProvenance: String, Hashable {
         case material, instance, userTexture, explicitBinding
@@ -72,11 +66,6 @@ nonisolated enum SceneDynamicTarget: Hashable {
 
 nonisolated enum SceneDynamicSource: Hashable {
     case authored, userProperty, timeline, sceneScript
-}
-
-nonisolated struct SceneSystemProviderTextureIdentity: Hashable {
-    let name: String
-    let purpose: SceneTextureLoadPurpose
 }
 
 nonisolated enum SceneFrameTextureIdentity: Hashable {

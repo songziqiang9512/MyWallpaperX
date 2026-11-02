@@ -21,16 +21,6 @@ class SceneTexturePropertyContextTests(unittest.TestCase):
 
         cls.temp = tempfile.TemporaryDirectory(prefix="mwx-texture-context-")
         cls.work = Path(cls.temp.name)
-        # Compile the real CPU identity declarations without the candidate's
-        # Metal resource storage; do not copy their validation into this test.
-        candidate = (SCENE_ROOT / "Resources/Textures/SceneTextureCandidate.swift").read_text()
-        identities = candidate.split("/// Identity of raw scene color", 1)[0]
-        purpose = (SCENE_ROOT / "Resources/Textures/SceneImageTextureUploader.swift").read_text()
-        purpose = method_body(purpose, "nonisolated enum SceneTextureLoadPurpose:")
-        purpose_reports = candidate[candidate.index("nonisolated extension SceneTextureLoadPurpose {") :]
-        purpose_reports = purpose_reports.split("private nonisolated extension SceneTextureLoadPurpose", 1)[0]
-        registry = (SCENE_ROOT / "Resources/Textures/SceneFrameTextureRegistry.swift").read_text()
-        system_identity = method_body(registry, "nonisolated struct SceneSystemProviderTextureIdentity:")
         builder_leaves = builder.HARNESS_SOURCE.split("@main", 1)[0]
         modulation = (SCENE_ROOT / "Compilation/Material/SceneBaseMaterialColorModulationCompiler.swift").read_text()
         # Keep the provider's actual proof DTO as its declaration evolves;
@@ -50,12 +40,12 @@ class SceneTexturePropertyContextTests(unittest.TestCase):
         ), "")
         harness = cls.work / "Probe.swift"
         harness.write_text("\n".join([
-            builder_leaves, identities,
-            purpose, purpose_reports, system_identity, CONTEXT_LEAF_STUBS,
+            builder_leaves, CONTEXT_LEAF_STUBS,
             method_body((REPOSITORY_ROOT / "MyWallpaperX/Core/PlaybackControl/WallpaperEngineCommand.swift").read_text(),
                         "nonisolated enum ScenePlaybackTextureUpdateOutcome:"),
         ]))
         sources = builder.SWIFT_SOURCES + [
+            SCENE_ROOT / "Resources/Textures/SceneTextureLookupIdentity.swift",
             REPOSITORY_ROOT / "MyWallpaperX/Core/PlaybackControl/ScenePlaybackShortcut.swift",
             SCENE_ROOT / "Runtime/Session/SceneDesktopWallpaperLaunchModels.swift",
             SCENE_ROOT / "Compilation/Material/SceneBaseMaterialProviderBindingProgram.swift",

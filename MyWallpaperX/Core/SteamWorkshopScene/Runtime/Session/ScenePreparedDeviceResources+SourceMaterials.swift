@@ -46,7 +46,9 @@ extension ScenePreparedDeviceResources {
                       template.textureSlots.dropFirst().allSatisfy({ $0 == nil }),
                       envelope.variants.allSatisfy({ variant in
                           variant.activeSamplers.count == 1
-                              && variant.activeSamplers[0]?.purpose(for: reference) == .premultipliedColor
+                              && variant.activeSamplers[0].flatMap({
+                                  SceneResolvedMaterialShaderSchema.purpose(for: reference, sampler: $0)
+                              }) == .premultipliedColor
                       }) else {
                     reject("framebuffer-source-domain-unproven"); continue
                 }
@@ -62,8 +64,10 @@ extension ScenePreparedDeviceResources {
                       case let .asset(path) = reference else {
                     reject("source-domain-unavailable"); continue
                 }
-                let purposes = envelope.variants.compactMap {
-                    $0.activeSamplers[0]?.purpose(for: reference)
+                let purposes = envelope.variants.compactMap { variant in
+                    variant.activeSamplers[0].flatMap {
+                        SceneResolvedMaterialShaderSchema.purpose(for: reference, sampler: $0)
+                    }
                 }
                 guard purposes.count == envelope.variants.count,
                       Set(purposes).count == 1, let purpose = purposes.first else {
@@ -73,9 +77,7 @@ extension ScenePreparedDeviceResources {
             }
             let plans = envelope.variants.compactMap { variant in
                 SceneResolvedMaterialPassEncoder.WarmupPlan(
-                    identity: entry.key.reportToken, preparedKey: variant.preparedShader.cacheKey,
-                    frontend: variant.frontendProgram, renderState: template.renderState,
-                    frontendSchemaVersion: variant.preparedShader.vertex.frontendSchemaVersion,
+                    identity: entry.key.reportToken, prepared: variant.preparedAssembly,
                     pixelFormat: format, writeMask: .all, device: device)
             }
             guard plans.count == envelope.variants.count else {

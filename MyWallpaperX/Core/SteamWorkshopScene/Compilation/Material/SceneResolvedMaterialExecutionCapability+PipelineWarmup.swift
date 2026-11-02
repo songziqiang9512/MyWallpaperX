@@ -23,11 +23,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                               _ role: SceneResolvedMaterialProgram.PassRole)
                         -> SceneResolvedMaterialPassEncoder.WarmupPlan? {
                         .init(identity: identity(material.key),
-                              preparedKey: variant.preparedShader.cacheKey,
-                              frontend: variant.frontendProgram,
-                              renderState: material.template.renderState,
-                              frontendSchemaVersion:
-                                variant.preparedShader.vertex.frontendSchemaVersion,
+                              prepared: variant.preparedAssembly,
                               pixelFormat: format, writeMask: writeMask,
                               passRole: role, device: device)
                     }

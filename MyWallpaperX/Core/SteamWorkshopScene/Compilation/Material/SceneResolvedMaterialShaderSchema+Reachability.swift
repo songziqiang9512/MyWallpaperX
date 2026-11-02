@@ -210,7 +210,7 @@ extension SceneResolvedMaterialShaderSchema {
                 // be required independently of this hypothetical bit.
                 guard (0 ..< 8).contains(index),
                       let sampler = samplers[index],
-                      !sampler.usesGraphInputMaterialAlias,
+                      !usesGraphInputMaterialAlias(sampler),
                       !graphBoundSlots.contains(index),
                       let slot = template.textureSlots[index],
                       !slot.candidates.isEmpty,
@@ -277,8 +277,7 @@ extension SceneResolvedMaterialShaderSchema {
                 case .asset where sampler.readinessCombo == nil:
                     required |= bit
                 case .internalTarget where sampler.readinessCombo == nil:
-                    guard SceneResolvedMaterialTextureResolver
-                        .renderTargetDefault(
+                    guard SceneResolvedMaterialShaderSchema.renderTargetDefault(
                             template: template, sampler: sampler, slot: index,
                             inputIdentity: implicitFramebufferIdentity
                         ) != nil
@@ -289,7 +288,7 @@ extension SceneResolvedMaterialShaderSchema {
                 case .asset, .internalTarget, nil:
                     break
                 }
-                if sampler.usesGraphInputMaterialAlias,
+                if usesGraphInputMaterialAlias(sampler),
                    implicitFramebufferIdentity != nil
                 {
                     required |= bit

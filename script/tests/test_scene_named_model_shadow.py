@@ -367,7 +367,7 @@ def ordered_support():
     group=('struct SceneCompositionGroupFrameRuntime'+group).replace('struct SceneBaseImageTextureSnapshot {}','struct SceneBaseImageTextureSnapshot {let sources:[Int:FixtureSource]}')
     group=group.replace('struct FixtureImageSelection {let source:MTLTexture?}',
                         'struct FixtureImageSelection {let source:FixtureSource?}')
-    stage=pool_fixture.HARNESS.split('struct SceneEffectStageExecutionPlan',1)[1].split('nonisolated enum SceneTextureLoadPurpose',1)[0]
+    stage=pool_fixture.HARNESS.split('struct SceneEffectStageExecutionPlan',1)[1].split('nonisolated enum SceneFrameTextureIdentity',1)[0]
     return dep+prepared+group+'struct SceneEffectStageExecutionPlan'+stage+ORDERED_RENDERER
 
 

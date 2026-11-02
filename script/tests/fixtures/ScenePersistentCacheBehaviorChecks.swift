@@ -267,6 +267,38 @@ private func runGenericProbe() throws -> ProbeOutput {
 
 private func runVariantProbe() throws -> ProbeOutput {
     var output = ProbeOutput(tier: "variant")
+    let samplerSeed = SceneResolvedMaterialPreparedSamplerSchema(
+        name: "g_Texture2", slot: 2, mode: .regular, materialKey: nil,
+        isHidden: false, defaultTexture: nil, readinessCombo: nil
+    )
+    let purposeCases: [(String, SceneTextureLoadPurpose)] = [
+        ("premultiplied-color", .premultipliedColor), ("straight-albedo", .straightAlbedo),
+        ("preserved-channels", .preservedChannels), ("mask", .mask),
+        ("noise", .noise), ("flow", .flow), ("phase", .phase),
+        ("normal", .normal), ("depth", .depth), ("lookup-table", .lookupTable),
+    ]
+    var roundtripsMatch = true
+    for (token, purpose) in purposeCases {
+        let sampler = samplerSeed.withSourceProvenPurpose(purpose)
+        let mirror = ScenePersistentSamplerRecord(sampler: sampler)
+        let data = try JSONEncoder().encode(mirror)
+        let decoded = try JSONDecoder().decode(ScenePersistentSamplerRecord.self, from: data)
+        roundtripsMatch = roundtripsMatch && mirror.sourceProvenPurpose == token
+            && purpose.reportToken == token && SceneTextureLoadPurpose(reportToken: token) == purpose
+            && decoded.rebuild() == sampler
+    }
+    try expect(into: &output, roundtripsMatch, "sampler-purpose-roundtrip")
+    let absentPurpose = ScenePersistentSamplerRecord(sampler: samplerSeed)
+    let absentData = try JSONEncoder().encode(absentPurpose)
+    let absentDecoded = try JSONDecoder().decode(ScenePersistentSamplerRecord.self, from: absentData)
+    try expect(into: &output,
+        absentDecoded.sourceProvenPurpose == nil && absentDecoded.rebuild() == samplerSeed,
+        "sampler-purpose-absent")
+    var unknownPayload = try JSONSerialization.jsonObject(with: absentData) as! [String: Any]
+    unknownPayload["sourceProvenPurpose"] = "unrecognized-future-purpose"
+    let unknown = try JSONDecoder().decode(ScenePersistentSamplerRecord.self,
+        from: JSONSerialization.data(withJSONObject: unknownPayload))
+    try expect(into: &output, unknown.rebuild() == nil, "sampler-purpose-unknown-miss")
     let root = try cacheRoot()
     let directory = tierDirectory(root: root, name: "SceneVariantAnalysis-v29")
     let key = "probe-variant-key"
@@ -281,7 +313,7 @@ private func runVariantProbe() throws -> ProbeOutput {
         canonicalFragment: "// probe fragment",
         activeSamplerNames: ["g_Probe"],
         resolvedIntegerCombos: ["COMBO_A": 1],
-        sourceActiveSamplers: [:],
+        sourceActiveSamplers: [2: samplerSeed.withSourceProvenPurpose(.mask)],
         runtimeLoopBounds: .none,
         sourceColorTransfer: .passthrough(textureSlot: 2),
         rgba8UnormAccumulatorSourceSlot: nil,
@@ -304,7 +336,7 @@ private func runVariantProbe() throws -> ProbeOutput {
             && loaded?.canonicalFragment == "// probe fragment"
             && loaded?.activeSamplerNames == ["g_Probe"]
             && loaded?.resolvedIntegerCombos == ["COMBO_A": 1]
-            && loaded?.sourceActiveSamplers.isEmpty == true
+            && loaded?.sourceActiveSamplers == [2: samplerSeed.withSourceProvenPurpose(.mask)]
             && loaded?.sourceColorTransfer == .passthrough(textureSlot: 2),
         "hit"
     )

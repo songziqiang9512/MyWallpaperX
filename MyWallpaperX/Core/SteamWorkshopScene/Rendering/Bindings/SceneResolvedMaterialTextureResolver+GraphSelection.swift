@@ -4,7 +4,7 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
     static func selectionPurpose(
         reference: Template.TextureReference,
         declaredPurpose: SceneTextureLoadPurpose?,
-        activeSampler: SceneResolvedMaterialShaderSchema.Sampler?,
+        activeSampler: SceneResolvedMaterialPreparedSamplerSchema?,
         channelUse: ChannelUse?,
         input: SceneResolvedMaterialFinalizationInput
     ) -> SceneTextureLoadPurpose? {

@@ -261,7 +261,7 @@ func rtDefaultAdmissionTokens(_ device: MTLDevice) -> [String: String] {
         do {
             let samplers = try SceneResolvedMaterialShaderSchema.bootstrapSamplers(value)
             let facts = SceneResolvedMaterialShaderSchema.graphInputSourceSlotFacts(template: value, samplers: samplers, inputIdentity: graphTexture())
-            let projection = SceneResolvedMaterialTextureResolver.launchReadinessProjection(template: value, samplers: samplers, implicitFramebufferIdentity: graphTexture(), assetStates: [:])
+            let projection = SceneResolvedMaterialVariantCache.launchReadinessProjection(template: value, samplers: samplers, implicitFramebufferIdentity: graphTexture(), assetStates: [:])
             switch projection {
             case let .success(mask): result[token] = "ready:\(mask.requiredMask):fact:\(facts[0] != nil)"
             case let .failure(failure): result[token] = "rejected:\(failure.code)"

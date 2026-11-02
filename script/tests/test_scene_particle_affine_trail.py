@@ -77,11 +77,6 @@ import Foundation
 import Metal
 import simd
 
-enum SceneTextureLoadPurpose: Hashable {
-    case premultipliedColor, straightAlbedo, preservedChannels, mask, noise
-    case flow, phase, normal, depth, lookupTable
-    var requiresVolumeTexture: Bool { self == .lookupTable }
-}
 
 struct SceneRenderDescriptor {
     struct Layer {

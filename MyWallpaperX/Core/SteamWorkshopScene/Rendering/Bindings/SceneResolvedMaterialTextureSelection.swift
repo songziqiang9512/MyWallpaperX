@@ -24,7 +24,7 @@ nonisolated enum SceneResolvedMaterialTextureSelection {
     static func resolve(
         _ input: SceneResolvedMaterialFinalizationInput,
         textureSlots: [Template.TextureSlot?],
-        samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
+        samplers: [Int: SceneResolvedMaterialPreparedSamplerSchema],
         reachableTexturePurposes: [Int: [SceneTextureLoadPurpose?]],
         channelUses: [Int: ChannelUse],
         allowPresenceIndependentDefaults: Bool,
@@ -134,7 +134,7 @@ nonisolated enum SceneResolvedMaterialTextureSelection {
     private static func selectGraphInputs(
         into result: inout [Entry],
         input: SceneResolvedMaterialFinalizationInput,
-        samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
+        samplers: [Int: SceneResolvedMaterialPreparedSamplerSchema],
         textureSelectionFacts: SceneResolvedMaterialCompiledVariant.TextureSelectionFacts,
         graphInputSourceSlotFacts: [
             Int: SceneResolvedMaterialGraphInputSourceSlotFact

@@ -1,17 +1,5 @@
 import Metal
 
-/// Exact frame lookup identity for one system-owned texture representation.
-/// Purpose is part of the identity because one provider source may publish
-/// independent color and data representations for different consumers.
-nonisolated struct SceneSystemProviderTextureIdentity: Hashable, Sendable {
-    let name: String
-    let purpose: SceneTextureLoadPurpose
-
-    var reportToken: String {
-        "system:\(name.utf8.count)#\(name):\(purpose.reportToken)"
-    }
-}
-
 nonisolated enum SceneFrameTextureIdentity: Hashable {
     case layerSource(Int)
     case namedLayerTarget(SceneNamedTextureReference)

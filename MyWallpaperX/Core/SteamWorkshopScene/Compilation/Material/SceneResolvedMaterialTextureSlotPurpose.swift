@@ -41,7 +41,7 @@ nonisolated enum SceneResolvedMaterialTextureSlotPurpose {
                 purpose: purpose
             )
         }
-        let directPurpose = sampler.purpose(for: candidate.reference)
+        let directPurpose = SceneResolvedMaterialShaderSchema.purpose(for: candidate.reference, sampler: sampler)
         let sourceProvenGraphColor: Bool
         if case .graph = candidate.reference {
             sourceProvenGraphColor = directPurpose == .premultipliedColor
@@ -116,7 +116,7 @@ nonisolated enum SceneResolvedMaterialTextureSlotPurpose {
                   let exact = SceneStockTextureSemanticRegistry.purpose(
                       for: lowerPath
                   ),
-                  sampler.purpose(for: lower.reference) == exact else {
+                  SceneResolvedMaterialShaderSchema.purpose(for: lower.reference, sampler: sampler) == exact else {
                 return makeFact(
                     slot: slot,
                     ordinal: candidateOrdinal,
@@ -177,7 +177,7 @@ nonisolated enum SceneResolvedMaterialTextureSlotPurpose {
                registered != sourcePurpose {
                 return false
             }
-            if let lowerPurpose = sampler.purpose(for: lower.reference),
+            if let lowerPurpose = SceneResolvedMaterialShaderSchema.purpose(for: lower.reference, sampler: sampler),
                lowerPurpose != sourcePurpose {
                 return false
             }

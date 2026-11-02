@@ -24,10 +24,9 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         artifactFailure: [String],
         premultipliedColorInputSlots: Set<Int>
     ) {
-        let sceneBackgroundColorSlots = SceneResolvedMaterialTextureResolver
-            .sceneBackgroundColorSlots(template: template, samplers: sourceActiveSamplers)
+        let sceneBackgroundColorSlots = SceneResolvedMaterialShaderSchema.sceneBackgroundColorSlots(template: template, samplers: sourceActiveSamplers)
         let sceneEnvironmentSlots = Set(sourceActiveSamplers.compactMap { slot, sampler in
-            SceneResolvedMaterialTextureResolver.sceneEnvironmentReference(
+            SceneResolvedMaterialShaderSchema.sceneEnvironmentReference(
                 template: template, sampler: sampler, slot: slot) == nil ? nil : slot
         })
         let profileInputSlots: (String) -> Set<Int> = { profile in

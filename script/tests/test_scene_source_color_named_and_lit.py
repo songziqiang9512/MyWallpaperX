@@ -465,7 +465,7 @@ class SceneSourceColorNamedAndLitTests(unittest.TestCase):
             "Rendering/Composition/SceneOffscreenEffectRenderer+Capture.swift",
             "Rendering/Graph/SceneGraphResourcePassEncoder.swift", "Diagnostics/ScenePerformanceCounterHub.swift",
             "Diagnostics/SceneGPUCensus.swift")]]))
-        support = textures.HARNESS.split("@main", 1)[0] + r'''
+        support = textures.HARNESS_SUPPORT_SOURCE + r'''
 import simd
 struct SceneGraphRenderTargetPlan { struct ClearColor { let red: Double; let green: Double; let blue: Double; let alpha: Double } }
 enum SceneMatrix { static func scale(_ value: SIMD3<Float>) -> simd_float4x4 { simd_float4x4(diagonal: SIMD4(value, 1)) } }

@@ -87,3 +87,26 @@ SourceMaterial 原 template 的 live property 消费者没有删除：准备时�
 结构门首次指出已退出的 raw frontend 调用仍登记在旧库存；按真实调用将该 inventory 由 2 收紧为 1，原迁移凭据不改，其余 Compilation→Rendering 债不据此关闭。
 
 Launch 准备算法、device key 与执行能力交接继续开放，实际产品 daemon 完整链另验。未认领整体启动、CPU/GPU、能耗、全语料、物理多屏、长期稳定或官方 parity。
+
+
+<a id="m3-launch-device-resource"></a>
+## M3 Launch、设备身份与资源值交接
+
+2026-11-03固定边界：Launch选择、mixed解析与颜色准入归原Schema/Variant准备owner，Rendering三个Launch文件退出。PreparedSampler交付准备事实，逻辑VFS/purpose identity与Candidate物理纹理、Uploader的GPU工作分开；purpose持久wire复用同一codec，未知非空token整record miss。资源identity文件仅依Foundation；Sampler仍复用既有FrontendModel的ChannelUse，不称为独立Foundation模块。
+
+Warmup及binary archive直接消费PreparedAssembly既有shader/render-state identity，Rendering只附设备和附件事实，退出重复推导。此批不改变PSO设备准备owner，也不关闭当时的可选archive同步发布等待；后续整改按现役设计独立验证。
+
+38个产品路径净减170行（含三个旧入口删除、两个值文件新增），没有新增owner或运行状态。79个测试路径净增200行，其中三个过长driver改为完整职责fixture；保真实输入/输出和编译边界，不以搬迁或增删行宣称性能提升。SourceSet共享named leaf按首次使用展开一次，真实循环和不同集合重复声明仍拒绝。
+
+| 已执行边界 | 固定结果与限制 |
+|---|---|
+| SourceSet与准备 | 12个source-set反例、SamplerDefault、Template、ProgramFinalizer及SharedPresence通过；保合法空、未知purpose、资源来源/通道和失败邻例 |
+| 设备准备与GPU | PassEncoder真实编译/encode、冷暖archive、格式隔离和损坏恢复通过；Terminal straight调用改用真实preparedAssembly，原断言保持 |
+| 资源消费者 | FrameTextureRegistry、TextureCandidate及粒子Rendering最近门通过；不是只验证类型名或source list |
+| 签名联合构建 | arm64 Debug `-O`构建通过，Team `H9QWU9XN8R`严格验签；App `98539ede73e5ab7aa14babd2e9805f28b085643492755feae22404f7a6a7d6a2`同时含独立Camera批，不能称为单独M3 App |
+| 冻结范围 | 对应产品后像与构建保护源码核SHA，提交仅另规范一份产品文件的EOF空行，原后像和trivia差异清单保留；删除项从现役source/layout退出。构建记录保护45个Scene文件，不能改称全仓逐文件冻结 |
+| 结构 | 11条直接内部边随真实职责退出，阶段基线40→29，public_contracts未扩；后续能力载体、活动消费者及全链验收仍归现役队列 |
+
+首轮SourceSet重复展开共享leaf、Terminal straight旧调用及漏登layout均作为载体/接线失败保留，修原入口和注册，不为过门恢复旧产品转发。代码地图、组件合同与运行证据维护当前答案；本段不重写M1/M2当时未覆盖边界。
+
+本机provenance位于`.artifacts/scene-architecture-continuation-20261102/`的`m3-*`、`resource-lookup-*`、`m3-commit-*`冻结清单及原始日志。该范围不证明完整语料、普通产品daemon全生命周期、物理多屏、长期稳定、官方parity或整体启动/CPU/GPU/能耗收益；后续联合版本回验另登记。

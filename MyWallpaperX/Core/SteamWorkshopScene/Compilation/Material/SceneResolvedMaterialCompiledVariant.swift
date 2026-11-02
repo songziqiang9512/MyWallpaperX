@@ -3,8 +3,8 @@ import Foundation
 /// Immutable shader/frontend/schema facts for one texture-readiness variant.
 /// Concrete resources and uniform values are bound by each frame snapshot.
 nonisolated struct SceneResolvedMaterialCompiledVariant {
-    typealias Sampler = SceneResolvedMaterialShaderSchema.Sampler
-    typealias Uniform = SceneResolvedMaterialShaderSchema.Uniform
+    typealias Uniform = SceneResolvedMaterialPreparedUniformSchema
+    typealias Sampler = SceneResolvedMaterialPreparedSamplerSchema
 
     struct MixedProviderSlot: Hashable {
         enum OptionalInput: Hashable {
@@ -74,44 +74,6 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
         let mixedProviderSlots: [Int: MixedProviderSlot]
         let regularNamedProviderPurposeSlots: Set<Int>
 
-        func restricting(to activeSlots: Set<Int>) -> Self {
-            var candidates = self.candidates
-            for (slot, values) in candidates where !activeSlots.contains(slot) {
-                candidates[slot] = values.map {
-                    Candidate(
-                        graphInputSourceFact: nil,
-                        preservesAbsentOverride: $0.preservesAbsentOverride,
-                        defersUnreadyOptionalPromotion: false
-                    )
-                }
-            }
-            return .init(
-                candidatePurposes: candidatePurposes.filter { activeSlots.contains($0.key) },
-                candidates: candidates,
-                defaults: defaults.filter { activeSlots.contains($0.key) },
-                graphInputPurposes: graphInputPurposes.filter { activeSlots.contains($0.key) },
-                mixedProviderSlots: mixedProviderSlots.filter { activeSlots.contains($0.key) },
-                regularNamedProviderPurposeSlots: regularNamedProviderPurposeSlots.intersection(activeSlots)
-            )
-        }
-
-        static func consensusPurposes(
-            _ profiles: [[Int: [SceneTextureLoadPurpose?]]]
-        ) -> [Int: [SceneTextureLoadPurpose?]] {
-            var result: [Int: [SceneTextureLoadPurpose?]] = [:]
-            for profile in profiles {
-                for (slot, purposes) in profile {
-                    if let prior = result[slot] {
-                        // One unproven or conflicting reachable variant keeps
-                        // this candidate unproven for an inactive sampler.
-                        result[slot] = zip(prior, purposes).map { $0.0 == $0.1 ? $0.0 : nil }
-                    } else {
-                        result[slot] = purposes
-                    }
-                }
-            }
-            return result
-        }
     }
 
     let readinessMask: UInt8

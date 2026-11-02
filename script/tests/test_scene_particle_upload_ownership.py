@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 from script.tests.scene_particle_render_test_support import run_particle_harness
-from script.tests.test_scene_particle_rendering import HARNESS_SOURCE, SWIFT_SOURCES
+from script.tests.test_scene_particle_rendering import HARNESS_SUPPORT_SOURCE, SWIFT_SOURCES
 
 
 FIXTURE = Path(__file__).parent / "fixtures/SceneParticleUploadOwnershipHarness.swift"
@@ -14,7 +14,7 @@ SOURCES = tuple(path for path in SWIFT_SOURCES if path.name not in {
 })
 # Reuse the existing transport declarations; this cut executes neither the old
 # @main nor its unrelated camera/geometry probes.
-PREAMBLE = HARNESS_SOURCE.partition("@main\n")[0]
+PREAMBLE = HARNESS_SUPPORT_SOURCE
 
 
 class SceneParticleUploadOwnershipTests(unittest.TestCase):

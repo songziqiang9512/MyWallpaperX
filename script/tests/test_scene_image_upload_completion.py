@@ -17,6 +17,7 @@ SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneIm
 RESAMPLE_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneImageTextureUploader+Resample.swift"
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 LOADER_SOURCES = [
+    SCENE / "Resources/Textures/SceneTextureLookupIdentity.swift",
     SCENE / "Resources/Assets/SceneResourceIndex.swift",
     SCENE / "Resources/Assets/SceneResourceView.swift",
     SCENE / "../SteamWorkshopStorage/ScenePlaybackSource.swift",

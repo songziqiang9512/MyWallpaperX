@@ -31,20 +31,7 @@ nonisolated enum SceneRenderTargetVocabulary {
     private static let fullFrameBufferName = "_rt_FullFrameBuffer"
     private static let sceneEnvironmentName = "_rt_MipMappedFrameBuffer"
 
-    /// 作者显式 `_rt_` 名的四种命运。空/占位绑定（清空 binding）在 schema
-    /// 空串门处理，不经本分派；作者显式声明的 FBO 经 graph binding 到达，
-    /// 不走本字符串面。
-    enum Fate: Hashable {
-        /// 已证实 FullFrameBuffer 内建别名：改写为既有 typed frame input。
-        case typedFrameInput
-        /// Completed scene color, derived once into the frame's shared mip chain.
-        case sceneEnvironment
-        /// 已证实 imageLayerComposite 语法：改写为 typed provider reference。
-        case namedLayerTarget(SceneNamedTextureReference)
-        /// 未知/畸形 `_rt_`：不准入，保留诊断 token 交调用方硬拒绝；
-        /// 不清空、不假装成功。
-        case unadmitted(String)
-    }
+    typealias Fate = SceneRenderTargetReferenceKind
 
     /// 单点准入分派。输入是作者原样值。FullFrameBuffer 与既有可观察行为一致：
     /// 任意大小写的整名匹配优先于 `_rt_` 前缀门（`_RT_FullFrameBuffer` 等变体

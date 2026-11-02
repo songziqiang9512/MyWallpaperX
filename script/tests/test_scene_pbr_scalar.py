@@ -135,7 +135,7 @@ struct SceneRenderDescriptor {
                 'Rendering/Composition/SceneOffscreenEffectRenderer+Capture.swift',
                 'Diagnostics/ScenePerformanceCounterHub.swift','Diagnostics/SceneGPUCensus.swift']
             support = work / 'Support.swift'
-            support.write_text(texture_fixture.HARNESS.split('@main', 1)[0] + 'import simd\nenum SceneMatrix { static func scale(_ v: SIMD3<Float>) -> simd_float4x4 { simd_float4x4(diagonal: SIMD4(v,1)) } }\n')
+            support.write_text(texture_fixture.HARNESS_SUPPORT_SOURCE + 'import simd\nenum SceneMatrix { static func scale(_ v: SIMD3<Float>) -> simd_float4x4 { simd_float4x4(diagonal: SIMD4(v,1)) } }\n')
             binary = work / 'fixture'
             compiled = subprocess.run(['xcrun','swiftc','-D','SCENE_AUTHORED_NORMAL','-parse-as-library',*[str(p) for p in dict.fromkeys(texture_fixture.SWIFT_SOURCES + [SCENE / s for s in sources])],str(support),str(ROOT/'script/tests/fixtures/SceneLitImageLayerHarness.swift'),str(ROOT/'script/tests/fixtures/ScenePBRScalarHarness.swift'),'-module-cache-path',str(work/'module-cache'),'-o',str(binary)],capture_output=True,text=True)
             self.assertEqual(compiled.returncode,0,compiled.stderr)

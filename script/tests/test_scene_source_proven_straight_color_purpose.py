@@ -129,7 +129,7 @@ private func token(
 ) -> String {
     guard let sampler else { return "missing" }
     let source = sampler.sourceProvenPurpose?.reportToken ?? "nil"
-    let purpose = sampler.purpose(for: .asset(path))?.reportToken ?? "nil"
+    let purpose = Schema.purpose(for: .asset(path), sampler: sampler)?.reportToken ?? "nil"
     return "\(sampler.channelUse.rawValue)/\(source)/\(purpose)"
 }
 

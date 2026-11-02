@@ -172,6 +172,7 @@ class SceneLayerSourcePassthroughCoverageTests(unittest.TestCase):
         source_paths = [
             scene / "Resources/Textures/SceneTextureSampling.swift",
             scene / "Resources/Textures/SceneTextureUVTransform.swift",
+            scene / "Resources/Textures/SceneTextureLookupIdentity.swift",
             scene / "Resources/Textures/SceneTextureCandidate.swift",
             scene / "Resources/Textures/SceneBaseImageTextureCandidateSupport.swift",
             scene / "Compilation/Material/SceneBaseMaterialProviderBindingProgram.swift",

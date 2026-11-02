@@ -380,7 +380,7 @@ private typealias Descriptor = SceneRenderDescriptor
             let retained = SceneResolvedMaterialShaderSchema.sourceTypedColorSamplers(
                 [0: typed], vertexSource: sources.vertex, fragmentSource: sources.fragment)[0]
             results["sharedTintPowerPurpose"] = ["matches": sampler.sourceProvenPurpose == .straightAlbedo
-                && sampler.purpose(for: .asset(.init("unseen/source")!)) == .straightAlbedo]
+                && SceneResolvedMaterialShaderSchema.purpose(for: .asset(.init("unseen/source")!), sampler: sampler) == .straightAlbedo]
             results["sharedPurposePreservesAlreadyTypedSampler"] = ["matches": retained?.sourceProvenPurpose == .normal]
         } else {
             results["sharedTintPowerPurpose"] = ["matches": false]

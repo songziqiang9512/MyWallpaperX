@@ -5,10 +5,10 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests.test_scene_texture_candidate import HARNESS as CANDIDATE_HARNESS, SWIFT_SOURCES
+from script.tests.test_scene_texture_candidate import HARNESS_SUPPORT_SOURCE as CANDIDATE_SUPPORT, SWIFT_SOURCES
 
 
-HARNESS = CANDIDATE_HARNESS.split('@main')[0] + r'''
+HARNESS = CANDIDATE_SUPPORT + r'''
 @main
 enum OrientationHarness {
     static func main() throws {

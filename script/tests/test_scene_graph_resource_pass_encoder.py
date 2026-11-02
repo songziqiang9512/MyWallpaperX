@@ -809,7 +809,7 @@ class SceneGraphResourcePassEncoderTests(unittest.TestCase):
             support = root / "Support.swift"
             harness = root / "Harness.swift"
             binary = root / "graph-resource-pass-test"
-            support.write_text(SUPPORT + texture_fixture.HARNESS_SOURCE.split("@main",1)[0], encoding="utf-8")
+            support.write_text(SUPPORT + texture_fixture.HARNESS_SUPPORT_SOURCE, encoding="utf-8")
             harness.write_text(HARNESS, encoding="utf-8")
             environment = os.environ.copy()
             environment["CLANG_MODULE_CACHE_PATH"] = str(root / "clang-cache")

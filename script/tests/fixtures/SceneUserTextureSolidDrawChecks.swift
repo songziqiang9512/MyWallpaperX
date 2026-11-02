@@ -44,15 +44,6 @@ final class MTLSamplerDescriptor {
 struct MTLDevice {
     func makeSamplerState(descriptor: MTLSamplerDescriptor) -> MTLSamplerState? { nil }
 }
-enum SceneTextureLoadPurpose: Hashable {
-    case premultipliedColor, straightAlbedo, preservedChannels, mask, noise
-    case flow, phase, normal, depth, lookupTable
-}
-struct SceneSystemProviderTextureIdentity: Hashable {
-    let name: String
-    let purpose: SceneTextureLoadPurpose
-    var reportToken: String { name }
-}
 enum SceneFrameTextureIdentity: Hashable {
     case asset(SceneAssetTextureIdentity)
     case system(SceneSystemProviderTextureIdentity)

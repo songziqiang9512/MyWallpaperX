@@ -101,11 +101,7 @@ func runSceneResolvedMaterialPassPipelineCases(
     } else { coldMissDoesNotCompile = false }
     let warmupPlan = SceneResolvedMaterialPassEncoder.WarmupPlan(
         identity: "fixture:baseline",
-        preparedKey: baseline.preparedShader.cacheKey,
-        frontend: baseline.frontendProgram,
-        renderState: baseline.renderState,
-        frontendSchemaVersion:
-            baseline.semanticIdentity.shader.frontendSchemaVersion,
+        prepared: baseline.preparedAssembly,
         pixelFormat: .rgba8Unorm,
         writeMask: .all,
         device: device
@@ -124,11 +120,7 @@ func runSceneResolvedMaterialPassPipelineCases(
         SceneResolvedMaterialPassEncoder(device: device)!
     let sharedLibraryBGRAPlan = SceneResolvedMaterialPassEncoder.WarmupPlan(
         identity: "fixture:baseline-bgra",
-        preparedKey: baseline.preparedShader.cacheKey,
-        frontend: baseline.frontendProgram,
-        renderState: baseline.renderState,
-        frontendSchemaVersion:
-            baseline.semanticIdentity.shader.frontendSchemaVersion,
+        prepared: baseline.preparedAssembly,
         pixelFormat: .bgra8Unorm,
         writeMask: .all,
         device: device
@@ -145,11 +137,7 @@ func runSceneResolvedMaterialPassPipelineCases(
     let invalidWarmupEncoder = SceneResolvedMaterialPassEncoder(device: device)!
     let invalidWarmupPlan = SceneResolvedMaterialPassEncoder.WarmupPlan(
         identity: "fixture:invalid",
-        preparedKey: invalidMetal.preparedShader.cacheKey,
-        frontend: invalidMetal.frontendProgram,
-        renderState: invalidMetal.renderState,
-        frontendSchemaVersion:
-            invalidMetal.semanticIdentity.shader.frontendSchemaVersion,
+        prepared: invalidMetal.preparedAssembly,
         pixelFormat: .rgba8Unorm,
         writeMask: .all,
         device: device
@@ -184,33 +172,20 @@ func runSceneResolvedMaterialPassPipelineCases(
         .environment["MWX_SCENE_PIPELINE_BINARY_ARCHIVE"],
         let rgbaPlan = SceneResolvedMaterialPassEncoder.WarmupPlan(
             identity: "fixture:archive-probe",
-            preparedKey: archiveProbe.preparedShader.cacheKey,
-            frontend: archiveProbe.frontendProgram,
-            renderState: archiveProbe.renderState,
-            frontendSchemaVersion: archiveProbe.semanticIdentity
-                .shader.frontendSchemaVersion,
+            prepared: archiveProbe.preparedAssembly,
             pixelFormat: .rgba8Unorm,
             writeMask: .all,
             device: device
         ), let bgraPlan = SceneResolvedMaterialPassEncoder.WarmupPlan(
             identity: "fixture:archive-probe-bgra",
-            preparedKey: archiveProbe.preparedShader.cacheKey,
-            frontend: archiveProbe.frontendProgram,
-            renderState: archiveProbe.renderState,
-            frontendSchemaVersion: archiveProbe.semanticIdentity
-                .shader.frontendSchemaVersion,
+            prepared: archiveProbe.preparedAssembly,
             pixelFormat: .bgra8Unorm,
             writeMask: .all,
             device: device
+        ), let rgbaKey = archiveProbe.metalCompileStateKey(
+            attachmentPixelFormat: .rgba8Unorm, sampleCount: 1, device: device
         ), let rgbaDigest = SceneResolvedMaterialPipelineBinaryArchive
-            .keyDigest(
-                frontend: archiveProbe.frontendProgram,
-                renderState: archiveProbe.renderState,
-                pixelFormat: .rgba8Unorm,
-                sampleCount: 1,
-                writeMask: .all,
-                device: device
-            ) {
+            .keyDigest(key: rgbaKey) {
         let tierDirectory = URL(
             fileURLWithPath: archiveRoot, isDirectory: true
         ).appendingPathComponent(

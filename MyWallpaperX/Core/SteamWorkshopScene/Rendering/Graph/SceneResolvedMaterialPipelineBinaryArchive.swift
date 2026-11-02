@@ -179,23 +179,10 @@ nonisolated enum SceneResolvedMaterialPipelineBinaryArchive {
     /// Any mismatch degrades to a fresh archive; `nil` only means Metal
     /// could not even create an empty archive and the caller compiles plain.
     static func prepareSession(
-        frontend: SceneAuthoredShaderProgram,
-        renderState: SceneMaterialRenderState,
-        pixelFormat: MTLPixelFormat,
-        sampleCount: Int,
-        writeMask: MTLColorWriteMask,
-        passRole: SceneResolvedMaterialProgram.PassRole = .offscreenOverwrite,
+        key: SceneResolvedMaterialProgram.MetalCompileStateKey,
         device: MTLDevice
     ) -> Session? {
-        guard let digest = keyDigest(
-            frontend: frontend,
-            renderState: renderState,
-            pixelFormat: pixelFormat,
-            sampleCount: sampleCount,
-            writeMask: writeMask,
-            passRole: passRole,
-            device: device
-        ) else { return nil }
+        guard let digest = keyDigest(key: key) else { return nil }
         var loadedArchive: MTLBinaryArchive?
         var loadedFromDisk = false
         var hadDiskEntry = false
@@ -259,53 +246,37 @@ nonisolated enum SceneResolvedMaterialPipelineBinaryArchive {
     /// Stable cross-process identity digest. Fields are length-prefixed by
     /// the shared digest accumulator, so no field boundary can collide.
     static func keyDigest(
-        frontend: SceneAuthoredShaderProgram,
-        renderState: SceneMaterialRenderState,
-        pixelFormat: MTLPixelFormat,
-        sampleCount: Int,
-        writeMask: MTLColorWriteMask,
-        passRole: SceneResolvedMaterialProgram.PassRole = .offscreenOverwrite,
-        device: MTLDevice
+        key: SceneResolvedMaterialProgram.MetalCompileStateKey
     ) -> String? {
-        guard device.registryID != 0,
-              pixelFormat != .invalid,
-              sampleCount > 0,
-              writeMask.rawValue != 0,
-              !frontend.vertexFunctionName.isEmpty,
-              !frontend.fragmentFunctionName.isEmpty,
-              !frontend.metalSource.isEmpty else { return nil }
-        let renderStateIdentity = SceneResolvedMaterialProgramIdentity.renderState(
-            renderState
-        )
         var digest = ScenePersistentCacheDigest()
         digest.append(schemaName)
         // The OS version string carries the build number, so a driver or
         // Metal compiler update produces a new digest.
         digest.append(ProcessInfo.processInfo.operatingSystemVersionString)
-        digest.append(String(device.registryID))
-        digest.append(String(pixelFormat.rawValue))
-        digest.append(String(sampleCount))
-        digest.append(String(writeMask.rawValue))
-        digest.append(passRole.rawValue)
-        digest.append(frontend.vertexFunctionName)
-        digest.append(frontend.fragmentFunctionName)
-        digest.append(String(frontend.uniformBufferIndex))
+        digest.append(String(key.deviceRegistryID))
+        digest.append(String(key.attachmentPixelFormatRawValue))
+        digest.append(String(key.sampleCount))
+        digest.append(String(key.colorWriteMaskRawValue))
+        digest.append(key.passRole.rawValue)
+        digest.append(key.shader.vertexFunctionName)
+        digest.append(key.shader.fragmentFunctionName)
+        digest.append(String(key.shader.uniformBufferIndex))
         digest.append(
             [
-                renderStateIdentity.blending.rawValue,
-                renderStateIdentity.depthTest.rawValue,
-                renderStateIdentity.depthWrite.rawValue,
-                renderStateIdentity.cullMode.rawValue,
-                renderStateIdentity.alphaWriting.rawValue,
+                key.renderState.blending.rawValue,
+                key.renderState.depthTest.rawValue,
+                key.renderState.depthWrite.rawValue,
+                key.renderState.cullMode.rawValue,
+                key.renderState.alphaWriting.rawValue,
             ].joined(separator: "|")
         )
-        if passRole.readsCurrentAttachment {
-            guard let variant = frontend.attachmentReadVariant else { return nil }
-            digest.append(variant.metalSourceSHA256)
+        if key.passRole.readsCurrentAttachment {
+            guard let sourceDigest = key.attachmentReadMetalSourceSHA256 else { return nil }
+            digest.append(sourceDigest)
         } else {
             digest.append(
                 SceneGenericShaderProgramArtifact.sha256(
-                    Data(frontend.metalSource.utf8)
+                    Data(key.shader.metalSource.utf8)
                 )
             )
         }

@@ -1,8 +1,8 @@
 import Foundation
 
-extension SceneResolvedMaterialShaderSchema.TextureMode {
-    nonisolated var explicitPurpose: SceneTextureLoadPurpose? {
-        switch self {
+extension SceneResolvedMaterialShaderSchema {
+    private nonisolated static func explicitPurpose(for mode: TextureMode) -> SceneTextureLoadPurpose? {
+        switch mode {
         case .regular: nil
         case .opacityMask: .mask
         case .rgbMask: .preservedChannels
@@ -73,7 +73,7 @@ extension SceneResolvedMaterialShaderSchema {
         )?.textureSlot
         for (slot, sampler) in auxiliary {
             if sampler.channelUse == .redAlphaOnly,
-               sampler.permitsSourceChannelProjection {
+               permitsSourceChannelProjection(sampler) {
                 // A red*alpha sample reads two stored channels, not a color
                 // projection. Only an otherwise-untyped regular sampler may
                 // receive that role; typed, hidden, aliased or conflicting
@@ -81,7 +81,7 @@ extension SceneResolvedMaterialShaderSchema {
                 result[slot] = sampler.withSourceProvenPurpose(.preservedChannels)
                 continue
             }
-            guard sampler.permitsSourceStraightColorProjection,
+            guard permitsSourceStraightColorProjection(sampler),
                   (sampler.channelUse == .wholeVector && colorGraphSlots.contains(slot))
                     || rgbGraphSlots.contains(slot)
                     || slot == tintSlot
@@ -179,7 +179,7 @@ extension SceneResolvedMaterialShaderSchema {
         sampler: Sampler,
         slot: Template.TextureSlot?
     ) -> Bool {
-        if sampler.mode.explicitPurpose != nil || sampler.hasTypedAuxiliaryDefault {
+        if explicitPurpose(for: sampler.mode) != nil || hasTypedAuxiliaryDefault(sampler) {
             return true
         }
         guard let slot, !slot.candidates.isEmpty else { return false }
@@ -190,118 +190,88 @@ extension SceneResolvedMaterialShaderSchema {
     }
 }
 
-extension SceneResolvedMaterialShaderSchema.Sampler {
-    nonisolated var usesGraphInputMaterialAlias: Bool {
-        switch materialKey?.lowercased() {
+extension SceneResolvedMaterialShaderSchema {
+    nonisolated static func usesGraphInputMaterialAlias(_ sampler: Sampler) -> Bool {
+        switch sampler.materialKey?.lowercased() {
         case "framebuffer", "previous":
             return true
         case "ui_editor_properties_framebuffer", "上一个":
-            return name == "g_Texture0" && slot == 0
-                && mode == .regular && isHidden
+            return sampler.name == "g_Texture0" && sampler.slot == 0
+                && sampler.mode == .regular && sampler.isHidden
         default:
-            // Authored editors also express the slot-0 framebuffer input
-            // through its label while `material` carries a texture-role key
-            // (e.g. "mask"). Property binding keys ("source", user keys)
-            // keep the historical fail-closed contract: no real corpus
-            // evidence makes them framebuffer aliases.
-            guard name == "g_Texture0", slot == 0,
-                  mode == .regular, isHidden,
-                  let key = materialKey?.lowercased(),
-                  ["mask", "texture"].contains(key) else {
-                return false
-            }
-            return labelKey?.lowercased()
-                == "ui_editor_properties_framebuffer"
+            // An editor label grants the alias only for this hidden slot-zero
+            // shape; arbitrary material/property keys retain their own owner.
+            guard sampler.name == "g_Texture0", sampler.slot == 0,
+                  sampler.mode == .regular, sampler.isHidden,
+                  let key = sampler.materialKey?.lowercased(),
+                  ["mask", "texture"].contains(key) else { return false }
+            return sampler.labelKey?.lowercased() == "ui_editor_properties_framebuffer"
         }
     }
 
-    nonisolated func purpose(
-        for reference: SceneResolvedMaterialTemplate.TextureReference
+    nonisolated static func purpose(
+        for reference: Template.TextureReference,
+        sampler: Sampler
     ) -> SceneTextureLoadPurpose? {
         if case .graph = reference {
-            return mode.explicitPurpose ?? .premultipliedColor
+            return explicitPurpose(for: sampler.mode) ?? .premultipliedColor
         }
         if case let .provider(provider) = reference {
             switch provider {
             case .namedLayerTarget:
-                // Color is the nominal named-provider purpose. A regular
-                // sampler may select a prepared data ABI from the completed
-                // publication; asset metadata alone must not relabel it.
+                // The actual named publication may later select its data ABI.
                 return .premultipliedColor
             case .sceneBackground:
-                return mode.explicitPurpose ?? .premultipliedColor
+                return explicitPurpose(for: sampler.mode) ?? .premultipliedColor
             case .sceneEnvironment:
-                return mode == .regular ? .premultipliedColor : nil
+                return sampler.mode == .regular ? .premultipliedColor : nil
             case .system:
                 break
             }
         }
-        if let sourceProvenPurpose {
-            if let declaredPurpose, declaredPurpose != sourceProvenPurpose {
-                return nil
-            }
-            if case let .asset(defaultPath)? = defaultTexture,
+        let declared = declaredPurpose(for: sampler)
+        if let sourceProvenPurpose = sampler.sourceProvenPurpose {
+            if let declared, declared != sourceProvenPurpose { return nil }
+            if case let .asset(defaultPath)? = sampler.defaultTexture,
                let registeredDefault = SceneStockTextureSemanticRegistry.purpose(
                    for: defaultPath
-               ), registeredDefault != sourceProvenPurpose {
-                return nil
-            }
+               ), registeredDefault != sourceProvenPurpose { return nil }
             if case let .asset(path) = reference,
                let registered = SceneStockTextureSemanticRegistry.purpose(for: path),
-               registered != sourceProvenPurpose {
-                return nil
-            }
+               registered != sourceProvenPurpose { return nil }
             return sourceProvenPurpose
         }
-        guard case let .asset(path) = reference else {
-            return declaredPurpose
-        }
+        guard case let .asset(path) = reference else { return declared }
         let registeredPurpose = SceneStockTextureSemanticRegistry.purpose(for: path)
-        if let declaredPurpose, let registeredPurpose,
-           declaredPurpose != registeredPurpose {
-            // A direct scalar mask read keeps a registered 2D data resource's
-            // upload and storage purpose. Retain the existing scalar-noise
-            // arbitration for other declared roles; neither rule changes a
-            // conflicting source-purpose proof or admits color/volume data.
-            guard channelUse == .redOnly,
+        if let declared, let registeredPurpose, declared != registeredPurpose {
+            // A direct scalar mask preserves a registered 2D data resource's
+            // storage role without admitting conflicting source/color/volume use.
+            guard sampler.channelUse == .redOnly,
                   registeredPurpose == .noise
-                    || (mode == .opacityMask && registeredPurpose.isDataPurpose
+                    || (sampler.mode == .opacityMask && registeredPurpose.isDataPurpose
                         && !registeredPurpose.requiresVolumeTexture)
             else { return nil }
             return registeredPurpose
         }
-        let candidatePurpose = registeredPurpose ?? declaredPurpose
-
-        // A regular sampler's typed asset default is a slot-level author
-        // contract. An authored asset override may inherit only that proven
-        // role; a candidate with its own conflicting registry role is rejected.
-        // The default remains source metadata, never a runtime texture fallback.
-        guard mode == .regular,
-              declaredPurpose == nil,
-              case let .asset(defaultPath)? = defaultTexture,
-              let defaultPurpose = SceneStockTextureSemanticRegistry.purpose(
-                  for: defaultPath
-              ) else {
-            return candidatePurpose
-        }
-        guard candidatePurpose == nil || candidatePurpose == defaultPurpose else {
-            return nil
-        }
+        let candidatePurpose = registeredPurpose ?? declared
+        // A typed asset default can supply the slot role, but never override
+        // the selected asset's own conflicting registered purpose.
+        guard sampler.mode == .regular,
+              declared == nil,
+              case let .asset(defaultPath)? = sampler.defaultTexture,
+              let defaultPurpose = SceneStockTextureSemanticRegistry.purpose(for: defaultPath)
+        else { return candidatePurpose }
+        guard candidatePurpose == nil || candidatePurpose == defaultPurpose else { return nil }
         return candidatePurpose ?? defaultPurpose
     }
 
-    private nonisolated var declaredPurpose: SceneTextureLoadPurpose? {
-        if let purpose = mode.explicitPurpose { return purpose }
-        // An authored `format` annotation declares the asset's data role for
-        // samplers that carry no mode or material fact (e.g. workshop
-        // normal-map assets with only `format: "normalmap"`).
-        if formatKey?.caseInsensitiveCompare("normalmap") == .orderedSame {
-            return .normal
-        }
-        return switch materialKey?.lowercased() {
+    private nonisolated static func declaredPurpose(
+        for sampler: Sampler
+    ) -> SceneTextureLoadPurpose? {
+        if let purpose = explicitPurpose(for: sampler.mode) { return purpose }
+        if sampler.formatKey?.caseInsensitiveCompare("normalmap") == .orderedSame { return .normal }
+        return switch sampler.materialKey?.lowercased() {
         case "albedo": .straightAlbedo
-        // A framebuffer-role sampler may bind an ordinary color asset as its
-        // default (util/white); the sampled color is premultiplied.
         case "framebuffer": .premultipliedColor
         case "noise": .noise
         case "normal": .normal
@@ -309,56 +279,44 @@ extension SceneResolvedMaterialShaderSchema.Sampler {
         }
     }
 
-    nonisolated var hasTypedAuxiliaryDefault: Bool {
-        guard case let .asset(path)? = defaultTexture else { return false }
-        let reference = SceneResolvedMaterialTemplate.TextureReference.asset(path)
-        return purpose(for: reference) != nil
+    nonisolated static func hasTypedAuxiliaryDefault(_ sampler: Sampler) -> Bool {
+        guard case let .asset(path)? = sampler.defaultTexture else { return false }
+        return Self.purpose(for: .asset(path), sampler: sampler) != nil
     }
 
-    nonisolated var hasExplicitNonColorPurpose: Bool {
-        if mode.explicitPurpose != nil { return true }
-        return switch materialKey?.lowercased() {
+    nonisolated static func hasExplicitNonColorPurpose(_ sampler: Sampler) -> Bool {
+        if explicitPurpose(for: sampler.mode) != nil { return true }
+        return switch sampler.materialKey?.lowercased() {
         case "noise", "normal": true
         default: false
         }
     }
 
-    /// Returns true only for an otherwise-untyped regular sampler whose
-    /// metadata can safely receive a source-proven straight-color role.
-    /// Existing typed roles are left intact; conflicting defaults and graph
-    /// aliases simply remain conservative and are never overwritten.
-    /// Same untyped-regular guard as the straight-color projection, without
-    /// requiring the default asset to resolve to a color role. A default that
-    /// already names another registered role keeps that role instead.
-    nonisolated var permitsSourceChannelProjection: Bool {
-        guard mode == .regular,
-              !isHidden,
-              sourceProvenPurpose == nil,
-              declaredPurpose == nil,
-              !usesGraphInputMaterialAlias else { return false }
-        switch defaultTexture {
-        case nil, .internalTarget:
-            return true
+    nonisolated static func permitsSourceChannelProjection(_ sampler: Sampler) -> Bool {
+        guard sampler.mode == .regular,
+              !sampler.isHidden,
+              sampler.sourceProvenPurpose == nil,
+              declaredPurpose(for: sampler) == nil,
+              !usesGraphInputMaterialAlias(sampler) else { return false }
+        switch sampler.defaultTexture {
+        case nil, .internalTarget: return true
         case let .asset(path):
             return SceneStockTextureSemanticRegistry.purpose(for: path) == nil
         }
     }
 
-    nonisolated var permitsSourceStraightColorProjection: Bool {
-        guard mode == .regular,
-              !isHidden,
-              sourceProvenPurpose == nil,
-              declaredPurpose == nil,
-              !usesGraphInputMaterialAlias else { return false }
-        switch defaultTexture {
-        case nil:
-            return true
-        case .internalTarget:
-            return false
+    nonisolated static func permitsSourceStraightColorProjection(_ sampler: Sampler) -> Bool {
+        guard sampler.mode == .regular,
+              !sampler.isHidden,
+              sampler.sourceProvenPurpose == nil,
+              declaredPurpose(for: sampler) == nil,
+              !usesGraphInputMaterialAlias(sampler) else { return false }
+        switch sampler.defaultTexture {
+        case nil: return true
+        case .internalTarget: return false
         case let .asset(path):
-            guard let registered = SceneStockTextureSemanticRegistry.purpose(
-                for: path
-            ) else { return true }
+            guard let registered = SceneStockTextureSemanticRegistry.purpose(for: path)
+            else { return true }
             return registered == .straightAlbedo
         }
     }
@@ -395,7 +353,7 @@ extension SceneResolvedMaterialShaderSchema {
                template.textureSlots.indices.contains(slot), template.textureSlots[slot] == nil,
                sameLayerCompositeDefault(sampler.defaultTexture, inputIdentity: inputIdentity) {
                 provenance = .sameLayerCompositeDefault
-            } else if sampler.usesGraphInputMaterialAlias {
+            } else if usesGraphInputMaterialAlias(sampler) {
                 provenance = .explicitMaterialAlias
             } else if implicit.contains(slot) {
                 provenance = .implicitMissingAlias
@@ -446,8 +404,8 @@ extension SceneResolvedMaterialShaderSchema {
               sampler.mode == .regular,
               sampler.isHidden,
               sampler.materialKey?.contains(where: { !$0.isWhitespace }) == true,
-              !sampler.usesGraphInputMaterialAlias,
-              !sampler.hasExplicitNonColorPurpose,
+              !usesGraphInputMaterialAlias(sampler),
+              !hasExplicitNonColorPurpose(sampler),
               sampler.defaultTexture == nil,
               sampler.readinessCombo == nil,
               template.graphRole.bindings.isEmpty,
@@ -580,4 +538,113 @@ extension SceneResolvedMaterialShaderSchema {
               ) else { return nil }
         return inputIdentity
     }
+
+    static func sceneBackgroundDefault(
+        template: Template,
+        sampler: SceneResolvedMaterialShaderSchema.Sampler,
+        slot: Int
+    ) -> Template.TextureReference? {
+        guard sampler.slot == slot,
+              sampler.readinessCombo == nil,
+              template.textureSlots.indices.contains(slot),
+              case let .internalTarget(name)? = sampler.defaultTexture,
+              case .typedFrameInput = name.admission,
+              let layerID = template.effectContext?.key.layerID else { return nil }
+        let reference = Template.TextureReference.provider(
+            .sceneBackground(consumerLayerID: layerID)
+        )
+        if let authored = template.textureSlots[slot]?.candidates.last?.reference,
+           authored != reference { return nil }
+        return Self.purpose(for: reference, sampler: sampler) == nil ? nil : reference
+    }
+
+    /// Input representation belongs to the resolved resource, independently
+    /// of the author's output color-flow proof. Overrides and data samplers
+    /// cannot acquire the scene-background publication's color ABI.
+    static func sceneBackgroundColorSlots(
+        template: Template,
+        samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler]
+    ) -> Set<Int> {
+        Set(samplers.compactMap { slot, sampler in
+            guard let reference = sceneBackgroundDefault(
+                template: template, sampler: sampler, slot: slot
+            ), Self.purpose(for: reference, sampler: sampler) == .premultipliedColor
+            else { return nil }
+            return slot
+        })
+    }
+
+    static func sceneEnvironmentReference(
+        template: Template, sampler: SceneResolvedMaterialShaderSchema.Sampler, slot: Int
+    ) -> Template.TextureReference? {
+        guard template.textureSlots.indices.contains(slot), sampler.slot == slot,
+              Self.purpose(for: .provider(.sceneEnvironment), sampler: sampler) == .premultipliedColor
+        else { return nil }
+        if let selected = template.textureSlots[slot]?.candidates.last?.reference {
+            return selected == .provider(.sceneEnvironment) ? selected : nil
+        }
+        return sceneEnvironmentDefault(template: template, sampler: sampler, slot: slot)
+    }
+
+    static func sceneEnvironmentDefault(
+        template: Template,
+        sampler: SceneResolvedMaterialShaderSchema.Sampler,
+        slot: Int
+    ) -> Template.TextureReference? {
+        guard sampler.slot == slot, sampler.readinessCombo == nil,
+              template.textureSlots.indices.contains(slot),
+              case let .internalTarget(name)? = sampler.defaultTexture,
+              case .sceneEnvironment = name.admission else { return nil }
+        let reference = Template.TextureReference.provider(.sceneEnvironment)
+        if let authored = template.textureSlots[slot]?.candidates.last?.reference,
+           authored != reference { return nil }
+        return Self.purpose(for: reference, sampler: sampler) == .premultipliedColor ? reference : nil
+    }
+
+    /// The schema has already admitted the RT name. Only this projection
+    /// binds it to a concrete consuming graph; no frame reparses authored text.
+    static func renderTargetDefault(
+        template: Template,
+        sampler: SceneResolvedMaterialShaderSchema.Sampler,
+        slot: Int,
+        inputIdentity: Graph.TextureIdentity?
+    ) -> Template.TextureReference? {
+        guard sampler.slot == slot, sampler.readinessCombo == nil else { return nil }
+        if let environment = sceneEnvironmentDefault(template: template, sampler: sampler, slot: slot) {
+            return environment
+        }
+        if let background = sceneBackgroundDefault(template: template, sampler: sampler, slot: slot) {
+            return background
+        }
+        guard let inputIdentity,
+              SceneResolvedMaterialShaderSchema.exactEffectInput(inputIdentity, template: template, requiresEffectContext: true),
+              SceneResolvedMaterialShaderSchema.sameLayerCompositeDefault(
+                  sampler.defaultTexture, inputIdentity: inputIdentity
+              ) else { return nil }
+        return .graph(inputIdentity)
+    }
+
+    /// Presence combos describe an authored binding, not the resource finally
+    /// supplied to an active sampler. A prepared combo-off variant without an
+    /// authored candidate or graph-input alias may consume its typed asset
+    /// default. Launch admission separately keeps format-combo slots closed.
+    static func presenceIndependentDefault(
+        template: Template,
+        sampler: SceneResolvedMaterialShaderSchema.Sampler,
+        slot: Int
+    ) -> Template.TextureReference? {
+        guard sampler.slot == slot,
+              sampler.readinessCombo != nil,
+              !usesGraphInputMaterialAlias(sampler),
+              template.textureSlots.indices.contains(slot),
+              template.textureSlots[slot] == nil,
+              case let .asset(path)? = sampler.defaultTexture
+        else {
+            return nil
+        }
+        let reference = Template.TextureReference.asset(path)
+        guard Self.purpose(for: reference, sampler: sampler) != nil else { return nil }
+        return reference
+    }
+
 }

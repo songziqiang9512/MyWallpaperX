@@ -190,7 +190,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
     private static func selectsSceneEnvironment(
         template: Template, sampler: SceneResolvedMaterialShaderSchema.Sampler, slot: Int
     ) -> Bool {
-        SceneResolvedMaterialTextureResolver.sceneEnvironmentReference(
+        SceneResolvedMaterialShaderSchema.sceneEnvironmentReference(
             template: template, sampler: sampler, slot: slot) != nil
     }
 

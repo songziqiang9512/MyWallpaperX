@@ -52,7 +52,7 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
     static func variantKey(
         _ input: SceneResolvedMaterialFinalizationInput,
         textureSlots authoredTextureSlots: [Template.TextureSlot?],
-        samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
+        samplers: [Int: SceneResolvedMaterialPreparedSamplerSchema],
         reachableTexturePurposes: [Int: [SceneTextureLoadPurpose?]],
         formatSlots: Set<Int>,
         channelUses: [Int: ChannelUse] = [:],
@@ -82,7 +82,7 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
     private static func variantSelection(
         _ input: SceneResolvedMaterialFinalizationInput,
         textureSlots authoredTextureSlots: [Template.TextureSlot?],
-        samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
+        samplers: [Int: SceneResolvedMaterialPreparedSamplerSchema],
         reachableTexturePurposes: [Int: [SceneTextureLoadPurpose?]],
         formatSlots: Set<Int>,
         channelUses: [Int: ChannelUse],
@@ -252,7 +252,7 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
 
     private static func samplerReadinessIncludes(
         selectionProvenance: Program.TextureSelectionProvenance,
-        sampler: SceneResolvedMaterialShaderSchema.Sampler?
+        sampler: SceneResolvedMaterialPreparedSamplerSchema?
     ) -> Bool {
         guard selectionProvenance == .shaderDefault,
               sampler?.readinessCombo != nil else { return true }

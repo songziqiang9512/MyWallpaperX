@@ -720,8 +720,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
             for sampler in samplers[slotIndex] ?? [] {
                 if sampler.readinessCombo != nil {
                     guard !textureFormatSlots.contains(slotIndex),
-                          SceneResolvedMaterialTextureResolver
-                            .presenceIndependentDefault(
+                          SceneResolvedMaterialShaderSchema.presenceIndependentDefault(
                                 template: template,
                                 sampler: sampler,
                                 slot: slotIndex
@@ -731,7 +730,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                 }
                 guard case let .asset(path)? = sampler.defaultTexture else { continue }
                 let reference = Template.TextureReference.asset(path)
-                guard let purpose = sampler.purpose(for: reference) else {
+                guard let purpose = SceneResolvedMaterialShaderSchema.purpose(for: reference, sampler: sampler) else {
                     if reachableSamplerSlots.contains(slotIndex) {
                         Self.diagnoseUnproven(
                             .asset(path), owner: owner, slot: sampler.slot,

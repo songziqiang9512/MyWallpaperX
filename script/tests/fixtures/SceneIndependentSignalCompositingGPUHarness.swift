@@ -5,12 +5,6 @@ import Metal
 private let quadUV01 = SIMD4<Float>(0, 1, 1, 1)
 private let quadUV23 = SIMD4<Float>(0, 0, 1, 0)
 
-nonisolated enum SceneTextureLoadPurpose: Hashable, Sendable {
-    case premultipliedColor, straightAlbedo, preservedChannels, mask, noise
-    case flow, phase, normal, depth, lookupTable
-    var requiresVolumeTexture: Bool { self == .lookupTable }
-}
-
 nonisolated struct SceneResolvedMaterialNode {
     enum TextureProvenance: String, Hashable {
         case material, instance, userTexture, explicitBinding
@@ -23,11 +17,6 @@ nonisolated enum SceneDynamicTarget: Hashable {
 
 nonisolated enum SceneDynamicSource: Hashable {
     case authored, userProperty, timeline, sceneScript
-}
-
-nonisolated struct SceneSystemProviderTextureIdentity: Hashable {
-    let name: String
-    let purpose: SceneTextureLoadPurpose
 }
 
 nonisolated enum SceneFrameTextureIdentity: Hashable {

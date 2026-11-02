@@ -37,8 +37,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                                   // launch variant can select it.
                                   guard let sampler = variant.activeSamplers[slot]
                                   else { return false }
-                                  return SceneResolvedMaterialTextureResolver
-                                    .sceneBackgroundDefault(
+                                  return SceneResolvedMaterialShaderSchema.sceneBackgroundDefault(
                                         template: material.template,
                                         sampler: sampler,
                                         slot: slot

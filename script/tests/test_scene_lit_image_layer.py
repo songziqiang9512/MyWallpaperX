@@ -15,7 +15,7 @@ from script.tests.fixtures import scene_reflection_oracle as reflection_oracle
 ROOT = Path(__file__).resolve().parents[2]
 SCENE = ROOT / 'MyWallpaperX/Core/SteamWorkshopScene'
 # The nearest texture carrier already includes both authored and live brightness.
-TEXTURE_SUPPORT = texture_fixture.HARNESS.split('@main', 1)[0]
+TEXTURE_SUPPORT = texture_fixture.HARNESS_SUPPORT_SOURCE
 
 def reflection_vectors():
     vectors = reflection_oracle.freeze()
