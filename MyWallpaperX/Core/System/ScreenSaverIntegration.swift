@@ -218,9 +218,8 @@ final class ScreenSaverIntegration: NSObject, ObservableObject {
         let root = try rootURL()
         // Unsupported legacy content is replaceable only after this new
         // video and its own poster have been deployed successfully.
-        let current = try? readConfiguration(in: root)
         if input.revision != nil, let reusablePublication, reusablePublication.0 == input,
-           current?.content == reusablePublication.1 {
+           (try? readConfiguration(in: root))?.content == reusablePublication.1 {
             let value = ScreenSaverConfiguration(content: reusablePublication.1, fillMode: fillMode,
                                                   playsOnBattery: playsOnBattery)
             try commit(value, in: root, request: request)

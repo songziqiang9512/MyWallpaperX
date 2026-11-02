@@ -6,7 +6,7 @@
 
 开批速览（每批动手前先读这里，再核 Git 状态；按需查对应 owner 和下文，不顺读全文）：
 
-- 已裁决至R87（R61按优先级后补）。个人设置导入弹窗消失/设置变暗已由 R55（`ad1f3142d`）修复；测试 App 已交付，原配置完整导入仅待用户实测，没有新复现不重新修复、构建或复跑。
+- 已裁决至R88（R61按优先级后补）。个人设置导入弹窗消失/设置变暗已由 R55（`ad1f3142d`）修复；测试 App 已交付，原配置完整导入仅待用户实测，没有新复现不重新修复、构建或复跑。
 - 近期已完成：R54 合并成员查询复用、R57 Web 快照暂存隔离、R58 已取消元数据任务提前退出、R59 成功状态一次发布、R60 在线图片卡片一次装配。详情见下文；已完成项不作为新候选。
 - 保留/拒绝：R55 一次 Save 取消超时尚未归因；R56 绕过 TIFF 的候选因像素/尺寸差异已拒绝。较早 R23/R38/R43 的保护边界仍有效。
 - R62已交付：[本地资源先呈现与缩略图回访](local-library-loading-design.md#overview)。先解决启动短暂不可用和本地网格滚回黑卡，覆盖视频、图片及自建列表；已完成实现、最近门、Steam消费者及签名Debug；保留三项原生限制，真实用户库体感待人工验收。R61冷态导航已完成验证，见下文；不重复本专项。
@@ -25,7 +25,9 @@
 
 最近文档整理：R85仅将状态栏专项已结整合/安装与旧证据归档，原9行1680B逐字保留，原“执行记录”锚点留永久redirect；现役0.88、Restoration、失败关闭与实景手工边界保持，旧安装授权不续用。产品/测试0，无新schema、工具或索引页；只核文档载荷、角色、锚点与预算，不重验旧App或Scene。6项既有归档/角色测试及5项文档检查通过；本批只整理导航和历史，不重跑产品。
 
-最近产品验证：R87退役Steam三项从未提供的内部request参数及Frame无消费者镜像（queryGeneration/cursor/attempt），两产品0增18删，无替代helper/state。它们不承担实际browse generation、job.attempt、authAttemptId/epoch/requestId/jobId/sequence或终态检查；这些现役owner保持。只退出内部Swift便利API，不删除raw root键、原golden旧键或改变C#/wire schema。最终同夹具旧/新各18测试（Client/Query/Progress及15项golden）通过，6303输入/各6实际进程稳定，12条公开PASS行相同；不是整份stdout/stderr或JSON解析次数/耗时等价证明。原81处precondition完整，新增5处真实Client检查普通请求无额外键、终态/进度字段与root保留；这是源码调用点数，不是运行事实数。夹具25增1删、净+24，943行。签名Debug26.817秒/5866输入稳定、strict/deep通过，仅原两条C#警告，独立静审接受；未验真实Steam账号/网络。
+最近产品验证：R88把屏保publish入口的current配置读取移入原revision非nil/cache存在/完整Input相等后的末条件，产品1增2删、净−1，无新helper/state/cache；命中仍读磁盘，commit在复制/海报后选择真实previous的重读、lease/取消/原子rename/collector全保。最终同夹具真实AV两臂42业务事实（原36+新6）全真且等值，含源删后同revision复用、不同revision/URL、损坏current及nil始终fresh。透明私有计数仅包两个实际read表达式，复用入口7→2、commit读取7→7；首发/输入变化/nil的5次入口调用退出，不能称整个事务免读或物理IO/延迟/能耗改善，不保证外部并发改写观察序相同。初次成功测试的计数只写捕获stderr而未留，改task证据出口后两臂重新取证；这是采集修正，不把它冒充产品失败。各6303输入/2实际进程稳定，原测试仅44增、467行。移除probe并核原候选SHA后，签名Debug25.897秒/5866输入稳定、strict/deep通过，仅原两条C#警告，独立产品静审接受；没有真实App/系统宿主/安装或用户媒体操作。
+
+前批R87（1a05a94c0）Steam三无消费者内部参数/Frame镜像18行纯退役，raw root/golden旧键、真实job.attempt/query generation/账号请求终态边界保，wire schema不变。旧/新各18test及12公开PASS行相同、各6实际进程稳定；原81+新5是precondition源码调用点，不是运行事实。签名Debug26.817秒过，未验真实账号/网络，不认领JSON解析或耗时收益。
 
 前批R86（64e429c45）输入处共享四绑定规则，退役willSet旧settings写回，产品净+11、测试+105。旧完整/partial重复输入后volume写入16层截止，候选四情景皆depth1完成，控制结果保持；有界诊断不等于自然崩溃，注册/engine为记录叶。真实恢复45事实全真（原35+新10，旧仅5新增红），另3导入门120/34/15及Owner门过；旧Recovery nil所有权/未知raw/其他偏好严格冲突保持。修正两夹具装配依赖后签名Debug27.687秒过，不重开R55模态，也不替代Carbon/完整用户配置实测。
 
@@ -67,7 +69,7 @@
 
 前批裁决与待验保留：R54（65522bee6）事务内复用resolved UUID追加位置，25成员/6物理列表的MAX查询25→6仅属连接级计数。R55选择器退出后再显示反馈，原配置完整导入与未归因Save取消超时保持待验。R56拒绝绕过TIFF候选，保留原编码。R57（b761fdb80）独立暂存、原main守卫后rename至原stable，保Scene/编码/copy fallback/所有权；受控5秒utility/文件探针与122项检查、Debug通过，未证自然频率或真实Web/NSWorkspace。R58（9be599202）已取消metadata Task的AV准备1→0，保同步模板和后两异步检查，不当性能/真实UI证明。R59（87c27c3e3）成功尾部一次发布完整状态，54组4→1、216→54，其他阶段相同；保89项、新增6项typed终态/reset回调及20项视口检查通过；原73/73只属reset调用点note。内部同步中间通知明确退出，不承诺任意同步订阅者等价。较早保护边界和精确证据仍归各批记录及提交，不在这里追加过程流水账。
 
-已完成R63（9499365）方法纠偏：[产物保留规则](../../.agents/skills/mywallpaperx-maintainer/references/artifact-governance.md)是证据保留/清理的唯一说明。本轮只读保留Overlay绘制原实现：颜色/横向几何已在配置/布局准备，逐帧仍消费频谱/elapsed，不为少量cornerRadius新增缓存；工具栏收藏动作读取当前源快照，界面投影异步更新，不能直接复用显示状态并冒称等行为，不另加缓存或新鲜度owner。Hotkey已由R86在输入/旧恢复比较处验证修复，不重跑原始截止诊断。Steam影子参数已由R87退役。共享完整Settings的三测试入口依赖已闭合，GATE_SOURCES承接PlaybackControl、其他Settings桩各有边界，RO未发现新坏门，不扩中央依赖框架或冒称全门通过。下一候选R88仅将屏保复用不可能时的入口配置读取移入原短路条件；commit的最新previous重读/lease/复制/海报/回收保留，私有两文件已备、尚未验证/提交。R84已验结论、R55/R62待验与其他保护边界不重开。
+已完成R63（9499365）方法纠偏：[产物保留规则](../../.agents/skills/mywallpaperx-maintainer/references/artifact-governance.md)是证据保留/清理的唯一说明。本轮只读保留Overlay绘制原实现：颜色/横向几何已在配置/布局准备，逐帧仍消费频谱/elapsed，不为少量cornerRadius新增缓存；工具栏收藏动作读取当前源快照，界面投影异步更新，不能直接复用显示状态并冒称等行为，不另加缓存或新鲜度owner。Hotkey已由R86在输入/旧恢复比较处验证修复，不重跑原始截止诊断。Steam影子参数已由R87退役。共享完整Settings的三测试入口依赖已闭合，GATE_SOURCES承接PlaybackControl、其他Settings桩各有边界，RO未发现新坏门，不扩中央依赖框架或冒称全门通过。R88入口读取已验；App Coordinator同turn预检/save可能重复解析，但两引用会因同步回调不同，Task后resolve还拥有freshness/租约与security scope。低频动作不为这点准备新增API或缓存，RO收束保留，不把下层发布门冒称Coordinator验收。下一方向为非Scene本地文件事务失败分支的errno保存与cleanup/释放顺序，先核真实错误消费者，不为假设竞态增加状态或fallback。R84已验结论、R55/R62待验与其他保护边界不重开。
 
 近期审查保留项（本轮未修改，验证范围见对应批次；不因压缩上下文重复开批）：
 

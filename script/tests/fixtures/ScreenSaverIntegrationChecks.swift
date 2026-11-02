@@ -178,6 +178,50 @@ private nonisolated final class CopyController: @unchecked Sendable {
         try await Task.detached(priority: .utility) { try makeVideo(video) }.value
         try FileManager.default.copyItem(at: video, to: second)
         try FileManager.default.copyItem(at: video, to: delayed)
+        phase = "first revisioned publication"
+        let revisionRoot = cases.appendingPathComponent("revisioned")
+        let revisionOwner = ScreenSaverIntegration(rootURL: revisionRoot, installationURL: installed,
+            componentSourceURL: component)
+        let revisionVideo = cases.appendingPathComponent("revisioned.mov")
+        try FileManager.default.copyItem(at: video, to: revisionVideo)
+        let revisionInput = ScreenSaverIntegration.PublicationInput(videoURL: revisionVideo, title: "revisioned",
+            revision: "r1", sourceIdentity: "video:revisioned")
+        let revisionFirst = try await begin(revisionOwner, revisionInput).value().get()
+        checks["RevisionedFirstPublicationDeploysCurrentContent"] = try revisionFirst.content?.kind == .video
+            && revisionFirst.content?.sourceIdentity == revisionInput.sourceIdentity
+            && JSONDecoder().decode(ScreenSaverConfiguration.self, from: currentData(revisionRoot)) == revisionFirst
+        phase = "matching revision reuses after source removal"
+        try FileManager.default.removeItem(at: revisionVideo)
+        let revisionReused = try await begin(revisionOwner, revisionInput).value().get()
+        checks["MatchingRevisionReusesGenerationWithoutReadingDeletedSource"] = revisionReused.content == revisionFirst.content
+            && revisionReused.publicationID != revisionFirst.publicationID
+        try FileManager.default.copyItem(at: video, to: revisionVideo)
+        phase = "changed revision redeploys"
+        let updatedRevision = ScreenSaverIntegration.PublicationInput(videoURL: revisionVideo, title: revisionInput.title,
+            revision: "r2", sourceIdentity: revisionInput.sourceIdentity)
+        let revisionChanged = try await begin(revisionOwner, updatedRevision).value().get()
+        checks["ChangedRevisionDeploysANewGeneration"] = revisionChanged.content?.mediaGeneration != revisionReused.content?.mediaGeneration
+            && revisionChanged.content?.title == updatedRevision.title
+        phase = "changed input redeploys with same revision"
+        let changedInput = ScreenSaverIntegration.PublicationInput(videoURL: second, title: updatedRevision.title,
+            revision: updatedRevision.revision, sourceIdentity: updatedRevision.sourceIdentity)
+        let inputChanged = try await begin(revisionOwner, changedInput).value().get()
+        checks["ChangedInputWithSameRevisionDeploysANewGeneration"] = inputChanged.content?.mediaGeneration != revisionChanged.content?.mediaGeneration
+            && inputChanged.content?.sourceIdentity == changedInput.sourceIdentity
+        phase = "matching input cannot reuse corrupt current"
+        try Data("broken-current".utf8).write(to: revisionRoot.appendingPathComponent("current.json"))
+        let revisionRecovered = try await begin(revisionOwner, changedInput).value().get()
+        checks["MatchingInputAfterCorruptCurrentRedeploysValidConfiguration"] = try revisionRecovered.content?.mediaGeneration != inputChanged.content?.mediaGeneration
+            && JSONDecoder().decode(ScreenSaverConfiguration.self, from: currentData(revisionRoot)) == revisionRecovered
+        phase = "nil revision always requests a fresh snapshot"
+        let unversioned = ScreenSaverIntegration.PublicationInput(videoURL: second, title: changedInput.title,
+            sourceIdentity: changedInput.sourceIdentity)
+        let unversionedFirst = try await begin(revisionOwner, unversioned).value().get()
+        let unversionedSecond = try await begin(revisionOwner, unversioned).value().get()
+        checks["NilRevisionNeverReusesThePreviousGeneration"] = unversionedFirst.content?.mediaGeneration != revisionRecovered.content?.mediaGeneration
+            && unversionedSecond.content?.mediaGeneration != unversionedFirst.content?.mediaGeneration
+        revisionOwner.cancelForExit()
+
         phase = "first video publication"
         let first = try await publish(owner, video, title: "first")
         let firstMedia = try media(first, root: root)
