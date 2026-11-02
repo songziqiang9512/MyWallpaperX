@@ -124,12 +124,12 @@ actor PixivClient {
         values.compactMap { value in
             if value.type?.value == 0, query.workType == .manga { return nil }
             if value.type?.value == 1, query.workType == .illustrations { return nil }
-            let artwork = value.artwork()
-            if query.ai == .hide, artwork.isAIGenerated != false { return nil }
             // Search/ranking supply the requested source scope. The author
             // batch has no mode parameter, so only explicit non-adult metadata
             // can satisfy this local narrowing; unknown is never called safe.
             if authorBatch, query.content == .safe, value.xRestrict?.value != 0 { return nil }
+            let artwork = value.artwork()
+            if query.ai == .hide, artwork.isAIGenerated != false { return nil }
             return artwork
         }
     }

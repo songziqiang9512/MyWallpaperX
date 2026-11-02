@@ -472,6 +472,41 @@ private struct Checks {
         let emptyAuthor = try await client.page(query: query)
         expect(emptyAuthor.items.isEmpty && emptyAuthor.next?.offset == 24,
             "safe author narrowing excludes adult and unknown metadata without scanning the next slice")
+        let mixedAuthorRows = [
+            ("100", item("100", extra: ",\"xRestrict\":1,\"aiType\":1")),
+            ("101", item("101", extra: ",\"aiType\":1")),
+            ("102", item("102", extra: ",\"xRestrict\":0,\"aiType\":1")),
+            ("103", item("103", type: "1", extra: ",\"xRestrict\":0,\"aiType\":1"))]
+        let mixedWorks = mixedAuthorRows.reversed().map { "\"\($0.0)\":\($0.1)" }.joined(separator: ",")
+        let mixedList = mixedAuthorRows.map { $0.1 }.joined(separator: ",")
+        FixtureProtocol.responder = { _ in
+            (200, "application/json", "{\"error\":false,\"body\":{\"works\":{\(mixedWorks)}}}")
+        }
+        let beforeMixedAuthor = FixtureProtocol.requests.count
+        let mixedSafe = try await client.page(query: query)
+        expect(mixedSafe.items.map(\.artworkID) == ["102"] && mixedSafe.next?.offset == 24 && mixedSafe.total == 26
+            && FixtureProtocol.requests.count == beforeMixedAuthor + 1,
+            "safe author narrowing keeps explicit non-adult works and excludes adult, unknown and the other type without refill")
+        query.content = .accountAllowed
+        let mixedAllowed = try await client.page(query: query)
+        expect(mixedAllowed.items.map(\.artworkID) == ["100", "101", "102"] && mixedAllowed.next?.offset == 24
+            && FixtureProtocol.requests.count == beforeMixedAuthor + 2,
+            "account-allowed author results retain adult and unknown works in captured ID order")
+        query.content = .safe
+        var nonAuthor = PixivQuery()
+        FixtureProtocol.responder = { _ in
+            (200, "application/json", "{\"contents\":[\(mixedList)],\"next\":2,\"date\":\"20261025\"}")
+        }
+        let mixedRanking = try await client.page(query: nonAuthor)
+        expect(mixedRanking.items.map(\.artworkID) == ["100", "101", "102"] && mixedRanking.next?.page == 2,
+            "ranking retains source-scoped adult and unknown results without the author-only narrowing")
+        nonAuthor.search = "mixed source scope"
+        FixtureProtocol.responder = { _ in
+            (200, "application/json", "{\"error\":false,\"body\":{\"illustManga\":{\"data\":[\(mixedList)],\"lastPage\":2}}}")
+        }
+        let mixedSearch = try await client.page(query: nonAuthor)
+        expect(mixedSearch.items.map(\.artworkID) == ["100", "101", "102"] && mixedSearch.next?.page == 2,
+            "search retains source-scoped adult and unknown results without the author-only narrowing")
         await client.invalidateAuthorSnapshot()
         FixtureProtocol.responder = { _ in (200, "application/json", #"{"error":false,"body":{"illusts":[],"manga":{}}}"#) }
         let emptyAuthorCategory = try await client.page(query: query)
