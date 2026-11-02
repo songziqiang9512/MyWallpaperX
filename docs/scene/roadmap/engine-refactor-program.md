@@ -103,6 +103,10 @@ prepared/submitted snapshot是每屏呈现事实，不归共享Store。每次Ses
 
 异步文字请求保持在“至少一个表面成功提交之后”更新，不能顺便提前到CPU cadence而改变初始/克隆可见时序。Session用一份既有pending tuple承接typed snapshot、dynamic layers和字段兴趣，替代各View副本；新cadence覆盖，全未提交时留待重试，首次成功提交后更新Store一次并清除。一个attempt内即使worker完成，后面的屏仍使用循环前固定的同一publication。暂停publication只触发既有driver重绘，不重放VM；初始cohort已held时继续忽略异步publication通知。
 
+authored文字的活动producer按该次Surface模拟实际采用的topology退休，destroyed IDs与原pending tuple同行，不能拿VM刚提交的新tombstone提前清旧simulation/paused输出。Store原地删除该ID的活动layer、字段兴趣和current raster，沿已有generation.unregister拒绝queued/in-flight发布；静态fast path也须先消费退休，后续热改caption不得重新激活死ID。保留StringProgram/C domain与DynamicLayerRuntime的prepared template和源property输入，活clone以独立ID、owner和raster继续运行，隐藏peer仍属live。不加退休registry、hash/代次认证或第二取消token。
+
+FrameLayerTextureAssembly只按本Surface采用的retired IDs过滤当前text publication，防止Store就绪快照把死source重注入；不清扫旧Snapshot、submitted View、Metal资源、named/history reservation及pins。先验真实Store/受控worker的destroy后热改、活clone/隐藏peer及在途取消，再验至少一屏提交/全部失败、paused held、重建和named/current/history邻例；未核的间接消费者不能按直接layer销毁推断已退出。
+
 单屏关闭/重建只退役自己的GPU与capture，不停止共享worker。清除Session时将唯一Store的closeAndDrain挂到既有retiringSurfaceDrain，然后清活动引用；stop-before-drain、没有surface和失败重建也须等待该CPU尾任务，再沿原surface队列barrier完成GPU释放。不新增退场状态机或第二release fence。
 
 最近门执行真实Store、真实View提交/丢弃与Session调度/退出方法：初始原子可用；连续值只保单任务及最新请求；A/B均提交R0后R1就绪，A提交/B取消时两屏cursor分别保持R1/R0；退役B不关producer且A可继续采用R2；所有surface未提交时不提前请求，暂停重试成功仅发一次；重建复用与stop-before-drain等待真实worker。再用冻结旧App同输入对照双surface动态文字、改名/克隆和原包邻例，核真实像素、字体几何、正常退出与drain。可证明重复生产次数减少，不在未测时宣称整体帧率、能耗或峰值内存收益；媒体、Puppet和粒子剩余寿命不在本批伪称完成。
@@ -202,6 +206,8 @@ Sampler、mode及RT分类结果采用唯一轻量prepared值定义，不嵌在�
 Purpose的原reportToken/initializer成为唯一wire映射，PersistentSamplerRecord删除重复编码/解码switch；nil仍无来源证明，非nil未知token须整record miss，不能flatMap成nil。保持wire及schema不变、坏cache沿冷读取重建。sourceSets只接真实leaf需求；现CPU门退出对GPU文件的声明抽取/替身，保真实VFS、purpose和sampler round-trip/nil/未知token正反例，再核registry、BC上传、Debug与隔离播放；值分离不作为性能提升结论。
 
 资源相关大段测试载体按实际职责与驱动分开：Python保驱动/断言，完整Swift声明、完整case函数或topic extension归fixtures，各文件遵守1000行；仍组合成同一个临时编译单元，保一次编译、原执行顺序及共享SUT输入，不造Context/keeper owner、重复算法或statement碎片。同步所有HARNESS/preamble/访问扩展消费者；private访问、原字段/反例/像素门保持，不能通过压行、删除独立行为或扩大旧例外过门。
+
+GraphExecutor大载体同样按完整support声明与能力case分离；所有真实executor、capability、claim和lease跨阶段复用，最终结果中的有状态查询留原顺序，不能只把结果dict当静态观察提前收集。共享prefix/小入口保字节身份，邻门改读明确support export；保持六门各自原一次编译/运行、SUT/阈值与取消/历史反例，不造Context/keeper或永久形状门。
 
 ### Prepared身份与设备准备键
 

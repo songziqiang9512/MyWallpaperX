@@ -1744,7 +1744,7 @@
       "owner": "Scene Session / typed programs and component owners",
       "status": "approved",
       "designDoc": "docs/scene/roadmap/engine-refactor-program.md",
-      "design_notes": "designDoc维护全Scene迁移与退出：职责合同、实际运行及证据分别裁决，有限审查/direct-host不关闭整体。沿既有Demand→Catalog→Variant交接格式/槽位事实，Frame消费所属准备产品的uniform计划/identity，撤重复template与来源推导。Launch算法归原Schema/Variant，Sampler和RT值采用真实轻量叶合同；资源lookup5值及唯一Purpose token codec独立于GPU实现，保wire/nil/未知token语义；warmup和archive消费PreparedAssembly/device key，静态局部失败拓扑在原stage准备。Sprite/Timeline按真实committed成员及Surface采用/GPU使用期退休，相机取当前projection。Compiler typed产物直接采用，持久发布/analysis store可选异步，cache预算不作播放许可；localStorage在真实实例报告后、configure前准备，帧纯内存。产品daemon沿既有Startup完整选择/热改/暂停恢复/切换/停止，实际capture/drain窄DEBUG观察、保私有standard defaults和自有进程。保唯一VM/clock/graph/resources/compositor，不增wrapper/cache认证或公开内部算法清库存。原主pass库存及归档字节/锚点凭据冻结；不授推送发布。",
+      "design_notes": "designDoc维护全Scene迁移与退出：职责合同、实际运行及证据分别裁决，有限审查/direct-host不关闭整体。沿既有Demand→Catalog→Variant交接格式/槽位事实，Frame消费所属准备产品的uniform计划/identity，撤重复template与来源推导。Launch算法归原Schema/Variant，Sampler和RT值采用真实轻量叶合同；资源lookup5值及唯一Purpose token codec独立于GPU实现，保wire/nil/未知token语义；warmup和archive消费PreparedAssembly/device key，静态局部失败拓扑在原stage准备。Text producer按Surface已采用topology及原pending tuple退休，保prepared clone模板/输入和held/history资源持有；Sprite/Timeline按真实committed成员及Surface采用/GPU使用期退休，相机取当前projection。Compiler typed产物直接采用，持久发布/analysis store可选异步，cache预算不作播放许可；localStorage在真实实例报告后、configure前准备，帧纯内存。产品daemon沿既有Startup完整选择/热改/暂停恢复/切换/停止，实际capture/drain窄DEBUG观察、保私有standard defaults和自有进程。保唯一VM/clock/graph/resources/compositor，不增wrapper/cache认证或公开内部算法清库存。原主pass库存及归档字节/锚点凭据冻结；不授推送发布。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextScript*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextMediaPropertiesCompiler.swift",
@@ -1894,7 +1894,10 @@
         "script/tests/test_scene_particle_rendering.py",
         "script/tests/fixtures/SceneFrameTextureRegistry*.swift",
         "script/tests/fixtures/SceneTextureCandidate*.swift",
-        "script/tests/fixtures/SceneParticleRendering*.swift"
+        "script/tests/fixtures/SceneParticleRendering*.swift",
+        "script/tests/test_scene_resolved_material_graph_executor.py",
+        "script/tests/fixtures/SceneGraphExecutor*.swift",
+        "script/scene_swift_source_sets.py"
       ],
       "contentPatterns": []
     }

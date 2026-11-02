@@ -4629,10 +4629,10 @@
       "lastReviewed": "2026-11-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f19703a80c406a5f666b46059b6a8366b069702d9f06e3ea1d791570de5d5967",
+        "sourceSHA256": "f9ae021c381c02ebaef5e6732258b366f301cc346688827fa81737542d452145",
         "method": "document_registry --audit + document_health --check",
-        "scope": "shader可选cache实际职责/故障恢复及有界GPU/App结果；并复核资源leaf、静态能力阶段、当前camera及Particle/Text/系统订阅退出的后续设计和队列。",
-        "limitations": "本批ShaderApp同时包含独立storage改变；当前结果不外推全Scene、性能、完整语料、物理多屏、官方parity或Release。其它后续设计未因本次通过关闭。"
+        "scope": "复核GraphExecutor完整载体的共享SUT/有状态顺序，以及文字producer在Surface已采用topology后的退休、模板/held/history持有边界。",
+        "limitations": "设计与导航复核；未把计划、静态等价或语法检查当作产品与GPU验收。"
       }
     },
     {

@@ -285,8 +285,8 @@
       "bytes": 29767
     },
     "docs/scene/roadmap/engine-refactor-program.md": {
-      "lines": 331,
-      "bytes": 67582
+      "lines": 337,
+      "bytes": 69144
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 75,
@@ -2329,10 +2329,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/engine-refactor-program.md",
-      "before": "f9050bc221f4974a0880dea00b77c3b8f9505f5fca8232b2646fb50fdc007f4f",
-      "after": "d5a48f63c90499e666097489e71419328bdb839a5798d07fca67951a1f2151f6",
-      "owner": "Scene preparation and resource lifecycle / repository governance",
-      "reason": "原权威关闭已复现并恢复的可选cache播放阻断；反复核对记录后续真实资源叶依赖、静态阶段及活动consumer退休债，详细固定故障/身份归历史，不新增性能/完整兼容结论。",
+      "before": "d5a48f63c90499e666097489e71419328bdb839a5798d07fca67951a1f2151f6",
+      "after": "15f5c8af596241879b555961be1510ef6b0824bbcb9471709ce5039f8e581d8f",
+      "owner": "Scene architecture / repository governance",
+      "reason": "在原设计补齐GraphExecutor完整case与真实共享对象顺序，以及文字活动producer/准备模板/Surface采用与资源持有的退休合同；不复制执行历史，不增加运行结论。",
       "decision": "docs/scene/roadmap/engine-refactor-program.md#架构级迁移合同"
     },
     {
