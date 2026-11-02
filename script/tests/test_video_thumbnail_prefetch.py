@@ -78,6 +78,22 @@ def prepare_video_thumbnail_generator_sources(tree: Path, work: Path, fixture: P
     return [source, frozen_model, frozen_still_frame, support], hashes
 
 
+def with_actual_video_cache_paths(tree: Path, fixture: str) -> str:
+    """Supply the real pure path owner to controlled Manager leaves."""
+    core = tree / 'MyWallpaperX/Modules/VideoLibrary/Core'
+    manager = (core / 'WallpaperManager.swift').read_text()
+    start = manager.index('    let thumbnailCacheDirectory:')
+    field = manager[start:manager.index('\n\n', start)]
+    pipeline = (core / 'WallpaperManager+CachePipeline.swift').read_text()
+    methods = '\n'.join(declaration(pipeline, signature) for signature in
+        ['    func cacheKey(', '    func thumbnailOutputURL('])
+    matches = list(re.finditer(r'^final class WallpaperManager[^\n{]*\{', fixture, re.MULTILINE))
+    if len(matches) != 1: raise AssertionError('one controlled Manager declaration required')
+    opening = matches[0].end()
+    return 'import CryptoKit\n' + fixture[:opening] + '\n' + field + fixture[opening:] + \
+        '\nextension WallpaperManager {\n' + methods + '\n}\n'
+
+
 def prepare_video_static_frame_sources(tree: Path, work: Path, fixtures: Path | None = None):
     """Real StaticFrame/AV, sync callback and removal; only desktop/state leaves."""
     fixtures = fixtures or tree
@@ -151,6 +167,9 @@ class VideoThumbnailPrefetchTests(unittest.TestCase):
             shared = ROOT / 'MyWallpaperX/Shared/UI'
             sources = [actual, shared / 'GridThumbnailDecoder.swift', shared / 'DecodedThumbnailMemoryCache.swift',
                        shared / 'ThumbnailCache.swift', ROOT / 'script/tests/fixtures/VideoThumbnailPrefetchChecks.swift']
+            prepared_fixture = work / 'VideoThumbnailPrefetchChecks.swift'
+            prepared_fixture.write_text(with_actual_video_cache_paths(ROOT, sources[-1].read_text()))
+            sources[-1] = prepared_fixture
             # Preserve the original memory-pressure/reheat case without adding
             # a product memory-only cache API solely for this fixture.
             cache_source = shared / 'ThumbnailCache.swift'
@@ -179,6 +198,67 @@ class VideoThumbnailPrefetchTests(unittest.TestCase):
                 with self.subTest(name=name):
                     self.assertTrue(passed)
 
+    def test_nil_model_path_reuses_real_derived_cache_without_sync_file_probes(self):
+        core = ROOT / 'MyWallpaperX/Modules/VideoLibrary/Core'
+        ui = ROOT / 'MyWallpaperX/Modules/VideoLibrary/UI'
+        shared = ROOT / 'MyWallpaperX/Shared/UI'
+        fixture = ROOT / 'script/tests/fixtures/VideoNilThumbnailChecks.swift'
+        inputs = [core / 'WallpaperManager.swift', core / 'WallpaperManager+CachePipeline.swift',
+            ui / 'AppKitLibraryGridSupport.swift', ui / 'AppKitLibraryGridItemView.swift',
+            ROOT / 'script/tests/fixtures/VideoCardProbeFields.swift', fixture]
+        before = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}
+        manager, pipeline = inputs[0].read_text(), inputs[1].read_text()
+        methods = []
+        for signature, expression, label in [
+            ('    func normalizedPath(', 'URL(fileURLWithPath: path).resolvingSymlinksInPath().standardizedFileURL.path', 'normalized'),
+            ('    func pathExists(', 'FileManager.default.fileExists(atPath: path)', 'exists'),
+        ]:
+            actual = declaration(manager, signature)
+            self.assertEqual(actual.count(expression), 1)
+            methods.append(actual.replace(expression,
+                f'VideoPathObservations.shared.record("{label}")\n        return ' + expression, 1))
+        methods.append(declaration(manager, '    func normalizedSourcePathExists('))
+        methods.extend(declaration(pipeline, signature) for signature in
+            ['    func cacheKey(', '    func thumbnailOutputURL(', '    func existingThumbnailPath(', '    func resolvedThumbnailPath('])
+        template = fixture.read_text()
+        self.assertEqual(template.count('// ACTUAL_PATH_METHODS'), 1)
+        template = template.replace('// ACTUAL_PATH_METHODS', '\n\n'.join(methods))
+        provider = inputs[2].read_text()
+        queue = '    private let decodeQueue = DispatchQueue('
+        self.assertEqual(provider.count(queue), 1)
+        provider = provider.replace(queue, '    let decodeQueue = DispatchQueue(', 1)
+        item = inputs[3].read_text()
+        start = item.index('    func configure(')
+        end = item.index('    private func setupViews()', start)
+        with tempfile.TemporaryDirectory(prefix='mwx-video-nil-card-', dir='/private/tmp') as directory:
+            work = Path(directory)
+            source = work / 'ActualVideoNilThumbnailChecks.swift'
+            source.write_text(provider + '\n@MainActor final class VideoCardProbe {\n' + inputs[4].read_text()
+                + item[start:end] + '\n}\n' + template)
+            sources = [source, ROOT / 'MyWallpaperX/Models/VideoWallpaper.swift',
+                *[shared / name for name in ['GridThumbnailDecoder.swift', 'DecodedThumbnailMemoryCache.swift', 'ThumbnailCache.swift']]]
+            binary = work / 'checks'
+            build = subprocess.run(['xcrun', 'swiftc', *SWIFT_ISOLATION_FLAGS, '-warnings-as-errors', '-parse-as-library',
+                *map(str, sources), '-module-cache-path', str(work / 'modules'), '-o', str(binary)],
+                capture_output=True, text=True, timeout=120)
+            self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
+            runtime = work / 'inputs'; runtime.mkdir()
+            run = subprocess.run([str(binary)], env=dict(os.environ, HOME=str(work / 'home'),
+                CFFIXED_USER_HOME=str(work / 'home'), VIDEO_NIL_ROOT=str(runtime)), capture_output=True, text=True, timeout=30)
+            self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+            facts = json.loads(run.stdout)
+            print('VIDEO NIL THUMBNAIL FACTS ' + json.dumps(facts, sort_keys=True))
+            if proof := os.environ.get('MWX_VIDEO_PREFETCH_PROOF_DIR'):
+                target = Path(proof); target.mkdir(parents=True, exist_ok=True)
+                (target / 'nil-card-facts.json').write_text(json.dumps(facts, indent=2) + '\n')
+                (target / 'nil-card-build.log').write_text(build.stdout + build.stderr)
+                (target / 'nil-card-runtime.log').write_text(run.stderr)
+            for name, passed in facts['controls'].items():
+                with self.subTest(name=name): self.assertIs(passed, True)
+            with self.subTest(name='nilPathReadyInConfigureTurn'):
+                self.assertIs(facts['observations']['nilPathReadyInConfigureTurn'], True)
+        self.assertEqual(before, {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs})
+
     def test_visible_preview_repair_is_scoped_to_original_provider_and_current_row(self):
         support = (ROOT / 'MyWallpaperX/Modules/VideoLibrary/UI/AppKitLibraryGridSupport.swift').read_text()
         with tempfile.TemporaryDirectory(prefix='mwx-visible-preview-repair-', dir='/private/tmp') as directory:
@@ -187,6 +267,9 @@ class VideoThumbnailPrefetchTests(unittest.TestCase):
             shared = ROOT / 'MyWallpaperX/Shared/UI'
             sources = [source, shared / 'GridThumbnailDecoder.swift', shared / 'DecodedThumbnailMemoryCache.swift',
                 shared / 'ThumbnailCache.swift', ROOT / 'script/tests/fixtures/VideoVisiblePreviewRepairChecks.swift']
+            prepared_fixture = work / 'VideoVisiblePreviewRepairChecks.swift'
+            prepared_fixture.write_text(with_actual_video_cache_paths(ROOT, sources[-1].read_text()))
+            sources[-1] = prepared_fixture
             binary = work / 'checks'
             build = subprocess.run(['xcrun', 'swiftc', *SWIFT_ISOLATION_FLAGS, '-warnings-as-errors', '-parse-as-library',
                 *map(str, sources), '-module-cache-path', str(work / 'modules'), '-o', str(binary)],
@@ -209,6 +292,7 @@ class VideoThumbnailPrefetchTests(unittest.TestCase):
         # Reuse only the existing model/controlled asset-validation leaves. The
         # complete card (including its real hierarchy/events) replaces no method.
         leaves = (fixtures / 'VideoThumbnailPrefetchChecks.swift').read_text().split('@main struct VideoThumbnailPrefetchChecks {')[0]
+        leaves = with_actual_video_cache_paths(ROOT, leaves)
         card = re.sub(r"\bprivate\s+", "", (ui / 'AppKitLibraryGridItemView.swift').read_text())
         with tempfile.TemporaryDirectory(prefix='mwx-video-card-interaction-', dir='/private/tmp') as directory:
             work = Path(directory)

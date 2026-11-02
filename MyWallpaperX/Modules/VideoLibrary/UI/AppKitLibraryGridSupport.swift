@@ -92,7 +92,9 @@ final class AppKitThumbnailProvider {
     }
 
     func cachedThumbnail(for wallpaper: VideoWallpaper) -> NSImage? {
-        guard let path = wallpaper.thumbnailPath else { return nil }
+        let path = wallpaper.thumbnailPath ?? wallpaperManager.thumbnailOutputURL(
+            forKey: wallpaperManager.cacheKey(forNormalizedPath: wallpaper.path)
+        ).path
         return cache.cachedImage(forKey: path)
     }
 

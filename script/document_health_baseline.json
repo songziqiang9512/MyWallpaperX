@@ -34,7 +34,7 @@
     },
     "docs/development/code-slimming-program.md": {
       "lines": 112,
-      "bytes": 25914
+      "bytes": 25852
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -353,8 +353,8 @@
       "bytes": 4916
     },
     "docs/development/local-library-loading-design.md": {
-      "lines": 59,
-      "bytes": 12839
+      "lines": 72,
+      "bytes": 15855
     }
   },
   "archives": [
@@ -1822,11 +1822,11 @@
     {
       "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
-      "before": "b3f7f48e008f6c1b7f55d38bd7aaa47d930943d65c4c1b4089586dabcbbc6e79",
-      "after": "c84e03f6dbb43d870fc601883f09477f30f0f44ff7359bdbd03b2ddc3da9c074",
+      "before": "c84e03f6dbb43d870fc601883f09477f30f0f44ff7359bdbd03b2ddc3da9c074",
+      "after": "eb21c2462990ab342c9909caa25f10b3ad110a18072d1f10145a1fae6b2a975e",
       "owner": "repository-maintainer",
-      "reason": "R106 existing-owner local-grid lookahead decision, exact own-window frame evidence and residual ceiling; replace quick routing and rejected candidates, preserve completed R62 and current scope.",
-      "decision": "docs/development/local-library-loading-design.md#continuous-scroll"
+      "reason": "R107 original Video cache-key warm reuse, same-final-fixture old-red/new-green and preserved counterexamples; replace quick routing and record next measured lookup bottleneck, full native goal remains open.",
+      "decision": "docs/development/local-library-loading-design.md#video-warm"
     },
     {
       "section": "bodies",
@@ -2065,11 +2065,11 @@
     {
       "section": "bodies",
       "path": "docs/development/local-library-loading-design.md",
-      "before": "19c4a40237a28e50eb0f5216d7715e79110a4ad6a7a6a71ba5d251306a762863",
-      "after": "72b35a40bf09d92336c80acb7a94ccbf2b6aebde1e85ae4291b6761ce37d46b4",
+      "before": "72b35a40bf09d92336c80acb7a94ccbf2b6aebde1e85ae4291b6761ce37d46b4",
+      "after": "6092514280e9105505aeee25f6ed1ba0f40947d1c60f84d5b19ee4ee1c8b4c62",
       "owner": "repository-maintainer",
-      "reason": "R106 existing-owner local-grid lookahead decision, exact own-window frame evidence and residual ceiling; replace quick routing and rejected candidates, preserve completed R62 and current scope.",
-      "decision": "docs/development/local-library-loading-design.md#continuous-scroll"
+      "reason": "R107 original Video cache-key warm reuse, same-final-fixture old-red/new-green and preserved counterexamples; replace quick routing and record next measured lookup bottleneck, full native goal remains open.",
+      "decision": "docs/development/local-library-loading-design.md#video-warm"
     },
     {
       "section": "archives",

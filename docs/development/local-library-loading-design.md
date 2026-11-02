@@ -7,6 +7,19 @@
 
 2026-11-02用户目标：打开App先显示上次本地内容，目录检查在后台更新；本地视频、图片和自建列表快速双向滚动时，已取得缩略图优先复用。该卡同时覆盖列表内已入库Steam/Pixabay/在线图片的本地记录，在线浏览预算和播放引擎保持。状态：R62实现、最近行为门和签名Debug已完成，保留文末三项原生验证限制；真实用户库人工体验待验。R61普通精简候选后移。
 
+<a id="video-warm"></a>
+## R107：无持久封面路径的视频复用已有像素
+
+2026-11-03完成局部暖读取修复，完整照片级目标仍未验收。真实Provider/cache及原卡片configure已复现：thumbnailPath为nil，真实resolver已将派生JPEG暖入原cache，挂起原串行验证队列后旧卡片当次仍无图，显式路径对照立即有图。新导入生成只通知、不回填该字段，不仅历史数据受影响；本地视频和自建混合列表共用该owner。
+
+**裁决与成本。** 原cachedThumbnail保显式路径优先；nil时以记录path纯计算原cacheKey/thumbnailOutputURL，读取同一cache。无normalize/stat、模型回填、新状态或缓存；规范路径立即复用已解码图，历史alias/relative不保证同步命中，继续原异步resolver。原验证、删除最终清图、取消/串台与播放许可保留。产品3增1删净+2行；nil记录每次暖peek增加一次原SHA键计算，避免模型发布/持久化和另建路径索引。Apple的[预热合同](https://developer.apple.com/documentation/photos/phcachingimagemanager/startcachingimages%28for%3Atargetsize%3Acontentmode%3Aoptions%3A%29)明确已准备图可立即交付；当前首断点是现有暖键未接通，未见需要换语言/组件或研究系统二进制的证据。
+
+**验证。** 同一最终真实路径/Provider/cache/card切片夹具，旧版21控制全真，仅nil当次暖图断言红；候选21控制及同步断言全过。显式不同JPEG优先、alias/relative最终恢复、模型不写、clear及保留内存时删除派生文件后的最终清图均保。实际normalize/pathExists入口计数在暖configure前后均为3/2，仅证明这两入口未增加调用，不称全局零物理IO。原validation21、repair16事实全过，6307输入和6实际子过程稳定；原完整hover装配仅编译通过，未重跑其已知原生超时，不称交互验收。测试净+215行：真实owner装配复用、131行反例夹具及原3装配依赖补齐，原断言保持，没有复制SHA算法。
+
+签名Debug 25.805秒、5868构建输入稳定，strict/deep通过；无新增Swift警告，仅原CS0665/CS8603。用户媒体只读，不改Scene引擎、共享接口、数据库或卡片交互。
+
+**调查与下一步。** 同轮SIL像素/交付时线探针173帧未采到背景点、源解码0；插桩改变时序，未重现不等于R106残余已修复。另在真实完整Adapter/真实Video和SIL模型、受控来源数组中，10k尾部116项在首provider前比较1,153,330次；独立未插桩-O五轮中位Video64.929ms/SIL49.484ms，缺失56.456/43.080ms；不是整App FPS。下一批优先在原viewport内批量解析，保原始UTF8身份、重复首项、当前快照与撤销，不加持久索引。之后验证新生成Ready事件缺少网格消费者的可达等待窗口；尚未运行该反例，不混入本批。真实视频解码/窗口连续帧、混合大库/触控板和整App能耗仍待验，R62三项原生限制保持。
+
 <a id="continuous-scroll"></a>
 ## R106：按最近位移准备前方缩略图
 

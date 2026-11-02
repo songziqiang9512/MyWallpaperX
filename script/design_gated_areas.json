@@ -1759,7 +1759,7 @@
       "owner": "Existing source indexes, App Catalog and thumbnail providers",
       "status": "approved",
       "designDoc": "docs/development/local-library-loading-design.md",
-      "design_notes": "R62原索引无IO首发/后台原generation对账已结。R106在原viewport/Adapter/cache内按实际clip最近位移给前方2:1有界覆盖，local仍cap96、remote/独立caller默认保；真实帧0/1残余、完整照片目标未验收，见#continuous-scroll。无新clock/owner或播放权限；先实测再裁决分级像素/组件替换。",
+      "design_notes": "R62原索引无IO首发/后台原generation对账已结；R106原viewport按clip最近位移给前方2:1有界覆盖，local cap96/remote默认保持，残余帧和完整照片目标未验收。R107原Video provider以纯派生键补nil thumbnailPath暖复用，无normalize/stat、模型回填或新状态，原异步验证保；见#video-warm。先实测再裁决分级像素/组件/架构替换，不触Scene。",
       "matchPatterns": [
         "MyWallpaperX/App/WallpaperLibraryCatalogController.swift",
         "MyWallpaperX/App/WallpaperLibraryWorkspace.swift",
