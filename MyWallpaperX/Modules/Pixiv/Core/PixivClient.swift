@@ -92,7 +92,7 @@ actor PixivClient {
             let values = query.workType == .manga ? response.manga : response.illustrations
             // IDs are opaque: order numeric decimal strings without converting
             // them to a machine-width integer or changing their identity.
-            snapshotIDs = Array(Set(values)).sorted {
+            snapshotIDs = values.sorted {
                 $0.count == $1.count ? $0 > $1 : $0.count > $1.count
             }
             authorSnapshot = (author, query.workType, snapshotIDs)

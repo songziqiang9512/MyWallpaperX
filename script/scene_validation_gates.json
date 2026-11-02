@@ -5545,6 +5545,7 @@
         "MyWallpaperX/Core/OnlineImages/OnlineImageLibrary.swift",
         "MyWallpaperX/Modules/Wallhaven/Core/*",
         "MyWallpaperX/Modules/Pixiv/Core/PixivSession.swift",
+        "MyWallpaperX/Modules/Pixiv/Core/PixivClient.swift",
         "MyWallpaperX/Modules/Pixabay/Toolbar/PixabayFilterPanel.swift",
         "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopFilterPanel.swift",
         "script/tests/test_online_image_*.py",

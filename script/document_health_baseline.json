@@ -34,7 +34,7 @@
     },
     "docs/development/code-slimming-program.md": {
       "lines": 481,
-      "bytes": 106072
+      "bytes": 106293
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -1743,11 +1743,11 @@
     {
       "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
-      "before": "4cf56049f4661763b32e0a785468e0c1ab8058e8bbd25d9f7c5b56939e25cf97",
-      "after": "c7689c564c334e5a14aaaeb27a1024b08a1892901cda77b80249e9f75931a557",
+      "before": "c7689c564c334e5a14aaaeb27a1024b08a1892901cda77b80249e9f75931a557",
+      "after": "56e85c6b91265c5123d64fe41cb1c576a6e1851cd09893a193ccdeeda669070d",
       "owner": "repository-maintainer",
-      "reason": "Record one coherent Catalog publication for one online-image snapshot and the actual behavior/consumer evidence; keep separate asynchronous source publications and bounded verification limits.",
-      "decision": "docs/development/main-window-playlists-redesign.md#73-页面命令和快照"
+      "reason": "Close R66 redundant author-key Set removal with real JSON/Client behavior, exact mapping repair and signed build evidence; preserve cookie/manual limits and identify the independent unimplemented HTML candidate.",
+      "decision": "docs/development/code-slimming-program.md#目标与边界"
     },
     {
       "section": "bodies",

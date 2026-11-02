@@ -478,6 +478,33 @@ private struct Checks {
         expect(emptyAuthorCategory.items.isEmpty && emptyAuthorCategory.next == nil && emptyAuthorCategory.total == 0,
             "empty array author category is a valid empty snapshot")
 
+        let bigAuthorID = "99999999999999999999999999999999"
+        let opaqueNewest = [bigAuthorID, "0001"] + (100...125).reversed().map(String.init) + ["1"]
+        await client.invalidateAuthorSnapshot()
+        FixtureProtocol.responder = { request in
+            if request.url!.path.hasSuffix("/all") {
+                let keys = (100...125).map { "\"\($0)\":null" } + [
+                    #""125":null"#, #""\u0031\u0032\u0035":null"#, #""0001":null"#, #""1":null"#, "\"\(bigAuthorID)\":null"]
+                return (200, "application/json", "{\"error\":false,\"body\":{\"illusts\":{\(keys.joined(separator: ","))},\"manga\":{}}}")
+            }
+            let ids = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)!.queryItems!.filter { $0.name == "ids[]" }.compactMap(\.value)
+            let works = ids.reversed().map { "\"\($0)\":\(item($0, extra: ",\"xRestrict\":0,\"aiType\":1"))" }.joined(separator: ",")
+            return (200, "application/json", "{\"error\":false,\"body\":{\"works\":{\(works)}}}")
+        }
+        let beforeOpaqueAuthor = FixtureProtocol.requests.count
+        for order in [PixivOrder.newest, .oldest] {
+            query.order = order
+            let first = try await client.page(query: query)
+            let second = try await client.page(query: query, request: first.next!)
+            let expected = order == .newest ? opaqueNewest : Array(opaqueNewest.reversed())
+            expect(first.items.count == 24 && first.next?.offset == 24 && first.total == 29,
+                "repeated and escaped JSON keys describe one author ID before slicing")
+            expect((first.items + second.items).map(\.artworkID) == expected && second.next == nil && second.total == 29,
+                "both author directions retain leading-zero and beyond-Int identities across pages")
+        }
+        expect(FixtureProtocol.requests.count - beforeOpaqueAuthor == 5,
+            "opaque author ordering reuses one decoded profile snapshot for both directions")
+
         FixtureProtocol.responder = { _ in (200, "text/html", "<html>challenge</html>") }
         do { _ = try await client.detail(id: "100"); fatalError("HTML treated as JSON") }
         catch OnlineImageError.invalidResponse {}
