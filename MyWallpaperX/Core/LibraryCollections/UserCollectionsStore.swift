@@ -489,17 +489,17 @@ actor UserCollectionsStore {
             try validateName(playlist.name); try requireFinite(playlist.createdAt); try requireFinite(playlist.modifiedAt)
             try requireCoverAsset(playlist.customCoverAssetID)
         }
-        var memberKeys: [UUID: Set<WallpaperReference>] = [:]
+        var memberPositions: [UUID: [WallpaperReference: Int]] = [:]
         for member in state.members {
             guard ids.contains(member.playlistID), member.position >= 0,
                   try canonical(member.reference) == member.reference,
-                  memberKeys[member.playlistID, default: []].insert(member.reference).inserted else {
+                  memberPositions[member.playlistID, default: [:]].updateValue(member.position, forKey: member.reference) == nil else {
                 throw UserCollectionsError.organizationConflict
             }
             try requireFinite(member.addedAt)
         }
-        for id in ids {
-            let positions = state.members.filter { $0.playlistID == id }.map(\.position).sorted()
+        for members in memberPositions.values {
+            let positions = members.values.sorted()
             guard positions == Array(0..<positions.count) else { throw UserCollectionsError.organizationConflict }
         }
         var favorites = Set<WallpaperReference>()

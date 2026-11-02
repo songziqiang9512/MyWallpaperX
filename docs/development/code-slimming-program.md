@@ -6,7 +6,7 @@
 
 开批速览（每批动手前先读这里，再核 Git 状态；按需查对应 owner 和下文，不顺读全文）：
 
-- 已裁决至R73（R61按优先级后补）。个人设置导入弹窗消失/设置变暗已由 R55（`ad1f3142d`）修复；测试 App 已交付，原配置完整导入仅待用户实测，没有新复现不重新修复、构建或复跑。
+- 已裁决至R74（R61按优先级后补）。个人设置导入弹窗消失/设置变暗已由 R55（`ad1f3142d`）修复；测试 App 已交付，原配置完整导入仅待用户实测，没有新复现不重新修复、构建或复跑。
 - 近期已完成：R54 合并成员查询复用、R57 Web 快照暂存隔离、R58 已取消元数据任务提前退出、R59 成功状态一次发布、R60 在线图片卡片一次装配。详情见下文；已完成项不作为新候选。
 - 保留/拒绝：R55 一次 Save 取消超时尚未归因；R56 绕过 TIFF 的候选因像素/尺寸差异已拒绝。较早 R23/R38/R43 的保护边界仍有效。
 - R62已交付：[本地资源先呈现与缩略图回访](local-library-loading-design.md#overview)。先解决启动短暂不可用和本地网格滚回黑卡，覆盖视频、图片及自建列表；已完成实现、最近门、Steam消费者及签名Debug；保留三项原生限制，真实用户库体感待人工验收。R61冷态导航已完成验证，见下文；不重复本专项。
@@ -23,7 +23,9 @@
 
 本轮按用户固定流程循环：并行子代理在每份审查任务中携带用户固定prompt，核无功能收益的校验/认证/重复计算/嵌套、持续转发和补丁、过量实现与耦合；主agent审核问题和方案并决定是否修改，子代理实施，主agent复核真实行为/成本证据和最近门后决定窄提交，再开启下一轮。每批报告问题、当前影响、方案、功能变化及下一候选。当前目标授权主agent作修复和本地提交裁决，不授权推送；共享构建、原生窗口和GPU仍串行，其他会话改动保留。
 
-最近产品验证：R73在App的webPersistentDataStoreRecord原appendRoot内，只有传入url.path已收录时提前返回；原realpath/canonical去重、根顺序、不同raw alias及后继回收流程保持。产品1增1删净0，无新helper/state/cache；非命中分支增加最多查既有6根的便宜contains，换掉明确重复的append准备。测试80增2删，临时提真实App producer、effectiveRoot及4个URL getter，8字段typed载体不复制算法；旧预制rootPaths只服务原回收故事。四组真实临时目录/双symlink检查recordID与精确根序列，原回收/删除/恢复/in-use反例两臂均完成、进程0；仅旧3项新增Python成本预算红，候选全过。实际append准备shared4→1、aliases4→3、independent6→4、missing1→1，预算为非负上界，允许未来更省。签名Debug23.245秒/5866输入稳定、strict/deep通过，仅原两条C#警告；实际临时Swift输入字节hash留存，独立静审接受。计数仅appendRoot这一行，不含getter/effectiveRoot内部文件或规范化工作，不称整record只解析一次、不认领IO/时耗/FPS。稳定文件输入下根与顺序保持，未承诺外部并发symlink改向观察等价；WebKit删除是原记录叶，不是实际用户持久store验收；完整App/真实账号和R62人工/原生限制不变。
+最近产品验证：R74在组织Undo/Redo恢复校验里，原局部成员查重容器同步保存position，再按各非空组排序检查0..<count，退出每个列表对全members再次filter。产品4增4删净0，无新helper/长期状态/cache；代价为每成员临时保留一个Int，仍有原canonical SQL、组内排序和全量写入，不称整个事务线性。原ids/非负/canonical/重复引用/有限日期检查次序、expected organization/aliases/epoch、SQL插入次序与事务提交回滚保持。测试Python净+24、原夹具+57，4列表/6交错成员含空列表、7非法replacement精确错误/完整snapshot不变及重开共12新增；原断言全保。真实SQLite旧/候选58项字典等值全真、进程0，仅旧1新增成本红；一次成功restore的完整成员数组请求6→2，计数为临时完整Store透明读取，不是物理复制/IO或时耗。现有Store45项与真实SQLite CAPI full/rollback IOERR故障11项通过；签名Debug24.461秒/5866输入稳定、strict/deep通过，仅原两条C#警告。实际临时Swift输入hash留存；证明限这些数据库/事务路径，不是原生UndoManager、完整App、用户数据库或导入弹窗验收，R55/R62及原人工/原生限制不变。
+
+前批R73（34854b1b3）App appendRoot已收录原始路径时提前退出，原canonical去重/别名/顺序保留，产品净0。原回收与四组真实目录业务两臂过，append计数4→1/4→3/6→4/1→1，签名Debug23.245秒通过；仅此行准备计数，不含getter/effectiveRoot，不承诺外部symlink并发观察或IO/时耗。WebKit使用原记录替身，实际用户持久store未验。
 
 前批R72（645810c18）移除零消费者SIL mode声明/注释和两个false post，产品净-8，无新测试/state。原图片应用与Steam/Pixabay事件保持；具名/raw/动态/selector/桥接独审及签名Debug23.395秒通过。限仓库信号静态退役与编译，未动态执行两个post，不借菜单/Chrome门认领通知或UI修复。
 

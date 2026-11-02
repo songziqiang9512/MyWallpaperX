@@ -25,8 +25,22 @@ class LibraryPersonalSettingsStoreTests(unittest.TestCase):
         inputs = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in sources}
         with tempfile.TemporaryDirectory(prefix='mwx-profile-store-', dir='/private/tmp') as directory:
             work = Path(directory); binary = work / 'checks'
+            store = sources[1].read_text()
+            start = store.index('    private func replaceOrganization(')
+            end = store.index('    private func touchPlaylist(', start)
+            body = store[start:end]
+            self.assertGreater(body.count('state.members'), 0)
+            observed_store = work / sources[1].name
+            observed_store.write_text(store[:start] + body.replace('state.members', 'observedOrganizationMembers(state.members)')
+                + store[end:] + r'''
+nonisolated private func observedOrganizationMembers(_ members: [WallpaperPlaylistMember]) -> [WallpaperPlaylistMember] {
+    FileHandle.standardError.write(Data("ORGANIZATION MEMBERS \(members.count)\n".utf8))
+    return members
+}
+''')
+            compiled = [sources[0], observed_store, *sources[2:]]
             build = subprocess.run(['xcrun', 'swiftc', *SWIFT_ISOLATION_FLAGS, '-warnings-as-errors',
-                '-parse-as-library', *map(str, sources), '-module-cache-path', str(work / 'modules'),
+                '-parse-as-library', *map(str, compiled), '-module-cache-path', str(work / 'modules'),
                 '-o', str(binary)], capture_output=True, text=True, timeout=120)
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
             home = work / 'home'; home.mkdir()
@@ -37,6 +51,16 @@ class LibraryPersonalSettingsStoreTests(unittest.TestCase):
             self.assertGreaterEqual(len(checks), 20)
             for name, passed in checks.items():
                 with self.subTest(name=name): self.assertIs(passed, True)
+            self.assertEqual(run.stderr.count('ORGANIZATION READS BEGIN\n'), 1)
+            self.assertEqual(run.stderr.count('ORGANIZATION READS END\n'), 1)
+            scope = run.stderr.split('ORGANIZATION READS BEGIN\n', 1)[1].split('ORGANIZATION READS END\n', 1)[0]
+            reads = [int(line.removeprefix('ORGANIZATION MEMBERS ')) for line in scope.splitlines()
+                     if line.startswith('ORGANIZATION MEMBERS ')]
+            print('ORGANIZATION PREPARATIONS ' + json.dumps({'memberCounts': reads}, sort_keys=True))
+            self.assertTrue(reads, run.stderr)
+            self.assertTrue(all(count == 6 for count in reads), reads)
+            with self.subTest(name='organization-member-array-preparations'):
+                self.assertLessEqual(len(reads), 2, reads)
         self.assertEqual(inputs, {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in sources})
 
 

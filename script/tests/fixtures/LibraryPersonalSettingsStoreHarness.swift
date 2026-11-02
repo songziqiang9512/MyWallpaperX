@@ -217,6 +217,63 @@ import SQLite3
             && positionsAfter.playlists.first { $0.id == positionLists[5].id }?.modifiedAt == thirdAdded
         let positionsReopened = try await UserCollectionsStore(url: positionsURL, allowCreate: false).snapshot()
         checks["profile-import-integer-positions-survive-reopening-the-real-store"] = positionsReopened == positionsAfter
+        let organizationURL = root.appendingPathComponent("organization.sqlite"), organizationStore = UserCollectionsStore(url: organizationURL)
+        let organizationInitial = try await organizationStore.snapshot()
+        let organizationLists = (0..<4).map { WallpaperPlaylist(name: "Organization-\($0)", createdAt: date, sidebarRank: $0) }
+        var organizationCommands: [UserCollectionsCommand] = organizationLists.map { .createPlaylist($0) }
+        organizationCommands += [.addMembers(organizationLists[0].id, [item(a)], date), .setFavorite(item(c), true, date),
+            .linkAlias(.init(alias: alias, canonical: b, proof: .publishedDownload), date)]
+        let organizationBefore = try await organizationStore.apply(organizationCommands, expectedEpoch: organizationInitial.resetEpoch)
+        let organizationMembers: [WallpaperPlaylistMember] = [
+            .init(playlistID: organizationLists[0].id, reference: b, position: 1, addedAt: date),
+            .init(playlistID: organizationLists[1].id, reference: c, position: 0, addedAt: date),
+            .init(playlistID: organizationLists[2].id, reference: a, position: 1, addedAt: date),
+            .init(playlistID: organizationLists[0].id, reference: a, position: 0, addedAt: date),
+            .init(playlistID: organizationLists[2].id, reference: c, position: 0, addedAt: date),
+            .init(playlistID: organizationLists[1].id, reference: b, position: 1, addedAt: date)]
+        let organizationReplacement = LibraryCollectionsOrganizationState(playlists: organizationLists, members: organizationMembers,
+            favorites: organizationBefore.favorites, aliases: organizationBefore.aliases)
+        FileHandle.standardError.write(Data("ORGANIZATION READS BEGIN\n".utf8))
+        let organizationAfter = try await organizationStore.apply(.restoreOrganization(expected: organizationBefore.organizationState,
+            replacement: organizationReplacement), expectedEpoch: organizationBefore.resetEpoch)
+        FileHandle.standardError.write(Data("ORGANIZATION READS END\n".utf8))
+        let expectedReferences = [[a,b], [c,b], [c,a], []], expectedOrder = [[0,1], [0,1], [0,1], []]
+        for (index, list) in organizationLists.enumerated() {
+            let members = organizationAfter.members.filter { $0.playlistID == list.id }
+            checks["organization-interleaved-member-order-and-empty-list-\(index)"] = organizationAfter.playlists.contains(list)
+                && members.map(\.reference) == expectedReferences[index] && members.map(\.position) == expectedOrder[index]
+                && members.allSatisfy { $0.addedAt == date }
+        }
+        var duplicatePosition = organizationMembers; duplicatePosition[0].position = 0
+        var gappedPosition = organizationMembers; gappedPosition[0].position = 2
+        var negativePosition = organizationMembers; negativePosition[0].position = -1
+        var unknownList = organizationMembers
+        unknownList[0] = .init(playlistID: UUID(), reference: b, position: 1, addedAt: date)
+        var noncanonical = organizationMembers
+        noncanonical[0] = .init(playlistID: organizationLists[0].id, reference: alias, position: 1, addedAt: date)
+        var nonfiniteDate = organizationMembers
+        nonfiniteDate[0] = .init(playlistID: organizationLists[0].id, reference: b, position: 1,
+            addedAt: Date(timeIntervalSince1970: .infinity))
+        let invalidMembers: [(String, [WallpaperPlaylistMember], UserCollectionsError)] = [
+            ("duplicate-reference", organizationMembers + [organizationMembers[0]], .organizationConflict),
+            ("duplicate-position", duplicatePosition, .organizationConflict), ("gapped-position", gappedPosition, .organizationConflict),
+            ("negative-position", negativePosition, .organizationConflict), ("unknown-list", unknownList, .organizationConflict),
+            ("noncanonical-reference", noncanonical, .organizationConflict), ("nonfinite-date", nonfiniteDate, .personalSettingsConflict)]
+        for (name, members, expectedError) in invalidMembers {
+            let invalid = LibraryCollectionsOrganizationState(playlists: organizationLists, members: members,
+                favorites: organizationAfter.favorites, aliases: organizationAfter.aliases)
+            do {
+                _ = try await organizationStore.apply(.restoreOrganization(expected: organizationAfter.organizationState,
+                    replacement: invalid), expectedEpoch: organizationAfter.resetEpoch)
+                checks["organization-invalid-\(name)-preserves-the-real-snapshot"] = false
+            } catch {
+                let unchanged = try await organizationStore.snapshot()
+                checks["organization-invalid-\(name)-preserves-the-real-snapshot"] = error as? UserCollectionsError == expectedError
+                    && unchanged == organizationAfter
+            }
+        }
+        let organizationReopened = try await UserCollectionsStore(url: organizationURL, allowCreate: false).snapshot()
+        checks["organization-member-validation-and-order-survive-reopening"] = organizationReopened == organizationAfter
         print(String(decoding: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), as: UTF8.self))
     }
 
