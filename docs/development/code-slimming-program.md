@@ -6,14 +6,16 @@
 
 开批速览（每批动手前先读这里，再核 Git 状态；按需查对应 owner 和下文，不顺读全文）：
 
-- 已裁决至R104（R61按优先级后补）。个人设置导入弹窗消失/设置变暗已由 R55（`ad1f3142d`）修复；测试 App 已交付，原配置完整导入仅待用户实测，没有新复现不重新修复、构建或复跑。
-- 近期已完成：R104 库统计跳过未消费创建日期准备；R103 网格顺序比较退出临时数组；R102 状态栏速率字符串局部复用；R101 媒体需求只准备布尔值。R89–R99 结案见[历史记录](../history/cross-topic/code-slimming-r89-r99-closeouts-2026-11-03.md#completed-r89-r99)，保原载荷与验证上限；已完成项不作为新候选。
+- 已裁决至R105（R61按优先级后补）。个人设置导入弹窗消失/设置变暗已由 R55（`ad1f3142d`）修复；测试 App 已交付，原配置完整导入仅待用户实测，没有新复现不重新修复、构建或复跑。
+- 近期已完成：R105 Pixabay搜索入口收窄；R104日期回退按需准备；R103网格顺序比较退出数组；R101/R102媒体需求与速率字符串复用。R89–R99结案见[历史记录](../history/cross-topic/code-slimming-r89-r99-closeouts-2026-11-03.md#completed-r89-r99)，保原载荷与验证上限；已完成项不作为新候选。
 - 保留/拒绝：R55 一次 Save 取消超时尚未归因；R56 绕过 TIFF 的候选因像素/尺寸差异已拒绝。较早 R23/R38/R43 的保护边界仍有效。
 - R62已交付：[本地资源先呈现与缩略图回访](local-library-loading-design.md#overview)。先解决启动短暂不可用和本地网格滚回黑卡，覆盖视频、图片及自建列表；已完成实现、最近门、Steam消费者及签名Debug；保留三项原生限制，真实用户库体感待人工验收。R61冷态导航已完成验证，见下文；不重复本专项。
 
 - 已结 B1–B12 / 原生 UI1–UI9 按[历史记录](../history/cross-topic/code-slimming-b1-b12-ui1-ui9-2026-10-23.md)回查；本页保留当前范围、未解决项和 UI10 已批准设计，不从旧候选续开任务。 UI10已结试版/验收见[独立历史](../history/cross-topic/code-slimming-ui10-trials-2026-10-23.md)，批准设计仍留本页。
 
 后续范围（2026-11-03）：按goal持续审查、优化所有非Scene代码及对应分类文档，Scene引擎不修改；现有能力须以原行为门和反例保持，不能用删功能换精简。
+
+当前下一批优先（2026-11-03用户指定）：完成R105后，集中优化本地已有视频、图片和自建列表的网格快速双向滚动，目标为系统照片App般连续、消除黑边和加载空卡。先复核R62实现与限制并取真实缺图证据；必要时调整架构、组件或语言，替代旧链而不叠补丁。优先研究苹果官方文档、WWDC与样例，公开证据不足再研究本机官方App二进制；不动Scene引擎。其余尚未实施的小清理候选暂缓，R62已结启动先呈现不重复重做。
 
 开批先核本段、最近相关提交及工作区；查到已完成、已拒绝或已有证据的事项时，复用结论。仅在代码/输入改变、新失败或明确未覆盖范围需要验证时重跑，压缩上下文不构成重跑理由。批次结束同步这里，避免把历史“下一步”当成当前任务。
 
@@ -25,7 +27,9 @@
 
 最近文档整理：R100将R89–R99非连续十段已结摘要逐字移入历史，仅可逆重定位一条相对链接；现役范围、待验、保留项和永久入口不变。产品/测试0；本批只核文档载荷、角色、预算与引用，不复验旧产品。
 
-最近产品验证：R104后台localDownloadStatistics在firstDownloadedAt或commit日期已存在时不准备localCreationDate，产品2增1删净+1、fixture8增；原日期helper/return与bytes枚举次序逐字保，无新helper/state/API或Scene/存储格式变化。优先级仍first→commit→creation→有效fetched，非nil distantPast提示值、metadata nil/创建缺失回退保。原14事实全留，补真实stats的commit与fetched不能盖过磁盘creation两项；同最终夹具旧/新16项全真等值，实际localCreationDate入口10→6（四次已知日期场景）。外部不可变extract hook只在生成Swift加stderr入口标记，产品和永久测试源不插桩；未另跑未观测sorting门，不称物理IO/时耗。Legacy初/变各31功能+12工作事实、42记录身份和错误9项均过；resolver事件仅按实际command的cases目录前缀归一（各294/314叶）后相等，不归一或认领真实文件时间/整记录对象等值。各6306源码输入/8实际子过程稳定；签名Debug26.161秒/5867输入稳定、strict/deep过，仅原两C#警告，独立静审接受。
+最近产品验证：R105 Pixabay contextual search的query/category覆盖入参无任何供值消费者（6产品/2分页调用只无参或order），有意退役这两项内部未用能力，直接取toolbar值；search(params:)、order/page/其余筛选与取消/换Key逻辑逐字保。产品3增7删净−4，stub仅同步签名/退出无用分支净−1，原断言全保，不把替身补成真实合并算法。纯Swift ObservableObject无ObjC/协议/动态入口；不称API全兼容或运行nil检查/分配/时耗收益。相同最终stub两臂真实分页提取门24+15事实、原生Toolbar门111事实均全真，三解析对象严格等值，无约束冲突；各6306源码输入/5实际子过程稳定。Service传输与Toolbar Service叶受控，两个门分工，不外推真实账号/完整App；旧臂共享锁等待不作性能证据。签名Debug27.850秒/5867输入稳定、strict/deep过，仅原两C#警告，独立静审接受，无Scene引擎/接口变化。
+
+前批R104后台localDownloadStatistics在firstDownloadedAt或commit日期已存在时不准备localCreationDate，产品2增1删净+1、fixture8增；原日期helper/return与bytes枚举次序逐字保，无新helper/state/API或Scene/存储格式变化。优先级仍first→commit→creation→有效fetched，非nil distantPast提示值、metadata nil/创建缺失回退保。原14事实全留，补真实stats的commit与fetched不能盖过磁盘creation两项；同最终夹具旧/新16项全真等值，实际localCreationDate入口10→6（四次已知日期场景）。外部不可变extract hook只在生成Swift加stderr入口标记，产品和永久测试源不插桩；未另跑未观测sorting门，不称物理IO/时耗。Legacy初/变各31功能+12工作事实、42记录身份和错误9项均过；resolver事件仅按实际command的cases目录前缀归一（各294/314叶）后相等，不归一或认领真实文件时间/整记录对象等值。各6306源码输入/8实际子过程稳定；签名Debug26.161秒/5867输入稳定、strict/deep过，仅原两C#警告，独立静审接受。
 
 前批R103网格update原双map reference数组仅供orderChanged Bool；改count差异短路加elementsEqual原reference ==，产品2增1删净+1、测试0，无新state/helper。保provider+原始UTF8、位置/重复/空/数量与同序metadata语义；真实动画diff数组、queued/provider替换、gesture/viewport其他字节保。相同原animations模式旧/新各13个运行事实全真且解析JSON严格等值，各6306源码输入/2实际子过程稳定，无约束冲突；真实Controller的动画回调与Reduce Motion受控，不外推全交互/拖拽、R23宿主或性能。旧臂含共享锁等待，不用墙钟比速度。签名Debug25.517秒/5867输入稳定、strict/deep过，仅原两C#警告，独立静审接受。只认入口显式两数组退出，不称实际分配/FPS/时耗，原R62待验及三项宿主限制不变。
 
@@ -49,7 +53,7 @@
 - 下载/导入：在线图片可解码准入与原子Store发布属于不同边界；Video导入磁盘检查跨后台排队，缩略图与桌面静帧也有各自消费者，保留。Steam fresh publish/签名若跳过需覆盖源码、依赖、配置与权限失效，当前不新增缓存认证链。R94旁支只读保留：CDN安全文案/外层脱敏服务不同错误来源，worker保首异常并排空；图片终态回执与即时提示分工明确，Store清理后抛已捕获error，提交后取消只撤旧自动播放。未重跑这些旁支门，不把静审升级为网络/原生或故障实测。 LibraryRecords旁支单目录wrapper有Web旧依赖发现消费者，整库single-flight与限频detail sweep保；此次只改统计回退，R68已结发布入口不重做。
 - Wallhaven入口只读保留：DTO承担URL/缩略图/作者/分级/尺寸归一并保部分页面成功；每响应一次解码/每条一次转换。凭据revision跨排队/限速/返回，浏览scope保护当前页，职责不同；429日期格式化不足以支持新增缓存。本轮未重跑HTTP门，不认领真实网络/账号。
 - 系统事件/媒体只读保留：采样两秒供常驻GPU图标，网络/进程指标按面板可见读取；屏保activity租约/marker/EOF及generation/revision各有消费者。热键已有字段快照去重，音频监听安装失败沿原teardown清理。Web媒体pending/ack/封面key有JS回包消费；WeakSet只去重挂接，后续DOM/shadow/iframe控制仍须遍历以覆盖后来媒体和作者修改；异步暂停后的revision/策略/surface复核保。32px palette与512px Web PNG职责/缓存各异；本轮只静审这些旁支，不以provider门外推真实宿主或重跑其余原生门。
-- App控制层只读保留：Inspector已去无关scroll/zoom并在无详情/预览时退出准备；关系/catalog/选择/播放/可用性仍各有消费者，不拼跨语义canonical map。状态栏仅开窗订阅并合并willSet，封面按来源/token去重，两秒指标有UI消费；设置回声位与互斥启动菜单装配保。所查Inspector metadata无uniqueKeys initializer，不把其他Grid/Web命中外推。本轮仅静审这些旁支，未重跑其原生门。
+- App控制层只读保留：Inspector已去无关scroll/zoom并在无详情/预览时退出准备；关系/catalog/选择/播放/可用性仍各有消费者，不拼跨语义canonical map。状态栏仅开窗订阅并合并willSet，封面按来源/token去重，两秒指标有UI消费；设置回声位与互斥启动菜单装配保。所查Inspector metadata无uniqueKeys initializer，不把其他Grid/Web命中外推。本轮仅静审这些旁支，未重跑其原生门。 Picker版本/signature及R43多页准备已去重，accept异步后需重读成员/resolve/epoch，不能用显示快照替代；OpenWith查询各文件处理程序与共同默认值，少量refreshCount扫描无扩大状态收益。本片仅RO，未重跑sheet/key前提门。
 - 设置/初始化：双向同步回声位解决Published willSet，登录项查询已有Key周期缓存；SIL相等补丁同步ACK及恢复清理开关有真实事务消费者，保留。App启动路径重复组装少量URL不足以支持新增缓存或状态。
 - Query目录计数已一次分组；单次过滤不另加索引，目录/Artwork有不同搜索和更新职责。Steam主产品协议只Parse一次，Clone服务JSON文档释放后的所有权，Writer只Serialize一次且options已复用，保留。R93只读核：PayloadULongArray已由39d441528收敛为一次TryParse，字符串中间数组仍复用入口形状过滤；请求批次的低收益不足以支持另铺解析分支或收紧ID准入。DownloadProgressState的chunk进度先做原250ms合并，再为实际发布建Snapshot；阶段与末chunk仍直接发送。发送端消费六字段，计数/sequence锁边界保留，不合入writer。仅静审，未重跑现役C#离线门或认领网络sender全字段/时耗验证。
 - Web属性批量只读保留：Editor每轮一次descriptor/effective values供筛选、各row值与选项；currentValue属单项delta分支（全量已提前return），非逐row decode。author await后一次current values供payload/grants；解析cache只存baseline/roots，不吞当前override/bookmark许可。preview不重建，commit下一turn需读新覆盖；reset独立于当前conditions可达，不从visible rows推导。此片只静审，未重跑属性展示/author门或认领defaults真实次数/完整集成。

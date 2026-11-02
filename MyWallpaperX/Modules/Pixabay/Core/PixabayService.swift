@@ -520,14 +520,10 @@ final class PixabayService: ObservableObject {
     }
 
     /// OL-12：便利搜索方法，用当前状态填充缺省值，消除调用方重复构建 PixabaySearchParams
-    func searchWithCurrentContext(
-        query:    String?                  = nil,
-        category: PixabayCategory?   = nil,
-        order:    PixabayOrder?      = nil
-    ) {
+    func searchWithCurrentContext(order: PixabayOrder? = nil) {
         var params = currentParams
-        params.query = query ?? toolbarQuery
-        params.category = category ?? toolbarCategory
+        params.query = toolbarQuery
+        params.category = toolbarCategory
         params.order = order ?? currentParams.order
         params.page = 1
         search(params: params)

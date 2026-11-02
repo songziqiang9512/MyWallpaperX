@@ -112,9 +112,8 @@ struct ToolbarActivity {
     func retryDownload(id: Int) {}
     func cancelDownload(id: Int, attemptID: UUID) {}
     func search(params: PixabaySearchParams) { currentParams = params; hasLoadedOnce = true; searches.append(params) }
-    func searchWithCurrentContext(query: String? = nil, category: PixabayCategory? = nil, order: PixabayOrder? = nil) {
-        currentParams.query = query ?? toolbarQuery
-        if let category { currentParams.category = category }
+    func searchWithCurrentContext(order: PixabayOrder? = nil) {
+        currentParams.query = toolbarQuery
         if let order { currentParams.order = order }
         hasLoadedOnce = true
         searches.append(currentParams)
