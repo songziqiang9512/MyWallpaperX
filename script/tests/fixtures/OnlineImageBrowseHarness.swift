@@ -94,6 +94,22 @@ private struct BrowseFixtureFailure: LocalizedError {
 
 @MainActor private func cacheAndPagination(_ checks: inout [String: Bool], source: OnlineImageSource) async throws {
     let library = OnlineImageLibrary(), session = OnlineImageBrowserSession(source: source, library: library)
+    func isCompleteTerminal(_ values: [OnlineImageBrowserSession.State], before: OnlineImageBrowserSession.State,
+                            final: OnlineImageBrowserSession.State) -> Bool {
+        let changed = values.filter {
+            $0.total != before.total || $0.checkedAt != before.checkedAt
+                || $0.hasLoaded != before.hasLoaded || $0.isLoading != before.isLoading
+        }
+        guard changed.count == 1 else { return false }
+        let value = changed[0]
+        return value.total == final.total && value.checkedAt != nil && value.checkedAt == final.checkedAt
+            && value.hasLoaded == final.hasLoaded && value.isLoading == final.isLoading
+            && value.hasLoaded && !value.isLoading
+    }
+    var resetStates: [OnlineImageBrowserSession.State] = []
+    session.onResetScroll = { [weak session] in
+        if let session { resetStates.append(session.state) }
+    }
     let prefix = source.rawValue + ":"
     let second = OnlineImagePageRequest(page: 2, seed: "fixed-seed", date: "20261025", offset: 24)
     let third = OnlineImagePageRequest(page: 3, seed: "fixed-seed", date: "20261025", offset: 48)
@@ -106,6 +122,11 @@ private struct BrowseFixtureFailure: LocalizedError {
     try await waitFor("initial page") { !session.state.isLoading }
     checks[prefix + "initial-page-deduplicates-in-first-occurrence-order"] = session.state.items.map(\.artworkID) == ["11", "12"]
         && session.state.items.first?.title == "first"
+    checks[prefix + "reset-callback-keeps-items-before-terminal-status-publication"] = resetStates.count == 1
+        && resetStates[0].items == session.state.items && resetStates[0].firstPageIDs == first.map(\.id)
+        && resetStates[0].next == second && resetStates[0].isLoading && !resetStates[0].hasLoaded
+        && resetStates[0].checkedAt == nil && resetStates[0].total == nil
+        && session.state.total == 72 && session.state.checkedAt != nil && session.state.hasLoaded && !session.state.isLoading
     session.leave(); session.enter(); session.enter(); session.setQuery(session.state.query)
     await Task.yield()
     checks[prefix + "same-query-reentry-within-five-minutes-does-not-request"] = library.client.requests.count == 1
@@ -115,10 +136,13 @@ private struct BrowseFixtureFailure: LocalizedError {
     checks[prefix + "pagination-preserves-source-continuation-facts"] = library.client.requests[continuation].page == second
     var continuationItems: [[OnlineImageArtwork]] = []
     let continuationObservation = session.$state.map(\.items).removeDuplicates().dropFirst().sink { continuationItems.append($0) }
+    var continuationStates: [OnlineImageBrowserSession.State] = []
+    let continuationBefore = session.state
+    let terminalObservation = session.$state.dropFirst().sink { continuationStates.append($0) }
     try await respond(library, index: continuation, result: .success(.init(items: [
         artwork(source, "12", "updated-12"), artwork(source, "13", "old-13"),
         artwork(source, "13", "updated-13"), artwork(source, "11", "updated-11"), artwork(source, "14")
-    ], next: third, total: 72)))
+    ], next: third, total: 73)))
     try await waitFor("second page") { !session.state.isLoading }
     checks[prefix + "append-deduplicates-updates-existing-values-and-keeps-first-position"] = session.state.items.map(\.artworkID) == ["11", "12", "13", "14"]
         && session.state.items.map(\.title) == ["updated-11", "updated-12", "updated-13", "14"]
@@ -126,17 +150,26 @@ private struct BrowseFixtureFailure: LocalizedError {
     checks[prefix + "continuation-never-publishes-partially-merged-items"] = !continuationItems.isEmpty
         && continuationItems.allSatisfy { $0 == session.state.items }
     continuationObservation.cancel()
+    checks[prefix + "continuation-publishes-one-complete-terminal-state"] = session.state.total == 73
+        && isCompleteTerminal(continuationStates, before: continuationBefore, final: session.state)
+    terminalObservation.cancel()
 
     session.fixtureExpireCache(); session.enter()
     let background = try await request(library, count: 3)
     checks[prefix + "stale-reentry-keeps-all-cached-pages-visible-before-response"] = session.state.items.map(\.artworkID) == ["11", "12", "13", "14"]
         && session.state.next == third && library.client.requests[background].page == .init()
     let sameIDs = [artwork(source, "11", "fresh-11"), artwork(source, "11", "fresh-duplicate"), artwork(source, "12", "fresh-12")]
-    try await respond(library, index: background, result: .success(.init(items: sameIDs, next: second, total: 72)))
+    var backgroundStates: [OnlineImageBrowserSession.State] = []
+    let backgroundBefore = session.state
+    let backgroundObservation = session.$state.dropFirst().sink { backgroundStates.append($0) }
+    try await respond(library, index: background, result: .success(.init(items: sameIDs, next: second, total: nil)))
     try await waitFor("unchanged background page") { !session.state.isLoading }
     checks[prefix + "background-home-refresh-keeps-multipage-order-and-continuation"] = session.state.items.map(\.artworkID) == ["11", "12", "13", "14"]
         && session.state.next == third && session.state.items[1].title == "fresh-12"
     checks[prefix + "same-home-identities-do-not-create-new-content-notice"] = session.state.notice == nil
+    checks[prefix + "background-publishes-one-complete-terminal-state-and-clears-total"] = session.state.total == nil
+        && isCompleteTerminal(backgroundStates, before: backgroundBefore, final: session.state)
+    backgroundObservation.cancel()
     session.fixtureExpireCache(); session.enter()
     let changed = try await request(library, count: 4)
     try await respond(library, index: changed, result: .success(.init(items: [

@@ -34,7 +34,7 @@
     },
     "docs/development/code-slimming-program.md": {
       "lines": 468,
-      "bytes": 103454
+      "bytes": 103872
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -1739,10 +1739,10 @@
     {
       "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
-      "before": "1b521e8a469ca15efee069993a60ca05195a43a32e50a6092fdda727579bda89",
-      "after": "aab202e2e0bf15c504febc395efaebb9cc6df394e6908a78dbbf884a4bd4672e",
+      "before": "aab202e2e0bf15c504febc395efaebb9cc6df394e6908a78dbbf884a4bd4672e",
+      "after": "a95b5c3792b484e939768721c41562f5517e136ff8fe4353bdaa7c1b0e068e69",
       "owner": "repository-maintainer",
-      "reason": "Record R58 observed cancelled-task AV entry reduction and bounded regression/build results; condense superseded recent-run detail while retaining prior decisions and unresolved boundaries.",
+      "reason": "Record R59 measured success-tail publication coalescing and typed completion/reset regression; retain prior decisions, proof ceilings and unrun R60 candidate.",
       "decision": "docs/development/code-slimming-program.md#目标与边界"
     },
     {

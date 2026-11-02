@@ -168,8 +168,10 @@ import Foundation
                     }
                 }
                 scope = currentScope
-                state.total = page.total; state.checkedAt = Date(); state.hasLoaded = true
-                state.isLoading = false; task = nil
+                var completed = state
+                completed.total = page.total; completed.checkedAt = Date(); completed.hasLoaded = true
+                completed.isLoading = false
+                state = completed; task = nil
             } catch {
                 guard let self, !Task.isCancelled, generation == id else { return }
                 if let preparedScope, preparedScope != library.requestScope(source) { resetScope(); return }
