@@ -104,6 +104,7 @@ final class SceneDesktopWallpaperSession {
     var pendingProviderUpdate: (
         dynamicValues: SceneDynamicSnapshot,
         dynamicLayers: [SceneRenderDescriptor.Layer],
+        destroyedAuthoredLayerIDs: Set<Int>,
         dynamicTextFieldsByLayerID: [Int: Set<SceneDynamicTextField>],
         mediaInput: SceneMediaThumbnailInbox.Snapshot
     )?

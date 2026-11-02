@@ -117,10 +117,13 @@ final class SceneDynamicTextTextureStore {
     var generation = 0, snapshotReads = 0
     var updates: [Int] = []
     var updatedLayers: [Int] = [], updatedFields: [Int: Set<Int>] = [:]
+    var retiredAuthoredLayerIDs: Set<Int> = []
     func snapshot() -> Snapshot { snapshotReads += 1; return .init(generation: generation) }
-    func update(from snapshot: Int, dynamicLayers: [Int], dynamicTextFieldsByLayerID: [Int: Set<Int>]) {
+    func update(from snapshot: Int, dynamicLayers: [Int], destroyedAuthoredLayerIDs: Set<Int>,
+                dynamicTextFieldsByLayerID: [Int: Set<Int>]) {
         updates.append(snapshot)
         updatedLayers = dynamicLayers; updatedFields = dynamicTextFieldsByLayerID
+        retiredAuthoredLayerIDs = destroyedAuthoredLayerIDs
     }
 }
 
@@ -208,7 +211,17 @@ final class SceneDesktopWallpaperSession {
     var dynamicTextTextures: SceneDynamicTextTextureStore? = .init()
     var mediaThumbnailTextures: SceneMediaThumbnailTextureStore? = .init()
     var pendingProviderUpdate: (dynamicValues: Int, dynamicLayers: [Int],
-        dynamicTextFieldsByLayerID: [Int: Set<Int>], mediaInput: SceneMediaThumbnailInbox.Snapshot)?
+        destroyedAuthoredLayerIDs: Set<Int>, dynamicTextFieldsByLayerID: [Int: Set<Int>],
+        mediaInput: SceneMediaThumbnailInbox.Snapshot)?
+    struct ProviderTopology { let dynamicLayers: [Int]; let destroyedAuthoredLayerIDs: Set<Int> }
+    struct ProviderLaunchContext {
+        struct FrameSchema { let dynamicTextFieldsByLayerID: [Int: Set<Int>] }
+        let frameSchema: FrameSchema
+    }
+    func adoptProviderInput(dynamicValues: Int, layerTopology: ProviderTopology,
+                            launchContext: ProviderLaunchContext, mediaInput: SceneMediaThumbnailInbox.Snapshot) {
+// PROVIDER_INPUT_ADOPTION
+    }
     var surfaces: [CGDirectDisplayID: Surface] = [:]
     var preparedSurfaceIDs: Set<CGDirectDisplayID> = []
     var initialPresentationCohort = SceneInitialPresentationCohort()
@@ -531,6 +544,7 @@ final class SceneDesktopWallpaperSession {
         owner.startFrameDriver()
         precondition(owner.initialPresentationCohort.isHeld)
         precondition(!owner.initialPresentationCohort.hasDelivered)
+        owner.pendingProviderUpdate = (77, [], [19], [19: [4]], .init(generation: 77))
         for surface in surfaces { surface.simulationFrame?.mediaThumbnail.pendingGeneration = 0 }
         owner.publishText(2)
         owner.publishText(3)
@@ -539,6 +553,8 @@ final class SceneDesktopWallpaperSession {
         precondition(surfaces.allSatisfy { $0.metalView.draws == 1 },
                      "unadopted publication replaced the qualified candidate")
         precondition(owner.initialPresentationCohort.isHeld && callbacks.isEmpty)
+        precondition(owner.dynamicTextTextures!.updates.isEmpty && owner.pendingProviderUpdate?.destroyedAuthoredLayerIDs == [19],
+                     "held output consumed a newer topology's pending text retirement")
         precondition(surfaces.allSatisfy(\.didSubmitSimulationFrame))
         stopped(owner)
         for (index, surface) in surfaces.enumerated() {
@@ -559,6 +575,8 @@ final class SceneDesktopWallpaperSession {
         precondition(callbacks.count == screens)
         precondition(owner.initialPresentationCohort.isHeld)
         precondition(surfaces.allSatisfy { $0.metalView.draws == 1 })
+        precondition(surfaces.allSatisfy { $0.metalView.submittedTextSnapshot?.generation == 0 })
+        precondition(owner.dynamicTextTextures!.updates.isEmpty && owner.pendingProviderUpdate?.destroyedAuthoredLayerIDs == [19])
         frozen(owner, before)
         stopped(owner)
     }
@@ -655,9 +673,14 @@ final class SceneDesktopWallpaperSession {
         for plan: SceneMetalView.Plan in [.deferred, .synchronousDrop, .cancelled] {
             let (owner, surface, before) = fixture(), view = surface.metalView
             let store = owner.dynamicTextTextures!
-            owner.pendingProviderUpdate = (17, [23], [23: [4]], .init(generation: 17))
+            owner.adoptProviderInput(dynamicValues: 17,
+                layerTopology: .init(dynamicLayers: [23], destroyedAuthoredLayerIDs: [19, 21]),
+                launchContext: .init(frameSchema: .init(dynamicTextFieldsByLayerID: [23: [4]])),
+                mediaInput: .init(generation: 17))
             view.plan = plan; owner.startFrameDriver()
             precondition(owner.pendingProviderUpdate?.dynamicValues == 17 && store.updates.isEmpty)
+            precondition(owner.pendingProviderUpdate?.destroyedAuthoredLayerIDs == [19, 21]
+                         && store.retiredAuthoredLayerIDs.isEmpty)
             precondition(owner.mediaThumbnailTextures!.updates.isEmpty)
             precondition(!owner.refreshPausedMediaPublications(.init(generation: 17)))
             precondition(!owner.refreshPausedMediaPublications(.init(generation: 0, pendingGeneration: 1)))
@@ -665,6 +688,7 @@ final class SceneDesktopWallpaperSession {
             precondition(RunLoop.main.fireNext())
             precondition(owner.pendingProviderUpdate == nil && store.updates == [17])
             precondition(store.updatedLayers == [23] && store.updatedFields == [23: [4]])
+            precondition(store.retiredAuthoredLayerIDs == [19, 21])
             complete(view, view.buffers.count - 1, true)
             _ = owner.renderSurfaces()
             precondition(store.updates == [17] && owner.mediaThumbnailTextures!.updates == [17])
@@ -674,7 +698,10 @@ final class SceneDesktopWallpaperSession {
             let (owner, a, before) = fixture(), b = owner.attach(2)
             let store = owner.dynamicTextTextures!
             b.metalView.plan = rejected
-            owner.pendingProviderUpdate = (29, [31], [31: [5]], .init(generation: 29))
+            owner.adoptProviderInput(dynamicValues: 29,
+                layerTopology: .init(dynamicLayers: [31], destroyedAuthoredLayerIDs: [27]),
+                launchContext: .init(frameSchema: .init(dynamicTextFieldsByLayerID: [31: [5]])),
+                mediaInput: .init(generation: 29))
             let media = owner.mediaThumbnailTextures!
             media.publication = .init(generation: 29)
             media.onUpdate = { owner.enqueueMediaThumbnailPublication(media) }
@@ -691,6 +718,7 @@ final class SceneDesktopWallpaperSession {
                          "worker readiness changed the frozen attempt between surfaces")
             precondition(store.updates == [29] && owner.pendingProviderUpdate == nil,
                          "a submitted surface must consume pending input despite busy/dropped return")
+            precondition(store.retiredAuthoredLayerIDs == [27])
             precondition(a.metalView.submittedTextSnapshot?.generation == 0 && a.metalView.preparedTextSnapshot == nil)
             precondition(b.metalView.submittedTextSnapshot == nil && b.metalView.preparedTextSnapshot == nil)
             precondition(media.updates == [29] && a.metalView.draws == 1 && b.metalView.draws == 1,

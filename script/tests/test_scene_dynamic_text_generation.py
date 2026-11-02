@@ -22,6 +22,9 @@ STORE_SOURCE = (
 VIEW_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift"
 )
+ASSEMBLY_SOURCE = (
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneFrameLayerTextureAssembly.swift"
+)
 
 HARNESS = r'''
 import Foundation
@@ -146,6 +149,7 @@ struct SceneRenderDescriptor {
     }
     struct Layer {
         let id: Int
+        var visible = true
         let contentKind = "text"
         let text: String? = "A"
         let textStyle: TextStyle? = .init()
@@ -186,10 +190,38 @@ struct SceneLayerSourcePublication {
     let textCenterOffsetY: Float
     var texture: MTLTexture { publication.candidate.texture }
     init?(layerID: Int,publication: SceneTextureProviderPublication,
-          renderSizeWH: [Float],textCenterOffsetY: Float) {
+          renderSizeWH: [Float]? = nil,textCenterOffsetY: Float = 0) {
         self.layerID = layerID; self.publication = publication
-        self.renderSizeWH = renderSizeWH; self.textCenterOffsetY = textCenterOffsetY
+        self.renderSizeWH = renderSizeWH ?? []; self.textCenterOffsetY = textCenterOffsetY
     }
+}
+struct SceneFrameTiming {}
+enum SceneOrdinaryVideoFrameReadiness { case unavailable }
+struct SceneDynamicImageTextureProviderSnapshot {
+    let layerSources: [Int: SceneLayerSourcePublication]
+    let pendingLayerSourceIDs: Set<Int>
+    let videoLayerRenderSizesWH: [Int: [Float]]
+}
+struct SceneBaseImageTextureSnapshot {
+    let textures: [Int: MTLTexture]
+    let layerSourcePublications: [Int: SceneLayerSourcePublication]
+}
+struct SceneBaseImageTextureStore {
+    let textures: [Int: MTLTexture] = [:]
+    let unavailableOrdinaryVideoLayerIDs: Set<Int> = []
+    func snapshot(textures: [Int: MTLTexture], explicitLayerSources: [Int: SceneTextureProviderPublication],
+        layerSourcePublications: [Int: SceneLayerSourcePublication], pendingLayerSourceIDs: Set<Int>,
+        initialVideoReadiness: [Int: SceneOrdinaryVideoFrameReadiness]?) -> SceneBaseImageTextureSnapshot {
+        .init(textures: textures, layerSourcePublications: layerSourcePublications)
+    }
+}
+final class SceneVideoTextureSource {
+    struct Frame {
+        let texture: MTLTexture
+        func layerPublication(for layerID: Int) -> SceneTextureProviderPublication? { nil }
+    }
+    func prepareFrame(for timing: SceneFrameTiming) -> Frame? { preconditionFailure("unexpected video source") }
+    func initialFrameReadiness(preparedFrame: Frame?) -> SceneOrdinaryVideoFrameReadiness { .unavailable }
 }
 final class ControlledRasterProducer: @unchecked Sendable {
     let startedB = DispatchSemaphore(value: 0), startedC = DispatchSemaphore(value: 0)
@@ -247,6 +279,9 @@ final class SceneMetalView {
     private(set) var submittedTextSnapshot: SceneDynamicTextTextureStore.Snapshot?
 __VIEW_SUBMISSION_METHODS__
 }
+enum SceneFrameLayerTextureAssembly {
+__FRAME_ASSEMBLY_METHOD__
+}
 @main enum StoreProbe {
     static func main() throws {
         guard let device = MTLCreateSystemDefaultDevice() else {
@@ -265,6 +300,74 @@ __VIEW_SUBMISSION_METHODS__
         let d = raster("g4",6,7,[360,70],19)
         let producer = ControlledRasterProducer(b,d)
         SceneTextTextureLoader.producer = producer
+        if CommandLine.arguments.contains("--authored-retirement") {
+            let store = SceneDynamicTextTextureStore(
+                descriptor: .init(layers: [.init(id: 7), .init(id: 8), .init(id: 9, visible: false)]),
+                resourceView: nil, device: device, initialRasters: [7: a, 8: a, 9: a],
+                dynamicTextFieldsByLayerID: [7: [.content]],
+                onPublication: { _ in producer.published.signal() })
+            let captured = store.snapshot(), surface = SceneMetalView()
+            surface.preparedTextSnapshot = captured; surface.commitPreparedDynamicTextFrame()
+            let filtered = SceneFrameLayerTextureAssembly.make(base: .init(), dynamicText: captured,
+                videoSources: [:], retiredLayerIDs: [7, 8], timing: .init())
+            var result = [
+                "surfaceFiltersRetiredTextFromCapturedPublication": Set(filtered.textures.keys) == [9]
+                    && Set(filtered.layerSourcePublications.keys) == [9],
+                "assemblyDoesNotMutateCapturedSnapshot": Set(captured.layerSources.keys) == [7, 8, 9],
+            ]
+            func values(_ deadContent: String, cloneContent: String = "D") -> SceneDynamicSnapshot {
+                .init(values: [
+                    .text(layerID: 7, field: .content): .init(value: .string(deadContent)),
+                    .text(layerID: 8, field: .content): .init(value: .string("C")),
+                    .text(layerID: -7, field: .content): .init(value: .string(cloneContent)),
+                ])
+            }
+            store.update(from: values("B"), dynamicTextFieldsByLayerID: [7: [.content]])
+            producer.wait(producer.startedB)
+            // B owns the real serial worker. C is admitted but still queued.
+            store.update(from: values("B"), dynamicTextFieldsByLayerID: [7: [.content], 8: [.content]])
+            let fields: [Int: Set<SceneDynamicTextField>] = [7: [.content], 8: [.content], -7: [.content]]
+            store.update(from: values("hot-caption"), dynamicLayers: [.init(id: -7)],
+                destroyedAuthoredLayerIDs: [7, 8], dynamicTextFieldsByLayerID: fields)
+            result["adoptedRetirementRemovesCurrentRasterAtom"] = Set(store.snapshot().layerSources.keys) == [9]
+            producer.allowC.signal(); producer.allowB.signal()
+            producer.wait(producer.startedD)
+            result["retiredQueuedLayerNeverEntersRasterLoader"] = producer.renderedContents() == ["B", "D"]
+            result["retiredInFlightResultDoesNotPublish"] = producer.published.wait(timeout: .now()) == .timedOut
+                && Set(store.snapshot().layerSources.keys) == [9]
+            producer.allowD.signal(); producer.wait(producer.published)
+            let live = store.snapshot()
+            result["liveCloneAndHiddenPeerRemainReady"] = Set(live.layerSources.keys) == [-7, 9]
+                && live.layerSources[-7]?.texture.label == "g4" && live.layerSources[9]?.texture.label == "g1"
+            result["cloneUsesOwnRasterWithoutRetiredFont"] = producer.renderedFonts() == ["g1", "none"]
+            for index in 0..<10 {
+                store.update(from: values("hot-caption-\(index)"), dynamicLayers: [.init(id: -7)],
+                    destroyedAuthoredLayerIDs: [7, 8], dynamicTextFieldsByLayerID: fields)
+            }
+            let afterHotUpdates = store.snapshot()
+            let drained = DispatchSemaphore(value: 0)
+            store.closeAndDrain { drained.signal() }; producer.wait(drained)
+            result["hotDeadCaptionCannotReactivateProducer"] = producer.renderedContents() == ["B", "D"]
+                && Set(afterHotUpdates.layerSources.keys) == [-7, 9]
+            result["oldSubmittedSnapshotRetainsItsRaster"] = Set(surface.submittedTextSnapshot!.layerSources.keys) == [7, 8, 9]
+                && surface.submittedTextSnapshot?.layerSources[7]?.texture === a.texture
+
+            // A static source has no field-driven work to take it off the fast path.
+            let staticStore = SceneDynamicTextTextureStore(descriptor: .init(layers: [.init(id: 17)]),
+                resourceView: nil, device: device, initialRasters: [17: a])
+            let staticSnapshot = staticStore.snapshot()
+            staticStore.update(from: .init(values: [:]), destroyedAuthoredLayerIDs: [17])
+            for index in 0..<10 {
+                staticStore.update(from: .init(values: [.text(layerID: 17, field: .content):
+                    .init(value: .string("dead-static-\(index)"))]), dynamicTextFieldsByLayerID: [17: [.content]])
+            }
+            staticStore.closeAndDrain { drained.signal() }; producer.wait(drained)
+            result["staticFastPathConsumesRetirementAndIgnoresLaterInterest"] = staticStore.snapshot().layerSources.isEmpty
+                && staticSnapshot.layerSources[17]?.texture === a.texture
+                && producer.renderedContents() == ["B", "D"]
+            print(String(decoding: try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]), as: UTF8.self))
+            return
+        }
         if CommandLine.arguments.contains("--retired-font") {
             let store = SceneDynamicTextTextureStore(descriptor: .init(layers: []),
                 resourceView: nil, device: device, initialRasters: [:],
@@ -379,7 +482,8 @@ def store_harness() -> str:
         "    func commitPreparedDynamicTextFrame()",
         "    func discardPreparedDynamicTextFrame()",
     ))
-    return STORE_HARNESS.replace("__VIEW_SUBMISSION_METHODS__", methods)
+    assembly = swift_declaration(ASSEMBLY_SOURCE.read_text(), "    static func make(")
+    return STORE_HARNESS.replace("__VIEW_SUBMISSION_METHODS__", methods).replace("__FRAME_ASSEMBLY_METHOD__", assembly)
 
 
 # Reuse only the DTOs above; this probe never allocates a texture or submits GPU work.
@@ -496,7 +600,7 @@ class SceneDynamicTextGenerationTests(unittest.TestCase):
                                  "../SteamWorkshopStorage/ScenePlaybackSource.swift", "Format/ScenePkgReader.swift",
                                  "Resources/Assets/SceneResourceIdentity.swift", "Resources/Assets/SceneResourceView+Backing.swift")]
             identity = {str(path): hashlib.sha256(path.read_bytes()).hexdigest()
-                        for path in (SOURCE, STORE_SOURCE, VIEW_SOURCE, *resource_sources, Path(__file__), harness)}
+                        for path in (SOURCE, STORE_SOURCE, VIEW_SOURCE, ASSEMBLY_SOURCE, *resource_sources, Path(__file__), harness)}
             (directory / "source-identity.json").write_text(json.dumps(identity, indent=2))
             compiled = subprocess.run(
                 ["swiftc", str(SOURCE), str(STORE_SOURCE),
@@ -564,11 +668,12 @@ class SceneDynamicTextGenerationTests(unittest.TestCase):
                 (directory / (flag[2:] + ".log")).write_text(rejected.stdout + rejected.stderr)
                 self.assertEqual(rejected.returncode, 0, rejected.stderr)
                 self.assertEqual(json.loads(rejected.stdout), result)
-            retired = subprocess.run([str(binary), "--retired-font"],
-                                     capture_output=True, text=True, timeout=30)
-            self.assertEqual(retired.returncode, 0, retired.stderr)
-            for field, passed in json.loads(retired.stdout).items():
-                self.assertTrue(passed, field)
+            for flag in ("--retired-font", "--authored-retirement"):
+                retired = subprocess.run([str(binary), flag], capture_output=True, text=True, timeout=30)
+                (directory / (flag[2:] + ".log")).write_text(retired.stdout + retired.stderr)
+                self.assertEqual(retired.returncode, 0, retired.stderr)
+                for field, passed in json.loads(retired.stdout).items():
+                    self.assertTrue(passed, field)
         finally:
             if not parent:
                 shutil.rmtree(directory)

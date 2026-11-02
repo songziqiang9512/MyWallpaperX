@@ -33,7 +33,7 @@ enum SceneFrameLayerTextureAssembly {
         }
 
         if let dynamicText {
-            for (layerID, layerSource) in dynamicText.layerSources {
+            for (layerID, layerSource) in dynamicText.layerSources where !retiredLayerIDs.contains(layerID) {
                 textures[layerID] = layerSource.texture
                 layerSourcePublications[layerID] = layerSource
             }

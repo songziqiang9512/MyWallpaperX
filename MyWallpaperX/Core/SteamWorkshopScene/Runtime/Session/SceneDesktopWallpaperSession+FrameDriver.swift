@@ -847,6 +847,7 @@ extension SceneDesktopWallpaperSession {
         pendingProviderUpdate = (
             dynamicValues: dynamicValues,
             dynamicLayers: layerTopology.dynamicLayers,
+            destroyedAuthoredLayerIDs: layerTopology.destroyedAuthoredLayerIDs,
             dynamicTextFieldsByLayerID: launchContext.frameSchema.dynamicTextFieldsByLayerID,
             mediaInput: mediaInput
         )

@@ -66,6 +66,9 @@ def production_harness(sources=None):
         method(view, signature) for signature in (
             "func commitPreparedDynamicTextFrame(", "func discardPreparedDynamicTextFrame(")))
     harness = harness.replace("// METHODS", methods)
+    adoption_start = driver.index("        pendingProviderUpdate = (")
+    adoption_end = driver.index("        )\n", adoption_start) + len("        )")
+    harness = harness.replace("// PROVIDER_INPUT_ADOPTION", driver[adoption_start:adoption_end])
     harness = harness.replace("// PRODUCTION_FRAME_PREFIX", "\n".join([
         method(driver, "enum SceneFrameDriverAttempt"),
         read("Runtime/Session/SceneInitialPresentationCohort.swift"),

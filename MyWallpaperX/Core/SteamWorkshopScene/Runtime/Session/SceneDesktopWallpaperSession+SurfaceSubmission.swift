@@ -134,6 +134,7 @@ extension SceneDesktopWallpaperSession {
                 dynamicTextTextures?.update(
                     from: pendingProviderUpdate.dynamicValues,
                     dynamicLayers: pendingProviderUpdate.dynamicLayers,
+                    destroyedAuthoredLayerIDs: pendingProviderUpdate.destroyedAuthoredLayerIDs,
                     dynamicTextFieldsByLayerID: pendingProviderUpdate.dynamicTextFieldsByLayerID
                 )
                 mediaThumbnailTextures?.update(from: pendingProviderUpdate.mediaInput)

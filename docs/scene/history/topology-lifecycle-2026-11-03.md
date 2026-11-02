@@ -65,3 +65,13 @@ held臂从paused开始，frame 0销毁，只证明dormant child模板及冻结ro
 最终测试输入冻结为`114913cf347bccfba9d6262a989e3833340ed06a2c49464d8395ca493e6d31d2`：原7秒duration、5秒候选门及60秒进程时限保持。held的resize 0.5秒、idempotent pause 1.5秒、rebuild 2.5秒及3.5秒resume分开；原同时动作导致待readback正确以teardown取消，不能记成产品失败。两步runner的accepted=false不否定实际pause/timer切换，门仍核true→false及inactive→active。原20尺寸正控在旧/新resize均仅36100红像素、低于新门1%；仅该退休fixture两侧改24尺寸，原阈值和普通fixture不变。
 
 本机provenance归`.artifacts/scene-architecture-continuation-20261102/`的`particle-retirement-*`及`particle-text-daemon-qualification-results.json`；保原失败与输入资格纠正，不把销毁前未出生child写成活动child证据。App包含其他独立批次，不宣称单独Particle构建、完整语料、物理多屏或性能结项。
+
+
+<a id="text-producer-retirement"></a>
+## authored文字活动producer退休
+
+固定2026-11-03：原pending帧输入携带实际采用topology的destroyed IDs，任一Surface成功提交后交唯一Text Store退休活动producer、raster及迟到任务发布权；全未提交和held分支不提前退休。prepared clone模板、source property输入和已冻结/在途快照保原寿命，FrameLayerTextureAssembly只装配当前文字成员。没有新CPU commit、worker、退休owner或generation镜像；5产品文件净增7行。
+
+真实DynamicTextTextureStore门核queued/inflight销毁、删除后热改caption不再raster、clone及hidden正控；PausedFrameRecovery运行原采用方法，覆盖全失败、部分成功和冻结输入。联合App `4736a8b890528fe4fc6b7f7620a70435eaf9bd0c5b5f271d7f6020ded51dd845`的paused-text原生门通过，包含其它独立批，不称单独文字App。后续当前代码的prepared_text_clones、frame_texture_retirement及graph_texture_publication已通过，保真实clone与旧Snapshot/GPU使用期。
+
+保留source模板不等于保留活动producer；隐藏和仍有消费者不当作销毁。代码与输入资格及原始日志见`.artifacts/scene-architecture-continuation-20261102/`的`text-producer-retirement-*`、`particle-text-daemon-qualification-results.json`、`live-input-text-qualification-v2-results.json`及`final-neighbor-*`。以上不外推任意字体/文字特效保真、全语料或性能收益。
