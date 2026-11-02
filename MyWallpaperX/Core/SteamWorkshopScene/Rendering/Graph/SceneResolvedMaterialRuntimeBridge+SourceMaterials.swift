@@ -33,6 +33,7 @@ extension SceneResolvedMaterialRuntimeBridge {
     struct PreparedSourceMaterial {
         /// VM admission includes declarations inactive in the current variants.
         let declaredDynamicTargets: Set<SceneDynamicTarget>
+        let hasAudioSpectrumConsumer: Bool
         let bindFrame: (SceneResolvedMaterialFinalizationInput)
             -> Result<SceneResolvedMaterialProgram, SceneResolvedMaterialFailure>
         let pixelFormat: MTLPixelFormat

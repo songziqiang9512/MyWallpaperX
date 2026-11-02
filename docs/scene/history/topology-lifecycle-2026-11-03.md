@@ -97,3 +97,17 @@ provenance在`.artifacts/scene-architecture-continuation-20261102/`的`system-pr
 首个brightness字段并非该solid真实消费者，原ACK=false是正确拒绝；夹具改用确有消费者的alpha，仍保0.15→0.85、原ROI/身份/退出门。startup_cross_runtime真实门及DEBUG/Release投递边界另通过。它证明这次冻结产品入口链，不等于普通UI点击、物理多屏、长期稳定或所有跨引擎组合；后续联合源码回验另登记。
 
 本机provenance在`.artifacts/scene-architecture-continuation-20261102/`的`product-daemon-*`、`phase1-particle-text-daemon-startup-*`与`particle-text-daemon-qualification-results.json`。direct-client退出的另一调试链修复独立记录，不并入此产品链结果。
+
+
+<a id="live-system-input-retirement"></a>
+## Audio、Media及Cursor的活动需求退出
+
+固定2026-11-03：准备事实记录真实material/source consumer与共享prototype/alias归属；原Session在committed退休、VM永久禁用/恢复等实际成员变化边界更新一次需求。Audio用真实脚本/Sound/粒子及prepared shader消费者，Media沿原lease acquire/release，Pointer只在活动owner集合变化时装卸原monitors。稳定帧不重扫variants/全图，不增加订阅owner；hidden、dormant、paused和bad-return不冒充销毁，活alias保需求。
+
+AudioDemand、真实VM cursor/audio、Sound播放命令、SwitchEndpoint、SystemMedia IPC及共享Service实际门通过。IPC的新独立client先执行过订阅，因此旧绝对subscribeCount=1失效；现相对原计数验证同一demand只增一次，所有撤销/peer/晚ACK断言保留。Cursor用真实owner对象身份而非已合并的旧控制label，String通知沿原ValueRuntime回domain，不另存镜像。
+
+四臂direct-client→daemon→Session原生门在联合App `ecc1900dd8fdc24d6678d1e54ef0786cf7491271513be109887be6908e2bcab5`通过：destroy与exception撤最后audio需求及实际NSEvent monitor；hidden peer与bad-return保需求和tokens至结束；同request/session/PID、真实呈现/统计、正常退出和精确子进程排空、冻结App/source/input及生产偏好指纹保持。用silence fixture，不证明物理音频采集；DEBUG media lease关闭，Media native撤订阅未测，不把IPC/Service层叠成完整系统切歌证据。
+
+direct-client runner先等真实shutdown completion再terminate，退原固定0.5秒猜测；AppDelegate的direct模式退出与启动保持同一隔离判定，不误入普通产品保存。首轮原结束链超时、下一轮偏好指纹差异均保失败记录，修正后四臂一致；早期指纹差异没有具体键快照，不据此声称恢复历史偏好。进程证据保活动期实际command集合，避免临终zombie显示名覆盖已核App身份；cleanup仍按原真实进程核验。
+
+本机provenance为`.artifacts/scene-architecture-continuation-20261102/`的`live-system-input-*`、`live-input-*`、`live-media-retirement-v3-*`和`root-live-input-*`。它关闭本次活动需求与隔离退出链，不认领整体能耗、所有输入API、普通UI交互或长期稳定。

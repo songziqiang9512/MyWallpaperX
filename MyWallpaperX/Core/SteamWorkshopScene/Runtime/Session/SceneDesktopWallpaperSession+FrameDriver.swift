@@ -159,6 +159,7 @@ extension SceneDesktopWallpaperSession {
         }
         promotePendingDeferredLayerVisibilityIfReady()
         guard let launchContext else { return .inactive }
+        defer { reconcileSystemInputConsumers(launchContext) }
 #if DEBUG
         if SceneDesktopWallpaperHost.usesDebugEvidenceWindow {
             SceneFramePerformanceTelemetry.debugEvidence.recordDriverCallback()

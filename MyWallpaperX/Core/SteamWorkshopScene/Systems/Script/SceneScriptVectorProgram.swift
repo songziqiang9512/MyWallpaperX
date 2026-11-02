@@ -13,7 +13,9 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
     let generation: UInt64
     let descriptor: SceneRenderDescriptor
     private let userPropertyKinds: [String: SceneUserPropertyKind]
-    private(set) var disabledTargets: Set<SceneDynamicTarget> = []
+    private(set) var disabledTargets: Set<SceneDynamicTarget> = [] {
+        didSet { if disabledTargets != oldValue { domain?.systemInputConsumersChanged = true } }
+    }
     private var retiredTargets: Set<SceneDynamicTarget> = []
 #if DEBUG
     private var reportedTargets: Set<SceneDynamicTarget> = []

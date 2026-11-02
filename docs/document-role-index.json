@@ -4375,7 +4375,7 @@
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ],
       "cutoffDate": "2026-11-03",
-      "uniqueValue": "活动组件/资源退休、冻结与在途寿命，以及真实产品App→client→daemon控制链的分族固定证据、隔离身份与首失败边界。"
+      "uniqueValue": "活动组件/资源与系统输入需求退出、真实产品daemon控制链和direct-client隔离结束，分族真实实现/原生证据、冻结寿命及首失败边界。"
     },
     {
       "path": "docs/scene/history/user-property-video-2026-10-16.md",

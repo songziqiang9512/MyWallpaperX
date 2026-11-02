@@ -235,17 +235,7 @@ final class SceneDesktopWallpaperSession {
         let heldInitialFrame = initialPresentationCohort.isHeld
         initialPresentationCohort.reset()
         isVisible = true
-        var usesSystemMedia = launchContext?.requiresSystemMedia == true
-#if DEBUG
-        if (SceneDesktopWallpaperHost.usesDebugEvidenceWindow
-            || ProcessInfo.processInfo.arguments.contains("--mwx-debug-scene-root")),
-           ProcessInfo.processInfo.environment["MWX_SCENE_DEBUG_SYSTEM_MEDIA"] != "1" {
-            usesSystemMedia = false
-        }
-#endif
-        if usesSystemMedia, isOutputActive, let requestID = firstPresentation?.requestID ?? launchRequestID {
-            SceneSystemMediaDemandRegistry.shared.acquire(lifecycleID, requestID: requestID)
-        }
+        reconcileSystemMediaDemand(requestID: firstPresentation?.requestID)
         firstFramePresentationRegistration = firstPresentation
         for surface in surfaces.values {
             surface.metalView.registerFirstPresentation { [weak firstPresentation] drawable in
@@ -266,6 +256,23 @@ final class SceneDesktopWallpaperSession {
         if sceneClock.isPaused || heldInitialFrame { startFrameDriver() }
     }
 
+    func reconcileSystemMediaDemand(requestID: UUID? = nil) {
+        let retired = launchContext?.sceneScriptDynamicLayerRuntime.snapshot().destroyedAuthoredLayerIDs ?? []
+        var usesSystemMedia = launchContext?.requiresSystemMedia(excludingLayerIDs: retired) == true
+#if DEBUG
+        if (SceneDesktopWallpaperHost.usesDebugEvidenceWindow
+            || ProcessInfo.processInfo.arguments.contains("--mwx-debug-scene-root")),
+           ProcessInfo.processInfo.environment["MWX_SCENE_DEBUG_SYSTEM_MEDIA"] != "1" {
+            usesSystemMedia = false
+        }
+#endif
+        if usesSystemMedia, isVisible, isOutputActive, let requestID = requestID ?? launchRequestID {
+            SceneSystemMediaDemandRegistry.shared.acquire(lifecycleID, requestID: requestID)
+        } else {
+            SceneSystemMediaDemandRegistry.shared.release(lifecycleID)
+        }
+    }
+
     /// Keep the previous frame/resources available until the parent accepts the
     /// replacement's real presentation. A revoked candidate can restore it.
     func suspendPresentationForHandoff() {
@@ -283,13 +290,10 @@ final class SceneDesktopWallpaperSession {
         soundPlaybackRegistry?.setMuted(!active || !isVisible || PlaybackMuteState.shared.isMuted)
         if active, isVisible {
             installPointerEventMonitorsIfNeeded()
-            if launchContext?.requiresSystemMedia == true, let launchRequestID {
-                SceneSystemMediaDemandRegistry.shared.acquire(lifecycleID, requestID: launchRequestID)
-            }
         } else {
             removePointerEventMonitors()
-            SceneSystemMediaDemandRegistry.shared.release(lifecycleID)
         }
+        reconcileSystemMediaDemand()
     }
 
 

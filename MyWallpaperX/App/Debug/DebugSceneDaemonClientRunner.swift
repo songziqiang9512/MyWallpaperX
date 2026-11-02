@@ -382,8 +382,7 @@ enum DebugSceneDaemonClientRunner {
         if switchRootURL != nil {
             NSApp.terminate(nil)
         } else {
-            SceneDaemonClient.shared.shutdown()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            SceneDaemonClient.shared.shutdown {
                 NSApp.terminate(nil)
             }
         }

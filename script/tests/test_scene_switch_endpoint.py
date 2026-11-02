@@ -479,7 +479,12 @@ final class Sound {var muted=false;var paused=false;func setMuted(_ value:Bool){
 final class Clock {var isPaused=false;func pause(hostTime:Double){isPaused=true}
     func resume(hostTime:Double){isPaused=false};func currentSceneTime(hostTime:Double)->Double{0}}
 final class Video {func pause(sceneTime:Double,hostTime:Double){};func resume(sceneTime:Double,hostTime:Double){}}
-struct Context {var requiresSystemMedia=true}
+struct LayerTopology {var destroyedAuthoredLayerIDs:Set<Int>=[];func snapshot()->Self{self}}
+struct Context {
+    var usesSystemMedia=true
+    var sceneScriptDynamicLayerRuntime=LayerTopology()
+    func requiresSystemMedia(excludingLayerIDs:Set<Int>)->Bool{usesSystemMedia}
+}
 final class Surface {var pendingPausedFrame:Int?}
 @MainActor final class SceneDesktopWallpaperSession {
     let lifecycleID=UUID();var launchRequestID:UUID?=UUID()
@@ -522,12 +527,21 @@ final class Surface {var pendingPausedFrame:Int?}
             "restoration uses current user pause/mute and reacquires input/media")
         precondition(!host.setOutputActive(false,requestID:UUID()) && session.isOutputActive,
             "foreign request cannot change active output")
+        session.launchContext?.usesSystemMedia=false
+        session.reconcileSystemMediaDemand()
+        precondition(!SceneSystemMediaDemandRegistry.shared.consumers.contains(session.lifecycleID),
+            "last consumer change releases the existing visible-session lease")
+        session.launchContext?.usesSystemMedia=true
+        session.reconcileSystemMediaDemand()
+        precondition(SceneSystemMediaDemandRegistry.shared.consumers.contains(session.lifecycleID),
+            "consumer recovery reacquires the same visible-session lease")
         print("scene-output-activity-ok")
     }
 }
 '''
         support = support.replace("// SESSION", "\n".join((
             method(session, "func setOutputActive(_ active: Bool, playbackPaused: Bool)"),
+            method(session, "func reconcileSystemMediaDemand(requestID: UUID? = nil)"),
             method(providers, "func setPlaybackPaused(_ paused: Bool)"),
         )))
         support = support.replace("// HOST", "\n".join((

@@ -188,6 +188,22 @@ enum SceneDaemonProtocol { static let version = 2 }
         func payload<T: Encodable>(_ body: T) throws -> [String: Any] {
             ["frame": try JSONSerialization.jsonObject(with: JSONEncoder().encode(body))]
         }
+        let activityClient = SceneDaemonClient()
+        activityClient.pendingRequestID = requestB
+        let activityRegistry = SceneSystemMediaDemandRegistry()
+        activityRegistry.didChange = { demand in
+            activityClient.handleSystemMediaDemand(try! payload(demand), generation: 1)
+        }
+        activityRegistry.acquire(lifecycleA, requestID: activityClient.activeRequestID!)
+        activityRegistry.acquire(lifecycleB, requestID: requestB)
+        activityRegistry.release(lifecycleA)
+        checks["live_peer_keeps_existing_media_subscription"] =
+            SystemMediaService.shared.subscriptions[activityClient.systemMedia.subscriptionID] != nil
+                && activityClient.systemMedia.scope?.demand.requests == [requestB]
+        activityRegistry.release(lifecycleB)
+        checks["last_consumer_release_reaches_client_unsubscribe"] =
+            SystemMediaService.shared.subscriptions[activityClient.systemMedia.subscriptionID] == nil
+                && activityClient.systemMedia.scope == nil
         func spin(_ condition: () -> Bool) {
             let deadline = Date().addingTimeInterval(3)
             while !condition(), Date() < deadline { RunLoop.main.run(until: Date().addingTimeInterval(0.005)) }
@@ -203,10 +219,12 @@ enum SceneDaemonProtocol { static let version = 2 }
         let client = SceneDaemonClient()
         client.activeRequestID = request
         SystemMediaService.shared.snapshot = snapshot(10, art: bytes)
+        let subscriptionsBeforeRepeatedDemand = SystemMediaService.shared.subscribeCount
         try client.handleSystemMediaDemand(payload(demand), generation: 1)
         try client.handleSystemMediaDemand(payload(demand), generation: 1)
         spin { client.transport!.sent.count == 1 }
-        checks["single_subscription_for_same_demand"] = SystemMediaService.shared.subscribeCount == 1
+        checks["single_subscription_for_same_demand"] = SystemMediaService.shared.subscribeCount
+            == subscriptionsBeforeRepeatedDemand + 1
         checks["one_metadata_in_flight"] = client.transport!.sent.count == 1 && client.systemMedia.awaiting != nil
         let sentFrame = try decoded(SceneDaemonMediaSnapshotFrame.self, client.transport!.sent[0])
         checks["wire_metadata_excludes_full_art"] = sentFrame.snapshot.media.current == nil

@@ -57,7 +57,9 @@ nonisolated final class SceneScriptStringProgram: SceneScriptValueOwnerProgramRe
     var liveUserPropertyConsumerTargetsByKey:
         [String: Set<SceneDynamicTarget>]
     var livePropertyInputTargets: Set<SceneDynamicTarget>
-    var disabledTargets: Set<SceneDynamicTarget> = []
+    var disabledTargets: Set<SceneDynamicTarget> = [] {
+        didSet { if disabledTargets != oldValue { bindings.first?.noteSystemInputConsumersChanged() } }
+    }
     var retiredTargets: Set<SceneDynamicTarget> = []
 #if DEBUG
     private var reportedTargets: Set<SceneDynamicTarget> = []

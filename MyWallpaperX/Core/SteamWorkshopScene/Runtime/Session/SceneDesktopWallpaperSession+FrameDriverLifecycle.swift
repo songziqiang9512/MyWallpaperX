@@ -269,6 +269,7 @@ extension SceneDesktopWallpaperSession {
             frame: scriptFrame
         )
         context.sceneScriptStorageSession?.commitFrameTransaction()
+        reconcileSystemInputConsumers(context, topologyChanged: layerPlan.dynamicTopologyChanged)
     }
 
     func commitSceneMediaPlayback(

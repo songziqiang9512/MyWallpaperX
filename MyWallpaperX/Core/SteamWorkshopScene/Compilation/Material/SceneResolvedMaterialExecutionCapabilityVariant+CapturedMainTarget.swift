@@ -17,15 +17,9 @@ extension SceneResolvedMaterialVariantCache {
     /// rejected array shapes must not keep system audio capture alive.
     var hasAudioSpectrumConsumer: Bool {
         launchEnvelopeCapabilitySnapshot().variants.contains { variant in
-            let activeTextureSlots = Set(
-                variant.frontendProgram.textureBindings.map(\.slot)
-            )
-            return variant.frontendProgram.uniformLayout.fields.contains { field in
-                switch SceneResolvedMaterialUniformEncoder.hostUniform(
-                    field,
-                    activeTextureSlots: activeTextureSlots
-                ) {
-                case .audioSpectrumLeft, .audioSpectrumRight:
+            variant.preparedAssembly.preparedUniformBindings.contains { binding in
+                switch binding.source {
+                case .host(.audioSpectrumLeft), .host(.audioSpectrumRight):
                     return true
                 default:
                     return false

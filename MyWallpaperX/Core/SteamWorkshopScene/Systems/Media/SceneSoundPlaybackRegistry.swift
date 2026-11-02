@@ -385,6 +385,8 @@ final class SceneSoundPlaybackRegistry {
         self.epoch = epoch
     }
 
+    var hasSources: Bool { !sources.isEmpty }
+
     func start(paused: Bool, userValues: [SceneDynamicTarget: SceneDynamicValue]) {
         guard !stopped, sources.isEmpty else { return }
         for binding in program.bindings {

@@ -594,3 +594,232 @@ class SceneProductDaemonLifecycleIntegrationTests(unittest.TestCase):
                 shutil.rmtree(root)
             else:
                 print(f"Owned lifecycle process cleanup incomplete; retained {root}", file=sys.stderr)
+
+
+class SceneLastSystemInputConsumerIntegrationTests(unittest.TestCase):
+    """Real daemon Session demand and NSEvent monitor tokens, without device capture.
+
+    Media exports share these real owners, but DEBUG disables their system lease.
+    Media withdrawal is covered separately by the Session/IPC/Service owner gates.
+    """
+
+    @staticmethod
+    def fixture_entries(arm):
+        registration = """const audio = engine.registerAudioBuffers(16);
+export function cursorDown() {}
+export function mediaPlaybackChanged() {}
+"""
+        update = {
+            "destroy": "return value + audio.left[0] * 0;",
+            "exception": "if (engine.runtime >= 2) throw Error('owned-input-owner-failed'); return value;",
+            "hidden-peer": "if (engine.runtime >= 2) throw Error('owned-input-owner-failed'); return value;",
+            "bad-return": "if (engine.runtime >= 2) return 'owned-invalid-scalar'; return value;",
+        }[arm]
+        primary = {"id": 10, "name": "Owned input primary", "image": "models/owned-input-solid.json",
+            "origin": "96 128 0", "size": "48 48", "color": "1 0 0",
+            "alpha": {"value": 1, "script": registration + "export function update(value) { " + update + " }"}}
+        controller = {"id": 90, "name": "Owned healthy controller", "image": "models/owned-input-solid.json",
+            "origin": "160 128 0", "size": "24 24", "color": "0 1 0"}
+        if arm == "destroy":
+            controller["visible"] = {"value": True, "script": """let removed = false;
+export function update(value) {
+    if (!removed && engine.runtime >= 2) {
+        thisScene.destroyLayer('Owned input primary'); removed = true;
+    }
+    return value;
+}
+"""}
+        objects = [primary, controller]
+        if arm == "hidden-peer":
+            objects.append({"id": 20, "name": "Owned hidden input peer", "visible": False,
+                "image": "models/owned-input-solid.json", "origin": "128 128 0", "size": "24 24",
+                "alpha": {"value": 1, "script": registration + "export function update(value) { return value; }"}})
+        document = {"version": 3, "general": {"orthogonalprojection": {"width": 256, "height": 256},
+            "clearcolor": "0 0 0"}, "objects": objects}
+        return {"scene.json": json.dumps(document).encode(),
+            "models/owned-input-solid.json": json.dumps({"solidlayer": True, "width": 256, "height": 256}).encode()}
+
+    def run_consumer_case(self, arm):
+        configured = os.environ.get("MWX_SCENE_INTEGRATION_APP")
+        if not configured:
+            self.skipTest("requires an explicitly frozen signed Debug App executable")
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+        from script.wallpaper_startup_benchmark import (
+            child_processes, finish_selection_process, production_preferences_identity, tree_identity,
+        )
+        from script.web_benchmark_capture import stage_signed_app, verify_staged_app, discard_staged_app
+        from script.web_debug_defaults import make_debug_defaults_suite, delete_debug_defaults_suite, debug_defaults_suites
+        from .test_scene_fullscreen_visibility_integration import app_hashes, file_hashes
+        candidate = Path(configured).resolve(strict=True)
+        if candidate.suffix == ".app":
+            info = plistlib.loads((candidate / "Contents/Info.plist").read_bytes())
+            candidate = candidate / "Contents/MacOS" / info["CFBundleExecutable"]
+        sources = [Path(__file__).resolve(), *[Path(__file__).resolve().parents[2] / path for path in (
+            "MyWallpaperX/App/AppDelegate.swift",
+            "MyWallpaperX/App/Debug/DebugSceneDaemonClientRunner.swift",
+            "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+AudioDemand.swift",
+            "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+PointerEvents.swift",
+            "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriver.swift",
+            "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriverLifecycle.swift",
+            "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptScalarProgram.swift",
+            "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptCursorProgram.swift")]]
+        self.assertTrue(all(path.is_file() for path in sources), sources)
+        source_before, app_before = file_hashes(sources), app_hashes(candidate)
+        preferences_before = production_preferences_identity()
+        root = Path(tempfile.mkdtemp(prefix="mwx-last-system-input-"))
+        content, home, output, scratch = (root / name for name in ("content", "home", "output", "tmp"))
+        for path in (content, home, output, scratch):
+            path.mkdir()
+        entries = self.fixture_entries(arm)
+        (content / "project.json").write_text(json.dumps({"type": "scene", "file": "scene.json"}))
+        (content / "scene.pkg").write_bytes(make_package(list(entries.items())))
+        inputs_before = tree_identity(content)
+        suite = make_debug_defaults_suite()
+        environment = {key: value for key, value in os.environ.items()
+                       if not key.startswith(("MWX_", "MYWALLPAPERX_"))}
+        environment.update(HOME=str(home), CFFIXED_USER_HOME=str(home), TMPDIR=str(scratch),
+            MWX_SCENE_DEBUG_SURFACE_COUNT="1", MWX_SCENE_GENERIC_SHADER_CACHE=str(root / "shader-cache"))
+        identity, cleanup, failure = None, None, None
+        observed_children = {}
+        try:
+            binary, identity = stage_signed_app(candidate, root)
+            command = [str(binary), "--mwx-debug-suppress-main-window", "--mwx-debug-user-defaults-suite", suite,
+                "--mwx-debug-scene-daemon-client", "--mwx-debug-scene-daemon-stable",
+                "--mwx-debug-scene-root", str(content), "--mwx-debug-scene-evidence-dir", str(output),
+                "--mwx-debug-scene-duration", "10", "--mwx-debug-scene-audio-silence-fixture"]
+            (output / "preregistration.json").write_text(json.dumps({"arm": arm, "command": command,
+                "app": identity, "sources": source_before, "inputs": inputs_before,
+                "protocol": {"actionSceneTime": 2, "lastConsumerExits": arm in ("destroy", "exception"),
+                    "audio": "actual daemon demand received by Client before shutdown",
+                    "pointer": "actual monitor tokens for the presented request and one Session",
+                    "media": "not measured here; DEBUG system lease disabled",
+                    "physicalAudioCapture": False}}, indent=2))
+            children = {}
+            with (output / "app.log").open("w") as log:
+                process = subprocess.Popen(command, env=environment, stdout=log,
+                    stderr=subprocess.STDOUT, start_new_session=True)
+                try:
+                    deadline = time.monotonic() + 45
+                    while process.poll() is None and time.monotonic() < deadline:
+                        current_children = child_processes(process.pid)
+                        children.update(current_children)
+                        for pid, command_line in current_children.items():
+                            observed_children.setdefault(pid, set()).add(command_line)
+                        time.sleep(0.1)
+                    self.assertIsNotNone(process.poll(), "input consumer probe exceeded 45 seconds")
+                finally:
+                    cleanup = finish_selection_process(process, children)
+            self.assertEqual(cleanup["exitCode"], 0, cleanup)
+            self.assertTrue(cleanup["ownedProcessesExited"], cleanup)
+            self.assertFalse(cleanup["remainingOwnedChildren"], cleanup)
+            self.assertFalse(cleanup["errors"], cleanup)
+            log = (output / "app.log").read_text()
+            self.assertIn(suite, debug_defaults_suites(log))
+            result = json.loads((output / "scene-daemon-client-result.json").read_text())
+            self.assertEqual(result["launchEntry"], "direct-client", result)
+            self.assertEqual(result["firstPresentCount"], 1, result)
+            self.assertEqual(result["uniqueRequestCount"], 1, result)
+            self.assertEqual(result["failures"], [], result)
+            self.assertEqual(len(set(result["daemonProcessIDs"])), 1, result)
+            pid = result["daemonProcessIDs"][0]
+            self.assertIn(pid, children)
+            self.assertTrue(any(str(binary) in command_line for command_line in observed_children[pid]),
+                            observed_children[pid])
+            self.assertGreater(result["latestStats"]["rendered"], 0, result)
+            first = re.findall(r"phase=first-present count=1 record=debug-scene-daemon-client request=([0-9A-F-]+) pid=(\d+)", log)
+            self.assertEqual(len(first), 1, log[-6000:])
+            request, logged_pid = first[0]
+            self.assertEqual(int(logged_pid), pid)
+            finished = log.index("MWX SCENE CLIENT: phase=finished")
+            active_log = log[:finished]
+            monitors = list(re.finditer(r"phase=pointer-monitors request=([0-9A-F-]+) session=([0-9A-F-]+) installed=(\d+)", active_log))
+            self.assertTrue(monitors, active_log[-6000:])
+            self.assertEqual({match[1] for match in monitors}, {request})
+            self.assertEqual(len({match[2] for match in monitors}), 1)
+            self.assertGreater(int(monitors[0][3]), 0, "no actual NSEvent monitor token installed")
+            events = result["audioSpectrumDemandEvents"]
+            enabled = [index for index, event in enumerate(events) if event["requiresSpectrum"]]
+            self.assertTrue(enabled, result)
+            self.assertFalse(any(event["includesCurrentProcessOutput"] for event in events), result)
+            keep = arm in ("hidden-peer", "bad-return")
+            self.assertEqual(result["audioSpectrumDemanded"], keep, result)
+            self.assertEqual([int(match[3]) for match in monitors],
+                [int(monitors[0][3])] if keep else [int(monitors[0][3]), 0])
+            if keep:
+                self.assertTrue(all(event["requiresSpectrum"] for event in events[enabled[0]:]), result)
+            else:
+                self.assertFalse(events[-1]["requiresSpectrum"], result)
+                self.assertGreater(events[-1]["scopeEpoch"], events[enabled[0]]["scopeEpoch"], result)
+            if arm == "destroy":
+                self.assertRegex(active_log, r"lifecycle=layer-retirement owners=[1-9]\d* destroyCallbacks=\d+ quiescent=[1-9]\d* failures=0")
+                self.assertNotRegex(active_log, r"failure=.*code=(?:exception|bad-return)")
+            else:
+                code = "bad-return" if arm == "bad-return" else "exception"
+                self.assertRegex(active_log, rf"target=layer\(layerID: 10, field: [^)]+\.alpha\) failure=[^\n]* code={code} ")
+                if arm != "bad-return":
+                    self.assertIn("owned-input-owner-failed", active_log)
+                if arm == "hidden-peer":
+                    self.assertRegex(active_log, r"target=layer\(layerID: 20, field: [^)]+\.alpha\) callback=completed input=1 output=1 ")
+            self.assertEqual(tree_identity(content), inputs_before)
+        except BaseException as error:
+            failure = error
+            raise
+        finally:
+            cleanup_errors = []
+            preferences_after = None
+            complete = cleanup is None or cleanup.get("ownedProcessesExited") is True
+            if not complete:
+                cleanup_errors.append(("owned-processes", "processes remain; evidence and staged App retained"))
+            for name, action in (
+                ("staged-signature", lambda: verify_staged_app(identity) if identity else None),
+                ("private-suite", lambda: delete_debug_defaults_suite(suite, environment) if complete else None),
+                ("staged-app", lambda: discard_staged_app(identity) if identity and complete else None),
+            ):
+                try:
+                    action()
+                except BaseException as error:
+                    cleanup_errors.append((name, str(error)))
+            try:
+                if app_hashes(candidate) != app_before or file_hashes(sources) != source_before:
+                    cleanup_errors.append(("frozen-input", "App or source changed during input probe"))
+                if tree_identity(content) != inputs_before:
+                    cleanup_errors.append(("owned-input", "authored package changed during input probe"))
+                preferences_after = production_preferences_identity()
+                if preferences_after != preferences_before:
+                    cleanup_errors.append(("production-preferences", "production preferences changed"))
+            except BaseException as error:
+                cleanup_errors.append(("inspect-frozen-inputs", str(error)))
+            try:
+                (output / "observations.json").write_text(json.dumps({"arm": arm, "cleanup": cleanup,
+                    "failure": str(failure) if failure else None, "cleanupErrors": cleanup_errors,
+                    "observedChildCommands": {pid: sorted(commands) for pid, commands in observed_children.items()},
+                    "productionPreferencesBefore": preferences_before,
+                    "productionPreferencesAfter": preferences_after,
+                    "passed": failure is None and not cleanup_errors, "mediaNativeWithdrawalMeasured": False}, indent=2))
+                if destination := os.environ.get("MWX_SCENE_INTEGRATION_EVIDENCE"):
+                    saved = Path(destination) / self._testMethodName
+                    shutil.copytree(output, saved)
+                    shutil.copytree(content, saved / "inputs")
+            except BaseException as error:
+                cleanup_errors.append(("retain-evidence", str(error)))
+            if complete:
+                shutil.rmtree(root)
+            else:
+                print(f"Owned input probe cleanup incomplete; retained {root}", file=sys.stderr)
+            if cleanup_errors:
+                if failure is not None:
+                    failure.add_note("owned input probe cleanup errors: " + repr(cleanup_errors))
+                else:
+                    self.fail(repr(cleanup_errors))
+
+    def test_authored_destroy_releases_last_audio_and_pointer_consumer(self):
+        self.run_consumer_case("destroy")
+
+    def test_vm_exception_releases_last_audio_and_pointer_consumer(self):
+        self.run_consumer_case("exception")
+
+    def test_hidden_peer_retains_audio_demand_and_pointer_monitors(self):
+        self.run_consumer_case("hidden-peer")
+
+    def test_bad_return_retains_audio_demand_and_pointer_monitors(self):
+        self.run_consumer_case("bad-return")

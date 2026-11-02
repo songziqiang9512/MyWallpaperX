@@ -80,7 +80,9 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
         [SceneDynamicTarget: Set<SceneDynamicTarget>]
     private let userPropertyKinds: [String: SceneUserPropertyKind]
     let livePropertyInputTargets: Set<SceneDynamicTarget>
-    var disabledTargets: Set<SceneDynamicTarget> = []
+    var disabledTargets: Set<SceneDynamicTarget> = [] {
+        didSet { if disabledTargets != oldValue { domain?.systemInputConsumersChanged = true } }
+    }
     var retiredTargets: Set<SceneDynamicTarget> = []
 #if DEBUG
     private var reportedTargets: Set<SceneDynamicTarget> = []

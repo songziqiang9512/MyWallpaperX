@@ -6,6 +6,21 @@
 import Foundation
 
 extension SceneDesktopWallpaperSession {
+    func reconcileSystemInputConsumers(
+        _ context: SceneDesktopWallpaperLaunchContext, topologyChanged: Bool = false
+    ) {
+        let domain = context.propertyVectorScriptProgram.domain
+        let cursor = context.sceneScriptCursorProgram
+        guard topologyChanged || domain?.systemInputConsumersChanged == true
+            || cursor.systemInputConsumersChanged else { return }
+        domain?.systemInputConsumersChanged = false
+        cursor.systemInputConsumersChanged = false
+        updateAudioSpectrumDemand(context, hasParticleAudioConsumer:
+            surfaces.values.contains { $0.particlePlayback?.hasAudioConsumer == true })
+        reconcileSystemMediaDemand()
+        installPointerEventMonitorsIfNeeded()
+    }
+
     /// Owns the demand lifecycle around a surface rebuild.  Particle demand is
     /// unknown until the new surfaces have loaded, so the current exact demand
     /// is preserved first and only reconciled by `rebuildSurfaces` after the
@@ -29,23 +44,44 @@ extension SceneDesktopWallpaperSession {
         _ context: SceneDesktopWallpaperLaunchContext,
         hasParticleAudioConsumer: Bool?
     ) {
+        let topology = context.sceneScriptDynamicLayerRuntime.snapshot()
+        let disabledTargets = context.propertyVectorScriptProgram.disabledTargets
+            .union(context.sceneScriptScalarProgram.disabledTargets)
+            .union(context.sceneScriptStringProgram.disabledTargets)
         let demandsSpectrum = Self.requiresAudioSpectrum(
             resolvedMaterialExecutionCapabilities:
                 context.resolvedMaterialExecutionCapabilities,
+            excludingLayerIDs: topology.destroyedAuthoredLayerIDs,
             hasParticleAudioConsumer: hasParticleAudioConsumer == true
                 || context.propertyVectorScriptProgram.hasAudioConsumers
                 || context.sceneScriptScalarProgram.hasAudioConsumers
                 || context.sceneScriptStringProgram.hasAudioConsumers
-                || context.sceneScriptCursorProgram.hasAudioConsumers
-        )
+                || context.sceneScriptCursorProgram.hasAudioConsumers(excludingTargets: disabledTargets)
+                || hasSourceMaterialAudioConsumer(context, topology: topology))
         // Particle plans are known only after the new surfaces load.  When no
         // other prepared consumer proves demand, preserve the previous scene's
         // exact demand until rebuild resolves the particle result.  Converting
         // this unknown to false would clear the shared snapshot and retire the
         // system tap during an audio -> particle-only scene switch.
         guard demandsSpectrum || hasParticleAudioConsumer != nil else { return }
-        audioDemand = (demandsSpectrum, !context.soundPlaybackProgram.bindings.isEmpty)
+        let currentProcess = soundPlaybackRegistry?.hasSources == true
+        audioDemand = (demandsSpectrum, currentProcess)
         onAudioDemandChanged?()
+    }
+
+    private func hasSourceMaterialAudioConsumer(
+        _ context: SceneDesktopWallpaperLaunchContext, topology: SceneScriptLayerTopologySnapshot
+    ) -> Bool {
+        let layers = context.runtimeInput.renderDescriptor.layers.filter {
+            !topology.destroyedAuthoredLayerIDs.contains($0.id)
+        } + topology.dynamicLayers
+        return surfaces.values.contains { surface in
+            guard let runtime = surface.metalView.renderer.imageCompositor.resolvedMaterialRuntime else { return false }
+            return layers.contains { layer in
+                guard let consumer = runtime.sourceMaterialConsumer(layerID: layer.id, modelPath: layer.imagePath) else { return false }
+                return runtime.sourceMaterials[consumer.prototypeLayerID]?.hasAudioSpectrumConsumer == true
+            }
+        }
     }
 
     /// 按 consumer 存在性声明频谱采集需求。
@@ -62,9 +98,10 @@ extension SceneDesktopWallpaperSession {
     static func requiresAudioSpectrum(
         resolvedMaterialExecutionCapabilities:
             SceneResolvedMaterialExecutionCapabilityCatalog,
+        excludingLayerIDs: Set<Int> = [],
         hasParticleAudioConsumer: Bool = false
     ) -> Bool {
         hasParticleAudioConsumer
-            || resolvedMaterialExecutionCapabilities.hasAudioSpectrumConsumer
+            || !resolvedMaterialExecutionCapabilities.audioConsumerLayerIDs.subtracting(excludingLayerIDs).isEmpty
     }
 }

@@ -104,6 +104,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
  func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
 #if DEBUG
+ if DebugSceneDaemonClientRunner.isRequested && !DebugSceneDaemonClientRunner.requiresProductCoordinator {
+ guard !terminationReplyPending else { return .terminateLater }
+ terminationReplyPending = true
+ DaemonPlaybackProcessRegistry.shared.closeAdmission()
+ SceneDaemonClient.shared.shutdown()
+ replyAfterPlaybackProcessesExit(sender)
+ return .terminateLater
+ }
  if !DebugSceneDaemonClientRunner.isRequested {
  if DebugScenePlaybackRunner.runsIsolatedSceneSample {
  if DebugScenePlaybackRunner.isFinished { return .terminateNow }

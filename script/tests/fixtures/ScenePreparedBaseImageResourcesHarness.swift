@@ -403,6 +403,7 @@ struct SceneResolvedMaterialVariantCache {
     }
     struct Envelope { let allEntriesReady: Bool; let variants: [Variant] }
     let fixture: TestVariantFixture
+    var hasAudioSpectrumConsumer: Bool { false }
     static func launchValidated(template: TestTemplate,
                                 textureFormatSlots: Result<Set<Int>, TestError>, maximumVariantCount: Int,
                                 assetFormatFacts: Int) -> Result<Self, TestError> {
@@ -447,12 +448,15 @@ final class SceneResolvedMaterialRuntimeBridge {
     struct PreparedSourceMaterial {
         enum OutputDomain { case sampledAsset(SceneAssetTextureIdentity), baseImage, capturedMain }
         let declaredDynamicTargets: Set<SceneDynamicTarget>
+        let hasAudioSpectrumConsumer: Bool
         let outputDomain: OutputDomain
         let sharedModelPath: String?
         init(declaredDynamicTargets: Set<SceneDynamicTarget>,
+             hasAudioSpectrumConsumer: Bool,
              bindFrame: @escaping (Int) -> Int, pixelFormat: MTLPixelFormat,
              outputDomain: OutputDomain, sharedModelPath: String?) {
             self.declaredDynamicTargets = declaredDynamicTargets
+            self.hasAudioSpectrumConsumer = hasAudioSpectrumConsumer
             self.outputDomain = outputDomain
             self.sharedModelPath = sharedModelPath
         }

@@ -150,6 +150,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
     let assetDemands: Set<SceneAssetTextureIdentity>
     let userPropertyDemands: Set<SceneUserPropertyTextureIdentity>
     let systemProviderDemands: Set<SystemProviderDemand>
+    let systemProviderDemandsByMaterial: [Key: Set<SystemProviderDemand>]
     let resourceDemandIssues: Set<ResourceDemandIssue>
 
     /// A template can become a completed source on any surface, even when the
@@ -203,6 +204,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         var demands: Set<SceneAssetTextureIdentity> = []
         var userDemands: Set<SceneUserPropertyTextureIdentity> = []
         var systemDemands: Set<SystemProviderDemand> = []
+        var systemDemandsByMaterial: [Key: Set<SystemProviderDemand>] = [:]
         var demandIssues: Set<ResourceDemandIssue> = []
         var resolvedRecords: [Key: (
             graph: Graph,
@@ -344,6 +346,9 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
             demands.formUnion(outcome.assetDemands)
             userDemands.formUnion(outcome.userPropertyDemands)
             systemDemands.formUnion(outcome.systemProviderDemands)
+            if !outcome.systemProviderDemands.isEmpty {
+                systemDemandsByMaterial[outcome.key] = outcome.systemProviderDemands
+            }
             demandIssues.formUnion(outcome.issues)
         }
 #if DEBUG
@@ -370,6 +375,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         assetDemands = demands
         userPropertyDemands = userDemands
         systemProviderDemands = systemDemands
+        systemProviderDemandsByMaterial = systemDemandsByMaterial
         resourceDemandIssues = demandIssues
     }
 

@@ -19,11 +19,17 @@ extension SceneDesktopWallpaperSession {
     }
 
     func installPointerEventMonitorsIfNeeded() {
-        removePointerEventMonitors()
-        guard isVisible, isOutputActive else { return }
-        guard launchContext?.sceneScriptCursorProgram.ownerCount ?? 0 > 0 else {
+        let needsMonitors = isVisible && isOutputActive && launchContext.map { context in
+            context.sceneScriptCursorProgram.hasActiveOwners(excludingTargets:
+                context.propertyVectorScriptProgram.disabledTargets
+                    .union(context.sceneScriptScalarProgram.disabledTargets)
+                    .union(context.sceneScriptStringProgram.disabledTargets))
+        } == true
+        guard needsMonitors else {
+            if localPointerEventMonitor != nil || globalPointerEventMonitor != nil { removePointerEventMonitors() }
             return
         }
+        guard localPointerEventMonitor == nil && globalPointerEventMonitor == nil else { return }
         let mask: NSEvent.EventTypeMask = [
             .mouseMoved, .leftMouseDragged, .leftMouseDown, .leftMouseUp,
         ]
@@ -38,9 +44,19 @@ extension SceneDesktopWallpaperSession {
         ) { [weak self] event in
             self?.capturePointerEvent(event)
         }
+#if DEBUG
+        if SceneDesktopWallpaperHost.usesDebugEvidenceWindow {
+            NSLog("MWX DEBUG SCENE: phase=pointer-monitors request=%@ session=%@ installed=%d",
+                  launchRequestID?.uuidString ?? "none", lifecycleID.uuidString,
+                  (localPointerEventMonitor == nil ? 0 : 1) + (globalPointerEventMonitor == nil ? 0 : 1))
+        }
+#endif
     }
 
     func removePointerEventMonitors() {
+#if DEBUG
+        let hadMonitors = localPointerEventMonitor != nil || globalPointerEventMonitor != nil
+#endif
         userShortcutInput.revoke()
         if let localPointerEventMonitor {
             NSEvent.removeMonitor(localPointerEventMonitor)
@@ -50,6 +66,12 @@ extension SceneDesktopWallpaperSession {
             NSEvent.removeMonitor(globalPointerEventMonitor)
             self.globalPointerEventMonitor = nil
         }
+#if DEBUG
+        if hadMonitors, SceneDesktopWallpaperHost.usesDebugEvidenceWindow {
+            NSLog("MWX DEBUG SCENE: phase=pointer-monitors request=%@ session=%@ installed=0",
+                  launchRequestID?.uuidString ?? "none", lifecycleID.uuidString)
+        }
+#endif
     }
 
     private func capturePointerEvent(_ event: NSEvent) {

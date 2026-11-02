@@ -301,6 +301,8 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
 
     private let ownerID = UUID()
     private let capabilitiesByLayerID: [Int: LayerCapability]
+    let audioConsumerLayerIDs: Set<Int>
+    let systemProviderConsumerLayerIDs: [SceneSystemProviderTextureIdentity: Set<Int>]
     private let productAuthorityRejectionReasonsByLayerID: [Int: String]
     private let rejectedReasons: [String: Int]
     private let programFailureAttributions: [
@@ -496,6 +498,24 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         SceneResolvedMaterialVariantCompileProfile.logSummaryIfMeasured()
 #endif
         capabilitiesByLayerID = accepted
+        audioConsumerLayerIDs = Set(accepted.compactMap { layerID, capability in
+            capability.stages.contains { stage in
+                guard case let .resolved(materials, _) = stage.execution else { return false }
+                return materials.values.contains { $0.variants.hasAudioSpectrumConsumer }
+            } ? layerID : nil
+        })
+        var providerConsumers: [SceneSystemProviderTextureIdentity: Set<Int>] = [:]
+        for (layerID, capability) in accepted {
+            for stage in capability.stages {
+                guard case let .resolved(materials, _) = stage.execution else { continue }
+                for key in materials.keys {
+                    for provider in materialCatalog.systemProviderDemandsByMaterial[key] ?? [] {
+                        providerConsumers[provider, default: []].insert(layerID)
+                    }
+                }
+            }
+        }
+        systemProviderConsumerLayerIDs = providerConsumers
         productAuthorityRejectionReasonsByLayerID =
             productAuthorityRejectedByLayerID
         rejectedReasons = rejected
@@ -770,20 +790,6 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                     }
                 case .visualFailurePassthrough, .initiallyInactivePassthrough:
                     break
-                }
-            }
-        }
-    }
-
-    /// Unified owner migration preserves capture demand for every audio stage.
-    var hasAudioSpectrumConsumer: Bool {
-        capabilitiesByLayerID.values.contains { capability in
-            capability.stages.contains { stage in
-                switch stage.execution {
-                case .resolved(let materials, _):
-                    return materials.values.contains { $0.variants.hasAudioSpectrumConsumer }
-                case .visualFailurePassthrough, .initiallyInactivePassthrough:
-                    return false
                 }
             }
         }

@@ -51,6 +51,7 @@ struct SceneSoundPlaybackProgram {
             .init(layerID: 1, resources: [.init(file: SceneVideoOwnedFile(url: URL(fileURLWithPath: CommandLine.arguments[1])),
                 displayPath: "fixture.wav")])]), epoch: 1)
         registry.start(paused: false, userValues: [:]); defer { registry.stop() }
+        let registryHasSourcesAfterStart = registry.hasSources
         let domain = try SceneScriptQuickJSDomain(); try domain.configureLayerCatalog(descriptor)
         func publish(_ sound: [Int: Bool], pending: Bool = false) throws {
             try domain.publishLayerSnapshot(.empty(frameIndex: 0), descriptor: descriptor,
@@ -267,6 +268,9 @@ struct SceneSoundPlaybackProgram {
             && renamed.mediaPlaybackCommands.allSatisfy { $0.layerID == 1 && $0.destination == .soundLayer }
             && mwx_scene_quickjs_owner_media_playback_command_count(renamedCreator.handle) == 0
         renamedCaller.discardLayerMutations()
+        result["live-registry-keeps-source-through-playback-stop"] = registryHasSourcesAfterStart && registry.hasSources
+        registry.retire(layerIDs: [1])
+        result["last-source-retirement-clears-current-process-demand"] = !registry.hasSources
         print(String(decoding: try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]), as: UTF8.self))
     }
 }
@@ -290,7 +294,7 @@ class SceneSoundScriptCommandsTests(unittest.TestCase):
             run = subprocess.run([str(binary), str(audio)], capture_output=True, text=True, timeout=30)
             self.assertEqual(run.returncode, 0, run.stderr)
             facts = json.loads(run.stdout)
-            self.assertEqual(len(facts), 32)
+            self.assertEqual(len(facts), 34)
             for key, value in facts.items():
                 with self.subTest(key=key):
                     self.assertTrue(value, run.stderr)

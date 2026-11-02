@@ -556,15 +556,18 @@ struct SceneResolvedMaterialRuntimeCatalog {
 
     let entries: [Key: Entry]
     let resourceDemandIssues: Set<ResourceDemandIssue>
+    let systemProviderDemandsByMaterial: [Key: Set<SceneSystemProviderTextureIdentity>]
     let entryObserver: ((Graph.Node) -> Void)?
 
     init(
         entries: [Key: Entry],
         resourceDemandIssues: Set<ResourceDemandIssue> = [],
+        systemProviderDemandsByMaterial: [Key: Set<SceneSystemProviderTextureIdentity>] = [:],
         entryObserver: ((Graph.Node) -> Void)? = nil
     ) {
         self.entries = entries
         self.resourceDemandIssues = resourceDemandIssues
+        self.systemProviderDemandsByMaterial = systemProviderDemandsByMaterial
         self.entryObserver = entryObserver
     }
 

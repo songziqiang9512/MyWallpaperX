@@ -55,14 +55,17 @@ struct SceneDesktopWallpaperLaunchContext {
     var userShortcuts: ScenePlaybackShortcutConfiguration = .empty
     var userShortcutKeys: Set<String> = []
 
-    var requiresSystemMedia: Bool {
+    func requiresSystemMedia(excludingLayerIDs: Set<Int>) -> Bool {
         !propertyVectorScriptProgram.mediaOwnerRegistrations.isEmpty
             || !sceneScriptScalarProgram.mediaOwnerRegistrations.isEmpty
             || !sceneScriptStringProgram.mediaOwnerRegistrations.isEmpty
-            || !baseMaterialProviderBindings.systemProviderDemands.isEmpty
-            || resolvedMaterialCatalog.systemProviderDemands.contains {
-                $0.name == SceneBaseMaterialProviderBindingProgram.currentIdentity
-                    || $0.name == SceneBaseMaterialProviderBindingProgram.previousIdentity
+            || baseMaterialProviderBindings.baseMaterialBindings.values.contains {
+                !excludingLayerIDs.contains($0.layerID) && $0.provider.isSystemProvider
+            }
+            || resolvedMaterialExecutionCapabilities.systemProviderConsumerLayerIDs.contains { provider, layerIDs in
+                (provider.name == SceneBaseMaterialProviderBindingProgram.currentIdentity
+                    || provider.name == SceneBaseMaterialProviderBindingProgram.previousIdentity)
+                    && !layerIDs.subtracting(excludingLayerIDs).isEmpty
             }
     }
 

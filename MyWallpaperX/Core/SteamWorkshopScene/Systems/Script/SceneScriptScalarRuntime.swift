@@ -94,6 +94,7 @@ nonisolated final class SceneScriptQuickJSDomain: @unchecked Sendable {
     let handle: OpaquePointer
     let budget: SceneScriptScalarBudget
     var storageSession: SceneScriptLocalStorageSession? = nil
+    var systemInputConsumersChanged = false
     var particleEmissionBoundary: ((OpaquePointer, Bool) -> Void)?
     var particleEmissionHost: ((OpaquePointer, MWXSceneQuickJSParticlePlaybackCommand) throws -> SceneParticlePlaybackObservation)?
 

@@ -16,13 +16,6 @@ except ImportError:
     from scene_vector_vm_test_support import compile_vector_harness
 
 
-ROOT = Path(__file__).resolve().parents[2]
-DEMAND_SOURCE = (
-    ROOT
-    / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+AudioDemand.swift"
-)
-
-
 CURSOR_HARNESS = r'''
 @main
 enum Harness {
@@ -32,10 +25,10 @@ enum Harness {
             layer(id: 30, index: 2),
         ])
         let bindings = [
-            standaloneBinding(layerID: 10, index: 0),
+            eventOnlyBinding(layerID: 10, index: 0),
             borrowedBinding(layerID: 20, index: 1),
             siblingBinding(layerID: 20, index: 1),
-            standaloneBinding(layerID: 30, index: 2),
+            eventOnlyBinding(layerID: 30, index: 2),
         ]
         let projection = SceneScriptVectorProgram.project(
             descriptor: descriptor, scriptBindings: bindings
@@ -49,19 +42,32 @@ enum Harness {
             scalarExcludedTargets: [], stringExcludedTargets: [],
             admittedVectorPassTargets: [], generation: 41
         )
-        let standaloneProjection = SceneScriptVectorProgram.project(
+        let isolatedProjection = SceneScriptVectorProgram.project(
             descriptor: descriptor,
-            scriptBindings: [standaloneBinding(layerID: 30, index: 2)]
+            scriptBindings: [eventOnlyBinding(layerID: 30, index: 2)]
         )
-        let standaloneCandidate = try SceneScriptQuickJSProgramCandidate.compile(
+        let isolatedCandidate = try SceneScriptQuickJSProgramCandidate.compile(
             authoredDescriptor: descriptor,
             runtimeDescriptor: descriptor,
-            scriptBindings: [standaloneBinding(layerID: 30, index: 2)],
-            vectorProjection: standaloneProjection,
+            scriptBindings: [eventOnlyBinding(layerID: 30, index: 2)],
+            vectorProjection: isolatedProjection,
             userPropertyDefinitions: [], timelineTargets: [],
             scalarExcludedTargets: [], stringExcludedTargets: [],
             admittedVectorPassTargets: [], generation: 42
         )
+        let controlTarget = SceneDynamicTarget.layer(layerID: 30, field: .visibility)
+        let controlValues = candidate.vectorProgram.bindings.filter { $0.definition.target == controlTarget }
+        let controlCursors = candidate.cursorProgram.bindings.filter { $0.ownerTarget == controlTarget }
+        let controlRegistrations = candidate.vectorProgram.cursorOwnerRegistrations.filter { $0.target == controlTarget }
+        let isolatedValues = isolatedCandidate.vectorProgram.bindings
+        let isolatedCursors = isolatedCandidate.cursorProgram.bindings
+        let preparedOwners = candidate.vectorProgram.bindings.map(\.owner) + candidate.cursorProgram.bindings.map(\.owner)
+        let dependentControlSharesOwner = controlValues.count == 1 && controlCursors.count == 1
+            && controlRegistrations.count == 1 && !controlCursors[0].ownsOwner
+            && controlCursors[0].owner === controlValues[0].owner
+            && controlRegistrations[0].owner === controlValues[0].owner
+        let isolatedSharesOwner = isolatedValues.count == 1 && isolatedCursors.count == 1
+            && !isolatedCursors[0].ownsOwner && isolatedCursors[0].owner === isolatedValues[0].owner
         let frame = SceneScriptFrameInput(
             timing: .init(
                 wallDate: Date(timeIntervalSince1970: 0),
@@ -117,6 +123,8 @@ enum Harness {
             second.layerMutations.map { ($0.layerID, $0.origin) }
         )
         candidate.vectorProgram.finalizeLayerMutations(committing: true)
+        let cursorOwnersBeforeFailure = candidate.cursorProgram.ownerCount
+        candidate.cursorProgram.systemInputConsumersChanged = false
         let failed = candidate.cursorProgram.dispatch(
             batch: batch(down: true), frame: frame,
             userPropertiesJSON: "{}", audioSpectrum: audio(left: 1, right: 1, generation: 3)
@@ -127,13 +135,18 @@ enum Harness {
         )
         let propertyOnly = try propertyAudio(initializes: false, frame: frame)
         let initializing = try propertyAudio(initializes: true, frame: frame)
-        let payload: [String: Any] = [
+        var payload: [String: Any] = [
             "propertyOnly": propertyOnly,
             "initializing": initializing,
             "migratedIsBorrowed": candidate.cursorProgram.bindings
                 .first { $0.layerID == 10 }?.ownsOwner == false,
-            "controlIsStandalone": candidate.cursorProgram.bindings
-                .first { $0.layerID == 30 }?.ownsOwner == true,
+            "dependentControlSharesOwner": dependentControlSharesOwner,
+            "preparedValueOwnerCount": candidate.vectorProgram.bindings.count,
+            "distinctPreparedOwnerCount": Set(preparedOwners.map { ObjectIdentifier($0) }).count,
+            "isolatedSharesOwner": isolatedSharesOwner,
+            "isolatedHasOneValueAndCursorTarget":
+                isolatedCandidate.constructionReport.instantiatedVectorTargets == [controlTarget]
+                    && isolatedCandidate.constructionReport.instantiatedCursorTargets == [controlTarget],
             "migratedConstructionFailure": candidate.constructionReport.vectorFailures[migratedTarget]?.code ?? "",
             "quietPublished": quietFrame.values[migratedTarget] != nil,
             "quietFailures": quietFrame.failures.count,
@@ -142,7 +155,10 @@ enum Harness {
             "failedOwnerCount": failed.failures.count,
             "failedPublishedLayerIDs": failed.layerMutations.map(\.layerID).sorted(),
             "afterFailureLayerIDs": afterFailure.layerMutations.map(\.layerID).sorted(),
-            "cursorOwners": candidate.cursorProgram.ownerCount,
+            "cursorOwners": cursorOwnersBeforeFailure,
+            "activeCursorOwnersAfterFailure": candidate.cursorProgram.ownerCount,
+            "cursorChangeObserved": candidate.cursorProgram.systemInputConsumersChanged,
+            "liveConsumerChanges": try liveConsumerChanges(frame: frame),
             "cursorOwnerIDs": candidate.cursorProgram.ownerLayerIDs.sorted(),
             "cursorConstructionComplete":
                 candidate.constructionReport.isComplete,
@@ -153,21 +169,26 @@ enum Harness {
                 .cursorOwnerRegistrations.map(\.layerID).sorted(),
             "cursorHasAudio": candidate.cursorProgram.hasAudioConsumers,
             "vectorHasAudio": candidate.vectorProgram.hasAudioConsumers,
-            "standaloneCursorHasAudio":
-                standaloneCandidate.cursorProgram.hasAudioConsumers,
-            "standaloneVectorHasAudio":
-                standaloneCandidate.vectorProgram.hasAudioConsumers,
+            "isolatedCursorHasAudio":
+                isolatedCandidate.cursorProgram.hasAudioConsumers,
+            "isolatedValueHasAudio":
+                isolatedCandidate.vectorProgram.hasAudioConsumers,
             "firstFailures": first.failures.count,
-            "firstStandaloneX": firstByLayer[10]?.x ?? -1,
+            "firstEventOnlyX": firstByLayer[10]?.x ?? -1,
             "firstBorrowedX": firstByLayer[20]?.x ?? -1,
             "firstBorrowedY": firstByLayer[20]?.y ?? -1,
             "secondFailures": second.failures.count,
-            "secondStandaloneX": secondByLayer[10]?.x ?? -1,
+            "secondEventOnlyX": secondByLayer[10]?.x ?? -1,
             "secondBorrowedX": secondByLayer[20]?.x ?? -1,
             "borrowedFrameFailures": borrowedFrame.failures.count,
             "borrowedFramePublished": borrowedFrame.values[borrowedTarget] != nil,
             "borrowedFrameXYZ": borrowedFrameXYZ,
         ]
+        _ = isolatedCandidate.cursorProgram.retire(layerIDs: [30], frame: frame, userPropertiesJSON: "{}")
+        payload["lastCursorRetired"] = isolatedCandidate.cursorProgram.ownerCount == 0
+            && !isolatedCandidate.cursorProgram.hasActiveOwners(excludingTargets: [])
+            && !isolatedCandidate.cursorProgram.hasAudioConsumers
+            && isolatedCandidate.cursorProgram.systemInputConsumersChanged
         let data = try JSONSerialization.data(
             withJSONObject: payload, options: [.sortedKeys]
         )
@@ -184,7 +205,7 @@ enum Harness {
         }
         """
         let descriptor = SceneRenderDescriptor(layers: [layer(id: 10, index: 0)])
-        let bindings = [standaloneBinding(layerID: 10, index: 0, source: source)]
+        let bindings = [eventOnlyBinding(layerID: 10, index: 0, source: source)]
         let candidate = try SceneScriptQuickJSProgramCandidate.compile(
             authoredDescriptor: descriptor, runtimeDescriptor: descriptor,
             scriptBindings: bindings,
@@ -227,6 +248,63 @@ enum Harness {
         )
     }
 
+    static func liveConsumerChanges(frame: SceneScriptFrameInput) throws -> [String: Bool] {
+        let descriptor = SceneRenderDescriptor(layers: [layer(id: 20, index: 0)])
+        let source = """
+        const audio = engine.registerAudioBuffers(16);
+        export function mediaPropertiesChanged(e) {}
+        export function applyUserProperties(e) { if (engine.userProperties.enabled === false) throw Error('disabled'); }
+        export function update(v) { return v; }
+        """
+        func candidate(_ source: String) throws -> SceneScriptQuickJSProgramCandidate {
+            let bindings = [borrowedBinding(layerID: 20, index: 0, source: source)]
+            return try SceneScriptQuickJSProgramCandidate.compile(authoredDescriptor: descriptor,
+                runtimeDescriptor: descriptor, scriptBindings: bindings,
+                vectorProjection: SceneScriptVectorProgram.project(descriptor: descriptor, scriptBindings: bindings),
+                userPropertyDefinitions: [], timelineTargets: [], scalarExcludedTargets: [],
+                stringExcludedTargets: [], admittedVectorPassTargets: [], generation: 71)
+        }
+        let target = SceneDynamicTarget.layer(layerID: 20, field: .origin)
+        let prepared = try candidate(source)
+        let program = prepared.vectorProgram
+        func evaluate(_ enabled: Bool, revision: UInt64) -> SceneScriptVectorFrameResult {
+            let result = program.evaluate(inputs: [target: .vector3(1, 2, 3)],
+                effectivePropertyValues: ["enabled": .bool(enabled)], frame: frame, propertyRevision: revision,
+                audioSpectrum: audio(left: 0.2, right: 0.3, generation: revision))
+            program.finalizeLayerMutations(committing: true)
+            return result
+        }
+        var checks: [String: Bool] = [:]
+        prepared.domain?.systemInputConsumersChanged = false
+        let failed = evaluate(false, revision: 1)
+        checks["permanent-failure-signals-and-revokes-audio-media"] = failed.failures[target] != nil
+            && prepared.domain?.systemInputConsumersChanged == true && !program.hasAudioConsumers
+            && program.mediaOwnerRegistrations.isEmpty
+        prepared.domain?.systemInputConsumersChanged = false
+        _ = evaluate(false, revision: 1)
+        checks["stable-disabled-owner-does-not-repeat-change"] = prepared.domain?.systemInputConsumersChanged == false
+        let recovered = evaluate(true, revision: 2)
+        checks["property-recovery-signals-and-restores-audio-media"] = recovered.failures.isEmpty
+            && prepared.domain?.systemInputConsumersChanged == true && program.hasAudioConsumers
+            && !program.mediaOwnerRegistrations.isEmpty
+        prepared.domain?.systemInputConsumersChanged = false
+        _ = evaluate(true, revision: 2)
+        checks["stable-active-owner-does-not-repeat-change"] = prepared.domain?.systemInputConsumersChanged == false
+        _ = program.retire(layerIDs: [20], frame: frame, userPropertiesJSON: "{}")
+        checks["authored-retirement-signals-and-revokes-last-owner"] = prepared.domain?.systemInputConsumersChanged == true
+            && !program.hasAudioConsumers && program.mediaOwnerRegistrations.isEmpty
+        let badValue = try candidate("""
+        const audio = engine.registerAudioBuffers(16);
+        export function update(v) { return 'wrong value'; }
+        """)
+        badValue.domain?.systemInputConsumersChanged = false
+        let invalid = badValue.vectorProgram.evaluate(inputs: [target: .vector3(1, 2, 3)],
+            effectivePropertyValues: [:], frame: frame)
+        checks["bad-return-keeps-consumer-without-membership-change"] = invalid.failures[target]?.code == "bad-return"
+            && badValue.domain?.systemInputConsumersChanged == false && badValue.vectorProgram.hasAudioConsumers
+        return checks
+    }
+
     static func batch(down: Bool) -> SceneScriptCursorFrameBatch {
         let hits = Dictionary(uniqueKeysWithValues: [10, 20, 30].map { id in
             (id, SceneScriptCursorHit(
@@ -249,15 +327,15 @@ enum Harness {
             utilityLayer: id == 20 ? nil : .init(
                 kind: .composition, copyBackground: false, passthrough: false
             ),
-            // Dependent utility visibility is still outside the vector lane;
-            // it provides a real standalone cursor control for the migration.
+            // Dependencies retain the visibility value owner; cursor callbacks
+            // must borrow it instead of constructing a second event owner.
             dependencyLayerIDs: id == 30 ? [20] : [],
             authoredDependencies: id == 30 ? [20] : []
         )
     }
 
-    static func standaloneBinding(
-        layerID: Int, index: Int, source: String = standaloneSource
+    static func eventOnlyBinding(
+        layerID: Int, index: Int, source: String = eventOnlySource
     ) -> SceneScriptBindingIR {
         .init(
             source: source,
@@ -269,10 +347,10 @@ enum Harness {
     }
 
     static func borrowedBinding(
-        layerID: Int, index: Int
+        layerID: Int, index: Int, source: String = borrowedSource
     ) -> SceneScriptBindingIR {
         .init(
-            source: borrowedSource,
+            source: source,
             owner: owner(layerID: layerID, index: index),
             targetPath: [.key("objects"), .index(index), .key("origin")],
             properties: [:], authoredValue: .string("0 0 0"),
@@ -301,7 +379,7 @@ enum Harness {
         )
     }
 
-    static let standaloneSource = """
+    static let eventOnlySource = """
     const audio = engine.registerAudioBuffers(16);
     export function cursorDown() {
         thisLayer.origin = new Vec3(audio.left[0], audio.right[0], 0);
@@ -333,74 +411,6 @@ enum Harness {
 '''
 
 
-DEMAND_HARNESS = r'''
-import Foundation
-
-struct FixtureProgram { let hasAudioConsumers: Bool }
-struct FixtureSoundProgram { let bindings: [Int] }
-struct SceneResolvedMaterialExecutionCapabilityCatalog {
-    let hasAudioSpectrumConsumer: Bool
-}
-struct SceneDesktopWallpaperLaunchContext {
-    let resolvedMaterialExecutionCapabilities:
-        SceneResolvedMaterialExecutionCapabilityCatalog
-    let propertyVectorScriptProgram: FixtureProgram
-    let sceneScriptScalarProgram: FixtureProgram
-    let sceneScriptStringProgram: FixtureProgram
-    let sceneScriptCursorProgram: FixtureProgram
-    let soundPlaybackProgram: FixtureSoundProgram
-}
-final class SceneAudioSpectrumInbox {
-    static let shared = SceneAudioSpectrumInbox()
-    private(set) var demand = false
-    private(set) var includesCurrentProcess = false
-    func setDemand(
-        _ active: Bool, requiresCurrentProcessAudioCapture: Bool = false
-    ) {
-        demand = active
-        includesCurrentProcess = active && requiresCurrentProcessAudioCapture
-    }
-}
-final class SceneDesktopWallpaperSession {
-    var audioDemand = (spectrum: false, currentProcess: false)
-    var onAudioDemandChanged: (() -> Void)?
-    init() {
-        onAudioDemandChanged = { [unowned self] in
-            SceneAudioSpectrumInbox.shared.setDemand(audioDemand.spectrum, requiresCurrentProcessAudioCapture: audioDemand.currentProcess)
-        }
-    }
-}
-
-@main
-enum Harness {
-    static func main() {
-        let context = SceneDesktopWallpaperLaunchContext(
-            resolvedMaterialExecutionCapabilities: .init(
-                hasAudioSpectrumConsumer: false
-            ),
-            propertyVectorScriptProgram: .init(hasAudioConsumers: false),
-            sceneScriptScalarProgram: .init(hasAudioConsumers: false),
-            sceneScriptStringProgram: .init(hasAudioConsumers: false),
-            sceneScriptCursorProgram: .init(hasAudioConsumers: true),
-            soundPlaybackProgram: .init(bindings: [1])
-        )
-        SceneDesktopWallpaperSession().updateAudioSpectrumDemand(
-            context, hasParticleAudioConsumer: false
-        )
-        let payload: [String: Any] = [
-            "demand": SceneAudioSpectrumInbox.shared.demand,
-            "includesCurrentProcess":
-                SceneAudioSpectrumInbox.shared.includesCurrentProcess,
-        ]
-        let data = try! JSONSerialization.data(
-            withJSONObject: payload, options: [.sortedKeys]
-        )
-        print(String(decoding: data, as: UTF8.self))
-    }
-}
-'''
-
-
 class SceneCursorAudioConsumerTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -416,50 +426,35 @@ class SceneCursorAudioConsumerTests(unittest.TestCase):
         cls.cursor_result = json.loads(subprocess.run(
             [str(cls.cursor_binary)], check=True, capture_output=True, text=True
         ).stdout)
-        demand_harness = temporary / "DemandHarness.swift"
-        demand_harness.write_text(DEMAND_HARNESS, encoding="utf-8")
-        cls.demand_binary = temporary / "scene-cursor-audio-demand"
-        compilation = subprocess.run(
-            [
-                "xcrun", "swiftc", "-parse-as-library",
-                str(DEMAND_SOURCE), str(demand_harness),
-                "-o", str(cls.demand_binary),
-            ],
-            capture_output=True, text=True,
-        )
-        if compilation.returncode != 0:
-            raise AssertionError(compilation.stdout + compilation.stderr)
-        cls.demand_result = json.loads(subprocess.run(
-            [str(cls.demand_binary)], check=True,
-            capture_output=True, text=True,
-        ).stdout)
 
     @classmethod
     def tearDownClass(cls) -> None:
         cls.temp_dir.cleanup()
 
-    def test_cursor_only_owner_participates_in_shared_demand(self) -> None:
-        self.assertTrue(self.cursor_result["standaloneCursorHasAudio"])
-        self.assertFalse(self.cursor_result["standaloneVectorHasAudio"])
-        self.assertTrue(self.demand_result["demand"])
-        self.assertTrue(self.demand_result["includesCurrentProcess"])
+    def test_event_only_value_owner_and_cursor_share_audio_registration(self) -> None:
+        self.assertTrue(self.cursor_result["isolatedCursorHasAudio"])
+        self.assertTrue(self.cursor_result["isolatedValueHasAudio"])
+        self.assertTrue(self.cursor_result["isolatedSharesOwner"])
+        self.assertTrue(self.cursor_result["isolatedHasOneValueAndCursorTarget"])
 
-    def test_standalone_and_borrowed_callbacks_read_current_snapshot(self) -> None:
+    def test_event_only_and_update_callbacks_read_current_snapshot(self) -> None:
         self.assertEqual(self.cursor_result["cursorOwners"], 3)
         self.assertTrue(self.cursor_result["cursorConstructionComplete"])
         self.assertTrue(self.cursor_result["cursorHasAudio"])
         self.assertTrue(self.cursor_result["vectorHasAudio"])
         self.assertEqual(self.cursor_result["firstFailures"], 0)
-        self.assertAlmostEqual(self.cursor_result["firstStandaloneX"], 0.25)
+        self.assertAlmostEqual(self.cursor_result["firstEventOnlyX"], 0.25)
         self.assertAlmostEqual(self.cursor_result["firstBorrowedX"], 0.25)
         self.assertAlmostEqual(self.cursor_result["firstBorrowedY"], 0.5)
         self.assertEqual(self.cursor_result["secondFailures"], 0)
-        self.assertAlmostEqual(self.cursor_result["secondStandaloneX"], 0.75)
+        self.assertAlmostEqual(self.cursor_result["secondEventOnlyX"], 0.75)
         self.assertAlmostEqual(self.cursor_result["secondBorrowedX"], 0.75)
 
     def test_composition_event_audio_uses_one_borrowed_owner_and_stays_quiet(self) -> None:
         self.assertTrue(self.cursor_result["migratedIsBorrowed"])
-        self.assertTrue(self.cursor_result["controlIsStandalone"])
+        self.assertTrue(self.cursor_result["dependentControlSharesOwner"])
+        self.assertEqual(self.cursor_result["preparedValueOwnerCount"], 4)
+        self.assertEqual(self.cursor_result["distinctPreparedOwnerCount"], 4)
         self.assertEqual(self.cursor_result["migratedConstructionFailure"], "")
         self.assertFalse(self.cursor_result["quietPublished"])
         self.assertEqual(self.cursor_result["quietFailures"], 0)
@@ -470,6 +465,14 @@ class SceneCursorAudioConsumerTests(unittest.TestCase):
         self.assertEqual(self.cursor_result["failedOwnerCount"], 2)
         self.assertEqual(self.cursor_result["failedPublishedLayerIDs"], [20])
         self.assertEqual(self.cursor_result["afterFailureLayerIDs"], [20])
+        self.assertEqual(self.cursor_result["activeCursorOwnersAfterFailure"], 1)
+        self.assertTrue(self.cursor_result["cursorChangeObserved"])
+        self.assertTrue(self.cursor_result["lastCursorRetired"])
+
+    def test_real_owner_failure_recovery_retirement_and_bad_return_demand(self) -> None:
+        for name, passed in self.cursor_result["liveConsumerChanges"].items():
+            with self.subTest(behavior=name):
+                self.assertTrue(passed)
 
     def test_property_events_and_init_read_current_audio_before_any_callback(self) -> None:
         for key in ("propertyOnly", "initializing"):
