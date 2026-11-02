@@ -69,18 +69,6 @@ nonisolated struct SteamWorkshopBrowserItem: Identifiable, Equatable, Codable {
     let moderationText: String?
     let detailFields: [SteamWorkshopDetailField]
     let detailURL: URL
-
-    var primaryMetaText: String {
-        [fileSizeText, resolutionText]
-            .compactMap { $0 }
-            .joined(separator: "  ")
-    }
-
-    var secondaryMetaText: String {
-        [workshopTypeText, ageRatingText, genreText, updatedText]
-            .compactMap { $0 }
-            .joined(separator: "  ")
-    }
 }
 
 nonisolated struct SteamWorkshopDownloadRecord: Identifiable, Equatable, Codable {

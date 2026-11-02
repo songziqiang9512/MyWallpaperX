@@ -33,8 +33,8 @@
       "bytes": 116594
     },
     "docs/development/code-slimming-program.md": {
-      "lines": 98,
-      "bytes": 18251
+      "lines": 100,
+      "bytes": 19161
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -1811,10 +1811,10 @@
     {
       "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
-      "before": "babe136feb35426397be6ffee30dd6eeed289d933026ef97bdae8f40df186534",
-      "after": "45808df11a376cfbee932ca9d6c6dc994b3fc3f9a44e97f10618f1125949e2be",
+      "before": "45808df11a376cfbee932ca9d6c6dc994b3fc3f9a44e97f10618f1125949e2be",
+      "after": "b23cf1dc2baea0a58a245b713c38d5d511f6ee7126c40485d09dc467719342f8",
       "owner": "repository-maintainer",
-      "reason": "R91 reduce active reading by archiving 21 completed R61-R88 summaries with reversible links; retain current authority, all pending boundaries and approved UI10 design. No product/runtime claim.",
+      "reason": "Record R92 zero-consumer BrowserItem getter retirement and actual model consumer/build evidence without claiming runtime cost reduction; preserve R90 proof scope, R91 archival/current routing and all unresolved boundaries.",
       "decision": "docs/development/code-slimming-program.md#目标与边界"
     },
     {
