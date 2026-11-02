@@ -114,6 +114,7 @@ nonisolated enum SystemMusicPlayerSource {
     /// Synchronous off-frame read. No NSAppleEventDescriptor escapes this call.
     static func read(
         pid: pid_t,
+        includeArtwork: Bool = true,
         cachedArtworkIdentity: String? = nil,
         cachedArtworkData: Data? = nil,
         cachedArtworkPalette: SystemMediaArtworkPalette? = nil
@@ -130,7 +131,7 @@ nonisolated enum SystemMusicPlayerSource {
             case .unavailable(let error): throw error
             }
             return try Transaction.read(
-                pid: pid, cachedArtworkIdentity: cachedArtworkIdentity,
+                pid: pid, includeArtwork: includeArtwork, cachedArtworkIdentity: cachedArtworkIdentity,
                 cachedArtworkData: cachedArtworkData, cachedArtworkPalette: cachedArtworkPalette
             ) { object, phase in
                 guard !app.isTerminated else { throw Failure.targetNotRunning }
@@ -326,6 +327,7 @@ nonisolated enum SystemMusicPlayerSource {
     nonisolated enum Transaction {
         static func read(
             pid: pid_t,
+            includeArtwork: Bool = true,
             cachedArtworkIdentity: String? = nil,
             cachedArtworkData: Data? = nil,
             cachedArtworkPalette: SystemMediaArtworkPalette? = nil,
@@ -369,7 +371,10 @@ nonisolated enum SystemMusicPlayerSource {
             let art: Data?
             let reusesArtwork: Bool
             var artworkFailure: Failure?
-            if cachedArtworkIdentity == identity, let cachedArtworkData,
+            if !includeArtwork {
+                art = nil
+                reusesArtwork = false
+            } else if cachedArtworkIdentity == identity, let cachedArtworkData,
                !cachedArtworkData.isEmpty, cachedArtworkData.count <= Codec.maximumArtworkBytes {
                 art = cachedArtworkData
                 reusesArtwork = true

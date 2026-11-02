@@ -286,6 +286,38 @@ nonisolated struct MusicSourceHarness {
             check(value.artworkData == redPNG && value.artworkPalette == redPalette)
             check(value.title == "Owned Track" && value.artworkFailure == nil)
         } else { preconditionFailure("fresh image must carry five colors") }
+        reject(.timeout(phase: "artwork")) {
+            _ = try SystemMusicPlayerSource.Transaction.read(pid: 123) { _, phase in
+                if phase == "artwork" { throw Failure.timeout(phase: phase) }
+                return good[phase]!
+            }
+        }
+        var omittedArtworkQueries: [String: [String]] = [:]
+        for cached in [false, true] {
+            var phases: [String] = []
+            let metadata = try SystemMusicPlayerSource.Transaction.read(pid: 123, includeArtwork: false,
+                cachedArtworkIdentity: cached ? "com.apple.Music:123:AA11" : nil,
+                cachedArtworkData: cached ? redPNG : nil, cachedArtworkPalette: cached ? bluePalette : nil) { _, phase in
+                phases.append(phase)
+                if phase == "artwork" { throw Failure.timeout(phase: phase) }
+                return good[phase]!
+            }
+            if case .snapshot(let value) = metadata {
+                check(value.identity == "com.apple.Music:123:AA11" && value.title == "Owned Track"
+                    && value.artist == "Owned Artist" && value.album == "Owned Album" && value.albumArtist == "Owned Album Artist")
+                check(value.state == .playing && value.position == 130 && value.duration == 120)
+                check(value.artworkData == nil && value.artworkPalette == nil && value.artworkFailure == nil)
+            } else { preconditionFailure("unused artwork must not block metadata") }
+            check(phases == order.filter { $0 != "artwork" })
+            omittedArtworkQueries[cached ? "cached" : "fresh"] = phases
+        }
+        reject(.changedTrack) {
+            _ = try SystemMusicPlayerSource.Transaction.read(pid: 123, includeArtwork: false,
+                cachedArtworkIdentity: "com.apple.Music:123:AA11", cachedArtworkData: redPNG,
+                cachedArtworkPalette: bluePalette) { _, phase in
+                phase == "persistentID.after" ? NSAppleEventDescriptor(string: "BB22") : good[phase]!
+            }
+        }
         // Deliberately pass a differently colored cached palette. Returning it
         // proves a same-track cache hit does not extract from the bytes again.
         var albumArtistReads = 0
@@ -387,7 +419,8 @@ nonisolated struct MusicSourceHarness {
             "position": codec.position, "rawData": codec.rawData, "artworkClass": codec.artworkClass]
         printJSON(["result": "PASS", "checks": checks, "nativeQueries": 0, "workerThread": !Thread.isMainThread,
                    "perEventTimeout": SystemMusicPlayerSource.perEventTimeout,
-                   "overallTimeout": SystemMusicPlayerSource.overallTimeout, "selectors": selectors])
+                   "overallTimeout": SystemMusicPlayerSource.overallTimeout, "selectors": selectors,
+                   "fullArtworkQueries": order, "omittedArtworkQueries": omittedArtworkQueries])
     }
 }
 '''

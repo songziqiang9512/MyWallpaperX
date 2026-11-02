@@ -193,6 +193,7 @@ final class SystemMediaService {
         guard let selection = musicSelection, let pid, !inFlight else { return }
         guard !authorizationChecked || authorized else { return }
         let cached = musicSnapshot
+        let includeArtwork = selection == .fallback
         let requestSelectionGeneration = selectionGeneration
         let requestEpoch = epoch
         inFlight = true
@@ -257,7 +258,8 @@ final class SystemMediaService {
                 case .authorized:
                     self.queue.async {
                         let result = SystemMusicPlayerSource.read(
-                            pid: pid, cachedArtworkIdentity: cached?.artworkData == nil ? nil : cached?.identity,
+                            pid: pid, includeArtwork: includeArtwork,
+                            cachedArtworkIdentity: cached?.artworkData == nil ? nil : cached?.identity,
                             cachedArtworkData: cached?.artworkData, cachedArtworkPalette: cached?.artworkPalette
                         )
                         DispatchQueue.main.async { finish(authorization, result, false) }

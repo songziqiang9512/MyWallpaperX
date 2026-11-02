@@ -68,10 +68,11 @@ nonisolated enum SystemMusicPlayerSource {
         }
         return result
     }
-    static func read(pid: pid_t, cachedArtworkIdentity: String?, cachedArtworkData: Data?,
+    static func read(pid: pid_t, includeArtwork: Bool, cachedArtworkIdentity: String?, cachedArtworkData: Data?,
                      cachedArtworkPalette: SystemMediaArtworkPalette?) -> ReadResult {
         control.lock.lock()
         control.reads += 1
+        control.artworkOptions.append(includeArtwork)
         let value = control.result, blocker = control.blocker
         control.entered = true
         control.lock.unlock()
@@ -81,6 +82,7 @@ nonisolated enum SystemMusicPlayerSource {
     final class Control: @unchecked Sendable {
         let lock = NSLock()
         var reads = 0, authorizations = 0, requests = 0
+        var artworkOptions: [Bool] = []
         var authorization = AuthorizationStatus.authorized
         var requestResult = AuthorizationStatus.authorized
         var preflightBlocker: DispatchSemaphore?
@@ -531,6 +533,10 @@ nonisolated final class WebArtworkProbe: @unchecked Sendable {
                 playbackState: 2, position: 17, artworkChanged: true, artworkData: Data([9]), artworkPalette: testPalette(0))
             source.deliver(.snapshot(value))
             wait { inbox.latest().properties?.albumArtist == "Album Artist" }
+            control.update {
+                precondition(!$0.artworkOptions.isEmpty && $0.artworkOptions.allSatisfy { !$0 },
+                             "a selected system Music session needs metadata without public artwork")
+            }
             let selected = inbox.latest()
             precondition(selected.current == Data([9]) && selected.primaryColor == testPalette(0).primaryColor,
                          "public API replaced system artwork")
@@ -611,6 +617,10 @@ nonisolated final class WebArtworkProbe: @unchecked Sendable {
         case "fallback-invalid":
             provider.subscribe(first) { _ in }
             wait { inbox.latest().properties?.title == "Track A" }
+            control.update {
+                precondition(!$0.artworkOptions.isEmpty && $0.artworkOptions.allSatisfy { $0 },
+                             "the missing-backend fallback must still request complete Music artwork")
+            }
             control.update { $0.result = .snapshot(.init(identity: "bad", title: "Bad", artworkData: Data())) }
             wait { inbox.latest().properties?.title == "" }
             control.update { $0.result = .snapshot(.init(identity: "B", title: "Track B", state: .paused)) }

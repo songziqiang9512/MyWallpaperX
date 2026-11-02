@@ -33,8 +33,8 @@
       "bytes": 116594
     },
     "docs/development/code-slimming-program.md": {
-      "lines": 130,
-      "bytes": 25968
+      "lines": 133,
+      "bytes": 26690
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -302,7 +302,7 @@
     },
     "docs/web/mediaremote-nowplaying-design.md": {
       "lines": 76,
-      "bytes": 12213
+      "bytes": 12497
     },
     "docs/web/steam-downloads-failed-items-visibility-design.md": {
       "lines": 60,
@@ -1777,10 +1777,10 @@
     {
       "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
-      "before": "2613731044eb6e975f31498df40cc7a9f6ceaffb386a0dbb0cdb1fd56f09c4e0",
-      "after": "060a1989e67a98456fc6ae370b258f608a27fdb5c264ded0d8607ed9e098cd73",
+      "before": "060a1989e67a98456fc6ae370b258f608a27fdb5c264ded0d8607ed9e098cd73",
+      "after": "f1cb8132075555772639ede7d1551db47fec20a5192b06b1b715d365bf7098a7",
       "owner": "repository-maintainer",
-      "reason": "Close R77 exact terminal/projection simplification and same-fixture old/new checks; compact R76 into prior result, keep UI/recovery decisions and manual limits, route next media candidate without claiming completion.",
+      "reason": "Close R78 demand-scoped Music preparation with original/expanded gates, compact R77 result and retain enumerator/UI decisions and manual limits.",
       "decision": "docs/development/code-slimming-program.md#目标与边界"
     },
     {
@@ -2033,6 +2033,15 @@
       "after": "781de680a87e40f09218ed9472ffcf6c46653262d46862254dc70efae83f3fde",
       "owner": "repository-maintainer",
       "reason": "Preserve the complete original 381-line B/UI payload and all 24 heading anchors without link rewriting; historical candidates and commands do not authorize new work.",
+      "decision": "docs/development/code-slimming-program.md#目标与边界"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/web/mediaremote-nowplaying-design.md",
+      "before": "928fb65cb86f41c61b5ceccdea36e346e7e82a835ebc2102a22a6d94f34c4185",
+      "after": "4652377398fef9caea10cb7a418f0cf93cf3347597aa74e69205ec617d45d763",
+      "owner": "repository-maintainer",
+      "reason": "Document demand-scoped Music supplement artwork preparation in the existing shared-media source authority; keep system selection, complete fallback, identity and authorization contracts.",
       "decision": "docs/development/code-slimming-program.md#目标与边界"
     }
   ]

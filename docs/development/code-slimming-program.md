@@ -6,7 +6,7 @@
 
 开批速览（每批动手前先读这里，再核 Git 状态；按需查对应 owner 和下文，不顺读全文）：
 
-- 已裁决至R77（R61按优先级后补）。个人设置导入弹窗消失/设置变暗已由 R55（`ad1f3142d`）修复；测试 App 已交付，原配置完整导入仅待用户实测，没有新复现不重新修复、构建或复跑。
+- 已裁决至R78（R61按优先级后补）。个人设置导入弹窗消失/设置变暗已由 R55（`ad1f3142d`）修复；测试 App 已交付，原配置完整导入仅待用户实测，没有新复现不重新修复、构建或复跑。
 - 近期已完成：R54 合并成员查询复用、R57 Web 快照暂存隔离、R58 已取消元数据任务提前退出、R59 成功状态一次发布、R60 在线图片卡片一次装配。详情见下文；已完成项不作为新候选。
 - 保留/拒绝：R55 一次 Save 取消超时尚未归因；R56 绕过 TIFF 的候选因像素/尺寸差异已拒绝。较早 R23/R38/R43 的保护边界仍有效。
 - R62已交付：[本地资源先呈现与缩略图回访](local-library-loading-design.md#overview)。先解决启动短暂不可用和本地网格滚回黑卡，覆盖视频、图片及自建列表；已完成实现、最近门、Steam消费者及签名Debug；保留三项原生限制，真实用户库体感待人工验收。R61冷态导航已完成验证，见下文；不重复本专项。
@@ -23,7 +23,9 @@
 
 本轮按用户固定流程循环：并行子代理在每份审查任务中携带用户固定prompt，核无功能收益的校验/认证/重复计算/嵌套、持续转发和补丁、过量实现与耦合；主agent审核问题和方案并决定是否修改，子代理实施，主agent复核真实行为/成本证据和最近门后决定窄提交，再开启下一轮。每批报告问题、当前影响、方案、功能变化及下一候选。当前目标授权主agent作修复和本地提交裁决，不授权推送；共享构建、原生窗口和GPU仍串行，其他会话改动保留。
 
-最近产品验证：R77在原HistoryStore退出record同身份预过滤，Projection以joined直接过滤两组行，产品2增2删、净0，无新API/helper/state。新receipt本就位于首位，原first-identity去重保持；删除旧重复只改变offset数值，不改变并列日期相对顺序，原atomic落盘后发布/导入marker保持。原夹具全部文本与12条precondition保留，新增40行5条；同份最终夹具旧产品3.766秒、候选2.340秒通过，真实JSON旧重复→新完整值替换/重开、组内/跨组冲突、同/缺日期稳定序及空输入均过，四次实际进程的观测输入稳定。两次门耗时不当性能比较；仅认领退出显式预过滤及拼接中间数组，不认领实际分配/IO/FPS。签名Debug27.781秒/5866输入稳定、strict/deep通过，仅原两条C#警告；独立静审接受。未运行native面板/真实下载或全App历史恢复，R55/R62人工与原生限制不变。
+最近产品验证：R78共享Music读取按调用期需求准备封面，产品净+7，无新owner/cache/持久状态：system-selected只补匹配元数据，跳过公开封面及旧art缓存；missingResource完整fallback默认true，原授权、曲目前后身份和selection/PID/epoch检查保持。故障行为改善：未消费封面失败不再连带丢albumArtist，不能称所有失败语义相同。原/新两组35测试均过，原Music141检查保留扩至151，Service在Debug/Release各34次执行；原/新各72实际进程观测输入稳定。候选真实事务采集full 12阶段/1art，补充fresh/cached各11/0，原metadata/换曲拒绝、Service传参和系统封面/暂停/ABA均过。两层分别是真实Transaction+AppleEvent叶控制、真实Service+Music/System替身，未串成端到端；未验真实播放器/授权/耗时，暖非空原已复用。签名Debug26.548秒/5866输入稳定、strict/deep通过，仅原两条C#警告；独立静审接受。职责归[D6来源选择](../web/mediaremote-nowplaying-design.md#来源授权与失败)，R55/R62人工和原生限制不变。
+
+前批R77（826169c8b）退出HistoryStore同身份预过滤及Projection显式concat，产品净0、无新状态。原12条precondition及全部文本保留，新增5条/40行，同最终夹具旧/新真实JSON落盘重开、重复及日期并列检查均过；签名Debug27.781秒通过。不称offset数值相同、实际分配/IO/耗时或native面板验证。
 
 前批R76（44b9ffc45）删除零消费者Debug ProbeReport三参Emit及unused导入，产品0增9删，单参输出/JSON选项/stdout锁/HTTP槽位保持。现役offline门9.579秒通过Debug六suite、Release诊断缺席/静默拒绝及正常stdin协议，Debug15.392秒/strict deep通过；未验报告器输出、真实账号或运行性能。
 
@@ -47,7 +49,7 @@
 
 前批裁决与待验保留：R54（65522bee6）事务内复用resolved UUID追加位置，25成员/6物理列表的MAX查询25→6仅属连接级计数。R55选择器退出后再显示反馈，原配置完整导入与未归因Save取消超时保持待验。R56拒绝绕过TIFF候选，保留原编码。R57（b761fdb80）独立暂存、原main守卫后rename至原stable，保Scene/编码/copy fallback/所有权；受控5秒utility/文件探针与122项检查、Debug通过，未证自然频率或真实Web/NSWorkspace。R58（9be599202）已取消metadata Task的AV准备1→0，保同步模板和后两异步检查，不当性能/真实UI证明。R59（87c27c3e3）成功尾部一次发布完整状态，54组4→1、216→54，其他阶段相同；保89项、新增6项typed终态/reset回调及20项视口检查通过；原73/73只属reset调用点note。内部同步中间通知明确退出，不承诺任意同步订阅者等价。较早保护边界和精确证据仍归各批记录及提交，不在这里追加过程流水账。
 
-已完成R63（9499365）方法纠偏：[产物保留规则](../../.agents/skills/mywallpaperx-maintainer/references/artifact-governance.md)是证据保留/清理的唯一说明。下一候选：共享媒体的Music仅补元数据时是否仍准备无消费者封面；先核selection到发布的真实消费及现役事务/Service反例，不以候选当结项。下载面板关闭解绑/租约、独立progress和延迟恢复重验已审保留，不因压缩重开；R3预览复用、R59终态发布不重复实施。
+已完成R63（9499365）方法纠偏：[产物保留规则](../../.agents/skills/mywallpaperx-maintainer/references/artifact-governance.md)是证据保留/清理的唯一说明。下一只读方向：非Scene实际解析/解码的输入到消费链，核无消费字段准备和重复转换；先查近提交/现役门，不机械套用nil→[]或新建缓存。下载面板关闭解绑/租约、独立progress和延迟恢复重验已审保留，R3预览复用、R59终态发布不重开。
 
 近期审查保留项（本轮未修改，验证范围见对应批次；不因压缩上下文重复开批）：
 
@@ -57,6 +59,7 @@
 - 下载/导入：在线图片可解码准入与原子Store发布属于不同边界；Video导入磁盘检查跨后台排队，缩略图与桌面静帧也有各自消费者，保留。Steam fresh publish/签名若跳过需覆盖源码、依赖、配置与权限失效，当前不新增缓存认证链。
 - 设置/初始化：双向同步回声位解决Published willSet，登录项查询已有Key周期缓存；SIL相等补丁同步ACK及恢复清理开关有真实事务消费者，保留。App启动路径重复组装少量URL不足以支持新增缓存或状态。
 - Query目录计数已一次分组；单次过滤不另加索引，目录/Artwork有不同搜索和更新职责。Steam主产品协议只Parse一次，Clone服务JSON文档释放后的所有权，Writer只Serialize一次且options已复用，保留。
+- 非Scene枚举只读复核：Video导入/内置库的预取键、OnlineImage原图清理日期均有消费者；SIL递归nil预取省工证据不足，维护路径浅层枚举无频度证据，不另开批或新增测试。
 
 <a id="completed-r1-r26"></a> [归档记录](../history/cross-topic/code-slimming-r1-r26-2026-11-01.md#completed-r1-r26) <!-- archive-redirect -->
 
