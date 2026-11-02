@@ -22,6 +22,13 @@ final class MenuPlaybackWorkspace {
     var playing: WallpaperReference?
     func isPlaying(_ reference: WallpaperReference) -> Bool { playing == reference }
 }
+struct MenuPlaybackManager {
+    struct Transaction {
+        struct Committed { let ticket: UUID }
+        var committed: Committed?
+    }
+    var playbackSwitch = Transaction()
+}
 final class WallpaperLibraryCommands {
     private var selectedItems:[WallpaperContentItem]=[]
     var selectionReads=0
@@ -35,6 +42,9 @@ final class WallpaperLibraryCommands {
     var canOrganize=true,canImport=true,canToggleSelection=true
     var didChangeSelection: (() -> Void)?
     let workspace = MenuPlaybackWorkspace()
+    var manager = MenuPlaybackManager()
+    var receivedPrimaryPlaying: Bool?
+    var receivedPrimaryTicket: UUID?
     var favoriteReferences=Set<WallpaperReference>()
     var favoriteResetEpoch=UUID(),favoriteSessionID=UUID()
     var currentPage:()->WallpaperLibraryPage?={nil}
@@ -52,8 +62,11 @@ final class WallpaperLibraryCommands {
     func selectAll(){selectAllCalls += 1}
     func toggleSelectionMode(){selectionCalls += 1}
     func remove(){deletes += 1}
-    func makePrimaryAction(for item: WallpaperContentItem) -> (() -> Void)? {
+    func makePrimaryAction(for item: WallpaperContentItem, renderedPlaying: Bool? = nil,
+                           renderedTicket: UUID? = nil) -> (() -> Void)? {
         guard item.capabilities.contains(.play) else { return nil }
+        receivedPrimaryPlaying = renderedPlaying
+        receivedPrimaryTicket = renderedTicket
         let playing = workspace.isPlaying(item.reference)
         return { if playing { self.stops += 1 } else { self.applies += 1 } }
     }
@@ -188,6 +201,17 @@ final class AppDelegate:NSObject,NSApplicationDelegate,NSMenuItemValidation {
         let image=WallpaperContentItem(reference:ref,providerReference:ref,locator:.init(path:"/controlled/image.png",mediaKind:.image),title:"image",kind:.image,
             publishedAvailability:.available,capabilities:[.play,.organize,.inspect,.quickLook,.reveal],metadata:.init(),acquisition:.idle,update:.idle,aliases:[])
         controller.libraryCommands.selection=[image]
+        let primaryTicket = UUID()
+        controller.libraryCommands.manager.playbackSwitch.committed = .init(ticket: primaryTicket)
+        checks["local-unplayed-menu-passes-current-hints-and-play-title"] = delegate.validateMenuItem(item(.applyWallpaper))
+            && controller.libraryCommands.receivedPrimaryPlaying == false
+            && controller.libraryCommands.receivedPrimaryTicket == primaryTicket && item(.applyWallpaper).title == "设为壁纸"
+        controller.libraryCommands.workspace.playing = ref
+        checks["local-playing-menu-passes-current-hints-and-stop-title"] = delegate.validateMenuItem(item(.applyWallpaper))
+            && controller.libraryCommands.receivedPrimaryPlaying == true
+            && controller.libraryCommands.receivedPrimaryTicket == primaryTicket && item(.applyWallpaper).title == "停止播放"
+        controller.libraryCommands.workspace.playing = nil
+        controller.libraryCommands.manager.playbackSwitch.committed = nil
         checks["mixed-provider-actions-are-not-video-only"] = [.applyWallpaper,.favorite,.addToPlaylist,.info,.preview,.revealOrRefresh].allSatisfy{delegate.validateMenuItem(item($0))}
         for command in [MainMenuCommand.applyWallpaper, .addToPlaylist, .info] {
             controller.libraryCommands.selectionReads=0

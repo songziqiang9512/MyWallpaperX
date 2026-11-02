@@ -85,9 +85,11 @@ import AppKit
             }
             guard controller?.libraryPresentation.selectionState.isSelecting == false, let commands else { return false }
             let selection = commands.selection
-            guard selection.count == 1, selection[0].capabilities.contains(.play),
-                  let primary = commands.makePrimaryAction(for: selection[0]) else { return false }
-            item.title = commands.workspace.isPlaying(selection[0].reference) ? "停止播放" : "设为壁纸"
+            guard selection.count == 1, selection[0].capabilities.contains(.play) else { return false }
+            let playing = commands.workspace.isPlaying(selection[0].reference)
+            guard let primary = commands.makePrimaryAction(for: selection[0], renderedPlaying: playing,
+                renderedTicket: commands.manager.playbackSwitch.committed?.ticket) else { return false }
+            item.title = playing ? "停止播放" : "设为壁纸"
             item.representedObject = localAction(for: selection.map(\.reference), perform: primary)
             return true
         case .nextWallpaper, .previousWallpaper:
