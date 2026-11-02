@@ -6,8 +6,8 @@
 
 开批速览（每批动手前先读这里，再核 Git 状态；按需查对应 owner 和下文，不顺读全文）：
 
-- 已裁决至R101（R61按优先级后补）。个人设置导入弹窗消失/设置变暗已由 R55（`ad1f3142d`）修复；测试 App 已交付，原配置完整导入仅待用户实测，没有新复现不重新修复、构建或复跑。
-- 近期已完成：R101 媒体需求只准备布尔值；R99 Web 零消费者API尾链退役；R100 将 R89–R99 非连续十段已结摘要归入[历史记录](../history/cross-topic/code-slimming-r89-r99-closeouts-2026-11-03.md#completed-r89-r99)，保原载荷与验证上限。较早批次沿历史入口回查；已完成项不作为新候选。
+- 已裁决至R102（R61按优先级后补）。个人设置导入弹窗消失/设置变暗已由 R55（`ad1f3142d`）修复；测试 App 已交付，原配置完整导入仅待用户实测，没有新复现不重新修复、构建或复跑。
+- 近期已完成：R102 状态栏速率字符串局部复用；R101 媒体需求只准备布尔值；R99 Web 零消费者API尾链退役；R100 将 R89–R99 非连续十段已结摘要归入[历史记录](../history/cross-topic/code-slimming-r89-r99-closeouts-2026-11-03.md#completed-r89-r99)，保原载荷与验证上限。较早批次沿历史入口回查；已完成项不作为新候选。
 - 保留/拒绝：R55 一次 Save 取消超时尚未归因；R56 绕过 TIFF 的候选因像素/尺寸差异已拒绝。较早 R23/R38/R43 的保护边界仍有效。
 - R62已交付：[本地资源先呈现与缩略图回访](local-library-loading-design.md#overview)。先解决启动短暂不可用和本地网格滚回黑卡，覆盖视频、图片及自建列表；已完成实现、最近门、Steam消费者及签名Debug；保留三项原生限制，真实用户库体感待人工验收。R61冷态导航已完成验证，见下文；不重复本专项。
 
@@ -25,7 +25,9 @@
 
 最近文档整理：R100将R89–R99非连续十段已结摘要逐字移入历史，仅可逆重定位一条相对链接；现役范围、待验、保留项和永久入口不变。产品/测试0；本批只核文档载荷、角色、预算与引用，不复验旧产品。
 
-最近产品验证：R101共享媒体producer的private consumers原compactMap→Set只供八处非空判断；改computed hasMediaDemand Bool，产品9增11删净−2、测试0，无新状态/helper。八处（6直接/2 self）仍原位新鲜读取，保同步publish重入、异步epoch/selection/授权、UUID/lease/fanout、web artwork及全部Scene/Web接口；不触Scene引擎。相同原provider完整class旧/最终各33方法、34模式×DEBUG/优化-O共68次用例，stdout无需归一化逐项全等，各6306源码输入/70实际子过程稳定；完整真实Service/Store/WebArtwork/Palette配受控平台来源和偏好，不称真实权限/音乐App或引擎渲染。Root分组计数误判导致的误标旧码臂已中止、排除并清理，正式最终臂绑候选SHA；未计作新码通过。签名Debug26.591秒/5867输入稳定、strict/deep过，仅原两C#警告，独立静审接受。只认显式中间集合准备退出，不认领实际分配、时耗或能耗。
+最近产品验证：R102状态栏applyMetrics原为可见文本/AX重复取netUpString和netDownString；改两个局部let复用，产品6增4删净+2、测试0，无新state/helper/cache，值类型输入、格式算法及采样owner不改。源码getter读取4处→2处，仅面板刷新时的小收益，不称采样/IO或实测formatter次数、时耗/能耗。旧/新现役面板门编完整真实四文件和原动作片段，均6306输入/2实际进程稳定、PASS标记同且无约束冲突诊断；SystemStats为固定字符串叶，未测完整App计时器接线或真实格式化成本。签名Debug23.621秒/5867输入稳定、strict/deep过，仅原两C#警告，独立静审接受；UI文案、AX上传/下载对应、alignment和布局保持；仅两局部声明及四插值引用改变，不涉及Scene引擎/接口。
+
+前批R101共享媒体producer的private consumers原compactMap→Set只供八处非空判断；改computed hasMediaDemand Bool，产品9增11删净−2、测试0，无新状态/helper。八处（6直接/2 self）仍原位新鲜读取，保同步publish重入、异步epoch/selection/授权、UUID/lease/fanout、web artwork及全部Scene/Web接口；不触Scene引擎。相同原provider完整class旧/最终各33方法、34模式×DEBUG/优化-O共68次用例，stdout无需归一化逐项全等，各6306源码输入/70实际子过程稳定；完整真实Service/Store/WebArtwork/Palette配受控平台来源和偏好，不称真实权限/音乐App或引擎渲染。Root分组计数误判导致的误标旧码臂已中止、排除并清理，正式最终臂绑候选SHA；未计作新码通过。签名Debug26.591秒/5867输入稳定、strict/deep过，仅原两C#警告，独立静审接受。只认显式中间集合准备退出，不认领实际分配、时耗或能耗。
 
 <a id="completed-r89-r99"></a> [归档记录](../history/cross-topic/code-slimming-r89-r99-closeouts-2026-11-03.md#completed-r89-r99) <!-- archive-redirect -->
 

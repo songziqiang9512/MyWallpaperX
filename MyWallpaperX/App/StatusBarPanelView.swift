@@ -168,11 +168,13 @@ final class StatusBarPanelView: NSView {
         metricValues[0].toolTip = "本应用、播放进程及其子进程 CPU 使用率；100% 为一个核心（不含无法归属的系统 XPC 服务）"
         metricValues[1].toolTip = "系统全部 GPU 使用率"
         metricValues[2].toolTip = "本应用、播放进程及其子进程物理内存（不含无法归属的系统 XPC 服务）"
-        upload.stringValue = "↑  \(stats.netUpString)"
-        download.stringValue = "↓  \(stats.netDownString)"
+        let uploadText = stats.netUpString
+        let downloadText = stats.netDownString
+        upload.stringValue = "↑  \(uploadText)"
+        download.stringValue = "↓  \(downloadText)"
         download.alignment = .right
-        upload.setAccessibilityLabel("网络上传速度 \(stats.netUpString)")
-        download.setAccessibilityLabel("网络下载速度 \(stats.netDownString)")
+        upload.setAccessibilityLabel("网络上传速度 \(uploadText)")
+        download.setAccessibilityLabel("网络下载速度 \(downloadText)")
     }
 
     override func layout() {
