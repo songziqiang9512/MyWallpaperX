@@ -2,7 +2,7 @@
 
 <!-- document-role: current-state -->
 
-> 复核：2026-11-02，依据当前工作树源码静态核对入口、构造、调用与释放；不代表本轮重新通过运行或性能验收。
+> 复核：2026-11-03，按当前源码核入口、准备/帧、组件采用和释放；运行证明只取对应证据，静态地图不升级为性能或全能力验收。
 >
 > 本图只回答实际代码怎样接线。长期职责归[运行时架构](runtime-architecture.md)，语言与进程边界归[技术栈合同](../../architecture/technology-stack-boundaries.md)，能力与实际运行分别查[能力台账](../capabilities/coverage-ledger.md)和[运行证据](../capabilities/runtime-evidence-current.md)。目标与现状不同的部分，按明确的重构事项处理，不把现状提升为规范。
 
@@ -56,7 +56,7 @@ App 产品意图与当前记录
 | 场景 preparation | Host.launchPreparationQueue 与既有资源/预热 worker | 产物发布到当前请求；取消后不接管新请求身份 |
 | 帧驱动、QuickJS、模拟与编码 | daemon 主 RunLoop；Session 使用一次性 Timer 排帧 | 激活时 VM adoptCurrentThread；搬线程必须一起迁移 VM、输入、Surface 和提交生命周期 |
 | 作者 Shader 编译 | 固定编译工具的独立子进程 | 输出 artifact/reflection；不持有桌面或 compositor |
-| MTLLibrary/PSO | 既有graph/source准备入口写PassEncoder唯一正/负缓存 | 普通帧只查询；未准备key局部typed失败，合法遗漏回原warmup修正 |
+| MTLLibrary/PSO | 既有graph/source准备入口写PassEncoder唯一正/负缓存 | 普通帧只查询；未准备key局部typed失败，合法遗漏回原warmup修正，可选archive发布不阻挡ready |
 | 视频、文字、资源与存储 | 各已有 worker/inbox；Scene 在边界接纳结果 | pending 保留旧有效产物，迟到结果不能覆盖新来源 |
 | GPU 终结 | Metal completion 与既有 owner 回投 | 回调只提交原身份的完成事实；不能读取 mutable current 后重贴身份 |
 
@@ -79,7 +79,7 @@ App 产品意图与当前记录
 | 声音实例 | `Systems/Media/SceneSoundPlaybackProgram`、`SceneSoundPlaybackRegistry` | [声音与频谱分工](../capabilities/runtime-systems-reference.md#72-audio) |
 | Puppet/模型与动画 | `Systems/Puppet/`、`Systems/Animation/`；[Surface装配](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfacePuppets.swift)、[骨骼帧](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfacePuppetBones.swift)、[GPU几何](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/ScenePuppetMeshGeometry.swift)及同目录`ScenePuppetClipping` | [高级对象](../capabilities/advanced-object-coverage.md) |
 | 资源与 provider | `Resources/Assets/`、`Resources/Textures/`、`Resources/Providers/`、`Systems/Media/` | [资源准入](../architecture/scene-resource-admission.md) |
-| 材质与 graph | `Compilation/Material/`、`Compilation/Graph/`、`Rendering/Graph/` | [Graph/Shader](../capabilities/render-graph-shader-coverage.md) |
+| 材质与 graph | `Compilation/Material/`、`Compilation/Graph/`负责准备，`Runtime/Frame/SceneResolvedMaterialExecutionCapabilityCatalog`持运行声明与claim，`Rendering/Graph/`消费 | [Graph/Shader](../capabilities/render-graph-shader-coverage.md) |
 | 图层合成与输出 | `Rendering/Composition/`、`Rendering/Frame/SceneMetalRenderer`和 surface | [运行时架构](../architecture/runtime-architecture.md) |
 
 路径以 `MyWallpaperX/Core/SteamWorkshopScene/` 为根；这些是当前定位信息，不冻结未来目录或类型名称。
@@ -101,23 +101,24 @@ App 产品意图与当前记录
 | 产物 | 准备、持有与失效 |
 | --- | --- |
 | 场景、资源与作者描述 | RuntimeModelBuilder 从唯一 source facts 构造；launchContext 保留执行所需数据，相关内容改变后重新准备 |
-| 材质与 Shader artifact | Catalog交接Demand格式槽结果，Variant形成mixed/named、候选purpose和graph-input事实。PreparedAssembly唯一持有静态uniform计划、layout及identity；帧只传当前值/资源，Program、replay和诊断读取同一计划。SourceMaterial仅投影全部声明dynamic targets供live property准入，frame不另配template；launch选择、设备键与能力构造余债按唯一队列整理 |
+| 材质与 Shader artifact | Catalog交接Demand格式槽结果，Variant准备launch选择、mixed/named、purpose及graph-input事实；每个已准入product共享Template GraphScope，整批准备沿原取消检查退出。HostUniformSchema在准备分类，Finalizer/Variant/ColorBlend直接调用；UniformEncoder只编码已分类host/current。PreparedAssembly唯一持静态uniform计划、layout及identity，设备warmup复用该身份。Compilation构造执行能力，Runtime/Frame Catalog持声明、identity/map与claim；Material仍有真实Template/Variant准备消费者，帧经bindFrame方法消费静态资格及当前资源，Bridge只接所需demands |
 | 纹理、模型与粒子定义 | 后台设备资源任务与资源 loader 准备；实例和 Surface 消费结果；资源来源、用途、device 与 revision 决定复用 |
-| Shader直接结果与持久cache | Compiler同次交typed artifact/encodedData，原makeProgram验证采用；ArtifactCache持久发布和GenericShaderAnalysis store可选utility执行，flight不等待写盘/读回。2MiB只限cache文件，目录不可用不撤当前结果，真正MSL/ABI/工具输出边界保持 |
-| MTLLibrary、PSO、sampler | 原 repository/PassEncoder 缓存；同一来源合并编译，launch warmup 提前准备当前需求 |
+| Shader直接结果与持久cache | Compiler同次交typed artifact/encodedData，原makeProgram验证采用；ArtifactCache与GenericShaderAnalysis、AuthoredShader Preparation、Frontend Program、Material DemandAnalysis及VariantAnalysis的完整可选持久发布均交utility。Frontend内存采用保持同步，flight不等待持久写盘/读回；目录不可用不撤当前结果，cache文件预算与真正MSL/ABI/工具输出边界分开 |
+| MTLLibrary、PSO、sampler | 原repository/PassEncoder合并来源并缓存正/负结果，launch/source准备warmup；PSO ready先返回，可选binary archive由原owner交utility完整发布，prune I/O不占once锁 |
 | Puppet准备与实例 | PreparedPuppetResources保CPU资产及作者/default pose，`ScenePreparedDeviceResources+Puppets`在BaseImageResources一次准备paint，PipelineRepository按需准备clipping PSO；Surface经同步资源hook装配几何，有播放实例时注册会话动画runtime后安装CPU/GPU。Surface负责成员、骨骼ABI与冻结RenderFrame，View.puppetGeometries保GPU存储/发布；已提交删除同步退休实例，表面退出清CPU后沿原GPU drain释放 |
 | GPU 纹理和 buffer | 通过 makeSceneTexture/makeSceneBuffer 等分配入口绑定实际资源 lease；额度随实际对象释放，候选和退役资源仍计费 |
 | decoded 中间缓存 | SceneTextureDecodeCacheBudget 与进程父额度共同约束；不命中或不保留中间缓存仍可沿原解码/上传路径播放 |
 | 用户选择纹理 | PreparedLaunch短期携初始结果，候选激活显式移交Session；Session保存唯一活动结果，View仅保存绘制快照。LaunchContext无纹理镜像，新表面读Session当前结果，旧绑定沿原completion/drain释放 |
 | 视频与 Sound | Session 的实际播放 registry 持有可变播放状态；私有媒体文件使用原 OwnedFile/AV borrower 生命周期，stop 不冒充全部 AV 借用已结束 |
-| 动态文字 | Session唯一Store准备初始raster并后台更新；每attempt共享ready snapshot，View独立保存prepared/submitted几何。任一屏提交后消费单份pending输入；重建复用producer，完整stop挂既有retirement fence后清引用 |
+| 动态文字 | Session唯一Store准备初始raster并后台更新；每attempt共享ready snapshot，View保prepared/submitted几何。任一屏提交后消费单份pending输入，并按已采用topology退休活动producer/raster/任务发布权；prepared clone模板与冻结快照保原寿命。重建复用Store，完整stop挂原retirement fence后清引用 |
 | SceneScript localStorage | Candidate成功构造实际scalar/vector/string/cursor实例后、configure前prepare同一Session；零实例不读。帧read/apply/begin纯内存，activate合并前任最新envelope，原PersistenceCoordinator后台写出/重试 |
 | Sprite与Timeline | Session在原Surface执行阶段一次采样Sprite时间；destroy commit退休原runtime活动状态与Timeline轨道，保Program/named索引和幸存anchor。View在采用新topology时退休GPU实例，paused旧帧保原资源/UV；rebuild构造前排除死成员，MPS completion持有在途playback至完成 |
 | 动态图层 | Mutation Runtime/Plan保存出生Layer与原typed current；资源、创建尺寸和seed只在出生准备。结构revision缓存Layer数组及Renderer projection，同revision不回填live字段；当前值沿Session snapshot进入原消费者 |
 | 媒体封面 | Session唯一Store生产current/previous及各purpose；每cadence一次snapshot供VM/各View，View只保冻结snapshot与输入generation。共享pending在任一屏提交后请求一次，重建复用，完整stop撤权后沿retirement group排空 |
-| 目标与 history | 原 Surface pool、graph target 与 completion owner 管理；受 SceneResourceBudget 父额度约束，history 与 submission pin 决定可释放时机 |
+| 目标与 history | 原Surface pool、graph target与completion owner管理；Surface采用destroyed成员时，Coordinator清该layer的committed及pending final tails，退休pins并入原terminal释放。named独立copy与冻结/在途资源保原寿命；父额度、history及submission pin共同约束释放 |
+| 准入与诊断 | Host唯一构造EffectAdmissionCatalog；Release View/Renderer只收原verified XRay Set。DEBUG在原Surface装配一次投影Disposition，EffectExecutionTelemetry保真正供报告/summary消费的结果，logURL关闭不建完整报告；观测不控制提交 |
 | 运行属性与脚本状态 | Session 的 LaunchContext、frame schema 和 program；JS heap 不随 typed admission 失败复制或回滚 |
-| 帧资源发布 | 每个 Renderer 的 SceneFrameTextureRegistry；beginFrame、commit/discard 和完成信息共同确定可见版本 |
+| 帧资源发布 | 每个Renderer的SceneFrameTextureRegistry；beginFrame、commit/discard和完成信息确定可见版本。属性或system provider的accepted absent退出对应长期publication，discard保基线，冻结/在途快照保原持有 |
 
 资源父额度计费应用通过入口分配和持有的部分，不等于 Metal/AV/WindowServer 全部内存。精确覆盖、限制与未计入项查[资源准入设计](scene-resource-admission.md)。已存在进程父额度，不能继续把“没有跨 Surface 聚合 cap”当作当前缺口。
 

@@ -20,22 +20,29 @@
 各族未闭项以对应现役专项表和[唯一断点队列](../roadmap/scene-open-breakpoint-queue.md)为准；不同身份的历史记录不能合并成一次全引擎验收。
 
 <a id="architecture-integration-20261102"></a>
-### 架构迁移阶段证据
+### 架构迁移与联合验收
 
-[2026-11-02冻结后验](../history/runtime-evidence-index.md#e-architecture-final-integration-20261102)记录11个能力族退出和12次direct-host跨族运行，仅是阶段证据，不能证明整体架构已完成。材质准备/帧边界、Sprite/当前拓扑与实际产品daemon验收继续按[唯一队列](../roadmap/scene-open-breakpoint-queue.md#51-顶层设计已裁决的代码职责重构)推进。登记范围内未证新增回退，原FAIL及改名文字、动态过渡/交互资格仍保留；暂停文字门已通过，三轮成本没有认领整体提速。完整语料、物理多屏、长期切换、能耗与正式Release未验；历史结果不因继续改造而重写或升级。
+2026-11-03的现役职责已按准备、typed帧、资源采用与GPU退出重新核对。固定实验仍绑定各自源码和App；最终普通App `43e5cb80…`及隔离产品入口App `123d0b6f…`均已Debug `-O`构建并严格验签，不由静态门推定可见能力。
 
-[M1](../history/material-preparation-boundaries-2026-11-02.md#m1-format-slot-handoff)已交接格式/槽位，[M2](../history/material-preparation-boundaries-2026-11-02.md#m2-prepared-uniform-frame)已收敛帧 template 与静态 uniform 计划；真实 GPU、签名 App 固定像素、原包/邻例分别有界通过，原载体失败保留。Launch、设备键、能力交接及产品 daemon 继续开放，不认领整体性能收益。
+| 职责与证明边界 | 固定记录 |
+|---|---|
+| 格式/槽位、静态uniform、Launch与设备/资源身份 | [M1/M2及M3](../history/material-preparation-boundaries-2026-11-02.md#m3-launch-device-resource)：真实准备、资源、GPU和原包边界各自保留 |
+| 执行能力、运行声明与取消 | [准备结果交接](../history/material-preparation-boundaries-2026-11-02.md#prepared-execution-handoff)、[GraphScope/Catalog](../history/material-preparation-boundaries-2026-11-02.md#catalog-scope-and-cancellation)：真实Graph六门及未入场/在途取消反例 |
+| Schema、typed输入与Admission | [Schema](../history/material-preparation-boundaries-2026-11-02.md#direct-host-schema-preparation)、[输入值](../history/material-preparation-boundaries-2026-11-02.md#typed-input-value-semantics)、[最小观测交接](../history/material-preparation-boundaries-2026-11-02.md#minimum-admission-observation-handoff)：保必要身份、XRay与失败归因 |
+| 可选缓存与准备期I/O | [直接产物](../history/shader-result-cache-boundary-2026-11-03.md#optional-cache-adoption)、[四cache](../history/shader-result-cache-boundary-2026-11-03.md#four-preparation-caches)、[PSO archive](../history/shader-result-cache-boundary-2026-11-03.md#pso-ready-before-archive)、[storage](../history/storage-preparation-2026-11-03.md#storage-before-frame)：坏根、暖命中及受控阻挡反例，不认领整体提速 |
+| 组件活动退休与冻结消费 | [分族寿命后验](../history/topology-lifecycle-2026-11-03.md#sprite-timeline-retirement)、[history采用退出](../history/topology-lifecycle-2026-11-03.md#adopted-graph-history-retirement)：CPU、真实Metal/pin及App分别取证，暂停不冒充销毁 |
+| 系统输入与provider | [活动需求](../history/topology-lifecycle-2026-11-03.md#live-system-input-retirement)、[accepted absent](../history/topology-lifecycle-2026-11-03.md#system-provider-absence)：最后consumer退出、hidden/bad-return正控及真实弱引用/Media Store；不外推物理采集 |
+| 当前camera与健康邻例 | [当前拓扑](../history/camera-current-topology-2026-11-03.md#current-camera-topology)：删除、排序、回退与双深度ROI，保相邻camera/Puppet边界 |
+| 实际产品入口 | [产品daemon链](../history/topology-lifecycle-2026-11-03.md#product-daemon-control-chain)：最终隔离App已回验首呈现/parent-finalized、同request热改、冻结/恢复、切B释放A、stop/drain及真实子进程退出 |
 
-[Sprite/Timeline退休](../history/topology-lifecycle-2026-11-03.md#sprite-timeline-retirement)有真实VM、MPS事务、暂停冻结UV和同Session双Surface重建/恢复的有界证据；产品daemon控制链及其余活动消费者退休继续开放。
+[最终联合后验](../history/topology-lifecycle-2026-11-03.md#final-joint-architecture-qualification)已完成：普通App生命周期门与产品daemon链通过；原12协议的5个PASS、7个原raw FAIL保持，无新增语义计数/VM失败，全部退出0并GPU排空。两原包及有界画面对照保迁移前内容；293另固定指针对照，未控相位、15健康peer与24过渡限制保留，不把旧身份拼成新运行。
 
-[直接shader结果/可选cache](../history/shader-result-cache-boundary-2026-11-03.md#optional-cache-adoption)复现旧App文件根白图，并由新App正常/文件根/只读根的固定像素门关闭该依赖；真实cache/GPU及原包边界分别保留，不外推整体性能。
-
-[localStorage准备](../history/storage-preparation-2026-11-03.md#storage-before-frame)已用真实Candidate/同Session磁盘变更、19事务反例及相邻VM门确认帧不重新打开文件；保前任merge，不认领启动或能耗收益。
+[2026-11-02阶段后验](../history/runtime-evidence-index.md#e-architecture-final-integration-20261102)仍只说明当时11族与12次direct-host边界。专用[项目Skill](../../../.agents/skills/mywallpaperx-maintainer/SKILL.md)经独立源码路由复核未发现过时方法，无需为本次状态重写；当前任务与后继缺口只查[唯一队列](../roadmap/scene-open-breakpoint-queue.md)。完整语料、物理多屏、长期稳定、官方parity、整体性能/能耗和正式Release不由本次结构整理认领。
 
 <a id="evidence-lifecycle"></a>
 ### 准备与生命周期
 
-[启动结算](../../history/cross-topic/wallpaper-startup-optimization-completed-2026-10-25.md)保留候选、缓存及原始失败；[会话文字](../history/runtime-evidence-index.md#e-session-text-production-20261102)与[媒体封面](../history/runtime-evidence-index.md#e-session-media-production-20261102)分别记录生产、冻结消费与退场。瞬态峰值、物理多屏、长稳及整体性能不能由这些独立记录合并推出；当前 owner 查[代码地图](../architecture/runtime-as-built-map.md)。
+[启动结算](../../history/cross-topic/wallpaper-startup-optimization-completed-2026-10-25.md)保留候选、缓存及原始失败；[活动文字退休](../history/topology-lifecycle-2026-11-03.md#text-producer-retirement)、[会话文字](../history/runtime-evidence-index.md#e-session-text-production-20261102)与[媒体封面](../history/runtime-evidence-index.md#e-session-media-production-20261102)分别记录生产、冻结消费与退场。瞬态峰值、物理多屏、长稳及整体性能不能由这些独立记录合并推出；当前 owner 查[代码地图](../architecture/runtime-as-built-map.md)。
 
 <a id="evidence-script-properties"></a>
 ### 脚本与属性
@@ -45,7 +52,7 @@
 <a id="evidence-input-media"></a>
 ### 输入与媒体
 
-[物理 Cursor 与最终放置](../history/runtime-evidence-current-through-2026-11-02.md#physical-pointer-ingress-20261023)、[音频 IPC](../history/runtime-evidence-current-through-2026-11-02.md#audio-ipc-version-20261021)和[视频定位/供帧](material-video-assets.md#video-position-publication)按各自输入与观测边界读取。合成注入、单窗短播不外推物理输入、真实系统来源、跨 loop、所有 seek/多实例组合；当前范围查[输入合同](runtime-input-property-coverage.md)与[视频合同](material-video-assets.md)。
+[活动需求退休](../history/topology-lifecycle-2026-11-03.md#live-system-input-retirement)、[物理 Cursor 与最终放置](../history/runtime-evidence-current-through-2026-11-02.md#physical-pointer-ingress-20261023)、[音频 IPC](../history/runtime-evidence-current-through-2026-11-02.md#audio-ipc-version-20261021)和[视频定位/供帧](material-video-assets.md#video-position-publication)按各自输入与观测边界读取。合成注入、单窗短播不外推物理输入、真实系统来源、跨 loop、所有 seek/多实例组合；当前范围查[输入合同](runtime-input-property-coverage.md)与[视频合同](material-video-assets.md)。
 
 <a id="evidence-text-image"></a>
 ### 文字与图片
@@ -60,7 +67,7 @@
 <a id="evidence-particles"></a>
 ### Particle Systems
 
-[Surface 实例与 GPU 后验](../history/runtime-evidence-index.md#e-particle-surface-gpu-ownership-20261102)及[同层只读折射深度](../history/particle-material-depth-2026-11-01.md#bounded-result)保留相应生命周期、邻例和原矩阵/呈现 FAIL。参数资格 STOP、整图相位、物理多屏及整体性能边界保持；逐项入口查[粒子合同与状态](particle-component-coverage.md)。
+[活动root/child退休](../history/topology-lifecycle-2026-11-03.md#particle-retirement)、[Surface 实例与 GPU 后验](../history/runtime-evidence-index.md#e-particle-surface-gpu-ownership-20261102)及[同层只读折射深度](../history/particle-material-depth-2026-11-01.md#bounded-result)保留相应生命周期、邻例和原矩阵/呈现 FAIL。参数资格 STOP、整图相位、物理多屏及整体性能边界保持；逐项入口查[粒子合同与状态](particle-component-coverage.md)。
 
 <a id="evidence-puppet-model"></a>
 ### Puppet 与模型
@@ -99,6 +106,8 @@
 
 <a id="local-evidence-availability"></a>
 旧本机路径只表示执行当时的 provenance。可用载荷和已清理来源查[样本验收台账](scene-sample-acceptance-ledger.md)；缺失载荷不能当作 fresh 复现，也不能据缓存消失重开已修反馈。
+
+本轮联合证据封存于`.artifacts/scene-evidence/runs/scene-architecture-convergence-20261103/`，按原报告保留样本载荷、原生/Metal门、身份和必要画面，默认14天且每包≤32MiB。元数据包保存临时来源与清理凭据；临时App、样本副本和DerivedData不作长期证据，生成台账的既有人工裁决未改。
 
 ### 旧锚点兼容导航
 

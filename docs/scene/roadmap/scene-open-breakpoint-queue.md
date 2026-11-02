@@ -2,7 +2,7 @@
 
 # Scene 当前断点修复队列
 
-> 更新：2026-11-02。这里只保具体未闭问题；按**画面合成/正常播放 → 有证性能成本 → 属性接线 → 合同与验证债**选序，同档先补真实缺失能力、再扩大既有覆盖，服从[兼容路线](scene-compatibility-roadmap.md)。已闭首门、正常/误报及旧批背景移入[退出记录](../history/open-breakpoint-reconciliation-2026-10-23.md)。部分修复按子现象退出，不销整样本账。
+> 更新：2026-11-03。这里只保具体未闭问题；按**画面合成/正常播放 → 有证性能成本 → 属性接线 → 合同与验证债**选序，同档先补真实缺失能力、再扩大既有覆盖，服从[兼容路线](scene-compatibility-roadmap.md)。已闭首门、正常/误报及旧批背景移入[退出记录](../history/open-breakpoint-reconciliation-2026-10-23.md)。部分修复按子现象退出，不销整样本账。
 
 “运行首拒”不等于缺图；“待复验”不等于当前HEAD缺陷。默认隐藏、空媒体、作者入场/延迟、未ready、没有golden或未验更宽profile均不单独排实现。矩阵PASS/FAIL不代视觉裁决。样本原verdict及运行关联归[台账](../capabilities/scene-sample-acceptance-ledger.md)，分母归[声明统计](../capabilities/scene-corpus-capability-inventory.md)，现存证据身份归[运行记录](../capabilities/runtime-evidence-current.md#local-evidence-availability)。
 
@@ -136,6 +136,7 @@
 | 3749463715观感低帧率 | 锁设备/App、属性/窗口及实际提交/呈现率，区别U40重复拖动，不从观感直接判性能回归。 |
 | U24 · 3420215721提交率 | 旧未提交1879需当前分母/drop原因；60秒931帧已不freeze，不认当前预算不足。 |
 | 轻重切换驻留上移 | 已缩到purgeable分配、持有owner未定；先有效分配来源/退出平台，不重复无caller整轮切换或写allocator泄漏。[资格](../history/scene-switch-residency-qualification-2026-10-15.md) |
+| 多Surface静态设备准备复用候选 | PassEncoder逐Surface warmup属现正确owner/generation边界，普通帧不编译；DisplayMapping可优先实测成功实例复用，Bloom不能共享含targets整实例。先量第二屏准备成本，再复用原repository；不得扩大negative-cache失败寿命或为清库存新建cache |
 
 <a id="properties-open"></a>
 ## 4. 属性编辑余项
@@ -172,9 +173,9 @@
 | 样本脚本/配置归属 · 3028048463 /3280903509 | 当前302的531.alpha在默认player层全隐藏时访问空数组；328的225.alpha返回Vec3并报BAD_RETURN，脚本本属clearcolor。未证缺API；保原回退，不吞错、不强转scalar。若要修样本可见缺失，先核官方同默认/媒体/属性时序，区分作者配置与引擎语义；不能因同样TypeError合修。 |
 | 诊断计数 · instanced solid | 新增3280903509/3303319749/3347416586/3350026230/3357689320中21层已沿普通asset通道加载white，却因成功正则只计procedural solid而报不全。沿原producer/parser用真实solid身份统一分母/分子；保真加载失败与普通image反例，不能把所有white纹理都当solid。原报告保留，不将其记成引擎缺纹理。 |
 | 短窗未决资源/graph观察 | 旧453默认4秒：56例solid、7例image、4例particle候选数未全加载，15例layer-source-not-ready；含隐藏、alpha0、按需或已退休层，非全部缺图。2804817823/3039882306旧窗虽Ready但图单元缺完成，先锁active consumer/媒体或延迟；3292370168已用f753/7f53同原包/静音复验：direct29各123条animated GPU完成且实图保持，loaded0.8333及8项utility/graph期待失败相同（含505 capture，planned3），按[冻结后验](../history/runtime-evidence-index.md#e-puppet-surface-gpu-ownership-20261102)回原图像资源/utility与graph观测owner核活动consumer，保raw，不属本轮架构回退；正常双视频告警不重开已确认正常的Xray。新增3186328539的1045未ready后alpha0/hidden不代表缺图。3763323436缺project归输入不完整，不改引擎迎合。 |
+| 验证债 · 隔离Startup的extension清理 | 本轮Scene daemon已排空后，早期Debug.Startup的SystemWallpaper appex仍由launchd持有专用DerivedData，未在Scene子进程树内；本轮按精确路径/启动时间退出，保外工作树进程，记录见`final-owned-extension-cleanup.json`。后续从现有`wallpaper_startup_benchmark.child_processes`及`SceneProductDaemonLifecycleIntegrationTests`收尾核隔离bundle的服务归属/清理，不向Scene帧或daemon增加轮询、也不按进程名全局终止；是否稳定重现另验。 |
 | 验证债 · 连续PNG采样 | 同一自有载体0.5s及1.5s连续采样均有superseded，前者另有teardown capture失败；原包普通两图成功，不能当播放器缺图。现有晚窗图虽完成，注册因果仍UNKNOWN。先核实际snapshot队列/导出与采样职责，不重复高频全图或改变产品渲染来消报告；[反证](../history/corpus-log-audit-2026-10-29.md#declared-framebuffer-shadow-20261030)。 |
 | 验证债 · 文本改名载体15的健康peer资格 | 自有9000000015的90/91/92在旧基线、旧候选和最终App均无texture URL、solidLayerCount0，预设green/blue ROI实为背景；它只证主文字/clone生命周期，不能证健康peer。14的对应ROI三侧均正常；若后续需15的peer反例，先修自有输入/矩阵资格，不改产品迎合。[冻结对照](../history/runtime-evidence-index.md#e-architecture-final-integration-20261102)及`final-architecture-native-comparison.json`保原图/计数。 |
-| 静态依赖债 · Rendering→Compilation混合namespace | [机器库存](../../../script/scene_dependency_baseline.json)随M1实际职责退出由44收紧至40条词法边，未归零；其中Token/DTO和诊断消费须与真实parser/选择算法分开。有限审查未证steady重解析，不关闭[合同明确禁止的准备跨层](../architecture/scene-dependency-boundaries.md)；剩余launch选择、设备身份及能力载体按[下节](#51-顶层设计已裁决的代码职责重构)继续实施，不新增wrapper/cache或公开内部算法清数字。原阶段范围见[冻结审查](../history/runtime-evidence-index.md#e-architecture-final-integration-20261102)。 |
 | 验证债 · named geometry独立像素probe入口 | 当前老入口的编译源列表缺SceneMaterialRenderState，且引用DEBUG CounterHub却未传DEBUG；未取得fresh独立像素门结果。后继在原fixture职责中补齐真实依赖/配置，保来源身份与原断言；不据此改产品或把编译失败算像素失败。当前几何content修复已有真实Coordinator门及原包/独立样本App画面，见[关闭边界](../history/open-breakpoint-reconciliation-2026-10-23.md#geometry-named-content-20261029)。 |
 | 粒子unsupported与位置映射 | mapsequencebetweencontrolpoints、其余CP约束、Mirror、nested/event、非均匀child变换、深duration/9999 delay及322的68→64 matrix child预算独立开放，后者像素/成本待资格；只在真实active consumer有资格时实施。Position Around默认Z有效映射有反证，但斜轴六候选全拒；须新可区分出生/空间证据，不拟合phase/重跑旧板，不关闭311/379方向与速度。[位置边界](../capabilities/particle-component-coverage.md#position-around-position-mapping) |
 | <a id="particle-cp-distance"></a>3742497499 · CP距离/death child | [parseOperator](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser+Operator.swift)无maintaindistancetocontrolpoint case，Simulator无typed位置约束消费者；135默认活跃/GPU有输出但此算子未接。death child在multiplysize/setopacity拒，setcolor已接，174隐藏不算consumer。距离及六板均STOP；先资格distance/variable-strength/轨迹，不能替为maintaindistancebetweencontrolpoints；另分Alpha初始化、事件输入、尺寸消费与真实splash ROI，不跳未知mode或用root计数替child。[资格](../history/particle-initializer-qualification-2026-10-23.md#event-inheritance) |
@@ -184,28 +185,20 @@
 
 ### 5.1 顶层设计已裁决的代码职责重构
 
-整体架构整理继续，尚未完成。已有11族退出与有界运行归[第一阶段后验](../history/runtime-evidence-index.md#e-architecture-final-integration-20261102)，不能替代全部组件职责与产品入口验收。按[总设计](../architecture/runtime-architecture.md)和[迁移合同](engine-refactor-program.md#架构级迁移合同)，先关闭以下实际准备/帧边界，再沿组件全链补齐审查与运行；独立兼容问题留本队列其他节。当前owner查[代码地图](../architecture/runtime-as-built-map.md)。
+本轮确认的架构职责偏差、相应实现和联合验收已收口，见[最终后验](../history/topology-lifecycle-2026-11-03.md#final-joint-architecture-qualification)；不再把已退出的Launch helper、InputValidator、整AdmissionCatalog运行转运或同步可选cache发布列为待实现。目标仍由[总设计](../architecture/runtime-architecture.md)与[迁移合同](engine-refactor-program.md#架构级迁移合同)约束，实际owner查[代码地图](../architecture/runtime-as-built-map.md)，固定结果分族保存：
 
-| 职责批次 | 已确认差距与目标 | 最近验收与退出 |
-|---|---|---|
-| Launch选择与颜色准入归属 | Rendering的Launch/LaunchSelection/LaunchColor仍反向使用VariantCache分类、mixed解析与颜色推导。按[设计](engine-refactor-program.md#launch准备与帧资源消费分界)归回原准备owner并退役旧入口；帧保当前资源检查 | Finalizer/SamplerDefault/SharedPresence、source-purpose/mixed GPU及实际App准备；纯DTO与算法分别裁决 |
-| PSO准备身份重复推导 | WarmupPlan从raw frontend/state重建shader与render-state身份，binary archive再投影state。按[设计](engine-refactor-program.md#prepared身份与设备准备键)消费既有PreparedAssembly身份，Rendering只附设备/附件事实 | warmup/PassEncoder/terminal与archive冷暖恢复；Metal设备准备仍归原PassEncoder，不回普通帧 |
-| 执行能力与compiler载体交接 | RuntimeBridge持整份RuntimeCatalog实际只消费demands；GraphExecutor直读artifact cache，错误帧仍回Catalog判静态passthrough拓扑并重建1×1 target plan。按[设计](engine-refactor-program.md#已准备执行能力的交接)在原stage准备资格、分离能力构造/载体、缩窄demands，保原claim权威 | Bridge/Executor/stale claim/观测关闭及局部失败；帧保实际transition/history/资源检查，旧字段/API退出，不公开混合namespace清库存 |
-| 资源叶值与GPU实现闭包 | `SceneVFSAssetPath`定义在[Candidate](../../../MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureCandidate.swift)，`SceneTextureLoadPurpose`定义在[Uploader](../../../MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneImageTextureUploader.swift)；纯解析/Sampler值消费者因此借用含Metal/上传的文件。先按真实调用核叶类型及方法职责，再沿现有资源合同分开唯一值与装载/上传，禁止复制enum或用full-cache测试源闭包掩盖 | SourceSets与纯document/template/Timeline/Sampler门保持轻量，原VFS入口和真实纹理purpose/颜色/GPU门保留；属于准备合同整理，不能只改物理位置清数字 |
-| authored粒子活动实例退休 | destroyLayer journal已准粒子删除，commit未撤Surface PlaybackState；[SurfaceParticles](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceParticles.swift)继续advance，Runtime按launch descriptor可回退visible，rebuild再构造死root。按真实root/child消费者在原owner退休，不以隐藏掩盖销毁 | 先真实destroy门资格，再核CPU不推进/不产新batch、活peer/共享定义保留、held GPU批/暂停重绘保留、rebuild不复活和排空；独立于既有Puppet/粒子上传分期完成 |
-| authored文字活动producer退休 | [Text Store](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneDynamicTextTextureStore.swift)仅淘汰dynamic ID，已删除authored text可因保留的launch property输入继续schedule/raster并保publication。prepared clone模板不能删，活动job仅按实际消费者保留 | 真实删除后热改caption；无活/clone/named/particle消费者时无新raster/发布，活peer与仍有消费者场景保留，冻结Surface和在途GPU快照沿原寿命 |
-| 退休后系统Audio/Media/Cursor订阅 | [AudioDemand](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+AudioDemand.swift)只rebuild重算，退休owner后Host读旧缓存；media registrations已无需要时原请求lease仍到整Session停止才退，Cursor最后owner已清而PointerEvents monitors仍保留 | 既有commit/owner退休边界沿原方法重算/释放；证明最后真实consumer退出、活peer/hidden/dormant/实际graph消费者不误停，不加逐帧扫描/第二订阅owner，不预报能耗收益 |
-| 准备期四cache发布 | AuthoredShaderPreparation、Frontend Program、Material DemandAnalysis、VariantAnalysis仍在accepted返回前同步store；GenericShader两cache先前修复不能代验。原owner内保内存flight、可选持久发布整体utility，见重构设计 | shader_persistent_cache/persistent_cache_behavior及坏根/异步暖命中反例；不新增flush/镜像或认领未测启动收益 |
-| Template graphContext与Catalog取消 | RuntimeCatalog按material重扫同一已准入graph；Catalog整批无现有cancel callback、Host调用后才查取消。先原product每stage共享静态范围，未进入项在批边界响应取消，保真实inflight waiters | graph admission/template非法ingress/重复/越域及多pass；真实Catalog构造中取消，不用后置capability取消门代验 |
-| graph history活动退出 | authored graph销毁后只停止prepare，Coordinator committed/scheduled tails仍继承并在completion回写，死history保pin且使健康peer继续serialize | 按实际采用的destroyed成员退出，保named/held及在途完成；真实history/GPU反例，不按hidden或普通LRU清扫 |
-| system provider absent退休 | Media Store clear已发布六purpose absent，但FrameTextureRegistry只为materialUserProperty清committed/prior/persistent，旧system封面仍强持到下次ready/Renderer退出 | 原pending/discard/accepted-reset弱引用门扩system并接实际Store snapshot；保基线撤回及在途资源，非最后订阅退出问题 |
-| 其余组件与产品链终审 | camera/light/Sprite/video/sound/history及资源逐族核准备→实例→帧→GPU→退出；direct-host不能代替产品App→client→daemon。沿[现有Startup设计](engine-refactor-program.md#普通产品daemon的完整控制链验收)贯通选择、热改、暂停恢复、切换/停止 | 真实首呈现/parent-finalized、同request热改、冻结/恢复ROI、B选择和A资源释放、实际GPU drain及子进程退出；保私有标准偏好，不把直接Mux load算产品入口，硬件/全语料范围如实声明 |
-| `SceneRenderDescriptor.Layer` 的作者、准备与实例数据 | 自然尺寸回填保准备计划；未变拓扑revision复用投影，schema索引仅随definition revision重建。作者字符串/默认值与typed当前值有不同消费者，未发现需要继续同步的重复活动树；本轮审查关闭 | 新的真实消费者或重复计算证据才重开，不按字段外观搬家或新建ECS |
-| `LaunchContext` 与 `prepareLaunch` 的交接 | PreparedLaunch是短期交接，Session接管同一Context；用户纹理已撤镜像，文字/封面各一份生产，CPU实例与GPU存储职责已分清；未发现第二活动owner，本轮审查关闭 | 新的取消、串台、退出或重复准备反例才重开，不另造Session或完整场景快照 |
+| 职责族 | 固定后验 |
+|---|---|
+| 材质格式、静态uniform与Launch/设备/资源交接 | [M1/M2与M3](../history/material-preparation-boundaries-2026-11-02.md#m3-launch-device-resource) |
+| 执行能力、运行声明、GraphScope与取消 | [准备能力交接](../history/material-preparation-boundaries-2026-11-02.md#prepared-execution-handoff)、[Catalog边界](../history/material-preparation-boundaries-2026-11-02.md#catalog-scope-and-cancellation) |
+| Host Schema、typed输入与最小Admission观测 | [直接Schema](../history/material-preparation-boundaries-2026-11-02.md#direct-host-schema-preparation)、[输入值](../history/material-preparation-boundaries-2026-11-02.md#typed-input-value-semantics)、[Admission](../history/material-preparation-boundaries-2026-11-02.md#minimum-admission-observation-handoff) |
+| 可选cache、PSO archive及storage分期 | [cache发布](../history/shader-result-cache-boundary-2026-11-03.md#four-preparation-caches)、[archive](../history/shader-result-cache-boundary-2026-11-03.md#pso-ready-before-archive)、[storage](../history/storage-preparation-2026-11-03.md#storage-before-frame) |
+| 组件活动寿命与资源退休 | [Sprite/Timeline及各组件后验](../history/topology-lifecycle-2026-11-03.md#sprite-timeline-retirement)、[history](../history/topology-lifecycle-2026-11-03.md#adopted-graph-history-retirement)、[当前camera](../history/camera-current-topology-2026-11-03.md#current-camera-topology) |
+| 系统输入、provider与产品控制链 | [活动需求](../history/topology-lifecycle-2026-11-03.md#live-system-input-retirement)、[产品daemon](../history/topology-lifecycle-2026-11-03.md#product-daemon-control-chain) |
 
-上述集合不代替全Scene审查。逐族核对Format、Compilation、Resources、Systems、Rendering、Runtime的真实依赖；依赖发布消费原graph输出，FrameDriver前置/最终snapshot仍有不同阶段消费者。新确认的职责问题进入本节，未测不捏造问题；独立点击/过渡资格、既有VM/资源失败及性能专项不因结构修改自动关闭。
+相邻行为门、同输入跨族回归、产品daemon及文档/设计已分别核对；固定结果归各族后验，后续新问题须给具体断点，不建立一套平行验收状态。4条共享cache/digest词法库存经实际调用复核，属于错误摘要、显式DEBUG观察及launch archive基础设施，详[依赖合同](../architecture/scene-dependency-boundaries.md)；没有以此确认普通帧重编译，不为归零复制工具、公开算法或增owner。
 
-已闭的格式/槽位交接见[M1](../history/material-preparation-boundaries-2026-11-02.md#m1-format-slot-handoff)，帧template与静态uniform计划见[M2](../history/material-preparation-boundaries-2026-11-02.md#m2-prepared-uniform-frame)；原载体失败保留，另见[Sprite/Timeline退休后验](../history/topology-lifecycle-2026-11-03.md#sprite-timeline-retirement)。[可选cache阻断](../history/shader-result-cache-boundary-2026-11-03.md#optional-cache-adoption)已独立关闭。[storage帧首读](../history/storage-preparation-2026-11-03.md#storage-before-frame)已独立关闭。其通过不关闭本节剩余职责。
+Layer作者/准备/当前字段、短期PreparedLaunch接管、FrameDriver前置/最终snapshot均有不同实际消费者，未发现需继续同步的第二活动树或owner；完整组件职责审查按Format→Compilation→Resources→Systems→Rendering→Runtime追到退出。新的可复现偏差才重开具体职责，不因字段形似重复新建ECS。独立兼容、真实硬件、长期稳定和性能问题仍在本队列其他节及相应专项中，不由结构收口自动关闭。
 
 ## 6. 进入与退出
 

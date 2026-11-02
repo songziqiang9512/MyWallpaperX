@@ -45,9 +45,11 @@
 | update 顺序 | 行为执行和回调可见点；按语义准备，不因组件类型批处理擅自重排 |
 | render 依赖 | Pass 读写、资源版本和发布关系；拓扑、绑定或相关变体变化时更新，不从 parent 推断 |
 
-专属作者格式可以保留在粒子、文本等类型族入口，完成准备后交 typed 状态；目录纯净不构成搬迁或新 wrapper 的理由。依赖屏幕输入、视口或 localStorage 的 CPU 状态可以由 Session 按 surface identity 隔离，只有语义允许的模拟才共享。
+专属作者格式可以保留在粒子、文本等类型族入口，完成准备后交 typed 状态；目录纯净不构成搬迁或新 wrapper 的理由。依赖屏幕输入或视口的 CPU 状态可以由 Session 按 surface identity 隔离，只有语义允许的模拟才共享；localStorage 沿同一 Session 持有。
 
-`Format` 保存作者事实；`Runtime/Frame` 的描述及 `Compilation` 准备消费者需要的类型；`Systems` 更新领域状态；`Resources` 提供资源；`Rendering` 消费准备数据和本帧状态。跨层只传当前消费者所需数据。
+`Format`保存作者事实；`Compilation`完成准备计算，`Runtime/Frame`承接消费者需要的typed描述、运行声明与claim；`Systems`更新领域状态；`Resources`提供资源；`Rendering`消费准备数据和本帧状态。准备计算与运行载体分开，原准备消费者保真实依赖；跨层只传当前消费者所需数据，不靠公开混合namespace隐藏算法依赖。
+
+图TextureIdentity持layer-source构造及当前layer下的输入role值语义，准备与实际目标/transition消费共用；不因分类方法名另造validator owner。Host uniform准备分类与帧值编码分别归原Schema/Encoder，不经运行层转发准备算法。
 
 作者初值、准备引用与当前值分别有用途。动态Layer只保出生资源、不可变创建尺寸、根关系和seed；完整upsert经原typed值通道更新，不按authored局部写的字段标记丢弃其余当前值。创建、排序和退役改变结构revision，同revision的准备投影不回填live字段；perspective缺席保camera默认，首次实际Bool写入才增加typed lane。属性访问不另建可写layer tree，非法变换仍拒实际受影响owner包。
 
@@ -194,7 +196,7 @@ CoreText/CoreGraphics负责字体解析、shaping、glyph advances、baseline、
 
 在 text-local 空间完成布局，再应用图层和场景变换。width/line/ellipsis、字体、字距和行距按作者开关与参数执行；关闭 width/row 限制时，保留的编辑器默认数值不能继续裁切文本。
 
-内容或布局依赖改变时只重做受影响文本。会话共享producer、内容签名、generation及单在途合并；首次接纳动态层即消费同cadence typed值，不逐帧回写Layer。raster颜色与layer tint保各自既有乘色语义。每屏保存prepared/submitted纹理及几何，cursor读本屏最后提交结果；初始与动态文字走同一layer-source，不保旧base seed。单屏重建不关闭producer，会话停止排空任务并撤销迟到发布权。
+内容或布局依赖改变时只重做受影响文本。会话共享producer、内容签名、generation及单在途合并；首次接纳动态层即消费同cadence typed值，不逐帧回写Layer。raster颜色与layer tint保原乘色语义。每屏保存prepared/submitted纹理及几何，cursor读本屏最后提交结果；初始与动态文字走同一layer-source，不保旧base seed。已采用topology中不再有消费者的活动producer退休并撤迟到发布权，prepared clone模板保留，hidden不冒充退休，冻结/在途快照保原寿命。单屏重建不关闭共享Store，会话停止排空任务。
 
 字形呈现与布局分别设计。MSDF、轮廓、阴影和模糊的适用语义及与参考结果的差异查[文字专项](runtime-input-property-coverage.md)和[字体演进研究](../development/reference/client-changelog-forensics.md)，不从一个技术名推断全部字形质量或视觉等价。
 
@@ -325,7 +327,7 @@ Sound 与系统频谱是不同职责。声音资源可共享，voice 的播放�
 
 status、playback、properties、thumbnail 与 timeline 使用各自可用事件及变化身份。歌曲或流的切换关联元数据、封面、派生颜色与播放状态，旧异步结果在发布入口被丢弃。
 
-`$mediaThumbnail`是系统 provider，不是普通路径。准备阶段确定需求，变化时解码和发布；last-ready、作者 fallback、清空和失败分开。无消费者时解除不必要订阅，停止后撤销 observer 和任务。
+`$mediaThumbnail`是系统provider，不是普通路径。准备阶段确定需求，变化时解码和发布；last-ready、作者fallback、清空和失败分开。无消费者时解除不必要订阅，停止后撤销observer和任务。已接纳的absent退出该provider长期publication，discard保原基线，冻结及在途纹理快照沿原使用期持有；订阅退出与纹理引用退休是不同边界。
 
 同一会话共享封面producer与就绪publication，每cadence一次snapshot供VM及各屏消费；请求沿会话待提交输入在任一表面提交后发出一次，全未提交保留。暂停只刷新输入generation匹配、完整且同frame的冻结cohort，不采新Inbox或重放VM；held候选保原输出。表面重建不关闭producer，完整停止撤权并排空已接纳任务。
 

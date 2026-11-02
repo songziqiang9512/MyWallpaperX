@@ -766,10 +766,10 @@
       "lastReviewed": "2026-11-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "654d1b8028ac3e646c77ac6a5d20515237a34ea769a5d1ea9969b5245fac7334",
+        "sourceSHA256": "f6808f2d2eece6cfbaa7fdafc578361de1a2f052edc7ebe62185ea95673aa376",
         "method": "document_registry --audit + document_health --check",
-        "scope": "区分GenericShader既定后验与Preparation/Frontend/Demand/Variant四处剩余发布职责，复核Catalog运行声明及两个资源退休断点。",
-        "limitations": "新合同与精确待办不表示实现/运行完成；现有cache证据限其实际tier，尚未验性能。"
+        "scope": "逐职责核对真实加载/帧/组件采用、准备缓存与资源退休、IPC和唯一输出caller；地图只保存当前接线。",
+        "limitations": "此凭据是有界文档/源码导航核对；运行只按固定App/输入/门的实际证据，不授全语料、物理硬件、长期稳定、官方parity、整体性能/能耗或Release结论。"
       },
       "purpose": "实际接线或已记录运行证据；不反向定义目标架构，不决定实施顺序。"
     },
@@ -778,13 +778,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/architecture/repository-map.md",
-      "lastReviewed": "2026-11-02",
+      "lastReviewed": "2026-11-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "94d547bfabd7585bc29ca90a335755178c95bb1991cf51248600d793f6fef4dd",
+        "sourceSHA256": "acc269fcd3cd83ae82f7c87198c842001cdafca0f4c09020619ac8e468dffce8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "M1格式/槽位准备交接、实际跨层引用退出与有界证据；全Scene目标重新打开，继续核准备/帧、拓扑、缓存及产品daemon，Skill验收按真实消费者。",
-        "limitations": "正文和导航复核不代替运行；本批签名App/direct-host有界结果不外推完整架构、全语料、多屏、长期运行、性能、官方parity或Release。"
+        "scope": "核对prepared运行声明、typed输入与Schema/Admission内部边退出；4条共享工具按实际调用保守保留，不扩大public_contracts。",
+        "limitations": "此凭据是有界文档/源码导航核对；运行只按固定App/输入/门的实际证据，不授全语料、物理硬件、长期稳定、官方parity、整体性能/能耗或Release结论。"
       }
     },
     {
@@ -1040,13 +1040,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-11-01",
+      "lastReviewed": "2026-11-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9707597783fbd7792226de85e5b7df796d7c78e5306bafc9ce288f036ed8f844",
+        "sourceSHA256": "885efb786a140648c2516c92d735c7069c04b5e9cf97da1ee9ee7106ba4d34e3",
         "method": "document_registry --audit + document_health --check",
-        "scope": "17提交逐条审查；能力/队列补绑定身份、原子plan投影、utility dormant与真实失败，以及颜色用途/预处理成员的当前边界。",
-        "limitations": "不授官方成员条件取值、history重新启用首帧、全world/全样本parity或性能结论。"
+        "scope": "只校正已退出Launch与运行Catalog的现役源码链接，原语义、能力边界和固定证据不重写。",
+        "limitations": "此凭据是有界文档/源码导航核对；运行只按固定App/输入/门的实际证据，不授全语料、物理硬件、长期稳定、官方parity、整体性能/能耗或Release结论。"
       }
     },
     {
@@ -1056,10 +1056,10 @@
       "lastReviewed": "2026-11-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9e868816ac2dbf9426abf9663377db2c4ad64c2e949848df3566154880dd417d",
+        "sourceSHA256": "bd54964b179153fed9330a39936378cf54441987ac994a2c70d04eb7829c637e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "当前相机拓扑factory及实际旧/新App固定ROI对照的事实、证据与队列分工。",
-        "limitations": "相机有界证据；不代表其它待迁移职责、全语料、硬件或性能已完成。"
+        "scope": "按职责索引已执行的最终App、分族Metal/行为与原12协议结果，原raw失败和未资格边界分别保留。",
+        "limitations": "此凭据是有界文档/源码导航核对；运行只按固定App/输入/门的实际证据，不授全语料、物理硬件、长期稳定、官方parity、整体性能/能耗或Release结论。"
       },
       "purpose": "实际接线或已记录运行证据；不反向定义目标架构，不决定实施顺序。"
     },
@@ -1082,13 +1082,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/architecture/runtime-architecture.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-11-02",
+      "lastReviewed": "2026-11-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6e33772825cfb5e39a68c03b59aa099017d85bc780564454872ceffe8d4372a6",
+        "sourceSHA256": "e6cb0eaf114fd2ac70204d35cb8ebdff242306eecc8c3cbf683b6ab562628bdb",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Puppet完整CPU/GPU族：Surface姿态/骨骼与冻结frame、GPU MeshGeometry/clipping/direct stream、已有资源准备及销毁出口；原生和门禁范围只归证据，退出旧View/State混持。",
-        "limitations": "本批行为/原包/交互仅证明登记范围，原raw失败保留；全goal最终跨族集成、可比成本和文档分类仍待结算，不外推官方或完整语料。"
+        "scope": "组件分类、作者/准备/实例/GPU分期、typed输入、活动producer采用退休及系统发布寿命与当前owner核对。 独立终审移除localStorage作为per-surface隔离依据的旧措辞，保持同一Session存储。",
+        "limitations": "此凭据是有界文档/源码导航核对；运行只按固定App/输入/门的实际证据，不授全语料、物理硬件、长期稳定、官方parity、整体性能/能耗或Release结论。"
       }
     },
     {
@@ -3390,13 +3390,13 @@
         "docs/scene/capabilities/runtime-evidence-current.md",
         "docs/scene/capabilities/coverage-ledger.md"
       ],
-      "lastReviewed": "2026-11-02",
+      "lastReviewed": "2026-11-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "01b4eed6f774ac479e1656dd5d5a3772814f46b526a1905d429fab30fd36e69e",
+        "sourceSHA256": "d96488524be3e53f18c5e66a62bc1d41f8467cc2cf23619355dac42ed5f7e19a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "按真实消费者结算架构迁移：分族职责退出、有限Context/descriptor/依赖审查、冻结App跨族与成本结果、旧文档owner纠正及现役/固定历史分工；具体证据归历史锚点。",
-        "limitations": "导航和正文身份复核不独立证明运行或性能；原FAIL、过渡/点击资格、完整语料、物理多屏、长期切换、能耗及正式Release边界均保留。"
+        "scope": "五处M3退役源码死链接改为已核存在的本地Git前像命令；逆替换逐字恢复其余历史正文，原锚点/失败/结论不改。",
+        "limitations": "只修历史导航，不把历史结果升级为当前运行，不恢复退役API；其余内容仍按各记录原身份与边界。"
       }
     },
     {
@@ -4375,7 +4375,7 @@
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ],
       "cutoffDate": "2026-11-03",
-      "uniqueValue": "Sprite/Timeline、粒子、文字与graph history的活动退休，系统provider及输入需求、产品daemon控制与隔离退出的固定真实反例和有界原生证据。"
+      "uniqueValue": "组件活动退休、系统输入/provider、graph history与产品daemon链的真实反例，以及最终联合App、原12协议、补充控制输入及能力保持范围。"
     },
     {
       "path": "docs/scene/history/user-property-video-2026-10-16.md",
@@ -4642,10 +4642,10 @@
       "lastReviewed": "2026-11-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4e1cd65beebec7727709b6386e00a201e448759ba34c5f838d87a9a29bd46488",
+        "sourceSHA256": "11b920a4d0608e79e1e757e4c2fc3be12a05c0e4493d8c7f2683514b9b9ac2da",
         "method": "document_registry --audit + document_health --check",
-        "scope": "区分GenericShader既定后验与Preparation/Frontend/Demand/Variant四处剩余发布职责，复核Catalog运行声明及两个资源退休断点。",
-        "limitations": "新合同与精确待办不表示实现/运行完成；现有cache证据限其实际tier，尚未验性能。"
+        "scope": "原设计承接GraphScope/取消、Schema/typed输入、最小Admission、PSO可选发布及活动history退出，保整体迁移合同与退出条件。",
+        "limitations": "此凭据是有界文档/源码导航核对；运行只按固定App/输入/门的实际证据，不授全语料、物理硬件、长期稳定、官方parity、整体性能/能耗或Release结论。"
       }
     },
     {
@@ -4698,10 +4698,10 @@
       "lastReviewed": "2026-11-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1f88153d3c5cab97c3f69a82952ce355b8b356aab073b42afe48158fe2473c9b",
+        "sourceSHA256": "1fc3b2d78883c82fc12f016f38b0286a3ed78c55a8aa2e22ca3799ef88b2f465",
         "method": "document_registry --audit + document_health --check",
-        "scope": "区分GenericShader既定后验与Preparation/Frontend/Demand/Variant四处剩余发布职责，复核Catalog运行声明及两个资源退休断点。",
-        "limitations": "新合同与精确待办不表示实现/运行完成；现有cache证据限其实际tier，尚未验性能。"
+        "scope": "已闭架构职责移入各族固定后验；只保新断点重开条件与独立兼容/验证/性能事项，不将词法库存当新任务。 记录独立Startup验证工具的launchd extension残留，Scene架构收口不扩为系统服务清理改造。",
+        "limitations": "此凭据是有界文档/源码导航核对；运行只按固定App/输入/门的实际证据，不授全语料、物理硬件、长期稳定、官方parity、整体性能/能耗或Release结论。"
       }
     },
     {

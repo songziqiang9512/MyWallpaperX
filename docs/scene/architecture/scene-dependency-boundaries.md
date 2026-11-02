@@ -10,9 +10,11 @@
 
 `script/scene_dependency_baseline.json` 是唯一机器声明：试点只禁止 **Rendering 直接引用 Compilation 内部顶级类型**。Compilation 的已准备 graph、Program、shader/reflection 数据、typed frame 输入和失败值属于可跨边界的合同，以精确符号及说明登记在 `public_contracts`。这不是 Swift `public/private` 访问控制重建，也不按文件整体公开；一个文件可以同时定义公共值与内部 compiler。未登记的新 Compilation 类型默认内部，不能因已有消费者就取得公共资格。
 
-公共性判定：可传递的编译结果、执行描述或 typed frame 输入值，可以列入；解析、编译、schema 推导、准入选择、mutable cache/catalog 和 source digest 实现不因此列入。顶级命名空间混有公开嵌套值与内部算法时，试点保守记录 todo，由后续职责迁移区分，不自动公开整个 namespace。例如 `SceneResolvedMaterialShaderSchema.Sampler` 的类型消费和同 namespace 的推导方法目前都属于该结构债务；`SceneResolvedMaterialProgramIdentity` 的 identity 推导入口、`SceneResolvedMaterialMixedProviderSlotFact.resolve` 的作者形状解析也没有因名字像值而公开。`SceneMaterialRenderState` 的纯 typed DTO/查询已迁入 Runtime/Frame；作者字符串 `.compile`/`.compileBlending` 仅留 Compilation/Material 的解析 extension，Rendering 仅消费 DTO，对应旧混合 namespace todo 随实际职责分离退休，并未公开解析算法。todo 不证明这些调用发生在普通帧，也不宣判运行结果错误。
+公共性判定：可传递的编译结果、执行描述或typed frame输入值，可以列入；解析、编译、schema推导、准入选择、mutable cache及source digest实现不因此列入。混合命名空间不能整体公开；先按字段、嵌套类型与实际方法消费者区分依赖闭包。PreparedSampler、MaterialRenderState及运行能力声明已归Runtime/Frame；逻辑纹理identity/purpose与GPU Candidate/Uploader分开。作者字符串解析、mixed/launch资格及Program identity算法仍属原准备owner，Rendering消费准备结果并只附设备/附件事实。Material真实Template/Variant准备消费者未因此成为纯leaf；剩余todo依实际调用和机器清单裁决，不以目录名或结构计数宣称全部职责清零。
 
-原 `Rendering/Bindings/SceneResolvedMaterialTextureResolver+Launch.swift -> SceneShaderContractSourceParser` 已随格式解释归回 ShaderSchema、Catalog 交接既有 Demand 准备结果而退出；帧槽位形状也由 CompiledVariant 交付。texture resolver 的 launch 选择仍引用 `SceneResolvedMaterialVariantCache`，以及混合 schema/推导命名空间，继续作为实际结构债务。纠正门是将解析/选择结果在现有 preparation owner 完成后经 typed 合同传递，或经另一个有据设计调整实际所有权；禁止仅改名、包装或扩公共表来归零。
+原Rendering的Launch/LaunchSelection/LaunchColor算法入口已退出，选择与颜色准入在原准备owner完成；CompiledVariant交付帧槽位，PreparedAssembly交付静态uniform与设备准备身份。执行能力的准备构造和运行声明分开，帧经bindFrame消费资格；GraphExecutor仍检查实际资源、transition及history。此类迁移须有真实compiler/资源/GPU反例，不能靠扩大public_contracts、追加wrapper或搬混合namespace归零；todo本身不证明调用发生于普通帧，也不宣判运行结果错误。
+
+图输入role/classification与layer-source构造已并回既有TextureIdentity值语义；Host schema准备caller不再经Rendering转发，Release也不转运整AdmissionCatalog。机器剩余四条是单份共享cache/digest工具引用：archive准备使用统一持久化工具，Graph失败ID摘要和显式DEBUG观察使用稳定编码/摘要。它们不是普通成功帧的解析/整图认证，也未取得compiler公开资格；保守记录目录耦合，不为归零复制工具或增加每stage诊断缓存。
 
 ## 扫描与证据上限
 

@@ -89,12 +89,12 @@
       "bytes": 24119
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
-      "lines": 169,
-      "bytes": 22817
+      "lines": 170,
+      "bytes": 24084
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
-      "lines": 31,
-      "bytes": 6092
+      "lines": 33,
+      "bytes": 6313
     },
     "docs/scene/architecture/scene-launch-responsiveness-contract.md": {
       "lines": 271,
@@ -166,19 +166,19 @@
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 600,
-      "bytes": 349285
+      "bytes": 349300
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 103,
-      "bytes": 10192
+      "lines": 112,
+      "bytes": 12662
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 594,
       "bytes": 195052
     },
     "docs/scene/capabilities/runtime-systems-reference.md": {
-      "lines": 387,
-      "bytes": 35124
+      "lines": 389,
+      "bytes": 35893
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 61,
@@ -285,8 +285,8 @@
       "bytes": 29767
     },
     "docs/scene/roadmap/engine-refactor-program.md": {
-      "lines": 351,
-      "bytes": 72534
+      "lines": 379,
+      "bytes": 77553
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 75,
@@ -301,8 +301,8 @@
       "bytes": 22465
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 215,
-      "bytes": 54157
+      "lines": 208,
+      "bytes": 49332
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -2050,11 +2050,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "3e203ada596cdc8bbd7cb2c31540b1254130a2abb9249daf74821f7423d28bc5",
-      "after": "aed6cf9eeb3d1e5c3c04528868be7fc2feb9bfbd64fe58b9773795159214151a",
-      "owner": "scene-independent-integration-review",
-      "reason": "合入逐条审查后修正swizzle token身份、owner plan投影及utility失败观测，补用途/成员条件边界；已闭问题移出队列，运行细节归历史。",
-      "decision": "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md#utility-dormant-review-20261101"
+      "before": "aed6cf9eeb3d1e5c3c04528868be7fc2feb9bfbd64fe58b9773795159214151a",
+      "after": "9420719183dd7ef58ae52cda1c9f97d130152212a0e848bc65fe0e8e494a080d",
+      "owner": "Scene architecture convergence / repository governance",
+      "reason": "两条旧owner源码链接改指现役Variant ColorAnalysis与Runtime/Frame Catalog，新增字节只来自正确链接，不增加能力声明。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#架构级迁移合同"
     },
     {
       "section": "bodies",
@@ -2284,11 +2284,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-systems-reference.md",
-      "before": "870d4f051341731b4f289858145a7cefbae6a5fc7784ae3e41c1e1cc2b1af8f1",
-      "after": "4c81d38c0c791a22d0de2aa98d3ff34cab11f993dd5bb37a74f8d65d2c1e11b4",
-      "owner": "scene-puppet-surface-gpu-ownership",
-      "reason": "按先落库Puppet完整族设计替换实际owner及退役路径，保普通帧冻结与局部失败，正文只记合同/当前入口，运行过程归历史；不提高600行正文或150行初读快照硬限。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#puppet-姿态实例与-gpu-几何的所有权"
+      "before": "4c81d38c0c791a22d0de2aa98d3ff34cab11f993dd5bb37a74f8d65d2c1e11b4",
+      "after": "1aa3d25878fe68ca659d39352f7fe78f1525f6c57704af5071199535e0341933",
+      "owner": "Scene architecture convergence / repository governance",
+      "reason": "以真实共同输入值、Schema准备/编码及adopted producer/system absent寿命替换旧责任表述；不加入批次运行数据。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#架构级迁移合同"
     },
     {
       "section": "archives",
@@ -2302,37 +2302,37 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-as-built-map.md",
-      "before": "01bb628637984dba8cfbfa36b94eacb4461c85cff2dc595589c5a8195ba61e60",
-      "after": "b07d79146055b9f837e54f7de026e84d25126c55d109c23d09774ec4804c2f35",
-      "owner": "Scene preparation/resource lifecycle / repository governance",
-      "reason": "原合同明确Catalog声明/构造与可选发布边界，区分真实cache tier；单一队列登记四条准备发布、重复graphContext/取消及两个已证资源退出缺边，避免有限门误结算整体。",
+      "before": "b07d79146055b9f837e54f7de026e84d25126c55d109c23d09774ec4804c2f35",
+      "after": "28d26523c535993fc0994bffafdca0ef21791fa2a65a3918ad7a34a688e1eb79",
+      "owner": "Scene architecture convergence / repository governance",
+      "reason": "现役地图替换旧Launch/能力Catalog/同步cache描述，按当前运行声明、最小Admission及采用/资源退出补必要接线；固定试验另归history。",
       "decision": "docs/scene/roadmap/engine-refactor-program.md#架构级迁移合同"
     },
     {
       "section": "bodies",
       "path": "docs/scene/architecture/scene-dependency-boundaries.md",
-      "before": "8e862f5d5c11d27b25024de1c452864fb98fc3f1c35c5fed4bff578cbc01a53e",
-      "after": "a5ba14d20f7141111475a522baf19143cc9c0e966d964d809e9642eed85c7721",
-      "owner": "Scene architecture / repository governance",
-      "reason": "原有权威承接已落库的M1准备交接设计与有界后验，重新明确全Scene退出并补确认的后续职责；固定历史正文与原始失败不改。",
-      "decision": "docs/scene/architecture/scene-dependency-boundaries.md#判定与范围"
+      "before": "a5ba14d20f7141111475a522baf19143cc9c0e966d964d809e9642eed85c7721",
+      "after": "9346336634791ccddef9b0531a202e57c2b878fe914ae7be4fb6e1bb2fdd9d10",
+      "owner": "Scene architecture convergence / repository governance",
+      "reason": "在原合同裁决value语义/准备算法及4条共享基础设施的实际范围，避免为库存归零新增owner或公开算法；不复制机器todo。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#架构级迁移合同"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "9800549df73f389b8dc34a0ddef42ecf823679cacf39868e5d063f650c790926",
-      "after": "9b30fb8ef0a63d24a1c077b636e035c20d2bbcda9fc13f41d93bf00cd0715750",
-      "owner": "Scene camera / repository governance",
-      "reason": "原事实地图和证据入口收敛当前相机同阶段拓扑及有界App正反门，详细身份/首失败归固定历史，移除已验队列项。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#sprite与当前拓扑消费者"
+      "before": "9b30fb8ef0a63d24a1c077b636e035c20d2bbcda9fc13f41d93bf00cd0715750",
+      "after": "11f5e9e2e331c1c189e466f14e5c4c8e77d0d7260505e10e59cea5b212ffcfc2",
+      "owner": "Scene architecture convergence / repository governance",
+      "reason": "按职责增加最终联合结果的短索引并保raw FAIL/资格上限，详细过程和身份归固定history；正文仍低于150行初读上限。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#架构级迁移合同"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/engine-refactor-program.md",
-      "before": "f4a216509d130798bb06f7081a20cd84115357464e8a0b53c5036a79603518ce",
-      "after": "bf3305ed3004e4a9bf6c767e2b3a38135cfdbf046abbc72c50a08d0a5f14d568",
-      "owner": "Scene preparation/resource lifecycle / repository governance",
-      "reason": "原合同明确Catalog声明/构造与可选发布边界，区分真实cache tier；单一队列登记四条准备发布、重复graphContext/取消及两个已证资源退出缺边，避免有限门误结算整体。",
+      "before": "bf3305ed3004e4a9bf6c767e2b3a38135cfdbf046abbc72c50a08d0a5f14d568",
+      "after": "06b1b19e9741cc613c28a009e76d883b1617f4a7699e150505ce3db023deb269",
+      "owner": "Scene architecture convergence / repository governance",
+      "reason": "重要实施前已落库的GraphScope/取消、Schema输入、最小Admission及PSO可选发布设计补全原责任合同，维持单一迁移设计；不保存完成状态。",
       "decision": "docs/scene/roadmap/engine-refactor-program.md#架构级迁移合同"
     },
     {

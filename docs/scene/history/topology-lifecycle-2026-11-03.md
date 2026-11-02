@@ -123,3 +123,23 @@ direct-client runner先等真实shutdown completion再terminate，退原固定0.
 签名旧App `a9936322…`与最终普通App `43e5cb805b40650706f29b2fec6919779619785fe873248fad73814469234fa2`运行相同held/warm两臂均通过：双Surface暂停、已有resize、同Session真实rebuild、恢复、hidden named provider与绿色邻例像素、stop和GPU drain。held销毁发生于sceneTime 0，旧Surface保冻结画面直到恢复；warm先有真实copy/history完成再在sceneTime≥2销毁。原ready/resize-00像素仍必需，新增尾请求resize-01仅允许并要求一次重建teardown终结，其余截图、启动和GPU失败全部拒绝。宽窗口在运行前登记，不以没消费的截图请求判资源泄漏。
 
 native只证明该App输入的可见兼容与生命周期；dead-tail/pin证明来自前述真实Metal反例，首选窗口像素不冒充物理多屏。原268行回归方法保持，初始窄窗口方案只有静态分析、没有虚构失败运行。provenance见`.artifacts/scene-architecture-continuation-20261102/`的`history-catalog-graph-qualification-v4-results.json`、`history-external-bundle-qualification-v4-*`、`history-native-qualified-*`和`history-native-{old,final}-v2-*`；不认领完整语料、官方parity、长期稳定或性能收益。
+
+
+<a id="final-joint-architecture-qualification"></a>
+## 最终联合版本与文档复核
+
+固定2026-11-03：普通App `43e5cb805b40650706f29b2fec6919779619785fe873248fad73814469234fa2`及隔离产品入口App `123d0b6f5ec10ae126710af3a26ba09ea5c010031c47d480925b94479b4c7798`均由同一组Scene/Debug源码Debug `-O`构建并严格验签。构建前后所有Scene Swift、App Debug、AppDelegate及工程文件哈希保持；开工前已有的ScreenSaver工程membership改动保留且未入Scene提交，其完整差异随本机构建凭据保存，不把候选称为纯净HEAD或正式Release。
+
+| 联合验收 | 实际结果与上限 |
+|---|---|
+| 准备/图与结构 | 六个GraphExecutor、真实Template/Catalog取消、Schema/typed输入、四cache、PSO阻挡、资源发布及相邻门分别通过；15个结构门、12个SourceSet与12个RealtimePolicy通过，不合并推为完整官方能力 |
+| 最终普通App | history旧新held/warm两臂、输入需求四臂、粒子held/缺drawable退休及暂停文字通过；actual Metal/pin与系统Media需求仍按各自独立门证明 |
+| 最终产品App | App选择→服务→Manager→client→daemon，首呈现/parent-finalized、同request热改、冻结/恢复、切B释放A、stop/drain/shutdown和精确子进程退出通过；私有standard defaults与生产偏好边界保持 |
+| 第一阶段原12协议 | 原字节输入与调度重跑：5个原PASS、7个原raw FAIL保持，无新增失败、语义计数或VM失败文本变化；全部App退出0、无超时、GPU排空，无新Metal失败。旧性能呈现流与376计数期待FAIL不改判 |
+| 原包与可见对照 | M1两原包335/358同输入均PASS，复核正文、主体、背景与光效；原12的after对照保内容。293未控指针的移动时钟位置不作像素等价，另固定同一launch pointer对照旧/新布局一致；15健康peer与24过渡原资格限制保持 |
+
+原12协议中4份临时原包副本已按前轮规则清理；重跑前从只读原件按原100个文件哈希重建，仅输入位置变更，8份自有输入原字节继续复用。原始失败、旧/新截图、重建清单和补充指针预登记均保留，不能称第一次无差异或完整交互parity。
+
+全链职责复核从Format、Compilation、Resources、Systems到Rendering/Runtime，覆盖属性/VM、Timeline、Sprite/粒子、文字、视频/声音/媒体、camera/光照、Puppet/模型、graph/targets、IPC与最终输出及退出；本轮确认的职责偏差已替换，未再发现可证实必改项。剩余4条共享cache/digest词法引用只属错误摘要、显式DEBUG及launch archive，保单份实现；有限静态复核本身不作运行证明。专用Skill独立复核其主入口、Scene/验证/治理引用与现役caller，无过时方法，未为批次状态另写规则；生成记忆保持只读。
+
+架构、组件、源码地图、设计、当前证据和队列各守原权威；已闭工作不留作待实现，后继独立兼容/性能断点保原定位。provenance归本轮`.artifacts/scene-architecture-continuation-20261102/`的`final-joint-*`、`final-{normal,startup}-debug-*`、`neighbor-carriers-v5-*`及`skill-forward-current-routing-review.json`。完整语料、物理多屏/系统输入、长期稳定、官方parity、整体性能/能耗及正式Release未验，不因架构收口升级。
