@@ -18,7 +18,7 @@ import tempfile
 import unittest
 
 from script.tests.sil_unified_grid_fixture import assemble
-from script.tests.native_app_harness import prepare_native_app, run_native_app
+from script.tests.native_app_harness import native_app_session, prepare_native_app, run_native_app
 from script.tests.test_ui_library_algorithms import declaration
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -37,7 +37,8 @@ class SILThumbnailDemandTests(unittest.TestCase):
             declaration(inspector.read_text(), "    private func loadPreviewImage("))
         with tempfile.TemporaryDirectory(prefix="mwx-sil-demand-", dir="/private/tmp") as folder:
             work = Path(folder)
-            sources, originals = assemble(work, cache_name="SILLoadObservation.cache", observe_loads=True, observe_failure_signatures=True)
+            sources, originals = assemble(work, cache_name='CommandLine.arguments.contains("--resident-return") ? SILThumbnailStore.sharedCache : SILLoadObservation.cache',
+                                         observe_loads=True, observe_failure_signatures=True)
             sources += [ROOT / "script/tests/fixtures/GridCardInteractionChecks.swift",
                         ROOT / "script/tests/fixtures/NativeAppHarness.swift",
                         ROOT / "script/tests/fixtures/WallpaperLibraryGridCardReflowChecks.swift"]
@@ -76,8 +77,9 @@ class SILThumbnailDemandTests(unittest.TestCase):
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
             home = work / "home"
             home.mkdir()
-            run = subprocess.run([str(binary), str(work / "images")], capture_output=True, text=True,
-                                 timeout=45, env=dict(os.environ, HOME=str(home), CFFIXED_USER_HOME=str(home)))
+            with native_app_session():
+                run = subprocess.run([str(binary), str(work / "images")], capture_output=True, text=True,
+                                     timeout=45, env=dict(os.environ, HOME=str(home), CFFIXED_USER_HOME=str(home)))
             if proof:
                 (proof / "runtime.log").write_text(run.stdout + run.stderr)
             self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
@@ -111,10 +113,21 @@ class SILThumbnailDemandTests(unittest.TestCase):
             self.assertEqual(inputs, {str(p): hashlib.sha256(p.read_bytes()).hexdigest()
                                      for p in originals})
 
-            # Additional active-hover checks have the same LaunchServices status
+            # Additional native checks have the same LaunchServices status
             # boundary as the native Online gate, not a claimed App exit code.
             native_binary = prepare_native_app(work, "SILThumbnailDemandChecks")
             shutil.copy2(binary, native_binary)
+            resident = run_native_app(native_binary, ["--resident-return", str(work / "resident-images")], timeout=45,
+                                      proof_environment="MWX_SIL_DEMAND_PROOF_DIR")
+            self.assertEqual(resident.launch_returncode, 0, resident.stdout + resident.stderr)
+            self.assertTrue(resident.stdout.strip().startswith("{"), resident.stdout + resident.stderr)
+            resident_checks = json.loads(resident.stdout)
+            self.assertIs(resident_checks.get("productionResidentReturnCaseCompleted"), True, resident.stdout + resident.stderr)
+            for name, passed in resident_checks.items():
+                with self.subTest(name=name): self.assertIs(passed, True, resident.stdout + resident.stderr)
+            if proof:
+                (proof / "resident-return.json").write_text(resident.stdout)
+                (proof / "resident-return-runtime.log").write_text(resident.stderr)
             interaction = run_native_app(native_binary, ["--card-interactions"], timeout=45,
                                          proof_environment="MWX_SIL_DEMAND_PROOF_DIR")
             self.assertEqual(interaction.launch_returncode, 0, interaction.stdout + interaction.stderr)

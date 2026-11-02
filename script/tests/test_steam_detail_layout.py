@@ -49,12 +49,12 @@ class SteamDetailLayoutTests(unittest.TestCase):
                 sources.append(target)
             models = read(core / 'SteamWorkshopModels.swift')
             fragments = ['import AppKit\nimport Foundation'] + [declaration(models, prefix) for prefix in [
-                'enum SteamWorkshopDownloadContentType', 'nonisolated enum SteamWorkshopPreviewAssetKind',
+                'nonisolated enum SteamWorkshopDownloadContentType', 'nonisolated enum SteamWorkshopPreviewAssetKind',
                 'nonisolated struct SteamWorkshopDetailField', 'nonisolated struct SteamWorkshopBrowserItem',
-                'struct SteamWorkshopDownloadRecord']]
+                'nonisolated struct SteamWorkshopDownloadRecord']]
             validation = read(ROOT / 'MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopWebValidationModels.swift')
             fragments += [declaration(validation, prefix) for prefix in [
-                'enum SteamWorkshopWebDependencyStatus']]
+                'nonisolated enum SteamWorkshopWebDependencyStatus']]
             fragments.append(declaration(read(ROOT / 'MyWallpaperX/Shared/Components/WallpaperCardSupportViews.swift'), 'enum WallpaperCardProgressPalette'))
             service = read(ROOT / 'MyWallpaperX/Modules/SteamWorkshop/Scene/SteamWorkshopSceneService+SceneProperties.swift')
             fragments.append('extension SteamWorkshopService {\n' + '\n\n'.join(declaration(service, prefix) for prefix in [

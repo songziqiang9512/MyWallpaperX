@@ -7,6 +7,7 @@ extension SteamWorkshopService {
     }
 
     func requestMissingDependencyDownload(for record: SteamWorkshopDownloadRecord) {
+        guard hasCompletedInstalledLibraryLoad else { return }
         guard case let .missing(rawItemID) = record.dependencyStatus else { return }
 
         let itemID = rawItemID.trimmingCharacters(in: .whitespacesAndNewlines)

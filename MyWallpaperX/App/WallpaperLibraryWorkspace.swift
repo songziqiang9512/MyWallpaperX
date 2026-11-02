@@ -63,8 +63,8 @@ import Foundation
         }
         presentation = WallpaperLibraryPresentation(collections: collections, defaults: defaults,
             migratedQueries: migratedQueries, migrationWarning: preferenceWarnings.isEmpty ? nil : preferenceWarnings.joined(separator: "\n"))
-        // Initial empty projections are a loading state. Relationship-only
-        // pages can already retain their unavailable members and names.
+        // Source rows can be warm while unresolved relationship members wait
+        // for their own provider's first completed load.
         _ = presentation.update(catalog: catalog.catalog, relationships: relationships, relationshipsKnown: collections != nil)
         // Capture the launch intent before any delayed source publication or
         // first user action can arrive; a lazy first use would capture too late.

@@ -37,8 +37,12 @@ def assemble_catalog_fixture(main_fixture=None):
         "// WEB_ENTRY_VALIDATION": declaration(source("MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebValidation.swift"), "    nonisolated func webLaunchEntryIsValid("),
         "// DECLARED_WEB_ENTRY": declaration(source("MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebProjectSupport.swift"), "    nonisolated static func declaredWebEntryRelativePath("),
         "// LOAD_WEB_PROJECT": declaration(source("MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+LibraryRecords.swift"), "    nonisolated static func loadWorkshopProject("),
-        "// STEAM_LAUNCH_ADMISSION": declaration(source("MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+DownloadAccessors.swift"), "    func canLaunchDownloadRecord("),
+        "// STEAM_LAUNCH_ADMISSION": declaration(source("MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+DownloadAccessors.swift"), "    func canLaunchDownloadRecord(") + "\n" + declaration(source("MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+DownloadAccessors.swift"), "    func cachedCanLaunchDownloadRecord("),
     }
+    for marker, kind in (("// STEAM_LAUNCH_ADMISSION", "launch"), ("// WEB_ENTRY_VALIDATION", "web")):
+        value = replacements[marker]
+        opening = value.index("{") + 1
+        replacements[marker] = value[:opening] + f'\n        CatalogSteamIOProbe.shared.note("{kind}:" + record.id)\n' + value[opening:]
     for marker, value in replacements.items():
         fixture = fixture.replace(marker, value)
     paths = [
@@ -80,6 +84,14 @@ def write_catalog_sources(work, paths):
             instrumented = original.replace(marker, "            let observed = CatalogFileProbe.shared.begin()\n            defer { CatalogFileProbe.shared.end(observed) }\n" + marker)
             copy = work / Path(path).name
             copy.write_text(instrumented)
+            compiled.append(str(copy))
+        elif path.endswith("SteamWorkshopModels.swift"):
+            original = (ROOT / path).read_text()
+            marker = "    var videoURL: URL? {"
+            if original.count(marker) != 1:
+                raise AssertionError("Unique real video URL observation entry required")
+            copy = work / Path(path).name
+            copy.write_text(original.replace(marker, marker + '\n        CatalogSteamIOProbe.shared.note("video:" + id)', 1))
             compiled.append(str(copy))
         else:
             compiled.append(str(ROOT / path))

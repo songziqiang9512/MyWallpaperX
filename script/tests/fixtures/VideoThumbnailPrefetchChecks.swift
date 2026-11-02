@@ -82,8 +82,19 @@ final class WallpaperManager {
             card.configure(wallpaper: wallpaper, isSelected: false, isPlaying: false,
                 multiSelectMode: false, wallpaperManager: manager, thumbnailProvider: provider)
         }
+        let readyBeforeConfigure = VideoLibraryThumbnailStore.sharedCache.cachedImage(forKey: path)
         configure(a)
+        checks["warmCardDisplaysReadyPixelsInConfigureTurn"] = readyBeforeConfigure != nil && card.thumbnailImageView.image === readyBeforeConfigure
         checks["warmCardDoesNotFlashLoadingLabel"] = card.placeholderLabel.isHidden && pump { card.thumbnailImageView.image != nil }
+        let warmValidationFinished = pump { !card.thumbnailRequestIsPending }
+        VideoLibraryThumbnailStore.sharedCache.remove(forKey: path)
+        let clearedCard = VideoCardProbe()
+        clearedCard.setThumbnailVisible(false)
+        clearedCard.configure(wallpaper: a, isSelected: false, isPlaying: false,
+            multiSelectMode: false, wallpaperManager: manager, thumbnailProvider: provider)
+        checks["explicitCacheRemovalCannotProvideWarmPixelsToANewCard"] = warmValidationFinished
+            && VideoLibraryThumbnailStore.sharedCache.cachedImage(forKey: path) == nil
+            && clearedCard.thumbnailImageView.image == nil && clearedCard.thumbnailRequestIsPending
         let slow = VideoWallpaper(id: "slow", path: root + "/slow.mp4", thumbnailPath: path + ".slow")
         try FileManager.default.copyItem(atPath: path, toPath: slow.thumbnailPath!)
         manager.blockedID = slow.id

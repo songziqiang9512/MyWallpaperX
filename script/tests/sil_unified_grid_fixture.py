@@ -113,6 +113,7 @@ def assemble(work: Path, *, count_layout=False, count_collection=False, cache_na
         "Shared/UI/WallpaperLibrarySheetPresentation.swift",
         "Shared/UI/BoxSelectionState.swift", "Shared/UI/GridThumbnailPrefetchDemand.swift",
         "Shared/Components/WallpaperCardInteractionView.swift", "Shared/Components/WallpaperCardSupportViews.swift",
+        "Shared/Components/WallpaperLibraryControlStyle.swift",
         "Shared/Components/WallpaperCardControlsView.swift", "Shared/Components/WallpaperLibraryGridMetrics.swift")]
     dependencies.append(online_library_stub)
     return sources + dependencies, original + dependencies

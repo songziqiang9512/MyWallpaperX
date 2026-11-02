@@ -16,6 +16,7 @@ extension SteamWorkshopService {
     }
 
     func clearAllCachedState(completion: (@Sendable () -> Void)? = nil) {
+        invalidateInstalledLibrarySnapshot()
         browserFetchTask?.cancel()
         browserFetchTask = nil
         cancelSelectedItemDetailRefresh()

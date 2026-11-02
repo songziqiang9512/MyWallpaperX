@@ -35,13 +35,48 @@ import Foundation
         let nfc = ref(.videoLibrary, "\u{E9}"), nfd = ref(.videoLibrary, "e\u{301}")
         var catalog = WallpaperLibraryCatalog(videos: [item(a, title: "Alpha"), item(b, title: "Beta"), item(backing), item(nfc), item(nfd)],
             images: [item(image, kind: .image, thumbnail: nil)],
-            downloads: [item(steam, kind: .scene), item(noCover, thumbnail: nil)])
+            downloads: [item(steam, kind: .scene), item(noCover, thumbnail: nil)], loadedProviders: Set(WallpaperProvider.allCases))
         let first = try await controller.createPlaylist(name: "Zulu", at: Date(timeIntervalSince1970: 100))
         let second = try await controller.createPlaylist(name: "Alpha list", at: Date(timeIntervalSince1970: 200))
         let refs = [missing, backing, steam, noCover, image, a, b, nfc, nfd]
         try await controller.perform(.addMembers(first, refs.map { .init(reference: $0, locator: .init(titleHint: $0.sourceID), isPublishedLocally: true, isAvailable: true) }, Date(timeIntervalSince1970: 300)))
         try await controller.perform(.linkAlias(.init(alias: backing, canonical: steam, proof: .publishedDownload), Date(timeIntervalSince1970: 400)))
         var relations = controller.snapshot
+        do {
+            let loadingDefaults = UserDefaults(suiteName: suite + ".loading")!
+            defer { loadingDefaults.removePersistentDomain(forName: suite + ".loading") }
+            let loadingView = WallpaperLibraryPresentation(collections: controller, defaults: loadingDefaults)
+            var loadingCatalog = WallpaperLibraryCatalog(revision: 1)
+            _ = loadingView.update(catalog: loadingCatalog, relationships: relations)
+            _ = loadingView.switchPage(.playlist(first))
+            var loadingStates: [WallpaperLibraryPresentationState] = []
+            let loadingObservation = loadingView.$state.sink { loadingStates.append($0) }
+            defer { loadingObservation.cancel() }
+            checks["startup-empty-provider-relationships-do-not-create-unavailable-cards"] = loadingView.queryResult.items.isEmpty
+                && loadingView.queryResult.unfilteredCount == 0 && loadingView.lastError == nil
+            loadingCatalog.revision += 1
+            loadingCatalog.videos = [item(a, title: "Warm Alpha"), item(backing, title: "Warm backing")]
+            _ = loadingView.update(catalog: loadingCatalog, relationships: relations)
+            checks["startup-warm-real-rows-show-with-their-original-provider-owner"] = loadingView.queryResult.items.map(\.reference) == [steam, a]
+                && loadingView.queryResult.items.first?.providerReference == backing && loadingCatalog.loadedProviders.isEmpty
+            _ = loadingView.setQueryState(.init(kinds: [.image]))
+            checks["startup-type-facets-share-the-pending-member-policy"] = loadingView.queryResult.items.isEmpty
+                && loadingView.mediaKindCounts == [.video: 2]
+            _ = loadingView.setQueryState(.init())
+            checks["startup-raw-page-publications-never-flash-fabricated-unavailable-members"] = loadingStates.allSatisfy {
+                $0.queryResult.items.allSatisfy { $0.publishedAvailability != .unavailable }
+            }
+            loadingCatalog.revision += 1; loadingCatalog.loadedProviders = [.pixabay]
+            _ = loadingView.update(catalog: loadingCatalog, relationships: relations)
+            checks["startup-completed-empty-provider-now-shows-its-real-missing-members"] =
+                loadingView.queryResult.items.map(\.reference) == [missing, steam, noCover, a]
+                && loadingView.queryResult.items.filter { $0.publishedAvailability == .unavailable }.map(\.reference) == [missing, noCover]
+            loadingCatalog.revision += 1; loadingCatalog.loadedProviders = Set(WallpaperProvider.allCases)
+            _ = loadingView.update(catalog: loadingCatalog, relationships: relations)
+            checks["startup-final-source-completion-restores-all-relationship-members"] = loadingView.queryResult.items.count == 8
+                && loadingView.queryResult.items.filter { $0.publishedAvailability == .unavailable }.count == 6
+                && controller.snapshot == relations
+        }
         let filterEdits: [(String, (inout WallpaperLibraryQueryState) -> Void)] = [
             ("source", { $0.providers = [.steamWorkshop] }), ("kind", { $0.kinds = [.scene] }),
             ("status", { $0.statuses = [.unavailable] }), ("adult", { $0.showsAdultContent = false }),

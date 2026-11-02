@@ -261,6 +261,39 @@ struct SILSquareCardHarness {
         checks["image-reuse-rejects-retained-both-actions"] = echoApplied == ["B"] && echoInspections == ["B"]
 
         do {
+            let decoded = DecodedThumbnailMemoryCache(countLimit: 1, totalCostLimit: 1024 * 1024)
+            decoded.setObject(image, forKey: wallpaper.path as NSString, cost: 400 * 200 * 4)
+            let retainedCard = SILGridItem()
+            retainedCard.view.frame = NSRect(x: 0, y: 0, width: 240, height: 240)
+            grid.addSubview(retainedCard.view)
+            defer { retainedCard.view.removeFromSuperview() }
+            retainedCard.configure(wallpaper: wallpaper, isSelected: false, isMultiSelectMode: false, thumbnailVisible: true) { _, finish in
+                finish(.image(decoded.object(forKey: wallpaper.path as NSString)!))
+            }
+            decoded.setObject(NSImage(size: NSSize(width: 40, height: 30)), forKey: "other", cost: 40 * 30 * 4)
+            var metadata = wallpaper
+            metadata.title = "Updated title for the same image"
+            var pending: ((SILThumbnailLoadResult) -> Void)?
+            retainedCard.configure(wallpaper: metadata, isSelected: false, isMultiSelectMode: false, thumbnailVisible: true) { _, finish in pending = finish }
+            checks["same-resource-metadata-keeps-ready-pixels-after-real-decoded-eviction"] = decoded.object(forKey: wallpaper.path as NSString) == nil
+                && retainedCard.thumbnailView.image === image && retainedCard.currentTitle == metadata.title && pending != nil
+            let oldCompletion = pending
+            var changedPath = metadata
+            changedPath.path += ".replacement"
+            retainedCard.configure(wallpaper: changedPath, isSelected: false, isMultiSelectMode: false, thumbnailVisible: true) { _, finish in pending = finish }
+            checks["same-ID-different-path-clears-old-pixels-before-new-result"] = retainedCard.thumbnailView.image == nil
+            oldCompletion?(.image(image))
+            checks["late-same-ID-old-path-result-cannot-replace-current-resource"] = retainedCard.thumbnailView.image == nil
+            let replacementImage = NSImage(size: NSSize(width: 200, height: 400))
+            pending?(.image(replacementImage))
+            checks["changed-path-displays-only-its-own-final-pixels"] = retainedCard.thumbnailView.image === replacementImage
+            retainedCard.configure(wallpaper: changedPath, isSelected: false, isMultiSelectMode: false, thumbnailVisible: true) { _, finish in pending = finish }
+            pending?(.unavailable)
+            checks["same-resource-preservation-does-not-mask-final-thumbnail-failure"] = retainedCard.thumbnailView.image == nil
+                && !retainedCard.placeholderLabel.isHidden && retainedCard.placeholderLabel.stringValue == "缩略图不可用"
+        }
+
+        do {
             let reference = WallpaperReference(provider: .staticImageLibrary, sourceID: wallpaper.id)
             let playlist = WallpaperPlaylist(name: "Image membership", sidebarRank: 0)
             let source = try WallpaperPlaybackSequence.Snapshot(source: .page(.playlist(playlist.id)), revision: 2,

@@ -45,7 +45,7 @@ nonisolated struct WallpaperLibrarySelectionReceipt: Sendable {
             var query = queryState
             query.kinds = []
             query.sort = .sourceOrder
-            guard let projected = try? WallpaperLibraryQuery.project(page: page, state: query, catalog: catalog, relationships: relationships) else { return [:] }
+            guard let projected = try? WallpaperLibraryQuery.project(page: page, state: query, catalog: catalog, relationships: relationships, omitsPendingMembers: true) else { return [:] }
             result = projected
         }
         return result.items.reduce(into: [:]) { $0[$1.kind, default: 0] += 1 }
@@ -484,7 +484,7 @@ nonisolated struct WallpaperLibrarySelectionReceipt: Sendable {
         if !relationshipsKnown, case .playlist = page {
             return WallpaperLibraryPageResult(items: [], unfilteredCount: 0)
         }
-        return try WallpaperLibraryQuery.project(page: page, state: query, catalog: catalog, relationships: relationships)
+        return try WallpaperLibraryQuery.project(page: page, state: query, catalog: catalog, relationships: relationships, omitsPendingMembers: true)
     }
 
     private func reconcile(_ session: inout Session, page: WallpaperLibraryPage,

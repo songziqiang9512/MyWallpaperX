@@ -31,7 +31,7 @@ nonisolated enum SteamWorkshopWebSampleStructure: String, Codable, Equatable, Ha
 }
 
 
-nonisolated enum SteamWorkshopWebDependencyStatus: Equatable {
+nonisolated enum SteamWorkshopWebDependencyStatus: Equatable, Codable {
     case none
     case available(itemID: String)
     case missing(itemID: String)

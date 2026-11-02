@@ -81,13 +81,14 @@ nonisolated enum WallpaperLibraryQuery {
     }
 
     static func project(page: WallpaperLibraryPage, state: WallpaperLibraryQueryState,
-                        catalog: WallpaperLibraryCatalog, relationships: UserCollectionsSnapshot) throws -> WallpaperLibraryPageResult {
+                        catalog: WallpaperLibraryCatalog, relationships: UserCollectionsSnapshot,
+                        omitsPendingMembers: Bool = false) throws -> WallpaperLibraryPageResult {
         if page == .playlists || page.isRemoteBrowse {
             return WallpaperLibraryPageResult(items: [], unfilteredCount: 0)
         }
         let resolver = try Resolver(catalog: catalog, relationships: relationships)
         return try project(page: page, state: state, catalog: catalog, relationships: relationships,
-                           resolver: resolver)
+                           resolver: resolver, omitsPendingMembers: omitsPendingMembers)
     }
 
     static func project(pages: [WallpaperLibraryPage], state: WallpaperLibraryQueryState,
@@ -102,9 +103,13 @@ nonisolated enum WallpaperLibraryQuery {
 
     private static func project(page: WallpaperLibraryPage, state: WallpaperLibraryQueryState,
                                 catalog: WallpaperLibraryCatalog, relationships: UserCollectionsSnapshot,
-                                resolver: Resolver) throws -> WallpaperLibraryPageResult {
+                                resolver: Resolver, omitsPendingMembers: Bool = false) throws -> WallpaperLibraryPageResult {
         func canonical(_ reference: WallpaperReference) throws -> WallpaperReference { try resolver.canonical(reference) }
         func resolve(_ reference: WallpaperReference) throws -> WallpaperContentItem { try resolver.resolve(reference) }
+        func resolveMember(_ reference: WallpaperReference) throws -> WallpaperContentItem? {
+            if omitsPendingMembers { return try resolver.resolveForPresentation(reference, loadedProviders: catalog.loadedProviders) }
+            return try resolver.resolve(reference)
+        }
         let search = state.search.trimmingCharacters(in: .whitespacesAndNewlines)
         let sort = state.sort ?? defaultSort(page)
         let sortsItems = page != .recent && sort != .sourceOrder
@@ -157,15 +162,15 @@ nonisolated enum WallpaperLibraryQuery {
                 .map { try resolve($0.reference) }).filter { !excluded.contains($0.reference) }
         case .recent:
             // Filter/search only these 50; never refill from older history.
-            candidates = try recentReferences(relationships, resolver: resolver).map(resolve)
-        case .favorites: candidates = try unique(relationships.favorites.map { try resolve($0.reference) })
+            candidates = try recentReferences(relationships, resolver: resolver).compactMap(resolveMember)
+        case .favorites: candidates = try unique(relationships.favorites.compactMap { try resolveMember($0.reference) })
         case .playlist(let id):
             guard relationships.playlists.contains(where: { $0.id == id }) else { throw UserCollectionsError.missingPlaylist }
             let members = relationships.members.filter { $0.playlistID == id }.sorted { $0.position < $1.position }
             if sortsItems, sort == .addedAt {
                 for member in members { addedAt[try canonical(member.reference)] = member.addedAt }
             }
-            candidates = try unique(members.map { try resolve($0.reference) })
+            candidates = try unique(members.compactMap { try resolveMember($0.reference) })
         case .playlists, .workshop, .pixabay, .wallhaven, .pixiv:
             // Directory and server-paginated browser pages use their own typed
             // projections, rather than silently sorting them as local items.
@@ -341,6 +346,13 @@ nonisolated enum WallpaperLibraryQuery {
         func resolve(_ reference: WallpaperReference) throws -> WallpaperContentItem {
             let key = try canonical(reference)
             return items[key] ?? WallpaperLibraryQuery.unavailable(key, locator: locators[key])
+        }
+
+        func resolveForPresentation(_ reference: WallpaperReference, loadedProviders: Set<WallpaperProvider>) throws -> WallpaperContentItem? {
+            let key = try canonical(reference)
+            if let item = items[key] { return item }
+            guard loadedProviders.contains(key.provider) else { return nil }
+            return WallpaperLibraryQuery.unavailable(key, locator: locators[key])
         }
     }
 

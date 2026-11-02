@@ -6,7 +6,8 @@ import Foundation
 // placeholder, scrolling, tag and ordinary property-store code are production.
 struct ResolvedWebProjectDescriptor {}
 enum SteamWorkshopSceneInspectionController {
-    static func requestPropertyEditor(for record: SteamWorkshopDownloadRecord) { preconditionFailure("outside detail preview gate") }
+    static var propertyRequests: [String] = []
+    static func requestPropertyEditor(for record: SteamWorkshopDownloadRecord) { propertyRequests.append(record.id) }
 }
 final class SteamWorkshopWebPropertyEditorView: NSView {
     init(record: SteamWorkshopDownloadRecord) { super.init(frame: .zero) }
@@ -52,6 +53,7 @@ final class PlaybackCommandMultiplexer {
 final class SteamWorkshopService {
     static let shared = SteamWorkshopService()
     let objectWillChange = ObservableObjectPublisher()
+    var hasCompletedInstalledLibraryLoad = true
     let defaults = UserDefaults(suiteName: "com.songziqiang.MyWallpaperX.Debug.DetailInvalidation." + UUID().uuidString)!
     var scenePropertyCommandRevision: UInt64 = 0
     var scenePropertyEditRevisions: [String: UInt64] = [:]

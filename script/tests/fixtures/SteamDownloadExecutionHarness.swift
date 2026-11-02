@@ -5,12 +5,13 @@ extension Notification.Name {
     static let steamWorkshopSceneDownloadCompleted = Notification.Name("SteamWorkshopSceneDownloadCompleted")
 }
 struct SteamWorkshopBrowserItem: Codable { let id: String; let title: String; var fileSizeText: String? { nil } }
-struct SteamWorkshopDownloadRecord {
-    enum Dependency { case none, missing(String) }
-    enum Status: Equatable { case queued, downloading, ready, failed(String) }
-    let id: String; let title: String; let sizeText: String; let dependencyStatus = Dependency.none
+struct SteamWorkshopDownloadRecord: Codable {
+    enum Dependency: Codable { case none, missing(String) }
+    enum Status: Equatable, Codable { case queued, downloading, ready, failed(String) }
+    let id: String; let title: String; let sizeText: String; var dependencyStatus = Dependency.none
     let status: Status
     var createdAt: Date? = nil
+    var intentAccountSteamID: String? = nil
 }
 // Data-only stand-ins isolate the real executor/publication methods from unrelated AppKit rendering.
 struct SteamWorkshopDownloadMetadataSnapshot: Codable {
@@ -284,6 +285,7 @@ final class Transport: SteamServiceTransporting {
     func cancelSelectedItemDetailRefresh() { detailCancellations += 1 }
     var hasCompletedInstalledLibraryLoad = false
     var installedLibraryScanGeneration = 0
+    var cacheDirectoryURL: URL { libraryRootURL.appendingPathComponent("cache", isDirectory: true) }
     var reclamationRequests = 0
     // Web cache is an external leaf here; its real invalidation/publication
     // behavior is covered by test_web_runtime_cache, not this download fixture.
@@ -391,6 +393,7 @@ final class Transport: SteamServiceTransporting {
             try Data("replacement".utf8).write(to: oldURL.appendingPathComponent("sentinel"))
         }
         let service = SteamWorkshopService(base: base, transport: transport)
+        if mode.hasPrefix("ready-update-delete") || mode == "opaque-source-delete" { service.hasCompletedInstalledLibraryLoad = true }
         if try await service.runOpaqueDeletionFixtureIfNeeded(mode: mode) { return }
         if try await service.runReadyUpdateDeletionFixtureIfNeeded(mode: mode, transport: transport) { return }
         if try await service.runLateCleanupFixtureIfNeeded(mode: mode, transport: transport) { return }

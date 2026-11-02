@@ -269,6 +269,7 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
     }
 
     private static func openProperties(_ record: SteamWorkshopDownloadRecord) {
+        guard SteamWorkshopService.shared.hasCompletedInstalledLibraryLoad else { return }
         if record.contentType == .scene {
             SteamWorkshopSceneInspectionController.requestPropertyEditor(for: record)
         } else if record.contentType == .web {

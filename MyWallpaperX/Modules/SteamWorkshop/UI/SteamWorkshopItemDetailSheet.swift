@@ -33,6 +33,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         let item: SteamWorkshopBrowserItem
         let record: SteamWorkshopDownloadRecord
         let isLocalDownloadInspector: Bool
+        let hasCompletedInstalledLibraryLoad: Bool
         let isRefreshingDetail: Bool
         let detailError: String?
         let previewReloadToken: Int
@@ -226,6 +227,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         return DisplayState(
             item: currentItem, record: record,
             isLocalDownloadInspector: service.selectedDownloadInspectorItem?.id == currentItem.id,
+            hasCompletedInstalledLibraryLoad: service.hasCompletedInstalledLibraryLoad,
             isRefreshingDetail: isRefreshingDetail, detailError: currentDetailError,
             previewReloadToken: service.previewReloadToken,
             isDownloading: service.isDownloading(itemID: currentItem.id),
@@ -483,8 +485,10 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         let primary = primaryFooterButton()
         let webpage = footerIconButton(symbolName: "safari", help: "在浏览器打开作品", action: #selector(openWorkshopDetail))
         let properties = footerIconButton(symbolName: "gearshape", help: "属性调节", action: #selector(openProperties))
-        properties.isEnabled = latestDownloadRecord?.status == .ready && latestDownloadRecord?.contentType != .unknown
-        if latestDownloadRecord?.status != .ready { properties.toolTip = "下载完成后可查看属性" }
+        properties.isEnabled = service.hasCompletedInstalledLibraryLoad
+            && latestDownloadRecord?.status == .ready && latestDownloadRecord?.contentType != .unknown
+        if !service.hasCompletedInstalledLibraryLoad { properties.toolTip = "正在载入本地壁纸" }
+        else if latestDownloadRecord?.status != .ready { properties.toolTip = "下载完成后可查看属性" }
         footerView.configure(primary: primary, webpage: webpage, properties: properties)
     }
 
@@ -550,6 +554,12 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         }
 
         let record = latestDownloadRecord.flatMap { $0.status == .ready ? $0 : nil } ?? downloadRecord
+        if record?.status == .ready, !service.hasCompletedInstalledLibraryLoad {
+            let button = footerButton(title: "正在载入本地壁纸…", symbolName: "hourglass.circle", kind: .secondary,
+                target: nil, action: nil)
+            button.isEnabled = false
+            return button
+        }
         if let record,
            case let .missing(itemID) = record.dependencyStatus {
             if service.isDownloading(itemID: itemID) || service.isQueuedForDownload(itemID: itemID) {
@@ -619,6 +629,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
     }
 
     @objc private func cancelRequiredDependencyDownload() {
+        guard service.hasCompletedInstalledLibraryLoad else { return }
         guard let record = latestDownloadRecord ?? downloadRecord,
               case let .missing(itemID) = record.dependencyStatus else {
             return
@@ -728,6 +739,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
 
 
     @objc func openProperties() {
+        guard service.hasCompletedInstalledLibraryLoad else { return }
         guard let record = latestDownloadRecord, record.status == .ready else { return }
         switch record.contentType {
         case .unknown: return

@@ -417,6 +417,7 @@ final class SteamWorkshopService: ObservableObject {
         // 不再在 init 同步执行：启动重放只需要单条记录（走
         // installedRecordForLaunchReplay 快路径），完整扫描由装配层在主窗口
         // 激活后经 performStartupLibraryReloadIfNeeded 补跑。
+        restoreInstalledLibrarySnapshot()
         refreshDownloadIntentProjection()
         // Public discovery is demand-loaded by prepareForBrowserEntry(). Keep
         // local-library startup free of helper/network work; an authorized
@@ -462,7 +463,9 @@ final class SteamWorkshopService: ObservableObject {
                   managedSnapshots: [itemID: snapshot]) else {
             return nil
         }
-        if latestDownloadRecord(for: itemID) == nil {
+        if let index = downloads.firstIndex(where: { $0.id.utf8.elementsEqual(itemID.utf8) }) {
+            if downloads[index] != record { downloads[index] = record }
+        } else {
             downloads = (downloads + [record]).sorted { $0.updatedAt > $1.updatedAt }
         }
         return record

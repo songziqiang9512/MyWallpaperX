@@ -602,7 +602,8 @@ import AppKit
         lastViewportOffsetY = offset
         let metrics = WallpaperLibraryGridMetrics(clipWidth: scrollView.contentView.bounds.width, preferredColumns: preferredColumns)
         let nearby = GridThumbnailPrefetchDemand.indices(visibleIndices: indices, itemCount: items.count,
-            neighborLimit: min(24, metrics.columns * 2), direction: direction)
+            neighborLimit: page?.isRemoteBrowse == true ? min(24, metrics.columns * 2)
+                : min(96, max(metrics.columns * 2, indices.count * 2)), direction: direction)
         hasViewportDemand = !indices.isEmpty || !nearby.isEmpty
         onViewport?(indices.map { items[$0] }, nearby.map { items[$0] })
     }

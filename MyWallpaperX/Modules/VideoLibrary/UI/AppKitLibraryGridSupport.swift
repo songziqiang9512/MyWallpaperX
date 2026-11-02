@@ -91,6 +91,11 @@ final class AppKitThumbnailProvider {
         }
     }
 
+    func cachedThumbnail(for wallpaper: VideoWallpaper) -> NSImage? {
+        guard let path = wallpaper.thumbnailPath else { return nil }
+        return cache.cachedImage(forKey: path)
+    }
+
     @discardableResult
     func loadThumbnail(for wallpaper: VideoWallpaper, priority: ThumbnailCacheRequestPriority = .visible,
                        completion: @escaping (NSImage?) -> Void) -> ThumbnailCacheRequestCancellation {

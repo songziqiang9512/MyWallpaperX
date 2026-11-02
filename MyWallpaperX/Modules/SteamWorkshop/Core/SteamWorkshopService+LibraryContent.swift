@@ -5,11 +5,35 @@ extension SteamWorkshopService {
     /// turn. Resolve that exact published record through its existing launch
     /// validator; ordinary queries and cells never use this action-time path.
     func libraryContentItemForExplicitPlayback(id: String) -> WallpaperContentItem? {
-        guard let record = latestDownloadRecord(for: id) ?? installedRecordForLaunchReplay(itemID: id), record.id.utf8.elementsEqual(id.utf8),
+        let current = latestDownloadRecord(for: id)
+        let record = current?.isStartupSnapshot == true
+            ? installedRecordForLaunchReplay(itemID: id)
+            : (current ?? installedRecordForLaunchReplay(itemID: id))
+        guard let record, record.id.utf8.elementsEqual(id.utf8),
               record.status == .ready, canLaunchDownloadRecord(record) else { return nil }
         let url = record.contentType == .video ? record.videoURL : record.folderURL
         return SteamWorkshopLibraryContentProjection.project(record: record,
             facts: Self.libraryContentFacts(record: record, available: true, localURL: url))
+    }
+
+    func initialLibraryContentItems(from records: [SteamWorkshopDownloadRecord],
+                                    jobs: [SteamDownloadJob], account: String?) -> [WallpaperContentItem] {
+        let transfers = libraryContentTransfers(from: jobs, account: account)
+        return libraryContentRecords(records, account: account).compactMap { record in
+            let localURL = record.contentType == .video
+                ? (record.exportedVideoURL ?? record.sourceVideoURL ?? record.folderURL) : record.folderURL
+            let facts = Self.libraryContentFacts(record: record,
+                available: cachedCanLaunchDownloadRecord(record), localURL: localURL)
+            let transfer = transfers[Self.libraryContentReference(record.id)]
+            guard let item = SteamWorkshopLibraryContentProjection.project(record: record, facts: facts,
+                acquisition: facts.isPublishedLocally ? nil : transfer,
+                update: facts.isPublishedLocally ? transfer : nil) else { return nil }
+            guard record.status == .ready else { return item }
+            return WallpaperContentItem(reference: item.reference, providerReference: item.providerReference,
+                locator: item.locator, title: item.title, kind: item.kind,
+                publishedAvailability: item.publishedAvailability, capabilities: [.inspect], metadata: item.metadata,
+                acquisition: item.acquisition, update: item.update, aliases: item.aliases)
+        }
     }
 
     /// Low-frequency local publication projection. Transfer counters remain in
@@ -20,14 +44,7 @@ extension SteamWorkshopService {
                              previousRecords: [SteamWorkshopDownloadRecord],
                              refreshAvailabilityFor references: Set<WallpaperReference> = [],
                              refreshAll: Bool = false) async -> [WallpaperContentItem] {
-        // Account publishers deliver their new value before the service's
-        // deferred intent refresh. Foreign task snapshots cannot become mixed
-        // page facts during that interval; untagged local records stay shared.
-        let records = records.filter { record in
-            guard let owner = record.intentAccountSteamID else { return true }
-            guard let account, !account.isEmpty else { return false }
-            return owner.utf8.elementsEqual(account.utf8)
-        }
+        let records = libraryContentRecords(records, account: account)
         let oldItems = Dictionary(previous.map { ($0.providerReference, $0) }, uniquingKeysWith: { first, _ in first })
         let oldRecords = Dictionary(previousRecords.map { (Self.libraryContentReference($0.id), $0) },
                                     uniquingKeysWith: { first, _ in first })
@@ -81,6 +98,15 @@ extension SteamWorkshopService {
             return SteamWorkshopLibraryContentProjection.project(record: record, facts: local,
                 acquisition: local.isPublishedLocally ? nil : transfer,
                 update: local.isPublishedLocally ? transfer : nil)
+        }
+    }
+
+    private func libraryContentRecords(_ records: [SteamWorkshopDownloadRecord], account: String?) -> [SteamWorkshopDownloadRecord] {
+        // Account publishers precede the deferred intent refresh; local records remain shared.
+        records.filter { record in
+            guard let owner = record.intentAccountSteamID else { return true }
+            guard let account, !account.isEmpty else { return false }
+            return owner.utf8.elementsEqual(account.utf8)
         }
     }
 

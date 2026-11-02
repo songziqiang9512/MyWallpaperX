@@ -15,8 +15,8 @@ enum SILThumbnailStore {
     static let sharedCache = ThumbnailCache(
         label: "com.mywallpaper.sil.thumbnail",
         countLimit: 180,
-        // 大图库长会话时限制已解码位图驻留（预算总表见 ThumbnailCache.init 注释）
-        totalCostLimit: 64 * 1024 * 1024,
+        // 本地图片回访的有界已解码预算（预算总表见 ThumbnailCache.init 注释）
+        totalCostLimit: 192 * 1024 * 1024,
         namespace: "staticimagelibrary",
         usesFailureCache: true
     )
@@ -183,14 +183,31 @@ final class SILService: ObservableObject {
 
     private func reconcileMissingFilesOnLaunch() {
         guard migrationRecoveryMessage == nil, !Self.defersMissingFileCleanupForPersonalSettingsRecovery else { return }
-        let fm = FileManager.default
-        let removed = wallpapers.filter { !fm.fileExists(atPath: $0.path) }
-        guard !removed.isEmpty else { return }
-
-        let removedIDs = Set(removed.map(\.id))
-        wallpapers.removeAll { removedIDs.contains($0.id) }
-        save()
-        scheduleInitialMissingFilesAlert(for: removed, attempt: 0)
+        let generation = metadataLoadGeneration
+        let inputs = wallpapers.map { (id: Data($0.id.utf8), path: $0.path) }
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let fm = FileManager.default
+            var missing: [Data: Set<Data>] = [:]
+            for (id, path) in inputs where !fm.fileExists(atPath: path) {
+                missing[id, default: []].insert(Data(path.utf8))
+            }
+            guard !missing.isEmpty else { return }
+            let removedPaths = missing
+            DispatchQueue.main.async { [weak self] in
+                guard let self, generation == self.metadataLoadGeneration,
+                      self.migrationRecoveryMessage == nil,
+                      !Self.defersMissingFileCleanupForPersonalSettingsRecovery else { return }
+                let removed = self.wallpapers.filter {
+                    removedPaths[Data($0.id.utf8)]?.contains(Data($0.path.utf8)) == true
+                }
+                guard !removed.isEmpty else { return }
+                self.wallpapers.removeAll {
+                    removedPaths[Data($0.id.utf8)]?.contains(Data($0.path.utf8)) == true
+                }
+                self.save()
+                self.scheduleInitialMissingFilesAlert(for: removed, attempt: 0)
+            }
+        }
     }
 
     func resumeMissingFileCleanupAfterSettingsRecovery() {

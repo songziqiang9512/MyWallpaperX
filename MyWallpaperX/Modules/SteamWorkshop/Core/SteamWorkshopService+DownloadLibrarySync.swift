@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 
 /// Single-flight state for the installed-library scan. The generation counter
 /// alone only discarded stale results; every overlapping reload still ran a
@@ -12,7 +13,63 @@ import Foundation
     var rescanRequested = false
 }
 
+nonisolated private struct SteamWorkshopInstalledLibrarySnapshot: Codable {
+    let libraryRoot: URL
+    let records: [SteamWorkshopDownloadRecord]
+}
+
 extension SteamWorkshopService {
+    private var installedLibrarySnapshotURL: URL {
+        cacheDirectoryURL.appendingPathComponent("installed-records-v1.json")
+    }
+
+    func restoreInstalledLibrarySnapshot() {
+        do {
+            let snapshot = try JSONDecoder().decode(SteamWorkshopInstalledLibrarySnapshot.self,
+                from: Data(contentsOf: installedLibrarySnapshotURL))
+            guard snapshot.libraryRoot == steamDownloadLibraryRootURL else { return }
+            downloads = snapshot.records.compactMap { value in
+                guard value.status == .ready, value.intentAccountSteamID == nil else { return nil }
+                var record = value
+                record.isStartupSnapshot = true
+                return record
+            }
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+        } catch {
+            NSLog("MWX Steam library display snapshot read failed: %@", error.localizedDescription)
+        }
+    }
+
+    func invalidateInstalledLibrarySnapshot() {
+        do { try FileManager.default.removeItem(at: installedLibrarySnapshotURL) }
+        catch let error as CocoaError where error.code == .fileNoSuchFile { }
+        catch { NSLog("MWX Steam library display snapshot invalidation failed: %@", error.localizedDescription) }
+    }
+
+    private func saveInstalledLibrarySnapshot(_ records: [SteamWorkshopDownloadRecord], libraryRoot: URL,
+                                              generation: Int) async {
+        guard removingDownloadIDs.isEmpty else { return }
+        let output = installedLibrarySnapshotURL
+        let staged = output.deletingLastPathComponent().appendingPathComponent(".installed-records-" + UUID().uuidString)
+        let snapshot = SteamWorkshopInstalledLibrarySnapshot(libraryRoot: libraryRoot,
+            records: records.filter { $0.status == .ready && $0.intentAccountSteamID == nil })
+        let result = await Task.detached(priority: .utility) { () -> Result<Void, Error> in
+            do {
+                try FileManager.default.createDirectory(at: staged.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try JSONEncoder().encode(snapshot).write(to: staged, options: .atomic)
+                return .success(())
+            } catch { return .failure(error) }
+        }.value
+        defer { try? FileManager.default.removeItem(at: staged) }
+        guard installedLibraryScanGeneration == generation, removingDownloadIDs.isEmpty else { return }
+        do {
+            try result.get()
+            guard rename(staged.path, output.path) == 0 else {
+                throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+            }
+        } catch { NSLog("MWX Steam library display snapshot write failed: %@", error.localizedDescription) }
+    }
+
     /// Rebuilds the installed-library index. The filesystem transaction and
     /// the stateful schedulers stay on the main actor; the expensive pure
     /// part (directory enumeration plus per-record construction — several
@@ -26,11 +83,16 @@ extension SteamWorkshopService {
         do { try SteamWorkshopLibraryTransaction.recoverPublications(libraryRoot: steamDownloadLibraryRootURL,
             retaining: referencedLibraryStorageIdentities()) }
         catch { statusMessage = "入库恢复失败：\(error.localizedDescription)" }
-        let managed = managedDownloadSnapshots()
+        installedLibraryScanGeneration += 1
+        let managed: [String: SteamWorkshopDownloadMetadataSnapshot]
+        do { managed = try loadManagedDownloadSnapshots(requireComplete: false) }
+        catch {
+            statusMessage = "本地壁纸载入失败，保留现有内容：\(error.localizedDescription)"
+            return installedLibraryScanFlight.task ?? Task { }
+        }
         scheduleLegacyLibraryPublicationMigration(from: managed)
         reconcileDownloadCommits(managed)
         scheduleTerminalDownloadCleanup()
-        installedLibraryScanGeneration += 1
         if let task = installedLibraryScanFlight.task {
             installedLibraryScanFlight.rescanRequested = true
             return task
@@ -57,16 +119,23 @@ extension SteamWorkshopService {
             while let self {
                 let scanInput = managed
                 let scanContext = context
-                let records = await Task.detached(priority: .utility) {
-                    SteamWorkshopService.scanInstalledLibraryRecords(managed: scanInput, context: scanContext)
+                let allowMissingRoot = !self.downloads.contains { $0.status == .ready && $0.intentAccountSteamID == nil }
+                let result = await Task.detached(priority: .utility) {
+                    Result { try SteamWorkshopService.scanInstalledLibraryRecords(managed: scanInput, context: scanContext,
+                        allowMissingRoot: allowMissingRoot) }
                 }.value
-                self.finishInstalledLibraryScan(generation: generation, records: records)
+                await self.finishInstalledLibraryScan(generation: generation, result: result, libraryRoot: scanContext.libraryRoot)
                 guard self.installedLibraryScanFlight.rescanRequested else {
                     self.installedLibraryScanFlight.task = nil
                     return
                 }
                 self.installedLibraryScanFlight.rescanRequested = false
-                managed = self.managedDownloadSnapshots()
+                do { managed = try self.loadManagedDownloadSnapshots(requireComplete: false) }
+                catch {
+                    self.statusMessage = "本地壁纸载入失败，保留现有内容：\(error.localizedDescription)"
+                    self.installedLibraryScanFlight.task = nil
+                    return
+                }
                 generation = self.installedLibraryScanGeneration
                 context = self.installedLibraryScanContext()
             }
@@ -78,9 +147,15 @@ extension SteamWorkshopService {
     /// The original flight task includes every coalesced catch-up. Its handle
     /// completes after the newest requested scan publishes, never after a stale
     /// first result. Only the matching generation may replace the local index.
-    private func finishInstalledLibraryScan(generation: Int, records: [SteamWorkshopDownloadRecord]) {
-        if installedLibraryScanGeneration == generation {
+    private func finishInstalledLibraryScan(generation: Int, result: Result<[SteamWorkshopDownloadRecord], Error>,
+                                            libraryRoot: URL) async {
+        guard installedLibraryScanGeneration == generation else { return }
+        switch result {
+        case .success(let records):
             applyInstalledLibraryRecords(records)
+            await saveInstalledLibrarySnapshot(records, libraryRoot: libraryRoot, generation: generation)
+        case .failure(let error):
+            statusMessage = "本地壁纸载入失败，保留现有内容：\(error.localizedDescription)"
         }
     }
 
@@ -92,15 +167,23 @@ extension SteamWorkshopService {
 
     nonisolated static func scanInstalledLibraryRecords(
         managed: [String: SteamWorkshopDownloadMetadataSnapshot],
-        context: SteamWorkshopInstalledLibraryScanContext
-    ) -> [SteamWorkshopDownloadRecord] {
-        let videoFiles = scanDirectVideoFiles(in: context.videoRoot)
-        let webDirectories = scanDirectChildDirectories(in: context.webRoot).filter {
+        context: SteamWorkshopInstalledLibraryScanContext,
+        allowMissingRoot: Bool = false
+    ) throws -> [SteamWorkshopDownloadRecord] {
+        let root = open(context.libraryRoot.path, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NONBLOCK)
+        guard root >= 0 else {
+            let code = errno
+            if code == ENOENT, allowMissingRoot { return [] }
+            throw POSIXError(POSIXErrorCode(rawValue: code) ?? .EIO)
+        }
+        defer { close(root) }
+        let videoFiles = try scanDirectVideoFiles(in: context.videoRoot)
+        let webDirectories = try scanDirectChildDirectories(in: context.webRoot).filter {
             !SteamWorkshopLibraryTransaction.isReservedManagedPublicDirectory(
                 $0, libraryRoot: context.libraryRoot
             )
         }
-        let sceneDirectories = scanDirectChildDirectories(in: context.sceneRoot).filter {
+        let sceneDirectories = try scanDirectChildDirectories(in: context.sceneRoot).filter {
             !SteamWorkshopLibraryTransaction.isReservedManagedPublicDirectory(
                 $0, libraryRoot: context.libraryRoot
             )
@@ -130,22 +213,20 @@ extension SteamWorkshopService {
         return records.sorted { $0.updatedAt > $1.updatedAt }
     }
 
-    nonisolated static private func scanDirectChildDirectories(in root: URL) -> [URL] {
-        ((try? FileManager.default.contentsOfDirectory(
-            at: root,
-            includingPropertiesForKeys: [.contentModificationDateKey],
-            options: [.skipsHiddenFiles]
-        )) ?? []).filter(\.hasDirectoryPath)
+    nonisolated static private func scanDirectChildDirectories(in root: URL) throws -> [URL] {
+        do {
+            return try FileManager.default.contentsOfDirectory(at: root,
+                includingPropertiesForKeys: [.contentModificationDateKey], options: [.skipsHiddenFiles])
+                .filter(\.hasDirectoryPath)
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile { return [] }
     }
 
-    nonisolated static private func scanDirectVideoFiles(in root: URL) -> [URL] {
-        ((try? FileManager.default.contentsOfDirectory(
-            at: root,
-            includingPropertiesForKeys: [.contentModificationDateKey],
-            options: [.skipsHiddenFiles]
-        )) ?? []).filter { url in
-            !url.hasDirectoryPath && isSupportedWorkshopVideoFile(url)
-        }
+    nonisolated static private func scanDirectVideoFiles(in root: URL) throws -> [URL] {
+        do {
+            return try FileManager.default.contentsOfDirectory(at: root,
+                includingPropertiesForKeys: [.contentModificationDateKey], options: [.skipsHiddenFiles])
+                .filter { !$0.hasDirectoryPath && isSupportedWorkshopVideoFile($0) }
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile { return [] }
     }
 
     nonisolated static private func isSupportedWorkshopVideoFile(_ url: URL) -> Bool {
@@ -244,6 +325,8 @@ extension SteamWorkshopService {
         // 占用保持失败关闭（未知内容不得被静默覆盖），收编在服务层显式
         // 完成：正在播放的旧样本拒绝更新，其余把旧目录移开，发布成功后
         // 删除旧内容，失败回移。
+        installedLibraryScanGeneration += 1
+        invalidateInstalledLibrarySnapshot()
         var legacyAsideURL: URL?
         if previousIdentity == nil,
            let occupant = try? SteamWorkshopLibraryTransaction.absoluteDirectory(content),

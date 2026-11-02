@@ -304,10 +304,23 @@ struct WorkspacePause { let isUserPaused: Bool }
             let nfc = WallpaperReference(provider: .steamWorkshop, sourceID: "\u{e9}")
             let nfd = WallpaperReference(provider: .steamWorkshop, sourceID: "e\u{301}")
             let unknown = (0..<128).map { WallpaperReference(provider: .steamWorkshop, sourceID: "unknown-\($0)") } + [nfc, nfd]
+            let mixed = try await bound.collections!.createPlaylist(name: "Pending sources",
+                members: ([content(local, "Known", .video)] + unknown.map { content($0, "Pending", .web) }).map(\.organizationItem))
+            let relationshipsReady = await wait { bound.presentation.relationshipsRevision == bound.relationships.revision }
+            precondition(relationshipsReady)
+            _ = bound.presentation.switchPage(.playlist(mixed))
+            checks["startup-workspace-does-not-publish-missing-cards-before-source-rows"] = bound.presentation.queryResult.items.isEmpty
+                && bound.presentation.lastError == nil
             var inputs = WallpaperLibraryCatalog(videos: [content(local, "Known", .video)], revision: 1, loadedProviders: [.videoLibrary])
             bound.catalog.publish(inputs)
             let initialReady = await wait { bound.projectionRevision > 0 }
             precondition(initialReady)
+            let warmPageReady = await wait { bound.presentation.queryResult.items.map(\.reference) == [local] }
+            checks["startup-workspace-shows-ready-local-rows-without-pending-steam-placeholders"] = warmPageReady
+                && bound.presentation.queryResult.unfilteredCount == 1
+            let strictPage = sourceManager.libraryPlaybackSnapshotProvider?(local, .page(.playlist(mixed)), .userSelection)
+            checks["startup-ui-omission-never-removes-default-page-playback-members"] = strictPage?.entries.map(\.reference) == [local] + unknown
+                && strictPage?.entries.first?.isPlayable == true && strictPage?.entries.dropFirst().allSatisfy { !$0.isPlayable } == true
             let entries = [WallpaperPlaybackSequence.Entry(reference: local, runtime: .video, isPlayable: true, resourceRevision: "v1")]
                 + unknown.enumerated().map { .init(reference: $0.element, runtime: .web, isPlayable: true, resourceRevision: "original-\($0.offset)") }
             let original = try WallpaperPlaybackSequence.Snapshot(source: .global, revision: 1, entries: entries)
@@ -334,6 +347,9 @@ struct WorkspacePause { let isUserPaused: Bool }
             inputs.downloads = [content(unknown[0], "Published", .web)]
             bound.catalog.publish(inputs)
             let loaded = await wait { bound.projectionRevision > beforeLoaded }
+            checks["startup-workspace-shows-true-missing-members-after-provider-completion"] = loaded
+                && bound.presentation.queryResult.items.map(\.reference) == [local] + unknown
+                && bound.presentation.queryResult.items.filter { $0.publishedAvailability == .unavailable }.count == unknown.count - 1
             let settled = sourceManager.libraryPlaybackSequence.committed?.snapshot.entries ?? []
             checks["completed-source-load-retires-unknown-fallback-and-uses-real-current-facts"] = loaded
                 && settled.map(\.reference) == entries.map(\.reference)

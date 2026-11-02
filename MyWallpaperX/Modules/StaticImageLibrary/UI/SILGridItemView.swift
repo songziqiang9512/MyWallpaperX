@@ -42,6 +42,7 @@ final class SILGridItem: WallpaperCardCollectionViewItem, WallpaperGridHoverItem
     private var isSwitching = false
 
     var wallpaperID: String?
+    private var wallpaperPath: String?
     private var imageTaskID: UUID?
     private var thumbnailCancellation: ThumbnailCacheRequestCancellation?
     private var thumbnailLoader: ((ThumbnailCacheRequestCancellation, @escaping (SILThumbnailLoadResult) -> Void) -> Void)?
@@ -147,7 +148,7 @@ final class SILGridItem: WallpaperCardCollectionViewItem, WallpaperGridHoverItem
         thumbnailRequestFinished = false
         loadingPlaceholderWork?.cancel()
         loadingPlaceholderWork = nil
-        wallpaperID = nil; imageTaskID = nil
+        wallpaperID = nil; wallpaperPath = nil; imageTaskID = nil
         isHovering = false
         isSelectedState = false; isMultiSelect = false
         thumbnailView.image = nil
@@ -176,8 +177,11 @@ final class SILGridItem: WallpaperCardCollectionViewItem, WallpaperGridHoverItem
         isPlaying: Bool = false,
         thumbnailLoader: @escaping (ThumbnailCacheRequestCancellation, @escaping (SILThumbnailLoadResult) -> Void) -> Void
     ) {
+        let unchangedResource = wallpaperID?.utf8.elementsEqual(wallpaper.id.utf8) == true
+            && wallpaperPath?.utf8.elementsEqual(wallpaper.path.utf8) == true
         if wallpaperID != wallpaper.id { isSwitching = false }
         wallpaperID = wallpaper.id
+        wallpaperPath = wallpaper.path
         isThumbnailVisible = thumbnailVisible
         currentTitle = wallpaper.title
         
@@ -202,7 +206,7 @@ final class SILGridItem: WallpaperCardCollectionViewItem, WallpaperGridHoverItem
         loadingPlaceholderWork?.cancel()
         loadingPlaceholderWork = nil
         applyHoverVisibility(isHovering, animated: false)
-        thumbnailView.image = nil
+        if !unchangedResource { thumbnailView.image = nil }
         placeholderLabel.stringValue = "加载中..."
         placeholderLabel.isHidden = true
         beginThumbnailLoad()

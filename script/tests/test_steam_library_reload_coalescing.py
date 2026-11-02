@@ -7,6 +7,7 @@ reloads never run concurrent whole-library scans, every coalesced request is
 answered by exactly one catch-up scan launched from the newest state, stale
 results never overwrite it, and interleaved deletions are not lost.
 """
+import hashlib
 import pathlib
 import subprocess
 import tempfile
@@ -50,30 +51,64 @@ class SteamLibraryReloadCoalescingTests(unittest.TestCase):
             members.append(extract(source, signature))
         members.append(extract((CORE / 'SteamWorkshopService+BrowseStateRecovery.swift').read_text(),
                                '    func clearAllCachedState('))
-        # Post-fix the reload protocol routes through dedicated scan members and a
-        # per-instance flight holder; extract them so the harness runs the real
-        # implementations rather than stand-ins.
         for signature in COALESCING_MEMBERS:
-            if signature in source:
-                members.append(extract(source, signature))
-            else:
-                members.append('// member absent in this revision: ' + signature.strip())
-        flight_type = extract(source, 'private final class SteamWorkshopInstalledLibraryScanFlight {') \
-            if 'private final class SteamWorkshopInstalledLibraryScanFlight {' in source else ''
+            member = extract(source, signature)
+            if 'finishInstalledLibraryScan(' in signature:
+                member = member.replace('private func', 'func', 1)
+            members.append(member)
+        snapshot_members = (
+            '    private var installedLibrarySnapshotURL:', '    func restoreInstalledLibrarySnapshot()',
+            '    func invalidateInstalledLibrarySnapshot()', '    private func saveInstalledLibrarySnapshot(',
+        )
+        for signature in snapshot_members:
+            member = extract(source, signature)
+            if 'installedLibrarySnapshotURL:' in signature:
+                member = member.replace('private var', 'var', 1)
+            if 'saveInstalledLibrarySnapshot(' in signature:
+                marker = '                try JSONEncoder().encode(snapshot).write(to: staged, options: .atomic)'
+                assert member.count(marker) == 1
+                member = member.replace(marker, marker + '\n' + r'''
+                let held = ScanGate.gate { () -> Bool in
+                    let held = ScanGate.holdSnapshotWrite; ScanGate.holdSnapshotWrite = false
+                    if held { ScanGate.snapshotWritesHeld += 1 }
+                    return held
+                }
+                if held { precondition(ScanGate.snapshotWriteRelease.wait(timeout: .now() + 5) == .success) }
+''')
+            members.append(member)
+        flight_type = extract(source, '@MainActor private final class SteamWorkshopInstalledLibraryScanFlight {')
+        snapshot_type = extract(source, 'nonisolated private struct SteamWorkshopInstalledLibrarySnapshot:')
+        metadata_type = extract((CORE / 'SteamWorkshopAPIModels.swift').read_text(),
+                                'nonisolated struct SteamWorkshopDownloadMetadataSnapshot:')
+        model_sources = [CORE / 'SteamWorkshopModels.swift',
+                         ROOT / 'MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopWebValidationModels.swift']
+        observed = [pathlib.Path(__file__), CORE / 'SteamWorkshopService+DownloadLibrarySync.swift',
+                    CORE / 'SteamWorkshopService+BrowseStateRecovery.swift', CORE / 'SteamWorkshopAPIModels.swift',
+                    *model_sources, *SOURCES]
+        cls.input_hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in observed}
         harness = r'''
 import Foundation
+import Darwin
 
-''' + (flight_type + '\n' if flight_type else '') + r'''
-struct SteamWorkshopBrowserItem: Codable { let id: String; let title: String }
-struct SteamWorkshopDownloadRecord: Identifiable, Equatable {
-    enum Status: Equatable { case queued, downloading, ready, failed(String) }
-    let id: String; let title: String; let sizeText: String; let status: Status
+''' + flight_type + '\n' + snapshot_type + '\n' + metadata_type + r'''
+nonisolated func fixtureItem(_ id: String, _ title: String) -> SteamWorkshopBrowserItem {
+    SteamWorkshopBrowserItem(id: id, title: title, author: "fixture", authorProfileURL: nil, authorWorkshopURL: nil,
+        hasAdultContent: false, summary: "summary", descriptionText: "description", tags: ["fixture"], workshopTypeText: "Web",
+        ageRatingText: nil, genreText: nil, categoryText: nil, dependencyIDs: [], previewImageURL: nil, previewVideoURL: nil,
+        previewAssetKind: .stillImage, fileSizeText: nil, resolutionText: nil, postedText: nil, updatedText: nil,
+        favoritesText: nil, subscriptionsText: nil, scoreText: nil, lifetimeFavoritesText: nil, lifetimeSubscriptionsText: nil,
+        visibilityText: nil, moderationText: nil, detailFields: [], detailURL: URL(string: "https://fixture.invalid/" + id)!)
 }
-struct SteamWorkshopDownloadMetadataSnapshot: Codable {
-    let fetchedAt: Date; let item: SteamWorkshopBrowserItem; let sourceVideoRelativePath: String?
-    let previewRelativePath: String?; let exportedVideoURL: URL?; let legacyFolderURL: URL?
-    var legacyRemoved: Bool? = nil
-    var commit: SteamWorkshopLibraryCommit? = nil
+nonisolated func fixtureRecord(_ item: SteamWorkshopBrowserItem, root: URL,
+                              status: SteamWorkshopDownloadRecord.Status = .ready, account: String? = nil) -> SteamWorkshopDownloadRecord {
+    var record = SteamWorkshopDownloadRecord(id: item.id, title: item.title, description: item.descriptionText, tags: item.tags,
+        folderURL: root, projectFileURL: nil, ownEntryHTMLURL: nil, dependencyHostEntryHTMLURL: nil, dependencyHostFolderURL: nil,
+        entryHTMLURL: root.appendingPathComponent("index.html"), resolvedWebRootURL: root, previewURL: nil,
+        sourceVideoURL: nil, exportedVideoURL: nil, updatedAt: Date(timeIntervalSince1970: 123), sizeText: "1 KB",
+        status: status, browserItem: item, contentType: .web, dependencyItemID: nil, dependencyStatus: .none,
+        createdAt: Date(timeIntervalSince1970: 100), sizeBytes: 1024)
+    record.intentAccountSteamID = account
+    return record
 }
 struct SteamWorkshopInstalledLibraryScanContext: Sendable { let libraryRoot: URL }
 
@@ -87,6 +122,10 @@ enum ScanGate {
     static var inFlight = 0
     static var peakInFlight = 0
     static var seenManagedCounts: [Int] = []
+    static var failNextScan = false
+    static var holdSnapshotWrite = false
+    static var snapshotWritesHeld = 0
+    static let snapshotWriteRelease = DispatchSemaphore(value: 0)
     static func gate<T>(_ body: () -> T) -> T {
         lock.lock(); defer { lock.unlock() }; return body()
     }
@@ -130,13 +169,14 @@ final class CacheClearCompletion: @unchecked Sendable {
     func removeAll() { clears += 1 }
 }
 enum CacheClearOption {
-    case idle, discovery, video, featured, subscriptionDate, week, none
+    case idle, discovery, video, all, featured, subscriptionDate, week, none
     var title: String { "Steam Workshop" }
 }
 @MainActor final class SteamWorkshopService {
     var statusMessage = ""
     let steamDownloadLibraryRootURL: URL
     var installedLibraryScanGeneration = 0
+    var removingDownloadIDs: Set<String> = []
     var downloads: [SteamWorkshopDownloadRecord] = []
     var hasCompletedInstalledLibraryLoad = false
     let steamAuth = CacheClearAuth()
@@ -170,6 +210,7 @@ enum CacheClearOption {
     init(libraryRoot: URL) {
         steamDownloadLibraryRootURL = libraryRoot
         downloadJobStore = SteamDownloadJobStore(persistenceURL: libraryRoot.deletingLastPathComponent().appendingPathComponent("jobs.json"))
+        restoreInstalledLibrarySnapshot()
     }
     func referencedLibraryStorageIdentities() -> Set<String> { [] }
     func scheduleLegacyLibraryPublicationMigration(from snapshots: [String: SteamWorkshopDownloadMetadataSnapshot]) {}
@@ -181,8 +222,9 @@ enum CacheClearOption {
     func scheduleLibraryVersionReclamation() {}
     nonisolated static func scanInstalledLibraryRecords(
         managed: [String: SteamWorkshopDownloadMetadataSnapshot],
-        context: SteamWorkshopInstalledLibraryScanContext
-    ) -> [SteamWorkshopDownloadRecord] {
+        context: SteamWorkshopInstalledLibraryScanContext,
+        allowMissingRoot: Bool = false
+    ) throws -> [SteamWorkshopDownloadRecord] {
         let scanNumber = ScanGate.gate {
             ScanGate.started &+= 1
             ScanGate.inFlight &+= 1
@@ -193,10 +235,14 @@ enum CacheClearOption {
         while ScanGate.gate({ ScanGate.hold || (scanNumber == 2 && ScanGate.holdCatchup) }) {
             Thread.sleep(forTimeInterval: 0.002)
         }
-        ScanGate.gate { ScanGate.inFlight -= 1 }
+        defer { ScanGate.gate { ScanGate.inFlight -= 1 } }
+        let fail = ScanGate.gate { () -> Bool in
+            let fail = ScanGate.failNextScan; ScanGate.failNextScan = false; return fail
+        }
+        if fail { throw CocoaError(.fileReadNoPermission) }
         return managed.values
             .sorted { $0.item.id < $1.item.id }
-            .map { SteamWorkshopDownloadRecord(id: $0.item.id, title: $0.item.title, sizeText: "1 KB", status: .ready) }
+            .map { fixtureRecord($0.item, root: context.libraryRoot) }
     }
 ''' + '\n'.join(members) + r'''
 }
@@ -235,7 +281,7 @@ enum CacheClearOption {
             try Data("{}".utf8).write(to: content.appendingPathComponent("project.json"))
             try Data("<html>".utf8).write(to: content.appendingPathComponent("index.html"))
             var snapshot = SteamWorkshopDownloadMetadataSnapshot(
-                fetchedAt: Date(), item: SteamWorkshopBrowserItem(id: id, title: title),
+                fetchedAt: Date(), item: fixtureItem(id, title),
                 sourceVideoRelativePath: nil, previewRelativePath: nil,
                 exportedVideoURL: nil, legacyFolderURL: content
             )
@@ -353,13 +399,110 @@ enum CacheClearOption {
         print("CACHE CLEAR REFRESH PASS: one explicit scan; auth/jobs preserved")
         print("RELOAD COALESCING PASS: scans=\(ScanGate.gate { ScanGate.started })"
             + " peakConcurrent=\(ScanGate.gate { ScanGate.peakInFlight })")
+
+        let fm = FileManager.default
+        let originalSnapshot = try JSONDecoder().decode(SteamWorkshopInstalledLibrarySnapshot.self,
+            from: Data(contentsOf: service.installedLibrarySnapshotURL))
+        precondition(originalSnapshot.libraryRoot == library && originalSnapshot.records == service.downloads)
+        let reopened = SteamWorkshopService(libraryRoot: library)
+        precondition(reopened.downloads.map(\.id) == ["100001"] && reopened.downloads.map(\.title) == ["alpha-v1"]
+            && reopened.downloads.allSatisfy { $0.isStartupSnapshot == true } && !reopened.hasCompletedInstalledLibraryLoad,
+            "a real display snapshot reopens rows without declaring a fresh scan complete")
+        let mismatch = SteamWorkshopService(libraryRoot: base.appendingPathComponent("other-library"))
+        try fm.createDirectory(at: mismatch.cacheDirectoryURL, withIntermediateDirectories: true)
+        try fm.copyItem(at: service.installedLibrarySnapshotURL, to: mismatch.installedLibrarySnapshotURL)
+        mismatch.restoreInstalledLibrarySnapshot()
+        precondition(mismatch.downloads.isEmpty && !mismatch.hasCompletedInstalledLibraryLoad,
+            "a different library root cannot consume this snapshot")
+        let corrupt = SteamWorkshopService(libraryRoot: base.appendingPathComponent("corrupt-library"))
+        try fm.createDirectory(at: corrupt.cacheDirectoryURL, withIntermediateDirectories: true)
+        try Data("not a snapshot".utf8).write(to: corrupt.installedLibrarySnapshotURL)
+        corrupt.restoreInstalledLibrarySnapshot()
+        precondition(corrupt.downloads.isEmpty && !corrupt.hasCompletedInstalledLibraryLoad)
+
+        ScanGate.gate { ScanGate.failNextScan = true }
+        await reopened.reloadInstalledItems().value
+        precondition(reopened.downloads.map(\.id) == ["100001"] && !reopened.hasCompletedInstalledLibraryLoad
+            && reopened.statusMessage.contains("保留现有内容"), "a failed scan must retain the warm rows and unknown freshness")
+        try removeItem("100001")
+        await reopened.reloadInstalledItems().value
+        let emptySnapshot = try JSONDecoder().decode(SteamWorkshopInstalledLibrarySnapshot.self,
+            from: Data(contentsOf: reopened.installedLibrarySnapshotURL))
+        precondition(reopened.downloads.isEmpty && reopened.hasCompletedInstalledLibraryLoad && emptySnapshot.records.isEmpty,
+            "a successful empty scan is authoritative and persists an empty display baseline")
+
+        let filtered = SteamWorkshopService(libraryRoot: base.appendingPathComponent("filtered-library"))
+        let ready = fixtureRecord(fixtureItem("ready", "Ready"), root: filtered.steamDownloadLibraryRootURL)
+        let queued = fixtureRecord(fixtureItem("queued", "Queued"), root: filtered.steamDownloadLibraryRootURL, status: .queued)
+        let failed = fixtureRecord(fixtureItem("failed", "Failed"), root: filtered.steamDownloadLibraryRootURL, status: .failed("reason"))
+        let transient = fixtureRecord(fixtureItem("intent", "Intent"), root: filtered.steamDownloadLibraryRootURL, account: "other-account")
+        let typed = [ready, queued, failed, transient]
+        let roundTrip = try JSONDecoder().decode([SteamWorkshopDownloadRecord].self, from: JSONEncoder().encode(typed))
+        precondition(roundTrip == typed, "record/status/browser/dependency persistence uses the actual Codable implementation")
+        await filtered.finishInstalledLibraryScan(generation: filtered.installedLibraryScanGeneration,
+            result: .success(typed), libraryRoot: filtered.steamDownloadLibraryRootURL)
+        let filteredSnapshot = try JSONDecoder().decode(SteamWorkshopInstalledLibrarySnapshot.self,
+            from: Data(contentsOf: filtered.installedLibrarySnapshotURL))
+        precondition(filteredSnapshot.records == [ready], "only local ready rows belong to the display snapshot")
+        let filteredReopen = SteamWorkshopService(libraryRoot: filtered.steamDownloadLibraryRootURL)
+        precondition(filteredReopen.downloads.map(\.id) == [ready.id]
+            && filteredReopen.downloads.first?.browserItem == ready.browserItem
+            && filteredReopen.downloads.first?.isStartupSnapshot == true && !filteredReopen.hasCompletedInstalledLibraryLoad)
+
+        let racing = SteamWorkshopService(libraryRoot: base.appendingPathComponent("racing-library"))
+        let obsolete = fixtureRecord(fixtureItem("old", "Old"), root: racing.steamDownloadLibraryRootURL)
+        let current = fixtureRecord(fixtureItem("new", "New"), root: racing.steamDownloadLibraryRootURL)
+        let heldBeforeDeletion = ScanGate.gate { ScanGate.holdSnapshotWrite = true; return ScanGate.snapshotWritesHeld }
+        let deletionGeneration = racing.installedLibraryScanGeneration
+        let preDeletionWrite = Task { await racing.finishInstalledLibraryScan(generation: deletionGeneration,
+            result: .success([obsolete]), libraryRoot: racing.steamDownloadLibraryRootURL) }
+        try await waitUntil("actual snapshot staged before deletion") { ScanGate.gate { ScanGate.snapshotWritesHeld > heldBeforeDeletion } }
+        racing.installedLibraryScanGeneration += 1
+        racing.removingDownloadIDs.insert(obsolete.id)
+        racing.downloads = []
+        racing.invalidateInstalledLibrarySnapshot()
+        ScanGate.snapshotWriteRelease.signal()
+        await preDeletionWrite.value
+        let deletionResidue = try fm.contentsOfDirectory(atPath: racing.cacheDirectoryURL.path)
+        precondition(racing.downloads.isEmpty && !fm.fileExists(atPath: racing.installedLibrarySnapshotURL.path)
+            && !deletionResidue.contains { $0.hasPrefix(".installed-records-") }, "a pre-deletion write cannot recreate the snapshot")
+
+        racing.removingDownloadIDs.removeAll()
+        racing.installedLibraryScanGeneration += 1
+        let oldGeneration = racing.installedLibraryScanGeneration
+        let heldBeforePublication = ScanGate.gate { ScanGate.holdSnapshotWrite = true; return ScanGate.snapshotWritesHeld }
+        let oldWrite = Task { await racing.finishInstalledLibraryScan(generation: oldGeneration,
+            result: .success([obsolete]), libraryRoot: racing.steamDownloadLibraryRootURL) }
+        try await waitUntil("actual old snapshot staged before new publication") { ScanGate.gate { ScanGate.snapshotWritesHeld > heldBeforePublication } }
+        racing.installedLibraryScanGeneration += 1
+        await racing.finishInstalledLibraryScan(generation: racing.installedLibraryScanGeneration,
+            result: .success([current]), libraryRoot: racing.steamDownloadLibraryRootURL)
+        ScanGate.snapshotWriteRelease.signal()
+        await oldWrite.value
+        let latestSnapshot = try JSONDecoder().decode(SteamWorkshopInstalledLibrarySnapshot.self,
+            from: Data(contentsOf: racing.installedLibrarySnapshotURL))
+        let publicationResidue = try fm.contentsOfDirectory(atPath: racing.cacheDirectoryURL.path)
+        precondition(racing.downloads == [current] && latestSnapshot.records == [current]
+            && !publicationResidue.contains { $0.hasPrefix(".installed-records-") }, "a late older write cannot replace the newest publication")
+
+        let unwritable = SteamWorkshopService(libraryRoot: base.appendingPathComponent("unwritable-cache-library"))
+        try fm.createDirectory(at: unwritable.steamDownloadLibraryRootURL, withIntermediateDirectories: true)
+        let blocker = Data("a file blocks the optional cache directory".utf8)
+        try blocker.write(to: unwritable.cacheDirectoryURL)
+        let accepted = fixtureRecord(fixtureItem("accepted", "Accepted"), root: unwritable.steamDownloadLibraryRootURL)
+        await unwritable.finishInstalledLibraryScan(generation: unwritable.installedLibraryScanGeneration,
+            result: .success([accepted]), libraryRoot: unwritable.steamDownloadLibraryRootURL)
+        let unchangedBlocker = try Data(contentsOf: unwritable.cacheDirectoryURL)
+        precondition(unwritable.downloads == [accepted] && unwritable.hasCompletedInstalledLibraryLoad && unchangedBlocker == blocker,
+            "an optional snapshot write failure cannot roll back successful source publication")
+        print("INSTALLED SNAPSHOT PASS: warm/root/corrupt/empty/failure/Codable/stale-deletion/stale-publication/write-failure")
     }
 }
 '''
         harness_path = folder / 'Harness.swift'
         harness_path.write_text(harness)
         cls.binary = folder / 'coalescing'
-        subprocess.run(['xcrun', 'swiftc', '-parse-as-library', *map(str, SOURCES), str(harness_path),
+        subprocess.run(['xcrun', 'swiftc', '-parse-as-library', *map(str, [*SOURCES, *model_sources]), str(harness_path),
                         '-o', str(cls.binary)], check=True, timeout=120)
 
     @classmethod
@@ -372,6 +515,9 @@ enum CacheClearOption {
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertIn('RELOAD COALESCING PASS: scans=', result.stdout)
             self.assertIn('CACHE CLEAR REFRESH PASS: one explicit scan; auth/jobs preserved', result.stdout)
+            self.assertIn('INSTALLED SNAPSHOT PASS:', result.stdout)
+            self.assertEqual(self.input_hashes, {path: hashlib.sha256(pathlib.Path(path).read_bytes()).hexdigest()
+                                               for path in self.input_hashes})
 
 
 if __name__ == '__main__':

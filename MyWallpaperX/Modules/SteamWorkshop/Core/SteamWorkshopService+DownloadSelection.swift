@@ -59,10 +59,18 @@ extension SteamWorkshopService {
     }
 
     func deleteSourceFiles(itemIDs: [String], completion: @escaping (WallpaperSourceDeletionResult) -> Void) {
+        guard hasCompletedInstalledLibraryLoad else {
+            completion(.init(items: itemIDs.map { .init(reference: .init(provider: .steamWorkshop, sourceID: $0),
+                sourceURL: steamDownloadLibraryRootURL, succeeded: false, sourceFileDeleted: false,
+                failureMessage: "本地壁纸仍在载入，请稍后重试删除") }))
+            return
+        }
         var seen = Set<WallpaperReference>()
         let ids = itemIDs.filter { seen.insert(.init(provider: .steamWorkshop, sourceID: $0)).inserted && !removingDownloadIDs.contains($0) }
         guard !ids.isEmpty else { completion(.init(items: [])); return }
         removingDownloadIDs.formUnion(ids)
+        installedLibraryScanGeneration += 1
+        invalidateInstalledLibrarySnapshot()
         Task { [weak self] in
             guard let self else { return }
             defer { self.removingDownloadIDs.subtract(ids) }

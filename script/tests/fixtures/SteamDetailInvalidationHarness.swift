@@ -328,6 +328,27 @@ import Foundation
         let subscribedIcon = views(subscribedButton).compactMap { $0 as? NSImageView }.first!.image
         let filledBookmark = NSImage(systemSymbolName: "bookmark.fill", accessibilityDescription: nil)!.withSymbolConfiguration(.init(pointSize: 14, weight: .semibold))!
         checks["subscribedSourceInspectorUsesFilledBookmarkAndRetainsAccountLabel"] = subscribedIcon?.size == filledBookmark.size && subscribedButton.accessibilityLabel() == "已订阅"
+        precondition(SteamWorkshopSceneInspectionController.propertyRequests.isEmpty, "ordinary detail updates must not open an editor")
+        do {
+            let pendingService = SteamWorkshopService()
+            pendingService.hasCompletedInstalledLibraryLoad = false
+            pendingService.record = makeRecord()
+            let previousActiveID = SceneDaemonClient.shared.activeRecordID
+            SceneDaemonClient.shared.activeRecordID = item.id
+            defer { SceneDaemonClient.shared.activeRecordID = previousActiveID }
+            let pendingDetail = AppKitSteamWorkshopItemDetailView(item: item, service: pendingService)
+            pendingDetail.frame = detail.frame; settle(pendingDetail)
+            let pendingProperties = views(pendingDetail).compactMap { $0 as? InspectorFooterButton }.first { $0.action == NSSelectorFromString("openProperties") }!
+            checks["startupWarmPropertiesRemainDisabledUntilFreshScan"] = !pendingProperties.isEnabled && pendingProperties.toolTip == "正在载入本地壁纸"
+            pendingDetail.openProperties()
+            checks["startupWarmDirectPropertiesActionCannotOpenEditor"] = SteamWorkshopSceneInspectionController.propertyRequests.isEmpty
+            pendingService.hasCompletedInstalledLibraryLoad = true
+            pendingService.objectWillChange.send(); settle(pendingDetail)
+            let currentProperties = views(pendingDetail).compactMap { $0 as? InspectorFooterButton }.first { $0.action == NSSelectorFromString("openProperties") }!
+            checks["unchangedReadyRecordFreshnessPublicationRestoresProperties"] = currentProperties.isEnabled && currentProperties.toolTip != "正在载入本地壁纸"
+            pendingDetail.openProperties()
+            checks["freshDirectPropertiesActionKeepsOriginalEditorRoute"] = SteamWorkshopSceneInspectionController.propertyRequests == [item.id]
+        }
         let output: [String: Any] = ["checks": checks, "ordinaryUpdates": 20, "propertyPulses": pulses,
             "propertyDispatches": PlaybackCommandMultiplexer.shared.propertyDispatches,
             "previewInitial": initialPreviewState, "previewAfterMetadata": rebuiltPreviewState,

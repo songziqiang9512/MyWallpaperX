@@ -57,6 +57,15 @@ nonisolated final class CatalogFileProbe: @unchecked Sendable {
     func stop() { lock.lock(); recording = false; lock.unlock() }
 }
 
+nonisolated final class CatalogSteamIOProbe: @unchecked Sendable {
+    static let shared = CatalogSteamIOProbe()
+    private let lock = NSLock()
+    private var counts: [String: Int] = [:]
+    func note(_ entry: String) { lock.lock(); counts[entry, default: 0] += 1; lock.unlock() }
+    func reset() { lock.lock(); counts.removeAll(); lock.unlock() }
+    var snapshot: [String: Int] { lock.lock(); defer { lock.unlock() }; return counts }
+}
+
 // Pure provider leaves only: no live singleton, network, UI or runtime starts.
 nonisolated struct SteamWorkshopStagingLeaseIdentity: Codable, Equatable {}
 nonisolated struct SteamWorkshopStagedReceipt: Codable, Equatable {}
@@ -64,8 +73,18 @@ nonisolated struct SteamWorkshopLibraryCommit: Codable, Equatable {}
 final class WallpaperManager {
     @Published var wallpapers: [VideoWallpaper] = []
     @Published var didFinishInitialIndexLoad = false
+    var wallpaperIndexSaveEpoch: UInt64 = 0
+    // VIDEO_METADATA_RECEIPT
 }
-final class SILService { @Published var wallpapers: [SILWallpaper] = [] }
+nonisolated let catalogHeaderReady = DispatchSemaphore(value: 0)
+nonisolated let catalogHeaderRelease = DispatchSemaphore(value: 0)
+final class SILService {
+    @Published var wallpapers: [SILWallpaper] = []
+    var persistenceURL = URL(fileURLWithPath: "/unused-catalog-index")
+    var metadataLoadGeneration: UInt64 = 0
+    func save() {}
+    // IMAGE_METADATA_RECEIPT
+}
 final class PixabayService {
     @Published var downloadedContent = PixabayDownloadedContentSnapshot(revision: 0, entries: [], status: .initial)
     @Published var items: [PixabayVideoItem] = []
@@ -126,8 +145,16 @@ extension SteamWorkshopDownloadRecord { var isSceneLaunchable: Bool { false } }
         let rejectsUnknown = steam.libraryContentItemForExplicitPlayback(id: "not-published") == nil
         steam.replayRecords["replay-only"] = record(id: "replay-only", video: sharedFile)
         let replay = steam.libraryContentItemForExplicitPlayback(id: "replay-only")
+        let initialBarrier = CatalogFileProbe.shared.holdNext()
         let controller = WallpaperLibraryCatalogController(manager: manager, images: images, steam: steam, pixabay: pixabay)
         var checks: [String: Bool] = [:]
+        checks["persisted-video-and-image-rows-project-before-file-workers-start"] =
+            controller.catalog.videos.map(\.title) == ["same title"] && controller.catalog.images.map(\.title) == images.wallpapers.map(\.title)
+            && controller.catalog.videos.count == 1 && controller.catalog.images.count == 1
+            && (controller.catalog.videos + controller.catalog.images).allSatisfy { $0.publishedAvailability == .available && $0.capabilities.contains(.play) }
+            && CatalogFileProbe.shared.snapshot.total == 0
+        checks["index-first-rows-do-not-announce-fresh-provider-completion"] =
+            !controller.catalog.loadedProviders.contains(.videoLibrary) && !controller.catalog.loadedProviders.contains(.staticImageLibrary)
         checks["explicit-user-action-can-resolve-a-validated-record-before-catalog-publication"] = immediate?.reference == .init(provider: .steamWorkshop, sourceID: "42")
             && immediate?.capabilities.contains(.play) == true
         checks["explicit-user-action-cannot-invent-a-missing-or-unpublished-resource"] = rejectsMissing && rejectsUnknown
@@ -138,6 +165,13 @@ extension SteamWorkshopDownloadRecord { var isSceneLaunchable: Bool { false } }
             while !condition(), Date() < deadline { try? await Task.sleep(for: .milliseconds(3)) }
             return condition()
         }
+        let initialWorkerStarted = await wait { CatalogFileProbe.shared.snapshot.active > 0 }
+        checks["held-first-stat-keeps-the-initial-local-rows-visible"] = initialWorkerStarted
+            && controller.catalog.videos.count == 1 && controller.catalog.images.count == 1
+            && CatalogFileProbe.shared.snapshot.offMain
+        initialBarrier.signal()
+        await controller.videoTask?.value; await controller.imageTask?.value
+        CatalogFileProbe.shared.stop()
         checks["three-real-source-subscriptions-publish-initial-values"] = await wait {
             controller.catalog.videos.count == 1 && controller.catalog.images.count == 1 && controller.catalog.downloads.count == 2
         }
@@ -230,6 +264,7 @@ extension SteamWorkshopDownloadRecord { var isSceneLaunchable: Bool { false } }
         try Data([2]).write(to: offscreen)
         manager.wallpapers.append(VideoWallpaper(id: "offscreen", title: "offscreen", path: offscreen.path))
         _ = await wait { controller.catalog.videos.count == 2 }
+        await controller.videoTask?.value
         let videoToken = UUID(), imageToken = UUID()
         CatalogVisibleFilterProbe.videoVisits = 0; CatalogVisibleFilterProbe.imageVisits = 0
         var visiblePreviewRepairs = 0
@@ -376,12 +411,60 @@ extension SteamWorkshopDownloadRecord { var isSceneLaunchable: Bool { false } }
         checks["replacing-a-held-source-cancels-only-the-original-projection"] = retainedProjection.isCancelled && !successorProjection.isCancelled
         retiredBarrier.signal(); await retainedProjection.value
         checks["retired-source-completion-cannot-publish-over-a-held-successor"] = !successorProjection.isCancelled
-            && controller.catalog.videos.first?.title != "retired refresh source" && controller.catalog.videos.first?.title != "successor refresh source"
+            && controller.catalog.videos.first?.title != "retired refresh source" && controller.catalog.videos.first?.title == "successor refresh source"
         successorBarrier.signal(); await successorProjection.value
         checks["successor-source-keeps-its-real-publication-after-the-retired-worker-exits"] = !successorProjection.isCancelled
             && controller.catalog.videos.first?.title == "successor refresh source"
             && controller.catalog.videos.first?.publishedAvailability == .available
         CatalogFileProbe.shared.stop()
+
+        let savedVideos = manager.wallpapers, savedImages = images.wallpapers
+        let metadataDirectory = root.appendingPathComponent("metadata-directory", isDirectory: true)
+        try FileManager.default.createDirectory(at: metadataDirectory, withIntermediateDirectories: true)
+        let metadataPNG = root.appendingPathComponent("metadata.png"), metadataIndex = root.appendingPathComponent("metadata.json")
+        let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 8, pixelsHigh: 12, bitsPerSample: 8,
+            samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+        try bitmap.representation(using: .png, properties: [:])!.write(to: metadataPNG)
+        var metadataImage = try image(id: "42", path: metadataPNG.path)
+        metadataImage.pixelWidth = nil; metadataImage.pixelHeight = nil
+        try JSONEncoder().encode([metadataImage]).write(to: metadataIndex)
+        let firstVideoStat = CatalogFileProbe.shared.holdNext()
+        manager.wallpapers = [VideoWallpaper(id: "42", title: "metadata video", path: metadataDirectory.path)]
+        _ = await wait { CatalogFileProbe.shared.snapshot.active == 1 }
+        let firstVideoProjection = controller.videoTask!
+        let firstImageStat = CatalogFileProbe.shared.holdNext()
+        images.persistenceURL = metadataIndex; images.load()
+        _ = await wait { CatalogFileProbe.shared.snapshot.active == 2 }
+        let firstImageProjection = controller.imageTask!
+        precondition(catalogHeaderReady.wait(timeout: .now() + 3) == .success)
+        try FileManager.default.removeItem(at: metadataPNG)
+        let metadataVideoStat = CatalogFileProbe.shared.holdNext()
+        manager.scheduleInitialIndexFileSizes(manager.wallpapers)
+        let videoMetadataPublished = await wait { manager.wallpapers.first?.fileSize != nil && CatalogFileProbe.shared.snapshot.active == 3 }
+        let metadataVideoProjection = controller.videoTask!
+        let metadataImageStat = CatalogFileProbe.shared.holdNext()
+        catalogHeaderRelease.signal()
+        let imageMetadataPublished = await wait { images.wallpapers.first?.pixelHeight == 12 && CatalogFileProbe.shared.snapshot.active == 4 }
+        let metadataImageProjection = controller.imageTask!
+        checks["real-size-and-header-completions-republish-the-same-held-resource-paths"] = videoMetadataPublished && imageMetadataPublished
+            && manager.wallpapers.first?.path == metadataDirectory.path && images.wallpapers.first?.path == metadataPNG.path
+            && controller.catalog.videos.first?.metadata.fileSizeBytes == manager.wallpapers.first?.fileSize
+            && controller.catalog.images.first?.metadata.resolutionText == "8×12"
+        checks["metadata-publications-keep-warm-rows-before-fresh-file-facts"] =
+            controller.catalog.videos.first?.publishedAvailability == .available && controller.catalog.images.first?.publishedAvailability == .available
+        firstVideoStat.signal(); firstImageStat.signal()
+        await firstVideoProjection.value; await firstImageProjection.value
+        checks["retired-file-receipts-cannot-overwrite-held-metadata-successors"] = firstVideoProjection.isCancelled && firstImageProjection.isCancelled
+            && !metadataVideoProjection.isCancelled && !metadataImageProjection.isCancelled
+            && controller.catalog.videos.first?.publishedAvailability == .available && controller.catalog.images.first?.publishedAvailability == .available
+        metadataVideoStat.signal(); metadataImageStat.signal()
+        await metadataVideoProjection.value; await metadataImageProjection.value
+        checks["warm-same-path-metadata-is-never-reused-as-verified-availability"] =
+            controller.catalog.videos.first?.publishedAvailability == .unavailable && controller.catalog.images.first?.publishedAvailability == .unavailable
+            && controller.catalog.videos.first?.capabilities.contains(.play) == false && controller.catalog.images.first?.capabilities.contains(.play) == false
+        CatalogFileProbe.shared.stop()
+        manager.wallpapers = savedVideos; images.wallpapers = savedImages
+        await controller.videoTask?.value; await controller.imageTask?.value
 
         var transient: WallpaperLibraryCatalogController? = WallpaperLibraryCatalogController(manager: manager, images: images, steam: steam, pixabay: pixabay)
         transient?.setVisibleReferences([video.providerReference], sourceToken: UUID())
@@ -645,6 +728,48 @@ extension SteamWorkshopDownloadRecord { var isSceneLaunchable: Bool { false } }
         OnlineImageLibrary.shared.snapshot = .init(status: .init(phase: .ready(warnings: []), hasSuccessfulScan: true), revision: 3)
         checks["successful-empty-image-scan-clears-only-image-subsets-without-network-readiness"] = controller.catalog.downloads == otherProviders
             && controller.catalog.loadedProviders.isSuperset(of: [.wallhaven, .pixiv])
+        await controller.steamTask?.value
+        do {
+            let warmRoot = root.appendingPathComponent("steam-warm", isDirectory: true)
+            try FileManager.default.createDirectory(at: warmRoot, withIntermediateDirectories: true)
+            let warmVideo = warmRoot.appendingPathComponent("last.mp4"), entry = warmRoot.appendingPathComponent("index.html")
+            try Data([7]).write(to: warmVideo); try Data("<html></html>".utf8).write(to: entry)
+            let source = SteamWorkshopService()
+            var videoRow = record(id: "warm-video", video: warmVideo)
+            videoRow.isStartupSnapshot = true
+            source.downloads = [videoRow, record(id: "warm-web", video: entry, type: .web, entry: entry),
+                record(id: "warm-scene", video: warmRoot.appendingPathComponent("scene.json"), type: .scene),
+                record(id: "42", video: warmVideo, status: .downloading, owner: "account-A"),
+                record(id: "foreign", video: warmVideo, status: .downloading, owner: "account-B")]
+            source.downloadJobStore.jobs = [job(state: .running)]
+            CatalogSteamIOProbe.shared.reset()
+            let warm = WallpaperLibraryCatalogController(manager: WallpaperManager(), images: SILService(), steam: source, pixabay: PixabayService())
+            let local = warm.catalog.downloads.filter { $0.acquisition == .idle }
+            checks["steam-stored-video-web-scene-publish-synchronously-with-inspect-only"] = local.count == 3
+                && Set(local.map(\.kind)) == [.video, .web, .scene] && local.allSatisfy { $0.capabilities == [.inspect] }
+            checks["steam-warm-source-retains-real-current-account-transfer-cancel"] = warm.catalog.downloads.count == 4
+                && warm.catalog.downloads.first { $0.reference.sourceID == "42" }?.capabilities.contains(.cancelDownload) == true
+                && warm.catalog.downloads.first { $0.reference.sourceID == "42" }?.acquisition.phase == .transferring
+            source.steamAuth.steamId = "account-B"
+            checks["steam-warm-account-switch-revokes-old-private-intent-synchronously"] =
+                !warm.catalog.downloads.contains { $0.reference.sourceID == "42" }
+                && warm.catalog.downloads.contains { $0.reference.sourceID == "foreign" }
+            source.steamAuth.steamId = "account-A"
+            try await Task.sleep(for: .milliseconds(20))
+            checks["steam-warm-never-enters-cold-file-or-launch-consumers"] = CatalogSteamIOProbe.shared.snapshot.isEmpty
+                && warm.steamTask == nil
+            checks["steam-warm-does-not-announce-full-readiness-or-checked-facts"] = !source.hasCompletedInstalledLibraryLoad
+                && !warm.catalog.loadedProviders.contains(.steamWorkshop) && warm.publishedRevisions[.steamWorkshop] == nil
+            try FileManager.default.removeItem(at: warmVideo)
+            source.hasCompletedInstalledLibraryLoad = true
+            await warm.steamTask?.value
+            let reads = CatalogSteamIOProbe.shared.snapshot
+            checks["steam-fresh-enters-original-video-web-and-scene-consumers"] = reads["video:warm-video", default: 0] > 0
+                && reads["web:warm-web", default: 0] > 0 && reads["launch:warm-scene", default: 0] > 0
+            checks["steam-fresh-does-not-reuse-unchecked-warm-availability"] = warm.catalog.loadedProviders.contains(.steamWorkshop)
+                && warm.publishedRevisions[.steamWorkshop] == warm.revisions[.steamWorkshop]
+                && warm.catalog.downloads.first { $0.reference.sourceID == "warm-video" }?.publishedAvailability == .unavailable
+        }
         print(String(decoding: try JSONEncoder().encode(checks), as: UTF8.self))
     }
 
@@ -660,13 +785,15 @@ extension SteamWorkshopDownloadRecord { var isSceneLaunchable: Bool { false } }
             "previewAssetKind": "stillImage", "workshopTypeText": "video", "detailFields": [],
             "detailURL": "https://fixture.invalid/\(id)"]))
     }
-    static func record(id: String, video: URL, title: String = "same title", status: SteamWorkshopDownloadRecord.Status = .ready) -> SteamWorkshopDownloadRecord {
+    static func record(id: String, video: URL, title: String = "same title", status: SteamWorkshopDownloadRecord.Status = .ready,
+                       type: SteamWorkshopDownloadContentType = .video, entry: URL? = nil, owner: String? = nil) -> SteamWorkshopDownloadRecord {
         SteamWorkshopDownloadRecord(id: id, title: title, description: "", tags: [], folderURL: video.deletingLastPathComponent(),
             projectFileURL: nil, ownEntryHTMLURL: nil, dependencyHostEntryHTMLURL: nil, dependencyHostFolderURL: nil,
-            entryHTMLURL: nil, resolvedWebRootURL: nil, previewURL: nil, sourceVideoURL: video, exportedVideoURL: nil,
+            entryHTMLURL: entry, resolvedWebRootURL: entry?.deletingLastPathComponent(), previewURL: nil,
+            sourceVideoURL: type == .video ? video : nil, exportedVideoURL: nil,
             updatedAt: Date(timeIntervalSince1970: 30), sizeText: "", status: status, browserItem: nil,
-            contentType: .video, dependencyItemID: nil, dependencyStatus: .none,
-            createdAt: Date(timeIntervalSince1970: 20), sizeBytes: nil)
+            contentType: type, dependencyItemID: nil, dependencyStatus: .none,
+            createdAt: Date(timeIntervalSince1970: 20), sizeBytes: nil, intentAccountSteamID: owner)
     }
     static func job(state: SteamDownloadJobState) -> SteamDownloadJob {
         SteamDownloadJob(id: "job-1", workshopItemId: "42", title: "download", state: state,

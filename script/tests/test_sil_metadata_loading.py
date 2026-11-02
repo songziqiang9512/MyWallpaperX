@@ -31,10 +31,15 @@ class SILMetadataLoadingTests(unittest.TestCase):
         save = declaration(product, "    func save()")
         opening = save.index("{")
         save = save[:opening + 1] + "\n        saves += 1; saveThreads.append(Thread.isMainThread)" + save[opening + 1:]
+        reconcile = declaration(product, "    private func reconcileMissingFilesOnLaunch()")
+        self.assertEqual(reconcile.count("fm.fileExists(atPath: path)"), 1)
+        reconcile = reconcile.replace("fm.fileExists(atPath: path)", "ProbeFileExists(path)")
+        self.assertEqual(reconcile.count(utility), 1)
+        reconcile = reconcile.replace(utility, utility + "\n            defer { DispatchQueue.main.async { completedMissingBatches += 1 } }")
         methods = "\n".join([load, save, declaration(product, "    func persistWallpaperMetadata("),
                              declaration(product, "    func invalidatePendingMetadataLoad()"),
                              declaration(product, "    private func applyLoadedImageDimensions("),
-                             declaration(product, "    private func reconcileMissingFilesOnLaunch()")])
+                             reconcile])
         reset = (ROOT / "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+Persistence.swift").read_text()
         reset = declaration(reset, "    func resetToFreshInstallState()")
         self.assertLess(reset.index("sil.invalidatePendingMetadataLoad()"), reset.index("sil.wallpapers.removeAll()"))

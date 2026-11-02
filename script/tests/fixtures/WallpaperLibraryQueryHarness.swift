@@ -626,6 +626,70 @@ import Foundation
                 checks["batch-retains-conflicting-alias-before-missing-playlist"] = error == .corruptData("conflicting alias")
             }
         }
+        do {
+            let local = ref(.videoLibrary, "pending-local"), warmBacking = ref(.videoLibrary, "pending-backing")
+            let canonical = ref(.steamWorkshop, "pending-canonical"), absentVideo = ref(.steamWorkshop, "pending-absent")
+            let absentImage = ref(.staticImageLibrary, "pending-image"), id = UUID()
+            let requested = [absentVideo, local, warmBacking, absentImage]
+            let expectedStrict = [absentVideo, local, canonical, absentImage]
+            let pendingRelations = UserCollectionsSnapshot(revision: 1, resetEpoch: UUID(), migrationManifestID: nil,
+                playlists: [.init(id: id, name: "Pending sources", createdAt: Date(), modifiedAt: Date(), sidebarRank: 0)],
+                members: requested.enumerated().map { .init(playlistID: id, reference: $0.element, position: $0.offset, addedAt: Date()) },
+                favorites: requested.enumerated().map { .init(reference: $0.element, favoritedAt: nil, migrationOrder: $0.offset) },
+                recent: requested.enumerated().map { .init(reference: $0.element, lastSuccessfulUseAt: nil, commitSequence: Int64(4 - $0.offset), migrationOrder: nil) },
+                aliases: [.init(alias: warmBacking, canonical: canonical, proof: .publishedDownload)],
+                locators: [.init(reference: absentVideo, locator: .init(titleHint: "Absent video", mediaKind: .web)),
+                           .init(reference: absentImage, locator: .init(titleHint: "Absent image", mediaKind: .image))])
+            let pages: [(String, WallpaperLibraryPage)] = [("playlist", .playlist(id)), ("favorites", .favorites), ("recent", .recent)]
+            let empty = WallpaperLibraryCatalog()
+            var warm = empty
+            warm.videos = [item(local, "Warm local"), item(warmBacking, "Warm backing")]
+            var loadedVideo = warm; loadedVideo.loadedProviders = [.steamWorkshop]
+            var loadedBoth = loadedVideo; loadedBoth.loadedProviders.insert(.staticImageLibrary)
+            let stages: [(String, WallpaperLibraryCatalog, [WallpaperReference])] = [
+                ("empty", empty, []), ("warm", warm, [local, canonical]),
+                ("one-source", loadedVideo, [absentVideo, local, canonical]), ("loaded", loadedBoth, expectedStrict)]
+            for (stage, source, expected) in stages {
+                for (name, page) in pages {
+                    let result = try WallpaperLibraryQuery.project(page: page, state: .init(sort: .sourceOrder),
+                        catalog: source, relationships: pendingRelations, omitsPendingMembers: true)
+                    checks["ui-pending-\(name)-\(stage)-uses-only-real-rows-or-completed-source-absence"] =
+                        result.items.map(\.reference) == expected && result.unfilteredCount == expected.count
+                }
+            }
+            checks["default-page-and-public-resolution-retain-pending-playback-members"] = try pages.allSatisfy {
+                try WallpaperLibraryQuery.project(page: $0.1, state: .init(sort: .sourceOrder), catalog: empty,
+                    relationships: pendingRelations).items.map(\.reference) == expectedStrict
+            } && WallpaperLibraryQuery.resolve(requested, catalog: empty, relationships: pendingRelations).allSatisfy {
+                $0.publishedAvailability == .unavailable && $0.capabilities == [.inspect]
+            }
+            checks["batch-default-still-retains-pending-members-for-each-page"] = try WallpaperLibraryQuery.project(
+                pages: pages.map { $0.1 }, state: .init(sort: .sourceOrder), catalog: empty, relationships: pendingRelations).map(\.reference)
+                == expectedStrict + expectedStrict + expectedStrict
+            let warmItems = try WallpaperLibraryQuery.project(page: .playlist(id), state: .init(), catalog: warm,
+                relationships: pendingRelations, omitsPendingMembers: true).items
+            checks["unloaded-canonical-provider-does-not-hide-a-real-backing-owner"] = warmItems.last?.reference == canonical
+                && warmItems.last?.providerReference == warmBacking && warm.loadedProviders.isEmpty
+            checks["pending-members-do-not-become-unavailable-filter-matches"] = try WallpaperLibraryQuery.project(page: .playlist(id),
+                state: .init(statuses: [.unavailable]), catalog: warm, relationships: pendingRelations, omitsPendingMembers: true).items.isEmpty
+            var unavailableRow = warm
+            unavailableRow.videos[0] = item(local, "Known unavailable", availability: .unavailable, capabilities: [.inspect])
+            checks["actual-unavailable-row-remains-visible-before-provider-completion"] = try WallpaperLibraryQuery.project(page: .playlist(id),
+                state: .init(statuses: [.unavailable]), catalog: unavailableRow, relationships: pendingRelations,
+                omitsPendingMembers: true).items.map(\.reference) == [local]
+            checks["readiness-still-includes-pending-canonical-provider-dependencies"] = try WallpaperLibraryQuery.requiredProviders(
+                page: .playlist(id), state: .init(), relationships: pendingRelations) == [.videoLibrary, .steamWorkshop, .staticImageLibrary]
+            let recentSubset = WallpaperLibraryCatalog(videos: [item(ref(.videoLibrary, "0"), "Older outside cap"), item(ref(.videoLibrary, "51"), "Newest")])
+            checks["ui-pending-recent-omission-never-refills-outside-original-fifty"] = try WallpaperLibraryQuery.project(page: .recent,
+                state: .init(), catalog: recentSubset, relationships: recentSnapshot, omitsPendingMembers: true).items.map(\.reference) == [ref(.videoLibrary, "51")]
+            do {
+                _ = try WallpaperLibraryQuery.project(page: .favorites, state: .init(), catalog: .init(videos: [item(backing, "Cyclic")]),
+                    relationships: loop, omitsPendingMembers: true)
+                checks["ui-pending-policy-does-not-bypass-original-alias-validation"] = false
+            } catch UserCollectionsError.corruptData {
+                checks["ui-pending-policy-does-not-bypass-original-alias-validation"] = true
+            }
+        }
         print(String(data: try JSONEncoder().encode(checks), encoding: .utf8)!)
         if checks.values.contains(false) { exit(1) }
     }

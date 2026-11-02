@@ -33,8 +33,8 @@ private final class ViewportCell: NSCollectionViewItem {
         controller.setCellVisible = { cell, visible in (cell as? ViewportCell)?.visible = visible }
         var emissions: [([WallpaperReference], [WallpaperReference])] = []
         controller.onViewport = { visible, nearby in emissions.append((visible.map(\.providerReference), nearby.map(\.providerReference))) }
-        func update() {
-            controller.update(page: .downloads, items: items, selection: controller.selection, preferredColumns: 5,
+        func update(page: WallpaperLibraryPage = .images) {
+            controller.update(page: page, items: items, selection: controller.selection, preferredColumns: 5,
                 permitsDragging: false, scrollAnchor: nil)
         }
         update(); spin()
@@ -66,7 +66,7 @@ private final class ViewportCell: NSCollectionViewItem {
         checks["visible-demand-comes-from-native-layout-geometry"] = emissions.last?.0 == expectedVisible()
         let columns = WallpaperLibraryGridMetrics(clipWidth: controller.scrollView.contentView.bounds.width, preferredColumns: 5).columns
         let first = emissions.last!
-        checks["nearby-demand-is-bounded-one-row-each-side-and-never-visible"] = first.1.count <= min(24, columns * 2)
+        checks["local-nearby-demand-is-bounded-and-never-visible"] = first.1.count <= 96
             && Set(first.0).isDisjoint(with: first.1) && Set(first.1).count == first.1.count
         let index = columns * 10
         let y = layout.layoutAttributesForItem(at: IndexPath(item: index, section: 0))!.frame.minY + 10
@@ -75,9 +75,31 @@ private final class ViewportCell: NSCollectionViewItem {
         checks["single-large-scroll-refreshes-real-viewport-before-stale-cell-list"] = wait { emissions.last?.0 == geometry }
         let last = emissions.last!
         let nativeIndices = last.0.compactMap { ref in items.firstIndex { $0.providerReference == ref } }
+        let localNearby = Set(last.1)
+        checks["images-prepares-one-visible-window-before-and-after"] =
+            (nativeIndices.first! - nativeIndices.count..<nativeIndices.first!).allSatisfy { localNearby.contains(items[$0].providerReference) }
+            && (nativeIndices.last! + 1...nativeIndices.last! + nativeIndices.count).allSatisfy { localNearby.contains(items[$0].providerReference) }
+            && localNearby.count <= 96 && localNearby.count == last.1.count && Set(last.0).isDisjoint(with: localNearby)
         let expectedNearby = GridThumbnailPrefetchDemand.indices(visibleIndices: nativeIndices,
-            itemCount: items.count, neighborLimit: min(24, columns * 2), direction: 1).map { items[$0].providerReference }
+            itemCount: items.count, neighborLimit: last.1.count, direction: 1).map { items[$0].providerReference }
         checks["downward-scroll-prioritizes-forward-neighbors-with-original-algorithm"] = last.1 == expectedNearby
+        let beforeRemote = emissions.count
+        update(page: .wallhaven); spin()
+        controller.scrollView.contentView.scroll(to: NSPoint(x: 0, y: y))
+        let remoteGeometry = expectedVisible()
+        checks["wallhaven-publishes-its-real-page-viewport"] = wait { emissions.count > beforeRemote && emissions.last?.0 == remoteGeometry }
+        let remote = emissions.last!
+        let remoteIndices = remote.0.compactMap { ref in items.firstIndex { $0.providerReference == ref } }
+        let remoteNearby = Set(remote.1)
+        checks["wallhaven-keeps-one-row-before-and-after-with-original-cap"] = remoteNearby.count == columns * 2 && remoteNearby.count <= 24
+            && (remoteIndices.first! - columns..<remoteIndices.first!).allSatisfy { remoteNearby.contains(items[$0].providerReference) }
+            && (remoteIndices.last! + 1...remoteIndices.last! + columns).allSatisfy { remoteNearby.contains(items[$0].providerReference) }
+            && remoteNearby.count == remote.1.count && Set(remote.0).isDisjoint(with: remoteNearby)
+        checks["wallhaven-downward-demand-starts-at-first-forward-row"] = remote.1.first == items[remoteIndices.last! + 1].providerReference
+        let beforeLocalReturn = emissions.count
+        update(); spin()
+        controller.scrollView.contentView.scroll(to: NSPoint(x: 0, y: y))
+        checks["images-reentry-restores-current-page-demand"] = wait { emissions.count > beforeLocalReturn && emissions.last?.0 == expectedVisible() }
         // Repeated inputs stay below the original 30ms cadence. If every input
         // postpones a trailing debounce, nothing can publish during this loop.
         let prior = emissions.count
@@ -132,7 +154,7 @@ private final class ViewportCell: NSCollectionViewItem {
             for width: CGFloat in [620, 1000, 2800, 1000] {
                 for zoom in [3, 4, 5, 6] {
                     replacement.setContentSize(NSSize(width: width, height: 600))
-                    controller.update(page: .downloads, items: items, selection: controller.selection,
+                    controller.update(page: .images, items: items, selection: controller.selection,
                         preferredColumns: zoom, permitsDragging: false, scrollAnchor: nil)
                     replacement.contentView?.layoutSubtreeIfNeeded(); controller.collection.layoutSubtreeIfNeeded(); spin(0.012)
                     let metric = WallpaperLibraryGridMetrics(clipWidth: controller.scrollView.contentView.bounds.width, preferredColumns: zoom)

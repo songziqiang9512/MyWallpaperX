@@ -57,8 +57,12 @@ class StatusBarPanelTests(unittest.TestCase):
                 ("PRODUCTION_CAPTURE", "    private func capturePresentation("),
                 ("PRODUCTION_TOGGLE", "    private func togglePlayback("),
                 ("PRODUCTION_MODE", "    private func cyclePlaybackMode("),
-                ("PRODUCTION_FAVORITE", "    private func toggleFavorite(")]:
-                template = template.replace("    // " + marker, method(controller, signature))
+                ("PRODUCTION_FAVORITE", "    private func toggleFavorite("),
+                ("PRODUCTION_PROPERTIES", "    private static func openProperties(")]:
+                fragment = method(controller, signature)
+                if marker == "PRODUCTION_PROPERTIES":
+                    fragment = fragment.replace("private static func", "static func", 1)
+                template = template.replace("    // " + marker, fragment)
             harness.write_text(template)
             sources = [ROOT / "MyWallpaperX/App" / name for name in [
                 "StatusBarPanelPresentation.swift", "StatusBarPanelControls.swift",

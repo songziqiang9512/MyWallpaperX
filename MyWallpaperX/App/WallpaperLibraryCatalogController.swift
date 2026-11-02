@@ -190,11 +190,23 @@ import Foundation
 
     private func replaceVideos(_ values: [VideoWallpaper], loaded: Bool) {
         videoTask?.cancel()
-        let revision = nextRevision(.videoLibrary)
         let previous = catalog.videos
+        let checkedPrevious = publishedRevisions[.videoLibrary] == revisions[.videoLibrary] ? previous : []
+        let revision = nextRevision(.videoLibrary)
         let refresh = refreshVideos
+        let old = Dictionary(previous.map { ($0.providerReference, $0) }, uniquingKeysWith: { first, _ in first })
+        let initial = values.map { value in
+            let reference = WallpaperReference(provider: .videoLibrary, sourceID: value.id)
+            let available = old[reference].flatMap { item in
+                item.locator.path?.utf8.elementsEqual(value.path.utf8) == true ? item.publishedAvailability.isAvailable : nil
+            } ?? true
+            return VideoLibraryContentProjection.project(value, facts: .init(isPublishedLocally: true,
+                isAvailable: available, canPlay: available, canDelete: true, canQuickLook: true,
+                localURL: URL(fileURLWithPath: value.path)))
+        }
+        publish(initial, provider: .videoLibrary, revision: revision, loaded: catalog.loadedProviders.contains(.videoLibrary), availabilityChecked: false)
         videoTask = Task { [weak self, manager] in
-            let items = await manager.libraryContentItems(from: values, reusing: previous, refreshAvailability: refresh)
+            let items = await manager.libraryContentItems(from: values, reusing: checkedPrevious, refreshAvailability: refresh)
             guard !Task.isCancelled, let self, self.publish(items, provider: .videoLibrary, revision: revision, loaded: loaded) else { return }
             self.refreshVideos = false
         }
@@ -202,11 +214,23 @@ import Foundation
 
     private func replaceImages(_ values: [SILWallpaper]) {
         imageTask?.cancel()
-        let revision = nextRevision(.staticImageLibrary)
         let previous = catalog.images
+        let checkedPrevious = publishedRevisions[.staticImageLibrary] == revisions[.staticImageLibrary] ? previous : []
+        let revision = nextRevision(.staticImageLibrary)
         let refresh = refreshImages
+        let old = Dictionary(previous.map { ($0.providerReference, $0) }, uniquingKeysWith: { first, _ in first })
+        let initial = values.map { value in
+            let reference = WallpaperReference(provider: .staticImageLibrary, sourceID: value.id)
+            let available = old[reference].flatMap { item in
+                item.locator.path?.utf8.elementsEqual(value.path.utf8) == true ? item.publishedAvailability.isAvailable : nil
+            } ?? true
+            return StaticImageLibraryContentProjection.project(value, facts: .init(isPublishedLocally: true,
+                isAvailable: available, canPlay: available, canDelete: true, canQuickLook: true,
+                localURL: URL(fileURLWithPath: value.path)))
+        }
+        publish(initial, provider: .staticImageLibrary, revision: revision, loaded: catalog.loadedProviders.contains(.staticImageLibrary), availabilityChecked: false)
         imageTask = Task { [weak self, images] in
-            let items = await images.libraryContentItems(from: values, reusing: previous, refreshAvailability: refresh)
+            let items = await images.libraryContentItems(from: values, reusing: checkedPrevious, refreshAvailability: refresh)
             guard !Task.isCancelled, let self, self.publish(items, provider: .staticImageLibrary, revision: revision) else { return }
             self.refreshImages = false
         }
@@ -224,14 +248,20 @@ import Foundation
         }
         latestSteamJobs = jobs
         steamTask?.cancel()
-        let revision = nextRevision(.steamWorkshop)
         let previous = catalog.downloads
+        let checkedPrevious = publishedRevisions[.steamWorkshop] == revisions[.steamWorkshop] ? previous : []
+        let revision = nextRevision(.steamWorkshop)
+        if !loaded {
+            let initial = steam.initialLibraryContentItems(from: records, jobs: jobs, account: account)
+            publish(initial, provider: .steamWorkshop, revision: revision, loaded: false, availabilityChecked: false)
+            return
+        }
         let previousRecords = projectedSteamRecords
         let references = steamRefreshReferences
         let refreshAll = refreshSteam
         steamTask = Task { [weak self, steam] in
             let items = await steam.libraryContentItems(from: records, jobs: jobs, account: account,
-                reusing: previous, previousRecords: previousRecords,
+                reusing: checkedPrevious, previousRecords: previousRecords,
                 refreshAvailabilityFor: references, refreshAll: refreshAll)
             guard !Task.isCancelled, let self, self.publish(items, provider: .steamWorkshop, revision: revision, loaded: loaded) else { return }
             self.projectedSteamRecords = records
@@ -264,9 +294,9 @@ import Foundation
     }
 
     @discardableResult private func publish(_ items: [WallpaperContentItem], provider: WallpaperProvider, revision: UInt64,
-                                          loaded: Bool = true, scanStatus: WallpaperSourceScanStatus? = nil) -> Bool {
+                                          loaded: Bool = true, scanStatus: WallpaperSourceScanStatus? = nil, availabilityChecked: Bool = true) -> Bool {
         guard revisions[provider] == revision else { return false }
-        publishedRevisions[provider] = revision
+        if availabilityChecked { publishedRevisions[provider] = revision }
         var next = catalog
         switch provider {
         case .videoLibrary: next.videos = items

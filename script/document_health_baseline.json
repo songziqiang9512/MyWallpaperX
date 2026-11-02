@@ -33,8 +33,8 @@
       "bytes": 116594
     },
     "docs/development/code-slimming-program.md": {
-      "lines": 477,
-      "bytes": 105185
+      "lines": 479,
+      "bytes": 105031
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -353,8 +353,8 @@
       "bytes": 4916
     },
     "docs/development/local-library-loading-design.md": {
-      "lines": 25,
-      "bytes": 4707
+      "lines": 42,
+      "bytes": 8631
     }
   },
   "archives": [
@@ -1743,11 +1743,11 @@
     {
       "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
-      "before": "d2245ec6a76cad4bb927ee67240126bd3fbf28e2d4489e6cd8c94494b553379c",
-      "after": "922f6002c2b8b30c84f69d1c8a1f426fdac96d708fc9b64f3e8fe83e651e66e4",
+      "before": "922f6002c2b8b30c84f69d1c8a1f426fdac96d708fc9b64f3e8fe83e651e66e4",
+      "after": "e5a6c33a5b66da7efe000c12ad9973496f69182d2a77dfeb25ebb15b54a30762",
       "owner": "repository-maintainer",
-      "reason": "Record current local-loading priority and link its focused design; retain completed repairs and defer R61.",
-      "decision": "docs/development/code-slimming-program.md#目标与边界"
+      "reason": "Record R62 implementation, measured bounded cache and prefetch tradeoff, actual verification and unverified native/manual limits.",
+      "decision": "docs/development/local-library-loading-design.md#overview"
     },
     {
       "section": "bodies",
@@ -1986,10 +1986,10 @@
     {
       "section": "bodies",
       "path": "docs/development/local-library-loading-design.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "ddb92dfc046e95db9465a850ec0162536f939d59ae0c7f9d5b43ab4c6763d868",
+      "before": "ddb92dfc046e95db9465a850ec0162536f939d59ae0c7f9d5b43ab4c6763d868",
+      "after": "19c4a40237a28e50eb0f5216d7715e79110a4ad6a7a6a71ba5d251306a762863",
       "owner": "repository-maintainer",
-      "reason": "New focused local-loading design avoids expanding the full 600-line main-window authority; user requested two cross-source loading improvements.",
+      "reason": "Record R62 implementation, measured bounded cache and prefetch tradeoff, actual verification and unverified native/manual limits.",
       "decision": "docs/development/local-library-loading-design.md#overview"
     }
   ]

@@ -148,7 +148,7 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
     ///   - countLimit: 内存缓存最大图片数，默认 360
     ///   - totalCostLimit: 内存缓存像素字节总和上限，默认 128MB，避免新实例复制出无上限形状。
     ///     各实例显式预算集中登记：Steam 预览 128MB（SteamWorkshopPreviewImageCache）、
-    ///     视频库 128MB（VideoLibraryThumbnailStore）、SIL 64MB（SILThumbnailStore）、
+    ///     视频库 128MB（VideoLibraryThumbnailStore）、SIL 192MB（SILThumbnailStore）、
     ///     Pixabay下载项 50MB（PixabayDownloadedThumbnailStore）
     ///   - namespace: 磁盘缓存子目录名，必填，新实例必须声明自己的隔离空间
     ///   - usesFailureCache: 是否启用失败负缓存（见 failureCache 注释）

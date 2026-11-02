@@ -75,11 +75,29 @@ final class WallpaperManager {
 final class SteamWorkshopService {
     static let shared = SteamWorkshopService()
     var downloads: [SteamWorkshopDownloadRecord] = []
+    var hasCompletedInstalledLibraryLoad = true
     var launchPendingRecordID: String?
     var directedRecords: [String: SteamWorkshopDownloadRecord] = [:]
     var launches: [String] = []
     func installedRecordForLaunchReplay(itemID: String) -> SteamWorkshopDownloadRecord? { directedRecords[itemID] }
     func setAsWallpaper(_ item: SteamWorkshopDownloadRecord) { launches.append(item.id) }
+}
+enum SteamWorkshopSceneInspectionController {
+    static var requests: [String] = []
+    static func requestPropertyEditor(for record: SteamWorkshopDownloadRecord) { requests.append(record.id) }
+}
+final class SteamWorkshopWebPropertyEditorView: NSView {
+    static var creations = 0
+    init(record: SteamWorkshopDownloadRecord) { Self.creations += 1; super.init(frame: .zero) }
+    required init?(coder: NSCoder) { fatalError() }
+    var presentsOnlyMessage: Bool { false }
+    var emptyStateMessage: String? { nil }
+}
+final class SteamWorkshopPropertyPanelController {
+    static let shared = SteamWorkshopPropertyPanelController()
+    var shows = 0
+    func showMessage(title: String, subtitle: String, message: String) { shows += 1 }
+    func show(title: String, subtitle: String, content: NSView) { shows += 1 }
 }
 enum WallpaperEngineCommand { case pause, resume }
 final class PlaybackCommandMultiplexer {
@@ -250,6 +268,7 @@ enum UserCollectionsCommand { case setFavorite(WallpaperOrganizationItem, Bool, 
     // PRODUCTION_TOGGLE
     // PRODUCTION_MODE
     // PRODUCTION_FAVORITE
+    // PRODUCTION_PROPERTIES
     func toggle() { togglePlayback() }
     func cycleMode() { cyclePlaybackMode() }
     func favorite() { toggleFavorite() }
@@ -502,6 +521,16 @@ enum UserCollectionsCommand { case setFavorite(WallpaperOrganizationItem, Bool, 
         precondition(actions == ["playback", "mute", "volume:25"])
 
         let record = SteamWorkshopDownloadRecord(id: "scene", title: "午后时光", contentType: .scene)
+        let webProperties = SteamWorkshopDownloadRecord(id: "web-properties", title: "Web", contentType: .web)
+        service.hasCompletedInstalledLibraryLoad = false
+        ToggleHarness.openProperties(record); ToggleHarness.openProperties(webProperties)
+        precondition(SteamWorkshopSceneInspectionController.requests.isEmpty && SteamWorkshopWebPropertyEditorView.creations == 0
+            && SteamWorkshopPropertyPanelController.shared.shows == 0, "warm status actions cannot open properties before the first fresh scan")
+        service.hasCompletedInstalledLibraryLoad = true
+        ToggleHarness.openProperties(record); ToggleHarness.openProperties(webProperties)
+        precondition(SteamWorkshopSceneInspectionController.requests == [record.id] && SteamWorkshopWebPropertyEditorView.creations == 1
+            && SteamWorkshopPropertyPanelController.shared.shows == 1, "fresh status actions retain both original property routes")
+
         service.downloads = [record]
         manager.switchSelections[committed.ticket.id] = .scene("scene")
         layout(snapshot(), appearance: .aqua)

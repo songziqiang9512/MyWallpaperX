@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 
 // Observations live only at real resolver/projection entries in copied source.
 nonisolated final class LegacyDiscoveryObservation: @unchecked Sendable {
@@ -167,11 +168,62 @@ nonisolated final class LegacyDiscoveryObservation: @unchecked Sendable {
             print("{\"mutation\":true}")
             return
         }
-        precondition(mode == "initial" || mode == "changed")
+        precondition(mode == "initial" || mode == "changed" || mode == "scan-errors")
         let changed = mode == "changed"
         let context = SteamWorkshopInstalledLibraryScanContext(libraryRoot: library, fallbackLibraryRoot: library,
             videoRoot: library.appendingPathComponent("Video"), webRoot: web, sceneRoot: scene,
             metadataIndexDirectory: metadataIndex, fallbackItemsByID: ["49066": item("49066", workshopType: "Scene")])
+        if mode == "scan-errors" {
+            func scanContext(_ source: URL) -> SteamWorkshopInstalledLibraryScanContext {
+                .init(libraryRoot: source, fallbackLibraryRoot: source, videoRoot: source.appendingPathComponent("Video"),
+                    webRoot: source.appendingPathComponent("Web"), sceneRoot: source.appendingPathComponent("Scene"),
+                    metadataIndexDirectory: source.appendingPathComponent(".metadata"), fallbackItemsByID: [:])
+            }
+            var scanChecks: [String: Bool] = [:]
+            let absent = scanContext(root.appendingPathComponent("absent-library"))
+            scanChecks["firstInstallAllowsMissingRoot"] = try SteamWorkshopService.scanInstalledLibraryRecords(
+                managed: [:], context: absent, allowMissingRoot: true).isEmpty
+            do {
+                _ = try SteamWorkshopService.scanInstalledLibraryRecords(managed: [:], context: absent)
+                scanChecks["missingKnownRootThrows"] = false
+            } catch let error as POSIXError { scanChecks["missingKnownRootThrows"] = error.code == .ENOENT }
+            let sparse = scanContext(root.appendingPathComponent("sparse-library"))
+            try fm.createDirectory(at: sparse.libraryRoot, withIntermediateDirectories: true)
+            scanChecks["missingTypeDirectoriesAreEmpty"] = try SteamWorkshopService.scanInstalledLibraryRecords(managed: [:], context: sparse).isEmpty
+            try fm.createDirectory(at: sparse.videoRoot, withIntermediateDirectories: true)
+            let ownedVideo = sparse.videoRoot.appendingPathComponent("owned.mp4")
+            try Data("owned".utf8).write(to: ownedVideo)
+            let scanned = try SteamWorkshopService.scanInstalledLibraryRecords(managed: [:], context: sparse)
+            scanChecks["readableLegacyVideoIsEnumerated"] = scanned.map(\.id) == ["video:owned"]
+                && scanned.first?.exportedVideoURL == ownedVideo && scanned.first?.sizeBytes == 5
+            let fileRoot = scanContext(root.appendingPathComponent("file-library"))
+            try Data("file, not directory".utf8).write(to: fileRoot.libraryRoot)
+            do {
+                _ = try SteamWorkshopService.scanInstalledLibraryRecords(managed: [:], context: fileRoot, allowMissingRoot: true)
+                scanChecks["fileRootThrowsENOTDIR"] = false
+            } catch let error as POSIXError { scanChecks["fileRootThrowsENOTDIR"] = error.code == .ENOTDIR }
+            for name in ["Video", "Web", "Scene"] {
+                let invalid = scanContext(root.appendingPathComponent("type-file-" + name))
+                try fm.createDirectory(at: invalid.libraryRoot, withIntermediateDirectories: true)
+                try Data("file, not directory".utf8).write(to: invalid.libraryRoot.appendingPathComponent(name))
+                do {
+                    _ = try SteamWorkshopService.scanInstalledLibraryRecords(managed: [:], context: invalid)
+                    scanChecks["typeFile-\(name)"] = false
+                } catch { scanChecks["typeFile-\(name)"] = true }
+            }
+            let denied = scanContext(root.appendingPathComponent("denied-library"))
+            try fm.createDirectory(at: denied.libraryRoot, withIntermediateDirectories: true)
+            precondition(geteuid() != 0, "permission classification requires the ordinary non-root test account")
+            try fm.setAttributes([.posixPermissions: 0], ofItemAtPath: denied.libraryRoot.path)
+            defer { try? fm.setAttributes([.posixPermissions: 0o700], ofItemAtPath: denied.libraryRoot.path) }
+            do {
+                _ = try SteamWorkshopService.scanInstalledLibraryRecords(managed: [:], context: denied)
+                scanChecks["unreadableRootThrowsPermission"] = false
+            } catch let error as POSIXError { scanChecks["unreadableRootThrowsPermission"] = error.code == .EACCES || error.code == .EPERM }
+            print(String(data: try JSONSerialization.data(withJSONObject: ["scanChecks": scanChecks,
+                "scope": "real filesystem scan and record construction; no video decoder or account/network"], options: [.sortedKeys]), encoding: .utf8)!)
+            return
+        }
         var checks: [String: Bool] = [:], workChecks: [String: Bool] = [:]
         var records: [String: Any] = [:], observations: [String: [[String: String]]] = [:]
         func recordValue(_ record: SteamWorkshopDownloadRecord?) throws -> Any {

@@ -65,7 +65,7 @@ nonisolated final class SILCacheAdmissions: @unchecked Sendable {
 }
 
 @MainActor enum SILLoadObservation {
-    static let cache = ThumbnailCache(countLimit: 24, namespace: "sil-demand-fixture", usesFailureCache: true)
+    static let cache = ThumbnailCache(countLimit: 96, namespace: "sil-demand-fixture", usesFailureCache: true)
     static var requests: [String: ThumbnailCacheRequestCancellation] = [:]
     static var prefetchRequests: [String: ThumbnailCacheRequestCancellation] = [:]
     static var completed = Set<ObjectIdentifier>()
@@ -409,13 +409,14 @@ nonisolated final class SILCacheAdmissions: @unchecked Sendable {
             print(String(data: try JSONEncoder().encode(checks), encoding: .utf8)!)
             return
         }
-        _ = NSApplication.shared
-        NSApp.setActivationPolicy(.accessory)
-        let root = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
+        let residentReturn = CommandLine.arguments.dropFirst().first == "--resident-return"
+        if residentReturn { initializeNativeAppHarness() }
+        else { _ = NSApplication.shared; NSApp.setActivationPolicy(.accessory) }
+        let root = URL(fileURLWithPath: CommandLine.arguments[residentReturn ? 2 : 1], isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let original = root.appendingPathComponent("original.png")
         try writePNG(original)
-        let paths = try (0..<40).map { index -> String in
+        let paths = try (0..<160).map { index -> String in
             let url = root.appendingPathComponent("\(index).png")
             try FileManager.default.copyItem(at: original, to: url)
             return url.path
@@ -428,8 +429,60 @@ nonisolated final class SILCacheAdmissions: @unchecked Sendable {
         let host = NSView(frame: grid.frame)
         host.addSubview(grid)
         window.contentView = host
+        if residentReturn { window.center() }
         window.orderFrontRegardless()
         defer { grid.cancel(); window.orderOut(nil); window.close() }
+        if residentReturn {
+            var expected: [String: NSImage] = [:]
+            let initialCells = NSHashTable<SILGridItem>.weakObjects()
+            var rebound = Set<ObjectIdentifier>()
+            let settled = {
+                grid.pendingWork == nil && !grid.visible.isEmpty
+                    && SILLoadObservation.requests.values.allSatisfy { $0.cancelled || SILLoadObservation.completed.contains(ObjectIdentifier($0)) }
+                    && grid.nearby.allSatisfy { value in grid.thumbnailCache.cachedImage(forKey: paths[Int(value.reference.sourceID)!]) != nil }
+                    && grid.visible.allSatisfy { value in
+                        guard let card = grid.controller.collection.item(at: IndexPath(item: Int(value.reference.sourceID)!, section: 0)) as? SILGridItem else { return false }
+                        return card.wallpaperID == value.reference.sourceID && card.thumbnailRequestFinished && card.thumbnailView.image != nil
+                    }
+            }
+            for index in [0, 40, 80, 120] {
+                let frame = grid.controller.layout.layoutAttributesForItem(at: IndexPath(item: index, section: 0))!.frame
+                grid.controller.scrollView.contentView.scroll(to: NSPoint(x: 0, y: frame.minY))
+                grid.controller.scrollView.reflectScrolledClipView(grid.controller.scrollView.contentView)
+                grid.controller.view.layoutSubtreeIfNeeded()
+                wait("production viewport and nearby pixels settle", until: settled)
+                if index == 0 {
+                    for content in grid.visible.prefix(20) {
+                        let card = grid.controller.collection.item(at: IndexPath(item: Int(content.reference.sourceID)!, section: 0)) as! SILGridItem
+                        expected[content.reference.sourceID] = card.thumbnailView.image!
+                        initialCells.add(card)
+                    }
+                } else {
+                    for card in initialCells.allObjects where card.wallpaperID.map({ expected[$0] == nil }) == true {
+                        rebound.insert(ObjectIdentifier(card))
+                    }
+                }
+            }
+            checks["productionResidentReturnSeedsTwentyNativeImages"] = expected.count == 20
+            checks["productionResidentReturnKeepsTwentyImagesInOriginalCache"] = expected.allSatisfy { entry in
+                grid.thumbnailCache.cachedImage(forKey: paths[Int(entry.key)!]) === entry.value
+            }
+            FileHandle.standardError.write(Data("SIL RESIDENT POOL reused=\(rebound.count) expected=\(expected.count)\n".utf8))
+            let sourceDecodes = SILSignatureReads.shared.decodeCount
+            let firstFrame = grid.controller.layout.layoutAttributesForItem(at: IndexPath(item: 0, section: 0))!.frame
+            grid.controller.scrollView.contentView.scroll(to: NSPoint(x: 0, y: firstFrame.minY))
+            grid.controller.scrollView.reflectScrolledClipView(grid.controller.scrollView.contentView)
+            grid.controller.view.layoutSubtreeIfNeeded()
+            checks["productionResidentReturnHasOriginalPixelsInSameTurn"] = expected.allSatisfy { entry in
+                guard let card = grid.controller.collection.item(at: IndexPath(item: Int(entry.key)!, section: 0)) as? SILGridItem else { return false }
+                return card.wallpaperID == entry.key && card.thumbnailView.image === entry.value && card.placeholderLabel.isHidden
+            }
+            wait("production return settles without source extraction", until: settled)
+            checks["productionResidentReturnDoesNotDecodeOriginalSourcesAgain"] = SILSignatureReads.shared.decodeCount == sourceDecodes
+            checks["productionResidentReturnCaseCompleted"] = true
+            print(String(data: try JSONEncoder().encode(checks), encoding: .utf8)!)
+            return
+        }
         grid.scroll(to: 9)
         wait("native initial viewport settles") { grid.pendingWork == nil && !grid.visible.isEmpty }
         wait("initial visible consumers finish") {
@@ -442,7 +495,10 @@ nonisolated final class SILCacheAdmissions: @unchecked Sendable {
         let visibleIDs = grid.visible.compactMap { Int($0.reference.sourceID) }.sorted()
         precondition(!visibleIDs.isEmpty)
         let forward = visibleIDs.last! + 1, backward = visibleIDs.first! - 1
-        checks["nearbyDemandIsBounded"] = firstTokens.count == min(24, WallpaperLibraryGridMetrics(clipWidth: grid.controller.scrollView.contentView.bounds.width, preferredColumns: 5).columns * 2)
+        checks["nearbyDemandIsBounded"] = firstTokens.count <= 96 && firstTokens.count == grid.nearby.count
+        checks["nearbyCoversExistingVisibleWindowBeforeAndAfter"] =
+            (max(0, visibleIDs.first! - visibleIDs.count)..<visibleIDs.first!).allSatisfy { firstTokens[String($0)] != nil }
+            && (visibleIDs.last! + 1...visibleIDs.last! + visibleIDs.count).allSatisfy { firstTokens[String($0)] != nil }
         checks["forwardNearestIsIncluded"] = firstTokens[String(forward)] != nil
         checks["backwardNearestIsIncluded"] = firstTokens[String(backward)] != nil
         checks["visibleItemsDoNotStartPrefetch"] = visibleIDs.allSatisfy { firstTokens[String($0)] == nil }
@@ -451,7 +507,7 @@ nonisolated final class SILCacheAdmissions: @unchecked Sendable {
         }
         checks["emptyFailureSetPrefetchDoesNotReadSignature"] = SILSignatureReads.shared.count == 0
         // The real unified grid also decodes visible cards. Let that initial
-        // batch settle, then warm the current two nearby rows before asserting a
+        // batch settle, then warm the current nearby window before asserting a
         // stable viewport keeps leases. Capacity eviction is tested explicitly
         // below with a separate consumer, rather than confused with this setup.
         wait("initial visible and nearby consumers finish") {
@@ -466,10 +522,10 @@ nonisolated final class SILCacheAdmissions: @unchecked Sendable {
         for _ in 0..<20 { grid.fire() }
         checks["unchangedViewportRetainsLeases"] = firstTokens.allSatisfy { grid.tokens[$0.key] === $0.value }
         var extraLoads = 0
-        for index in 0..<36 {
+        for index in 0..<144 {
             grid.thumbnailCache.load(forKey: "other-consumer-\(index)", loader: { ready }) { _ in extraLoads += 1 }
         }
-        wait("other consumers finish") { extraLoads == 36 }
+        wait("other consumers finish") { extraLoads == 144 }
         checks["testActuallyEvictsNearbyImages"] = grid.thumbnailCache.cachedImage(forKey: paths[forward]) == nil
         grid.fire()
         let handoffToken = grid.tokens[String(forward)]
@@ -495,14 +551,15 @@ nonisolated final class SILCacheAdmissions: @unchecked Sendable {
         checks["reverseScrollPreparesBothNearestSides"] = grid.tokens[String(reverseIDs.first! - 1)] != nil
             && grid.tokens[String(reverseIDs.last! + 1)] != nil
             && grid.nearby.first?.reference.sourceID == String(reverseIDs.first! - 1)
-        let reverseLimit = min(24, reverseColumns * 2)
         let reverseVisible = Set(grid.visible.map { $0.providerReference.sourceID })
         let reverseNearby = Set(grid.nearby.map { $0.providerReference.sourceID })
         let reverseDemand = Set((grid.visible + grid.nearby).map { $0.providerReference.sourceID })
         let reverseLeases = Set(grid.tokens.keys)
-        checks["boundedAfterReverse"] = reverseNearby.count == min(reverseLimit, paths.count - reverseIDs.count)
+        checks["boundedAfterReverse"] = reverseNearby.count <= 96
+            && (max(0, reverseIDs.first! - reverseIDs.count)..<reverseIDs.first!).allSatisfy { reverseNearby.contains(String($0)) }
+            && (reverseIDs.last! + 1...reverseIDs.last! + reverseIDs.count).allSatisfy { reverseNearby.contains(String($0)) }
             && reverseLeases.isSubset(of: reverseDemand)
-            && reverseLeases.subtracting(reverseVisible).count <= reverseLimit
+            && reverseLeases.subtracting(reverseVisible).count <= 96
             && reverseLeases.subtracting(reverseNearby).allSatisfy { id in
                 reverseVisible.contains(id) && beforeReverseTokens[id] === grid.tokens[id]
                     && grid.tokens[id]?.cancelled == false
@@ -569,6 +626,7 @@ nonisolated final class SILCacheAdmissions: @unchecked Sendable {
         item.setThumbnailVisible(false)
         item.setThumbnailVisible(true)
         checks["readyImageSurvivesVisibilityWithoutReload"] = item.thumbnailView.image === ready && item.thumbnailRequestFinished
+        item.prepareForReuse()
         item.configure(wallpaper: record, isSelected: false, isMultiSelectMode: false, thumbnailVisible: true, thumbnailLoader: loader)
         pump(0.13)
         checks["realSlowLoadStillShowsLoading"] = !item.placeholderLabel.isHidden

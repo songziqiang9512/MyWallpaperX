@@ -116,6 +116,22 @@ extension SteamWorkshopService {
             isRefreshingSelectedDownloadDetailItem = true
         }
         downloads = [ready]
+        if mode == "ready-update-delete-startup" {
+            hasCompletedInstalledLibraryLoad = false
+            let generation = installedLibraryScanGeneration
+            let originalMetadata = try Data(contentsOf: downloadMetadataIndexDirectoryURL().appendingPathComponent("123456.json"))
+            let result: WallpaperSourceDeletionResult = await withCheckedContinuation { continuation in
+                deleteSourceFiles(itemIDs: [ready.id]) { continuation.resume(returning: $0) }
+            }
+            let currentMetadata = try Data(contentsOf: downloadMetadataIndexDirectoryURL().appendingPathComponent("123456.json"))
+            precondition(result.items.count == 1 && !result.items[0].succeeded && !result.items[0].sourceFileDeleted
+                && downloads.count == 1 && FileManager.default.fileExists(atPath: content.path)
+                && currentMetadata == originalMetadata && installedLibraryScanGeneration == generation && removingDownloadIDs.isEmpty,
+                "warm startup rejection must leave the source, index and deletion generation untouched")
+            await steamServiceClient.stop(shutdownTimeout: 0)
+            print("EXECUTION PASS: \(mode)")
+            return
+        }
         if mode.hasSuffix("inspector-other") {
             let other = SteamWorkshopBrowserItem(id: "654321", title: "Inspector B")
             selectedDownloadInspectorItem = other
@@ -126,16 +142,17 @@ extension SteamWorkshopService {
             deleteDownloads(itemIDs: [ready.id]) { results.append($0) }
             while removingDownloadIDs.contains(ready.id) { await Task.yield() }
             precondition(results.count == 1 && results[0][ready.id] == true && downloads.isEmpty)
+            precondition(!FileManager.default.fileExists(atPath: installedLibrarySnapshotURL.path), "real source deletion invalidates its display baseline")
             precondition(!FileManager.default.fileExists(atPath: content.path))
             precondition(selectedDownloadInspectorItem?.id == other.id && selectedDownloadDetailItem?.id == other.id
                 && selectedDownloadDetailError == "B metadata status" && isRefreshingSelectedDownloadDetailItem
                 && detailCancellations == 0, "deleting A must not dismiss the current unrelated B inspector")
             installedLibraryScanGeneration = 2
-            finishInstalledLibraryScan(generation: 1, records: [ready])
+            await finishInstalledLibraryScan(generation: 1, result: .success([ready]), libraryRoot: steamDownloadLibraryRootURL)
             precondition(downloads.isEmpty,
                 "a stale source scan must not revive the removed A")
             let current = SteamWorkshopDownloadRecord(id: other.id, title: other.title, sizeText: "2 KB", status: .ready)
-            finishInstalledLibraryScan(generation: 2, records: [current])
+            await finishInstalledLibraryScan(generation: 2, result: .success([current]), libraryRoot: steamDownloadLibraryRootURL)
             precondition(downloads.map(\.id) == [other.id] && hasCompletedInstalledLibraryLoad
                 && reclamationRequests == 1,
                 "a current source reload must keep its original publication/reclamation work")

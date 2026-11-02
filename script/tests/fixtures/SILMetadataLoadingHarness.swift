@@ -36,6 +36,11 @@ nonisolated func ProbeImageSourceCreateWithURL(_ url: CFURL, _ options: CFDictio
     HeaderProbe.shared.beforeRead()
     return CGImageSourceCreateWithURL(url, options)
 }
+nonisolated func ProbeFileExists(_ path: String) -> Bool {
+    HeaderProbe.shared.beforeRead()
+    return FileManager.default.fileExists(atPath: path)
+}
+@MainActor var completedMissingBatches = 0
 @MainActor var completedBatches = 0
 @MainActor final class MetadataProbe {
     var migrationRecoveryMessage: String?
@@ -44,7 +49,8 @@ nonisolated func ProbeImageSourceCreateWithURL(_ url: CFURL, _ options: CFDictio
     var selectedIDs: Set<String> = []
     var selectedID: String?
     var inspectedWallpaperID: String?
-    func scheduleInitialMissingFilesAlert(for removed: [SILWallpaper], attempt: Int) {}
+    var missingAlerts: [[SILWallpaper]] = []
+    func scheduleInitialMissingFilesAlert(for removed: [SILWallpaper], attempt: Int) { missingAlerts.append(removed) }
     func reconcileForAudit() { reconcileMissingFilesOnLaunch() }
     var publications = 0
     var wallpapers: [SILWallpaper] = [] { didSet { publications += 1 } }
@@ -225,6 +231,65 @@ nonisolated func ProbeImageSourceCreateWithURL(_ url: CFURL, _ options: CFDictio
         RunLoop.main.run(until: Date().addingTimeInterval(0.03))
         checks["completeMetadataRequiresNoBackgroundBatchOrSave"] = ready.wallpapers == [complete]
             && completedBatches == readyBatch && ready.saves == 0
+
+        func heldCleanup(_ records: [SILWallpaper]) throws -> (MetadataProbe, (entered: DispatchSemaphore, release: DispatchSemaphore), Int) {
+            try persist(records, at: index)
+            let service = MetadataProbe(index)
+            service.load()
+            let held = HeaderProbe.shared.holdNextRead(), before = completedMissingBatches
+            service.reconcileForAudit()
+            precondition(held.entered.wait(timeout: .now() + 3) == .success)
+            return (service, held, before)
+        }
+        let gone = record("cleanup-missing", root.appendingPathComponent("cleanup-missing.png").path, width: 8, height: 12)
+        let (startup, startupRead, startupBatch) = try heldCleanup([gone, complete])
+        checks["startupMissingScanKeepsLoadedRowsUntilBackgroundReceipt"] = startup.wallpapers == [gone, complete]
+            && startup.saves == 0 && startup.missingAlerts.isEmpty
+        var missingMainRan = false
+        DispatchQueue.main.async { missingMainRan = true }
+        wait("missing file scan blocked the main queue") { missingMainRan }
+        checks["startupMissingFileChecksLeaveMainResponsive"] = missingMainRan
+        startup.wallpapers[1].title = "Title edited during scan"
+        let currentComplete = startup.wallpapers[1]
+        startupRead.release.signal()
+        wait("startup missing cleanup did not finish") { completedMissingBatches > startupBatch }
+        checks["backgroundMissingReceiptRemovesOnlyMatchingRowsAndKeepsCurrentMetadata"] = startup.wallpapers == [currentComplete]
+            && startup.saves == 1 && startup.saveThreads == [true] && startup.missingAlerts.last == [gone]
+        checks["backgroundMissingCleanupUsesOriginalJSONOwner"] = try JSONDecoder().decode([SILWallpaper].self,
+            from: Data(contentsOf: index)) == [currentComplete]
+
+        let goneB = record("cleanup-deleted", root.appendingPathComponent("cleanup-deleted.png").path, width: 8, height: 12)
+        let unicode = record("Caf\u{00E9}", root.appendingPathComponent("cleanup-unicode.png").path, width: 8, height: 12)
+        let (changed, changedRead, changedBatch) = try heldCleanup([gone, goneB, unicode])
+        var relocated = gone; relocated.path = imageA.path
+        var otherIdentity = unicode; otherIdentity.id = "Cafe\u{0301}"
+        changed.wallpapers = [relocated, complete, otherIdentity]
+        changedRead.release.signal()
+        wait("changed source cleanup did not finish") { completedMissingBatches > changedBatch }
+        checks["missingReceiptCannotRemoveRelocatedDeletedOrNewOpaqueRows"] = changed.wallpapers == [relocated, complete, otherIdentity]
+            && changed.saves == 0 && changed.missingAlerts.isEmpty
+
+        let (cleared, clearedRead, clearedBatch) = try heldCleanup([gone])
+        try cleared.resetForAudit()
+        clearedRead.release.signal()
+        wait("reset missing cleanup did not finish") { completedMissingBatches > clearedBatch }
+        checks["resetRevokesPendingMissingCleanupWithoutRecreatingJSON"] = cleared.wallpapers.isEmpty && cleared.saves == 0
+            && !FileManager.default.fileExists(atPath: index.path) && cleared.missingAlerts.isEmpty
+
+        let (newLoad, newLoadRead, newLoadBatch) = try heldCleanup([gone])
+        try persist([complete], at: index); newLoad.load()
+        newLoadRead.release.signal()
+        wait("reloaded missing cleanup did not finish") { completedMissingBatches > newLoadBatch }
+        checks["reloadGenerationRevokesPendingMissingReceipt"] = newLoad.wallpapers == [complete]
+            && newLoad.saves == 0 && newLoad.missingAlerts.isEmpty
+
+        let (becameReadOnly, readOnlyRead, readOnlyBatch) = try heldCleanup([gone])
+        becameReadOnly.migrationRecoveryMessage = "Recovery began during scan"
+        readOnlyRead.release.signal()
+        wait("read-only missing cleanup did not finish") { completedMissingBatches > readOnlyBatch }
+        checks["pendingMissingReceiptRespectsCurrentRecoveryBoundary"] = becameReadOnly.wallpapers == [gone]
+            && becameReadOnly.saves == 0 && becameReadOnly.missingAlerts.isEmpty
+        checks["allStartupMissingFileProbesRunOffMain"] = HeaderProbe.shared.allReadsOffMain
 
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.prohibited)

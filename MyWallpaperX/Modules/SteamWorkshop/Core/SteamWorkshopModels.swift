@@ -1,6 +1,6 @@
 import Foundation
 
-nonisolated enum SteamWorkshopDownloadContentType: String, CaseIterable, Equatable {
+nonisolated enum SteamWorkshopDownloadContentType: String, CaseIterable, Equatable, Codable {
     case video
     case web
     case scene
@@ -83,8 +83,8 @@ nonisolated struct SteamWorkshopBrowserItem: Identifiable, Equatable, Codable {
     }
 }
 
-nonisolated struct SteamWorkshopDownloadRecord: Identifiable, Equatable {
-    nonisolated enum Status: Equatable {
+nonisolated struct SteamWorkshopDownloadRecord: Identifiable, Equatable, Codable {
+    nonisolated enum Status: Equatable, Codable {
         case queued
         case downloading
         case ready
@@ -119,6 +119,8 @@ nonisolated struct SteamWorkshopDownloadRecord: Identifiable, Equatable {
     /// Transient JobStore-derived intent, rather than a published local row.
     /// The account is provenance only; JobStore remains its durable owner.
     var intentAccountSteamID: String? = nil
+    /// Display-cache provenance; fresh builders and targeted replay leave this nil.
+    var isStartupSnapshot: Bool? = nil
 
     var videoURL: URL? {
         if let exportedVideoURL,

@@ -47,6 +47,13 @@ class SteamDownloadExecutionTests(unittest.TestCase):
         methods.append(migration.replace('    private func ', '    func ', 1))
         for signature in ('    private func applyInstalledLibraryRecords(', '    private func finishInstalledLibraryScan('):
             methods.append(extract_function(source, signature).replace('    private func ', '    func ', 1))
+        snapshot_type = extract_function(source, 'nonisolated private struct SteamWorkshopInstalledLibrarySnapshot:')
+        for signature in ('    private var installedLibrarySnapshotURL:', '    func invalidateInstalledLibrarySnapshot()',
+                          '    private func saveInstalledLibrarySnapshot('):
+            member = extract_function(source, signature)
+            if 'installedLibrarySnapshotURL:' in signature:
+                member = member.replace('private var', 'var', 1)
+            methods.append(member)
         selection = (CORE / 'SteamWorkshopService+DownloadSelection.swift').read_text()
         for signature in (
             '    func deleteDownload(itemID:',
@@ -66,7 +73,7 @@ class SteamDownloadExecutionTests(unittest.TestCase):
         date_resolution = extract_function(metadata, '    func resolvedFirstDownloadDate(')
         publisher = folder / 'Publisher.swift'
         publisher.write_text(
-            'import AppKit\nextension SteamWorkshopService {\n'
+            'import AppKit\nimport Darwin\n' + snapshot_type + '\nextension SteamWorkshopService {\n'
             'func downloadMetadataIndexDirectoryURL() -> URL { '
             'steamDownloadLibraryRootURL.appendingPathComponent('
             '".mywallpaperx-steam-metadata", isDirectory: true) }\n'
@@ -134,9 +141,17 @@ class SteamDownloadExecutionTests(unittest.TestCase):
                 'secondStagingDevice': str(second_stage.stat().st_dev) if second_stage.exists() else None,
                 'secondStagingInode': str(second_stage.stat().st_ino) if second_stage.exists() else None,
                 'totalBytes': sum(map(len, files.values())), 'verifiedBytes': sum(map(len, files.values()))}}))
+            snapshot = root / 'library/cache/installed-records-v1.json'
+            snapshot.parent.mkdir(parents=True, exist_ok=True)
+            snapshot.write_bytes(b'owned stale display cache')
             result = subprocess.run([str(self.binary), str(root), mode], capture_output=True, text=True, timeout=15)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn('EXECUTION PASS: ' + mode, result.stdout)
+            if mode == 'success':
+                self.assertFalse(snapshot.exists(), 'real publication invalidates the old display baseline')
+            if mode == 'ready-update-delete-startup':
+                self.assertEqual(snapshot.read_bytes(), b'owned stale display cache')
+
             if staging_siblings:
                 self.assertEqual((retained / 'payload').stat().st_size, 17 * 1024 * 1024 * 1024)
                 self.assertEqual((retained / 'sentinel').read_bytes(), b'UNRELATED PARTIAL')
@@ -293,6 +308,9 @@ class SteamDownloadExecutionTests(unittest.TestCase):
         for mode in ('late-cleanup-new-job', 'late-cleanup-new-attempt', 'late-cleanup-new-account'):
             with self.subTest(mode=mode):
                 self.run_case(mode)
+
+    def test_startup_warm_record_cannot_delete_before_fresh_source_load(self):
+        self.run_case('ready-update-delete-startup')
 
     def test_delete_local_only_content_without_index(self):
         self.run_case('ready-update-delete-local-only')

@@ -54,6 +54,19 @@ PREPARATION_MEMBERS = (
     '    private nonisolated static func scanPrepareInstalledRecord(\n        from metadata:',
     '    private nonisolated static func scanProjectInstalledRecord(',
 )
+SCAN_MEMBERS = (
+    '    nonisolated static func scanInstalledLibraryRecords(',
+    '    nonisolated static private func scanDirectChildDirectories(',
+    '    nonisolated static private func scanDirectVideoFiles(',
+    '    nonisolated static private func isSupportedWorkshopVideoFile(',
+    '    nonisolated static private func scanLoadVideoDownloadMetadataSnapshot(',
+    '    nonisolated static private func scanBuildInstalledVideoRecord(',
+)
+SCAN_CHECKS = {
+    'firstInstallAllowsMissingRoot', 'missingKnownRootThrows', 'missingTypeDirectoriesAreEmpty',
+    'readableLegacyVideoIsEnumerated', 'fileRootThrowsENOTDIR', 'typeFile-Video', 'typeFile-Web',
+    'typeFile-Scene', 'unreadableRootThrowsPermission',
+}
 CHECKS = {
     'projectPreferredHTMLAndPreviewSurvive', 'projectSceneKeepsLooseEntry',
     'metadataKeepsSourceAndBrowserFields', 'packageOnlyRemainsScene',
@@ -133,12 +146,14 @@ def prepare_legacy_discovery_sources(tree, work, fixture_tree=None):
                 member = member.replace(original, 'LegacyDiscoveryObservation.shared.exists("' + kind
                     + '", directory: directory, path: ' + path + ')', 1)
         observed.append(member)
+    scans = [declaration((tree / SYNC).read_text(), signature) for signature in SCAN_MEMBERS]
+    observed.extend(scans)
     observed.append(declaration((tree / SYNC).read_text(), '    nonisolated static func scanLoadDownloadMetadataEntry('))
     observed.append(declaration((tree / PARSING).read_text(), '    nonisolated static func fileSizeText('))
     fragments += ['@MainActor final class SteamWorkshopService {}',
                   'extension SteamWorkshopService {\n' + '\n'.join(observed) + '\n}']
     generated = work / 'InstalledRecordBuilder.swift'
-    generated.write_text('import Foundation\n' + '\n'.join(fragments) + '\n')
+    generated.write_text('import Foundation\nimport Darwin\n' + '\n'.join(fragments) + '\n')
     facts = work / 'InstalledRecordFacts.swift'
     facts.write_text('import Foundation\n' + '\n'.join(declaration((tree / API).read_text(), signature)
         for signature in ('nonisolated struct SteamWorkshopProjectGeneral:',
@@ -151,6 +166,8 @@ def prepare_legacy_discovery_sources(tree, work, fixture_tree=None):
                      for signature, member in zip(signatures, members)}
     return [*(tree / path for path in PRODUCT_SOURCES), generated, facts, harness], {
         'inputs': hashes, 'completeOriginalMemberSHA256': member_hashes,
+        'completeOriginalScanSHA256': {signature: hashlib.sha256(member.encode()).hexdigest()
+                                      for signature, member in zip(SCAN_MEMBERS, scans)},
         'observations': ['entry of actual resolveHTMLURL', 'entry of actual resolveVideoURL',
                          'entry of actual preferredPreviewRelativePath and localDownloadStatistics',
                          'three original preflight fileExists calls delegated to Foundation through test observer'],
@@ -200,6 +217,12 @@ class SteamLibraryLegacyDiscoveryTests(unittest.TestCase):
                     for name, passed in result[group].items():
                         with self.subTest(phase=phase, group=group, name=name): self.assertTrue(passed, result)
                 self.assertEqual(inputs['inputs'], {path: digest(ROOT / path) for path in inputs['inputs']})
+            scan = json.loads(execute([str(binary), str(cases), 'scan-errors'], 'scan-errors', 30).stdout)
+            save('scan-errors-results.json', json.dumps(scan, indent=2) + '\n')
+            self.assertEqual(set(scan['scanChecks']), SCAN_CHECKS)
+            for name, passed in scan['scanChecks'].items():
+                with self.subTest(scan=name): self.assertTrue(passed, scan)
+            self.assertEqual(inputs['inputs'], {path: digest(ROOT / path) for path in inputs['inputs']})
 
 
 if __name__ == '__main__':

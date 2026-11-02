@@ -161,6 +161,10 @@ final class AppKitWallpaperItem: WallpaperCardCollectionViewItem, WallpaperGridH
 
         thumbnailWallpaperManager = wallpaperManager
         currentThumbnailProvider = thumbnailProvider
+        if let image = thumbnailProvider.cachedThumbnail(for: wallpaper) {
+            thumbnailImageView.image = image
+            layoutThumbnail()
+        }
         thumbnailRequestIsPending = true
         if !isThumbnailDemandPaused {
             requestThumbnail(for: wallpaper, wallpaperManager: wallpaperManager, thumbnailProvider: thumbnailProvider)
