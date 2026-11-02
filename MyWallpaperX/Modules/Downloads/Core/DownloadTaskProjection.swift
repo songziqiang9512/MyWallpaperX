@@ -41,7 +41,7 @@ nonisolated struct DownloadTaskSnapshot: Sendable {
 nonisolated enum DownloadTaskProjection {
     static func snapshot(current: [DownloadTaskRow], history: [DownloadTaskRow]) -> DownloadTaskSnapshot {
         var seen: Set<DownloadTaskIdentity> = []
-        let rows = (current + history).filter { seen.insert($0.id).inserted }
+        let rows = [current, history].joined().filter { seen.insert($0.id).inserted }
         let terminal = rows.enumerated().filter { $0.element.phase.isTerminal }.sorted { lhs, rhs in
             switch (lhs.element.recordedAt, rhs.element.recordedAt) {
             case let (left?, right?) where left != right: return left > right

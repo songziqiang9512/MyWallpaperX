@@ -45,7 +45,7 @@ import Foundation
     /// In particular, cancellation after a commit is still a completed result.
     func record(_ entry: DownloadTerminalReceipt) throws {
         if entries.first(where: { $0.id == entry.id }) == entry { return }
-        try commit(Self.sortedUnique([entry] + entries.filter { $0.id != entry.id }), legacyImported: legacyImported)
+        try commit(Self.sortedUnique([entry] + entries), legacyImported: legacyImported)
     }
 
     func remove(_ id: DownloadTaskIdentity) throws {

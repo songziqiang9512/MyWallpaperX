@@ -63,6 +63,27 @@ import Foundation
         do { _ = try DownloadHistoryStore(persistenceURL: corruptURL); preconditionFailure("corrupt history was replaced") }
         catch { let retained = try Data(contentsOf: corruptURL); precondition(retained == corrupt) }
 
+        let replacementURL = root.appendingPathComponent("replacement.json")
+        let nextAttempt = receipt(.pixabay, "7", "actual-next", .completed, 100)
+        let tiedProvider = receipt(.wallhaven, "7", "actual-first", .completed, 100)
+        let unknownFirst = receipt(.pixiv, "7:p3", "unknown-first", .failed)
+        let unknownSecond = receipt(.wallhaven, "8", "unknown-second", .completed)
+        let duplicates = [success, tiedProvider, nextAttempt,
+            receipt(.pixabay, "7", "actual-first", .cancelled, 999), unknownFirst, unknownSecond,
+            receipt(.pixabay, "7", "actual-next", .failed, 999)]
+        let encodedEntries = try JSONEncoder().encode(duplicates)
+        let seededJSON = "{\"legacyImported\":true,\"entries\":" + String(decoding: encodedEntries, as: UTF8.self) + "}"
+        try Data(seededJSON.utf8).write(to: replacementURL)
+        let replacement = try DownloadHistoryStore(persistenceURL: replacementURL)
+        let updated = DownloadTerminalReceipt(id: success.id, title: "updated terminal", outcome: .failed,
+            recordedAt: nextAttempt.recordedAt, failureMessage: "updated failure")
+        try replacement.record(updated)
+        let expected = [updated, tiedProvider, nextAttempt, unknownFirst, unknownSecond]
+        precondition(replacement.entries == expected,
+                     "the new identity value wins; other attempts/providers and tied/unknown date order survive deduplication")
+        let replacementReloaded = try DownloadHistoryStore(persistenceURL: replacementURL)
+        precondition(replacementReloaded.entries == expected, "replacement must persist the complete winning terminal values")
+
         let pixabayID = success.id, wallhavenID = receipt(.wallhaven, "7", "actual-first", .completed).id
         let pixivID = failed.id
         let active = DownloadTaskRow(id: pixabayID, title: "active", phase: .transferring, actions: [.cancel])
@@ -75,6 +96,25 @@ import Foundation
         precondition(projection.active.map(\.id) == [pixabayID, steamID] && projection.history.map(\.id) == [wallhavenID, pixivID])
         precondition(projection.count == 4 && projection.active[0].title == "active",
                      "namespaced source identities, current precedence and unknown-date ordering must survive aggregation")
+
+        let currentTerminal = DownloadTaskRow(id: wallhavenID, title: "current terminal", phase: .completed,
+            recordedAt: nextAttempt.recordedAt)
+        let shadowCurrent = DownloadTaskRow(id: wallhavenID, title: "shadow current", phase: .failed,
+            recordedAt: Date(timeIntervalSince1970: 999))
+        let retry = DownloadTaskRow(id: nextAttempt.id, title: "next attempt", phase: .completed,
+            recordedAt: nextAttempt.recordedAt)
+        let shadowHistory = DownloadTaskRow(id: retry.id, title: "shadow history", phase: .failed,
+            recordedAt: Date(timeIntervalSince1970: 999))
+        let unknown = DownloadTaskRow(id: unknownSecond.id, title: "last unknown", phase: .cancelled)
+        let grouped = DownloadTaskProjection.snapshot(current: [active, old, steam, currentTerminal, shadowCurrent],
+            history: [old, wallhaven, retry, shadowHistory, pixiv, pixiv, unknown])
+        precondition(grouped.active.map(\.id) == [pixabayID, steamID] && grouped.active[0].title == "active",
+                     "first current rows win within current and across history, including a terminal shadow")
+        precondition(grouped.history.map(\.id) == [wallhavenID, retry.id, pixivID, unknown.id]
+                     && grouped.history.map(\.title) == ["current terminal", "next attempt", "Pixiv page 2", "last unknown"],
+                     "terminal duplicates keep first values before sorting, with stable equal and missing dates")
+        let emptyProjection = DownloadTaskProjection.snapshot(current: [], history: [])
+        precondition(emptyProjection.active.isEmpty && emptyProjection.history.isEmpty && emptyProjection.count == 0)
         print("download-history-pass")
     }
 }
