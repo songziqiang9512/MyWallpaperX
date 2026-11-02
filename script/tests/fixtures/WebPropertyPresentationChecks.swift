@@ -141,6 +141,8 @@
                 precondition(descendants(scene, NSButton.self).filter { $0.title == "恢复默认" }.count == 1)
             }
             let input = descendants(web, NSTextField.self).first { $0.isEditable }!
+            precondition(input.placeholderString == text && input.accessibilityLabel() == text,
+                "Web plain display title must label the string field and its placeholder")
             let inputDelegate = input.delegate!
             let beforeUnchangedText = service.webEvents.count
             input.sendAction(input.action, to: input.target)
@@ -495,6 +497,38 @@
         numericField.stringValue = "42.5"; numericField.sendAction(numericField.action, to: numericField.target)
         precondition(service.webEvents.last?.0 == numeric.key && service.webEvents.last?.1 == .string("42.5"),
             "authored text input with a numeric default keeps its original string submission")
+        let titleCases: [(kind: SteamWorkshopWebPropertyKind, raw: String, markup: String?, plain: String?, expected: String?)] = [
+            (.text, "Raw title", "<b>First</b><hr/>Second &amp; &#20013;", "ignored plain", "First\nSecond & 中"),
+            (.text, "Legacy &amp; &#20013;", nil, nil, "Legacy & 中"),
+            (.text, "Raw title", "", "must not fall back", "未命名属性"),
+            (.text, "Raw title", nil, "", "未命名属性"),
+            (.label, "Original note", "", "must not fall back", nil),
+            (.group, "Original group", nil, "", nil),
+        ]
+        for (index, item) in titleCases.enumerated() {
+            var definition = SteamWorkshopWebPropertyDefinition(key: "title\(index)", title: item.raw, kind: item.kind,
+                runtimeType: "text", order: 0, minimumValue: nil, maximumValue: nil, allowsFractionalValues: false,
+                fractionalPrecision: nil, displayCondition: nil, directoryMode: nil, fileType: nil,
+                defaultValue: .string("kept value"), options: [])
+            definition.displayTitleMarkup = item.markup; definition.displayTitle = item.plain
+            service.webDescriptor = .init(propertyDefinitions: [definition]); service.webValues = [definition.key: .string("kept value")]
+            let editor = SteamWorkshopWebPropertyEditorView(record: .init(id: "title-case", title: "title-case"))
+            let rows = descendants(editor, WorkshopPropertyRowView.self)
+            if let expected = item.expected {
+                precondition(rows.count == 1)
+                let field = descendants(rows[0], NSTextField.self).first { $0.isEditable }!
+                precondition(rows[0].title.stringValue == expected && field.placeholderString == expected
+                    && field.accessibilityLabel() == expected && field.stringValue == "kept value",
+                    "Web title, placeholder and AX must preserve markup/plain/fallback and explicit-empty precedence")
+                if index == 0 {
+                    precondition(rows[0].title.presentation.segments == [.text("First"), .separator, .text("Second & 中")],
+                        "string control titles must retain their full authored separator presentation")
+                }
+            } else {
+                precondition(rows.isEmpty && editor.presentsOnlyMessage,
+                    "explicit empty localized labels and groups must stay hidden without fallback text")
+            }
+        }
         service.webDescriptor = .init(propertyDefinitions: [])
         let empty = SteamWorkshopWebPropertyEditorView(record: .init(id: "empty", title: "empty"))
         precondition(empty.presentsOnlyMessage && empty.emptyStateMessage!.contains("\n"))

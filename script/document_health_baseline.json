@@ -33,8 +33,8 @@
       "bytes": 116594
     },
     "docs/development/code-slimming-program.md": {
-      "lines": 137,
-      "bytes": 26592
+      "lines": 139,
+      "bytes": 27152
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -1800,10 +1800,10 @@
     {
       "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
-      "before": "b1235d2cdace9c6fb59a38cfd14afc8820317262a34a55a5c20646865aeee555",
-      "after": "42b99068a59fbffa0ee8e70a90a2454ccc9d7edf6d7a60d226f8dc52713e8fe5",
+      "before": "42b99068a59fbffa0ee8e70a90a2454ccc9d7edf6d7a60d226f8dc52713e8fe5",
+      "after": "babe136feb35426397be6ffee30dd6eeed289d933026ef97bdae8f40df186534",
       "owner": "repository-maintainer",
-      "reason": "Record the verified R89 original-error preservation and controlled failure/retention facts with actual arm hashes, compact R88 with its seven-publication counter scope, and close bounded file-owner/Web-cache keep audits without widening their interfaces.",
+      "reason": "Record R90 per-row Web presentation reuse and bounded native call observations, retain title/AX/empty semantics and unchanged Scene fixture, compact R89 failure-only proof, and route the next audits without reopening completed work.",
       "decision": "docs/development/code-slimming-program.md#目标与边界"
     },
     {

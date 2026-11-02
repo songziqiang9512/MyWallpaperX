@@ -98,8 +98,9 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
             emptyStateMessage = "当前 Web 没有可调节的受支持属性，\n或属性模型尚未解析成功。"
         }
         for definition in definitions {
-            if (definition.kind == .label || definition.kind == .group) && displayContent(definition).isEmpty { continue }
-            let row = webPropertyControl(definition: definition, value: values[definition.key] ?? definition.defaultValue,
+            let titleContent = displayContent(definition)
+            if (definition.kind == .label || definition.kind == .group) && titleContent.isEmpty { continue }
+            let row = webPropertyControl(definition: definition, titleContent: titleContent, value: values[definition.key] ?? definition.defaultValue,
                 visibleOptions: service.visibleWebPropertyOptions(for: definition, values: values, definitions: descriptor.propertyDefinitions), record: record)
             contentStack.addArrangedSubview(row)
             row.widthAnchor.constraint(equalTo: contentStack.widthAnchor).isActive = true
@@ -149,6 +150,7 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
     }
     private func webPropertyControl(
         definition: SteamWorkshopWebPropertyDefinition,
+        titleContent: WorkshopPropertyTextContent,
         value: SteamWorkshopWebPropertyValue,
         visibleOptions: [SteamWorkshopWebPropertyOption],
         record: SteamWorkshopDownloadRecord
@@ -163,15 +165,16 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
         }
         let row = WorkshopPropertyRowView(style: style)
         row.translatesAutoresizingMaskIntoConstraints = false
-        row.title.setPresentation(displayContent(definition))
+        row.title.setPresentation(titleContent)
         guard definition.kind != .label && definition.kind != .group else { return row }
+        let titleText = row.title.stringValue
         let summary = definition.kind == .slider ? label(valueSummary(value, definition: definition),
             font: .monospacedDigitSystemFont(ofSize: 11, weight: .regular), color: .secondaryLabelColor, lines: 1) : nil
-        let control = controlView(definition: definition, value: value, visibleOptions: visibleOptions,
+        let control = controlView(definition: definition, titleText: titleText, value: value, visibleOptions: visibleOptions,
             record: record, summaryLabel: summary)
         control.translatesAutoresizingMaskIntoConstraints = false
         control.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        control.setAccessibilityLabel(row.title.stringValue)
+        control.setAccessibilityLabel(titleText)
         if definition.kind == .toggle { row.content.addArrangedSubview(spacer()) }
         row.content.addArrangedSubview(control)
         if let summary {
@@ -190,6 +193,7 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
 
     private func controlView(
         definition: SteamWorkshopWebPropertyDefinition,
+        titleText: String,
         value: SteamWorkshopWebPropertyValue,
         visibleOptions: [SteamWorkshopWebPropertyOption],
         record: SteamWorkshopDownloadRecord,
@@ -295,10 +299,10 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
             let text = textValue(value, definition: definition)
             target.committedText = (text, value)
             let stringInput = value.stringValue != nil && definition.defaultValue.stringValue != nil
-            let field = textField(text, placeholder: displayContent(definition).text,
+            let field = textField(text, placeholder: titleText,
                 stringInput: stringInput, target: target, action: #selector(WebPropertyActionTarget.textChanged(_:)))
             guard stringInput else { return field }
-            field.setAccessibilityLabel(displayContent(definition).text)
+            field.setAccessibilityLabel(titleText)
             return WallpaperFormFieldStyle.wrapping(field)
         }
     }
