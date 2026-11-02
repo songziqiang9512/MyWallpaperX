@@ -49,8 +49,228 @@ private final class DirectoryUnifiedToolbarProbe: NSObject, NSToolbarDelegate {
             && !title.isEditable && !title.isSelectable && title.currentEditor() == nil
     }
 
+    static func nativeToolbarChecks() -> (checks: [String: Bool], cleanup: @MainActor () -> Void) {
+        var checks: [String: Bool] = [:]
+        // A plain NSWindow cannot expose unified-toolbar occlusion. Keep all
+        // prior zero-inset checks, then compare actual card/window coordinates
+        // in the same full-size-content configuration used by the real App.
+        let unified = AppKitPlaylistDirectoryController()
+        unified.loadViewIfNeeded()
+        unified.view.frame = NSRect(x: 0, y: 0, width: 1000, height: 700)
+        let unifiedEntries = (0..<80).map { WallpaperPlaylistDirectoryEntry(id: UUID(), name: "Native \($0)", count: 1, coverReference: nil) }
+        unified.update(entries: unifiedEntries, covers: [:], preferredColumns: 5, permitsReordering: true)
+        unified.restoreScrollAnchor(nil, atTop: true)
+        unified.view.layoutSubtreeIfNeeded()
+        checks["unified-directory-prepublication-starts-without-window-or-native-insets"] = unified.view.window == nil
+            && descendants(unified.view, of: NSScrollView.self).first!.contentInsets.top == 0
+        let unifiedHost = AppKitDetailHostViewController()
+        unifiedHost.loadViewIfNeeded()
+        unifiedHost.view.frame = unified.view.frame
+        unifiedHost.present(unified)
+        let unifiedWindow = NSWindow(contentViewController: unifiedHost)
+        unifiedWindow.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
+        unifiedWindow.titleVisibility = .hidden
+        unifiedWindow.titlebarAppearsTransparent = false
+        unifiedWindow.titlebarSeparatorStyle = .shadow
+        unifiedWindow.toolbarStyle = .unified
+        unifiedWindow.isReleasedWhenClosed = false
+        unifiedWindow.setContentSize(NSSize(width: 1000, height: 700))
+        unifiedWindow.setFrameOrigin(NSPoint(x: 15000, y: 15000))
+        let unifiedToolbarDelegate = DirectoryUnifiedToolbarProbe()
+        let unifiedToolbar = NSToolbar(identifier: "directory-native-insets-toolbar")
+        unifiedToolbar.delegate = unifiedToolbarDelegate
+        unifiedWindow.toolbar = unifiedToolbar
+        unifiedWindow.orderFrontRegardless()
+        let unifiedCollection = descendants(unified.view, of: NSCollectionView.self).first!
+        let unifiedScroll = unifiedCollection.enclosingScrollView!
+        let unifiedFlow = unifiedCollection.collectionViewLayout as! NSCollectionViewFlowLayout
+        func settleUnified() {
+            for _ in 0..<3 {
+                unifiedWindow.contentView?.layoutSubtreeIfNeeded()
+                unified.view.layoutSubtreeIfNeeded()
+                unifiedCollection.layoutSubtreeIfNeeded()
+                RunLoop.main.run(until: Date().addingTimeInterval(0.02))
+            }
+        }
+        func itemTopInWindow(_ index: Int) -> CGFloat? {
+            guard let item = unifiedCollection.item(at: IndexPath(item: index, section: 0)) else { return nil }
+            return item.view.convert(item.view.bounds, to: nil).maxY
+        }
+        func firstCardHasNativeSafeSpacing() -> Bool {
+            guard let top = itemTopInWindow(0) else { return false }
+            return abs(top - (unifiedWindow.contentLayoutRect.maxY - 8)) < 1
+        }
+        settleUnified()
+        checks["unified-directory-mount-after-t0-publication-preserves-uncovered-top-spacing"] = firstCardHasNativeSafeSpacing()
+        unified.restoreScrollAnchor(nil, atTop: true)
+        settleUnified()
+        checks["unified-directory-fixture-produces-real-native-top-inset"] = unifiedScroll.contentInsets.top > 0
+            && unifiedWindow.contentLayoutRect.maxY < unifiedWindow.contentView!.bounds.maxY
+        checks["unified-directory-first-entry-keeps-create-card-eight-points-below-uncovered-window"] = firstCardHasNativeSafeSpacing()
+        FileHandle.standardError.write(Data("unified-directory-insets top=\(unifiedScroll.contentInsets.top) clipY=\(unifiedScroll.contentView.bounds.minY) cardTop=\(itemTopInWindow(0) ?? -1) layoutTop=\(unifiedWindow.contentLayoutRect.maxY)\n".utf8))
+        unified.update(entries: unifiedEntries, covers: [:], preferredColumns: 3, permitsReordering: true)
+        settleUnified()
+        let largeTop = firstCardHasNativeSafeSpacing()
+        unified.update(entries: unifiedEntries, covers: [:], preferredColumns: 6, permitsReordering: true)
+        settleUnified()
+        checks["unified-directory-density-changes-preserve-uncovered-top-spacing"] = largeTop && firstCardHasNativeSafeSpacing()
+        let middle = unifiedFlow.layoutAttributesForItem(at: IndexPath(item: 24, section: 0))!.frame
+        unifiedScroll.contentView.scroll(to: NSPoint(x: 0, y: middle.minY + 9))
+        unifiedScroll.reflectScrolledClipView(unifiedScroll.contentView)
+        settleUnified()
+        checks["unified-directory-return-top-test-starts-below-initial-row"] = unifiedScroll.contentView.bounds.minY > 0
+        unified.restoreScrollAnchor(nil, atTop: true)
+        settleUnified()
+        checks["unified-directory-explicit-return-to-top-keeps-native-safe-spacing"] = firstCardHasNativeSafeSpacing()
+        unified.restoreScrollAnchor(unifiedEntries[1].id)
+        settleUnified()
+        checks["unified-directory-legacy-nonfirst-entry-aligns-with-uncovered-viewport"] = itemTopInWindow(2).map {
+            abs($0 - unifiedWindow.contentLayoutRect.maxY) < 1
+        } ?? false
+        unified.restoreScrollAnchor(nil, atTop: true)
+        settleUnified()
+        let nativeInset = unifiedScroll.contentInsets.top
+        let partialNativeY = -nativeInset * 0.5
+        var partialReceipt: (UUID?, Double, Bool)?
+        unified.onScrollAnchor = { id, offset, atTop in partialReceipt = (id, offset, atTop) }
+        unifiedScroll.contentView.scroll(to: NSPoint(x: 0, y: partialNativeY))
+        unifiedScroll.reflectScrolledClipView(unifiedScroll.contentView)
+        settleUnified()
+        let partialCardTop = itemTopInWindow(0)
+        let expectedSafeOffset = partialCardTop.map { Double(unifiedWindow.contentLayoutRect.maxY - $0) }
+        checks["unified-directory-partial-negative-origin-is-a-real-intermediate-scroll"] = nativeInset > 0
+            && unifiedScroll.contentView.bounds.minY < 0 && unifiedScroll.contentView.bounds.minY > -nativeInset
+        checks["unified-directory-partial-negative-origin-receipt-is-not-true-top"] = partialReceipt?.2 == false
+        checks["unified-directory-scroll-offset-measures-the-uncovered-window-edge"] = expectedSafeOffset.map {
+            abs((partialReceipt?.1 ?? .infinity) - $0) < 1
+        } ?? false
+        let capturedPartial = partialReceipt
+        let otherPage = NSViewController()
+        otherPage.view = NSView()
+        let sizeBeforePageChange = unifiedWindow.contentView!.frame.size
+        unifiedHost.present(otherPage)
+        unifiedWindow.contentView?.layoutSubtreeIfNeeded()
+        unifiedHost.present(unified)
+        unified.restoreScrollAnchor(capturedPartial?.0, offset: capturedPartial?.1, atTop: capturedPartial?.2)
+        settleUnified()
+        checks["unified-directory-real-detail-host-page-roundtrip-preserves-window-geometry"] = unifiedWindow.contentView!.frame.size == sizeBeforePageChange
+            && unifiedScroll.contentInsets.top == nativeInset
+        checks["unified-directory-partial-negative-origin-and-card-offset-survive-page-roundtrip"] = capturedPartial != nil
+            && abs(unifiedScroll.contentView.bounds.minY - partialNativeY) < 1
+            && partialCardTop.map { abs((itemTopInWindow(0) ?? .infinity) - $0) < 1 } == true
+        unified.restoreScrollAnchor(unifiedEntries[23].id, offset: -17, atTop: false)
+        settleUnified()
+        let middleSafeOffset = itemTopInWindow(24).map { unifiedWindow.contentLayoutRect.maxY - $0 }
+        let shownInset = unifiedScroll.contentInsets.top
+        let shownOrigin = unifiedScroll.contentView.bounds.minY
+        unifiedToolbar.isVisible = false
+        settleUnified()
+        let hiddenInset = unifiedScroll.contentInsets.top
+        let hiddenOrigin = unifiedScroll.contentView.bounds.minY
+        let hiddenSafeOffset = itemTopInWindow(24).map { unifiedWindow.contentLayoutRect.maxY - $0 }
+        checks["unified-directory-visibility-test-has-real-inset-change-and-middle-anchor"] = middleSafeOffset.map { abs($0 + 17) < 1 } == true
+            && shownOrigin > 0 && hiddenInset < shownInset
+        checks["unified-directory-toolbar-hiding-preserves-fixed-middle-card-relative-to-uncovered-top"] = middleSafeOffset != nil
+            && hiddenSafeOffset.map { abs($0 - middleSafeOffset!) < 1 } == true
+        unifiedToolbar.isVisible = true
+        settleUnified()
+        let reshownSafeOffset = itemTopInWindow(24).map { unifiedWindow.contentLayoutRect.maxY - $0 }
+        checks["unified-directory-toolbar-showing-preserves-fixed-middle-card-relative-to-uncovered-top"] = middleSafeOffset != nil
+            && reshownSafeOffset.map { abs($0 - middleSafeOffset!) < 1 } == true
+        FileHandle.standardError.write(Data("unified-directory-toolbar-toggle shownInset=\(shownInset) hiddenInset=\(hiddenInset) shownOrigin=\(shownOrigin) hiddenOrigin=\(hiddenOrigin) initialOffset=\(middleSafeOffset ?? .infinity) hiddenOffset=\(hiddenSafeOffset ?? .infinity) reshownOffset=\(reshownSafeOffset ?? .infinity)\n".utf8))
+
+        // The directory intentionally delegates arrows to NSCollectionView.
+        // A selected item alone cannot prove that native keyboard scrolling
+        // reveals it below a real unified toolbar.
+        var keyboardActions: [PlaylistOrganizationAction] = []
+        unified.onAction = { keyboardActions.append($0) }
+        func keyboardReveal(_ name: String, target: Int, up: Bool) {
+            unified.update(entries: unifiedEntries, covers: [:], preferredColumns: 6, permitsReordering: true)
+            settleUnified()
+            let source = up ? target + 6 : target - 6
+            let path = IndexPath(item: target, section: 0)
+            unifiedCollection.selectionIndexPaths = [IndexPath(item: source, section: 0)]
+            unifiedWindow.makeFirstResponder(unifiedCollection)
+            let frame = unifiedFlow.layoutAttributesForItem(at: path)!.frame
+            let inset = unifiedScroll.contentInsets.top
+            let y = up ? frame.minY - inset * 0.5 : frame.maxY - unifiedScroll.contentView.bounds.height - 20
+            unifiedScroll.contentView.scroll(to: NSPoint(x: 0, y: y))
+            unifiedScroll.reflectScrolledClipView(unifiedScroll.contentView)
+            settleUnified()
+            let before = unifiedCollection.item(at: path)!.view
+            let beforeRect = before.convert(before.bounds, to: nil)
+            let layoutRect = unifiedWindow.contentLayoutRect
+            checks["unified-directory-keyboard-\(name)-starts-with-real-occlusion"] = inset > 0
+                && frame.height < layoutRect.height && unifiedWindow.firstResponder === unifiedCollection
+                && (up ? beforeRect.maxY > layoutRect.maxY + 1 : beforeRect.minY < layoutRect.minY - 1)
+                && (!up || unifiedScroll.contentView.bounds.contains(frame))
+            let previousActions = keyboardActions.count
+            let text = String(UnicodeScalar(up ? NSUpArrowFunctionKey : NSDownArrowFunctionKey)!)
+            let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [],
+                timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: unifiedWindow.windowNumber,
+                context: nil, characters: text, charactersIgnoringModifiers: text, isARepeat: false,
+                keyCode: up ? 126 : 125)!
+            unifiedWindow.sendEvent(event)
+            settleUnified()
+            let selectedItem = unifiedCollection.item(at: path)!
+            let after = selectedItem.view
+            let afterRect = after.convert(after.bounds, to: nil)
+            let expectedID = target == 0 ? nil : unifiedEntries[target - 1].id
+            checks["unified-directory-keyboard-\(name)-moves-native-uuid-without-open-or-create"] = unifiedCollection.selectionIndexPaths == [path]
+                && unified.selectedPlaylistID == expectedID && keyboardActions.count == previousActions
+            checks["unified-directory-keyboard-\(name)-reveals-whole-card-in-window-content-layout"] = afterRect.maxY <= layoutRect.maxY + 1
+                && afterRect.minY >= layoutRect.minY - 1
+            checks["unified-directory-keyboard-\(name)-projects-only-native-selected-border-name-and-ax"] = selectionPresentation(selectedItem,
+                selected: true) && unifiedCollection.visibleItems().allSatisfy { item in
+                    guard let currentPath = unifiedCollection.indexPath(for: item) else { return false }
+                    return selectionPresentation(item, selected: currentPath == path)
+                } && keyboardActions.count == previousActions
+            FileHandle.standardError.write(Data("unified-directory-keyboard \(name) before=\(beforeRect) after=\(afterRect) contentLayout=\(layoutRect) clipY=\(unifiedScroll.contentView.bounds.minY)\n".utf8))
+        }
+        keyboardReveal("up-middle", target: 24, up: true)
+        keyboardReveal("down-middle", target: 36, up: false)
+        keyboardReveal("up-create-row", target: 0, up: true)
+
+        // Reuse the real full-size/unified host above; never inject contentInsets.
+        func waitForToolbarCover(_ predicate: () -> Bool) -> Bool {
+            let deadline = Date().addingTimeInterval(3)
+            while !predicate(), Date() < deadline { RunLoop.main.run(until: Date().addingTimeInterval(0.005)) }
+            return predicate()
+        }
+        unifiedWindow.center(); unifiedWindow.makeKeyAndOrderFront(nil)
+        settleUnified()
+        var toolbarCoverDemands: [Set<UUID>] = []
+        unified.onCoverDemand = { toolbarCoverDemands.append($0) }
+        let toolbarCoverPath = IndexPath(item: 40, section: 0)
+        let toolbarCoverFrame = unifiedFlow.layoutAttributesForItem(at: toolbarCoverPath)!.frame
+        let toolbarCoverID = unifiedEntries[toolbarCoverPath.item - 1].id
+        unifiedScroll.contentView.scroll(to: NSPoint(x: 0, y: toolbarCoverFrame.maxY - unifiedScroll.contentInsets.top / 2))
+        unifiedScroll.reflectScrolledClipView(unifiedScroll.contentView)
+        let toolbarBandReady = waitForToolbarCover {
+            unifiedCollection.item(at: toolbarCoverPath) != nil && toolbarCoverFrame.intersects(unifiedCollection.visibleRect)
+                && !toolbarCoverFrame.intersects(unifiedCollection.gridVisibleRect)
+        }
+        checks["directory-toolbar-band-is-native-visible-outside-safe-interaction-area"] = unifiedScroll.contentInsets.top > 0 && toolbarBandReady
+        FileHandle.standardError.write(Data("R109 DIRECTORY clip=\(unifiedScroll.contentView.bounds) visible=\(unifiedCollection.visibleRect) safe=\(unifiedCollection.gridVisibleRect) band=\(toolbarCoverFrame) cell=\(unifiedCollection.item(at: toolbarCoverPath) != nil) window=\(unifiedWindow.frame)\n".utf8))
+        checks["directory-toolbar-band-retains-real-playlist-cover-demand"] = waitForToolbarCover { toolbarCoverDemands.last?.contains(toolbarCoverID) == true }
+            && toolbarCoverDemands.last?.isSubset(of: Set(unifiedEntries.map(\.id))) == true
+        unifiedWindow.orderOut(nil)
+        checks["directory-toolbar-window-hide-revokes-cover-demand"] = waitForToolbarCover { toolbarCoverDemands.last?.isEmpty == true }
+        return (checks, {
+            withExtendedLifetime(unifiedToolbarDelegate) {}
+            unifiedWindow.orderOut(nil); unifiedWindow.close()
+        })
+    }
+
     static func main() {
         initializeNativeAppHarness()
+        if CommandLine.arguments.contains("--toolbar-demand") {
+            let toolbarChecks = nativeToolbarChecks()
+            defer { toolbarChecks.cleanup() }
+            let output = try! JSONSerialization.data(withJSONObject: toolbarChecks.checks, options: [.sortedKeys])
+            print(String(data: output, encoding: .utf8)!)
+            return
+        }
         var checks: [String: Bool] = [:]
         let first = WallpaperPlaylistDirectoryEntry(id: UUID(), name: "同名 🎵", count: 3, coverReference: nil)
         let second = WallpaperPlaylistDirectoryEntry(id: UUID(), name: "同名 🎵", count: 0, coverReference: nil)
@@ -641,189 +861,9 @@ private final class DirectoryUnifiedToolbarProbe: NSObject, NSToolbarDelegate {
         delayedFlow.prepare()
         let delayedFrame = delayedFlow.layoutAttributesForItem(at: IndexPath(item: 21, section: 0))!.frame
         checks["directory-layout-retries-zero-width-position-without-losing-stable-uuid-or-offset"] = abs(delayedFrame.minY - delayedCollection.enclosingScrollView!.contentView.bounds.minY + 17) < 1
-        // A plain NSWindow cannot expose unified-toolbar occlusion. Keep all
-        // prior zero-inset checks, then compare actual card/window coordinates
-        // in the same full-size-content configuration used by the real App.
-        let unified = AppKitPlaylistDirectoryController()
-        unified.loadViewIfNeeded()
-        unified.view.frame = NSRect(x: 0, y: 0, width: 1000, height: 700)
-        let unifiedEntries = (0..<80).map { WallpaperPlaylistDirectoryEntry(id: UUID(), name: "Native \($0)", count: 1, coverReference: nil) }
-        unified.update(entries: unifiedEntries, covers: [:], preferredColumns: 5, permitsReordering: true)
-        unified.restoreScrollAnchor(nil, atTop: true)
-        unified.view.layoutSubtreeIfNeeded()
-        checks["unified-directory-prepublication-starts-without-window-or-native-insets"] = unified.view.window == nil
-            && descendants(unified.view, of: NSScrollView.self).first!.contentInsets.top == 0
-        let unifiedHost = AppKitDetailHostViewController()
-        unifiedHost.loadViewIfNeeded()
-        unifiedHost.view.frame = unified.view.frame
-        unifiedHost.present(unified)
-        let unifiedWindow = NSWindow(contentViewController: unifiedHost)
-        unifiedWindow.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
-        unifiedWindow.titleVisibility = .hidden
-        unifiedWindow.titlebarAppearsTransparent = false
-        unifiedWindow.titlebarSeparatorStyle = .shadow
-        unifiedWindow.toolbarStyle = .unified
-        unifiedWindow.isReleasedWhenClosed = false
-        unifiedWindow.setContentSize(NSSize(width: 1000, height: 700))
-        unifiedWindow.setFrameOrigin(NSPoint(x: 15000, y: 15000))
-        let unifiedToolbarDelegate = DirectoryUnifiedToolbarProbe()
-        let unifiedToolbar = NSToolbar(identifier: "directory-native-insets-toolbar")
-        unifiedToolbar.delegate = unifiedToolbarDelegate
-        unifiedWindow.toolbar = unifiedToolbar
-        unifiedWindow.orderFrontRegardless()
-        defer {
-            withExtendedLifetime(unifiedToolbarDelegate) {}
-            unifiedWindow.orderOut(nil); unifiedWindow.close()
-        }
-        let unifiedCollection = descendants(unified.view, of: NSCollectionView.self).first!
-        let unifiedScroll = unifiedCollection.enclosingScrollView!
-        let unifiedFlow = unifiedCollection.collectionViewLayout as! NSCollectionViewFlowLayout
-        func settleUnified() {
-            for _ in 0..<3 {
-                unifiedWindow.contentView?.layoutSubtreeIfNeeded()
-                unified.view.layoutSubtreeIfNeeded()
-                unifiedCollection.layoutSubtreeIfNeeded()
-                RunLoop.main.run(until: Date().addingTimeInterval(0.02))
-            }
-        }
-        func itemTopInWindow(_ index: Int) -> CGFloat? {
-            guard let item = unifiedCollection.item(at: IndexPath(item: index, section: 0)) else { return nil }
-            return item.view.convert(item.view.bounds, to: nil).maxY
-        }
-        func firstCardHasNativeSafeSpacing() -> Bool {
-            guard let top = itemTopInWindow(0) else { return false }
-            return abs(top - (unifiedWindow.contentLayoutRect.maxY - 8)) < 1
-        }
-        settleUnified()
-        checks["unified-directory-mount-after-t0-publication-preserves-uncovered-top-spacing"] = firstCardHasNativeSafeSpacing()
-        unified.restoreScrollAnchor(nil, atTop: true)
-        settleUnified()
-        checks["unified-directory-fixture-produces-real-native-top-inset"] = unifiedScroll.contentInsets.top > 0
-            && unifiedWindow.contentLayoutRect.maxY < unifiedWindow.contentView!.bounds.maxY
-        checks["unified-directory-first-entry-keeps-create-card-eight-points-below-uncovered-window"] = firstCardHasNativeSafeSpacing()
-        FileHandle.standardError.write(Data("unified-directory-insets top=\(unifiedScroll.contentInsets.top) clipY=\(unifiedScroll.contentView.bounds.minY) cardTop=\(itemTopInWindow(0) ?? -1) layoutTop=\(unifiedWindow.contentLayoutRect.maxY)\n".utf8))
-        unified.update(entries: unifiedEntries, covers: [:], preferredColumns: 3, permitsReordering: true)
-        settleUnified()
-        let largeTop = firstCardHasNativeSafeSpacing()
-        unified.update(entries: unifiedEntries, covers: [:], preferredColumns: 6, permitsReordering: true)
-        settleUnified()
-        checks["unified-directory-density-changes-preserve-uncovered-top-spacing"] = largeTop && firstCardHasNativeSafeSpacing()
-        let middle = unifiedFlow.layoutAttributesForItem(at: IndexPath(item: 24, section: 0))!.frame
-        unifiedScroll.contentView.scroll(to: NSPoint(x: 0, y: middle.minY + 9))
-        unifiedScroll.reflectScrolledClipView(unifiedScroll.contentView)
-        settleUnified()
-        checks["unified-directory-return-top-test-starts-below-initial-row"] = unifiedScroll.contentView.bounds.minY > 0
-        unified.restoreScrollAnchor(nil, atTop: true)
-        settleUnified()
-        checks["unified-directory-explicit-return-to-top-keeps-native-safe-spacing"] = firstCardHasNativeSafeSpacing()
-        unified.restoreScrollAnchor(unifiedEntries[1].id)
-        settleUnified()
-        checks["unified-directory-legacy-nonfirst-entry-aligns-with-uncovered-viewport"] = itemTopInWindow(2).map {
-            abs($0 - unifiedWindow.contentLayoutRect.maxY) < 1
-        } ?? false
-        unified.restoreScrollAnchor(nil, atTop: true)
-        settleUnified()
-        let nativeInset = unifiedScroll.contentInsets.top
-        let partialNativeY = -nativeInset * 0.5
-        var partialReceipt: (UUID?, Double, Bool)?
-        unified.onScrollAnchor = { id, offset, atTop in partialReceipt = (id, offset, atTop) }
-        unifiedScroll.contentView.scroll(to: NSPoint(x: 0, y: partialNativeY))
-        unifiedScroll.reflectScrolledClipView(unifiedScroll.contentView)
-        settleUnified()
-        let partialCardTop = itemTopInWindow(0)
-        let expectedSafeOffset = partialCardTop.map { Double(unifiedWindow.contentLayoutRect.maxY - $0) }
-        checks["unified-directory-partial-negative-origin-is-a-real-intermediate-scroll"] = nativeInset > 0
-            && unifiedScroll.contentView.bounds.minY < 0 && unifiedScroll.contentView.bounds.minY > -nativeInset
-        checks["unified-directory-partial-negative-origin-receipt-is-not-true-top"] = partialReceipt?.2 == false
-        checks["unified-directory-scroll-offset-measures-the-uncovered-window-edge"] = expectedSafeOffset.map {
-            abs((partialReceipt?.1 ?? .infinity) - $0) < 1
-        } ?? false
-        let capturedPartial = partialReceipt
-        let otherPage = NSViewController()
-        otherPage.view = NSView()
-        let sizeBeforePageChange = unifiedWindow.contentView!.frame.size
-        unifiedHost.present(otherPage)
-        unifiedWindow.contentView?.layoutSubtreeIfNeeded()
-        unifiedHost.present(unified)
-        unified.restoreScrollAnchor(capturedPartial?.0, offset: capturedPartial?.1, atTop: capturedPartial?.2)
-        settleUnified()
-        checks["unified-directory-real-detail-host-page-roundtrip-preserves-window-geometry"] = unifiedWindow.contentView!.frame.size == sizeBeforePageChange
-            && unifiedScroll.contentInsets.top == nativeInset
-        checks["unified-directory-partial-negative-origin-and-card-offset-survive-page-roundtrip"] = capturedPartial != nil
-            && abs(unifiedScroll.contentView.bounds.minY - partialNativeY) < 1
-            && partialCardTop.map { abs((itemTopInWindow(0) ?? .infinity) - $0) < 1 } == true
-        unified.restoreScrollAnchor(unifiedEntries[23].id, offset: -17, atTop: false)
-        settleUnified()
-        let middleSafeOffset = itemTopInWindow(24).map { unifiedWindow.contentLayoutRect.maxY - $0 }
-        let shownInset = unifiedScroll.contentInsets.top
-        let shownOrigin = unifiedScroll.contentView.bounds.minY
-        unifiedToolbar.isVisible = false
-        settleUnified()
-        let hiddenInset = unifiedScroll.contentInsets.top
-        let hiddenOrigin = unifiedScroll.contentView.bounds.minY
-        let hiddenSafeOffset = itemTopInWindow(24).map { unifiedWindow.contentLayoutRect.maxY - $0 }
-        checks["unified-directory-visibility-test-has-real-inset-change-and-middle-anchor"] = middleSafeOffset.map { abs($0 + 17) < 1 } == true
-            && shownOrigin > 0 && hiddenInset < shownInset
-        checks["unified-directory-toolbar-hiding-preserves-fixed-middle-card-relative-to-uncovered-top"] = middleSafeOffset != nil
-            && hiddenSafeOffset.map { abs($0 - middleSafeOffset!) < 1 } == true
-        unifiedToolbar.isVisible = true
-        settleUnified()
-        let reshownSafeOffset = itemTopInWindow(24).map { unifiedWindow.contentLayoutRect.maxY - $0 }
-        checks["unified-directory-toolbar-showing-preserves-fixed-middle-card-relative-to-uncovered-top"] = middleSafeOffset != nil
-            && reshownSafeOffset.map { abs($0 - middleSafeOffset!) < 1 } == true
-        FileHandle.standardError.write(Data("unified-directory-toolbar-toggle shownInset=\(shownInset) hiddenInset=\(hiddenInset) shownOrigin=\(shownOrigin) hiddenOrigin=\(hiddenOrigin) initialOffset=\(middleSafeOffset ?? .infinity) hiddenOffset=\(hiddenSafeOffset ?? .infinity) reshownOffset=\(reshownSafeOffset ?? .infinity)\n".utf8))
-
-        // The directory intentionally delegates arrows to NSCollectionView.
-        // A selected item alone cannot prove that native keyboard scrolling
-        // reveals it below a real unified toolbar.
-        var keyboardActions: [PlaylistOrganizationAction] = []
-        unified.onAction = { keyboardActions.append($0) }
-        func keyboardReveal(_ name: String, target: Int, up: Bool) {
-            unified.update(entries: unifiedEntries, covers: [:], preferredColumns: 6, permitsReordering: true)
-            settleUnified()
-            let source = up ? target + 6 : target - 6
-            let path = IndexPath(item: target, section: 0)
-            unifiedCollection.selectionIndexPaths = [IndexPath(item: source, section: 0)]
-            unifiedWindow.makeFirstResponder(unifiedCollection)
-            let frame = unifiedFlow.layoutAttributesForItem(at: path)!.frame
-            let inset = unifiedScroll.contentInsets.top
-            let y = up ? frame.minY - inset * 0.5 : frame.maxY - unifiedScroll.contentView.bounds.height - 20
-            unifiedScroll.contentView.scroll(to: NSPoint(x: 0, y: y))
-            unifiedScroll.reflectScrolledClipView(unifiedScroll.contentView)
-            settleUnified()
-            let before = unifiedCollection.item(at: path)!.view
-            let beforeRect = before.convert(before.bounds, to: nil)
-            let layoutRect = unifiedWindow.contentLayoutRect
-            checks["unified-directory-keyboard-\(name)-starts-with-real-occlusion"] = inset > 0
-                && frame.height < layoutRect.height && unifiedWindow.firstResponder === unifiedCollection
-                && (up ? beforeRect.maxY > layoutRect.maxY + 1 : beforeRect.minY < layoutRect.minY - 1)
-                && (!up || unifiedScroll.contentView.bounds.contains(frame))
-            let previousActions = keyboardActions.count
-            let text = String(UnicodeScalar(up ? NSUpArrowFunctionKey : NSDownArrowFunctionKey)!)
-            let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [],
-                timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: unifiedWindow.windowNumber,
-                context: nil, characters: text, charactersIgnoringModifiers: text, isARepeat: false,
-                keyCode: up ? 126 : 125)!
-            unifiedWindow.sendEvent(event)
-            settleUnified()
-            let selectedItem = unifiedCollection.item(at: path)!
-            let after = selectedItem.view
-            let afterRect = after.convert(after.bounds, to: nil)
-            let expectedID = target == 0 ? nil : unifiedEntries[target - 1].id
-            checks["unified-directory-keyboard-\(name)-moves-native-uuid-without-open-or-create"] = unifiedCollection.selectionIndexPaths == [path]
-                && unified.selectedPlaylistID == expectedID && keyboardActions.count == previousActions
-            checks["unified-directory-keyboard-\(name)-reveals-whole-card-in-window-content-layout"] = afterRect.maxY <= layoutRect.maxY + 1
-                && afterRect.minY >= layoutRect.minY - 1
-            checks["unified-directory-keyboard-\(name)-projects-only-native-selected-border-name-and-ax"] = selectionPresentation(selectedItem,
-                selected: true) && unifiedCollection.visibleItems().allSatisfy { item in
-                    guard let currentPath = unifiedCollection.indexPath(for: item) else { return false }
-                    return selectionPresentation(item, selected: currentPath == path)
-                } && keyboardActions.count == previousActions
-            FileHandle.standardError.write(Data("unified-directory-keyboard \(name) before=\(beforeRect) after=\(afterRect) contentLayout=\(layoutRect) clipY=\(unifiedScroll.contentView.bounds.minY)\n".utf8))
-        }
-        keyboardReveal("up-middle", target: 24, up: true)
-        keyboardReveal("down-middle", target: 36, up: false)
-        keyboardReveal("up-create-row", target: 0, up: true)
+        let toolbarChecks = nativeToolbarChecks()
+        checks.merge(toolbarChecks.checks) { _, value in value }
+        defer { toolbarChecks.cleanup() }
 
         // The actual delete command opens its existing native confirmation.
         // Cancelling leaves both SQLite and the original native target intact.

@@ -6,7 +6,7 @@
 
 开批速览（每批动手前先读这里，再核 Git 状态；按需查对应 owner 和下文，不顺读全文）：
 
-- 已裁决至R108（大库viewport重复搜索已减，完整照片级目标未结）（R61按优先级后补）。个人设置导入弹窗消失/设置变暗已由 R55（`ad1f3142d`）修复；测试 App 已交付，原配置完整导入仅待用户实测，没有新复现不重新修复、构建或复跑。
+- 已裁决至R109（工具栏透过区图片需求已修，完整照片级目标未结）（R61按优先级后补）。个人设置导入弹窗消失/设置变暗已由 R55（`ad1f3142d`）修复；测试 App 已交付，原配置完整导入仅待用户实测，没有新复现不重新修复、构建或复跑。
 - 近期已完成：R105 Pixabay搜索入口收窄；R104日期回退按需准备；R103网格顺序比较退出数组；R101/R102媒体需求与速率字符串复用。R89–R99结案见[历史记录](../history/cross-topic/code-slimming-r89-r99-closeouts-2026-11-03.md#completed-r89-r99)，保原载荷与验证上限；已完成项不作为新候选。
 - 保留/拒绝：R55 一次 Save 取消超时尚未归因；R56 绕过 TIFF 的候选因像素/尺寸差异已拒绝。较早 R23/R38/R43 的保护边界仍有效。
 - R62已交付：[本地资源先呈现与缩略图回访](local-library-loading-design.md#overview)。先解决启动短暂不可用和本地网格滚回黑卡，覆盖视频、图片及自建列表；已完成实现、最近门、Steam消费者及签名Debug；保留三项原生限制，真实用户库体感待人工验收。R61冷态导航已完成验证，见下文；不重复本专项。
@@ -15,7 +15,7 @@
 
 后续范围（2026-11-03）：按goal持续审查、优化所有非Scene代码及对应分类文档，Scene引擎不修改；现有能力须以原行为门和反例保持，不能用删功能换精简。
 
-当前批R108（2026-11-03）：完成原Adapter单次viewport批量来源准备，产品净+17、无持久索引/新owner；[事实与限制](local-library-loading-design.md#viewport-lookup)。真实隔离Grid/SIL大源表首请求中位108→7.2ms，不能冒称整App FPS或照片级。用户R107 Debug实测所有列表仍不顺滑，toolbar透过区回滑越safe区才突刷；下一优先真实fullSize+toolbar验证drawable clip/thumbnail demand，当前无toolbar probe不覆盖。R106残余/混合大库/超驻留及生成Ready刷新待，R62启动/R55导入不重做，Scene禁止触。
+当前批R109（2026-11-03）：用户确认所有列表工具栏下回滑迟刷。真实native toolbar证明原safe交互矩形误用于图片需求；Grid两处/目录一处改原生visibleRect，产品净0，无新状态或刷新链。[根因、前后证据与限制](local-library-loading-design.md#toolbar-underlay)。原生相同轨迹已创建无图对象采样160→0，非FPS/全空卡清零；Grid36和聚焦目录31事实通过。抽取前完整目录两次停CoreDrag等待mouseUp，仍未通过，不用聚焦门冒充全验收。签名Debug已构建；下一优先用户真实App/触控板回滑与拖拽，再核cell同步成本或Video Ready等待、混合/超驻留。R62启动/R55导入不重做，Scene不触。
 
 开批先核本段、最近相关提交及工作区；查到已完成、已拒绝或已有证据的事项时，复用结论。仅在代码/输入改变、新失败或明确未覆盖范围需要验证时重跑，压缩上下文不构成重跑理由。批次结束同步这里，避免把历史“下一步”当成当前任务。
 
@@ -27,7 +27,7 @@
 
 最近文档整理：R100将R89–R99非连续十段已结摘要逐字移入历史，仅可逆重定位一条相对链接；现役范围、待验、保留项和永久入口不变。产品/测试0；本批只核文档载荷、角色、预算与引用，不复验旧产品。
 
-最近产品验证：R108产品27增10删净+17，测试97增2删净+95；原单条cell lookup/lease/播放与缓存保持。永久同夹具92项旧仅3读取预算红→新全绿，原76保持，6307输入/2子过程稳定；micro 68/29检查和19/51业务case相等，正常头/小库-O中位也降低，非法-only Pixabay成本边界明示。真实Grid/Adapter/SIL两臂连续各90viewport/540make、派生解码100/源重抽0；viewport总10.446→0.698s，make约1.05s未动，连续点采两臂均无背景。旧首帧一次缺图非连续、新无；时长/捕获帧数不作FPS。签名Debug27.838秒/5868输入稳定、strict/deep过，仅原两C#警告。私有cost oracle两次误红已保且只改观测，不改产品/永久断言；用户toolbar反馈和完整照片目标未解。
+最近产品验证：R109产品3增3删净0，测试净+115（同一原生toolbar组抽取共享，完整模式保留）。最终Grid36旧仅2新demand红→新全真；聚焦目录31旧仅cover红→新全真，原safe AX、锚点/键盘、隐藏撤销保持，6307/实际编译输入稳定。抽取前完整目录两次40秒超时，重试主线程626/626在CoreDrag等mouseUp，保原测试/断言和失败证据。SCK两臂观察体相同、仅两处Grid产品表达式不同，144次视口/3380次对象观察中已创建无图160→0，即时未创建25次两臂相同；源重抽0，非整App FPS。签名Debug28.545秒/5868输入稳定strict/deep过，仅原两C#警告。前批R108批量来源准备与语义门已结见同设计#viewport-lookup，不重跑旧量测；完整照片目标未结。
 
 前批R104后台localDownloadStatistics在firstDownloadedAt或commit日期已存在时不准备localCreationDate，产品2增1删净+1、fixture8增；原日期helper/return与bytes枚举次序逐字保，无新helper/state/API或Scene/存储格式变化。优先级仍first→commit→creation→有效fetched，非nil distantPast提示值、metadata nil/创建缺失回退保。原14事实全留，补真实stats的commit与fetched不能盖过磁盘creation两项；同最终夹具旧/新16项全真等值，实际localCreationDate入口10→6（四次已知日期场景）。外部不可变extract hook只在生成Swift加stderr入口标记，产品和永久测试源不插桩；未另跑未观测sorting门，不称物理IO/时耗。Legacy初/变各31功能+12工作事实、42记录身份和错误9项均过；resolver事件仅按实际command的cases目录前缀归一（各294/314叶）后相等，不归一或认领真实文件时间/整记录对象等值。各6306源码输入/8实际子过程稳定；签名Debug26.161秒/5867输入稳定、strict/deep过，仅原两C#警告，独立静审接受。
 

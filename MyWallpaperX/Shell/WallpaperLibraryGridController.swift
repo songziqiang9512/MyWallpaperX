@@ -481,7 +481,7 @@ import AppKit
         if matches, let value = self.item(at: indexPath) {
             bindAccessibilityActivation(item, content: value)
         }
-        setCellVisible?(item, matches && viewportIsVisible && frame.intersects(collection.gridVisibleRect))
+        setCellVisible?(item, matches && viewportIsVisible && frame.intersects(collection.visibleRect))
         scheduleViewport()
     }
     func collectionView(_ collectionView: NSCollectionView, didEndDisplaying item: NSCollectionViewItem,
@@ -582,7 +582,7 @@ import AppKit
 
     private func publishViewport() {
         guard viewportIsVisible else { cancelViewport(); return }
-        let viewport = collection.gridVisibleRect
+        let viewport = collection.visibleRect
         let indices = layout.layoutAttributesForElements(in: viewport).compactMap { attribute -> Int? in
             guard attribute.representedElementCategory == .item, attribute.frame.intersects(viewport),
                   let path = attribute.indexPath, items.indices.contains(path.item) else { return nil }

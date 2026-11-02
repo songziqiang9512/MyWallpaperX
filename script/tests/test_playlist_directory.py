@@ -17,6 +17,12 @@ ROOT = Path(__file__).resolve().parents[2]
 
 class PlaylistDirectoryTests(unittest.TestCase):
     def test_native_directory_interactions(self):
+        self._run_directory_checks()
+
+    def test_native_toolbar_cover_demand_and_safe_geometry(self):
+        self._run_directory_checks(["--toolbar-demand"])
+
+    def _run_directory_checks(self, arguments=()):
         paths = ["MyWallpaperX/Models/WallpaperReference.swift",
                  "MyWallpaperX/Shared/UI/WallpaperPlaylistArtwork.swift",
                  "MyWallpaperX/Models/WallpaperLibraryPage.swift",
@@ -58,6 +64,8 @@ class PlaylistDirectoryTests(unittest.TestCase):
         proof = None
         if destination := os.environ.get("MWX_PLAYLIST_DIRECTORY_PROOF_DIR"):
             proof = Path(destination).expanduser().resolve()
+            if arguments:
+                proof = proof / "toolbar-demand"
             proof.mkdir(parents=True, exist_ok=True)
 
         def record(name, value):
@@ -125,8 +133,8 @@ class PlaylistDirectoryTests(unittest.TestCase):
             record("compile.json", {"command": command, "returncode": build.returncode,
                 "stdout": build.stdout, "stderr": build.stderr})
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
-            run = run_native_app(binary, timeout=40)
-            runtime = {"launch_returncode": run.launch_returncode, "stdout": run.stdout, "stderr": run.stderr}
+            run = run_native_app(binary, arguments, timeout=40)
+            runtime = {"launch_returncode": run.launch_returncode, "stdout": run.stdout, "stderr": run.stderr, "arguments": list(arguments)}
             record("runtime.json", runtime)
             self.assertEqual(run.launch_returncode, 0, run.stdout + run.stderr)
             self.assertTrue(run.stdout.strip().startswith("{"), run.stdout + run.stderr)

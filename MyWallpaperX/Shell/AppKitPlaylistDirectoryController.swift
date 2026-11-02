@@ -285,7 +285,7 @@ final class AppKitPlaylistDirectoryController: NSViewController, NSCollectionVie
         guard demandUpdateDepth == 0 else { return }
         var demand: Set<UUID>
         if isViewLoaded, artworkObservation?.isVisible == true {
-            let viewport = collection.gridVisibleRect
+            let viewport = collection.visibleRect
             // willDisplay arrives before AppKit adds that item to its visible
             // index set. The native viewport geometry already includes it.
             demand = Set(layout.layoutAttributesForElements(in: viewport).compactMap { attribute -> UUID? in

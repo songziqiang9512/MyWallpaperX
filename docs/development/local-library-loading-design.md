@@ -7,10 +7,25 @@
 
 2026-11-02用户目标：打开App先显示上次本地内容，目录检查在后台更新；本地视频、图片和自建列表快速双向滚动时，已取得缩略图优先复用。该卡同时覆盖列表内已入库Steam/Pixabay/在线图片的本地记录，在线浏览预算和播放引擎保持。状态：R62实现、最近行为门和签名Debug已完成，保留文末三项原生验证限制；真实用户库人工体验待验。R61普通精简候选后移。
 
+<a id="toolbar-underlay"></a>
+## R109：工具栏透过区域也持续取得图片
+
+2026-11-03完成三处图片需求矩形替换；**工具栏断点已复现并验证，真实用户库和完整照片级目标仍待验收**。用户R107 Debug在所有列表反馈回滑迟刷。旧R108字节的真实Grid/Adapter/SIL/native fullSize+unified toolbar夹具，未手设inset，系统自动top=52pt；target32在sample23已创建、仅落toolbar band，需求false/image nil，120ms停留后sample37仍无图；sample50进入safe区，sample55才需求true/有图。不将此断点称为所有卡顿的唯一原因。
+
+**根因与裁决。** 原gridViewportRect为anchor/pointer扣除contentInsets，gridVisibleRect继承此交互区；willDisplay、publishViewport与目录cover demand错误共用它，排除透明toolbar下仍绘制的卡。Apple的[自动inset合同](https://developer.apple.com/documentation/appkit/nsscrollview/automaticallyadjustscontentinsets)及SDK NSScrollView.h说明contentView仍铺在toolbar之下；原生观察确认collection.visibleRect覆盖完整clip。只将Grid两处缩略图需求和目录cover demand改为collection.visibleRect；gridVisibleRect/gridViewportRect继续供AX激活、hover/menu/pointer、anchor/restore与pull count。产品3增3删净0，无新helper/state/clock/cache；30ms、资源身份、撤销、窗口可见租约和原预算保持。透过区增加有限图片/动画及原provider可见检查工作，不只JPEG解码；不改源可用性反馈、播放许可或Scene。
+
+**原生前后证据。** 两臂31份编译Swift仅Grid两处目标表达式不同，观察body和运行夹具逐字相同。同144次视口采样/3380次卡对象观察，旧sample37仍无图，新在safe区外已需求/有图；已创建但无图对象观察160→0，立即尚未实例化25次两臂相同，不能称所有空卡清零。盘派生解码均59、源重抽增量均0。各76帧own-window SCK，hold附近同一PNG可见新版玻璃下卡片色块；occlusionVisible两臂false，属于自身窗口合成内容证据，不是物理前台scanout/FPS。生成器首新臂在编译前因匹配旧表达式失败，仅匹配锚点修正后续跑，保留原runner/失败记录；没有改轨迹或观察算法。
+
+**回归与边界。** 最终Grid夹具36项：旧仅新增两项图片需求红，候选全真，原30项和AX安全区/隐藏撤销保持。目录聚焦模式31项：旧仅新增cover需求红，候选全真，原toolbar/锚点/键盘组原样抽取并被完整模式与聚焦模式复用，cleanup生命周期保留。产品净0，测试净+115行（Grid +67、目录+40、Python +8），不复制产品算法。输入/实际编译输入均稳定。早期Grid装配私有成员编译失败及复用旧窗口造成的无效几何负例保留，不计行为红。
+
+抽取前完整目录夹具两次40秒超时，未到工具栏段；最终抽取后只运行聚焦门，未重跑完整门。重试1秒主线程采样626/626在CoreDrag等待mouseUp。没有删原拖拽测试、补伪mouseUp或改产品焦点；完整目录交互仍未通过，单独聚焦门不能替代它。签名Debug 28.545秒/5868构建输入稳定，strict/deep通过，无新增Swift警告，仅原CS0665/CS8603。最终测试抽取在构建后完成，三行产品字节与已构建App相同。
+
+**下一验收。** 交付冻结Debug后核真实所有列表工具栏回滑、触控板连续滚动与拖拽。最小host非完整Main split，160张图片非混合/超驻留用户库；照片级目标、帧率/能耗和R106残余仍未证明。之后优先量测cell同步刷新成本或新视频生成Ready等待窗口，不沿用过期viewport map，不追加刷新链；R62/R55已结问题不重做。
+
 <a id="viewport-lookup"></a>
 ## R108：一次视口内批量读取来源
 
-2026-11-03完成原Adapter内批量来源准备；**完整照片级目标未验收，下方用户工具栏反馈仍未解决**。旧updateViewport对每个目标分别调用数组first，在发首provider前就做完全部搜索；10k尾116项有1,153,330次UTF8 predicate调用。原Adapter字节未变，沿用R107旧量测，不重跑旧计时。
+2026-11-03完成原Adapter内批量来源准备；**完整照片级目标未验收，后续工具栏断点见[R109](#toolbar-underlay)**。旧updateViewport对每个目标分别调用数组first，在发首provider前就做完全部搜索；10k尾116项有1,153,330次UTF8 predicate调用。原Adapter字节未变，沿用R107旧量测，不重跑旧计时。
 
 **数据流与取舍。** 现有wanted前移复用→本次resolveSources→四类来源共用局部collect，惰性读取所需数组，命中全部请求即停→原provider/lease链。复用WallpaperReference的provider+原始UTF8身份；命中从pending移除保来源重复first，只保存本批所需结果，missing沿原缺省，不预填再覆写。Pixabay以Int行的String匹配保canonical身份，online仍原record(for:)字典API。无持久索引、订阅、模型发布或新owner；下一viewport重新读取当前数组。原单条cell查询、排序/重复请求、资源revision、可见优先、取消和decoded预算保持。
 
@@ -34,9 +49,9 @@
 
 签名Debug 27.838秒/5868输入稳定，strict/deep通过，无新增Swift警告，仅原CS0665/CS8603。
 
-**下一优先。** 真实fullSizeContentView+native toolbar验证下面用户反馈，区分可绘制clip与交互/锚点safe area，不全局改同一矩形。cell本次make成本未动，needs/update在连续段未调用，不外推选择/动画；必要时另测同步刷新批次，禁止沿用旧viewport map。新生成Ready刷新窗口与混合/超驻留仍待，R62/R55已结问题不重做；Scene不改。
+**后续定位。** 下面用户反馈已由[R109](#toolbar-underlay)的真实fullSizeContentView+native toolbar验证共享需求裁剪，保交互/锚点safe area。cell本次make成本未动，needs/update在连续段未调用，不外推选择/动画；必要时另测同步刷新批次，禁止沿用旧viewport map。新生成Ready刷新窗口与混合/超驻留仍待，R62/R55已结问题不重做；Scene不改。
 
-**新增用户实测（2026-11-03，R107 Debug）。** 所有列表仍有肉眼可见的滚动不顺畅；回滑时半透明工具栏下的卡片似乎要越过安全区才突刷。未测FPS，不将其写成已定位的掉帧原因。本批大源表probe没有真实主窗口toolbar，不覆盖这条反馈。下一步优先验证共用scroll/toolbar的可绘制区域与thumbnail demand是否被安全区错误裁剪；锚点/指针安全区与透过区像素显示不能混为同一职责。
+**新增用户实测（2026-11-03，R107 Debug）。** 所有列表仍有肉眼可见的滚动不顺畅；回滑时半透明工具栏下的卡片似乎要越过安全区才突刷。未测FPS，不将其写成已定位的掉帧原因。本批大源表probe没有真实主窗口toolbar，不覆盖这条反馈。后续R109已复现并修正共用需求裁剪，见[当前裁决](#toolbar-underlay)；真实用户库体感和全部卡顿仍待验收。
 
 <a id="video-warm"></a>
 ## R107：无持久封面路径的视频复用已有像素

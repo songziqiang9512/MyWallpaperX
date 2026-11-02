@@ -6,6 +6,19 @@ private final class ViewportCell: NSCollectionViewItem {
     override func loadView() { view = WallpaperCardInteractionView() }
 }
 
+private final class GridViewportToolbarProbe: NSObject, NSToolbarDelegate {
+    private let itemID = NSToolbarItem.Identifier("GridViewportSearch")
+    func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] { [itemID] }
+    func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] { [itemID] }
+    func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier identifier: NSToolbarItem.Identifier,
+                 willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
+        let item = NSToolbarItem(itemIdentifier: identifier)
+        item.label = "Search"
+        item.view = NSSearchField(frame: NSRect(x: 0, y: 0, width: 160, height: 24))
+        return item
+    }
+}
+
 @main enum WallpaperLibraryGridViewportHarness {
     static func spin(_ seconds: TimeInterval = 0.06) {
         let deadline = Date().addingTimeInterval(seconds)
@@ -216,6 +229,60 @@ private final class ViewportCell: NSCollectionViewItem {
             Set($0.0 + $0.1).isSubset(of: Set(items.map(\.providerReference)))
                 && Set($0.0).isDisjoint(with: $0.1) && Set($0.1).count == $0.1.count && $0.1.count <= 96
         } == true
+        // Native automatic toolbar inset, separate from all zero-inset checks.
+        let toolbarController = WallpaperLibraryGridController { collection, path, _, _ in
+            collection.makeItem(withIdentifier: ViewportCell.reuse, for: path)
+        }
+        toolbarController.loadViewIfNeeded()
+        toolbarController.view.frame = NSRect(x: 0, y: 0, width: 800, height: 600)
+        toolbarController.collection.register(ViewportCell.self, forItemWithIdentifier: ViewportCell.reuse)
+        toolbarController.setCellVisible = { cell, visible in (cell as? ViewportCell)?.visible = visible }
+        var toolbarEmissions: [([WallpaperReference], [WallpaperReference])] = []
+        toolbarController.onViewport = { visible, nearby in
+            toolbarEmissions.append((visible.map(\.providerReference), nearby.map(\.providerReference)))
+        }
+        toolbarController.update(page: .images, items: items, selection: toolbarController.selection, preferredColumns: 5,
+            permitsDragging: false, scrollAnchor: nil)
+        let toolbarWindow = NSWindow(contentViewController: toolbarController)
+        toolbarWindow.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
+        toolbarWindow.titleVisibility = .hidden
+        toolbarWindow.titlebarAppearsTransparent = false
+        toolbarWindow.toolbarStyle = .unified
+        toolbarWindow.isReleasedWhenClosed = false
+        toolbarWindow.setContentSize(NSSize(width: 800, height: 600))
+        toolbarWindow.center()
+        let toolbarItems = GridViewportToolbarProbe()
+        let toolbar = NSToolbar(identifier: "grid-viewport-native-toolbar")
+        toolbar.delegate = toolbarItems; toolbar.displayMode = .iconOnly
+        toolbarWindow.toolbar = toolbar
+        toolbarWindow.makeKeyAndOrderFront(nil)
+        defer { withExtendedLifetime(toolbarItems) {}; toolbarWindow.orderOut(nil); toolbarWindow.close() }
+        spin(0.12)
+        checks["toolbar-fixture-uses-native-automatic-top-inset"] = wait {
+            toolbarController.scrollView.contentInsets.top > 0 && toolbarController.collection.visibleRect.height > 0
+                && toolbarWindow.contentLayoutRect.maxY < toolbarWindow.contentView!.bounds.maxY
+        }
+        let toolbarColumns = WallpaperLibraryGridMetrics(clipWidth: toolbarController.scrollView.contentView.bounds.width, preferredColumns: 5).columns
+        let bandPath = IndexPath(item: toolbarColumns * 20, section: 0)
+        let bandFrame = toolbarController.collection.collectionViewLayout!.layoutAttributesForItem(at: bandPath)!.frame
+        toolbarController.scrollView.contentView.scroll(to: NSPoint(x: 0, y: bandFrame.maxY - toolbarController.scrollView.contentInsets.top / 2))
+        toolbarController.scrollView.reflectScrolledClipView(toolbarController.scrollView.contentView)
+        checks["toolbar-band-cell-is-native-visible-and-outside-safe-interaction-area"] = wait {
+            toolbarController.collection.item(at: bandPath) != nil && bandFrame.intersects(toolbarController.collection.visibleRect)
+                && !bandFrame.intersects(toolbarController.collection.gridVisibleRect)
+        }
+        FileHandle.standardError.write(Data("R109 GRID clip=\(toolbarController.scrollView.contentView.bounds) visible=\(toolbarController.collection.visibleRect) safe=\(toolbarController.collection.gridVisibleRect) band=\(bandFrame) cell=\(toolbarController.collection.item(at: bandPath) != nil) window=\(toolbarWindow.frame)\n".utf8))
+        checks["toolbar-band-is-in-display-viewport-demand"] = wait {
+            toolbarEmissions.last?.0.contains(items[bandPath.item].providerReference) == true
+        }
+        let bandCell = toolbarController.collection.item(at: bandPath) as? ViewportCell
+        checks["toolbar-band-native-cell-has-display-demand"] = bandCell?.visible == true
+        let bandActivation = (bandCell?.view as? WallpaperCardInteractionView)?.onAccessibilityActivate
+        checks["toolbar-band-does-not-expand-safe-accessibility-activation"] = bandActivation != nil && bandActivation?() == false
+        toolbarWindow.orderOut(nil)
+        checks["toolbar-window-hide-still-revokes-display-and-nearby-demand"] = wait {
+            toolbarEmissions.last?.0.isEmpty == true && toolbarEmissions.last?.1.isEmpty == true
+        }
         print(String(decoding: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), as: UTF8.self))
     }
 }
