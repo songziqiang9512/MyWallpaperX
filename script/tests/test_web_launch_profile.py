@@ -1,5 +1,6 @@
 """The launch profile consumes descriptor facts without an inspector model."""
 from pathlib import Path
+import json
 import subprocess
 import tempfile
 import unittest
@@ -15,6 +16,27 @@ import Darwin
 typealias CGDirectDisplayID = UInt32
 enum WallpaperEngine {}
 // PROFILE_DECLARATIONS
+nonisolated struct SteamWorkshopDownloadRecord: Sendable {
+    let id: String
+    let folderURL: URL
+    var projectFileURL: URL? = nil
+    var entryHTMLURL: URL? = nil
+    var ownEntryHTMLURL: URL? = nil
+    var dependencyHostEntryHTMLURL: URL? = nil
+    var resolvedWebRootURL: URL? = nil
+    var dependencyHostFolderURL: URL? = nil
+}
+nonisolated extension SteamWorkshopDownloadRecord {
+    // RECORD_ROOT_PROPERTIES
+}
+@MainActor final class SteamWorkshopService {
+    static let shared = SteamWorkshopService()
+    // EFFECTIVE_WEB_ROOT
+}
+@MainActor enum MyWallpaperXApplication {
+    static var rootPathPreparations = 0
+    // APP_ROOT_PRODUCER
+}
 @MainActor enum DedicatedWebWallpaperHostPlaceholderAdapter {
     static var derivations = 0
     // STORE_DECLARATIONS
@@ -43,7 +65,7 @@ enum WallpaperEngine {}
 }
 // REAL_RECLAIMER
 @main enum StoreHarness {
-    @MainActor static func main() {
+    @MainActor static func main() throws {
         typealias Adapter = DedicatedWebWallpaperHostPlaceholderAdapter
         typealias Reclaimer = WebWallpaperDataStoreReclaimer
         typealias Store = WKWebsiteDataStore
@@ -156,7 +178,41 @@ enum WallpaperEngine {}
         wait { Store.fetches == 2 }
         precondition(Store.removed == firstIDs && Adapter.derivations == 2,
             "the existing retry rechecks usage and expands the current live projection only once")
+
+        let temporary = FileManager.default.temporaryDirectory.appendingPathComponent("web-store-roots-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: temporary, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        let root = temporary.resolvingSymlinksInPath().standardizedFileURL
+        let roots = ["a", "b", "c", "d"].map { root.appendingPathComponent($0, isDirectory: true) }
+        for directory in roots {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try Data("<html></html>".utf8).write(to: directory.appendingPathComponent("index.html"))
+        }
+        let aliases = ["alias-a", "other-alias-a"].map { root.appendingPathComponent($0) }
+        for alias in aliases { try FileManager.default.createSymbolicLink(at: alias, withDestinationURL: roots[0]) }
+        let missing = root.appendingPathComponent("missing")
+        let cases: [(String, SteamWorkshopDownloadRecord, [URL])] = [
+            ("shared", .init(id: "shared", folderURL: roots[0], entryHTMLURL: roots[0].appendingPathComponent("index.html"),
+                ownEntryHTMLURL: roots[0].appendingPathComponent("index.html"), resolvedWebRootURL: roots[0]), [roots[0]]),
+            ("aliases", .init(id: "aliases", folderURL: aliases[1], entryHTMLURL: aliases[0].appendingPathComponent("index.html"),
+                ownEntryHTMLURL: aliases[1].appendingPathComponent("index.html"), resolvedWebRootURL: aliases[0]), [roots[0]]),
+            ("independent", .init(id: "independent", folderURL: roots[2], projectFileURL: roots[1].appendingPathComponent("project.json"),
+                entryHTMLURL: roots[0].appendingPathComponent("index.html"), ownEntryHTMLURL: roots[1].appendingPathComponent("index.html"),
+                dependencyHostEntryHTMLURL: roots[3].appendingPathComponent("index.html"), resolvedWebRootURL: roots[0],
+                dependencyHostFolderURL: roots[3]), [roots[0], roots[1], roots[3], roots[2]]),
+            ("missing", .init(id: "missing", folderURL: roots[2], entryHTMLURL: missing,
+                ownEntryHTMLURL: missing, dependencyHostEntryHTMLURL: missing, resolvedWebRootURL: missing), [roots[2]]),
+        ]
+        var preparations: [String: Int] = [:]
+        for (name, record, expected) in cases {
+            let before = MyWallpaperXApplication.rootPathPreparations
+            let actual = MyWallpaperXApplication.webPersistentDataStoreRecord(for: record)
+            preparations[name] = MyWallpaperXApplication.rootPathPreparations - before
+            precondition(actual.recordID == record.id && actual.rootPaths == expected.map(\.path),
+                "actual root producer changed roots or order: \(name)")
+        }
         print("web-store-reclaimer-pass")
+        print("WEB_ROOT_PREPARATIONS " + String(data: try JSONEncoder().encode(preparations), encoding: .utf8)!)
     }
 }
 '''
@@ -201,8 +257,22 @@ class WebLaunchProfileTests(unittest.TestCase):
         reclaimer = source_block(types, "final class WebWallpaperDataStoreReclaimer")
         reclaimer = reclaimer.replace("static let removalGracePeriod: TimeInterval = 30",
                                       "static let removalGracePeriod: TimeInterval = 0.015")
+        web = ROOT / "MyWallpaperX/Modules/SteamWorkshop/Web/Core"
+        record = (web / "SteamWorkshopDownloadRecord+Web.swift").read_text()
+        properties = "\n".join(source_block(record, marker) for marker in (
+            "var webEntryURL:", "var webHostRootURL:", "var webOwnEntryURL:", "var webDependencyHostEntryURL:"))
+        effective_root = source_block((web / "SteamWorkshopService+WebProjectSupport.swift").read_text(),
+                                      "nonisolated func effectiveWebRootURL(")
+        producer = source_block((ROOT / "MyWallpaperX/App/MyWallpaperXApplication.swift").read_text(),
+                                "private static func webPersistentDataStoreRecord(")
+        producer = producer.replace("private static func", "static func", 1)
+        preparation = "            let path = url.resolvingSymlinksInPath().standardizedFileURL.path"
+        self.assertEqual(producer.count(preparation), 1)
+        producer = producer.replace(preparation, "            rootPathPreparations += 1\n" + preparation)
         source = STORE_HARNESS.replace("// PROFILE_DECLARATIONS", profiles).replace(
-            "// STORE_DECLARATIONS", declarations).replace("// REAL_RECLAIMER", "@MainActor\n" + reclaimer)
+            "// STORE_DECLARATIONS", declarations).replace("// REAL_RECLAIMER", "@MainActor\n" + reclaimer).replace(
+            "// RECORD_ROOT_PROPERTIES", properties).replace("// EFFECTIVE_WEB_ROOT", effective_root).replace(
+            "// APP_ROOT_PRODUCER", producer)
         with tempfile.TemporaryDirectory(prefix="mwx-web-store-reclaimer-") as raw:
             directory = Path(raw)
             harness = directory / "Harness.swift"; harness.write_text(source)
@@ -215,6 +285,14 @@ class WebLaunchProfileTests(unittest.TestCase):
             run = subprocess.run([str(binary)], capture_output=True, text=True, timeout=10)
             self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
             self.assertIn("web-store-reclaimer-pass", run.stdout)
+            preparations = json.loads(next(line.removeprefix("WEB_ROOT_PREPARATIONS ")
+                for line in run.stdout.splitlines() if line.startswith("WEB_ROOT_PREPARATIONS ")))
+            budgets = {"shared": 1, "aliases": 3, "independent": 4, "missing": 1}
+            self.assertEqual(set(preparations), set(budgets))
+            for name, budget in budgets.items():
+                with self.subTest(name=name):
+                    self.assertGreaterEqual(preparations[name], 0)
+                    self.assertLessEqual(preparations[name], budget)
 
 
 if __name__ == "__main__":

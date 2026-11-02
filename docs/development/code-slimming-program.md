@@ -6,7 +6,7 @@
 
 开批速览（每批动手前先读这里，再核 Git 状态；按需查对应 owner 和下文，不顺读全文）：
 
-- 已裁决至R72（R61按优先级后补）。个人设置导入弹窗消失/设置变暗已由 R55（`ad1f3142d`）修复；测试 App 已交付，原配置完整导入仅待用户实测，没有新复现不重新修复、构建或复跑。
+- 已裁决至R73（R61按优先级后补）。个人设置导入弹窗消失/设置变暗已由 R55（`ad1f3142d`）修复；测试 App 已交付，原配置完整导入仅待用户实测，没有新复现不重新修复、构建或复跑。
 - 近期已完成：R54 合并成员查询复用、R57 Web 快照暂存隔离、R58 已取消元数据任务提前退出、R59 成功状态一次发布、R60 在线图片卡片一次装配。详情见下文；已完成项不作为新候选。
 - 保留/拒绝：R55 一次 Save 取消超时尚未归因；R56 绕过 TIFF 的候选因像素/尺寸差异已拒绝。较早 R23/R38/R43 的保护边界仍有效。
 - R62已交付：[本地资源先呈现与缩略图回访](local-library-loading-design.md#overview)。先解决启动短暂不可用和本地网格滚回黑卡，覆盖视频、图片及自建列表；已完成实现、最近门、Steam消费者及签名Debug；保留三项原生限制，真实用户库体感待人工验收。R61冷态导航已完成验证，见下文；不重复本专项。
@@ -23,7 +23,9 @@
 
 本轮按用户固定流程循环：并行子代理在每份审查任务中携带用户固定prompt，核无功能收益的校验/认证/重复计算/嵌套、持续转发和补丁、过量实现与耦合；主agent审核问题和方案并决定是否修改，子代理实施，主agent复核真实行为/成本证据和最近门后决定窄提交，再开启下一轮。每批报告问题、当前影响、方案、功能变化及下一候选。当前目标授权主agent作修复和本地提交裁决，不授权推送；共享构建、原生窗口和GPU仍串行，其他会话改动保留。
 
-最近产品验证：R72退役SIL旧模式通知的声明/失效接收注释及两个false post，产品0增8删，无新测试、状态或替代owner。全仓具名/raw只见声明与两个producer；相关动态name、nil-name、selector与CF/Objective-C桥接未见消费者。原发送边界为页面进入/reset与主窗口关闭；图片应用真实通知、Steam/Pixabay模式事件及周围生命周期逐字保留。独立静审接受，签名Debug23.395秒/5866输入稳定、strict/deep通过，仅原两条C#警告；三个产品路径最近映射无遗漏。证明限仓库内部信号静态退役与实际编译，未运行两个删除post所在路径，不拿相邻菜单/Chrome门冒认动态通知覆盖，不认领UI/性能修复。R62人工/原生限制不变。
+最近产品验证：R73在App的webPersistentDataStoreRecord原appendRoot内，只有传入url.path已收录时提前返回；原realpath/canonical去重、根顺序、不同raw alias及后继回收流程保持。产品1增1删净0，无新helper/state/cache；非命中分支增加最多查既有6根的便宜contains，换掉明确重复的append准备。测试80增2删，临时提真实App producer、effectiveRoot及4个URL getter，8字段typed载体不复制算法；旧预制rootPaths只服务原回收故事。四组真实临时目录/双symlink检查recordID与精确根序列，原回收/删除/恢复/in-use反例两臂均完成、进程0；仅旧3项新增Python成本预算红，候选全过。实际append准备shared4→1、aliases4→3、independent6→4、missing1→1，预算为非负上界，允许未来更省。签名Debug23.245秒/5866输入稳定、strict/deep通过，仅原两条C#警告；实际临时Swift输入字节hash留存，独立静审接受。计数仅appendRoot这一行，不含getter/effectiveRoot内部文件或规范化工作，不称整record只解析一次、不认领IO/时耗/FPS。稳定文件输入下根与顺序保持，未承诺外部并发symlink改向观察等价；WebKit删除是原记录叶，不是实际用户持久store验收；完整App/真实账号和R62人工/原生限制不变。
+
+前批R72（645810c18）移除零消费者SIL mode声明/注释和两个false post，产品净-8，无新测试/state。原图片应用与Steam/Pixabay事件保持；具名/raw/动态/selector/桥接独审及签名Debug23.395秒通过。限仓库信号静态退役与编译，未动态执行两个post，不借菜单/Chrome门认领通知或UI修复。
 
 前批R71（c300e1b6e）原同步首刷后，jobs/history各dropFirst；产品净0、夹具31增，原51项及3项新增业务两臂过，仅旧1初值成本红，候选55全真。真实initial合并2→0、jobs/history后继变化各2→2，签名Debug24.198秒通过。限真实Combine/refresh/projection受控输入，不是完整App init、JobStore落盘恢复或SteamAuth/helper验收，未量时耗。
 
@@ -37,7 +39,7 @@
 
 前批裁决与待验保留：R54（65522bee6）事务内复用resolved UUID追加位置，25成员/6物理列表的MAX查询25→6仅属连接级计数。R55选择器退出后再显示反馈，原配置完整导入与未归因Save取消超时保持待验。R56拒绝绕过TIFF候选，保留原编码。R57（b761fdb80）独立暂存、原main守卫后rename至原stable，保Scene/编码/copy fallback/所有权；受控5秒utility/文件探针与122项检查、Debug通过，未证自然频率或真实Web/NSWorkspace。R58（9be599202）已取消metadata Task的AV准备1→0，保同步模板和后两异步检查，不当性能/真实UI证明。R59（87c27c3e3）成功尾部一次发布完整状态，54组4→1、216→54，其他阶段相同；保89项、新增6项typed终态/reset回调及20项视口检查通过；原73/73只属reset调用点note。内部同步中间通知明确退出，不承诺任意同步订阅者等价。较早保护边界和精确证据仍归各批记录及提交，不在这里追加过程流水账。
 
-已完成R63（9499365）方法纠偏：[产物保留规则](../../.agents/skills/mywallpaperx-maintainer/references/artifact-governance.md)是证据保留/清理的唯一说明。下一只读方向：非Scene服务初始化与订阅生命周期，先查对应已结owner，避免重复开批。
+已完成R63（9499365）方法纠偏：[产物保留规则](../../.agents/skills/mywallpaperx-maintainer/references/artifact-governance.md)是证据保留/清理的唯一说明。下一只读方向：非Scene关系Store/查询与恢复事务的重复序列化或构造，先排除R54复用、R9相等ACK和已结导入/启动项。
 
 近期只读保留项（没有实施或运行验证，不因压缩上下文重复开批）：
 

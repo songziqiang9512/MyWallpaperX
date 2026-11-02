@@ -375,7 +375,7 @@ enum MyWallpaperXApplication {
     ) -> DedicatedWebWallpaperHostPlaceholderAdapter.WebPersistentDataStoreRecord {
         var rootPaths: [String] = []
         func appendRoot(_ url: URL?) {
-            guard let url else { return }
+            guard let url, !rootPaths.contains(url.path) else { return }
             let path = url.resolvingSymlinksInPath().standardizedFileURL.path
             if !rootPaths.contains(path) { rootPaths.append(path) }
         }
