@@ -43,13 +43,6 @@ import Foundation
             }
     }
 
-    private func enqueue(undoName: String? = nil,
-                         _ makeCommands: @escaping @MainActor (UserCollectionsSnapshot) -> [UserCollectionsCommand]) async throws -> UserCollectionsSnapshot {
-        try await enqueueOperation(undoName: undoName) { state, epoch in
-            try await self.store.apply(makeCommands(state), expectedEpoch: epoch)
-        }
-    }
-
     private func enqueueOperation(expectedEpoch: UUID? = nil, undoName: String? = nil,
         afterCommit: (@MainActor (UserCollectionsSnapshot, UserCollectionsSnapshot) -> Void)? = nil,
         _ operation: @escaping @MainActor (UserCollectionsSnapshot, UUID) async throws -> UserCollectionsSnapshot) async throws -> UserCollectionsSnapshot {
@@ -178,11 +171,12 @@ import Foundation
     @discardableResult
     func duplicatePlaylist(_ sourceID: UUID, at date: Date = Date()) async throws -> UUID {
         let id = UUID()
-        _ = try await enqueue(undoName: "复制播放列表") { state in
+        _ = try await enqueueOperation(undoName: "复制播放列表") { state, epoch in
             let name = (state.playlists.first { $0.id == sourceID }?.name ?? "播放列表") + " 副本"
             let playlist = WallpaperPlaylist(id: id, name: name, createdAt: date, sidebarRank: state.playlists.count)
-            return [.duplicatePlaylist(sourceID: sourceID, playlist: playlist),
-                    .reorderPlaylists(state.playlists.map(\.id) + [id])]
+            let commands: [UserCollectionsCommand] = [.duplicatePlaylist(sourceID: sourceID, playlist: playlist),
+                .reorderPlaylists(state.playlists.map(\.id) + [id])]
+            return try await self.store.apply(commands, expectedEpoch: epoch)
         }
         return id
     }
