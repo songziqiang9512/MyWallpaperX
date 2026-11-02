@@ -110,6 +110,7 @@ App 产品意图与当前记录
 | 用户选择纹理 | PreparedLaunch短期携初始结果，候选激活显式移交Session；Session保存唯一活动结果，View仅保存绘制快照。LaunchContext无纹理镜像，新表面读Session当前结果，旧绑定沿原completion/drain释放 |
 | 视频与 Sound | Session 的实际播放 registry 持有可变播放状态；私有媒体文件使用原 OwnedFile/AV borrower 生命周期，stop 不冒充全部 AV 借用已结束 |
 | 动态文字 | Session唯一Store准备初始raster并后台更新；每attempt共享ready snapshot，View独立保存prepared/submitted几何。任一屏提交后消费单份pending输入；重建复用producer，完整stop挂既有retirement fence后清引用 |
+| Sprite与Timeline | Session在原Surface执行阶段一次采样Sprite时间；destroy commit退休原runtime活动状态与Timeline轨道，保Program/named索引和幸存anchor。View在采用新topology时退休GPU实例，paused旧帧保原资源/UV；rebuild构造前排除死成员，MPS completion持有在途playback至完成 |
 | 动态图层 | Mutation Runtime/Plan保存出生Layer与原typed current；资源、创建尺寸和seed只在出生准备。结构revision缓存Layer数组及Renderer projection，同revision不回填live字段；当前值沿Session snapshot进入原消费者 |
 | 媒体封面 | Session唯一Store生产current/previous及各purpose；每cadence一次snapshot供VM/各View，View只保冻结snapshot与输入generation。共享pending在任一屏提交后请求一次，重建复用，完整stop撤权后沿retirement group排空 |
 | 目标与 history | 原 Surface pool、graph target 与 completion owner 管理；受 SceneResourceBudget 父额度约束，history 与 submission pin 决定可释放时机 |

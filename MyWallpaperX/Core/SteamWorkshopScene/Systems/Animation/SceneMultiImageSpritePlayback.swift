@@ -265,8 +265,9 @@ final class SceneMultiImageSpritePlayback: SceneSpriteTexturePlayback {
         transaction.registerRollback { [weak self] in
             self?.submissionTracker.cancel(submission)
         }
-        commandBuffer.addCompletedHandler { [weak self] completed in
-            self?.submissionTracker.complete(
+        // View retirement may release the last instance reference before this conversion completes.
+        commandBuffer.addCompletedHandler { [self] completed in
+            submissionTracker.complete(
                 submission,
                 succeeded: completed.status == .completed
             )

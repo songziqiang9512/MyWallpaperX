@@ -766,10 +766,10 @@
       "lastReviewed": "2026-11-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "037714303390c3dd43f1c1e101912a82d026a505ea75b39e54f37914ed5572a8",
+        "sourceSHA256": "3ba1c4e6a78ddc9dab35bb1c8b15606602f9d17affe2f53c4d9ec392b86cc306",
         "method": "document_registry --audit + document_health --check",
-        "scope": "M2唯一静态装配/当前帧、完整声明target消费者及有界生产GPU/App后验；复核剩余Launch/设备键/能力、拓扑、可选缓存/storage和产品daemon设计及导航。",
-        "limitations": "职责与导航复核不代替未执行运行。M2/App联合Sprite-Timeline产品身份，不外推完整Scene、性能、物理多屏、全语料、官方parity或Release。"
+        "scope": "Sprite/Timeline活动成员退休及暂停冻结/真实Surface重建有界结果与职责地图；队列只退出该族，当前camera/产品daemon及材质余项继续开放。",
+        "limitations": "按需DEBUG双Surface及相应实际VM/GPU证据，不外推物理多屏、全语料、长期稳定、性能或整体架构收口。"
       },
       "purpose": "实际接线或已记录运行证据；不反向定义目标架构，不决定实施顺序。"
     },
@@ -1056,10 +1056,10 @@
       "lastReviewed": "2026-11-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d4aeabff3337955a4775dcc737add527b3fd54c264873f1e710896e029ea0dbf",
+        "sourceSHA256": "6ea093d579c7bdbef8ad338f37a8e6fb8a653511b4e201a1ce083e8a37ff12e0",
         "method": "document_registry --audit + document_health --check",
-        "scope": "M2唯一静态装配/当前帧、完整声明target消费者及有界生产GPU/App后验；复核剩余Launch/设备键/能力、拓扑、可选缓存/storage和产品daemon设计及导航。",
-        "limitations": "职责与导航复核不代替未执行运行。M2/App联合Sprite-Timeline产品身份，不外推完整Scene、性能、物理多屏、全语料、官方parity或Release。"
+        "scope": "Sprite/Timeline活动成员退休及暂停冻结/真实Surface重建有界结果与职责地图；队列只退出该族，当前camera/产品daemon及材质余项继续开放。",
+        "limitations": "按需DEBUG双Surface及相应实际VM/GPU证据，不外推物理多屏、全语料、长期稳定、性能或整体架构收口。"
       },
       "purpose": "实际接线或已记录运行证据；不反向定义目标架构，不决定实施顺序。"
     },
@@ -1364,10 +1364,10 @@
       "lastReviewed": "2026-11-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "efd7ab9b0f20f31f1ac8ff6acfc4d9fa3d118e864b49edb7b7b0191d68c052a6",
+        "sourceSHA256": "e2df423873c968ff40c27bd804689993d5ef0aae0ed7f2444fd115d3c57aa4ab",
         "method": "document_registry --audit + document_health --check",
-        "scope": "M2唯一静态装配/当前帧、完整声明target消费者及有界生产GPU/App后验；复核剩余Launch/设备键/能力、拓扑、可选缓存/storage和产品daemon设计及导航。",
-        "limitations": "职责与导航复核不代替未执行运行。M2/App联合Sprite-Timeline产品身份，不外推完整Scene、性能、物理多屏、全语料、官方parity或Release。"
+        "scope": "Sprite/Timeline活动成员退休及暂停冻结/真实Surface重建有界结果与职责地图；队列只退出该族，当前camera/产品daemon及材质余项继续开放。",
+        "limitations": "按需DEBUG双Surface及相应实际VM/GPU证据，不外推物理多屏、全语料、长期稳定、性能或整体架构收口。"
       }
     },
     {
@@ -4326,6 +4326,19 @@
       ]
     },
     {
+      "path": "docs/scene/history/topology-lifecycle-2026-11-03.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/engine-refactor-program.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-11-03",
+      "uniqueValue": "Sprite单clock采样、committed活动状态退休、MPS使用期及真实暂停冻结/同Session重建；保原失败与资格修正，不关闭相机或整体Scene。"
+    },
+    {
       "path": "docs/scene/history/user-property-video-2026-10-16.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -4646,10 +4659,10 @@
       "lastReviewed": "2026-11-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "96d6bcd479bd54160164b4029eca13ad7aac7a5ffd9620616bab9663c52b9f70",
+        "sourceSHA256": "f6067ec5a7da0fec873dd2b93cc5b5e0d0c435c74737f3f8854bce2bdf7bd456",
         "method": "document_registry --audit + document_health --check",
-        "scope": "M1格式/槽位准备交接、实际跨层引用退出与有界证据；全Scene目标重新打开，继续核准备/帧、拓扑、缓存及产品daemon，Skill验收按真实消费者。",
-        "limitations": "正文和导航复核不代替运行；本批签名App/direct-host有界结果不外推完整架构、全语料、多屏、长期运行、性能、官方parity或Release。"
+        "scope": "Sprite/Timeline活动成员退休及暂停冻结/真实Surface重建有界结果与职责地图；队列只退出该族，当前camera/产品daemon及材质余项继续开放。",
+        "limitations": "按需DEBUG双Surface及相应实际VM/GPU证据，不外推物理多屏、全语料、长期稳定、性能或整体架构收口。"
       }
     },
     {

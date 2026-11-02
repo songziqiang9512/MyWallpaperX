@@ -837,6 +837,11 @@ extension SceneDesktopWallpaperSession {
             dynamicTextFieldsByLayerID: launchContext.frameSchema.dynamicTextFieldsByLayerID,
             mediaInput: mediaInput
         )
+        let spriteLayerIDs = surfaces.values.reduce(into: Set<Int>()) {
+            $0.formUnion($1.metalView.spriteAnimationLayerIDs)
+        }
+        let spriteTimes = launchContext.textureAnimationPlaybackRuntime.playbackTimes(
+            layerIDs: spriteLayerIDs, sceneTime: timing.sceneTime)
         for (displayID, surface) in surfaces {
 #if DEBUG
             logDebugDynamicLayerVisibilityIfChanged(
@@ -857,9 +862,7 @@ extension SceneDesktopWallpaperSession {
             surface.updateSimulation(
                 timing: timing, dynamicValues: dynamicValues,
                 puppetAnimationFrame: puppetAnimationFrame,
-                spriteTimes: launchContext.textureAnimationPlaybackRuntime.playbackTimes(
-                    layerIDs: surface.metalView.spriteAnimationLayerIDs,
-                    sceneTime: timing.sceneTime),
+                spriteTimes: spriteTimes,
                 layerTopology: layerTopology,
                 materialFunctionMutations: materialFunctionMutations,
                 puppetBoneMutations: puppetBoneMutations,

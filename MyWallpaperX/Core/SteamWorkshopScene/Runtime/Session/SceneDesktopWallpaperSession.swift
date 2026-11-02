@@ -300,6 +300,10 @@ final class SceneDesktopWallpaperSession {
         SceneDesktopWallpaperHost.DebugSnapshot(
             surfaceCount: surfaces.count,
             windowNumbers: surfaces.values.map { $0.window.windowNumber }.sorted(),
+            sessionID: lifecycleID,
+            requestID: launchRequestID,
+            sceneTime: sceneClock.currentSceneTime(hostTime: CACurrentMediaTime()),
+            spriteAnimationLayerIDsByDisplay: surfaces.mapValues { $0.metalView.spriteAnimationLayerIDs.sorted() },
             isPlaybackPaused: sceneClock.isPaused,
             isFrameDriverActive: frameTimer?.isValid == true
         )
@@ -629,12 +633,9 @@ final class SceneDesktopWallpaperSession {
                 preparedBaseImages: launchContext.preparedDeviceResources.baseImages,
                 spriteTextureLoader: launchContext.preparedDeviceResources.spriteTextureLoader,
                 textureAnimationPlaybackRuntime: launchContext.textureAnimationPlaybackRuntime,
+                destroyedAuthoredLayerIDs: committedTopology.destroyedAuthoredLayerIDs,
                 preparePuppet: { layer, pose, atlas in
-                    guard !committedTopology.destroyedAuthoredLayerIDs.contains(layer.id) else {
-                        return .init(geometryProduct: nil, allowsMissingMeshTextureProduct: false,
-                            message: "puppet layer retired")
-                    }
-                    return surface.instantiatePuppetGeometry(for: layer, pose: pose,
+                    surface.instantiatePuppetGeometry(for: layer, pose: pose,
                         atlasTexture: atlas, preparedResources: launchContext.preparedDeviceResources,
                         playbackRuntime: launchContext.puppetAnimationPlaybackRuntime)
                 },

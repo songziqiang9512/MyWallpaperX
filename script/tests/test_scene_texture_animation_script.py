@@ -280,6 +280,7 @@ enum Harness {
         )
 
         let payload: [String: Any] = [
+            "retirement": retirementChecks(animation: atlasAnimation, conflicting: conflictingAnimation),
             "inputChecks": inputChecks,
             "parsedCount": parsed.count,
             "invalidTimelinesRejected": invalidTimelinesRejected,
@@ -357,6 +358,50 @@ enum Harness {
     }
 
     enum ProbeStop: Error { case cancelled }
+
+    static func retirementChecks(
+        animation: SceneSpriteAnimation, conflicting: SceneSpriteAnimation
+    ) -> [String: Bool] {
+        let runtime = SceneTextureAnimationPlaybackRuntime()
+        let control = SceneTextureAnimationPlaybackRuntime()
+        for playback in [runtime, control] {
+            _ = playback.register(layerID: 41, sourceIdentity: "shared", animation: animation)
+            _ = playback.register(layerID: 42, sourceIdentity: "shared", animation: animation)
+            _ = playback.apply([.init(layerID: 41, action: .setFrame(1)),
+                .init(layerID: 41, action: .setRate(-0.5)),
+                .init(layerID: 42, action: .setFrame(2)),
+                .init(layerID: 42, action: .pause)], sceneTime: 4)
+        }
+        let frozen = runtime.snapshots(sceneTime: 6)
+        runtime.retire(layerIDs: [])
+        var facts = ["emptyRetirementKeepsConsumers": runtime.snapshots(sceneTime: 6) == frozen]
+        runtime.retire(layerIDs: [41])
+        facts["retiredConsumerStopsSampling"] = runtime.snapshots(sceneTime: 6)[41] == nil
+            && runtime.playbackTimes(layerIDs: [41, 42], sceneTime: 6).keys.sorted() == [42]
+        if case let .failure(failure) = runtime.apply([.init(layerID: 41, action: .play)], sceneTime: 6) {
+            facts["deadCommandsRejected"] = failure == .unknownLayer(layerID: 41)
+        } else { facts["deadCommandsRejected"] = false }
+        facts["pausedPeerAnchorKept"] = [6.0, 11, 23].allSatisfy {
+            runtime.snapshots(sceneTime: $0)[42] == control.snapshots(sceneTime: $0)[42]
+        }
+        for playback in [runtime, control] {
+            _ = playback.apply([.init(layerID: 42, action: .play),
+                .init(layerID: 42, action: .setRate(-1))], sceneTime: 11)
+        }
+        facts["resumedPeerAnchorKept"] = [11.0, 11.25, 12, 14].allSatisfy {
+            runtime.snapshots(sceneTime: $0)[42] == control.snapshots(sceneTime: $0)[42]
+        }
+        runtime.retire(layerIDs: [41, 42])
+        facts["allConsumersRetired"] = runtime.snapshots(sceneTime: 14).isEmpty
+        if case let .failure(failure) = runtime.register(layerID: 43, sourceIdentity: "shared",
+            animation: conflicting) {
+            facts["sourceContractRetained"] = failure == .conflictingDefinition(layerID: 43)
+        } else { facts["sourceContractRetained"] = false }
+        facts["newConsumerCanUseSource"] = isSuccess(runtime.register(layerID: 43,
+            sourceIdentity: "shared", animation: animation))
+            && runtime.snapshots(sceneTime: 14)[43]?.isPlaying == true
+        return facts
+    }
 
     static func sidecarInputChecks(root: URL, data: Data) throws -> [String: Bool] {
         let primary = root.appendingPathComponent("primary")
@@ -486,6 +531,7 @@ class SceneTextureAnimationScriptTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
         payload = json.loads(result.stdout)
+        self.assertTrue(all(payload["retirement"].values()), payload["retirement"])
         self.assertTrue(all(payload["inputChecks"].values()), payload["inputChecks"])
         self.assertEqual(payload["parsedCount"], 1)
         self.assertEqual(payload["invalidTimelinesRejected"], [True, True])

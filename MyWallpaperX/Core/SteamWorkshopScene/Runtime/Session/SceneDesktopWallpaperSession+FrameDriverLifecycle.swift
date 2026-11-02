@@ -114,10 +114,37 @@ extension SceneDesktopWallpaperSession {
         plan: SceneScriptLayerMutationPlan,
         rejectedOwnerTargets: Set<SceneDynamicTarget>
     ) {
+        let newlyDestroyedLayerIDs: Set<Int>
+        if plan.dynamicTopologyChanged && !plan.destroyedAuthoredLayerIDs.isEmpty {
+            newlyDestroyedLayerIDs = plan.destroyedAuthoredLayerIDs.subtracting(
+                context.sceneScriptDynamicLayerRuntime.snapshot().destroyedAuthoredLayerIDs)
+        } else {
+            newlyDestroyedLayerIDs = []
+        }
         context.sceneScriptDynamicLayerRuntime.commit(plan)
         commitSceneScriptLayerMutations(
             context, rejectedOwnerTargets: rejectedOwnerTargets
         )
+        if !newlyDestroyedLayerIDs.isEmpty {
+            retireCommittedAnimationLayers(context, layerIDs: newlyDestroyedLayerIDs)
+        }
+    }
+
+    private func retireCommittedAnimationLayers(
+        _ context: SceneDesktopWallpaperLaunchContext, layerIDs: Set<Int>
+    ) {
+        context.textureAnimationPlaybackRuntime.retire(layerIDs: layerIDs)
+        let camera = context.runtimeInput.renderDescriptor.camera
+        let targets = Set(context.timelineProgram.bindings.compactMap { binding -> SceneDynamicTarget? in
+            let layerID: Int?
+            switch binding.target {
+            case .camera(.origin): layerID = camera.default2DOriginInputLayerID
+            case .camera(.zoom): layerID = camera.default2DInputLayerID
+            default: layerID = SceneScriptLayerMutationBridge.layerID(for: binding.target)
+            }
+            return layerID.map(layerIDs.contains) == true ? binding.target : nil
+        })
+        context.timelinePlaybackRuntime.retire(targets: targets)
     }
 
     func commitSimulatedSceneFrame(

@@ -168,6 +168,7 @@ class SceneMetalView: NSView {
         preparedBaseImages: ScenePreparedBaseImageResources,
         spriteTextureLoader: SceneMultiImageSpriteTextureLoader,
         textureAnimationPlaybackRuntime: SceneTextureAnimationPlaybackRuntime,
+        destroyedAuthoredLayerIDs: Set<Int>,
         preparePuppet: (SceneRenderDescriptor.Layer, ScenePuppetLayerLoad.PreparedPose, MTLTexture)
             -> ScenePuppetMeshGeometry.Outcome,
         textLoadMessages: [String] = [],
@@ -217,7 +218,9 @@ class SceneMetalView: NSView {
         report.append(preparedBaseImages.reportLine)
 #endif
 
-        let imageLayers = renderer.renderDescriptor.layers.filter(\.isImageRenderable)
+        let imageLayers = renderer.renderDescriptor.layers.filter {
+            $0.isImageRenderable && !destroyedAuthoredLayerIDs.contains($0.id)
+        }
 #if DEBUG
         report.append("imageLayerCount: \(imageLayers.count)")
 #endif
@@ -461,6 +464,14 @@ class SceneMetalView: NSView {
         report.write(to: logURL)
 #endif
 
+    }
+
+    func retireSpriteAnimations(layerIDs: Set<Int>) {
+        for layerID in layerIDs {
+            guard spriteAnimations.removeValue(forKey: layerID) != nil else { continue }
+            imageTextures[layerID] = nil
+            specializedBaseTextureSamplings.removeValue(forKey: layerID)
+        }
     }
 
     func adoptPreparedDeferredBaseImage(layerID: Int) -> Bool {

@@ -50,6 +50,10 @@ extension SceneDesktopWallpaperSession.Surface {
             parallax: parallaxMouseNormalized, audioSpectrum: audioSpectrum
         )
         let spriteAnimationPlaybackTimes = spriteTimes
+        // Paused redraws still consume the previous adopted frame's Sprite resources.
+        if simulationFrame?.topology.topologyRevision != layerTopology.topologyRevision {
+            metalView.retireSpriteAnimations(layerIDs: layerTopology.destroyedAuthoredLayerIDs)
+        }
         assert(
             metalView.spriteAnimationLayerIDs.allSatisfy {
                 spriteAnimationPlaybackTimes[$0] != nil

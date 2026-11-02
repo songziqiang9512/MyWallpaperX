@@ -267,7 +267,70 @@ int mwx_fixture_configure_texture_animation(MWXSceneQuickJSDomain *domain) {
 }
 
 
+static int retained_texture_retirement(void) {
+    int failures = 0;
+    char diagnostic[512] = {0};
+    MWXSceneQuickJSDomain *domain = mwx_scene_quickjs_domain_create(
+        2 * 1024 * 1024, 512 * 1024, 100000, diagnostic, sizeof(diagnostic));
+    if (domain == NULL) return mwx_fixture_check(0, "texture retirement domain", diagnostic);
+    failures += mwx_fixture_configure_layers(domain);
+    failures += mwx_fixture_configure_texture_animation(domain);
+    failures += mwx_fixture_check(mwx_scene_quickjs_domain_set_layer_mutation_capabilities(
+        domain, 1, 1, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
+        "texture retirement capability", diagnostic);
+    const char *source =
+        "let a;export function update(v){if(v===0){if(!a)a=thisLayer.getTextureAnimation();a.play();return v;}"
+        "if(v===1){a.play();thisScene.destroyLayer(thisLayer);}"
+        "for(const f of [()=>a.pause(),()=>a.getFrame(),()=>a.isPlaying(),()=>a.frameCount,"
+        "()=>a.duration,()=>a.rate,()=>{a.rate=2;},()=>thisLayer.getTextureAnimation()]){"
+        "let stale=false;try{f();}catch(e){stale=e instanceof TypeError;}"
+        "if(!stale)throw new Error('dead texture handle remained live');}return v;}";
+    MWXSceneQuickJSOwner *owner = mwx_scene_quickjs_owner_create(
+        domain, source, strlen(source), 902, diagnostic, sizeof(diagnostic));
+    failures += mwx_fixture_check(owner != NULL, "texture retirement owner", diagnostic);
+    failures += mwx_fixture_configure_owner_layer(owner, 42, "texture retirement owner identity");
+    failures += mwx_fixture_update(owner, 902, 0, MWX_SCENE_QUICKJS_OK, 0, "retain texture handle");
+    mwx_scene_quickjs_owner_commit_layer_mutations(owner);
+    mwx_scene_quickjs_domain_finalize_layer_snapshot(domain);
+    failures += mwx_fixture_update(owner, 902, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "play before destroy accepted and later use stale");
+    failures += mwx_fixture_check(mwx_scene_quickjs_owner_texture_animation_command_count(owner) == 1,
+        "destroy keeps only the earlier texture command", diagnostic);
+    mwx_scene_quickjs_owner_discard_layer_mutations(owner);
+    failures += mwx_fixture_update(owner, 902, 0, MWX_SCENE_QUICKJS_OK, 0,
+        "discarded destroy restores the retained texture handle");
+    mwx_scene_quickjs_owner_commit_layer_mutations(owner);
+    failures += mwx_fixture_update(owner, 902, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "later accepted destroy rejects every texture entry again");
+    mwx_scene_quickjs_owner_commit_layer_mutations(owner);
+    mwx_scene_quickjs_domain_finalize_layer_snapshot(domain);
+    failures += mwx_fixture_check(mwx_scene_quickjs_domain_begin_layer_snapshot(domain, 3, 0,
+        diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "retired texture snapshot", diagnostic);
+    const double one[3] = {1, 1, 1}, zero[3] = {0, 0, 0};
+    for (uint32_t index = 0; index < 2; ++index) {
+        failures += mwx_fixture_check(mwx_scene_quickjs_domain_update_layer_runtime_fields(
+            domain, index, one, zero, index == 1, 1, 1, 0, 1, "", 0, "", 0, 12, one,
+            diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "publish texture tombstone", diagnostic);
+    }
+    failures += mwx_fixture_check(mwx_scene_quickjs_domain_commit_layer_snapshot(domain,
+        diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "commit texture tombstone", diagnostic);
+    failures += mwx_fixture_update(owner, 902, 2, MWX_SCENE_QUICKJS_OK, 2,
+        "retained texture handle stays stale after commit");
+    failures += mwx_fixture_check(mwx_scene_quickjs_owner_texture_animation_command_count(owner) == 0,
+        "retired texture handle emits no commands", diagnostic);
+    const char *peer_source = "export function update(v){thisLayer.alpha=.5;return v;}";
+    MWXSceneQuickJSOwner *peer = mwx_scene_quickjs_owner_create(
+        domain, peer_source, strlen(peer_source), 902, diagnostic, sizeof(diagnostic));
+    failures += mwx_fixture_configure_owner_layer(peer, 17, "live texture peer identity");
+    failures += mwx_fixture_update(peer, 902, 2, MWX_SCENE_QUICKJS_OK, 2, "texture retirement leaves peer live");
+    mwx_scene_quickjs_owner_destroy(peer);
+    mwx_scene_quickjs_owner_destroy(owner);
+    mwx_scene_quickjs_domain_destroy(domain);
+    return failures;
+}
+
 void mwx_fixture_texture_animation_cases(MWXSceneScriptQuickJSFixture *fixture) {
+    fixture->failures += retained_texture_retirement();
     const char *texture_animation_source =
         "let animation;let calls=0;"
         "export function update(value){"

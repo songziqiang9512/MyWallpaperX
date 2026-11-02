@@ -89,8 +89,8 @@
       "bytes": 24119
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
-      "lines": 166,
-      "bytes": 21741
+      "lines": 167,
+      "bytes": 22079
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 31,
@@ -169,8 +169,8 @@
       "bytes": 349285
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 95,
-      "bytes": 9138
+      "lines": 97,
+      "bytes": 9380
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 594,
@@ -301,8 +301,8 @@
       "bytes": 22465
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 212,
-      "bytes": 52258
+      "lines": 210,
+      "bytes": 51357
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -2302,11 +2302,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-as-built-map.md",
-      "before": "509c1f9ee0d669491647cd7ab2d01ce59ceb20bae39de0598f765bf1cdfdad57",
-      "after": "8738e4e24034d5b9ef162c743a5402ee42e91c3923e30669f43aa0b9cd6e51fa",
-      "owner": "Scene architecture / repository governance",
-      "reason": "原权威收敛M2实际静态装配与帧职责，限定GPU/App及载体纠正证据，并补反复核对后确认的后续设备键/静态降级拓扑/当前camera与产品daemon设计；不复制历史正文或新增运行结论。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#架构级迁移合同"
+      "before": "8738e4e24034d5b9ef162c743a5402ee42e91c3923e30669f43aa0b9cd6e51fa",
+      "after": "d13e7f7ed4091fc7a18d69ec38b3b9f4d7cf2839e91b018ee76abe4d635787ba",
+      "owner": "Scene component lifecycle / repository governance",
+      "reason": "同一现役地图与队列承接Sprite/Timeline活动退休及真实冻结/重建后验；详细固定输入/失败单独归历史，不复制为全引擎结论。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#sprite与当前拓扑消费者"
     },
     {
       "section": "bodies",
@@ -2320,11 +2320,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "defc117eafb29543612a0bba96c696a9c5b50435c1ebe90a4e0784263e72b204",
-      "after": "2c35132cc2d335543628f8bd92cc0ef0819434912b01d628e5312f706ef49d9f",
-      "owner": "Scene architecture / repository governance",
-      "reason": "原权威收敛M2实际静态装配与帧职责，限定GPU/App及载体纠正证据，并补反复核对后确认的后续设备键/静态降级拓扑/当前camera与产品daemon设计；不复制历史正文或新增运行结论。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#架构级迁移合同"
+      "before": "2c35132cc2d335543628f8bd92cc0ef0819434912b01d628e5312f706ef49d9f",
+      "after": "904768a7bfaa0ef7d1f9f36e4008ba5d10a255e971718e51336d713b8aa94a40",
+      "owner": "Scene component lifecycle / repository governance",
+      "reason": "同一现役地图与队列承接Sprite/Timeline活动退休及真实冻结/重建后验；详细固定输入/失败单独归历史，不复制为全引擎结论。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#sprite与当前拓扑消费者"
     },
     {
       "section": "bodies",

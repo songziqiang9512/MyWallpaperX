@@ -191,8 +191,6 @@
 | Launch选择与颜色准入归属 | Rendering的Launch/LaunchSelection/LaunchColor仍反向使用VariantCache分类、mixed解析与颜色推导。按[设计](engine-refactor-program.md#launch准备与帧资源消费分界)归回原准备owner并退役旧入口；帧保当前资源检查 | Finalizer/SamplerDefault/SharedPresence、source-purpose/mixed GPU及实际App准备；纯DTO与算法分别裁决 |
 | PSO准备身份重复推导 | WarmupPlan从raw frontend/state重建shader与render-state身份，binary archive再投影state。按[设计](engine-refactor-program.md#prepared身份与设备准备键)消费既有PreparedAssembly身份，Rendering只附设备/附件事实 | warmup/PassEncoder/terminal与archive冷暖恢复；Metal设备准备仍归原PassEncoder，不回普通帧 |
 | 执行能力与compiler载体交接 | RuntimeBridge持整份RuntimeCatalog实际只消费demands；GraphExecutor直读artifact cache，错误帧仍回Catalog判静态passthrough拓扑并重建1×1 target plan。按[设计](engine-refactor-program.md#已准备执行能力的交接)在原stage准备资格、分离能力构造/载体、缩窄demands，保原claim权威 | Bridge/Executor/stale claim/观测关闭及局部失败；帧保实际transition/history/资源检查，旧字段/API退出，不公开混合namespace清库存 |
-| Sprite共享采样与退休 | FrameDriver逐屏求同clock时间；View活动sprite只在load建立，作者destroy后仍可采时/MPS转换。按[设计](engine-refactor-program.md#sprite与当前拓扑消费者)在cadence共享时间，committed拓扑退休活动实例/local state；共享资产及在途引用按消费者保留 | 同/异屏实例、命令前后阶段、destroy后无转换、peer继续、暂停恢复/rebuild不复活与GPU drain；先真实载体资格，不只加hidden guard |
-| Timeline活动轨道退休 | 原runtime固持全部bindings/state，destroy提交没有对应退休，仍每cadence求值。按[设计](engine-refactor-program.md#timeline活动轨道的退出)在原拓扑变化commit点整理原live数组/索引，保Program/named catalog、幸存anchor和跨owner控制；camera origin/zoom不漏来源 | Timeline/真实QuickJS门：Combined同退、peer精确保持、hidden继续、旧handle stale、play/destroy及camera两lane；不重建runtime或造事件系统 |
 | 相机当前拓扑 | worldFrames已取当前projection，native camera候选/顺序仍来自base descriptor；删最后camera可能阻断仍活camera。先two-camera删除/排序门资格，再让原selector取同一当前投影的最小数据 | native-camera正反门及实际结果，保无camera默认和健康peer；不扩大成完整相机兼容修复 |
 | Shader产物被持久cache阻断 | ArtifactCache.resolve先要求可用目录，compiler成功后须写JSON且caller回读才得Program；cache不可写可使有效单元降级。按[设计](engine-refactor-program.md#shader编译结果与可选持久缓存)原compiler直接交付产物、持久发布可选，保single-flight/ABI/真实失败 | artifact recovery真实编译：cache为文件/不可写、workspace正常、坏cache及真编译失败，再核输出/排空；不拿新临时cache绕过责任 |
 | localStorage首读落帧线程 | Host准备只构造unloaded Session；FrameDriver.beginFrameTransaction可触发首次文件读取/JSON解码。按[设计](engine-refactor-program.md#localstorage的准备输入与帧事务)原后台准备一次有界内存，帧只事务消费，保前任激活merge和后台合并写出 | storage transaction/String lifecycle真实门，首次cadence无读取/解码、坏/未来envelope局部、候选与前任最新写入不丢失、取消/隔离 |
@@ -202,7 +200,7 @@
 
 上述集合不代替全Scene审查。逐族核对Format、Compilation、Resources、Systems、Rendering、Runtime的真实依赖；依赖发布消费原graph输出，FrameDriver前置/最终snapshot仍有不同阶段消费者。新确认的职责问题进入本节，未测不捏造问题；独立点击/过渡资格、既有VM/资源失败及性能专项不因结构修改自动关闭。
 
-已闭的格式/槽位交接见[M1](../history/material-preparation-boundaries-2026-11-02.md#m1-format-slot-handoff)，帧template与静态uniform计划见[M2](../history/material-preparation-boundaries-2026-11-02.md#m2-prepared-uniform-frame)；原载体失败保留，其通过不关闭本节剩余职责。
+已闭的格式/槽位交接见[M1](../history/material-preparation-boundaries-2026-11-02.md#m1-format-slot-handoff)，帧template与静态uniform计划见[M2](../history/material-preparation-boundaries-2026-11-02.md#m2-prepared-uniform-frame)；原载体失败保留，另见[Sprite/Timeline退休后验](../history/topology-lifecycle-2026-11-03.md#sprite-timeline-retirement)。其通过不关闭本节剩余职责。
 
 ## 6. 进入与退出
 

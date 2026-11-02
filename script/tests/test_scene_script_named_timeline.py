@@ -454,6 +454,73 @@ HARNESS = r'''
             "healthyEpochs":healthy.map(\.callbackEpoch),"healthyFailures":next.failures.count]
     }
 
+    static func retirement(renamed: Bool) throws -> [String: Bool] {
+        let names = renamed ? ["controller renamed", "deleted card", "hidden peer"]
+            : ["controller", "victim", "peer"]
+        let descriptor = SceneRenderDescriptor(layers: (1...3).map { id in
+            .init(id:id,layerIndex:id-1,name:names[id-1],visible:id != 3,
+                originXYZ:[0,0,0],scaleXYZ:[1,1,1],scaleHasScript:nil,alpha:1,effects:[])
+        })
+        let a = SceneDynamicTarget.layer(layerID:2,field:.alpha)
+        let b = SceneDynamicTarget.layer(layerID:3,field:.alpha)
+        let program = SceneTimelineProgram(bindings: [a,b].map { target in
+            .init(definition:.init(target:target,valueType:.scalar,authoredValue:.scalar(0)),
+                animation:.init(lanes:[[
+                    .init(frame:0,value:0,back:nil,front:nil,locksAngle:nil,locksLength:nil),
+                    .init(frame:20,value:1,back:nil,front:nil,locksAngle:nil,locksLength:nil)]],
+                    options:.init(fps:10,length:20,mode:.single,startsPaused:true,wrapsLoop:false,
+                        smoothing:nil,stiffness:nil,parent:nil,children:[],name:"fade"),
+                    isRelative:false,previewValue:nil),composition:.absolute)
+        },diagnostics:[])
+        let playback = SceneTimelinePlaybackRuntime(program:program)
+        let control = SceneTimelinePlaybackRuntime(program:program)
+        let domain = try SceneScriptQuickJSDomain()
+        try domain.configureLayerCatalog(descriptor)
+        try domain.configureNamedAnimations([(a,"fade"),(b,"fade")])
+        let snapshot = SceneDynamicSnapshotResolver().resolve(frameIndex:0,generation:1,definitions:[]).snapshot
+        try domain.publishLayerSnapshot(snapshot,descriptor:descriptor)
+        let owner = try SceneScriptValueOwner(domain:domain,source:"""
+            let a,b,n=0;
+            export function init(v){a=thisScene.getLayer(\(String(reflecting:names[1]))).getAnimation('fade');
+              b=thisScene.getLayer(\(String(reflecting:names[2]))).getAnimation('fade');return v;}
+            export function update(v){if(n++===0){a.play();b.play();}else{
+              let stale=false;try{a.play();}catch(e){stale=e instanceof TypeError;}
+              if(!stale)throw new Error('dead animation remained usable');b.pause();}return v;}
+            export function cursorClick(){thisScene.getLayer(\(String(reflecting:names[2])))
+              .getAnimation('fade').setFrame(6.5);}
+            """,target:.layer(layerID:1,field:.alpha),valueType:.scalar,
+            effectNames:[],generation:1,budget:.default)
+        func frame(_ time: Double) -> SceneScriptFrameInput {
+            .init(timing:.init(wallDate:Date(),simulationFrameTime:0.016,sceneTime:time))
+        }
+        let first = try owner.evaluate(input:.scalar(1),frame:frame(2),scriptPropertiesJSON:"",
+            userPropertiesJSON:"{}",expectedGeneration:1,interruptBudget:nil).get()
+        for runtime in [playback,control] { try runtime.apply(first.animationMutations,sceneTime:2).get() }
+        owner.commitLayerMutations()
+        domain.finalizeCommittedLayerSnapshot()
+        try domain.publishLayerSnapshot(snapshot,descriptor:descriptor,destroyedAuthoredLayerIDs:[2])
+        playback.retire(targets:[a])
+        let second = try owner.evaluate(input:.scalar(1),frame:frame(2.75),scriptPropertiesJSON:"",
+            userPropertiesJSON:"{}",expectedGeneration:1,interruptBudget:nil).get()
+        for runtime in [playback,control] { try runtime.apply(second.animationMutations,sceneTime:2.75).get() }
+        var facts = ["originalCatalogIndexSurvives":sameCommands(second.animationMutations,[.init(target:b,command:.pause)]),
+            "hiddenPeerKeepsAnchor":playback.values(sceneTime:5)[b] == control.values(sceneTime:5)[b],
+            "deadTrackHasNoValue":playback.values(sceneTime:5)[a] == nil]
+        owner.commitLayerMutations()
+        let event = try owner.dispatchCursor(.init(kind:.click,layerID:1,worldPosition:.zero,localPosition:.zero),
+            frame:frame(5),scriptPropertiesJSON:"",userPropertiesJSON:"{}").get()
+        for runtime in [playback,control] { try runtime.apply(event.animations,sceneTime:5).get() }
+        facts["eventOnlyCommandTargetsPeer"] = sameCommands(event.animations,[.init(target:b,command:.setFrame(6.5))])
+        let peerAfterEvent = playback.values(sceneTime:5)[b]
+        owner.commitLayerMutations()
+        domain.finalizeCommittedLayerSnapshot()
+        try domain.publishLayerSnapshot(snapshot,descriptor:descriptor,destroyedAuthoredLayerIDs:[1,2])
+        playback.retire(targets:[.layer(layerID:1,field:.alpha)])
+        facts["controllerRetirementKeepsPeer"] = playback.values(sceneTime:8)[b] == control.values(sceneTime:8)[b]
+            && playback.values(sceneTime:8)[b] == peerAfterEvent && peerAfterEvent != nil
+        return facts
+    }
+
     static func main() throws {
         let descriptor = SceneRenderDescriptor(layers: (1...3).map { id in
             .init(id:id,layerIndex:id-1,name:"layer\(id)",visible:true,
@@ -517,6 +584,8 @@ HARNESS = r'''
             timerCommands += result.animationMutations
         }
         let out:[String:Any] = [
+            "retirement":try retirement(renamed:false),
+            "renamedRetirement":try retirement(renamed:true),
             "commandOwnerOrder":try commandOwnerOrder(),
             "renamedOwnerOrder":try commandOwnerOrder(renamed:true,reverseOwners:true),
             "burstOwnerOrder":try commandOwnerOrder(burst:true),
@@ -549,6 +618,9 @@ class NamedTimelineTests(unittest.TestCase):
                 extra_swift_sources=TIMELINE_SOURCES,preamble=playback_preamble())
             run = subprocess.run([str(binary)], capture_output=True, text=True, check=True)
             actual = json.loads(run.stdout.strip().splitlines()[-1])
+            for key in ["retirement", "renamedRetirement"]:
+                result = actual.pop(key)
+                self.assertTrue(all(result.values()), result)
             for key in ["commandOwnerOrder", "renamedOwnerOrder", "burstOwnerOrder", "throwOwnerOrder"]:
                 result = actual.pop(key)
                 burst = key == "burstOwnerOrder"

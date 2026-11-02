@@ -26,6 +26,8 @@
 
 [M1](../history/material-preparation-boundaries-2026-11-02.md#m1-format-slot-handoff)已交接格式/槽位，[M2](../history/material-preparation-boundaries-2026-11-02.md#m2-prepared-uniform-frame)已收敛帧 template 与静态 uniform 计划；真实 GPU、签名 App 固定像素、原包/邻例分别有界通过，原载体失败保留。Launch、设备键、能力交接及产品 daemon 继续开放，不认领整体性能收益。
 
+[Sprite/Timeline退休](../history/topology-lifecycle-2026-11-03.md#sprite-timeline-retirement)有真实VM、MPS事务、暂停冻结UV和同Session双Surface重建/恢复的有界证据；当前camera及产品daemon控制链继续开放。
+
 <a id="evidence-lifecycle"></a>
 ### 准备与生命周期
 

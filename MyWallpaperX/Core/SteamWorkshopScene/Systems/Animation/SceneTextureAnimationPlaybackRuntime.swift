@@ -114,6 +114,15 @@ nonisolated final class SceneTextureAnimationPlaybackRuntime: @unchecked Sendabl
         return .success(())
     }
 
+    func retire(layerIDs: Set<Int>) {
+        lock.lock()
+        defer { lock.unlock() }
+        for layerID in layerIDs {
+            definitions.removeValue(forKey: layerID)
+            localStates.removeValue(forKey: layerID)
+        }
+    }
+
     func snapshots(sceneTime: TimeInterval) -> [Int: SceneTextureAnimationSnapshot] {
         lock.lock()
         defer { lock.unlock() }

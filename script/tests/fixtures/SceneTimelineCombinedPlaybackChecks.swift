@@ -3,6 +3,56 @@ import Foundation
 /// Behavioral checks on a Program produced by the real parser/descriptor/compiler.
 /// Observation restore here exercises the Runtime API, not an absent host rollback caller.
 enum SceneTimelineCombinedPlaybackChecks {
+    static func retirement(_ program: SceneTimelineProgram) throws -> [String: Bool] {
+        let group = program.bindings.filter { $0.playbackOwner != nil }
+        let removed = Set(group.map(\.target))
+        guard let member = group.first, let child = group.first(where: { $0.target != member.playbackOwnerTarget }),
+              let peer = program.bindings.first(where: { !removed.contains($0.target) }) else {
+            throw NSError(domain: "retirement fixture membership", code: 1)
+        }
+        let playback = SceneTimelinePlaybackRuntime(program: program)
+        let control = SceneTimelinePlaybackRuntime(program: program)
+        let commands = [SceneTimelinePlaybackMutation(target: member.target, command: .setFrame(3.25)),
+            .init(target: member.target, command: .play),
+            .init(target: peer.target, command: .setFrame(1.5)),
+            .init(target: peer.target, command: .pause)]
+        for runtime in [playback, control] { try runtime.apply(commands, sceneTime: 4).get() }
+        let before = playback.observationSnapshot()
+        playback.retire(targets: [])
+        var facts = ["emptyRetirementKeepsState": before == playback.observationSnapshot()]
+        playback.retire(targets: removed)
+        facts["pausedPeerAnchorKept"] = [4.0, 6.75, 13].allSatisfy { time in
+            playback.values(sceneTime: time) == control.values(sceneTime: time).filter { !removed.contains($0.key) }
+        }
+        facts["retiredPreviewRejected"] = playback.preview([.init(target: member.target, command: .play)],
+            sceneTime: 13) == .failure(.unknownTarget(member.target))
+        if case let .failure(failure) = playback.apply([.init(target: member.target, command: .play)], sceneTime: 13) {
+            facts["retiredCommandRejected"] = failure == .unknownTarget(member.target)
+        } else { facts["retiredCommandRejected"] = false }
+        for runtime in [playback, control] {
+            try runtime.apply([.init(target: peer.target, command: .play)], sceneTime: 13).get()
+        }
+        facts["playingPeerAnchorKept"] = [13.0, 13.125, 14.5].allSatisfy { time in
+            playback.values(sceneTime: time) == control.values(sceneTime: time).filter { !removed.contains($0.key) }
+        }
+        let partial = SceneTimelinePlaybackRuntime(program: program)
+        let partialControl = SceneTimelinePlaybackRuntime(program: program)
+        for runtime in [partial, partialControl] { try runtime.apply(commands, sceneTime: 4).get() }
+        let root = member.playbackOwnerTarget
+        partial.retire(targets: [root])
+        facts["survivingMembersKeepOwnerClock"] = partial.values(sceneTime: 5.75)
+            == partialControl.values(sceneTime: 5.75).filter { $0.key != root }
+        for runtime in [partial, partialControl] {
+            try runtime.apply([.init(target: child.target, command: .pause)], sceneTime: 5.75).get()
+        }
+        facts["survivingMemberControlsSharedState"] = partial.values(sceneTime: 11)
+            == partialControl.values(sceneTime: 11).filter { $0.key != root }
+        playback.retire(targets: Set(program.bindings.map(\.target)))
+        facts["allTracksAndObservationsRetired"] = playback.values(sceneTime: 20).isEmpty
+            && playback.observationSnapshot() == SceneTimelinePlaybackRuntime(program: .empty).observationSnapshot()
+        return facts
+    }
+
     private static func components(
         _ values: [SceneDynamicTarget: SceneDynamicValue], targets: [SceneDynamicTarget]
     ) throws -> [[Double]] {
@@ -119,13 +169,24 @@ enum SceneTimelineCombinedPlaybackChecks {
         let rejected = SceneTimelineTargetCompiler.compile(descriptor: duplicate)
         facts["duplicateTypedTargets"] = rejected.bindings.allSatisfy { !targets.contains($0.target) }
             && rejected.bindings.contains { $0.target == healthy }
+        for (key, value) in try retirement(program) { facts["retirement-" + key] = value }
         return ["groupCount": members.count, "samples": samples, "curve": curve, "facts": facts]
     }
 
-    static func camera(_ program: SceneTimelineProgram) throws -> [String: Bool] {
+    static func camera(_ program: SceneTimelineProgram) throws
+        -> (facts: [String: Bool], seekSnapshot: [[Double]]) {
         let origin = SceneDynamicTarget.camera(.origin)
         let zoom = SceneDynamicTarget.camera(.zoom)
         let targets = Set([origin, zoom])
+        guard let originBinding = program.bindings.first(where: { $0.target == origin }),
+              let zoomBinding = program.bindings.first(where: { $0.target == zoom }),
+              originBinding.definition.valueType == .vector3,
+              zoomBinding.definition.valueType == .scalar,
+              originBinding.playbackOwnerTarget == zoomBinding.playbackOwnerTarget,
+              targets.contains(originBinding.playbackOwnerTarget) else {
+            throw NSError(domain: "camera Timeline fixture did not prepare its Combined pair", code: 1,
+                userInfo: [NSLocalizedDescriptionKey: program.diagnostics.joined(separator: "; ")])
+        }
         func cameraValues(_ values: [SceneDynamicTarget: SceneDynamicValue])
             -> [SceneDynamicTarget: SceneDynamicValue] {
             values.filter { targets.contains($0.key) }
@@ -141,11 +202,44 @@ enum SceneTimelineCombinedPlaybackChecks {
         let held = cameraValues(playback.values(sceneTime: 9))
         let beforePreview = playback.observationSnapshot()
         let preview = try playback.preview([.init(target: zoom, command: .stop)], sceneTime: 9).get()
-        return ["stoppedPair": initial.count == 2 && stopped == initial,
+        let previewDidNotConsume = beforePreview == playback.observationSnapshot()
+        playback.retire(targets: targets)
+        let remaining = playback.values(sceneTime: 9)
+        let reference = SceneTimelinePlaybackRuntime(program: program).values(sceneTime: 9)
+            .filter { !targets.contains($0.key) }
+        var facts = ["stoppedPair": initial.count == 2 && stopped == initial,
                 "playedPair": advanced != initial && played == advanced,
                 "pausedPair": held == advanced,
                 "previewPair": Set(preview.keys) == targets && preview == initial,
-                "previewNoConsumption": beforePreview == playback.observationSnapshot()]
+                "previewNoConsumption": previewDidNotConsume,
+                "retiredPairKeepsOtherLanes": remaining == reference,
+                "retiredZoomRejected": playback.preview([.init(target: zoom, command: .play)],
+                    sceneTime: 9) == .failure(.unknownTarget(zoom))]
+        let originClock = originBinding.animation.options
+        let zoomClock = zoomBinding.animation.options
+        let ownerFPS: Bool = originClock.fps == 30 && zoomClock.fps == 30
+        let ownerLength: Bool = originClock.length == 180 && zoomClock.length == 180
+        let singleMode: Bool = originClock.mode == SceneTimelineMode.single
+            && zoomClock.mode == SceneTimelineMode.single
+        facts["preparedOwnerClock"] = ownerFPS && ownerLength && singleMode
+        // A separate paused runtime locates authored frame 150 without duplicating curve interpolation.
+        let sought = SceneTimelinePlaybackRuntime(program: program)
+        try sought.apply([.init(target: zoom, command: .stop)], sceneTime: 10).get()
+        try sought.apply([.init(target: origin, command: .setFrame(150))], sceneTime: 12).get()
+        let soughtValues = cameraValues(sought.values(sceneTime: 17))
+        let seekSnapshot = try components(soughtValues, targets: [origin, zoom])
+        facts["soughtOwnerFrameHolds"] = cameraValues(sought.values(sceneTime: 19)) == soughtValues
+        let owner = originBinding.playbackOwnerTarget
+        let survivor = owner == origin ? zoom : origin
+        sought.retire(targets: [owner])
+        facts["retiredOwnerKeepsPausedMember"] = cameraValues(sought.values(sceneTime: 19))
+            == soughtValues.filter { $0.key != owner }
+        facts["retiredOwnerRejected"] = sought.preview([.init(target: owner, command: .play)],
+            sceneTime: 19) == .failure(.unknownTarget(owner))
+        try sought.apply([.init(target: survivor, command: .play)], sceneTime: 19).get()
+        facts["survivingMemberUsesOwnerClock"] = cameraValues(sought.values(sceneTime: 20))
+            == cameraValues(SceneTimelineRuntime.values(program: program, sceneTime: 6)).filter { $0.key != owner }
+        return (facts, seekSnapshot)
     }
 
     static func run(_ program: SceneTimelineProgram) throws -> [String: Any] {
@@ -224,6 +318,7 @@ enum SceneTimelineCombinedPlaybackChecks {
         let legacyDecoded = try JSONDecoder().decode(SceneTimelineProgram.self, from: legacyData)
         let legacyValues = SceneTimelinePlaybackRuntime(program: legacyDecoded).values(sceneTime: 2)
         return [
+            "retirement": try retirement(program),
             "samples": samples,
             "preview": try vectors(projected),
             "ordered": try vectors(ordered.values(sceneTime: 1)),

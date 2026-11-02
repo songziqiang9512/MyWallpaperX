@@ -28,6 +28,7 @@ GRAPH_EXECUTOR_SOURCE = (
 SWIFT_SOURCES = [
     Path(__file__).with_name("fixtures") / "SceneTimelineCombinedPlaybackChecks.swift",
     SOURCE_ROOT / "Systems/Properties/SceneUserProperty.swift",
+    SOURCE_ROOT / "Systems/Properties/ScenePuppetAnimationPropertyTarget.swift",
     SOURCE_ROOT / "Systems/Properties/SceneUserPropertyDefinitionParser.swift",
     SOURCE_ROOT / "Systems/Properties/SceneUserPropertyBindings.swift",
     SOURCE_ROOT / "Systems/Properties/SceneUserPropertyResolver.swift",
@@ -103,6 +104,7 @@ def keyframe(frame, value):
 
 SCENE_FIXTURE = {
     "version": 3,
+    "general": {"orthogonalprojection": {"width": 1280, "height": 720}},
     "objects": [
         {
             "id": 10,
@@ -571,7 +573,9 @@ enum Harness {
             samples[label] = entry
         }
         payload["samples"] = samples
-        payload["cameraPlayback"] = try SceneTimelineCombinedPlaybackChecks.camera(program)
+        let camera = try SceneTimelineCombinedPlaybackChecks.camera(program)
+        payload["cameraPlayback"] = camera.facts
+        payload["cameraSeekSnapshot"] = camera.seekSnapshot
 
         let pausedTarget = SceneDynamicTarget.layer(layerID: 30, field: .alpha)
         let playback = SceneTimelinePlaybackRuntime(program: program)
@@ -798,6 +802,7 @@ class SceneTimelineRuntimeTests(unittest.TestCase):
                 self.assertEqual(result["preview"], base)
                 self.assertEqual(result["ordered"], middle)
                 self.assertEqual(result["reversed"], base)
+                self.assertTrue(all(result["retirement"].values()), result["retirement"])
                 self.assertTrue(all(result["facts"].values()), result["facts"])
                 self.assertEqual(result["responseOptions"], [response] * 3)
                 self.assertEqual(result["diagnostics"], [] if response == [None, None]
@@ -975,13 +980,14 @@ class SceneTimelineRuntimeTests(unittest.TestCase):
             self.result["samples"]["t0"]["cameraOrigin"]["value"],
             [-100, 682, 500],
         )
-        self.assertAlmostEqual(
-            self.result["samples"]["late"]["cameraOrigin"]["value"][0],
-            -1.1481318114443,
+        sought = self.result["cameraSeekSnapshot"]
+        self.assertEqual(
+            self.result["samples"]["late"]["cameraOrigin"]["value"],
+            sought[0],
         )
-        self.assertAlmostEqual(
+        self.assertEqual(
             self.result["samples"]["late"]["cameraZoom"]["value"],
-            1.0160738453602203,
+            sought[1][0],
         )
         for key in ("cameraOrigin", "cameraZoom"):
             self.assertEqual(
