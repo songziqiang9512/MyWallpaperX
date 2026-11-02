@@ -423,7 +423,7 @@ enum AudioCaptureDemandHarness {
     def test_unified_program_audio_consumer_source_contract(self) -> None:
         source = RESOLVED_CAPABILITY_SOURCE.read_text(encoding="utf-8")
         body = swift_body(source, "var hasAudioSpectrumConsumer: Bool")
-        self.assertIn("case .resolved(_, let materials, _):", body)
+        self.assertIn("case .resolved(let materials, _):", body)
         self.assertIn("$0.variants.hasAudioSpectrumConsumer", body)
         self.assertNotIn("case .dedicated:", body)
         self.assertNotIn("workshopAudioBars", body)
@@ -442,10 +442,13 @@ struct MaterialCapability {
     let variants: VariantCapabilities
 }
 
-enum StageCapability {
-    case resolved(Int, [String: MaterialCapability], Int?)
-    case visualFailurePassthrough
-    case initiallyInactivePassthrough
+struct StageCapability {
+    enum Execution {
+        case resolved([String: MaterialCapability], Int?)
+        case visualFailurePassthrough
+        case initiallyInactivePassthrough
+    }
+    let execution: Execution
 }
 
 struct LayerCapability {
@@ -472,28 +475,26 @@ enum AudioDemandHarness {
         let checks: [(String, Bool, Bool)] = [
             (
                 "resolved-positive",
-                demandsAudio(.resolved(
-                    1,
+                demandsAudio(.init(execution: .resolved(
                     ["material": MaterialCapability(
                         variants: VariantCapabilities(
                             hasAudioSpectrumConsumer: true
                         )
                     )],
                     nil
-                )),
+                ))),
                 true
             ),
             (
                 "resolved-negative",
-                demandsAudio(.resolved(
-                    1,
+                demandsAudio(.init(execution: .resolved(
                     ["material": MaterialCapability(
                         variants: VariantCapabilities(
                             hasAudioSpectrumConsumer: false
                         )
                     )],
                     nil
-                )),
+                ))),
                 false
             )
         ]

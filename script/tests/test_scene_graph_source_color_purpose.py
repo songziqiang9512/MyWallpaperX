@@ -462,9 +462,7 @@ private enum Probe {
 class SceneGraphSourceColorPurposeTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        prefix, separator, _ = fixture.HARNESS.partition("@main\nprivate enum Harness")
-        if not separator:
-            raise RuntimeError("owned graph fixture entry boundary unavailable")
+        prefix = fixture.HARNESS_SUPPORT_SOURCE
         compilation, completed = fixture.compile_harness(fixture.SUPPORT, prefix + HARNESS)
         if compilation.returncode:
             raise RuntimeError(compilation.stderr)

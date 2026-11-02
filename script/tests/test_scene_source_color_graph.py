@@ -4,13 +4,13 @@ import json
 import shutil
 import unittest
 
-from script.tests.test_scene_resolved_material_graph_executor import HARNESS, SUPPORT, compile_lit_harness
+from script.tests.test_scene_resolved_material_graph_executor import HARNESS_SUPPORT_SOURCE, SUPPORT, compile_lit_harness
 
 
 @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
 class SceneSourceColorGraphTests(unittest.TestCase):
     def test_actual_source_capture_alpha_override_and_terminal_composition(self) -> None:
-        harness = HARNESS.split("@main\nprivate enum Harness", 1)[0] + r'''
+        harness = HARNESS_SUPPORT_SOURCE + r'''
 @main private enum SourceCaptureContinuityHarness {
     static func main() throws {
         setenv("MWX_SCENE_GENERIC_SHADER_ROUTE", "disable-generic", 1)

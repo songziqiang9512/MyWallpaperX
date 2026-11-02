@@ -437,7 +437,7 @@ private func reductionFacts() throws -> [String: Any] {
 '''
 
 
-METAL_HARNESS = graph_fixture.HARNESS.split("@main\nprivate enum Harness", 1)[0] + r'''
+METAL_HARNESS = graph_fixture.HARNESS_SUPPORT_SOURCE + r'''
 private func reductionVertex(_ shader: SceneShaderContract) -> SceneShaderContract {
     let stages = shader.stages.map { stage -> SceneShaderContract.Stage in
         guard stage.kind == .vertex else { return stage }

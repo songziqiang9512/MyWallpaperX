@@ -669,7 +669,9 @@ extension ScenePreparedDeviceResources {
         visibleExecutionRootLayerIDs: Set<Int> = [],
         capturesExecutionObservations: Bool
     ) -> SceneResolvedMaterialRuntimeBridge {
-        let runtime = SceneResolvedMaterialRuntimeBridge(catalog: catalog,
+        let runtime = SceneResolvedMaterialRuntimeBridge(
+            userPropertyDemands: catalog.userPropertyDemands,
+            systemProviderDemands: catalog.systemProviderDemands,
             capabilities: capabilities, assets: assets, device: device,
             visibleExecutionRootLayerIDs: visibleExecutionRootLayerIDs,
             capturesExecutionObservations: capturesExecutionObservations)

@@ -65,7 +65,7 @@ enum SceneBaseImageTextureCandidateResolver {
     return support
 
 
-HELPERS = graph_fixture.HARNESS.split("@main\nprivate enum Harness", 1)[0].replace(
+HELPERS = graph_fixture.HARNESS_SUPPORT_SOURCE.replace(
     "Plan.PixelExtent(width: 2, height: 2)", "Plan.PixelExtent(width: 8, height: 8)", 1)
 
 HARNESS = HELPERS + r'''

@@ -221,7 +221,7 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
         self.assertIn("guard capturesExecutionObservations else { return }", lifecycle)
         self.assertIn("if capturesExecutionObservations {", lifecycle)
         self.assertIn("if capturesExecutionDiagnostics {", executor)
-        self.assertIn("if capturesExecutionDiagnostics {", preparation)
+        self.assertIn("if capturesExecutionDiagnostics, let routeDecision = program.routeDecision", preparation)
         self.assertGreaterEqual(
             executor.count("guard capturesExecutionDiagnostics else { return }"),
             2,

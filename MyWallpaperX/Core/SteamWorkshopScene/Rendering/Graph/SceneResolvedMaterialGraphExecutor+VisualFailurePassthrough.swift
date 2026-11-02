@@ -11,7 +11,7 @@ extension SceneResolvedMaterialGraphExecutor {
     /// dependency; the inner optional is the normal passthrough result.
     func prepareUnavailableDependencyPassthrough(
         frameInputs: SceneResolvedMaterialRuntimeBridge.FrameInputs,
-        dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
+        stageCapability: SceneResolvedMaterialExecutionCapabilityCatalog.StageCapability,
         transition: State.Transition,
         graph: Graph,
         pairStep: Pair.EffectStep,
@@ -23,11 +23,11 @@ extension SceneResolvedMaterialGraphExecutor {
         effectLocalFailureReasonCode: inout String?
     ) -> Failure?? {
         guard let unavailable = frameInputs.dependencyUnavailability,
-              let slots = dependencyOwnership.preEncodeVisualFailureSlots(in: graph),
+              let slots = stageCapability.preEncodeVisualFailureSlots,
               !slots.isEmpty else { return nil }
         return .some(prepareVisualFailurePassthrough(
             reasonCode: unavailable.rawValue,
-            dependencyOwnership: dependencyOwnership,
+            stageCapability: stageCapability,
             transition: transition,
             graph: graph,
             pairStep: pairStep,
@@ -46,7 +46,7 @@ extension SceneResolvedMaterialGraphExecutor {
     /// dependency and runtime encode failures never reach this path.
     func prepareVisualFailurePassthrough(
         reasonCode: String,
-        dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
+        stageCapability: SceneResolvedMaterialExecutionCapabilityCatalog.StageCapability,
         transition: State.Transition,
         graph: Graph,
         pairStep: Pair.EffectStep,
@@ -107,11 +107,12 @@ extension SceneResolvedMaterialGraphExecutor {
         let ordinaryColorContractLimitation =
             reasonCode != "material-finalizer-color-contract"
                 || graph.renderTargets.isEmpty
-        guard dependencyOwnership.preEncodeVisualFailureSlots(in: graph) != nil,
+        guard stageCapability.preEncodeVisualFailureSlots != nil,
               ordinaryReason || framebufferPreparationLimitation
                 || reasonCode == "material-optional-named-fallback-unproven",
               ordinaryColorContractLimitation,
               visualFailureTopologyIsSupported(
+                  stageCapability: stageCapability,
                   reasonCode: reasonCode,
                   transition: transition,
                   graph: graph,
@@ -163,17 +164,18 @@ extension SceneResolvedMaterialGraphExecutor {
     /// or drops the frame; only optional visibility uses the non-fatal path.
     func activationBypassIsProvable(
         reasonCode: String,
-        dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
+        stageCapability: SceneResolvedMaterialExecutionCapabilityCatalog.StageCapability,
         transition: State.Transition,
         graph: Graph,
         pairStep: Pair.EffectStep,
         snapshot: VisualFailureSnapshot
     ) -> Bool {
-        guard dependencyOwnership.preEncodeVisualFailureSlots(in: graph) != nil,
+        guard stageCapability.preEncodeVisualFailureSlots != nil,
               Self.activationBypassReasonCodes.contains(reasonCode) else {
             return false
         }
         return visualFailureTopologyIsSupported(
+            stageCapability: stageCapability,
             reasonCode: reasonCode,
             transition: transition,
             graph: graph,
@@ -189,7 +191,7 @@ extension SceneResolvedMaterialGraphExecutor {
     /// frame does not repeat the topology proof.
     func prepareActivationPassthrough(
         reasonCode: String,
-        dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
+        stageCapability: SceneResolvedMaterialExecutionCapabilityCatalog.StageCapability,
         transition: State.Transition,
         graph: Graph,
         pairStep: Pair.EffectStep,
@@ -204,7 +206,7 @@ extension SceneResolvedMaterialGraphExecutor {
     ) -> Failure? {
         guard bypassProven || activationBypassIsProvable(
             reasonCode: reasonCode,
-            dependencyOwnership: dependencyOwnership,
+            stageCapability: stageCapability,
             transition: transition,
             graph: graph,
             pairStep: pairStep,
@@ -277,6 +279,7 @@ extension SceneResolvedMaterialGraphExecutor {
     }
 
     private func visualFailureTopologyIsSupported(
+        stageCapability: SceneResolvedMaterialExecutionCapabilityCatalog.StageCapability,
         reasonCode: String,
         transition: State.Transition,
         graph: Graph,
@@ -300,6 +303,7 @@ extension SceneResolvedMaterialGraphExecutor {
                 return false
             }
             return dependencyStageFailureTopologyIsSupported(
+                stageCapability: stageCapability,
                 transition: transition,
                 graph: graph,
                 pairStep: pairStep,
@@ -308,10 +312,9 @@ extension SceneResolvedMaterialGraphExecutor {
         }
         if !graph.renderTargets.isEmpty {
             return preEncodeVisualFailureGraphTopologyIsSupported(
+                stageCapability: stageCapability,
                 transition: transition,
-                graph: graph,
-                effect: effect,
-                pairStep: pairStep
+                graph: graph
             )
         }
         guard pairStep.fullFrameOutputWriteCount == graph.nodes.count,
@@ -363,25 +366,20 @@ extension SceneResolvedMaterialGraphExecutor {
     }
 
     private func dependencyStageFailureTopologyIsSupported(
+        stageCapability: SceneResolvedMaterialExecutionCapabilityCatalog.StageCapability,
         transition: State.Transition,
         graph: Graph,
         pairStep: Pair.EffectStep,
         snapshot: VisualFailureSnapshot
     ) -> Bool {
         if !graph.renderTargets.isEmpty {
-            guard let effect = graph.effects.first else { return false }
             return visualFailureFramebufferTopologyIsSupported(
+                stageCapability: stageCapability,
                 transition: transition,
-                graph: graph,
-                effect: effect,
-                pairStep: pairStep
+                graph: graph
             )
         }
-        guard SceneResolvedMaterialExecutionCapabilityCatalog
-                .dependencyStageFailureMayPassthrough(
-                    graph,
-                    pairStep: pairStep
-                ),
+        guard stageCapability.passthroughTopologies.contains(.dependencyStage),
               pairStep.inputMember == snapshot.pair.member,
               transition.transaction.intents.count == 1,
               let node = graph.nodes.first,
@@ -405,17 +403,11 @@ extension SceneResolvedMaterialGraphExecutor {
     }
 
     private func visualFailureFramebufferTopologyIsSupported(
+        stageCapability: SceneResolvedMaterialExecutionCapabilityCatalog.StageCapability,
         transition: State.Transition,
-        graph: Graph,
-        effect: Graph.Effect,
-        pairStep: Pair.EffectStep
+        graph: Graph
     ) -> Bool {
-        guard SceneResolvedMaterialExecutionCapabilityCatalog
-                .visualFailureFramebufferTopologyMayPassthrough(
-                    graph,
-                    effect: effect,
-                    pairStep: pairStep
-                ),
+        guard stageCapability.passthroughTopologies.contains(.framebuffer),
               transition.nextState.historyClosureIdentities.isEmpty,
               transition.transaction.intents.count == graph.nodes.count,
               visualFailureGraphTransitionMatches(
@@ -428,17 +420,12 @@ extension SceneResolvedMaterialGraphExecutor {
     }
 
     private func preEncodeVisualFailureGraphTopologyIsSupported(
+        stageCapability: SceneResolvedMaterialExecutionCapabilityCatalog.StageCapability,
         transition: State.Transition,
-        graph: Graph,
-        effect: Graph.Effect,
-        pairStep: Pair.EffectStep
+        graph: Graph
     ) -> Bool {
-        SceneResolvedMaterialExecutionCapabilityCatalog
-            .preEncodeVisualFailureGraphMayPassthrough(
-                graph,
-                effect: effect,
-                pairStep: pairStep
-            ) && visualFailureGraphTransitionMatches(
+        stageCapability.passthroughTopologies.contains(.preEncodeGraph)
+            && visualFailureGraphTransitionMatches(
                 transition: transition,
                 graph: graph
             )

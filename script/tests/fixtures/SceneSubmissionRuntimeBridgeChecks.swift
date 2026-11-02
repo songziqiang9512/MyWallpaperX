@@ -56,13 +56,11 @@ enum SceneSubmissionRuntimeBridgeChecks {
                 contentGeneration: 1
             )
             let bridge = SceneResolvedMaterialRuntimeBridge(
-                catalog: .init(
-                    userPropertyDemands: [],
-                    systemProviderDemands: [
-                        .init(name: name, purpose: .premultipliedColor),
-                        .init(name: name, purpose: .preservedChannels),
-                    ]
-                ),
+                userPropertyDemands: [],
+                systemProviderDemands: [
+                    .init(name: name, purpose: .premultipliedColor),
+                    .init(name: name, purpose: .preservedChannels),
+                ],
                 capabilities: makeCapabilities(layerIDs: []),
                 assets: .init(states: [:]),
                 device: device
@@ -119,7 +117,7 @@ enum SceneSubmissionRuntimeBridgeChecks {
                     && Set(missing.keys) == [colorIdentity, preservedIdentity]
             let noiseIdentity = SceneSystemProviderTextureIdentity(name: "util/noise", purpose: .noise)
             let mixedBridge = SceneResolvedMaterialRuntimeBridge(
-                catalog: .init(userPropertyDemands: [], systemProviderDemands: [colorIdentity, noiseIdentity]),
+                userPropertyDemands: [], systemProviderDemands: [colorIdentity, noiseIdentity],
                 capabilities: makeCapabilities(layerIDs: []), assets: .init(states: [:]), device: device)
             let noisePublication = SceneTextureProviderPublication(
                 requestIdentity: .system(noiseIdentity),
@@ -134,10 +132,8 @@ enum SceneSubmissionRuntimeBridgeChecks {
 
         do {
             let bridge = SceneResolvedMaterialRuntimeBridge(
-                catalog: .init(
-                    userPropertyDemands: [],
-                    systemProviderDemands: []
-                ),
+                userPropertyDemands: [],
+                systemProviderDemands: [],
                 capabilities: makeCapabilities(layerIDs: [7, 8]),
                 assets: .init(states: [:]),
                 device: device
@@ -170,10 +166,8 @@ enum SceneSubmissionRuntimeBridgeChecks {
                 bridge.executionEvidenceFamily(for: key8) == nil
 
             let passthroughBridge = SceneResolvedMaterialRuntimeBridge(
-                catalog: .init(
-                    userPropertyDemands: [],
-                    systemProviderDemands: []
-                ),
+                userPropertyDemands: [],
+                systemProviderDemands: [],
                 capabilities: makeCapabilities(
                     layerIDs: [9],
                     visualFailureReasonByLayerID: [

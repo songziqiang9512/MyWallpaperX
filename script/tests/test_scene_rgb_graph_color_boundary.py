@@ -321,9 +321,9 @@ private func rgbRejects(_ value: RGBCase, device: MTLDevice) -> [String: Any] {
 
 
 def harness_text() -> str:
-    prefix, marker, _ = fixture.HARNESS.partition("@main\nprivate enum Harness")
+    prefix = fixture.HARNESS_SUPPORT_SOURCE
     helpers, helper_marker, _ = color_fixture.HARNESS.partition("private func traceMaterial")
-    if not marker or not helper_marker:
+    if not helper_marker:
         raise RuntimeError("existing graph helper boundaries changed")
     return prefix + helpers + HARNESS
 

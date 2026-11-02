@@ -25,7 +25,7 @@ extension SceneResolvedMaterialRuntimeBridge.FrameInputs {
     var effectUnitModelMatrix: simd_float4x4? { nil }
 }
 '''
-HARNESS_PREFIX = EXECUTOR_FIXTURE["HARNESS"].split("@main", 1)[0]
+HARNESS_PREFIX = EXECUTOR_FIXTURE["HARNESS_SUPPORT_SOURCE"]
 CONTRACT_ROOT = Path(__file__).resolve().parents[2] / (
     "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract"
 )

@@ -233,12 +233,12 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         self.assertEqual(len(schema), 9)
         self.assertEqual(schema[:len(sampler)], sampler)
         self.assertEqual(len(texture_finalization), 5)
-        self.assertEqual(len(variant_preparation), 31)
+        self.assertEqual(len(variant_preparation), 30)
         self.assertIn(
             'MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialCompiledVariant.swift',
             variant_preparation,
         )
-        self.assertIn(
+        self.assertNotIn(
             'MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderArtifactCache+ExecutionTelemetry.swift',
             variant_preparation,
         )
@@ -272,7 +272,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                 *texture_finalization,
             ))),
         )
-        self.assertEqual(len(frame_finalization), 57)
+        self.assertEqual(len(frame_finalization), 56)
         self.assertEqual(len(template_compilation), 4)
         self.assertEqual(
             complete,
@@ -444,6 +444,21 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                             manifest_path=manifest,
                         )
 
+    def test_shared_named_dependency_is_expanded_once_in_first_use_order(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name in ("Leaf", "Left", "Right"):
+                (root / f"{name}.swift").write_text(f"struct {name} {{}}\n")
+            manifest = root / "diamond.json"
+            manifest.write_text(json.dumps({"schema_version": 1, "source_root": ".", "sets": {
+                "root": {"includes": ["left", "right"], "sources": []},
+                "left": {"includes": ["leaf"], "sources": ["Left.swift"]},
+                "right": {"includes": ["leaf"], "sources": ["Right.swift"]},
+                "leaf": {"includes": [], "sources": ["Leaf.swift"]},
+            }}))
+            self.assertEqual(scene_swift_source_relpaths("root", root, manifest),
+                             ("Leaf.swift", "Left.swift", "Right.swift"))
+
     def test_basename_lookup_rejects_ambiguous_sources(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -477,21 +492,6 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                     manifest_path=manifest,
                 )
 
-
-    def test_shared_named_dependency_is_expanded_once_in_first_use_order(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            for name in ("Leaf", "Left", "Right"):
-                (root / f"{name}.swift").write_text(f"struct {name} {{}}\n")
-            manifest = root / "diamond.json"
-            manifest.write_text(json.dumps({"schema_version": 1, "source_root": ".", "sets": {
-                "root": {"includes": ["left", "right"], "sources": []},
-                "left": {"includes": ["leaf"], "sources": ["Left.swift"]},
-                "right": {"includes": ["leaf"], "sources": ["Right.swift"]},
-                "leaf": {"includes": [], "sources": ["Leaf.swift"]},
-            }}))
-            self.assertEqual(scene_swift_source_relpaths("root", root, manifest),
-                             ("Leaf.swift", "Left.swift", "Right.swift"))
 
 if __name__ == "__main__":
     unittest.main()

@@ -58,7 +58,6 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
     final class RouteTelemetry: @unchecked Sendable {
         private let lock = NSLock()
         private var counts: [String: Int] = [:]
-        private var executedIdentities = Set<String>()
 
         func record(
             state: RouteState,
@@ -105,38 +104,6 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                 reason,
                 requestKey,
                 count
-            )
-        }
-
-        func recordExecution(
-            routeDecision: RouteDecision,
-            backend: SceneAuthoredShaderProgram.Backend,
-            graphInputDiagnostics: [String],
-            layerID: Int,
-            effectIndex: Int,
-            descriptorID: String,
-            nodeIndex: Int,
-            preparedKey: String
-        ) {
-            let graphInputs = graphInputDiagnostics.joined(separator: ",")
-            let identity = [
-                String(layerID), String(effectIndex), descriptorID,
-                String(nodeIndex), backend.rawValue, preparedKey, graphInputs,
-            ].joined(separator: "|")
-            guard lock.withLock({ executedIdentities.insert(identity).inserted }) else {
-                return
-            }
-            NSLog(
-                "MWX generic shader execution state=%@ profile=%@ layer=%d effect=%d descriptor=%@ node=%d backend=%@ prepared=%@ graphInputs=%@",
-                routeDecision.state,
-                routeDecision.profile,
-                layerID,
-                effectIndex,
-                descriptorID,
-                nodeIndex,
-                backend.rawValue,
-                preparedKey,
-                graphInputs.isEmpty ? "-" : graphInputs
             )
         }
 

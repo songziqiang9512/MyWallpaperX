@@ -48,7 +48,7 @@ enum Producer {
     }
 }
 '''
-HARNESS = GRAPH["HARNESS"].split("@main", 1)[0] + r'''
+HARNESS = GRAPH["HARNESS_SUPPORT_SOURCE"] + r'''
 
 private func changed(_ original: Template, candidates: [Template.TextureCandidate], overrideSlot: Bool = false) -> Template {
     var slots = original.textureSlots
@@ -154,23 +154,23 @@ private enum Harness {
             functionsByEffect: [effect: materialFunctionRegistry()])
         let reason = "material-optional-named-fallback-unproven"
         let result: [String: Bool] = [
-            "threeCandidatesLocal": unsupported?.stages.first?.visualFailureReasonCode == reason,
+            "threeCandidatesLocal": unsupported?.stages.first?.execution.visualFailureReasonCode == reason,
             "unsupportedMaterialsEmpty": unsupported?.materials.isEmpty == true,
             "unsupportedHasNoDependencyClaims": unsupported?.dependencyOwnership == SceneResolvedMaterialDependencyOwnership.none
                 && unsupported?.dependencyOwnership.referenceCount == 0,
             "inactiveSlotNotRejected": inactive?.materials.count == 1
-                && inactive?.stages.first?.visualFailureReasonCode == nil,
+                && inactive?.stages.first?.execution.visualFailureReasonCode == nil,
             "terminalAssetShadowsOptional": shadowed?.materials.count == 1
-                && shadowed?.stages.first?.visualFailureReasonCode == nil,
+                && shadowed?.stages.first?.execution.visualFailureReasonCode == nil,
             "authoritativeGraphOverrideWins": overridden?.materials.count == 1
-                && overridden?.stages.first?.visualFailureReasonCode == nil,
-            "exactTwoStillExecutable": supported?.stages.first?.visualFailureReasonCode == nil && supported?.materials.count == 1,
-            "differentProvidersNotNormalized": different?.stages.first?.visualFailureReasonCode == reason,
-            "secondaryNotPromoted": secondaryValue?.stages.first?.visualFailureReasonCode == reason,
+                && overridden?.stages.first?.execution.visualFailureReasonCode == nil,
+            "exactTwoStillExecutable": supported?.stages.first?.execution.visualFailureReasonCode == nil && supported?.materials.count == 1,
+            "differentProvidersNotNormalized": different?.stages.first?.execution.visualFailureReasonCode == reason,
+            "secondaryNotPromoted": secondaryValue?.stages.first?.execution.visualFailureReasonCode == reason,
             "adjacentEffectsRemainExecutable": chainedValue?.stages.count == 3
-                && chainedValue?.stages[0].visualFailureReasonCode == reason
-                && chainedValue?.stages[1].visualFailureReasonCode == nil
-                && chainedValue?.stages[2].visualFailureReasonCode == nil
+                && chainedValue?.stages[0].execution.visualFailureReasonCode == reason
+                && chainedValue?.stages[1].execution.visualFailureReasonCode == nil
+                && chainedValue?.stages[2].execution.visualFailureReasonCode == nil
                 && chainedValue?.materials.count == 2,
             "historyTopologyNotSoftened": historyCaps.claim(historyAdmission) == nil,
             "clearFunctionControlActuallyAdmitted": functionControlValue?.admittedProducts.first?

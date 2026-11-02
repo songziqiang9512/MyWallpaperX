@@ -353,9 +353,9 @@ class SceneAlphaOnlyColorBoundaryTests(unittest.TestCase):
             root = Path(directory)
             bundle = compiler_bundle(root)
             sources = fixture_sources(root, bundle, source_files())
-            prefix, marker, _ = fixture.HARNESS.partition("@main\nprivate enum Harness")
+            prefix = fixture.HARNESS_SUPPORT_SOURCE
             helpers, helper_marker, _ = color_fixture.HARNESS.partition("private func traceMaterial")
-            if not marker or not helper_marker:
+            if not helper_marker:
                 raise RuntimeError("existing graph fixture helper boundary unavailable")
             support, harness, binary = root / "Support.swift", root / "Harness.swift", root / "probe"
             support.write_text(fixture.SUPPORT, encoding="utf-8")

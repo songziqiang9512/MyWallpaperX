@@ -149,20 +149,26 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         }
     }
 
-    enum StageCapability {
-        case resolved(
-            product: SceneGraphAdmissionProduct,
-            materials: [MaterialKey: MaterialCapability],
-            activation: SceneResolvedMaterialStageActivationPolicy?
-        )
-        case visualFailurePassthrough(
-            product: SceneGraphAdmissionProduct,
-            reasonCode: String
-        )
-        case initiallyInactivePassthrough(
-            product: SceneGraphAdmissionProduct,
-            reasonCode: String
-        )
+    struct StageCapability {
+        enum Execution {
+            case resolved(
+                materials: [MaterialKey: MaterialCapability],
+                activation: SceneResolvedMaterialStageActivationPolicy?
+            )
+            case visualFailurePassthrough(reasonCode: String)
+            case initiallyInactivePassthrough(reasonCode: String)
+        }
+
+        enum PassthroughTopology: Hashable {
+            case dependencyStage
+            case framebuffer
+            case preEncodeGraph
+        }
+
+        let product: SceneGraphAdmissionProduct
+        let execution: Execution
+        let passthroughTopologies: Set<PassthroughTopology>
+        let preEncodeVisualFailureSlots: [SceneEffectPassSlot]?
     }
 
     typealias FrameInputContract = SceneResolvedMaterialFrameInputContract
@@ -194,7 +200,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
 
         fileprivate init(
             admitted: SceneResolvedMaterialAdmittedLayer,
-            stages: [StageCapability],
+            stages: [CompiledStages.Stage],
             materials: [MaterialKey: MaterialCapability],
             dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
             sceneBackgroundRequirement: SceneBackgroundRequirement?,
@@ -203,9 +209,15 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         ) {
             layerID = admitted.layerID
             admittedProducts = admitted.products
-            self.stages = stages
+            let preparedStages: [StageCapability] = stages.map { stage in
+                .init(product: stage.product, execution: stage.execution,
+                      passthroughTopologies: stage.passthroughTopologies,
+                      preEncodeVisualFailureSlots: dependencyOwnership
+                        .preEncodeVisualFailureSlots(in: stage.product.graph))
+            }
+            self.stages = preparedStages
             let effectKeys = admitted.products.flatMap { $0.graph.effects.map(\.key) }
-            let subjects = stages.compactMap(\.subject)
+            let subjects = preparedStages.compactMap(\.subject)
             effectSubjectsAreConserved = !effectKeys.isEmpty
                 && Set(effectKeys).count == effectKeys.count
                 && subjects.count == effectKeys.count && subjects.map(\.key) == effectKeys
@@ -230,9 +242,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                 effectTextureProjectionSource: .emittedOutputGeometry,
                 emittedOutputGeometrySource: emittedOutputGeometrySource,
                 requiresInvertibleEffectTextureProjection:
-                    stages.contains(
-                        where: \.requiresInvertibleEffectTextureProjection
-                    ),
+                    preparedStages.contains { $0.execution.requiresInvertibleEffectTextureProjection },
                 directDrawGeometry: directDrawGeometry,
                 directDrawGeometryFallback: directDrawGeometryFallback
             )
@@ -240,14 +250,14 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                 Graph.TextureIdentity: SceneShaderColorRepresentation
             ] = [:]
             var hasIdentityConflict = false
-            for stage in stages {
-                guard case let .resolved(product, materials, _) = stage else {
+            for stage in preparedStages {
+                guard case let .resolved(materials, _) = stage.execution else {
                     continue
                 }
                 for (identity, representation) in
                     SceneResolvedMaterialExecutionCapabilityCatalog
                         .independentAlphaSignalTargetRepresentations(
-                            product.graph,
+                            stage.product.graph,
                             materials: materials
                         ) {
                     if graphColorRepresentations.updateValue(
@@ -265,7 +275,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             requiresGraphOutputProvider = admitted.requiresGraphOutputProvider
             let simpleColor = Self.simpleColorChainCapabilities(
                 admitted: admitted,
-                stages: stages,
+                stages: preparedStages,
                 materials: materials,
                 dependencyOwnership: dependencyOwnership,
                 sceneBackgroundRequirement: sceneBackgroundRequirement
@@ -274,7 +284,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             supportsPlacementSpaceTerminalReplay = simpleColor.placement
             supportsTerminalMaterialReplay = simpleColor.terminal
                 || Self.backgroundAttachmentReplaySupported(
-                    admitted: admitted, stages: stages, materials: materials,
+                    admitted: admitted, stages: preparedStages, materials: materials,
                     dependencyOwnership: dependencyOwnership,
                     sceneBackgroundRequirement: sceneBackgroundRequirement)
             terminalReplayBlendMode = admitted.terminalReplayBlendMode
@@ -460,14 +470,10 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                     productAuthorityRejectedByLayerID.removeValue(
                         forKey: candidate.layerID
                     )
-                    for reason in compiled.stages.compactMap(
-                        \.visualFailureReasonCode
-                    ) {
+                    for reason in compiled.stages.compactMap({ $0.execution.visualFailureReasonCode }) {
                         visualFailurePassthroughs[reason, default: 0] += 1
                     }
-                    for reason in compiled.stages.compactMap(
-                        \.initiallyInactivePassthroughReasonCode
-                    ) {
+                    for reason in compiled.stages.compactMap({ $0.execution.initiallyInactivePassthroughReasonCode }) {
                         initiallyInactivePassthroughs[reason, default: 0] += 1
                     }
                 }
@@ -727,8 +733,8 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         capabilitiesByLayerID.values.reduce(into: Set<SceneDynamicTarget>()) {
             targets, capability in
             for stage in capability.stages {
-                switch stage {
-                case .resolved(_, let materials, let activation):
+                switch stage.execution {
+                case .resolved(let materials, let activation):
                     targets.formUnion(activation?.liveConsumerTargets ?? [])
                     for material in materials.values {
                         for declaration in material.template.uniformDeclarations {
@@ -751,8 +757,8 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         capabilitiesByLayerID.values.reduce(into: Set<SceneDynamicTarget>()) {
             targets, capability in
             for stage in capability.stages {
-                switch stage {
-                case .resolved(_, let materials, _):
+                switch stage.execution {
+                case .resolved(let materials, _):
                     for material in materials.values {
                         for declaration in material.template.uniformDeclarations {
                             guard case let .dynamic(dynamic) = declaration.value,
@@ -773,8 +779,8 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
     var hasAudioSpectrumConsumer: Bool {
         capabilitiesByLayerID.values.contains { capability in
             capability.stages.contains { stage in
-                switch stage {
-                case .resolved(_, let materials, _):
+                switch stage.execution {
+                case .resolved(let materials, _):
                     return materials.values.contains { $0.variants.hasAudioSpectrumConsumer }
                 case .visualFailurePassthrough, .initiallyInactivePassthrough:
                     return false

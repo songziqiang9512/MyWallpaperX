@@ -564,7 +564,7 @@ class SceneIndependentSignalColorCarrierCompositingTests(unittest.TestCase):
     def test_prepared_signal_bridge_uses_actual_color_representation(self) -> None:
         from script.tests import test_scene_resolved_material_graph_executor as graph_gate
 
-        harness = graph_gate.HARNESS.split("@main\nprivate enum Harness", 1)[0] + SIGNAL_BRIDGE_HARNESS
+        harness = graph_gate.HARNESS_SUPPORT_SOURCE + SIGNAL_BRIDGE_HARNESS
         compilation, completed = graph_gate.compile_lit_harness(graph_gate.SUPPORT, harness)
         self.assertEqual(compilation.returncode, 0, compilation.stderr)
         self.assertIsNotNone(completed)

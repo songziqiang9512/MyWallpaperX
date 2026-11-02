@@ -11,11 +11,12 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
 
     static func sceneBackgroundRequirement(
         admitted: SceneResolvedMaterialAdmittedLayer,
-        stages: [StageCapability]
+        stages: [CompiledStages.Stage]
     ) -> Result<SceneBackgroundRequirement?, Rejection> {
         var candidates: [SceneBackgroundCandidate] = []
         for stage in stages {
-            guard case let .resolved(product, materials, _) = stage else { continue }
+            guard case let .resolved(materials, _) = stage.execution else { continue }
+            let product = stage.product
             for material in materials.values {
                 let snapshot = material.variants.launchEnvelopeCapabilitySnapshot()
                 guard snapshot.allEntriesReady,

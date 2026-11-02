@@ -118,7 +118,7 @@ private enum Harness {
                   failedClaim.token,
                   for: chain
               ),
-              failedCapability.stages.first?.visualFailureReasonCode
+              failedCapability.stages.first?.execution.visualFailureReasonCode
                 == failureReason,
               let validExecutor = Executor(
                   device: device,

@@ -531,13 +531,13 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
     }
 
     static func visualFailureExternalDependencies(
-        in stage: StageCapability,
+        in stage: CompiledStages.Stage,
         binding: SceneDependencyRenderPlan.Binding
     ) -> [BindingDependency] {
-        guard case let .visualFailurePassthrough(product, _) = stage,
+        guard case .visualFailurePassthrough = stage.execution,
               let slots = SceneResolvedMaterialDependencyOwnership
                 .externalPrimary(binding)
-                .preEncodeVisualFailureSlots(in: product.graph) else {
+                .preEncodeVisualFailureSlots(in: stage.product.graph) else {
             return []
         }
         return slots.map {
@@ -550,11 +550,12 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
     }
 
     static func resolvedExternalDependencies(
-        in stage: StageCapability
+        in stage: CompiledStages.Stage
     ) -> ResolvedExternalDependencyAnalysis {
-        guard case let .resolved(product, materials, _) = stage else {
+        guard case let .resolved(materials, _) = stage.execution else {
             return .none
         }
+        let product = stage.product
         var namedCandidates: [ResolvedNamedCandidate] = []
         // `materials` is a dictionary keyed by material identity. Its
         // iteration order is intentionally unspecified, while an aggregate

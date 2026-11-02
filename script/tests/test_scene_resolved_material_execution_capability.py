@@ -127,7 +127,6 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         ):
             self.assertIn(geometry_source, frame_contract)
         self.assertIn("let frameInputContract: FrameInputContract", capability)
-        self.assertIn("stages.contains(", capability)
         self.assertIn(
             "let resolvedIntegerCombos: [String: Int]",
             compiled,

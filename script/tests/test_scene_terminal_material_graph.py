@@ -27,7 +27,7 @@ DEBUG_SOURCES = tuple(path for path in timestamp_fixture.SOURCES
 
 
 # Reuse the graph/compiler scaffold. Only the input shader and extent change.
-HELPERS = graph_fixture.HARNESS.split('@main', 1)[0]
+HELPERS = graph_fixture.HARNESS_SUPPORT_SOURCE
 HELPERS = HELPERS.replace('Plan.PixelExtent(width: 2, height: 2)',
                           'Plan.PixelExtent(width: 10, height: 10)')
 HELPERS = HELPERS.replace('precondition(graph.effects.count >= 2)',

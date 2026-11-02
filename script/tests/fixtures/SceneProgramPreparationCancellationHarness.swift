@@ -103,8 +103,8 @@ private final class CancellationCompletion {
                     try encoder.encode($0.product.graph).base64EncodedString()
                 },
                 "families": capability.stages.map { $0.subject?.family ?? "missing" },
-                "visual": capability.stages.map { $0.visualFailureReasonCode ?? "none" },
-                "inactive": capability.stages.map { $0.initiallyInactivePassthroughReasonCode ?? "none" },
+                "visual": capability.stages.map { $0.execution.visualFailureReasonCode ?? "none" },
+                "inactive": capability.stages.map { $0.execution.initiallyInactivePassthroughReasonCode ?? "none" },
                 "materials": materials,
             ])
         }

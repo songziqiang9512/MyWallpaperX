@@ -110,3 +110,15 @@ Warmup及binary archive直接消费PreparedAssembly既有shader/render-state ide
 首轮SourceSet重复展开共享leaf、Terminal straight旧调用及漏登layout均作为载体/接线失败保留，修原入口和注册，不为过门恢复旧产品转发。代码地图、组件合同与运行证据维护当前答案；本段不重写M1/M2当时未覆盖边界。
 
 本机provenance位于`.artifacts/scene-architecture-continuation-20261102/`的`m3-*`、`resource-lookup-*`、`m3-commit-*`冻结清单及原始日志。该范围不证明完整语料、普通产品daemon全生命周期、物理多屏、长期稳定、官方parity或整体启动/CPU/GPU/能耗收益；后续联合版本回验另登记。
+
+
+<a id="prepared-execution-handoff"></a>
+## 已准备执行能力与Graph载体
+
+固定2026-11-03：原stage准备pre-encode passthrough资格，Material形成effect-local optional/environment/system failure slots，帧经bindFrame方法消费它们及本次资源。Template/Variant的真实准备消费者保留，不称纯leaf；Bridge只接两组demands，帧仍核实际transition/history/当前资源/目标映射，静态资格不授予发布权。Generic execution日志及原去重集合归既有SceneGraphExecutionTelemetry，观测关闭不访问artifact cache或构造完整诊断字符串，旧ExecutionTelemetry文件和旧直接lookup退出。
+
+原超长Graph测试按完整职责与Swift单位整理，保共享导出、一次实际编译入口、原258表达式与42个有状态终结查询顺序。五个旁支GPU门通过；主atomic门在修复实际API和同一source漏传后通过，原失败保留。串并行及downgrade断言改读真实prepared effect key/Execution，退原短期tuple.subject访问；不向产品加兼容字段、不自行造替代纹理、不修改像素容差或行为期待。
+
+联合Debug `-O`和严格签名通过，当前六个GraphExecutor用例都已有真实执行结果；主门包含普通次帧不重新编译、局部失败、状态/资源/claim及终端像素，五旁支保raw signal、straight/PMA、跨effect、pair/scalar与同层named。阶段内三条直接内部引用随旧调用退出，M3后基线29→26，public_contracts不扩。Compilation构造与Runtime声明的完整拆分、输入活动需求以及其余生命周期仍按独立族记录，不从此段宣称全引擎或性能完成。
+
+本机provenance为`.artifacts/scene-architecture-continuation-20261102/`的`material-execution-handoff-*`、`graph-executor-carrier-*`、`graph-atomic-fixture-*`与`graph-executor-current-v2`/`graph-atomic-current-v3`。联合App `d4c1de79c7367fe03b8c3aa4ec91fb3ed8bb43f053e617cb30466c974442f2cc`包含后续独立批，不能称单批构建或外推全语料、物理多屏、长期运行及能耗。

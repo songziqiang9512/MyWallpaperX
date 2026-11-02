@@ -38,6 +38,8 @@ SWIFT_SOURCES = list(dict.fromkeys([
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneGPUCensus.swift",
     SCENE_ROOT / "Diagnostics/SceneFramePerformanceTelemetry.swift",
     SCENE_ROOT / "Diagnostics/SceneGPUStageTimestampObservation.swift",
+    SCENE_ROOT / "Diagnostics/SceneGraphExecutionObservation.swift",
+    SCENE_ROOT / "Diagnostics/SceneGraphExecutionTelemetry.swift",
     *PUBLICATION_FIXTURE["SWIFT_SOURCES"],
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialAttachmentKind.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialAttachmentStorage.swift",
@@ -363,8 +365,7 @@ class SceneResolvedMaterialGraphVisualFailureContractTests(unittest.TestCase):
     def test_captured_ingress_is_optional_for_prepared_graph_programs(self) -> None:
         from script.tests import test_scene_resolved_material_graph_executor as base
 
-        prefix, marker, _ = base.HARNESS.partition("@main\nprivate enum Harness")
-        self.assertTrue(marker)
+        prefix = base.HARNESS_SUPPORT_SOURCE
         compilation, completed = base.compile_harness(
             base.SUPPORT, prefix + SOURCE_INDEPENDENT_GRAPH_HARNESS
         )
@@ -396,8 +397,7 @@ class SceneResolvedMaterialGraphVisualFailureContractTests(unittest.TestCase):
     def test_program_preparation_cancellation_stops_batches_after_join(self) -> None:
         from script.tests import test_scene_resolved_material_graph_executor as base
 
-        prefix, marker, _ = base.HARNESS.partition("@main\nprivate enum Harness")
-        self.assertTrue(marker)
+        prefix = base.HARNESS_SUPPORT_SOURCE
         fixture = Path(__file__).with_name("fixtures") / "SceneProgramPreparationCancellationHarness.swift"
         compilation, completed = base.compile_harness(
             base.SUPPORT, prefix + fixture.read_text(encoding="utf-8"),
@@ -416,8 +416,7 @@ class SceneResolvedMaterialGraphVisualFailureContractTests(unittest.TestCase):
 
         # Compile the shared fixture declarations with an admission-only main;
         # no Metal command, texture, pipeline or GPU readback is created here.
-        prefix, marker, _ = base.HARNESS.partition("@main\nprivate enum Harness")
-        self.assertTrue(marker)
+        prefix = base.HARNESS_SUPPORT_SOURCE
         harness = prefix + r'''
 @main private enum LaunchTextureFailureHarness {
     static func main() throws {

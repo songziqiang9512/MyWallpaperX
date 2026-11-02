@@ -69,7 +69,6 @@
           "SceneResolvedMaterialExecutionCapabilityVariant+ProviderSlots.swift",
           "SceneResolvedMaterialExecutionCapabilityVariant.swift",
           "SceneResolvedMaterialGenericShaderArtifactCache+Diagnostics.swift",
-          "SceneResolvedMaterialGenericShaderArtifactCache+ExecutionTelemetry.swift",
           "SceneResolvedMaterialGenericShaderArtifactCache.swift",
           "SceneResolvedMaterialGenericShaderOwnerDeferral.swift",
           "SceneResolvedMaterialGenericShaderPreparationCoordination.swift",
