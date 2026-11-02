@@ -51,9 +51,13 @@ import UniformTypeIdentifiers
         let acceptsImages = page != .videos && page != .recent
         var imageURLs: [URL] = [], videoURLs: [URL] = []
         var rejected: [WallpaperSourceImportResult.Item] = []
-        for url in urls where url.isFileURL {
-            let type = UTType(filenameExtension: url.pathExtension)
+        var order: [(path: String, isDirectory: Bool)] = []
+        order.reserveCapacity(urls.count)
+        for url in urls {
             let directory = (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
+            order.append((url.resolvingSymlinksInPath().standardizedFileURL.path, directory))
+            guard url.isFileURL else { continue }
+            let type = UTType(filenameExtension: url.pathExtension)
             if directory {
                 if acceptsImages { imageURLs.append(url) }
                 else { videoURLs.append(url) }
@@ -65,7 +69,7 @@ import UniformTypeIdentifiers
                 rejected.append(.init(sourceURL: url, disposition: .failed, organizationItem: nil, failureMessage: "该页面不接受此文件类型"))
             }
         }
-        let batch = Batch(order: urls, remaining: (imageURLs.isEmpty ? 0 : 1) + (videoURLs.isEmpty ? 0 : 1),
+        let batch = Batch(order: order, remaining: (imageURLs.isEmpty ? 0 : 1) + (videoURLs.isEmpty ? 0 : 1),
                           admittedRelationships: collections.snapshot)
         batch.results = [WallpaperSourceImportResult(items: rejected)]
         guard batch.remaining > 0 else {
@@ -206,9 +210,8 @@ import UniformTypeIdentifiers
         let admittedRelationships: UserCollectionsSnapshot
         var remaining: Int
         var results: [WallpaperSourceImportResult] = []
-        init(order: [URL], remaining: Int, admittedRelationships: UserCollectionsSnapshot) {
-            self.order = order.map { ($0.resolvingSymlinksInPath().standardizedFileURL.path,
-                                      (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true) }
+        init(order: [(path: String, isDirectory: Bool)], remaining: Int, admittedRelationships: UserCollectionsSnapshot) {
+            self.order = order
             self.remaining = remaining
             self.admittedRelationships = admittedRelationships
         }

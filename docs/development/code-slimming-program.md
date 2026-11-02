@@ -6,7 +6,7 @@
 
 开批速览（每批动手前先读这里，再核 Git 状态；按需查对应 owner 和下文，不顺读全文）：
 
-- 已裁决至R80（R61按优先级后补）。个人设置导入弹窗消失/设置变暗已由 R55（`ad1f3142d`）修复；测试 App 已交付，原配置完整导入仅待用户实测，没有新复现不重新修复、构建或复跑。
+- 已裁决至R81（R61按优先级后补）。个人设置导入弹窗消失/设置变暗已由 R55（`ad1f3142d`）修复；测试 App 已交付，原配置完整导入仅待用户实测，没有新复现不重新修复、构建或复跑。
 - 近期已完成：R54 合并成员查询复用、R57 Web 快照暂存隔离、R58 已取消元数据任务提前退出、R59 成功状态一次发布、R60 在线图片卡片一次装配。详情见下文；已完成项不作为新候选。
 - 保留/拒绝：R55 一次 Save 取消超时尚未归因；R56 绕过 TIFF 的候选因像素/尺寸差异已拒绝。较早 R23/R38/R43 的保护边界仍有效。
 - R62已交付：[本地资源先呈现与缩略图回访](local-library-loading-design.md#overview)。先解决启动短暂不可用和本地网格滚回黑卡，覆盖视频、图片及自建列表；已完成实现、最近门、Steam消费者及签名Debug；保留三项原生限制，真实用户库体感待人工验收。R61冷态导航已完成验证，见下文；不重复本专项。
@@ -23,7 +23,9 @@
 
 本轮按用户固定流程循环：并行子代理在每份审查任务中携带用户固定prompt，核无功能收益的校验/认证/重复计算/嵌套、持续转发和补丁、过量实现与耦合；主agent审核问题和方案并决定是否修改，子代理实施，主agent复核真实行为/成本证据和最近门后决定窄提交，再开启下一轮。每批报告问题、当前影响、方案、功能变化及下一候选。当前目标授权主agent作修复和本地提交裁决，不授权推送；共享构建、原生窗口和GPU仍串行，其他会话改动保留。
 
-最近产品验证：R80将Pixiv原safe-author排除移到artwork准备前，产品2增2删、净0，无新判断/state/helper；首两type排除、原AI语义、来源作用域/分页/身份/取消均保持。原89个expect调用点及全部原文保留，夹具35增补4个真实HTTP mixed safe/accountAllowed/ranking/search对照；同最终夹具旧/新门通过，公开stdout及非探针stderr相同，自动HTTP Set-Cookie桥接仍未证。实际完整DTO入口仅加单行日志作两臂私有观测：整门构造136→132，ID100的入口14→12、ID101的10→8，其他identity计数不变；不将聚合计数称每页、URL/日期解析次数或HTTP/耗时收益。两实际编译的DTO hash命中相同探针版，随后DTO精确恢复原字节再签名Debug24.168秒/5866输入稳定、strict/deep通过，仅原两条C#警告；独立静审接受。仅受控真实Client/HTTP与边界夹具，未验真实账号/native UI，R55/R62限制不变；在线来源入口补入[仓库图](../architecture/repository-map.md)，不另造索引页。
+最近产品验证：R81导入入口同次分类准备既有(path,isDirectory)排序值，原Batch改收预备tuple，目录属性请求不再在init重做；产品9增6删、净+3用于显式局部准备/已知容量，无新增字段、owner或持久cache，测试净0。原全部URL先入order、再跳过非file分类；mixed顺序/递归rank、summary/relocation/epoch及源worker检查保持。原现役门三模式旧/新均过：mixed 27事实全真，完整JSON仅归一化临时工作根后相等，image-work与image-metadata完整JSON亦等值。实际Owner API透明转发观测mixed 32→16，另两模式均0；所测皆file，非file排序保留仅静审，不称stat/syscall/IO或时耗减半，也不保证外部文件/symlink在旧两读之间变化时的观察序。两个实际编译输入hash命中对应探针版，随后恢复final原字节候选再签名Debug26.218秒/5866输入稳定、strict/deep通过，仅原两条C#警告；独立静审接受。无原生选择器/用户媒体实测，R55/R62边界不变。
+
+前批R80（f29d31f91）原safe-author判断前移，产品净0、夹具35增，原89个expect调用点全保，新增4 HTTP对照。真实DTO入口临时观测136→132，仅ID100/101各少2，原/新公开输出相同；探针恢复后签名Debug24.168秒过。仅受控Client/HTTP，非URL/日期次数、真实账号、自动HTTP Set-Cookie桥接或时耗证明。
 
 前批R79（bf56d172a）Pixabay原值模型直接Decodable，退役三同构DTO/toItem，产品净−36、无新状态。相同最终夹具旧/新39项页面/取消事实、6合并计数、4实际错误原文等值，真实传输门及签名Debug27.720秒通过；新增6 schema事实、测试净+42。只认退役类型/组装，不称内部DecodingError类型相同、JSON解析次数减少或分配/时耗收益。
 
@@ -53,7 +55,7 @@
 
 前批裁决与待验保留：R54（65522bee6）事务内复用resolved UUID追加位置，25成员/6物理列表的MAX查询25→6仅属连接级计数。R55选择器退出后再显示反馈，原配置完整导入与未归因Save取消超时保持待验。R56拒绝绕过TIFF候选，保留原编码。R57（b761fdb80）独立暂存、原main守卫后rename至原stable，保Scene/编码/copy fallback/所有权；受控5秒utility/文件探针与122项检查、Debug通过，未证自然频率或真实Web/NSWorkspace。R58（9be599202）已取消metadata Task的AV准备1→0，保同步模板和后两异步检查，不当性能/真实UI证明。R59（87c27c3e3）成功尾部一次发布完整状态，54组4→1、216→54，其他阶段相同；保89项、新增6项typed终态/reset回调及20项视口检查通过；原73/73只属reset调用点note。内部同步中间通知明确退出，不承诺任意同步订阅者等价。较早保护边界和精确证据仍归各批记录及提交，不在这里追加过程流水账。
 
-已完成R63（9499365）方法纠偏：[产物保留规则](../../.agents/skills/mywallpaperx-maintainer/references/artifact-governance.md)是证据保留/清理的唯一说明。下一只读方向：非Scene文件传输/删除规划与App更新版本解析，先查近提交/原合同和真实消费者，不为假设竞态撤销所有权/异步边界检查。其他来源每响应已有单次整体JSON解码；Pixiv兼容DTO承担实际类型/URL/字段归一化，不能套用R79机械退役。R3/R59、下载UI/租约/恢复及R73根目录去重不重开。
+已完成R63（9499365）方法纠偏：[产物保留规则](../../.agents/skills/mywallpaperx-maintainer/references/artifact-governance.md)是证据保留/清理的唯一说明。下一候选R82：Controller复制列表的private单消费者enqueue转发，私有候选已静审、未执行/提交；先核真实FIFO/Store/undo门，不把少一层结构称性能收益。其他来源单次JSON及非同构兼容DTO保留；R3/R59、下载UI/租约/恢复、R73根目录去重和版本/删除保留项不重开。
 
 近期审查保留项（本轮未修改，验证范围见对应批次；不因压缩上下文重复开批）：
 
@@ -64,6 +66,7 @@
 - 设置/初始化：双向同步回声位解决Published willSet，登录项查询已有Key周期缓存；SIL相等补丁同步ACK及恢复清理开关有真实事务消费者，保留。App启动路径重复组装少量URL不足以支持新增缓存或状态。
 - Query目录计数已一次分组；单次过滤不另加索引，目录/Artwork有不同搜索和更新职责。Steam主产品协议只Parse一次，Clone服务JSON文档释放后的所有权，Writer只Serialize一次且options已复用，保留。
 - 非Scene枚举只读复核：Video导入/内置库的预取键、OnlineImage原图清理日期均有消费者；SIL递归nil预取省工证据不足，维护路径浅层枚举无频度证据，不另开批或新增测试。
+- 文件/版本只读复核：删除prepare与unlink分属捕获/实际删除时点，inode/device、fsync结果、transfer取消/单回调/delegate存活有真实消费者；版本门核不同发布产物和远端时点，prepared build已复用，App仅消费Sparkle版本展示。保留，本片未跑门；不把发布成本说成启动热路径。
 
 <a id="completed-r1-r26"></a> [归档记录](../history/cross-topic/code-slimming-r1-r26-2026-11-01.md#completed-r1-r26) <!-- archive-redirect -->
 
