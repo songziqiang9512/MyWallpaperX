@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
-"""Behavior gate for the four Scene persistent cache tiers.
+"""Behavior gate for the Scene persistent cache tiers.
 
 Each tier is probed through its real load/store surface against an isolated,
-environment-overridden cache root (MWX_SCENE_GENERIC_SHADER_CACHE):
+environment-overridden cache root (MWX_SCENE_GENERIC_SHADER_CACHE). The Frontend
+uses its real Bundle-bound directory under a temporary App and isolated HOME:
 
 - read-only miss: a load on a missing tier directory misses without
   materializing the directory,
@@ -22,6 +23,7 @@ from __future__ import annotations
 
 import json
 import os
+import plistlib
 from pathlib import Path
 import shutil
 import subprocess
@@ -219,6 +221,66 @@ class ScenePersistentCacheBehaviorTests(unittest.TestCase):
                     self.run_tier_probe(binary, root, environment, tier)
             self.run_analysis_root_probes(binary, root, environment)
             self.run_preparation_phases(binary, root, environment)
+            self.run_denied_publications(binary, root, environment)
+            self.run_frontend_phases(binary, root, environment)
+
+    def run_denied_publications(self, binary: Path, root: Path, environment: dict) -> None:
+        denied = root / "four-cache-root-is-file"
+        denied.write_text("retain unavailable cache root")
+        for mode in ("preparation-denied", "variant-denied", "demand-denied"):
+            completed = subprocess.run(["/usr/bin/env", str(binary), mode], cwd=REPOSITORY_ROOT,
+                env={**environment, "MWX_SCENE_GENERIC_SHADER_CACHE": str(denied)},
+                capture_output=True, text=True, timeout=20)
+            self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+            payload = json.loads(completed.stdout)
+            self.assertIsNone(payload.get("failure"))
+            self.assertIn("accepted" if mode.startswith("preparation") else "optional-publish-unavailable",
+                          payload["checks"])
+        self.assertEqual(denied.read_text(), "retain unavailable cache root")
+
+    def run_frontend_phases(self, binary: Path, root: Path, environment: dict) -> None:
+        bundle = root / "FrontendProbe.app" / "Contents"
+        executable = bundle / "MacOS" / "probe"
+        executable.parent.mkdir(parents=True)
+        shutil.copy2(binary, executable)
+        resources = bundle / "Resources"
+        resources.mkdir()
+        shutil.copy2(root / "SceneShaderCacheIdentity.json", resources)
+        (bundle / "Info.plist").write_bytes(plistlib.dumps({
+            "CFBundleIdentifier": "com.songziqiang.MyWallpaperX", "CFBundleExecutable": "probe",
+            "CFBundleName": "FrontendProbe", "CFBundlePackageType": "APPL"}))
+
+        def run(mode: str, home: Path):
+            home.mkdir(exist_ok=True)
+            completed = subprocess.run(["/usr/bin/env", str(executable), mode], cwd=REPOSITORY_ROOT,
+                env={**environment, "HOME": str(home), "CFFIXED_USER_HOME": str(home),
+                     "MWX_CACHE_PROBE_HOME": str(home), "MWX_SCENE_GENERIC_SHADER_CACHE": ""},
+                capture_output=True, text=True, timeout=20)
+            self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+            payload = json.loads(completed.stdout)
+            self.assertIsNone(payload.get("failure"))
+            return payload["checks"]
+
+        home = root / "frontend-home"
+        self.assertEqual(run("frontend-accepted", home), ["bounded-program-adopted", "immediate-memory-hit"])
+        directory = home / "Library/Caches/MyWallpaperX/SceneShaderFrontend-v1"
+        entries = sorted(directory.glob("*.json"))
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(run("frontend-tag", home), ["tagged-valid-cached-program"])
+        tagged = (entries[0].read_bytes(), entries[0].stat().st_mtime_ns)
+        self.assertEqual(run("frontend-warm", home),
+                         ["bounded-program-adopted", "immediate-memory-hit", "fresh-process-disk-hit"])
+        self.assertEqual((entries[0].read_bytes(), entries[0].stat().st_mtime_ns), tagged)
+        entries[0].write_bytes(b"\xff" * 64)
+        self.assertEqual(run("frontend-accepted", home), ["bounded-program-adopted", "immediate-memory-hit"])
+        self.assertNotIn(b"persisted-frontend-probe-marker", entries[0].read_bytes())
+
+        denied_home = root / "frontend-denied-home"
+        denied = denied_home / "Library/Caches/MyWallpaperX/SceneShaderFrontend-v1"
+        denied.parent.mkdir(parents=True)
+        denied.write_text("retain unavailable frontend tier")
+        self.assertEqual(run("frontend-denied", denied_home), ["bounded-program-adopted", "immediate-memory-hit"])
+        self.assertEqual(denied.read_text(), "retain unavailable frontend tier")
 
     def run_analysis_root_probes(self, binary: Path, root: Path, environment: dict) -> None:
         def run(mode: str, cache: Path | str) -> list[str]:

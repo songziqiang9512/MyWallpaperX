@@ -43,6 +43,26 @@ private func jsonEntries(_ directory: URL) -> [URL] {
         .sorted { $0.path < $1.path }
 }
 
+private func waitForPublication(
+    _ directory: URL, count: Int = 1, matches: (URL) -> Bool = { _ in true }
+) throws -> [URL] {
+    let deadline = Date().addingTimeInterval(2)
+    repeat {
+        let entries = jsonEntries(directory)
+        if entries.count == count, entries.allSatisfy(matches) { return entries }
+        Thread.sleep(forTimeInterval: 0.005)
+    } while Date() < deadline
+    throw ProbeFailure(description: "publication deadline: \(directory.path)")
+}
+
+private func publishedProgram<Value: Decodable>(_ entry: URL, as type: Value.Type) -> Value? {
+    guard let bytes = try? Data(contentsOf: entry),
+          let envelope = (try? JSONSerialization.jsonObject(with: bytes)) as? [String: Any],
+          let program = envelope["program"],
+          let data = try? JSONSerialization.data(withJSONObject: program) else { return nil }
+    return try? JSONDecoder().decode(type, from: data)
+}
+
 private func rewriteEntry(_ url: URL, _ transform: (String) -> String) throws {
     let text = try String(contentsOf: url, encoding: .utf8)
     try transform(text).write(to: url, atomically: true, encoding: .utf8)
@@ -265,7 +285,7 @@ private func runGenericProbe() throws -> ProbeOutput {
 
 // MARK: - Variant analysis tier
 
-private func runVariantProbe() throws -> ProbeOutput {
+private func runVariantProbe(denied: Bool = false) throws -> ProbeOutput {
     var output = ProbeOutput(tier: "variant")
     let samplerSeed = SceneResolvedMaterialPreparedSamplerSchema(
         name: "g_Texture2", slot: 2, mode: .regular, materialKey: nil,
@@ -327,7 +347,12 @@ private func runVariantProbe() throws -> ProbeOutput {
         previousBlurredCompositeFact: nil
     )
     SceneResolvedMaterialVariantAnalysisCache.store(record: record, keySHA256: key)
-    let entries = jsonEntries(directory)
+    if denied {
+        try expect(into: &output, SceneResolvedMaterialVariantAnalysisCache.load(keySHA256: key) == nil,
+            "optional-publish-unavailable")
+        return output
+    }
+    let entries = try waitForPublication(directory)
     try expect(into: &output, entries.count == 1, "publish")
     let loaded = SceneResolvedMaterialVariantAnalysisCache.load(keySHA256: key)
     try expect(
@@ -430,7 +455,7 @@ private func makeProbeTemplate(
     return template
 }
 
-private func runDemandProbe() throws -> ProbeOutput {
+private func runDemandProbe(denied: Bool = false) throws -> ProbeOutput {
     var output = ProbeOutput(tier: "demand")
     let root = try cacheRoot()
     let directory = tierDirectory(
@@ -453,7 +478,12 @@ private func runDemandProbe() throws -> ProbeOutput {
         reachableSamplerSlots: [0, 3],
         key: key
     )
-    let entries = jsonEntries(directory)
+    if denied {
+        try expect(into: &output, SceneMaterialDemandAnalysisPersistentCache.load(key: key) == nil,
+            "optional-publish-unavailable")
+        return output
+    }
+    let entries = try waitForPublication(directory)
     try expect(into: &output, entries.count == 1, "publish")
     let loaded = SceneMaterialDemandAnalysisPersistentCache.load(key: key)
     try expect(
@@ -563,7 +593,7 @@ private func makePreparationContract() -> SceneShaderContract {
     )
 }
 
-private func runPreparationProbe(rejected: Bool) throws -> ProbeOutput {
+private func runPreparationProbe(rejected: Bool, denied: Bool = false) throws -> ProbeOutput {
     var output = ProbeOutput(
         tier: rejected ? "preparation-rejected" : "preparation-accepted"
     )
@@ -591,6 +621,72 @@ private func runPreparationProbe(rejected: Bool) throws -> ProbeOutput {
         accepted = true
     }
     try expect(into: &output, accepted, "accepted")
+    if case let .accepted(program) = result {
+        let repeatResult = SceneAuthoredShaderPreparation.prepareShaderStages(
+            contract: makePreparationContract(), compatibilityTarget: .windowsDX11ShaderModel4, combos: [:])
+        guard case let .accepted(repeated) = repeatResult, repeated == program,
+              SceneAuthoredShaderPreparation.completedCacheSnapshot.completedEntries == 1,
+              SceneAuthoredShaderPreparation.completedCacheSnapshot.inFlightOperations == 0 else {
+            throw ProbeFailure(description: "preparation memory result was not shared")
+        }
+        if !denied {
+            _ = try waitForPublication(tierDirectory(root: try cacheRoot(), name: "SceneShaderPreparation-v1")) {
+                publishedProgram($0, as: SceneShaderPreparedProgram.self) == program
+            }
+        }
+    }
+    return output
+}
+
+// MARK: - Frontend through its real Bundle-bound cache and compile entry
+
+private func frontendDirectory() throws -> URL {
+    guard Bundle.main.bundleIdentifier == "com.songziqiang.MyWallpaperX",
+          let root = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first,
+          let isolatedHome = ProcessInfo.processInfo.environment["MWX_CACHE_PROBE_HOME"],
+          root.resolvingSymlinksInPath().path.hasPrefix(
+            URL(fileURLWithPath: isolatedHome).resolvingSymlinksInPath().path + "/") else {
+        throw ProbeFailure(description: "frontend probe must use its isolated App bundle")
+    }
+    return root.appendingPathComponent("MyWallpaperX/SceneShaderFrontend-v1", isDirectory: true)
+}
+
+private let frontendCacheMarker = "// persisted-frontend-probe-marker"
+
+private func runFrontendProbe(_ mode: String) throws -> ProbeOutput {
+    var output = ProbeOutput(tier: mode)
+    let directory = try frontendDirectory()
+    if mode == "frontend-tag" {
+        let entry = try waitForPublication(directory)[0]
+        var envelope = try JSONSerialization.jsonObject(with: Data(contentsOf: entry)) as! [String: Any]
+        var program = envelope["program"] as! [String: Any]
+        program["metalSource"] = (program["metalSource"] as! String) + "\n" + frontendCacheMarker
+        let decoded = try JSONDecoder().decode(SceneAuthoredShaderProgram.self,
+            from: JSONSerialization.data(withJSONObject: program))
+        envelope["program"] = program
+        envelope["programSHA256"] = SceneShaderStableDigest.hash(decoded)
+        try JSONSerialization.data(withJSONObject: envelope).write(to: entry)
+        output.checks = ["tagged-valid-cached-program"]
+        return output
+    }
+    let vertex = "attribute vec3 a_Position; void main() { gl_Position = vec4(a_Position, 1.0); }"
+    let fragment = "void main() { gl_FragColor = vec4(0.25, 0.5, 0.75, 1.0); }"
+    let first = SceneAuthoredShaderFrontend.compile(vertexSource: vertex, fragmentSource: fragment)
+    guard let program = first.program, first.diagnostics.isEmpty else {
+        throw ProbeFailure(description: "frontend compile failed: \(first.diagnostics)")
+    }
+    try expect(into: &output, !program.metalSource.isEmpty, "bounded-program-adopted")
+    let repeated = SceneAuthoredShaderFrontend.compile(vertexSource: vertex, fragmentSource: fragment)
+    try expect(into: &output, repeated.program?.metalSource == program.metalSource
+        && repeated.diagnostics.isEmpty && SceneAuthoredShaderFrontend.completedCacheSnapshot.completedEntries == 1,
+        "immediate-memory-hit")
+    if mode == "frontend-warm" {
+        try expect(into: &output, program.metalSource.contains(frontendCacheMarker), "fresh-process-disk-hit")
+    } else if mode != "frontend-denied" {
+        _ = try waitForPublication(directory) {
+            publishedProgram($0, as: SceneAuthoredShaderProgram.self)?.metalSource == program.metalSource
+        }
+    }
     return output
 }
 
@@ -609,10 +705,18 @@ private enum ProbeEntrypoint {
                 output = try runGenericProbe()
             case "variant":
                 output = try runVariantProbe()
+            case "variant-denied":
+                output = try runVariantProbe(denied: true)
             case "demand":
                 output = try runDemandProbe()
+            case "demand-denied":
+                output = try runDemandProbe(denied: true)
             case "preparation-accepted":
                 output = try runPreparationProbe(rejected: false)
+            case "preparation-denied":
+                output = try runPreparationProbe(rejected: false, denied: true)
+            case "frontend-accepted", "frontend-denied", "frontend-tag", "frontend-warm":
+                output = try runFrontendProbe(mode)
             case "preparation-tampered-stage":
                 let directory = tierDirectory(root: try cacheRoot(), name: "SceneShaderPreparation-v1")
                 let entry = jsonEntries(directory)[0]

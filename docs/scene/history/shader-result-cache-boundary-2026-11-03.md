@@ -36,3 +36,13 @@
 - Debug 构建本身通过；第一次 staging 缺任务父目录，仅补父目录后复制/验签，未重复构建或安装。
 
 本批证明可选缓存故障不再阻断有效编译及上述实际输出，未认领整体启动/FPS/CPU/能耗收益、全语料、物理多屏、长期稳定、官方 parity 或正式 Release。材质其余准备交接、当前拓扑和完整产品 daemon 继续按唯一队列。
+
+
+<a id="four-preparation-caches"></a>
+## 四个准备缓存的可选发布
+
+固定2026-11-03：AuthoredShaderPreparation、Frontend Program、Material DemandAnalysis及VariantAnalysis的完整可选store（摘要、编码、目录、prune和写盘）交既有utility；Frontend内存采用/原flight仍同步。仅捕获key与不可变结果，不新增队列owner、pending镜像、flush或播放许可。wire/入口验证和坏cache冷重建保持，当前成功结果不等待持久发布。
+
+真实persistent_cache_behavior及shader_dependency_cache_identity通过，分别覆盖各tier独立根、实际Frontend Bundle/私有HOME、异步文件发布、损坏/过期重建、包含文件内容变化、消费失效和新进程暖读。shader_persistent_cache其余key/schema门通过；原架构逐字句已在未改动HEAD中失效，退此prose断言而不恢复旧正文。dependency identity driver改为现有包式unittest入口的相对导入，不引入PYTHONPATH或新流程。可选memory insert返回值显式丢弃，只消除unused-result警告，不改变ready或持久发布。
+
+本段由这些tier自己的实际门证明，不借前段Generic两cache的通过；缓存cold/warm正确性和普通帧职责不等于实测启动/能耗改善。联合Debug通过，源码与原始失败及修正provenance在`.artifacts/scene-architecture-continuation-20261102/`的`preparation-four-cache-v2`、`catalog-preparation-core-v2`、`four-cache-*`和冻结cache发布包。PSO binary archive的准备等待另按其原owner与独立门核验。

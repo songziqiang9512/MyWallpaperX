@@ -361,43 +361,45 @@ nonisolated enum SceneResolvedMaterialVariantAnalysisCache {
     }
 
     static func store(record: Record, keySHA256: String) {
-        guard let directory = cacheDirectory(createIfNeeded: true) else {
-            return
-        }
-        let payload = persisted(record: record)
-        guard let recordSHA = recordDigest(payload) else { return }
-        let envelope = Envelope(
-            schemaVersion: schemaVersion,
-            keySHA256: keySHA256,
-            recordSHA256: recordSHA,
-            payload: payload
-        )
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-        guard let data = try? encoder.encode(envelope),
-              (1 ... maximumEntryBytes).contains(data.count) else {
-            return
-        }
-        lock.withLock {
-            do {
-                try FileManager.default.createDirectory(
-                    at: directory, withIntermediateDirectories: true
-                )
-                if !pruned {
-                    ScenePersistentCacheSupport.prune(
-                        directory, retainedEntryLimit: retainedEntryLimit
+        DispatchQueue.global(qos: .utility).async { [record, keySHA256] in
+            guard let directory = cacheDirectory(createIfNeeded: true) else {
+                return
+            }
+            let payload = persisted(record: record)
+            guard let recordSHA = recordDigest(payload) else { return }
+            let envelope = Envelope(
+                schemaVersion: schemaVersion,
+                keySHA256: keySHA256,
+                recordSHA256: recordSHA,
+                payload: payload
+            )
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+            guard let data = try? encoder.encode(envelope),
+                  (1 ... maximumEntryBytes).contains(data.count) else {
+                return
+            }
+            lock.withLock {
+                do {
+                    try FileManager.default.createDirectory(
+                        at: directory, withIntermediateDirectories: true
                     )
-                    pruned = true
+                    if !pruned {
+                        ScenePersistentCacheSupport.prune(
+                            directory, retainedEntryLimit: retainedEntryLimit
+                        )
+                        pruned = true
+                    }
+                    try data.write(
+                        to: directory.appendingPathComponent(
+                            "\(keySHA256).json", isDirectory: false
+                        ),
+                        options: .atomic
+                    )
+                } catch {
+                    // Cache publication is optional; the freshly computed
+                    // in-process result still serves this launch.
                 }
-                try data.write(
-                    to: directory.appendingPathComponent(
-                        "\(keySHA256).json", isDirectory: false
-                    ),
-                    options: .atomic
-                )
-            } catch {
-                // Cache publication is optional; the freshly computed
-                // in-process result still serves this launch.
             }
         }
     }

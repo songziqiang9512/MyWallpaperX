@@ -321,46 +321,48 @@ struct ResourceDemandAnalysisKey: Hashable {
         reachableSamplerSlots: Set<Int>,
         key: ResourceDemandAnalysisKey
     ) {
-        guard let directory = cacheDirectory(createIfNeeded: true),
-              let digest = keyDigest(key),
-              let payload = persisted(
-                  textureFormatSlots: textureFormatSlots,
-                  samplers: samplers,
-                  reachableSamplerSlots: reachableSamplerSlots
-              ),
-              let analysisSHA = analysisDigest(payload) else { return }
-        let envelope = Envelope(
-            schemaVersion: schemaVersion,
-            keySHA256: digest,
-            analysisSHA256: analysisSHA,
-            payload: payload
-        )
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-        guard let data = try? encoder.encode(envelope),
-              (1 ... maximumEntryBytes).contains(data.count) else {
-            return
-        }
-        pruning.withLock { pruned in
-            do {
-                try FileManager.default.createDirectory(
-                    at: directory, withIntermediateDirectories: true
-                )
-                if !pruned {
-                    ScenePersistentCacheSupport.prune(
-                        directory, retainedEntryLimit: retainedEntryLimit
+        DispatchQueue.global(qos: .utility).async { [textureFormatSlots, samplers, reachableSamplerSlots, key] in
+            guard let directory = cacheDirectory(createIfNeeded: true),
+                  let digest = keyDigest(key),
+                  let payload = persisted(
+                      textureFormatSlots: textureFormatSlots,
+                      samplers: samplers,
+                      reachableSamplerSlots: reachableSamplerSlots
+                  ),
+                  let analysisSHA = analysisDigest(payload) else { return }
+            let envelope = Envelope(
+                schemaVersion: schemaVersion,
+                keySHA256: digest,
+                analysisSHA256: analysisSHA,
+                payload: payload
+            )
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+            guard let data = try? encoder.encode(envelope),
+                  (1 ... maximumEntryBytes).contains(data.count) else {
+                return
+            }
+            pruning.withLock { pruned in
+                do {
+                    try FileManager.default.createDirectory(
+                        at: directory, withIntermediateDirectories: true
                     )
-                    pruned = true
+                    if !pruned {
+                        ScenePersistentCacheSupport.prune(
+                            directory, retainedEntryLimit: retainedEntryLimit
+                        )
+                        pruned = true
+                    }
+                    try data.write(
+                        to: directory.appendingPathComponent(
+                            "\(digest).json", isDirectory: false
+                        ),
+                        options: .atomic
+                    )
+                } catch {
+                    // Cache publication is optional; the freshly computed
+                    // in-process result still serves this launch.
                 }
-                try data.write(
-                    to: directory.appendingPathComponent(
-                        "\(digest).json", isDirectory: false
-                    ),
-                    options: .atomic
-                )
-            } catch {
-                // Cache publication is optional; the freshly computed
-                // in-process result still serves this launch.
             }
         }
     }

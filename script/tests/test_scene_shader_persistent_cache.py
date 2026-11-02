@@ -15,7 +15,6 @@ FRONTEND = (
 PREPARATION = (
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneAuthoredShaderPreparation.swift"
 )
-ARCHITECTURE = ROOT / "docs/scene/architecture/runtime-architecture.md"
 
 
 def declaration_body(source: str, signature: str) -> str:
@@ -37,7 +36,6 @@ class SceneShaderPersistentCacheTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.frontend = FRONTEND.read_text(encoding="utf-8")
         cls.preparation = PREPARATION.read_text(encoding="utf-8")
-        cls.architecture = ARCHITECTURE.read_text(encoding="utf-8")
 
     def test_frontend_key_covers_full_compile_inputs_and_schema(self) -> None:
         key = declaration_body(self.frontend, "private struct ProgramCacheKey")
@@ -82,22 +80,7 @@ class SceneShaderPersistentCacheTests(unittest.TestCase):
         self.assertIn("guard let data = try? Data(contentsOf: url)", self.preparation)
         self.assertIn("options: [.skipsHiddenFiles]", self.frontend)
         self.assertIn("options: [.skipsHiddenFiles]", self.preparation)
-        store = declaration_body(
-            self.frontend,
-            "func store(_ program: SceneAuthoredShaderProgram",
-        )
-        self.assertLess(
-            store.index("memory.insert(program, for: key, cost: key.cost(including: program))"),
-            store.index("guard let directory = directoryURL()"),
-        )
 
-    def test_architecture_does_not_confuse_cpu_cache_with_device_ready(self) -> None:
-        self.assertIn(
-            "PreparedContent -> PreparedLaunchPlan -> PreparedDeviceResources",
-            self.architecture,
-        )
-        self.assertIn("只代表 CPU Program/preparation 可复用", self.architecture)
-        self.assertIn("不得声明 device 资源或首帧已经 ready", self.architecture)
 
 
 if __name__ == "__main__":

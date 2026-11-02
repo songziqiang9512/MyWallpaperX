@@ -4007,7 +4007,7 @@
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ],
       "cutoffDate": "2026-11-03",
-      "uniqueValue": "GenericShaderArtifact/GenericShaderAnalysis直接采用、异步可选发布和真实cache坏根恢复；不代验其它四个准备缓存。"
+      "uniqueValue": "Generic直接结果/可选cache及Preparation、Frontend、Demand、Variant四tier发布，真实冷暖/坏根/失效、签名App及原失败边界分段记录。"
     },
     {
       "path": "docs/scene/history/shader-value-type-recognition-2026-10-16.md",
