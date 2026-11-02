@@ -34,7 +34,7 @@
     },
     "docs/development/code-slimming-program.md": {
       "lines": 112,
-      "bytes": 25852
+      "bytes": 25894
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -353,8 +353,8 @@
       "bytes": 4916
     },
     "docs/development/local-library-loading-design.md": {
-      "lines": 72,
-      "bytes": 15855
+      "lines": 103,
+      "bytes": 20595
     }
   },
   "archives": [
@@ -1822,11 +1822,11 @@
     {
       "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
-      "before": "c84e03f6dbb43d870fc601883f09477f30f0f44ff7359bdbd03b2ddc3da9c074",
-      "after": "eb21c2462990ab342c9909caa25f10b3ad110a18072d1f10145a1fae6b2a975e",
+      "before": "eb21c2462990ab342c9909caa25f10b3ad110a18072d1f10145a1fae6b2a975e",
+      "after": "77610a8b511dd945e81276e645bb8662aa654648a0adf3b2d438467b63d82e8b",
       "owner": "repository-maintainer",
-      "reason": "R107 original Video cache-key warm reuse, same-final-fixture old-red/new-green and preserved counterexamples; replace quick routing and record next measured lookup bottleneck, full native goal remains open.",
-      "decision": "docs/development/local-library-loading-design.md#video-warm"
+      "reason": "R108 current-viewport source batch decision, preserved semantic gates and separately measured preparation/native evidence; replace quick route and retain unresolved user toolbar feedback as next priority.",
+      "decision": "docs/development/local-library-loading-design.md#viewport-lookup"
     },
     {
       "section": "bodies",
@@ -2065,11 +2065,11 @@
     {
       "section": "bodies",
       "path": "docs/development/local-library-loading-design.md",
-      "before": "72b35a40bf09d92336c80acb7a94ccbf2b6aebde1e85ae4291b6761ce37d46b4",
-      "after": "6092514280e9105505aeee25f6ed1ba0f40947d1c60f84d5b19ee4ee1c8b4c62",
+      "before": "6092514280e9105505aeee25f6ed1ba0f40947d1c60f84d5b19ee4ee1c8b4c62",
+      "after": "0d70e6da086223f4fc137f8b064bf77575e6dfd09c85b119ae5297a4b3e38a18",
       "owner": "repository-maintainer",
-      "reason": "R107 original Video cache-key warm reuse, same-final-fixture old-red/new-green and preserved counterexamples; replace quick routing and record next measured lookup bottleneck, full native goal remains open.",
-      "decision": "docs/development/local-library-loading-design.md#video-warm"
+      "reason": "R108 current-viewport source batch decision, preserved semantic gates and separately measured preparation/native evidence; replace quick route and retain unresolved user toolbar feedback as next priority.",
+      "decision": "docs/development/local-library-loading-design.md#viewport-lookup"
     },
     {
       "section": "archives",

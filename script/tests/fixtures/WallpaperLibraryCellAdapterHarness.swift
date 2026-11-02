@@ -44,18 +44,22 @@ final class PixabayService {
     var downloadedContent: DownloadedSnapshot { get { sourceReads += 1; return content } set { content = newValue } }
 }
 enum SteamWorkshopDownloadGridSupport {
+    static var fallbackTitles: [String] = []
     static func fallbackDisplayItem(for row: SteamWorkshopDownloadRecord) -> SteamWorkshopBrowserItem {
-        .init(id: row.id, title: row.title)
+        fallbackTitles.append(row.title)
+        return .init(id: row.id, title: row.title)
     }
 }
 enum ThumbnailCacheRequestPriority { case visible, prefetch }
 final class ThumbnailCacheRequestCancellation { var cancelled = false; func cancel() { cancelled = true } }
 final class AppKitThumbnailProvider {
     static var batches: [([String], [String])] = []
+    static var batchPaths: [([String], [String])] = []
     static var cancelled = 0
     init(wallpaperManager: WallpaperManager) {}
     func replacePrefetch(with values: [VideoWallpaper], retainingVisible: [VideoWallpaper]) {
         Self.batches.append((values.map(\.id), retainingVisible.map(\.id)))
+        Self.batchPaths.append((values.map(\.path), retainingVisible.map(\.path)))
     }
     static var visibleDemand: [[String]] = []
     static var repairs = 0
@@ -73,9 +77,10 @@ enum PixabayDownloadedThumbnailStore {
     static let sharedCache = RecordingThumbnailCache()
     static var completions: [(String, NSImage?) -> Void] = []
     static var requests: [(Int, ThumbnailCacheRequestCancellation)] = []
+    static var requestedURLs: [URL] = []
     static func loadThumbnail(_ entry: PixabayDownloadedEntry, priority: ThumbnailCacheRequestPriority,
         cancellation: ThumbnailCacheRequestCancellation,
-                         completion: @escaping (String, NSImage?) -> Void) { requests.append((entry.id, cancellation)); completions.append(completion) }
+                         completion: @escaping (String, NSImage?) -> Void) { requests.append((entry.id, cancellation)); requestedURLs.append(entry.localURL); completions.append(completion) }
 }
 func steamWorkshopPreviewSources(item: SteamWorkshopBrowserItem, record: SteamWorkshopDownloadRecord)
     -> (primary: URL?, fallback: URL?) { (URL(string: "https://fixture.invalid/" + item.id), nil) }
@@ -665,6 +670,96 @@ final class AdapterCollectionDataSource: NSObject, NSCollectionViewDataSource {
         adapter.updateCell(previewCard, content: noPreview, state: state)
         checks["image-card-quicklook-capability-does-not-revoke-its-explicit-detail-command"] = previewCard.heldInspect != nil
         library.snapshot = .init()
+
+        // Small request matrix measures the real adapter, not a lookup replica.
+        adapter.updateViewport(visible: [], prefetch: [])
+        manager.wallpapers = [.init(id: "batch-v0", title: "v0", path: "/batch/v0"),
+            .init(id: "batch-v1", title: "v1", path: "/batch/v1"),
+            .init(id: "batch-v0", title: "later", path: "/batch/v0-later")]
+        images.wallpapers = [.init(id: "batch-i0", path: "/batch/i0", title: "i0"),
+            .init(id: "batch-i1", path: "/batch/i1", title: "i1"),
+            .init(id: "batch-i0", path: "/batch/i0-later", title: "later")]
+        steam.downloads = [.init(id: "batch-s0", title: "batch-first-s0", status: .ready),
+            .init(id: "batch-s1", title: "batch-first-s1", status: .ready),
+            .init(id: "batch-s0", title: "batch-later-s0", status: .ready)]
+        pixabayService.downloadedContent.entries = [.init(id: 7, localURL: URL(fileURLWithPath: "/batch/p7")),
+            .init(id: -7, localURL: URL(fileURLWithPath: "/batch/p-minus7")),
+            .init(id: 0, localURL: URL(fileURLWithPath: "/batch/p-zero-unrequested")),
+            .init(id: 7, localURL: URL(fileURLWithPath: "/batch/p7-later"))]
+        let requested = [content(.videoLibrary, "batch-v0"), content(.videoLibrary, "batch-v1"), content(.videoLibrary, "batch-missing"),
+            content(.staticImageLibrary, "batch-i0"), content(.staticImageLibrary, "batch-i1"), content(.staticImageLibrary, "batch-missing"),
+            content(.steamWorkshop, "batch-s0"), content(.steamWorkshop, "batch-s1"), content(.steamWorkshop, "batch-missing"),
+            content(.pixabay, "7"), content(.pixabay, "-7"), content(.pixabay, "07"), content(.pixabay, "+7"),
+            content(.pixabay, "-0"), content(.pixabay, "9223372036854775808")]
+        let imageStart = SILThumbnailProvider.requests.count, urlStart = PixabayDownloadedThumbnailStore.requestedURLs.count
+        let titleStart = SteamWorkshopDownloadGridSupport.fallbackTitles.count
+        resetSourceReads()
+        adapter.updateViewport(visible: [requested[0]], prefetch: requested + [requested[0], requested[2]])
+        checks["batch-reads-each-requested-source-at-most-once"] =
+            [manager.sourceReads, images.sourceReads, steam.sourceReads, pixabayService.sourceReads].allSatisfy { (0...1).contains($0) }
+        checks["batch-video-first-record-and-request-order-multiplicity"] = AppKitThumbnailProvider.batchPaths.last?.0 == ["/batch/v0", "/batch/v1", "/batch/v0"]
+            && AppKitThumbnailProvider.batchPaths.last?.1 == ["/batch/v0"]
+        checks["batch-image-first-record-order-and-missing"] = SILThumbnailProvider.requests.dropFirst(imageStart).map { $0.0 } == ["/batch/i0", "/batch/i1"]
+        let resolvedTitles = Array(SteamWorkshopDownloadGridSupport.fallbackTitles.dropFirst(titleStart))
+        checks["batch-steam-first-record-and-missing"] = resolvedTitles.contains("batch-first-s0")
+            && resolvedTitles.contains("batch-first-s1") && !resolvedTitles.contains("batch-later-s0")
+        checks["batch-pixabay-canonical-int-first-record-and-invalid-aliases"] = PixabayDownloadedThumbnailStore.requestedURLs.dropFirst(urlStart).map(\.path)
+            == ["/batch/p7", "/batch/p-minus7"]
+        manager.wallpapers.reverse()
+        resetSourceReads()
+        adapter.updateViewport(visible: [], prefetch: [requested[0], requested[2]])
+        checks["batch-next-turn-observes-reordered-first-and-skips-unrequested-sources"] =
+            AppKitThumbnailProvider.batchPaths.last?.0 == ["/batch/v0-later"] && (0...1).contains(manager.sourceReads)
+            && images.sourceReads == 0 && steam.sourceReads == 0 && pixabayService.sourceReads == 0
+        manager.wallpapers = []
+        adapter.updateViewport(visible: [], prefetch: [requested[0]])
+        checks["batch-next-turn-deletion-does-not-borrow-previous-record"] = AppKitThumbnailProvider.batchPaths.last?.0.isEmpty == true
+        manager.wallpapers = [.init(id: "batch-v0", title: "new", path: "/batch/new-v0")]
+        adapter.updateViewport(visible: [], prefetch: [requested[0]])
+        checks["batch-next-turn-insert-after-miss-reads-current-path"] = AppKitThumbnailProvider.batchPaths.last?.0 == ["/batch/new-v0"]
+        images.wallpapers = [.init(id: "é", path: "/batch/nfc", title: "NFC"),
+            .init(id: "e\u{301}", path: "/batch/nfd", title: "NFD"),
+            .init(id: "é", path: "/batch/nfc-later", title: "later")]
+        steam.downloads = [.init(id: "é", title: "steam-NFC", status: .ready),
+            .init(id: "e\u{301}", title: "steam-NFD", status: .ready),
+            .init(id: "é", title: "steam-NFC-later", status: .ready)]
+        let opaqueImageStart = SILThumbnailProvider.requests.count
+        let opaqueTitleStart = SteamWorkshopDownloadGridSupport.fallbackTitles.count
+        resetSourceReads()
+        adapter.updateViewport(visible: [], prefetch: [content(.staticImageLibrary, "é"), content(.staticImageLibrary, "e\u{301}"),
+            content(.steamWorkshop, "é"), content(.steamWorkshop, "e\u{301}")])
+        checks["batch-image-opaque-UTF8-and-duplicate-first"] = SILThumbnailProvider.requests.dropFirst(opaqueImageStart).map { $0.0 }
+            == ["/batch/nfc", "/batch/nfd"]
+        let opaqueTitles = Array(SteamWorkshopDownloadGridSupport.fallbackTitles.dropFirst(opaqueTitleStart))
+        checks["batch-steam-opaque-UTF8-and-duplicate-first"] = opaqueTitles.contains("steam-NFC") && opaqueTitles.contains("steam-NFD")
+            && !opaqueTitles.contains("steam-NFC-later")
+        checks["batch-opaque-sources-obey-one-read-budget"] = manager.sourceReads == 0 && pixabayService.sourceReads == 0
+            && (0...1).contains(images.sourceReads) && (0...1).contains(steam.sourceReads)
+        images.wallpapers.reverse()
+        adapter.updateViewport(visible: [], prefetch: [content(.staticImageLibrary, "é")])
+        checks["batch-image-reorder-replaces-previous-first-path"] = SILThumbnailProvider.requests.last?.0 == "/batch/nfc-later"
+        images.wallpapers = []
+        let lastImageLease = SILThumbnailProvider.requests.last!.2, deletedImageCount = SILThumbnailProvider.requests.count
+        adapter.updateViewport(visible: [], prefetch: [content(.staticImageLibrary, "é")])
+        checks["batch-image-deletion-cancels-without-reloading-old-source"] = lastImageLease.cancelled
+            && SILThumbnailProvider.requests.count == deletedImageCount
+        images.wallpapers = [.init(id: "é", path: "/batch/nfc-restored", title: "restored")]
+        adapter.updateViewport(visible: [], prefetch: [content(.staticImageLibrary, "é")])
+        checks["batch-image-insert-after-miss-uses-current-path"] = SILThumbnailProvider.requests.last?.0 == "/batch/nfc-restored"
+        library.snapshot = .init(records: records)
+        resetSourceReads()
+        let onlineStart = SILThumbnailProvider.requests.count
+        adapter.updateViewport(visible: [], prefetch: [content(.wallhaven, wallID.reference.sourceID)])
+        checks["batch-online-only-skips-local-source-arrays"] =
+            [manager.sourceReads, images.sourceReads, steam.sourceReads, pixabayService.sourceReads] == [0, 0, 0, 0]
+            && SILThumbnailProvider.requests.count == onlineStart + 1
+            && SILThumbnailProvider.requests.last?.0 == library.localURL(for: records[0])?.path
+        library.snapshot = .init()
+        resetSourceReads()
+        adapter.updateViewport(visible: [], prefetch: [])
+        checks["batch-empty-demand-does-not-read-source-arrays"] =
+            [manager.sourceReads, images.sourceReads, steam.sourceReads, pixabayService.sourceReads] == [0, 0, 0, 0]
+
         let data = try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
     }

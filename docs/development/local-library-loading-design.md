@@ -7,6 +7,37 @@
 
 2026-11-02用户目标：打开App先显示上次本地内容，目录检查在后台更新；本地视频、图片和自建列表快速双向滚动时，已取得缩略图优先复用。该卡同时覆盖列表内已入库Steam/Pixabay/在线图片的本地记录，在线浏览预算和播放引擎保持。状态：R62实现、最近行为门和签名Debug已完成，保留文末三项原生验证限制；真实用户库人工体验待验。R61普通精简候选后移。
 
+<a id="viewport-lookup"></a>
+## R108：一次视口内批量读取来源
+
+2026-11-03完成原Adapter内批量来源准备；**完整照片级目标未验收，下方用户工具栏反馈仍未解决**。旧updateViewport对每个目标分别调用数组first，在发首provider前就做完全部搜索；10k尾116项有1,153,330次UTF8 predicate调用。原Adapter字节未变，沿用R107旧量测，不重跑旧计时。
+
+**数据流与取舍。** 现有wanted前移复用→本次resolveSources→四类来源共用局部collect，惰性读取所需数组，命中全部请求即停→原provider/lease链。复用WallpaperReference的provider+原始UTF8身份；命中从pending移除保来源重复first，只保存本批所需结果，missing沿原缺省，不预填再覆写。Pixabay以Int行的String匹配保canonical身份，online仍原record(for:)字典API。无持久索引、订阅、模型发布或新owner；下一viewport重新读取当前数组。原单条cell查询、排序/重复请求、资源revision、可见优先、取消和decoded预算保持。
+
+产品27增10删净+17行，新增23行私有批处理/4次真实复用，替换原逐reference resolver closure。集合/哈希仍有固定成本；有该provider但全为非法Pixabay引用时，新版会一次扫表，旧版可在解析处零读取，不称每种输入都更快。未选各来源常驻索引/全库临时index及跨turn旧map，避免同步状态、O(N)副本与过期换卡；改语言/组件不能替代这段重复工作。
+
+**最近门与成本。** 同最终Adapter夹具92项，旧仅3个新增读取预算红，其余89项含原76全部真；候选92全真，6307输入/2实际子过程稳定。四provider多目标、opaque/Unicode、Pixabay数值反例、重复first、missing、跨次替换/撤销和无请求零读取保持；测试97增2删净+95行，仅记录实际收到的path/URL/title及小矩阵，不复制查找算法。micro计数68/未插桩29检查通过，19/51业务case剔除工作/计时字段后逐项严格相等。原逐ref predicate调用与新scan rowVisits分列，不能作同单位减法；新head116行即停、tail/missing10000行、small160行。
+
+未插桩-O、各5轮中位毫秒（只计进入首provider前，受控来源数组/真实模型，非整App FPS）：
+
+| 来源/输入 | 旧 | 新 |
+|---|---:|---:|
+| Video 10k头116 | 0.627 | 0.426 |
+| Video 10k尾116 / missing116 | 64.929 / 56.456 | 3.922 / 3.399 |
+| SIL 10k头116 | 0.530 | 0.403 |
+| SIL 10k尾116 / missing116 | 49.484 / 43.080 | 3.914 / 3.505 |
+| Video / SIL 160尾116 | 0.917 / 0.784 | 0.417 / 0.426 |
+
+私有计数夹具首次沿用旧matches断言、Root中间又误用累计getter，均保误红；最后按本次真实getter差值观测，产品/永久门未改，不把两类操作混为一种。
+
+**原生证据。** 同一无-O真实Grid/Adapter/SIL/cache/卡片与own-window SCK，10k来源元数据+过滤后160项真实独色文件；不是10k全网格或真实用户库。两臂连续阶段均90次viewport/540次make、100次派生解码、1364次provider-start、源重抽0。首真实SIL请求66次中位107.928→7.156ms（最大149.753→9.802）；viewport总10.446→0.698秒，make总1.050→1.057秒未改善。相同输入轨迹实际用时13.930→4.188秒，捕获713/238帧仅因时长不同，不能算FPS。连续阶段两臂20点均未采背景；旧首帧一次缺图位于continuous之前，新未采到，不称连续黑卡已修。点采样/有限PNG不覆盖全像素、物理scanout、触控板、混合列表、超驻留、选择动画或能耗。外层native allowance在首跑前两臂同调60→180秒，轨迹/编译/断言不改；实际均完整终止，输入稳定。
+
+签名Debug 27.838秒/5868输入稳定，strict/deep通过，无新增Swift警告，仅原CS0665/CS8603。
+
+**下一优先。** 真实fullSizeContentView+native toolbar验证下面用户反馈，区分可绘制clip与交互/锚点safe area，不全局改同一矩形。cell本次make成本未动，needs/update在连续段未调用，不外推选择/动画；必要时另测同步刷新批次，禁止沿用旧viewport map。新生成Ready刷新窗口与混合/超驻留仍待，R62/R55已结问题不重做；Scene不改。
+
+**新增用户实测（2026-11-03，R107 Debug）。** 所有列表仍有肉眼可见的滚动不顺畅；回滑时半透明工具栏下的卡片似乎要越过安全区才突刷。未测FPS，不将其写成已定位的掉帧原因。本批大源表probe没有真实主窗口toolbar，不覆盖这条反馈。下一步优先验证共用scroll/toolbar的可绘制区域与thumbnail demand是否被安全区错误裁剪；锚点/指针安全区与透过区像素显示不能混为同一职责。
+
 <a id="video-warm"></a>
 ## R107：无持久封面路径的视频复用已有像素
 

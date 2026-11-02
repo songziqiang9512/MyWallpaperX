@@ -79,21 +79,15 @@ import Combine
     func updateViewport(visible: [WallpaperContentItem], prefetch: [WallpaperContentItem]) {
         let visible = visible.filter { $0.publishedAvailability.isAvailable }
         let prefetch = prefetch.filter { $0.publishedAvailability.isAvailable }
-        var sources: [WallpaperReference: Source] = [:]
-        func resolved(_ reference: WallpaperReference) -> Source {
-            if let source = sources[reference] { return source }
-            let source = resolveSource(reference)
-            sources[reference] = source
-            return source
-        }
+        let wanted = Set((visible + prefetch).map(\.providerReference))
+        let sources = resolveSources(for: wanted)
         func video(_ content: WallpaperContentItem) -> VideoWallpaper? {
-            if case .video(let value) = resolved(content.providerReference) { return value }
+            if case .video(let value) = sources[content.providerReference, default: .missing] { return value }
             return nil
         }
         let visibleVideos = visible.compactMap(video)
         videoThumbnails.replacePrefetch(with: prefetch.compactMap(video), retainingVisible: visibleVideos)
         videoThumbnails.updateVisiblePreviewDemand(with: visibleVideos)
-        let wanted = Set((visible + prefetch).map(\.providerReference))
         for reference in Array(prefetches.keys) where !wanted.contains(reference) {
             prefetches.removeValue(forKey: reference)?.cancel()
         }
@@ -102,7 +96,7 @@ import Combine
         for content in prefetch + visible {
             let reference = content.providerReference
             guard seen.insert(reference).inserted else { continue }
-            let source = resolved(reference)
+            let source = sources[reference, default: .missing]
             if case .video = source { continue }
             let isNearby = nearby.contains(reference)
             guard isNearby || prefetches[reference] != nil else { continue }
@@ -220,6 +214,29 @@ import Combine
         case let card as OnlineImageGridItem: card.setThumbnailVisible(visible)
         default: break
         }
+    }
+
+    private func resolveSources(for references: Set<WallpaperReference>) -> [WallpaperReference: Source] {
+        var sources: [WallpaperReference: Source] = [:]
+        func collect<Row>(_ values: @autoclosure () -> [Row], provider: WallpaperProvider,
+                          id: (Row) -> String, source: (Row) -> Source) {
+            var pending = Set(references.filter { $0.provider == provider })
+            guard !pending.isEmpty else { return }
+            for row in values() {
+                let reference = WallpaperReference(provider: provider, sourceID: id(row))
+                guard pending.remove(reference) != nil else { continue }
+                sources[reference] = source(row)
+                if pending.isEmpty { break }
+            }
+        }
+        collect(manager.wallpapers, provider: .videoLibrary, id: { $0.id }, source: Source.video)
+        collect(images.wallpapers, provider: .staticImageLibrary, id: { $0.id }, source: Source.image)
+        collect(steam.downloads, provider: .steamWorkshop, id: { $0.id }, source: Source.steam)
+        collect(pixabay.downloadedContent.entries, provider: .pixabay, id: { String($0.id) }, source: Source.pixabay)
+        for reference in references where reference.provider == .wallhaven || reference.provider == .pixiv {
+            sources[reference] = OnlineImageLibrary.shared.record(for: reference).map(Source.onlineImage) ?? .missing
+        }
+        return sources
     }
 
     private func resolveSource(_ reference: WallpaperReference) -> Source {

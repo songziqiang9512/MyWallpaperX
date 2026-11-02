@@ -1759,7 +1759,7 @@
       "owner": "Existing source indexes, App Catalog and thumbnail providers",
       "status": "approved",
       "designDoc": "docs/development/local-library-loading-design.md",
-      "design_notes": "R62原索引无IO首发/后台原generation对账已结；R106原viewport按clip最近位移给前方2:1有界覆盖，local cap96/remote默认保持，残余帧和完整照片目标未验收。R107原Video provider以纯派生键补nil thumbnailPath暖复用，无normalize/stat、模型回填或新状态，原异步验证保；见#video-warm。先实测再裁决分级像素/组件/架构替换，不触Scene。",
+      "design_notes": "R62原索引无IO首发/后台对账；R106原viewport有界位移预取；R107 Video nil路径纯暖键复用均已结。R108在原Adapter单次viewport批量取所需来源，命中全即停、无请求数组不读，无持久索引/跨turn缓存；语义/原生准备延迟已验，非照片级。用户所有列表toolbar透过区突刷尚未实测修复，下一真实fullSize+toolbar核drawable clip与safe area职责，见#viewport-lookup。Scene不改。",
       "matchPatterns": [
         "MyWallpaperX/App/WallpaperLibraryCatalogController.swift",
         "MyWallpaperX/App/WallpaperLibraryWorkspace.swift",
@@ -1782,7 +1782,8 @@
         "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+LibraryContent.swift",
         "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopItemDetailSheet.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopWebValidationModels.swift",
-        "MyWallpaperX/Shared/UI/GridThumbnailPrefetchDemand.swift"
+        "MyWallpaperX/Shared/UI/GridThumbnailPrefetchDemand.swift",
+        "MyWallpaperX/App/WallpaperLibraryCellAdapter.swift"
       ],
       "contentPatterns": []
     }
