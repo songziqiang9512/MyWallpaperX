@@ -34,7 +34,7 @@
     },
     "docs/development/code-slimming-program.md": {
       "lines": 100,
-      "bytes": 19161
+      "bytes": 19693
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -1811,10 +1811,10 @@
     {
       "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
-      "before": "45808df11a376cfbee932ca9d6c6dc994b3fc3f9a44e97f10618f1125949e2be",
-      "after": "b23cf1dc2baea0a58a245b713c38d5d511f6ee7126c40485d09dc467719342f8",
+      "before": "b23cf1dc2baea0a58a245b713c38d5d511f6ee7126c40485d09dc467719342f8",
+      "after": "2e6a8e334cac7a3db4c37333b81bd915ff33ebe795593a56efc541411b400328",
       "owner": "repository-maintainer",
-      "reason": "Record R92 zero-consumer BrowserItem getter retirement and actual model consumer/build evidence without claiming runtime cost reduction; preserve R90 proof scope, R91 archival/current routing and all unresolved boundaries.",
+      "reason": "Record R93 read-only retention of existing single-parse and coalesced progress owners, keep actual counter/sequence/serialization responsibilities, and route the next error/state projection audit without reopening completed work or claiming new runtime validation.",
       "decision": "docs/development/code-slimming-program.md#目标与边界"
     },
     {
