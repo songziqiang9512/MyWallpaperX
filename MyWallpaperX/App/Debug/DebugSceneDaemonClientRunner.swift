@@ -576,7 +576,7 @@ enum DebugSceneDaemonClientRunner {
         }
     }
 
-    private static var debugPropertyValue: SceneUserPropertyValue? {
+    static var debugPropertyValue: SceneUserPropertyValue? {
         guard let rawValue = DebugScenePlaybackRunner.argumentValue(after: propertyValueFlag) else {
             return nil
         }

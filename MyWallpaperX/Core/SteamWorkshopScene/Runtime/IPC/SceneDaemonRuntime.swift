@@ -179,7 +179,7 @@ final class SceneDaemonRuntime {
         NSApplication.shared.setActivationPolicy(.accessory)
         host.requestResourcesReleasedHandler = { [weak self] requestID, succeeded in
             guard let self else { return }
-            if succeeded { self.emitRequestResourcesReleased(requestID) }
+            if succeeded { self.emitRequestResourcesReleased(requestID, gpuDrained: succeeded) }
             else { self.shutdown(exitCode: 70) }
         }
 #if DEBUG
@@ -320,13 +320,20 @@ final class SceneDaemonRuntime {
             if accepted {
                 lastPropertyRevision = revision
             }
-            emit([
+            var result: [String: Any] = [
                 "v": SceneDaemonProtocol.version,
                 "event": "propertyUpdateResult",
                 "revision": revision,
                 "recordID": recordID,
                 "accepted": accepted
-            ])
+            ]
+#if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--mwx-debug-scene-startup-prefix") {
+                result["debugPlaybackRequestID"] = host.debugSnapshot().requestID?.uuidString ?? ""
+                result["debugDaemonPID"] = getpid()
+            }
+#endif
+            emit(result)
         case let .setUserShortcuts(update, requestID):
             let accepted = host.applyUserShortcutUpdate(update, requestID: requestID)
             emit(["v": SceneDaemonProtocol.version, "event": "shortcutUpdateResult",
@@ -630,7 +637,7 @@ final class SceneDaemonRuntime {
                 if state.phase == .failed || state.phase == .cancelled {
                     self.host.whenRequestResourcesReleased(requestID: state.requestID) { [weak self] succeeded in
                         guard let self else { return }
-                        if succeeded { self.emitRequestResourcesReleased(state.requestID) }
+                        if succeeded { self.emitRequestResourcesReleased(state.requestID, gpuDrained: succeeded) }
                         else { self.shutdown(exitCode: 70) }
                     }
                 }
@@ -661,9 +668,16 @@ final class SceneDaemonRuntime {
         })
     }
 
-    private func emitRequestResourcesReleased(_ requestID: UUID) {
-        emit(["v": SceneDaemonProtocol.version, "event": "launchResourcesReleased",
-              "requestID": requestID.uuidString, "resourcesRetired": true])
+    private func emitRequestResourcesReleased(_ requestID: UUID, gpuDrained: Bool) {
+        var result: [String: Any] = ["v": SceneDaemonProtocol.version, "event": "launchResourcesReleased",
+                                  "requestID": requestID.uuidString, "resourcesRetired": true]
+#if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--mwx-debug-scene-startup-prefix") {
+            result["gpuDrained"] = gpuDrained
+            result["debugDaemonPID"] = getpid()
+        }
+#endif
+        emit(result)
     }
 #if DEBUG
     private func capturePresentedFrameIfRequested(reason: String) {
@@ -729,8 +743,17 @@ final class SceneDaemonRuntime {
         statsTimer?.cancel()
         statsTimer = nil
 #endif
+#if DEBUG
+        let stoppedRequestID = host.debugSnapshot().requestID
+#endif
         host.stopAndDrainGPU { [writer] drained in
             let resolvedCode: Int32 = drained ? exitCode : 70
+#if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--mwx-debug-scene-startup-prefix") {
+                NSLog("MWX SCENE STARTUP: phase=daemon-gpu-drained request=%@ pid=%d gpuDrained=%@ code=%d",
+                    stoppedRequestID?.uuidString ?? "none", getpid(), drained ? "true" : "false", resolvedCode)
+            }
+#endif
             guard let data = Self.encode([
                 "v": SceneDaemonProtocol.version,
                 "event": "exited",
@@ -798,12 +821,27 @@ final class SceneDaemonRuntime {
             ])
             return
         }
-        emit([
+        var result: [String: Any] = [
             "v": SceneDaemonProtocol.version,
             "event": "frameCaptured",
             "requestID": requestID,
             "path": url.path
-        ])
+        ]
+#if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--mwx-debug-scene-startup-prefix") {
+            let snapshot = host.debugSnapshot()
+            result["debugCapture"] = [
+                "captureID": requestID, "daemonPID": getpid(),
+                "requestID": snapshot.requestID?.uuidString ?? "",
+                "sessionID": snapshot.sessionID?.uuidString ?? "",
+                "windowNumbers": snapshot.windowNumbers, "sceneTime": snapshot.sceneTime,
+                "isPlaybackPaused": snapshot.isPlaybackPaused,
+                "isFrameDriverActive": snapshot.isFrameDriverActive,
+                "uptimeMicros": UInt64(ProcessInfo.processInfo.systemUptime * 1_000_000)
+            ] as [String: Any]
+        }
+#endif
+        emit(result)
     }
 
     private func emit(_ payload: [String: Any]) {

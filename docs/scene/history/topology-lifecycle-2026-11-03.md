@@ -85,3 +85,15 @@ held臂从paused开始，frame 0销毁，只证明dormant child模板及冻结ro
 同一新测试在旧Registry真实执行，12个clear/完成后的弱引用事实失败；实际Media Store clear反例亦失败，其他资格不变。新Registry全门与真实Store门通过，覆盖六purpose、accepted reset、discard/撤回、inflight及完成后释放。Store夹具使用原Inbox.clear入口，不把接受非空Data的publish错写为nil。真实SystemMedia IPC及共享Service另通过，但本段只关闭纹理publication退休，不冒充最后订阅退出或物理切歌验证。
 
 provenance在`.artifacts/scene-architecture-continuation-20261102/`的`system-provider-absence-*`、`system-media-clear-old-v2`及`live-media-retirement-v3-*`，旧强持和新释放均来自实际实现；不以nil查找结果、RSS下降或日志沉默代替弱引用/使用期证明。
+
+
+<a id="product-daemon-control-chain"></a>
+## 实际产品入口的daemon控制链
+
+固定2026-11-03：扩原Startup runner与既有DEBUG观察，选择实际经过requestDiagnosticPlayback→获取服务setAsWallpaper→产品通知/WallpaperManager→SceneDaemonClient→daemon/Host；不以直接Multiplexer.load代替。三处产品源改动仅承接本轮观察/既有属性入口，未增加控制owner、IPC或正常播放许可。
+
+完整产品原生门在专用Debug.Startup签名身份`03f54235fb76fab2039bbce571d5c964f9d6229cc0099813f7bc6570102e103b`通过：首呈现和parent-finalized；同request/execution/PID的typed alpha热改及像素回执；暂停两次捕获冻结、恢复推进；同入口切B、新request/execution及同daemon；A实际launchResourcesReleased；产品stop、GPU drain、shutdown completion和精确子进程退出。严格验签，私有HOME/CFFIXED、Startup token/standard defaults、Steam suite和工作坊副本隔离，生产偏好保持不变。
+
+首个brightness字段并非该solid真实消费者，原ACK=false是正确拒绝；夹具改用确有消费者的alpha，仍保0.15→0.85、原ROI/身份/退出门。startup_cross_runtime真实门及DEBUG/Release投递边界另通过。它证明这次冻结产品入口链，不等于普通UI点击、物理多屏、长期稳定或所有跨引擎组合；后续联合源码回验另登记。
+
+本机provenance在`.artifacts/scene-architecture-continuation-20261102/`的`product-daemon-*`、`phase1-particle-text-daemon-startup-*`与`particle-text-daemon-qualification-results.json`。direct-client退出的另一调试链修复独立记录，不并入此产品链结果。

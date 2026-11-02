@@ -7,28 +7,23 @@ modules; this gate verifies their Host presentation boundary with actual output.
 from pathlib import Path
 import json
 import os
+import plistlib
 import re
 import shutil
 import struct
 import subprocess
+import sys
 import tempfile
+import time
 import unittest
+import uuid
 
 from .scene_pkg_fixture import make_package
 
 
-class SceneFramePresentationIntegrationTests(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        app = os.environ.get("MWX_SCENE_INTEGRATION_APP")
-        if not app:
-            raise unittest.SkipTest("requires an explicitly staged Debug executable")
-        cls.app = Path(app).resolve(strict=True)
-        cls.probe_temp = tempfile.TemporaryDirectory(prefix="mwx-compositor-pixel-probe-")
-        probe = Path(cls.probe_temp.name)
-        source = probe / "probe.swift"
-        cls.pixel_probe = probe / "probe"
-        source.write_text(r'''
+def compile_pixel_probe(probe: Path) -> Path:
+    source, binary = probe / "probe.swift", probe / "probe"
+    source.write_text(r'''
 import Foundation
 import CoreGraphics
 import ImageIO
@@ -52,9 +47,41 @@ let green = pixels.withUnsafeMutableBytes { raw -> Int in
             : raw[$0] < 80 && raw[$0 + 1] > 160 && raw[$0 + 2] < 80
     }.count
 }
-print(Double(green) / Double(image.width * image.height))
+if CommandLine.arguments.dropFirst(2).first == "lifecycle" {
+    let scale = max(Double(image.width) / 256, Double(image.height) / 256)
+    func samples(_ rect: [Double], columns: Int, rows: Int) -> [Int] {
+        var result: [Int] = []
+        for y in 0..<rows { for x in 0..<columns {
+            let px = Int((rect[0] + (Double(x) + 0.5) / Double(columns) * (rect[2] - rect[0]) - 128) * scale + Double(image.width) / 2)
+            let py = Int((rect[1] + (Double(y) + 0.5) / Double(rows) * (rect[3] - rect[1]) - 128) * scale + Double(image.height) / 2)
+            precondition(px >= 0 && px < image.width && py >= 0 && py < image.height, "preregistered lifecycle ROI cropped")
+            let offset = (py * image.width + px) * 4
+            result += pixels[offset..<offset + 3].map(Int.init)
+        } }
+        return result
+    }
+    let property = samples([118, 150, 138, 164], columns: 16, rows: 8)
+    let mean = (0..<3).map { channel in
+        Double(stride(from: channel, to: property.count, by: 3).reduce(0) { $0 + property[$1] }) / Double(property.count / 3)
+    }
+    let value: [String: Any] = ["size": [image.width, image.height], "propertyRGB": mean,
+        "motionRGB": samples([56, 108, 200, 148], columns: 64, rows: 20)]
+    print(String(decoding: try JSONSerialization.data(withJSONObject: value), as: UTF8.self))
+} else { print(Double(green) / Double(image.width * image.height)) }
 ''')
-        subprocess.run(["xcrun", "swiftc", str(source), "-o", str(cls.pixel_probe)], check=True, capture_output=True)
+    subprocess.run(["xcrun", "swiftc", str(source), "-o", str(binary)], check=True, capture_output=True)
+    return binary
+
+
+class SceneFramePresentationIntegrationTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        app = os.environ.get("MWX_SCENE_INTEGRATION_APP")
+        if not app:
+            raise unittest.SkipTest("requires an explicitly staged Debug executable")
+        cls.app = Path(app).resolve(strict=True)
+        cls.probe_temp = tempfile.TemporaryDirectory(prefix="mwx-compositor-pixel-probe-")
+        cls.pixel_probe = compile_pixel_probe(Path(cls.probe_temp.name))
 
     @classmethod
     def tearDownClass(cls):
@@ -383,3 +410,187 @@ print(Double(green) / Double(image.width * image.height))
         self.assertEqual(log.count("phase=session-activated"), 1, log[-7000:])
         self.assertIn("phase=candidate-rejected-after-gpu", log)
         self.assertRegex(log, r"phase=scene-switch state=triggered accepted=false .*preserved=true running=true")
+
+
+class SceneProductDaemonLifecycleIntegrationTests(unittest.TestCase):
+    def test_product_daemon_lifecycle(self):
+        candidate = os.environ.get("MWX_SCENE_PRODUCT_INTEGRATION_APP")
+        if not candidate:
+            self.skipTest("requires an explicitly staged signed Debug.Startup App")
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+        from script.wallpaper_startup_benchmark import (
+            STARTUP_BUNDLE_ID, child_processes, finish_selection_process,
+            production_preferences_identity, reset_startup_defaults, tree_identity,
+        )
+        from script.web_benchmark_capture import stage_signed_app, verify_staged_app, discard_staged_app
+        from script.web_debug_defaults import make_debug_defaults_suite, delete_debug_defaults_suite, debug_defaults_suites
+        app = Path(candidate).resolve(strict=True)
+        info = plistlib.loads((app / "Contents/Info.plist").read_bytes())
+        self.assertEqual(info["CFBundleIdentifier"], STARTUP_BUNDLE_ID)
+        production_before = production_preferences_identity()
+        root = Path(tempfile.mkdtemp(prefix="mwx-product-scene-lifecycle-"))
+        cleanup = None
+        try:
+            output, home, workshop, scratch = (root / name for name in ("output", "home", "workshop", "tmp"))
+            for path in (output, home, workshop, scratch):
+                path.mkdir()
+            scenes = [workshop / "Scene" / name for name in ("99100001", "99100002")]
+            for index, scene in enumerate(scenes):
+                scene.mkdir(parents=True)
+                project = {"type": "scene", "file": "scene.json"}
+                objects = [{"id": 1, "name": "Owned property background", "image": "models/owned-solid.json",
+                            "origin": "128 128 0", "size": "256 256", "color": "1 0 0" if index == 0 else "0 0 1"}]
+                if index == 0:
+                    project["general"] = {"properties": {"gain": {"type": "slider", "value": 0.15, "min": 0, "max": 1}}}
+                    objects[0]["alpha"] = {"value": 0.15, "user": "gain"}
+                    objects.append({"id": 2, "name": "Owned moving witness", "image": "models/owned-solid.json",
+                        "size": "24 24", "color": "1 1 1", "origin": {"value": "64 128 0", "script":
+                            "export function update(value) { return new Vec3(64 + (engine.runtime * 32) % 128, 128, 0); }"}})
+                document = {"version": 3, "general": {"orthogonalprojection": {"width": 256, "height": 256},
+                    "clearcolor": "0 0 0"}, "objects": objects}
+                (scene / "project.json").write_text(json.dumps(project))
+                (scene / "scene.pkg").write_bytes(make_package([
+                    ("scene.json", json.dumps(document).encode()),
+                    ("models/owned-solid.json", json.dumps({"solidlayer": True, "width": 256, "height": 256}).encode())]))
+            inputs_before = tree_identity(workshop)
+            suite, token = make_debug_defaults_suite(), uuid.uuid4().hex
+            environment = {key: value for key, value in os.environ.items()
+                           if not key.startswith(("MWX_", "MYWALLPAPERX_"))}
+            environment.update(HOME=str(home), CFFIXED_USER_HOME=str(home), TMPDIR=str(scratch))
+            identity, cleanup, failure = None, None, None
+            final_drain_verified = False
+            observations = {}
+            try:
+                binary, identity = stage_signed_app(app / "Contents/MacOS" / info["CFBundleExecutable"], root)
+                self.assertEqual(identity["bundle_identifier"], STARTUP_BUNDLE_ID)
+                reset_startup_defaults(STARTUP_BUNDLE_ID)
+                subprocess.run(["/usr/bin/defaults", "write", STARTUP_BUNDLE_ID,
+                    "MWXStartupDefaultsToken", "-string", token], check=True, capture_output=True)
+                command = [str(binary), "--mwx-debug-suppress-main-window", "--mwx-debug-workshop-root", str(workshop),
+                    "--mwx-debug-user-defaults-suite", suite, "--mwx-debug-startup-defaults-token", token,
+                    "--mwx-debug-scene-daemon-client", "--mwx-debug-scene-product-entry", "--mwx-debug-scene-daemon-stable",
+                    "--mwx-debug-scene-root", str(scenes[0]), "--mwx-debug-scene-startup-second-root", str(scenes[1]),
+                    "--mwx-debug-scene-startup-mode", "lifecycle", "--mwx-debug-scene-startup-report", str(output / "native.json"),
+                    "--mwx-debug-scene-duration", "40", "--mwx-debug-scene-performance-fps", "30",
+                    "--mwx-debug-scene-property-key", "gain", "--mwx-debug-scene-property-type", "number",
+                    "--mwx-debug-scene-property-value", "0.85"]
+                (output / "command.json").write_text(json.dumps(command, indent=2))
+                children = {}
+                with (output / "app.log").open("w") as log:
+                    process = subprocess.Popen(command, env=environment, stdout=log,
+                                               stderr=subprocess.STDOUT, start_new_session=True)
+                    try:
+                        deadline = time.monotonic() + 100
+                        while process.poll() is None and time.monotonic() < deadline:
+                            children.update(child_processes(process.pid))
+                            time.sleep(0.1)
+                        self.assertIsNotNone(process.poll(), "product lifecycle did not exit within 100 seconds")
+                    finally:
+                        cleanup = finish_selection_process(process, children)
+                self.assertEqual(cleanup["exitCode"], 0, cleanup)
+                self.assertTrue(cleanup["ownedProcessesExited"], cleanup)
+                self.assertFalse(cleanup["remainingOwnedChildren"], cleanup)
+                log = (output / "app.log").read_text()
+                native = json.loads((output / "native.json").read_text())
+                self.assertTrue(native["passed"], native)
+                self.assertEqual(native["standardDefaultsDomain"], STARTUP_BUNDLE_ID)
+                self.assertTrue(native["standardDefaultsSentinelVerified"], native)
+                self.assertIn(suite, debug_defaults_suites(log))
+                rows = native["rows"]
+                self.assertEqual([row["recordID"] for row in rows], [scene.name for scene in scenes])
+                self.assertEqual(rows[0]["daemonPID"], rows[1]["daemonPID"])
+                self.assertIn(rows[1]["daemonPID"], children)
+                self.assertIn(str(binary), children[rows[1]["daemonPID"]])
+                for key in ("requestID", "ticketID", "executionID"):
+                    self.assertNotEqual(rows[0][key], rows[1][key])
+                self.assertRegex(log, rf"phase=daemon-gpu-drained request={rows[1]['requestID']} pid={rows[1]['daemonPID']} gpuDrained=true code=0")
+                final_drain_verified = True
+                lifecycle = native["lifecycleObservation"]
+                for key in ("systemWallpaperSyncDisabled", "pauseClockFrozen", "resumeClockAdvanced",
+                            "freshBSelectionInSameDaemon", "productStopClearedSelection",
+                            "shutdownCompletionObserved", "daemonUnregisteredAfterShutdown"):
+                    self.assertTrue(lifecycle[key], (key, lifecycle))
+                ack = lifecycle["propertyAcknowledgement"]
+                self.assertTrue(ack["matchedPendingProperty"])
+                self.assertEqual([lifecycle["propertyDispatch"][key] for key in ("requestID", "executionID", "daemonPID")],
+                                 [rows[0][key] for key in ("requestID", "executionID", "daemonPID")])
+                self.assertEqual((ack["payload"]["recordID"], ack["payload"]["revision"],
+                                  ack["payload"]["debugPlaybackRequestID"]), (scenes[0].name, 1, rows[0]["requestID"]))
+                release = lifecycle["aLaunchResourcesReleased"]
+                self.assertEqual(release["payload"]["requestID"], rows[0]["requestID"])
+                self.assertTrue(release["payload"]["gpuDrained"])
+                captures = lifecycle["captures"]
+                self.assertEqual([capture["phase"] for capture in captures],
+                    ["a-before", "a-property", "a-paused-first", "a-paused-second", "a-resumed", "b-presented"])
+                self.assertEqual(len({capture["captureID"] for capture in captures}), 6)
+                probe = compile_pixel_probe(root)
+                for capture in captures:
+                    observations[capture["phase"]] = json.loads(subprocess.check_output(
+                        [str(probe), capture["path"], "lifecycle"], text=True))
+                    row = rows[1 if capture["phase"] == "b-presented" else 0]
+                    self.assertEqual(capture["host"]["requestID"], row["requestID"])
+                    self.assertEqual(capture["host"]["daemonPID"], row["daemonPID"])
+                    self.assertEqual(capture["executionID"], row["executionID"])
+                    self.assertEqual(capture["daemonGeneration"], row["daemonGeneration"])
+                before, changed, blue = (observations[name]["propertyRGB"] for name in ("a-before", "a-property", "b-presented"))
+                self.assertGreater(changed[0] - before[0], 50, (before, changed))
+                self.assertLess(max(changed[1:]), 35, changed)
+                self.assertGreater(blue[2], 170, blue)
+                self.assertLess(max(blue[:2]), 35, blue)
+                def motion_difference(a, b):
+                    first, second = (observations[name]["motionRGB"] for name in (a, b))
+                    self.assertEqual(len(first), len(second))
+                    return sum(abs(x - y) for x, y in zip(first, second)) / len(first)
+                self.assertLess(motion_difference("a-paused-first", "a-paused-second"), 1.5)
+                self.assertGreater(motion_difference("a-paused-second", "a-resumed"), 3)
+                self.assertEqual(tree_identity(workshop), inputs_before)
+            except BaseException as error:
+                failure = error
+                raise
+            finally:
+                cleanup_errors = []
+                cleanup_complete = cleanup is None or cleanup.get("ownedProcessesExited") is True
+                if not cleanup_complete:
+                    cleanup_errors.append(("owned-processes", "private defaults and App retained until owned children exit"))
+                try:
+                    if identity:
+                        verify_staged_app(identity)
+                except BaseException as error:
+                    cleanup_errors.append(("verify-staged-app", str(error)))
+                for name, action in [
+                    ("private-suite", lambda: delete_debug_defaults_suite(suite, environment)),
+                    ("startup-domain", lambda: reset_startup_defaults(STARTUP_BUNDLE_ID)),
+                    ("staged-app", lambda: discard_staged_app(identity) if identity else None),
+                ]:
+                    if not cleanup_complete:
+                        continue
+                    try:
+                        action()
+                    except BaseException as error:
+                        cleanup_errors.append((name, str(error)))
+                try:
+                    if production_preferences_identity() != production_before:
+                        cleanup_errors.append(("production-preferences", "production preferences changed"))
+                except BaseException as error:
+                    cleanup_errors.append(("inspect-production-preferences", str(error)))
+                try:
+                    (output / "observations.json").write_text(json.dumps({"pixels": observations, "cleanup": cleanup,
+                        "appIdentity": identity, "failure": str(failure) if failure else None,
+                        "cleanupErrors": cleanup_errors, "daemonGPUDrainCallbackVerified": final_drain_verified,
+                        "passed": failure is None and not cleanup_errors and final_drain_verified}, indent=2))
+                    if destination := os.environ.get("MWX_SCENE_INTEGRATION_EVIDENCE"):
+                        saved = Path(destination) / self._testMethodName
+                        shutil.copytree(output, saved)
+                        shutil.copytree(workshop, saved / "inputs")
+                except BaseException as error:
+                    cleanup_errors.append(("retain-evidence", str(error)))
+                if cleanup_errors:
+                    if failure is not None:
+                        failure.add_note("owned lifecycle cleanup errors: " + repr(cleanup_errors))
+                    else:
+                        self.fail(repr(cleanup_errors))
+        finally:
+            if cleanup is None or cleanup.get("ownedProcessesExited") is True:
+                shutil.rmtree(root)
+            else:
+                print(f"Owned lifecycle process cleanup incomplete; retained {root}", file=sys.stderr)

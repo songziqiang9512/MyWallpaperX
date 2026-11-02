@@ -4375,7 +4375,7 @@
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ],
       "cutoffDate": "2026-11-03",
-      "uniqueValue": "Sprite/Timeline、Particle、Text及system provider活动引用退出，真实VM/MPS/Metal/Store/弱引用、冻结与在途寿命和同Session重建的固定证据。"
+      "uniqueValue": "活动组件/资源退休、冻结与在途寿命，以及真实产品App→client→daemon控制链的分族固定证据、隔离身份与首失败边界。"
     },
     {
       "path": "docs/scene/history/user-property-video-2026-10-16.md",
