@@ -4629,10 +4629,10 @@
       "lastReviewed": "2026-11-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f9ae021c381c02ebaef5e6732258b366f301cc346688827fa81737542d452145",
+        "sourceSHA256": "3c3e4631815a8130c2604f1bdd65f58c030f8ce89725c1b7307c91a0d1cc9d1a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "复核GraphExecutor完整载体的共享SUT/有状态顺序，以及文字producer在Surface已采用topology后的退休、模板/held/history持有边界。",
-        "limitations": "设计与导航复核；未把计划、静态等价或语法检查当作产品与GPU验收。"
+        "scope": "系统Audio/Media/Cursor消费者需求退出的真实owner、source alias及暂停/候选边界，设计先于实现。",
+        "limitations": "有限静态设计与导航核对；不认领实际订阅退出、全链运行或能耗收益。"
       }
     },
     {

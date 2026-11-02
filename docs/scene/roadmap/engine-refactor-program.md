@@ -227,6 +227,14 @@ Material在真实ready envelope及原证明阶段形成三组effect-local failur
 
 复用RuntimeBridge/GraphExecutor的prepared能力、stale claim、局部失败、观测关闭及正常提交/取消门，移除替代后的旧字段/API和无消费者的诊断入口。目标是缩窄数据、消除反向算法依赖，不能为一条依赖边制造额外wrapper或持久状态。
 
+### 系统输入需求的活动消费者退出
+
+采集与事件订阅由现有Audio/Media registry和Session pointer monitors唯一持有。准备阶段保留实际material/source provider需求的消费归属及shader audio事实；共享source-material按活consumer→prototype映射判断，删除prototype ID不能停掉仍活alias，隐藏/dormant/root-child仍属消费者。普通稳定帧不重扫variants或整图，不增加lease owner、第二需求状态机或每帧需求镜像。
+
+在已提交退休、真实owner永久禁用及成功恢复等活动成员变化边界，由原Session统一更新一次。Audio复用prepared事实、活动脚本/粒子需求和Sound Registry实际sources，保持active/candidate聚合；Media沿当前visible/output-active条件调用原acquire/release，继续原IPC撤订阅；Cursor依据活动binding更新原local/global monitors，状态不变直接返回，不反复拆装或重置手势。badReturn、隐藏、暂停、暂未发射和随机Sound等待均不能冒充退休。
+
+需求退出只停止未来采集/事件输入，保留prepared template、thumbnail Store及冻结Surface/GPU快照的原持有。沿真实脚本owner退休/恢复、Sound、IPC门覆盖最后消费者退出与活peer/共享alias/候选正控，再用实际App关联request观察audio/media需求撤销；monitor退出若无现成观察，只在既有窄DEBUG路径补实际安装/移除计数，不将stub、源码提取或日志沉默当作完整产品释放与能耗收益。
+
 ### Sprite与当前拓扑消费者
 
 Sprite时间由Session现有clock在当前Surface执行阶段采样，各Surface共享同一cadence结果；只收集实际消费者ID，使用本次临时集合/字典，不增加持久镜像。现texture commands在commit时接纳并标记nextFrame，不能为合并采样提前应用；采样只移到原Surface loop前，前置VM snapshot仍保独立语义。销毁commit时退休动画runtime的活动layer状态；View实例/GPU输出在Surface下一次采用该committed topology时退休，暂停重绘旧冻结帧仍有其Sprite资源，不提前破坏已采纳画面。复用原simulationFrame.topologyRevision判定采用变化，不新增revision镜像或每帧retired guard。

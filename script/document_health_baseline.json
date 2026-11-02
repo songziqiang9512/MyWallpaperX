@@ -285,8 +285,8 @@
       "bytes": 29767
     },
     "docs/scene/roadmap/engine-refactor-program.md": {
-      "lines": 337,
-      "bytes": 69144
+      "lines": 345,
+      "bytes": 70659
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 75,
@@ -2329,11 +2329,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/engine-refactor-program.md",
-      "before": "d5a48f63c90499e666097489e71419328bdb839a5798d07fca67951a1f2151f6",
-      "after": "15f5c8af596241879b555961be1510ef6b0824bbcb9471709ce5039f8e581d8f",
-      "owner": "Scene architecture / repository governance",
-      "reason": "在原设计补齐GraphExecutor完整case与真实共享对象顺序，以及文字活动producer/准备模板/Surface采用与资源持有的退休合同；不复制执行历史，不增加运行结论。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#架构级迁移合同"
+      "before": "15f5c8af596241879b555961be1510ef6b0824bbcb9471709ce5039f8e581d8f",
+      "after": "f4a216509d130798bb06f7081a20cd84115357464e8a0b53c5036a79603518ce",
+      "owner": "Scene input lifecycle / repository governance",
+      "reason": "在原设计明确活动消费者变化时统一更新已有Audio/Media/Pointer owner，保prepared归属、source alias、candidate及冻结资源，避免普通帧全图扫描。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#系统输入需求的活动消费者退出"
     },
     {
       "section": "bodies",
