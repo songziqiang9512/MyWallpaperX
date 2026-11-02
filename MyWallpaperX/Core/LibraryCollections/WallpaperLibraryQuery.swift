@@ -87,8 +87,10 @@ nonisolated enum WallpaperLibraryQuery {
             return WallpaperLibraryPageResult(items: [], unfilteredCount: 0)
         }
         let resolver = try Resolver(catalog: catalog, relationships: relationships)
+        let search = state.search.trimmingCharacters(in: .whitespacesAndNewlines)
+        let memberships = try searchMemberships(search: search, relationships: relationships, resolver: resolver)
         return try project(page: page, state: state, catalog: catalog, relationships: relationships,
-                           resolver: resolver, omitsPendingMembers: omitsPendingMembers)
+                           resolver: resolver, search: search, memberships: memberships, omitsPendingMembers: omitsPendingMembers)
     }
 
     static func project(pages: [WallpaperLibraryPage], state: WallpaperLibraryQueryState,
@@ -96,21 +98,24 @@ nonisolated enum WallpaperLibraryQuery {
         let localPages = pages.filter { $0 != .playlists && !$0.isRemoteBrowse }
         guard !localPages.isEmpty else { return [] }
         let resolver = try Resolver(catalog: catalog, relationships: relationships)
+        let search = state.search.trimmingCharacters(in: .whitespacesAndNewlines)
+        let memberships = try searchMemberships(search: search, relationships: relationships, resolver: resolver)
         return try localPages.flatMap {
-            try project(page: $0, state: state, catalog: catalog, relationships: relationships, resolver: resolver).items
+            try project(page: $0, state: state, catalog: catalog, relationships: relationships,
+                        resolver: resolver, search: search, memberships: memberships).items
         }
     }
 
     private static func project(page: WallpaperLibraryPage, state: WallpaperLibraryQueryState,
                                 catalog: WallpaperLibraryCatalog, relationships: UserCollectionsSnapshot,
-                                resolver: Resolver, omitsPendingMembers: Bool = false) throws -> WallpaperLibraryPageResult {
+                                resolver: Resolver, search: String, memberships: [WallpaperReference: [String]],
+                                omitsPendingMembers: Bool = false) throws -> WallpaperLibraryPageResult {
         func canonical(_ reference: WallpaperReference) throws -> WallpaperReference { try resolver.canonical(reference) }
         func resolve(_ reference: WallpaperReference) throws -> WallpaperContentItem { try resolver.resolve(reference) }
         func resolveMember(_ reference: WallpaperReference) throws -> WallpaperContentItem? {
             if omitsPendingMembers { return try resolver.resolveForPresentation(reference, loadedProviders: catalog.loadedProviders) }
             return try resolver.resolve(reference)
         }
-        let search = state.search.trimmingCharacters(in: .whitespacesAndNewlines)
         let sort = state.sort ?? defaultSort(page)
         let sortsItems = page != .recent && sort != .sourceOrder
         // This is a user-owned source-page exclusion, not an availability
@@ -123,15 +128,6 @@ nonisolated enum WallpaperLibraryQuery {
         func unique(_ items: [WallpaperContentItem]) -> [WallpaperContentItem] {
             var seen = Set<WallpaperReference>()
             return items.filter { seen.insert($0.reference).inserted }
-        }
-        var memberships: [WallpaperReference: [String]] = [:]
-        if !search.isEmpty {
-            let playlistNames = Dictionary(relationships.playlists.map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first })
-            for member in relationships.members {
-                if let name = playlistNames[member.playlistID] {
-                    memberships[try canonical(member.reference), default: []].append(name)
-                }
-            }
         }
         var addedAt: [WallpaperReference: Date] = [:]
         var favoritedAt: [WallpaperReference: Date] = [:]
@@ -265,6 +261,20 @@ nonisolated enum WallpaperLibraryQuery {
             }
         }
         return WallpaperLibraryPageResult(items: visible, unfilteredCount: candidates.count)
+    }
+
+    private static func searchMemberships(search: String, relationships: UserCollectionsSnapshot,
+                                          resolver: Resolver) throws -> [WallpaperReference: [String]] {
+        var memberships: [WallpaperReference: [String]] = [:]
+        if !search.isEmpty {
+            let playlistNames = Dictionary(relationships.playlists.map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first })
+            for member in relationships.members {
+                if let name = playlistNames[member.playlistID] {
+                    memberships[try resolver.canonical(member.reference), default: []].append(name)
+                }
+            }
+        }
+        return memberships
     }
 
     /// Directory order is the sidebar rank; retired saved sort values are ignored.

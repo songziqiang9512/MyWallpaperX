@@ -557,9 +557,10 @@ import Foundation
             let a = ref(.steamWorkshop, "batch-a"), b = ref(.steamWorkshop, "batch-b")
             let x = ref(.steamWorkshop, "batch-cycle-x"), y = ref(.steamWorkshop, "batch-cycle-y")
             func batchRelationships(aliases: [WallpaperReferenceAlias] = [],
-                                    locators: [WallpaperReferenceLocator] = [], favorites: [WallpaperFavorite] = []) -> UserCollectionsSnapshot {
+                                    locators: [WallpaperReferenceLocator] = [], favorites: [WallpaperFavorite] = [],
+                                    playlists: [WallpaperPlaylist] = [], members: [WallpaperPlaylistMember] = []) -> UserCollectionsSnapshot {
                 UserCollectionsSnapshot(revision: 1, resetEpoch: UUID(), migrationManifestID: nil,
-                    playlists: [], members: [], favorites: favorites, recent: [], aliases: aliases, locators: locators)
+                    playlists: playlists, members: members, favorites: favorites, recent: [], aliases: aliases, locators: locators)
             }
             let sourceCatalog = WallpaperLibraryCatalog(videos: [item(video, "Batch Video"), item(backing, "Backing")],
                 images: [item(image, "Batch Image", kind: .image)], downloads: [
@@ -624,6 +625,65 @@ import Foundation
                 checks["batch-retains-conflicting-alias-before-missing-playlist"] = false
             } catch let error as UserCollectionsError {
                 checks["batch-retains-conflicting-alias-before-missing-playlist"] = error == .corruptData("conflicting alias")
+            }
+            let named = WallpaperPlaylist(name: "Batch Café", sidebarRank: 0)
+            let duplicate = WallpaperPlaylist(id: named.id, name: "Retired Shadow", sidebarRank: 1)
+            let secondary = WallpaperPlaylist(name: "Second Name", sidebarRank: 2)
+            let namedMembers: [WallpaperPlaylistMember] = [
+                .init(playlistID: named.id, reference: video, position: 0, addedAt: .distantPast),
+                .init(playlistID: named.id, reference: image, position: 1, addedAt: .distantPast),
+                .init(playlistID: named.id, reference: backing, position: 2, addedAt: .distantPast),
+                .init(playlistID: secondary.id, reference: video, position: 0, addedAt: .distantPast),
+                .init(playlistID: named.id, reference: backing, position: 3, addedAt: .distantPast),
+                .init(playlistID: UUID(), reference: x, position: 0, addedAt: .distantPast)]
+            let searchRelations = batchRelationships(aliases: sourceRelations.aliases + cycle,
+                playlists: [named, duplicate, secondary], members: namedMembers)
+            let three: [WallpaperLibraryPage] = [.videos, .images, .downloads]
+            let searchCases: [(String, [WallpaperLibraryPage], String, [WallpaperReference], Int)] = [
+                ("three", three, "  cafe\n", [video, image, a], namedMembers.count),
+                ("repeated", [.downloads, .videos, .downloads, .images], "cafe", [a, video, a, image], namedMembers.count),
+                ("second-name", three, "Second Name", [video], namedMembers.count),
+                ("duplicate-name", three, "Retired Shadow", [], namedMembers.count),
+                ("whitespace", three, " \n\t", [video, image, b, a], 0)]
+            for (name, pages, search, expected, budget) in searchCases {
+                let state = WallpaperLibraryQueryState(search: search)
+                let single = try pages.flatMap { try WallpaperLibraryQuery.project(page: $0, state: state,
+                    catalog: sourceCatalog, relationships: searchRelations).items }
+                let before = WallpaperLibraryQuery.membershipReads
+                let batch = try WallpaperLibraryQuery.project(pages: pages, state: state, catalog: sourceCatalog,
+                    relationships: searchRelations)
+                FileHandle.standardError.write(Data("MEMBERSHIP PREPARATIONS \(name) \(WallpaperLibraryQuery.membershipReads - before) \(budget)\n".utf8))
+                checks["batch-member-search-\(name)-matches-single-pages-and-exact-order"] = batch == single && batch.map(\.reference) == expected
+            }
+            let filteredDownload = try WallpaperLibraryQuery.project(page: .downloads, state: .init(search: "cafe"),
+                catalog: sourceCatalog, relationships: searchRelations)
+            checks["single-member-search-retains-unfiltered-count-and-alias-owner"] = filteredDownload.unfilteredCount == 2
+                && filteredDownload.items.map(\.reference) == [a] && filteredDownload.items.first?.providerReference == a
+            for (name, pages) in [("empty", [WallpaperLibraryPage]()), ("remote", emptyCases[1])] {
+                let before = WallpaperLibraryQuery.membershipReads
+                let projected = try WallpaperLibraryQuery.project(pages: pages, state: .init(search: "cafe"),
+                    catalog: brokenCatalog, relationships: searchRelations)
+                checks["batch-member-search-\(name)-still-ignores-broken-unused-catalog"] = projected.isEmpty
+                FileHandle.standardError.write(Data("MEMBERSHIP PREPARATIONS \(name) \(WallpaperLibraryQuery.membershipReads - before) 0\n".utf8))
+            }
+            let cyclicMembers = namedMembers + [.init(playlistID: named.id, reference: x, position: 4, addedAt: .distantPast)]
+            let cyclicSearch = batchRelationships(aliases: searchRelations.aliases, playlists: [named], members: cyclicMembers)
+            for (search, expected) in [("cafe", UserCollectionsError.corruptData("alias cycle")), (" \n", .missingPlaylist)] {
+                do {
+                    _ = try WallpaperLibraryQuery.project(pages: [missing, .videos], state: .init(search: search),
+                        catalog: sourceCatalog, relationships: cyclicSearch)
+                    checks["batch-member-search-retains-error-order-\(expected)"] = false
+                } catch let error as UserCollectionsError {
+                    checks["batch-member-search-retains-error-order-\(expected)"] = error == expected
+                }
+            }
+            let conflictingSearch = batchRelationships(aliases: conflict.aliases, playlists: [named], members: cyclicMembers)
+            do {
+                _ = try WallpaperLibraryQuery.project(pages: [missing], state: .init(search: "cafe"),
+                    catalog: sourceCatalog, relationships: conflictingSearch)
+                checks["batch-member-search-retains-conflicting-alias-before-member-and-page-errors"] = false
+            } catch let error as UserCollectionsError {
+                checks["batch-member-search-retains-conflicting-alias-before-member-and-page-errors"] = error == .corruptData("conflicting alias")
             }
         }
         do {

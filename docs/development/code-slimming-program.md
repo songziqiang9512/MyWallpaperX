@@ -6,7 +6,7 @@
 
 开批速览（每批动手前先读这里，再核 Git 状态；按需查对应 owner 和下文，不顺读全文）：
 
-- 已裁决至R74（R61按优先级后补）。个人设置导入弹窗消失/设置变暗已由 R55（`ad1f3142d`）修复；测试 App 已交付，原配置完整导入仅待用户实测，没有新复现不重新修复、构建或复跑。
+- 已裁决至R75（R61按优先级后补）。个人设置导入弹窗消失/设置变暗已由 R55（`ad1f3142d`）修复；测试 App 已交付，原配置完整导入仅待用户实测，没有新复现不重新修复、构建或复跑。
 - 近期已完成：R54 合并成员查询复用、R57 Web 快照暂存隔离、R58 已取消元数据任务提前退出、R59 成功状态一次发布、R60 在线图片卡片一次装配。详情见下文；已完成项不作为新候选。
 - 保留/拒绝：R55 一次 Save 取消超时尚未归因；R56 绕过 TIFF 的候选因像素/尺寸差异已拒绝。较早 R23/R38/R43 的保护边界仍有效。
 - R62已交付：[本地资源先呈现与缩略图回访](local-library-loading-design.md#overview)。先解决启动短暂不可用和本地网格滚回黑卡，覆盖视频、图片及自建列表；已完成实现、最近门、Steam消费者及签名Debug；保留三项原生限制，真实用户库体感待人工验收。R61冷态导航已完成验证，见下文；不重复本专项。
@@ -23,7 +23,9 @@
 
 本轮按用户固定流程循环：并行子代理在每份审查任务中携带用户固定prompt，核无功能收益的校验/认证/重复计算/嵌套、持续转发和补丁、过量实现与耦合；主agent审核问题和方案并决定是否修改，子代理实施，主agent复核真实行为/成本证据和最近门后决定窄提交，再开启下一轮。每批报告问题、当前影响、方案、功能变化及下一候选。当前目标授权主agent作修复和本地提交裁决，不授权推送；共享构建、原生窗口和GPU仍串行，其他会话改动保留。
 
-最近产品验证：R74在组织Undo/Redo恢复校验里，原局部成员查重容器同步保存position，再按各非空组排序检查0..<count，退出每个列表对全members再次filter。产品4增4删净0，无新helper/长期状态/cache；代价为每成员临时保留一个Int，仍有原canonical SQL、组内排序和全量写入，不称整个事务线性。原ids/非负/canonical/重复引用/有限日期检查次序、expected organization/aliases/epoch、SQL插入次序与事务提交回滚保持。测试Python净+24、原夹具+57，4列表/6交错成员含空列表、7非法replacement精确错误/完整snapshot不变及重开共12新增；原断言全保。真实SQLite旧/候选58项字典等值全真、进程0，仅旧1新增成本红；一次成功restore的完整成员数组请求6→2，计数为临时完整Store透明读取，不是物理复制/IO或时耗。现有Store45项与真实SQLite CAPI full/rollback IOERR故障11项通过；签名Debug24.461秒/5866输入稳定、strict/deep通过，仅原两条C#警告。实际临时Swift输入hash留存；证明限这些数据库/事务路径，不是原生UndoManager、完整App、用户数据库或导入弹窗验收，R55/R62及原人工/原生限制不变。
+最近产品验证：R75在原Query内为single/batch两入口复用纯searchMemberships准备，normalized search和成员名称表显式传给私有页投影，同一同步batch只建一次。产品23增13删净+10，用于原页内准备无法跨页复用时的两个真实入口及最小值参数；不新建context/inout懒状态、长期cache或owner。早退仍在Resolver/准备前，空搜索不读members；原first重复playlist名、member append/alias/orphan、页顺序与重复、排序/unfilteredCount、strict/pending默认保持。原成员循环插桩口径未变；测试Python+9、夹具净+60，原断言保留，新增11业务项。真实Query旧/候选163项字典全等全真、进程0，仅旧4新增工作预算红；6成员三页18→6、重复页24→6、次名/重复列表名两项各18→6，whitespace/empty/remote仍0，原Resolver准备次数全同。签名Debug24.639秒/5866输入稳定、strict/deep通过，仅原两条C#警告；实际临时Swift输入hash留存，独立静审接受。成员准备前移至exclusion canonical之前，当前两处只会抛相同alias-cycle且无callout/IO，conflicting alias仍由原Resolver初始化先拒绝；不宣称内部求值顺序完全相同。只认实际成员循环减少，不认领键入延迟/FPS/真实大库或原生Picker验收，R62人工/原生限制不变。
+
+前批R74（b93f175f8）组织恢复的原局部查重容器保position后按组验证，产品净0、测试净+81；代价每成员临时Int，无持久状态。原校验/expected-state/alias/epoch、SQL和rollback保持。真实SQLite58项两臂等值、数组读取请求6→2，Store45与CAPI故障11项及签名Debug24.461秒过；非物理复制/IO/全事务复杂度或原生UndoManager/用户DB验收。
 
 前批R73（34854b1b3）App appendRoot已收录原始路径时提前退出，原canonical去重/别名/顺序保留，产品净0。原回收与四组真实目录业务两臂过，append计数4→1/4→3/6→4/1→1，签名Debug23.245秒通过；仅此行准备计数，不含getter/effectiveRoot，不承诺外部symlink并发观察或IO/时耗。WebKit使用原记录替身，实际用户持久store未验。
 
@@ -41,7 +43,7 @@
 
 前批裁决与待验保留：R54（65522bee6）事务内复用resolved UUID追加位置，25成员/6物理列表的MAX查询25→6仅属连接级计数。R55选择器退出后再显示反馈，原配置完整导入与未归因Save取消超时保持待验。R56拒绝绕过TIFF候选，保留原编码。R57（b761fdb80）独立暂存、原main守卫后rename至原stable，保Scene/编码/copy fallback/所有权；受控5秒utility/文件探针与122项检查、Debug通过，未证自然频率或真实Web/NSWorkspace。R58（9be599202）已取消metadata Task的AV准备1→0，保同步模板和后两异步检查，不当性能/真实UI证明。R59（87c27c3e3）成功尾部一次发布完整状态，54组4→1、216→54，其他阶段相同；保89项、新增6项typed终态/reset回调及20项视口检查通过；原73/73只属reset调用点note。内部同步中间通知明确退出，不承诺任意同步订阅者等价。较早保护边界和精确证据仍归各批记录及提交，不在这里追加过程流水账。
 
-已完成R63（9499365）方法纠偏：[产物保留规则](../../.agents/skills/mywallpaperx-maintainer/references/artifact-governance.md)是证据保留/清理的唯一说明。下一只读方向：非Scene关系Store/查询与恢复事务的重复序列化或构造，先排除R54复用、R9相等ACK和已结导入/启动项。
+已完成R63（9499365）方法纠偏：[产物保留规则](../../.agents/skills/mywallpaperx-maintainer/references/artifact-governance.md)是证据保留/清理的唯一说明。下一批：R76 Debug Probe未用三参报告重载已批准私有退役，待现役离线门/构建验证；主产品协议单次Parse/必要Clone、单次Serialize与options复用只读保留。
 
 近期只读保留项（没有实施或运行验证，不因压缩上下文重复开批）：
 
@@ -57,7 +59,7 @@
 
 现役首读只保当前范围、循环授权、最近验证、未解决项和下一候选；已结过程按周期归档，保原文、链接和调整链，不逐批追加流水账。已结 B1–B12 / 原生 UI1–UI9 仅保永久历史锚点，UI10 已批准设计仍留本页。
 
-下一产品候选尚未裁决；后续先沿真实消费链给出具体问题、方案及反例，由主agent选定，不从历史“下一步”直接实施。R23 只有在标准宿主激活与事件流取得新证据后再考虑重开。
+后继候选先沿真实消费链给出具体问题、方案及反例，由主agent裁决；私有候选不等于验证结项，不从历史“下一步”直接实施。R23 只有在标准宿主激活与事件流取得新证据后再考虑重开。
 
 R23（4ba9e1b23起）：复核原生自动sender；当前原夹具编译无诊断但native40秒超时。标准NSApp.run候选到达真实outline begin，随后local mouseUp观察不返回；单waiter提前注册begin/end、async Timer让出actor的后继版本在active/key前置失败，未进入drag，不能据此判定产品或权限根因。按收益递减停止，已将两个测试路径精确恢复HEAD，全部原业务/成本断言保持，无产品改动或新增测试框架；候选未提交，自动门仍未通过，不以R22真实桌面替代验证宣称修复。最小失败证据保护保留，后续须先证明标准宿主激活和事件流再选方法，不继续加状态、延时或权限补丁。
 

@@ -82,6 +82,15 @@ class WallpaperLibraryQueryTests(unittest.TestCase):
                 with self.subTest(scope=scope, pages=pages):
                     self.assertGreaterEqual(int(count), 0)
                     self.assertLessEqual(int(count), 0 if scope == 'query-empty' else 1)
+            memberships = [line.removeprefix('MEMBERSHIP PREPARATIONS ').split()
+                for line in run.stderr.splitlines() if line.startswith('MEMBERSHIP PREPARATIONS ')]
+            self.assertEqual({name for name, _, _ in memberships},
+                             {'three', 'repeated', 'second-name', 'duplicate-name', 'whitespace', 'empty', 'remote'})
+            print(json.dumps({'membershipPreparations': memberships}, sort_keys=True))
+            for name, count, budget in memberships:
+                with self.subTest(memberships=name):
+                    self.assertGreaterEqual(int(count), 0)
+                    self.assertLessEqual(int(count), int(budget))
             self.assertEqual(identities, {p: hashlib.sha256((ROOT / p).read_bytes()).hexdigest() for p in observed})
 
 
