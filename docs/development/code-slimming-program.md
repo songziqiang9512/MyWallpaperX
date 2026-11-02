@@ -6,7 +6,7 @@
 
 开批速览（每批动手前先读这里，再核 Git 状态；按需查对应 owner 和下文，不顺读全文）：
 
-- 已裁决至R66（R61按优先级后补）。个人设置导入弹窗消失/设置变暗已由 R55（`ad1f3142d`）修复；测试 App 已交付，原配置完整导入仅待用户实测，没有新复现不重新修复、构建或复跑。
+- 已裁决至R67（R61按优先级后补）。个人设置导入弹窗消失/设置变暗已由 R55（`ad1f3142d`）修复；测试 App 已交付，原配置完整导入仅待用户实测，没有新复现不重新修复、构建或复跑。
 - 近期已完成：R54 合并成员查询复用、R57 Web 快照暂存隔离、R58 已取消元数据任务提前退出、R59 成功状态一次发布、R60 在线图片卡片一次装配。详情见下文；已完成项不作为新候选。
 - 保留/拒绝：R55 一次 Save 取消超时尚未归因；R56 绕过 TIFF 的候选因像素/尺寸差异已拒绝。较早 R23/R38/R43 的保护边界仍有效。
 - R62已交付：[本地资源先呈现与缩略图回访](local-library-loading-design.md#overview)。先解决启动短暂不可用和本地网格滚回黑卡，覆盖视频、图片及自建列表；已完成实现、最近门、Steam消费者及签名Debug；保留三项原生限制，真实用户库体感待人工验收。R61冷态导航已完成验证，见下文；不重复本专项。
@@ -21,13 +21,19 @@
 
 本轮按用户固定流程循环：并行子代理在每份审查任务中携带用户固定prompt，核无功能收益的校验/认证/重复计算/嵌套、持续转发和补丁、过量实现与耦合；主agent审核问题和方案并决定是否修改，子代理实施，主agent复核真实行为/成本证据和最近门后决定窄提交，再开启下一轮。每批报告问题、当前影响、方案、功能变化及下一候选。当前目标授权主agent作修复和本地提交裁决，不授权推送；共享构建、原生窗口和GPU仍串行，其他会话改动保留。
 
-最近产品验证：R66在PixivClient作者首份ID快照中，直接排序唯一producer PixivAuthorProfile的JSON对象键，退出Array(Set(values))的重复哈希/数组准备。入口ASCII ID校验、原长度/字符串全序、authorSnapshot、24项切片、会话generation和响应ID匹配保持。产品1增1删、净0，无新helper/state；fixture27增0删，真实HTTP原始重复/转义同名键经JSONDecoder，29个唯一ID含前导零/超Int大ID，双向24+5分页、逆序作品回包与5请求复用均走实际Client，旧/候选完整门通过。该夹具未证明自动HTTP Set-Cookie→WebKit桥接，原限制保留，不认领真实账号/网络、排序成本或耗时收益。补原online-image-panels精确产品路径1项，预览核最近模块与unmapped退出、3项现registry方法通过；原1000行Python测试表不再追加数据。关联不代表完整组已运行。签名Debug24.878秒/5866输入稳定且strict/deep通过，仅原两条C#警告。
+最近产品验证：R67在原WebWallpaperHTMLTransformer先完成已有rel/属性/type排除，再准备同一纯normalizedGoogleFontHref及原Google/显式opt-in判断。未加验证条件、状态、缓存或helper；产品8增6删、净+2用于两段既有拒绝边界。原重写body、作者handler与rawtext保持；不是R14已结的HTTP拆头/日期工作。test31增0删，临时源码只在真实helper入口计数，所有原Swift业务断言先完成再由Python做预算。16项原始观测中旧实现仅10个排除项成本红，候选这10项由1→0，其余6项不变（缺href/rel两项仍0，Google/协议相对/opt-in/普通非Google四项仍1）。预算保正常<=1以允许后续更省；不复制算法或强迫无用计算。最近实际门两臂业务均通过，候选成本全过；仅证明这些HTML输入的helper工作退出，不认领页面延迟/CPU/FPS/真实作者库。签名Debug25.803秒/5866输入稳定且strict/deep通过，仅原两条C#警告。
 
-前批R65（eb6fb891）同份在线图片快照一次Catalog安装，净+10，118项及3邻门、签名Debug通过；半更新通知退出，合同归主界面§7.3，未测查询/FPS。R64（f6ceefb2）按消费分支准备候选字典，净+2，旧/新序列109等值、Manager128及签名Debug通过。R61（367840fc2）冷态导航退出filter中间数组，产品净0，旧/候选各128项通过（3个独立生成playlist UUID标签的限定归一化差异已记录），签名Debug通过。R62（27d836e50）实现与证据归[本地加载专项](local-library-loading-design.md#overview)，真实用户库体验和三项原生限制仍待验，测试App保留；不重开R55或重跑已验项。R60（9642abbc2）一次配置controls/visibility已验。
+前批R66（fe97b35e）作者ID直接排序已唯一JSON键，净0，真实HTTP/DTO双向分页门及Debug通过；自动Set-Cookie桥接未证。R65（eb6fb891）同份在线图片快照一次Catalog安装，净+10，118项及3邻门、签名Debug通过；半更新通知退出，合同归主界面§7.3，未测查询/FPS。R64（f6ceefb2）按消费分支准备候选字典，净+2，旧/新序列109等值、Manager128及签名Debug通过。R61（367840fc2）冷态导航退出filter中间数组，产品净0，旧/候选各128项通过（3个独立生成playlist UUID标签的限定归一化差异已记录），签名Debug通过。R62（27d836e50）实现与证据归[本地加载专项](local-library-loading-design.md#overview)，真实用户库体验和三项原生限制仍待验，测试App保留；不重开R55或重跑已验项。R60（9642abbc2）一次配置controls/visibility已验。
 
 前批裁决与待验保留：R54（65522bee6）事务内复用resolved UUID追加位置，25成员/6物理列表的MAX查询25→6仅属连接级计数。R55选择器退出后再显示反馈，原配置完整导入与未归因Save取消超时保持待验。R56拒绝绕过TIFF候选，保留原编码。R57（b761fdb80）独立暂存、原main守卫后rename至原stable，保Scene/编码/copy fallback/所有权；受控5秒utility/文件探针与122项检查、Debug通过，未证自然频率或真实Web/NSWorkspace。R58（9be599202）已取消metadata Task的AV准备1→0，保同步模板和后两异步检查，不当性能/真实UI证明。R59（87c27c3e3）成功尾部一次发布完整状态，54组4→1、216→54，其他阶段相同；保89项、新增6项typed终态/reset回调及20项视口检查通过；原73/73只属reset调用点note。内部同步中间通知明确退出，不承诺任意同步订阅者等价。较早保护边界和精确证据仍归各批记录及提交，不在这里追加过程流水账。
 
-已完成R63（9499365）方法纠偏：[产物保留规则](../../.agents/skills/mywallpaperx-maintainer/references/artifact-governance.md)是证据保留/清理的唯一说明。后续候选：Web HTML字体改写在廉价属性排除前做URL规范化，拟原位后移纯计算，尚未实施/验证；先核R14已结范围和现役反例，不扩大资源授权或生命周期改动。Video全表save的0.25s合并、单inflight/pending和rollback/退出屏障有消费者，保留；currentWallpaper旧值订阅仅可能多做单模型encode/defaults读取，已有字节去重，不称重复磁盘写；其覆盖派生路径更新和重入时机，低收益候选暂缓，不盲删/前移持久化。metadata连带预览/静帧链也有暖缓存与系统同步消费者，当前不拆，不触Scene引擎。
+已完成R63（9499365）方法纠偏：[产物保留规则](../../.agents/skills/mywallpaperx-maintainer/references/artifact-governance.md)是证据保留/清理的唯一说明。下一只读方向：非Scene下载结果到本地记录发布，先排除R24/R52。
+
+近期只读保留项（没有实施或运行验证，不因压缩上下文重复开批）：
+
+- 视频屏保：播放器/海报/租约有复用；重复resize仅宿主acquire，不为低频事务调整接口或新增电源缓存。
+- Video IPC：边界事件单次解码，光谱多屏前已一次编码；cohort/session/request与activation/generation/可见证据检查职责不同，保留。Release日志trim无频度证据，不改。
+- Video持久化：全表save的0.25s合并、单inflight/pending和rollback/退出屏障有消费者；currentWallpaper旧值订阅仅可能多做单模型encode/defaults读取，已有字节去重，不称重复磁盘写，涉及派生路径更新及重入时机，低收益候选暂缓。metadata连带预览/静帧有暖缓存和系统同步消费者，当前不拆。
 
 <a id="completed-r1-r26"></a> [归档记录](../history/cross-topic/code-slimming-r1-r26-2026-11-01.md#completed-r1-r26) <!-- archive-redirect -->
 

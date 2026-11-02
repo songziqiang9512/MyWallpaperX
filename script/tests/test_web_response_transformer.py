@@ -197,6 +197,8 @@ class WebResponseTransformerTests(unittest.TestCase):
             import Foundation
 
             var responseUTF8Decodes = 0
+            var fontURLNormalizations = 0
+            var fontURLPreparations: [String: Int] = [:]
             func observedResponseUTF8Decode(_ data: Data) -> String? {
                 responseUTF8Decodes += 1
                 return String(data: data, encoding: .utf8)
@@ -214,14 +216,18 @@ class WebResponseTransformerTests(unittest.TestCase):
             }
 
             let googleLink = #"<link rel='stylesheet' href='http://fonts.googleapis.com/css2?family=Inter'>"#
+            let beforeGoogle = fontURLNormalizations
             let transformedGoogleLink = WebWallpaperHTMLTransformer.transform(googleLink)
+            fontURLPreparations["google"] = fontURLNormalizations - beforeGoogle
             expect(transformedGoogleLink.contains("rel='preload'"), "Google Fonts link should become a preload")
             expect(transformedGoogleLink.contains("href='https://fonts.googleapis.com/css2?family=Inter'"), "Google Fonts HTTP links should upgrade to HTTPS")
             expect(transformedGoogleLink.contains("as=\"style\""), "deferred link should identify a style preload")
             expect(transformedGoogleLink.contains("data-mwx-deferred-stylesheet=\"stylesheet\""), "original rel should be retained")
 
             let protocolRelativeLink = #"<link href="//fonts.googleapis.com/css2?family=Fira+Code" rel="stylesheet">"#
+            let beforeProtocolRelative = fontURLNormalizations
             let transformedProtocolRelativeLink = WebWallpaperHTMLTransformer.transform(protocolRelativeLink)
+            fontURLPreparations["protocol-relative"] = fontURLNormalizations - beforeProtocolRelative
             expect(transformedProtocolRelativeLink.contains(#"href="https://fonts.googleapis.com/css2?family=Fira+Code""#), "protocol-relative Google Fonts links should become absolute HTTPS URLs")
             expect(transformedProtocolRelativeLink.contains(#"rel="preload""#), "href-before-rel links should still replace rel correctly")
             expect(markerCount(transformedProtocolRelativeLink) == 1, "protocol-relative Google Fonts links should transform once")
@@ -268,13 +274,20 @@ class WebResponseTransformerTests(unittest.TestCase):
                 #"<link data-rel="stylesheet" href="https://fonts.googleapis.com/a">"#,
                 #"<link rel="stylesheet" href="https://cdn.example.com/business.css">"#,
                 #"<link rel="stylesheet" href="https://fonts.googleapis.com/a" type="text/plain">"#,
+                #"<link rel="icon" href="https://fonts.googleapis.com/icon">"#,
+                #"<link rel="stylesheet preload" href="https://fonts.googleapis.com/preload">"#,
+                #"<link rel="stylesheet" href="https://fonts.googleapis.com/a" onerror="failed()">"#,
             ]
             for (index, link) in skippedLinks.enumerated() {
+                let before = fontURLNormalizations
                 expect(WebWallpaperHTMLTransformer.transform(link) == link, "skip boundary \(index) should remain byte-for-byte unchanged")
+                fontURLPreparations["skip-\(index)"] = fontURLNormalizations - before
             }
 
             let optedIn = #"<link rel="stylesheet" href="http://127.0.0.1:48765/slow.css" data-mwx-defer-stylesheet>"#
+            let beforeOptedIn = fontURLNormalizations
             let transformedOptedIn = WebWallpaperHTMLTransformer.transform(optedIn)
+            fontURLPreparations["opt-in"] = fontURLNormalizations - beforeOptedIn
             expect(markerCount(transformedOptedIn) == 1, "explicit opt-in should defer a non-Google stylesheet")
             expect(transformedOptedIn.contains(#"href="http://127.0.0.1:48765/slow.css""#), "explicit non-Google opt-in should preserve its authored URL")
 
@@ -391,6 +404,7 @@ class WebResponseTransformerTests(unittest.TestCase):
                    "space request with query must still resolve to the spaced file")
 
             print("Web response transformer tests passed")
+            print("FONT_URL_PREPARATIONS " + String(data: try JSONEncoder().encode(fontURLPreparations), encoding: .utf8)!)
             '''
         )
 
@@ -411,6 +425,14 @@ class WebResponseTransformerTests(unittest.TestCase):
             self.assertEqual(production.count(conversion), 1)
             instrumented.write_text(production.replace(conversion, "observedResponseUTF8Decode(data)"))
             sources[sources.index(transformer)] = instrumented
+            html = next(path for path in sources if path.name == "WebWallpaperHTMLTransformer.swift")
+            html_instrumented = Path(directory) / html.name
+            production = html.read_text()
+            normalization = "    private static func normalizedGoogleFontHref(_ href: String) -> String? {\n"
+            self.assertEqual(production.count(normalization), 1)
+            html_instrumented.write_text(production.replace(normalization,
+                normalization + "        fontURLNormalizations += 1\n"))
+            sources[sources.index(html)] = html_instrumented
             subprocess.run(
                 [swiftc, *(str(path) for path in sources), str(harness_path), "-o", str(binary_path)],
                 cwd=ROOT,
@@ -424,6 +446,15 @@ class WebResponseTransformerTests(unittest.TestCase):
                 text=True,
             )
             self.assertIn("tests passed", completed.stdout)
+            preparations = json.loads(next(line.removeprefix("FONT_URL_PREPARATIONS ")
+                for line in completed.stdout.splitlines() if line.startswith("FONT_URL_PREPARATIONS ")))
+            budgets = {f"skip-{index}": 0 for index in range(13)}
+            budgets.update({"google": 1, "protocol-relative": 1, "opt-in": 1, "skip-8": 1})
+            self.assertEqual(set(preparations), set(budgets))
+            for name, budget in budgets.items():
+                with self.subTest(name=name):
+                    self.assertGreaterEqual(preparations[name], 0)
+                    self.assertLessEqual(preparations[name], budget)
 
 
 if __name__ == "__main__":

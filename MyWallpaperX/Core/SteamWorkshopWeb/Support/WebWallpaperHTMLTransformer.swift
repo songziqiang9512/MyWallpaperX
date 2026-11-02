@@ -158,7 +158,6 @@ enum WebWallpaperHTMLTransformer {
 
         let relTokens = rel.split(whereSeparator: { $0.isWhitespace }).map(String.init)
         let loweredTokens = relTokens.map { $0.lowercased() }
-        let normalizedGoogleFontHref = normalizedGoogleFontHref(href)
         guard loweredTokens.contains("stylesheet"),
               !loweredTokens.contains("alternate"),
               !loweredTokens.contains("preload"),
@@ -167,15 +166,18 @@ enum WebWallpaperHTMLTransformer {
               attributes["as"] == nil,
               attributes["data-mwx-deferred-stylesheet"] == nil,
               attributes["onload"] == nil,
-              attributes["onerror"] == nil,
-              normalizedGoogleFontHref != nil || shouldDeferExplicitly(
-                  href: href,
-                  attributes: attributes
-              ) else {
+              attributes["onerror"] == nil else {
             return nil
         }
         if let type = attributes["type"]?.value,
            type.caseInsensitiveCompare("text/css") != .orderedSame {
+            return nil
+        }
+        let normalizedGoogleFontHref = normalizedGoogleFontHref(href)
+        guard normalizedGoogleFontHref != nil || shouldDeferExplicitly(
+            href: href,
+            attributes: attributes
+        ) else {
             return nil
         }
 
