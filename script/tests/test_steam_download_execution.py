@@ -38,7 +38,15 @@ class SteamDownloadExecutionTests(unittest.TestCase):
             'loadManagedDownloadSnapshots',
             'loadLegacyVideoDownloadSnapshot',
         ):
-            methods.append(extract_function(source, '    func ' + name + '('))
+            method = extract_function(source, '    func ' + name + '(')
+            if name == 'publishDownloadedVersion':
+                boundary = 'let localRecord = latestDownloadRecord(for: request.id).flatMap {'
+                if method.count(boundary) != 1:
+                    raise AssertionError('expected the one first-download date fallback preparation')
+                line = next(line for line in method.splitlines() if boundary in line)
+                observation = line[:line.index('let ')] + 'fputs("FIRST DOWNLOAD DATE FALLBACK\\n", stderr)'
+                method = method.replace(line, observation + '\n' + line, 1)
+            methods.append(method)
         methods.append(extract_function(source, '    nonisolated static func scanLoadDownloadMetadataEntry('))
         methods.append(extract_function(
             source, '    func downloadMetadataFileURL(forVideoURL videoURL:'
@@ -170,6 +178,7 @@ class SteamDownloadExecutionTests(unittest.TestCase):
                 self.assertTrue(not incoming.exists() or not any(incoming.iterdir()))
                 self.assertFalse(stage.exists())
                 self.assertEqual(json.loads((root / 'jobs.json').read_text())['jobs'], [])
+            return result
 
     def test_success_publishes_each_type_and_retires_transients(self):
         fixtures = [
@@ -188,7 +197,11 @@ class SteamDownloadExecutionTests(unittest.TestCase):
         for mode in ('preserve-managed-date', 'preserve-id-legacy-date', 'preserve-legacy-video-date',
                      'preserve-legacy-video-cold', 'preserve-local-video-date', 'preserve-local-video-symlink'):
             with self.subTest(mode=mode):
-                self.run_case(mode)
+                result = self.run_case(mode)
+                preparations = result.stderr.count('FIRST DOWNLOAD DATE FALLBACK\n')
+                print(json.dumps({'firstDateFallback': {'mode': mode, 'preparations': preparations}}, sort_keys=True))
+                budget = 1 if mode in ('preserve-local-video-date', 'preserve-local-video-symlink') else 0
+                self.assertLessEqual(preparations, budget, result.stderr)
 
     def test_staging_identity_is_persisted_before_helper_acknowledgement(self):
         self.run_case('staging-ack')

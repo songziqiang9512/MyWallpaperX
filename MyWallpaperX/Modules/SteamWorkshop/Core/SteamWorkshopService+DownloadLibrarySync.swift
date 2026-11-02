@@ -294,21 +294,26 @@ extension SteamWorkshopService {
         let commit = try SteamWorkshopLibraryTransaction.canonicalCommit(prepared)
         let content = try SteamWorkshopLibraryTransaction.contentURL(for: commit, libraryRoot: libraryRoot)
         let physicalRoot = try SteamWorkshopLibraryTransaction.configuredRoot(libraryRoot)
-        let localRecord = latestDownloadRecord(for: request.id).flatMap { record -> SteamWorkshopDownloadRecord? in
-            guard let folder = try? SteamWorkshopLibraryTransaction.configuredRoot(record.folderURL),
-                  folder.path.hasPrefix(physicalRoot.path + "/") else { return nil }
-            return record
-        }
         let previous = (try? loadManagedDownloadSnapshots(requireComplete: false,
             matchingItemID: request.id, includeLegacy: true, libraryRoot: physicalRoot))?[request.id]
             ?? Self.scanLoadDownloadMetadataEntry(forItemID: request.id,
                 metadataIndexDirectory: physicalRoot.appendingPathComponent(SteamWorkshopLibraryTransaction.metadataName))
                 .flatMap { $0.snapshot.commit == nil ? $0.snapshot : nil }
-        let localCreationDate = localRecord?.createdAt
-            ?? Self.localCreationDate(at: previous?.exportedVideoURL ?? previous?.legacyFolderURL ?? content)
-            ?? localRecord.flatMap { Self.localCreationDate(at: $0.exportedVideoURL ?? $0.sourceVideoURL ?? $0.folderURL) }
-        let firstDownloadedAt = previous?.resolvedFirstDownloadDate(fallbackCreationDate: localCreationDate)
-            ?? localCreationDate ?? commit.committedAt
+        let firstDownloadedAt: Date
+        if let date = previous?.firstDownloadedAt ?? previous?.commit?.committedAt {
+            firstDownloadedAt = date
+        } else {
+            let localRecord = latestDownloadRecord(for: request.id).flatMap { record -> SteamWorkshopDownloadRecord? in
+                guard let folder = try? SteamWorkshopLibraryTransaction.configuredRoot(record.folderURL),
+                      folder.path.hasPrefix(physicalRoot.path + "/") else { return nil }
+                return record
+            }
+            let localCreationDate = localRecord?.createdAt
+                ?? Self.localCreationDate(at: previous?.exportedVideoURL ?? previous?.legacyFolderURL ?? content)
+                ?? localRecord.flatMap { Self.localCreationDate(at: $0.exportedVideoURL ?? $0.sourceVideoURL ?? $0.folderURL) }
+            firstDownloadedAt = previous?.resolvedFirstDownloadDate(fallbackCreationDate: localCreationDate)
+                ?? localCreationDate ?? commit.committedAt
+        }
         let previousIdentity = SteamWorkshopLibraryTransaction.storageIdentity(containing: content, libraryRoot: libraryRoot)
         if let previousIdentity {
             guard !referencedLibraryStorageIdentities().contains(previousIdentity),
