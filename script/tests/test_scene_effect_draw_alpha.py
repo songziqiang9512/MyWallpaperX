@@ -150,7 +150,7 @@ private func assembly(effect: Bool,
         uniformDeclarations: declarations, effectContext: context)
     do {
         let nonHost = frontend.uniformLayout.fields.filter {
-            SceneResolvedMaterialUniformEncoder.hostUniform($0, activeTextureSlots: [], hasEffectContext: effect) == nil
+            SceneResolvedMaterialHostUniformSchema.resolve($0, activeTextureSlots: [], hasEffectContext: effect) == nil
         }
         let schema = try SceneResolvedMaterialShaderSchema.activeUniforms(nonHost, prepared: shader)
         let bindings = try SceneResolvedMaterialProgramFinalizer.prepareUniformBindings(

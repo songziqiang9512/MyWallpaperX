@@ -40,15 +40,6 @@
   "todo": [
     {
       "rule": "rendering-no-compilation-internals",
-      "consumer": "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialUniformEncoder.swift",
-      "symbol": "SceneResolvedMaterialHostUniformSchema",
-      "declaration": "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialHostUniformSchema.swift",
-      "owner": "Scene Compilation / Rendering",
-      "reason": "试点前存在的直接内部类型引用；namespace混合合同与算法亦保守保留，不将当前使用自动公开",
-      "retirement": "由现有preparation owner产出typed合同并移除本直接边，或经独立设计迁移实际职责；同批ratchet删除此todo"
-    },
-    {
-      "rule": "rendering-no-compilation-internals",
       "consumer": "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+Diagnostics.swift",
       "symbol": "SceneEffectRuntimeDispositionCatalog",
       "declaration": "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectRuntimeDispositionCatalog.swift",
@@ -175,62 +166,12 @@
     }
   ],
   "last_ratchet": {
-    "reason": "Move the existing runtime declaration, immutable identity/maps and claim owner out of the mixed Compilation constructor; Template/Variant preparation remains real and public contracts are unchanged.",
+    "reason": "Three real preparation callers use the existing HostUniformSchema directly; the Rendering hostUniform forwarding pair is retired, frame encoding unchanged.",
     "removed": [
       [
         "rendering-no-compilation-internals",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneResolvedMaterialGraphComposition.swift",
-        "SceneResolvedMaterialExecutionCapabilityCatalog"
-      ],
-      [
-        "rendering-no-compilation-internals",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+Attachment.swift",
-        "SceneResolvedMaterialExecutionCapabilityCatalog"
-      ],
-      [
-        "rendering-no-compilation-internals",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+Preparation.swift",
-        "SceneResolvedMaterialExecutionCapabilityCatalog"
-      ],
-      [
-        "rendering-no-compilation-internals",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+Validation.swift",
-        "SceneResolvedMaterialExecutionCapabilityCatalog"
-      ],
-      [
-        "rendering-no-compilation-internals",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+VisualFailurePassthrough.swift",
-        "SceneResolvedMaterialExecutionCapabilityCatalog"
-      ],
-      [
-        "rendering-no-compilation-internals",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor.swift",
-        "SceneResolvedMaterialExecutionCapabilityCatalog"
-      ],
-      [
-        "rendering-no-compilation-internals",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialRuntimeBridge.swift",
-        "SceneResolvedMaterialExecutionCapabilityCatalog"
-      ],
-      [
-        "rendering-no-compilation-internals",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator+Execution.swift",
-        "SceneResolvedMaterialExecutionCapabilityCatalog"
-      ],
-      [
-        "rendering-no-compilation-internals",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator+FrameCommit.swift",
-        "SceneResolvedMaterialExecutionCapabilityCatalog"
-      ],
-      [
-        "rendering-no-compilation-internals",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator.swift",
-        "SceneResolvedMaterialExecutionCapabilityCatalog"
-      ],
-      [
-        "rendering-no-compilation-internals",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTexturePool.swift",
-        "SceneResolvedMaterialExecutionCapabilityCatalog"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialUniformEncoder.swift",
+        "SceneResolvedMaterialHostUniformSchema"
       ]
     ]
   }

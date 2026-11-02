@@ -106,7 +106,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             )
         }
         let nonHost = frontend.uniformLayout.fields.filter {
-            SceneResolvedMaterialUniformEncoder.hostUniform(
+            SceneResolvedMaterialHostUniformSchema.resolve(
                 $0,
                 activeTextureSlots: activeSlots,
                 hasEffectContext: template.effectContext != nil

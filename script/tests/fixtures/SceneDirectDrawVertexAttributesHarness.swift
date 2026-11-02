@@ -70,7 +70,7 @@ private func inputs(
 private func host(_ name: String, type: SceneAuthoredShaderValueType,
                   inputs: SceneAuthoredShaderUniformInputs) -> Data? {
     let field = SceneAuthoredShaderUniformLayout.Field(name: name, type: type, offset: 0)
-    guard let source = SceneResolvedMaterialUniformEncoder.hostUniform(
+    guard let source = SceneResolvedMaterialHostUniformSchema.resolve(
         field, activeTextureSlots: [], hasEffectContext: false) else { return nil }
     return SceneResolvedMaterialUniformEncoder.encodeHost(
         source, type: type, inputs: inputs, slots: Array(repeating: nil, count: 8))
@@ -195,7 +195,7 @@ private func uniformData(_ program: SceneAuthoredShaderProgram,
                          inputs: SceneAuthoredShaderUniformInputs) throws -> Data {
     var data = Data(count: max(16, program.uniformLayout.byteSize))
     for field in program.uniformLayout.fields {
-        guard let source = SceneResolvedMaterialUniformEncoder.hostUniform(
+        guard let source = SceneResolvedMaterialHostUniformSchema.resolve(
             field, activeTextureSlots: [], hasEffectContext: false),
               let value = SceneResolvedMaterialUniformEncoder.encodeHost(
             source, type: field.type, inputs: inputs, slots: Array(repeating: nil, count: 8)),

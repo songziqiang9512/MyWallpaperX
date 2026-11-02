@@ -70,7 +70,10 @@ private func rulerAssembly(_ fixture: CoordinateFixture, parameter: String,
             encoded = SceneResolvedMaterialUniformEncoder.encodeComponents(value, as: field.type)
             guard let encoded else { return nil }
             source = .staticValue(encoded)
-        } else if let host = SceneResolvedMaterialUniformEncoder.hostUniform(field, slots: slots) {
+        } else if let host = SceneResolvedMaterialHostUniformSchema.resolve(field,
+            activeTextureSlots: Set(slots.enumerated().compactMap {
+                $0.element == nil ? nil : $0.offset
+            })) {
             encoded = SceneResolvedMaterialUniformEncoder.encodeHost(host, type: field.type,
                 inputs: inputs(generation: generation), slots: slots)
             source = .host(host)

@@ -214,7 +214,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             )
             return profiles.contains(variant.routeDecision.profile)
                 && variant.frontendProgram.uniformLayout.fields.contains {
-                SceneResolvedMaterialUniformEncoder.hostUniform(
+                SceneResolvedMaterialHostUniformSchema.resolve(
                     $0,
                     activeTextureSlots: activeSlots
                 ) == .pointerPosition

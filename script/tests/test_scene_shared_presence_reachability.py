@@ -136,7 +136,7 @@ private func render(_ program: SceneAuthoredShaderProgram) throws -> [[Int]]? {
     let activeSlots = Set(program.textureBindings.map(\.slot))
     var uniformBytes = Data(count: max(16, program.uniformLayout.byteSize))
     for field in program.uniformLayout.fields {
-        guard let host = SceneResolvedMaterialUniformEncoder.hostUniform(field,
+        guard let host = SceneResolvedMaterialHostUniformSchema.resolve(field,
             activeTextureSlots: activeSlots),
               let encoded = SceneResolvedMaterialUniformEncoder.encodeHost(host,
                 type: field.type, inputs: inputs, slots: []),

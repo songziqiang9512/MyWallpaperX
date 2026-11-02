@@ -292,7 +292,10 @@ private func assembly(
     var resolved: [Program.ResolvedUniform] = []
     var bindings: [SceneResolvedMaterialPreparedUniformBinding] = []
     for field in frontend.uniformLayout.fields {
-        guard let host = SceneResolvedMaterialUniformEncoder.hostUniform(field, slots: slots) else {
+        guard let host = SceneResolvedMaterialHostUniformSchema.resolve(field,
+            activeTextureSlots: Set(slots.enumerated().compactMap {
+                $0.element == nil ? nil : $0.offset
+            })) else {
             failure?("host-schema-missing", field.authoredName)
             return nil
         }

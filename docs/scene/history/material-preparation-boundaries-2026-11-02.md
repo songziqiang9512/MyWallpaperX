@@ -142,3 +142,11 @@ Warmup及binary archive直接消费PreparedAssembly既有shader/render-state ide
 真实RuntimeCatalog构造接Host原取消检查，在批开始、entry/resolve/material/demand/source边界响应；已进入工作沿原flight完成/加入，未进入项停止，不杀共享flight、不返回半Catalog或新增取消状态机。Template、GraphAdmission及真实SourcePreparationCancellation门通过：plain六个成功template与noop保持，batch/resolve/queued取消不准未入工作；阻挡已进入worker时取消等待其结束，恢复构造不被污染；缺左contract仅401三个shaderIdentityMismatch，402三个template与plain一致。
 
 保原两次资格失败：driver最初effect路径不符真实资源分类，改为effects/{name}/effect.json；material缺四个必需state导致六项可全为failure，补合法state并增强正控与健康peer精确断言。没有放宽产品admission、默认state或取消期待。联合Debug已编译本链，原始失败及冻输入归`.artifacts/scene-architecture-continuation-20261102/`的`catalog-preparation-*`、`catalog-healthy-fixture-*`与`catalog-cancel-v4`；本段不冒充真实用户取消延迟、启动或能耗收益。
+
+
+<a id="direct-host-schema-preparation"></a>
+## Host uniform分类直接归准备Schema
+
+固定2026-11-03：三个实际准备caller（Finalizer、Variant finalization和ColorBlend）直接调用既有HostUniformSchema.resolve；UniformEncoder两个hostUniform转发退役，帧继续编码prepared host/current值。4产品路径净减28行，无新owner、字段、source set或兼容API；测试旧slots入口转换为同一真实Schema输入，不复制分类逻辑。
+
+PreparedUniformQuery、MaterialTextureTransform、EffectDrawAlpha、SharedPresence、PreviousCompositeScale、DirectDrawVertexAttributes及ProgramFinalizer当前真实门全部通过，保错误类型/array/缺active sampler/slot 8、source/effect归属、bytes与实际GPU邻例。旧Rendering→Schema内部边退出，阶段基线15→14；声明与帧编码的合法关系保持，不把去转发或构建成功计作FPS/能耗改善。provenance见`.artifacts/scene-architecture-continuation-20261102/`的`uniform-schema-*`及`final-neighbor-*`。

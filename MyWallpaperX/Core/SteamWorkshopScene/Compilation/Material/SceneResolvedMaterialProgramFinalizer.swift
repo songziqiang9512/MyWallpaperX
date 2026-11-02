@@ -201,7 +201,7 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
             let declarations = template.uniformDeclarations.filter {
                 keys.contains($0.name)
             }
-            if let host = SceneResolvedMaterialUniformEncoder.hostUniform(
+            if let host = SceneResolvedMaterialHostUniformSchema.resolve(
                 field,
                 activeTextureSlots: activeTextureSlots,
                 hasEffectContext: template.effectContext != nil

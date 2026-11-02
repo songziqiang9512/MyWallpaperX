@@ -208,7 +208,7 @@ func preparedTextureCompanionCases() -> [String: String] {
             let active = Set(frontend.textureBindings.map(\.slot))
             let fields = frontend.uniformLayout.fields
             do {
-                let nonHost = fields.filter { SceneResolvedMaterialUniformEncoder.hostUniform($0, activeTextureSlots: active) == nil }
+                let nonHost = fields.filter { SceneResolvedMaterialHostUniformSchema.resolve($0, activeTextureSlots: active) == nil }
                 let schema = try SceneResolvedMaterialShaderSchema.activeUniforms(nonHost, prepared: prepared)
                 _ = try SceneResolvedMaterialProgramFinalizer.prepareUniformBindings(
                     template: template(shader, uniformDeclarations: [staticDeclaration(uniform, components: Array(repeating: 0, count: lanes))]),
