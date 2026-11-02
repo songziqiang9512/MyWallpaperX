@@ -8,6 +8,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-11-03 | SceneScript storage | 准备与帧事务交接 | [同Session先准备](storage-preparation-2026-11-03.md#storage-before-frame) | 实例需求、真实首init不重读、前任merge及固定点反例；原失败保留 | [重构合同](../roadmap/engine-refactor-program.md)、[现役证据](../capabilities/runtime-evidence-current.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-11-03 | Shader结果与可选cache | 准备职责与真实故障恢复 | [直接结果/可选发布](shader-result-cache-boundary-2026-11-03.md#optional-cache-adoption) | 文件根白图前后、2MiB/工具边界、独立目录创建、真实GPU与原包；保载体首失败 | [启动合同](../architecture/scene-launch-responsiveness-contract.md)、[现役证据](../capabilities/runtime-evidence-current.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-11-03 | 当前拓扑与活动状态 | 分族职责与有界验收 | [Sprite/Timeline退休](topology-lifecycle-2026-11-03.md#sprite-timeline-retirement) | 单clock采样、运行轨道/实例退出、真实MPS、冻结UV与同Session重建；保首失败 | [重构合同](../roadmap/engine-refactor-program.md)、[现役证据](../capabilities/runtime-evidence-current.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-11-02 | 材质准备边界 | 分阶段职责与有界验收 | [格式、槽位与帧uniform](material-preparation-boundaries-2026-11-02.md) | 原准备事实复用、唯一静态装配、真实GPU/签名App、暖复用及载体首失败；不关闭整个架构 | [重构合同](../roadmap/engine-refactor-program.md)、[现役证据](../capabilities/runtime-evidence-current.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |

@@ -766,10 +766,10 @@
       "lastReviewed": "2026-11-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b87d2fceed97d745be8dbd92f9dbed08c9a8bcbf960d682ae4fedf022116c546",
+        "sourceSHA256": "2033a175c254b87689bea2e0997a411f0de08878ede0a4f29d3faaa607e75c97",
         "method": "document_registry --audit + document_health --check",
-        "scope": "shader可选cache实际职责/故障恢复及有界GPU/App结果；并复核资源leaf、静态能力阶段、当前camera及Particle/Text/系统订阅退出的后续设计和队列。",
-        "limitations": "本批ShaderApp同时包含独立storage改变；当前结果不外推全Scene、性能、完整语料、物理多屏、官方parity或Release。其它后续设计未因本次通过关闭。"
+        "scope": "storage实际prepare/当前帧职责及真实Candidate/事务/VM门结果，队列只退出该职责。",
+        "limitations": "联合签名App与有界输入不证明用户持久数据全程、性能、完整Scene、多屏、长期运行或官方parity；其他架构债继续开放。"
       },
       "purpose": "实际接线或已记录运行证据；不反向定义目标架构，不决定实施顺序。"
     },
@@ -1056,10 +1056,10 @@
       "lastReviewed": "2026-11-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9c1169b4f153201ce49362f3f85c5aeb836dcda112fad834b4f2aa270983e2cf",
+        "sourceSHA256": "628ac925d2a32e0838a35b70d07ef5aec2948412dc292cfcd94f870d82143ab4",
         "method": "document_registry --audit + document_health --check",
-        "scope": "shader可选cache实际职责/故障恢复及有界GPU/App结果；并复核资源leaf、静态能力阶段、当前camera及Particle/Text/系统订阅退出的后续设计和队列。",
-        "limitations": "本批ShaderApp同时包含独立storage改变；当前结果不外推全Scene、性能、完整语料、物理多屏、官方parity或Release。其它后续设计未因本次通过关闭。"
+        "scope": "storage实际prepare/当前帧职责及真实Candidate/事务/VM门结果，队列只退出该职责。",
+        "limitations": "联合签名App与有界输入不证明用户持久数据全程、性能、完整Scene、多屏、长期运行或官方parity；其他架构债继续开放。"
       },
       "purpose": "实际接线或已记录运行证据；不反向定义目标架构，不决定实施顺序。"
     },
@@ -1364,10 +1364,10 @@
       "lastReviewed": "2026-11-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "46c6a400f1a9fc924ff7201cd829c1582f543814ea3b186fd2fbd5dd01877a70",
+        "sourceSHA256": "aeec9fa162c2222a030397781aaa76b21cd93a325ae1deee0a7f28d17bfd1cb6",
         "method": "document_registry --audit + document_health --check",
-        "scope": "shader可选cache实际职责/故障恢复及有界GPU/App结果；并复核资源leaf、静态能力阶段、当前camera及Particle/Text/系统订阅退出的后续设计和队列。",
-        "limitations": "本批ShaderApp同时包含独立storage改变；当前结果不外推全Scene、性能、完整语料、物理多屏、官方parity或Release。其它后续设计未因本次通过关闭。"
+        "scope": "storage实际prepare/当前帧职责及真实Candidate/事务/VM门结果，队列只退出该职责。",
+        "limitations": "联合签名App与有界输入不证明用户持久数据全程、性能、完整Scene、多屏、长期运行或官方parity；其他架构债继续开放。"
       }
     },
     {
@@ -4200,6 +4200,19 @@
       "cutoffDate": "2026-10-15"
     },
     {
+      "path": "docs/scene/history/storage-preparation-2026-11-03.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/engine-refactor-program.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-11-03",
+      "uniqueValue": "localStorage同一Session在真实实例构造后prepare，帧无文件重读、activation merge及原固定点反例；不认领产品全程或性能。"
+    },
+    {
       "path": "docs/scene/history/surface-zero-roughness-2026-10-19.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -4672,10 +4685,10 @@
       "lastReviewed": "2026-11-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "50a9734b4ca1bcecf105338b326a4af2de838849bc6cb7d1d9eb2cc05d8d0e24",
+        "sourceSHA256": "8e18861b19a44f6e7b8de684ca7b9bf6a362b3cd8ffef985514c76f2591cf3dd",
         "method": "document_registry --audit + document_health --check",
-        "scope": "shader可选cache实际职责/故障恢复及有界GPU/App结果；并复核资源leaf、静态能力阶段、当前camera及Particle/Text/系统订阅退出的后续设计和队列。",
-        "limitations": "本批ShaderApp同时包含独立storage改变；当前结果不外推全Scene、性能、完整语料、物理多屏、官方parity或Release。其它后续设计未因本次通过关闭。"
+        "scope": "storage实际prepare/当前帧职责及真实Candidate/事务/VM门结果，队列只退出该职责。",
+        "limitations": "联合签名App与有界输入不证明用户持久数据全程、性能、完整Scene、多屏、长期运行或官方parity；其他架构债继续开放。"
       }
     },
     {

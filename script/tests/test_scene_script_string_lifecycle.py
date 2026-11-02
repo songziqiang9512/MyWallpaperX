@@ -217,6 +217,7 @@ enum Harness {
             recordID: "storage-fixture",
             rootDirectory: storageRoot
         )
+        storage.prepare()
         try storage.apply([.init(
             kind: .set,
             globalScope: true,
@@ -229,6 +230,7 @@ enum Harness {
             recordID: "storage-fixture",
             rootDirectory: storageRoot
         )
+        reloaded.prepare()
         let persistedValue: String
         switch reloaded.read(
             screenIdentity: nil,
@@ -250,6 +252,7 @@ enum Harness {
             recordID: "storage-fixture",
             rootDirectory: storageRoot
         )
+        futureSession.prepare()
         let futureReadRejected: Bool
         if case .failure = futureSession.read(
             screenIdentity: nil,

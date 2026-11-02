@@ -89,8 +89,8 @@
       "bytes": 24119
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
-      "lines": 168,
-      "bytes": 22387
+      "lines": 169,
+      "bytes": 22650
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 31,
@@ -169,8 +169,8 @@
       "bytes": 349285
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 99,
-      "bytes": 9666
+      "lines": 101,
+      "bytes": 9913
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 594,
@@ -301,8 +301,8 @@
       "bytes": 22465
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 213,
-      "bytes": 53393
+      "lines": 212,
+      "bytes": 53007
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -2302,11 +2302,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-as-built-map.md",
-      "before": "d13e7f7ed4091fc7a18d69ec38b3b9f4d7cf2839e91b018ee76abe4d635787ba",
-      "after": "218924524250e6aeab377312d97fd9d53898cadfae44d8307273b5ecae122b74",
-      "owner": "Scene preparation and resource lifecycle / repository governance",
-      "reason": "原权威关闭已复现并恢复的可选cache播放阻断；反复核对记录后续真实资源叶依赖、静态阶段及活动consumer退休债，详细固定故障/身份归历史，不新增性能/完整兼容结论。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#架构级迁移合同"
+      "before": "218924524250e6aeab377312d97fd9d53898cadfae44d8307273b5ecae122b74",
+      "after": "d015d63f78fef0bdda85d676b616e02cc9012c41aabf5e5e2f145397ad873557",
+      "owner": "SceneScript storage / repository governance",
+      "reason": "原地图/证据/队列收敛同Session准备输入与帧事务的已验证职责，详细首失败与运行身份归独立历史。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#localstorage的准备输入与帧事务"
     },
     {
       "section": "bodies",
@@ -2320,11 +2320,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "904768a7bfaa0ef7d1f9f36e4008ba5d10a255e971718e51336d713b8aa94a40",
-      "after": "fe2d6d99e7902d5e4254a36458b9f6b156edaae749c54cb34b5eee6f3d195c9a",
-      "owner": "Scene preparation and resource lifecycle / repository governance",
-      "reason": "原权威关闭已复现并恢复的可选cache播放阻断；反复核对记录后续真实资源叶依赖、静态阶段及活动consumer退休债，详细固定故障/身份归历史，不新增性能/完整兼容结论。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#架构级迁移合同"
+      "before": "fe2d6d99e7902d5e4254a36458b9f6b156edaae749c54cb34b5eee6f3d195c9a",
+      "after": "9800549df73f389b8dc34a0ddef42ecf823679cacf39868e5d063f650c790926",
+      "owner": "SceneScript storage / repository governance",
+      "reason": "原地图/证据/队列收敛同Session准备输入与帧事务的已验证职责，详细首失败与运行身份归独立历史。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#localstorage的准备输入与帧事务"
     },
     {
       "section": "bodies",

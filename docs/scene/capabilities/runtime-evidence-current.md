@@ -30,6 +30,8 @@
 
 [直接shader结果/可选cache](../history/shader-result-cache-boundary-2026-11-03.md#optional-cache-adoption)复现旧App文件根白图，并由新App正常/文件根/只读根的固定像素门关闭该依赖；真实cache/GPU及原包边界分别保留，不外推整体性能。
 
+[localStorage准备](../history/storage-preparation-2026-11-03.md#storage-before-frame)已用真实Candidate/同Session磁盘变更、19事务反例及相邻VM门确认帧不重新打开文件；保前任merge，不认领启动或能耗收益。
+
 <a id="evidence-lifecycle"></a>
 ### 准备与生命周期
 

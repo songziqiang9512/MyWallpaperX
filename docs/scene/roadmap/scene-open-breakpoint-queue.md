@@ -196,14 +196,13 @@
 | authored文字活动producer退休 | [Text Store](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneDynamicTextTextureStore.swift)仅淘汰dynamic ID，已删除authored text可因保留的launch property输入继续schedule/raster并保publication。prepared clone模板不能删，活动job仅按实际消费者保留 | 真实删除后热改caption；无活/clone/named/particle消费者时无新raster/发布，活peer与仍有消费者场景保留，冻结Surface和在途GPU快照沿原寿命 |
 | 退休后系统Audio/Media/Cursor订阅 | [AudioDemand](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+AudioDemand.swift)只rebuild重算，退休owner后Host读旧缓存；media registrations已无需要时原请求lease仍到整Session停止才退，Cursor最后owner已清而PointerEvents monitors仍保留 | 既有commit/owner退休边界沿原方法重算/释放；证明最后真实consumer退出、活peer/hidden/dormant/实际graph消费者不误停，不加逐帧扫描/第二订阅owner，不预报能耗收益 |
 | 相机当前拓扑 | worldFrames已取当前projection，native camera候选/顺序仍来自base descriptor；删最后camera可能阻断仍活camera。先two-camera删除/排序门资格，再让原selector取同一当前投影的最小数据 | native-camera正反门及实际结果，保无camera默认和健康peer；不扩大成完整相机兼容修复 |
-| localStorage首读落帧线程 | Host准备只构造unloaded Session；FrameDriver.beginFrameTransaction可触发首次文件读取/JSON解码。按[设计](engine-refactor-program.md#localstorage的准备输入与帧事务)原后台准备一次有界内存，帧只事务消费，保前任激活merge和后台合并写出 | storage transaction/String lifecycle真实门，首次cadence无读取/解码、坏/未来envelope局部、候选与前任最新写入不丢失、取消/隔离 |
 | 其余组件与产品链终审 | camera/light/Sprite/video/sound/history及资源逐族核准备→实例→帧→GPU→退出；direct-host不能代替产品App→client→daemon。沿[现有Startup设计](engine-refactor-program.md#普通产品daemon的完整控制链验收)贯通选择、热改、暂停恢复、切换/停止 | 真实首呈现/parent-finalized、同request热改、冻结/恢复ROI、B选择和A资源释放、实际GPU drain及子进程退出；保私有标准偏好，不把直接Mux load算产品入口，硬件/全语料范围如实声明 |
 | `SceneRenderDescriptor.Layer` 的作者、准备与实例数据 | 自然尺寸回填保准备计划；未变拓扑revision复用投影，schema索引仅随definition revision重建。作者字符串/默认值与typed当前值有不同消费者，未发现需要继续同步的重复活动树；本轮审查关闭 | 新的真实消费者或重复计算证据才重开，不按字段外观搬家或新建ECS |
 | `LaunchContext` 与 `prepareLaunch` 的交接 | PreparedLaunch是短期交接，Session接管同一Context；用户纹理已撤镜像，文字/封面各一份生产，CPU实例与GPU存储职责已分清；未发现第二活动owner，本轮审查关闭 | 新的取消、串台、退出或重复准备反例才重开，不另造Session或完整场景快照 |
 
 上述集合不代替全Scene审查。逐族核对Format、Compilation、Resources、Systems、Rendering、Runtime的真实依赖；依赖发布消费原graph输出，FrameDriver前置/最终snapshot仍有不同阶段消费者。新确认的职责问题进入本节，未测不捏造问题；独立点击/过渡资格、既有VM/资源失败及性能专项不因结构修改自动关闭。
 
-已闭的格式/槽位交接见[M1](../history/material-preparation-boundaries-2026-11-02.md#m1-format-slot-handoff)，帧template与静态uniform计划见[M2](../history/material-preparation-boundaries-2026-11-02.md#m2-prepared-uniform-frame)；原载体失败保留，另见[Sprite/Timeline退休后验](../history/topology-lifecycle-2026-11-03.md#sprite-timeline-retirement)。[可选cache阻断](../history/shader-result-cache-boundary-2026-11-03.md#optional-cache-adoption)已独立关闭。其通过不关闭本节剩余职责。
+已闭的格式/槽位交接见[M1](../history/material-preparation-boundaries-2026-11-02.md#m1-format-slot-handoff)，帧template与静态uniform计划见[M2](../history/material-preparation-boundaries-2026-11-02.md#m2-prepared-uniform-frame)；原载体失败保留，另见[Sprite/Timeline退休后验](../history/topology-lifecycle-2026-11-03.md#sprite-timeline-retirement)。[可选cache阻断](../history/shader-result-cache-boundary-2026-11-03.md#optional-cache-adoption)已独立关闭。[storage帧首读](../history/storage-preparation-2026-11-03.md#storage-before-frame)已独立关闭。其通过不关闭本节剩余职责。
 
 ## 6. 进入与退出
 

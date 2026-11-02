@@ -13,7 +13,10 @@ import CryptoKit
     static let frame = SceneScriptFrameInput(timing: .init(wallDate: Date(timeIntervalSince1970:0), simulationFrameTime: 0.016, sceneTime: 1))
     static func target(_ id: Int) -> SceneDynamicTarget { .layer(layerID: id, field: .origin) }
     static func session(_ name: String) -> SceneScriptLocalStorageSession {
-        .init(recordID: name, rootDirectory: URL(fileURLWithPath: CommandLine.arguments[1]))
+        let storage = SceneScriptLocalStorageSession(recordID: name,
+            rootDirectory: URL(fileURLWithPath: CommandLine.arguments[1]))
+        storage.prepare()
+        return storage
     }
     static func mutation(_ kind: SceneScriptStorageMutation.Kind, _ key: String? = nil,
                          _ json: String? = nil, screen: String? = nil) -> SceneScriptStorageMutation {
@@ -44,16 +47,98 @@ import CryptoKit
     static func ids(_ rejected: Set<SceneDynamicTarget>) -> [Int] {
         (1...8).filter { rejected.contains(target($0)) }
     }
+    static func persistedURL(_ recordID: String, root: URL) -> URL {
+        let digest = SHA256.hash(data: Data(recordID.utf8)).map { String(format: "%02x", $0) }.joined()
+        return root.appendingPathComponent("\(digest).json")
+    }
+    static func programs(_ storage: SceneScriptLocalStorageSession, source: String? = nil)
+        throws -> SceneScriptQuickJSProgramCandidate {
+        let descriptor = SceneRenderDescriptor(layers: [.init(id: 1, layerIndex: 0,
+            name: "storage-owner", visible: true, originXYZ: [0,0,0], scaleXYZ: [1,1,1],
+            scaleHasScript: nil, alpha: 1, effects: [])])
+        let bindings: [SceneScriptBindingIR]
+        if let source {
+            bindings = [.init(source: source,
+                owner: .init(kind: .object, objectIndex: 0, objectID: 1,
+                    effectIndex: nil, effectID: nil, passIndex: nil, passID: nil),
+                targetPath: [.key("objects"), .index(0), .key("origin")], properties: [:],
+                authoredValue: .string("0 0 0"), valueType: .string, wrapperKeys: ["script", "value"])]
+        } else { bindings = [] }
+        return try SceneScriptQuickJSProgramCandidate.compile(
+            authoredDescriptor: descriptor, runtimeDescriptor: descriptor, scriptBindings: bindings,
+            vectorProjection: SceneScriptVectorProgram.project(descriptor: descriptor, scriptBindings: bindings),
+            userPropertyDefinitions: [], timelineTargets: [], scalarExcludedTargets: [], stringExcludedTargets: [],
+            admittedVectorPassTargets: [], generation: 1, storageSession: storage)
+    }
     static func main() throws {
         var out: [String:Any] = [:]
+        let preparationRoot = URL(fileURLWithPath: CommandLine.arguments[1]).appendingPathComponent("preparation")
+        try FileManager.default.createDirectory(at: preparationRoot, withIntermediateDirectories: true)
+        let future = Data(#"{"version":2,"global":{"seed":"99"},"screens":{}}"#.utf8)
+        let firstURL = persistedURL("first-cadence", root: preparationRoot)
+        try Data(#"{"version":1,"global":{"seed":"27"},"screens":{}}"#.utf8).write(to: firstURL)
+        let first = SceneScriptLocalStorageSession(recordID: "first-cadence", rootDirectory: preparationRoot,
+            defersPersistence: true)
+        let firstPrograms = try programs(first, source: """
+            let topLevelRejected = false;
+            try { localStorage.get('seed','global'); } catch(e) { topLevelRejected = true; }
+            export function init(v) {
+                const seed = localStorage.get('seed','global');
+                localStorage.set('fromInit',seed+1,'global');
+                return new Vec3(seed,topLevelRejected?1:0,0);
+            }
+            export function update(v) { return v; }
+            """)
+        out["candidateUsesSamePreparedSession"] = firstPrograms.domain?.storageSession === first
+            && firstPrograms.constructionReport.instantiatedVectorTargets == [target(1)]
+        try future.write(to: firstURL, options: .atomic)
+        first.prepare()
+        out["firstCadenceBeginsFromPreparedMemory"] = first.beginFrameTransaction()
+        let firstResult = firstPrograms.vectorProgram.evaluate(inputs: [target(1): .vector3(0,0,0)],
+            effectivePropertyValues: [:], frame: frame)
+        out["firstInitReadsPreparedValueAndTopLevelRemainsUnavailable"] = firstResult.failures.isEmpty
+            && firstResult.values[target(1)] == .vector3(27,1,0)
+        firstPrograms.vectorProgram.finalizeLayerMutations(committing: true)
+        first.commitFrameTransaction()
+        out["firstInitMutationStaysInSameSession"] = try value(first,"fromInit")
+        out["preparedCandidateDoesNotReplaceChangedDisk"] = try Data(contentsOf: firstURL) == future
+        let zeroURL = persistedURL("zero-owner", root: preparationRoot)
+        try future.write(to: zeroURL)
+        let zero = SceneScriptLocalStorageSession(recordID: "zero-owner", rootDirectory: preparationRoot,
+            defersPersistence: true)
+        let zeroPrograms = try programs(zero)
+        out["zeroOwnersDoNotConfigureStorage"] = zeroPrograms.constructionReport.isComplete
+            && zeroPrograms.constructionReport.instantiatedVectorTargets.isEmpty
+            && zeroPrograms.constructionReport.instantiatedScalarTargets.isEmpty
+            && zeroPrograms.constructionReport.instantiatedStringTargets.isEmpty
+            && zeroPrograms.constructionReport.instantiatedCursorTargets.isEmpty
+            && zeroPrograms.domain?.storageSession == nil
+        out["unpreparedFrameDoesNotLoadStorage"] = !zero.beginFrameTransaction()
+        try Data(#"{"version":1,"global":{"seed":"41"},"screens":{}}"#.utf8).write(to: zeroURL, options: .atomic)
+        zero.prepare()
+        out["zeroOwnersLeaveFirstLoadForExplicitPreparation"] = try value(zero,"seed")
+        for (label, source) in [("idle", "shared.storageIdle = true;"),
+            ("event-only", "export function applyUserProperties(e) {}"),
+            ("media-only", "export function mediaPlaybackChanged(e) {}") ] {
+            let url = persistedURL(label, root: preparationRoot)
+            try Data(#"{"version":1,"global":{"seed":"13"},"screens":{}}"#.utf8).write(to: url)
+            let storage = SceneScriptLocalStorageSession(recordID: label, rootDirectory: preparationRoot,
+                defersPersistence: true)
+            let prepared = try programs(storage, source: source)
+            try future.write(to: url, options: .atomic)
+            let loaded = try value(storage,"seed")
+            out[label + "OwnerStillPreparesStorage"] = prepared.domain?.storageSession === storage
+                && prepared.constructionReport.instantiatedVectorTargets == [target(1)]
+                && loaded == "13"
+        }
         let corruptRoot = URL(fileURLWithPath: CommandLine.arguments[1]).appendingPathComponent("corrupt")
         try FileManager.default.createDirectory(at: corruptRoot, withIntermediateDirectories: true)
         let recordID = "damaged-transaction"
-        let digest = SHA256.hash(data: Data(recordID.utf8)).map { String(format: "%02x", $0) }.joined()
-        let corruptURL = corruptRoot.appendingPathComponent("\(digest).json")
+        let corruptURL = persistedURL(recordID, root: corruptRoot)
         let originalBytes = Data("{invalid persisted JSON".utf8)
         try originalBytes.write(to: corruptURL)
         let damaged = SceneScriptLocalStorageSession(recordID: recordID, rootDirectory: corruptRoot)
+        damaged.prepare()
         out["damagedBeginRefused"] = !damaged.beginFrameTransaction()
         do { _ = try value(damaged, "seed"); out["damagedReadRefused"] = false }
         catch { out["damagedReadRefused"] = true }
@@ -66,6 +151,7 @@ import CryptoKit
         out["damagedBytesPreserved"] = try Data(contentsOf: corruptURL) == originalBytes
         let duplicate = SceneScriptLocalStorageSession(recordID: "duplicate",
             rootDirectory: URL(fileURLWithPath: CommandLine.arguments[1]), defersPersistence: true)
+        duplicate.prepare()
         try duplicate.apply([mutation(.set, "seed", "1")])
         out["firstBeginAccepted"] = duplicate.beginFrameTransaction()
         try write(duplicate, 1, [mutation(.set, "seed", "2")])
@@ -80,6 +166,7 @@ import CryptoKit
         try active.apply([mutation(.set,"seed","1"), mutation(.set,"deleted","7")])
         let candidate = SceneScriptLocalStorageSession(recordID:"activation",
             rootDirectory:URL(fileURLWithPath:CommandLine.arguments[1]), defersPersistence:true)
+        candidate.prepare()
         _ = try value(candidate,"seed")
         try candidate.apply([mutation(.set,"seed","2"), mutation(.delete,"deleted")])
         try active.apply([mutation(.set,"peer","3")])
@@ -91,8 +178,12 @@ import CryptoKit
         out["retiredCannotPublish"] = try value(session("activation"),"seed")
         let abandoned = SceneScriptLocalStorageSession(recordID:"activation",
             rootDirectory:URL(fileURLWithPath:CommandLine.arguments[1]), defersPersistence:true)
+        abandoned.prepare()
         try abandoned.apply([mutation(.set,"seed","88")])
         out["abandonedCannotPublish"] = try value(session("activation"),"seed")
+        let isolated = session("isolated"), isolatedPeer = session("isolated-peer")
+        try isolated.apply([mutation(.set,"only","7")])
+        out["twoSessionsRemainIsolated"] = try [value(isolated,"only"),value(isolatedPeer,"only")]
         // Same-key overwrite/no-op must retain the later writer, even when
         // its operation initially left the merged candidate unchanged.
         let same = session("same"); _ = same.beginFrameTransaction()
@@ -141,12 +232,12 @@ import CryptoKit
         _ = try run(sa);try ds.setStorageScreenIdentity("two");out["otherScreenRead"] = try run(sb);out["globalRead"] = try run(sg)
         out["scopeRejected"] = ids(scopes.resolveRejectedOwners([target(1)]));scopes.commitFrameTransaction()
 
-        // A prior callback may write storage before another owner's update,
-        // while authored layer admission still orders that reader first.
+        // A prior callback writes storage before its reader. Admission orders
+        // the reader's staged retirement before the writer's layer setter.
         let stable = session("stable-seeds"); let stableDomain = try domain(stable)
         _ = stable.beginFrameTransaction()
         let seed = try owner(stableDomain,1,"export function update(v){localStorage.set('seed',1,'global');thisScene.getLayerByID(8).alpha=0.3;return v;}")
-        let dependent = try owner(stableDomain,2,"export function update(v){localStorage.get('seed','global');thisScene.getLayerByID(8).alpha=0.2;return v;}")
+        let dependent = try owner(stableDomain,2,"export function update(v){localStorage.get('seed','global');thisScene.destroyLayer(thisScene.getLayerByID(8));return v;}")
         let peer = try owner(stableDomain,3,"export function update(v){localStorage.set('safe',8,'global');thisScene.getLayerByID(7).alpha=0.7;return v;}")
         func effects(_ o: SceneScriptValueOwner) throws -> SceneScriptOwnerEffects {
             let result = try o.evaluate(input:.vector3(0,0,0),frame:frame,scriptPropertiesJSON:"",
@@ -274,6 +365,23 @@ class StorageTransactionTests(unittest.TestCase):
         if run.returncode:
             raise AssertionError(run.stdout + run.stderr)
         cls.result=json.loads(run.stdout.strip().splitlines()[-1])
+
+    def test_preparation_precedes_first_init_without_reopening_changed_storage(self):
+        for key in ("candidateUsesSamePreparedSession", "firstCadenceBeginsFromPreparedMemory",
+                    "firstInitReadsPreparedValueAndTopLevelRemainsUnavailable",
+                    "preparedCandidateDoesNotReplaceChangedDisk"):
+            self.assertIs(self.result[key], True, key)
+        self.assertEqual(self.result["firstInitMutationStaysInSameSession"], "28")
+
+    def test_zero_owner_and_idle_event_media_owners_follow_actual_instance_demand(self):
+        self.assertIs(self.result["zeroOwnersDoNotConfigureStorage"], True)
+        self.assertIs(self.result["unpreparedFrameDoesNotLoadStorage"], True)
+        self.assertEqual(self.result["zeroOwnersLeaveFirstLoadForExplicitPreparation"], "41")
+        for name in ("idle", "event-only", "media-only"):
+            self.assertIs(self.result[name + "OwnerStillPreparesStorage"], True, name)
+
+    def test_two_sessions_keep_separate_prepared_values(self):
+        self.assertEqual(self.result["twoSessionsRemainIsolated"], ["7", "missing"])
 
     def test_unavailable_storage_preserves_disk_and_unrelated_script_output(self):
         for key in ("damagedBeginRefused", "damagedReadRefused", "damagedWriteRefused", "damagedBytesPreserved"):
