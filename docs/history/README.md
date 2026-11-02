@@ -16,6 +16,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-11-03 | 代码精简 R89–R99（非连续） | 已结摘要与限定验证 | [十段已结摘要](cross-topic/code-slimming-r89-r99-closeouts-2026-11-03.md#completed-r89-r99) | 逐字保留原文及可逆链接迁移，不续接旧候选；待验与当前授权仍留现役 | [现役精简专项](../development/code-slimming-program.md#目标与边界)、[技术栈合同](../architecture/technology-stack-boundaries.md) |
 | 2026-11-02 | 代码精简 R61–R88（非连续） | 已结摘要与限定验证 | [21段已结摘要](cross-topic/code-slimming-r61-r88-closeouts-2026-11-02.md#completed-r61-r88) | 保原摘要及可逆链接迁移，不续接旧候选；待验边界仍留现役 | [现役精简专项](../development/code-slimming-program.md#目标与边界)、[技术栈合同](../architecture/technology-stack-boundaries.md) |
 | 2026-11-01 | 代码精简 R1–R26 | 已结批次与限定验证 | [已结记录（不含 R23）](cross-topic/code-slimming-r1-r26-2026-11-01.md) | 保存25段原记录、真实失败及有界验收；不续接旧候选 | [现役精简专项](../development/code-slimming-program.md#目标与边界)、[技术栈合同](../architecture/technology-stack-boundaries.md) |
 | 2026-10-27 | 主窗口 UI16/UI17 | 前轮实现与未验边界 | [完成记录](development/main-window-playlists-ui16-ui17-completed-2026-10-27.md) | 保留前轮实现、验证及未验边界 | [主界面专项](../development/main-window-playlists-redesign.md) |

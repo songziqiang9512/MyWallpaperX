@@ -6,8 +6,8 @@
 
 开批速览（每批动手前先读这里，再核 Git 状态；按需查对应 owner 和下文，不顺读全文）：
 
-- 已裁决至R99（R61按优先级后补）。个人设置导入弹窗消失/设置变暗已由 R55（`ad1f3142d`）修复；测试 App 已交付，原配置完整导入仅待用户实测，没有新复现不重新修复、构建或复跑。
-- 近期已完成：R89 屏保原始错码保留、R90 Web 标题一次准备、R92 零消费者元数据接口退役、R94 历史投影直接消费 Entry、R95 Web 目录闲置模式退役、R96 菜单捕获状态复用、R97 文档首读区间锚点一致性、R98 详情同实例恢复时清旧错误、R99 Web 零消费者API尾链退役。最近结论见下文，较早记录沿历史入口回查；已完成项不作为新候选。
+- 已裁决至R100（R61按优先级后补）。个人设置导入弹窗消失/设置变暗已由 R55（`ad1f3142d`）修复；测试 App 已交付，原配置完整导入仅待用户实测，没有新复现不重新修复、构建或复跑。
+- 近期已完成：R99 Web 零消费者API尾链退役；R100 将 R89–R99 非连续十段已结摘要归入[历史记录](../history/cross-topic/code-slimming-r89-r99-closeouts-2026-11-03.md#completed-r89-r99)，保原载荷与验证上限。较早批次沿历史入口回查；已完成项不作为新候选。
 - 保留/拒绝：R55 一次 Save 取消超时尚未归因；R56 绕过 TIFF 的候选因像素/尺寸差异已拒绝。较早 R23/R38/R43 的保护边界仍有效。
 - R62已交付：[本地资源先呈现与缩略图回访](local-library-loading-design.md#overview)。先解决启动短暂不可用和本地网格滚回黑卡，覆盖视频、图片及自建列表；已完成实现、最近门、Steam消费者及签名Debug；保留三项原生限制，真实用户库体感待人工验收。R61冷态导航已完成验证，见下文；不重复本专项。
 
@@ -23,25 +23,9 @@
 
 本轮按用户固定流程循环：并行子代理在每份审查任务中携带用户固定prompt，核无功能收益的校验/认证/重复计算/嵌套、持续转发和补丁、过量实现与耦合；主agent审核问题和方案并决定是否修改，子代理实施，主agent复核真实行为/成本证据和最近门后决定窄提交，再开启下一轮。每批报告问题、当前影响、方案、功能变化及下一候选。当前目标授权主agent作修复和本地提交裁决，不授权推送；共享构建、原生窗口和GPU仍串行，其他会话改动保留。
 
-最近文档整理：R91把R61–R88非连续已结的21段摘要移至[历史记录](../history/cross-topic/code-slimming-r61-r88-closeouts-2026-11-02.md#completed-r61-r88)，原8987B载荷仅可逆重定位3条链接并新增归档入口，原页永久redirect保；当前授权、R90/R89、R55/R62/R23待验、全部旧锚点与UI10批准设计保留。同步既有history入口、角色登记与精确预算，产品/测试0；只验证载荷、分类、锚点和调整链，不复验旧产品。前批R85状态栏旧整合记录仍归原历史，不续用安装授权。
+最近文档整理：R100将R89–R99非连续十段已结摘要逐字移入历史，仅可逆重定位一条相对链接；现役范围、待验、保留项和永久入口不变。产品/测试0；本批只核文档载荷、角色、预算与引用，不复验旧产品。
 
-最近产品验证：R99 WebProperties的主控件启发式和Accessible URL两重载无外部调用，独立复核再确认Support末端URL投影仅由待删重载消费，同批完整退役四API，产品0增56删、测试0，无新state/helper。纯Swift final Service无ObjC/KVC/协议/工具入口；实际Editor过滤、preview/update→resolved property/binding、fileType、override/bookmark/grants及hasBookmark调试消费者逐字保。旧/最终三现役author/runtime-cache/binding-owner门均过，各6305输入/6实际进程稳定；五组解析JSON原等值，仅binding投影42个字符串叶按观测binary父目录限定归一后等值，三个PASS标记同。初三API中间臂过后因尾链退出重跑最终臂；观测整文本/数组/转义处理纠偏未改源码或重跑门，raw保。签名Debug25.273秒/5867输入稳定、strict/deep过，仅原两C#警告，独立复核接受。门抽活方法并编实际binding/持久化owner，不称完整文件行为已验；App Debug核完整编译接线。原WebProperties漏focused映射，停集成后仅为已有Web组补一条精确路径；另验现役登记引用及新预览，非产品变化，不重建App。只减维护API，不认领IO/时耗、真实网络/作者/宿主。
-
-前批R98详情同实例卸载/重挂会重新请求，但成功后旧errorText仍优先展示。只在原Task取消/loadID/retired守卫通过后清旧错误，产品净+1、fixture净+32，无新state/helper/observer；assets后续失败仍走原catch。初fixture标题断言按真实asset优先级静审修正后才执行，原50处源码检查/lookup区块逐字保。相同最终fixture两臂各91项：原88项全真，新增失败初态/当前下载暖图也真，仅旧错误清除在原实现红、新实现绿；候选91全真，lookup三组工作量JSON严格等值。各6305输入/2实际进程稳定，签名Debug25.658秒/5867输入稳定、strict/deep过，仅原两条C#警告，独立复核接受。真实View配受控I/O叶、保留窗口图直接reparent，不证明自然频度、可见焦点、真实网络/共享请求；普通关闭重建及Wallhaven改Key会由原owner关闭详情，不称其永久加载或改取消机制。
-
-前批工具R97（f0e12a742）首读区间复用原Markdown整文锚点位置/真实heading，退出registry逐行parser；原set API、150行预算、显式/多行ID、重复suffix、空ATX/嵌套/EOF与物理行保。工具净+24、测试净+37，无cache/schema；空ATX初漏静审修正后执行。同最终测试旧24过/新4反例红（wrong counts 2/5/0/2，应3/9/6/152），候选28过；各6305输入稳定，72/73次实际git子过程。未改快照411篇原字节/锚点/链接及14路由全部审计字段等值；不称既有路由损坏或整体提速。仅工具文档，该批不重复App构建。
-
-前批R96（3afaa6dba）菜单一次捕获playing，复用既有rendered bool/ticket并设同标题；产品净+2、fixture净+24，无新产品state/helper。原优先级/选择会话/点击Stop双票据保。同最终fixture旧98原菜单事实真、仅2新增传播红，新100全真；独立真实工厂/SQLite207两臂全真，只有3个源中已知生成playlist UUID标签限定归一化后等值，204共同标签/值原相同，raw保。各6305/4进程稳定，原1000行交易夹具不动；签名Debug28.814秒过。受控菜单与真实工厂分门，不认领真实Workspace/alias2→1计数、性能/完整菜单链或R55模态。
-
-前批R95（87f130fea）退役resolver恒true目录参数/转发/cache常量位/false-only拒绝与枚举，产品净−11、测试净+4；内部false能力有意退出，5产品调用原皆true，两false测试为普通文件。真实index/missing、授权/FD/Range/HEAD/304/stop及内存generation/TTL/容量保。三门旧臂仅恢复true参数/旧trace字面，语法归一后同语义原断言加2目录task检查均过，各6305/6进程稳定；12/3/16键三JSON及3标记同，签名Debug30.651秒过。不认领IO/性能/作者或完整宿主，reader旁支静态保留见下。
-
-前批R94（627c90b9a）历史投影按jobID直接选原Entry，退役Summary/全attempt分组排序，产品净−28、测试净+21；原账号、phase/actions、错误、预览与row身份同义。JobStore全部尝试/落盘保，原87个precondition源码调用点保留，包装数组断言改真实store.history并补完整tie反转/空/输入不变。两门透明观测副本旧臂只取真实summaries所存first Entry，新旧四组完整JSON逐字等值，各6305输入/4实际进程稳定；移除适配/观测后签名Debug28.662秒过。Controller仅静审/编译，原生面板未跑；历史限100条，不认领性能。
-
-前批R92（b03369b37）退役BrowserItem两个零消费者聚合getter（primaryMetaText/secondaryMetaText），产品0增12删、测试0，无新state/helper或兼容层。全仓具名/raw/名称片段仅命中原声明；内部Swift值类型不走ObjC/KVC，这两项不属协议要求或合成Codable字段。全部存储字段、构造映射、卡片/详情直接字段消费者及Scene相关类型逐字保留。候选现役两门过：完整真实model四来源投影41事实全真，真实BrowserItem/详情修复导航PASS；6305输入/4实际进程稳定，无新增镜像测试。Query门使用MembershipItem替身，未用它冒称model验收。签名Debug28.296秒/5867输入稳定、strict/deep通过，仅原两条C#警告，独立静审接受。仅减少无用内部接口和维护代码，不认领运行拼接/分配/时耗减少，也未验原生界面、真实账号/网络或用户数据库。
-
-前批R90（49440946f） Web属性每行一次准备完整titleContent，沿原private链传递，原row标题纯文本供placeholder/两层AX；产品净+4，无持久cache/state/helper，shared resolver与Scene源码不动。原生组合门同份最终夹具的透明计数副本旧/新均过，原断言/Scene片段逐字保留，新增34行覆盖markup/plain/raw回退、两种显式空、隐藏label/group、字段值与完整separator segments。私有实际displayContent探针在同步创建后采样：原六类型中的input3→1、note2→1，其余1→1；四项新文本3→1、两个空label/group1→1；两臂公开滑块JSON/PASS行相同，各6304输入/2实际进程稳定。首探针可见性编译失败属装配，修正后才形成两臂证据。移除探针后签名Debug26.548秒/5867输入稳定、strict/deep通过，仅原两条C#警告，产品独审接受。不认领共享parser/Scene工作次数、CPU/FPS/IO/时耗收益、真实作者项目或宿主端到端验收。
-
-前批R89（102afd626）lease open失败先保存原POSIXError再沿原cleanup/回调退出，产品净+1，无正常路径成本。受控叶ENOSPC28/EACCES13/EMFILE24原皆EIO5，新保原码；目标调用/回调各1，新目录清理和旧current/previous字节、Media目录保。原42事实及候选永久错码门过，路径别名装配/采集标签修正按实际SHA留据；签名Debug25.913秒过。不是实际磁盘满/权限/FD耗尽或系统宿主验证。
+<a id="completed-r89-r99"></a> [归档记录](../history/cross-topic/code-slimming-r89-r99-closeouts-2026-11-03.md#completed-r89-r99) <!-- archive-redirect -->
 
 <a id="completed-r61-r88"></a> [归档记录](../history/cross-topic/code-slimming-r61-r88-closeouts-2026-11-02.md#completed-r61-r88) <!-- archive-redirect -->
 
