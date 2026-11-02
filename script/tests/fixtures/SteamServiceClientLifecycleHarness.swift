@@ -84,6 +84,8 @@ final class FakeSteamIdleReapTiming: SteamIdleReapTiming {
         let client = SteamServiceClient(executablePath: "/fake", transportFactory: { _ in first })
         let response = try await client.request(command: "queryBrowse")
         precondition(response.ok == true && first.sends == 1, "cold public request/synchronous reply")
+        precondition(["queryGeneration", "cursor", "attempt"].allSatisfy { first.requests[0][$0] == nil },
+                     "ordinary typed requests do not add unused envelope keys")
 
         let incompatible = FakeSteamTransport()
         incompatible.advertisedCapabilities = []
@@ -186,11 +188,33 @@ final class FakeSteamIdleReapTiming: SteamIdleReapTiming {
         await Task.yield()
         precondition(!completed && events == ["中文é😀"], "old transport cannot consume current request IDs or events")
         current.emit(["v": 1, "type": "result", "requestId": requestID,
-                      "ok": true, "data": ["marker": "current"]])
+                      "ok": true, "data": ["marker": "current"],
+                      "queryGeneration": 7, "cursor": "page:2", "attempt": 3])
         let response = try await pending.value
         precondition(response.root["data"]?.objectValue?["marker"]?.stringValue == "current")
+        precondition(response.isTerminal && response.requestId == requestID as? String && response.ok == true,
+                     "extra envelope keys preserve terminal correlation")
+        precondition(response.root["queryGeneration"] == .int(7) && response.root["cursor"] == .string("page:2")
+                     && response.root["attempt"] == .int(3), "terminal root retains extra envelope values")
         current.emit(["v": 1, "type": "event", "event": "wire", "marker": "current"])
         precondition(events == ["中文é😀", "current"])
+        var progressFrame: SteamServiceFrame?
+        let progressObserver = client.addEventObserver { frame in
+            if frame.event == "downloadProgress" { progressFrame = frame }
+        }
+        current.emit(["v": 1, "type": "event", "event": "downloadProgress", "sequence": 4,
+                      "processEpoch": 1, "accountEpoch": 0, "authAttemptId": "auth-current", "jobId": "job-current",
+                      "stage": "transferring", "totalBytes": 8, "verifiedBytes": 4,
+                      "queryGeneration": 7, "cursor": "page:2", "attempt": 3])
+        client.removeEventObserver(progressObserver)
+        precondition(progressFrame?.event == "downloadProgress" && progressFrame?.sequence == 4
+                     && progressFrame?.jobId == "job-current" && progressFrame?.processEpoch == 1
+                     && progressFrame?.accountEpoch == 0 && progressFrame?.authAttemptId == "auth-current",
+                     "extra envelope keys preserve progress routing fields")
+        precondition(progressFrame?.root["stage"] == .string("transferring")
+                     && progressFrame?.root["totalBytes"] == .int(8) && progressFrame?.root["verifiedBytes"] == .int(4)
+                     && progressFrame?.root["queryGeneration"] == .int(7) && progressFrame?.root["cursor"] == .string("page:2")
+                     && progressFrame?.root["attempt"] == .int(3), "progress root retains payload and extra envelope values")
         await client.stop(shutdownTimeout: 0)
     }
 

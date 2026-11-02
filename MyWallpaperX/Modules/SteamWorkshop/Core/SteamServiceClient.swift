@@ -335,10 +335,7 @@ final class SteamServiceClient {
     func request(
         command: String,
         authAttemptId: String? = nil,
-        queryGeneration: Int? = nil,
-        cursor: String? = nil,
         jobId: String? = nil,
-        attempt: Int? = nil,
         payload: SteamServiceJSON? = nil,
         private privatePayload: SteamServiceJSON? = nil,
         requiredCapability: String? = nil,
@@ -381,10 +378,7 @@ final class SteamServiceClient {
             processEpoch: 1,
             accountEpoch: accountEpoch,
             authAttemptId: authAttemptId,
-            queryGeneration: queryGeneration,
-            cursor: cursor,
             jobId: jobId,
-            attempt: attempt,
             payload: payload,
             private: privatePayload
         ) else {

@@ -66,10 +66,7 @@ enum SteamServiceRequestBuilder {
         processEpoch: Int,
         accountEpoch: Int,
         authAttemptId: String? = nil,
-        queryGeneration: Int? = nil,
-        cursor: String? = nil,
         jobId: String? = nil,
-        attempt: Int? = nil,
         payload: SteamServiceJSON? = nil,
         private privatePayload: SteamServiceJSON? = nil
     ) -> Data? {
@@ -82,10 +79,7 @@ enum SteamServiceRequestBuilder {
             "accountEpoch": .int(accountEpoch),
         ]
         if let authAttemptId { fields["authAttemptId"] = .string(authAttemptId) }
-        if let queryGeneration { fields["queryGeneration"] = .int(queryGeneration) }
-        if let cursor { fields["cursor"] = .string(cursor) }
         if let jobId { fields["jobId"] = .string(jobId) }
-        if let attempt { fields["attempt"] = .int(attempt) }
         if let payload { fields["payload"] = payload }
         if let privatePayload { fields["private"] = privatePayload }
         return encode(fields)
@@ -122,10 +116,7 @@ struct SteamServiceFrame: Equatable {
     var processEpoch: Int?
     var accountEpoch: Int?
     var authAttemptId: String?
-    var queryGeneration: Int?
-    var cursor: String?
     var jobId: String?
-    var attempt: Int?
     var ok: Bool?
     var error: ProtocolErrorPayload?
     var protocolVersion: Int?
@@ -213,10 +204,7 @@ enum SteamServiceFrameDecoder {
         if case .int(let processEpoch)? = root["processEpoch"] { frame.processEpoch = processEpoch }
         if case .int(let accountEpoch)? = root["accountEpoch"] { frame.accountEpoch = accountEpoch }
         if case .string(let authAttemptId)? = root["authAttemptId"] { frame.authAttemptId = authAttemptId }
-        if case .int(let queryGeneration)? = root["queryGeneration"] { frame.queryGeneration = queryGeneration }
-        if case .string(let cursor)? = root["cursor"] { frame.cursor = cursor }
         if case .string(let jobId)? = root["jobId"] { frame.jobId = jobId }
-        if case .int(let attempt)? = root["attempt"] { frame.attempt = attempt }
         return .success(frame)
     }
 }
