@@ -3,6 +3,58 @@ import Foundation
 import Metal
 import simd
 
+func preparedTextureFormatCases() -> [String: Bool] {
+    typealias Schema = SceneResolvedMaterialShaderSchema
+    let empty = template(contract(revision: "prepared-empty-format",
+        semanticProbes: false,
+        fragmentSourceOverride: "void main() { gl_FragColor = vec4(0.2, 0.4, 0.6, 1.0); }"),
+        includePrimaryCandidate: false)
+    let emptyFormats = Schema.textureFormatSlots(in: empty)
+    let emptyFacts = SceneResolvedMaterialVariantCache.prepareTextureSelectionFacts(
+        in: empty, samplers: [:], implicitFramebufferIdentity: nil,
+        graphInputSourceSlotFacts: [:])
+    let disabled = template(contract(revision: "prepared-disabled-format",
+        samplerMetadata: #"{"formatcombo":false}"#))
+    let enabled = template(contract(revision: "prepared-enabled-format",
+        samplerMetadata: #"{"formatcombo":true}"#))
+    let malformed = template(contract(revision: "prepared-malformed-format",
+        samplerMetadata: #"{"formatcombo":"invalid"}"#))
+    let malformedFormats = Schema.textureFormatSlots(in: malformed)
+    let malformedCache = SceneResolvedMaterialVariantCache.launchValidated(
+        template: malformed, textureFormatSlots: malformedFormats, maximumVariantCount: 8)
+    let healthyCacheAfterFailure = SceneResolvedMaterialVariantCache.launchValidated(
+        template: empty, textureFormatSlots: emptyFormats, maximumVariantCount: 8)
+    let unreachable = template(contract(revision: "prepared-format-with-invalid-sampler",
+        samplerMetadata: #"{"mode":"invalid-mode"}"#))
+    let formatsSurviveReachabilityFailure: Bool
+    if case let .success(slots) = Schema.textureFormatSlots(in: unreachable), slots.isEmpty {
+        do {
+            _ = try Schema.reachableSamplers(unreachable, textureFormatSlots: slots,
+                implicitFramebufferIdentity: graphTexture())
+            formatsSurviveReachabilityFailure = false
+        } catch { formatsSurviveReachabilityFailure = true }
+    } else { formatsSurviveReachabilityFailure = false }
+    let malformedFailurePreserved: Bool
+    if case let .failure(parsed) = malformedFormats,
+       case let .failure(consumed) = malformedCache {
+        malformedFailurePreserved = parsed == consumed
+            && parsed.code == .authoredSamplerSchemaInvalid
+            && parsed.boundedDetails == ["texture-format-schema"]
+    } else { malformedFailurePreserved = false }
+    return [
+        "emptyFormatsArePrepared": (try? emptyFormats.get()) == Set<Int>(),
+        "emptySlotFactsAreFinal": emptyFacts.candidatePurposes.isEmpty
+            && emptyFacts.candidates.isEmpty && emptyFacts.defaults.isEmpty
+            && emptyFacts.graphInputPurposes.isEmpty && emptyFacts.mixedProviderSlots.isEmpty
+            && emptyFacts.regularNamedProviderPurposeSlots.isEmpty,
+        "disabledFormatHasNoDemand": (try? Schema.textureFormatSlots(in: disabled).get()) == Set<Int>(),
+        "enabledFormatRetainsSlot": (try? Schema.textureFormatSlots(in: enabled).get()) == [0],
+        "formatFailureRemainsTyped": malformedFailurePreserved,
+        "formatFailureKeepsHealthyOwner": (try? healthyCacheAfterFailure.get()) != nil,
+        "validFormatsSurviveReachabilityFailure": formatsSurviveReachabilityFailure,
+    ]
+}
+
 func effectForwardProjectionConsumption(_ device: MTLDevice) -> [String: Any] {
     var checks: [String: Bool] = [:]
     var rows: [[String: Any]] = []
@@ -43,7 +95,7 @@ func effectForwardProjectionConsumption(_ device: MTLDevice) -> [String: Any] {
             void main() { gl_FragColor = \(fragmentExpression); }
             """)
         guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(
-            template: template(shader), maximumVariantCount: 1
+            template: template(shader), textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: template(shader)), maximumVariantCount: 1
         ) else { checks[mode + "Prepared"] = false; continue }
         let preparation = cache.precompileLaunchEnvelope(
             implicitFramebufferIdentity: nil, outputStorage: .preservedRGBAUnorm
@@ -96,6 +148,7 @@ func crossTemplateMaterialCacheTokens(_ device: MTLDevice) -> [String: String] {
     let admitted = template(shader)
     guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(
         template: admitted,
+        textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: admitted),
         maximumVariantCount: 8
     ), case .success = cache.precompileLaunchEnvelope(
         implicitFramebufferIdentity: graphTexture()
@@ -151,6 +204,7 @@ func crossTemplateRuntimeLoopCacheToken(_ device: MTLDevice) -> String {
     )
     guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(
         template: admitted,
+        textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: admitted),
         maximumVariantCount: 8
     ), case let .success(frame) = SceneResolvedMaterialFrameSnapshot.validated(
         textureSnapshot: snapshot(device, kind: .ready, frameIndex: 1),
@@ -180,6 +234,7 @@ func reachabilityIdentityMismatchToken(_ device: MTLDevice) -> String {
     let admitted = template(shader)
     guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(
         template: admitted,
+        textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: admitted),
         maximumVariantCount: 8
     ), case .success = cache.precompileLaunchEnvelope(
         implicitFramebufferIdentity: graphTexture()
@@ -226,6 +281,7 @@ func variantSelectionKeyMismatchTokens(
     )
     guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(
         template: admitted,
+        textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: admitted),
         maximumVariantCount: 8,
         assetFormatFacts: [identity.reportToken: SceneShaderTextureFormat.rgba8888.macroValue]
     ), case .success = cache.precompileLaunchEnvelope(
@@ -270,6 +326,7 @@ func resolverInvariantTokens(_ device: MTLDevice) -> [String: String] {
     let admitted = template(shader)
     guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(
         template: admitted,
+        textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: admitted),
         maximumVariantCount: 8
     ), case .success = cache.precompileLaunchEnvelope(
         implicitFramebufferIdentity: nil
@@ -287,7 +344,7 @@ func resolverInvariantTokens(_ device: MTLDevice) -> [String: String] {
         effectOutputModelViewProjection: effectOutputModelViewProjection,
         effectTextureProjectionMatrixInverse: effectProjectionInverse
     )
-    guard case let .success(selection) = cache.resolveSelection(readyInput),
+    guard case let .success(variant) = cache.resolveSelection(readyInput),
           case let .success(absentFrame) = SceneResolvedMaterialFrameSnapshot.validated(
               textureSnapshot: snapshot(device, kind: .absent),
               dynamicSnapshot: dynamicSnapshot(frameIndex: 1, source: nil),
@@ -302,6 +359,8 @@ func resolverInvariantTokens(_ device: MTLDevice) -> [String: String] {
         effectOutputModelViewProjection: effectOutputModelViewProjection,
         effectTextureProjectionMatrixInverse: effectProjectionInverse
     )
+    let reachableTexturePurposes = SceneResolvedMaterialCompiledVariant.TextureSelectionFacts.consensusPurposes(
+        cache.launchEnvelopeCapabilitySnapshot().variants.map { $0.textureSelectionFacts.candidatePurposes })
 
     func token(_ body: () throws -> Void) -> String {
         do {
@@ -318,17 +377,18 @@ func resolverInvariantTokens(_ device: MTLDevice) -> [String: String] {
         "readiness": token {
             _ = try SceneResolvedMaterialTextureResolver.resolve(
                 absentInput,
-                variant: selection.variant,
-                reachableSamplers: selection.reachableSamplers
+                variant: variant
             )
         },
         "variantKey": token {
             _ = try SceneResolvedMaterialTextureResolver.variantKey(
                 readyInput,
-                samplers: selection.variant.activeSamplers,
-                reachableSamplers: selection.reachableSamplers,
+                samplers: variant.activeSamplers,
+                reachableTexturePurposes: reachableTexturePurposes,
                 formatSlots: [8],
-                allowPresenceIndependentDefaults: true
+                allowPresenceIndependentDefaults: true,
+                textureSelectionFacts: variant.textureSelectionFacts,
+                graphInputSourceSlotFacts: variant.graphInputSourceSlotFacts
             )
         },
     ]

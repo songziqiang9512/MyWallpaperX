@@ -368,12 +368,12 @@ private func signalCatalog(
         } else {
             return (
                 .init(effect: node.effect, nodeIndex: node.nodeIndex),
-                .template(template(for: node))
+                .template(template(for: node), textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: template(for: node)))
             )
         }
         return (
             .init(effect: node.effect, nodeIndex: node.nodeIndex),
-            .template(signalTemplate(for: node, fragmentSource: fragment, vertex: vertex))
+            .template(signalTemplate(for: node, fragmentSource: fragment, vertex: vertex), textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: signalTemplate(for: node, fragmentSource: fragment, vertex: vertex)))
         )
     })
     return .init(entries: entries)
@@ -543,7 +543,7 @@ private func alphaFeedbackQualifications(
             }
         if let capability, let material,
             case let .success(emptyCache) = SceneResolvedMaterialVariantCache.launchValidated(
-                template: material.template, maximumVariantCount: 8) {
+                template: material.template, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: material.template), maximumVariantCount: 8) {
             var missing = capability.materials
             let key = material.key
             missing.removeValue(forKey: key)
@@ -579,9 +579,9 @@ private func alphaFeedbackQualifications(
         let graph = baselineGraph
         let node = graph.nodes[1]
         let catalog = signalCatalog(for: graph, auxiliaryRead: read)
-        guard case let .template(template)? = catalog.entry(for: node),
+        guard case let .template(template, textureFormatSlots)? = catalog.entry(for: node),
             case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(
-                template: template, maximumVariantCount: 8) else {
+                template: template, textureFormatSlots: textureFormatSlots, maximumVariantCount: 8) else {
             results["alphaReaderReject-" + name] = false
             continue
         }

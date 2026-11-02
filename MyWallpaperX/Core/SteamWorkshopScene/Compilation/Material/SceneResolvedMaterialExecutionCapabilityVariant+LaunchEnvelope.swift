@@ -47,12 +47,6 @@ extension SceneResolvedMaterialVariantCache {
         )
     }
 
-    func resolve(
-        _ input: SceneResolvedMaterialFinalizationInput
-    ) -> Result<Variant, Failure> {
-        resolveSelection(input).map(\.variant)
-    }
-
     /// At least one launch-envelope variant must consume the slot, and every
     /// consuming variant must either observe the stored red scalar directly or
     /// consume the complete vector supplied by a typed Metal R texture.

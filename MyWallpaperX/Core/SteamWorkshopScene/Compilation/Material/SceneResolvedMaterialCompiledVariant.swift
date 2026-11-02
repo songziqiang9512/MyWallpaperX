@@ -6,6 +6,114 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
     typealias Sampler = SceneResolvedMaterialShaderSchema.Sampler
     typealias Uniform = SceneResolvedMaterialShaderSchema.Uniform
 
+    struct MixedProviderSlot: Hashable {
+        enum OptionalInput: Hashable {
+            case system(String)
+            case userProperty(String)
+
+            init?(_ reference: SceneResolvedMaterialTemplate.TextureReference) {
+                switch reference {
+                case let .provider(.system(name)) where !name.isEmpty: self = .system(name)
+                case let .userProperty(request) where !request.key.isEmpty:
+                    self = .userProperty(request.key)
+                default: return nil
+                }
+            }
+
+            func matches(_ reference: SceneResolvedMaterialTemplate.TextureReference) -> Bool {
+                switch (self, reference) {
+                case let (.system(expected), .provider(.system(actual))): expected == actual
+                case let (.userProperty(expected), .userProperty(actual)): expected == actual.key
+                default: false
+                }
+            }
+        }
+
+        let slot: Int
+        let lowerNamedReference: SceneNamedTextureReference
+        let optionalInput: OptionalInput
+
+        func purpose(
+            for reference: SceneResolvedMaterialTemplate.TextureReference
+        ) -> SceneTextureLoadPurpose? {
+            switch reference {
+            case let .provider(.namedLayerTarget(reference)) where reference == lowerNamedReference:
+                .premultipliedColor
+            case let reference where optionalInput.matches(reference): .preservedChannels
+            default: nil
+            }
+        }
+    }
+
+    struct TextureSelectionFacts {
+        struct Candidate {
+            let graphInputSourceFact: SceneResolvedMaterialGraphInputSourceSlotFact?
+            let preservesAbsentOverride: Bool
+            let defersUnreadyOptionalPromotion: Bool
+        }
+
+        struct DefaultReference {
+            let reference: SceneResolvedMaterialTemplate.TextureReference
+            let purpose: SceneTextureLoadPurpose?
+            let graphInputSourceFact: SceneResolvedMaterialGraphInputSourceSlotFact?
+            let noiseFallback: SceneResolvedMaterialTemplate.TextureReference?
+            let requiresPresenceIndependentAllowance: Bool
+        }
+
+        enum DefaultSource {
+            case reference(DefaultReference)
+            case internalTarget(String)
+        }
+
+        /// Candidate ordinals follow the immutable Template; nil remains an
+        /// unproven purpose rather than an absent texture or a color default.
+        let candidatePurposes: [Int: [SceneTextureLoadPurpose?]]
+        let candidates: [Int: [Candidate]]
+        let defaults: [Int: DefaultSource]
+        let graphInputPurposes: [Int: SceneTextureLoadPurpose]
+        let mixedProviderSlots: [Int: MixedProviderSlot]
+        let regularNamedProviderPurposeSlots: Set<Int>
+
+        func restricting(to activeSlots: Set<Int>) -> Self {
+            var candidates = self.candidates
+            for (slot, values) in candidates where !activeSlots.contains(slot) {
+                candidates[slot] = values.map {
+                    Candidate(
+                        graphInputSourceFact: nil,
+                        preservesAbsentOverride: $0.preservesAbsentOverride,
+                        defersUnreadyOptionalPromotion: false
+                    )
+                }
+            }
+            return .init(
+                candidatePurposes: candidatePurposes.filter { activeSlots.contains($0.key) },
+                candidates: candidates,
+                defaults: defaults.filter { activeSlots.contains($0.key) },
+                graphInputPurposes: graphInputPurposes.filter { activeSlots.contains($0.key) },
+                mixedProviderSlots: mixedProviderSlots.filter { activeSlots.contains($0.key) },
+                regularNamedProviderPurposeSlots: regularNamedProviderPurposeSlots.intersection(activeSlots)
+            )
+        }
+
+        static func consensusPurposes(
+            _ profiles: [[Int: [SceneTextureLoadPurpose?]]]
+        ) -> [Int: [SceneTextureLoadPurpose?]] {
+            var result: [Int: [SceneTextureLoadPurpose?]] = [:]
+            for profile in profiles {
+                for (slot, purposes) in profile {
+                    if let prior = result[slot] {
+                        // One unproven or conflicting reachable variant keeps
+                        // this candidate unproven for an inactive sampler.
+                        result[slot] = zip(prior, purposes).map { $0.0 == $0.1 ? $0.0 : nil }
+                    } else {
+                        result[slot] = purposes
+                    }
+                }
+            }
+            return result
+        }
+    }
+
     let readinessMask: UInt8
     let textureFormats: [SceneShaderTextureFormat?]
     let preparedAssembly: SceneResolvedMaterialProgram.PreparedAssembly
@@ -24,6 +132,7 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
         preparedAssembly.runtimeLoopBounds
     }
     let activeSamplers: [Int: Sampler]
+    let textureSelectionFacts: TextureSelectionFacts
     let graphInputSourceSlotFacts: [
         Int: SceneResolvedMaterialGraphInputSourceSlotFact
     ]
@@ -65,6 +174,7 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
         preparedOutputContent: SceneTextureContent? = nil,
         routeDecision: SceneGenericShaderRouteDecision,
         activeSamplers: [Int: Sampler],
+        textureSelectionFacts: TextureSelectionFacts,
         graphInputSourceSlotFacts: [
             Int: SceneResolvedMaterialGraphInputSourceSlotFact
         ],
@@ -89,6 +199,7 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
         self.preparedOutputContent = preparedOutputContent
         self.routeDecision = routeDecision
         self.activeSamplers = activeSamplers
+        self.textureSelectionFacts = textureSelectionFacts
         self.graphInputSourceSlotFacts = graphInputSourceSlotFacts
         self.preservedAlphaRGBColorSlots = preservedAlphaRGBColorSlots
         self.sourceProvenOpaqueColorSlots = sourceProvenOpaqueColorSlots

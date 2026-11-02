@@ -164,7 +164,7 @@ private func runAlphaMaterial(_ value: AlphaCase, name: String, content: SceneTe
     let template = alphaTemplate(value, identity: identity)
     var row: [String: Any] = ["case": value.name, "representation": name, "slot": value.slot]
     guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(
-        template: template, maximumVariantCount: 8) else {
+        template: template, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: template), maximumVariantCount: 8) else {
         row["launch"] = "cache-unavailable"; return row
     }
     row["launch"] = launchEnvelopeFailureCode(cache.precompileLaunchEnvelope(

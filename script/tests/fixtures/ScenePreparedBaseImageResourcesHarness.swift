@@ -369,7 +369,10 @@ struct TestVariantFixture {
 struct SceneResolvedMaterialRuntimeCatalog {
     struct Entry {
         struct Key { let reportToken: String }
-        enum Value { case template(TestTemplate), failure(String) }
+        enum Value {
+            case template(TestTemplate, textureFormatSlots: Result<Set<Int>, TestError>)
+            case failure(String)
+        }
         let key: Key
         let entry: Value
         let sharedModelPath: String?
@@ -393,9 +396,11 @@ struct SceneResolvedMaterialVariantCache {
     }
     struct Envelope { let allEntriesReady: Bool; let variants: [Variant] }
     let fixture: TestVariantFixture
-    static func launchValidated(template: TestTemplate, maximumVariantCount: Int,
+    static func launchValidated(template: TestTemplate,
+                                textureFormatSlots: Result<Set<Int>, TestError>, maximumVariantCount: Int,
                                 assetFormatFacts: Int) -> Result<Self, TestError> {
-        template.fixture.schemaAccepted ? .success(.init(fixture: template.fixture))
+        if case let .failure(failure) = textureFormatSlots { return .failure(failure) }
+        return template.fixture.schemaAccepted ? .success(.init(fixture: template.fixture))
             : .failure(.controlledSchemaFailure)
     }
     func precompileLaunchEnvelope(implicitFramebufferIdentity: String?, outputIsRGBA8Unorm: Bool,
@@ -823,7 +828,8 @@ enum Checks {
                     precompileAccepted: precompileAccepted, allEntriesReady: allEntriesReady,
                     variants: variants))
             let catalog = SceneResolvedMaterialRuntimeCatalog(sourceMaterialEntries: [17: .init(
-                key: .init(reportToken: "source:17:renamed-owned-source"), entry: .template(template),
+                key: .init(reportToken: "source:17:renamed-owned-source"),
+                entry: .template(template, textureFormatSlots: .success([])),
                 sharedModelPath: "models/renamed-source.json", capturesMainTarget: capturesMainTarget)])
             let encoder = SceneResolvedMaterialPassEncoder()
             encoder.reportOverride = warmupReport

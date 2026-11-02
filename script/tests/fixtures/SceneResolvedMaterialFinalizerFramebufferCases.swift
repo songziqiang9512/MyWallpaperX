@@ -250,6 +250,7 @@ func reachableConditionalPurposeToken() -> String {
     do {
         guard let sampler = try SceneResolvedMaterialShaderSchema.reachableSamplers(
             conditionalTemplate,
+            textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: conditionalTemplate).get(),
             implicitFramebufferIdentity: graphTexture()
         )[1]?.first else { return "missing" }
         let reference = Template.TextureReference.asset(

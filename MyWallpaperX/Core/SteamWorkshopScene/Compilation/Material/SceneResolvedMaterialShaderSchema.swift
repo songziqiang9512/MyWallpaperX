@@ -151,6 +151,42 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
         case uniform(String)
     }
 
+    static func textureFormatSlots(
+        in template: Template
+    ) -> Result<Set<Int>, SceneResolvedMaterialFailure> {
+        let invalid: Result<Set<Int>, SceneResolvedMaterialFailure> = .failure(.init(
+            phase: .preparation,
+            code: .authoredSamplerSchemaInvalid,
+            details: ["texture-format-schema"]
+        ))
+        guard let graph = template.shaderContract.sourceGraph else { return invalid }
+        var result = Set<Int>()
+        for node in graph.nodes {
+            let parsed = SceneShaderContractSourceParser().parse(
+                node.source, stageRelativePath: node.virtualPath
+            )
+            let declarations = Dictionary(grouping: parsed.declarations, by: \.line)
+            for annotation in parsed.annotations {
+                guard case let .object(object) = annotation.variantValue,
+                      let raw = object["formatcombo"] else { continue }
+                guard let enabled = raw.boolValue else { return invalid }
+                guard enabled else { continue }
+                let slots = declarations[annotation.line, default: []].compactMap {
+                    declaration -> Int? in
+                    guard declaration.kind == .uniform,
+                          declaration.type.caseInsensitiveCompare("sampler2D") == .orderedSame,
+                          declaration.name.hasPrefix("g_Texture"),
+                          let slot = Int(declaration.name.dropFirst("g_Texture".count)),
+                          (0 ..< 8).contains(slot) else { return nil }
+                    return slot
+                }
+                guard slots.count == 1, let slot = slots.first else { return invalid }
+                result.insert(slot)
+            }
+        }
+        return .success(result)
+    }
+
     /// Resolves combo-default conditional declarations before texture
     /// readiness starts the normal fixed-point iteration.
     nonisolated static func bootstrapSamplers(

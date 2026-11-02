@@ -6,45 +6,14 @@ import Foundation
 /// sampler slot but require different Program input ABI. Keeping this
 /// structural and name-independent prevents a sample/effect dispatch while
 /// leaving all unproved mixed chains fail-closed.
-nonisolated struct SceneResolvedMaterialMixedProviderSlotFact: Hashable {
+nonisolated enum SceneResolvedMaterialMixedProviderSlotFact {
     typealias Template = SceneResolvedMaterialTemplate
     typealias Sampler = SceneResolvedMaterialShaderSchema.Sampler
-
-    enum OptionalInput: Hashable {
-        case system(String)
-        case userProperty(String)
-
-        init?(_ reference: Template.TextureReference) {
-            switch reference {
-            case let .provider(.system(name)) where !name.isEmpty:
-                self = .system(name)
-            case let .userProperty(request) where !request.key.isEmpty:
-                self = .userProperty(request.key)
-            default:
-                return nil
-            }
-        }
-
-        func matches(_ reference: Template.TextureReference) -> Bool {
-            switch (self, reference) {
-            case let (.system(expected), .provider(.system(actual))):
-                expected == actual
-            case let (.userProperty(expected), .userProperty(actual)):
-                expected == actual.key
-            default:
-                false
-            }
-        }
-    }
-
-    let slot: Int
-    let lowerNamedReference: SceneNamedTextureReference
-    let optionalInput: OptionalInput
 
     static func resolve(
         in textureSlot: Template.TextureSlot,
         sampler: Sampler
-    ) -> Self? {
+    ) -> SceneResolvedMaterialCompiledVariant.MixedProviderSlot? {
         guard textureSlot.index == sampler.slot,
               textureSlot.candidates.count == 2,
               sampler.mode == .rgbMask,
@@ -56,7 +25,7 @@ nonisolated struct SceneResolvedMaterialMixedProviderSlotFact: Hashable {
               reference.variant == .primary,
               textureSlot.candidates[0].provenance != .explicitBinding,
               textureSlot.candidates[1].provenance == .userTexture,
-              let optionalInput = OptionalInput(
+              let optionalInput = SceneResolvedMaterialCompiledVariant.MixedProviderSlot.OptionalInput(
                   textureSlot.candidates[1].reference
               ),
               sampler.purpose(for: textureSlot.candidates[1].reference)
@@ -84,22 +53,129 @@ nonisolated struct SceneResolvedMaterialMixedProviderSlotFact: Hashable {
         }
     }
 
-    func purpose(
-        for reference: Template.TextureReference
-    ) -> SceneTextureLoadPurpose? {
-        switch reference {
-        case let .provider(.namedLayerTarget(reference))
-        where reference == lowerNamedReference:
-            return .premultipliedColor
-        case let reference where optionalInput.matches(reference):
-            return .preservedChannels
-        default:
-            return nil
-        }
-    }
 }
 
 nonisolated extension SceneResolvedMaterialVariantCache {
+    static func prepareTextureSelectionFacts(
+        in template: Template,
+        samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
+        implicitFramebufferIdentity: Graph.TextureIdentity?,
+        graphInputSourceSlotFacts: [Int: SceneResolvedMaterialGraphInputSourceSlotFact]
+    ) -> Variant.TextureSelectionFacts {
+        let mixed = mixedProviderSlotFacts(in: template, samplers: samplers)
+        var purposes: [Int: [SceneTextureLoadPurpose?]] = [:]
+        var candidates: [Int: [Variant.TextureSelectionFacts.Candidate]] = [:]
+        for slot in template.textureSlots.compactMap({ $0 }) {
+            if let sampler = samplers[slot.index] {
+                purposes[slot.index] = slot.candidates.indices.map {
+                    SceneResolvedMaterialTextureSlotPurpose.fact(
+                        in: slot, candidateOrdinal: $0, sampler: sampler,
+                        mixedProvider: mixed[slot.index]
+                    )?.purpose
+                }
+            }
+            candidates[slot.index] = slot.candidates.indices.map { ordinal in
+                let candidate = slot.candidates[ordinal]
+                var sourceFact: SceneResolvedMaterialGraphInputSourceSlotFact?
+                if let input = implicitFramebufferIdentity,
+                   let identity = SceneResolvedMaterialShaderSchema.sameLayerCompositeInput(
+                       candidate.reference, template: template, inputIdentity: input,
+                       consumerLayerID: input.layerID
+                   ) {
+                    if let fact = graphInputSourceSlotFacts[slot.index],
+                       fact.inputIdentity == identity,
+                       SceneResolvedMaterialShaderSchema.sameLayerCompositeCandidate(
+                           slot, inputIdentity: identity
+                       ) {
+                        sourceFact = .init(
+                            slot: fact.slot,
+                            inputIdentity: identity,
+                            provenance: fact.provenance,
+                            selectionProvenance: .authored(candidate.provenance)
+                        )
+                    } else if candidate.reference == mixed[slot.index].map({
+                        .provider(.namedLayerTarget($0.lowerNamedReference))
+                    }) {
+                        sourceFact = .init(
+                            slot: slot.index,
+                            inputIdentity: identity,
+                            provenance: .sameLayerCompositeDefault,
+                            selectionProvenance: .authored(candidate.provenance)
+                        )
+                    }
+                }
+                let terminalOverride: Bool
+                if case .graph = candidate.reference {
+                    terminalOverride = ordinal == slot.candidates.count - 1
+                        && candidate.provenance == .explicitBinding
+                } else {
+                    terminalOverride = false
+                }
+                return .init(
+                    graphInputSourceFact: sourceFact,
+                    preservesAbsentOverride: terminalOverride,
+                    defersUnreadyOptionalPromotion:
+                        mixed[slot.index]?.optionalInput.matches(candidate.reference) == true
+                )
+            }
+        }
+        var defaults: [Int: Variant.TextureSelectionFacts.DefaultSource] = [:]
+        for (slot, sampler) in samplers {
+            if sampler.readinessCombo != nil,
+               SceneResolvedMaterialTextureResolver.presenceIndependentDefault(
+                   template: template, sampler: sampler, slot: slot
+               ) == nil { continue }
+            let reference: Template.TextureReference
+            var sourceFact: SceneResolvedMaterialGraphInputSourceSlotFact?
+            let noiseFallback: Template.TextureReference?
+            switch sampler.defaultTexture {
+            case let .asset(path):
+                reference = .asset(path)
+                noiseFallback = SceneStockTextureSemanticRegistry.canSubstituteNoise(
+                    path, purpose: sampler.purpose(for: reference)
+                ) ? .provider(.system(path.value)) : nil
+            case let .internalTarget(target):
+                guard let resolved = SceneResolvedMaterialTextureResolver.renderTargetDefault(
+                    template: template, sampler: sampler, slot: slot,
+                    inputIdentity: implicitFramebufferIdentity
+                ) else {
+                    defaults[slot] = .internalTarget(target.authoredName)
+                    continue
+                }
+                reference = resolved
+                noiseFallback = nil
+                if case let .graph(identity) = reference {
+                    sourceFact = .init(
+                        slot: slot,
+                        inputIdentity: identity,
+                        provenance: .sameLayerCompositeDefault,
+                        selectionProvenance: .shaderDefault
+                    )
+                }
+            case nil: continue
+            }
+            defaults[slot] = .reference(.init(
+                reference: reference,
+                purpose: sampler.purpose(for: reference),
+                graphInputSourceFact: sourceFact,
+                noiseFallback: noiseFallback,
+                requiresPresenceIndependentAllowance: sampler.readinessCombo != nil
+            ))
+        }
+        let graphPurposes = Dictionary(uniqueKeysWithValues: graphInputSourceSlotFacts.compactMap {
+            slot, fact -> (Int, SceneTextureLoadPurpose)? in
+            samplers[slot]?.purpose(for: .graph(fact.inputIdentity)).map { (slot, $0) }
+        })
+        return .init(
+            candidatePurposes: purposes,
+            candidates: candidates,
+            defaults: defaults,
+            graphInputPurposes: graphPurposes,
+            mixedProviderSlots: mixed,
+            regularNamedProviderPurposeSlots: regularNamedProviderPurposeSlots(in: template, samplers: samplers)
+        )
+    }
+
     static func unsupportedInternalTarget(
         in samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
         template: Template,
@@ -126,7 +202,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
     static func mixedProviderSlotFacts(
         in template: Template,
         samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler]
-    ) -> [Int: SceneResolvedMaterialMixedProviderSlotFact] {
+    ) -> [Int: Variant.MixedProviderSlot] {
         Dictionary(uniqueKeysWithValues: samplers.compactMap { slot, sampler in
             guard template.textureSlots.indices.contains(slot),
                   let textureSlot = template.textureSlots[slot],

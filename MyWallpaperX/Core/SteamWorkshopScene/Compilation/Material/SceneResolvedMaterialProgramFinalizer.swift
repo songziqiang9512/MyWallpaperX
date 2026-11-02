@@ -327,31 +327,30 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
             guard input.template.renderState.supportsResolvedMaterialFullscreenOverwrite else {
                 throw failure(.state, .renderStateInvalid)
             }
-            let selection: SceneResolvedMaterialVariantCache.Selection
+            let variant: SceneResolvedMaterialCompiledVariant
             switch variantCache.resolveSelection(input) {
-            case let .success(value): selection = value
+            case let .success(value): variant = value
             case let .failure(error): throw error
             }
             let texture = try SceneResolvedMaterialTextureResolver.resolve(
                 input,
-                variant: selection.variant,
-                reachableSamplers: selection.reachableSamplers
+                variant: variant
             )
             switch outputStorage {
             case .color:
                 if let failure = colorSampleFailure(
-                    variant: selection.variant,
+                    variant: variant,
                     textureSlots: texture.slots
                 ) { throw failure }
                 guard SceneResolvedMaterialProgramDerivation.hasResolvedColorContract(
                     transfer: texture.frontend.colorTransfer,
                     textureSlots: texture.slots,
                     conditionalGeneratedRGBInputContract:
-                        selection.variant.conditionalGeneratedRGBInputContract,
+                        variant.conditionalGeneratedRGBInputContract,
                     associatedOverOverlaySlot:
-                        selection.variant.associatedOverOverlaySlot,
+                        variant.associatedOverOverlaySlot,
                     premultipliedColorInputSlots:
-                        selection.variant.premultipliedColorInputSlots,
+                        variant.premultipliedColorInputSlots,
                     colorBoundary: texture.frontend.colorBoundary
                 ) else {
                     throw failure(
@@ -380,7 +379,7 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
             let uniforms = try resolvedUniforms(
                 input,
                 uniformInputs: uniformInputs,
-                variant: selection.variant,
+                variant: variant,
                 slots: texture.slots
             )
             guard let graphRole = effectiveGraphRole(
@@ -394,8 +393,8 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                 resolvedUniforms: uniforms,
                 graphRole: graphRole,
                 outputStorage: outputStorage
-            ), prepared: selection.variant.preparedAssembly,
-                routeDecision: selection.variant.routeDecision
+            ), prepared: variant.preparedAssembly,
+                routeDecision: variant.routeDecision
             ) else {
                 throw failure(.invariant, .programAssemblyIdentityInvariant)
             }

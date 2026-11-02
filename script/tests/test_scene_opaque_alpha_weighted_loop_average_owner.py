@@ -125,6 +125,7 @@ private func launchGateVariant(
         resolvedIntegerCombos: base.resolvedIntegerCombos,
         routeDecision: base.routeDecision,
         activeSamplers: base.activeSamplers,
+        textureSelectionFacts: base.textureSelectionFacts,
         graphInputSourceSlotFacts: base.graphInputSourceSlotFacts,
         preservedAlphaRGBColorSlots: base.preservedAlphaRGBColorSlots,
         sourceProvenOpaqueColorSlots: opaqueSlots,
@@ -241,6 +242,7 @@ private enum LaunchGateHarness {
         guard case let .success(cache) =
                 SceneResolvedMaterialVariantCache.launchValidated(
             template: material,
+            textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: material),
             maximumVariantCount: 8
         ), case .success = cache.precompileLaunchEnvelope(
             implicitFramebufferIdentity: input

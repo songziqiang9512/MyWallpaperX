@@ -327,6 +327,7 @@ class SceneResolvedMaterialTemplateTests(unittest.TestCase):
     def test_vfs_and_shader_lexical_boundaries_match_production(self) -> None:
         self.assert_contracts([
             "assetVFSBoundaries",
+            "assetDriveLikeNamesRemainRelative",
             "shaderNormalizationMatchesLoader",
             "shaderEscapesRejected",
             "sourceGraphRequired",

@@ -371,7 +371,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
     func provesExactMixedNamedFallback(
         slot: Int,
         optionalInput expectedInput:
-            SceneResolvedMaterialMixedProviderSlotFact.OptionalInput? = nil
+            SceneResolvedMaterialCompiledVariant.MixedProviderSlot.OptionalInput? = nil
     ) -> Bool {
         guard (0 ..< 8).contains(slot) else { return false }
         let snapshot = launchEnvelopeCapabilitySnapshot()

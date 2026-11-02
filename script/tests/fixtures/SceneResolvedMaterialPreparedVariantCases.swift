@@ -7,7 +7,7 @@ func scenePreparedVariantFrameCases(_ device: MTLDevice) -> [String: Bool] {
     let declarations = [dynamicDeclaration([.timeline])]
     let admitted = template(shader, uniformDeclarations: declarations)
     guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(
-        template: admitted, maximumVariantCount: 16
+        template: admitted, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: admitted), maximumVariantCount: 16
     ), case .success = cache.precompileLaunchEnvelope(implicitFramebufferIdentity: nil),
        let variant = cache.launchEnvelopeCapabilitySnapshot().variants.first else {
         return ["preparedVariantFixtureReady": false]

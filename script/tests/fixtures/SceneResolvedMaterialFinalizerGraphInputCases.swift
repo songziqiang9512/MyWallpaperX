@@ -171,7 +171,7 @@ func sameLayerCompositeOverrideTokens(_ device: MTLDevice) -> [String: String] {
                 textureSlotsOverride: slots, effectContext: .init(key: owner, input: input))
             let prefix = "self-\(variant):\(name)"
             guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(
-                template: value, maximumVariantCount: 8
+                template: value, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: value), maximumVariantCount: 8
             ) else { result[prefix + ":source"] = "launch-failed"; return }
             if prepared {
                 guard case .success = cache.precompileLaunchEnvelope(

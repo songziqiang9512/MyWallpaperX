@@ -179,7 +179,7 @@ private func variantAliasScope(effect: Bool, name: String = "g_Alpha") -> String
         input: graphTexture()) : nil
     let material = template(shader, includePrimaryCandidate: false, effectContext: context)
     guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(
-        template: material, maximumVariantCount: 4) else { return "launch-failed" }
+        template: material, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: material), maximumVariantCount: 4) else { return "launch-failed" }
     switch cache.precompileLaunchEnvelope(implicitFramebufferIdentity: nil) {
     case .success:
         let variants = cache.launchEnvelopeCapabilitySnapshot().variants
@@ -488,9 +488,9 @@ private func drawModulationFrames(
             contractIdentity: shader.identity, contractCanonicalSHA256: shader.canonicalSHA256,
             textureSources: [], uniformSources: []))!
     var entries: [SceneResolvedMaterialRuntimeCatalog.Key: SceneResolvedMaterialRuntimeCatalog.Entry] = [
-        .init(effect: effect, nodeIndex: 0): .template(materialTemplate)
+        .init(effect: effect, nodeIndex: 0): .template(materialTemplate, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: materialTemplate))
     ]
-    if reductionScale != nil { entries[.init(effect: effect, nodeIndex: 1)] = .template(template(for: terminal)) }
+    if reductionScale != nil { entries[.init(effect: effect, nodeIndex: 1)] = .template(template(for: terminal), textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: template(for: terminal))) }
     let materials = SceneResolvedMaterialRuntimeCatalog(entries: entries, resourceDemandIssues: [])
     let dependency = SceneDependencyRenderPlan.Binding(consumerLayerID: layerID,
         providerLayerID: provider.providerLayerID,

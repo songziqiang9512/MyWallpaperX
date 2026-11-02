@@ -705,7 +705,7 @@ final class SceneResolvedMaterialFinalizerDynamicUniformCases {
         }
         let declarations = [dynamicAlphaDeclaration([.timeline])]
         guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(
-            template: template(shared, uniformDeclarations: declarations), maximumVariantCount: 1
+            template: template(shared, uniformDeclarations: declarations), textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: template(shared, uniformDeclarations: declarations)), maximumVariantCount: 1
         ), case .success = cache.precompileLaunchEnvelope(implicitFramebufferIdentity: nil) else {
             return ["dynamicSetup": false]
         }

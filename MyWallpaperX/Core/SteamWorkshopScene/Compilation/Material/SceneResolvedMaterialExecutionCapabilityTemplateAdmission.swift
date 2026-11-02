@@ -13,12 +13,12 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityTemplateAdmission {
         key: Key,
         materialCatalog: SceneResolvedMaterialRuntimeCatalog,
         existingKeys: Set<Key>
-    ) -> Template? {
+    ) -> (template: Template, textureFormatSlots: Result<Set<Int>, SceneResolvedMaterialFailure>)? {
         guard let entry = materialCatalog.entry(for: node) else {
             diagnose(node, reason: "catalog-missing")
             return nil
         }
-        guard case let .template(template) = entry else {
+        guard case let .template(template, textureFormatSlots) = entry else {
             if case let .failure(failure) = entry {
                 diagnose(node, reason: "catalog-failure", failure: failure)
             }
@@ -36,7 +36,7 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityTemplateAdmission {
             diagnose(node, reason: "duplicate-key")
             return nil
         }
-        return template
+        return (template, textureFormatSlots)
     }
 
     private static func exactTemplate(

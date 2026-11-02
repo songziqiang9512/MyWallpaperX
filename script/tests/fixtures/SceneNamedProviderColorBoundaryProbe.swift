@@ -44,7 +44,7 @@ extension BackgroundColorABIHarness {
             diagnosticProvenance: .init(nodeIndex: 0, authoredShaderPath: shader.identity,
                 contractIdentity: shader.identity, contractCanonicalSHA256: shader.canonicalSHA256,
                 textureSources: [], uniformSources: []))!
-        let cache = try SceneResolvedMaterialVariantCache.launchValidated(template: template, maximumVariantCount: 16).get()
+        let cache = try SceneResolvedMaterialVariantCache.launchValidated(template: template, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: template), maximumVariantCount: 16).get()
         let launch = cache.precompileLaunchEnvelope(implicitFramebufferIdentity: input, outputStorage: .color,
             assetStates: fallback.map { [.init(path: $0, purpose: .straightAlbedo):
                 SceneAssetTextureLaunchState.ready(.color(.resolved(.straightAlpha)))] } ?? [:])

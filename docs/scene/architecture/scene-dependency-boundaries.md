@@ -12,7 +12,7 @@
 
 公共性判定：可传递的编译结果、执行描述或 typed frame 输入值，可以列入；解析、编译、schema 推导、准入选择、mutable cache/catalog 和 source digest 实现不因此列入。顶级命名空间混有公开嵌套值与内部算法时，试点保守记录 todo，由后续职责迁移区分，不自动公开整个 namespace。例如 `SceneResolvedMaterialShaderSchema.Sampler` 的类型消费和同 namespace 的推导方法目前都属于该结构债务；`SceneResolvedMaterialProgramIdentity` 的 identity 推导入口、`SceneResolvedMaterialMixedProviderSlotFact.resolve` 的作者形状解析也没有因名字像值而公开。`SceneMaterialRenderState` 的纯 typed DTO/查询已迁入 Runtime/Frame；作者字符串 `.compile`/`.compileBlending` 仅留 Compilation/Material 的解析 extension，Rendering 仅消费 DTO，对应旧混合 namespace todo 随实际职责分离退休，并未公开解析算法。todo 不证明这些调用发生在普通帧，也不宣判运行结果错误。
 
-已确认的禁止边包括 `Rendering/Bindings/SceneResolvedMaterialTextureResolver+Launch.swift -> SceneShaderContractSourceParser`，以及 texture resolver 对 `SceneResolvedMaterialVariantCache` 的引用。它们是真实源码引用，作为现存 todo 冻结，纠正门是将解析/选择结果在现有 preparation owner 完成后经 typed 合同传递，或经另一个有据设计调整实际所有权；禁止仅改名、包装或扩公共表来归零。
+原 `Rendering/Bindings/SceneResolvedMaterialTextureResolver+Launch.swift -> SceneShaderContractSourceParser` 已随格式解释归回 ShaderSchema、Catalog 交接既有 Demand 准备结果而退出；帧槽位形状也由 CompiledVariant 交付。texture resolver 的 launch 选择仍引用 `SceneResolvedMaterialVariantCache`，以及混合 schema/推导命名空间，继续作为实际结构债务。纠正门是将解析/选择结果在现有 preparation owner 完成后经 typed 合同传递，或经另一个有据设计调整实际所有权；禁止仅改名、包装或扩公共表来归零。
 
 ## 扫描与证据上限
 

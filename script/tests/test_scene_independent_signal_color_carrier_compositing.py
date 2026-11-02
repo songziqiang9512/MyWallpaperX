@@ -430,6 +430,7 @@ private func runSignalBridge(_ name: String, device: MTLDevice, queue: MTLComman
     let rawData = isScalar || isDataPrevious
     let ingress = isDataPrevious ? chainedFirstOutput : first
     guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(template: template,
+    textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: template),
         maximumVariantCount: 16), let encoder = SceneResolvedMaterialPassEncoder(device: device) else {
         return ["failure": "bridge-setup"]
     }

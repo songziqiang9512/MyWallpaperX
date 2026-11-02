@@ -17,15 +17,22 @@ nonisolated enum SceneResolvedMaterialTextureSlotPurpose {
         candidateOrdinal: Int,
         sampler: Sampler
     ) -> Fact? {
+        fact(in: slot, candidateOrdinal: candidateOrdinal, sampler: sampler,
+             mixedProvider: SceneResolvedMaterialMixedProviderSlotFact.resolve(in: slot, sampler: sampler))
+    }
+
+    static func fact(
+        in slot: Template.TextureSlot,
+        candidateOrdinal: Int,
+        sampler: Sampler,
+        mixedProvider: SceneResolvedMaterialCompiledVariant.MixedProviderSlot?
+    ) -> Fact? {
         guard slot.index == sampler.slot,
               slot.candidates.indices.contains(candidateOrdinal) else {
             return nil
         }
         let candidate = slot.candidates[candidateOrdinal]
-        if let mixed = SceneResolvedMaterialMixedProviderSlotFact.resolve(
-            in: slot,
-            sampler: sampler
-        ), let purpose = mixed.purpose(for: candidate.reference) {
+        if let purpose = mixedProvider?.purpose(for: candidate.reference) {
             return Fact(
                 slot: slot.index,
                 ordinal: candidateOrdinal,

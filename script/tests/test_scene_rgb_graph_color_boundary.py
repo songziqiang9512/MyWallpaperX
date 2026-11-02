@@ -110,7 +110,7 @@ private func rgbCase(_ name: String, renamed: Bool = false, usesUser: Bool = tru
 }
 
 private func rgbCache(_ value: RGBCase) -> Result<SceneResolvedMaterialVariantCache, SceneResolvedMaterialFailure> {
-    SceneResolvedMaterialVariantCache.launchValidated(template: value.template, maximumVariantCount: 8)
+    SceneResolvedMaterialVariantCache.launchValidated(template: value.template, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: value.template), maximumVariantCount: 8)
 }
 
 private func rgbLaunch(_ cache: SceneResolvedMaterialVariantCache, value: RGBCase) -> String {
@@ -217,7 +217,7 @@ private func rgbRun(_ value: RGBCase, device: MTLDevice, queue: MTLCommandQueue)
     }
     let chain = admittedGraph(value.graph)
     let catalog = SceneResolvedMaterialRuntimeCatalog(entries: [
-        .init(effect: effect, nodeIndex: 0): .template(value.template)], resourceDemandIssues: [])
+        .init(effect: effect, nodeIndex: 0): .template(value.template, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: value.template))], resourceDemandIssues: [])
     let caps = capabilities(chain, catalog: catalog,
         assetStates: [.init(path: value.asset, purpose: .straightAlbedo): .ready(.color(.resolved(.straightAlpha)))])
     row["capabilityReports"] = caps.reportLines

@@ -20,9 +20,11 @@
 各族未闭项以对应现役专项表和[唯一断点队列](../roadmap/scene-open-breakpoint-queue.md)为准；不同身份的历史记录不能合并成一次全引擎验收。
 
 <a id="architecture-integration-20261102"></a>
-### 架构迁移后验
+### 架构迁移阶段证据
 
-[2026-11-02冻结后验](../history/runtime-evidence-index.md#e-architecture-final-integration-20261102)记录11个能力族的旧职责退出、最终App与12次跨族运行。输入/身份与原失败保持，登记范围内未证新增回退；改名文字、动态过渡和实时动画的相位限制仍保留。暂停文字真实App门重新通过，旧日志计数失效及首失败有原始材料。三轮旧/新成本未认领整体提速：CPU无改善、GPU噪声超归因门，采样驻留上移原数不隐藏。完整语料、物理多屏、长期切换、能耗与正式Release未验；不能据架构结算关闭兼容或性能专项。
+[2026-11-02冻结后验](../history/runtime-evidence-index.md#e-architecture-final-integration-20261102)记录11个能力族退出和12次direct-host跨族运行，仅是阶段证据，不能证明整体架构已完成。材质准备/帧边界、Sprite/当前拓扑与实际产品daemon验收继续按[唯一队列](../roadmap/scene-open-breakpoint-queue.md#51-顶层设计已裁决的代码职责重构)推进。登记范围内未证新增回退，原FAIL及改名文字、动态过渡/交互资格仍保留；暂停文字门已通过，三轮成本没有认领整体提速。完整语料、物理多屏、长期切换、能耗与正式Release未验；历史结果不因继续改造而重写或升级。
+
+[材质准备 M1](../history/material-preparation-boundaries-2026-11-02.md#m1-format-slot-handoff)已交接格式及槽位事实，保留当前资源检查；真实 GPU、同输入签名 App、原包/邻例及暖复用有界通过。四条结构边退出，帧 uniform、其余跨层职责和产品 daemon 仍待完成；原测试载体失败与修正分开保存，不认领性能收益。
 
 <a id="evidence-lifecycle"></a>
 ### 准备与生命周期

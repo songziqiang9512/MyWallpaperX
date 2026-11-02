@@ -680,7 +680,8 @@ struct SceneResolvedMaterialRuntimeCatalog {
     typealias Key = SceneResolvedMaterialKey
 
     enum Entry {
-        case template(SceneResolvedMaterialTemplate)
+        case template(SceneResolvedMaterialTemplate,
+            textureFormatSlots: Result<Set<Int>, SceneResolvedMaterialFailure>)
         case failure(SceneResolvedMaterialFailure)
     }
 
@@ -2089,7 +2090,7 @@ private func catalog(
                 colorBlendMaskPath: colorBlendNodes.contains(node.nodeIndex)
                     ? colorBlendMaskPath : nil
             )
-        entries[.init(effect: node.effect, nodeIndex: node.nodeIndex)] = .template(value)
+        entries[.init(effect: node.effect, nodeIndex: node.nodeIndex)] = .template(value, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: value))
     }
     let issues: Set<SceneResolvedMaterialRuntimeCatalog.ResourceDemandIssue> =
         Set(demandIssueNodes.map { nodeIndex in
@@ -4374,7 +4375,7 @@ private func runSelfMixedCurrentScenario(device: MTLDevice, queue: MTLCommandQue
             uniformDeclarations: original.uniformDeclarations, renderState: original.renderState,
             graphRole: original.graphRole, effectContext: .init(key: effect.key, input: effect.input),
             shaderContract: original.shaderContract, diagnosticProvenance: original.diagnosticProvenance)!
-        entries[.init(effect: node.effect, nodeIndex: node.nodeIndex)] = .template(value)
+        entries[.init(effect: node.effect, nodeIndex: node.nodeIndex)] = .template(value, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: value))
     }
     let owner = SceneDependencyRenderPlan.Reference(consumerLayerID: layerID, providerLayerID: layerID,
         slot: .init(effectID: chainedSecondEffect.descriptorID, passIndex: 0, slotIndex: 1), variant: .primary)
@@ -4501,7 +4502,7 @@ private func runSelfCompositeCurrentScenario(
             diagnosticProvenance: .init(nodeIndex: index, authoredShaderPath: shader.identity,
                 contractIdentity: shader.identity, contractCanonicalSHA256: shader.canonicalSHA256,
                 textureSources: [], uniformSources: []))!
-        entries[.init(effect: key, nodeIndex: index)] = .template(value)
+        entries[.init(effect: key, nodeIndex: index)] = .template(value, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: value))
         effects.append(.init(key: key, definitionPath: "effects/self-current-\(index).json",
             input: current, output: output, nodeIndices: [index]))
         nodes.append(node)
@@ -4615,7 +4616,7 @@ private func runStraightColorContinuityScenario(
             diagnosticProvenance: .init(nodeIndex: node.nodeIndex, authoredShaderPath: shader.identity,
                 contractIdentity: shader.identity, contractCanonicalSHA256: shader.canonicalSHA256,
                 textureSources: [], uniformSources: []))!
-        entries[.init(effect: node.effect, nodeIndex: node.nodeIndex)] = .template(value)
+        entries[.init(effect: node.effect, nodeIndex: node.nodeIndex)] = .template(value, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: value))
     }
     let chain = orderedLayerGraph(graph)
     let capabilities = capabilities(chain, catalog: .init(entries: entries, resourceDemandIssues: []))
@@ -4773,7 +4774,7 @@ private func runRawSignalPassthroughGraphScenario(
             diagnosticProvenance: .init(nodeIndex: node.nodeIndex, authoredShaderPath: contract.identity,
                 contractIdentity: contract.identity, contractCanonicalSHA256: contract.canonicalSHA256,
                 textureSources: [], uniformSources: []))!
-        entries[.init(effect: node.effect, nodeIndex: node.nodeIndex)] = .template(template)
+        entries[.init(effect: node.effect, nodeIndex: node.nodeIndex)] = .template(template, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: template))
     }
     let chain = orderedLayerGraph(value)
     let owners = capabilities(chain, catalog: .init(entries: entries, resourceDemandIssues: []))
@@ -8580,7 +8581,7 @@ private enum Harness {
                 let rtTemplate = implicitFramebufferTemplate(for: node, renderTargetDefault: token,
                     candidateAsset: availability == "noCandidate" ? nil : path)
                 let rtCatalog = SceneResolvedMaterialRuntimeCatalog(entries: [
-                    .init(effect: node.effect, nodeIndex: node.nodeIndex): .template(rtTemplate)], resourceDemandIssues: [])
+                    .init(effect: node.effect, nodeIndex: node.nodeIndex): .template(rtTemplate, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: rtTemplate))], resourceDemandIssues: [])
                 let assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState] = availability == "noCandidate" ? [:]
                     : [identity: availability == "absent" ? .absent : .ready(.color(.resolved(.straightAlpha)))]
                 let rtCapabilities = capabilities(implicitFramebufferChain, catalog: rtCatalog, assetStates: assetStates)
@@ -9240,6 +9241,7 @@ private enum Harness {
         guard case let .success(boundedCache) =
                 SceneResolvedMaterialVariantCache.launchValidated(
             template: cacheTemplate,
+            textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: cacheTemplate),
             maximumVariantCount: 1
         ) else { fatalError("bounded cache rejected") }
         let boundedLaunch = boundedCache.precompileLaunchEnvelope(
@@ -9250,7 +9252,7 @@ private enum Harness {
         readyResources[input] = prepared.stages[0].effectOutputResource
             .rewrappedForGraphIdentity(input)!
         let readyVariantFrame = frame(3).overlayingGraphResources(readyResources)!
-        let readyVariant = boundedCache.resolve(
+        let readyVariant = boundedCache.resolveSelection(
             readyVariantFrame.finalizationInput(
                 template: cacheTemplate,
                 layerID: 9001,
@@ -9285,7 +9287,7 @@ private enum Harness {
             }
             return value
         }()
-        let absentGraphOverride = boundedCache.resolve(
+        let absentGraphOverride = boundedCache.resolveSelection(
             absentVariantFrame.finalizationInput(
                 template: cacheTemplate,
                 layerID: 9001,
@@ -9323,6 +9325,7 @@ private enum Harness {
         guard case let .success(failingVariantCache) =
                 SceneResolvedMaterialVariantCache.launchValidated(
             template: failingTemplate,
+            textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: failingTemplate),
             maximumVariantCount: 1
         ) else { fatalError("failing cache rejected") }
         let firstFailedVariant = failingVariantCache.precompileLaunchEnvelope(

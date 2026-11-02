@@ -219,7 +219,7 @@ SOURCE_INDEPENDENT_GRAPH_HARNESS = r'''
                 diagnosticProvenance: .init(nodeIndex: node.nodeIndex, authoredShaderPath: shader.identity,
                     contractIdentity: shader.identity, contractCanonicalSHA256: shader.canonicalSHA256,
                     textureSources: [], uniformSources: []))!
-            entries[.init(effect: node.effect, nodeIndex: node.nodeIndex)] = .template(template)
+            entries[.init(effect: node.effect, nodeIndex: node.nodeIndex)] = .template(template, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: template))
         }
         let descriptor = SceneRenderDescriptor(layers: [.init(id: layer, effects: effects.map { effect in
             .init(id: effect.key.descriptorID, file: effect.definitionPath, visible: true,

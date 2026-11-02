@@ -88,7 +88,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             graphR8TextureSlots,
             activeTextureSlots,
             activeOpacityMaskSlots,
-            neutralTextureResolution
+            neutralTextureResolution,
+            textureSelectionFacts
         ) = try deriveVariantProviderFacts(
             template: template,
             variantKey: variantKey,
@@ -201,12 +202,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             sourceActiveSamplers: sourceActiveSamplers,
             spatialWeightedColorBlendExternalColorSlot: spatialWeightedColorBlendExternalColorSlot,
             premultipliedColorAuxiliarySlots: premultipliedColorAuxiliarySlots,
-            mixedProviderSlots: Set(
-                mixedProviderSlotFacts(
-                    in: template,
-                    samplers: sourceActiveSamplers
-                ).keys
-            ),
+            mixedProviderSlots: Set(textureSelectionFacts.mixedProviderSlots.keys),
             outputSemantics: outputSemantics,
             artifactStart: artifactStart,
             artifactResolution: artifactResolution,
@@ -293,6 +289,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             ),
             routeDecision: routeDecision,
             activeSamplers: samplers,
+            textureSelectionFacts: textureSelectionFacts.restricting(to: Set(samplers.keys)),
             graphInputSourceSlotFacts: graphInputFacts,
             preservedAlphaRGBColorSlots: preservedAlphaRGBColorSlots,
             sourceProvenOpaqueColorSlots: sourceProvenOpaqueColorSlots,

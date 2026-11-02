@@ -352,13 +352,11 @@ private func catalog(
             SceneResolvedMaterialRuntimeCatalog.Entry
         )? in
         guard node.kind == .material else { return nil }
+        let value = template(for: node, mixWeight: mixWeight, content: content)
         return (
             .init(effect: node.effect, nodeIndex: node.nodeIndex),
-            .template(template(
-                for: node,
-                mixWeight: mixWeight,
-                content: content
-            ))
+            .template(value, textureFormatSlots:
+                SceneResolvedMaterialShaderSchema.textureFormatSlots(in: value))
         )
     })
     return .init(entries: entries, resourceDemandIssues: [])

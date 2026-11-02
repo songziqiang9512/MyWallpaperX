@@ -16,12 +16,13 @@ extension ScenePreparedDeviceResources {
             func reject(_ reason: String) {
                 logSink("source material unavailable: owner=\(entry.key.reportToken) reason=\(reason)")
             }
-            guard case let .template(template) = entry.entry else {
+            guard case let .template(template, textureFormatSlots) = entry.entry else {
                 if case let .failure(failure) = entry.entry { reject(String(describing: failure)) }
                 continue
             }
             guard case let .success(variants) = SceneResolvedMaterialVariantCache.launchValidated(
-                template: template, maximumVariantCount: 32, assetFormatFacts: assets.launchFormatFacts
+                template: template, textureFormatSlots: textureFormatSlots,
+                maximumVariantCount: 32, assetFormatFacts: assets.launchFormatFacts
             ) else { reject("variant-schema"); continue }
             switch variants.precompileLaunchEnvelope(
                 implicitFramebufferIdentity: nil,

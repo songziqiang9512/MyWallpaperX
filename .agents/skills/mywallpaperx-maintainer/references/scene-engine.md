@@ -84,6 +84,8 @@ evidence_limit: highest claim this batch can support
 
 架构级任务另按工程设计中的迁移合同核对完整范围、迁移前正确能力及最终退出条件，按能力族分批落实和提交。每批明确原 owner 的退出与独立收益，不能用一个易验证的小切片、目录搬迁或新增 facade 替代整体迁移；最终验证也不能缩成迁移中恰好通过的样本集合。
 
+收口分别核职责合同、实际执行与证据覆盖。没有普通帧解析、没有测得热点或未发现运行错误，不能关闭仍违反目标依赖/分期合同的真实结构债；纯DTO、混合namespace与算法调用也不能仅凭词法数混判。有限Context/descriptor审查与少量direct-host结果不能代替全部组件寿命和所要求的产品入口；入口覆盖按[验证方法](verification-and-handoff.md#首次隔离运行)实际经过的链裁决。由现役合同补齐真实缺口，不为清数字新增wrapper/cache或把独立兼容缺口扩成无限重构。
+
 checkpoint 使用新组合或未见 fixture 证明公共 primitive 不依赖 sample/layer/path/hash/asset/screenshot identity。只有 corpus fingerprint/schema/family 解释变化或现有 snapshot 无法回答影响面时刷新全 corpus。
 
 ## 新增或全量样本筛查
@@ -116,7 +118,7 @@ route state 的名称、定义和进入条件只从当前 `AGENTS.md`、runtime 
 
 从仓库开发工作流和 Scene 开发工作流选择 `script/verify_scene_change.py` 的适用阶段，运行前读取当前 `--help` 和预览，确认路径选择、phase 和 runtime prerequisites；`--owned-path` 只选择本批已变更文件，`--path` 可预览预期影响面，均不是文件锁或执行沙箱。inner 验证最近正反例；Swift 产品或构建输入变化做 checkpoint Debug build；GPU/VM/resource/lifecycle/visible 变化补相称 integration；共享合同、完整能力或发布结论才升级 milestone。
 
-可见或动态声明沿同一 identity 证明：实际 input -> selected route/Program/VM/component -> execution completion -> resource/target publication -> terminal compositor -> next-frame -> 预登记 ROI/事件方向 -> local-failure counterexample。没有这条链，只报告 structural/compiled/routed/host-stage 的真实等级。
+按所声明的结果沿同一 identity 取证：实际 input -> selected route/Program/VM/component -> execution completion -> 对应 consumer。视觉结果核 resource/target publication、terminal compositor 与预登记 ROI；声音、事件和脚本状态核各自真实输出或事件消费者。next-frame、局部失败反例按受影响语义选择；未到相应 consumer 时，只报告实际到达的阶段。
 
 像素正控只要求当前问题必需的真实贡献；先按既有几何、alpha与颜色合同确认oracle，未覆盖区及合法中性插值不必变化。仅断言误设且产品、输入、载体、二进制均未改时，保首失败并复用同身份有效GPU读回重放最终断言；不能称新GPU运行。
 

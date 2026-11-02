@@ -39,7 +39,7 @@ class SceneSourceColorGraphTests(unittest.TestCase):
                 textureSources: [], uniformSources: []))!
         let chain = admittedGraph(value)
         let owners = capabilities(chain, catalog: .init(entries: [
-            .init(effect: effect, nodeIndex: 0): .template(sourceTemplate)
+            .init(effect: effect, nodeIndex: 0): .template(sourceTemplate, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: sourceTemplate))
         ], resourceDemandIssues: []))
         guard let claim = owners.claim(chain), let capability = owners.resolve(claim.token, for: chain),
               let material = capability.material(for: value.nodes[0]),

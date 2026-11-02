@@ -381,18 +381,15 @@ private func capabilities(
 ) -> Capabilities {
     let materialNodes = graph.nodes.filter { $0.kind == .material }
     let entries = Dictionary(uniqueKeysWithValues: materialNodes.map { node in
-        (
+        let value = template(for: node, pair: pair,
+            invalidUniform: node.nodeIndex == invalidUniformNode)
+        return (
             SceneResolvedMaterialRuntimeCatalog.Key(
                 effect: node.effect,
                 nodeIndex: node.nodeIndex
             ),
-            SceneResolvedMaterialRuntimeCatalog.Entry.template(
-                template(
-                    for: node,
-                    pair: pair,
-                    invalidUniform: node.nodeIndex == invalidUniformNode
-                )
-            )
+            SceneResolvedMaterialRuntimeCatalog.Entry.template(value, textureFormatSlots:
+                SceneResolvedMaterialShaderSchema.textureFormatSlots(in: value))
         )
     })
     let descriptor = SceneRenderDescriptor(

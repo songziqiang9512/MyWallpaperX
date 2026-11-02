@@ -252,10 +252,12 @@ private func runCase(device: MTLDevice, queue: MTLCommandQueue, renamed: Bool,
     let admitted = orderedLayerGraph(value)
     let catalog = SceneResolvedMaterialRuntimeCatalog(entries: Dictionary(uniqueKeysWithValues:
         nodes.map { node in
-            (SceneResolvedMaterialRuntimeCatalog.Key(effect: node.effect, nodeIndex: node.nodeIndex),
-             SceneResolvedMaterialRuntimeCatalog.Entry.template(ownedTemplate(node,
+            let value = ownedTemplate(node,
                 renamed: renamed, colors: node.nodeIndex == 2,
-                constant: noLighting && node.nodeIndex == 2)))
+                constant: noLighting && node.nodeIndex == 2)
+            return (SceneResolvedMaterialRuntimeCatalog.Key(effect: node.effect, nodeIndex: node.nodeIndex),
+                SceneResolvedMaterialRuntimeCatalog.Entry.template(value, textureFormatSlots:
+                    SceneResolvedMaterialShaderSchema.textureFormatSlots(in: value)))
         }), resourceDemandIssues: [])
     let caps = capabilities(admitted, catalog: catalog)
     guard let claim = caps.claim(admitted), let capability = caps.resolve(claim.token),

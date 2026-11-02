@@ -51,7 +51,7 @@ import Foundation
             """)
         let material = template(shader, includePrimaryCandidate: false)
         guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(
-            template: material, maximumVariantCount: 4),
+            template: material, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: material), maximumVariantCount: 4),
               case .success = cache.precompileLaunchEnvelope(implicitFramebufferIdentity: nil),
               let variant = cache.launchEnvelopeCapabilitySnapshot().variants.first else {
             throw NSError(domain: "nominal-output-prepare", code: 1)

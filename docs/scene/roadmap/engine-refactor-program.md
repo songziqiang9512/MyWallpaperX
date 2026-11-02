@@ -8,7 +8,7 @@
 
 真实 Scene 正确加载、播放、交互和合成；正确性优先，其次覆盖收益、简单性与性能。在相同作者内容、画质和资源安全条件下，减少整体 CPU/GPU 工作、内存与启动成本，改善属性响应。帧时限达标不能证明能耗合理；局部阶段下降也不能替代整进程或用户交互收益。
 
-以现有 Swift/AppKit、Metal、系统媒体能力和通用编译/VM 底座演进。重构围绕已证成本或能力缺口展开，允许替换不合理的旧结构；整体换语言、新框架、第二 renderer 或更多缓存均不预设为目标。新增或替代机制须说明旧职责何时撤权。
+以现有 Swift/AppKit、Metal、系统媒体能力和通用编译/VM 底座演进。重构围绕已证成本、能力缺口或确认的职责偏差展开，允许替换不合理的旧结构；整体换语言、新框架、第二 renderer 或更多缓存均不预设为目标。新增或替代机制须说明旧职责何时撤权。
 
 ### 顶层设计收敛决定
 
@@ -38,6 +38,10 @@
 迁移中允许未完成路径暂时异常，但必须保留基线与未闭项；全部迁移完成前须恢复迁移前正确播放能力。日志、构建和非黑只证明各自范围，最终还需相应真实可见、交互、切换/暂停/恢复及资源退出证据；对不能冻结的实时输入按可观察事件和结果比较，不伪造逐像素等价。未验能力保持未闭，不通过改期望值、缩小成功集合或降低质量结项。
 
 **成本与纠偏。** 普通帧只推进活动状态、消费已准备资源与编码。入口检查一次；保留真实防止越界、串台和 GPU 使用期错误的边界，撤掉重复检查、无消费者投影、每帧重解、复制与诊断。新增状态或抽象要有真实消费者，并同步移除被替代者；每批分别报告产品、测试、文档增删和用户收益。遇到只能继续叠排除集合、形状白名单或转发层的方案，先回到公共语义与所有权调整设计，不能沿旧错误路径硬推。结构改造的收益须体现为更直接的执行/释放链和更少的重复工作，性能提升另以同条件测量证明。
+
+**整体退出。** 架构合同的职责要求、实际运行正确性和验证覆盖分别裁决。没有普通帧重解析、没有可测热点或门禁通过，不能关闭仍违反目标合同的准备/运行依赖；也不能为了词法库存归零机械搬文件或公开内部算法。按组件合同完整核对作者数据、准备、实例状态、帧消费、GPU和退出，再把具体未闭职责留在唯一队列。每轮实施和最终复核都重新对照总设计、组件合同与实际接线；记录完整链的审查范围，有限Context/descriptor审查不代替全组件审查。
+
+最终能力保持须覆盖受影响及健康相邻族，另贯通实际App入口、client/daemon、属性更新、暂停恢复、切换及资源退出；直接Host、直接client和产品入口按各自真正经过的链分别声明。已确认结构职责全部落地且相称运行/失败反例完成后才结算整体；独立兼容缺口或不可得硬件资格明示范围，不靠重复相同实验、代码数量或阶段记录充作完成依据。
 
 ### 语言执行收敛：文本首批
 
@@ -163,7 +167,69 @@ clipping PSO 在已有 PipelineRepository 按真实 clip demand 准备一次，�
 
 动态成员同步同时消费 destroyed authored IDs：退出对应 CPU/GPU references 及 shared clock 的 state/event/command，不在 screen 重建时复活；默认 creation template 与共享资产保留，单屏退出不重置其他屏 clock。只在既有 committed topology/cadence 边界执行，不能提前撤当前冻结帧。failed/bind-only 动态 ID 的成员记录保留，避免每帧重试。
 
-验收复用准备、动画 clock、真实 GPU publication/clipping/pool、direct stream、physics 和真实 QuickJS bones/pose 门。新增冻结 A→CPU 准备 B→GPU 仍发布 A 的 vertices/coverage/ROI、重复 GPU 发布不推进 CPU、两 Surface 独立以及 authored destroy/clone 保持反例。旧源码形状断言退役，独立行为保留；嵌入 Swift fixture 只按完整载体抽出，避免测试文件超限。完成 Debug build，再用冻结旧 App 对原始多 clip、optional additive、physics 交互、健康邻例及动态出生/销毁作同输入新旧运行，核正常退出与 GPU drain。成本只按实际准备次数和可比较测量声明，不凭 owner 数量宣称 FPS、能耗、完整语料或官方 parity。完成后按 Puppet 完整族独立提交；随后只做一次有限 Context/descriptor/dependency 审计与整体迁移保真、同条件成本验收，不将独立兼容缺口扩成无限重构前置项。
+验收复用准备、动画 clock、真实 GPU publication/clipping/pool、direct stream、physics 和真实 QuickJS bones/pose 门。新增冻结 A→CPU 准备 B→GPU 仍发布 A 的 vertices/coverage/ROI、重复 GPU 发布不推进 CPU、两 Surface 独立以及 authored destroy/clone 保持反例。旧源码形状断言退役，独立行为保留；嵌入 Swift fixture 只按完整载体抽出，避免测试文件超限。完成 Debug build，再用冻结旧 App 对原始多 clip、optional additive、physics 交互、健康邻例及动态出生/销毁作同输入新旧运行，核正常退出与 GPU drain。成本只按实际准备次数和可比较测量声明，不凭 owner 数量宣称 FPS、能耗、完整语料或官方 parity。完成后按 Puppet 完整族独立提交；其余组件与跨层依赖继续按整体退出条件核对，有限审计不预先限定剩余职责，不将独立兼容缺口扩成无限重构前置项。
+
+### 材质格式与槽位事实的准备交接
+
+资源需求准备、variant与帧绑定共用同一静态事实。当前Rendering的launch格式助手解析shader，Compilation再反向调用；既有ResourceDemandAnalysis已在single-flight/持久缓存形成formatSlots，不能为调整目录在Template/ShaderContract工厂提前重扫。原Catalog.Entry携带该准备结果，经TemplateAdmission/Stages与SourceMaterials原入口交给VariantCache；格式注解解释归现有ShaderSchema，Rendering解析助手和VariantCache中的重复扫描退出。格式无效与格式有效但reachability失败分别保留原局部失败，不把合法空集合当未准备。
+
+CompiledVariant在已有provider分析中保存mixed-provider纯值、regular-named槽和按候选ordinal排列的声明purpose；graph-input事实的空集合也是最终准备结果。原reachability准备值在所有可达变体汇合后，同时形成inactive-but-reachable候选purpose共识，替换原sampler缓存值，不另加cache或owner。帧直接取得所属CompiledVariant，不为已准备事实再包单字段Selection；TextureSelection、TextureResolver和GraphSelection退出静态schema、mixed/named形状与候选purpose重推导。共识只供准备阶段的候选key选择，帧active-slot绑定不透传无用共识。GraphSelection仍按实际publication content调整用途，当前readiness、absent/pending、wrong-purpose、颜色/ABI、generation及GPU使用期检查留在原消费者。
+
+Demand磁盘缓存继续使用已有formatSlots载荷，保持暖命中不扫描、损坏沿冷路径重建。节点相关槽事实按material/node在launch准备，不塞入缺节点身份的source-pure磁盘缓存，不以新增持久缓存取得本次收益。新旧准备事实、格式错误/合法空结果、活动/可达/不活动槽、改名、半透明named与同/跨层、三候选局部失败由现有Template/Finalizer/persistent-cache及presence/source-purpose/mixed-provider真实GPU门验证；随后Debug与隔离原包/健康邻例保实际结果和排空。结构退出与解析次数可直接说明，启动/CPU收益另测，不预报性能。
+
+### 材质静态装配与当前帧输入
+
+每个material的template、variants、静态uniform来源与ABI只有一个准备权威。当前frame input重复携template，VariantCache在memo前重比定义；PreparedAssembly与preparedUniformBindings已形成静态归属，assemblePrepared仍逐field再推host schema和静态ActiveUniformIdentity。目标是帧接口只传当前值、矩阵、纹理snapshot和输出用途，从所属准备产品读取定义；template/cache不再由任意帧调用者重新配对。跨模板错误须在实际绑定/构造入口拒绝或由类型关系消除，不能直接删guard而让错误组合可执行，也不新增token/摘要认证替代大比较。
+
+静态uniform schema与ActiveUniformIdentity在既有PreparedAssembly工厂生成一次，完整数值binding计划归同一准备产物并保留真正求值消费者；复用原ResolvedUniform仅携当前bytes和dynamic的resolvedSource，静态field/声明/target/attachments从所属准备产物读取。Program的terminal replay和DEBUG诊断也读这份来源，不抹去其真实元数据需求。真实snapshot来源/值在Finalizer消费处检查一次，Assembly不再重复相同source配对与host schema推导，仍检查当前count/bytes等真正动态ABI关系。
+
+无产品消费者的raw装配入口及仅服务旧源码形状的fixture同批退役；非法布局、UBO、slot、binding和render state在准备工厂保反例，wrong-source用真实snapshot→query/finalize验证。工厂一次形成完整产物，不为原多重非法输入的错误排序再建两阶段组装，不伪造Dynamic binding。旧字段/API和重复验证同批退出，复用现有Finalizer、Program derivation、纹理变换、alpha及真实GPU门，测实际生产finalize路径，不抄业务逻辑做微基准。
+
+### Launch准备与帧资源消费分界
+
+launch envelope的readiness/format/purpose及颜色准入由原VariantCache准备链执行，不能继续由Rendering的Launch/LaunchSelection/LaunchColor助手反向调用compiler内部选择。作者default与graph引用解释归现有ShaderSchema准备职责，envelope及候选归VariantCache的LaunchEnvelope，颜色可执行性归其ColorAnalysis；原helper及旧调用入口随迁移退出，不保留转发。当前帧仅按已准备计划和实际publication选择、检查与绑定，资源content/generation/extent、target/hazard和GPU使用期仍由原消费者裁决。纯Sampler/Uniform等结果值与schema算法另按真实消费者分开，不公开整套混合namespace。
+
+现有Finalizer、SamplerDefault、SharedPresence、source-purpose、mixed-provider及terminal门覆盖局部失败、改名/等价和像素；Debug与代表App运行再确认实际prepare链。此批收回真实准入职责，不以词法边数归零或源码搬迁本身当能力、性能收益。
+
+### Prepared身份与设备准备键
+
+shader、prepared及render-state identity由既有PreparedAssembly生成一次。PassEncoder的warmup直接消费该准备事实，再附加实际device、attachment、sampleCount、writeMask和passRole形成设备键；binary archive消费相同静态身份，保其实际OS/驱动、设备与附件区分。退役raw frontend/state重复推导入口，不新增摘要认证或身份owner。MTLLibrary/PSO、archive装载和正负缓存仍在原PassEncoder设备准备阶段，不能因消除Compilation内部引用把真实Metal工作搬给compiler或放回普通帧。
+
+复用warmup、PassEncoder、terminal replay、binary archive冷暖/损坏恢复门，验证同准备身份复用、不同附件/设备参数隔离和真实失败；只有完整prepare→frame encode证明后才关闭职责，缓存命中不代替GPU结果。
+
+### 已准备执行能力的交接
+
+执行能力的Token、Layer/Material能力和查找/claim寿命是准备结果及既有运行身份，编译构造另归Compilation；按实际需要分开声明与构造，原身份和唯一claim权威不变，不另建registry或发布协调器。RuntimeBridge只取其真正消费的资源demands，不保整份compiler RuntimeCatalog；GraphExecutor的编译cache诊断通过既有执行观测链取证，观测关闭不访问compiler cache。纯值与算法逐符号裁决，不因现有Rendering消费者扩大公共命名空间。
+
+复用RuntimeBridge/GraphExecutor的prepared能力、stale claim、局部失败、观测关闭及正常提交/取消门，移除替代后的旧字段/API和无消费者的诊断入口。目标是缩窄数据、消除反向算法依赖，不能为一条依赖边制造额外wrapper或持久状态。
+
+### Sprite与当前拓扑消费者
+
+Sprite时间由Session现有clock在当前Surface执行阶段采样，各Surface共享同一cadence结果；只收集实际消费者ID，使用本次临时集合/字典，不增加持久镜像。现texture commands在commit时接纳并标记nextFrame，不能为合并采样提前应用；采样只移到原Surface loop前，前置VM snapshot仍保独立语义。销毁commit时退休动画runtime的活动layer状态；View实例/GPU输出在Surface下一次采用该committed topology时退休，暂停重绘旧冻结帧仍有其Sprite资源，不提前破坏已采纳画面。复用原simulationFrame.topologyRevision判定采用变化，不新增revision镜像或每帧retired guard。
+
+重建View在原装配入口构造Sprite实例前消费现有committed成员，不能先重注册死实例再删；可复用源定义、健康peer和已提交GPU资源保原使用期。按真实source消费者裁决，不能仅按作者ID猜clone/粒子继承：当前动态image与粒子layer-image emitter的动画源限制仍保持，不借整理补隐含新能力。hidden仍live，销毁provider沿原live成员局部失效，不靠hidden guard遮住旧工作。
+
+MultiImage播放原completion回调持有正在执行的playback及其destination reservation，直到GPU完成；未提交沿原cancel/rollback退出。不新增retired manager、额外fence或第二释放账本。
+
+相机及其他拓扑消费者从同一本次projection取得候选集合、顺序和world frame，不能从作者base descriptor选出已删除camera后直接退回默认。先以现有native-camera门验证two-camera删除/排序与相邻不应变化反例，再在原选择owner直接消费最小当前数据，不增状态树。Sprite出生/销毁、暂停/恢复、多Surface和当前camera选择均补真实实现门及隔离输出；未知官方组合先登记资格，不假定所有未测族有错。
+
+### Timeline活动轨道的退出
+
+隐藏可以仍有clock/脚本消费者，销毁则须在原committed拓扑变化边界退休已无消费者的活动轨道。保Program及C named catalog的稳定索引，原Timeline runtime一次整理live bindings、state indices/members和owner映射，幸存state保持原anchor；不重建整个runtime重置peer，不增加每帧retired检查或镜像registry。以写入target及实际playbackOwner关系裁决，不按发命令的Script owner一并删别层轨道；Combined共享state及全局camera origin/zoom分别按真实来源处理。
+
+同一cadence已接纳的动画命令阶段保留，退休在原commit/finalize后只随拓扑变化执行；pending next-frame观察只保幸存target。复用真实Timeline和QuickJS named-animation门，验证Combined、活peer精确时间、hidden继续、旧handle stale、跨owner事件控制、play/destroy顺序及camera两lane。没有现成Timeline事件序列时不顺便新建事件系统，销毁后少求值不等于已测CPU收益。
+
+### Shader编译结果与可选持久缓存
+
+成功编译的typed产物由原compiler直接交付给现有artifact owner；持久cache只加速后续读取，不是本次成功结果的运输通道或播放前提。保原single-flight、key/ABI及不可信编译输出的必要边界，退出“必须创建持久目录→成功写文件→再读回才有Program”的链。临时compiler workspace仍服务实际隔离与编译需要，不用另一个临时cache模拟可写持久目录，也不新增常驻cache/fallback状态机。
+
+持久目录不可创建/不可写时沿正常编译工作并采用结果，可选发布不阻塞采用；cache损坏/过期仍作miss，真实编译失败保持typed局部失败，不能伪造成功或用缓存错误覆盖compiler错误。先以现有artifact recovery门及真实编译对照正常、cache路径为文件/不可写、临时workspace可用、坏cache和真正编译失败；再核相同shader的Program/实际输出、正常退出及当前结果复用。缓存wire如需变化，旧可选条目miss重建，不造迁移许可。
+
+### localStorage的准备输入与帧事务
+
+同一storage Session在已有prepareLaunch后台完成有界文件读取、解码与入口验证；普通帧begin transaction只消费准备内存，不首次同步打开/解析持久JSON。没有实际VM实例的场景沿原实例需求处理，不以脚本源码形状猜测storage使用。保现有PersistenceCoordinator合并后台写入、激活时与前任最新envelope合并及原事务接纳/撤回；不新增worker、storage镜像或为每帧认证磁盘版本。
+
+复用storage transaction和String lifecycle门，覆盖首次cadence无文件读取、坏/未来envelope只影响storage、候选准备后前任继续写而激活不丢最新值、取消/退出和两实例隔离。frame和准备使用同一owner，不能通过新建空Session跳过持久状态或从主线程延迟到第一次实际get来掩盖错位I/O。
 
 ### 现役证据阅读与固定历史
 
@@ -213,7 +279,7 @@ Apple Silicon 的平台、语言和依赖政策由[技术栈合同](../../archit
 
 同源码/工具/配置/输入身份的构建与有效证据复用；修订只重验受影响部分。共享合同、高风险生命周期或发布结论才扩大门，不能省掉实际变化需要的验收。测量期间避免构建/测试/profiler争用，诊断与普通播放分开；性能阈值与噪声规则在比较前冻结，失败后不放宽。
 
-关闭一个切片须有用户结果、旧职责退出、可比较成本与未覆盖边界。构建、测试、提交或代码数量不计性能收益；局部计时、整体 CPU、GPU、内存、启动与能耗分别报告。最低设备、多屏、长稳、恢复和正式发行验收按声明范围执行，不作为每个局部修改的重复前置门。
+关闭一个切片须有用户结果、旧职责退出、成本影响与未覆盖边界；宣称性能收益时须有同条件可比较测量。结构调整可说明实际移除的重复工作及未测收益，不强行新增性能实验。构建、测试、提交或代码数量不计性能收益；局部计时、整体 CPU、GPU、内存、启动与能耗分别报告。最低设备、多屏、长稳、恢复和正式发行验收按声明范围执行，不作为每个局部修改的重复前置门。
 
 依赖图只保留公共能力关系，不再复制过时等级、旧路线或未来完成门；其原状态摘录固定归档。旧专项内仍有效的设计保留，已经裁决或被稳定合同接管的阶段叙述明确标为历史，不继续阻塞当前开发。
 

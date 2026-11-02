@@ -187,7 +187,7 @@ private func overflowCase(
             contractIdentity: shader.identity, contractCanonicalSHA256: shader.canonicalSHA256,
             textureSources: [], uniformSources: []))!
     let catalog = SceneResolvedMaterialRuntimeCatalog(entries: [
-        .init(effect: node.effect, nodeIndex: node.nodeIndex): .template(custom)
+        .init(effect: node.effect, nodeIndex: node.nodeIndex): .template(custom, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: custom))
     ], resourceDemandIssues: [])
     let caps = capabilities(admitted, catalog: catalog)
     guard let claim = caps.claim(admitted), let capability = caps.resolve(claim.token),
@@ -627,10 +627,11 @@ private func densityCase(
         slot: .init(effectID: node.effect.descriptorID, passIndex: 0, slotIndex: 1),
         blendMode: 0, kind: .resolvedMaterial)
     func densityCatalog(_ legacy: Bool = false, controls: Bool = true) -> SceneResolvedMaterialRuntimeCatalog {
-        .init(entries: [.init(effect: node.effect, nodeIndex: node.nodeIndex):
-            .template(densityTemplate(node, renamed: renamed, legacyVertex: legacy,
+        let value = densityTemplate(node, renamed: renamed, legacyVertex: legacy,
                 colorKind: controls ? colorKind : nil,
-                provider: controls && colorKind == "straight" ? reference : nil))],
+                provider: controls && colorKind == "straight" ? reference : nil)
+        return .init(entries: [.init(effect: node.effect, nodeIndex: node.nodeIndex):
+            .template(value, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: value))],
             resourceDemandIssues: [])
     }
     let caps = capabilities(admitted, catalog: densityCatalog(),

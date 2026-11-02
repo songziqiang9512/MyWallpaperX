@@ -273,6 +273,7 @@ private func resolveProgram(
     )
     guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(
         template: input.template,
+        textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: input.template),
         maximumVariantCount: 16
     ), case .success = cache.precompileLaunchEnvelope(
         implicitFramebufferIdentity: input.implicitFramebufferIdentity

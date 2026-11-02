@@ -64,7 +64,7 @@ private enum ScenePreparedUniformQueryChecks {
         let material = template(shader, includePrimaryCandidate: false, comboValues: ["DIRECTDRAW": 1],
             uniformDeclarations: declarations)
         let cache = try SceneResolvedMaterialVariantCache.launchValidated(
-            template: material, maximumVariantCount: 1).get()
+            template: material, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: material), maximumVariantCount: 1).get()
         try cache.precompileLaunchEnvelope(implicitFramebufferIdentity: nil).get()
         let variants = cache.launchEnvelopeCapabilitySnapshot().variants
         guard variants.count == 1, let variant = variants.first else {

@@ -199,12 +199,12 @@ private func failure(
     guard case let .failure(value) = result else { return nil }
     return value
 }
-private func assetFailure(_ path: String) -> SceneResolvedMaterialFailure? {
+private func compileAssetPath(_ path: String) -> Result<Template, SceneResolvedMaterialFailure> {
     var slots = [SceneResolvedMaterialNode.TextureSlot?].emptySlots
     slots[0] = .init(index: 0, candidates: [
         .init(source: .asset(path), provenance: .material),
     ])
-    return failure(compile(material(slots: slots)))
+    return compile(material(slots: slots))
 }
 private func sourceContracts() -> [String: Bool] {
     let colorTarget = SceneDynamicTarget.materialConstant(layerID: 123, passIndex: 5, name: "Surface", materialPath: "materials/source.json")
@@ -615,8 +615,12 @@ enum Harness {
             .init(source: .graph(layerSource()), provenance: .explicitBinding),
         ])
         let escapedAssets = [
-            "../secret.png", "/tmp/secret.png", "C:\\secret.png",
+            "../secret.png", "/tmp/secret.png", "C:\\..\\secret.png",
             "textures//secret.png", "textures/./secret.png", "textures/\u{7f}.png",
+        ]
+        let relativeAssetNames = [
+            ("C:\\secret.png", "c:/secret.png"),
+            ("Textures/C:/Paint.PNG", "textures/c:/paint.png"),
         ]
         let escapedShaders = [
             "../effects/a", "/effects/a", "C:\\effects\\a", "effects//a",
@@ -861,7 +865,13 @@ enum Harness {
                 && failure(compile(material(slots: wrongBindingSlot)))?.code
                     == .textureReferenceInvalid,
             "assetVFSBoundaries": escapedAssets.allSatisfy {
-                assetFailure($0)?.code == .textureReferenceInvalid
+                failure(compileAssetPath($0))?.code == .textureReferenceInvalid
+            },
+            "assetDriveLikeNamesRemainRelative": relativeAssetNames.allSatisfy { raw, canonical in
+                guard let value = template(compileAssetPath(raw)),
+                      let slot = value.textureSlots[0],
+                      case let .asset(path)? = slot.candidates.first?.reference else { return false }
+                return path.value == canonical
             },
             "shaderNormalizationMatchesLoader": shaderNormalization != nil,
             "shaderEscapesRejected": shaderEscapeFailures

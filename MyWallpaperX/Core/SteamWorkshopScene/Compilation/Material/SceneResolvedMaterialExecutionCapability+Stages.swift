@@ -360,7 +360,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             }
             try cancellationCheck?()
             let key = MaterialKey(effect: node.effect, nodeIndex: node.nodeIndex)
-            guard let template =
+            guard let prepared =
                     SceneResolvedMaterialExecutionCapabilityTemplateAdmission.resolve(
                         node: node,
                         effect: effect,
@@ -370,6 +370,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     ) else {
                 return .failure(rejection("material-template-unsupported"))
             }
+            let template = prepared.template
             guard let candidateAttachment = attachment(
                 for: node,
                 in: product.graph,
@@ -386,6 +387,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 node: node,
                 candidateAttachment: candidateAttachment,
                 template: template,
+                textureFormatSlots: prepared.textureFormatSlots,
                 effectInput: effect.input,
                 maximumVariantsPerMaterial: maximumVariantsPerMaterial,
                 assetFormatFacts: assetFormatFacts,
@@ -450,7 +452,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             where activeTextureSlots.contains(slot.index) {
                 guard !template.graphRole.bindings.contains(where: { $0.slot == slot.index }),
                       let terminal = slot.candidates.last,
-                      SceneResolvedMaterialMixedProviderSlotFact.OptionalInput(
+                      SceneResolvedMaterialCompiledVariant.MixedProviderSlot.OptionalInput(
                           terminal.reference
                       ) != nil,
                       slot.candidates.dropLast().contains(where: {
@@ -534,6 +536,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             format: SceneGraphRenderTargetPlan.TextureFormat
         ),
         template: Template,
+        textureFormatSlots: Result<Set<Int>, SceneResolvedMaterialFailure>,
         effectInput: Graph.TextureIdentity,
         maximumVariantsPerMaterial: Int,
         assetFormatFacts: [String: Int],
@@ -558,6 +561,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             let variants: SceneResolvedMaterialVariantCache
             switch SceneResolvedMaterialVariantCache.launchValidated(
                 template: template,
+                textureFormatSlots: textureFormatSlots,
                 maximumVariantCount: maximumVariantsPerMaterial,
                 assetFormatFacts: assetFormatFacts
             ) {

@@ -24,102 +24,50 @@ nonisolated enum SceneResolvedMaterialTextureSelection {
     static func resolve(
         _ input: SceneResolvedMaterialFinalizationInput,
         samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
-        reachableSamplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>],
+        reachableTexturePurposes: [Int: [SceneTextureLoadPurpose?]],
         channelUses: [Int: ChannelUse],
         allowPresenceIndependentDefaults: Bool,
         restrictToSamplerSlots: Bool = false,
+        textureSelectionFacts: SceneResolvedMaterialCompiledVariant.TextureSelectionFacts,
         graphInputSourceSlotFacts: [
             Int: SceneResolvedMaterialGraphInputSourceSlotFact
-        ] = [:]
+        ]
     ) throws -> [Entry] {
         var result = Array(repeating: Entry.absent, count: 8)
-        let graphFacts = graphInputSourceSlotFacts.isEmpty
-            ? SceneResolvedMaterialShaderSchema.graphInputSourceSlotFacts(
-                template: input.template,
-                samplers: samplers,
-                inputIdentity: input.implicitFramebufferIdentity
-            ) : graphInputSourceSlotFacts
         for slot in input.template.textureSlots.compactMap({ $0 })
         where !restrictToSamplerSlots || samplers[slot.index] != nil {
             let sampler = samplers[slot.index]
-            let reachable = reachableSamplers[slot.index] ?? []
-            let mixedProviderFact = sampler.flatMap {
-                SceneResolvedMaterialMixedProviderSlotFact.resolve(
-                    in: slot,
-                    sampler: $0
-                )
-            }
+            let purposes = sampler == nil
+                ? reachableTexturePurposes[slot.index]
+                : textureSelectionFacts.candidatePurposes[slot.index]
             // An authored binding that no launch-envelope variant can read is
             // loss-preserving provenance, not a frame selection candidate.
             // Current or potentially reachable samplers still participate in
             // the same readiness, format, purpose and publication hard gates.
-            guard sampler != nil || !reachable.isEmpty else { continue }
-            for ordinal in slot.candidates.indices.reversed() {
+            guard sampler != nil || purposes != nil else { continue }
+            for (ordinal, prepared) in textureSelectionFacts.candidates[slot.index, default: []]
+                .enumerated().reversed() {
                 let candidate = slot.candidates[ordinal]
-                let terminalGraphOverride = ordinal == slot.candidates.index(
-                    before: slot.candidates.endIndex
-                ) && candidate.provenance == .explicitBinding && {
-                    if case .graph = candidate.reference { return true }
-                    return false
-                }()
-                var purpose = Resolver.selectionPurpose(
-                    in: slot,
-                    candidateOrdinal: ordinal,
+                let sourceFact = prepared.graphInputSourceFact.flatMap { fact in
+                    fact.inputIdentity.layerID == input.layerID ? fact : nil
+                }
+                let reference = sourceFact.map { Template.TextureReference.graph($0.inputIdentity) }
+                    ?? candidate.reference
+                let purpose = Resolver.selectionPurpose(
+                    reference: reference,
+                    declaredPurpose: purposes?[ordinal],
                     activeSampler: sampler,
-                    reachableSamplers: reachable,
                     channelUse: channelUses[slot.index],
                     input: input
                 )
-                var reference = candidate.reference
-                var sourceFact: SceneResolvedMaterialGraphInputSourceSlotFact?
-                if let identity = SceneResolvedMaterialShaderSchema.sameLayerCompositeInput(
-                    reference, template: input.template,
-                    inputIdentity: input.implicitFramebufferIdentity,
-                    consumerLayerID: input.layerID
-                ) {
-                    if let fact = graphFacts[slot.index],
-                       fact.inputIdentity == identity,
-                       SceneResolvedMaterialShaderSchema.sameLayerCompositeCandidate(
-                           slot, inputIdentity: identity
-                       ) {
-                        reference = .graph(identity)
-                        sourceFact = .init(
-                            slot: fact.slot, inputIdentity: fact.inputIdentity,
-                            provenance: fact.provenance,
-                            selectionProvenance: .authored(candidate.provenance)
-                        )
-                    } else if candidate.reference == mixedProviderFact.map({
-                        .provider(.namedLayerTarget($0.lowerNamedReference))
-                    }) {
-                        // This already-proved optional override keeps its
-                        // selected ABI and precedence. Only its lower self
-                        // candidate names the existing graph ingress.
-                        reference = .graph(identity)
-                        sourceFact = .init(
-                            slot: slot.index, inputIdentity: identity,
-                            provenance: .sameLayerCompositeDefault,
-                            selectionProvenance: .authored(candidate.provenance)
-                        )
-                    }
-                    if reference != candidate.reference, let sampler {
-                        // The graph atom owns current content and generation;
-                        // an old named publication cannot relabel that atom.
-                        purpose = SceneResolvedMaterialTextureSlotPurpose.fact(
-                            in: slot, candidateOrdinal: ordinal, sampler: sampler
-                        )?.purpose
-                    }
-                }
                 guard let selection = try referenceSelection(
                     reference,
                     purpose: purpose,
                     provenance: .authored(candidate.provenance),
                     input: input,
                     graphInputSourceFact: sourceFact,
-                    preserveAbsentOverride: terminalGraphOverride,
-                    deferUnreadyOptionalPromotion:
-                        mixedProviderFact?.optionalInput.matches(
-                            candidate.reference
-                        ) == true
+                    preserveAbsentOverride: prepared.preservesAbsentOverride,
+                    deferUnreadyOptionalPromotion: prepared.defersUnreadyOptionalPromotion
                 ) else {
                     continue
                 }
@@ -130,14 +78,15 @@ nonisolated enum SceneResolvedMaterialTextureSelection {
         try selectDefaults(
             into: &result,
             input: input,
-            samplers: samplers,
+            textureSelectionFacts: textureSelectionFacts,
             allowPresenceIndependentDefaults: allowPresenceIndependentDefaults
         )
         try selectGraphInputs(
             into: &result,
             input: input,
             samplers: samplers,
-            graphInputSourceSlotFacts: graphFacts
+            textureSelectionFacts: textureSelectionFacts,
+            graphInputSourceSlotFacts: graphInputSourceSlotFacts
         )
         return result
     }
@@ -145,40 +94,29 @@ nonisolated enum SceneResolvedMaterialTextureSelection {
     private static func selectDefaults(
         into result: inout [Entry],
         input: SceneResolvedMaterialFinalizationInput,
-        samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
+        textureSelectionFacts: SceneResolvedMaterialCompiledVariant.TextureSelectionFacts,
         allowPresenceIndependentDefaults: Bool
     ) throws {
-        for (slot, sampler) in samplers {
+        for (slot, source) in textureSelectionFacts.defaults {
             guard case .absent = result[slot] else { continue }
-            if sampler.readinessCombo != nil,
-               (!allowPresenceIndependentDefaults
-                   || Resolver.presenceIndependentDefault(
-                       template: input.template,
-                       sampler: sampler,
-                       slot: slot
-                   ) == nil) {
-                continue
-            }
-            switch sampler.defaultTexture {
-            case let .asset(path):
-                let reference = Template.TextureReference.asset(path)
+            switch source {
+            case let .reference(prepared):
+                guard allowPresenceIndependentDefaults
+                    || !prepared.requiresPresenceIndependentAllowance else { continue }
                 if let selection = try referenceSelection(
-                    reference,
-                    purpose: sampler.purpose(for: reference),
+                    prepared.reference,
+                    purpose: prepared.purpose,
                     provenance: .shaderDefault,
-                    input: input
+                    input: input,
+                    graphInputSourceFact: prepared.graphInputSourceFact
                 ) {
                     result[slot] = selection
-                } else if SceneStockTextureSemanticRegistry.canSubstituteNoise(
-                    path, purpose: sampler.purpose(for: reference)
-                ) {
+                } else if let noiseFallback = prepared.noiseFallback {
                     // A registered stock noise asset the sample does not ship
                     // resolves as the deterministic system substitute; a pkg
                     // asset always wins above (user-directed 2026-09-26).
-                    let stockReference = Template.TextureReference
-                        .provider(.system(path.value))
                     if let selection = try referenceSelection(
-                        stockReference,
+                        noiseFallback,
                         purpose: .noise,
                         provenance: .shaderDefault,
                         input: input
@@ -186,24 +124,8 @@ nonisolated enum SceneResolvedMaterialTextureSelection {
                         result[slot] = selection
                     }
                 }
-            case let .internalTarget(target):
-                guard let reference = Resolver.renderTargetDefault(
-                    template: input.template, sampler: sampler, slot: slot,
-                    inputIdentity: input.implicitFramebufferIdentity
-                ) else {
-                    result[slot] = .internalDefault(target.authoredName)
-                    continue
-                }
-                let sourceFact: SceneResolvedMaterialGraphInputSourceSlotFact?
-                if case let .graph(identity) = reference {
-                    sourceFact = .init(slot: slot, inputIdentity: identity,
-                        provenance: .sameLayerCompositeDefault, selectionProvenance: .shaderDefault)
-                } else { sourceFact = nil }
-                if let selection = try referenceSelection(
-                    reference, purpose: sampler.purpose(for: reference),
-                    provenance: .shaderDefault, input: input, graphInputSourceFact: sourceFact
-                ) { result[slot] = selection }
-            case nil: break
+            case let .internalTarget(name):
+                result[slot] = .internalDefault(name)
             }
         }
     }
@@ -212,13 +134,14 @@ nonisolated enum SceneResolvedMaterialTextureSelection {
         into result: inout [Entry],
         input: SceneResolvedMaterialFinalizationInput,
         samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
+        textureSelectionFacts: SceneResolvedMaterialCompiledVariant.TextureSelectionFacts,
         graphInputSourceSlotFacts: [
             Int: SceneResolvedMaterialGraphInputSourceSlotFact
         ]
     ) throws {
         for (slot, fact) in graphInputSourceSlotFacts {
             guard result.indices.contains(slot),
-                  let sampler = samplers[slot],
+                  samplers[slot] != nil,
                   fact.slot == slot,
                   fact.inputIdentity == input.implicitFramebufferIdentity else {
                 throw failure(.textureReferenceInvalid, slot: slot)
@@ -227,7 +150,7 @@ nonisolated enum SceneResolvedMaterialTextureSelection {
             let reference = Template.TextureReference.graph(fact.inputIdentity)
             if let selection = try referenceSelection(
                 reference,
-                purpose: sampler.purpose(for: reference),
+                purpose: textureSelectionFacts.graphInputPurposes[slot],
                 provenance: fact.selectionProvenance,
                 input: input,
                 graphInputSourceFact: fact

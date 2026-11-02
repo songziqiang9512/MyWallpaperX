@@ -321,7 +321,7 @@ import simd
                 effectUnitModelMatrix: model,
                 effectTextureProjectionMatrixInverse: matrix_identity_float4x4)
             let cache = try SceneResolvedMaterialVariantCache.launchValidated(
-                template: material, maximumVariantCount: 4).get()
+                template: material, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: material), maximumVariantCount: 4).get()
             switch cache.precompileLaunchEnvelope(implicitFramebufferIdentity: nil,
                 outputStorage: .preservedRGBAUnorm) {
             case .success: break

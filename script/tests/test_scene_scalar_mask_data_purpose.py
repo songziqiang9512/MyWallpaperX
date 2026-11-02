@@ -209,6 +209,7 @@ private func run(device: MTLDevice, queue: MTLCommandQueue, renamed: Bool,
         "typedStaticDataSlot": SceneResolvedMaterialVariantCache.typedStaticDataAuxiliarySlots(
             template: value, samplers: [slot:sampler], graphInputSlots: []).contains(slot)]
     guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(template: value,
+    textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: value),
         maximumVariantCount: 8) else { row["launch"] = "cache-invalid"; return row }
     let launchNoise = systemNoise(upload(device,purpose:.noise,frame:1,noise:true), path:noiseDefault,frame:1)
     let launch = cache.precompileLaunchEnvelope(implicitFramebufferIdentity: nil,
@@ -247,10 +248,13 @@ private func run(device: MTLDevice, queue: MTLCommandQueue, renamed: Bool,
         do {
             let snapshot = cache.launchEnvelopeCapabilitySnapshot()
             let variant = snapshot.variants[0]
+            let reachableTexturePurposes = SceneResolvedMaterialCompiledVariant.TextureSelectionFacts.consensusPurposes(
+                snapshot.variants.map { $0.textureSelectionFacts.candidatePurposes })
             let selections = try SceneResolvedMaterialTextureSelection.resolve(frameInput,
-                samplers: variant.activeSamplers, reachableSamplers: snapshot.reachableSamplers ?? [:],
+                samplers: variant.activeSamplers, reachableTexturePurposes: reachableTexturePurposes,
                 channelUses: Dictionary(uniqueKeysWithValues: variant.frontendProgram.textureBindings.map { ($0.slot,$0.channelUse) }),
-                allowPresenceIndependentDefaults: true)
+                allowPresenceIndependentDefaults: true, textureSelectionFacts: variant.textureSelectionFacts,
+                graphInputSourceSlotFacts: variant.graphInputSourceSlotFacts)
             observation["selection"] = String(describing: selections[slot])
         } catch let error as SceneResolvedMaterialFailure { observation["selectionFailure"] = failure(error) }
         catch { observation["selectionFailure"] = String(describing: error) }

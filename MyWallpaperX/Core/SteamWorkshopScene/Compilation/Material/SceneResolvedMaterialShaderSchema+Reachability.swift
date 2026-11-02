@@ -13,12 +13,12 @@ extension SceneResolvedMaterialShaderSchema {
     /// variant selection still resolves one exact immutable Program.
     nonisolated static func reachableSamplers(
         _ template: Template,
+        textureFormatSlots: Set<Int>,
         implicitFramebufferIdentity: Graph.TextureIdentity?,
         textureFormatProfiles: [[Int: SceneShaderTextureFormat]]? = nil
     ) throws -> [Int: Set<Sampler>] {
         let profiles = try textureFormatProfiles
-            ?? SceneResolvedMaterialTextureResolver
-            .exhaustiveLaunchTextureFormatProfiles(template: template)
+            ?? exhaustiveTextureFormatProfiles(textureFormatSlots: textureFormatSlots)
         guard !profiles.isEmpty else { throw Issue.sampler("texture-format-envelope") }
         var cache: [ReachabilityVariantKey: [Int: Sampler]] = [:]
         func samplers(
@@ -110,6 +110,27 @@ extension SceneResolvedMaterialShaderSchema {
             guard stable else { throw Issue.sampler("readiness-budget") }
         }
         return reachable
+    }
+
+    private static func exhaustiveTextureFormatProfiles(
+        textureFormatSlots: Set<Int>
+    ) throws -> [[Int: SceneShaderTextureFormat]] {
+        var profiles: [[Int: SceneShaderTextureFormat]] = [[:]]
+        for slot in textureFormatSlots.sorted() {
+            var expanded: [[Int: SceneShaderTextureFormat]] = []
+            for profile in profiles {
+                for format in SceneShaderTextureFormat.allCases {
+                    var next = profile
+                    next[slot] = format
+                    expanded.append(next)
+                    guard expanded.count <= 256 else {
+                        throw Issue.sampler("texture-format-envelope")
+                    }
+                }
+            }
+            profiles = expanded
+        }
+        return profiles
     }
 
     /// Sampler slots whose shader schema owns a presence combo such as

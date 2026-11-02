@@ -535,6 +535,7 @@ final class SceneResolvedMaterialFinalizerFixture {
             "arithmeticColorBoundary": fixture.failures.arithmeticColorBoundary,
             "materialCrossTemplateCache": crossTemplateMaterialCacheTokens(device),
             "preparedVariantFrames": scenePreparedVariantFrameCases(device),
+            "preparedTextureFormats": preparedTextureFormatCases(),
         ]
         return result.merging(extra) { _, additional in additional }
     }

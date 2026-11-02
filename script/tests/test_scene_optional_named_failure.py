@@ -81,7 +81,7 @@ private enum Harness {
             blendMode: 0, kind: .imageLayerBlend, requiresResolvedMaterialProgram: true)
         func value(_ candidates: [Template.TextureCandidate], reference: SceneNamedTextureReference = named) -> Capabilities.LayerCapability? {
             let catalog = SceneResolvedMaterialRuntimeCatalog(entries: [
-                .init(effect: effect, nodeIndex: 0): .template(changed(base, candidates: candidates))
+                .init(effect: effect, nodeIndex: 0): .template(changed(base, candidates: candidates), textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: changed(base, candidates: candidates)))
             ])
             let caps = capabilities(chain, catalog: catalog, namedProvider: reference,
                 dependencyBinding: dependencyBinding, potentialOptionalNamedFallback: true)
@@ -103,7 +103,7 @@ private enum Harness {
                     systemProviderLowerReference: .provider(.namedLayerTarget(named)))
                 value = changed(mixed, candidates: triple)
             } else { value = ordinary }
-            return (.init(effect: node.effect, nodeIndex: node.nodeIndex), .template(value))
+            return (.init(effect: node.effect, nodeIndex: node.nodeIndex), .template(value, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: value)))
         })
         let chainedCaps = capabilities(chainedAdmission, catalog: .init(entries: entries))
         let chainedValue = chainedCaps.claim(chainedAdmission).flatMap { chainedCaps.resolve($0.token, for: chainedAdmission) }
@@ -117,12 +117,12 @@ private enum Harness {
         let historyTemplate = template(for: history.nodes[0], systemProvider: "$mediaThumbnail",
             systemProviderLowerReference: .provider(.namedLayerTarget(named)))
         let historyCaps = capabilities(historyAdmission, catalog: .init(entries: [
-            .init(effect: effect, nodeIndex: 0): .template(changed(historyTemplate, candidates: triple))
+            .init(effect: effect, nodeIndex: 0): .template(changed(historyTemplate, candidates: triple), textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: changed(historyTemplate, candidates: triple)))
         ]))
         func plainValue(_ graph: Graph, _ template: Template) -> Capabilities.LayerCapability? {
             let admitted = admittedGraph(graph)
             let caps = capabilities(admitted, catalog: .init(entries: [
-                .init(effect: effect, nodeIndex: 0): .template(template)
+                .init(effect: effect, nodeIndex: 0): .template(template, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: template))
             ]), assetStates: [systemProviderFallbackIdentity: .ready(.data)],
                 assetFormatFacts: [systemProviderFallbackIdentity.reportToken:
                     SceneShaderTextureFormat.r8.macroValue])
@@ -148,7 +148,7 @@ private enum Harness {
                 ? changed(template(for: node, systemProvider: "$mediaThumbnail",
                     systemProviderLowerReference: .provider(.namedLayerTarget(named))), candidates: triple)
                 : template(for: node)
-            return (.init(effect: node.effect, nodeIndex: node.nodeIndex), .template(value))
+            return (.init(effect: node.effect, nodeIndex: node.nodeIndex), .template(value, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: value)))
         })
         let functionFailure = capabilities(functionAdmission, catalog: .init(entries: functionEntries),
             functionsByEffect: [effect: materialFunctionRegistry()])
@@ -192,7 +192,6 @@ class SceneOptionalNamedFailureTests(unittest.TestCase):
         material["passes"][0]["textures"] = [None, "_rt_imageLayerComposite_11_a"]
         entries["materials/own_sample.json"] = json.dumps(material).encode()
         sources = BUILDER["SWIFT_SOURCES"] + [
-            BUILDER["SOURCE_ROOT"] / "Compilation/Graph/SceneAuthoredEffectRenderPlan.swift",
             BUILDER["SOURCE_ROOT"] / "Compilation/Material/SceneAuthoredMaterialResolver.swift",
         ]
         with tempfile.TemporaryDirectory(prefix="mwx-optional-author-") as directory:

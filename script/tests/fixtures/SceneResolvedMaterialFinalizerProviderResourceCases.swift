@@ -34,6 +34,7 @@ func mixedSystemNamedProviderTokens(
     let cache: SceneResolvedMaterialVariantCache
     switch SceneResolvedMaterialVariantCache.launchValidated(
         template: admitted,
+        textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: admitted),
         maximumVariantCount: 16
     ) {
     case let .success(value): cache = value
@@ -225,11 +226,13 @@ func namedProviderRuntimePurposeTokens(
             readinessCombo: nil,
             channelUse: .wholeVector
         )
+        let facts = SceneResolvedMaterialVariantCache.prepareTextureSelectionFacts(
+            in: admitted, samplers: [1: sampler], implicitFramebufferIdentity: graphTexture(),
+            graphInputSourceSlotFacts: [:])
         return SceneResolvedMaterialTextureResolver.selectionPurpose(
-            in: slot,
-            candidateOrdinal: 0,
+            reference: slot.candidates[0].reference,
+            declaredPurpose: facts.candidatePurposes[1]?[0],
             activeSampler: sampler,
-            reachableSamplers: [sampler],
             channelUse: .wholeVector,
             input: input
         )?.reportToken ?? "unproven"
@@ -537,6 +540,7 @@ final class SceneResolvedMaterialFinalizerProviderResourceCases {
         guard case let .success(activeDefaultMaskCache) =
                 SceneResolvedMaterialVariantCache.launchValidated(
             template: self.activeDefaultTemplate,
+            textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: self.activeDefaultTemplate),
             maximumVariantCount: 8
         ) else {
             fatalError("active default fixture cache rejected")

@@ -36,7 +36,7 @@
                 contractIdentity: contract.identity, contractCanonicalSHA256: contract.canonicalSHA256,
                 textureSources: [], uniformSources: [])),
               case let .success(variants) = SceneResolvedMaterialVariantCache.launchValidated(
-                template: sourceTemplate, maximumVariantCount: 32, assetFormatFacts: [:]) else {
+                template: sourceTemplate, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: sourceTemplate), maximumVariantCount: 32, assetFormatFacts: [:]) else {
             print("{\"metalAvailable\":true,\"failure\":\"source-template\"}"); return
         }
         guard case .success = variants.precompileLaunchEnvelope(implicitFramebufferIdentity: nil,

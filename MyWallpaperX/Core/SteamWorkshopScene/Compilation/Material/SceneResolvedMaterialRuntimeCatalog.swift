@@ -43,7 +43,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
     }
 
     enum Entry {
-        case template(Template)
+        case template(Template, textureFormatSlots: Result<Set<Int>, Failure>)
         case failure(Failure)
     }
 
@@ -95,7 +95,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
             samplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>],
             reachableSamplerSlots: Set<Int>
         )
-        case failed(String)
+        case failed(String, textureFormatSlots: Result<Set<Int>, Failure>)
     }
 
     private final class ResourceDemandAnalysisCache: @unchecked Sendable {
@@ -316,7 +316,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                 var localUserDemands: Set<SceneUserPropertyTextureIdentity> = []
                 var localSystemDemands: Set<SystemProviderDemand> = []
                 var localIssues: Set<ResourceDemandIssue> = []
-                Self.collectResourceDemands(
+                let textureFormatSlots = Self.collectResourceDemands(
                     template,
                     owner: .effect(key),
                     implicitFramebufferIdentity: record.graph.effects.first {
@@ -330,7 +330,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                 )
                 outcome = .init(
                     key: key,
-                    entry: .template(template),
+                    entry: .template(template, textureFormatSlots: textureFormatSlots),
                     assetDemands: localDemands,
                     userPropertyDemands: localUserDemands,
                     systemProviderDemands: localSystemDemands,
@@ -489,11 +489,12 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                 }) else {
                     result[layer.id] = reject("provider-unsupported"); continue
                 }
-                collectResourceDemands(template, owner: .sourceMaterial(key),
+                let textureFormatSlots = collectResourceDemands(template, owner: .sourceMaterial(key),
                     implicitFramebufferIdentity: nil, demands: &demands,
                     userDemands: &userDemands, systemDemands: &systemDemands,
                     issues: &issues, analyses: analyses)
-                result[layer.id] = .init(key: key, entry: .template(template),
+                result[layer.id] = .init(key: key,
+                    entry: .template(template, textureFormatSlots: textureFormatSlots),
                     sharedModelPath: proof.map { normalized($0.modelPath) },
                     capturesMainTarget: capturesMainTarget)
             }
@@ -589,7 +590,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         systemDemands: inout Set<SystemProviderDemand>,
         issues: inout Set<ResourceDemandIssue>,
         analyses: ResourceDemandAnalysisCache
-    ) {
+    ) -> Result<Set<Int>, Failure> {
         let analysisKey = SceneMaterialDemandAnalysisPersistentCache
             .ResourceDemandAnalysisKey(
             template: template,
@@ -604,11 +605,12 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                     reachableSamplerSlots: persisted.reachableSamplerSlots
                 )
             }
+            let formatSlots = SceneResolvedMaterialShaderSchema.textureFormatSlots(in: template)
             do {
-                let textureFormatSlots = try SceneResolvedMaterialTextureResolver
-                    .launchTextureFormatSlots(template: template)
+                let textureFormatSlots = try formatSlots.get()
                 var samplers = try SceneResolvedMaterialShaderSchema.reachableSamplers(
                     template,
+                    textureFormatSlots: textureFormatSlots,
                     implicitFramebufferIdentity: implicitFramebufferIdentity
                 )
                 let reachableSamplerSlots = Set(samplers.keys)
@@ -632,7 +634,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                     reachableSamplerSlots: reachableSamplerSlots
                 )
             } catch {
-                return .failed(String(describing: error))
+                return .failed(String(describing: error), textureFormatSlots: formatSlots)
             }
         }
         let textureFormatSlots: Set<Int>
@@ -643,7 +645,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
             textureFormatSlots = formatSlots
             samplers = reachable
             reachableSamplerSlots = activeSlots
-        case let .failed(errorDescription):
+        case let .failed(errorDescription, formatSlots):
 #if DEBUG
             print(
                 "MWX resolved material sampler reachability rejection:"
@@ -663,7 +665,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                     )
                 }
             }
-            return
+            return formatSlots
         }
         for slotIndex in 0 ..< 8 {
             let projection = demandProjection(
@@ -745,6 +747,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                 demands.insert(.init(path: path, purpose: purpose))
             }
         }
+        return .success(textureFormatSlots)
     }
 
     private static func demandProjection(

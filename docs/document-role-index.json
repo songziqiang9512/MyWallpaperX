@@ -766,10 +766,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a01ebb07641a0acb5628ea57b7c27b9c6ed2bc1c1ec7584cdd325be01881cca8",
+        "sourceSHA256": "7edeee4cb66a0e0098dd608727a571fc6eb8a319052ac5281c7ff473d16826d7",
         "method": "document_registry --audit + document_health --check",
-        "scope": "按真实消费者结算架构迁移：分族职责退出、有限Context/descriptor/依赖审查、冻结App跨族与成本结果、旧文档owner纠正及现役/固定历史分工；具体证据归历史锚点。",
-        "limitations": "导航和正文身份复核不独立证明运行或性能；原FAIL、过渡/点击资格、完整语料、物理多屏、长期切换、能耗及正式Release边界均保留。"
+        "scope": "M1格式/槽位准备交接、实际跨层引用退出与有界证据；全Scene目标重新打开，继续核准备/帧、拓扑、缓存及产品daemon，Skill验收按真实消费者。",
+        "limitations": "正文和导航复核不代替运行；本批签名App/direct-host有界结果不外推完整架构、全语料、多屏、长期运行、性能、官方parity或Release。"
       },
       "purpose": "实际接线或已记录运行证据；不反向定义目标架构，不决定实施顺序。"
     },
@@ -778,13 +778,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/architecture/repository-map.md",
-      "lastReviewed": "2026-10-19",
+      "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6531d3186c0a6e69dd55cc34d1f39bc5663727e50cf20d4526907ed744b7bada",
+        "sourceSHA256": "94d547bfabd7585bc29ca90a335755178c95bb1991cf51248600d793f6fef4dd",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Reconcile explicit ordinary native image terminal depth, DTO/compiler ownership and live code links; keep real333 occlusion, text defaults and exact real358 benefit open.",
-        "limitations": "Bounded authored-state and visible regression evidence only. No whole-sample, default text, replay, official parity or performance claim."
+        "scope": "M1格式/槽位准备交接、实际跨层引用退出与有界证据；全Scene目标重新打开，继续核准备/帧、拓扑、缓存及产品daemon，Skill验收按真实消费者。",
+        "limitations": "正文和导航复核不代替运行；本批签名App/direct-host有界结果不外推完整架构、全语料、多屏、长期运行、性能、官方parity或Release。"
       }
     },
     {
@@ -1056,10 +1056,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "91fa0cf62df91ab346ecce3c161e825eaf879e6cd626ac16783fd8f720b104f2",
+        "sourceSHA256": "c36ccc9e8d264bdf0f3ea0500c6064c13f4d5f8bf4b3a7c64179aeb9f499ebab",
         "method": "document_registry --audit + document_health --check",
-        "scope": "按真实消费者结算架构迁移：分族职责退出、有限Context/descriptor/依赖审查、冻结App跨族与成本结果、旧文档owner纠正及现役/固定历史分工；具体证据归历史锚点。",
-        "limitations": "导航和正文身份复核不独立证明运行或性能；原FAIL、过渡/点击资格、完整语料、物理多屏、长期切换、能耗及正式Release边界均保留。"
+        "scope": "M1格式/槽位准备交接、实际跨层引用退出与有界证据；全Scene目标重新打开，继续核准备/帧、拓扑、缓存及产品daemon，Skill验收按真实消费者。",
+        "limitations": "正文和导航复核不代替运行；本批签名App/direct-host有界结果不外推完整架构、全语料、多屏、长期运行、性能、官方parity或Release。"
       },
       "purpose": "实际接线或已记录运行证据；不反向定义目标架构，不决定实施顺序。"
     },
@@ -1364,10 +1364,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3bd2e9d2b7138673ee0483261929d2007b1fa1ef498f9a00e5a819063af6b92a",
+        "sourceSHA256": "fb5b2b0d7ac618ebce45cb04b6c027a7fbaac1514c07315eb0bc25daeba7b4e2",
         "method": "document_registry --audit + document_health --check",
-        "scope": "按真实消费者结算架构迁移：分族职责退出、有限Context/descriptor/依赖审查、冻结App跨族与成本结果、旧文档owner纠正及现役/固定历史分工；具体证据归历史锚点。",
-        "limitations": "导航和正文身份复核不独立证明运行或性能；原FAIL、过渡/点击资格、完整语料、物理多屏、长期切换、能耗及正式Release边界均保留。"
+        "scope": "M1格式/槽位准备交接、实际跨层引用退出与有界证据；全Scene目标重新打开，继续核准备/帧、拓扑、缓存及产品daemon，Skill验收按真实消费者。",
+        "limitations": "正文和导航复核不代替运行；本批签名App/direct-host有界结果不外推完整架构、全语料、多屏、长期运行、性能、官方parity或Release。"
       }
     },
     {
@@ -2300,6 +2300,19 @@
       ],
       "cutoffDate": "2026-10-16",
       "uniqueValue": "343独立坏COMBO模板首门、21目标GPU/20层完整末合成与真实细发丝恢复；同PID默认余407/3226属性关闭透传、529作者隐藏的后验重分类，签名失效反例和独立376；激活后/公开控制/全景未验，不计性能或完整样本。"
+    },
+    {
+      "path": "docs/scene/history/material-preparation-boundaries-2026-11-02.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/engine-refactor-program.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-11-02",
+      "uniqueValue": "M1格式/槽位准备事实交接、冻结源码与签名App、真实GPU/原包/暖复用，以及首失败载体修正的限定结果；不关闭整Scene架构。"
     },
     {
       "path": "docs/scene/history/material-video-assets-2026-10-12.md",
@@ -4577,10 +4590,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b4066babb0efc1824f21fccb3b8e3952e62e37c6b42de572a12fe76cdd549ef4",
+        "sourceSHA256": "3597e56941aa3372fd760c5d07dba2d0d47a80291353946e072b3325c1bfa65b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "按真实消费者结算架构迁移：分族职责退出、有限Context/descriptor/依赖审查、冻结App跨族与成本结果、旧文档owner纠正及现役/固定历史分工；具体证据归历史锚点。",
-        "limitations": "导航和正文身份复核不独立证明运行或性能；原FAIL、过渡/点击资格、完整语料、物理多屏、长期切换、能耗及正式Release边界均保留。"
+        "scope": "M1格式/槽位准备交接、实际跨层引用退出与有界证据；全Scene目标重新打开，继续核准备/帧、拓扑、缓存及产品daemon，Skill验收按真实消费者。",
+        "limitations": "正文和导航复核不代替运行；本批签名App/direct-host有界结果不外推完整架构、全语料、多屏、长期运行、性能、官方parity或Release。"
       }
     },
     {
@@ -4633,10 +4646,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c1b13181dddfc607f3f122c87723c7485fc06021056a88a699bbcc07cc9f0ffa",
+        "sourceSHA256": "96d6bcd479bd54160164b4029eca13ad7aac7a5ffd9620616bab9663c52b9f70",
         "method": "document_registry --audit + document_health --check",
-        "scope": "按真实消费者结算架构迁移：分族职责退出、有限Context/descriptor/依赖审查、冻结App跨族与成本结果、旧文档owner纠正及现役/固定历史分工；具体证据归历史锚点。",
-        "limitations": "导航和正文身份复核不独立证明运行或性能；原FAIL、过渡/点击资格、完整语料、物理多屏、长期切换、能耗及正式Release边界均保留。"
+        "scope": "M1格式/槽位准备交接、实际跨层引用退出与有界证据；全Scene目标重新打开，继续核准备/帧、拓扑、缓存及产品daemon，Skill验收按真实消费者。",
+        "limitations": "正文和导航复核不代替运行；本批签名App/direct-host有界结果不外推完整架构、全语料、多屏、长期运行、性能、官方parity或Release。"
       }
     },
     {
