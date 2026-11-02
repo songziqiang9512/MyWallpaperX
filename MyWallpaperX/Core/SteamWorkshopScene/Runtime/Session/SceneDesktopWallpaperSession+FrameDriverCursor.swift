@@ -9,6 +9,10 @@ extension SceneDesktopWallpaperSession {
         launchContext: SceneDesktopWallpaperLaunchContext,
         timing: SceneFrameTiming,
         preliminaryForSceneScript: SceneDynamicSnapshot,
+        descriptor: SceneRenderDescriptor,
+        layersByID: [Int: SceneRenderDescriptor.Layer],
+        staticWorldFrames: [Int: simd_float4x4],
+        dynamicLayerIDs: Set<Int>,
         puppetAttachmentFramesBySurface: [CGDirectDisplayID: ScenePuppetAttachmentFrameSnapshot],
         worldFramesBySurface: inout [CGDirectDisplayID: [Int: simd_float4x4]],
         layerSnapshotFailure: SceneScriptScalarRuntimeFailure?
@@ -57,6 +61,8 @@ extension SceneDesktopWallpaperSession {
                view.requiresSceneScriptCameraWorldFrames || requiresOwnerProjections {
                 worldFramesBySurface[displayID] = view.sceneScriptCursorWorldFrames(
                     dynamicValues: preliminaryForSceneScript,
+                    descriptor: descriptor, layersByID: layersByID,
+                    staticWorldFrames: staticWorldFrames, dynamicLayerIDs: dynamicLayerIDs,
                     puppetAttachmentFrames: puppetAttachmentFramesBySurface[displayID] ?? .empty)
             }
             return worldFramesBySurface[displayID] ?? [:]
@@ -79,6 +85,7 @@ extension SceneDesktopWallpaperSession {
                 return previousView.sceneScriptSurfaceInput(
                     pointer: previousPointer, timing: timing,
                     dynamicValues: preliminaryForSceneScript,
+                    descriptor: descriptor, layersByID: layersByID,
                     worldFrames: worldFrames(
                         for: previousID, view: previousView,
                         requiresOwnerProjections: false)
@@ -91,6 +98,7 @@ extension SceneDesktopWallpaperSession {
                 capturedOwnerLayerIDs: captureCandidates,
                 timing: timing,
                 dynamicValues: preliminaryForSceneScript,
+                descriptor: descriptor, layersByID: layersByID,
                 worldFrames: worldFrames(
                     for: displayID, view: view,
                     requiresOwnerProjections:

@@ -19,6 +19,7 @@ extension SceneDesktopWallpaperSession.Surface {
                 dynamicValues: dynamicValues, puppetAttachmentFrames: frame.attachmentFrames).worldFrames
         }
         return metalView.sceneScriptSurfaceInput(timing: timing, dynamicValues: dynamicValues,
+            descriptor: frame.projection.descriptor, layersByID: frame.projection.layersByID,
             worldFrames: worlds)
     }
 
@@ -72,7 +73,8 @@ extension SceneDesktopWallpaperSession.Surface {
             puppetAttachmentFrames: attachmentFrames
         )
         let cameraFrame = metalView.renderer.makeCameraFrame(
-            frameContext: frameContext, worldFrames: frameProjection.worldFrames
+            frameContext: frameContext, descriptor: frameProjection.descriptor,
+            layersByID: frameProjection.layersByID, worldFrames: frameProjection.worldFrames
         )
         let particleBatches = advanceParticles(
             timing: timing, dynamicValues: dynamicValues,

@@ -26,7 +26,7 @@
 
 [M1](../history/material-preparation-boundaries-2026-11-02.md#m1-format-slot-handoff)已交接格式/槽位，[M2](../history/material-preparation-boundaries-2026-11-02.md#m2-prepared-uniform-frame)已收敛帧 template 与静态 uniform 计划；真实 GPU、签名 App 固定像素、原包/邻例分别有界通过，原载体失败保留。Launch、设备键、能力交接及产品 daemon 继续开放，不认领整体性能收益。
 
-[Sprite/Timeline退休](../history/topology-lifecycle-2026-11-03.md#sprite-timeline-retirement)有真实VM、MPS事务、暂停冻结UV和同Session双Surface重建/恢复的有界证据；当前camera及产品daemon控制链继续开放。
+[Sprite/Timeline退休](../history/topology-lifecycle-2026-11-03.md#sprite-timeline-retirement)有真实VM、MPS事务、暂停冻结UV和同Session双Surface重建/恢复的有界证据；产品daemon控制链及其余活动消费者退休继续开放。
 
 [直接shader结果/可选cache](../history/shader-result-cache-boundary-2026-11-03.md#optional-cache-adoption)复现旧App文件根白图，并由新App正常/文件根/只读根的固定像素门关闭该依赖；真实cache/GPU及原包边界分别保留，不外推整体性能。
 
@@ -69,6 +69,8 @@
 
 <a id="evidence-camera-display"></a>
 ### 相机与显示
+
+[当前相机拓扑](../history/camera-current-topology-2026-11-03.md#current-camera-topology)：真实factory与新/旧签名App同输入，删除、排序、无camera回退及原角度固定双深度ROI通过；保原粒子/cursor、Default2D及Puppet邻例。
 
 [默认/原生相机](../history/runtime-evidence-current-through-2026-11-02.md#native-camera-frame-transforms-20261019)、[颜色与显示边界](../history/runtime-evidence-current-through-2026-11-02.md#e-2026-10-08-hdr-color-boundary)及[灯影记录](../history/runtime-evidence-current-through-2026-11-02.md#static-model-depth-pending-20261019)只覆盖原记录输入。[反射原型未接纳](../history/runtime-evidence-current-through-2026-11-02.md#model-reflection-prototype-20261018)及低能光照等未闭边界保留；当前目标查[2D/模型光照设计](../roadmap/batch2/2d-lighting-material-design.md)与[输入状态](runtime-input-property-coverage.md)。
 

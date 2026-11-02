@@ -8,6 +8,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-11-03 | 当前camera拓扑 | factory与真实App对照 | [删除/排序/默认回退](camera-current-topology-2026-11-03.md#current-camera-topology) | 原App选错、新App固定双深度ROI通过；原角度及typed/Puppet邻例保留，不外推全兼容 | [事实地图](../architecture/runtime-as-built-map.md) |
 | 2026-11-03 | SceneScript storage | 准备与帧事务交接 | [同Session先准备](storage-preparation-2026-11-03.md#storage-before-frame) | 实例需求、真实首init不重读、前任merge及固定点反例；原失败保留 | [重构合同](../roadmap/engine-refactor-program.md)、[现役证据](../capabilities/runtime-evidence-current.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-11-03 | Shader结果与可选cache | 准备职责与真实故障恢复 | [直接结果/可选发布](shader-result-cache-boundary-2026-11-03.md#optional-cache-adoption) | 文件根白图前后、2MiB/工具边界、独立目录创建、真实GPU与原包；保载体首失败 | [启动合同](../architecture/scene-launch-responsiveness-contract.md)、[现役证据](../capabilities/runtime-evidence-current.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-11-03 | 当前拓扑与活动状态 | 分族职责与有界验收 | [Sprite/Timeline退休](topology-lifecycle-2026-11-03.md#sprite-timeline-retirement) | 单clock采样、运行轨道/实例退出、真实MPS、冻结UV与同Session重建；保首失败 | [重构合同](../roadmap/engine-refactor-program.md)、[现役证据](../capabilities/runtime-evidence-current.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |

@@ -29,7 +29,9 @@ struct SceneMetalRenderer {
 
     static func descriptor(cameraID: Int = 7, parentID: Int? = nil,
                            tag: String = "default", includeCamera: Bool = true,
-                           orthographic: Bool = false, renamed: Bool = false) throws -> SceneRenderDescriptor {
+                           orthographic: Bool = false, renamed: Bool = false,
+                           secondCamera: Bool = false, missingFOV: Bool = false,
+                           secondParentID: Int? = nil) throws -> SceneRenderDescriptor {
         var objects: [[String: Any]] = []
         if let parentID {
             objects.append(["id": parentID, "origin": "0 0 0", "angles": "0 0 0"])
@@ -41,12 +43,19 @@ struct SceneMetalRenderer {
             if let parentID { layer["parent"] = parentID }
             objects.append(layer)
         }
+        if secondCamera {
+            var second: [String: Any] = ["id": cameraID + 2, "camera": "DEFAULT", "fov": missingFOV ? NSNull() as Any : 45,
+                "origin": "0 0 9", "angles": "0 0 0", "visible": true,
+                "path": "paths/other.json"]
+            if let secondParentID { second["parent"] = secondParentID }
+            objects.append(second)
+        }
         objects.append(["id": 90, "model": "models/unrelated.mdl", "origin": "0 0 0"])
         let root: [String: Any] = ["version": 3,
             "camera": ["eye": "0.7 3 6", "center": "0 0 0", "up": "0 1 0"],
             "general": ["orthogonalprojection": orthographic
                 ? ["width": 900, "height": 600] as Any : NSNull(),
-                "fov": 47, "nearz": 0.1, "farz": 100, "camerashake": false,
+                "fov": missingFOV ? NSNull() as Any : 47, "nearz": 0.1, "farz": 100, "camerashake": false,
                 "cameraparallax": false], "objects": objects]
         serial += 1
         let directory = URL(fileURLWithPath: CommandLine.arguments[1])
@@ -83,9 +92,17 @@ struct SceneMetalRenderer {
     }
 
     static func frame(_ renderer: SceneMetalRenderer, _ values: SceneDynamicSnapshot,
-                      _ current: [Int: simd_float4x4]) -> SceneParticleCameraFrame {
-        renderer.makeCameraFrame(frameContext: .init(sceneTime: 1,
-            screenSize: viewport, dynamicValues: values), worldFrames: current)
+                      _ current: [Int: simd_float4x4],
+                      descriptor: SceneRenderDescriptor? = nil) -> SceneParticleCameraFrame {
+        let context = SceneFrameContext(sceneTime: 1, screenSize: viewport, dynamicValues: values)
+#if CAMERA_BASELINE_FACTORY
+        return renderer.makeCameraFrame(frameContext: context, worldFrames: current)
+#else
+        let descriptor = descriptor ?? renderer.renderDescriptor
+        return renderer.makeCameraFrame(frameContext: context, descriptor: descriptor,
+            layersByID: Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) }),
+            worldFrames: current)
+#endif
     }
 
     static func near(_ actual: SIMD3<Float>, _ expected: [Double]) -> Bool {
@@ -198,6 +215,65 @@ struct SceneMetalRenderer {
         ]
     }
 
+    static func topologyChecks(renamed: Bool) throws -> [String: Bool] {
+        let older = renamed ? 937 : 7, newer = older + 2
+        let base = try descriptor(cameraID: older, renamed: renamed, secondCamera: true)
+        let renderer = SceneMetalRenderer(base)
+        let empty = snapshot([])
+        func mutation(_ id: Int, _ kind: SceneScriptLayerMutation.Kind, order: Int = 0) -> SceneScriptLayerMutation {
+            .init(kind: kind, isDynamic: false, fields: [], layerID: id, orderIndex: order,
+                visible: true, alpha: 1, origin: .zero, scale: SIMD3(repeating: 1), angles: .zero,
+                color: SIMD3(repeating: 1), pointSize: 32, text: "", font: "", assetPath: nil)
+        }
+        func currentFrame(_ descriptor: SceneRenderDescriptor,
+                          values: SceneDynamicSnapshot? = nil,
+                          missingWorld: Int? = nil) -> SceneParticleCameraFrame {
+            let byID = Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) })
+            var current = SceneLayerWorldFrameResolver.compute(descriptor: descriptor, byID: byID)
+            if let missingWorld { current.removeValue(forKey: missingWorld) }
+            return frame(renderer, values ?? empty, current, descriptor: descriptor)
+        }
+        let runtime = SceneScriptDynamicLayerRuntime(descriptor: base,
+            authoredMutationLayerIDs: [older, newer])
+        try runtime.apply([mutation(newer, .destroy)]).get()
+        let removedWinner = base.applying(runtime.snapshot())
+        let fallback = SceneMetalRenderer(try descriptor(includeCamera: false))
+        let general = frame(fallback, empty, fallback.worldFramesByLayerID)
+        var facts = ["initialLastCamera": near(currentFrame(base).perspectiveEyePosition, [0, 0, 9]),
+            "deleteWinnerSelectsLivePeer": near(currentFrame(removedWinner).perspectiveEyePosition, [0, 0, 6]),
+            "unrelatedWorldSurvives": SceneLayerWorldFrameResolver.compute(descriptor: removedWinner,
+                byID: Dictionary(uniqueKeysWithValues: removedWinner.layers.map { ($0.id, $0) }))[90]
+                    == renderer.worldFramesByLayerID[90],
+            "liveMissingWorldKeepsGeneral": currentFrame(base, missingWorld: newer).perspectiveViewProjection
+                == general.perspectiveViewProjection]
+        let sortedOrder = base.renderOrderLayerIDs.filter { $0 != older } + [older]
+        let sorted = SceneScriptDynamicLayerRuntime(descriptor: base, authoredMutationLayerIDs: [older],
+            layerOrderProjection: { _ in .success(sortedOrder) })
+        try sorted.apply([mutation(older, .upsert, order: sortedOrder.count - 1)]).get()
+        facts["sortChangesWinner"] = sorted.snapshot().renderOrderLayerIDs == sortedOrder
+            && near(currentFrame(base.applying(sorted.snapshot())).perspectiveEyePosition, [0, 0, 6])
+        try runtime.apply([mutation(older, .destroy)]).get()
+        facts["allRemovedKeepsGeneral"] = currentFrame(base.applying(runtime.snapshot())).perspectiveViewProjection
+            == general.perspectiveViewProjection
+        facts["previousTopologyUnchanged"] = near(currentFrame(base).perspectiveEyePosition, [0, 0, 9])
+        let hidden = snapshot([(.layer(layerID: newer, field: .visibility), .bool(false), .bool(true))])
+        facts["hiddenWinnerSelectsPeer"] = near(currentFrame(base, values: hidden).perspectiveEyePosition, [0, 0, 6])
+        let parented = try descriptor(cameraID: older, secondCamera: true, secondParentID: 90)
+        let hiddenParent = snapshot([(.layer(layerID: 90, field: .visibility), .bool(false), .bool(true))])
+        facts["hiddenParentSelectsPeer"] = near(currentFrame(parented, values: hiddenParent).perspectiveEyePosition, [0, 0, 6])
+        let noFOV = try descriptor(cameraID: older, secondCamera: true, missingFOV: true)
+        facts["missingFOVInputQualified"] = noFOV.camera.fovDegrees == nil
+            && noFOV.layers.first(where: { $0.id == newer })?.cameraPath?.fov == nil
+        facts["liveMissingFOVDoesNotSelectPeer"] = !currentFrame(noFOV).defaultsToPerspective
+        let ortho = try descriptor(cameraID: older, orthographic: true, secondCamera: true)
+        let orthoRenderer = SceneMetalRenderer(ortho)
+        let orthoBase = frame(orthoRenderer, empty, orthoRenderer.worldFramesByLayerID)
+        let orthoCurrent = frame(orthoRenderer, hidden, orthoRenderer.worldFramesByLayerID, descriptor: ortho)
+        facts["orthographicUnchanged"] = !orthoCurrent.defaultsToPerspective
+            && orthoCurrent.orthographicViewProjection == orthoBase.orthographicViewProjection
+        return facts
+    }
+
     static func staticCameraChecks() throws -> [String: Any] {
         let canvas = SceneMetalRenderer(try descriptor(includeCamera: false, orthographic: true))
         let empty = snapshot([])
@@ -303,7 +379,8 @@ struct SceneMetalRenderer {
             }
         }
         print(String(decoding: try JSONSerialization.data(withJSONObject:
-            ["rows": rows, "controls": try controls(), "staticCamera": try staticCameraChecks()],
+            ["rows": rows, "controls": try controls(), "staticCamera": try staticCameraChecks(),
+             "topology": try [topologyChecks(renamed: false), topologyChecks(renamed: true)]],
             options: [.sortedKeys]), as: UTF8.self))
     }
 }

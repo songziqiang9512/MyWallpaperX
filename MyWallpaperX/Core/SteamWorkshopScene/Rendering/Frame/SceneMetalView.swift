@@ -573,7 +573,8 @@ class SceneMetalView: NSView {
         let frameProjection = simulationFrame.projection
         let cameraFrame = savedContext.screenSize == frameContext.screenSize
             ? simulationFrame.camera : renderer.makeCameraFrame(
-                frameContext: frameContext, worldFrames: frameProjection.worldFrames)
+                frameContext: frameContext, descriptor: frameProjection.descriptor,
+                layersByID: frameProjection.layersByID, worldFrames: frameProjection.worldFrames)
         let particleBatches = simulationFrame.particles
         let layerTopology = simulationFrame.topology
         let mediaThumbnail = simulationFrame.mediaThumbnail

@@ -19,6 +19,8 @@ extension SceneMetalView {
     func sceneScriptSurfaceInput(
         timing: SceneFrameTiming,
         dynamicValues: SceneDynamicSnapshot,
+        descriptor: SceneRenderDescriptor,
+        layersByID: [Int: SceneRenderDescriptor.Layer],
         worldFrames: [Int: simd_float4x4]
     ) -> SceneScriptSurfaceInput? {
         sceneScriptSurfaceInput(
@@ -29,6 +31,8 @@ extension SceneMetalView {
             ),
             timing: timing,
             dynamicValues: dynamicValues,
+            descriptor: descriptor,
+            layersByID: layersByID,
             worldFrames: worldFrames
         )
     }
@@ -37,6 +41,8 @@ extension SceneMetalView {
         pointer: SceneSurfacePointerEvent,
         timing: SceneFrameTiming,
         dynamicValues: SceneDynamicSnapshot,
+        descriptor: SceneRenderDescriptor,
+        layersByID: [Int: SceneRenderDescriptor.Layer],
         worldFrames: [Int: simd_float4x4]
     ) -> SceneScriptSurfaceInput? {
         guard metalLayer.drawableSize.width > 0,
@@ -48,7 +54,8 @@ extension SceneMetalView {
             audioSpectrum: .silent
         )
         let cameraFrame = renderer.makeCameraFrame(
-            frameContext: frameContext, worldFrames: worldFrames)
+            frameContext: frameContext, descriptor: descriptor,
+            layersByID: layersByID, worldFrames: worldFrames)
         let world: SIMD3<Float>?
         if cameraFrame.defaultsToPerspective {
             world = cameraFrame.nativeCursorWorldPosition(pointer.normalizedPosition)
@@ -61,7 +68,7 @@ extension SceneMetalView {
         guard let world else { return nil }
         let authoredWorld = SceneLayerCursorGeometry.authoredWorldPosition(
             world,
-            sceneOrthoHeight: renderer.renderDescriptor.camera.orthoHeight
+            sceneOrthoHeight: descriptor.camera.orthoHeight
         )
         let screenWidth = Double(frameContext.screenSize.width)
         let screenHeight = Double(frameContext.screenSize.height)
@@ -97,6 +104,8 @@ extension SceneMetalView {
         capturedOwnerLayerIDs: Set<Int>,
         timing: SceneFrameTiming,
         dynamicValues: SceneDynamicSnapshot,
+        descriptor: SceneRenderDescriptor,
+        layersByID: [Int: SceneRenderDescriptor.Layer],
         worldFrames: [Int: simd_float4x4]
     ) -> SceneScriptCursorFrameSample {
         let projections = originInteractionProjections(
@@ -104,6 +113,8 @@ extension SceneMetalView {
             pointer: pointer,
             timing: timing,
             dynamicValues: dynamicValues,
+            descriptor: descriptor,
+            layersByID: layersByID,
             worldFrames: worldFrames
         )
         return .init(
@@ -112,7 +123,8 @@ extension SceneMetalView {
             pointerPosition: pointer.normalizedPosition,
             primaryButtonIsDown: pointer.primaryButtonIsDown,
             surface: sceneScriptSurfaceInput(pointer: pointer, timing: timing,
-                dynamicValues: dynamicValues, worldFrames: worldFrames),
+                dynamicValues: dynamicValues, descriptor: descriptor,
+                layersByID: layersByID, worldFrames: worldFrames),
             surfaceID: surfaceID,
             leavingSurface: leavingSurface, nativeShortcutGesture: pointer.nativeShortcutGesture
         )
@@ -159,15 +171,20 @@ extension SceneMetalView {
 
     func sceneScriptCursorWorldFrames(
         dynamicValues: SceneDynamicSnapshot,
+        descriptor: SceneRenderDescriptor,
+        layersByID: [Int: SceneRenderDescriptor.Layer],
+        staticWorldFrames: [Int: simd_float4x4],
+        dynamicLayerIDs: Set<Int>,
         puppetAttachmentFrames: ScenePuppetAttachmentFrameSnapshot
     ) -> [Int: simd_float4x4] {
         guard metalLayer.drawableSize.width > 0,
               metalLayer.drawableSize.height > 0 else { return [:] }
         return SceneLayerDynamicWorldFrameResolver.resolve(
-            descriptor: renderer.renderDescriptor,
-            byID: renderer.layersByID,
+            descriptor: descriptor,
+            byID: layersByID,
             snapshot: dynamicValues,
-            staticFrames: renderer.worldFramesByLayerID,
+            staticFrames: staticWorldFrames,
+            dynamicLayerIDs: dynamicLayerIDs,
             puppetAttachmentFrames: puppetAttachmentFrames
         )
     }
@@ -177,6 +194,8 @@ extension SceneMetalView {
         pointer: SceneSurfacePointerEvent,
         timing: SceneFrameTiming,
         dynamicValues: SceneDynamicSnapshot,
+        descriptor: SceneRenderDescriptor,
+        layersByID: [Int: SceneRenderDescriptor.Layer],
         worldFrames: [Int: simd_float4x4]
     ) -> (hits: [Int: SceneScriptCursorHit], ownerProjections: [Int: SceneScriptCursorHit]) {
         guard metalLayer.drawableSize.width > 0,
@@ -193,7 +212,8 @@ extension SceneMetalView {
             audioSpectrum: .silent
         )
         let cameraFrame = renderer.makeCameraFrame(
-            frameContext: frameContext, worldFrames: worldFrames)
+            frameContext: frameContext, descriptor: descriptor,
+            layersByID: layersByID, worldFrames: worldFrames)
         let parallax = renderer.parallaxConfiguration(
             cameraFrame: cameraFrame,
             viewportSize: frameContext.screenSize,
@@ -203,7 +223,7 @@ extension SceneMetalView {
         var hits: [Int: SceneScriptCursorHit] = [:]
         var projections: [Int: SceneScriptCursorHit] = [:]
         for ownerLayerID in ownerLayerIDs {
-            guard let layer = renderer.layersByID[ownerLayerID],
+            guard let layer = layersByID[ownerLayerID],
                   (dynamicValues[.layer(layerID: ownerLayerID, field: .solid)]?.value
                     ?? .bool(layer.solid ?? true)) == .bool(true) else { continue }
             let model = renderer.imageModelMatrix(

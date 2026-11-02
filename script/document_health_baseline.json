@@ -90,7 +90,7 @@
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 169,
-      "bytes": 22650
+      "bytes": 22804
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 31,
@@ -169,8 +169,8 @@
       "bytes": 349285
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 101,
-      "bytes": 9913
+      "lines": 103,
+      "bytes": 10192
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 594,
@@ -301,8 +301,8 @@
       "bytes": 22465
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 212,
-      "bytes": 53007
+      "lines": 211,
+      "bytes": 52646
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -2302,11 +2302,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-as-built-map.md",
-      "before": "218924524250e6aeab377312d97fd9d53898cadfae44d8307273b5ecae122b74",
-      "after": "d015d63f78fef0bdda85d676b616e02cc9012c41aabf5e5e2f145397ad873557",
-      "owner": "SceneScript storage / repository governance",
-      "reason": "原地图/证据/队列收敛同Session准备输入与帧事务的已验证职责，详细首失败与运行身份归独立历史。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#localstorage的准备输入与帧事务"
+      "before": "d015d63f78fef0bdda85d676b616e02cc9012c41aabf5e5e2f145397ad873557",
+      "after": "01bb628637984dba8cfbfa36b94eacb4461c85cff2dc595589c5a8195ba61e60",
+      "owner": "Scene camera / repository governance",
+      "reason": "原事实地图和证据入口收敛当前相机同阶段拓扑及有界App正反门，详细身份/首失败归固定历史，移除已验队列项。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#sprite与当前拓扑消费者"
     },
     {
       "section": "bodies",
@@ -2320,11 +2320,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "fe2d6d99e7902d5e4254a36458b9f6b156edaae749c54cb34b5eee6f3d195c9a",
-      "after": "9800549df73f389b8dc34a0ddef42ecf823679cacf39868e5d063f650c790926",
-      "owner": "SceneScript storage / repository governance",
-      "reason": "原地图/证据/队列收敛同Session准备输入与帧事务的已验证职责，详细首失败与运行身份归独立历史。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#localstorage的准备输入与帧事务"
+      "before": "9800549df73f389b8dc34a0ddef42ecf823679cacf39868e5d063f650c790926",
+      "after": "9b30fb8ef0a63d24a1c077b636e035c20d2bbcda9fc13f41d93bf00cd0715750",
+      "owner": "Scene camera / repository governance",
+      "reason": "原事实地图和证据入口收敛当前相机同阶段拓扑及有界App正反门，详细身份/首失败归固定历史，移除已验队列项。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#sprite与当前拓扑消费者"
     },
     {
       "section": "bodies",

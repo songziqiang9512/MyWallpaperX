@@ -293,10 +293,15 @@ extension SceneDesktopWallpaperSession {
             .sceneScriptSnapshots(sceneTime: timing.sceneTime) ?? .empty
         let sceneScriptTextureAnimationSnapshots = launchContext.textureAnimationPlaybackRuntime.snapshots(
             sceneTime: timing.sceneTime)
+        let sceneScriptTopology = surfaces.values.first!.metalView.renderer
+            .resolveFrameTopology(layerTopology: layerMutationSnapshot)
         let puppetPoseFrames = surfaces.mapValues {
             $0.prepareSceneScriptPuppetPoseFrame(
                 timing: timing, puppetAnimationFrame: puppetAnimationFrame,
-                dynamicValues: preliminaryForSceneScript
+                dynamicValues: preliminaryForSceneScript,
+                descriptor: sceneScriptTopology.descriptor, layersByID: sceneScriptTopology.layersByID,
+                staticWorldFrames: sceneScriptTopology.staticWorldFrames,
+                dynamicLayerIDs: sceneScriptTopology.dynamicLayerIDs
             )
         }
         let sceneScriptPuppetPoseFrame = surfaces.count == 1
@@ -309,11 +314,15 @@ extension SceneDesktopWallpaperSession {
             sceneScriptWorldFramesBySurface[displayID] = sceneScriptPuppetPoseFrame.worldFrames.isEmpty
                 ? surface.metalView.sceneScriptCursorWorldFrames(
                 dynamicValues: preliminaryForSceneScript,
+                descriptor: sceneScriptTopology.descriptor, layersByID: sceneScriptTopology.layersByID,
+                staticWorldFrames: sceneScriptTopology.staticWorldFrames,
+                dynamicLayerIDs: sceneScriptTopology.dynamicLayerIDs,
                 puppetAttachmentFrames: sceneScriptPuppetPoseFrame.attachmentFrames)
                 : sceneScriptPuppetPoseFrame.worldFrames
         }
         let sceneScriptFrame = prepareSceneScriptFrame(launchContext, timing: timing,
             dynamicValues: preliminaryForSceneScript,
+            descriptor: sceneScriptTopology.descriptor, layersByID: sceneScriptTopology.layersByID,
             worldFrames: sceneScriptWorldFramesBySurface.values.first ?? [:])
         let particleObservations = particlePlaybackObservations(
             context: launchContext,
@@ -353,6 +362,7 @@ extension SceneDesktopWallpaperSession {
                     context: launchContext,
                     timing: timing,
                     dynamicValues: preliminaryForSceneScript,
+                    descriptor: sceneScriptTopology.descriptor, layersByID: sceneScriptTopology.layersByID,
                     worldFrames: sceneScriptWorldFramesBySurface.values.first ?? [:]
                 )
             }
@@ -411,6 +421,9 @@ extension SceneDesktopWallpaperSession {
             launchContext: launchContext,
             timing: timing,
             preliminaryForSceneScript: preliminaryForSceneScript,
+            descriptor: sceneScriptTopology.descriptor, layersByID: sceneScriptTopology.layersByID,
+            staticWorldFrames: sceneScriptTopology.staticWorldFrames,
+            dynamicLayerIDs: sceneScriptTopology.dynamicLayerIDs,
             puppetAttachmentFramesBySurface: puppetPoseFrames.mapValues(\.attachmentFrames),
             worldFramesBySurface: &sceneScriptWorldFramesBySurface,
             layerSnapshotFailure: sceneScriptLayerSnapshotFailure

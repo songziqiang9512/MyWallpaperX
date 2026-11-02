@@ -20,7 +20,11 @@ extension SceneDesktopWallpaperSession.Surface {
     func prepareSceneScriptPuppetPoseFrame(
         timing: SceneFrameTiming,
         puppetAnimationFrame: ScenePuppetAnimationPlaybackRuntime.FrameSnapshot,
-        dynamicValues: SceneDynamicSnapshot
+        dynamicValues: SceneDynamicSnapshot,
+        descriptor: SceneRenderDescriptor,
+        layersByID: [Int: SceneRenderDescriptor.Layer],
+        staticWorldFrames: [Int: simd_float4x4],
+        dynamicLayerIDs: Set<Int>
     ) -> ScenePuppetScriptPoseFrame {
         guard !puppetPlaybackStates.isEmpty else { return .empty }
         var posesByLayerID: [Int: ScenePuppetPlaybackState.PoseConfiguration] = [:]
@@ -29,7 +33,8 @@ extension SceneDesktopWallpaperSession.Surface {
         framesByParentLayerID.reserveCapacity(puppetPlaybackStates.count)
         let frame = metalView.makeFrameContext(timing: timing, dynamicValues: dynamicValues,
             parallax: .zero, audioSpectrum: .silent)
-        let camera = metalView.renderer.makeCameraFrame(frameContext: frame, worldFrames: metalView.renderer.worldFramesByLayerID)
+        let camera = metalView.renderer.makeCameraFrame(frameContext: frame,
+            descriptor: descriptor, layersByID: layersByID, worldFrames: staticWorldFrames)
         let parallax = metalView.renderer.parallaxConfiguration(cameraFrame: camera,
             viewportSize: frame.screenSize, dynamicValues: dynamicValues)
         let prepareAttachments: (SceneRenderDescriptor.Layer, [Int: simd_float4x4]) -> [String: simd_float4x4]? = { layer, worlds in
@@ -44,7 +49,7 @@ extension SceneDesktopWallpaperSession.Surface {
                     visibleHalfExtents: camera.coverHalfExtents,
                     usesPerspective: camera.resolvesPerspective(for: layer))
             let meshToWorld = SceneLayerCursorGeometry.authoredWorldTransform(
-                model, sceneOrthoHeight: self.metalView.renderer.renderDescriptor.camera.orthoHeight)
+                model, sceneOrthoHeight: descriptor.camera.orthoHeight)
             playback.advanceBonePhysics(
                 animationFrame: samples, deltaTime: timing.simulationFrameTime,
                 frameIndex: timing.frameIndex, meshToWorld: meshToWorld
@@ -61,15 +66,17 @@ extension SceneDesktopWallpaperSession.Surface {
         let worldFrames: [Int: simd_float4x4]
         if puppetPlaybackStates.values.contains(where: { $0.hasTranslationPhysics || $0.hasAttachments }) {
             worldFrames = SceneLayerDynamicWorldFrameResolver.resolve(
-                descriptor: metalView.renderer.renderDescriptor, byID: metalView.renderer.layersByID,
-                snapshot: dynamicValues, staticFrames: metalView.renderer.worldFramesByLayerID,
+                descriptor: descriptor, byID: layersByID,
+                snapshot: dynamicValues, staticFrames: staticWorldFrames, dynamicLayerIDs: dynamicLayerIDs,
                 prepareLayerAttachments: prepareAttachments)
         } else {
             // Ordinary static rigs retain the cached hierarchy path.
             worldFrames = metalView.sceneScriptCursorWorldFrames(dynamicValues: dynamicValues,
+                descriptor: descriptor, layersByID: layersByID,
+                staticWorldFrames: staticWorldFrames, dynamicLayerIDs: dynamicLayerIDs,
                 puppetAttachmentFrames: .empty)
             for layerID in puppetPlaybackStates.keys {
-                if let layer = metalView.renderer.layersByID[layerID] {
+                if let layer = layersByID[layerID] {
                     _ = prepareAttachments(layer, worldFrames)
                 }
             }
@@ -91,16 +98,19 @@ extension SceneDesktopWallpaperSession.Surface {
         context: SceneDesktopWallpaperLaunchContext,
         timing: SceneFrameTiming,
         dynamicValues: SceneDynamicSnapshot,
+        descriptor: SceneRenderDescriptor,
+        layersByID: [Int: SceneRenderDescriptor.Layer],
         worldFrames: [Int: simd_float4x4]
     ) throws {
         guard !poseFrame.posesByLayerID.isEmpty else { return }
 #if DEBUG
         let frame = metalView.makeFrameContext(timing: timing, dynamicValues: dynamicValues,
             parallax: .zero, audioSpectrum: .silent)
-        let camera = metalView.renderer.makeCameraFrame(frameContext: frame, worldFrames: worldFrames)
+        let camera = metalView.renderer.makeCameraFrame(frameContext: frame,
+            descriptor: descriptor, layersByID: layersByID, worldFrames: worldFrames)
 #endif
         for (layerID, pose) in poseFrame.posesByLayerID {
-            guard let layer = metalView.renderer.layersByID[layerID] else { continue }
+            guard let layer = layersByID[layerID] else { continue }
             let bones = pose.bones
             let meshToWorld = pose.meshToWorld
             let transform = [meshToWorld.columns.0, meshToWorld.columns.1,

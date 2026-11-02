@@ -189,6 +189,8 @@ struct SceneMetalRenderer {
         func camera(_ snapshot: SceneDynamicSnapshot) -> SceneParticleCameraFrame {
             SceneMetalRenderer(descriptor).makeCameraFrame(frameContext: .init(
                 sceneTime: currentSceneTime, screenSize: viewport, dynamicValues: snapshot),
+                descriptor: descriptor,
+                layersByID: Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) }),
                 worldFrames: SceneLayerWorldFrameResolver.compute(descriptor: descriptor,
                     byID: Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) })))
         }

@@ -15,6 +15,7 @@ extension SceneDesktopWallpaperSession.Surface {
         let pointers = particlePlayback.pointerControlPointDemands[layerID].map { demand in
             metalView.renderer.particlePointerLocalPositions(frameContext: context,
                 cameraFrame: metalView.renderer.makeCameraFrame(frameContext: context,
+                    descriptor: projection.descriptor, layersByID: projection.layersByID,
                     worldFrames: projection.worldFrames), frameProjection: projection,
                 demands: CollectionOfOne((key: layerID, value: demand)))
         } ?? [:]

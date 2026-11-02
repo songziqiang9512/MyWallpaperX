@@ -17,11 +17,14 @@ extension SceneDesktopWallpaperSession {
         _ context: SceneDesktopWallpaperLaunchContext,
         timing: SceneFrameTiming,
         dynamicValues: SceneDynamicSnapshot,
+        descriptor: SceneRenderDescriptor,
+        layersByID: [Int: SceneRenderDescriptor.Layer],
         worldFrames: [Int: simd_float4x4]
     ) -> SceneScriptFrameInput {
         let surface = surfaces.count == 1
             ? surfaces.values.first?.metalView.sceneScriptSurfaceInput(
-                timing: timing, dynamicValues: dynamicValues, worldFrames: worldFrames) : nil
+                timing: timing, dynamicValues: dynamicValues,
+                descriptor: descriptor, layersByID: layersByID, worldFrames: worldFrames) : nil
         let failures = context.sceneScriptStringProgram.preparePreparedTextCloneInputs(
             userValues: context.liveState.userValues,
             effectivePropertyValues: context.liveState.effectiveValues,

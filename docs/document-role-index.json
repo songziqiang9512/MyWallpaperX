@@ -766,10 +766,10 @@
       "lastReviewed": "2026-11-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2033a175c254b87689bea2e0997a411f0de08878ede0a4f29d3faaa607e75c97",
+        "sourceSHA256": "bc894497a4921d1458d490d628e275bc840a7b53eeea2c6f41c62ca6ac9d0739",
         "method": "document_registry --audit + document_health --check",
-        "scope": "storage实际prepare/当前帧职责及真实Candidate/事务/VM门结果，队列只退出该职责。",
-        "limitations": "联合签名App与有界输入不证明用户持久数据全程、性能、完整Scene、多屏、长期运行或官方parity；其他架构债继续开放。"
+        "scope": "当前相机拓扑factory及实际旧/新App固定ROI对照的事实、证据与队列分工。",
+        "limitations": "相机有界证据；不代表其它待迁移职责、全语料、硬件或性能已完成。"
       },
       "purpose": "实际接线或已记录运行证据；不反向定义目标架构，不决定实施顺序。"
     },
@@ -1056,10 +1056,10 @@
       "lastReviewed": "2026-11-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "628ac925d2a32e0838a35b70d07ef5aec2948412dc292cfcd94f870d82143ab4",
+        "sourceSHA256": "9e868816ac2dbf9426abf9663377db2c4ad64c2e949848df3566154880dd417d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "storage实际prepare/当前帧职责及真实Candidate/事务/VM门结果，队列只退出该职责。",
-        "limitations": "联合签名App与有界输入不证明用户持久数据全程、性能、完整Scene、多屏、长期运行或官方parity；其他架构债继续开放。"
+        "scope": "当前相机拓扑factory及实际旧/新App固定ROI对照的事实、证据与队列分工。",
+        "limitations": "相机有界证据；不代表其它待迁移职责、全语料、硬件或性能已完成。"
       },
       "purpose": "实际接线或已记录运行证据；不反向定义目标架构，不决定实施顺序。"
     },
@@ -1364,10 +1364,10 @@
       "lastReviewed": "2026-11-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "aeec9fa162c2222a030397781aaa76b21cd93a325ae1deee0a7f28d17bfd1cb6",
+        "sourceSHA256": "bae000d5cf3d41fbbad132fd0f7da9fd4b8760c465433922e980a915d5fddc8d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "storage实际prepare/当前帧职责及真实Candidate/事务/VM门结果，队列只退出该职责。",
-        "limitations": "联合签名App与有界输入不证明用户持久数据全程、性能、完整Scene、多屏、长期运行或官方parity；其他架构债继续开放。"
+        "scope": "当前相机拓扑factory及实际旧/新App固定ROI对照的事实、证据与队列分工。",
+        "limitations": "相机有界证据；不代表其它待迁移职责、全语料、硬件或性能已完成。"
       }
     },
     {
@@ -1460,6 +1460,19 @@
       ],
       "cutoffDate": "2026-10-23",
       "uniqueValue": "内建图片新旧灯光分流、固定官方直射与原生实景验收；保留旧增益饱和失败、完整光照边界及366先存启动失败。"
+    },
+    {
+      "path": "docs/scene/history/camera-current-topology-2026-11-03.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/runtime-as-built-map.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-11-03",
+      "uniqueValue": "当前相机factory同阶段拓扑及真实旧/新App双深度删除/排序/default投影对照、原角度与typed/Puppet邻例。"
     },
     {
       "path": "docs/scene/history/camera-layer-fov-live-2026-10-15.md",
@@ -4685,10 +4698,10 @@
       "lastReviewed": "2026-11-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "8e18861b19a44f6e7b8de684ca7b9bf6a362b3cd8ffef985514c76f2591cf3dd",
+        "sourceSHA256": "12710d94ec3ac32dfeabac3dbf916a4cad0121de2e196dd502f6b7bcaf0e254d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "storage实际prepare/当前帧职责及真实Candidate/事务/VM门结果，队列只退出该职责。",
-        "limitations": "联合签名App与有界输入不证明用户持久数据全程、性能、完整Scene、多屏、长期运行或官方parity；其他架构债继续开放。"
+        "scope": "当前相机拓扑factory及实际旧/新App固定ROI对照的事实、证据与队列分工。",
+        "limitations": "相机有界证据；不代表其它待迁移职责、全语料、硬件或性能已完成。"
       }
     },
     {
