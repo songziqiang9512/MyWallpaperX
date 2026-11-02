@@ -404,6 +404,17 @@
       ]
     },
     {
+      "path": "docs/history/cross-topic/status-bar-panel-integration-2026-10-26.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/development/status-bar-panel-redesign.md"
+      ],
+      "cutoffDate": "2026-10-26",
+      "uniqueValue": "状态栏原9行整合、旧安装、限定验证和清理收据；不代表当前实景验收或新的安装授权。"
+    },
+    {
       "path": "docs/history/cross-topic/steamkit-migration-completed-2026-10-16.md",
       "role": "historical-evidence",
       "entrypoint": "docs/history/README.md",
