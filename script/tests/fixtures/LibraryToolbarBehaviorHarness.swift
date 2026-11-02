@@ -345,9 +345,40 @@ final class DimmingSurface: NSView, ToolbarGridScrollDismissalSurface {}
         checks["nilAndEmptyAccountPathsNeverReadHistory"] = ["nilAccountMerged", "nilAccountSynthesis",
             "emptyAccountMerged", "emptyAccountSynthesis"].allSatisfy { historyReadMetrics[$0] == 0 }
 
+        let startupIntent = SteamWorkshopService()
+        startupIntent.downloadJobStore.history = []
+        startupIntent.downloadJobStore.jobs = [.init(accountSteamId: "A", workshopItemId: "initial-failure", state: .failed)]
+        startupIntent.refreshDownloadIntentProjection()
+        let initialIntentRows = startupIntent.downloads, initialMergeCalls = startupIntent.mergeCalls
+        checks["synchronousInitialRefreshInstallsPersistedFailureBeforeObserverDelivery"] = initialIntentRows.map(\.id) == ["initial-failure"]
+            && initialIntentRows.first?.intentAccountSteamID == "A"
+        startupIntent.observeProjectionInputs()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        checks["jobStoreInitialValuesDoNotRepeatTheSynchronousInitialMerge"] = startupIntent.mergeCalls == initialMergeCalls
+            && startupIntent.downloads == initialIntentRows
+        let afterInitialMergeCalls = startupIntent.mergeCalls
+        startupIntent.downloadJobStore.jobs = [
+            .init(accountSteamId: "A", workshopItemId: "later-failure", state: .failed),
+            .init(accountSteamId: "A", workshopItemId: "later-retry", state: .queued)]
+        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        checks["firstPostSubscriptionJobsChangeStillReplacesTheInitialFailure"] = startupIntent.downloads.map(\.id) == ["later-failure"]
+            && startupIntent.mergeCalls > initialMergeCalls
+        let beforeHistoryMergeCalls = startupIntent.mergeCalls
+        startupIntent.downloadJobStore.history = [.init(accountSteamId: "A", workshopItemId: "later-retry", outcome: .failed)]
+        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        checks["firstPostSubscriptionHistoryChangeStillPublishesItsRetry"] = Set(startupIntent.downloads.map(\.id)) == ["later-failure", "later-retry"]
+            && Set(startupIntent.visibleRecords(startupIntent.downloads).map(\.id)) == ["later-failure", "later-retry"]
+            && startupIntent.mergeCalls > beforeHistoryMergeCalls
+        let initialObserverMetrics = try JSONSerialization.data(withJSONObject: ["jobStoreProjectionMerges": [
+            "initial": afterInitialMergeCalls - initialMergeCalls,
+            "jobs": beforeHistoryMergeCalls - afterInitialMergeCalls,
+            "history": startupIntent.mergeCalls - beforeHistoryMergeCalls]], options: [.sortedKeys])
+        FileHandle.standardError.write(initialObserverMetrics + Data([10]))
+
         let historyEvents = SteamWorkshopService()
         historyEvents.downloadJobStore.history = []
         historyEvents.downloadJobStore.jobs = [.init(accountSteamId: "A", workshopItemId: "first", state: .queued)]
+        historyEvents.refreshDownloadIntentProjection()
         historyEvents.observeProjectionInputs()
         RunLoop.main.run(until: Date().addingTimeInterval(0.05))
         checks["initialQueueStaysPopoverOnlyBeforeAnyFailure"] = historyEvents.downloads.isEmpty

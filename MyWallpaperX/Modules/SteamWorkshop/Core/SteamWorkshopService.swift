@@ -433,8 +433,8 @@ final class SteamWorkshopService: ObservableObject {
     /// 与过期修剪也可能只发布 history，因此两类事件合流后刷新同一源投影。
     private func observeDownloadJobStoreForProjection() {
         Publishers.Merge(
-            downloadJobStore.$jobs.map { _ in () },
-            downloadJobStore.$history.map { _ in () }
+            downloadJobStore.$jobs.dropFirst().map { _ in () },
+            downloadJobStore.$history.dropFirst().map { _ in () }
         )
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
