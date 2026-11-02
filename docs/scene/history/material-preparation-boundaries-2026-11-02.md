@@ -122,3 +122,13 @@ Warmup及binary archive直接消费PreparedAssembly既有shader/render-state ide
 联合Debug `-O`和严格签名通过，当前六个GraphExecutor用例都已有真实执行结果；主门包含普通次帧不重新编译、局部失败、状态/资源/claim及终端像素，五旁支保raw signal、straight/PMA、跨effect、pair/scalar与同层named。阶段内三条直接内部引用随旧调用退出，M3后基线29→26，public_contracts不扩。Compilation构造与Runtime声明的完整拆分、输入活动需求以及其余生命周期仍按独立族记录，不从此段宣称全引擎或性能完成。
 
 本机provenance为`.artifacts/scene-architecture-continuation-20261102/`的`material-execution-handoff-*`、`graph-executor-carrier-*`、`graph-atomic-fixture-*`与`graph-executor-current-v2`/`graph-atomic-current-v3`。联合App `d4c1de79c7367fe03b8c3aa4ec91fb3ed8bb43f053e617cb30466c974442f2cc`包含后续独立批，不能称单批构建或外推全语料、物理多屏、长期运行及能耗。
+
+
+<a id="runtime-capability-declaration"></a>
+## Runtime运行声明与Compilation构造分开
+
+固定2026-11-03：既有ExecutionCapabilityCatalog的运行声明、immutable identity/maps和claim归Runtime/Frame；Compilation保convenience构造、Admission错误及真实Template/Variant准备。私有Token字段同声明保持，UUID仍在原准备点形成后交入，没有新owner、额外claim或白名单扩张。原诊断所需八组字段改为准备时固定reportLines，不让Rendering持compiler载体。
+
+新增文件承接同一类型声明及其必要初始化赋值；不是把整个Material变成纯leaf或对外公开namespace。execution_capability、quad_visibility实际门、六个GraphExecutor及联合Debug通过；主Graph fixture按真实短期prepared tuple与最终StageCapability区分，没有恢复subject兼容字段。旧Rendering对Catalog的11条内部词法边随真实定义归属退出，此阶段15条余项仍按实际caller裁决，不以计数代表所有架构完成。
+
+本机provenance归`.artifacts/scene-architecture-continuation-20261102/`的`catalog-boundary-*`、`catalog-preparation-core-v2-*`及Graph/Debug联合报告；不额外声称GPU/VM/输入/生命周期或性能的普遍保证。

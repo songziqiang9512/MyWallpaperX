@@ -1,10 +1,7 @@
 import Foundation
 
 extension SceneResolvedMaterialExecutionCapabilityCatalog {
-    typealias Graph = SceneAuthoredEffectRenderPlan
-    typealias MaterialKey = SceneResolvedMaterialRuntimeCatalog.Key
     typealias Template = SceneResolvedMaterialTemplate
-    typealias ExactEffectSubject = SceneEffectExactRuntimeSubject
 
     struct DynamicProducerCatalog {
         typealias UserProperty = SceneDynamicUserPropertyProducer

@@ -3,11 +3,7 @@ import Foundation
 nonisolated struct SceneResolvedMaterialAdmittedLayer {
     typealias Graph = SceneAuthoredEffectRenderPlan
 
-    enum SourceRoute: Equatable {
-        case capturedLayerTexture
-        case capturedMainTargetTexture
-        case transparentDirectDraw
-    }
+    typealias SourceRoute = SceneResolvedMaterialExecutionCapabilityCatalog.SourceRoute
 
     struct DirectDrawGeometryRole: Equatable {
         let effect: Graph.EffectKey

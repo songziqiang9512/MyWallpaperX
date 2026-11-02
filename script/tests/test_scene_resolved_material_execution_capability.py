@@ -52,7 +52,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
 
     def test_aggregate_catalog_reuse_exports_each_authored_reference_slot(self) -> None:
         source = (
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneResolvedMaterialExecutionCapabilityCatalog.swift"
         ).read_text(encoding="utf-8")
         start = source.index(
             "var admittedResolvedMaterialReferences:"
@@ -94,6 +94,8 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
     def test_uniform_and_geometry_sources_are_prepared_before_frames(self) -> None:
         capability = (
             ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability.swift"
+        ).read_text(encoding="utf-8") + (
+            SCENE / "Runtime/Frame/SceneResolvedMaterialExecutionCapabilityCatalog.swift"
         ).read_text(encoding="utf-8")
         stages = (
             ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+Stages.swift"

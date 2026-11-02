@@ -49,15 +49,6 @@
     },
     {
       "rule": "rendering-no-compilation-internals",
-      "consumer": "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneResolvedMaterialGraphComposition.swift",
-      "symbol": "SceneResolvedMaterialExecutionCapabilityCatalog",
-      "declaration": "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability.swift",
-      "owner": "Scene Compilation / Rendering",
-      "reason": "试点前存在的直接内部类型引用；namespace混合合同与算法亦保守保留，不将当前使用自动公开",
-      "retirement": "由现有preparation owner产出typed合同并移除本直接边，或经独立设计迁移实际职责；同批ratchet删除此todo"
-    },
-    {
-      "rule": "rendering-no-compilation-internals",
       "consumer": "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+Diagnostics.swift",
       "symbol": "SceneEffectRuntimeDispositionCatalog",
       "declaration": "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectRuntimeDispositionCatalog.swift",
@@ -103,54 +94,9 @@
     },
     {
       "rule": "rendering-no-compilation-internals",
-      "consumer": "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+Attachment.swift",
-      "symbol": "SceneResolvedMaterialExecutionCapabilityCatalog",
-      "declaration": "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability.swift",
-      "owner": "Scene Compilation / Rendering",
-      "reason": "试点前存在的直接内部类型引用；namespace混合合同与算法亦保守保留，不将当前使用自动公开",
-      "retirement": "由现有preparation owner产出typed合同并移除本直接边，或经独立设计迁移实际职责；同批ratchet删除此todo"
-    },
-    {
-      "rule": "rendering-no-compilation-internals",
-      "consumer": "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+Preparation.swift",
-      "symbol": "SceneResolvedMaterialExecutionCapabilityCatalog",
-      "declaration": "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability.swift",
-      "owner": "Scene Compilation / Rendering",
-      "reason": "试点前存在的直接内部类型引用；namespace混合合同与算法亦保守保留，不将当前使用自动公开",
-      "retirement": "由现有preparation owner产出typed合同并移除本直接边，或经独立设计迁移实际职责；同批ratchet删除此todo"
-    },
-    {
-      "rule": "rendering-no-compilation-internals",
-      "consumer": "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+Validation.swift",
-      "symbol": "SceneResolvedMaterialExecutionCapabilityCatalog",
-      "declaration": "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability.swift",
-      "owner": "Scene Compilation / Rendering",
-      "reason": "试点前存在的直接内部类型引用；namespace混合合同与算法亦保守保留，不将当前使用自动公开",
-      "retirement": "由现有preparation owner产出typed合同并移除本直接边，或经独立设计迁移实际职责；同批ratchet删除此todo"
-    },
-    {
-      "rule": "rendering-no-compilation-internals",
       "consumer": "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+Validation.swift",
       "symbol": "SceneShaderStableDigest",
       "declaration": "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneShaderVariantEnvironment.swift",
-      "owner": "Scene Compilation / Rendering",
-      "reason": "试点前存在的直接内部类型引用；namespace混合合同与算法亦保守保留，不将当前使用自动公开",
-      "retirement": "由现有preparation owner产出typed合同并移除本直接边，或经独立设计迁移实际职责；同批ratchet删除此todo"
-    },
-    {
-      "rule": "rendering-no-compilation-internals",
-      "consumer": "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+VisualFailurePassthrough.swift",
-      "symbol": "SceneResolvedMaterialExecutionCapabilityCatalog",
-      "declaration": "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability.swift",
-      "owner": "Scene Compilation / Rendering",
-      "reason": "试点前存在的直接内部类型引用；namespace混合合同与算法亦保守保留，不将当前使用自动公开",
-      "retirement": "由现有preparation owner产出typed合同并移除本直接边，或经独立设计迁移实际职责；同批ratchet删除此todo"
-    },
-    {
-      "rule": "rendering-no-compilation-internals",
-      "consumer": "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor.swift",
-      "symbol": "SceneResolvedMaterialExecutionCapabilityCatalog",
-      "declaration": "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability.swift",
       "owner": "Scene Compilation / Rendering",
       "reason": "试点前存在的直接内部类型引用；namespace混合合同与算法亦保守保留，不将当前使用自动公开",
       "retirement": "由现有preparation owner产出typed合同并移除本直接边，或经独立设计迁移实际职责；同批ratchet删除此todo"
@@ -178,42 +124,6 @@
       "consumer": "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPipelineBinaryArchive.swift",
       "symbol": "ScenePersistentCacheSupport",
       "declaration": "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/ScenePersistentCacheSupport.swift",
-      "owner": "Scene Compilation / Rendering",
-      "reason": "试点前存在的直接内部类型引用；namespace混合合同与算法亦保守保留，不将当前使用自动公开",
-      "retirement": "由现有preparation owner产出typed合同并移除本直接边，或经独立设计迁移实际职责；同批ratchet删除此todo"
-    },
-    {
-      "rule": "rendering-no-compilation-internals",
-      "consumer": "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialRuntimeBridge.swift",
-      "symbol": "SceneResolvedMaterialExecutionCapabilityCatalog",
-      "declaration": "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability.swift",
-      "owner": "Scene Compilation / Rendering",
-      "reason": "试点前存在的直接内部类型引用；namespace混合合同与算法亦保守保留，不将当前使用自动公开",
-      "retirement": "由现有preparation owner产出typed合同并移除本直接边，或经独立设计迁移实际职责；同批ratchet删除此todo"
-    },
-    {
-      "rule": "rendering-no-compilation-internals",
-      "consumer": "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator+Execution.swift",
-      "symbol": "SceneResolvedMaterialExecutionCapabilityCatalog",
-      "declaration": "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability.swift",
-      "owner": "Scene Compilation / Rendering",
-      "reason": "试点前存在的直接内部类型引用；namespace混合合同与算法亦保守保留，不将当前使用自动公开",
-      "retirement": "由现有preparation owner产出typed合同并移除本直接边，或经独立设计迁移实际职责；同批ratchet删除此todo"
-    },
-    {
-      "rule": "rendering-no-compilation-internals",
-      "consumer": "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator+FrameCommit.swift",
-      "symbol": "SceneResolvedMaterialExecutionCapabilityCatalog",
-      "declaration": "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability.swift",
-      "owner": "Scene Compilation / Rendering",
-      "reason": "试点前存在的直接内部类型引用；namespace混合合同与算法亦保守保留，不将当前使用自动公开",
-      "retirement": "由现有preparation owner产出typed合同并移除本直接边，或经独立设计迁移实际职责；同批ratchet删除此todo"
-    },
-    {
-      "rule": "rendering-no-compilation-internals",
-      "consumer": "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator.swift",
-      "symbol": "SceneResolvedMaterialExecutionCapabilityCatalog",
-      "declaration": "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability.swift",
       "owner": "Scene Compilation / Rendering",
       "reason": "试点前存在的直接内部类型引用；namespace混合合同与算法亦保守保留，不将当前使用自动公开",
       "retirement": "由现有preparation owner产出typed合同并移除本直接边，或经独立设计迁移实际职责；同批ratchet删除此todo"
@@ -262,34 +172,65 @@
       "owner": "Scene Compilation / Rendering",
       "reason": "试点前存在的直接内部类型引用；namespace混合合同与算法亦保守保留，不将当前使用自动公开",
       "retirement": "由现有preparation owner产出typed合同并移除本直接边，或经独立设计迁移实际职责；同批ratchet删除此todo"
-    },
-    {
-      "rule": "rendering-no-compilation-internals",
-      "consumer": "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTexturePool.swift",
-      "symbol": "SceneResolvedMaterialExecutionCapabilityCatalog",
-      "declaration": "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability.swift",
-      "owner": "Scene Compilation / Rendering",
-      "reason": "试点前存在的直接内部类型引用；namespace混合合同与算法亦保守保留，不将当前使用自动公开",
-      "retirement": "由现有preparation owner产出typed合同并移除本直接边，或经独立设计迁移实际职责；同批ratchet删除此todo"
     }
   ],
   "last_ratchet": {
-    "reason": "Prepared execution handoff removes direct compiler/cache lookup and full RuntimeCatalog transport from Rendering; static failure eligibility is prepared, dynamic resource/history checks remain.",
+    "reason": "Move the existing runtime declaration, immutable identity/maps and claim owner out of the mixed Compilation constructor; Template/Variant preparation remains real and public contracts are unchanged.",
     "removed": [
       [
         "rendering-no-compilation-internals",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+Preparation.swift",
-        "SceneResolvedMaterialGenericShaderArtifactCache"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneResolvedMaterialGraphComposition.swift",
+        "SceneResolvedMaterialExecutionCapabilityCatalog"
+      ],
+      [
+        "rendering-no-compilation-internals",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+Attachment.swift",
+        "SceneResolvedMaterialExecutionCapabilityCatalog"
       ],
       [
         "rendering-no-compilation-internals",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+Preparation.swift",
-        "SceneResolvedMaterialProgramFinalizer"
+        "SceneResolvedMaterialExecutionCapabilityCatalog"
+      ],
+      [
+        "rendering-no-compilation-internals",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+Validation.swift",
+        "SceneResolvedMaterialExecutionCapabilityCatalog"
+      ],
+      [
+        "rendering-no-compilation-internals",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+VisualFailurePassthrough.swift",
+        "SceneResolvedMaterialExecutionCapabilityCatalog"
+      ],
+      [
+        "rendering-no-compilation-internals",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor.swift",
+        "SceneResolvedMaterialExecutionCapabilityCatalog"
       ],
       [
         "rendering-no-compilation-internals",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialRuntimeBridge.swift",
-        "SceneResolvedMaterialRuntimeCatalog"
+        "SceneResolvedMaterialExecutionCapabilityCatalog"
+      ],
+      [
+        "rendering-no-compilation-internals",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator+Execution.swift",
+        "SceneResolvedMaterialExecutionCapabilityCatalog"
+      ],
+      [
+        "rendering-no-compilation-internals",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator+FrameCommit.swift",
+        "SceneResolvedMaterialExecutionCapabilityCatalog"
+      ],
+      [
+        "rendering-no-compilation-internals",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator.swift",
+        "SceneResolvedMaterialExecutionCapabilityCatalog"
+      ],
+      [
+        "rendering-no-compilation-internals",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTexturePool.swift",
+        "SceneResolvedMaterialExecutionCapabilityCatalog"
       ]
     ]
   }

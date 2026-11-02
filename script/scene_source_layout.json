@@ -585,6 +585,7 @@
           "SceneScreenTopology.swift",
           "SceneStaticModelMaterialBindings.swift",
           "SceneSurfacePointerState.swift",
+          "SceneResolvedMaterialExecutionCapabilityCatalog.swift",
           "SceneResolvedMaterialPreparedFrameInput.swift",
           "SceneResolvedMaterialPreparedSamplerSchema.swift"
         ],

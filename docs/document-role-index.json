@@ -2325,7 +2325,7 @@
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ],
       "cutoffDate": "2026-11-03",
-      "uniqueValue": "M1/M2/M3准备边界及prepared执行能力交接、完整Graph载体、固定源码/签名App/GPU和首失败资格；不关闭整Scene架构。"
+      "uniqueValue": "M1/M2/M3与prepared执行交接、Runtime声明/claim和Compilation构造分离、完整Graph载体及分阶段固定构建/真实门和首失败。"
     },
     {
       "path": "docs/scene/history/material-video-assets-2026-10-12.md",

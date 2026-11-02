@@ -414,6 +414,13 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceIdentity.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceView+Backing.swift"
       ]
+    },
+    "resolved_material_execution_capability_contract": {
+      "description": "Prepared execution identity, capability storage and runtime queries; compilation construction remains with Material preparation.",
+      "includes": [],
+      "sources": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneResolvedMaterialExecutionCapabilityCatalog.swift"
+      ]
     }
   }
 }
