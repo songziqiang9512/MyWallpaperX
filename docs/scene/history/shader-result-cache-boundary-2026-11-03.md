@@ -8,7 +8,7 @@
 
 ## 职责退出
 
-原 compiler 直接交付同次 typed artifact/encodedData，Program 沿原 makeProgram 验证并采用；退出“先创建持久目录、写 JSON、再读回才得有效结果”。可选 artifact 发布及 analysis 完整 store 在 utility 执行，single-flight/accepted program 不等待磁盘，不新增 pending mirror、临时 cache、worker 或 flush API。各写 tier 可独立创建缺失的合法 root/version，读入口不创建；根目录是文件、不可写、坏/过期 entry 均不撤本次正常编译结果。
+原 compiler 直接交付同次 typed artifact/encodedData，Program 沿原 makeProgram 验证并采用；退出“先创建持久目录、写 JSON、再读回才得有效结果”。可选 artifact 发布及 GenericShaderAnalysis 完整 store 在 utility 执行，single-flight/accepted program 不等待磁盘，不新增 pending mirror、临时 cache、worker 或 flush API。各写 tier 可独立创建缺失的合法 root/version，读入口不创建；根目录是文件、不可写、坏/过期 entry 均不撤本次正常编译结果。
 
 2 MiB 只约束 cache 读/可选发布；工具 16 MiB 输出边界、makeProgram 的真实 MSL/ABI/颜色/资源边界保持。合法较大直接结果可用而不持久化，真编译失败仍局部 typed 失败。wire/schema 不变，未知/坏 cache 沿原冷链重建，不把历史文件作为播放许可。
 

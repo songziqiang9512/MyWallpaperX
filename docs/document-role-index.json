@@ -766,10 +766,10 @@
       "lastReviewed": "2026-11-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "bc894497a4921d1458d490d628e275bc840a7b53eeea2c6f41c62ca6ac9d0739",
+        "sourceSHA256": "654d1b8028ac3e646c77ac6a5d20515237a34ea769a5d1ea9969b5245fac7334",
         "method": "document_registry --audit + document_health --check",
-        "scope": "当前相机拓扑factory及实际旧/新App固定ROI对照的事实、证据与队列分工。",
-        "limitations": "相机有界证据；不代表其它待迁移职责、全语料、硬件或性能已完成。"
+        "scope": "区分GenericShader既定后验与Preparation/Frontend/Demand/Variant四处剩余发布职责，复核Catalog运行声明及两个资源退休断点。",
+        "limitations": "新合同与精确待办不表示实现/运行完成；现有cache证据限其实际tier，尚未验性能。"
       },
       "purpose": "实际接线或已记录运行证据；不反向定义目标架构，不决定实施顺序。"
     },
@@ -4007,7 +4007,7 @@
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ],
       "cutoffDate": "2026-11-03",
-      "uniqueValue": "typed shader结果直接采用、可选异步持久发布/独立目录写及预算边界，旧白图与新正常/不可写固定像素/原包；保载体失败，不声明性能/整体架构收口。"
+      "uniqueValue": "GenericShaderArtifact/GenericShaderAnalysis直接采用、异步可选发布和真实cache坏根恢复；不代验其它四个准备缓存。"
     },
     {
       "path": "docs/scene/history/shader-value-type-recognition-2026-10-16.md",
@@ -4642,10 +4642,10 @@
       "lastReviewed": "2026-11-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3c3e4631815a8130c2604f1bdd65f58c030f8ce89725c1b7307c91a0d1cc9d1a",
+        "sourceSHA256": "4e1cd65beebec7727709b6386e00a201e448759ba34c5f838d87a9a29bd46488",
         "method": "document_registry --audit + document_health --check",
-        "scope": "系统Audio/Media/Cursor消费者需求退出的真实owner、source alias及暂停/候选边界，设计先于实现。",
-        "limitations": "有限静态设计与导航核对；不认领实际订阅退出、全链运行或能耗收益。"
+        "scope": "区分GenericShader既定后验与Preparation/Frontend/Demand/Variant四处剩余发布职责，复核Catalog运行声明及两个资源退休断点。",
+        "limitations": "新合同与精确待办不表示实现/运行完成；现有cache证据限其实际tier，尚未验性能。"
       }
     },
     {
@@ -4698,10 +4698,10 @@
       "lastReviewed": "2026-11-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "12710d94ec3ac32dfeabac3dbf916a4cad0121de2e196dd502f6b7bcaf0e254d",
+        "sourceSHA256": "1f88153d3c5cab97c3f69a82952ce355b8b356aab073b42afe48158fe2473c9b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "当前相机拓扑factory及实际旧/新App固定ROI对照的事实、证据与队列分工。",
-        "limitations": "相机有界证据；不代表其它待迁移职责、全语料、硬件或性能已完成。"
+        "scope": "区分GenericShader既定后验与Preparation/Frontend/Demand/Variant四处剩余发布职责，复核Catalog运行声明及两个资源退休断点。",
+        "limitations": "新合同与精确待办不表示实现/运行完成；现有cache证据限其实际tier，尚未验性能。"
       }
     },
     {

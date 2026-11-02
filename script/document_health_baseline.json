@@ -90,7 +90,7 @@
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 169,
-      "bytes": 22804
+      "bytes": 22817
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 31,
@@ -285,8 +285,8 @@
       "bytes": 29767
     },
     "docs/scene/roadmap/engine-refactor-program.md": {
-      "lines": 345,
-      "bytes": 70659
+      "lines": 351,
+      "bytes": 72534
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 75,
@@ -301,8 +301,8 @@
       "bytes": 22465
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 211,
-      "bytes": 52646
+      "lines": 215,
+      "bytes": 54157
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -2302,11 +2302,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-as-built-map.md",
-      "before": "d015d63f78fef0bdda85d676b616e02cc9012c41aabf5e5e2f145397ad873557",
-      "after": "01bb628637984dba8cfbfa36b94eacb4461c85cff2dc595589c5a8195ba61e60",
-      "owner": "Scene camera / repository governance",
-      "reason": "原事实地图和证据入口收敛当前相机同阶段拓扑及有界App正反门，详细身份/首失败归固定历史，移除已验队列项。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#sprite与当前拓扑消费者"
+      "before": "01bb628637984dba8cfbfa36b94eacb4461c85cff2dc595589c5a8195ba61e60",
+      "after": "b07d79146055b9f837e54f7de026e84d25126c55d109c23d09774ec4804c2f35",
+      "owner": "Scene preparation/resource lifecycle / repository governance",
+      "reason": "原合同明确Catalog声明/构造与可选发布边界，区分真实cache tier；单一队列登记四条准备发布、重复graphContext/取消及两个已证资源退出缺边，避免有限门误结算整体。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#架构级迁移合同"
     },
     {
       "section": "bodies",
@@ -2329,19 +2329,19 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/engine-refactor-program.md",
-      "before": "15f5c8af596241879b555961be1510ef6b0824bbcb9471709ce5039f8e581d8f",
-      "after": "f4a216509d130798bb06f7081a20cd84115357464e8a0b53c5036a79603518ce",
-      "owner": "Scene input lifecycle / repository governance",
-      "reason": "在原设计明确活动消费者变化时统一更新已有Audio/Media/Pointer owner，保prepared归属、source alias、candidate及冻结资源，避免普通帧全图扫描。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#系统输入需求的活动消费者退出"
+      "before": "f4a216509d130798bb06f7081a20cd84115357464e8a0b53c5036a79603518ce",
+      "after": "bf3305ed3004e4a9bf6c767e2b3a38135cfdbf046abbc72c50a08d0a5f14d568",
+      "owner": "Scene preparation/resource lifecycle / repository governance",
+      "reason": "原合同明确Catalog声明/构造与可选发布边界，区分真实cache tier；单一队列登记四条准备发布、重复graphContext/取消及两个已证资源退出缺边，避免有限门误结算整体。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#架构级迁移合同"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "3703104f16c2ea7045f655c3cda9d3cc91d34d97716f58c5aacb3d2ecf93cd53",
-      "after": "c9bb6bc85d1837f5eb76123621090a4fb39b352959c2355e487b098274a7333c",
-      "owner": "Scene preparation and resource lifecycle / repository governance",
-      "reason": "原权威关闭已复现并恢复的可选cache播放阻断；反复核对记录后续真实资源叶依赖、静态阶段及活动consumer退休债，详细固定故障/身份归历史，不新增性能/完整兼容结论。",
+      "before": "cd902df30bd4b5af822ae4f51b1abdea3b3ea814f1aef769efe20f408aa14502",
+      "after": "fd227b9c1b30dcb9b1412a5555c50c3c473af1a435798c7be86072d1f7e3b223",
+      "owner": "Scene preparation/resource lifecycle / repository governance",
+      "reason": "原合同明确Catalog声明/构造与可选发布边界，区分真实cache tier；单一队列登记四条准备发布、重复graphContext/取消及两个已证资源退出缺边，避免有限门误结算整体。",
       "decision": "docs/scene/roadmap/engine-refactor-program.md#架构级迁移合同"
     }
   ]

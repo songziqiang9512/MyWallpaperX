@@ -1744,7 +1744,7 @@
       "owner": "Scene Session / typed programs and component owners",
       "status": "approved",
       "designDoc": "docs/scene/roadmap/engine-refactor-program.md",
-      "design_notes": "designDoc维护全Scene迁移与退出：职责合同、实际运行及证据分别裁决，有限审查/direct-host不关闭整体。沿既有Demand→Catalog→Variant交接格式/槽位事实，Frame消费所属准备产品的uniform计划/identity，撤重复template与来源推导。Launch算法归原Schema/Variant，Sampler和RT值采用真实轻量叶合同；资源lookup5值及唯一Purpose token codec独立于GPU实现，保wire/nil/未知token语义；warmup和archive消费PreparedAssembly/device key，静态局部失败拓扑在原stage准备。Text producer按Surface已采用topology及原pending tuple退休，保prepared clone模板/输入和held/history资源持有；Sprite/Timeline按真实committed成员及Surface采用/GPU使用期退休，相机取当前projection。Compiler typed产物直接采用，持久发布/analysis store可选异步，cache预算不作播放许可；localStorage在真实实例报告后、configure前准备，帧纯内存。系统Audio/Media/Cursor按实际活动消费者边界更新原需求owner，保共享source alias、hidden/dormant及held资源；产品daemon沿既有Startup完整选择/热改/暂停恢复/切换/停止，实际capture/drain窄DEBUG观察、保私有standard defaults和自有进程。保唯一VM/clock/graph/resources/compositor，不增wrapper/cache认证或公开内部算法清库存。原主pass库存及归档字节/锚点凭据冻结；不授推送发布。",
+      "design_notes": "designDoc维护全Scene迁移与退出：职责合同、实际运行及证据分别裁决，有限审查/direct-host不关闭整体。沿既有Demand→Catalog→Variant交接格式/槽位事实，Frame消费所属准备产品的uniform计划/identity，撤重复template与来源推导。Launch算法归原Schema/Variant，Sampler和RT值采用真实轻量叶合同；资源lookup5值及唯一Purpose token codec独立于GPU实现，保wire/nil/未知token语义；warmup和archive消费PreparedAssembly/device key，静态局部失败拓扑在原stage准备；Catalog运行声明/短storage init与Compilation原convenience构造分开，typed错误只在prepare，一次交只读report结果，保唯一identity时点。system absent沿Registry原baseline/pending/discard/accept事务退committed/prior资源，保在途snapshot持有；Text producer按Surface已采用topology及原pending tuple退休，保prepared clone模板/输入和held/history资源持有；Sprite/Timeline按真实committed成员及Surface采用/GPU使用期退休，相机取当前projection。Compiler typed产物直接采用，持久发布/GenericShaderAnalysis store可选异步，Preparation/Frontend/Demand/Variant四原cache同样不得阻塞采用，cache预算不作播放许可；localStorage在真实实例报告后、configure前准备，帧纯内存。系统Audio/Media/Cursor按实际活动消费者边界更新原需求owner，保共享source alias、hidden/dormant及held资源；产品daemon沿既有Startup完整选择/热改/暂停恢复/切换/停止，实际capture/drain窄DEBUG观察、保私有standard defaults和自有进程。保唯一VM/clock/graph/resources/compositor，不增wrapper/cache认证或公开内部算法清库存。原主pass库存及归档字节/锚点凭据冻结；不授推送发布。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextScript*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextMediaPropertiesCompiler.swift",
@@ -1901,7 +1901,14 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+AudioDemand.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+PointerEvents.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptCursorProgram.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneSoundPlaybackRegistry.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneSoundPlaybackRegistry.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneResolvedMaterialExecutionCapabilityCatalog.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneAuthoredShaderPreparation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderFrontend.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneMaterialDemandAnalysisPersistentCache.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialVariantAnalysisCache.swift",
+        "script/tests/test_scene_media_thumbnail_provider.py",
+        "script/tests/fixtures/SceneFrameTextureRegistryLifecycleCases.swift"
       ],
       "contentPatterns": []
     }
