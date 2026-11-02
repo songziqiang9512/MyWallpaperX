@@ -6,6 +6,7 @@
 import Foundation
 import AppKit
 import QuartzCore
+import Darwin
 
 extension WallpaperManager {
     func setAsWallpaper(_ wallpaper: VideoWallpaper,
@@ -235,6 +236,7 @@ extension WallpaperManager {
                             // 编码窗口内壁纸可能已切走，应用前二次守卫：
                             // 迟到帧不得写进已切换走的壁纸。
                             DispatchQueue.main.async { [weak self] in
+                                defer { try? FileManager.default.removeItem(at: imageURL) }
                                 guard let self,
                                       self.settings.syncSystemWallpaper,
                                       self.playbackSwitch.committed == committedExecution,
@@ -244,7 +246,10 @@ extension WallpaperManager {
                                       ) else {
                                     return
                                 }
-                                self.setDesktopWallpaper(from: imageURL.path)
+                                let destination = self.staticFrameCacheDirectory
+                                    .appendingPathComponent("runtime-sync-\(kind.logLabel).jpg")
+                                guard rename(imageURL.path, destination.path) == 0 else { return }
+                                self.setDesktopWallpaper(from: destination.path)
                             }
                         }
                     }
@@ -312,8 +317,8 @@ extension WallpaperManager {
         setDesktopWallpaper(from: destination.path)
     }
 
-    /// 截帧落盘到静帧缓存目录（可重建派生数据），每运行时一个稳定文件名，
-    /// 后一次同步覆盖前一次。格式与视频静帧管线一致（JPEG 0.9）。
+    /// 每次截帧独立落盘，通过主线程身份守卫后再发布到稳定文件名，
+    /// 避免迟到 worker 覆盖当前帧。格式与视频静帧管线一致（JPEG 0.9）。
     private func persistRuntimeSyncFrame(
         _ image: NSImage,
         kind: RuntimeFrameSyncKind
@@ -327,7 +332,7 @@ extension WallpaperManager {
             return nil
         }
         let url = staticFrameCacheDirectory
-            .appendingPathComponent("runtime-sync-\(kind.logLabel).jpg")
+            .appendingPathComponent("runtime-sync-\(kind.logLabel)-\(UUID().uuidString).jpg")
         do {
             try jpeg.write(to: url, options: .atomic)
             return url

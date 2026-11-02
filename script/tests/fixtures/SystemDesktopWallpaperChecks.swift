@@ -223,3 +223,150 @@
     DesktopLeaf.screens = [DesktopScreen(id: 0), DesktopScreen(id: 1)]
     return checks
 }
+
+
+// Only delivery and native capture are controlled; encoding, publication,
+// desktop copies, identity guards and cleanup use the extracted Manager bodies.
+@MainActor enum RuntimeFrameDelivery {
+    static var delayed: [DispatchWorkItem] = [], workers: [() -> Void] = [], mains: [() -> Void] = []
+    static var delays: [TimeInterval] = [], captures = 0, failCopy = false
+    static var recordID: String?, image: NSImage?
+    static func after(delay: TimeInterval, execute: DispatchWorkItem) { delays.append(delay); delayed.append(execute) }
+    static func utility(_ work: @escaping () -> Void) { workers.append(work) }
+    static func main(_ work: @escaping () -> Void) { mains.append(work) }
+    static func copy(_ source: URL, to destination: URL) throws {
+        if failCopy { throw CocoaError(.fileWriteUnknown) }
+        try FileManager.default.copyItem(at: source, to: destination)
+    }
+}
+extension WallpaperEngine {
+    var currentWebRecordID: String? { RuntimeFrameDelivery.recordID }
+    func captureWebWallpaperFrame(completion: @escaping (NSImage?) -> Void) {
+        RuntimeFrameDelivery.captures += 1; completion(RuntimeFrameDelivery.image)
+    }
+}
+extension SceneDaemonClient {
+    var activeRecordID: String? { nil }
+    var launchState: ScenePlaybackLoadRequest? { nil }
+    func captureSurfaceFrame(completion: @escaping (URL?) -> Void) { preconditionFailure("Web frame checks do not capture Scene") }
+}
+
+@MainActor func runRuntimeFrameSystemWallpaperChecks(root: URL) throws -> [String: Bool] {
+    var checks: [String: Bool] = [:]
+    let desktop = DesktopLeaf.shared
+    func jpeg(_ red: UInt8, _ blue: UInt8) throws -> NSImage {
+        let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 8, pixelsHigh: 8, bitsPerSample: 8,
+            samplesPerPixel: 3, hasAlpha: false, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 24, bitsPerPixel: 24)!
+        for i in 0..<64 { rep.bitmapData![i * 3] = red; rep.bitmapData![i * 3 + 1] = 0; rep.bitmapData![i * 3 + 2] = blue }
+        let url = root.appendingPathComponent(UUID().uuidString + ".jpg")
+        try rep.representation(using: .jpeg, properties: [.compressionFactor: 0.9])!.write(to: url)
+        return NSImage(data: try Data(contentsOf: url))!
+    }
+    func rgb(_ url: URL) throws -> [Double] {
+        let color = NSBitmapImageRep(data: try Data(contentsOf: url))!.colorAt(x: 0, y: 0)!.usingColorSpace(.deviceRGB)!
+        return [color.redComponent, color.greenComponent, color.blueComponent].map(Double.init)
+    }
+    func temporaryFrames(_ manager: WallpaperManager) throws -> [URL] {
+        try FileManager.default.contentsOfDirectory(at: manager.staticFrameCacheDirectory, includingPropertiesForKeys: nil)
+            .filter { $0.lastPathComponent.hasPrefix("runtime-sync-web-") }
+    }
+    func setup(sync: Bool = true) throws -> WallpaperManager {
+        RuntimeFrameDelivery.delayed = []; RuntimeFrameDelivery.workers = []; RuntimeFrameDelivery.mains = []
+        RuntimeFrameDelivery.delays = []; RuntimeFrameDelivery.captures = 0; RuntimeFrameDelivery.failCopy = false
+        RuntimeFrameDelivery.recordID = nil; RuntimeFrameDelivery.image = nil
+        desktop.attempts = []; desktop.failURLs = []; desktop.failScreen = nil
+        desktop.urls = [0: root.appendingPathComponent("original-a.jpg"), 1: root.appendingPathComponent("original-b.jpg")]
+        let manager = WallpaperManager(); manager.settings.syncSystemWallpaper = sync
+        manager.staticFrameCacheDirectory = root.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        manager.thumbnailCacheDirectory = manager.staticFrameCacheDirectory.appendingPathComponent("thumbnails", isDirectory: true)
+        try FileManager.default.createDirectory(at: manager.staticFrameCacheDirectory, withIntermediateDirectories: true)
+        return manager
+    }
+    @discardableResult func commit(_ manager: WallpaperManager, _ record: String, _ image: NSImage?) throws -> PlaybackSwitchTicket {
+        let reference = WallpaperReference(provider: .steamWorkshop, sourceID: record)
+        let source = try WallpaperPlaybackSequence.Snapshot(source: .single(reference), revision: 1,
+            entries: [.init(reference: reference, runtime: .web, isPlayable: true)])
+        manager.libraryPlaybackDispatcher = { [weak manager] pending in
+            guard let manager else { return false }
+            manager.setWebWallpaper(requestID: UUID(), entryURL: root.appendingPathComponent("index.html"), rootURL: root,
+                propertiesJSON: nil, recordID: record, language: "en-us", runtimeProfile: .standard,
+                resourceLifetime: nil, intentEpoch: pending.ticket.epoch, libraryPending: pending)
+            return true
+        }
+        let ticket = manager.requestLibraryPlayback(reference: reference, from: source)!
+        let endpoint = NativeEndpoint(ticket)
+        endpoint.onFinalize = { RuntimeFrameDelivery.recordID = record; RuntimeFrameDelivery.image = image }
+        manager.switchPrepared(ticket, endpoint: endpoint.endpoint); endpoint.show(manager)
+        precondition(manager.playbackSwitch.committed?.ticket == ticket)
+        return ticket
+    }
+    let red = try jpeg(255, 0), blue = try jpeg(0, 255)
+    do {
+        let manager = try setup()
+        let a = try commit(manager, "A", red); RuntimeFrameDelivery.delayed.removeFirst().perform()
+        let b = try commit(manager, "B", blue); RuntimeFrameDelivery.delayed.removeFirst().perform()
+        RuntimeFrameDelivery.workers.remove(at: 1)(); RuntimeFrameDelivery.workers.removeFirst()()
+        RuntimeFrameDelivery.mains.removeFirst()()
+        let copied = desktop.urls[0]!, color = try rgb(copied), attempts = desktop.attempts.count
+        RuntimeFrameDelivery.mains.removeFirst()()
+        checks["runtime-sync-reversed-workers-copy-the-current-blue-frame"] = a != b && color[2] > 0.8 && color[0] < 0.2
+            && manager.playbackSwitch.committed?.ticket == b && copied.lastPathComponent.hasPrefix("system-wallpaper-active-")
+        let remaining = try temporaryFrames(manager)
+        checks["runtime-sync-stale-main-cannot-write-and-releases-its-temporary-frame"] = attempts == 2
+            && desktop.attempts.count == attempts && remaining.isEmpty
+        checks["runtime-sync-keeps-the-original-five-second-capture-request"] = RuntimeFrameDelivery.delays == [5, 5]
+    }
+    do {
+        var manager: WallpaperManager? = try setup()
+        weak var released = manager
+        try commit(manager!, "release", red); RuntimeFrameDelivery.delayed.removeFirst().perform()
+        RuntimeFrameDelivery.workers.removeFirst()()
+        let frames = try temporaryFrames(manager!)
+        manager = nil; RuntimeFrameDelivery.mains.removeFirst()()
+        checks["runtime-sync-released-manager-cleans-the-worker-file-without-writing"] = released == nil && frames.count == 1
+            && frames.allSatisfy { !FileManager.default.fileExists(atPath: $0.path) } && desktop.attempts.isEmpty
+    }
+    do {
+        let manager = try setup()
+        let stable = manager.staticFrameCacheDirectory.appendingPathComponent("runtime-sync-web.jpg"), previous = Data([4, 8, 15, 16])
+        try previous.write(to: stable)
+        let protected = manager.applySourceImageDirectly(stable)
+        desktop.attempts = []
+        try commit(manager, "clear", blue); RuntimeFrameDelivery.delayed.removeFirst().perform()
+        RuntimeFrameDelivery.workers.removeFirst()()
+        manager.clearPreviewCacheArtifacts(); RuntimeFrameDelivery.mains.removeFirst()()
+        let remaining = try temporaryFrames(manager), preserved = try Data(contentsOf: stable)
+        checks["runtime-sync-cache-clear-makes-publication-fail-without-a-desktop-write"] = protected && desktop.attempts.isEmpty
+            && preserved == previous && remaining.isEmpty
+    }
+    do {
+        let manager = try setup()
+        RuntimeFrameDelivery.failCopy = true
+        try commit(manager, "copy-fallback", blue); RuntimeFrameDelivery.delayed.removeFirst().perform()
+        RuntimeFrameDelivery.workers.removeFirst()(); RuntimeFrameDelivery.mains.removeFirst()()
+        let stable = manager.staticFrameCacheDirectory.appendingPathComponent("runtime-sync-web.jpg")
+        let color = try rgb(stable), remaining = try temporaryFrames(manager)
+        checks["runtime-sync-copy-failure-retains-a-readable-stable-source"] = desktop.urls[0] == stable && desktop.urls[1] == stable
+            && color[2] > 0.8 && remaining.isEmpty
+    }
+    do {
+        let manager = try setup(sync: false)
+        try commit(manager, "disabled", red)
+        checks["runtime-sync-disabled-does-not-capture-encode-or-write"] = RuntimeFrameDelivery.delayed.isEmpty
+            && RuntimeFrameDelivery.workers.isEmpty && RuntimeFrameDelivery.captures == 0 && desktop.attempts.isEmpty
+    }
+    do {
+        let manager = try setup()
+        try commit(manager, "no-image", nil); RuntimeFrameDelivery.delayed.removeFirst().perform()
+        checks["runtime-sync-missing-capture-does-not-enqueue-a-worker"] = RuntimeFrameDelivery.captures == 1
+            && RuntimeFrameDelivery.workers.isEmpty && RuntimeFrameDelivery.mains.isEmpty && desktop.attempts.isEmpty
+    }
+    do {
+        let manager = try setup()
+        manager.staticFrameCacheDirectory.appendPathComponent("missing-directory", isDirectory: true)
+        try commit(manager, "writer-failure", red); RuntimeFrameDelivery.delayed.removeFirst().perform()
+        RuntimeFrameDelivery.workers.removeFirst()()
+        checks["runtime-sync-writer-failure-does-not-enqueue-application"] = RuntimeFrameDelivery.mains.isEmpty && desktop.attempts.isEmpty
+    }
+    return checks
+}

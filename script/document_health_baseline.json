@@ -34,7 +34,7 @@
     },
     "docs/development/code-slimming-program.md": {
       "lines": 464,
-      "bytes": 104251
+      "bytes": 105423
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -1739,10 +1739,10 @@
     {
       "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
-      "before": "d7d827cebb38b4972e9739feb806efbab3f6e1a084557c557ea99bacd8019b11",
-      "after": "adce48439264153c033eed7829e3275dc0ce8b5afa61a5d101a489220cdb62b7",
+      "before": "adce48439264153c033eed7829e3275dc0ce8b5afa61a5d101a489220cdb62b7",
+      "after": "1b521e8a469ca15efee069993a60ca05195a43a32e50a6092fdda727579bda89",
       "owner": "repository-maintainer",
-      "reason": "原位记录R56两个TIFF替换实验的精确像素反证和拒绝裁决，保最近产品验证及未覆盖项；仅本authority预算/既有receipt，保其他历史/Scene叶。",
+      "reason": "Record R57 proven shared-frame identity repair and bounded old/new lifecycle evidence; preserve R56 rejection and remaining runtime limits.",
       "decision": "docs/development/code-slimming-program.md#目标与边界"
     },
     {

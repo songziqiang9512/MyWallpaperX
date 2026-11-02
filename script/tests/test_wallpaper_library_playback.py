@@ -20,13 +20,16 @@ class WallpaperLibraryPlaybackTests(unittest.TestCase):
     def test_typed_provider_dispatch_and_original_product_commit(self):
         source = product_harness()
         source = source.replace('static let shared=WallpaperManager()', 'static var shared=WallpaperManager()')
-        source = source.replace('import Foundation', 'import AppKit\nimport Foundation', 1)
+        source = source.replace('import Foundation', 'import AppKit\nimport Darwin\nimport Foundation', 1)
         source = source.replace('func isSwitchingPlaybackMode()->Bool{true}', 'func isSwitchingPlaybackMode()->Bool{mode != .loop}')
         source = source.replace('var autoSwitchEnabled=true,randomInterval=',
             'var loopPlayback=false,randomPlayback=false,sequentialPlayback=true\n        var volume:Double=100\n        var autoSwitchEnabled=true,randomInterval=')
         source = source.replace('func stopCurrentPlayback(){_ = beginPlaybackIntent();currentWallpaper=nil;pendingWallpaper=nil;isPlaying=false;stopAutoSwitchTimer()}', '')
         source = source.replace('@discardableResult func advanceLibraryPlayback(cause:WallpaperPlaybackCause)->Bool{timerFires += 1;return false}', '')
         source = source.replace('func restoreSystemDesktopWallpaperOnTermination(){Trace.values.append("restoreDesktop")}', '')
+        schedule_stub = 'func scheduleRuntimeFrameSystemWallpaperSync(kind:WallpaperRuntimeKind,recordID:String){}'
+        self.assertEqual(source.count(schedule_stub), 1)
+        source = source.replace(schedule_stub, '', 1)
         fields = '''
     enum PlaybackMode { case loop, sequential, random }
     var mode:PlaybackMode { get { playbackMode() } set { applyPlaybackMode(newValue) } }
@@ -86,7 +89,7 @@ class WallpaperLibraryPlaybackTests(unittest.TestCase):
         desktop_methods = '\n'.join(declaration(application, signature) for signature in (
             '    func rememberSystemDesktopWrite(', '    func restoreSystemDesktopWallpaperOnTermination(',
             '    var protectedSystemDesktopURLs:', '    func clearUnprotectedStaticFrameFiles(',
-            '    private func applySourceImageDirectly(', '    private func removePreviousDesktopCopies('))
+            '    @discardableResult\n    private func applySourceImageDirectly(', '    private func removePreviousDesktopCopies('))
         # Only the native workspace/display boundary and private test visibility
         # change. All ownership, rollback and restoration policy is production.
         desktop_methods = desktop_methods.replace('NSWorkspace.shared', 'DesktopLeaf.shared').replace(
@@ -95,6 +98,27 @@ class WallpaperLibraryPlaybackTests(unittest.TestCase):
             marker = '    private func ' + name + '('
             self.assertEqual(desktop_methods.count(marker), 1)
             desktop_methods = desktop_methods.replace(marker, '    func ' + name + '(', 1)
+        schedule = declaration(application, '    func scheduleRuntimeFrameSystemWallpaperSync(')
+        for original, controlled in (
+            ('DispatchQueue.global(qos: .utility).async { [weak self] in', 'RuntimeFrameDelivery.utility { [weak self] in'),
+            ('DispatchQueue.main.async { [weak self] in', 'RuntimeFrameDelivery.main { [weak self] in'),
+            ('DispatchQueue.main.asyncAfter(\n            deadline: .now() + Self.runtimeFrameSyncDelay,\n            execute: workItem\n        )',
+             'RuntimeFrameDelivery.after(delay: Self.runtimeFrameSyncDelay, execute: workItem)'),
+        ):
+            self.assertEqual(schedule.count(original), 1)
+            schedule = schedule.replace(original, controlled, 1)
+        set_desktop = declaration(application, '    private func setDesktopWallpaper(')
+        copy_leaf = 'try FileManager.default.copyItem(at: sourceURL, to: desktopCopyURL)'
+        self.assertEqual(set_desktop.count(copy_leaf), 1)
+        set_desktop = set_desktop.replace(copy_leaf, 'try RuntimeFrameDelivery.copy(sourceURL, to: desktopCopyURL)', 1)
+        desktop_methods += '\n' + '\n'.join([
+            declaration(application, '    enum RuntimeFrameSyncKind'),
+            next(line for line in application.splitlines() if line.startswith('    private static let runtimeFrameSyncDelay:')),
+            schedule, set_desktop,
+            declaration(application, '    private func activeRuntimeMatchesFrameSyncTarget('),
+            declaration(application, '    private func applyRuntimeSyncFrameFile('),
+            declaration(application, '    private func persistRuntimeSyncFrame('),
+        ])
         persistence_path = MANAGER / 'WallpaperManager+Persistence.swift'
         desktop_methods += '\n' + declaration(persistence_path.read_text(), '    func clearPreviewCacheArtifacts(')
         cleanup_marker = '    private func removeFileIfExists('
@@ -113,6 +137,9 @@ class WallpaperLibraryPlaybackTests(unittest.TestCase):
         support_path = MANAGER / 'WallpaperLibrarySupport.swift'
         fixture = declaration(support_path.read_text(), 'struct WallpaperDeletionFailure') + '\n'
         fixture += fixture_path.read_text() + '\n' + desktop_fixture.read_text()
+        desktop_call = '        checks.merge(try runSystemDesktopWallpaperChecks(root: root), uniquingKeysWith: { _, newer in newer })'
+        self.assertEqual(fixture.count(desktop_call), 1)
+        fixture = fixture.replace(desktop_call, desktop_call + '\n        checks.merge(try runRuntimeFrameSystemWallpaperChecks(root: root), uniquingKeysWith: { _, newer in newer })', 1)
         app = ROOT / 'MyWallpaperX/App/WallpaperLibraryPlaybackRouting.swift'
         navigator = ROOT / 'MyWallpaperX/App/CrossRuntimeWallpaperNavigator.swift'
         observed = [*GATE_SOURCES, MANAGER / 'WallpaperManager.swift', MANAGER / 'WallpaperManager+RuntimeSwitching.swift',
