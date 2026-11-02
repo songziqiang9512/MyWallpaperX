@@ -2,7 +2,7 @@
 
 <!-- document-role: current-state -->
 
-> 复核：2026-11-01，依据当前工作树源码静态核对入口、构造、调用与释放；不代表本轮重新通过运行或性能验收。
+> 复核：2026-11-02，依据当前工作树源码静态核对入口、构造、调用与释放；不代表本轮重新通过运行或性能验收。
 >
 > 本图只回答实际代码怎样接线。长期职责归[运行时架构](runtime-architecture.md)，语言与进程边界归[技术栈合同](../../architecture/technology-stack-boundaries.md)，能力与实际运行分别查[能力台账](../capabilities/coverage-ledger.md)和[运行证据](../capabilities/runtime-evidence-current.md)。目标与现状不同的部分，按明确的重构事项处理，不把现状提升为规范。
 
@@ -71,6 +71,7 @@ App 产品意图与当前记录
 | 属性与帧值 | `Systems/Properties/ScenePropertyBindingProgram`、`ScenePropertyLiveUpdateState`、`SceneDynamicSnapshot` | [输入与属性](../capabilities/runtime-input-property-coverage.md) |
 | Timeline | `Systems/Timeline/SceneTimelinePlaybackRuntime`及 evaluator/compiler | [输入与属性](../capabilities/runtime-input-property-coverage.md) |
 | VM 与 typed owner | `Systems/Script/SceneScriptValueRuntime`、`SceneQuickJS*`及对应 bridge | [SceneScript API](../capabilities/scenescript-api-coverage.md) |
+| 动态图层准备与当前值 | `Systems/Script/SceneScriptDynamicLayerRuntime*`、`SceneScriptLayerTopologyProjection`；`Rendering/Composition/SceneDynamicLayerRenderTopologyCache` | [组件合同](../capabilities/runtime-systems-reference.md#02-数据与依赖方向) |
 | 粒子定义、实例与 GPU | `Systems/Particles/SceneParticleDefinitionParser`、`SceneParticleSimulator`、child/runtime；`Rendering/Particles/SceneParticleMetalInstanceBuffer`、`SceneParticleMetalPipeline` | [粒子组件](../capabilities/particle-component-coverage.md) |
 | 媒体封面 | `Systems/Media/SceneMediaThumbnailInbox`、`Resources/Providers/SceneMediaThumbnailTextureStore` | [组件合同](../capabilities/runtime-systems-reference.md#73-media) |
 | 文本 | `Systems/Text/SceneTextTextureLoader`、`SceneDynamicTextTextureStore` | [输入与属性](../capabilities/runtime-input-property-coverage.md) |
@@ -108,6 +109,7 @@ App 产品意图与当前记录
 | 用户选择纹理 | PreparedLaunch短期携初始结果，候选激活显式移交Session；Session保存唯一活动结果，View仅保存绘制快照。LaunchContext无纹理镜像，新表面读Session当前结果，旧绑定沿原completion/drain释放 |
 | 视频与 Sound | Session 的实际播放 registry 持有可变播放状态；私有媒体文件使用原 OwnedFile/AV borrower 生命周期，stop 不冒充全部 AV 借用已结束 |
 | 动态文字 | Session唯一Store准备初始raster并后台更新；每attempt共享ready snapshot，View独立保存prepared/submitted几何。任一屏提交后消费单份pending输入；重建复用producer，完整stop挂既有retirement fence后清引用 |
+| 动态图层 | Mutation Runtime/Plan保存出生Layer与原typed current；资源、创建尺寸和seed只在出生准备。结构revision缓存Layer数组及Renderer projection，同revision不回填live字段；当前值沿Session snapshot进入原消费者 |
 | 媒体封面 | Session唯一Store生产current/previous及各purpose；每cadence一次snapshot供VM/各View，View只保冻结snapshot与输入generation。共享pending在任一屏提交后请求一次，重建复用，完整stop撤权后沿retirement group排空 |
 | 目标与 history | 原 Surface pool、graph target 与 completion owner 管理；受 SceneResourceBudget 父额度约束，history 与 submission pin 决定可释放时机 |
 | 运行属性与脚本状态 | Session 的 LaunchContext、frame schema 和 program；JS heap 不随 typed admission 失败复制或回滚 |
@@ -124,7 +126,7 @@ Session 冻结本次时间、属性、输入、音频和媒体（含完整 wall 
 3. **提交前可以取消。** PreparedFrame 持有 submit/cancel，Surface 决定是否提交；提交后通过 GPU completion 终结，不能假装 CPU 撤回已经提交的命令。
 4. **图资源跟随同一提交。** claim、target、输出消费、seal、publication 与 completion 必须匹配原 command buffer 和执行身份；不能提前 enqueue 或私建第二个提交出口。
 5. **JS heap 与 typed 状态分开。** 当前 typed mutation、事件确认与 localStorage candidate 有自己的接纳或撤回规则；shared、闭包和模块对象不是可复制回滚的事务存储。
-6. **坐标与资源用途保持来源。** world/camera、logical/physical extent、UV、sampler 与颜色表示随准备产物和当帧输入传播，不由消费端重新猜测。
+6. **坐标与资源用途保持来源。** 动态根变换由SceneLayerDynamicWorldFrameResolver局部更新，作者层级/attachment共用SceneLayerWorldFrameResolver的localFrame。SceneScriptLayerRuntimeDescriptorBridge仅向既有作者catalog发布其prepared byID内的Mat4；动态clone仍沿C record与Renderer typed变换。资源extent、UV、sampler和颜色保原来源。
 7. **诊断只观察。** DEBUG readback、trace 和 HUD 消费真实执行；统计、截图或证据窗口不构成产品提交权威。
 
 源码：[Session Surface 提交](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceSubmission.swift)、[View 帧消费](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift)、[Renderer 提交](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+Submission.swift)与[纹理 registry](../../../MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneFrameTextureRegistry.swift)。顺序和失败目标由[运行时架构](runtime-architecture.md#83-一帧的有序工作与可见时间)维护，脚本具体语义查[API 合同](../capabilities/scenescript-api-coverage.md)。

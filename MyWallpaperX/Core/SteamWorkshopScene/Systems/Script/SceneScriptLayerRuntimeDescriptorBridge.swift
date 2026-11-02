@@ -402,6 +402,9 @@ nonisolated extension SceneScriptQuickJSDomain {
             try configureLayerCatalog(descriptor)
         }
         var dynamicTransformIDs = snapshot.dynamicTransformLayerIDsForFrame
+        if let projection = layerWorldTransformProjection {
+            dynamicTransformIDs = dynamicTransformIDs.filter { projection.layersByID[$0] != nil }
+        }
         if let id = descriptor.camera.default2DOriginInputLayerID,
            let origin = snapshot[.camera(.origin)], origin.source != .authored {
             dynamicTransformIDs.insert(id)

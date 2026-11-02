@@ -179,7 +179,7 @@ struct SceneTextDescriptor: Codable {
         unwrapped(value) as? Bool
     }
 
-    nonisolated private static func normalizedPath(_ value: String?) -> String? {
+    nonisolated static func normalizedPath(_ value: String?) -> String? {
         guard let value else { return nil }
         let path = value
             .trimmingCharacters(in: .whitespacesAndNewlines)

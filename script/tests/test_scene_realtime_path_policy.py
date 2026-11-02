@@ -19,7 +19,7 @@ SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 
 class SceneRealtimePathPolicyTests(unittest.TestCase):
     @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
-    def test_prepared_topology_membership_follows_revision_and_frame_values(self) -> None:
+    def test_prepared_topology_values_and_membership_follow_only_revision(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-topology-projection-") as directory:
             root = Path(directory)
             binary = root / "projection"
@@ -34,7 +34,7 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
             self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
             self.assertEqual(json.loads(completed.stdout), {
                 "sameRevisionKeepsPreparedMembership": True,
-                "frameValuesPatchOrderedAndPreparation": True,
+                "sameRevisionKeepsPreparedBirthValues": True,
                 "newRevisionRebuildsMembership": True,
                 "missingPreparationRemainsInvalid": True,
             })
@@ -133,48 +133,6 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
             frame_driver,
         )
         self.assertNotIn("SceneDynamicSnapshotResolver.prepare(", frame_driver)
-
-    def test_dynamic_layer_projection_is_revisioned(self) -> None:
-        renderer = read_source_family(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift")
-        projection = (
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+FrameWorldProjection.swift"
-        ).read_text(encoding="utf-8")
-        topology = (
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptDynamicLayerRuntime.swift"
-        ).read_text(encoding="utf-8")
-        cache = (
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneDynamicLayerRenderTopologyCache.swift"
-        ).read_text(encoding="utf-8")
-        self.assertIn("let dynamicLayerTopologyCache", renderer)
-        self.assertIn("dynamicLayerTopologyCache.resolve(", projection)
-        self.assertNotIn(
-            "frameDescriptor = renderDescriptor.applying(layerTopology)",
-            renderer + projection,
-        )
-        self.assertIn("private(set) var topologyRevision: UInt64", topology)
-        self.assertIn("dynamicTopologyChanged", topology)
-        self.assertIn("cachedSnapshotTopologyRevision", topology)
-        self.assertIn(
-            "if cachedSnapshotTopologyRevision != topologyRevision",
-            topology,
-        )
-        self.assertIn("revision == topology.topologyRevision", cache)
-        self.assertIn("func applyingFrameValues(", cache)
-        self.assertIn("let layerIndicesByID: [Int: Int]", cache)
-        self.assertIn("guard let index = layerIndicesByID[layer.id]", cache)
-        self.assertNotIn("descriptor.layers.firstIndex(where:", cache)
-        self.assertIn("let dynamicLayerIDs: Set<Int>", cache)
-        self.assertIn("let lightLayerIDs: [Int]", cache)
-        self.assertIn("let orderedLayers: [SceneRenderDescriptor.Layer]", cache)
-        self.assertIn("let orderedLayerPositionsByID: [Int: Int]", cache)
-        self.assertIn("orderedLayers[orderedIndex] = layer", cache)
-        self.assertIn("let orderedLayers: [SceneRenderDescriptor.Layer]", projection)
-        self.assertIn("orderedLayers = projection.orderedLayers", projection)
-        self.assertIn("orderedLayers = authoredLayers", projection)
-        self.assertNotIn(
-            "let orderedLayers = authoredLayerIDs.compactMap",
-            renderer + projection,
-        )
 
     def test_system_provider_demand_order_is_prepared(self) -> None:
         bindings = (

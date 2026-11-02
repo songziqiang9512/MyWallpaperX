@@ -105,6 +105,13 @@ nonisolated struct SceneParticleInstanceOverride: Sendable {
     let alpha: BoundValue?
 }
 
+// Observe which preparation leaves the real Runtime calls. These DTO factories
+// do not replace mutation admission, current-value projection or rollback.
+enum LayerFactoryCalls {
+    nonisolated(unsafe) static var text = 0
+    nonisolated(unsafe) static var resource = 0
+}
+
 nonisolated struct SceneRenderDescriptor: Sendable {
     struct Effect: Sendable { var visible: Bool? }
     struct Layer: Sendable {
@@ -133,6 +140,7 @@ nonisolated struct SceneRenderDescriptor: Sendable {
         var particleInstanceOverride: SceneParticleInstanceOverride? = nil
 
         static func dynamicText(_ mutation: SceneScriptLayerMutation) -> Self? {
+            LayerFactoryCalls.text += 1
             guard mutation.isDynamic, mutation.kind == .upsert || mutation.isNewborn else { return nil }
             return .init(
                 id: mutation.layerID,
@@ -150,7 +158,11 @@ nonisolated struct SceneRenderDescriptor: Sendable {
                     Float(mutation.angles.z),
                 ],
                 contentKind: "text", text: mutation.text,
-                textStyle: .init(fontPath: mutation.font)
+                textStyle: .init(fontPath: SceneTextDescriptor.normalizedPath(mutation.font),
+                    colorRGB: [Float(mutation.color.x), Float(mutation.color.y), Float(mutation.color.z)],
+                    pointSize: Float(mutation.pointSize)),
+                colorRGB: [Float(mutation.color.x), Float(mutation.color.y), Float(mutation.color.z)],
+                alpha: mutation.alpha, solid: mutation.solid, usesPerspective: mutation.perspective
             )
         }
 
@@ -158,6 +170,7 @@ nonisolated struct SceneRenderDescriptor: Sendable {
             _ mutation: SceneScriptLayerMutation,
             template: SceneScriptPreparedResourceLayerTemplate
         ) -> Self? {
+            LayerFactoryCalls.resource += 1
             guard mutation.isDynamic, mutation.kind == .upsert || mutation.isNewborn,
                   mutation.assetPath == template.modelPath else { return nil }
             return .init(
@@ -183,7 +196,8 @@ nonisolated struct SceneRenderDescriptor: Sendable {
                     Float(mutation.color.x),
                     Float(mutation.color.y),
                     Float(mutation.color.z),
-                ]
+                ],
+                alpha: mutation.alpha, solid: mutation.solid, usesPerspective: mutation.perspective
             )
         }
 
@@ -197,7 +211,10 @@ nonisolated struct SceneRenderDescriptor: Sendable {
             text: String? = nil,
             textStyle: TextStyle? = nil,
             imagePath: String? = nil,
-            colorRGB: [Float]? = nil
+            colorRGB: [Float]? = nil,
+            alpha: Double? = nil,
+            solid: Bool? = nil,
+            usesPerspective: Bool? = nil
         ) {
             self.id = id
             self.visible = visible
@@ -209,6 +226,9 @@ nonisolated struct SceneRenderDescriptor: Sendable {
             self.textStyle = textStyle
             self.imagePath = imagePath
             self.colorRGB = colorRGB
+            self.alpha = alpha
+            self.solid = solid
+            self.usesPerspective = usesPerspective
         }
     }
 
@@ -244,16 +264,18 @@ func mutation(
     color: SIMD3<Double> = .init(repeating: 1),
     ownerTarget: SceneDynamicTarget? = nil,
     perspective: Bool? = nil,
-    textTemplateIdentity: UInt64 = 0
+    textTemplateIdentity: UInt64 = 0,
+    solid: Bool = true,
+    pointSize: Double = 32
 ) -> SceneScriptLayerMutation {
     .init(
         kind: kind, isDynamic: dynamic, fields: fields,
         layerID: id, orderIndex: order,
         visible: visible, alpha: alpha, origin: origin,
         scale: scale, angles: angles,
-        color: color, pointSize: 32, text: text, font: font,
-        assetPath: assetPath, ownerTarget: ownerTarget, perspective: perspective,
-        textTemplateIdentity: textTemplateIdentity
+        color: color, pointSize: pointSize, text: text, font: font,
+        assetPath: assetPath, ownerTarget: ownerTarget, solid: solid,
+        perspective: perspective, textTemplateIdentity: textTemplateIdentity
     )
 }
 
@@ -580,18 +602,17 @@ enum Harness {
         ])
         revisionRuntime.commit(dynamicTopologyPlan)
         let afterDynamicTopologyRevision = revisionRuntime.topologyRevision
-        // Warm the topology and value cache before the value-only update.
-        // Without this snapshot the old stale-cache implementation also passes.
-        let dynamicBeforeValueLayer = revisionRuntime.snapshot()
-            .dynamicLayers.first { $0.id == -7 }
+        let dynamicBeforeValueSnapshot = revisionRuntime.snapshot()
+        let dynamicBeforeValueLayer = dynamicBeforeValueSnapshot.dynamicLayers.first { $0.id == -7 }
+        let dynamicBirthDefinitionRevision = revisionRuntime.authoredDefinitionRevision
         let dynamicValuePlan = revisionRuntime.preflightIsolatingOwners([
             mutation(-7, order: 1, origin: .init(3, 4, 5), scale: .init(2, 2, 2))
         ])
         revisionRuntime.commit(dynamicValuePlan)
         let afterDynamicValueRevision = revisionRuntime.topologyRevision
-        let dynamicValueLayer = revisionRuntime.snapshot().dynamicLayers.first {
-            $0.id == -7
-        }
+        let dynamicValueSnapshot = revisionRuntime.snapshot()
+        let dynamicValueLayer = dynamicValueSnapshot.dynamicLayers.first { $0.id == -7 }
+        let dynamicValueDefinitionRevision = revisionRuntime.authoredDefinitionRevision
         let initialDefinitionRevision = revisionRuntime.authoredDefinitionRevision
         let firstDefinitionPlan = revisionRuntime.preflightIsolatingOwners([
             mutation(
@@ -869,20 +890,28 @@ enum Harness {
                 afterAuthoredDestroy.topologyRevision > 0,
             "authoredResurrectionRejected": !succeeded(authoredResurrection),
             "dynamicImageSucceeded": succeeded(imageCreate),
-            "dynamicImageColor": imageSnapshot.dynamicLayers.first?
-                .colorRGB?.map(Double.init) ?? [],
+            "dynamicImageColor": imageSnapshot.authoredLayerValues[
+                .layer(layerID: -2, field: .color)] == .vector3(0.25, 0.5, 0.75),
             "dynamicImageUpdateSucceeded": succeeded(imageUpdate),
-            "dynamicImageUpdatedColor": updatedImage.dynamicLayers.first?
-                .colorRGB?.map(Double.init) ?? [],
+            "dynamicImageUpdatedColor": updatedImage.authoredLayerValues[
+                .layer(layerID: -2, field: .color)] == .vector3(0.8, 0.4, 0.2),
             "definitionRevisionBumped": afterDefinitionRevision > initialDefinitionRevision,
             "valueOnlyRevisionStable": revisionRuntime.authoredDefinitionRevision == afterDefinitionRevision,
             "topologyRevisionStartsAtZero": initialTopologyRevision == 0,
             "dynamicTopologyRevisionBumped": afterDynamicTopologyRevision > initialTopologyRevision,
             "dynamicValueKeepsTopologyRevision": afterDynamicValueRevision == afterDynamicTopologyRevision,
-            "dynamicBeforeValueOrigin": dynamicBeforeValueLayer?.originXYZ == [0, 0, 0],
-            "dynamicBeforeValueScale": dynamicBeforeValueLayer?.scaleXYZ == [1, 1, 1],
-            "dynamicValueOriginPublished": dynamicValueLayer?.originXYZ == [3, 4, 5],
-            "dynamicValueScalePublished": dynamicValueLayer?.scaleXYZ == [2, 2, 2],
+            "dynamicBeforeValueOrigin": dynamicBeforeValueSnapshot.authoredLayerValues[
+                .layer(layerID: -7, field: .origin)] == .vector3(0, 0, 0),
+            "dynamicBeforeValueScale": dynamicBeforeValueSnapshot.authoredLayerValues[
+                .layer(layerID: -7, field: .scale)] == .vector3(1, 1, 1),
+            "dynamicValueOriginPublished": dynamicValueSnapshot.authoredLayerValues[
+                .layer(layerID: -7, field: .origin)] == .vector3(3, 4, 5),
+            "dynamicValueScalePublished": dynamicValueSnapshot.authoredLayerValues[
+                .layer(layerID: -7, field: .scale)] == .vector3(2, 2, 2),
+            "dynamicBirthLayerUnchanged": dynamicBeforeValueLayer?.originXYZ == [0, 0, 0]
+                && dynamicValueLayer?.originXYZ == [0, 0, 0]
+                && dynamicValueLayer?.scaleXYZ == [1, 1, 1]
+                && dynamicValueDefinitionRevision == dynamicBirthDefinitionRevision,
             "authoredValueKeepsTopologyRevision": revisionRuntime.topologyRevision == afterDynamicTopologyRevision,
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])

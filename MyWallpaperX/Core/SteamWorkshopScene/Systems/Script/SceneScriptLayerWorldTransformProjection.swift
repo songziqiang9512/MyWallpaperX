@@ -8,7 +8,7 @@ nonisolated struct SceneScriptLayerWorldTransformProjection: Sendable {
     let catalogSignature: String
 
     private let descriptor: SceneRenderDescriptor
-    private let layersByID: [Int: SceneRenderDescriptor.Layer]
+    let layersByID: [Int: SceneRenderDescriptor.Layer]
     private let staticWorldFrames: [Int: simd_float4x4]
 
     init?(

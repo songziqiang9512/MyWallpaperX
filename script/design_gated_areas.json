@@ -1744,7 +1744,7 @@
       "owner": "Scene Session / typed programs and component owners",
       "status": "approved",
       "designDoc": "docs/scene/roadmap/engine-refactor-program.md",
-      "design_notes": "按架构级迁移合同固定可运行基线；文本统一原String VM，共享alpha沿原IR、同domain真实shared及scalar VM接管并撤旧语法/状态/帧合并。删除Bool投影中过时kind/utility形状关卡，模块寿命不代资源/graph消费准入；既有SourceRoute/UtilityRuntimePlanner保实际形态边界，不新增输出flag。保wall date、属性、事件、局部失败与实际退出；删除单一集合上的冗余互斥复验，保真实producer冲突。后续阶段按唯一队列细化实际owner再实施；不批准未设计的新能力，不授推送/发布或整体完成结论。 属性Program在构造/解码入口准备唯一validation/索引，实例只更新current/revision；退役外传validation与重复准备，保原Codable和实际consumer/值边界。 自然尺寸仅回填descriptor.sizeWH，保留不依赖尺寸的authored计划/visibility准备；物理target继续由后续preflight计算。 用户纹理由既有PreparedLaunch显式移交Session唯一活动结果，撤LaunchContext镜像与准备载体的异步整包捕获；保View GPU快照、真实异步身份和退场边界。 材质PSO只在既有graph/source准备边界编译，普通帧只消费；撤lazy miss编译、origin与孤立cacheFailure，缺准备结果按typed局部失败处理；合法遗漏回原warmup owner补计划。 文字initial/dynamic生产由Session唯一Store承接，初始与动态统一layer-source publication，撤View seed merge；per-surface prepared/submitted几何仍归View。一次attempt固定同一publication，至少一次提交后用单份pending typed输入请求下一版；full stop沿既有retirement fence关闭并drain，单屏退役不关producer。 文字seed退出后同步退役唯一旧消费者使用的base-store merge入口。 媒体封面由Session唯一Store生产，撤Coordinator、View转发和Store帧pin；一个cadence媒体snapshot贯通VM与各屏，文字/媒体共用post-any-submit pendingProviderUpdate。暂停保冻结generation/cohort；full stop以cancelAndDrain进既有retirement group后detach，入口已撤权不增closed flag或新GPU fence；移除layer-source assembly死media参数及孤立View初始化参数。",
+      "design_notes": "批准范围、数据流及退出条件由designDoc各专题统一维护：语言/共享状态与alpha、属性程序、自然尺寸、纹理交接、材质PSO、文字/媒体producer及动态图层分期。动态图层只在birth准备资源/size与Layer，完整upsert写既有typed map；模板String content保独立producer及显式setter，raw pointSize、可选perspective、双颜色consumer和变换ABI原子拒绝保持。撤值revision与每屏descriptor patch/位置表，复用唯一局部world算法和原根层快路，作者catalog仅发布prepared byID内的Mat4变换，文字首次接纳用冻结snapshot；不改变pre-callback拓扑/next-cadence提交时序，不新增owner或运行资源/尺寸切换API。每个后继切片先在同设计落具体职责再实施；不批准无设计新能力，不授推送、发布或整体完成。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextScript*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextMediaPropertiesCompiler.swift",
@@ -1783,7 +1783,15 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/SceneMediaThumbnailTextureStore.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneFrameLayerTextureAssembly.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+Geometry.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+FrameContext.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+FrameContext.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneDynamicLayerRenderTopologyCache.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneLayerDynamicWorldFrameResolver.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneLayerWorldFrameResolver.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptDynamicLayerRuntime.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptDynamicLayerRuntime+Values.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerTopologyProjection.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerWorldTransformProjection.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerRuntimeDescriptorBridge.swift"
       ],
       "contentPatterns": []
     }

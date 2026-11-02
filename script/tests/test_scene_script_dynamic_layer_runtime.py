@@ -12,6 +12,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from .test_scene_prepared_script_resource_catalog import swift_declaration
+
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_SCRIPT = (
@@ -30,12 +32,15 @@ SOURCES = [
 
 HARNESS = (Path(__file__).parent / "fixtures/SceneScriptDynamicLayerRuntimeHarness.swift").read_text(encoding="utf-8")
 CAMERA_PROFILE = SCENE_SCRIPT.parent / "Properties/SceneDefault2DCameraInputProfile.swift"
+TEXT_DESCRIPTOR = SCENE_SCRIPT.parent / "Text/SceneTextDescriptor.swift"
+DECLARATION_SUPPORT = Path(__file__).parent / "test_scene_prepared_script_resource_catalog.py"
 
 # Add behavior to the existing harness while leaving its shared fixture intact.
 HARNESS = HARNESS.replace('let payload: [String: Any] = [', 'var payload: [String: Any] = [').replace(
     '        let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])',
     '        payload["ownerCallbacks"] = callbackCoalescing()\n'
     '        payload["ownerCapacity"] = ownerCapacity()\n'
+    '        payload["dynamicPreparedValues"] = dynamicPreparedValues()\n'
     '        let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])')
 HARNESS += r'''
 extension Harness {
@@ -95,7 +100,6 @@ extension Harness {
         let birthReadOnly = dynamic.snapshot().dynamicLayers.isEmpty
         dynamic.commit(birth.layerPlan)
         let born = dynamic.snapshot()
-        let final = born.dynamicLayers.first { $0.id == -1 }
         let staleBirth = dynamic.preflightOwnerEffects([.init(ownerTarget: a, layerMutations: [births[0]])])
         order.value = [10,20]
         let retire = dynamic.preflightOwnerEffects([
@@ -130,8 +134,11 @@ extension Harness {
             "ownerBatchesCommitAtFirstPosition": interleavedOrigin == .vector3(2, 0, 0),
             "emptyAndSingleInputUnchanged": SceneScriptLayerMutation.coalescing([]).isEmpty
                 && SceneScriptLayerMutation.coalescing([single]) == [single],
-            "dynamicUsesCompleteLatestRecord": birth.rejectedOwners.isEmpty && final?.text == "complete final"
-                && final?.originXYZ == [9,8,7] && final?.scaleXYZ == [1,1,1] && final?.visible == false,
+            "dynamicUsesCompleteLatestRecord": birth.rejectedOwners.isEmpty
+                && born.authoredLayerValues[.text(layerID: -1, field: .content)] == .string("complete final")
+                && born.authoredLayerValues[.layer(layerID: -1, field: .origin)] == .vector3(9,8,7)
+                && born.authoredLayerValues[.layer(layerID: -1, field: .scale)] == .vector3(1,1,1)
+                && born.authoredLayerValues[.layer(layerID: -1, field: .visibility)] == .bool(false),
             "createdMarkerAndOrderSurvive": birth.layerPlan.dynamicLayerCreatorTargetsByID[-1] == a
                 && Set(birth.layerPlan.createdDynamicLayerMutations.map(\.layerID)) == [-1,-2,-3]
                 && born.renderOrderLayerIDs == [10,-2,20,-1],
@@ -212,6 +219,138 @@ extension Harness {
         }
         return rows
     }
+
+    static func dynamicPreparedValues() -> [[String: Bool]] {
+        var rows: [[String: Bool]] = []
+        for (textID, imageID, resource, font) in [
+            (-501, -502, "models/tile.json", "fonts/next.ttf"),
+            (-731, -917, "models/renamed/equivalent.json", "fonts/renamed/other.ttf")
+        ] {
+            let descriptor = SceneRenderDescriptor(layers: [
+                .init(id: 10, visible: true, originXYZ: nil, scaleXYZ: nil, anglesXYZ: nil),
+                .init(id: 20, visible: true, originXYZ: nil, scaleXYZ: nil, anglesXYZ: nil)
+            ], renderOrderLayerIDs: [10, 20])
+            let a = SceneDynamicTarget.layer(layerID: 10, field: .origin)
+            let peer = SceneDynamicTarget.layer(layerID: 20, field: .origin)
+            let runtime = SceneScriptDynamicLayerRuntime(descriptor: descriptor, authoredMutationLayerIDs: [20],
+                preparedResourceLayerTemplates: [resource: .init(modelPath: resource, renderSizeWH: [4,4])])
+            let textCalls = LayerFactoryCalls.text, resourceCalls = LayerFactoryCalls.resource
+            let birth = runtime.apply([
+                mutation(textID, alpha: 0.75, text: "seed", font: " \tfonts/seed.ttf\n ", fields: [.created],
+                    origin: .init(1,2,3), scale: .init(2,3,4), color: .init(0.25,0.5,0.75), ownerTarget: a),
+                mutation(imageID, fields: [.created], assetPath: resource, color: .init(0.25,0.5,0.75), ownerTarget: a)
+            ])
+            let born = runtime.snapshot()
+            let schema = runtime.authoredDefinitionRevision
+            let definitions = Dictionary(uniqueKeysWithValues: runtime.authoredLayerDefinitions.map { ($0.target, $0) })
+            let required: Set<SceneDynamicTarget> = Set([textID, imageID].flatMap { id in
+                [SceneDynamicLayerField.origin, .scale, .angles, .visibility, .solid, .alpha, .color].map {
+                    SceneDynamicTarget.layer(layerID: id, field: $0)
+                }
+            } + [SceneDynamicTextField.content, .font, .color, .pointSize].map {
+                SceneDynamicTarget.text(layerID: textID, field: $0)
+            })
+            let preparedOnce = LayerFactoryCalls.text == textCalls + 1
+                && LayerFactoryCalls.resource == resourceCalls + 1
+            let rawPointSize = runtime.apply([
+                mutation(textID, alpha: 0.75, text: "seed", font: "fonts/seed.ttf", fields: [.pointSize],
+                    origin: .init(1,2,3), scale: .init(2,3,4), color: .init(0.25,0.5,0.75),
+                    ownerTarget: a, pointSize: .greatestFiniteMagnitude)
+            ])
+            let rawSizeSnapshot = runtime.snapshot()
+            let update = runtime.apply([
+                mutation(textID, alpha: -3, text: "", font: " \t\(font)\n ",
+                    origin: .init(9,8,7), scale: .init(5,4,3), angles: .init(6,5,4), visible: false,
+                    color: .init(0.8,0.4,0.2), ownerTarget: a, solid: false, pointSize: .greatestFiniteMagnitude),
+                mutation(imageID, alpha: 2.5, origin: .init(3,4,5), visible: false,
+                    assetPath: resource, color: .init(0.8,0.4,0.2), ownerTarget: a)
+            ])
+            let current = runtime.snapshot()
+            let bornText = born.dynamicLayers.first { $0.id == textID }
+            let currentText = current.dynamicLayers.first { $0.id == textID }
+            let bornImage = born.dynamicLayers.first { $0.id == imageID }
+            let currentImage = current.dynamicLayers.first { $0.id == imageID }
+            var facts: [String: Bool] = [
+                "birthAndFullRecordAccepted": succeeded(birth) && succeeded(update),
+                "birthPreparesFactoriesOnce": preparedOnce,
+                "valueUpsertDoesNotPrepare": LayerFactoryCalls.text == textCalls + 1
+                    && LayerFactoryCalls.resource == resourceCalls + 1,
+                "allRuntimeDefinitionsExistBeforeFirstWrite": required.isSubset(of: Set(definitions.keys)),
+                "definitionsKeepBirthSeeds": definitions[.text(layerID: textID, field: .content)]?.authoredValue == .string("seed")
+                    && definitions[.text(layerID: textID, field: .font)]?.authoredValue == .string("fonts/seed.ttf")
+                    && definitions[.text(layerID: textID, field: .pointSize)]?.authoredValue == .scalar(32)
+                    && definitions[.layer(layerID: textID, field: .alpha)]?.authoredValue == .scalar(0.75),
+                "completeRecordTransforms": current.authoredLayerValues[.layer(layerID: textID, field: .origin)] == .vector3(9,8,7)
+                    && current.authoredLayerValues[.layer(layerID: textID, field: .scale)] == .vector3(5,4,3)
+                    && current.authoredLayerValues[.layer(layerID: textID, field: .angles)] == .vector3(6,5,4),
+                "completeRecordVisibilitySolidAndRawAlpha": current.authoredLayerValues[.layer(layerID: textID, field: .visibility)] == .bool(false)
+                    && current.authoredLayerValues[.layer(layerID: textID, field: .solid)] == .bool(false)
+                    && current.authoredLayerValues[.layer(layerID: textID, field: .alpha)] == .scalar(-3)
+                    && current.authoredLayerValues[.layer(layerID: imageID, field: .alpha)] == .scalar(2.5),
+                "bothTextColorConsumersAndImageTint": current.authoredLayerValues[.layer(layerID: textID, field: .color)] == .vector3(0.8,0.4,0.2)
+                    && current.authoredLayerValues[.text(layerID: textID, field: .color)] == .vector3(0.8,0.4,0.2)
+                    && current.authoredLayerValues[.layer(layerID: imageID, field: .color)] == .vector3(0.8,0.4,0.2),
+                "emptyTextNonemptyFontAndRawPointSize": current.authoredLayerValues[.text(layerID: textID, field: .content)] == .string("")
+                    && current.authoredLayerValues[.text(layerID: textID, field: .font)] == .string(font)
+                    && current.authoredLayerValues[.text(layerID: textID, field: .pointSize)] == .scalar(.greatestFiniteMagnitude),
+                "explicitPointSizeThenUnflaggedRecordKeepsRaw": succeeded(rawPointSize)
+                    && rawSizeSnapshot.authoredLayerValues[.text(layerID: textID, field: .pointSize)] == .scalar(.greatestFiniteMagnitude),
+                "nilPerspectiveKeepsCameraDefault": current.authoredLayerValues[.layer(layerID: textID, field: .perspective)] == nil
+                    && currentText?.usesPerspective == nil,
+                "capturedSnapshotKeepsItsOwnValues": born.authoredLayerValues[.text(layerID: textID, field: .content)] == .string("seed")
+                    && born.authoredLayerValues[.layer(layerID: textID, field: .origin)] == .vector3(1,2,3)
+                    && born.authoredLayerValues[.layer(layerID: imageID, field: .color)] == .vector3(0.25,0.5,0.75),
+                "birthLayersRemainPreparedFacts": bornText?.text == "seed" && currentText?.text == "seed"
+                    && currentText?.originXYZ == [1,2,3] && currentText?.textStyle?.fontPath == "fonts/seed.ttf"
+                    && currentText?.textStyle?.pointSize == 32
+                    && bornImage?.colorRGB == currentImage?.colorRGB && currentImage?.imagePath == resource,
+                "valueUpdatesKeepSchemaAndTopology": runtime.authoredDefinitionRevision == schema
+                    && current.topologyRevision == born.topologyRevision
+                    && current.renderOrderLayerIDs == born.renderOrderLayerIDs
+            ]
+            for field in [SceneDynamicLayerField.origin, .scale, .angles] {
+                let overflow = SIMD3<Double>(Double.greatestFiniteMagnitude, 0, 0)
+                let before = runtime.snapshot()
+                let admission = runtime.preflightOwnerEffects([
+                    .init(ownerTarget: a, layerMutations: [
+                        mutation(textID, text: "must-not-publish", ownerTarget: a),
+                        mutation(imageID, origin: field == .origin ? overflow : .zero,
+                            scale: field == .scale ? overflow : .init(repeating: 1),
+                            angles: field == .angles ? overflow : .zero, assetPath: resource, ownerTarget: a)]),
+                    .init(ownerTarget: peer, layerMutations: [
+                        mutation(20, dynamic: false, fields: [.scale], scale: .init(7,8,9), ownerTarget: peer)])
+                ])
+                let readOnly = runtime.snapshot().authoredLayerValues == before.authoredLayerValues
+                runtime.commit(admission.layerPlan)
+                var expected = before.authoredLayerValues
+                expected[.layer(layerID: 20, field: .scale)] = .vector3(7,8,9)
+                facts["\(field)OverflowRejectsWholeOwnerAndKeepsPeer"] = readOnly
+                    && admission.rejectedOwners.map(\.ownerTarget) == [a]
+                    && admission.admittedEffects.map(\.ownerTarget) == [peer]
+                    && runtime.snapshot().authoredLayerValues == expected
+                    && current.authoredLayerValues[.text(layerID: textID, field: .content)] == .string("")
+                    && runtime.topologyRevision == born.topologyRevision
+                    && runtime.authoredDefinitionRevision == schema
+            }
+            let equivalentFont = runtime.apply([mutation(textID, font: font)])
+            let equivalentSnapshot = runtime.snapshot()
+            let blankFont = runtime.apply([mutation(textID, font: " \t\n ")])
+            let blankSnapshot = runtime.snapshot()
+            facts["outerWhitespaceAndCanonicalFontsAreEquivalent"] = succeeded(equivalentFont)
+                && equivalentSnapshot.authoredLayerValues[.text(layerID: textID, field: .font)] == .string(font)
+                && current.authoredLayerValues[.text(layerID: textID, field: .font)] == .string(font)
+            facts["nonemptyWhitespaceFontPublishesEmptyMarkerWithoutChangingBirth"] = succeeded(blankFont)
+                && blankSnapshot.authoredLayerValues[.text(layerID: textID, field: .font)] == .string("")
+                && born.authoredLayerValues[.text(layerID: textID, field: .font)] == .string("fonts/seed.ttf")
+                && blankSnapshot.dynamicLayers.first { $0.id == textID }?.textStyle?.fontPath == "fonts/seed.ttf"
+                && runtime.authoredDefinitionRevision == schema
+                && blankSnapshot.topologyRevision == born.topologyRevision
+            facts["rejectedUpdatesDoNotPrepareFactories"] = LayerFactoryCalls.text == textCalls + 1
+                && LayerFactoryCalls.resource == resourceCalls + 1
+            rows.append(facts)
+        }
+        return rows
+    }
 }
 '''
 
@@ -242,6 +381,13 @@ def camera_numeric_leaf() -> str:
             + constants[0] + "\n" + source[start:end] + "\n}\n")
 
 
+def font_path_leaf() -> str:
+    return ("nonisolated enum SceneTextDescriptor {\n"
+            + swift_declaration(TEXT_DESCRIPTOR.read_text(encoding="utf-8"),
+                                "    nonisolated static func normalizedPath(")
+            + "\n}\n")
+
+
 class SceneScriptDynamicLayerRuntimeTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -251,7 +397,7 @@ class SceneScriptDynamicLayerRuntimeTests(unittest.TestCase):
             prefix="mwx-script-dynamic-layer-"
         )
         directory = Path(cls.temporary_directory.name)
-        inputs = [*SOURCES, CAMERA_PROFILE,
+        inputs = [*SOURCES, CAMERA_PROFILE, TEXT_DESCRIPTOR, DECLARATION_SUPPORT,
                   Path(__file__), Path(__file__).parent / "fixtures/SceneScriptDynamicLayerRuntimeHarness.swift",
                   *SCENE_SCRIPT.rglob("*.h")]
         before = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in inputs}
@@ -261,7 +407,7 @@ class SceneScriptDynamicLayerRuntimeTests(unittest.TestCase):
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(source, target)
         harness = directory / "Harness.swift"
-        harness.write_text(HARNESS + "\n" + camera_numeric_leaf(), encoding="utf-8")
+        harness.write_text(HARNESS + "\n" + camera_numeric_leaf() + "\n" + font_path_leaf(), encoding="utf-8")
         binary = directory / "dynamic-layer-runtime"
         compilation = subprocess.run(
             ["swiftc", "-import-objc-header", str(frozen / (SCENE_SCRIPT / "SceneQuickJS.h").relative_to(REPOSITORY_ROOT)),
@@ -287,6 +433,7 @@ class SceneScriptDynamicLayerRuntimeTests(unittest.TestCase):
             (output / "runtime-execution.json").write_text(json.dumps({
                 "compiledFromFrozenCopy": True, "inputDrift": drift,
                 "profileNumericLeafOnly": True,
+                "fontPathProductionLeafOnly": True,
             }, indent=2) + "\n")
         if drift:
             raise AssertionError(f"focused input drift: {drift}")
@@ -416,10 +563,16 @@ class SceneScriptDynamicLayerRuntimeTests(unittest.TestCase):
 
     def test_dynamic_image_preserves_its_own_color_in_stable_snapshots(self) -> None:
         self.assertTrue(self.result["dynamicImageSucceeded"])
-        self.assertEqual(self.result["dynamicImageColor"], [0.25, 0.5, 0.75])
+        self.assertTrue(self.result["dynamicImageColor"])
         self.assertTrue(self.result["dynamicImageUpdateSucceeded"])
-        for actual, expected in zip(self.result["dynamicImageUpdatedColor"], [0.8, 0.4, 0.2]):
-            self.assertAlmostEqual(actual, expected, places=6)
+        self.assertTrue(self.result["dynamicImageUpdatedColor"])
+
+    def test_dynamic_birth_facts_and_typed_current_values_have_separate_lifetimes(self) -> None:
+        self.assertEqual(len(self.result["dynamicPreparedValues"]), 2)
+        for variant, facts in enumerate(self.result["dynamicPreparedValues"]):
+            for fact, passed in facts.items():
+                with self.subTest(variant=variant, fact=fact):
+                    self.assertTrue(passed)
 
     def test_admitted_play_releases_setter_without_losing_rejected_or_paused_values(self) -> None:
         for key in (
@@ -449,6 +602,7 @@ class SceneScriptDynamicLayerRuntimeTests(unittest.TestCase):
         self.assertTrue(self.result["dynamicBeforeValueScale"])
         self.assertTrue(self.result["dynamicValueOriginPublished"])
         self.assertTrue(self.result["dynamicValueScalePublished"])
+        self.assertTrue(self.result["dynamicBirthLayerUnchanged"])
         self.assertTrue(self.result["authoredValueKeepsTopologyRevision"])
 
 

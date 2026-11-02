@@ -2,6 +2,39 @@ import Foundation
 
 /// Typed definitions and value projection for the existing topology transaction.
 nonisolated extension SceneScriptDynamicLayerRuntime {
+    static func dynamicValues(
+        from mutation: SceneScriptLayerMutation,
+        isText: Bool,
+        includesContent: Bool
+    ) -> [(SceneDynamicTarget, SceneDynamicValue)] {
+        let id = mutation.layerID
+        var values: [(SceneDynamicTarget, SceneDynamicValue)] = [
+            (.layer(layerID: id, field: .origin),
+             .vector3(mutation.origin.x, mutation.origin.y, mutation.origin.z)),
+            (.layer(layerID: id, field: .scale),
+             .vector3(mutation.scale.x, mutation.scale.y, mutation.scale.z)),
+            (.layer(layerID: id, field: .angles),
+             .vector3(mutation.angles.x, mutation.angles.y, mutation.angles.z)),
+            (.layer(layerID: id, field: .visibility), .bool(mutation.visible)),
+            (.layer(layerID: id, field: .solid), .bool(mutation.solid)),
+            (.layer(layerID: id, field: .alpha), .scalar(mutation.alpha)),
+            (.layer(layerID: id, field: .color),
+             .vector3(mutation.color.x, mutation.color.y, mutation.color.z))]
+        if let perspective = mutation.perspective {
+            values.append((.layer(layerID: id, field: .perspective), .bool(perspective)))
+        }
+        if isText {
+            values.append((.text(layerID: id, field: .font), .string(SceneTextDescriptor.normalizedPath(mutation.font) ?? "")))
+            values.append((.text(layerID: id, field: .pointSize), .scalar(mutation.pointSize)))
+            values.append((.text(layerID: id, field: .color),
+                           .vector3(mutation.color.x, mutation.color.y, mutation.color.z)))
+            if includesContent {
+                values.append((.text(layerID: id, field: .content), .string(mutation.text)))
+            }
+        }
+        return values
+    }
+
     static func staticCameraDefinitions(
         for camera: SceneRenderDescriptor.CameraDescriptor
     ) -> [SceneDynamicTargetDefinition] {
@@ -59,33 +92,14 @@ nonisolated extension SceneScriptDynamicLayerRuntime {
             ? .camera(.origin) : .layer(layerID: layerID, field: field)
     }
 
-    /// Dynamic upserts carry their complete frame value record, but that does
-    /// not make them a new graph topology. Only identity/order or the
-    /// structural resource lane or immutable creation size invalidates the renderer's prepared
-    /// descriptor projection. Position, scale, angles, visibility, alpha,
-    /// color, text, font and point size are applied to the cached projection per frame.
+    /// Resource and size are fixed at birth; current values live in the typed map.
     static func dynamicTopologyChanged(
         currentOrder: [Int],
         currentLayers: [Int: SceneRenderDescriptor.Layer],
         candidateOrder: [Int],
         candidateLayers: [Int: SceneRenderDescriptor.Layer]
     ) -> Bool {
-        guard currentOrder == candidateOrder,
-              currentLayers.count == candidateLayers.count,
-              currentLayers.keys == candidateLayers.keys else {
-            return true
-        }
-        for layerID in currentLayers.keys {
-            guard let current = currentLayers[layerID],
-                  let candidate = candidateLayers[layerID],
-                  current.id == candidate.id,
-                  current.contentKind == candidate.contentKind,
-                  current.imagePath == candidate.imagePath,
-                  current.sizeWH == candidate.sizeWH else {
-                return true
-            }
-        }
-        return false
+        currentOrder != candidateOrder || currentLayers.keys != candidateLayers.keys
     }
 
     static func initialAuthoredDefinitions(

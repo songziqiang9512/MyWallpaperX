@@ -351,13 +351,6 @@
       "count": 1
     },
     {
-      "path": "script/tests/test_scene_layer_world_frame.py",
-      "scope": "SceneLayerWorldFrameTests.test_dynamic_world_frame_uses_snapshot_transform_index",
-      "method": "assertIn",
-      "literal": "guard let layer = byID[layerID]",
-      "count": 1
-    },
-    {
       "path": "script/tests/test_scene_opaque_alpha_weighted_loop_average_owner.py",
       "scope": "SceneOpaqueAlphaWeightedLoopAverageOwnerTests.test_typed_opaque_input_contract_reaches_frame_finalization",
       "method": "assertIn",
@@ -614,76 +607,6 @@
       "scope": "SceneRealtimePathPolicyTests.test_dynamic_frame_schema_is_prepared_at_launch",
       "method": "assertIn",
       "literal": "let sceneScriptStatefulTargets = launchContext.sceneScriptStatefulTargets",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_realtime_path_policy.py",
-      "scope": "SceneRealtimePathPolicyTests.test_dynamic_layer_projection_is_revisioned",
-      "method": "assertIn",
-      "literal": "func applyingFrameValues(",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_realtime_path_policy.py",
-      "scope": "SceneRealtimePathPolicyTests.test_dynamic_layer_projection_is_revisioned",
-      "method": "assertIn",
-      "literal": "guard let index = layerIndicesByID[layer.id]",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_realtime_path_policy.py",
-      "scope": "SceneRealtimePathPolicyTests.test_dynamic_layer_projection_is_revisioned",
-      "method": "assertIn",
-      "literal": "if cachedSnapshotTopologyRevision != topologyRevision",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_realtime_path_policy.py",
-      "scope": "SceneRealtimePathPolicyTests.test_dynamic_layer_projection_is_revisioned",
-      "method": "assertIn",
-      "literal": "let dynamicLayerIDs: Set<Int>",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_realtime_path_policy.py",
-      "scope": "SceneRealtimePathPolicyTests.test_dynamic_layer_projection_is_revisioned",
-      "method": "assertIn",
-      "literal": "let dynamicLayerTopologyCache",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_realtime_path_policy.py",
-      "scope": "SceneRealtimePathPolicyTests.test_dynamic_layer_projection_is_revisioned",
-      "method": "assertIn",
-      "literal": "let layerIndicesByID: [Int: Int]",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_realtime_path_policy.py",
-      "scope": "SceneRealtimePathPolicyTests.test_dynamic_layer_projection_is_revisioned",
-      "method": "assertIn",
-      "literal": "let lightLayerIDs: [Int]",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_realtime_path_policy.py",
-      "scope": "SceneRealtimePathPolicyTests.test_dynamic_layer_projection_is_revisioned",
-      "method": "assertIn",
-      "literal": "let orderedLayerPositionsByID: [Int: Int]",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_realtime_path_policy.py",
-      "scope": "SceneRealtimePathPolicyTests.test_dynamic_layer_projection_is_revisioned",
-      "method": "assertIn",
-      "literal": "let orderedLayers: [SceneRenderDescriptor.Layer]",
-      "count": 2
-    },
-    {
-      "path": "script/tests/test_scene_realtime_path_policy.py",
-      "scope": "SceneRealtimePathPolicyTests.test_dynamic_layer_projection_is_revisioned",
-      "method": "assertNotIn",
-      "literal": "let orderedLayers = authoredLayerIDs.compactMap",
       "count": 1
     },
     {

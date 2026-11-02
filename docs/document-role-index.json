@@ -766,10 +766,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "bc67bb7b22ea8e38610a7925c84c1bee4c592eb2cb6430625e618c0e404880a2",
-        "method": "document_registry --audit + document_health --check",
-        "scope": "核对Session唯一媒体Store、cadence共享snapshot、pendingProviderUpdate及stop/drain接线；撤Coordinator、View媒体转发和Store帧pin。",
-        "limitations": "本次为源码接线复核；53方法分轮与18次App的有界结果归历史，不授整体性能、物理多屏或完整迁移，solid颜色投影仍未修。"
+        "sourceSHA256": "d192a1313e1e7a46367c0aebafd3fb4732782abe215d5a8a69da9e519b132c3a",
+        "method": "current source/diff and bounded runtime evidence review; SHA-256/body_size sync",
+        "scope": "核对动态Layer出生资源/size与typed当前值落点、同revision准备投影复用、动态根/作者层级及catalog Mat4分流、文字Store同cadence消费。",
+        "limitations": "本图记录实际接线；157方法分轮及8次App样本运行的有界结果归历史，24过渡差异未闭，不授整体性能、物理多屏或完整迁移。"
       },
       "purpose": "实际接线或已记录运行证据；不反向定义目标架构，不决定实施顺序。"
     },
@@ -1056,10 +1056,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5891b0262e6df5b8e6210a5ffe0c516f1667bf83caa3995af7bba9b04dac7a2d",
-        "method": "document_registry --audit + document_health --check",
-        "scope": "将会话封面生产、冻结帧消费与退出后验接入当前证据入口；具体方法、App身份、像素及原失败保留在历史记录。",
-        "limitations": "53方法为分轮通过；18次App含8 native及10 benchmark样本结果，8份原benchmark报告仍FAIL；18/20候选仅三个动态阶段，solid19未修，不授FPS、能耗、物理多屏或调色板抽取。"
+        "sourceSHA256": "c5aec90ba905b0ca7f80ecb5561a7577e7f1d959b8d425f6d2dac0a92a8dd686",
+        "method": "current source/diff and bounded runtime evidence review; SHA-256/body_size sync",
+        "scope": "把动态出生准备与typed值分离接入现役证据入口；157独立方法分轮、冻结基线载体归因、App身份与像素比较保留历史记录。",
+        "limitations": "8次App样本运行含2原型失格、4合格双Surface及2原包单Surface；27/28同名RGB匹配，24过渡未闭，原benchmark FAIL不改，不授FPS、能耗、物理多屏或官方parity。"
       },
       "purpose": "实际接线或已记录运行证据；不反向定义目标架构，不决定实施顺序。"
     },
@@ -1071,10 +1071,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "792a503f4a663944886bf394c5f85194e3e1e5e939fa83f804cf4e9208d8a49a",
-        "method": "document_registry --audit + document_health --check",
-        "scope": "旧View/Coordinator及全屏请求屏障仅保历史指针；修正Session共享property/Timeline/VM cadence、每屏呈现及唯一scene generation，保局部typed、storage和候选边界。",
-        "limitations": "纠正既有职责描述未新增对应产品能力；局部拒绝不等于surface失败全景回滚，媒体53方法及App证据仍按历史限定，solid颜色投影未修。"
+        "sourceSHA256": "06377e2b86a1bb5936dcf1c7d0d78be42cdfe356c9c770ef7a137388bd440e6f",
+        "method": "current source/diff and bounded runtime evidence review; SHA-256/body_size sync",
+        "scope": "修正动态Layer完整upsert与typed当前值路由，保literal/template content分工、raw pointSize、font归一及显式默认、两条颜色消费者与既有cadence。",
+        "limitations": "本批退出旧完整Layer覆盖、value revision及patch描述；合格自有输入不等于全语料能力，24过渡及特殊clone等未闭项保留，不据少量App或方法通过升级整体parity。"
       }
     },
     {
@@ -1085,10 +1085,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d1a634b267bc0f46da85cf490a3dfd44a7e0a7d174fce9ab9c2b076e786ef220",
+        "sourceSHA256": "41e7a6ad5f189ded02165c882247debabed3738d0def095523def4452e451989",
         "method": "document_registry --audit + document_health --check",
-        "scope": "媒体合同补会话共享producer、每cadence固定publication、任一提交后请求、暂停冻结cohort及停止排空；原system-provider用途和失败语义保持。",
-        "limitations": "稳定职责不等于macOS live来源或完整转场已验；53方法分轮及有界App不授物理多屏、帧率、能耗或调色板抽取，solid颜色投影不由本批关闭。"
+        "scope": "稳定合同明确动态出生准备与当前值分期、同结构revision复用、世界根/作者层级分流，以及template content、字体默认与文字producer消费职责。",
+        "limitations": "职责合同不等于各组件能力已闭；本批有界行为与App证据不授全序列等价、性能、物理多屏或完整迁移，现役能力状态仍归专门台账。"
       }
     },
     {
@@ -3347,10 +3347,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "eaacce3a7b5f4b203248742d379261c48a485c0e2c96a0150d84d6e13585a87e",
-        "method": "document_registry --audit + document_health --check",
-        "scope": "记录媒体迁移53独立方法分轮通过、8 native及10 benchmark样本运行，保8份原报告FAIL；分列16四阶段、18/20候选三个动态阶段及未修solid19；核正式16包SHA与精确路径回收。",
-        "limitations": "App像素仅选定Surface、两Surface同一物理显示器；缺失initial不补授，17载体失格与19旧缺口保留，不授FPS、能耗、物理多屏、调色板抽取、官方parity或完整架构迁移。"
+        "sourceSHA256": "6a1dc716b9eadde46648d247adb9f536e65052b9ecf46fc7c92f6f75d4306e52",
+        "method": "current source/diff and bounded runtime evidence review; SHA-256/body_size sync",
+        "scope": "记录动态图层分期157方法分轮通过、299完整闭包复现三项旧载体问题，区分漏导入失败；核8次App样本运行、27/28同名RGB、6包53,435,395字节及三路径逻辑回收。",
+        "limitations": "双Surface位于同一物理显示器；2原型失格、24 series0001双方未匹配与原benchmark FAIL保留，335仅限定单Surface邻例；不授FPS、能耗、官方parity、物理释放或完整迁移。"
       }
     },
     {
@@ -4557,10 +4557,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b26e1283a68dfded52208ee8a0f8034874b7c81b8b34c1c8b8b6b3274fca5c0c",
+        "sourceSHA256": "655ff9b79fb2318b4a7d6d33bd4f1580b633259ae1c30ba244df1d7b545f3afe",
         "method": "document_registry --audit + document_health --check",
-        "scope": "沿既有迁移设计增加会话媒体生产合同：共享Store/snapshot/pending输入、暂停消费和取消排空，明确Coordinator、View转发、Store帧pin等旧职责退出。",
-        "limitations": "合同与单批有界验证不完成全架构目标；53方法分轮及App范围归后验，solid投影、其他媒体、Puppet和粒子职责继续开放，不推断整体性能。"
+        "scope": "沿既有长期迁移合同明确动态图层birth准备、完整typed upsert、template内容例外、默认/font/raw值语义、同cadence、动态根快路及旧patch/重复值路径退出。",
+        "limitations": "合同及本批验收不结清完整架构目标；24过渡差异、其余authored/prepared/live分期、Puppet/粒子寿命及整体性能仍开放，实施顺序只归唯一队列。"
       }
     },
     {
@@ -4613,10 +4613,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "49ba24658fad3fcbdccd4c684d56263e26da79c1db84ffa8dbe510c4d7e688ee",
-        "method": "document_registry --audit + document_health --check",
-        "scope": "唯一队列标明文字及媒体封面生产已归Session，并登记自有19的solid颜色脚本投影/consumer首断点；保数据分期、Puppet、粒子与最终整体复核范围。",
-        "limitations": "20的image正控不关闭solid缺口，不把自有载体认作真实语料故障；53分轮方法和部分阶段App结果不授整景、物理多屏、性能或整体迁移完成。"
+        "sourceSHA256": "6db781e91f4a48745312642ab7af73e84bd15490a877abec8f5a42d641500ea6",
+        "method": "current source/diff and bounded runtime evidence review; SHA-256/body_size sync",
+        "scope": "唯一队列标明动态出生准备与typed值分离已退出的旧职责，保其余Layer分期、文字/媒体后的Puppet寿命及既有solid颜色脚本缺口。",
+        "limitations": "只关闭本批已证子范围；24过渡未闭，157方法分轮与8次App样本运行不完成全语料、物理多屏、性能或整体迁移，不以原benchmark FAIL升级或降格既有能力。"
       }
     },
     {

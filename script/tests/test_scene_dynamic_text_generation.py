@@ -622,6 +622,51 @@ class SceneDynamicTextGenerationTests(unittest.TestCase):
         self.assertIsNone(self.result["readyAfterReset"])
         self.assertIsNone(self.result["generationAfterReset"])
 
+    def test_typed_font_default_is_distinct_from_a_missing_override(self) -> None:
+        source = STORE_SOURCE.read_text(encoding="utf-8")
+        methods = "\n".join(swift_declaration(source, signature).replace("private ", "") for signature in (
+            "    private static func signature(", "    private static func stringValue(",
+            "    private static func scalarValue(", "    private static func colorValue(",
+        ))
+        preamble = STORE_HARNESS.split("enum SceneFrameTextureIdentity", 1)[0]
+        preamble = preamble.replace("let fontPath: String? = nil", "var fontPath: String? = nil")
+        preamble = preamble.replace("let textStyle: TextStyle? = .init()", "var textStyle: TextStyle? = .init()")
+        harness = preamble + "\nenum FontProbe {\n" + methods + r"""
+        }
+        @main enum Main {
+            static func main() {
+                var layer = SceneRenderDescriptor.Layer(id: 71)
+                layer.textStyle!.fontPath = "fonts/birth.ttf"
+                func signature(_ value: String?, interested: Bool = true) -> SceneDynamicTextSignature {
+                    let values: [SceneDynamicTarget: SceneDynamicSnapshot.Entry] = value.map {
+                        [.text(layerID: layer.id, field: .font): .init(value: .string($0))]
+                    } ?? [:]
+                    return FontProbe.signature(for: layer, snapshot: .init(values: values),
+                        dynamicFields: interested ? [.font] : [])
+                }
+                let result = ["missingUsesBirth": signature(nil).fontPath == "fonts/birth.ttf",
+                    "explicitDefaultIgnoresBirth": signature("").fontPath == nil,
+                    "typedPathWins": signature("fonts/next.ttf").fontPath == "fonts/next.ttf",
+                    "uninterestedKeepsBirth": signature("fonts/next.ttf", interested: false).fontPath == "fonts/birth.ttf"]
+                print(String(decoding: try! JSONSerialization.data(withJSONObject: result), as: UTF8.self))
+            }
+        }
+        """
+        with tempfile.TemporaryDirectory(prefix="mwx-text-font-signature-") as directory:
+            root = Path(directory)
+            swift = root / "FontProbe.swift"
+            swift.write_text(harness, encoding="utf-8")
+            binary = root / "probe"
+            compiled = subprocess.run(["swiftc", "-parse-as-library", str(SOURCE), str(swift),
+                "-module-cache-path", str(root / "modules"), "-o", str(binary)],
+                capture_output=True, text=True, timeout=60)
+            self.assertEqual(compiled.returncode, 0, compiled.stderr)
+            executed = subprocess.run([str(binary)], capture_output=True, text=True, timeout=10)
+            self.assertEqual(executed.returncode, 0, executed.stderr)
+            self.assertEqual(json.loads(executed.stdout), {"missingUsesBirth": True,
+                "explicitDefaultIgnoresBirth": True, "typedPathWins": True,
+                "uninterestedKeepsBirth": True})
+
     def test_continuous_updates_keep_only_one_render_in_flight_and_then_latest(self) -> None:
         self.assertFalse(self.result["queuedLatestStartedImmediately"])
         # 单在途调度保证按 generation 完成；中间结果可安全发布，随后只追最新，

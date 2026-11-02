@@ -47,7 +47,7 @@ extension Harness {
             projection: projection, userPropertyDefinitions: definitions, generation: 730)
         var state = ScenePropertyLiveUpdateState(program: input, effectiveValues: [
             "palette": .string("0.729 0.345 0.729"), "animate": .bool(false)
-        ], activeConsumerTargets: Set(input.instructions.map(\.target)))
+        ], activeConsumerTargets: vm.activeLivePropertyInputTargets)
         func evaluate(_ vm: SceneScriptVectorProgram) -> SceneScriptVectorFrameResult {
             vm.evaluate(inputs: state.userValues.filter { vm.inputTargets.contains($0.key) },
                 effectivePropertyValues: state.effectiveValues, frame: fixture.frame, propertyRevision: state.revision)
@@ -87,7 +87,7 @@ extension Harness {
             "publisherCount": input.instructions.count,
             "borrowedExactUserTarget": projection.consumesUserProperty(key: "palette", target: target, valueType: .vector3),
             "foreignUserNotBorrowed": !projection.consumesUserProperty(key: "other", target: target, valueType: .vector3),
-            "nestedTargetActive": vm.activeLivePropertyInputTargets == [innerTarget],
+            "nestedTargetActive": vm.activeLivePropertyInputTargets == [innerTarget, target],
             "catalogExclusionKeepsPreparedFact": projection.excludingTargets([target]).materialBindings.count == 1,
             "initialUndefined": vector(initial.values[target]),
             "enabledAnimated": vector(animated.values[target]),

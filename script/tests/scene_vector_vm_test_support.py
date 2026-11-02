@@ -5,8 +5,11 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 import shutil
 import subprocess
+
+from .test_scene_prepared_script_resource_catalog import swift_declaration
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -523,8 +526,16 @@ def compile_vector_harness(
         )
         objects.append(output)
 
+    swift_sources = list(dict.fromkeys([*SWIFT_SOURCES, *extra_swift_sources]))
+    fixture = preamble + harness_source
+    text_descriptor = SCENE / "Systems/Text/SceneTextDescriptor.swift"
+    if text_descriptor.resolve() not in {source.resolve() for source in swift_sources}:
+        normalizer = swift_declaration(text_descriptor.read_text(encoding="utf-8"),
+                                       "    nonisolated static func normalizedPath(")
+        owner = "extension" if re.search(r"\b(?:struct|enum|class)\s+SceneTextDescriptor\b", fixture) else "nonisolated enum"
+        fixture += f"\n{owner} SceneTextDescriptor {{\n{normalizer}\n}}\n"
     harness = temporary_directory / f"{binary_name}.swift"
-    harness.write_text(preamble + harness_source, encoding="utf-8")
+    harness.write_text(fixture, encoding="utf-8")
     binary = temporary_directory / binary_name
     compilation = subprocess.run(
         [
@@ -540,7 +551,7 @@ def compile_vector_harness(
             f"-I{VM}",
             "-o",
             str(binary),
-            *map(str, dict.fromkeys([*SWIFT_SOURCES, *extra_swift_sources])),
+            *map(str, swift_sources),
             str(harness),
             *map(str, objects),
             *map(str, extra_link_objects),

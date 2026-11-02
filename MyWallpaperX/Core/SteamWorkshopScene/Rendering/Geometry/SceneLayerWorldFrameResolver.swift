@@ -42,27 +42,6 @@ nonisolated enum SceneLayerWorldFrameResolver {
         var cache: [Int: simd_float4x4] = [:]
         var attachments = puppetAttachmentFrames.framesByParentLayerID
 
-        func localFrame(_ layer: SceneRenderDescriptor.Layer) -> simd_float4x4 {
-            let transform = transformOverrides[layer.id]
-            var origin = transform?.origin ?? SIMD3(layer.originXYZ ?? [], fill: 0)
-            let scale = transform?.scale ?? SIMD3(layer.scaleXYZ ?? [], fill: 1)
-            var angles = transform?.angles ?? SIMD3(layer.anglesXYZ ?? [], fill: 0)
-            if let sceneOrthoHeight, sceneOrthoHeight > 0 {
-                if layer.parentID == nil {
-                    origin.y = sceneOrthoHeight - origin.y
-                } else {
-                    origin.y = -origin.y
-                }
-                // Reflect the complete rotation basis through Y (F * R * F).
-                // Both X and Z change handedness; Y retains its authored sign.
-                angles.x = -angles.x
-                angles.z = -angles.z
-            }
-            return SceneMatrix.translation(origin)
-                * SceneMatrix.eulerXYZ(angles)
-                * SceneMatrix.scale(scale)
-        }
-
         func attachmentFrame(_ layer: SceneRenderDescriptor.Layer) -> simd_float4x4? {
             if let parentID = layer.parentID,
                let name = layer.attachmentName,
@@ -94,7 +73,7 @@ nonisolated enum SceneLayerWorldFrameResolver {
             if let cached = cache[layer.id] { return cached }
             var nextVisiting = visiting
             nextVisiting.insert(layer.id)
-            let local = localFrame(layer)
+            let local = localFrame(layer, sceneOrthoHeight: sceneOrthoHeight, transform: transformOverrides[layer.id])
             let world: simd_float4x4
             if let parentID = layer.parentID,
                !visiting.contains(parentID),
@@ -119,5 +98,29 @@ nonisolated enum SceneLayerWorldFrameResolver {
             _ = resolve(layer, visiting: [])
         }
         return cache
+    }
+
+    nonisolated static func localFrame(
+        _ layer: SceneRenderDescriptor.Layer,
+        sceneOrthoHeight: Float?,
+        transform: TransformOverride? = nil
+    ) -> simd_float4x4 {
+        var origin = transform?.origin ?? SIMD3(layer.originXYZ ?? [], fill: 0)
+        let scale = transform?.scale ?? SIMD3(layer.scaleXYZ ?? [], fill: 1)
+        var angles = transform?.angles ?? SIMD3(layer.anglesXYZ ?? [], fill: 0)
+        if let sceneOrthoHeight, sceneOrthoHeight > 0 {
+            if layer.parentID == nil {
+                origin.y = sceneOrthoHeight - origin.y
+            } else {
+                origin.y = -origin.y
+            }
+            // Reflect the complete rotation basis through Y (F * R * F).
+            // Both X and Z change handedness; Y retains its authored sign.
+            angles.x = -angles.x
+            angles.z = -angles.z
+        }
+        return SceneMatrix.translation(origin)
+            * SceneMatrix.eulerXYZ(angles)
+            * SceneMatrix.scale(scale)
     }
 }

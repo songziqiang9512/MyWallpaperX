@@ -49,7 +49,9 @@
 
 `Format` 保存作者事实；`Runtime/Frame` 的描述及 `Compilation` 准备消费者需要的类型；`Systems` 更新领域状态；`Resources` 提供资源；`Rendering` 消费准备数据和本帧状态。跨层只传当前消费者所需数据。
 
-作者初值、准备后的引用与当前值分别有用途。原始字符串或 JSON 用于来源和初始化，普通帧消费解析好的类型。属性访问定位到状态本身，不再维护一套与 renderer 并行的可写 layer tree。geometry、simulation、provider 和 graph 共用总体合同规定的产品主干。
+作者初值、准备引用与当前值分别有用途。动态Layer只保出生资源、不可变创建尺寸、根关系和seed；完整upsert经原typed值通道更新，不按authored局部写的字段标记丢弃其余当前值。创建、排序和退役改变结构revision，同revision的准备投影不回填live字段；perspective缺席保camera默认，首次实际Bool写入才增加typed lane。属性访问不另建可写layer tree，非法变换仍拒实际受影响owner包。
+
+动态根变换只更新这些根；作者层级与attachment沿同一canonical局部矩阵算法。动态clone变化不要求重发全部作者catalog的Mat4。Session在回调前捕获已提交拓扑和值，末尾接纳Plan；首次采用拓扑的cadence同时采用其定义与当前值，不额外延迟，也不扩大原camera、visibility和particle当帧例外。
 
 ## 1. 统一 Frame Context
 
@@ -180,17 +182,17 @@ Child 保留 offset、angles、scale、maximum count、probability、control poi
 
 文本保留图层变换、alpha/color、parent、parallax、字体、point size、对齐、padding、背景、透视和布局约束。内容可以来自作者初值、属性、Timeline 或 SceneScript，输出进入同一 ordered effect stack 与 compositor。
 
-脚本执行归通用 SceneScript；文本系统只消费字符串、样式和目标。不能为日期、媒体标题或固定表达式持续扩张手写文本语言解释器。
+脚本执行归通用SceneScript；文本系统消费字符串、样式和目标。literal动态文字沿完整record更新content；prepared wrapper的String producer保有当前结果，其普通upsert仅在显式text写入时更新content，outer-user优先级保持。出生seed固定后，模板初值取同Plan最终内容，不用旧record覆盖String结果。
 
 ### 3.2 macOS 文本运行时合同
 
-CoreText/CoreGraphics 负责实际字体解析、shaping、glyph advances、baseline、ascent/descent/leading 与栅格能力，避免 SwiftUI overlay 或手工字符宽度估算。字体 fallback 的来源与替代身份必须可诊断；stock 名称相同不证明替代字体字形等价，等宽家族的替代仍须保持相应形态。
+CoreText/CoreGraphics负责字体解析、shaping、glyph advances、baseline、ascent/descent/leading与栅格。字体值复用原路径normalizer；显式系统默认与缺少当前值分开，前者不能回退出生字体。fallback来源与替代身份可诊断；stock同名不证明字形等价，等宽替代仍须保相应形态。
 
-`ITextLayer.pointsize` 的公开单位为 300 DPI 下的 point。作者像素 padding 扩大效果可使用的 geometry；序列化 size 已包含 padding 时不能重复增加。边对齐以内容边为依据，中心对齐保持对应共同中心；raster backing scale、scene unit 与 Retina 输出分别验证。
+`ITextLayer.pointsize`公开单位为300 DPI下的point；typed current保合法原始Double，仅文字producer按原显示范围归一。作者像素padding扩大geometry，序列化size已包含时不重复增加。边对齐以内容边为据，中心对齐保持共同中心；raster backing scale、scene unit与Retina输出分别验证。
 
 在 text-local 空间完成布局，再应用图层和场景变换。width/line/ellipsis、字体、字距和行距按作者开关与参数执行；关闭 width/row 限制时，保留的编辑器默认数值不能继续裁切文本。
 
-内容或布局依赖改变时只重做受影响文本。相同会话共享文字producer与就绪publication，采用内容签名、generation和单在途合并；每屏只保存自己prepared/submitted的完整纹理及几何，cursor消费本屏最后提交结果。初始与动态文字走同一layer-source入口，不在base image表保旧seed。单屏重建不关闭producer；会话停止排空真实任务，迟到结果不能取得发布权。
+内容或布局依赖改变时只重做受影响文本。会话共享producer、内容签名、generation及单在途合并；首次接纳动态层即消费同cadence typed值，不逐帧回写Layer。raster颜色与layer tint保各自既有乘色语义。每屏保存prepared/submitted纹理及几何，cursor读本屏最后提交结果；初始与动态文字走同一layer-source，不保旧base seed。单屏重建不关闭producer，会话停止排空任务并撤销迟到发布权。
 
 字形呈现与布局分别设计。MSDF、轮廓、阴影和模糊的适用语义及与参考结果的差异查[文字专项](runtime-input-property-coverage.md)和[字体演进研究](../development/reference/client-changelog-forensics.md)，不从一个技术名推断全部字形质量或视觉等价。
 

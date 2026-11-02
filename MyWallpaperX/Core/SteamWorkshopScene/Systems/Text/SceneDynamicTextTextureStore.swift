@@ -114,7 +114,7 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
                 layersByID[layer.id] = layer
                 self.dynamicTextFieldsByLayerID[layer.id] = Self.allTextFields
                 let signature = Self.signature(
-                    for: layer, snapshot: nil,
+                    for: layer, snapshot: snapshot,
                     dynamicFields: Self.allTextFields
                 )
                 if let request = generationState.registerDynamic(
@@ -122,8 +122,6 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
                 ) {
                     scheduleLocked(request)
                 }
-            } else {
-                layersByID[layer.id] = layer
             }
         }
         let layers = layersByID.map { layerID, layer in
@@ -316,11 +314,13 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
                 snapshot?[.text(layerID: layer.id, field: .content)]?.value
             ) ?? layer.text!
             : layer.text!
-        let fontPath = dynamicFields.contains(.font)
-            ? stringValue(
-                snapshot?[.text(layerID: layer.id, field: .font)]?.value
-            ).flatMap { $0.isEmpty ? nil : $0 } ?? authoredStyle.fontPath
-            : authoredStyle.fontPath
+        let fontPath: String?
+        if dynamicFields.contains(.font),
+           let value = stringValue(snapshot?[.text(layerID: layer.id, field: .font)]?.value) {
+            fontPath = value.isEmpty ? nil : value
+        } else {
+            fontPath = authoredStyle.fontPath
+        }
         let pointSize = dynamicFields.contains(.pointSize)
             ? scalarValue(
                 snapshot?[.text(layerID: layer.id, field: .pointSize)]?.value

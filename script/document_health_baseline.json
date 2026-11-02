@@ -89,8 +89,8 @@
       "bytes": 24119
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
-      "lines": 161,
-      "bytes": 19275
+      "lines": 163,
+      "bytes": 20019
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 31,
@@ -170,15 +170,15 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 224378
+      "bytes": 224581
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
-      "bytes": 200510
+      "bytes": 197432
     },
     "docs/scene/capabilities/runtime-systems-reference.md": {
-      "lines": 377,
-      "bytes": 32498
+      "lines": 379,
+      "bytes": 33286
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 61,
@@ -285,8 +285,8 @@
       "bytes": 29767
     },
     "docs/scene/roadmap/engine-refactor-program.md": {
-      "lines": 173,
-      "bytes": 29663
+      "lines": 185,
+      "bytes": 33346
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 73,
@@ -302,7 +302,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 204,
-      "bytes": 48297
+      "bytes": 48476
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -2065,47 +2065,47 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-as-built-map.md",
-      "before": "110c805438d4da8cbb51269e24c8051cd4f7756d9469141373dc1fedcab785b2",
-      "after": "d6bdaf87035809521a2c1b859668c78ee29e91923b5aff093ebe7beedfb98fc2",
-      "owner": "scene-session-media-production",
-      "reason": "沿既有媒体合同、事实地图与唯一队列同步Session单一生产、冻结帧消费和旧owner退出；按f370正文预算记录实际变化，分轮验证、缺失阶段及未修solid边界归历史，不提高硬限。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#媒体封面生产与冻结帧消费"
+      "before": "d6bdaf87035809521a2c1b859668c78ee29e91923b5aff093ebe7beedfb98fc2",
+      "after": "e6cf9a19ba6284498240726a3fe3842434cecaf60f661e0830ae6f4ffb461c07",
+      "owner": "scene-dynamic-layer-preparation",
+      "reason": "沿既有职责合同、现役地图和唯一队列收敛动态出生准备与typed当前值，保模板例外、旧cadence与未闭过渡；以299df7e7d真实正文为before，不提高600行正文/150行初读快照硬限。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#动态图层的准备事实与当前值"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "0e1f0658f88add23f9dac110a1050c5d96172b3f95a971bce0f2e11b4c8f905b",
-      "after": "afaf6b507b6ba9d135458b3e11b0c16a8451635647524c62151428fd24294042",
-      "owner": "scene-session-media-production",
-      "reason": "沿既有媒体合同、事实地图与唯一队列同步Session单一生产、冻结帧消费和旧owner退出；按f370正文预算记录实际变化，分轮验证、缺失阶段及未修solid边界归历史，不提高硬限。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#媒体封面生产与冻结帧消费"
+      "before": "afaf6b507b6ba9d135458b3e11b0c16a8451635647524c62151428fd24294042",
+      "after": "da5bef1f52bbf896a67e759893284c9f08448b7a9c1fda46b9ee2d20484011ef",
+      "owner": "scene-dynamic-layer-preparation",
+      "reason": "沿既有职责合同、现役地图和唯一队列收敛动态出生准备与typed当前值，保模板例外、旧cadence与未闭过渡；以299df7e7d真实正文为before，不提高600行正文/150行初读快照硬限。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#动态图层的准备事实与当前值"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-systems-reference.md",
-      "before": "55c7756bcea2318fab6f01e1b4c2a9f0ddcce5ff0caa2ba6ea197bab5b44b6b1",
-      "after": "2422214f80ab0c0e86b163eaf1d6168e60ed51ae7e59d97d4a3b69f95f152b0b",
-      "owner": "scene-session-media-production",
-      "reason": "沿既有媒体合同、事实地图与唯一队列同步Session单一生产、冻结帧消费和旧owner退出；按f370正文预算记录实际变化，分轮验证、缺失阶段及未修solid边界归历史，不提高硬限。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#媒体封面生产与冻结帧消费"
+      "before": "2422214f80ab0c0e86b163eaf1d6168e60ed51ae7e59d97d4a3b69f95f152b0b",
+      "after": "da4e42fe590e05120f3c0d13e22411d527119c3786bf0c93d5370e20d679bcb7",
+      "owner": "scene-dynamic-layer-preparation",
+      "reason": "沿既有职责合同、现役地图和唯一队列收敛动态出生准备与typed当前值，保模板例外、旧cadence与未闭过渡；以299df7e7d真实正文为before，不提高600行正文/150行初读快照硬限。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#动态图层的准备事实与当前值"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/engine-refactor-program.md",
-      "before": "ba77c8bcbb47aa5a71970cd2da4984c97531913ffd929cdc2258b1e93506181a",
-      "after": "6bd60540036cecfbfb975734d421479514d8e4a17f449b8be905c4b44b545d68",
-      "owner": "scene-session-media-production",
-      "reason": "沿既有媒体合同、事实地图与唯一队列同步Session单一生产、冻结帧消费和旧owner退出；按f370正文预算记录实际变化，分轮验证、缺失阶段及未修solid边界归历史，不提高硬限。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#媒体封面生产与冻结帧消费"
+      "before": "6bd60540036cecfbfb975734d421479514d8e4a17f449b8be905c4b44b545d68",
+      "after": "07d3aba26fc95e7ecded83abdfc7d93f0236e42e70215e7da550aee0bd840048",
+      "owner": "scene-dynamic-layer-preparation",
+      "reason": "沿既有职责合同、现役地图和唯一队列收敛动态出生准备与typed当前值，保模板例外、旧cadence与未闭过渡；以299df7e7d真实正文为before，不提高600行正文/150行初读快照硬限。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#动态图层的准备事实与当前值"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "11fca75e542c90443acd0a455c4c8cfe623f70de1e85249de5749b734b72154a",
-      "after": "218db03d12ba9180d09c3de1b1db14b3766e4b4adba82244fcc94ff96d6fded5",
-      "owner": "scene-session-media-production",
-      "reason": "沿既有媒体合同、事实地图与唯一队列同步Session单一生产、冻结帧消费和旧owner退出；按f370正文预算记录实际变化，分轮验证、缺失阶段及未修solid边界归历史，不提高硬限。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#媒体封面生产与冻结帧消费"
+      "before": "218db03d12ba9180d09c3de1b1db14b3766e4b4adba82244fcc94ff96d6fded5",
+      "after": "a1de93c681cdcc8b25759dcfb9c9deb14dcf0d88689ba6f0587af45c5b73206a",
+      "owner": "scene-dynamic-layer-preparation",
+      "reason": "沿既有职责合同、现役地图和唯一队列收敛动态出生准备与typed当前值，保模板例外、旧cadence与未闭过渡；以299df7e7d真实正文为before，不提高600行正文/150行初读快照硬限。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#动态图层的准备事实与当前值"
     }
   ]
 }

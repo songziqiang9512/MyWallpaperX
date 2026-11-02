@@ -450,7 +450,8 @@ class SceneDynamicLayerValuesTests(unittest.TestCase):
                                 [[0.5, 0.5], [0.5, 0], [0, 0.25]]),
                 "empty-parent": ([40, 135], parent_mvp, parent_uv),
                 "authored-empty-parent": ([2000, 2000], parent_mvp, parent_uv),
-                "captured-parent": ([40, 135], parent_mvp, parent_uv),
+                # Background copy keeps local X/Y pixel axes under the quarter turn.
+                "captured-parent": ([135, 40], parent_mvp, parent_uv),
                 "members-parent": ([640, 360], [2, 0, 0, 0, 0, 2, 0, 0,
                                                0, 0, 1, 0, 0, 0, 0, 1],
                                    [[0, 0], [1, 0], [0, 1]]),

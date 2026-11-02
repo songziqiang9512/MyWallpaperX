@@ -30,11 +30,9 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
     private var dynamicLayerCreatorTargetsByID: [Int: SceneDynamicTarget] = [:]
     private var textTemplateIdentitiesByLayerID: [Int: UInt64] = [:]
     private let textTemplates: [UInt64: SceneScriptPreparedTextTemplate]
-    private var dynamicLayerValueRevision: UInt64 = 0
     private var destroyedAuthoredLayerIDs: Set<Int> = []
     private var authoredLayerValues: [SceneDynamicTarget: SceneDynamicValue] = [:]
     private var cachedSnapshotTopologyRevision: UInt64?
-    private var cachedSnapshotDynamicLayerValueRevision: UInt64?
     private var cachedDynamicLayers: [SceneRenderDescriptor.Layer] = []
     private let preparedResourceLayerTemplates:
         [String: SceneScriptPreparedResourceLayerTemplate]
@@ -119,14 +117,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
     func snapshot() -> SceneScriptLayerTopologySnapshot {
         if cachedSnapshotTopologyRevision != topologyRevision {
             cachedSnapshotTopologyRevision = topologyRevision
-            cachedSnapshotDynamicLayerValueRevision = nil
-        }
-        // Value-only upserts leave prepared topology stable but must publish
-        // the next frame's transforms. Keep quiescent snapshots cached; only
-        // an accepted dynamic mutation rebuilds the bounded layer records.
-        if cachedSnapshotDynamicLayerValueRevision != dynamicLayerValueRevision {
             cachedDynamicLayers = order.compactMap { dynamicLayersByID[$0] }
-            cachedSnapshotDynamicLayerValueRevision = dynamicLayerValueRevision
         }
         return .init(
             particlePlayback: particlePlayback,
@@ -144,11 +135,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         guard mutations.count <= Self.maximumOwnerMutationWork else {
             return .failure(.mutationOverflow("frame layer mutation budget exceeded"))
         }
-        let result = apply(mutations, publishingTopologyRevision: true)
-        if case .success = result, mutations.contains(where: \.isDynamic) {
-            dynamicLayerValueRevision &+= 1
-        }
-        return result.map { _ in () }
+        return apply(mutations, publishingTopologyRevision: true).map { _ in () }
     }
 
     private struct AppliedChanges {
@@ -182,11 +169,14 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         // projects render order after the accepted owner set has settled.
         var requiresRetirement = false
         for mutation in mutations {
-            guard mutation.origin.x.isFinite, mutation.origin.y.isFinite,
-                  mutation.origin.z.isFinite, mutation.scale.x.isFinite,
-                  mutation.scale.y.isFinite, mutation.scale.z.isFinite,
-                  mutation.angles.x.isFinite, mutation.angles.y.isFinite,
-                  mutation.angles.z.isFinite else {
+            let usesDescriptorTransform = mutation.isDynamic
+                && (mutation.kind == .upsert || mutation.isNewborn)
+            let transformIsValid = [mutation.origin, mutation.scale, mutation.angles].allSatisfy {
+                usesDescriptorTransform
+                    ? Float($0.x).isFinite && Float($0.y).isFinite && Float($0.z).isFinite
+                    : $0.x.isFinite && $0.y.isFinite && $0.z.isFinite
+            }
+            guard transformIsValid else {
                 return .failure(.invalidArgument("invalid layer transform mutation"))
             }
             if !mutation.isDynamic {
@@ -426,12 +416,6 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                   mutation.font.utf8.count <= 1_024 else {
                 return .failure(.invalidArgument("invalid dynamic layer mutation"))
             }
-            if let size = mutation.size {
-                guard mutation.assetPath != nil, size.x > 0, size.y > 0,
-                      Float(size.x).isFinite, Float(size.y).isFinite else {
-                    return .failure(.invalidArgument("invalid dynamic image dimensions"))
-                }
-            }
             guard !authoredLayerIDs.contains(mutation.layerID) else {
                 return .failure(.invalidArgument("dynamic layer identity collides with authored layer"))
             }
@@ -459,24 +443,33 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                 requiresRetirement = true
                 if !mutation.isNewborn { continue }
             }
-            let layer: SceneRenderDescriptor.Layer?
-            if let assetPath = mutation.assetPath {
-                guard let template = preparedResourceLayerTemplates[
-                    assetPath.lowercased()
-                ] else {
-                    return .failure(.invalidArgument(
-                        "prepared resource layer is not launch-ready"
-                    ))
-                }
-                guard template.kind != .composition || supportsCompositionPerspective else {
-                    return .failure(.invalidArgument("composition requires an orthographic canvas"))
-                }
-                layer = .preparedResourceLayer(mutation, template: template)
+            let existingLayer = candidateLayers[mutation.layerID]
+            let layer: SceneRenderDescriptor.Layer
+            if let existingLayer {
+                layer = existingLayer
             } else {
-                layer = .dynamicText(mutation)
-            }
-            guard let layer else {
-                return .failure(.invalidArgument("dynamic layer is invalid"))
+                if let size = mutation.size {
+                    guard mutation.assetPath != nil, size.x > 0, size.y > 0,
+                          Float(size.x).isFinite, Float(size.y).isFinite else {
+                        return .failure(.invalidArgument("invalid dynamic image dimensions"))
+                    }
+                }
+                let prepared: SceneRenderDescriptor.Layer?
+                if let assetPath = mutation.assetPath {
+                    guard let template = preparedResourceLayerTemplates[assetPath.lowercased()] else {
+                        return .failure(.invalidArgument("prepared resource layer is not launch-ready"))
+                    }
+                    guard template.kind != .composition || supportsCompositionPerspective else {
+                        return .failure(.invalidArgument("composition requires an orthographic canvas"))
+                    }
+                    prepared = .preparedResourceLayer(mutation, template: template)
+                } else {
+                    prepared = .dynamicText(mutation)
+                }
+                guard let prepared else {
+                    return .failure(.invalidArgument("dynamic layer is invalid"))
+                }
+                layer = prepared
             }
             let textTemplate = mutation.textTemplateIdentity == 0 ? nil : textTemplates[mutation.textTemplateIdentity]
             if mutation.textTemplateIdentity != 0 {
@@ -501,7 +494,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                         .map(candidateDestroyedAuthoredLayerIDs.contains) ?? false)
                 }
             }
-            if let template = textTemplate {
+            if let template = textTemplate, existingLayer == nil {
                 candidateTextTemplates[mutation.layerID] = mutation.textTemplateIdentity
                 let definition = template.definition(layerID: mutation.layerID)
                 if candidateDefinitions[definition.target] == nil {
@@ -509,18 +502,22 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                     candidateDefinitions[definition.target] = definition
                 }
             }
-            if candidateLayers[mutation.layerID] != nil,
-               candidateTextTemplates[mutation.layerID] != nil,
-               mutation.fields.contains(.text) {
-                candidateAuthoredValues[.text(layerID: mutation.layerID, field: .content)] = .string(mutation.text)
+            // A template's String producer owns callback results. Only an
+            // explicit text setter may replace its current typed input.
+            let includesContent = textTemplate == nil
+                || (existingLayer != nil && mutation.fields.contains(.text))
+            for (target, value) in Self.dynamicValues(
+                from: mutation, isText: layer.contentKind == "text", includesContent: includesContent
+            ) {
+                candidateAuthoredValues[target] = value
+                if existingLayer == nil || target == .layer(layerID: layer.id, field: .perspective) {
+                    Self.ensureDefinition(for: target, layer: layer,
+                        order: &candidateDefinitionOrder, definitions: &candidateDefinitions)
+                }
             }
-            if mutation.fields.contains(.pointSize) {
-                let target = SceneDynamicTarget.text(layerID: mutation.layerID, field: .pointSize)
-                candidateAuthoredValues[target] = .scalar(mutation.pointSize)
-                Self.ensureDefinition(for: target, layer: layer,
-                    order: &candidateDefinitionOrder, definitions: &candidateDefinitions)
+            if existingLayer == nil {
+                candidateLayers[mutation.layerID] = layer
             }
-            candidateLayers[mutation.layerID] = layer
         }
         if !deferringFinalization {
             let projected: [Int]?
@@ -548,7 +545,9 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         order = candidateOrder
         dynamicLayersByID = candidateLayers
         dynamicLayerCreatorTargetsByID = candidateCreators
-        textTemplateIdentitiesByLayerID = candidateTextTemplates.filter { candidateLayers[$0.key] != nil }
+        textTemplateIdentitiesByLayerID = requiresRetirement
+            ? candidateTextTemplates.filter { candidateLayers[$0.key] != nil }
+            : candidateTextTemplates
         destroyedAuthoredLayerIDs = candidateDestroyedAuthoredLayerIDs
         authoredLayerValues = candidateAuthoredValues
         authoredDefinitionOrder = candidateDefinitionOrder
@@ -655,9 +654,10 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
             retiredDynamicLayerIDs: publishCandidate ? Set(originalLayers.keys).subtracting(dynamicLayersByID.keys) : [],
             createdPreparedTextValues: publishCandidate ? Dictionary(uniqueKeysWithValues:
                 textTemplateIdentitiesByLayerID.keys.filter { originalLayers[$0] == nil }.compactMap { layerID in
-                    dynamicLayersByID[layerID]?.text.map {
-                        (SceneDynamicTarget.text(layerID: layerID, field: .content), SceneDynamicValue.string($0))
-                    }
+                    let target = SceneDynamicTarget.text(layerID: layerID, field: .content)
+                    let value = authoredLayerValues[target]
+                        ?? dynamicLayersByID[layerID]?.text.map(SceneDynamicValue.string)
+                    return value.map { (target, $0) }
                 }) : [:],
             createdDynamicLayerMutations: publishCandidate ? mutations.filter {
                 $0.isDynamic && $0.isNewborn
@@ -814,9 +814,6 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         if plan.dynamicTopologyChanged {
             topologyRevision &+= 1
         }
-        if plan.outcome.committedDynamicMutationCount > 0 {
-            dynamicLayerValueRevision &+= 1
-        }
         if definitionsChanged {
             authoredDefinitionRevision &+= 1
         }
@@ -877,7 +874,9 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
             order: &order, layers: &dynamicLayersByID, creators: &dynamicLayerCreatorTargetsByID,
             definitionOrder: &authoredDefinitionOrder, definitions: &authoredDefinitionsByTarget,
             values: &authoredLayerValues)
-        textTemplateIdentitiesByLayerID = textTemplateIdentitiesByLayerID.filter { dynamicLayersByID[$0.key] != nil }
+        if requiresRetirement {
+            textTemplateIdentitiesByLayerID = textTemplateIdentitiesByLayerID.filter { dynamicLayersByID[$0.key] != nil }
+        }
         return .init(
             committedMutationCount: committedMutationCount,
             committedDynamicMutationCount: committedDynamicMutationCount,
