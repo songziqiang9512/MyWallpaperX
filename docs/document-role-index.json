@@ -304,6 +304,18 @@
       ]
     },
     {
+      "path": "docs/history/cross-topic/code-slimming-b1-b12-ui1-ui9-2026-10-23.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/development/code-slimming-program.md",
+        "docs/architecture/technology-stack-boundaries.md"
+      ],
+      "cutoffDate": "2026-10-23",
+      "uniqueValue": "逐字保留B1–B12/UI1–UI9原方案、旧候选、真实失败及有界验收；UI10和当前范围仍在现役页。"
+    },
+    {
       "path": "docs/history/cross-topic/code-slimming-r1-r26-2026-11-01.md",
       "role": "historical-evidence",
       "entrypoint": "docs/history/README.md",

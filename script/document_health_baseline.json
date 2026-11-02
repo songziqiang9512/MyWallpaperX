@@ -33,8 +33,8 @@
       "bytes": 116594
     },
     "docs/development/code-slimming-program.md": {
-      "lines": 489,
-      "bytes": 107461
+      "lines": 111,
+      "bytes": 22027
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -1410,6 +1410,40 @@
       "originalBodySHA256": "76b07135a270596b7efe77a7916fff8a30160728506d0d0aec0386bf80a195d9",
       "originalLines": 50,
       "originalBytes": 34183
+    },
+    {
+      "source": "docs/development/code-slimming-program.md",
+      "archive": "docs/history/cross-topic/code-slimming-b1-b12-ui1-ui9-2026-10-23.md",
+      "anchors": [
+        "第一批设计与停止条件",
+        "后续候选",
+        "第一批实施与证据",
+        "第二批范围与停止条件",
+        "第三批范围与停止条件",
+        "第四批范围与停止条件",
+        "第五批范围与停止条件",
+        "第六批范围与停止条件",
+        "第七批范围与停止条件",
+        "第八批范围与停止条件",
+        "第九批范围与停止条件",
+        "第十批范围与停止条件",
+        "第十一批范围与停止条件",
+        "第十二批范围与停止条件",
+        "原生-ui-等价精简第一批",
+        "原生-ui-等价精简第二批",
+        "原生-ui-第三批系统强调色与原生侧栏选择",
+        "原生-ui-第四批steam-卡片按钮交回-nsbutton",
+        "原生-ui-第五批无渐隐面板使用原生滚动容器",
+        "原生-ui-第六批跟踪区域交由-appkit-视口维护",
+        "原生-ui-第七批详情分隔线交回原生-nsbox",
+        "原生-ui-第八批详情徽章使用原生-nsbox-与系统语义色",
+        "原生-ui-第九批steam-详情标签交回原生绘制",
+        "第九批试用后调整恢复标签半透明底色"
+      ],
+      "preservedBodySHA256": "c6b98910187fbf846ec8bb61e2a1146234bbccfce0cb7f3c44c8ce1a9726e1eb",
+      "originalBodySHA256": "c6b98910187fbf846ec8bb61e2a1146234bbccfce0cb7f3c44c8ce1a9726e1eb",
+      "originalLines": 381,
+      "originalBytes": 85679
     }
   ],
   "snapshots": [
@@ -1743,10 +1777,10 @@
     {
       "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
-      "before": "60fc161b8c56289274ee588af31520ef16d47ee299d5e8cb1e01edc3180fd257",
-      "after": "77410ca22a0f90091a17a3a1cbc3c693cd270ea42eb5e0dfad99a1bf08b50f6e",
+      "before": "77410ca22a0f90091a17a3a1cbc3c693cd270ea42eb5e0dfad99a1bf08b50f6e",
+      "after": "c0322976030ee64aa59d9a35c9f780b8d139e6615bf4dedd8815cc873ce51593",
       "owner": "repository-maintainer",
-      "reason": "Close R68 with actual first-date fallback work and retained publication/rollback behavior; preserve R67 evidence limits and next non-Scene review direction.",
+      "reason": "Archive byte-preserved B1–B12/UI1–UI9 history; retain current bounds, unresolved evidence and the approved UI10 design while reducing the first-read body.",
       "decision": "docs/development/code-slimming-program.md#目标与边界"
     },
     {
@@ -1991,6 +2025,15 @@
       "owner": "repository-maintainer",
       "reason": "Record R62 implementation, measured bounded cache and prefetch tradeoff, actual verification and unverified native/manual limits.",
       "decision": "docs/development/local-library-loading-design.md#overview"
+    },
+    {
+      "section": "archives",
+      "path": "docs/history/cross-topic/code-slimming-b1-b12-ui1-ui9-2026-10-23.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "781de680a87e40f09218ed9472ffcf6c46653262d46862254dc70efae83f3fde",
+      "owner": "repository-maintainer",
+      "reason": "Preserve the complete original 381-line B/UI payload and all 24 heading anchors without link rewriting; historical candidates and commands do not authorize new work.",
+      "decision": "docs/development/code-slimming-program.md#目标与边界"
     }
   ]
 }
