@@ -673,9 +673,43 @@ assert.equal(loggedEvents.filter(name => name === 'audio.listener.error').length
             expect(silentOverlay.allSatisfy { $0 == 0 }, "Overlay silence must clear immediately")
             expect(overlay.reset().allSatisfy { $0 == 0 }, "Overlay reset must return silence")
 
+            let matrixOverlay = SystemAudioOverlaySpectrumAnalyzer(barCount: 16)
+            let asymmetricLevels = completedLevels(left: [0, 0.2, 0.6, 1], right: [0, 0.8, 0.1, 1])
+            let defaultOverlayBits = matrixOverlay.analyze(asymmetricLevels).map(\.bitPattern)
+            var overlayConfigurationBits: [String: [UInt32]] = ["default": defaultOverlayBits]
+            let styles: [(String, SystemAudioSpectrumStyle)] = [("balanced", .balanced), ("banded", .banded)]
+            let sensitivities: [(String, SystemAudioSpectrumSensitivity)] = [("soft", .soft), ("normal", .normal), ("lively", .lively)]
+            for (styleName, style) in styles {
+                for (sensitivityName, sensitivity) in sensitivities {
+                    let name = styleName + "-" + sensitivityName
+                    matrixOverlay.updateConfiguration(style: style, sensitivity: sensitivity)
+                    let projected = matrixOverlay.analyze(asymmetricLevels)
+                    let bits = projected.map(\.bitPattern)
+                    expect(projected.count == 16 && projected.first == 0 && projected.last == 1
+                        && projected.allSatisfy { $0.isFinite && $0 >= 0 && $0 <= 1 },
+                        "Every overlay configuration must preserve endpoints and finite bounded heights: \(name)")
+                    expect(matrixOverlay.analyze(asymmetricLevels).map(\.bitPattern) == bits,
+                        "Repeated projection must keep the exact configuration result: \(name)")
+                    expect(matrixOverlay.reset().allSatisfy { $0 == 0 }, "Configuration reset must output silence: \(name)")
+                    expect(matrixOverlay.analyze(asymmetricLevels).map(\.bitPattern) == bits,
+                        "Reset must retain the selected overlay configuration: \(name)")
+                    if name == "balanced-normal" {
+                        expect(bits == defaultOverlayBits, "The unconfigured default must remain balanced/normal")
+                    }
+                    overlayConfigurationBits[name] = bits
+                }
+            }
+            let beforeEmptyBits = matrixOverlay.analyze(asymmetricLevels).map(\.bitPattern)
+            let emptyProjection = matrixOverlay.analyze(.init(left64: [], right64: []))
+            expect(emptyProjection.count == 16 && emptyProjection.allSatisfy { $0 == 0 },
+                "Empty completed levels must project silence")
+            expect(matrixOverlay.analyze(asymmetricLevels).map(\.bitPattern) == beforeEmptyBits,
+                "An empty projection must not replace the selected configuration")
+
             let proof: [String: Any] = [
                 "signedPCM": decodedFormats.map { $0.signedChannels.map { $0.map(\.bitPattern) } },
                 "sixBandBits": sixBandBits,
+                "overlayConfigurationBits": overlayConfigurationBits,
                 "continuousWindow": windowCopy.decodedFrame!.signedChannels.map { $0.map(\.bitPattern) },
                 "signedEdges": signedEdges.signedChannels[0].map(\.bitPattern),
             ]

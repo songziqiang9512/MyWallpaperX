@@ -11,8 +11,7 @@ import Foundation
 /// 或第二套包络。默认风格与Web/Scene同尺度，灵敏度是原生绘制的静态风格。
 nonisolated final class SystemAudioOverlaySpectrumAnalyzer {
     private let barCount: Int
-    private var style: SystemAudioSpectrumStyle = .balanced
-    private var sensitivity: SystemAudioSpectrumSensitivity = .normal
+    private var gain: Float = 1
 
     init(barCount: Int) {
         precondition(barCount > 0)
@@ -23,8 +22,14 @@ nonisolated final class SystemAudioOverlaySpectrumAnalyzer {
         style: SystemAudioSpectrumStyle,
         sensitivity: SystemAudioSpectrumSensitivity
     ) {
-        self.style = style
-        self.sensitivity = sensitivity
+        let sensitivityGain: Float
+        switch sensitivity {
+        case .soft: sensitivityGain = style == .balanced ? 0.86 : 0.88
+        case .normal: sensitivityGain = 1
+        case .lively: sensitivityGain = style == .balanced ? 1.16 : 1.18
+        }
+        let gain = sensitivityGain * (style == .balanced ? 1 : 1.05)
+        self.gain = gain
     }
 
     @discardableResult
@@ -43,13 +48,7 @@ nonisolated final class SystemAudioOverlaySpectrumAnalyzer {
             (left[index] + right[index]) * 0.5
         }
         let projected = SystemAudioSceneSpectrumAnalyzer.resample(stereo, count: barCount)
-        let sensitivityGain: Float
-        switch sensitivity {
-        case .soft: sensitivityGain = style == .balanced ? 0.86 : 0.88
-        case .normal: sensitivityGain = 1
-        case .lively: sensitivityGain = style == .balanced ? 1.16 : 1.18
-        }
-        let gain = sensitivityGain * (style == .balanced ? 1 : 1.05)
+        let gain = self.gain
         if gain == 1 { return projected }
         // A static bounded contrast adjustment preserves zero/one endpoints,
         // avoids clipping loud bars and adds no second temporal state.
