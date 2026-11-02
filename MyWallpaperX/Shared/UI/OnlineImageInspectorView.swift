@@ -201,6 +201,7 @@ final class OnlineImageInspectorView: NSView {
             do {
                 let value = try await library.detail(seed)
                 guard !Task.isCancelled, self?.accepts(token) == true else { return }
+                self?.errorText = nil
                 self?.artwork = value
                 self?.observeSession()
                 self?.refreshContent(); self?.loadPreview()

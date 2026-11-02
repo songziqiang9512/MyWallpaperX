@@ -450,6 +450,38 @@ enum WallpaperLibrarySheetPresentation {
         let lookupWork: [String: Any] = ["progress": progressWork, "metadata": metadataWork, "authors": authorWork]
         let lookupJSON = String(decoding: try JSONSerialization.data(withJSONObject: lookupWork, options: [.sortedKeys]), as: UTF8.self)
         FileHandle.standardError.write(Data("Inspector lookup work: \(lookupJSON)\n".utf8))
+        let recoveryLibrary = OnlineImageLibrary()
+        let recoveryError = OnlineImageError.message("fixture detail request failed")
+        let recoverySeed = OnlineImageArtwork(source: .wallhaven, artworkID: "remount-recovery", title: "Before recovery",
+            sourceURL: art.sourceURL, thumbnailURL: thumb, kind: .image)
+        var recoveredArtwork = recoverySeed; recoveredArtwork.title = "Recovered detail"
+        let recoveryAsset = OnlineImageAsset(id: recoverySeed.firstAssetID, title: "Recovered page",
+            sourceURL: art.sourceURL, originalURL: asset.originalURL)
+        recoveryLibrary.detailResolver = { _ in throw recoveryError }
+        recoveryLibrary.assetResolver = { _ in [recoveryAsset] }
+        let recoveryView = OnlineImageInspectorView(artwork: recoverySeed, library: recoveryLibrary,
+            makeLibraryActions: { _ in nil }, thumbnailPixelSize: 512)
+        host.addSubview(recoveryView)
+        await pump { !recoveryView.isResolving }
+        checks["detail-failure-before-remount-is-visible-and-finishes-request"] = recoveryView.detailTask == nil
+            && !recoveryView.isResolving && !recoveryView.notice.isHidden
+            && recoveryView.notice.stringValue == recoveryError.localizedDescription && !recoveryView.primaryButton.isEnabled
+        recoveryView.removeFromSuperview()
+        let retiredRecovery = recoveryView.isRetired && recoveryView.hasMounted && recoveryView.window == nil
+        recoveryLibrary.detailResolver = { _ in recoveredArtwork }
+        host.addSubview(recoveryView)
+        await pump { !recoveryView.isResolving && recoveryView.assets == [recoveryAsset] }
+        checks["successful-detail-after-remount-clears-prior-error"] = retiredRecovery && !recoveryView.isRetired
+            && recoveryView.window === window && recoveryView.errorText == nil && recoveryView.notice.isHidden
+            && recoveryView.notice.stringValue.isEmpty && recoveryView.artwork == recoveredArtwork
+            && recoveryView.titleLabel.stringValue == recoveryAsset.title && recoveryView.detailTask == nil
+            && recoveryLibrary.detailRequests.count == 2
+        let recoveryCanDownload = recoveryView.primaryButton.isEnabled && title(recoveryView.primaryButton) == "下载图片"
+            && recoveryView.preview.image === green
+        _ = recoveryView.primaryButton.accessibilityPerformPress()
+        checks["remount-recovery-restores-current-download-action"] = recoveryCanDownload
+            && recoveryLibrary.downloads == [recoveryAsset.id] && recoveryLibrary.downloadApplyFlags == [false]
+        recoveryView.removeFromSuperview()
         let report = try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys])
         print(String(decoding: report, as: UTF8.self))
     }
