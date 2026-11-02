@@ -139,8 +139,8 @@ extension SceneResolvedMaterialPassEncoder {
 
     /// Graph and source-material preparation finish warmup before publication.
     /// Unique keys may compile concurrently, then publish under the cache lock.
-    /// The persistent binary archive session is prepared and serialized here
-    /// on the background warmup workers; the frame path never touches it.
+    /// The persistent binary archive is loaded on the warmup workers;
+    /// successful PSOs hand optional publication to utility. Frames never touch it.
     private func warmupPipeline(_ plan: WarmupPlan) -> PreparationFailure? {
         lock.lock()
         if let existing = entries[plan.key] {

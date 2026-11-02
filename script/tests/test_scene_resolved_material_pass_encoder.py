@@ -83,6 +83,78 @@ nonisolated enum SceneFrameTextureIdentity: Hashable {
 
 
 FIXTURE_ROOT = Path(__file__).parent / "fixtures"
+ARCHIVE_FAULT_HEADER = r'''
+#import <Metal/Metal.h>
+BOOL MWXArmArchivePublicationBarrier(id<MTLDevice> device, NSString *prefix);
+BOOL MWXWaitArchivePublicationStarted(double seconds);
+BOOL MWXArchivePublicationIsHeld(void);
+void MWXReleaseArchivePublication(void);
+BOOL MWXWaitArchivePublicationFinished(double seconds);
+NSUInteger MWXArchiveSerializationAttempts(void);
+'''
+ARCHIVE_FAULT_SOURCE = r'''
+#import "ArchivePublicationFault.h"
+#import <objc/runtime.h>
+#import <dispatch/dispatch.h>
+#import <stdbool.h>
+#import <stdatomic.h>
+static NSString *archivePrefix;
+static dispatch_semaphore_t archiveStarted, archiveRelease, archiveFinished;
+static atomic_bool archiveEntered, archiveReleased, archiveDone, archiveTimedOut;
+static atomic_uint archiveAttempts;
+static IMP archiveOriginal;
+static dispatch_time_t archiveDeadline(double seconds) {
+    return dispatch_time(DISPATCH_TIME_NOW, (int64_t)(seconds * NSEC_PER_SEC));
+}
+static BOOL archiveSerialize(id receiver, SEL selector, NSURL *url, NSError **error) {
+    if (![url.lastPathComponent hasPrefix:archivePrefix]) {
+        return ((BOOL (*)(id, SEL, NSURL *, NSError **))archiveOriginal)(receiver, selector, url, error);
+    }
+    unsigned int attempt = atomic_fetch_add(&archiveAttempts, 1) + 1;
+    if (attempt == 1) {
+        atomic_store(&archiveEntered, true);
+        dispatch_semaphore_signal(archiveStarted);
+        if (dispatch_semaphore_wait(archiveRelease, archiveDeadline(5)) != 0) {
+            atomic_store(&archiveTimedOut, true);
+        }
+    }
+    BOOL result = ((BOOL (*)(id, SEL, NSURL *, NSError **))archiveOriginal)(receiver, selector, url, error);
+    if (attempt == 1) {
+        atomic_store(&archiveDone, true);
+        dispatch_semaphore_signal(archiveFinished);
+    }
+    return result;
+}
+BOOL MWXArmArchivePublicationBarrier(id<MTLDevice> device, NSString *prefix) {
+    if (archiveOriginal) return NO;
+    id<MTLBinaryArchive> archive = [device newBinaryArchiveWithDescriptor:[MTLBinaryArchiveDescriptor new] error:NULL];
+    if (!archive) return NO;
+    Method method = class_getInstanceMethod(object_getClass(archive), @selector(serializeToURL:error:));
+    if (!method) return NO;
+    archivePrefix = [prefix copy];
+    archiveStarted = dispatch_semaphore_create(0);
+    archiveRelease = dispatch_semaphore_create(0);
+    archiveFinished = dispatch_semaphore_create(0);
+    archiveOriginal = method_getImplementation(method);
+    method_setImplementation(method, (IMP)archiveSerialize);
+    return YES;
+}
+BOOL MWXWaitArchivePublicationStarted(double seconds) {
+    return dispatch_semaphore_wait(archiveStarted, archiveDeadline(seconds)) == 0;
+}
+BOOL MWXArchivePublicationIsHeld(void) {
+    return atomic_load(&archiveEntered) && !atomic_load(&archiveReleased)
+        && !atomic_load(&archiveDone) && !atomic_load(&archiveTimedOut);
+}
+void MWXReleaseArchivePublication(void) {
+    atomic_store(&archiveReleased, true);
+    dispatch_semaphore_signal(archiveRelease);
+}
+BOOL MWXWaitArchivePublicationFinished(double seconds) {
+    return dispatch_semaphore_wait(archiveFinished, archiveDeadline(seconds)) == 0;
+}
+NSUInteger MWXArchiveSerializationAttempts(void) { return atomic_load(&archiveAttempts); }
+'''
 # Keep the production source closure reusable by the independent texture gate.
 FIXTURE_SOURCES = [
     FIXTURE_ROOT / "SceneResolvedMaterialPassFixture.swift",
@@ -124,6 +196,15 @@ class SceneResolvedMaterialPassEncoderTests(unittest.TestCase):
             environment["MWX_SCENE_PIPELINE_BINARY_ARCHIVE"] = str(
                 root / "pipeline-binary-archive"
             )
+            (root / "ArchivePublicationFault.h").write_text(ARCHIVE_FAULT_HEADER)
+            (root / "ArchivePublicationFault.m").write_text(ARCHIVE_FAULT_SOURCE)
+            archive_fault = subprocess.run(
+                ["xcrun", "clang", "-fobjc-arc", "-c", str(root / "ArchivePublicationFault.m"),
+                 "-o", str(root / "archive-publication-fault.o")],
+                cwd=REPOSITORY_ROOT, env=environment,
+                capture_output=True, text=True,
+            )
+            self.assertEqual(archive_fault.returncode, 0, archive_fault.stderr)
             compilation = subprocess.run(
                 [
                     "xcrun",
@@ -131,6 +212,8 @@ class SceneResolvedMaterialPassEncoderTests(unittest.TestCase):
                     "macosx",
                     "swiftc",
                     "-parse-as-library", "-D", "SCENE_GRAPH_TESTING",
+                    "-import-objc-header", str(root / "ArchivePublicationFault.h"),
+                    str(root / "archive-publication-fault.o"),
                     str(support),
                     *(str(path) for path in [*SWIFT_SOURCES, *FIXTURE_SOURCES]),
                     str(harness),

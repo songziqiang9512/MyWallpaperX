@@ -46,3 +46,13 @@
 真实persistent_cache_behavior及shader_dependency_cache_identity通过，分别覆盖各tier独立根、实际Frontend Bundle/私有HOME、异步文件发布、损坏/过期重建、包含文件内容变化、消费失效和新进程暖读。shader_persistent_cache其余key/schema门通过；原架构逐字句已在未改动HEAD中失效，退此prose断言而不恢复旧正文。dependency identity driver改为现有包式unittest入口的相对导入，不引入PYTHONPATH或新流程。可选memory insert返回值显式丢弃，只消除unused-result警告，不改变ready或持久发布。
 
 本段由这些tier自己的实际门证明，不借前段Generic两cache的通过；缓存cold/warm正确性和普通帧职责不等于实测启动/能耗改善。联合Debug通过，源码与原始失败及修正provenance在`.artifacts/scene-architecture-continuation-20261102/`的`preparation-four-cache-v2`、`catalog-preparation-core-v2`、`four-cache-*`和冻结cache发布包。PSO binary archive的准备等待另按其原owner与独立门核验。
+
+
+<a id="pso-ready-before-archive"></a>
+## PSO ready先于可选archive发布
+
+固定2026-11-03：原Archive owner用一次性utility DispatchWorkItem持有本次archive及最终descriptor，完整add/serialize/原子替换/prune退出PSO ready等待；不新建worker、pending状态、flush或unsafe Sendable。成功调用点之后直接返回，不再修改descriptor；失败重试先清旧binaryArchives、成功后才发布。原load、key、source compile、错误与恢复语义不变，pruneOnce仅锁内取得原once资格，I/O在锁外。
+
+同一受控真实serialize门作用于旧/新实现：旧版只在ReadyBeforePublication与EncodesBeforePublication两项失败，原冷暖、格式隔离、损坏恢复、坏根及GPU事实通过；新版全部通过。阻挡按实际key且有界自动放行，真实PSO/encode/pixel在发布仍阻挡时完成，不是sleep计时猜测或fake pipeline。暖读等待实际文件；正常帧的原cache miss不编译及不触archive断言保留。
+
+两个产品路径净增5行，其中Warmup仅注释同步；两测试路径扩真实故障注入及原门，所有原事实保持。provenance为`.artifacts/scene-architecture-continuation-20261102/`的`pso-archive-*`与`pso-publication-v1-*`。这是准备等待的因果反例，不能把受控延迟下的墙钟差异当用户启动、FPS或能耗收益；共享Support/Digest单份实现不因该变化复制或公开。

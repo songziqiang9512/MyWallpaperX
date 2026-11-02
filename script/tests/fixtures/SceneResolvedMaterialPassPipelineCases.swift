@@ -9,6 +9,15 @@ struct SceneResolvedMaterialPassPipelineResult {
     let crossDeviceExercised: Bool
 }
 
+private func waitForArchivePublication(_ condition: () -> Bool) -> Bool {
+    let deadline = Date().addingTimeInterval(5)
+    repeat {
+        if condition() { return true }
+        Thread.sleep(forTimeInterval: 0.01)
+    } while Date() < deadline
+    return condition()
+}
+
 func runSceneResolvedMaterialPassPipelineCases(
     device: MTLDevice,
     queue: MTLCommandQueue,
@@ -163,10 +172,17 @@ func runSceneResolvedMaterialPassPipelineCases(
     var binaryArchiveSafeMissOnCorruptEntry = false
     var binaryArchiveIdentitySeparatesFormats = false
     var framePreparationSkipsArchiveTier = false
+    var binaryArchiveReadyBeforePublication = false
+    var binaryArchiveEncodesBeforePublication = false
+    var binaryArchiveDeniedRootKeepsReadyOutput = false
+    let archiveColor: [UInt8] = [80, 160, 240, 255, 80, 160, 240, 255,
+                                80, 160, 240, 255, 80, 160, 240, 255]
     if let archiveProbe = program(
         device: device,
         marker: 901,
         outputSlot: 3,
+        slot0Texture: texture(device: device, fill: archiveColor),
+        slot3Texture: texture(device: device, fill: [UInt8](repeating: 255, count: 16)),
         uniformName: "g_ArchiveProbe"
     ), let archiveRoot = ProcessInfo.processInfo
         .environment["MWX_SCENE_PIPELINE_BINARY_ARCHIVE"],
@@ -206,17 +222,33 @@ func runSceneResolvedMaterialPassPipelineCases(
         let entriesBefore = tierEntries()
         let countersBefore =
             SceneResolvedMaterialPipelineBinaryArchive.counterSnapshot()
+        let barrierArmed = MWXArmArchivePublicationBarrier(
+            device, ".\(rgbaDigest).metalarchive.tmp-")
 
         // First launch: identity miss compiles from source and publishes.
         let firstLaunchEncoder =
             SceneResolvedMaterialPassEncoder(device: device)!
         let firstLaunchReport = firstLaunchEncoder.warmup([rgbaPlan])
+        let publicationStarted = barrierArmed && MWXWaitArchivePublicationStarted(5)
+        binaryArchiveReadyBeforePublication = publicationStarted && MWXArchivePublicationIsHeld()
+            && firstLaunchReport.readyKeyCount == 1 && firstLaunchReport.failedKeyCount == 0
+            && firstLaunchEncoder.cachedPipelineCount == 1
+            && !FileManager.default.fileExists(atPath: rgbaArchiveURL.path)
+        let firstPixels = render(archiveProbe, encoder: firstLaunchEncoder, queue: queue, target: rgbaTarget)
+        binaryArchiveEncodesBeforePublication = binaryArchiveReadyBeforePublication
+            && firstPixels.prepared && firstPixels.encoded && firstPixels.completed
+            && closePixels(firstPixels.pixels, archiveColor) && MWXArchivePublicationIsHeld()
+        if barrierArmed { MWXReleaseArchivePublication() }
+        let serializationFinished = barrierArmed && MWXWaitArchivePublicationFinished(5)
+        let firstFilePublished = waitForArchivePublication {
+            FileManager.default.fileExists(atPath: rgbaArchiveURL.path)
+        }
         let countersAfterFirst =
             SceneResolvedMaterialPipelineBinaryArchive.counterSnapshot()
         binaryArchivePublishedOnFirstLaunch =
             firstLaunchReport.readyKeyCount == 1
-            && countersAfterFirst.publications
-                == countersBefore.publications + 1
+            && serializationFinished && firstFilePublished
+            && MWXArchiveSerializationAttempts() == 1
             && countersAfterFirst.hits == countersBefore.hits
             && !entriesBefore.contains(rgbaArchiveName)
             && tierEntries().contains(rgbaArchiveName)
@@ -229,6 +261,7 @@ func runSceneResolvedMaterialPassPipelineCases(
             secondLaunchEncoder.pipelineCompilationAttemptCount
         let countersAfterSecond =
             SceneResolvedMaterialPipelineBinaryArchive.counterSnapshot()
+        let serializationsAfterSecond = MWXArchiveSerializationAttempts()
         let consumedFromWarmup = secondLaunchEncoder.prepare(
             program: archiveProbe,
             target: rgbaTarget
@@ -236,8 +269,7 @@ func runSceneResolvedMaterialPassPipelineCases(
         binaryArchiveHitOnSecondLaunch =
             secondLaunchReport.readyKeyCount == 1
             && countersAfterSecond.hits == countersAfterFirst.hits + 1
-            && countersAfterSecond.publications
-                == countersAfterFirst.publications
+            && serializationsAfterSecond == 1
             && secondLaunchEncoder.pipelineCompilationAttemptCount
                 == secondLaunchAttempts
             && consumedFromWarmup
@@ -251,6 +283,10 @@ func runSceneResolvedMaterialPassPipelineCases(
         let thirdLaunchEncoder =
             SceneResolvedMaterialPassEncoder(device: device)!
         let thirdLaunchReport = thirdLaunchEncoder.warmup([rgbaPlan])
+        let healed = waitForArchivePublication {
+            guard let data = try? Data(contentsOf: rgbaArchiveURL) else { return false }
+            return !data.isEmpty && data != corruptedBytes
+        }
         let countersAfterThird =
             SceneResolvedMaterialPipelineBinaryArchive.counterSnapshot()
         let healedBytes = (try? Data(contentsOf: rgbaArchiveURL)) ?? Data()
@@ -259,8 +295,7 @@ func runSceneResolvedMaterialPassPipelineCases(
             && thirdLaunchReport.readyKeyCount == 1
             && countersAfterThird.invalidLoads
                 == countersAfterSecond.invalidLoads + 1
-            && countersAfterThird.publications
-                == countersAfterSecond.publications + 1
+            && healed && MWXArchiveSerializationAttempts() == serializationsAfterSecond + 1
             && healedBytes != corruptedBytes
 
         // Attachment format participates in the identity: a separate
@@ -268,17 +303,22 @@ func runSceneResolvedMaterialPassPipelineCases(
         let entriesBeforeBgra = tierEntries()
         let countersBeforeBgra =
             SceneResolvedMaterialPipelineBinaryArchive.counterSnapshot()
+        let bgraKey = archiveProbe.metalCompileStateKey(
+            attachmentPixelFormat: .bgra8Unorm, sampleCount: 1, device: device)!
+        let bgraDigest = SceneResolvedMaterialPipelineBinaryArchive.keyDigest(key: bgraKey)!
+        let bgraName = "\(bgraDigest).metalarchive"
+        let rgbaBeforeBgra = (try? Data(contentsOf: rgbaArchiveURL)) ?? Data()
         let bgraLaunchEncoder =
             SceneResolvedMaterialPassEncoder(device: device)!
         let bgraLaunchReport = bgraLaunchEncoder.warmup([bgraPlan])
+        let bgraPublished = waitForArchivePublication { tierEntries().contains(bgraName) }
         let countersAfterBgra =
             SceneResolvedMaterialPipelineBinaryArchive.counterSnapshot()
         binaryArchiveIdentitySeparatesFormats =
             bgraLaunchReport.readyKeyCount == 1
-            && countersAfterBgra.publications
-                == countersBeforeBgra.publications + 1
+            && bgraDigest != rgbaDigest && bgraPublished && !entriesBeforeBgra.contains(bgraName)
             && countersAfterBgra.hits == countersBeforeBgra.hits
-            && tierEntries().count == entriesBeforeBgra.count + 1
+            && ((try? Data(contentsOf: rgbaArchiveURL)) ?? Data()) == rgbaBeforeBgra
 
         // A new valid Program needs preparation before its frame can draw.
         let countersBeforeFrame =
@@ -296,12 +336,36 @@ func runSceneResolvedMaterialPassPipelineCases(
                 program: $0, target: rgbaTarget) { return true }
             return false
         } ?? false
+        let countersAfterFrame = SceneResolvedMaterialPipelineBinaryArchive.counterSnapshot()
         framePreparationSkipsArchiveTier =
             frameOnlyRejected
             && firstLaunchEncoder.pipelineCompilationAttemptCount == attemptsBeforeFrame
             && firstLaunchEncoder.metalLibraryCompilationAttemptCount == librariesBeforeFrame
-            && SceneResolvedMaterialPipelineBinaryArchive.counterSnapshot()
-                == countersBeforeFrame
+            && countersAfterFrame.absentLoads == countersBeforeFrame.absentLoads
+            && countersAfterFrame.invalidLoads == countersBeforeFrame.invalidLoads
+            && countersAfterFrame.hits == countersBeforeFrame.hits
+            && countersAfterFrame.archiveRetries == countersBeforeFrame.archiveRetries
+
+        // The process-private root stays blocked through exit; publication may
+        // continue after ready, so restoring a global environment early is invalid.
+        let blockedRoot = URL(fileURLWithPath: archiveRoot, isDirectory: true)
+            .appendingPathComponent("not-a-directory")
+        let deniedRootInstalled = ((try? Data([1]).write(to: blockedRoot)) != nil)
+            && setenv("MWX_SCENE_PIPELINE_BINARY_ARCHIVE", blockedRoot.path, 1) == 0
+        let deniedBefore = SceneResolvedMaterialPipelineBinaryArchive.counterSnapshot()
+        let deniedEncoder = SceneResolvedMaterialPassEncoder(device: device)!
+        let deniedReport = deniedEncoder.warmup([rgbaPlan])
+        let deniedAfterWarmup = SceneResolvedMaterialPipelineBinaryArchive.counterSnapshot()
+        let deniedPixels = render(archiveProbe, encoder: deniedEncoder, queue: queue, target: rgbaTarget)
+        let deniedPublication = waitForArchivePublication {
+            SceneResolvedMaterialPipelineBinaryArchive.counterSnapshot().publicationFailures > deniedBefore.publicationFailures
+        }
+        binaryArchiveDeniedRootKeepsReadyOutput = deniedRootInstalled
+            && deniedReport.readyKeyCount == 1 && deniedReport.failedKeyCount == 0
+            && deniedAfterWarmup.absentLoads == deniedBefore.absentLoads + 1
+            && deniedAfterWarmup.hits == deniedBefore.hits
+            && deniedPixels.prepared && deniedPixels.encoded && deniedPixels.completed
+            && closePixels(deniedPixels.pixels, archiveColor) && deniedPublication
     }
 
     var crossDeviceExercised = false
@@ -367,6 +431,9 @@ func runSceneResolvedMaterialPassPipelineCases(
         "binaryArchiveSafeMissOnCorruptEntry": binaryArchiveSafeMissOnCorruptEntry,
         "binaryArchiveIdentitySeparatesFormats": binaryArchiveIdentitySeparatesFormats,
         "framePreparationSkipsArchiveTier": framePreparationSkipsArchiveTier,
+        "binaryArchiveReadyBeforePublication": binaryArchiveReadyBeforePublication,
+        "binaryArchiveEncodesBeforePublication": binaryArchiveEncodesBeforePublication,
+        "binaryArchiveDeniedRootKeepsReadyOutput": binaryArchiveDeniedRootKeepsReadyOutput,
     ]
     return .init(facts: facts, crossDeviceExercised: crossDeviceExercised)
 }
