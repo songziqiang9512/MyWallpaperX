@@ -209,7 +209,7 @@ func sameLayerCompositeOverrideTokens(_ device: MTLDevice) -> [String: String] {
                 ) else { result[prefix + ":" + statusName] = "frame-failed"; continue }
                 let finalized = SceneResolvedMaterialProgramFinalizer.finalize(
                     frame.finalizationInput(
-                        template: value, layerID: layerID, renderSize: CGSize(width: 640, height: 360),
+                        layerID: layerID, renderSize: CGSize(width: 640, height: 360),
                         modelViewProjection: matrix_identity_float4x4, layerModelMatrix: layerModelMatrix,
                         effectOutputModelViewProjection: effectOutputModelViewProjection,
                         effectTextureProjectionMatrixInverse: effectProjectionInverse,

@@ -195,9 +195,9 @@ private func runAlphaMaterial(_ value: AlphaCase, name: String, content: SceneTe
             row["opaqueOutput"] = contract.fragmentOutput == .resolved(.opaque)
         }
         row["sameInputAtom"] = program.textureSlots[value.slot]?.resource.publication.isSameAtom(as: resource.publication) ?? false
-        row["inputMask"] = program.resolvedUniforms.first {
-            $0.field.name == SceneShaderColorBoundary.uniformName
-        }.map { $0.encodedValue.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) } } ?? 0
+        row["inputMask"] = zip(program.preparedAssembly.preparedUniformBindings, program.resolvedUniforms).first {
+            $0.0.field.name == SceneShaderColorBoundary.uniformName
+        }.map { $0.1.encodedValue.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) } } ?? 0
         guard let encoder = SceneResolvedMaterialPassEncoder(device: device),
               let command = queue.makeCommandBuffer() else { return row }
         let target = makeSource(device, width: 2, height: 2, usage: [.renderTarget, .shaderRead])

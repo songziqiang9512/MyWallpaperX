@@ -207,8 +207,7 @@ func namedProviderRuntimePurposeTokens(
             return "frame-rejected"
         }
         let input = snapshot.finalizationInput(
-            template: admitted,
-                        layerID: 9001,
+            layerID: 9001,
                         renderSize: CGSize(width: 2, height: 2),
             modelViewProjection: matrix_identity_float4x4,
             layerModelMatrix: matrix_identity_float4x4,
@@ -247,11 +246,11 @@ func namedProviderRuntimePurposeTokens(
 }
 
 func inputAssociationMask(_ program: Program) -> UInt32? {
-    guard let uniform = program.resolvedUniforms.first(where: {
-        if case .host(.premultipliedColorInputMask) = $0.source { return true }
+    guard let uniform = zip(program.preparedAssembly.preparedUniformBindings, program.resolvedUniforms).first(where: {
+        if case .host(.premultipliedColorInputMask) = $0.0.source { return true }
         return false
-    }), uniform.encodedValue.count == 4 else { return nil }
-    return uniform.encodedValue.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) }
+    }), uniform.1.encodedValue.count == 4 else { return nil }
+    return uniform.1.encodedValue.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) }
 }
 
 func rtDefaultAdmissionTokens(_ device: MTLDevice) -> [String: String] {

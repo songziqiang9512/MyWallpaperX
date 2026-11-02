@@ -176,8 +176,7 @@ private func rgbFinalization(_ cache: SceneResolvedMaterialVariantCache, value: 
         consumerLayerID: layerID, resource: background) else {
         return .failure(.init(phase: .texture, code: .resourceSnapshotUnresolved))
     }
-    return SceneResolvedMaterialProgramFinalizer.finalize(snapshot.finalizationInput(template: value.template,
-        layerID: layerID, renderSize: CGSize(width: 2, height: 2),
+    return SceneResolvedMaterialProgramFinalizer.finalize(snapshot.finalizationInput(layerID: layerID, renderSize: CGSize(width: 2, height: 2),
         modelViewProjection: matrix_identity_float4x4, layerModelMatrix: matrix_identity_float4x4,
         effectOutputModelViewProjection: matrix_identity_float4x4,
         effectTextureProjectionMatrixInverse: matrix_identity_float4x4,
@@ -211,9 +210,9 @@ private func rgbRun(_ value: RGBCase, device: MTLDevice, queue: MTLCommandQueue)
         row["sameAtoms"] = zip([0,1,3], [source, replacement, background]).map { slot, resource in
             program.textureSlots[slot]?.resource.publication.isSameAtom(as: resource.publication) ?? false
         }
-        row["inputMask"] = program.resolvedUniforms.first {
-            $0.field.name == SceneShaderColorBoundary.uniformName
-        }.map { $0.encodedValue.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) } } ?? 0
+        row["inputMask"] = zip(program.preparedAssembly.preparedUniformBindings, program.resolvedUniforms).first {
+            $0.0.field.name == SceneShaderColorBoundary.uniformName
+        }.map { $0.1.encodedValue.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) } } ?? 0
     }
     let chain = admittedGraph(value.graph)
     let catalog = SceneResolvedMaterialRuntimeCatalog(entries: [

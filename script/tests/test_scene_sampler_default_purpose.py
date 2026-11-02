@@ -281,7 +281,6 @@ private func sampler(
 }
 
 private func input(
-    _ template: Template,
     entries: [SceneFrameTextureIdentity: SceneFrameTextureLookupStatus],
     implicitFramebufferIdentity: SceneAuthoredEffectRenderPlan.TextureIdentity? = nil
 ) -> SceneResolvedMaterialFinalizationInput? {
@@ -300,7 +299,7 @@ private func input(
         dynamicSnapshot: dynamic, frameInputs: frameInputs
     ) else { return nil }
     return frame.finalizationInput(
-        template: template, layerID: implicitFramebufferIdentity?.layerID ?? 0,
+        layerID: implicitFramebufferIdentity?.layerID ?? 0,
         renderSize: CGSize(width: 2, height: 2),
         modelViewProjection: matrix_identity_float4x4,
         layerModelMatrix: matrix_identity_float4x4,
@@ -344,7 +343,7 @@ private func finalize(
     cache: SceneResolvedMaterialVariantCache,
     entries: [SceneFrameTextureIdentity: SceneFrameTextureLookupStatus]
 ) -> Result<Program, SceneResolvedMaterialFailure>? {
-    guard let input = input(template, entries: entries) else { return nil }
+    guard let input = input(entries: entries) else { return nil }
     return SceneResolvedMaterialProgramFinalizer.finalize(input, variantCache: cache)
 }
 
@@ -648,14 +647,14 @@ private func selfCompositeSelections(_ device: MTLDevice) throws -> [String: Boo
         var publications = entries
         publications[.graph(identity)] = .ready(.init(publication: .init(requestIdentity: .graph(identity),
             candidate: graphCandidate, contentGeneration: 1), resourceGeneration: 1))
-        let finalization = input(value, entries: publications, implicitFramebufferIdentity: identity)!
+        let finalization = input(entries: publications, implicitFramebufferIdentity: identity)!
         if verifyVariantKey {
-            _ = try SceneResolvedMaterialTextureResolver.variantKey(finalization, samplers: [0: active],
+            _ = try SceneResolvedMaterialTextureResolver.variantKey(finalization, textureSlots: value.textureSlots, samplers: [0: active],
                 reachableTexturePurposes: facts.candidatePurposes, formatSlots: [], channelUses: [0: .wholeVector],
                 allowPresenceIndependentDefaults: false, textureSelectionFacts: facts,
                 graphInputSourceSlotFacts: graphFacts)
         }
-        return try SceneResolvedMaterialTextureSelection.resolve(finalization, samplers: [0: active],
+        return try SceneResolvedMaterialTextureSelection.resolve(finalization, textureSlots: value.textureSlots, samplers: [0: active],
             reachableTexturePurposes: facts.candidatePurposes, channelUses: [0: .wholeVector],
             allowPresenceIndependentDefaults: false, textureSelectionFacts: facts,
             graphInputSourceSlotFacts: graphFacts)[0]

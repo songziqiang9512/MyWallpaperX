@@ -354,10 +354,17 @@ struct TestSampler {
     let purposes: [TestReference: String]
     func purpose(for reference: TestReference) -> String? { purposes[reference] }
 }
+enum SceneDynamicTarget: String, Hashable { case declaredLive, declaredInactive }
 struct TestTemplate {
     struct Slot { struct Candidate { let reference: TestReference }; let candidates: [Candidate] }
+    struct UniformDeclaration {
+        struct Dynamic { let target: SceneDynamicTarget }
+        enum Value { case staticExact, dynamic(Dynamic) }
+        let value: Value
+    }
     let textureSlots: [Slot?]
     let renderState: Int
+    var uniformDeclarations: [UniformDeclaration] = []
     var fixture = TestVariantFixture()
 }
 struct TestVariantFixture {
@@ -439,10 +446,13 @@ final class SceneResolvedMaterialRuntimeBridge {
     typealias LogSink = (String) -> Void
     struct PreparedSourceMaterial {
         enum OutputDomain { case sampledAsset(SceneAssetTextureIdentity), baseImage, capturedMain }
+        let declaredDynamicTargets: Set<SceneDynamicTarget>
         let outputDomain: OutputDomain
         let sharedModelPath: String?
-        init(template: TestTemplate, bindFrame: @escaping (Int) -> Int, pixelFormat: MTLPixelFormat,
+        init(declaredDynamicTargets: Set<SceneDynamicTarget>,
+             bindFrame: @escaping (Int) -> Int, pixelFormat: MTLPixelFormat,
              outputDomain: OutputDomain, sharedModelPath: String?) {
+            self.declaredDynamicTargets = declaredDynamicTargets
             self.outputDomain = outputDomain
             self.sharedModelPath = sharedModelPath
         }
@@ -819,11 +829,13 @@ enum Checks {
         func sourceCase(_ name: String,
                         variants: [SceneResolvedMaterialVariantCache.Variant],
                         slots: [TestTemplate.Slot?]? = nil,
+                        uniformDeclarations: [TestTemplate.UniformDeclaration] = [],
                         allEntriesReady: Bool = true, schemaAccepted: Bool = true,
                         precompileAccepted: Bool = true,
                         capturesMainTarget: Bool = false,
                         warmupReport: SceneResolvedMaterialPassEncoder.Report? = nil) {
             let template = TestTemplate(textureSlots: slots ?? [colorSlot], renderState: 0,
+                uniformDeclarations: uniformDeclarations,
                 fixture: .init(schemaAccepted: schemaAccepted,
                     precompileAccepted: precompileAccepted, allEntriesReady: allEntriesReady,
                     variants: variants))
@@ -852,12 +864,19 @@ enum Checks {
                 "preparedCount": prepared.count, "outputDomain": domain,
                 "sampledPath": sampledPath, "sampledPurpose": sampledPurpose,
                 "sharedModelPath": prepared[17]?.sharedModelPath ?? "",
+                "declaredDynamicTargets": prepared[17]?.declaredDynamicTargets.map(\.rawValue).sorted() ?? [],
                 "warmupCalls": encoder.warmupCalls, "warmupPlanCount": encoder.warmupPlanCount,
                 "reasons": logs.compactMap { $0.components(separatedBy: " reason=").dropFirst().first },
                 "logs": logs,
             ]
         }
         sourceCase("sourceInactive", variants: inactiveVariants)
+        sourceCase("sourceDeclaredTargets", variants: inactiveVariants, uniformDeclarations: [
+            .init(value: .dynamic(.init(target: .declaredLive))),
+            .init(value: .dynamic(.init(target: .declaredInactive))),
+            .init(value: .dynamic(.init(target: .declaredLive))),
+            .init(value: .staticExact),
+        ])
         sourceCase("sourceInactiveNoCandidate", variants: inactiveVariants, slots: [])
         sourceCase("sourceOtherSamplerOnly", variants: [variant("other-a", otherSampler: true),
                                                          variant("other-b", otherSampler: true)])

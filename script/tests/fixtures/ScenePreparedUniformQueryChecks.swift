@@ -8,7 +8,6 @@ private enum ScenePreparedUniformQueryChecks {
     struct FixtureError: Error { let message: String }
 
     struct Prepared {
-        let material: Template
         let cache: SceneResolvedMaterialVariantCache
         let bindings: [SceneResolvedMaterialPreparedUniformBinding]
         let keys: [String]
@@ -71,12 +70,12 @@ private enum ScenePreparedUniformQueryChecks {
             throw FixtureError(message: "one prepared variant required")
         }
         let bindings = keys.compactMap { key in
-            variant.preparedUniformBindings.first {
+            variant.preparedAssembly.preparedUniformBindings.first {
                 variant.activeUniforms[$0.field.name]?.materialKeys.contains(key) == true
             }
         }
         guard bindings.count == keys.count else { throw FixtureError(message: "prepared point missing") }
-        return .init(material: material, cache: cache, bindings: bindings, keys: keys)
+        return .init(cache: cache, bindings: bindings, keys: keys)
     }
 
     static func resolution(_ key: String = "anchor", value: SceneDynamicValue = .vector2(0.25, 0.75),
@@ -92,14 +91,14 @@ private enum ScenePreparedUniformQueryChecks {
             sceneScriptValues: source == .sceneScript ? values : [:])
     }
 
-    static func input(_ prepared: Prepared, _ snapshot: SceneDynamicSnapshot,
+    static func input(_ snapshot: SceneDynamicSnapshot,
         textureFrame: UInt64? = nil
     ) throws -> SceneResolvedMaterialFinalizationInput {
         let texture = SceneFrameTextureRegistrySnapshot(frameEpoch: 1,
             frameIndex: textureFrame ?? snapshot.frameIndex, entries: [:])
         let frame = try SceneResolvedMaterialFrameSnapshot.validated(textureSnapshot: texture,
             dynamicSnapshot: snapshot, frameInputs: frameInputs(frameIndex: snapshot.frameIndex)).get()
-        return frame.finalizationInput(template: prepared.material, layerID: 73,
+        return frame.finalizationInput(layerID: 73,
             renderSize: CGSize(width: 320, height: 180),
             modelViewProjection: matrix_identity_float4x4, layerModelMatrix: matrix_identity_float4x4,
             effectOutputModelViewProjection: matrix_identity_float4x4,
@@ -108,7 +107,7 @@ private enum ScenePreparedUniformQueryChecks {
 
     static func finalize(_ prepared: Prepared, _ snapshot: SceneDynamicSnapshot)
         throws -> Result<Program, SceneResolvedMaterialFailure> {
-        SceneResolvedMaterialProgramFinalizer.finalize(try input(prepared, snapshot),
+        SceneResolvedMaterialProgramFinalizer.finalize(try input(snapshot),
             variantCache: prepared.cache)
     }
 
@@ -117,34 +116,23 @@ private enum ScenePreparedUniformQueryChecks {
         return withUnsafeBytes(of: &pair) { Data($0) }
     }
 
-    static func sameSource(_ a: Program.ResolvedUniform.Source,
-        _ b: Program.ResolvedUniform.Source) -> Bool {
-        switch (a, b) {
-        case (.staticValue, .staticValue): return true
-        case let (.dynamic(ad, at, ar, aa), .dynamic(bd, bt, br, ba)):
-            return ad == bd && at == bt && ar == br && aa == ba
-        default: return false
-        }
-    }
-
     static func matches(_ prepared: Prepared, _ snapshot: SceneDynamicSnapshot,
         expected: SIMD2<Double>, resolvedSource: SceneDynamicSource? = nil
     ) throws -> Bool {
         guard let binding = prepared.bindings.first,
               let point = Program.resolvePreparedPoint(binding, snapshot: snapshot),
               case let .success(program) = try finalize(prepared, snapshot),
-              let actual = program.resolvedUniforms.first(where: { $0.field == binding.field })
+              let actual = zip(program.preparedAssembly.preparedUniformBindings, program.resolvedUniforms).first(where: { $0.0 == binding })
         else { return false }
         let queried = try Program.resolvedAuthoredUniform(binding, snapshot: snapshot)
         let bytes = expectedBytes(expected.x, expected.y)
         if let resolvedSource {
-            guard case let .dynamic(_, _, source, _) = actual.source,
-                  source == resolvedSource else { return false }
+            guard actual.1.resolvedSource == resolvedSource else { return false }
         }
         return point == SIMD2(Float(expected.x), Float(expected.y))
-            && queried.encodedValue == bytes && actual.encodedValue == bytes
+            && queried.encodedValue == bytes && actual.1.encodedValue == bytes
             && program.uniformBytes.subdata(in: binding.field.offset ..< binding.field.offset + 8) == bytes
-            && sameSource(queried.source, actual.source)
+            && queried.resolvedSource == actual.1.resolvedSource
     }
 
     static func failureMatches(_ prepared: Prepared, _ snapshot: SceneDynamicSnapshot) throws -> Bool {
@@ -184,10 +172,10 @@ private enum ScenePreparedUniformQueryChecks {
                 let queries = try role.enumerated().map { offset, binding -> SIMD2<Float> in
                     let queried = try Program.resolvedAuthoredUniform(binding, snapshot: snapshot)
                     let expected = expectedBytes(points[offset].x, points[offset].y)
-                    let actual = program.resolvedUniforms.first { $0.field == binding.field }
-                    exact = exact && queried.encodedValue == expected && actual?.encodedValue == expected
+                    let actual = zip(program.preparedAssembly.preparedUniformBindings, program.resolvedUniforms).first { $0.0 == binding }
+                    exact = exact && queried.encodedValue == expected && actual?.1.encodedValue == expected
                         && program.uniformBytes.subdata(in: binding.field.offset ..< binding.field.offset + 8) == expected
-                        && actual.map { sameSource(queried.source, $0.source) } == true
+                        && actual.map { queried.resolvedSource == $0.1.resolvedSource } == true
                     guard let point = Program.resolvePreparedPoint(binding, snapshot: snapshot) else {
                         throw FixtureError(message: "prepared point projection unavailable")
                     }
@@ -221,6 +209,10 @@ private enum ScenePreparedUniformQueryChecks {
             facts[label + "-authored-fallback-source-and-bytes"] = try matches(prepared,
                 resolution(source: .authored).snapshot, expected: SIMD2(0.25,0.75), resolvedSource: .authored)
             let first = try finalize(prepared, resolution(source: source).snapshot).get()
+            let fallback = try finalize(prepared, resolution(source: .authored).snapshot).get()
+            facts[label + "-fallback-source-changes-exact-with-same-bytes"] =
+                first.uniformBytes == fallback.uniformBytes && first.semanticIdentity == fallback.semanticIdentity
+                && first.exactIdentity != fallback.exactIdentity
             let nextSnapshot = resolution(value: .vector2(0.5,0.125), source: source, frame: 18).snapshot
             let next = try finalize(prepared, nextSnapshot).get()
             let nextMatches = try matches(prepared, nextSnapshot,
@@ -282,14 +274,15 @@ private enum ScenePreparedUniformQueryChecks {
         var expected = SIMD4<Float>(0.2,0.4,0.6,0)
         let expectedVector3 = withUnsafeBytes(of: &expected) { Data($0) }
         var mismatch: SceneResolvedMaterialFailure?
-        do { _ = try input(vector3, snapshot, textureFrame: 43) }
+        do { _ = try input(snapshot, textureFrame: 43) }
         catch let failure as SceneResolvedMaterialFailure { mismatch = failure }
         return [
             "non-float2-keeps-valid-shader-uniform-but-is-not-geometry":
                 Program.resolvePreparedPoint(binding, snapshot: snapshot) == nil
                 && queried.encodedValue.count == 16
                 && queried.encodedValue == expectedVector3
-                && program.resolvedUniforms.contains { $0.field == binding.field && $0.encodedValue == queried.encodedValue },
+                && zip(program.preparedAssembly.preparedUniformBindings, program.resolvedUniforms).contains {
+                    $0.0 == binding && $0.1.encodedValue == queried.encodedValue },
             "frame-mismatch-remains-original-pre-finalization-failure": mismatch?.phase == .invariant
                 && mismatch?.code == .frameSnapshotMismatch,
             "no-texture-resource-or-finalizer-slot-created": program.textureSlots.allSatisfy { $0 == nil },

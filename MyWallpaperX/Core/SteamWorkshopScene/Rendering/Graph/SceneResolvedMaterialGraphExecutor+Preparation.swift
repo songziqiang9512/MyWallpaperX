@@ -29,7 +29,7 @@ extension SceneResolvedMaterialGraphExecutor {
             1 / Float(target.width), 1 / Float(target.height), 1, 1
         ))
         let input = inputFrame.finalizationInput(
-            template: source.material.template, layerID: layerID,
+            layerID: layerID,
             renderSize: CGSize(width: target.width, height: target.height),
             modelViewProjection: frameInputs.effectOutputModelViewProjection * pixelsToUnit,
             layerModelMatrix: source.unitModelMatrix * pixelsToUnit,
@@ -277,7 +277,6 @@ extension SceneResolvedMaterialGraphExecutor {
                 }
                 let finalized = SceneResolvedMaterialProgramFinalizer.finalize(
                     overlaid.finalizationInput(
-                        template: material.template,
                         layerID: node.effect.layerID,
                         renderSize: CGSize(width: target.width, height: target.height),
                         modelViewProjection: authoredGeometry?.captureModelViewProjection

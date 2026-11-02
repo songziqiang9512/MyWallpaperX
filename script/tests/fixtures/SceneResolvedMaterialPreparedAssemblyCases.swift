@@ -12,37 +12,27 @@ func scenePreparedAssemblyRegressionCases(
         state: "fixture", fallbackOwner: "none"
     )
     let frontend = baseline.frontendProgram
-    func prepare(_ candidate: SceneAuthoredShaderProgram) -> Program.PreparedAssembly? {
+    func prepare(_ candidate: SceneAuthoredShaderProgram,
+                 bindings: [SceneResolvedMaterialPreparedUniformBinding]? = nil) -> Program.PreparedAssembly? {
         try? Program.PreparedAssembly(
             preparedShader: baseline.preparedShader,
             frontend: candidate, renderState: baseline.renderState,
             runtimeLoopBounds: baseline.runtimeLoopBounds,
-            hasEffectContext: false,
+            preparedUniformBindings: bindings ?? baseline.preparedAssembly.preparedUniformBindings,
             conditionalGeneratedRGBInputContract: nil,
             associatedOverOverlaySlot: nil, premultipliedColorInputSlots: []
         )
     }
     guard let prepared = prepare(frontend),
-          let scalarIndex = baseline.resolvedUniforms.firstIndex(where: {
+          let scalarIndex = baseline.preparedAssembly.preparedUniformBindings.firstIndex(where: {
               $0.field.type == .float && $0.field.arrayCount == nil
           }), let originalSlot = baseline.textureSlots[0] else {
         return ["preparedAssemblyFixtureReady": false]
     }
-    let originalUniform = baseline.resolvedUniforms[scalarIndex]
-    let target = SceneDynamicTarget.effectConstant(
-        layerID: 71, effectIndex: 2, passIndex: 3,
-        name: originalUniform.field.name
-    )
-    func uniforms(_ gain: Float, source: SceneDynamicSource = .timeline)
-        -> [Program.ResolvedUniform] {
+    func uniforms(_ gain: Float) -> [Program.ResolvedUniform] {
         var value = gain
         var result = baseline.resolvedUniforms
-        result[scalarIndex] = .init(
-            field: originalUniform.field,
-            source: .dynamic(declared: .timeline, target: target,
-                             resolvedSource: source, scriptAttachments: []),
-            encodedValue: withUnsafeBytes(of: &value) { Data($0) }
-        )
+        result[scalarIndex] = .init(encodedValue: withUnsafeBytes(of: &value) { Data($0) })
         return result
     }
     func frame(
@@ -60,8 +50,7 @@ func scenePreparedAssemblyRegressionCases(
         Program.assemblePrepared(input, prepared: prepared, routeDecision: route)
     }
     guard let first = assemble(frame(uniforms(0.25))),
-          let second = assemble(frame(uniforms(0.75))),
-          let authored = assemble(frame(uniforms(0.25, source: .authored))) else {
+          let second = assemble(frame(uniforms(0.75))) else {
         return ["preparedAssemblyFixtureFramesReady": false]
     }
     let candidate = originalSlot.resource.publication.candidate
@@ -109,14 +98,6 @@ func scenePreparedAssemblyRegressionCases(
         mappedSize: CGSize(width: 1, height: 1),
         uv: .init(origin: .zero, xAxis: SIMD2(0.5, 0), yAxis: SIMD2(0, 0.5))
     )))
-    let raw = Program.assembleCompiled(.init(
-        preparedShader: baseline.preparedShader,
-        textureSlots: baseline.textureSlots,
-        resolvedUniforms: uniforms(0.25),
-        renderState: baseline.renderState,
-        graphRole: baseline.semanticIdentity.graphRole
-    ), frontend: frontend, routeDecision: route,
-       conditionalGeneratedRGBInputContract: nil)
 
     func alteredFrontend(
         layout: SceneAuthoredShaderUniformLayout? = nil,
@@ -193,6 +174,8 @@ func scenePreparedAssemblyRegressionCases(
     let firstKey = first.metalCompileStateKey(
         attachmentPixelFormat: .bgra8Unorm, sampleCount: 1, device: device
     )
+    var truncated = uniforms(0.25)
+    truncated[scalarIndex] = .init(encodedValue: Data(truncated[scalarIndex].encodedValue.dropLast()))
     var results = [
         "preparedAssemblyRejectsOutOfRangeUniformBuffer": prepare(alteredFrontend(uniformBufferIndex: -1)) == nil
             && prepare(alteredFrontend(uniformBufferIndex: 31)) == nil,
@@ -204,7 +187,12 @@ func scenePreparedAssemblyRegressionCases(
         "preparedFactoryRejectsWrongSamplerName": prepare(wrongName) == nil,
         "preparedFactoryRejectsZeroPaddedSamplerName": prepare(zeroPaddedName) == nil,
         "preparedFactoryAcceptsCanonicalSamplerName": prepare(canonicalName) != nil,
-        "preparedRawAndFrameAssemblyAgree": raw?.exactIdentity == first.exactIdentity,
+        "preparedFactoryRejectsMissingUniformBinding": prepare(frontend,
+            bindings: Array(prepared.preparedUniformBindings.dropLast())) == nil,
+        "preparedFactoryRejectsReorderedUniformBindings": prepare(frontend,
+            bindings: Array(prepared.preparedUniformBindings.reversed())) == nil,
+        "preparedFrameRejectsMissingUniformValue": assemble(frame(Array(uniforms(0.25).dropLast()))) == nil,
+        "preparedFrameRejectsTruncatedUniformBytes": assemble(frame(truncated)) == nil,
         "preparedSerialFramesKeepStaticShaderAndState": (1 ... 60).allSatisfy {
             guard let next = assemble(frame(uniforms(Float($0) / 100))) else { return false }
             return next.semanticIdentity.shader == prepared.shaderIdentity
@@ -213,9 +201,6 @@ func scenePreparedAssemblyRegressionCases(
         },
         "preparedUniformValueChangesExact": first.semanticIdentity == second.semanticIdentity
             && first.uniformBytes != second.uniformBytes && first.exactIdentity != second.exactIdentity,
-        "preparedResolvedSourceStillChangesExact": authored.semanticIdentity == first.semanticIdentity
-            && authored.exactIdentity != first.exactIdentity,
-        "preparedWrongDynamicSourceRejected": assemble(frame(uniforms(0.25, source: .userProperty))) == nil,
         "preparedCurrentGenerationChangesExact": renewed?.semanticIdentity == first.semanticIdentity
             && renewed != nil && renewed?.exactIdentity != first.exactIdentity,
         "preparedCurrentContentChangesSemanticAndOutput": opaque != nil

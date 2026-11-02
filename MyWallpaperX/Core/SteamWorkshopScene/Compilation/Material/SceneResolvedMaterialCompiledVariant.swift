@@ -159,9 +159,9 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
         SceneResolvedMaterialProgramDerivation
             .SameAlphaReconstructedRGBInputContract?
     let activeUniforms: [String: Uniform]
-    let preparedUniformBindings: [
-        SceneResolvedMaterialPreparedUniformBinding
-    ]
+    var preparedUniformBindings: [SceneResolvedMaterialPreparedUniformBinding] {
+        preparedAssembly.preparedUniformBindings
+    }
     let neutralTextureResolution:
         SceneAuthoredShaderNeutralTextureResolutionFact?
     let preservesTargetPixelFootprint: Bool
@@ -185,9 +185,6 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
             SceneResolvedMaterialProgramDerivation
                 .SameAlphaReconstructedRGBInputContract?,
         activeUniforms: [String: Uniform],
-        preparedUniformBindings: [
-            SceneResolvedMaterialPreparedUniformBinding
-        ],
         neutralTextureResolution:
             SceneAuthoredShaderNeutralTextureResolutionFact?,
         preservesTargetPixelFootprint: Bool = false
@@ -208,7 +205,6 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
         self.sameAlphaReconstructedRGBInputContract =
             sameAlphaReconstructedRGBInputContract
         self.activeUniforms = activeUniforms
-        self.preparedUniformBindings = preparedUniformBindings
         self.neutralTextureResolution = neutralTextureResolution
         self.preservesTargetPixelFootprint = preservesTargetPixelFootprint
     }

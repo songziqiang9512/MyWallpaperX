@@ -13,23 +13,22 @@ extension SceneResolvedMaterialGraphExecutor {
         frameInputs: SceneResolvedMaterialRuntimeBridge.FrameInputs
     ) {
         guard capturesExecutionDiagnostics else { return }
-        for uniform in program.resolvedUniforms {
-            guard uniform.field.arrayCount == nil,
-                  case let .dynamic(
-                      declared: declared,
-                      target: target,
-                      resolvedSource: resolvedSource,
-                      scriptAttachments: attachments
-                  ) = uniform.source,
-                  attachments.isEmpty,
+        for (binding, uniform) in zip(
+            program.preparedAssembly.preparedUniformBindings, program.resolvedUniforms
+        ) {
+            guard binding.field.arrayCount == nil,
+                  case let .dynamic(dynamic) = binding.source,
+                  let resolvedSource = uniform.resolvedSource,
+                  dynamic.declaration.scriptAttachments.isEmpty,
                   case let .effectConstant(
                       layerID, effectIndex, passIndex, constant
-                  ) = target,
+                  ) = dynamic.declaration.target,
                   layerID == effect.layerID,
                   effectIndex == effect.effectIndex else { continue }
 
+            let target = dynamic.declaration.target
             let channel: String
-            switch (declared, resolvedSource) {
+            switch (dynamic.contributor, resolvedSource) {
             case (.timeline, .timeline):
                 channel = "timeline"
             case (.sceneScript, .sceneScript):
@@ -41,15 +40,15 @@ extension SceneResolvedMaterialGraphExecutor {
                   resolved.source == resolvedSource,
                   let expected = SceneResolvedMaterialUniformEncoder.encode(
                       resolved.value,
-                      as: uniform.field.type
+                      as: binding.field.type
                   ),
                   expected == uniform.encodedValue else {
                 continue
             }
-            let stage = uniform.field.stage?.rawValue ?? "shared"
+            let stage = binding.field.stage?.rawValue ?? "shared"
             let identity = [
                 channel, String(layerID), String(effectIndex),
-                String(passIndex), constant, uniform.field.name, stage,
+                String(passIndex), constant, binding.field.name, stage,
                 String(frameInputs.dynamicValues.generation),
             ].joined(separator: "\u{1f}")
             typedUniformPublicationLock.lock()
@@ -69,7 +68,7 @@ extension SceneResolvedMaterialGraphExecutor {
                 channel,
                 passIndex,
                 constant,
-                uniform.field.name,
+                binding.field.name,
                 stage,
                 frameInputs.dynamicValues.frameIndex,
                 frameInputs.dynamicValues.generation,

@@ -23,6 +23,7 @@ nonisolated enum SceneResolvedMaterialTextureSelection {
 
     static func resolve(
         _ input: SceneResolvedMaterialFinalizationInput,
+        textureSlots: [Template.TextureSlot?],
         samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
         reachableTexturePurposes: [Int: [SceneTextureLoadPurpose?]],
         channelUses: [Int: ChannelUse],
@@ -34,7 +35,7 @@ nonisolated enum SceneResolvedMaterialTextureSelection {
         ]
     ) throws -> [Entry] {
         var result = Array(repeating: Entry.absent, count: 8)
-        for slot in input.template.textureSlots.compactMap({ $0 })
+        for slot in textureSlots.compactMap({ $0 })
         where !restrictToSamplerSlots || samplers[slot.index] != nil {
             let sampler = samplers[slot.index]
             let purposes = sampler == nil

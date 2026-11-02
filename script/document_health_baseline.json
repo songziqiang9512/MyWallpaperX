@@ -90,15 +90,15 @@
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 166,
-      "bytes": 21670
+      "bytes": 21741
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 31,
       "bytes": 6092
     },
     "docs/scene/architecture/scene-launch-responsiveness-contract.md": {
-      "lines": 269,
-      "bytes": 47440
+      "lines": 271,
+      "bytes": 47816
     },
     "docs/scene/architecture/scene-resource-admission.md": {
       "lines": 97,
@@ -170,7 +170,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 95,
-      "bytes": 9089
+      "bytes": 9138
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 594,
@@ -285,8 +285,8 @@
       "bytes": 29767
     },
     "docs/scene/roadmap/engine-refactor-program.md": {
-      "lines": 293,
-      "bytes": 57992
+      "lines": 313,
+      "bytes": 63463
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 75,
@@ -301,8 +301,8 @@
       "bytes": 22465
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 213,
-      "bytes": 52431
+      "lines": 212,
+      "bytes": 52258
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -2032,11 +2032,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
-      "before": "58d7a94f40960a292d5fb8ab5b2d3f991c4e6acc9c2fc5e0ad61265c2964d405",
-      "after": "d803fece05275ba8edc04c2af3f15f1762d233129f276b2b8475012bf232312c",
-      "owner": "scene-script-video-metadata",
-      "reason": "首次视频metadata单item准备合同替换未知时长压0链，PPT已闭移历史，并记录338已证颜色Timeline丢失；不复制测试/官方过程。",
-      "decision": "docs/scene/architecture/scene-launch-responsiveness-contract.md#script-video-metadata-readiness"
+      "before": "d803fece05275ba8edc04c2af3f15f1762d233129f276b2b8475012bf232312c",
+      "after": "dacfcaa1a7c734ebeff6c86f6b89f3c48a530cc5558792f3fb4cb57a2f546b38",
+      "owner": "Scene architecture / repository governance",
+      "reason": "原权威收敛M2实际静态装配与帧职责，限定GPU/App及载体纠正证据，并补反复核对后确认的后续设备键/静态降级拓扑/当前camera与产品daemon设计；不复制历史正文或新增运行结论。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#架构级迁移合同"
     },
     {
       "section": "bodies",
@@ -2302,11 +2302,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-as-built-map.md",
-      "before": "b1580de81fbc50f6e44906c0017cc288ddaec6581d968c778280148f54eddf84",
-      "after": "509c1f9ee0d669491647cd7ab2d01ce59ceb20bae39de0598f765bf1cdfdad57",
+      "before": "509c1f9ee0d669491647cd7ab2d01ce59ceb20bae39de0598f765bf1cdfdad57",
+      "after": "8738e4e24034d5b9ef162c743a5402ee42e91c3923e30669f43aa0b9cd6e51fa",
       "owner": "Scene architecture / repository governance",
-      "reason": "原有权威承接已落库的M1准备交接设计与有界后验，重新明确全Scene退出并补确认的后续职责；固定历史正文与原始失败不改。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#材质格式与槽位事实的准备交接"
+      "reason": "原权威收敛M2实际静态装配与帧职责，限定GPU/App及载体纠正证据，并补反复核对后确认的后续设备键/静态降级拓扑/当前camera与产品daemon设计；不复制历史正文或新增运行结论。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#架构级迁移合同"
     },
     {
       "section": "bodies",
@@ -2320,19 +2320,19 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "2efdbbcb7468d7acd5885685036b369f407e2595cb69f7276f511308a287b6ca",
-      "after": "defc117eafb29543612a0bba96c696a9c5b50435c1ebe90a4e0784263e72b204",
+      "before": "defc117eafb29543612a0bba96c696a9c5b50435c1ebe90a4e0784263e72b204",
+      "after": "2c35132cc2d335543628f8bd92cc0ef0819434912b01d628e5312f706ef49d9f",
       "owner": "Scene architecture / repository governance",
-      "reason": "原有权威承接已落库的M1准备交接设计与有界后验，重新明确全Scene退出并补确认的后续职责；固定历史正文与原始失败不改。",
-      "decision": "docs/scene/history/material-preparation-boundaries-2026-11-02.md#m1-format-slot-handoff"
+      "reason": "原权威收敛M2实际静态装配与帧职责，限定GPU/App及载体纠正证据，并补反复核对后确认的后续设备键/静态降级拓扑/当前camera与产品daemon设计；不复制历史正文或新增运行结论。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#架构级迁移合同"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/engine-refactor-program.md",
-      "before": "013ea9faf294dd09ad1af4854b71ccf6f850f2feee5f6686e0fc00ae078e689b",
-      "after": "be0f8f96ea2fa5c422cd8d1429161b588e5d4a680160ac6231360e6724982465",
+      "before": "be0f8f96ea2fa5c422cd8d1429161b588e5d4a680160ac6231360e6724982465",
+      "after": "f9050bc221f4974a0880dea00b77c3b8f9505f5fca8232b2646fb50fdc007f4f",
       "owner": "Scene architecture / repository governance",
-      "reason": "原有权威承接已落库的M1准备交接设计与有界后验，重新明确全Scene退出并补确认的后续职责；固定历史正文与原始失败不改。",
+      "reason": "原权威收敛M2实际静态装配与帧职责，限定GPU/App及载体纠正证据，并补反复核对后确认的后续设备键/静态降级拓扑/当前camera与产品daemon设计；不复制历史正文或新增运行结论。",
       "decision": "docs/scene/roadmap/engine-refactor-program.md#架构级迁移合同"
     },
     {

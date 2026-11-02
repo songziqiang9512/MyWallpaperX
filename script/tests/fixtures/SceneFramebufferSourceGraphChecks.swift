@@ -70,7 +70,7 @@
             }
             var injectedPassKey: String?
             let sourceMaterial = SceneResolvedMaterialRuntimeBridge.PreparedSourceMaterial(
-                template: sourceTemplate,
+                declaredDynamicTargets: [],
                 bindFrame: { input in
                     if let injectedFailure { return .failure(injectedFailure) }
                     let result = SceneResolvedMaterialProgramFinalizer.finalize(input, variantCache: variants)

@@ -789,7 +789,19 @@ func finalize(
         return .failure(failure)
     case let .success(frame):
         let input = frame.finalizationInput(
-            template: template(
+            layerID: 9001,
+            renderSize: CGSize(width: 640, height: 360),
+            modelViewProjection: matrix_identity_float4x4,
+            layerModelMatrix: resolvedLayerModelMatrix,
+            effectOutputModelViewProjection: effectOutputModelViewProjection,
+            effectTextureProjectionMatrixInverse: projectionInverse,
+            implicitFramebufferIdentity: implicitFramebufferIdentity
+        )
+        let cache: SceneResolvedMaterialVariantCache
+        if let variantCache {
+            cache = variantCache
+        } else {
+            let material = template(
                 shader,
                 slot: slot,
                 candidateCount: candidateCount,
@@ -803,22 +815,10 @@ func finalize(
                 renderState: renderState,
                 textureSlotsOverride: textureSlotsOverride,
                 effectContext: effectContext
-            ),
-            layerID: 9001,
-            renderSize: CGSize(width: 640, height: 360),
-            modelViewProjection: matrix_identity_float4x4,
-            layerModelMatrix: resolvedLayerModelMatrix,
-            effectOutputModelViewProjection: effectOutputModelViewProjection,
-            effectTextureProjectionMatrixInverse: projectionInverse,
-            implicitFramebufferIdentity: implicitFramebufferIdentity
-        )
-        let cache: SceneResolvedMaterialVariantCache
-        if let variantCache {
-            cache = variantCache
-        } else {
+            )
             switch SceneResolvedMaterialVariantCache.launchValidated(
-                template: input.template,
-                textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: input.template),
+                template: material,
+                textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: material),
                 maximumVariantCount: 16
             ) {
             case let .success(value): cache = value

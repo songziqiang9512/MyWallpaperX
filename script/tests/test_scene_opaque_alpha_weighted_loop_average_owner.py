@@ -113,7 +113,7 @@ private func launchGateVariant(
         frontend: frontend,
         renderState: base.preparedAssembly.renderState,
         runtimeLoopBounds: base.runtimeLoopBounds,
-        hasEffectContext: base.preparedAssembly.hasEffectContext,
+        preparedUniformBindings: base.preparedAssembly.preparedUniformBindings,
         conditionalGeneratedRGBInputContract: base.conditionalGeneratedRGBInputContract,
         associatedOverOverlaySlot: base.associatedOverOverlaySlot,
         premultipliedColorInputSlots: base.premultipliedColorInputSlots
@@ -134,7 +134,6 @@ private func launchGateVariant(
         sameAlphaReconstructedRGBInputContract:
             base.sameAlphaReconstructedRGBInputContract,
         activeUniforms: base.activeUniforms,
-        preparedUniformBindings: base.preparedUniformBindings,
         neutralTextureResolution: base.neutralTextureResolution
     )
 }

@@ -24,7 +24,7 @@
 
 [2026-11-02冻结后验](../history/runtime-evidence-index.md#e-architecture-final-integration-20261102)记录11个能力族退出和12次direct-host跨族运行，仅是阶段证据，不能证明整体架构已完成。材质准备/帧边界、Sprite/当前拓扑与实际产品daemon验收继续按[唯一队列](../roadmap/scene-open-breakpoint-queue.md#51-顶层设计已裁决的代码职责重构)推进。登记范围内未证新增回退，原FAIL及改名文字、动态过渡/交互资格仍保留；暂停文字门已通过，三轮成本没有认领整体提速。完整语料、物理多屏、长期切换、能耗与正式Release未验；历史结果不因继续改造而重写或升级。
 
-[材质准备 M1](../history/material-preparation-boundaries-2026-11-02.md#m1-format-slot-handoff)已交接格式及槽位事实，保留当前资源检查；真实 GPU、同输入签名 App、原包/邻例及暖复用有界通过。四条结构边退出，帧 uniform、其余跨层职责和产品 daemon 仍待完成；原测试载体失败与修正分开保存，不认领性能收益。
+[M1](../history/material-preparation-boundaries-2026-11-02.md#m1-format-slot-handoff)已交接格式/槽位，[M2](../history/material-preparation-boundaries-2026-11-02.md#m2-prepared-uniform-frame)已收敛帧 template 与静态 uniform 计划；真实 GPU、签名 App 固定像素、原包/邻例分别有界通过，原载体失败保留。Launch、设备键、能力交接及产品 daemon 继续开放，不认领整体性能收益。
 
 <a id="evidence-lifecycle"></a>
 ### 准备与生命周期

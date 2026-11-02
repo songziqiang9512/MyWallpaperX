@@ -83,7 +83,6 @@ nonisolated struct SceneResolvedMaterialFailure: Error, Equatable {
         case colorContractUnproven
         case frameSnapshotMismatch
         case identityInvariant
-        case variantSelectionTemplateIdentityInvariant
         case variantSelectionReachabilityIdentityInvariant
         case variantSelectionKeyInvariant
         case variantSelectionUnexpectedFailure
@@ -469,28 +468,8 @@ nonisolated struct SceneResolvedMaterialProgram {
     }
 
     struct ResolvedUniform {
-        enum Source {
-            case host(HostUniform)
-            case staticValue
-            case neutralMissingTextureResolution(
-                SceneAuthoredShaderNeutralTextureResolutionFact
-            )
-            /// Resolution metadata for a same-layer composite slot without an
-            /// authored sampler; the layer's own base capture supplies the
-            /// size, so the value rides the finalization render size.
-            case selfCompositeTextureResolution(slot: Int)
-            case dynamic(
-                declared: SceneResolvedMaterialTemplate.DynamicUniformSource,
-                target: SceneDynamicTarget,
-                resolvedSource: SceneDynamicSource,
-                scriptAttachments: [
-                    SceneResolvedMaterialTemplate.DynamicUniformScriptAttachment
-                ]
-            )
-        }
-        let field: SceneAuthoredShaderUniformLayout.Field
-        let source: Source
         let encodedValue: Data
+        var resolvedSource: SceneDynamicSource? = nil
     }
 
     struct TextureSlot {
@@ -525,43 +504,6 @@ nonisolated struct SceneResolvedMaterialProgram {
         }
     }
 
-    struct AssemblyInput {
-        let preparedShader: SceneShaderPreparedProgram
-        let textureSlots: [TextureSlot?]
-        let resolvedUniforms: [ResolvedUniform]
-        let renderState: SceneMaterialRenderState
-        let graphRole: SceneResolvedMaterialTemplate.GraphRole
-        let outputStorage: OutputStorage
-        let runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds
-        /// Prepared template scope; graph roles do not define uniform ownership.
-        let hasEffectContext: Bool
-
-        var frame: FrameAssemblyInput {
-            .init(textureSlots: textureSlots, resolvedUniforms: resolvedUniforms,
-                  graphRole: graphRole, outputStorage: outputStorage)
-        }
-
-        init(
-            preparedShader: SceneShaderPreparedProgram,
-            textureSlots: [TextureSlot?],
-            resolvedUniforms: [ResolvedUniform],
-            renderState: SceneMaterialRenderState,
-            graphRole: SceneResolvedMaterialTemplate.GraphRole,
-            outputStorage: OutputStorage = .color,
-            runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds = .none,
-            hasEffectContext: Bool = false
-        ) {
-            self.preparedShader = preparedShader
-            self.textureSlots = textureSlots
-            self.resolvedUniforms = resolvedUniforms
-            self.renderState = renderState
-            self.graphRole = graphRole
-            self.outputStorage = outputStorage
-            self.runtimeLoopBounds = runtimeLoopBounds
-            self.hasEffectContext = hasEffectContext
-        }
-    }
-
     /// Current frame facts. Static shader/ABI facts come only from a validated
     /// PreparedAssembly; callers cannot replace them while binding a frame.
     struct FrameAssemblyInput {
@@ -579,48 +521,19 @@ nonisolated struct SceneResolvedMaterialProgram {
         let exactIdentity: ExactIdentity
     }
 
-    let preparedShader: SceneShaderPreparedProgram
+    let preparedAssembly: PreparedAssembly
+    var preparedShader: SceneShaderPreparedProgram { preparedAssembly.preparedShader }
     let routeDecision: SceneGenericShaderRouteDecision?
-    let frontendProgram: SceneAuthoredShaderProgram
+    var frontendProgram: SceneAuthoredShaderProgram { preparedAssembly.frontendProgram }
     let textureSlots: [TextureSlot?]
     let resolvedUniforms: [ResolvedUniform]
     let uniformBytes: Data
-    let renderState: SceneMaterialRenderState
+    var renderState: SceneMaterialRenderState { preparedAssembly.renderState }
     let outputContract: OutputContract
     let semanticIdentity: SemanticIdentity
     let exactIdentity: ExactIdentity
-    let runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds
-
-    static func assemble(_ input: AssemblyInput) -> Self? {
-        guard let derived = SceneResolvedMaterialProgramDerivation.derive(input) else {
-            return nil
-        }
-        return Self(frame: input.frame, derived: derived)
-    }
-
-    static func assembleCompiled(
-        _ input: AssemblyInput,
-        frontend: SceneAuthoredShaderProgram,
-        routeDecision: SceneGenericShaderRouteDecision,
-        conditionalGeneratedRGBInputContract:
-            SceneResolvedMaterialProgramDerivation
-                .ConditionalGeneratedRGBInputContract?,
-        associatedOverOverlaySlot: Int? = nil,
-        premultipliedColorInputSlots: Set<Int> = []
-    ) -> Self? {
-        guard let derived = SceneResolvedMaterialProgramDerivation.deriveCompiled(
-            input,
-            frontend: frontend,
-            conditionalGeneratedRGBInputContract:
-                conditionalGeneratedRGBInputContract,
-            associatedOverOverlaySlot: associatedOverOverlaySlot,
-            premultipliedColorInputSlots: premultipliedColorInputSlots
-        ) else { return nil }
-        return Self(
-            frame: input.frame,
-            derived: derived,
-            routeDecision: routeDecision
-        )
+    var runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds {
+        preparedAssembly.runtimeLoopBounds
     }
 
     static func assemblePrepared(
@@ -638,17 +551,12 @@ nonisolated struct SceneResolvedMaterialProgram {
     /// render size, texture identities, selected variant and source bindings
     /// remain frozen; only placement matrices and their exact bytes change.
     func terminalReplay(unitModelViewProjection: simd_float4x4) -> Self? {
+        let bindings = preparedAssembly.preparedUniformBindings
         guard frontendProgram.supportsTerminalMaterialReplay,
-              let sizeUniform = resolvedUniforms.first(where: {
-            if case .host(.renderSize) = $0.source { return true }
-            return false
-        }), sizeUniform.field.type == .float2,
-              sizeUniform.encodedValue.count == MemoryLayout<SIMD2<Float>>.size,
-              resolvedUniforms.contains(where: {
-                  if case .host(.modelViewProjection) = $0.source { return true }
-                  return false
-              }) else { return nil }
-        let size = sizeUniform.encodedValue.withUnsafeBytes {
+              let sizeIndex = bindings.firstIndex(where: { $0.source == .host(.renderSize) }),
+              bindings.contains(where: { $0.source == .host(.modelViewProjection) })
+        else { return nil }
+        let size = resolvedUniforms[sizeIndex].encodedValue.withUnsafeBytes {
             $0.loadUnaligned(as: SIMD2<Float>.self)
         }
         guard size.x.isFinite, size.y.isFinite, size.x > 0, size.y > 0 else {
@@ -663,51 +571,39 @@ nonisolated struct SceneResolvedMaterialProgram {
         }
         guard finite(matrix) else { return nil }
         var inverse = matrix_identity_float4x4
-        if resolvedUniforms.contains(where: {
-            if case .host(.modelViewProjectionInverse) = $0.source { return true }
-            return false
-        }) {
+        if bindings.contains(where: { $0.source == .host(.modelViewProjectionInverse) }) {
             inverse = simd_inverse(matrix)
             guard finite(inverse) else { return nil }
         }
         var replacementBytes = uniformBytes
         var replacementUniforms: [ResolvedUniform] = []
-        for uniform in resolvedUniforms {
+        for (binding, uniform) in zip(bindings, resolvedUniforms) {
             var replacement: simd_float4x4
-            switch uniform.source {
+            switch binding.source {
             case .host(.modelViewProjection): replacement = matrix
             case .host(.modelViewProjectionInverse): replacement = inverse
             default:
                 replacementUniforms.append(uniform)
                 continue
             }
-            let field = uniform.field
-            guard field.type == .float4x4, field.arrayCount == nil,
-                  field.offset >= 0, field.offset <= replacementBytes.count,
-                  field.storageByteSize == MemoryLayout<simd_float4x4>.size,
-                  field.storageByteSize <= replacementBytes.count - field.offset
-            else { return nil }
+            let field = binding.field
             let encoded = withUnsafeBytes(of: &replacement) { Data($0) }
             replacementBytes.replaceSubrange(
                 field.offset ..< field.offset + field.storageByteSize, with: encoded)
-            replacementUniforms.append(.init(
-                field: field, source: uniform.source, encodedValue: encoded))
+            replacementUniforms.append(.init(encodedValue: encoded))
         }
         return Self(replaying: self, uniforms: replacementUniforms,
                     bytes: replacementBytes)
     }
 
     private init(replaying program: Self, uniforms: [ResolvedUniform], bytes: Data) {
-        preparedShader = program.preparedShader
+        preparedAssembly = program.preparedAssembly
         routeDecision = program.routeDecision
-        frontendProgram = program.frontendProgram
         textureSlots = program.textureSlots
         resolvedUniforms = uniforms
         uniformBytes = bytes
-        renderState = program.renderState
         outputContract = program.outputContract
         semanticIdentity = program.semanticIdentity
-        runtimeLoopBounds = program.runtimeLoopBounds
         exactIdentity = .init(
             semanticIdentity: semanticIdentity,
             prepared: program.exactIdentity.prepared,
@@ -721,18 +617,14 @@ nonisolated struct SceneResolvedMaterialProgram {
         derived: Derived,
         routeDecision: SceneGenericShaderRouteDecision? = nil
     ) {
-        let prepared = derived.preparedAssembly
-        preparedShader = prepared.preparedShader
+        preparedAssembly = derived.preparedAssembly
         self.routeDecision = routeDecision
-        frontendProgram = prepared.frontendProgram
         textureSlots = frame.textureSlots
         resolvedUniforms = frame.resolvedUniforms
         uniformBytes = derived.uniformBytes
-        renderState = prepared.renderState
         outputContract = derived.outputContract
         semanticIdentity = derived.semanticIdentity
         exactIdentity = derived.exactIdentity
-        runtimeLoopBounds = prepared.runtimeLoopBounds
     }
 }
 

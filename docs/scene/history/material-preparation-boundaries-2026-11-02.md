@@ -45,3 +45,45 @@ Catalog 将原 Demand 分析及 v10 持久缓存的格式槽结果交给原 Vari
 ### 未覆盖与后续边界
 
 材质帧 template 双来源、静态 uniform 装配、launch 选择、设备准备身份和执行能力交接继续按现役设计处理；本批不关闭它们。当前 App 证据经过 direct Host，不能代替普通 App→client→daemon 完整控制链。未认领整体 CPU/GPU、启动或能耗收益，也未证明完整语料、物理多屏、长稳、官方 parity 或正式 Release。
+
+
+<a id="m2-prepared-uniform-frame"></a>
+## M2 静态 uniform 计划与当前帧
+
+FrameInput 退出独立 template；所属 Variant/PreparedAssembly 是定义、binding plan、layout 和静态 identity 的唯一来源。工厂一次形成 host/static/dynamic 归属及 ActiveUniformIdentity，帧只求当前动态 source/value 和编码 bytes；Program、terminal replay 与 DEBUG 诊断读取同一计划。原 raw assemble/compileFrontend 等无产品消费者入口及重复装配检查退出，真实 snapshot 来源、range/fallback、bytes、当前纹理 content/generation/extent/UV 和 GPU 使用期检查保留。
+
+SourceMaterial 原 template 的 live property 消费者没有删除：准备时投影全部声明的 dynamic targets，包含暂不 active 的声明；Host 消费最小集合，不保整份模板或误用当前 active uniform 计划，也不把此集合当更早 QuickJS 构造条件。
+
+16 个产品文件增 163、删 468 行，净减 305；38 个测试文件增 542、删 663，净减 121。未新增产品文件、owner、cache、wire 或新的认证阶段；增删行及静态推导退出不作为实测性能结论。
+
+### 冻结身份
+
+| 身份 | 固定值 |
+|---|---|
+| 产品基线 | `77139ae02b7daa2b2219da08f35c48a68123ce18` |
+| M2 产品 patch SHA-256 | `0c410f1c68f7d3eef664cb800553bc91b257e8b126a3df3c0875e9d739877408` |
+| 对照 App | M1 `40cca59a65ddb392e6aaf0366f6e7089bd48a27900326c68a8e809d6e36d5381` |
+| 本批运行 App | `5e41db87ff8fb4a26bfdb4e52570fe9675caf2b82ee4c1dbf0c8c6140a96e5dd`，同时包含独立 Sprite/Timeline 批；不把联合身份伪称单批 App |
+| 构建 / 签名 | arm64 Debug `-O`；Team `H9QWU9XN8R`；严格验签，联合产品 28 文件构建前后 hash 相同 |
+| 本机 provenance | `.artifacts/scene-architecture-continuation-20261102/` 的 `material-frame-*`、M2 manifest 与版本化 source freeze；临时源码副本只用于串行验收，不是新产品路径 |
+
+### 已执行边界
+
+| 责任 | 结果与边界 |
+|---|---|
+| 准备与实际消费者 | hidden property、source prepared base-image、prepared uniform query、texture transform、previous composite、execution capability、PassEncoder、Program derivation 均通过；覆盖未 active 的声明和精确 target 身份 |
+| Effect host/source 归属 | 修正载体后完整 11 例通过；source 的静态 default/gain 与 effect host 分别核真实 prepared plan 和精确 resolved bytes，声明冲突与类型反例保留 |
+| Finalizer | 保当前 serial frame 的 source/fallback/range、动态 bytes、layout/resource 和恢复；修正旧多重非法输入优先级断言后对应 serial 用例通过，不为错误优先级恢复第二组装阶段 |
+| 生产 Metal/Graph | GraphExecutor 六例及独立 signal/color 组合门通过，包含实际 graph 编码、PMA/straight、跨 effect、最新同层 named 和真实 fallback；不是仅 profile 命中 |
+| 签名 App 固定像素 | 半透明 named 与三候选局部失败保持原固定 ROI、99% / tolerance 2 门槛、健康 peer、后续完成及 GPU drain |
+| 原包与独立邻例 | `3351163962`、`3589819394` 同 M1 输入 snapshot 运行均退出 0、无超时并通过原门；复核 after 对照图保文字、背景、主体和光效。墙钟及动画相位不同，不宣称逐像素相同 |
+
+### 首失败与纠正
+
+- 首次完整 Debug 揭示 Host 仍读取 SourceMaterial 全部 uniform declarations。以准备 target 集合承接真实消费者并重建通过；不能凭显式类型名搜索无结果就判字段已无消费者。
+- EffectDrawAlpha 的真实 loader 源闭包补回 ShaderSourceResolver。source alias 成功分支原错误地要求 effect host 归属；现从真实 PreparedAssembly 核 source 静态 default/gain，分别调用真实 resolver 比较精确 bytes，effect 仍核 host。真实声明冲突、类型、动态 source 与像素反例保留。
+- Finalizer 的多重非法 layout/schema 与 sampler 组合原锁定失败优先级。改用各自单一失败反例保精确 code，当前帧、计数和有效 ABI 断言未放宽；原始失败日志保留。
+
+结构门首次指出已退出的 raw frontend 调用仍登记在旧库存；按真实调用将该 inventory 由 2 收紧为 1，原迁移凭据不改，其余 Compilation→Rendering 债不据此关闭。
+
+Launch 准备算法、device key 与执行能力交接继续开放，实际产品 daemon 完整链另验。未认领整体启动、CPU/GPU、能耗、全语料、物理多屏、长期稳定或官方 parity。

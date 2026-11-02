@@ -39,7 +39,6 @@ nonisolated struct SceneResolvedMaterialFrameSnapshot {
     }
 
     func finalizationInput(
-        template: SceneResolvedMaterialTemplate,
         layerID: Int = 0,
         renderSize: CGSize,
         modelViewProjection: simd_float4x4,
@@ -54,7 +53,6 @@ nonisolated struct SceneResolvedMaterialFrameSnapshot {
         vertexInputSize: CGSize? = nil
     ) -> SceneResolvedMaterialFinalizationInput {
         .init(
-            template: template,
             layerID: layerID,
             frameSnapshot: self,
             renderSize: renderSize,
@@ -121,7 +119,6 @@ nonisolated struct SceneResolvedMaterialFrameSnapshot {
 }
 
 nonisolated struct SceneResolvedMaterialFinalizationInput {
-    let template: SceneResolvedMaterialTemplate
     /// Consumer layer identity for same-layer composite provenance.
     let layerID: Int
     fileprivate let frameSnapshot: SceneResolvedMaterialFrameSnapshot
@@ -324,9 +321,6 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
         outputStorage: SceneResolvedMaterialProgram.OutputStorage = .color
     ) -> Result<Program, Failure> {
         do {
-            guard input.template.renderState.supportsResolvedMaterialFullscreenOverwrite else {
-                throw failure(.state, .renderStateInvalid)
-            }
             let variant: SceneResolvedMaterialCompiledVariant
             switch variantCache.resolveSelection(input) {
             case let .success(value): variant = value
@@ -334,6 +328,7 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
             }
             let texture = try SceneResolvedMaterialTextureResolver.resolve(
                 input,
+                textureSlots: variantCache.template.textureSlots,
                 variant: variant
             )
             switch outputStorage {
@@ -383,7 +378,7 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                 slots: texture.slots
             )
             guard let graphRole = effectiveGraphRole(
-                input.template.graphRole,
+                variantCache.template.graphRole,
                 slots: texture.slots
             ) else {
                 throw failure(.invariant, .graphRoleIdentityInvariant)
@@ -462,7 +457,7 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
             case let .host(host):
                 let value: Data
                 if host == .effectTextureProjectionMatrix,
-                   field.type == .float4x4, let encoded = forwardProjectionBytes {
+                   let encoded = forwardProjectionBytes {
                     value = encoded
                 } else {
                     switch SceneResolvedMaterialUniformEncoder.resolveHost(
@@ -481,22 +476,11 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                         )
                     }
                 }
-                guard value.count == field.storageByteSize else {
-                    throw failure(
-                        .uniform,
-                        .hostUniformBindingInvalid,
-                        details: [field.name]
-                    )
-                }
                 if host == .effectTextureProjectionMatrix,
                    forwardProjectionBytes == nil {
                     forwardProjectionBytes = value
                 }
-                return .init(
-                    field: field,
-                    source: .host(host),
-                    encodedValue: value
-                )
+                return .init(encodedValue: value)
             case .staticValue:
                 return try Program.resolvedAuthoredUniform(binding, snapshot: input.dynamicSnapshot)
             case let .neutralMissingTextureResolution(fact):
@@ -512,14 +496,10 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                     )
                 }
                 return neutral
-            case let .selfCompositeTextureResolution(
-                slot,
-                providerLayerID
-            ):
+            case let .selfCompositeTextureResolution(_, providerLayerID):
                 guard let selfComposite = selfCompositeTextureResolutionUniform(
                     field: field,
                     input: input,
-                    slot: slot,
                     providerLayerID: providerLayerID
                 ) else {
                     throw failure(
@@ -543,7 +523,6 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
     private static func selfCompositeTextureResolutionUniform(
         field: SceneAuthoredShaderUniformLayout.Field,
         input: SceneResolvedMaterialFinalizationInput,
-        slot: Int,
         providerLayerID: Int
     ) -> Program.ResolvedUniform? {
         guard providerLayerID == input.layerID,
@@ -557,11 +536,7 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                   as: field.type
               )
         else { return nil }
-        return .init(
-            field: field,
-            source: .selfCompositeTextureResolution(slot: slot),
-            encodedValue: encoded
-        )
+        return .init(encodedValue: encoded)
     }
 
     private static func neutralTextureResolutionUniform(
@@ -576,11 +551,7 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                   as: field.type
               )
         else { return nil }
-        return .init(
-            field: field,
-            source: .neutralMissingTextureResolution(fact),
-            encodedValue: encoded
-        )
+        return .init(encodedValue: encoded)
     }
 
     private static func preparedSelfCompositeTextureResolution(

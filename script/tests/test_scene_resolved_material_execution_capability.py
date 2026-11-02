@@ -102,9 +102,6 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialCompiledVariant.swift"
         ).read_text(encoding="utf-8")
         compilation = read_source_family(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift")
-        finalizer = (
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgramFinalizer.swift"
-        ).read_text(encoding="utf-8")
         bridge = (
             ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialRuntimeBridge.swift"
         ).read_text(encoding="utf-8")
@@ -143,17 +140,6 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             "extension SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability",
             stages,
         )
-        self.assertIn("preparedUniformBindings:", compiled)
-        self.assertIn(".prepareUniformBindings(", compilation)
-        resolved_start = finalizer.index("private static func resolvedUniforms(")
-        resolved_end = finalizer.index(
-            "/// A same-layer composite slot may exist", resolved_start
-        )
-        resolved = finalizer[resolved_start:resolved_end]
-        self.assertIn("variant.preparedUniformBindings.map", resolved)
-        self.assertIn("switch binding.source", resolved)
-        self.assertNotIn("template.uniformDeclarations.filter", resolved)
-        self.assertNotIn("hostUniform(\n                field", resolved)
         self.assertIn("frameInputContract: capability.frameInputContract", bridge)
         self.assertIn(
             "claim.frameInputContract.effectTextureProjectionSource",

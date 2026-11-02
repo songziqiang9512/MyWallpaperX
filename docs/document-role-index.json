@@ -763,13 +763,13 @@
       "path": "docs/scene/architecture/runtime-as-built-map.md",
       "role": "current-state",
       "entrypoint": "docs/scene/README.md",
-      "lastReviewed": "2026-11-02",
+      "lastReviewed": "2026-11-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7edeee4cb66a0e0098dd608727a571fc6eb8a319052ac5281c7ff473d16826d7",
+        "sourceSHA256": "037714303390c3dd43f1c1e101912a82d026a505ea75b39e54f37914ed5572a8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "M1格式/槽位准备交接、实际跨层引用退出与有界证据；全Scene目标重新打开，继续核准备/帧、拓扑、缓存及产品daemon，Skill验收按真实消费者。",
-        "limitations": "正文和导航复核不代替运行；本批签名App/direct-host有界结果不外推完整架构、全语料、多屏、长期运行、性能、官方parity或Release。"
+        "scope": "M2唯一静态装配/当前帧、完整声明target消费者及有界生产GPU/App后验；复核剩余Launch/设备键/能力、拓扑、可选缓存/storage和产品daemon设计及导航。",
+        "limitations": "职责与导航复核不代替未执行运行。M2/App联合Sprite-Timeline产品身份，不外推完整Scene、性能、物理多屏、全语料、官方parity或Release。"
       },
       "purpose": "实际接线或已记录运行证据；不反向定义目标架构，不决定实施顺序。"
     },
@@ -792,13 +792,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-31",
+      "lastReviewed": "2026-11-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d69a37b7911fd83b9cea665970befd0aa4ab0020786a60adc2dfb861e99a1a32",
+        "sourceSHA256": "07f2c675531f520906e27e8c2f0ffd5a073dc0e2cb6fd5ee2776b60b4554f584",
         "method": "document_registry --audit + document_health --check",
-        "scope": "首次真实视频元数据与原Session准备/clock合同，335默认PPT首门移出、338颜色Timeline能力缺口保唯一队列。",
-        "limitations": "视频末段非正式风格截图；不授官方init时序、完整AppKit重建、所有选项/媒体或性能。"
+        "scope": "M2唯一静态装配/当前帧、完整声明target消费者及有界生产GPU/App后验；复核剩余Launch/设备键/能力、拓扑、可选缓存/storage和产品daemon设计及导航。",
+        "limitations": "职责与导航复核不代替未执行运行。M2/App联合Sprite-Timeline产品身份，不外推完整Scene、性能、物理多屏、全语料、官方parity或Release。"
       }
     },
     {
@@ -1053,13 +1053,13 @@
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
-      "lastReviewed": "2026-11-02",
+      "lastReviewed": "2026-11-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c36ccc9e8d264bdf0f3ea0500c6064c13f4d5f8bf4b3a7c64179aeb9f499ebab",
+        "sourceSHA256": "d4aeabff3337955a4775dcc737add527b3fd54c264873f1e710896e029ea0dbf",
         "method": "document_registry --audit + document_health --check",
-        "scope": "M1格式/槽位准备交接、实际跨层引用退出与有界证据；全Scene目标重新打开，继续核准备/帧、拓扑、缓存及产品daemon，Skill验收按真实消费者。",
-        "limitations": "正文和导航复核不代替运行；本批签名App/direct-host有界结果不外推完整架构、全语料、多屏、长期运行、性能、官方parity或Release。"
+        "scope": "M2唯一静态装配/当前帧、完整声明target消费者及有界生产GPU/App后验；复核剩余Launch/设备键/能力、拓扑、可选缓存/storage和产品daemon设计及导航。",
+        "limitations": "职责与导航复核不代替未执行运行。M2/App联合Sprite-Timeline产品身份，不外推完整Scene、性能、物理多屏、全语料、官方parity或Release。"
       },
       "purpose": "实际接线或已记录运行证据；不反向定义目标架构，不决定实施顺序。"
     },
@@ -1361,13 +1361,13 @@
       "role": "navigation",
       "entrypoint": "docs/scene/README.md",
       "purpose": "Scene固定历史与当前权威的按需索引，不产生现役任务。",
-      "lastReviewed": "2026-11-02",
+      "lastReviewed": "2026-11-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "fb5b2b0d7ac618ebce45cb04b6c027a7fbaac1514c07315eb0bc25daeba7b4e2",
+        "sourceSHA256": "efd7ab9b0f20f31f1ac8ff6acfc4d9fa3d118e864b49edb7b7b0191d68c052a6",
         "method": "document_registry --audit + document_health --check",
-        "scope": "M1格式/槽位准备交接、实际跨层引用退出与有界证据；全Scene目标重新打开，继续核准备/帧、拓扑、缓存及产品daemon，Skill验收按真实消费者。",
-        "limitations": "正文和导航复核不代替运行；本批签名App/direct-host有界结果不外推完整架构、全语料、多屏、长期运行、性能、官方parity或Release。"
+        "scope": "M2唯一静态装配/当前帧、完整声明target消费者及有界生产GPU/App后验；复核剩余Launch/设备键/能力、拓扑、可选缓存/storage和产品daemon设计及导航。",
+        "limitations": "职责与导航复核不代替未执行运行。M2/App联合Sprite-Timeline产品身份，不外推完整Scene、性能、物理多屏、全语料、官方parity或Release。"
       }
     },
     {
@@ -2312,7 +2312,7 @@
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ],
       "cutoffDate": "2026-11-02",
-      "uniqueValue": "M1格式/槽位准备事实交接、冻结源码与签名App、真实GPU/原包/暖复用，以及首失败载体修正的限定结果；不关闭整Scene架构。"
+      "uniqueValue": "M1格式/槽位交接与M2唯一静态uniform计划、帧template退出、冻结源码/签名App、真实GPU/原包/暖复用和首失败载体修正；不关闭整Scene架构。"
     },
     {
       "path": "docs/scene/history/material-video-assets-2026-10-12.md",
@@ -4587,13 +4587,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-11-02",
+      "lastReviewed": "2026-11-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3597e56941aa3372fd760c5d07dba2d0d47a80291353946e072b3325c1bfa65b",
+        "sourceSHA256": "b9480e4d06511eab5dd6cd26e53c6797c838170500b97bfd2f036e6171720c45",
         "method": "document_registry --audit + document_health --check",
-        "scope": "M1格式/槽位准备交接、实际跨层引用退出与有界证据；全Scene目标重新打开，继续核准备/帧、拓扑、缓存及产品daemon，Skill验收按真实消费者。",
-        "limitations": "正文和导航复核不代替运行；本批签名App/direct-host有界结果不外推完整架构、全语料、多屏、长期运行、性能、官方parity或Release。"
+        "scope": "M2唯一静态装配/当前帧、完整声明target消费者及有界生产GPU/App后验；复核剩余Launch/设备键/能力、拓扑、可选缓存/storage和产品daemon设计及导航。",
+        "limitations": "职责与导航复核不代替未执行运行。M2/App联合Sprite-Timeline产品身份，不外推完整Scene、性能、物理多屏、全语料、官方parity或Release。"
       }
     },
     {
@@ -4643,7 +4643,7 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/README.md",
       "retirementCondition": "当队列中的公共 authored target 首断点关闭，后续只剩路线 P0/P3/P4/P5 的系统性验收，且不再需要该派生执行入口时，删除或转为 historical-evidence。",
-      "lastReviewed": "2026-11-02",
+      "lastReviewed": "2026-11-03",
       "reviewBasis": {
         "kind": "navigation-audit",
         "sourceSHA256": "96d6bcd479bd54160164b4029eca13ad7aac7a5ffd9620616bab9663c52b9f70",

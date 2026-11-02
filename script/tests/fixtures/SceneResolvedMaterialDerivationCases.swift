@@ -99,16 +99,6 @@ private enum Harness {
             textureSlots: slots(firstSlot),
             reverseUniforms: true
         ) == nil
-        let mismatchedDynamicSource = assemble(
-            prepared: firstPrepared,
-            textureSlots: slots(firstSlot),
-            dynamic: (.timeline, .userProperty, [])
-        ) == nil
-        let authoredFallback = assemble(
-            prepared: firstPrepared,
-            textureSlots: slots(firstSlot),
-            dynamic: (.timeline, .authored, [])
-        )
         let changedSelectionProvenance = Program.TextureSlot(
             index: firstSlot.index,
             reference: firstSlot.reference,
@@ -610,19 +600,6 @@ private enum Harness {
             "mismatchedRegistryIdentityRejected": mismatchedRegistryIdentity,
             "mismatchedExactGraphIdentityRejected": mismatchedExactGraphIdentity,
             "uniformOrderRejected": reversedUniforms,
-            "dynamicSourceMismatchRejected": mismatchedDynamicSource,
-            "authoredFallbackAccepted": authoredFallback?.exactIdentity.dynamicUniforms
-                == [.init(
-                    target: .effectConstant(
-                        layerID: 1,
-                        effectIndex: 2,
-                        passIndex: 3,
-                        name: "g_Gain"
-                    ),
-                    declaredSource: .timeline,
-                    resolvedSource: .authored,
-                    scriptAttachments: []
-                )],
             "selectionProvenanceDiagnosticOnly": baseline.semanticIdentity
                     == provenanceVariant.semanticIdentity
                 && baseline.exactIdentity == provenanceVariant.exactIdentity,

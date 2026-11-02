@@ -85,7 +85,12 @@ extension ScenePreparedDeviceResources {
             guard report.failedKeyCount == 0, report.readyKeyCount > 0 else {
                 reject("pipeline-warmup"); continue
             }
-            prepared[layerID] = .init(template: template, bindFrame: { input in
+            prepared[layerID] = .init(declaredDynamicTargets: Set(
+                template.uniformDeclarations.compactMap { declaration in
+                    if case let .dynamic(value) = declaration.value { return value.target }
+                    return nil
+                }
+            ), bindFrame: { input in
                 SceneResolvedMaterialProgramFinalizer.finalize(input, variantCache: variants)
             }, pixelFormat: format, outputDomain: outputDomain,
                 sharedModelPath: entry.sharedModelPath)

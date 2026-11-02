@@ -62,12 +62,12 @@ func scenePreparedVariantFrameCases(_ device: MTLDevice) -> [String: Bool] {
         "failedFrameDoesNotInvalidateAdmittedVariant": current.semanticIdentity.shader
             == variant.preparedAssembly.shaderIdentity,
     ]
-    cases.merge(scenePreparedVariantFailurePriorityCases(template: admitted, variant: variant)) { _, new in new }
+    cases.merge(scenePreparedVariantAdmissionCases(template: admitted, variant: variant)) { _, new in new }
     return cases
 }
 
-/// Prepared sampler projection and combined failures use the real admission owner.
-private func scenePreparedVariantFailurePriorityCases(
+/// Prepared sampler projection and individual failures use the real admission owner.
+private func scenePreparedVariantAdmissionCases(
     template value: SceneResolvedMaterialTemplate,
     variant: SceneResolvedMaterialCompiledVariant
 ) -> [String: Bool] {
@@ -153,24 +153,15 @@ private func scenePreparedVariantFailurePriorityCases(
     let frontendFailure = "frontend/shaderFrontendFailed"
     let samplerFailure = "invariant/samplerBindingIdentityMismatch"
     var cases: [String: Bool] = [
-        "invalidLayoutPrecedesMissingSampler": token(changed(layout: invalidLayout), shader: prepared,
-            missingSampler: true) == frontendFailure,
-        "invalidLayoutPrecedesMismatchedSampler": token(changed(layout: invalidLayout,
-            mismatchedBinding: true), shader: prepared) == frontendFailure,
-        "staleSchemaPrecedesMissingSampler": token(frontend, shader: stale,
-            missingSampler: true) == frontendFailure,
-        "staleSchemaPrecedesMismatchedSampler": token(changed(mismatchedBinding: true),
-            shader: stale) == frontendFailure,
+        "invalidLayoutRejectedAtPreparationFactory": token(changed(layout: invalidLayout),
+            shader: prepared) == frontendFailure,
+        "staleSchemaRejectedAtPreparationFactory": token(frontend, shader: stale) == frontendFailure,
         "validABIStillReportsMissingSampler": token(frontend, shader: prepared,
             missingSampler: true) == samplerFailure,
         "validABIStillReportsMismatchedSampler": token(changed(mismatchedBinding: true),
             shader: prepared) == samplerFailure,
         "validABIRejectsZeroPaddedSampler": token(changed(zeroPaddedBinding: true),
             shader: prepared) == samplerFailure,
-        "invalidLayoutPrecedesZeroPaddedSampler": token(changed(layout: invalidLayout,
-            zeroPaddedBinding: true), shader: prepared) == frontendFailure,
-        "staleSchemaPrecedesZeroPaddedSampler": token(changed(zeroPaddedBinding: true),
-            shader: stale) == frontendFailure,
         "missingSamplerPrecedesPreparedNameFailure": token(changed(zeroPaddedBinding: true),
             shader: prepared, missingSampler: true, includeDetails: true)
             .hasPrefix(samplerFailure + "|sampler-missing|"),

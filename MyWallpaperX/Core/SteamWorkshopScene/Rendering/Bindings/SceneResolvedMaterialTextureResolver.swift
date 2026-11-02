@@ -21,10 +21,12 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
 
     static func resolve(
         _ input: SceneResolvedMaterialFinalizationInput,
+        textureSlots authoredTextureSlots: [Template.TextureSlot?],
         variant: SceneResolvedMaterialCompiledVariant
     ) throws -> Resolution {
         let selection = try variantSelection(
             input,
+            textureSlots: authoredTextureSlots,
             samplers: variant.activeSamplers,
             reachableTexturePurposes: [:],
             formatSlots: [],
@@ -49,6 +51,7 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
 
     static func variantKey(
         _ input: SceneResolvedMaterialFinalizationInput,
+        textureSlots authoredTextureSlots: [Template.TextureSlot?],
         samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
         reachableTexturePurposes: [Int: [SceneTextureLoadPurpose?]],
         formatSlots: Set<Int>,
@@ -62,6 +65,7 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
     ) throws -> SceneResolvedMaterialVariantKey {
         try variantSelection(
             input,
+            textureSlots: authoredTextureSlots,
             samplers: samplers,
             reachableTexturePurposes: reachableTexturePurposes,
             formatSlots: formatSlots,
@@ -77,6 +81,7 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
     // frame snapshot. Concrete resource checks remain at both use boundaries.
     private static func variantSelection(
         _ input: SceneResolvedMaterialFinalizationInput,
+        textureSlots authoredTextureSlots: [Template.TextureSlot?],
         samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
         reachableTexturePurposes: [Int: [SceneTextureLoadPurpose?]],
         formatSlots: Set<Int>,
@@ -92,6 +97,7 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
         }
         let selections = try SceneResolvedMaterialTextureSelection.resolve(
             input,
+            textureSlots: authoredTextureSlots,
             samplers: samplers,
             reachableTexturePurposes: reachableTexturePurposes,
             channelUses: channelUses,

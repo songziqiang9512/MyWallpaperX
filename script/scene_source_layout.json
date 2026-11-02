@@ -1407,10 +1407,9 @@
         "role": "inventory",
         "description": "Product call sites of the bounded Swift shader frontend are frozen until the E5 fallback audit retires that frontend; direction is shrink to zero.",
         "pattern": "SceneAuthoredShaderFrontend\\.compile\\(",
-        "baseline_occurrences": 2,
+        "baseline_occurrences": 1,
         "allowed_files": [
-          "Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+Frontend.swift",
-          "Compilation/Material/SceneResolvedMaterialProgram+Derivation.swift"
+          "Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+Frontend.swift"
         ],
         "owner_relocation": {
           "from_file": "Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift",

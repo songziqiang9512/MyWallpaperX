@@ -218,7 +218,6 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             samplers,
             graphInputFacts,
             uniforms,
-            preparedUniformBindings,
             preparedAssembly
         ) = try finalizeVariantBindings(
             template: template,
@@ -302,7 +301,6 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             sameAlphaReconstructedRGBInputContract:
                 sameAlphaReconstructedRGBInputContract,
             activeUniforms: uniforms,
-            preparedUniformBindings: preparedUniformBindings,
             neutralTextureResolution: neutralTextureResolution,
             preservesTargetPixelFootprint: SceneAuthoredShaderSamePixelSourceAnalyzer
                 .preservesTargetPixelFootprint(vertexSource: compilerSources.vertex)

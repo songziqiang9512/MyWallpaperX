@@ -101,7 +101,7 @@ App 产品意图与当前记录
 | 产物 | 准备、持有与失效 |
 | --- | --- |
 | 场景、资源与作者描述 | RuntimeModelBuilder 从唯一 source facts 构造；launchContext 保留执行所需数据，相关内容改变后重新准备 |
-| 材质与 Shader artifact | Catalog交接既有Demand分析的格式槽结果，Variant在准备阶段形成mixed/named、候选purpose和graph-input事实；帧从CompiledVariant消费，不重复解析格式或静态槽形状。prepared uniform来源和执行能力进入同一Program/Graph；launch选择及混合schema的余下跨层职责仍按唯一队列整理 |
+| 材质与 Shader artifact | Catalog交接Demand格式槽结果，Variant形成mixed/named、候选purpose和graph-input事实。PreparedAssembly唯一持有静态uniform计划、layout及identity；帧只传当前值/资源，Program、replay和诊断读取同一计划。SourceMaterial仅投影全部声明dynamic targets供live property准入，frame不另配template；launch选择、设备键与能力构造余债按唯一队列整理 |
 | 纹理、模型与粒子定义 | 后台设备资源任务与资源 loader 准备；实例和 Surface 消费结果；资源来源、用途、device 与 revision 决定复用 |
 | MTLLibrary、PSO、sampler | 原 repository/PassEncoder 缓存；同一来源合并编译，launch warmup 提前准备当前需求 |
 | Puppet准备与实例 | PreparedPuppetResources保CPU资产及作者/default pose，`ScenePreparedDeviceResources+Puppets`在BaseImageResources一次准备paint，PipelineRepository按需准备clipping PSO；Surface经同步资源hook装配几何，有播放实例时注册会话动画runtime后安装CPU/GPU。Surface负责成员、骨骼ABI与冻结RenderFrame，View.puppetGeometries保GPU存储/发布；已提交删除同步退休实例，表面退出清CPU后沿原GPU drain释放 |

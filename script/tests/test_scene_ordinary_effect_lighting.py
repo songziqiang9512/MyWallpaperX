@@ -314,7 +314,7 @@ import simd
                     screenSize: .init(width: 1210, height: 786), sceneTime: 1, dayTime: 0,
                     frameTime: 1 / 60, pointerCurrentNDC: .zero, pointerPreviousNDC: .zero,
                     lighting: lighting)).get()
-            let input = frame.finalizationInput(template: material, renderSize: size,
+            let input = frame.finalizationInput(renderSize: size,
                 modelViewProjection: matrix_identity_float4x4,
                 layerModelMatrix: matrix_identity_float4x4,
                 effectOutputModelViewProjection: matrix_identity_float4x4,

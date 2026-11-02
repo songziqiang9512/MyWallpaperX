@@ -145,7 +145,7 @@ extension BackgroundColorABIHarness {
                 frameInputs: .init(frameIndex: 1, screenSize: .init(width: 8, height: 8),
                     sceneTime: 0, dayTime: 0, frameTime: 0, pointerCurrentNDC: .zero,
                     pointerPreviousNDC: .zero)).get()
-            let frameInput = snapshot.finalizationInput(template: template, layerID: 42,
+            let frameInput = snapshot.finalizationInput(layerID: 42,
                 renderSize: .init(width: 8, height: 8), modelViewProjection: matrix_identity_float4x4,
                 layerModelMatrix: matrix_identity_float4x4,
                 effectOutputModelViewProjection: matrix_identity_float4x4,

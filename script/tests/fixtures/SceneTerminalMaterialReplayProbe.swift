@@ -27,12 +27,12 @@ private func terminalReplayProbe(device: MTLDevice, queue: MTLCommandQueue) -> [
             "g_ModelViewProjectionMatrixInverse": bytes(matrix_identity_float4x4),
         ], replayVertexSource: vertex)!
     let replay = material.terminalReplay(unitModelViewProjection: matrix_identity_float4x4)!
-    let mvp = replay.resolvedUniforms.first { $0.field.authoredName == "g_ModelViewProjectionMatrix" }!
-        .encodedValue.withUnsafeBytes { $0.loadUnaligned(as: simd_float4x4.self) }
-    let inverse = replay.resolvedUniforms.first { $0.field.authoredName == "g_ModelViewProjectionMatrixInverse" }!
-        .encodedValue.withUnsafeBytes { $0.loadUnaligned(as: simd_float4x4.self) }
-    let size = replay.resolvedUniforms.first { $0.field.authoredName == "mwxRenderSize" }!
-        .encodedValue.withUnsafeBytes { $0.loadUnaligned(as: SIMD2<Float>.self) }
+    let mvpIndex = replay.preparedAssembly.preparedUniformBindings.firstIndex { $0.field.authoredName == "g_ModelViewProjectionMatrix" }!
+    let mvp = replay.resolvedUniforms[mvpIndex].encodedValue.withUnsafeBytes { $0.loadUnaligned(as: simd_float4x4.self) }
+    let inverseIndex = replay.preparedAssembly.preparedUniformBindings.firstIndex { $0.field.authoredName == "g_ModelViewProjectionMatrixInverse" }!
+    let inverse = replay.resolvedUniforms[inverseIndex].encodedValue.withUnsafeBytes { $0.loadUnaligned(as: simd_float4x4.self) }
+    let sizeIndex = replay.preparedAssembly.preparedUniformBindings.firstIndex { $0.field.authoredName == "mwxRenderSize" }!
+    let size = replay.resolvedUniforms[sizeIndex].encodedValue.withUnsafeBytes { $0.loadUnaligned(as: SIMD2<Float>.self) }
     let target = texture(device: device, format: .bgra8Unorm, width: 16, height: 16,
                          usage: [.shaderRead, .renderTarget])
     let encoder = SceneResolvedMaterialPassEncoder(device: device)!

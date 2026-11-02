@@ -204,9 +204,11 @@ CPU Program/preparation 命中不等于 `PreparedDeviceResources` 命中。Metal
 
 完整不可变 source graph 的实际内容摘要在 contract 构造/解码时计算一次，不能信任输入携带的 raw/dependency 摘要；preparation、variant 与 resource-demand 分析共用它，后两者的进程内与磁盘键都必须覆盖依赖。此摘要不进入逐帧路径，不改变根 stage 的既有 canonical admission identity。
 
-通用产物由原读取 owner 完整解码/合同校验，命中立即返回；无效或缺失则进入现有同消费合同 single-flight，在锁定的工作内再检查一次，仍未命中才编译并原子发布一次，由原读取 owner 接受后直接返回 Program 给当前等待者，不在 flight 退出后再次打开同一文件。flight 身份包含真实 Program 消费的输出语义、premultiplied slots、颜色边界/transfer 与输出通道，不合并不同消费者；磁盘 artifact 身份保持原编译语义。坏发布或真实编译失败返回原局部失败，不递归重试、不保存为成功；成功 URL 不长期充当内容有效性证据，已接受 CPU Program 的现有有界内存复用保留。不同进程可重复编译但只能原子发布完整产物，不先删除可能已被另一进程修复的文件。
+通用磁盘产物由原读取 owner 有界解码/合同校验，命中立即返回；无效或缺失则进入现有同消费合同 single-flight，在锁定工作内再查一次，仍未命中才编译。Compiler直接交付typed artifact与同次encodedData，经同一Program合同采用后立即交当前等待者，不要求持久目录可写、不写后读回。采用后的可选artifact原子写与完整analysis store沿系统utility后台执行，不延长flight或添加pending发布状态。2MiB只约束cache文件读写，合法较大产物可跳过持久化；工具输出及真实MSL/ABI/资源预算各保原边界。
 
-验收包括规则/工具变化与无关 UI 变化的指纹正反例、include-only 与陈旧自报摘要反例、各层独立进程冷暖读写、坏 JSON/旧合同/坏发布及并发单次重建，以及 Debug 构建和隔离真实 Scene 冷暖启动。旧磁盘条目按新身份成为 miss，沿既有有界淘汰退出；不全盘清缓存、不新增常驻调度器或第二缓存 owner。停止条件是这些边界闭合，不能将少量样本结果外推全量兼容或发布。
+flight身份包含真实Program消费的输出语义、premultiplied slots、颜色边界/transfer与输出通道，不合并不同消费者；磁盘artifact身份保持原编译语义。真实编译或typed合同失败保局部失败，不递归重试或保存为成功；可选写失败只影响后续复用，不改变本次Program。现有已接受CPU Program有界内存复用保留；不同进程可重复编译，只发布完整产物，不先删除可能已被另一进程修复的文件。
+
+验收包括规则/工具变化与无关UI变化的指纹正反例、include-only与陈旧自报摘要反例、各层独立进程冷暖读写、坏JSON/旧合同、cache路径为文件或不可写、真实编译/合同失败及并发单次重建，以及Debug和隔离真实Scene输出。异步持久化只等实际可选文件，不提供生产flush或靠新临时cache掩盖不可写；原缓存边界与直接采用分别验证。旧磁盘条目按新身份miss，沿既有有界淘汰退出，不全盘清缓存或新增常驻调度器。少量样本不外推全量兼容或发布。
 
 <a id="ready-request-preparation"></a>
 

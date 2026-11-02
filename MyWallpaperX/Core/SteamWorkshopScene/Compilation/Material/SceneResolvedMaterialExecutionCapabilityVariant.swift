@@ -19,7 +19,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
         case failed(Failure)
     }
 
-    private let template: Template
+    let template: Template
     private let seedSamplers: [Int: SceneResolvedMaterialShaderSchema.Sampler]
     private let textureFormatSlots: Set<Int>
     private let assetFormatFacts: [String: Int]
@@ -45,7 +45,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
         Graph.TextureIdentity: SceneTextureContent
     ]?
     /// Stable-frame variant-selection memo. Selection depends only on the
-    /// template identity (guarded above), the reachability identity, the
+    /// owned template, the reachability identity, the
     /// snapshot's selection digest and this cache's own variant state, so a
     /// repeated (digest, framebuffer identity) pair reproduces the same
     /// selection without re-deriving per-variant keys. Entries are dropped
@@ -573,26 +573,6 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
     ) -> Result<Variant, Failure> {
         lock.lock()
         defer { lock.unlock() }
-        guard input.template.diagnosticProvenance.contractCanonicalSHA256
-                == template.diagnosticProvenance.contractCanonicalSHA256,
-              input.template.diagnosticProvenance.nodeIndex == template.diagnosticProvenance.nodeIndex,
-              input.template.textureSlots == template.textureSlots,
-              input.template.combos == template.combos,
-              input.template.inheritedInactiveCombos == template.inheritedInactiveCombos,
-              input.template.uniformDeclarations == template.uniformDeclarations,
-              input.template.renderState == template.renderState,
-              input.template.graphRole == template.graphRole,
-              input.template.previousBlurredCompositeGenericOwnerEligible
-                == template.previousBlurredCompositeGenericOwnerEligible,
-              input.template.compatibilityTarget
-                == template.compatibilityTarget,
-              input.template.effectContext == template.effectContext,
-              input.template.shaderContract == template.shaderContract else {
-            return .failure(Self.failure(
-                .variantSelectionTemplateIdentityInvariant,
-                phase: .invariant
-            ))
-        }
         guard hasCachedReachability,
               cachedReachabilityIdentity == input.implicitFramebufferIdentity,
               cachedReachability != nil else {
@@ -638,6 +618,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                     let resolvedKey = try SceneResolvedMaterialTextureResolver
                         .variantKey(
                             input,
+                            textureSlots: template.textureSlots,
                             samplers: variant.activeSamplers,
                             reachableTexturePurposes: reachability.candidatePurposes,
                             formatSlots: textureFormatSlots,

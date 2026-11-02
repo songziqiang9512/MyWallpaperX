@@ -143,11 +143,11 @@ func propertyFormatProfileChecks(path: SceneVFSAssetPath, variant: Int, device: 
             entries: [.materialUserProperty(property): .ready(.init(publication: publication, resourceGeneration: generation))])
         let frame = try SceneResolvedMaterialFrameSnapshot.validated(textureSnapshot: snapshot,
             dynamicSnapshot: dynamic, frameInputs: frameInputs).get()
-        let input = frame.finalizationInput(template: template, layerID: 17,
+        let input = frame.finalizationInput(layerID: 17,
             renderSize: .init(width: 2, height: 2), modelViewProjection: matrix_identity_float4x4,
             layerModelMatrix: matrix_identity_float4x4, effectOutputModelViewProjection: matrix_identity_float4x4,
             effectTextureProjectionMatrixInverse: matrix_identity_float4x4, implicitFramebufferIdentity: nil)
-        return try SceneResolvedMaterialTextureResolver.variantKey(input, samplers: [slot: sampler],
+        return try SceneResolvedMaterialTextureResolver.variantKey(input, textureSlots: template.textureSlots, samplers: [slot: sampler],
             reachableTexturePurposes: facts.candidatePurposes, formatSlots: formatSlots,
             allowPresenceIndependentDefaults: true, textureSelectionFacts: facts,
             graphInputSourceSlotFacts: [:])
@@ -239,7 +239,7 @@ func propertyFormatProfileChecks(path: SceneVFSAssetPath, variant: Int, device: 
             entries: [.asset(dataIdentity): .ready(.init(publication: publication, resourceGeneration: 1))])
         let frame = try SceneResolvedMaterialFrameSnapshot.validated(textureSnapshot: snapshot,
             dynamicSnapshot: dynamic, frameInputs: frameInputs).get()
-        let input = frame.finalizationInput(template: dataTemplate, layerID: 17,
+        let input = frame.finalizationInput(layerID: 17,
             renderSize: .init(width: 2, height: 2), modelViewProjection: matrix_identity_float4x4,
             layerModelMatrix: matrix_identity_float4x4, effectOutputModelViewProjection: matrix_identity_float4x4,
             effectTextureProjectionMatrixInverse: matrix_identity_float4x4, implicitFramebufferIdentity: nil)

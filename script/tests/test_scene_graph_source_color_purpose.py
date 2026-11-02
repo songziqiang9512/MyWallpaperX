@@ -31,10 +31,9 @@ private func graphAtom(_ device: MTLDevice, identity: Graph.TextureIdentity,
         candidate: candidate, contentGeneration: generation), resourceGeneration: generation)
 }
 
-private func inputFor(_ template: Template, entries: [SceneFrameTextureIdentity: SceneFrameTextureLookupStatus],
+private func inputFor(entries: [SceneFrameTextureIdentity: SceneFrameTextureLookupStatus],
     graphInput: Graph.TextureIdentity) -> SceneResolvedMaterialFinalizationInput {
-    frame(1, width: 2, height: 2, textureEntries: entries).finalizationInput(template: template,
-        layerID: graphInput.layerID, renderSize: CGSize(width: 2, height: 2),
+    frame(1, width: 2, height: 2, textureEntries: entries).finalizationInput(layerID: graphInput.layerID, renderSize: CGSize(width: 2, height: 2),
         modelViewProjection: matrix_identity_float4x4, layerModelMatrix: matrix_identity_float4x4,
         effectOutputModelViewProjection: matrix_identity_float4x4,
         effectTextureProjectionMatrixInverse: matrix_identity_float4x4,
@@ -52,7 +51,7 @@ private func traceMaterial(_ cache: SceneResolvedMaterialVariantCache,
     let resource = graphAtom(device, identity: graphInput)
     var entries = extraEntries
     entries[.graph(graphInput)] = graphStatus ?? .ready(resource)
-    let input = inputFor(snapshot.template, entries: entries, graphInput: graphInput)
+    let input = inputFor(entries: entries, graphInput: graphInput)
     var result: [String: Any] = ["allLaunchEntriesReady": snapshot.allEntriesReady,
         "wholeTemplate": String(describing: snapshot.template.graphRole),
         "graphAtomComplete": resource.isCompleteGraphResource,
@@ -87,7 +86,7 @@ private func traceMaterial(_ cache: SceneResolvedMaterialVariantCache,
                 }]
         }
         do {
-            value["frameEntries"] = String(describing: try SceneResolvedMaterialTextureSelection.resolve(input,
+            value["frameEntries"] = String(describing: try SceneResolvedMaterialTextureSelection.resolve(input, textureSlots: snapshot.template.textureSlots,
                 samplers: variant.activeSamplers, reachableTexturePurposes: reachableTexturePurposes,
                 channelUses: channels, allowPresenceIndependentDefaults: true,
                 textureSelectionFacts: variant.textureSelectionFacts,
@@ -107,9 +106,9 @@ private func traceMaterial(_ cache: SceneResolvedMaterialVariantCache,
         result["programResourcePurposes"] = program.textureSlots.map {
             $0.map { String(describing: $0.resource.publication.candidate.purpose) } ?? "absent"
         }
-        result["inputMask"] = program.resolvedUniforms.first {
-            $0.field.name == "mwxPremultipliedColorInputMask"
-        }.map { $0.encodedValue.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) } } ?? 0
+        result["inputMask"] = zip(program.preparedAssembly.preparedUniformBindings, program.resolvedUniforms).first {
+            $0.0.field.name == "mwxPremultipliedColorInputMask"
+        }.map { $0.1.encodedValue.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) } } ?? 0
         result["selectedReferences"] = program.textureSlots.map {
             $0.map { String(describing: $0.reference) } ?? "absent"
         }
@@ -245,7 +244,7 @@ private func neighborTrace(_ device: MTLDevice, template: Template) -> [[String:
             graphInputSourceSlotFacts: graphFacts)
         let resource = graphAtom(device, identity: identity, purpose: purpose, content: content,
             pixelFormat: format, candidateGeneration: candidateGen, requestOverride: request)
-        let input = inputFor(neighborTemplate, entries: [.graph(identity): .ready(resource)], graphInput: identity)
+        let input = inputFor(entries: [.graph(identity): .ready(resource)], graphInput: identity)
         var value: [String: Any] = ["name": name, "publicationComplete": resource.publication.isComplete,
             "graphComplete": resource.isCompleteGraphResource,
             "schema": String(describing: sampler),
@@ -262,11 +261,11 @@ private func neighborTrace(_ device: MTLDevice, template: Template) -> [[String:
                 activeSampler: sampler,
                 channelUse: .wholeVector, input: input)?.reportToken ?? "nil"]
         do {
-            value["selection"] = String(describing: try SceneResolvedMaterialTextureSelection.resolve(input,
+            value["selection"] = String(describing: try SceneResolvedMaterialTextureSelection.resolve(input, textureSlots: neighborTemplate.textureSlots,
                 samplers: [0: sampler], reachableTexturePurposes: facts.candidatePurposes, channelUses: [0: .wholeVector],
                 allowPresenceIndependentDefaults: true, textureSelectionFacts: facts,
                 graphInputSourceSlotFacts: graphFacts))
-            value["variantKey"] = String(describing: try SceneResolvedMaterialTextureResolver.variantKey(input,
+            value["variantKey"] = String(describing: try SceneResolvedMaterialTextureResolver.variantKey(input, textureSlots: neighborTemplate.textureSlots,
                 samplers: [0: sampler], reachableTexturePurposes: facts.candidatePurposes, formatSlots: [],
                 channelUses: [0: .wholeVector], allowPresenceIndependentDefaults: true,
                 textureSelectionFacts: facts, graphInputSourceSlotFacts: graphFacts))
@@ -416,7 +415,7 @@ private enum Probe {
                        let overlaid = frame(1, textureEntries: entries).overlayingGraphResources([
                            middleInput: prepared.stages[0].effectOutputResource
                        ]), case let .success(program) = SceneResolvedMaterialProgramFinalizer.finalize(
-                           overlaid.finalizationInput(template: material.template, layerID: raw.layerID,
+                           overlaid.finalizationInput(layerID: raw.layerID,
                                renderSize: CGSize(width: 2, height: 2), modelViewProjection: matrix_identity_float4x4,
                                layerModelMatrix: matrix_identity_float4x4,
                                effectOutputModelViewProjection: matrix_identity_float4x4,
@@ -426,9 +425,9 @@ private enum Probe {
                         value["actualMiddleInputContent"] = String(describing: bound.resource.publication.candidate.content)
                         value["actualMiddleInputSameAtom"] = bound.resource.publication.isSameAtom(
                             as: prepared.stages[0].effectOutputResource.publication)
-                        value["actualMiddleInputMask"] = program.resolvedUniforms.first {
-                            $0.field.name == "mwxPremultipliedColorInputMask"
-                        }.map { $0.encodedValue.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) } } ?? 0
+                        value["actualMiddleInputMask"] = zip(program.preparedAssembly.preparedUniformBindings, program.resolvedUniforms).first {
+                            $0.0.field.name == "mwxPremultipliedColorInputMask"
+                        }.map { $0.1.encodedValue.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) } } ?? 0
                     }
                     value["stageContents"] = prepared.stages.map { String(describing: $0.effectOutputResource.publication.candidate.content) }
                     value["stagePurposes"] = prepared.stages.map { $0.effectOutputResource.publication.candidate.purpose.reportToken }

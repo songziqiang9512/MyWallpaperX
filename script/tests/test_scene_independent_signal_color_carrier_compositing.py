@@ -484,7 +484,7 @@ private func runSignalBridge(_ name: String, device: MTLDevice, queue: MTLComman
             return ["failure": "bridge-publication", "frames": rows]
         }
         let result = SceneResolvedMaterialProgramFinalizer.finalize(snapshot.finalizationInput(
-            template: template, layerID: layerID, renderSize: CGSize(width: extent.width, height: extent.height),
+            layerID: layerID, renderSize: CGSize(width: extent.width, height: extent.height),
             modelViewProjection: matrix_identity_float4x4, layerModelMatrix: matrix_identity_float4x4,
             effectOutputModelViewProjection: matrix_identity_float4x4,
             effectTextureProjectionMatrixInverse: matrix_identity_float4x4,
@@ -501,8 +501,8 @@ private func runSignalBridge(_ name: String, device: MTLDevice, queue: MTLComman
             return ["failure": "bridge-encode", "frames": rows]
         }
         command.commit(); command.waitUntilCompleted()
-        let mask = program.resolvedUniforms.first { $0.field.name == "mwxPremultipliedColorInputMask" }
-            .map { $0.encodedValue.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) } } ?? 0
+        let mask = zip(program.preparedAssembly.preparedUniformBindings, program.resolvedUniforms).first { $0.0.field.name == "mwxPremultipliedColorInputMask" }
+            .map { $0.1.encodedValue.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) } } ?? 0
         if offset == 0 {
             key = program.preparedShader.cacheKey
             compilationCount = cache.counters.frontendCompilationCount
@@ -536,7 +536,7 @@ private func runSignalBridge(_ name: String, device: MTLDevice, queue: MTLComman
             "dynamicSignalPassthroughRetained": name != "raw" || (
                 program.frontendProgram.colorBoundary?.signalPassthroughSlot == 0
                 && program.frontendProgram.colorTransfer == .passthrough(textureSlot: 0)
-                && program.resolvedUniforms.contains { $0.field.name == "mwxPremultipliedColorInputMask" }),
+                && program.preparedAssembly.preparedUniformBindings.contains { $0.field.name == "mwxPremultipliedColorInputMask" }),
             "authoredMathPreserved": matches(read.firstPixel, expectedPixel) && matches(read.lastPixel, expectedPixel),
             "pixel": read.firstPixel, "mask": mask])
     }

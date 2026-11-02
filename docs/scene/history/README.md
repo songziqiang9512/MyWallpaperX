@@ -8,7 +8,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
-| 2026-11-02 | 材质准备边界 | 分阶段职责与有界验收 | [格式与槽位交接](material-preparation-boundaries-2026-11-02.md#m1-format-slot-handoff) | 原准备事实复用、真实GPU/签名App、暖复用及载体首失败；不关闭整个架构 | [重构合同](../roadmap/engine-refactor-program.md)、[现役证据](../capabilities/runtime-evidence-current.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
+| 2026-11-02 | 材质准备边界 | 分阶段职责与有界验收 | [格式、槽位与帧uniform](material-preparation-boundaries-2026-11-02.md) | 原准备事实复用、唯一静态装配、真实GPU/签名App、暖复用及载体首失败；不关闭整个架构 | [重构合同](../roadmap/engine-refactor-program.md)、[现役证据](../capabilities/runtime-evidence-current.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-11-02 | 运行证据入口归整 | 完整原文与链接重定位 | [归整前运行证据](runtime-evidence-current-through-2026-11-02.md) | 保留原始失败、STOP、身份和永久锚点；原文/转换后正文分开登记SHA | [现役证据](../capabilities/runtime-evidence-current.md#current-snapshot)、[能力台账](../capabilities/coverage-ledger.md#current-overview) |
 | 2026-11-02 | Scene alpha | 已完设计原文 | [显示权旧设计](alpha-display-fallback-design-2026-10-01.md) | 保留独立 shared-alpha 退出前的完整设计；旧范围不再限制当前迁移 | [现役合同](../capabilities/alpha-display-fallback-design.md)、[能力状态](../capabilities/scenescript-api-coverage.md) |
 | 2026-11-01 | 公共依赖图归整 | 完整原文 | [归整前依赖图](capability-dependency-map-through-2026-11-01.md) | 保留旧等级、来源与实施门；现役仅维护关系 | [依赖参考](../architecture/capability-dependency-map.md)、[运行架构](../architecture/runtime-architecture.md)、[能力台账](../capabilities/coverage-ledger.md) |

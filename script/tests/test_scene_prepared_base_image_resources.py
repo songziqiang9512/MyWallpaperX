@@ -301,6 +301,16 @@ class ScenePreparedBaseImageResourceTests(unittest.TestCase):
                 self.assertEqual(rejected["warmupCalls"], 0)
                 self.assertEqual(rejected["reasons"], ["source-domain-variant-dependent"])
 
+    def test_source_preparation_hands_off_all_declared_dynamic_targets(self) -> None:
+        case = self.facts["sourceDeclaredTargets"]
+        self.assertEqual(case["preparedCount"], 1)
+        self.assertEqual(case["outputDomain"], "baseImage")
+        self.assertEqual(case["declaredDynamicTargets"], ["declaredInactive", "declaredLive"])
+        self.assertEqual(case["warmupCalls"], 1)
+        self.assertEqual(case["warmupPlanCount"], 2)
+        self.assertEqual(case["reasons"], [])
+        self.assertEqual(self.facts["sourceInactive"]["declaredDynamicTargets"], [])
+
     def test_source_domain_selection_preserves_envelope_and_pipeline_rejections(self) -> None:
         reasons = {
             "sourceIncompleteEnvelope": "variant-envelope-incomplete",

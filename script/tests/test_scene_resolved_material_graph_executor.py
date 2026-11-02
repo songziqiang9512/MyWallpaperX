@@ -4415,7 +4415,7 @@ private func runSelfMixedCurrentScenario(device: MTLDevice, queue: MTLCommandQue
        let overlaid = frame(1, textureEntries: [userIdentity: lookup]).overlayingGraphResources([
            chainedFirstOutput: prepared.stages[0].effectOutputResource
        ]), case let .success(program) = SceneResolvedMaterialProgramFinalizer.finalize(
-           overlaid.finalizationInput(template: material.template, layerID: layerID,
+           overlaid.finalizationInput(layerID: layerID,
                renderSize: CGSize(width: extent.width, height: extent.height),
                modelViewProjection: matrix_identity_float4x4, layerModelMatrix: matrix_identity_float4x4,
                effectOutputModelViewProjection: matrix_identity_float4x4,
@@ -4543,7 +4543,7 @@ private func runSelfCompositeCurrentScenario(
            let overlaid = frame(UInt64(frameIndex)).overlayingGraphResources([
                effects.last!.input: prior.effectOutputResource
            ]), case let .success(program) = SceneResolvedMaterialProgramFinalizer.finalize(
-               overlaid.finalizationInput(template: material.template, layerID: layerID,
+               overlaid.finalizationInput(layerID: layerID,
                    renderSize: CGSize(width: extent.width, height: extent.height),
                    modelViewProjection: matrix_identity_float4x4, layerModelMatrix: matrix_identity_float4x4,
                    effectOutputModelViewProjection: matrix_identity_float4x4,
@@ -4653,18 +4653,18 @@ private func runStraightColorContinuityScenario(
         let prior = prepared.stages[0], final = prepared.stages[1]
         guard let overlaid = snapshot.overlayingGraphResources([chainedFirstOutput: prior.effectOutputResource]),
               case let .success(program) = SceneResolvedMaterialProgramFinalizer.finalize(
-                overlaid.finalizationInput(template: consumer.template, layerID: layerID,
+                overlaid.finalizationInput(layerID: layerID,
                     renderSize: CGSize(width: extent.width, height: extent.height),
                     modelViewProjection: matrix_identity_float4x4, layerModelMatrix: matrix_identity_float4x4,
                     effectOutputModelViewProjection: matrix_identity_float4x4,
                     effectTextureProjectionMatrixInverse: matrix_identity_float4x4,
                     implicitFramebufferIdentity: chainedFirstOutput), variantCache: consumer.variants),
-              let maskUniform = program.resolvedUniforms.first(where: {
-                $0.field.name == "mwxPremultipliedColorInputMask"
-              }), maskUniform.encodedValue.count == 4 else {
+              let maskUniform = zip(program.preparedAssembly.preparedUniformBindings, program.resolvedUniforms).first(where: {
+                $0.0.field.name == "mwxPremultipliedColorInputMask"
+              }), maskUniform.1.encodedValue.count == 4 else {
             return ["failure": "consumer-mask-finalization", "frames": rows]
         }
-        let mask = maskUniform.encodedValue.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) }
+        let mask = maskUniform.1.encodedValue.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) }
         var readbacks: [Readback] = []
         guard executor.encode(prepared, commandBuffer: command, stageBoundaryObserver: { _, stage, buffer in
             guard let read = appendReadback(stage.effectOutputResource.publication.texture,
@@ -4806,7 +4806,7 @@ private func runRawSignalPassthroughGraphScenario(
               let overlaid = snapshot.overlayingGraphResources([
                 chainedFirstOutput: prepared.stages[0].effectOutputResource
               ]), case let .success(program) = SceneResolvedMaterialProgramFinalizer.finalize(
-                overlaid.finalizationInput(template: rawSecond.template, layerID: layerID,
+                overlaid.finalizationInput(layerID: layerID,
                     renderSize: CGSize(width: extent.width, height: extent.height),
                     modelViewProjection: matrix_identity_float4x4, layerModelMatrix: matrix_identity_float4x4,
                     effectOutputModelViewProjection: matrix_identity_float4x4,
@@ -4840,8 +4840,8 @@ private func runRawSignalPassthroughGraphScenario(
         let expectedRaw: [UInt8] = fallback ? [52, 102, 203, 128] : expectedInput
         let actualInput = SceneTextureContent.color(.resolved(fallback ? .premultipliedAlpha : .independentAlphaSignal))
         let actualOutput = SceneTextureContent.color(.resolved(fallback ? .straightAlpha : .independentAlphaSignal))
-        let mask = program.resolvedUniforms.first { $0.field.name == "mwxPremultipliedColorInputMask" }
-            .map { $0.encodedValue.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) } }
+        let mask = zip(program.preparedAssembly.preparedUniformBindings, program.resolvedUniforms).first { $0.0.field.name == "mwxPremultipliedColorInputMask" }
+            .map { $0.1.encodedValue.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) } }
         rows.append([
             "completed": command.status == .completed && command.error == nil,
             "dynamicPassthroughAcrossEffects": [rawFirst, rawSecond].allSatisfy { material in
@@ -9254,7 +9254,6 @@ private enum Harness {
         let readyVariantFrame = frame(3).overlayingGraphResources(readyResources)!
         let readyVariant = boundedCache.resolveSelection(
             readyVariantFrame.finalizationInput(
-                template: cacheTemplate,
                 layerID: 9001,
                 renderSize: CGSize(width: extent.width, height: extent.height),
                 modelViewProjection: Executor.fullTargetMVP(firstTexture),
@@ -9289,7 +9288,6 @@ private enum Harness {
         }()
         let absentGraphOverride = boundedCache.resolveSelection(
             absentVariantFrame.finalizationInput(
-                template: cacheTemplate,
                 layerID: 9001,
                 renderSize: CGSize(width: extent.width, height: extent.height),
                 modelViewProjection: Executor.fullTargetMVP(firstTexture),

@@ -99,7 +99,7 @@ class SceneSourceColorGraphTests(unittest.TestCase):
                     guard case let .success(prepared) = preparation,
                           let overlaid = snapshot.overlayingGraphResources([input: base]),
                           case let .success(program) = SceneResolvedMaterialProgramFinalizer.finalize(
-                            overlaid.finalizationInput(template: material.template, layerID: layerID,
+                            overlaid.finalizationInput(layerID: layerID,
                                 renderSize: CGSize(width: extent.width, height: extent.height),
                                 modelViewProjection: matrix_identity_float4x4, layerModelMatrix: matrix_identity_float4x4,
                                 effectOutputModelViewProjection: matrix_identity_float4x4,
@@ -151,8 +151,8 @@ class SceneSourceColorGraphTests(unittest.TestCase):
                     if index == 1 { key = prepared.stages[0].programCacheKeys.first
                         frontendCount = material.variants.counters.frontendCompilationCount
                         libraryCount = executor.materialEncoder.metalLibraryCompilationAttemptCount }
-                    let mask = program.resolvedUniforms.first { $0.field.name == "mwxPremultipliedColorInputMask" }
-                        .map { $0.encodedValue.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) } }
+                    let mask = zip(program.preparedAssembly.preparedUniformBindings, program.resolvedUniforms).first { $0.0.field.name == "mwxPremultipliedColorInputMask" }
+                        .map { $0.1.encodedValue.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) } }
                     for (additive, read) in composedReads {
                         let effectAlpha: Float = 128 / 255, finalAlpha = effectAlpha * 0.6
                         var expectedComposite = (0..<3).map { channel in byte(

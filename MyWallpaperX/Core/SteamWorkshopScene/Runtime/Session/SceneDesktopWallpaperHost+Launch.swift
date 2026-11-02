@@ -762,13 +762,9 @@ extension SceneDesktopWallpaperHost {
         NSLog("MWX LAUNCH-STAGE: stage=device-join elapsedMs=%.0f", (CACurrentMediaTime() - resourcesStageStart) * 1000)
 #endif
         let firstSurfaceRuntime = try firstSurfaceRuntimePreparation.value()
-        let preparedSourceMaterialTargets: Set<SceneDynamicTarget> = Set(firstSurfaceRuntime.sourceMaterials.values
-            .flatMap { material in
-                material.template.uniformDeclarations.compactMap { declaration in
-                    if case let .dynamic(value) = declaration.value { return value.target }
-                    return nil
-                }
-            })
+        let preparedSourceMaterialTargets = firstSurfaceRuntime.sourceMaterials.values.reduce(
+            into: Set<SceneDynamicTarget>()
+        ) { $0.formUnion($1.declaredDynamicTargets) }
         let preparedFirstSurfaceRuntime = ScenePreparedFirstSurfaceRuntime(firstSurfaceRuntime)
         let resourceCatalog = SceneDesktopWallpaperLaunchFrameSchema.preparedResourceCatalog(
             descriptor: runtimeInput.renderDescriptor,

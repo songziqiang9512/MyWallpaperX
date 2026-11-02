@@ -169,7 +169,7 @@ private func systemNoise(_ texture: MTLTexture, path: SceneVFSAssetPath, frame: 
         candidate: candidate, contentGeneration: frame), resourceGeneration: frame)
 }
 
-private func input(_ template: Template, frame: UInt64,
+private func input(frame: UInt64,
     entries: [SceneFrameTextureIdentity: SceneFrameTextureLookupStatus]) -> SceneResolvedMaterialFinalizationInput {
     let dynamic = SceneDynamicSnapshotResolver().resolve(frameIndex: frame, generation: frame,
         definitions: [], timelineValues: [:]).snapshot
@@ -178,7 +178,7 @@ private func input(_ template: Template, frame: UInt64,
     guard case let .success(snapshot) = SceneResolvedMaterialFrameSnapshot.validated(
         textureSnapshot: .init(frameEpoch: frame, frameIndex: frame, entries: entries),
         dynamicSnapshot: dynamic, frameInputs: frameInputs) else { fatalError("own frame invalid") }
-    return snapshot.finalizationInput(template: template, layerID: 0, renderSize: CGSize(width: 2, height: 2),
+    return snapshot.finalizationInput(layerID: 0, renderSize: CGSize(width: 2, height: 2),
         modelViewProjection: matrix_identity_float4x4, layerModelMatrix: matrix_identity_float4x4,
         effectOutputModelViewProjection: matrix_identity_float4x4,
         effectTextureProjectionMatrixInverse: matrix_identity_float4x4)
@@ -243,14 +243,14 @@ private func run(device: MTLDevice, queue: MTLCommandQueue, renamed: Bool,
             .asset(fallback): defaultReady ? resource(defaultTexture, request: fallback, frame: frame) : .absent,
             .system(.init(name:noiseDefault.value,purpose:.noise)): .ready(systemNoise(defaultTexture,path:noiseDefault,frame:frame)),
         ]
-        let frameInput = input(value, frame: frame, entries: entries)
+        let frameInput = input(frame: frame, entries: entries)
         var observation: [String: Any] = ["frame": frame]
         do {
             let snapshot = cache.launchEnvelopeCapabilitySnapshot()
             let variant = snapshot.variants[0]
             let reachableTexturePurposes = SceneResolvedMaterialCompiledVariant.TextureSelectionFacts.consensusPurposes(
                 snapshot.variants.map { $0.textureSelectionFacts.candidatePurposes })
-            let selections = try SceneResolvedMaterialTextureSelection.resolve(frameInput,
+            let selections = try SceneResolvedMaterialTextureSelection.resolve(frameInput, textureSlots: value.textureSlots,
                 samplers: variant.activeSamplers, reachableTexturePurposes: reachableTexturePurposes,
                 channelUses: Dictionary(uniqueKeysWithValues: variant.frontendProgram.textureBindings.map { ($0.slot,$0.channelUse) }),
                 allowPresenceIndependentDefaults: true, textureSelectionFacts: variant.textureSelectionFacts,
