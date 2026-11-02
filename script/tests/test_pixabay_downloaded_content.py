@@ -49,6 +49,20 @@ class PixabayDownloadedContentTests(unittest.TestCase):
                            for signature in field_signatures)
         fields = re.sub(r"\bprivate\(set\)\s+", "", fields)
         content = CONTENT.read_text()
+        enumeration = "FileManager.default.contentsOfDirectory(at: source,"
+        self.assertEqual(content.count(enumeration), 1)
+        content = content.replace(enumeration, "observedDownloadedDirectoryContents(at: source,", 1)
+        content += r"""
+nonisolated private func observedDownloadedDirectoryContents(at directory: URL,
+    includingPropertiesForKeys keys: [URLResourceKey]?, options: FileManager.DirectoryEnumerationOptions) throws -> [URL] {
+    let requested: Any
+    if let keys { requested = keys.map(\.rawValue) }
+    else { requested = NSNull() }
+    let event = try JSONSerialization.data(withJSONObject: ["keys": requested, "options": options.rawValue], options: [.sortedKeys])
+    FileHandle.standardError.write(Data("PIXABAY ENUMERATION ".utf8) + event + Data([10]))
+    return try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: keys, options: options)
+}
+"""
         metadata = "    static func load(from url: URL) async -> Self {"
         self.assertEqual(content.count(metadata), 1)
         content = content.replace(metadata, metadata + "\n        await DownloadedSourceProbe.shared.metadataRead()")
@@ -87,6 +101,13 @@ class PixabayDownloadedContentTests(unittest.TestCase):
                 with self.subTest(name=name): self.assertIs(passed, True)
             self.assertEqual(inputs, {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in originals})
             print(json.dumps(checks, sort_keys=True))
+            prefix = "PIXABAY ENUMERATION "
+            enumerations = [json.loads(line[len(prefix):]) for line in run.stderr.splitlines() if line.startswith(prefix)]
+            print(json.dumps({"enumerationRequests": enumerations}, sort_keys=True))
+            self.assertTrue(enumerations, "the real scan must call filesystem enumeration")
+            for index, event in enumerate(enumerations):
+                with self.subTest(enumeration=index):
+                    self.assertEqual(event["keys"], [], event)
 
 
 if __name__ == "__main__":

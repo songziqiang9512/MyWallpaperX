@@ -112,7 +112,7 @@ nonisolated enum PixabayDownloadedContent {
         for source in [directory, legacyDirectory].compactMap({ $0 }) {
             do {
                 files += try FileManager.default.contentsOfDirectory(at: source,
-                    includingPropertiesForKeys: [.contentModificationDateKey, .fileSizeKey, .creationDateKey, .isDirectoryKey],
+                    includingPropertiesForKeys: [],
                     options: [.skipsHiddenFiles])
             } catch let error as CocoaError where error.code == .fileReadNoSuchFile || error.code == .fileNoSuchFile {
                 guard !previous.contains(where: { $0.localURL.deletingLastPathComponent().standardizedFileURL.path == source.standardizedFileURL.path }) else { throw error }
