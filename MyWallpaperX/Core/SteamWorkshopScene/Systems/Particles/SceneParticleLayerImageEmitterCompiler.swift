@@ -5,14 +5,16 @@ nonisolated enum SceneParticleLayerImageEmitterCompiler {
     nonisolated static func compile(
         descriptor: SceneRenderDescriptor,
         texturesByLayerID: [Int: MTLTexture],
-        animatedSourceLayerIDs: Set<Int> = []
+        animatedSourceLayerIDs: Set<Int> = [],
+        destroyedAuthoredLayerIDs: Set<Int> = []
     ) -> SceneParticleLayerImageEmitterCompilation {
         let layersByID = Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) })
         var maps: [Int: SceneParticleLayerImageEmissionMap] = [:]
 #if DEBUG
         var diagnostics: [SceneParticleRuntimeDiagnostic] = []
 #endif
-        for layer in descriptor.layers where layer.contentKind == "particle" {
+        for layer in descriptor.layers where layer.contentKind == "particle"
+            && !destroyedAuthoredLayerIDs.contains(layer.id) {
             let imageDependencies = layer.authoredDependencies.filter { $0.type == "emitterimage" }
             guard !imageDependencies.isEmpty else { continue }
 #if DEBUG

@@ -14,23 +14,14 @@ final class SceneParticleRuntime {
 #if DEBUG
     private(set) var diagnostics: [SceneParticleRuntimeDiagnostic] = []
 #endif
-    /// Eligible world-space layer -> ancestor-chain members. A dynamic-snapshot
-    /// transform write into any member invalidates that system's launch-static
-    /// world frame; the system then simulates with a zero delta so its last
-    /// committed particle state keeps rendering (previous-current).
-    private let worldSpaceChains: [Int: Set<Int>]
+    /// Active world-space roots and their authored transform chains.
+    private var worldSpaceChains: [Int: Set<Int>]
     private var rootWorldTranslationPlans: [Int: SceneParticleRootWorldTranslationPlan] = [:]
-    /// Particle layers whose simulation actually converts through the world
-    /// frame: root world-space flags/movement or any admitted child
-    /// template with them. The freeze/re-adopt transaction applies only to
-    /// these; a local-space system under the same scripted chain keeps
-    /// simulating because the layer world frame only matters at draw time.
-    /// Assigned once at the end of init and never mutated afterwards.
+    /// Only these root/child consumers freeze on a missing world frame;
+    /// local-space peers still advance because their frame matters only at draw.
     private var worldSpaceRequiringLayerIDs: Set<Int> = []
     private var frozenWorldSpaceLayerIDs: Set<Int> = []
-    /// Launch-stable layer demand for pointer projection. Root and child
-    /// template identities are prepared with the particle graph; frame-varying
-    /// coordinates are still supplied by the host each advance.
+    /// Prepared root/child pointer demand retires with its owning layer.
     private(set) var pointerControlPointDemands: [Int: SceneParticlePointerDemand] = [:]
     private(set) var requiredPipelineVariants: Set<SceneParticlePipelineVariant> = []
 #if DEBUG
@@ -229,7 +220,8 @@ final class SceneParticleRuntime {
         staticWorldSpaceChains: [Int: Set<Int>]? = nil,
         preparedParticleVisibilityLayerIDs: Set<Int> = [],
         initialDynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
-        initialPlayback: [Int: SceneParticlePlaybackSnapshot] = [:]
+        initialPlayback: [Int: SceneParticlePlaybackSnapshot] = [:],
+        destroyedAuthoredLayerIDs: Set<Int> = []
     ) {
         self.device = device
         self.descriptor = descriptor
@@ -240,12 +232,13 @@ final class SceneParticleRuntime {
 #endif
         let staticWorldSpaceFrames = staticWorldSpaceFrames
             ?? descriptor.staticParticleWorldSpaceFrames
-        worldSpaceChains = staticWorldSpaceChains
-            ?? descriptor.staticParticleWorldSpaceChains
+        worldSpaceChains = (staticWorldSpaceChains
+            ?? descriptor.staticParticleWorldSpaceChains).filter { !destroyedAuthoredLayerIDs.contains($0.key) }
         let preparedTranslations = descriptor.particleRootWorldTranslations(initialDynamicValues: initialDynamicValues)
         let visibleIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
         let particleLayers = Self.orderedLayers(in: descriptor).filter {
-            (visibleIDs.contains($0.id) || preparedParticleVisibilityLayerIDs.contains($0.id))
+            !destroyedAuthoredLayerIDs.contains($0.id)
+                && (visibleIDs.contains($0.id) || preparedParticleVisibilityLayerIDs.contains($0.id))
                 && $0.contentKind == "particle"
                 && $0.particlePath != nil
         }
@@ -462,18 +455,9 @@ final class SceneParticleRuntime {
         }
     }
 
-    /// A script anywhere in the scene may write a chain layer's transform
-    /// through the dynamic snapshot without a declared binding. The runtime
-    /// then adopts the renderer's current world frame for that system; only
-    /// when no current frame is available (or it is degenerate) does the
-    /// system freeze for that frame and keep its last committed particles.
-    /// The freeze lasts exactly as long as the degenerate state: a later
-    /// frame that can construct a valid frame for the chain — whether that
-    /// frame carries a fresh transform write or the write has already
-    /// vanished (one-shot undeclared script write, finished timeline) and
-    /// the snapshot fell back to the authored transform — resumes
-    /// simulation. Lane-less frames that still cannot construct a frame
-    /// keep the previous-current freeze.
+    /// Adopt the canonical current frame, including undeclared script writes.
+    /// A missing or degenerate frame freezes only its world-space consumers;
+    /// a later valid frame resumes them without replaying the frozen interval.
 #if DEBUG
     private var liveWorldSpaceAdoptedLayerIDs: Set<Int> = []
 #endif
@@ -746,13 +730,27 @@ final class SceneParticleRuntime {
     }
 #endif
 
-    /// Ends this launch-scoped runtime atomically. Root and child systems are
-    /// never transplanted into a replacement Scene/surface generation.
-    func teardown() {
-        for index in layers.indices {
-            layers[index].childRuntime?.teardown()
-            layers[index].rootRender = nil
+    func retire(layerIDs: Set<Int>) {
+        layers.removeAll { layer in
+            guard layerIDs.contains(layer.layerID) else { return false }
+            layer.childRuntime?.teardown()
+            return true
         }
+        for layerID in layerIDs {
+            worldSpaceChains.removeValue(forKey: layerID)
+            rootWorldTranslationPlans.removeValue(forKey: layerID)
+            pointerControlPointDemands.removeValue(forKey: layerID)
+        }
+        worldSpaceRequiringLayerIDs.subtract(layerIDs)
+        frozenWorldSpaceLayerIDs.subtract(layerIDs)
+#if DEBUG
+        liveWorldSpaceAdoptedLayerIDs.subtract(layerIDs)
+        pendingAudioEvaluationObservations.removeAll { layerIDs.contains($0.layerID) }
+#endif
+    }
+
+    func teardown() {
+        retire(layerIDs: Set(activeLayerIDs))
         layers.removeAll(keepingCapacity: false)
     }
 

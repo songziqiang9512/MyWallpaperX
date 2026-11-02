@@ -4375,7 +4375,7 @@
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ],
       "cutoffDate": "2026-11-03",
-      "uniqueValue": "Sprite单clock采样、committed活动状态退休、MPS使用期及真实暂停冻结/同Session重建；保原失败与资格修正，不关闭相机或整体Scene。"
+      "uniqueValue": "Sprite/Timeline与Particle活动状态退休，单clock、真实VM/MPS/Metal、root/child与GPU使用期、冻结输出及同Session重建的固定证据和载体资格纠正。"
     },
     {
       "path": "docs/scene/history/user-property-video-2026-10-16.md",

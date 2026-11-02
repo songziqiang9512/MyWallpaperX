@@ -169,6 +169,14 @@ class SceneParticleRuntimeTests(
         )
         return json.loads(completed.stdout)
 
+    def test_authored_retirement_preserves_peer_rng_and_frozen_batches(self) -> None:
+        for configuration in ("debug", "release"):
+            result = self.run_harness("authored-retirement", configuration=configuration)
+            self.assertTrue(result)
+            for name, value in result.items():
+                with self.subTest(configuration=configuration, name=name):
+                    self.assertTrue(value, result)
+
     def test_playback_control_preserves_runtime_and_clears_history(self) -> None:
         result = self.run_harness("playback-control")
         for name, value in result.items():

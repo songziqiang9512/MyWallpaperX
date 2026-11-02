@@ -454,6 +454,20 @@ class SceneParticleRenderingTests(unittest.TestCase):
         self.assertTrue(slots["cancelAfterCompletionRejected"])
         self.assertTrue(slots["reusedAfterCompletion"])
 
+    def test_retired_root_and_child_buffers_live_only_until_original_command_finishes(self) -> None:
+        facts = self.result["topologyRetirement"]
+        for name in (
+            "available", "rootAndChildHaveDistinctOwners", "rootAndChildSubmitted",
+            "pendingGPUKeepsRetiredOwners", "healthyPeerReusesOwner",
+            "healthyPeerPendingCancelled", "retiredSubmissionCompleted",
+            "completedGPUReleasesRootKey", "completedGPUReleasesChildKey",
+            "unsubmittedRootAndChildArmed", "unsubmittedReservationsCancelled",
+            "cancelledCommandReleasesRootKey", "cancelledCommandReleasesChildKey",
+            "peerSurvivesBothRetirements",
+        ):
+            with self.subTest(fact=name):
+                self.assertTrue(facts[name])
+
     def test_refraction_mask_and_particle_alpha_attenuate_displacement(self) -> None:
         value = self.result["refractionContract"]
         # The 8x8 framebuffer has a 20/texel blue gradient. Full displacement

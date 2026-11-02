@@ -129,6 +129,9 @@ extension SceneDesktopWallpaperSession {
             context, rejectedOwnerTargets: rejectedOwnerTargets
         )
         if !newlyDestroyedLayerIDs.isEmpty {
+            for surface in surfaces.values {
+                surface.particlePlayback?.retire(layerIDs: newlyDestroyedLayerIDs)
+            }
             retireCommittedAnimationLayers(context, layerIDs: newlyDestroyedLayerIDs)
         }
     }

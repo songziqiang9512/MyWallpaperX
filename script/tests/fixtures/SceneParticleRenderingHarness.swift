@@ -196,6 +196,7 @@ enum Harness {
             "ropeTrailAspect": ropeTrailAspectContract(),
             "instanceBufferSlots": instanceBufferSlotTest(),
             "instanceBufferPendingCancellation": instanceBufferPendingCancellationTest(),
+            "topologyRetirement": topologyRetirementTest(),
             "colorContract": colorContractTest(),
             "straightInterpolation": straightInterpolationTest(),
             "sequenceEndPixels": sequenceEndPixels(),

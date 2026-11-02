@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 from .scene_vector_vm_test_support import compile_vector_harness, SWIFT_PREAMBLE, ROOT
 from .test_scene_particle_simulator import SWIFT_SOURCES as PARTICLE_SOURCES
+from .scene_particle_runtime_configuration_cases import _declaration
 
 HARNESS = r'''
 import simd
@@ -14,16 +15,27 @@ struct SceneDesktopWallpaperLaunchContext {
     struct Program {let generation:UInt64}
     let runtimeInput:Input
     let propertyVectorScriptProgram:Program
+    var mutationRuntime:SceneScriptDynamicLayerRuntime? = nil
+    var sceneScriptDynamicLayerRuntime:SceneScriptDynamicLayerRuntime {mutationRuntime!}
 }
 final class SceneDesktopWallpaperSession {
     final class ParticleState {
         let simulator:SceneParticleSimulator?
+        var retirements:[Set<Int>] = []
+        var onRetire:(() -> Void)?
         init(_ simulator:SceneParticleSimulator?) {self.simulator=simulator}
         func playbackObservation(layerID:Int)->SceneParticlePlaybackObservation? {simulator?.playbackObservation}
+        func retire(layerIDs:Set<Int>) {retirements.append(layerIDs);onRetire?()}
     }
     struct Surface {let particlePlayback:ParticleState?;let scriptGeneration:UInt64}
     var surfaces:[UInt32:Surface]=[:]
     var preparedSurfaceIDs:Set<UInt32>=[]
+    var finalizations = 0
+    var animationRetirements:[Set<Int>] = []
+    func commitSceneScriptLayerMutations(_ context:SceneDesktopWallpaperLaunchContext,
+                                        rejectedOwnerTargets:Set<SceneDynamicTarget>) {finalizations += 1}
+    private func retireCommittedAnimationLayers(_ context:SceneDesktopWallpaperLaunchContext,
+                                                layerIDs:Set<Int>) {animationRetirements.append(layerIDs)}
 }
 // PRODUCTION_SESSION_PROJECTION
 @main enum Harness {
@@ -49,6 +61,45 @@ final class SceneDesktopWallpaperSession {
             result.append(evaluation);return result
         }
         var result:[String:Bool]=[:]
+        do {
+            var dual=descriptor
+            dual.layers.append(.init(id:43,layerIndex:1,name:"controller",visible:true,
+                originXYZ:[0,0,0],scaleXYZ:[1,1,1],scaleHasScript:nil,alpha:1,effects:[],
+                contentKind:"particle",sizeWH:[100,100]))
+            let domain=try SceneScriptQuickJSDomain();try domain.configureLayerCatalog(dual)
+            try domain.publishLayerSnapshot(.empty(frameIndex:0),descriptor:dual)
+            let controller=try owner(domain,
+                "export function update(v){thisScene.destroyLayer(thisScene.getLayerByID(42));return v;}",
+                .particle(layerID:43,field:.alpha))
+            let evaluation=try evaluate(controller)
+            let runtime=SceneScriptDynamicLayerRuntime(descriptor:dual,authoredMutationLayerIDs:[42,43],
+                layerOrderProjection:{[domain] in domain.projectPendingLayerOrder(accepting:$0)})
+            let admitted=runtime.preflightOwnerEffectsToFixedPoint([effects(controller,evaluation)]){_,_ in []}.admission
+            let session=SceneDesktopWallpaperSession()
+            let a=SceneDesktopWallpaperSession.ParticleState(try simulator())
+            let b=SceneDesktopWallpaperSession.ParticleState(try simulator())
+            session.surfaces=[1:.init(particlePlayback:a,scriptGeneration:1),
+                              2:.init(particlePlayback:b,scriptGeneration:1)]
+            var context=SceneDesktopWallpaperLaunchContext(runtimeInput:.init(renderDescriptor:dual),
+                propertyVectorScriptProgram:.init(generation:1))
+            context.mutationRuntime=runtime
+            var committedBeforeRetirement=false
+            a.onRetire={committedBeforeRetirement=runtime.snapshot().destroyedAuthoredLayerIDs == [42]
+                && session.finalizations == 1}
+            result["retirement-real-author-plan-qualified"] = admitted.rejectedOwners.isEmpty
+                && admitted.layerPlan.destroyedAuthoredLayerIDs == [42]
+                && runtime.snapshot().destroyedAuthoredLayerIDs.isEmpty
+            session.commitSceneScriptLayerPlan(context,plan:admitted.layerPlan,rejectedOwnerTargets:[])
+            result["retirement-production-commit-reaches-both-surfaces"] = committedBeforeRetirement
+                && a.retirements == [[42]] && b.retirements == [[42]]
+                && session.animationRetirements == [[42]]
+            session.commitSceneScriptLayerPlan(context,plan:admitted.layerPlan,rejectedOwnerTargets:[])
+            let unchanged=runtime.preflightIsolatingOwners([])
+            session.commitSceneScriptLayerPlan(context,plan:unchanged,rejectedOwnerTargets:[])
+            result["retirement-cumulative-tombstone-not-replayed"] = a.retirements == [[42]]
+                && b.retirements == [[42]] && session.animationRetirements == [[42]]
+            controller.discardLayerMutations()
+        }
         do {
             let emitDomain=try SceneScriptQuickJSDomain();try emitDomain.configureLayerCatalog(descriptor)
             let emitSim=try simulator(start:0), secondSim=try simulator(start:0)
@@ -779,6 +830,9 @@ class ParticlePlaybackTransactionTests(unittest.TestCase):
             preamble=SWIFT_PREAMBLE[:start]+SWIFT_PREAMBLE[end:]
             source=(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+ParticleEmission.swift").read_text()
             projection=source[source.index("extension SceneDesktopWallpaperSession {\n    func particlePlaybackObservations("):]
+            lifecycle=(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriverLifecycle.swift").read_text()
+            projection += "\nextension SceneDesktopWallpaperSession {\n" + _declaration(
+                lifecycle, "    func commitSceneScriptLayerPlan(") + "\n}\n"
             harness=HARNESS.replace("// PRODUCTION_SESSION_PROJECTION",projection)
             binary=compile_vector_harness(Path(raw),harness,"particle-transaction",
                 extra_swift_sources=tuple(PARTICLE_SOURCES),preamble=preamble,

@@ -44,3 +44,24 @@ View 在 Surface 下一次采用 committed topology 时退休 Sprite 实例与�
 - 冻结 Sprite 原用 Boolean owner 自毁，现有语义当帧强制 visibility=false，因此没有待保留画面；改存活 owner 销毁目标并核当帧真实可见，原 magenta/UV 门槛不变。常量 color 改为入口接受的向量字符串；原失败日志和输入均保留。
 
 相机 current topology 的候选/顺序及 preVM 消费、其余组件和普通产品 daemon 完整链继续按现役设计，不由本批关闭。未认领全语料、长期运行、性能/能耗、官方 parity 或正式 Release。
+
+
+<a id="particle-retirement"></a>
+## authored粒子活动实例退休
+
+2026-11-03固定边界：Surface实际采用committed topology时，原PlaybackState和Runtime退出已销毁root/child、活动模拟及未来batch；重建装配先排除死root。可复用定义、child模板、健康peer与hidden实例保留。GPU pipeline只在该Surface实际采用时撤对应buffer索引，原completion强持已编码instance buffer至终结，未提交沿原cancel退出；不新增退休manager或每帧墓碑检查。
+
+8产品文件净增26行，服务真实实例退出及GPU使用期；无新产品文件、clock、registry或cache。测试保原输入/失败邻例，并以真实实现核root/child退出、健康peer复用与冻结输出，不以代码体量或计数下降认领FPS/能耗收益。
+
+| 已执行门 | 固定结果与边界 |
+|---|---|
+| Runtime | 61项选择中已执行部分通过，10个原有跳过保留；核销毁后不advance/不产batch、同源peer/RNG及hidden正控 |
+| commit事务 | 运行原Session commit方法，平台边界仅记录；核root/child退休，不以该载体代替App |
+| 真实GPU | ParticleRendering原门通过，弱引用证root/child buffer在GPU pending时仍活、完成后释放，健康peer保复用，未提交cancel原样释放 |
+| 同输入旧/新App | 对照`a993632220c3b7628fe21ff0b0872e9771411a87e11df4406d91d1f6cdc81a47`与联合`ecc1900dd8fdc24d6678d1e54ef0786cf7491271513be109887be6908e2bcab5`；旧版两臂均保死root/child，新版两臂通过，同request/session、真Host重建后实例未复活、peer/ROI和stop/GPU drain保持 |
+
+held臂从paused开始，frame 0销毁，只证明dormant child模板及冻结root输出；resize后仍有root像素，恢复和重建后仅保活peer。缺drawable臂仅故障末Surface的90帧，frame 74销毁前先取得双Surface至少四条非空child census，保健康peer frame 0完成、故障frame 74在retirement前及其后恢复首帧GPU完成。既有日志不直接观测健康peer frame 74 completion，不从源码顺序补写此结论。
+
+最终测试输入冻结为`114913cf347bccfba9d6262a989e3833340ed06a2c49464d8395ca493e6d31d2`：原7秒duration、5秒候选门及60秒进程时限保持。held的resize 0.5秒、idempotent pause 1.5秒、rebuild 2.5秒及3.5秒resume分开；原同时动作导致待readback正确以teardown取消，不能记成产品失败。两步runner的accepted=false不否定实际pause/timer切换，门仍核true→false及inactive→active。原20尺寸正控在旧/新resize均仅36100红像素、低于新门1%；仅该退休fixture两侧改24尺寸，原阈值和普通fixture不变。
+
+本机provenance归`.artifacts/scene-architecture-continuation-20261102/`的`particle-retirement-*`及`particle-text-daemon-qualification-results.json`；保原失败与输入资格纠正，不把销毁前未出生child写成活动child证据。App包含其他独立批次，不宣称单独Particle构建、完整语料、物理多屏或性能结项。

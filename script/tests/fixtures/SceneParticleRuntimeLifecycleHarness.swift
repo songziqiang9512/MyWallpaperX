@@ -303,6 +303,104 @@ extension Harness {
         ]
     }
 
+    static func authoredRetirement() throws -> [String: Bool] {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mwx-particle-retirement-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
+        try writePNG(directory.appendingPathComponent("materials/shared.png"))
+        let common: [String: Any] = [
+            "material": "materials/shared.json", "maxcount": 64, "starttime": 0.1,
+            "controlpoint": [["id": 1, "flags": 1, "offset": "0 0 0"]],
+            "emitter": [["name": "sphererandom", "rate": 60, "controlpoint": 1,
+                         "distancemin": 0, "distancemax": 2]],
+            "initializer": [["name": "lifetimerandom", "min": 10, "max": 10],
+                            ["name": "sizerandom", "min": 4, "max": 8],
+                            ["name": "velocityrandom", "min": "-1 -2 0", "max": "1 2 0"]],
+            "renderer": [["name": "sprite"]],
+        ]
+        try writeParticle("particles/child.json", material: "materials/shared.json",
+            startTime: 0.1, rate: 30, under: directory)
+        try writeJSON(common, to: directory.appendingPathComponent("particles/peer.json"))
+        var facts: [String: Bool] = [:]
+        for trigger in ["eventspawn", "eventdeath"] {
+            var victim = common
+            victim["children"] = [["name": "particles/child.json", "type": trigger, "maxcount": 4]]
+            try writeJSON(victim, to: directory.appendingPathComponent("particles/victim.json"))
+            let descriptor = SceneRenderDescriptor(layers: [layer(42, "particles/victim.json"),
+                layer(43, "particles/peer.json")], renderOrderLayerIDs: [42, 43],
+                materialPasses: [.init(materialPath: "materials/shared.json", shaderPath: "genericparticle",
+                    texturePaths: ["shared.png"], blending: "additive")])
+            let view = SceneResourceView(projectRootURL: directory, packageRootURL: nil)
+            let assets = try SceneParticleRuntime.prepareAssets(descriptor: descriptor, resourceView: view)
+            let playback = SceneParticlePlaybackState(descriptor: descriptor, preparedAssets: assets, device: device)
+            var peerDescriptor = descriptor
+            peerDescriptor.layers = [descriptor.layers[1]]
+            let control = SceneParticlePlaybackState(descriptor: peerDescriptor, preparedAssets: assets, device: device)
+            let pointers: [Int: SIMD3<Double>] = [42: SIMD3(2, 3, 0), 43: SIMD3(2, 3, 0)]
+            _ = playback.advance(by: 1.0 / 30, pointerLocalPositions: pointers)
+            _ = control.advance(by: 1.0 / 30, pointerLocalPositions: pointers)
+            let frozen = playback.batches
+            let frozenPositions = frozen.flatMap(\.instances).map(\.positionAndSize)
+            let victimIdentity = ObjectIdentifier(playback.playbackSimulators.first { $0.0 == 42 }!.1)
+            let peer = playback.playbackSimulators.first { $0.0 == 43 }!.1
+            let reference = control.playbackSimulators.first { $0.0 == 43 }!.1
+            facts[trigger + "-real-two-root-qualification"] = playback.preparedLayerIDs == [42, 43]
+                && playback.pointerControlPointDemands[42] != nil && playback.pointerControlPointDemands[43] != nil
+                && frozen.contains { $0.layerID == 42 && $0.childTemplateIndex == nil && !$0.instances.isEmpty }
+            facts[trigger + "-child-qualified"] = trigger == "eventspawn"
+                ? playback.lifecycleSnapshot.childSystemCount > 0
+                    && frozen.contains { $0.layerID == 42 && $0.childTemplateIndex != nil }
+                : playback.lifecycleSnapshot.childSystemCount == 0
+            facts[trigger + "-authored-child-playback-query-is-unavailable"] = playback.playbackObservation(layerID: 42) == nil
+            let visible = SceneDynamicTarget.layer(layerID: 42, field: .visibility)
+            let hidden = SceneDynamicSnapshotResolver().resolve(frameIndex: 2, generation: 1,
+                definitions: [.init(target: visible, valueType: .bool, authoredValue: .bool(true))],
+                userValues: [visible: .bool(false)]).snapshot
+            _ = playback.advance(by: 1.0 / 30, dynamicValues: hidden, pointerLocalPositions: pointers)
+            _ = control.advance(by: 1.0 / 30, pointerLocalPositions: pointers)
+            facts[trigger + "-hidden-keeps-instance-and-demand"] = playback.preparedLayerIDs == [42, 43]
+                && playback.playbackSimulators.count == 2
+                && playback.playbackSimulators.first(where: { $0.0 == 42 }).map { ObjectIdentifier($0.1) } == victimIdentity
+                && playback.pointerControlPointDemands[42] != nil
+            _ = playback.advance(by: 1.0 / 30, pointerLocalPositions: pointers)
+            _ = control.advance(by: 1.0 / 30, pointerLocalPositions: pointers)
+            playback.retire(layerIDs: [42])
+            let retired = lifecycleJSON(playback.lifecycleSnapshot)
+            playback.retire(layerIDs: [42])
+            facts[trigger + "-root-child-and-demands-retired"] = playback.preparedLayerIDs == [43]
+                && playback.playbackSimulators.count == 1 && playback.playbackObservation(layerID: 42) == nil
+                && Set(playback.pointerControlPointDemands.keys) == [43]
+                && playback.lifecycleSnapshot.childSystemCount == 0
+                && playback.batches.allSatisfy { $0.layerID == 43 }
+            facts[trigger + "-repeated-retirement-is-idempotent"] = lifecycleJSON(playback.lifecycleSnapshot) == retired
+            var peerUnchanged = playback.playbackSimulators.first { $0.0 == 43 }!.1 === peer
+            for _ in 0..<4 {
+                let batches = playback.advance(by: 1.0 / 30, pointerLocalPositions: pointers)
+                _ = control.advance(by: 1.0 / 30, pointerLocalPositions: pointers)
+                peerUnchanged = peerUnchanged && batches.allSatisfy { $0.layerID == 43 }
+                    && peer.particles == reference.particles
+                    && peer.frameSnapshot().random.state == reference.frameSnapshot().random.state
+                    && peer.simulationTime == reference.simulationTime
+            }
+            facts[trigger + "-peer-rng-clock-and-values-unchanged"] = peerUnchanged
+            facts[trigger + "-frozen-batch-is-independent"] = !frozenPositions.isEmpty
+                && frozen.flatMap(\.instances).map(\.positionAndSize) == frozenPositions
+                && frozen.contains { $0.layerID == 42 }
+            let rebuilt = SceneParticlePlaybackState(descriptor: descriptor, preparedAssets: assets,
+                device: device, destroyedAuthoredLayerIDs: [42])
+            facts[trigger + "-rebuild-instantiates-only-live-root"] = rebuilt.preparedLayerIDs == [43]
+                && rebuilt.lifecycleSnapshot.rootSystemCount == 1 && rebuilt.lifecycleSnapshot.childSystemCount == 0
+                && Set(rebuilt.pointerControlPointDemands.keys) == [43]
+                && rebuilt.batches.allSatisfy { $0.layerID == 43 }
+            _ = playback.teardown(reason: "retirement-test")
+            _ = control.teardown(reason: "retirement-test")
+            _ = rebuilt.teardown(reason: "retirement-test")
+        }
+        return facts
+    }
+
     static func lifecycleJSON(
         _ value: SceneParticleRuntimeLifecycleSnapshot
     ) -> [String: Int] {

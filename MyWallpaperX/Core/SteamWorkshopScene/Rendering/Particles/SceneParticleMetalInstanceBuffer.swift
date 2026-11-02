@@ -76,8 +76,9 @@ final class SceneParticleMetalInstanceBuffer: @unchecked Sendable {
             if armedSubmissionCommandBuffers.contains(identity) { return true }
             guard commandBuffer.status == .notEnqueued else { return false }
             armedSubmissionCommandBuffers.insert(identity)
-            commandBuffer.addCompletedHandler { [weak self] buffer in
-                self?.releaseSlots(
+            // Topology adoption can remove the pipeline's last reference before this command completes.
+            commandBuffer.addCompletedHandler { [self] buffer in
+                releaseSlots(
                     for: ObjectIdentifier(buffer)
                 )
             }

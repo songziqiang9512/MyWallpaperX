@@ -274,6 +274,82 @@ extension Harness {
         ]
     }
 
+    private static func topologyRetirementTest() -> [String: Any] {
+        guard let device = MTLCreateSystemDefaultDevice(),
+              let pipeline = SceneParticleMetalPipeline(device: device),
+              let queue = device.makeCommandQueue(),
+              let event = device.makeSharedEvent(),
+              let texture = device.makeTexture(descriptor: .texture2DDescriptor(
+                pixelFormat: .rgba8Unorm, width: 1, height: 1, mipmapped: false
+              )) else { return ["available": false] }
+        func batch(_ layerID: Int, child: Int? = nil, x: Float = 0) -> SceneParticleDrawBatch {
+            .init(layerID: layerID, particlePath: "particles/shared.json", texture: texture,
+                colorUVScale: SIMD2(repeating: 1), colorSampling: .directImageFallback,
+                refraction: nil, renderState: particleState(.additive), childTemplateIndex: child,
+                instances: [SceneParticleOffscreenReadbackHarness.instance(x: x)],
+                orientation: .screen, orientationAxis: nil, usesPerspective: false)
+        }
+        var facts: [String: Any] = ["available": true]
+        weak var retiredRoot: SceneParticleMetalInstanceBuffer?
+        weak var retiredChild: SceneParticleMetalInstanceBuffer?
+        var peerOwner: SceneParticleMetalInstanceBuffer?
+        autoreleasepool {
+            guard let command = queue.makeCommandBuffer(),
+                  let peerCommand = queue.makeCommandBuffer() else { return }
+            defer { event.signaledValue = 1 }
+            var prepared = pipeline.prepare([batch(42), batch(42, child: 0), batch(43)])
+            guard prepared.count == 3 else { return }
+            retiredRoot = prepared[0].instanceBuffer
+            retiredChild = prepared[1].instanceBuffer
+            peerOwner = prepared[2].instanceBuffer
+            facts["rootAndChildHaveDistinctOwners"] = retiredRoot !== retiredChild
+                && retiredRoot !== peerOwner && retiredChild !== peerOwner
+            facts["rootAndChildSubmitted"] = prepared[0].instanceBuffer.markSubmitted(on: command)
+                && prepared[1].instanceBuffer.markSubmitted(on: command)
+            command.encodeWaitForEvent(event, value: 1)
+            command.commit()
+            pipeline.retire(layerIDs: [42])
+            pipeline.retire(layerIDs: [42])
+            prepared.removeAll()
+            facts["pendingGPUKeepsRetiredOwners"] = retiredRoot != nil && retiredChild != nil
+                && command.status != .completed && command.status != .error
+            let peer = pipeline.prepare([batch(43, x: 2)])
+            facts["healthyPeerReusesOwner"] = peer.count == 1 && peer[0].instanceBuffer === peerOwner
+            pipeline.cancel(peer, on: peerCommand)
+            facts["healthyPeerPendingCancelled"] = peer.first?.instanceBuffer.count == 0
+                && peer.first?.instanceBuffer.currentDrawState() == nil
+            event.signaledValue = 1
+            command.waitUntilCompleted()
+            facts["retiredSubmissionCompleted"] = command.status == .completed
+        }
+        facts["completedGPUReleasesRootKey"] = retiredRoot == nil
+        facts["completedGPUReleasesChildKey"] = retiredChild == nil
+        weak var cancelledRoot: SceneParticleMetalInstanceBuffer?
+        weak var cancelledChild: SceneParticleMetalInstanceBuffer?
+        autoreleasepool {
+            guard let command = queue.makeCommandBuffer() else { return }
+            var prepared = pipeline.prepare([batch(44), batch(44, child: 0)])
+            guard prepared.count == 2 else { return }
+            cancelledRoot = prepared[0].instanceBuffer
+            cancelledChild = prepared[1].instanceBuffer
+            facts["unsubmittedRootAndChildArmed"] = prepared.allSatisfy {
+                $0.instanceBuffer.markSubmitted(on: command)
+            }
+            pipeline.retire(layerIDs: [44])
+            pipeline.cancel(prepared, on: command)
+            facts["unsubmittedReservationsCancelled"] = prepared.allSatisfy {
+                $0.instanceBuffer.count == 0 && $0.instanceBuffer.currentDrawState() == nil
+                    && !$0.instanceBuffer.cancelUncommittedSubmission(on: command)
+            }
+            prepared.removeAll()
+        }
+        facts["cancelledCommandReleasesRootKey"] = cancelledRoot == nil
+        facts["cancelledCommandReleasesChildKey"] = cancelledChild == nil
+        let peer = pipeline.prepare([batch(43, x: 3)])
+        facts["peerSurvivesBothRetirements"] = peer.count == 1 && peer[0].instanceBuffer === peerOwner
+        return facts
+    }
+
     private static func uprightGeometryContract() -> [String: Any] {
         func camera(_ roll: Float, canvas: Bool = false, eye: [Float] = [0, 0, 3], authoredUp: [Float]? = nil) -> SceneParticleCameraFrame {
             let angle = roll * .pi / 180

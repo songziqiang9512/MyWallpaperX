@@ -119,6 +119,12 @@ final class SceneParticleMetalPipeline {
         )
     }
 
+    func retire(layerIDs: Set<Int>) {
+        for key in instanceBuffers.keys.filter({ layerIDs.contains($0.layerID) }) {
+            instanceBuffers.removeValue(forKey: key)
+        }
+    }
+
     func prepare(_ batches: [SceneParticleDrawBatch]) -> [PreparedBatch] {
         batches.compactMap { batch in
             let key = InstanceBufferKey(layerID: batch.layerID, childTemplateIndex: batch.childTemplateIndex)

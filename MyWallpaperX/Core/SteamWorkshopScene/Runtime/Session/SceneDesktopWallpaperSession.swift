@@ -653,11 +653,13 @@ final class SceneDesktopWallpaperSession {
                 layerImage: SceneParticleLayerImageEmitterCompiler.compile(
                     descriptor: metalView.renderer.renderDescriptor,
                     texturesByLayerID: metalView.imageTextures.textures,
-                    animatedSourceLayerIDs: Set(metalView.spriteAnimationLayerIDs)
+                    animatedSourceLayerIDs: Set(metalView.spriteAnimationLayerIDs),
+                    destroyedAuthoredLayerIDs: committedTopology.destroyedAuthoredLayerIDs
                 ),
                 preparedParticleVisibilityLayerIDs: launchContext.preparedParticleVisibilityLayerIDs,
                 initialDynamicValues: initialParticleDynamicValues,
-                initialPlayback: committedTopology.particlePlayback
+                initialPlayback: committedTopology.particlePlayback,
+                destroyedAuthoredLayerIDs: committedTopology.destroyedAuthoredLayerIDs
             )
             let particleVariants = candidateParticles.requiredPipelineVariants
             if particleVariants.isEmpty {

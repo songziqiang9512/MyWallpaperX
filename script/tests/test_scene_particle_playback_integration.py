@@ -29,7 +29,7 @@ class SceneParticlePlaybackIntegrationTests(unittest.TestCase):
 
     def run_particle(self, init, update="", screens=1, fault=None, continuous=False,
                      script_field="alpha", return_expression="value",
-                     directional_births=False, initial_value=1):
+                     directional_births=False, initial_value=1, retirement=None):
         def chunk(kind, payload):
             return struct.pack(">I", len(payload)) + kind + payload + struct.pack(">I", zlib.crc32(kind + payload) & 0xffffffff)
         png = (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", 4, 4, 8, 6, 0, 0, 0))
@@ -51,6 +51,39 @@ class SceneParticlePlaybackIntegrationTests(unittest.TestCase):
             definition["operator"] = [{"name": "movement", "flags": 1, "gravity": "0 0 0"}]
             definition["initializer"][1].update(min=6, max=6)
             definition["initializer"].append({"name": "velocityrandom", "min": "6 0 0", "max": "6 0 0"})
+        extra_definitions = []
+        if retirement:
+            destroy_update = 75 if retirement == "missing" else 1
+            definition["initializer"][1].update(min=24, max=24)
+            definition["children"] = [{"name": "particles/child.json", "type": "eventspawn", "maxcount": 4,
+                                       "offset": "20 0 0"}]
+            child = {"material": "materials/controlled.json", "maxcount": 8, "starttime": 0.1,
+                     "emitter": [{"name": "sphererandom", "rate": 0, "instantaneous": 1,
+                                  "distancemin": 0, "distancemax": 0}],
+                     "initializer": [{"name": "lifetimerandom", "min": 30, "max": 30},
+                                     {"name": "sizerandom", "min": 6, "max": 6},
+                                     {"name": "colorrandom", "min": "0 0 255", "max": "0 0 255"}],
+                     "renderer": [{"name": "sprite"}]}
+            peer = {**child, "starttime": 0.1}
+            peer["initializer"] = [{"name": "lifetimerandom", "min": 30, "max": 30},
+                                   {"name": "sizerandom", "min": 10, "max": 10},
+                                   {"name": "colorrandom", "min": "0 255 255", "max": "0 255 255"}]
+            scene["objects"] += [
+                {"id": 43, "name": "Live particle peer", "particle": "particles/peer.json",
+                 "origin": "24 24 0", "visible": True},
+                {"id": 7, "name": "Live retirement controller", "image": "models/util/solidlayer.json",
+                 "size": "1 1", "alpha": 0, "visible": {"value": True, "script": f"""
+                    let removed=false, updates=0;
+                    export function update(v){{
+                        updates++;
+                        if(!removed && updates>={destroy_update}){{
+                            removed=true;thisScene.destroyLayer('Controlled particles');
+                        }}
+                        return true;
+                    }}
+                 """}}]
+            extra_definitions = [("particles/child.json", json.dumps(child).encode()),
+                                 ("particles/peer.json", json.dumps(peer).encode())]
         material = {"passes": [{"shader": "genericparticle", "textures": ["controlled.png"], "blending": "translucent", "depthtest": "disabled", "depthwrite": "disabled", "cullmode": "nocull"}]}
         with tempfile.TemporaryDirectory(prefix="mwx-particle-playback-app-") as temp:
             root = Path(temp)
@@ -59,7 +92,8 @@ class SceneParticlePlaybackIntegrationTests(unittest.TestCase):
             (content / "project.json").write_text(json.dumps({"type": "scene", "file": "scene.json"}))
             (content / "scene.pkg").write_bytes(make_package([
                 ("scene.json", json.dumps(scene).encode()), ("particles/controlled.json", json.dumps(definition).encode()),
-                ("materials/controlled.json", json.dumps(material).encode()), ("materials/controlled.png", png)]))
+                ("materials/controlled.json", json.dumps(material).encode()), ("materials/controlled.png", png),
+                *extra_definitions]))
             home = root / "home"
             home.mkdir()
             env = os.environ.copy()
@@ -68,16 +102,50 @@ class SceneParticlePlaybackIntegrationTests(unittest.TestCase):
                 env.pop(key, None)
             env.update(HOME=str(home), CFFIXED_USER_HOME=str(home), MWX_SCENE_DEBUG_SURFACE_COUNT=str(screens))
             env.update(fault or {})
+            if retirement:
+                env["MWX_SCENE_DEBUG_SURFACE_REBUILD_AFTER"] = "3.5" if retirement == "missing" else "2.5"
+                if retirement == "held":
+                    env["MWX_SCENE_DEBUG_PAUSE_RESUME_AFTER"] = "1.5:2"
             evidence = root / "evidence"
-            result = subprocess.run([str(self.app), "--mwx-debug-scene-root", str(content), "--mwx-debug-scene-duration", "7",
-                                     "--mwx-debug-scene-evidence-dir", str(evidence)], env=env, capture_output=True, text=True, timeout=60)
+            command = [str(self.app), "--mwx-debug-scene-root", str(content), "--mwx-debug-scene-duration", "7",
+                       "--mwx-debug-scene-evidence-dir", str(evidence)]
+            if retirement == "held":
+                command += ["--mwx-debug-scene-start-paused", "--mwx-debug-scene-resize-sequence", "0.5:0.8"]
+            result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=60)
             log = result.stdout + result.stderr
+            retirement_qualification = None
+            if retirement:
+                retired = re.search(r"(?m)^.*lifecycle=layer-retirement[^\n]*sceneTime=([\d.]+)", log)
+                limit = retired.start() if retired else 0
+                census = []
+                for match in re.finditer(
+                    r"(?m)^.*phase=particle-child-census layer=42 templates=(\d+) systems=(\d+) "
+                    r"systemParticles=(\d+) spawnedTotal=(\d+) emptyTemplates=(\d+) nonEmptySystems=(\d+) batches=(\d+)", log[:limit]):
+                    census.append(dict(zip(("templates", "systems", "particles", "instances", "emptyTemplates", "nonEmptySystems", "batches"),
+                                           map(int, match.groups())), line=log.count("\n", 0, match.start()) + 1, text=match.group(0)))
+                action_fault = re.search(
+                    rf"(?m)^.*phase=drawable-unavailable frame={destroy_update - 1} surface=(\d+)[^\n]*", log[:limit])
+                retirement_qualification = {
+                    "phase": retirement, "destroyUpdate": destroy_update, "expectedDestroyFrame": destroy_update - 1,
+                    "missingFrames": (fault or {}).get("MWX_SCENE_DEBUG_DRAWABLE_UNAVAILABLE_FRAMES"),
+                    "childQualification": "active-before-retirement" if retirement == "missing" else "dormant-template-before-retirement",
+                    "censusBeforeRetirement": census,
+                    "retirementLine": retired.group(0) if retired else None,
+                    "retirementSceneTime": float(retired.group(1)) if retired else None,
+                    "faultAtActionBeforeRetirement": action_fault.group(0) if action_fault else None,
+                    "faultSurface": int(action_fault.group(1)) if action_fault else None,
+                    "healthyActionFrameGPUCompletion": "not-directly-observed; existing frame receipts cover indices 0...2",
+                }
             preview = "\n".join(path.read_text() for path in evidence.glob("*preview*.log"))
             captures = list(evidence.glob("*-window.png"))
             if destination := os.environ.get("MWX_SCENE_INTEGRATION_EVIDENCE"):
                 saved = Path(destination) / self._testMethodName
+                if retirement:
+                    saved /= retirement
                 saved.mkdir(parents=True, exist_ok=True)
                 (saved / "app.log").write_text(log)
+                if retirement_qualification:
+                    (saved / "retirement-qualification.json").write_text(json.dumps(retirement_qualification, indent=2) + "\n")
                 (saved / "scene-preview.log").write_text(preview)
                 for source in evidence.rglob("*"):
                     if source.is_file():
@@ -101,6 +169,49 @@ class SceneParticlePlaybackIntegrationTests(unittest.TestCase):
             self.assertNotIn("phase=launch-failed", log)
             self.assertIn(f"phase=stopped surfacesBefore={screens} surfacesAfter=0", log)
             self.assertGreaterEqual(len(captures), 2)
+            if retirement:
+                self.assertRegex(log, r"phase=stopped[^\n]*gpuDrained=true")
+                self.assertIsNotNone(retirement_qualification["retirementLine"], retirement_qualification)
+                census = retirement_qualification["censusBeforeRetirement"]
+                if retirement == "held":
+                    self.assertGreaterEqual(len(census), screens, retirement_qualification)
+                    self.assertTrue(all(row["templates"] == 1 and row["systems"] == 0 and row["particles"] == 0
+                                        and row["batches"] == 0 for row in census), retirement_qualification)
+                    self.assertEqual(retirement_qualification["retirementSceneTime"], 0)
+                else:
+                    active_children = [row for row in census if row["systems"] > 0 and row["particles"] > 0
+                                       and row["instances"] > 0 and row["nonEmptySystems"] > 0 and row["batches"] > 0]
+                    self.assertGreaterEqual(len(active_children), screens * 2, retirement_qualification)
+                    self.assertGreater(retirement_qualification["retirementSceneTime"], 0, retirement_qualification)
+                    self.assertIsNotNone(retirement_qualification["faultAtActionBeforeRetirement"], retirement_qualification)
+                self.assertRegex(log, r"phase=surface-rebuild state=rebuilt accepted=true")
+                self.assertLess(retired.start(), log.index("lifecycle=teardown id="), retirement_qualification)
+                observed = {stage: json.loads((evidence / f"surface-rebuild-{stage}.json").read_text())
+                            for stage in ("before", "after", "settled")}
+                before, after, settled = (observed[stage] for stage in ("before", "after", "settled"))
+                self.assertTrue(before["sessionID"] and before["requestID"], observed)
+                for snapshot in observed.values():
+                    self.assertEqual(snapshot["sessionID"], before["sessionID"], observed)
+                    self.assertEqual(snapshot["requestID"], before["requestID"], observed)
+                    self.assertEqual(snapshot["surfaceCount"], screens, observed)
+                self.assertTrue(set(before["windowNumbers"]).isdisjoint(after["windowNumbers"]), observed)
+                self.assertEqual(after["windowNumbers"], settled["windowNumbers"], observed)
+                active = re.findall(r"lifecycle=teardown[^\n]*layers=(\d+) rootSystems=(\d+) "
+                                    r"childSystems=(\d+) rootParticles=(\d+)", log)
+                self.assertGreaterEqual(len(active), screens * 2, log[-6000:])
+                self.assertTrue(all(int(layers) == 1 and int(roots) == 1 and int(children) == 0
+                                    and int(particles) > 0 for layers, roots, children, particles in active), active)
+                if retirement == "held":
+                    self.assertRegex(log, r"state=paused accepted=false[^\n]*pausedBefore=true pausedAfter=true")
+                    self.assertRegex(log, rf"phase=pause-resume state=resumed accepted=false surfacesPaused={screens} "
+                        rf"surfacesBeforeResume={screens} surfacesAfterResume={screens} pausedBeforeResume=true "
+                        r"pausedAfterResume=false timerBeforeResume=inactive timerAfterResume=active")
+                    self.assertEqual(before["sceneTime"], after["sceneTime"], observed)
+                    self.assertTrue(before["isPlaybackPaused"] and after["isPlaybackPaused"], observed)
+                    self.assertFalse(settled["isPlaybackPaused"], observed)
+                    self.assertGreater(settled["sceneTime"], after["sceneTime"], observed)
+                    self.assertTrue(any("scene-resize-00" in path.name for path in captures))
+                self.assertTrue(any("surface-rebuild-settled" in path.name for path in captures))
             colors = []
             for capture in captures:
                 decoded = png_rgb_pixels(capture)
@@ -114,6 +225,11 @@ class SceneParticlePlaybackIntegrationTests(unittest.TestCase):
                         green += g > 160 and r < 80 and b < 80
                 self.assertGreater(green, width * height * 0.001, capture.name)
                 colors.append(red)
+                if retirement:
+                    if retirement == "held" and "scene-resize-00" in capture.name:
+                        self.assertGreater(red, width * height * 0.01, capture.name)
+                    if "surface-rebuild-settled" in capture.name or "pause-resume-after" in capture.name:
+                        self.assertLess(red, width * height * 0.001, capture.name)
                 if directional_births and "after" in capture.name:
                     # Two call-time orientations must produce separated final
                     # positions on both axes. Reusing only the last orientation
@@ -126,11 +242,25 @@ class SceneParticlePlaybackIntegrationTests(unittest.TestCase):
                     self.assertGreater(max(y for _, y in points) - min(y for _, y in points), height * 0.1)
             consumed = [tuple(map(int, row)) for row in re.findall(
                 r"phase=particle-transition-consumed frame=(\d+) layer=(\d+) revision=(\d+) action=(\d+) surface=(\d+)", log)]
-            self.assertTrue(consumed, log[-6000:])
+            if retirement:
+                self.assertEqual(consumed, [], log[-6000:])
+            else:
+                self.assertTrue(consumed, log[-6000:])
             self.assertEqual(len(consumed), len({(layer, revision, surface) for _, layer, revision, _, surface in consumed}))
             completed = {(int(frame), int(surface)) for frame, surface in re.findall(r"state=completed frame=(\d+) surface=(\d+) gpu=completed", log)}
             self.assertTrue(any(frame >= 2 for frame, _ in completed))
+            if retirement == "missing":
+                absent = retirement_qualification["faultSurface"]
+                self.assertRegex(log, rf"phase=drawable-unavailable frame=0 surface={absent}\b")
+                self.assertNotIn((0, absent), completed)
+                self.assertTrue(any(frame == 0 and surface != absent for frame, surface in completed), completed)
+                self.assertRegex(log, rf"phase=session-first-frame[^\n]*surface={absent} gpu=completed")
             return log, preview, colors, consumed, completed
+
+    def test_authored_root_retirement_preserves_held_output_and_rebuilds_only_live_instances(self):
+        for phase, fault in (("held", None), ("missing", {"MWX_SCENE_DEBUG_DRAWABLE_UNAVAILABLE_FRAMES": "90"})):
+            with self.subTest(phase=phase):
+                self.run_particle("", screens=2, retirement=phase, fault=fault)
 
     def test_init_pause_preserves_warmup_without_new_births(self):
         _, preview, colors, consumed, _ = self.run_particle("thisLayer.pause(); if (!thisLayer.isPlaying()) throw new Error('lost prepared live');")
