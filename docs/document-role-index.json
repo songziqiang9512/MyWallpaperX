@@ -328,6 +328,18 @@
       "uniqueValue": "保存R1–R22、R24–R26共25段已结记录、原失败、取舍与有界验证；仅可逆迁移R9相对链接，R23未解决状态和当前顺序仍由现役专项维护。"
     },
     {
+      "path": "docs/history/cross-topic/code-slimming-r61-r88-closeouts-2026-11-02.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/development/code-slimming-program.md",
+        "docs/architecture/technology-stack-boundaries.md"
+      ],
+      "cutoffDate": "2026-11-02",
+      "uniqueValue": "保存从R88至R66的连续21段非连续批次已结摘要、原失败和有界验证；仅可逆重定位3条相对链接，当前范围、最近验证及R55/R62/R23待验仍由现役专项维护。"
+    },
+    {
       "path": "docs/history/cross-topic/code-slimming-ui10-trials-2026-10-23.md",
       "role": "historical-evidence",
       "entrypoint": "docs/history/README.md",

@@ -6,7 +6,7 @@
 
 开批速览（每批动手前先读这里，再核 Git 状态；按需查对应 owner 和下文，不顺读全文）：
 
-- 已裁决至R90（R61按优先级后补）。个人设置导入弹窗消失/设置变暗已由 R55（`ad1f3142d`）修复；测试 App 已交付，原配置完整导入仅待用户实测，没有新复现不重新修复、构建或复跑。
+- 已裁决至R91（R61按优先级后补）。个人设置导入弹窗消失/设置变暗已由 R55（`ad1f3142d`）修复；测试 App 已交付，原配置完整导入仅待用户实测，没有新复现不重新修复、构建或复跑。
 - 近期已完成：R54 合并成员查询复用、R57 Web 快照暂存隔离、R58 已取消元数据任务提前退出、R59 成功状态一次发布、R60 在线图片卡片一次装配。详情见下文；已完成项不作为新候选。
 - 保留/拒绝：R55 一次 Save 取消超时尚未归因；R56 绕过 TIFF 的候选因像素/尺寸差异已拒绝。较早 R23/R38/R43 的保护边界仍有效。
 - R62已交付：[本地资源先呈现与缩略图回访](local-library-loading-design.md#overview)。先解决启动短暂不可用和本地网格滚回黑卡，覆盖视频、图片及自建列表；已完成实现、最近门、Steam消费者及签名Debug；保留三项原生限制，真实用户库体感待人工验收。R61冷态导航已完成验证，见下文；不重复本专项。
@@ -23,53 +23,13 @@
 
 本轮按用户固定流程循环：并行子代理在每份审查任务中携带用户固定prompt，核无功能收益的校验/认证/重复计算/嵌套、持续转发和补丁、过量实现与耦合；主agent审核问题和方案并决定是否修改，子代理实施，主agent复核真实行为/成本证据和最近门后决定窄提交，再开启下一轮。每批报告问题、当前影响、方案、功能变化及下一候选。当前目标授权主agent作修复和本地提交裁决，不授权推送；共享构建、原生窗口和GPU仍串行，其他会话改动保留。
 
-最近文档整理：R85仅将状态栏专项已结整合/安装与旧证据归档，原9行1680B逐字保留，原“执行记录”锚点留永久redirect；现役0.88、Restoration、失败关闭与实景手工边界保持，旧安装授权不续用。产品/测试0，无新schema、工具或索引页；只核文档载荷、角色、锚点与预算，不重验旧App或Scene。6项既有归档/角色测试及5项文档检查通过；本批只整理导航和历史，不重跑产品。
+最近文档整理：R91把R61–R88非连续已结的21段摘要移至[历史记录](../history/cross-topic/code-slimming-r61-r88-closeouts-2026-11-02.md#completed-r61-r88)，原8987B载荷仅可逆重定位3条链接并新增归档入口，原页永久redirect保；当前授权、R90/R89、R55/R62/R23待验、全部旧锚点与UI10批准设计保留。同步既有history入口、角色登记与精确预算，产品/测试0；只验证载荷、分类、锚点和调整链，不复验旧产品。前批R85状态栏旧整合记录仍归原历史，不续用安装授权。
 
 最近产品验证：R90 Web属性每行一次准备完整titleContent，沿原private链传递，原row标题纯文本供placeholder/两层AX；产品净+4，无持久cache/state/helper，shared resolver与Scene源码不动。原生组合门同份最终夹具的透明计数副本旧/新均过，原断言/Scene片段逐字保留，新增34行覆盖markup/plain/raw回退、两种显式空、隐藏label/group、字段值与完整separator segments。私有实际displayContent探针在同步创建后采样：原六类型中的input3→1、note2→1，其余1→1；四项新文本3→1、两个空label/group1→1；两臂公开滑块JSON/PASS行相同，各6304输入/2实际进程稳定。首探针可见性编译失败属装配，修正后才形成两臂证据。移除探针后签名Debug26.548秒/5867输入稳定、strict/deep通过，仅原两条C#警告，产品独审接受。不认领共享parser/Scene工作次数、CPU/FPS/IO/时耗收益、真实作者项目或宿主端到端验收。
 
 前批R89（102afd626）lease open失败先保存原POSIXError再沿原cleanup/回调退出，产品净+1，无正常路径成本。受控叶ENOSPC28/EACCES13/EMFILE24原皆EIO5，新保原码；目标调用/回调各1，新目录清理和旧current/previous字节、Media目录保。原42事实及候选永久错码门过，路径别名装配/采集标签修正按实际SHA留据；签名Debug25.913秒过。不是实际磁盘满/权限/FD耗尽或系统宿主验证。
 
-前批R88（bf0ae9037）屏保入口配置读移至原复用条件后，产品净−1、夹具+44。相同42事实保；新增7次发布的指定入口调用7→2、commit仍7，命中/损坏current读取及nil始终fresh保持。计数不含init/refresh/collector，不代表物理IO/时耗或外部并发观察序等价；probe移除后签名Debug25.897秒过，采集出口修正只属证据过程。
-
-前批R87（1a05a94c0）Steam三无消费者内部参数/Frame镜像18行纯退役，raw root/golden旧键、真实job.attempt/query generation/账号请求终态边界保，wire schema不变。旧/新各18test及12公开PASS行相同、各6实际进程稳定；原81+新5是precondition源码调用点，不是运行事实。签名Debug26.817秒过，未验真实账号/网络，不认领JSON解析或耗时收益。
-
-前批R86（64e429c45）输入处共享四绑定规则，退役willSet旧settings写回，产品净+11、测试+105。旧完整/partial重复输入后volume写入16层截止，候选四情景皆depth1完成，控制结果保持；有界诊断不等于自然崩溃，注册/engine为记录叶。真实恢复45事实全真（原35+新10，旧仅5新增红），另3导入门120/34/15及Owner门过；旧Recovery nil所有权/未知raw/其他偏好严格冲突保持。修正两夹具装配依赖后签名Debug27.687秒过，不重开R55模态，也不替代Carbon/完整用户配置实测。
-
-前批R84（f07322860）Overlay静态gain移至配置、两枚举换单Float，产品净−1/测试+34。原/新同CPU夹具五类proof四次编译逐位相同，含默认/六配置7×16位值；签名Debug26.935秒通过。DEBUG定义/无定义不是优化Release，未启设备或认领能耗/FPS，原算术/reset/空输入及消费接口保持。
-
-前批文档R83（0039c3645）已逐字归档UI10已结试版，批准设计及永久锚点保留；R69旧档不动，不续用历史提交安排，见上方历史入口。
-
-前批R82（d325efafe）退役Controller单消费者enqueue，沿原FIFO turn建typed命令/store.apply(epoch)，产品净−6、测试0，无新状态。旧/新85事实及原Store成员[6,6]等值，签名Debug28.063秒通过；真实Controller/SQLite/reset/事务undo回执已验，非原生UndoManager/完整设置导入或IO/时耗证明。命令/回执owner归[仓库图](../architecture/repository-map.md)。
-
-前批R81（0bc4468d6）导入分类复用原目录结果、Batch只接既有tuple，产品净+3、测试0；三模式原/新完整JSON仅归一化临时工作根后等值，mixed27事实全真，Owner目录API32→16，其余两模式0。探针移除后签名Debug26.218秒通过。实测皆file，non-file保序仅静审，不称物理IO/时耗或外部文件/symlink并发变化的旧观察序。
-
-前批R80（f29d31f91）原safe-author判断前移，产品净0、夹具35增，原89个expect调用点全保，新增4 HTTP对照。真实DTO入口临时观测136→132，仅ID100/101各少2，原/新公开输出相同；探针恢复后签名Debug24.168秒过。仅受控Client/HTTP，非URL/日期次数、真实账号、自动HTTP Set-Cookie桥接或时耗证明。
-
-前批R79（bf56d172a）Pixabay原值模型直接Decodable，退役三同构DTO/toItem，产品净−36、无新状态。相同最终夹具旧/新39项页面/取消事实、6合并计数、4实际错误原文等值，真实传输门及签名Debug27.720秒通过；新增6 schema事实、测试净+42。只认退役类型/组装，不称内部DecodingError类型相同、JSON解析次数减少或分配/时耗收益。
-
-前批R78（4ab229b38）Music仅补元数据时退出未消费封面准备，产品净+7、无持久状态，完整fallback和授权/身份/代次保持。原/新各35测试过，真实事务141→151检查，候选full 12阶段/1art、补充fresh/cached各11/0；Service Debug/Release各34次执行，签名Debug26.548秒过。两层为事件叶控制与来源替身，非端到端/真实授权/时耗；未消费封面失败不再连带丢albumArtist是明确行为改善，职责归[D6](../web/mediaremote-nowplaying-design.md#来源授权与失败)。
-
-前批R77（826169c8b）退出HistoryStore同身份预过滤及Projection显式concat，产品净0、无新状态。原12条precondition及全部文本保留，新增5条/40行，同最终夹具旧/新真实JSON落盘重开、重复及日期并列检查均过；签名Debug27.781秒通过。不称offset数值相同、实际分配/IO/耗时或native面板验证。
-
-前批R76（44b9ffc45）删除零消费者Debug ProbeReport三参Emit及unused导入，产品0增9删，单参输出/JSON选项/stdout锁/HTTP槽位保持。现役offline门9.579秒通过Debug六suite、Release诊断缺席/静默拒绝及正常stdin协议，Debug15.392秒/strict deep通过；未验报告器输出、真实账号或运行性能。
-
-前批R75（377ad615b）Query两入口共用一次batch搜索成员表，产品净+10用于纯helper/最小值参数，无新持久cache/context。真实Query163项两臂等值，成员遍历18→6/24→6/18→6/18→6，空白/空页/remote仍0，Resolver次数不变，签名Debug24.639秒通过。成员准备前于exclusion canonical，当前同类alias-cycle错误无callout，conflicting alias原初始化先拒；不称内部次序全同、键入延迟/FPS或原生Picker实测。
-
-前批R74（b93f175f8）组织恢复的原局部查重容器保position后按组验证，产品净0、测试净+81；代价每成员临时Int，无持久状态。原校验/expected-state/alias/epoch、SQL和rollback保持。真实SQLite58项两臂等值、数组读取请求6→2，Store45与CAPI故障11项及签名Debug24.461秒过；非物理复制/IO/全事务复杂度或原生UndoManager/用户DB验收。
-
-前批R73（34854b1b3）App appendRoot已收录原始路径时提前退出，原canonical去重/别名/顺序保留，产品净0。原回收与四组真实目录业务两臂过，append计数4→1/4→3/6→4/1→1，签名Debug23.245秒通过；仅此行准备计数，不含getter/effectiveRoot，不承诺外部symlink并发观察或IO/时耗。WebKit使用原记录替身，实际用户持久store未验。
-
-前批R72（645810c18）移除零消费者SIL mode声明/注释和两个false post，产品净-8，无新测试/state。原图片应用与Steam/Pixabay事件保持；具名/raw/动态/selector/桥接独审及签名Debug23.395秒通过。限仓库信号静态退役与编译，未动态执行两个post，不借菜单/Chrome门认领通知或UI修复。
-
-前批R71（c300e1b6e）原同步首刷后，jobs/history各dropFirst；产品净0、夹具31增，原51项及3项新增业务两臂过，仅旧1初值成本红，候选55全真。真实initial合并2→0、jobs/history后继变化各2→2，签名Debug24.198秒通过。限真实Combine/refresh/projection受控输入，不是完整App init、JobStore落盘恢复或SteamAuth/helper验收，未量时耗。
-
-前批R70（4d06623e5）Pixabay目录四键预取改[]，原fresh读/AV复用/跨await身份全保，产品净0。原54项旧/候选等值、69次实际枚举四键→[]，缩略图9项与签名Debug24.103秒通过；nil默认预取与[]语义已核官方，不称stat/IO/时耗改善。
-
-前批R68（dedbd5ca3）已有firstDownloadedAt/旧commit日期时跳过本地日期回退准备，产品净+5，无新helper/状态；原回退表达式和发布身份/播放租约/回滚尾部保留。六模式业务旧/候选均过，四项回退1→0、local/符号链接两项1→1，另6方法8次执行及签名Debug24.359秒通过。限稳定输入，不认领IO/时耗；仅fetchedAt与本地日期并存未单独动态覆盖。
-
-前批R67（0254e2ae）先原rel/属性/type排除再准备纯字体URL，产品净+2，无新验证/状态/helper，原重写与作者handler保持；16项实际helper观测中10排除项1→0，其余6不变，旧/候选原HTML业务均通过、候选预算全过，签名Debug25.803秒。只属固定HTML工作次数，不是页面CPU/FPS；原Darwin临时Swift部分仅留hash，后续私有捕获驱动已独立修正验证，不倒称原源码全留。
-
-前批R66（fe97b35e）作者ID直接排序已唯一JSON键，净0，真实HTTP/DTO双向分页门及Debug通过；自动Set-Cookie桥接未证。R65（eb6fb891）同份在线图片快照一次Catalog安装，净+10，118项及3邻门、签名Debug通过；半更新通知退出，合同归主界面§7.3，未测查询/FPS。R64（f6ceefb2）按消费分支准备候选字典，净+2，旧/新序列109等值、Manager128及签名Debug通过。R61（367840fc2）冷态导航退出filter中间数组，产品净0，旧/候选各128项通过（3个独立生成playlist UUID标签的限定归一化差异已记录），签名Debug通过。R62（27d836e50）实现与证据归[本地加载专项](local-library-loading-design.md#overview)，真实用户库体验和三项原生限制仍待验，测试App保留；不重开R55或重跑已验项。R60（9642abbc2）一次配置controls/visibility已验。
+<a id="completed-r61-r88"></a> [归档记录](../history/cross-topic/code-slimming-r61-r88-closeouts-2026-11-02.md#completed-r61-r88) <!-- archive-redirect -->
 
 前批裁决与待验保留：R54（65522bee6）事务内复用resolved UUID追加位置，25成员/6物理列表的MAX查询25→6仅属连接级计数。R55选择器退出后再显示反馈，原配置完整导入与未归因Save取消超时保持待验。R56拒绝绕过TIFF候选，保留原编码。R57（b761fdb80）独立暂存、原main守卫后rename至原stable，保Scene/编码/copy fallback/所有权；受控5秒utility/文件探针与122项检查、Debug通过，未证自然频率或真实Web/NSWorkspace。R58（9be599202）已取消metadata Task的AV准备1→0，保同步模板和后两异步检查，不当性能/真实UI证明。R59（87c27c3e3）成功尾部一次发布完整状态，54组4→1、216→54，其他阶段相同；保89项、新增6项typed终态/reset回调及20项视口检查通过；原73/73只属reset调用点note。内部同步中间通知明确退出，不承诺任意同步订阅者等价。较早保护边界和精确证据仍归各批记录及提交，不在这里追加过程流水账。
 
