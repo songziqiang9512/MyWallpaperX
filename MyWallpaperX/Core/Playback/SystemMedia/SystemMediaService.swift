@@ -23,9 +23,7 @@ final class SystemMediaService {
         let receive: (SystemMediaSnapshot) -> Void
     }
     private var subscriptions: [UUID: Subscription] = [:]
-    private var consumers: Set<UUID> {
-        Set(subscriptions.compactMap { $0.value.needsMedia ? $0.key : nil })
-    }
+    private var hasMediaDemand: Bool { subscriptions.values.contains { $0.needsMedia } }
     private var needsWebArtwork: Bool { subscriptions.values.contains { $0.needsWebArtwork } }
     private(set) var currentSnapshot: SystemMediaSnapshot
     private var webThumbnail: String?
@@ -72,7 +70,7 @@ final class SystemMediaService {
 
     func subscribe(_ consumer: UUID, needsMedia: Bool = true, needsWebArtwork: Bool = false,
                    receive: @escaping (SystemMediaSnapshot) -> Void) {
-        let hadDemand = !consumers.isEmpty
+        let hadDemand = hasMediaDemand
         let hadWebArtworkDemand = self.needsWebArtwork
         let firstSubscription = subscriptions.isEmpty
         subscriptions[consumer] = Subscription(needsMedia: needsMedia,
@@ -86,7 +84,7 @@ final class SystemMediaService {
                 MainActor.assumeIsolated { self?.reloadSource() }
             }
         }
-        if firstSubscription || hadDemand != !consumers.isEmpty {
+        if firstSubscription || hadDemand != hasMediaDemand {
             reloadSource()
         } else {
             // Status-only and late listeners do not restart a live provider.
@@ -97,12 +95,12 @@ final class SystemMediaService {
     }
 
     func unsubscribe(_ consumer: UUID) {
-        let hadDemand = !consumers.isEmpty
+        let hadDemand = hasMediaDemand
         let hadWebArtworkDemand = needsWebArtwork
         guard subscriptions.removeValue(forKey: consumer) != nil else { return }
         let webArtworkDemandChanged = hadWebArtworkDemand != needsWebArtwork
         if webArtworkDemandChanged { invalidateWebArtworkDemand() }
-        if hadDemand != !consumers.isEmpty { reloadSource() }
+        if hadDemand != hasMediaDemand { reloadSource() }
         else if webArtworkDemandChanged { publishSnapshot() }
         guard subscriptions.isEmpty else { return }
         if let preferenceObserver {
@@ -117,7 +115,7 @@ final class SystemMediaService {
         timer?.invalidate()
         timer = nil
         publishSnapshot(force: true)
-        guard !consumers.isEmpty, SceneMediaSourcePreference.isEnabled else { return }
+        guard hasMediaDemand, SceneMediaSourcePreference.isEnabled else { return }
         timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.poll() }
         }
@@ -148,7 +146,7 @@ final class SystemMediaService {
         epoch &+= 1
         let requestEpoch = epoch
         systemSource.start { [weak self] result in
-            guard let self, self.epoch == requestEpoch, !self.consumers.isEmpty else { return }
+            guard let self, self.epoch == requestEpoch, self.hasMediaDemand else { return }
             self.consumeSystem(result)
         }
     }
@@ -175,7 +173,7 @@ final class SystemMediaService {
     }
 
     private func poll() {
-        guard !consumers.isEmpty, SceneMediaSourcePreference.isEnabled else { return }
+        guard hasMediaDemand, SceneMediaSourcePreference.isEnabled else { return }
         if let deadline = systemRestartDeadline, Date() >= deadline {
             systemRestartDeadline = nil
             startSystemSource()
@@ -199,7 +197,7 @@ final class SystemMediaService {
         inFlight = true
         let isCurrent: @MainActor @Sendable () -> Bool = { [weak self] in
             guard let self else { return false }
-            return self.epoch == requestEpoch && !self.consumers.isEmpty
+            return self.epoch == requestEpoch && self.hasMediaDemand
                 && SceneMediaSourcePreference.isEnabled && self.targetPID == pid
                 && Self.runningMusicPID() == pid && self.musicSelection == selection
                 && self.selectionGeneration == requestSelectionGeneration
