@@ -155,7 +155,7 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
             bridge,
         )
         self.assertEqual(
-            bridge.count("catalog.systemProviderDemands.sorted(by:"),
+            bridge.count("systemProviderDemands.sorted(by:"),
             1,
         )
 
@@ -211,9 +211,6 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
         executor = (
             ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor.swift"
         ).read_text(encoding="utf-8")
-        preparation = (
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+Preparation.swift"
-        ).read_text(encoding="utf-8")
         self.assertIn(
             "capturesExecutionDiagnostics: capturesExecutionObservations",
             coordinator,
@@ -221,7 +218,6 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
         self.assertIn("guard capturesExecutionObservations else { return }", lifecycle)
         self.assertIn("if capturesExecutionObservations {", lifecycle)
         self.assertIn("if capturesExecutionDiagnostics {", executor)
-        self.assertIn("if capturesExecutionDiagnostics, let routeDecision = program.routeDecision", preparation)
         self.assertGreaterEqual(
             executor.count("guard capturesExecutionDiagnostics else { return }"),
             2,

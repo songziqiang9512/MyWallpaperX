@@ -149,6 +149,9 @@ def app_identity(executable):
 PLAN_HARNESS = r'''
 import Foundation
 import Metal
+extension SceneOffscreenTexturePool {
+    var maxDimension: Int { fatalError("GPU allocation is outside dependency planning") }
+}
 extension SceneMainPassEncoder {
     convenience init(commandBuffer: MTLCommandBuffer, target: MTLTexture,
                      clearColor: MTLClearColor, clearEnabled: Bool,

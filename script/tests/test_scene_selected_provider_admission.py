@@ -38,6 +38,8 @@ def production_inputs():
         *graph.CONTRACT_FIXTURE["SWIFT_SOURCES"],
         *(p for p in dependency.SWIFT_SOURCES
           if p.name != "SceneDependencyRenderPlanTestSupport.swift"),
+        dependency.SOURCE_ROOT / "Rendering/Geometry/SceneCaptureGeometry.swift",
+        dependency.SOURCE_ROOT / "Rendering/Geometry/SceneLayerCursorGeometry.swift",
     ]
     return support, list(dict.fromkeys(sources))
 

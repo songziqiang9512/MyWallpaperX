@@ -87,6 +87,7 @@ enum SceneUtilityLayerSourceRoute {
     struct Resolution {
         let capturesCompositionSubtree: Bool
         let usesIsolatedGroupTarget: Bool
+        var usesAuthoredLocalSource = false
         let orderedCompositionSubtreeLayerIDs: [Int]
         let triggerLayerID: Int
     }
@@ -104,6 +105,7 @@ enum SceneBlendModeShaderSource {
     static var maximumMode: Int { preconditionFailure("framebuffer planning is not executed") }
 }
 extension SceneOffscreenTexturePool {
+    var maxDimension: Int { preconditionFailure("no GPU targets") }
     var sceneColorResetEpoch: UUID { preconditionFailure("no GPU targets") }
     func compositionGroupTarget(layerID: Int, width: Int, height: Int,
                                 commandBuffer: MTLCommandBuffer) -> PinnedTexture? {

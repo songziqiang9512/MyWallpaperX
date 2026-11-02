@@ -43,6 +43,15 @@
             outputIsRGBA8Unorm: true, assetStates: [:]) else {
             print("{\"metalAvailable\":true,\"failure\":\"source-envelope\"}"); return
         }
+        let sourcePipelinePlans = variants.launchEnvelopeCapabilitySnapshot().variants.map {
+            SceneResolvedMaterialPassEncoder.WarmupPlan(identity: "framebuffer-source-fixture",
+                prepared: $0.preparedAssembly, pixelFormat: .bgra8Unorm,
+                writeMask: .all, device: device)!
+        }
+        let sourceWarmup = executor.materialEncoder.warmup(sourcePipelinePlans)
+        guard sourceWarmup.failedKeyCount == 0, sourceWarmup.readyKeyCount > 0 else {
+            print("{\"metalAvailable\":true,\"failure\":\"source-pipeline-warmup\"}"); return
+        }
         let pipeline = makeSourcePipeline(device)
         var rows: [[String: Any]] = []
         for (ordinal, name) in ["program", "wrong-epoch", "wrong-consumer", "wrong-texture", "fixed",

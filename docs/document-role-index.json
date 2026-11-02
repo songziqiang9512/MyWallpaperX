@@ -2325,7 +2325,7 @@
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ],
       "cutoffDate": "2026-11-03",
-      "uniqueValue": "材质准备/运行声明、GraphScope/取消、Host Schema与typed输入值、最小Admission观测交接及帧编码边界，固定真实GPU/bytes/失败反例和完整Graph载体证据。"
+      "uniqueValue": "材质准备/运行声明、GraphScope/取消、Host Schema与typed输入值、最小Admission观测、帧编码和相邻载体合同，固定真实GPU/bytes/失败反例及完整Graph证据。"
     },
     {
       "path": "docs/scene/history/material-video-assets-2026-10-12.md",

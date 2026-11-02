@@ -174,3 +174,15 @@ provenance归`.artifacts/scene-architecture-continuation-20261102/`的`admission
 剩余4条保守词法库存是错误摘要、显式DEBUG观察和launch archive共享cache/digest工具；逐调用复核未发现普通帧整图哈希或重编译，故保留单份实现，不为数字归零再造owner。本段只关闭本次输入值与转发职责债；官方能力及性能按各自权威验证。
 
 provenance见`.artifacts/scene-architecture-continuation-20261102/`的`typed-input-*`、`visual-failure-test-api-current-*`、`visual-source-current-v3-results.json`及`final-neighbor-*`；首轮旧API编译失败保留，不算产品视觉失败。
+
+
+<a id="adjacent-prepared-contract-gates"></a>
+## 相邻门的现役准备合同
+
+固定2026-11-03：产品未改，校正相邻载体仍持旧API的编译闭包。SelectedProvider接真实Capture/CursorGeometry两份源，未执行的GPU pool/source-capture seam保持fail-fast；实际四个provider准入用例通过。BaseImage的21个真实资源行为用例通过，外部编译/pipeline边界只转交原预设purpose、prepared值和fault flag；空Set<Never>只表达本门不建模的demand转交，不作为真实需求推导证明，后者仍由RuntimeBridge实际门负责。Model albedo的两个Plan用例通过，不冒充另有新模型App/GPU运行。
+
+FramebufferSource门显式对同一真实prepared envelope执行原PassEncoder warmup，退出旧夹具依赖普通帧编译的做法；四个实际GPU用例保原pair、straight颜色、错误frame/consumer/texture、typed原因及未写入断言并通过。warmup发生在frame prepare之前，没有恢复产品帧内编译入口。
+
+SourceSets完整集合是56个frame依赖与4个template依赖的并集；唯一共享项为同一LookupIdentity，首次展开去重后为59，不是旧60。现在同时断言该唯一交集、顺序和完整并集，12个真实集合/循环/重复反例通过。RealtimePolicy的12个门通过；旧整Catalog前缀改读现役demands排序，退精确combined-if拼写镜像，保其余观察关闭及唯一输出检查。源码形状信号按官方ratchet收紧182→173，没有新形状额度；这不代替真实行为或性能证明。
+
+原编译失败、一次漏准备PSO及集合计数失败均保留。provenance见`.artifacts/scene-architecture-continuation-20261102/`的`neighbor-carriers-v5-results.json`、`final-neighbor-carriers-v4-results.json`、`visual-source-current-v3-results.json`及`realtime-policy-final.log`；原输入、像素门槛和有效失败半径不变。

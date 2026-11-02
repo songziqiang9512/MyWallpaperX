@@ -281,14 +281,15 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                 *frame_finalization,
             ))),
         )
-        self.assertEqual(len(complete), 60)
+        lookup_input = 'MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureLookupIdentity.swift'
+        self.assertEqual(set(template_compilation) & set(frame_finalization), {lookup_input})
+        self.assertEqual(len(complete), 59)
 
         # The producer set now crosses preparation and live-binding boundaries.
         # Keep its explicit cardinality/order above and verify those boundaries.
         neutral_input = 'MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneResolvedMaterialPreparedFrameInput.swift'
         shared_query = 'MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgram+PreparedUniformResolution.swift'
         self.assertIn(neutral_input, model)
-        lookup_input = 'MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureLookupIdentity.swift'
         self.assertIn(lookup_input, model)
         self.assertTrue(all("/Compilation/Material/" in path for path in model
                             if path not in {neutral_input, lookup_input}))

@@ -57,20 +57,6 @@
       "count": 1
     },
     {
-      "path": "script/tests/test_scene_audio_demand.py",
-      "scope": "SceneAudioDemandWiringTests.test_unified_program_audio_consumer_source_contract",
-      "method": "assertIn",
-      "literal": "case .resolved(_, let materials, _):",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_audio_demand.py",
-      "scope": "SceneAudioDemandWiringTests.test_unified_program_audio_consumer_source_contract",
-      "method": "assertNotIn",
-      "literal": "case .dedicated:",
-      "count": 1
-    },
-    {
       "path": "script/tests/test_scene_audio_spectrum_input.py",
       "scope": "SceneAudioSpectrumWiringTests.test_debug_audio_consumption_proof_joins_encoded_uniform_to_snapshot",
       "method": "assertIn",
@@ -351,13 +337,6 @@
       "count": 1
     },
     {
-      "path": "script/tests/test_scene_opaque_alpha_weighted_loop_average_owner.py",
-      "scope": "SceneOpaqueAlphaWeightedLoopAverageOwnerTests.test_typed_opaque_input_contract_reaches_frame_finalization",
-      "method": "assertIn",
-      "literal": "let associatedOverOverlaySlot =",
-      "count": 1
-    },
-    {
       "path": "script/tests/test_scene_particle_audio_declaration.py",
       "scope": "SceneParticleAudioSchemaContractTests.test_audio_declaration_is_shared_by_all_three_component_kinds",
       "method": "assertIn",
@@ -621,7 +600,7 @@
       "scope": "SceneRealtimePathPolicyTests.test_normal_product_frames_skip_execution_diagnostics",
       "method": "assertIn",
       "literal": "if capturesExecutionDiagnostics {",
-      "count": 2
+      "count": 1
     },
     {
       "path": "script/tests/test_scene_realtime_path_policy.py",
@@ -795,13 +774,6 @@
       "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
       "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_claimed_route_is_current_and_all_post_claim_failures_close",
       "method": "assertIn",
-      "literal": "let dispositionCatalog =",
-      "count": 2
-    },
-    {
-      "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
-      "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_claimed_route_is_current_and_all_post_claim_failures_close",
-      "method": "assertIn",
       "literal": "let passthroughResolution = SceneLayerSourcePassthroughPlan.resolve(",
       "count": 1
     },
@@ -905,13 +877,6 @@
     },
     {
       "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
-      "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_preview_and_inline_reporting_only_describe_typed_execution_owners",
-      "method": "assertNotIn",
-      "literal": "if executionStageCount > 1",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
       "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_resource_demands_share_schema_and_never_guess_regular_assets",
       "method": "assertIn",
       "literal": "guard projection.reachesDefault",
@@ -972,20 +937,6 @@
       "method": "assertIn",
       "literal": "guard let data = try? Data(contentsOf: url)",
       "count": 2
-    },
-    {
-      "path": "script/tests/test_scene_shader_presence_combo.py",
-      "scope": "AuthoredPresenceComboAdmissionTests.test_reachability_requires_authored_presence_combo",
-      "method": "assertIn",
-      "literal": "case .selected:",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_shader_presence_combo.py",
-      "scope": "AuthoredPresenceComboAdmissionTests.test_reachability_requires_authored_presence_combo",
-      "method": "assertIn",
-      "literal": "if required & bit == 0, hasOptionalSource { optional |= bit }",
-      "count": 1
     },
     {
       "path": "script/tests/test_scene_shader_variant_environment.py",

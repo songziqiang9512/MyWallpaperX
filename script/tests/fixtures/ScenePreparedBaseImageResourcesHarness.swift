@@ -352,7 +352,11 @@ struct TestSampler {
     // Prepared typed facts supplied by the external compiler boundary. This
     // does not replace or test production shader-purpose derivation.
     let purposes: [TestReference: String]
-    func purpose(for reference: TestReference) -> String? { purposes[reference] }
+}
+enum SceneResolvedMaterialShaderSchema {
+    static func purpose(for reference: TestReference, sampler: TestSampler) -> String? {
+        sampler.purposes[reference]
+    }
 }
 enum SceneDynamicTarget: String, Hashable { case declaredLive, declaredInactive }
 struct TestTemplate {
@@ -386,6 +390,8 @@ struct SceneResolvedMaterialRuntimeCatalog {
         var capturesMainTarget = false
     }
     let sourceMaterialTargetFormat = TestColorFormat()
+    let userPropertyDemands: Set<Never> = []
+    let systemProviderDemands: Set<Never> = []
     var sourceMaterialEntries: [Int: Entry] = [:]
 }
 struct SceneMaterialAssetTextureCatalog { let launchFormatFacts = 0; let launchStates = 0 }
@@ -397,9 +403,12 @@ struct SceneResolvedMaterialVariantCache {
             let cacheKey: String
             let vertex: Vertex
         }
+        struct PreparedAssembly {
+            let preparedShader: Shader
+            let frontendProgram: Frontend
+        }
         let activeSamplers: [Int: TestSampler]
-        let preparedShader: Shader
-        let frontendProgram: Frontend
+        let preparedAssembly: PreparedAssembly
     }
     struct Envelope { let allEntriesReady: Bool; let variants: [Variant] }
     let fixture: TestVariantFixture
@@ -422,12 +431,11 @@ struct SceneResolvedMaterialVariantCache {
 enum TestError: Error { case controlledSchemaFailure, controlledPrecompileFailure }
 final class SceneResolvedMaterialPassEncoder {
     struct WarmupPlan {
-        init?(identity: String, preparedKey: String,
-              frontend: SceneResolvedMaterialVariantCache.Frontend, renderState: Int,
-              frontendSchemaVersion: Int, pixelFormat: MTLPixelFormat,
-              writeMask: MTLColorWriteMask, device: MTLDevice) {
+        init?(identity: String,
+              prepared: SceneResolvedMaterialVariantCache.Variant.PreparedAssembly,
+              pixelFormat: MTLPixelFormat, writeMask: MTLColorWriteMask, device: MTLDevice) {
             // Fault injection at the external pipeline boundary only.
-            guard frontend.planAvailable else { return nil }
+            guard prepared.frontendProgram.planAvailable else { return nil }
         }
     }
     struct Report { let failedKeyCount: Int; let readyKeyCount: Int }
@@ -468,7 +476,7 @@ final class SceneResolvedMaterialRuntimeBridge {
     }
     let submissions = Submissions()
     var sourceMaterials: [Int: PreparedSourceMaterial] = [:]
-    init(catalog: SceneResolvedMaterialRuntimeCatalog,
+    init(userPropertyDemands: Set<Never>, systemProviderDemands: Set<Never>,
          capabilities: SceneResolvedMaterialExecutionCapabilityCatalog,
          assets: SceneMaterialAssetTextureCatalog, device: MTLDevice,
          visibleExecutionRootLayerIDs: Set<Int>, capturesExecutionObservations: Bool) {}
@@ -820,9 +828,9 @@ enum Checks {
             var samplers: [Int: TestSampler] = [:]
             if let samplerZero { samplers[0] = samplerZero }
             if otherSampler { samplers[2] = .init(purposes: [colorReference: "normal"]) }
-            return .init(activeSamplers: samplers,
+            return .init(activeSamplers: samplers, preparedAssembly: .init(
                 preparedShader: .init(cacheKey: key, vertex: .init(frontendSchemaVersion: 1)),
-                frontendProgram: .init(planAvailable: planAvailable))
+                frontendProgram: .init(planAvailable: planAvailable)))
         }
         let colorSampler = TestSampler(purposes: [colorReference: "straightAlbedo"])
         let unknownSampler = TestSampler(purposes: [:])
