@@ -129,6 +129,24 @@ RenderTopologyCache只按结构revision准备descriptor、索引、order、world
 
 验收先固定本批前源码/App，复用真实Mutation、QuickJS clone、world、frame与文字门：完整record的无dirty-fields变换、冻结birth/独立snapshot、非空font和空text、raw pointSize、template stateful update与显式setter、变换溢出原子拒绝、排序/销毁/净零出生及peer保持。检查同revision prepared集合不被live值覆写，dynamic根与authored父/attachment反例走原几何语义；再沿同输入旧/新App核动态image/text、多Surface、非原色tint、正常退出及GPU排空。局部准备成本另以相同实现入口和输入比较；不以删除复制次数或benchmark原非PASS结果宣称整体帧率、能耗、完整语料或官方parity。
 
+### 粒子实例与 GPU 上传的所有权
+
+粒子 CPU runtime 继续拥有模拟器、RNG、child 生命周期、当前实例与 Rope/Trail 历史，每次 advance 消费一次 step snapshots。每屏 PlaybackState 的唯一强 owner 归既有 Session.Surface，退出 View 的构造、保存与 ABI 转发；PlaybackState 退出 pipeline 持有和构造，只发布所需 variant 与 CPU 结果。Session 在图像资源装配后沿原 textures/animated IDs 形成 Layer Image map、构造 CPU 实例和独立 GPU pipeline，两者都就绪才安装；pipeline 失败沿原局部粒子不可用语义 teardown CPU。prepared variant 集合为空时保CPU实例/identity/报告，跳过无消费者的粒子library、sampler与depth state构造；不能按当帧空batch跳过dormant child需求。最后由原 loader 释放 decoded cache，不重复驱逐。
+
+原 SimulationFrame optional 从 View 移到 Surface，仍只有一个冻结帧，不新建 Frame DTO、状态镜像或反向回调。原更新流程由 Surface 承接：本屏 pointer/parallax、Puppet 已有阶段、world/camera、粒子推进再冻结；sprite times 由 Session 唯一 texture clock 求值后传入。View退出该clock持有，只在图像装配入口借用其注册动画。View.renderFrame 只消费冻结帧及 Rendering 资源；重试、无 drawable 或 GPU deferred 不再推进 CPU。粒子 emission 的实际坐标准备留 Surface，Session 的查询、计数、安装、验证与转换直达 State，撤纯转发。暂停媒体按原完整 cohort 与同 generation 检查更新 Surface 冻结帧，不读取新输入或推进模拟。退场先撤 CPU，GPU pipeline 随原 Surface/command drain 存活；重建和迟到事务保原 UUID、surface identity 与代次。
+
+退出 root、child template 和 CPU DrawBatch 对可写 instance buffer 的持有；batch 只携实例值、已有不可变准备资源与语义身份。纹理、refraction 等已有准备句柄本批保持，不将 CPU 数据全无 Metal 类型当完成条件。Puppet 的实例持有仍是下一组件族的显式债务，本批不新增其能力或改变其采样阶段。
+
+既有 `SceneParticleMetalPipeline` 在每个 playback/surface 独立构造，改为直接拥有实例 buffer 的引用 owner，不增加 Renderer cache、Registry、引用盒或 Session 共享模拟。复用 key 为 `layerID + childTemplateIndex?`，nil 表 root；同路径不同模板必须独立，同模板多个 child 系统继续沿原合并顺序产生一个 batch。暂时没有 batch 不代表退休，缓存随原 pipeline 释放，不新增 LRU、退休协议或逐帧清表。
+
+DrawBatch 作为 CPU 生产的绘制输入，唯一声明归现有粒子 pipeline 文件，不放进被纯数学消费者共用的 RenderSupport，避免反向引入 Metal/refraction 依赖。实际上传后形成 frame-local PreparedBatch，仅绑定原 draw 值与该次 buffer。它不是第二运行状态或转发 facade，renderer 的深度/快照准备直接读取其中 draw 元数据。pipeline 负责 prepare、draw、arm/mark 与未提交取消；原 renderer 粒子编码扩展退出，正常层循环直接调用粒子 owner。高层 frame 编码与低层 Metal draw 分开仅为真实依赖边界，不另建协调者。
+
+上传仍在原深度资格检查之前，沿原 buffer 过滤非有限实例、保持顺序并使用实际 draw count。原 slot 的使用期合同不重写：draw 前安装 completion，成功编码后 mark，只有 notEnqueued command 可撤销其提交占用，in-flight slot 仅由所属 command 完成释放。移除 renderer 无效的可空 command 镜像和外层重复 arm 去重，复用 buffer 自身的幂等协议；失败只取消本批候选，不释放其他帧使用中的 slot。depth/refraction 顺序、child 最后 render-only sample、CPU rollback 与各屏 pointer/world 输入保持。
+
+主pass writer库存记录实际调用点；本次方法接管有正文调整，不适用字节相同文件移动豁免。复用现有owner_relocation凭据，退出只准一个shader frontend名称的限制：原pattern、总调用数、扫描范围与角色不变，仅一个源文件的相同完整调用迁到一个目标，其他文件及调用保持，关联已批准设计；已提交凭据继续冻结，扩张不获豁免。历史源码从指定Git版本读取，使用与现树相同的Python正则，不将其误作Git ERE。此项只证明有界库存迁移，不能代替职责审查或运行证据。
+
+先冻结旧 App 和最近粒子门，再用真实 Metal 验证 key 隔离、暂隐再现复用、两 pipeline 独立、连续上传、in-flight/取消及坏实例局部过滤；CPU 门保 child 末帧、history、脚本控制、世界坐标与回滚，并复用 Session/暂停媒体门验证同帧交接、屏间完成与 stale Surface 拒绝。保启动报告的初始/后继两阶段，不因移 owner 丢弃诊断。补原始 root、event child、refraction、RopeTrail 和健康邻例的同输入旧/新 App 运行与正常退出。逐像素等价仅对时间、输入与呈现相位可冻结的结果声明；不因减少 owner 或一个 GPU 门宣称 FPS、能耗、全语料及官方 parity。验收后按粒子实例与 GPU 能力族独立提交，其他准备数据与组件职责按唯一队列继续。
+
 ## 职责与数据流
 
 ```text

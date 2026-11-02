@@ -16,12 +16,12 @@ struct SceneDesktopWallpaperLaunchContext {
     let propertyVectorScriptProgram:Program
 }
 final class SceneDesktopWallpaperSession {
-    final class View {
+    final class ParticleState {
         let simulator:SceneParticleSimulator?
         init(_ simulator:SceneParticleSimulator?) {self.simulator=simulator}
-        func particlePlaybackObservation(layerID:Int)->SceneParticlePlaybackObservation? {simulator?.playbackObservation}
+        func playbackObservation(layerID:Int)->SceneParticlePlaybackObservation? {simulator?.playbackObservation}
     }
-    struct Surface {let metalView:View;let scriptGeneration:UInt64}
+    struct Surface {let particlePlayback:ParticleState?;let scriptGeneration:UInt64}
     var surfaces:[UInt32:Surface]=[:]
     var preparedSurfaceIDs:Set<UInt32>=[]
 }
@@ -304,9 +304,9 @@ final class SceneDesktopWallpaperSession {
         let context=SceneDesktopWallpaperLaunchContext(runtimeInput:.init(renderDescriptor:descriptor),propertyVectorScriptProgram:.init(generation:1))
         let committed:[Int:SceneParticlePlaybackSnapshot]=[42:.init(intent:.paused,revision:1)]
         session.preparedSurfaceIDs=[1,2]
-        session.surfaces=[1:.init(metalView:.init(inside),scriptGeneration:1),2:.init(metalView:.init(outside),scriptGeneration:1)]
+        session.surfaces=[1:.init(particlePlayback:.init(inside),scriptGeneration:1),2:.init(particlePlayback:.init(outside),scriptGeneration:1)]
         let forward=session.particlePlaybackObservations(context:context,committed:committed)
-        session.surfaces=[2:.init(metalView:.init(inside),scriptGeneration:1),1:.init(metalView:.init(outside),scriptGeneration:1)]
+        session.surfaces=[2:.init(particlePlayback:.init(inside),scriptGeneration:1),1:.init(particlePlayback:.init(outside),scriptGeneration:1)]
         let backward=session.particlePlaybackObservations(context:context,committed:committed)
         result["session_OR_order_independent"] = forward==backward && forward[42]?.liveAny==true
         let hiddenDescriptor=SceneRenderDescriptor(layers:[.init(id:42,layerIndex:0,name:"particles",visible:false,originXYZ:[0,0,0],scaleXYZ:[1,1,1],scaleHasScript:nil,alpha:0,effects:[],contentKind:"particle",sizeWH:[100,100])])
@@ -318,9 +318,11 @@ final class SceneDesktopWallpaperSession {
         hiddenStop.discardLayerMutations()
         session.surfaces[2]=nil
         result["session_missing_surface_unavailable"] = session.particlePlaybackObservations(context:context,committed:committed).isEmpty
-        session.surfaces[2] = .init(metalView:.init(nil),scriptGeneration:1)
+        session.surfaces[2] = .init(particlePlayback:nil,scriptGeneration:1)
+        result["session_missing_cpu_state_unavailable"] = session.particlePlaybackObservations(context:context,committed:committed).isEmpty
+        session.surfaces[2] = .init(particlePlayback:.init(nil),scriptGeneration:1)
         result["session_missing_instance_unavailable"] = session.particlePlaybackObservations(context:context,committed:committed).isEmpty
-        session.surfaces[2] = .init(metalView:.init(inside),scriptGeneration:2)
+        session.surfaces[2] = .init(particlePlayback:.init(inside),scriptGeneration:2)
         result["session_stale_generation_unavailable"] = session.particlePlaybackObservations(context:context,committed:committed).isEmpty
         let zeroRoot:[String:Any] = ["material":"p.json","emitter":[["name":"boxrandom","rate":0,"instantaneous":0]],"renderer":[["name":"sprite"]]]
         let zero=SceneParticleSimulator(definition:try SceneParticleDefinitionParser().parse(root:zeroRoot))

@@ -12,14 +12,15 @@ extension SceneDesktopWallpaperSession {
         let capturedSurfaces = surfaces
         var identities: [UInt32: UUID?] = [:]
         func captureInstances() -> [SceneParticlePlaybackTransaction.Instance] {
-            identities = capturedSurfaces.mapValues { $0.metalView.particlePlaybackIdentity }
+            identities = capturedSurfaces.mapValues { $0.particlePlayback?.lifecycleIdentity }
             return capturedSurfaces.flatMap { id, surface in
-                surface.metalView.particlePlaybackSimulators.map { layerID, simulator in
+                (surface.particlePlayback?.playbackSimulators ?? []).map { layerID, simulator in
                     .init(surfaceID: id, layerID: layerID, simulator: simulator,
-                        visibility: surface.metalView.particlePlaybackVisibility(layerID: layerID,
+                        visibility: surface.particlePlayback?.playbackVisibility(layerID: layerID,
                             dynamicValues: preliminary.snapshot),
                         install: { state, visibility in MainActor.assumeIsolated {
-                            surface.metalView.installParticlePlaybackCandidate(layerID: layerID,
+                            precondition(surface.particlePlayback != nil)
+                            surface.particlePlayback?.installPlaybackCandidate(layerID: layerID,
                                 state: state, visibility: visibility)
                         } })
                 }
@@ -36,10 +37,13 @@ extension SceneDesktopWallpaperSession {
                     && capturedSurfaces.allSatisfy { id, surface in
                         self.surfaces[id] === surface
                             && surface.scriptGeneration == context.propertyVectorScriptProgram.generation
-                            && surface.metalView.particlePlaybackIdentity == identities[id]!
+                            && surface.particlePlayback?.lifecycleIdentity == identities[id]!
                     }
             } }, totalLiveCount: { try MainActor.assumeIsolated {
-                try capturedSurfaces.values.reduce(0) { try $0 + $1.metalView.particleLiveCount(charging: { try domain.chargeParticleWork($0, bytes: 0) }) }
+                try capturedSurfaces.values.reduce(0) { count, surface in
+                    count + (try surface.particlePlayback?.playbackLiveCount(
+                        charging: { try domain.chargeParticleWork($0, bytes: 0) }) ?? 0)
+                }
             } })
         domain.beginParticlePlaybackFrame(onBoundary: { owner, discarded in
             transaction.callbackBoundary(owner: UInt(bitPattern: owner), discardOwner: discarded)
@@ -68,13 +72,13 @@ extension SceneDesktopWallpaperSession {
                     let bytes = (preliminary.snapshot.count + layerCount + 16) * 512
                     try domain.chargeParticleWork(UInt64((bytes + 63) / 64), bytes: bytes)
                     defer { domain.releaseParticleStorage(bytes) }
-                    let values = try surface.metalView.particleEmissionInputValues(
+                    let values = try surface.particleEmissionInputValues(
                         owner: owner, layerID: instance.layerID)
                     let snapshot = SceneDynamicSnapshotResolver().resolve(
                         frameIndex: timing.frameIndex, generation: 0,
                         index: context.dynamicDefinitionIndex, base: preliminary,
                         sceneScriptValues: values).snapshot
-                    return try surface.metalView.particleEmissionContext(layerID: instance.layerID,
+                    return try surface.particleEmissionContext(layerID: instance.layerID,
                         timing: timing, dynamicValues: snapshot, topology: topology,
                         attachments: poses[instance.surfaceID]?.attachmentFrames ?? .empty, audio: audio)
                 }
@@ -96,7 +100,7 @@ extension SceneDesktopWallpaperSession {
             let current = committed[layer.id] ?? .init()
             var live = false, pending = false, rearm = false, complete = true
             for surface in surfaces.values {
-                guard let value = surface.metalView.particlePlaybackObservation(layerID: layer.id),
+                guard let value = surface.particlePlayback?.playbackObservation(layerID: layer.id),
                       value.intent == current.intent, value.revision == current.revision else { complete = false; break }
                 live = live || value.liveAny
                 pending = pending || value.emissionPending

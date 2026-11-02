@@ -92,7 +92,6 @@ final class SceneParticleChildRuntime {
     private var censusTimeAccumulator: TimeInterval = 0
     private var frameLimitations: Set<String> = []
 #endif
-    private let device: MTLDevice
     private let templates: [SceneParticleChildTemplate]
     private let templatesByIndex: [Int: SceneParticleChildTemplate]
     private let templatesBySelection: [TemplateSelectionKey: [SceneParticleChildTemplate]]
@@ -120,7 +119,6 @@ final class SceneParticleChildRuntime {
         initialDynamicInstanceValues: SceneDynamicParticleValues? = nil
     ) {
         self.layerID = layerID
-        self.device = device
         let expansion = SceneParticleChildGraphExpansion.expand(
             rootAsset: rootAsset,
             graph: graph,
@@ -309,7 +307,7 @@ final class SceneParticleChildRuntime {
                 colorSampling: template.colorSampling,
                 refraction: template.refraction,
                 renderState: template.renderState,
-                instanceBuffer: template.instanceBuffer,
+                childTemplateIndex: template.index,
                 instances: instances,
                 orientation: template.orientation,
                 orientationAxis: template.orientationAxis,

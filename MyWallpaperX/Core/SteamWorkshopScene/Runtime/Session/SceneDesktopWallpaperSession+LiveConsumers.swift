@@ -46,7 +46,7 @@ extension SceneDesktopWallpaperSession {
         !surfaces.isEmpty && Set(surfaces.keys) == preparedSurfaceIDs
             && surfaces.values.allSatisfy {
                 $0.scriptGeneration == context.propertyVectorScriptProgram.generation
-                    && $0.metalView.preparedParticleLayerIDs.contains(layerID)
+                    && $0.particlePlayback?.preparedLayerIDs.contains(layerID) == true
             }
     }
 

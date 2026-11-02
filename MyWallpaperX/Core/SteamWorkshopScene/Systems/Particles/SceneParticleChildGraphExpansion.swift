@@ -35,7 +35,6 @@ struct SceneParticleChildTemplate {
     let depth: Int
     let parentAssetPath: String?
     let instanceOverride: SceneParticleInstanceOverride?
-    let instanceBuffer = SceneParticleMetalInstanceBuffer()
 }
 
 /// Expands authored child declarations into strict templates. Depth-one declarations keep

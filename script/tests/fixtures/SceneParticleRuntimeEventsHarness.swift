@@ -99,13 +99,13 @@ extension Harness {
         _ batches: [SceneParticleDrawBatch],
         device: MTLDevice
     ) -> [String: Int] {
-        batches.forEach { _ = $0.instanceBuffer.update(device: device, instances: $0.instances) }
         let width = 1280
         let height = 831
         guard !batches.isEmpty,
               let pipeline = SceneParticleMetalPipeline(device: device),
               let queue = device.makeCommandQueue(),
               let command = queue.makeCommandBuffer() else { return [:] }
+        let prepared = pipeline.prepare(batches)
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(
             pixelFormat: .bgra8Unorm,
             width: width,
@@ -140,22 +140,22 @@ extension Harness {
             cameraUp: SIMD3(0, -1, 0),
             cameraForward: SIMD3(0, 0, -1)
         )
-        for batch in batches {
+        for batch in prepared {
             pipeline.draw(
-                texture: batch.texture,
+                texture: batch.draw.texture,
                 instances: batch.instanceBuffer,
                 uniforms: SceneParticleLayerUniforms(
                     viewProjection: matrix_identity_float4x4,
                     layerModel: model,
                     basis: basis
                 ),
-                renderState: batch.renderState,
-                colorSampling: batch.colorSampling,
+                renderState: batch.draw.renderState,
+                colorSampling: batch.draw.colorSampling,
                 encoder: encoder
             )
         }
         encoder.endEncoding()
-        for batch in batches { batch.instanceBuffer.markSubmitted(on: command) }
+        for batch in prepared { batch.instanceBuffer.markSubmitted(on: command) }
         command.commit()
         command.waitUntilCompleted()
         guard command.status == .completed else { return [:] }

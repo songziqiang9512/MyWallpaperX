@@ -6,8 +6,6 @@ import simd
 class SceneMetalView: NSView {
     let metalDevice: MTLDevice
     private let presentationStreamID: UInt64
-    private let textureAnimationPlaybackRuntime:
-        SceneTextureAnimationPlaybackRuntime
     let puppetAnimationPlaybackRuntime: ScenePuppetAnimationPlaybackRuntime
     let renderer: SceneMetalRenderer
     let metalLayer: CAMetalLayer
@@ -19,6 +17,7 @@ class SceneMetalView: NSView {
     private var userPropertyVideoSources: [SceneUserPropertyTextureIdentity: SceneVideoTextureSource] = [:]
     var imageTextures = SceneBaseImageTextureStore()
     private var spriteAnimations: [Int: SceneSpriteAnimation] = [:]
+    var spriteAnimationLayerIDs: Dictionary<Int, SceneSpriteAnimation>.Keys { spriteAnimations.keys }
     private var specializedBaseTextureSamplings: [Int: SceneTextureSampling] = [:]
     private var videoSourceRegistry: SceneVideoTextureSourceRegistry?
 #if DEBUG
@@ -32,19 +31,7 @@ class SceneMetalView: NSView {
     var dynamicPuppetTopologyRevision: UInt64?
     var dynamicPuppetLayerIDs: Set<Int> = []
     var imagePipeline: SceneImageLayerPipeline?
-    var particlePlayback: SceneParticlePlaybackState?
-    var preparedParticleLayerIDs: Set<Int> {
-        particlePlayback?.preparedLayerIDs ?? []
-    }
-
-    /// DEBUG evidence: the particle load report at request time. The launch-
-    /// time summary undercounts child-only containers whose particles spawn
-    /// after advance-by-0.
-    #if DEBUG
-    func debugParticleLoadReportLines() -> [String]? {
-        particlePlayback?.loadReportLines(descriptor: renderer.renderDescriptor)
-    }
-    #endif
+    var particlePipeline: SceneParticleMetalPipeline?
     private var preparedTextSnapshot: SceneDynamicTextTextureStore.Snapshot?
     private(set) var submittedTextSnapshot: SceneDynamicTextTextureStore.Snapshot?
     private var firstFramePresentationRegistration:
@@ -67,7 +54,7 @@ class SceneMetalView: NSView {
             + renderer.dependencyRuntime.renderTargetResidentByteCost
             + renderer.imageCompositor.renderTargetResidentByteCost
             + renderer.staticModelDepthTargetPool.residentByteCost
-            + (particlePlayback?.pipeline.renderTargetResidentByteCost ?? 0)
+            + (particlePipeline?.renderTargetResidentByteCost ?? 0)
     }
 
     /// Session adopts a complete resource revision between frame callbacks.
@@ -90,8 +77,6 @@ class SceneMetalView: NSView {
         pipelineRepository: SceneImageEffectPipelineRepository,
         imageLayerPipeline: SceneImageLayerPipeline,
         resolvedMaterialRuntime: SceneResolvedMaterialRuntimeBridge,
-        textureAnimationPlaybackRuntime:
-            SceneTextureAnimationPlaybackRuntime,
         puppetAnimationPlaybackRuntime: ScenePuppetAnimationPlaybackRuntime,
         userPropertyTextureLoad: SceneUserPropertyTextureLoadResult = .empty,
         userPropertyVideoSources: [SceneUserPropertyTextureIdentity: SceneVideoTextureSource] = [:],
@@ -115,7 +100,6 @@ class SceneMetalView: NSView {
         self.presentationStreamID = presentationStreamID
         self.firstFramePresentationRegistration =
             firstFramePresentationRegistration
-        self.textureAnimationPlaybackRuntime = textureAnimationPlaybackRuntime
         self.puppetAnimationPlaybackRuntime = puppetAnimationPlaybackRuntime
         self.renderer = renderer
         solidLayerTexture = SceneSolidLayerTexture.make(device: renderer.device)
@@ -190,10 +174,7 @@ class SceneMetalView: NSView {
         videoSourceRegistry: SceneVideoTextureSourceRegistry,
         preparedBaseImages: ScenePreparedBaseImageResources,
         spriteTextureLoader: SceneMultiImageSpriteTextureLoader,
-        preparedParticleAssets: SceneParticleAssetGraph,
-        preparedParticleVisibilityLayerIDs: Set<Int> = [],
-        initialPlayback: [Int: SceneParticlePlaybackSnapshot] = [:],
-        initialDynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
+        textureAnimationPlaybackRuntime: SceneTextureAnimationPlaybackRuntime,
         textLoadMessages: [String] = [],
         logURL: URL? = nil
     ) {
@@ -467,33 +448,6 @@ class SceneMetalView: NSView {
         self.videoSourceRegistry = videoSourceRegistry
         puppetPlaybackStates = loadedPuppetPlaybackStates
         installDirectModelAnimations()
-        particlePlayback = SceneParticlePlaybackState(
-            descriptor: renderer.renderDescriptor, preparedAssets: preparedParticleAssets,
-            device: metalDevice, textureLoader: loader,
-            layerImage: SceneParticleLayerImageEmitterCompiler.compile(
-                descriptor: renderer.renderDescriptor, texturesByLayerID: imageTextures.textures,
-                animatedSourceLayerIDs: Set(loadedSpriteAnimations.keys)
-            ),
-            preparedParticleVisibilityLayerIDs:
-                preparedParticleVisibilityLayerIDs,
-            initialDynamicValues: initialDynamicValues,
-            initialPlayback: initialPlayback
-        )
-        if let particlePlayback {
-#if DEBUG
-            report.append(contentsOf: particlePlayback.loadReportLines(descriptor: renderer.renderDescriptor))
-#endif
-
-        } else {
-#if DEBUG
-            report.append("particle runtime: pipeline unavailable")
-#endif
-
-        }
-        // Specialized images and particle templates can repopulate the shared
-        // loader after base-image preparation evicted its decoded cache. All
-        // surface sources now own their GPU products; release those CPU copies.
-        loader.evictDecodedCaches()
 #if DEBUG
         report.append("")
 #endif
@@ -574,21 +528,11 @@ class SceneMetalView: NSView {
         }
     }
 
-    func refreshPausedMediaThumbnail(_ snapshot: SceneMediaThumbnailTextureStore.Snapshot) -> Bool {
-        guard let frame = simulationFrame,
-              snapshot.generation == frame.mediaInputGeneration,
-              snapshot.pendingGeneration == nil,
-              frame.mediaThumbnail.generation != snapshot.generation
-                || frame.mediaThumbnail.pendingGeneration != nil else { return false }
-        simulationFrame?.mediaThumbnail = snapshot
-        return true
-    }
-
     func registerFirstPresentation(_ registration: @escaping (CAMetalDrawable) -> Bool) {
         firstFramePresentationRegistration = registration
     }
 
-    private struct SimulationFrame {
+    struct SimulationFrame {
         let timing: SceneFrameTiming
         let context: SceneFrameContext
         let camera: SceneParticleCameraFrame
@@ -602,98 +546,9 @@ class SceneMetalView: NSView {
         let attachmentFrames: ScenePuppetAttachmentFrameSnapshot
     }
     var onRenderInvalidated: (() -> Void)?
-    private var simulationFrame: SimulationFrame?
-    var hasSimulationFrame: Bool { simulationFrame != nil }
-    var simulationFrameIndex: UInt64 { simulationFrame?.timing.frameIndex ?? 0 }
-    var simulationMediaInputGeneration: UInt64? { simulationFrame?.mediaInputGeneration }
-
-    /// Scoped paused property publication can change snapshot generation
-    /// without advancing simulation. Reuse its frozen pose, not a stale camera.
-    func sceneScriptPausedSurfaceInput(
-        timing: SceneFrameTiming, dynamicValues: SceneDynamicSnapshot
-    ) -> SceneScriptSurfaceInput? {
-        guard let frame = simulationFrame else { return nil }
-        let worlds: [Int: simd_float4x4]
-        if !requiresSceneScriptCameraWorldFrames {
-            worlds = [:]
-        } else if frame.context.dynamicValues.generation == dynamicValues.generation,
-                  frame.context.dynamicValues.frameIndex == dynamicValues.frameIndex {
-            worlds = frame.projection.worldFrames
-        } else {
-            worlds = renderer.resolveFrameWorldProjection(layerTopology: frame.topology,
-                dynamicValues: dynamicValues, puppetAttachmentFrames: frame.attachmentFrames).worldFrames
-        }
-        return sceneScriptSurfaceInput(timing: timing, dynamicValues: dynamicValues,
-            worldFrames: worlds)
-    }
-
-    func updateSimulation(
-        timing: SceneFrameTiming, dynamicValues: SceneDynamicSnapshot,
-        puppetAnimationFrame: ScenePuppetAnimationPlaybackRuntime.FrameSnapshot,
-        layerTopology: SceneScriptLayerTopologySnapshot,
-        materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = [],
-        puppetBoneMutations: [SceneScriptPuppetBoneMutation] = [],
-        mediaThumbnail: SceneMediaThumbnailTextureStore.Snapshot,
-        mediaInputGeneration: UInt64,
-        audioSpectrum: SceneAudioSpectrumSnapshot = .silent,
-        performanceTelemetry: SceneFramePerformanceTelemetry? = nil
-    ) {
-        for playback in puppetPlaybackStates.values {
-            playback.apply(scriptBoneMutations: puppetBoneMutations)
-        }
-        let cameraProperty = dynamicValues.cameraPropertyProjection()
-        let parallaxDelay = cameraProperty.parallaxDelay
-            ?? renderer.renderDescriptor.camera.parallaxDelay
-        let parallaxMouseNormalized = parallaxPointerSmoother.advance(
-            delta: timing.simulationFrameTime,
-            delay: parallaxDelay
-        )
-        let frameContext = makeFrameContext(
-            timing: timing, dynamicValues: dynamicValues,
-            materialFunctionMutations: materialFunctionMutations,
-            parallax: parallaxMouseNormalized, audioSpectrum: audioSpectrum
-        )
-        let spriteAnimationPlaybackTimes =
-            textureAnimationPlaybackRuntime.playbackTimes(
-                layerIDs: spriteAnimations.keys,
-                sceneTime: timing.sceneTime
-            )
-        assert(
-            spriteAnimations.keys.allSatisfy {
-                spriteAnimationPlaybackTimes[$0] != nil
-            },
-            "prepared texture animation is missing typed playback state"
-        )
-        pointerState.previous = pointerState.current
-        let attachmentFrames = ScenePuppetAttachmentFrameSnapshot(
-            framesByParentLayerID: puppetPlaybackStates.reduce(into: [:]) { result, entry in
-                guard let samples = puppetAnimationFrame[entry.key] else { return }
-                result[entry.key] = entry.value.prepareFrame(animationFrame: samples)
-            }
-        )
-        let frameProjection = renderer.resolveFrameWorldProjection(
-            layerTopology: layerTopology, dynamicValues: dynamicValues,
-            puppetAttachmentFrames: attachmentFrames
-        )
-        let cameraFrame = renderer.makeCameraFrame(
-            frameContext: frameContext, worldFrames: frameProjection.worldFrames
-        )
-        let particleBatches = advanceParticles(
-            timing: timing, dynamicValues: dynamicValues,
-            frameContext: frameContext, cameraFrame: cameraFrame,
-            frameProjection: frameProjection, performanceTelemetry: performanceTelemetry
-        )
-        simulationFrame = SimulationFrame(
-            timing: timing, context: frameContext, camera: cameraFrame,
-            projection: frameProjection, particles: particleBatches,
-            topology: layerTopology,
-            mediaThumbnail: mediaThumbnail, mediaInputGeneration: mediaInputGeneration,
-            spriteTimes: spriteAnimationPlaybackTimes, puppetAnimationFrame: puppetAnimationFrame,
-            attachmentFrames: attachmentFrames
-        )
-    }
 
     func renderFrame(
+        simulationFrame: SimulationFrame?,
         dynamicTextSnapshot: SceneDynamicTextTextureStore.Snapshot? = nil,
         collectsInitialVideoReadiness: Bool = false,
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil
@@ -835,7 +690,7 @@ performanceTelemetry?.recordPreparation(
             imagePipeline: imagePipeline,
             frameProjection: frameProjection,
             particleBatches: particleBatches,
-            particlePipeline: particlePlayback?.pipeline,
+            particlePipeline: particlePipeline,
             offscreenTexturePool: offscreenTexturePool,
             frameContext: frameContext,
             cameraFrame: cameraFrame,

@@ -185,9 +185,14 @@ extension Harness {
             renderOrderLayerIDs: [42,43,44,45,46], materialPasses: [.init(
                 materialPath: "materials/shared.json", shaderPath: "genericparticle",
                 texturePaths: ["shared.png"], blending: "additive")])
-        guard let device = MTLCreateSystemDefaultDevice(), let playback = SceneParticlePlaybackState(
-            descriptor: descriptor, cacheDirectory: directory, device: device) else { throw HarnessError.noMetal }
+        guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
+        let playback = SceneParticlePlaybackState(descriptor: descriptor, cacheDirectory: directory, device: device)
         var result: [String: Bool] = [:]
+        result["preparedVariantDemandRemainsAvailable"] = playback.requiredPipelineVariants.contains(.init(blendMode: .additive))
+        let empty = SceneParticlePlaybackState(descriptor: .init(layers: [], renderOrderLayerIDs: [], materialPasses: []),
+            cacheDirectory: directory, device: device)
+        result["emptyCPUStateNeedsNoPipeline"] = empty.batches.isEmpty && empty.preparedLayerIDs.isEmpty
+            && empty.requiredPipelineVariants.isEmpty && empty.lifecycleSnapshot == .empty
         result["preparedLive"] = playback.playbackObservation(layerID: 42)?.liveAny == true
             && !playback.batches.filter { $0.layerID == 42 }.flatMap(\.instances).isEmpty
         result["unavailableIsNotFalse"] = [43, 44, 46].allSatisfy { playback.playbackObservation(layerID: $0) == nil }
@@ -215,9 +220,8 @@ extension Harness {
         result["retryDoesNotClearPublishedBatch"] = playback.batches.filter { $0.layerID == 42 }.flatMap(\.instances).count == resumed.count
             && playback.playbackObservation(layerID: 42)?.revision == 2
         for intent in [SceneParticlePlaybackIntent.paused, .stopped] {
-            guard let rebuilt = SceneParticlePlaybackState(descriptor: descriptor,
+            let rebuilt = SceneParticlePlaybackState(descriptor: descriptor,
                 cacheDirectory: directory, device: device, initialPlayback: [42: .init(intent: intent, revision: 2)])
-            else { throw HarnessError.noParticlePipeline }
             result["rebuild-\(intent)-noWarmupOrOldCommands"] = rebuilt.batches.filter { $0.layerID == 42 }.flatMap(\.instances).isEmpty
                 && rebuilt.playbackObservation(layerID: 42)?.liveAny == false
             rebuilt.applyPlaybackTransitions([stop, play])
@@ -271,13 +275,11 @@ extension Harness {
         guard let device = MTLCreateSystemDefaultDevice() else {
             throw HarnessError.noMetal
         }
-        guard let playback = SceneParticlePlaybackState(
+        let playback = SceneParticlePlaybackState(
             descriptor: descriptor,
             cacheDirectory: directory,
             device: device
-        ) else {
-            throw HarnessError.noParticlePipeline
-        }
+        )
         _ = playback.advance(by: 0.25)
         _ = playback.advance(by: 0.25)
         let identity = playback.lifecycleIdentity

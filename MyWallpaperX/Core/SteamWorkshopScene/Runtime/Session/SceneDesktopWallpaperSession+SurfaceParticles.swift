@@ -1,35 +1,20 @@
 import Foundation
 
-extension SceneMetalView {
-    var particlePlaybackIdentity: UUID? { particlePlayback?.lifecycleIdentity }
-    var particlePlaybackSimulators: [(Int, SceneParticleSimulator)] { particlePlayback?.playbackSimulators ?? [] }
-    func particlePlaybackVisibility(layerID: Int, dynamicValues: SceneDynamicSnapshot)
-        -> SceneParticlePlaybackVisibility? {
-        particlePlayback?.playbackVisibility(layerID: layerID, dynamicValues: dynamicValues)
-    }
-    func installParticlePlaybackCandidate(layerID: Int, state: SceneParticleSimulator.FrameSnapshot,
-                                         visibility: SceneParticlePlaybackVisibility?) {
-        precondition(particlePlayback != nil)
-        particlePlayback?.installPlaybackCandidate(layerID: layerID, state: state, visibility: visibility)
-    }
-    func particleLiveCount(charging: (UInt64) throws -> Void) throws -> Int {
-        try particlePlayback?.playbackLiveCount(charging: charging) ?? 0
-    }
-    func clearStoppedParticlePlaybackCaches(_ ids: Set<Int>) { particlePlayback?.clearStoppedPlaybackCaches(ids) }
+extension SceneDesktopWallpaperSession.Surface {
     func particleEmissionContext(layerID: Int, timing: SceneFrameTiming,
         dynamicValues: SceneDynamicSnapshot, topology: SceneScriptLayerTopologySnapshot,
         attachments: ScenePuppetAttachmentFrameSnapshot, audio: SceneAudioSpectrumSnapshot
     ) throws -> SceneParticleSimulator.EmissionContext {
         guard let particlePlayback else { throw SceneParticleEmissionFailure.unavailable }
-        let context = makeFrameContext(timing: timing, dynamicValues: dynamicValues,
-            parallax: parallaxPointerSmoother.preview(delta: timing.simulationFrameTime,
-                delay: dynamicValues.cameraPropertyProjection().parallaxDelay ?? renderer.renderDescriptor.camera.parallaxDelay),
+        let context = metalView.makeFrameContext(timing: timing, dynamicValues: dynamicValues,
+            parallax: metalView.parallaxPointerSmoother.preview(delta: timing.simulationFrameTime,
+                delay: dynamicValues.cameraPropertyProjection().parallaxDelay ?? metalView.renderer.renderDescriptor.camera.parallaxDelay),
             audioSpectrum: audio)
-        let projection = renderer.resolveFrameWorldProjection(layerTopology: topology,
+        let projection = metalView.renderer.resolveFrameWorldProjection(layerTopology: topology,
             dynamicValues: dynamicValues, puppetAttachmentFrames: attachments)
         let pointers = particlePlayback.pointerControlPointDemands[layerID].map { demand in
-            renderer.particlePointerLocalPositions(frameContext: context,
-                cameraFrame: renderer.makeCameraFrame(frameContext: context,
+            metalView.renderer.particlePointerLocalPositions(frameContext: context,
+                cameraFrame: metalView.renderer.makeCameraFrame(frameContext: context,
                     worldFrames: projection.worldFrames), frameProjection: projection,
                 demands: CollectionOfOne((key: layerID, value: demand)))
         } ?? [:]
@@ -37,22 +22,6 @@ extension SceneMetalView {
             pointerLocalPosition: pointers[layerID],
             audio: .init(left: audio.left, right: audio.right, generation: audio.generation),
             worldFrame: projection.worldFrames[layerID])
-    }
-
-    func particlePlaybackObservation(layerID: Int) -> SceneParticlePlaybackObservation? {
-        particlePlayback?.playbackObservation(layerID: layerID)
-    }
-
-    func validateParticlePlaybackTransitions(_ transitions: [SceneParticlePlaybackTransition]) -> Bool {
-        transitions.isEmpty || particlePlayback?.validatePlaybackTransitions(transitions) == true
-    }
-
-    func applyParticlePlaybackTransitions(_ transitions: [SceneParticlePlaybackTransition]) {
-        particlePlayback?.applyPlaybackTransitions(transitions)
-    }
-
-    var hasParticleAudioConsumer: Bool {
-        particlePlayback?.hasAudioConsumer == true
     }
 
     func advanceParticles(
@@ -68,7 +37,7 @@ extension SceneMetalView {
         performanceTelemetry?.beginStage("particle-pointer-projection")
 #endif
 
-        let pointerLocalPositions = renderer.particlePointerLocalPositions(
+        let pointerLocalPositions = metalView.renderer.particlePointerLocalPositions(
             frameContext: frameContext,
             cameraFrame: cameraFrame,
             frameProjection: frameProjection,
@@ -116,16 +85,13 @@ extension SceneMetalView {
         )
 #endif
     }
-}
-
-extension SceneMetalView {
     func particleEmissionInputValues(owner: OpaquePointer, layerID: Int) throws
         -> [SceneDynamicTarget: SceneDynamicValue] {
         var values: [SceneDynamicTarget: SceneDynamicValue] = [:]
         var visited = Set<Int>()
         var current: Int? = layerID
         while let id = current {
-            guard visited.insert(id).inserted, let layer = renderer.layersByID[id] else {
+            guard visited.insert(id).inserted, let layer = metalView.renderer.layersByID[id] else {
                 throw SceneScriptScalarRuntimeFailure.staleOwner
             }
             var origin = [Double](repeating: 0, count: 3)
@@ -150,12 +116,13 @@ extension SceneMetalView {
         return values
     }
 }
+
 #if DEBUG
-extension SceneMetalView {
+extension SceneDesktopWallpaperSession.Surface {
     func logExplicitParticleInstall(_ transitions: [SceneParticlePlaybackTransition], frame: UInt64, surface: UInt32) {
         guard SceneDesktopWallpaperHost.usesDebugEvidenceWindow else { return }
         let emitted = Set(transitions.filter { $0.action == .emit }.map(\.layerID))
-        for (id, simulator) in particlePlaybackSimulators where emitted.contains(id) {
+        for (id, simulator) in particlePlayback?.playbackSimulators ?? [] where emitted.contains(id) {
             let births = simulator.birthEvents.dropFirst(simulator.explicitBirthEventStart ?? simulator.birthEvents.count)
             NSLog("MWX DEBUG SCENE: phase=particle-explicit-installed frame=%llu layer=%d surface=%u revision=%llu births=%d live=%d firstID=%@ lastID=%@",
                   frame, id, surface, simulator.playback.revision, births.count, simulator.particles.count,

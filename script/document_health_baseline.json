@@ -90,7 +90,7 @@
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 163,
-      "bytes": 20019
+      "bytes": 20073
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 31,
@@ -170,15 +170,15 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 224581
+      "bytes": 224826
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
       "bytes": 197432
     },
     "docs/scene/capabilities/runtime-systems-reference.md": {
-      "lines": 379,
-      "bytes": 33286
+      "lines": 381,
+      "bytes": 33935
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 61,
@@ -285,8 +285,8 @@
       "bytes": 29767
     },
     "docs/scene/roadmap/engine-refactor-program.md": {
-      "lines": 185,
-      "bytes": 33346
+      "lines": 203,
+      "bytes": 38657
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 73,
@@ -301,8 +301,8 @@
       "bytes": 22465
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 204,
-      "bytes": 48476
+      "lines": 203,
+      "bytes": 48225
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -2065,47 +2065,38 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-as-built-map.md",
-      "before": "d6bdaf87035809521a2c1b859668c78ee29e91923b5aff093ebe7beedfb98fc2",
-      "after": "e6cf9a19ba6284498240726a3fe3842434cecaf60f661e0830ae6f4ffb461c07",
-      "owner": "scene-dynamic-layer-preparation",
-      "reason": "沿既有职责合同、现役地图和唯一队列收敛动态出生准备与typed当前值，保模板例外、旧cadence与未闭过渡；以299df7e7d真实正文为before，不提高600行正文/150行初读快照硬限。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#动态图层的准备事实与当前值"
+      "before": "e6cf9a19ba6284498240726a3fe3842434cecaf60f661e0830ae6f4ffb461c07",
+      "after": "31d34f61bfb50dcf634efb33c8a253bfea134d785f693cc53f839a1c9e6f97d2",
+      "owner": "scene-particle-surface-gpu-ownership",
+      "reason": "按既有粒子设计同步Surface实例/冻结帧、pipeline上传及无需求准备退出，沿原owner_relocation登记职责迁移；以7b99ed69a正文预算为before，运行范围与原失败归历史，不提高600行正文/150行初读快照硬限。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#粒子实例与-gpu-上传的所有权"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "afaf6b507b6ba9d135458b3e11b0c16a8451635647524c62151428fd24294042",
-      "after": "da5bef1f52bbf896a67e759893284c9f08448b7a9c1fda46b9ee2d20484011ef",
-      "owner": "scene-dynamic-layer-preparation",
-      "reason": "沿既有职责合同、现役地图和唯一队列收敛动态出生准备与typed当前值，保模板例外、旧cadence与未闭过渡；以299df7e7d真实正文为before，不提高600行正文/150行初读快照硬限。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#动态图层的准备事实与当前值"
+      "before": "da5bef1f52bbf896a67e759893284c9f08448b7a9c1fda46b9ee2d20484011ef",
+      "after": "79aa66de71b8413d8356b64ffd33f793d61fb7db8d88f21928005c6b16588c90",
+      "owner": "scene-particle-surface-gpu-ownership",
+      "reason": "按既有粒子设计同步Surface实例/冻结帧、pipeline上传及无需求准备退出，沿原owner_relocation登记职责迁移；以7b99ed69a正文预算为before，运行范围与原失败归历史，不提高600行正文/150行初读快照硬限。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#粒子实例与-gpu-上传的所有权"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-systems-reference.md",
-      "before": "2422214f80ab0c0e86b163eaf1d6168e60ed51ae7e59d97d4a3b69f95f152b0b",
-      "after": "da4e42fe590e05120f3c0d13e22411d527119c3786bf0c93d5370e20d679bcb7",
-      "owner": "scene-dynamic-layer-preparation",
-      "reason": "沿既有职责合同、现役地图和唯一队列收敛动态出生准备与typed当前值，保模板例外、旧cadence与未闭过渡；以299df7e7d真实正文为before，不提高600行正文/150行初读快照硬限。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#动态图层的准备事实与当前值"
+      "before": "da4e42fe590e05120f3c0d13e22411d527119c3786bf0c93d5370e20d679bcb7",
+      "after": "870d4f051341731b4f289858145a7cefbae6a5fc7784ae3e41c1e1cc2b1af8f1",
+      "owner": "scene-particle-surface-gpu-ownership",
+      "reason": "按既有粒子设计同步Surface实例/冻结帧、pipeline上传及无需求准备退出，沿原owner_relocation登记职责迁移；以7b99ed69a正文预算为before，运行范围与原失败归历史，不提高600行正文/150行初读快照硬限。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#粒子实例与-gpu-上传的所有权"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/engine-refactor-program.md",
-      "before": "6bd60540036cecfbfb975734d421479514d8e4a17f449b8be905c4b44b545d68",
-      "after": "07d3aba26fc95e7ecded83abdfc7d93f0236e42e70215e7da550aee0bd840048",
-      "owner": "scene-dynamic-layer-preparation",
-      "reason": "沿既有职责合同、现役地图和唯一队列收敛动态出生准备与typed当前值，保模板例外、旧cadence与未闭过渡；以299df7e7d真实正文为before，不提高600行正文/150行初读快照硬限。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#动态图层的准备事实与当前值"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "218db03d12ba9180d09c3de1b1db14b3766e4b4adba82244fcc94ff96d6fded5",
-      "after": "a1de93c681cdcc8b25759dcfb9c9deb14dcf0d88689ba6f0587af45c5b73206a",
-      "owner": "scene-dynamic-layer-preparation",
-      "reason": "沿既有职责合同、现役地图和唯一队列收敛动态出生准备与typed当前值，保模板例外、旧cadence与未闭过渡；以299df7e7d真实正文为before，不提高600行正文/150行初读快照硬限。",
-      "decision": "docs/scene/roadmap/engine-refactor-program.md#动态图层的准备事实与当前值"
+      "before": "07d3aba26fc95e7ecded83abdfc7d93f0236e42e70215e7da550aee0bd840048",
+      "after": "b74d58894316ebfefe3876d82444fc26e894bd79a38de67181efe4559f8272bb",
+      "owner": "scene-particle-surface-gpu-ownership",
+      "reason": "按既有粒子设计同步Surface实例/冻结帧、pipeline上传及无需求准备退出，沿原owner_relocation登记职责迁移；以7b99ed69a正文预算为before，运行范围与原失败归历史，不提高600行正文/150行初读快照硬限。",
+      "decision": "docs/scene/roadmap/engine-refactor-program.md#粒子实例与-gpu-上传的所有权"
     }
   ]
 }

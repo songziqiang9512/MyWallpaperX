@@ -17,10 +17,8 @@ final class SceneParticleMetalInstanceBuffer: @unchecked Sendable {
     private let lock = NSLock()
     private var slots: [Slot] = []
     /// Growth ceiling for one system's instance buffer, tied to the frozen
-    /// whole-layer segment-instance budget. A system whose emission
-    /// exceeds it fails closed through the existing
-    /// `instanceBufferAllocationFailed` path (previous-current rendering)
-    /// instead of growing device memory without bound.
+    /// whole-layer segment-instance budget. An oversized batch is omitted
+    /// rather than growing device memory without bound.
     private static let maximumCapacity = SceneParticleRopeTrailPlan.maximumSegmentInstanceCount
     /// Completion handlers are armed before particle encoding starts.  Metal
     /// command-buffer ownership is therefore established before a command can

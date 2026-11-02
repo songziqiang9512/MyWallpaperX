@@ -126,12 +126,13 @@ struct TestLaunchContext {let preparedDeviceResources:TestPreparedResources;let 
         let renderer: Renderer
         let debugFrameCapture: SceneDebugFrameCapture
         func invalidateResolvedMaterialRuntime(reason:SceneGraphExecutionResetReason) {}
-        func teardownParticlePlayback(reason:SceneGraphExecutionResetReason) {}
         init(_ q: MTLCommandQueue, _ c: SceneDebugFrameCapture) { renderer=Renderer(q);debugFrameCapture=c }
     }
     final class Surface {
         let metalView: View
         let window=TestWindow()
+        var particleTeardownCalls=0
+        func teardownParticlePlayback(reason:SceneGraphExecutionResetReason) {particleTeardownCalls += 1}
         init(_ q: MTLCommandQueue, _ c: SceneDebugFrameCapture) { metalView=View(q,c) }
     }
     var surfaces: [Int: Surface] = [:]
@@ -295,7 +296,10 @@ enum PlaybackPerformanceProfile:Int {case fps60=60;var maxFPS:Int {rawValue}}
         let deferredWork=ControlledFontWorker()
         fontSession.launchContext = .init(preparedDeviceResources:.init(baseImages:deferredWork))
         await wait(deferredWork.entered)
+        let rebuiltSurfaces=Array(fontSession.surfaces.values)
         fontSession.teardownSurfaces(clearContext:false,reason:.surfaceStop)
+        check(rebuiltSurfaces.allSatisfy {$0.particleTeardownCalls == 1},
+              "surface rebuild did not retire each CPU particle owner once")
         let rebuilt=DispatchSemaphore(value:0)
         fontSession.retiringSurfaceDrain.notify(queue:.global()) {rebuilt.signal()}
         await wait(rebuilt)
@@ -466,8 +470,8 @@ struct TestLaunchContext {let preparedDeviceResources:TestPreparedResources;let 
     func logDeferredLayerVisibilityTransition(generation:UInt64,layerIDs:Set<Int>,state:String) {}
 
     final class Renderer { let commandQueue: MTLCommandQueue; init(_ queue: MTLCommandQueue) {commandQueue=queue} }
-    final class View { let renderer:Renderer;let debugFrameCapture:SceneDebugFrameCapture;func invalidateResolvedMaterialRuntime(reason:SceneGraphExecutionResetReason) {};func teardownParticlePlayback(reason:SceneGraphExecutionResetReason) {};init(_ queue:MTLCommandQueue,_ capture:SceneDebugFrameCapture) {renderer=Renderer(queue);debugFrameCapture=capture} }
-    final class Surface { let metalView:View;let window=TestWindow();init(_ queue:MTLCommandQueue,_ capture:SceneDebugFrameCapture) {metalView=View(queue,capture)} }
+    final class View { let renderer:Renderer;let debugFrameCapture:SceneDebugFrameCapture;func invalidateResolvedMaterialRuntime(reason:SceneGraphExecutionResetReason) {};init(_ queue:MTLCommandQueue,_ capture:SceneDebugFrameCapture) {renderer=Renderer(queue);debugFrameCapture=capture} }
+    final class Surface { let metalView:View;let window=TestWindow();func teardownParticlePlayback(reason:SceneGraphExecutionResetReason) {};init(_ queue:MTLCommandQueue,_ capture:SceneDebugFrameCapture) {metalView=View(queue,capture)} }
     var surfaces:[Int:Surface]=[:]
     var retiringSurfaces:[ObjectIdentifier:Surface]=[:]
     let retiringSurfaceDrain=DispatchGroup()

@@ -153,7 +153,7 @@ extension SceneDesktopWallpaperSession {
         }
         guard let mediaThumbnailTextures, launchContext != nil, !surfaces.isEmpty,
               !initialPresentationCohort.isHeld else { return .inactive }
-        if sceneClock.isPaused && surfaces.values.allSatisfy({ $0.metalView.hasSimulationFrame }) {
+        if sceneClock.isPaused && surfaces.values.allSatisfy({ $0.simulationFrame != nil }) {
             _ = refreshPausedMediaPublications(mediaThumbnailTextures.snapshot())
             return renderSurfaces()
         }
@@ -641,7 +641,7 @@ extension SceneDesktopWallpaperSession {
                         && Set(self.surfaces.keys) == self.preparedSurfaceIDs
                         && self.surfaces.values.allSatisfy {
                             $0.scriptGeneration == launchContext.propertyVectorScriptProgram.generation
-                                && $0.metalView.validateParticlePlaybackTransitions(transitions)
+                                && $0.particlePlayback?.validatePlaybackTransitions(transitions) == true
                         })
                 },
                 rejectingParticleTransitions: { plan, admitted, rejected in
@@ -661,7 +661,7 @@ extension SceneDesktopWallpaperSession {
                         base: preliminarySceneScriptResolution, timelineValues: timeline,
                         sceneScriptValues: frameScriptValues(admitted, layerPlan: plan, excluding: rejected, timelineValues: timeline))
                     guard let failed = particleEmission.prepare(transitions, visibility: { instance in
-                        self.surfaces[instance.surfaceID]?.metalView.particlePlaybackVisibility(
+                        self.surfaces[instance.surfaceID]?.particlePlayback?.playbackVisibility(
                             layerID: instance.layerID, dynamicValues: resolution.snapshot)
                     }) else { return [] }
                     return Set(admitted.filter { bundle in
@@ -785,9 +785,9 @@ extension SceneDesktopWallpaperSession {
             particleEmission?.install()
             let stopped = Set(admission.layerPlan.particleTransitions.filter { $0.action == .stop }.map(\.layerID))
             for (id, surface) in surfaces {
-                surface.metalView.clearStoppedParticlePlaybackCaches(stopped)
+                surface.particlePlayback?.clearStoppedPlaybackCaches(stopped)
 #if DEBUG
-                surface.metalView.logExplicitParticleInstall(admission.layerPlan.particleTransitions,
+                surface.logExplicitParticleInstall(admission.layerPlan.particleTransitions,
                     frame: timing.frameIndex, surface: id)
 #endif
             }
@@ -842,7 +842,7 @@ extension SceneDesktopWallpaperSession {
                 snapshot: dynamicValues, destroyedAuthoredLayerIDs: layerTopology.destroyedAuthoredLayerIDs
             )
 #endif
-            surface.metalView.applyParticlePlaybackTransitions(admission.layerPlan.particleTransitions)
+            surface.particlePlayback?.applyPlaybackTransitions(admission.layerPlan.particleTransitions)
 #if DEBUG
             if SceneDesktopWallpaperHost.usesDebugEvidenceWindow {
                 for transition in admission.layerPlan.particleTransitions {
@@ -852,9 +852,12 @@ extension SceneDesktopWallpaperSession {
             }
 #endif
             surface.didSubmitSimulationFrame = false
-            surface.metalView.updateSimulation(
+            surface.updateSimulation(
                 timing: timing, dynamicValues: dynamicValues,
                 puppetAnimationFrame: puppetAnimationFrame,
+                spriteTimes: launchContext.textureAnimationPlaybackRuntime.playbackTimes(
+                    layerIDs: surface.metalView.spriteAnimationLayerIDs,
+                    sceneTime: timing.sceneTime),
                 layerTopology: layerTopology,
                 materialFunctionMutations: materialFunctionMutations,
                 puppetBoneMutations: puppetBoneMutations,
@@ -892,12 +895,18 @@ extension SceneDesktopWallpaperSession {
     @discardableResult
     func refreshPausedMediaPublications(_ publication: SceneMediaThumbnailTextureStore.Snapshot) -> Bool {
         guard !surfaces.isEmpty, Set(surfaces.keys) == preparedSurfaceIDs,
-              Set(surfaces.values.map { $0.metalView.simulationFrameIndex }).count == 1,
+              let frameIndex = surfaces.values.first?.simulationFrame?.timing.frameIndex,
               publication.pendingGeneration == nil,
-              surfaces.values.allSatisfy({ $0.metalView.simulationMediaInputGeneration == publication.generation }) else { return false }
+              surfaces.values.allSatisfy({ surface in
+                  guard let frame = surface.simulationFrame else { return false }
+                  return frame.timing.frameIndex == frameIndex
+                      && frame.mediaInputGeneration == publication.generation
+              }) else { return false }
         var changed = false
         for surface in surfaces.values {
-            if surface.metalView.refreshPausedMediaThumbnail(publication) {
+            let current = surface.simulationFrame!.mediaThumbnail
+            if current.generation != publication.generation || current.pendingGeneration != nil {
+                surface.simulationFrame!.mediaThumbnail = publication
                 surface.didSubmitSimulationFrame = false
                 changed = true
             }

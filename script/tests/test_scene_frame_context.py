@@ -56,6 +56,9 @@ LIVE_CONSUMERS_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+LiveConsumers.swift"
 )
 VIEW_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift"
+SURFACE_SIMULATION_SOURCE = (
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceSimulation.swift"
+)
 VIEW_FRAME_CONTEXT_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+FrameContext.swift"
 )
@@ -623,7 +626,7 @@ class SceneFrameContextTests(unittest.TestCase):
 
     def test_scenescript_material_mutation_stays_on_existing_frame_and_graph_chain(self) -> None:
         frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
-        view = VIEW_SOURCE.read_text(encoding="utf-8")
+        surface_simulation = SURFACE_SIMULATION_SOURCE.read_text(encoding="utf-8")
         view_frame_context = VIEW_FRAME_CONTEXT_SOURCE.read_text(encoding="utf-8")
         preflight = PREPFLIGHT_SOURCE.read_text(encoding="utf-8")
 
@@ -641,9 +644,9 @@ class SceneFrameContextTests(unittest.TestCase):
         )
         self.assertIn(
             "materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = []",
-            view,
+            surface_simulation,
         )
-        self.assertIn("materialFunctionMutations: materialFunctionMutations", view)
+        self.assertIn("materialFunctionMutations: materialFunctionMutations", surface_simulation)
         self.assertIn(
             "materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = []",
             view_frame_context,

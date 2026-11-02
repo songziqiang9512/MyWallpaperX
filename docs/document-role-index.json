@@ -766,10 +766,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d192a1313e1e7a46367c0aebafd3fb4732782abe215d5a8a69da9e519b132c3a",
-        "method": "current source/diff and bounded runtime evidence review; SHA-256/body_size sync",
-        "scope": "核对动态Layer出生资源/size与typed当前值落点、同revision准备投影复用、动态根/作者层级及catalog Mat4分流、文字Store同cadence消费。",
-        "limitations": "本图记录实际接线；157方法分轮及8次App样本运行的有界结果归历史，24过渡差异未闭，不授整体性能、物理多屏或完整迁移。"
+        "sourceSHA256": "1c1a673d6c45fc641ff17326a2473968ddcdd370b8286aace9e66ded06313be0",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "核对Session.Surface唯一持粒子PlaybackState与SimulationFrame、View消费冻结帧及每屏pipeline的buffer/上传/draw/取消落点，退出View CPU构造、保存和ABI转发。",
+        "limitations": "接线图不替代运行验收；最终App与20模块分次、35次App的有界结果归历史，Runtime旧skip及原报告FAIL保留，Puppet和整体迁移未闭。"
       },
       "purpose": "实际接线或已记录运行证据；不反向定义目标架构，不决定实施顺序。"
     },
@@ -1056,10 +1056,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c5aec90ba905b0ca7f80ecb5561a7577e7f1d959b8d425f6d2dac0a92a8dd686",
-        "method": "current source/diff and bounded runtime evidence review; SHA-256/body_size sync",
-        "scope": "把动态出生准备与typed值分离接入现役证据入口；157独立方法分轮、冻结基线载体归因、App身份与像素比较保留历史记录。",
-        "limitations": "8次App样本运行含2原型失格、4合格双Surface及2原包单Surface；27/28同名RGB匹配，24过渡未闭，原benchmark FAIL不改，不授FPS、能耗、物理多屏或官方parity。"
+        "sourceSHA256": "74a7a162efe659207e8d94a8e3ce7e5d62a29531a33e5294054be15a9ad7b26d",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "将粒子Surface CPU实例与pipeline GPU上传的完整闭环接入现役证据入口，引用最终App、分次行为门、native生命周期、五原包及RopeTrail/无粒子对照后验。",
+        "limitations": "20模块分次通过且Runtime原10项skip保留；35次App含旧新和初稿运行，双Surface原报告FAIL不改，Rope25仅有界方向/覆盖证据，不授全图相位等价、FPS、能耗、物理多屏或parity。"
       },
       "purpose": "实际接线或已记录运行证据；不反向定义目标架构，不决定实施顺序。"
     },
@@ -1072,7 +1072,7 @@
       "reviewBasis": {
         "kind": "navigation-audit",
         "sourceSHA256": "06377e2b86a1bb5936dcf1c7d0d78be42cdfe356c9c770ef7a137388bd440e6f",
-        "method": "current source/diff and bounded runtime evidence review; SHA-256/body_size sync",
+        "method": "document_registry --audit + document_health --check",
         "scope": "修正动态Layer完整upsert与typed当前值路由，保literal/template content分工、raw pointSize、font归一及显式默认、两条颜色消费者与既有cadence。",
         "limitations": "本批退出旧完整Layer覆盖、value revision及patch描述；合格自有输入不等于全语料能力，24过渡及特殊clone等未闭项保留，不据少量App或方法通过升级整体parity。"
       }
@@ -1085,10 +1085,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "41e7a6ad5f189ded02165c882247debabed3738d0def095523def4452e451989",
+        "sourceSHA256": "af39dd2a059fa13c98032468c395f75404940cd7c85eb2a16905b3399b314811",
         "method": "document_registry --audit + document_health --check",
-        "scope": "稳定合同明确动态出生准备与当前值分期、同结构revision复用、世界根/作者层级分流，以及template content、字体默认与文字producer消费职责。",
-        "limitations": "职责合同不等于各组件能力已闭；本批有界行为与App证据不授全序列等价、性能、物理多屏或完整迁移，现役能力状态仍归专门台账。"
+        "scope": "粒子合同明确CPU实例与GPU上传分责、Surface所有权及冻结帧消费，保root/child/history和slot使用期；prepared variants为空时保CPU状态与报告而跳过无消费者GPU准备。",
+        "limitations": "本族职责收敛不升级所有粒子组件、空间或材质兼容；不可变准备资源仍沿原链，Puppet等职责和性能验收不由本批结清。"
       }
     },
     {
@@ -3347,10 +3347,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6a1dc716b9eadde46648d247adb9f536e65052b9ecf46fc7c92f6f75d4306e52",
-        "method": "current source/diff and bounded runtime evidence review; SHA-256/body_size sync",
-        "scope": "记录动态图层分期157方法分轮通过、299完整闭包复现三项旧载体问题，区分漏导入失败；核8次App样本运行、27/28同名RGB、6包53,435,395字节及三路径逻辑回收。",
-        "limitations": "双Surface位于同一物理显示器；2原型失格、24 series0001双方未匹配与原benchmark FAIL保留，335仅限定单Surface邻例；不授FPS、能耗、官方parity、物理释放或完整迁移。"
+        "sourceSHA256": "fb2cc9d92c819815a18be52bf7a5719d651e9b67a03dcdb12cb0b7440f621cd6",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "记录最终8737…9a16 App与27产品输入稳定、20行为模块分次及Runtime旧skip、35次App与原FAIL；核粒子CPU/GPU闭环、空prepared需求、main-pass仍4处及有据owner_relocation，保初稿/载体失败。",
+        "limitations": "五原包为同语义及同失败集合，Rope25仅预登记覆盖/质心方向，空需求155非静态像素资格；不授完整语料、同phase、FPS/能耗、物理多屏、parity或整体迁移，24过渡仍独立未闭。"
       }
     },
     {
@@ -4557,10 +4557,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "655ff9b79fb2318b4a7d6d33bd4f1580b633259ae1c30ba244df1d7b545f3afe",
+        "sourceSHA256": "52f3a58098ddcfef261bc0b13139ab16fbcf4d98dadece8244b848b46943ba71",
         "method": "document_registry --audit + document_health --check",
-        "scope": "沿既有长期迁移合同明确动态图层birth准备、完整typed upsert、template内容例外、默认/font/raw值语义、同cadence、动态根快路及旧patch/重复值路径退出。",
-        "limitations": "合同及本批验收不结清完整架构目标；24过渡差异、其余authored/prepared/live分期、Puppet/粒子寿命及整体性能仍开放，实施顺序只归唯一队列。"
+        "scope": "补齐粒子完整CPU/GPU所有权：Surface独占实例与冻结帧，pipeline负责上传/提交存储，空prepared variants免无用GPU准备；沿既有owner_relocation规定库存职责迁移。",
+        "limitations": "每屏物理、pointer/world与模拟顺序不共享或重排；空batch不取消dormant child需求，库存迁移不增加main-pass调用；Puppet、其余数据分期及完整目标仍开放，不外推性能。"
       }
     },
     {
@@ -4613,10 +4613,10 @@
       "lastReviewed": "2026-11-02",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6db781e91f4a48745312642ab7af73e84bd15490a877abec8f5a42d641500ea6",
-        "method": "current source/diff and bounded runtime evidence review; SHA-256/body_size sync",
-        "scope": "唯一队列标明动态出生准备与typed值分离已退出的旧职责，保其余Layer分期、文字/媒体后的Puppet寿命及既有solid颜色脚本缺口。",
-        "limitations": "只关闭本批已证子范围；24过渡未闭，157方法分轮与8次App样本运行不完成全语料、物理多屏、性能或整体迁移，不以原benchmark FAIL升级或降格既有能力。"
+        "sourceSHA256": "c1cb0890d39d3531ac88beafe8f57a5570712a12a2e5f09af8626569a3991ca0",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "唯一队列退出已闭粒子CPU/GPU职责，注明Surface实例/冻结帧及原pipeline接管，后续沿Puppet实际寿命推进，保descriptor/LaunchContext的有据收口范围。",
+        "limitations": "粒子本族闭合不等于所有权迁移或完整兼容目标全部完成；不机械搬其余字段，也不将分次门、旧新同失败集合或有界App升级为整体性能结论。"
       }
     },
     {

@@ -148,6 +148,8 @@ extension Harness {
             "\($0.kind.rawValue):\($0.layerID ?? -1):\($0.detail ?? "")"
         }
 #endif
+        guard let uploadPipeline = SceneParticleMetalPipeline(device: device) else { throw HarnessError.noParticlePipeline }
+        let uploadedCoarse = uploadPipeline.prepare(coarseBatch.map { [$0] } ?? []).first
         var facts1: [String: Any] = [
             "activeLayerIDs": coarseRuntime.activeLayerIDs,
             "prewarmedInstanceCount": prewarmedBatch?.instances.count ?? -1,
@@ -158,7 +160,7 @@ extension Harness {
             } ?? false,
             "coarseSignature": ropeTrailSignature(coarseBatch),
             "fineSignature": ropeTrailSignature(fineBatch),
-            "bufferMatches": coarseBatch.map { $0.instanceBuffer.update(device: device, instances: $0.instances) && $0.instanceBuffer.count == $0.instances.count } ?? false,
+            "bufferMatches": uploadedCoarse.map { $0.instanceBuffer.count == $0.draw.instances.count } ?? false,
             "usesPerspective": coarseBatch?.usesPerspective ?? false,
             "sizeIsWorldSpace": coarseBatch?.sizeIsWorldSpace ?? false,
             "orientationScreen": coarseBatch?.orientation == .screen,
@@ -337,6 +339,8 @@ extension Harness {
             "\($0.kind.rawValue):\($0.layerID ?? -1):\($0.detail ?? "")"
         }
 #endif
+        guard let uploadPipeline = SceneParticleMetalPipeline(device: device) else { throw HarnessError.noParticlePipeline }
+        let uploaded = uploadPipeline.prepare(batch.map { [$0] } ?? []).first
         var facts2: [String: Any] = [
             "activeLayerIDs": runtime.activeLayerIDs,
             "instanceCount": instances.count,
@@ -345,7 +349,7 @@ extension Harness {
                     && $0.instances.allSatisfy { $0.frame0B.x == 1 && $0.frame0B.y == 0 }
             } ?? false,
             "atlasProfile": try animatedRopeAtlasContract(device: device),
-            "bufferMatches": batch.map { $0.instanceBuffer.update(device: device, instances: $0.instances) && $0.instanceBuffer.count == instances.count } ?? false,
+            "bufferMatches": uploaded.map { $0.instanceBuffer.count == instances.count } ?? false,
             "orientationScreen": batch?.orientation == .screen,
             "usesPerspective": batch?.usesPerspective ?? true,
             "allSegmentsNonzero": instances.allSatisfy {
@@ -521,9 +525,10 @@ extension Harness {
         }
         let geometry = replay.first { $0.particlePath == inclined }?.instances ?? []
         let alias = replay.first { $0.particlePath == renamed }?.instances ?? []
-        let uploadsMatch = replay.allSatisfy { batch in
-            batch.instanceBuffer.update(device: device, instances: batch.instances)
-                && batch.instanceBuffer.count == batch.instances.count
+        guard let uploadPipeline = SceneParticleMetalPipeline(device: device) else { throw HarnessError.noParticlePipeline }
+        let uploaded = uploadPipeline.prepare(replay)
+        let uploadsMatch = uploaded.count == replay.count && uploaded.allSatisfy {
+            $0.instanceBuffer.count == $0.draw.instances.count
         }
 #if DEBUG
         let diagnostics = runtime.diagnostics.map { "\($0.layerID ?? -1):\($0.detail ?? "")" }

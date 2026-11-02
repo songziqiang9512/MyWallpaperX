@@ -26,8 +26,15 @@ struct SceneStartupReportBuffer {
         lines?.filter { $0.starts(with: "layer ") }.count ?? 0
     }
 
-    func write(to url: URL?) {
+    func write(to url: URL?, appending: Bool = false) {
         guard let url, let lines else { return }
+        if appending {
+            guard let handle = try? FileHandle(forWritingTo: url) else { return }
+            defer { try? handle.close() }
+            _ = try? handle.seekToEnd()
+            try? handle.write(contentsOf: Data(("\n" + lines.joined(separator: "\n") + "\n").utf8))
+            return
+        }
         try? lines.joined(separator: "\n").write(
             to: url, atomically: true, encoding: .utf8
         )

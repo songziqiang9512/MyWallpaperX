@@ -13,7 +13,7 @@ from script.tests.scene_particle_runtime_configuration_cases import _declaration
 
 
 # Reuse the runtime gate's maintained leaves; frame decisions below are the
-# complete production renderer and MainPassEncoder sources, not fixture copies.
+# complete production particle frame owner and MainPassEncoder sources.
 ROOT = Path(__file__).resolve().parents[2]
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 RUNTIME_TEST = Path(__file__).with_name("test_scene_particle_runtime.py")
@@ -33,7 +33,7 @@ RUNTIME_SOURCES = eval(ast.get_source_segment(runtime_module, runtime_sources), 
 })
 CAMERA_SWIFT_SOURCES = tuple(dict.fromkeys(
     path.resolve() for path in [*SWIFT_SOURCES, *RUNTIME_SOURCES,
-        SCENE / "Rendering/Frame/SceneMetalRenderer+Particles.swift",
+        SCENE / "Rendering/Particles/SceneParticleMetalPipeline+Frame.swift",
         SCENE / "Rendering/Composition/SceneMainPassEncoder.swift"]
     if path.name not in {"SceneLayerPerspectiveSnapshotHarness.swift", CAMERA_FIXTURE.name}
 ))

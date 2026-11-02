@@ -18,9 +18,11 @@ extension SceneDesktopWallpaperSession {
         for (displayID, surface) in surfaces {
             if sceneClock.isPaused && surface.didSubmitSimulationFrame && !awaitsInitialPresentation { continue }
 #if DEBUG
+            let simulationFrameIndex = surface.simulationFrame?.timing.frameIndex ?? 0
             let mainFrameStart = ProcessInfo.processInfo.systemUptime
 #endif
             let frameOutcome = surface.metalView.renderFrame(
+                simulationFrame: surface.simulationFrame,
                 dynamicTextSnapshot: dynamicTextSnapshot,
                 collectsInitialVideoReadiness: true,
                 performanceTelemetry: SceneDesktopWallpaperHost.usesDebugEvidenceWindow
@@ -36,22 +38,22 @@ extension SceneDesktopWallpaperSession {
             frameOutcomes.append(frameOutcome)
 #if DEBUG
             if case let .prepared(candidate) = frameOutcome {
-                candidate.observeGPUStageSurface(frameIndex: surface.metalView.simulationFrameIndex, surfaceID: displayID)
+                candidate.observeGPUStageSurface(frameIndex: simulationFrameIndex, surfaceID: displayID)
             }
             if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
-               surface.metalView.simulationFrameIndex <= 2,
+               simulationFrameIndex <= 2,
                case let .prepared(candidate) = frameOutcome {
-                candidate.observeCompletion(frameIndex: surface.metalView.simulationFrameIndex, surfaceID: displayID)
+                candidate.observeCompletion(frameIndex: simulationFrameIndex, surfaceID: displayID)
             }
             if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
-               debugRejectPreparedFrameOnce == surface.metalView.simulationFrameIndex,
+               debugRejectPreparedFrameOnce == simulationFrameIndex,
                frameOutcomes.count == surfaces.count {
                 debugRejectPreparedFrameOnce = nil
                 if case let .prepared(candidate) = frameOutcome { candidate.cancel() }
                 frameOutcomes[frameOutcomes.count - 1] = .dropped(
                     reasonCode: "debug-evidence-prepared-surface-rejected"
                 )
-                NSLog("MWX DEBUG SCENE: phase=surface-submission state=rejected frame=%llu surface=%u totalSurfaces=%d", surface.metalView.simulationFrameIndex, displayID, surfaces.count)
+                NSLog("MWX DEBUG SCENE: phase=surface-submission state=rejected frame=%llu surface=%u totalSurfaces=%d", simulationFrameIndex, displayID, surfaces.count)
             }
             if SceneDesktopWallpaperHost.usesDebugEvidenceWindow {
                 SceneFramePerformanceTelemetry.debugEvidence.recordMainFrame(
@@ -87,7 +89,7 @@ extension SceneDesktopWallpaperSession {
                 if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
                    !presentsFrame || previousDeadline != nil {
                     NSLog("MWX DEBUG SCENE: phase=video-switch-presentation frame=%llu surface=%u present=%@ ready=%d pending=%d hostTime=%.6f deadline=%.6f",
-                        surface.metalView.simulationFrameIndex, displayID, presentsFrame ? "true" : "false",
+                        simulationFrameIndex, displayID, presentsFrame ? "true" : "false",
                         readySources.count, pendingSources.count, hostTime, surface.videoSwitchDeadline ?? 0)
                 }
 #endif
@@ -144,7 +146,7 @@ extension SceneDesktopWallpaperSession {
 #if DEBUG
             if SceneDesktopWallpaperHost.usesDebugEvidenceWindow {
                 NSLog("MWX DEBUG SCENE: phase=initial-video-presentation attempt=%llu frame=%llu surfaces=%d qualified=%d held=%@ pending=%@",
-                    attempt.rawValue, surfaces.values.first?.metalView.simulationFrameIndex ?? 0,
+                    attempt.rawValue, surfaces.values.first?.simulationFrame?.timing.frameIndex ?? 0,
                     surfaces.count, qualifiedSubmitted.count, initialPresentationCohort.isHeld ? "true" : "false",
                     pendingVideoLayerIDs.sorted().prefix(8).map(String.init).joined(separator: ","))
             }

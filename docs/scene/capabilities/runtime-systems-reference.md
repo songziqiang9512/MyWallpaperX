@@ -90,6 +90,8 @@ clone、span、per-display 与 selected/disabled display 是宿主请求策略�
 
 粒子按 General、Emitter、Initializer、Operator、Renderer、Control Point 和 Children 组织。prepared definition/plan 保持作者组件顺序，实例保存存活粒子、随机、发射和 child 状态，GPU 保存对应绘制数据。
 
+Session.Surface唯一持有各屏CPU PlaybackState与冻结帧，按原输入/clock/pose顺序推进；View消费冻结结果，重试和无drawable不重播模拟。CPU产出实例值及已有不可变准备句柄；每屏既有粒子pipeline按图层/root或child模板索引拥有可写上传buffer，PreparedBatch只绑定本帧输入与实际上传结果。上传、arm/mark、draw和未提交取消归同一GPU owner；child暂隐不退休buffer，原slot在command完成后复用。轨迹历史与step消费留CPU，不因绘制pass重复推进，也不跨屏共享模拟；CPU退场与Rendering的在途资源排空各沿原实际边界。
+
 官方入口：[Introduction](https://docs.wallpaperengine.io/en/scene/particles/introduction.html)、[General](https://docs.wallpaperengine.io/en/scene/particles/component/general.html)、[Emitter](https://docs.wallpaperengine.io/en/scene/particles/component/emitter.html)、[Initializer](https://docs.wallpaperengine.io/en/scene/particles/component/initializer.html)、[Operator](https://docs.wallpaperengine.io/en/scene/particles/component/operator.html)、[Renderer](https://docs.wallpaperengine.io/en/scene/particles/component/renderer.html)、[Control Point](https://docs.wallpaperengine.io/en/scene/particles/component/control_point.html)、[Children](https://docs.wallpaperengine.io/en/scene/particles/component/children.html)。具体字段、数值近似与已验范围只维护在[粒子专项](particle-component-coverage.md)。
 
 ### 2.1 General

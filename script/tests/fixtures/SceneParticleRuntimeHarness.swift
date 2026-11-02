@@ -685,7 +685,7 @@ extension SceneParticleRuntime {
 }
 
 extension SceneParticlePlaybackState {
-    convenience init?(
+    convenience init(
         descriptor: SceneRenderDescriptor,
         cacheDirectory: URL,
         device: MTLDevice,

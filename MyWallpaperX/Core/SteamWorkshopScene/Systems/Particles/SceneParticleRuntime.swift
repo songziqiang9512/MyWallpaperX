@@ -2,7 +2,7 @@ import Foundation
 import Metal
 import simd
 
-/// Owns the CPU state and GPU instance buffers for effectively visible particle layers.
+/// Owns CPU simulation state and instance values for effectively visible particle layers.
 /// Positions remain local for legacy systems, or in one immutable reference
 /// for admitted root translations. The renderer applies that chosen frame once.
 final class SceneParticleRuntime {
@@ -677,7 +677,7 @@ final class SceneParticleRuntime {
                 colorSampling: root.colorSampling,
                 refraction: root.refraction,
                 renderState: root.renderState,
-                instanceBuffer: root.instanceBuffer,
+                childTemplateIndex: nil,
                 instances: root.instances,
                 orientation: root.orientation,
                 orientationAxis: root.orientationAxis,

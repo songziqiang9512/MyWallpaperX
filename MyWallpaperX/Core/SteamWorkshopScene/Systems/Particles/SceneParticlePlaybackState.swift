@@ -6,7 +6,7 @@ final class SceneParticlePlaybackState {
     private nonisolated static let maximumRealtimeSimulationDelta: TimeInterval = 2.0 / 60.0
 
     let lifecycleIdentity = UUID()
-    let pipeline: SceneParticleMetalPipeline
+    var requiredPipelineVariants: Set<SceneParticlePipelineVariant> { runtime.requiredPipelineVariants }
     private let runtime: SceneParticleRuntime
     private let retainedLayerIDs: Set<Int>
     var preparedLayerIDs: Set<Int> { didTeardown ? [] : retainedLayerIDs }
@@ -30,7 +30,7 @@ final class SceneParticlePlaybackState {
         runtime.lifecycleSnapshot
     }
 
-    init?(
+    init(
         descriptor: SceneRenderDescriptor,
         preparedAssets: SceneParticleAssetGraph,
         device: MTLDevice,
@@ -52,14 +52,6 @@ final class SceneParticlePlaybackState {
             initialDynamicValues: initialDynamicValues,
             initialPlayback: initialPlayback
         )
-        guard let pipeline = SceneParticleMetalPipeline(
-            device: device, pixelFormat: descriptor.colorTargetFormat.metalPixelFormat,
-            requiredVariants: runtime.requiredPipelineVariants
-        ) else {
-            runtime.teardown()
-            return nil
-        }
-        self.pipeline = pipeline
         self.runtime = runtime
         self.retainedLayerIDs = Set(runtime.activeLayerIDs)
         self.pointerControlPointDemands = runtime.pointerControlPointDemands

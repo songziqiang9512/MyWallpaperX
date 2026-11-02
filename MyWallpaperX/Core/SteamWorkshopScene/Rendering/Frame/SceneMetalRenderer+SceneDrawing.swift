@@ -35,7 +35,7 @@ extension SceneMetalRenderer {
         sceneColor: SceneResolvedMaterialSubmissionCoordinator.SceneColorReservation?,
         displayMappingInput: inout SceneDisplayMappingPostProcess.Input,
         frameDepthLeases: inout [SceneParticleDepthTargetLease],
-        particleBatches: inout [SceneParticleDrawBatch],
+        particleBatches: inout [SceneParticleMetalPipeline.PreparedBatch],
         particlePerformanceObservations: inout [SceneParticlePerformanceObservation]?,
         mainPassForSubmission: inout SceneMainPassEncoder?,
         reflectionFrame: inout ReflectionFrame?,
@@ -137,11 +137,8 @@ extension SceneMetalRenderer {
 #endif
         // Upload once before depth qualification, so only actual particle draws
         // participate in the original mandatory resource order.
-        particleBatches = preparedParticleBatches.filter {
-            $0.instanceBuffer.update(device: device, instances: $0.instances)
-                && $0.instanceBuffer.currentDrawState() != nil
-        }
-        let particleBatchesByID = Dictionary(grouping: particleBatches, by: \.layerID)
+        particleBatches = particlePipeline?.prepare(preparedParticleBatches) ?? []
+        let particleBatchesByID = Dictionary(grouping: particleBatches, by: \.draw.layerID)
 #if DEBUG
         performanceTelemetry?.endStage("prepass-particles")
 #endif

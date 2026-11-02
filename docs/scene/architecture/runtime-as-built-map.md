@@ -35,7 +35,7 @@ App 产品意图与当前记录
 | 产品选择与持久化设置 | App 的产品服务与跨引擎切换事务；SceneDaemonClient 保存已接纳的 authored intent 和重放身份，不持有图形资源 |
 | 进程端点 | SceneDaemonRuntime 私有持有唯一产品 Host；普通 App 经 client 控制，不构造产品 Host；显式 DEBUG direct runner 另持隔离 Host |
 | 当前输出与候选决策 | SceneDesktopWallpaperHost 持有 active、candidate 和 retiring Session，负责请求身份、候选提交与回滚 |
-| 场景时间与模拟 | SceneDesktopWallpaperSession 持有 sceneClock、VM programs、活动状态、输入与媒体生命周期；每个模拟 cadence 推进一次 |
+| 场景时间与模拟 | Session持sceneClock、VM programs、活动状态、输入与媒体；Surface持本屏粒子实例与唯一冻结帧，每cadence推进一次，View消费结果 |
 | 作者 identity 与顺序 | Model、RenderDescriptor、material catalog 和已准备计划；运行修改通过原 typed topology/属性路径进入 |
 | SceneScript | 同一场景的 QuickJS domain、各属性绑定 program 和 typed host bridge；模块 heap 与 Swift typed mutation 具有不同撤回边界 |
 | 属性 | 不可变BindingProgram在构造/解码时持有验证及索引；launchContext.liveState独占实例有效输入、current与revision，再发布typed快照；普通值更新不自行取得资源或topology修改权 |
@@ -72,7 +72,7 @@ App 产品意图与当前记录
 | Timeline | `Systems/Timeline/SceneTimelinePlaybackRuntime`及 evaluator/compiler | [输入与属性](../capabilities/runtime-input-property-coverage.md) |
 | VM 与 typed owner | `Systems/Script/SceneScriptValueRuntime`、`SceneQuickJS*`及对应 bridge | [SceneScript API](../capabilities/scenescript-api-coverage.md) |
 | 动态图层准备与当前值 | `Systems/Script/SceneScriptDynamicLayerRuntime*`、`SceneScriptLayerTopologyProjection`；`Rendering/Composition/SceneDynamicLayerRenderTopologyCache` | [组件合同](../capabilities/runtime-systems-reference.md#02-数据与依赖方向) |
-| 粒子定义、实例与 GPU | `Systems/Particles/SceneParticleDefinitionParser`、`SceneParticleSimulator`、child/runtime；`Rendering/Particles/SceneParticleMetalInstanceBuffer`、`SceneParticleMetalPipeline` | [粒子组件](../capabilities/particle-component-coverage.md) |
+| 粒子定义、实例与 GPU | `Systems/Particles/` 保模拟、child、RNG与history，Session.Surface唯一持CPU实例与冻结帧；View消费该帧，每屏粒子pipeline独占buffer复用、上传、draw及取消，原slot管理GPU使用期 | [粒子组件](../capabilities/particle-component-coverage.md) |
 | 媒体封面 | `Systems/Media/SceneMediaThumbnailInbox`、`Resources/Providers/SceneMediaThumbnailTextureStore` | [组件合同](../capabilities/runtime-systems-reference.md#73-media) |
 | 文本 | `Systems/Text/SceneTextTextureLoader`、`SceneDynamicTextTextureStore` | [输入与属性](../capabilities/runtime-input-property-coverage.md) |
 | 相机与光照 | `Systems/Input/SceneCameraProjection`；`Rendering/Lighting/SceneLightSnapshot`、`SceneSpotLightPlan`、`SceneSpotLightRuntime`和 pipeline | [组件合同](../capabilities/runtime-systems-reference.md#8-puppet3d-和-lighting) |

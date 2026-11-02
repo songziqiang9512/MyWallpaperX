@@ -2333,6 +2333,32 @@
       ]
     },
     {
+      "id": "particle-instance-upload",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleMetalPipeline*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleMetalInstanceBuffer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleLayerRuntime.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleChildGraphExpansion.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRuntimeModels.swift",
+        "script/tests/test_scene_particle_upload_ownership.py",
+        "script/tests/fixtures/SceneParticleUploadOwnershipHarness.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePlaybackState.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceParticles.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceSimulation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+ParticleEmission.swift",
+        "script/tests/fixtures/ScenePausedFrameRecoveryHarness.swift"
+      ],
+      "modules": [
+        "test_scene_particle_upload_ownership",
+        "test_scene_particle_rendering",
+        "test_scene_particle_camera_rendering",
+        "test_scene_particle_runtime",
+        "test_scene_particle_playback_transaction",
+        "test_scene_paused_frame_recovery",
+        "test_scene_particle_playback_integration"
+      ]
+    },
+    {
       "id": "particles",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleAssetGraph.swift",

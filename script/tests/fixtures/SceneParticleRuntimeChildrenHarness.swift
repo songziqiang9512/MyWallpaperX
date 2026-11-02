@@ -339,15 +339,18 @@ extension Harness {
         let batches = runtime.advance(by: 1.0 / 60, dynamicValues: dynamic)
         let child = batches.first { $0.particlePath == "particles/child.json" }!
         let unsafeCount = child.instances.filter { !$0.positionAndSize.w.isFinite }.count
-        batches.forEach { _ = $0.instanceBuffer.update(device: device, instances: $0.instances) }
-        let rootCount = batches.first { $0.particlePath == "particles/root.json" }!.instanceBuffer.count
-        let safeCount = child.instanceBuffer.count
-        let uploaded = child.instanceBuffer.buffer!.contents()
+        guard let pipeline = SceneParticleMetalPipeline(device: device) else { throw HarnessError.noParticlePipeline }
+        let prepared = pipeline.prepare(batches)
+        let uploadedChild = prepared.first { $0.draw.particlePath == "particles/child.json" }!
+        let rootCount = prepared.first { $0.draw.particlePath == "particles/root.json" }!.instanceBuffer.count
+        let safeCount = uploadedChild.instanceBuffer.count
+        let uploaded = uploadedChild.instanceBuffer.buffer!.contents()
             .bindMemory(to: SceneParticleGPUInstance.self, capacity: safeCount)
         let finite = (0..<safeCount).allSatisfy { uploaded[$0].positionAndSize.w.isFinite }
         let next = runtime.advance(by: 1.0 / 60)
-        next.forEach { _ = $0.instanceBuffer.update(device: device, instances: $0.instances) }
-        let recovered = next.first { $0.particlePath == "particles/child.json" }!.instanceBuffer.count
+        let recovered = pipeline.prepare(next).first {
+            $0.draw.particlePath == "particles/child.json"
+        }!.instanceBuffer.count
         // Exercise every final ABI lane, with valid peers on either side.
         let peer = SceneParticleGPUInstance(position: .zero, size: 8, rotation: .zero,
             color: SIMD3(repeating: 1), alpha: 1)

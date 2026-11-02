@@ -80,15 +80,14 @@ final class SceneMainPassEncoder {
     func armCompositionPins() { events.add("pins.arm") }
     func cancelCompositionPins() { events.add("pins.cancel") }
 }
-final class InstanceBuffer {
+final class SceneParticleMetalPipeline {
+    enum PreparedBatch { case pending }
     let events: Events
     init(_ events: Events) { self.events = events }
-    func cancelUncommittedSubmission(on buffer: MTLCommandBuffer) -> Bool {
-        events.add("particle.uncommitted.cancel"); return true
+    func cancel(_ batches: [PreparedBatch], on buffer: MTLCommandBuffer) {
+        events.add("particle.cancel.\(batches.count)")
     }
-    func cancelPending() -> Bool { events.add("particle.pending.cancel"); return true }
 }
-struct SceneParticleDrawBatch { let instanceBuffer: InstanceBuffer }
 final class Compositor {
     let events: Events
     init(_ events: Events) { self.events = events }
@@ -135,7 +134,7 @@ struct SceneRendererSubmissionStageHarness {
             sourceUpdateTransaction: source, frameDepthLeases: [.init(events)],
             reflectionFrame: .init(events), modelFrame: .init(events),
             mainPassForSubmission: .init(events),
-            particleBatches: [.init(instanceBuffer: .init(events))])
+            particleBatches: [.pending], particlePipeline: .init(events))
     }
     static func main() throws {
         var checks: [String: Bool] = [:]
@@ -157,7 +156,7 @@ struct SceneRendererSubmissionStageHarness {
         pending.whenCompleted { _ in cancelled.add("unexpected.observer") }
         pending.cancel(); pending.cancel()
         let expectedCancel = ["compositor.cancel", "source.rollback", "group.cancel", "reflection.cancel", "model.cancel",
-            "pins.cancel", "depth.cancel", "particle.uncommitted.cancel", "particle.pending.cancel", "registry.discard"]
+            "pins.cancel", "depth.cancel", "particle.cancel.1", "registry.discard"]
         checks["cancellationOrderAndExactlyOnce"] = cancelled.values == expectedCancel && cancelledBuffer.status == .notEnqueued
         let dropped = Events(), droppedBuffer = MTLCommandBuffer(dropped)
         do { _ = candidate(dropped, buffer: droppedBuffer) }

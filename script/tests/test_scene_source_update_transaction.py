@@ -31,7 +31,6 @@ AUDIO_SPECTRUM = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/Scen
 PUPPET = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetPlaybackState.swift"
 SPRITE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Animation/SceneMultiImageSpritePlayback.swift"
 PARTICLE_PLAYBACK = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePlaybackState.swift"
-PARTICLE_VIEW = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+ParticlePlayback.swift"
 DYNAMIC_TEXT = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneDynamicTextTextureStore.swift"
 DYNAMIC_IMAGE_PROVIDER = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/SceneDynamicImageTextureProvider.swift"
 TEXTURE_REGISTRY = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneFrameTextureRegistry.swift"

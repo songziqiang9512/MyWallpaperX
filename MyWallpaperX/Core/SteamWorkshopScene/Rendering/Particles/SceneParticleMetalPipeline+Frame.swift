@@ -1,37 +1,33 @@
 import Metal
 import simd
 
-extension SceneMetalRenderer {
-    func renderParticleBatches(
-        _ batches: [SceneParticleDrawBatch],
-        pipeline: SceneParticleMetalPipeline,
+extension SceneParticleMetalPipeline {
+    func drawBatches(
+        _ batches: [PreparedBatch],
         model: simd_float4x4,
         cameraFrame: SceneParticleCameraFrame,
         layerUsesPerspective: Bool = false,
         viewportSize: SIMD2<Float>,
         mainPass: SceneMainPassEncoder,
         commandBuffer: MTLCommandBuffer,
-        preparedDepth: StaticModelFrame.Depth? = nil,
+        preparedDepth: SceneParticleDepthTargetPool.Acquisition? = nil,
         performanceObservations: inout [SceneParticlePerformanceObservation]?
     ) -> SceneParticleDepthTargetLease? {
         // Install completion ownership before the first draw.  A command can
         // cross the enqueue/commit boundary as soon as the shared renderer
         // seals the frame; registering here keeps every later slot mark out of
         // that unsafe window.
-        var armedBuffers: Set<ObjectIdentifier> = []
         for batch in batches {
-            let identity = ObjectIdentifier(batch.instanceBuffer)
-            if armedBuffers.insert(identity).inserted,
-               !batch.instanceBuffer.armSubmission(on: commandBuffer) {
+            if !batch.instanceBuffer.armSubmission(on: commandBuffer) {
                 batches.forEach { _ = $0.instanceBuffer.cancelPending() }
                 return nil
             }
         }
-        let usesDepth = batches.contains { $0.renderState.depthWriteEnabled }
+        let usesDepth = batches.contains { $0.draw.renderState.depthWriteEnabled }
         let targetExtent = mainPass.targetExtent
         let depthLease: SceneParticleDepthTargetLease?
         if usesDepth {
-            let acquisition = preparedDepth?.acquisition ?? pipeline.acquireDepthTarget(
+            let acquisition = preparedDepth ?? acquireDepthTarget(
                 width: targetExtent.width, height: targetExtent.height, on: commandBuffer
             )
             switch acquisition {
@@ -47,7 +43,9 @@ extension SceneMetalRenderer {
             return nil
         }
         var clearsDepth = usesDepth
-        for batch in batches {
+        for prepared in batches {
+            let batch = prepared.draw
+            let instanceBuffer = prepared.instanceBuffer
             let uniforms = cameraFrame.particleUniforms(
                 layerModel: model,
                 orientation: batch.orientation,
@@ -62,18 +60,18 @@ extension SceneMetalRenderer {
             let didEncode: Bool
             if let refraction = batch.refraction {
                 let captured = mainPass.withReadableTarget { target, buffer in
-                    pipeline.snapshot(target: target, commandBuffer: buffer)
+                    snapshot(target: target, commandBuffer: buffer)
                 }
                 if let background = captured ?? nil,
                    let encoder = mainPass.encoder(
                        depthTexture: depthLease?.texture,
                        clearsDepth: clearsDepth
                    ) {
-                    didEncode = pipeline.drawRefraction(
+                    didEncode = drawRefraction(
                         texture: batch.texture,
                         binding: refraction,
                         background: background,
-                        instances: batch.instanceBuffer,
+                        instances: instanceBuffer,
                         uniforms: uniforms,
                         renderState: batch.renderState,
                         colorUVScale: batch.colorUVScale,
@@ -90,9 +88,9 @@ extension SceneMetalRenderer {
                     clearsDepth: clearsDepth
                 )
                 : mainPass.encoder() {
-                didEncode = pipeline.draw(
+                didEncode = draw(
                     texture: batch.texture,
-                    instances: batch.instanceBuffer,
+                    instances: instanceBuffer,
                     uniforms: uniforms,
                     renderState: batch.renderState,
                     colorUVScale: batch.colorUVScale,
@@ -108,7 +106,7 @@ extension SceneMetalRenderer {
 #if DEBUG
                 performanceObservations?.append(SceneParticlePerformanceObservation(
                     layerID: batch.layerID,
-                    instanceCount: batch.instanceBuffer.count,
+                    instanceCount: instanceBuffer.count,
                     isRefraction: batch.refraction != nil
                 ))
 #endif
@@ -116,7 +114,7 @@ extension SceneMetalRenderer {
                 // confirms that a draw was actually encoded.  The renderer's
                 // outer defer handles a later preflight/seal rejection while
                 // the command is still not enqueued.
-                if !batch.instanceBuffer.markSubmitted(on: commandBuffer) {
+                if !instanceBuffer.markSubmitted(on: commandBuffer) {
                     // A completed/error command cannot own a slot. The draw
                     // was synchronous, so releasing this still-current
                     // candidate is safe only when the command is already
@@ -126,11 +124,11 @@ extension SceneMetalRenderer {
                     if commandBuffer.status == .completed
                         || commandBuffer.status == .error
                     {
-                        _ = batch.instanceBuffer.cancelPending()
+                        _ = instanceBuffer.cancelPending()
                     }
                 }
             } else {
-                _ = batch.instanceBuffer.cancelPending()
+                _ = instanceBuffer.cancelPending()
             }
         }
         return depthLease

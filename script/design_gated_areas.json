@@ -874,7 +874,7 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRuntimeModels.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRuntime.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCameraFrame.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+Particles.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleMetalPipeline+Frame.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+OrderedLayerEncoding.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleShaderSource.swift"
       ],
@@ -1744,7 +1744,7 @@
       "owner": "Scene Session / typed programs and component owners",
       "status": "approved",
       "designDoc": "docs/scene/roadmap/engine-refactor-program.md",
-      "design_notes": "批准范围、数据流及退出条件由designDoc各专题统一维护：语言/共享状态与alpha、属性程序、自然尺寸、纹理交接、材质PSO、文字/媒体producer及动态图层分期。动态图层只在birth准备资源/size与Layer，完整upsert写既有typed map；模板String content保独立producer及显式setter，raw pointSize、可选perspective、双颜色consumer和变换ABI原子拒绝保持。撤值revision与每屏descriptor patch/位置表，复用唯一局部world算法和原根层快路，作者catalog仅发布prepared byID内的Mat4变换，文字首次接纳用冻结snapshot；不改变pre-callback拓扑/next-cadence提交时序，不新增owner或运行资源/尺寸切换API。每个后继切片先在同设计落具体职责再实施；不批准无设计新能力，不授推送、发布或整体完成。",
+      "design_notes": "批准范围、数据流及退出条件由designDoc各专题维护。粒子实例与GPU完整族：Surface唯一拥有每屏CPU PlaybackState和原SimulationFrame，View消费冻结帧并只持粒子pipeline；State退出GPU引用与纯转发，原坐标/VM/回滚及paused cohort阶段保持。既有pipeline按layerID+child模板索引拥有buffer及上传/draw/提交/取消，保slot协议；出生装配与GPU失败局部退出、诊断和原loader驱逐同批接线。Puppet实例是下一族债务，本片不扩能力。每个后继先在同设计落具体职责；不授推送、发布或整体完成。 主pass调用库存的非字节相同owner迁移复用现有凭据：去名称特判、读取frozen Git源码用同Python正则；保原pattern/count/scope/role、唯一完整调用移交和已批准设计，历史凭据不可改写，不扩大任何产品或门禁许可。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextScript*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextMediaPropertiesCompiler.swift",
@@ -1791,7 +1791,27 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptDynamicLayerRuntime+Values.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerTopologyProjection.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerWorldTransformProjection.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerRuntimeDescriptorBridge.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerRuntimeDescriptorBridge.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleLayerRuntime.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleChildGraphExpansion.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRuntimeModels.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRuntime.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleChildRuntime.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleRenderSupport.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleMetalPipeline*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+SceneDrawing.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+StaticModels.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+OrderedLayerEncoding.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+Submission.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleMetalPipeline+Frame.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePlaybackState.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceParticles.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+Debug.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceSimulation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+ParticleEmission.swift",
+        "script/source_authority.py",
+        "script/tests/test_scene_semantics_coverage.py"
       ],
       "contentPatterns": []
     }
