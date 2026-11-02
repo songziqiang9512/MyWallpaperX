@@ -75,3 +75,13 @@ held臂从paused开始，frame 0销毁，只证明dormant child模板及冻结ro
 真实DynamicTextTextureStore门核queued/inflight销毁、删除后热改caption不再raster、clone及hidden正控；PausedFrameRecovery运行原采用方法，覆盖全失败、部分成功和冻结输入。联合App `4736a8b890528fe4fc6b7f7620a70435eaf9bd0c5b5f271d7f6020ded51dd845`的paused-text原生门通过，包含其它独立批，不称单独文字App。后续当前代码的prepared_text_clones、frame_texture_retirement及graph_texture_publication已通过，保真实clone与旧Snapshot/GPU使用期。
 
 保留source模板不等于保留活动producer；隐藏和仍有消费者不当作销毁。代码与输入资格及原始日志见`.artifacts/scene-architecture-continuation-20261102/`的`text-producer-retirement-*`、`particle-text-daemon-qualification-results.json`、`live-input-text-qualification-v2-results.json`及`final-neighbor-*`。以上不外推任意字体/文字特效保真、全语料或性能收益。
+
+
+<a id="system-provider-absence"></a>
+## system provider清空的长期引用退出
+
+固定2026-11-03：FrameTextureRegistry在accepted absent时，将system provider与原materialUserProperty同样移出committed/prior/persistent长期publication；原pending/discard保基线，已冻结或在途GPU资源沿原持有。产品仅原Registry净增3行，无第二资源owner、LRU或订阅机制。
+
+同一新测试在旧Registry真实执行，12个clear/完成后的弱引用事实失败；实际Media Store clear反例亦失败，其他资格不变。新Registry全门与真实Store门通过，覆盖六purpose、accepted reset、discard/撤回、inflight及完成后释放。Store夹具使用原Inbox.clear入口，不把接受非空Data的publish错写为nil。真实SystemMedia IPC及共享Service另通过，但本段只关闭纹理publication退休，不冒充最后订阅退出或物理切歌验证。
+
+provenance在`.artifacts/scene-architecture-continuation-20261102/`的`system-provider-absence-*`、`system-media-clear-old-v2`及`live-media-retirement-v3-*`，旧强持和新释放均来自实际实现；不以nil查找结果、RSS下降或日志沉默代替弱引用/使用期证明。

@@ -2,6 +2,80 @@ import CoreGraphics
 import Foundation
 import Metal
 
+func checkMediaThumbnailClearRetirement(
+    device: MTLDevice, firstImage: Data, nextImage: Data
+) -> [String: Bool] {
+    let inbox = SceneMediaThumbnailInbox()
+    let queue = DispatchQueue(label: "fixture.media-thumbnail-clear-retirement")
+    let store = SceneMediaThumbnailTextureStore(device: device, decodingQueue: queue)
+    let registry = SceneFrameTextureRegistry()
+    var checks: [String: Bool] = [:]
+    var heldSnapshot: SceneMediaThumbnailTextureStore.Snapshot?
+    weak var currentColor: MTLTexture?
+    weak var currentData: MTLTexture?
+    weak var previousColor: MTLTexture?
+    weak var previousData: MTLTexture?
+    autoreleasepool {
+        _ = inbox.publish(firstImage)
+        store.update(from: inbox.latest())
+        checks["first-cover-ready"] = waitFor(store, generation: 1).current != nil
+        _ = inbox.publish(nextImage)
+        store.update(from: inbox.latest())
+        heldSnapshot = waitFor(store, generation: 2)
+        let ready = heldSnapshot!
+        currentColor = ready.current?.texture
+        currentData = ready.preservedCurrent?.texture
+        previousColor = ready.previous?.texture
+        previousData = ready.preservedPrevious?.texture
+        registry.beginFrame(frameIndex: 1, layerSources: [:], systemProviderStates: ready.providerStates)
+        checks["six-current-previous-purpose-atoms-ready"] = ready.publications.count == 6
+            && ready.publications.allSatisfy { identity, publication in
+                publication.isComplete && registry.resource(for: .system(identity))?.publication
+                    .isSameAtom(as: publication) == true
+            }
+        checks["mask-views-use-the-preserved-upload"] = ready.publications.filter { $0.key.purpose == .mask }
+            .allSatisfy { identity, publication in
+                let preserved = SceneSystemProviderTextureIdentity(name: identity.name, purpose: .preservedChannels)
+                return publication.texture === ready.publications[preserved]?.texture
+            }
+        registry.commitFramePublication()
+    }
+    inbox.clear()
+    store.update(from: inbox.latest())
+    let cleared = waitFor(store, generation: 3)
+    queue.sync {}
+    checks["real-store-clear-has-six-absent-states"] = cleared.generation == 3
+        && cleared.publications.isEmpty && cleared.providerStates.count == 6
+        && cleared.providerStates.values.allSatisfy {
+            if case .absent = $0 { return true }
+            return false
+        }
+    registry.beginFrame(frameIndex: 2, layerSources: [:], systemProviderStates: cleared.providerStates)
+    registry.discardFramePublication()
+    autoreleasepool {
+        let ready = heldSnapshot!
+        registry.beginFrame(frameIndex: 3, layerSources: [:], systemProviderStates: ready.providerStates)
+        checks["discarded-clear-restores-all-six-atoms"] = ready.publications.allSatisfy { identity, publication in
+            registry.resource(for: .system(identity))?.publication.isSameAtom(as: publication) == true
+        }
+        registry.commitFramePublication()
+    }
+    registry.beginFrame(frameIndex: 4, layerSources: [:], systemProviderStates: cleared.providerStates)
+    registry.commitFramePublication()
+    checks["accepted-clear-is-absent-for-all-six-requests"] = cleared.providerStates.keys.allSatisfy {
+        if case .absent? = registry.lookup(.system($0)) { return true }
+        return false
+    }
+    checks["held-snapshot-keeps-current-and-previous"] = currentColor != nil && currentData != nil
+        && previousColor != nil && previousData != nil
+        && pixel(heldSnapshot?.current?.texture) == [0, 255, 0, 255]
+        && pixel(heldSnapshot?.previous?.texture) == [255, 0, 0, 255]
+    heldSnapshot = nil
+    checks["accepted-clear-releases-store-and-registry-atoms"] = currentColor == nil && currentData == nil
+        && previousColor == nil && previousData == nil
+    return checks
+}
+
 // Exercise the real decode store, atomic current/previous publication, and
 // base-source selection through ready, failure, recovery, and clear transitions.
 func checkMediaThumbnailLifecycle(

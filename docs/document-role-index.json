@@ -4375,7 +4375,7 @@
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ],
       "cutoffDate": "2026-11-03",
-      "uniqueValue": "Sprite/Timeline、Particle与Text活动状态退休，真实VM/MPS/Metal/Store、root/child/GPU与producer寿命、冻结/clone及同Session重建的固定证据。"
+      "uniqueValue": "Sprite/Timeline、Particle、Text及system provider活动引用退出，真实VM/MPS/Metal/Store/弱引用、冻结与在途寿命和同Session重建的固定证据。"
     },
     {
       "path": "docs/scene/history/user-property-video-2026-10-16.md",

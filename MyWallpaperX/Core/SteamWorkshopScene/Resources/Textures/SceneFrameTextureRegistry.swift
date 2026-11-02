@@ -510,18 +510,21 @@ final class SceneFrameTextureRegistry {
         case let .ready(publication):
             publishExplicit(publication, for: identity)
         case .absent:
-            if case let .materialUserProperty(property) = identity {
-                // Reset explicitly retires this provider atom. The frame
+            switch identity {
+            case .system, .materialUserProperty:
+                // Explicit absence retires this provider atom. The frame
                 // baseline keeps the old resource alive until accept/discard,
                 // and restores it if this surface's frame fails.
                 committedPublications.removeValue(forKey: identity)
                 persistentEntries.removeValue(forKey: identity)
                 priorFrameEntries.removeValue(forKey: identity)
-                if property.purpose == .premultipliedColor {
+                if case let .materialUserProperty(property) = identity,
+                   property.purpose == .premultipliedColor {
                     let alias = SceneFrameTextureIdentity.userProperty(property.propertyKey)
                     persistentEntries.removeValue(forKey: alias)
                     priorFrameEntries.removeValue(forKey: alias)
                 }
+            default: break
             }
             set(.absent, for: identity)
         case .pending:

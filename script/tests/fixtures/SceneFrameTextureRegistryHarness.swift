@@ -61,6 +61,7 @@ enum Harness {
             && SceneTextureSampling(texFlags: 8).rawFlags == 8
         var result: [String: Any] = [
             "propertyResetRetirement": propertyResetRetirementChecks(device),
+            "systemAbsenceRetirement": systemAbsenceRetirementChecks(device),
             "environmentPublication": environmentPublication(device),
             "programSamplerAdmissionIsBounded": programSamplerAdmissionIsBounded,
         ]

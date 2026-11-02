@@ -171,6 +171,13 @@ class SceneFrameTextureRegistryTests(unittest.TestCase):
         self.assertTrue(self.result["currentCandidateCannotSatisfyPreviousRequest"])
         self.assertTrue(self.result["exactPreviousCandidateIsReady"])
 
+    def test_system_provider_absence_retires_each_purpose_without_revoking_held_resources(self) -> None:
+        checks = self.result["systemAbsenceRetirement"]
+        self.assertEqual(len(checks), 66)
+        for name, passed in checks.items():
+            with self.subTest(name=name):
+                self.assertTrue(passed, name)
+
     def test_bare_generation_changes_when_typed_metadata_is_removed(self) -> None:
         for key in (
             "typedToBareAdvancesGeneration",

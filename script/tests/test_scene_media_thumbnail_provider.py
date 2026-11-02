@@ -52,6 +52,7 @@ guard let device = MTLCreateSystemDefaultDevice() else {
 let a = png(red: 255, green: 0, blue: 0)
 let b = png(red: 0, green: 255, blue: 0)
 var result = checkMediaThumbnailLifecycle(device: device, firstImage: a, nextImage: b)
+result["clearRetirement"] = checkMediaThumbnailClearRetirement(device: device, firstImage: a, nextImage: b)
 result["cancellation"] = checkMediaThumbnailCancellation(device: device, firstImage: a, nextImage: b)
 result.merge(checkMediaThumbnailEvents(firstImage: a, nextImage: b)) { _, _ in
     fatalError("Duplicate media fixture result key")
@@ -92,6 +93,9 @@ class SceneMediaThumbnailProviderTests(unittest.TestCase):
                 self.assertTrue(passed)
         for name, passed in result["cancellation"].items():
             with self.subTest(cancellation=name):
+                self.assertTrue(passed, name)
+        for name, passed in result["clearRetirement"].items():
+            with self.subTest(clear_retirement=name):
                 self.assertTrue(passed, name)
         self.assertEqual(result["generation"], 3)
         self.assertTrue(result["initialEmptyStatesAbsent"])

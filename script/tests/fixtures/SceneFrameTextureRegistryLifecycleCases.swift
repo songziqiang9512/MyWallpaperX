@@ -163,6 +163,99 @@ extension Harness {
         ]
     }
 
+    static func systemAbsenceRetirementChecks(_ device: MTLDevice) -> [String: Bool] {
+        var checks: [String: Bool] = [:]
+        for previous in [false, true] {
+            for purpose in [SceneTextureLoadPurpose.premultipliedColor, .preservedChannels, .mask] {
+                let provider = SceneSystemProviderTextureIdentity(
+                    name: previous ? "$mediaPreviousThumbnail" : "$mediaThumbnail", purpose: purpose)
+                let request = SceneFrameTextureIdentity.system(provider)
+                let identity = SceneTextureResourceIdentity.provider(previous ? .mediaThumbnailPrevious : .mediaThumbnailCurrent)
+                let content: SceneTextureContent = purpose == .premultipliedColor
+                    ? .color(.resolved(.premultipliedAlpha)) : .data
+                let prefix = provider.reportToken + "-"
+                let registry = SceneFrameTextureRegistry()
+                var frameIndex: UInt64 = 0
+                func begin(_ state: SceneTextureProviderState) {
+                    frameIndex += 1
+                    registry.beginFrame(frameIndex: frameIndex, layerSources: [:],
+                        systemProviderStates: [provider: state])
+                }
+                weak var oldTexture: MTLTexture?
+                var heldSnapshot: SceneFrameTextureRegistrySnapshot?
+                autoreleasepool {
+                    let initial = texture(device)
+                    oldTexture = initial
+                    begin(.ready(publication(initial, generation: 30, requestIdentity: request,
+                        identity: identity, purpose: purpose, content: content)))
+                    checks[prefix + "real-ready-atom"] = registry.resource(for: request)?.publication.isComplete == true
+                    registry.commitFramePublication()
+                }
+                begin(.pending)
+                registry.commitFramePublication()
+                checks[prefix + "pending-keeps-committed"] = oldTexture != nil
+                begin(.unavailable)
+                registry.commitFramePublication()
+                checks[prefix + "unavailable-keeps-committed"] = oldTexture != nil
+                begin(.absent)
+                checks[prefix + "baseline-keeps-old-until-decision"] = oldTexture != nil
+                registry.discardFramePublication()
+                autoreleasepool {
+                    let initial = oldTexture!
+                    begin(.ready(publication(initial, generation: 30, requestIdentity: request,
+                        identity: identity, purpose: purpose, content: content)))
+                    checks[prefix + "discard-restores-old-publication"] =
+                        registry.resource(for: request)?.publication.texture === initial
+                    registry.commitFramePublication()
+                    heldSnapshot = registry.snapshot()
+                }
+                begin(.absent)
+                registry.commitFramePublication()
+                checks[prefix + "accepted-clear-is-absent"] = {
+                    if case .absent? = registry.lookup(request) { return true }
+                    return false
+                }()
+                checks[prefix + "old-snapshot-keeps-atom"] = oldTexture != nil
+                    && heldSnapshot?.resource(for: request)?.publication.texture === oldTexture
+                heldSnapshot = nil
+                checks[prefix + "accepted-clear-releases-old"] = oldTexture == nil
+
+                weak var submittedTexture: MTLTexture?
+                autoreleasepool {
+                    guard let queue = device.makeCommandQueue(), let command = queue.makeCommandBuffer(),
+                          let event = device.makeSharedEvent(),
+                          let destination = device.makeBuffer(length: 1_024, options: .storageModeShared) else { return }
+                    defer { event.signaledValue = 1 }
+                    var source: MTLTexture? = texture(device)
+                    submittedTexture = source
+                    begin(.ready(publication(source!, generation: 31, requestIdentity: request,
+                        identity: identity, purpose: purpose, content: content)))
+                    registry.commitFramePublication()
+                    command.encodeWaitForEvent(event, value: 1)
+                    var blit = command.makeBlitCommandEncoder()
+                    guard blit != nil else { return }
+                    blit!.copy(from: source!, sourceSlice: 0, sourceLevel: 0,
+                        sourceOrigin: .init(x: 0, y: 0, z: 0), sourceSize: .init(width: 4, height: 4, depth: 1),
+                        to: destination, destinationOffset: 0, destinationBytesPerRow: 256,
+                        destinationBytesPerImage: 1_024)
+                    blit!.endEncoding()
+                    blit = nil
+                    command.commit()
+                    source = nil
+                    begin(.absent)
+                    registry.commitFramePublication()
+                    checks[prefix + "submitted-gpu-keeps-old"] = submittedTexture != nil
+                        && command.status != .completed && command.status != .error
+                    event.signaledValue = 1
+                    command.waitUntilCompleted()
+                    checks[prefix + "gpu-completes-after-clear"] = command.status == .completed && command.error == nil
+                }
+                checks[prefix + "completed-gpu-releases-old"] = submittedTexture == nil
+            }
+        }
+        return checks
+    }
+
     static func propertyResetRetirementChecks(_ device: MTLDevice) -> [String: Bool] {
         let resetRegistry = SceneFrameTextureRegistry()
         let property = SceneUserPropertyTextureIdentity(
