@@ -766,10 +766,10 @@
       "lastReviewed": "2026-11-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3ba1c4e6a78ddc9dab35bb1c8b15606602f9d17affe2f53c4d9ec392b86cc306",
+        "sourceSHA256": "b87d2fceed97d745be8dbd92f9dbed08c9a8bcbf960d682ae4fedf022116c546",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Sprite/Timeline活动成员退休及暂停冻结/真实Surface重建有界结果与职责地图；队列只退出该族，当前camera/产品daemon及材质余项继续开放。",
-        "limitations": "按需DEBUG双Surface及相应实际VM/GPU证据，不外推物理多屏、全语料、长期稳定、性能或整体架构收口。"
+        "scope": "shader可选cache实际职责/故障恢复及有界GPU/App结果；并复核资源leaf、静态能力阶段、当前camera及Particle/Text/系统订阅退出的后续设计和队列。",
+        "limitations": "本批ShaderApp同时包含独立storage改变；当前结果不外推全Scene、性能、完整语料、物理多屏、官方parity或Release。其它后续设计未因本次通过关闭。"
       },
       "purpose": "实际接线或已记录运行证据；不反向定义目标架构，不决定实施顺序。"
     },
@@ -1056,10 +1056,10 @@
       "lastReviewed": "2026-11-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6ea093d579c7bdbef8ad338f37a8e6fb8a653511b4e201a1ce083e8a37ff12e0",
+        "sourceSHA256": "9c1169b4f153201ce49362f3f85c5aeb836dcda112fad834b4f2aa270983e2cf",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Sprite/Timeline活动成员退休及暂停冻结/真实Surface重建有界结果与职责地图；队列只退出该族，当前camera/产品daemon及材质余项继续开放。",
-        "limitations": "按需DEBUG双Surface及相应实际VM/GPU证据，不外推物理多屏、全语料、长期稳定、性能或整体架构收口。"
+        "scope": "shader可选cache实际职责/故障恢复及有界GPU/App结果；并复核资源leaf、静态能力阶段、当前camera及Particle/Text/系统订阅退出的后续设计和队列。",
+        "limitations": "本批ShaderApp同时包含独立storage改变；当前结果不外推全Scene、性能、完整语料、物理多屏、官方parity或Release。其它后续设计未因本次通过关闭。"
       },
       "purpose": "实际接线或已记录运行证据；不反向定义目标架构，不决定实施顺序。"
     },
@@ -1364,10 +1364,10 @@
       "lastReviewed": "2026-11-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e2df423873c968ff40c27bd804689993d5ef0aae0ed7f2444fd115d3c57aa4ab",
+        "sourceSHA256": "46c6a400f1a9fc924ff7201cd829c1582f543814ea3b186fd2fbd5dd01877a70",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Sprite/Timeline活动成员退休及暂停冻结/真实Surface重建有界结果与职责地图；队列只退出该族，当前camera/产品daemon及材质余项继续开放。",
-        "limitations": "按需DEBUG双Surface及相应实际VM/GPU证据，不外推物理多屏、全语料、长期稳定、性能或整体架构收口。"
+        "scope": "shader可选cache实际职责/故障恢复及有界GPU/App结果；并复核资源leaf、静态能力阶段、当前camera及Particle/Text/系统订阅退出的后续设计和队列。",
+        "limitations": "本批ShaderApp同时包含独立storage改变；当前结果不外推全Scene、性能、完整语料、物理多屏、官方parity或Release。其它后续设计未因本次通过关闭。"
       }
     },
     {
@@ -3984,6 +3984,19 @@
       "uniqueValue": "不可变shader identity哈希复用；五对局部查询及构造代价、整体CPU单对未达继续门与内存上移边界"
     },
     {
+      "path": "docs/scene/history/shader-result-cache-boundary-2026-11-03.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-11-03",
+      "uniqueValue": "typed shader结果直接采用、可选异步持久发布/独立目录写及预算边界，旧白图与新正常/不可写固定像素/原包；保载体失败，不声明性能/整体架构收口。"
+    },
+    {
       "path": "docs/scene/history/shader-value-type-recognition-2026-10-16.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -4603,10 +4616,10 @@
       "lastReviewed": "2026-11-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "b9480e4d06511eab5dd6cd26e53c6797c838170500b97bfd2f036e6171720c45",
+        "sourceSHA256": "f19703a80c406a5f666b46059b6a8366b069702d9f06e3ea1d791570de5d5967",
         "method": "document_registry --audit + document_health --check",
-        "scope": "M2唯一静态装配/当前帧、完整声明target消费者及有界生产GPU/App后验；复核剩余Launch/设备键/能力、拓扑、可选缓存/storage和产品daemon设计及导航。",
-        "limitations": "职责与导航复核不代替未执行运行。M2/App联合Sprite-Timeline产品身份，不外推完整Scene、性能、物理多屏、全语料、官方parity或Release。"
+        "scope": "shader可选cache实际职责/故障恢复及有界GPU/App结果；并复核资源leaf、静态能力阶段、当前camera及Particle/Text/系统订阅退出的后续设计和队列。",
+        "limitations": "本批ShaderApp同时包含独立storage改变；当前结果不外推全Scene、性能、完整语料、物理多屏、官方parity或Release。其它后续设计未因本次通过关闭。"
       }
     },
     {
@@ -4659,10 +4672,10 @@
       "lastReviewed": "2026-11-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f6067ec5a7da0fec873dd2b93cc5b5e0d0c435c74737f3f8854bce2bdf7bd456",
+        "sourceSHA256": "50a9734b4ca1bcecf105338b326a4af2de838849bc6cb7d1d9eb2cc05d8d0e24",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Sprite/Timeline活动成员退休及暂停冻结/真实Surface重建有界结果与职责地图；队列只退出该族，当前camera/产品daemon及材质余项继续开放。",
-        "limitations": "按需DEBUG双Surface及相应实际VM/GPU证据，不外推物理多屏、全语料、长期稳定、性能或整体架构收口。"
+        "scope": "shader可选cache实际职责/故障恢复及有界GPU/App结果；并复核资源leaf、静态能力阶段、当前camera及Particle/Text/系统订阅退出的后续设计和队列。",
+        "limitations": "本批ShaderApp同时包含独立storage改变；当前结果不外推全Scene、性能、完整语料、物理多屏、官方parity或Release。其它后续设计未因本次通过关闭。"
       }
     },
     {

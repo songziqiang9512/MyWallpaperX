@@ -28,6 +28,8 @@
 
 [Sprite/Timeline退休](../history/topology-lifecycle-2026-11-03.md#sprite-timeline-retirement)有真实VM、MPS事务、暂停冻结UV和同Session双Surface重建/恢复的有界证据；当前camera及产品daemon控制链继续开放。
 
+[直接shader结果/可选cache](../history/shader-result-cache-boundary-2026-11-03.md#optional-cache-adoption)复现旧App文件根白图，并由新App正常/文件根/只读根的固定像素门关闭该依赖；真实cache/GPU及原包边界分别保留，不外推整体性能。
+
 <a id="evidence-lifecycle"></a>
 ### 准备与生命周期
 

@@ -96,7 +96,7 @@ class SceneGenericShaderPreparedNormalizationTests(unittest.TestCase):
         cache.mkdir()
         environment = fixture_environment(root)
         environment["MWX_SCENE_GENERIC_SHADER_CACHE"] = str(cache)
-        command = [str(self.binary), mode, str(root), *map(str, self.bundles)]
+        command = [str(self.binary), mode, *map(str, self.bundles)]
         result = subprocess.run(command, cwd=root, env=environment,
                                 capture_output=True, text=True, timeout=180)
         after = source_hashes(self.inputs)

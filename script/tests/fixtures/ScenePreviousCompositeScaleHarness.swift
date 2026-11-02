@@ -121,8 +121,6 @@ private func renderRuler(_ program: Program, device: MTLDevice,
 @main private enum ScaleRulerMain {
     static func main() throws {
         let bundle = Bundle(path: CommandLine.arguments[1])!
-        let cache = URL(fileURLWithPath: CommandLine.arguments[2])
-        try FileManager.default.createDirectory(at: cache, withIntermediateDirectories: true)
         guard let device = MTLCreateSystemDefaultDevice(), let queue = device.makeCommandQueue(),
               let encoder = SceneResolvedMaterialPassEncoder(device: device) else { fatalError("Metal unavailable") }
         var observations: [[String: Any]] = []
@@ -134,14 +132,13 @@ private func renderRuler(_ program: Program, device: MTLDevice,
             let key = SceneResolvedMaterialGenericShaderRequest.key(vertexSource: canonical.vertex,
                 fragmentSource: canonical.fragment, outputSemantics: .color,
                 expectedColorTransfer: nil, premultipliedColorInputSlots: [])
-            let path: URL
+            let artifact: SceneGenericShaderProgramArtifact
             switch SceneGenericShaderCompiler.compile(requestKey: key, vertexSource: canonical.vertex,
-                fragmentSource: canonical.fragment, boundTextureSlots: [fixture.slot], cacheRoot: cache, bundle: bundle) {
-            case let .success(value): path = value
+                fragmentSource: canonical.fragment, boundTextureSlots: [fixture.slot], bundle: bundle) {
+            case let .success(compiled): artifact = compiled.artifact
             case let .failure(failure): throw NSError(domain: "self-ruler-compiler", code: 1,
                 userInfo: [NSLocalizedDescriptionKey: String(describing: failure)])
             }
-            let artifact = try JSONDecoder().decode(SceneGenericShaderProgramArtifact.self, from: Data(contentsOf: path))
             guard let frontend = artifact.makeProgram(expectedKey: key,
                 expectedColorTransfer: .passthrough(textureSlot: fixture.slot), expectedFragmentOutputChannelUse: .redDefined)
             else { fatalError("ruler artifact rejected") }

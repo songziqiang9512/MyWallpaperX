@@ -185,7 +185,7 @@ private func runAlphaMaterial(_ value: AlphaCase, name: String, content: SceneTe
             mipmapLevel: 0, withBytes: pixels, bytesPerRow: 8)
     }
     row["inputComplete"] = resource.isCompleteGraphResource
-    let input = inputFor(template, entries: [.graph(identity): .ready(resource)], graphInput: identity)
+    let input = inputFor(entries: [.graph(identity): .ready(resource)], graphInput: identity)
     switch SceneResolvedMaterialProgramFinalizer.finalize(input, variantCache: cache) {
     case let .failure(failure): row["finalization"] = diagnostic(failure)
     case let .success(program):
@@ -212,7 +212,7 @@ private func runAlphaMaterial(_ value: AlphaCase, name: String, content: SceneTe
     return row
 }
 
-private func compilerProof(_ value: AlphaCase, bundle: Bundle, cache: URL) throws -> [String: Any] {
+private func compilerProof(_ value: AlphaCase, bundle: Bundle) throws -> [String: Any] {
     let contract = try boundary([value.slot])
     let plain = SceneAuthoredShaderFrontend.compile(vertexSource: value.vertex, fragmentSource: value.fragment)
     let bounded = SceneAuthoredShaderFrontend.compile(vertexSource: value.vertex,
@@ -229,13 +229,12 @@ private func compilerProof(_ value: AlphaCase, bundle: Bundle, cache: URL) throw
         "boundedDiagnostics": bounded.diagnostics.map { String(describing: $0.code) },
         "boundedChannels": bounded.program?.textureBindings.map(\.channelUse.rawValue) ?? []]
     switch SceneGenericShaderCompiler.compile(requestKey: key, vertexSource: value.vertex,
-        fragmentSource: value.fragment, colorBoundary: contract, cacheRoot: cache, bundle: bundle) {
+        fragmentSource: value.fragment, colorBoundary: contract, bundle: bundle) {
     case let .failure(failure):
         row["genericAccepted"] = false; row["genericFailure"] = String(describing: failure)
-    case let .success(url):
-        let artifactBytes = try Data(contentsOf: url)
-        let artifact = try JSONDecoder().decode(SceneGenericShaderProgramArtifact.self,
-            from: artifactBytes)
+    case let .success(compiled):
+        let artifactBytes = compiled.encodedData
+        let artifact = compiled.artifact
         let program = artifact.makeProgram(expectedKey: key, expectedColorBoundary: contract,
             expectedColorTransfer: expectedTransfer, expectedFragmentOutputChannelUse: expectedOutput)
         row["genericAccepted"] = program != nil
@@ -301,11 +300,9 @@ private func boundaryAndFactProof() throws -> [String: Any] {
 @main private enum AlphaOnlyHarness {
     static func main() throws {
         setenv("MWX_SCENE_GENERIC_SHADER_ROUTE", "disable-generic", 1)
-        guard CommandLine.arguments.count == 3, let bundle = Bundle(path: CommandLine.arguments[1]),
+        guard CommandLine.arguments.count == 2, let bundle = Bundle(path: CommandLine.arguments[1]),
               let device = MTLCreateSystemDefaultDevice(), let queue = device.makeCommandQueue()
         else { throw NSError(domain: "alpha-only-fixture-environment", code: 1) }
-        let cache = URL(fileURLWithPath: CommandLine.arguments[2], isDirectory: true)
-        try FileManager.default.createDirectory(at: cache, withIntermediateDirectories: true)
         let cases = alphaCases()
         let contents: [(String, SceneTextureContent)] = [
             ("independent", .color(.resolved(.independentAlphaSignal))),
@@ -334,7 +331,7 @@ private func boundaryAndFactProof() throws -> [String: Any] {
                 pixelFormat: .rg8Unorm, sourceFormat: .rg88),
         ]
         let result: [String: Any] = ["material": material, "typedData": typedData,
-            "compilers": try cases.map { try compilerProof($0, bundle: bundle, cache: cache) },
+            "compilers": try cases.map { try compilerProof($0, bundle: bundle) },
             "boundary": try boundaryAndFactProof()]
         FileHandle.standardOutput.write(try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]))
     }
@@ -380,7 +377,7 @@ class SceneAlphaOnlyColorBoundaryTests(unittest.TestCase):
             completed = None
             if not compilation.returncode:
                 completed = separate_graph_debug_output(subprocess.run(
-                    [str(binary), str(bundle), str(root / "artifacts")], cwd=root, env=environment,
+                    [str(binary), str(bundle)], cwd=root, env=environment,
                     capture_output=True, text=True, timeout=120))
             after = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in inputs}
             evidence = os.environ.get("MWX_SCENE_ALPHA_ONLY_EVIDENCE_DIR")

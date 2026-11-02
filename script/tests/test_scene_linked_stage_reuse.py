@@ -37,7 +37,7 @@ enum SceneGenericShaderCompilerBundle {
 }
 enum SceneGenericShaderSourceNormalizer {
     struct Pair { let vertex: String; let fragment: String; let vertexPositionInput = 0 }
-    enum Failure: Error { case invalid }
+    enum Failure: Error { case invalid, sourceTooLarge }
     static func normalize(vertexSource: String, fragmentSource: String,
                           maximumStageSourceBytes: Int) -> Result<Pair, Failure> {
         .success(.init(vertex: vertexSource, fragment: fragmentSource))
@@ -59,6 +59,10 @@ enum SceneGenericShaderArtifactBuilder {
         maximumArtifactBytes: Int) -> Result<SceneGenericShaderProgramArtifact, Failure> {
         if loopGuardCap == nil && stages.contains(where: { $0.source.contains("needs_guard") }) {
             return .failure(.loopUnbounded)
+        }
+        if SceneGenericShaderCompilerProcess.mode == "encoded-budget" {
+            return .success(.init(stages: [String(repeating: "x", count: maximumArtifactBytes)],
+                                  guardCap: loopGuardCap))
         }
         return .success(.init(stages: stages.map(\.msl), guardCap: loopGuardCap))
     }
@@ -94,7 +98,14 @@ enum SceneGenericShaderCompilerProcess {
                 }
             } else if let index = arguments.firstIndex(of: "--output") {
                 let input = URL(fileURLWithPath: arguments[0])
-                try Data(contentsOf: input).write(to: URL(fileURLWithPath: arguments[index + 1]))
+                let data: Data
+                if mode == "msl-budget", arguments.contains("--msl") {
+                    data = Data(repeating: 120,
+                        count: SceneGenericShaderCompilerBundle.Limits().maximumArtifactBytes + 1)
+                } else {
+                    data = try Data(contentsOf: input)
+                }
+                try data.write(to: URL(fileURLWithPath: arguments[index + 1]))
             } else { return .failure(.rejected) }
             return .success(.init(stdout: Data()))
         } catch { return .failure(.rejected) }
@@ -103,19 +114,17 @@ enum SceneGenericShaderCompilerProcess {
 @main enum Harness {
     static func main() throws {
         SceneGenericShaderCompilerProcess.mode = CommandLine.arguments[1]
-        let cache = URL(fileURLWithPath: CommandLine.arguments[2])
-        try FileManager.default.createDirectory(at: cache, withIntermediateDirectories: true)
         let guarded = ["guarded", "stale-retry"].contains(CommandLine.arguments[1])
         let vertex = guarded ? "vertex needs_guard" : "renamed_vertex"
         let result = SceneGenericShaderCompiler.compile(requestKey: "fixture", vertexSource: vertex,
-            fragmentSource: "renamed_fragment", cacheRoot: cache)
+            fragmentSource: "renamed_fragment")
         var output: [String: Any] = ["links": SceneGenericShaderCompilerProcess.links,
                                     "calls": SceneGenericShaderCompilerProcess.calls]
         switch result {
-        case let .success(url): output["artifact"] = try JSONSerialization.jsonObject(with: Data(contentsOf: url))
+        case let .success(compiled):
+            output["artifact"] = try JSONSerialization.jsonObject(with: compiled.encodedData)
         case let .failure(failure): output["failure"] = String(describing: failure)
         }
-        output["published"] = FileManager.default.fileExists(atPath: cache.appendingPathComponent("fixture.json").path)
         FileHandle.standardOutput.write(try JSONSerialization.data(withJSONObject: output))
     }
 }
@@ -135,36 +144,43 @@ class SceneLinkedStageReuseTests(unittest.TestCase):
                         '-o', str(cls.binary)], capture_output=True, text=True, check=True)
 
     def run_case(self, mode):
-        with tempfile.TemporaryDirectory(dir=self.temporary.name) as cache:
-            result = subprocess.run([str(self.binary), mode, cache], capture_output=True,
-                                    text=True, check=True)
-            return json.loads(result.stdout)
+        result = subprocess.run([str(self.binary), mode], capture_output=True,
+                                text=True, check=True)
+        return json.loads(result.stdout)
 
-    def test_exact_linked_stages_are_published_without_duplicate_compile(self):
+    def test_exact_linked_stages_are_returned_without_duplicate_compile(self):
         row = self.run_case('ordinary')
         self.assertEqual(row['artifact']['stages'], ['renamed_vertex', 'renamed_fragment'])
         self.assertEqual(row['links'], 1)
         self.assertEqual(len(row['calls']), 5)  # one actual link, four lowering/reflection calls
         self.assertNotIn(['--version'], row['calls'])
 
-    def test_guarded_retry_publishes_only_the_replacement_stages(self):
+    def test_guarded_retry_returns_only_the_replacement_stages(self):
         row = self.run_case('guarded')
         self.assertEqual(row['links'], 2)
         self.assertEqual(row['artifact'], {'guardCap': 100,
             'stages': ['vertex needs_guard guarded', 'renamed_fragment guarded']})
 
-    def test_missing_or_unsafe_linked_output_does_not_publish(self):
+    def test_missing_or_unsafe_linked_output_does_not_return_an_artifact(self):
         for mode in ['missing-fragment', 'empty', 'symlink', 'stale-retry']:
             with self.subTest(mode=mode):
                 row = self.run_case(mode)
                 self.assertEqual(row['failure'], 'artifact("fragment-spirv")')
-                self.assertFalse(row['published'])
+                self.assertNotIn('artifact', row)
 
-    def test_failed_link_stops_before_lowering_or_publication(self):
+    def test_failed_link_stops_before_lowering_or_artifact_construction(self):
         row = self.run_case('link-failure')
         self.assertIn('stage-link', row['failure'])
-        self.assertFalse(row['published'])
+        self.assertNotIn('artifact', row)
         self.assertEqual(len(row['calls']), 1)
+
+    def test_actual_tool_output_and_encoded_artifact_budgets_still_fail(self):
+        for mode, failure in [('msl-budget', 'artifact("vertex-output")'),
+                              ('encoded-budget', 'artifact("encoding")')]:
+            with self.subTest(mode=mode):
+                row = self.run_case(mode)
+                self.assertEqual(row['failure'], failure)
+                self.assertNotIn('artifact', row)
 
 if __name__ == '__main__':
     unittest.main()

@@ -79,8 +79,6 @@ import Metal
             output["boundedMetalError"] = libraryError(program.metalSource)
         }
         if arguments.count > 2, let bundle = Bundle(path: arguments[2]) {
-            try FileManager.default.createDirectory(
-                atPath: arguments[3], withIntermediateDirectories: true)
             let semantics = SceneGenericShaderOutputSemantics(
                 rawValue: input["outputSemantics"] as? String ?? "color")!
             let slots = Set(input["premultipliedColorInputSlots"] as? [Int] ?? [])
@@ -93,25 +91,22 @@ import Metal
                 SceneGenericShaderCompiler.compile(
                     requestKey: key, vertexSource: pair.vertex, fragmentSource: pair.fragment,
                     outputSemantics: semantics, premultipliedColorInputSlots: slots,
-                    boundTextureSlots: boundSlots, cacheRoot: URL(fileURLWithPath: arguments[3]), bundle: bundle)
+                    boundTextureSlots: boundSlots, bundle: bundle)
             }
             switch compileArtifact() {
             case let .failure(failure): output["genericFailure"] = String(describing: failure)
-            case let .success(url):
-                let data = try Data(contentsOf: url)
-                let artifact = try JSONDecoder().decode(SceneGenericShaderProgramArtifact.self, from: data)
+            case let .success(compiled):
+                let artifact = compiled.artifact
                 output["genericSlots"] = artifact.program.textureBindings.map(\.slot)
                 output["genericUniforms"] = artifact.program.uniformLayout.fields.map(\.name)
                 output["genericLayout"] = try layoutJSON(artifact.program.uniformLayout)
                 output["genericLoopGuardCap"] = artifact.program.loopGuardCap.map { $0 as Any } ?? NSNull()
                 output["genericMetal"] = artifact.program.metalSource
                 output["genericMetalError"] = libraryError(artifact.program.metalSource)
-                output["genericArtifact"] = url.path
-                if input["verifyWarmCache"] as? Bool == true {
-                    let warmData = try Data(contentsOf: compileArtifact().get())
-                    let warm = try JSONDecoder().decode(SceneGenericShaderProgramArtifact.self, from: warmData)
-                    output["genericWarmLayout"] = try layoutJSON(warm.program.uniformLayout)
-                    output["genericWarmArtifactEqual"] = warmData == data
+                if input["verifyRepeatedCompilation"] as? Bool == true {
+                    let repeated = try compileArtifact().get()
+                    output["genericRepeatedLayout"] = try layoutJSON(repeated.artifact.program.uniformLayout)
+                    output["genericRepeatedArtifactEqual"] = repeated.encodedData == compiled.encodedData
                 }
                 if let contract = frontend.program {
                     let program = artifact.makeProgram(
@@ -119,7 +114,7 @@ import Metal
                         expectedPremultipliedColorInputSlots: slots,
                         expectedColorTransfer: contract.colorTransfer,
                         expectedFragmentOutputChannelUse: contract.fragmentOutputChannelUse)
-                    output["genericPublicationAccepted"] = program != nil
+                    output["genericProgramAccepted"] = program != nil
                 }
             }
         }

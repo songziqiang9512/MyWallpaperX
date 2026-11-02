@@ -43,42 +43,47 @@ nonisolated enum ScenePersistentCacheSupport {
         versionedName: String,
         createIfNeeded: Bool
     ) -> URL? {
+        let directory: URL
         if let rawRoot = ProcessInfo.processInfo.environment[environmentKey] {
-            guard let root = validatedDirectory(rawRoot) else { return nil }
-            let scoped = root.appendingPathComponent(
-                versionedName, isDirectory: true
-            )
-            if createIfNeeded {
-                do {
-                    try FileManager.default.createDirectory(
-                        at: scoped, withIntermediateDirectories: true
-                    )
-                } catch {
-                    return nil
-                }
-            }
-            return validatedDirectory(scoped.path)
-        }
-        guard let caches = FileManager.default.urls(
-            for: .cachesDirectory, in: .userDomainMask
-        ).first else { return nil }
-        let root = caches
-            .appendingPathComponent(
-                "com.songziqiang.MyWallpaperX", isDirectory: true
-            )
-            .appendingPathComponent(versionedName, isDirectory: true)
-            .standardizedFileURL
-        if createIfNeeded {
-            do {
-                try FileManager.default.createDirectory(
-                    at: root, withIntermediateDirectories: true,
-                    attributes: [.posixPermissions: 0o700]
-                )
-            } catch {
+            guard !rawRoot.isEmpty else { return nil }
+            let root = URL(fileURLWithPath: rawRoot, isDirectory: true).standardizedFileURL
+            if let values = try? root.resourceValues(forKeys: [
+                .isDirectoryKey, .isSymbolicLinkKey,
+            ]) {
+                guard values.isDirectory == true, values.isSymbolicLink != true else { return nil }
+            } else if !createIfNeeded {
                 return nil
             }
+            directory = root.appendingPathComponent(
+                versionedName, isDirectory: true
+            )
+        } else {
+            guard let caches = FileManager.default.urls(
+                for: .cachesDirectory, in: .userDomainMask
+            ).first else { return nil }
+            directory = caches
+                .appendingPathComponent(
+                    "com.songziqiang.MyWallpaperX", isDirectory: true
+                )
+                .appendingPathComponent(versionedName, isDirectory: true)
+                .standardizedFileURL
         }
-        return validatedDirectory(root.path)
+        if let values = try? directory.resourceValues(forKeys: [
+            .isDirectoryKey, .isSymbolicLinkKey,
+        ]) {
+            guard values.isDirectory == true, values.isSymbolicLink != true else { return nil }
+            return directory
+        }
+        guard createIfNeeded else { return nil }
+        do {
+            try FileManager.default.createDirectory(
+                at: directory, withIntermediateDirectories: true,
+                attributes: [.posixPermissions: 0o700]
+            )
+        } catch {
+            return nil
+        }
+        return directory
     }
 
     static func validatedDirectory(_ rawPath: String) -> URL? {

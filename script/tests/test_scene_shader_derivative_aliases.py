@@ -23,6 +23,8 @@ SOURCES = list(dict.fromkeys([
     *scene_swift_sources("generic_shader_compiler_preparation_implementation"),
     SCENE_ROOT / "Compilation/Material/SceneResolvedMaterialGenericShaderProgramArtifact.swift",
     SCENE_ROOT / "Compilation/Material/SceneResolvedMaterialGenericShaderRequest.swift",
+    SCENE_ROOT / "Rendering/Bindings/SceneAuthoredShaderFrameInputs.swift",
+    SCENE_ROOT / "Rendering/Lighting/SceneAuthoredShaderLightingInputs.swift",
 ]))
 VERTEX = """attribute vec3 a_Position;
 attribute vec2 a_TexCoord;
@@ -63,15 +65,13 @@ import Metal
             vertexSource: vertex, fragmentSource: fragment,
             outputSemantics: .color, expectedColorTransfer: nil,
             premultipliedColorInputSlots: [])
-        try FileManager.default.createDirectory(
-            atPath: arguments[3], withIntermediateDirectories: true)
         switch SceneGenericShaderCompiler.compile(
             requestKey: key, vertexSource: vertex, fragmentSource: fragment,
-            cacheRoot: URL(fileURLWithPath: arguments[3]), bundle: Bundle(path: arguments[2])!) {
+            bundle: Bundle(path: arguments[2])!) {
         case let .failure(failure): output["genericFailure"] = String(describing: failure)
-        case let .success(url):
-            let data = try Data(contentsOf: url)
-            let artifact = try JSONDecoder().decode(SceneGenericShaderProgramArtifact.self, from: data)
+        case let .success(compiled):
+            let data = compiled.encodedData
+            let artifact = compiled.artifact
             output["artifactSHA256"] = SceneGenericShaderProgramArtifact.sha256(data)
             output["genericMetal"] = artifact.program.metalSource
             guard let program = artifact.makeProgram(expectedKey: key,
@@ -113,11 +113,19 @@ import Metal
         white.withUnsafeBytes { source.replace(region: MTLRegionMake2D(0, 0, 1, 1),
             mipmapLevel: 0, withBytes: $0.baseAddress!, bytesPerRow: 16) }
         let sampler = device.makeSamplerState(descriptor: MTLSamplerDescriptor())!
+        let coordinates = SceneShaderQuadCoordinates.unit
+        let hostValues = [
+            "mwxRenderSize": withUnsafeBytes(of: SIMD2<Float>(8, 8)) { Data($0) },
+            "mwxVertexCoordinates01": withUnsafeBytes(of: coordinates.packed01) { Data($0) },
+            "mwxVertexCoordinates23": withUnsafeBytes(of: coordinates.packed23) { Data($0) },
+        ]
         var uniforms = Data(count: max(16, program.uniformLayout.byteSize))
-        for field in program.uniformLayout.fields where field.authoredName == "mwxRenderSize" {
-            [Float(8), Float(8)].withUnsafeBytes { values in
-                uniforms.replaceSubrange(field.offset..<(field.offset + 8), with: values)
+        for field in program.uniformLayout.fields {
+            guard let values = hostValues[field.authoredName], values.count == field.storageByteSize else {
+                throw NSError(domain: "derivative-host-uniform", code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: field.authoredName])
             }
+            uniforms.replaceSubrange(field.offset ..< field.offset + field.storageByteSize, with: values)
         }
         let buffer = uniforms.withUnsafeBytes {
             device.makeBuffer(bytes: $0.baseAddress!, length: $0.count)!
@@ -196,8 +204,7 @@ class SceneShaderDerivativeAliasTests(unittest.TestCase):
         key = hashlib.sha256(json.dumps(request, sort_keys=True).encode()).hexdigest()
         path = self.root / f"{key}.json"
         path.write_text(json.dumps(request))
-        completed = subprocess.run([str(self.binary), str(path), str(self.bundle),
-                                    str(self.root / "artifacts")], cwd=REPOSITORY_ROOT,
+        completed = subprocess.run([str(self.binary), str(path), str(self.bundle)], cwd=REPOSITORY_ROOT,
                                    capture_output=True, text=True, timeout=90)
         self.assertEqual(completed.returncode, 0, completed.stderr)
         output = json.loads(completed.stdout)
