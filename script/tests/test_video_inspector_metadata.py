@@ -6,7 +6,8 @@ invalid video and a small generated PNG in a temporary HOME. This proves layout
 facts before return, fallback terminal values and immediate cancellation. One
 test-copy scheduling hook pauses after real AV work, before MainActor delivery,
 to prove cancellation at that boundary without substituting AV results; it
-does not establish valid-media codec/duration accuracy or native Inspector UI.
+also counts actual AV preparation entry, not I/O or CPU cost. It does not
+establish valid-media codec/duration accuracy or native Inspector UI.
 """
 import hashlib
 import json
@@ -32,6 +33,9 @@ class VideoInspectorMetadataTests(unittest.TestCase):
         boundary = "        await MainActor.run {"
         self.assertEqual(helper_body.count(boundary), 1)
         helper_body = helper_body.replace(boundary, "        await InspectorMetadataDeliveryProbe.waitIfHeld(path)\n" + boundary, 1)
+        asset = "        let asset = AVURLAsset(url: url)"
+        self.assertEqual(helper_body.count(asset), 1)
+        helper_body = helper_body.replace(asset, "        InspectorMetadataDeliveryProbe.avPreparationEntries[path, default: 0] += 1\n" + asset, 1)
         production += "\n@discardableResult\n" + helper_body
         production += "\n" + "\n".join(declaration(source, signature) for signature in (
             "private func formattedDuration(", "private func videoResolutionText(", "private func videoCodecText("))
@@ -51,7 +55,7 @@ class VideoInspectorMetadataTests(unittest.TestCase):
                 Path(destination).mkdir(parents=True, exist_ok=True)
                 proof = Path(tempfile.mkdtemp(prefix="metadata-", dir=destination))
                 (proof / "inputs.json").write_text(json.dumps({"inputs": inputs, "command": command, "scope": __doc__,
-                    "transforms": ["extract production declarations; insert awaitable scheduling probe immediately before final MainActor delivery; no AV result or cancellation substitution"]}, indent=2))
+                    "transforms": ["extract production declarations; count actual AV preparation entry; insert awaitable scheduling probe immediately before final MainActor delivery; no AV result or cancellation substitution"]}, indent=2))
                 (proof / "compile.log").write_text(build.stdout + build.stderr)
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
             run = subprocess.run([str(work / "checks"), str(work)], capture_output=True, text=True, env=env, timeout=45)

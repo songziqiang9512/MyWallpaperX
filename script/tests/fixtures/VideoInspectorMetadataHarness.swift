@@ -5,6 +5,7 @@ import ImageIO
 // The test copy pauses after real AV work, immediately before the original
 // MainActor delivery. No AV value or cancellation decision is substituted.
 @MainActor enum InspectorMetadataDeliveryProbe {
+    static var avPreparationEntries: [String: Int] = [:]
     static var heldPaths: Set<String> = []
     static var pending: [String: CheckedContinuation<Void, Never>] = [:]
     static func waitIfHeld(_ path: String) async {
@@ -43,6 +44,7 @@ import ImageIO
             let wallpaper = VideoWallpaper(id: label, title: label, path: url.path, duration: duration, resolution: resolution)
             var didReturn = false, firstWasSynchronous = false
             var values: [WallpaperInspectorDetails] = []
+            let preparationsBefore = InspectorMetadataDeliveryProbe.avPreparationEntries[url.path, default: 0]
             let task = loadWallpaperInspectorDetails(for: wallpaper) { value in
                 if values.isEmpty { firstWasSynchronous = !didReturn }
                 values.append(value)
@@ -64,9 +66,11 @@ import ImageIO
                 && terminal.pathText == first.pathText && terminal.fileSizeText == first.fileSizeText
                 && terminal.formatText == first.formatText && terminal.addedDateText == first.addedDateText
                 && !terminal.isLoading
+                && InspectorMetadataDeliveryProbe.avPreparationEntries[url.path, default: 0] - preparationsBefore == 1
             checks[label + "-unsupported-media-settles-with-fallback-values"] = terminal.durationText == (duration == nil ? "未知" : "1:05")
                 && terminal.resolutionText == (resolution ?? "未知") && terminal.codecText == "未知"
         }
+        let cancelledEntriesBefore = InspectorMetadataDeliveryProbe.avPreparationEntries[invalid.path, default: 0]
         var cancelledValues: [WallpaperInspectorDetails] = []
         let cancelled = loadWallpaperInspectorDetails(for: .init(id: "cancelled", title: "cancelled", path: invalid.path)) {
             cancelledValues.append($0)
@@ -75,6 +79,8 @@ import ImageIO
         // template but before the Task's AV work can publish a terminal value.
         cancelled.cancel()
         await cancelled.value
+        checks["cancelled-before-task-start-does-not-prepare-av-asset"] =
+            InspectorMetadataDeliveryProbe.avPreparationEntries[invalid.path, default: 0] == cancelledEntriesBefore
         checks["cancelled-real-av-task-cannot-publish-a-late-terminal-after-its-template"] = cancelledValues.count == 1
             && cancelledValues[0].pathText == invalid.path && cancelledValues[0].codecText == "读取中…"
         var replacementValues: [WallpaperInspectorDetails] = []

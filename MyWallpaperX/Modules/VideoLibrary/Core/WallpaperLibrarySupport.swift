@@ -104,6 +104,7 @@ func loadWallpaperInspectorDetails(
         addedDateText: addedDateText, pathText: path, isLoading: true))
 
     return Task {
+        guard !Task.isCancelled else { return }
         let asset = AVURLAsset(url: url)
         var durationText = wallpaper.duration.map { formattedDuration(Double($0)) } ?? "未知"
         if let duration = try? await asset.load(.duration) {
