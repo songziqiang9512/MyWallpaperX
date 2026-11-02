@@ -33,26 +33,6 @@ extension SteamWorkshopService {
         }
     }
 
-    func isPrimaryWebPropertyControl(_ definition: SteamWorkshopWebPropertyDefinition) -> Bool {
-        switch definition.kind {
-        case .slider, .color, .toggle, .combo, .file, .directory:
-            return true
-        case .text:
-            let normalizedKey = definition.key.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-            let normalizedTitle = definition.title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-            let primaryFragments = [
-                "speed", "size", "scale", "opacity", "color", "colour", "volume",
-                "intensity", "zoom", "blur", "radius", "width", "height", "count",
-                "amount", "strength", "brightness", "contrast", "saturation"
-            ]
-            return primaryFragments.contains { fragment in
-                normalizedKey.contains(fragment) || normalizedTitle.contains(fragment)
-            }
-        case .label, .group, .unknown:
-            return false
-        }
-    }
-
     func previewWebPropertyValue(_ value: SteamWorkshopWebPropertyValue, for definition: SteamWorkshopWebPropertyDefinition, record: SteamWorkshopDownloadRecord) {
         guard isActiveWebRecord(record) else { return }
         let delta = resolvedWebRuntimeProperty(
@@ -138,21 +118,6 @@ extension SteamWorkshopService {
 
     func currentWebPropertyValue(for definition: SteamWorkshopWebPropertyDefinition, record: SteamWorkshopDownloadRecord) -> SteamWorkshopWebPropertyValue {
         effectiveWebPropertyValues(for: record, definitions: [definition])[definition.key] ?? definition.defaultValue
-    }
-
-    func resolveAccessibleWebPropertyURL(for definition: SteamWorkshopWebPropertyDefinition, record: SteamWorkshopDownloadRecord) -> URL? {
-        guard definition.kind == .file || definition.kind == .directory else { return nil }
-        let effectiveValue = currentWebPropertyValue(for: definition, record: record)
-        return resolveAccessibleWebPropertyURL(for: definition, rawValue: effectiveValue, record: record)
-    }
-
-    func resolveAccessibleWebPropertyURL(
-        for definition: SteamWorkshopWebPropertyDefinition,
-        rawValue: SteamWorkshopWebPropertyValue,
-        record: SteamWorkshopDownloadRecord
-    ) -> URL? {
-        guard definition.kind == .file || definition.kind == .directory else { return nil }
-        return resolvedWebRuntimeAssetURL(forKey: definition.key, definition: definition, rawValue: rawValue, record: record)
     }
 
     func isActiveWebRecord(_ record: SteamWorkshopDownloadRecord) -> Bool {

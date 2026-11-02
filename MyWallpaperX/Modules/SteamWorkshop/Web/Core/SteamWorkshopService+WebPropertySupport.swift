@@ -195,27 +195,6 @@ extension SteamWorkshopService {
         return candidatePath == rootPath || candidatePath.hasPrefix(rootPath + "/")
     }
 
-    func resolvedWebRuntimeAssetURL(
-        forKey key: String,
-        definition: SteamWorkshopWebPropertyDefinition,
-        rawValue: SteamWorkshopWebPropertyValue,
-        record: SteamWorkshopDownloadRecord,
-        bindingContext: WebAuthorBindingContext? = nil
-    ) -> URL? {
-        guard let resolvedURL = resolvedWebResourceBinding(
-            forKey: key,
-            definition: definition,
-            rawValue: rawValue,
-            record: record, bindingContext: bindingContext
-        )?.resolvedURL else {
-            return nil
-        }
-        guard definition.kind != .file || Self.webFileURL(resolvedURL, matches: definition.fileType) else {
-            return nil
-        }
-        return resolvedURL
-    }
-
     func resolvedWebRuntimeProperty(
         forKey key: String,
         definition: SteamWorkshopWebPropertyDefinition,

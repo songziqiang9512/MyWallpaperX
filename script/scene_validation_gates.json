@@ -4682,6 +4682,7 @@
         "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebProjectSupport.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebPropertyDefinitions.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebPropertyNormalizationSupport.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebProperties.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebPropertySupport.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebPropertyRuntimePayload.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebRuntimeCacheMetadata.swift",

@@ -6,8 +6,8 @@
 
 开批速览（每批动手前先读这里，再核 Git 状态；按需查对应 owner 和下文，不顺读全文）：
 
-- 已裁决至R98（R61按优先级后补）。个人设置导入弹窗消失/设置变暗已由 R55（`ad1f3142d`）修复；测试 App 已交付，原配置完整导入仅待用户实测，没有新复现不重新修复、构建或复跑。
-- 近期已完成：R89 屏保原始错码保留、R90 Web 标题一次准备、R92 零消费者元数据接口退役、R94 历史投影直接消费 Entry、R95 Web 目录闲置模式退役、R96 菜单捕获状态复用、R97 文档首读区间锚点一致性、R98 详情同实例恢复时清旧错误。最近结论见下文，较早记录沿历史入口回查；已完成项不作为新候选。
+- 已裁决至R99（R61按优先级后补）。个人设置导入弹窗消失/设置变暗已由 R55（`ad1f3142d`）修复；测试 App 已交付，原配置完整导入仅待用户实测，没有新复现不重新修复、构建或复跑。
+- 近期已完成：R89 屏保原始错码保留、R90 Web 标题一次准备、R92 零消费者元数据接口退役、R94 历史投影直接消费 Entry、R95 Web 目录闲置模式退役、R96 菜单捕获状态复用、R97 文档首读区间锚点一致性、R98 详情同实例恢复时清旧错误、R99 Web 零消费者API尾链退役。最近结论见下文，较早记录沿历史入口回查；已完成项不作为新候选。
 - 保留/拒绝：R55 一次 Save 取消超时尚未归因；R56 绕过 TIFF 的候选因像素/尺寸差异已拒绝。较早 R23/R38/R43 的保护边界仍有效。
 - R62已交付：[本地资源先呈现与缩略图回访](local-library-loading-design.md#overview)。先解决启动短暂不可用和本地网格滚回黑卡，覆盖视频、图片及自建列表；已完成实现、最近门、Steam消费者及签名Debug；保留三项原生限制，真实用户库体感待人工验收。R61冷态导航已完成验证，见下文；不重复本专项。
 
@@ -25,7 +25,9 @@
 
 最近文档整理：R91把R61–R88非连续已结的21段摘要移至[历史记录](../history/cross-topic/code-slimming-r61-r88-closeouts-2026-11-02.md#completed-r61-r88)，原8987B载荷仅可逆重定位3条链接并新增归档入口，原页永久redirect保；当前授权、R90/R89、R55/R62/R23待验、全部旧锚点与UI10批准设计保留。同步既有history入口、角色登记与精确预算，产品/测试0；只验证载荷、分类、锚点和调整链，不复验旧产品。前批R85状态栏旧整合记录仍归原历史，不续用安装授权。
 
-最近产品验证：R98详情同实例卸载/重挂会重新请求，但成功后旧errorText仍优先展示。只在原Task取消/loadID/retired守卫通过后清旧错误，产品净+1、fixture净+32，无新state/helper/observer；assets后续失败仍走原catch。初fixture标题断言按真实asset优先级静审修正后才执行，原50处源码检查/lookup区块逐字保。相同最终fixture两臂各91项：原88项全真，新增失败初态/当前下载暖图也真，仅旧错误清除在原实现红、新实现绿；候选91全真，lookup三组工作量JSON严格等值。各6305输入/2实际进程稳定，签名Debug25.658秒/5867输入稳定、strict/deep过，仅原两条C#警告，独立复核接受。真实View配受控I/O叶、保留窗口图直接reparent，不证明自然频度、可见焦点、真实网络/共享请求；普通关闭重建及Wallhaven改Key会由原owner关闭详情，不称其永久加载或改取消机制。
+最近产品验证：R99 WebProperties的主控件启发式和Accessible URL两重载无外部调用，独立复核再确认Support末端URL投影仅由待删重载消费，同批完整退役四API，产品0增56删、测试0，无新state/helper。纯Swift final Service无ObjC/KVC/协议/工具入口；实际Editor过滤、preview/update→resolved property/binding、fileType、override/bookmark/grants及hasBookmark调试消费者逐字保。旧/最终三现役author/runtime-cache/binding-owner门均过，各6305输入/6实际进程稳定；五组解析JSON原等值，仅binding投影42个字符串叶按观测binary父目录限定归一后等值，三个PASS标记同。初三API中间臂过后因尾链退出重跑最终臂；观测整文本/数组/转义处理纠偏未改源码或重跑门，raw保。签名Debug25.273秒/5867输入稳定、strict/deep过，仅原两C#警告，独立复核接受。门抽活方法并编实际binding/持久化owner，不称完整文件行为已验；App Debug核完整编译接线。原WebProperties漏focused映射，停集成后仅为已有Web组补一条精确路径；另验现役登记引用及新预览，非产品变化，不重建App。只减维护API，不认领IO/时耗、真实网络/作者/宿主。
+
+前批R98详情同实例卸载/重挂会重新请求，但成功后旧errorText仍优先展示。只在原Task取消/loadID/retired守卫通过后清旧错误，产品净+1、fixture净+32，无新state/helper/observer；assets后续失败仍走原catch。初fixture标题断言按真实asset优先级静审修正后才执行，原50处源码检查/lookup区块逐字保。相同最终fixture两臂各91项：原88项全真，新增失败初态/当前下载暖图也真，仅旧错误清除在原实现红、新实现绿；候选91全真，lookup三组工作量JSON严格等值。各6305输入/2实际进程稳定，签名Debug25.658秒/5867输入稳定、strict/deep过，仅原两条C#警告，独立复核接受。真实View配受控I/O叶、保留窗口图直接reparent，不证明自然频度、可见焦点、真实网络/共享请求；普通关闭重建及Wallhaven改Key会由原owner关闭详情，不称其永久加载或改取消机制。
 
 前批工具R97（f0e12a742）首读区间复用原Markdown整文锚点位置/真实heading，退出registry逐行parser；原set API、150行预算、显式/多行ID、重复suffix、空ATX/嵌套/EOF与物理行保。工具净+24、测试净+37，无cache/schema；空ATX初漏静审修正后执行。同最终测试旧24过/新4反例红（wrong counts 2/5/0/2，应3/9/6/152），候选28过；各6305输入稳定，72/73次实际git子过程。未改快照411篇原字节/锚点/链接及14路由全部审计字段等值；不称既有路由损坏或整体提速。仅工具文档，该批不重复App构建。
 
@@ -54,6 +56,7 @@
 - Video持久化：全表save的0.25s合并、单inflight/pending和rollback/退出屏障有消费者；currentWallpaper旧值订阅仅可能多做单模型encode/defaults读取，已有字节去重，不称重复磁盘写，涉及派生路径更新及重入时机，低收益候选暂缓。metadata连带预览/静帧有暖缓存和系统同步消费者，当前不拆。
 - 下载/导入：在线图片可解码准入与原子Store发布属于不同边界；Video导入磁盘检查跨后台排队，缩略图与桌面静帧也有各自消费者，保留。Steam fresh publish/签名若跳过需覆盖源码、依赖、配置与权限失效，当前不新增缓存认证链。R94旁支只读保留：CDN安全文案/外层脱敏服务不同错误来源，worker保首异常并排空；图片终态回执与即时提示分工明确，Store清理后抛已捕获error，提交后取消只撤旧自动播放。未重跑这些旁支门，不把静审升级为网络/原生或故障实测。
 - Wallhaven入口只读保留：DTO承担URL/缩略图/作者/分级/尺寸归一并保部分页面成功；每响应一次解码/每条一次转换。凭据revision跨排队/限速/返回，浏览scope保护当前页，职责不同；429日期格式化不足以支持新增缓存。本轮未重跑HTTP门，不认领真实网络/账号。
+- App控制层只读保留：Inspector已去无关scroll/zoom并在无详情/预览时退出准备；关系/catalog/选择/播放/可用性仍各有消费者，不拼跨语义canonical map。状态栏仅开窗订阅并合并willSet，封面按来源/token去重，两秒指标有UI消费；设置回声位与互斥启动菜单装配保。所查Inspector metadata无uniqueKeys initializer，不把其他Grid/Web命中外推。本轮仅静审这些旁支，未重跑其原生门。
 - 设置/初始化：双向同步回声位解决Published willSet，登录项查询已有Key周期缓存；SIL相等补丁同步ACK及恢复清理开关有真实事务消费者，保留。App启动路径重复组装少量URL不足以支持新增缓存或状态。
 - Query目录计数已一次分组；单次过滤不另加索引，目录/Artwork有不同搜索和更新职责。Steam主产品协议只Parse一次，Clone服务JSON文档释放后的所有权，Writer只Serialize一次且options已复用，保留。R93只读核：PayloadULongArray已由39d441528收敛为一次TryParse，字符串中间数组仍复用入口形状过滤；请求批次的低收益不足以支持另铺解析分支或收紧ID准入。DownloadProgressState的chunk进度先做原250ms合并，再为实际发布建Snapshot；阶段与末chunk仍直接发送。发送端消费六字段，计数/sequence锁边界保留，不合入writer。仅静审，未重跑现役C#离线门或认领网络sender全字段/时耗验证。
 - Web响应reader只读保留：全量路径消费HTML/CSS转换、小型GET与转换后HEAD长度；常规GET Range虽走stream，TCP HEAD仍可把按实际FD识别的非nil range交给reader。直接readToEnd会改变该边界的206长度；不为删少量分支另加HEAD补丁。HTML→binary换型加HEAD Range仅静态可达，本轮未专门运行复现或量频；不借R95三门称该组合已验。
