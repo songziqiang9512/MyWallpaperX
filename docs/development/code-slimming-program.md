@@ -6,7 +6,7 @@
 
 开批速览（每批动手前先读这里，再核 Git 状态；按需查对应 owner 和下文，不顺读全文）：
 
-- 已裁决至R71（R61按优先级后补）。个人设置导入弹窗消失/设置变暗已由 R55（`ad1f3142d`）修复；测试 App 已交付，原配置完整导入仅待用户实测，没有新复现不重新修复、构建或复跑。
+- 已裁决至R72（R61按优先级后补）。个人设置导入弹窗消失/设置变暗已由 R55（`ad1f3142d`）修复；测试 App 已交付，原配置完整导入仅待用户实测，没有新复现不重新修复、构建或复跑。
 - 近期已完成：R54 合并成员查询复用、R57 Web 快照暂存隔离、R58 已取消元数据任务提前退出、R59 成功状态一次发布、R60 在线图片卡片一次装配。详情见下文；已完成项不作为新候选。
 - 保留/拒绝：R55 一次 Save 取消超时尚未归因；R56 绕过 TIFF 的候选因像素/尺寸差异已拒绝。较早 R23/R38/R43 的保护边界仍有效。
 - R62已交付：[本地资源先呈现与缩略图回访](local-library-loading-design.md#overview)。先解决启动短暂不可用和本地网格滚回黑卡，覆盖视频、图片及自建列表；已完成实现、最近门、Steam消费者及签名Debug；保留三项原生限制，真实用户库体感待人工验收。R61冷态导航已完成验证，见下文；不重复本专项。
@@ -23,7 +23,9 @@
 
 本轮按用户固定流程循环：并行子代理在每份审查任务中携带用户固定prompt，核无功能收益的校验/认证/重复计算/嵌套、持续转发和补丁、过量实现与耦合；主agent审核问题和方案并决定是否修改，子代理实施，主agent复核真实行为/成本证据和最近门后决定窄提交，再开启下一轮。每批报告问题、当前影响、方案、功能变化及下一候选。当前目标授权主agent作修复和本地提交裁决，不授权推送；共享构建、原生窗口和GPU仍串行，其他会话改动保留。
 
-最近产品验证：R71在Steam服务原同步首刷之后，对jobs/history两个上游分别dropFirst，退出两次冗余初值合并。Merge、主RunLoop调度及后续jobs/history/账号变化原样；首刷已同步懒造JobStore，中间注册无写Store/await/嵌套runloop，无新状态/helper/校验。产品2增2删净0；原Toolbar夹具31增0删，两处装配显式按生产refresh→observe，保全部原断言，补4项初始失败卡、初值和后继事件检查及单条raw增量。真实提取owner旧/候选都完成55项输出且进程0；原51项和3项新增业务两臂均过，仅旧1项新初值成本红，候选55全真。实际initial合并2→0，jobs/history首次变化两臂各2，未跳后续事件或合并重入。签名Debug24.198秒/5866输入稳定、strict/deep通过，仅原两条C#警告；临时实际编译源码hash核对留存。动态证明限真实Combine/refresh/projection与受控Published输入，未运行完整App初始化、JobStore落盘恢复或SteamAuth/helper生命周期，不认领IO/时耗/FPS，R62人工/原生限制不变。
+最近产品验证：R72退役SIL旧模式通知的声明/失效接收注释及两个false post，产品0增8删，无新测试、状态或替代owner。全仓具名/raw只见声明与两个producer；相关动态name、nil-name、selector与CF/Objective-C桥接未见消费者。原发送边界为页面进入/reset与主窗口关闭；图片应用真实通知、Steam/Pixabay模式事件及周围生命周期逐字保留。独立静审接受，签名Debug23.395秒/5866输入稳定、strict/deep通过，仅原两条C#警告；三个产品路径最近映射无遗漏。证明限仓库内部信号静态退役与实际编译，未运行两个删除post所在路径，不拿相邻菜单/Chrome门冒认动态通知覆盖，不认领UI/性能修复。R62人工/原生限制不变。
+
+前批R71（c300e1b6e）原同步首刷后，jobs/history各dropFirst；产品净0、夹具31增，原51项及3项新增业务两臂过，仅旧1初值成本红，候选55全真。真实initial合并2→0、jobs/history后继变化各2→2，签名Debug24.198秒通过。限真实Combine/refresh/projection受控输入，不是完整App init、JobStore落盘恢复或SteamAuth/helper验收，未量时耗。
 
 前批R70（4d06623e5）Pixabay目录四键预取改[]，原fresh读/AV复用/跨await身份全保，产品净0。原54项旧/候选等值、69次实际枚举四键→[]，缩略图9项与签名Debug24.103秒通过；nil默认预取与[]语义已核官方，不称stat/IO/时耗改善。
 
@@ -43,6 +45,7 @@
 - Video IPC：边界事件单次解码，光谱多屏前已一次编码；cohort/session/request与activation/generation/可见证据检查职责不同，保留。Release日志trim无频度证据，不改。
 - Video持久化：全表save的0.25s合并、单inflight/pending和rollback/退出屏障有消费者；currentWallpaper旧值订阅仅可能多做单模型encode/defaults读取，已有字节去重，不称重复磁盘写，涉及派生路径更新及重入时机，低收益候选暂缓。metadata连带预览/静帧有暖缓存和系统同步消费者，当前不拆。
 - 下载/导入：在线图片可解码准入与原子Store发布属于不同边界；Video导入磁盘检查跨后台排队，缩略图与桌面静帧也有各自消费者，保留。Steam fresh publish/签名若跳过需覆盖源码、依赖、配置与权限失效，当前不新增缓存认证链。
+- 设置/初始化：双向同步回声位解决Published willSet，登录项查询已有Key周期缓存；SIL相等补丁同步ACK及恢复清理开关有真实事务消费者，保留。App启动路径重复组装少量URL不足以支持新增缓存或状态。
 
 <a id="completed-r1-r26"></a> [归档记录](../history/cross-topic/code-slimming-r1-r26-2026-11-01.md#completed-r1-r26) <!-- archive-redirect -->
 

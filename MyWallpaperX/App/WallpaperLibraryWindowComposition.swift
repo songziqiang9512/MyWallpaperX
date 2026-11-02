@@ -904,7 +904,6 @@ import Combine
         NotificationCenter.default.post(name: .steamWorkshopModeDidChange, object: nil,
             userInfo: ["enabled": page == .workshop])
         NotificationCenter.default.post(name: .pixabayModeDidChange, object: nil, userInfo: ["enabled": page == .pixabay])
-        NotificationCenter.default.post(name: .staticImageLibraryModeDidChange, object: nil, userInfo: ["enabled": false])
     }
 
     private func addReferences(_ references: [WallpaperReference], to id: UUID) -> Bool {

@@ -86,11 +86,6 @@ enum MainWindowCoordinator {
 
     private static func resetModuleStateForClosedMainWindow() {
         NotificationCenter.default.post(
-            name: .staticImageLibraryModeDidChange,
-            object: nil,
-            userInfo: ["enabled": false]
-        )
-        NotificationCenter.default.post(
             name: .pixabayModeDidChange,
             object: nil,
             userInfo: ["enabled": false]

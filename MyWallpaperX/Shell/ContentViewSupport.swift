@@ -21,8 +21,6 @@ extension Notification.Name {
     static let steamWorkshopSceneReadyToRender = Notification.Name("SteamWorkshopSceneReadyToRender")
     /// Steam 创意工坊 Scene 下载入库完成，由装配层触发 daemon 预热（best-effort）
     static let steamWorkshopSceneDownloadCompleted = Notification.Name("SteamWorkshopSceneDownloadCompleted")
-    /// 图片壁纸库模式切换通知，由 Shell 发出，StaticImageLibrary 模块接收
-    static let staticImageLibraryModeDidChange = Notification.Name("StaticImageLibraryModeDidChange")
     /// Steam 创意工坊模式切换通知，由 Shell 发出，Steam 模块接收
     static let steamWorkshopModeDidChange = Notification.Name("SteamWorkshopModeDidChange")
     /// 图片库请求将某张图片设为系统壁纸，由 MainWindowCoordinator 统一执行运行时切换和停播收尾
