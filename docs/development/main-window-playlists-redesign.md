@@ -314,6 +314,8 @@ Video 当前“添加时间”分支读取 lastUsed，不能直接当成统一�
 
 Inspector 仍唯一使用现 InspectorHost，内容由 provider 挂载；方向换选的真实预览框不得先位移再复位，保既有最终排版/隐藏滚动条，Host门不能代替真实来源子内容布局验证（V09）；快速 Steam→Pixabay→图片切换要撤销旧挂载/异步详情，隐藏页面不得重新打开 Inspector。Quick Look 在装配层把支持的引用映射到原本地 URL，Web/Scene 继续原能力；不为每个混合页面新增一个全局 QLPreviewPanel singleton。
 
+本地资源启动先呈现和缩略图回访由[加载专项](local-library-loading-design.md)维护；此处只保页面/命令边界。
+
 <a id="74-提取-steam-卡片的具体方法"></a> [归档记录](../history/development/main-window-playlists-foundation-2026-10-25.md#74-提取-steam-卡片的具体方法) <!-- archive-redirect -->
 
 <a id="playback"></a>

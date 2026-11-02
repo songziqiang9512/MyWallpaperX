@@ -1752,6 +1752,29 @@
         "sourceScalar",
         "scalarInputs"
       ]
+    },
+    {
+      "id": "local-library-loading",
+      "title": "本地索引先呈现与缩略图回访",
+      "owner": "Existing source indexes, App Catalog and thumbnail providers",
+      "status": "approved",
+      "designDoc": "docs/development/local-library-loading-design.md",
+      "design_notes": "用户2026-11-02两项本地加载体验。原source模型无IO首投影、后台原generation对账；原缩略图cache暖像素优先、生产缓存/真实调度回访证据后裁决有限预取与预算。无第二Catalog持久索引或播放权限。设计状态不冒认实施或运行验收。",
+      "matchPatterns": [
+        "MyWallpaperX/App/WallpaperLibraryCatalogController.swift",
+        "MyWallpaperX/App/WallpaperLibraryWorkspace.swift",
+        "MyWallpaperX/Core/LibraryCollections/WallpaperLibraryQuery.swift",
+        "MyWallpaperX/Shell/WallpaperLibraryPresentation.swift",
+        "MyWallpaperX/Shell/WallpaperLibraryGridController.swift",
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+LibraryContent.swift",
+        "MyWallpaperX/Modules/StaticImageLibrary/Core/SILService*.swift",
+        "MyWallpaperX/Modules/VideoLibrary/UI/AppKitLibraryGridSupport.swift",
+        "MyWallpaperX/Modules/VideoLibrary/UI/AppKitLibraryGridItemView.swift",
+        "MyWallpaperX/Modules/StaticImageLibrary/UI/SILGridItemView.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+DownloadLibrarySync.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService.swift"
+      ],
+      "contentPatterns": []
     }
   ]
 }

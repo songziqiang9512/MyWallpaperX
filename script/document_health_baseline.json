@@ -34,7 +34,7 @@
     },
     "docs/development/code-slimming-program.md": {
       "lines": 477,
-      "bytes": 105189
+      "bytes": 105185
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -325,8 +325,8 @@
       "bytes": 8377
     },
     "docs/development/main-window-playlists-redesign.md": {
-      "lines": 594,
-      "bytes": 110603
+      "lines": 596,
+      "bytes": 110743
     },
     "docs/development/status-bar-panel-redesign.md": {
       "lines": 119,
@@ -351,6 +351,10 @@
     "docs/scene/architecture/dynamic-layer-storage-design.md": {
       "lines": 34,
       "bytes": 4916
+    },
+    "docs/development/local-library-loading-design.md": {
+      "lines": 25,
+      "bytes": 4707
     }
   },
   "archives": [
@@ -1712,10 +1716,10 @@
     {
       "section": "bodies",
       "path": "docs/development/main-window-playlists-redesign.md",
-      "before": "a5b4b742f9d0538fb526be160aa88e0515408e790f293464571a55601f4255ce",
-      "after": "1059de2c3925244b4242c22943336e42275149b458132370f492912eb0fc6b54",
+      "before": "1059de2c3925244b4242c22943336e42275149b458132370f492912eb0fc6b54",
+      "after": "700485f75edf7e154b7ffdf7a8eba474377653d8b5822f09e2e2abb1d3fe4b10",
       "owner": "repository-maintainer",
-      "reason": "在原9.3导入合同明确仅本次声明来源写入、相等补丁仍确认、未声明owner不撤销待写任务。",
+      "reason": "Record current local-loading priority and link its focused design; retain completed repairs and defer R61.",
       "decision": "docs/development/code-slimming-program.md#目标与边界"
     },
     {
@@ -1739,10 +1743,10 @@
     {
       "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
-      "before": "a95b5c3792b484e939768721c41562f5517e136ff8fe4353bdaa7c1b0e068e69",
-      "after": "d2245ec6a76cad4bb927ee67240126bd3fbf28e2d4489e6cd8c94494b553379c",
+      "before": "d2245ec6a76cad4bb927ee67240126bd3fbf28e2d4489e6cd8c94494b553379c",
+      "after": "922f6002c2b8b30c84f69d1c8a1f426fdac96d708fc9b64f3e8fe83e651e66e4",
       "owner": "repository-maintainer",
-      "reason": "Record R60 single-pass card preparation, actual native/build evidence and R61 static candidate; add requested pre-batch overview to prevent repeating completed or rejected work.",
+      "reason": "Record current local-loading priority and link its focused design; retain completed repairs and defer R61.",
       "decision": "docs/development/code-slimming-program.md#目标与边界"
     },
     {
@@ -1978,6 +1982,15 @@
       "owner": "scene-text-offscreen-source",
       "reason": "替换/合并现源颜色合同与证据导航，新增首真实RT文字RGB/alpha能力事实；黑放射退出队列、扫描归3586308277，不新增重复现役问题清单或扩旧计数。",
       "decision": "docs/scene/history/text-effect-source-rgb-alpha-2026-11-02.md#bounded-result"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/local-library-loading-design.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "ddb92dfc046e95db9465a850ec0162536f939d59ae0c7f9d5b43ab4c6763d868",
+      "owner": "repository-maintainer",
+      "reason": "New focused local-loading design avoids expanding the full 600-line main-window authority; user requested two cross-source loading improvements.",
+      "decision": "docs/development/local-library-loading-design.md#overview"
     }
   ]
 }

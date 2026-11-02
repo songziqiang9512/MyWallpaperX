@@ -9,6 +9,7 @@
       "docs/architecture/technology-stack-boundaries.md",
       "docs/development/apple-silicon-optimization-plan.md",
       "docs/development/code-slimming-program.md",
+      "docs/development/local-library-loading-design.md",
       "docs/development/lock-screen-screensaver-design.md",
       "docs/development/main-window-playlists-redesign.md",
       "docs/development/pixiv-online-browser-design.md",
@@ -204,6 +205,12 @@
       "role": "active-plan",
       "entrypoint": "docs/README.md",
       "retirementCondition": "已证候选按批验收或由用户结束专项后，稳定职责回归原合同，本页归档且退役专项设计登记。"
+    },
+    {
+      "path": "docs/development/local-library-loading-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/development/main-window-playlists-redesign.md",
+      "retirementCondition": "两项本地首显/回访目标由真实启动与滚动验收完成或用户结束后，稳定边界归原source/缓存合同，结算归精简专项并退役本卡。"
     },
     {
       "path": "docs/development/lock-screen-screensaver-design.md",
@@ -5313,10 +5320,14 @@
         "原图预览",
         "界面主体色调",
         "卡片单击",
-        "Pixabay"
+        "Pixabay",
+        "本地资源加载",
+        "启动不可用",
+        "缩略图回访"
       ],
       "documents": [
         "docs/development/main-window-playlists-redesign.md",
+        "docs/development/local-library-loading-design.md",
         "docs/architecture/repository-map.md",
         "docs/architecture/appkit-migration.md",
         "docs/architecture/playback-lifecycle-transaction-design.md"
