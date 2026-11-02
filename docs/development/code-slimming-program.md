@@ -6,12 +6,12 @@
 
 开批速览（每批动手前先读这里，再核 Git 状态；按需查对应 owner 和下文，不顺读全文）：
 
-- 已裁决至R82（R61按优先级后补）。个人设置导入弹窗消失/设置变暗已由 R55（`ad1f3142d`）修复；测试 App 已交付，原配置完整导入仅待用户实测，没有新复现不重新修复、构建或复跑。
+- 已裁决至R83（R61按优先级后补）。个人设置导入弹窗消失/设置变暗已由 R55（`ad1f3142d`）修复；测试 App 已交付，原配置完整导入仅待用户实测，没有新复现不重新修复、构建或复跑。
 - 近期已完成：R54 合并成员查询复用、R57 Web 快照暂存隔离、R58 已取消元数据任务提前退出、R59 成功状态一次发布、R60 在线图片卡片一次装配。详情见下文；已完成项不作为新候选。
 - 保留/拒绝：R55 一次 Save 取消超时尚未归因；R56 绕过 TIFF 的候选因像素/尺寸差异已拒绝。较早 R23/R38/R43 的保护边界仍有效。
 - R62已交付：[本地资源先呈现与缩略图回访](local-library-loading-design.md#overview)。先解决启动短暂不可用和本地网格滚回黑卡，覆盖视频、图片及自建列表；已完成实现、最近门、Steam消费者及签名Debug；保留三项原生限制，真实用户库体感待人工验收。R61冷态导航已完成验证，见下文；不重复本专项。
 
-- 已结 B1–B12 / 原生 UI1–UI9 按[历史记录](../history/cross-topic/code-slimming-b1-b12-ui1-ui9-2026-10-23.md)回查；本页保留当前范围、未解决项和 UI10 已批准设计，不从旧候选续开任务。
+- 已结 B1–B12 / 原生 UI1–UI9 按[历史记录](../history/cross-topic/code-slimming-b1-b12-ui1-ui9-2026-10-23.md)回查；本页保留当前范围、未解决项和 UI10 已批准设计，不从旧候选续开任务。 UI10已结试版/验收见[独立历史](../history/cross-topic/code-slimming-ui10-trials-2026-10-23.md)，批准设计仍留本页。
 
 后续范围（2026-11-02）：按goal持续审查、优化所有非Scene代码及对应分类文档，Scene引擎不修改；现有能力须以原行为门和反例保持，不能用删功能换精简。
 
@@ -22,6 +22,8 @@
 减少没有产品消费者的实现、状态和维护分支，收敛重复计算，保持用户操作、作者内容、持久化、IPC和输出。本文拥有精简候选、分批顺序与验收，引擎职责仍归[技术栈合同](../architecture/technology-stack-boundaries.md)；前批授权、状态和验证只属于当时记录，不自动续开旧候选。
 
 本轮按用户固定流程循环：并行子代理在每份审查任务中携带用户固定prompt，核无功能收益的校验/认证/重复计算/嵌套、持续转发和补丁、过量实现与耦合；主agent审核问题和方案并决定是否修改，子代理实施，主agent复核真实行为/成本证据和最近门后决定窄提交，再开启下一轮。每批报告问题、当前影响、方案、功能变化及下一候选。当前目标授权主agent作修复和本地提交裁决，不授权推送；共享构建、原生窗口和GPU仍串行，其他会话改动保留。
+
+最近文档整理：R83将UI10已结三版试用过程归入历史，6298B连续主载荷和377B原话附注分别逐字保留，两原标题留永久redirect；过期提交安排只作历史，不定义当前授权。批准设计、0.75/neutral约束、退出与R81/R82产品结果保持，R69旧档不动；产品/测试0，无新schema或索引页。仅验证文档载荷/角色/锚点与当前代码指针，不重跑旧原生验收或App，最近产品验证仍为R82。
 
 最近产品验证：R82退役Controller private单消费者enqueue，duplicatePlaylist直接沿原enqueueOperation的FIFO turn建原typed命令并store.apply(epoch)，产品4增10删、净−6，测试净0，无新state/helper/关卡。UUID/date在原位置，名称/排序仍从执行时snapshot取，原reset/admission/发布/错误/undo回执/history/flush保持，非低频复制动作不受影响。原两现役门旧/新85运行事实（27+58）全真且等值，原Store成员观测仍[6,6]；两臂各4进程输入稳定。现门保真实Controller/SQLite/FIFO/reset/删源无幽灵及事务undo回执，非原生UndoManager/UI或真实设置导入验收；无新增计数探针，不称IO/时耗提升。签名Debug28.063秒/5866输入稳定、strict/deep通过，仅原两条C#警告；独立静审接受。现[仓库图](../architecture/repository-map.md)关系入口补命令/回执owner，R55/R62人工和原生边界不变。
 
@@ -57,7 +59,7 @@
 
 前批裁决与待验保留：R54（65522bee6）事务内复用resolved UUID追加位置，25成员/6物理列表的MAX查询25→6仅属连接级计数。R55选择器退出后再显示反馈，原配置完整导入与未归因Save取消超时保持待验。R56拒绝绕过TIFF候选，保留原编码。R57（b761fdb80）独立暂存、原main守卫后rename至原stable，保Scene/编码/copy fallback/所有权；受控5秒utility/文件探针与122项检查、Debug通过，未证自然频率或真实Web/NSWorkspace。R58（9be599202）已取消metadata Task的AV准备1→0，保同步模板和后两异步检查，不当性能/真实UI证明。R59（87c27c3e3）成功尾部一次发布完整状态，54组4→1、216→54，其他阶段相同；保89项、新增6项typed终态/reset回调及20项视口检查通过；原73/73只属reset调用点note。内部同步中间通知明确退出，不承诺任意同步订阅者等价。较早保护边界和精确证据仍归各批记录及提交，不在这里追加过程流水账。
 
-已完成R63（9499365）方法纠偏：[产物保留规则](../../.agents/skills/mywallpaperx-maintainer/references/artifact-governance.md)是证据保留/清理的唯一说明。下一文档候选：按neat-freak核UI10已结验收过程，RO已定位约6KB连续载荷，尚未实施；只归档过程并保原文/永久锚点，不退休批准设计或重复R69旧档，旧试用“仍先不提交”不能续作当前授权。先核当前代码/设计登记和新基线，再跑现archive/role/body门，不因此重跑已结原生取色/App。其他源码后继仍按真实消费者选题，现有保留项不重开。
+已完成R63（9499365）方法纠偏：[产物保留规则](../../.agents/skills/mywallpaperx-maintainer/references/artifact-governance.md)是证据保留/清理的唯一说明。下一候选R84：Overlay静态gain准备由逐帧移至配置，两个枚举存储替换为单Float，私有两文件已准备，未执行/提交；先做原/新同CPU夹具逐位对照，不改Scene/音频consumer接口，不启动设备或据静态30Hz关系认领能耗/FPS。现有保留与人工边界不重开。
 
 近期审查保留项（本轮未修改，验证范围见对应批次；不因压缩上下文重复开批）：
 
@@ -134,33 +136,16 @@ R23（4ba9e1b23起）：复核原生自动sender；当前原夹具编译无诊�
 
 过渡只交系统Core Animation插值backgroundColor，约0.75秒ease-in/ease-out；新目标从presentation当前呈现色衔接，不从模型终点重启，不截屏、不复制内容、不加玻璃/定时器/逐帧取色。clear与新图可相继重定向同一动画，异步加载和快速A→B→C仍校验当前source/revision/generation；失败/空页淡出回系统底色。隐藏/卸载、减少透明度/提高对比立即clear并停止自有动画；减少动态效果时即时投影。DisplayOptions是唯一系统策略读取leaf，默认实时读NSWorkspace，测试分别覆盖动画和即时两支。
 
-验收在保留既有69项取色/源检查及原网格断言的基础上，补无新增subview/原命中、presentation中间值、动画重定向、A→B→C迟到、空/隐藏取消及深浅/辅助功能恢复；独立对抗复审后增量构建重启试用，仍先不提交。以下首版运行证据仅描述调整前版本，不冒充本轮动画或层级合并验收。
+验收在保留既有69项取色/源检查及原网格断言的基础上，覆盖无新增subview/原命中、presentation中间值、动画重定向、A→B→C迟到、空/隐藏取消及深浅/辅助功能恢复。已结试版与限定证据见下方历史记录；原试用安排不定义当前授权，也不代替当前能力验证。
 
 ### 第十批二次试用调整（当前）
 
 用户反馈过渡偏快且侧栏点击出现强调色→灰色切换。本轮延长同一背景动画至0.75秒，不改alpha、最终颜色、视图层级及快速重定向；侧栏只把NSTableRowView.isEmphasized归一为false，setter仍转发super，选中底色、圆角及子视图背景适配继续由原生super.drawSelection提供。原生中性灰选中在侧栏/内容焦点间保持，键盘焦点与页面导航照常，不恢复手写路径/固定颜色，也不新增抢焦点或延迟转移逻辑。[原生emphasis语义](https://developer.apple.com/documentation/appkit/nstablerowview/isemphasized)决定alternate/secondary颜色；本轮只固定后者。
 
-验证保留既有断言：controller50/50、六投影21/21、真实窗口动画28/28通过，在原0.44秒结束点仍有中间色、0.82秒达到终态；原生UI177项与toast42项通过，原163项完整保留，新增深浅外观下强调态写入、内容/侧栏焦点往返及row.cacheDisplay绘制一致性。初次漏同步一处旧0.38秒时长期望后已改为0.75并复验，未放宽断言。cacheDisplay不能还原系统材质合成后的底色（拖拽隐藏前后PNG同样不显差异），不据此宣称最终选中色/文字肉眼验收。独立代理复核35个owned SHA及8路径增量，无产品/断言剩余问题。
+已结的0.75秒二次试用、0.38秒平滑版和首版验收见[历史记录](../history/cross-topic/code-slimming-ui10-trials-2026-10-23.md)，不代表当前源码重新验收。
 
-完整最新工作区冻结快照包含并行Scene未提交输入，复用唯一缓存增量Debug构建21.77秒成功，27个Mach-O同Team/arm64、原权限及strict deep签名通过。新包`.artifacts/appkit-native-ui-b10-soft-20261023/Debug/MyWallpaperX.app`已启动；实际AX显示视频列表、200pt侧栏及网格焦点，主进程/SteamService/Scene daemon均核对新包绝对路径，4362项产品输入与构建快照一致。窗口输入/截图自动化连续超时，旧包精确PID正常TERM退出后才启动新包；不改产品焦点逻辑、不把启动等同最终合成画面验收。用户已确认0.75秒过渡与原生中性选中试用通过；未外推到整窗浅色/所有媒体或性能。旧0.38秒测试App退出且确认无句柄后清理，仅留当前包、必要收据与一份增量缓存。2026-10-23用户验收通过并授权提交本批UI；只纳入已复审owned路径，共享预算仅暂存UI叶，完整保留并行Scene提交与未提交改动，不推送。
-
-### 第十批平滑版验收（0.38秒试用记录）
-
-原48检查全部迁移保留，现controller50/50、六首项projection21/21、真实窗口动画27/27通过，原生UI等价2测试通过；两独立代理复审32路径冻结SHA无剩余发现。动画门读取真实CALayer.presentation中间值，覆盖异步接色、快速重定向、同目标不重启、隐藏/辅助功能即时取消和无新增view/layer/opacity/命中变化。约0.44秒可见色已严格到目标，动画metadata自然回收另外有界验证；本机最小native探针证明同turn重定向可延后key回收，不为此添加产品清理timer。
-
-平滑版基于包括并行Scene80363360f等最新提交的完整工作区快照，增量Debug构建21.58秒成功且无warning/error，原权限及27个arm64/同Team Mach-O strict deep签名通过，2.11.0(283)已启动并保持供用户测试。实际视频→图片→视频入口命中和取色跟随正常；两页2360×1520截图保留200pt侧栏和五列，三个背景取样点与首版NSBox稳态色完全相同（主背景53/45/32、侧栏63/53/41和61/53/42），图片页变为冷色42/43/47及50/51/55。主背景和侧栏现在只有现有根layer承担新增染色，系统底色和原生sidebar材质仍是原基础；[Core Animation颜色插值](https://developer.apple.com/documentation/quartzcore/cabasicanimation)只作用backgroundColor，不淡化面板内容。
-
-最新包/有期限报告在`.artifacts/appkit-native-ui-b10-smooth-20261023`；首版B10 staged App确认无进程/句柄后移除，保留必要历史收据/截图，临时native探针脚本及完整成功日志已清理，唯一增量缓存仍`/private/tmp/mwx-native-ui-b2-jk1i6go3`。本轮没有新工作树、暂存、提交或推送；保留全部并行改动。实际整窗仅覆盖当前深色视频/图片代表页，隔离原生动画证据不等于整窗浅色或所有媒体/网络验收，不宣称FPS/能耗提升，最终柔和程度继续由用户试用判断。
-
-### 第十批首版实现与本机验收（过渡调整前）
-
-14个产品路径实现六类最终首项source、两浏览wrapper可见状态转发、DetailHost当前挂载绑定与Shell唯一被动背景。复用Video/SIL/在线/Steam原缩略图consumer，新增Video优先级参数默认仍visible，本功能请求prefetch；Steam仍通过真实PreviewState走local→remote→video静态fallback。Core Image平均色后台计算，有限缓存只存24个小颜色，普通滚动、选中和下载进度不重算。系统辅助功能策略有单一默认读取点，减少透明度/提高对比时停止本功能消费并回原底色。
-
-两独立代理审查全部31个owned文件并复审冻结SHA；修复Optional URL解包、owner销毁取消、辅助功能开启下测试误依赖采样和SIL fixture精确门登记。旧断言无删除/放宽。14个focused tests通过，其中新controller48/48、六投影21/21，既有Steam完整容器77/77、合并快照28/28、UI投影52/52保留；新门真实编译source/controller/sampler、六publish，Video另执行真实过滤去重，cache/network叶用记录边界。文档/设计52项、验证选择68项通过，owned31路径无unmapped，未扩Scene source root或豁免。
-
-以包含并行Scene最新提交的当前全部工作区快照复用唯一缓存增量Debug构建，24.1秒成功且无编译warning/error，三个新Swift文件进入真实target；保持原App/SteamService权限，27个Mach-O均arm64/同Team，strict deep签名通过。2.11.0(283)测试App已启动，14产品文件与构建快照哈希完全相同。实际深色视频页前后截图均2360×1520，侧栏200pt、首行五列和卡片位置不变；黄色首图让主背景从RGB(29,27,28)轻染为(53,45,32)，侧栏同向轻染，原生工具栏玻璃自然映射下方背景，控件强调色仍系统提供。视频排序菜单切文件名称后真实首项已改变；随后观察到窗口已在Steam下载页，停止自动输入，不加入焦点补偿。
-
-完整整窗肉眼验收目前仅深色视频代表页；深浅外观、辅助功能、迟到、隐藏/销毁、命中/布局与系统按钮强调色有隔离原生harness证据，不升级为六模块所有媒体/网络、真实整窗浅色或FPS/能耗证明。试用包与有期限报告保留在`.artifacts/appkit-native-ui-b10-20261023`，唯一连续增量缓存仍`/private/tmp/mwx-native-ui-b2-jk1i6go3`；旧translucent staged App确认无进程/句柄后移除，临时编辑脚本和完整成功构建日志已清理，仅留收据/末尾。没有新工作树，本批无暂存、提交或推送，等待用户视觉反馈。
+<a id="第十批平滑版验收038秒试用记录"></a> [归档记录](../history/cross-topic/code-slimming-ui10-trials-2026-10-23.md#第十批平滑版验收038秒试用记录) <!-- archive-redirect -->
+<a id="第十批首版实现与本机验收过渡调整前"></a> [归档记录](../history/cross-topic/code-slimming-ui10-trials-2026-10-23.md#第十批首版实现与本机验收过渡调整前) <!-- archive-redirect -->
 
 ## 退出
 

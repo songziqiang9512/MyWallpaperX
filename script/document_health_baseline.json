@@ -33,8 +33,8 @@
       "bytes": 116594
     },
     "docs/development/code-slimming-program.md": {
-      "lines": 142,
-      "bytes": 28748
+      "lines": 125,
+      "bytes": 23087
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -1444,6 +1444,18 @@
       "originalBodySHA256": "c6b98910187fbf846ec8bb61e2a1146234bbccfce0cb7f3c44c8ce1a9726e1eb",
       "originalLines": 381,
       "originalBytes": 85679
+    },
+    {
+      "source": "docs/development/code-slimming-program.md",
+      "archive": "docs/history/cross-topic/code-slimming-ui10-trials-2026-10-23.md",
+      "anchors": [
+        "第十批平滑版验收038秒试用记录",
+        "第十批首版实现与本机验收过渡调整前"
+      ],
+      "preservedBodySHA256": "33dbdd85f97e16b393928dc6dd9064438fd344d031ad121b2cc2bd9874a9bf33",
+      "originalBodySHA256": "33dbdd85f97e16b393928dc6dd9064438fd344d031ad121b2cc2bd9874a9bf33",
+      "originalLines": 22,
+      "originalBytes": 6298
     }
   ],
   "snapshots": [
@@ -1777,10 +1789,10 @@
     {
       "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
-      "before": "3a0bacabaf0a02b59802163553ac2bdd77f6ff5dcd64d407db5140f70dadea7a",
-      "after": "110efd7f3541e97cae413771838d15bb84a14d2f9e21da45171c623ad914ce4d",
+      "before": "110efd7f3541e97cae413771838d15bb84a14d2f9e21da45171c623ad914ce4d",
+      "after": "294a6c40219a3a019c4687e2fc9781806bad4a5d6ddcb368b478988bf3bdf151",
       "owner": "repository-maintainer",
-      "reason": "Close R82 single-consumer forwarding retirement with original real queue/Store/undo gates and signed build; keep R81 bounds and distinguish pending UI10 process-only archive.",
+      "reason": "Move completed UI10 trial evidence to one byte-preserved history payload and retire expired trial instructions to an independently identified note; retain approved design, permanent anchors, R81/R82 product results and all unresolved limits.",
       "decision": "docs/development/code-slimming-program.md#目标与边界"
     },
     {
@@ -2042,6 +2054,15 @@
       "after": "4652377398fef9caea10cb7a418f0cf93cf3347597aa74e69205ec617d45d763",
       "owner": "repository-maintainer",
       "reason": "Document demand-scoped Music supplement artwork preparation in the existing shared-media source authority; keep system selection, complete fallback, identity and authorization contracts.",
+      "decision": "docs/development/code-slimming-program.md#目标与边界"
+    },
+    {
+      "section": "archives",
+      "path": "docs/history/cross-topic/code-slimming-ui10-trials-2026-10-23.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "1263bdd9e491f058ef49793f1a296935f33d6fa5dc83315d86e75604a3e99a06",
+      "owner": "repository-maintainer",
+      "reason": "Preserve the original 22-line UI10 trial payload and both original heading anchors; keep the 377-byte historical instruction note outside the payload with its own SHA, without changing R69 history or claiming current runtime verification.",
       "decision": "docs/development/code-slimming-program.md#目标与边界"
     }
   ]
