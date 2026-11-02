@@ -6,8 +6,8 @@
 
 开批速览（每批动手前先读这里，再核 Git 状态；按需查对应 owner 和下文，不顺读全文）：
 
-- 已裁决至R102（R61按优先级后补）。个人设置导入弹窗消失/设置变暗已由 R55（`ad1f3142d`）修复；测试 App 已交付，原配置完整导入仅待用户实测，没有新复现不重新修复、构建或复跑。
-- 近期已完成：R102 状态栏速率字符串局部复用；R101 媒体需求只准备布尔值；R99 Web 零消费者API尾链退役；R100 将 R89–R99 非连续十段已结摘要归入[历史记录](../history/cross-topic/code-slimming-r89-r99-closeouts-2026-11-03.md#completed-r89-r99)，保原载荷与验证上限。较早批次沿历史入口回查；已完成项不作为新候选。
+- 已裁决至R103（R61按优先级后补）。个人设置导入弹窗消失/设置变暗已由 R55（`ad1f3142d`）修复；测试 App 已交付，原配置完整导入仅待用户实测，没有新复现不重新修复、构建或复跑。
+- 近期已完成：R103 网格顺序比较退出临时数组；R102 状态栏速率字符串局部复用；R101 媒体需求只准备布尔值。R89–R99 结案见[历史记录](../history/cross-topic/code-slimming-r89-r99-closeouts-2026-11-03.md#completed-r89-r99)，保原载荷与验证上限；已完成项不作为新候选。
 - 保留/拒绝：R55 一次 Save 取消超时尚未归因；R56 绕过 TIFF 的候选因像素/尺寸差异已拒绝。较早 R23/R38/R43 的保护边界仍有效。
 - R62已交付：[本地资源先呈现与缩略图回访](local-library-loading-design.md#overview)。先解决启动短暂不可用和本地网格滚回黑卡，覆盖视频、图片及自建列表；已完成实现、最近门、Steam消费者及签名Debug；保留三项原生限制，真实用户库体感待人工验收。R61冷态导航已完成验证，见下文；不重复本专项。
 
@@ -25,7 +25,9 @@
 
 最近文档整理：R100将R89–R99非连续十段已结摘要逐字移入历史，仅可逆重定位一条相对链接；现役范围、待验、保留项和永久入口不变。产品/测试0；本批只核文档载荷、角色、预算与引用，不复验旧产品。
 
-最近产品验证：R102状态栏applyMetrics原为可见文本/AX重复取netUpString和netDownString；改两个局部let复用，产品6增4删净+2、测试0，无新state/helper/cache，值类型输入、格式算法及采样owner不改。源码getter读取4处→2处，仅面板刷新时的小收益，不称采样/IO或实测formatter次数、时耗/能耗。旧/新现役面板门编完整真实四文件和原动作片段，均6306输入/2实际进程稳定、PASS标记同且无约束冲突诊断；SystemStats为固定字符串叶，未测完整App计时器接线或真实格式化成本。签名Debug23.621秒/5867输入稳定、strict/deep过，仅原两C#警告，独立静审接受；UI文案、AX上传/下载对应、alignment和布局保持；仅两局部声明及四插值引用改变，不涉及Scene引擎/接口。
+最近产品验证：R103网格update原双map reference数组仅供orderChanged Bool；改count差异短路加elementsEqual原reference ==，产品2增1删净+1、测试0，无新state/helper。保provider+原始UTF8、位置/重复/空/数量与同序metadata语义；真实动画diff数组、queued/provider替换、gesture/viewport其他字节保。相同原animations模式旧/新各13个运行事实全真且解析JSON严格等值，各6306源码输入/2实际子过程稳定，无约束冲突；真实Controller的动画回调与Reduce Motion受控，不外推全交互/拖拽、R23宿主或性能。旧臂含共享锁等待，不用墙钟比速度。签名Debug25.517秒/5867输入稳定、strict/deep过，仅原两C#警告，独立静审接受。只认入口显式两数组退出，不称实际分配/FPS/时耗，原R62待验及三项宿主限制不变。
+
+前批R102状态栏applyMetrics原为可见文本/AX重复取netUpString和netDownString；改两个局部let复用，产品6增4删净+2、测试0，无新state/helper/cache，值类型输入、格式算法及采样owner不改。源码getter读取4处→2处，仅面板刷新时的小收益，不称采样/IO或实测formatter次数、时耗/能耗。旧/新现役面板门编完整真实四文件和原动作片段，均6306输入/2实际进程稳定、PASS标记同且无约束冲突诊断；SystemStats为固定字符串叶，未测完整App计时器接线或真实格式化成本。签名Debug23.621秒/5867输入稳定、strict/deep过，仅原两C#警告，独立静审接受；UI文案、AX上传/下载对应、alignment和布局保持；仅两局部声明及四插值引用改变，不涉及Scene引擎/接口。
 
 前批R101共享媒体producer的private consumers原compactMap→Set只供八处非空判断；改computed hasMediaDemand Bool，产品9增11删净−2、测试0，无新状态/helper。八处（6直接/2 self）仍原位新鲜读取，保同步publish重入、异步epoch/selection/授权、UUID/lease/fanout、web artwork及全部Scene/Web接口；不触Scene引擎。相同原provider完整class旧/最终各33方法、34模式×DEBUG/优化-O共68次用例，stdout无需归一化逐项全等，各6306源码输入/70实际子过程稳定；完整真实Service/Store/WebArtwork/Palette配受控平台来源和偏好，不称真实权限/音乐App或引擎渲染。Root分组计数误判导致的误标旧码臂已中止、排除并清理，正式最终臂绑候选SHA；未计作新码通过。签名Debug26.591秒/5867输入稳定、strict/deep过，仅原两C#警告，独立静审接受。只认显式中间集合准备退出，不认领实际分配、时耗或能耗。
 
@@ -48,6 +50,7 @@
 - App控制层只读保留：Inspector已去无关scroll/zoom并在无详情/预览时退出准备；关系/catalog/选择/播放/可用性仍各有消费者，不拼跨语义canonical map。状态栏仅开窗订阅并合并willSet，封面按来源/token去重，两秒指标有UI消费；设置回声位与互斥启动菜单装配保。所查Inspector metadata无uniqueKeys initializer，不把其他Grid/Web命中外推。本轮仅静审这些旁支，未重跑其原生门。
 - 设置/初始化：双向同步回声位解决Published willSet，登录项查询已有Key周期缓存；SIL相等补丁同步ACK及恢复清理开关有真实事务消费者，保留。App启动路径重复组装少量URL不足以支持新增缓存或状态。
 - Query目录计数已一次分组；单次过滤不另加索引，目录/Artwork有不同搜索和更新职责。Steam主产品协议只Parse一次，Clone服务JSON文档释放后的所有权，Writer只Serialize一次且options已复用，保留。R93只读核：PayloadULongArray已由39d441528收敛为一次TryParse，字符串中间数组仍复用入口形状过滤；请求批次的低收益不足以支持另铺解析分支或收紧ID准入。DownloadProgressState的chunk进度先做原250ms合并，再为实际发布建Snapshot；阶段与末chunk仍直接发送。发送端消费六字段，计数/sequence锁边界保留，不合入writer。仅静审，未重跑现役C#离线门或认领网络sender全字段/时耗验证。
+- Web属性批量只读保留：Editor每轮一次descriptor/effective values供筛选、各row值与选项；currentValue属单项delta分支（全量已提前return），非逐row decode。author await后一次current values供payload/grants；解析cache只存baseline/roots，不吞当前override/bookmark许可。preview不重建，commit下一turn需读新覆盖；reset独立于当前conditions可达，不从visible rows推导。此片只静审，未重跑属性展示/author门或认领defaults真实次数/完整集成。
 - Web响应reader只读保留：全量路径消费HTML/CSS转换、小型GET与转换后HEAD长度；常规GET Range虽走stream，TCP HEAD仍可把按实际FD识别的非nil range交给reader。直接readToEnd会改变该边界的206长度；不为删少量分支另加HEAD补丁。HTML→binary换型加HEAD Range仅静态可达，本轮未专门运行复现或量频；不借R95三门称该组合已验。
 - 非Scene枚举只读复核：Video导入/内置库的预取键、OnlineImage原图清理日期均有消费者；SIL递归nil预取省工证据不足，维护路径浅层枚举无频度证据，不另开批或新增测试。
 - 文件/版本只读复核：删除prepare与unlink分属捕获/实际删除时点，inode/device、fsync结果、transfer取消/单回调/delegate存活有真实消费者；版本门核不同发布产物和远端时点，prepared build已复用，App仅消费Sparkle版本展示。保留，本片未跑门；不把发布成本说成启动热路径。

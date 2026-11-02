@@ -208,7 +208,8 @@ import AppKit
                 scrollOffset: Double? = nil, scrollAtTop: Bool? = nil, resetScroll: Bool = false,
                 header: Header? = nil, footerText: String? = nil) {
         loadViewIfNeeded()
-        let orderChanged = self.items.map(\.reference) != items.map(\.reference)
+        let orderChanged = self.items.count != items.count
+            || !self.items.elementsEqual(items, by: { $0.reference == $1.reference })
         let zoomChanged = self.preferredColumns != preferredColumns
         let headerChanged = headerContent?.view !== header?.view
         let footerChanged = footerLabel.stringValue.isEmpty != (footerText?.isEmpty != false)
