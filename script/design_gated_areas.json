@@ -1755,11 +1755,11 @@
     },
     {
       "id": "local-library-loading",
-      "title": "本地索引先呈现与缩略图回访",
+      "title": "本地索引先呈现与连续缩略图预取",
       "owner": "Existing source indexes, App Catalog and thumbnail providers",
       "status": "approved",
       "designDoc": "docs/development/local-library-loading-design.md",
-      "design_notes": "用户2026-11-02两项本地加载体验。原source模型无IO首投影、后台原generation对账；原缩略图cache暖像素优先、生产缓存/真实调度回访证据后裁决有限预取与预算。无第二Catalog持久索引或播放权限。设计状态不冒认实施或运行验收。",
+      "design_notes": "R62原索引无IO首发/后台原generation对账已结。R106在原viewport/Adapter/cache内按实际clip最近位移给前方2:1有界覆盖，local仍cap96、remote/独立caller默认保；真实帧0/1残余、完整照片目标未验收，见#continuous-scroll。无新clock/owner或播放权限；先实测再裁决分级像素/组件替换。",
       "matchPatterns": [
         "MyWallpaperX/App/WallpaperLibraryCatalogController.swift",
         "MyWallpaperX/App/WallpaperLibraryWorkspace.swift",
@@ -1781,7 +1781,8 @@
         "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+Downloads.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+LibraryContent.swift",
         "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopItemDetailSheet.swift",
-        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopWebValidationModels.swift"
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopWebValidationModels.swift",
+        "MyWallpaperX/Shared/UI/GridThumbnailPrefetchDemand.swift"
       ],
       "contentPatterns": []
     }

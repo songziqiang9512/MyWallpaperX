@@ -598,13 +598,18 @@ import AppKit
             else { invalidateAccessibilityActivation(cell) }
             setCellVisible?(cell, visible)
         }
-        let offset = viewport.minY
-        let direction = lastViewportOffsetY.map { offset == $0 ? 0 : offset > $0 ? 1 : -1 } ?? 0
+        // Scroll distance comes from clip bounds; intersection may be null.
+        let offset = scrollView.gridViewportRect.minY
+        let deltaY = lastViewportOffsetY.map { offset - $0 } ?? 0
+        let direction = deltaY == 0 ? 0 : deltaY > 0 ? 1 : -1
         lastViewportOffsetY = offset
         let metrics = WallpaperLibraryGridMetrics(clipWidth: scrollView.contentView.bounds.width, preferredColumns: preferredColumns)
+        let recentCrossedItems = Int(ceil(abs(deltaY) / (metrics.coverSide + WallpaperLibraryGridMetrics.verticalSpacing)))
+            * metrics.columns
         let nearby = GridThumbnailPrefetchDemand.indices(visibleIndices: indices, itemCount: items.count,
             neighborLimit: page?.isRemoteBrowse == true ? min(24, metrics.columns * 2)
-                : min(96, max(metrics.columns * 2, indices.count * 2)), direction: direction)
+                : min(96, max(max(metrics.columns * 2, indices.count * 2), recentCrossedItems * 3)), direction: direction,
+            forwardBias: page?.isRemoteBrowse == true ? 1 : 2)
         hasViewportDemand = !indices.isEmpty || !nearby.isEmpty
         onViewport?(indices.map { items[$0] }, nearby.map { items[$0] })
     }

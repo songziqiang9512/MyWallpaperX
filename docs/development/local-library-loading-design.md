@@ -3,9 +3,26 @@
 <!-- document-role: active-plan -->
 
 <a id="overview"></a>
-复核日期：2026-11-02。负责人：repository-maintainer。入口：[主界面专项](main-window-playlists-redesign.md#73-页面命令和快照)。
+复核日期：2026-11-03。负责人：repository-maintainer。入口：[主界面专项](main-window-playlists-redesign.md#73-页面命令和快照)。
 
 2026-11-02用户目标：打开App先显示上次本地内容，目录检查在后台更新；本地视频、图片和自建列表快速双向滚动时，已取得缩略图优先复用。该卡同时覆盖列表内已入库Steam/Pixabay/在线图片的本地记录，在线浏览预算和播放引擎保持。状态：R62实现、最近行为门和签名Debug已完成，保留文末三项原生验证限制；真实用户库人工体验待验。R61普通精简候选后移。
+
+<a id="continuous-scroll"></a>
+## R106：按最近位移准备前方缩略图
+
+2026-11-03：完成原Grid/Adapter预取owner内的有界改善，**完整照片级连续目标仍未验收**。R62启动先呈现保持，不重做；本批不改Scene引擎、源数据库、缓存发布顺序、UI或鼠标/键盘业务。
+
+**根因与选择。** 真实Grid/Adapter/SIL的160张不同色PNG，在盘暖、decoded LRU已清条件下取到合成黑卡。旧时线86–89仅在约135ms进入可见后才请求，派生图约138ms就绪、主回调约150ms；原viewport约83→132ms已跨过前方20项覆盖。没有再次进入原源解码，不把它误判为反复抽原图或语言问题。Apple的[PhotoKit预热合同](https://developer.apple.com/documentation/photos/phcachingimagemanager/startcachingimages%28for%3Atargetsize%3Acontentmode%3Aoptions%3A%29?language=objc)要求匹配显示参数并复用ready图；PHAsset不替代本应用文件模型。[AppKit预取](https://developer.apple.com/documentation/appkit/nscollectionviewprefetching)在本输入的只观测臂贴近实例化才通知，没有前瞻收益，故保原owner。必要时可换组件/架构/语言；当前公开资料与实测足以定位，无需Photos二进制研究。
+
+**最终数据流。** 原clip滚动位置→复用lastViewportOffsetY计算最近跨行项数→本地邻居取原两屏下限与3倍最近跨行项数的较大者、仍cap96→纯indices算法按已知方向2:1距离权重排队→原onViewport/Adapter/cache。约2份最近位移留在前方，余1份在身后；方向未知对称，首尾不足由另一侧补齐。位移读真实clip矩形，实际可见项仍用collection交集，避免空交集无穷坐标转Int。没有新clock、字段、owner或并行预取链；退出原每步临时候选数组。独立Pixabay/Steam caller和统一Grid远程页保默认对称/原24上限，30ms、可见优先、取消、原资源身份与decoded预算保持。
+
+**成本与退出。** 高速时邻居可从通常40增加至96，会增加有界提前工作与淘汰压力，不声称无成本。一次同轨迹时线两臂均100次派生解码、0次源重抽；文件检查115→100、provider调用1295→1339，属于该轨迹计数，不是CPU/FPS/能耗结论。缺失/损坏仍沿原反馈和重建，用户媒体只读，不改播放许可。纯隐藏暖图补参、全局提前image回调、main.async替代30ms、直接替换SDK及单独2:1原预算方案均未采纳；raw/动画需在静态成功回调前可复用，不能为早交图拆坏原发布关系。
+
+**真实验证及上限。** 共用20点SCK own-window帧记录，7/10/16ms逐行往返及快折返，旧版两轮186/165帧中6/1帧卡内采样落背景；自适应189/184帧中0/1帧。只重分原预算的候选0/5不稳定，未采用。decoded-warm两臂各182帧均0背景点；每臂504次对象采样/10080项，源解码增量0。点采样与有限PNG不覆盖所有像素、边角、物理scanout或FPS。残余自适应frame17底沿150/152/153/154：显示前约8ms的willDisplay仍无图，显示后2ms才采到图；尚无证据证明已绑定但未draw，不能报空卡全消失。
+
+最近门：真实Grid几何/方向/窗口租约/空库→单项→完整恢复30事实、真实缓存/磁盘/HTTP返回52事实全过。旧ReturnReuse叶遗漏真实Web enum的Codable仅在测试装配补齐，首编译失败原样保留；产品Model/flags未改。6306输入与实际编译输入稳定，最终签名Debug24.764秒/5867输入稳定、strict/deep过，无Swift新警告，仅原CS0665/CS8603。R62旧hover/key-sheet/拖拽采样限制不重跑、不冒充通过。
+
+**下一验收。** 优先补残余晚交付时点及真实本地视频、图片/自建混合列表、超驻留与压力后的连续帧；再核Steam预热/显示尺寸不一致、无封面视频fallback排队。真实大图库/触控板、点击双击/播放/拖拽和整App能耗待人工/代表运行。保持原身份/clear撤权与单一缓存owner；若改成分级像素或prepared-view需求，先证明缺口并定义旧链退出。原[主界面设计](main-window-playlists-redesign.md#73-页面命令和快照)继续拥有页面交互。
 
 **修复前已证断点。** Workspace在来源Catalog尚空时投影持久关系，Query将缺行当成unavailable；Video/SIL原索引读到后，Catalog仍等待全批fileExists/isReadable才首发。SIL启动还在主线程逐项清理缺失文件。Video缩略图暖命中先排串行路径检查再回主线程，现门只检查最终有图，未证明复用当帧；SIL已同步暖命中，其黑卡原因需区分容量/压力、复用、真实冷解码。当前预取中段通常仅前后各一行，不把这一几何事实冒认为卡顿时长。
 

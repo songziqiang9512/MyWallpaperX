@@ -76,13 +76,32 @@ private final class ViewportCell: NSCollectionViewItem {
         let last = emissions.last!
         let nativeIndices = last.0.compactMap { ref in items.firstIndex { $0.providerReference == ref } }
         let localNearby = Set(last.1)
-        checks["images-prepares-one-visible-window-before-and-after"] =
-            (nativeIndices.first! - nativeIndices.count..<nativeIndices.first!).allSatisfy { localNearby.contains(items[$0].providerReference) }
-            && (nativeIndices.last! + 1...nativeIndices.last! + nativeIndices.count).allSatisfy { localNearby.contains(items[$0].providerReference) }
-            && localNearby.count <= 96 && localNearby.count == last.1.count && Set(last.0).isDisjoint(with: localNearby)
-        let expectedNearby = GridThumbnailPrefetchDemand.indices(visibleIndices: nativeIndices,
-            itemCount: items.count, neighborLimit: last.1.count, direction: 1).map { items[$0].providerReference }
-        checks["downward-scroll-prioritizes-forward-neighbors-with-original-algorithm"] = last.1 == expectedNearby
+        let localBefore = localNearby.filter { Int($0.sourceID)! < nativeIndices.first! }.count
+        let localAfter = localNearby.filter { Int($0.sourceID)! > nativeIndices.last! }.count
+        checks["images-large-jump-prefetch-reaches-local-cap-with-forward-bias"] =
+            nativeIndices.count == 20 && localNearby.count == 96 && localNearby.count == last.1.count
+            && localAfter >= localBefore * 2 && localAfter <= localBefore * 2 + 2
+            && (nativeIndices.first! - localBefore..<nativeIndices.first!).allSatisfy { localNearby.contains(items[$0].providerReference) }
+            && (nativeIndices.last! + 1...nativeIndices.last! + localAfter).allSatisfy { localNearby.contains(items[$0].providerReference) }
+            && Set(last.0).isDisjoint(with: localNearby)
+        checks["downward-scroll-starts-with-nearest-forward-neighbor"] = last.1.first == items[nativeIndices.last! + 1].providerReference
+        let beforeReverse = emissions.count
+        let reverseY = layout.layoutAttributesForItem(at: IndexPath(item: index - columns, section: 0))!.frame.minY + 10
+        controller.scrollView.contentView.scroll(to: NSPoint(x: 0, y: reverseY))
+        let reverseGeometry = expectedVisible()
+        checks["reverse-scroll-refreshes-actual-local-viewport"] = wait { emissions.count > beforeReverse && emissions.last?.0 == reverseGeometry }
+        let reverse = emissions.last!
+        let reverseIndices = reverse.0.compactMap { ref in items.firstIndex { $0.providerReference == ref } }
+        let reverseNearby = Set(reverse.1)
+        let reverseBefore = reverseNearby.filter { Int($0.sourceID)! < reverseIndices.first! }.count
+        let reverseAfter = reverseNearby.filter { Int($0.sourceID)! > reverseIndices.last! }.count
+        checks["upward-scroll-restores-two-screen-budget-and-reverses-leading-share"] =
+            reverseIndices.count == 20 && reverseNearby.count == 40 && reverseNearby.count == reverse.1.count
+            && reverseBefore >= reverseAfter * 2 && reverseBefore <= reverseAfter * 2 + 2
+            && (reverseIndices.first! - reverseBefore..<reverseIndices.first!).allSatisfy { reverseNearby.contains(items[$0].providerReference) }
+            && (reverseIndices.last! + 1...reverseIndices.last! + reverseAfter).allSatisfy { reverseNearby.contains(items[$0].providerReference) }
+            && Set(reverse.0).isDisjoint(with: reverseNearby)
+            && reverse.1.first == items[reverseIndices.first! - 1].providerReference
         let beforeRemote = emissions.count
         update(page: .wallhaven); spin()
         controller.scrollView.contentView.scroll(to: NSPoint(x: 0, y: y))
@@ -169,6 +188,34 @@ private final class ViewportCell: NSCollectionViewItem {
             }
         }
         checks["shared-native-grid-resize-zoom-and-both-scroller-styles-fit-real-clip"] = resizeAndZoom
+        let beforeEmpty = emissions.count
+        controller.update(page: .images, items: [], selection: controller.selection, preferredColumns: 6,
+            permitsDragging: false, scrollAnchor: nil)
+        replacement.contentView?.layoutSubtreeIfNeeded(); controller.collection.layoutSubtreeIfNeeded()
+        checks["attached-empty-grid-revokes-all-visible-and-nearby-demand"] = wait {
+            emissions.count > beforeEmpty && emissions.last?.0.isEmpty == true && emissions.last?.1.isEmpty == true
+        } && controller.view.window === replacement && controller.collection.visibleItems().allSatisfy { ($0 as? ViewportCell)?.visible != true }
+        let emptyRect = controller.collection.gridVisibleRect
+        FileHandle.standardError.write(Data("ADAPTIVE EMPTY rectIsNull=\(emptyRect.isNull) rectIsEmpty=\(emptyRect.isEmpty) clipY=\(controller.scrollView.gridViewportRect.minY)\n".utf8))
+        let beforeShort = emissions.count
+        controller.update(page: .images, items: Array(items.prefix(1)), selection: controller.selection, preferredColumns: 6,
+            permitsDragging: false, scrollAnchor: nil)
+        replacement.contentView?.layoutSubtreeIfNeeded(); controller.collection.layoutSubtreeIfNeeded()
+        checks["attached-single-item-restarts-without-old-neighbor-leases"] = wait {
+            emissions.count > beforeShort && emissions.last?.0 == [items[0].providerReference] && emissions.last?.1.isEmpty == true
+        } && controller.collection.visibleItems().allSatisfy {
+            ($0 as? ViewportCell)?.visible != true || ($0.representedObject as? WallpaperReference) == items[0].reference
+        }
+        let beforeFull = emissions.count
+        controller.update(page: .images, items: items, selection: controller.selection, preferredColumns: 6,
+            permitsDragging: false, scrollAnchor: nil)
+        replacement.contentView?.layoutSubtreeIfNeeded(); controller.collection.layoutSubtreeIfNeeded()
+        checks["attached-full-list-restores-only-current-valid-demand"] = wait {
+            controller.items == items && emissions.count > beforeFull && (emissions.last?.0.count ?? 0) > 1
+        } && emissions.last?.0 == expectedVisible() && emissions.last.map {
+            Set($0.0 + $0.1).isSubset(of: Set(items.map(\.providerReference)))
+                && Set($0.0).isDisjoint(with: $0.1) && Set($0.1).count == $0.1.count && $0.1.count <= 96
+        } == true
         print(String(decoding: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), as: UTF8.self))
     }
 }

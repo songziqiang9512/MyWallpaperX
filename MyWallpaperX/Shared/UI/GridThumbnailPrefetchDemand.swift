@@ -1,25 +1,30 @@
 import Foundation
 
-/// Bounded, nearest-first offscreen demand. The viewport itself is already
-/// served by visible consumers; equal-distance candidates favor travel direction.
+/// Bounded offscreen demand ordered by distance, weighted toward known travel.
+/// Visible consumers serve the viewport; equal scores favor travel direction.
 nonisolated enum GridThumbnailPrefetchDemand {
-    static func indices(visibleIndices: [Int], itemCount: Int, neighborLimit: Int, direction: Int) -> [Int] {
+    static func indices(visibleIndices: [Int], itemCount: Int, neighborLimit: Int, direction: Int,
+                        forwardBias: Int = 1) -> [Int] {
         guard itemCount > 0, neighborLimit > 0 else { return [] }
         let valid = visibleIndices.filter { $0 >= 0 && $0 < itemCount }
         guard let first = valid.min(), let last = valid.max() else { return [] }
         var result: [Int] = []
         let limit = min(neighborLimit, itemCount - (last - first + 1))
         result.reserveCapacity(limit)
-        var distance = 1
+        var before = first - 1, after = last + 1
+        let beforeWeight = direction > 0 ? forwardBias : 1
+        let afterWeight = direction < 0 ? forwardBias : 1
         while result.count < limit {
-            let before = first - distance
-            let after = last + distance
-            let candidates = direction < 0 ? [before, after] : [after, before]
-            for index in candidates where index >= 0 && index < itemCount {
-                result.append(index)
-                if result.count == limit { break }
+            let takeBefore: Bool
+            if before < 0 { takeBefore = false }
+            else if after >= itemCount { takeBefore = true }
+            else {
+                let beforeDistance = (first - before) * beforeWeight
+                let afterDistance = (after - last) * afterWeight
+                takeBefore = direction < 0 ? beforeDistance <= afterDistance : beforeDistance < afterDistance
             }
-            distance += 1
+            if takeBefore { result.append(before); before -= 1 }
+            else { result.append(after); after += 1 }
         }
         return result
     }

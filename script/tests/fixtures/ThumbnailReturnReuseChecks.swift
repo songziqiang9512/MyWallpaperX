@@ -2,7 +2,7 @@ import AppKit
 import ImageIO
 import UniformTypeIdentifiers
 
-nonisolated enum SteamWorkshopWebDependencyStatus: Equatable { case none, available(itemID: String), missing(itemID: String) }
+nonisolated enum SteamWorkshopWebDependencyStatus: Equatable, Codable { case none, available(itemID: String), missing(itemID: String) }
 
 /// Only the service's unrelated catalog owner is substituted. Hydration, image
 /// transport, cache IO, source decisions and presentation state are production.
@@ -194,6 +194,24 @@ nonisolated func checkedPrefetchKey(for url: URL, maxPixelSize: Int) -> String {
         checks["reverseChangesPriorityWithoutChangingBoundedNeighborhood"] = backward == [39,52,38,53,37,54,36,55,35,56,34,57]
         checks["nearestDemandClampsEdgesAndSkipsVisibleGaps"] = GridThumbnailPrefetchDemand.indices(visibleIndices: [-1,0,2,100], itemCount: 5, neighborLimit: 24, direction: -1) == [3,4]
         checks["emptyViewportNeverWarmsCatalog"] = GridThumbnailPrefetchDemand.indices(visibleIndices: [], itemCount: 10_000, neighborLimit: 24, direction: 1).isEmpty
+
+        let biasedForward = GridThumbnailPrefetchDemand.indices(visibleIndices: Array(40...51), itemCount: 100,
+            neighborLimit: 12, direction: 1, forwardBias: 2)
+        let biasedBackward = GridThumbnailPrefetchDemand.indices(visibleIndices: Array(40...51), itemCount: 100,
+            neighborLimit: 12, direction: -1, forwardBias: 2)
+        checks["forwardBiasTwoPreparesEightLeadingAndFourTrailingItems"] = biasedForward == [52,53,39,54,55,38,56,57,37,58,59,36]
+        checks["forwardBiasTwoReversesLeadingSideAndPriority"] = biasedBackward == [39,38,52,37,36,53,35,34,54,33,32,55]
+        checks["forwardBiasTwoKeepsUnknownDirectionSymmetric"] = GridThumbnailPrefetchDemand.indices(
+            visibleIndices: Array(40...51), itemCount: 100, neighborLimit: 12, direction: 0, forwardBias: 2)
+            == [52,39,53,38,54,37,55,36,56,35,57,34]
+        checks["forwardBiasTwoFillsLowerEdgeFromRemainingSide"] = GridThumbnailPrefetchDemand.indices(
+            visibleIndices: [1,2], itemCount: 12, neighborLimit: 6, direction: -1, forwardBias: 2) == [0,3,4,5,6,7]
+        checks["forwardBiasTwoFillsUpperEdgeFromRemainingSide"] = GridThumbnailPrefetchDemand.indices(
+            visibleIndices: [9,10], itemCount: 12, neighborLimit: 6, direction: 1, forwardBias: 2) == [11,8,7,6,5,4]
+        let biasedBounded = GridThumbnailPrefetchDemand.indices(visibleIndices: [3,4], itemCount: 8,
+            neighborLimit: 96, direction: 1, forwardBias: 2)
+        checks["forwardBiasTwoRemainsBoundedUniqueAndOutsideVisibleSpan"] = biasedBounded == [5,6,2,7,1,0]
+            && Set(biasedBounded) == [0,1,2,5,6,7] && biasedBounded.count == 6
 
         let online = item("local-ready", remote.appendingPathComponent("local-ready.gif"))
         let installed = record(online, preview: local)
