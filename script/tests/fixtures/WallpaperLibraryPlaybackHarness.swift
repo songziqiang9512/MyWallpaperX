@@ -386,6 +386,42 @@ struct SteamWorkshopDownloadRecord {
                 && globalReads == 1 && manager.libraryPlaybackSequence.committed?.snapshot.source == .global
             manager.stopCurrentPlayback()
         }
+        for direction in [ManualNavigationDirection.next, .previous] {
+            let unavailable: [WallpaperPlaybackSequence.Entry] = [
+                .init(reference:.init(provider:.steamWorkshop,sourceID:"disabled-prefix"),runtime:nil,isPlayable:false),
+                .init(reference:.init(provider:.steamWorkshop,sourceID:"disabled-suffix"),runtime:nil,isPlayable:false)]
+            let mixed = [unavailable[0],
+                WallpaperPlaybackSequence.Entry(reference:references[.video]!,runtime:.video,isPlayable:true),
+                WallpaperPlaybackSequence.Entry(reference:references[.web]!,runtime:.web,isPlayable:true), unavailable[1]]
+            let cases: [(String, [WallpaperPlaybackSequence.Entry], WallpaperReference?)] = [
+                ("mixed", mixed, direction == .next ? references[.video] : references[.web]),
+                ("empty", [], nil), ("unplayable", unavailable, nil)]
+            for (name, entries, expected) in cases {
+                let(manager,_,_,_)=setup()
+                let initialEpoch=manager.playbackIntentEpoch
+                let input=try WallpaperPlaybackSequence.Snapshot(source:.global,revision:3,entries:entries)
+                var globalReads=0
+                manager.libraryPlaybackSnapshotProvider={ reference,requestedSource,cause in
+                    globalReads += 1
+                    precondition(reference == nil && requestedSource == .global && cause == .manualNavigation)
+                    return input
+                }
+                manager.navigateLibraryPlayback(direction)
+                let key="coldGlobalNavigation-\(direction == .next ? "next" : "previous")-" + name
+                if let expected {
+                    let pending=manager.libraryPlaybackSequence.pending
+                    checks[key] = globalReads == 1 && manager.playbackIntentEpoch == initialEpoch + 1
+                        && pending?.proposal.entry.reference == expected && pending?.proposal.snapshot == input
+                        && pending?.proposal.cause == .manualNavigation
+                        && pending?.ticket == manager.playbackSwitch.pending?.selection.ticket
+                } else {
+                    checks[key] = globalReads == 1 && manager.playbackIntentEpoch == initialEpoch
+                        && manager.playbackSwitch.pending == nil && manager.libraryPlaybackSequence.pending == nil
+                        && manager.playbackSwitch.committed == nil && manager.libraryPlaybackSequence.committed == nil
+                }
+                manager.stopCurrentPlayback()
+            }
+        }
         do {
             let(manager,_,_,_)=setup()
             let reference=references[.video]!

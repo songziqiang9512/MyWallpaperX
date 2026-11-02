@@ -15,8 +15,8 @@ extension WallpaperManager {
         if libraryPlaybackSequence.committed == nil {
             guard libraryPlaybackSequence.pending == nil, playbackSwitch.pending == nil,
                   let snapshot = libraryPlaybackSnapshotProvider?(nil, .global, .manualNavigation), snapshot.source == .global else { return }
-            let playable = snapshot.entries.filter(\.isPlayable)
-            guard let first = direction == .next ? playable.first : playable.last else { return }
+            guard let first = direction == .next ? snapshot.entries.first(where: \.isPlayable)
+                : snapshot.entries.last(where: \.isPlayable) else { return }
             _ = requestLibraryPlayback(reference: first.reference, from: snapshot, cause: .manualNavigation)
             return
         }
