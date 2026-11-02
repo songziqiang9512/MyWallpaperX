@@ -111,3 +111,15 @@ AudioDemand、真实VM cursor/audio、Sound播放命令、SwitchEndpoint、Syste
 direct-client runner先等真实shutdown completion再terminate，退原固定0.5秒猜测；AppDelegate的direct模式退出与启动保持同一隔离判定，不误入普通产品保存。首轮原结束链超时、下一轮偏好指纹差异均保失败记录，修正后四臂一致；早期指纹差异没有具体键快照，不据此声称恢复历史偏好。进程证据保活动期实际command集合，避免临终zombie显示名覆盖已核App身份；cleanup仍按原真实进程核验。
 
 本机provenance为`.artifacts/scene-architecture-continuation-20261102/`的`live-system-input-*`、`live-input-*`、`live-media-retirement-v3-*`和`root-live-input-*`。它关闭本次活动需求与隔离退出链，不认领整体能耗、所有输入API、普通UI交互或长期稳定。
+
+
+<a id="adopted-graph-history-retirement"></a>
+## Surface采用拓扑后的graph history退出
+
+固定2026-11-03：Surface沿已有采用差集把destroyed成员交原Coordinator，移除committed及所有pending final tails，再恢复scheduled集合。无pending直接退pin，有pending并入末项原retiredHistoryPins，沿成功、失败、取消及stop的同一terminal释放；invalidate合并既有退休pins，晚completion不能重新提升dead tail。保已编码ledger、冻结资源、独立named copy与健康consumer history；hidden活provider仍按真实demand执行。4个产品路径净增29行，无墓碑、第二history owner或全局reset。
+
+真实Surface/Coordinator/Metal旧新反例完成：合格旧版本在dead tail、错误serialize、late promotion及pin退出行为失败，新版本通过；同门保健康无history peer、named copy、held、逆序完成、失败/取消和stop。首两轮载体未具资格，原因分别是共享material pass ID碰撞，以及将允许复用的无history resident误要求为pending；修正两侧共同输入，保原history generation、像素及真正preparation pin断言，首失败均留存，不能当产品缺陷证据。
+
+签名旧App `a9936322…`与最终普通App `43e5cb805b40650706f29b2fec6919779619785fe873248fad73814469234fa2`运行相同held/warm两臂均通过：双Surface暂停、已有resize、同Session真实rebuild、恢复、hidden named provider与绿色邻例像素、stop和GPU drain。held销毁发生于sceneTime 0，旧Surface保冻结画面直到恢复；warm先有真实copy/history完成再在sceneTime≥2销毁。原ready/resize-00像素仍必需，新增尾请求resize-01仅允许并要求一次重建teardown终结，其余截图、启动和GPU失败全部拒绝。宽窗口在运行前登记，不以没消费的截图请求判资源泄漏。
+
+native只证明该App输入的可见兼容与生命周期；dead-tail/pin证明来自前述真实Metal反例，首选窗口像素不冒充物理多屏。原268行回归方法保持，初始窄窗口方案只有静态分析、没有虚构失败运行。provenance见`.artifacts/scene-architecture-continuation-20261102/`的`history-catalog-graph-qualification-v4-results.json`、`history-external-bundle-qualification-v4-*`、`history-native-qualified-*`和`history-native-{old,final}-v2-*`；不认领完整语料、官方parity、长期稳定或性能收益。

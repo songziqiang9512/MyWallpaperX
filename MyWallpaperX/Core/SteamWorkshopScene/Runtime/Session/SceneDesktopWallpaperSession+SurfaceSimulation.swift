@@ -58,6 +58,8 @@ extension SceneDesktopWallpaperSession.Surface {
             if !retired.isEmpty {
                 metalView.retireSpriteAnimations(layerIDs: retired)
                 metalView.particlePipeline?.retire(layerIDs: retired)
+                metalView.renderer.imageCompositor.resolvedMaterialRuntime?
+                    .submissions.retireHistory(layerIDs: retired)
             }
         }
         assert(

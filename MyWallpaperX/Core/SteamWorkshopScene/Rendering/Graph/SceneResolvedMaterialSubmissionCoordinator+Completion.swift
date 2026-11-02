@@ -196,6 +196,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                     ))
                 }
                 releasePins(priorPins, retaining: retained)
+                releasePins(head.retiredHistoryPins, retaining: retained)
                 pendingSubmissions.removeFirst()
             case .failed:
                 emission.append(failScheduledLocked(
