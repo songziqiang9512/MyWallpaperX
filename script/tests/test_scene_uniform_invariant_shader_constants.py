@@ -48,6 +48,8 @@ def shader_cases() -> list[dict]:
          True, "pow", "u_floor"),
         ("nested-pure-builtins", "u_signal", "u_angle", "flowUV", "response", "surfaceUV",
          True, "nested", "u_level"),
+        ("vector-pow", "u_drive", "u_gain", "derivedUV", "derivedLevel", "coordinate",
+         False, "vector-pow", None),
     ):
         vector_rhs = f"{drive}.xy * vec2({gain}, 0.5) + vec2(0.125)"
         scalar_rhs = f"{drive}.z * {gain} + 0.0625"
@@ -59,6 +61,8 @@ def shader_cases() -> list[dict]:
                           else f"pow({threshold}, {gain})")
         elif operation == "nested":
             scalar_rhs = f"smoothstep(0.0, 1.0, abs(({threshold}))) * sin(({gain}))"
+        elif operation == "vector-pow":
+            vector_rhs = f"pow({drive}.xy, vec2({gain}))"
         extra_uniform = f"uniform float {threshold};\n" if threshold else ""
         declarations = f"const vec2 {vector} = {vector_rhs};\nconst float {scalar} = {scalar_rhs};"
         helpers = (f"vec2 readCurrentUV(){{return (({vector}));}}\n"
@@ -87,7 +91,9 @@ def expected_pixels(drive: list[float], gain: float, operation: str) -> list[flo
     # Independent arithmetic for this self-owned shader, not a product lowering.
     base_x, base_y = drive[0] * gain + 0.125, drive[1] * 0.5 + 0.125
     level = drive[2] * gain + 0.0625
-    if operation == "pow":
+    if operation == "vector-pow":
+        base_x, base_y = math.pow(drive[0], gain), math.pow(drive[1], gain)
+    elif operation == "pow":
         level = math.pow(drive[2], gain)
     elif operation == "nested":
         fraction = min(1.0, max(0.0, abs(drive[2])))
@@ -224,7 +230,9 @@ class SceneUniformInvariantShaderConstantsTests(unittest.TestCase):
         variants = [([0.25, 0.5, 0.75, 0.5], 0.5), ([0.75, 0.25, 0.5, 0.75], 0.25)]
         draws, expected = [], []
         for drive, gain in (variants[0], variants[1], variants[0]):
-            values = {case["drive"]: drive, case["gain"]: [gain], "mwxRenderSize": [2.0, 2.0]}
+            values = {case["drive"]: drive, case["gain"]: [gain], "mwxRenderSize": [2.0, 2.0],
+                      "mwxVertexCoordinates01": [0.0, 1.0, 1.0, 1.0],
+                      "mwxVertexCoordinates23": [0.0, 0.0, 1.0, 0.0]}
             if case["threshold"]:
                 values[case["threshold"]] = [drive[2]]
             buffers = {}
@@ -303,7 +311,6 @@ class SceneUniformInvariantShaderConstantsTests(unittest.TestCase):
             "pow-out-consumer": "const float k=pow(u_gain,u_drive.z);\nfloat touch(out float x){x=0.5;return x;}\nvoid main(){gl_FragColor=vec4(touch(k));}",
             "pow-compiletime-array-size": "const float k=pow(u_gain,u_drive.z);\nvoid main(){float values[int(k)];gl_FragColor=vec4(k);}",
             "pow-derived-global-chain": "const float k=pow(u_gain,u_drive.z);\nconst float next=k*0.5;\nvoid main(){gl_FragColor=vec4(next);}",
-            "pow-vector-unproved": "const vec2 k=pow(u_drive.xy,vec2(u_gain));\nvoid main(){gl_FragColor=vec4(k,0.0,1.0);}",
             "pow-missing-uniform-dependency": "const float k=pow(0.5,2.0);\nvoid main(){gl_FragColor=vec4(k);}",
         }
         for name, body in cases.items():

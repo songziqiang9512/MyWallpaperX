@@ -2,8 +2,29 @@ import Foundation
 
 nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
     struct Conversion: Hashable {
+        enum Operation: Hashable {
+            case narrow(String)
+            case broadcast(Int)
+            case floatingLiteral
+            case scalarDot
+        }
+
         let range: Range<Int>
-        let suffix: String
+        let operation: Operation
+
+        init(range: Range<Int>, operation: Operation) {
+            self.range = range
+            self.operation = operation
+        }
+
+        init(range: Range<Int>, suffix: String) {
+            self.init(range: range, operation: .narrow(suffix))
+        }
+
+        var narrowingSuffix: String? {
+            guard case let .narrow(suffix) = operation else { return nil }
+            return suffix
+        }
     }
 
     struct Expression {
@@ -14,440 +35,115 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
         let directlyNarrowable: Bool
     }
 
-    static func rewriteScalarVectorBroadcasts(
+    private struct Wrapping: Hashable {
+        let range: Range<Int>
+        let prefix: String
+        let suffix: String
+    }
+
+    static func rewriteIntrinsicArguments(
         _ source: String,
         stage: SceneShaderContract.StageKind
     ) -> String {
-        rewriteScalarMinMaxIntegerLiterals(
-            rewriteLiteralBoundBroadcasts(
-                rewriteScalarPowBroadcasts(
-                    rewriteScalarEndpointBroadcasts(source, stage: stage),
-                    stage: stage
-                ),
-                stage: stage
-            ),
-            stage: stage
-        )
-    }
-
-    static func suffix(
-        forIdentifierAt index: Int,
-        in tokens: [SceneAuthoredShaderToken],
-        unit: SceneAuthoredShaderSyntaxUnit
-    ) -> String? {
-        guard tokens.indices.contains(index),
-              tokens[index].kind == .identifier,
-              let opening = enclosingCallOpening(for: index, in: tokens),
-              opening > 0,
-              ["mix", "lerp"].contains(tokens[opening - 1].text),
-              !unit.functions.contains(where: { $0.name == tokens[opening - 1].text }),
-              let closing = SceneAuthoredShaderTokenScanner.matchingParenthesis(tokens: tokens, opening: opening),
-              let ranges = argumentRanges(opening: opening, closing: closing, tokens: tokens),
-              ranges.count == 3,
-              let argumentIndex = ranges.prefix(2).firstIndex(of: index..<(index + 1)),
-              let first = standaloneType(
-                  ranges[0], before: index, tokens: tokens, unit: unit
-              ),
-              let second = standaloneType(
-                  ranges[1], before: index, tokens: tokens, unit: unit
-              ),
-              let firstWidth = floatVectorWidth(first),
-              let secondWidth = floatVectorWidth(second),
-              validWeight(
-                  ranges[2], width: min(firstWidth, secondWidth),
-                  before: index, tokens: tokens, unit: unit
-              ) else { return nil }
-        let sourceWidth = argumentIndex == 0 ? firstWidth : secondWidth
-        return narrowingSuffix(from: sourceWidth, to: min(firstWidth, secondWidth))
-    }
-
-    /// Wallpaper Engine's authored shader surface permits a scalar color
-    /// endpoint to be broadcast across the other floating-point vector
-    /// endpoint of `mix`/`lerp`, and a scalar `smoothstep` bound beside a
-    /// vector bound. Vulkan GLSL requires the mixed bounds to have the same
-    /// shape. The smoothstep path also proves its vector input and caller
-    /// scope; unknown shapes and authored overloads remain compiler-owned.
-    static func rewriteScalarEndpointBroadcasts(
-        _ source: String,
-        stage: SceneShaderContract.StageKind
-    ) -> String {
-        let normalized = source
-            .replacingOccurrences(of: "\r\n", with: "\n")
+        let normalized = source.replacingOccurrences(of: "\r\n", with: "\n")
             .replacingOccurrences(of: "\r", with: "\n")
-        let analysisSource = normalized.components(separatedBy: "\n").map { line in
-            line.trimmingCharacters(in: .whitespaces).hasPrefix("#version")
-                ? "" : line
+        let analysisSource = normalized.components(separatedBy: "\n").map {
+            $0.trimmingCharacters(in: .whitespaces).hasPrefix("#version") ? "" : $0
         }.joined(separator: "\n")
-        let lexer = SceneAuthoredShaderLexer.lex(source: analysisSource, stage: stage)
         let analysis = SceneAuthoredShaderSyntaxAnalyzer.analyzeForTypeConversions(
-            lexerOutput: lexer,
+            lexerOutput: SceneAuthoredShaderLexer.lex(source: analysisSource, stage: stage),
             stage: stage
         )
-        guard analysis.diagnostics.isEmpty, let unit = analysis.unit else {
-            return normalized
-        }
+        guard analysis.diagnostics.isEmpty, let unit = analysis.unit else { return normalized }
+        let conversions = Set(intrinsicExpressions(in: unit.tokens, unit: unit).flatMap(\.conversions))
+        guard !conversions.isEmpty else { return normalized }
+        return applying(conversions, to: normalized, tokens: unit.tokens)
+    }
 
-        var lineStarts = [0]
-        var scalarOffset = 0
-        for scalar in normalized.unicodeScalars {
-            scalarOffset += 1
-            if scalar == "\n" { lineStarts.append(scalarOffset) }
-        }
-        func tokenOffset(_ index: Int, afterToken: Bool) -> Int? {
-            guard unit.tokens.indices.contains(index) else { return nil }
-            let token = unit.tokens[index]
-            guard token.line > 0, token.line <= lineStarts.count else { return nil }
-            return lineStarts[token.line - 1] + token.column - 1
-                + (afterToken ? token.text.unicodeScalars.count : 0)
-        }
-
-        var insertions: [(offset: Int, text: String)] = []
-        for index in unit.tokens.indices {
-            let name = unit.tokens[index].text
-            guard ["mix", "lerp", "smoothstep"].contains(name),
-                  !unit.functions.contains(where: {
-                      $0.name == name
-                  }), index + 1 < unit.tokens.count,
-                  unit.tokens[index + 1].text == "(",
+    static func intrinsicExpressions(
+        in tokens: [SceneAuthoredShaderToken], unit: SceneAuthoredShaderSyntaxUnit
+    ) -> [Expression] {
+        return tokens.indices.compactMap { index in
+            guard intrinsicArgumentCount(tokens[index].text) != nil,
+                  index + 1 < tokens.count, tokens[index + 1].text == "(",
                   let closing = SceneAuthoredShaderTokenScanner.matchingParenthesis(
-                      tokens: unit.tokens,
-                      opening: index + 1
-                  ),
-                  let arguments = argumentRanges(
-                      opening: index + 1,
-                      closing: closing,
-                      tokens: unit.tokens
-                  ), arguments.count == 3 else { continue }
-            let first: SceneAuthoredShaderValueType
-            let second: SceneAuthoredShaderValueType
-            if name == "smoothstep" {
-                guard index == 0 || unit.tokens[index - 1].text != ".",
-                      !SceneAuthoredShaderSyntaxAnalyzer.valueDeclarationNames(
-                          in: unit.tokens
-                      ).contains(name),
-                      let caller = unit.functions.first(where: {
-                          $0.bodyRange.contains(index)
-                      }) else { continue }
-                let values = SceneAuthoredShaderFunctionSemantics
-                    .uniqueRootScopeValueDeclarations(for: caller, in: unit)
-                    .filter { $0.value.index < index }
-                    .compactMapValues {
-                        SceneAuthoredShaderValueType(authoredName: $0.type)
-                    }
-                let expressions = arguments.compactMap {
-                    componentExpression($0, tokens: unit.tokens, unit: unit,
-                        valueTypes: values, permitsScalarVectorAddition: true)
+                    tokens: tokens, opening: index + 1) else { return nil }
+            return floatBuiltInExpression(index..<(closing + 1), tokens: tokens, unit: unit,
+                permitsScalarVectorAddition: true, permitsVectorTruncation: true)
+        }
+    }
+
+    private static func applying(
+        _ conversions: Set<Conversion>, to source: String,
+        tokens: [SceneAuthoredShaderToken]
+    ) -> String {
+        let scalars = Array(source.unicodeScalars)
+        var lineStarts = [0]
+        for (index, scalar) in scalars.enumerated() where scalar == "\n" {
+            lineStarts.append(index + 1)
+        }
+        func offset(_ index: Int, after: Bool = false) -> Int {
+            let token = tokens[index]
+            return lineStarts[token.line - 1] + token.column - 1
+                + (after ? token.text.unicodeScalars.count : 0)
+        }
+        var wrappings: Set<Wrapping> = []
+        var replacements: [Int: (end: Int, text: String)] = [:]
+        for conversion in conversions {
+            let range = conversion.range
+            switch conversion.operation {
+            case let .narrow(suffix):
+                wrappings.insert(.init(range: range, prefix: "(", suffix: ").\(suffix)"))
+            case let .broadcast(width):
+                wrappings.insert(.init(range: range, prefix: "vec\(width)(", suffix: ")"))
+            case .floatingLiteral:
+                let literal = tokens[range.lowerBound].text
+                // 010 must remain eight rather than becoming the decimal 10.0.
+                if literal.count > 1 && literal.first == "0" {
+                    wrappings.insert(.init(range: range, prefix: "float(", suffix: ")"))
+                } else {
+                    replacements[offset(range.lowerBound)] = (
+                        offset(range.upperBound - 1, after: true), literal + ".0")
                 }
-                guard expressions.count == 3,
-                      expressions.allSatisfy({ $0.conversions.isEmpty }),
-                      let width = floatVectorWidth(expressions[2].type),
-                      expressions.prefix(2).allSatisfy({
-                          $0.type == .float || floatVectorWidth($0.type) == width
-                      }) else { continue }
-                first = expressions[0].type
-                second = expressions[1].type
-            } else {
-                guard let firstType = standaloneType(
-                          arguments[0], before: index,
-                          tokens: unit.tokens, unit: unit
-                      ), let secondType = standaloneType(
-                          arguments[1], before: index,
-                          tokens: unit.tokens, unit: unit
-                      ) else { continue }
-                first = firstType
-                second = secondType
-            }
-            let scalarRange: Range<Int>
-            let vectorWidth: Int
-            if first == .float, let width = floatVectorWidth(second) {
-                scalarRange = arguments[0]
-                vectorWidth = width
-            } else if second == .float, let width = floatVectorWidth(first) {
-                scalarRange = arguments[1]
-                vectorWidth = width
-            } else {
-                continue
-            }
-            guard (2 ... 4).contains(vectorWidth),
-                  let start = tokenOffset(scalarRange.lowerBound, afterToken: false),
-                  let end = tokenOffset(scalarRange.upperBound - 1, afterToken: true)
-            else { continue }
-            insertions.append((start, "vec\(vectorWidth)("))
-            insertions.append((end, ")"))
-        }
-        guard !insertions.isEmpty else { return normalized }
-
-        var result = normalized
-        for insertion in insertions.sorted(by: { lhs, rhs in
-            if lhs.offset != rhs.offset { return lhs.offset > rhs.offset }
-            if lhs.text != rhs.text { return lhs.text == ")" }
-            return false
-        }) {
-            guard insertion.offset <= result.unicodeScalars.count else {
-                return normalized
-            }
-            let scalarIndex = result.unicodeScalars.index(
-                result.unicodeScalars.startIndex,
-                offsetBy: insertion.offset
-            )
-            guard let stringIndex = String.Index(scalarIndex, within: result) else {
-                return normalized
-            }
-            result.insert(contentsOf: insertion.text, at: stringIndex)
-        }
-        return result
-    }
-
-    /// HLSL broadcasts scalar bounds to the vector operand of min/max.
-    /// Vulkan GLSL requires an explicit vector for the scalar-first form.
-    private static func rewriteLiteralBoundBroadcasts(
-        _ source: String,
-        stage: SceneShaderContract.StageKind
-    ) -> String {
-        let normalized = source
-            .replacingOccurrences(of: "\r\n", with: "\n")
-            .replacingOccurrences(of: "\r", with: "\n")
-        let analysisSource = normalized.components(separatedBy: "\n").map { line in
-            line.trimmingCharacters(in: .whitespaces).hasPrefix("#version")
-                ? "" : line
-        }.joined(separator: "\n")
-        let lexer = SceneAuthoredShaderLexer.lex(source: analysisSource, stage: stage)
-        let analysis = SceneAuthoredShaderSyntaxAnalyzer.analyzeForTypeConversions(
-            lexerOutput: lexer,
-            stage: stage
-        )
-        guard analysis.diagnostics.isEmpty, let unit = analysis.unit else {
-            return normalized
-        }
-
-        var lineStarts = [0]
-        var scalarOffset = 0
-        for scalar in normalized.unicodeScalars {
-            scalarOffset += 1
-            if scalar == "\n" { lineStarts.append(scalarOffset) }
-        }
-        func tokenOffset(_ index: Int, afterToken: Bool) -> Int? {
-            guard unit.tokens.indices.contains(index) else { return nil }
-            let token = unit.tokens[index]
-            guard token.line > 0, token.line <= lineStarts.count else { return nil }
-            return lineStarts[token.line - 1] + token.column - 1
-                + (afterToken ? token.text.unicodeScalars.count : 0)
-        }
-        var replacements: [(start: Int, end: Int, text: String)] = []
-        for index in unit.tokens.indices {
-            let name = unit.tokens[index].text
-            guard ["min", "max"].contains(name),
-                  !unit.functions.contains(where: { $0.name == name }),
-                  index + 1 < unit.tokens.count,
-                  unit.tokens[index + 1].text == "(",
-                  let closing = SceneAuthoredShaderTokenScanner.matchingParenthesis(
-                      tokens: unit.tokens,
-                      opening: index + 1
-                  ),
-                  let arguments = argumentRanges(
-                      opening: index + 1,
-                      closing: closing,
-                      tokens: unit.tokens
-                  ), arguments.count == 2,
-                  arguments[0].count == 1,
-                  unit.tokens[arguments[0].lowerBound].kind == .number,
-                  let bound = Float(unit.tokens[arguments[0].lowerBound].text),
-                  bound.isFinite,
-                  let second = componentExpression(
-                      arguments[1],
-                      tokens: unit.tokens, unit: unit
-                  ), second.conversions.isEmpty,
-                  let vectorWidth = floatVectorWidth(second.type) else { continue }
-            guard let start = tokenOffset(
-                      arguments[0].lowerBound,
-                      afterToken: false
-                  ),
-                  let end = tokenOffset(
-                      arguments[0].upperBound - 1,
-                      afterToken: true
-                  ) else { continue }
-            let literal = unit.tokens[arguments[0].lowerBound].text
-            // Preserve octal syntax: appending .0 changes 010 (8) to 10.
-            let floatingLiteral = Int(literal) == nil
-                || (literal.count > 1 && literal.first == "0")
-                ? literal : literal + ".0"
-            replacements.append((start, end, "vec\(vectorWidth)(\(floatingLiteral))"))
-        }
-        guard !replacements.isEmpty else { return normalized }
-
-        var result = normalized
-        for replacement in replacements.sorted(by: { $0.start > $1.start }) {
-            guard replacement.start <= replacement.end,
-                  replacement.end <= result.unicodeScalars.count else {
-                return normalized
-            }
-            let startScalar = result.unicodeScalars.index(
-                result.unicodeScalars.startIndex,
-                offsetBy: replacement.start
-            )
-            let endScalar = result.unicodeScalars.index(
-                result.unicodeScalars.startIndex,
-                offsetBy: replacement.end
-            )
-            guard let startIndex = String.Index(startScalar, within: result),
-                  let endIndex = String.Index(endScalar, within: result) else {
-                return normalized
-            }
-            result.replaceSubrange(startIndex..<endIndex, with: replacement.text)
-        }
-        return result
-    }
-
-    /// Wallpaper Engine's GLSL-like surface accepts an integer literal at a
-    /// floating-point scalar `min`/`max` endpoint. Metal retains distinct
-    /// integer and floating overloads, so the untyped literal makes the call
-    /// ambiguous. Convert only a single integer literal whose peer is
-    /// statically proven to be a scalar float expression. User overloads,
-    /// integer domains, vectors, and unknown expressions remain untouched.
-    private static func rewriteScalarMinMaxIntegerLiterals(
-        _ source: String,
-        stage: SceneShaderContract.StageKind
-    ) -> String {
-        let normalized = source
-            .replacingOccurrences(of: "\r\n", with: "\n")
-            .replacingOccurrences(of: "\r", with: "\n")
-        let analysisSource = normalized.components(separatedBy: "\n").map { line in
-            line.trimmingCharacters(in: .whitespaces).hasPrefix("#version")
-                ? "" : line
-        }.joined(separator: "\n")
-        let lexer = SceneAuthoredShaderLexer.lex(
-            source: analysisSource,
-            stage: stage
-        )
-        let analysis = SceneAuthoredShaderSyntaxAnalyzer.analyzeForTypeConversions(
-            lexerOutput: lexer,
-            stage: stage
-        )
-        guard analysis.diagnostics.isEmpty, let unit = analysis.unit else {
-            return normalized
-        }
-
-        var lineStarts = [0]
-        var scalarOffset = 0
-        for scalar in normalized.unicodeScalars {
-            scalarOffset += 1
-            if scalar == "\n" { lineStarts.append(scalarOffset) }
-        }
-        func tokenOffset(_ index: Int, afterToken: Bool) -> Int? {
-            guard unit.tokens.indices.contains(index) else { return nil }
-            let token = unit.tokens[index]
-            guard token.line > 0, token.line <= lineStarts.count else {
-                return nil
-            }
-            return lineStarts[token.line - 1] + token.column - 1
-                + (afterToken ? token.text.unicodeScalars.count : 0)
-        }
-        var insertions: [(offset: Int, text: String)] = []
-        for index in unit.tokens.indices {
-            let name = unit.tokens[index].text
-            guard ["min", "max"].contains(name),
-                  !unit.functions.contains(where: { $0.name == name }),
-                  index + 1 < unit.tokens.count,
-                  unit.tokens[index + 1].text == "(",
-                  let closing = SceneAuthoredShaderTokenScanner.matchingParenthesis(
-                      tokens: unit.tokens,
-                      opening: index + 1
-                  ),
-                  let arguments = argumentRanges(
-                      opening: index + 1,
-                      closing: closing,
-                      tokens: unit.tokens
-                  ), arguments.count == 2,
-                  let first = componentExpression(
-                      arguments[0], tokens: unit.tokens, unit: unit
-                  ),
-                  let second = componentExpression(
-                      arguments[1], tokens: unit.tokens, unit: unit
-                  ) else { continue }
-            let literalRange: Range<Int>
-            if first.type == .int, second.type == .float {
-                literalRange = arguments[0]
-            } else if first.type == .float, second.type == .int {
-                literalRange = arguments[1]
-            } else {
-                continue
-            }
-            guard literalRange.count == 1,
-                  unit.tokens[literalRange.lowerBound].kind == .number,
-                  Int(unit.tokens[literalRange.lowerBound].text) != nil,
-                  let end = tokenOffset(
-                      literalRange.lowerBound,
-                      afterToken: true
-                  ) else { continue }
-            let literal = unit.tokens[literalRange.lowerBound].text
-            if literal.count > 1 && literal.first == "0" {
-                guard let start = tokenOffset(
-                    literalRange.lowerBound, afterToken: false
-                ) else { continue }
-                insertions.append((start, "float("))
-                insertions.append((end, ")"))
-            } else {
-                insertions.append((end, ".0"))
+            case .scalarDot:
+                guard let arguments = argumentRanges(opening: range.lowerBound + 1,
+                    closing: range.upperBound - 1, tokens: tokens) else { continue }
+                replacements[offset(range.lowerBound)] = (offset(range.lowerBound, after: true), "")
+                let comma = arguments[0].upperBound
+                replacements[offset(comma)] = (offset(comma, after: true), " * ")
+                for argument in arguments {
+                    wrappings.insert(.init(range: argument, prefix: "(", suffix: ")"))
+                }
             }
         }
-        guard !insertions.isEmpty else { return normalized }
-
-        var result = normalized
-        for insertion in insertions.sorted(by: { $0.offset > $1.offset }) {
-            guard insertion.offset <= result.unicodeScalars.count else {
-                return normalized
-            }
-            let scalarIndex = result.unicodeScalars.index(
-                result.unicodeScalars.startIndex,
-                offsetBy: insertion.offset
-            )
-            guard let stringIndex = String.Index(
-                scalarIndex,
-                within: result
-            ) else { return normalized }
-            result.insert(contentsOf: insertion.text, at: stringIndex)
+        var openings: [Int: [(width: Int, text: String)]] = [:]
+        var endings: [Int: [(width: Int, text: String)]] = [:]
+        for wrapping in wrappings {
+            openings[offset(wrapping.range.lowerBound), default: []]
+                .append((wrapping.range.count, wrapping.prefix))
+            endings[offset(wrapping.range.upperBound - 1, after: true), default: []]
+                .append((wrapping.range.count, wrapping.suffix))
         }
-        return result
-    }
-
-    static func addCompoundMixBoundaries(
-        starts: inout [Int: Int],
-        ends: inout [Int: [String]],
-        tokens: [SceneAuthoredShaderToken],
-        unit: SceneAuthoredShaderSyntaxUnit
-    ) {
-        let conversions = Set(tokens.indices.flatMap { index -> [Conversion] in
-            guard tokens[index].text == "(", index > 0,
-                  ["mix", "lerp"].contains(tokens[index - 1].text),
-                  !unit.functions.contains(where: { $0.name == tokens[index - 1].text }),
-                  let closing = SceneAuthoredShaderTokenScanner.matchingParenthesis(tokens: tokens, opening: index),
-                  let ranges = argumentRanges(opening: index, closing: closing, tokens: tokens),
-                  ranges.count == 3,
-                  let first = componentExpression(ranges[0], tokens: tokens, unit: unit),
-                  let second = componentExpression(ranges[1], tokens: tokens, unit: unit),
-                  let firstWidth = floatVectorWidth(first.type),
-                  firstWidth == floatVectorWidth(second.type) else { return [] }
-            if validWeight(
-                ranges[2], width: firstWidth, before: index,
-                tokens: tokens, unit: unit
-            ) {
-                return first.compound || second.compound
-                    ? first.conversions + second.conversions : []
-            }
-            // Component-wise interpolation consumes the leading endpoint-width
-            // components of a proven wider weight, without changing its storage.
-            guard let weight = componentExpression(ranges[2], tokens: tokens, unit: unit),
-                  let weightWidth = floatVectorWidth(weight.type),
-                  weightWidth > firstWidth,
-                  let suffix = narrowingSuffix(from: weightWidth, to: firstWidth)
-            else { return [] }
-            return first.conversions + second.conversions + weight.conversions
-                + [.init(range: weight.range, suffix: suffix)]
-        })
-        for conversion in conversions.sorted(by: { $0.range.count < $1.range.count }) {
-            starts[conversion.range.lowerBound, default: 0] += 1
-            ends[conversion.range.upperBound, default: []].append(conversion.suffix)
+        let positions = Set(openings.keys).union(endings.keys).union(replacements.keys).sorted()
+        var result = String.UnicodeScalarView()
+        var cursor = 0
+        for position in positions {
+            guard position >= cursor, position <= scalars.count else { return source }
+            result.append(contentsOf: scalars[cursor..<position])
+            for ending in (endings[position] ?? []).sorted(by: {
+                $0.width == $1.width ? $0.text < $1.text : $0.width < $1.width
+            }) { result.append(contentsOf: ending.text.unicodeScalars) }
+            for opening in (openings[position] ?? []).sorted(by: {
+                $0.width == $1.width ? $0.text > $1.text : $0.width > $1.width
+            }) { result.append(contentsOf: opening.text.unicodeScalars) }
+            if let replacement = replacements[position] {
+                guard replacement.end <= scalars.count else { return source }
+                result.append(contentsOf: replacement.text.unicodeScalars)
+                cursor = replacement.end
+            } else { cursor = position }
         }
+        result.append(contentsOf: scalars[cursor...])
+        return String(result)
     }
 
     static func componentExpression(
@@ -496,8 +192,7 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
         let types = Set(expressions.map(\.type))
         if permitsVectorTruncation,
            expressions.allSatisfy({ $0.type == .float || floatVectorWidth($0.type) != nil }),
-           let width = expressions.compactMap({ floatVectorWidth($0.type) }).min(),
-           width == 2 || Set(expressions.compactMap({ floatVectorWidth($0.type) })).count == 1 {
+           let width = expressions.compactMap({ floatVectorWidth($0.type) }).min() {
             let conversions = expressions.flatMap(\.conversions) + expressions.compactMap { value -> Conversion? in
                 guard let source = floatVectorWidth(value.type), source > width,
                       let suffix = narrowingSuffix(from: source, to: width) else { return nil }
@@ -506,9 +201,7 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
             return .init(range: range, type: vectorType(width: width), conversions: conversions,
                 compound: true, directlyNarrowable: false)
         }
-        // Native floating vector +/- scalar arithmetic is needed to prove a
-        // smoothstep input. Existing mix/pow width proofs keep their original
-        // boundary; unlike multiplication this path never narrows a vector.
+        // Queries that permit scalar addition alone retain the vector width.
         if permitsScalarVectorAddition,
            let vector = types.first(where: { floatVectorWidth($0) != nil }),
            types.allSatisfy({ $0 == .float || $0 == vector }) {
@@ -569,7 +262,7 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
               expressions.allSatisfy({ expression in
                   guard let sourceWidth = floatVectorWidth(expression.type) else { return true }
                   return sourceWidth <= width || expression.directlyNarrowable
-                      || (permitsVectorTruncation && width == 2)
+                      || permitsVectorTruncation
               }) else { return nil }
         let type = vectorType(width: width)
         let conversions = expressions.flatMap(\.conversions) + expressions.compactMap {
@@ -607,178 +300,191 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
         while range.count > 1, ["+", "-"].contains(tokens[range.lowerBound].text) {
             range = (range.lowerBound + 1)..<range.upperBound
         }
+        if range.count > 2, tokens[range.upperBound - 2].text == ".",
+           tokens[range.upperBound - 1].kind == .identifier,
+           let base = primaryExpression(range.lowerBound..<(range.upperBound - 2),
+                tokens: tokens, unit: unit, valueTypes: valueTypes,
+                permitsScalarVectorAddition: permitsScalarVectorAddition,
+                permitsVectorTruncation: permitsVectorTruncation),
+           let type = swizzleType(tokens[range.upperBound - 1].text, base: base.type) {
+            return .init(range: sourceRange, type: type, conversions: base.conversions,
+                compound: base.compound, directlyNarrowable: true)
+        }
         if range.count >= 2, tokens[range.lowerBound].text == "(",
-           tokens[range.upperBound - 1].text == ")",
-           SceneAuthoredShaderTokenScanner.matchingParenthesis(tokens: tokens, opening: range.lowerBound) == range.upperBound - 1,
-           let nested = additiveExpression(
-               (range.lowerBound + 1)..<(range.upperBound - 1),
-               tokens: tokens,
-               unit: unit,
-               valueTypes: valueTypes,
-               permitsScalarVectorAddition: permitsScalarVectorAddition,
-               permitsVectorTruncation: permitsVectorTruncation
-           ) {
-            return .init(
-                range: sourceRange,
-                type: nested.type,
-                conversions: nested.conversions,
-                compound: true,
-                directlyNarrowable: false
-            )
+           SceneAuthoredShaderTokenScanner.matchingParenthesis(tokens: tokens,
+                opening: range.lowerBound) == range.upperBound - 1,
+           let nested = additiveExpression((range.lowerBound + 1)..<(range.upperBound - 1),
+                tokens: tokens, unit: unit, valueTypes: valueTypes,
+                permitsScalarVectorAddition: permitsScalarVectorAddition,
+                permitsVectorTruncation: permitsVectorTruncation) {
+            return .init(range: sourceRange, type: nested.type, conversions: nested.conversions,
+                compound: true, directlyNarrowable: false)
         }
         if range.count == 1, tokens[range.lowerBound].kind == .number {
-            return .init(
-                range: sourceRange,
-                type: permitsVectorTruncation
-                    && numericLiteralType(tokens[range.lowerBound].text) == .int
+            return .init(range: sourceRange,
+                type: permitsVectorTruncation && numericLiteralType(tokens[range.lowerBound].text) == .int
                     ? .float : numericLiteralType(tokens[range.lowerBound].text),
-                conversions: [],
-                compound: false,
-                directlyNarrowable: false
-            )
+                conversions: [], compound: false, directlyNarrowable: false)
         }
-        if permitsVectorTruncation,
-           let constructor = floatingConstructor(range, tokens: tokens, unit: unit) {
+        if let constructor = floatingConstructor(range, tokens: tokens, unit: unit,
+            valueTypes: valueTypes, permitsScalarVectorAddition: permitsScalarVectorAddition,
+            permitsVectorTruncation: permitsVectorTruncation) {
             return .init(range: sourceRange, type: constructor.type,
                 conversions: constructor.conversions, compound: false, directlyNarrowable: true)
         }
-        if !permitsVectorTruncation, let builtIn = floatBuiltInExpression(
-            sourceRange,
-            tokens: tokens,
-            unit: unit,
-            valueTypes: valueTypes,
-            permitsScalarVectorAddition: permitsScalarVectorAddition
-        ) {
-            return builtIn
-        }
+        if let builtIn = floatBuiltInExpression(range, tokens: tokens, unit: unit,
+            valueTypes: valueTypes, permitsScalarVectorAddition: permitsScalarVectorAddition,
+            permitsVectorTruncation: permitsVectorTruncation) { return builtIn }
         guard tokens[range.lowerBound].kind == .identifier else { return nil }
         let name = tokens[range.lowerBound].text
+        if range.count >= 3, tokens[range.lowerBound + 1].text == "(",
+           SceneAuthoredShaderTokenScanner.matchingParenthesis(tokens: tokens,
+                opening: range.lowerBound + 1) == range.upperBound - 1,
+           let function = SceneAuthoredShaderFunctionSemantics.uniqueUnshadowedSourceFunction(
+                named: name, tokens: unit.tokens, functions: unit.functions),
+           let type = SceneAuthoredShaderValueType(authoredName: function.returnType) {
+            // Only the return declaration is borrowed. The compiler owns the
+            // parameters and body, including every out/inout side effect.
+            return .init(range: sourceRange, type: type, conversions: [],
+                compound: true, directlyNarrowable: false)
+        }
+        guard range.count == 1 else { return nil }
         let declared: SceneAuthoredShaderValueType?
-        if let valueTypes {
-            declared = valueTypes[name]
-        } else {
+        if let valueTypes { declared = valueTypes[name] }
+        else {
             declared = SceneAuthoredShaderGlobalReferenceAnalyzer.valueType(
-                    at: range.lowerBound, tokens: tokens, in: unit
-                )
+                at: range.lowerBound, tokens: tokens, in: unit)
         }
-        guard let declared else { return nil }
-        if range.count == 1 {
-            return .init(
-                range: sourceRange,
-                type: declared,
-                conversions: [],
-                compound: false,
-                directlyNarrowable: true
-            )
-        }
-        guard range.count == 3, tokens[range.lowerBound + 1].text == ".",
-              tokens[range.lowerBound + 2].kind == .identifier,
-              let type = swizzleType(
-                  tokens[range.lowerBound + 2].text,
-                  base: declared
-              ) else { return nil }
-        return .init(
-            range: sourceRange,
-            type: type,
-            conversions: [],
-            compound: false,
-            directlyNarrowable: true
-        )
+        guard let type = declared else { return nil }
+        return .init(range: sourceRange, type: type, conversions: [],
+            compound: false, directlyNarrowable: true)
     }
 
     private static func floatingConstructor(
-        _ range: Range<Int>, tokens: [SceneAuthoredShaderToken], unit: SceneAuthoredShaderSyntaxUnit
+        _ range: Range<Int>, tokens: [SceneAuthoredShaderToken], unit: SceneAuthoredShaderSyntaxUnit,
+        valueTypes: [String: SceneAuthoredShaderValueType]?,
+        permitsScalarVectorAddition: Bool, permitsVectorTruncation: Bool
     ) -> Expression? {
         guard range.count >= 4, tokens[range.lowerBound + 1].text == "(",
-              SceneAuthoredShaderTokenScanner.matchingParenthesis(tokens: tokens, opening: range.lowerBound + 1) == range.upperBound - 1,
-              !unit.functions.contains(where: { $0.name == tokens[range.lowerBound].text }),
-              let arguments = argumentRanges(opening: range.lowerBound + 1, closing: range.upperBound - 1, tokens: tokens),
-              !arguments.isEmpty else { return nil }
-        let name = tokens[range.lowerBound].text
+              SceneAuthoredShaderTokenScanner.matchingParenthesis(tokens: tokens,
+                opening: range.lowerBound + 1) == range.upperBound - 1,
+              unshadowedCall(at: range.lowerBound, tokens: tokens, unit: unit),
+              let arguments = argumentRanges(opening: range.lowerBound + 1,
+                closing: range.upperBound - 1, tokens: tokens), !arguments.isEmpty else { return nil }
         let type: SceneAuthoredShaderValueType?
-        switch name {
+        switch tokens[range.lowerBound].text {
         case "CAST2": type = .float2
         case "CAST3": type = .float3
         case "CAST4": type = .float4
-        default: type = SceneAuthoredShaderValueType(authoredName: name)
+        default: type = SceneAuthoredShaderValueType(authoredName: tokens[range.lowerBound].text)
         }
         guard let type, type == .float || floatVectorWidth(type) != nil else { return nil }
-        // The explicit constructor fixes its result type. Preserve proven
-        // child conversions, while the compiler validates other arguments.
+        // A constructor fixes its result type even when a child remains
+        // compiler-owned. Preserve conversions only for known children.
         let values = arguments.compactMap {
-            componentExpression($0, tokens: tokens, unit: unit, permitsVectorTruncation: true)
+            componentExpression($0, tokens: tokens, unit: unit, valueTypes: valueTypes,
+                permitsScalarVectorAddition: permitsScalarVectorAddition,
+                permitsVectorTruncation: permitsVectorTruncation)
         }
         var conversions = values.flatMap(\.conversions)
         if arguments.count == 1, let value = values.first,
            let sourceWidth = floatVectorWidth(value.type),
            let targetWidth = floatVectorWidth(type), sourceWidth > targetWidth,
            let suffix = narrowingSuffix(from: sourceWidth, to: targetWidth) {
-            // Complete the argument at its own width before the constructor
-            // consumes its leading components.
             conversions.append(.init(range: arguments[0], suffix: suffix))
         }
         return .init(range: range, type: type, conversions: conversions,
             compound: false, directlyNarrowable: true)
     }
 
-    /// Prove floating built-in result types from their operands, excluding
-    /// authored overloads. Unary calls preserve shape; multi-argument calls
-    /// here are scalar, with integer literals promoted by floating operands.
+    private static func intrinsicArgumentCount(_ name: String) -> Int? {
+        switch name {
+        case "abs", "sin", "saturate", "normalize": 1
+        case "dot", "pow", "min", "max", "step": 2
+        case "mix", "lerp", "clamp", "smoothstep": 3
+        default: nil
+        }
+    }
+
+    private static func unshadowedCall(
+        at index: Int, tokens: [SceneAuthoredShaderToken], unit: SceneAuthoredShaderSyntaxUnit
+    ) -> Bool {
+        let token = tokens[index]
+        let name = token.text
+        let structureNames = SceneAuthoredShaderGlobalReferenceAnalyzer.structureTypeNames(in: unit)
+        guard (index == 0 || tokens[index - 1].text != "."),
+              !unit.functions.contains(where: { $0.name == name }), !structureNames.contains(name),
+              SceneAuthoredShaderGlobalReferenceAnalyzer.valueType(of: token, in: unit) == nil
+        else { return false }
+        let references = SceneAuthoredShaderGlobalReferenceAnalyzer.referenceIndices(name, in: unit)
+        // A local array or unknown value shadow also suppresses a global call
+        // reference. A parameter in another function cannot suppress this one.
+        return references.contains(where: { unit.tokens[$0] == token })
+            && !references.contains(where: { reference in
+                // Prototypes have no function body in SyntaxUnit. Preserve
+                // their declared name without collecting unrelated value names.
+                guard reference > 0, reference + 1 < unit.tokens.count,
+                      unit.tokens[reference + 1].text == "(" else { return false }
+                let returnType = unit.tokens[reference - 1].text
+                return returnType == "void" || structureNames.contains(returnType)
+                    || SceneAuthoredShaderValueType(authoredName: returnType) != nil
+            })
+    }
+
     private static func floatBuiltInExpression(
-        _ range: Range<Int>,
-        tokens: [SceneAuthoredShaderToken],
-        unit: SceneAuthoredShaderSyntaxUnit,
+        _ range: Range<Int>, tokens: [SceneAuthoredShaderToken], unit: SceneAuthoredShaderSyntaxUnit,
         valueTypes: [String: SceneAuthoredShaderValueType]? = nil,
-        permitsScalarVectorAddition: Bool = false,
-        permitsVectorTruncation: Bool = false
+        permitsScalarVectorAddition: Bool = false, permitsVectorTruncation: Bool = false
     ) -> Expression? {
         guard range.count >= 4,
-              tokens[range.lowerBound].kind == .identifier else { return nil }
-        let name = tokens[range.lowerBound].text
-        let expectedCount: Int
-        switch name {
-        case "abs", "sin", "saturate": expectedCount = 1
-        case "step", "pow": expectedCount = 2
-        case "smoothstep": expectedCount = 3
-        default: return nil
-        }
-        guard !unit.functions.contains(where: { $0.name == name }),
+              let count = intrinsicArgumentCount(tokens[range.lowerBound].text),
+              unshadowedCall(at: range.lowerBound, tokens: tokens, unit: unit),
               tokens[range.lowerBound + 1].text == "(",
-              SceneAuthoredShaderTokenScanner.matchingParenthesis(
-                  tokens: tokens,
-                  opening: range.lowerBound + 1
-              ) == range.upperBound - 1,
-              let ranges = argumentRanges(
-                  opening: range.lowerBound + 1,
-                  closing: range.upperBound - 1,
-                  tokens: tokens
-              ), ranges.count == expectedCount else { return nil }
+              SceneAuthoredShaderTokenScanner.matchingParenthesis(tokens: tokens,
+                opening: range.lowerBound + 1) == range.upperBound - 1,
+              let ranges = argumentRanges(opening: range.lowerBound + 1,
+                closing: range.upperBound - 1, tokens: tokens), ranges.count == count else { return nil }
         let arguments = ranges.compactMap {
-            componentExpression($0, tokens: tokens, unit: unit,
-                valueTypes: valueTypes, permitsScalarVectorAddition: permitsScalarVectorAddition,
+            componentExpression($0, tokens: tokens, unit: unit, valueTypes: valueTypes,
+                permitsScalarVectorAddition: permitsScalarVectorAddition,
                 permitsVectorTruncation: permitsVectorTruncation)
         }
-        if expectedCount == 1, arguments.count == 1,
-           let argument = arguments.first,
-           argument.type == .float || floatVectorWidth(argument.type) != nil {
-            return .init(
-                range: range,
-                type: argument.type,
-                conversions: argument.conversions,
-                compound: true,
-                directlyNarrowable: false
-            )
+        guard arguments.count == count else { return nil }
+        let types = arguments.map { argument -> SceneAuthoredShaderValueType in
+            let first = tokens[argument.range.lowerBound]
+            return argument.range.count == 1 && first.kind == .number
+                ? numericLiteralType(first.text) : argument.type
         }
-        guard arguments.count == ranges.count,
-              arguments.allSatisfy({ [.float, .int].contains($0.type) }),
-              arguments.contains(where: { $0.type == .float }) else { return nil }
-        return .init(
-            range: range,
-            type: .float,
-            conversions: arguments.flatMap(\.conversions),
-            compound: true,
-            directlyNarrowable: false
-        )
+        guard types.contains(where: { $0 == .float || floatVectorWidth($0) != nil }),
+              zip(arguments, types).allSatisfy({ argument, type in
+                type == .float || floatVectorWidth(type) != nil
+                    || (type == .int && argument.range.count == 1
+                        && tokens[argument.range.lowerBound].kind == .number
+                        && Int(tokens[argument.range.lowerBound].text) != nil)
+              }) else { return nil }
+        let width = types.compactMap(floatVectorWidth).min()
+        let name = tokens[range.lowerBound].text
+        var conversions = arguments.flatMap(\.conversions)
+        for (index, pair) in zip(arguments, types).enumerated() {
+            let (argument, type) = pair
+            // GLSL and Metal already broadcast a scalar interpolation weight.
+            let nativeScalarWeight = ["mix", "lerp"].contains(name) && index == 2 && type == .float
+            if let width, (type == .float || type == .int), !nativeScalarWeight {
+                conversions.append(.init(range: argument.range, operation: .broadcast(width)))
+            } else if let width, let sourceWidth = floatVectorWidth(type), sourceWidth > width,
+                      let suffix = narrowingSuffix(from: sourceWidth, to: width) {
+                conversions.append(.init(range: argument.range, suffix: suffix))
+            }
+            if type == .int {
+                conversions.append(.init(range: argument.range, operation: .floatingLiteral))
+            }
+        }
+        if name == "dot", width == nil {
+            conversions.append(.init(range: range, operation: .scalarDot))
+        }
+        return .init(range: range,
+            type: name == "dot" ? .float : width.map { vectorType(width: $0) } ?? .float,
+            conversions: conversions, compound: true, directlyNarrowable: false)
     }
 
     private static func split(
@@ -806,46 +512,6 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
         [.float2, .float3, .float4][width - 2]
     }
 
-    private static func validWeight(
-        _ range: Range<Int>,
-        width: Int,
-        before limit: Int,
-        tokens: [SceneAuthoredShaderToken],
-        unit: SceneAuthoredShaderSyntaxUnit
-    ) -> Bool {
-        if let type = standaloneType(
-            range, before: limit, tokens: tokens, unit: unit
-        ) {
-            return type == .float || floatVectorWidth(type) == width
-        }
-        // A source-proven scalar built-in expression is a valid scalar mix
-        // weight. Vector expressions and authored overloads stay closed.
-        return componentExpression(range, tokens: tokens, unit: unit)?.type == .float
-    }
-
-    private static func standaloneType(
-        _ range: Range<Int>,
-        before limit: Int,
-        tokens: [SceneAuthoredShaderToken],
-        unit: SceneAuthoredShaderSyntaxUnit
-    ) -> SceneAuthoredShaderValueType? {
-        if range.count == 1, tokens[range.lowerBound].kind == .number {
-            return numericLiteralType(tokens[range.lowerBound].text)
-        }
-        guard tokens[range.lowerBound].kind == .identifier,
-              let declared = SceneAuthoredShaderGlobalReferenceAnalyzer.valueType(
-                    at: range.lowerBound, tokens: tokens, in: unit
-                ) else { return nil }
-        if range.count == 1 { return declared }
-        guard range.count == 3,
-              tokens[range.lowerBound + 1].text == ".",
-              tokens[range.lowerBound + 2].kind == .identifier else { return nil }
-        return swizzleType(
-            tokens[range.lowerBound + 2].text,
-            base: declared
-        )
-    }
-
     static func argumentRanges(
         opening: Int,
         closing: Int,
@@ -864,22 +530,6 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
             start = index + 1
         }
         return ranges
-    }
-
-    private static func enclosingCallOpening(
-        for index: Int,
-        in tokens: [SceneAuthoredShaderToken]
-    ) -> Int? {
-        var depth = 0
-        for cursor in stride(from: index - 1, through: 0, by: -1) {
-            if tokens[cursor].text == ")" { depth += 1 }
-            if tokens[cursor].text == "(" {
-                if depth == 0 { return cursor }
-                depth -= 1
-            }
-            if depth == 0, [";", "{", "}"].contains(tokens[cursor].text) { return nil }
-        }
-        return nil
     }
 
     private static func numericLiteralType(

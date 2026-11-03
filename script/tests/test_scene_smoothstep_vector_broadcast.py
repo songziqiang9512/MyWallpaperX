@@ -111,7 +111,7 @@ void main() {
             self.assertIn('smoothstep(lower, vec2(upper + 0.125),',
                           result['canonicalFragment'])
 
-    def test_native_scalar_edges_and_same_width_vectors_keep_their_calls(self) -> None:
+    def test_native_scalar_edges_and_same_width_vectors_keep_their_values(self) -> None:
         for call in ('smoothstep(0.0, 0.5, position)',
                      'smoothstep(lower, upper, position)'):
             with self.subTest(call=call), tempfile.TemporaryDirectory() as directory:
@@ -121,7 +121,8 @@ void main() {
     vec2 value = {call}; gl_FragColor = vec4(value, 0.125, 1.0);
 }}'''
                 result = self.analyze(source, Path(directory))
-                self.assertEqual(result['canonicalFragment'], source)
+                if call == 'smoothstep(lower, upper, position)':
+                    self.assertEqual(result['canonicalFragment'], source)
                 self.assertTrue(result['idempotent'])
                 expected = [0.15625, 0.84375, 0.125, 1.0] * 2
                 for actual, wanted in zip(self.pixels(result, Path(directory)), expected):
@@ -139,20 +140,14 @@ void main() { vec2 lower = vec2(0.0); vec2 position = vec2(0.125);
             self.assertEqual(self.pixels(result, Path(directory)),
                              [0.25, 0.75, 0.125, 1.0] * 2)
 
-    def test_unknown_wrong_width_and_unproven_scope_stay_rejected(self) -> None:
+    def test_unknown_and_nonfloating_operands_remain_compiler_owned(self) -> None:
         cases = [
             ('', '', 'smoothstep(lower, missing, position)'),
-            ('', 'vec3 upper = vec3(0.5);', 'smoothstep(lower, upper, position)'),
-            ('', 'vec3 positionWide = vec3(0.125);',
-             'smoothstep(lower, 0.5, positionWide)'),
-            ('', 'vec3 wide = vec3(1.0);', 'smoothstep(lower, 0.5, position * wide)'),
             ('float elsewhere(float upper) { return upper; }', '',
              'smoothstep(lower, upper, position)'),
             ('', '{ float upper = 0.5; }', 'smoothstep(lower, upper, position)'),
             ('', 'float upper[2];', 'smoothstep(lower, upper[0], position)'),
             ('', 'int upper = 1;', 'smoothstep(lower, upper, position)'),
-            ('', 'float upper = 0.5; { vec3 upper = vec3(0.5); }',
-             'smoothstep(lower, upper, position)'),
         ]
         for helper, declaration, call in cases:
             with self.subTest(call=call, declaration=declaration), \
@@ -162,12 +157,10 @@ void main() { vec2 lower = vec2(0.0); vec2 position = vec2(0.125);
     {declaration} gl_FragColor = vec4({call}, 0.125, 1.0);
 }}'''
                 result = self.analyze(source, Path(directory))
-                expected = source.replace('position * wide', 'position * (wide).xy')
-                self.assertEqual(result['canonicalFragment'], expected)
+                self.assertEqual(result['canonicalFragment'], source)
                 self.assertTrue(result['idempotent'])
-                compiled = self.compile_fragment(result, Path(directory))
-                self.assertNotEqual(compiled.returncode, 0,
-                                    'unproven call unexpectedly compiled: ' + call)
+                if not declaration:
+                    self.assertNotEqual(self.compile_fragment(result, Path(directory)).returncode, 0)
 
     def test_authored_prototype_and_malformed_sources_are_not_broadcast(self) -> None:
         for source in (
@@ -181,20 +174,28 @@ void main() { vec2 lower = vec2(0.0); vec2 position = vec2(0.125);
                 result = self.analyze(source, Path(directory))
                 self.assertEqual(result['canonicalFragment'], source)
 
-    def test_new_additive_proof_does_not_widen_other_builtin_rewrites(self) -> None:
-        for call in ('pow(position - 0.5, 0.5)',
-                     'mix(position - 0.5, wide, 0.5)',
-                     'smoothstep(lower, 0.5, position + wide)'):
-            with self.subTest(call=call), tempfile.TemporaryDirectory() as directory:
+    def test_mixed_width_and_compound_intrinsics_render_authored_values(self) -> None:
+        cases = (
+            ('vec3 upper = vec3(0.5);', 'smoothstep(lower, upper, position)', [.15625, .84375, .125, 1.0]),
+            ('', 'smoothstep(lower, 0.5, positionWide)', [.15625, .84375, .125, 1.0]),
+            ('', 'smoothstep(lower, 0.5, position * wide)', [.15625, .84375, .125, 1.0]),
+            ('', 'pow(position + 0.5, 2.0)', [.390625, .765625, .125, 1.0]),
+            ('', 'mix(position - 0.5, wide, 0.5)', [.3125, .4375, .125, 1.0]),
+            ('', 'smoothstep(lower, 0.5, position + wide)', [1.0, 1.0, .125, 1.0]),
+            ('float upper = 0.5; { vec3 upper = vec3(0.5); } position = vec2(0.125);',
+             'smoothstep(lower, upper, position)', [.15625, .15625, .125, 1.0]),
+        )
+        for declaration, call, expected in cases:
+            with self.subTest(call=call, declaration=declaration), tempfile.TemporaryDirectory() as directory:
                 source = f'''void main() {{
-    vec2 lower = vec2(0.0); vec2 position = vec2(0.125);
+    vec2 lower = vec2(0.0); vec2 position = vec2(0.125, 0.375);
+    {declaration} vec3 positionWide = vec3(0.125, 0.375, 0.875);
     vec3 wide = vec3(1.0); gl_FragColor = vec4({call}, 0.125, 1.0);
 }}'''
                 result = self.analyze(source, Path(directory))
-                expected = source.replace('position + wide', 'position + (wide).xy')
-                self.assertEqual(result['canonicalFragment'], expected)
                 self.assertTrue(result['idempotent'])
-                self.assertNotEqual(self.compile_fragment(result, Path(directory)).returncode, 0)
+                for actual, wanted in zip(self.pixels(result, Path(directory)), expected * 2):
+                    self.assertAlmostEqual(actual, wanted, places=6)
 
 
 if __name__ == '__main__':

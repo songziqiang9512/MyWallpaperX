@@ -33,11 +33,14 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
                let expression = SceneAuthoredShaderBuiltInVectorConversion.componentExpression(
                    (index + 1)..<end, tokens: tokens, unit: unit,
                    permitsVectorTruncation: true
-               ), expression.type == .float2 {
+               ), expression.type == .float2,
+               expression.conversions.allSatisfy({ $0.narrowingSuffix != nil }) {
                 // A complete typed proof owns this assignment, including a
                 // proof that needs no conversion. Do not flatten its children
                 // to the assignment width through the legacy fallback.
-                return expression.conversions.map { .init(range: $0.range, suffix: $0.suffix) }
+                return expression.conversions.compactMap { value in
+                    value.narrowingSuffix.map { Conversion(range: value.range, suffix: $0) }
+                }
             }
             if targetWidth > 1,
                let conversion = directConstructorConversion(
@@ -272,16 +275,20 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
         unit: SceneAuthoredShaderSyntaxUnit,
         textureCoordinate: Bool = false
     ) -> (starts: [Int: Int], ends: [Int: [String]]) {
+        let intrinsicConversions = SceneAuthoredShaderBuiltInVectorConversion
+            .intrinsicExpressions(in: tokens, unit: unit)
+            .filter { $0.conversions.allSatisfy { $0.narrowingSuffix != nil } }
+            .flatMap(\.conversions).compactMap { value in
+                value.narrowingSuffix.map { Conversion(range: value.range, suffix: $0) }
+            }
         let values = Set(conversions(in: tokens, unit: unit)
             + returnConversions(in: tokens, unit: unit)
-            + componentConversions(in: tokens, unit: unit, textureCoordinate: textureCoordinate))
-        var starts = Dictionary(grouping: values, by: { $0.range.lowerBound })
+            + componentConversions(in: tokens, unit: unit, textureCoordinate: textureCoordinate)
+            + intrinsicConversions)
+        let starts = Dictionary(grouping: values, by: { $0.range.lowerBound })
             .mapValues(\.count)
-        var ends = Dictionary(grouping: values, by: { $0.range.upperBound })
+        let ends = Dictionary(grouping: values, by: { $0.range.upperBound })
             .mapValues { $0.sorted { $0.range.count < $1.range.count }.map(\.suffix) }
-        SceneAuthoredShaderBuiltInVectorConversion.addCompoundMixBoundaries(
-            starts: &starts, ends: &ends, tokens: tokens, unit: unit
-        )
         return (starts, ends)
     }
 
@@ -295,8 +302,11 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
         func arithmetic(_ range: Range<Int>) {
             guard let expression = SceneAuthoredShaderBuiltInVectorConversion.componentExpression(
                 range, tokens: tokens, unit: unit, permitsVectorTruncation: true
-            ), expression.type == .float2 else { return }
-            result += expression.conversions.map { Conversion(range: $0.range, suffix: $0.suffix) }
+            ), expression.type == .float2,
+               expression.conversions.allSatisfy({ $0.narrowingSuffix != nil }) else { return }
+            result += expression.conversions.compactMap { value in
+                value.narrowingSuffix.map { Conversion(range: value.range, suffix: $0) }
+            }
         }
         func coordinate(_ range: Range<Int>) {
             arithmetic(range)
@@ -395,11 +405,6 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
         in tokens: [SceneAuthoredShaderToken],
         unit: SceneAuthoredShaderSyntaxUnit
     ) -> String? {
-        if let suffix = SceneAuthoredShaderBuiltInVectorConversion.suffix(
-            forIdentifierAt: index,
-            in: tokens,
-            unit: unit
-        ) { return suffix }
         guard tokens.indices.contains(index),
               tokens[index].kind == .identifier,
               let opening = enclosingCallOpening(for: index, in: tokens),

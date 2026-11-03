@@ -13,7 +13,7 @@
 
 | 定位 | 当前事实与下一步 |
 |---|---|
-| shader重载 · 3042660491/127e0、3746066933/17e1 | 两例已获backend许可；实际为mix(vec4,vec3,scalar)与dot(vec4复合表达式,vec3)的stage-link/Metal失败。原BuiltInVectorConversion仅覆盖简单identifier，嵌套CAST3/dot和复合表达式未统一推导；在原typed intrinsic边界补通用参数转换，先资格混合宽度的作者方言语义，不按shader加正则。 |
+| uniform const作用域 | `SceneGenericShaderRuntimeConstantNormalizer`仍用全文value-name表及exactReference之后的同名token计数；无关helper形参`pow`或`u_gain`会阻止纯uniform派生全局const降低。现有`pow-value-shadow`/`pow-uniform-shadow`回归保留原const，属于实现边界。沿初始化/调用token和真实读写复用binding facts，保纯度、out/inout与compile-time consumer限制；用基线、改名及无关同名形参的同Program A/B/A像素验证，尚无真实作者影响资格。 |
 | 通道与操作推导 | 无typed边界的颜色兼容、alpha-only/packed data及有序signal仍有有界source事实；反射中的vec4本身不能说明通道意图。沿原compiler/ABI补实际跨函数、条件合流与操作能力缺口，保持未取得的表示资格；不为效果写法追加识别名单。 |
 | linked timeline producer · 2999344788、3577990983 | bokeh的linked parent/children timeline在准备期报`dynamic-uniform-producer-unavailable`；原载荷未指出missing uniform，需沿BindingProgram/producer取得精确未接入字段。 |
 | graph引用 · 2804817823、2972071249、3504669359 | secondary-self `_19_b`、forward `_234_a`、多provider `_91_a/_1030_a`被编译器拒绝。hidden辅助provider是否仍发布按真实consumer资格，不改成全局prepass或丢原作者顺序。 |

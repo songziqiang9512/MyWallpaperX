@@ -19,6 +19,15 @@ Generic 当前有固定 float varying 数组的有界路径，较宽数组要求
 
 源码：[Shader preparation](../../../MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneAuthoredShaderPreparation.swift)、[frontend](../../../MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderFrontend.swift)、[TemplateCompiler](../../../MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialTemplateCompiler.swift)。
 
+<a id="intrinsic-argument-conversion"></a>
+### Intrinsic 参数转换
+
+两 backend 共用原 `BuiltInVectorConversion` 的准备期转换：按语言 intrinsic 签名、词法 binding 和已声明类型形成显式参数转换，不按效果或表达式写法授权。浮点同形参数取非 scalar 向量的最小宽度，scalar 广播到该形状；`dot` 返回 scalar，逐分量 intrinsic 返回共同形状。构造器的固定结果类型及无歧义 helper 的声明返回类型可供外层消费，内部是否合法仍由真实编译器判断。用户同名 overload、value/member 影子及未知类型保留编译器所有权，不猜类型或删除调用。
+
+窄化必须包住已完成的实参：`dot(normalize(vec4(...)), vec3(...))` 先完成四维 normalize，再取前三分量，不能把截断推进子调用。转换不重复求值，不改写 helper 的 out/inout 实参。typed 整数/布尔向量及矩阵不借本浮点规则强转；整数字面量需要浮点签名时显式构造，保留八进制等原值。原四次广播分析、简单 mix 端点和复合 mix 的分散职责由一次分析/转换计划取代；其他 owner 所需的表达式类型查询保留；raw frontend复用同一计划中可完整编码的窄化，保原直接编译能力，不重新lex或创建另一套规则。不增加完整编译器、运行状态或帧内工作。
+
+方言依据为 [Wallpaper Engine 的 HLSL/GLSL 映射](https://docs.wallpaperengine.io/en/scene/shader/mobile.html)及 [Microsoft intrinsic 声明](https://github.com/microsoft/DirectXShaderCompiler/blob/ea3489109cc8a968b36e36ca20a698a68b516d32/utils/hct/gen_intrin_main.txt)；普通 arithmetic 的 [HLSL 转换规则](https://microsoft.github.io/hlsl-specs/specs/5-Expr.html)不能单独代替 intrinsic 资格。验收覆盖不同宽度、scalar、嵌套构造、完整复合求值、改名/alias/helper、用户 overload 和局部失败，经真实双 backend Metal 数值、作者内容与独立邻例验证。官方固定客户端的最终像素一致性另需对照，编译资格不作 parity 声明。 行为门见[双backend数值](../../../script/tests/test_scene_shader_scalar_vector_builtin_canonicalization.py)、[作用域与复合参数](../../../script/tests/test_scene_smoothstep_vector_broadcast.py)和[uniform逐draw更新](../../../script/tests/test_scene_uniform_invariant_shader_constants.py)。
+
 <a id="execution"></a>
 ## Prepared 到每帧
 

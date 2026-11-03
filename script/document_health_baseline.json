@@ -125,12 +125,12 @@
       "bytes": 7428
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 90,
-      "bytes": 10921
+      "lines": 99,
+      "bytes": 13324
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 42,
-      "bytes": 8953
+      "lines": 43,
+      "bytes": 9656
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 81,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 158,
-      "bytes": 22176
+      "bytes": 22310
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -372,15 +372,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "07d6c8630cbe9a2e5545fe044a126d88ba1c9f0721eaee51941afc0f8abb5ce4",
-      "after": "f604e539ff6d27eb51d64ea17a69056ee2c8574f1cfda77334e028ac283ea3cf",
-      "owner": "scene-typed-color-compilation",
-      "reason": "Describe typed ordinary color compilation, canonical metadata and prepared ingress authority with actual signal/data boundaries.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#typed-color-compilation"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/development/development-workflow.md",
       "before": "e2c8626027b720dd9fe8f739d9f493610ba215a5d01dee52640d000c835cd86b",
       "after": "2a81a44c9e73b7087764b6bbbf63da0bd0eb388b6002b9ae4eff8281b1f4275f",
@@ -408,21 +399,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "f604e539ff6d27eb51d64ea17a69056ee2c8574f1cfda77334e028ac283ea3cf",
+      "after": "4e3b66f1ad1378a2f398317e5accb39d628ea4716a68726ac36773ec1b3ba6ae",
+      "owner": "Scene shader preparation and current runtime evidence",
+      "reason": "Replace repeated intrinsic source-shape proofs with one typed argument plan; record current HLSL4, Metal, author/neighbor qualification and the independently located const-scope debt.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#intrinsic-argument-conversion"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "71a7f71e69f5014e72f9232c4d8f625d50dbc890f84a7b06b9731ae15babf074",
-      "after": "0bc59ec7eaf50c35251c3d218c681a8d1d17421720089b54992892a00c0e9eee",
-      "owner": "Existing particle material/raster owners",
-      "reason": "Current cull/camera-depth responsibility, exact bounded native/runtime evidence and actual ordinary-material consumer debt.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#rendering"
+      "before": "0bc59ec7eaf50c35251c3d218c681a8d1d17421720089b54992892a00c0e9eee",
+      "after": "1273d3c1b8b9940d1060a39aca63f03291c87c2c48e54db515e84467e4572d51",
+      "owner": "Scene shader preparation and current runtime evidence",
+      "reason": "Replace repeated intrinsic source-shape proofs with one typed argument plan; record current HLSL4, Metal, author/neighbor qualification and the independently located const-scope debt.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#intrinsic-argument-conversion"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "ba68f9425ad7d9bb9f321bb0f6be75d143cc826bc27ef63d61158aba1ad5039c",
-      "after": "6aa386149ab996ae6a80a265c3102fed36902406822b7507c32bcd9ad83401ae",
-      "owner": "Existing particle material/raster owners",
-      "reason": "Current cull/camera-depth responsibility, exact bounded native/runtime evidence and actual ordinary-material consumer debt.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#rendering"
+      "before": "6aa386149ab996ae6a80a265c3102fed36902406822b7507c32bcd9ad83401ae",
+      "after": "e000277173499c3b7b5e8a6437c69261c2f1f4dea5f1260e9612dcd52a45b323",
+      "owner": "Scene shader preparation and current runtime evidence",
+      "reason": "Replace repeated intrinsic source-shape proofs with one typed argument plan; record current HLSL4, Metal, author/neighbor qualification and the independently located const-scope debt.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#intrinsic-argument-conversion"
     }
   ]
 }

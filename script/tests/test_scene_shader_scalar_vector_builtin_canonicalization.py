@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -65,6 +66,18 @@ class SceneShaderScalarVectorBuiltInCanonicalizationTests(unittest.TestCase):
             raise unittest.SkipTest("swiftc is unavailable")
         cls.build_directory = tempfile.TemporaryDirectory()
         build_root = Path(cls.build_directory.name)
+        cls.probe_root = build_root / "intrinsic-cases"
+        if parent := os.environ.get("MWX_SCENE_INTEGRATION_EVIDENCE"):
+            Path(parent).mkdir(parents=True, exist_ok=True)
+            cls.probe_root = Path(tempfile.mkdtemp(prefix="intrinsic-width-", dir=parent))
+            print(f"Intrinsic width evidence: {cls.probe_root}", flush=True)
+        cls.probe_root.mkdir(exist_ok=True)
+        cls.identity_paths = [Path(__file__), *SWIFT_SOURCES,
+            REPOSITORY_ROOT / "script/tests/fixtures/SceneScalarVectorBuiltInHarness.swift",
+            GLSLANG, GLSLANG.with_name("spirv-cross")]
+        cls.source_hashes = {str(p): hashlib.sha256(p.read_bytes()).hexdigest()
+                             for p in cls.identity_paths if p.is_file()}
+        (cls.probe_root / "identity.json").write_text(json.dumps({"before": cls.source_hashes}, indent=2))
         harness = build_root / "ScalarVectorBuiltInHarness.swift"
         harness.write_text(HARNESS, encoding="utf-8")
         cls.binary = build_root / "scalar-vector-built-in-harness"
@@ -93,9 +106,13 @@ class SceneShaderScalarVectorBuiltInCanonicalizationTests(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls) -> None:
+        after = {str(p): hashlib.sha256(p.read_bytes()).hexdigest()
+                 for p in cls.identity_paths if p.is_file()}
+        (cls.probe_root / "identity.json").write_text(json.dumps({
+            "before": cls.source_hashes, "after": after}, indent=2))
         cls.build_directory.cleanup()
 
-    def test_canonicalizes_only_source_proven_max_zero_vector_form(self) -> None:
+    def test_shared_numeric_conversions_preserve_existing_boundaries(self) -> None:
         completed = subprocess.run(
             [str(self.binary)],
             cwd=REPOSITORY_ROOT,
@@ -153,44 +170,6 @@ void main() {
                 [str(self.binary), "--render", str(metal)], text=True, timeout=30,
             ))
             self.assertEqual(pixels, [0.015625, 0.140625, 0.390625, 0.75] * 2)
-
-    def test_pow_mixed_scalar_and_vector_arguments_link(self) -> None:
-        # The real 2879793348 gate is water_caustics.frag
-        # `pow(abs(c), u_WaveColor * u_Brightness)`: a proven float beside a
-        # declared vec3. Vulkan GLSL has no implicit overload, so only the
-        # scalar side is broadcast; a both-scalar call stays authored.
-        if not GLSLANG.is_file() or not os.access(GLSLANG, os.X_OK):
-            self.skipTest("bundled glslang is unavailable")
-        source = """
-void main() {
-    vec3 wave = vec3(1.0);
-    float c = 1.0;
-    vec3 colour = vec3(pow(abs(c), wave * 2.0));
-    float plain = pow(c, 1.4);
-    gl_FragColor = vec4(colour + vec3(plain), 1.0);
-}
-"""
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            authored = root / "source.frag"
-            authored.write_text(source, encoding="utf-8")
-            output = json.loads(subprocess.check_output(
-                [str(self.binary), "--analyze", str(authored)], text=True,
-            ))
-            canonical = output["canonicalFragment"]
-            self.assertIn("pow(vec3(abs(c)), wave * 2.0)", canonical)
-            self.assertIn("pow(c, 1.4)", canonical)
-            self.assertTrue(output["idempotent"])
-            vertex = root / "author.vert"
-            vertex.write_text(output["normalizedVertex"], encoding="utf-8")
-            fragment = root / "author.frag"
-            fragment.write_text(output["normalizedFragment"], encoding="utf-8")
-            compiled = subprocess.run(
-                [str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations",
-                 "-l", str(vertex), str(fragment)],
-                cwd=root, capture_output=True, text=True, timeout=30,
-            )
-            self.assertEqual(compiled.returncode, 0, compiled.stdout + compiled.stderr)
 
     def test_comma_vector_initializers_broadcast_each_proven_scalar_and_link(self) -> None:
         cases = [
@@ -847,23 +826,25 @@ void main() {
                 self.assertNotIn(10.0, constants)
 
 
-    def _compile_weight_probe(self, name: str, source: str, expected: list[float]) -> Path:
-        root = self.binary.parent / "weight-cases" / name
-        root.mkdir(parents=True, exist_ok=True)
+    def _analyze_intrinsic(self, name: str, source: str) -> tuple[Path, dict]:
+        root = self.probe_root / name
+        root.mkdir()
         authored = root / "input.frag"
         authored.write_text(source, encoding="utf-8")
         output = json.loads(subprocess.check_output(
-            [str(self.binary), "--analyze", str(authored)], text=True,
-        ))
+            [str(self.binary), "--analyze", str(authored)], text=True, timeout=30))
         (root / "analysis.json").write_text(json.dumps(output, indent=2), encoding="utf-8")
         self.assertTrue(output["idempotent"], name)
+        return root, output
+
+    def _render_intrinsic(self, name: str, source: str, expected: list[float], *, preserve=False) -> None:
+        root, output = self._analyze_intrinsic(name, source)
+        if preserve:
+            self.assertEqual(output["canonicalFragment"], source)
         self.assertEqual(output["fallbackDiagnosticCodes"], [], name)
         self.assertEqual(output["fallbackFragmentFunctionName"], "sceneAuthoredFragment")
-        self.assertIn("float4", output["fallbackMSL"])
-        for stage in ("Vertex", "Fragment"):
-            (root / ("source.vert" if stage == "Vertex" else "source.frag")).write_text(
-                output["normalized" + stage], encoding="utf-8",
-            )
+        for stage, path in (("Vertex", "source.vert"), ("Fragment", "source.frag")):
+            (root / path).write_text(output["normalized" + stage], encoding="utf-8")
         (root / "fallback.metal").write_text(output["fallbackMSL"], encoding="utf-8")
         commands = (
             [str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations",
@@ -871,112 +852,123 @@ void main() {
             [str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations",
              "source.frag", "-o", "result.spv"],
             [str(GLSLANG.with_name("spirv-cross")), "result.spv", "--msl",
-             "--rename-entry-point", "main", "comparisonFragment", "frag",
-             "--output", "generic.metal"],
+             "--rename-entry-point", "main", "comparisonFragment", "frag", "--output", "generic.metal"],
         )
-        for command in commands:
-            compiled = subprocess.run(command, cwd=root, capture_output=True, text=True, timeout=30)
-            self.assertEqual(compiled.returncode, 0, name + compiled.stdout + compiled.stderr)
+        receipts = []
         (root / "expected.json").write_text(json.dumps(expected * 2), encoding="utf-8")
-        return root
+        for command in commands:
+            result = subprocess.run(command, cwd=root, capture_output=True, text=True, timeout=30)
+            receipts.append({"command": command, "returncode": result.returncode,
+                             "stdout": result.stdout, "stderr": result.stderr})
+            (root / "commands.json").write_text(json.dumps(receipts, indent=2), encoding="utf-8")
+            self.assertEqual(result.returncode, 0, name + result.stdout + result.stderr)
+        for flag, backend in (("--render", "generic"), ("--render-fallback", "fallback")):
+            with self.subTest(case=name, backend=backend):
+                result = subprocess.run([str(self.binary), flag, str(root / (backend + ".metal"))],
+                                        capture_output=True, text=True, timeout=30)
+                (root / (backend + "-render.json")).write_text(json.dumps({
+                    "returncode": result.returncode, "stdout": result.stdout, "stderr": result.stderr}, indent=2))
+                self.assertEqual(result.returncode, 0, result.stderr)
+                pixels = json.loads(result.stdout)
+                self.assertEqual(len(pixels), 8)
+                for actual, wanted in zip(pixels, expected * 2):
+                    self.assertAlmostEqual(actual, wanted, places=6)
+        (root / "artifact-hashes.json").write_text(json.dumps({
+            p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+            for p in root.iterdir() if p.is_file()}, indent=2), encoding="utf-8")
 
-    def test_wider_mix_weights_compile_through_both_backends(self) -> None:
-        declarations = """
-vec3 low = vec3(0.125, 0.25, 0.5), high = vec3(0.625, 0.75, 1.0);
-vec4 rgba = vec4(0.25, 0.5, 0.75, 0.875);
-vec3 border = vec3(0.0, 0.125, 0.25);
-"""
+    def test_floating_intrinsics_compile_and_render_through_both_backends(self) -> None:
+        endpoints = "vec4 low=vec4(.125,.25,.5,.875); vec3 high=vec3(.625,.75,1.0);"
         cases = [
-            ("nested-mix", declarations +
-             "vec3 rgb = mix(border, mix(low, high, rgba), 0.5); gl_FragColor = vec4(rgb, rgba.a);",
-             [0.125, 0.3125, 0.5625, 0.875]),
-            ("renamed-lerp", declarations.replace("rgba", "atlasWeight").replace("low", "dark").replace("high", "light") +
-             "vec3 rgb = lerp(border, lerp(dark, light, ((atlasWeight))), 0.5); gl_FragColor = vec4(rgb, atlasWeight.a);",
-             [0.125, 0.3125, 0.5625, 0.875]),
-            ("nested-width-boundary", """
-vec2 a = vec2(0.125, 0.25), b = vec2(0.625, 0.75);
-vec3 k = vec3(0.5, 0.25, 1.0); vec4 w = vec4(0.5, 0.75, 0.25, 0.875);
-vec2 rgb = mix(a, b, k * w); gl_FragColor = vec4(rgb, 0.625, w.a);
-""", [0.25, 0.34375, 0.625, 0.875]),
-            ("parenthesized-weight-expression", """
-vec2 base = vec2(0.125, 0.25), peak = vec2(0.625, 0.75);
-vec3 weight = vec3(0.25, 0.5, 0.875);
-vec2 rgb = mix((base), (peak), (abs(weight) + weight - weight));
-gl_FragColor = vec4(rgb, 0.625, weight.z);
-""", [0.25, 0.5, 0.625, 0.875]),
-            ("scalar-weight-adjacent", declarations +
-             "gl_FragColor = vec4(mix(low, high, 0.5), rgba.a);", [0.375, 0.5, 0.75, 0.875]),
-            ("rgba-weight-preserves-alpha", """
-vec4 base = vec4(0.0, 0.125, 0.25, 0.5), peak = vec4(0.5, 0.625, 0.75, 1.0);
-vec4 rgba = vec4(0.25, 0.5, 0.75, 0.875); gl_FragColor = mix(base, peak, rgba);
-""", [0.125, 0.375, 0.625, 0.9375]),
+            ("mixed-endpoints", endpoints + "vec3 v=mix(low,high,.25); gl_FragColor=vec4(v,low.a);",
+             [.25, .375, .625, .875]),
+            ("renamed-alias", endpoints.replace("low", "ink").replace("high", "paper") +
+             "vec3 alias=paper; vec3 v=lerp(((ink)),(alias),(.25)); gl_FragColor=vec4(v,ink.a);",
+             [.25, .375, .625, .875]),
+            ("reversed-endpoints", endpoints + "vec3 v=mix(high,low,.75); gl_FragColor=vec4(v,low.a);",
+             [.25, .375, .625, .875]),
+            ("constructor-weight", "vec2 a=vec2(.125,.25),b=vec2(.625,.75); vec3 w=vec3(.25,.5,.875);"
+             "vec2 v=mix((a),(b),(abs(w)+vec3(0.0))); gl_FragColor=vec4(v,.625,w.z);", [.25,.5,.625,.875]),
+            ("narrow-weight", endpoints + "vec2 w=vec2(.25,.5); vec2 v=mix(low,high,w);"
+             "gl_FragColor=vec4(v,.625,low.a);", [.25,.5,.625,.875]),
+            ("nested-width", "vec2 a=vec2(.125,.25),b=vec2(.625,.75); vec3 k=vec3(.5,.25,1.0);"
+             "vec4 w=vec4(.5,.75,.25,.875); vec2 v=mix(a,b,k*w); gl_FragColor=vec4(v,.625,w.a);",
+             [.25,.34375,.625,.875]),
+            ("nested-cast-dot", endpoints + "vec3 v=mix(low,CAST3(dot(low,vec3(.25,.5,.125))),.25);"
+             "gl_FragColor=vec4(v,low.a);", [.1484375,.2421875,.4296875,.875]),
+            ("compound-dot", "vec4 p=vec4(.125,.25,.5,16.0); vec3 c=vec3(.25,.5,.125);"
+             "float d=dot((p*2.0-vec4(.125)),c); gl_FragColor=vec4(d,p.w/32.0,.625,1.0);",
+             [.328125,.5,.625,1.0]),
+            ("reversed-dot", "vec4 p=vec4(.125,.25,.5,16.0); float d=dot(vec3(.25,.5,.125),p*2.0-vec3(.125));"
+             "gl_FragColor=vec4(d,p.w/32.0,.625,1.0);", [.328125,.5,.625,1.0]),
+            ("normalize-before-truncate", "vec4 p=vec4(1.0,2.0,3.0,4.0);"
+             "float d=dot(normalize(p),vec3(.125,.25,.5)); gl_FragColor=vec4(d,p.w/8.0,.625,1.0);",
+             [2.125 / (30 ** .5),.5,.625,1.0]),
+            ("scalar-dot", "float d=dot(.25,.5); gl_FragColor=vec4(d,.25,.5,1.0);", [.125,.25,.5,1.0]),
+            ("scalar-vector-dot", "float d=dot(.25,vec3(.125,.25,.5)); gl_FragColor=vec4(d,.25,.5,1.0);",
+             [.21875,.25,.5,1.0]),
+            ("constructor-literal-bounds", "vec3 v=max(0+0,vec3(-.25,.5,1.25));"
+             "vec3 z=min(max(v,0),1); gl_FragColor=vec4(z,1.0);", [0.0,.5,1.0,1.0]),
+            ("equal-width-rgba", "vec4 a=vec4(0.0,.125,.25,.5),b=vec4(.5,.625,.75,1.0);"
+             "vec4 w=vec4(.25,.5,.75,.875); gl_FragColor=mix(a,b,w);", [.125,.375,.625,.9375]),
+            ("scalar-neighbor", "float v=mix(.125,.625,.5);"
+             "float gate=min(1,smoothstep(0,.5,.125)+step(.5,.25)); gl_FragColor=vec4(v,gate,.5,1.0);",
+             [.375,.15625,.5,1.0]),
         ]
         for name, body, expected in cases:
             with self.subTest(name=name):
-                root = self._compile_weight_probe(name, "void main() {" + body + "}", expected)
-                output = json.loads((root / "analysis.json").read_text())
-                if name == "nested-mix":
-                    self.assertIn("vec4 rgba = vec4(0.25, 0.5, 0.75, 0.875)", output["canonicalFragment"])
-                    self.assertIn("rgba.a", output["canonicalFragment"])
-                    self.assertIn("(rgba).xyz", output["canonicalFragment"])
-                if name == "nested-width-boundary":
-                    self.assertIn("(k * (w).xyz).xy", output["canonicalFragment"])
-
-    def test_wider_mix_weight_rejects_unproven_and_neighboring_shapes(self) -> None:
-        cases = [
-            # This converter does not prove constructor expressions; preserve them for the compiler.
-            ("constructor-weight-unproven", "vec2 a=vec2(0.0), b=vec2(1.0); vec3 w=vec3(0.5);", "mix((a),(b),(abs(w)+vec3(0.0)))"),
-            ("narrow-weight", "vec3 a=vec3(0.0), b=vec3(1.0); vec2 w=vec2(0.5);", "mix(a,b,w)"),
-            ("different-endpoints", "vec2 a=vec2(0.0); vec3 b=vec3(1.0); vec4 w=vec4(0.5);", "mix(a,b,w)"),
-            ("integer-weight", "vec3 a=vec3(0.0), b=vec3(1.0); ivec4 w=ivec4(1);", "mix(a,b,w)"),
-            ("boolean-weight", "vec3 a=vec3(0.0), b=vec3(1.0); bvec4 w=bvec4(true);", "mix(a,b,w)"),
-            ("integer-endpoints", "ivec3 a=ivec3(0), b=ivec3(1); vec4 w=vec4(0.5);", "mix(a,b,w)"),
-            ("unknown-weight", "vec3 a=vec3(0.0), b=vec3(1.0);", "mix(a,b,unknownWeight())"),
-            ("mutating-weight", "vec3 a=vec3(0.0), b=vec3(1.0); vec4 w=vec4(0.5);", "mix(a,b,w++)"),
-            ("value-shadow", "vec3 a=vec3(0.0), b=vec3(1.0); vec4 w=vec4(0.5); float mix=1.0;", "mix(a,b,w)"),
+                self._render_intrinsic(name, "void main(){" + body + "}", expected)
+        helpers = [
+            ("pow-scalar-vector", "float peer(float pow){return pow;}",
+             "float c=.5; vec3 wave=vec3(.5,1.0,1.5);"
+             "vec3 v=pow(abs(c),wave*2.0); gl_FragColor=vec4(v,pow(c,1.0));", [.5,.25,.125,.5]),
+            ("declared-return", "vec3 gray(vec4 p){return CAST3(dot(p,vec3(.25,.5,.125)));}",
+             endpoints + "vec3 v=lerp(low,gray(low),.25); gl_FragColor=vec4(v,low.a);",
+             [.1484375,.2421875,.4296875,.875]),
+            ("single-evaluation-inout", "vec4 lift(inout vec4 p){p.a+=.125; return p;}",
+             "vec4 p=vec4(.125,.25,.5,.5); vec3 q=vec3(.625,.75,1.0);"
+             "vec3 v=mix(lift(p),q,.25); gl_FragColor=vec4(v,p.a);", [.25,.375,.625,.625]),
         ]
-        root = self.binary.parent / "weight-negative"
-        root.mkdir(exist_ok=True)
-        for name, declarations, expression in cases:
+        for name, helper, body, expected in helpers:
             with self.subTest(name=name):
-                source = "void main(){" + declarations + "gl_FragColor=vec4(1.0);" + expression + ";}"
-                path = root / (name + ".frag")
-                path.write_text(source, encoding="utf-8")
-                output = json.loads(subprocess.check_output([str(self.binary), "--analyze", str(path)], text=True))
-                self.assertTrue(output["idempotent"])
-                (root / (name + "-analysis.json")).write_text(json.dumps(output, indent=2))
-                normalized = root / (name + "-normalized.frag")
-                normalized.write_text(output["normalizedFragment"], encoding="utf-8")
-                compiled = subprocess.run(
-                    [str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations",
-                     str(normalized), "-o", str(root / (name + ".spv"))],
-                    capture_output=True, text=True, timeout=30,
-                )
-                self.assertNotEqual(compiled.returncode, 0, name)
-                if name != "value-shadow":
-                    self.assertEqual(output["canonicalFragment"], source)
-        for intrinsic in ("mix", "lerp"):
-            source = (f"vec3 {intrinsic}(vec3 a,vec3 b,vec4 w){{return a;}}"
-                      f"void main(){{vec3 a=vec3(0.0),b=vec3(1.0);vec4 w=vec4(0.5);"
-                      f"gl_FragColor=vec4({intrinsic}(a,b,w),w.a);}}")
-            path = root / (intrinsic + "-overload.frag")
-            path.write_text(source, encoding="utf-8")
-            output = json.loads(subprocess.check_output([str(self.binary), "--analyze", str(path)], text=True))
-            self.assertEqual(output["canonicalFragment"], source)
-            self.assertTrue(output["idempotent"])
+                self._render_intrinsic(name, helper + "void main(){" + body + "}", expected)
+        for intrinsic in ("mix", "lerp", "dot"):
+            source = (f"vec3 {intrinsic}(vec4 a,vec3 b){{return vec3(.125,.75,.25);}}"
+                      if intrinsic == "dot" else
+                      f"vec3 {intrinsic}(vec4 a,vec3 b,float w){{return vec3(.125,.75,.25);}}")
+            arguments = "a,b" if intrinsic == "dot" else "a,b,.5"
+            source += ("void main(){vec4 a=vec4(0.0);vec3 b=vec3(1.0);"
+                       f"gl_FragColor=vec4({intrinsic}({arguments}),1.0);}}")
+            with self.subTest(overload=intrinsic):
+                self._render_intrinsic(intrinsic + "-overload", source, [.125,.75,.25,1.0], preserve=True)
 
-    def test_wider_mix_weights_render_exact_known_vectors(self) -> None:
-        self.test_wider_mix_weights_compile_through_both_backends()
-        for root in sorted((self.binary.parent / "weight-cases").iterdir()):
-            expected = json.loads((root / "expected.json").read_text())
-            for flag, name in (("--render", "generic.metal"), ("--render-fallback", "fallback.metal")):
-                with self.subTest(case=root.name, backend=name):
-                    pixels = json.loads(subprocess.check_output(
-                        [str(self.binary), flag, str(root / name)], text=True, timeout=30,
-                    ))
-                    self.assertEqual(len(pixels), len(expected))
-                    for actual, wanted in zip(pixels, expected):
-                        self.assertAlmostEqual(actual, wanted, places=6)
+    def test_intrinsic_conversion_preserves_nonfloating_and_unknown_ownership(self) -> None:
+        cases = [
+            ("integer-weight", "", "ivec4 w=ivec4(1);", "mix(a,b,w)"),
+            ("boolean-weight", "", "bvec4 w=bvec4(true);", "mix(a,b,w)"),
+            ("integer-endpoints", "", "ivec3 x=ivec3(0),y=ivec3(1);", "mix(x,y,.5)"),
+            ("unknown-weight", "", "", "mix(a,b,unknownWeight())"),
+            ("mutating-weight", "", "vec4 w=vec4(.5);", "mix(a,b,w++)"),
+            ("value-shadow", "", "float mix=1.0;", "mix(a,b,vec4(.5))"),
+            ("peer-scope", "float peer(float weight){return weight;}", "", "mix(a,b,weight)"),
+            ("prototype", "vec3 mix(vec3 a,vec3 b,vec4 w);", "vec4 w=vec4(.5);", "mix(a,b,w)"),
+        ]
+        for name, helper, declaration, call in cases:
+            source = helper + "void main(){vec3 a=vec3(0.0),b=vec3(1.0);" + declaration
+            source += call + ";gl_FragColor=vec4(1.0);}"
+            with self.subTest(name=name):
+                root, output = self._analyze_intrinsic(name, source)
+                self.assertEqual(output["canonicalFragment"], source)
+                if name in ("integer-weight", "boolean-weight", "integer-endpoints",
+                            "unknown-weight", "peer-scope"):
+                    path = root / "source.frag"
+                    path.write_text(output["normalizedFragment"], encoding="utf-8")
+                    result = subprocess.run([str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations",
+                        str(path), "-o", str(root / "result.spv")], capture_output=True, text=True, timeout=30)
+                    (root / "compiler.json").write_text(json.dumps({"returncode": result.returncode,
+                        "stdout": result.stdout, "stderr": result.stderr}, indent=2))
+                    if name in ("unknown-weight", "peer-scope"):
+                        self.assertNotEqual(result.returncode, 0, name)
 
 
 if __name__ == "__main__":

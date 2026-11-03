@@ -133,7 +133,6 @@
           "SceneAuthoredShaderAuxiliaryRGBMixAnalyzer.swift",
           "SceneAuthoredShaderAuxiliaryTexturePurposeAnalyzer.swift",
           "SceneAuthoredShaderBoundedLoopAdmission.swift",
-          "SceneAuthoredShaderBuiltInPowBroadcast.swift",
           "SceneAuthoredShaderBuiltInVectorConversion.swift",
           "SceneAuthoredShaderColorMixGraphAnalyzer.swift",
           "SceneAuthoredShaderColorTransferAnalyzer+Derivation.swift",

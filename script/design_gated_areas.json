@@ -1992,6 +1992,20 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticlePipelineRenderStateCompiler.swift"
       ],
       "contentPatterns": []
+    },
+    {
+      "id": "scene-intrinsic-argument-conversion",
+      "title": "Shader intrinsic 统一浮点参数转换",
+      "owner": "Existing BuiltInVectorConversion / shared backend canonicalizer",
+      "status": "approved",
+      "designDoc": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "design_notes": "intrinsic-argument-conversion: replace repeated broadcast and simple/compound mix shape proofs with one prepared typed argument plan. Shared floating signatures use common non-scalar width, scalar splat and whole-operand truncation; preserve authored overloads, lexical binding, single evaluation, compiler validation and unrelated expression-query consumers. Qualify actual dual-backend Metal values, real authors, independent neighbors and local failure; no effect whitelist/new compiler/runtime owner.",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderBuiltInVectorConversion.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderVectorConversion.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneAuthoredShaderBackendCanonicalizer.swift"
+      ],
+      "contentPatterns": []
     }
   ]
 }

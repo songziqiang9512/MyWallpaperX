@@ -153,6 +153,7 @@ private struct ScalarVectorBuiltInHarness {
             var output: [String: Any] = [
                 "strictDiagnosticCodes": strict.diagnostics.map { $0.code.rawValue },
                 "typeDiagnosticCodes": types.diagnostics.map { $0.code.rawValue },
+                "canonicalVertex": pair.vertex,
                 "canonicalFragment": pair.fragment,
                 "idempotent": pair == SceneAuthoredShaderBackendCanonicalizer.canonicalize(
                     vertex: pair.vertex, fragment: pair.fragment
@@ -165,6 +166,7 @@ private struct ScalarVectorBuiltInHarness {
             if let program = fallback.program {
                 output["fallbackMSL"] = program.metalSource
                 output["fallbackFragmentFunctionName"] = program.fragmentFunctionName
+                output["fallbackUniformNames"] = program.uniformLayout.fields.map(\.name)
             }
             if case let .success(normalized) = SceneGenericShaderSourceNormalizer.normalize(
                 vertexSource: pair.vertex, fragmentSource: pair.fragment,
@@ -215,9 +217,6 @@ private struct ScalarVectorBuiltInHarness {
             ),
             fragment: fragment("gl_FragColor = albedo;")
         ).vertex
-        let literalSecond = canonical(
-            "gl_FragColor = vec4(max(albedo.rgb, 0), albedo.a);"
-        )
         let minZero = canonical(
             "gl_FragColor = vec4(min(0, albedo.rgb), albedo.a);"
         )
@@ -251,10 +250,6 @@ private struct ScalarVectorBuiltInHarness {
             "float value = max(1, abs(g_Ratio.x)); gl_FragColor = vec4(value);",
             declarations: ["uniform vec2 g_Ratio;"]
         )
-        let scalarStepMin = canonical(
-            "float value = min(1, smoothstep(0, g_Ratio.x, g_Ratio.y) + step(g_Ratio.x, g_Ratio.y)); gl_FragColor = vec4(value);",
-            declarations: ["uniform vec2 g_Ratio;"]
-        )
         let discreteMask = canonical(
             "int value = max(lower, step(g_Ratio.x, g_Ratio.y) * step(-g_Ratio.x, g_Ratio.y)); gl_FragColor = vec4(float(value));",
             declarations: ["uniform int lower;", "uniform vec2 g_Ratio;"]
@@ -265,10 +260,6 @@ private struct ScalarVectorBuiltInHarness {
         )
         let directDiscreteArithmeticMask = canonical(
             "int value = step(1 - g_Ratio.x, g_Ratio.y); gl_FragColor = vec4(float(value));",
-            declarations: ["uniform vec2 g_Ratio;"]
-        )
-        let directVectorStepMask = canonical(
-            "int value = step(g_Ratio, g_Ratio.y); gl_FragColor = vec4(float(value));",
             declarations: ["uniform vec2 g_Ratio;"]
         )
         let nonDiscreteMask = canonical(
@@ -285,9 +276,6 @@ private struct ScalarVectorBuiltInHarness {
             declarations: ["uniform vec2 g_Ratio;"],
             helpers: ["float step(float edge, float value) { return value; }"]
         )
-        let compound = canonical(
-            "gl_FragColor = vec4(max(0 + 0, albedo.rgb), albedo.a);"
-        )
         let integerVariable = canonical(
             "gl_FragColor = vec4(max(lower, albedo.rgb), albedo.a);",
             declarations: ["uniform int lower;"]
@@ -300,9 +288,6 @@ private struct ScalarVectorBuiltInHarness {
         )
         let integerVector = canonical(
             "ivec3 value = max(0, ivec3(1)); gl_FragColor = vec4(value);"
-        )
-        let vectorConstructor = canonical(
-            "gl_FragColor = vec4(max(0, vec3(albedo.r)), albedo.a);"
         )
         let userDefined = canonical(
             "gl_FragColor = vec4(max(0, albedo.rgb), albedo.a);",
@@ -395,9 +380,6 @@ private struct ScalarVectorBuiltInHarness {
                 "vertex": vertexZero.contains(
                     "max(vec2(0.0), a_TexCoord)"
                 ),
-                "literalSecondPreserved": literalSecond.contains(
-                    "max(albedo.rgb, 0)"
-                ) && !literalSecond.contains("vec3(0.0)"),
                 "minBroadcast": minZero.contains(
                     "min(vec3(0.0), albedo.rgb)"
                 ),
@@ -425,9 +407,6 @@ private struct ScalarVectorBuiltInHarness {
                 "scalarAbsCall": scalarUnknownCall.contains(
                     "max(1.0, abs(g_Ratio.x))"
                 ),
-                "scalarStepMin": scalarStepMin.contains(
-                    "min(1.0, smoothstep(0, g_Ratio.x, g_Ratio.y) + step(g_Ratio.x, g_Ratio.y))"
-                ),
                 "discreteMask": discreteMask.contains(
                     "max(lower, int(step(g_Ratio.x, g_Ratio.y) * step(-g_Ratio.x, g_Ratio.y)))"
                 ),
@@ -437,9 +416,6 @@ private struct ScalarVectorBuiltInHarness {
                 "directDiscreteArithmeticMask": directDiscreteArithmeticMask.contains(
                     "int value = int(step(1 - g_Ratio.x, g_Ratio.y))"
                 ),
-                "directVectorStepMaskPreserved": directVectorStepMask.contains(
-                    "int value = step(g_Ratio, g_Ratio.y)"
-                ) && !directVectorStepMask.contains("int(step("),
                 "nonDiscreteMaskPreserved": nonDiscreteMask.contains(
                     "max(lower, g_Ratio.x)"
                 ) && !nonDiscreteMask.contains("int(g_Ratio.x)"),
@@ -449,9 +425,6 @@ private struct ScalarVectorBuiltInHarness {
                 "userDefinedDirectStepMaskPreserved": userDefinedDirectStepMask.contains(
                     "int value = step(g_Ratio.x, g_Ratio.y)"
                 ) && !userDefinedDirectStepMask.contains("int(step("),
-                "compoundPreserved": compound.contains(
-                    "max(0 + 0, albedo.rgb)"
-                ) && !compound.contains("vec3(0.0)"),
                 "integerVariablePreserved": integerVariable.contains(
                     "max(lower, albedo.rgb)"
                 ) && !integerVariable.contains("vec3(lower)"),
@@ -463,9 +436,6 @@ private struct ScalarVectorBuiltInHarness {
                 ),
                 "integerVectorPreserved": integerVector.contains(
                     "max(0, ivec3(1))"
-                ),
-                "vectorConstructorPreserved": vectorConstructor.contains(
-                    "max(0, vec3(albedo.r))"
                 ),
                 "userDefinedPreserved": userDefined.contains(
                     "max(0, albedo.rgb)"
@@ -498,9 +468,6 @@ private struct ScalarVectorBuiltInHarness {
                 ) == true,
                 "normalizedDirectDiscreteMask": normalized?.fragment.contains(
                     "int directMask = int(step(1 - g_Ratio.x, g_Ratio.y))"
-                ) == true,
-                "normalizedScalarStepMin": normalized?.fragment.contains(
-                    "min(1.0, smoothstep(0, g_Ratio.x, g_Ratio.y) + step(g_Ratio.x, g_Ratio.y))"
                 ) == true,
                 "normalizedScalarVectorBroadcast": normalized?.fragment.contains(
                     "vec2 broadcast = vec2(g_Ratio.x * g_Ratio.y);"

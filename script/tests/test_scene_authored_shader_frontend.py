@@ -1170,31 +1170,6 @@ class SceneAuthoredShaderFrontendTests(AuthoredShaderFrontendHarness, unittest.T
             ["unsupportedDeclaration"],
         )
 
-    def test_compound_mix_does_not_guess_unproven_additive_or_function_forms(self):
-        fixtures = [
-            "color + expanded",
-            "(color + expanded) * (g_ColorHigh - g_ColorLow)",
-            "normalize(color) * (g_ColorHigh - g_ColorLow)",
-        ]
-        for expression in fixtures:
-            with self.subTest(expression=expression):
-                output = self.compile(
-                    VERTEX_SOURCE,
-                    f"""
-                    uniform vec3 g_ColorLow;
-                    uniform vec3 g_ColorHigh;
-                    varying vec2 v_TexCoord;
-                    void main() {{
-                        vec4 color = vec4(v_TexCoord, 0.0, 1.0);
-                        vec4 expanded = vec4(0.5);
-                        color.rgb = mix(g_ColorLow, {expression}, 0.5);
-                        gl_FragColor = color;
-                    }}
-                    """,
-                )
-                compact_source = output["metalSource"].replace(" ", "")
-                self.assertNotIn("normalize((color).xyz)", compact_source)
-                self.assertIsNotNone(output.get("metalError"))
 
     def test_out_parameters_compile_as_caller_references(self):
         vertex = """
