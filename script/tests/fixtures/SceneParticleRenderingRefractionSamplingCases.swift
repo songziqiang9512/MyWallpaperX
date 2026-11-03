@@ -179,7 +179,23 @@ extension Harness {
             trailUVRange: SIMD2(0.25, 0.75),
             usesTrailDisplacement: true
         )
+        var cullPixels: [String: [Int]] = [:]
+        for (name, rotation, cull, alpha, coverage) in [
+            ("front", SIMD3<Float>.zero, SceneParticlePipelineCullMode.back, Float(1), UInt8(255)),
+            ("back", SIMD3<Float>(0, .pi, 0), .back, 1, 255),
+            ("two-sided", SIMD3<Float>(0, .pi, 0), .none, 1, 255),
+            ("half-alpha", SIMD3<Float>.zero, .back, 0.5, 255),
+            ("half-albedo", SIMD3<Float>.zero, .back, 1, 128),
+            ("half-both", SIMD3<Float>.zero, .back, 0.5, 128),
+            ("zero-alpha", SIMD3<Float>.zero, .back, 0, 255),
+            ("quarter-turn", SIMD3<Float>(0, 0, .pi / 2), .back, 1, 255),
+        ] {
+            cullPixels[name] = refractedCenter(normalX: 255, amount: 0.25,
+                rotation: rotation, particleAlpha: alpha, albedoAlpha: coverage,
+                cullMode: cull, position: SIMD3(0, 0, 0.5), drawsFollowingPeer: true)
+        }
         return [
+            "cullPixels": cullPixels,
             "neutral": neutral,
             "shifted": shifted,
             "maskedOut": refractedCenter(normalX: 255, amount: 0.25, normalMask: 0),
@@ -218,7 +234,10 @@ extension Harness {
         rotation: SIMD3<Float> = .zero,
         normalMask: UInt8 = 255,
         particleAlpha: Float = 1,
-        albedoAlpha: UInt8 = 255
+        albedoAlpha: UInt8 = 255,
+        cullMode: SceneParticlePipelineCullMode = .none,
+        position: SIMD3<Float> = .zero,
+        drawsFollowingPeer: Bool = false
     ) -> [Int] {
         let size = 8
         guard let device = MTLCreateSystemDefaultDevice(),
@@ -267,7 +286,7 @@ extension Harness {
         }
         let instances = SceneParticleMetalInstanceBuffer()
         let instance = SceneParticleGPUInstance(
-            position: .zero,
+            position: position,
             size: 2,
             rotation: rotation,
             color: SIMD3(repeating: 1),
@@ -306,19 +325,36 @@ extension Harness {
                     cameraForward: SIMD3(0, 0, -1)
                 )
             ),
-            renderState: particleState(.translucent),
+            renderState: .init(blendMode: .translucent, cullMode: cullMode),
             colorUVScale: SIMD2(repeating: 1),
             colorSampling: .directImageFallback,
             encoder: encoder
         )
+        let peer = SceneParticleMetalInstanceBuffer()
+        if drawsFollowingPeer {
+            guard peer.update(device: device, instances: [.init(position: SIMD3(0.625, 0.625, 0.5),
+                size: 0.25, rotation: SIMD3(0, .pi, 0), color: SIMD3(repeating: 1), alpha: 1)]) else { return [] }
+            guard pipeline.draw(texture: normal, instances: peer,
+                uniforms: .init(viewProjection: SceneMatrix.identity(), layerModel: SceneMatrix.identity(),
+                    basis: .init(right: SIMD3(1,0,0), up: SIMD3(0,1,0))),
+                renderState: .init(blendMode: .translucent, cullMode: .none),
+                colorSampling: .directImageFallback, encoder: encoder) else { return [] }
+        }
         encoder.endEncoding()
         instances.markSubmitted(on: command)
+        if drawsFollowingPeer { peer.markSubmitted(on: command) }
         guard SceneParticleOffscreenReadbackHarness.commitAndWait(command) else { return [] }
         var pixel = [UInt8](repeating: 0, count: 4)
         target.getBytes(
             &pixel, bytesPerRow: size * 4,
             from: MTLRegionMake2D(size / 2, size / 2, 1, 1), mipmapLevel: 0
         )
+        if drawsFollowingPeer {
+            var following = [UInt8](repeating: 0, count: 4)
+            target.getBytes(&following, bytesPerRow: size * 4,
+                from: MTLRegionMake2D(6, 1, 1, 1), mipmapLevel: 0)
+            pixel += following
+        }
         return pixel.map(Int.init)
     }
 

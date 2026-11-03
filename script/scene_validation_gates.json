@@ -2433,11 +2433,20 @@
         "script/tests/fixtures/SceneParticleMaterialCoverageHarness.swift",
         "script/tests/fixtures/SceneParticleRuntimeHarness.swift",
         "script/tests/test_scene_particle_coverage_rendering.py",
-        "script/tests/fixtures/SceneParticleCoverageRenderingHarness.swift"
+        "script/tests/fixtures/SceneParticleCoverageRenderingHarness.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRefractionPlan.swift",
+        "script/tests/test_scene_particle_assets.py",
+        "script/tests/fixtures/SceneParticleCameraRenderingHarness.swift",
+        "script/tests/test_scene_particle_camera_rendering.py",
+        "script/tests/fixtures/SceneParticleRenderingRefractionSamplingCases.swift",
+        "script/tests/test_scene_particle_rendering.py"
       ],
       "modules": [
         "test_scene_particle_material_coverage",
-        "test_scene_particle_coverage_rendering"
+        "test_scene_particle_coverage_rendering",
+        "test_scene_particle_assets",
+        "test_scene_particle_camera_rendering",
+        "test_scene_particle_rendering"
       ]
     },
     {

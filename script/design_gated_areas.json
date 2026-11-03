@@ -1979,6 +1979,19 @@
         "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+CacheAssets.swift"
       ],
       "contentPatterns": []
+    },
+    {
+      "id": "scene-particle-material-raster",
+      "title": "粒子材质剔除与相机/深度职责",
+      "owner": "Existing ParticlePipelineRenderStateCompiler / RefractionPlanner / MetalPipeline",
+      "status": "approved",
+      "designDoc": "docs/scene/capabilities/particle-component-coverage.md",
+      "design_notes": "Rendering: lower authored normal/noCull to the existing shared raster state, independently of renderer names and REFRACT. Preserve camera selection, depth/attachment, coverage and resource contracts; qualify actual projected winding, UV/alpha pixels, snapshot depth and a real authored consumer. No new state, pipeline owner or frame work.",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRefractionPlan.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticlePipelineRenderStateCompiler.swift"
+      ],
+      "contentPatterns": []
     }
   ]
 }

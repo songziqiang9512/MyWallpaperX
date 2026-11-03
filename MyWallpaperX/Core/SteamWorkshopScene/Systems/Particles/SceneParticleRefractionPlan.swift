@@ -35,7 +35,6 @@ nonisolated enum SceneParticleRefractionPlanner {
               !pass.hasUserTextureInputs,
               !pass.hasUserShaderValues,
               renderState.depthWrite == .disabled,
-              renderState.cullMode == .noCull,
               [.unspecified, .default].contains(renderState.alphaWriting),
               [.translucent, .additive].contains(renderState.blending) else {
             return nil

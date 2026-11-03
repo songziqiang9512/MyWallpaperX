@@ -121,16 +121,16 @@
       "bytes": 5938
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 70,
-      "bytes": 6872
+      "lines": 72,
+      "bytes": 7428
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 90,
       "bytes": 10921
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 41,
-      "bytes": 8028
+      "lines": 42,
+      "bytes": 8953
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 81,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 158,
-      "bytes": 21957
+      "bytes": 22176
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -399,21 +399,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "d032ab3840101e44a81df1ac1443e645e64f9784a88ea3203694367de5e49090",
+      "after": "6f70654efffbd55cb6f4afeb042a9bc2598413a694e8b0b011e91a5ec442a39c",
+      "owner": "Existing particle material/raster owners",
+      "reason": "Current cull/camera-depth responsibility, exact bounded native/runtime evidence and actual ordinary-material consumer debt.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#rendering"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "b419184983fb6f5131d8d0c5f897927f5affdfbe4769e6a894deec6a61813141",
-      "after": "71a7f71e69f5014e72f9232c4d8f625d50dbc890f84a7b06b9731ae15babf074",
-      "owner": "Scene composition/source preparation",
-      "reason": "Current drawable/interface responsibility, exact typed source-free qualification and bounded runtime evidence; queue retains only open facts.",
-      "decision": "docs/scene/capabilities/effect-execution-coverage.md#composition"
+      "before": "71a7f71e69f5014e72f9232c4d8f625d50dbc890f84a7b06b9731ae15babf074",
+      "after": "0bc59ec7eaf50c35251c3d218c681a8d1d17421720089b54992892a00c0e9eee",
+      "owner": "Existing particle material/raster owners",
+      "reason": "Current cull/camera-depth responsibility, exact bounded native/runtime evidence and actual ordinary-material consumer debt.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#rendering"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "f997c81325ee90fd82bb0880543a2867ec1a9abe784facd7f98d6e388b185bac",
-      "after": "ba68f9425ad7d9bb9f321bb0f6be75d143cc826bc27ef63d61158aba1ad5039c",
-      "owner": "Scene composition/source preparation",
-      "reason": "Current drawable/interface responsibility, exact typed source-free qualification and bounded runtime evidence; queue retains only open facts.",
-      "decision": "docs/scene/capabilities/effect-execution-coverage.md#composition"
+      "before": "ba68f9425ad7d9bb9f321bb0f6be75d143cc826bc27ef63d61158aba1ad5039c",
+      "after": "6aa386149ab996ae6a80a265c3102fed36902406822b7507c32bcd9ad83401ae",
+      "owner": "Existing particle material/raster owners",
+      "reason": "Current cull/camera-depth responsibility, exact bounded native/runtime evidence and actual ordinary-material consumer debt.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#rendering"
     }
   ]
 }

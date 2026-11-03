@@ -1,7 +1,6 @@
 import Foundation
 
-/// Lowers the bounded stock `genericparticle` material profile into the one
-/// particle Metal executor. Unknown shader combinations remain unavailable.
+/// Cull consumes shared raster state independently of camera/depth eligibility.
 nonisolated enum SceneParticlePipelineRenderStateCompiler {
     static func compile(
         _ state: SceneMaterialRenderState,
@@ -29,12 +28,11 @@ nonisolated enum SceneParticlePipelineRenderStateCompiler {
         case .normal: return nil
         }
 
-        let needsSpriteStateProfile = state.cullMode == .normal
-            || state.depthTest == .enabled
+        let needsDepthStateProfile = state.depthTest == .enabled
             || state.depthWrite == .enabled
         let readOnlyRefraction = isRefraction && screenSprite
-            && state.depthWrite == .disabled && state.cullMode == .noCull
-        if needsSpriteStateProfile, !spriteProfile, !readOnlyRefraction {
+            && state.depthWrite == .disabled
+        if needsDepthStateProfile, !spriteProfile, !readOnlyRefraction {
             return nil
         }
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import unittest
 import os
 import ast
+import tempfile
 from pathlib import Path
 
 from script.tests.scene_particle_render_test_support import run_particle_harness
@@ -76,6 +77,7 @@ extension SceneRenderDescriptor.CameraDescriptor {
     static func main() throws {
         var result = SceneParticleCameraRenderingHarness.run()
         result["refractionDepth"] = SceneParticleCameraRenderingHarness.refractionDepthProfiles()
+        result["commonCull"] = SceneParticleCameraRenderingHarness.commonCullProfiles()
         result["particleVariantDemand"] = SceneParticleCameraRenderingHarness.particleVariantDemand()
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -95,8 +97,10 @@ class SceneParticleCameraRenderingTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         previous = os.environ.get("MWX_PARTICLE_CAMERA_READBACK_DIR")
-        os.environ.setdefault("MWX_PARTICLE_CAMERA_READBACK_DIR", str(
-            ROOT / ".artifacts/refraction-depth-qualification-20261101/tests-camera/readbacks"))
+        if previous is None:
+            temporary = tempfile.TemporaryDirectory(prefix="mwx-particle-camera-readbacks-")
+            cls.addClassCleanup(temporary.cleanup)
+            os.environ["MWX_PARTICLE_CAMERA_READBACK_DIR"] = temporary.name
         try:
             cls.result = run_particle_harness(CAMERA_SWIFT_SOURCES, CAMERA_HARNESS_SOURCE)
         finally:
@@ -226,6 +230,28 @@ class SceneParticleCameraRenderingTests(unittest.TestCase):
         self.assertGreater(contract["frontBackCull"][3], 240)
         self.assertEqual(contract["reversedBackCull"], [0, 0, 0, 0])
         self.assertGreater(contract["reversedNoCull"][3], 240)
+
+    def test_common_cull_preserves_actual_sprite_fixed_trail_geometry_and_frame_capture(self) -> None:
+        rows = self.result["commonCull"]
+        self.assertEqual(len(rows), 18, rows)
+        for row in rows:
+            with self.subTest(geometry=row["name"], perspective=row["perspective"]):
+                self.assertTrue(row["completed"], row)
+                self.assertFalse(row["hasDepth"], row)
+                self.assertTrue(row["sameBackCoverage"], row)
+                self.assertTrue(row["sameNoneCoverage"], row)
+                # size20/2 gives 10x10; the rolled 15x5 rectangle covers 74
+                # pixel centers on the 64-grid, with no centers on an edge.
+                expected_area = 74 if row["name"] == "local-anisotropic-rolled" else 100
+                self.assertEqual(row["ordinaryNoneCount"], expected_area, row)
+                if row["expectedFront"] is not None:
+                    self.assertTrue(all((area > 0) == row["expectedFront"]
+                                        for area in row["spriteProjectedAreas"]), row)
+                for prefix in ("ordinary", "refraction"):
+                    if row["expectedFront"] is True:
+                        self.assertEqual(row[prefix + "BackCount"], row[prefix + "NoneCount"], row)
+                    elif row["expectedFront"] is False:
+                        self.assertEqual(row[prefix + "BackCount"], 0, row)
 
 
     def test_projected_screen_sprites_keep_depth_test_and_write_independent(self) -> None:

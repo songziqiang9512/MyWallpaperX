@@ -553,13 +553,87 @@ enum SceneParticleCameraRenderingHarness {
     static func depthBatch(_ device: MTLDevice, texture: MTLTexture,
         state: SceneParticlePipelineRenderState, z: Float, size: Float, x: Float = 0,
         refraction: SceneParticleRefractionBinding? = nil, rotation: Float = 0,
-        layerID: Int = 731, path: String = "particles/depth.json") -> SceneParticleDrawBatch? {
+        layerID: Int = 731, path: String = "particles/depth.json",
+        orientation: SceneParticleOrientation = .screen, trailVelocity: SIMD3<Float>? = nil,
+        perspective: Bool = true, worldSize: Bool = false) -> SceneParticleDrawBatch? {
         let values = [SceneParticleGPUInstance(position: SIMD3(x, 0, z), size: size,
-            rotation: SIMD3(0, rotation, 0), color: SIMD3(repeating: 1), alpha: 1)]
+            rotation: SIMD3(0, rotation, 0), color: SIMD3(repeating: 1), alpha: 1,
+            velocity: trailVelocity ?? .zero, trailStretch: trailVelocity == nil ? nil : 1)]
         return .init(layerID: layerID, particlePath: path, texture: texture,
             colorUVScale: SIMD2(repeating: 1), colorSampling: .directImageFallback,
             refraction: refraction, renderState: state, childTemplateIndex: nil,
-            instances: values, orientation: .screen, orientationAxis: nil, usesPerspective: true)
+            instances: values, orientation: orientation, orientationAxis: nil,
+            usesPerspective: perspective, sizeIsWorldSpace: worldSize)
+    }
+
+    static func commonCullProfiles() -> [[String: Any]] {
+        guard let device = MTLCreateSystemDefaultDevice(), let pipeline = SceneParticleMetalPipeline(device: device),
+              let white = depthTexture(device, pixels: [255,255,255,255]),
+              let red = depthTexture(device, pixels: [255,0,0,255]),
+              let normal = depthTexture(device, pixels: [255,128,0,255]) else { return [] }
+        let binding = SceneParticleRefractionBinding(normalTexture: normal, amount: 0.125,
+            overbright: 1, colorEncoding: .rgba, normalUsesParticleFrames: false,
+            normalUVScale: SIMD2(repeating: 1), normalSampling: .directImageFallback, normalFormat: .rgba8888)
+        let geometries: [(String, SceneParticleOrientation, SIMD3<Float>, Float, Bool, SIMD3<Float>?, Bool?)] = [
+            ("local-screen", .screen, SIMD3(1,1,1), 0, false, nil, true),
+            ("local-reflected", .screen, SIMD3(-1,1,1), 0, false, nil, false),
+            ("local-double-reflected", .screen, SIMD3(-1,-1,1), 0, false, nil, true),
+            ("local-anisotropic-rolled", .screen, SIMD3(1.5,0.5,1), 0.3, false, nil, true),
+            ("fixed", .fixed, SIMD3(1,1,1), 0, false, nil, true),
+            ("fixed-reflected", .fixed, SIMD3(-1,1,1), 0, false, nil, false),
+            ("world-size-reflected", .worldScreen, SIMD3(-1,1,1), 0, true, nil, true),
+            ("trail", .screen, SIMD3(1,1,1), 0, false, SIMD3(1,0,0), nil),
+            ("trail-reflected", .screen, SIMD3(-1,1,1), 0, false, SIMD3(1,0,0), nil),
+        ]
+        var rows: [[String: Any]] = []
+        for perspective in [false, true] {
+            let camera = SceneParticleCameraFrame(camera: .init(eye: [32,32,64], center: [32,32,0], up: [0,1,0],
+                orthoWidth: 64, orthoHeight: 64, fovDegrees: nil,
+                perspectiveOverrideFOVDegrees: 2 * atan(0.5) * 180 / .pi, nearZ: 1, farZ: 200),
+                viewportSize: CGSize(width: 64,height: 64))
+            for (name, orientation, scale, roll, worldSize, velocity, front) in geometries {
+                let model = SceneParticleCameraFrame.particleLayerModel(worldFrame:
+                    SceneMatrix.translation(SIMD3(32,32,0)) * SceneMatrix.rotationZ(roll)
+                        * SceneMatrix.scale(scale), parallaxOffset: .zero)
+                var masks: [[Bool]] = [], completed = true, leased = false
+                var geometry: [[Float]] = [], projectedAreas: [Float] = []
+                for refract in [false, true] {
+                    for cull in [SceneParticlePipelineCullMode.back, .none] {
+                        let state = SceneParticlePipelineRenderState(blendMode: .translucent, cullMode: cull,
+                            usesSceneCamera: !refract && orientation != .fixed)
+                        let uniforms = camera.particleUniforms(layerModel: model, orientation: orientation,
+                            orientationAxis: nil, usesPerspective: perspective, usesSceneCamera: state.usesSceneCamera,
+                            viewportSize: SIMD2(64,64), sizeIsWorldSpace: worldSize)
+                        geometry.append([uniforms.spriteRight.x,uniforms.spriteRight.y,
+                            uniforms.spriteUp.x,uniforms.spriteUp.y])
+                        let right = uniforms.viewProjection * uniforms.spriteRight
+                        let up = uniforms.viewProjection * uniforms.spriteUp
+                        projectedAreas.append(right.x * up.y - right.y * up.x)
+                        guard let batch = depthBatch(device, texture: refract ? white : red, state: state,
+                            z: 0, size: 20, refraction: refract ? binding : nil,
+                            path: "particles/renamed-\(name).json", orientation: orientation,
+                            trailVelocity: velocity, perspective: perspective, worldSize: worldSize),
+                              let result = depthDraw("cull-\(perspective)-\(name)-\(refract)-\(cull.rawValue)",
+                                device: device, pipeline: pipeline, batches: pipeline.prepare([batch]),
+                                camera: camera, model: model) else { return [] }
+                        completed = completed && result.completed; leased = leased || result.hasLease || result.depthBytes != 0
+                        let original = depthBackground()
+                        masks.append(stride(from: 0,to: original.count,by: 4).map {
+                            result.pixels[$0..<$0+4] != original[$0..<$0+4]
+                        })
+                    }
+                }
+                rows.append(["name": name, "perspective": perspective, "completed": completed,
+                    "hasDepth": leased, "ordinaryBackCount": masks[0].filter { $0 }.count,
+                    "ordinaryNoneCount": masks[1].filter { $0 }.count,
+                    "refractionBackCount": masks[2].filter { $0 }.count,
+                    "refractionNoneCount": masks[3].filter { $0 }.count,
+                    "sameBackCoverage": masks[0] == masks[2], "sameNoneCoverage": masks[1] == masks[3],
+                    "expectedFront": front.map { $0 as Any } ?? NSNull(),
+                    "geometryAxes": geometry, "spriteProjectedAreas": projectedAreas])
+            }
+        }
+        return rows
     }
 
     static func depthDraw(_ name: String, device: MTLDevice, pipeline: SceneParticleMetalPipeline,
@@ -627,9 +701,10 @@ enum SceneParticleCameraRenderingHarness {
         let binding = SceneParticleRefractionBinding(normalTexture: normal, amount: 0.15,
             overbright: 0.6, colorEncoding: .rgba, normalUsesParticleFrames: false,
             normalUVScale: SIMD2(repeating: 1), normalSampling: .directImageFallback, normalFormat: .rgba8888)
-        func state(_ test: Bool, write: Bool = false, blend: SceneParticlePipelineBlendMode = .translucent)
+        func state(_ test: Bool, write: Bool = false, blend: SceneParticlePipelineBlendMode = .translucent,
+                   cull: SceneParticlePipelineCullMode = .none)
             -> SceneParticlePipelineRenderState {
-            .init(blendMode: blend, cullMode: .none, depthTestEnabled: test, depthWriteEnabled: write)
+            .init(blendMode: blend, cullMode: cull, depthTestEnabled: test, depthWriteEnabled: write)
         }
         func center(_ pixels: [UInt8]) -> [Int] {
             Array(pixels[(32 * 64 + 32) * 4..<(32 * 64 + 32) * 4 + 4]).map(Int.init)
@@ -643,9 +718,11 @@ enum SceneParticleCameraRenderingHarness {
                 let order = reversed ? "reversed" : "forward"
                 var results: [(pixels: [UInt8], hasLease: Bool, depthBytes: Int, completed: Bool)] = []
                 for test in [true, false] {
-                    guard let a = depthBatch(device, texture: white, state: state(test, blend: .additive),
+                    guard let a = depthBatch(device, texture: white, state: state(test, blend: .additive,
+                            cull: renamed ? .back : .none),
                         z: -4, size: 3.2, x: -0.3 + shift, refraction: binding, path: path),
-                        let b = depthBatch(device, texture: white, state: state(test, blend: .additive),
+                        let b = depthBatch(device, texture: white, state: state(test, blend: .additive,
+                            cull: renamed ? .back : .none),
                         z: -7, size: 5.6, x: 0.4 + shift, refraction: binding, layerID: 732, path: path),
                         let result = depthDraw("A-\(variant)-\(order)-\(test)", device: device,
                             pipeline: readonlyPipeline, batches: readonlyPipeline.prepare(reversed ? [b, a] : [a, b]), camera: camera)
@@ -666,7 +743,8 @@ enum SceneParticleCameraRenderingHarness {
                 for test in [true, false] {
                     guard let writer = depthBatch(device, texture: red, state: state(true, write: true), z: -3, size: 2.4),
                           let reader = depthBatch(device, texture: white,
-                            state: state(test, blend: renamed ? .additive : .translucent),
+                            state: state(test, blend: renamed ? .additive : .translucent,
+                                cull: renamed ? .back : .none),
                             z: -6, size: 6, x: shift, refraction: binding, layerID: 732, path: path),
                           let probe = depthBatch(device, texture: green, state: state(true), z: -8, size: 3, layerID: 733),
                           let coverage = depthBatch(device, texture: blue, state: state(true, blend: .alphaToCoverage),
@@ -703,7 +781,7 @@ enum SceneParticleCameraRenderingHarness {
                         + uniforms.spriteRight * local.x + uniforms.spriteUp * local.y + uniforms.spriteForward * local.z)
                 } }
                 for test in [true, false] {
-                    let renderState = state(test)
+                    let renderState = state(test, cull: renamed ? .back : .none)
                     let actual = camera.particleUniforms(layerModel: SceneMatrix.identity(), orientation: .screen,
                         orientationAxis: nil, usesPerspective: true, usesSceneCamera: renderState.usesSceneCamera,
                         viewportSize: SIMD2(repeating: 64), sizeIsWorldSpace: false)

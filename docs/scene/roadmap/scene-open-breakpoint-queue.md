@@ -26,10 +26,10 @@
 | composition source · 3292370168/239、3039882306/772 | 前者active、无children/URL却引用151，持续未draw；hidden505另有utility capture失败。后者音频composition无对应CPU/graph/所选帧draw，需受控audio/source输入；hidden1084 pending失败、868 fallback不挪作当前可见层证明。 |
 | world-space动态祖先 · 3448877775/15706 | parent15705有origin script/timeline，RopeTrail flags1在模拟前被`dynamicSystemTransform`拒绝。沿ParticleRuntime的当帧world变换消费扩域，不能改作者flags或只延长播放。 |
 | REFRACT normal空槽 · 3566323704/552/141 | material显式`[particle/drop,null]`被要求非空normal的planner拒绝，尚未进入缺文件lookup；缺省normal语义待资格，不造纹理补洞。 |
-| REFRACT cull · 3042623710/330 | RefractionPlan与RenderStateCompiler两层要求noCull，而MetalPipeline已有back-cull执行。沿原材质/几何编译收敛重复限制，以真实绕序、source capture/UV及反射像素验证normal cull；不另建REFRACT特例名单。 |
 | RopeTrail参数 · 3337494481、3527426897 | 前者10个root先被flags1拒绝，负subdivision=-16为后续未资格形状；后者637/1323缺length被拒。分别核flags与隐式length语义，不取绝对值或猜默认。 |
 | Rope A2C · 3807668787/958 | RenderStateCompiler将A2C绑定screenSprite的spriteProfile而拒Rope；现coverage vertex复用已有trail joins的particleVertex。把材质coverage与几何/相机资格分开，沿真实PSO/attachment需求及轨迹像素验证，不再按renderer名授许可。 |
 | 周期发射上限 · 3564173599/1987、3749463715/405/412 | `maxtoemitperperiod=32`被nil gate拒绝，22秒长窗无对应出生/draw。Plan无cap、State无逐周期计数，活跃时长先合并多窗；instance.count是否缩放上限、出生消费点及fraction/触顶换窗语义尚未证。先做定窗/count2/非整fraction/短命容量1的区分实验，再沿原emitter与值快照补调度，不能仅删guard或末端min32；explicit不随自然发射扩大资格。 |
+| 普通粒子材质语义 | AssetGraph仅核genericparticle basename；no-depth普通路径的额外CUTOUT/LIGHTING/UNKNOWN combo和user texture/value没有通用shader消费者，固定sceneParticleFrag仍输出原纹理×tint。RenderStateCompiler的profile仅限制camera/depth/A2C，不能代材质编译。沿原材质准备/实际shader或typed操作接入，区分已消费与未实现输入；不要用cull或renderer名单掩盖。当前为代码链事实，尚无逐作者画面资格。 |
 | 粒子算子实际unsupported | 3749463715/3564173599的distance-between-CP、3742497499的distance-to-CP、3527426897的map-sequence、3773747576的sphere collision、3780119725的bounds collision均有dispatcher事实（6样本10组件）。各原operator/initializer owner独立补语义；collision坐标与outside-born先取可区分输入。 |
 | 粒子出生拒绝 · 3009275235/255、3248220186/2157、3746066933/85、3799613625/452 | 有真实`birth-construction-rejected`，当前首事实未细分最终失败字段，原因未知；先核出生构造的真实失败，不猜finite或作者错误。 |
 | 粒子零接纳 · 2866723317 | 正rate/capacity下只有zero-admitted-count、未见所选帧draw；没有已证delay，需当前count/capacity/consumer定位，不能无依据扩大等待。 |

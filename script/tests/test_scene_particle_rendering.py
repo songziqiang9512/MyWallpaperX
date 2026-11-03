@@ -499,6 +499,19 @@ class SceneParticleRenderingTests(unittest.TestCase):
         self.assertGreater(shifted[0], neutral[0] + 15)
         self.assertEqual(shifted[1], neutral[1])
 
+    def test_refraction_back_cull_keeps_uv_coverage_and_following_two_sided_peer(self) -> None:
+        rows = self.result["refractionContract"]["cullPixels"]
+        expected = {"front": [140, 70, 40, 255], "back": [100, 70, 40, 255],
+                    "two-sided": [60, 70, 40, 255], "half-alpha": [110, 70, 40, 255],
+                    "half-albedo": [120, 70, 40, 255], "half-both": [105, 70, 40, 255],
+                    "zero-alpha": [100, 70, 40, 255], "quarter-turn": [100, 90, 40, 255]}
+        self.assertEqual(set(rows), set(expected))
+        for name, pixel in rows.items():
+            with self.subTest(case=name):
+                self.assertEqual(len(pixel), 8, pixel)
+                self.assertTrue(all(abs(a-b) <= 2 for a,b in zip(pixel[:4], expected[name])), pixel)
+                self.assertEqual(pixel[4:], [0, 128, 255, 255], pixel)
+
     def test_rope_trail_refraction_rotates_normal_axes_into_path_space(self) -> None:
         contract = self.result["refractionContract"]
         neutral = contract["trailNeutral"]

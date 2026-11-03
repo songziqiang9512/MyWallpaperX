@@ -53,7 +53,9 @@ CPU batch 不持可写 instance buffer。原 ParticleMetalPipeline 按 root/chil
 
 Surface 采用新 topology 才退出死 root/child GPU key；重建构造前过滤 committed 死 root。未提交取消释放其 slot，已提交不能用 CPU 回滚撤销。hidden 不等于退休，peer key 可复用。
 
-alpha-to-coverage、原生相机继承、只读深度和 REFRACT 均有各自实际 material/geometry 资格；不支持的 profile 局部不可用，不能通过放宽 blend、normal/slot hole 或深度屏障伪造输出。
+材质剔除由原 Metal raster 状态消费：`normal` 编译为 back-cull，`noCull` 保双面，共用已有三角绕序与 vertex。其资格不依赖 renderer 名称或 REFRACT 组合，不改变相机、basis、尺寸与变换、纹理 UV、snapshot 或输出 owner。镜像是否翻面按实际几何投影决定，不改 front-facing 补偿作者变换。
+
+alpha-to-coverage、原生相机继承、只读深度和 REFRACT 均有各自实际 material/geometry 资格；深度仍由原 camera/attachment owner 决定，不支持的组合局部不可用，不能伪造 blend、normal 纹理槽、资源或深度屏障。
 
 <a id="playback"></a>
 ## 播放命令
@@ -65,6 +67,6 @@ alpha-to-coverage、原生相机继承、只读深度和 REFRACT 均有各自实
 <a id="limits"></a>
 ## 当前缺口与回归
 
-mapsequencebetweencontrolpoints、更多 CP 约束、Mirror、复杂 nested/event/非均匀 child 变换、Collision Bounds 与部分 Vortex/HSV/Position Around 数值仍有未实现或待资格边界。不能以非空 batch 或门禁通过替代方向、数量、相位和官方像素。
+mapsequencebetweencontrolpoints、更多 CP 约束、Mirror、复杂 nested/event/非均匀 child 变换、Collision Bounds 与部分 Vortex/HSV/Position Around 数值仍有未实现或待资格边界。不能以非空 batch 或门禁通过替代方向、数量、相位和官方像素。普通粒子额外 combo 与用户材质输入尚无通用 shader 执行合同；通过 raster 状态编译不能作为这些输入已被消费的证据。
 
 最近行为入口：[真实 CPU runtime](../../../script/tests/test_scene_particle_runtime.py)、[事务](../../../script/tests/test_scene_particle_playback_transaction.py)、[Metal renderer](../../../script/tests/test_scene_particle_rendering.py)、[App 生命周期](../../../script/tests/test_scene_particle_playback_integration.py)。具体下一资格见[队列](../roadmap/scene-open-breakpoint-queue.md)。
