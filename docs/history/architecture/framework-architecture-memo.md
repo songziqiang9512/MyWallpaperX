@@ -1,17 +1,13 @@
 # MyWallpaperX 框架架构备忘
 
 > **历史证据 — 非现役入口**
->
 > 本文仅保存截至 2026-05-05 的架构快照；其中“当前”、路径、命令和协作要求均不得作为现役规则或任务入口。
->
 > 现役依据：[文档入口](../../README.md)、[技术栈边界](../../architecture/technology-stack-boundaries.md)；全部历史材料见[历史索引](../README.md)。
 
 > 最后更新：2026-05-05
 > 基准 Git 分支：`dev`
 
-本备忘录保留 2026-05-05 的框架结构与协作约定，停止作为现役架构清单更新。当前实现应以代码和可复现门禁为准；AppKit 迁移现状见[迁移计划顶部残留清单](../../architecture/appkit-migration.md)，Scene 现役事实见[覆盖台账](../../scene/capabilities/coverage-ledger.md)与[运行证据索引](../../scene/history/runtime-evidence-index.md)，Web 按[专题入口](../../web/README.md)复核当前代码和最新报告。
-
----
+本备忘录保留 2026-05-05 的框架结构与协作约定，停止作为现役架构清单更新。
 
 ## 一、目录结构
 
@@ -56,8 +52,6 @@ MyWallpaperX/
 | `InspectorHostBridge.swift` | 统一 inspector bridge adapter，负责模块选中态与公共宿主通知链的接线 |
 | `InspectorHostActions.swift` | 统一 open/close/mount helper、presentation preset 与页面退出自动关闭 modifier |
 
----
-
 ## 二、依赖层级（严格单向，禁止反向）
 
 ```
@@ -73,8 +67,6 @@ App    → Shell、Core/System、Shared（不直接引用模块内部类型）
 ```
 
 **2026-05-05 的历史目标（当前不成立）：删除任意一个模块文件夹，其余代码正常编译运行。** 当前 App/Shell 仍直接引用部分模块类型，仓库没有“任意模块可物理删除”的构建门；现役架构只承诺按职责分区。若未来需要可选装模块，必须由独立 target/package、协议注册和删除模块后的构建验证重新建立该合同。
-
----
 
 ## 三、新模块接入规范
 
@@ -183,20 +175,6 @@ if menuItem.title == "导入" || menuItem.title == "导入视频" || menuItem.ti
 `MainWindowCoordinator.activeModule` 由 `MainWindowController.observeModuleModeChanges` 在模块切换时同步更新，两处（`MainWindowController.activeModule` 和 `MainWindowCoordinator.activeModule`）必须保持一致。
 
 ### 3.5 CollectionView 接入 Shared 标准
-
-```swift
-final class XxxCollectionView: NSCollectionView, GridCollectionViewProtocol {
-    var onBackgroundLeftClick: (() -> Void)?
-    var contextMenuProvider: ((IndexPath?) -> NSMenu?)?
-    var cardInteractionHandler: (() -> Void)?
-    var cardPressStateHandler: ((IndexPath, Bool) -> Void)?
-    var isBoxSelectionEnabled = false
-    var boxSelectionBeginHandler: ((IndexPath?) -> Bool)?
-    var boxSelectionUpdateHandler: ((NSRect) -> Void)?
-    var boxSelectionEndHandler: (() -> Void)?
-    private(set) var lastPrimaryClickIndexPath: IndexPath?
-}
-```
 
 框选用 `BoxSelectionState`，缩略图用 `ThumbnailCache(label:)`，外观容器用 `AppearanceAwareContainerView`。
 
@@ -333,8 +311,6 @@ final class XxxGridContainerView: NSView, ModuleFocusable {
 - `OnlineLibrary Downloads`（Pixabay 在线库已下载项）：已接入统一 `InspectorHost`
 - `OnlineLibrary Browser`（Pixabay 在线库浏览页）：**尚未纳入本轮**，当前不作为已完成样板统计
 
----
-
 ## 四、Shared 层维护规范
 
 **可以放入：** 无业务状态的纯函数/常量、只接受基本类型的 UI 原语、通用弹窗工厂、`AppearanceAwareContainerView`、零依赖 NSView 扩展、三模块共用的协议/状态机/缓存。
@@ -348,8 +324,6 @@ final class XxxGridContainerView: NSView, ModuleFocusable {
 - 调整列数范围 → 通过 `minCols`/`maxCols` 参数传入，不在 `GridLayoutHelper` 加模块分支
 - `ThumbnailCache` 不支持取消单条预取，如需此功能在模块内自行扩展
 
----
-
 ## 五、模块边界关键设计点
 
 **各模块 setAsWallpaper 边界**
@@ -358,14 +332,11 @@ final class XxxGridContainerView: NSView, ModuleFocusable {
 - OnlineLibrary（Pixabay 在线库）：**纯浏览平台资源，自身不调用任何壁纸设置接口，不直接依赖视频库模块**。"设为壁纸"的正确流程：
   1. `OnlineLibraryService` 下载视频到本地
   2. 发送 `Notification.Name.onlineVideoReadyToPlay` 通知（`userInfo["localURL": URL]`），定义在 `Shell/ContentViewSupport.swift`
-  3. `MainWindowCoordinator.observeOnlineVideoReadyToPlay()` 接收并中转，调用 `WallpaperManager.processImportedVideos(context: .onlinePlayback)`
   4. 视频库静默导入后通过 `setAsWallpaper(_:userInitiated:true)` 直接触发播放（绕过防抖，确保每次点击立即响应）
 
   **模块间依赖：** OnlineLibrary（Pixabay 在线库）只依赖 Foundation（发通知），对 VideoLibrary 零耦合。
 
   ⚠️ **注意**：播放触发使用 `setAsWallpaper(_:userInitiated:true)` 而非 `requestSetAsWallpaper`，绕过防抖和重复路径跳过逻辑，确保每次点击都立即响应。
-
-**`ImportContext` 使用规范（`WallpaperLibrarySupport.swift`）**
 
 | case | 用途 | 弹窗 | 播放触发 |
 |------|------|------|----------|
@@ -374,8 +345,6 @@ final class XxxGridContainerView: NSView, ModuleFocusable {
 | `.tag(String)` | 导入并自动打标签 | ✅ 显示导入结果 | ✗ |
 | `.onlinePlayback` | Pixabay 在线库静默下载后导入 | ✗ 跳过弹窗 | ✅ 立即播放 |
 | `.steamPlayback` | Steam 下载页本地视频静默导入 | ✗ 跳过弹窗 | ✅ 立即播放 |
-
-新增 context case 时，必须同步在 `applyContextMetadataIfNeeded` 和 `applyPreparedImportResult` 两处处理。
 
 **UIActionHelper**（`Shell/UIActionHelper.swift`）仅服务视频库。图片库和 Pixabay 在线库各自在模块内实现 ActionHelper，不复用此文件。
 
@@ -443,8 +412,6 @@ VideoLibraryToolbarController（主控，NSToolbarDelegate）
 
 以上变化由 `SteamWorkshopToolbarController.browserIdentifiers` / `downloadsIdentifiers` 提供，由主控工具栏统一切换。
 
----
-
 ## 七、缩放控件语义（重要，新模块必须遵守）
 
 本项目缩放采用**故意的反直觉映射**，这是产品设计要求，不是 bug，**不要修正**：
@@ -457,10 +424,6 @@ VideoLibraryToolbarController（主控，NSToolbarDelegate）
 新模块缩放按钮的 segment 图标顺序可自由选择，但 handler 传入 `performZoom(delta:)` 的参数必须遵守以上语义。
 
 `GridLayoutHelper.zoomAvailability` 用于计算按钮可用性，各模块传入自己的 `zoomOffset`，互相独立。
-
----
-
-## 八、框架层巡检与模块接入验收清单
 
 ### 8.1 框架层日常巡检（统筹层执行）
 
@@ -498,8 +461,6 @@ VideoLibraryToolbarController（主控，NSToolbarDelegate）
 
 以下同步要求只记录 2026-05-05 当时的工作方式，不再约束现役开发，也不再要求维护本备忘录或不存在的 framework fix archive。仍有参考价值的接入检查表必须先与当前代码及 [`technology-stack-boundaries.md`](../../architecture/technology-stack-boundaries.md) 核对；新的长期合同进入现役架构入口，具体模块行为由代码和对应测试维护。
 
----
-
 ## 九、待处理技术债
 
 | 编号 | 问题 | 影响 |
@@ -507,8 +468,6 @@ VideoLibraryToolbarController（主控，NSToolbarDelegate）
 | TD-1 | `VideoLibraryToolbarController.configureZoomItem()` 内联了 `GridLayoutHelper` 等价计算，未复用共享方法 | 仅代码重复，行为正确 |
 | TD-3 | `ContentView.syncManagerSelection` 中 `silTag` 判断用了立即执行尾随闭包，可读性差 | 仅可读性问题，逻辑正确 |
 | TD-5 | `OnlineLibraryBrowserView.swift` 中 `OLDownloadedView`、`OLVideoCard` 为废弃遗留代码，已被侧边栏「已下载项」子页面替代 | 纯死代码，增加维护负担，待模块负责人确认后删除 |
-
----
 
 ## 十、Steam 数据源现状
 

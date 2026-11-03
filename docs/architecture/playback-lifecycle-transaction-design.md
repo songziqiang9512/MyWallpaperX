@@ -19,7 +19,7 @@
 - 资源租约保持到实际退出或既有 CPU/GPU 释放确认。已登记退休的执行映射同样保留至最后退出回执，通用 Stop 不提前移除；退出回调、取消和升级终止均幂等，旧 PID/transport/完成不能影响新实例。
 - Web worker 若后续采用退休复用，只允许在原事务已退休 endpoint、该 execution 的 producers/授权撤销且任务 drain 后，用精确 instance/request/session/reset 身份 ACK 结清资源；ACK 不冒充进程退出。空闲 worker 仍登记于原进程 registry，App 退出继续等待实际退出；协议未迁移前保留原一次性进程合同。 当前未采用 WebView 退休复用；原成本 STOP 与设计依据见[完成记录](../history/cross-topic/wallpaper-startup-optimization-completed-2026-10-25.md)，不由历史设计自动重开。
 
-启动专项 D23 的 Scene 保留只服务已提交 Web/Video 后的短时重入：原 retire 接收可选后继 ticket，只有真实 handoff 提供，普通 retire/Stop 不授保留。原 Host 精确请求 CPU/任务/GPU 成功终态、窗口撤回、空 owner 与能力协商共同授权原 transport 的最多30秒空闲，原控制屏障和 source lease 在成功或真实退出后才结清。失败和到期沿原精确退出；新 Scene 捕获当前来源和读取租约并获新请求，旧 ACK/timer 不操作后继。下一非 Scene 意图撤 idle/强退役保留，仍有回滚职责的 active Scene 保持；原 App 装配让 Scene 保留/真实退出中的事实抑制 Web 可选空预热，并取消非 Web 意图的已有空预热，不另建槽调度器。Web 两槽只指原 adapter 角色，跨引擎、多屏与有界 retiring 不承诺全局两物理 PID。原 registry 继续登记，普通 App quit 仍等物理退出；详细合同见[Scene daemon 合同](../scene/architecture/scene-runtime-daemon-contract.md)。已接入并完成限定请求/退出运行，实际验收范围与未覆盖项按[运行证据](../scene/capabilities/runtime-evidence-current.md)和[专项结算](../history/cross-topic/wallpaper-startup-optimization-completed-2026-10-25.md)解释，不授整体性能通过，原点归[D23历史](../scene/history/scene-startup-d23-2026-10-25.md)。
+Scene进程保留服务于已提交Web/Video后的短时重入：只有真实handoff提供后继ticket，普通retire/Stop不授保留。原Host的CPU/任务/GPU终态、窗口撤回、空owner与能力协商共同授权有界空闲，控制屏障和source lease在成功或真实退出后结清。新Scene取得当前来源租约与新请求，旧ACK/timer不操作后继。下一非Scene意图撤销空闲保留；仍有回滚职责的active Scene保持。原App装配用这些状态协调Web可选空预热，普通quit仍等待物理进程退出。详见[Scene daemon](../scene/architecture/scene-runtime-daemon-contract.md#replay)。
 
 ## 二、可交接确认
 

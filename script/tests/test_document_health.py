@@ -401,8 +401,6 @@ class DocumentHealthTests(unittest.TestCase):
         index = json.loads((ROOT / 'docs/document-role-index.json').read_text())
         baseline = json.loads((ROOT / BASELINE).read_text())
         self.assertEqual(validate(ROOT, index, baseline), [])
-        for path in ('docs/scene/capabilities/coverage-ledger.md', 'docs/scene/capabilities/runtime-evidence-current.md'):
-            self.assertLessEqual(body_size((ROOT / path).read_text())['lines'], 600)
 
 
 if __name__ == '__main__':

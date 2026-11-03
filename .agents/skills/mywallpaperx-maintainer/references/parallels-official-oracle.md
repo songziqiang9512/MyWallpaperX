@@ -106,7 +106,7 @@ exit $LASTEXITCODE
 
 ## 来源与复核
 
-官方资料核对日期：2026-10-30；命令形式另以本机 `prlctl <action> --help` 和 `man prlctl` 只读复核。本轮没有执行 guest 命令或操作 VM，不宣称上述全部分支在当前 Windows 会话实测成功。
+官方资料核对日期：2026-10-30；命令形式另以本机 `prlctl <action> --help` 和 `man prlctl` 只读复核。文档和帮助只证明命令合同；每次执行仍须记录当前 Windows 会话、实际入口和结果。
 
 - [P1：Parallels 开发指南 CLI](https://docs.parallels.com/landing/parallels-desktop-developers-guide/command-line-interface-utility)：适用版本/版本类型及工具职责。
 - [P2：Parallels Command-Line Reference](https://download.parallels.com/desktop/v20/docs/en_US/Parallels%20Desktop%20Command-Line%20Reference.pdf)：Tools、exec/current-user、状态与电源语义。该下载路径含 v20，但 PDF 封面仍为 v18；不是当前版本完整开关清单，以本机帮助补正。
@@ -115,6 +115,5 @@ exit $LASTEXITCODE
 - [M3：PowerShell 执行策略](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_execution_policies?view=powershell-5.1)：Restricted、UNC与策略优先级。
 - [M1：PowerShell 编码](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_character_encoding?view=powershell-5.1)、[M2：powershell.exe 参数](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_powershell_exe?view=powershell-5.1)。
 - [W1：Wallpaper Engine 官方 CLI](https://help.wallpaperengine.io/en/functionality/cli.html)：公开命令、窗口 location 与属性格式；后续使用仍核固定客户端行为。
-- 本机既有观察只支持方法选择：[短 PowerShell 运输与唯一窗口清理](../../../../docs/scene/history/light-particle-qualification-2026-10-23.md)、[receiver 更新及遮挡正控](../../../../docs/scene/history/composition-local-perspective-2026-10-16.md)、[黑 capture 不作结果](../../../../docs/scene/history/vec3-mixed-dimension-arithmetic-2026-10-16.md)。不把旧 PID、路径、STOP 或成功状态当当前事实。
 
 本机脚本拒绝与直接CLI成功的原始收据（未入库、可能按证据政策迁移）分别为 `.artifacts/vector-return-qualification-20261030/official-stage-result.json` 与 `official-direct-cli-result.json`。它们证明一次真实拒绝/不同调用路径结果，不证明当前会话策略值；不得把它们改写为所有 `.ps1` 永远不可执行。

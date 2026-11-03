@@ -23,28 +23,27 @@
 | 问题 | 唯一入口 |
 |---|---|
 | 最终执行单元、语言/进程/失败目标 | `docs/scene/architecture/runtime-architecture.md` 与长期技术边界 |
-| 组件分类、准备/实例状态/消费/释放职责 | `docs/scene/capabilities/runtime-systems-reference.md`；物理源码位置由事实地图维护 |
-| 工程结构、生命周期与成本消融设计 | `docs/scene/roadmap/engine-refactor-program.md`；当前顺序和验收按其链接进入对应现役工作卡 |
-| 作者能力、可见正确性与兼容验收顺序 | `docs/scene/roadmap/scene-compatibility-roadmap.md` |
-| 实际接线、进程、装载与释放 owner | `docs/scene/architecture/runtime-as-built-map.md`，随后核对 live call sites |
+| 组件分类、准备/实例状态/消费/释放职责 | `docs/scene/capabilities/runtime-systems-reference.md`；源码入口由运行架构维护 |
+| 工程结构、生命周期与成本消融设计 | `docs/scene/architecture/runtime-architecture.md`，当前问题从队列定位 |
+| 作者能力、可见正确性与兼容验收顺序 | `docs/scene/roadmap/scene-open-breakpoint-queue.md` |
+| 实际接线、进程、装载与释放 owner | `docs/scene/architecture/runtime-architecture.md`，随后核对 live call sites |
 | 主链、普通帧成本与风险分级验证 | `docs/scene/development/development-workflow.md`；通用工具入口查仓库开发工作流 |
-| 当前能力及明确缺口 | `docs/scene/capabilities/coverage-ledger.md` 与命中专项表 |
+| 当前能力及明确缺口 | `docs/scene/capabilities/README.md` 与命中专项表 |
 | 当前构建、GPU/compositor、sample、签名事实 | `docs/scene/capabilities/runtime-evidence-current.md` |
 | 来源类别和可用边界 | `docs/scene/development/source-index.md` |
 | 官方黑盒、参考研究与独立实现 | `docs/scene/development/official-client-behavior-research-workflow.md` |
-| corpus 中作者实际声明了什么 | `docs/scene/capabilities/scene-corpus-capability-inventory.md`；不证明运行支持 |
+| corpus 中作者实际声明了什么 | `script/scene_capability_census.py` 的本次生成报告；不证明运行支持 |
 | gate 成员、phase、readiness | 当前脚本 `--help`、`script/scene_validation_gates.json`、`script/scene_fast_suite.json` |
 
-不要每次 Scene 任务读取所有入口。工程任务由对应现役工作卡选序，作者兼容由兼容路线选序；涉及两条路线时选一个主结果与验收，能力台账和运行证据只回答各自事实。不要把当前 roadmap 阶段、具体 backend 推荐、旧计划、sample 数量或 evidence report 复制进 Skill。
+不要每次 Scene 任务读取所有入口。由当前问题队列和性能工作卡定位一个主结果与验收；能力表和运行证据只回答各自事实。不要把当前 roadmap 阶段、具体 backend 推荐、旧计划、sample 数量或 evidence report 复制进 Skill。
 
-<a id="来源与上下文隔离"></a>
 ## 来源与独立实现
 
 做语义结论时使用 `source-index.md` 当前定义的来源名和边界，不从 Skill 复制一份固定枚举。始终分开：作者公开合同、固定官方客户端可观察结果、版本有界静态职责、authored corpus、第三方结构模式、项目当前证据和项目策略。
 
 公开资料、现有 golden 和合法 corpus 仍不能回答当前问题时，定义候选解释和区分实验，选择能最快消除关键歧义的黑盒或有界源码/静态研究；静态结论不能替代官方运行结果。
 
-可以阅读作者脚本、shader、参考源码和反编译资料，研究后由同一 Agent 继续独立实现；阅读本身不触发停工或上下文隔离。旧 `research-context-only` 标签表示证据来源与局限，不是阅读禁令。不得直接复制、照译或移植参考实现；把结论落实到本项目的唯一 owner，以自有正反 fixture 和实际运行验收。第三方实现不能定义官方语义或证明官方结果一致。
+可以阅读作者脚本、shader、参考源码和反编译资料，研究后由同一 Agent 继续独立实现；阅读本身不触发停工或上下文隔离。不得直接复制、照译或移植参考实现；把结论落实到本项目的唯一 owner，以自有正反 fixture 和实际运行验收。第三方实现不能定义官方语义或证明官方结果一致。
 
 ## 重建统一执行链
 
@@ -90,7 +89,7 @@ checkpoint 使用新组合或未见 fixture 证明公共 primitive 不依赖 sam
 
 ## 新增或全量样本筛查
 
-先读 `docs/scene/development/corpus-diagnostic-workflow.md#log-first-corpus-audit`，复用其 census → benchmark → normalizer → archive 链。已知样本集合同时核 canonical snapshot 与后来登记的 subset/archive；统计双页可能尚未吸收后者，不把它的旧分母直接当新增基线。一次盘点产生能力并集与影响面，family/profile/声明数量不当独立加载链数。
+先读 `docs/scene/development/development-workflow.md#声明扫描与运行诊断`，复用其 census → benchmark → normalizer → archive 链。已知样本集合同时核本次 snapshot 与所选 subset/archive，不把历史报告分母直接当新增基线。一次盘点产生能力并集与影响面，family/profile/声明数量不当独立加载链数。
 
 批量日志筛查优先现有优化 DEBUG 配置，App只stage一次；按当前 `--help` 设置隔离worker、Ready后3–5秒及有界并发，先小批再按设备余量扩大。普通Debug冷准备超时先区分配置/争用，只串行补未决项，不整批重复。日志不授画面或未触发分支资格；过渡和延迟只对相关代表延长。需要看图时先核正式阶段、音频/鼠标条件，再找样本中的“截屏”或“已粘贴”参考，不把时间相位当缺陷。共同首错回当前队列核是否已闭，再选公共修复；历史raw拒绝不能直接重开现役已修项。
 
@@ -122,11 +121,11 @@ route state 的名称、定义和进入条件只从当前 `AGENTS.md`、runtime 
 
 像素正控只要求当前问题必需的真实贡献；先按既有几何、alpha与颜色合同确认oracle，未覆盖区及合法中性插值不必变化。仅断言误设且产品、输入、载体、二进制均未改时，保首失败并复用同身份有效GPU读回重放最终断言；不能称新GPU运行。
 
-分别处理当前 slice 可见、owner migration、官方 bounded parity 和 release readiness；等级定义查技术栈合同、对应路线与验证工作流，当前执行选择查 gate。recognized、wired、census、compile、route count、non-black、matrix 或单样本不能外推完整兼容。
+分别说明实际可见范围、owner交接、官方有界对照与发行验证；证据要求查技术栈合同和验证工作流，当前执行选择查gate。recognized、wired、census、compile、route count、non-black、matrix 或单样本不能外推完整兼容。
 
 真实 Workshop/Scene 根只读；runtime home、属性注入、cache、output 和样本使用隔离副本。确认启动的是当前 App/build，不复用旧截图/report/terminal observation。
 
-先核输入协议的调度时基：墙钟秒位、启动后时长与 simulation cadence 不能混用。运行窗口须覆盖协议规定的触发与尾部观测；窗口尚未覆盖该区间时，缺输入边或截图只能记取证未完成。已覆盖仍无事件则定位输入调度链，不能无限归为等待。延长窗口仍保原输入和失败记录，不以移动触发时间或取消断言冒充行为恢复；实例见[有界交互取证](../../../../docs/scene/history/runtime-evidence-index.md#e-puppet-surface-gpu-ownership-20261102)。
+先核输入协议的调度时基：墙钟秒位、启动后时长与 simulation cadence 不能混用。运行窗口须覆盖协议规定的触发与尾部观测；窗口尚未覆盖该区间时，缺输入边或截图只能记取证未完成。已覆盖仍无事件则定位输入调度链，不能无限归为等待。延长窗口仍保原输入和失败记录，不以移动触发时间或取消断言冒充行为恢复。
 
 ## 反漂移终审
 

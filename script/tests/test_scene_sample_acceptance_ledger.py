@@ -18,16 +18,14 @@ if str(SCRIPT_ROOT) not in sys.path:
 
 from scene_sample_acceptance_ledger import (  # noqa: E402
     ALLOWED_VERDICTS,
-    DEFAULT_ARCHIVE,
     DEFAULT_OUTPUT,
-    DEFAULT_SAMPLES_ROOT,
-    DEFAULT_VERDICTS,
     build_ledger,
     cluster_for,
     render_markdown,
+    main,
     validate_verdict_references,
 )
-from scene_capability_census_io import is_sample_directory_name, iter_sample_directories
+from scene_capability_census_io import iter_sample_directories
 
 
 V2_LAYOUT_SAMPLE = "3782650329-d56d3d28-3f43-4796-bc3b-2bfe1a30452a"
@@ -524,44 +522,23 @@ class SceneSampleAcceptanceLedgerTests(unittest.TestCase):
                 any(line.startswith("- 注入行") for line in markdown.splitlines())
             )
 
-    def test_committed_ledger_page_is_regenerable_from_its_inputs(self) -> None:
-        """The checked-in page must match the checked-in archive and overlay.
-
-        Nothing else compares the generated page with its inputs, so a rebuilt
-        archive or a changed template could otherwise leave the page stale
-        while every focused test still passes.
-        """
-        if not DEFAULT_SAMPLES_ROOT.is_dir():
-            self.skipTest("read-only sample root is unavailable")
-        if not DEFAULT_OUTPUT.is_file():
-            self.skipTest("generated page is not present")
-        page = DEFAULT_OUTPUT.read_text(encoding="utf-8")
-        # The saved page records its corpus scope, including not-run samples
-        # absent from the runtime archive. Later downloads are not new evidence
-        # for that snapshot. Consume only IDs here, never rendered row values.
-        sample_ids = [line.split('`', 2)[1] for line in page.splitlines()
-                      if line.startswith('| `')
-                      and is_sample_directory_name(line.split('`', 2)[1])]
-        self.assertTrue(sample_ids)
-        self.assertEqual(len(sample_ids), len(set(sample_ids)))
-        archived_ids = {row['id'] for row in json.loads(DEFAULT_ARCHIVE.read_text())['samples']}
-        self.assertLessEqual(archived_ids, set(sample_ids))
-        available = {path.name for path in iter_sample_directories(DEFAULT_SAMPLES_ROOT)}
-        if missing := sorted(set(sample_ids) - available):
-            self.skipTest(f'full saved-page regeneration requires unavailable recorded samples: {missing}')
-        ledger = _build_recorded_scope(sample_ids, DEFAULT_SAMPLES_ROOT,
-                                       DEFAULT_ARCHIVE, DEFAULT_VERDICTS)
-        strip = [
-            line
-            for line in render_markdown(ledger).splitlines()
-            if not line.startswith("- 本页生成于")
-        ]
-        committed = [
-            line
-            for line in page.splitlines()
-            if not line.startswith("- 本页生成于")
-        ]
-        self.assertEqual(committed, strip)
+    def test_cli_generates_a_report_from_explicit_inputs(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            samples = self._corpus(root)
+            archive = _write(root / "archive.json", _archive([]))
+            verdicts = _write(root / "verdicts.json", _verdicts({}))
+            output = root / "reports/nested/acceptance.md"
+            self.assertEqual(main([
+                "--samples-root", str(samples), "--archive", str(archive),
+                "--verdicts", str(verdicts), "--output", str(output),
+            ]), 0)
+            report = output.read_text()
+            self.assertIn("| `10` |", report)
+            self.assertIn("unreviewed", report)
+            self.assertTrue(DEFAULT_OUTPUT.is_relative_to(
+                SCRIPT_ROOT.parent / ".artifacts"
+            ))
 
     def test_recorded_scope_ignores_new_downloads_without_inventing_acceptance(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

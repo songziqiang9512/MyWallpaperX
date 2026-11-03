@@ -1,208 +1,120 @@
+# Scene 当前开放问题
+
 <!-- document-role: active-plan -->
 
-# Scene 当前断点修复队列
+本页只保未闭问题、可续跑的输入定位和下一步。优先顺序为画面合成/正常播放、当前有证性能成本、属性接线、合同与工具资格。架构归[当前主链](../architecture/runtime-architecture.md)，领域边界归[能力入口](../capabilities/README.md)，性能使用[测量方法](performance-convergence-card.md)。
 
-> 更新：2026-11-03。这里只保具体未闭问题；按**画面合成/正常播放 → 有证性能成本 → 属性接线 → 合同与验证债**选序，同档先补真实缺失能力、再扩大既有覆盖，服从[兼容路线](scene-compatibility-roadmap.md)。已闭首门、正常/误报及旧批背景移入[退出记录](../history/open-breakpoint-reconciliation-2026-10-23.md)。部分修复按子现象退出，不销整样本账。
+样本 ID、layer 和参数用于复现，不选择产品算法。“待复核”表示尚未有当前固定输入的充分证据，不认定当前产品故障；隐藏、延迟、空媒体、未触发或缺参考不能直接列为缺图。未实现能力与可见差异分开，先定位真实 consumer，再修原 owner。
 
-“运行首拒”不等于缺图；“待复验”不等于当前HEAD缺陷。默认隐藏、空媒体、作者入场/延迟、未ready、没有golden或未验更宽profile均不单独排实现。矩阵PASS/FAIL不代视觉裁决。样本原verdict及运行关联归[台账](../capabilities/scene-sample-acceptance-ledger.md)，分母归[声明统计](../capabilities/scene-corpus-capability-inventory.md)，现存证据身份归[运行记录](../capabilities/runtime-evidence-current.md#local-evidence-availability)。
+<a id="implementation-gaps"></a>
+## 代码边界与通用缺口
 
-<a id="user-required-20261028"></a>
-2026-10-28用户集中必修反馈已并入以下原条目，按可区分的合成/播放首错选序；观察仍待实证。两377双视频/Xray已按用户确认退出；“其余基本问题不大”不自动结清其他旧账。
-
-<a id="static-capability-gaps"></a>
-<a id="runtime-open"></a>
-## 1. 有定位依据的开放能力
-
-本页合并原静态审计的14类剩余问题，静态缺口不等于样本故障或可见恢复。下表区分已复现的拒绝和仍未资格的像素影响；无可见consumer时不为清日志优先实现。旧STOP仅在出现新的可区分证据后重入，不重复原失格载体或放宽门。
-
-| 公共首断点 / 样本 | 未闭问题与最小下一门 |
+| 定位 | 当前问题 / 下一步 |
 |---|---|
-| childless passthrough composition透视资格 · 2731896598 | 五层init写true、update写三维angles；[原D1](batch2/composition-render-target-design.md#无子层-composition-的透视回绘决定2026-10-16)仅资格非passthrough。10-29新自有A/B及一次FOV修正仍未建立内部倾斜正控，STOP_UNKNOWN，见[记录](../history/open-breakpoint-reconciliation-2026-10-23.md#childless-perspective-qualification-20261029)。先有合格正控再修订资格，不据矩形输出删setter/Camera门或以false-only绕过真实输入；保group/parent/dependency/native边界。 |
-| solid颜色Script投影/consumer不一致 · 自有19 | [有界首断点](../history/runtime-evidence-index.md#e-solid-color-vm-projection-20261102)：wrapper/script已解析，consumer接纳solid，但Vec3颜色投影在definition前退出，旧/新均无VM owner。先核solid作者seed/fallback及同一typed消费者，补非白seed、改名、image邻例和真实输出；20改image只资格媒体事件，不作solid恢复或实际语料故障结论。 |
-| SceneScript typed事件余项 · 3028048463 | 531.alpha作者空数组与506.origin的typed事件资格仍需分别对照，不能归缺API或扩大容错。360/304/302的跨owner写入首门已归[后验](../history/dynamic-layer-slot-lifetime-2026-10-29.md#owner-field-override-20261101)，回调批顺序不外推官方逐setter顺序。 |
-| Sound跨callback查询时序 · 3603711180 | 566 pending play407同callback查询为true，641新callback读旧snapshot为false，触发作者skip到532；非默认选曲或时长解析。短窗532已播放，无长稳结论。现门刻意隔离callback投影，官方只有同callback证据；先补跨callback/owner正反臂，再决定意图可见性，不直接扩全域pending状态。 |
-| 视频热切后的AV资源驻留 · 3372715909 | 12切换原型因footprint峰值3.83倍及呈现超预算比例上升撤回；[反证](../history/video-instance-observations-2026-10-29.md#video-output-residency-20261030)。后继[单源复合stop](../history/video-instance-observations-2026-10-29.md#video-item-stop-boundary-20261030)虽降device分配，item/asset weak仍活，寿命未隔离、不计产品收益。仅凭新物理驻留及新供帧证据重入；保clock/预算，不重复原型或延时清池。group/named/effect衔接及官方完整空窗仍未知。 |
-| 视频定位 · 同帧拒绝后重试 | 未改Source的同一probe二进制多场景间歇出现2s定位pending，虽playerTime=6且目标buffer已在，失败场景随运行变化；[原失败](../history/video-instance-observations-2026-10-29.md#video-output-residency-20261030)。先核seek完成/重发及提交职责，补实际Host/消费者资格；尚不能判某样本卡帧或官方差异，不放宽超时/绕过定位屏障。 |
-| Program来源/命名绑定 · 3086016320 | 430仍拒execution-stage-conservation/named binding，属父426下封面转场，默认父alpha0；无可归因默认ROI。先取可见媒体正控及base/potential/selected依赖向量，再沿原多槽owner扩展；保隐藏forward259的作者顺序，不将其归因独立1521频谱。 |
-| source材质/lookup · 3616476797 /3679907516 /3141464346 | 361113与36771/74/83仍有source-only render-state首拒；314的232/277/321/386/416/420/481/719（材质60/45/0.2/0236/442）另报source-material-render-state-unsupported，解包确认为renderstate null、blending translucent、combos VERSION2且无proven interface；36771回调产黑、83初alpha0待thumbnail，74普通effect实际已消费。先资格受控媒体/source独占ROI，区分texture×g_Color4等价与非等价source；不泛化translucent/VERSION2、吞lookup错误或据缺祖父认缺API。 |
-| forward copy-background · 2972071249 | 313引用后置隐藏composition234，dependency stage order拒绝仍在；隐式copyBackground使全局prepass不独立于作者顺序，白波形因果未定。先证consumer prefix与跨consumer身份，复用原graph发布；[原板正控STOP](../capabilities/runtime-evidence-current.md#forward-composition-prefix-20261019)不作语义结论。 |
-| <a id="animation-auxiliary"></a>Puppet auxiliary/reference · 3577990983 /3822822401 /3779107475 | [Reader](../../../MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlPuppetAnimationReader.swift)已识别post-bounds dense0；标量/shape及更广state1仍无pose消费者。377的530/slot611左手含变化state1与非零scalar，仍不可用；382的235含骨3恒4700及正权重，depth/order/位移与混合仍UNKNOWN，244.visible metadata按准备结果复验。357仍有非中性alpha或未消费scalar/shape。按[静态边界](../development/reference/client-runtime-static-forensics.md#mdla6-post-bounds-scalar)追实际消费者，不补假metadata或猜深度；[本轮局部降级与官方STOP](../history/puppet-additive-local-fallback-2026-10-29.md)不关闭这三条未知动作。保[shape边界](../capabilities/advanced-object-coverage.md#op-puppet-blend-shapes)及既有fan两次失败。 |
-| <a id="effect-source-admission"></a>effect输入/来源 · 357/363 | [需求准备](../../../MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialRuntimeCatalog.swift)将活动sampler未获用途proof记purposeUnproven；[Timeline编译](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineTargetCompiler.swift)拒effect constant的parent/children Combined，[whole-stage准入](../../../MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialPreviousBlurredCompositeOwnerAdmission.swift)要求utility source无child/dependency。357233 Combined、3632522893的765子785/Blur772 childless门仍拒；可归因ROI未证。沿原prepared链资格实际consumer，不挑首root、转红mask或删guard；[Combined资格](../capabilities/runtime-evidence-current.md#effect-combined-qualification-20261018)保持STOP。 |
-| HSV粒子初始化缺省 · 8包/13系统候选 | 当前普通Debug的3585542943（253/257）、3761159935（453/457）均有nonempty输出却报`hsvColorUnsupported`，HSV为最后出生颜色writer；其余6包仍归旧census候选。官方新建组件读到steps6、Smax/Vmax1且仅保存`name/id`；五行原图仅第4行彩色，其余白色；行序及6/1阶正控未闭。静态record准备补missing6/1/1已证，实际出生消费/覆写仍未知，运行颜色资格STOP，不能据diagnostic认缺色。扩原prepare/initializer owner，不猜RNG/颜色空间，不以加载PASS结清。[定义边界](../capabilities/particle-component-coverage.md) |
-| N08 · 3337494481 world/负subdivision RopeTrail | 十个visible复制层仍unavailable，原hidden不计缺图；空间/细分语义UNKNOWN。先取可区分正控，不猜abs/clamp、不重复旧白线矩阵；[缓存观察资格](../history/rope-trail-profile-qualification-2026-10-15.md#cache-observer-20261022)失败保留。 |
-| <a id="incremental-effect-20261030"></a>活动effect输入/前端局部降级 · 全量与增量日志 | 2804817823 Shine缺secondary composite引用；357并入上方。288/344的Timeline控制须独立资格，不当普通值输入放行。旧四例frontend及3800572533 texture-binding仍待逐pass资格，见[旧档案](../history/corpus-log-audit-2026-10-29.md#remaining-findings)。以上仍保实际local passthrough，先锁原pass/正式ROI，不以同shader路径合算法。2857410102的91预设2 noise override来源仍未资格；[本轮记录](../history/corpus-log-audit-2026-10-29.md#incremental-31-20261030)。沿原frontend/variant/schema owner修通用合同，不按效果名补算法。 |
-| REFRACT显式normal槽hole · 3566323704 | 552/141显式normal槽hole仍拒，先资格作者槽位/缺省及真实consumer；不按空槽猜normal或一并放开其他材质。398只读depth首门已[退出](../history/particle-material-depth-2026-11-01.md#bounded-result)，531旧修复保持；338的R8颜色门亦已退出，不代表整样本通过，两包独立effect余项保留。 |
+| solid 颜色脚本 · 自有19 | Vec3 颜色投影与 consumer 的接受范围待对齐；从 `SceneScriptVectorCandidateCatalog`及动态 definition 开始，保非白 seed、改名和 image 邻例，不能只放宽 return 类型。 |
+| composition 透视 · 2731896598 | childless passthrough 的 perspective 与三维 angles 组合待资格。沿 `SceneUtilityLayerSourceRoute`/Camera/回绘核实际几何，不以 false-only 代替作者输入。 |
+| named 多槽 · 3086016320 / layer430 | 封面转场的 execution-stage conservation 与 selected/potential 依赖向量待复核；父426默认 alpha=0，先取得可见输入，沿原 dependency ownership。 |
+| forward background · 2972071249 / 313→234 | 后置隐藏 composition 的 copy-background 与作者前缀依赖待资格；不能用全局 prepass 丢弃原顺序。 |
+| source material · 3616476797/113、3679907516/71/74/83、3141464346 | source-only render state、lookup 与活动 purpose 待逐 pass 定位；314重点232/277/321/386/416/420/481/719。沿 Schema/RuntimeCatalog，不把 translucent/VERSION2 当通用接口证明。 |
+| 活动 sampler / 前端 · 357/3632522893、2804817823、3800572533 | `texture-purpose-unproven`、secondary composite 和 texture binding 须取得精确 slot、来源与活动接口。357/233的Combined、363的765→785/Blur772及2857410102/91预设2 noise override分开核来源；保原局部 passthrough，不按效果名补算法。 |
+| resolved effect render state | Template admission 当前受 `supportsResolvedMaterialFullscreenOverwrite`约束；更广 blend/depth/cull 需精确输出用途与像素输入，不能泛化到普通图片/模型。 |
+| static model material | 当前 binding compiler 仍要求 pass0 和可证明的固定接口；任意 shader、多 pass 及更广逐 pass state 未形成通用执行。沿 model material/geometry owner 扩，保深度、淡出与 PMA。 |
+| Puppet animation · 3577990983 /3822822401 /3779107475 | auxiliary/reference、非中性通道、更广 dense state1 与多 contributor 姿态待资格；Reader 识别不等于 evaluator 支持。保真实 reference/attachment 坐标基。 |
+| point volumetric · 3047405322 /3437487219 /3477054430 | 需实际volume consumer和输入/输出资格；当前spot plan不能代point volume，ordinary point表面光照也不能代验。 |
+| 动态特殊资源 | `SceneQuickJSLayerSceneHost`拒绝部分 Puppet animations/effects、composition parent/children/dependencies 等创建字段；默认 material recipe 也有有界接口。沿 prepared catalog 扩真实消费者，不造空实例或复活旧容量门。 |
+| 粒子算子 / 空间 | CP distance、map-sequence、Mirror、nested/event、非均匀 child 变换等按[算子边界](../capabilities/particle-component-coverage.md#operators)逐项补；3742497499区分 distance-to-CP 与 distance-between-CP，359777类 affine/CP force 先核实际空间。 |
+| 粒子参数资格 | HSV 缺省（3585542943/253、257；3761159935/453、457）、3337494481 world/负 subdivision、Vortex flags2仍需对应出生/轨迹输入；不猜 clamp、取绝对值或颜色单位。 |
+| collisionbounds | 未实现 / blocked：scaled、outside-born及碰撞边界坐标合同未确定，不能用 emitter 出生域、普通 affine 反弹或样本阈值代替；先取得可区分输入，再决定模拟消费。 |
+| REFRACT normal hole · 3566323704/552、141 | 显式空槽的 authored 缺省与真实读取待资格；不制造 normal 或扩大其他材质资格。 |
+| particle direct color | `ScenePropertyBindingCompiler+TargetMapping`的 absolute `.color`仍返回 nil；先确定合法定义和单位，再接同一 instruction/出生 consumer。normalizedColor 是不同目标。 |
+| 隐藏 / 离屏视频 | backend dormant策略仍待资格；显示隐藏、资源仍被named采样与实际source停止分开，不能以hidden统一停decoder。 |
+| typed event / callback 时序 | 3028048463的531.alpha空数组、506.origin；3603711180的跨 callback Sound 查询；event-only Vec/numeric String 的控制归属分别待核。保作者当前值失败策略，不无差别容错。 |
+| 版本 / 显示输出扩域 | 物理HDR/EDR、更广lighting/receiver组合与未知模型/粒子profile仍待对应资格；PNG或代表输入不证明全域。 |
 
+上述范围的实现依据分别为[Script](../capabilities/scenescript-api-coverage.md)、[effect/composition](../capabilities/effect-execution-coverage.md)、[graph/shader](../capabilities/render-graph-shader-coverage.md)、[模型/Puppet](../capabilities/advanced-object-coverage.md)和[粒子](../capabilities/particle-component-coverage.md)。
 
-<a id="qv-visual-repairs"></a>
-<a id="qf-2026-10-07-用户点名四样本公共主链修复"></a>
+<a id="user-feedback"></a>
+## 用户可见反馈：待当前输入复核
 
-已闭公共主链按[历史对账](../history/open-breakpoint-reconciliation-2026-10-23.md#closed-first-gates)查询；本页不重复关闭过程。
+以下保留输入和症状，不沿用旧运行胜负或推定根因。复核时固定属性、声源、pointer、时间/相位、viewport 与 App；先输出，再定位首个不同 stage。
 
-<a id="visual-pending"></a>
-## 2. 用户具体差异：待当前身份复验
+### 优先复核
 
-本节保未闭反馈，**不声明当前HEAD均有缺陷**。旧QV及U组原身份缺App/属性/声源/phase，先固定同状态和ROI；执行数不能关闭画面差异。未知不按图层名补算法，不能用不同viewport或音源追色/坐标。
-
-| 样本 / 具体余项 | 下一关闭门与边界 |
+| 输入 | 精确待核位置 |
 |---|---|
-| 3022080536 ·水墨烟雾颜色 | 原包静止烟团已恢复，移动阶段原Rope仍输出；缺省mode误启用音频而整拒child的子断点退出，见[后验](../history/open-breakpoint-reconciliation-2026-10-23.md#particle-audio-mode-default-20261028)。当前烟团偏红，官方定点静音为灰褐；须沿实际颜色输入/继承/ColorChange定位，端点单位仍未知，四格颜色对照的出生青色正控失格，保持[STOP](../capabilities/runtime-evidence-current.md#particle-color-composition-20261029)，不猜除255、gain或混合。显式启用audio的child emitter仍不在本次支持范围；302整体不销账。 |
-| 2919854127 /2927205881 · 音频可见性 | 蓝环未见、曲线右短段分别保待复验。先同源PCM与作者实际触发条件、出生/像素正控；不把非零总量当目标band、改阈值或共用“发光”修法。 |
-| 3577990983 · 远距离提前hover放大 | 先同设置官方/原生及真实鼠标对照；作者约602场景单位半径只解释部分观察，不调全局倍率，也不与已正常的199固定视口认同根。[入口边界](../capabilities/runtime-evidence-current.md#physical-pointer-ingress-20261023) |
-| 2887542690 · 音频ROI、黑遮挡/字体、片区布局 | 图框内音频缺可重复正证，pointer消融已STOP；先取得可区分输入/ROI，不把旧外悬蓝条消失当音频恢复。[资格](../history/composition-local-perspective-2026-10-16.md) |
-| 2134765860 · 旧右黑块 | 默认日景/Night选项4未定位独立黑矩形；旧ROI、媒体和phase不齐。仅待同状态可区分复现，不列当前已证缺图，不据无归属mask实施。旧`213-black-region-night-qualification-20261016`收据按[可用性边界](../capabilities/runtime-evidence-current.md#local-evidence-availability)使用 |
-| 3768903841 · 云形/烟花色彩细节 | 同phase对照source/Program和ROI；四束spot已执行不关闭横向深云片反馈，也不证明新光照根因。另双Surface协议中layer238.angles的cursor/update各一次`screen localStorage requires an exact single-screen identity`，旧/中间/最终7f53文本及计数相同；先在Script storage/screen身份入口核资格，不按该异常重修粒子或猜视觉根因，原日志定位见`final-architecture-native-comparison.json`。[边界](../history/runtime-evidence-index.md#e-spot-light) |
-| 3226487183 · 手部 | 原1028手部未闭；实际origin/reference/effect链正常、MDL source Z全零。先定位同phase形变，不改坐标或由别的XYZ修复推受益。 |
-| 3809618616 · 布局裁切/音频活动 | 先确认当前具体差异和状态，不重开已闭int compound/TEX照片入口。[最后整合](../history/committed-range-review-repairs-2026-10-07.md#整合验证) |
-| 3791967416 · 局部图案/合成、眼部完整周期 | 对齐完整周期/ROI；单次闭眼无虹膜已证，不重修barcode/seek/bone alpha。[边界](../history/puppet-clipping-2026-10-08.md#跨样本app与最终冻结) |
-| 3789316755 /3211615441 · 频谱形状/幅度/全柱活动 | 同声源App A/B及静音/噪声反例；不把已闭容量/PCM或峰值策略当官方形状。[证据](../capabilities/runtime-evidence-current.md#e-2026-09-28-audio-band-peaks) |
-| 3211615441 · 图片切换/首焦点/按住、多步跟随位置 | 锁真实跨帧按住和连续轨迹，不以同帧down/up关闭完整交互。[事件边界](../capabilities/runtime-evidence-current.md#e-2026-09-28-effect-cursor-visibility) |
-| 3788467391 · 漩涡方向/速度/形态、长预热 | 原300秒预热被预算截断，需可比相位/原轨迹；不旋转整背景补偿。[Rope边界](../capabilities/runtime-evidence-current.md#e-2026-09-28-rope-trail-texture) |
-| 1315486372 · 光线宽软/中段渐隐、水波位置 | 先沿实际texture/aspect/sampler/instance/混合找ROI首错；非方Sprite同端尺寸比1只否定基本主轴猜测，strict官方锚点未资格，不重跑方形板或猜×2。[最新边界](../history/light-particle-qualification-2026-10-23.md#light-particle-qualification-20261023) |
-| 3769761761 · 斜光偏弱/缺失 | 原35秒仍缺头发上方斜带；root/child归因板crop与LOW正控失败，B/official未跑。先取得完整注册且可辨贡献，不据无G判child失效，不调size/alpha或重复默认晚窗；`.01`属instanceoverride。[资格](../history/light-particle-qualification-2026-10-23.md#light-particle-qualification-20261023) |
-| 3113287126 · 小提琴粒子方向/数量 | 五系统输出、Count3.02与挂点修复不关闭方向/密度；目录无官方截屏，需独立同phase发射/运动对照，不凭观感调参数。[执行边界](../capabilities/runtime-evidence-current.md#particle-fractional-count-20261022) |
-| 3437487219 · 地球亮侧/云层光色、闪烁与collision | 全Earth仍有亮侧/云层余差；Cloud的Chroma MR/specular/pigment及coverage未闭。[本轮重排依据](../history/model-view-tint-2026-10-28.md#hemisphere-basis-20261030)区分宽夜区与其余色差，不能把剩余全部归Cloud。原[PNG三臂](../history/model-view-tint-2026-10-28.md#chroma-response-20261029)只证独立roughness/倾斜响应，尚不资格r0/彩色specular/pigment；沿原surface消费者设计，不套generic4白名单、三点gain或按观感调参。闪烁与collision各待同状态复验，不由静态两帧关闭。 |
-| 3743305891 · 十字流星尺寸 | 父world/子local各有scale但无重复乘证据；先取得同phase可归属尺寸正控，不改作者flags/scale。 |
-| 3768229922 · 完整开场/过渡 | 短窗PSYCHE GEAR标识已在，只保主体/完整过渡待复验；固定完整默认开场，不能从稳定帧缺标识反推故障。[边界](../capabilities/runtime-evidence-current.md#default-camera-single-20261019) |
-| 3770444459 · 溅水滴黑 | 10-23原包20秒未圈出可归因黑水ROI；待锁source/合成，不猜改blend。旧water目录不可用，新身份见[后验](../history/composition-root-effect-local-source-2026-10-23.md)。 |
-| 3351163962 · 新补报左上文字超环 | 需确切文本、属性/时刻/viewport；旧默认三文本同状态对照只闭旧范围，不能代验新补报或直接改anchor。[旧对照](../capabilities/runtime-evidence-current.md#u25-u35-current-qualification-20261018) |
-| 3768724269 · 旧光束范围/根部、右上渐变 | 用户称近官方、当前未确认新gross缺陷，仅待新同状态ROI；不按观感调gain，不重开已闭sunrays热显隐。[边界](../capabilities/runtime-evidence-current.md#quad-visibility-live-20261020) |
-| 3287715210 · 眼周过亮/渐变弱、横移细竖纹 | 两个余项分别复验。终端8位量化有证，不证明内部F16或条纹根因，不额外压暗/重复优先消融Bloom。[证据](../capabilities/runtime-evidence-current.md#e-2026-10-08-gradient-storage-isolation) |
-| 3750813609 /3363252053 · 相机过强/纵向反转 | 用户三轮未接受且曾挂起，保低优先同输入体验复验；不以默认camera后继代验或补偿不同viewport。 |
-| 3662790108 · 球体/曲率、点击交互 | 只保旧具体视觉/交互余项，同条件复验；首帧文字发布已闭。全迁移前/中间/最终7f53均有effect517/pass0的`[P1] Data`读取`p1_longNode` undefined一次，先追作者数据/Script value owner与effect constant，未消费Data不直接作引擎缺口；精确对照在`final-architecture-native-comparison.json`，旧8.8FPS不作当前结论。[后验边界](../history/text-publication-first-frame-2026-10-23.md) |
-| 3589454154 · Bloom、细线微颗粒、轮廓布局 | 用户调序暂缓；保持合法屏外投影，不用视锥剔除消影。[边界](../history/saturn-light-delivery-2026-10-07.md) |
-| 3747492842 · 闪烁/光束位置/crop/文字构图 | 固定当前输入/phase找首个不同stage，不重开正交near-plane。 |
-| N07 · 3248220186运动/密度/亮度 | 同phase/音源复验旧具体余项，不再排world Sprite不支持。[边界](../history/particle-world-depth-2026-10-11.md) |
-| N03 · 3337494481遮挡/构图、solid亮度 | 侧clock/date跨面文字、扁盒/粉顶、亮度旧观察仍待同pointer/phase；effect CPU、229 fallback/黑背景尚无可行动归因。原默认text板正控失败，不能猜depth/整quad策略；官方rim倒字/title黑影不计缺陷。[资格](../capabilities/runtime-evidence-current.md#native-text-depth-qualification-20261023) |
-| 2938612768 · 右下时钟裁切 | 同输入后期图均在、执行集合相同但根因未定；先复验布局/输出ROI，不改矩阵期待。[证据](../history/frame-texture-snapshot-convergence-2026-10-14.md) |
-| 2775915974 · 顶部灰边 | 旧反馈缺当前身份，先判作者画布露底；方向/顶部事件修复不代验该边。 |
-| 3712499998 · 重复文字/样式 | 若当前仍重复，定位实际String/图层组合，不再补已闭Vec构造API。 |
-| 3477054430 · 显示不全、月亮过亮/球体/文字、低频与猫受光 | 按当前原输入/声源/phase逐ROI定位；已有雾/Bloom等有界后验不合并销账。[原边界](../history/shared-shader-type-compatibility-2026-10-09.md#u12-真实-pcm-与系统采集后继) |
+| 2982559622 | 103.alpha bad return、视频 pending 与 utility capture 的首帧等待/完整性，区分作者状态和实际缺图。 |
+| 3034166869 /3223543799 | 其余 effect、媒体与完整画面；常开音条与条件隐藏分开，不凭短窗结构状态实施。 |
+| 3141464346 | Puppet 同 phase 位置、右下音频环与 shader 链；188/332蒸汽不能代音频环。 |
+| 2957870426 /3383210272 | 中央竖光白色、birth Color Random/colorn 的样式；需实际出生与有效音频输入。 |
+| 3586308277 | 文字从右到左扫描的可见度；固定作者时间、遮罩、属性与 viewport，直接核此样本的实际画面。 |
+| 3351179520 | 文字环位置/尺度/旋转；需同帧 slot1、MVP、g_Time 与可归属 glyph，而非强制各TRS同心同速。 |
 
-<a id="user-three-samples-20261017"></a>
-### 用户指定优先复验
+### 其他待核
 
-<a id="user-priority-20261030"></a>2026-10-30新增十包为后续优先复核：用户观察不等于已证根因，先出图/完整合成与播放，再核动画和光效；原性能资格及旧候选保留，不先于此清单展开。截图须核音频/指针/phase，开场或视频内过渡不作正式效果。
-
-| 样本 | 具体余项 / 下一门 |
+| 输入 | 精确待核位置 |
 |---|---|
-| 2982559622 · 首帧资源/alpha余项 | 103.alpha仍badReturn；初5帧视频pending记resourceSnapshotUnresolved、utility capture实1/计划3，需区分真实启动等待与观测期待。普通图片/最终合成其余分支及官方同状态未全验；素材视频控制不得从effect slot推layer handle。 |
-| 3034166869 /3223543799 · 完整性待对照 | 303活动Dot Matrix的float复合余数首门已移[历史](../history/corpus-log-audit-2026-10-29.md#float-compound-remainder-20261031)，其他effect/媒体分支尚未与官方同输入复核；322用户仅疑似，4秒结构PASS，常开音条与条件隐藏不能混作缺图。两者无目录官方图，需有可区分缺失再实施，不能为旧报告猜算法。 |
-| 3141464346 · 动画与音频环余项 | 剩余木偶错位须按官方同phase核；右下音频环及shader链仍开放，不把188/332蒸汽当音频环。两层world Rope首门已归[后验](../history/particle-world-parallax-implementation-2026-10-05.md#world-rope-pointer-reference-20261031)，既有rate/blend/零速归[动画后验](../history/puppet-animation-visibility-2026-10-07.md#puppet-parameter-timelines-20261031)；均不作完整样本通过。 |
-| 2957870426 /3383210272 · 光线色彩/样式 | 295中央竖光应白、338样式差异仍待同phase/有效音频核；两包birth Color Random与colorn组合无合格官方正控，不能改gain/乘法。338四colorn Timeline丢失已归[受控后验](../history/named-timeline-interaction-2026-10-10.md#normalized-color-timeline-20261031)；原8秒四目标仍人口0，别的频谱/叶片不代其出生证据。先用有实际出生的同输入核样式，不延窗碰结果；该首门不解释295。 |
-| 3347416586 /3589819394 · 虹彩与文字放射 | 用户报334虹彩光缺失、358中文字放射变黑。334候选为常开compose484#492 Lens Flare Sun及末层opacity/blend，隐藏particle129不作缺光。358有英文Clock/Day/Date三条blur→godrays，中文ROI尚未对应，不能先归字体；核实际source/signal/RGBA与末合成。旧solid计数漏报不作视觉根因。 |
-| 3351179520 · 文字环位置/尺度与旋转漂移 | 8原图跨53.496秒未见明显整圈平移/半径跳变，但未得同帧slot1/MVP/g_Time，精确贴合仍partial。仅有新可区分几何/官方ROI才再开，不重复长窗、不强制三组TRS同速同心或用glyph框补偿。[资格](../capabilities/runtime-evidence-current.md#ring-motion-qualification-20261018) |
+| 3022080536 | 移动烟雾偏红、颜色继承/ColorChange 与显式 audio child；先确定颜色单位。 |
+| 2919854127 /2927205881 | 蓝环可见性与曲线右短段，同声源 band 与实际触发条件。 |
+| 3577990983 | 远距离 hover 提前放大；真实 pointer 与作者半径/投影。 |
+| 2887542690 | 图框内音频 ROI、黑遮挡/字体及片区布局，先取得可重复输入。 |
+| 2134765860 | Night选项4与右黑矩形的具体归属；先区分作者画布、媒体与独立mask。 |
+| 3768903841 | 横向云片/烟花色彩；238.angles 的 screen localStorage 身份异常另查 Script 入口，不推断为粒子根因。 |
+| 3226487183 | 1028手部同 phase 形变与 source/reference/effect 链。 |
+| 3809618616 /3791967416 | 前者布局裁切/音频，后者局部合成及眼部完整周期。 |
+| 3789316755 /3211615441 | 频谱形状/幅度/全柱活动；321另保图片切换、首焦点、持续按住与多步跟随。 |
+| 3788467391 | 漩涡方向、速度、形态与长预热的可比相位。 |
+| 1315486372 /3769761761 | 光线宽软/渐隐/水波位置与头发上方斜带；376的`.01`属于instanceoverride，需完整可归属光束贡献。 |
+| 3113287126 | 小提琴粒子方向与密度，固定发射/运动相位。 |
+| 3437487219 | Earth亮侧/云层光色；Cloud Chroma MR/specular/pigment及coverage，另分闪烁与collision。 |
+| 3743305891 | 十字流星尺寸，分别核父world与子local scale，不预设重复乘。 |
+| 3768229922 /3770444459 | 完整默认开场/主体过渡；溅水滴黑色需实际source/合成ROI。 |
+| 3351163962 | 新补报左上文字超环，需确切文本、属性、时刻和viewport。 |
+| 3768724269 /3287715210 | 光束范围/根部/右上渐变；眼周亮度/渐变与横移细竖纹分别定位。 |
+| 3750813609 /3363252053 | 相机过强/纵向反转的同输入体验；375另核时钟颜色、雨量与雷电。 |
+| 3662790108 | 球体/曲率、点击；effect517/pass0 `[P1] Data`读取p1_longNode须先区分作者数据和实际消费。 |
+| 3589454154 /3747492842 | Bloom/细线微颗粒/轮廓；闪烁/光束位置/crop/文字构图。 |
+| 3248220186 /3337494481 | 前者运动/密度/亮度；后者跨面文字、扁盒/粉顶、遮挡与solid亮度。 |
+| 2938612768 /2775915974 /3712499998 | 时钟后期裁切、顶部灰边、重复文字/样式，分别确认真实图层和布局。 |
+| 3477054430 | 显示完整性、月亮/球体/文字、低频与猫受光，逐ROI定位。 |
+| 3764725758 /3549827466 /3581882134 | 左斜光/眼睛漂动、缺光ROI与暖亮/冷暗来源。 |
+| 3723344874 /3793998447 /3792249095 | 人物后烟雾涡动、音频属性差异、外圈样式及内外位置。 |
+| 3042492564 /2932157836 /3299228616 | 光束/右裁切/blur/布局/媒体交互、精确spin及媒体仲裁、hover水波强度。 |
+| 3233141951 | 脸/龙/小人/刀轨迹与双色音频；403请求513的Bool seed类型另核。 |
+| 3807668787 /3420215721 /2684431262 | 958 A2C/pointer轨迹、中央环亮度、发光与整体合成。 |
+| 3470948192 /3264246690 /2131872317 | 水滴亮边/拖尾与反射、人物边缘AA/警戒带运动、蓝烟花上升/逐子出生空间。 |
+| 3769688830 /3780119725 /3769364482 | 玩偶往返与黄球UV Spin、人物地面/摩托中层pointer及光照、Shake Breathing与发光突现。 |
+| 3219398263 /2932631210 | 漩涡方向与背景，分别固定ROI，不能共改符号。 |
+| 3028090166 /2419444134 /3113554287 /2304304373 | 光束、白点密度、顿挫、雾气叠加；低优先，先补当前输入。 |
 
-<a id="qv-cccea6c-user-report"></a>
-### U组未闭子现象
+<a id="performance"></a>
+## 性能反馈：待同条件测量
 
-原观看身份cccea6c1a8a738fd97889fda53e8c9cb0603908d缺App二进制/属性/音源/时间；以下未注明新证据者均待当前复验。同一余项只保一处，U40、U22/提交率、U42分别归能力、性能、属性段。
-
-| 编号 / 样本 | 未闭余项与下一门 |
+| 输入 | 当前待测问题 |
 |---|---|
-| U01 · 3764725758 | 左斜光、眼睛飘动。830/1706实际执行但aspect不同、缺可归因光束ROI；先同状态及完整眼周期，不调gain/点位。[复验](../capabilities/runtime-evidence-current.md#open-visual-qualification-20261018) |
-| U02 · 3549827466 /3581882134 | 354缺光ROI、358暖亮/冷暗来源仍UNKNOWN；先分来源/phase，不按族名调gain。[复验](../capabilities/runtime-evidence-current.md#u02-three-lighting-fresh-20261018) |
-| U05 · 3723344874 | 人物后烟雾/涡动。末combine的Dye版本/R梯度+A权重未见绑定首错；需合格同帧空间分布/uniform/ROI，不用单质心、盲加时或gain。[内容边界](../capabilities/runtime-evidence-current.md#u05-fluid-content-20261018) |
-| U10 · 3793998447 | 音频响应/具体属性差异待同输入；默认整环缺失未复现，不再排整环Program不支持。[资格](../capabilities/runtime-evidence-current.md#u10-active-ring-20261018) |
-| U11 · 3792249095 | 外圈样式/内外位置差异；底图本含图案，音源phase未齐。先实际ROI，不改相机/半径/涡旋或重开已证Sprite基础尺度。[资格](../capabilities/runtime-evidence-current.md#u11-visible-ring-20261018) |
-| U13 · 3042492564 | 原光束、右裁切/blur、布局和媒体交互仍保；additive及camera origin setter首门已退出，不将默认XY夹零写像素收益。 |
-| U14 · 2932157836 | 原blur/精确spin及媒体仲裁仍保。不重修已闭timer取消身份。[边界](../capabilities/runtime-evidence-current.md#shared-timer-cancellation-20261018) |
-| U15 · 3299228616 | hover水波弱，须真实pointer与可归因ROI，不抬gain；滚动背景矩形已退出。 |
-| U17 · 3233141951 | 脸/龙/小人/刀的准确轨迹及双色音频待同状态。403请求513仍有Bool seed数值污染；仅改literal true虽能播放，黑形像素/收益UNKNOWN，后继须新producer/ROI而非重跑该单变量板。[边界](../capabilities/runtime-evidence-current.md#combined-timeline-playback-20261017) |
-| U19 · 3807668787 | 958 A2C/pointer轨迹准入仍拒，可见收益未证，原型已撤；先唯一ROI/实际几何采样和有效连续时序。[STOP](../capabilities/runtime-evidence-current.md#particle-coverage-qualification-20261018) |
-| U24 · 3420215721 | 中央环亮度；同状态复验，349/409默认hidden文字不算缺字。 |
-| U28 · 2684431262 | 略发光/整体合成差异；先同状态ROI，不把原洋红色当占位、250²GIF当golden。[资格](../capabilities/runtime-evidence-current.md#u28-visual-qualification-20261018) |
-| U29 · 3470948192 | 35秒后仍黑水滴/缺亮边拖尾；反射空间/能量UNKNOWN，官方OFF正控STOP。不重跑失格载体或调亮度/距离追图。[停止](../capabilities/runtime-evidence-current.md#model-reflection-prototype-20261018) |
-| U30 · 3750813609 | 时钟颜色已复现但[资格STOP](../capabilities/runtime-evidence-current.md#clock-color-current-20261019)；雨弱待同phase，雷电仅不确定观察。先可区分输入，不实施Text白源/模糊或借别包profile归因。 |
-| U31 · 3264246690 | 人物边缘AA、警戒带运动；先当前对照，头/左肘与口罩关闭不代验两项。 |
-| U32 · 2131872317 | 蓝烟花完整上升轨迹/逐子出生空间UNKNOWN；当前有蓝短线→亮点，但无连续官方蓝周期正控。先新同状态参考，不重跑native短窗或调重力/速度/RNG。[资格](../capabilities/runtime-evidence-current.md#blue-firework-qualification-20261020) |
-| U33 · 3769688830 | 玩偶左右循环却单向转；先分黄球UV Spin与父挂点往复，目标ROI/整段尚未资格，不凭Spin判作者设计。[边界](../capabilities/runtime-evidence-current.md#ring-motion-qualification-20261018) |
-| U36 · 3780119725 | 新补报人物/地面/摩托中层鼠标不响应、发光过强；脸黑线/缺块、动画/闪烁旧项亦保留。先具体层ROI/轨迹/属性/光照，不以旧短轨迹基础响应外推全景gain/delay。[旧边界](../capabilities/runtime-evidence-current.md#visual-feedback-followup-20261018) |
-| U37 · 3769364482 | 三Shake的Breathing及发光突现风格；先可归因复验，基本loop/opacity已退出。[边界](../capabilities/runtime-evidence-current.md#u37-scalar-loop-20261018) |
-| U39 · 3219398263 /2932631210 | 前者方向疑反、两者背景漩涡；固定各ROI状态，不凭单帧共改符号。293人物恢复与静态密度不代验方向。[边界](../capabilities/runtime-evidence-current.md#additive-terminal-density-20261019) |
+| 整体CPU高温 / GPU满载 | 先固定设备、构建、输出与真实workload，联合归因，不以历史温度或局部代码变化代替当前测量。 |
+| 3476868923 /3507496797 /3662790108 | 重型内容冷准备与首帧成本；同输入区分model、shader、资源及首Surface装配，不延时限或减少内容冒充优化。 |
+| 3805547608 /3372715909 | 视频越播越卡与热切后AV对象驻留，需当前普通播放、精确source退出和可比时序。 |
+| 3749463715 /3420215721 | 观感低帧率、实际提交/呈现率与drop原因分别核对，不从旧计数判断当前预算。 |
+| 3471294034 · 未优化 Debug | 当前候选8秒短窗的呈现间隔中位数为125ms；需同输入、同优化配置基线与归因，functional PASS 不代60 FPS资格。 |
+| 轻重切换 / 多Surface | 同PID资源驻留与第二屏准备成本；先找真实持有owner和重复工作，不预建共享cache。 |
 
-低优先待当前复验：3028090166光束、2419444134白点数量/密度、3113554287顿挫、2304304373雾气叠加；一般烟花/洋红/拖尾尚缺唯一sampleID，先补身份，不派生通用算法。
+测量与退出规则只归[性能方法](performance-convergence-card.md)，本表不沿用旧实验数值或认领收益。
 
-<a id="performance-open"></a>
-## 3. 性能：当前可避免成本待归因
+<a id="properties"></a>
+## 属性与工具资格
 
-阈值/有效基线/STOP只归[性能卡](performance-convergence-card.md)，不重开已撤movement、帧载荷、MDL/cache/排序等旧campaign；源码复杂度/调用数和旧FPS不作收益或新缺陷。
-
-| 反馈 / 样本 | 未闭问题 / 下一门 |
+| 定位 | 下一步 |
 |---|---|
-| CPU高温、GPU满载 | 用户报告近100°C与GPU常满，设备/配置/窗口成本未锁。联合整进程CPU/GPU及实际工作归因；局部收益不关闭整体反馈，温度/能耗未测不认领。 |
-| N09 · 3476868923 /3507496797 /3662790108重型准备 | 旧冷69秒超时后153.425/93.820秒ready、366冷120秒无图；当前缓存约19.4秒不能作冷暖收益对照。prepare70.338含model43.313，不相加；先当前唯一大成本/可省工作，不延timeout或减内容冒充优化。 |
-| U22 · 3805547608视频越播越卡 | 当前普通App长稳复验；65/100秒双视频无递减只排短窗，不关闭长期反馈。[运行](../history/named-timeline-interaction-2026-10-10.md) |
-| 3749463715观感低帧率 | 锁设备/App、属性/窗口及实际提交/呈现率，区别U40重复拖动，不从观感直接判性能回归。 |
-| U24 · 3420215721提交率 | 旧未提交1879需当前分母/drop原因；60秒931帧已不freeze，不认当前预算不足。 |
-| 轻重切换驻留上移 | 已缩到purgeable分配、持有owner未定；先有效分配来源/退出平台，不重复无caller整轮切换或写allocator泄漏。[资格](../history/scene-switch-residency-qualification-2026-10-15.md) |
-| 多Surface静态设备准备复用候选 | PassEncoder逐Surface warmup属现正确owner/generation边界，普通帧不编译；DisplayMapping可优先实测成功实例复用，Bloom不能共享含targets整实例。先量第二屏准备成本，再复用原repository；不得扩大negative-cache失败寿命或为清库存新建cache |
+| 属性面板 | 总打开/编辑延迟、长Combo完整显示、系统键盘路径与更多locale需实际可达控件。保原始key/value/条件，翻译只改展示；完整段落、只读说明和reset入口不能因优化丢失。 |
+| effect 显隐 / history | 关闭后保history再重新启用的首帧与实际输入待核；沿原activation/previous-current，不增另一history owner。 |
+| text size | VM catalog size与排版logical extent是不同事实；setter后可见时机与padding/装饰需真实行为，不另建排版owner。 |
+| 预处理成员 · 2819633264 | 未知成员按0的当前实现与横/竖分辨率、宏成员/空白等价行为需区分输入。 |
+| console.warn · 3605722997 | 先确认实际 callee/堆栈与可达调用，再判断API缺口。 |
+| 3028048463/531.alpha、3280903509/225.alpha | 空数组与Vec3返回scalar分别核作者配置、时序与字段归属；不静默强转。 |
+| presented / performance 记录 | `presentation stream count does not match surfaces`与实际GPU完成分开；沿benchmark、present callback及stream身份定位，不能为消报告改渲染或伪报PASS。 |
+| capture · 3766415113 | 普通capture的1×1输入需当前窗口frame/时机；诊断Metal截图不能冒充普通capture修复。 |
+| 诊断分母 / 显隐 · 3280903509 /3303319749 /3347416586 /3350026230 /3357689320 | instanced solid、hidden/dormant/retired与真实active outcome分开；不把load-incomplete标签直接写成缺图。 |
+| 资源/graph观测 · 3039882306 /3292370168 /3186328539 /3763323436 | 先核active consumer和实际完成；318的1045未ready/hidden不直接判缺图，376缺project先补输入。 |
+| 自有9000000015 | 90/91/92健康peer须有真实texture source及可区分ROI，先资格夹具，不能借主文字/clone输出代peer。 |
 
-<a id="properties-open"></a>
-## 4. 属性编辑余项
-
-能力/选序归[属性卡](properties-panel-card.md)及[输入覆盖](../capabilities/runtime-input-property-coverage.md)。
-
-| 反馈 | 未闭问题 / 下一门 |
-|---|---|
-| U42 · 面板打开/编辑、长Combo、语言 | 打开/编辑总延迟、完整系统键盘chrome、长Combo完整显示/更多locale仍待实际资格；有限AX滚动/本地化不代全范围，旧“严重卡顿/中文都变英文”不无条件沿用。先单个可达控件/动作与成本，沿Intent→store→consumer取证，未审词汇不直接算错译。 |
-| history effect显隐热更 · 重新启用边界 | 多节点/history的typed显隐消费者及关闭动作已接通；剩余inactive保留history后重新启用的首帧、可证直通失败时继续执行的实际输入与官方同场景仍未验。不再排查已闭的consumer缺席首门，[边界](../capabilities/effect-execution-coverage.md#effect-activation-history-20261101)。 |
-| <a id="particle-color-target"></a>静态 · particle绝对color direct target | [TargetMapping](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyBindingCompiler+TargetMapping.swift)对particle .color返回nil，[binding编译](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyBindingProgram.swift)报unsupportedTarget，无direct typed instruction。先取得实际合法定义及绝对/归一化颜色单位，再复用同一instruction/出生consumer；不扩成全部粒子颜色或数值转换故障。 |
-
-<a id="contract-validation-debt"></a>
-## 5. 静态缺口、候选与验证债
-
-静态项明确缺消费者或当前拒绝面，候选/旧测试债另注明；这些不与已复现可见故障混排。仅缺官方合同或当前身份时先资格；更宽profile未测归专题能力表，不自动转待实现。
-
-| 项目 | 具体依据 / 最小下一门 |
-|---|---|
-| 预处理成员条件 · 2819633264 | 点号identifier已可进入预处理；未知成员按0求值仅为现实现，横/竖分辨率、宏成员及空白等价形态仍待官方区分，不记完整分支正确。 |
-| <a id="animation-direct-state"></a>静态 · direct MDL与dense state1更广动画 | [DirectModel playback](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetPlaybackState+DirectModel.swift)对实际参与且权重>0的非中性bone alpha/auxiliary选typed bind fallback并拒非空attachment；[资源准备](../../../MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/ScenePreparedStaticModelResources.swift)只为单geometry/entry安装动画。dense state1的[Reader](../../../MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlPuppetAnimationReader.swift)保留完整TRS与state，[Evaluator](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationEvaluator.swift)仍限常量、无独立reference matrices且bind差≤0.0001，含state1的多opaque contributor仍拒。先证合法channel/attachment坐标基、多part或非中性reference的姿态ROI，扩同一selector/evaluator/pose/stream；不把任意state1当state0。[动画合同](../capabilities/direct-model-skeletal-animation.md) |
-| <a id="effect-render-state"></a>静态 · resolved effect非overwrite state | 最早[Template admission](../../../MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityTemplateAdmission.swift)复用[RenderState谓词](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneMaterialRenderState.swift)仅准normal、depth test/write disabled、nocull、alpha unspecified/enabled，Finalizer/PassEncoder再核；只指resolved fullscreen effect，不泛指普通图片/模型。先证active pass精确state、blend factor、alpha convention/输出用途，再沿原Program做像素正反门。 |
-| <a id="dynamic-resource-recipe"></a>动态特殊资源/默认材质recipe | [createLayer](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerSceneHost.c)按字段存在拒Puppet animations/puppetAnimationLayers/effects，composition另拒copybackground/config/parent/children/dependencies；[图片catalog](../../../MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/ScenePreparedImageMaterialCatalog.swift)仍限单link/pass/显式纹理、无user texture/value输入、受限combo/静态scalar。已证明的单纹理tint source已接color/Alpha及brightness/power直接user scalar；其余未知shader输入、scalar script/Timeline与user texture仍缺完整共享source资格及消费者。保kind/catalog/拓扑原消费者，不猜补空实例；普通图片数量不再沿旧256门判缺资源。 |
-| <a id="static-model-material"></a>静态 · static model material state/Program | [Entry](../../../MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/ScenePreparedStaticModelResources.swift)保blending/投影depthWrite，[颜色draw](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+StaticModels.swift)仅用normal选opaque coverage；[Pipeline](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneStaticModelPipeline.swift)固定source-over/greaterEqual，未消费逐pass additive/raw depthTest/alphaWriting。[binding compiler](../../../MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneStaticModelMaterialBindingCompiler.swift)只证固定renderer接口，非pass0报material-pass-index，任意shader未执行/接口失败报shader-interface-unproven。先active pass/interface与非零背景ROI/state/coverage合同，复用geometry/material和唯一输出，保淡出/depth/PMA；文件/blob数不代缺图。[有界策略](batch2/2d-lighting-material-design.md#static-model-normal-coverage) |
-| <a id="point-volume"></a>静态 · point volumetric consumer | [SpotLightPlan](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneSpotLightPlan.swift)只收bounded spotLight/lspot，[Runtime](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneSpotLightRuntime.swift)只将该plan交SpotLightPipeline，无point-volume路线。当前3047405322/3437487219/3477054430报spot-light failed只作计划/消费者线索，尚未证可见volume缺失或地球阴影根因；3768903841有成功相邻。先真实visible consumer及输入/输出合同，ordinary point surface/model lighting不代验volume。 |
-| <a id="periodic-emission-cap"></a>静态 · random-periodic每周期数量 | maxtoemitperperiod保为maximumEmissionCount；[periodic admission](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePeriodicEmission.swift)要求nil，否则schedule unsupported且不发射。先核实际consumer其他CP依赖，取得cap schedule/reset/随机/rollback合同，再沿原schedule/出生owner验fixed-dt/seed/数量；不只删cap guard。 |
-| 普通unlit数值下溢 | 10-08旧GPU反例在alpha=.5、vertex=.25、R8 clip=128/255下RGB约2.5098被算0；未fresh复验/未证活跃真实consumer。先资格真实影响，再沿唯一颜色乘积owner保有限值，不全图压暗/加cap。[证据](../capabilities/runtime-evidence-current.md#e-2026-10-08-unlit-product) |
-| text size更新时序 | VM catalog size与实际排版logical extent分离，公开仅只读像素分辨率；setter后时机/padding装饰未知。先行为资格，不把本静态候选当U25根因或新建重复排版owner。 |
-| Timeline event-only归属 | Vec2/Vec3或numeric String可能被classifier吞attachment但无VM control；无真实target资格、已STOP。须先证可达consumer/control owner，不能据静态形状扩API。[API边界](../capabilities/scenescript-api-coverage.md) |
-| 验证债 · presentation记录与能力判定 | 当前三臂及两原包GPU/Metal读回完成，但有效presented/presentation stream为0，工具因surface=1判performance unavailable并整体FAIL。缺失点尚未分清present callback、时间或generation；先核真实可见性/回调，能力结果与未请求性能资格须分开，不改阈值或重跑追PASS。[限定记录](../history/particle-material-depth-2026-11-01.md#presentation-observation) |
-| 3766415113普通captureFrame1×1 | 旧daemon已呈现而ScreenCaptureKit得1×1、Metal诊断完整；先当前窗口frame/时机，不把诊断替图称普通capture修复。[尝试](../history/shader-completed-cache-retention-2026-10-15.md#未完成边界与无效尝试) |
-| <a id="particle-world-space"></a>world-space affine/CP force · 359777 Bird | [空间准备](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleWorldSpacePlan+Descriptor.swift)仍限无层级的origin-only、固定basis/Z；完整Z/rotation/scale、层级、pointer出生源与其他空间consumer待补。[world CP force](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleControlPointForce.swift)限正交无层级local system、bounded CP、零operator origin。Bird operator10非零origin仍拒，270可见鸟群/音频出生UNKNOWN。先证active consumer及ROI，沿原空间/出生/绘制扩展；零origin缺省距离不重开，不另造坐标链或放开N08负细分。 |
-| 日志API候选 · 3605722997 | 作者调用console.warn而现只有log/error，但实际notfunction callee仍未资格。先实际调用/堆栈与consumer，不将标量上调Vec.add或文本上调纹理动画一并当缺API。 |
-| 样本脚本/配置归属 · 3028048463 /3280903509 | 当前302的531.alpha在默认player层全隐藏时访问空数组；328的225.alpha返回Vec3并报BAD_RETURN，脚本本属clearcolor。未证缺API；保原回退，不吞错、不强转scalar。若要修样本可见缺失，先核官方同默认/媒体/属性时序，区分作者配置与引擎语义；不能因同样TypeError合修。 |
-| 诊断计数 · instanced solid | 新增3280903509/3303319749/3347416586/3350026230/3357689320中21层已沿普通asset通道加载white，却因成功正则只计procedural solid而报不全。沿原producer/parser用真实solid身份统一分母/分子；保真加载失败与普通image反例，不能把所有white纹理都当solid。原报告保留，不将其记成引擎缺纹理。 |
-| 短窗未决资源/graph观察 | 旧453默认4秒：56例solid、7例image、4例particle候选数未全加载，15例layer-source-not-ready；含隐藏、alpha0、按需或已退休层，非全部缺图。2804817823/3039882306旧窗虽Ready但图单元缺完成，先锁active consumer/媒体或延迟；3292370168已用f753/7f53同原包/静音复验：direct29各123条animated GPU完成且实图保持，loaded0.8333及8项utility/graph期待失败相同（含505 capture，planned3），按[冻结后验](../history/runtime-evidence-index.md#e-puppet-surface-gpu-ownership-20261102)回原图像资源/utility与graph观测owner核活动consumer，保raw，不属本轮架构回退；正常双视频告警不重开已确认正常的Xray。新增3186328539的1045未ready后alpha0/hidden不代表缺图。3763323436缺project归输入不完整，不改引擎迎合。 |
-| 验证债 · 隔离Startup的extension清理 | 本轮Scene daemon已排空后，早期Debug.Startup的SystemWallpaper appex仍由launchd持有专用DerivedData，未在Scene子进程树内；本轮按精确路径/启动时间退出，保外工作树进程，记录见`final-owned-extension-cleanup.json`。后续从现有`wallpaper_startup_benchmark.child_processes`及`SceneProductDaemonLifecycleIntegrationTests`收尾核隔离bundle的服务归属/清理，不向Scene帧或daemon增加轮询、也不按进程名全局终止；是否稳定重现另验。 |
-| 验证债 · 连续PNG采样 | 同一自有载体0.5s及1.5s连续采样均有superseded，前者另有teardown capture失败；原包普通两图成功，不能当播放器缺图。现有晚窗图虽完成，注册因果仍UNKNOWN。先核实际snapshot队列/导出与采样职责，不重复高频全图或改变产品渲染来消报告；[反证](../history/corpus-log-audit-2026-10-29.md#declared-framebuffer-shadow-20261030)。 |
-| 验证债 · 文本改名载体15的健康peer资格 | 自有9000000015的90/91/92在旧基线、旧候选和最终App均无texture URL、solidLayerCount0，预设green/blue ROI实为背景；它只证主文字/clone生命周期，不能证健康peer。14的对应ROI三侧均正常；若后续需15的peer反例，先修自有输入/矩阵资格，不改产品迎合。[冻结对照](../history/runtime-evidence-index.md#e-architecture-final-integration-20261102)及`final-architecture-native-comparison.json`保原图/计数。 |
-| 验证债 · named geometry独立像素probe入口 | 当前老入口的编译源列表缺SceneMaterialRenderState，且引用DEBUG CounterHub却未传DEBUG；未取得fresh独立像素门结果。后继在原fixture职责中补齐真实依赖/配置，保来源身份与原断言；不据此改产品或把编译失败算像素失败。当前几何content修复已有真实Coordinator门及原包/独立样本App画面，见[关闭边界](../history/open-breakpoint-reconciliation-2026-10-23.md#geometry-named-content-20261029)。 |
-| 粒子unsupported与位置映射 | mapsequencebetweencontrolpoints、其余CP约束、Mirror、nested/event、非均匀child变换、深duration/9999 delay及322的68→64 matrix child预算独立开放，后者像素/成本待资格；只在真实active consumer有资格时实施。Position Around默认Z有效映射有反证，但斜轴六候选全拒；须新可区分出生/空间证据，不拟合phase/重跑旧板，不关闭311/379方向与速度。[位置边界](../capabilities/particle-component-coverage.md#position-around-position-mapping) |
-| <a id="particle-cp-distance"></a>3742497499 · CP距离/death child | [parseOperator](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser+Operator.swift)无maintaindistancetocontrolpoint case，Simulator无typed位置约束消费者；135默认活跃/GPU有输出但此算子未接。death child在multiplysize/setopacity拒，setcolor已接，174隐藏不算consumer。距离及六板均STOP；先资格distance/variable-strength/轨迹，不能替为maintaindistancebetweencontrolpoints；另分Alpha初始化、事件输入、尺寸消费与真实splash ROI，不跳未知mode或用root计数替child。[资格](../history/particle-initializer-qualification-2026-10-23.md#event-inheritance) |
-| 运行诊断显隐归一 | 381隐藏/特殊solid聚合load-incomplete、380隐藏分支异常降级仍待核。先消费既有active/retired及实际outcome，保raw，不把结构标签当缺图。[诊断合同](../development/corpus-diagnostic-workflow.md) |
-| 粒子帧选择/normal采样的静态合同债 | 现selector按TEX duration加权（含random概率），[公开教程](https://docs.wallpaperengine.io/en/scene/particles/tutorial/spritesheet.html)称导入duration不影响粒子；现normal也mix下一帧，而固定stock仅采当前UV。两项尚无当前活跃非均匀duration/非零blend的可归因ROI，不据静态差异扩本批或改整个selector；先资格实际consumer，沿原帧选择/采样owner修正。static-primary后继仅闭元数据拒绝，不关闭这两项。 |
-| 历史GPU门/hidden extent覆盖 | 固定f79088a5输入的两条旧GPU红、hidden extent Python桩P2尚无fresh真实harness关闭链；先核生产可达分支与fixture，不称当前HEAD故障。[已闭graph债另归历史](../history/graph-color-purpose-reconciliation-2026-10-12.md) |
-
-### 5.1 顶层设计已裁决的代码职责重构
-
-本轮确认的架构职责偏差、相应实现和联合验收已收口，见[最终后验](../history/topology-lifecycle-2026-11-03.md#final-joint-architecture-qualification)；不再把已退出的Launch helper、InputValidator、整AdmissionCatalog运行转运或同步可选cache发布列为待实现。目标仍由[总设计](../architecture/runtime-architecture.md)与[迁移合同](engine-refactor-program.md#架构级迁移合同)约束，实际owner查[代码地图](../architecture/runtime-as-built-map.md)，固定结果分族保存：
-
-| 职责族 | 固定后验 |
-|---|---|
-| 材质格式、静态uniform与Launch/设备/资源交接 | [M1/M2与M3](../history/material-preparation-boundaries-2026-11-02.md#m3-launch-device-resource) |
-| 执行能力、运行声明、GraphScope与取消 | [准备能力交接](../history/material-preparation-boundaries-2026-11-02.md#prepared-execution-handoff)、[Catalog边界](../history/material-preparation-boundaries-2026-11-02.md#catalog-scope-and-cancellation) |
-| Host Schema、typed输入与最小Admission观测 | [直接Schema](../history/material-preparation-boundaries-2026-11-02.md#direct-host-schema-preparation)、[输入值](../history/material-preparation-boundaries-2026-11-02.md#typed-input-value-semantics)、[Admission](../history/material-preparation-boundaries-2026-11-02.md#minimum-admission-observation-handoff) |
-| 可选cache、PSO archive及storage分期 | [cache发布](../history/shader-result-cache-boundary-2026-11-03.md#four-preparation-caches)、[archive](../history/shader-result-cache-boundary-2026-11-03.md#pso-ready-before-archive)、[storage](../history/storage-preparation-2026-11-03.md#storage-before-frame) |
-| 组件活动寿命与资源退休 | [Sprite/Timeline及各组件后验](../history/topology-lifecycle-2026-11-03.md#sprite-timeline-retirement)、[history](../history/topology-lifecycle-2026-11-03.md#adopted-graph-history-retirement)、[当前camera](../history/camera-current-topology-2026-11-03.md#current-camera-topology) |
-| 系统输入、provider与产品控制链 | [活动需求](../history/topology-lifecycle-2026-11-03.md#live-system-input-retirement)、[产品daemon](../history/topology-lifecycle-2026-11-03.md#product-daemon-control-chain) |
-
-相邻行为门、同输入跨族回归、产品daemon及文档/设计已分别核对；固定结果归各族后验，后续新问题须给具体断点，不建立一套平行验收状态。4条共享cache/digest词法库存经实际调用复核，属于错误摘要、显式DEBUG观察及launch archive基础设施，详[依赖合同](../architecture/scene-dependency-boundaries.md)；没有以此确认普通帧重编译，不为归零复制工具、公开算法或增owner。
-
-Layer作者/准备/当前字段、短期PreparedLaunch接管、FrameDriver前置/最终snapshot均有不同实际消费者，未发现需继续同步的第二活动树或owner；完整组件职责审查按Format→Compilation→Resources→Systems→Rendering→Runtime追到退出。新的可复现偏差才重开具体职责，不因字段形似重复新建ECS。独立兼容、真实硬件、长期稳定和性能问题仍在本队列其他节及相应专项中，不由结构收口自动关闭。
-
-## 6. 进入与退出
-
-- 先固定输入/属性/时间/音源/viewport/App身份，标明运行反例、用户待复验或静态候选；只选有用户价值的共享首错。
-- 沿authored→prepared Program/graph/resources→typed frame→Metal→唯一compositor；保唯一owner和局部失败，不新增样本规则、普通帧解析/编译/整图哈希。
-- 关闭需同语义正例、改名/等价输入与相邻反例、真实输出、独立健康样本及相称生命周期证据；按子现象移[历史](../history/open-breakpoint-reconciliation-2026-10-23.md)，不刷新整样本verdict或追认旧失格图。
-- 旧证据不足保unknown，专题未测范围不另造当前bug；代表批更新，不为刷绿重跑全corpus。未经授权不提交/发布。
+属性接口归[输入与属性](../capabilities/runtime-input-property-coverage.md)，工具按当前实现与输入资格复现。更新队列时只删已解决的具体子问题；没有当前复现则标待核，不复述旧实验流水或维持旧 verdict。

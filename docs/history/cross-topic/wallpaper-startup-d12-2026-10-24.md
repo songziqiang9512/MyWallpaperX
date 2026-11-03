@@ -3,8 +3,7 @@
 <!-- document-role: historical-evidence -->
 
 > **历史证据 — 非现役入口**
->
-> 截止：2026-10-24。顺序与停止条件归[启动专项](../../development/wallpaper-startup-optimization-plan.md)，Web当前所有权归[现役状态](../../web/current-state.md)。本批不重标历史性能卡。
+> 截止：2026-10-24。当前Web职责见[项目模型](../../web/web-project-json-runtime-model.md)和[现役状态](../../web/current-state.md)。
 
 ## 实际改动与修前修后
 
@@ -18,13 +17,13 @@ P6产品仅修改两个原owner。LoopbackServer用原不可变token派生唯一
 
 ## 配对工具的真实 Web 形状
 
-D11摘要误把所有W0当2行；实际Web runner是首个加六个暖请求，共7行，因此真实Web配对必被拒绝。D12先保原17方法通过与真实7行反例红，再只修summarize_paired：每iteration/arm/App的六个原暖值先取中位，作一个配对观测；Scene保持一暖值，C0/C1一值。输出保原暖点/数量及明确聚合方式，最终count仍是App组数。形状不符、缺失、重复、失败或非有限拒绝完整比较。
+D11摘要误把所有W0当2行；实际Web runner是首个加六个暖请求，共7行，因此真实Web配对必被拒绝。输出保原暖点/数量及明确聚合方式，最终count仍是App组数。形状不符、缺失、重复、失败或非有限拒绝完整比较。
 
 最终19/19纯Python通过。数值反例成组配对中位为+4.5ms，池化为-42.5ms、首ordinal为-45ms，防止把相关暖请求当独立App或替换统计量。原summary/runs、计时、运行、隔离与退出函数逐字节保持；首轮一个旧mock期望不符的失败保留后只纠正该夹具期望。未重跑或改写D10/D11历史分布，不授性能验收。
 
 ## 唯一 seek 探针与 C1 证据
 
-原14源在任务副本加入同operation的issued/AV completion/main/guard有界标记，仅失败后读取；移除插桩投影还原原源码，保2秒await、12秒child及颜色/texture/generation断言。只执行一次seek6，native exit0/1.273秒，首纹理为蓝、generation1→2、提交前保持旧texture、实际playerTime约6.051；成功不读observer。本次未复现，按既定STOP不再采、不修产品时钟/缓存，D7 discard和D11 first-target失败继续开放。逐命令argv、二进制stdout及输入双SHA均已持久化。
+本次未复现，按既定STOP不再采、不修产品时钟/缓存，D7 discard和D11 first-target失败继续开放。逐命令argv、二进制stdout及输入双SHA均已持久化。
 
 C1仅离线复核既有v2十个C1原点，未新增计时。原总中位682.758→861.350ms；从原日志rounded elapsedMs得Session创建→hello406.0→582.6ms，selection前段约13.703→17.292ms，hello→commit260.360→259.567ms。增量定位到子进程启动/握手窗口，不能细分LS/TCC/调度/QoS，也不归给P1解析或证明修复。v3基线自身漂移和原回退证据均保留。
 

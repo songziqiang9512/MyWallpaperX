@@ -46,7 +46,7 @@ DEFAULT_SAMPLES_ROOT = Path.home() / "Movies/MyWallpaperX/创意工坊/Scene"
 DEFAULT_ARCHIVE = REPOSITORY_ROOT / "script/scene_sample_debug_archive.json"
 DEFAULT_VERDICTS = REPOSITORY_ROOT / "script/scene_sample_acceptance_verdicts.json"
 DEFAULT_OUTPUT = (
-    REPOSITORY_ROOT / "docs/scene/capabilities/scene-sample-acceptance-ledger.md"
+    REPOSITORY_ROOT / ".artifacts/scene-reports/sample-acceptance/scene-sample-acceptance-ledger.md"
 )
 
 ALLOWED_VERDICTS = ("unreviewed", "pass", "fail", "platform-unsupported")
@@ -662,7 +662,7 @@ def render_markdown(ledger: Mapping[str, Any]) -> str:
     lines = [
         "# Scene 样本验收台账",
         "",
-        "> 状态：现役验收事实。本页由 `script/scene_sample_acceptance_ledger.py` 生成；"
+        "> 本次输入归档与人工裁决的投影，由 `script/scene_sample_acceptance_ledger.py` 生成；"
         "视觉裁决只来自 `script/scene_sample_acceptance_verdicts.json` 的人工记录，不要手工编辑本页。",
         ">",
         f"> 最终验收门：{ledger['finalGate']}。",
@@ -700,16 +700,13 @@ def render_markdown(ledger: Mapping[str, Any]) -> str:
         f"- 本页生成于 {ledger['generatedAtUtc']}。",
         "",
         "本页生成日仅表示台账生成，不表示归档运行或人工裁决已重新验收。"
-        "旧归档首断点可能已在后续开发中修复；最新技术状态以"
-        "[断点队列](../roadmap/scene-open-breakpoint-queue.md)和"
-        "[运行证据](runtime-evidence-current.md)为准。"
+        "旧归档首断点可能已在后续开发中修复；最新技术状态以当前代码及对应运行证据为准。"
         "`not-run` 仅表示本归档未关联运行证据，不表示样本从未运行；"
         "归档中的失败状态也不等于当前 HEAD 的失败。",
         f"本机已清理的历史证据：{summary['unavailableLocalEvidenceSamples']} 个样本、"
         f"{summary['unavailableLocalEvidenceReferences']} 个引用；原路径保留在裁决覆盖层的"
         " `unavailableLocalRuns/unavailableLocalEvidence`，不计可用载荷。"
-        "清理不撤销历史结论，也不代表当前重新验收；见"
-        "[证据可用性](runtime-evidence-current.md#local-evidence-availability)。",
+        "归档记录不代表当前重新验收。",
         "",
         "## 2. 汇总",
         "",
@@ -730,8 +727,7 @@ def render_markdown(ledger: Mapping[str, Any]) -> str:
         f"- 已裁决但缺观看者身份的条目：**{summary['reviewedWithoutViewer']}**；"
         f"已裁决但缺截图/视频身份的条目：**{summary['reviewedWithoutEvidence']}**"
         "（P0.2 `sample → verdict` 关系要求的字段；缺项保持 `unknown`，不由生成器补写）。"
-        "此处只统计**裁决自己引用的** run/截图身份，与 corpus 清单"
-        "（docs/scene/capabilities/scene-corpus-capability-inventory.md）的「人工对照」列"
+        "此处只统计**裁决自己引用的** run/截图身份，与 corpus 静态清单的「人工对照」列"
         "（样本目录自带的用户截图 `截屏*.png` 与 `用户观察说明.md`）不是同一事实，"
         "两页不可互相替代。",
     ]
@@ -798,6 +794,7 @@ def main(argv: list[str] | None = None) -> int:
     except ValueError as error:
         print(f"error: {error}", file=sys.stderr)
         return 2
+    args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(render_markdown(ledger), encoding="utf-8")
     if args.json is not None:
         args.json.write_text(json.dumps(ledger, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

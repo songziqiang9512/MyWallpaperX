@@ -93,7 +93,7 @@ python3.12 -B script/verify_scene_change.py --phase inner --base HEAD --owned-pa
 
 `verify_scene_change.py` 按实际改动选择适用验证门，需 `--run` 才执行；证据晋升/清理使用表中显式命令，编排器不代为调用。CI在push/PR运行验证，但不执行私有真实样本验收。门不是后台常驻监控，局部通过不等于全仓完成；原始证据、用户媒体和未登记产物不能按“门通过”推定可删除。
 
-关闭能力或重构卡时撤去临时fallback，归档完成过程并收紧对应预算。清理defense的unused acknowledgements前，核对仍服务的历史比较版本，只删除各版本均不再需要的精确记录。
+关闭能力或重构卡时撤去临时fallback并收紧对应预算；Scene文档只保当前事实和必要开发方法，过程从Git查询。清理defense的unused acknowledgements前，核对仍服务的历史比较版本，只删除各版本均不再需要的精确记录。
 
 ## 余项处理顺序
 

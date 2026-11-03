@@ -1,270 +1,70 @@
-# 官方客户端行为研究与一致性验证工作流
+# 官方行为研究与一致性验证
 
 <!-- document-role: stable-contract -->
 
-> 状态：现役稳定合同
->
-> 研究规则复核：2026-10-19；不代表重新验证既有官方运行证据。
->
-> 目的：当公开资料不足以决定会影响画面、时序或生命周期的行为时，用范围明确的官方客户端研究补足**可观察行为合同**，再由 MyWallpaperX 独立实现并以官方客户端黑盒结果验收。
+公开资料不足以决定当前实现时，研究一个能够改变公共实现选择的具体问题。来源与用途见[来源索引](source-index.md)，产品职责见[运行架构](../architecture/runtime-architecture.md)。研究方法本身不证明能力已经实现。
 
-当前已有资料、固定客户端身份和既往结论只从[资料来源与证据索引](source-index.md)进入；当前能力与运行结果仍只由[能力台账](../capabilities/coverage-ledger.md)和[运行证据索引](../capabilities/runtime-evidence-current.md)决定。本文规定研究流程，不证明任何功能已经支持。
+## 问题与停止条件
 
-本规则不是法律授权。只可研究用户合法取得的本地客户端和有权使用的内容，遵守适用条款，不绕过账号、许可、DRM、签名、加密或其他访问控制，也不得重新分发官方二进制、私有资产或反编译产物。对具体法律边界有疑问时停止并请求项目负责人判断。
+先定位用户可见差异及当前代码的首个断点，再提出可区分的候选解释。例如默认值优先级、事件相位、混合顺序、target 生命周期或坐标空间。只缺接线、资源采用或项目测试时，直接修正现有 owner；不以研究代替实现。
 
-## 1. 核心结论
+按成本选择足够的资料：官方作者文档和类型声明、当前自有测试、合法作者内容、固定官方客户端黑盒、必要的有界静态分析或固定第三方 revision。已有证据能决定行为与验收就停止，不把全模块逆向、调用图或逐 effect 静态扫描设为开发前置。
 
-需要增加官方客户端研究，但**不得把“每做一项功能都先反编译”设成前置仪式**。
+阅读作者脚本、shader、参考源码和反编译资料不要求更换 Agent 或上下文。实现应按本项目架构独立完成，不直接复制、照译或移植参考实现，也不按研究样本的路径或 hash 派发算法。研究对象和操作遵守用户授权及材料的使用范围，不绕过访问控制。
 
-- 官方公开合同优先；现有固定证据能够回答时直接复用。
-- 能从合法黑盒实验直接观察的行为，优先测行为，不先猜内部算法。
-- 可按具体问题阅读作者脚本、shader、参考源码和反编译资料，研究字段、算法、执行顺序、状态与生命周期；选择足以消除关键歧义的方法，不把黑盒或静态工具设成固定前置步骤。
-- 阅读本身不要求停工、更换 Agent 或隔离上下文；同一研究者可在授权范围内继续产品实现。不得直接复制、照译或移植参考实现，应按本项目架构独立实现，并验证行为和实际输出。
-- 算法、数据结构和 Metal 实现可以与官方不同；但对一个声称兼容的 bounded profile，最终作者可观察结果必须在**事先声明**的容差内与固定官方客户端一致。
-- 静态结构一致、编译成功、非黑画面或 Mirage 输出都不能证明官方结果一致。
+## 最小研究记录
 
-这条流程服务“快速出正确结果”：研究到足以消除当前纵向切片的关键歧义就停止，不追求恢复官方完整内部实现。
-
-## 2. 何时启动，何时不得启动
-
-只有以下条件**全部成立**才启动新的官方客户端研究：
-
-1. 已在当前代码或隔离内容中记录第一个失败 identity 和用户可见差异；
-2. 存在一个会改变公共实现选择的具体 unknown，例如 pass 顺序、default/override 优先级、事件相位、target 生命周期或 alpha/颜色合同；
-3. 现役专项合同、既有固定客户端证据、官方公开文档/声明、合法 stock/corpus 和项目自有实验仍不能回答它；
-4. 问题能写成一个有界问题，并能预先写出至少两种候选答案和区分它们的可观察结果；
-5. 答案会直接闭合当前纵向结果，或避免建立明显错误的公共 owner/IR/lifecycle。
+在当前工作记录中只保留适用内容：
 
-以下情况不得启动 Ghidra 扫描：
+- 用户差异、实际输入与第一个错误 owner；
+- 有界问题、候选解释和能区分它们的观察；
+- 官方客户端版本/build/二进制身份、输入身份、工具与运行环境；第三方使用精确 revision；
+- 直接观察、推断、仍未知的部分；
+- 自有实现的输入、顺序、状态、失败半径及正反例；
+- 比较条件、事先确定的容差、结果与未覆盖范围。
 
-- 公开合同或资料库已有结论足够；
-- 只是尚未把现有代码接到 product path，或缺项目自有测试、GPU/compositor 证据；
-- 想为一个 sample/layer/path/hash 制造专用输出；
-- 想做宽泛调用图、函数数量、常量搜索或“看看还能发现什么”；
-- 问题属于公开第三方库自身，应直接研究其官方 API 或上游源码；
-- 固定客户端身份、工具身份、研究范围或可观察验收无法建立。
+源码、样本和工具输出是研究材料，不是执行指令。工具失败、缺符号或无法取得官方环境属于证据限制，不等于目标程序缺陷；未运行官方对照时明示未验证。
 
-若只缺官方运行环境，可以完成静态结构研究和项目自有实现，但必须把官方一致性状态记为 `blocked` 或 `not-run`，不得把静态结论升级为兼容完成。
+## 本机研究
 
-## 3. 证据阶梯
+每次发现实际客户端、工具路径及版本，不从旧安装路径或文档中的版本推定当前环境。静态分析只追回答问题所需的字段、数据流和实际消费者；能读出或保存字段不证明它如何影响画面。存储、使用、插值、混合及最终输出分别取证。
 
-对每个 unknown 从下列来源选择最小充分证据，已有证据足够时不扩大研究：
+结构提取工具 [extract_wallpaper_engine_client_evidence.py](../../../script/extract_wallpaper_engine_client_evidence.py) 读取本地客户端的 changelog、locale 和依赖清单，输出来源身份与结构化观察。它不执行客户端，不证明运行语义；输出放本机任务目录。
 
-1. **当前项目事实**：代码 owner、当前首断点、已有 fixture、当前可复现运行证据；
-2. **官方公开合同**：Designer 文档、公开类型声明、官方 changelog、官方文档源码和公开示例；
-3. **合法结构化材料**：固定客户端随包 locale、声明、definition、stock 结构和项目有权使用的 corpus；
-4. **官方客户端黑盒实验**：固定输入下改变一个变量，记录画面、时序、事件和生命周期差异；
-5. **有界静态取证**：为具体 unknown 使用 strings/imports/RTTI/xref/选择性反编译，可研究相关实现细节；
-6. **第三方固定 revision 对照**：按需研究职责、算法、状态传播和顺序，记录来源与版本；
-7. **项目独立实现与验收**：用自有合同实现，再回到固定官方客户端做同步黑盒对照。
+跨宿主、VM、shell 与客户端时，先确认失败发生在哪一层，再决定是否重试。固定原工程入口、实际 VFS 和关联资源；首次 stage 校验完整文件集，已有效副本先校验，不因运输错误重复覆盖。含非 ASCII 的 PowerShell 5.1 脚本与 JSON 显式处理编码，隐藏文件检查使用 `-Force`。不要把 manifest 值拼成命令源码，不用动态执行绕过拒绝。
 
-按问题和成本选择最小充分证据，不要求逐层运行。黑盒回答固定条件下的实际行为；静态取证帮助解释实现，但不能证明未运行路径或输出等价。第三方实现不能替代官方黑盒结果。
+官方 CLI 返回、进程存在或窗口 metadata 不代表像素正确；按当前授权的原生工具取得实际画面，再注册 ROI。虚拟机截图全黑也不能单独判渲染失败。只清理明确属于本次实验的进程与目录，保留原主客户端和其他任务。
 
-## 4. 一次研究只回答一个问题
+## 官方对照
 
-开始工具分析前，先写研究卡。问题必须类似：
+先冻结双方条件，再执行实验：
 
-- `condition` 是在 pass/FBO 纳入图之前还是之后求值？
-- 同一 shader combo 同时有 material 显式值和 annotation default 时谁优先？
-- `mediaPlayback` 事件在本帧 update 之前还是之后对脚本可见？
-- optional target 失败时是否保留进入 effect 前的 current？
+| 条件 | 需要固定或明确记录 |
+|---|---|
+| 程序与输入 | 双方构建身份、project/scene/asset/fixture 身份 |
+| 显示 | viewport、DPI/scale、fit/crop、quality、FPS、颜色空间和背景 |
+| 时间与状态 | 属性、Timeline、scene time、pause/seek、预热和捕获阶段 |
+| 外部输入 | pointer 事件序列、音频、媒体、provider 与随机 seed；无法固定时采用多次统计方案 |
+| 实际完成 | 目标执行、publication、GPU completion、合成与最终捕获身份 |
 
-不得写成：
+每次只改变一个有解释力的变量；不受控的条件限制结论范围。合成注入、DEBUG direct-host 和正常产品链分别报告。
 
-- “逆向官方 Scene 引擎”；
-- “找出这个 effect 怎么实现”；
-- “无具体差异与验收目标地恢复完整 shader/粒子实现”；
-- “让这个样本看起来一样”。
+比较方法必须对目标错误敏感，并在查看结果前确定：
 
-最后一个目标过宽；应拆成可验证的颜色、几何、合成顺序、时间、事件或生命周期合同。一次研究结束后仍有新的独立 unknown，另建研究卡，不扩张原范围。
+| 行为 | 对应观察 |
+|---|---|
+| Shader、effect、颜色与 mask | 预定义 ROI 的 RGB/alpha、透明区、边缘和合成背景 |
+| 几何、文字、相机 | bounds、anchor、baseline、关键点与遮罩轮廓 |
+| Timeline、事件、脚本 | onset、phase、事件顺序/次数与同帧或下一帧状态 |
+| 粒子、随机与物理 | 出生/死亡、轨迹包络及速度/颜色分布；固定 seed 或多次统计 |
+| 资源与 history | previous/current、publication、恢复、替换和退出顺序，加对应画面序列 |
 
-## 5. AI 研究卡
+离散状态和 identity 要求精确匹配。跨 Direct3D/Metal 的浮点、采样和颜色差异可使用预先论证的数值或几何容差，不能用任意非黑像素、宽松整体相似度或失败后放宽阈值掩盖错误。
 
-新的官方客户端研究在现有工作记录中填写以下适用字段，不另建重复任务书；不适用项写 `not-applicable`，不能用推测补齐。作者脚本的常规调试不要求填写完整客户端研究卡：
+只有自有正反例、实际公共执行链和上述官方同条件比较都通过，才能对该输入范围声明官方一致。静态结构、编译成功和第三方输出均不能替代官方结果；范围外的输入、版本及平台继续保持未验证。
 
-```yaml
-research_id:               # 稳定短 ID
-owner_and_date:
-research_task_or_context_id:
-research_task_product_write_authority: # 按用户已授权范围；不因阅读自动撤销
-user_visible_expected:
-user_visible_actual:
-reproduction:
-current_first_breakpoint:  # sample/layer/effect/pass/slot/target 仅作 identity
-bounded_question:
-candidate_answers:
-distinguishing_observable:
+研究中的专有二进制、资产、源码转储、反编译正文和工具数据库留在受控本机目录，不随产品分发。仓库只保存必要来源身份、可复用行为约束、自有 fixture 和有权限保留的数值或画面对照证据。
 
-sources_already_read:
-existing_evidence_reused:
-remaining_unknown:
-why_this_blocks_shared_design:
+## 回写
 
-official_client_version_build:
-official_binary_sha256:
-content_or_fixture_sha256:
-runtime_environment:       # OS/backend/quality/viewport/scale/color space
-tool_name_version_path:
-exact_command_or_ui_scope:
-analysis_budget_and_stop_condition:
-
-official_public_facts:
-official_black_box_observations:
-client_static_observations:
-third_party_cross_check:
-project_inferences:
-still_unknown:
-
-self_authored_behavior_contract:
-allowed_inputs_and_order:
-failure_and_fallback_contract:
-positive_and_negative_fixtures:
-independent_implementation_owner:
-implementation_review:    # 来源、独立实现及目标行为；不要求新上下文
-
-golden_capture_protocol:
-comparison_metrics:
-predeclared_tolerances:
-parity_result:              # passed/failed/blocked/not-run
-evidence_and_doc_updates:
-```
-
-研究卡中的 `fact`、`observation`、`inference` 和 `unknown` 必须分栏。客户端静态观察必须绑定版本/build/hash；第三方观察必须绑定 revision。没有固定 identity 的结论只能作为定位线索，不能进入稳定语义合同。
-
-只有能长期复用的行为合同和证据边界才进入现役语义文档；原始参考代码、反编译转储和工具工程不随产品提交。
-
-## 6. 本机工具与有界静态取证
-
-2026-08-15 的本机盘点可发现 Ghidra `12.1.2`、OpenJDK `21.0.12` 和资料库已登记哈希的 Wallpaper Engine 2.8.42 客户端文件；这只是当日可用性快照。每次研究仍必须重新发现并记录实际工具路径、版本、客户端版本/build 和 SHA-256，不能把个人安装路径或旧文档中的版本当成当前事实。
-
-建议的静态研究顺序：
-
-1. 先核对[既有客户端静态取证](reference/client-runtime-static-forensics.md)是否已经回答该问题；
-2. 对目标二进制重新计算 SHA-256，并核对固定客户端身份；
-3. 用 `command -v`、包管理器记录或工具自身版本信息发现 Ghidra/Java；找不到时标 `blocked`，不擅自下载或更换客户端；
-4. 在 `/private/tmp` 建立本批独立 Ghidra project 和输出目录，不复用含其他研究状态的工程；
-5. 只启用回答研究卡所需的 import/export、strings、RTTI、xref、有限可达性和选择性 decompile；第三方库、无关模块和宽泛调用图不纳入；
-6. 按需阅读相关函数、字段、算法与数据流，记录结论、来源和仍未知的边界，不转贴实现正文；
-7. 将结果写成项目行为合同或本批决策记录，再按产物保留规则清理本轮不再使用的精确目录。
-
-仓库可以保存：固定输入身份和哈希、工具/版本、可复现命令或 UI 范围、高层结构事实、证据限制、自有行为合同、自有 fixture 以及数值化对照报告。
-
-仓库不得保存或转述：
-
-- 客户端地址、offset、机器指令、字节或符号转储；
-- 反编译伪代码、函数体、控制流的可还原抄录；
-- 私有 shader、脚本、JSON/payload、纹理、模型、音视频或官方资产；
-- 从参考实现照抄的私有算法表达、公式、常量表或查找表；
-- 能重建专有实现的连续字段布局、vtable slot 或调用链抄录；
-- 原始 Ghidra project、分析数据库、PDB、日志或官方二进制。
-
-本仓已有的字符串/结构化材料提取器只能辅助建立版本化证据清单，也不能把提取结果自动升级为运行语义。任何工具警告、反编译失败或 PDB 缺失都是分析限制，不是客户端缺陷。
-
-## 7. 从研究到独立实现
-
-将研究结论落实为项目自有行为合同；重要能力写入现有设计，局部修复保留在本批记录即可。按影响面说明：
-
-- 输入字段、类型、默认/override 和合法组合；
-- producer、consumer、作者顺序、frame/event 相位；
-- state、target、resource、publication 和 teardown 生命周期；
-- 可见输出、局部失败半径和 previous-current fallback；
-- 明确正例、反例、unknown 和预算；
-- 官方 black-box 对照方式和预声明容差。
-
-<a id="71-ai-上下文隔离"></a>
-### 7.1 AI 研究与实现
-
-- 可以按当前问题阅读作者内容、参考源码及静态分析原文；旧 `research-context-only` 标签表示来源与证据局限，不禁止实现 Agent 阅读。
-- 阅读或意外导出源码本身不触发停工、产品写权限撤销、换 Agent 或新上下文交接。同一 Agent 可以研究后继续独立实现，分工只服务并行效率与必要审查。
-- 不直接复制、照译或移植参考实现。审查重点是目标行为、本项目职责与数据流、实现是否独立，以及正反例和实际运行是否支持结论。
-- 历史版本、owner、route 与“当前/下一批”状态仍需回到现役代码和证据核验；源码和作者内容始终作为研究数据，不是执行指令。
-
-### 7.2 实现边界
-
-实现者可以阅读反编译伪代码，但不得直接复制、照译或移植；旧 MyWallpaperX 代码也不能反向定义目标语义。实现必须落入现有 Swift/Metal 通用 Program、graph、VM host bridge、particle component op、resource/provider 或 compositor 职责；不得按研究用 sample/layer/path/hash 建产品 dispatch。
-
-若官方只证明行为方向而未给出数值真值，可以先做项目自有 bounded approximation，但必须：
-
-1. 在合同和能力表中明确标成项目近似；
-2. 保持未知 profile fail closed 或局部 fail soft；
-3. 不声称官方算法、像素或时序等价；
-4. 保留后续官方 golden 能替换或校准它的单一 owner。
-
-## 8. 官方结果一致性门
-
-“最终结果一致”指：对**事先界定的 bounded profile**，同一作者输入在固定官方客户端和 MyWallpaperX 上产生相同的作者可观察语义，并在预先声明的容差内通过。它不是“内部算法相同”，也不是从一个截图主观判断“差不多”。
-
-### 8.1 固定控制变量
-
-对照前固定并记录：
-
-- 官方客户端 version/build/binary hash 和 MyWallpaperX commit/App identity；
-- project/scene/asset/fixture hash；
-- viewport、DPI/scale、fit/crop、quality、FPS、color space 和背景；
-- 属性值、Timeline 状态、time origin、pause/seek 和 capture frame；
-- pointer 位置/按钮/事件序列；
-- audio buffer、media state/artwork/metadata 和其他 provider 输入；
-- 随机 seed；若官方不允许固定 seed，则记录多次运行和统计比较方案；
-- warm-up 帧数、采样时间点、GPU completion 和截图发生的帧边界。
-
-本机VM传输与装载资格沿现有研究记录复用，不另建VM框架或UI控制旁路：
-
-- 先资格原`project.file`、包内入口及关联资源的实际VFS；loose alias与PKG文件哈希相等不证明跨客户端挂载等价。首次复制本批owned destination后核完整文件集/bytes/SHA；已有有效副本走verify-existing，不因transport报错重拷或覆盖。hidden文件用`Get-Item -Force`，manifest读取显式编码；PowerShell5含Unicode脚本使用UTF-8 BOM或Unicode安全参数，不能把manifest值拼成PS代码。
-- 优先官方CLI/短命令；`-File`须在同用户/策略下已证可执行，不编码/动态执行绕拒绝。分记传输、stage、CLI及窗口metadata；不猜EncodedCommand长度上限，不自动重启VM或重放实验。
-- exact title/class/owner/visible/client rect只证明窗口metadata；须由既有授权native CUA取得实际像素正控和注册后才裁ROI。`prlctl capture`全黑不等于渲染失败。现有官方CLI与native CUA按各自授权操作；不新增绕开既有UI工具的PostMessage、窗口定位/按键或guest截图自动化，旧脚本存在不追加这些授权。
-
-每次实验只改变一个变量。无法控制的变量必须写入 `still_unknown`，并限制结论范围。
-
-### 8.2 预先声明比较方法
-
-根据能力选择能直接反映用户结果的门，不得在看到失败后放宽指标：
-
-| 行为类型 | 至少比较 | 典型容差形式 |
-|---|---|---|
-| 静态 shader/effect | 预定义 ROI 的 RGB/alpha、边缘、mask、透明区和合成背景 | 每通道误差、ROI MAE/分位数、边缘位置；必要时要求 exact |
-| 几何/变换/文字 | bounds、anchor、baseline、遮罩轮廓和关键点 | 像素/亚像素距离、覆盖率、文本基线偏差 |
-| 时间/Timeline | onset、duration、phase、pause/seek 后状态和多帧序列 | 帧数或毫秒误差、相位误差、关键帧值 |
-| pointer/event/script | 事件顺序、次数、目标 identity、同帧/下一帧可见状态 | exact sequence/count；画面再用 ROI 门 |
-| 粒子/随机/物理 | spawn/death 统计、轨迹包络、速度/颜色分布和稳定性 | 固定 seed exact 或多运行统计区间 |
-| target/history/lifecycle | publication identity、previous/current、next-frame、reload/teardown | exact 状态顺序，加对应 ROI/序列 |
-
-Direct3D 与 Metal 的浮点、采样和色彩后端差异意味着默认不要求整帧逐字节相同；但容差必须由作者可见需求、平台差异实验和反例敏感性事先确定，不能用宽松 SSIM 或任意非黑像素掩盖错误合成。能够合理 exact 的离散字段、事件顺序、target identity 和状态转换应要求 exact。
-
-### 8.3 通过条件
-
-一个可见兼容原子只有同时满足以下条件才可记为该 bounded profile 的官方结果一致：
-
-1. 项目自有 synthetic 正例与反例通过；
-2. 隔离真实或自有代表内容实际经过目标公共执行路径；
-3. GPU/VM completion、精确 publication、terminal compositor 和 next-frame 合同按风险闭合；
-4. 固定官方客户端对照按同输入、同时间、同事件协议运行；
-5. 所有预声明 ROI/序列/状态/容差通过；
-6. 新组合或反例证明实现没有退化为样本身份特判；
-7. 若使用参考或静态取证，来源、结论边界与独立实现经审查，不要求 fresh context；
-8. 能力表和运行证据只提升到本次实际证明的范围。
-
-若官方客户端对照未运行，最高只能报告“项目自有实现/结构一致，官方结果未验证”；若对照失败，保持 `failed` 并记录第一个差异，不以算法不同、Metal 后端不同或主观可接受为由改写通过标准。
-
-官方原始帧、客户端资产和反编译产物默认留在仓库外的受控本机证据目录。仓库只提交项目有权分发的自有 fixture、捕获协议、哈希、数值化报告和必要的差异可视化；若要版本化官方客户端输出，必须先单独确认许可与分发边界。
-
-## 9. 停止条件与文档回写
-
-出现以下任一条件即停止扩大研究：
-
-- 已有证据能够唯一决定当前公共行为合同和验收方法；
-- 继续分析已不能改变当前实现选择或验收，收益不足以支持扩大范围；
-- 研究范围从一个问题漂移成模块扫描；
-- 客户端、内容、工具或运行环境身份无法固定；
-- 需要绕过访问控制或保存禁止产物；
-- 结论无法由项目自有 fixture 或官方黑盒实验区分；
-- 当前阻塞其实已转移到 MyWallpaperX 接线、GPU、资源或 compositor。
-
-完成后按事实分别回写：
-
-- 可复用来源与版本边界写入[资料来源索引](source-index.md)或对应静态取证页；
-- 目标行为写入唯一专项语义/实现合同；
-- 当前支持范围写入能力台账或专项覆盖表；
-- 实际运行和官方对照结果写入运行证据索引；
-- 当前开发顺序只有真的改变时才更新现役路线。
-
-不要把研究卡全文复制到多个文档，也不要因一次有界取证把固定版本观察改写成“官方引擎一直如此”。
+稳定的输入/执行/失败语义放对应能力文档，当前未闭问题放开放队列，实际运行放[证据索引](../capabilities/runtime-evidence-current.md)。可复用来源只放来源索引。不要把完整研究记录复制到多个位置，也不要把固定版本观察写成所有版本的官方规则。

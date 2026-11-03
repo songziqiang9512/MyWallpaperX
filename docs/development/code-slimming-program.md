@@ -10,7 +10,7 @@
 
 本轮按用户固定流程循环：并行子代理在每份审查任务中携带用户固定prompt，核无功能收益的校验/认证/重复计算/嵌套、持续转发和补丁、过量实现与耦合；主agent审核问题和方案并决定是否修改，子代理实施，主agent复核真实行为/成本证据和最近门后决定窄提交，再开启下一轮。每批报告问题、当前影响、方案、功能变化及下一候选。当前目标授权主agent作修复和本地提交裁决，不授权推送；共享构建、原生窗口和GPU仍串行，其他会话改动保留。
 
-最近产品验证：R36（`c1f55d136` 起）退役Video删除准备的重复membership扫描：唯一Commands入口同MainActor turn传当前行；两处busy直接传路径，由原消费者规范化。产品净-2，无新索引/helper/状态；初始mutation/busy、最终逐项epoch/当前raw-ID/path/busy→同turn unlink、lstat/device/inode及后台fsync保留。非产品直接旧行调用可延后失败或改变文案，仅最终仍失配才保证拒绝，不保证初始旧行永久禁删。测试净+70，用真实normalizer替镜像并记入口，补16反序/2重复目标及直接失配反例；23原key保留，旧新同夹具28功能项全真等值，仅旧3成本项红。准备读库16→0/规范化64→16，最终规范化64→48且fresh读库16保留；不称整链线性或实测耗时/能耗收益。两方法15.924秒通过，含Commands原生事务夹具200项（来源叶受控，非整App删除集成）；原签名Debug31.254秒、5858稳定输入、零诊断/strict签名通过，三源码独审无阻断。选测预览无未映射，不代表规划全套已执行。下一候选核SIL仅接IDs的重复查找，先审opaque字节/首行/Set顺序及产品闭包边界；R23和并行Scene边界不变。较早25段见R1–R26（不含R23）归档。
+最近产品验证：R36（`c1f55d136` 起）退役Video删除准备的重复membership扫描：唯一Commands入口同MainActor turn传当前行；两处busy直接传路径，由原消费者规范化。产品净-2，无新索引/helper/状态；初始mutation/busy、最终逐项epoch/当前raw-ID/path/busy→同turn unlink、lstat/device/inode及后台fsync保留。非产品直接旧行调用可延后失败或改变文案，仅最终仍失配才保证拒绝，不保证初始旧行永久禁删。测试净+70，用真实normalizer替镜像并记入口，补16反序/2重复目标及直接失配反例；23原key保留，旧新同夹具28功能项全真等值，仅旧3成本项红。准备读库16→0/规范化64→16，最终规范化64→48且fresh读库16保留；不称整链线性或实测耗时/能耗收益。两方法15.924秒通过，含Commands原生事务夹具200项（来源叶受控，非整App删除集成）；原签名Debug31.254秒、5858稳定输入、零诊断/strict签名通过，三源码独审无阻断。选测预览无未映射，不代表规划全套已执行。下一候选核SIL仅接IDs的重复查找，先审opaque字节/首行/Set顺序及产品闭包边界。较早25段见R1–R26（不含R23）归档。
 
 <a id="completed-r1-r26"></a> [归档记录](../history/cross-topic/code-slimming-r1-r26-2026-11-01.md#completed-r1-r26) <!-- archive-redirect -->
 
@@ -32,11 +32,10 @@ R23（4ba9e1b23起）：复核原生自动sender；当前原夹具编译无诊�
 |---|---|---|---|
 | B1-A | 卡片交互标记、延迟复位和无人读取接口；Inspector SwiftUI 桥；旧 SwiftUI 详情组件 | AppKit 选择、详情、拖选、播放及共享 presentation 模型 | UI 投影、图库交互、详情与 AppKit 门 |
 | B1-B | 无入口 SMC 温度采集、格式化、常量及 ABI 结构 | 状态栏 CPU/GPU/内存/网络采集与显示 | 状态栏投影门、Debug 构建 |
-| B1-C | 未接入的 Web runtime model 组装、类型、专属缓存、签名及失效分支 | descriptor → playback context → 当前 Web host；属性、授权、诊断和磁盘缓存 | Web 属性、缓存、launch profile、资源授权及现役 WK 行为门 |
+| B1-C | 未接入的 Web runtime model 组装、类型、专属缓存、签名及失效分支 || Web 属性、缓存、launch profile、资源授权及现役 WK 行为门 |
 | B1-D | 旧 Steam detail scheduler、未消费的 suspicious-cache 状态、旧认证枚举和错误类型；C# 零消费者协议便利 API | 当前查询限流、预览失败退避、登录/下载及 wire 协议 | scheduler 剩余行为、Steam 查询/协议/预览门及 helper 构建 |
-| B1-E | 无消费者 SceneTextureMappedUVScale 及其文件登记 | SceneTextureCandidate 的实际映射、纹理安全与渲染 | texture candidate、结构/防御面门、Debug 构建 |
 
-数据流不新增 owner：用户动作仍进入当前 AppKit 和服务；Web 直接消费已准备 descriptor/context；Steam 继续使用当前 Swift 请求与 C# 查询限流；Scene 继续使用 typed candidate。既有数据和缓存格式、协议字段、授权、shader、逐帧执行和最终输出均不在第一批修改范围。
+数据流不新增 owner：用户动作仍进入当前 AppKit 和服务。Steam 继续使用当前 Swift 请求与 C# 查询限流。。
 
 验证前冻结本批文件并记录内容身份；构建与运行串行进行。移除旧测试载体时，先确认其只覆盖退役实现，保留同文件中服务真实 owner 的断言。源码删除不会自动证明视觉、性能、真实 Steam 或完整兼容验收。
 
@@ -47,15 +46,14 @@ R23（4ba9e1b23起）：复核原生自动sender；当前原夹具编译无诊�
 | 类别 | 候选 | 后继验收/判定 |
 |---|---|---|
 | 旧接口 | 旧 SQLite 加载/迁移支链、信息弹窗文本、在线下载描述模型及其他无调用薄接口 | 保留实际加载、退出合并、删除及 Inspector 行为 |
-| 测试独占链 | SceneEffectTextureBinding、LatestValueHandoff、旧材质 assemble/derive、粒子 runtime 级快照 | 先将有价值断言迁到当前 prepared/transaction owner；Simulator 快照仍有真实消费者 |
 | 测试独占恢复 | helper 超长帧 resync | 统一当前有界关闭合同，保留超长拒绝；不扩大协议错误恢复 |
-| 重复计算 | shader 多次 lex/parse；在线列表全量元数据重读与比较器属性查询；视频搜索/导航重复排序 | 同语义上下文复用，文件 revision 和稳定排序反例；收益须实测 |
+| 重复计算 | 在线列表全量元数据重读与比较器属性查询；视频搜索/导航重复排序 | 同语义上下文复用，文件 revision 和稳定排序反例；收益须实测 |
 | 小型算法 | Web 重复小写/正则和 BFS 队列、下载计数排序、失败历史重复扫描、协议 buffer 复制 | 相同输入/输出/失败边界；不引入多余缓存或 owner |
 | 冗余构造 | 音频服务二次初始化、Steam 下载缩略图串行队列的外层 semaphore、状态栏无消费者采样 | 初始化、取消、差分采样及真实 demand 回归；Video 队列并发，现役限流保留 |
 | 构建 | Steam restore/publish/签名和 stock assets 全量扫描 | 完整输入身份、资源增删、配置与签名失效；不能只关闭 alwaysOutOfDate |
 | 内容判定 | 有效暗色视频保留真实缩略图 | R15：亮帧优先、首个有效暗帧回退，坏源/缓存与负缓存反例 |
 | 数据策略 | 暂不可用文件自动删除索引 | 区分外接卷未挂载与确认删除，先设计数据保留与恢复 |
-| 兼容合同 | Web 声明入口与回退矛盾、本地跨文档导航、粒子省略默认值 | 先取得语义与区分证据；不得直接移除 guard 或猜默认值 |
+| 兼容合同 || 先取得语义与区分证据；不得直接移除 guard 或猜默认值 |
 
 已排除直接删除：WebM parser、旧 Steam 数据迁移器、实际 Simulator 事务快照、必要身份/generation/GPU range/路径授权与生命周期检查；独立工具和作者 API 不因没有按钮而退役。Boids 有界规模、.NET trimming 和第三方资源目前没有足够的安全精简依据。
 
@@ -63,7 +61,7 @@ R23（4ba9e1b23起）：复核原生自动sender；当前原夹具编译无诊�
 
 状态：B1-A～E 完成交叉审查，已本地提交 `4749df8f7`，未推送。20 个 Swift/C# 产品文件合计增加 6 行、删除 1152 行，净减少 1146 行。删去 3 个文件，其余沿原 owner 收敛；未修改生产校验、授权、协议字段、资源范围或生命周期防护。此计数只描述源码体积，不表示性能、包体或能耗收益。
 
-同步现役 AppKit 迁移状态、4 份 Web 合同/状态文档、文档入口及职责索引；移除退役 Scene 文件登记和旧 scheduler 测试载体，保留 Online 调度断言。最近测试关联补入现役消费者；关联只说明测试选择，不等于完整覆盖。第一批窄设计登记已按退役条件移除，本文继续拥有后续候选。
+同步现役 AppKit 迁移状态、4 份 Web 合同/状态文档、文档入口及职责索引。最近测试关联补入现役消费者；关联只说明测试选择，不等于完整覆盖。第一批窄设计登记已按退役条件移除，本文继续拥有后续候选。
 
 | 验证 | 结果与范围 |
 |---|---|
@@ -71,18 +69,15 @@ R23（4ba9e1b23起）：复核原生自动sender；当前原夹具编译无诊�
 | AppKit/图库/系统投影 | `test_ui_projection_efficiency`、`test_ui_library_algorithms`、`test_library_toolbar_behaviors`、`test_video_inspector_preview_reload`、`test_status_bar_icon_projection`、`test_steam_detail_layout`、`test_steam_appkit_interaction`、`test_steam_property_window`、`test_grid_card_lifecycle` 通过 |
 | Steam | `test_ui_request_schedulers`、`test_steam_preview_lifecycle`、`test_steam_protocol_golden`、`test_steam_helper_offline`、`test_steam_queries` 通过；helper 包含 Debug/Release 离线行为，不涉及真实账号 |
 | Web/属性 | `test_web_runtime_cache`、`test_web_launch_profile`、`test_web_resource_grants`、`test_web_display_conditions`、`test_web_playback_pause`、`test_web_compat_parity`、`test_scene_user_shortcut_properties` 通过；其中播放/暂停及兼容门运行真实 WKWebView |
-| Scene/发布边界 | `test_scene_texture_candidate`、`test_release_diagnostic_isolation` 通过；未扩展 Scene 算法或提交权限 |
 | 选择与治理 | 测试编排/路由 104 项、文档链接 6 项通过；代码行数、防御面、依赖、断言信号、设计、文档登记/健康、产物/残留及 diff 空白检查通过 |
 
-23 个去重后的行为模块用 `python3.12 -B script/run_scene_tests.py -j 1 --module <模块>` 串行执行，构建不与运行并发。首次回归暴露两处既有夹具陈旧：Toolbar probe 缺少生产已有的 thumbnail demand 回调，现补齐并增加“只在快照完成后投递”断言；Scene 未知属性用例仍把已支持的 `usershortcut` 当未知类型，现只替换未知类型载体，原断言保留。修复前相关产品/夹具输入与 HEAD 相同。卡片回归曾因应用失焦失败；用户确认测试时可能抢焦点，所有为此试加的夹具逻辑已撤销，最终原始夹具与 HEAD 逐字节一致并复跑通过。
+23 个去重后的行为模块用 `python3.12 -B script/run_scene_tests.py -j 1 --module <模块>` 串行执行，构建不与运行并发。首次回归暴露两处既有夹具陈旧：Toolbar probe 缺少生产已有的 thumbnail demand 回调，现补齐并增加“只在快照完成后投递”断言。修复前相关产品/夹具输入与 HEAD 相同。卡片回归曾因应用失焦失败；用户确认测试时可能抢焦点，所有为此试加的夹具逻辑已撤销，最终原始夹具与 HEAD 逐字节一致并复跑通过。
 
-全局 Scene 结构门仍有既有失败：目录合同缺 6 个现役文件登记，`shape-derived-analyzer-fleet` 比基线多 1 个文件/1 次命中，导致 authority/completion 各 2 条错误。用导出的原始 HEAD 与候选分别检查，错误集合完全相同；本批没有新增结构错误，也没有放宽这些基线。此门不得记为通过，后续由原结构/能力 owner 核对登记与扫描含义。
+覆盖限制：状态栏门证明图标投影，系统采样器的保留方法另经差分复核与 App 编译，未作 CPU/GPU/内存/网络硬件采样实测。现有回归未发现本批功能退步，不将有限验证表述为绝对兼容保证。
 
-覆盖限制：状态栏门证明图标投影，系统采样器的保留方法另经差分复核与 App 编译，未作 CPU/GPU/内存/网络硬件采样实测；未执行全 App 人工操作、多屏、真实 Steam 登录下载、全量 Scene 内容/完整 Web 兼容及性能对比。现有回归未发现本批功能退步，不将有限验证表述为绝对兼容保证。
+均未发现误删现役消费者、功能回退或断言削弱；另逐项核对旧 Steam actor 的专属断言仅覆盖退役 owner，3 组 Online 断言逐字保留，未知属性与 Toolbar 原断言完整保留，Grid 夹具逐字等于 HEAD。本次产品、测试、构建/选测输入身份与上一轮完全一致，复用既有 Debug/23 模块结果；只重验文档收尾所影响的门。静态独审仍不替代上述未覆盖运行范围。
 
-2026-10-22 再次由 3 个独立子代理分别交叉审查 App/图库、Web/Steam、Scene/全部变更测试。均未发现误删现役消费者、功能回退或断言削弱；另逐项核对旧 Steam actor 的专属断言仅覆盖退役 owner，3 组 Online 断言逐字保留，未知属性与 Toolbar 原断言完整保留，Grid 夹具逐字等于 HEAD。本次产品、测试、构建/选测输入身份与上一轮完全一致，复用既有 Debug/23 模块结果；只重验文档收尾所影响的门。静态独审仍不替代上述未覆盖运行范围。
-
-本机必要证据保留在忽略目录 `.artifacts/code-slimming-b1-20261022/`，包含源码身份、命令/结果、初次失败与最终复跑、构建摘要及 HEAD/候选结构对照；交叉审查身份和收尾记录在 `.artifacts/code-slimming-b1-crossreview-20261022/`，均保留 14 天至 2026-11-05。原始构建日志提取摘要后删除，本轮临时导出、HOME、缓存和构建目录清理；其他会话的缓存与证据不动。一般维护证据没有 Scene 样本身份，不伪造样本套用 runtime-sample 提取器。Git 提交按本次用户授权执行，不推送。
+本机必要证据保留在忽略目录 `.artifacts/code-slimming-b1-20261022/`，包含源码身份、命令/结果、初次失败与最终复跑、构建摘要及 HEAD/候选结构对照；交叉审查身份和收尾记录在 `.artifacts/code-slimming-b1-crossreview-20261022/`，均保留 14 天至 2026-11-05。原始构建日志提取摘要后删除，本轮临时导出、HOME、缓存和构建目录清理；其他会话的缓存与证据不动。Git 提交按本次用户授权执行，不推送。
 
 ## 第二批范围与停止条件
 
@@ -93,7 +88,7 @@ R23（4ba9e1b23起）：复核原生自动sender；当前原夹具编译无诊�
 | B2-A | Web 开发校验报告和运行缓存签名的有界 BFS 用两个本地数组逐层交换，不反复移除首元素 | 保持入队/访问顺序、重复与环处理、路径解析、缺失/读错、120/200 文件与时间上限、截断和诊断输出；用真实生产方法检查图遍历、预算及冷/热缓存 |
 | B2-B | Steam 未完成计数直接筛选计数；只读计数/失败查询使用惰性序列，避免无用排序与数组 | 保持账号、状态、空账号、首个同时间失败、排序展示和记录身份；用任务投影、JobStore、下载页计数及相邻历史/队列门验证 |
 
-只在现有方法内调整迭代方式，不新增缓存、队列 owner、持久格式、授权或回退。常规局部算法简化由本文记录范围，不新增能力设计登记。源码行数不作为此批收益；只陈述移除的操作和复杂度，不预支 App 性能/能耗结果。若输出、顺序、界限或账号隔离出现差异，先修复或撤回该单元；不修改旧预期来适配新算法。构建/运行与另一文字渲染会话协调串行；收尾转入独立 worktree，原 checkout 的共享 JSON、Scene 文件与 index 均由另一会话独占。
+只在现有方法内调整迭代方式，不新增缓存、队列 owner、持久格式、授权或回退。常规局部算法简化由本文记录范围，不新增能力设计登记。源码行数不作为此批收益；只陈述移除的操作和复杂度，不预支 App 性能/能耗结果。若输出、顺序、界限或账号隔离出现差异，先修复或撤回该单元；不修改旧预期来适配新算法。
 
 预审收窄：静态 summary 没有总文件数上限，单纯游标会使已处理、重复入队的 URL 保留至扫描结束；120/200 也只约束唯一文件数，不约束重复入队元素数。因此 summary 原实现不改，两个有界扫描使用本地当前层/下一层数组，层结束即替换旧层，避免累计全部已消费前缀。层内顺序及每元素的去重、预算、时钟检查位置不变；用长链、高重复度与边界图检查。若局部替换不能保持原合同，撤回 Web 片，不引入阈值、通用队列或额外 owner。
 
@@ -103,7 +98,7 @@ R23（4ba9e1b23起）：复核原生自动sender；当前原夹具编译无诊�
 
 源码没有新增 runtime 状态或逐帧工作。只确认移除了计数排序/中间数组和队列头部搬移；没有进行 App 性能、能耗或包体对比，不将算法简化表述为实测收益，也不认领完整 UI、真实 Steam 或全量内容兼容。Web 新门的时钟只在测试叶注入，产品时钟与预算不改。
 
-第二批在独立 `code-slimming-b2` worktree、分支 `MWX/code-slimming-b2` 收敛，7 个产品/测试文件在转移前后逐字一致；原 checkout 的本批副本精确恢复，第一批提交及并行 Scene 工作保留。第一批本机证据留原 checkout，第二批必要证据在本 worktree 的 `.artifacts/code-slimming-b2-20261022/`，期限至 2026-11-05。本轮固定导出、临时 HOME/缓存和原始构建日志提取后清理，checkpoint DerivedData/App 已自动清理；其他会话缓存与材料不动。整合保留并行 Scene 提交 `d6d500009` 的全部产品、测试、文档及共享登记；固定组合候选的 11 个模块（上述 10 个及 `test_scene_text_native_bounds`）和隔离冷 Debug 构建再次通过，路由/链接 110 项、断言、文档健康与登记门通过。组合验证只补强相应范围；未扩大 UI、真实 Steam 或全量内容声明。合并身份以 Git 记录为准，不推送。
+第一批本机证据留原 checkout，第二批必要证据在本 worktree 的 `.artifacts/code-slimming-b2-20261022/`，期限至 2026-11-05。本轮固定导出、临时 HOME/缓存和原始构建日志提取后清理，checkpoint DerivedData/App 已自动清理；其他会话缓存与材料不动。组合验证只补强相应范围；未扩大 UI、真实 Steam 或全量内容声明。合并身份以 Git 记录为准，不推送。
 
 ## 第三批范围与停止条件
 
@@ -112,7 +107,7 @@ R23（4ba9e1b23起）：复核原生自动sender；当前原夹具编译无诊�
 | 编号 | 退役范围 | 保留职责与验证 |
 |---|---|---|
 | B3-A | Manager 旧 SQLite 读取/迁移 wrapper、只为其服务的已持久化判断/行数查询、无消费者的旧异步读取 | `loadInitialIndex`/异步启动、完整 SQL 读取、失败恢复、UserDefaults 迁移、退出合并及保存；现役 ordered-save 门断言逐字保留，仅去掉无调用声明的提取 |
-| B3-B | `UIActionHelper.presentInfo → wallpaperDetailInfoText → infoText` 旧信息弹窗链及仅为它准备的文件名字段 | 菜单/卡片仍进入现役 Inspector，可取消 metadata Task、全部仍显示字段及预览生命周期；工具栏、Inspector 和库算法门 |
+| B3-B || 菜单/卡片仍进入现役 Inspector，可取消 metadata Task、全部仍显示字段及预览生命周期；工具栏、Inspector 和库算法门 |
 
 静态追踪包含全仓调用、selector、菜单、卡片、资源和测试。Online 下载 Inspector 的 Snapshot/Views 有完整用户入口，整条保留；同步 SQLite 读取仍用于真实 SQL 回归，不因测试专用就移除。初始化、授权、路径/文件扫描边界、缺失文件清理策略和数据格式均不在本批修改范围。只在现有 owner 删除退役声明，不加 wrapper 或新的测试算法；文档继续由本文拥有专项状态。
 
@@ -122,9 +117,7 @@ R23（4ba9e1b23起）：复核原生自动sender；当前原夹具编译无诊�
 
 最近测试关联补齐 IndexStore/恢复 owner 和共享详情载体。原路由测试把 Persistence 精确限定为两项 policy 门；加入实际 ordered-save 门后，同步精确集合为三项，并新增 IndexStore、InitialIndex 与 fixture 只选择 ordered-save 的反例，未改为宽松包含判断。111 项路由/链接门通过，4 个产品路径均有最近关联，无失效/未映射项；关联仍不代表完整覆盖。代码健康、断言信号、设计、依赖、Debug 布局及文档门通过。
 
-全局 Scene 结构门 15 项中仍有 3 个既有失败（目录登记、authority 和 completion）；固定基线与候选的这三项断言消息逐字相同，12 个其他结构项通过。未修改相关白名单、ratchet、扫描范围或 Scene 产品；不得把此门报为全绿。本批不认领性能、包体、能耗、全 App 交互或全量内容兼容。
-
-再次由三个独立子代理分别复核持久化、Inspector 和完整测试/登记，未发现真实调用误删、功能回退或断言削弱。10 个文件及既有证据 manifest 身份一致，六个行为输入与已通过的构建/回归相同，按工作流复用这些结果；本轮重跑 111 项路由/链接与断言门，补跑并归档此前未入包的设计门输出。原分支未出现产品整合漂移，不额外占用并行 Scene 诊断窗口；纯文档状态修订只重验文档门。
+再次由三个独立子代理分别复核持久化、Inspector 和完整测试/登记，未发现真实调用误删、功能回退或断言削弱。10 个文件及既有证据 manifest 身份一致，六个行为输入与已通过的构建/回归相同，按工作流复用这些结果；本轮重跑 111 项路由/链接与断言门，补跑并归档此前未入包的设计门输出。
 
 证据保留在复用 worktree 的 `.artifacts/code-slimming-b3-20261022/` 及本轮 `.artifacts/code-slimming-b3-crossreview-20261022/` 至 2026-11-05；包含输入身份、基线/候选与构建摘要、独审、路由及既有结构失败对照。默认 checkpoint DerivedData/App 自动清理，固定导出和临时 HOME/缓存当轮清理，第一/二批证据与其他会话材料保留。本批从 `2915823cf` 在隔离分支收敛，提交/整合身份以 Git 记录为准，不推送。
 
@@ -134,22 +127,22 @@ R23（4ba9e1b23起）：复核原生自动sender；当前原夹具编译无诊�
 
 | 编号 | 修改 | 保留职责与验证 |
 |---|---|---|
-| B4-A | 删除无消费者的 `SILService.detailInfoText` 和 `wallpapers(forSILTag:)` | 现役 Inspector、`sortedWallpapers(forSILTag:)`、选择与元数据读取；SIL 元数据、投影及工具栏门 |
+| B4-A || 现役 Inspector、`sortedWallpapers(forSILTag:)`、选择与元数据读取；SIL 元数据、投影及工具栏门 |
 | B4-B | 删除无调用的 `loadDownloadedFiles`；现役删除直接消费原 URL，去掉仅作参数包装的 `OLLocalFile` 和虚构大小/时间构造 | `deleteLocalFile` 删除与 downloadedIDs 更新、网格批量完成/重载、真实 `loadEntries` 扫描及 Online Inspector；增强工具栏的选中 URL 精确集合，先跑原实现基线再跑候选 |
 
-`OLLocalFile` 的删除调用是真实消费者，不能直接连同删除 owner 退役；本批只把既有 `file.url` 传递改为同一 URL 参数，错误处理、文件名 ID 解析和发布时间保持原行为。真实下载列表的文件筛选、顺序、扫描边界和 metadata 准入逐字保留，不借删除旧扫描方法改变当前策略。保留所有既有断言，URL 目标反例只增加约束；若发现其他载体消费者、输出变化或真实扫描差异，撤回该片。先静态实施，待并行 Scene 诊断结束后串行运行近邻回归和 Debug 构建。
+`OLLocalFile` 的删除调用是真实消费者，不能直接连同删除 owner 退役；本批只把既有 `file.url` 传递改为同一 URL 参数，错误处理、文件名 ID 解析和发布时间保持原行为。真实下载列表的文件筛选、顺序、扫描边界和 metadata 准入逐字保留，不借删除旧扫描方法改变当前策略。保留所有既有断言，URL 目标反例只增加约束；若发现其他载体消费者、输出变化或真实扫描差异，撤回该片。
 
 实施结果：4 个产品文件净减少 78 行。两个实施子代理精确分工，另一个独立子代理复核完整 8 路径、全仓消费者、断言与登记，未发现阻塞。真实 Grid 除两行参数传递外与基线逐字一致；`deleteLocalFile` 归一化参数后函数体逐字相同，完整扫描、排序、Inspector、metadata 和批量重载保留。工具栏夹具移除镜像包装类型，原有全部检查保留，增加不同条目 URL 与精确选中集合约束，不依赖 Set 遍历顺序。
 
 验证：原 `a3e55663c` 产品加增强夹具先通过 `test_library_toolbar_behaviors`；固定候选的同一模块、`test_ui_projection_efficiency`、`test_sil_metadata_loading`、`test_pixabay_grid_thumbnail_demand` 四模块串行通过，随后隔离冷 Debug 构建通过。5 个产品/行为夹具输入在静态复审、候选运行与构建前后身份一致；旧接口基线保留原 API，仅增加 URL 约束。与并行会话协调后才启动验证，结束立即释放窗口。
 
-111 项路由/链接门、代码健康、断言信号、设计、依赖与文档门通过。只给既有工具栏组补入真实关联的三个路径，4 个产品路径均有最近门，无失效/未映射模块；未改扫描实现、Scene 结构规则或棘轮。第三批已记录的 3 个全局 Scene 结构失败仍为未解决债，本批不认领修复或全局全绿。
+111 项路由/链接门、代码健康、断言信号、设计、依赖与文档门通过。
 
 覆盖限制：工具栏门证明 Grid 向 service spy 投递精确 URL 与批量 UI 完成，其余近邻门证明 SIL 元数据/列表投影和 Online demand 生命周期；真实文件删除失败和 downloadedIDs 时序由未变的规范化函数体与 App 编译支撑，未作真实用户文件删除实测。未运行完整人工 UI、全量内容、性能/能耗或包体比较，不预支收益。
 
-再次由三个独立子代理复核 Online、SIL/断言和完整登记/证据，未发现误删真实调用、功能退步或断言削弱。8 路径及证据 manifest 与上一轮一致，复用相同产品/夹具的基线、4 模块候选及冷 Debug 结果，本轮重跑 111 项路由/链接与断言门。路由预览不当作已执行门，Scene 依赖门也不冒充 Online/SIL 完整依赖审计；消费者和参数传递另经源码复核。
+再次由三个独立子代理复核 Online、SIL/断言和完整登记/证据，未发现误删真实调用、功能退步或断言削弱。8 路径及证据 manifest 与上一轮一致，复用相同产品/夹具的基线、4 模块候选及冷 Debug 结果，本轮重跑 111 项路由/链接与断言门。
 
-证据在复用 worktree 的 `.artifacts/code-slimming-b4-20261022/` 及本轮 `.artifacts/code-slimming-b4-crossreview-20261022/` 保留至 2026-11-05。固定基线/候选导出、临时 HOME/缓存当轮清理，成功构建原始日志提取摘要后删除，checkpoint DerivedData/App 自动清理；前三批证据和其他会话材料保留。整合按 key 保留并行 `6fd3faf56` 的两份 Scene 文档及两个文档预算收紧；该提交不改变产品/夹具/构建输入，文档组合另验，不额外重建产品。提交/合并身份以 Git 记录为准，不推送。
+证据在复用 worktree 的 `.artifacts/code-slimming-b4-20261022/` 及本轮 `.artifacts/code-slimming-b4-crossreview-20261022/` 保留至 2026-11-05。固定基线/候选导出、临时 HOME/缓存当轮清理，成功构建原始日志提取摘要后删除，checkpoint DerivedData/App 自动清理；前三批证据和其他会话材料保留。提交/合并身份以 Git 记录为准，不推送。
 
 ## 第五批范围与停止条件
 
@@ -170,9 +163,9 @@ Audio 仍只有原服务与 delivery owner，不改成 lazy/optional，不把设
 
 验证按冻结身份累计闭合 8 个模块：两个新门、`test_playback_switch_endpoints`、`test_system_audio_spectrum`、`test_system_audio_spectrum_recovery`、`test_scene_audio_capture_scope`、`test_playback_process_isolation`、`test_thumbnail_return_reuse`。首次候选 7 项通过，endpoints 因媒体订阅替身缺少生产已有 `needsWebArtwork` 参数编译失败；在原始 `02188e5db` 产品及原测试上复现相同两项失败后，只补替身参数，保留原全部断言，单独复跑 endpoints 通过。其余 5 个代码输入身份未变，复用已通过结果；最终 6 个代码输入均与隔离冷 Debug 构建前后相同，构建通过。不表述为一次 8/8 全绿。
 
-选测只追加两个现役职责组；3 个产品路径均映射，无失效/未映射项。111 项路由/链接、代码健康、断言信号、设计、依赖及文档门通过。专项全文增长触发首读 150 行上限后，首读仅定位现有第五批章节，完整记录仍由同一文档及正文预算管理；150/600 上限、扫描脚本和旧路由均不放宽。既有 3 个全局 Scene 结构失败未在本批修复，本批未重跑完整结构组，不报全局全绿。
+选测只追加两个现役职责组；3 个产品路径均映射，无失效/未映射项。111 项路由/链接、代码健康、断言信号、设计、依赖及文档门通过。专项全文增长触发首读 150 行上限后，首读仅定位现有第五批章节，完整记录仍由同一文档及正文预算管理；150/600 上限、扫描脚本和旧路由均不放宽。
 
-覆盖限制：装配门的服务/外部观察是记录叶；真实 service 恢复、scope/IPC 门与冷视频门分别承担对应行为，不将其合成真实硬件采集、全 App UI 或全媒体兼容验收。未作真实音乐、多屏或长期并发性能测量。必要证据在复用 worktree 的 `.artifacts/code-slimming-b5-20261022/` 至 2026-11-05；保留初次失败、基线同错和修复复跑，成功原始构建日志提取摘要后删除。临时导出、视频、HOME/缓存当轮清理，checkpoint DerivedData/App 自动清理；其他会话材料不动。再次三路静态复核未发现真实调用丢失、行为回退或断言削弱；6 个代码输入与既有回归/冷 Debug 身份一致，复用该结果。整合保留并行 `52adbf5a7` 的三份 Scene 正文、三个收紧预算及 runtime 导航收据，组合文档与 111 项路由/链接另验。
+覆盖限制：装配门的服务/外部观察是记录叶；真实 service 恢复、scope/IPC 门与冷视频门分别承担对应行为，不将其合成真实硬件采集、全 App UI 或全媒体兼容验收。未作真实音乐、多屏或长期并发性能测量。必要证据在复用 worktree 的 `.artifacts/code-slimming-b5-20261022/` 至 2026-11-05；保留初次失败、基线同错和修复复跑，成功原始构建日志提取摘要后删除。临时导出、视频、HOME/缓存当轮清理，checkpoint DerivedData/App 自动清理；其他会话材料不动。再次三路静态复核未发现真实调用丢失、行为回退或断言削弱；6 个代码输入与既有回归/冷 Debug 身份一致，复用该结果。
 
 ## 第六批范围与停止条件
 
@@ -180,19 +173,19 @@ Audio 仍只有原服务与 delivery owner，不改成 lazy/optional，不把设
 
 最小结果：退役 `ThumbnailCache` 的 legacy prefetch、image-data prefetch、raw-data prefetch 和同步 cached-or-disk 便利入口，以及 Steam 下载缩略图的仅测试读取入口。删除前排查产品、独立进程、协议/selector、工具与夹具；任何真实产品消费者或行为依赖出现即保留该入口。缓存 owner、namespace、持久格式、调度、需求优先级、取消、限流、失效与主线程完成均不改。
 
-测试独占的 raw prefetch 调用迁到现役 `loadRawDataAsync(priority: .prefetch)`；该夹具创建空 namespace，不依赖旧入口的内存已命中短路，原四条旧写不得覆盖新数据断言保留。Steam 冷视频门的同步读取断言改为从真实 request 回调验证同一缓存对象与负缓存不重复生成；保留原 12 项输入/输出与完成语义，不为删除接口删去缓存行为验收。两份迁移夹具先在未改产品上验证，再运行固定候选；独审、缩略图相关门和隔离 Debug 构建均通过。本批不改 Scene 产品与并行会话材料，不认领性能或能耗实测。
+测试独占的 raw prefetch 调用迁到现役 `loadRawDataAsync(priority: .prefetch)`；该夹具创建空 namespace，不依赖旧入口的内存已命中短路，原四条旧写不得覆盖新数据断言保留。Steam 冷视频门的同步读取断言改为从真实 request 回调验证同一缓存对象与负缓存不重复生成；保留原 12 项输入/输出与完成语义，不为删除接口删去缓存行为验收。两份迁移夹具先在未改产品上验证，再运行固定候选；独审、缩略图相关门和隔离 Debug 构建均通过。
 
 实施：两个产品文件共删除 51 行、6 个零产品消费者便利入口，现役 load、调度、取消、持久化、失效、限流和完成主体逐字不变。全 tracked 调用排查并核对无 NSObject/@objc 或协议动态入口；Online 的同名 prefetch 属另一个真实 owner，保留。两个实施子代理随后互查对方改动，另一代理复核完整四条代码/测试路径，未发现误删调用、回退或有效断言削弱。
 
 验证：固定 `bb71bd5` 加相同两份迁移夹具的 `test_thumbnail_cache_leases`、`test_steam_download_thumbnail_pipeline` 先通过；固定候选串行一次通过这两项及 `test_thumbnail_demand_scheduling`、`test_thumbnail_return_reuse`、`test_video_thumbnail_prefetch`、`test_video_inspector_preview_reload` 共六模块。基线/候选 45 项 shared-cache 与 12 项冷视频检查均全真，候选另有 75 项需求调度检查全真；冷视频均为最大生成并发 1、总生成 3、结束 active 0。随后隔离冷 Debug 构建通过，4 个产品/测试内容身份在回归与构建前后一致。
 
-已有测试映射覆盖两个产品路径，无未映射或失效模块；没有修改映射、扫描或棘轮。111 项路由/链接、代码健康、断言信号、设计、依赖及文档/产物/残留门通过；依赖门仍只证明其明示的 Scene/测试扫描范围，不冒充全库完整依赖审计。保留并行 `52adbf5a7` 的三份正文、三个 bodies 和 runtime 导航收据及所有其他预算；仅更新本专项正文预算与首读章节。既有三个全局 Scene 结构失败本批未修复，未重跑完整结构组，不报全局全绿。未做完整人工 UI、真实账号或全媒体兼容及性能测量。
+已有测试映射覆盖两个产品路径，无未映射或失效模块；没有修改映射、扫描或棘轮。保留并行 `52adbf5a7` 的三份正文、三个 bodies 和 runtime 导航收据及所有其他预算；仅更新本专项正文预算与首读章节。未做完整人工 UI、真实账号或全媒体兼容及性能测量。
 
 必要证据在 `.artifacts/code-slimming-b6-20261022/` 保留至 2026-11-05；固定导出、合成媒体、临时 HOME/缓存当轮清理，成功原始构建日志提取摘要后删除，checkpoint DerivedData/App 自动清理。复用 worktree 为后续批次及前批证据保留，其他会话材料不动。本轮提交前四个产品/测试身份及证据 manifest 与上轮一致，复用相同输入的六模块与冷 Debug；仅重验状态文字涉及的文档/路由和暂存面。
 
 ## 第七批范围与停止条件
 
-基线：第六批 `130104469` 已通过 `1cf295807` 整合；并行 Scene 最新文档、预算与导航收据来自 `52adbf5a7`，均保留。状态：实施、互审、回归与构建完成，按用户授权窄提交并整合原分支；提交及合并身份以 Git 记录为准，未推送。比较失败历史重复扫描、Video Quick Look 的排序取首和搜索前置过滤后，选择第一项；计数已在第二批完成，Quick Look 收益较小，搜索排序需另证相等键及反向排序语义，本批不混改。
+状态：实施、互审、回归与构建完成，按用户授权窄提交并整合原分支；提交及合并身份以 Git 记录为准，未推送。比较失败历史重复扫描、Video Quick Look 的排序取首和搜索前置过滤后，选择第一项；计数已在第二批完成，Quick Look 收益较小，搜索排序需另证相等键及反向排序语义，本批不混改。
 
 最小结果：在下载合成与可见筛选的每次同步调用内，首次需要重试历史判定时按现役账号提取 failed itemID 集合，后续查集合，退出调用即释放。不引入跨调用缓存、新 owner 或历史订阅；保留 JobStore 的账号/历史权威、保留期与刷新重入合同。两个调用均在 MainActor 无 await 的同步路径中，原 mode/adult/knownID/account/state 守卫、ready 优先、重复 job 单卡、任一 failed 历史命中与排序保持不变。没有可见 retry、账号为空或被前置过滤时不增加历史读取。
 
@@ -202,13 +195,13 @@ Audio 仍只有原服务与 delivery owner，不改成 lazy/optional，不把设
 
 验证：原 48 项 toolbar 检查及顺序逐字保留，追加 16 项（10 项行为与 6 项读取边界），共 64 项；输入和预期为显式 ID/状态/身份，真实投影、合成与 helper 从生产源码抽取。固定 `1cf295807` 加相同增强夹具的原基线恰有 4 项新增读取上限失败，其他 60 项通过；多 retry 筛选/合成分别读历史 6/7 次，空/仅外账号历史的多 retry 各读 3 次。固定候选 64 项全真，相同场景各读 1 次，无 eligible retry 或无账号路径均保持 0 次，历史增删/换号后的下一次调用反映新输入。成本反例是原实现重复读取的证据，不记为未解决产品回归，也不把原基线记为全绿。
 
-候选一次串行通过 `test_library_toolbar_behaviors`、`test_steam_download_sorting`、`test_steam_download_execution`、`test_steam_download_history`、`test_steam_library_interactions`、`test_steam_download_tasks_popover` 六模块，随后隔离冷 Debug 构建通过。产品、夹具与原样 runner 三份内容身份在回归及构建前后不变。现有映射覆盖该产品路径，无未映射/失效模块；111 项路由/链接、代码健康、断言、设计、依赖和文档/产物/残留门通过。未修改门映射、扫描或棘轮；依赖门只证明其明示的 Scene/测试范围。并行 Scene 正文、其他预算及 runtime 导航收据仍逐项保留。既有三项全局 Scene 结构失败本批未修复，未重跑完整结构组，不报全局全绿。
+候选一次串行通过 `test_library_toolbar_behaviors`、`test_steam_download_sorting`、`test_steam_download_execution`、`test_steam_download_history`、`test_steam_library_interactions`、`test_steam_download_tasks_popover` 六模块，随后隔离冷 Debug 构建通过。产品、夹具与原样 runner 三份内容身份在回归及构建前后不变。现有映射覆盖该产品路径，无未映射/失效模块；111 项路由/链接、代码健康、断言、设计、依赖和文档/产物/残留门通过。
 
 读取计数只证明历史输入访问减少，不证明元素比较总量、CPU、耗时或能耗改善；首次查询从可提前命中的 contains 改为全量构建 Set，存在分配与单项查询成本取舍。两个函数及刷新重入各有自己的调用期集合，不声称整轮刷新只读取一次。未做真实账号或完整人工 UI 验收。必要证据在 `.artifacts/code-slimming-b7-20261022/` 保留至 2026-11-05；固定导出、临时 HOME/缓存当轮清理，checkpoint DerivedData/App 自动清理，成功原始构建日志提取摘要后删除。复用 worktree 为审核及前批证据保留，其他会话材料不动。
 
 ## 第八批范围与停止条件
 
-基线：第七批 `c0673f65d` 已通过 `58d71c9e7` 整合；保留并行 `52adbf5a7` 的 Scene 正文、预算与 runtime 导航收据。状态：在独立分支 `MWX/code-slimming-b8` 完成实施、双路独审、回归与构建，按当前授权本地提交并整合；身份以 Git 记录为准，未推送。比较 Quick Look 排序取首、搜索前置过滤和其他无消费者链后，先选前者；网格 source 仍供搜索隐藏选中项的右键操作回退，不把全 source 换成过滤数组，箭头导航排序另批研究。
+状态：在独立分支 `MWX/code-slimming-b8` 完成实施、双路独审、回归与构建，按当前授权本地提交并整合；身份以 Git 记录为准，未推送。比较 Quick Look 排序取首、搜索前置过滤和其他无消费者链后，先选前者；网格 source 仍供搜索隐藏选中项的右键操作回退，不把全 source 换成过滤数组，箭头导航排序另批研究。
 
 最小结果：`selectedWallpaperForQuickLook` 多选分支用 `selectedWallpaperIds.min()` 代替完整排序取首；保持 String 字典序、空集合、单选槽独立、最小失效 ID 返回 nil、不跳至其他有效 ID、重复模型取库中第一条与读取无副作用。Space、菜单、Shell 同步和预览内箭头仍走同一 getter，不新增选择 owner 或缓存。不把算法工作减少表述为 CPU、内存峰值或能耗实测。
 
@@ -216,25 +209,25 @@ Audio 仍只有原服务与 delivery owner，不改成 lazy/optional，不把设
 
 实施与验证：产品仅替换一处完整排序取首，现役 runner 抽完整真实 getter。原 UIProjection 40 项检查/时序及执行配置逐字保留，追加 12 项 Quick Look 正反例，共 52 项；没有复制 min/sorted 算预期。固定 `58d71c9e7` 原产品配同一增强夹具全部通过；固定候选的 `test_ui_projection_efficiency`、`test_library_toolbar_behaviors`、`test_video_inspector_preview_reload` 三模块串行一次通过，原基线与候选 52 项同键同真，随后隔离冷 Debug 通过。三份产品/runner/fixture 身份在独审、回归和构建前后一致。两独立代理复核全部调用及差分，未发现回退或断言削弱。
 
-现有测试映射覆盖该产品路径，没有新增/修改扫描、映射或棘轮；111 项路由/链接、代码健康、断言、设计、依赖及文档/产物/残留门通过。依赖门只证明其明示的 Scene/测试扫描范围，既有三项全局 Scene 结构失败未修复、未重跑完整结构组。真实 Quick Look 面板操作、全 App UI 与性能未在本批验收；这里只证明 getter 语义与最近消费者门，不外推完整窗口表现。必要证据在 `.artifacts/code-slimming-b8-20261022/` 保留至 2026-11-05；固定导出、临时 HOME/缓存与成功原始构建日志提取摘要后清理，checkpoint DerivedData/App 自动清理。其他会话材料保留，原分支整合不暂存并行 Scene 实施路径。
+现有测试映射覆盖该产品路径，没有新增/修改扫描、映射或棘轮；111 项路由/链接、代码健康、断言、设计、依赖及文档/产物/残留门通过。真实 Quick Look 面板操作、全 App UI 与性能未在本批验收；这里只证明 getter 语义与最近消费者门，不外推完整窗口表现。必要证据在 `.artifacts/code-slimming-b8-20261022/` 保留至 2026-11-05；固定导出、临时 HOME/缓存与成功原始构建日志提取摘要后清理，checkpoint DerivedData/App 自动清理。
 
 ## 第九批范围与停止条件
 
 基线：第八批 `a03b24a8c` 已通过 `715f09328` 整合。状态：在独立分支 `MWX/code-slimming-b9` 完成实施、交叉审查、回归及构建，按当前授权本地提交并整合；身份以 Git 记录为准，未推送。目标只是在 `moveSingleSelectionByArrowKey` 中先过滤搜索结果、再沿原 owner 排序，减少窄查询的排序输入。不改 Shell/Grid 的完整 source：该数组还为搜索隐藏选中项的右键设壁纸/Finder 回退服务，直接替换会造成真实功能回退；也不改网格过滤后去重或原导航不去重的差异。
 
-保留 source context、全局/列表排序选择、String/localizedCompare、nil size、lastUsed 语义、先升序再整体 reversed 的降序 tie 顺序、查询规范化与 title/tags 搜索。保留四方向 clamp、列数归一、多选/search focus/unsupported/empty 守卫及 Quick Look 的 ignoreSearchFieldState 入口。只重排两项纯派生操作，无新 cache/helper/owner；出现完整值/事件/边界变化即撤回本片。
+保留四方向 clamp、列数归一、多选/search focus/unsupported/empty 守卫及 Quick Look 的 ignoreSearchFieldState 入口。只重排两项纯派生操作，无新 cache/helper/owner；出现完整值/事件/边界变化即撤回本片。
 
-独立导航 fixture 编译真实模型、抽取完整 context/sort/filter/arrow 与选择写入 owner；旧 sort-then-filter oracle 加字面反例校验顺序和状态，不扩张现有 UIProjection 大文件。观察真实排序输入和比较次数，空查询仍同路径，窄查询只排序命中子集；不表述为全 Shell 搜索、CPU、耗时或能耗改善。相同增强测试先跑原实现，行为均须通过，仅新增工作量边界可预期失败；候选全过、近邻行为门与 Debug、交叉审查无误后本地提交整合并继续，不推送。
+观察真实排序输入和比较次数，空查询仍同路径，窄查询只排序命中子集；不表述为全 Shell 搜索、CPU、耗时或能耗改善。相同增强测试先跑原实现，行为均须通过，仅新增工作量边界可预期失败；候选全过、近邻行为门与 Debug、交叉审查无误后本地提交整合并继续，不推送。
 
 验证：固定原基线配相同新门，22 项检查仅两项排序工作量边界预期失败，其余 20 项通过；候选全部 22 项通过，覆盖 5376 步导航矩阵及字面顺序、状态写入和守卫反例。1024 行窄查询的排序输入从 1024 降为 4，比较次数从 3542 降为 6；无命中查询从 3542 降为 0，空查询仍为 3542。只证明所测排序工作减少，不把原成本反例记为未解决产品回归或声称原基线全绿。
 
-候选导航、UIProjection、toolbar、Inspector 四模块串行通过，旧检查未削弱；隔离冷 Debug 99.44 秒通过，10 个产品/测试输入在回归及构建前后身份一致。独审未发现误删调用链或功能回退。现役 video-selection-presentation 映射仅追加新门及夹具，原模块、扫描范围和其余门保持。既有 111 项路由/链接及代码健康、断言、设计、依赖和文档/产物/残留门通过；追加历史权威登记组 55/56 通过，唯一失败是原基线同样存在的 composition-background-bounds 历史 README 漏行，已交还并行 Scene 文档 owner 收尾，不修改断言。依赖门仅证明其明示范围，既有三项全局 Scene 结构失败本批未修复、未重跑完整结构组，不报全局全绿。
+候选导航、UIProjection、toolbar、Inspector 四模块串行通过，旧检查未削弱；隔离冷 Debug 99.44 秒通过，10 个产品/测试输入在回归及构建前后身份一致。独审未发现误删调用链或功能回退。现役 video-selection-presentation 映射仅追加新门及夹具，原模块、扫描范围和其余门保持。
 
 未做完整人工 UI 或运行性能验收。必要证据在原工作区 `.artifacts/code-slimming-b9-20261022/` 保留至 2026-11-05，成功构建日志提取摘要后删除，固定导出与临时缓存当轮清理，checkpoint DerivedData/App 自动清理。按用户最新要求，临时工作树在本批提交合并、必要证据迁出后删除；后续每批沿用此收尾顺序，不留已完成批次的临时 checkout，保留原工作区及并行会话改动。
 
 ## 第十批范围与停止条件
 
-基线：第九批 `b21c1157e` 已通过 `03919b301` 整合，随后并行 Scene `646a2557d` 的产品、文档、导航与预算更新完整保留。状态：在新临时分支 `MWX/code-slimming-b10` 完成实施、三路交叉审查、回归及构建，按当前授权窄提交并整合，身份以 Git 记录为准，未推送。比较 HTML 入口完整排序取首、Video 候选排名与其他扫描合并后，选择第一项；Video 排名仍有按 preferred/文件名查找的真实消费者，不能删除，扫描合并涉及 I/O/一致性边界另行研究。
+状态：在新临时分支 `MWX/code-slimming-b10` 完成实施、三路交叉审查、回归及构建，按当前授权窄提交并整合，身份以 Git 记录为准，未推送。比较 HTML 入口完整排序取首、Video 候选排名与其他扫描合并后，选择第一项；Video 排名仍有按 preferred/文件名查找的真实消费者，不能删除，扫描合并涉及 I/O/一致性边界另行研究。
 
 最小结果：只把 `resolveHTMLURL` fallback 的完整排序取首换成沿原比较闭包的 min，保入口优先级、路径深度、localizedStandardCompare 和相等键时同次枚举的第一候选。保 preferred 的 trim/backslash 规范化及有效直接返回、HTML/HTM/普通文件准入、canonical containment、隐藏/package fallback 枚举和符号链接边界。显式 preferred 的隐藏入口继续按现规则准入，不把 fallback 跳过隐藏项扩张成新安全策略。不新增 owner/cache/guard，也不改 Video 排名或真实入库链。
 
@@ -246,25 +239,9 @@ Audio 仍只有原服务与 delivery owner，不改成 lazy/optional，不把设
 
 最终相同增强门在固定原实现和候选均 35/35 通过，各有 30 次真实候选选择观察；候选 HTML、库交互、下载排序、下载执行及 toolbar 五模块串行全过，随后隔离冷 Debug 110.69 秒通过，5 个执行输入前后身份一致。所测 128 项集合的实际比较从原实现 1364 次降为 127 次；枚举和元数据 I/O 未减少，不外推整体性能。两实施代理互查他人代码，第三代理独审全部范围与补强断言；未发现剩余调用链、功能或断言回退。
 
-映射只新增 HTML owner 组，原组、模块及扫描/棘轮保持；最近产品关联无未映射或失效项。90 项编排/路由/链接、14 项文档角色、代码健康、断言信号、设计、依赖及文档/产物/残留门通过；依赖门仅证明明示范围。既有全局 Scene 结构债本批未修改、未重跑完整结构组，不报全局全绿。未验收真实 Steam 账号/下载、完整 App UI、大小写敏感卷挂载或完整 Web 兼容。
+映射只新增 HTML owner 组，原组、模块及扫描/棘轮保持；最近产品关联无未映射或失效项。90 项编排/路由/链接、14 项文档角色、代码健康、断言信号、设计、依赖及文档/产物/残留门通过；依赖门仅证明明示范围。未验收真实 Steam 账号/下载、完整 App UI、大小写敏感卷挂载或完整 Web 兼容。
 
 必要证据迁至原工作区 `.artifacts/code-slimming-b10-20261022/` 保留至 2026-11-05；固定导出、临时 HOME/缓存当轮清理，checkpoint DerivedData/App 自动清理，成功原始构建日志提取摘要后删除。本批完成合并与证据迁出后删除临时工作树和已合并分支，保留并行改动，随后开始下一批调查。
-
-## 第十一批范围与停止条件
-
-基线：第十批 `d9ca74b32` 已通过 `eed9f9dd5` 整合；并行 Scene 的 `646a2557d` 产品、权威文档、导航与预算保持。状态：在独立分支 `MWX/code-slimming-b11` 完成实施、三路交叉审查、回归及构建，按授权窄提交整合并审查最终提交，身份以 Git 记录为准，未推送。比较测试独占纹理包装、LatestValueHandoff 与旧 material assemble/derive 后选择第一项：两个 Swift struct 共 100 行，当前仅旧专属测试构造，现役纹理事实已由 candidate、slot binding 和 frame registry 持有；其他两项仍需迁移真实 mailbox 或多个 GPU 回归，不混入。
-
-最小结果：退役 SceneEffectTextureLoadResult/Binding 及唯一专属旧测试，精确移除 layout 文件和选测路径登记。现役资源 Swift、candidate/registry 回归和全部断言保持逐字不变。先核对旧 absent/unavailable/purpose/ready/generation/extent/pending/wrongPurpose 八项的有价语义在真实 owner 的输入/输出与反例断言；旧 wrapper 私有 matches 的 slash/case 规范化随其退役，不给现役 owner 新增该行为。发现真实产品/daemon/selector/协议/脚本/工具消费者或未覆盖且有独立价值的断言即停止删除。
-
-先跑固定原实现的旧门和现役门，再在固定候选运行现役 candidate、registry、resource view 与隔离 Debug；Metal 门须实际执行，跳过不算通过。结构合同用原基线和候选比较，不能放松既有扫描或棘轮来过门，已知全局债须明确披露。独立审查完成后窄提交整合，再审最终提交身份；迁出必要证据后删除临时工作树/分支，不推送。之后按用户新要求开始第十二批：卡片去 hover/按压缩放并保白描边，清理不可见 Web/Scene 详情诊断入口链、保正常播放及开发调试；B12 不提交，最终用含并行未提交改动的最新完整代码构建 Release App 供测试。
-
-实施与审查：只删 100 行 Swift 载体及 196 行专属测试；全部剩余产品源与长期测试共 5242 份输入逐字等于基线。真实链为 catalog loadCandidate → candidate → publication/registry → slot → encoder，不依赖旧结构；两值类型没有公开 ABI、ObjC/selector、协议、脚本或工具注册。八项有价机制已核对到现役输入/输出与失败反例，未改长期断言。旧 unavailable 与现役 incomplete 并非相同枚举；8×4/4×4/0.5×1 与现役多 mip 用例属于机制覆盖，不声称旧手建 mask+mips 组合逐字复刻。
-
-固定基线的旧包装、candidate、registry 三模块 14 项通过；候选 candidate、registry、asset-catalog resource-view 三模块 16 项通过，无跳过，Metal 实际执行。观察器只记录原 subprocess JSON，不替换断言；两现役二进制的 123/81 项完整结果在原实现与候选相同。隔离冷 Debug 95.01 秒通过，5242 份输入在运行/构建前后保持身份。
-
-layout 与 gate 各删一个失效路径；防御门实测 matches 定义从 8 降为 7，按既有工具同步收紧这一基线，扫描、其他 allowance 与 acknowledgement 全保留。历史旧测试链接改为退役路径字面，保留当时结果和锚点。90 项编排/路由/链接、14 项文档角色及代码健康、断言、防御、依赖、设计、文档与产物/残留门通过；关联无失效或未映射模块。固定原/候选的结构校验完全相同：目录仍有 6 个既有登记缺口，authority/completion 各 2 条既有错误，未放宽扫描或宣称全局通过。
-
-本批不改变视觉算法或播放入口，不认领全 App 人工、多屏、全样本、性能、包体或能耗验收。必要证据迁至原工作区 `.artifacts/code-slimming-b11-20261023/` 保留至 2026-11-06；固定导出和临时 HOME/缓存清理，checkpoint DerivedData/App 自动清理，成功原始构建日志提取摘要后删除。完成合并与最终提交复核后删除临时工作树/分支，保留并行改动；B12 保持独立未提交范围。
 
 ## 第十二批范围与停止条件
 
@@ -272,24 +249,23 @@ layout 与 gate 各删一个失效路径；防御门实测 matches 定义从 8 �
 
 用户指定结果：所有网格卡片保持普通大小，移除 hover 放大与按压放大/缩小，保悬停描边和原选择/点击/播放/拖拽/滚动/操作条/预览/下载反馈；独立完成徽章与按钮内部动画不自动删除。覆盖 Video、Steam 浏览/已下载、在线/Pixabay 浏览及已下载、StaticImage。精确退役仅供卡片缩放的状态、动画、按压延迟与无消费者帮助方法，布局去缩放预留参数但保基础间距、列数/缩放档位/viewport/宽高比合同。不能全局移除 transform 或为失焦加补丁。
 
-详情诊断只清理原来挂在属性按钮隐藏 Debug 菜单上的 Web/Scene 面板链及其报告专属扫描/缓存/模型；Release 原已不编入该菜单。保留属性齿轮真实入口、Scene 属性准备唯一 owner 与缓存/epoch/版本/取消/窗口生命周期、Web 入口准入/descriptor/runtime 签名/静态摘要，以及真正 CLI、DebugApp、benchmark、GPU/FrameCapture/telemetry 和运行诊断 store。只有确证仅被退役详情报告消费的叶才可删除，不能按 Diagnostics 文件名成族删除。
+详情诊断只清理原来挂在属性按钮隐藏 Debug 菜单上的 Web 面板链及其报告专属扫描/缓存/模型；Release 原已不编入该菜单。只有确证仅被退役详情报告消费的叶才可删除，不能按 Diagnostics 文件名成族删除。
 
 两子任务独立实施并交叉审查，第三代理复核边界与现役断言。原生命周期、ABA/复用、hover 白描边/操作栏、selection/playing、预览及属性/启动/Web 缓存行为用最近现役门验证；仅与授权变更或已退役报告绑定的预期/测试载体可调整，其他断言保留。Swift 变更做 Debug；最终与并行 owner 核对代码写入窗口，冻结完整最新 source、未提交/删除/未跟踪输入及内容身份，编译实际 Release 并核 App/嵌套签名与版本。发现真实调用、范围误删或失败即修复补回归，不靠放松断言/安全边界通过。测试 App 是本机交付，不触发布自动化，不安装覆盖用户现有 App。
 
 实施与独立审查：五类卡片、Steam 两展示上下文只退役整卡 scale、专属按压状态/定时器及布局缩放预留。Steam 保留 down/up 同卡身份，Video/SIL/Online 原点击、选择、拖拽与空白处理主体保留；原 hover 颜色策略、操作条与独立完成徽章动画保留。两路审查确认没有误删真实消费者；固定基础间距会改变部分卡片尺寸，不能声称所有 frame 不变。
 
-详情只删除隐藏 Debug 菜单、面板及其专属报告叶。Scene 原独立属性 singleton 的 identity、source version、request UUID、cache epoch、窗口 token、取消/关闭/压力/locale/active-session 行为保留；Web 两个准入函数、descriptor signature、runtime 依赖扫描与缓存保持原语义。属性门原 37 个行为案例全部保留，详情 54→53 仅退役 façade callback 检查，Web 32→23 只退役九项报告专属输出；真实强制刷新与不限额摘要 BFS、120-file/0.20s runtime 签名边界未放松。
+详情只删除隐藏 Debug 菜单、面板及其专属报告叶。Web 两个准入函数、descriptor signature、runtime 依赖扫描与缓存保持原语义。。属性门原 37 个行为案例全部保留，详情 54→53 仅退役 façade callback 检查，Web 32→23 只退役九项报告专属输出；真实强制刷新与不限额摘要 BFS、120-file/0.20s runtime 签名边界未放松。
 
 验证中新增真实整卡 hover/按放/移出/恢复检查，观测 root model/presentation transform、transform 动画和暗色白描边。测试输入必须落在 cardRoot 内，窗口指针与事件坐标一致，并让真实 AppKit 激活规则执行；不改产品谓词或为失焦添加逻辑。原 CLI 行为门与真实子进程退出码断言保留，新增活跃交互组使用原生 App 启动；LaunchServices 启动状态不等于 App 的实际退出状态。测试输出目录缺失在调用侧创建，不改变断言。
 
-30 个最近回归模块通过，覆盖属性准备、详情/属性窗、Web 准入/遍历/缓存/授权、Scene 输入/异步启动/daemon 接线及卡片相邻选择/预览/缩略图。五类卡片、六展示上下文新增 54 检查实际通过；同门在原提交的两张完整在线卡片上保持有效指针与白描边，并准确拒绝旧 hover scale。229 项验证工具与文档测试通过。结构门仍为 B11 相同的 layout 六条、authority 两条、completion 两条既有错误，逐条比对一致，没有修改扫描、completion 声明或扩大 allowance。最近模块选择器仍暴露未登记关联，手工最近门、独立调用链审查与整 App 构建只证明相应范围，不宣称自动 closure_complete 或全仓全绿。
+五类卡片、六展示上下文新增 54 检查实际通过；同门在原提交的两张完整在线卡片上保持有效指针与白描边，并准确拒绝旧 hover scale。229 项验证工具与文档测试通过。最近模块选择器仍暴露未登记关联，手工最近门、独立调用链审查与整 App 构建只证明相应范围，不宣称自动 closure_complete 或全仓全绿。
 
 完整工作区快照包含并行 `c24f2173f` 的物理鼠标后验文档及全部 B12 未提交输入；复制前后身份一致。独立审查实读导出文件，确认 Debug/Release 的 4,366 个产品、项目和资源输入哈希与权限一致，Release 完整纳入 73 个本批路径、四项新增帮助文件及七项删除。隔离冷 Debug 114.61 秒、实际 Release 430.62 秒均通过；原生卡片最终门输入前后身份不变。
 
 测试 App 为 `.artifacts/code-slimming-b12-20261023/Release/MyWallpaperX.app`，版本 2.11.0（283）。Developer ID、Apple 安全时间戳、25 项 Mach-O 的 arm64 闭包及嵌套严格签名/权限校验通过，保留 Steam JIT、Apple Events 和 Sparkle 原权限；本机代理导致的时间戳 502 以临时 loopback 转发真实 Apple TSA 解决，未改系统代理或降低签名要求。未公证、发布、覆盖安装或自动启动真实用户数据。用户已完成本轮试用并授权提交；不据此扩大多屏或全部壁纸验收范围，不推送，不再自主开启后续任务。
 
 构建源副本、DerivedData、反例导出及成功原始构建日志在核验结果后清理，保留上述用户测试 App 和有界收据；非 App 证据默认保留至 2026-11-06。B11 及更早临时工作树已清理，B12 未建工作树；不清理并行会话未知归属材料。
-
 ## 原生 UI 等价精简第一批
 
 本批按首次授权完成 AppKit 精简、保持现有布局与交互并交付未提交测试 App；用户试用确认无问题后，已授权本批窄提交。最终修改限定设置分隔线和详情滚动渐隐层；底部按钮仅作对照试验，未纳入交付；不更换菜单关闭语义、侧栏强调态、网格选择/框选、瀑布流、玻璃层级或进度条外形。
@@ -424,7 +400,6 @@ layout 与 gate 各删一个失效路径；防御门实测 matches 定义从 8 �
 ### 验收
 
 先验证首项排序/空列表、同首项去重、同ID换图、A→B迟到回调、同步cache命中取消、窗口可见性和颜色采样正反例。实际六入口编译/接线、原卡片几何/选中/滚动/动作门保持；比较背景安装前后布局和按钮强调色，覆盖深浅/辅助功能。冻结owned输入后交独立子代理对抗审查，修复后复审；复用唯一Debug缓存增量构建/原权限签名，启动最新App供用户试用。长期测试断言真实输入/输出/事件，临时像素/布局探针仅留有限本机证据。
-
 
 ### 第十批试用调整：柔和过渡与背景层合并设计
 

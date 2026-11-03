@@ -1,75 +1,39 @@
+# Scene 性能测量与改进
+
 <!-- document-role: active-plan -->
 
-# Scene 性能收敛工作卡
+本页保留测量方法和当前可检查的成本入口，不维护旧实验成绩。实际兼容缺口先按[开放队列](scene-open-breakpoint-queue.md)定位；实现边界归[架构](../architecture/runtime-architecture.md)。没有同条件数据，不声称现阶段 CPU/GPU、内存或能耗已改善。
 
-本卡维护CPU/GPU、内存、启动与能耗专项。全局按[兼容路线](scene-compatibility-roadmap.md)先处理合成/正常播放问题，再选择有证成本；属性热更新接线归[属性卡](properties-panel-card.md)，开放问题归[队列](scene-open-breakpoint-queue.md)。
+<a id="measure"></a>
+## 同条件比较
 
-**执行顺序。** 当前Scene自主选题服从[兼容路线](scene-compatibility-roadmap.md)与[断点队列](scene-open-breakpoint-queue.md)；本卡维护性能专项选序与验收。原24项和D阶段内部顺序、状态归[Apple silicon全App方案](../../development/apple-silicon-optimization-plan.md)，不扩成后续Scene工作的前置。保留低复杂度可靠局部收益，整体比例未知如实注明；正式整体收益按下述同条件门验收。旧E/AS不作前置，[顶层设计](engine-refactor-program.md)只规定边界。
+1. 固定源码/App、硬件、系统、输入文件与属性、pointer/audio/media、显示拓扑、viewport、分辨率与构建配置。冷/暖 cache 分开，先保存原值和测量窗口。
+2. 同时记录输入到可见/事件输出与 CPU/GPU 成本。区分准备、模拟、encode、提交、presented 和后台工作；attempt、GPU completed 与实际 presented 不是同一个计数。
+3. 先用采样找最贵调用/分配，再做能排除候选原因的局部实验。GPU stage 区间可重叠；frame elapsed 不直接等于 shader 成本。
+4. 旧/新交替重复，报告分布、噪声和失败；不在看到结果后放宽窗口、阈值或删失败。测量时避免构建、测试、导出和 profiler 相互争用。
+5. 同输入确认内容、动画、属性、交互、暂停恢复和退出没有退化，再讨论收益。日志减少、代码变短、少几次调用或构建成功都不是整体性能结果。
 
-1. 整体 CPU/GPU 先联合归因，再联查内存与启动：采样每帧求值/分配、序列化/诊断、主线程阻塞与后台争用，再查压缩纹理展开、解码峰值、重复解析/上传。优先比较 VM/帧桥重复工作、调度 attempt 与实际最贵 GPU pass/shader；局部准备已降而整进程未降时重新选题，不惯性继续微调。温度高、低频与GPU满载须绑定实际工作，不能凭频率或旧样本帧预算判瓶颈。
-2. GPU：按真实pass/shader成本选题，持续筛高级混合复制及满足条件的HDR历史画面路径；实际需要的背景、history、反馈及完成屏障必须保留。
-3. 首帧：冷暖启动专项的实施、取舍和未覆盖范围已归[完成记录](../../history/cross-topic/wallpaper-startup-optimization-completed-2026-10-25.md)；本卡继续唯一维护统计与非目标门，稳定行为按[启动合同](../architecture/scene-launch-responsiveness-contract.md)。以实际产品阶段区分解析、编译、资源与呈现，保持首帧完整和失败回退；旧 STOP 不因专项结算自动重开。
-4. 长时间使用：连续切换轻/重壁纸，观察cache增长是否有界及停止后transient资源是否回落；保留合理复用cache，不把清空cache当性能优化。
+工具入口：[scene_wallpaper_benchmark](../../../script/scene_wallpaper_benchmark.py)、[scene_wallpaper_performance](../../../script/scene_wallpaper_performance.py)、[verify_scene_change](../../../script/verify_scene_change.py)。使用前读取实际 `--help`和所选门的输入/断言，不在本文复制易漂移参数。
 
-**当前可行动余项。** 不以数十次局部提交判断整个引擎到瓶颈；先确认普通优化配置仍有的可避免工作及唯一owner，再开实现。没有新可行动信号就回兼容队列，不重复旧消融。10-17原296的646次play已被现emit分支挡在完整population事务外；剩余轻量校验/查找没有CPU成本测量，不据调用数新增缓存或抹掉finished emitter rearm语义。限定资格随[Rope批证据](../capabilities/runtime-evidence-current.md#rope-whole-source-20261017)保存。
+<a id="costs"></a>
+## 当前成本调查入口
 
-- **11-02架构迁移后验：不计整体提速**。同原335、优化Debug、关闭execution observer的旧新三轮交替均有合格稳态窗；CPU没有改善，GPU噪声超归因门，采样footprint/GPU占用上移但中位数未越事前非目标门。原数、噪声、身份和绝对预算见[冻结后验](../history/runtime-evidence-index.md#e-architecture-final-integration-20261102)。不以旧职责退出推算整进程、内存或能耗收益；本卡继续开放。后继若选性能，先取当前真实消费者与成本归因，不放宽阈值或重复整轮架构验收追求更好数字。
+| 入口 | 代码可证事实 | 下一步应证明什么 |
+|---|---|---|
+| 复杂场景冷准备 | Host / RuntimeCatalog / Shader preparation 仍须解析、构造实际 Program 和设备资源；首 Surface 还有实例装配 | 区分必要工作与真正重复，测准备/主线程/后台争用占比；不先建新 scheduler/cache |
+| 多 Surface 设备准备 | 每个 GraphExecutor 建立自己的 PassEncoder 并 warmup；encoder token/reset/target 是每屏状态 | 先测重复 library/PSO 构造是否显著，再判断原 repository/prepared-device owner 能否共享不可变结果；不能共享 frame encoder/history/目标 |
+| 视频与资源长期驻留 | 应用预算、pool/cache、AV/driver/backing 与 in-flight 生命周期不同 | 同 PID 多次切换后核最后 consumer、对象引用和原生资源；区分可复用缓存、未完成 borrower 与泄漏 |
+| 属性打开与热更新 | 未准备来源可能需要完整分析；值热更新与资源/结构重准备有不同路径 | 分别量打开、编辑到实际 consumer、重开/恢复；不以隐藏控件、丢定义或合并事件换响应 |
 
-- **361/367普通帧短窗观察：未发现可行动热点，性能卡继续开放**。同一诊断Release构建、同一8s运行窗（性能测量2.767s，未达30s预热/60s稳态；`execution_observations_enabled=true`，CPU含observer开销）：361 submitted 60.0/completed 59.638fps、callback p50 16.662/p95 18.526ms、CPU/GPU超16.67ms为0、present超1.5倍3/163（1.84%>1%默认门）；367 submitted 59.995/completed 59.633fps、callback p50 16.667/p95 16.788ms、CPU/GPU超16.67ms为0、present超1.5倍1/163。stage p50/p95（ms）：361 prepass 1.443/1.597、admit-prepare-frame 1.431/1.584、frame-admission 1.247/1.561、layer-loop 0.530/0.590；367 prepass 1.455/1.559、admit-prepare-frame 1.437/1.540、frame-admission 1.311/1.525、layer-loop 0.684/0.756。帧计数0 failed/dropped/drawable-missed，但样本侧仍有已知失败（367 ScriptVM TypeError×4；361 ledger 的 solid-texture-load-incomplete 与 source material 113 拒绝），两样本仍为degraded-runtime，不代表样本通过。未做关闭observer复测、功耗或长稳，不据此新增缓存或改调度。证据包`.artifacts/scene-evidence/runs/perf-361-367-short-window-20261101/`（report SHA-256 `57588763ba00f35d79ded6b03a1986abe943c808451ed46eb82f64c46dce741b`，14天）。
-- **363新增255动态层后的普通帧成本：已资格，当前无可行动热点**。旧single-file诊断Release（-O+DEBUG条件、无execution observer），5s预热/53.5s计量、steady-eligible=false；仅作有界60fps观察：3210 callback/3209 completed、submitted60.0/completed59.981fps，CPU超16.67ms为0、present超1.5倍预算7/3207；stage p50 layer-loop 2.059ms、frame-admission 2.018ms、prepass 1.393ms、admit-prepare-frame 1.299ms、prologue 0.724ms、admit-executor-prepare 0.728ms。卡的19.537ms/28.90fps来自未优化Debug，不代表优化配置；无明确可省热点，不重开VM桥/Program缓存/动态绘制重构。该样本765/Blur772 effect仍failed，与成本无关；未做正式A/B优化验收、Release能耗或长稳。证据与manifest归`.artifacts/scene-evidence/runs/perf-363-ordinary-frame-qualification-20261101/`。[身份、失败与边界](../history/corpus-log-audit-2026-10-29.md#layer-mutation-owner-capacity-20261030)。
-- **380的511动态层：WMO成本已资格，死capture原型STOP**。原ordinary Release WMO/-O、DEBUG证据入口、无execution observer，30s预热/63.492s实测submitted45.045/completed45.013fps、renderer CPU p50/p95=7.075/8.383ms、GPU=21.419/25.383ms；511动态层实际接纳，每帧main22/offscreen43（material27/source15/普通capture1）、copy0。一次合格硬件选帧闭合六个1920²程序化ring及真实mask，区间重叠不授独占节省。[无消费者capture原型](batch2/composition-render-target-design.md#dead-source-capture-20261101)实际source15→9且画面/失败门保持，但新同条件95s/30s首对GPU p50只降3.71%、进程CPU/完成帧升5.03%，未达事前10%继续门，立即停止、两产品及专用测试已撤，不补3+3、不认稳定收益。新鲜A/B时VM已suspended且本批未改其状态，不混用早前running-VM基线。原数、身份及局限归[后验](../history/gpu-cost-screening-2026-10-14.md#dead-source-capture-stop-20261101)。GPU/present仍未达60FPS，整体CPU/GPU/能耗继续开放；不据Debug15fps归因。CPU派生端点求值需新数值/ABI体系、收益未证，本批NO-GO；旧空journal微筛、capture缓存与有序双层分段STOP不翻案。
-- **372水面调度：本轮停止改动**。去掉执行观察器仍见未优化Debug隔帧提交，有界时间线已分清history在途与MainActor完成可见性；但同源码优化Debug普通窗达到目标帧率，未证明当前产品需重做timer/clock或完整Program缓存。具体配置、原数与限制归[资格记录](../capabilities/runtime-evidence-current.md#water-cadence-qualification-20261021)；有新的优化产品成本证据才重开。
-- **视频解码资源驻留：输出退休原型STOP、产品已撤**。10-30真实弱引用/同device/整Session消融定位到AV输出整组；仅关联退场在实际切换无收益，输出/cache实退的两源短窗虽收敛，原337完整12切换的footprint峰值269,681,720→1,033,766,520B、呈现超预算比例上升，触非目标门。[反证与身份](../history/video-instance-observations-2026-10-29.md#video-output-residency-20261030)保全部候选/测量，不以Metal下降抵消。无新物理驻留/实际供帧证据不重试这两种策略；隐藏/离屏仍按[未实施设计](../capabilities/material-video-assets.md#video-consumer-demand)，不改clock/EOF/last-ready。
-- **337多视频提取：STOP，产品已撤**。保原clock/EOF的无consumer少提取原型，两个30s预热+61.5s稳态配对的footprint分别+69.38%/+29.59%，触原非目标门；Metal分配采样下降不能抵消。第三对未跑，不认3+3/整体收益，不重做同型包装验收；后继先取得不同backend消费或可见供帧机制证据。旧身份的秒级空档已由后继构造/生命周期片复核，AV驻留仍开放；本STOP只约束原包装策略，[身份/原数与撤回](../capabilities/runtime-evidence-current.md#video-publication-demand-20261021)。
+这些是调查入口，不是已经测定的瓶颈或性能回退。新的改造应有当前证据；没有可避免工作时停止，不为统一架构机械增加共享 cache、registry 或 wrapper。
 
-- **整体CPU/GPU**：[普通Release归因](../history/native-cpu-allocation-screen-2026-10-15.md#ordinary-release-cpu-attribution)仍显示材质图准备/粒子成本，尚未证明可省部分。普通image片元高成本保留，但[GPU短筛](../history/gpu-cost-screening-2026-10-14.md)的附件读取、modulation/sampler及exact-copy未通过继续门；源码归因受工具上限阻塞时不盲改shader。 [stage计时资格](../history/gpu-stage-timestamp-qualification-2026-10-15.md)与[TEX存储资格](../history/static-tex-storage-screen-2026-10-15.md)保原工具/格式边界，不据旧清单开新实现。新增优化必须给实际consumer和普通进程分母。
-- **相机动画期目标尺寸切换**：10-20原374的6s origin/zoom使693/261在857/858间切换；四run只读归因仅见两种shared pair复用、Program不变，`allocationGeneration`不是Metal分配计数，现resolved-size memo已在。当前不立优化/不跑3+3；若有新成本信号，先区分实际texture factory与table/lease重建，再决定实施，不能重复加同类缓存。资格收据随[字体批报告](../capabilities/runtime-evidence-current.md#image-font-script-state-20261020)保存，无整体CPU/GPU收益或泄漏结论。
-- **关闭stage的透传复制**：[10-16资格](../history/gpu-cost-screening-2026-10-14.md#inactive-stage-copy-screen)已将289短Debug窗的7 copy/frame闭合到真实activation caller；最窄连续两尾段的独立GPU增量为0.568375ms，尚无App收益。直接删命令会伪造中间publication，先评估原executor内真实alias/member/完成语义的改动半径；不为两copy微优化新增owner或盲目重排pair，五次source capture未证冗余。当前先推进画面能力，不重跑旧capture cache。 357:210已由[10-18二维fallback后继](../capabilities/runtime-evidence-current.md#shader-vec2-authored-fallback-20261018)恢复真实Program，退出“launch永久visual-failure复制”候选；旧搬运观察只作历史，不能继续假设当前整链永久identity。
-- **批内audio factor：335不命中，停止实施**。10-16同实际输入的8粒子层/9递归资源/38 initializer均无audio声明；原parser→AudioResponsePlan返回nil，initializer不会进重复band求值，不能解释该短DEBUG窗的CPU线索。无需为此新build/profile/cache；其他已启用consumer须另有普通优化热栈才重开。位置/time/RNG的turbulence仍逐粒子，嵌套stage与event/帧p95不相加。资格：`.artifacts/tmp/cpu-frame-preparation-qualification-20261016/335-audio-consumer-followup.json`（SHA `0ffa7df181279a60d3822d7bd5412af5583abcdd2393dca5e884a6eb891f2021`）。
-- **主pass空重开：未取得实施资格**。10-16只读caller可见`.load/store`空pass机会，但2890473419实际timestamp中6个main均有draw；唯一追加的有成员组候选3226487183在既有冷启动watchdog内未ready，尚未触达目标。产品未改、优化构建及收益A/B未启动；不把静态可省、无draw时间戳或超时写成GPU收益/生命周期缺陷。只有新实际consumer证据再开。限期计数/失败收据：`.artifacts/scene-evidence/runs/main-pass-reopen-screen-20261016/`。
-- **内存/退场**：[轻重切换](../history/scene-switch-residency-qualification-2026-10-15.md)观察返回轻场景footprint上移、GPU/目标池回平台，已缩到purgeable分配，持有owner未定；先取得有效分配来源，不重复无caller的整轮切换。逐session drain/pin/总账、最终pin与长期cache增长边界保留，不能把allocator驻留写泄漏或优化收益。
-- **启动**：[10-18链接产物复用](../history/linked-stage-startup-convergence-2026-10-18.md)窄接受五对优化Debug产品入口冷启动中位4869→4331ms，Program字节一致；暖启动无确定收益，Web短筛未改产品。原366未见可见结果；[类型名lookup](../history/shader-value-type-recognition-2026-10-16.md)仅局部收益，[原322同次栈](../capabilities/runtime-evidence-current.md#shader-float2-consumer-width-20261017)仍不足重开旧声明扫描。cold/warm分阶段按实际入口验收，保base-image/natural-size依赖，增timeout不算优化。
+源码：[Host 准备](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift)、[GraphExecutor 准备](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor.swift)、[资源预算](../architecture/scene-resource-admission.md)、[视频 source](../../../MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/SceneVideoTextureSource.swift)。
 
-**10-18工具链资格短筛：STOP。** 同源真实resolve/严格验签与双version，三进程各11次全部成功，但总计时噪声306.98%超过事前5%门；未剔首次慢探针，三个真实normalized pair的工具子链0执行。后10次的乐观可省上界中位103.845ms不是实测收益，不据此加缓存或认App启动收益。原数、固定输入、清理与独审仅保本机收据 `../../../.artifacts/tmp/shader-toolchain-qualification-cost-20261018/summary.json`；本方向无产品修改，不重复旧筛或放宽阈值，先回可执行能力断点。
+<a id="memory"></a>
+## 内存与能耗的口径
 
-<a id="movement-access-screen-20261023"></a>
+应用计费是可控 allocation 的准入，不是 RSS。报告 active/candidate/retiring 叠加、decoded 与 GPU resident、cache 驱逐及真实对象释放；不要用进程退出、stop 清引用或 pool 数量代替同 PID 稳态回落。
 
-**10-23 Movement访问短筛：停止，产品已撤。** 原304五root的`-O`纯CPU探针未见实质事件导出热点，birth/death仍有短命渲染消费者。薄参数三对CPU中位降5.402%未越双噪声门；单次Array借用降20.247%/升11.882%/降17.589%，方向不一致，均未剔点、补跑或放宽。30个状态字摘要组合相同、借用候选的既有vortex门通过，不代完整FrameSnapshot、实际画面或收益。产品及冻结源码已恢复，0新App/0GPU，无播放链CPU/GPU/能耗收益结论。原栈、身份、各六run与撤回归`.artifacts/scene-evidence/runs/particle-movement-access-stop-20261023/`，普通14天；后继先取完整播放链当前成本，不重复同型微筛。
+冷启动和单帧优化不外推长稳能耗。CPU/GPU 同时比较，检查 FPS、画质与实际 workload；不能通过放慢动画、跳帧、减少粒子/特效或缩小输出宣称等价提速。系统电源/物理多屏结论需要相应硬件运行。
 
-<a id="keyed-sampling-20261023"></a>
-
-**10-23等值keyed粒子采样：窄保留。** 有限等值范围沿原标量算术直接取值，省去无后续状态的局部hash；出生共享RNG、非等值/非有限路径不变。用户明确允许可靠小收益后，原3%早停门撤销；新HEAD优化Debug隔离Host、原199静音/30FPS、30s预热+≥60s稳态三对AB/BA/AB，每完成帧进程CPU下降1.667%/1.927%/2.467%，中位1.927%，基线噪声0.961%，仅略过两倍噪声。非目标中位未越原门，不认GPU/内存收益；四舍入模式位值/共享RNG门及独立311非等值phase实际输出、正常stop/排空成立。仅本条件小幅CPU改善；普通Service/daemon、Release、能耗与全样本未验。身份、原数、协议覆盖与旧STOP归本机限期包 `.artifacts/scene-evidence/runs/particle-keyed-sampling-20261023/`，首对原始图/CLI归其前驱 `particle-keyed-sampling-stop-20261023`；不扩为正式10%验收。
-
-**10-19粒子phase cosine缓存筛选：STOP。** 原343的Debug instrumented `particle-advance`约15ms仅为局部阶段，不能当整进程CPU或Release成本。隔离副本在原phase cache存Double baseline，真实Runtime→Simulator→instance链按5000+75星、`-O/WMO`前后各编译一次，预登记六进程三组AB的优化链计时窗CPU中位**增加0.979%**，无稳定收益，未实施产品。实际cache值stride96→128，5000项多156.25KiB值载荷；不是RAM footprint，字典容量/开销未据此推算。所测数值/RNG/快照取消恢复指纹一致仅限已覆盖字段，有限筛选结束不扩试；最小收据 `../../../.artifacts/tmp/343-model-lighting-20261019/particle-phase-cache-stop.json`。
-
-**10-19模型场景深度域：仅资源需求观察。** 正确性重构退休隐式私有隔离及其专用几何hash。原343同3024×1964/30FPS的单次Debug对照，目标池采样峰331659520→307902976B，差23756544B恰一张depth32；GPU allocated812515328→787873792B，但进程footprint峰1075135904→1131480480B。只有一次诊断短窗、截图请求有superseded/teardown，非三对普通稳态，不认整体内存、CPU/GPU、启动或能耗稳定收益，不因删除hash推算耗时。必要原数与后继边界归[有界记录](../history/model-scene-depth-domain-2026-10-19.md)，无新热栈/普通成本信号时继续画面队列。
-
-**已接受结果只作前驱。** [BC](../history/native-bc-memory-convergence-2026-10-12.md)、[PKG](../history/pkg-extraction-memory-convergence-2026-10-12.md)、[TEX](../history/tex-request-local-convergence-2026-10-13.md)、[区域复制](../history/color-blend-region-convergence-2026-10-13.md)、[属性异常恢复](../history/property-callback-recovery-2026-10-14.md)、[resident查询](../history/graph-residency-query-convergence-2026-10-14.md)、[完成结果缓存](../history/shader-completed-cache-retention-2026-10-15.md)的实际收益和非目标回退按各自冻结记录，不扩成整体GPU/能耗或全专项完成。面板准备/列表成本归属性卡，正确性修复不计性能。
-
-<a id="sampler-seed-preparation"></a>
-
-[Sampler seed准备](../history/sampler-seed-preparation-convergence-2026-10-15.md)只窄接受Debug暖重返启动；内存后继类别未定，统一并入上述生命周期余项，不重跑五对。variant analysis Set wire只保正确性，短筛未达继续门。
-
-**已停止的方向。** [C codegen](../history/script-c-codegen-ablation-2026-10-14.md)、[working-view](../history/graph-residency-query-convergence-2026-10-14.md#后继working-view-查询短筛产品候选已撤回)、[粒子排序](../history/particle-world-depth-2026-10-11.md#后继粒子排序成本短筛2026-10-14)、[capture缓存/双层分段](../history/gpu-cost-screening-2026-10-14.md)、[shader identity/ready request](../history/shader-identity-hash-screen-2026-10-14.md)、[属性JSON复用](../history/property-callback-recovery-2026-10-14.md#prepared-property-json)、[声明准备](../history/shader-value-type-recognition-2026-10-16.md#declaration-preparation-screen)、[variant分析](../history/variant-analysis-cache-wire-correction-2026-10-15.md)、[MDL复核/world](../history/native-cpu-allocation-screen-2026-10-15.md#mdl-validation-followup-20261019)保原STOP；不重跑旧campaign，新实际consumer及成本证据才能立题。CPU尺寸对象缓存会改变JS引用identity，未实施。 10-18空journal 16KiB清零的实际C API微筛仅有配对中位5.135µs/frame-equivalent，低于事前0.1ms继续门，NO-GO；32owner×1000合成工作不外推App/RAM收益，当时未改产品，最小结果随[模型资格包](../capabilities/runtime-evidence-current.md#model-reflection-prototype-20261018)保存。[HDR attachment](../history/hdr-attachment-mapping-convergence-2026-10-14.md)与[帧纹理快照](../history/frame-texture-snapshot-convergence-2026-10-14.md)只保原局部/驻留证据，不宣称整体CPU收益。
-
-<a id="prepared-material-frame-payload"></a>
-
-[材质帧载荷](../history/compiled-variant-frame-program-convergence-2026-10-13.md#material-frame-payload-screen)未达App继续门，原型已撤，设计登记退役，不重新列为待实施。
-
-**10-23 prepared帧输入职责整理：不计性能。** 几何与shader共用原Program数值核，实际值定义退出mutable Catalog；只修依赖方向，未加policy/cache、未省数值检查。CPU/Debug与交叉独审通过，原332及独立311实际回归/排空保持；[唯一设计](batch2/terminal-material-chain-design.md#prepared-frame-uniform-query)。后继HostSchema/帧重复须先取当前整链成本；不重开已撤帧载荷原型、不以函数迁移推算收益。
-
-**工具边界。** 保唯一CLI、语义parser与验收入口、严格默认与未舍入ratio；[旧monolith已退役](../history/benchmark-responsibility-convergence-2026-10-13.md)，不另造wrapper/算法。
-
-**筛选与正式验收。** 先用最近门、采样和短实验筛选；短实验不称性能验收，连续两次有区分力实验无收益则停该方向。目标预先锁定整进程 CPU、GPU、内存、启动或明确交互成本，局部阶段数字单列。
-
-正式比较固定机器/OS/热状态、输入/属性/音频、尺寸/FPS、App/优化等级/签名/工具/诊断；至少三份有效基线及三份候选，交替顺序检查时段漂移。稳态每轮30s预热后≥60s；冷/暖cache分开，启动各至少五次，不用五次声称启动尾部分位数。身份、条件与有效性一致的现存基线可复用，重测用于失效或漂移；profiler、详细截图和语义取证另开窗口。普通产品与优化诊断配置分别报告，不能外推为正式Release。
-
-本卡承接原AS1的测量准入，后续阈值变更须在实验前有依据并记录：目标成本配对降幅中位数≥10%且超过基线噪声两倍；主要计时噪声>5%先排干扰，不放宽阈值。非目标CPU/GPU尾部、呈现、首帧与峰值内存不恶化超过max(5%,两倍该项噪声)，并满足预先冻结的设备/内容绝对预算。仅局部收益或结构消融如实登记，不能计整体效率完成；温度/功耗未测则不认领。基线噪声为每轮指标相对其中位数的最大偏差比例；中位数为零用预登记绝对误差门。保留专项原始基线及直接前驱，防止多批累计回退；分位数来自逐帧分布，不由累计均值或嵌套阶段相加推算。
-
-绝对预算按批准设备/内容冻结：连续呈现30/60FPS对应33.33/16.67ms，CPU/GPU/present分别判断；present超过1.5倍目标间隔比例默认≤1%，暂停/按需/切换/缺drawable故障另列，不把既有不达标内容写成全局达标。专项最终稳定性验收至少30分钟稳态及20次轻重切换/resize，覆盖暂停/恢复、错误资源、取消/替换、停止与资源退出；旧代次pin最终归零、owner/cache无持续增长。最低设备、多屏及正式Release缺失时明确未验；这些阶段门不在每个局部修改重复执行。
-
-量CPU时间率与每完成帧成本、调用/分配、内存峰值/稳态、GPU工作/copy及首帧，分冷暖cache与驻留。performance-only矩阵无执行承诺，观察unavailable，不代严格验收；单次ready/FPS不作收益。
-
-必须检查原样本实际画面/下一帧、独立健康样本、启动失败/取消/替换及资源释放；涉及HDR/高级混合/history时保实际触发与不应触发反例。普通产品入口与内部Host证据分开。收益未稳定或功能回退先查因、修正或撤回本轮修改，不以放低效果质量、减少作者内容、提高timeout或丢诊断换通过。
-
-**职责与退出。** 身份、资源、clock、准备图与最终输出沿[运行合同](../architecture/runtime-architecture.md)各保唯一权威；旧架构可重构；重要变更先落顶层设计，写数据流、owner迁移/退出、失败与验收。按公共语义扩展prepared/typed consumer分支，保唯一链路；局部修复直接实施。每轮实现、验证、独审、提交，汇报收益、边界及下一轮；完成证据归history。用户结束专项或已证成本与长期切换验收完成后退役。
+开发诊断保持显式 opt-in，普通播放不逐帧构造完整报告。GPU 采样、截图及其测量干扰遵守[诊断合同](../architecture/gpu-stage-timestamp-diagnostics.md)。

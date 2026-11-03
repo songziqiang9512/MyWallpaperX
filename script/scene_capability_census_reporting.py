@@ -56,14 +56,14 @@ def render_markdown(
             "> 所选新增仅指本子集与matrix的差集；full-matrix状态比较完整目录ID与matrix成员，不表示未选输入已扫描。",
             "",
         ] if subset else []),
-        "> 状态：现役 corpus 事实、公共结构影响面与修复事件索引。",
+        "> 本次输入的静态声明、公共结构影响面与修复事件投影。",
         ">",
-        f"> 本页由 `script/scene_capability_census.py` 从只读 authored corpus 生成；逐样本材料事实见[静态清单]({sample_markdown_link})。完整 family、样本归属、参数/字段 profile、compact layer/pass/slot occurrence index 与守恒摘要在 {snapshot_location}。资源 identity 和详细 owner 事实仅在显式 `query --live` 时从私有 corpus 重建。系统 current capability 只以 `coverage-ledger.md` 为摘要，逐项合同/专题内等级以专项表为准，App/GPU/ROI 证据仍以 `runtime-evidence-current.md` 为准。",
+        f"> 本页由 `script/scene_capability_census.py` 从只读 authored corpus 生成；逐样本材料事实见[静态清单]({sample_markdown_link})。完整 family、样本归属、参数/字段 profile、compact layer/pass/slot occurrence index 与守恒摘要在 {snapshot_location}。资源 identity 和详细 owner 事实仅在显式 `query --live` 时从私有 corpus 重建。当前能力入口是 `docs/scene/capabilities/README.md`；本报告不判断运行支持。",
         "",
         "## 1. 当前结论",
         "",
         f"- {'本次所选子集观察' if subset else '当前真实 Scene 根发现'} **{summary['discovered_sample_count']}** 个样本，**{summary['parsed_sample_count']}/{summary['discovered_sample_count']}** 的 project、PKGV 索引和入口 JSON 可解析。",
-        f"- tracked full-matrix baseline 当前覆盖 **{summary['matrix_sample_count']}** 个历史成员，状态为 `{summary['matrix_coverage_state']}`；该成员关系不表示本轮新增或从未运行。实际播放与人工裁决见[验收台账](scene-sample-acceptance-ledger.md)，本 census 不 join 运行证据。",
+        f"- tracked full-matrix baseline 当前覆盖 **{summary['matrix_sample_count']}** 个历史成员，状态为 `{summary['matrix_coverage_state']}`；该成员关系不表示本轮新增或从未运行。本 census 不 join 运行证据或人工裁决。",
         f"- {'子集' if subset else '全量'} authored census 共保存 **{summary['occurrence_count']}** 个 typed occurrence、**{summary['family_count']}** 个公共结构 family、**{summary['parameter_profile_count']}** 个参数 profile 与 **{summary['schema_field_profile_count']}** 个 JSON 字段 profile。",
         f"- {'所选子集' if subset else '物理 corpus'} 共 **{summary['package_entry_count']}** 个 PKG entry / **{summary['package_unique_path_count']}** 个唯一路径，包体约 **{summary['package_byte_count'] / 1_000_000_000:.3f} GB**；tracked baseline 在单独的 milestone 扩容并建立运行期待前仍为 {summary['matrix_sample_count']}，期间不得称为当前完整快照门。",
         f"- package anomaly：{anomaly_summary}；重复entry继续保留在物理守恒中，不是漏扫。",
@@ -95,7 +95,7 @@ def render_markdown(
         "render-target": "[Graph/Shader](render-graph-shader-coverage.md)",
         "texture": "[格式/资源](scene-format-and-render-graph.md) / [Graph/Shader](render-graph-shader-coverage.md) / [Provider](runtime-input-property-coverage.md)",
         "particle": "[粒子](particle-component-coverage.md)",
-        "audio-declaration": "[音频声明](coverage-ledger.md)",
+        "audio-declaration": "音频声明",
         "dynamic-input": "[属性/输入](runtime-input-property-coverage.md)",
         "project-property": "[属性/输入](runtime-input-property-coverage.md)",
     }
@@ -186,7 +186,7 @@ def render_markdown(
         lines += [
             "### 4.1 公共能力映射概览",
             "",
-            "> family→capability 是 P0.2 的声明覆盖粗映射（`script/scene_capability_family_map.json` 规则驱动，多对多、可反查）；coarse profile 表示语义差异未细化，不能当能力闭合。映射与运行支持无关；每项能力的真实等级只查 [能力台账](coverage-ledger.md)与专项表。",
+            "> family→capability 是 P0.2 的声明覆盖粗映射（`script/scene_capability_family_map.json` 规则驱动，多对多、可反查）；coarse profile 表示语义差异未细化，不能当能力闭合。映射与运行支持无关；每项能力的真实等级只查 `docs/scene/capabilities/README.md`与专项表。",
             "",
             "| capability | 台账 authority 行 | family | occurrence | 样本 |",
             "|---|---|---:|---:|---:|",
@@ -195,10 +195,10 @@ def render_markdown(
         vocabulary_rows = census.get("capability_vocabulary", {})
         for capability, bucket in capability_coverage.items():
             authority = ((vocabulary_rows.get(capability) or {}).get("authority") or {})
-            anchor_doc = str(authority.get("doc", "")).replace("docs/scene/capabilities/", "")
+            anchor_doc = str(authority.get("doc", ""))
             anchor_row = str(authority.get("row", "")).replace("|", "\\|")
             lines.append(
-                f"| `{capability}` | [{anchor_row}]({anchor_doc}) | "
+                f"| `{capability}` | `{anchor_doc}` · {anchor_row} | "
                 f"{bucket['family_count']} | {bucket['occurrence_count']} | {bucket['sample_count']} |"
             )
         unknown_reasons = capability_mapping["unknown_reason_counts"]
@@ -212,7 +212,7 @@ def render_markdown(
     lines += [
         "## 5. 所选样本清单" if subset else "## 5. 全部样本清单",
         "",
-        f"逐样本的对象、Effect、粒子、occurrence 与人工材料状态见[{'子集' if subset else '全样本'}静态明细]({sample_markdown_link})。此处只导航，实际播放与视觉裁决仍归[验收台账](scene-sample-acceptance-ledger.md)。",
+        f"逐样本的对象、Effect、粒子、occurrence 与人工材料状态见[{'子集' if subset else '全样本'}静态明细]({sample_markdown_link})。实际播放与视觉裁决由指定的运行归档和人工记录判断。",
         "解析失败的目录仍在明细中保留 identity、失败原因与实际材料事实；零计数不表示已成功播放。",
     ]
     lines += [
@@ -287,13 +287,13 @@ def render_markdown(
         "python3.12 script/scene_capability_census.py generate \\",
         "  --samples-root \"$HOME/Movies/MyWallpaperX/创意工坊/Scene\" \\",
         "  --snapshot .artifacts/scene-evidence/census/scene_capability_census_snapshot.json \\",
-        "  --markdown docs/scene/capabilities/scene-corpus-capability-inventory.md \\",
-        "  --sample-markdown docs/scene/capabilities/scene-corpus-sample-inventory.md",
+        "  --markdown .artifacts/scene-reports/corpus/scene-corpus-capability-inventory.md \\",
+        "  --sample-markdown .artifacts/scene-reports/corpus/scene-corpus-sample-inventory.md",
         "python3.12 script/scene_capability_census.py verify \\",
         "  --samples-root \"$HOME/Movies/MyWallpaperX/创意工坊/Scene\" \\",
         "  --snapshot .artifacts/scene-evidence/census/scene_capability_census_snapshot.json \\",
-        "  --markdown docs/scene/capabilities/scene-corpus-capability-inventory.md \\",
-        "  --sample-markdown docs/scene/capabilities/scene-corpus-sample-inventory.md",
+        "  --markdown .artifacts/scene-reports/corpus/scene-corpus-capability-inventory.md \\",
+        "  --sample-markdown .artifacts/scene-reports/corpus/scene-corpus-sample-inventory.md",
         "python3.12 script/scene_capability_census.py query \\",
         "  --family <family-key>",
         "# 需要当前私有 corpus 的详细 resource/owner 事实时显式追加 --live",
@@ -322,7 +322,7 @@ def render_sample_markdown(
             "> 所选新增仅指本子集与matrix的差集；full-matrix状态比较完整目录ID与matrix成员，不表示未选输入已扫描。",
             "",
         ] if subset else []),
-        f"本页由{summary['discovered_sample_count']}目录的同一次静态观察投影；统计方法、family 及参数汇总归[声明统计]({overview_link})。每行只记作者声明和材料是否存在，不判断缺能力或视觉通过；播放与人工裁决归[验收台账](scene-sample-acceptance-ledger.md)。",
+        f"本页由{summary['discovered_sample_count']}目录的同一次静态观察投影；统计方法、family 及参数汇总归[声明统计]({overview_link})。每行只记作者声明和材料是否存在，不判断缺能力或视觉通过；本报告不判断播放结果或人工裁决。",
         f"{summary['parsed_sample_count']}个可解析；解析失败目录也保留，零计数不表示成功播放。末列仅记旧{summary['matrix_sample_count']}个 matrix 成员，不表示从未运行或本轮新增。作者 preview 不能代替官方金标。",
     ]
     if snapshot_sha256 is not None:

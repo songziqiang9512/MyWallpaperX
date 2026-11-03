@@ -257,6 +257,6 @@ Wallhaven随机采用已有PageRequest.seed承接首响应seed；只有后续响
 
 随后用户授权三会话串行提交并合入主仓`codex/engine-refactor-program`，不推送；协商顺序为启动专项→UI专项→新模块接入。本文前述未提交状态是该次授权前的验证收据。新模块先窄提交已验证职责，最后基于前两批新HEAD处理共享API与夹具冲突，统一缩略图加载/完成状态、Quick Look和来源菜单的原owner；新增接口扩展调查不混入这次整合。主仓用户`AGENTS.md`的新要求由首批保留统一，后两批不得以旧版本覆盖；整合后重验受影响行为及Debug构建，再记录最终交接。
 
-2026-10-27第三棒以`4e09128ce`为基准整合。仅在线菜单和Inspector测试说明两处文本冲突；保留UI统一`loadThumbnail(priority:)`与`hasCachedResult`，菜单用`includeRecoverySourcePage:false`保单一网页入口/下载状态，追加原Quick和作者导航；双方实际缓存交付与QL断言均保留。8项整合近门116.733秒通过，两位子代理及另外两会话只读复核无整合新增阻塞；两个旧UI警告的小修另经4项近门47.772秒通过。最终组合Debug成功21.6秒，仍有两处既有Scene actor诊断，尝试与停止裁决只维护于[精简方案](validation-simplification-plan.md#当前裁决与停止项)，不关闭编译检查或扩张Scene链路。本机新版独立Debug App已重建、ad-hoc严格验签并沿原隔离HOME启动；不是Release或安装版验收。
+2026-10-27第三棒以`4e09128ce`为基准整合。仅在线菜单和Inspector测试说明两处文本冲突；保留UI统一`loadThumbnail(priority:)`与`hasCachedResult`，菜单用`includeRecoverySourcePage:false`保单一网页入口/下载状态，追加原Quick和作者导航；双方实际缓存交付与QL断言均保留。8项整合近门116.733秒通过，两位子代理及另外两会话只读复核无整合新增阻塞；两个旧UI警告的小修另经4项近门47.772秒通过。最终组合Debug成功21.6秒，本机新版独立Debug App已重建、ad-hoc严格验签并沿原隔离HOME启动；不是Release或安装版验收。
 
 本轮主窗口控制规范及新实施队列统一见[UI专项M01–M16](main-window-playlists-redesign.md#ui-simplification-sixteen)：空格预览改原asset高清原字节临时文件，不入库；两键bar、返回/刷新、通用下载入口与sheet样式沿该唯一设计，本文仍拥有来源API/账号/发布边界。旧2048缩略图PNG预览的已验收结论不代表新原图链已验证。

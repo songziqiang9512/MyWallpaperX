@@ -20,9 +20,6 @@ WATERWAVES_FRAG = (
     / "MyWallpaperX/Resources/SceneStockAssets.bundle/assets/effects"
     / "waterwaves/shaders/effects/waterwaves.frag"
 )
-EFFECTS_REFERENCE = (
-    REPOSITORY_ROOT / "docs/scene/capabilities/effects-reference.md"
-)
 
 
 class AuthoredPresenceComboAdmissionTests(unittest.TestCase):
@@ -33,10 +30,6 @@ class AuthoredPresenceComboAdmissionTests(unittest.TestCase):
         self.assertIn("#else", source)
         self.assertIn("float mask = 1.0;", source)
 
-    def test_effects_reference_requires_author_mask(self) -> None:
-        text = EFFECTS_REFERENCE.read_text(encoding="utf-8")
-        self.assertIn("仅在作者 mask 内变形", text)
-        self.assertIn("作者绑定 mask 后不得再编译整图变形", text)
 
 
 if __name__ == "__main__":

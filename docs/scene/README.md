@@ -2,38 +2,29 @@
 
 <!-- document-role: navigation -->
 
-先由总设计确定职责，再看当前接线与能力证据；实施顺序只由对应路线决定。这个入口提供文档分工，不保存实现状态或重复设计正文。
+按问题选择入口，再从文档中的源码路径追到实际消费者。
 
-## 引擎如何工作
-
-| 要回答的问题 | 唯一职责与入口 |
+| 要解决的问题 | 文档 |
 |---|---|
-| 最终采用什么架构，准备、更新、渲染和释放如何连接 | [运行时总设计](architecture/runtime-architecture.md) |
-| 大量组件如何分类、组合、存储和接入执行链 | [组件职责与运行合同](capabilities/runtime-systems-reference.md) |
-| 语言、依赖、进程与跨语言边界 | [技术栈合同](../architecture/technology-stack-boundaries.md)；[Scene 进程与 IPC 合同](architecture/scene-runtime-daemon-contract.md) |
-| 当前代码由谁装配、调用和销毁 | [实际代码地图](architecture/runtime-as-built-map.md)；启动细节查[启动接线](architecture/scene-startup-pipeline.md) |
-| 当前实现到哪里、明确缺少什么 | [能力索引](capabilities/README.md)与[能力台账](capabilities/coverage-ledger.md#current-overview)；纹理绑定语义查[sampler 合同](capabilities/sampler-alias-precedence.md) |
-| 实际验证了什么、证据适用于什么范围 | [运行证据索引](capabilities/runtime-evidence-current.md#current-snapshot) |
+| 进程、加载、逐帧执行、组件所有权与退出 | [当前运行架构](architecture/runtime-architecture.md) |
+| 组件分类、状态、更新顺序与资源寿命 | [组件职责](capabilities/runtime-systems-reference.md) |
+| 功能支持和已知限制 | [能力总览](capabilities/README.md) |
+| 最近运行结果及其适用范围 | [运行证据](capabilities/runtime-evidence-current.md) |
+| 当前待解决的问题 | [问题队列](roadmap/scene-open-breakpoint-queue.md) |
+| 修改、验证和文档维护 | [开发工作流](development/development-workflow.md) |
 
-总设计规定目标，代码地图说明事实；二者有差距时按总设计记录重构要求，不能用旧代码或旧测试反向定义目标。
+## 架构专题
 
-## 现在做什么
+- [启动、准备与缓存](architecture/scene-launch-responsiveness-contract.md)
+- [daemon 与 IPC](architecture/scene-runtime-daemon-contract.md)
+- [资源分配与额度](architecture/scene-resource-admission.md)
+- [源码依赖边界](architecture/scene-dependency-boundaries.md)
+- [GPU 计时与截图](architecture/gpu-stage-timestamp-diagnostics.md)
 
-| 任务 | 现役路线 |
-|---|---|
-| 工程结构、生命周期与成本精简 | [重构设计](roadmap/engine-refactor-program.md)，服从运行时总设计 |
-| 整体 CPU/GPU、内存、启动与能耗 | [性能工作卡](roadmap/performance-convergence-card.md)，维护执行顺序 |
-| 属性面板响应、定义与编辑更新 | [属性工作卡](roadmap/properties-panel-card.md)，维护执行顺序 |
-| 作者能力、可见正确性与全样本验收 | [兼容 P 路线](roadmap/scene-compatibility-roadmap.md) |
-| 具体反馈与公共首断点 | [唯一修复队列](roadmap/scene-open-breakpoint-queue.md)，是兼容路线的派生表 |
-| 跨组件专项设计 | [设计索引](roadmap/batch2/batch2-design-index.md)，包含已实施和未闭范围；批准不代表验收 |
+## 开发工具与研究
 
-## 去哪里改代码
-
-从[实际代码地图](architecture/runtime-as-built-map.md)定位当前 owner，按[组件合同](capabilities/runtime-systems-reference.md)判断应修改的数据与执行职责；跨 App 边界查[仓库源码地图](../architecture/repository-map.md)。实现和验证使用[Scene 开发工作流](development/development-workflow.md)，不为每个组件再建立一套流程。
-
-## 目录怎么读、怎么维护
-
-`architecture/` 维护总体与跨组件合同及代码事实图，`capabilities/` 按能力维护职责、现况和语义，`roadmap/` 维护顺序与专项设计，`development/` 维护开发方法和参考来源，`history/` 保存固定过程与证据。专题设计细节从总设计或能力索引进入，不组成第二套顶层架构。
-
-[来源索引](development/source-index.md)区分官方行为、静态观察、作者数据和第三方参考；[研究工作流](development/official-client-behavior-research-workflow.md)说明如何补足未定语义。[历史索引](history/README.md)仅供追溯，不决定当前能力或下一任务。同一事实只由一个 owner 维护，入口只链接。
+- [性能测量](roadmap/performance-convergence-card.md)
+- [官方行为研究](development/official-client-behavior-research-workflow.md)
+- [资料来源](development/source-index.md)
+- [仓库工作流](../development/repository-workflow.md)
+- [技术栈与平台](../architecture/technology-stack-boundaries.md)

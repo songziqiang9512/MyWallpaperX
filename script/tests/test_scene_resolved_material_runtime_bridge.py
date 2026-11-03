@@ -469,7 +469,7 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         self,
     ) -> None:
         """Static-source draw-only degradation (docs/scene/capabilities/
-        static-source-draw-only-degradation.md §3.4): the unpublished draw
+        effect-execution-coverage.md#fallback §3.4): the unpublished draw
         rescue applies only when the passthrough plan's sole failing guard is
         the static-source graph role, with the request-side texture atom
         resolvable; every other guard and the flag-off behavior stay verbatim.

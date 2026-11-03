@@ -4,7 +4,7 @@
 
 > 状态：现役长期规范
 >
-> 最后复核：2026-09-15（Apple Silicon 平台边界）；2026-10-16（Steam 获取职责与合同路由）
+> 最后复核：2026-09-15（Apple Silicon 平台边界）；2026-10-16（Steam 获取职责与合同路由）；2026-11-03（Scene技术落点）
 >
 > 适用范围：MyWallpaperX 主 App、播放进程、Web / Scene runtime、SceneScript、shader 编译、测试与开发工具
 
@@ -15,8 +15,8 @@
 1. [文档入口](../README.md)定义事实角色和冲突裁决，[`AGENTS.md`](../../AGENTS.md)约束实现、验证、提交和工作区安全；
 2. 本文是技术栈职责、跨语言边界和依赖准入的唯一长期入口；
 3. [Scene 兼容运行时架构](../scene/architecture/runtime-architecture.md)规定官方/参考证据如何转化为项目执行结构；
-4. [Scene 兼容执行路线](../scene/roadmap/scene-compatibility-roadmap.md)决定当前迁移顺序和停止项；
-5. [Scene 语义手册](../scene/capabilities/README.md)和专项覆盖表记录语义合同与当前能力，[能力依赖图](../scene/architecture/capability-dependency-map.md)只记录前置关系；
+4. [Scene问题队列](../scene/roadmap/scene-open-breakpoint-queue.md)记录当前缺口和待验证事项；
+5. [Scene 语义手册](../scene/capabilities/README.md)和专项覆盖表记录语义合同与当前能力；
 6. [运行证据索引](../scene/capabilities/runtime-evidence-current.md)决定当前构建、签名和真实运行证据；
 7. [Web 现役状态](../web/current-state.md)决定 Web 当前源码所有权、证据边界和待验收项。
 
@@ -30,21 +30,11 @@
 
 ## 1. 产品基线与迁移目标
 
-**产品平台：macOS 26 及以上，仅支持 Apple Silicon（arm64），不承担 Intel／Rosetta 产品兼容。** 自有 App、helper、compiler/VM worker 的发行构建统一 arm64；第三方嵌套二进制必须具备可原生执行的 arm64 slice，不为减包盲目修改供应商签名。覆盖 M1 及更新目标设备，具体 Metal 能力按 device/pipeline 查询，不把最新芯片能力作为全机型前提。构建与发布配置保持同一最低系统声明，系统版本调整是独立验证事项。优化边界见[顶层设计](../scene/roadmap/engine-refactor-program.md#apple-silicon)，设备与性能验收归[性能卡](../scene/roadmap/performance-convergence-card.md)。
+**产品平台：macOS 26 及以上，仅支持 Apple Silicon（arm64），不承担 Intel／Rosetta 产品兼容。** 自有 App、helper、compiler/VM worker 的发行构建统一 arm64；第三方嵌套二进制必须具备可原生执行的 arm64 slice，不为减包盲目修改供应商签名。覆盖 M1 及更新目标设备，具体 Metal 能力按 device/pipeline 查询，不把最新芯片能力作为全机型前提。构建与发布配置保持同一最低系统声明，系统版本调整是独立验证事项。优化边界见[顶层设计](../scene/architecture/runtime-architecture.md)，设备与性能验收归[性能卡](../scene/roadmap/performance-convergence-card.md)。
 
-产品基线是 Swift-first 的原生 macOS 工程：AppKit 承担 App 生命周期、主界面、窗口和桌面宿主，SwiftUI 只作为 [AppKit 迁移计划](appkit-migration.md)列出的受控残留；Swift 承担产品模型、播放生命周期与 Scene host/runtime 所有权，Metal 承担 Scene GPU 执行，Python 承担测试、矩阵和开发自动化。通用 JavaScript VM、shader compiler 或隔离 service 当前是否已取得产品执行权，不在长期合同中保存移动快照；只由当前源码、对应专项覆盖表和运行证据索引裁决。
+产品基线是 Swift-first 的原生 macOS 工程：AppKit 承担 App 生命周期、主界面、窗口和桌面宿主，SwiftUI 只作为 [AppKit 迁移计划](appkit-migration.md)列出的受控残留；Swift 承担产品模型、播放生命周期与 Scene host/runtime 所有权，Metal 承担 Scene GPU 执行，Python 承担测试、矩阵和开发自动化。Scene使用QuickJS-NG执行脚本、包内shader编译工具生成MSL、同二进制daemon承载播放；具体支持范围由能力表和运行证据说明。
 
-Scene 的迁移目标已经确定：保留 Swift/Metal 产品底座，把作者内容交给少数通用执行单元处理，而不是继续为已知 effect、脚本表达式或样本建立越来越多的 Swift 专用准入路径。迁移按能够让真实内容立即出画面的纵向切片推进，不先横向建完所有平台。核心目标是：
-
-- 一个 loss-preserving Scene IR 和一套 identity/order/lifecycle 合同；
-- 一个通用 shader/material compiler 路径；
-- 一个通用 RenderGraph compiler 和 GraphExecutor；
-- 一个真实 ECMAScript VM 与 typed host bridge；
-- 一个数据驱动的粒子组件解释器；
-- 对安全/状态完整性 hard fail，对局部视觉不兼容 fail soft；
-- 普通合法作者内容默认获得编译/执行尝试，而不是先进入名称准入表；
-- 新的合法未见内容能够因公共 primitive 自动受益；
-- 稳态帧率、首帧、内存、能耗和故障恢复分别测量，不以代码行数或单样本结果判断架构优劣。
+Scene执行链为 `authored data → prepared Program/graph/resources → typed frame update → Metal encode → unique compositor/output`。Swift管理作者identity、顺序、资源与生命周期；QuickJS-NG执行脚本语言，glslang/SPIRV-Cross处理通用shader编译，数据驱动粒子解释器推进模拟，Metal完成编码和合成。当前能力边界查[Scene能力](../scene/capabilities/README.md)，职责及源码入口查[运行架构](../scene/architecture/runtime-architecture.md)。
 
 ## 2. 长期技术职责
 
@@ -104,7 +94,7 @@ CPU 热点先用 Instruments、Metal System Trace 或同等可复现证据定位
 
 XPC 或 bundled helper 只有在需要隔离不可信代码、编译器崩溃、权限或可重启资源时才引入。允许跨进程的消息是场景启动/停止、属性或输入批次、编译请求、缓存结果、surface/resource handle 和 diagnostics；禁止把 draw、pass、uniform、JS property access 或每帧小对象调用拆成 XPC 往返。[Apple XPC](https://developer.apple.com/documentation/xpc)
 
-第三方 shader compiler 的首个集成形态必须是独立、可终止的 subprocess harness，用于固定输入、预算、diagnostics、reflection 和产物验证，不持有产品执行权。进入产品路径前必须明确二选一：以故障注入证明 in-process compiler 的 crash、hang、timeout、OOM、取消和损坏结果不会杀死 App 或污染 cache/Program；或使用可重启的 bundled compiler worker。完整 XPC/service 平台不阻塞开发 spike，但未完成这项选择不得让不可信作者源码在主 App 内取得产品编译权。
+作者shader由包内固定的glslang/SPIRV-Cross工具在可终止子进程中编译。Swift准备owner持有输入、超时/输出预算、取消、产物接纳及失败归因；作者内容不能选择可执行文件或任意启动参数。
 
 Video、Web、Scene 采用一致的控制面/播放面隔离：主 App 管用户意图、设置、唯一共享采集与异步会话控制；独立后台 AppKit 播放进程管桌面窗口、时钟、输入和渲染，不依赖主界面逐帧驱动。高频音频经后台有界单向投递，控制和目标身份变化仍由各会话 owner 串行裁决；新输出就绪后才退休旧输出。普通 XPC service 不承担桌面窗口或 WindowServer UI 所有权，窗口 renderer 使用 App 包内的独立 AppKit 入口。[Designing Daemons and Services](https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/DesigningDaemons.html)
 
@@ -125,90 +115,34 @@ Video、Web、Scene 采用一致的控制面/播放面隔离：主 App 管用户
 
 路由、fallback reason、identity 和计数必须进入 diagnostics/metrics。进入 `generic-only` 前必须有纵向正证、局部失败反例、新组合/未见 fixture、fallback 审计和原子回滚演练；旧 owner 只有在产品引用撤销并同步权威文档后才可删除。长期双执行或长期 `disable-generic` 都是未完成迁移。
 
-## 4. 目标运行单元
+## 4. Scene运行单元
 
 ```text
-MyWallpaperX.app                                  Swift + AppKit，用户意图与系统采集
-  -> 同二进制 Scene daemon                       独立 AppKit 播放进程
-     -> Scene Session / execution domain          Swift + Metal
-       -> Scene IR / state / resources            Swift
-       -> material + RenderGraph contracts        Swift
-       -> SceneScript domain                      ECMAScript VM + Swift host bridge
-       -> shader compiler                         C/C++ backend + stable bridge
-       -> GraphExecutor / compositor              Swift + Metal / MSL
-  -> compiler subprocess harness（开发隔离项）    无产品执行权、可终止
-  -> compiler worker（条件隔离项）                in-process fault proof 不成立时采用
-  -> 每表面呈现                                  由现役 daemon 持有，不重复引入 helper
+MyWallpaperX.app：用户意图、设置与系统采集
+  → 同二进制Scene daemon：Host / Session / Surface
+    → Swift：作者数据、准备产物、typed状态、资源与生命周期
+    → QuickJS-NG + typed host bridge：SceneScript
+    → glslang → SPIR-V → SPIRV-Cross → MSL：shader准备
+    → Swift + Metal：GraphExecutor、合成与每屏呈现
 ```
 
-compiler 在 scene load 或 variant 变化时工作，不持有 drawable、长期 GPU 资源或真实 Workshop 根目录权限。开发 harness 先稳定输入/输出协议；编译执行的隔离形态与 Scene 播放进程分开决策，按上一节的实际故障边界选择。
+每个Session持有同一QuickJS domain和场景clock；Surface持有本屏模拟实例、冻结帧与图形资源。准备、控制、脚本和draw调用在其实际进程内完成；IPC不承载逐draw、uniform或JS属性调用。当前接线见[运行架构](../scene/architecture/runtime-architecture.md)及[daemon合同](../scene/architecture/scene-runtime-daemon-contract.md)。
 
-每个 Scene Session 独占一个 QuickJS domain；typed consumer 共享该 domain 与一次 simulation update，各 surface 消费已提交快照并保留自身投影、target、history 和提交资源。依赖屏幕输入的必要 CPU 状态由 Session 按实际身份组织，不建立第二 VM 或时钟。产品已采用同二进制独立 AppKit Scene daemon，控制协议只传会话级数据，draw、pass 与 VM 调用保持 daemon 内；不重新建设待评估的 renderer helper。
+## 5. SceneScript
 
-## 5. SceneScript 路线
+QuickJS-NG core和本地维护补丁位于`Systems/Script/QuickJSNG`，固定上游与许可证由其README和LICENSE记录。Swift bridge负责host API、typed mutation、事件/计时、属性优先级和销毁；JS heap与typed提交有不同的撤回边界。运行域不提供DOM、Node、文件、网络或任意native module，执行、heap、stack和任务预算由现有runtime管理。
 
-通用 SceneScript 不继续沿“在 Swift 中逐步补成完整 JavaScript 解释器”的路线。首选上游 QuickJS-NG，因为其 C API 可控制 runtime heap、stack 和 interrupt budget，适合先闭合最小 per-scene VM + typed mutation 纵向链。[QuickJS-NG C API](https://quickjs-ng.github.io/quickjs/developer-guide/intro/)
+具体API、clone、shared/localStorage、暂停及失败范围查[SceneScript能力](../scene/capabilities/scenescript-api-coverage.md)。VM可运行不表示全部作者API已实现。
 
-JavaScriptCore 只保留为系统框架对照；除非能够证明项目所需的执行时间、内存、可靠终止和 teardown 合同，否则不作为首选实现。固定 Wallpaper Engine 2.8.42 Windows 客户端的静态观察识别到 V8 runtime，这只支持“应使用真实 ECMAScript VM”的方向，不是官方公开或跨版本保证，也不代表项目应承担完整 V8 的体积和构建成本。
+## 6. Shader编译
 
-VM 执行 ECMAScript；Swift host bridge 负责 source/binding/owner/target IR、global/per-surface phase、官方 host API/module allowlist、typed handle/generation、mutation buffer、event/timer/effective time、pause/seek、作者值 fallback 和 teardown。
+包内`SceneShaderCompilerTools`提供glslang与SPIRV-Cross，来源和许可证由`SceneShaderCompilerLicenses.bundle`中的manifest记录。Swift负责作者预处理、source provenance、variant/资源需求、host uniform、Program ABI和生命周期；通用后端生成MSL及reflection。现有Swift frontend仍为有界fallback，按typed route决定是否使用，不能让两条路径各自发布输出。
 
-VM 首次进入受控开发产品路径前至少满足：
+编译与PSO准备发生在加载或实际失效边界；普通帧消费准备产物。编译失败局限到受影响的pass/effect，资源/提交身份错误仍拒绝对应无效单元。执行范围查[材质与shader能力](../scene/capabilities/render-graph-shader-coverage.md)，缓存与准备查[启动合同](../scene/architecture/scene-launch-responsiveness-contract.md)。
 
-1. 项目 fixture 覆盖代表语法、module、数值、host API 和 lifecycle 正反例；
-2. 默认无 DOM、Node、WebWorker、文件、网络和任意 native module；
-3. heap、stack、单次执行、每帧总预算和 job/timer 数量有可测上限；
-4. scene/session domain、handle generation、reload 和 teardown 相互隔离；
-5. 无限循环、异常、OOM、stale handle 和销毁竞态不会杀死主 App；
-6. 跨 VM/Swift 调用按帧批量化，并记录最小 CPU/内存基线；
-7. 上游、固定版本、许可证和可重复构建已登记。
+## 7. 能力工作入口
 
-不要求完整 API、发行架构核验、签名或公证后才开始开发验证；这些属于 release gate。未实现 host API 必须可诊断，并只回退受影响 binding/script domain。Hello World 或单个样本成功只证明集成链可运行，不证明 SceneScript 完整兼容。
-
-## 6. Shader compiler 路线
-
-### 6.1 所有权转向
-
-迁移期间仍保留的 Swift authored-shader frontend/emitter 只可作为已验证子集的 bounded fallback 或差分 oracle，不是永久扩张方向；它是否仍持有产品 route 只查专项覆盖表。Swift 继续拥有 source provenance、author metadata/variant preparation、resource identity、host uniform、Program ABI、render state 校验、预算和 lifecycle；通用 compiler backend 负责语言解析、类型、stage link、代码生成和 reflection。
-
-### 6.2 首选后端与对照
-
-| 路径 | 合理用途 | 边界 |
-|---|---|---|
-| 迁移期 Swift frontend/emitter | 已验证子集、差分 oracle、有界 fallback | 不再扩张为完整通用语言编译器；产品 route 以专项表为准 |
-| Slang | HLSL-like corpus、MSL 与 reflection 评估 | Metal target 状态和 dialect 兼容需实测，[Slang](https://github.com/shader-slang/slang) |
-| DXC -> Metal Shader Converter | 现代 HLSL 到 DXIL/metallib 路径 | 不自动兼容历史 dialect 或 SM3 行为，[DXC](https://github.com/microsoft/DirectXShaderCompiler)、[Metal Shader Converter](https://developer.apple.com/metal/shader-converter/) |
-| **glslang -> SPIR-V -> SPIRV-Cross** | **选定 backend：WE GLSL-like normalization 后生成 MSL/reflection** | 从独立上游固定版本集成；不得复制 Mirage vendor、bridge 或 shader rewrite，[glslang](https://github.com/KhronosGroup/glslang)、[SPIRV-Cross](https://github.com/KhronosGroup/SPIRV-Cross) |
-
-第一轮只建设首选后端。只有真实 corpus spike 证明 dialect、MSL 或 runtime 约束无法以小型 normalization 解决，才带着失败分类评估 Slang 或 DXC；不并行建设三套 compiler。最终保持“Swift compatibility/host layer + 一个 production backend”。
-
-### 6.3 取得产品执行权的门
-
-backend 先在独立 subprocess harness 中通过项目 fixture 和只读隔离 corpus 的 source/dialect 分类、parse/type/stage link、reflection/ABI、MSL/library/pipeline preflight以及输入大小/编译时间预算。完成 in-process fault proof 或 bundled worker 的显式选择后，才可在受控 route state 下取得 ordinary representative content 的开发产品执行权；不要求先为所有未知 state/slot/color 建立逐项 exact admission，也不等待完整发行审计。
-
-产品验证必须证明：
-
-- 至少一个真实 ordinary effect 实际执行；checkpoint 再加入未见内容或新组合，证明不依赖名称视觉特判；
-- 编译结果经 Swift 校验后进入统一 Program 和 GraphExecutor；
-- compile/pipeline 失败只降级相关 pass/effect，安全与状态错误仍 hard fail；
-- 代表隔离样本具备 GPU、publication、terminal compositor 和 next-frame 证据；
-- fallback 有诊断和显式路由，不是静默双 owner；
-- 稳定替代后再撤销对应 Swift 专用产品 owner。
-
-外部 compiler 接受源码只证明 frontend 能力，不证明运行时语义或视觉等价。
-
-## 7. 迁移顺序
-
-具体纵向切片、快速回滚和退役条件以[Scene 兼容执行路线](../scene/roadmap/scene-compatibility-roadmap.md)为准：
-
-1. V0 普通 authored material/shader 从声明到 compositor；
-2. V1 多 pass、FBO、command、history 和 cross-layer graph；
-3. V2 真实 SceneScript VM 与 typed host bridge；
-4. V3 particle component interpreter。
-
-V4 不是排在 V3 之后的阶段，而是贯穿 V0–V3 的动态输入、provider、text、audio、media 和交互横切轨；每项输入各自闭合 typed producer、frame-commit channel、consumer、可见/事件结果、teardown 和 owner 退役。V5 也不是单体平台阶段；Puppet、2D lighting/HDR、3D、RGB、offline、color/multi-display/device recovery 与 performance/release 是独立 epics，每项单独定义输入、输出、门、回滚和退役条件，不互相等待或外推完成。
-
-V0 必须先取得真实可见结果；V1–V3 的独立研究和 fixture 可以并行，但不以完成整个子系统阻塞上一条纵向链。迁移按三层分别声明：`slice-visible` 证明一个真实纵向结果；`owner-migration` 再证明 `generic-only`、fallback 审计、回滚演练和旧 owner 撤权；`parity-release` 最后证明 bounded 官方黑盒容差、性能/长稳、依赖/许可证与签名发布。受控 route state、差分 oracle 和迁移期 fallback 允许存在，但前一层不能冒充后一层，发行门也不能倒灌阻塞首个普通 effect 或 VM property 结果。
+当前未实现与待验证事项由[问题队列](../scene/roadmap/scene-open-breakpoint-queue.md)维护；实现和验收按[Scene开发工作流](../scene/development/development-workflow.md)选择真实消费者及最近门。
 
 ## 8. 性能与效率合同
 

@@ -29,6 +29,6 @@
 
 - 真实用户媒体和 `~/Movies/MyWallpaperX/创意工坊/Scene` 只读；测试副本、临时 HOME、App 和构建产物放隔离目录。
 - 每轮结束清理本轮已停止使用的 DerivedData、staged App、临时样本、缓存和重试输出；连续迭代可留一份缓存并说明路径。最终日志、必要截图和失败复现按[产物保留规则](.agents/skills/mywallpaperx-maintainer/references/artifact-governance.md)限量保留。未知归属、运行中目录与唯一未解决证据先保留，不按整个根目录清理。
-- 文档按引擎专题组织；`docs/scene/` 内按路线、架构、能力、开发方法和历史分类。同一事实只保留一个权威，代码变更同步对应合同/状态及引用，已完成过程归档；修订规则优先替换或合并旧条款。正式工具进 `script/`，测试进 `script/tests/`，本机产物进忽略的 `.artifacts/` 或任务临时目录。
+- 文档按引擎专题组织；`docs/scene/` 只保当前代码职责、能力、可核对运行事实、未解决问题和必要开发方法。同一事实只保留一个权威，代码变更同步对应正文及引用；过时结论、已完成过程和无独立价值的文档直接删除，有用约束并入对应主题。历史从Git查询，不留迁移说明或重定向占位。修订规则优先替换或合并旧条款。正式工具进 `script/`，测试进 `script/tests/`，本机产物进忽略的 `.artifacts/` 或任务临时目录。
 - 官方行为研究遵守[研究工作流](docs/scene/development/official-client-behavior-research-workflow.md)。可阅读作者脚本、shader、参考源码及反编译资料研究行为；阅读本身不要求停工、更换 Agent 或隔离上下文。按本项目架构独立实现，不直接复制、照译或移植参考实现，以行为与实际画面验证结果。
 - 收尾说明实际改动、验证及未覆盖范围、产物去留和 Git 状态。未经授权不提交、不推送；明确要求发布时按[发布流程](docs/release/release-signing.md)完成端到端交付。

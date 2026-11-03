@@ -419,7 +419,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             (scene / "Stable.swift").write_text(source)
             path = root / "script/scene_source_layout.json"
             path.parent.mkdir()
-            design_doc = "docs/scene/roadmap/engine-refactor-program.md"
+            design_doc = "docs/scene/architecture/runtime-architecture.md"
             (path.parent / "design_gated_areas.json").write_text(json.dumps({"areas": [
                 {"status": "approved", "designDoc": design_doc}]}))
             prior_rule = {"id": "main-pass-writers", "role": "inventory",
@@ -471,7 +471,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             ("main-pass-writers", r"(?:\bmainPass|\bframe\.mainPass)\.encoder\(\)",
              "mainPass.encoder()\nframe.mainPass.encoder()"),
         )
-        approved = {"docs/scene/roadmap/engine-refactor-program.md"}
+        approved = {"docs/scene/architecture/runtime-architecture.md"}
         for rule_id, pattern, call in cases:
             with self.subTest(rule=rule_id):
                 old = {"id": rule_id, "role": "inventory", "pattern": pattern,
