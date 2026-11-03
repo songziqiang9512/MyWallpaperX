@@ -195,6 +195,12 @@ enum Harness {
             "passthrough": probe("passthrough", passthrough: true),
             "model-member": probe("model", childKind: "model", transformParents: [42]),
             "particle-member": probe("particle", childKind: "particle", transformParents: [42, 43]),
+            "renamed-particle-hidden-effect": probe("particle-hidden", ids: [901, 218, 307],
+                rootEffects: [.init(id: 91, file: "effects/renamed/mask.json", visible: false)],
+                childKind: "particle", reverseMembers: true, transformParents: [403, 402]),
+            "renamed-particle-visible-effect": probe("particle-visible", ids: [901, 218, 307],
+                rootEffects: [.init(id: 630, file: "effects/other/filter.json", visible: true)],
+                childKind: "particle", reverseMembers: true, transformParents: [403, 402]),
             "spot-light-member": probe("spot-light", childKind: "spotLight"),
             "external-dependency": probe("dependent", dependencies: [901]),
             "nested-background": probe("nested", rootEffects: [.init(visible: false)],
@@ -429,6 +435,9 @@ class SceneUtilityLayerTests(unittest.TestCase):
             ("directional-light-member", 20, [21], True, True),
             ("quad-member", 20, [21], True, True),
             ("passthrough", 20, [21], True, True),
+            ("particle-member", 20, [42, 43, 21], True, True),
+            ("renamed-particle-hidden-effect", 901, [403, 402, 307, 218], True, True),
+            ("renamed-particle-visible-effect", 901, [403, 402, 307, 218], True, True),
         ):
             with self.subTest(route=name):
                 self.assertEqual(routes[name], {
@@ -445,7 +454,7 @@ class SceneUtilityLayerTests(unittest.TestCase):
         self.assertEqual(routes["nested-background"], {
             "root": 20, "members": [21, 1020], "isolated": True, "local": False,
             "copyBackground": True, "authoredCopyOmitted": True})
-        for name in ("model-member", "particle-member", "spot-light-member",
+        for name in ("model-member", "spot-light-member",
                      "external-dependency"):
             with self.subTest(route=name):
                 self.assertEqual(routes[name], {"failure": "utility-composition-subtree-shape"})

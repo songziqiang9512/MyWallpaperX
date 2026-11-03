@@ -117,7 +117,7 @@ nonisolated enum SceneUtilityLayerSourceRoute {
             } else {
                 // These draw paths do not yet consume the group's local raster map.
                 switch child.contentKind {
-                case "model", "spotLight", "particle":
+                case "model", "spotLight":
                     return .failure(.compositionSubtreeShape)
                 default:
                     break

@@ -43,6 +43,7 @@ extension SceneParticleMetalPipeline {
             return nil
         }
         var clearsDepth = usesDepth
+        let raster = mainPass.rasterClipRows
 #if DEBUG
         var observationBatchOrdinal = 0
 #endif
@@ -92,7 +93,7 @@ extension SceneParticleMetalPipeline {
 #else
             let observeBindings: ((MTLTexture, SceneParticleRefractionBinding.NormalArguments?, MTLTexture?, Int) -> Void)? = nil
 #endif
-            let uniforms = cameraFrame.particleUniforms(
+            var uniforms = cameraFrame.particleUniforms(
                 layerModel: model,
                 orientation: batch.orientation,
                 orientationAxis: batch.orientationAxis,
@@ -103,6 +104,8 @@ extension SceneParticleMetalPipeline {
                 viewportSize: viewportSize,
                 sizeIsWorldSpace: batch.sizeIsWorldSpace
             )
+            uniforms.rasterClipX = raster.x
+            uniforms.rasterClipY = raster.y
             let didEncode: Bool
             if let refraction = batch.refraction {
                 let captured = mainPass.withReadableTarget { target, buffer in
@@ -110,7 +113,7 @@ extension SceneParticleMetalPipeline {
 #if DEBUG
                     if let background, let trace = mainPass.compositionTrace, trace.isCompositionSelected {
                         trace.recordComposition(.init(kind: "particle-background-copy", layerID: batch.layerID,
-                            source: .init(target, role: "main-color"), target: .init(background, role: "particle-background"),
+                            source: mainPass.compositionTarget, target: .init(background, role: "particle-background"),
                             access: "copy-source", outcome: "encoded"))
                     }
 #endif

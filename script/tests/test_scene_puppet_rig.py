@@ -46,6 +46,7 @@ enum Harness {
                 entry["boneCount"] = rig.bones.count
                 entry["boneNames"] = rig.bones.map(\.name)
                 entry["parents"] = rig.bones.map(\.parentIndex)
+                entry["bindMatrices"] = rig.bones.map { $0.bindLocalMatrixColumnMajor.map(Double.init) }
                 entry["bindTranslations"] = rig.bones.map {
                     [
                         Double($0.bindLocalMatrixColumnMajor[12]),
@@ -53,6 +54,7 @@ enum Harness {
                     ]
                 }
                 if let reference = rig.referenceLocalMatricesColumnMajor {
+                    entry["referenceMatrices"] = reference.map { $0.map(Double.init) }
                     entry["referenceTranslations"] = reference.map { [Double($0[12]), Double($0[13])] }
                 } else {
                     entry["referenceTranslations"] = NSNull()
@@ -202,6 +204,20 @@ class SceneMdlPuppetRigReaderTests(unittest.TestCase):
         reference_matrices = [matrix(20, 30), matrix(7, 9)]
         reference_tail = b"\0\0\1" + struct.pack("<32f", *reference_matrices[0], *reference_matrices[1])
         legacy = dict(magic=b"MDLV0017", skeleton_marker=b"MDLS0002\0", animation_marker=b"MDLA0004\0")
+        cls.affine_matrices = [[1.25, .5, -.25, 0, -.75, 2.5, .125, 0,
+                                .375, -.5, 3, 0, 17.25, -9.5, 4.75, 1], matrix(10, 20)]
+        noisy_matrices = [values.copy() for values in cls.affine_matrices]
+        for values in noisy_matrices:
+            values[3], values[7], values[11], values[15] = 1e-4, -1e-4, 2**-15, 1 - 2**-15
+        cls.fixtures["affine-noise-bind.mdl"] = build_rig_mdl(bind_matrices=noisy_matrices)
+        cls.fixtures["affine-noise-reference.mdl"] = build_rig_mdl(**legacy,
+            skeleton_tail=b"\0\0\1" + struct.pack("<32f", *noisy_matrices[0], *noisy_matrices[1]))
+        for component, value in ((3, .0002), (7, -.0002), (11, .0002), (15, 1.0002)):
+            outside = [values.copy() for values in cls.affine_matrices]
+            outside[0][component] = value
+            cls.fixtures[f"nonaffine-bind-{component}.mdl"] = build_rig_mdl(bind_matrices=outside)
+            cls.fixtures[f"nonaffine-reference-{component}.mdl"] = build_rig_mdl(**legacy,
+                skeleton_tail=b"\0\0\1" + struct.pack("<32f", *outside[0], *outside[1]))
         for version, stride, animation_marker in ((b"MDLV0014", 52, b"\0"),
                                                   (b"MDLV0016", 52, b"MDLA0003\0"),
                                                   (b"MDLV0017", 80, b"MDLA0004\0"),
@@ -292,6 +308,22 @@ class SceneMdlPuppetRigReaderTests(unittest.TestCase):
 
     def test_non_finite_bind_matrix_fails_closed(self):
         self.assertIn("invalid bind matrix", self.results["bad-matrix.mdl"]["error"])
+
+    def test_accepted_bind_and_reference_noise_becomes_exactly_affine_without_changing_other_components(self):
+        for name, field in (("affine-noise-bind.mdl", "bindMatrices"),
+                            ("affine-noise-reference.mdl", "referenceMatrices")):
+            with self.subTest(name=name):
+                row = self.results[name]
+                self.assertTrue(row["ok"], row)
+                self.assertEqual(row[field], self.affine_matrices)
+
+    def test_each_homogeneous_component_outside_affine_tolerance_remains_rejected(self):
+        for component in (3, 7, 11, 15):
+            for kind in ("bind", "reference"):
+                with self.subTest(kind=kind, component=component):
+                    row = self.results[f"nonaffine-{kind}-{component}.mdl"]
+                    self.assertFalse(row["ok"], row)
+                    self.assertIn(f"invalid {kind} matrix", row["error"])
 
     def test_weights_must_sum_to_one(self):
         self.assertIn("invalid puppet vertex weights", self.results["bad-weight-sum.mdl"]["error"])

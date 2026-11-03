@@ -245,6 +245,17 @@ enum CompositionSourceProbe {
         let command = queue.makeCommandBuffer()!, main = mainTexture()
         let parent = SceneMainPassEncoder(commandBuffer: command, target: main,
             clearColor: MTLClearColor(red: 0, green: 0, blue: 1, alpha: 1), clearEnabled: true)
+        let parentRows = parent.rasterClipRows
+        facts["mainPassRasterRowsIdentity"] = parentRows.x == SIMD4(1,0,0,0)
+            && parentRows.y == SIMD4(0,1,0,0)
+        let homogeneousMap = simd_float4x4(columns: (
+            SIMD4(0,1,0,0), SIMD4(-3,0.5,0,0),
+            SIMD4(0.25,-0.75,1,0), SIMD4(0.5,-0.25,0,2)))
+        let homogeneousPass = SceneMainPassEncoder(commandBuffer: command, target: main,
+            clearColor: MTLClearColor(), clearEnabled: false, worldClipToTargetClip: homogeneousMap)
+        let homogeneousRows = homogeneousPass.rasterClipRows
+        facts["homogeneousRasterRowsNormalizeXY"] = homogeneousRows.x == SIMD4(0,-1.5,0.125,0.25)
+            && homogeneousRows.y == SIMD4(0.5,0.25,-0.375,-0.125)
         let groups = SceneCompositionGroupFrameRuntime(parentPass: parent, commandBuffer: command,
             offscreenTexturePool: pool, memberRootsByLayerID: selected.memberRootsByLayerID,
             membersByRootID: selected.membersByRootID, viewportSize: CGSize(width: 64, height: 48),
@@ -266,6 +277,16 @@ enum CompositionSourceProbe {
         facts["passAndPreflightMapAgree"] = (0..<4).allSatisfy {
             simd_length(mapped[$0] - innerPass.rasterModelViewProjection(leafMVP)[$0]) < 0.00001
         } && mapped.columns.3.z == 0
+        let innerRows = innerPass.rasterClipRows, outerRows = outerPass.rasterClipRows
+        facts["nearestGroupOwnsRasterRows"] = groups.renderPass(forLayerID: leaf) === innerPass
+            && (innerRows.x != outerRows.x || innerRows.y != outerRows.y)
+        facts["rasterRowsMatchFullRasterXY"] = [SIMD4<Float>(0,0,0,1),
+            SIMD4(-0.5,0.25,9,1), SIMD4(0.2,-0.3,-7,2)].allSatisfy { point in
+                let cameraClip = leafMVP * point, fullRaster = mapped * point
+                let rowXY = SIMD2(simd_dot(innerRows.x, cameraClip), simd_dot(innerRows.y, cameraClip))
+                    / cameraClip.w
+                return simd_length(rowXY - SIMD2(fullRaster.x, fullRaster.y) / fullRaster.w) < 0.00001
+            }
         let pixels = device.makeBuffer(length: 256 * 60, options: .storageModeShared)!
         let blit = command.makeBlitCommandEncoder()!
         for (texture, offset) in [(innerSource, 0), (outerSource, 4 * 256), (main, 12 * 256)] {
@@ -340,6 +361,9 @@ enum CompositionSourceProbe {
         facts["cappingPreservesLogicalCoordinates"] = (0..<4).allSatisfy {
             simd_length(cappedMVP[$0] - cappedGeometry.rasterModelViewProjection(leafMVP)[$0]) < 0.00001
         }
+        let cappedRows = capped.renderPass(forLayerID: leaf)!.rasterClipRows
+        facts["physicalCapKeepsLogicalRasterRows"] = simd_length(cappedRows.x - outerRows.x) < 0.00001
+            && simd_length(cappedRows.y - outerRows.y) < 0.00001
         capped.closeAllGroupEncoders(); cappedPool.reset(); capped.cancel()
         facts["cappedSourceCancelReleasesPin"] = cappedPool.residentByteCost == 0
         return facts
@@ -717,6 +741,9 @@ class SceneCompositionSourceIdentityTests(unittest.TestCase):
         self.assertEqual(completed.returncode, 0, completed.stderr)
         facts = json.loads(completed.stdout)
         self.assertGreaterEqual(len(facts), 14, facts)
+        self.assertTrue({"mainPassRasterRowsIdentity", "homogeneousRasterRowsNormalizeXY",
+                         "nearestGroupOwnsRasterRows", "rasterRowsMatchFullRasterXY",
+                         "physicalCapKeepsLogicalRasterRows"} <= facts.keys(), facts)
         self.assertEqual([name for name, passed in facts.items() if not passed], [], facts)
 
     def test_empty_groups_share_only_the_transparent_input(self) -> None:
@@ -790,8 +817,8 @@ class SceneCompositionSourceIntegrationTests(unittest.TestCase):
         from script.tests.scene_pkg_fixture import make_package
         scene = {"version": 3, "general": {"orthogonalprojection": {"width": 160, "height": 96}, "clearcolor": "0 0 1"}, "objects": [
             {"id": 1, "name": "Blue main", "image": "models/util/solidlayer.json", "origin": "80 48 0", "size": "160 96", "color": background},
-            {"id": 20, "name": "Selected source", "copybackground": False, "image": "models/util/composelayer.json", "origin": "0 0 0", "size": "160 96", "effects": [{"id": 200, "file": "effects/own_dim/effect.json", "visible": enabled}]},
-            {"id": 21, "parent": 20, "name": "Red source", "image": "models/util/solidlayer.json", "origin": "80 48 0", "size": "32 32", "color": "1 0 0"},
+            {"id": 20, "name": "Selected source", "copybackground": False, "image": "models/util/composelayer.json", "origin": "80 48 0", "size": "160 96", "effects": [{"id": 200, "file": "effects/own_dim/effect.json", "visible": enabled}]},
+            {"id": 21, "parent": 20, "name": "Red source", "image": "models/util/solidlayer.json", "origin": "0 0 0", "size": "32 32", "color": "1 0 0"},
             {"id": 99, "name": "Healthy green peer", "image": "models/util/solidlayer.json", "origin": "140 80 0", "size": "12 12", "color": "0 1 0"}
         ]}
         project = {"type":"scene","file":"scene.json"}
@@ -803,13 +830,14 @@ class SceneCompositionSourceIntegrationTests(unittest.TestCase):
             scene["objects"][2]["parent"] = 30
             scene["objects"].insert(2, {"id":30,"parent":20,"name":"Inner selected source","copybackground":False,"image":"models/util/composelayer.json","origin":"0 0 0","size":"160 96","effects":[{"id":300,"file":"effects/own_dim/effect.json","visible":True}]})
         if childless_position:
-            utility = {"id":30,"parent":20,"name":"Childless capture","image":"models/util/composelayer.json","origin":"80 48 0","size":"160 96","effects":[{"id":300,"file":"effects/own_dim/effect.json","visible":True}]}
+            utility = {"id":30,"parent":20,"name":"Childless capture","image":"models/util/composelayer.json","origin":"0 0 0","size":"160 96","effects":[{"id":300,"file":"effects/own_dim/effect.json","visible":True}]}
             scene["objects"].insert(2 if childless_position == "first" else 3, utility)
             if childless_position == "middle":
-                scene["objects"].insert(4, {"id":31,"parent":20,"name":"Later member","image":"models/util/solidlayer.json","origin":"40 48 0","size":"4 4","color":"1 0 0"})
+                scene["objects"].insert(4, {"id":31,"parent":20,"name":"Later member","image":"models/util/solidlayer.json","origin":"-40 0 0","size":"4 4","color":"1 0 0"})
         if not grouped:
             scene["objects"].pop(1)
             scene["objects"][1].pop("parent")
+            scene["objects"][1]["origin"] = "80 48 0"
             scene["objects"][1]["effects"] = [{"id": 210, "file": "effects/own_dim/effect.json", "visible": enabled}]
         if capture_main:
             scene["objects"][0]["color"] = "1 0 0"

@@ -260,6 +260,12 @@ nonisolated enum SceneMdlPuppetAttachmentReader {
               abs(values[15] - 1) <= epsilon else {
             throw SceneMdlPuppetAttachmentReadError.invalidMatrix(record: record)
         }
+        // The accepted value is affine; input tolerance is roundoff, not a
+        // projective component for downstream world and attachment matrices.
+        values[3] = 0
+        values[7] = 0
+        values[11] = 0
+        values[15] = 1
         return values
     }
 

@@ -471,6 +471,12 @@ nonisolated enum SceneMdlPuppetRigReader {
         else {
             throw SceneMdlPuppetRigReadError.invalidBindMatrix(boneIndex)
         }
+        // Match the affine value accepted above before any bind/reference
+        // composition; preserving tolerated W noise can reject valid skinning.
+        values[3] = 0
+        values[7] = 0
+        values[11] = 0
+        values[15] = 1
         return values
     }
 

@@ -138,14 +138,16 @@ class SceneFullscreenVisibilityIntegrationTests(unittest.TestCase):
 
     def run_case(self, *, mixed_particle=False, no_capture=False, inactive_effect=False,
                  missing_shader=False, legal_particle=False, project_script=False, fullscreen_script=False, launch=None, sequence=None,
-                 expected_dims=None):
+                 expected_dims=None, expected_accepted=None):
         unavailable = mixed_particle or missing_shader
         launch = launch or {"mode": "off", **({"fx": False} if inactive_effect else {})}
         sequence = sequence or [{"mode": "on"}, {"mode": "unsupported" if mixed_particle else "off"}]
         if expected_dims is None:
             expected_dims = [not (unavailable or no_capture), False]
         self.assertEqual(len(sequence), len(expected_dims))
-        accepted = ["false" if unavailable else "true"] * len(sequence)
+        accepted = ([str(value).lower() for value in expected_accepted]
+                    if expected_accepted is not None
+                    else ["false" if unavailable else "true"] * len(sequence))
         def oracle(dim, particle=False):
             return {key: {"canvasRect": RECTS[key], "expectedRGB": GREEN if key == "nonchild"
                           else RED if key == "child" and particle

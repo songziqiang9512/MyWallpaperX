@@ -142,8 +142,103 @@ class SceneParticleRenderingTests(unittest.TestCase):
         self.assertEqual(self.result["instanceStride"], 160)
         self.assertEqual(self.result["instanceAlignment"], 16)
         self.assertEqual(self.result["instanceOffsets"], [0, 16, 32, 48, 64, 80, 96, 112, 128, 144])
-        self.assertEqual(self.result["uniformStride"], 272)
-        self.assertEqual(self.result["uniformOffsets"], [0, 64, 128, 144, 160, 168, 176, 192, 208, 224, 240, 256])
+        self.assertEqual(self.result["uniformStride"], 304)
+        self.assertEqual(self.result["uniformOffsets"],
+                         [0, 64, 128, 144, 160, 168, 176, 192, 208, 224, 240, 256, 272, 288])
+
+    def test_particle_raster_maps_final_vertex_xy_and_preserves_camera_zw(self) -> None:
+        rows = self.result["rasterGeometry"]
+        self.assertEqual(len(rows), 64)
+        indexed = {(r["geometry"], r["map"], tuple(r["physicalExtent"])): r for r in rows}
+        mappings = {
+            "identity": ([1, 0, 0, 0], [0, 1, 0, 0]),
+            "quarter-turn": ([0, -1.5, 0, .125], [.5, 0, 0, -.0625]),
+            "shear": ([1.25, .375, 0, .1], [-.25, .75, 0, -.08]),
+            "mirror": ([-.75, .25, 0, -.04], [.5, 1.5, 0, .03]),
+        }
+        for row in rows:
+            with self.subTest(geometry=row["geometry"], map=row["map"], extent=row["physicalExtent"]):
+                self.assertEqual(row["canonicalViewport"], [640, 360])
+                original = indexed[row["geometry"], "identity", tuple(row["physicalExtent"])]
+                x, y = mappings[row["map"]]
+                for actual_row, expected_row in zip([row["rasterClipX"], row["rasterClipY"]], [x, y]):
+                    for actual, expected in zip(actual_row, expected_row):
+                        self.assertAlmostEqual(actual, expected, delta=1e-7)
+                for actual, camera in zip(row["positions"], original["positions"]):
+                    self.assertTrue(all(math.isfinite(value) for value in actual))
+                    self.assertAlmostEqual(actual[0], sum(a * b for a, b in zip(x, camera)), delta=2e-5)
+                    self.assertAlmostEqual(actual[1], sum(a * b for a, b in zip(y, camera)), delta=2e-5)
+                    self.assertEqual(actual[2:], camera[2:])
+                # Changing physical attachment pixels cannot alter canonical
+                # Trail joins/width before the final raster conversion.
+                peer = indexed[row["geometry"], row["map"], (128, 96)]
+                self.assertEqual(row["positions"], peer["positions"])
+                self.assertEqual(row["tangents"], peer["tangents"])
+
+    def test_particle_raster_transforms_existing_packed_refraction_vectors_without_normalizing(self) -> None:
+        rows = self.result["rasterGeometry"]
+        indexed = {(r["geometry"], r["map"], tuple(r["physicalExtent"])): r for r in rows}
+        jacobians = {
+            "identity": ((1, 0), (0, 1)),
+            "quarter-turn": ((0, 1.5), (-.5, 0)),
+            "shear": ((1.25, -.375), (.25, .75)),
+            "mirror": ((-.75, -.25), (-.5, 1.5)),
+        }
+        for row in rows:
+            with self.subTest(geometry=row["geometry"], map=row["map"], extent=row["physicalExtent"]):
+                original = indexed[row["geometry"], "identity", tuple(row["physicalExtent"])]
+                matrix = jacobians[row["map"]]
+                for actual, packed in zip(row["tangents"], original["tangents"]):
+                    expected = [sum(a * b for a, b in zip(axis, vector))
+                                for vector in [packed[:2], packed[2:]] for axis in matrix]
+                    for value, oracle in zip(actual, expected):
+                        self.assertAlmostEqual(value, oracle, delta=2e-5)
+
+    def test_particle_raster_preserves_near_far_and_behind_eye_clip_coordinates(self) -> None:
+        rows = self.result["rasterGeometry"]
+        for row in rows:
+            if row["geometry"] not in {"near", "far", "before-near", "beyond-far", "behind-eye"}:
+                continue
+            with self.subTest(geometry=row["geometry"], map=row["map"]):
+                for _, _, z, w in row["positions"]:
+                    if row["geometry"] == "near":
+                        self.assertAlmostEqual(z / w, 0, delta=2e-6)
+                    elif row["geometry"] == "far":
+                        self.assertAlmostEqual(z / w, 1, delta=2e-6)
+                    elif row["geometry"] == "before-near":
+                        self.assertLess(z / w, 0)
+                    elif row["geometry"] == "beyond-far":
+                        self.assertGreater(z / w, 1)
+                    else:
+                        self.assertLess(w, 0)
+
+    def test_particle_raster_depth_writer_order_and_clip_rejection_reach_pixels(self) -> None:
+        rows = self.result["rasterDepth"]
+        self.assertEqual(len(rows), 16)
+        for row in rows:
+            with self.subTest(map=row["map"], extent=row["physicalExtent"], near_first=row["nearFirst"]):
+                self.assertTrue(row["encoded"], row)
+                self.assertTrue(row["completed"], row)
+                self.assertEqual(row["pixel"], [0, 0, 255, 255], row)
+
+    def test_particle_raster_refraction_uv_units_and_zero_controls_survive_physical_extent_changes(self) -> None:
+        rows = self.result["rasterRefraction"]
+        self.assertEqual(len(rows), 48)
+        expected = {
+            "identity": {"normal-x": [120, 70, 40, 255], "normal-y": [100, 80, 40, 255]},
+            "quarter-turn": {"normal-x": [100, 65, 40, 255], "normal-y": [140, 70, 40, 255]},
+            "shear": {"normal-x": [130, 75, 40, 255], "normal-y": [95, 78, 40, 255]},
+            "mirror": {"normal-x": [75, 68, 40, 255], "normal-y": [90, 75, 40, 255]},
+        }
+        for row in rows:
+            with self.subTest(map=row["map"], extent=row["physicalExtent"], control=row["control"]):
+                self.assertEqual(row["canonicalViewport"], [640, 360])
+                if row["control"] in {"amount-zero", "mask-zero"}:
+                    self.assertEqual(row["pixel"], [100, 70, 40, 255], row)
+                else:
+                    self.assertEqual(len(row["pixel"]), 4, row)
+                    for actual, oracle in zip(row["pixel"], expected[row["map"]][row["control"]]):
+                        self.assertAlmostEqual(actual, oracle, delta=1, msg=row)
 
     def test_lifetime_sprite_selection_and_frame_blending(self) -> None:
         self.assertEqual(self.result["sequence"]["current"], 2)

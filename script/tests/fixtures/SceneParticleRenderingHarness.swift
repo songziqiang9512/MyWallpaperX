@@ -82,6 +82,7 @@ enum Harness {
             "instanceAlignment": MemoryLayout<SceneParticleGPUInstance>.alignment,
             "instanceOffsets": instanceOffsets(),
             "fixedGeometry": try SceneParticleFixedGeometryHarness.run(),
+            "rasterGeometry": try SceneParticleFixedGeometryHarness.rasterProfiles(),
             "uniformStride": MemoryLayout<SceneParticleLayerUniforms>.stride,
             "uniformOffsets": uniformOffsets(),
             "sequence": selection(sequence),
@@ -203,6 +204,8 @@ enum Harness {
             "refractionContract": refractionContractTest(),
             "refractionBasisCases": refractionBasisCases(),
             "refractionTrailBasisCases": refractionTrailBasisCases(),
+            "rasterRefraction": rasterRefractionCases(),
+            "rasterDepth": rasterDepthCases(),
             "texSampling": [
                 "default": sampling(.directImageFallback),
                 "flags0": sampling(SceneParticleTextureSampling(texFlags: 0)),
@@ -259,6 +262,8 @@ enum Harness {
             MemoryLayout<SceneParticleLayerUniforms>.offset(of: \.spriteRight),
             MemoryLayout<SceneParticleLayerUniforms>.offset(of: \.spriteUp),
             MemoryLayout<SceneParticleLayerUniforms>.offset(of: \.spriteForward), MemoryLayout<SceneParticleLayerUniforms>.offset(of: \.trailLocalNormal),
+            MemoryLayout<SceneParticleLayerUniforms>.offset(of: \.rasterClipX),
+            MemoryLayout<SceneParticleLayerUniforms>.offset(of: \.rasterClipY),
         ].compactMap { $0 }
     }
 

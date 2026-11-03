@@ -237,15 +237,20 @@ extension Harness {
         albedoAlpha: UInt8 = 255,
         cullMode: SceneParticlePipelineCullMode = .none,
         position: SIMD3<Float> = .zero,
-        drawsFollowingPeer: Bool = false
+        drawsFollowingPeer: Bool = false,
+        outputWidth: Int = 8,
+        outputHeight: Int = 8,
+        viewportSize: SIMD2<Float> = SIMD2(repeating: 1),
+        rasterClipX: SIMD4<Float> = SIMD4(1,0,0,0),
+        rasterClipY: SIMD4<Float> = SIMD4(0,1,0,0),
+        rendering: (device: MTLDevice, pipeline: SceneParticleMetalPipeline, queue: MTLCommandQueue)? = nil
     ) -> [Int] {
-        let size = 8
-        guard let device = MTLCreateSystemDefaultDevice(),
-              let pipeline = SceneParticleMetalPipeline(device: device),
-              let queue = device.makeCommandQueue(),
+        guard let device = rendering?.device ?? MTLCreateSystemDefaultDevice(),
+              let pipeline = rendering?.pipeline ?? SceneParticleMetalPipeline(device: device),
+              let queue = rendering?.queue ?? device.makeCommandQueue(),
               let command = queue.makeCommandBuffer() else { return [] }
         let targetDescriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: .bgra8Unorm, width: size, height: size, mipmapped: false
+            pixelFormat: .bgra8Unorm, width: outputWidth, height: outputHeight, mipmapped: false
         )
         targetDescriptor.usage = [.renderTarget, .shaderRead]
         targetDescriptor.storageMode = .shared
@@ -257,19 +262,19 @@ extension Harness {
         guard let target = device.makeTexture(descriptor: targetDescriptor),
               let color = device.makeTexture(descriptor: inputDescriptor),
               let normal = device.makeTexture(descriptor: inputDescriptor) else { return [] }
-        var background = [UInt8](repeating: 0, count: size * size * 4)
-        for y in 0..<size {
-            for x in 0..<size {
-                let offset = (y * size + x) * 4
-                background[offset] = UInt8(20 + x * 20)
-                background[offset + 1] = UInt8(30 + y * 10)
+        var background = [UInt8](repeating: 0, count: outputWidth * outputHeight * 4)
+        for y in 0..<outputHeight {
+            for x in 0..<outputWidth {
+                let offset = (y * outputWidth + x) * 4
+                background[offset] = UInt8(20 + x * 160 / outputWidth)
+                background[offset + 1] = UInt8(30 + y * 80 / outputHeight)
                 background[offset + 2] = 40
                 background[offset + 3] = 255
             }
         }
         target.replace(
-            region: MTLRegionMake2D(0, 0, size, size), mipmapLevel: 0,
-            withBytes: &background, bytesPerRow: size * 4
+            region: MTLRegionMake2D(0, 0, outputWidth, outputHeight), mipmapLevel: 0,
+            withBytes: &background, bytesPerRow: outputWidth * 4
         )
         var white: [UInt8] = [255, 255, 255, albedoAlpha]
         var packedNormal: [UInt8] = [normalMask, normalY, 0, normalX]
@@ -303,6 +308,12 @@ extension Harness {
         pass.colorAttachments[0].loadAction = .load
         pass.colorAttachments[0].storeAction = .store
         guard let encoder = command.makeRenderCommandEncoder(descriptor: pass) else { return [] }
+        var uniforms = SceneParticleLayerUniforms(
+            viewProjection: SceneMatrix.identity(), layerModel: SceneMatrix.identity(),
+            basis: SceneParticleOrientation.screen.basis(
+                cameraRight: SIMD3(1,0,0), cameraUp: SIMD3(0,1,0),
+                cameraForward: SIMD3(0,0,-1)), viewportSize: viewportSize)
+        uniforms.rasterClipX = rasterClipX; uniforms.rasterClipY = rasterClipY
         pipeline.drawRefraction(
             texture: color,
             binding: SceneParticleRefractionBinding(
@@ -317,14 +328,7 @@ extension Harness {
             ),
             background: captured,
             instances: instances,
-            uniforms: SceneParticleLayerUniforms(
-                viewProjection: SceneMatrix.identity(),
-                layerModel: SceneMatrix.identity(),
-                basis: SceneParticleOrientation.screen.basis(
-                    cameraRight: SIMD3(1, 0, 0), cameraUp: SIMD3(0, 1, 0),
-                    cameraForward: SIMD3(0, 0, -1)
-                )
-            ),
+            uniforms: uniforms,
             renderState: .init(blendMode: .translucent, cullMode: cullMode),
             colorUVScale: SIMD2(repeating: 1),
             colorSampling: .directImageFallback,
@@ -346,16 +350,127 @@ extension Harness {
         guard SceneParticleOffscreenReadbackHarness.commitAndWait(command) else { return [] }
         var pixel = [UInt8](repeating: 0, count: 4)
         target.getBytes(
-            &pixel, bytesPerRow: size * 4,
-            from: MTLRegionMake2D(size / 2, size / 2, 1, 1), mipmapLevel: 0
+            &pixel, bytesPerRow: outputWidth * 4,
+            from: MTLRegionMake2D(outputWidth / 2, outputHeight / 2, 1, 1), mipmapLevel: 0
         )
         if drawsFollowingPeer {
             var following = [UInt8](repeating: 0, count: 4)
-            target.getBytes(&following, bytesPerRow: size * 4,
+            target.getBytes(&following, bytesPerRow: outputWidth * 4,
                 from: MTLRegionMake2D(6, 1, 1, 1), mipmapLevel: 0)
             pixel += following
         }
         return pixel.map(Int.init)
+    }
+
+    private static func rasterRefractionCases() -> [[String: Any]] {
+        guard let device = MTLCreateSystemDefaultDevice(),
+              let pipeline = SceneParticleMetalPipeline(device: device),
+              let queue = device.makeCommandQueue() else { return [] }
+        let maps: [(String, SIMD4<Float>, SIMD4<Float>)] = [
+            ("identity", SIMD4(1,0,0,0), SIMD4(0,1,0,0)),
+            ("quarter-turn", SIMD4(0,-2,0,0), SIMD4(0.5,0,0,0)),
+            ("shear", SIMD4(1.5,0.25,0,0), SIMD4(-0.5,0.75,0,0)),
+            ("mirror", SIMD4(-1.25,0.5,0,0), SIMD4(0.25,0.5,0,0)),
+        ]
+        var results: [[String: Any]] = []
+        for (name, x, y) in maps {
+            for extent in [SIMD2(8,8), SIMD2(16,8), SIMD2(8,16)] {
+                for (control, normalX, normalY, amount, mask):
+                    (String, UInt8, UInt8, Float, UInt8) in [
+                        ("normal-x", 255, 128, 0.125, 255),
+                        ("normal-y", 128, 255, 0.125, 255),
+                        ("amount-zero", 255, 255, 0, 255),
+                        ("mask-zero", 255, 255, 0.125, 0),
+                    ] {
+                    let pixel = refractedCenter(normalX: normalX, normalY: normalY,
+                        amount: amount, normalMask: mask,
+                        outputWidth: extent.x, outputHeight: extent.y,
+                        viewportSize: SIMD2(640,360),
+                        rasterClipX: x, rasterClipY: y,
+                        rendering: (device, pipeline, queue))
+                    results.append(["map": name, "control": control,
+                        "physicalExtent": [extent.x, extent.y],
+                        "canonicalViewport": [640,360], "pixel": pixel])
+                }
+            }
+        }
+        return results
+    }
+
+    private static func rasterDepthCases() -> [[String: Any]] {
+        guard let device = MTLCreateSystemDefaultDevice(),
+              let pipeline = SceneParticleMetalPipeline(device: device),
+              let queue = device.makeCommandQueue() else { return [] }
+        let textureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .rgba8Unorm, width: 1, height: 1, mipmapped: false)
+        textureDescriptor.usage = .shaderRead; textureDescriptor.storageMode = .shared
+        guard let white = device.makeTexture(descriptor: textureDescriptor) else { return [] }
+        var texel: [UInt8] = [255,255,255,255]
+        white.replace(region: MTLRegionMake2D(0,0,1,1), mipmapLevel: 0,
+            withBytes: &texel, bytesPerRow: 4)
+        let maps: [(String, SIMD4<Float>, SIMD4<Float>)] = [
+            ("identity", SIMD4(1,0,0,0), SIMD4(0,1,0,0)),
+            ("quarter-turn", SIMD4(0,-1.5,0,0), SIMD4(0.5,0,0,0)),
+            ("shear", SIMD4(1.25,0.375,0,0), SIMD4(-0.25,0.75,0,0)),
+            ("mirror", SIMD4(-0.75,0.25,0,0), SIMD4(0.5,1.5,0,0)),
+        ]
+        var results: [[String: Any]] = []
+        for (name, x, y) in maps {
+            for extent in [SIMD2(64,32), SIMD2(128,96)] {
+                for nearFirst in [false, true] {
+                    guard let command = queue.makeCommandBuffer() else { return [] }
+                    let targetDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+                        pixelFormat: .bgra8Unorm, width: extent.x, height: extent.y, mipmapped: false)
+                    targetDescriptor.usage = .renderTarget; targetDescriptor.storageMode = .shared
+                    let depthDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+                        pixelFormat: .depth32Float, width: extent.x, height: extent.y, mipmapped: false)
+                    depthDescriptor.usage = .renderTarget; depthDescriptor.storageMode = .private
+                    guard let target = device.makeTexture(descriptor: targetDescriptor),
+                          let depth = device.makeTexture(descriptor: depthDescriptor) else { return [] }
+                    let near = SceneParticleGPUInstance(position: SIMD3(0,0,-2), size: 2.4,
+                        rotation: .zero, color: SIMD3(1,0,0), alpha: 1)
+                    let far = SceneParticleGPUInstance(position: SIMD3(0,0,-8), size: 9.6,
+                        rotation: .zero, color: SIMD3(0,1,0), alpha: 1)
+                    let clipped = [Float(-0.5), -31, 2].map { z in
+                        SceneParticleGPUInstance(position: SIMD3(0,0,z), size: abs(z) * 1.2,
+                            rotation: .zero, color: SIMD3(0,0,1), alpha: 1)
+                    }
+                    let instances = SceneParticleMetalInstanceBuffer()
+                    guard instances.update(device: device,
+                        instances: (nearFirst ? [near, far] : [far, near]) + clipped) else { return [] }
+                    var uniforms = SceneParticleLayerUniforms(
+                        viewProjection: SceneMatrix.perspectiveRHMetal(
+                            fovYRadians: 0.9, aspect: 640.0 / 360, near: 1, far: 30),
+                        layerModel: SceneMatrix.identity(),
+                        basis: .init(right: SIMD3(1,0,0), up: SIMD3(0,1,0)),
+                        viewportSize: SIMD2(640,360))
+                    uniforms.rasterClipX = x; uniforms.rasterClipY = y
+                    let pass = MTLRenderPassDescriptor()
+                    pass.colorAttachments[0].texture = target
+                    pass.colorAttachments[0].loadAction = .clear
+                    pass.colorAttachments[0].storeAction = .store
+                    pass.colorAttachments[0].clearColor = MTLClearColorMake(0,0,0,0)
+                    pass.depthAttachment.texture = depth; pass.depthAttachment.loadAction = .clear
+                    pass.depthAttachment.storeAction = .dontCare; pass.depthAttachment.clearDepth = 1
+                    guard let encoder = command.makeRenderCommandEncoder(descriptor: pass) else { return [] }
+                    let encoded = pipeline.draw(texture: white, instances: instances, uniforms: uniforms,
+                        renderState: .init(blendMode: .translucent, cullMode: .none,
+                            depthTestEnabled: true, depthWriteEnabled: true),
+                        colorSampling: .directImageFallback, usesDepthAttachment: true, encoder: encoder)
+                    encoder.endEncoding(); instances.markSubmitted(on: command)
+                    let completed = SceneParticleOffscreenReadbackHarness.commitAndWait(command)
+                    var pixel = [UInt8](repeating: 0, count: 4)
+                    if completed {
+                        target.getBytes(&pixel, bytesPerRow: extent.x * 4,
+                            from: MTLRegionMake2D(extent.x / 2, extent.y / 2, 1, 1), mipmapLevel: 0)
+                    }
+                    results.append(["map": name, "physicalExtent": [extent.x,extent.y],
+                        "nearFirst": nearFirst, "encoded": encoded, "completed": completed,
+                        "pixel": pixel.map(Int.init)])
+                }
+            }
+        }
+        return results
     }
 
     private static func samplerPixels() -> [String: Any] {

@@ -17,9 +17,9 @@
 | 通道与操作推导 | 无typed边界的颜色兼容、alpha-only/packed data及有序signal仍有有界source事实；反射中的vec4本身不能说明通道意图。沿原compiler/ABI补实际跨函数、条件合流与操作能力缺口，保持未取得的表示资格；不为效果写法追加识别名单。 |
 | linked timeline producer · 2999344788、3577990983 | bokeh的linked parent/children timeline在准备期报`dynamic-uniform-producer-unavailable`；原载荷未指出missing uniform，需沿BindingProgram/producer取得精确未接入字段。 |
 | graph引用 · 2804817823、2972071249、3504669359 | secondary-self `_19_b`、forward `_234_a`、多provider `_91_a/_1030_a`被编译器拒绝。hidden辅助provider是否仍发布按真实consumer资格，不改成全局prepass或丢原作者顺序。 |
-| subtree粒子 · 3465215190/2481、3781757083/133、3806222046/454、3809609151/42 | SourceRoute先拒子树particle成员；现layer main-pass能draw，但局部composition raster/camera消费尚未接入。补原粒子绘制的局部投影及target消费，不凭顶层可draw就裸放子树。 |
 | subtree来源组合 · 3554161528/1111、3788897599/196 | 前者child411同时为dependency411，后者project带child291，均先被SourceRoute结构检查拒绝。同码可来自SourceRoute或后置ownership检查，不能合并归因；分别核实际source/publication及project子树语义。 |
-| 混合子树source · 3830727231/882 | 当前五个active effect（opacity、waterflow及3个shake）均`r5-no-runtime-owner`，同帧无882 sourceCapture/material/tail；children含composition93、particles202/206/209、solid790。原始与本次输入摘要一致、状态一致，首拒绝child尚未知；沿composition source接入核对，不能归为五个shader失败或用723 blur成功关闭它。 |
+| composition 其他绘制消费者 | `SceneUtilityLayerSourceRoute` 对 model/spotLight 仍整类拒绝；原绘制未消费局部 raster。核实际 nearest target 的投影、深度、光照及 viewport/local 模式，沿原 draw owner 接通，不以新组件/效果名单代缺失消费者。 |
+| composition 内 REFRACT 官方单位 | 当前粒子映射保本引擎 canonical 全局 screen-UV amount，宽窄画布与物理 extent 有内部资格。官方 owned loose fixture 的 amount0、neutral、mask0 仍有相同非背景卡片，尚不能据此区分 canvas/viewport 单位；先核官方背景输入、取景和控制，再做同 world 几何的尺寸/旋转对照，不能由现有 J 数学推为官方像素一致。 |
 | Program阶段守恒 · 3086016320/430 | 明确`execution-stage-conservation`准备拒绝，原码由多个guard共用、具体缺项未知；沿ProgramFirstStages定位，保父426默认alpha=0的输入边界。 |
 | uniform / provider · 3511024658/73、3759799379/319 | 前者`dynamic-uniform-unavailable`未给具体字段，不能直接称缺音频；后者dependency309报`dependency-provider-rejected`，需原composition projection/route首拒绝原因。 |
 | source/模型 · 2804817823/28/32 | 9个资产已加载，两个Puppet source明确拒`MDLV0013`，不是两个纹理文件缺失。沿MDL/Puppet几何owner补格式/姿态资格。 |

@@ -31,6 +31,19 @@ final class SceneMainPassEncoder {
         worldClipToTargetClip.map { $0 * worldMVP } ?? worldMVP
     }
 
+    var rasterClipRows: (x: SIMD4<Float>, y: SIMD4<Float>) {
+        guard let map = worldClipToTargetClip else {
+            return (SIMD4(1, 0, 0, 0), SIMD4(0, 1, 0, 0))
+        }
+        // The source plane's affine homogeneous scale must not rescale the
+        // camera's Z/W when a draw keeps its own depth relationship.
+        let scale = map.columns.3.w
+        return (
+            SIMD4(map.columns.0.x, map.columns.1.x, map.columns.2.x, map.columns.3.x) / scale,
+            SIMD4(map.columns.0.y, map.columns.1.y, map.columns.2.y, map.columns.3.y) / scale
+        )
+    }
+
     func belongs(to commandBuffer: MTLCommandBuffer) -> Bool {
         self.commandBuffer === commandBuffer
     }

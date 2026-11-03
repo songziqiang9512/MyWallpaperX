@@ -28,6 +28,8 @@ struct LayerUniforms {
     float4 spriteUp;
     float4 spriteForward;
     float4 trailLocalNormal;
+    float4 rasterClipX;
+    float4 rasterClipY;
 };
 struct Varyings {
     float4 position [[position]];
@@ -181,7 +183,9 @@ Varyings particleVertex(
             + uniforms.spriteUp.xyz * local.y
             + uniforms.spriteForward.xyz * local.z;
     Varyings out;
-    out.position = uniforms.viewProjection * float4(center.xyz + offset, 1.0);
+    float4 cameraClip = uniforms.viewProjection * float4(center.xyz + offset, 1.0);
+    out.position = float4(dot(uniforms.rasterClipX, cameraClip),
+                          dot(uniforms.rasterClipY, cameraClip), cameraClip.zw);
     out.baseUV = isTrail
         ? float2(
             quadVertex.texcoord.y,
@@ -219,10 +223,18 @@ Varyings particleVertex(
     // A zero-length axis contributes no offset instead of producing NaNs.
     tangentWorldX /= max(length(tangentWorldX), 0.00001);
     tangentWorldY /= max(length(tangentWorldY), 0.00001);
-    out.screenTangentX = float2(dot(tangentWorldX, uniforms.viewRight.xyz),
-                               dot(tangentWorldY, uniforms.viewRight.xyz));
-    out.screenTangentY = float2(dot(tangentWorldX, uniforms.viewUp.xyz),
-                               dot(tangentWorldY, uniforms.viewUp.xyz));
+    float2 screenTangentX = float2(dot(tangentWorldX, uniforms.viewRight.xyz),
+                                  dot(tangentWorldY, uniforms.viewRight.xyz));
+    float2 screenTangentY = float2(dot(tangentWorldX, uniforms.viewUp.xyz),
+                                  dot(tangentWorldY, uniforms.viewUp.xyz));
+    // Convert the existing screen-UV displacement to this attachment's UVs.
+    // Keep its magnitude: normalizing here erases canvas scale and reflection.
+    out.screenTangentX = float2(
+        uniforms.rasterClipX.x * screenTangentX.x - uniforms.rasterClipX.y * screenTangentX.y,
+        -uniforms.rasterClipY.x * screenTangentX.x + uniforms.rasterClipY.y * screenTangentX.y);
+    out.screenTangentY = float2(
+        uniforms.rasterClipX.x * screenTangentY.x - uniforms.rasterClipX.y * screenTangentY.y,
+        -uniforms.rasterClipY.x * screenTangentY.x + uniforms.rasterClipY.y * screenTangentY.y);
     return out;
 }
 

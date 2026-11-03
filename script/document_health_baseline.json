@@ -113,24 +113,24 @@
       "bytes": 7033
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
-      "lines": 50,
-      "bytes": 5757
+      "lines": 63,
+      "bytes": 8597
     },
     "docs/scene/capabilities/material-video-assets.md": {
       "lines": 57,
       "bytes": 5938
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 72,
-      "bytes": 7428
+      "lines": 74,
+      "bytes": 7909
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 99,
       "bytes": 13324
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 43,
-      "bytes": 9656
+      "lines": 44,
+      "bytes": 10873
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 81,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 158,
-      "bytes": 22310
+      "bytes": 22332
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -381,24 +381,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/effect-execution-coverage.md",
-      "before": "9a73f8365f4e5dd0e2a145a8fbb00693060913dfc3ce5ed186a7672e7de68a6c",
-      "after": "249ee5650046cc7702291f6b82bd7fc9f55e2d3ee774aecb17f4f0902e41c7ca",
-      "owner": "Scene composition/source preparation",
-      "reason": "Current drawable/interface responsibility, exact typed source-free qualification and bounded runtime evidence; queue retains only open facts.",
-      "decision": "docs/scene/capabilities/effect-execution-coverage.md#composition"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "d032ab3840101e44a81df1ac1443e645e64f9784a88ea3203694367de5e49090",
-      "after": "6f70654efffbd55cb6f4afeb042a9bc2598413a694e8b0b011e91a5ec442a39c",
-      "owner": "Existing particle material/raster owners",
-      "reason": "Current cull/camera-depth responsibility, exact bounded native/runtime evidence and actual ordinary-material consumer debt.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#rendering"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
       "before": "f604e539ff6d27eb51d64ea17a69056ee2c8574f1cfda77334e028ac283ea3cf",
       "after": "4e3b66f1ad1378a2f398317e5accb39d628ea4716a68726ac36773ec1b3ba6ae",
@@ -408,21 +390,39 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/effect-execution-coverage.md",
+      "before": "249ee5650046cc7702291f6b82bd7fc9f55e2d3ee774aecb17f4f0902e41c7ca",
+      "after": "a72a67b3f928f217472ed7aff6787b677ead62c5189c7b9695cc1d0069f52ba1",
+      "owner": "scene-composition-particles",
+      "reason": "Define target-aware particle XY/depth/refraction and input affine ownership in the existing composition contract; no new renderer or permission whitelist.",
+      "decision": "docs/scene/capabilities/effect-execution-coverage.md#particle-subtree-raster"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "6f70654efffbd55cb6f4afeb042a9bc2598413a694e8b0b011e91a5ec442a39c",
+      "after": "b93dc52ddc8787f46b02144f86e977d7f52bbe97cd4491730c3d32e462172b7a",
+      "owner": "scene-composition-particles",
+      "reason": "Route newly executable particle composition members to the existing canonical raster responsibility.",
+      "decision": "docs/scene/capabilities/effect-execution-coverage.md#particle-subtree-raster"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "0bc59ec7eaf50c35251c3d218c681a8d1d17421720089b54992892a00c0e9eee",
-      "after": "1273d3c1b8b9940d1060a39aca63f03291c87c2c48e54db515e84467e4572d51",
-      "owner": "Scene shader preparation and current runtime evidence",
-      "reason": "Replace repeated intrinsic source-shape proofs with one typed argument plan; record current HLSL4, Metal, author/neighbor qualification and the independently located const-scope debt.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#intrinsic-argument-conversion"
+      "before": "1273d3c1b8b9940d1060a39aca63f03291c87c2c48e54db515e84467e4572d51",
+      "after": "baa0abfd9e72bc4b7e830f5ef5b54df2c41d10242ce83fa7f29060d75284ec7f",
+      "owner": "scene-composition-particles",
+      "reason": "Replace superseded subtree failures with the qualified target-to-terminal chain, typed entry/GPU/App controls and explicit official-unit/performance limits.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#coverage"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "6aa386149ab996ae6a80a265c3102fed36902406822b7507c32bcd9ad83401ae",
-      "after": "e000277173499c3b7b5e8a6437c69261c2f1f4dea5f1260e9612dcd52a45b323",
-      "owner": "Scene shader preparation and current runtime evidence",
-      "reason": "Replace repeated intrinsic source-shape proofs with one typed argument plan; record current HLSL4, Metal, author/neighbor qualification and the independently located const-scope debt.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#intrinsic-argument-conversion"
+      "before": "e000277173499c3b7b5e8a6437c69261c2f1f4dea5f1260e9612dcd52a45b323",
+      "after": "832a2789f2dc90504ded90ff7db450823e2463f7a992d9e55646c580e4c33a6d",
+      "owner": "scene-composition-particles",
+      "reason": "Remove two recovered subtree breakpoints; keep the actual unresolved model/light consumers and unqualified official composition refraction units.",
+      "decision": "docs/scene/capabilities/effect-execution-coverage.md#particle-subtree-raster"
     }
   ]
 }

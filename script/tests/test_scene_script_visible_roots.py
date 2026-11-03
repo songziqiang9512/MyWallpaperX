@@ -392,23 +392,25 @@ struct SceneDependencyRenderPlan {
         }
         output["rootInactiveCompositionAdmitted"] = inactiveComposition()
         output["rootInactiveIsolatedCompositionAdmitted"] = inactiveComposition(copyBackground: false)
+        output["rootInactiveCompositionChildAdmitted"] = inactiveComposition("child")
         let invalidCompositionCases = ["provider", "graph-output-provider", "effect-consumer",
             "named-consumer", "binding-consumer", "reference-consumer", "blocked-source",
-            "dependency", "authored-dependency", "passthrough", "parent", "child",
+            "dependency", "authored-dependency", "passthrough", "parent",
             "unlisted-child", "wrong-utility-kind", "missing-utility"]
         output["invalidInactiveCompositions"] = Dictionary(uniqueKeysWithValues:
             invalidCompositionCases.map { ($0, inactiveComposition($0)) })
         output["invalidScriptOwnedInactiveCompositions"] = Dictionary(uniqueKeysWithValues:
             invalidCompositionCases.map { ($0, inactiveComposition($0, scriptOwned: true)) })
         func populatedInactiveComposition(_ violation: String? = nil,
-                                          ids layerIDs: [Int] = [710, 713, 719]) -> [String: Bool] {
+                                          ids layerIDs: [Int] = [710, 713, 719],
+                                          passthrough: Bool = true, particlePath: String? = nil) -> [String: Bool] {
             let owner = layerIDs[0], childID = layerIDs[1], peer = layerIDs[2]
             var root = SceneRenderDescriptor.Layer(id: owner, visible: true,
                 childLayerIDs: [childID], contentKind: "composition",
-                utilityLayer: .init(kind: .composition, passthrough: true),
+                utilityLayer: .init(kind: .composition, passthrough: passthrough),
                 effects: [.init(visible: false)])
             var child = SceneRenderDescriptor.Layer(id: childID, visible: true,
-                parentID: owner, contentKind: "solid")
+                parentID: owner, contentKind: particlePath == nil ? "solid" : "particle", particlePath: particlePath)
             var extra = SceneRenderDescriptor.Layer(id: peer, visible: true, contentKind: "solid")
             var plan = SceneDependencyRenderPlan()
             var ortho = true
@@ -419,6 +421,14 @@ struct SceneDependencyRenderPlan {
             case "root-perspective": root.usesPerspective = true
             case "child-perspective": child.usesPerspective = true
             case "model-member": child.contentKind = "model"
+            case "spot-light-member": child.contentKind = "spotLight"
+            case "missing-child": root.childLayerIDs = [childID + 1]
+            case "unlisted-child": root.childLayerIDs = []
+            case "wrong-parent": child.parentID = peer
+            case "cycle": root.parentID = childID; child.childLayerIDs = [owner]
+            case "particle-effect":
+                child.contentKind = "particle"; child.particlePath = "particles/own.json"; child.effects = [.init(visible: true)]
+            case "active-effect": root.effects = [.init(visible: true)]
             case "nested-background", "nested-passthrough":
                 child.contentKind = "composition"
                 child.utilityLayer = .init(kind: .composition,
@@ -430,6 +440,9 @@ struct SceneDependencyRenderPlan {
             case "provider": plan.requiredProviderLayerIDs = [owner]
             case "graph-provider": plan.requiredGraphOutputProviderLayerIDs = [owner]
             case "effect-consumer": plan.requiredEffectConsumerLayerIDs = [owner]
+            case "named-consumer": plan.namedReferenceConsumerLayerIDs = [owner]
+            case "binding-consumer": plan.bindingsByConsumerLayerID = [owner: peer]
+            case "reference-consumer": plan.references = [.init(consumerLayerID: owner)]
             case "blocked-source": plan.staticLayerSourcePassthroughBlockedLayerIDs = [owner]
             case "transparent-nonpassthrough":
                 root.utilityLayer?.passthrough = false; root.utilityLayer?.copyBackground = false
@@ -456,11 +469,25 @@ struct SceneDependencyRenderPlan {
         }
         output["populatedInactiveComposition"] = populatedInactiveComposition()
         output["renamedPopulatedInactiveComposition"] = populatedInactiveComposition(ids: [9017, 2208, 3301])
+        output["backgroundNonpassthrough"] = populatedInactiveComposition("background-nonpassthrough")
+        output["transparentNonpassthrough"] = populatedInactiveComposition("transparent-nonpassthrough")
+        output["particleNonpassthrough"] = populatedInactiveComposition(passthrough: false, particlePath: "particles/source.json")
+        output["renamedParticleNonpassthrough"] = populatedInactiveComposition(ids: [9031, 2219, 3307],
+            passthrough: false, particlePath: "particles/renamed/input.json")
+        output["activeParticleNonpassthrough"] = populatedInactiveComposition("active-effect", passthrough: false,
+            particlePath: "particles/source.json")
+        output["viewportNonpassthrough"] = populatedInactiveComposition("not-orthographic", passthrough: false)
+        let commonInactiveNeighbors = ["nested", "model-member", "spot-light-member", "missing-child", "unlisted-child",
+            "wrong-parent", "cycle", "particle-effect", "dependency", "authored-dependency", "provider",
+            "graph-provider", "effect-consumer", "named-consumer", "binding-consumer", "reference-consumer", "blocked-source"]
         output["populatedInactiveNeighbors"] = Dictionary(uniqueKeysWithValues:
-            ["nested", "not-orthographic", "root-perspective", "child-perspective", "model-member",
-             "nested-background", "nested-passthrough", "dependency", "authored-dependency", "provider", "graph-provider",
-             "effect-consumer", "blocked-source", "transparent-nonpassthrough", "background-nonpassthrough"]
-                .map { ($0, populatedInactiveComposition($0)) })
+            [true, false].flatMap { passthrough in
+                (commonInactiveNeighbors + (passthrough ? ["not-orthographic", "root-perspective", "child-perspective",
+                    "nested-background", "nested-passthrough"] : [])).map {
+                    ((passthrough ? "passthrough:" : "composition:") + $0,
+                     populatedInactiveComposition($0, passthrough: passthrough))
+                }
+            })
 #endif
         func modelTargets(_ layers: [SceneRenderDescriptor.Layer], prepared: Set<Int> = [81],
                           candidate: Int = 81) -> [Int] {
@@ -814,7 +841,8 @@ class ScriptVisibleRootTests(unittest.TestCase):
             self.assertTrue(self.result[key], key)
 
     def test_startup_inactive_root_composition_keeps_both_background_source_routes(self):
-        for key in ('rootInactiveCompositionAdmitted', 'rootInactiveIsolatedCompositionAdmitted'):
+        for key in ('rootInactiveCompositionAdmitted', 'rootInactiveIsolatedCompositionAdmitted',
+                    'rootInactiveCompositionChildAdmitted'):
             with self.subTest(route=key):
                 self.assertTrue(self.result[key], key)
 
@@ -828,23 +856,26 @@ class ScriptVisibleRootTests(unittest.TestCase):
             with self.subTest(case=name):
                 self.assertFalse(admitted)
 
-    def test_populated_passthrough_prepares_hidden_effect_and_members_with_renamed_ids(self):
+    def test_populated_composition_prepares_hidden_effect_and_members_with_renamed_inputs(self):
         # Real visibility/source admissions only; complete Program preparation
         # and GPU toggle results remain the integration gate's responsibility.
-        for key in ('populatedInactiveComposition', 'renamedPopulatedInactiveComposition'):
+        for key in ('populatedInactiveComposition', 'renamedPopulatedInactiveComposition', 'backgroundNonpassthrough',
+                    'transparentNonpassthrough', 'particleNonpassthrough', 'renamedParticleNonpassthrough', 'viewportNonpassthrough'):
             with self.subTest(case=key):
                 self.assertEqual(self.result[key], {
-                    'sourceAccepted': True, 'local': True, 'layer': True, 'preparesMembers': True,
+                    'sourceAccepted': True, 'local': key != 'viewportNonpassthrough', 'layer': True, 'preparesMembers': True,
                     'inactive': True, 'scriptInactive': True})
+        self.assertEqual(self.result['activeParticleNonpassthrough'], {
+            'sourceAccepted': True, 'local': True, 'layer': True, 'preparesMembers': True,
+            'inactive': False, 'scriptInactive': False})
 
     def test_populated_hidden_effect_keeps_profile_hierarchy_and_dependency_boundaries(self):
         for name, facts in self.result['populatedInactiveNeighbors'].items():
             with self.subTest(case=name):
                 self.assertFalse(facts['inactive'], facts)
                 self.assertFalse(facts['scriptInactive'], facts)
-                if name in ('nested', 'not-orthographic', 'root-perspective', 'child-perspective',
-                            'model-member', 'nested-background', 'nested-passthrough',
-                            'dependency', 'authored-dependency'):
+                if name.split(':')[1] in ('model-member', 'spot-light-member', 'missing-child', 'wrong-parent',
+                                         'cycle', 'dependency', 'authored-dependency'):
                     self.assertFalse(facts['sourceAccepted'], facts)
                     self.assertFalse(facts['local'], facts)
                     self.assertFalse(facts['layer'], facts)
@@ -878,12 +909,13 @@ class ScriptVisibleRootTests(unittest.TestCase):
         self.assertEqual(self.result['rootParticleEffectPreparation'], [210])
         self.assertEqual(self.result['rootParticleEffectRequirements'], {'210': [210]})
 
-    def test_invalid_particle_leaf_or_composition_rejects_without_blocking_peer(self):
+    def test_particle_composition_members_prepare_and_bad_leaves_preserve_peer(self):
         for name, result in self.result['invalidParticles'].items():
             with self.subTest(case=name):
-                self.assertEqual(result['targets'], [205])
-                self.assertEqual(result['preparation'], [])
-                self.assertEqual(result['requirements'], {})
+                supported = name in ('composition', 'nested-composition')
+                self.assertEqual(result['targets'], [200, 202, 205] if supported else [205])
+                self.assertEqual(result['preparation'], [200, 201, 202, 203, 204] if supported else [])
+                self.assertEqual(result['requirements'], {'200': [202, 203], '202': [202]} if supported else {})
 
     def test_isolated_composition_parents_and_descendants_share_visibility_admission(self):
         self.assertEqual(self.result['compositionTargets'], [90, 100, 110, 111, 112, 120])

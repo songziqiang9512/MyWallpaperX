@@ -83,7 +83,7 @@ UI 只投影产品状态并发命令，不能成为第二 runtime 真值。多�
 
 对实际 artifact 检查主 app/executable、wallpaper helper/daemon、framework、compiler/VM worker 或其他 nested code，以及 entitlements、hardened runtime、Team ID、CDHash、architectures、DMG/export、notary result 和 Gatekeeper。使用当前系统工具读取 artifact，不从 Xcode settings 推断最终包已正确签名。
 
-正式运行证据绑定 staged app 的绝对路径、bundle ID、Team ID、CDHash、executable hash 和 helper identity。没有 exported/notarized artifact 时明确结论只到 build/static/signed-staged 的实际等级。签名问题按 identity、entitlement、runtime、sandbox、nested-code、bundle structure 和 notarization phase 分类。
+正式运行证据绑定 staged app 的绝对路径、bundle ID、Team ID、CDHash、executable hash 和 helper identity。从本次构建的实际产物目录选择 App；Debug 的实现可能在 `*.debug.dylib`，应在构建冻结边界同时记录该 dylib，不能仅凭未变化的 executable stub 或沿用另一 configuration 的缓存路径判断新代码已运行。没有 exported/notarized artifact 时明确结论只到 build/static/signed-staged 的实际等级。签名问题按 identity、entitlement、runtime、sandbox、nested-code、bundle structure 和 notarization phase 分类。
 
 ## Runtime 隔离与声明等级
 

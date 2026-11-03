@@ -22,13 +22,26 @@ Effect 名称是作者内容与编辑器分类，不是渲染算法选择器。d
 
 固定 parent 分组在 topology 准备边界形成成员与执行顺序，当前 visibility 只门控真实消费。组根按作者位置合成，child 不在组外重复绘制。`copybackground` 缺省/true 使用当时 enclosing 背景，false 从透明源开始；不能改成全局最终画面或末后代 prefix。
 
-成员接纳以实际绘制所需的投影与输入为边界，不按类型许可名单。无 draw 的变换、相机元数据、声音和全局灯光成员保留完整 parent 闭包、作者顺序与显隐，由原 owner 消费；不要求它们产生颜色源。当前 model、particle、spotLight 绘制尚未消费组的局部 raster，保持相关 source 局部拒绝。image/solid/text 与 direct-draw quad 使用原 world frame、组 raster 与唯一 compositor；不新增容器 renderer 或资源/状态 owner。无 source 的 quad 由已编译 variant 的实际 sampler、graph 输入与完整准备结果决定可执行性；`DIRECTDRAW` 只参与作者 shader 分支选择，不作为播放许可。
+成员接纳以实际绘制所需的投影与输入为边界，不按类型许可名单。无 draw 的变换、相机元数据、声音和全局灯光成员保留完整 parent 闭包、作者顺序与显隐，由原 owner 消费；不要求它们产生颜色源。当前 model、spotLight 绘制尚未消费组的局部 raster，保持相关 source 局部拒绝。image/solid/text、particle 与 direct-draw quad 使用原 world frame、组 raster 与唯一 compositor；不新增容器 renderer 或资源/状态 owner。无 source 的 quad 由已编译 variant 的实际 sampler、graph 输入与完整准备结果决定可执行性；`DIRECTDRAW` 只参与作者 shader 分支选择，不作为播放许可。
 
 嵌套组与 named provider 沿原 pool、reservation、typed dependency 和 pin 工作。隐藏 provider 仍可能被活 consumer 使用，不能因不可见清除其准备或发布。跨 consumer 的背景 prefix 依赖与独立 prepass 不是同一语义。
 
 无 child 的 captured-main source Program 只在作者顺序截点捕获并编码，不移到整个层循环前批处理，不拿历史 framebuffer 充当当前背景。source capture MVP 与最终 output MVP 分开；透视、深度、passthrough 和带依赖 utility 的支持范围由原 SourceRoute/Camera/Dependency owner 决定，不强行改成普通 quad。
 
 源码：[Composition runtime](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerRuntimePlan.swift)、[Dependency runtime](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyFrameRuntime.swift)、[Graph composition](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneResolvedMaterialGraphComposition.swift)。
+
+<a id="particle-subtree-raster"></a>
+### 粒子子树栅格合同
+
+成员粒子进入作者指定的 composition source，父级 Program 消费该 source，并由原 compositor 输出一次。实际 pass 的栅格映射由原 MainPass 提供；没有独立容器 renderer、相机、模拟器、资源池、快照或准入认证状态。
+
+- canonical camera VP、viewport、world/model 与 basis 继续决定粒子、SpriteTrail/RopeTrail 的几何和连接。不能把局部 target 像素尺寸代入拖尾的屏幕垂线解算；非均匀画布或物理尺寸缩减会改变该度量。
+- MainPass 的既有 world-clip → source-clip 映射提供齐次归一后的 X/Y 两行。ParticleLayerUniforms 在原字段之后携带这两行；vertex 先完成原几何，再从同一个原 clip 计算目标 XY，保留原 Z/W。主画面和 viewport source 使用 identity，两行不产生另一个矩阵或状态 owner。局部组保持自身粒子的深度关系，最终组仍作为一个平面回绘。
+- REFRACT 保留既有 normal 解包、原 screen tangent 排列与全局 screen-UV amount 语义；同两行给出 UV 位移映射 `[[X.x, -X.y], [-Y.x, Y.y]]`，不能归一化后丢失尺寸或镜像。实际 attachment 的 extent 继续只供 depth、snapshot、fragment 背景采样和分配使用。官方 composition 内 amount 单位尚未取得有效对照；该内部一致性合同不能冒称官方像素一致。
+- 此两行合同消费 affine 的局部画布映射；任意 projective composition 并未由 authored orthographic 条件自动获得资格。MDL Rig 与 Attachment reader 已按 affine 合同接纳的四项 W 行容差在各自原解析入口规范为 `[0,0,0,1]`，其余十二项不变；bind、旧版 reference 和 attachment 沿原 world 链传递严格 affine 值。容差外仍由原格式入口拒绝，实际动态非法 pose 仍归原 Puppet owner，内部不重新认证同一输入或夹取已组合的 skin 矩阵。
+- SourceRoute 的粒子成员由已接通的实际消费者处理；model、可见 spotlight 等未接通的消费者分别保持其明确缺口。已能准备 source 的 composition，初始关闭的 effect 沿同一 source/hierarchy 保留 stage，typed 开关启用既有 Program。依赖/provider 仍由其原所有权约束决定。
+
+验收覆盖实际 production vertex 的非对称旋转/剪切/镜像、原 Z/W 与近远深度、非均匀拖尾及 REFRACT 正控/零强度/零遮罩；区分 authored canvas 与物理 allocation 尺寸，并保留无组的相邻行为。真实作者需核 source capture、成员实际目标、父级执行与末合成及画面，不能仅凭 route 或非黑通过；startup-inactive 的启用、隐藏/失败组与 peer 不泄漏另验。无法取得源/target 的情况沿原最小组降级和 pin 终态，不新增整体拒绝。
 
 <a id="fallback"></a>
 ## 局部失败与显示权

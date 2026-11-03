@@ -281,6 +281,22 @@ class SceneMdlPuppetMeshReaderTests(unittest.TestCase):
         attachment19 = dict(magic=b"MDLV0019", skeleton_marker=b"MDLS0002")
         socket = [0, 2, 0, 0, -3, 0, 0, 0, 0, 0, 1, 0, 8, -11, 0, 1]
         renamed_socket = dict(attachment_local=socket, attachment_names=("socket-renamed", "root-renamed"))
+        affine_bones = [matrix(-100, -50), matrix(20, 30)]
+        affine_bones[0][1], affine_bones[1][4] = .25, -.5
+        noisy_bones = [values.copy() for values in affine_bones]
+        noisy_socket = socket.copy()
+        for values in noisy_bones + [noisy_socket]:
+            values[3], values[7], values[11], values[15] = 1e-4, -1e-4, 2**-15, 1 + 2**-15
+        cls.fixtures["affine-clean-attachment.mdl"] = build_attachment_mdl(
+            bone_frames=[(-1, affine_bones[0]), (0, affine_bones[1])], attachment_local=socket)
+        cls.fixtures["affine-noise-attachment.mdl"] = build_attachment_mdl(
+            bone_frames=[(-1, noisy_bones[0]), (0, noisy_bones[1])], attachment_local=noisy_socket)
+        for component, value in ((3, .0002), (7, -.0002), (11, .0002), (15, 1.0002)):
+            for source in ("bone", "attachment"):
+                bone, local = affine_bones[0].copy(), socket.copy()
+                (bone if source == "bone" else local)[component] = value
+                cls.fixtures[f"nonaffine-{source}-{component}.mdl"] = build_attachment_mdl(
+                    bone_frames=[(-1, bone), (0, affine_bones[1])], attachment_local=local)
         cls.fixtures.update({
             "renamed-socket19.mdl": build_attachment_mdl(**attachment19, **renamed_socket),
             "equivalent-chain19.mdl": build_attachment_mdl(**attachment19, **renamed_socket,
@@ -587,6 +603,26 @@ class SceneMdlPuppetMeshReaderTests(unittest.TestCase):
         dynamic = self.results["attachments.mdl"]["dynamicAttachments"]
         self.assertEqual(dynamic["hand"], [55.0, -87.0])
         self.assertEqual(dynamic["orb"], [0.0, 0.0])
+
+    def test_accepted_bone_and_attachment_noise_composes_strict_affine_bind_and_current_frames(self):
+        clean = self.results["affine-clean-attachment.mdl"]
+        noisy = self.results["affine-noise-attachment.mdl"]
+        self.assertNotIn("attachmentError", noisy)
+        self.assertEqual(noisy["attachments"], clean["attachments"])
+        self.assertEqual(noisy["dynamicAttachmentMatrices"], clean["dynamicAttachmentMatrices"])
+        for attachment in noisy["attachments"]:
+            for field in ("modelLocalFrame", "modelFrame", "sceneFrame"):
+                self.assertEqual([attachment[field][i] for i in (3, 7, 11, 15)], [0, 0, 0, 1])
+        for frame in noisy["dynamicAttachmentMatrices"].values():
+            self.assertEqual([frame[i] for i in (3, 7, 11, 15)], [0, 0, 0, 1])
+
+    def test_each_bone_and_attachment_homogeneous_component_outside_tolerance_is_rejected(self):
+        for source in ("bone", "attachment"):
+            for component in (3, 7, 11, 15):
+                with self.subTest(source=source, component=component):
+                    row = self.results[f"nonaffine-{source}-{component}.mdl"]
+                    self.assertNotIn("attachments", row)
+                    self.assertIn("invalid affine matrix", row["attachmentError"])
 
     def test_legacy_attachments_preserve_bind_and_animated_frames(self):
         modern = self.results["attachments.mdl"]

@@ -106,14 +106,16 @@ nonisolated enum SceneDirectBoolEffectVisibilityRouteAdmission {
             // These compositions already capture through the same prepared
             // source route when enabled at launch. Retain their inactive
             // stages so a typed toggle can activate the existing graph later.
+            let compositionSource = layer.contentKind == "composition"
+                ? try? SceneUtilityLayerSourceRoute.resolve(
+                    layer: layer, descriptor: descriptor
+                ).get() : nil
             let standaloneComposition = layer.contentKind == "composition"
                 && layer.utilityLayer?.kind == .composition
                 && layer.parentID == nil
-                && ((layer.utilityLayer?.passthrough == false && layer.childLayerIDs.isEmpty)
-                    || (layer.utilityLayer?.passthrough == true
-                        && (try? SceneUtilityLayerSourceRoute.resolve(
-                        layer: layer, descriptor: descriptor
-                    ).get())?.usesAuthoredLocalSource == true))
+                && compositionSource != nil
+                && (layer.utilityLayer?.passthrough == false
+                    || compositionSource?.usesAuthoredLocalSource == true)
                 && ordinaryHierarchy
             let standaloneUtility = standaloneFullscreen || standaloneComposition
             guard standaloneUtility

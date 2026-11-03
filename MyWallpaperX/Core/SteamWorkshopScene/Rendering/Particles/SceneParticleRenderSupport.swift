@@ -466,6 +466,8 @@ nonisolated struct SceneParticleLayerUniforms: Sendable {
     var spriteUp: SIMD4<Float>
     var spriteForward: SIMD4<Float>
     var trailLocalNormal: SIMD4<Float>
+    var rasterClipX = SIMD4<Float>(1, 0, 0, 0)
+    var rasterClipY = SIMD4<Float>(0, 1, 0, 0)
 
     nonisolated init(
         viewProjection: simd_float4x4,
