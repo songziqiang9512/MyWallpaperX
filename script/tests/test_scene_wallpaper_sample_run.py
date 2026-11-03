@@ -423,6 +423,27 @@ class SceneWallpaperSampleRunTests(unittest.TestCase):
         self.assertIn("not-presented-or-per-input-visibility", capture["claim_boundary"])
         self.assertTrue(result["runtime"]["lifecycle"]["gpu_drained"])
 
+    def test_ordinary_capture_forwards_explicit_edge_without_terminal_mode(self):
+        for edge in (None, 512):
+            with self.subTest(edge=edge):
+                _, command = run_sample_fixture(benchmark, snapshot_max_edge=edge)
+                self.assertNotIn("--mwx-debug-scene-log-only", command)
+                self.assertNotIn("--mwx-debug-scene-terminal-snapshot", command)
+                if edge is None:
+                    self.assertNotIn("--mwx-debug-scene-capture-max-edge", command)
+                else:
+                    self.assertEqual(command[command.index("--mwx-debug-scene-capture-max-edge") + 1], "512")
+
+    def test_pointer_phase_captures_enable_existing_component_observation(self):
+        for disabled in (False, True):
+            observed = {}
+            with self.subTest(disabled=disabled):
+                run_sample_fixture(benchmark, no_execution_observations=disabled,
+                    sample_overrides={"pointer_trajectory_normalized": [[-.2, 0], [.2, 0]]},
+                    control={"observed_environment": observed})
+                self.assertEqual(observed.get("MWX_SCENE_PARTICLE_COMPONENT_OBSERVATION"),
+                                 None if disabled else "1")
+
     def test_terminal_capture_missing_misrouted_or_unencoded_is_unqualified(self):
         for failure in ("missing-png", "wrong-path", "missing-encoded", "wrong-request", "missing-tokens", "zero-source-size"):
             def receipts(result_dir):

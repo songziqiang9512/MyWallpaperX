@@ -3,7 +3,7 @@ import CoreGraphics
 import ImageIO
 import Metal
 
-/// Preparation-only inputs. No pipeline, command buffer, encoder or GPU draw is
+/// Preparation-only inputs. No Metal PSO, command buffer, encoder or GPU draw is
 /// created here; the independent rendering gate owns coverage pixel behavior.
 enum SceneParticleMaterialCoverageHarness {
     static func profiles() throws -> [String: Any] {
@@ -47,13 +47,14 @@ enum SceneParticleMaterialCoverageHarness {
             rows[name] = [
                 "sharedBlend": shared?.blending.rawValue ?? "unavailable",
                 "pipelineBlend": state?.blendMode.rawValue ?? "unavailable",
-                "executable": state != nil && asset.supportsBuiltInShaderExecution
-                    && asset.textureSource != nil,
                 "shaderSupported": asset.supportsBuiltInShaderExecution,
                 "textureAvailable": asset.textureSource != nil,
-                "hasRenderState": asset.renderState != nil,
+                "hasPipelineState": state != nil,
+                "refractionPrepared": asset.refraction != nil,
                 "sceneCamera": state?.usesSceneCamera ?? false,
-                "depthAttachment": state?.requiresDepthAttachment ?? false,
+                "depthAttachment": asset.renderState?.requiresDepthAttachment ?? false,
+                "depthTest": state?.depthTestEnabled ?? false,
+                "depthWrite": state?.depthWriteEnabled ?? false,
                 "cull": state?.cullMode.rawValue ?? "unavailable",
                 "overbright": state?.overbright ?? -1,
                 "diagnostics": graph.diagnostics.map { $0.kind.rawValue },
@@ -67,6 +68,8 @@ enum SceneParticleMaterialCoverageHarness {
         try inspect("sprite")
         try inspect("renamed", renderers: [["name": "sprite", "id": 72]],
                     material: "materials/renamed-receiver.json", texture: "renamed-source.png")
+        try inspect("renamedRope", renderers: [["name": "rope", "id": 93]],
+                    material: "materials/renamed-ribbon.json", texture: "renamed-source.png")
         try inspect("screen", renderers: [["name": "sprite", "orientation": "screen"]])
         try inspect("rendererFlagOne", renderers: [["name": "sprite", "flags": 1]])
         try inspect("normalizedBlend", blend: "  AlphaToCoverage\n")
@@ -74,7 +77,9 @@ enum SceneParticleMaterialCoverageHarness {
         try inspect("knownZeroCombos", combos: ["REFRACT": 0, "CUTOUT": 0, "LIGHTING": 0])
         try inspect("overbrightZero", constants: constant([0]))
         try inspect("overbrightFraction", constants: constant([1.19]))
-        try inspect("overbrightLimit", constants: constant([64]))
+        try inspect("overbrightSixtyFour", constants: constant([64]))
+        try inspect("overbrightSixtyFive", constants: constant([65]))
+        try inspect("overbrightLarge", constants: constant([1_024]))
         for renderer in ["spritetrail", "rope", "ropetrail"] {
             try inspect(renderer, renderers: [["name": renderer]])
         }
@@ -92,6 +97,10 @@ enum SceneParticleMaterialCoverageHarness {
         try inspect("depthTest", test: "enabled")
         try inspect("depthWrite", write: "enabled")
         try inspect("bothDepth", test: "enabled", write: "enabled")
+        try inspect("ropeDepthCull", renderers: [["name": "rope"]], cull: "normal",
+                    test: "enabled", write: "enabled")
+        try inspect("trailReadOnlyDepth", renderers: [["name": "spritetrail"]], test: "enabled")
+        try inspect("ropeTrailDepthWrite", renderers: [["name": "ropetrail"]], write: "enabled")
         for combo in ["REFRACT", "CUTOUT", "LIGHTING"] {
             try inspect(combo.lowercased(), combos: [combo: 1])
         }
@@ -102,13 +111,17 @@ enum SceneParticleMaterialCoverageHarness {
         try inspect("alphaEnabled", alpha: "enabled")
         try inspect("alphaUnknown", alpha: "future")
         try inspect("negativeOverbright", constants: constant([-0.01]))
-        try inspect("largeOverbright", constants: constant([64.01]))
         try inspect("nonfiniteOverbright", constants: constant([.infinity]))
+        try inspect("nanOverbright", constants: constant([.nan]))
+        try inspect("floatOverflowOverbright", constants: constant([
+            Double(Float.greatestFiniteMagnitude) * 2,
+        ]))
         try inspect("emptyOverbright", constants: constant([]))
         try inspect("vectorOverbright", constants: constant([1, 1]))
         try inspect("dynamicOverbright", constants: constant([1], false))
         try inspect("unknownConstant", constants: ["future": .init(components: [1], isStatic: true)])
         try inspect("customShader", shader: "workshop/own-shader")
+        try inspect("missingTexture", texture: "missing.png")
         try inspect("unknownBlend", blend: "future")
         try inspect("normalBlend", blend: "normal")
         try inspect("oldAdditiveRope", renderers: [["name": "rope"]], blend: "additive")
@@ -117,6 +130,18 @@ enum SceneParticleMaterialCoverageHarness {
                     blend: "translucent")
         try inspect("oldSpriteDepthCull", blend: "translucent", cull: "normal",
                     test: "enabled", write: "enabled")
+        try inspect("translucentRopeDepthCull", renderers: [["name": "rope"]],
+                    blend: "translucent", cull: "normal", test: "enabled", write: "enabled")
+        try inspect("additiveTrailReadOnlyDepth", renderers: [["name": "spritetrail"]],
+                    blend: "additive", test: "enabled")
+        try inspect("refractionTrailReadOnlyDepth", renderers: [["name": "spritetrail"]],
+                    blend: "translucent", combos: ["REFRACT": 1], test: "enabled")
+        try inspect("refractionDepthWrite", blend: "translucent", combos: ["REFRACT": 1],
+                    test: "enabled", write: "enabled")
+        try inspect("depthUnknownCombo", renderers: [["name": "rope"]],
+                    blend: "translucent", combos: ["FUTURE": 0], test: "enabled")
+        try inspect("depthUserTexture", renderers: [["name": "spritetrail"]],
+                    blend: "additive", userTexture: true, test: "enabled")
         return rows
     }
 
@@ -149,22 +174,29 @@ enum SceneParticleMaterialCoverageHarness {
         }
         try particle("plain", "materials/plain.json")
         try particle("covered", "materials/covered.json", rate: 1)
-        try particle("rejected", "materials/rejected.json", renderer: "spritetrail", rate: 1)
+        try particle("covered-rope", "materials/covered.json", renderer: "rope", rate: 1)
+        try particle("covered-trail", "materials/covered.json", renderer: "spritetrail", rate: 1)
+        try particle("rejected", "materials/rejected.json", rate: 1)
+        try particle("missing-texture", "materials/missing.json", rate: 1)
         try particle("parent", "materials/plain.json", children: [
             ["name": "particles/covered.json", "type": "eventspawn"]])
         try particle("rejected-parent", "materials/plain.json", children: [
             ["name": "particles/rejected.json", "type": "eventspawn"]])
+        try particle("trail-parent", "materials/plain.json", children: [
+            ["name": "particles/covered-trail.json", "type": "eventspawn"]])
         guard let device = MTLCreateSystemDefaultDevice() else { throw Harness.HarnessError.noMetal }
         func pass(_ path: String, _ blend: String,
-                  value: SceneDocument.ShaderValue? = nil, shader: String = "genericparticle")
+                  value: SceneDocument.ShaderValue? = nil, shader: String = "genericparticle",
+                  texture: String = "source.png", combos: [String: Int] = [:])
             -> SceneRenderDescriptor.MaterialPassDescriptor {
-            .init(materialPath: path, shaderPath: shader, texturePaths: ["source.png"],
+            .init(materialPath: path, shaderPath: shader, texturePaths: [texture],
                 constantShaderValues: value.map { ["ui_editor_properties_overbright": $0] } ?? [:],
-                blending: blend)
+                blending: blend, combos: combos)
         }
         let plain = pass("materials/plain.json", "additive")
         let covered = pass("materials/covered.json", "alphatocoverage")
-        let rejected = pass("materials/rejected.json", "alphatocoverage")
+        let rejected = pass("materials/rejected.json", "alphatocoverage", combos: ["LIGHTING": 1])
+        let missing = pass("materials/missing.json", "alphatocoverage", texture: "missing.png")
         let uploadQueue = SceneTextureUploadCommandQueue()
         let loader = SceneTextureLoader(uploadCommandQueue: uploadQueue)
         var rows: [String: Any] = [:]
@@ -173,7 +205,7 @@ enum SceneParticleMaterialCoverageHarness {
                      prepared: Set<Int> = []) {
             let runtime = SceneParticleRuntime(descriptor: .init(
                 layers: layers, renderOrderLayerIDs: layers.map(\.id),
-                materialPasses: passes.isEmpty ? [plain, covered, rejected] : passes),
+                materialPasses: passes.isEmpty ? [plain, covered, rejected, missing] : passes),
                 cacheDirectory: root, device: device, stockTextureBundleURL: nil, textureLoader: loader,
                 preparedParticleVisibilityLayerIDs: prepared)
             let lifecycle = runtime.lifecycleSnapshot
@@ -192,15 +224,24 @@ enum SceneParticleMaterialCoverageHarness {
         inspect("empty", [])
         inspect("ordinary", [Harness.layer(1, "particles/plain.json")])
         inspect("rootNoBirth", [Harness.layer(2, "particles/covered.json")])
+        inspect("ropeNoBirth", [Harness.layer(10, "particles/covered-rope.json")])
+        inspect("trailNoBirth", [Harness.layer(11, "particles/covered-trail.json")])
         inspect("hidden", [Harness.layer(3, "particles/covered.json", visible: false)])
         inspect("preparedHidden", [Harness.layer(4, "particles/covered.json", visible: false)],
                 prepared: [4])
         inspect("childNoBirth", [Harness.layer(5, "particles/parent.json")])
+        inspect("trailChildNoBirth", [Harness.layer(12, "particles/trail-parent.json")])
         inspect("rejectedChild", [Harness.layer(6, "particles/rejected-parent.json")])
         inspect("ordinaryWithRejectedPeer", [Harness.layer(7, "particles/plain.json"),
             Harness.layer(8, "particles/rejected.json")])
         inspect("customShader", [Harness.layer(9, "particles/covered.json")],
                 passes: [pass("materials/covered.json", "alphatocoverage", shader: "own/custom")])
+        inspect("missingTexture", [Harness.layer(13, "particles/missing-texture.json")])
+        inspect("ordinaryWithCustomShaderPeer", [Harness.layer(7, "particles/plain.json"),
+            Harness.layer(8, "particles/covered.json")],
+                passes: [plain, pass("materials/covered.json", "alphatocoverage", shader: "own/custom")])
+        inspect("ordinaryWithMissingTexturePeer", [Harness.layer(7, "particles/plain.json"),
+            Harness.layer(8, "particles/missing-texture.json")])
         func value(kind: String = "number", bindingKeys: [String] = [],
                    script: String? = nil, user: String? = nil, userKind: String? = nil,
                    timeline: Bool = false, diagnostics: [String] = []) throws -> SceneDocument.ShaderValue {
@@ -236,6 +277,11 @@ enum SceneParticleMaterialCoverageHarness {
             inspect(name, [Harness.layer(20, "particles/covered.json")],
                     passes: [pass("materials/covered.json", "alphatocoverage", value: value)])
         }
+        inspect("unknownConstant", [Harness.layer(20, "particles/covered.json")], passes: [
+            .init(materialPath: "materials/covered.json", shaderPath: "genericparticle",
+                texturePaths: ["source.png"], constantShaderValues: ["future": try value()],
+                blending: "alphatocoverage"),
+        ])
         inspect("ordinaryNullUser", [Harness.layer(21, "particles/plain.json")],
                 passes: [pass("materials/plain.json", "translucent",
                     value: try value(kind: "binding", bindingKeys: ["user", "value"], userKind: "null"))])

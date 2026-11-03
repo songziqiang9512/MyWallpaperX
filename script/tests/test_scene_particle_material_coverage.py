@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Real preparation gates for the bounded Sprite alpha-to-coverage profile.
+"""Real material preparation and pipeline demand for particle alpha-to-coverage.
 
 This compiles production parsers, material compiler, Runtime and child expansion.
 Runtime creates shared texture/buffer resources; no GPU commands are submitted.
@@ -70,55 +70,115 @@ class SceneParticleMaterialCoverageTests(unittest.TestCase):
                 raise RuntimeError(f"{mode}: {completed.stderr}")
             cls.outputs[mode] = json.loads(completed.stdout)
 
-    def test_only_plain_static_screen_sprite_profile_is_admitted(self) -> None:
+    def test_a2c_material_preparation_is_independent_of_geometry_profile(self) -> None:
         rows = self.outputs["profiles"]
         positives = {
-            "sprite", "renamed", "screen", "rendererFlagOne", "normalizedBlend",
+            "sprite", "renamed", "renamedRope", "screen", "rendererFlagOne", "normalizedBlend",
             "defaultAlpha", "knownZeroCombos", "overbrightZero", "overbrightFraction",
-            "overbrightLimit",
-        }
-        old = {"oldAdditiveRope", "oldTranslucentTrail", "oldFixedTranslucent", "oldSpriteDepthCull"}
-        rejected = {
+            "overbrightSixtyFour", "overbrightSixtyFive", "overbrightLarge",
             "spritetrail", "rope", "ropetrail", "fixed", "upright", "axis", "rendererFlags",
-            "malformedRenderer", "unknownRendererField", "twoRenderers", "passOne", "passNegative",
-            "normalCull", "depthTest", "depthWrite", "bothDepth", "refract", "cutout", "lighting",
-            "unknownComboZero", "unknownComboOne", "userTexture", "userValue", "alphaEnabled",
-            "alphaUnknown", "negativeOverbright", "largeOverbright", "nonfiniteOverbright",
-            "emptyOverbright", "vectorOverbright", "dynamicOverbright", "unknownConstant",
-            "customShader", "unknownBlend", "normalBlend",
+            "malformedRenderer", "unknownRendererField", "twoRenderers", "normalCull",
+            "depthTest", "depthWrite", "bothDepth", "ropeDepthCull", "trailReadOnlyDepth",
+            "ropeTrailDepthWrite",
         }
-        self.assertEqual(set(rows), positives | old | rejected)
-        self.assertEqual({name for name, row in rows.items() if row["executable"]}, positives | old)
+        ordinary = {
+            "oldAdditiveRope", "oldTranslucentTrail", "oldFixedTranslucent", "oldSpriteDepthCull",
+            "translucentRopeDepthCull", "additiveTrailReadOnlyDepth", "refractionTrailReadOnlyDepth",
+        }
+        resource_failures = {"customShader", "missingTexture"}
+        rejected = {
+            "passOne", "passNegative", "refract", "cutout", "lighting",
+            "unknownComboZero", "unknownComboOne", "userTexture", "userValue", "alphaEnabled",
+            "alphaUnknown", "negativeOverbright", "nonfiniteOverbright", "nanOverbright",
+            "floatOverflowOverbright",
+            "emptyOverbright", "vectorOverbright", "dynamicOverbright", "unknownConstant",
+            "unknownBlend", "normalBlend", "refractionDepthWrite", "depthUnknownCombo",
+            "depthUserTexture",
+        }
+        self.assertEqual(set(rows), positives | ordinary | resource_failures | rejected)
+        self.assertEqual({name for name, row in rows.items() if row["hasPipelineState"]},
+                         positives | ordinary | resource_failures)
         for name in positives:
             with self.subTest(name=name):
                 self.assertEqual(rows[name]["sharedBlend"], "alphatocoverage")
                 self.assertEqual(rows[name]["pipelineBlend"], "alphatocoverage")
-                self.assertTrue(rows[name]["hasRenderState"])
-                self.assertTrue(rows[name]["sceneCamera"])
-                self.assertFalse(rows[name]["depthAttachment"])
-                self.assertEqual(rows[name]["cull"], "none")
-        self.assertAlmostEqual(rows["overbrightFraction"]["overbright"], 1.19, places=5)
-        self.assertEqual(rows["overbrightZero"]["overbright"], 0)
-        self.assertEqual(rows["overbrightLimit"]["overbright"], 64)
-        self.assertFalse(rows["customShader"]["shaderSupported"])
+                self.assertTrue(rows[name]["shaderSupported"])
+                self.assertTrue(rows[name]["textureAvailable"])
         self.assertEqual(rows["unknownBlend"]["sharedBlend"], "unavailable")
+
+    def test_overbright_is_a_nonnegative_finite_backend_float(self) -> None:
+        rows = self.outputs["profiles"]
+        self.assertAlmostEqual(rows["overbrightFraction"]["overbright"], 1.19, places=5)
+        for name, value in (("overbrightZero", 0), ("overbrightSixtyFour", 64),
+                            ("overbrightSixtyFive", 65), ("overbrightLarge", 1024)):
+            with self.subTest(name=name):
+                self.assertEqual(rows[name]["overbright"], value)
+        for name in ("negativeOverbright", "nonfiniteOverbright", "nanOverbright",
+                     "floatOverflowOverbright", "emptyOverbright", "vectorOverbright",
+                     "dynamicOverbright"):
+            with self.subTest(name=name):
+                self.assertFalse(rows[name]["hasPipelineState"])
+                self.assertIn("unsupportedRenderState", rows[name]["diagnostics"])
+
+    def test_shader_and_texture_availability_are_separate_preparation_facts(self) -> None:
+        rows = self.outputs["profiles"]
+        self.assertTrue(rows["customShader"]["hasPipelineState"])
+        self.assertFalse(rows["customShader"]["shaderSupported"])
+        self.assertIn("unsupportedShader", rows["customShader"]["diagnostics"])
+        self.assertTrue(rows["missingTexture"]["hasPipelineState"])
+        self.assertFalse(rows["missingTexture"]["textureAvailable"])
+        self.assertIn("missingTextureFile", rows["missingTexture"]["diagnostics"])
+
+    def test_material_preparation_preserves_the_original_camera_selection(self) -> None:
+        rows = self.outputs["profiles"]
+        camera_selected = {
+            "sprite", "renamed", "screen", "rendererFlagOne", "normalizedBlend",
+            "defaultAlpha", "knownZeroCombos", "overbrightZero", "overbrightFraction",
+            "overbrightSixtyFour", "overbrightSixtyFive", "overbrightLarge", "normalCull",
+            "depthTest", "depthWrite", "bothDepth", "oldSpriteDepthCull", "customShader",
+            "missingTexture",
+        }
+        self.assertEqual({name for name, row in rows.items() if row["sceneCamera"]}, camera_selected)
+
+    def test_cull_and_depth_follow_the_authored_material_state(self) -> None:
+        rows = self.outputs["profiles"]
+        depth_states = {
+            "depthTest": (True, False), "depthWrite": (False, True), "bothDepth": (True, True),
+            "ropeDepthCull": (True, True), "trailReadOnlyDepth": (True, False),
+            "ropeTrailDepthWrite": (False, True), "oldSpriteDepthCull": (True, True),
+            "translucentRopeDepthCull": (True, True), "additiveTrailReadOnlyDepth": (True, False),
+            "refractionTrailReadOnlyDepth": (True, False),
+        }
+        back_cull = {"normalCull", "ropeDepthCull", "oldSpriteDepthCull", "translucentRopeDepthCull"}
+        for name, row in rows.items():
+            if not row["hasPipelineState"]:
+                continue
+            with self.subTest(name=name):
+                self.assertEqual((row["depthTest"], row["depthWrite"]),
+                                 depth_states.get(name, (False, False)))
+                self.assertEqual(row["depthAttachment"], name in depth_states)
+                self.assertEqual(row["cull"], "back" if name in back_cull else "none")
+        self.assertTrue(rows["refractionTrailReadOnlyDepth"]["refractionPrepared"])
+        self.assertFalse(rows["refractionDepthWrite"]["refractionPrepared"])
 
     def test_ordinary_blend_state_capabilities_are_preserved(self) -> None:
         rows = self.outputs["profiles"]
         for name, blend in (("oldAdditiveRope", "additive"),
                             ("oldTranslucentTrail", "translucent"),
                             ("oldFixedTranslucent", "translucent"),
-                            ("oldSpriteDepthCull", "translucent")):
+                            ("oldSpriteDepthCull", "translucent"),
+                            ("translucentRopeDepthCull", "translucent"),
+                            ("additiveTrailReadOnlyDepth", "additive"),
+                            ("refractionTrailReadOnlyDepth", "translucent")):
             with self.subTest(name=name):
                 self.assertEqual(rows[name]["pipelineBlend"], blend)
-                self.assertTrue(rows[name]["hasRenderState"])
-        self.assertTrue(rows["oldSpriteDepthCull"]["depthAttachment"])
-        self.assertEqual(rows["oldSpriteDepthCull"]["cull"], "back")
-        self.assertFalse(rows["normalBlend"]["executable"])
+                self.assertTrue(rows[name]["hasPipelineState"])
+        self.assertFalse(rows["normalBlend"]["hasPipelineState"])
 
     def test_prepared_root_and_child_demand_precedes_particle_birth(self) -> None:
         rows = self.outputs["demand"]
-        for name in ("rootNoBirth", "preparedHidden", "childNoBirth"):
+        for name in ("rootNoBirth", "ropeNoBirth", "trailNoBirth", "preparedHidden",
+                     "childNoBirth", "trailChildNoBirth"):
             with self.subTest(name=name):
                 self.assertTrue(rows[name]["required"])
                 self.assertEqual(rows[name]["rootParticles"], 0)
@@ -126,14 +186,29 @@ class SceneParticleMaterialCoverageTests(unittest.TestCase):
                 self.assertEqual(rows[name]["childSystems"], 0)
                 self.assertEqual(rows[name]["rootSystems"], 1)
         self.assertEqual(rows["childNoBirth"]["activeLayerIDs"], [5])
+        self.assertEqual(rows["ropeNoBirth"]["activeLayerIDs"], [10])
+        self.assertEqual(rows["trailNoBirth"]["activeLayerIDs"], [11])
+        self.assertEqual(rows["trailChildNoBirth"]["activeLayerIDs"], [12])
         self.assertEqual(rows["hidden"]["activeLayerIDs"], [])
         self.assertEqual(rows["preparedHidden"]["activeLayerIDs"], [4])
         for name in ("empty", "ordinary", "hidden", "rejectedChild", "customShader",
-                     "ordinaryWithRejectedPeer"):
+                     "missingTexture", "ordinaryWithRejectedPeer", "ordinaryWithCustomShaderPeer",
+                     "ordinaryWithMissingTexturePeer"):
             with self.subTest(name=name):
                 self.assertFalse(rows[name]["required"])
-        self.assertEqual(rows["ordinaryWithRejectedPeer"]["activeLayerIDs"], [7])
-        self.assertEqual(rows["ordinaryWithRejectedPeer"]["rootSystems"], 1)
+        for name in ("ordinaryWithRejectedPeer", "ordinaryWithCustomShaderPeer",
+                     "ordinaryWithMissingTexturePeer"):
+            with self.subTest(healthyPeer=name):
+                self.assertEqual(rows[name]["activeLayerIDs"], [7])
+                self.assertEqual(rows[name]["rootSystems"], 1)
+        self.assertIn("unsupportedRenderState", rows["rejectedChild"]["diagnostics"])
+        self.assertEqual(rows["rejectedChild"]["activeLayerIDs"], [6])
+        self.assertEqual(rows["rejectedChild"]["rootSystems"], 1)
+        self.assertIn("unsupportedShader", rows["ordinaryWithCustomShaderPeer"]["diagnostics"])
+        self.assertIn("missingTextureFile", rows["ordinaryWithMissingTexturePeer"]["diagnostics"])
+        for name in ("customShader", "missingTexture"):
+            with self.subTest(unavailableRoot=name):
+                self.assertEqual(rows[name]["rootSystems"], 0)
 
     def test_runtime_provenance_rejects_dynamic_and_unknown_constant_wrappers(self) -> None:
         rows = self.outputs["demand"]
@@ -146,7 +221,8 @@ class SceneParticleMaterialCoverageTests(unittest.TestCase):
                 self.assertEqual(rows[name]["rootSystems"], 1)
         for name in ("scriptWrapper", "emptyScript", "objectUser", "boundUser", "animation",
                      "unparsedAnimation", "timelineDiagnostic", "unknownWrapper", "emptyBinding",
-                     "primitiveWithBinding", "unknownKind", "emptyStringUser", "nullUserAnimation"):
+                     "primitiveWithBinding", "unknownKind", "emptyStringUser", "nullUserAnimation",
+                     "unknownConstant"):
             with self.subTest(name=name):
                 self.assertFalse(rows[name]["required"])
                 self.assertEqual(rows[name]["rootSystems"], 0)

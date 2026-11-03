@@ -63,7 +63,7 @@ python3.12 -B script/scene_sample_debug_archive.py \
   --output <本次archive.json>
 ```
 
-具体参数以脚本 `--help` 为准。单独 `--log-only` 保留执行观察与停止；加 `--terminal-snapshot` 在 after 点取一张 Metal PNG，`--snapshot-max-edge` 只缩导出、不改渲染尺寸，仍不计算正式视觉或性能指标。该筛查模式允许 `--jobs > 1`；增加并发前核资源/进程隔离、每图 request 与 Surface/GPU 回执及排空。正式性能和真实系统输入仍串行。`--startup-timeout-allowance` 是 supervisor 总期限中额外的准备余量，不改变 Ready 后观察时长。短窗未触发的定时、随机、条件或输入分支只对对应子集延长。
+具体参数以脚本 `--help` 为准。单独 `--log-only` 保留执行观察与停止；加 `--terminal-snapshot` 在 after 点取一张 Metal PNG，缺省最长1280。活动 pointer 轨迹需要普通模式的各相位捕获；普通模式缺省保全分辨率，也可显式 `--snapshot-max-edge` 缩导出。细线或弱信号须回看原尺寸，缩图消失不能判原始像素缺失。执行观测开启的轨迹请求复用组件事实接口；粒子 bind 行同时记录传给 draw 的 blend/cull/depth、相机选择与实际 depth attachment。导出缩放不改变渲染或完整读回尺寸，编码事实不增加逐输入可见贡献或性能资格。筛查模式允许 `--jobs > 1`；增加并发前核资源/进程隔离、每图 request 与 Surface/GPU 回执及排空。正式性能和真实系统输入仍串行。`--startup-timeout-allowance` 是 supervisor 总期限中额外的准备余量，不改变 Ready 后观察时长。短窗未触发的定时、随机、条件或输入分支只对对应子集延长。
 
 分别判断 `declared / prepared / executed / failed / not-triggered / unknown`。图层隐藏、alpha 为零、离屏、延迟或缺输入不能直接判缺图；先确认目标 consumer、作者过渡和实际 scene time。并发超时、OOM、缺 drawable 等现象先用同输入串行复核。原始失败与后续恢复保留在同次报告，不用重试覆盖失败。
 

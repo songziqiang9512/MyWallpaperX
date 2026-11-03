@@ -207,8 +207,8 @@ def run_sample(
         command.append("--mwx-debug-scene-log-only")
     if terminal_snapshot:
         command.append("--mwx-debug-scene-terminal-snapshot")
-        if snapshot_max_edge is not None:
-            command.extend(["--mwx-debug-scene-capture-max-edge", str(snapshot_max_edge)])
+    if snapshot_max_edge is not None:
+        command.extend(["--mwx-debug-scene-capture-max-edge", str(snapshot_max_edge)])
     append_performance_profile_argument(command, performance_fps)
     append_performance_warmup_argument(command, performance_warmup)
     if no_execution_observations:
@@ -332,7 +332,7 @@ def run_sample(
     environment["HOME"] = str(runtime_home)
     environment["CFFIXED_USER_HOME"] = str(runtime_home)
     environment["TMPDIR"] = str(runtime_tmp) + "/"
-    if terminal_snapshot:
+    if execution_observations_enabled and (terminal_snapshot or pointer_trajectory is not None):
         environment["MWX_SCENE_PARTICLE_COMPONENT_OBSERVATION"] = "1"
     if "cursor_start_second" in sample:
         second = float(sample["cursor_start_second"])

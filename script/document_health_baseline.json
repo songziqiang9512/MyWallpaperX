@@ -121,16 +121,16 @@
       "bytes": 5938
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 74,
-      "bytes": 7909
+      "lines": 85,
+      "bytes": 10249
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 99,
       "bytes": 13324
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 44,
-      "bytes": 10873
+      "lines": 45,
+      "bytes": 12144
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 81,
@@ -150,7 +150,7 @@
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 104,
-      "bytes": 12076
+      "bytes": 12490
     },
     "docs/scene/development/official-client-behavior-research-workflow.md": {
       "lines": 70,
@@ -161,8 +161,8 @@
       "bytes": 4260
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 158,
-      "bytes": 22332
+      "lines": 159,
+      "bytes": 23204
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -372,15 +372,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/development/development-workflow.md",
-      "before": "e2c8626027b720dd9fe8f739d9f493610ba215a5d01dee52640d000c835cd86b",
-      "after": "2a81a44c9e73b7087764b6bbbf63da0bd0eb388b6002b9ae4eff8281b1f4275f",
-      "owner": "scene-typed-color-compilation",
-      "reason": "Constrain remaining source/MSL analysis to actual channel/operation gaps instead of ordinary color admission.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#typed-color-compilation"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
       "before": "f604e539ff6d27eb51d64ea17a69056ee2c8574f1cfda77334e028ac283ea3cf",
       "after": "4e3b66f1ad1378a2f398317e5accb39d628ea4716a68726ac36773ec1b3ba6ae",
@@ -400,29 +391,38 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "6f70654efffbd55cb6f4afeb042a9bc2598413a694e8b0b011e91a5ec442a39c",
-      "after": "b93dc52ddc8787f46b02144f86e977d7f52bbe97cd4491730c3d32e462172b7a",
-      "owner": "scene-composition-particles",
-      "reason": "Route newly executable particle composition members to the existing canonical raster responsibility.",
-      "decision": "docs/scene/capabilities/effect-execution-coverage.md#particle-subtree-raster"
+      "before": "b93dc52ddc8787f46b02144f86e977d7f52bbe97cd4491730c3d32e462172b7a",
+      "after": "09da070560da4b3e007d7a22f8658d7fd49ebc66eae4d16ef335ee449c404034",
+      "owner": "scene-particle-material-raster",
+      "reason": "Separate actual material/raster inputs from geometry and camera selection; define existing depth ownership and finite backend overbright without renderer permissions.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#material-state"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "1273d3c1b8b9940d1060a39aca63f03291c87c2c48e54db515e84467e4572d51",
-      "after": "baa0abfd9e72bc4b7e830f5ef5b54df2c41d10242ce83fa7f29060d75284ec7f",
-      "owner": "scene-composition-particles",
-      "reason": "Replace superseded subtree failures with the qualified target-to-terminal chain, typed entry/GPU/App controls and explicit official-unit/performance limits.",
+      "before": "baa0abfd9e72bc4b7e830f5ef5b54df2c41d10242ce83fa7f29060d75284ec7f",
+      "after": "37a3c34590957277b8ab6816eb093eae8cb53f5d158cd8bd7937588196dc1d8d",
+      "owner": "scene-particle-material-raster",
+      "reason": "Bind the actual Debug dylib and phase-matched author draws to CPU/Metal controls, preserving weak original-alpha trajectory and attribution limits.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#coverage"
     },
     {
       "section": "bodies",
+      "path": "docs/scene/development/development-workflow.md",
+      "before": "2a81a44c9e73b7087764b6bbbf63da0bd0eb388b6002b9ae4eff8281b1f4275f",
+      "after": "41b5d33a54c9db89cdd10ec70e1bb0c4590e08c2578d28b33f33e4a8f01e96d6",
+      "owner": "scene-particle-material-raster",
+      "reason": "Describe existing phased capture versus terminal-only screening, explicit export size and source-size weak-signal checks without pixel or performance overclaims.",
+      "decision": "docs/scene/development/development-workflow.md#corpus-runtime-measurement"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "e000277173499c3b7b5e8a6437c69261c2f1f4dea5f1260e9612dcd52a45b323",
-      "after": "832a2789f2dc90504ded90ff7db450823e2463f7a992d9e55646c580e4c33a6d",
-      "owner": "scene-composition-particles",
-      "reason": "Remove two recovered subtree breakpoints; keep the actual unresolved model/light consumers and unqualified official composition refraction units.",
-      "decision": "docs/scene/capabilities/effect-execution-coverage.md#particle-subtree-raster"
+      "before": "832a2789f2dc90504ded90ff7db450823e2463f7a992d9e55646c580e4c33a6d",
+      "after": "4420cb0b6fa6716b368ab5e18daa6a7f8987a01cec237114dce1b34842aae712",
+      "owner": "scene-particle-material-raster",
+      "reason": "Replace retired Rope material rejection with the current original-alpha visible-trajectory breakpoint and retain actual unconsumed material-input limits.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#material-state"
     }
   ]
 }

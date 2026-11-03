@@ -63,7 +63,13 @@ extension SceneParticleMetalPipeline {
                         "particlePath": batch.particlePath,
                         "childTemplateIndex": batch.childTemplateIndex.map(String.init) ?? "root",
                         "rendererComponentIndex": batch.debugRendererComponentIndex.map(String.init) ?? "implicit",
-                        "rendererKind": batch.debugRendererKind ?? "unknown"]
+                        "rendererKind": batch.debugRendererKind ?? "unknown",
+                        "blendMode": batch.renderState.blendMode.rawValue,
+                        "cullMode": batch.renderState.cullMode.rawValue,
+                        "depthTestEnabled": String(batch.renderState.depthTestEnabled),
+                        "depthWriteEnabled": String(batch.renderState.depthWriteEnabled),
+                        "usesSceneCamera": String(batch.renderState.usesSceneCamera),
+                        "usesDepthAttachment": String(usesDepth)]
                 if let depth { batchDetails["depthTextureToken"] = depth.textureToken }
                 observeBindings = { color, normal, background, count in
                     var details = batchDetails

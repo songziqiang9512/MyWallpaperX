@@ -1,6 +1,6 @@
 import Foundation
 
-/// Cull consumes shared raster state independently of camera/depth eligibility.
+/// Shared material/raster state; geometry and camera selection remain separate.
 nonisolated enum SceneParticlePipelineRenderStateCompiler {
     static func compile(
         _ state: SceneMaterialRenderState,
@@ -11,28 +11,22 @@ nonisolated enum SceneParticlePipelineRenderStateCompiler {
         guard [.unspecified, .default].contains(state.alphaWriting),
               let overbright = overbright(in: materialPass) else { return nil }
 
-        let screenSprite = supportsScreenSprite(definition)
-        let spriteProfile = screenSprite && supportsOrdinaryMaterialProfile(materialPass)
+        let ordinaryInputs = supportsOrdinaryMaterialProfile(materialPass)
+        let usesSceneCamera = selectsSceneCamera(definition) && ordinaryInputs
         let blendMode: SceneParticlePipelineBlendMode
         switch state.blending {
         case .translucent: blendMode = .translucent
         case .additive: blendMode = .additive
         case .alphaToCoverage:
-            guard spriteProfile, let materialPass, materialPass.passIndex == 0,
+            guard ordinaryInputs, let materialPass, materialPass.passIndex == 0,
                   materialPass.constantValues.keys.allSatisfy({
                       $0 == "ui_editor_properties_overbright"
-                  }),
-                  state.cullMode == .noCull, state.depthTest == .disabled,
-                  state.depthWrite == .disabled else { return nil }
+                  }) else { return nil }
             blendMode = .alphaToCoverage
         case .normal: return nil
         }
 
-        let needsDepthStateProfile = state.depthTest == .enabled
-            || state.depthWrite == .enabled
-        let readOnlyRefraction = isRefraction && screenSprite
-            && state.depthWrite == .disabled
-        if needsDepthStateProfile, !spriteProfile, !readOnlyRefraction {
+        if state.requiresDepthAttachment, !ordinaryInputs, !isRefraction {
             return nil
         }
 
@@ -40,7 +34,7 @@ nonisolated enum SceneParticlePipelineRenderStateCompiler {
             blendMode: blendMode,
             cullMode: state.cullMode == .normal ? .back : .none,
             depthTestEnabled: state.depthTest == .enabled,
-            usesSceneCamera: spriteProfile,
+            usesSceneCamera: usesSceneCamera,
             depthWriteEnabled: state.depthWrite == .enabled,
             overbright: overbright
         )
@@ -52,10 +46,9 @@ nonisolated enum SceneParticlePipelineRenderStateCompiler {
         guard let value = materialPass?.constantValues[
             "ui_editor_properties_overbright"
         ] else { return 1 }
-        guard value.isStatic, value.components.count == 1,
-              let authored = value.components.first,
-              authored.isFinite, (0 ... 64).contains(authored) else { return nil }
-        return Float(authored)
+        guard value.isStatic, value.components.count == 1 else { return nil }
+        let scalar = Float(value.components[0])
+        return scalar.isFinite && scalar >= 0 ? scalar : nil
     }
 
     private static func supportsOrdinaryMaterialProfile(
@@ -71,7 +64,8 @@ nonisolated enum SceneParticlePipelineRenderStateCompiler {
         return true
     }
 
-    private static func supportsScreenSprite(_ definition: SceneParticleDefinition) -> Bool {
+    // This selects the existing coordinate convention, not execution rights.
+    private static func selectsSceneCamera(_ definition: SceneParticleDefinition) -> Bool {
         guard definition.renderers.count == 1,
               let renderer = definition.renderers.first,
               renderer.rawFlags == 0 || renderer.rawFlags == 1,

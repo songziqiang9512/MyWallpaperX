@@ -303,8 +303,8 @@ def parse_args() -> argparse.Namespace:
                         help="collect logs without visual qualification; PNG only with --terminal-snapshot")
     parser.add_argument("--terminal-snapshot", action="store_true",
                         help="log-only screening: one Surface terminal PNG after ready; no visual parity or performance qualification")
-    parser.add_argument("--snapshot-max-edge", type=int, default=1280,
-                        help="terminal-snapshot export edge in pixels, 128..4096; render extent is unchanged")
+    parser.add_argument("--snapshot-max-edge", type=int,
+                        help="PNG export edge in pixels, 128..4096; terminal default1280, ordinary full size; render extent is unchanged")
     parser.add_argument("--startup-timeout-allowance", type=float, default=60,
                         help="supervisor total deadline is duration plus this allowance (seconds)")
     parser.add_argument("--jobs", type=int, default=1,
@@ -402,7 +402,11 @@ def parse_args() -> argparse.Namespace:
         parser.error("--jobs must be a positive integer")
     if not math.isfinite(args.startup_timeout_allowance) or args.startup_timeout_allowance <= 0:
         parser.error("--startup-timeout-allowance must be finite and positive")
-    if args.terminal_snapshot and (not args.log_only or not 128 <= args.snapshot_max_edge <= 4096):
+    if args.terminal_snapshot and args.snapshot_max_edge is None:
+        args.snapshot_max_edge = 1280
+    if args.snapshot_max_edge is not None and not 128 <= args.snapshot_max_edge <= 4096:
+        parser.error("--snapshot-max-edge must be in 128..4096")
+    if args.terminal_snapshot and not args.log_only:
         parser.error("--terminal-snapshot requires --log-only and a snapshot edge in 128..4096")
     args.duration = max(args.duration if args.duration is not None else (4 if args.log_only else 7),
                         3 if args.log_only else 7)
@@ -602,7 +606,7 @@ def main() -> int:
                     require_cursor_ripple_persistence=args.require_cursor_ripple_persistence,
                     log_only=args.log_only,
                     terminal_snapshot=args.terminal_snapshot,
-                    snapshot_max_edge=args.snapshot_max_edge if args.terminal_snapshot else None,
+                    snapshot_max_edge=args.snapshot_max_edge,
                     startup_timeout_allowance=args.startup_timeout_allowance,
                 )
                 apply_runtime_retention(runtime_root, app_identity, [result], args.keep_runtime,

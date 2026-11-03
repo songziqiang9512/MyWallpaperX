@@ -57,7 +57,18 @@ Surface 采用新 topology 才退出死 root/child GPU key；重建构造前过�
 
 材质剔除由原 Metal raster 状态消费：`normal` 编译为 back-cull，`noCull` 保双面，共用已有三角绕序与 vertex。其资格不依赖 renderer 名称或 REFRACT 组合，不改变相机、basis、尺寸与变换、纹理 UV、snapshot 或输出 owner。镜像是否翻面按实际几何投影决定，不改 front-facing 补偿作者变换。
 
-alpha-to-coverage、原生相机继承、只读深度和 REFRACT 均有各自实际 material/geometry 资格；深度仍由原 camera/attachment owner 决定，不支持的组合局部不可用，不能伪造 blend、normal 纹理槽、资源或深度屏障。
+<a id="material-state"></a>
+### 材质状态与几何职责
+
+材质状态由实际 shader 输入、颜色输出与附件需求决定，与几何及相机选择分开。A2C 和共同 depth 不以 screen Sprite、noCull 或 renderer 名称授予执行许可；各原 owner 消费自己的准备结果，不新增能力 token、管线、时钟或持久状态。
+
+- 原 RenderStateCompiler 消费已解析的 blend/cull/depth/alpha 和已支持材质输入。A2C 复用共享 `particleVertex`，仅采用 straight tint、硬件 coverage 与 alpha-to-one；Sprite、SpriteTrail、Rope 和 RopeTrail 的几何、实例与 joins 仍由各自原计划产生。材质不重验 renderer 字段；Rope 的完整计划检查与普通 Sprite/SpriteTrail 当前缺省/诊断行为不能混作一种全局资格。
+- A2C 不额外禁止 cull 或 depth。共同 depth 接受已有普通颜色材质输入或已准备 REFRACT 事实，实际 PSO、nearest pass、depth clear/store/load 与 writer/readonly 次序继续由原 GPU owner 消费。REFRACT planner 当前无 depth-write 语义，不在下游重复其入口判断；A2C+REFRACT 没有组合 fragment/PSO，不能据此伪造执行。
+- `usesSceneCamera` 保留原选择及 CameraFrame 的 native projection/Y 转换语义；它不再充当材质或深度的播放许可。新增 Rope coverage 不能令普通 Rope 自动切 native 相机。
+- overbright 是准备期静态 scalar，转为后端 Float 后须有限且非负。shader 直接消费其数值，不能以 64 或编辑器范围作额外播放上限；未实现的 combo、user sampler/value、自定义 shader 或多 pass 仍需真实消费者，不能因状态已准备就宣称其输入生效。
+- 保留原 sampleCount1、像素格式和深度附件变体，不为 A2C 名称新增 MSAA/resolve 生命周期。PSO 或资源失败只使实际受影响 batch 不可用，健康 peer 继续；不得退回另一个 blend 来冒称 coverage。单采样硬件结果不证明平滑抗锯齿或官方 coverage mask 一致。
+
+验收使用原 Runtime 的 live-particle Rope 与独立 RopeTrail history，读取实际 joins/vertex、硬件 alpha 正反例、非方纹理、急转/合并段、镜像/cull、共同深度 writer/readonly、缺 PSO 和健康后继；overbright65 用低输入颜色避免饱和掩盖。真实作者以活动 pointer 轨迹期间的 batch、纹理、捕获身份和终端画面取证，静止帧或默认隐藏 child 的准备诊断不能证明轨迹恢复。若原几何、输入或资源出现下一断点，沿实际 owner 修正或登记，不继续追加模式名单。
 
 <a id="playback"></a>
 ## 播放命令

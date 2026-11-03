@@ -97,6 +97,18 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                 benchmark.parse_args()
             self.assertEqual(error.exception.code, 2)
 
+    def test_export_edge_is_explicit_for_ordinary_capture_and_defaulted_for_terminal(self):
+        base = ["scene_wallpaper_benchmark.py", "--app", "/tmp/App", "--sample-root", "/tmp/samples",
+                "--output-dir", "/tmp/results"]
+        for options, expected in (([], None), (["--snapshot-max-edge", "512"], 512),
+                                  (["--log-only", "--terminal-snapshot"], 1280)):
+            with self.subTest(options=options), mock.patch.object(sys, "argv", base + options):
+                self.assertEqual(benchmark.parse_args().snapshot_max_edge, expected)
+        for value in (127, 4097):
+            with self.subTest(edge=value), mock.patch.object(sys, "argv", base + ["--snapshot-max-edge", str(value)]), \
+                    mock.patch.object(sys, "stderr", io.StringIO()), self.assertRaises(SystemExit):
+                benchmark.parse_args()
+
     def test_parallel_scheduler_preserves_order_retires_each_worker_and_joins_on_error(self):
         for tool_error, terminal, identity_failure in ((False, False, False), (False, True, False),
                                                        (True, False, False), (False, False, True)):
