@@ -203,12 +203,6 @@ extension Harness {
             "fullSpanShortStretch": fullSpanShortStretch,
             "fullSpanLongStretch": fullSpanLongStretch,
             "halfSpanLongStretch": halfSpanLongStretch,
-            "budget64MiBAllows4K": SceneFramebufferSnapshot.byteCost(
-                width: 3840, height: 2160
-            ).map { $0 <= SceneFramebufferSnapshot.defaultByteBudget } ?? false,
-            "budget64MiBRejects8K": SceneFramebufferSnapshot.byteCost(
-                width: 7680, height: 4320
-            ).map { $0 > SceneFramebufferSnapshot.defaultByteBudget } ?? false,
         ]
     }
 

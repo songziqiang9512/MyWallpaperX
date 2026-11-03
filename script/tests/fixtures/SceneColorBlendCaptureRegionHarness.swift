@@ -375,6 +375,77 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
         return rows
     }
 
+    static func largeGroupBlend(_ device: MTLDevice, _ queue: MTLCommandQueue,
+                               _ library: MTLLibrary, _ fog: String) -> [String: Any] {
+        guard let image = SceneImageLayerPipeline(device: device, library: library),
+              let state = SceneLayerColorBlendPipelineState(device: device, fogShaderSource: fog) else {
+            return ["available": false, "reason": "image-or-blend-pipeline-unavailable"]
+        }
+        let desc = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba8Unorm,
+            width: 1, height: 1, mipmapped: false)
+        desc.storageMode = .shared; desc.usage = .shaderRead
+        guard let source = device.makeTexture(descriptor: desc) else {
+            return ["available": false, "reason": "source-allocation-unavailable"]
+        }
+        let rgba: [UInt8] = [64, 32, 16, 128]
+        rgba.withUnsafeBytes { source.replace(region: MTLRegionMake2D(0, 0, 1, 1),
+            mipmapLevel: 0, withBytes: $0.baseAddress!, bytesPerRow: 4) }
+        let blend = SceneLayerColorBlendPipeline(device: device, state: state)
+        let uniforms = SceneLayerFragmentUniforms(time: 0, alpha: 1,
+            dependencyBlendMode: 0, usesDependencyBlend: 0, cursorUV: .zero,
+            sourceSampling: SIMD2(0, 1), tint: SIMD4(repeating: 1),
+            textureFrame0: SIMD4(0, 0, 1, 0), textureFrame1: SIMD4(0, 1, 0, 0))
+        func frame(_ size: Int) -> [String: Any] {
+            var row: [String: Any] = ["size": size, "mode": 31, "available": false,
+                "prepared": false, "drawn": false, "completed": false]
+            let targetDescriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm,
+                width: size, height: size, mipmapped: false)
+            targetDescriptor.storageMode = .shared; targetDescriptor.usage = [.renderTarget, .shaderRead]
+            guard let output = device.makeTexture(descriptor: targetDescriptor),
+                  let command = queue.makeCommandBuffer() else {
+                row["reason"] = "target-or-command-unavailable"; return row
+            }
+            row["available"] = true
+            let prepared = blend.framebufferSnapshot.prepareCapacity(
+                width: size, height: size, pixelFormat: .bgra8Unorm, then: { true })
+            row["prepared"] = prepared
+            let before = ScenePerformanceCounterHub.shared.snapshot()
+            let pass = SceneMainPassEncoder(commandBuffer: command, target: output,
+                clearColor: MTLClearColorMake(16.0 / 255, 32.0 / 255, 64.0 / 255, 1), clearEnabled: true)
+            let drawn = SceneImageLayerMainPassRenderer.draw(texture: source,
+                mvp: transformed(1, 1, 0, 0), uniforms: uniforms, dependencyTexture: nil,
+                layer: .init(id: 941, colorBlendMode: 31), pipeline: image,
+                colorBlendPipeline: blend, mainPass: pass)
+            row["drawn"] = drawn
+            row["finished"] = pass.finishEnsuringClear()
+            command.commit(); command.waitUntilCompleted()
+            row["completed"] = command.status == .completed && command.error == nil
+            guard command.status == .completed else {
+                row["reason"] = "command-buffer-failed"; return row
+            }
+            func pixel(_ x: Int, _ y: Int) -> [UInt8] {
+                var bytes = [UInt8](repeating: 0, count: 4)
+                bytes.withUnsafeMutableBytes { output.getBytes($0.baseAddress!, bytesPerRow: 4,
+                    from: MTLRegionMake2D(x, y, 1, 1), mipmapLevel: 0) }
+                return bytes
+            }
+            row["center"] = pixel(size / 2, size / 2)
+            row["outside"] = pixel(0, 0)
+            row["capacity"] = blend.renderTargetResidentByteCost
+            let after = ScenePerformanceCounterHub.shared.snapshot()
+            row["copies"] = (after[.framebufferCaptures] ?? 0) - (before[.framebufferCaptures] ?? 0)
+            row["copyBytes"] = (after[.framebufferCaptureBytes] ?? 0) - (before[.framebufferCaptureBytes] ?? 0)
+            row["reason"] = !prepared ? "snapshot-capacity-rejected" : !drawn ? "layer-draw-rejected" : "observed"
+            return row
+        }
+        // Use the same production mode and source on a small visible target as
+        // the positive control; no second blend implementation supplies pixels.
+        let reference = autoreleasepool { frame(64) }
+        let large = autoreleasepool { frame(5000) }
+        return ["available": true, "reference": reference, "large": large,
+            "globalMaximum": SceneResourceBudget.shared.maximumBytes]
+    }
+
     static func render(_ queue: MTLCommandQueue, target: MTLTexture, source: MTLTexture,
                        image: SceneImageLayerPipeline, blend: SceneLayerColorBlendPipeline,
                        matrices: [simd_float4x4], modes: [Int], full: Bool, seed: Int) -> Frame {
@@ -469,6 +540,7 @@ final class SceneGraphRenderTargetResidencyPin { func release() { fatalError("un
                 "copies": plain.copies, "bytes": plain.bytes])
         }
         print(String(decoding: try JSONSerialization.data(withJSONObject:
-            ["rows": rows, "terminalDepth": terminalDepth(device, queue, library)]), as: UTF8.self))
+            ["rows": rows, "terminalDepth": terminalDepth(device, queue, library),
+             "largeGroupBlend": autoreleasepool { largeGroupBlend(device, queue, library, fog) }]), as: UTF8.self))
     }
 }

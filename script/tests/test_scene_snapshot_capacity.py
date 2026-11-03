@@ -60,6 +60,9 @@ final class SceneGraphRenderTargetResidencyPin {func release() {fatalError("unus
   for _ in 0..<200 where SceneResourceBudget.shared.snapshot.residentBytes != beforeLife {Thread.sleep(forTimeInterval:0.001)}
   life["finalReferencesReleased"]=SceneResourceBudget.shared.snapshot.residentBytes==beforeLife
   r["lifecycle"]=life;r["limits"]=autoreleasepool {limits(d,q)}
+  r["largeCapacity"]=[MTLPixelFormat.bgra8Unorm,.rgba16Float].map { f in
+   autoreleasepool {largeCapacity(d,q,f)}
+  }
   print(String(decoding:try JSONSerialization.data(withJSONObject:r),as:UTF8.self))
  }
  static func contents(_ d:MTLDevice,_ q:MTLCommandQueue)->[[String:Any]] {
@@ -154,6 +157,80 @@ final class SceneGraphRenderTargetResidencyPin {func release() {fatalError("unus
   return ["logicalRejected":rejected && !reached && tiny.residentByteCost==0,"preparedNoCapture":ok && copies()==n+1,
           "afterCanceledPrepare":rgb(out)]
  }
+ static func largeCapacity(_ d:MTLDevice,_ q:MTLCommandQueue,_ f:MTLPixelFormat)->[String:Any] {
+  let n=5000,s=SceneFramebufferSnapshot(device:d,label:"large original snapshot")
+  let expected=n*n*(f == .rgba16Float ? 8:4),budget=SceneResourceBudget.shared
+  var row:[String:Any]=["hdr":f == .rgba16Float,"logical":expected,"prepared":false,
+   "captured":false,"completed":false,"globalMaximum":budget.maximumBytes,
+   "physical":physical(d,n,f),"available":false]
+  let desc=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:f,width:n,height:n,mipmapped:false)
+  desc.storageMode = .shared;desc.usage=[.renderTarget,.shaderRead]
+  guard let target=d.makeTexture(descriptor:desc),let cb=q.makeCommandBuffer(),
+        let readback=d.makeBuffer(length:256,options:.storageModeShared) else {
+   row["reason"]="native-target-command-or-readback-unavailable";return row
+  }
+  row["available"]=true
+  func clearTarget(_ buffer:MTLCommandBuffer,_ color:MTLClearColor)->Bool {
+   let p=MTLRenderPassDescriptor();p.colorAttachments[0].texture=target
+   p.colorAttachments[0].loadAction = .clear;p.colorAttachments[0].storeAction = .store
+   p.colorAttachments[0].clearColor=color
+   guard let encoder=buffer.makeRenderCommandEncoder(descriptor:p) else {return false}
+   encoder.endEncoding();return true
+  }
+  func readPixel(_ texture:MTLTexture,_ buffer:MTLCommandBuffer)->Bool {
+   guard let encoder=buffer.makeBlitCommandEncoder() else {return false}
+   encoder.copy(from:texture,sourceSlice:0,sourceLevel:0,sourceOrigin:.init(),
+    sourceSize:.init(width:1,height:1,depth:1),to:readback,destinationOffset:0,
+    destinationBytesPerRow:256,destinationBytesPerImage:256)
+   encoder.endEncoding();return true
+  }
+  let before=budget.snapshot.residentBytes,captureCount=copies()
+  row["globalRemaining"]=budget.maximumBytes-before
+  let prepared=s.prepareCapacity(width:n,height:n,pixelFormat:f,then:{true})
+  row["prepared"]=prepared
+  guard prepared else {row["reason"]="default-large-prepare-rejected";return row}
+  row["physicalCharged"]=budget.snapshot.residentBytes-before==physical(d,n,f)
+  row["noEarlyCapture"]=copies()==captureCount
+  guard clearTarget(cb,MTLClearColorMake(0.25,0.5,f == .rgba16Float ? 1.5:0.75,1)),
+        let first=s.capture(target:target,commandBuffer:cb,region:MTLRegionMake2D(0,0,1,1)),
+        readPixel(first,cb) else {row["reason"]="large-capture-or-encoder-unavailable";return row}
+  cb.commit();cb.waitUntilCompleted()
+  row["captured"]=true;row["completed"]=cb.status == .completed && cb.error == nil
+  guard cb.status == .completed && cb.error == nil else {row["reason"]="large-command-buffer-failed";return row}
+  row["first"]=f == .rgba16Float ? half(readback):rgb(readback).map(Double.init)
+  var held=budget.maximumBytes-budget.snapshot.residentBytes
+  guard budget.reserve(held,kind:.gpu) else {row["reason"]="global-pressure-setup-unavailable";return row}
+  defer {if held>0 {budget.release(held,kind:.gpu)}}
+  let full=budget.snapshot
+  var continued=false
+  let same=s.prepareCapacity(width:n,height:n,pixelFormat:f,then:{continued=true;return true})
+  var rejectedContinuation=false
+  let rejected = !s.prepareCapacity(width:n+1,height:n+1,pixelFormat:f,
+   then:{rejectedContinuation=true;return true})
+  row["cachedPrepareAtFullBudget"]=same && continued
+  row["newSizeGlobalRejected"]=rejected && !rejectedContinuation
+    && budget.snapshot.rejectionCount==full.rejectionCount+1
+    && budget.snapshot.residentBytes==full.residentBytes && s.residentByteCost==expected
+  guard let next=q.makeCommandBuffer(),clearTarget(next,MTLClearColorMake(0.5,0.25,0,1)),
+        let cached=s.capture(target:target,commandBuffer:next,region:MTLRegionMake2D(0,0,1,1)),
+        readPixel(cached,next) else {row["reason"]="cached-capture-or-encoder-unavailable";return row}
+  next.commit();next.waitUntilCompleted()
+  row["cachedIdentity"]=cached === first
+  row["cachedCompleted"]=next.status == .completed && next.error == nil
+  guard next.status == .completed && next.error == nil else {row["reason"]="cached-command-buffer-failed";return row}
+  row["cachedNoAdmission"]=budget.snapshot.residentBytes==full.residentBytes
+    && budget.snapshot.rejectionCount==full.rejectionCount+1
+  row["second"]=f == .rgba16Float ? half(readback):rgb(readback).map(Double.init)
+  budget.release(held,kind:.gpu);held=0
+  let beforeRollback=budget.snapshot.residentBytes
+  var rollbackContinuation=false
+  let rollback = !s.prepareCapacity(width:n-1,height:n-1,pixelFormat:f,
+   then:{rollbackContinuation=true;return false})
+  row["continuationRollback"]=rollback && rollbackContinuation
+    && s.residentByteCost==expected && budget.snapshot.residentBytes==beforeRollback
+  row["reason"]="observed"
+  return row
+ }
 }
 '''
 
@@ -164,6 +241,8 @@ class SceneSnapshotCapacityTests(unittest.TestCase):
         cls.identity={str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in [Path(__file__),TIMESTAMP_FIXTURE,*SOURCES]}
         root=Path(tempfile.mkdtemp(prefix='snapshot-test-identity-',dir=parent));(root/'sources.json').write_text(json.dumps(cls.identity,indent=2))
         cls.result=run_swift(SOURCES,HARNESS,label='snapshot-capacity',swift_flags=('-DDEBUG',))
+        if cls.result.get('metalUnavailable'):
+            raise AssertionError('Metal unavailable: large snapshot qualification was not executed')
         assert all(hashlib.sha256(Path(p).read_bytes()).hexdigest()==h for p,h in cls.identity.items()),'source identity drift'
 
     def test_capacity_is_not_content_and_each_consumer_gets_current_pixels(self):
@@ -187,6 +266,19 @@ class SceneSnapshotCapacityTests(unittest.TestCase):
     def test_logical_limit_and_canceled_prepare_do_not_publish_stale_content(self):
         row=self.result['limits'];self.assertTrue(row['logicalRejected']);self.assertTrue(row['preparedNoCapture'])
         self.assertEqual(row['afterCanceledPrepare'],[64,128,191,255])
+
+    def test_large_default_snapshots_use_global_admission_and_keep_cached_capacity(self):
+        rows=self.result.get('largeCapacity',[])
+        self.assertEqual(len(rows),2,self.result)
+        for row in rows:
+            with self.subTest(hdr=row['hdr']):
+                for key in ['available','prepared','captured','completed','physicalCharged','noEarlyCapture',
+                            'cachedPrepareAtFullBudget','newSizeGlobalRejected','cachedIdentity',
+                            'cachedCompleted','cachedNoAdmission','continuationRollback']:
+                    self.assertTrue(row.get(key,False),row)
+                self.assertGreater(row['logical'],(128 if row['hdr'] else 64)*1_024*1_024)
+                self.assertEqual(row['first'],[0.25,0.5,1.5,1] if row['hdr'] else [64,128,191,255])
+                self.assertEqual(row['second'],[0.5,0.25,0,1] if row['hdr'] else [128,64,0,255])
 
 # Compile the real renderer capacity owner and original consumers. Only external
 # prepared inputs/provider/group plumbing are supplied by this fixture shell.

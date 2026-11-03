@@ -97,8 +97,8 @@
       "bytes": 8545
     },
     "docs/scene/architecture/scene-resource-admission.md": {
-      "lines": 50,
-      "bytes": 5274
+      "lines": 59,
+      "bytes": 6705
     },
     "docs/scene/architecture/scene-runtime-daemon-contract.md": {
       "lines": 73,
@@ -129,8 +129,8 @@
       "bytes": 8267
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 34,
-      "bytes": 4461
+      "lines": 37,
+      "bytes": 5337
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 81,
@@ -161,8 +161,8 @@
       "bytes": 4260
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 156,
-      "bytes": 20522
+      "lines": 155,
+      "bytes": 20157
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -363,21 +363,30 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "d6adbab8245e4b0a71e76dcd2871a5bad549f15cf37546a074fdc3e05319d70c",
-      "after": "95581a83a399483c351787143fa7f84f6eb6cef7fe3a2ae2cac5adf6cdd1d5ac",
-      "owner": "scene-measurement",
-      "reason": "Replace bounded video-only scope with current full-corpus identities, per-stage observations, visual triage and explicit unknowns; keep exact local receipts outside canonical docs.",
-      "decision": "docs/scene/development/development-workflow.md#corpus-runtime-measurement"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "before": "7c583d66209690810a6b0fc0b3e3c611ad7e47c5d4600a958abc0d3dd1d73df5",
       "after": "204d56d6d86cd62acb66fee600993bddac3bfca3a08d53b8862029a33f54ec42",
       "owner": "scene-measurement",
       "reason": "Replace speculative/stale first-cause leads with full-corpus current facts, newly observed generic and individual breakpoints, and preserve input-specific user feedback pending qualified experiments.",
       "decision": "docs/scene/development/development-workflow.md#corpus-runtime-measurement"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/scene-resource-admission.md",
+      "before": "1fc894d7f9152714cd29d4e596ed00325765dc8a232f996f4f012c06edfcfacc",
+      "after": "55486afe5f65c0bab713aa99e0f2fef0ec53ff9bca96cf2f6da90327e518845a",
+      "owner": "scene-snapshot-capacity",
+      "reason": "Replace the redundant fixed framebuffer snapshot ceiling with shared actual-allocation admission; preserve explicit limits, cached capacity, continuation rollback and real lease lifetime.",
+      "decision": "docs/scene/architecture/scene-resource-admission.md#framebuffer-snapshot"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "95581a83a399483c351787143fa7f84f6eb6cef7fe3a2ae2cac5adf6cdd1d5ac",
+      "after": "9c9f1b8604e7f9272e78d36ac634bc2d8683418b46e7476c8acf808978972dd0",
+      "owner": "scene-snapshot-capacity",
+      "reason": "Record current native large-target pixel/capacity proof and same-input real draw recovery with exact App/build identity and bounded viewport/performance claims.",
+      "decision": "docs/scene/architecture/scene-resource-admission.md#framebuffer-snapshot"
     }
   ]
 }

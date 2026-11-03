@@ -9,6 +9,8 @@
 
 42产品与31采集源码、构建收据及原字节见`.artifacts/scene-goal-full-sample-retest-20261103/`的`frozen-product-sources.zip`、`build-source-freeze-v2.json`、`full-runtime-plan.json`。片头子集另有采集源码收据；后处理更正不重写原报告。观察成本修正后的App SHA为`51164968353e0b0eefaf08c44cf8d8e30fdbe954615e5ae5244ab2101002a4ea`，同目录`build-source-freeze-v3.json`及两份`*-build-optout-final-inputs.json`保签名Debug/优化DEBUG构建前后42源一致。
 
+快照容量切片以`3fe55989059ca93945b1eecf2bba8baab54e7303`为基线，仅变更一个产品文件；签名Debug/优化DEBUG构建源稳定，App SHA为`28793808a665270a43b2e4c5c07cdd7f50e25541d7e914a5150057012e5e5454`。收据在`.artifacts/scene-goal-snapshot-capacity-20261103/`，不将三个邻例外推成新App全库重跑。
+
 <a id="coverage"></a>
 ## 全库运行与逐项阶段
 
@@ -24,6 +26,7 @@
 | 视觉粗筛 | 633张全部实际查看：539未见明显粗筛异常、14视觉疑点、35需时间/输入、45参考不足；另开40张原图复核。作者preview仅方向性，无视觉PASS或官方parity。 |
 | 长窗与过场 | 稀疏3766387484在模拟约9.995秒接纳出生，所选帧root/child各2；两个雷电profile仍因周期上限拒绝。10个片头样本补至Ready+约15秒，实际看到标识退场或主体变化。3764725758/3830665420的第二轮仍未资格。 |
 | 失败与恢复 | 原CHECK、精确拒绝、pre-Ready失败与后续成功均保留；首次3780119725 stop附近31条ledger失败，22秒/10秒复验未复现，不删原失败。当前首因与有价值个案归[开放队列](../roadmap/scene-open-breakpoint-queue.md)。 |
+| 快照容量修正 | 默认快照改用原全局实际计费；55项原生门通过，含BGRA100MB/HDR200MB、满额cached复用、新尺寸拒绝、显式限额、双owner回滚和在途最终释放。5000×5000 blend31中心实测与64×64正控同为BGRA(72,48,48,255)，外部背景保持；原产品三项反例拒绝。3087231311同三输入摘要的365层恢复copy/blend/draw及GPU完成，2808874251折射与3471294034邻例正常。原viewport脚底logo未作同相位像素资格，不认领内存/带宽或帧率收益。 |
 | 测量改动验证 | 粒子146项中136通过、10项因私有运行缓存缺失跳过；18项真实Metal邻门、62项后处理/collector、20项保留工具及Release诊断排除门通过。成本修正后三个真实邻例capture/GPU排空与既有失败一致；关闭观测的实际运行无新增两类载荷。独立审查无未闭实现finding。 |
 
 <a id="limits"></a>

@@ -747,7 +747,7 @@
       "lastReviewed": "2026-11-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f545741a0c3e091cb5c83a0b3c28cdf564f3dfbf92e3b7f56d1b5c3280fb649c",
+        "sourceSHA256": "716ded3757cf3a2fd840fda6571371e1fd4ec565ba45ac6d30396decaff4c739",
         "method": "document_registry --audit + document_health --check",
         "scope": "当前源码职责、工具入口与文档引用核对。",
         "limitations": "文档核对未新增App、GPU、官方对照或性能运行。"

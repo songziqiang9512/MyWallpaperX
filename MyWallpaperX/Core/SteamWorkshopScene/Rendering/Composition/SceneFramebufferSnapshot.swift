@@ -4,11 +4,9 @@ import Metal
 ///
 /// The snapshot is intentionally full resolution. A proven ordinary quad may
 /// capture only its read footprint at matching coordinates; other consumers copy
-/// the whole target. Each capture observes every preceding layer. Allocation fails
-/// closed above the byte budget without changing resolution or format.
+/// the whole target. Each capture observes every preceding layer. New allocations
+/// use the shared resident budget and any explicit caller limit at original size.
 final class SceneFramebufferSnapshot {
-    static let defaultByteBudget = 64 * 1_024 * 1_024
-
     private let device: MTLDevice
     private let byteBudget: Int?
     private let label: String
@@ -76,13 +74,13 @@ final class SceneFramebufferSnapshot {
     }
 
     private func destination(width: Int, height: Int, pixelFormat: MTLPixelFormat) -> MTLTexture? {
-        guard pixelFormat == .bgra8Unorm || pixelFormat == .rgba16Float,
-              let cost = Self.byteCost(width: width, height: height, pixelFormat: pixelFormat),
-              cost <= (byteBudget ?? Self.defaultByteBudget * (pixelFormat == .rgba16Float ? 2 : 1)) else { return nil }
         if let texture, texture.width == width, texture.height == height,
            texture.pixelFormat == pixelFormat {
             return texture
         }
+        guard pixelFormat == .bgra8Unorm || pixelFormat == .rgba16Float,
+              let cost = Self.byteCost(width: width, height: height, pixelFormat: pixelFormat) else { return nil }
+        if let byteBudget, cost > byteBudget { return nil }
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(
             pixelFormat: pixelFormat,
             width: width,

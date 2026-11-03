@@ -485,7 +485,7 @@ class SceneParticleRenderingTests(unittest.TestCase):
                 self.assertLessEqual(abs(value[name][1] - 70), 1)
                 self.assertEqual(value[name][2:], [40, 255])
 
-    def test_refraction_samples_the_preceding_framebuffer_with_bounded_snapshot(self) -> None:
+    def test_refraction_samples_the_preceding_framebuffer(self) -> None:
         contract = self.result["refractionContract"]
         neutral = contract["neutral"]
         shifted = contract["shifted"]
@@ -498,8 +498,6 @@ class SceneParticleRenderingTests(unittest.TestCase):
         )), 2)
         self.assertGreater(shifted[0], neutral[0] + 15)
         self.assertEqual(shifted[1], neutral[1])
-        self.assertTrue(contract["budget64MiBAllows4K"])
-        self.assertTrue(contract["budget64MiBRejects8K"])
 
     def test_rope_trail_refraction_rotates_normal_axes_into_path_space(self) -> None:
         contract = self.result["refractionContract"]

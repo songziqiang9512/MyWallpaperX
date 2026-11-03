@@ -278,7 +278,7 @@
       "owner": "SceneResourceBudget / existing resource owners",
       "status": "approved",
       "designDoc": "docs/scene/architecture/scene-resource-admission.md",
-      "design_notes": "",
+      "design_notes": "Section framebuffer-snapshot: retire the fixed default snapshot sublimit, preserve explicit caller limits and actual-size shared allocation leases. Reuse an identical cached texture before recalculating logical cost; prepare continuations and rollback remain unconditional. Keep full-resolution sampling and existing color/refraction owners, no ROI protocol or new budget/cache owner. Verify real large BGRA/HDR capture, visible blend pixels, global/explicit rejection, dual-owner rollback and in-flight/final release.",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/**/*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/**/*.swift",

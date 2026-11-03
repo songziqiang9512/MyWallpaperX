@@ -13,7 +13,6 @@
 
 | 定位 | 当前事实与下一步 |
 |---|---|
-| 普通/组内特殊混合 · 3087231311/365 | sourceCapture800×732成功，向5000×5000组目标绘制失败，同组peer正常。`SceneFramebufferSnapshot`仍分配全目标背景，BGRA需100,000,000B而默认子预算64MiB；小region只减copy未减驻留。沿原snapshot/blend owner修实际容量/读取，不能靠降低分辨率或加样本例外。 |
 | blur前端 · 2879793348、3632522893、3725148661、3747595588、3750312644、3830727231 | 六例实际frontend envelope拒绝，覆盖stock/workshop、不同kernel和scale来源；3039882306/868e5另有隐藏分支。沿原shader前端取得具体AST失败并补通用语义，不将KERNEL2当唯一原因。 |
 | shader重载 · 3042660491、3746066933 | old_film的mix、fog的dot分别实际stage-link/Metal library失败；先区分作者dialect、类型推导与转换，延长播放不能消除。 |
 | linked timeline producer · 2999344788、3577990983 | bokeh的linked parent/children timeline在准备期报`dynamic-uniform-producer-unavailable`；原载荷未指出missing uniform，需沿BindingProgram/producer取得精确未接入字段。 |

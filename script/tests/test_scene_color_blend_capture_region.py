@@ -69,7 +69,7 @@ class SceneColorBlendCaptureRegionTests(unittest.TestCase):
         (parent / "source-identity.json").write_text(json.dumps(identity, indent=2))
         (parent / "report.json").write_text(json.dumps(cls.result, indent=2))
         if cls.result.get("metalUnavailable"):
-            raise unittest.SkipTest("Metal unavailable")
+            raise AssertionError("Metal unavailable: large target qualification was not executed")
 
     def test_all_modes_and_transform_variants_preserve_every_target_byte(self):
         rows = [r for r in self.result["rows"] if "equal" in r]
@@ -124,6 +124,27 @@ class SceneColorBlendCaptureRegionTests(unittest.TestCase):
             self.assertEqual(row["left"], [0, 128, 255, 255] if row["writer"] else [255, 0, 0, 255], row)
             self.assertEqual(row["right"], [255, 0, 0, 255], row)
             self.assertEqual(row["farPeer"], [0, 255, 0, 255], row)
+
+    def test_large_group_target_mode_31_draws_visible_pixels(self):
+        result = self.result.get("largeGroupBlend", {})
+        self.assertTrue(result.get("available", False), result)
+        reference, large = result.get("reference", {}), result.get("large", {})
+        for row in (reference, large):
+            for key in ("available", "prepared", "drawn", "finished", "completed"):
+                self.assertTrue(row.get(key, False), row)
+            self.assertEqual(row["mode"], 31)
+            self.assertEqual(row["copies"], 1, row)
+            self.assertEqual(row["outside"], [64, 32, 16, 255], row)
+            # Fixed pixel positive control for the production additive mode 31;
+            # do not duplicate its shader formula in the fixture.
+            self.assertLessEqual(max(abs(a - b) for a, b in zip(
+                row["center"], [72, 48, 48, 255])), 1, row)
+            self.assertNotEqual(row["center"], row["outside"], row)
+        self.assertEqual(large["size"], 5000)
+        self.assertEqual(large["capacity"], 5000 * 5000 * 4)
+        self.assertEqual(large["center"], reference["center"], result)
+        self.assertGreater(large["copyBytes"], 0, large)
+        self.assertLess(large["copyBytes"], large["capacity"], large)
 
 
 if __name__ == "__main__":

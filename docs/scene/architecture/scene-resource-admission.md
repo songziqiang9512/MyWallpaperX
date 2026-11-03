@@ -22,6 +22,15 @@ GPU 入口以 Metal size/alignment 需求先预留，分配失败返还。租约
 
 源码：[texture/buffer 分配与预算入口](../../../MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift)、[离屏池](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTexturePool.swift)、[allocation cache](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTextureAllocationCache.swift)。
 
+<a id="framebuffer-snapshot"></a>
+## 背景快照容量
+
+普通特殊混合与粒子折射复用原`SceneFramebufferSnapshot`，按真实目标的尺寸/format分配，再沿原顺序copy、采样与绘制。默认容量直接服从`makeSceneTexture`的全局实际分配计费，不另设固定默认子额度；显式调用者提供的`byteBudget`仍约束逻辑字节成本。缓存命中的尺寸/format不可变、实例设备与显式限额固定，直接复用，不重复计算已准入对象的成本。真实全局计费仍以设备size/alignment为准，逻辑统计不代总账。
+
+`prepareCapacity`只准备容量，不编码背景或认领当前像素；命中也要执行原continuation。第二owner或continuation失败时恢复先前slot和统计，新旧在途对象沿原租约释放；不足只拒对应分配，不抬总额、不改变分辨率/格式或停止健康peer。每次capture仍读取该作者顺序截点的当前背景。
+
+选择沿原分配链退掉重复默认限制，保全部采样/生命周期接口；ROI目前只减copy、驻留仍全尺寸。本决策不扩纹理原点、shader接口、多slot缓存或第二预算owner，也不认领驻留/带宽下降。验收用超过原默认额度的真实BGRA/HDR准备与capture、可见大目标混合像素、cache命中/全局不足/显式限额、双owner回滚及在途最终释放；达到能力与相邻像素合同后停止此切片。
+
 <a id="source-readiness"></a>
 ## 来源、用途与准备
 
