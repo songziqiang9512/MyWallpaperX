@@ -75,6 +75,28 @@ void main() {
     gl_FragColor = blurred;
 }
 '''
+DYNAMIC_COMPOSITE_FRAGMENT = b'''
+uniform sampler2D g_Texture0;
+uniform sampler2D g_Texture2;
+uniform float g_DistinctMixAmount; // {"material":"mixamount","default":0.5}
+varying vec2 v_TexCoord;
+vec4 fetchOriginal(vec2 point) { return texSample2D(g_Texture2, point); }
+vec4 combineCoverage(vec4 filtered, vec4 original, float amount) {
+    float coverage = mix(filtered.a, 1, step(filtered.a, 0));
+    vec4 straightColor = vec4(filtered.rgb / coverage, filtered.a);
+    return mix(original, straightColor, amount);
+}
+void main() {
+    vec4 filtered = texSample2D(g_Texture0, v_TexCoord);
+    vec4 original = fetchOriginal(v_TexCoord);
+    if (g_DistinctMixAmount < 0.75) {
+        vec4 repeated = texSample2D(g_Texture2, v_TexCoord);
+        gl_FragColor = combineCoverage(filtered, (original + repeated) * 0.5, g_DistinctMixAmount);
+    } else {
+        gl_FragColor = combineCoverage(filtered, original, g_DistinctMixAmount);
+    }
+}
+'''
 
 
 def square_oracle(levels, regions, enabled):
@@ -86,7 +108,8 @@ def square_oracle(levels, regions, enabled):
 
 def fixture_entries(*, sampling_scale=(1, 1), square_pattern=False,
                     rename_resources=False, processing_stages=None, target_names=None,
-                    fbo_scale=4, active_square_rgb=None, regions=SQUARE_REGIONS, **parameters):
+                    fbo_scale=4, active_square_rgb=None, regions=SQUARE_REGIONS,
+                    dynamic_mix=False, dynamic_tint=False, capture_levels=None, **parameters):
     project, entries = _BASE_ENTRIES(**parameters)
     scene = json.loads(entries["scene.json"])
     scene["objects"][0]["color"] = "0 0 0"
@@ -106,6 +129,15 @@ def fixture_entries(*, sampling_scale=(1, 1), square_pattern=False,
     shader_prefix = "independent/stages" if rename_resources else "own/effects"
     material_prefix = "materials/independent/soft" if rename_resources else "materials/own_blur"
     layer["effects"][0]["file"] = effect_path
+    if dynamic_mix:
+        project["general"]["properties"]["ownedBlend"] = {
+            "type": "slider", "value": .5, "min": 0, "max": 1, "step": .5, "fraction": True}
+        layer["effects"][0]["passes"] = [{} for _ in stages] + [{"constantshadervalues": {
+            "mixamount": {"user": "ownedBlend", "value": .5}}}]
+    if dynamic_tint:
+        project["general"]["properties"]["ownedTint"] = {"type": "color", "value": "0.5 0.5 0.5"}
+        layer["effects"][0]["passes"] = [{} for _ in stages] + [{"constantshadervalues": {
+            "compositecolor": {"user": "ownedTint", "value": "0.5 0.5 0.5"}}}]
     entries["scene.json"] = encoded(scene)
     for path in ("effects/own_dim/effect.json", "materials/own_dim.json",
                  "shaders/own_dim.vert", "shaders/own_dim.frag"):
@@ -138,7 +170,7 @@ def fixture_entries(*, sampling_scale=(1, 1), square_pattern=False,
         ("blur_downsample4", VERTEX, b"uniform sampler2D g_Texture0;\nvarying vec2 v_TexCoord;\nvoid main(){gl_FragColor=texSample2D(g_Texture0,v_TexCoord);}\n"),
         ("blur_gaussian", GAUSSIAN_VERTEX, GAUSSIAN_FRAGMENT),
         ("half_gain", VERTEX, b"uniform sampler2D g_Texture0;\nvarying vec2 v_TexCoord;\nvoid main(){vec4 c=texSample2D(g_Texture0,v_TexCoord);gl_FragColor=vec4(c.rgb*0.5,c.a);}\n"),
-        ("blur_combine", VERTEX, COMPOSITE_FRAGMENT)):
+        ("blur_combine", VERTEX, DYNAMIC_COMPOSITE_FRAGMENT if dynamic_mix else COMPOSITE_FRAGMENT)):
         if name not in used_shaders:
             continue
         if rename_resources and name == "blur_gaussian":
@@ -168,6 +200,8 @@ def fixture_entries(*, sampling_scale=(1, 1), square_pattern=False,
             captureBoundary="two settled enabled captures; not adjacent-frame pixel samples")
         if processing_stages is None:
             oracle["allZeroBoundary"] = "downsample and upsample remain; not original-image identity"
+        for name, levels in (capture_levels or {}).items():
+            oracle["snapshotOracles"][name] = square_oracle(levels, regions, True)
     entries["owned-blur-oracle.json"] = encoded(oracle)
     if square_pattern and processing_stages is None:
         entries["owned-zero-axis-input.json"] = encoded({"scale": list(sampling_scale),
@@ -186,43 +220,51 @@ class SceneStandardBlurVisibilityIntegrationTests(unittest.TestCase):
         with patch.object(fullscreen, "fixture_entries", fixture_entries):
             log, _ = self.run_case(inactive_effect=True, launch={"mode": "on", "fx": False},
                 sequence=[{"fx": True}, {"fx": False}], expected_dims=[True, False])
-        self.assertRegex(log, r"generic shader execution state=generic-only profile=source-proven-previous-blurred-composite layer=20 effect=0 [^\n]*node=3 ")
-        self.assertNotIn("source-proven-previous-blurred-composite-unowned", log)
+        self.assertRegex(log, r"generic shader execution state=generic-only profile=\S+ layer=20 effect=0 [^\n]*node=3 ")
         self.assertEqual(hashlib.sha256(Path(__file__).read_bytes()).hexdigest(), identity)
 
     def _run_square_case(self, scale, expected_active, *, rename_resources=False,
                          processing_stages=None, target_names=None, fbo_scale=4,
-                         regions=SQUARE_REGIONS, sampling_domain=None):
+                         regions=SQUARE_REGIONS, sampling_domain=None,
+                         dynamic_mix=False, dynamic_tint=False, capture_levels=None):
         identity = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
 
         def inputs(**parameters):
             return fixture_entries(sampling_scale=scale, square_pattern=True,
                 rename_resources=rename_resources, processing_stages=processing_stages,
                 target_names=target_names, fbo_scale=fbo_scale, active_square_rgb=expected_active,
-                regions=regions, **parameters)
+                regions=regions, dynamic_mix=dynamic_mix, dynamic_tint=dynamic_tint,
+                capture_levels=capture_levels, **parameters)
 
         def encode_protocol(value):
             # Fill the existing capture protocol before it is frozen/written
             # or the App starts; retain the one shared PNG measurement owner.
             if isinstance(value, dict) and "snapshotOracles" in value:
-                value["snapshotOracles"] = {name: square_oracle(expected_active, regions,
+                value["snapshotOracles"] = {name: square_oracle((capture_levels or {}).get(name, expected_active), regions,
                     name.startswith("scene-series-")) for name in value["snapshotOracles"]}
                 value["ownedFilterGraph"] = {"scale": list(scale), "fboScale": fbo_scale,
                     "processingStages": processing_stages, "targetNames": target_names,
                     "samplingDomain": sampling_domain,
+                    "dynamicMix": dynamic_mix,
+                    "dynamicTint": dynamic_tint,
                     "renamedResourcesAndEquivalentOffsets": rename_resources,
                     "boundary": "two settled enabled captures plus consecutive GPU completions, not adjacent-frame pixel samples"}
             return _ENCODED(value)
 
         with patch.object(fullscreen, "fixture_entries", inputs), patch.object(fullscreen, "encoded", encode_protocol):
-            log, pixels = self.run_case(inactive_effect=True, launch={"mode": "on", "fx": False},
-                sequence=[{"fx": True}, {"fx": True}, {"fx": False}], expected_dims=[False, False, False])
+            log, pixels = self.run_case(inactive_effect=True,
+                launch={"mode": "on", "fx": False, **({"ownedBlend": .5} if dynamic_mix else {}),
+                    **({"ownedTint": "0.5 0.5 0.5"} if dynamic_tint else {})},
+                sequence=[{"fx": True, **({"ownedBlend": .5} if dynamic_mix else {}),
+                    **({"ownedTint": "0.5 0.5 0.5"} if dynamic_tint else {})},
+                    {"fx": True, **({"ownedBlend": 1} if dynamic_mix else {}),
+                    **({"ownedTint": "1 1 1"} if dynamic_tint else {})}, {"fx": False}],
+                expected_dims=[False, False, False])
         terminal = len(processing_stages) if processing_stages is not None else 3
-        self.assertRegex(log, rf"generic shader execution state=generic-only profile=source-proven-previous-blurred-composite layer=20 effect=0 [^\n]*node={terminal} ")
+        self.assertRegex(log, rf"generic shader execution state=generic-only profile=\S+ layer=20 effect=0 [^\n]*node={terminal} ")
         self.assertRegex(log, rf"axis=graph-execution [^\n]*layer=20 effect=0 [^\n]*"
             rf"materialNodes={terminal + 1} copyNodes=0 [^\n]*rejectedNodes=0 [^\n]*"
             r"compositorConsumed=true outcome=succeeded failure=- gpuCompletion=completed")
-        self.assertNotIn("source-proven-previous-blurred-composite-unowned", log)
         completed = {int(frame) for frame in re.findall(
             r"state=completed frame=(\d+) surface=\d+ gpu=completed", log)}
         self.assertTrue(any(frame + 1 in completed for frame in completed), sorted(completed))
@@ -246,6 +288,21 @@ class SceneStandardBlurVisibilityIntegrationTests(unittest.TestCase):
         self._run_square_case((.99, 0), (128, 128, 0), rename_resources=True,
             processing_stages=(("blur_gaussian", (.99, 0), 0),),
             target_names=("_rt_IndependentIntermediate",), fbo_scale=1)
+
+    def test_typed_color_compiles_helper_conditional_samples_and_dynamic_uniform(self):
+        self._run_square_case((.99, 0), (128, 128, 0), rename_resources=True, dynamic_mix=True,
+            processing_stages=(("blur_gaussian", (.99, 0), 0),),
+            target_names=("_rt_AuthoredWeightedInput",), fbo_scale=1,
+            capture_levels={"scene-series-0002-window.png": (192, 64, 0),
+                            "scene-series-0004-window.png": (128, 128, 0)})
+
+    def test_typed_color_accepts_dynamic_composite_tint_without_static_permission(self):
+        # Keep the original source-proven shader bytes; only the tint producer changes.
+        self._run_square_case((.99, 0), (128, 128, 0), rename_resources=True, dynamic_tint=True,
+            processing_stages=(("blur_gaussian", (.99, 0), 0),),
+            target_names=("_rt_DynamicTintInput",), fbo_scale=1,
+            capture_levels={"scene-series-0002-window.png": (64, 64, 0),
+                            "scene-series-0004-window.png": (128, 128, 0)})
 
     def test_five_pass_renamed_graph_keeps_independent_sampling_and_gain(self):
         # UV offsets span the captured viewport, including its cover crop.

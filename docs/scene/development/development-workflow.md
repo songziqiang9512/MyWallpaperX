@@ -92,7 +92,7 @@ python3.12 -B script/scene_sample_debug_archive.py \
 | 当前限制 | 负责代码 | 扩展时应验证 |
 |---|---|---|
 | 动态图片依赖在准备期从 `thisScene.createLayer` 的直接路径或平面配置 literal 发现，不求值任意 JavaScript 表达式 | [ReferenceAnalysis](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptDynamicImageReferenceAnalysis.swift) | typed 间接依赖、模块/嵌套表达式及健康邻例；不能改成帧内 IO 或整目录预加载 |
-| 双输入组合的颜色补偿仍用有界 source/MSL 数据流识别，尚未由通用 typed shader ABI 完整表达 | [SourceAnalyzer](../../../MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.swift)、[颜色边界](../capabilities/render-graph-shader-coverage.md#color) | 原 compiler/ABI 内以通用表示与数据流替代，保PMA/straight/data、alpha/HDR和真实像素反例；不能继续增加算法族或固定源码名单 |
+| 无typed边界的颜色兼容与未表达通道角色仍依赖有界source/MSL分析 | [SourceAnalyzer](../../../MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.swift)、[颜色编译](../capabilities/render-graph-shader-coverage.md#typed-color-compilation) | 普通typed边界直接编译；剩余真实通道/操作缺口沿原compiler/ABI补齐，保data/signal、PMA/straight、alpha/HDR及实际像素反例，不增加算法族或固定源码名单 |
 
 路径、hash 或固定源码形状若承担兼容选择，须在本节说明实际必要性、影响范围、正反例和替换条件。资源查找 identity、缓存键和标准 API 名称不因此成为视觉特判许可；样本身份不得选择产品算法。
 

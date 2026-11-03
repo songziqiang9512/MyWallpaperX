@@ -849,10 +849,10 @@
       "entrypoint": "docs/scene/README.md",
       "purpose": "Scene 开发与验证",
       "currentStateAuthority": "docs/scene/architecture/runtime-architecture.md",
-      "lastReviewed": "2026-11-03",
+      "lastReviewed": "2026-11-04",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "63d9c4a2abdd095d36224571ea6375c662874e45cc0bde19a40b8dfbe65cb88f",
+        "sourceSHA256": "b3947bea37e57a363b25ab03e1f057c04ca5eca5d1febdc2143d2f3ed73fd86f",
         "method": "document_registry --audit + document_health --check",
         "scope": "当前源码职责、工具入口与文档引用核对。",
         "limitations": "文档核对未新增App、GPU、官方对照或性能运行。"

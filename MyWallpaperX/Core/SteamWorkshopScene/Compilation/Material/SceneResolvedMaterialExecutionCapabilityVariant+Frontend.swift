@@ -81,22 +81,6 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             routeDecision = decision
             boundedOutput = nil
             artifactFailure = ["generic-artifact-accepted", requestKey]
-        case let .ownerDeferred(code, requestKey, decision):
-            if compatibilityTargetAdmissionPending {
-                throw failure(
-                    .shaderFrontendFailed,
-                    phase: .frontend,
-                    details: [
-                        "compatibility-target-unadmitted",
-                        "generic-artifact", code, requestKey, decision.profile,
-                    ]
-                )
-            }
-            throw failure(
-                .genericProductOwnerDeferred,
-                phase: .frontend,
-                details: ["generic-artifact", code, requestKey, decision.profile]
-            )
         case let .unavailable(
             code,
             requestKey,

@@ -84,9 +84,6 @@ private func makeGenericInput(
         fragmentSource: "// probe fragment \(marker)\n",
         alphaAttenuationSourceSlot: nil,
         colorBlendSourceSlot: nil,
-        previousBlurredCompositeBlurredSlot: nil,
-        previousBlurredCompositePreviousSlot: nil,
-        previousBlurredCompositeMaskSlot: nil,
         hasExternalProviderTexture: false,
         producesScalarRedOutput: false,
         producesRedGreenUnormOutput: false,
@@ -320,7 +317,7 @@ private func runVariantProbe(denied: Bool = false) throws -> ProbeOutput {
         from: JSONSerialization.data(withJSONObject: unknownPayload))
     try expect(into: &output, unknown.rebuild() == nil, "sampler-purpose-unknown-miss")
     let root = try cacheRoot()
-    let directory = tierDirectory(root: root, name: "SceneVariantAnalysis-v29")
+    let directory = tierDirectory(root: root, name: "SceneVariantAnalysis-v30")
     let key = "probe-variant-key"
     try expect(
         into: &output,
@@ -343,8 +340,7 @@ private func runVariantProbe(denied: Bool = false) throws -> ProbeOutput {
         sameAlphaReconstructedRGB: nil,
         neutralTextureResolution: nil,
         alphaAttenuationFact: nil,
-        colorBlendFact: nil,
-        previousBlurredCompositeFact: nil
+        colorBlendFact: nil
     )
     SceneResolvedMaterialVariantAnalysisCache.store(record: record, keySHA256: key)
     if denied {

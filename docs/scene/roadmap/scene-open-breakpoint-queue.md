@@ -14,7 +14,7 @@
 | 定位 | 当前事实与下一步 |
 |---|---|
 | shader重载 · 3042660491/127e0、3746066933/17e1 | 两例已获backend许可；实际为mix(vec4,vec3,scalar)与dot(vec4复合表达式,vec3)的stage-link/Metal失败。原BuiltInVectorConversion仅覆盖简单identifier，嵌套CAST3/dot和复合表达式未统一推导；在原typed intrinsic边界补通用参数转换，先资格混合宽度的作者方言语义，不按shader加正则。 |
-| shader表示与许可 | 通用compiler仍有source形状colorTransfer补偿及unowned route门；已有typed colorBoundary时，ArtifactBuilder仍先生成专用MSL再丢弃该代码。沿原builder/typed ABI直接拥有lowering及metadata，保alpha-only、data/signal、输入/输出表示和实际接口约束；不把SourceAnalyzer识别名单扩成效果名单。 |
+| 通道与操作推导 | 无typed边界的颜色兼容、alpha-only/packed data及有序signal仍有有界source事实；反射中的vec4本身不能说明通道意图。沿原compiler/ABI补实际跨函数、条件合流与操作能力缺口，保持未取得的表示资格；不为效果写法追加识别名单。 |
 | linked timeline producer · 2999344788、3577990983 | bokeh的linked parent/children timeline在准备期报`dynamic-uniform-producer-unavailable`；原载荷未指出missing uniform，需沿BindingProgram/producer取得精确未接入字段。 |
 | graph引用 · 2804817823、2972071249、3504669359 | secondary-self `_19_b`、forward `_234_a`、多provider `_91_a/_1030_a`被编译器拒绝。hidden辅助provider是否仍发布按真实consumer资格，不改成全局prepass或丢原作者顺序。 |
 | subtree容器 · 3529515784/175、3825183869/187 | SourceRoute先拒container42及container403/402，后者下有15text/16solid。容器只承变换、不自产生draw；沿原parent闭包与render order跳过无绘制容器，不能按成员名单拒整个合法后代。 |
@@ -151,6 +151,7 @@
 | console.warn · 3605722997 | 先确认实际 callee/堆栈与可达调用，再判断API缺口。 |
 | 3028048463/531.alpha、3280903509/225.alpha | 空数组与Vec3返回scalar分别核作者配置、时序与字段归属；不静默强转。 |
 | presented / performance 记录 | 实际GPU完成与系统呈现分开；沿present callback和stream身份资格普通窗口/多Surface，终端PNG不代呈现率。 |
+| 编译门组织 | `test_scene_generic_shader_program_artifact.py`仍有9343行，混有大量Swift夹具与不同编译合同；按现有compiler/ABI/资源职责收敛，先退重复与失效夹具，保真实行为/像素oracle，不能只搬文件凑行数。局部验证按现有模块门及时输出，避免长suite结束才暴露编译错误。 |
 | capture · 3766415113 | 普通capture需实际窗口frame/时机资格；本轮Metal终端PNG不覆盖普通截图入口。 |
 | 自有9000000015 | 90/91/92健康peer须有真实texture source及可区分ROI，先资格夹具，不能借主文字/clone输出代peer。 |
 

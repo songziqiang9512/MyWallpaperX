@@ -140,33 +140,69 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
             )
             switch outputSemantics {
             case .color:
-                do {
-                    color = try prepareColorTransfer(
-                        msl: fragmentStage.msl,
-                        authoredSource: fragmentStage.authoredSource,
-                        expectedColorTransfer: expectedColorTransfer,
-                        defaultBoundaryColorSlots: defaultBoundaryColorSlots
-                    )
-                } catch {
+                if let boundary = colorBoundary {
+                    let transfer: SceneGenericShaderProgramArtifact.Program.ColorTransfer
+                    if let slot = boundary.signalPassthroughSlot {
+                        guard let expected = expectedColorTransfer,
+                              expected.kind == "passthrough",
+                              expected.slot == slot else {
+                            throw Failure.colorTransfer
+                        }
+                        transfer = artifactTransfer(kind: "passthrough", slot: slot)
+                    } else if let expected = expectedColorTransfer,
+                              expected.kind.hasPrefix("independent-alpha-signal") {
+                        switch (expected.kind, boundary.outputRepresentation) {
+                        case ("independent-alpha-signal", .independentAlphaSignal),
+                             ("independent-alpha-signal-preserving", .independentAlphaSignal),
+                             ("independent-alpha-signal-compositing", .premultipliedAlpha),
+                             ("independent-alpha-signal-underlay-compositing", .premultipliedAlpha):
+                            transfer = .init(kind: expected.kind, slot: expected.slot, slots: expected.slots)
+                        default:
+                            throw Failure.colorTransfer
+                        }
+                    } else {
+                        switch boundary.outputRepresentation {
+                        case .opaque:
+                            transfer = artifactTransfer(kind: "opaque")
+                        case .straightAlpha:
+                            transfer = .init(kind: defaultStraightColorBoundaryKind,
+                                             slot: nil, slots: boundary.colorInputSlots)
+                        case .premultipliedAlpha:
+                            transfer = artifactTransfer(kind: "premultiplied")
+                        case .independentAlphaSignal:
+                            throw Failure.colorTransfer
+                        }
+                    }
+                    color = (fragmentStage.msl, transfer)
+                } else {
+                    do {
+                        color = try prepareColorTransfer(
+                            msl: fragmentStage.msl,
+                            authoredSource: fragmentStage.authoredSource,
+                            expectedColorTransfer: expectedColorTransfer,
+                            defaultBoundaryColorSlots: defaultBoundaryColorSlots
+                        )
+                    } catch {
 
 #if DEBUG
-                    if ProcessInfo.processInfo.arguments.contains(
-                        "--mwx-debug-scene-evidence-dir"
-                    ) {
-                        let classification = SceneAuthoredShaderColorTransferAnalyzer
-                            .analyze(fragmentSource: fragmentStage.authoredSource)
-                            NSLog(
-                            "MWX DEBUG SCENE: phase=artifact-color-transfer-prepare-failed request=%@ classification=%@ expected=%@ authoredBytes=%d error=%@",
-                            requestKey,
-                            String(describing: classification),
-                            expectedColorTransfer.map(String.init(describing:)) ?? "-",
-                            fragmentStage.authoredSource.utf8.count,
-                            String(describing: error)
-                        )
-                    }
+                        if ProcessInfo.processInfo.arguments.contains(
+                            "--mwx-debug-scene-evidence-dir"
+                        ) {
+                            let classification = SceneAuthoredShaderColorTransferAnalyzer
+                                .analyze(fragmentSource: fragmentStage.authoredSource)
+                                NSLog(
+                                "MWX DEBUG SCENE: phase=artifact-color-transfer-prepare-failed request=%@ classification=%@ expected=%@ authoredBytes=%d error=%@",
+                                requestKey,
+                                String(describing: classification),
+                                expectedColorTransfer.map(String.init(describing:)) ?? "-",
+                                fragmentStage.authoredSource.utf8.count,
+                                String(describing: error)
+                            )
+                        }
 #endif
 
-                    throw error
+                        throw error
+                    }
                 }
             case .redGreenUnorm:
                 guard SceneAuthoredShaderColorTransferAnalyzer.isScalarSplatOutput(
@@ -199,10 +235,6 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                     vertexSource: vertexStage.authoredSource,
                     fragmentSource: fragmentStage.authoredSource
                 ) else { throw Failure.colorTransfer }
-                if let slot = colorBoundary.signalPassthroughSlot {
-                    guard color.transfer.kind == "passthrough", color.transfer.slot == slot,
-                          color.transfer.slots == nil else { throw Failure.colorTransfer }
-                }
                 // One helper implementation precedes both stages. Vertex
                 // color samples enter the same authored straight domain;
                 // only the fragment owns the terminal storage boundary.

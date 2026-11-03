@@ -70,7 +70,6 @@
           "SceneResolvedMaterialExecutionCapabilityVariant.swift",
           "SceneResolvedMaterialGenericShaderArtifactCache+Diagnostics.swift",
           "SceneResolvedMaterialGenericShaderArtifactCache.swift",
-          "SceneResolvedMaterialGenericShaderOwnerDeferral.swift",
           "SceneResolvedMaterialGenericShaderPreparationCoordination.swift",
           "SceneResolvedMaterialGenericShaderProgramArtifact.swift",
           "SceneResolvedMaterialGenericShaderRequest.swift",

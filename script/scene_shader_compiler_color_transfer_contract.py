@@ -29,7 +29,9 @@ _STRAIGHT_PREMULTIPLY = "mwxGenericPremultiply"
 def parse_expected_transfer(value: Any) -> dict[str, Any] | None:
     if value is None:
         return None
-    if isinstance(value, dict) and value.get("kind") == STRAIGHT_ALPHA_PRESERVING_KIND:
+    if isinstance(value, dict) and value.get("kind") in (
+        "passthrough", STRAIGHT_ALPHA_PRESERVING_KIND,
+    ):
         slot = value.get("slot")
         if (
             set(value) != {"kind", "slot"}
@@ -38,7 +40,7 @@ def parse_expected_transfer(value: Any) -> dict[str, Any] | None:
             or not 0 <= slot < 8
         ):
             raise IndependentSignalContractFailure("expected-color-transfer")
-        return {"kind": STRAIGHT_ALPHA_PRESERVING_KIND, "slot": slot}
+        return {"kind": value["kind"], "slot": slot}
     if isinstance(value, dict) and set(value) == {"kind", "slots"}:
         kind, slots = value.get("kind"), value.get("slots")
         if (

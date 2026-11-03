@@ -221,7 +221,7 @@ class SceneValidationRoutingTests(unittest.TestCase):
             arguments(),
             self.registry,
         )
-        self.assertIn("authored-fallback-owner-revocation", groups)
+        self.assertIn("shader-backend-fallback", groups)
         focused = next(gate for gate in gates if gate.gate_id == "focused-tests")
         self.assertIn(
             "test_scene_standard_blur_previous_composite",

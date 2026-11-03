@@ -317,8 +317,6 @@ private func profile(
         activeTextureSlots: active,
         activeOpacityMaskSlots: opacityMasks,
         typedStaticDataAuxiliarySlots: typed,
-        previousBlurredCompositeBlurredSlot: nil,
-        previousBlurredCompositePreviousSlot: nil,
         hasExternalProviderTexture: provider,
         producesScalarRedOutput: false,
         isSourceIndependentPremultipliedOutput: false,

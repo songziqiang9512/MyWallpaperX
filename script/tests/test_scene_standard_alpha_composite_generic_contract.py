@@ -67,7 +67,6 @@ private struct CompositeOutput: Codable {
     let transfer: String
     let blurredSlot: Int?
     let previousSlot: Int?
-    let unitColorUniform: String?
     let artifactKind: String?
     let boundedFrontendAccepted: Bool
     let coordinateAliasAccepted: Bool
@@ -105,10 +104,11 @@ private func transferName(_ transfer: SceneShaderColorTransfer) -> String {
 private func profile(
     transfer: SceneShaderColorTransfer,
     alphaSlot: Int? = nil,
-    compositeSlots: (Int, Int)? = nil
+    compositeSlots: (Int, Int)? = nil,
+    fragment: String = ""
 ) -> SceneGenericShaderCapabilityProfile {
     SceneGenericShaderCapabilityProfile(
-        colorTransfer: transfer,
+        fragmentSource: fragment, colorTransfer: transfer,
         alphaAttenuationSourceSlot: nil,
         colorBlendSourceSlot: nil,
         conditionalStraightUnionSourceSlot: nil,
@@ -119,8 +119,6 @@ private func profile(
         alphaWeightedSampleAverageSourceSlot: alphaSlot,
         preservedAlphaRGBFilterSourceSlot: nil,
         preservedAlphaRGBFilterTextureSlots: [],
-        previousBlurredCompositeBlurredSlot: compositeSlots?.0,
-        previousBlurredCompositePreviousSlot: compositeSlots?.1,
         hasExternalProviderTexture: false,
         producesScalarRedOutput: false,
         isSourceIndependentPremultipliedOutput: false,
@@ -534,7 +532,7 @@ private struct Harness {
         ].joined(separator: "\n")
         let capability = profile(
             transfer: .straightAlphaPreserving(textureSlot: 0),
-            compositeSlots: (0, 2)
+            compositeSlots: (0, 2), fragment: authored
         )
         let coordinateAliasSource = compositeSource(coordinateAlias: true)
         let coordinatePreviousReuse = coordinateAliasSource.replacingOccurrences(
@@ -549,7 +547,6 @@ private struct Harness {
             ),
             blurredSlot: fact?.blurredSlot,
             previousSlot: fact?.previousSlot,
-            unitColorUniform: fact?.colorUniform,
             artifactKind: artifact(
                 authored: authored,
                 msl: msl,
@@ -585,8 +582,7 @@ private struct Harness {
                 ) == .init(
                     blurredSlot: 3,
                     previousSlot: 5,
-                    maskSlot: nil,
-                    colorUniform: "g_CompositeColor"
+                    maskSlot: nil
                 ),
             coordinateHelperMutationRejected:
                 SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.analyze(
@@ -708,16 +704,17 @@ class StandardAlphaCompositeGenericContractTests(unittest.TestCase):
         harness = root / "Harness.swift"
         harness.write_text(HARNESS, encoding="utf-8")
         cls.binary = root / "contract-harness"
-        subprocess.run(
+        compilation = subprocess.run(
             [
-                "xcrun", "swiftc", "-O", "-o", str(cls.binary),
+                "xcrun", "swiftc", "-Onone", "-o", str(cls.binary),
                 *[str(path) for path in SWIFT_SOURCES], str(harness),
             ],
             cwd=REPOSITORY_ROOT,
-            check=True,
             capture_output=True,
             text=True,
         )
+        if compilation.returncode:
+            raise RuntimeError(compilation.stderr)
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -763,7 +760,6 @@ class StandardAlphaCompositeGenericContractTests(unittest.TestCase):
         self.assertEqual(output["transfer"], "straightAlphaPreserving")
         self.assertEqual(output["blurredSlot"], 0)
         self.assertEqual(output["previousSlot"], 2)
-        self.assertEqual(output["unitColorUniform"], "g_CompositeColor")
         self.assertEqual(output["artifactKind"], "straight-alpha-preserving")
         self.assertTrue(all(output[key] for key in (
             "boundedFrontendAccepted", "coordinateAliasAccepted",

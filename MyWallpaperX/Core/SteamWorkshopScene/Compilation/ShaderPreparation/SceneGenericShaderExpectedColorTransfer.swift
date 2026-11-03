@@ -47,6 +47,14 @@ nonisolated struct SceneGenericShaderExpectedColorTransfer: Encodable {
             return nil
         }
         switch transfer {
+        case let .passthrough(textureSlot):
+            guard Self.valid(textureSlot), accumulatorLoopWork == nil,
+                  !usesRGBA8UnormAttachmentBoundary else {
+                return nil
+            }
+            kind = "passthrough"
+            slot = textureSlot
+            slots = nil
         case let .straightAlphaPreserving(textureSlot):
             guard permitsStraightAlphaPreserving,
                   Self.valid(textureSlot), accumulatorLoopWork == nil,

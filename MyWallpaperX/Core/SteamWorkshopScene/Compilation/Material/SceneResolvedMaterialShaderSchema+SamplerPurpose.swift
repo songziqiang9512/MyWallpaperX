@@ -349,8 +349,7 @@ extension SceneResolvedMaterialShaderSchema {
         template: Template,
         samplers: [Int: Sampler],
         inputIdentity: Graph.TextureIdentity?,
-        sourceColorTransfer: SceneShaderColorTransfer? = nil,
-        frontendBindings: [SceneAuthoredShaderProgram.TextureBinding]? = nil
+        sourceColorTransfer: SceneShaderColorTransfer? = nil
     ) -> [Int: GraphInputFact] {
         guard let inputIdentity,
               exactEffectInput(inputIdentity, template: template) else {
@@ -428,14 +427,6 @@ extension SceneResolvedMaterialShaderSchema {
               template.graphRole.bindings.isEmpty,
               template.textureSlots.allSatisfy({ $0 == nil }) else {
             return facts
-        }
-        if let frontendBindings {
-            guard frontendBindings.count == 1,
-                  let binding = frontendBindings.first,
-                  binding.slot == transferSlot,
-                  binding.name == sampler.name else {
-                return [:]
-            }
         }
         facts[transferSlot] = GraphInputFact(
             slot: transferSlot,

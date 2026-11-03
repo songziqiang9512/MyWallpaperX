@@ -150,21 +150,7 @@ private typealias Template = SceneResolvedMaterialTemplate
 private struct Output: Codable {
     let stockFact: Bool
     let stockTypedDefault: Bool
-    let defaultEligible: Bool
-    let explicitDefaultTintEligible: Bool
-    let explicitStaticTintEligible: Bool
-    let explicitDynamicRejected: Bool
-    let duplicateAliasesRejected: Bool
-    let wrongSlotRejected: Bool
-    let maskCandidateAccepted: Bool
-    let missingMaskCandidateRejected: Bool
-    let wrongMaskPurposeRejected: Bool
-    let nonAssetMaskCandidateRejected: Bool
-    let maskSourceMismatchRejected: Bool
-    let missingDefaultRejected: Bool
-    let tintedDefaultEligible: Bool
-    let malformedDefaultRejected: Bool
-    let duplicateDeclarationRejected: Bool
+    let maskedFact: Bool
     let previousInputShadowCases: [String: Bool]
 }
 
@@ -217,38 +203,8 @@ private let blurred = Graph.TextureIdentity(
 )
 private let maskPath = SceneVFSAssetPath("unseen/masks/soft-edge.tex")!
 
-private func staticValue(_ values: [Double]) -> Template.StaticUniformValue {
-    .init(
-        valueKind: "fixture",
-        componentBitPatterns: values.map(\.bitPattern),
-        authoredBindingKeys: []
-    )
-}
-
-private func declaration(
-    _ name: String, _ values: [Double]
-) -> Template.UniformDeclaration {
-    .init(name: name, value: .staticExact(staticValue(values)))
-}
-
-private let dynamicDeclaration = Template.UniformDeclaration(
-    name: "compositecolor",
-    value: .dynamic(.init(
-        target: .effectConstant(
-            layerID: 721, effectIndex: 4, passIndex: 3,
-            name: "compositecolor"
-        ),
-        valueContributors: [.sceneScript],
-        scriptAttachments: [], authoredFallback: staticValue([1, 1, 1]),
-        authoredBindingKeys: []
-    ))
-)
-
 private func template(
     contract: SceneShaderContract,
-    declarations: [Template.UniformDeclaration] = [],
-    includeMask: Bool = false,
-    maskReference: Template.TextureReference? = nil,
     input: Graph.TextureIdentity = previous,
     consumer: Graph.EffectKey = effectKey,
     blurTarget: Graph.TextureIdentity = blurred,
@@ -261,54 +217,13 @@ private func template(
     slots[2] = .init(index: 2, candidates: inputProvenance + [
         .init(reference: .graph(input), provenance: .explicitBinding),
     ])
-    if includeMask {
-        slots[1] = .init(index: 1, candidates: [
-            .init(
-                reference: maskReference ?? .asset(maskPath),
-                provenance: .explicitBinding
-            ),
-        ])
-    }
     return .init(
         textureSlots: slots,
         comboValues: [:],
         inheritedInactiveCombos: [],
-        uniformDeclarations: declarations,
+        uniformDeclarations: [],
         effectContext: .init(key: consumer, input: input),
         shaderContract: contract
-    )
-}
-
-private func eligible(
-    _ value: (SceneShaderContract, SceneShaderPreparedProgram)?,
-    declarations: [Template.UniformDeclaration] = [],
-    identities: [Int: Graph.TextureIdentity]? = nil,
-    includeMask: Bool = false,
-    maskReference: Template.TextureReference? = nil,
-    input: Graph.TextureIdentity = previous,
-    consumer: Graph.EffectKey = effectKey,
-    blurTarget: Graph.TextureIdentity = blurred,
-    inputProvenance: [Template.TextureCandidate] = []
-) -> Bool {
-    guard let (contract, prepared) = value,
-          let samplers = try? SceneResolvedMaterialShaderSchema.activeSamplers(prepared)
-    else { return false }
-    return SceneResolvedMaterialPreviousBlurredCompositeEligibility.slots(
-        fragmentSource: prepared.fragment.source,
-        prepared: prepared,
-        samplers: samplers,
-        template: template(
-            contract: contract, declarations: declarations,
-            includeMask: includeMask,
-            maskReference: maskReference, input: input, consumer: consumer,
-            blurTarget: blurTarget, inputProvenance: inputProvenance
-        ),
-        implicitFramebufferIdentity: input,
-        activeGraphTextureIdentities: identities ?? [0: blurTarget, 2: input]
-    ) == .init(
-        blurred: 0,
-        previous: 2,
-        mask: includeMask ? 1 : nil
     )
 }
 
@@ -381,10 +296,6 @@ private func previousInputShadowCases(
                     slot: 2, identity: input, template: candidate,
                     allowsNamedInputProvenance: true
                 ) == expected
-            checks[label + "/slots"] = eligible(
-                stock, input: input, consumer: consumer, blurTarget: blurTarget,
-                inputProvenance: provenance
-            ) == expected
         }
         checks["\(layer)/primary-predicate"] =
             SceneResolvedMaterialExactPreviousInputShadow.accepts(
@@ -566,8 +477,6 @@ private struct Harness {
         }
         let stock = try prepare(roots[0])
         let mask = try prepare(roots[0], maskReady: true)
-        let wrongPurposeMask = try prepare(roots[5], maskReady: true)
-        let wrongSourceMask = try prepare(roots[6], maskReady: true)
         let fact = stock.flatMap {
             SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.analyze(
                 fragmentSource: $0.1.fragment.source
@@ -583,48 +492,15 @@ private struct Harness {
         let output = Output(
             stockFact: fact == .init(
                 blurredSlot: 0, previousSlot: 2,
-                maskSlot: nil,
-                colorUniform: "g_CompositeColor"
+                maskSlot: nil
             ),
             stockTypedDefault: schema?.materialKeys == [
                 "g_CompositeColor", "compositecolor",
             ] && defaultBits.map { Double(bitPattern: $0) } == [1, 1, 1],
-            defaultEligible: eligible(stock),
-            explicitDefaultTintEligible: eligible(
-                stock, declarations: [declaration("compositecolor", [1, 1, 1])]
-            ),
-            explicitStaticTintEligible: eligible(
-                stock, declarations: [declaration("compositecolor", [0.5, 1, 1])]
-            ),
-            explicitDynamicRejected: !eligible(
-                stock, declarations: [dynamicDeclaration]
-            ),
-            duplicateAliasesRejected: !eligible(
-                stock, declarations: [
-                    declaration("g_CompositeColor", [1, 1, 1]),
-                    declaration("compositecolor", [1, 1, 1]),
-                ]
-            ),
-            wrongSlotRejected: !eligible(
-                stock, identities: [1: blurred, 2: previous]
-            ),
-            maskCandidateAccepted: eligible(mask, includeMask: true),
-            missingMaskCandidateRejected: !eligible(mask),
-            wrongMaskPurposeRejected: !eligible(
-                wrongPurposeMask, includeMask: true
-            ),
-            nonAssetMaskCandidateRejected: !eligible(
-                mask,
-                includeMask: true,
-                maskReference: .graph(previous)
-            ),
-            maskSourceMismatchRejected: !eligible(
-                wrongSourceMask, includeMask: true
-            ),
-            missingDefaultRejected: !eligible(try prepare(roots[1])),
-            tintedDefaultEligible: eligible(try prepare(roots[2])),
-            malformedDefaultRejected: !eligible(try prepare(roots[3])),
-            duplicateDeclarationRejected: !eligible(try prepare(roots[4])),
+            maskedFact: mask.flatMap {
+                SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.analyze(
+                    fragmentSource: $0.1.fragment.source)
+            } == .init(blurredSlot: 0, previousSlot: 2, maskSlot: 1),
             previousInputShadowCases: previousInputShadowCases(stock)
         )
         FileHandle.standardOutput.write(try JSONEncoder().encode(output))
@@ -677,7 +553,7 @@ class StandardBlurPreviousCompositeTests(unittest.TestCase):
     def tearDownClass(cls) -> None:
         cls.directory.cleanup()
 
-    def stock_root(self, name: str, mutation: str | None = None) -> Path:
+    def stock_root(self, name: str) -> Path:
         root = self.root / name
         copies = {
             STOCK_ROOT / "effects/blur/shaders/effects/blur_combine.vert":
@@ -693,57 +569,11 @@ class StandardBlurPreviousCompositeTests(unittest.TestCase):
         for source, destination in copies.items():
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, destination)
-        if mutation is not None:
-            fragment = root / "shaders/effects/blur_combine.frag"
-            if mutation == "wrong-mask-purpose":
-                source = fragment.read_text(encoding="utf-8")
-                marker = ',"mode":"opacitymask"'
-                self.assertIn(marker, source)
-                fragment.write_text(source.replace(marker, "", 1), encoding="utf-8")
-                return root
-            if mutation == "mask-green-channel":
-                source = fragment.read_text(encoding="utf-8")
-                marker = "texSample2D(g_Texture1, v_TexCoord.zw).r"
-                self.assertIn(marker, source)
-                fragment.write_text(
-                    source.replace(marker, marker[:-1] + "g", 1),
-                    encoding="utf-8",
-                )
-                return root
-            header = root / "shaders/common_composite.h"
-            source = header.read_text(encoding="utf-8")
-            marker = '"default":"1 1 1"'
-            self.assertIn(marker, source)
-            if mutation == "missing":
-                replacement = ""
-            elif mutation == "tinted":
-                replacement = '"default":"0.5 1 1"'
-            elif mutation == "malformed":
-                replacement = '"default":"1 nope 1"'
-            elif mutation == "duplicate":
-                line = "uniform vec3 g_CompositeColor;"
-                self.assertIn(line, source)
-                header.write_text(source.replace(line, line + "\n" + line), encoding="utf-8")
-                return root
-            else:
-                raise AssertionError(mutation)
-            if mutation == "missing":
-                source = source.replace("," + marker, replacement)
-            else:
-                source = source.replace(marker, replacement)
-            header.write_text(source, encoding="utf-8")
         return root
 
-    def test_stock_default_and_fail_closed_overrides(self) -> None:
-        roots = [
-            self.stock_root("stock"),
-            self.stock_root("missing", "missing"),
-            self.stock_root("tinted", "tinted"),
-            self.stock_root("malformed", "malformed"),
-            self.stock_root("duplicate", "duplicate"),
-            self.stock_root("wrong-mask-purpose", "wrong-mask-purpose"),
-            self.stock_root("mask-green-channel", "mask-green-channel"),
-        ]
+
+    def test_stock_sampler_defaults_and_previous_input_identity(self) -> None:
+        roots = [self.stock_root("stock")]
         completed = subprocess.run(
             [str(self.binary), *map(str, roots)], check=True,
             cwd=REPOSITORY_ROOT, capture_output=True, text=True,

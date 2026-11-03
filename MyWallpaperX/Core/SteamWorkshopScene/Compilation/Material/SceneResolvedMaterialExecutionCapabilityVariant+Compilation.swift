@@ -156,7 +156,6 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         let (
             alphaAttenuationFact,
             colorBlendFact,
-            previousBlurredCompositeAnalyzerFact,
             artifactStart,
             artifactResolution
         ) = resolveVariantArtifact(
@@ -170,7 +169,6 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             sourceGraphInputFacts: sourceGraphInputFacts,
             sourceColorTransfer: sourceColorTransfer,
             colorBoundary: colorBoundary,
-            activeGraphTextureIdentities: activeGraphTextureIdentities,
             analysisStart: analysisStart,
             activeExternalProviderTextureSlots: activeExternalProviderTextureSlots,
             outputStorage: outputStorage,
@@ -232,7 +230,6 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             sourceActiveSamplers: sourceActiveSamplers,
             implicitFramebufferIdentity: implicitFramebufferIdentity,
             sourceGraphInputFacts: sourceGraphInputFacts,
-            sourceColorTransfer: sourceColorTransfer,
             neutralTextureResolution: neutralTextureResolution,
             runtimeLoopBounds: runtimeLoopBounds,
             conditionalGeneratedRGBInputContract: conditionalGeneratedRGBInputContract,
@@ -268,11 +265,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                     ),
                     colorBlendFact: colorBlendFact.map(
                         SceneResolvedMaterialVariantAnalysisCache.mirror
-                    ),
-                    previousBlurredCompositeFact:
-                        previousBlurredCompositeAnalyzerFact.map(
-                            SceneResolvedMaterialVariantAnalysisCache.mirror
-                        )
+                    )
                 ),
                 keySHA256: variantAnalysisKey
             )

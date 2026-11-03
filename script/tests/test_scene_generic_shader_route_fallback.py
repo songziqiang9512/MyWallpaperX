@@ -31,7 +31,6 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderArtifactCache+Diagnostics.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderPreparationCoordination.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderRequest.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderOwnerDeferral.swift",
 ]
 
 
@@ -48,9 +47,7 @@ private struct Output: Codable {
     let state: String
     let fallbackOwner: String
     let alphaOwner: String
-    let compositeOwner: String
     let alphaState: String
-    let compositeState: String
     let boundedFrontendAccepted: Bool?
 }
 
@@ -159,8 +156,7 @@ void main() {
 
 private func profile(
     transfer: SceneShaderColorTransfer,
-    alphaSlot: Int? = nil,
-    composite: (Int, Int)? = nil
+    alphaSlot: Int? = nil
 ) -> SceneGenericShaderCapabilityProfile {
     SceneGenericShaderCapabilityProfile(
         colorTransfer: transfer,
@@ -174,14 +170,11 @@ private func profile(
         alphaWeightedSampleAverageSourceSlot: alphaSlot,
         preservedAlphaRGBFilterSourceSlot: nil,
         preservedAlphaRGBFilterTextureSlots: [],
-        previousBlurredCompositeBlurredSlot: composite?.0,
-        previousBlurredCompositePreviousSlot: composite?.1,
         hasExternalProviderTexture: false,
         producesScalarRedOutput: false,
         isSourceIndependentPremultipliedOutput: false,
-        graphTextureSlots: composite.map { Set([$0.0]) } ?? [],
-        graphInputTextureSlots: composite.map { Set([$0.0, $0.1]) }
-            ?? alphaSlot.map { Set([$0]) } ?? [],
+        graphTextureSlots: [],
+        graphInputTextureSlots: alphaSlot.map { Set([$0]) } ?? [],
         r8TextureSlots: [],
         hasDefaultedOpacityMaskSampler: false,
         hasOnlyGraphInputSampler: alphaSlot != nil,
@@ -197,8 +190,7 @@ private struct Harness {
         let isAlpha = mode == "alpha"
         let isPreserved = mode == "preserved"
         let isSpatialWeighted = mode == "spatial-weighted"
-        let isComposite = mode.hasPrefix("composite")
-        let isCompositeOwned = mode == "composite"
+        let isComposite = mode == "composite"
         let fragment = isAlpha ? alpha
             : isPreserved ? preserved
             : isSpatialWeighted ? spatialWeighted
@@ -206,8 +198,6 @@ private struct Harness {
         let resolution = SceneResolvedMaterialGenericShaderArtifactCache.resolve(
             vertexSource: vertex,
             fragmentSource: fragment,
-            previousBlurredCompositeBlurredSlot: isCompositeOwned ? 3 : nil,
-            previousBlurredCompositePreviousSlot: isCompositeOwned ? 5 : nil,
             graphTextureSlots: isComposite ? [3] : isPreserved ? [2] : [],
             graphInputTextureSlots:
                 isAlpha ? [0] : isPreserved ? [0, 2]
@@ -223,30 +213,12 @@ private struct Harness {
         let alphaProfile = profile(
             transfer: .straightAlpha(textureSlot: 0), alphaSlot: 0
         )
-        let compositeProfile = profile(
-            transfer: .straightAlphaPreserving(textureSlot: 3),
-            composite: (3, 5)
-        )
         let common = (
             alphaOwner: alphaProfile.validatedRollbackOwner.rawValue,
-            compositeOwner: compositeProfile.validatedRollbackOwner.rawValue,
-            alphaState: alphaProfile.defaultRouteState.rawValue,
-            compositeState: compositeProfile.defaultRouteState.rawValue
+            alphaState: alphaProfile.defaultRouteState.rawValue
         )
         let output: Output
         switch resolution {
-        case let .ownerDeferred(code, requestKey, decision):
-            output = .init(
-                status: "owner-deferred", code: code, requestKey: requestKey,
-                permitsBoundedFrontend: nil,
-                profile: decision.profile, state: decision.state,
-                fallbackOwner: decision.fallbackOwner,
-                alphaOwner: common.alphaOwner,
-                compositeOwner: common.compositeOwner,
-                alphaState: common.alphaState,
-                compositeState: common.compositeState,
-                boundedFrontendAccepted: nil
-            )
         case let .unavailable(code, requestKey, permits, decision):
             let boundedAccepted = permits
                 ? SceneAuthoredShaderFrontend.compile(
@@ -260,9 +232,7 @@ private struct Harness {
                 profile: decision.profile, state: decision.state,
                 fallbackOwner: decision.fallbackOwner,
                 alphaOwner: common.alphaOwner,
-                compositeOwner: common.compositeOwner,
                 alphaState: common.alphaState,
-                compositeState: common.compositeState,
                 boundedFrontendAccepted: boundedAccepted
             )
         case let .accepted(_, _, requestKey, decision):
@@ -272,9 +242,7 @@ private struct Harness {
                 profile: decision.profile, state: decision.state,
                 fallbackOwner: decision.fallbackOwner,
                 alphaOwner: common.alphaOwner,
-                compositeOwner: common.compositeOwner,
                 alphaState: common.alphaState,
-                compositeState: common.compositeState,
                 boundedFrontendAccepted: nil
             )
         }
@@ -285,16 +253,16 @@ private struct Harness {
 
 
 @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
-class SceneGenericShaderIncumbentOwnerDeferredTests(unittest.TestCase):
+class SceneGenericShaderRouteFallbackTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.build_directory = tempfile.TemporaryDirectory(
-            prefix="mwx-generic-incumbent-owner-"
+            prefix="mwx-generic-route-fallback-"
         )
         root = Path(cls.build_directory.name)
         harness = root / "Harness.swift"
         harness.write_text(HARNESS, encoding="utf-8")
-        cls.binary = root / "generic-incumbent-owner-harness"
+        cls.binary = root / "generic-route-fallback-harness"
         (root / "SceneShaderCacheIdentity.json").write_text(json.dumps({
             "schemaVersion": 1, "semantics": "a" * 64, "toolchain": "b" * 64,
         }))
@@ -366,8 +334,6 @@ class SceneGenericShaderIncumbentOwnerDeferredTests(unittest.TestCase):
             self.assertFalse(missing["boundedFrontendAccepted"])
             self.assertEqual(missing["alphaOwner"], "bounded-frontend")
             self.assertEqual(missing["alphaState"], "generic-only")
-            self.assertEqual(missing["compositeOwner"], "none")
-            self.assertEqual(missing["compositeState"], "generic-only")
             self.assertIn(
                 f"state=generic-only profile={profile} outcome=rejected",
                 missing_log,
@@ -554,23 +520,6 @@ class SceneGenericShaderIncumbentOwnerDeferredTests(unittest.TestCase):
             self.assertFalse(disabled["permitsBoundedFrontend"])
             self.assertFalse(disabled["boundedFrontendAccepted"])
             self.assertIn("outcome=fallback reason=route-disabled", disabled_log)
-
-    def test_source_proven_composite_without_whole_stage_owner_is_quarantined(
-        self,
-    ) -> None:
-        profile = "source-proven-previous-blurred-composite-unowned"
-        with tempfile.TemporaryDirectory(prefix="mwx-unit-composite-unowned-") as directory:
-            result, log, requests, cache = self.run_route(
-                Path(directory), "composite-unowned"
-            )
-            self.assertEqual(result["status"], "owner-deferred")
-            self.assertEqual(result["code"], "route-observe-only")
-            self.assertEqual(result["profile"], profile)
-            self.assertEqual(result["state"], "observe-only")
-            self.assertEqual(result["fallbackOwner"], "program-first-incumbent")
-            self.assertEqual(len(list(requests.glob("*.json"))), 1)
-            self.assertEqual(list(cache.iterdir()), [])
-            self.assertIn("outcome=observed reason=route-observe-only", log)
 
     def test_generic_only_rollback_and_owner_revocation_remain_distinct(self) -> None:
         profile = "source-proven-scalar-color-interpolation"

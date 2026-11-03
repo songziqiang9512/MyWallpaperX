@@ -299,8 +299,6 @@ private func profile(
         typedStaticDataAuxiliarySlots: typedStatic,
         preservedChannelsExternalProviderTextureSlots: preservedChannels,
         premultipliedColorAuxiliarySlots: premultipliedColor,
-        previousBlurredCompositeBlurredSlot: nil,
-        previousBlurredCompositePreviousSlot: nil,
         hasExternalProviderTexture: provider,
         producesScalarRedOutput: false,
         isSourceIndependentPremultipliedOutput: false,

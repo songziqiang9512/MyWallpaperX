@@ -54,8 +54,6 @@ nonisolated extension SceneGenericShaderCapabilityProfile {
             .genericOnly
         case .sourceProvenGraphInputAssociatedOverBlend:
             .preferGeneric
-        case .sourceProvenPreviousBlurredCompositeUnowned:
-            .observeOnly
         }
     }
 
@@ -94,8 +92,6 @@ nonisolated extension SceneGenericShaderCapabilityProfile {
              .sourceProvenGraphInputRGBBlendScalarAlpha,
              .sourceProvenPreviousBlurredComposite:
             .none
-        case .sourceProvenPreviousBlurredCompositeUnowned:
-            .programFirstIncumbent
         default:
             .boundedFrontend
         }

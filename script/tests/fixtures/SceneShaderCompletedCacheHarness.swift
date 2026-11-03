@@ -8,9 +8,6 @@ private func cacheRetentionInput(fragmentSource: String) ->
         fragmentSource: fragmentSource,
         alphaAttenuationSourceSlot: nil,
         colorBlendSourceSlot: nil,
-        previousBlurredCompositeBlurredSlot: nil,
-        previousBlurredCompositePreviousSlot: nil,
-        previousBlurredCompositeMaskSlot: nil,
         hasExternalProviderTexture: false,
         producesScalarRedOutput: false,
         producesRedGreenUnormOutput: false,
@@ -166,7 +163,8 @@ private func completedCacheRetentionChecks() -> [String: Any] {
                     // A future low-budget test uses this result above its cap.
                     return retainedResolution("large-result", payloadBytes: 512 * 1024)
                 }
-                return .ownerDeferred(code: "not-retained", requestKey: "identical",
+                return .unavailable(code: "not-retained", requestKey: "identical",
+                    permitsBoundedFrontend: false,
                     routeDecision: .init(profile: "fixture", state: "generic-only",
                         fallbackOwner: "none"))
             }

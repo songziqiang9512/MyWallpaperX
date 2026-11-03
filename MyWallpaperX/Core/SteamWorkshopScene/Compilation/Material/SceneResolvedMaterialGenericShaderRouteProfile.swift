@@ -30,7 +30,6 @@ nonisolated enum SceneGenericShaderRouteState: String {
 
 nonisolated enum SceneGenericShaderFallbackOwner: String {
     case boundedFrontend = "bounded-frontend"
-    case programFirstIncumbent = "program-first-incumbent"
     case none
 }
 
@@ -86,8 +85,6 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         "source-proven-graph-input-sampled-alpha-reconstructed-rgba-data-filter"
     case sourceProvenPreviousBlurredComposite =
         "source-proven-previous-blurred-composite"
-    case sourceProvenPreviousBlurredCompositeUnowned =
-        "source-proven-previous-blurred-composite-unowned"
     case sourceProvenGraphInputAlphaAttenuation =
         "source-proven-graph-input-alpha-attenuation"
     case sourceProvenGraphInputColorBlend =
@@ -169,12 +166,6 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         spatialWeightedColorBlendActiveSlots: Set<Int> = [],
         spatialWeightedColorBlendTypedAuxiliarySlots: Set<Int> = [],
         spatialWeightedColorBlendExternalColorSlot: Int? = nil,
-        previousBlurredCompositeBlurredSlot: Int?,
-        previousBlurredCompositePreviousSlot: Int?,
-        previousBlurredCompositeMaskSlot: Int? = nil,
-        previousBlurredCompositeSourceBlurredSlot: Int? = nil,
-        previousBlurredCompositeSourcePreviousSlot: Int? = nil,
-        previousBlurredCompositeSourceMaskSlot: Int? = nil,
         hasExternalProviderTexture: Bool,
         producesScalarRedOutput: Bool,
         producesRedGreenUnormOutput: Bool = false,
@@ -477,22 +468,10 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
                   graphInputTextureSlots == Set([sourceSlot]) {
             self = .sourceProvenGraphInputTypedDataRGBFilter
         } else if case let .straightAlphaPreserving(transferBlurred) = colorTransfer,
-                  let sourceBlurred = previousBlurredCompositeSourceBlurredSlot
-                    ?? previousBlurredCompositeBlurredSlot,
-                  let sourcePrevious = previousBlurredCompositeSourcePreviousSlot
-                    ?? previousBlurredCompositePreviousSlot,
-                  transferBlurred == sourceBlurred,
-                  sourceBlurred != sourcePrevious {
-            let ownerEligible = previousBlurredCompositeBlurredSlot == sourceBlurred
-                && previousBlurredCompositePreviousSlot == sourcePrevious
-                && previousBlurredCompositeMaskSlot == previousBlurredCompositeSourceMaskSlot
-                && !hasExternalProviderTexture
-                && !producesScalarRedOutput
-                && graphTextureSlots == Set([sourceBlurred])
-                && graphInputTextureSlots == Set([sourceBlurred, sourcePrevious])
-            self = ownerEligible
-                ? .sourceProvenPreviousBlurredComposite
-                : .sourceProvenPreviousBlurredCompositeUnowned
+                  let fact = SceneAuthoredShaderPreviousBlurredCompositeAnalyzer
+                    .analyze(fragmentSource: fragmentSource),
+                  transferBlurred == fact.blurredSlot {
+            self = .sourceProvenPreviousBlurredComposite
         } else if case let .passthrough(sourceSlot) = colorTransfer,
                   !hasExternalProviderTexture,
                   !producesScalarRedOutput,

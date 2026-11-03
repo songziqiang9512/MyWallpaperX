@@ -135,7 +135,6 @@ private func scenePreparedVariantAdmissionCases(
                 sourceActiveSamplers: samplers,
                 implicitFramebufferIdentity: input,
                 sourceGraphInputFacts: facts,
-                sourceColorTransfer: candidate.colorTransfer,
                 neutralTextureResolution: variant.neutralTextureResolution,
                 runtimeLoopBounds: variant.runtimeLoopBounds,
                 conditionalGeneratedRGBInputContract: variant.conditionalGeneratedRGBInputContract,

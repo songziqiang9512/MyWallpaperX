@@ -13,7 +13,6 @@ nonisolated enum SceneAuthoredShaderPreviousBlurredCompositeAnalyzer {
         let blurredSlot: Int
         let previousSlot: Int
         let maskSlot: Int?
-        let colorUniform: String
     }
 
     static func analyze(fragmentSource source: String) -> Fact? {
@@ -68,10 +67,10 @@ nonisolated enum SceneAuthoredShaderPreviousBlurredCompositeAnalyzer {
                   previous: previous.name, mask: mask.name, tokens: tokens
               ), texts(statements[offset + 6], tokens: tokens) == [
                   "gl_FragColor", "=", blurred.name,
-              ], let colorUniform = validateCompositeHelper(
+              ], validateCompositeHelper(
                   named: composite,
                   fragment: fragment
-              ), coordinate.map({ wordCount($0.name, fragment: fragment) == 2 })
+              ) != nil, coordinate.map({ wordCount($0.name, fragment: fragment) == 2 })
                     ?? true,
               wordCount(mask.name, fragment: fragment) == 2,
               textureSampleCount(fragment) == (mask.slot == nil ? 2 : 3) else {
@@ -80,8 +79,7 @@ nonisolated enum SceneAuthoredShaderPreviousBlurredCompositeAnalyzer {
         return .init(
             blurredSlot: blurred.slot,
             previousSlot: previous.slot,
-            maskSlot: mask.slot,
-            colorUniform: colorUniform
+            maskSlot: mask.slot
         )
     }
 

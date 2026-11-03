@@ -289,8 +289,6 @@ private func profile(
         alphaWeightedSampleAverageSourceSlot: nil,
         preservedAlphaRGBFilterSourceSlot: nil,
         preservedAlphaRGBFilterTextureSlots: [],
-        previousBlurredCompositeBlurredSlot: nil,
-        previousBlurredCompositePreviousSlot: nil,
         hasExternalProviderTexture: provider,
         producesScalarRedOutput: false,
         isSourceIndependentPremultipliedOutput: false,

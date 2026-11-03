@@ -67,13 +67,10 @@ struct SceneAuthoredShaderSameAlphaReconstructedRGBFilterFact {
 typealias SceneAuthoredShaderNeutralTextureResolutionFact = SceneResolvedMaterialVariantAnalysisCache.NeutralTextureResolutionMirror
 typealias SceneAuthoredShaderAlphaAttenuationFact = SceneResolvedMaterialVariantAnalysisCache.AuxiliaryRedCarrierMirror
 typealias SceneAuthoredShaderGraphInputColorBlendFact = SceneResolvedMaterialVariantAnalysisCache.ColorBlendCarrierMirror
-enum SceneAuthoredShaderPreviousBlurredCompositeAnalyzer {
-    typealias Fact = SceneResolvedMaterialVariantAnalysisCache.PreviousBlurredCompositeShapeMirror
-}
 enum SceneShaderTextureFormat: String { case fixture }
 
 private typealias Cache = SceneResolvedMaterialVariantAnalysisCache
-private let currentSchemaVersion = 29
+private let currentSchemaVersion = 30
 private var checks: [String: Bool] = [:]
 
 private func record() -> Cache.Record {
@@ -90,8 +87,7 @@ private func record() -> Cache.Record {
         sameAlphaReconstructedRGB: .init(sourceSlot: 0, auxiliarySlots: [5, 2],
             preservesSnapshotAlpha: true), neutralTextureResolution: nil,
         alphaAttenuationFact: .init(sourceSlot: 0, auxiliaryRedSlots: [7, 2]),
-        colorBlendFact: .init(sourceSlot: 0, auxiliaryRedSlots: [6, 1], alphaOutput: .preserved),
-        previousBlurredCompositeFact: nil)
+        colorBlendFact: .init(sourceSlot: 0, auxiliaryRedSlots: [6, 1], alphaOutput: .preserved))
 }
 
 private func file(_ root: URL, _ key: String, version: Int = currentSchemaVersion) -> URL {

@@ -28,9 +28,6 @@ enum SceneGenericShaderPreparedNormalizationChecks {
         .init(
             vertexSource: vertex, fragmentSource: fragment,
             alphaAttenuationSourceSlot: nil, colorBlendSourceSlot: nil,
-            previousBlurredCompositeBlurredSlot: nil,
-            previousBlurredCompositePreviousSlot: nil,
-            previousBlurredCompositeMaskSlot: nil,
             hasExternalProviderTexture: false,
             producesScalarRedOutput: false, producesRedGreenUnormOutput: false,
             hasOnlyScalarDataInputs: false, isSourceIndependentPremultipliedOutput: false,

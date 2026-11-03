@@ -15,7 +15,6 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         sourceActiveSamplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
         implicitFramebufferIdentity: Graph.TextureIdentity?,
         sourceGraphInputFacts: [Int: SceneResolvedMaterialGraphInputSourceSlotFact],
-        sourceColorTransfer: SceneShaderColorTransfer,
         neutralTextureResolution: SceneAuthoredShaderNeutralTextureResolutionFact?,
         runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds,
         conditionalGeneratedRGBInputContract:
@@ -71,32 +70,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         } catch let failure as Failure {
             throw failure.withGenericOwnerFailure(genericOwnerFailure)
         }
-        let graphInputFacts = SceneResolvedMaterialShaderSchema
-            .graphInputSourceSlotFacts(
-                template: template,
-                samplers: samplers,
-                inputIdentity: implicitFramebufferIdentity,
-                sourceColorTransfer: frontend.colorTransfer,
-                frontendBindings: bindings
-            )
-        guard graphInputFacts == sourceGraphInputFacts.filter({ activeSlots.contains($0.key) }) else {
-            let bindingFactTokens = bindings.map {
-                "\($0.slot):\($0.name):\($0.channelUse.rawValue)"
-            }.sorted()
-            throw failure(
-                .samplerBindingIdentityMismatch,
-                phase: .invariant,
-                genericOwnerFailure: genericOwnerFailure,
-                details: [
-                    "graph-input-source-fact-divergence",
-                    "source-transfer-\(sourceColorTransfer)",
-                    "frontend-transfer-\(frontend.colorTransfer)",
-                    "source-slots-\(sourceGraphInputFacts.keys.sorted())",
-                    "frontend-slots-\(graphInputFacts.keys.sorted())",
-                    "bindings-\(bindingFactTokens)",
-                ]
-            )
-        }
+        let graphInputFacts = sourceGraphInputFacts.filter { activeSlots.contains($0.key) }
         if declaresActivePass(prepared) {
             throw failure(
                 .activePassUnsupported,

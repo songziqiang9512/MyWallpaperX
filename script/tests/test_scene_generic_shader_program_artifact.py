@@ -37,7 +37,6 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderArtifactCache.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderArtifactCache+Diagnostics.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderPreparationCoordination.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderOwnerDeferral.swift",
     Path(__file__).with_name("fixtures")
     / "SceneGenericShaderRouteResolutionSupport.swift",
 ]
@@ -45,7 +44,7 @@ CACHE_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderArtifactCache.swift"
 )
 
-HARNESS = r"""
+HARNESS = r'''
 import Foundation
 
 private typealias Output = SceneGenericShaderRouteFixtureOutput
@@ -233,14 +232,18 @@ private struct StraightRGBScalarAlphaBuilderOutput: Codable {
 private struct DefaultStraightBoundaryBuilderOutput: Codable {
     let positiveKind: String?
     let positiveSlots: [Int]?
-    let sourceSampleUnpremultiplied: Bool
+    let builderFailure: String?
+    let decodedBackend: String?
+    let colorBoundaryPreserved: Bool
+    let sourceSampleAdaptationCount: Int
     let maskSampleUntouched: Bool
-    let bothReturnsPremultiplied: Bool
-    let helperPairPresent: Bool
-    let provenPassthroughKept: String?
+    let bothReturnsAdapted: Bool
+    let helperAndDynamicUniformPreserved: Bool
+    let renamedHelperProgramAccepted: Bool
     let missingReturnRejected: Bool
     let helperConflictRejected: Bool
-    let classifiedStraightAlphaFallsBackToDefault: String?
+    let alphaOnlyMisuseRejected: Bool
+    let dataOutputBoundaryRejected: Bool
     let signalExpectationStaysRejected: Bool
 }
 
@@ -3667,111 +3670,112 @@ private struct GenericShaderArtifactHarness {
             return
         }
         if CommandLine.arguments[1] == "--builder-default-straight-boundary" {
-            let authored = [
-                "uniform sampler2D g_Texture0;",
-                "uniform sampler2D g_Texture1;",
-                "varying vec2 v_TexCoord;",
-                "void main() {",
-                "    vec4 albedo = texSample2D(g_Texture0, v_TexCoord);",
-                "    float mask = texSample2D(g_Texture1, v_TexCoord).r;",
-                "    if (mask < 0.5) { gl_FragColor = albedo; return; }",
-                "    gl_FragColor = vec4(albedo.rgb * mask, albedo.a);",
-                "}",
-            ].joined(separator: "\n")
-            func metal(returns: Bool = true, prefix: String = "") -> String {
-                [
-                    "#include <metal_stdlib>",
-                    "using namespace metal;",
-                    prefix,
-                    "struct Output { float4 mwxFragColor [[color(0)]]; };",
-                    "fragment Output f() {",
-                    "    Output out = {};",
-                    "    float4 albedo = g_Texture0.sample(sourceSampler, uv);",
-                    "    float mask = g_Texture1.sample(maskSampler, uv).x;",
-                    "    if (mask < 0.5) {",
-                    "        out.mwxFragColor = albedo;",
-                    returns ? "        return out;" : "        discard_fragment();",
-                    "    }",
-                    "    out.mwxFragColor = float4(albedo.xyz * mask, albedo.w);",
-                    returns ? "    return out;" : "    discard_fragment();",
-                    "}",
-                ].joined(separator: "\n")
+            let authored = """
+            uniform sampler2D g_Texture0;
+            uniform sampler2D g_Texture1;
+            uniform float g_Amount;
+            varying vec2 v_TexCoord;
+            vec4 chooseCarrier(vec2 point) {
+                vec4 first = texSample2D(g_Texture0, point);
+                vec4 second = texSample2D(g_Texture0, point);
+                return mix(first, second, g_Amount);
             }
-            func transfer(_ source: String) -> (
-                msl: String,
-                transfer: SceneGenericShaderProgramArtifact.Program.ColorTransfer
-            )? {
-                try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
-                    msl: source,
-                    authoredSource: authored,
-                    expectedColorTransfer: nil,
-                    defaultBoundaryColorSlots: [0]
-                )
+            void main() {
+                vec4 albedo = chooseCarrier(v_TexCoord);
+                float mask = texSample2D(g_Texture1, v_TexCoord).r;
+                if (mask < 0.5) { gl_FragColor = albedo; return; }
+                gl_FragColor = vec4(albedo.rgb * mask, albedo.a);
             }
-            let positive = transfer(metal())
-            let lowered = positive?.msl ?? ""
-            let provenMSL = [
-                "#include <metal_stdlib>",
-                "using namespace metal;",
-                "struct Output { float4 mwxFragColor [[color(0)]]; };",
-                "fragment Output f() {",
-                "    Output out = {};",
-                "    out.mwxFragColor = g_Texture0.sample(sourceSampler, uv);",
-                "    return out;",
-                "}",
-            ].joined(separator: "\n")
+            """
+            let reflection = Data(#"{"types":{"_1":{"members":[{"name":"mwxRenderSize","type":"vec2","offset":0},{"name":"g_Amount","type":"float","offset":8}]}},"ubos":[{"type":"_1","block_size":16,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0},{"name":"g_Texture1","binding":1}]}"#.utf8)
+            let vertexMSL = """
+            #include <metal_stdlib>
+            using namespace metal;
+            struct MWXUniforms { float2 mwxRenderSize; float g_Amount; };
+            vertex float4 mwxGenericVertex(uint vertexID [[vertex_id]], constant MWXUniforms& uniforms [[buffer(8)]]) {
+                return float4(uniforms.mwxRenderSize, 0.0, 1.0);
+            }
+            """
+            let fragmentMSL = """
+            #include <metal_stdlib>
+            using namespace metal;
+            struct MWXUniforms { float2 mwxRenderSize; float g_Amount; };
+            struct Output { float4 mwxFragColor [[color(0)]]; };
+            float4 chooseCarrier(texture2d<float> g_Texture0, sampler sourceSampler, float2 uv, constant MWXUniforms& uniforms) {
+                float4 first = g_Texture0.sample(sourceSampler, uv);
+                float4 second = g_Texture0.sample(sourceSampler, uv);
+                return mix(first, second, float4(uniforms.g_Amount));
+            }
+            fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], texture2d<float> g_Texture1 [[texture(1)]], sampler sourceSampler [[sampler(0)]], sampler maskSampler [[sampler(1)]], constant MWXUniforms& uniforms [[buffer(8)]]) {
+                Output out = {};
+                float2 uv = float2(0.5);
+                float4 albedo = chooseCarrier(g_Texture0, sourceSampler, uv, uniforms);
+                float mask = g_Texture1.sample(maskSampler, uv).x;
+                if (mask < 0.5) {
+                    out.mwxFragColor = albedo;
+                    return out;
+                }
+                out.mwxFragColor = float4(albedo.xyz * mask, albedo.w);
+                return out;
+            }
+            """
+            let boundary = SceneShaderColorBoundary(colorInputSlots: [0], outputRepresentation: .straightAlpha)
+            let key = String(repeating: "b", count: 64)
+            func build(_ msl: String, authoredSource: String? = nil,
+                       boundary requested: SceneShaderColorBoundary? = nil,
+                       semantics: SceneGenericShaderOutputSemantics = .color,
+                       expected: SceneGenericShaderExpectedColorTransfer? = nil)
+                -> Result<SceneGenericShaderProgramArtifact, SceneGenericShaderArtifactBuilder.Failure> {
+                SceneGenericShaderArtifactBuilder.build(requestKey: key,
+                    backendID: "glslang-spirv-cross-msl-v2", outputSemantics: semantics,
+                    expectedColorTransfer: expected, colorBoundary: requested ?? boundary,
+                    stages: [.init(name: "vertex", source: "void main() {}", authoredSource: "void main() {}",
+                                   msl: vertexMSL, reflection: reflection),
+                             .init(name: "fragment", source: authoredSource ?? authored,
+                                   authoredSource: authoredSource ?? authored, msl: msl, reflection: reflection)],
+                    maximumArtifactBytes: 1_024_000)
+            }
+            func decode(_ result: Result<SceneGenericShaderProgramArtifact, SceneGenericShaderArtifactBuilder.Failure>)
+                -> SceneAuthoredShaderProgram? {
+                guard case let .success(artifact) = result,
+                      let decoded = try? JSONDecoder().decode(SceneGenericShaderProgramArtifact.self,
+                        from: JSONEncoder().encode(artifact)) else { return nil }
+                return decoded.makeProgram(expectedKey: key, expectedColorBoundary: boundary,
+                    expectedColorTransfer: .unresolved, expectedFragmentOutputChannelUse: .unproven)
+            }
+            let built = build(fragmentMSL)
+            let program = decode(built)
+            let lowered = program?.metalSource ?? ""
+            let transfer: SceneGenericShaderProgramArtifact.Program.ColorTransfer?
+            let failure: String?
+            switch built {
+            case let .success(artifact): transfer = artifact.program.colorTransfer; failure = nil
+            case let .failure(reason): transfer = nil; failure = String(describing: reason)
+            }
             let output = DefaultStraightBoundaryBuilderOutput(
-                positiveKind: positive?.transfer.kind,
-                positiveSlots: positive?.transfer.slots,
-                sourceSampleUnpremultiplied: lowered.contains(
-                    "mwxGenericUnpremultiply(g_Texture0.sample(sourceSampler, uv))"
-                ),
+                positiveKind: transfer?.kind, positiveSlots: transfer?.slots,
+                builderFailure: failure, decodedBackend: program?.backend.rawValue,
+                colorBoundaryPreserved: program?.colorBoundary == boundary,
+                sourceSampleAdaptationCount: lowered.components(separatedBy:
+                    "mwxStraightColorInput(g_Texture0.sample(sourceSampler, uv),").count - 1,
                 maskSampleUntouched: lowered.contains(
                     "float mask = g_Texture1.sample(maskSampler, uv).x;"
-                ) && !lowered.contains("mwxGenericUnpremultiply(g_Texture1"),
-                bothReturnsPremultiplied: lowered.components(separatedBy:
-                    "out.mwxFragColor = mwxGenericPremultiply(out.mwxFragColor);"
-                ).count == 3 && lowered.components(separatedBy: "return out;").count == 3,
-                helperPairPresent: lowered.contains("inline float4 mwxGenericUnpremultiply")
-                    && lowered.contains("inline float4 mwxGenericPremultiply"),
-                provenPassthroughKept: transfer(provenMSL)?.transfer.kind,
-                missingReturnRejected: transfer(metal(returns: false)) == nil,
-                helperConflictRejected: transfer(metal(
-                    prefix: "inline float4 mwxGenericPremultiply(float4 c) { return c; }"
-                )) == nil,
-                // The analyzer classifies this source as straight alpha on
-                // slot 0, but the compiler output below matches no exact
-                // lowering (two writes, early return); the default boundary
-                // must take over instead of rejecting the effect.
-                classifiedStraightAlphaFallsBackToDefault: (try? SceneGenericShaderArtifactBuilder
-                    .prepareColorTransfer(
-                        msl: metal(),
-                        authoredSource: [
-                            "uniform sampler2D g_Texture0;",
-                            "uniform float g_Alpha;",
-                            "varying vec2 v_TexCoord;",
-                            "void main() {",
-                            "    vec4 albedo = texSample2D(g_Texture0, v_TexCoord);",
-                            "    albedo.a *= g_Alpha;",
-                            "    gl_FragColor = albedo;",
-                            "}",
-                        ].joined(separator: "\n"),
-                        expectedColorTransfer: nil,
-                        defaultBoundaryColorSlots: [0]
-                    ))?.transfer.kind,
-                // A profile expecting an independent alpha signal describes a
-                // non-color output; an unmatched compiler shape stays rejected.
-                signalExpectationStaysRejected: (try? SceneGenericShaderArtifactBuilder
-                    .prepareColorTransfer(
-                        msl: metal(),
-                        authoredSource: authored,
-                        expectedColorTransfer: SceneGenericShaderExpectedColorTransfer(
-                            .independentAlphaSignalPreserving(textureSlot: 0),
-                            accumulatorLoopWork: 120,
-                            usesRGBA8UnormAttachmentBoundary: true
-                        ),
-                        defaultBoundaryColorSlots: [0]
-                    )) == nil
+                ) && !lowered.contains("mwxStraightColorInput(g_Texture1"),
+                bothReturnsAdapted: lowered.components(separatedBy:
+                    "out.mwxFragColor = mwxStraightColorOutput(out.mwxFragColor);").count == 3,
+                helperAndDynamicUniformPreserved: lowered.contains("chooseCarrier(g_Texture0, sourceSampler, uv, uniforms)")
+                    && program?.uniformLayout.fields.contains(where: { $0.authoredName == "g_Amount" && $0.type == .float }) == true,
+                renamedHelperProgramAccepted: decode(build(fragmentMSL.replacingOccurrences(of: "chooseCarrier", with: "independentCarrier"),
+                    authoredSource: authored.replacingOccurrences(of: "chooseCarrier", with: "independentCarrier"))) != nil,
+                missingReturnRejected: failedResult(build(fragmentMSL.replacingOccurrences(of: "return out;", with: "discard_fragment();"))),
+                helperConflictRejected: failedResult(build(fragmentMSL.replacingOccurrences(of: "using namespace metal;",
+                    with: "using namespace metal;\nfloat4 mwxStraightColorInput(float4 value);"))),
+                alphaOnlyMisuseRejected: failedResult(build(fragmentMSL,
+                    boundary: .init(colorInputSlots: [0], outputRepresentation: .straightAlpha, alphaInputSlots: [1]))),
+                dataOutputBoundaryRejected: failedResult(build(fragmentMSL, semantics: .redGreenUnorm)),
+                signalExpectationStaysRejected: failedResult(build(fragmentMSL,
+                    expected: SceneGenericShaderExpectedColorTransfer(.independentAlphaSignalPreserving(textureSlot: 0),
+                        accumulatorLoopWork: 120, usesRGBA8UnormAttachmentBoundary: true)))
             )
             FileHandle.standardOutput.write(try JSONEncoder().encode(output))
             return
@@ -4141,9 +4145,6 @@ private struct GenericShaderArtifactHarness {
                     fragmentSource: fragmentSource,
                     alphaAttenuationSourceSlot: nil,
                     colorBlendSourceSlot: nil,
-                    previousBlurredCompositeBlurredSlot: nil,
-                    previousBlurredCompositePreviousSlot: nil,
-                    previousBlurredCompositeMaskSlot: nil,
                     hasExternalProviderTexture: false,
                     producesScalarRedOutput: false,
                     producesRedGreenUnormOutput: false,
@@ -4212,9 +4213,10 @@ private struct GenericShaderArtifactHarness {
             let rejectedOperation = {
                 rejectedOperationCount += 1
                 return SceneResolvedMaterialGenericShaderArtifactCache.Resolution
-                    .ownerDeferred(
+                    .unavailable(
                         code: "fixture",
                         requestKey: "rejected",
+                        permitsBoundedFrontend: false,
                         routeDecision: decision
                     )
             }
@@ -4357,14 +4359,6 @@ private struct GenericShaderArtifactHarness {
                 permitsBoundedFrontend: permitsBoundedFrontend,
                 decision: decision
             )
-        case let .ownerDeferred(code, requestKey, decision):
-            result = .unavailable(
-                status: "owner-deferred",
-                code: code,
-                requestKey: requestKey,
-                permitsBoundedFrontend: nil,
-                decision: decision
-            )
         }
         let data = try JSONEncoder().encode(result)
         FileHandle.standardOutput.write(data)
@@ -4411,7 +4405,7 @@ private func failedUniformMember(
     if case .failure(.uniformMember) = result { return true }
     return false
 }
-"""
+'''
 
 VERTEX = """
 uniform mat4 g_ModelViewProjectionMatrix;
@@ -6007,14 +6001,17 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
         self.assertEqual(json.loads(completed.stdout), {
             "positiveKind": "default-straight-color-boundary",
             "positiveSlots": [0],
-            "sourceSampleUnpremultiplied": True,
+            "decodedBackend": "genericCompilerArtifact",
+            "colorBoundaryPreserved": True,
+            "sourceSampleAdaptationCount": 2,
             "maskSampleUntouched": True,
-            "bothReturnsPremultiplied": True,
-            "helperPairPresent": True,
-            "provenPassthroughKept": "passthrough",
+            "bothReturnsAdapted": True,
+            "helperAndDynamicUniformPreserved": True,
+            "renamedHelperProgramAccepted": True,
             "missingReturnRejected": True,
             "helperConflictRejected": True,
-            "classifiedStraightAlphaFallsBackToDefault": "default-straight-color-boundary",
+            "alphaOnlyMisuseRejected": True,
+            "dataOutputBoundaryRejected": True,
             "signalExpectationStaysRejected": True,
         })
 

@@ -268,7 +268,7 @@ private enum Harness {
         )
         let decision: SceneGenericShaderRouteDecision?
         switch resolution {
-        case let .accepted(_, _, _, value), let .ownerDeferred(_, _, value),
+        case let .accepted(_, _, _, value),
              let .unavailable(_, _, _, value):
             decision = value
         }

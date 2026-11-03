@@ -182,20 +182,43 @@ class SceneShaderCompilerStraightAlphaPreservingContractTests(unittest.TestCase)
             "    out.mwxFragColor = filtered;",
             "    out.mwxFragColor = g_Texture0.sample(sampler(), uv);",
         )
-        arguments = compiler_support.artifact_arguments(reflection, VERTEX_MSL, fragment, "provider")
         boundary = {"colorInputSlots": [0], "outputRepresentation": "straight-alpha"}
-        arguments.update(color_boundary=boundary, premultiplied_color_input_slots=[0])
-        program = compiler_support.build_program_artifact(**arguments)["program"]
-        self.assertEqual(program["colorBoundary"], boundary)
-        self.assertEqual(program["premultipliedColorInputSlots"], [0])
-        self.assertEqual(program["colorTransfer"], {"kind": "passthrough", "slot": 0})
-        self.assertEqual(program["metalSource"].count("mwxStraightColorInput(g_Texture0.sample"), 1)
         dynamic = {**boundary, "signalPassthroughSlot": 0}
-        dynamic_program = compiler_support.build_program_artifact(**{**arguments, "color_boundary": dynamic})["program"]
-        self.assertEqual(dynamic_program["colorBoundary"], dynamic)
-        self.assertIn("out.mwxFragColor = mwxPassthroughColorOutput(out.mwxFragColor, uniforms.mwxPremultipliedColorInputMask, 0u);",
-                      dynamic_program["metalSource"])
-        self.assertIn("1u << (8u + slot)", dynamic_program["metalSource"])
+        expected = {"kind": "passthrough", "slot": 0}
+        weighted = fragment.replace("out.mwxFragColor = g_Texture0.sample(sampler(), uv);", """float4 weightedColour = g_Texture0.sample(sampler(), uv - float2(0.125)) * 0.25
+        + g_Texture0.sample(sampler(), uv) * 0.5
+        + g_Texture0.sample(sampler(), uv + float2(0.125)) * 0.25;
+    out.mwxFragColor = weightedColour;""")
+        aliased = weighted.replace("weightedColour", "unseenCarrier").replace(
+            "out.mwxFragColor = unseenCarrier;",
+            "float4 outputAlias = unseenCarrier;\n    out.mwxFragColor = outputAlias;")
+        # The producer's normalized-sum fact owns the passthrough role. Compiler
+        # locals and equivalent aliases must not select another sample matcher.
+        for name, source, sample_count in (("direct", fragment, 1), ("weighted", weighted, 3),
+                                           ("renamed-alias", aliased, 3)):
+            with self.subTest(variant=name):
+                arguments = compiler_support.artifact_arguments(reflection, VERTEX_MSL, source, "provider")
+                arguments.update(expected_color_transfer=expected, color_boundary=boundary,
+                                 premultiplied_color_input_slots=[0])
+                program = compiler_support.build_program_artifact(**arguments)["program"]
+                self.assertEqual(program["colorBoundary"], boundary)
+                self.assertEqual(program["premultipliedColorInputSlots"], [0])
+                self.assertEqual(program["colorTransfer"], {"kind": "default-straight-color-boundary", "slots": [0]})
+                self.assertEqual(program["metalSource"].count("mwxStraightColorInput(g_Texture0.sample"), sample_count)
+                dynamic_program = compiler_support.build_program_artifact(**{**arguments, "color_boundary": dynamic})["program"]
+                self.assertEqual(dynamic_program["colorBoundary"], dynamic)
+                self.assertEqual(dynamic_program["colorTransfer"], expected)
+                self.assertEqual(dynamic_program["textureBindings"][0]["slot"], 0)
+                self.assertEqual(dynamic_program["metalSource"].count("mwxStraightColorInput(g_Texture0.sample"), sample_count)
+                self.assertIn("out.mwxFragColor = mwxPassthroughColorOutput(out.mwxFragColor, uniforms.mwxPremultipliedColorInputMask, 0u);",
+                              dynamic_program["metalSource"])
+                self.assertIn("1u << (8u + slot)", dynamic_program["metalSource"])
+                raw = compiler_support.build_program_artifact(**{**arguments, "color_boundary": None,
+                    "premultiplied_color_input_slots": []})["program"]
+                self.assertEqual(raw["colorTransfer"], expected)
+                self.assertIn("out.mwxFragColor = outputAlias;" if name == "renamed-alias"
+                    else "out.mwxFragColor = weightedColour;" if name == "weighted"
+                    else "out.mwxFragColor = g_Texture0.sample(sampler(), uv);", raw["metalSource"])
         request = json.loads(compiler_support.FIXTURE.read_text(encoding="utf-8"))
         self.assertNotEqual(request_cache_key({**request, "colorBoundary": boundary}),
                             request_cache_key({**request, "colorBoundary": dynamic}))
@@ -208,9 +231,23 @@ class SceneShaderCompilerStraightAlphaPreservingContractTests(unittest.TestCase)
             "float4 sampled = g_Texture0.sample(sampler(), uv);\n"
             "    out.mwxFragColor = float4(sampled.xyz, 1.0);")
         drift = {**arguments, "color_boundary": dynamic,
+                 "expected_color_transfer": None,
                  "msl_sources": {**arguments["msl_sources"], "fragment": opaque}}
         with self.assertRaisesRegex(compiler_support.ArtifactFailure, "ordinary-color-signal-passthrough"):
             compiler_support.build_program_artifact(**drift)
+        for missing_or_wrong in (None, {"kind": "passthrough", "slot": 2}):
+            with self.subTest(expected=missing_or_wrong), self.assertRaisesRegex(
+                compiler_support.ArtifactFailure, "ordinary-color-signal-passthrough"):
+                compiler_support.build_program_artifact(**{**arguments, "color_boundary": dynamic,
+                    "expected_color_transfer": missing_or_wrong})
+        missing_binding = copy.deepcopy(arguments)
+        missing_binding["premultiplied_color_input_slots"] = []
+        for stage in missing_binding["compiled_stages"]:
+            stage["reflection"]["textures"] = []
+        with self.assertRaisesRegex(compiler_support.ArtifactFailure, "ordinary-color-input-binding"):
+            compiler_support.build_program_artifact(**missing_binding)
+        with self.assertRaisesRegex(compiler_support.ArtifactFailure, "independent-color-binding"):
+            compiler_support.build_program_artifact(**{**missing_binding, "color_boundary": None})
         invalid_signal = {**arguments, "color_boundary": {**boundary,
             "outputRepresentation": "independent-alpha-signal"}}
         with self.assertRaisesRegex(compiler_support.ArtifactFailure, "ordinary-color-signal-output"):
@@ -240,6 +277,7 @@ class SceneShaderCompilerStraightAlphaPreservingContractTests(unittest.TestCase)
         metal = program["metalSource"]
         self.assertEqual(artifact["schemaVersion"], 10)
         self.assertEqual(program["colorBoundary"], boundary)
+        self.assertEqual(program["colorTransfer"], {"kind": "default-straight-color-boundary", "slots": [0]})
         self.assertEqual(metal.count("mwxStraightColorInput(g_Texture0.sample"), 2)
         self.assertIn("uniforms.mwxPremultipliedColorInputMask, 0u", metal)
         self.assertIn("float4 filtered = mix(first, second, 0.5);", metal)
@@ -249,8 +287,17 @@ class SceneShaderCompilerStraightAlphaPreservingContractTests(unittest.TestCase)
         self.assertEqual([field["type"] for field in program["uniformLayout"]["fields"]
                           if field["name"] == "mwxPremultipliedColorInputMask"], ["uint"])
         arguments["color_boundary"] = {**boundary, "outputRepresentation": "premultiplied-alpha"}
-        pma = compiler_support.build_program_artifact(**arguments)["program"]["metalSource"]
-        self.assertEqual(pma.count("out.mwxFragColor = mwxPremultiply(out.mwxFragColor);"), 1)
+        pma = compiler_support.build_program_artifact(**arguments)["program"]
+        self.assertEqual(pma["colorTransfer"], {"kind": "premultiplied"})
+        self.assertEqual(pma["metalSource"].count("out.mwxFragColor = mwxPremultiply(out.mwxFragColor);"), 1)
+        opaque_arguments = {**arguments, "expected_color_transfer": None,
+            "color_boundary": {**boundary, "outputRepresentation": "opaque"},
+            "msl_sources": {**arguments["msl_sources"], "fragment": FRAGMENT_MSL.replace(
+                "out.mwxFragColor = filtered;", "out.mwxFragColor = float4(filtered.xyz, 1.0);")}}
+        opaque = compiler_support.build_program_artifact(**opaque_arguments)["program"]
+        self.assertEqual(opaque["colorTransfer"], {"kind": "opaque"})
+        self.assertIn("out.mwxFragColor = float4(filtered.xyz, 1.0);", opaque["metalSource"])
+        self.assertEqual(opaque["metalSource"].count("mwxStraightColorInput(g_Texture0.sample"), 2)
         arguments["color_boundary"] = {**boundary, "colorInputSlots": [7]}
         with self.assertRaisesRegex(compiler_support.ArtifactFailure, "ordinary-color-input-binding"):
             compiler_support.build_program_artifact(**arguments)

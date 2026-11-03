@@ -9,7 +9,7 @@
 
 42产品与31采集源码及原字节见`.artifacts/scene-goal-full-sample-retest-20261103/`的`frozen-product-sources.zip`、`build-source-freeze-v2.json`、`full-runtime-plan.json`。片头子集及关闭观测的构建/运行身份由同目录收据维护；后处理不改原报告。
 
-当前定向复验基于`c6a7ab4e5ec991ec60adb1e6b2ef1bffec7a09f2`及十个产品路径的composite准备改动，App SHA为`9e51b29088850b3496a538d64ee2766d8d2c2f9d1b16c196e58b34fd0b1d6c9b`。签名Debug/优化DEBUG构建源稳定；`.artifacts/scene-goal-blur-owner-20261103/`保冻结源码摘要、构建/输入身份、自有图像素和原生结果。定向复验不代表新App全库重跑。
+当前定向复验基于`53d1ccf97e31841c3ffd300309d2856b7a7fb612`及18个Swift产品路径、2个编译工具文件改动，最终App SHA为`36df84fb0e81bc6bab677f6e3a54328e744c7773b8ed8cc2e5d119574438fa3f`。签名Debug/优化DEBUG构建的20路径前后摘要一致；`.artifacts/scene-goal-typed-color-boundary-20261103/`保构建、源码、输入身份及分阶段结果。广域验证与最终角色版本补测各保自身App身份，不能作最后App全库重跑。
 
 <a id="coverage"></a>
 ## 全库运行与逐项阶段
@@ -28,7 +28,8 @@
 | 失败与恢复 | 原CHECK、精确拒绝、pre-Ready失败与后续成功均保留；首次3780119725 stop附近31条ledger失败，22秒/10秒复验未复现，不删原失败。当前首因与有价值个案归[开放队列](../roadmap/scene-open-breakpoint-queue.md)。 |
 | 快照容量 | 原全局实际计费下55项原生门通过，含BGRA100MB/HDR200MB、满额cached复用、新尺寸拒绝、显式限额、双owner回滚及在途释放。5000×5000 blend31中心与64×64正控同为BGRA(72,48,48,255)，外部背景保持。3087231311同三输入摘要的365层copy/blend/draw及GPU完成，2808874251折射与3471294034邻例有界复验；脚底logo同相位像素未资格。收据见`.artifacts/scene-goal-snapshot-capacity-20261103/`。 |
 | 标量phase数据输入 | 20项相关原生方法通过，含5组两帧Metal权重像素、改名及颜色/volume反例。2900431360同三输入摘要的五个effect实际按noise/normal绑定slot2，进入原材质draw、后续读取及layer tail；父App仅copy。3612795410标准phase与2999344788自定义资产的4条waterflow输入继续绘制，后者原bokeh producer失败仍在。四次捕获均匹配request/CB/Surface/GPU与sealed drawable；不授逐资产终端像素、完整动画或官方parity。原始资料见`.artifacts/scene-evidence/runs/scalar-data-input-20261103/`。 |
-| 双输入composite执行 | 六个同输入样本2879793348、3632522893、3725148661、3747595588、3750312644、3830727231的目标effect均在终端同帧执行4个真实material节点，输入及next-material/ordinary/group消费、layer tail和GPU完成匹配；不再仅copy。3471294034与已恢复scalar输入的2900431360无新增拒绝，383的882混合子树仍开放。8次捕获逐项匹配request/CB/Surface/sealed texture。自有2/5pass改名图、独立scale/gain和热显隐有实际Metal像素；5pass垂直ROI按cover/UV几何在同4张PNG离线校正后断言通过，shader/参数/期望未改，不计新GPU运行。13项相关原生方法通过，含PMA/straight、alpha/HDR、错误binding/purpose及准备取消反例。原始作者回执见`.artifacts/scene-evidence/runs/generic-composite-admission-20261103/`。 |
+| 双输入composite执行 | 同输入的2879793348、3632522893、3725148661、3747595588、3750312644、3830727231目标effect各有4个真实material节点、next-material/ordinary/group消费及layer tail；capture逐项匹配request/CB/Surface/sealed texture/GPU。2/5pass改名图、独立采样/gain、显隐恢复及健康邻层有实际像素。383的882混合子树仍开放。广域10作者为9 PASS/2999344788既存CHECK：仅89e0 #91缺producer，两个waterflow节点的4个flow/phase输入仍draw；不授每个资产最终像素贡献。收据见`.artifacts/scene-evidence/runs/typed-color-boundary-20261103/`。 |
+| 普通颜色与真实角色 | 61个不同相关原生方法在冻结阶段及定向修复中取得通过，含PMA/straight、alpha/HDR、raw data、有序signal/underlay、passthrough、错误角色/绑定及缓存冷热读写；各日志保实际失败与修复边界，不是一次61项运行。18项离线工具门含加权/别名passthrough与canonical metadata。广域9个App用例通过；最终App补3个受影响用例，动态tint同输入从旧copy恢复为64→128→关闭恢复，健康邻层、window/Surface/session保持。最终2900431360、3471294034、3589819394三例均Ready、精确capture/GPU完成且无新增拒绝，收据见`typed-color-final-role-20261104/`；不作完整动画、优化性能或官方parity资格。 |
 | 测量改动验证 | 粒子146项中136通过、10项因私有运行缓存缺失跳过；18项真实Metal邻门、62项后处理/collector、20项保留工具及Release诊断排除门通过。成本修正后三个真实邻例capture/GPU排空与既有失败一致；关闭观测的实际运行无新增两类载荷。独立审查无未闭实现finding。 |
 
 <a id="limits"></a>

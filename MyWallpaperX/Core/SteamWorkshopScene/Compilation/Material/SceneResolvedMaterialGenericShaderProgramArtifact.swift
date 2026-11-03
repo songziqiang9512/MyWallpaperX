@@ -291,9 +291,6 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
         default:
             return nil
         }
-        if let slot = raw.colorBoundary?.signalPassthroughSlot {
-            guard colorTransfer == .passthrough(textureSlot: slot) else { return nil }
-        }
         let requiresExactExpectedTransfer: Bool = switch colorTransfer {
         case .independentAlphaSignal,
              .independentAlphaSignalPreserving,
@@ -304,16 +301,37 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
         }
         let isDefaultBoundary: Bool = if case .defaultStraightColorBoundary
             = colorTransfer { true } else { false }
-        guard outputSemantics != .color
-                ? colorTransfer == .unresolved
-                : requiresExactExpectedTransfer
-                    ? colorTransfer == expectedColorTransfer
-                    : expectedColorTransfer == .unresolved
-                        || colorTransfer == expectedColorTransfer
-                        || (isDefaultBoundary
-                            && expectedColorTransfer
-                                .permitsDefaultStraightColorBoundary) else {
-            return nil
+        if let slot = raw.colorBoundary?.signalPassthroughSlot {
+            guard colorTransfer == .passthrough(textureSlot: slot),
+                  colorTransfer == expectedColorTransfer else { return nil }
+        } else if let boundary = raw.colorBoundary, !requiresExactExpectedTransfer {
+            switch expectedColorTransfer {
+            case .independentAlphaSignal, .independentAlphaSignalPreserving,
+                 .independentAlphaSignalCompositing, .independentAlphaSignalUnderlayCompositing:
+                return nil
+            default: break
+            }
+            let expected: SceneShaderColorTransfer
+            switch boundary.outputRepresentation {
+            case .opaque: expected = .opaque
+            case .straightAlpha:
+                expected = .defaultStraightColorBoundary(textureSlots: boundary.colorInputSlots)
+            case .premultipliedAlpha: expected = .premultipliedAlpha
+            case .independentAlphaSignal: return nil
+            }
+            guard colorTransfer == expected else { return nil }
+        } else {
+            guard outputSemantics != .color
+                    ? colorTransfer == .unresolved
+                    : requiresExactExpectedTransfer
+                        ? colorTransfer == expectedColorTransfer
+                        : expectedColorTransfer == .unresolved
+                            || colorTransfer == expectedColorTransfer
+                            || (isDefaultBoundary
+                                && expectedColorTransfer
+                                    .permitsDefaultStraightColorBoundary) else {
+                return nil
+            }
         }
         guard let fragmentOutputChannelUse =
                 SceneAuthoredShaderProgram.FragmentOutputChannelUse(

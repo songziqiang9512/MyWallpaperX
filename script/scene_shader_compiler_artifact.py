@@ -693,9 +693,46 @@ def build_program_artifact(
             "authoredName": "mwxPremultipliedColorInputMask", "type": "uint", "offset": 0,
         }])
         uniform_layout = (fields, size, uniform_layout[2], uniform_layout[3])
+    prepared_vertex_msl = msl_sources["vertex"]
     prepared_fragment_msl = msl_sources["fragment"]
+    accumulator_work = None
     if output_semantics == "red-green-unorm":
         color_transfer = {"kind": "red-green-unorm-data"}
+    elif boundary is not None:
+        signal_slot = boundary.get("signalPassthroughSlot")
+        if signal_slot is not None:
+            if expected != {"kind": "passthrough", "slot": signal_slot}:
+                raise ArtifactFailure("ordinary-color-signal-passthrough")
+            color_transfer = expected
+        elif expected is not None and expected["kind"].startswith("independent-alpha-signal"):
+            color_transfer = {key: expected[key] for key in ("kind", "slot", "slots") if key in expected}
+        elif boundary["outputRepresentation"] == "straight-alpha":
+            color_transfer = {"kind": "default-straight-color-boundary", "slots": boundary["colorInputSlots"]}
+        elif boundary["outputRepresentation"] == "opaque":
+            color_transfer = {"kind": "opaque"}
+        elif boundary["outputRepresentation"] == "premultiplied-alpha":
+            color_transfer = {"kind": "premultiplied"}
+        else:
+            raise ArtifactFailure("ordinary-color-signal-output")
+        try:
+            validate_ordinary_boundary_roles(boundary, color_transfer)
+            if expected is not None:
+                accumulator_work = independent_signal_static_loop_work(
+                    prepared_fragment_msl, expected, maximum_loop_work=256,
+                )
+        except IndependentSignalContractFailure as error:
+            raise ArtifactFailure(error.code) from error
+        try:
+            prepared_vertex_msl = lower_ordinary_color_boundary(
+                prepared_vertex_msl, boundary, stage="vertex"
+            )
+            prepared_fragment_msl = lower_ordinary_color_boundary(
+                prepared_fragment_msl, boundary, include_helpers=False
+            )
+        except InputColorContractFailure as error:
+            raise ArtifactFailure(str(error)) from error
+    elif expected is not None and expected["kind"] == "passthrough":
+        color_transfer = expected
     elif expected is not None:
         color_transfer = None
     else:
@@ -707,7 +744,7 @@ def build_program_artifact(
         else:
             color_transfer = _passthrough_color_transfer(msl_sources["fragment"])
     vertex_msl = _normalize_uniform_struct(
-        msl_sources["vertex"], uniform_layout[0], uniform_layout[2]
+        prepared_vertex_msl, uniform_layout[0], uniform_layout[2]
     ).replace(
         "MWXUniforms", "MWXVertexUniforms"
     )
@@ -716,15 +753,23 @@ def build_program_artifact(
     ).replace(
         "MWXUniforms", "MWXFragmentUniforms"
     )
-    if vertex_msl == msl_sources["vertex"] or fragment_msl == msl_sources["fragment"]:
-        raise ArtifactFailure("uniform-struct-name")
     vertex_msl, fragment_msl = _deduplicate_stage_helpers(vertex_msl, fragment_msl)
     metal_source = vertex_msl.rstrip() + "\n\n" + fragment_msl.lstrip()
     texture_bindings = _texture_bindings(compiled_stages, metal_source)
-    if not set(input_slots) <= {binding["slot"] for binding in texture_bindings}:
+    bound_slots = {binding["slot"] for binding in texture_bindings}
+    if not set(input_slots) <= bound_slots:
         raise ArtifactFailure("premultiplied-color-input-binding")
-    accumulator_work = None
-    if expected is not None:
+    if boundary is not None:
+        required_slots = set(boundary["colorInputSlots"])
+        required_slots.update(color_transfer.get("slots", []))
+        if "slot" in color_transfer:
+            required_slots.add(color_transfer["slot"])
+        if not required_slots <= bound_slots:
+            raise ArtifactFailure("ordinary-color-input-binding")
+    elif expected is not None and expected["kind"] == "passthrough":
+        if expected["slot"] not in bound_slots:
+            raise ArtifactFailure("independent-color-binding")
+    elif expected is not None:
         preserving_fallback = (
             _independent_signal_color_transfer
             if expected["kind"] == "independent-alpha-signal-preserving"
@@ -740,28 +785,7 @@ def build_program_artifact(
             )
         except IndependentSignalContractFailure as error:
             raise ArtifactFailure(error.code) from error
-    if boundary is not None:
-        bound_slots = {binding["slot"] for binding in texture_bindings}
-        if not set(boundary["colorInputSlots"]) <= bound_slots:
-            raise ArtifactFailure("ordinary-color-input-binding")
-        if color_transfer is None:
-            raise ArtifactFailure("ordinary-color-transfer")
-        try:
-            validate_ordinary_boundary_roles(boundary, color_transfer)
-        except IndependentSignalContractFailure as error:
-            raise ArtifactFailure(error.code) from error
-        try:
-            vertex_msl = _normalize_uniform_struct(
-                lower_ordinary_color_boundary(msl_sources["vertex"], boundary, stage="vertex"),
-                uniform_layout[0], uniform_layout[2],
-            ).replace("MWXUniforms", "MWXVertexUniforms")
-            fragment_msl = _normalize_uniform_struct(
-                lower_ordinary_color_boundary(msl_sources["fragment"], boundary, include_helpers=False),
-                uniform_layout[0], uniform_layout[3],
-            ).replace("MWXUniforms", "MWXFragmentUniforms")
-        except InputColorContractFailure as error:
-            raise ArtifactFailure(str(error)) from error
-    elif input_slots:
+    if boundary is None and input_slots:
         try:
             fragment_msl = lower_premultiplied_color_inputs(
                 fragment_msl, input_slots, texture_bindings

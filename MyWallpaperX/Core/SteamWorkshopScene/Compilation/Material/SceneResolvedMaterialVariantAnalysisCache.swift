@@ -8,18 +8,16 @@ import Foundation
 /// shape, framebuffer identity and the RGBA8-unorm output flag), so a key
 /// hit reproduces exactly the values a fresh computation would produce.
 /// The fact-family analyzers, the eligibility slot resolutions and cheap
-/// derived sets are deliberately NOT cached: the eligibility trio depends on
-/// per-node template facts outside this key (graphRole, effectContext,
-/// owner eligibility, exact candidate identities), so caching it would let
-/// one node's admission authority leak to another node sharing the key.
+/// derived sets are deliberately NOT cached: selected graph-input roles depend
+/// on per-node template identities outside this key.
 /// The key includes the build's compiler-semantics identity and complete
 /// source-graph content. `schemaVersion` independently versions the stored
 /// wire contract. Entries publish only on
 /// successful variant compilation, the read path never creates the cache
 /// directory, and a failed or stale record degrades to a full recompute.
 nonisolated enum SceneResolvedMaterialVariantAnalysisCache {
-    // v28 retires cached color-transfer facts before typed RGBA signal auxiliaries.
-    private static let schemaVersion = 29
+    // v30 removes the retired composite eligibility payload.
+    private static let schemaVersion = 30
     private static let maximumEntryBytes = 512 * 1_024
     private static let retainedEntryLimit = 4_096
     private static let lock = NSLock()
@@ -41,7 +39,6 @@ nonisolated enum SceneResolvedMaterialVariantAnalysisCache {
         let neutralTextureResolution: NeutralTextureResolutionMirror?
         let alphaAttenuationFact: AuxiliaryRedCarrierMirror?
         let colorBlendFact: ColorBlendCarrierMirror?
-        let previousBlurredCompositeFact: PreviousBlurredCompositeShapeMirror?
     }
 
     struct SpatialWeightedColorBlendMirror: Codable, Equatable {
@@ -89,13 +86,6 @@ nonisolated enum SceneResolvedMaterialVariantAnalysisCache {
         let sourceSlot: Int
         let auxiliaryRedSlots: Set<Int>
         let alphaOutput: AlphaOutput
-    }
-
-    struct PreviousBlurredCompositeShapeMirror: Codable, Equatable {
-        let blurredSlot: Int
-        let previousSlot: Int
-        let maskSlot: Int?
-        let colorUniform: String
     }
 
     // Preserve legacy Set array order until its original digest is verified.
@@ -198,7 +188,6 @@ nonisolated enum SceneResolvedMaterialVariantAnalysisCache {
         let neutralTextureResolution: NeutralTextureResolutionMirror?
         let alphaAttenuationFact: AuxiliaryRedCarrierWire?
         let colorBlendFact: ColorBlendCarrierWire?
-        let previousBlurredCompositeFact: PreviousBlurredCompositeShapeMirror?
     }
 
     private struct ComboPair: Codable {
@@ -300,8 +289,7 @@ nonisolated enum SceneResolvedMaterialVariantAnalysisCache {
             sameAlphaReconstructedRGB: record.sameAlphaReconstructedRGB.map(SameAlphaReconstructedWire.init),
             neutralTextureResolution: record.neutralTextureResolution,
             alphaAttenuationFact: record.alphaAttenuationFact.map(AuxiliaryRedCarrierWire.init),
-            colorBlendFact: record.colorBlendFact.map(ColorBlendCarrierWire.init),
-            previousBlurredCompositeFact: record.previousBlurredCompositeFact
+            colorBlendFact: record.colorBlendFact.map(ColorBlendCarrierWire.init)
         )
     }
 
@@ -355,8 +343,7 @@ nonisolated enum SceneResolvedMaterialVariantAnalysisCache {
             sameAlphaReconstructedRGB: payload.sameAlphaReconstructedRGB.map { $0.mirror },
             neutralTextureResolution: payload.neutralTextureResolution,
             alphaAttenuationFact: payload.alphaAttenuationFact.map { $0.mirror },
-            colorBlendFact: payload.colorBlendFact.map { $0.mirror },
-            previousBlurredCompositeFact: payload.previousBlurredCompositeFact
+            colorBlendFact: payload.colorBlendFact.map { $0.mirror }
         )
     }
 
@@ -582,29 +569,6 @@ nonisolated extension SceneResolvedMaterialVariantAnalysisCache {
             sourceSlot: fact.sourceSlot,
             auxiliaryRedSlots: fact.auxiliaryRedSlots,
             alphaOutput: fact.alphaOutput == .preserved ? .preserved : .opaque
-        )
-    }
-
-    static func rebuild(
-        _ mirror: PreviousBlurredCompositeShapeMirror?
-    ) -> SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.Fact? {
-        guard let mirror else { return nil }
-        return .init(
-            blurredSlot: mirror.blurredSlot,
-            previousSlot: mirror.previousSlot,
-            maskSlot: mirror.maskSlot,
-            colorUniform: mirror.colorUniform
-        )
-    }
-
-    static func mirror(
-        _ fact: SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.Fact
-    ) -> PreviousBlurredCompositeShapeMirror {
-        .init(
-            blurredSlot: fact.blurredSlot,
-            previousSlot: fact.previousSlot,
-            maskSlot: fact.maskSlot,
-            colorUniform: fact.colorUniform
         )
     }
 }

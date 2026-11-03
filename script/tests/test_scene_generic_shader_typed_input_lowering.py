@@ -34,7 +34,6 @@ SWIFT_SOURCES = [
         "SceneResolvedMaterialGenericShaderArtifactCache+Diagnostics.swift",
         "SceneResolvedMaterialGenericShaderPreparationCoordination.swift",
         "SceneResolvedMaterialGenericShaderRequest.swift",
-        "SceneResolvedMaterialGenericShaderOwnerDeferral.swift",
         "SceneResolvedMaterialExecutionCapabilityVariant+Frontend.swift",
     ]),
 ]
@@ -72,7 +71,7 @@ enum SceneResolvedMaterialExecutionCapabilityDiagnostics {
 enum SceneResolvedMaterialVariantCache {
     typealias Template = TemplateFixture
     enum Failure: Error { case fixture }
-    enum Code { case shaderFrontendFailed, genericProductOwnerDeferred }
+    enum Code { case shaderFrontendFailed }
     enum Phase { case frontend }
     enum OwnerFailure { case productOwnerRevoked }
     static func failure(
@@ -120,7 +119,6 @@ private enum Harness {
             $0 == "--compiled-request" || $0 == "--vertex-sampling-gpu" || $0 == "--signal-passthrough-gpu"
         }) {
             struct Input: Decodable {
-                struct Expected: Decodable { let kind: String }
                 struct Stage: Decodable {
                     let name: String
                     let source: String
@@ -132,14 +130,16 @@ private enum Harness {
                 let colorBoundary: SceneShaderColorBoundary
                 let defaultBoundaryColorSlots: [Int]?
                 let premultipliedColorInputSlots: [Int]?
-                let expectedColorTransfer: Expected?
                 let stages: [Stage]
             }
             let input = try JSONDecoder().decode(Input.self, from: Data(contentsOf:
                 URL(fileURLWithPath: CommandLine.arguments[flag + 1])))
-            guard input.expectedColorTransfer == nil else { throw SceneResolvedMaterialVariantCache.Failure.fixture }
+            let fragmentSource = input.stages.first(where: { $0.name == "fragment" })!.authoredSource
+            let sourceTransfer = SceneAuthoredShaderColorTransferAnalyzer.analyze(fragmentSource: fragmentSource)
+            let expected = SceneGenericShaderExpectedColorTransfer(sourceTransfer, fragmentSource: fragmentSource)
             let result = SceneGenericShaderArtifactBuilder.build(requestKey: input.requestKey,
                 backendID: "glslang-spirv-cross-msl-v2",
+                expectedColorTransfer: expected,
                 premultipliedColorInputSlots: Set(input.premultipliedColorInputSlots ?? []),
                 defaultBoundaryColorSlots: Set(input.defaultBoundaryColorSlots ?? input.colorBoundary.colorInputSlots),
                 colorBoundary: input.colorBoundary, stages: input.stages.map {
@@ -151,7 +151,7 @@ private enum Harness {
                 if input.colorBoundary.signalPassthroughSlot != nil {
                     func accepted(_ value: SceneGenericShaderProgramArtifact) -> Bool {
                         value.makeProgram(expectedKey: input.requestKey, expectedColorBoundary: input.colorBoundary,
-                            expectedColorTransfer: .unresolved, expectedFragmentOutputChannelUse: .unproven) != nil
+                            expectedColorTransfer: sourceTransfer, expectedFragmentOutputChannelUse: .unproven) != nil
                     }
                     guard accepted(artifact) else { throw SceneResolvedMaterialVariantCache.Failure.fixture }
                     var packet = try JSONSerialization.jsonObject(with: JSONEncoder().encode(artifact)) as! [String: Any]
@@ -165,7 +165,8 @@ private enum Harness {
                 if CommandLine.arguments[flag] != "--compiled-request" {
                     let bounded = SceneAuthoredShaderFrontend.compile(
                         vertexSource: input.stages.first(where: { $0.name == "vertex" })!.authoredSource,
-                        fragmentSource: input.stages.first(where: { $0.name == "fragment" })!.authoredSource,
+                        fragmentSource: fragmentSource,
+                        provenColorTransfer: sourceTransfer,
                         colorBoundary: input.colorBoundary)
                     guard let bounded = bounded.program else { throw SceneResolvedMaterialVariantCache.Failure.fixture }
                     let payload = try SceneGenericShaderTypedInputGPUCases.run(bounded: bounded, generic: artifact.program,
@@ -387,9 +388,6 @@ private enum Harness {
                 input: .init(
                     vertexSource: vertex, fragmentSource: fragment,
                     alphaAttenuationSourceSlot: nil, colorBlendSourceSlot: nil,
-                    previousBlurredCompositeBlurredSlot: nil,
-                    previousBlurredCompositePreviousSlot: nil,
-                    previousBlurredCompositeMaskSlot: nil,
                     hasExternalProviderTexture: true,
                     producesScalarRedOutput: false,
                     producesRedGreenUnormOutput: output == .redGreenUnorm,

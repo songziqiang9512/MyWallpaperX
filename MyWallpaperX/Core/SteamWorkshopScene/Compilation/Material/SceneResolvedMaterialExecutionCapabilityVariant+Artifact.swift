@@ -13,7 +13,6 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         sourceGraphInputFacts: [Int: SceneResolvedMaterialGraphInputSourceSlotFact],
         sourceColorTransfer: SceneShaderColorTransfer,
         colorBoundary: SceneShaderColorBoundary?,
-        activeGraphTextureIdentities: [Int: Graph.TextureIdentity],
         analysisStart: Double,
         activeExternalProviderTextureSlots: Set<Int>,
         outputStorage: SceneResolvedMaterialProgram.OutputStorage,
@@ -36,23 +35,15 @@ nonisolated extension SceneResolvedMaterialVariantCache {
     ) -> (
         alphaAttenuationFact: SceneAuthoredShaderAlphaAttenuationFact?,
         colorBlendFact: SceneAuthoredShaderGraphInputColorBlendFact?,
-        previousBlurredCompositeAnalyzerFact: SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.Fact?,
         artifactStart: Double,
         artifactResolution: SceneResolvedMaterialGenericShaderArtifactCache.Resolution
     ) {
-        // Recomputed per launch on purpose: the eligibility trio reads
-        // per-node template facts (graphRole, effectContext, owner
-        // eligibility, exact candidate identities) that are outside the
-        // variant analysis key, so caching it would leak one node's
-        // admission authority to another node sharing the key.
+        // These input roles depend on each node's selected graph identities,
+        // which are outside the source-pure analysis cache key.
         let alphaAttenuationSourceSlot: Int?
         let colorBlendSourceSlot: Int?
-        let previousBlurredCompositeSlots:
-            SceneResolvedMaterialPreviousBlurredCompositeEligibility.Slots?
         let alphaAttenuationFact: SceneAuthoredShaderAlphaAttenuationFact?
         let colorBlendFact: SceneAuthoredShaderGraphInputColorBlendFact?
-        let previousBlurredCompositeAnalyzerFact:
-            SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.Fact?
         if let cachedAnalysis {
             // The cached facts are the source-pure analyzer prefix; the
             // per-node validation segment re-runs every launch.
@@ -61,19 +52,11 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             colorBlendFact = SceneResolvedMaterialVariantAnalysisCache.rebuild(
                 cachedAnalysis.colorBlendFact
             )
-            previousBlurredCompositeAnalyzerFact =
-                SceneResolvedMaterialVariantAnalysisCache.rebuild(
-                    cachedAnalysis.previousBlurredCompositeFact
-                )
         } else {
             alphaAttenuationFact = SceneAuthoredShaderAlphaAttenuationAnalyzer
                 .analyze(fragmentSource: prepared.fragment.source)
             colorBlendFact = SceneAuthoredShaderGraphInputColorBlendAnalyzer
                 .analyze(fragmentSource: prepared.fragment.source)
-            previousBlurredCompositeAnalyzerFact =
-                SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.analyze(
-                    fragmentSource: compilerSources.fragment
-                )
         }
         if let fact = alphaAttenuationFact,
             SceneResolvedMaterialAlphaAttenuationEligibility.validated(
@@ -101,20 +84,6 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         } else {
             colorBlendSourceSlot = nil
         }
-        if let fact = previousBlurredCompositeAnalyzerFact,
-            let slots = SceneResolvedMaterialPreviousBlurredCompositeEligibility
-                .validated(
-                    shape: fact,
-                    prepared: prepared,
-                    samplers: sourceActiveSamplers,
-                    template: template,
-                    implicitFramebufferIdentity: implicitFramebufferIdentity,
-                    activeGraphTextureIdentities: activeGraphTextureIdentities
-                ) {
-            previousBlurredCompositeSlots = slots
-        } else {
-            previousBlurredCompositeSlots = nil
-        }
 #if DEBUG
         SceneResolvedMaterialVariantCompileProfile.add(
             analysis: (CACurrentMediaTime() - analysisStart) * 1000
@@ -133,9 +102,6 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             fragmentSource: compilerSources.fragment,
             alphaAttenuationSourceSlot: alphaAttenuationSourceSlot,
             colorBlendSourceSlot: colorBlendSourceSlot,
-            previousBlurredCompositeBlurredSlot: previousBlurredCompositeSlots?.blurred,
-            previousBlurredCompositePreviousSlot: previousBlurredCompositeSlots?.previous,
-            previousBlurredCompositeMaskSlot: previousBlurredCompositeSlots?.mask,
             hasExternalProviderTexture:
                 !activeExternalProviderTextureSlots.isEmpty,
             producesScalarRedOutput: outputStorage == .scalarRedUnorm
@@ -201,7 +167,6 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         return (
             alphaAttenuationFact,
             colorBlendFact,
-            previousBlurredCompositeAnalyzerFact,
             artifactStart,
             artifactResolution
         )

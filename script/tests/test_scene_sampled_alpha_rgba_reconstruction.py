@@ -285,8 +285,6 @@ private enum SampledAlphaRGBAReconstructionHarness {
                 sameAlphaReconstructedRGBFilterSourceSlot: 0,
                 sameAlphaReconstructedRGBFilterAuxiliarySlots: [1, 2],
                 typedStaticDataAuxiliarySlots: [1, 2],
-                previousBlurredCompositeBlurredSlot: nil,
-                previousBlurredCompositePreviousSlot: nil,
                 hasExternalProviderTexture: false,
                 producesScalarRedOutput: false,
                 isSourceIndependentPremultipliedOutput: false,

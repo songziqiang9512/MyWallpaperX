@@ -26,113 +26,11 @@ nonisolated enum SceneResolvedMaterialExactPreviousInputShadow {
     }
 }
 
-/// Resolves the composite's source fact against exact graph inputs and typed
-/// sampler/uniform data. Upstream passes keep their own Program contracts.
+/// Shared selected-input identity checks for dependency and captured-main
+/// ingress. Shader mathematics remain owned by the compiled Program.
 nonisolated enum SceneResolvedMaterialPreviousBlurredCompositeEligibility {
     typealias Graph = SceneAuthoredEffectRenderPlan
     typealias Template = SceneResolvedMaterialTemplate
-
-    struct Slots: Equatable {
-        let blurred: Int
-        let previous: Int
-        let mask: Int?
-    }
-
-    static func slots(
-        fragmentSource: String,
-        prepared: SceneShaderPreparedProgram,
-        samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
-        template: Template,
-        implicitFramebufferIdentity: Graph.TextureIdentity?,
-        activeGraphTextureIdentities: [Int: Graph.TextureIdentity]
-    ) -> Slots? {
-        guard let fact = SceneAuthoredShaderPreviousBlurredCompositeAnalyzer
-            .analyze(fragmentSource: fragmentSource) else { return nil }
-        return validated(
-            shape: fact,
-            prepared: prepared,
-            samplers: samplers,
-            template: template,
-            implicitFramebufferIdentity: implicitFramebufferIdentity,
-            activeGraphTextureIdentities: activeGraphTextureIdentities
-        )
-    }
-
-    /// The per-node validation segment of `slots`, callable with a cached
-    /// analyzer fact so the source scan can be persisted separately.
-    static func validated(
-        shape fact: SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.Fact,
-        prepared: SceneShaderPreparedProgram,
-        samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
-        template: Template,
-        implicitFramebufferIdentity: Graph.TextureIdentity?,
-        activeGraphTextureIdentities: [Int: Graph.TextureIdentity]
-    ) -> Slots? {
-        guard let previousIdentity = implicitFramebufferIdentity,
-              previousIdentity.name == nil,
-              previousIdentity.kind == .layerSource
-                || previousIdentity.kind == .effectOutput,
-              let blurredIdentity = activeGraphTextureIdentities[fact.blurredSlot],
-              blurredIdentity.kind == .framebuffer,
-              blurredIdentity.name != nil,
-              blurredIdentity.layerID == previousIdentity.layerID,
-              blurredIdentity.effect == template.effectContext?.key,
-              Set(samplers.keys) == Set(
-                  [fact.blurredSlot, fact.previousSlot]
-                    + (fact.maskSlot.map { [$0] } ?? [])
-              ),
-              samplers[fact.blurredSlot]?.mode == .regular,
-              samplers[fact.previousSlot]?.mode == .regular,
-              activeGraphTextureIdentities == [
-                  fact.blurredSlot: blurredIdentity,
-                  fact.previousSlot: previousIdentity,
-              ], exactGraphOverride(
-                  slot: fact.blurredSlot,
-                  identity: blurredIdentity,
-                  template: template,
-                  allowsNamedInputProvenance: false
-              ), exactGraphOverride(
-                  slot: fact.previousSlot,
-                  identity: previousIdentity,
-                  template: template,
-                  allowsNamedInputProvenance: true
-              ), exactMaskCandidate(
-                  slot: fact.maskSlot,
-                  samplers: samplers,
-                  template: template
-              ), exactStaticColor(
-                  named: fact.colorUniform,
-                  template: template,
-                  prepared: prepared
-              ) else { return nil }
-        return .init(
-            blurred: fact.blurredSlot,
-            previous: fact.previousSlot,
-            mask: fact.maskSlot
-        )
-    }
-
-    private static func exactMaskCandidate(
-        slot: Int?,
-        samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
-        template: Template
-    ) -> Bool {
-        guard let slot else { return true }
-        guard template.textureSlots.indices.contains(slot),
-              let sampler = samplers[slot],
-              sampler.mode == .opacityMask else { return false }
-        // A missing authored override still consumes the prepared sampler's
-        // typed asset default through the ordinary texture resolver. Defaults
-        // cannot rescue an unsupported or malformed authored candidate.
-        guard let declaration = template.textureSlots[slot] else {
-            return SceneResolvedMaterialShaderSchema.hasTypedAuxiliaryDefault(sampler)
-        }
-        guard !declaration.candidates.isEmpty else { return false }
-        return declaration.candidates.allSatisfy {
-            if case .asset = $0.reference { return true }
-            return false
-        }
-    }
 
     /// An explicit graph binding is the immutable high-precedence selection.
     /// The previous-input slot may retain one exact named-target candidate
@@ -179,41 +77,5 @@ nonisolated enum SceneResolvedMaterialPreviousBlurredCompositeEligibility {
         return matches.count == 1
             && matches[0].authoredName == "previous"
             && matches[0].texture == identity
-    }
-
-    /// A static authored tint changes RGB but does not change the proven
-    /// straight-alpha-preserving representation. Keep the value in the typed
-    /// uniform program and reject only missing, dynamic, malformed, or
-    /// ambiguous declarations.
-    private static func exactStaticColor(
-        named name: String,
-        template: Template,
-        prepared: SceneShaderPreparedProgram
-    ) -> Bool {
-        guard let schema = SceneResolvedMaterialShaderSchema.uniqueActiveUniform(
-            named: name,
-            type: .float3,
-            stage: .fragment,
-            prepared: prepared
-        ) else { return false }
-        let keys = Set(schema.materialKeys)
-        let declarations = template.uniformDeclarations.filter {
-            keys.contains($0.name)
-        }
-        let value: Template.StaticUniformValue
-        if declarations.isEmpty {
-            guard let fallback = schema.defaultValue else { return false }
-            value = fallback
-        } else {
-            guard declarations.count == 1,
-                  case let .staticExact(authored) = declarations[0].value else {
-                return false
-            }
-            value = authored
-        }
-        return value.componentBitPatterns.count == 3
-            && value.componentBitPatterns.allSatisfy {
-                Double(bitPattern: $0).isFinite
-            }
     }
 }

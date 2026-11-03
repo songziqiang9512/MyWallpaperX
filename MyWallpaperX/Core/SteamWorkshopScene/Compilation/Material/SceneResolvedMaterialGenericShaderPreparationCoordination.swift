@@ -76,9 +76,6 @@ nonisolated enum SceneGenericShaderAnalysisCache {
         append(input.fragmentSource)
         appendSlot(input.alphaAttenuationSourceSlot)
         appendSlot(input.colorBlendSourceSlot)
-        appendSlot(input.previousBlurredCompositeBlurredSlot)
-        appendSlot(input.previousBlurredCompositePreviousSlot)
-        appendSlot(input.previousBlurredCompositeMaskSlot)
         append(input.hasExternalProviderTexture ? "1" : "0")
         append(input.producesScalarRedOutput ? "1" : "0")
         append(input.producesRedGreenUnormOutput ? "1" : "0")
@@ -297,9 +294,6 @@ nonisolated final class SceneResolvedMaterialGenericShaderResolutionCache:
         let fragmentSource: String
         let alphaAttenuationSourceSlot: Int?
         let colorBlendSourceSlot: Int?
-        let previousBlurredCompositeBlurredSlot: Int?
-        let previousBlurredCompositePreviousSlot: Int?
-        let previousBlurredCompositeMaskSlot: Int?
         let hasExternalProviderTexture: Bool
         let producesScalarRedOutput: Bool
         let producesRedGreenUnormOutput: Bool
@@ -527,12 +521,6 @@ nonisolated extension SceneResolvedMaterialGenericShaderArtifactCache {
         let sourceColorTransfer = input.sourceColorTransfer
         let alphaAttenuationSourceSlot = input.alphaAttenuationSourceSlot
         let colorBlendSourceSlot = input.colorBlendSourceSlot
-        let previousBlurredCompositeBlurredSlot =
-            input.previousBlurredCompositeBlurredSlot
-        let previousBlurredCompositePreviousSlot =
-            input.previousBlurredCompositePreviousSlot
-        let previousBlurredCompositeMaskSlot =
-            input.previousBlurredCompositeMaskSlot
         let hasExternalProviderTexture = input.hasExternalProviderTexture
         let producesScalarRedOutput = input.producesScalarRedOutput
         let producesRedGreenUnormOutput = input.producesRedGreenUnormOutput
@@ -566,57 +554,13 @@ nonisolated extension SceneResolvedMaterialGenericShaderArtifactCache {
         let outputSemantics = input.outputSemantics
         let runtimeLoopBounds = input.runtimeLoopBounds
 
-        let colorSourceAnalysis = SceneAuthoredShaderColorTransferAnalyzer
-            .SourceAnalysis(fragmentSource: fragmentSource)
+        let inferredSourceAnalysis = sourceColorTransfer == nil
+            ? SceneAuthoredShaderColorTransferAnalyzer.SourceAnalysis(fragmentSource: fragmentSource)
+            : nil
         let colorTransfer = sourceColorTransfer
             ?? SceneAuthoredShaderColorTransferAnalyzer.analyze(
-                sourceAnalysis: colorSourceAnalysis
+                sourceAnalysis: inferredSourceAnalysis
             )
-        let conditionalStraightUnionSourceSlot =
-            SceneAuthoredShaderColorTransferAnalyzer
-                .conditionalStraightUnionSourceSlot(
-                    sourceAnalysis: colorSourceAnalysis
-                )
-        let singleSamplerAlphaMutationSourceSlot =
-            SceneAuthoredShaderColorTransferAnalyzer
-                .singleSamplerAlphaMutationSourceSlot(
-                    sourceAnalysis: colorSourceAnalysis
-                )
-        let sameSlotChannelReconstructionSourceSlot =
-            SceneAuthoredShaderColorTransferAnalyzer
-                .sameSlotChannelReconstructionSourceSlot(
-                    sourceAnalysis: colorSourceAnalysis
-                )
-        let blendSourceSlots = SceneAuthoredShaderColorTransferAnalyzer
-            .blendSourceSlots(sourceAnalysis: colorSourceAnalysis)
-        let associatedOverBlendFact = colorSourceAnalysis.flatMap {
-            SceneAuthoredShaderAssociatedOverBlendAnalyzer.analyze($0.fragment)
-        }
-        let normalizedSampleSumSourceSlot = colorSourceAnalysis.flatMap {
-            SceneAuthoredShaderNormalizedSampleSumAnalyzer.analyze(
-                outputUses: $0.outputUses, fragment: $0.fragment, main: $0.main
-            )
-        }
-        let alphaWeightedSampleAverageSourceSlot =
-            SceneAuthoredShaderAlphaWeightedSampleAverageAnalyzer.analyze(
-                fragmentSource: fragmentSource
-            )?.textureSlot
-        let preservedAlphaRGBFilterFact = colorSourceAnalysis.flatMap {
-            SceneAuthoredShaderPreservedAlphaRGBFilterAnalyzer.analyzeAny($0.fragment)
-        }
-        let typedDataRGBFilterFact = colorSourceAnalysis.flatMap {
-            SceneAuthoredShaderTypedDataRGBFilterAnalyzer.analyze($0.fragment)
-        }
-        let sameAlphaReconstructedRGBFilterFact = colorSourceAnalysis.flatMap {
-            SceneAuthoredShaderSameAlphaReconstructedRGBFilterAnalyzer.analyze($0.fragment)
-        }
-        let straightRGBScalarAlphaFact = SceneAuthoredShaderColorTransferAnalyzer
-            .straightRGBScalarAlphaFact(sourceAnalysis: colorSourceAnalysis)
-        let preservedAlphaRGBFilterTextureSlots =
-            preservedAlphaRGBFilterFact?.sampledTextureSlots ?? []
-        let previousBlurredCompositeSourceFact = colorSourceAnalysis.flatMap {
-            SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.analyze($0.fragment)
-        }
         let normalizedRouteFacts: SceneGenericShaderSourceNormalizer.Pair?
         switch SceneGenericShaderSourceNormalizer.normalize(
             vertexSource: vertexSource,
@@ -628,113 +572,160 @@ nonisolated extension SceneResolvedMaterialGenericShaderArtifactCache {
         case let .success(value): normalizedRouteFacts = value
         case .failure: normalizedRouteFacts = nil
         }
-        let activeAudioSpectrumArrays =
-            normalizedRouteFacts?.activeAudioSpectrumArrays ?? []
-        let profile = SceneGenericShaderCapabilityProfile(
-            fragmentSource: fragmentSource,
-            colorTransfer: colorTransfer,
-            alphaAttenuationSourceSlot: alphaAttenuationSourceSlot,
-            colorBlendSourceSlot: colorBlendSourceSlot,
-            overlayAlphaBlendSourceSlot: blendSourceSlots.overlayAlpha?.source,
-            overlayAlphaBlendAuxiliarySlot: blendSourceSlots.overlayAlpha?.overlay,
-            overlayAlphaPreservingBlendSourceSlot:
-                blendSourceSlots.overlayAlphaPreserving?.source,
-            overlayAlphaPreservingBlendAuxiliarySlot:
-                blendSourceSlots.overlayAlphaPreserving?.overlay,
-            associatedOverBlendSourceSlot: associatedOverBlendFact?.sourceSlot,
-            associatedOverBlendOverlaySlot: associatedOverBlendFact?.overlaySlot,
-            conditionalStraightUnionSourceSlot: conditionalStraightUnionSourceSlot,
-            singleSamplerAlphaMutationSourceSlot:
-                singleSamplerAlphaMutationSourceSlot,
-            sameSlotChannelReconstructionSourceSlot:
-                sameSlotChannelReconstructionSourceSlot,
-            auxiliaryRGBMixSourceSlot: blendSourceSlots.auxiliaryRGB,
-            normalizedSampleSumSourceSlot: normalizedSampleSumSourceSlot,
-            independentSignalAccumulatorSourceSlot:
-                SceneAuthoredShaderIndependentSignalAccumulatorAnalyzer.sourceSlot(
+        let requiresOrderedSignalTransfer: Bool = switch colorTransfer {
+        case .independentAlphaSignal, .independentAlphaSignalPreserving,
+             .independentAlphaSignalCompositing, .independentAlphaSignalUnderlayCompositing:
+            true
+        default: false
+        }
+        let profile: SceneGenericShaderCapabilityProfile
+        if input.colorBoundary != nil && !requiresOrderedSignalTransfer {
+            profile = .ordinaryShader
+        } else {
+            let colorSourceAnalysis = inferredSourceAnalysis
+                ?? SceneAuthoredShaderColorTransferAnalyzer.SourceAnalysis(fragmentSource: fragmentSource)
+            let conditionalStraightUnionSourceSlot =
+                SceneAuthoredShaderColorTransferAnalyzer
+                    .conditionalStraightUnionSourceSlot(
+                        sourceAnalysis: colorSourceAnalysis
+                    )
+            let singleSamplerAlphaMutationSourceSlot =
+                SceneAuthoredShaderColorTransferAnalyzer
+                    .singleSamplerAlphaMutationSourceSlot(
+                        sourceAnalysis: colorSourceAnalysis
+                    )
+            let sameSlotChannelReconstructionSourceSlot =
+                SceneAuthoredShaderColorTransferAnalyzer
+                    .sameSlotChannelReconstructionSourceSlot(
+                        sourceAnalysis: colorSourceAnalysis
+                    )
+            let blendSourceSlots = SceneAuthoredShaderColorTransferAnalyzer
+                .blendSourceSlots(sourceAnalysis: colorSourceAnalysis)
+            let associatedOverBlendFact = colorSourceAnalysis.flatMap {
+                SceneAuthoredShaderAssociatedOverBlendAnalyzer.analyze($0.fragment)
+            }
+            let normalizedSampleSumSourceSlot = colorSourceAnalysis.flatMap {
+                SceneAuthoredShaderNormalizedSampleSumAnalyzer.analyze(
+                    outputUses: $0.outputUses, fragment: $0.fragment, main: $0.main
+                )
+            }
+            let alphaWeightedSampleAverageSourceSlot =
+                SceneAuthoredShaderAlphaWeightedSampleAverageAnalyzer.analyze(
                     fragmentSource: fragmentSource
-                ),
-            independentSignalUNormAccumulatorSourceSlot:
-                SceneAuthoredShaderIndependentSignalAccumulatorAnalyzer
-                    .rgba8UnormAttachmentSourceSlot(
+                )?.textureSlot
+            let preservedAlphaRGBFilterFact = colorSourceAnalysis.flatMap {
+                SceneAuthoredShaderPreservedAlphaRGBFilterAnalyzer.analyzeAny($0.fragment)
+            }
+            let typedDataRGBFilterFact = colorSourceAnalysis.flatMap {
+                SceneAuthoredShaderTypedDataRGBFilterAnalyzer.analyze($0.fragment)
+            }
+            let sameAlphaReconstructedRGBFilterFact = colorSourceAnalysis.flatMap {
+                SceneAuthoredShaderSameAlphaReconstructedRGBFilterAnalyzer.analyze($0.fragment)
+            }
+            let straightRGBScalarAlphaFact = SceneAuthoredShaderColorTransferAnalyzer
+                .straightRGBScalarAlphaFact(sourceAnalysis: colorSourceAnalysis)
+            let preservedAlphaRGBFilterTextureSlots =
+                preservedAlphaRGBFilterFact?.sampledTextureSlots ?? []
+            let activeAudioSpectrumArrays =
+                normalizedRouteFacts?.activeAudioSpectrumArrays ?? []
+            profile = SceneGenericShaderCapabilityProfile(
+                fragmentSource: fragmentSource,
+                colorTransfer: colorTransfer,
+                alphaAttenuationSourceSlot: alphaAttenuationSourceSlot,
+                colorBlendSourceSlot: colorBlendSourceSlot,
+                overlayAlphaBlendSourceSlot: blendSourceSlots.overlayAlpha?.source,
+                overlayAlphaBlendAuxiliarySlot: blendSourceSlots.overlayAlpha?.overlay,
+                overlayAlphaPreservingBlendSourceSlot:
+                    blendSourceSlots.overlayAlphaPreserving?.source,
+                overlayAlphaPreservingBlendAuxiliarySlot:
+                    blendSourceSlots.overlayAlphaPreserving?.overlay,
+                associatedOverBlendSourceSlot: associatedOverBlendFact?.sourceSlot,
+                associatedOverBlendOverlaySlot: associatedOverBlendFact?.overlaySlot,
+                conditionalStraightUnionSourceSlot: conditionalStraightUnionSourceSlot,
+                singleSamplerAlphaMutationSourceSlot:
+                    singleSamplerAlphaMutationSourceSlot,
+                sameSlotChannelReconstructionSourceSlot:
+                    sameSlotChannelReconstructionSourceSlot,
+                auxiliaryRGBMixSourceSlot: blendSourceSlots.auxiliaryRGB,
+                normalizedSampleSumSourceSlot: normalizedSampleSumSourceSlot,
+                independentSignalAccumulatorSourceSlot:
+                    SceneAuthoredShaderIndependentSignalAccumulatorAnalyzer.sourceSlot(
                         fragmentSource: fragmentSource
                     ),
-            alphaWeightedSampleAverageSourceSlot:
-                alphaWeightedSampleAverageSourceSlot,
-            preservedAlphaRGBFilterSourceSlot:
-                preservedAlphaRGBFilterFact?.sourceSlot,
-            preservedAlphaRGBFilterTextureSlots:
-                preservedAlphaRGBFilterTextureSlots,
-            typedDataRGBFilterSourceSlot:
-                typedDataRGBFilterFact?.sourceSlot,
-            typedDataRGBFilterAuxiliarySlots:
-                typedDataRGBFilterFact?.auxiliarySlots ?? [],
-            sameAlphaReconstructedRGBFilterSourceSlot:
-                sameAlphaReconstructedRGBFilterFact?.sourceSlot,
-            sameAlphaReconstructedRGBFilterAuxiliarySlots:
-                sameAlphaReconstructedRGBFilterFact?.auxiliarySlots ?? [],
-            straightRGBScalarAlphaSourceSlot:
-                straightRGBScalarAlphaFact?.sourceSlot,
-            straightRGBScalarAlphaAuxiliarySlots:
-                straightRGBScalarAlphaFact?.auxiliarySlots ?? [],
-            straightRGBScalarAlphaMaskSlot: straightRGBScalarAlphaFact?.maskSlot,
-            activeTextureSlots: activeTextureSlots,
-            activeOpacityMaskSlots: activeOpacityMaskSlots,
-            typedStaticDataAuxiliarySlots: typedStaticDataAuxiliarySlots,
-            preservedChannelsExternalProviderTextureSlots:
-                preservedChannelsExternalProviderTextureSlots,
-            premultipliedColorAuxiliarySlots:
-                premultipliedColorAuxiliarySlots,
-            spatialWeightedColorBlendSourceSlot:
-                spatialWeightedColorBlendSourceSlot,
-            spatialWeightedColorBlendActiveSlots:
-                spatialWeightedColorBlendActiveSlots,
-            spatialWeightedColorBlendTypedAuxiliarySlots:
-                spatialWeightedColorBlendTypedAuxiliarySlots,
-            spatialWeightedColorBlendExternalColorSlot:
-                spatialWeightedColorBlendExternalColorSlot,
-            previousBlurredCompositeBlurredSlot: previousBlurredCompositeBlurredSlot,
-            previousBlurredCompositePreviousSlot: previousBlurredCompositePreviousSlot,
-            previousBlurredCompositeMaskSlot: previousBlurredCompositeMaskSlot,
-            previousBlurredCompositeSourceBlurredSlot:
-                previousBlurredCompositeSourceFact?.blurredSlot,
-            previousBlurredCompositeSourcePreviousSlot:
-                previousBlurredCompositeSourceFact?.previousSlot,
-            previousBlurredCompositeSourceMaskSlot: previousBlurredCompositeSourceFact?.maskSlot,
-            hasExternalProviderTexture: hasExternalProviderTexture,
-            producesScalarRedOutput: producesScalarRedOutput,
-            producesRedGreenUnormOutput: producesRedGreenUnormOutput,
-            producesPreservedRGBAOutput: outputSemantics == .preservedRGBAUnorm,
-            hasDefiniteWholeOutput:
-                SceneAuthoredShaderFragmentOutputAnalyzer.analyze(
-                    source: fragmentSource
-                ) == .redDefined,
-            isScalarSplatOutput:
-                SceneAuthoredShaderColorTransferAnalyzer.isScalarSplatOutput(
-                    sourceAnalysis: colorSourceAnalysis
+                independentSignalUNormAccumulatorSourceSlot:
+                    SceneAuthoredShaderIndependentSignalAccumulatorAnalyzer
+                        .rgba8UnormAttachmentSourceSlot(
+                            fragmentSource: fragmentSource
+                        ),
+                alphaWeightedSampleAverageSourceSlot:
+                    alphaWeightedSampleAverageSourceSlot,
+                preservedAlphaRGBFilterSourceSlot:
+                    preservedAlphaRGBFilterFact?.sourceSlot,
+                preservedAlphaRGBFilterTextureSlots:
+                    preservedAlphaRGBFilterTextureSlots,
+                typedDataRGBFilterSourceSlot:
+                    typedDataRGBFilterFact?.sourceSlot,
+                typedDataRGBFilterAuxiliarySlots:
+                    typedDataRGBFilterFact?.auxiliarySlots ?? [],
+                sameAlphaReconstructedRGBFilterSourceSlot:
+                    sameAlphaReconstructedRGBFilterFact?.sourceSlot,
+                sameAlphaReconstructedRGBFilterAuxiliarySlots:
+                    sameAlphaReconstructedRGBFilterFact?.auxiliarySlots ?? [],
+                straightRGBScalarAlphaSourceSlot:
+                    straightRGBScalarAlphaFact?.sourceSlot,
+                straightRGBScalarAlphaAuxiliarySlots:
+                    straightRGBScalarAlphaFact?.auxiliarySlots ?? [],
+                straightRGBScalarAlphaMaskSlot: straightRGBScalarAlphaFact?.maskSlot,
+                activeTextureSlots: activeTextureSlots,
+                activeOpacityMaskSlots: activeOpacityMaskSlots,
+                typedStaticDataAuxiliarySlots: typedStaticDataAuxiliarySlots,
+                preservedChannelsExternalProviderTextureSlots:
+                    preservedChannelsExternalProviderTextureSlots,
+                premultipliedColorAuxiliarySlots:
+                    premultipliedColorAuxiliarySlots,
+                spatialWeightedColorBlendSourceSlot:
+                    spatialWeightedColorBlendSourceSlot,
+                spatialWeightedColorBlendActiveSlots:
+                    spatialWeightedColorBlendActiveSlots,
+                spatialWeightedColorBlendTypedAuxiliarySlots:
+                    spatialWeightedColorBlendTypedAuxiliarySlots,
+                spatialWeightedColorBlendExternalColorSlot:
+                    spatialWeightedColorBlendExternalColorSlot,
+                hasExternalProviderTexture: hasExternalProviderTexture,
+                producesScalarRedOutput: producesScalarRedOutput,
+                producesRedGreenUnormOutput: producesRedGreenUnormOutput,
+                producesPreservedRGBAOutput: outputSemantics == .preservedRGBAUnorm,
+                hasDefiniteWholeOutput:
+                    SceneAuthoredShaderFragmentOutputAnalyzer.analyze(
+                        source: fragmentSource
+                    ) == .redDefined,
+                isScalarSplatOutput:
+                    SceneAuthoredShaderColorTransferAnalyzer.isScalarSplatOutput(
+                        sourceAnalysis: colorSourceAnalysis
+                    ),
+                hasOnlyScalarDataInputs: hasOnlyScalarDataInputs,
+                isSourceIndependentPremultipliedOutput:
+                    isSourceIndependentPremultipliedOutput,
+                graphTextureSlots: graphTextureSlots,
+                graphInputTextureSlots: graphInputTextureSlots,
+                r8TextureSlots: r8TextureSlots,
+                hasDefaultedOpacityMaskSampler: hasDefaultedOpacityMaskSampler,
+                hasOnlyTypedOpacityMaskAuxiliary: hasOnlyTypedOpacityMaskAuxiliary,
+                hasOnlyGraphInputSampler: hasOnlyGraphInputSampler,
+                outputIsRGBA8Unorm: outputIsRGBA8Unorm,
+                hasStageScopedUniformBindings: SceneGenericShaderStageUniformAnalyzer.hasScopedBindings(
+                    vertexSource: vertexSource,
+                    fragmentSource: fragmentSource,
+                    runtimeLoopBounds: runtimeLoopBounds
                 ),
-            hasOnlyScalarDataInputs: hasOnlyScalarDataInputs,
-            isSourceIndependentPremultipliedOutput:
-                isSourceIndependentPremultipliedOutput,
-            graphTextureSlots: graphTextureSlots,
-            graphInputTextureSlots: graphInputTextureSlots,
-            r8TextureSlots: r8TextureSlots,
-            hasDefaultedOpacityMaskSampler: hasDefaultedOpacityMaskSampler,
-            hasOnlyTypedOpacityMaskAuxiliary: hasOnlyTypedOpacityMaskAuxiliary,
-            hasOnlyGraphInputSampler: hasOnlyGraphInputSampler,
-            outputIsRGBA8Unorm: outputIsRGBA8Unorm,
-            hasStageScopedUniformBindings: SceneGenericShaderStageUniformAnalyzer.hasScopedBindings(
-                vertexSource: vertexSource,
-                fragmentSource: fragmentSource,
-                runtimeLoopBounds: runtimeLoopBounds
-            ),
-            hasStereoAudioSpectrumArrays: [16, 32, 64].contains { count in
-                activeAudioSpectrumArrays.isSuperset(of: [
-                    "g_AudioSpectrum\(count)Left",
-                    "g_AudioSpectrum\(count)Right",
-                ])
-            }
-        )
+                hasStereoAudioSpectrumArrays: [16, 32, 64].contains { count in
+                    activeAudioSpectrumArrays.isSuperset(of: [
+                        "g_AudioSpectrum\(count)Left",
+                        "g_AudioSpectrum\(count)Right",
+                    ])
+                }
+            )
+        }
         let expectedColorTransfer = SceneGenericShaderExpectedColorTransfer(
             colorTransfer,
             fragmentSource: fragmentSource,

@@ -72,8 +72,7 @@ private func dependencyRecord(vertex: String, fragment: String)
         rgba8UnormAccumulatorSourceSlot: nil, spatialWeightedColorBlend: nil,
         sourceCarriedRGBA: nil, conditionalGeneratedRGB: nil,
         sameAlphaReconstructedRGB: nil, neutralTextureResolution: nil,
-        alphaAttenuationFact: nil, colorBlendFact: nil,
-        previousBlurredCompositeFact: nil)
+        alphaAttenuationFact: nil, colorBlendFact: nil)
 }
 
 private func identityProbe() throws -> ProbeOutput {
@@ -155,7 +154,7 @@ private func dependencyCacheProbe(write: Bool) throws -> ProbeOutput {
             keySHA256: secondVariant)
         SceneMaterialDemandAnalysisPersistentCache.store(
             textureFormatSlots: [5], samplers: [:], reachableSamplerSlots: [5], key: secondDemand)
-        _ = try waitForPublication(tierDirectory(root: try cacheRoot(), name: "SceneVariantAnalysis-v29"), count: 2)
+        _ = try waitForPublication(tierDirectory(root: try cacheRoot(), name: "SceneVariantAnalysis-v30"), count: 2)
         _ = try waitForPublication(tierDirectory(root: try cacheRoot(), name: "SceneMaterialDemandAnalysis-v10"), count: 2)
     }
     try expect(into: &output,
@@ -195,7 +194,7 @@ private func dependencyConsumerProbe() throws -> ProbeOutput {
     }
     SceneResolvedMaterialVariantAnalysisCache.store(
         record: dependencyRecord(vertex: first.2, fragment: first.3), keySHA256: originalKey)
-    _ = try waitForPublication(tierDirectory(root: try cacheRoot(), name: "SceneVariantAnalysis-v29"))
+    _ = try waitForPublication(tierDirectory(root: try cacheRoot(), name: "SceneVariantAnalysis-v30"))
     let repeated = try prepare(original)
     let updated = try prepare(changed)
     try expect(into: &output, repeated.1 != nil && repeated.3 == first.3,

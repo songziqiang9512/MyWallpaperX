@@ -28,7 +28,6 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderArtifactCache+Diagnostics.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderPreparationCoordination.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderRequest.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderOwnerDeferral.swift",
 ]
 
 
@@ -348,8 +347,6 @@ private struct PreservedAlphaRGBFilterHarness {
                 alphaWeightedSampleAverageSourceSlot: nil,
                 preservedAlphaRGBFilterSourceSlot: sourceSlot,
                 preservedAlphaRGBFilterTextureSlots: textureSlots,
-                previousBlurredCompositeBlurredSlot: nil,
-                previousBlurredCompositePreviousSlot: nil,
                 hasExternalProviderTexture: false,
                 producesScalarRedOutput: false,
                 isSourceIndependentPremultipliedOutput: false,

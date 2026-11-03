@@ -60,9 +60,18 @@ HDR 合成与显示 EDR 分开：scene color/Bloom 先保浮点范围，唯一�
 Prepared target/transition 保有序读写；pool 租约、publication 与 completion 绑定实际 command buffer。unique history 的 seed、reused、失败与取消由原 Coordinator 管理，不靠普通帧重建或全图哈希恢复。
 
 <a id="composite-input-admission"></a>
-前级双输入合成沿[全效果统一合同](../../architecture/technology-stack-boundaries.md#31-swift-拥有产品状态语言运行时拥有语言语义)准备。Layer admission持源route，Graph计划持有序读写、target和history；逐节点Eligibility消费实际shader事实、previous/局部FBO身份、binding、mask与颜色输入，Program/Finalizer持uniform、purpose/表示和publication，MSL lowering与PSO检查实际接口。Pass数量、target数量、kernel、方向、scale组合及未消费combo不另授整段执行许可；失败只影响真实不兼容单元并保previous-current。已定义的透明clear可作输入，缺失的实际纹理不能伪装ready。
+前级双输入合成沿[全效果统一合同](../../architecture/technology-stack-boundaries.md#31-swift-拥有产品状态语言运行时拥有语言语义)准备。Layer admission持源route，Graph计划持有序读写、target和history；Variant按活跃采样槽、选中用途及producer内容形成颜色边界，Program/Finalizer持uniform、purpose/表示和publication，MSL lowering与PSO检查实际接口。Pass数量、target数量、kernel、方向、scale或静态tint不另授执行许可；失败只影响真实不兼容单元并保previous-current。已定义的透明clear可作输入，缺失的实际纹理不能伪装ready。
 
-当前颜色补偿仍依赖有界source/MSL识别，属于[待通用化边界](../development/development-workflow.md#compatibility-exceptions)，不代表任意shader表示已覆盖。后继改造沿原compiler/typed ABI替代该限制，保真实binding、target hazard、颜色/数据和publication反例；不增加效果族名单、source许可token或第二套资源/输出owner。已验2/5pass、独立参数与改名图的真实Metal像素及作者内容，具体输入和资格归[运行证据](runtime-evidence-current.md#coverage)。
+没有typed边界的兼容改写及尚未表达的通道推导仍有有界source/MSL分析，属于[待通用化边界](../development/development-workflow.md#compatibility-exceptions)。沿原compiler/typed ABI补真实缺口，不增加效果族名单、source许可token或第二套资源/输出owner。具体输入和资格归[运行证据](runtime-evidence-current.md#coverage)。
+
+<a id="typed-color-compilation"></a>
+### Typed 颜色编译
+
+`SceneShaderColorBoundary`直接支配普通颜色Program及既有ordinary编译路线。ArtifactBuilder按该边界对实际编译MSL适配采样/返回，产物解码与Program消费相同边界；准备期不再先执行另一段会被丢弃的专用改写或整族source分析。动态颜色沿原uniform producer、当前值与ABI编码，不需要static许可。
+
+普通颜色metadata以该边界的straight、opaque或PMA输出为权威；alpha-only、packed data、独立signal、有序signal/underlay及其storage/loop事实保原typed语义。Passthrough保精确signal槽，数据通道不做颜色适配。已准备的graph ingress事实仅按真实活跃slot投影，不能从输出颜色标签重推身份；仍有实际依赖语义的previous shadow保持。实际接口、uniform字节、选中publication、target/hazard及生命周期错误各在原consumer局部失败。两个backend消费同一边界，普通帧不做source分析或编译。
+
+回归沿真实builder→Program→Metal门核helper/条件/多sample、改名、动态uniform及PMA/straight/alpha/HDR，另核合法data/signal与错误供货/表示/身份。源码模式命中不作验收；未支持的MSL操作和未表达角色按具体失败入队，不以效果模式绕过。
 
 Surface 采用已提交销毁成员时，原 Coordinator 过滤该层 committed 及 pending final tails，保已编码 ledger/pins 到原终态。活 named consumer 的独立 copy、hidden provider、consumer 自身 tail 与 scene color 按真实引用保留。
 

@@ -16,10 +16,6 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             requestKey: String,
             routeDecision: RouteDecision
         )
-        case ownerDeferred(
-            code: String, requestKey: String,
-            routeDecision: RouteDecision
-        )
         case unavailable(
             code: String,
             requestKey: String,
@@ -135,9 +131,6 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         fragmentSource: String,
         alphaAttenuationSourceSlot: Int? = nil,
         colorBlendSourceSlot: Int? = nil,
-        previousBlurredCompositeBlurredSlot: Int? = nil,
-        previousBlurredCompositePreviousSlot: Int? = nil,
-        previousBlurredCompositeMaskSlot: Int? = nil,
         hasExternalProviderTexture: Bool = false,
         producesScalarRedOutput: Bool = false,
         producesRedGreenUnormOutput: Bool = false,
@@ -171,9 +164,6 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             fragmentSource: fragmentSource,
             alphaAttenuationSourceSlot: alphaAttenuationSourceSlot,
             colorBlendSourceSlot: colorBlendSourceSlot,
-            previousBlurredCompositeBlurredSlot: previousBlurredCompositeBlurredSlot,
-            previousBlurredCompositePreviousSlot: previousBlurredCompositePreviousSlot,
-            previousBlurredCompositeMaskSlot: previousBlurredCompositeMaskSlot,
             hasExternalProviderTexture: hasExternalProviderTexture,
             producesScalarRedOutput: producesScalarRedOutput,
             producesRedGreenUnormOutput: producesRedGreenUnormOutput,
@@ -242,7 +232,7 @@ routeTelemetry.recordInvalid(
                 reason: "route-configuration-invalid"
             )
 #endif
-            return .unavailableOrDeferred(
+            return .unavailable(
                 code: "route-invalid",
                 requestKey: key,
                 permitsBoundedFrontend:
@@ -268,7 +258,7 @@ routeTelemetry.record(
                 requestKey: key
             )
 #endif
-            return .unavailableOrDeferred(
+            return .unavailable(
                 code: "route-disabled",
                 requestKey: key,
                 permitsBoundedFrontend:
@@ -297,7 +287,7 @@ routeTelemetry.record(
                 requestKey: key
             )
 #endif
-            return .unavailableOrDeferred(
+            return .unavailable(
                 code: "route-observe-only",
                 requestKey: key,
                 permitsBoundedFrontend:
@@ -466,7 +456,7 @@ routeTelemetry.record(
             requestKey: requestKey
         )
 #endif
-        return .unavailableOrDeferred(
+        return .unavailable(
             code: code,
             requestKey: requestKey,
             permitsBoundedFrontend: profile.permitsBoundedFrontendAfterArtifactFailure(

@@ -54,14 +54,7 @@ func dormantGraphInputFactTokens(
                 inputIdentity: graphTexture(),
                 sourceColorTransfer: .defaultStraightColorBoundary(
                     textureSlots: [0]
-                ),
-                frontendBindings: [
-                    .init(
-                        name: "g_Texture0",
-                        slot: 0,
-                        channelUse: .wholeVector
-                    )
-                ]
+                )
             )
         return sourceFacts == fallbackFacts
             && fallbackFacts[0]?.provenance
@@ -102,11 +95,114 @@ func dormantGraphInputFactTokens(
                 == [expectedSlot]
             ? "proven" : "identity-mismatch"
     }
+    func opaqueToken(_ slot: Int) -> String {
+        let opaqueShader = contract(
+            revision: "dormant-opaque-\(slot)", uniformMetadata: nil, semanticProbes: false,
+            vertexSourceOverride: """
+            attribute vec3 a_Position;
+            attribute vec2 a_TexCoord;
+            varying vec2 taps[3];
+            void main() {
+                gl_Position = vec4(a_Position, 1.0);
+                taps[0] = a_TexCoord - vec2(0.1);
+                taps[1] = a_TexCoord;
+                taps[2] = a_TexCoord + vec2(0.1);
+            }
+            """,
+            fragmentSourceOverride: """
+            uniform sampler2D g_Texture\(slot); // {"material":"Arbitrary opaque input \(slot)","hidden":true}
+            uniform float energy; // {"default":1}
+            uniform float active; // {"default":1}
+            uniform float spread; // {"default":1}
+            uniform float cutoff; // {"default":0}
+            uniform float curve; // {"default":1}
+            varying vec2 taps[3];
+            vec3 passThrough(vec3 value) { return value; }
+            void main() {
+                float alphaSum = 0.0;
+                vec3 light = vec3(0.0);
+                vec4 value;
+                if (energy > 0.01 && active > 0.02) {
+                    { value = texture2D(g_Texture\(slot), taps[0]); light += value.xyz * value.w; alphaSum += value.w; }
+                    { value = texture2D(g_Texture\(slot), taps[1]); light += value.xyz * value.w; alphaSum += value.w; }
+                    { value = texture2D(g_Texture\(slot), taps[2]); light += value.xyz * value.w; alphaSum += value.w; }
+                    light = pow(passThrough(saturate(light / alphaSum - cutoff)), vec3(curve));
+                }
+                gl_FragColor = vec4(light * energy * spread * 0.5, 1.0);
+            }
+            """
+        )
+        let value = template(opaqueShader, includePrimaryCandidate: false, effectContext: context)
+        guard value.graphRole.bindings.isEmpty, value.textureSlots.allSatisfy({ $0 == nil }),
+              case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(
+                template: value, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: value),
+                maximumVariantCount: 8),
+              case .success = cache.precompileLaunchEnvelope(implicitFramebufferIdentity: graphTexture()),
+              let variant = cache.launchEnvelopeCapabilitySnapshot().variants.first,
+              case let .success(boundProgram) = finalize(shader: opaqueShader, device: device,
+                includePrimaryCandidate: false, implicitFramebufferIdentity: graphTexture(),
+                variantCache: cache, effectContext: context)
+        else { return "opaque-prepare-failed" }
+        let canonical = SceneAuthoredShaderBackendCanonicalizer.canonicalize(
+            vertex: variant.preparedShader.vertex.source, fragment: variant.preparedShader.fragment.source)
+        let sourceTransfer = SceneAuthoredShaderColorTransferAnalyzer.analyze(fragmentSource: canonical.fragment)
+        let sourceFacts = SceneResolvedMaterialShaderSchema.graphInputSourceSlotFacts(
+            template: value, samplers: variant.activeSamplers, inputIdentity: graphTexture(),
+            sourceColorTransfer: sourceTransfer)
+        guard sourceTransfer == .opaqueFromStraightColor(textureSlot: slot),
+              sourceFacts[slot]?.provenance == .dormantUnresolvedMaterialAlias,
+              sourceFacts == variant.graphInputSourceSlotFacts,
+              variant.activeSamplers[slot]?.defaultTexture == nil,
+              variant.activeSamplers[slot]?.readinessCombo == nil,
+              variant.frontendProgram.colorBoundary?.outputRepresentation == .opaque,
+              let key = SceneResolvedMaterialVariantKey(readinessMask: variant.readinessMask,
+                textureFormats: variant.textureFormats)
+        else { return "opaque-source-fact-missing" }
+        let original = variant.frontendProgram
+        // This standalone fixture has no signed compiler. Reuse the actual
+        // typed MSL/ABI and supply only the compiler's canonical opaque metadata.
+        let opaque = SceneAuthoredShaderProgram(
+            metalSource: original.metalSource, vertexFunctionName: original.vertexFunctionName,
+            fragmentFunctionName: original.fragmentFunctionName, uniformBufferIndex: original.uniformBufferIndex,
+            uniformLayout: original.uniformLayout, textureBindings: original.textureBindings,
+            staticLoopWork: original.staticLoopWork, colorTransfer: .opaque,
+            fragmentOutputChannelUse: original.fragmentOutputChannelUse, backend: original.backend,
+            vertexPositionInput: original.vertexPositionInput,
+            fragmentReadsRasterPosition: original.fragmentReadsRasterPosition,
+            colorBoundary: original.colorBoundary, attachmentReadVariant: original.attachmentReadVariant)
+        do {
+            let finalized = try SceneResolvedMaterialVariantCache.finalizeVariantBindings(
+                template: value, variantKey: key, prepared: variant.preparedShader,
+                compilerSources: canonical, routeDecision: variant.routeDecision,
+                compatibilityTargetAdmissionPending: false, frontend: opaque, boundedOutput: nil,
+                artifactFailure: [], sourceActiveSamplers: variant.activeSamplers,
+                implicitFramebufferIdentity: graphTexture(), sourceGraphInputFacts: sourceFacts,
+                neutralTextureResolution: variant.neutralTextureResolution,
+                runtimeLoopBounds: variant.runtimeLoopBounds,
+                conditionalGeneratedRGBInputContract: variant.conditionalGeneratedRGBInputContract,
+                premultipliedColorInputSlots: variant.premultipliedColorInputSlots)
+            guard finalized.graphInputFacts == sourceFacts,
+                  let program = Program.assemblePrepared(.init(textureSlots: boundProgram.textureSlots,
+                    resolvedUniforms: boundProgram.resolvedUniforms,
+                    graphRole: boundProgram.semanticIdentity.graphRole, outputStorage: .color),
+                    prepared: finalized.preparedAssembly, routeDecision: variant.routeDecision),
+                  program.frontendProgram.colorTransfer == .opaque,
+                  case let .color(output) = program.outputContract, output.fragmentOutput == .resolved(.opaque)
+            else { return "opaque-program-binding-failed" }
+            return token(.success(program), slot: slot)
+        } catch let failure as SceneResolvedMaterialFailure {
+            return "opaque-\(failure.phase.rawValue)/\(failure.code.rawValue):\(failure.boundedDetails.joined(separator: ","))"
+        } catch { return "opaque-untyped-failure" }
+    }
+    func provenToken(_ slot: Int) -> String {
+        let ordinary = token(result(slot), slot: slot)
+        return ordinary == "proven" ? opaqueToken(slot) : ordinary
+    }
     return [
         "defaultBoundaryPreservesGraphFact": fallbackGraphFactPreserved
             ? "preserved" : "diverged",
-        "arbitraryHiddenKeySlot0": token(result(0), slot: 0),
-        "unseenArbitraryHiddenKeySlot3": token(result(3), slot: 3),
+        "arbitraryHiddenKeySlot0": provenToken(0),
+        "unseenArbitraryHiddenKeySlot3": provenToken(3),
     ]
 }
 
