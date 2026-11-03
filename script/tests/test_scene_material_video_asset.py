@@ -206,12 +206,24 @@ func propertyFormatProfileChecks(path: SceneVFSAssetPath, variant: Int, device: 
             device: MTLCreateSystemDefaultDevice()!)) { _, new in new }
         let device = MTLCreateSystemDefaultDevice()!
         let dataIdentity = SceneAssetTextureIdentity(path: identity.path, purpose: .preservedChannels)
+        let straightIdentity = SceneAssetTextureIdentity(path: identity.path, purpose: .straightAlbedo)
         let normal = SceneAssetTextureIdentity(path: identity.path, purpose: .normal)
-        let dataCatalog = try SceneMaterialAssetTextureCatalog(demands: [dataIdentity, normal],
+        let dataCatalog = try SceneMaterialAssetTextureCatalog(demands: [dataIdentity, straightIdentity, normal],
             resourceView: SceneResourceView(projectRootURL: root, packageRootURL: nil,
                 stockAssetsRootURL: nil), descriptor: .init(), device: device)
         checks["preparedDataIsAContractNotAReadyFrame"] = dataCatalog.launchStates[dataIdentity] == .preparedVideo(.data)
             && { if case .pending? = dataCatalog.makeFrameProvider().states(sceneTime: 0)[dataIdentity] { return true }; return false }()
+        checks["preparedStraightIsOpaqueContractNotReady"] = dataCatalog.launchStates[straightIdentity]
+            == .preparedVideo(.color(.resolved(.opaque)))
+            && { if case .pending? = dataCatalog.makeFrameProvider().states(sceneTime: 0)[straightIdentity] { return true }; return false }()
+        let straightSelection = try SceneResolvedMaterialVariantCache.launchDefaultReference(
+            sampler: active.withSourceProvenPurpose(.straightAlbedo), slot: slot,
+            assetStates: dataCatalog.launchStates, systemProviderStates: [:])
+        if case let .selected(reference, purpose) = straightSelection {
+            checks["preparedStraightKeepsPurposeAndFormat"] = reference == .asset(identity.path)
+                && purpose == .straightAlbedo && dataCatalog.videoDeclarations[straightIdentity] != nil
+                && dataCatalog.launchFormatFacts[straightIdentity.reportToken] == SceneShaderTextureFormat.rgba8888.macroValue
+        } else { checks["preparedStraightKeepsPurposeAndFormat"] = false }
         checks["normalVideoRemainsUnavailable"] = dataCatalog.launchStates[normal] == .unavailable
         let dataTemplate = mediaTemplate(identity.path, variant: variant, channels: true)
         let dataCache = try SceneResolvedMaterialVariantCache.launchValidated(template: dataTemplate,
@@ -265,9 +277,9 @@ extension Harness {
         print(String(decoding: try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]), as: UTF8.self))
     }
 
-    static func videoObservation(_ source: SceneVideoTextureSource, sceneTime: Double = 0) -> [String: Double] {
-        let snapshot = source.playbackSnapshot(sceneTime: sceneTime)
-        return ["duration": snapshot.duration, "currentTime": snapshot.currentTime]
+    static func videoObservation(_ source: SceneVideoTextureSource, sceneTime: Double = 0) -> [String: Any] {
+        guard let snapshot = source.playbackSnapshot(sceneTime: sceneTime) else { return ["available": false] }
+        return ["available": true, "duration": snapshot.duration, "currentTime": snapshot.currentTime]
     }
 
     static func channelPipeline(_ device: MTLDevice) throws -> MTLComputePipelineState {
@@ -288,9 +300,25 @@ extension Harness {
         queue: MTLCommandQueue, pipeline: MTLComputePipelineState,
         checks: inout [String: Bool], pixels: inout [[Float]]) throws {
         let publication = frame.assetPublication(for: asset)
+        let straightAsset = SceneAssetTextureIdentity(path: asset.path, purpose: .straightAlbedo)
+        let straight = frame.assetPublication(for: straightAsset)
         checks["dataRequiresActualOpaqueDecodedFrame"] = checks["dataRequiresActualOpaqueDecodedFrame", default: true]
             && ((publication != nil) == (frame.content == .color(.resolved(.opaque))))
+        checks["straightRequiresActualOpaqueDecodedFrame"] = checks["straightRequiresActualOpaqueDecodedFrame", default: true]
+            && ((straight != nil) == (frame.content == .color(.resolved(.opaque))))
         guard let publication else { return }
+        guard let straight else { fatalError("actual opaque decoded frame did not publish its straight color request") }
+        checks["opaqueStraightPreservesTypedAtom"] = checks["opaqueStraightPreservesTypedAtom", default: true]
+            && straight.isComplete && straight.requestIdentity == .asset(straightAsset)
+            && straight.candidate.identity == .provider(.videoAsset(asset: straightAsset,
+                sourceIncarnation: frame.sourceIncarnation, lifecycleEpoch: frame.epoch))
+            && straight.candidate.purpose == .straightAlbedo && straight.candidate.content == frame.content
+            && straight.candidate.generation == .provider(contentGeneration: frame.contentGeneration)
+            && straight.contentGeneration == frame.contentGeneration
+            && straight.candidate.authoredFormat == .rgba8888 && straight.candidate.sampling == .linearClamp
+        checks["colorStraightAndDataShareDecodedBacking"] = checks["colorStraightAndDataShareDecodedBacking", default: true]
+            && straight.texture === frame.texture && straight.texture === color.texture
+            && straight.texture === publication.texture && straight.contentGeneration == publication.contentGeneration
         checks["colorAndDataShareDecodedBacking"] = checks["colorAndDataShareDecodedBacking", default: true]
             && publication.texture === color.texture && publication.contentGeneration == color.contentGeneration
             && publication.candidate.identity == .provider(.videoAsset(asset: asset,
@@ -299,11 +327,18 @@ extension Harness {
             && publication.candidate.pixelFormat == .bgra8Unorm && publication.candidate.sampling == .linearClamp
         let registry = SceneFrameTextureRegistry()
         registry.beginFrame(frameIndex: frame.contentGeneration, layerSources: [:],
-            assetStates: [asset: .ready(publication), colorAsset: .ready(color)])
+            assetStates: [asset: .ready(publication), colorAsset: .ready(color), straightAsset: .ready(straight)])
         guard let data = registry.resource(for: .asset(asset)),
-              let binding = SceneTextureSlotBinding(slotIndex: 1, candidate: data.publication.candidate) else {
+              let binding = SceneTextureSlotBinding(slotIndex: 1, candidate: data.publication.candidate),
+              let straightResource = registry.resource(for: .asset(straightAsset)),
+              let straightBinding = SceneTextureSlotBinding(slotIndex: 2, candidate: straightResource.publication.candidate) else {
             fatalError("actual decoded channel publication did not reach its typed sampler")
         }
+        checks["straightPurposeQualifiedAtomIsDistinct"] = checks["straightPurposeQualifiedAtomIsDistinct", default: true]
+            && straightResource.publication.isSameAtom(as: straight)
+            && straight.requestIdentity != publication.requestIdentity && straight.requestIdentity != color.requestIdentity
+            && straightBinding.purpose == .straightAlbedo && straightBinding.content == .color(.resolved(.opaque))
+            && straightBinding.texture === binding.texture
         checks["purposeQualifiedAtomsStayDistinct"] = checks["purposeQualifiedAtomsStayDistinct", default: true]
             && data.publication.isSameAtom(as: publication)
             && registry.resource(for: .asset(colorAsset))?.publication.isSameAtom(as: color) == true
@@ -333,11 +368,19 @@ extension Harness {
             let premultiplied = typedFrame(.color(.resolved(.premultipliedAlpha)), texture: texture)
             checks[name + "PMAStillPublishesColor"] = premultiplied.assetPublication(for: colorAsset)?.isComplete == true
             checks[name + "PMARejectsPreservedChannels"] = premultiplied.assetPublication(for: asset) == nil
+            checks[name + "PMARejectsStraightAlbedo"] = premultiplied.assetPublication(for: straightAsset) == nil
         }
         for (name, content) in [("unknownAlpha", SceneTextureContent.color(.unresolved)),
                                 ("straightAlpha", .color(.resolved(.straightAlpha)))] {
             checks[name + "CannotPublishChannels"] = typedFrame(content).assetPublication(for: asset) == nil
+            checks[name + "CannotPublishStraightAlbedo"] = typedFrame(content).assetPublication(for: straightAsset) == nil
         }
+        checks["normalVideoFrameRemainsUnavailable"] = frame.assetPublication(
+            for: .init(path: asset.path, purpose: .normal)) == nil
+        checks["straightZeroEpochIsIncomplete"] = typedFrame(frame.content, epoch: 0)
+            .assetPublication(for: straightAsset)?.isComplete == false
+        checks["straightWrongRequestIsIncomplete"] = !SceneTextureProviderPublication(requestIdentity: .asset(colorAsset),
+            candidate: straight.candidate, contentGeneration: straight.contentGeneration).isComplete
         let request = request(texture: publication.texture, candidate: publication.candidate,
             layer: .init(id: 81, contentKind: "solid"), tint: SIMD3(repeating: 1))
         checks["dataCannotBecomePlainFinalColor"] = request.resolvedBaseTextureSample() == nil
@@ -557,7 +600,12 @@ class SceneMaterialVideoAssetGPUTests(unittest.TestCase):
                     "fractionalAlphaPMARejectsPreservedChannels", "zeroAlphaPMARejectsPreservedChannels",
                     "unknownAlphaCannotPublishChannels", "straightAlphaCannotPublishChannels",
                     "dataCannotBecomePlainFinalColor", "dataZeroEpochIsIncomplete",
-                    "dataWrongRequestIsIncomplete"}.issubset(result["checks"]), result)
+                    "dataWrongRequestIsIncomplete", "straightRequiresActualOpaqueDecodedFrame",
+                    "opaqueStraightPreservesTypedAtom", "colorStraightAndDataShareDecodedBacking",
+                    "straightPurposeQualifiedAtomIsDistinct", "fractionalAlphaPMARejectsStraightAlbedo",
+                    "zeroAlphaPMARejectsStraightAlbedo", "unknownAlphaCannotPublishStraightAlbedo",
+                    "straightAlphaCannotPublishStraightAlbedo", "normalVideoFrameRemainsUnavailable",
+                    "straightZeroEpochIsIncomplete", "straightWrongRequestIsIncomplete"}.issubset(result["checks"]), result)
                 self.assertTrue(all(b == a + 1 for a, b in zip(result["generations"], result["generations"][1:])))
                 print(json.dumps({"variant": index, "resource": resource, "property": property_name,
                     "layerID": layer_id, "videoLayerID": video_layer_id,

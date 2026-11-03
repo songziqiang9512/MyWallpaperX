@@ -136,7 +136,7 @@ final class ScenePerformanceCounterHub {
                 "aliasesSharePhysicalDecoder": source === shared && source === dataSource,
                 "layerPlaybackIsIndependent": source !== layerSource,
                 "assetHasNoLayerBinding": Set(initialVideoFrame.layerBindings.keys) == [videoLayerID]
-                    && !initialVideoFrame.sources.compactMap { $0 }.contains { $0.sourceIncarnation == source.playbackSnapshot(sceneTime: 0).sourceIncarnation },
+                    && !initialVideoFrame.sources.compactMap { $0 }.contains { $0.sourceIncarnation == source.sourceIncarnation },
                 "unsupportedPurposeUnavailable": catalog.launchStates[unsupported] == .unavailable,
                 "badTexUnavailable": catalog.launchStates[invalid] == .unavailable,
             ]
@@ -877,12 +877,12 @@ final class ScenePerformanceCounterHub {
             let replacementLayer = try preparedRegistry.source(sourceKey: replacementKey, preparedFile: preparedFile,
                 owner: .ordinary, layerID: 811, device: device)!
             checks["layerIndexExcludesAssetAndKeepsBothLayers"] = Set(preparedRegistry.sceneScriptSnapshots(sceneTime: 0).layerBindings.keys) == [811, 812]
+            guard firstFrame(layerSource) != nil, firstFrame(replacementLayer) != nil else { fatalError("ordinary sources did not obtain actual Native duration") }
             let commands: [SceneScriptMediaPlaybackCommand] = [.init(layerID: 811, action: .setRate(2), videoSourceIncarnation: replacementLayer.sourceIncarnation), .init(layerID: 812, action: .setRate(3), videoSourceIncarnation: layerSource.sourceIncarnation)]
             try preparedRegistry.validate(commands, timing: timing).get()
             for command in commands { preparedRegistry.applyAdmitted(command, timing: timing) }
             checks["layerIndexSharesResourceAndTargetsDistinctRevision"] = layerSource === obsoleteLayer
-                && layerSource.playbackSnapshot(sceneTime: 0).rate == 3 && replacementLayer.playbackSnapshot(sceneTime: 0).rate == 2
-            guard firstFrame(replacementLayer) != nil else { fatalError("actual Native duration did not become available") }
+                && layerSource.playbackSnapshot(sceneTime: 0)?.rate == 3 && replacementLayer.playbackSnapshot(sceneTime: 0)?.rate == 2
             let nativeDuration = CMTimeGetSeconds(player(replacementLayer).currentItem!.duration)
             let rejectedCases: [(String, [SceneScriptMediaPlaybackCommand], SceneVideoCommandApplicationFailure)] = [
                 ("wrongLayerRejectedAtomically", [.init(layerID: 811, action: .setRate(4), videoSourceIncarnation: replacementLayer.sourceIncarnation), .init(layerID: 999, action: .pause)], .unavailableLayer(999)),
@@ -891,7 +891,7 @@ final class ScenePerformanceCounterHub {
                 ("missingSourceCommandRejected", [.init(layerID: 811, action: .pause)], .unavailableLayer(811))]
             for (name, rejectedCommands, expected) in rejectedCases {
                 if case let .failure(actual) = preparedRegistry.validate(rejectedCommands, timing: timing) {
-                    checks[name] = nativeDuration.isFinite && nativeDuration > 0 && actual == expected && replacementLayer.playbackSnapshot(sceneTime: 0).rate == 2
+                    checks[name] = nativeDuration.isFinite && nativeDuration > 0 && actual == expected && replacementLayer.playbackSnapshot(sceneTime: 0)?.rate == 2
                 } else { checks[name] = false }
             }
             let catalogModel = "models/catalog-video.json", catalogState = replacementLayer.playbackSnapshot(sceneTime: 0)
@@ -907,8 +907,8 @@ final class ScenePerformanceCounterHub {
             preparedRegistry.completeSurfaceRebuild()
             let rebuiltCatalogState = replacementLayer.playbackSnapshot(sceneTime: 0)
             checks["catalogZeroCarrierReusesSourceAndFile"] = preparedRegistry.layerSources(deviceRegistryID: device.registryID).isEmpty
-                && rebuiltCatalogState.sourceIncarnation == catalogState.sourceIncarnation && rebuiltCatalogState.currentTime == catalogState.currentTime
-                && rebuiltCatalogState.rate == catalogState.rate && rebuiltCatalogState.isPlaying == catalogState.isPlaying
+                && catalogState != nil && rebuiltCatalogState?.sourceIncarnation == catalogState?.sourceIncarnation && rebuiltCatalogState?.currentTime == catalogState?.currentTime
+                && rebuiltCatalogState?.rate == catalogState?.rate && rebuiltCatalogState?.isPlaying == catalogState?.isPlaying
                 && (player(replacementLayer).currentItem?.asset as? AVURLAsset)?.url == fileURL
             preparedRegistry.bindPreparedVideoConsumers([811: catalogModel])
             reads["preparedRebuild"] = count()

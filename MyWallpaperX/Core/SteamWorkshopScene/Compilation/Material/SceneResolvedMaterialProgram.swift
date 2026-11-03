@@ -13,6 +13,7 @@ nonisolated struct SceneResolvedMaterialFailure: Error, Equatable {
     }
 
     enum EffectLocalVisualFallback: String, Equatable {
+        case assetUnavailable = "material-finalizer-asset-unavailable"
         case optionalTextureUnavailable =
             "material-finalizer-optional-texture-unavailable"
         case optionalTexturePurposeMismatch =

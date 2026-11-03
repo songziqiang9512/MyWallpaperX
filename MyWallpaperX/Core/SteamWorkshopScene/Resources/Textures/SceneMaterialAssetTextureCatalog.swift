@@ -201,6 +201,7 @@ final class SceneMaterialAssetTextureCatalog {
                let declaration = try loader.videoSourceDeclaration(from: prepared, checkCancellation: checkCancellation) {
                 let content: SceneTextureContent? = switch identity.purpose {
                 case .premultipliedColor: .color(.resolved(.premultipliedAlpha))
+                case .straightAlbedo: .color(.resolved(.opaque))
                 case .preservedChannels: .data
                 default: nil
                 }

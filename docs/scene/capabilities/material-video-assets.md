@@ -21,6 +21,14 @@ Sound 使用独立的 SoundPlaybackProgram/Registry、voice 和局部播放计�
 - publication 由本次计划生成，成功 commit 才推进 generation/last-ready。取得的像素不是可回滚时钟；普通拒帧不恢复已经消费的 Scene 命令或后台 anchor。
 - 未准备输入、坏解码和暂时 pending 只影响实际 consumer；不能重放 VM、回滚整景或拿旧 ready 冒充新定位成功。
 
+### 视频资产的颜色用途
+
+opaque 视频资产可作为 `straightAlbedo` 进入已证明的 shader 颜色输入。准备边界由原 Catalog 发布 `preparedVideo(opaque)`，只授 launch envelope，不制造 ready 帧；实际 Frame 必须由 CoreVideo 元数据证成 opaque，才能按原请求 purpose 发布。原 PMA 颜色和 opaque `preservedChannels` 继续沿各自合同，normal、PMA/未知 alpha 的 straight 请求不扩张。
+
+准备与发布在原 Catalog/Frame 内采用，复用 registry/source、格式事实、typed slot/颜色边界及 compositor，straight 请求保留原 purpose。Source 的真实解码终态由 Bridge 传为 unavailable；Resolver 对实际选中且终态不可用的颜色/data资产传递明确视觉失败，Graph 只在既有 pre-encode 拓扑/事务证明允许时沿原输入 passthrough，保健康 suffix。pending 仍拒帧重试；缺 registry、incomplete、错 identity/purpose/sampling 的边界保持拒绝。资源准备与降级各由上述现有 owner 承担。
+
+验收以同 shader 的静态红纹理为正控，真实 MP4/TEX 经 slot1 与 utility 捕获背景共同构成最终像素，核冷暂停、正常播放及资源/变量/ID改名。现有真实 AV/publication 门验证 opaque、PMA、未知 alpha、原 PMA/data purpose及错误 identity；另核隐藏不阻塞、坏视频不拖住候选且保背景/健康peer、pending不冒充终态、非法publication仍拒绝，以及独立真实邻例。此范围不授全部 codec、透明视频或官方像素 parity。
+
 源码：[VideoTextureSource](../../../MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/SceneVideoTextureSource.swift)。
 
 <a id="switching"></a>

@@ -28,6 +28,8 @@ final class SceneVideoTextureSource {
             switch asset.purpose {
             case .premultipliedColor:
                 assetContent = content
+            case .straightAlbedo where content == .color(.resolved(.opaque)):
+                assetContent = content
             case .preservedChannels where content == .color(.resolved(.opaque)):
                 assetContent = .data
             default:

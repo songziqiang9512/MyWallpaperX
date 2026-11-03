@@ -117,8 +117,8 @@
       "bytes": 5044
     },
     "docs/scene/capabilities/material-video-assets.md": {
-      "lines": 49,
-      "bytes": 4394
+      "lines": 57,
+      "bytes": 5938
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 70,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 30,
-      "bytes": 3032
+      "bytes": 2692
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 81,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 119,
-      "bytes": 13409
+      "bytes": 13403
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -342,6 +342,15 @@
       "owner": "scene-text",
       "reason": "Define effective foreground HDR brightness in the existing text preparation contract, with raw declaration preservation and explicit HDR/background limits.",
       "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#文字-hdr-亮度"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/material-video-assets.md",
+      "before": "c042c47f01928a700441b2054af6cbd452fe5d368b666b39bb4d48419ab70f72",
+      "after": "10b681951077c221b1d39130677576969c60238de6229be5d0d88666f210e63d",
+      "owner": "scene-video-assets",
+      "reason": "Specify opaque straight asset preparation/publication and terminal local-failure behavior in the existing video contract, with strict pending and identity boundaries.",
+      "decision": "docs/scene/capabilities/material-video-assets.md#视频资产的颜色用途"
     }
   ]
 }

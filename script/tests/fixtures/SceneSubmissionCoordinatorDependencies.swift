@@ -735,6 +735,7 @@ struct SceneAssetTextureIdentity: Hashable {
     var reportToken: String { value }
 }
 struct SceneFrameTiming { let sceneTime: TimeInterval }
+enum SceneOrdinaryVideoFrameReadiness: Equatable { case ready, pending, unavailable }
 final class SceneVideoTextureSource {
     struct Frame {
         func assetPublication(for identity: SceneAssetTextureIdentity) -> SceneTextureProviderPublication? {
@@ -743,6 +744,9 @@ final class SceneVideoTextureSource {
     }
     func prepareFrame(for timing: SceneFrameTiming) -> Frame? {
         fatalError("coordinator fixture must not prepare video")
+    }
+    func initialFrameReadiness(preparedFrame: Frame?) -> SceneOrdinaryVideoFrameReadiness {
+        fatalError("coordinator fixture must not query video readiness")
     }
 }
 enum SceneTextureProviderState {

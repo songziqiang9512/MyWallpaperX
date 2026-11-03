@@ -273,6 +273,8 @@ extension SceneResolvedMaterialGraphExecutor {
                               let slot = failure.slot else { return nil }
                         let proven: Bool
                         switch fallback {
+                        case .assetUnavailable:
+                            proven = true
                         case .optionalTextureUnavailable,
                              .optionalTexturePurposeMismatch,
                              .optionalTextureContentMismatch,

@@ -70,6 +70,7 @@ extension SceneResolvedMaterialGraphExecutor {
                 "material-finalizer-uniform-declaration-conflict",
                 "material-finalizer-color-contract",
                 "material-variant-selection-key-unstable",
+                "material-finalizer-asset-unavailable",
                 "material-finalizer-optional-texture-unavailable",
                 "material-finalizer-optional-texture-purpose-mismatch",
                 "material-finalizer-optional-texture-content-mismatch",

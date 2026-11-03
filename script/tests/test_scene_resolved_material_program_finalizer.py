@@ -729,6 +729,34 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             expected,
         )
 
+    def test_only_terminal_selected_color_and_data_assets_get_visual_fallback(self) -> None:
+        failures = self.result["failures"]
+        expected = {
+            "ready": "success|success",
+            "unavailable": (
+                "texture/resourceSnapshotUnresolved|"
+                "material-finalizer-asset-unavailable"
+            ),
+            "pending": "texture/resourceSnapshotUnresolved|none",
+            "missing": "texture/resourceSnapshotUnresolved|none",
+            "incomplete": "texture/textureMetadataIncomplete|none",
+            "identity": "texture/textureMetadataIncomplete|none",
+            "purpose": "texture/textureMetadataIncomplete|none",
+            "sampling": "texture/textureMetadataIncomplete|none",
+        }
+        for projection in ("pma", "straight", "data"):
+            with self.subTest(projection=projection):
+                prefix = f"terminalAsset-{projection}-"
+                self.assertNotIn(prefix + "setup", failures, failures)
+                self.assertEqual(
+                    {state: failures[prefix + state] for state in expected},
+                    expected,
+                )
+                self.assertNotIn(
+                    "material-finalizer-asset-unavailable",
+                    failures[prefix + "absent"],
+                )
+
     def test_shader_defaults_and_dynamic_contributors_are_fail_closed(self) -> None:
         expected = {
             "missingUniformDefault": "uniform/staticUniformBindingInvalid",

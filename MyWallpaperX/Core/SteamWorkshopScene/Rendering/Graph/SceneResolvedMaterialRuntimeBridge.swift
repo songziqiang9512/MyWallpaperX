@@ -369,7 +369,8 @@ final class SceneResolvedMaterialRuntimeBridge {
                 continue
             }
             guard let frame = source.prepareFrame(for: timing) else {
-                states[identity] = .pending
+                states[identity] = source.initialFrameReadiness(preparedFrame: nil)
+                    == .unavailable ? .unavailable : .pending
                 continue
             }
             if let publication = frame.assetPublication(for: identity),

@@ -378,12 +378,18 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
                 )
             case .absent, .unavailable:
                 code = .resourceSnapshotUnresolved
-                fallback = typedVisualFallback(
-                    optional: .optionalTextureUnavailable,
-                    system: .systemProviderUnavailable,
-                    reference: reference,
-                    purpose: purpose
-                )
+                if case .asset = reference,
+                   [.premultipliedColor, .straightAlbedo, .preservedChannels]
+                    .contains(purpose) {
+                    fallback = .assetUnavailable
+                } else {
+                    fallback = typedVisualFallback(
+                        optional: .optionalTextureUnavailable,
+                        system: .systemProviderUnavailable,
+                        reference: reference,
+                        purpose: purpose
+                    )
+                }
             case .ready:
                 code = .identityInvariant
                 fallback = nil

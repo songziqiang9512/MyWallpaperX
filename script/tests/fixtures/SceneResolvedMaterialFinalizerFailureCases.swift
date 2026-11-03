@@ -42,7 +42,80 @@ final class SceneResolvedMaterialFinalizerFailureCases {
         ]
     }
 
-    lazy var failures: [String: String] = [
+    private var terminalAssetFailures: [String: String] {
+        let device = fixture.device
+        let path = SceneVFSAssetPath("textures/renamed-terminal-video.mp4")!
+        let projections: [(String, String, SceneTextureLoadPurpose, SceneTextureContent)] = [
+            ("pma", #"{"material":"framebuffer"}"#, .premultipliedColor,
+             .color(.resolved(.premultipliedAlpha))),
+            ("straight", #"{"material":"albedo"}"#, .straightAlbedo,
+             .color(.resolved(.opaque))),
+            ("data", #"{"mode":"rgbmask"}"#, .preservedChannels, .data),
+        ]
+        var observed: [String: String] = [:]
+        for (name, metadata, purpose, content) in projections {
+            let identity = SceneFrameTextureIdentity.asset(.init(path: path, purpose: purpose))
+            let shader = contract(
+                revision: "terminal-asset-\(name)",
+                uniformMetadata: nil,
+                semanticProbes: false,
+                fragmentSourceOverride: """
+                varying vec2 v_TexCoord;
+                uniform sampler2D g_Texture0; // \(metadata)
+                void main() {
+                    vec4 color = texSample2D(g_Texture0, v_TexCoord);
+                    gl_FragColor = \(purpose == .preservedChannels
+                        ? "vec4(color.rgb, 1.0)" : "color");
+                }
+                """
+            )
+            let material = template(shader, primaryReference: .asset(path), graphBindingsOverride: [])
+            guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(
+                template: material,
+                textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: material),
+                maximumVariantCount: 16
+            ), case .success = cache.precompileLaunchEnvelope(
+                implicitFramebufferIdentity: nil,
+                assetStates: [.init(path: path, purpose: purpose): .preparedVideo(content)]
+            ) else {
+                observed["terminalAsset-\(name)-setup"] = "failed"
+                continue
+            }
+            let ready = publication(device, requestIdentity: identity, purpose: purpose, content: content)
+            let statuses: [(String, SceneFrameTextureLookupStatus?)] = [
+                ("ready", .ready(.init(publication: ready, resourceGeneration: 1))),
+                ("unavailable", .unavailable),
+                ("pending", .pending),
+                ("missing", nil),
+                ("absent", .absent),
+                ("incomplete", .incomplete(.publication(
+                    publication(device, requestIdentity: identity, purpose: purpose, content: content,
+                        candidateGeneration: 1, contentGeneration: 2), resourceGeneration: 1
+                ))),
+                ("identity", .ready(.init(publication: publication(device,
+                    requestIdentity: .asset(.init(path: SceneVFSAssetPath("textures/different-video.mp4")!, purpose: purpose)),
+                    purpose: purpose, content: content), resourceGeneration: 1))),
+                ("purpose", .ready(.init(publication: publication(device, requestIdentity: identity,
+                    purpose: .noise, content: .data), resourceGeneration: 1))),
+                ("sampling", .ready(.init(publication: publication(device, requestIdentity: identity,
+                    purpose: purpose, content: content, sampling: .init(texFlags: 8)), resourceGeneration: 1))),
+            ]
+            for (statusName, status) in statuses {
+                let result = finalize(
+                    shader: shader,
+                    device: device,
+                    additionalEntries: status.map { [identity: $0] } ?? [:],
+                    variantCache: cache
+                )
+                observed["terminalAsset-\(name)-\(statusName)"] =
+                    failureToken(result) + "|" + visualFallbackToken(result)
+            }
+        }
+        return observed
+    }
+
+    lazy var failures: [String: String] = {
+        var values: [String: String] = [
         "nonFramebufferDoesNotInject": failureToken(finalize(
             shader: contract(
                 revision: "non-framebuffer-no-injection",
@@ -431,6 +504,9 @@ final class SceneResolvedMaterialFinalizerFailureCases {
         "scalarShaderDefaultOnly": failureToken(
             self.fixture.uniforms.scalarShaderDefaultOnly
         ),
-    ]
+        ]
+        values.merge(self.terminalAssetFailures) { _, new in new }
+        return values
+    }()
 
 }

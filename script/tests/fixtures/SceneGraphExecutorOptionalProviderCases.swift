@@ -545,7 +545,99 @@ private func runOptionalProviderCases(
             }
         }
     }
-    let results: [String: Bool] = [
+    var terminalAssetResults: [String: Bool] = [:]
+    let terminalGraph = chainedGraph()
+    let terminalChain = orderedLayerGraph(terminalGraph)
+    let middle = terminalGraph.nodes.first {
+        $0.kind == .material && $0.effect == chainedSecondEffect
+    }!
+    let originalMiddle = template(for: middle)
+    let projections: [(String, String, SceneTextureLoadPurpose, SceneTextureContent)] = [
+        ("PMA", #"{"material":"framebuffer"}"#, .premultipliedColor,
+         .color(.resolved(.premultipliedAlpha))),
+        ("Straight", #"{"material":"albedo"}"#, .straightAlbedo,
+         .color(.resolved(.opaque))),
+        ("Data", #"{"mode":"rgbmask"}"#, .preservedChannels, .data),
+    ]
+    for (index, projection) in projections.enumerated() {
+        let (name, metadata, purpose, content) = projection
+        let asset = SceneVFSAssetPath("textures/renamed-terminal-\(name).mp4")!
+        let identity = SceneAssetTextureIdentity(path: asset, purpose: purpose)
+        let shader = shaderContract(
+            nodeIndex: middle.nodeIndex,
+            pass: false,
+            fragmentOverride: """
+            varying vec2 v_TexCoord;
+            uniform sampler2D g_Texture0; // {"material":"framebuffer"}
+            uniform sampler2D g_Texture1; // \(metadata)
+            void main() {
+                vec4 base = texSample2D(g_Texture0, v_TexCoord);
+                vec4 auxiliary = texSample2D(g_Texture1, v_TexCoord);
+                gl_FragColor = \(purpose == .premultipliedColor
+                    ? "base * auxiliary"
+                    : "vec4(mix(base.rgb, auxiliary.rgb, 0.5), base.a)");
+            }
+            """
+        )
+        var slots = originalMiddle.textureSlots
+        slots[1] = .init(index: 1, candidates: [
+            .init(reference: .asset(asset), provenance: .instance),
+        ])
+        let material = Template.validated(
+            textureSlots: slots,
+            combos: originalMiddle.combos,
+            uniformDeclarations: originalMiddle.uniformDeclarations,
+            renderState: originalMiddle.renderState,
+            graphRole: originalMiddle.graphRole,
+            shaderContract: shader,
+            diagnosticProvenance: originalMiddle.diagnosticProvenance
+        )!
+        var entries = catalog(for: terminalGraph).entries
+        entries[.init(effect: middle.effect, nodeIndex: middle.nodeIndex)] = .template(
+            material, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: material)
+        )
+        let terminalCapabilities = capabilities(
+            terminalChain,
+            catalog: .init(entries: entries, resourceDemandIssues: []),
+            assetStates: [identity: .preparedVideo(content)]
+        )
+        let claim = terminalCapabilities.claim(terminalChain)
+        let capability = claim.flatMap { terminalCapabilities.resolve($0.token, for: terminalChain) }
+        let generation = UInt64(180 + index * 2)
+        let terminal = executeVisualFailurePassthrough(
+            device: device, queue: queue, source: source, sourcePipeline: sourcePipeline,
+            claim: claim, capability: capability, capabilities: terminalCapabilities,
+            generation: generation, reason: "material-finalizer-asset-unavailable",
+            textureEntries: [.asset(identity): .unavailable]
+        )
+        terminalAssetResults["terminal\(name)AssetPreservesPreviousAndContinuesSuffix"] =
+            terminal.prepared && terminal.encoded && terminal.gpuCompleted && terminal.continued
+
+        let pendingGeneration = generation + 1
+        guard let claim, let capability,
+              let leases = makeChainedLeases(capability, device: device, generation: pendingGeneration),
+              let executor = Executor(device: device, capabilities: terminalCapabilities),
+              let command = queue.makeCommandBuffer() else {
+            terminalAssetResults["pending\(name)AssetStillRejectsFrame"] = false
+            continue
+        }
+        let pending = executor.prepare(
+            token: claim.token, leases: leases, historyRehydrateCopiesByEffect: [:],
+            frame: frame(pendingGeneration, textureEntries: [.asset(identity): .pending]),
+            sourceTexture: source, sourceUniforms: .neutral(), sourcePipeline: sourcePipeline,
+            frameInputs: .init(), commandBuffer: command, previousStates: [:], previousGraphResources: [:],
+            effectGeneration: pendingGeneration, resetGeneration: pendingGeneration
+        )
+        if case let .failure(.materialFinalizerRejected(stageIndex, failedEffect, _, _, failure)) = pending {
+            terminalAssetResults["pending\(name)AssetStillRejectsFrame"] = stageIndex == 1
+                && failedEffect == chainedSecondEffect && failure.phase == .texture
+                && failure.code == .resourceSnapshotUnresolved && failure.effectLocalVisualFallback == nil
+        } else {
+            terminalAssetResults["pending\(name)AssetStillRejectsFrame"] = false
+        }
+    }
+
+    var results: [String: Bool] = [
         "colorBlendMaskPendingPassthroughPrepared":
             colorBlendPendingFailure.prepared,
         "colorBlendReadyPrepared": colorBlendReady.prepared,
@@ -674,6 +766,7 @@ private func runOptionalProviderCases(
         "rendererFailurePreservesPreviousAndContinuesSuffix":
             rendererFailurePreservesPreviousAndContinuesSuffix,
     ]
+    results.merge(terminalAssetResults) { _, new in new }
     return (
         colorBlendPendingFailure,
         colorBlendWrongPurposeFailure,
