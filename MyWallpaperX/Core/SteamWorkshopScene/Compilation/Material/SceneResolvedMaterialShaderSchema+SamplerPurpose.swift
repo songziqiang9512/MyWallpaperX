@@ -231,15 +231,24 @@ extension SceneResolvedMaterialShaderSchema {
         }
         let declared = declaredPurpose(for: sampler)
         if let sourceProvenPurpose = sampler.sourceProvenPurpose {
-            if let declared, declared != sourceProvenPurpose { return nil }
+            if let declared,
+               !sourceReadPurpose(sourceProvenPurpose, accepts: declared) { return nil }
+            var selectedPurpose = declared ?? sourceProvenPurpose
             if case let .asset(defaultPath)? = sampler.defaultTexture,
                let registeredDefault = SceneStockTextureSemanticRegistry.purpose(
                    for: defaultPath
-               ), registeredDefault != sourceProvenPurpose { return nil }
+               ) {
+                guard sourceReadPurpose(sourceProvenPurpose, accepts: registeredDefault)
+                else { return nil }
+                if declared == nil { selectedPurpose = registeredDefault }
+            }
             if case let .asset(path) = reference,
-               let registered = SceneStockTextureSemanticRegistry.purpose(for: path),
-               registered != sourceProvenPurpose { return nil }
-            return sourceProvenPurpose
+               let registered = SceneStockTextureSemanticRegistry.purpose(for: path) {
+                guard sourceReadPurpose(sourceProvenPurpose, accepts: registered)
+                else { return nil }
+                selectedPurpose = registered
+            }
+            return selectedPurpose
         }
         guard case let .asset(path) = reference else { return declared }
         let registeredPurpose = SceneStockTextureSemanticRegistry.purpose(for: path)
@@ -263,6 +272,14 @@ extension SceneResolvedMaterialShaderSchema {
         else { return candidatePurpose }
         guard candidatePurpose == nil || candidatePurpose == defaultPurpose else { return nil }
         return candidatePurpose ?? defaultPurpose
+    }
+
+    nonisolated static func sourceReadPurpose(
+        _ source: SceneTextureLoadPurpose,
+        accepts resource: SceneTextureLoadPurpose
+    ) -> Bool {
+        resource == source
+            || (source == .phase && resource.isDataPurpose && !resource.requiresVolumeTexture)
     }
 
     private nonisolated static func declaredPurpose(

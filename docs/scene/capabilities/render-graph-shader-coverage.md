@@ -41,7 +41,10 @@ Material、instance、user texture、effect 显式 binding 及 shader default �
 <a id="color"></a>
 ## 颜色、数据与显示
 
-source identity、采样用途、颜色表示及物理格式是不同事实。albedo/emissive、normal/phase/noise、opacity mask 和 preserved channels 不能因存储相同而互换。
+source identity、采样用途、颜色表示及物理格式是不同事实。颜色与数据、二维与volume不能因存储相似而互换。
+
+<a id="scalar-data-read"></a>
+已证明只读红通道作phase权重的shader接纳非volume二维data。ShaderSchema在准备期区分读取角色与资产用途，保选中noise、normal等原purpose；TextureSlotPurpose复用该关系验证candidate链后直接生成事实，退出无source proof的继承检查。其他source proof保持原合同，颜色/volume冲突局部拒绝；后续Program、selection与binding仍消费精确purpose、publication和二维data表示，普通帧不重新证明。回归见[标量数据GPU](../../../script/tests/test_scene_scalar_mask_data_purpose.py)。
 
 Program 只对已证明的颜色槽做 PMA/straight 适配；data/signal 保原通道。有限 HDR RGB 保留到作者运算与终端，不能提前裁到 0–1；零 alpha 和输出 coverage 沿现表示合同。作者显式饱和仍执行。
 

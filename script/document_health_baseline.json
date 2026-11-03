@@ -125,12 +125,12 @@
       "bytes": 6872
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 75,
-      "bytes": 8267
+      "lines": 78,
+      "bytes": 8826
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 37,
-      "bytes": 5337
+      "lines": 38,
+      "bytes": 5706
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 81,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 155,
-      "bytes": 20157
+      "bytes": 20589
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -363,15 +363,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "7c583d66209690810a6b0fc0b3e3c611ad7e47c5d4600a958abc0d3dd1d73df5",
-      "after": "204d56d6d86cd62acb66fee600993bddac3bfca3a08d53b8862029a33f54ec42",
-      "owner": "scene-measurement",
-      "reason": "Replace speculative/stale first-cause leads with full-corpus current facts, newly observed generic and individual breakpoints, and preserve input-specific user feedback pending qualified experiments.",
-      "decision": "docs/scene/development/development-workflow.md#corpus-runtime-measurement"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/scene-resource-admission.md",
       "before": "1fc894d7f9152714cd29d4e596ed00325765dc8a232f996f4f012c06edfcfacc",
       "after": "55486afe5f65c0bab713aa99e0f2fef0ec53ff9bca96cf2f6da90327e518845a",
@@ -381,12 +372,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "b6825129e13059ffe589256a47c1729c88fe72ab441611a140b69e485585e8b6",
+      "after": "3c860cf4c9f4f781fb3562504a0011eab350e061d8bce3156a07c7b511285f61",
+      "owner": "scene-material-input",
+      "reason": "Record source-proven scalar phase consumption of original 2D data purposes, with same-input material/GPU/tail and independent native pixel qualification.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#scalar-data-read"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "95581a83a399483c351787143fa7f84f6eb6cef7fe3a2ae2cac5adf6cdd1d5ac",
-      "after": "9c9f1b8604e7f9272e78d36ac634bc2d8683418b46e7476c8acf808978972dd0",
-      "owner": "scene-snapshot-capacity",
-      "reason": "Record current native large-target pixel/capacity proof and same-input real draw recovery with exact App/build identity and bounded viewport/performance claims.",
-      "decision": "docs/scene/architecture/scene-resource-admission.md#framebuffer-snapshot"
+      "before": "9c9f1b8604e7f9272e78d36ac634bc2d8683418b46e7476c8acf808978972dd0",
+      "after": "37424c1d45e4e1c849cc2ce8d58c76ca462a69dbd6e677000da452c97f6ddd62",
+      "owner": "scene-material-input",
+      "reason": "Record source-proven scalar phase consumption of original 2D data purposes, with same-input material/GPU/tail and independent native pixel qualification.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#scalar-data-read"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "3255223553e52822dafc64860c1669645acd60306b1a1d616639343d74e4b649",
+      "after": "7c8052767120cccf570e174126c723a5775733dd8337c61928c30ba122b81c74",
+      "owner": "scene-material-input",
+      "reason": "Replace blur frontend speculation with four exact kernel gates and two captured-subtree owner gates; record proven missing periodic state and unresolved count/fraction semantics; remove the repaired texture-purpose issue.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     }
   ]
 }

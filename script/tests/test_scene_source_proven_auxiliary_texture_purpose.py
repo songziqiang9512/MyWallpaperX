@@ -107,6 +107,25 @@ private func token(_ sampler: Schema.Sampler?) -> String {
     return "\(sampler.channelUse.rawValue)/\(source)/\(resolved)"
 }
 
+private func resourcePurpose(
+    _ sampler: Schema.Sampler,
+    path: String,
+    lowerPath: String? = nil
+) -> String {
+    let reference = SceneResolvedMaterialTemplate.TextureReference.asset(SceneVFSAssetPath(path)!)
+    var candidates: [SceneResolvedMaterialTemplate.TextureCandidate] = []
+    if let lowerPath {
+        candidates.append(.init(reference: .asset(SceneVFSAssetPath(lowerPath)!), provenance: .material))
+    }
+    candidates.append(.init(reference: reference, provenance: .instance))
+    let slot = SceneResolvedMaterialTemplate.TextureSlot(index: sampler.slot, candidates: candidates)
+    let schema = Schema.purpose(for: reference, sampler: sampler)?.reportToken ?? "nil"
+    let candidate = SceneResolvedMaterialTextureSlotPurpose.fact(
+        in: slot, candidateOrdinal: candidates.count - 1, sampler: sampler
+    )?.purpose.reportToken ?? "nil"
+    return "\(sampler.sourceProvenPurpose?.reportToken ?? "nil")/\(schema)/\(candidate)"
+}
+
 private func phaseFragment(
     slot: Int = 2,
     metadata: String = "",
@@ -246,6 +265,22 @@ private enum Main {
         let renamedNormal = activeSamplers(normalFragment(slot: 6))
 
         let results: [String: Any] = [
+            "phaseResources": [
+                "noise": resourcePurpose(phase[2]!, path: "util/noise"),
+                "clouds": resourcePurpose(phase[2]!, path: "util/clouds_256"),
+                "normal": resourcePurpose(phase[2]!, path: "effects/waterripplenormal"),
+                "renamed": resourcePurpose(renamedPhase[5]!, path: "fixtures/renamed/scalar"),
+                "normalOverNoise": resourcePurpose(phase[2]!, path: "effects/waterripplenormal", lowerPath: "util/noise"),
+                "unknownOverNoise": resourcePurpose(phase[2]!, path: "fixtures/unseen/scalar", lowerPath: "util/noise"),
+                "noiseDefault": resourcePurpose(activeSamplers(phaseFragment(
+                    metadata: #"// {"default":"util/noise"}"#
+                ))[2]!, path: "util/noise"),
+                "normalOverNoiseDefault": resourcePurpose(activeSamplers(phaseFragment(
+                    metadata: #"// {"default":"util/noise"}"#
+                ))[2]!, path: "effects/waterripplenormal"),
+                "normalProofNoise": resourcePurpose(normal[3]!, path: "util/noise"),
+                "normalProofNoiseLower": resourcePurpose(normal[3]!, path: "fixtures/unseen/normal", lowerPath: "util/noise"),
+            ],
             "coordinates": [
                 "uvAndWeight": token(activeSamplers(coordinateFragment())[1]),
                 "renamedSlot": token(activeSamplers(coordinateFragment(slot: 6))[6]),
@@ -437,6 +472,20 @@ class SceneSourceProvenAuxiliaryTexturePurposeTests(unittest.TestCase):
     def tearDownClass(cls) -> None:
         cls.temporary_directory.cleanup()
 
+    def test_scalar_phase_consumes_data_assets_with_their_original_purpose(self) -> None:
+        self.assertEqual(self.result["phaseResources"], {
+            "noise": "phase/noise/noise",
+            "clouds": "phase/noise/noise",
+            "normal": "phase/normal/normal",
+            "renamed": "phase/phase/phase",
+            "normalOverNoise": "phase/normal/normal",
+            "unknownOverNoise": "phase/phase/phase",
+            "noiseDefault": "phase/noise/noise",
+            "normalOverNoiseDefault": "phase/normal/normal",
+            "normalProofNoise": "normal/nil/nil",
+            "normalProofNoiseLower": "normal/normal/nil",
+        })
+
     def test_phase_and_normal_dataflows_publish_typed_purpose(self) -> None:
         self.assertEqual(
             self.result["positive"],
@@ -447,24 +496,24 @@ class SceneSourceProvenAuxiliaryTexturePurposeTests(unittest.TestCase):
                 "renamedNormal": "unproven/normal/normal",
                 # The juguangdeng dataflow: `.ra` channels become scalar
                 # weights and only weight the terminal mix.
-                "dataChannel": "unproven/preserved-channels/preserved-channels",
+                "dataChannel": "redAlphaOnly/preserved-channels/preserved-channels",
                 "renamedDataChannel":
-                    "unproven/preserved-channels/preserved-channels",
+                    "redAlphaOnly/preserved-channels/preserved-channels",
                 "dataChannelUninitializedLocal":
-                    "unproven/preserved-channels/preserved-channels",
+                    "redAlphaOnly/preserved-channels/preserved-channels",
                 "dataChannelIndependentScalarWeight":
-                    "unproven/preserved-channels/preserved-channels",
+                    "redAlphaOnly/preserved-channels/preserved-channels",
                 # A typed stock default keeps registry authority only when it
                 # conflicts; unregistered and halo defaults accept the proof.
                 "dataChannelWithDefault":
-                    "unproven/preserved-channels/preserved-channels",
+                    "redAlphaOnly/preserved-channels/preserved-channels",
                 "dataChannelWithUnregisteredDefault":
-                    "unproven/preserved-channels/preserved-channels",
+                    "redAlphaOnly/preserved-channels/preserved-channels",
             },
             self.result,
         )
 
-    def test_ambiguous_or_conflicting_dataflows_remain_unproven(self) -> None:
+    def test_phase_normal_and_red_alpha_reads_keep_their_roles(self) -> None:
         self.assertEqual(
             self.result["negative"],
             {
@@ -481,20 +530,20 @@ class SceneSourceProvenAuxiliaryTexturePurposeTests(unittest.TestCase):
                 # A single-channel projection is a plain scalar read, not a
                 # strict channel subset; the data proof does not fire.
                 "dataChannelWholeVector": "redOnly/nil/nil",
-                # The sampled channels feeding either mixed color operand, or
-                # the output alpha, escape the weight-only shape.
-                "dataChannelColorOperand": "unproven/nil/nil",
-                "dataChannelOutputAlpha": "unproven/nil/nil",
-                # A second float initializer joined the closure but the bare
-                # vector use of the sample variable escapes component reads.
-                "dataChannelBareUse": "unproven/nil/nil",
-                "dataChannelColorCall": "unproven/nil/nil",
-                "dataChannelNestedUnknownWeight": "unproven/nil/nil",
-                "dataChannelAssignedScalarEscape": "unproven/nil/nil",
-                "dataChannelCallNamedLikeLocal": "unproven/nil/nil",
-                "dataChannelShadowedScalarEscape": "unproven/nil/nil",
+                # The general R/A read proof preserves channels even when
+                # these inputs leave the narrower weight-only shape.
+                "dataChannelColorOperand": "redAlphaOnly/preserved-channels/preserved-channels",
+                "dataChannelOutputAlpha": "redAlphaOnly/preserved-channels/preserved-channels",
+                # These complete R/A reads retain data purpose across aliases
+                # and scalar uses through the general channel proof.
+                "dataChannelBareUse": "redAlphaOnly/preserved-channels/preserved-channels",
+                "dataChannelColorCall": "redAlphaOnly/preserved-channels/preserved-channels",
+                "dataChannelNestedUnknownWeight": "redAlphaOnly/preserved-channels/preserved-channels",
+                "dataChannelAssignedScalarEscape": "redAlphaOnly/preserved-channels/preserved-channels",
+                "dataChannelCallNamedLikeLocal": "redAlphaOnly/preserved-channels/preserved-channels",
+                "dataChannelShadowedScalarEscape": "redAlphaOnly/preserved-channels/preserved-channels",
                 # The stock registry's noise semantics win over the proof.
-                "dataChannelConflictDefault": "unproven/nil/noise",
+                "dataChannelConflictDefault": "redAlphaOnly/nil/noise",
             },
             self.result,
         )

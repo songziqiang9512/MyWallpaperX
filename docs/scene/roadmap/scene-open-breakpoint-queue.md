@@ -13,7 +13,8 @@
 
 | 定位 | 当前事实与下一步 |
 |---|---|
-| blur前端 · 2879793348、3632522893、3725148661、3747595588、3750312644、3830727231 | 六例实际frontend envelope拒绝，覆盖stock/workshop、不同kernel和scale来源；3039882306/868e5另有隐藏分支。沿原shader前端取得具体AST失败并补通用语义，不将KERNEL2当唯一原因。 |
+| blur kernel准入 · 2879793348/132e0、3725148661/757e4、3747595588/503e1、3750312644/346e0 | 实例KERNEL2先被GraphAdmission的`[0,1]`限制拒绝，进入`source-proven-previous-blurred-composite-unowned/route-observe-only`，尚未后端编译。sourceCapture已编码，目标effect仅copy；扩域须核Gaussian varying与实际输出。287另有COMPOSITE0下未被读取的BLENDMODE28限制，不能据此放开所有blend。 |
+| blur子树source · 3632522893/765e1、3830727231/723e0 | child分别为[785]及[438,602,724,728,730,732]，先被OwnerAdmission的child-empty限制拒绝；sourceCapture已编码，effect仅copy。沿原utility source/graph与生命周期补资格，不另造blur采集链；外层`shaderFrontendFailed`不能归为AST失败。 |
 | shader重载 · 3042660491、3746066933 | old_film的mix、fog的dot分别实际stage-link/Metal library失败；先区分作者dialect、类型推导与转换，延长播放不能消除。 |
 | linked timeline producer · 2999344788、3577990983 | bokeh的linked parent/children timeline在准备期报`dynamic-uniform-producer-unavailable`；原载荷未指出missing uniform，需沿BindingProgram/producer取得精确未接入字段。 |
 | graph引用 · 2804817823、2972071249、3504669359 | secondary-self `_19_b`、forward `_234_a`、多provider `_91_a/_1030_a`被编译器拒绝。hidden辅助provider是否仍发布按真实consumer资格，不改成全局prepass或丢原作者顺序。 |
@@ -21,14 +22,13 @@
 | Program阶段守恒 · 3086016320/430 | 明确`execution-stage-conservation`准备拒绝，原码由多个guard共用、具体缺项未知；沿ProgramFirstStages定位，保父426默认alpha=0的输入边界。 |
 | uniform / provider · 3511024658/73、3759799379/319 | 前者`dynamic-uniform-unavailable`未给具体字段，不能直接称缺音频；后者dependency309报`dependency-provider-rejected`，需原composition projection/route首拒绝原因。 |
 | source/模型 · 2804817823/28/32 | 9个资产已加载，两个Puppet source明确拒`MDLV0013`，不是两个纹理文件缺失。沿MDL/Puppet几何owner补格式/姿态资格。 |
-| 活动纹理purpose · 2900431360 | 五个effect的slot2实际有asset，准备期purpose拒绝；沿原Catalog/接口/slot求读取用途，不把data与颜色互换或当文件不存在。 |
 | composition source · 3292370168/239、3039882306/772 | 前者active、无children/URL却引用151，持续未draw；hidden505另有utility capture失败。后者音频composition无对应CPU/graph/所选帧draw，需受控audio/source输入；hidden1084 pending失败、868 fallback不挪作当前可见层证明。 |
 | world-space动态祖先 · 3448877775/15706 | parent15705有origin script/timeline，RopeTrail flags1在模拟前被`dynamicSystemTransform`拒绝。沿ParticleRuntime的当帧world变换消费扩域，不能改作者flags或只延长播放。 |
 | REFRACT normal空槽 · 3566323704/552/141 | material显式`[particle/drop,null]`被要求非空normal的planner拒绝，尚未进入缺文件lookup；缺省normal语义待资格，不造纹理补洞。 |
 | REFRACT cull · 3042623710/330 | REFRACT1+cull normal被planner/noCull接口与render-state compiler拒绝；需实际refraction几何/cull合同，不泛化放开所有材质。 |
 | RopeTrail参数 · 3337494481、3527426897 | 前者10个root先被flags1拒绝，负subdivision=-16为后续未资格形状；后者637/1323缺length被拒。分别核flags与隐式length语义，不取绝对值或猜默认。 |
 | Rope A2C · 3807668787/958 | alphaToCoverage只准ordinary screenSprite，当前Rope材质未接纳；沿原粒子render-state/profile资格，保其他健康层。 |
-| 周期发射上限 · 3564173599/1987、3749463715/405/412 | thunderbolt emitter含`maxtoemitperperiod=32`，准备要求maximumEmissionCount为空而拒`periodicEmissionUnsupported:randomperiodic`。22秒长窗仍无对应接纳出生/draw；先补原周期调度的上限语义，等待不能跨过此准入。 |
+| 周期发射上限 · 3564173599/1987、3749463715/405/412 | `maxtoemitperperiod=32`被nil gate拒绝，22秒长窗无对应出生/draw。Plan无cap、State无逐周期计数，活跃时长先合并多窗；instance.count是否缩放上限、出生消费点及fraction/触顶换窗语义尚未证。先做定窗/count2/非整fraction/短命容量1的区分实验，再沿原emitter与值快照补调度，不能仅删guard或末端min32；explicit不随自然发射扩大资格。 |
 | 粒子算子实际unsupported | 3749463715/3564173599的distance-between-CP、3742497499的distance-to-CP、3527426897的map-sequence、3773747576的sphere collision、3780119725的bounds collision均有dispatcher事实（6样本10组件）。各原operator/initializer owner独立补语义；collision坐标与outside-born先取可区分输入。 |
 | 粒子出生拒绝 · 3009275235/255、3248220186/2157、3746066933/85、3799613625/452 | 有真实`birth-construction-rejected`，当前首事实未细分最终失败字段，原因未知；先核出生构造的真实失败，不猜finite或作者错误。 |
 | 粒子零接纳 · 2866723317 | 正rate/capacity下只有zero-admitted-count、未见所选帧draw；没有已证delay，需当前count/capacity/consumer定位，不能无依据扩大等待。 |

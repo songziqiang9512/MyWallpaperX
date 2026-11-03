@@ -17,7 +17,7 @@ private typealias Template = SceneResolvedMaterialTemplate
 private let normalPath = SceneVFSAssetPath("effects/waterripplenormal")!
 private let noisePath = SceneVFSAssetPath("util/noise")!
 
-private func shader(renamed: Bool = false, expression: String = "red", mode: String = "opacitymask",
+private func shader(renamed: Bool = false, expression: String = "red", mode: String? = "opacitymask",
     defaultPath: SceneVFSAssetPath = noisePath) -> SceneShaderContract {
     let slot = renamed ? 4 : 2, varying = renamed ? "v_Map" : "v_UV"
     let carrier = renamed ? "shade" : "density"
@@ -25,6 +25,8 @@ private func shader(renamed: Bool = false, expression: String = "red", mode: Str
     let sample = "texSample2D(g_Texture\(slot), \(coordinate))"
     let body: String
     switch expression {
+    case "phase":
+        body = "float \(carrier) = \(sample).r; float weight = smoothstep(0.2, 0.8, \(carrier)); gl_FragColor = mix(vec4(0.0, 0.0, 0.25, 1.0), vec4(1.0, 0.5, 0.25, 1.0), weight);"
     case "whole": body = "gl_FragColor = \(sample);"
     case "rg": body = "vec2 pair = \(sample).rg; gl_FragColor = vec4(pair, 0.25, 1.0);"
     case "alpha": body = "float \(carrier) = \(sample).a; gl_FragColor = vec4(\(carrier), 0.0, 0.25, 1.0);"
@@ -38,9 +40,10 @@ private func shader(renamed: Bool = false, expression: String = "red", mode: Str
     varying vec2 \(varying);
     void main() { \(varying) = a_TexCoord; gl_Position = vec4(a_Position, 1.0); }
     """
+    let modeMetadata = mode.map { "\"mode\":\"\($0)\"," } ?? ""
     let fragment = """
     varying vec2 \(varying);
-    uniform sampler2D g_Texture\(slot); // {"mode":"\(mode)","default":"\(defaultPath.value)"}
+    uniform sampler2D g_Texture\(slot); // {\(modeMetadata)"default":"\(defaultPath.value)"}
     void main() { \(body) }
     """
     let prefix = renamed ? "fixtures/moved/scalar-paint" : "fixtures/scalar-mask"
@@ -188,9 +191,10 @@ private func run(device: MTLDevice, queue: MTLCommandQueue, renamed: Bool,
     candidatePath: SceneVFSAssetPath, candidatePurpose: SceneTextureLoadPurpose, ready: Bool,
     noiseDefault: SceneVFSAssetPath = noisePath, defaultReady: Bool = true,
     corruption: String = "none", lowerNoise: Bool = false,
-    candidateState: SceneAssetTextureLaunchState? = nil) -> [String: Any] {
+    candidateState: SceneAssetTextureLaunchState? = nil, phaseRead: Bool = false) -> [String: Any] {
     let slot = renamed ? 4 : 2
-    let contract = shader(renamed: renamed, defaultPath: noiseDefault)
+    let contract = shader(renamed: renamed, expression: phaseRead ? "phase" : "red",
+        mode: phaseRead ? nil : "opacitymask", defaultPath: noiseDefault)
     let value = template(contract, path: candidatePath, slot: slot, lowerPath: lowerNoise ? noiseDefault : nil)
     let sampler = preparedSampler(contract, slot: slot)!
     let authored = SceneAssetTextureIdentity(path: candidatePath, purpose: candidatePurpose)
@@ -341,7 +345,26 @@ private enum Main {
                 candidatePath:normalPath,candidatePurpose:.normal,ready:true,corruption:name))
         }
         let domains: [SceneTextureLoadPurpose] = [.normal,.noise,.mask,.preservedChannels,.lookupTable,.straightAlbedo,.premultipliedColor]
+        let phaseMatrix = [
+            run(device:device,queue:queue,renamed:false,candidatePath:normalPath,
+                candidatePurpose:.normal,ready:true,phaseRead:true),
+            run(device:device,queue:queue,renamed:false,candidatePath:normalPath,
+                candidatePurpose:.normal,ready:false,phaseRead:true),
+            run(device:device,queue:queue,renamed:false,candidatePath:noisePath,
+                candidatePurpose:.noise,ready:true,noiseDefault:SceneVFSAssetPath("pattern/voronoi")!,phaseRead:true),
+            run(device:device,queue:queue,renamed:true,candidatePath:SceneVFSAssetPath("fixtures/moved/phase-input")!,
+                candidatePurpose:.noise,ready:true,noiseDefault:SceneVFSAssetPath("pattern/voronoi")!,phaseRead:true),
+            run(device:device,queue:queue,renamed:false,candidatePath:normalPath,
+                candidatePurpose:.normal,ready:true,lowerNoise:true,phaseRead:true),
+        ]
+        let phaseCorruptions = ["color","volume","lut"].map {
+            run(device:device,queue:queue,renamed:false,candidatePath:normalPath,
+                candidatePurpose:.normal,ready:true,corruption:$0,phaseRead:true)
+        }
         let output: [String: Any] = ["matrix":matrix,"neighboring":neighboring,"sourceConflicts":conflicts,
+            "phaseMatrix":phaseMatrix,"phaseCorruptions":phaseCorruptions,
+            "phaseReadDomains":domains.map { ["purpose":$0.reportToken,
+                "accepted":Schema.sourceReadPurpose(.phase,accepts:$0)] },
             "purposeDomains": domains.map { ["purpose":$0.reportToken,"data":$0.isDataPurpose,"volume":$0.requiresVolumeTexture] },
             "oldNoiseRedRule":token(Schema.purpose(for: .asset(noisePath), sampler: oldNoise)),"corruptions":corruptions,
             "selectionCounterexamples": [
@@ -393,6 +416,44 @@ class SceneScalarMaskDataPurposeTests(unittest.TestCase):
                     self.assertEqual(frame["generation"], frame["frame"], row)
                     red = ([32,96,160,224] if frame["frame"] == 1 else [224,160,96,32]) if row["candidateReady"] else [16,48,80,112]
                     self.assertEqual(frame["pixelsRGBA"], [value for r in red for value in [r,r//2,64,255]], row)
+
+    def test_phase_weights_keep_asset_identity_and_change_actual_gpu_pixels(self) -> None:
+        self.assertEqual(len(self.result["phaseMatrix"]), 5)
+        for row in self.result["phaseMatrix"]:
+            with self.subTest(path=row["candidatePath"], ready=row["candidateReady"], lower=row["lowerNoise"]):
+                self.assertEqual(row["channelUse"], "redOnly", row)
+                self.assertEqual(row["sourcePurpose"], "phase", row)
+                self.assertEqual(row["slotFact"], row["candidatePurpose"], row)
+                self.assertEqual(row["launch"], "success", row)
+                self.assertTrue(row["typedStaticDataSlot"], row)
+                self.assertTrue(row["variantCompilationStable"], row)
+                self.assertEqual(len(row["frames"]), 2, row)
+                for frame in row["frames"]:
+                    self.assertEqual(frame["finalization"], "success", row)
+                    self.assertTrue(frame["gpuCompleted"], row)
+                    purpose = row["candidatePurpose"] if row["candidateReady"] else "noise"
+                    self.assertEqual(frame["selectedPurpose"], purpose, row)
+                    self.assertEqual(frame["publicationPurpose"], purpose, row)
+                    red = ([32,96,160,224] if frame["frame"] == 1 else [224,160,96,32]) if row["candidateReady"] else [16,48,80,112]
+                    expected = []
+                    for r in red:
+                        t = max(0, min(1, (r / 255 - 0.2) / 0.6))
+                        weight = t * t * (3 - 2 * t)
+                        expected.extend([round(weight * 255), round(weight * 127.5), 64, 255])
+                    self.assertEqual(len(frame["pixelsRGBA"]), len(expected), row)
+                    self.assertTrue(all(abs(actual - oracle) <= 1 for actual, oracle in zip(frame["pixelsRGBA"], expected)), row)
+        renamed = self.result["phaseMatrix"][3]
+        normal = self.result["phaseMatrix"][0]
+        self.assertNotEqual(renamed["candidatePath"], normal["candidatePath"])
+        self.assertEqual([f["pixelsRGBA"] for f in renamed["frames"]], [f["pixelsRGBA"] for f in normal["frames"]])
+        domains = {r["purpose"]:r["accepted"] for r in self.result["phaseReadDomains"]}
+        self.assertEqual(domains, {"normal":True,"noise":True,"mask":True,"preserved-channels":True,
+            "lookup-table":False,"straight-albedo":False,"premultiplied-color":False})
+        for row in self.result["phaseCorruptions"]:
+            self.assertEqual(row["launch"], "success", row)
+            for frame in row["frames"]:
+                self.assertTrue(frame["finalization"].startswith("texture:textureMetadataIncomplete:"), row)
+                self.assertNotIn("gpuCompleted", frame)
 
     def test_red_alpha_channel_projects_only_untyped_regular_samplers(self) -> None:
         rows = {row["expression"] + "/" + row["mode"]: row for row in self.result["neighboring"]}

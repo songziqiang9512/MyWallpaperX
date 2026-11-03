@@ -7,9 +7,9 @@
 
 2026-11-03全量测量基线为`1b0dd628ce0b6778acf9bef51fd1bcba45ac2d33`及显式DEBUG测量改动。全库App executable SHA-256为`5fce05dc6a71edabe9445d724912472f9d39d10adbca6f78dc2aafa14ec1727f`；Release配置加DEBUG、Swift `-O`/C `-Os`、single-file，Developer ID Team `H9QWU9XN8R`、无时间戳，arm64/macOS27.2/Xcode27.2。它不是正式Release性能配置。
 
-42产品与31采集源码、构建收据及原字节见`.artifacts/scene-goal-full-sample-retest-20261103/`的`frozen-product-sources.zip`、`build-source-freeze-v2.json`、`full-runtime-plan.json`。片头子集另有采集源码收据；后处理更正不重写原报告。观察成本修正后的App SHA为`51164968353e0b0eefaf08c44cf8d8e30fdbe954615e5ae5244ab2101002a4ea`，同目录`build-source-freeze-v3.json`及两份`*-build-optout-final-inputs.json`保签名Debug/优化DEBUG构建前后42源一致。
+42产品与31采集源码及原字节见`.artifacts/scene-goal-full-sample-retest-20261103/`的`frozen-product-sources.zip`、`build-source-freeze-v2.json`、`full-runtime-plan.json`。片头子集及关闭观测的构建/运行身份由同目录收据维护；后处理不改原报告。
 
-快照容量切片以`3fe55989059ca93945b1eecf2bba8baab54e7303`为基线，仅变更一个产品文件；签名Debug/优化DEBUG构建源稳定，App SHA为`28793808a665270a43b2e4c5c07cdd7f50e25541d7e914a5150057012e5e5454`。收据在`.artifacts/scene-goal-snapshot-capacity-20261103/`，不将三个邻例外推成新App全库重跑。
+当前定向复验基于`c39dcb28d43ad6d22f5eb3a82fd85113befcc3ab`及三个准备期用途文件改动，App SHA为`20c1d08c2c95208e0c4465d2156982f5c324781429ea5aac46eb0f357cabbe25`。签名Debug/优化DEBUG构建源稳定；`.artifacts/scene-goal-scalar-data-input-20261103/`保父App一例、新App三例、原生结果及输入/构建收据。定向复验不代表新App全库重跑。
 
 <a id="coverage"></a>
 ## 全库运行与逐项阶段
@@ -26,7 +26,8 @@
 | 视觉粗筛 | 633张全部实际查看：539未见明显粗筛异常、14视觉疑点、35需时间/输入、45参考不足；另开40张原图复核。作者preview仅方向性，无视觉PASS或官方parity。 |
 | 长窗与过场 | 稀疏3766387484在模拟约9.995秒接纳出生，所选帧root/child各2；两个雷电profile仍因周期上限拒绝。10个片头样本补至Ready+约15秒，实际看到标识退场或主体变化。3764725758/3830665420的第二轮仍未资格。 |
 | 失败与恢复 | 原CHECK、精确拒绝、pre-Ready失败与后续成功均保留；首次3780119725 stop附近31条ledger失败，22秒/10秒复验未复现，不删原失败。当前首因与有价值个案归[开放队列](../roadmap/scene-open-breakpoint-queue.md)。 |
-| 快照容量修正 | 默认快照改用原全局实际计费；55项原生门通过，含BGRA100MB/HDR200MB、满额cached复用、新尺寸拒绝、显式限额、双owner回滚和在途最终释放。5000×5000 blend31中心实测与64×64正控同为BGRA(72,48,48,255)，外部背景保持；原产品三项反例拒绝。3087231311同三输入摘要的365层恢复copy/blend/draw及GPU完成，2808874251折射与3471294034邻例正常。原viewport脚底logo未作同相位像素资格，不认领内存/带宽或帧率收益。 |
+| 快照容量 | 原全局实际计费下55项原生门通过，含BGRA100MB/HDR200MB、满额cached复用、新尺寸拒绝、显式限额、双owner回滚及在途释放。5000×5000 blend31中心与64×64正控同为BGRA(72,48,48,255)，外部背景保持。3087231311同三输入摘要的365层copy/blend/draw及GPU完成，2808874251折射与3471294034邻例有界复验；脚底logo同相位像素未资格。收据见`.artifacts/scene-goal-snapshot-capacity-20261103/`。 |
+| 标量phase数据输入 | 20项相关原生方法通过，含5组两帧Metal权重像素、改名及颜色/volume反例。2900431360同三输入摘要的五个effect实际按noise/normal绑定slot2，进入原材质draw、后续读取及layer tail；父App仅copy。3612795410标准phase与2999344788自定义资产的4条waterflow输入继续绘制，后者原bokeh producer失败仍在。四次捕获均匹配request/CB/Surface/GPU与sealed drawable；不授逐资产终端像素、完整动画或官方parity。原始资料见`.artifacts/scene-evidence/runs/scalar-data-input-20261103/`。 |
 | 测量改动验证 | 粒子146项中136通过、10项因私有运行缓存缺失跳过；18项真实Metal邻门、62项后处理/collector、20项保留工具及Release诊断排除门通过。成本修正后三个真实邻例capture/GPU排空与既有失败一致；关闭观测的实际运行无新增两类载荷。独立审查无未闭实现finding。 |
 
 <a id="limits"></a>

@@ -63,13 +63,20 @@ nonisolated enum SceneResolvedMaterialTextureSlotPurpose {
             )
         }
         if let sourcePurpose = sampler.sourceProvenPurpose {
-            guard directPurpose == sourcePurpose,
+            guard let directPurpose,
+                  SceneResolvedMaterialShaderSchema.sourceReadPurpose(
+                    sourcePurpose, accepts: directPurpose
+                  ),
                   sourcePurposeIsCompatibleWithLowerCandidates(
                     in: slot,
                     before: candidateOrdinal,
                     sampler: sampler,
                     sourcePurpose: sourcePurpose
                   ) else { return nil }
+            return makeFact(
+                slot: slot, ordinal: candidateOrdinal,
+                candidate: candidate, purpose: directPurpose
+            )
         }
         guard case let .asset(path) = candidate.reference else {
             return directPurpose.map {
@@ -174,11 +181,15 @@ nonisolated enum SceneResolvedMaterialTextureSlotPurpose {
             let lower = slot.candidates[lowerOrdinal]
             if case let .asset(path) = lower.reference,
                let registered = SceneStockTextureSemanticRegistry.purpose(for: path),
-               registered != sourcePurpose {
+               !SceneResolvedMaterialShaderSchema.sourceReadPurpose(
+                    sourcePurpose, accepts: registered
+               ) {
                 return false
             }
             if let lowerPurpose = SceneResolvedMaterialShaderSchema.purpose(for: lower.reference, sampler: sampler),
-               lowerPurpose != sourcePurpose {
+               !SceneResolvedMaterialShaderSchema.sourceReadPurpose(
+                    sourcePurpose, accepts: lowerPurpose
+               ) {
                 return false
             }
         }

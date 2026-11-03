@@ -366,13 +366,12 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
             // transfer or mask semantics attach to this proof.
             case .dataChannels: purpose = .preservedChannels
             }
-            // A typed stock default keeps its authority: the Self.purpose(for:)
-            // arbitration rejects the proof when the default's registry role
-            // conflicts, so the fact never overrides registry semantics.
+            // Source reads and resource roles are separate facts. A proven
+            // scalar phase read retains the selected 2D data resource's role.
             if case let .asset(defaultPath)? = samplers[fact.slot]?.defaultTexture,
                let registered = SceneStockTextureSemanticRegistry.purpose(
                    for: defaultPath
-               ), registered != purpose {
+               ), !sourceReadPurpose(purpose, accepts: registered) {
                 continue
             }
             result[fact.slot] = result[fact.slot]?

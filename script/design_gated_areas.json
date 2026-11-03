@@ -445,7 +445,7 @@
       "owner": "scene-material-color-boundary",
       "status": "approved",
       "designDoc": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "design_notes": "",
+      "design_notes": "render-graph-shader-coverage.md#scalar-data-read：准备期以已证标量phase读取兼容二维data，保选中资产的原purpose/identity；ShaderSchema统一裁决，TextureSlotPurpose复用，替换严格相等限制。颜色/volume、其他source proof和错误候选链仍拒绝。改名/等价、反例、Metal像素及独立真实样本验收，不增普通帧工作或owner。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgram+ColorDerivation.swift",
@@ -453,7 +453,9 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneBaseImageTextureLoad+Ordinary.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialTextureSlotPurpose.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderTextureChannelAnalyzer.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderFrontendModel.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderFrontendModel.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialShaderSchema.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialShaderSchema+SamplerPurpose.swift"
       ],
       "contentPatterns": []
     },
