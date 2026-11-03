@@ -9,7 +9,8 @@ nonisolated extension SceneResolvedMaterialProgram {
         let frontendProgram: SceneAuthoredShaderProgram
         let renderState: SceneMaterialRenderState
         let runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds
-        let hasEffectContext: Bool
+        let preparedUniformBindings: [SceneResolvedMaterialPreparedUniformBinding]
+        let activeUniformIdentities: [ActiveUniformIdentity]
         let activeTextureSlots: [Int]
         let activeTextureSlotSet: Set<Int>
         let textureBindingsBySlot: [SceneAuthoredShaderProgram.TextureBinding?]
@@ -22,14 +23,14 @@ nonisolated extension SceneResolvedMaterialProgram {
         let associatedOverOverlaySlot: Int?
         let premultipliedColorInputSlots: Set<Int>
 
-        /// The only factory, shared by variant admission and raw assembly.
-        /// An explicit initializer prevents unchecked memberwise construction.
+        /// Uniform ownership has already been resolved by preparation. This
+        /// factory binds that plan to the frontend ABI once.
         init(
             preparedShader: SceneShaderPreparedProgram,
             frontend: SceneAuthoredShaderProgram,
             renderState: SceneMaterialRenderState,
             runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds,
-            hasEffectContext: Bool,
+            preparedUniformBindings: [SceneResolvedMaterialPreparedUniformBinding],
             conditionalGeneratedRGBInputContract:
                 SceneResolvedMaterialProgramDerivation.ConditionalGeneratedRGBInputContract?,
             associatedOverOverlaySlot: Int?,
@@ -63,6 +64,30 @@ nonisolated extension SceneResolvedMaterialProgram {
             guard renderState.supportsResolvedMaterialFullscreenOverwrite else {
                 throw Failure(phase: .state, code: .renderStateInvalid)
             }
+            guard preparedUniformBindings.map(\.field) == frontend.uniformLayout.fields else {
+                throw Failure(phase: .uniform, code: .uniformBindingInvalid,
+                              details: ["prepared-uniform-layout"])
+            }
+            activeUniformIdentities = preparedUniformBindings.map { binding in
+                let source: UniformSourceSchema
+                switch binding.source {
+                case let .host(host): source = .host(host)
+                case .staticValue, .selfCompositeTextureResolution: source = .staticValue
+                case let .neutralMissingTextureResolution(fact):
+                    source = .neutralMissingTextureResolution(fact)
+                case let .dynamic(dynamic):
+                    let kind: DynamicSourceKind = switch dynamic.contributor {
+                    case .userProperty: .userProperty
+                    case .timeline: .timeline
+                    case .sceneScript: .sceneScript
+                    }
+                    source = .dynamic(kind)
+                }
+                let field = binding.field
+                return .init(fieldName: field.name, fieldType: field.type.rawValue,
+                             arrayCount: field.arrayCount, fieldOffset: field.offset,
+                             source: source)
+            }
             var bindings = Array<SceneAuthoredShaderProgram.TextureBinding?>(
                 repeating: nil, count: 8
             )
@@ -71,7 +96,7 @@ nonisolated extension SceneResolvedMaterialProgram {
             frontendProgram = frontend
             self.renderState = renderState
             self.runtimeLoopBounds = runtimeLoopBounds
-            self.hasEffectContext = hasEffectContext
+            self.preparedUniformBindings = preparedUniformBindings
             activeTextureSlots = slots
             activeTextureSlotSet = Set(slots)
             textureBindingsBySlot = bindings
@@ -97,41 +122,6 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
     typealias Program = SceneResolvedMaterialProgram
     typealias Template = SceneResolvedMaterialTemplate
 
-    static func derive(_ input: Program.AssemblyInput) -> Program.Derived? {
-        guard let frontend = compileFrontend(input.preparedShader,
-            boundTextureSlots: Set(input.textureSlots.indices.filter { input.textureSlots[$0] != nil })) else { return nil }
-        return deriveCompiled(
-            input,
-            frontend: frontend,
-            conditionalGeneratedRGBInputContract: nil,
-            associatedOverOverlaySlot: associatedOverOverlaySlot(
-                fragmentSource: input.preparedShader.fragment.source
-            )
-        )
-    }
-
-    static func deriveCompiled(
-        _ input: Program.AssemblyInput,
-        frontend: SceneAuthoredShaderProgram,
-        conditionalGeneratedRGBInputContract:
-            ConditionalGeneratedRGBInputContract?,
-        associatedOverOverlaySlot: Int? = nil,
-        premultipliedColorInputSlots: Set<Int> = []
-    ) -> Program.Derived? {
-        guard let prepared = try? Program.PreparedAssembly(
-            preparedShader: input.preparedShader,
-            frontend: frontend,
-            renderState: input.renderState,
-            runtimeLoopBounds: input.runtimeLoopBounds,
-            hasEffectContext: input.hasEffectContext,
-            conditionalGeneratedRGBInputContract:
-                conditionalGeneratedRGBInputContract,
-            associatedOverOverlaySlot: associatedOverOverlaySlot,
-            premultipliedColorInputSlots: premultipliedColorInputSlots
-        ) else { return nil }
-        return derive(input.frame, prepared: prepared)
-    }
-
     static func derive(
         _ input: Program.FrameAssemblyInput,
         prepared: Program.PreparedAssembly
@@ -150,9 +140,7 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
               ),
               let uniforms = resolveUniforms(
                   input.resolvedUniforms,
-                  layout: frontend.uniformLayout,
-                  activeTextureSlots: prepared.activeTextureSlotSet,
-                  hasEffectContext: prepared.hasEffectContext
+                  prepared: prepared
               ),
               let graphRole = SceneResolvedMaterialProgramIdentity.graphRole(
                   input.graphRole,
@@ -176,7 +164,7 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
         let semantic = Program.SemanticIdentity(
             shader: prepared.shaderIdentity,
             textureSlots: textures.semantic,
-            activeUniforms: uniforms.semantic,
+            activeUniforms: prepared.activeUniformIdentities,
             renderState: prepared.renderStateIdentity,
             outputContract: outputIdentity,
             graphRole: graphRole,
@@ -311,7 +299,6 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
 
     private struct UniformProjection {
         let bytes: Data
-        let semantic: [Program.ActiveUniformIdentity]
         let dynamic: [Program.ExactDynamicUniformIdentity]
     }
 
@@ -341,23 +328,6 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
             source.variantSHA256,
             source.preparedSHA256,
         ]
-    }
-
-    private static func compileFrontend(
-        _ prepared: SceneShaderPreparedProgram,
-        boundTextureSlots: Set<Int>
-    ) -> SceneAuthoredShaderProgram? {
-        let output = SceneAuthoredShaderFrontend.compile(
-            vertexSource: prepared.vertex.source,
-            fragmentSource: prepared.fragment.source,
-            boundTextureSlots: boundTextureSlots
-        )
-        guard output.diagnostics.isEmpty,
-              let program = output.program,
-              uniqueAndValid(program.uniformLayout) else {
-            return nil
-        }
-        return program
     }
 
     static func uniqueAndValid(
@@ -483,129 +453,29 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
 
     private static func resolveUniforms(
         _ resolved: [Program.ResolvedUniform],
-        layout: SceneAuthoredShaderUniformLayout,
-        activeTextureSlots: Set<Int>,
-        hasEffectContext: Bool
+        prepared: Program.PreparedAssembly
     ) -> UniformProjection? {
-        guard resolved.count == layout.fields.count else { return nil }
-        var bytes = Data(count: layout.byteSize)
-        var semantic: [Program.ActiveUniformIdentity] = []
+        let bindings = prepared.preparedUniformBindings
+        guard resolved.count == bindings.count else { return nil }
+        var bytes = Data(count: prepared.frontendProgram.uniformLayout.byteSize)
         var dynamic: [Program.ExactDynamicUniformIdentity] = []
-        for (field, value) in zip(layout.fields, resolved) {
-            guard value.field == field,
-                  value.encodedValue.count == field.storageByteSize,
-                  let source = uniformSourceIdentity(
-                      value.source,
-                      field: field,
-                      activeTextureSlots: activeTextureSlots,
-                      hasEffectContext: hasEffectContext
-                  ) else {
-                return nil
-            }
+        for (binding, value) in zip(bindings, resolved) {
+            let field = binding.field
+            guard value.encodedValue.count == field.storageByteSize else { return nil }
             bytes.replaceSubrange(
                 field.offset ..< field.offset + field.storageByteSize,
                 with: value.encodedValue
             )
-            semantic.append(.init(
-                fieldName: field.name,
-                fieldType: field.type.rawValue,
-                arrayCount: field.arrayCount,
-                fieldOffset: field.offset,
-                source: source
-            ))
-            if case let .dynamic(
-                declared,
-                target,
-                resolvedSource,
-                scriptAttachments
-            ) = value.source {
+            if case let .dynamic(prepared) = binding.source {
+                guard let resolvedSource = value.resolvedSource else { return nil }
                 dynamic.append(.init(
-                    target: target,
-                    declaredSource: declared,
+                    target: prepared.declaration.target,
+                    declaredSource: prepared.contributor,
                     resolvedSource: resolvedSource,
-                    scriptAttachments: scriptAttachments
+                    scriptAttachments: prepared.declaration.scriptAttachments
                 ))
             }
         }
-        return UniformProjection(
-            bytes: bytes,
-            semantic: semantic,
-            dynamic: dynamic
-        )
+        return UniformProjection(bytes: bytes, dynamic: dynamic)
     }
-
-    private static func uniformSourceIdentity(
-        _ source: Program.ResolvedUniform.Source,
-        field: SceneAuthoredShaderUniformLayout.Field,
-        activeTextureSlots: Set<Int>,
-        hasEffectContext: Bool
-    ) -> Program.UniformSourceSchema? {
-        let expectedHost = SceneResolvedMaterialHostUniformSchema.resolve(
-            field,
-            activeTextureSlots: activeTextureSlots,
-            hasEffectContext: hasEffectContext
-        )
-        guard expectedHost != nil || (
-            !SceneResolvedMaterialHostUniformSchema
-                .requiresTextureCompanionHost(field.authoredName)
-                && !SceneResolvedMaterialHostUniformSchema.requiresEffectHost(
-                    field.authoredName, hasEffectContext: hasEffectContext
-                )
-        ) else { return nil }
-        switch source {
-        case let .host(host):
-            guard host == expectedHost else { return nil }
-            return .host(host)
-        case .staticValue:
-            guard expectedHost == nil else { return nil }
-            return .staticValue
-        case let .neutralMissingTextureResolution(fact):
-            guard expectedHost == nil,
-                  field.name == fact.resolutionUniformName,
-                  field.authoredName == fact.resolutionUniformName,
-                  field.type == .float4,
-                  field.arrayCount == nil,
-                  !activeTextureSlots.contains(fact.resolutionSlot)
-            else { return nil }
-            return .neutralMissingTextureResolution(fact)
-        case let .selfCompositeTextureResolution(slot):
-            // Structural proof (authored same-layer named-target candidate,
-            // no sampler) lives in the finalizer; assembly only rejects a
-            // shape the shader's own active bindings contradict.
-            guard expectedHost == nil,
-                  field.type == .float4,
-                  field.arrayCount == nil,
-                  field.authoredName == field.name,
-                  field.name == "g_Texture\(slot)Resolution",
-                  !activeTextureSlots.contains(slot)
-            else { return nil }
-            return .staticValue
-        case let .dynamic(declared, _, resolved, _):
-            guard expectedHost == nil,
-                  let kind = dynamicKind(declared, resolved: resolved) else {
-                return nil
-            }
-            return .dynamic(kind)
-        }
-    }
-
-    private static func dynamicKind(
-        _ declared: Template.DynamicUniformSource,
-        resolved: SceneDynamicSource
-    ) -> Program.DynamicSourceKind? {
-        if resolved == .authored {
-            return switch declared {
-            case .userProperty: .userProperty
-            case .timeline: .timeline
-            case .sceneScript: .sceneScript
-            }
-        }
-        switch (declared, resolved) {
-        case (.userProperty, .userProperty): return .userProperty
-        case (.timeline, .timeline): return .timeline
-        case (.sceneScript, .sceneScript): return .sceneScript
-        default: return nil
-        }
-    }
-
 }

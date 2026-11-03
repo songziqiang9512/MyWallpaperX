@@ -16,8 +16,8 @@ import unittest
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 PROGRAM_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgram.swift"
-TEXTURE_CANDIDATE_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureCandidate.swift"
 SWIFT_SOURCES = [
+    SCENE_ROOT / "Resources/Textures/SceneTextureLookupIdentity.swift",
     SCENE_ROOT / "Compilation/Material/SceneRenderTargetVocabulary.swift",
     SCENE_ROOT / "Compilation/Material/SceneAuthoredMaterialResolver.swift",
     SCENE_ROOT / "Format/SceneJSONValue.swift",
@@ -29,6 +29,8 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderContract.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectTextureInput.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneAuthoredEffectRenderPlan.swift",
+    SCENE_ROOT / "Compilation/Graph/SceneGraphConditionAdmission.swift",
+    SCENE_ROOT / "Compilation/Graph/SceneGraphAdmissionCompiler.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneMaterialRenderState.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneMaterialRenderState+Compilation.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialEffectIngress.swift",
@@ -200,14 +202,9 @@ class SceneResolvedMaterialTemplateTests(unittest.TestCase):
             prefix="mwx-resolved-material-template-"
         )
         temporary = Path(cls.temporary_directory.name)
-        vfs_source = temporary / "SceneVFSAssetPath.swift"
         template_source = temporary / "SceneResolvedMaterialTemplate.swift"
         support = temporary / "Support.swift"
         harness = temporary / "Harness.swift"
-        vfs_source.write_text(
-            source_prefix(TEXTURE_CANDIDATE_SOURCE, "/// Purpose is part"),
-            encoding="utf-8",
-        )
         template_source.write_text(
             source_prefix(PROGRAM_SOURCE, "/// One fully resolved material pass"),
             encoding="utf-8",
@@ -222,7 +219,6 @@ class SceneResolvedMaterialTemplateTests(unittest.TestCase):
             [
                 swiftc,
                 *(str(source) for source in SWIFT_SOURCES),
-                str(vfs_source),
                 str(template_source),
                 str(support),
                 str(harness),
@@ -327,6 +323,7 @@ class SceneResolvedMaterialTemplateTests(unittest.TestCase):
     def test_vfs_and_shader_lexical_boundaries_match_production(self) -> None:
         self.assert_contracts([
             "assetVFSBoundaries",
+            "assetDriveLikeNamesRemainRelative",
             "shaderNormalizationMatchesLoader",
             "shaderEscapesRejected",
             "sourceGraphRequired",

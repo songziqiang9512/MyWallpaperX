@@ -14,11 +14,22 @@ struct SceneAssetCatalog {
 }
 // Puppet model parsing is outside this controlled ordinary-image ownership
 // gate. The complete CPU preparation contract has its own production-source gate.
-enum ScenePuppetLayerLoad { struct PreparedPose {} }
+enum ScenePuppetLayerLoad {
+    struct Clip { let maskTexturePath: String }
+    struct Mesh { let clipRecords: [Clip] }
+    struct PreparedAsset { let meshPath: String; let mesh: Mesh }
+    enum AssetPreparation { case ready(PreparedAsset), unavailable }
+    struct PreparedPose {
+        enum Geometry { case bind(PreparedAsset, Int), evaluated(PreparedAsset, Int, Int, Int, Int), unavailable }
+        let geometry: Geometry
+    }
+}
 struct ScenePreparedPuppetResources {
+    static var fixtureAssets: [String: ScenePuppetLayerLoad.AssetPreparation] = [:]
+    let assetsByMeshPath: [String: ScenePuppetLayerLoad.AssetPreparation]
     static func prepare(descriptor: SceneRenderDescriptor, resourceView: SceneResourceView,
                         cancellationCheck: () throws -> Void) throws -> Self {
-        try cancellationCheck(); return .init()
+        try cancellationCheck(); return .init(assetsByMeshPath: fixtureAssets)
     }
     func defaultPose(for layer: SceneRenderDescriptor.Layer) -> ScenePuppetLayerLoad.PreparedPose? { nil }
 }
@@ -207,6 +218,19 @@ final class SceneTextureLoader {
         self.uploadCommandQueue = uploadCommandQueue
         self.decodeCacheBudget = decodeCacheBudget
     }
+    enum DataOutcome { case loaded(MTLTexture) }
+    var dataLoads = 0
+    func loadDataTexture(from input: SceneResourceView.FileInput, device: MTLDevice) throws -> DataOutcome {
+        dataLoads += 1
+        let key = input.lastPathComponent
+        if key == "paint-read-failure.tex" { throw NSError(domain: "controlled-paint-read", code: 1) }
+        if let texture = textures[key] { return .loaded(texture) }
+        let format: MTLPixelFormat = key == "paint-wrong.tex" ? .bgra8Unorm : .r8Unorm
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: format, width: 2, height: 2, mipmapped: false)
+        let texture = device.makeTexture(descriptor: descriptor)!
+        textures[key] = texture
+        return .loaded(texture)
+    }
     func sourceKey(for url: SceneResourceView.FileInput,
                    checkCancellation: (() throws -> Void)? = nil) throws -> SourceKey? {
         try checkCancellation?(); try Self.sourceHook?()
@@ -309,6 +333,7 @@ final class SceneImageEffectPipelineRepository {
     let device: MTLDevice
     init(device: MTLDevice, pixelFormat: MTLPixelFormat) { self.device = device }
     func prepareDirectDraw() -> Bool { true }
+    func preparePuppetClipping() -> Bool { fatalError("device factory is outside this carrier") }
     func layerColorBlendState() -> Int { 0 }
 }
 enum SceneMdlStaticModel { struct PreparedSource {} }
@@ -327,12 +352,23 @@ struct TestSampler {
     // Prepared typed facts supplied by the external compiler boundary. This
     // does not replace or test production shader-purpose derivation.
     let purposes: [TestReference: String]
-    func purpose(for reference: TestReference) -> String? { purposes[reference] }
 }
+enum SceneResolvedMaterialShaderSchema {
+    static func purpose(for reference: TestReference, sampler: TestSampler) -> String? {
+        sampler.purposes[reference]
+    }
+}
+enum SceneDynamicTarget: String, Hashable { case declaredLive, declaredInactive }
 struct TestTemplate {
     struct Slot { struct Candidate { let reference: TestReference }; let candidates: [Candidate] }
+    struct UniformDeclaration {
+        struct Dynamic { let target: SceneDynamicTarget }
+        enum Value { case staticExact, dynamic(Dynamic) }
+        let value: Value
+    }
     let textureSlots: [Slot?]
     let renderState: Int
+    var uniformDeclarations: [UniformDeclaration] = []
     var fixture = TestVariantFixture()
 }
 struct TestVariantFixture {
@@ -344,13 +380,18 @@ struct TestVariantFixture {
 struct SceneResolvedMaterialRuntimeCatalog {
     struct Entry {
         struct Key { let reportToken: String }
-        enum Value { case template(TestTemplate), failure(String) }
+        enum Value {
+            case template(TestTemplate, textureFormatSlots: Result<Set<Int>, TestError>)
+            case failure(String)
+        }
         let key: Key
         let entry: Value
         let sharedModelPath: String?
         var capturesMainTarget = false
     }
     let sourceMaterialTargetFormat = TestColorFormat()
+    let userPropertyDemands: Set<Never> = []
+    let systemProviderDemands: Set<Never> = []
     var sourceMaterialEntries: [Int: Entry] = [:]
 }
 struct SceneMaterialAssetTextureCatalog { let launchFormatFacts = 0; let launchStates = 0 }
@@ -362,15 +403,21 @@ struct SceneResolvedMaterialVariantCache {
             let cacheKey: String
             let vertex: Vertex
         }
+        struct PreparedAssembly {
+            let preparedShader: Shader
+            let frontendProgram: Frontend
+        }
         let activeSamplers: [Int: TestSampler]
-        let preparedShader: Shader
-        let frontendProgram: Frontend
+        let preparedAssembly: PreparedAssembly
     }
     struct Envelope { let allEntriesReady: Bool; let variants: [Variant] }
     let fixture: TestVariantFixture
-    static func launchValidated(template: TestTemplate, maximumVariantCount: Int,
+    var hasAudioSpectrumConsumer: Bool { false }
+    static func launchValidated(template: TestTemplate,
+                                textureFormatSlots: Result<Set<Int>, TestError>, maximumVariantCount: Int,
                                 assetFormatFacts: Int) -> Result<Self, TestError> {
-        template.fixture.schemaAccepted ? .success(.init(fixture: template.fixture))
+        if case let .failure(failure) = textureFormatSlots { return .failure(failure) }
+        return template.fixture.schemaAccepted ? .success(.init(fixture: template.fixture))
             : .failure(.controlledSchemaFailure)
     }
     func precompileLaunchEnvelope(implicitFramebufferIdentity: String?, outputIsRGBA8Unorm: Bool,
@@ -384,12 +431,11 @@ struct SceneResolvedMaterialVariantCache {
 enum TestError: Error { case controlledSchemaFailure, controlledPrecompileFailure }
 final class SceneResolvedMaterialPassEncoder {
     struct WarmupPlan {
-        init?(identity: String, preparedKey: String,
-              frontend: SceneResolvedMaterialVariantCache.Frontend, renderState: Int,
-              frontendSchemaVersion: Int, pixelFormat: MTLPixelFormat,
-              writeMask: MTLColorWriteMask, device: MTLDevice) {
+        init?(identity: String,
+              prepared: SceneResolvedMaterialVariantCache.Variant.PreparedAssembly,
+              pixelFormat: MTLPixelFormat, writeMask: MTLColorWriteMask, device: MTLDevice) {
             // Fault injection at the external pipeline boundary only.
-            guard frontend.planAvailable else { return nil }
+            guard prepared.frontendProgram.planAvailable else { return nil }
         }
     }
     struct Report { let failedKeyCount: Int; let readyKeyCount: Int }
@@ -409,10 +455,16 @@ final class SceneResolvedMaterialRuntimeBridge {
     typealias LogSink = (String) -> Void
     struct PreparedSourceMaterial {
         enum OutputDomain { case sampledAsset(SceneAssetTextureIdentity), baseImage, capturedMain }
+        let declaredDynamicTargets: Set<SceneDynamicTarget>
+        let hasAudioSpectrumConsumer: Bool
         let outputDomain: OutputDomain
         let sharedModelPath: String?
-        init(template: TestTemplate, bindFrame: @escaping (Int) -> Int, pixelFormat: MTLPixelFormat,
+        init(declaredDynamicTargets: Set<SceneDynamicTarget>,
+             hasAudioSpectrumConsumer: Bool,
+             bindFrame: @escaping (Int) -> Int, pixelFormat: MTLPixelFormat,
              outputDomain: OutputDomain, sharedModelPath: String?) {
+            self.declaredDynamicTargets = declaredDynamicTargets
+            self.hasAudioSpectrumConsumer = hasAudioSpectrumConsumer
             self.outputDomain = outputDomain
             self.sharedModelPath = sharedModelPath
         }
@@ -424,7 +476,7 @@ final class SceneResolvedMaterialRuntimeBridge {
     }
     let submissions = Submissions()
     var sourceMaterials: [Int: PreparedSourceMaterial] = [:]
-    init(catalog: SceneResolvedMaterialRuntimeCatalog,
+    init(userPropertyDemands: Set<Never>, systemProviderDemands: Set<Never>,
          capabilities: SceneResolvedMaterialExecutionCapabilityCatalog,
          assets: SceneMaterialAssetTextureCatalog, device: MTLDevice,
          visibleExecutionRootLayerIDs: Set<Int>, capturesExecutionObservations: Bool) {}
@@ -776,9 +828,9 @@ enum Checks {
             var samplers: [Int: TestSampler] = [:]
             if let samplerZero { samplers[0] = samplerZero }
             if otherSampler { samplers[2] = .init(purposes: [colorReference: "normal"]) }
-            return .init(activeSamplers: samplers,
+            return .init(activeSamplers: samplers, preparedAssembly: .init(
                 preparedShader: .init(cacheKey: key, vertex: .init(frontendSchemaVersion: 1)),
-                frontendProgram: .init(planAvailable: planAvailable))
+                frontendProgram: .init(planAvailable: planAvailable)))
         }
         let colorSampler = TestSampler(purposes: [colorReference: "straightAlbedo"])
         let unknownSampler = TestSampler(purposes: [:])
@@ -789,16 +841,19 @@ enum Checks {
         func sourceCase(_ name: String,
                         variants: [SceneResolvedMaterialVariantCache.Variant],
                         slots: [TestTemplate.Slot?]? = nil,
+                        uniformDeclarations: [TestTemplate.UniformDeclaration] = [],
                         allEntriesReady: Bool = true, schemaAccepted: Bool = true,
                         precompileAccepted: Bool = true,
                         capturesMainTarget: Bool = false,
                         warmupReport: SceneResolvedMaterialPassEncoder.Report? = nil) {
             let template = TestTemplate(textureSlots: slots ?? [colorSlot], renderState: 0,
+                uniformDeclarations: uniformDeclarations,
                 fixture: .init(schemaAccepted: schemaAccepted,
                     precompileAccepted: precompileAccepted, allEntriesReady: allEntriesReady,
                     variants: variants))
             let catalog = SceneResolvedMaterialRuntimeCatalog(sourceMaterialEntries: [17: .init(
-                key: .init(reportToken: "source:17:renamed-owned-source"), entry: .template(template),
+                key: .init(reportToken: "source:17:renamed-owned-source"),
+                entry: .template(template, textureFormatSlots: .success([])),
                 sharedModelPath: "models/renamed-source.json", capturesMainTarget: capturesMainTarget)])
             let encoder = SceneResolvedMaterialPassEncoder()
             encoder.reportOverride = warmupReport
@@ -821,12 +876,19 @@ enum Checks {
                 "preparedCount": prepared.count, "outputDomain": domain,
                 "sampledPath": sampledPath, "sampledPurpose": sampledPurpose,
                 "sharedModelPath": prepared[17]?.sharedModelPath ?? "",
+                "declaredDynamicTargets": prepared[17]?.declaredDynamicTargets.map(\.rawValue).sorted() ?? [],
                 "warmupCalls": encoder.warmupCalls, "warmupPlanCount": encoder.warmupPlanCount,
                 "reasons": logs.compactMap { $0.components(separatedBy: " reason=").dropFirst().first },
                 "logs": logs,
             ]
         }
         sourceCase("sourceInactive", variants: inactiveVariants)
+        sourceCase("sourceDeclaredTargets", variants: inactiveVariants, uniformDeclarations: [
+            .init(value: .dynamic(.init(target: .declaredLive))),
+            .init(value: .dynamic(.init(target: .declaredInactive))),
+            .init(value: .dynamic(.init(target: .declaredLive))),
+            .init(value: .staticExact),
+        ])
         sourceCase("sourceInactiveNoCandidate", variants: inactiveVariants, slots: [])
         sourceCase("sourceOtherSamplerOnly", variants: [variant("other-a", otherSampler: true),
                                                          variant("other-b", otherSampler: true)])
@@ -865,6 +927,41 @@ enum Checks {
         sourceCase("sourceCapturedMissing", variants: mainVariants, slots: [], capturesMainTarget: true)
         sourceCase("sourceCapturedWarmupFailure", variants: mainVariants, slots: mainSlots,
                    capturesMainTarget: true, warmupReport: .init(failedKeyCount: 1, readyKeyCount: 1))
+        for name in ["paint-r8.tex", "paint-wrong.tex", "paint-read-failure.tex"] {
+            try Data(name.utf8).write(to: root.appendingPathComponent("materials/" + name))
+        }
+        let goodAsset = ScenePuppetLayerLoad.PreparedAsset(meshPath: "models/healthy.mdl",
+            mesh: .init(clipRecords: [.init(maskTexturePath: "materials/paint-r8.tex")]))
+        let badAsset = ScenePuppetLayerLoad.PreparedAsset(meshPath: "models/local-failure.mdl",
+            mesh: .init(clipRecords: ["paint-r8.tex", "paint-absent.tex", "paint-wrong.tex", "paint-read-failure.tex"]
+                .map { .init(maskTexturePath: "materials/" + $0) }))
+        ScenePreparedPuppetResources.fixtureAssets = ["models/healthy.mdl": .ready(goodAsset),
+            "models/local-failure.mdl": .ready(badAsset)]
+        let paintView = SceneResourceView(projectRootURL: root, packageRootURL: nil)
+        let paintDescriptor = SceneRenderDescriptor(layers: [], materialPasses: [])
+        let paintResources = try ScenePreparedBaseImageResources.prepare(descriptor: paintDescriptor,
+            resourceView: paintView, device: device, spriteTextureLoader: .init(),
+            sceneGeneration: 1, cacheDirectory: root, cancellationCheck: {})
+        let paints = paintResources.puppetClipping
+        let good = paints["models/healthy.mdl"]!, bad = paints["models/local-failure.mdl"]!
+        try FileManager.default.removeItem(at: root.appendingPathComponent("materials/paint-r8.tex"))
+        let loads = paintResources.textureLoader.dataLoads
+        for _ in 0..<128 { _ = paintResources.puppetClipping["models/healthy.mdl"] }
+        var cancelled = false
+        do {
+            _ = try ScenePreparedBaseImageResources.preparePuppetClipping(
+                resources: paintResources.puppets, dynamicResources: [:],
+                resolver: .init(resourceView: paintView, descriptor: paintDescriptor),
+                textureLoader: paintResources.textureLoader, device: device,
+                cancellationCheck: { throw CancellationError() })
+        } catch is CancellationError { cancelled = true }
+        results["puppetPaints"] = ["loads": loads,
+            "shared": good.paintTextures[0] === bad.paintTextures[0],
+            "missingLocal": bad.paintTextures.count == 1,
+            "readFailure": bad.readFailed, "healthy": !good.readFailed && good.paintTextures.count == 1,
+            "stable": paintResources.textureLoader.dataLoads == loads,
+            "cancelled": cancelled]
+
         let data = try JSONSerialization.data(withJSONObject: results, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
     }

@@ -31,17 +31,10 @@ extension SceneMetalRenderer {
         let candidateCount = renderDescriptor.layers.filter {
             $0.contentKind == "spotLight"
         }.count
-        let dispositionCatalog = SceneEffectRuntimeDispositionCatalog(
-            descriptor: renderDescriptor,
-            admissionCatalog: effectAdmissionCatalog,
-            resolvedMaterialSubjects: imageCompositor.resolvedMaterialRuntime?
-                .runtimeDispositionSubjects ?? []
-        )
-        let dispositionLines = dispositionCatalog.reportLines
+        let effectLines = effectExecutionTelemetry.preparedRuntimeReportLines
             + (imageCompositor.resolvedMaterialRuntime?.executionEvidenceReportLines ?? [])
         return SceneLayerVisibility.reportLines(in: renderDescriptor)
-            + utilityLines + effectAdmissionCatalog.reportLines
-            + dispositionLines
+            + utilityLines + effectLines
             + spotLightRuntime.reportLines(candidateCount: candidateCount)
     }
 #endif
@@ -87,14 +80,4 @@ extension SceneMetalRenderer {
     }
 #endif
 
-#if DEBUG
-    func effectRuntimeSummary(
-        for layer: SceneRenderDescriptor.Layer
-    ) -> String? {
-        if effectAdmissionCatalog.resolvedMaterialExecutionLayerIDs.contains(layer.id) {
-            return "effect runtime resolved-material-graph; graph owner"
-        }
-        return nil
-    }
-#endif
 }

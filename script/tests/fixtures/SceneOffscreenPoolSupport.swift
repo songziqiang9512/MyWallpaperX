@@ -16,19 +16,6 @@ struct SceneEffectStageExecutionPlan {
     var supportsUnifiedFullFrameComposeStage: Bool { false }
 }
 
-nonisolated enum SceneTextureLoadPurpose: Hashable, Sendable {
-    case premultipliedColor
-    case straightAlbedo
-    case preservedChannels
-    case mask
-    case noise
-    case flow
-    case phase
-    case normal
-    case depth
-    case lookupTable
-}
-
 nonisolated enum SceneFrameTextureIdentity: Hashable {
     case graph(SceneAuthoredEffectRenderPlan.TextureIdentity)
 }

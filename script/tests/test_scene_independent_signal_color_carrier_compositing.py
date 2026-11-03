@@ -430,6 +430,7 @@ private func runSignalBridge(_ name: String, device: MTLDevice, queue: MTLComman
     let rawData = isScalar || isDataPrevious
     let ingress = isDataPrevious ? chainedFirstOutput : first
     guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(template: template,
+    textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: template),
         maximumVariantCount: 16), let encoder = SceneResolvedMaterialPassEncoder(device: device) else {
         return ["failure": "bridge-setup"]
     }
@@ -483,7 +484,7 @@ private func runSignalBridge(_ name: String, device: MTLDevice, queue: MTLComman
             return ["failure": "bridge-publication", "frames": rows]
         }
         let result = SceneResolvedMaterialProgramFinalizer.finalize(snapshot.finalizationInput(
-            template: template, layerID: layerID, renderSize: CGSize(width: extent.width, height: extent.height),
+            layerID: layerID, renderSize: CGSize(width: extent.width, height: extent.height),
             modelViewProjection: matrix_identity_float4x4, layerModelMatrix: matrix_identity_float4x4,
             effectOutputModelViewProjection: matrix_identity_float4x4,
             effectTextureProjectionMatrixInverse: matrix_identity_float4x4,
@@ -493,14 +494,15 @@ private func runSignalBridge(_ name: String, device: MTLDevice, queue: MTLComman
         }
         let target = makeSource(device, width: extent.width, height: extent.height,
             usage: [.shaderRead, .renderTarget], bgra: [0, 0, 0, 0])
+        prepareMaterialPipeline(program, encoder: encoder, target: target)
         guard let prepared = encoder.prepare(program: program, target: target),
               let command = queue.makeCommandBuffer(), encoder.encode(prepared, commandBuffer: command),
               let read = appendReadback(target, commandBuffer: command) else {
             return ["failure": "bridge-encode", "frames": rows]
         }
         command.commit(); command.waitUntilCompleted()
-        let mask = program.resolvedUniforms.first { $0.field.name == "mwxPremultipliedColorInputMask" }
-            .map { $0.encodedValue.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) } } ?? 0
+        let mask = zip(program.preparedAssembly.preparedUniformBindings, program.resolvedUniforms).first { $0.0.field.name == "mwxPremultipliedColorInputMask" }
+            .map { $0.1.encodedValue.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) } } ?? 0
         if offset == 0 {
             key = program.preparedShader.cacheKey
             compilationCount = cache.counters.frontendCompilationCount
@@ -534,7 +536,7 @@ private func runSignalBridge(_ name: String, device: MTLDevice, queue: MTLComman
             "dynamicSignalPassthroughRetained": name != "raw" || (
                 program.frontendProgram.colorBoundary?.signalPassthroughSlot == 0
                 && program.frontendProgram.colorTransfer == .passthrough(textureSlot: 0)
-                && program.resolvedUniforms.contains { $0.field.name == "mwxPremultipliedColorInputMask" }),
+                && program.preparedAssembly.preparedUniformBindings.contains { $0.field.name == "mwxPremultipliedColorInputMask" }),
             "authoredMathPreserved": matches(read.firstPixel, expectedPixel) && matches(read.lastPixel, expectedPixel),
             "pixel": read.firstPixel, "mask": mask])
     }
@@ -562,7 +564,7 @@ class SceneIndependentSignalColorCarrierCompositingTests(unittest.TestCase):
     def test_prepared_signal_bridge_uses_actual_color_representation(self) -> None:
         from script.tests import test_scene_resolved_material_graph_executor as graph_gate
 
-        harness = graph_gate.HARNESS.split("@main\nprivate enum Harness", 1)[0] + SIGNAL_BRIDGE_HARNESS
+        harness = graph_gate.HARNESS_SUPPORT_SOURCE + SIGNAL_BRIDGE_HARNESS
         compilation, completed = graph_gate.compile_lit_harness(graph_gate.SUPPORT, harness)
         self.assertEqual(compilation.returncode, 0, compilation.stderr)
         self.assertIsNotNone(completed)

@@ -1,23 +1,39 @@
 import Foundation
 
 extension SceneResolvedMaterialExecutionCapabilityCatalog {
+    static func preparePassthroughTopologies(
+        graph: Graph,
+        pairStep: SceneLayerFullFramePairPlan.EffectStep?
+    ) -> Set<StageCapability.PassthroughTopology> {
+        guard let effect = graph.effects.first, let pairStep else { return [] }
+        var result = Set<StageCapability.PassthroughTopology>()
+        let framebuffer = visualFailureFramebufferTopologyMayPassthrough(
+            graph, effect: effect, pairStep: pairStep
+        )
+        if framebuffer { result.insert(.framebuffer) }
+        if dependencyStageFailureMayPassthrough(
+            graph, pairStep: pairStep, framebufferTopologyIsSupported: framebuffer
+        ) { result.insert(.dependencyStage) }
+        if preEncodeVisualFailureGraphMayPassthrough(
+            graph, effect: effect, pairStep: pairStep
+        ) { result.insert(.preEncodeGraph) }
+        return result
+    }
+
     /// Bounded launch-time isolation for one ordinary effect whose only
     /// missing input is an unavailable forward named provider. The provider
     /// is not fabricated or reordered; the exact effect becomes a pair copy.
-    static func dependencyStageFailureMayPassthrough(
+    private static func dependencyStageFailureMayPassthrough(
         _ graph: Graph,
-        pairStep: SceneLayerFullFramePairPlan.EffectStep?
+        pairStep: SceneLayerFullFramePairPlan.EffectStep?,
+        framebufferTopologyIsSupported: Bool
     ) -> Bool {
         guard graph.effects.count == 1,
               graph.blockers.isEmpty,
               let effect = graph.effects.first,
               let pairStep, pairStep.effect == effect.key else { return false }
         if !graph.renderTargets.isEmpty {
-            return visualFailureFramebufferTopologyMayPassthrough(
-                graph,
-                effect: effect,
-                pairStep: pairStep
-            )
+            return framebufferTopologyIsSupported
         }
         guard graph.nodes.count == 1,
               let node = graph.nodes.first,
@@ -47,7 +63,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
     /// the candidate node/command prefix. This predicate deliberately does not
     /// admit unavailable dependencies; those retain the narrower no-history
     /// contract above because their producer lifecycle is a separate owner.
-    static func preEncodeVisualFailureGraphMayPassthrough(
+    private static func preEncodeVisualFailureGraphMayPassthrough(
         _ graph: Graph,
         effect: Graph.Effect,
         pairStep: SceneLayerFullFramePairPlan.EffectStep
@@ -58,8 +74,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
               !graph.nodes.isEmpty,
               graph.nodes.count == pairStep.nodes.count,
               pairStep.effect == effect.key,
-              let inputRole = SceneAuthoredEffectInputValidator.role(
-                  for: effect.input,
+              let inputRole = effect.input.inputRole(
                   layerID: graph.layerID
               ), case .success = SceneGraphRenderTargetPlan.make(
                   graph: graph,
@@ -74,7 +89,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
     /// dominated by authored writes. The graph may interleave ordinary
     /// material, copy and swap nodes, but it must have one terminal full-frame
     /// output and cannot hide history, clear, condition or compose semantics.
-    static func visualFailureFramebufferTopologyMayPassthrough(
+    private static func visualFailureFramebufferTopologyMayPassthrough(
         _ graph: Graph,
         effect: Graph.Effect,
         pairStep: SceneLayerFullFramePairPlan.EffectStep

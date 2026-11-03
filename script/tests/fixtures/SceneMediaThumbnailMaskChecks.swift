@@ -107,33 +107,54 @@ func checkMediaThumbnailMasks(
             expectedSlotIndex: 2, expectedPurpose: .mask,
             allowedPixelFormats: [.rgba8Unorm]) == nil
     let inbox = SceneMediaThumbnailInbox()
-    let store = SceneMediaThumbnailTextureStore(device: device)
+    let decoded = DispatchSemaphore(value: 0)
+    let store = SceneMediaThumbnailTextureStore(device: device,
+        onPublication: { _ in decoded.signal() })
     _ = inbox.publish(png(red: 9, green: 17, blue: 25))
     store.update(from: inbox.latest())
-    _ = waitFor(store, generation: 1)
-    let pinned = store.prepareFrame()
-    let decoded = DispatchSemaphore(value: 0)
-    store.setPublicationHandler { decoded.signal() }
+    checks["firstDecodeCompleted"] = decoded.wait(timeout: .now() + 2) == .success
+    let capturedFirst = store.snapshot()
+    let firstAtoms = capturedFirst.publications
     _ = inbox.publish(png(red: 31, green: 47, blue: 63))
     store.update(from: inbox.latest())
     checks["replacementDecodeCompleted"] = decoded.wait(timeout: .now() + 2) == .success
-    let duringPin = store.snapshot()
-    checks["pinnedGenerationAndMask"] = duringPin.generation == pinned.generation
-        && duringPin.publications[current]?.isSameAtom(as: pinned.publications[current]!) == true
-        && duringPin.publications[previous] == nil
-    store.commitPreparedFrame()
-    let replaced = store.prepareFrame()
-    checks["commitReleasesPinnedMask"] = replaced.generation == 2
-        && pixel(replaced.publications[current]?.texture) == [31, 47, 63, 255]
-        && pixel(replaced.publications[previous]?.texture) == [9, 17, 25, 255]
+    let capturedReplacement = store.snapshot()
+    let replacementAtoms = capturedReplacement.publications
+    checks["latestSnapshotAdvancesWithoutReleasingCapture"] = capturedReplacement.generation == 2
+        && pixel(capturedReplacement.publications[current]?.texture) == [31, 47, 63, 255]
+        && pixel(capturedReplacement.publications[previous]?.texture) == [9, 17, 25, 255]
     inbox.clear()
     store.update(from: inbox.latest())
     checks["clearDecodeCompleted"] = decoded.wait(timeout: .now() + 2) == .success
-    checks["clearCannotChangePinnedMask"] = store.snapshot().publications[current]?
-        .isSameAtom(as: replaced.publications[current]!) == true
-    store.discardPreparedFrame()
-    let afterDiscard = store.snapshot()
-    checks["discardReleasesPinnedMask"] = afterDiscard.generation == 3
-        && providerStateIsAbsent(afterDiscard, current) && providerStateIsAbsent(afterDiscard, previous)
+    let latest = store.snapshot()
+    checks["latestSnapshotClearsWithoutChangingCaptures"] = latest.generation == 3
+        && latest.publications.isEmpty && latest.systemTextures.isEmpty
+        && latest.providerStates.values.allSatisfy { if case .absent = $0 { true } else { false } }
+    for (name, captured, atoms, count) in [
+        ("capturedFirstCompleteAtom", capturedFirst, firstAtoms, 3),
+        ("capturedReplacementCompleteAtom", capturedReplacement, replacementAtoms, 6),
+    ] {
+        checks[name] = captured.publications.count == count && atoms.count == count
+            && atoms.allSatisfy { identity, atom in
+                guard case let .ready(stateAtom)? = captured.providerStates[identity] else { return false }
+                return atom.isComplete && atom.generationIsCurrent
+                    && atom.contentGeneration == captured.generation
+                    && captured.publications[identity]?.isSameAtom(as: atom) == true
+                    && stateAtom.isSameAtom(as: atom)
+                    && captured.systemTextures[identity] === atom.texture
+            }
+    }
+    checks["capturedFirstRetainsPixelsAfterReplacementAndClear"] = capturedFirst.generation == 1
+        && capturedFirst.previous == nil && capturedFirst.preservedPrevious == nil
+        && pixel(capturedFirst.current?.texture) == [9, 17, 25, 255]
+        && pixel(capturedFirst.preservedCurrent?.texture) == [9, 17, 25, 255]
+        && pixel(capturedFirst.publications[current]?.texture) == [9, 17, 25, 255]
+    checks["capturedReplacementRetainsBothPixelsAfterClear"] = capturedReplacement.generation == 2
+        && pixel(capturedReplacement.current?.texture) == [31, 47, 63, 255]
+        && pixel(capturedReplacement.preservedCurrent?.texture) == [31, 47, 63, 255]
+        && pixel(capturedReplacement.publications[current]?.texture) == [31, 47, 63, 255]
+        && pixel(capturedReplacement.previous?.texture) == [9, 17, 25, 255]
+        && pixel(capturedReplacement.preservedPrevious?.texture) == [9, 17, 25, 255]
+        && pixel(capturedReplacement.publications[previous]?.texture) == [9, 17, 25, 255]
     return checks
 }

@@ -50,11 +50,14 @@ def scene_swift_source_relpaths(
     sets = payload["sets"]
     expanded: list[str] = []
     active: list[str] = []
+    included: set[str] = set()
 
     def append_set(name: str) -> None:
         if name in active:
             cycle = " -> ".join([*active, name])
             raise SceneSwiftSourceSetError(f"source-set include cycle: {cycle}")
+        if name in included:
+            return
         definition = sets.get(name)
         if not isinstance(definition, dict):
             raise SceneSwiftSourceSetError(f"unknown source set: {name}")
@@ -80,6 +83,7 @@ def scene_swift_source_relpaths(
             if relative.suffix != ".swift":
                 raise SceneSwiftSourceSetError(f"{name}: source is not Swift: {value}")
             expanded.append((source_root / relative).as_posix())
+        included.add(name)
 
     append_set(set_name)
     duplicates = sorted({value for value in expanded if expanded.count(value) > 1})

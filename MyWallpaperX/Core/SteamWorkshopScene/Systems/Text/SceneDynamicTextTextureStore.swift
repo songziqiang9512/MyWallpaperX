@@ -20,8 +20,6 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
     private var currentRasters: [Int: SceneTextTextureLoader.RasterizedTexture]
     private var cachedSnapshot: Snapshot?
     private var snapshotDirty = true
-    private var preparedFrameSnapshot: Snapshot?
-    private var submittedFrameSnapshot: Snapshot?
 #if DEBUG
     private var debugLoggedDynamicLayers: Set<Int> = []
 #endif
@@ -63,40 +61,39 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
     func update(
         from snapshot: SceneDynamicSnapshot,
         dynamicLayers: [SceneRenderDescriptor.Layer] = [],
+        destroyedAuthoredLayerIDs: Set<Int> = [],
         dynamicTextFieldsByLayerID: [Int: Set<SceneDynamicTextField>] = [:]
     ) {
+        lock.lock()
+        guard !closed else { lock.unlock(); return }
+        for layerID in destroyedAuthoredLayerIDs where layersByID[layerID] != nil {
+            retireLocked(layerID: layerID)
+        }
         // A static authored scene has no provider work to perform after the
-        // initial texture publication. Keep the lock as the authoritative
-        // lifecycle boundary, but avoid rebuilding admitted sets and layer
-        // tuples on every successful frame. Dynamic field interest, an
-        // admitted runtime layer, or a pending authored-to-static transition
-        // all fall through to the normal update path below.
-        let incomingHasDynamicTextFields = dynamicTextFieldsByLayerID.values
-            .contains { !$0.isEmpty }
+        // initial publication. Consume adopted retirements before this path;
+        // prepared field interest must not reactivate a destroyed source.
+        let incomingHasDynamicTextFields = dynamicTextFieldsByLayerID.contains {
+            layersByID[$0.key] != nil && !$0.value.isEmpty
+        }
         if dynamicLayers.isEmpty && !incomingHasDynamicTextFields {
-            lock.lock()
-            guard !closed else { lock.unlock(); return }
             let hasAdmittedDynamicLayer = layersByID.keys.contains {
                 !authoredLayerIDs.contains($0)
             }
-            let hasAuthoredDynamicFields = authoredLayerIDs.contains {
+            let hasActiveDynamicTextFields = layersByID.keys.contains {
                 !(self.dynamicTextFieldsByLayerID[$0] ?? []).isEmpty
             }
-            if !hasAdmittedDynamicLayer && !hasAuthoredDynamicFields {
+            if !hasAdmittedDynamicLayer && !hasActiveDynamicTextFields {
                 lock.unlock()
                 return
             }
-            lock.unlock()
         }
 
         let admittedDynamic = dynamicLayers.filter {
             $0.contentKind == "text" && $0.text != nil && $0.textStyle != nil
         }
         let admittedIDs = Set(admittedDynamic.map(\.id))
-        lock.lock()
-        guard !closed else { lock.unlock(); return }
         var signatureRefreshLayerIDs: Set<Int> = []
-        for layerID in authoredLayerIDs {
+        for layerID in layersByID.keys where authoredLayerIDs.contains(layerID) {
             let nextFields = dynamicTextFieldsByLayerID[layerID] ?? []
             if self.dynamicTextFieldsByLayerID[layerID] != nextFields {
                 signatureRefreshLayerIDs.insert(layerID)
@@ -105,18 +102,14 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
         }
         let retired = Set(layersByID.keys).subtracting(authoredLayerIDs).subtracting(admittedIDs)
         for layerID in retired {
-            layersByID.removeValue(forKey: layerID)
-            currentRasters.removeValue(forKey: layerID)
-            self.dynamicTextFieldsByLayerID.removeValue(forKey: layerID)
-            snapshotDirty = true
-            generationState.unregister(layerID: layerID)
+            retireLocked(layerID: layerID)
         }
         for layer in admittedDynamic {
             if layersByID[layer.id] == nil {
                 layersByID[layer.id] = layer
                 self.dynamicTextFieldsByLayerID[layer.id] = Self.allTextFields
                 let signature = Self.signature(
-                    for: layer, snapshot: nil,
+                    for: layer, snapshot: snapshot,
                     dynamicFields: Self.allTextFields
                 )
                 if let request = generationState.registerDynamic(
@@ -124,8 +117,6 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
                 ) {
                     scheduleLocked(request)
                 }
-            } else {
-                layersByID[layer.id] = layer
             }
         }
         let layers = layersByID.map { layerID, layer in
@@ -146,11 +137,13 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
         }
     }
 
-    /// Stops admission without waiting for synchronous font drawing to return.
-    func close() {
-        lock.lock()
-        closeLocked()
-        lock.unlock()
+    private func retireLocked(layerID: Int) {
+        layersByID.removeValue(forKey: layerID)
+        currentRasters.removeValue(forKey: layerID)
+        dynamicTextFieldsByLayerID.removeValue(forKey: layerID)
+        generationState.unregister(layerID: layerID)
+        cachedSnapshot = nil
+        snapshotDirty = true
     }
 
     /// The tail runs after every admitted render has returned and released its
@@ -170,44 +163,9 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
         generationState.reset()
     }
 
-    /// Pins the currently published provider view for one host frame. Async
-    /// raster completion may replace `currentRasters` while another surface
-    /// is encoding; the host outcome decides when that replacement becomes
-    /// visible to the next frame.
-    func prepareFrame() -> Snapshot {
-        lock.lock()
-        defer { lock.unlock() }
-        if let preparedFrameSnapshot { return preparedFrameSnapshot }
-        let snapshot = makeSnapshotLocked()
-        preparedFrameSnapshot = snapshot
-        return snapshot
-    }
-
-    func commitPreparedFrame() {
-        lock.lock()
-        submittedFrameSnapshot = preparedFrameSnapshot ?? submittedFrameSnapshot
-        preparedFrameSnapshot = nil
-        lock.unlock()
-    }
-
-    /// Cursor callbacks run before the next texture frame is prepared. Use
-    /// the last submitted raster geometry, not a newer async-ready result.
-    func submittedSnapshot() -> Snapshot? {
-        lock.lock()
-        defer { lock.unlock() }
-        return submittedFrameSnapshot
-    }
-
-    func discardPreparedFrame() {
-        lock.lock()
-        preparedFrameSnapshot = nil
-        lock.unlock()
-    }
-
     func snapshot() -> Snapshot {
         lock.lock()
         defer { lock.unlock() }
-        if let preparedFrameSnapshot { return preparedFrameSnapshot }
         return makeSnapshotLocked()
     }
 
@@ -360,11 +318,13 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
                 snapshot?[.text(layerID: layer.id, field: .content)]?.value
             ) ?? layer.text!
             : layer.text!
-        let fontPath = dynamicFields.contains(.font)
-            ? stringValue(
-                snapshot?[.text(layerID: layer.id, field: .font)]?.value
-            ).flatMap { $0.isEmpty ? nil : $0 } ?? authoredStyle.fontPath
-            : authoredStyle.fontPath
+        let fontPath: String?
+        if dynamicFields.contains(.font),
+           let value = stringValue(snapshot?[.text(layerID: layer.id, field: .font)]?.value) {
+            fontPath = value.isEmpty ? nil : value
+        } else {
+            fontPath = authoredStyle.fontPath
+        }
         let pointSize = dynamicFields.contains(.pointSize)
             ? scalarValue(
                 snapshot?[.text(layerID: layer.id, field: .pointSize)]?.value

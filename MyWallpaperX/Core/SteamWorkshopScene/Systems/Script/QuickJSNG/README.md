@@ -46,8 +46,8 @@ successful value with that exception still pending.
 
 The existing SceneScript QuickJS host gate covers owned timer inputs, String
 matching and replacement order, descriptors, mutable prototypes, construction,
-two contexts, GC, interruption and allocation failure. The D4 decision is in
-`docs/scene/roadmap/batch2/script-component-api-design.md`. On upstream refresh,
+two contexts, GC, interruption and allocation failure. The binding and host contracts are documented in
+`docs/scene/capabilities/scenescript-api-coverage.md`. On upstream refresh,
 compare this surface and these regressions first; retire the local patch only
 when the replacement intrinsic supplies the same tested contracts. The
 upstream commit and MIT attribution above remain unchanged.

@@ -29,9 +29,9 @@ final class SceneResolvedMaterialFinalizerFailureCases {
                 .candidate.content == .color(.resolved(.premultipliedAlpha)),
             "colorSlotNormalizedOnce": boundary.colorInputSlots == [0]
                 && boundary.alphaInputSlots.isEmpty && boundary.signalPassthroughSlot == nil,
-            "actualInputMaskEncoded": program.resolvedUniforms.contains {
-                if case .host(.premultipliedColorInputMask) = $0.source {
-                    return $0.encodedValue == expectedMask
+            "actualInputMaskEncoded": zip(program.preparedAssembly.preparedUniformBindings, program.resolvedUniforms).contains { binding, value in
+                if case .host(.premultipliedColorInputMask) = binding.source {
+                    return value.encodedValue == expectedMask
                 }
                 return false
             },
@@ -271,8 +271,6 @@ final class SceneResolvedMaterialFinalizerFailureCases {
                 staticDeclaration("u_fractals", components: [5]),
             ]
         )),
-        "runtimeLoopCrossTemplateCache":
-            crossTemplateRuntimeLoopCacheToken(self.fixture.device),
         "variantSelectionReachabilityIdentity":
             reachabilityIdentityMismatchToken(self.fixture.device),
         "variantSelectionKey":

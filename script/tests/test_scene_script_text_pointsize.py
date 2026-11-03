@@ -307,7 +307,6 @@ enum Harness {
                 .replacingOccurrences(of: "next=previousSize+12", with: "next=previousSize+3*4")
                 .replacingOccurrences(of: "fonts/own.ttf", with: "fonts/renamed.ttf")
         }
-        descriptor.layers[0].textScript = .init(source: source)
         let domain = try SceneScriptQuickJSDomain()
         try domain.configureLayerRuntimeFields(descriptor)
         let ir = SceneScriptBindingIR(source: source,

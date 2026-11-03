@@ -274,14 +274,19 @@ enum SceneMediaThumbnailTextureStore { struct Snapshot {} }
         registry.retire(layerIDs: [-811])
         checks["sameSourceBirthActionsRetireKeepsNetDemand"] = native.rate == 1.25 && position() == anchored
             && Set(registry.layerSources(deviceRegistryID: device.registryID).keys) == [-812]
-        let logical = source.playbackSnapshot(sceneTime: lastTiming.sceneTime)
-        let peerLogical = peer.playbackSnapshot(sceneTime: lastTiming.sceneTime)
+        guard let logical = source.playbackSnapshot(sceneTime: lastTiming.sceneTime),
+              let peerLogical = peer.playbackSnapshot(sceneTime: lastTiming.sceneTime) else {
+            fatalError("prepared videos must expose playback metadata")
+        }
         registry.retire(layerIDs: [-812])
         checks["zeroOrdinaryConsumersPauseOnlyBackend"] = native.rate == 0
             && source.playbackSnapshot(sceneTime: lastTiming.sceneTime) == logical
             && peerPlayer.rate > 0 && peer.playbackSnapshot(sceneTime: lastTiming.sceneTime) == peerLogical
         try await Task.sleep(for: .milliseconds(120))
-        let returning = timing(), advanced = source.playbackSnapshot(sceneTime: returning.sceneTime)
+        let returning = timing()
+        guard let advanced = source.playbackSnapshot(sceneTime: returning.sceneTime) else {
+            fatalError("retiring the final consumer must preserve prepared playback metadata")
+        }
         checks["unusedSourceKeepsLogicalPlaybackIntent"] = advanced.isPlaying && advanced.rate == logical.rate
             && advanced.loop == logical.loop && advanced.currentTime != logical.currentTime
         registry.bindPreparedVideoConsumers([-813: model])
@@ -290,8 +295,11 @@ enum SceneMediaThumbnailTextureStore { struct Snapshot {} }
             && fallback?.contentGeneration == held.contentGeneration
         registry.discardPreparedFrame()
         let resumed = try await nextFrame(after: held.contentGeneration)
+        guard let resumedPlayback = source.playbackSnapshot(sceneTime: lastTiming.sceneTime) else {
+            fatalError("returning consumer must retain playback metadata")
+        }
         checks["returningConsumerPublishesCurrentPhase"] = resumed != nil && native.rate == 1.25
-            && abs(resumed!.requestedItemTime - source.playbackSnapshot(sceneTime: lastTiming.sceneTime).currentTime) < 0.003
+            && abs(resumed!.requestedItemTime - resumedPlayback.currentTime) < 0.003
         registry.retire(layerIDs: [-813])
         return checks
     }

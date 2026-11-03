@@ -34,6 +34,8 @@ func runSceneResolvedMaterialPassScalarCases(
         """,
         outputStorage: .scalarRedUnorm
     )!
+    prepareMaterialPipeline(scalarProducer, encoder: encoder, target: r8Target,
+                            attachmentStorage: .scalarRedUnorm)
     let explicitScalarPreparation = encoder.prepareResult(
         program: scalarProducer,
         target: r8Target,
@@ -129,6 +131,8 @@ func runSceneResolvedMaterialPassScalarCases(
         gain: 1, outputStorage: .scalarRedFloat16
     )!
     var scalarFloatCarrier = false
+    prepareMaterialPipeline(scalarFloatProducer, encoder: encoder, target: r16Target,
+                            attachmentStorage: .scalarRedFloat16)
     if case let .success(prepared) = encoder.prepareResult(
         program: scalarFloatProducer, target: r16Target,
         attachmentStorage: .scalarRedFloat16

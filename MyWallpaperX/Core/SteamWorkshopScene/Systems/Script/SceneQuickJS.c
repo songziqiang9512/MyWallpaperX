@@ -278,6 +278,7 @@ static bool valid_frame_input(const MWXSceneQuickJSFrameInput *frame) {
         frame->time_of_day < 0 || frame->time_of_day > 1 ||
         !isfinite(frame->frame_time) || frame->frame_time < 0 ||
         !isfinite(frame->runtime) || frame->runtime < 0 ||
+        !isfinite(frame->wall_time_milliseconds) ||
         frame->has_surface_input > 1 || frame->cursor_left_down > 1) {
         return false;
     }
@@ -971,6 +972,11 @@ bool mwx_scene_quickjs_assign_script_properties(
     }
     JSContext *context = owner->domain->context;
     JSValue target = JS_GetPropertyStr(context, owner->module, "scriptProperties");
+    if (JS_IsUndefined(target)) {
+        if (JS_IsUndefined(owner->implicit_script_properties))
+            owner->implicit_script_properties = JS_NewObject(context);
+        target = JS_DupValue(context, owner->implicit_script_properties);
+    }
     JSValue source = JS_ParseJSON(context, json, length, "scriptProperties");
     if (JS_IsException(target) || JS_IsException(source) ||
         !JS_IsObject(target) || !JS_IsObject(source)) {
@@ -1426,6 +1432,7 @@ static MWXSceneQuickJSOwner *create_owner_with_budget(
     owner->domain = domain;
     owner->text_template_source = JS_UNDEFINED;
     owner->module = JS_UNDEFINED;
+    owner->implicit_script_properties = JS_UNDEFINED;
     domain->next_owner_identity += 1;
     if (domain->next_owner_identity == 0 || domain->next_owner_identity > INT64_MAX) {
         JS_FreeValue(domain->context, module);
@@ -1855,6 +1862,7 @@ void mwx_scene_quickjs_owner_destroy(MWXSceneQuickJSOwner *owner) {
     mwx_scene_quickjs_destroy_puppet_animation_host(owner);
     if (owner->domain != NULL && owner->domain->context != NULL) {
         JS_FreeValue(owner->domain->context, owner->module);
+        JS_FreeValue(owner->domain->context, owner->implicit_script_properties);
     }
     mwx_scene_quickjs_destroy_audio_host(owner);
     mwx_scene_quickjs_destroy_storage_owner(owner);

@@ -31,6 +31,11 @@ import simd
 
 final class SceneSpotLightPipeline { init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {} }
 final class SceneLayerColorBlendPipelineState { init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {} }
+enum ScenePuppetClipping {
+    static func makePipeline(device: MTLDevice) -> MTLRenderPipelineState? {
+        fatalError("direct-draw composition must not prepare Puppet clipping")
+    }
+}
 
 struct SceneResolvedMaterialFrameTargetPlan {}
 struct SceneEffectExecutionFrameTrace {}
@@ -141,7 +146,7 @@ class DirectDrawCompositionTests(unittest.TestCase):
         cls.addClassCleanup(cls.temp.cleanup)
         folder = Path(cls.temp.name)
         harness = folder / "Harness.swift"
-        support = texture_fixture.HARNESS.split('@main', 1)[0]
+        support = texture_fixture.HARNESS_SUPPORT_SOURCE
         support = support.replace('let contentKind: String', 'let id = 7; var alpha: Float = 1; var contentKind: String = "image"').replace('let brightness: Double?', 'var brightness: Double? = nil')
         harness.write_text(support + '\nenum SceneMatrix { static func scale(_ v: SIMD3<Float>) -> simd_float4x4 { simd_float4x4(diagonal: SIMD4(v,1)) } }\n' + HARNESS)
         commands = [

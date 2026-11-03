@@ -197,8 +197,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
             return .failure(.executionMismatch)
         }
         guard validEffectKey(effect.key, layerID: graph.layerID),
-              let resolvedInputRole = SceneAuthoredEffectInputValidator.role(
-                for: effect.input,
+              let resolvedInputRole = effect.input.inputRole(
                 layerID: graph.layerID
               ),
               validOutput(effect.output, effect: effect.key, layerID: graph.layerID) else {

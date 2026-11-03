@@ -289,14 +289,20 @@ bool mwx_scene_quickjs_install_owner_handles(
     MWXSceneQuickJSOwner *owner,
     const char **failed_phase
 ) {
+    if (owner == NULL) return false;
     if (failed_phase != NULL) *failed_phase = "effect";
-    if (owner == NULL || !install_effect_handle(owner)) return false;
+    if (!install_effect_handle(owner)) goto failed;
     if (failed_phase != NULL) *failed_phase = "layer";
-    if (!mwx_scene_quickjs_install_layer_handles(owner)) return false;
+    if (!mwx_scene_quickjs_install_layer_handles(owner)) goto failed;
     if (failed_phase != NULL) *failed_phase = "object";
-    if (!mwx_scene_quickjs_install_object_handle(owner)) return false;
+    if (!mwx_scene_quickjs_install_object_handle(owner)) goto failed;
     if (failed_phase != NULL) *failed_phase = NULL;
     return true;
+failed:
+    // Native atom allocation can fail without leaving a pending JS exception.
+    if (!JS_HasException(owner->domain->context))
+        JS_ThrowOutOfMemory(owner->domain->context);
+    return false;
 }
 
 void mwx_scene_quickjs_destroy_owner_handles(MWXSceneQuickJSOwner *owner) {

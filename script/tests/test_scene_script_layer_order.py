@@ -433,6 +433,7 @@ enum SceneDocumentLoader {
     }
     static func shortLivedText(_ expression: String, existing: Bool = false) throws -> [String:Any] {
         let (_,domain,runtime) = try setup("models/text-neighbor.json")
+        let baseDefinitionTargets = Set(runtime.authoredLayerDefinitions.map(\.target))
         let creator = try owner(domain,101,"""
             let caption;export function update(v){if(v.x===0)caption=thisScene.createLayer({text:'temporary'});
                 if(\(existing) && v.x===0)return new Vec3(1,1,1);
@@ -459,7 +460,8 @@ enum SceneDocumentLoader {
             "rendered":SceneRenderDescriptor.Layer.dynamicText(record)?.textStyle?.pointSize ?? -1,
             "candidateBirthCount":admission.layerPlan.createdDynamicLayerMutations.count,
             "noPublication":runtime.snapshot().dynamicLayers.isEmpty && (existing || !admission.layerPlan.dynamicTopologyChanged),
-            "noSchemaGrowth":runtime.authoredDefinitionRevision == revision,
+            "schemaMembershipRestored":Set(runtime.authoredLayerDefinitions.map(\.target)) == baseDefinitionTargets,
+            "schemaRevisionDelta":runtime.authoredDefinitionRevision - revision,
             "c":try cOrder(domain)]
     }
     static func main() throws {
@@ -534,14 +536,16 @@ class SceneScriptLayerOrderTests(unittest.TestCase):
             self.assertEqual(result["rendered"], rendered)
             self.assertEqual(result["candidateBirthCount"], 1)
             self.assertEqual(result["c"], ["A", "B", "C"])
-            for key in ("cleanDestroyMask", "noPublication", "noSchemaGrowth"):
+            self.assertEqual(result["schemaRevisionDelta"], 0)
+            for key in ("cleanDestroyMask", "noPublication", "schemaMembershipRestored"):
                 self.assertIs(result[key], True, key)
         for result, raw, rendered in zip(self.result["existingTextDestroy"], [0, 2048], [1, 1024]):
             self.assertIs(result["rejected"], False)
             self.assertEqual(result["raw"], raw)
             self.assertEqual(result["rendered"], rendered)
             self.assertEqual(result["candidateBirthCount"], 0)
-            for key in ("cleanDestroyMask", "noPublication", "noSchemaGrowth"):
+            self.assertEqual(result["schemaRevisionDelta"], 1)
+            for key in ("cleanDestroyMask", "noPublication", "schemaMembershipRestored"):
                 self.assertIs(result[key], True, key)
         for result in self.result["invalidShortLivedText"]:
             for key in ("rejected", "noPublication", "noPending"):

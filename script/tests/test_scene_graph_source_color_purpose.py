@@ -31,10 +31,9 @@ private func graphAtom(_ device: MTLDevice, identity: Graph.TextureIdentity,
         candidate: candidate, contentGeneration: generation), resourceGeneration: generation)
 }
 
-private func inputFor(_ template: Template, entries: [SceneFrameTextureIdentity: SceneFrameTextureLookupStatus],
+private func inputFor(entries: [SceneFrameTextureIdentity: SceneFrameTextureLookupStatus],
     graphInput: Graph.TextureIdentity) -> SceneResolvedMaterialFinalizationInput {
-    frame(1, width: 2, height: 2, textureEntries: entries).finalizationInput(template: template,
-        layerID: graphInput.layerID, renderSize: CGSize(width: 2, height: 2),
+    frame(1, width: 2, height: 2, textureEntries: entries).finalizationInput(layerID: graphInput.layerID, renderSize: CGSize(width: 2, height: 2),
         modelViewProjection: matrix_identity_float4x4, layerModelMatrix: matrix_identity_float4x4,
         effectOutputModelViewProjection: matrix_identity_float4x4,
         effectTextureProjectionMatrixInverse: matrix_identity_float4x4,
@@ -47,10 +46,12 @@ private func traceMaterial(_ cache: SceneResolvedMaterialVariantCache,
     graphStatus: SceneFrameTextureLookupStatus? = nil,
     queue: MTLCommandQueue? = nil) -> [String: Any] {
     let snapshot = cache.launchEnvelopeCapabilitySnapshot()
+    let reachableTexturePurposes = SceneResolvedMaterialVariantCache.consensusPurposes(
+        snapshot.variants.map { $0.textureSelectionFacts.candidatePurposes })
     let resource = graphAtom(device, identity: graphInput)
     var entries = extraEntries
     entries[.graph(graphInput)] = graphStatus ?? .ready(resource)
-    let input = inputFor(snapshot.template, entries: entries, graphInput: graphInput)
+    let input = inputFor(entries: entries, graphInput: graphInput)
     var result: [String: Any] = ["allLaunchEntriesReady": snapshot.allEntriesReady,
         "wholeTemplate": String(describing: snapshot.template.graphRole),
         "graphAtomComplete": resource.isCompleteGraphResource,
@@ -72,21 +73,23 @@ private func traceMaterial(_ cache: SceneResolvedMaterialVariantCache,
                 "candidatePurposes": slot.candidates.indices.map { ordinal -> [String: Any] in
                     let reference = slot.candidates[ordinal].reference
                     return ["ordinal": ordinal, "reference": String(describing: reference),
-                        "directPurpose": String(describing: sampler.purpose(for: reference)),
+                        "directPurpose": String(describing: SceneResolvedMaterialShaderSchema.purpose(for: reference, sampler: sampler)),
                         "factPurpose": SceneResolvedMaterialTextureSlotPurpose.fact(in: slot,
                             candidateOrdinal: ordinal, sampler: sampler)?.purpose.reportToken ?? "nil",
                         "fact": String(describing: SceneResolvedMaterialTextureSlotPurpose.fact(in: slot,
                             candidateOrdinal: ordinal, sampler: sampler)),
                         "frameSelectionPurpose": String(describing: SceneResolvedMaterialTextureResolver.selectionPurpose(
-                            in: slot, candidateOrdinal: ordinal, activeSampler: sampler,
-                            reachableSamplers: snapshot.reachableSamplers?[sampler.slot] ?? [],
+                            reference: reference,
+                            declaredPurpose: variant.textureSelectionFacts.candidatePurposes[sampler.slot]?[ordinal],
+                            activeSampler: sampler,
                             channelUse: channels[sampler.slot], input: input))]
                 }]
         }
         do {
-            value["frameEntries"] = String(describing: try SceneResolvedMaterialTextureSelection.resolve(input,
-                samplers: variant.activeSamplers, reachableSamplers: snapshot.reachableSamplers ?? [:],
+            value["frameEntries"] = String(describing: try SceneResolvedMaterialTextureSelection.resolve(input, textureSlots: snapshot.template.textureSlots,
+                samplers: variant.activeSamplers, reachableTexturePurposes: reachableTexturePurposes,
                 channelUses: channels, allowPresenceIndependentDefaults: true,
+                textureSelectionFacts: variant.textureSelectionFacts,
                 graphInputSourceSlotFacts: variant.graphInputSourceSlotFacts))
         } catch let failure as SceneResolvedMaterialFailure { value["frameEntryError"] = diagnostic(failure) }
         catch { value["frameEntryError"] = String(describing: error) }
@@ -103,15 +106,16 @@ private func traceMaterial(_ cache: SceneResolvedMaterialVariantCache,
         result["programResourcePurposes"] = program.textureSlots.map {
             $0.map { String(describing: $0.resource.publication.candidate.purpose) } ?? "absent"
         }
-        result["inputMask"] = program.resolvedUniforms.first {
-            $0.field.name == "mwxPremultipliedColorInputMask"
-        }.map { $0.encodedValue.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) } } ?? 0
+        result["inputMask"] = zip(program.preparedAssembly.preparedUniformBindings, program.resolvedUniforms).first {
+            $0.0.field.name == "mwxPremultipliedColorInputMask"
+        }.map { $0.1.encodedValue.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) } } ?? 0
         result["selectedReferences"] = program.textureSlots.map {
             $0.map { String(describing: $0.reference) } ?? "absent"
         }
         if let queue, let encoder = SceneResolvedMaterialPassEncoder(device: device),
            let command = queue.makeCommandBuffer() {
             let target = makeSource(device, width: 2, height: 2, usage: [.renderTarget, .shaderRead])
+            prepareMaterialPipeline(program, encoder: encoder, target: target)
             if let pass = encoder.prepare(program: program, target: target),
                encoder.encode(pass, commandBuffer: command),
                let read = appendReadback(target, commandBuffer: command) {
@@ -203,7 +207,7 @@ private func ownCatalog(_ graph: Graph, renamed: Bool,
             shaderContract: shader, diagnosticProvenance: .init(nodeIndex: node.nodeIndex,
                 authoredShaderPath: shader.identity, contractIdentity: shader.identity,
                 contractCanonicalSHA256: shader.canonicalSHA256, textureSources: [], uniformSources: []))!
-        entries[.init(effect: node.effect, nodeIndex: node.nodeIndex)] = .template(value)
+        entries[.init(effect: node.effect, nodeIndex: node.nodeIndex)] = .template(value, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: value))
     }
     return .init(entries: entries, resourceDemandIssues: [])
 }
@@ -233,9 +237,14 @@ private func neighborTrace(_ device: MTLDevice, template: Template) -> [[String:
         let sampler = SceneResolvedMaterialShaderSchema.Sampler(name: "g_Texture0", slot: 0, mode: mode,
             materialKey: nil, isHidden: true, defaultTexture: nil, readinessCombo: nil,
             channelUse: .wholeVector, sourceProvenPurpose: source)
+        let graphFacts = SceneResolvedMaterialShaderSchema.graphInputSourceSlotFacts(
+            template: neighborTemplate, samplers: [0: sampler], inputIdentity: identity)
+        let facts = SceneResolvedMaterialVariantCache.prepareTextureSelectionFacts(
+            in: neighborTemplate, samplers: [0: sampler], implicitFramebufferIdentity: identity,
+            graphInputSourceSlotFacts: graphFacts)
         let resource = graphAtom(device, identity: identity, purpose: purpose, content: content,
             pixelFormat: format, candidateGeneration: candidateGen, requestOverride: request)
-        let input = inputFor(neighborTemplate, entries: [.graph(identity): .ready(resource)], graphInput: identity)
+        let input = inputFor(entries: [.graph(identity): .ready(resource)], graphInput: identity)
         var value: [String: Any] = ["name": name, "publicationComplete": resource.publication.isComplete,
             "graphComplete": resource.isCompleteGraphResource,
             "schema": String(describing: sampler),
@@ -243,19 +252,23 @@ private func neighborTrace(_ device: MTLDevice, template: Template) -> [[String:
                 candidateOrdinal: 0, sampler: sampler)),
             "factPurpose": SceneResolvedMaterialTextureSlotPurpose.fact(in: slot,
                 candidateOrdinal: 0, sampler: sampler)?.purpose.reportToken ?? "nil",
-            "selectionPurpose": String(describing: SceneResolvedMaterialTextureResolver.selectionPurpose(in: slot,
-                candidateOrdinal: 0, activeSampler: sampler, reachableSamplers: [sampler],
+            "selectionPurpose": String(describing: SceneResolvedMaterialTextureResolver.selectionPurpose(
+                reference: slot.candidates[0].reference, declaredPurpose: facts.candidatePurposes[0]?[0],
+                activeSampler: sampler,
                 channelUse: .wholeVector, input: input)),
-            "selectionPurposeToken": SceneResolvedMaterialTextureResolver.selectionPurpose(in: slot,
-                candidateOrdinal: 0, activeSampler: sampler, reachableSamplers: [sampler],
+            "selectionPurposeToken": SceneResolvedMaterialTextureResolver.selectionPurpose(
+                reference: slot.candidates[0].reference, declaredPurpose: facts.candidatePurposes[0]?[0],
+                activeSampler: sampler,
                 channelUse: .wholeVector, input: input)?.reportToken ?? "nil"]
         do {
-            value["selection"] = String(describing: try SceneResolvedMaterialTextureSelection.resolve(input,
-                samplers: [0: sampler], reachableSamplers: [0: [sampler]], channelUses: [0: .wholeVector],
-                allowPresenceIndependentDefaults: true))
-            value["variantKey"] = String(describing: try SceneResolvedMaterialTextureResolver.variantKey(input,
-                samplers: [0: sampler], reachableSamplers: [0: [sampler]], formatSlots: [],
-                channelUses: [0: .wholeVector], allowPresenceIndependentDefaults: true))
+            value["selection"] = String(describing: try SceneResolvedMaterialTextureSelection.resolve(input, textureSlots: neighborTemplate.textureSlots,
+                samplers: [0: sampler], reachableTexturePurposes: facts.candidatePurposes, channelUses: [0: .wholeVector],
+                allowPresenceIndependentDefaults: true, textureSelectionFacts: facts,
+                graphInputSourceSlotFacts: graphFacts))
+            value["variantKey"] = String(describing: try SceneResolvedMaterialTextureResolver.variantKey(input, textureSlots: neighborTemplate.textureSlots,
+                samplers: [0: sampler], reachableTexturePurposes: facts.candidatePurposes, formatSlots: [],
+                channelUses: [0: .wholeVector], allowPresenceIndependentDefaults: true,
+                textureSelectionFacts: facts, graphInputSourceSlotFacts: graphFacts))
         } catch let failure as SceneResolvedMaterialFailure { value["failure"] = diagnostic(failure) }
         catch { value["failure"] = String(describing: error) }
         return value
@@ -275,7 +288,7 @@ private enum Probe {
         let sourceGraph = ownGraph(renamed: false)
         let sourceCatalog = ownCatalog(sourceGraph, renamed: false, fallback: systemProviderFallbackIdentity)
         let sourceKey = SceneResolvedMaterialRuntimeCatalog.Key(effect: sourceGraph.nodes[1].effect, nodeIndex: 1)
-        guard case let .template(sourceTemplate)? = sourceCatalog.entries[sourceKey] else {
+        guard case let .template(sourceTemplate, _)? = sourceCatalog.entries[sourceKey] else {
             fatalError("self counterexample source template unavailable")
         }
         let counterIdentity = Graph.TextureIdentity(kind: .framebuffer, layerID: layerID,
@@ -307,7 +320,7 @@ private enum Probe {
                     nodeTarget: .effectOutput, bindings: [.init(slot: 0, texture: .framebuffer)]),
                 shaderContract: sourceTemplate.shaderContract, diagnosticProvenance: sourceTemplate.diagnosticProvenance)!
             guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(
-                template: value, maximumVariantCount: 8) else { fatalError("counterexample cache unavailable") }
+                template: value, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: value), maximumVariantCount: 8) else { fatalError("counterexample cache unavailable") }
             let launch = cache.precompileLaunchEnvelope(implicitFramebufferIdentity: counterIdentity,
                 assetStates: [lowerIdentity: .ready(.data), systemProviderFallbackIdentity: .ready(.data)])
             let extra: [SceneFrameTextureIdentity: SceneFrameTextureLookupStatus] = [
@@ -338,7 +351,7 @@ private enum Probe {
                 nodeTarget: .effectOutput, bindings: [.init(slot: 0, texture: .framebuffer)]),
             shaderContract: sourceTemplate.shaderContract, diagnosticProvenance: sourceTemplate.diagnosticProvenance)!
         guard case let .success(colorCache) = SceneResolvedMaterialVariantCache.launchValidated(
-            template: colorTemplate, maximumVariantCount: 8) else { fatalError("color counterexample cache unavailable") }
+            template: colorTemplate, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: colorTemplate), maximumVariantCount: 8) else { fatalError("color counterexample cache unavailable") }
         let colorLaunch = colorCache.precompileLaunchEnvelope(implicitFramebufferIdentity: counterIdentity,
             assetStates: [systemProviderFallbackIdentity: .ready(.data)])
         let dataRepresentations: [(String, SceneTextureContent, MTLPixelFormat)] = [
@@ -402,7 +415,7 @@ private enum Probe {
                        let overlaid = frame(1, textureEntries: entries).overlayingGraphResources([
                            middleInput: prepared.stages[0].effectOutputResource
                        ]), case let .success(program) = SceneResolvedMaterialProgramFinalizer.finalize(
-                           overlaid.finalizationInput(template: material.template, layerID: raw.layerID,
+                           overlaid.finalizationInput(layerID: raw.layerID,
                                renderSize: CGSize(width: 2, height: 2), modelViewProjection: matrix_identity_float4x4,
                                layerModelMatrix: matrix_identity_float4x4,
                                effectOutputModelViewProjection: matrix_identity_float4x4,
@@ -412,9 +425,9 @@ private enum Probe {
                         value["actualMiddleInputContent"] = String(describing: bound.resource.publication.candidate.content)
                         value["actualMiddleInputSameAtom"] = bound.resource.publication.isSameAtom(
                             as: prepared.stages[0].effectOutputResource.publication)
-                        value["actualMiddleInputMask"] = program.resolvedUniforms.first {
-                            $0.field.name == "mwxPremultipliedColorInputMask"
-                        }.map { $0.encodedValue.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) } } ?? 0
+                        value["actualMiddleInputMask"] = zip(program.preparedAssembly.preparedUniformBindings, program.resolvedUniforms).first {
+                            $0.0.field.name == "mwxPremultipliedColorInputMask"
+                        }.map { $0.1.encodedValue.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) } } ?? 0
                     }
                     value["stageContents"] = prepared.stages.map { String(describing: $0.effectOutputResource.publication.candidate.content) }
                     value["stagePurposes"] = prepared.stages.map { $0.effectOutputResource.publication.candidate.purpose.reportToken }
@@ -449,9 +462,7 @@ private enum Probe {
 class SceneGraphSourceColorPurposeTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        prefix, separator, _ = fixture.HARNESS.partition("@main\nprivate enum Harness")
-        if not separator:
-            raise RuntimeError("owned graph fixture entry boundary unavailable")
+        prefix = fixture.HARNESS_SUPPORT_SOURCE
         compilation, completed = fixture.compile_harness(fixture.SUPPORT, prefix + HARNESS)
         if compilation.returncode:
             raise RuntimeError(compilation.stderr)

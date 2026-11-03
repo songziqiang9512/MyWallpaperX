@@ -18,23 +18,9 @@ struct SceneMetalRendererFrameWorldProjection {
 }
 
 extension SceneMetalRenderer {
-    func resolveFrameWorldProjection(
-        layerTopology: SceneScriptLayerTopologySnapshot?,
-        dynamicValues: SceneDynamicSnapshot,
-        puppetAttachmentFrames: ScenePuppetAttachmentFrameSnapshot
-    ) -> SceneMetalRendererFrameWorldProjection {
-        let descriptor: SceneRenderDescriptor
-        let layersByID: [Int: SceneRenderDescriptor.Layer]
-        let staticWorldFrames: [Int: simd_float4x4]
-        let orderedLayers: [SceneRenderDescriptor.Layer]
-        let orderedLayerIDs: [Int]
-        let dynamicLayerIDs: Set<Int>
-        let lightLayerIDs: [Int]
-        let utilityExecution: SceneUtilityLayerRuntimePlanner.Execution
-        let preparationLayers: [SceneRenderDescriptor.Layer]?
-        let preparationLayerIDs: Set<Int>
-        let framebufferSourceLayerIDs: Set<Int>
-        let imageMaterialStateLayerIDs: Set<Int>
+    func resolveFrameTopology(
+        layerTopology: SceneScriptLayerTopologySnapshot?
+    ) -> SceneDynamicLayerRenderTopologyCache.Projection {
         if let layerTopology,
            !layerTopology.dynamicLayers.isEmpty
                 || layerTopology.renderOrderLayerIDs
@@ -50,55 +36,45 @@ extension SceneMetalRenderer {
             if !dynamicLayerTopologyCache.lastResolveWasCacheHit {
                 textureRegistry.retireLayerSources(keeping: projection.layersByID.keys)
             }
-            descriptor = projection.descriptor
-            layersByID = projection.layersByID
-            staticWorldFrames = projection.staticWorldFrames
-            orderedLayers = projection.orderedLayers
-            orderedLayerIDs = projection.orderedLayerIDs
-            dynamicLayerIDs = projection.dynamicLayerIDs
-            lightLayerIDs = projection.lightLayerIDs
-            utilityExecution = projection.utilityExecution
-            preparationLayers = projection.preparationLayers
-            preparationLayerIDs = projection.preparationLayerIDs
-            framebufferSourceLayerIDs = projection.framebufferSourceLayerIDs
-            imageMaterialStateLayerIDs = projection.imageMaterialStateLayerIDs
-        } else {
-            if dynamicLayerTopologyCache.reset() {
-                textureRegistry.retireLayerSources(keeping: self.layersByID.keys)
-            }
-            descriptor = renderDescriptor
-            layersByID = self.layersByID
-            staticWorldFrames = worldFramesByLayerID
-            orderedLayers = authoredLayers
-            orderedLayerIDs = self.orderedLayerIDs
-            dynamicLayerIDs = []
-            lightLayerIDs = self.lightLayerIDs
-            utilityExecution = self.utilityExecution
-            preparationLayers = resolvedMaterialPreparationLayers
-            preparationLayerIDs = self.preparationLayerIDs
-            framebufferSourceLayerIDs = self.framebufferSourceLayerIDs
-            imageMaterialStateLayerIDs = self.imageMaterialStateLayerIDs
+            return projection
         }
+        if dynamicLayerTopologyCache.reset() {
+            textureRegistry.retireLayerSources(keeping: layersByID.keys)
+        }
+        return .init(descriptor: renderDescriptor, layersByID: layersByID,
+            staticWorldFrames: worldFramesByLayerID, orderedLayers: authoredLayers,
+            orderedLayerIDs: orderedLayerIDs, dynamicLayerIDs: [], lightLayerIDs: lightLayerIDs,
+            imageMaterialStateLayerIDs: imageMaterialStateLayerIDs, utilityExecution: utilityExecution,
+            preparationLayers: resolvedMaterialPreparationLayers, preparationLayerIDs: preparationLayerIDs,
+            framebufferSourceLayerIDs: framebufferSourceLayerIDs)
+    }
+
+    func resolveFrameWorldProjection(
+        layerTopology: SceneScriptLayerTopologySnapshot?,
+        dynamicValues: SceneDynamicSnapshot,
+        puppetAttachmentFrames: ScenePuppetAttachmentFrameSnapshot
+    ) -> SceneMetalRendererFrameWorldProjection {
+        let topology = resolveFrameTopology(layerTopology: layerTopology)
         return SceneMetalRendererFrameWorldProjection(
-            descriptor: descriptor,
-            layersByID: layersByID,
-            orderedLayers: orderedLayers,
-            orderedLayerIDs: orderedLayerIDs,
-            dynamicLayerIDs: dynamicLayerIDs,
-            lightLayerIDs: lightLayerIDs,
+            descriptor: topology.descriptor,
+            layersByID: topology.layersByID,
+            orderedLayers: topology.orderedLayers,
+            orderedLayerIDs: topology.orderedLayerIDs,
+            dynamicLayerIDs: topology.dynamicLayerIDs,
+            lightLayerIDs: topology.lightLayerIDs,
             worldFrames: SceneLayerDynamicWorldFrameResolver.resolve(
-                descriptor: descriptor,
-                byID: layersByID,
+                descriptor: topology.descriptor,
+                byID: topology.layersByID,
                 snapshot: dynamicValues,
-                staticFrames: staticWorldFrames,
-                dynamicLayerIDs: dynamicLayerIDs,
+                staticFrames: topology.staticWorldFrames,
+                dynamicLayerIDs: topology.dynamicLayerIDs,
                 puppetAttachmentFrames: puppetAttachmentFrames
             ),
-            utilityExecution: utilityExecution,
-            preparationLayers: preparationLayers,
-            preparationLayerIDs: preparationLayerIDs,
-            framebufferSourceLayerIDs: framebufferSourceLayerIDs,
-            imageMaterialStateLayerIDs: imageMaterialStateLayerIDs
+            utilityExecution: topology.utilityExecution,
+            preparationLayers: topology.preparationLayers,
+            preparationLayerIDs: topology.preparationLayerIDs,
+            framebufferSourceLayerIDs: topology.framebufferSourceLayerIDs,
+            imageMaterialStateLayerIDs: topology.imageMaterialStateLayerIDs
         )
     }
 

@@ -10,7 +10,7 @@ HARNESS=r'''
 
 @main enum Harness {
  static func make(_ source:String) throws -> SceneScriptQuickJSProgramCandidate {
-  let d=SceneRenderDescriptor(layers:[.init(id:1,layerIndex:0,name:"label",visible:true,originXYZ:[0,0,0],scaleXYZ:[1,1,1],scaleHasScript:nil,alpha:1,effects:[],contentKind:"text",textScript:.init(source:source),text:"ready",textStyle:.init(fontPath:nil,colorRGB:[1,1,1],pointSize:32),sizeWH:[200,100])])
+  let d=SceneRenderDescriptor(layers:[.init(id:1,layerIndex:0,name:"label",visible:true,originXYZ:[0,0,0],scaleXYZ:[1,1,1],scaleHasScript:nil,alpha:1,effects:[],contentKind:"text",text:"ready",textStyle:.init(fontPath:nil,colorRGB:[1,1,1],pointSize:32),sizeWH:[200,100])])
   let b=SceneScriptBindingIR(source:source,owner:.init(kind:.object,objectIndex:0,objectID:1,effectIndex:nil,effectID:nil,passIndex:nil,passID:nil),targetPath:[.key("objects"),.index(0),.key("text")],properties:[:],authoredValue:.string("ready"),valueType:.string,wrapperKeys:["script","value"])
   let c=try SceneScriptQuickJSProgramCandidate.compile(authoredDescriptor:d,runtimeDescriptor:d,scriptBindings:[b],vectorProjection:SceneScriptVectorProgram.project(descriptor:d,scriptBindings:[b]),userPropertyDefinitions:[],timelineTargets:[],scalarExcludedTargets:[],stringExcludedTargets:[],admittedVectorPassTargets:[],generation:1)
   return c

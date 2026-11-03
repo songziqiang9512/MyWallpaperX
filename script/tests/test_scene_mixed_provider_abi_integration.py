@@ -81,7 +81,7 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
         cls.exe = app / "Contents/MacOS/MyWallpaperX" if app.suffix == ".app" else app
         cls.app_identity = app_hashes(cls.exe)
 
-    def run_case(self, *, three_candidates=False):
+    def run_case(self, *, three_candidates=False, cache_condition="normal"):
         parent = os.environ.get("MWX_SCENE_INTEGRATION_EVIDENCE")
         if parent:
             Path(parent).mkdir(parents=True, exist_ok=True)
@@ -102,6 +102,7 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
                   "hiddenProvider": {"canvasRect": (36, 116, 60, 140), "expectedRGB": (0, 0, 0)},
                   "peer": {"canvasRect": (186, 122, 198, 134), "expectedRGB": (0, 255, 0)}}
         protocol = {"threeCandidates": three_candidates, "sourceRGBA": SOURCE_RGBA,
+                    "cacheCondition": cache_condition,
                     "maskRGBA": MASK_RGBA, "expectedConsumerRGB": expected,
                     "sceneCanvas": 128, "oracleCanvas": 256,
                     "channelTolerance": 2, "minimumCorrectFraction": .99,
@@ -119,8 +120,16 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
         self.assertEqual(app_hashes(self.exe), self.app_identity)
         env = {key: value for key, value in os.environ.items()
                if not key.startswith(("MWX_SCENE_DEBUG_", "MYWALLPAPERX_SCENE_DEBUG_"))}
+        cache_root = root / "shader-cache"
+        if cache_condition == "file":
+            cache_root.write_bytes(b"owned cache-root counterexample")
+        elif cache_condition == "readonly":
+            cache_root.mkdir()
+            cache_root.chmod(0o500)
+            self.addCleanup(cache_root.chmod, 0o700)
+            self.assertFalse(os.access(cache_root, os.W_OK), "readonly cache fixture is still writable")
         env.update(HOME=str(home), CFFIXED_USER_HOME=str(home), MWX_SCENE_DEBUG_SURFACE_COUNT="1",
-                   MWX_SCENE_GENERIC_SHADER_CACHE=str(root / "shader-cache"))
+                   MWX_SCENE_GENERIC_SHADER_CACHE=str(cache_root))
         with (root / "app.log").open("w") as output:
             result = subprocess.run(command, cwd=REPO, env=env, stdout=output,
                                     stderr=subprocess.STDOUT, timeout=90)
@@ -134,6 +143,10 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
         self.assertEqual(app_hashes(self.exe), self.app_identity)
         self.assertEqual(file_hashes(tuple(content.iterdir())), before_inputs)
         self.assertEqual(result.returncode, 0, log[-5000:])
+        if cache_condition == "file":
+            self.assertEqual(cache_root.read_bytes(), b"owned cache-root counterexample")
+        elif cache_condition == "readonly":
+            self.assertEqual(list(cache_root.iterdir()), [])
         self.assertNotRegex(log, r"MWX SCENE STARTUP:[^\n]*phase=failed")
         self.assertNotIn("phase=launch-failed", log)
         completions = re.findall(r"state=completed frame=(\d+) surface=(\d+) gpu=completed", log)
@@ -166,6 +179,12 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
 
     def test_three_candidate_chain_degrades_locally_and_preserves_peer(self):
         self.run_case(three_candidates=True)
+
+    def test_cache_root_file_preserves_half_alpha_named_color(self):
+        self.run_case(cache_condition="file")
+
+    def test_readonly_cache_preserves_half_alpha_named_color(self):
+        self.run_case(cache_condition="readonly")
 
 
 if __name__ == "__main__":

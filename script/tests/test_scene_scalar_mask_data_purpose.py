@@ -169,7 +169,7 @@ private func systemNoise(_ texture: MTLTexture, path: SceneVFSAssetPath, frame: 
         candidate: candidate, contentGeneration: frame), resourceGeneration: frame)
 }
 
-private func input(_ template: Template, frame: UInt64,
+private func input(frame: UInt64,
     entries: [SceneFrameTextureIdentity: SceneFrameTextureLookupStatus]) -> SceneResolvedMaterialFinalizationInput {
     let dynamic = SceneDynamicSnapshotResolver().resolve(frameIndex: frame, generation: frame,
         definitions: [], timelineValues: [:]).snapshot
@@ -178,7 +178,7 @@ private func input(_ template: Template, frame: UInt64,
     guard case let .success(snapshot) = SceneResolvedMaterialFrameSnapshot.validated(
         textureSnapshot: .init(frameEpoch: frame, frameIndex: frame, entries: entries),
         dynamicSnapshot: dynamic, frameInputs: frameInputs) else { fatalError("own frame invalid") }
-    return snapshot.finalizationInput(template: template, layerID: 0, renderSize: CGSize(width: 2, height: 2),
+    return snapshot.finalizationInput(layerID: 0, renderSize: CGSize(width: 2, height: 2),
         modelViewProjection: matrix_identity_float4x4, layerModelMatrix: matrix_identity_float4x4,
         effectOutputModelViewProjection: matrix_identity_float4x4,
         effectTextureProjectionMatrixInverse: matrix_identity_float4x4)
@@ -202,13 +202,14 @@ private func run(device: MTLDevice, queue: MTLCommandQueue, renamed: Bool,
         "candidatePath": candidatePath.value, "candidatePurpose": candidatePurpose.reportToken,
         "defaultPath": noiseDefault.value, "corruption": corruption,
         "channelUse": sampler.channelUse.rawValue, "sourcePurpose": token(sampler.sourceProvenPurpose),
-        "directCandidatePurpose": token(sampler.purpose(for: .asset(candidatePath))),
-        "directDefaultPurpose": token(sampler.purpose(for: .asset(noiseDefault))),
+        "directCandidatePurpose": token(Schema.purpose(for: .asset(candidatePath), sampler: sampler)),
+        "directDefaultPurpose": token(Schema.purpose(for: .asset(noiseDefault), sampler: sampler)),
         "slotFact": token(SceneResolvedMaterialTextureSlotPurpose.fact(in: value.textureSlots[slot]!,
             candidateOrdinal: ordinal, sampler: sampler)?.purpose),
         "typedStaticDataSlot": SceneResolvedMaterialVariantCache.typedStaticDataAuxiliarySlots(
             template: value, samplers: [slot:sampler], graphInputSlots: []).contains(slot)]
     guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(template: value,
+    textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: value),
         maximumVariantCount: 8) else { row["launch"] = "cache-invalid"; return row }
     let launchNoise = systemNoise(upload(device,purpose:.noise,frame:1,noise:true), path:noiseDefault,frame:1)
     let launch = cache.precompileLaunchEnvelope(implicitFramebufferIdentity: nil,
@@ -242,15 +243,18 @@ private func run(device: MTLDevice, queue: MTLCommandQueue, renamed: Bool,
             .asset(fallback): defaultReady ? resource(defaultTexture, request: fallback, frame: frame) : .absent,
             .system(.init(name:noiseDefault.value,purpose:.noise)): .ready(systemNoise(defaultTexture,path:noiseDefault,frame:frame)),
         ]
-        let frameInput = input(value, frame: frame, entries: entries)
+        let frameInput = input(frame: frame, entries: entries)
         var observation: [String: Any] = ["frame": frame]
         do {
             let snapshot = cache.launchEnvelopeCapabilitySnapshot()
             let variant = snapshot.variants[0]
-            let selections = try SceneResolvedMaterialTextureSelection.resolve(frameInput,
-                samplers: variant.activeSamplers, reachableSamplers: snapshot.reachableSamplers ?? [:],
+            let reachableTexturePurposes = SceneResolvedMaterialVariantCache.consensusPurposes(
+                snapshot.variants.map { $0.textureSelectionFacts.candidatePurposes })
+            let selections = try SceneResolvedMaterialTextureSelection.resolve(frameInput, textureSlots: value.textureSlots,
+                samplers: variant.activeSamplers, reachableTexturePurposes: reachableTexturePurposes,
                 channelUses: Dictionary(uniqueKeysWithValues: variant.frontendProgram.textureBindings.map { ($0.slot,$0.channelUse) }),
-                allowPresenceIndependentDefaults: true)
+                allowPresenceIndependentDefaults: true, textureSelectionFacts: variant.textureSelectionFacts,
+                graphInputSourceSlotFacts: variant.graphInputSourceSlotFacts)
             observation["selection"] = String(describing: selections[slot])
         } catch let error as SceneResolvedMaterialFailure { observation["selectionFailure"] = failure(error) }
         catch { observation["selectionFailure"] = String(describing: error) }
@@ -267,6 +271,7 @@ private func run(device: MTLDevice, queue: MTLCommandQueue, renamed: Bool,
             let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba8Unorm, width: 2, height: 2, mipmapped: false)
             descriptor.storageMode = .shared; descriptor.usage = [.shaderRead,.renderTarget]
             let target = device.makeTexture(descriptor: descriptor)!
+            prepareMaterialPipeline(program, encoder: passEncoder, target: target)
             if let command = queue.makeCommandBuffer(), let pass = passEncoder.prepare(program: program, target: target),
                passEncoder.encode(pass, commandBuffer: command) {
                 command.commit(); command.waitUntilCompleted()
@@ -309,25 +314,25 @@ private enum Main {
             let contract = shader(expression: expression, mode: mode)
             let sampler = preparedSampler(contract, slot: 2)!
             neighboring.append(["expression": expression, "mode": mode, "channelUse": sampler.channelUse.rawValue,
-                "sourcePurpose": token(sampler.sourceProvenPurpose), "normalPurpose": token(sampler.purpose(for: .asset(normalPath)))])
+                "sourcePurpose": token(sampler.sourceProvenPurpose), "normalPurpose": token(Schema.purpose(for: .asset(normalPath), sampler: sampler))])
         }
         let unseen = SceneVFSAssetPath("fixtures/unseen/red-alpha")!
         let redAlpha = preparedSampler(regularShader("ra"), slot: 2)!
         let redAlphaMasked = preparedSampler(shader(expression: "ra", mode: "opacitymask"), slot: 2)!
         neighboring.append(["expression": "ra", "mode": "", "channelUse": redAlpha.channelUse.rawValue,
-            "sourcePurpose": token(redAlpha.sourceProvenPurpose), "normalPurpose": token(redAlpha.purpose(for: .asset(unseen)))])
+            "sourcePurpose": token(redAlpha.sourceProvenPurpose), "normalPurpose": token(Schema.purpose(for: .asset(unseen), sampler: redAlpha))])
         neighboring.append(["expression": "ra", "mode": "opacitymask", "channelUse": redAlphaMasked.channelUse.rawValue,
-            "sourcePurpose": token(redAlphaMasked.sourceProvenPurpose), "normalPurpose": token(redAlphaMasked.purpose(for: .asset(unseen)))])
+            "sourcePurpose": token(redAlphaMasked.sourceProvenPurpose), "normalPurpose": token(Schema.purpose(for: .asset(unseen), sampler: redAlphaMasked))])
         let noisePath = SceneVFSAssetPath("util/noise")!
         let redAlphaRegistered = preparedSampler(regularShader("ra", defaultPath: "util/noise"), slot: 2)!
         neighboring.append(["expression": "ra-noise", "mode": "", "channelUse": redAlphaRegistered.channelUse.rawValue,
-            "sourcePurpose": token(redAlphaRegistered.sourceProvenPurpose), "normalPurpose": token(redAlphaRegistered.purpose(for: .asset(noisePath)))])
+            "sourcePurpose": token(redAlphaRegistered.sourceProvenPurpose), "normalPurpose": token(Schema.purpose(for: .asset(noisePath), sampler: redAlphaRegistered))])
         let plain = preparedSampler(shader(), slot: 2)!
         let conflict = plain.withSourceProvenPurpose(.mask)
         let wrongSource = plain.withSourceProvenPurpose(.straightAlbedo)
-        let conflicts = ["maskNormal":token(conflict.purpose(for:.asset(normalPath))),
-            "maskNoise":token(conflict.purpose(for:.asset(noisePath))),
-            "colorNormal":token(wrongSource.purpose(for:.asset(normalPath)))]
+        let conflicts = ["maskNormal":token(Schema.purpose(for: .asset(normalPath), sampler: conflict)),
+            "maskNoise":token(Schema.purpose(for: .asset(noisePath), sampler: conflict)),
+            "colorNormal":token(Schema.purpose(for: .asset(normalPath), sampler: wrongSource))]
         let oldNoise = Schema.Sampler(name:"g_Texture2",slot:2,mode:.regular,materialKey:"albedo",
             isHidden:false,defaultTexture:nil,readinessCombo:nil,channelUse:.redOnly)
         var corruptions: [[String: Any]] = []
@@ -338,7 +343,7 @@ private enum Main {
         let domains: [SceneTextureLoadPurpose] = [.normal,.noise,.mask,.preservedChannels,.lookupTable,.straightAlbedo,.premultipliedColor]
         let output: [String: Any] = ["matrix":matrix,"neighboring":neighboring,"sourceConflicts":conflicts,
             "purposeDomains": domains.map { ["purpose":$0.reportToken,"data":$0.isDataPurpose,"volume":$0.requiresVolumeTexture] },
-            "oldNoiseRedRule":token(oldNoise.purpose(for:.asset(noisePath))),"corruptions":corruptions,
+            "oldNoiseRedRule":token(Schema.purpose(for: .asset(noisePath), sampler: oldNoise)),"corruptions":corruptions,
             "selectionCounterexamples": [
                 run(device:device,queue:queue,renamed:false,candidatePath:normalPath,
                     candidatePurpose:.normal,ready:true,lowerNoise:true),

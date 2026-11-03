@@ -17,15 +17,22 @@ nonisolated enum SceneResolvedMaterialTextureSlotPurpose {
         candidateOrdinal: Int,
         sampler: Sampler
     ) -> Fact? {
+        fact(in: slot, candidateOrdinal: candidateOrdinal, sampler: sampler,
+             mixedProvider: SceneResolvedMaterialMixedProviderSlotFact.resolve(in: slot, sampler: sampler))
+    }
+
+    static func fact(
+        in slot: Template.TextureSlot,
+        candidateOrdinal: Int,
+        sampler: Sampler,
+        mixedProvider: SceneResolvedMaterialCompiledVariant.MixedProviderSlot?
+    ) -> Fact? {
         guard slot.index == sampler.slot,
               slot.candidates.indices.contains(candidateOrdinal) else {
             return nil
         }
         let candidate = slot.candidates[candidateOrdinal]
-        if let mixed = SceneResolvedMaterialMixedProviderSlotFact.resolve(
-            in: slot,
-            sampler: sampler
-        ), let purpose = mixed.purpose(for: candidate.reference) {
+        if let purpose = mixedProvider?.purpose(for: candidate.reference) {
             return Fact(
                 slot: slot.index,
                 ordinal: candidateOrdinal,
@@ -34,7 +41,7 @@ nonisolated enum SceneResolvedMaterialTextureSlotPurpose {
                 purpose: purpose
             )
         }
-        let directPurpose = sampler.purpose(for: candidate.reference)
+        let directPurpose = SceneResolvedMaterialShaderSchema.purpose(for: candidate.reference, sampler: sampler)
         let sourceProvenGraphColor: Bool
         if case .graph = candidate.reference {
             sourceProvenGraphColor = directPurpose == .premultipliedColor
@@ -109,7 +116,7 @@ nonisolated enum SceneResolvedMaterialTextureSlotPurpose {
                   let exact = SceneStockTextureSemanticRegistry.purpose(
                       for: lowerPath
                   ),
-                  sampler.purpose(for: lower.reference) == exact else {
+                  SceneResolvedMaterialShaderSchema.purpose(for: lower.reference, sampler: sampler) == exact else {
                 return makeFact(
                     slot: slot,
                     ordinal: candidateOrdinal,
@@ -170,7 +177,7 @@ nonisolated enum SceneResolvedMaterialTextureSlotPurpose {
                registered != sourcePurpose {
                 return false
             }
-            if let lowerPurpose = sampler.purpose(for: lower.reference),
+            if let lowerPurpose = SceneResolvedMaterialShaderSchema.purpose(for: lower.reference, sampler: sampler),
                lowerPurpose != sourcePurpose {
                 return false
             }

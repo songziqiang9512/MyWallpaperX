@@ -86,7 +86,7 @@ class SceneDirectDrawVertexAttributesTests(unittest.TestCase):
             }, indent=2) + "\n")
         if compiled.returncode:
             raise RuntimeError(compiled.stderr)
-        run_command = [str(binary), str(bundle), str(root / "artifacts")]
+        run_command = [str(binary), str(bundle)]
         if os.environ.get("MWX_DIRECT_DRAW_CPU_ONLY") == "1":
             run_command.append("--cpu-only")
         completed = subprocess.run(run_command, cwd=root, env=env,

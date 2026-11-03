@@ -1,17 +1,18 @@
 import Foundation
 
 nonisolated struct ScenePropertyBindingProgramValidation: Equatable {
-    let definitions: [SceneDynamicTargetDefinition]
+    let definitionsByTarget: [SceneDynamicTarget: SceneDynamicTargetDefinition]
     let instructions: [ScenePropertyBindingInstruction]
     let diagnostics: [ScenePropertyBindingDiagnostic]
 }
 
 nonisolated struct ScenePropertyBindingProgramValidator {
     nonisolated func validate(
-        _ program: ScenePropertyBindingProgram
+        definitions: [SceneDynamicTargetDefinition],
+        instructions: [ScenePropertyBindingInstruction]
     ) -> ScenePropertyBindingProgramValidation {
-        let definitionsByTarget = Dictionary(grouping: program.definitions, by: \.target)
-        let instructionsByTarget = Dictionary(grouping: program.instructions, by: \.target)
+        let definitionsByTarget = Dictionary(grouping: definitions, by: \.target)
+        let instructionsByTarget = Dictionary(grouping: instructions, by: \.target)
         var diagnostics: [ScenePropertyBindingDiagnostic] = []
 
         for (target, definitions) in definitionsByTarget where definitions.count > 1 {
@@ -67,14 +68,12 @@ nonisolated struct ScenePropertyBindingProgramValidator {
             validInstructions.append(instruction)
         }
 
-        let validDefinitions = definitionsByTarget
-            .filter { $0.value.count == 1 }
-            .compactMap { $0.value.first }
-            .sorted { ScenePropertyBindingDiagnostic.targetKey($0.target)
-                < ScenePropertyBindingDiagnostic.targetKey($1.target) }
+        let validDefinitions = definitionsByTarget.compactMapValues { definitions in
+            definitions.count == 1 ? definitions.first : nil
+        }
         diagnostics.sort(by: ScenePropertyBindingDiagnostic.areInIncreasingOrder)
         return .init(
-            definitions: validDefinitions,
+            definitionsByTarget: validDefinitions,
             instructions: Self.sorted(validInstructions),
             diagnostics: diagnostics
         )

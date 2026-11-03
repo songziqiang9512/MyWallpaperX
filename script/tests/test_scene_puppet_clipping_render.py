@@ -9,7 +9,7 @@ import unittest
 SCENE = Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene"
 SOURCES = [SCENE / path for path in (
     "Format/SceneMdlPuppetMeshReader.swift",
-    "Systems/Puppet/ScenePuppetClipping.swift",
+    "Rendering/Geometry/ScenePuppetClipping.swift",
     "Rendering/Geometry/SceneGeometryProduct.swift",
     "Rendering/Metal/SceneMetalPipeline.swift",
     "Runtime/Frame/SceneMaterialRenderState.swift",
@@ -140,7 +140,7 @@ final class Allocations {
             var releases: [() -> Void] = []
             clipping.prepare(commandBuffer: command, extent: SIMD2(extent, extent), mvp: matrix_identity_float4x4,
                 retainAuxiliary: { releases.append($0) }, vertexCoverageVaries: vertexCoverageVaries,
-                vertices: posed, vertexBuffer: vb, indexBuffer: ib)
+                vertexBuffer: vb, indexBuffer: ib)
             prepared?(releases.count)
             let target = texture(.bgra8Unorm, 64, 64, target: true)
             let pass = MTLRenderPassDescriptor()
@@ -329,7 +329,7 @@ final class Allocations {
         let perspective = simd_float4x4(SIMD4(0.01, 0, 0, 1), SIMD4(0, 1, 0, 1),
                                         SIMD4(0, 0, 1, 0), SIMD4(0, 0, 0, 1))
         roiOwner.prepare(commandBuffer: queue.makeCommandBuffer()!, extent: SIMD2(1000, 1000), mvp: perspective,
-            retainAuxiliary: { $0() }, vertices: roiVertices, vertexBuffer: roiVB, indexBuffer: roiIB)
+            retainAuxiliary: { $0() }, vertexBuffer: roiVB, indexBuffer: roiIB)
 
         // Disjoint ranges may reuse the same four physical vertices; UInt16
         // indices stay legal while the typed dependency chain has 50,000 nodes.
@@ -388,7 +388,7 @@ class ScenePuppetClippingRenderTests(unittest.TestCase):
             harness.write_text(HARNESS)
             # Count entry into the unchanged per-part opacity traversal in a
             # test-only copy. Product callers and mask decisions stay intact.
-            clipping_source = SCENE / "Systems/Puppet/ScenePuppetClipping.swift"
+            clipping_source = SCENE / "Rendering/Geometry/ScenePuppetClipping.swift"
             clipping_text = clipping_source.read_text()
             scan = "                      let part = mesh.drawParts[ordinal]\n                      let opaque ="
             if clipping_text.count(scan) != 1:

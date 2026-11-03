@@ -633,7 +633,10 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
                 )
             }
             domain.clearConstructionBoundaryCheck()
-            if let storageSession {
+            if let storageSession,
+               !report.instantiatedVectorTargets.isEmpty || !report.instantiatedScalarTargets.isEmpty
+                || !report.instantiatedStringTargets.isEmpty || !report.instantiatedCursorTargets.isEmpty {
+                storageSession.prepare()
                 do {
                     try domain.configureStorage(storageSession)
                 } catch {

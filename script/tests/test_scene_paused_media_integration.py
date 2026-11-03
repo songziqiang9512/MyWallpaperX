@@ -27,9 +27,11 @@ SOURCE_PATHS = [ROOT / path for path in (
     "MyWallpaperX/App/Debug/DebugScenePlaybackRunner+MediaThumbnail.swift",
     "MyWallpaperX/App/Debug/DebugScenePlaybackRunner+EvidenceSchedule.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/SceneMediaThumbnailTextureStore.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneMediaThumbnailCoordinator.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriver.swift",
+    "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession.swift",
+    "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceSubmission.swift",
+    "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceTeardown.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneBaseMaterialProviderBindingCompiler.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptVectorCandidateCatalog.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptVectorProgram.swift",
@@ -159,7 +161,7 @@ class ScenePausedMediaIntegrationTests(unittest.TestCase):
                 flag = "false" if malformed else "true"
                 ready_events = list(re.finditer(
                     rf"MWX media thumbnail store: phase=ready generation=1 hasColor={flag} hasPreserved={flag}", ordered_log))
-                self.assertEqual(len(ready_events), 2, log[-6000:])
+                self.assertEqual(len(ready_events), 1, log[-6000:])
                 self.assertRegex(log, r"phase=snapshot reason=ready request=\d+ source=metal ")
                 self.assertNotRegex(log, r"phase=snapshot-failed reason=ready ")
                 captures = [PROTOCOL["requiredCapture"]]

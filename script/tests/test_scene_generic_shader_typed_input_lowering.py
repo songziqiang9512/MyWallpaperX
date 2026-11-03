@@ -51,8 +51,6 @@ struct TemplateFixture { let backgroundSlots: Set<Int> }
 enum SceneResolvedMaterialShaderSchema {
     enum DefaultTexture { case internalTarget }
     struct Sampler { let defaultTexture: DefaultTexture? }
-}
-enum SceneResolvedMaterialTextureResolver {
     static func sceneBackgroundColorSlots(
         template: TemplateFixture,
         samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler]

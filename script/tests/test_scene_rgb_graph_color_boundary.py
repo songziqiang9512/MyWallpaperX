@@ -110,7 +110,7 @@ private func rgbCase(_ name: String, renamed: Bool = false, usesUser: Bool = tru
 }
 
 private func rgbCache(_ value: RGBCase) -> Result<SceneResolvedMaterialVariantCache, SceneResolvedMaterialFailure> {
-    SceneResolvedMaterialVariantCache.launchValidated(template: value.template, maximumVariantCount: 8)
+    SceneResolvedMaterialVariantCache.launchValidated(template: value.template, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: value.template), maximumVariantCount: 8)
 }
 
 private func rgbLaunch(_ cache: SceneResolvedMaterialVariantCache, value: RGBCase) -> String {
@@ -176,8 +176,7 @@ private func rgbFinalization(_ cache: SceneResolvedMaterialVariantCache, value: 
         consumerLayerID: layerID, resource: background) else {
         return .failure(.init(phase: .texture, code: .resourceSnapshotUnresolved))
     }
-    return SceneResolvedMaterialProgramFinalizer.finalize(snapshot.finalizationInput(template: value.template,
-        layerID: layerID, renderSize: CGSize(width: 2, height: 2),
+    return SceneResolvedMaterialProgramFinalizer.finalize(snapshot.finalizationInput(layerID: layerID, renderSize: CGSize(width: 2, height: 2),
         modelViewProjection: matrix_identity_float4x4, layerModelMatrix: matrix_identity_float4x4,
         effectOutputModelViewProjection: matrix_identity_float4x4,
         effectTextureProjectionMatrixInverse: matrix_identity_float4x4,
@@ -211,13 +210,13 @@ private func rgbRun(_ value: RGBCase, device: MTLDevice, queue: MTLCommandQueue)
         row["sameAtoms"] = zip([0,1,3], [source, replacement, background]).map { slot, resource in
             program.textureSlots[slot]?.resource.publication.isSameAtom(as: resource.publication) ?? false
         }
-        row["inputMask"] = program.resolvedUniforms.first {
-            $0.field.name == SceneShaderColorBoundary.uniformName
-        }.map { $0.encodedValue.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) } } ?? 0
+        row["inputMask"] = zip(program.preparedAssembly.preparedUniformBindings, program.resolvedUniforms).first {
+            $0.0.field.name == SceneShaderColorBoundary.uniformName
+        }.map { $0.1.encodedValue.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) } } ?? 0
     }
     let chain = admittedGraph(value.graph)
     let catalog = SceneResolvedMaterialRuntimeCatalog(entries: [
-        .init(effect: effect, nodeIndex: 0): .template(value.template)], resourceDemandIssues: [])
+        .init(effect: effect, nodeIndex: 0): .template(value.template, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: value.template))], resourceDemandIssues: [])
     let caps = capabilities(chain, catalog: catalog,
         assetStates: [.init(path: value.asset, purpose: .straightAlbedo): .ready(.color(.resolved(.straightAlpha)))])
     row["capabilityReports"] = caps.reportLines
@@ -322,9 +321,9 @@ private func rgbRejects(_ value: RGBCase, device: MTLDevice) -> [String: Any] {
 
 
 def harness_text() -> str:
-    prefix, marker, _ = fixture.HARNESS.partition("@main\nprivate enum Harness")
+    prefix = fixture.HARNESS_SUPPORT_SOURCE
     helpers, helper_marker, _ = color_fixture.HARNESS.partition("private func traceMaterial")
-    if not marker or not helper_marker:
+    if not helper_marker:
         raise RuntimeError("existing graph helper boundaries changed")
     return prefix + helpers + HARNESS
 

@@ -15,14 +15,10 @@ from pathlib import Path
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 WATERWAVES_FRAG = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Resources/SceneStockAssets.bundle/assets/effects"
     / "waterwaves/shaders/effects/waterwaves.frag"
-)
-EFFECTS_REFERENCE = (
-    REPOSITORY_ROOT / "docs/scene/capabilities/effects-reference.md"
 )
 
 
@@ -34,23 +30,6 @@ class AuthoredPresenceComboAdmissionTests(unittest.TestCase):
         self.assertIn("#else", source)
         self.assertIn("float mask = 1.0;", source)
 
-    def test_effects_reference_requires_author_mask(self) -> None:
-        text = EFFECTS_REFERENCE.read_text(encoding="utf-8")
-        self.assertIn("仅在作者 mask 内变形", text)
-        self.assertIn("作者绑定 mask 后不得再编译整图变形", text)
-
-    def test_reachability_requires_authored_presence_combo(self) -> None:
-        reachability = (
-            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialShaderSchema+Reachability.swift"
-        ).read_text(encoding="utf-8")
-        launch = (
-            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureResolver+Launch.swift"
-        ).read_text(encoding="utf-8")
-        self.assertIn("nonisolated static func readinessComboSlotMask(", reachability)
-        self.assertIn("if required & bit == 0, hasOptionalSource { optional |= bit }", reachability)
-        self.assertIn("case .selected:", launch)
-        self.assertIn("sampler?.readinessCombo != nil", launch)
-        self.assertIn("both combo-off and combo-on", launch)
 
 
 if __name__ == "__main__":

@@ -230,9 +230,6 @@ nonisolated enum SceneGenericShaderAnalysisCache {
               (1 ... maximumEntryBytes).contains(data.count) else { return }
         lock.withLock {
             do {
-                try FileManager.default.createDirectory(
-                    at: directory, withIntermediateDirectories: true
-                )
                 if !pruned {
                     ScenePersistentCacheSupport.prune(
                         directory, retainedEntryLimit: retainedEntryLimit
@@ -423,8 +420,8 @@ nonisolated final class SceneResolvedMaterialGenericShaderResolutionCache:
 }
 
 /// Shares an active compiler operation across equivalent launch-time requests.
-/// Accepted Programs remain in the outer bounded resolution cache; a completed
-/// URL is not proof that a disk entry still exists or satisfies its contract.
+/// Accepted Programs remain in the outer bounded resolution cache; optional
+/// disk publication does not keep this flight active.
 nonisolated final class SceneResolvedMaterialGenericShaderCompilationCoordinator:
     @unchecked Sendable
 {

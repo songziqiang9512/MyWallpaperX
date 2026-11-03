@@ -1,7 +1,7 @@
 """Run the real generic compiler with development evidence enabled by argv.
 
 The two configurations use signed glslang/spirv-cross helpers and the existing
-frontend/compiler/Program source closure. This checks artifact publication and
+frontend/compiler/Program source closure. This checks compiled artifacts and
 Program admission, not GPU execution or whole-App Release packaging.
 """
 
@@ -28,12 +28,10 @@ import Foundation
 
 @main private enum Check {
     static func main() throws {
-        guard CommandLine.arguments.count >= 3,
+        guard CommandLine.arguments.count >= 2,
               let bundle = Bundle(path: CommandLine.arguments[1]) else {
             throw NSError(domain: "compiler-fixture", code: 1)
         }
-        let cache = URL(fileURLWithPath: CommandLine.arguments[2], isDirectory: true)
-        try FileManager.default.createDirectory(at: cache, withIntermediateDirectories: true)
         let vertex = """
         attribute vec3 a_Position;
         attribute vec2 a_TexCoord;
@@ -49,18 +47,18 @@ import Foundation
         void main() { gl_FragColor = texSample2D(g_Texture0, v_TexCoord); }
         """
         let key = String(repeating: "a", count: 64)
-        let url: URL
+        let compiled: SceneGenericShaderCompiler.Output
         switch SceneGenericShaderCompiler.compile(
             requestKey: key, vertexSource: vertex, fragmentSource: fragment,
-            cacheRoot: cache, bundle: bundle
+            bundle: bundle
         ) {
-        case let .success(value): url = value
+        case let .success(value): compiled = value
         case let .failure(failure):
             throw NSError(domain: "real-generic-compiler", code: 2,
                 userInfo: [NSLocalizedDescriptionKey: String(describing: failure)])
         }
-        let data = try Data(contentsOf: url)
-        let artifact = try JSONDecoder().decode(SceneGenericShaderProgramArtifact.self, from: data)
+        let data = compiled.encodedData
+        let artifact = compiled.artifact
         guard let contract = SceneAuthoredShaderFrontend.compile(
                 vertexSource: vertex, fragmentSource: fragment).program,
               let program = artifact.makeProgram(
@@ -70,7 +68,7 @@ import Foundation
             throw NSError(domain: "real-program-admission", code: 3)
         }
         let output: [String: Any] = [
-            "artifactPath": url.path,
+            "artifactJSON": String(decoding: data, as: UTF8.self),
             "artifactSHA256": SceneGenericShaderProgramArtifact.sha256(data),
             "metalSHA256": artifact.program.metalSourceSHA256,
             "programAdmitted": true,
@@ -146,7 +144,7 @@ class SceneCompilerReleaseEvidenceTests(unittest.TestCase):
                     sentinel = exports / "sentinel.txt"
                     sentinel.write_text("existing evidence directory remains untouched in Release")
                     sentinel_hash = sha256(sentinel)
-                    command = [str(binary), str(bundle), str(temporary / f"{name}-cache"), FLAG, str(exports)]
+                    command = [str(binary), str(bundle), FLAG, str(exports)]
                     run = subprocess.run(command, cwd=temporary, env=environment,
                                          capture_output=True, text=True, timeout=45)
                     state.update(runCommand=command, runExit=run.returncode)
@@ -155,8 +153,9 @@ class SceneCompilerReleaseEvidenceTests(unittest.TestCase):
                     self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
                     result = json.loads(run.stdout)
                     self.assertTrue(result["programAdmitted"])
-                    artifact_path = Path(result["artifactPath"])
-                    artifacts[name] = json.loads(artifact_path.read_bytes())
+                    artifact_data = result.pop("artifactJSON").encode()
+                    self.assertEqual(hashlib.sha256(artifact_data).hexdigest(), result["artifactSHA256"])
+                    artifacts[name] = json.loads(artifact_data)
                     state["result"] = result
                     exported = sorted(path.name for path in exports.iterdir() if path != sentinel)
                     state["exportedFiles"] = exported
@@ -168,7 +167,7 @@ class SceneCompilerReleaseEvidenceTests(unittest.TestCase):
                     for exported_path in exports.iterdir():
                         self.assertGreater(exported_path.stat().st_size, 0)
                     if evidence:
-                        shutil.copy2(artifact_path, evidence / f"{name}-artifact.json")
+                        (evidence / f"{name}-artifact.json").write_bytes(artifact_data)
                         if name == "debug":
                             shutil.copytree(exports, evidence / "debug-exports")
                 self.assertEqual(artifacts["release"], artifacts["debug"],

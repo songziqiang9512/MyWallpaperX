@@ -6,11 +6,11 @@ import unittest
 from pathlib import Path
 
 from script.tests.scene_particle_render_test_support import run_particle_harness
-from script.tests.test_scene_particle_rendering import HARNESS_SOURCE, SWIFT_SOURCES
+from script.tests.test_scene_particle_rendering import HARNESS_SUPPORT_SOURCE, SWIFT_SOURCES
 
 
 FIXTURE = Path(__file__).resolve().parent / "fixtures/SceneParticleCoverageRenderingHarness.swift"
-COVERAGE_HARNESS = HARNESS_SOURCE.split("@main", 1)[0] + r'''
+COVERAGE_HARNESS = HARNESS_SUPPORT_SOURCE + r'''
 @main enum CoverageHarness {
     static func main() throws {
         let result = try SceneParticleCoverageRenderingHarness.run()

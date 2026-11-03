@@ -47,7 +47,7 @@ def preamble() -> str:
     # Scene document, descriptor, camera profile and all numeric owners are real.
     source = vm.SWIFT_PREAMBLE
     media = source[source.index("struct SceneFrameTiming {"):
-                   source.index("struct SceneTextScriptDefinition {")]
+                   source.index("struct SceneShaderContract {}")]
     materials = source[source.index("enum SceneBaseMaterialColorModulationCompiler {"):
                        source.index("enum SceneTimelinePlaybackCommand:")]
     source = timeline.HARNESS_SOURCE
@@ -58,10 +58,6 @@ def preamble() -> str:
     return "import Foundation\nimport simd\n" + media + materials + assets + """
 enum SceneGraphRenderTargetPlan {
     enum TextureFormat { case rgba16f, rgbaBackbuffer }
-}
-struct SceneTextScriptProgram {
-    struct Binding { let definition: SceneDynamicTargetDefinition }
-    let bindings: [Binding] = []
 }
 """
 
@@ -86,12 +82,12 @@ def run_probe(directory: Path) -> dict:
             shutil.copyfile(path, target)
         def mapped(path: Path) -> Path:
             return frozen / path.relative_to(ROOT)
-        original = vm.ROOT, vm.VM, vm.QUICKJS, vm.SWIFT_SOURCES, vm.C_SOURCES
+        original = vm.ROOT, vm.SCENE, vm.VM, vm.QUICKJS, vm.SWIFT_SOURCES, vm.C_SOURCES
         try:
-            vm.ROOT, vm.VM = frozen, mapped(vm.VM)
+            vm.ROOT, vm.SCENE, vm.VM = frozen, mapped(vm.SCENE), mapped(vm.VM)
             vm.QUICKJS = vm.VM / "QuickJSNG"
-            vm.SWIFT_SOURCES = [mapped(p) for p in original[3]]
-            vm.C_SOURCES = [mapped(p) for p in original[4]]
+            vm.SWIFT_SOURCES = [mapped(p) for p in original[4]]
+            vm.C_SOURCES = [mapped(p) for p in original[5]]
             binary = vm.compile_vector_harness(build,
                 FIXTURE.read_text() + "\n" + SETTER_FIXTURE.read_text(),
                 "default-2d-camera-inputs", extra_swift_sources=tuple(map(mapped, EXTRA_SOURCES)),
@@ -99,7 +95,7 @@ def run_probe(directory: Path) -> dict:
             run = subprocess.run([str(binary), str(binary.parent)], capture_output=True,
                                  text=True, timeout=30)
         finally:
-            vm.ROOT, vm.VM, vm.QUICKJS, vm.SWIFT_SOURCES, vm.C_SOURCES = original
+            vm.ROOT, vm.SCENE, vm.VM, vm.QUICKJS, vm.SWIFT_SOURCES, vm.C_SOURCES = original
     (directory / "stdout.json").write_text(run.stdout)
     (directory / "stderr.log").write_text(run.stderr)
     drift = [name for name, digest in before.items()
@@ -187,7 +183,7 @@ class SceneDefault2DCameraInputTests(unittest.TestCase):
         facts = self.result["setterFailures"]
         self.assertEqual([k for k, v in facts.items() if v is not True], [], facts)
 
-    def test_same_value_peers_are_idempotent_and_conflicting_peer_is_local(self) -> None:
+    def test_same_value_peers_are_idempotent_and_later_writes_are_ordered(self) -> None:
         facts = self.result["setterPeers"]
         self.assertEqual([k for k, v in facts.items() if v is not True], [], facts)
 

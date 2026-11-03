@@ -63,7 +63,7 @@ class SceneAuthoredNormalTests(unittest.TestCase):
                 'Resources/Assets/SceneResourceIndex.swift','Resources/Assets/SceneResourceView.swift',
                 'Resources/Textures/SceneTexturePathResolver.swift','Resources/Textures/SceneMaterialAssetTextureCatalog.swift']]))
             support=work/'Support.swift'
-            support_text=texture_fixture.HARNESS.split('@main',1)[0]
+            support_text=texture_fixture.HARNESS_SUPPORT_SOURCE
             support_text=support_text.replace('struct SceneRenderDescriptor {', '''struct SceneRenderDescriptor {
     struct ModelMaterialLink { let modelPath: String; let materialPath: String }
     struct MaterialPass { let materialPath: String; let texturePaths: [String] }

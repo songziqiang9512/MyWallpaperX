@@ -281,7 +281,6 @@ private func sampler(
 }
 
 private func input(
-    _ template: Template,
     entries: [SceneFrameTextureIdentity: SceneFrameTextureLookupStatus],
     implicitFramebufferIdentity: SceneAuthoredEffectRenderPlan.TextureIdentity? = nil
 ) -> SceneResolvedMaterialFinalizationInput? {
@@ -300,7 +299,7 @@ private func input(
         dynamicSnapshot: dynamic, frameInputs: frameInputs
     ) else { return nil }
     return frame.finalizationInput(
-        template: template, layerID: implicitFramebufferIdentity?.layerID ?? 0,
+        layerID: implicitFramebufferIdentity?.layerID ?? 0,
         renderSize: CGSize(width: 2, height: 2),
         modelViewProjection: matrix_identity_float4x4,
         layerModelMatrix: matrix_identity_float4x4,
@@ -317,7 +316,7 @@ private func cache(
 )
     -> SceneResolvedMaterialVariantCache? {
     guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(
-        template: template, maximumVariantCount: 8
+        template: template, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: template), maximumVariantCount: 8
     ), case .success = cache.precompileLaunchEnvelope(
         implicitFramebufferIdentity: nil,
         assetStates: [.init(path: path, purpose: purpose): .ready(.data)]
@@ -327,7 +326,7 @@ private func cache(
 
 private func launchFailure(_ template: Template) -> String {
     guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(
-        template: template, maximumVariantCount: 8
+        template: template, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: template), maximumVariantCount: 8
     ) else { return "launch-validation-failed" }
     switch cache.precompileLaunchEnvelope(
         implicitFramebufferIdentity: nil, assetStates: [:]
@@ -344,7 +343,7 @@ private func finalize(
     cache: SceneResolvedMaterialVariantCache,
     entries: [SceneFrameTextureIdentity: SceneFrameTextureLookupStatus]
 ) -> Result<Program, SceneResolvedMaterialFailure>? {
-    guard let input = input(template, entries: entries) else { return nil }
+    guard let input = input(entries: entries) else { return nil }
     return SceneResolvedMaterialProgramFinalizer.finalize(input, variantCache: cache)
 }
 
@@ -389,7 +388,7 @@ private func launchToken(
     expectedPath: SceneVFSAssetPath = overridePath
 ) -> String {
     do {
-        switch try SceneResolvedMaterialTextureResolver.launchAuthoredReference(
+        switch try SceneResolvedMaterialVariantCache.launchAuthoredReference(
             template: template, sampler: sampler, slot: slot, assetStates: states
         ) {
         case let .selected(reference, _):
@@ -408,7 +407,7 @@ private func productChain(
     device: MTLDevice,
     resourceRoot: URL,
     stockRoot: URL
-) -> [String: Any] {
+) throws -> [String: Any] {
     let shader = contract(default: preservedDefault.value)
     let activeSampler = sampler(shader)!
     let animatedShader = contract(
@@ -421,16 +420,16 @@ private func productChain(
     )
     let staticIdentity = SceneAssetTextureIdentity(
         path: overridePath,
-        purpose: activeSampler.purpose(for: .asset(overridePath))!
+        purpose: SceneResolvedMaterialShaderSchema.purpose(for: .asset(overridePath), sampler: activeSampler)!
     )
     let animatedIdentity = SceneAssetTextureIdentity(
         path: animatedPath,
-        purpose: animatedSampler.purpose(for: .asset(animatedPath))!
+        purpose: SceneResolvedMaterialShaderSchema.purpose(for: .asset(animatedPath), sampler: animatedSampler)!
     )
     let defaultIdentity = SceneAssetTextureIdentity(
         path: preservedDefault, purpose: .preservedChannels
     )
-    let catalog = SceneMaterialAssetTextureCatalog(
+    let catalog = try SceneMaterialAssetTextureCatalog(
         demands: [staticIdentity, animatedIdentity, defaultIdentity],
         resourceView: SceneResourceView(
             projectRootURL: resourceRoot, packageRootURL: nil,
@@ -550,7 +549,7 @@ private func stockDefaultLifecycle(device: MTLDevice) throws -> [String: Bool] {
         var states = assets
         states[identity] = state
         guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(
-            template: value, maximumVariantCount: 8
+            template: value, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: value), maximumVariantCount: 8
         ), case .success = cache.precompileLaunchEnvelope(
             implicitFramebufferIdentity: nil, assetStates: states,
             systemProviderStates: providers
@@ -566,14 +565,14 @@ private func stockDefaultLifecycle(device: MTLDevice) throws -> [String: Bool] {
     if case let .success(program)? = frame {
         usesSystem = program.textureSlots[0]?.registryIdentity == .system(provider)
     } else { usesSystem = false }
-    let projection = SceneResolvedMaterialTextureResolver.launchReadinessProjection(
+    let projection = SceneResolvedMaterialVariantCache.launchReadinessProjection(
         template: value, samplers: [0: active], implicitFramebufferIdentity: nil,
         assetStates: assets, systemProviderStates: store.states
     )
     let required: Bool
     if case let .success(mask) = projection { required = mask.requiredMask == 1 }
     else { required = false }
-    let formats = SceneResolvedMaterialTextureResolver.launchTextureFormatProfiles(
+    let formats = SceneResolvedMaterialVariantCache.launchTextureFormatProfiles(
         template: value, samplers: [0: active], readinessMask: 1, formatSlots: [0],
         graphTextureFormatFacts: [:], assetFormatFacts: [identity.reportToken: 8],
         assetStates: assets, systemProviderStates: store.states
@@ -582,7 +581,7 @@ private func stockDefaultLifecycle(device: MTLDevice) throws -> [String: Bool] {
     if case let .success(profiles) = formats {
         formatMatches = profiles.count == 1 && profiles[0][0] == publication.candidate.authoredFormat
     } else { formatMatches = false }
-    let selectedAsset = try SceneResolvedMaterialTextureResolver.launchDefaultReference(
+    let selectedAsset = try SceneResolvedMaterialVariantCache.launchDefaultReference(
         sampler: active, slot: 0, assetStates: [identity: .ready(.data)],
         systemProviderStates: store.states
     )
@@ -640,18 +639,25 @@ private func selfCompositeSelections(_ device: MTLDevice) throws -> [String: Boo
             shaderContract: shader, diagnosticProvenance: original.diagnosticProvenance)!
         let active = Schema.Sampler(name: "g_Texture0", slot: 0, mode: mode, materialKey: nil,
             isHidden: false, defaultTexture: defaultTexture, readinessCombo: nil)
+        let graphFacts = Schema.graphInputSourceSlotFacts(
+            template: value, samplers: [0: active], inputIdentity: identity)
+        let facts = SceneResolvedMaterialVariantCache.prepareTextureSelectionFacts(
+            in: value, samplers: [0: active], implicitFramebufferIdentity: identity,
+            graphInputSourceSlotFacts: graphFacts)
         var publications = entries
         publications[.graph(identity)] = .ready(.init(publication: .init(requestIdentity: .graph(identity),
             candidate: graphCandidate, contentGeneration: 1), resourceGeneration: 1))
-        let finalization = input(value, entries: publications, implicitFramebufferIdentity: identity)!
+        let finalization = input(entries: publications, implicitFramebufferIdentity: identity)!
         if verifyVariantKey {
-            _ = try SceneResolvedMaterialTextureResolver.variantKey(finalization, samplers: [0: active],
-                reachableSamplers: [0: [active]], formatSlots: [], channelUses: [0: .wholeVector],
-                allowPresenceIndependentDefaults: false)
+            _ = try SceneResolvedMaterialTextureResolver.variantKey(finalization, textureSlots: value.textureSlots, samplers: [0: active],
+                reachableTexturePurposes: facts.candidatePurposes, formatSlots: [], channelUses: [0: .wholeVector],
+                allowPresenceIndependentDefaults: false, textureSelectionFacts: facts,
+                graphInputSourceSlotFacts: graphFacts)
         }
-        return try SceneResolvedMaterialTextureSelection.resolve(finalization, samplers: [0: active],
-            reachableSamplers: [0: [active]], channelUses: [0: .wholeVector],
-            allowPresenceIndependentDefaults: false)[0]
+        return try SceneResolvedMaterialTextureSelection.resolve(finalization, textureSlots: value.textureSlots, samplers: [0: active],
+            reachableTexturePurposes: facts.candidatePurposes, channelUses: [0: .wholeVector],
+            allowPresenceIndependentDefaults: false, textureSelectionFacts: facts,
+            graphInputSourceSlotFacts: graphFacts)[0]
     }
     func selected(_ entry: SceneResolvedMaterialTextureSelection.Entry, _ reference: Template.TextureReference,
                   purpose: SceneTextureLoadPurpose = .premultipliedColor,
@@ -684,7 +690,7 @@ private func selfCompositeSelections(_ device: MTLDevice) throws -> [String: Boo
             entries: [userIdentity: status]), .graph(ingress), fact: true)
     }
     for suffix in ["a", "b"] {
-        let target = Schema.DefaultTexture.internalTarget(.init(authoredName: "_rt_imageLayerComposite_81_" + suffix))
+        let target = Schema.DefaultTexture.internalTarget(Schema.renderTargetDefault(authoredName: "_rt_imageLayerComposite_81_" + suffix))
         result["default-" + suffix + "UsesPrior"] = selected(try select([], defaultTexture: target), .graph(ingress), fact: true, provenance: .shaderDefault)
         if case .internalDefault = try select([], expected: nil, defaultTexture: target) {
             result["default-" + suffix + "RejectsUnknownEffect"] = true
@@ -764,7 +770,9 @@ private enum Main {
             try SceneResolvedMaterialShaderSchema.activeSamplers(prepared).count
         } else { -1 }
         let inactiveReachable = try SceneResolvedMaterialShaderSchema.reachableSamplers(
-            inactiveTemplate, implicitFramebufferIdentity: nil
+            inactiveTemplate,
+            textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: inactiveTemplate).get(),
+            implicitFramebufferIdentity: nil
         )[0]?.count ?? 0
 
         let positiveTemplate = template(contract(default: preservedDefault.value))
@@ -802,8 +810,8 @@ private enum Main {
                     == .asset(candidateIdentity),
                 "demandIdentity": SceneAssetTextureIdentity(
                     path: overridePath,
-                    purpose: sampler(contract(default: preservedDefault.value))!
-                        .purpose(for: .asset(overridePath))!
+                    purpose: SceneResolvedMaterialShaderSchema.purpose(for: .asset(overridePath),
+                        sampler: sampler(contract(default: preservedDefault.value))!)!
                 ) == candidateIdentity,
                 "semanticPurpose": preserved.semanticIdentity.textureSlots[0]?.purpose
                     == .preservedChannels,
@@ -820,11 +828,11 @@ private enum Main {
                     != noise.semanticIdentity,
             ],
             "purposeBoundaries": [
-                "conflict": conflictSampler.purpose(for: conflictReference) == nil,
+                "conflict": SceneResolvedMaterialShaderSchema.purpose(for: conflictReference, sampler: conflictSampler) == nil,
                 "conflictTypedReject": launchFailure(conflictLaunchTemplate),
-                "untyped": untypedSampler.purpose(for: .asset(overridePath)) == nil,
+                "untyped": SceneResolvedMaterialShaderSchema.purpose(for: .asset(overridePath), sampler: untypedSampler) == nil,
                 "untypedTypedReject": launchFailure(template(untypedShader)),
-                "internal": internalSampler.purpose(for: .asset(overridePath)) == nil,
+                "internal": SceneResolvedMaterialShaderSchema.purpose(for: .asset(overridePath), sampler: internalSampler) == nil,
                 "inactiveActiveCount": inactiveActiveCount,
                 "inactiveReachableCount": inactiveReachable,
             ],
@@ -845,7 +853,7 @@ private enum Main {
                     purpose: .preservedChannels, generationMismatch: true
                 )),
             ],
-            "productChain": productChain(
+            "productChain": try productChain(
                 device: device, resourceRoot: resourceRoot, stockRoot: stockRoot
             ),
         ]

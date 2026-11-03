@@ -40,7 +40,7 @@ extension SceneResolvedMaterialGraphExecutor {
             1 / Float(target.width), 1 / Float(target.height), 1, 1
         ))
         let input = inputFrame.finalizationInput(
-            template: source.material.template, layerID: layerID,
+            layerID: layerID,
             renderSize: CGSize(width: target.width, height: target.height),
             modelViewProjection: frameInputs.effectOutputModelViewProjection * pixelsToUnit,
             layerModelMatrix: source.unitModelMatrix * pixelsToUnit,
@@ -94,7 +94,7 @@ extension SceneResolvedMaterialGraphExecutor {
         publications: inout [Graph.TextureIdentity: SceneFrameTextureResource],
         commands: inout [Command]
     ) -> StagePreparationResult {
-        if let activation = stageCapability.activationPolicy {
+        if let activation = stageCapability.execution.activationPolicy {
             let decision = activation.evaluate(
                 dynamicValues: frameInputs.dynamicValues,
                 pointerIsInside: frameInputs.pointerIsInside
@@ -113,7 +113,7 @@ extension SceneResolvedMaterialGraphExecutor {
             case let .inactive(reasonCode):
                 guard activationBypassIsProvable(
                     reasonCode: reasonCode,
-                    dependencyOwnership: capability.dependencyOwnership,
+                    stageCapability: stageCapability,
                     transition: transition,
                     graph: graph,
                     pairStep: pairStep,
@@ -129,15 +129,15 @@ extension SceneResolvedMaterialGraphExecutor {
                     boundedDetail: nil, rejection: .graphStructureRejected))
             }
         }
-        if case let .initiallyInactivePassthrough(_, reasonCode) = stageCapability {
+        if case let .initiallyInactivePassthrough(reasonCode) = stageCapability.execution {
             return .passthrough(.activation(reasonCode: reasonCode, bypassProven: false))
         }
-        if case let .visualFailurePassthrough(_, reasonCode) = stageCapability {
+        if case let .visualFailurePassthrough(reasonCode) = stageCapability.execution {
             return .passthrough(.visualFailure(reasonCode: reasonCode,
                 boundedDetail: nil, rejection: .graphStructureRejected))
         }
         if let unavailable = frameInputs.dependencyUnavailability,
-           let slots = capability.dependencyOwnership.preEncodeVisualFailureSlots(in: graph),
+           let slots = stageCapability.preEncodeVisualFailureSlots,
            !slots.isEmpty {
             return .passthrough(.visualFailure(reasonCode: unavailable.rawValue,
                 boundedDetail: nil, rejection: .graphStructureRejected))
@@ -227,9 +227,8 @@ extension SceneResolvedMaterialGraphExecutor {
                         return .failure(.graphStructureRejected)
                     }
                 }
-                let finalized = SceneResolvedMaterialProgramFinalizer.finalize(
+                let finalized = material.bindFrame(
                     overlaid.finalizationInput(
-                        template: material.template,
                         layerID: node.effect.layerID,
                         renderSize: CGSize(width: target.width, height: target.height),
                         modelViewProjection: authoredGeometry?.captureModelViewProjection
@@ -245,10 +244,6 @@ extension SceneResolvedMaterialGraphExecutor {
                         implicitFramebufferIdentity: pairStep.inputIdentity,
                         vertexCoordinates: authoredGeometry?.coordinates ?? .unit,
                         vertexInputSize: authoredGeometry?.vertexInputSize
-                    ),
-                    variantCache: material.variants,
-                    outputStorage: outputStorage(
-                        for: material.attachmentStorage
                     )
                 )
                 let program: SceneResolvedMaterialProgram
@@ -282,21 +277,14 @@ extension SceneResolvedMaterialGraphExecutor {
                              .optionalTexturePurposeMismatch,
                              .optionalTextureContentMismatch,
                              .optionalTextureSamplingUnresolved:
-                            proven = material.variants
-                                .provesEffectLocalOptionalTextureFailure(
-                                    slot: slot
-                                )
+                            proven = material.effectLocalFailureSlots.optionalTexture.contains(slot)
                         case .sceneEnvironmentUnavailable:
-                            proven = material.variants
-                                .provesEffectLocalSceneEnvironmentTextureFailure(slot: slot)
+                            proven = material.effectLocalFailureSlots.sceneEnvironment.contains(slot)
                         case .systemProviderPending,
                              .systemProviderUnavailable,
                              .systemProviderPurposeMismatch,
                              .systemProviderSamplingUnresolved:
-                            proven = material.variants
-                                .provesEffectLocalSystemProviderTextureFailure(
-                                    slot: slot
-                                )
+                            proven = material.effectLocalFailureSlots.systemProvider.contains(slot)
                         }
                         return proven ? fallback.rawValue : nil
                     }()
@@ -435,10 +423,12 @@ extension SceneResolvedMaterialGraphExecutor {
                     audioSpectrum: frame.audioSpectrum
                 )
 #endif
-                if capturesExecutionDiagnostics {
-                    SceneResolvedMaterialGenericShaderArtifactCache.recordExecution(
-                        routeDecision: program.routeDecision,
-                        backend: program.frontendProgram.backend,
+#if DEBUG
+                if capturesExecutionDiagnostics, let routeDecision = program.routeDecision {
+                    SceneGraphExecutionTelemetry.recordGenericShaderExecution(
+                        state: routeDecision.state,
+                        profile: routeDecision.profile,
+                        backend: program.frontendProgram.backend.rawValue,
                         graphInputDiagnostics: program.textureSlots.compactMap {
                             $0?.graphInputSourceFact?.diagnosticIdentity
                         },
@@ -449,6 +439,7 @@ extension SceneResolvedMaterialGraphExecutor {
                         preparedKey: program.preparedShader.cacheKey
                     )
                 }
+#endif
 
                 if let fboTarget {
                     guard let publication = framebufferResource(
@@ -699,19 +690,6 @@ extension SceneResolvedMaterialGraphExecutor {
                     capability.graphFramebufferColorRepresentations[identity]
                         ?? representation
                 ))
-        }
-    }
-
-    private func outputStorage(
-        for attachment: SceneResolvedMaterialAttachmentKind
-    ) -> SceneResolvedMaterialProgram.OutputStorage {
-        switch attachment {
-        case .color: .color
-        case .scalarRedUnorm: .scalarRedUnorm
-        case .redGreenUnorm: .redGreenUnorm
-        case .scalarRedFloat16: .scalarRedFloat16
-        case .redGreenFloat16: .redGreenFloat16
-        case .preservedRGBAUnorm: .preservedRGBAUnorm
         }
     }
 

@@ -8,7 +8,7 @@
 
 本页回答 Web 当前生产路径由谁拥有、哪些结论只有源码证据、哪些发布项仍未闭合。长期语言、进程与性能边界统一由[技术栈与架构路线边界](../architecture/technology-stack-boundaries.md)规定；测试证据口径由[Web 壁纸运行能力评测标准](web-wallpaper-benchmark-standard.md)规定。
 
-2026-10-25 [Scene 保留/空预备合同](dedicated-host-process-design.md#启动优化有界空宿主与最小首帧探测)原空预备互斥不变，真实Web不受阻，无退休WebView复用。[D25](../scene/history/scene-startup-d25-2026-10-25.md)已补普通GUI六方向、两真实作者有限属性/输出；原政策分别证typed standard/customScheme/workshopPersistent与highCompatibility/httpLoopback/scopedPersistent暂停/恢复。标准同请求有非零实音，模块原请求实音0、Stop后新请求另证7窗非零，不能合成一次全程通过。模块IMG空thumbnail/fallback交互错误保留，唯一运行时归因未证，不授作者零错。本段旧运行未覆盖F12/focus或OS恢复；D40仅补Scene视频OS恢复，Web OS仍未验，具体范围以专项完成记录为准；P5/P6 STOP非开发债，性能未过。
+2026-10-25 [Scene 保留/空预备合同](dedicated-host-process-design.md#启动优化有界空宿主与最小首帧探测)原空预备互斥不变，真实Web不受阻，无退休WebView复用。普通GUI运行记录覆盖普通GUI六方向、两真实作者有限属性/输出；原政策分别证typed standard/customScheme/workshopPersistent与highCompatibility/httpLoopback/scopedPersistent暂停/恢复。标准同请求有非零实音，模块原请求实音0、Stop后新请求另证7窗非零，不能合成一次全程通过。模块IMG空thumbnail/fallback交互错误保留，唯一运行时归因未证，不授作者零错。本段旧运行未覆盖F12/focus或OS恢复；Web OS恢复仍未验，具体范围以专项完成记录为准；P5/P6 STOP非开发债，性能未过。
 
 ## 1. 当前生产所有权
 
@@ -16,7 +16,7 @@
 |---|---|---|
 | 项目解释 | `SteamWorkshopService` 的 Web Core | 原始 `project.json` 是声明源；构建 descriptor，由共享属性解释入口生成会话值、playback context 与诊断，不覆盖作者文件 |
 | 播放协调 | `WallpaperEngine` | 保存当前 Web request/content/property 状态，执行共享暂停结果，处理属性、音频需求、显示器与 runtime 切换 |
-| 暂停策略 | `PlaybackPolicyController` → `PlaybackCommandMultiplexer` | 四个节能开关与锁屏/休眠统一控制 Video/Web/Scene；手动暂停独立保留，Web 不再额外按低电量模式暂停。归属与验证边界见 [E2b 历史验收](../scene/history/engine-refactor-program-through-2026-10-14.md#e2-收敛控制意图与公共依赖) |
+| 暂停策略 | `PlaybackPolicyController` → `PlaybackCommandMultiplexer` | 四个节能开关与锁屏/休眠统一控制 Video/Web/Scene；手动暂停独立保留，Web 不再额外按低电量模式暂停。当前策略由[共享暂停控制器](../../MyWallpaperX/Core/PlaybackControl/PlaybackPolicyController.swift)负责 |
 | 生产宿主 | `WebDaemonHostAdapter` → `WebDaemonRuntime` → `DedicatedWebWallpaperHostPlaceholderAdapter` | 主 App 控制端通过带 request UUID 的有界 IPC 管理独立后台 AppKit 播放进程；每屏 WKWebView、桌面窗口、输入、属性与资源桥接只在子进程创建 |
 | 进程入口 | 同一 App 可执行文件 `--mwx-web-daemon` | 产品装配前进入专用 AppKit run loop；Video helper 与 Scene daemon 保持原播放 owner。主 App 不再创建生产 WebView；没有可切换的双生产 route |
 | 本地资源 | `WebWallpaperLocalSchemeHandler` 等 | GET 由同一 FD 完成实际 grants、长度/Range、转换与发送，HEAD/304 保元数据快路；排队取消不再做 IO。loopback 按本租约 token 或 `SameSite=Strict` cookie 和原 root/grants 准入 |
@@ -55,7 +55,7 @@ project.json / Workshop directory
 
 ## 2. 稳定实现合同
 
-Web Combo使用显式原生菜单项保留同标题不同值，按原option identity选择/提交；Web滑块非tracking动作直接提交，tracking期间preview、结束复用同一action提交，持久化仍归原Service。2026-10-14已编译实际Web编辑器验证同标题A/B两项及B→A提交，未重跑Web样本矩阵；见[相邻修复边界](../scene/history/native-property-list-convergence-2026-10-14.md#接受的实现)。
+Web Combo使用显式原生菜单项保留同标题不同值，按原option identity选择/提交；Web滑块非tracking动作直接提交，tracking期间preview、结束复用同一action提交，持久化仍归原Service。2026-10-14已编译实际Web编辑器验证同标题A/B两项及B→A提交，未重跑Web样本矩阵。
 
 - 原始 `project.json`、目录和资源布局保持只读；本地 descriptor/cache 是派生执行数据，不反向改写样本。
 - loopback（`httpLoopback`）按本token路径或本租约cookie准入，原root/grants仍校验：入口HTML下发`SameSite=Strict`、Path=/ cookie，供`fetch('/x')`等无前缀资源；缺本cookie的无前缀请求403。cookie不按端口隔离，名称须按原lease token区分；surface退出仅从其原WK store精确删除本name/domain/path，不清其他租约。异步删除不证明在途Set-Cookie排空，也不授跨端口文档隔离。落点`WebWallpaperLoopbackServer.authorizedRequestPath(_:cookieHeader:)`和原`removeSurface`。

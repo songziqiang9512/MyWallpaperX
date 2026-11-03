@@ -192,6 +192,12 @@ nonisolated final class SceneScriptLocalStorageSession: @unchecked Sendable {
         fileURL = root.appendingPathComponent("\(digest).json", isDirectory: false)
     }
 
+    func prepare() {
+        lock.lock()
+        defer { lock.unlock() }
+        _ = try? loadIfNeeded()
+    }
+
     func read(
         screenIdentity: String?,
         globalScope: Bool,
@@ -201,7 +207,7 @@ nonisolated final class SceneScriptLocalStorageSession: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         do {
-            let current = try frameTransactionCandidate ?? loadIfNeeded()
+            let current = try frameTransactionCandidate ?? preparedEnvelope()
             if frameTransactionCandidate != nil, let owner {
                 let scope: Scope = globalScope ? .global : .screen(screenIdentity)
                 if let writer = frameWriters[scope]?[key] ?? frameClears[scope],
@@ -275,7 +281,7 @@ nonisolated final class SceneScriptLocalStorageSession: @unchecked Sendable {
                 )
             }
         }
-        let current = try frameTransactionCandidate ?? loadIfNeeded()
+        let current = try frameTransactionCandidate ?? preparedEnvelope()
         var candidate = current
         try Self.apply(mutations, to: &candidate)
         try Self.validate(candidate, validatingValues: false)
@@ -384,7 +390,7 @@ nonisolated final class SceneScriptLocalStorageSession: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         guard frameTransactionCandidate == nil else { return false }
-        guard let current = try? loadIfNeeded() else { return false }
+        guard let current = try? preparedEnvelope() else { return false }
         frameTransactionBase = current
         frameTransactionCandidate = current
         return true
@@ -461,6 +467,16 @@ nonisolated final class SceneScriptLocalStorageSession: @unchecked Sendable {
         defer { lock.unlock() }
         guard fileURL == requestedURL, case let .loaded(envelope) = loadState else { return nil }
         return envelope
+    }
+
+    private func preparedEnvelope() throws -> Envelope {
+        switch loadState {
+        case let .loaded(envelope): return envelope
+        case let .unavailable(message):
+            throw SceneScriptScalarRuntimeFailure.invalidArgument(message)
+        case .unloaded:
+            throw SceneScriptScalarRuntimeFailure.invalidArgument("localStorage is not prepared")
+        }
     }
 
     private func loadIfNeeded() throws -> Envelope {

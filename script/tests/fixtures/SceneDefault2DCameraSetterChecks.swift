@@ -115,36 +115,42 @@ extension SceneDefault2DCameraInputChecks {
 
     static func setterPeers() throws -> [String: Bool] {
         var facts: [String: Bool] = [:]
-        for same in [true, false] {
+        for mode in ["same", "different", "invalid"] {
+            let laterX = mode == "same" ? 9 : mode == "different" ? 19 : 10000001
+            let expectedX = mode == "different" ? 19 : 9
+            let expectedOrigin = SceneDynamicValue.vector3(Double(expectedX), 8, 700)
             let source = "export function init(v){thisScene.getLayerByID(7).origin=new Vec3(9,8,700);return v;}"
             var scene = setterScene(source)
             var objects = scene["objects"] as! [[String: Any]]
             objects[2]["origin"] = ["value": "0 0 0", "script": """
                 export function init(v){
-                    thisScene.getLayerByID(7).origin=new Vec3(\(same ? 9 : 19),8,700);
+                    thisScene.getLayerByID(7).origin=new Vec3(\(laterX),8,700);
                     thisScene.getLayerByID(8).alpha=0.25;
                     return v;
                 }
                 """]
             scene["objects"] = objects
             let fixture = try Fixture(scene, key: "lensScale")
-            let (_, evaluation) = try fixture.frame()
+            let (first, evaluation) = try fixture.frame()
             let rejected = fixture.rejectedOwners
             let state = fixture.layers.snapshot()
             let (next, _) = try fixture.frame()
-            let prefix = same ? "same" : "different"
-            facts[prefix + "-writers-reach-journal"] = evaluation.failures.isEmpty
+            facts[mode + "-writers-reach-journal"] = evaluation.failures.isEmpty
                 && evaluation.layerMutations.filter { $0.layerID == 7 && $0.fields.contains(.origin) }.count == 2
-            facts[prefix + "-one-camera-value"] = state.authoredLayerValues[originTarget] == .vector3(9,8,700)
-                && next[originTarget]?.value == .vector3(9,8,700)
-                && fixture.camera(next).cameraOrigin == SIMD3(9,8,700)
-            facts[prefix + "-owner-conflict-contract"] = same ? rejected.isEmpty
-                : rejected == [.layer(layerID: 9, field: .origin)]
-            facts[prefix + "-peer-bundle-atomic"] = state.authoredLayerValues[.layer(layerID: 8, field: .alpha)]
-                == (same ? .scalar(0.25) : nil)
+                && evaluation.layerMutations.contains { $0.layerID == 7 && $0.origin.x == Double(laterX) }
+            facts[mode + "-one-camera-value"] = state.authoredLayerValues[originTarget] == expectedOrigin
+                && next[originTarget]?.value == expectedOrigin
+                && fixture.camera(next).cameraOrigin == SIMD3(Float(expectedX),8,700)
+                && fixture.layers.authoredLayerDefinitions.filter { $0.target == originTarget }.count == 1
+            facts[mode + "-owner-admission-contract"] = mode == "invalid"
+                ? rejected == [.layer(layerID: 9, field: .origin)] : rejected.isEmpty
+            facts[mode + "-peer-bundle-atomic"] = state.authoredLayerValues[.layer(layerID: 8, field: .alpha)]
+                == (mode == "invalid" ? nil : .scalar(0.25))
+            facts[mode + "-healthy-primary-peer-survives"] =
+                first[.layer(layerID: 9, field: .alpha)]?.value == .scalar(0.6)
             try fixture.domain.publishLayerSnapshot(next, descriptor: fixture.descriptor)
-            facts[prefix + "-rejected-c-handle-does-not-leak"] = try observe(fixture, id: 8,
-                condition: "thisScene.getLayerByID(7).origin.x===9")
+            facts[mode + "-published-c-handle-agrees"] = try observe(fixture, id: 8,
+                condition: "thisScene.getLayerByID(7).origin.x===\(expectedX)&&thisScene.getLayerByID(8).alpha===\(mode == "invalid" ? "1" : "0.25")")
         }
         return facts
     }

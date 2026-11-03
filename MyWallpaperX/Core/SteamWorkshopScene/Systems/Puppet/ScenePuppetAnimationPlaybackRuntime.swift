@@ -300,13 +300,16 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
     /// surface reconstruction. The lazy set is built only at a topology change.
     func synchronizeDynamicLayers(
         topologyRevision: UInt64,
-        liveLayerIDs: @autoclosure () -> Set<Int>
+        liveLayerIDs: @autoclosure () -> Set<Int>,
+        destroyedAuthoredLayerIDs: Set<Int> = []
     ) {
         lock.lock()
         defer { lock.unlock() }
         guard dynamicTopologyRevision != topologyRevision else { return }
         let live = liveLayerIDs()
-        let retired = Set(definitions.keys.filter { $0 < 0 && !live.contains($0) })
+        let retired = Set(definitions.keys.filter {
+            destroyedAuthoredLayerIDs.contains($0) || ($0 < 0 && !live.contains($0))
+        })
         for layerID in retired {
             definitions.removeValue(forKey: layerID)
             states.removeValue(forKey: layerID)

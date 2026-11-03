@@ -29,6 +29,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneTexDataReader.swift",
     SCENE_ROOT / "Format/SceneTexContainer.swift",
     SCENE_ROOT / "Format/SceneBCTextureDecoder.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureLookupIdentity.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneImageTextureUploader.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneImageTextureUploader+Resample.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneCompressedTextureUploader.swift",
@@ -40,6 +41,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Runtime/Frame/SceneMaterialRenderState.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneMetalPipeline.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Animation/SceneSpriteAnimation.swift",
+    SCENE_ROOT / "Rendering/Frame/SceneSourceUpdateTransaction.swift",
 ]
 
 HARNESS = r'''
@@ -54,22 +56,6 @@ final class SceneVideoTextureSource {
         cacheDirectory: URL,
         device: MTLDevice
     ) { return nil }
-}
-
-final class SceneSourceUpdateTransaction {
-    private var rollbacks: [() -> Void] = []
-
-    func registerRollback(_ action: @escaping () -> Void) {
-        rollbacks.append(action)
-    }
-
-    func commit() { rollbacks.removeAll() }
-
-    func cancel() {
-        let actions = rollbacks
-        rollbacks.removeAll()
-        for action in actions.reversed() { action() }
-    }
 }
 
 @main
@@ -251,37 +237,40 @@ enum Harness {
             let queue = device.makeCommandQueue()!
             do {
                 let abandonedBuffer = queue.makeCommandBuffer()!
-                let abandonedTransaction = SceneSourceUpdateTransaction()
+                let abandonedTransaction = SceneSourceUpdateTransaction(on: abandonedBuffer)
                 playback.encode(
                     playbackTime: 0,
                     commandBuffer: abandonedBuffer,
                     transaction: abandonedTransaction
                 )
+                abandonedTransaction.arm(on: abandonedBuffer)
                 abandonedTransaction.cancel()
             }
             let firstBuffer = queue.makeCommandBuffer()!
-            let firstTransaction = SceneSourceUpdateTransaction()
+            let firstTransaction = SceneSourceUpdateTransaction(on: firstBuffer)
             playback.encode(
                 playbackTime: 0,
                 commandBuffer: firstBuffer,
                 transaction: firstTransaction
             )
+            firstTransaction.arm(on: firstBuffer)
             firstBuffer.commit()
-            firstTransaction.commit()
+            firstTransaction.didSubmit()
             firstBuffer.waitUntilCompleted()
             result["crossImageFrame0Pixel"] = try readFirstPixel(
                 texture: playback.texture,
                 device: device
             )
             let secondBuffer = queue.makeCommandBuffer()!
-            let secondTransaction = SceneSourceUpdateTransaction()
+            let secondTransaction = SceneSourceUpdateTransaction(on: secondBuffer)
             playback.encode(
                 playbackTime: 0.04,
                 commandBuffer: secondBuffer,
                 transaction: secondTransaction
             )
+            secondTransaction.arm(on: secondBuffer)
             secondBuffer.commit()
-            secondTransaction.commit()
+            secondTransaction.didSubmit()
             secondBuffer.waitUntilCompleted()
             result["crossImageFrame1Pixel"] = try readFirstPixel(
                 texture: playback.texture,
@@ -312,10 +301,11 @@ enum Harness {
         var cropPixels: [[UInt8]] = []
         for time: Float in [0, 0.04, 0, 0.04] {
             let buffer = cropQueue.makeCommandBuffer()!
-            let transaction = SceneSourceUpdateTransaction()
+            let transaction = SceneSourceUpdateTransaction(on: buffer)
             croppedPlayback.encode(playbackTime: time, commandBuffer: buffer, transaction: transaction)
+            transaction.arm(on: buffer)
             buffer.commit()
-            transaction.commit()
+            transaction.didSubmit()
             buffer.waitUntilCompleted()
             guard buffer.status == .completed else { throw HarnessError.load }
             cropPixels.append(try readFirstPixel(texture: croppedPlayback.texture, device: device))
@@ -404,6 +394,52 @@ enum Harness {
         } else {
             result["releasedDestinationRestoresBudget"] = false
         }
+
+        let lifetimeLoader = SceneMultiImageSpriteTextureLoader(
+            residentByteBudget: residentCosts.source + residentCosts.destination)
+        weak var encodedPlayback: SceneMultiImageSpritePlayback?
+        try autoreleasepool {
+            var instance: SceneMultiImageSpritePlayback? = try playback(try lifetimeLoader.playback(
+                source: source, container: animated, device: device, checkCancellation: nil))
+            encodedPlayback = instance
+            let buffer = device.makeCommandQueue()!.makeCommandBuffer()!
+            let transaction = SceneSourceUpdateTransaction(on: buffer)
+            instance!.encode(playbackTime: 0, commandBuffer: buffer, transaction: transaction)
+            transaction.arm(on: buffer)
+            instance = nil
+            result["unsubmittedBufferKeepsPlayback"] = encodedPlayback != nil
+            transaction.cancel()
+        }
+        result["cancelledBufferReleasesPlayback"] = encodedPlayback == nil
+        try autoreleasepool {
+            var instance: SceneMultiImageSpritePlayback? = try playback(try lifetimeLoader.playback(
+                source: source, container: animated, device: device, checkCancellation: nil))
+            encodedPlayback = instance
+            guard let event = device.makeSharedEvent() else { throw HarnessError.gpu }
+            defer { event.signaledValue = 1 }
+            let buffer = device.makeCommandQueue()!.makeCommandBuffer()!
+            buffer.encodeWaitForEvent(event, value: 1)
+            let transaction = SceneSourceUpdateTransaction(on: buffer)
+            instance!.encode(playbackTime: 0, commandBuffer: buffer, transaction: transaction)
+            transaction.arm(on: buffer)
+            buffer.commit()
+            transaction.didSubmit()
+            transaction.cancel()
+            instance = nil
+            result["pendingGPUKeepsPlayback"] = encodedPlayback != nil
+            if case .unsupported = try lifetimeLoader.playback(
+                source: source, container: animated, device: device, checkCancellation: nil) {
+                result["pendingGPUKeepsDestinationBudget"] = true
+            } else { result["pendingGPUKeepsDestinationBudget"] = false }
+            event.signaledValue = 1
+            buffer.waitUntilCompleted()
+            guard buffer.status == .completed else { throw HarnessError.gpu }
+        }
+        result["completedGPUReleasesPlayback"] = encodedPlayback == nil
+        if case .loaded = try lifetimeLoader.playback(
+            source: source, container: animated, device: device, checkCancellation: nil) {
+            result["completedGPURefundsDestination"] = true
+        } else { result["completedGPURefundsDestination"] = false }
 
         let revisionLoader = SceneMultiImageSpriteTextureLoader(
             residentByteBudget: residentCosts.source
@@ -884,6 +920,12 @@ class SceneBCTextureUploaderTests(unittest.TestCase):
     def test_resident_budget_shares_sources_but_counts_each_output(self) -> None:
         self.assertTrue(self.result["residentBudgetDeduplicatesSource"])
         self.assertTrue(self.result["releasedDestinationRestoresBudget"])
+
+    def test_retired_sprite_keeps_only_encoded_gpu_use_alive(self) -> None:
+        for key in ("unsubmittedBufferKeepsPlayback", "cancelledBufferReleasesPlayback",
+                    "pendingGPUKeepsPlayback", "pendingGPUKeepsDestinationBudget",
+                    "completedGPUReleasesPlayback", "completedGPURefundsDestination"):
+            self.assertTrue(self.result[key], key)
         self.assertTrue(self.result["usesDeviceAllocationCost"])
 
     def test_revision_change_rejects_publication_without_leaking_budget(self) -> None:

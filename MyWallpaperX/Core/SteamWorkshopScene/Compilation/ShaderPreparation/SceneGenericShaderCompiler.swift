@@ -2,15 +2,16 @@ import Foundation
 
 /// Synchronous launch-preparation coordinator for one exact source pair. The
 /// expensive work runs in signed helper processes; this type owns only bounded
-/// normalization, reflection validation, and atomic cache publication.
+/// normalization, reflection validation, and the compiled artifact.
 nonisolated enum SceneGenericShaderCompiler {
+    typealias Output = (artifact: SceneGenericShaderProgramArtifact, encodedData: Data)
+
     enum Failure: Error, Equatable {
         case configuration(String)
         case normalization(String)
         case workspace
         case tool(String)
         case artifact(String)
-        case publication
     }
 
     private struct CompiledStage {
@@ -31,10 +32,9 @@ nonisolated enum SceneGenericShaderCompiler {
         defaultBoundaryColorSlots: Set<Int> = [],
         colorBoundary: SceneShaderColorBoundary? = nil,
         boundTextureSlots: Set<Int> = [],
-        cacheRoot: URL,
         normalizedSources: SceneGenericShaderSourceNormalizer.Pair? = nil,
         bundle: Bundle = .main
-    ) -> Result<URL, Failure> {
+    ) -> Result<Output, Failure> {
         let configuration: SceneGenericShaderCompilerBundle.Configuration
         switch SceneGenericShaderCompilerBundle.resolve(bundle: bundle) {
         case let .success(value): configuration = value
@@ -197,13 +197,7 @@ nonisolated enum SceneGenericShaderCompiler {
         guard let data = try? encoder.encode(artifact),
               (1 ... configuration.limits.maximumArtifactBytes).contains(data.count)
         else { return .failure(.artifact("encoding")) }
-        let target = cacheRoot.appendingPathComponent("\(requestKey).json")
-        do {
-            try data.write(to: target, options: [.atomic])
-        } catch {
-            return .failure(.publication)
-        }
-        return .success(target)
+        return .success((artifact: artifact, encodedData: data))
     }
 
     /// Writes both stage sources, links them once, and lowers each stage to

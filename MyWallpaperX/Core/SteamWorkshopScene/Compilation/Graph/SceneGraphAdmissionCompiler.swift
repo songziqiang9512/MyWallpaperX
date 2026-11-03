@@ -220,6 +220,10 @@ nonisolated enum SceneGraphAdmissionCompiler {
     ) throws -> Graph.Effect {
         guard graph.effects.count == 1, let effect = graph.effects.first,
               graph.layerID == effect.key.layerID,
+              effect.input.inputRole(layerID: graph.layerID) != nil,
+              effect.input.effect != effect.key,
+              effect.output == Graph.TextureIdentity(kind: .effectOutput, layerID: graph.layerID,
+                  effect: effect.key, name: nil),
               graph.finalOutput == effect.output,
               effect.nodeIndices == graph.nodes.map(\.nodeIndex),
               Set(effect.nodeIndices).count == effect.nodeIndices.count,
@@ -262,6 +266,12 @@ nonisolated enum SceneGraphAdmissionCompiler {
         targets: [Graph.RenderTarget],
         effect: Graph.Effect
     ) throws {
+        guard targets.allSatisfy({ target in
+            target.texture.kind == .framebuffer
+                && target.texture.layerID == effect.key.layerID
+                && target.texture.effect == effect.key
+                && target.texture.name?.isEmpty == false
+        }) else { throw failure(.invalidGraph, "fbos.identity") }
         let admitted = Set(targets.map(\.texture))
         func valid(_ identity: Graph.TextureIdentity?) -> Bool {
             guard let identity else { return true }
@@ -274,7 +284,11 @@ nonisolated enum SceneGraphAdmissionCompiler {
         }
         for node in nodes {
             guard valid(node.target), valid(node.commandSource), valid(node.commandTarget),
-                  node.bindings.allSatisfy({ valid($0.texture) }) else {
+                  node.bindings.allSatisfy({
+                      valid($0.texture) && ($0.texture == effect.input || $0.texture.kind == .framebuffer)
+                  }),
+                  node.target.map({ $0 == effect.output || admitted.contains($0) })
+                    ?? (node.kind != .material) else {
                 throw failure(
                     .prunedResourceReferenced,
                     "passes[\(node.definitionPassIndex)]"

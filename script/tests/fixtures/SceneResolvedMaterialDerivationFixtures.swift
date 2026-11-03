@@ -254,68 +254,36 @@ func data<T>(_ value: T) -> Data {
 }
 
 func resolvedUniforms(
-    _ prepared: SceneShaderPreparedProgram,
-    gain: Float,
-    dynamic: (
-        Template.DynamicUniformSource,
-        SceneDynamicSource,
-        [Template.DynamicUniformScriptAttachment]
-    )? = nil
-) -> [Program.ResolvedUniform] {
-    let frontend = SceneAuthoredShaderFrontend.compile(
-        vertexSource: prepared.vertex.source,
-        fragmentSource: prepared.fragment.source
-    ).program!
-    return frontend.uniformLayout.fields.map { field in
+    _ frontend: SceneAuthoredShaderProgram,
+    gain: Float
+) -> (bindings: [SceneResolvedMaterialPreparedUniformBinding], values: [Program.ResolvedUniform]) {
+    var bindings: [SceneResolvedMaterialPreparedUniformBinding] = []
+    let values = frontend.uniformLayout.fields.map { field -> Program.ResolvedUniform in
+        let encoded: Data
+        let source: SceneResolvedMaterialPreparedUniformBinding.Source
         switch field.name {
         case "g_Gain", "u_RenamedGain":
-            if let dynamic {
-                return .init(
-                    field: field,
-                    source: .dynamic(
-                        declared: dynamic.0,
-                        target: .effectConstant(
-                            layerID: 1,
-                            effectIndex: 2,
-                            passIndex: 3,
-                            name: field.name
-                        ),
-                        resolvedSource: dynamic.1,
-                        scriptAttachments: dynamic.2
-                    ),
-                    encodedValue: data(gain)
-                )
-            }
-            return .init(
-                field: field,
-                source: .staticValue,
-                encodedValue: data(gain)
-            )
+            encoded = data(gain)
+            source = .staticValue(encoded)
         case "g_Tint":
-            return .init(
-                field: field,
-                source: .staticValue,
-                encodedValue: data(SIMD3<Float>(1, 0, 0.5))
-            )
+            encoded = data(SIMD3<Float>(1, 0, 0.5))
+            source = .staticValue(encoded)
         default:
             guard let host = SceneResolvedMaterialHostUniformSchema.resolve(
-                field,
-                activeTextureSlots: Set(frontend.textureBindings.map(\.slot))
+                field, activeTextureSlots: Set(frontend.textureBindings.map(\.slot))
             ) else { fatalError("unexpected field \(field.name)") }
-            let value: Data
             switch host {
-            case .renderSize:
-                value = data(SIMD2<Float>(1920, 1080))
-            case .vertexCoordinates01:
-                value = data(SIMD4<Float>(0, 1, 1, 1))
-            case .vertexCoordinates23:
-                value = data(SIMD4<Float>(0, 0, 1, 0))
-            default:
-                fatalError("unexpected host field \(field.name)")
+            case .renderSize: encoded = data(SIMD2<Float>(1920, 1080))
+            case .vertexCoordinates01: encoded = data(SIMD4<Float>(0, 1, 1, 1))
+            case .vertexCoordinates23: encoded = data(SIMD4<Float>(0, 0, 1, 0))
+            default: fatalError("unexpected host field \(field.name)")
             }
-            return .init(field: field, source: .host(host), encodedValue: value)
+            source = .host(host)
         }
+        bindings.append(.init(field: field, source: source))
+        return .init(encodedValue: encoded)
     }
+    return (bindings, values)
 }
 
 func state(
@@ -378,27 +346,25 @@ func assemble(
     renderState: SceneMaterialRenderState = state(),
     role: Template.GraphRole = graphRole(),
     reverseUniforms: Bool = false,
-    dynamic: (
-        Template.DynamicUniformSource,
-        SceneDynamicSource,
-        [Template.DynamicUniformScriptAttachment]
-    )? = nil,
     outputStorage: Program.OutputStorage = .color
 ) -> Program? {
-    var uniforms = resolvedUniforms(
-        shader,
-        gain: gain,
-        dynamic: dynamic
-    )
-    if reverseUniforms { uniforms.reverse() }
-    return Program.assemble(.init(
-        preparedShader: shader,
-        textureSlots: textureSlots,
-        resolvedUniforms: uniforms,
-        renderState: renderState,
-        graphRole: role,
-        outputStorage: outputStorage
-    ))
+    guard let frontend = SceneAuthoredShaderFrontend.compile(
+        vertexSource: shader.vertex.source, fragmentSource: shader.fragment.source,
+        boundTextureSlots: Set(textureSlots.indices.filter { textureSlots[$0] != nil })
+    ).program else { return nil }
+    let uniforms = resolvedUniforms(frontend, gain: gain)
+    guard let assembly = try? Program.PreparedAssembly(
+        preparedShader: shader, frontend: frontend, renderState: renderState,
+        runtimeLoopBounds: .none, preparedUniformBindings: uniforms.bindings,
+        conditionalGeneratedRGBInputContract: nil, associatedOverOverlaySlot: nil,
+        premultipliedColorInputSlots: []
+    ) else { return nil }
+    let values = reverseUniforms ? Array(uniforms.values.reversed()) : uniforms.values
+    return Program.assemblePrepared(.init(
+        textureSlots: textureSlots, resolvedUniforms: values,
+        graphRole: role, outputStorage: outputStorage
+    ), prepared: assembly, routeDecision: .init(
+        profile: "self-authored-derivation", state: "fixture", fallbackOwner: "none"))
 }
 
 func hasStraightAlphaBoundary(_ program: Program?) -> Bool {

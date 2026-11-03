@@ -1,5 +1,17 @@
 """Shared Swift dependency-binding stub for resolved-material harnesses."""
 
+from pathlib import Path
+
+from script.tests.scene_framebuffer_source_test_support import _declaration
+
+
+# Coordinator-derived harnesses retain this before their @main split. Keep it
+# separate from Binding: graph fixtures already provide their own aggregate.
+SCENE_DEPENDENCY_AGGREGATE_SUPPORT = "extension SceneDependencyRenderPlan {\n" + _declaration(
+    (Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyRenderPlan+Aggregate.swift").read_text(encoding="utf-8"),
+    "MultiProviderAggregate", marker="    nonisolated struct MultiProviderAggregate: Hashable {",
+) + "\n}\n"
+
 
 SCENE_DEPENDENCY_BINDING_SUPPORT = r'''
 enum SceneImageLayerBlendDependencyContract {

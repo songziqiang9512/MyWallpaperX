@@ -21,8 +21,6 @@ struct SceneDesktopWallpaperLaunchContext {
     let timelinePlaybackRuntime: SceneTimelinePlaybackRuntime
     let textureAnimationPlaybackRuntime: SceneTextureAnimationPlaybackRuntime
     let puppetAnimationPlaybackRuntime: ScenePuppetAnimationPlaybackRuntime
-    let textScriptProgram: SceneTextScriptProgram
-    let sharedLayerAlphaProgram: SceneSharedLayerAlphaProgram
     let sceneScriptCursorProgram: SceneScriptCursorProgram
     let propertyVectorScriptProgram: SceneScriptVectorProgram
     let propertyVectorPassCandidateTargets: Set<SceneDynamicTarget>
@@ -49,7 +47,6 @@ struct SceneDesktopWallpaperLaunchContext {
     let baseMaterialProviderBindings: SceneBaseMaterialProviderBindingProgram
     let soundPlaybackProgram: SceneSoundPlaybackProgram
     var liveState: ScenePropertyLiveUpdateState
-    var userPropertyTextureLoad: SceneUserPropertyTextureLoadResult
     let privateMediaCacheDirectory: URL
     let resourceView: SceneResourceView
     let logURL: URL?
@@ -58,15 +55,17 @@ struct SceneDesktopWallpaperLaunchContext {
     var userShortcuts: ScenePlaybackShortcutConfiguration = .empty
     var userShortcutKeys: Set<String> = []
 
-    var requiresSystemMedia: Bool {
+    func requiresSystemMedia(excludingLayerIDs: Set<Int>) -> Bool {
         !propertyVectorScriptProgram.mediaOwnerRegistrations.isEmpty
             || !sceneScriptScalarProgram.mediaOwnerRegistrations.isEmpty
             || !sceneScriptStringProgram.mediaOwnerRegistrations.isEmpty
-            || textScriptProgram.bindings.contains { $0.profile == .ecmaMediaPropertiesChangedSubset }
-            || !baseMaterialProviderBindings.systemProviderDemands.isEmpty
-            || resolvedMaterialCatalog.systemProviderDemands.contains {
-                $0.name == SceneBaseMaterialProviderBindingProgram.currentIdentity
-                    || $0.name == SceneBaseMaterialProviderBindingProgram.previousIdentity
+            || baseMaterialProviderBindings.baseMaterialBindings.values.contains {
+                !excludingLayerIDs.contains($0.layerID) && $0.provider.isSystemProvider
+            }
+            || resolvedMaterialExecutionCapabilities.systemProviderConsumerLayerIDs.contains { provider, layerIDs in
+                (provider.name == SceneBaseMaterialProviderBindingProgram.currentIdentity
+                    || provider.name == SceneBaseMaterialProviderBindingProgram.previousIdentity)
+                    && !layerIDs.subtracting(excludingLayerIDs).isEmpty
             }
     }
 

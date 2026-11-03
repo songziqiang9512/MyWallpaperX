@@ -48,7 +48,7 @@ enum Producer {
     }
 }
 '''
-HARNESS = GRAPH["HARNESS"].split("@main", 1)[0] + r'''
+HARNESS = GRAPH["HARNESS_SUPPORT_SOURCE"] + r'''
 
 private func changed(_ original: Template, candidates: [Template.TextureCandidate], overrideSlot: Bool = false) -> Template {
     var slots = original.textureSlots
@@ -81,7 +81,7 @@ private enum Harness {
             blendMode: 0, kind: .imageLayerBlend, requiresResolvedMaterialProgram: true)
         func value(_ candidates: [Template.TextureCandidate], reference: SceneNamedTextureReference = named) -> Capabilities.LayerCapability? {
             let catalog = SceneResolvedMaterialRuntimeCatalog(entries: [
-                .init(effect: effect, nodeIndex: 0): .template(changed(base, candidates: candidates))
+                .init(effect: effect, nodeIndex: 0): .template(changed(base, candidates: candidates), textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: changed(base, candidates: candidates)))
             ])
             let caps = capabilities(chain, catalog: catalog, namedProvider: reference,
                 dependencyBinding: dependencyBinding, potentialOptionalNamedFallback: true)
@@ -103,7 +103,7 @@ private enum Harness {
                     systemProviderLowerReference: .provider(.namedLayerTarget(named)))
                 value = changed(mixed, candidates: triple)
             } else { value = ordinary }
-            return (.init(effect: node.effect, nodeIndex: node.nodeIndex), .template(value))
+            return (.init(effect: node.effect, nodeIndex: node.nodeIndex), .template(value, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: value)))
         })
         let chainedCaps = capabilities(chainedAdmission, catalog: .init(entries: entries))
         let chainedValue = chainedCaps.claim(chainedAdmission).flatMap { chainedCaps.resolve($0.token, for: chainedAdmission) }
@@ -117,12 +117,12 @@ private enum Harness {
         let historyTemplate = template(for: history.nodes[0], systemProvider: "$mediaThumbnail",
             systemProviderLowerReference: .provider(.namedLayerTarget(named)))
         let historyCaps = capabilities(historyAdmission, catalog: .init(entries: [
-            .init(effect: effect, nodeIndex: 0): .template(changed(historyTemplate, candidates: triple))
+            .init(effect: effect, nodeIndex: 0): .template(changed(historyTemplate, candidates: triple), textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: changed(historyTemplate, candidates: triple)))
         ]))
         func plainValue(_ graph: Graph, _ template: Template) -> Capabilities.LayerCapability? {
             let admitted = admittedGraph(graph)
             let caps = capabilities(admitted, catalog: .init(entries: [
-                .init(effect: effect, nodeIndex: 0): .template(template)
+                .init(effect: effect, nodeIndex: 0): .template(template, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: template))
             ]), assetStates: [systemProviderFallbackIdentity: .ready(.data)],
                 assetFormatFacts: [systemProviderFallbackIdentity.reportToken:
                     SceneShaderTextureFormat.r8.macroValue])
@@ -148,29 +148,29 @@ private enum Harness {
                 ? changed(template(for: node, systemProvider: "$mediaThumbnail",
                     systemProviderLowerReference: .provider(.namedLayerTarget(named))), candidates: triple)
                 : template(for: node)
-            return (.init(effect: node.effect, nodeIndex: node.nodeIndex), .template(value))
+            return (.init(effect: node.effect, nodeIndex: node.nodeIndex), .template(value, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: value)))
         })
         let functionFailure = capabilities(functionAdmission, catalog: .init(entries: functionEntries),
             functionsByEffect: [effect: materialFunctionRegistry()])
         let reason = "material-optional-named-fallback-unproven"
         let result: [String: Bool] = [
-            "threeCandidatesLocal": unsupported?.stages.first?.visualFailureReasonCode == reason,
+            "threeCandidatesLocal": unsupported?.stages.first?.execution.visualFailureReasonCode == reason,
             "unsupportedMaterialsEmpty": unsupported?.materials.isEmpty == true,
             "unsupportedHasNoDependencyClaims": unsupported?.dependencyOwnership == SceneResolvedMaterialDependencyOwnership.none
                 && unsupported?.dependencyOwnership.referenceCount == 0,
             "inactiveSlotNotRejected": inactive?.materials.count == 1
-                && inactive?.stages.first?.visualFailureReasonCode == nil,
+                && inactive?.stages.first?.execution.visualFailureReasonCode == nil,
             "terminalAssetShadowsOptional": shadowed?.materials.count == 1
-                && shadowed?.stages.first?.visualFailureReasonCode == nil,
+                && shadowed?.stages.first?.execution.visualFailureReasonCode == nil,
             "authoritativeGraphOverrideWins": overridden?.materials.count == 1
-                && overridden?.stages.first?.visualFailureReasonCode == nil,
-            "exactTwoStillExecutable": supported?.stages.first?.visualFailureReasonCode == nil && supported?.materials.count == 1,
-            "differentProvidersNotNormalized": different?.stages.first?.visualFailureReasonCode == reason,
-            "secondaryNotPromoted": secondaryValue?.stages.first?.visualFailureReasonCode == reason,
+                && overridden?.stages.first?.execution.visualFailureReasonCode == nil,
+            "exactTwoStillExecutable": supported?.stages.first?.execution.visualFailureReasonCode == nil && supported?.materials.count == 1,
+            "differentProvidersNotNormalized": different?.stages.first?.execution.visualFailureReasonCode == reason,
+            "secondaryNotPromoted": secondaryValue?.stages.first?.execution.visualFailureReasonCode == reason,
             "adjacentEffectsRemainExecutable": chainedValue?.stages.count == 3
-                && chainedValue?.stages[0].visualFailureReasonCode == reason
-                && chainedValue?.stages[1].visualFailureReasonCode == nil
-                && chainedValue?.stages[2].visualFailureReasonCode == nil
+                && chainedValue?.stages[0].execution.visualFailureReasonCode == reason
+                && chainedValue?.stages[1].execution.visualFailureReasonCode == nil
+                && chainedValue?.stages[2].execution.visualFailureReasonCode == nil
                 && chainedValue?.materials.count == 2,
             "historyTopologyNotSoftened": historyCaps.claim(historyAdmission) == nil,
             "clearFunctionControlActuallyAdmitted": functionControlValue?.admittedProducts.first?
@@ -192,7 +192,6 @@ class SceneOptionalNamedFailureTests(unittest.TestCase):
         material["passes"][0]["textures"] = [None, "_rt_imageLayerComposite_11_a"]
         entries["materials/own_sample.json"] = json.dumps(material).encode()
         sources = BUILDER["SWIFT_SOURCES"] + [
-            BUILDER["SOURCE_ROOT"] / "Compilation/Graph/SceneAuthoredEffectRenderPlan.swift",
             BUILDER["SOURCE_ROOT"] / "Compilation/Material/SceneAuthoredMaterialResolver.swift",
         ]
         with tempfile.TemporaryDirectory(prefix="mwx-optional-author-") as directory:

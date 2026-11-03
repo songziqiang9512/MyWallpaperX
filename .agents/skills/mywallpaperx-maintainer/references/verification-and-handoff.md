@@ -39,7 +39,7 @@
 
 只在任务需要运行证据时进入本节。先按用户行为确定要经过的入口，再准备 App、输入和输出；避免先跑容易启动的 runner，随后把结果外推到另一条链。
 
-1. **选入口与最近门。** 从仓库工作流的验证预览和相应 benchmark 的 `--help` 取得参数，沿当前 runner 调用核对覆盖范围。Scene 的内部 Program/GPU 反例可用直接 Host 入口；IPC、崩溃恢复须经过 client → daemon；普通选择、参数和跨引擎切换须经过实际 App 分发 → client → daemon。入口职责与接线查 `docs/scene/architecture/runtime-as-built-map.md`，Web 查 `docs/web/current-state.md`，Video 查仓库地图的 App/helper 两端。直接 Host 或直接 client 的成功只覆盖其经过的链。
+1. **选入口与最近门。** 从仓库工作流的验证预览和相应 benchmark 的 `--help` 取得参数，沿当前 runner 调用核对覆盖范围。Scene 的内部 Program/GPU 反例可用直接 Host 入口；IPC、崩溃恢复须经过 client → daemon；普通选择、参数和跨引擎切换须经过实际 App 分发 → client → daemon。入口职责与接线查 `docs/scene/architecture/runtime-architecture.md`，Web 查 `docs/web/current-state.md`，Video 查仓库地图的 App/helper 两端。直接 Host 或直接 client 的成功只覆盖其经过的链。
 2. **准备本轮候选。** 核对 gate 的构建条件、App 参数形状与签名要求。默认 checkpoint 是禁签名且退出清理的纯构建门；需要运行 App 时，在独立 DerivedData 按当前项目 Debug/签名配置生成并保留本轮候选，从真实构建输出取得可执行文件路径。Scene/Web benchmark 的 App staging 与验签沿现有 `script/web_benchmark_capture.py` 调用复用；不另造安装器，也不以旧已安装 App 代替新候选。DEBUG runner 要确认实际编入；性能优化级别查 Scene 工作流。
 3. **准备输入并闭合结果。** 只复制当前正反例所需内容；Scene 副本/manifest 的创建与核验查 `script/scene_sample_snapshot.py --help`，Scene 运行查 `script/scene_wallpaper_benchmark.py --help`，Web 查 `script/web_wallpaper_benchmark.py --help`。按各工具实际要求设置隔离样本、HOME、Workshop 与全新输出，核对真实启动命令和本轮报告中的 App/input/request 身份、结果及失败反例；再按产物规则保留必要证据、清理已结束的环境。某入口不支持目标场景时，记录该边界并沿真实产品链验证，不虚构通用 flag 或将较低证据阶段升级。
 
@@ -59,7 +59,9 @@
 | visual/fidelity | producer-to-compositor identity、ROI/事件 | route/build success |
 | crash/GPU fault | symbolized stack、command buffer、现场 identity | 普通视觉差异 |
 
-修复后先复现原失败，再跑相邻反例和相称 checkpoint。测试若锁定已知错误现状，应按目标合同修测试和实现；目标本身被证伪则先走合同/Skill 纠偏。
+架构调整后，standalone source list、stub 和源码形状断言也可能过时。先看首个错误和实际编译输入；归因不清时用冻结的迁移前源码复现同一失败，分清存量测试债务、预期语义变化与新回归。不能为恢复过时断言而把重复 owner、无用校验或已退役路径放回产品，也不能只因产品文件未改就认定失败早已存在。修测试时优先断言真实输入、输出与失败反例。
+
+修复后先复现原失败，再跑相邻反例和相称 checkpoint。测试若锁定已知错误现状，应按目标合同修测试和实现；目标本身被证伪则先走合同/Skill 纠偏。报告测试债务与未覆盖范围，不把有失败的选择集称为通过。
 
 ## AppKit 与窗口
 
@@ -84,6 +86,8 @@ UI 只投影产品状态并发命令，不能成为第二 runtime 真值。多�
 正式运行证据绑定 staged app 的绝对路径、bundle ID、Team ID、CDHash、executable hash 和 helper identity。没有 exported/notarized artifact 时明确结论只到 build/static/signed-staged 的实际等级。签名问题按 identity、entitlement、runtime、sandbox、nested-code、bundle structure 和 notarization phase 分类。
 
 ## Runtime 隔离与声明等级
+
+导出源码运行测试时，为导出目录提供独立 `.git`，不要让测试进程继承指向真实工作树的 `GIT_DIR`、`GIT_WORK_TREE` 或 `GIT_INDEX_FILE`。测试夹具会初始化仓库、切换分支和创建提交；refs、index、config必须独立，只读对象缓存可以共享。
 
 真实 Scene/Workshop root 与用户视频只读。sample copy、runtime home、property injection、cache、manifest、screenshots、reports 和 evidence 使用每次全新隔离位置；记录 App/helper 的绝对路径、hash、PID 和 display/request/surface identity。检查旧 `/Applications` App 没有抢占 helper、URL handler 或 writer。
 

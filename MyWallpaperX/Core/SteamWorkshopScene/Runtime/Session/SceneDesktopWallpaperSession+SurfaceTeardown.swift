@@ -29,9 +29,9 @@ extension SceneDesktopWallpaperSession {
         frameDriverDeadline = nil
         pausedFrameRetryDeadline = nil
         for surface in surfaces.values {
-            surface.metalView.dynamicTextTextures?.close()
             surface.metalView.invalidateResolvedMaterialRuntime(reason: reason)
-            surface.metalView.teardownParticlePlayback(reason: reason)
+            surface.teardownParticlePlayback(reason: reason)
+            surface.puppetPlaybackStates.removeAll()
             surface.window.orderOut(nil)
             surface.window.close()
             if !drainStarted { retireSurface(surface) }
@@ -52,6 +52,19 @@ extension SceneDesktopWallpaperSession {
         }
 #endif
         if clearContext {
+            pendingProviderUpdate = nil
+            if let dynamicTextTextures {
+                let retirementDrain = retiringSurfaceDrain
+                retirementDrain.enter()
+                dynamicTextTextures.closeAndDrain { retirementDrain.leave() }
+                self.dynamicTextTextures = nil
+            }
+            if let mediaThumbnailTextures {
+                let retirementDrain = retiringSurfaceDrain
+                retirementDrain.enter()
+                mediaThumbnailTextures.cancelAndDrain { retirementDrain.leave() }
+                self.mediaThumbnailTextures = nil
+            }
             SceneSystemMediaDemandRegistry.shared.release(lifecycleID)
             if let launchContext {
                 teardownSceneScriptOwners(launchContext, reason: reason)
@@ -74,7 +87,6 @@ extension SceneDesktopWallpaperSession {
             pendingDeferredLayerVisibilityUpdate = nil
             audioDemand = (false, false)
             onAudioDemandChanged?()
-            sharedLayerAlphaRuntime = .init(program: .empty)
 #if DEBUG
             debugDropDynamicValuesFrameIndex = nil
             debugDidDropDynamicValues = false

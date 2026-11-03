@@ -190,30 +190,28 @@ class DocumentRegistryTests(unittest.TestCase):
         self.assertEqual(result['managedDocuments'], result['registeredDocuments'])
         self.assertEqual(result['stableContracts'], result['routedContracts'])
         self.assertTrue(all(0 < count <= 150 for count in result['firstReadLines'].values()))
-        for term in ('S0-S5', 'E-*', 'named source taxonomy', 'recognized/wired', 'owned paths', '家族/防御面'):
-            self.assertEqual(len(query(index, term, ROOT)['terminology']), 1, term)
-        sampler = 'docs/scene/capabilities/sampler-alias-precedence.md'
+        for term in index['terminology']:
+            self.assertEqual(len(query(index, term['term'], ROOT)['terminology']), 1)
+        sampler = 'docs/scene/capabilities/render-graph-shader-coverage.md'
         self.assertIn(sampler, query(index, 'sampler', ROOT)['routes'][0]['documents'])
         for term in ('sampler', '作者采样', 'UV', 'atlas'):
             self.assertIn('docs/scene/architecture/runtime-architecture.md',
                           query(index, term, ROOT)['routes'][0]['documents'], term)
-        for entry in ('docs/README.md', 'docs/scene/README.md', 'docs/scene/capabilities/README.md'):
+        for entry in ('docs/README.md', 'docs/scene/capabilities/README.md'):
             self.assertIn(sampler, local_targets(ROOT, entry), entry)
-        index['terminology'].pop()
-        self.assertTrue(any('six unique' in e for e in validate(ROOT, index)))
+        index['terminology'].append(dict(index['terminology'][0]))
+        self.assertTrue(any('duplicate terminology' in e for e in validate(ROOT, index)))
         del index['routingContract']
         self.assertTrue(any('routingContract' in e for e in audit(ROOT, index)['errors']))
         index['pointerEntrypoints'] = []
         self.assertTrue(any('subtree pointer' in e for e in audit(ROOT, index)['errors']))
 
-    def test_execution_arguments_and_frequency_sample_are_not_free_text(self):
+    def test_execution_arguments_require_runtime_identity(self):
         index = json.loads((ROOT / INDEX).read_text())
         route = next(r for r in index['taskRoutes'] if r['id'] == 'scene-visual')
         route['verificationPhases'][2]['requiredArguments'].remove('--app')
-        index['taskFrequencyEvidence']['sampleCount'] += 1
         errors = validate(ROOT, index)
         self.assertTrue(any('execution identity' in e for e in errors))
-        self.assertTrue(any('frozen Git sample' in e for e in errors))
 
     def test_subtree_agents_rejects_new_rule_and_long_pointer_document(self):
         path = 'docs/AGENTS.md'
@@ -225,19 +223,6 @@ class DocumentRegistryTests(unittest.TestCase):
         (self.root / path).write_text('# Scene\n' + '- [root](../AGENTS.md)\n' * 10)
         self.assertTrue(any('10 lines' in e for e in validate(self.root, self.index, discovered={'docs/a.md'})))
 
-    def test_navigation_anchors_are_real_and_precede_batch_logs(self):
-        from script.tests.test_scene_semantics_coverage import markdown_anchors
-        expected = {
-            'docs/scene/capabilities/README.md': ['reading-layers'],
-            'docs/scene/capabilities/coverage-ledger.md': ['current-overview', 'capability-tables', 'batch-records'],
-            'docs/scene/capabilities/runtime-evidence-current.md': ['current-snapshot', 'evidence-levels', 'evidence-packages'],
-        }
-        for path, anchors in expected.items():
-            text = (ROOT / path).read_text()
-            self.assertTrue(set(anchors) <= markdown_anchors(text), path)
-            offsets = [text.index(f'<a id="{anchor}"') for anchor in anchors]
-            self.assertEqual(offsets, sorted(offsets))
-            self.assertLess(len(text[:offsets[0]].splitlines()), 30)
 
 
 if __name__ == '__main__':

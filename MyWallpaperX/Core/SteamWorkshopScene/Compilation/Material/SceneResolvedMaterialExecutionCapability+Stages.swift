@@ -1,23 +1,9 @@
 import Foundation
 
 extension SceneResolvedMaterialExecutionCapabilityCatalog.StageCapability {
-    var product: SceneGraphAdmissionProduct {
-        switch self {
-        case .resolved(let product, _, _): product
-        case .visualFailurePassthrough(let product, _),
-             .initiallyInactivePassthrough(let product, _):
-            product
-        }
-    }
-
-    var activationPolicy: SceneResolvedMaterialStageActivationPolicy? {
-        guard case let .resolved(_, _, activation) = self else { return nil }
-        return activation
-    }
-
     var subject: SceneEffectExactRuntimeSubject? {
         guard let key = product.graph.effects.first?.key else { return nil }
-        switch self {
+        switch execution {
         case .resolved:
             return .init(key: key, family: "resolved-material")
         case .visualFailurePassthrough:
@@ -26,24 +12,27 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog.StageCapability {
             return .init(key: key, family: "initially-inactive-passthrough")
         }
     }
+}
+
+extension SceneResolvedMaterialExecutionCapabilityCatalog.StageCapability.Execution {
+    var activationPolicy: SceneResolvedMaterialStageActivationPolicy? {
+        guard case let .resolved(_, activation) = self else { return nil }
+        return activation
+    }
 
     var visualFailureReasonCode: String? {
-        guard case let .visualFailurePassthrough(_, reasonCode) = self else {
-            return nil
-        }
+        guard case let .visualFailurePassthrough(reasonCode) = self else { return nil }
         return reasonCode
     }
 
     var initiallyInactivePassthroughReasonCode: String? {
-        guard case let .initiallyInactivePassthrough(_, reasonCode) = self else {
-            return nil
-        }
+        guard case let .initiallyInactivePassthrough(reasonCode) = self else { return nil }
         return reasonCode
     }
 
     var requiresInvertibleEffectTextureProjection: Bool {
         switch self {
-        case .resolved(_, let materials, _):
+        case .resolved(let materials, _):
             return materials.values.contains {
                 $0.variants.requiresInvertibleEffectTextureProjection
             }
@@ -59,7 +48,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         materials: [MaterialKey: MaterialCapability],
         dynamicProducers: DynamicProducerCatalog,
         dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
-        pairStep: SceneLayerFullFramePairPlan.EffectStep?
+        passthroughTopologies: Set<StageCapability.PassthroughTopology>
     ) -> SceneResolvedMaterialStageActivationPolicy? {
         guard dependencyOwnership.preEncodeVisualFailureSlots(
                   in: product.graph
@@ -99,13 +88,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         // seed; the frame still validates the concrete transition before the
         // stage is actually bypassed.
         let framebufferVisibility = resolvedVisibilityTarget != nil
-            && pairStep.map {
-                Self.preEncodeVisualFailureGraphMayPassthrough(
-                    product.graph,
-                    effect: effect,
-                    pairStep: $0
-                )
-            } == true
+            && passthroughTopologies.contains(.preEncodeGraph)
         guard pairLeaf || framebufferVisibility else {
             return nil
         }
@@ -241,14 +224,21 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
     }
 
     struct CompiledStages {
-        let stages: [StageCapability]
+        typealias Stage = (
+            product: SceneGraphAdmissionProduct,
+            execution: StageCapability.Execution,
+            passthroughTopologies: Set<StageCapability.PassthroughTopology>
+        )
+        let stages: [Stage]
         let materials: [MaterialKey: MaterialCapability]
         let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
         let sceneBackgroundRequirement: SceneBackgroundRequirement?
     }
 
-    static func compileStages(
+    static func compileStage(
         _ admitted: SceneResolvedMaterialAdmittedLayer,
+        product: SceneGraphAdmissionProduct,
+        passthroughTopologies: Set<StageCapability.PassthroughTopology>,
         materialCatalog: SceneResolvedMaterialRuntimeCatalog,
         demandIssues: Set<SceneResolvedMaterialRuntimeCatalog.ResourceDemandIssue>,
         dynamicProducers: DynamicProducerCatalog,
@@ -262,56 +252,42 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         guard (1 ... 256).contains(maximumVariantsPerMaterial) else {
             return .failure(rejection("material-variant-envelope-capacity"))
         }
-
-        var stages: [StageCapability] = []
-        var allMaterials: [MaterialKey: MaterialCapability] = [:]
-        for product in admitted.products {
-            try cancellationCheck?()
-            guard let effect = product.graph.effects.first else {
-                return .failure(rejection("stage-effect-identity-missing"))
-            }
-
-            switch try compileMaterials(
-                product,
-                materialCatalog: materialCatalog,
-                demandIssues: demandIssues,
-                dynamicProducers: dynamicProducers,
-                assetFormatFacts: assetFormatFacts,
-                assetStates: assetStates,
-                systemProviderStates: systemProviderStates,
-                existingKeys: Set(allMaterials.keys),
-                sourceRoute: admitted.sourceRoute,
-                maximumVariantsPerMaterial: maximumVariantsPerMaterial,
-                backbufferFormat: backbufferFormat,
-                cancellationCheck: cancellationCheck
-            ) {
-            case .failure(let failure):
-                return .failure(failure)
-            case .success(let materials):
-                allMaterials.merge(materials) { _, replacement in replacement }
-                let pairStep = admitted.pairPlan.effects.first {
-                    $0.effect == effect.key
-                }
-                stages.append(.resolved(
-                    product: product,
+        switch try compileMaterials(
+            product,
+            materialCatalog: materialCatalog,
+            demandIssues: demandIssues,
+            dynamicProducers: dynamicProducers,
+            assetFormatFacts: assetFormatFacts,
+            assetStates: assetStates,
+            systemProviderStates: systemProviderStates,
+            existingKeys: [],
+            sourceRoute: admitted.sourceRoute,
+            maximumVariantsPerMaterial: maximumVariantsPerMaterial,
+            backbufferFormat: backbufferFormat,
+            cancellationCheck: cancellationCheck
+        ) {
+        case let .failure(failure):
+            return .failure(failure)
+        case let .success(materials):
+            let stage: CompiledStages.Stage = (
+                product: product,
+                execution: .resolved(
                     materials: materials,
                     activation: stageActivationPolicy(
-                        product: product,
-                        materials: materials,
+                        product: product, materials: materials,
                         dynamicProducers: dynamicProducers,
                         dependencyOwnership: admitted.dependencyOwnership,
-                        pairStep: pairStep
+                        passthroughTopologies: passthroughTopologies
                     )
-                ))
-            }
+                ),
+                passthroughTopologies: passthroughTopologies
+            )
+            return .success(.init(
+                stages: [stage], materials: materials,
+                dependencyOwnership: admitted.dependencyOwnership,
+                sceneBackgroundRequirement: nil
+            ))
         }
-
-        return .success(.init(
-            stages: stages,
-            materials: allMaterials,
-            dependencyOwnership: admitted.dependencyOwnership,
-            sceneBackgroundRequirement: nil
-        ))
     }
 
     private static func compileMaterials(
@@ -360,7 +336,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             }
             try cancellationCheck?()
             let key = MaterialKey(effect: node.effect, nodeIndex: node.nodeIndex)
-            guard let template =
+            guard let prepared =
                     SceneResolvedMaterialExecutionCapabilityTemplateAdmission.resolve(
                         node: node,
                         effect: effect,
@@ -370,6 +346,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     ) else {
                 return .failure(rejection("material-template-unsupported"))
             }
+            let template = prepared.template
             guard let candidateAttachment = attachment(
                 for: node,
                 in: product.graph,
@@ -386,6 +363,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 node: node,
                 candidateAttachment: candidateAttachment,
                 template: template,
+                textureFormatSlots: prepared.textureFormatSlots,
                 effectInput: effect.input,
                 maximumVariantsPerMaterial: maximumVariantsPerMaterial,
                 assetFormatFacts: assetFormatFacts,
@@ -450,7 +428,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             where activeTextureSlots.contains(slot.index) {
                 guard !template.graphRole.bindings.contains(where: { $0.slot == slot.index }),
                       let terminal = slot.candidates.last,
-                      SceneResolvedMaterialMixedProviderSlotFact.OptionalInput(
+                      SceneResolvedMaterialCompiledVariant.MixedProviderSlot.OptionalInput(
                           terminal.reference
                       ) != nil,
                       slot.candidates.dropLast().contains(where: {
@@ -534,6 +512,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             format: SceneGraphRenderTargetPlan.TextureFormat
         ),
         template: Template,
+        textureFormatSlots: Result<Set<Int>, SceneResolvedMaterialFailure>,
         effectInput: Graph.TextureIdentity,
         maximumVariantsPerMaterial: Int,
         assetFormatFacts: [String: Int],
@@ -558,6 +537,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             let variants: SceneResolvedMaterialVariantCache
             switch SceneResolvedMaterialVariantCache.launchValidated(
                 template: template,
+                textureFormatSlots: textureFormatSlots,
                 maximumVariantCount: maximumVariantsPerMaterial,
                 assetFormatFacts: assetFormatFacts
             ) {

@@ -1,419 +1,72 @@
-# SceneScript API 覆盖表（官方声明 v2.8）
+# SceneScript 当前接口与语义
 
-> 核验日期：2026-09-13
->
-> 官方基线：`lib.sceneScript.d.ts` **VERSION 2.8**，固定文档 revision `b26412295cbfd0ee5cdceff67e2c95069527aa1b`。
->
-> 资料入口：[资料来源与证据索引](../development/source-index.md)、[官方页面全目录](../history/reference/official-page-catalog.md)、[运行时系统语义](runtime-systems-reference.md)、[总覆盖台账](coverage-ledger.md)。固定客户端深层观察只在独立研究任务中查[2.8.42 SceneScript 静态取证](scenescript-runtime-implementation-contract.md)，研究与独立实现遵循现役研究工作流。
->
-> Scene 实现身份、运行证据与聚合缺口统一见 [运行证据索引](runtime-evidence-current.md)；本表不复制基线 commit，文内旧 commit/批次号只用于追溯，不定义现役顺序。
+<!-- document-role: current-state -->
 
-## 1. 当前结论与评级口径
+<a id="contract"></a>
+## 作者合同与运行模型
 
-顶层Boolean visible与String user引用复用现役typed输入和QuickJS owner；其他未支持双来源仍拒绝。有界历史布局证据见[太阳系记录](scene-sample-debug-ledger.md#e-v4-solar-authored-controllers布局控制器与标签样式发布2026-09-08)。
+SceneScript 是 property-bound ECMAScript：脚本附着于一个有类型的属性，`init(value)`/`update(value)` 的返回值可写回该目标，直接 setter 可修改其他准入目标。`update` 可选，只有实际导出的 update consumer 进入逐帧调用。声明面见[SceneScript v2.8 类型声明](../development/reference/lib.sceneScript-v2.8.d.ts)；声明存在不表示本项目全部 host API 已实现。
 
-当前结论只有一条：项目已用同一QuickJS-NG scene domain执行scalar（含bounded object layer alpha及普通LDR scene Bloom strength）、Boolean object layer visibility、String、Vec2/Vec3 owner，并开放bounded `WEMath`、`WEVector`、`WEColor.hsv2rgb/normalizeColor`、callback-scoped typed inputs、typed layer/video/texture-animation handles、16/32/64 AudioBuffers、events、timer/job及exact-once teardown。primitive、String、Vec2/Vec3 owner在首次property/media事件前执行一次`init`，同帧仍继续`update`；普通cadence在cursor与各类型update前，先按作者序完成准备期当前可初始化owner的init-only求值，effects与后继cursor/update合入同cadence的原owner事务，退出待处理索引不表示提前提交出生；失败沿原owner事务重试或退休，不新增初始化时钟。初始化产生的typed layer mutation沿现有transaction按作者回调顺序提交，边界见[初始化记录](../history/script-initialization-barrier-2026-10-28.md)。Vec2现有finite number/string/copy构造与`copy/add/subtract/multiply/divide/isFinite/toString`有界原型，但其余官方方法和edge golden仍未实现。object-bound text/direct-image color已在exact wrapper与consumer identity下进入同一Vec3 owner：text经CoreText重栅格和same-layer dynamic-text publication后继续普通effect graph，direct image复用现有tint。TextureAnimation command复用同一owner transaction、SceneClock与现有atlas/multi-image consumer；不拥有第二套provider、clock或renderer。object `visible` Boolean wrapper按descriptor/type/wrapper统一进入effectful typed owner，不再由JavaScript源码写法选择value-only或stateful路径；dependency video command、prepared package-local image/MP4的create/sort/transform/visibility及公开cursor callback仍在同一owner事务中按各自host合同检查。该owner现可通过同domain/generation且确实存在的authored layer handle，事务化写入`origin/scale/angles/visible`与真实text layer的`text`；同回调read-your-writes及下一帧snapshot成立。`destroyLayer(name|index|ILayer)`允许effectful owner延迟删除有效、已准备的作者leaf，或同owner显式请求完整删除的作者分支；跨层删除保留控制器Boolean值，自毁归并false。共享模拟commit后退休目标层各类脚本及其动态副本，下一cadence移除descriptor/snapshot；destroy清理回调不嵌套提交新绘制命令。缺失、stale/伪造、foreign/value-only、未完整请求的父层destroy、未准备create与未开放字段继续拒绝。dynamic layer 的逻辑ID现单调消耗，原record槽仅在owner journal及共同snapshot/order全部终结后复用，旧对象/媒体handle在唯一resolver核expected ID；不等待JS GC，不按历史出生总数累积耗槽。跨owner重放与局部回滚仍归原事务，同一帧按owner首次出现的回调位置提交原子批，后批覆盖前批；authored setter的同值显式写入仍保留字段，后callback可复位原值；显隐与实例alpha的本帧值读取同一提交plan，owner内部失败只回滚该批，验收见[槽位寿命记录](../history/dynamic-layer-slot-lifetime-2026-10-29.md)。后者由launch-prepared普通image resource、typed topology transaction、现有publication与唯一Metal compositor执行，并可在公共neutral single-texture shader proof成立时复用material color typed target。共享domain继续执行source/owner work/heap/stack/interrupt预算与generation隔离；callback失败不发布value、video/texture-animation command或layer mutation，resolver保留lower-priority previous-current。项目仍**没有完整SceneScript API/host runtime**，任意asset handle/model config、file module、Vec4/matrix、多surface与通用JS heap rollback未闭合。
+当前使用真实 QuickJS-NG、模块解析和同一 domain 的 heap；不以源码形状、小解释器或 Swift 字典复制 JS 对象。绑定记录 source、owner、target、作者初值及值类型；模块、shared、闭包和脚本 owner 是不同寿命对象。
 
-| 能力面 | 当前结果 | 精确边界 |
+初始化、属性事件、输入、媒体、动画和 destroy 由实际导出及当前 owner 调度。事件型/idle owner 不因缺 update 被当作不存在。数组、对象别名、RegExp 等语言行为归真实 VM；用户 API 和模块数学归项目 host/value 实现。
+
+<a id="layers"></a>
+## Layer、Scene 与当前值
+
+| 接口面 | 当前消费者 | 边界 |
 |---|---|---|
-| Generic ECMAScript VM/API | `L3 bounded scalar+Bool+String+Vec2/Vec3+typed snapshots/handles/events/lifecycle` | QuickJS-NG开放inline typed owners、bounded Vec2/Vec3、WEMath/WEVector/WEColor、immutable frame/property input、typed layer/video/texture-animation handles、AudioBuffers、events、timer/job和exact-once teardown。TextureAnimation 命令复用同一 owner transaction、SceneClock 与既有 atlas/multi-image consumer。effectful Bool的layer/video命令与动态文字、prepared image复用同一typed事务；资源准入、owner及输出仍由原catalog/runtime/compositor负责，value-only边界保持。仍无file module graph、Vec2完整方法、Vec4/matrix、任意asset/model config、async module或完整multi-surface lifecycle |
-| Generic String text owner + script properties | `L3 bounded / S4 one real text composition` | exact object text String wrapper可携带primitive或`{user,value}` properties；同一VM每帧从唯一effective property snapshot解析后执行任意通过现役预算/typed return门的inline `update`。没有`update`的event-only String owner在无待处理property/media event和active timer时跳过稳定帧Swift/C bridge，event或timer到期仍恢复同一owner；真实`3437487219`两段包含`Date`、数组和多分支的作者脚本形成2个generic owner并输出当前单行时间/日期。真实`3396722575`补充了4个text layer的font/resource publication与`text1/2/3` live update accepted，但没有把该次运行写成callback-produced font视觉证据；不证明全部String API、file module、所有Text脚本、149 corpus或官方parity |
-| Authored layer reference / retained callable | `L3 bounded / S4 one real clock restored` | configure后的native thisLayer/thisObject与lookup保持原catalog referent；同Domain native scalar/vector/text/font字段由当前actor原能力门与journal访问；prepared authored image.font仅保目标层有界JS String状态，不发native mutation，snapshot及native late discard不抹值，见[能力边界](../roadmap/batch2/script-component-api-design.md#image-font-script-state)。两者均不依赖creator owner仍活跃。唯一resolver显式区分authored-reference与owner-bound；plain/detached/inherited fallback、hierarchy/transform/topology/bone及非Sound media/texture/particle附属API保原owner限制；[普通Sound四方法](../roadmap/batch2/script-component-api-design.md#authored-sound-reference)使用原authored resolver及执行者journal，creator退场不撤仍活目标引用。其余owner-bound retained callable以原Domain+creator identity解析active/module owner，拒绝退休或替换owner而不解引用旧指针；getLayerIndex保原-1。creator退休后的静态字段保留是本项目策略，不是官方退役parity。304时钟恢复；293时钟与颜色callback、整键cohort仍开放；[限定证据](../history/layer-reference-responsibility-convergence-2026-10-13.md) |
-| Binding/source evidence | `L1 / S1 preserved` | inline source、scene/object/effect/pass owner、完整 target path、properties、authored fallback、JSON value type 与可选 wrapper keys 可保真；source evidence 只用于 provenance/conflict rejection，不能取得执行权 |
-| Bounded Text `update(value)` AST | `L3 bounded / S3 executed` | 不按 sample/layer/source hash 准入；只执行受控无循环 AST、Date getter 与 string/value 子集。现役 compiler/runtime 和自动门存在，但 fixed profile 撤权后没有刷新绑定当前产品身份的可见证据，因此本页不把它写成现役 `S4` |
-| `WEMath` + `engine.timeOfDay` scalar | `L3 bounded / exact consumers S4 visible` | 原 `SceneTimeOfDayEffectScript*` Swift AST/compiler/runtime 产品族已删除。普通 binding IR 接纳 `script + user:null`，同一 generic VM 在真实 `2134765860` 建立 11 个 scalar owner，其中 6 个 `WEMath.smoothStep + engine.timeOfDay` target 在本地 12:00 输出 0、22:00 输出 1；route=`generic-only`，失败只保留该 target 的 previous-current。非 null `user + script` 仍冲突关闭 |
-| Retired bounded media fade / launch-origin projection | `L0 product owner / historical` | playback placeholder fade与launch-origin的专用compiler/program/runtime均已由generic QuickJS owner取代并删除；历史可见证据只作迁移前oracle，不证明现役owner或完整media/cursor API。后继generic click真实切片仍可因本批外graph缺口保持NON-PASS |
-| Generic Vec3 property owner | `L3 bounded / S4 bounded visible` | object `origin/scale/angles` 的loss-preserving binding由同一QuickJS domain执行；真实`2067939514`的3个angles owner发布非零z角度，真实`3509243656`的8个angles及layer `222` scale owner进入统一frame snapshot。scale的嵌套property从最外层`size x`取live值，默认输出`(0.6,0.4,1)`，覆盖后输出`(1,0.4,1)`并继续由共享world-frame/唯一compositor消费。route=`generic-only`、failure=`previous-current`；optional scale producer未准入或失败只保留作者current，不再隐藏整层。不外推独立geometry ROI、所有Vec3 target、完整Vec3 API或官方parity；见[E-V4-LAYER-SCALE-TYPED-PROPERTY](../history/runtime-evidence-index.md#e-v4-layer-scale-typed-property) |
-| Object-bound text/direct-image color | `L3 bounded / S4 one real slice-visible` | exact `objects[index].color` wrapper、finite Vec3 fallback与static/typed `scriptProperties`进入同一QuickJS vector owner。text target经CoreText重栅格、same-layer dynamic-text publication与普通Precise Blur Program；effectless direct image走既有tint。真实`3655958892`的3 text + 1 image颜色恢复，route=`generic-only`；`disable-generic`归零7个media/color active owner但保留作者current、文字、Blur与compositor。layer176无live media仍为black，不开放完整`ITextLayer` setter、effectful image或官方parity；见[E-V4-SCENESCRIPT-TEXT-IMAGE-COLOR-CONSUMERS](../history/runtime-evidence-index.md#e-v4-scenescript-text-image-color-consumers) |
-| Generic object scalar alpha owner | `L3 bounded / S3 real owner-executed` | 非既有shared-alpha incumbent的exact `script/value`与primitive `script/scriptproperties/value`由同一QuickJS scalar owner执行；完整path/descriptor/bit definition守恒，成功target解除display suppression，失败保留current。真实`3509243656`有60个completion但整景黑，`2902406982`有8个且整幅非黑；真实`3768724269`现已进入同一层级句柄与初始化顺序，未再出现原`getParent`失败。只证明bounded owner执行与whole-composition safety，不证明alpha ROI、shared初始化/global order、任意跨owner mutation、旧shared-alpha owner迁移、完整API或parity |
-| Generic ordinary image brightness owner | `L3 bounded / S4 representative visible` | 复用Scalar VM、typed属性输入及现有source multiplier；准入/失败边界归[brightness合同](runtime-input-property-coverage.md#layer-brightness-live-update)，实际热改、明暗及原生面板边界见[执行记录](../history/effectful-image-property-color-2026-10-14.md#image-brightness-script)。不扩Timeline或raw/completed provider，不计完整HDR/官方parity。 |
-| Generic object Boolean visibility owner | `L3 bounded / S4 representative interaction` | 普通image/solid/text/container、已支持composition及独立childless project/fullscreen的visible Bool wrapper按descriptor identity、类型、wrapper和预算进入同一effectful QuickJS owner；init/update、property/media/cursor沿原调度与typed bundle执行，不扫描源码形状。合法无可调用callback的stateful Bool模块也保留顶层初始化及原owner/domain生命周期；纯初始化稳定帧闲置，不伪造init/return，value-only与destroy-only仍拒绝。失败模块继续由现候选域重建去除，不承诺一般JS heap rollback。[模块合同](../roadmap/batch2/script-component-api-design.md#script-module-top-level-initialization)与[原包矩形退出后验](runtime-evidence-current.md#u25-u35-current-qualification-20261018)分别维护边界和实际结果。project/fullscreen仅接exact utility kind、无parent、声明及实际children与两类dependency均空的既有capture，初始隐藏仍准备，当前snapshot决定是否编码。[Project入口与完整显式删除后验](../history/authored-layer-retirement-2026-10-07.md#project-visibility-complete-retirement)记录实际点击、effect切换与同窗显隐；删除和创建各自仍受下方host表面约束。callback/host拒绝撤回primary value与owner effects，提交不依赖surface呈现；JS heap不承诺回滚。fullscreen沿同一Bool入口，反向脚本的真实同窗热改已证明capture白/灰切换，input层不能代过；[有界运行](runtime-evidence-current.md#fullscreen-visible-owner-20261017)单列真实作者控制与未覆盖。特殊层级、依赖utility及任意配置仍未开放。 |
-| Pass-owned typed Vec2 value owner | `L3 bounded / S3 real consumer-executed` | finite pair、source/provenance与完整target identity守恒时，同一QuickJS owner使用真实Vec2 prototype，输出只发布x/y。真实`2067939514`的25个audio scale owner全部完成，7个active Transform进入普通Program；provider冲突/额外wrapper局部拒绝 | 只实现number/string/copy构造和`copy/add/subtract/multiply/divide/isFinite/toString`；其余官方方法、edge golden、其他pass shape、multi-surface与parity未证明 |
-| Pass-owned typed Vec3 + bounded `WEColor` owner | `L3 bounded / S3 real hsv2rgb consumer-executed` | finite triple、source、wrapper/provider provenance与完整object/effect/pass/constant identity守恒时，同一QuickJS Vec3 owner执行；allowlisted `WEColor.hsv2rgb`接收finite normalized HSV Vec3、hue按周期包裹并返回typed Vec3，`normalizeColor`把finite `[0,255]` RGB逐分量归一到`[0,1]`，越界局部拒绝。真实`2884628849`的隔离author-property门形成4个hsv2rgb completion，active Tint进入普通Program/GPU/publication/compositor/next-frame；normalizeColor当前只有C正反行为门，没有真实consumer | 整样本因无关layer passthrough严格NON-PASS；属性门主动启用作者automatic Tint，黄→绿全景变化不是默认画面或眼部ROI正确性。`rgb2hsv/expandColor`、normalizeColor真实consumer、官方数值parity、其他pass Vec3 shape与multi-surface仍缺 |
-| `311115e3` 其余 bounded native projections | shared-alpha incumbent `L2 bounded`；identity display `L2 / S2 wired`；media-color native owner `L0 product owner / historical` | native hover、primary-button click、launch-origin、audio-scaled value与media colors已分别被generic cursor/vector/AudioBuffers/`MediaThumbnailEvent` owner取代并删除。bounded shared-alpha incumbent仍持有其精确subset；非incumbent object alpha现由generic scalar owner执行，但不据此外推shared初始化或撤权完成。identity display仍只有有界产品接线；五色generic API的精确边界见本页Media表、[E-V4-SCENESCRIPT-LAYER-ALPHA-PROPERTY](../history/runtime-evidence-index.md#e-v4-scenescript-layer-alpha-property)与[E-V4-MEDIA-COLOR-OWNER-PARTITION](../history/runtime-evidence-index.md#e-v4-media-color-owner-partition) |
+| `thisLayer`、`thisScene`、layer 查询/枚举 | 原 LayerHost/SceneHost 与 typed snapshot | 句柄必须属于当前 domain/generation 且对象仍活；查询不取得资源或 graph 执行权 |
+| transform、visibility、alpha、color、文字等 | 原目标定义与 mutation journal | 仅已接入目标有 setter；属性类型和合法值在实际入口判定 |
+| `createLayer` | 现有动态图层模板与 Mutation Runtime | 已准备 image/solid/text 和受限 composition 形态；不是任意对象复制器 |
+| `destroyLayer` | committed topology 与原组件退休 | 不提前撤当前冻结帧/GPU 引用；重复 destroy 不复活实例 |
+| `sortLayer` | 当前拓扑排序 | 使用实际 layer handle 与合法位置；名称字符串不能代替该 handle 参数 |
+| 文字 clone/模板 | 原 String/Vector program、文本模板与 Store | definition 保留，活动实例有独立值和退出；不是复制 VM heap |
 
-表中的 `S4` 只引用运行证据索引登记的精确 App/fixture/ROI 身份。现役 `engine.timeOfDay` 证据来自一个原始只读真实样本的日/夜差分与 6 个 typed consumer；严格样本报告仍因 31 项其他陈旧/宽域期待为 NON-PASS，不把该切片扩张成 whole-scene、family 或 parity 结论。
+动态 Layer 仅保存出生资源、创建尺寸、根关系及作者 seed；完整 upsert 的当前变换/可见性/颜色/文字走原 typed 值通道。结构 revision 不因普通值 setter 推进，也不在稳定帧回填整份作者 Layer。
 
-上述 bounded 子集的执行 identity 来自作者结构和 typed target，不以完整样本/source identity 选择视觉答案。精确证据分别见 [E-TEXT-SCRIPT](../history/runtime-evidence-index.md#e-text-script)、[E-EFFECT-BLEND-TRANSFORM](../history/runtime-evidence-index.md#e-effect-blend-transform)、[E-V2-SCENESCRIPT-MEDIA-PLAYBACK-EVENT](../history/runtime-evidence-index.md#e-v2-scenescript-media-playback-event)、[E-V2-SCENESCRIPT-MEDIA-PROPERTIES-EVENT](../history/runtime-evidence-index.md#e-v2-scenescript-media-properties-event)、[E-V2-SCENESCRIPT-AUDIO-BUFFERS](../history/runtime-evidence-index.md#e-v2-scenescript-audio-buffers)、[E-V2-SCENESCRIPT-CURSOR-ENTER-LEAVE](../history/runtime-evidence-index.md#e-v2-scenescript-cursor-enter-leave)、[E-V2-SCENESCRIPT-CURSOR-CLICK-LAUNCH-OWNER-RETIREMENT](../history/runtime-evidence-index.md#e-v2-scenescript-cursor-click-launch-owner-retirement)、[E-V2-SCENESCRIPT-OWNER-TIMERS](../history/runtime-evidence-index.md#e-v2-scenescript-owner-timers)、[E-V2-SCENESCRIPT-PROMISE-JOBS](../history/runtime-evidence-index.md#e-v2-scenescript-promise-jobs)、[E-V2-SCENESCRIPT-DYNAMIC-TEXT-LAYER](../history/runtime-evidence-index.md#e-v2-scenescript-dynamic-text-layer)和[E-V2-SCENESCRIPT-OWNER-TEARDOWN](../history/runtime-evidence-index.md#e-v2-scenescript-owner-teardown)。
+普通命令在既有 commit/下一 cadence 可见；camera、visibility、particle 的已实现当帧例外不能推广到所有 setter。同字段跨 owner 按真实回调顺序消费，不能恢复额外仲裁或镜像状态；非法 owner bundle 原子拒绝，健康 peer 保持。
 
-所有按 raw source/profile 选择的 fixed Text/date/greeting、TextureAnimation 与 native Audio Bars owner 都是 **sealed historical**：现役产品不再授予它们执行权，旧 commit、批次、报告、截图和 64-draw 只能追溯已退役实现，不能定义当前输出或下一步。现役 generic `ITextureAnimation` 是 descriptor/resource 能力识别后的公共 API，不恢复任何 source/profile owner；host 16/32/64 频谱和 Effect Audio Bars 仍是独立非 SceneScript 能力。
+动态创建仍拒绝未接入的 Puppet animation/effects 以及复杂 composition 的 parent/children/dependency/copybackground 组合。普通动态 image 不自动继承作者 Sprite/Timeline/effect 能力；资源定义可供合法消费者复用，不等于实例已获全部组件。
 
-`3768229922` 仍没有恢复其head-click/shared/display纵向链：虽然generic `cursorClick` callback已存在，但display scripts `397/202/354`仍只有 provenance 与安全抑制；hidden controller/update、该owner的mutable shared toggle、alpha/display mutation、开场 fade/destroy，以及人物头部点击切换16层文字/红框遮罩均未执行。一个不同作者object的generic click可见结果不证明这条链，见 [E-AUTHORED-STRAIGHT-RGB-SCALAR-ALPHA](../history/runtime-evidence-index.md#e-authored-straight-rgb-scalar-alpha)。
+源码：[SceneHost](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerSceneHost.c)、[LayerHost](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerHost.c)。
 
-当前首批只按 V2 闭合一个纵向结果：QuickJS-NG per-scene runtime/context → one typed owner → `init/update` → owner-local mutation → Swift frame transaction → next-frame visible consumer；完整 API、event、timer、dynamic layer 或发行平台不是第一条正确脚本画面的前置。owner、预算、reload/teardown 与 stale-handle 只按下方项目自有目标合同实施，不从固定客户端反编译表达反推代码。
+<a id="commands"></a>
+## 播放、事件与副作用
 
-<a id="native-regexp-captures"></a>
-
-### 原生 RegExp legacy captures
-
-现native intrinsic支持`RegExp.$1…$9`，来源为[TC39公开legacy提案](https://github.com/tc39/proposal-regexp-legacy-features)的限定表面（Stage 3），不声明完整提案或当前ECMA-262接受。原scene context持九槽；原RegExp保存immutable创建realm及eligibility，沿既有mark/finalizer释放。native成功匹配原子发布，失败保留；同realm非原intrinsic newTarget成功使getters失效，随后eligible成功恢复；foreign realm不更新任一侧，变prototype/constructor不改创建身份。初始、无组和未参与capture为空String；getters configurable/non-enumerable/无setter，只接受原intrinsic constructor receiver。自定义exec伪结果不发布，委派native则由原producer发布。String算法、exec identity及empty-replace fastpath保持；nested replacer可更新状态，后续callback不重发旧外层capture。global/sticky所需lastIndex写入成功后才准备/发布，zero-length进位及最终失败归零保持；OOM/interrupt保最后已完成match，未完成候选不部分发布。长slice捕获用现8/16-bit构造器仅复制捕获字节，普通独立String复用；原memory estimator计入context槽。intrinsic共享状态不参与typed frame rollback，不形成第二clock或registry；当前捕获范围只避免重复清空空槽，不驻留额外输入String。实现/升级退出由[vendored README](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/README.md)限定；真实时钟及成本边界见[运行证据](runtime-evidence-current.md#e-native-regexp-captures)。`compile`、其它legacy静态属性、跨平台完整正则与官方parity仍未据此接受。
-
-### 1.1 MyWallpaperX V2 目标运行时合同
-
-本节是 implementation agent 可以消费的项目自有合同，不描述官方内部实现：
-
-- 每个 scene execution domain 默认独占 QuickJS-NG runtime/context、module registry、job queue 和预算账户；scene/reload generation 之间不共享 JS object 或 native handle。
-- 每个 binding/layer/effect/dynamic object 有 typed script owner；host object 只暴露带 domain、owner/object identity、generation 和 capability 的 opaque handle，Swift 每次调用重新校验，VM 不持有 Swift/Metal 裸对象。
-- global/module allowlist 默认不含 DOM、Node、WebWorker、文件、网络、进程或任意 native module；路径逃逸、动态 native load 和跨 scene import 拒绝。
-- native frame/provider snapshot 保持 immutable；`MediaPlaybackEvent.state` 是每次回调独立的可写值副本，写入不改变来源、peer 或后续事件。typed host mutation 写入 owner-local buffer；Swift 在帧边界校验 identity/generation/type/finite/conflict 后，以单一 topology/VM mutation transaction 提交。callback 不直接改正在遍历的 graph、Program、target 或 compositor。
-- 每个 runtime 与 callback 必须有 heap、stack、deadline、每帧 CPU/job/timer/mutation/identity 预算。exception、unhandled rejection、NaN/Inf、stale handle、timeout 与 OOM 只熔断最小 owner；runtime 不再可信时才重建该 scene VM，同时保住不依赖脚本的安全画面。
-- reload 建立新 generation，切换成功后才撤销旧 owner；teardown 停止 dispatch、interrupt callback、取消 job/timer/event、丢弃 pending mutation、按项目合同调用 `destroy` exactly once、撤销 handle 并证明 owner/job/timer/handle 归零。
-
-官方事件顺序、默认值或数值边界未确认时保持 unknown；可按研究工作流阅读参考并在同一上下文独立实现，用自有正反门与实际运行验证。不得把 2.8.42 的 V8 结构或参考代码直接复制、照译或移植到 QuickJS-NG。
-
-等级使用本专题本地定义：
-
-| 等级 | 本表含义 |
+| 领域 | 当前实际入口 |
 |---|---|
-| `L0` | 没有可调用、可观察的 SceneScript runtime 行为 |
-| `L1` | 能保真解析/保存该 API 所需 IR，但未路由 |
-| `L2` | 已路由到 typed runtime/handle，但未真实执行 |
-| `L3` | 已执行受限子集，并有正反例和生命周期门 |
-| `L4` | 已由官方行为或 Windows golden 验证 |
+| Property Animation | 原 animation handle → TimelinePlaybackRuntime；play/pause/stop/setFrame 与同一轨道 state |
+| TEX animation | `getTextureAnimation` → TextureAnimationPlaybackRuntime；typed handle 入口检查存活一次，命令保原 next-frame 顺序 |
+| Particle | 原 Layer/ParticleInstance host 的 play/pause/stop/isPlaying/emitParticles 与 typed override；真实出生和预算由原模拟器处理 |
+| Puppet | 原 animation/bone handle、会话 animation runtime 与每屏 pose；未接入 clip/channel 不从 handle 存在推定可播 |
+| 视频 | 原 material/layer video handle → 视频 registry/source；命令目标与被选资源身份保持，不能按路径广播 |
+| Sound | 原声音定义与 voice registry，volume/播放命令消费既有 typed 值 |
+| Cursor/媒体/用户属性事件 | 原入口快照与 owner 回调；一次性事件不能因 GPU 重试重复派发 |
 
-### 1.2 本地证据代号
+已接入的外部用户快捷动作需要当前真实输入和现有授权 scope；init/update/伪造指针不取得用户手势。OS 动作与 JS heap 副作用不能随 typed admission 失败假装撤回。不同事件/API 的签名和返回值仍以实际 host 与声明对照，不以“返回 true”代替系统动作成功。
 
-| 代号 | 代码/测试证据 | 能证明什么 | 不能证明什么 |
-|---|---|---|---|
-| `P` | [`SceneResourceIndex.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceIndex.swift)、[`SceneCapabilityProfile.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneCapabilityProfile.swift) | `.js` 分类和 package-level presence | 源码读取、模块加载、执行 |
-| `I` | [`SceneDocument.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Format/SceneDocument.swift)、[`SceneScriptBindingDefinition.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Format/SceneScriptBindingDefinition.swift)、[`SceneRenderDescriptor.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor.swift)、[`SceneLayerVisibility.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneLayerVisibility.swift)、[`SceneTextScriptDefinition.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextScriptDefinition.swift) | 文档级五类binding保真inline source、owner、完整target path、properties、authored fallback与JSON value type；作者顶层`visible/alpha` script ownership可在value resolution前保真并使未证display authority失败关闭；layer顶层旧carrier与文字inline source继续保留 | 这只是provenance/故障隔离；file/module、schema-resolved Vec/value type、runtime handle、VM、API、事件与生命周期均未执行 |
-| `W` | [`SceneParticleDefinitionParser.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser.swift)、[`test_scene_particle_definitions.py`](../../../script/tests/test_scene_particle_definitions.py) | 动态 wrapper 的 `hasScript` presence 可诊断 | wrapper script 的源码或求值 |
-| `D` | [`SceneDynamicSnapshot.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift)、[`SceneQuickJS.c`](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJS.c)、[`SceneScriptDynamicLayerRuntime.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptDynamicLayerRuntime.swift)、[`SceneScriptDynamicImageReferenceAnalysis.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptDynamicImageReferenceAnalysis.swift)、[`SceneScriptValueRuntime.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptValueRuntime.swift) | typed target、固定优先级、真实ECMAScript scalar/Bool/String/Vec2/Vec3 owner、immutable inputs、typed handles/events/timer/jobs、dynamic text与安全package-literal image mutation、exact-once teardown；旧native产品族已删除 | Vec2完整方法、Vec4/matrix、其他module/API handle、async module、任意asset handle/model config、multi-surface lifecycle与官方parity |
-| `F` | [`SceneFrameContext.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneFrameContext.swift)、[`SceneTextScriptRuntime.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextScriptRuntime.swift)、[`SceneDesktopWallpaperHost+FrameDriver.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriver.swift) | 同帧 wall date、simulation frame time 与 scene runtime 在 surface loop 外形成一次 typed frame snapshot；QuickJS callback只读该快照，timer按同一frame time至多推进一次，成功值再广播进各surface transaction | live provider、locale/DST/通用离线 clock、真实多屏输入一致性与pause/seek产品门 |
-| `G` | 2.8.42 主程序与 SceneScript module 的 Ghidra 有界静态证据，详见 [静态取证 §8](scenescript-runtime-implementation-contract.md#8-engine-与宿主生命周期静态互证gb) | 版本握手、effective time/pause、固定事件槽、watchdog/timer/audio tick、typed return、camera/material/particle/video/animation handle 与 host-owned teardown 的研究候选结构 | MyWallpaperX 已实现、官方可观察结果、完整 ABI，或对 implementation agent 的直接授权 |
-| `N` | 全仓 `SceneScript`/VM/API 搜索及现有 Scene 测试 | 用于确认现役 VM/API 边界之外没有其他产品 bridge；`D/F` 已单列当前 scalar/frame-input 子集 | 不能把其他 Swift renderer 的同名能力算成脚本 API，也不能用缺失扫描否定已登记的 VM 子集 |
+<a id="values"></a>
+## 数值、模块与持久状态
 
-### 1.3 目标执行模型与来源边界
+当前 value host 提供 Vec2、Vec3 与有界 Mat4，模块数学沿现 module host；Vec4、Mat3 未安装。向量返回与赋值按各入口所需的 x/y/z 分量及数值合同读取，普通对象满足对应分量合同也可被接受。构造与矩阵操作只承诺实际 host 的子集；矩阵、相机和 world 输入共用 canonical frame。
 
-SceneScript 不是孤立的脚本引擎，而是与 Timeline、用户属性和作者默认值共同组成的属性绑定系统。本节同时使用多类证据，必须分开理解：
+`setTimeout`/`setInterval` 和 jobs 归原 owner、Scene 时间及调用预算。零步长重绘不重复计时事件；清理 owner 时撤 timers/jobs 和句柄使用权。递归、非有限值、错误参数或预算耗尽只影响实际 owner/操作。
 
-| 内容 | 来源 | 用法 |
-|---|---|---|
-| API、global、hook 签名和作者可见类型 | 官方 v2.8 declaration 与公开页面 | 定义兼容表面 |
-| engine tick、owner、timer、cursor 和 teardown 结构 | 2.8.42 客户端有界静态取证 | 收窄实现顺序与 fixture；不代表 MyWallpaperX 已实现 |
-| immutable snapshot、generation、预算和失败关闭 | MyWallpaperX 目标合同 | 项目安全与跨平台 policy；与官方实现不同处必须明确标注 |
-| 当前等级 | 本表、总覆盖台账与运行证据索引 | 唯一实现状态 |
+localStorage 使用同一 Session 的内存状态、candidate transaction 与原后台持久化。实际 owner 构造后、configure 之前准备一次；普通帧不首次打开或解析 JSON。候选激活会与前任最新 envelope 合并；取消不发布候选写入。screen scope 需要精确单屏身份，不能在多 Surface 时猜一个屏幕。
 
-#### 1.3.1 求值优先级（从低到高）
+源码：[ValueHost](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSValueHost.c)、[ModuleHost](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSModuleHost.c)、[StorageHost](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSStorageHost.c)。
 
-```
-authored default → userProperty → Timeline → SceneScript
-```
+<a id="failure"></a>
+## 失败与退出
 
-- **authored default**：场景文件中的初始值
-- **userProperty**：用户在属性面板设置的覆盖值
-- **Timeline**：时间轴动画当前帧的计算值
-- **SceneScript**：脚本 `init/update` 返回值或直接 setter
+错误返回类型、异常或中断拒绝本次受影响 typed 输出和 mutation，不覆盖健康 current；真实 heap 写入不被复制回滚。永久禁用、退休和可恢复失败分开，不能用一次 bad return 取消仍活事件或平台输入。
 
-**核心规则**：
-1. Timeline **先于** SceneScript 求值
-2. SceneScript 可以覆盖 Timeline 的结果
-3. 同一帧内，上述四级值按优先级合并为单一 immutable snapshot
-4. 缺少某一级时跳过，不影响其他级
+Destroy 从 committed owner 变化进入原程序退出；资源、VM、活动轨道、声音、粒子和平台订阅各在实际消费边界撤权。停场等待原 worker/媒体/GPU drain，不能因某个 JS callback 返回就宣称资源全部释放。
 
-**实施约束**：
-- 当前 `SceneDynamicSnapshot` 已预留 `.sceneScript` 优先级槽位（v22）
-- Timeline 已有受限 `L2-L3` target/evaluator；SceneScript scalar+frame-input 子集为 `L3 bounded`，其他类型/API 仍逐项保持 `L0-L2`；精确现状见 [总覆盖台账](coverage-ledger.md#61-timeline-与-scenescript)
-- 不得让 SceneScript 提前执行后被 Timeline 覆盖
-- 不得让用户属性在脚本后才生效
+<a id="limits"></a>
+## 当前限制与验证
 
-#### 1.2.2 生命周期钩子
+全部官方 handle/API、任意动态资源 recipe、跨 pass/无真实 target 的 Combined/Event-only 动画、所有复杂骨骼/几何/媒体组合仍未覆盖。缺口和下一资格归[队列](../roadmap/scene-open-breakpoint-queue.md)，不由官方 d.ts 数量计算支持率。
 
-| 钩子 | 调用时机 | 返回值语义 | 当前等级 |
-|---|---|---|---|
-| `init(value)` | owner 创建后调用**一次** | 返回绑定 property 的初值 | scalar `L3 bounded`；其他类型 `L0` |
-| `update(value)` | 脚本导出该 hook 时进入有效帧更新 | 返回当前帧的 property 值；动画应乘 `engine.frametime` | scalar `L3 bounded`；其他类型 `L0` |
-| `destroy()` | owner 销毁前调用 | 无返回值，用于清理 | `L3 bounded` |
-
-目标求值时序：
-
-```
-1. Timeline evaluator 计算当前帧所有动画值
-2. SceneScript `update(value)` 接收 Timeline 结果作为入参
-3. SceneScript 可返回新值覆盖，或不返回则保持入参值
-4. 最终值写入 per-surface immutable snapshot
-5. Renderer 消费 snapshot
-```
-
-静态取证确认没有导出 `update` 的 script record 不应被当成通用逐帧 consumer；初次调用、事件批处理和同帧 mutation 的完整边界仍按 §3 的逐项证据处理。
-
-普通LDR `general.bloomstrength` 的 exact script/value Number wrapper已进入原ScalarProgram，scene owner没有layer ID；不配置layer/effect/Timeline/Puppet权限，不发现动态图片。返回值经原typed snapshot驱动现有Bloom；所有非空side-effect bundle（含borrowed handle与pending topology）在共同边界拒绝。wrapper/user/Timeline竞争、HDR及其他scene字段未开放；这不升级下方IScene Bloom setter。准入和事务归[D4](../roadmap/batch2/script-component-api-design.md#general-bloom-strength-script)，实际VM与可见范围见[限定运行证据](runtime-evidence-current.md#e-2026-10-16-general-bloom-strength-script)。
-
-#### 1.2.3 八个官方全局对象
-
-v2.8 declaration 顶层明确声明八个 global：
-
-| 全局对象 | 接口 | 用途 |
-|---|---|---|
-| `thisLayer` | `ILayer` | 脚本所属 layer 的句柄 |
-| `thisScene` | `IScene` | 当前场景：查找/创建/销毁 layer、camera 控制 |
-| `console` | `IConsole` | 调试日志：`log(...)`、`error(...)` |
-| `renderContext` | `IRenderContext` | 当前渲染上下文 |
-| `input` | `IInput` | 光标位置和按键状态 |
-| `localStorage` | `ILocalStorage` | screen/global 作用域持久化 |
-| `engine` | `IEngine` | 时间、分辨率、用户属性、音频与资源注册 |
-| `shared` | `Object` | 同一 SceneScript 环境共享对象 |
-
-property-bound owner 通过 JavaScript 的 `this` 和 hook 参数暴露，不存在名为 `thisObject` 的第九个 global。随包 authoring type surface 明确没有 DOM/Node/WebWorker 声明，但类型缺席不单独证明官方 VM 的全部运行时负能力。MyWallpaperX 的目标 VM 必须使用 global allowlist，不暴露网络、任意文件、进程或 shell；`Date`、随机数和预算策略需要项目自有正反门，并将与官方行为的差异单独记录。
-
-#### 1.2.4 事件系统
-
-2.8.42 客户端静态路径确认每个 script record 有 19 个固定 event slot：
-
-| 组 | slot |
-|---|---|
-| 生命周期与屏幕 | `init`、`update`、`resizeScreen`、`destroy` |
-| 设置与动画 | `applyUserProperties`、`applyGeneralSettings`、`animationEvent` |
-| cursor | `cursorEnter`、`cursorLeave`、`cursorMove`、`cursorDown`、`cursorUp`、`cursorClick` |
-| media | `mediaStatusChanged`、`mediaPlaybackChanged`、`mediaPropertiesChanged`、`mediaThumbnailChanged`、`mediaTimelineChanged` |
-
-**实施要求**：
-- 事件按 generation 排队，旧事件不得覆盖新状态
-- 事件回调中的异常必须隔离，不能终止 renderer
-- `applyUserProperties` 首次调用传全部键，后续只传变化键（需 `hasOwnProperty` 检查）
-
-事件 slot、客户端观察到的派发顺序和 MyWallpaperX 的 generation/error policy 是三种不同事实。逐事件的当前等级、静态边界和验收门见 §3。
-
-#### 1.2.5 第一条 V2 纵向切片
-
-SceneScript 首批不按 API 层级搭完整平台，只闭合一个真实 property owner：
-
-```text
-existing inline source/binding IR
-  -> QuickJS-NG per-scene runtime/context
-  -> one typed owner + minimal module/global allowlist
-  -> init/update
-  -> typed return or owner-local mutation buffer
-  -> existing Swift frame transaction
-  -> next-frame visible consumer
-```
-
-首批同时具备 interrupt/heap/stack budget、exception isolation、reload/teardown 和 stale-handle negative fixture，但只开放该真实脚本需要的最小 host API。cursor/audio/media/timer/dynamic layer 等后续能力复用同一 owner、mutation 和 transaction；它们不是首个 property 可见结果的前置。具体执行合同见本页 §1.1，开发顺序只看[现役路线 V2](../roadmap/scene-compatibility-roadmap.md)。
-
-## 2. Property-bound 核心合同
-
-| API/合同 | 官方含义 | 等级 | 当前代码/测试证据 | 缺口与升级验收门 |
-|---|---|---:|---|---|
-| property-bound 实例 | 每份脚本绑定一个具体 property；通用逻辑通常绑定 layer visibility | `L1` | `I` 保真官方正式13处对应的五类 scene/object/effect/pass owner、完整target path、inline source/properties/authored fallback/JSON value type及可选`wrapperKeys`；独立source evidence又保真所有string-valued script wrapper，但nested/未知owner只提供拒绝证据，不提升为binding。`script + user:null` 保留显式 null provenance并允许 VM admission；只有非 null `user + script` 才是双 producer 冲突 | 补 file module graph、schema-resolved generic Vec/value type、runtime handle；重复/缺失 target 与 owner teardown 门。官方13处与297 launch exact13是两项不同计数 |
-| `init(value)` / `update(value)` 的 typed value | 入参是绑定property当前值；返回兼容值写回；无返回则保持原值 | QuickJS scalar/Bool/String/Vec2/Vec3为`L3 bounded` | typed owner从同一preliminary snapshot取值；Vec2使用bounded prototype并只发布x/y。effectful callback的primary与material/animation/video/layer副作用保留相同owner identity，在surface render前整包预检，失败owner的primary也不发布；帧尾才提交获准layer plan。异常/错型保留owner-entry current。String property 的回调返回 **Number 按 JS ToString 语义强转**（2026-09-18 批 D；真实`3122339805`世界时钟在"日期≥10"时返回 Number，此前被 `callback returned non-string value` 拒绝）；Boolean property 的正常回调仅接受原生 Bool 返回；undefined、Number、String、null及对象保留当前input，正常副作用继续经原typed事务验收（2026-10-16固定官方init/update矩阵更正旧Number truthiness假设；[实际时钟拖动](runtime-evidence-current.md#e-2026-10-16-bool-return)）。异常、预算、stale与mutation overflow的原失败处理保留；script property 输入的 live Number 在 **Bool 回退下按 truthiness 解析**（同批；层1459 alpha 绑定 slider 到 Bool 回退，此前逐帧 properties unavailable）；其余类型与配对仍拒绝 | Vec4/matrix、Vec2完整coercion/API、更多target及官方行为对照 |
-| <a id="camera-layer-fov-scalar"></a>Camera-layer `fov` property scalar | 属性脚本返回所绑定的 FOV 数值 | `L3 bounded / S4 native edited` | 仅合法 native-perspective `camera:"default"` layer 的 exact `script/value` 或合法 `scriptproperties` wrapper，沿原 input codec→Scalar Program/ValueOwner→同一 QuickJS domain→`.layer(layerID,.fov)`→唯一 camera-frame；准备复用原 ortho/clip 条件，实际 pose/投影仍由原 consumer 验证，合法 layer override 不要求 scene Eye/Center/Up/FOV fallback 完整。原作者顺序/显隐选 camera，原静态 descriptor 作 fallback；内部属性只改 VM 输入，保 authored→userProperty→timeline→sceneScript 优先级，编辑/reset不重跑 init 或清作者平滑。初值、返回和 typed 发布均须转为有限 Float 且 `0<fov<180` 度，不 clamp/改投影公式。非法返回拒该 owner 整个 bundle，首个有效值前保静态，此后及永久失败保 previous-current，健康 peer 继续。真正 committed-topology 退休按 binding owner.layerID 撤唯一 Schema stateful 登记，下一 cadence 恢复低优先输入；held snapshot不变，quiescent 累计墓碑不再新增 bindings 收集，未完成 cleanup 仍可重试。CPU真实链59facts、原生两组编辑/重开/reset同session及独立画面已过，见[限定证据](../history/camera-layer-fov-live-2026-10-15.md) | FOV暂停恢复、多surface与完整画面仍待；不开放 direct FOV user wrapper、FOV Timeline/animation、orthographic/non-default 或缺 prepared consumer；同 key 多 target 仍原子准入。`ICamera` JS handle、其他相机字段、多surface及官方数值/像素 parity未据此开放 |
-| 直接赋值其他 property | 脚本可通过 `thisLayer`/其他 handle 同时修改多个 property | authored exact-handle `origin/scale/angles/visible`及text-layer `text/pointsize` `L3 bounded / S3 committed synthetic；pointsize S4 bounded title visible` | 非value-only active owner把同domain/generation、exact existing authored target的字段写入target-indexed owner-local mutation；同回调read-your-writes，Swift先按authored evaluation order对每个owner完整候选包做只读模拟，首个获准owner占有target，后续冲突owner连同primary与其他副作用整包撤回。若timeline/video外部校验移除owner，则从原顺序重算layer admission直到固定点；surface render后才提交最终plan，下一帧只经现有`SceneDynamicSnapshot`与text definition publication生效。pointsize沿[共享setter合同](../roadmap/batch2/script-component-api-design.md#text-layer-pointsize-setter)接入，最近C/Swift门与真实标题换词已证，artist仅输入，见[限定记录](../history/text-layer-pointsize-setter-2026-10-16.md)；最多64个target；exception、预算、缺失/foreign/stale/value-only或任一坏字段同样不改共享C/Swift state | `alpha/color/solid`等字段、static sort/topology、官方跨owner重复target顺序、复杂text layout invalidation、多surface与官方行为对照 |
-| source/module loader | 加载 inline 或 `.js` 源码及其 export/import | `L3 inline + bounded WEMath/WEVector/WEColor` | `I` binding IR保存已准入wrapper的inline source；QuickJS 执行 inline module，并只允许 import 项目自有 `WEMath`、`WEVector` 与 `WEColor.hsv2rgb/normalizeColor` 有界成员。inline source按UTF-8精确计费，单owner上限256 KiB、candidate聚合上限2 MiB，C入口在分配前独立复核。unknown import 在 owner create 阶段 typed fail-closed，不暴露文件系统或 native module | `.js` file graph、规范化路径、其余module/API成员、依赖图、循环/缺失/越界负向门 |
-| ECMAScript VM | 受控 ECMAScript 环境，无 DOM/Web/Node/shell/任意文件系统 | `L3 bounded scalar+Bool+String+Vec2/Vec3` | 每scene一个runtime/context，所有binding共用generation-checked owner；真实`3792817546`在同一domain执行AudioBuffers、Vec2/Vec3、effectful Bool与dynamic-image mutation。callback input仍深冻结，无DOM/Node/filesystem/network/process | Vec2完整方法、Vec4/matrix、其他module/handle、任意asset/model及官方对照 |
-| budget/error boundary | 每实例/每帧时间、指令、内存和 timer 有界；脚本错误不终止 renderer | `L1 bounded scalar / S4 bounded visible` | QuickJS domain设置 heap/stack/interrupt budget；单owner source 256 KiB、candidate聚合source 2 MiB与construction work 4096均在建域前检查，C入口再守住单source分配。QuickJS interrupt在instruction budget前轮询construction cancellation并把原始Swift取消错误传回；timer另有每owner 32槽与0…86400000 ms范围，单callback job上限64。contract harness覆盖 compile/callback/timer/job exception、disabled fuse、bad return、infinite loop interrupt、timer/job overflow、stale owner、owner isolation、source边界、解释器内取消与host-global污染；App 负 fixture记录`exception / previous-current`，后续graph/compositor/next-frame仍成功；本地budget不冒充官方watchdog parity | OOM/recursion、每帧跨callback聚合job/timer量、wall-time watchdog、diagnostic aggregation、更多renderer/App failure injection |
-| Promise/job drain | callback产生的microtask必须在同一owner host和预算内排空；残留不得交给下一owner | `L3 bounded / S3 executed` | 每callback最多执行64个pending job；handled rejection可继续，unhandled rejection、job exception、context mismatch与预算超限熔断当前owner并清空scene context队列。timer resolve的Promise在同一timer callback host内排空；module顶层job/top-level await保持拒绝；stop/switch teardown实测清零destroy callback新建job | 当前真实corpus无Promise/async/await/queueMicrotask调用，未取得App可见consumer；async module、跨帧外部Promise source、每帧聚合预算和官方动态对照仍缺 |
-| instance ownership | 每个scene execution domain及其中的binding owner隔离；switch/stop必须销毁 | `L3 bounded / S4 lifecycle continuity` | 一个scene domain持有单一QuickJS runtime/context，多个bindings使用owner handles；stop/switch逐owner执行exact-once `destroy()`，随后丢弃timer/job/mutation/dynamic layer、递增generation并禁用旧owner。Developer ID App的stop→relaunch与同输入switch均记录`owners=1 destroyCallbacks=1 quiescent=1 failures=0`，旧generation contract门保持stale，当前证据仍只有单surface | pause/resume、provider residue、失败的新scene activate原子回滚、真实多surface下输入/final snapshot/consumer/event/teardown一致性与官方生命周期对照；不据此要求第二套per-surface VM |
-
-## 3. 生命周期与事件
-
-| 事件/API | 官方含义 | 等级 | 当前证据 | 缺口与验收门 |
-|---|---|---:|---|---|
-| `init(value)` | owner 创建后调用一次，返回绑定 property 初值 | `L3 bounded primitive+String+Vec2/Vec3 / S3 real owner-executed` | 同一QuickJS owner首次进入property/media/update前恰好执行一次`init`，同帧随后继续`update`；init返回值和typed layer mutation进入现有publication/transaction，异常只熔断该owner并保留previous-current。C/Swift门覆盖顺序、幂等、property/media首事件和mutation；真实`3610154602`的layer 92在init创建63个动态bar | destroy前未更新owner、reload/多scene、跨类型全局顺序、通用JS heap rollback、multi-surface和官方行为对照 |
-| `update(value)` | 每个渲染帧调用；动画应乘 `engine.frametime` | `L3 bounded scalar+String+object Vec3+pass Vec2/Vec3` | generic callback从preliminary current取值；typed finite成功值只进入当帧SceneScript publication，callback/update失败及disabled后继不产生新值，原stateful登记保previous-current；真正topology退休才撤登记并恢复低优先输入，disjoint peer仍提交。真实206的25个pass Vec2随audio generation产生非unit输出。没有导出`update`的event-only owner在完成init且无待处理callback/timer后不跨Swift/C执行稳定帧；新event或timer到期仍恢复同一owner求值 | bool/Vec4/matrix、官方Vec2 API、raw/effective delta parity、通用layer/domain JS state rollback与更广mutation |
-| `destroy()` | owner 销毁前调用 | `L3 bounded / S4 lifecycle continuity` | stop/switch在撤销owner前以callback-scoped handles与immutable engine调用zero-arg export恰好一次；callback即使新建dynamic text、interval与Promise job，返回或抛异常后仍清空jobs/timers/mutations/layers并禁用旧generation。C门覆盖幂等、stale、异常与peer存活；dynamic-layer C journal 会在 callback/scene barrier 后 discard，永久移除只在仍有 peer topology participant 时 fail closed，释放后可重试且不丢弃 peer。Developer ID App两条生命周期运行均记录exact-one/quiescent | 动态删单owner时的destroy与普通update同轮顺序、跨handle重入、失败的新scene activate回滚、multi-surface和官方行为对照 |
-| `resizeScreen(size)` | 分辨率变化时调用；首次创建不会自动调用 | `L0` | `N` | resize 正例和 startup 反例；每屏 size、去重和事件顺序 |
-| `applyUserProperties(changed)` | 首次加载调用，之后只含变化键；使用 `hasOwnProperty` | primitive/String/Vec2/Vec3 `L3 bounded`；Vec3与exact pass scalar各有一个`S4 visible`真实切片；**bool 事件-only owner `L3 bounded / S4 owner-executed`（2026-09-18 批 F）** | QuickJS在各typed owner先完成一次`init`，再于首轮派发全部typed properties，以后只派发值变化或删除为null的键；无变化不派发。Vec3真实`2974757317`的10个origin owner实际消费callback并产生可见卡片位移。真实default project `razer_vortex`的三个callback-only pass owner把`ui_editor_properties_mode`写入同名`thisObject.colormode`；当前owner只读取该exact effect constant上的own finite numeric data property，frame 0/120分别把scalar 0/2送入既有`g_CMode` material uniform并经GPU completion、唯一compositor和next-frame闭合。String owner也已加入同一稳定帧 quiescence 门：无`update`、pending callback或active timer时不跨Swift/C执行，property/media event或timer到期仍恢复；NaN、accessor、非numeric或callback失败局部拒绝并保持previous-current；见 [E-V4-SCENESCRIPT-CALLBACK-ONLY-PASS-SCALAR](../history/runtime-evidence-index.md#e-v4-scenescript-callback-only-pass-scalar) 与 [E-V4-SCENESCRIPT-CALLBACK-ONLY-STRING-QUIESCENCE](../history/runtime-evidence-index.md#e-v4-scenescript-callback-only-string-quiescence)。**Bool 可见性 owner 此前要求 `init/update` 存在且禁止 media 钩子，纯事件-only 脚本被 `invalidSource` 拒收（13 个样本）**；批 F 放行：有事件钩子、无 destroy、无 audio、`requiresStatefulOwner`（处理器写层需要 mutation journal）即可构造；无 pending 事件且无 value hook 时整帧跳过（不会触发 C 侧缺 update 的 owner 禁用），有挂起事件时走既有 initialize/dispatch 链。13 样本回放 12/13 PASS；`3122339805` 的 FAIL 是新暴露的**既存**死单元（478 tint 从未执行，见运行证据），非本批行为回归 | String真实callback-produced font的产品视觉/ROI、任意`thisObject`字段/类型、跨类型全局批量顺序、reload/多scene/multi-surface、通用JS heap rollback和官方行为对照 |
-| `applyGeneralSettings(changed)` | 首次及 app general setting 改变时调用，v2.8 当前主要是 language | `L0` | `N` | typed settings snapshot；初次/增量、未知键和多屏一致性 |
-| `cursorEnter` / `cursorLeave` | 指针进入/离开对象边界 | generic `L3 bounded / S4 visible` | AppKit pointer经实际camera/world/model inverse与quad hit-test，对作者object owner派发immutable world/local Vec3 event；同一scene domain共享mutable `shared` carrier。真实`2974757317`记录exact 1 enter + 1 leave、0 VM failure并可见移动；旧native hover owner已删除 | parent/rotated/puppet、候选与跨layer顺序、边界抖动、hidden/visible mutation、多surface和官方坐标/事件对照 |
-| `cursorMove` | 指针移动时传 `CursorEvent` | generic `L3 bounded single-surface captured-primary / S4 isolated-visible` | surface ordered sample的位置真实变化时，未捕获owner只收current hit；down捕获后即使离开旧quad也按当前world/local projection继续派发。同owner同batch按序读取staged authored transform并只提交最终合并值，后续callback失败撤回该owner此前输出。真实`3122339805:207`以`captureActive=1/currentHit=0/localX=-0.860673`把`thisLayer.origin`更新为`(1083.710815,800,0)`；13-layer派生fixture继续证明可见位移稳定。[E-V4-SCENESCRIPT-CURSOR-MOVE-DRAG](../history/runtime-evidence-index.md#e-v4-scenescript-cursor-move-drag) | multi-surface、多按钮、失焦、跨owner传播、parent/puppet/perspective、任意JS/C副作用回滚及官方坐标/顺序仍缺 |
-| `cursorDown` / `cursorUp` / `cursorClick` | 对象上按下、释放和同对象完整点击 | generic `L3 bounded single-surface / S4 click-visible` | AppKit local/global primary event进入surface-local有界ordered batch，每个sample以renderer同一current camera/world/model inverse命中作者object；省略local transform的child按canonical parent/default world frame参与hit。down捕获owner，release向capture派发up，同一object仍命中才click。真实`3768229922:202`在省略transform的parented head层记录`captureActive=1/currentHit=1`并展开作者信息面板；`2974757317`记录exact一次click，`3122339805`证明captured outside move；512-event overflow整批拒绝并清capture，旧native owner已删除。[作者启动与点击闭环](runtime-evidence-current.md#e-2026-09-13-authored-startup-destroy-cursor)、[E-V4-SCENESCRIPT-CURSOR-MOVE-DRAG](../history/runtime-evidence-index.md#e-v4-scenescript-cursor-move-drag) | multi-surface仍按frame snapshot；release-outside真实consumer、多按钮、失焦、跨层传播、rotated/perspective/puppet hitBox与官方顺序/坐标对照仍缺 |
-| 五个 media events | status/playback/properties/thumbnail/timeline 变化事件 | thumbnail presence+五色/playback/properties `L3 bounded`；properties为`S4 bounded visible`、thumbnail/playback为`S3 executed`；status/timeline `L0` | artwork、playback与properties各自generation只向实际导出相应callback的owner派发；generation 0/stale/same-generation conflict拒绝，缺输入不消费而可同代重试。同一scalar/vector owner内顺序为playback→thumbnail→`update`，String另在thumbnail前派发properties；均复用typed handles与成功update才提交的mutation buffer。dynamic layer C value/order/create/destroy journal 现在由 owner-local value baseline 加 domain-level topology operation journal 保护，在host admission/surface barrier后按 owner commit/discard并重放剩余 peer 操作，失败创建slot tombstone，peer topology participant 存在时 teardown 暂时 fail closed且可重试。真实`2067939514`证明thumbnail animation命令，真实`2938612768`证明playback与title，真实`2974757317`证明四个five-color Vec owner。没有跨类型通用event queue或live macOS producer | status/timeline JS事件、properties其余字段、previous cover、跨类型/跨owner完整event ordering、重复provider仲裁、reload/teardown与官方行为对照；作者可变`shared`/任意JS heap state仍不回滚，多surface/live ingress与官方顺序未闭合 |
-| `animationEvent(event,value)` | Timeline/puppet 指定帧向同 layer script 派发 name/frame | `L3 bounded / S4 原包接续` | 现代MDLA事件由原PlaybackRuntime发布，已准备Puppet nested Bool与rate Number owner接收同parent事件；顺序为`init → animationEvent → update`，按Bool/Number回写typed值、undefined保输入（Number仅CPU验收），命令与消费游标共用原journal/TimerSnapshot | 其他值族、非Puppet/Timeline、反向/mirror/single、首末帧与一次跨多圈未开放；原335的stop→事件play、目标clip推进与GPU变形见[当前运行记录](runtime-evidence-current.md#e-2026-10-16-puppet-animation-events) |
-
-`animationEvent` 由 Timeline 官方页面确认，但 v2.8 `IComponent` 没列该回调；实现必须保留兼容测试，不能任选一份官方资料后删除另一边。
-
-当前事件子集限正向loop的内部源帧，每次最多跨一个loop边界，同parent每cadence最多64条、超预算整批拒绝。owner首次收到事件才分配计入VM heap预算的64项FIFO；未提交payload与消费游标沿原事务保留/回滚，propertyRefresh不消费事件，不承诺JS heap回滚。格式由[MDLA合同](scene-format-and-render-graph.md#11-二进制资产合同tex-bc-与-puppet-mdl)拥有；reader、PlaybackRuntime与QuickJS三项门的范围及待验收项见[事件设计](../roadmap/batch2/script-component-api-design.md#puppet-animation-events)，本项不升级lookup sibling GPU或整样本兼容。
-
-## 4. 对象与句柄 API
-
-<a id="41-通用-layer--scene"></a>
-### 4.1 通用 layer / scene
-
-| API 面 | 官方成员与含义 | 等级 | 当前证据 | 缺口与验收门 |
-|---|---|---:|---|---|
-| <a id="puppet-linear-impulse"></a>`IImageLayer.applyBonePhysicsImpulse` | 显式bone name/index、世界线性Vec3，第三参仅零角冲量 | `L3 bounded / S4 repeated-drag` | 原有序matrix/impulse journal→唯一PlaybackState/Motion；支持profile实际消费，unsupported在原owner内明确失败，普通帧不重验资源；[三包三轮及显式平移重力](../history/puppet-linear-impulse-2026-10-28.md#translation-gravity-20261028) | 未资格的m/gd缺省、角冲量、省略bone、动态质量/friction相位及完整样本未闭 |
-| `IObject` | `getAnimation(name?)` 取当前property或命名动画 | `L3 bounded / S4 bounded visible` | 无参数current入口保留；layer/text的命名属性动画由既有compiled Program索引，经同一handle/journal→owner bundle→Timeline事务。stateful Bool允许typed动画，readonly Bool仍拒绝。retained句柄同owner/generation可跨callback；缺名/歧义、已删除、clone和越权拒绝。U22两条alpha的click→timer pause及重复切换已进入真实链，见[记录](../history/named-timeline-interaction-2026-10-10.md) | effect/material对象自身的命名范围、动态clone Timeline、metadata/rate/seek及完整官方时序仍开放；scene查询effectConstant见IScene行，不计整样本parity |
-| `IThisPropertyObjectBase` | v2.8 中是只继承 `IObject` 的空 property-owner 基类 | `L3 bounded` | scalar alpha 与 Vec3 origin/scale/angles owner 以完整 authored path/descriptor/Timeline target 绑定当前 property；不添加声明外成员。**layer/text 属性的 property object 就是该层自身对象**（2026-09-18 批 A）：`thisObject` 与 `thisLayer` 同一 handle，`visible/alpha/color/scale/origin/...` 写入进入唯一 owner mutation journal，`getChildren()` 返回 authored 渲染顺序子层句柄；effect/particle/material 属性继续用仅含当前 property 动画的属性对象句柄 | effect 绑定 `thisObject.visible` 已接入 typed visibility；2026-09-24 修复提交后读默认值及失败暂存泄漏，同帧候选与 committed 值沿既有 owner transaction 提交/丢弃，见[运行证据](runtime-evidence-current.md#e-2026-09-18-effect-visibility-live-channel)。其他 property owner/value type、动态 owner 与 destroy/reload 仍有限制 |
-| `thisLayer: ILayer` | 当前脚本 owner 的 layer handle | `L3 bounded descriptor handle / S4 one real composition` | callback 期间开放 descriptor-bound identity/transform/parent/effect/texture handle 子集；scalar/Vec3 owner 共用同一 catalog bridge，脚本不能伪造 layer/effect identity；callback epoch与active owner阻止callback-scoped closure跨owner使用，persistent layer handle每次读取当前 committed snapshot | 其他 layer 字段/方法、销毁语义仍缺；effect name lookup尚无真实 authored consumer可见正证 |
-| `ILayer` transform | `origin`, `angles`, `scale`, `parallaxDepth`, `name`, `visible` | getter与exact authored/dynamic `origin/angles/scale/visible` setter `L3 bounded / S4 owner-visible + S3 peer-committed` | descriptor catalog开放safe-integer identity与同一frame snapshot；非value-only owner可对同domain/generation的exact authored peer做finite mutation，同回调读回staged值，下一帧进入唯一dynamic snapshot。dynamic text与prepared package-image复用同一topology transaction；真实3D Clock与`3792817546`均可见，真实`3610154602`证明旧peer TypeError消失但随后缺失target使该owner整批回滚。`alpha`/`color` 写属性对 owner 自身 handle 与查找得到的 handle 一视同仁（2026-09-18 批 A 前仅后者存在，`thisLayer.alpha = x` 曾被静默吞掉） | parallaxDepth、local/world与parent语义、任意asset/model、value-only peer、static sort/topology、跨owner冲突顺序及官方对照 |
-| `ILayer` world transform query | `getTransformMatrix()` 取得当前 world `Mat4` | `L3 bounded / S4 one real composition` | launch catalog准备authored/parent/attachment/camera transform，现役renderer world-frame resolver按同一dynamic snapshot形成column-major Mat4并随layer snapshot transaction提交；C bridge只验证/复制。C/Swift门覆盖parent、staged local→next-frame matrix、persistent handle、abort/commit、copy isolation、非有限/错误参数和dynamic unavailable。真实`3238423642:918/920`完成初始化，后继921与三个TextureAnimation owner一并恢复 | dynamic script-created layer matrix、完整3D/perspective、multi-surface与Windows数值/像素对照；同callback local setter不改变当前committed world matrix |
-| `ILayer` orientation mutation | `rotateObjectSpace`, `lookAt`, `lookAtYaw` | `L0` | `N`；不得在VM内另建坐标权威 | typed mutation、奇异/非有限、parent/attachment、同帧冲突及官方对照 |
-| `ILayer` parenting | 两个 `setParent` overload、`getParent`, `getChildren` | `getParent L3 bounded / S3 real owner-executed`；`getChildren L3 bounded / S4 owner-executed`；`setParent` `L0` | immutable authored parent identity进入callback-scoped catalog；`getParent()`返回同domain persistent handle或`null`（顶层层按官方 ILayer 文档返回 undefined），duplicate/self/missing/non-safe-integer parent在建域前拒绝。真实`3768724269`不再出现原parent缺失失败。`getChildren()` 返回 authored 渲染顺序（`storage_at_order`）的 configured 且未销毁子层句柄，子句柄写入走同一 mutation journal（2026-09-18 批 A，真实 `3788066613` 的 EasyTransitions+ 幻灯片消费）。边界：`createLayer` 不建立 parent 关系，故动态子层不进入该列表 | `setParent`、动态parent、attachment、effective visibility/transform传播、销毁门和官方行为对照 |
-| `ILayer` attachment | `getAttachmentIndex/Matrix/Origin/Angles` | `L0` | `N` | puppet/model attachment identity、缺失返回和 world transform golden |
-| `thisScene` lookup | `getLayer(name|index)`, `getLayerByID`, `getLayerCount`, `enumerateLayers` | `L3 bounded / S4 bounded visible` | callback-scoped catalog按当前authored+dynamic render order查找；`enumerateLayers()`返回该回调时点的persistent handle snapshot，动态层保持transaction render-order tail且不覆盖authored ordinal。最多4096层，safe-integer id、有限origin，缺失/非整数/越界/超额/stale均拒绝；成功返回的exact authored handle可由非value-only owner写入已开放字段。真实`3122339805`消费name lookup；真实`3610154602`证明已有peer可解析而真正缺失的`playerdurationexception/playeroutlineanim/playerbackgroundprogbarexception`继续RangeError | 字符串ID与官方duplicate-name行为；当前重名取首个catalog ordinal只属项目策略；更多并发动态层、跨callback枚举数组和官方快照语义仍缺 |
-| `thisScene` layer mutation | `createLayer`, `destroyLayer`, `sortLayer`, `getLayerIndex`, `getInitialLayerConfig` | bounded dynamic text/prepared package-local image/MP4 与 authored leaf/完整显式分支destroy及sort；authored initial config `L3 bounded` | 各值型共用typed topology；资源只由prepared模板准入，Bool image-only二次alias门已退役。MP4沿原Source观察/命令/消费者publication，构造Boolean value只解一层且不执行script/user；改名、短命出生、rollback与实际切换边界见[后验](../history/video-instance-observations-2026-10-29.md#原生闭合的通用语义)。默认文字回调及受控阴影后验见[限定记录](runtime-evidence-current.md#boolean-dynamic-text-20261021)。name/index/ILayer 删除进入同一 journal、Swift候选plan与共同模拟commit；自毁和跨层删除区分Boolean返回。目标cohort停止update/timer/events，创建的动态副本同步退出；原有binding索引保留以维护pending frame identity。初始配置现从prepared作者对象返回独立副本，去顶层id、保wrapper；动态层getter明确unavailable，见[限定运行后验](../history/initial-layer-configuration-2026-10-12.md)。层序唯一权威是原C topology journal经OwnerEffects carrier按接纳owner集合投影，属性合并不覆盖排序，Swift旧绝对index重排已退出。纯SORT不标property dirty或产生空DTO；真实authored属性仍走原owner-local DTO，其余ownership、预算和lookup不变，见[零DTO后验](../history/open-breakpoint-reconciliation-2026-10-23.md#layer-sort-topology-only-20261029)。有效移动成功返回Boolean true，见[顺序同步后验](../history/dynamic-layer-order-2026-10-12.md)。排序完成后才投影deferred删除。C record使用owner-local baseline和domain topology journal，失败create保留tombstone；生命周期和画面证据见[删除退休记录](../history/authored-layer-retirement-2026-10-07.md)。  owner raw预算与独立peer容量沿[原D4](../roadmap/batch2/script-component-api-design.md#layer-mutation-owner-capacity)；363的255动态音条有[真实后验](../history/corpus-log-audit-2026-10-29.md#layer-mutation-owner-capacity-20261030)，不扩JS heap回滚或整景parity。| 动态WebM、任意model/config/material、asset handle、隐式父层级联、未完整请求的分支destroy、动态层初始配置、destroy回调跨对象副作用、任意JS heap rollback、多surface与官方精确先后 |
-| `IScene.getAnimation(name)` | 跨layer按名取已编译属性Timeline | `L3 bounded / S4 bounded visible` | 显式String、存活catalog内exact唯一；原layer/text与新增effectConstant共用Program索引、retained handle/journal、owner事务及唯一Timeline clock。effect项为scene-only，不污染旧layer同名查询；完整layer/effect/pass/constant身份由原索引恢复。设计及拒绝边界见[D4](../roadmap/batch2/script-component-api-design.md#scene-named-animation-lookup) | 无参/缺名/歧义拒绝；已准入Combined只导出root名，沿同一handle控制整组，见[播放合同](runtime-input-property-coverage.md#op-timeline-combined)。动态clone、嵌套/跨host或其他Combined、material/particle等未列目标、metadata/rate/seek与官方完整时序未开放。自有特效同窗像素、原322点击/非零Timeline phase见[限定证据](runtime-evidence-current.md#scene-named-animation-scope-20261017)；滤镜shader首门已由[共享宽度后继](runtime-evidence-current.md#shader-float2-consumer-width-20261017)关闭，完整交互/parity边界不扩 |
-| scene camera handles | `getCameraTransforms`, `setCameraTransforms` | `L3 / S4 bounded` | 原SceneHost返回detached base DTO，eye/center/up/zoom partial命令沿原journal→OwnerEffects→同plan/snapshot→唯一CameraFrame；本callback有序读回、整owner撤回与原TimerSnapshot保持。正交使用运行canonical seed，native保原记录；3D不消费API zoom。原288的265正常执行，相机轨迹实际进入画面、末段归位；[合同与证据](../history/open-breakpoint-reconciliation-2026-10-23.md#static-camera-transforms-20261028) | init写与首次prepare优先级、path/API冲突、普通layer getter与Timeline的官方读回关系、288开场同phase、完整朝向/多屏/HDR与性能未闭 |
-
-### 4.2 内容、effect、动画和高级句柄
-
-| API 面 | 官方成员与含义 | 等级 | 当前证据 | 缺口与验收门 |
-|---|---|---:|---|---|
-| `IImageLayer` 基础 | `alpha`, `color`, `alignment` | property-bound color及prepared solid image跨层alpha `L3 bounded / alpha S4 representative`；其余handle setter `L0` | exact object binding可写effectless direct image color；原359过场alpha handle沿既有journal/typed transaction恢复主幅，见[空集合后验](runtime-evidence-current.md#empty-effect-lookup-20261017)，不新增color或任意layer权限。已准入handle的alpha沿原setter/journal/typed snapshot/下一cadence C镜像保留有限Double raw值，不以[0,1]拒绝作者暂态；显示继续由SceneDynamicLayerValues归一后转Float。普通官方0/1/1.01/−.01四卡同/下一回调raw读回和LDR白黑端点、自有有限极值及失败回滚归[有界运行](runtime-evidence-current.md#fullscreen-visible-owner-20261017)，不推广constructor、color或particle instance | 其余通用JS setter、alignment、更广effectful/dependency image及官方颜色/合成golden |
-| `ITextLayer` | `text`, `color`, `alpha`, `opaquebackground`, `backgroundcolor`, `pointsize`, `font`, `padding`, `horizontalalign`, `verticalalign`, `anchor`, row/width limits | text/pointsize/font `L3 bounded`；pointsize `S4 title slice-visible`；font `S4 API board / bounded real hot-update` | 既有property-bound color/pointsize保持；exact text handle沿同一journal、typed mutation、snapshot与CoreText generation发布；text限制无NUL、UTF-8≤4096字节，pointsize为有限Number，见[字号合同](../roadmap/batch2/script-component-api-design.md#text-layer-pointsize-setter)。非空font getter返回路径String；setter与text创建配置共用严格primitive String、安全相对路径及UTF-8≤1024字节校验，拒绝对象coercion；同值在stage/dirty前退出，变化仍走`.text(.font)`与last-ready source。空getter保持undefined、构造省略保原默认。[字体合同](../roadmap/batch2/script-component-api-design.md#asset-path-string-values)与[限定后验](runtime-evidence-current.md#asset-path-string-values-20261018)区分官方API值、CPU行为与实际文字板；真实361因后续缺target回滚不作可见正证；374的同窗口7→4仅关闭外露文字的[局部字体贡献](runtime-evidence-current.md#image-font-script-state-20261020)，不闭默认裁切/遮挡 | handle color/alpha及其余字段、复杂layout/effect invalidation、未准备字体/空值写入与官方空值规则、更多字体的稳定glyph/layout ROI、Windows text golden及完整parity |
-| `ISoundLayer` | `play`, `pause`, `stop`, `isPlaying`, `volume` | 四方法及volume字段脚本（含named Slider组合）`L3 bounded`；volume handle getter/setter `L0` | 普通持久authored sound引用经原resolver进入执行者media事务/唯一registry，支持shared闭包及creator退休后活目标；owner_target/非persistent/foreign dynamic与其他附属权限保持。原360的407命令提交、MP3时钟推进已验，见[有界记录](../history/open-breakpoint-reconciliation-2026-10-23.md#authored-sound-reference-20261029)；single重复play/暂停续播/停止归零及宿主意图保持；random多源、共享clock间隔及控制见[random后验](../history/sound-script-control-2026-10-12.md#sound-random-playback)。volume沿Scalar→settled snapshot→同player增益，named组合见[合同](../roadmap/batch2/script-component-api-design.md#sound-volume-named-input)与[mixed后验](../history/sound-script-control-2026-10-12.md#sound-mixed-volume)。OGG按[平台门](../roadmap/batch2/script-component-api-design.md#sound-ogg-native)限定准备，原样源/自有Vorbis的Registry资源级消费见[OGG后验](../history/sound-script-control-2026-10-12.md#sound-ogg-native) | OGG完整原包未ready，不认领整包音频/画面恢复；所有codec/听感、false平台实机与异步失败换源未闭。mixed deferred同key真实组合、多surface/故障Session取消及其余mixed、Timeline、spatial、handle成员、loop重复play位置、设备热插拔/整样本parity未扩，无性能claim |
-| `IEffectLayer` | `getEffect`, `getEffectCount`, `transformAttachmentToTexture`, `size`(只读), `perspective`, `solid` | effect lookup/count与`size` `L3 bounded`；perspective `L3 bounded / S4 isolated-visible` | authored ordinal、exact name与prepared `sizeWH`同属launch catalog（[静态autosize](../history/static-image-autosize-2026-10-12.md)已接原资源自然尺寸，initialConfiguration保留原始作者值）；`size`返回只读Vec2副本，不另建layout owner。真实`3238423642:921`按四个命名层的size/scale/origin完成背景宽度计算；非空effect目录的missing/非法selector保持原拒绝，非法size/错型仍拒。空effect集合沿两既有handle入口在selector解析前返回null，count为0；固定官方七种实参、真实VM alpha事务及原359主幅恢复见[限定后验](runtime-evidence-current.md#empty-effect-lookup-20261017)，不扩非空合同。[perspective](../history/layer-perspective-2026-10-12.md) Bool读写经原journal/typed snapshot进入camera/geometry；继承与显式override分开，镜像随事务撤回，非Bool不改值；[动态图片几何](../history/dynamic-layer-geometry-2026-10-12.md)补create尺寸与透视配置，图片size读回使用同一template | 重名取第一ordinal，官方行为未对齐；dynamic text size、transformAttachmentToTexture/solid仍缺；[缺省FOV](../history/canvas-perspective-default-2026-10-12.md)已接；[childless composition](../history/composition-local-perspective-2026-10-16.md)限正交canvas、无parent/child/dependency、copybackground=true且非passthrough，平面采集/透视回绘；其他特殊组合待证；perspective setter throw继续采用项目owner原子撤回，与官方已观测行为不同 |
-| `IEffect` | material枚举、`setMaterialProperty`、`executeMaterialFunction`、`visible`、`name` | name/function/visible `L3 bounded` | name只读；function经frame request进GraphExecutor。visible owner通过name/index/scene lookup访问自身effect，与thisObject.visible共用事务；[前后运行](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-effect-owner-alias) | 无material枚举/property及任意function body；effect owner跨effect/层仍拒绝，stale/overflow局部失败；无官方parity |
-| `IMaterial` | v2.8 仅继承 `IObject`；具体 shader property 通过 effect 方法访问 | `L0` | `N` | opaque handle identity/lifetime；不可伪造任意 shader API |
-| `IParticleSystem` | `play`, `pause`, `stop`, `isPlaying`, `emitParticles(count?)`, `instance` | `L3 bounded` | 播放与显式出生已沿现VM/typed事务执行，限定资格见[D11](../roadmap/batch2/particle-playback-state-design.md)；instance alpha独立准入 | 默认emit数量、多emitter/children播放、reset及完整官方parity未开放 |
-| particle instance | `alpha`；其余实例字段 | `L3 bounded alpha / S4 controlled App` | 只读instance的alpha getter/setter复用layer journal→typed snapshot→出生owner；无authored override默认1，实际prepared身份独立于播放资格，合同及验收见[记录](../history/rf05-named-provider-readiness-implementation-2026-10-02.md#rf05-instance-alpha) | 其他字段不可用；finite Number、pending/emit前缀、birth-only与owner回滚不扩为整套instance API |
-| texture animation | `frameCount`, `duration`, `rate`, `play/pause/stop`, `isPlaying`, `get/setFrame`, `join` | `L3 bounded / S4 two real compositions` | animated TEX 在 launch 注册 immutable frame/duration/source 定义；同一 SceneClock 生成每帧 typed playback map，同时供普通 atlas、resolved-material preflight、cross-image provider upload 与 Puppet base TEX 使用。`getFrame` 返回离散显示帧；`setFrame` 在 JS 数值边界取 floor 后要求有效索引并 detach，`pause/play/stop/rate` 操作 layer-local anchor，`stop` 回到时间零，`join` 删除本地覆盖恢复共享 autoplay。命令沿 owner buffer 校验，在全 surface submission barrier 后原子提交、下一帧消费；真实 `3299228616 / 3768903841` 2/2 strict PASS 且完整构图/动画可见 | 只覆盖已准入 single-image atlas 与 axis-aligned/integer/same-extent BC1/2/3 multi-image 形状；不开放 dynamic source replacement、rotated/trimmed/fractional/异尺寸 frame、声明中注释未使用的 `loop`，也不证明 Windows timing/pixel parity。fixed profile owner保持删除；见[当前证据](runtime-evidence-current.md#e-2026-09-13-texture-animation-api) |
-| video texture | `duration`, `rate`, `loop`, `play/pause/stop`, `isPlaying`, `get/setCurrentTime`, `addEndedCallback` | `L3 bounded / S4 one real interaction` | 官方公开API形状作为`official-public-contract`；当前QuickJS只向dependency-bearing Bool owner发布persistent layer-identity handle。frame snapshot提供duration/rate/loop/isPlaying/currentTime/ended generation；typed setters/commands与owner-scoped ended callback在VM成功后原子进入现役`SceneVideoTextureSourceRegistry`。真实`3775355045/3775373546`执行双video同步脚本，前者body hover可见hidden provider。missing/wrong layer、overflow、callback异常与跨target mutation局部拒绝且不提交command；host suspend/restore沿现有provider lifecycle | 只覆盖当前Bool owner、单scene、已有video layer与短窗；callback取消/重入/真实ended长窗、provider error、device reset、A/V同步、颜色metadata parity、多屏时钟、其他owner及完整官方行为仍缺 |
-| `IAnimation` | `fps`, `frameCount`, `duration`, `name`, `rate`, playback 和 frame seek | playback/seek `L3 bounded / S4 bounded consumer`；其余 `L0` | current及有界named handle的play/pause/stop/setFrame进入唯一Timeline state；保小数、paused位置及playing anchor、group共享位置和原callback事务。288原包blush22第29帧已进入实际effect amount；[范围与证据](../history/open-breakpoint-reconciliation-2026-10-23.md#cross-layer-animation-seek-20261028) | metadata/rate/isPlaying/getFrame、越界及完整官方时序parity、event crossing未闭；命名范围见IObject/IScene |
-| `IAnimationLayer` | prepared Puppet metadata；`name/rate/blend/visible`；playback/frame/end callback | 原self及跨层控制 `L3 bounded`；跨层seek `S4 bounded consumer` | 普通owner复用接收layer handle查询name/index，沿原Puppet journal/Runtime控制真实target；288四个hidden槽seek29且保持hidden。资源按ID准备一次，坏optional局部不可用、原reference/bind不退步；[限定验收](../history/open-breakpoint-reconciliation-2026-10-23.md#cross-layer-animation-seek-20261028) | visible写入/ended注册仍限exact nested self；任意sibling可见GPU、mirror/single ended、多圈、未知aux与完整官方parity未闭 |
-| image animation-layer management | count/get/create/playSingle/destroy animation layer | prepared lookup/control `L3 bounded / S4 bounded consumer`；其余管理 `L0` | 普通及nested owner通过thisLayer/getLayer的name/index定位已准备Puppet target；静态hidden可用槽可寻址但不自动显隐，DirectModel默认范围保持；[唯一合同](../roadmap/batch2/script-component-api-design.md#cross-layer-animation-seek) | count/create/playSingle/destroy、动态clone动画及完整管理生命周期未准入；未把静态prepared身份套到动态目标 |
-| model animation-layer management | `rootmotion`, perspective 和 count/get/create/playSingle/destroy | `L0` 动画层管理 | 已有 bounded 静态 3D model runtime，不代表 model 动画层管理；Puppet lookup 的独立边界见[D4](../roadmap/batch2/script-component-api-design.md#puppet-animation-layer-lookup) | model animation/root motion、动态 layer 管理及完整 2D/3D lifecycle 未准入 |
-| image bones/physics | bone count/index/parent；world/local transform/angles/origin；impulse/reset | count/index/parent、world/local transform、local origin `L3 bounded / S4 bounded visible`；显式linear impulse见[有界合同](#puppet-linear-impulse)，angles/reset `L0` | 原matrix journal在最终owner接纳后按现domain callback epoch/ordinal恢复实际执行顺序，不按owner分组覆盖最终骨姿态；[保序后验](runtime-evidence-current.md#puppet-bone-matrix-order-20261018)。typed事务与唯一mesh/skin链保持；已准入平移物理骨的local translation在新cadence回动画基值，world/挂点/网格继续物理运动，同callback setter保读回；[分域合同](../roadmap/batch2/script-component-api-design.md#puppet-query-render-pose)及[验收](../history/repeated-puppet-drag-qualification-2026-10-16.md#native-query-render-pose)。其他basis与非物理骨保旧；[原origin证据](runtime-evidence-current.md#e-2026-09-28-bone-origin-api)保留 | angles/reset未接通；释放线性kick已接原journal，374/299/318三轮验收见专行。[10-18官方限定方向](../history/repeated-puppet-drag-qualification-2026-10-16.md#impulse-direction-20261018)不证明单位、缩放/增益、动态挂点及setter交互；多owner整体撤回、其余矩阵寿命、全部Puppet API和完整官方parity仍缺 |
-| image blend shapes | index、get/set weight | `L0` | `N`（本机无bridge）；官方三方法的部分readback与STOP边界见[Blend Shapes专项](advanced-object-coverage.md#op-puppet-blend-shapes)，不代表本机实现 | shape identity、range、missing shape、per-frame deformation；完整0→1→0未完成；几何B未资格 |
-| `ICamera` | `fov`(3D) 和 `zoom`(2D) | `L0` | JS camera handle未连接；§2的bounded camera-layer FOV属于原property scalar owner，不开放此handle | 2D/3D handle类型约束、projection update 和 invalid value 门 |
-| `IModelData` | `applyData` 高频兼容更新；`replaceData` 只能事件驱动；POSITION/NORMAL/TANGENT_SIGNED/UV/COLOR 格式常量 | `L0` | `G` 确认两者共用 mode bridge，update phase 拒绝 replace；项目无动态 model buffer runtime | 自有 buffer schema/size/type/CCW；buffer 增长、非 dynamic、shape/buffer 增删、material/vertex format/index/layout 变化逐项负门；GPU budget |
-| scene model-data lifecycle | `createModelData`, `destroyModelData`, `createLayer(model)` | `L0` | `G` 确认 tokenized handle 与仍被 layer 引用时延迟销毁；项目仍无实现，`N` | handle ownership、共享引用计数、最后 layer 后释放、重复 destroy/stale token 和坏 buffer 负向门 |
-
-## 5. Globals 与 engine 状态
-
-| Global/API | 官方含义 | 等级 | 当前证据 | 缺口与验收门 |
-|---|---|---:|---|---|
-| `thisLayer` / `thisScene` | 当前owner和scene的typed handles | `L3 bounded` | descriptor-bound static lookup已执行；非value-only owner可写同domain/generation exact authored handle的`origin/scale/angles/visible/text`有界子集；owned dynamic text与package-literal image继续支持typed setter/create/destroy/sort。generation/owner/伪造/stale/缺失handle拒绝 | 其余authored setter、static sort、任意asset handle/model config、完整parent/topology、跨scene/screen泄漏负门与官方parity |
-| `console` | `log(...any)`、`error(...any)` | `L2 compatibility sink / S3 real owner construction` | per-scene QuickJS global提供无I/O的`log/error` sink；binding可重绑定且对象可扩展，使作者的`console = console || {}`与method wrapper安装不阻断module构造。真实`3396722575`的7个原构造失败owner全部进入typed callback；宿主能力与其他只读global未放宽 | 真实日志输出、per-script tag、速率限制、值序列化、错误不递归；当前sink不冒充诊断API或完整官方`IConsole` |
-| `renderContext` | v2.8 声明 `IRenderContext` 为空 | `L0` | `N` | 保留空 host object；未来声明升级前不得自创成员 |
-| `input` | 全局输入快照 | `L3 bounded single-surface` | 同一QuickJS domain安装不可扩展只读getter host；只在callback且存在精确single-surface frame snapshot时取值，global phase与无归属surface拒绝 | 其他input device、multi-surface screen identity、权限降级与官方对照 |
-| `localStorage` | screen/global 两个持久化域 | `L3 bounded / S3 real owners-executed` | 一个scene domain共用wallpaper-scoped存储session；默认/未知location进入screen，只有精确`global`进入wallpaper global。global以record identity隔离；screen只在exact single-surface且可取得vendor/model/serial稳定键时开放，multi-surface不猜归属。真实`3610154602`的4个origin owner已执行缺键读取且不再VM失败 | multi-surface screen scope、显示器序列号缺失/变化、wallpaper复制/迁移、官方namespace与跨重启动态对照 |
-| [`engine.isScreensaver()`](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IEngine.html#isscreensaver-boolean) | 当前内容是否以屏保运行 | `L3 desktop / S3 real callback` | 原module/frame共同engine绑定发布只读零参方法，当前Scene入口均为壁纸，返回严格Bool false；系统屏保仅接视频。真实360播放器越过init首错，固定PCM下有typed publication；[有界记录](../history/open-breakpoint-reconciliation-2026-10-23.md#engine-screensaver-20261029) | 不代表Scene屏保、live音频或完整播放器恢复；editor、方向、设备、isWallpaper等查询仍L0，未来Scene屏保须从唯一launch用途输入 |
-| `engine.screenResolution` / `canvasSize` | 每屏物理分辨率与2D canvas/full wallpaper尺寸 | `L3 bounded single-surface`；`canvasSize S4 representative visible`；`screenResolution S3 real consumer executed` | 两者都由唯一surface frame context发布冻结Vec2；`screenResolution`复用同一drawable物理像素snapshot，真实`3509243656:1326`以其归一化cursor输入并完成共享轨道生产。无精确single surface时不猜identity并局部拒绝 | multi-surface、resize顺序、Retina pixel/point、`screenResolution`独立可见ROI及官方对照 |
-| `engine.userProperties` | 当前用户属性对象；color属性自动呈现为Vec3 | `L3 bounded contract-executable` | scalar与Vec3 callback都接收同一effective property map的深冻结typed snapshot；number/bool/string保留类型，project color string转为`{x,y,z}`。C/Swift门覆盖读取与不可变性；当前真实Vec3样本消费的是同源`scriptProperties`，未直接读取该global | 真实authored consumer、key normalization官方对照、首次/增量/多屏一致性、更多property kind |
-| `engine.timeOfDay` | 24 小时归一化到 `[0,1]` | `L3 bounded / S4 real visible differential` | Swift 从同帧 wall date 按当前时区计算本地民用日秒并限制到 `[0,1]`，C bridge 以 callback-scoped immutable scalar 暴露。真实 `2134765860` 的 4 个 `multiply` 与 2 个 `alpha` owner 在本地 12:00 均输出 0、22:00 均输出 1，旧固定 AST owner 已删除 | 时区/DST、跨午夜长稳、同帧 Date 一致性、非scalar/其他target、官方数值/像素 golden 与独立 effect ROI parity |
-| `engine.frametime` / `runtime` | 上帧秒数（重绘可为 0）和scene累计运行时间 | `L3 bounded contract-executable` | 同一 immutable callback snapshot 分别暴露 host `simulationFrameTime` 与 `sceneTime`；C harness真实读取二者并覆盖非法/负值输入和脚本改写失败。真实 time-of-day 样本建立同一 bridge，但其作者 source 不消费这两个字段 | 真实 authored consumer、raw/effective数值 parity、0 delta、pause/switch/seek、inverse4 与 Windows 同帧多屏 golden |
-| `shared` | 同 scene 脚本共享的 global object | mutable carrier `L3 bounded / S4 visible` | 同一QuickJS scene domain给cursor owner与Vec3 consumer暴露同一mutable object identity；真实`2974757317`的enter/leave writer与10个origin consumer形成可见位移。当前不把top-level `shared=false`源码当作通用initializer执行 | 通用initializer/module顺序、任意owner/API共享、per-screen语义、reload/销毁、并发与官方行为对照 |
-
-## 6. Input、Audio 与 Media
-
-| API | 官方含义 | 等级 | 当前证据 | 缺口与验收门 |
-|---|---|---:|---|---|
-| `input.cursorWorldPosition` | 当前cursor世界坐标 | `L3 single-surface / S4 representative` | 同帧冻结Vec3：2D按正交camera inverse及author Y转换；native 3D取同一camera远平面，复用basis/FOV/zoom/farZ，保留越界。polling与event命中点独立，坏值局部拒绝；[实现/边界](../history/native-perspective-cursor-implementation-2026-10-06.md) | 官方已验固定camera两种farZ；动态camera/多surface与事件组合未全面对照 |
-| `input.cursorScreenPosition` | 屏幕像素坐标 | `L3 bounded single-surface / S4 representative visible` | 与world getter共用surface snapshot，以drawable物理像素和top-down Y发布冻结`{x,y}`；无精确surface局部拒绝 | Retina缩放、跨屏origin、resize、坐标取整与官方golden |
-| `input.cursorLeftDown` | 左键当前状态 | `L3 bounded single-surface / S3 executed` | 同一surface snapshot读取当前AppKit primary-button identity；getter只在callback开放，代表consumer同轮执行。ordered event batch另向cursor callback保留同帧down/up，不把polling getter伪装成事件流 | polling仍只表示callback时current状态；失焦、multi-button/multi-surface与官方时序对照仍缺 |
-| `CursorEvent.worldPosition/localPosition/hitBox?` | 事件时 world/local 坐标与 puppet hit box；声明明确 screenPosition/button 未使用 | `L3 bounded world/local` | generic enter/leave/down/up/click均在dispatch前复制immutable world/local Vec3；命中与投影复用renderer canonical world frame，真实`3768229922:202`证明省略local transform的parented child可正确click。C/Swift门锁定DTO不可写，当前不伪造`hitBox` | rotated/perspective/puppet数值、复杂parent mutation、detail identity、event时序/坐标官方对照；未使用字段不得伪造 |
-| [audio resolution constants](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IEngine.html) | `AUDIO_RESOLUTION_16/32/64` | `L3 bounded` | module求值期提供三个只读音频常量；callback期不携带音频注册常量/API | 其他数值、callback注册和非法分辨率失败关闭；完整module/lifecycle仍缺 |
-| [`engine.registerAudioBuffers(resolution)`](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IEngine.html) | 必须在 script global context 注册，返回逐帧频谱 | `L3 bounded / S3 one real product-entry consumer` | module求值期开放默认16及exact 16/32/64；重复同档返回同一object，callback期注册和错误档位拒绝；owner存在性驱动既有唯一音频采集需求。stateful Bool owner同时导出media hook时不再被准入误拒；真实`3779026256:206`在普通程序化产品入口收到非零generation并执行update，media-playing fixture创建12个动态层。event-only audio+media仍拒绝 | stop/reload注销与多scene/multi-surface生命周期仍待V2 lifecycle门；该样本帧不足以做频谱ROI，不证明官方FFT数值、柱形分布或视觉parity |
-| [`AudioBuffers`](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/AudioBuffers.html) | 同长度 `left`, `right`, `average` Float32Array，每帧自动更新；低频到高频，通常 0...1 但可大于 1 | `L3 bounded` | QuickJS持有三档稳定Float32Array identity，host在event/update前由同一generation snapshot原地覆盖left/right并计算`(left+right)/2`；NaN/Inf/负值、错长度与stale owner拒绝。`2684431262`证明8个layer-scale与1个particle-rate consumer读取同一非零generation；后继让fresh 149 corpus的33条exact finite-scalar particle rate wrapper进入同一owner，并以`3290491250`恢复实际星点层、另两份真实内容证明sibling-script rate completion。旧专用owner已删除 | rate以外的particle script、完整teardown、多scene/multi-surface与官方数值/像素golden未闭合 |
-| `MediaStatusEvent` | `enabled` 表示媒体集成可用/启用 | `L0` | `N` | enable/disable、无 provider 和订阅生命周期 |
-| `MediaPlaybackEvent` | state 0 stopped / 1 playing / 2 paused | API `L3 bounded / S4 controlled cover visible` | 常量对象保持冻结；native payload按generation去重并在update前派发。每次回调独立创建可写`state`，赋值及truthiness按JavaScript执行，不写回provider、不污染peer或后续事件。stateful Bool owner继续沿同一VM/typed transaction提交；异常只禁用对应owner。限定官方对照与真实312封面恢复见[播放事件值语义](../history/scene-system-media-input-implementation-2026-10-05.md#播放事件值语义) | live来源范围见[输入设计](../roadmap/batch2/system-media-input-design.md)；跨播放器完整生命周期、多屏、其他字段可写性与官方事件顺序未由本片证明 |
-| `MediaPropertiesEvent` | title/artist/subTitle/albumTitle/albumArtist/genres/contentType | API `L3 bounded scalar/vector/String`；String/Text `S4 bounded visible`；cross-type `S3 executed` | inbox按properties generation冻结完整七字段，统一media coordinator按authored ordinal在同帧update前向三类owner派发；缺省optional字段按项目策略置空。同generation去重、stale、错型、字段预算/控制字符与callback failure由门锁定。既有`2938612768`的3个Text owner有可见publication；真实`3780391264`另执行8个scalar/vector与4个String owner | live来源及逐字段边界见[输入设计](../roadmap/batch2/system-media-input-design.md)与[输入证据](../history/scene-system-media-input-implementation-2026-10-05.md)。thumbnail 通道的原子切换/clear 已由 2026-09-06 运行闭合，properties 通道切换序列、multi-surface、全部19个非String occurrence与官方行为对照仍未闭合。项目事件顺序不声明官方语义。见[E-V4-MEDIA-PROPERTIES-SEVEN-FIELD-STRING](../history/runtime-evidence-index.md#e-v4-media-properties-seven-field-string)与[E-V4-UNIFIED-MEDIA-FRAME-BATCH](../history/runtime-evidence-index.md#e-v4-unified-media-frame-batch) |
-| `MediaThumbnailEvent` | thumbnail presence 和 primary/secondary/tertiary/text/high-contrast colors | API `L3 bounded / S3 real consumers executed`；current texture `L3 bounded` | current `$mediaThumbnail`继续使用typed provider/visibility/last-ready；同一artwork generation的event冻结`hasThumbnail`与五个finite Vec3，缺色规范为`Vec3(0,0,0)`，nested DTO不可写。side-effect-free G 阶段形成8个pass candidates，MaterialProgram先得到C=4；fresh candidate domain只构造C，失败整域丢弃并排除失败target后重建，G−C不执行。旧native family已删除；默认`generic-only`，route演练`4→0→4`。事件现与其他media channel共用authored-order coordinator；真实`3780391264:194 origin`只证明thumbnail callback/animation side effect与下一帧整构图，`thisLayer.visible` mutation目前仅有自动正反门 | 能产生`layerMutations=... committed`的真实visibility门、previous cover 像素 ROI、multi-surface、visibility/颜色独立ROI与官方事件顺序；live来源见[输入设计](../roadmap/batch2/system-media-input-design.md)，clear/platform lifecycle 与 generation 切换/清空由 2026-09-06 运行闭合。截图不证明最终颜色或完整样本。见 [E-V4-MEDIA-COLOR-OWNER-PARTITION](../history/runtime-evidence-index.md#e-v4-media-color-owner-partition)与[E-V4-UNIFIED-MEDIA-FRAME-BATCH](../history/runtime-evidence-index.md#e-v4-unified-media-frame-batch) |
-| `MediaTimelineEvent` | position/duration 秒值，播放时频繁发送 | API `L3 bounded / S3 executed`；live来源见[输入设计](../roadmap/batch2/system-media-input-design.md) | 独立timeline generation冻结finite nonnegative `position/duration`，Swift/C ABI/QuickJS DTO不可写；统一media coordinator在update前派发并按generation去重。真实`3768020435:382#effect#0/pass#0/Progress`收到`12.5/90`且走`generic-only` | live producer、rate/seek/unknown duration、节流/单调性、multi-surface及官方时序对照；见[E-V4-UNIFIED-MEDIA-FRAME-BATCH](../history/runtime-evidence-index.md#e-v4-unified-media-frame-batch) |
-
-<a id="7-render--scene-property-api"></a>
-## 7. Render / scene property API
-
-| API 面 | 官方成员与含义 | 等级 | 当前证据 | 缺口与验收门 |
-|---|---|---:|---|---|
-| scene bloom | `bloom`, `bloomstrength`, `bloomthreshold` | `L0` | 自有 Bloom 路径不是 JS setter；`D/N` | typed scene target、HDR/order、开关反例和像素门 |
-| clear/background | `clearenabled`, `clearcolor` | `L0` | 静态 general 可解析，无 JS bridge | 同帧 clear state、alpha/color space 和 resize/switch |
-| lighting colors | `ambientcolor`, `skylightcolor` | `L0` | 无 2D/3D lighting runtime | lighting IR/renderer 后再开放；无消费者时不得假支持 |
-| projection | `fov`, `nearz`, `farz` | `L0` | 静态 camera 子集，无 JS bridge | projection validation、near/far 反例、2D/3D golden |
-| camera fade | `camerafade` | `L0` | `N` | 定义行为、场景 fixture 和生命周期门 |
-| camera shake | enable/speed/amplitude/roughness | `L0` | 静态 Scene `general` 已有 bounded orthographic consumer，但没有 JS bridge；这不升级 SceneScript API | same-frame typed scene target、作者关闭、静态/JS 冲突顺序、pause/seek 与 2D/3D 门 |
-| camera parallax | enable/amount/delay/mouseInfluence | `L0` | 静态作者参数的 renderer 子集不是 JS API | JS 动态写、同帧 pointer、关闭反例、WE 幅度/delay golden |
-| `CameraTransforms` | `eye`, `center`, `up`, `zoom` 的 scene camera DTO | `L0` | `G` 确认四成员 native DTO、base getter 与逐成员 partial setter；默认 `(eye 2,2,2 / center 0,0,0 / up 0,1,0 / zoom 1)`，无 authored camera 的正交 fallback 为 `(eye 0,0,0 / center 0,0,-1 / up 0,1,0)`；项目无 bridge，`N` | getter/setter round-trip、finite/type validation、authored/animation conflict 和 2D/3D 门 |
-| material property/function | effect 的 `setMaterialProperty` 和 `executeMaterialFunction` | function request `L3 bounded / S4 downstream representative`；property `L0` | descriptor-bound `thisLayer.getEffect(name|index)` 现可产生 typed material-function request，scalar/Vec3 owner 共用 mutation bridge；既有`9000000800...0803`证明下游GraphExecutor正/反与局部回退，但早于新descriptor catalog，不是新name lookup的fresh运行正证 | `setMaterialProperty`、任意function body、更广target/side effect、同帧冲突顺序与官方parity仍缺 |
-
-## 8. Storage 与 timers
-
-| API | 官方含义 | 等级 | 当前证据 | 缺口与验收门 |
-|---|---|---:|---|---|
-| `LOCATION_SCREEN` / `LOCATION_GLOBAL` | 默认 screen 域；global 在同 wallpaper 实例间共享 | `L3 bounded` | QuickJS domain安装只读常量；默认及非精确global值回落screen，精确`global`选wallpaper-global。无稳定single-surface identity时screen调用局部拒绝，global仍可用 | multi-surface、显示器identity迁移、官方跨scene/wallpaper namespace对照 |
-| `localStorage.set/get/delete/clear` | 保存、读取、删除键或清空指定域 | `L3 bounded / S3 real get-executed + standalone set→reload` | callback内执行真实JSON round-trip；undefined转delete，缺键/损坏值返回undefined。owner-local ordered overlay覆盖init/property/media/timer/update并read-your-writes，只有同一typed callback transaction成功才发布共享内存候选；重复值去重，唯一utility writer把250 ms内的变更合并为最新versioned wallpaper快照后异步`.atomic`替换。坏/未来版本、不可读或超限文件失败关闭并保留。每域256项/256 KiB、每wallpaper 1 MiB、最多32个screen scope、单值64 KiB、单transaction 64项/256 KiB。磁盘写失败记录并重试，不与下游video/animation/layer/GPU组成跨系统rollback。C门覆盖set/get/delete/clear、screen/global隔离、detach、只读owner与callback异常rollback；Swift门覆盖set→reload与future-version保留；真实`3610154602`的4个缺键init读取不再失败 | App级真实set→重启→get、multi-screen、并发进程/崩溃恢复、schema迁移、destroy阶段写入与官方序列化/配额对照 |
-| `engine.setTimeout` | 毫秒延迟，一次性 callback；返回函数可提前取消 | `L3 bounded / S4 controlled hover` | `D/F` 开放0…86400000 ms与原owner调度；同domain合法stateful回调可经shared裸调用创建者的取消函数。单调timer identity与弱生命周期令牌防串号/悬垂，外部已取消registration不被创建者snapshot复活；同owner恢复保持。固定官方单timeout正常/显式throw对照已成立，typed拒绝后的即时取消为项目政策，见[D4合同](../roadmap/batch2/script-component-api-design.md#shared-timer-cancellation)。U14原包已真实触达50ms延迟检查及旧跨owner异常；修后交互以[运行证据](runtime-evidence-current.md#shared-timer-cancellation-20261018)裁决 | pause/resume、scene seek、callback/帧总预算聚合、官方退休与更多timer组合未验 |
-| `engine.setInterval` | 毫秒周期 callback；返回函数用于停止 | `L3 bounded / S4 controlled hover` | `D/F` 复用同一registration/取消能力；每owner最多32个timer，每帧至多执行一次，重置完整周期、不追赶或保留overshoot。同runtime不重复推进，callback中新建工作不在同轮执行；既有长帧、自取消、溢预算、job drain及销毁门保留。U14真实展开/折叠使用interval并裸调用返回函数，旧“corpus无调用”撤回；当前交互与退出归上述运行证据 | 官方跨owner实验只裁单timeout，不外推全部interval组合；pause/resume、scene seek及总预算聚合未验 |
-| `clearTimeout` | v2.8 声明明确“未实现”，应调用返回的 cancel function | `L0` | `G` 发现内部同名兼容 binding，但公开声明仍是唯一公共合同 | 不公开该入口；兼容 fixture 锁定返回函数取消 |
-
-## 9. Math、颜色与 ECMAScript 基础
-
-| API | 官方成员与含义 | 等级 | 当前证据 | 缺口与验收门 |
-|---|---|---:|---|---|
-| `WEMath` | `smoothStep`, `mix`, `deg2rad`, `rad2deg` | `L3 bounded` | QuickJS loader导出四成员；`mix(a,b,t)=a+(b-a)t`不clamp，数值NaN/Inf留VM，转换失败/错参数数量仍抛错，scalar/vector与mutation仅发布消费维度的有限值。官方undefined→NaN、float2有限xy消费及原317按键反馈见[数值边界后验](runtime-evidence-current.md#wemath-mix-value-boundary-20261017)；213日夜smoothStep、297有限mix与371换算因子保原有界证据 | vector overload、常量可写性、完整module graph、其余NaN/Inf/coercion及Windows完整数值parity |
-| `WEVector` | `angleVector2`, `vectorAngle2`，角度单位为 degree | `L3 bounded / S3 real consumer-executed` | [官方公开合同](https://docs.wallpaperengine.io/en/scene/scenescript/reference/module/WEVector.html)由同一allowlisted loader实现：finite degree经`cos/sin`返回真实host `Vec2`，finite object `x/y`经`atan2`返回degree；错参数与非有限分量局部抛`TypeError`。C行为门覆盖0°/90°/180°/−90°四个轴向、零向量、135° round-trip、真实Vec2 identity和两个非有限入口。真实`3712499998:66`用`new Vec3(WEVector.angleVector2(angle))`建立63个动态环形频谱层，并在普通产品入口收到非零AudioBuffers generation | 零向量返回0是项目有界选择；其余非轴向象限、角度wrap/超大有限值、epsilon/负零、错误对象getter、官方动态golden与Windows数值parity未闭合；该样本视觉只确认频谱环存在，不证明幅度/样式或官方parity |
-| `WEColor` | `rgb2hsv`, `hsv2rgb`, `normalizeColor`, `expandColor` | `hsv2rgb/normalizeColor L3 bounded`；其余 `L0` | [官方公开合同](https://docs.wallpaperengine.io/en/scene/scenescript/reference/module/WEColor.html)声明normalized HSV↔RGB与byte-color normalization；现役allowlisted module执行finite `hsv2rgb`（hue周期包裹，saturation/value越界拒绝）及finite `[0,255]` RGB `normalizeColor`（逐分量除255，越界拒绝）。两者均有C正反行为门；只有hsv2rgb具真实pass Vec3 Tint consumer，见[E-V4-SCENESCRIPT-PASS-VEC3-WECOLOR](../history/runtime-evidence-index.md#e-v4-scenescript-pass-vec3-wecolor) | `rgb2hsv/expandColor`、normalizeColor真实consumer、灰色/边界官方动态golden、round-trip、颜色空间细节与Windows数值parity |
-| ECMAScript `Math` | SceneScript 可用的标准数学函数 | `L0` | 无 VM；`N` | 明确支持版本、deterministic random/seed 策略和数值兼容测试 |
-| ECMAScript `Date` | 时钟/日期脚本读取 wall time | `L3 bounded` for text subset | `D/F` 把 `new Date()` 与 `getFullYear/getMonth/getDate/getDay/getHours/getMinutes/getSeconds` 映射到同帧 Gregorian wall date；自有固定时区 fixture 与 213/280 真实时钟门 | Date constructor args/其他方法、locale/UTC、DST、离线 clock adapter、通用 VM 与 Windows parity |
-
-## 10. Value types
-
-### 10.1 Property value 与事件 DTO
-
-| 类型/API | 官方含义 | 等级 | 当前证据 | 缺口与验收门 |
-|---|---|---:|---|---|
-| property input union | `Number | Boolean | String | Vec2 | Vec3 | Vec4 | Mat3 | Mat4` | Number/Boolean/String/Vec2/Vec3 `L3 bounded` | Vec2 pair以真实bounded prototype进入VM；真实206执行25项，真实379执行dynamic-image Bool owners | Vec4/matrix、Vec2完整schema/coercion |
-| property return union | v2.8声明返回`Number | Boolean | String | Vec2 | Vec3 | Vec4` | Number/Boolean/String/Vec2/Vec3 `L3 bounded` | Vec2只消费finite x/y，允许返回Vec3的未消费NaN z；Bool effectful callback只有value与全部typed mutation共同preflight成功才提交 | Vec4、Vec2其余return/identity edge与官方对照 |
-| `AnimationEvent` | `name`, `frame` | `L0` | `N` | Timeline/puppet source、crossing 和 frame 数值测试 |
-| media/cursor DTO | 本文 Input/Media 表列出的 typed event object | media thumbnail presence+五色/playback/properties与六个cursor callback `L3 bounded`；其余`L0` | media DTO按typed generation派发；thumbnail五色及cursor world/local均使用独立不可变Vec3，owner generation、stale/conflict与异常隔离有C/Swift门及真实运行 | cursor hitBox/多按钮/完整坐标空间、status/timeline/其余properties字段与跨event排序 |
-
-### 10.2 Vectors
-
-| 类型 | 官方成员 | 等级 | 当前证据 | 缺口与验收门 |
-|---|---|---:|---|---|
-| `Vec2` | `x/y`；构造 number/Vec3/string；完整声明方法族 | `L3 bounded constructor/basic arithmetic/mix` | QuickJS bootstrap提供number、string及x/y object copy构造，`x/y`、`copy/add/subtract/multiply/divide/mix/isFinite/toString`；`input.cursorScreenPosition`与`engine.canvasSize`现在是frozen Vec2，pass return只发布x/y。`mix(other, amount: Number|Vec2)`按官方d.ts为逐分量lerp（2026-09-18 批 D） | 其余官方方法、Vec3 overload的完整官方coercion、equals/length/dot/normalize等golden、零长度和除零官方结果 |
-| `Vec3` | `x/y/z`；number/Vec2/string构造；球坐标与Vec2同族方法，另有cross/refract；角度degree | `L3 bounded constructor/arithmetic/mutation/string color coercion/mix/equals/reflect` | 原QuickJS类提供构造、`copy/add/subtract/multiply/divide/isFinite/toString/mix/equals/reflect`。`Vec3(Vec2)`与`Vec3(x,y)`依[公开合同](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/Vec3.html)补零z，单Number复制xyz，三Number与exact三分量空格/逗号string保持。四算术对实际Vec2只运算xy并保接收者z，返回新Vec3；scalar/Vec3仍全xyz，finite publication不放宽，见[D4](../roadmap/batch2/script-component-api-design.md#vector-mixed-dimension-arithmetic)及[原包/官方边界](../history/vec3-mixed-dimension-arithmetic-2026-10-16.md)。`toString()`为"x y z"，供thumbnail缺色判断；3712499998频谱环、object-origin及四个media-color pass已消费。`mix`支持scalar/Vec3逐分量lerp，3470948192颜色脚本已执行。`equals`逐分量绝对差严格<1e-5，不改双方；[2.8.42边界](scenescript-runtime-implementation-contract.md#52-判等容差)及[344实际热切](runtime-evidence-current.md#vec3-equals-color-20261021)分列。`reflect`要求调用方给unit normal，返回新Vec3且不改双方；[本批C门/释边后验](../history/parallel-script-compatibility-2026-10-28.md#vec3-reflect)不代官方对象身份或完整collision验收。 | 其余方法、球坐标、cross/refract、字符串精度/getter及全部构造edge官方golden；equals非Vec3、其余混合维度、duck object与非有限/正负零官方规则未扩；Vec2/Vec4 reflect未接 |
-| `Vec4` | `x/y/z/w`；构造 number/Vec2/Vec3/Vec4/string；通用 length/distance/arithmetic/dot/reflect/project/mix/rounding/step 方法 | `L0` | `N` | 全方法与 edge-case golden；构造扩展规则和 toString |
-
-### 10.3 Matrices
-
-| 类型 | 官方成员 | 等级 | 当前证据 | 缺口与验收门 |
-|---|---|---:|---|---|
-| `Mat3` | identity、translation/scale/rotation/basis/fromMat4/compose；translation getter/setter、angle、add/subtract/multiply、translate/rotate/scale、transform point/direction、transpose/determinant/inverse/decompose/copy/equals/toString | `L0` | `N` | 列/行主序、乘法方向、degree、奇异逆矩阵、decompose 和 round-trip golden |
-| `Mat4` | identity、translation/scale/axis rotation/Euler/basis/lookAt/compose；translation、right/up/forward、add/subtract/multiply、translate/rotate/scale、point/direction、transpose/inverse/determinant/extractEuler/normalMatrix/decompose/copy/equals/toString | `L0` | `N` | 坐标系/手性、T*R*S、Euler 顺序、奇异矩阵、normal matrix 和 WE golden |
-
-## 11. Asset handles 与动态资源
-
-| API | 官方含义 | 等级 | 当前证据 | 缺口与验收门 |
-|---|---|---:|---|---|
-| `engine.registerAsset(file, precache)` | 脚本module/root声明动态资产；可请求预缓存 | 路径值`L3 bounded / S4 API board`；完整预加载`L0` | 原AssetHost保module-only、参数及安全相对路径校验；返回传入primitive String，不再构造私有opaque对象。固定官方两已加载stock字体与native修前/修后板核类型、比较及赋值，见[限定后验](runtime-evidence-current.md#asset-path-string-values-20261018)。现有prepared catalog/alias继续决定是否可用，不增加script registry或帧内加载 | 规范化/大小写、真实注册副作用、去重/precache时点与预算、缺失/循环依赖、未准备路径及完整lifetime；合法String不证明资源已准备 |
-| `IAssetHandle` | 公开声明对registerAsset返回值的名称 | `L3 bounded / String value` | 所测官方返回路径String；本项目退出asset opaque class/finalizer/domain字段与专用解包分支。注册结果直接沿既有String资源入口匹配已准备catalog，font与createLayer配置不再依赖私有class；不据声明名称推断JS Object | 任意helper准备期资源发现、未准备资产及官方宽profile仍未验；此前三入口实图保历史身份，不冒称本批重新渲染 |
-| `thisScene.createLayer(asset)` | 由 path/config/asset handle/model data 创建动态 layer | text config及package-local literal image path/config `L3 bounded / S4 representative visible`；其余asset/model `L0` | text仍经CoreText；image接受直接path或含image、origin/scale/angles、size、perspective、color/alpha/visible的配置，image必须命中launch-prepared ordinary model/image candidate（默认Puppet几何的窄入口见下项）：保留安全literal准备入口，也允许运行时表达式命中已成功准备、canonical source匹配且材质有完整准备证明的作者model；[共享source标量](../history/dynamic-image-default-material-2026-10-16.md#shared-source-user-scalars-20261101)使已证明brightness/power角色的直接user值复用原prototype材质typed输入，动态seed1仍保完整Program；不扩任意scalar script/Timeline。[默认材质后继](../history/dynamic-image-default-material-2026-10-16.md)复用同一lit consumer接strict builtin单槽静态LIGHTING/metallic/roughness及限定genericimage2 lit default-alpha，literal/间接/register同fact发布，完整source Program与已准入compositor lowering保原链。三入口同位置/姿态实图ROI与静态参考相同，原289三null退出；没有新增帧内加载。[创建几何](../history/dynamic-layer-geometry-2026-10-12.md)按model autosize与资源自然尺寸决定逻辑extent，普通图片size即时读回并实际发布；零/负尺寸、动态size包装和未准备/特殊配置仍局部不支持。[空composition](../history/composition-local-perspective-2026-10-16.md)复用同一prepared kind，省略/false/true进入独立typed几何，不继承source effects/成员/脚本/纹理，无effect只参与顺序；未消费配置出生前拒绝，真实288 controller已执行但音频ROI仍未证。运行字段由QuickJS计算并进入现有owner/generation transaction与publication/compositor；真实`3792817546`创建63个bar，`3509243656:1326`从root container执行结构化模型配置并生产三颗模型共享位置。[四族公共准备](../history/shared-script-resource-preparation-2026-10-12.md)使Boolean/Scalar/Vector/String直接literal创建共享原资源需求和material color消费者，变体与实际四格已验；helper间接资源发现仍未闭；注册返回String沿既有String入口，不扩资源准入。数量边界归[容量合同](../architecture/dynamic-layer-storage-design.md)：authored+dynamic共用4096槽，C distinct journal及ABI同界，Runtime实收DTO本处合并前按owner限4096；无可用槽或资源未准备仍返回`null`。四组journal按需增长复用，普通终态不再全清created缓冲；不伪造未准备资源。原380的511次创建及音频段实际输出已验，整景parity不扩 | 任意注册副作用、未准备的动态image表达式、嵌套/更多config、资源卸载/设备重建、完整trail可见证据与官方parity |
-| <a id="prepared-text-clones"></a>已准备作者text wrapper动态实例 | value/user/script独立创建、输入与退休 | `L3 bounded / S4 real clock + user shadow` | 原catalog完整own-data模板匹配，script读可信已编译载体形成独立init/update状态；value/user复用原property producer。原creator bundle统一接纳/撤回，只有已提交live plan接管owner；typed snapshot→文字provider→compositor继续唯一。真实时钟与两个user clone已发布、同窗口热更、正常quiescent退出；[冻结后验](../history/prepared-text-clones-2026-10-15.md) | 任意新源码、子async/depth>1、未接事件模板、不能保target的child命令与跨owner同record写仍拒；动态4096字节/无NUL，普通String原上限保留。Puppet默认几何见下行；composition、字体/偏移/黑遮挡与全样本parity未闭；无性能收益声明 |
-| <a id="prepared-puppet-default-instances"></a>已准备Puppet默认几何动态实例 | 静态atlas/普通builtin材质的model创建 | `L3 bounded / S4 isolated-visible` | 原prepared资源共享mesh/rig/reference与无动画默认pose；每实例独立state、physics、clipping及GPU几何，沿原typed topology与唯一compositor。source退休不撤仍存活模板；共享runtime按committed成员退休，不依赖surface重建历史；[冻结记录](../history/prepared-puppet-default-instances-2026-10-15.md) | 显式/继承animations、puppetAnimationLayers或effects配置在journal前拒绝；无准备mesh、动态图集、任意新模型/脚本/graph、负ID动画及bone控制、composition和官方parity未开放；不继承source动画/脚本/效果，不计性能收益 |
-| texture/video animation handles | 从 image layer albedo 获取 animation/video handle | texture animation `L3 bounded / S4 two real compositions`；video `L3 bounded` | `getTextureAnimation()`只对launch-prepared animated TEX返回handle，`frameCount/duration/rate/play/pause/stop/isPlaying/getFrame/setFrame/join`复用同一SceneClock、owner transaction和既有texture consumers；`getVideoTexture()`继续按现有scene video provider identity复用handle。JS不拥有texture、provider或player | dynamic replacement、rotated/trimmed/fractional/异尺寸frame、provider generation显式JS可见性、asset unload后失效、multi-surface与官方parity |
-| custom model asset/material | model shape 的 `material` 使用已注册 `IAssetHandle`；model data 可共享 | `L0` | 无 model runtime；`N` | material precache、buffer/handle compatibility、共享引用计数和资源预算 |
-| user shortcut | `engine.openUserShortcut(userPropertyName)` 打开已注册 shortcut | `L3 bounded` | [macOS key入口](../roadmap/batch2/script-component-api-design.md#user-shortcut-macos-adapter)：真实面板本机配置→coarse typed链→实际cursor同步native Bool，Session独占gesture/frame一次attempt、撤权与无重放。普通Release用户确认目录/图片/音乐/App打开和遮挡无误触；无资格cursor返回false保视觉owner，非cursor/坏参数/真正重复throw | Launcher hover响应范围仍待核；HTTP(S)/全部目标未实测，isbound/file getter、系统icon、commands/任意scheme及Windows失败细节未开放 |
-
-## 12. 官方声明自身的边界
-
-这些不是播放器可以自行猜补的 API：
-
-1. v2.8 引用了 `IAssetHandle`，但类型文件没有声明其成员；当前只可按 opaque handle 设计。
-2. `ILayer` 继承 `IModel`，但 v2.8 文件未给出 `IModel` interface；不能凭第三方实现创造公共成员。
-3. 页面目录列出 `IThisPropertyObject`，类型文件只出现空的 `IThisPropertyObjectBase`；property owner 的具体 union 应由绑定 IR 决定。
-4. `IRenderContext` 在 v2.8 是空 interface；未来版本更新前只提供空对象。
-5. `animationEvent` 在 Timeline 官方文档存在，但未列入 v2.8 `IComponent`；需要兼容 fixture，而不是抹掉其中一侧。
-6. `CursorEvent.screenPosition`、`button` 和 `ITextureAnimation.loop` 在声明中被注释为未使用；当前实现不得把它们计入支持率。
-7. `clearTimeout` 被明确标为未实现；取消 timeout/interval 使用注册函数返回的 cancel function。
-
-## 13. 实施依赖与完成门
-
-V2使用QuickJS-NG，但不先建设完整API平台。第一条可见纵向切片按以下顺序闭合，后续API复用同一owner和transaction：
-
-1. **Source/owner**：复用现有inline IR，补最小module loader与稳定owner identity；不为已知source增加Swift profile。
-2. **受控VM**：per-scene runtime/context、严格global allowlist、interrupt/heap/stack budget、exception与日志隔离。
-3. **一个property闭环**：`init/update` typed return或mutation进入现有per-surface transaction，下一帧由真实consumer可见；失败只终止该script owner。
-4. **生命周期**：destroy/reload/pause/teardown与stale handle，switch/stop后VM/timer/handle为0。
-5. **基础handles与事件**：thisLayer/thisScene、time/user property，再按真实样本接cursor、audio、media；host先捕获共享输入，surface再加入viewport/pointer/matrix/provider。
-6. **广度API**：effect/material、particle、animation/video、storage/timers、dynamic layer/asset；Puppet/model/physics只在对应consumer存在后开放。
-
-SceneScript core 至少满足以下门后，相关行才可从 `L0` 升级：
-
-- source 与 binding round-trip，不丢源码、owner、target、value type；
-- 两屏实例隔离，同一 host frame 读取相同 timing，但不同 resolution/pointer 产生各自不可变 snapshot 和 generation；
-- `init/update/destroy` 次数和顺序固定，switch/stop 后 VM、timer、handle、provider 为 0；
-- typed return、无返回、错类型、NaN/Inf、throw、死循环均有正反测试，单脚本失败不影响 renderer；
-- 用户属性、cursor、audio、media 事件使用 generation/order 合同，旧事件和旧资源不得覆盖新状态；
-- 默认关闭的 effect/parallax/particle 仍保持关闭，脚本只修改作者明确绑定或显式访问的目标；
-- 至少用通用 VM 执行的动态时钟文字、用户属性文字、cursor 局部坐标、受控音频 bins、media metadata 各一组隔离 fixture 验证；bounded Text AST 不替代此门，sealed fixed native clock/date profile 只能作历史；
-- `L3` 还要求签名 App 真实运行、相关隔离样本正反例与 stop 生命周期；`L4` 需要相同输入下的 Windows Wallpaper Engine golden。
-
-## 14. 更新规则
-
-1. 新增 SceneScript 代码时先更新对应行的单值等级、代码/测试证据和明确边界；不能用 “VM 能运行 Hello World” 批量升级 API。
-2. 一个 handle 的 getter、setter、method 和 lifecycle 可分别处于不同实现阶段；表格拆行不足时必须在“当前证据”里写清已执行成员。
-3. 普通 renderer 已有同名能力不等于脚本 API 可用；只有真实 JS -> host -> dynamic snapshot -> consumer 链闭环才可记 `L3`。
-4. 官方声明版本变化时，先比较 API diff，再更新本表；声明未定义/注释未使用的成员继续保持 unknown 或 unsupported。
-5. 固定样本运行通过只证明没有崩溃和门内指标，不证明其中 SceneScript 已执行。
+最近行为入口：[真实 QuickJS](../../../script/tests/test_scene_script_quickjs.py)、[owner 预算](../../../script/tests/test_scene_script_quickjs_owner_budget.py)、[动画](../../../script/tests/test_scene_timeline_runtime.py)、[TEX 播放](../../../script/tests/test_scene_texture_animation_script.py)。

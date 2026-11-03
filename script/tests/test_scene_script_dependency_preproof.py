@@ -42,17 +42,24 @@ struct SceneGraphAdmissionProduct {
 enum SceneResolvedMaterialExecutionCapabilityCatalog {
     typealias MaterialKey = Int
     enum StageCapability {
-        case resolved(product: SceneGraphAdmissionProduct, materials: [Int: Bool],
-            activation: SceneResolvedMaterialStageActivationPolicy?)
+        enum Execution {
+            case resolved(materials: [Int: Bool], activation: SceneResolvedMaterialStageActivationPolicy?)
+        }
+        enum PassthroughTopology: Hashable { case dependencyStage, framebuffer, preEncodeGraph }
+    }
+    struct CompiledStages {
+        typealias Stage = (product: SceneGraphAdmissionProduct,
+            execution: StageCapability.Execution,
+            passthroughTopologies: Set<StageCapability.PassthroughTopology>)
     }
     // These adapters expose fixture metadata. They do not produce dependency
     // proofs or normalize candidate/provider/slot identities.
-    static func resolvedExternalDependencies(in stage: StageCapability) -> ResolvedExternalDependencyAnalysis {
-        switch stage { case let .resolved(product, _, _): return product.dependencies }
+    static func resolvedExternalDependencies(in stage: CompiledStages.Stage) -> ResolvedExternalDependencyAnalysis {
+        stage.product.dependencies
     }
-    static func visualFailureExternalDependencies(in stage: StageCapability,
+    static func visualFailureExternalDependencies(in stage: CompiledStages.Stage,
         binding: SceneDependencyRenderPlan.Binding) -> [BindingDependency] { [] }
-    static func aggregateStageDependencies(_ stages: [StageCapability],
+    static func aggregateStageDependencies(_ stages: [CompiledStages.Stage],
         aggregate: SceneDependencyRenderPlan.MultiProviderAggregate) -> [BindingDependency]? {
         fatalError("aggregate finalization is outside this fixture")
     }
@@ -89,12 +96,13 @@ enum Checks {
                 slot: slot, origin: origin)
         }
         func stage(_ dependencies: C.ResolvedExternalDependencyAnalysis,
-            layerID: Int = consumer, fbo: Bool = false) -> C.StageCapability {
-            .resolved(product: .init(graph: .init(layerID: layerID,
+            layerID: Int = consumer, fbo: Bool = false) -> C.CompiledStages.Stage {
+            (product: .init(graph: .init(layerID: layerID,
                 renderTargets: fbo ? [1] : []), dependencies: dependencies),
-                materials: [1: true], activation: activation)
+                execution: .resolved(materials: [1: true], activation: activation),
+                passthroughTopologies: [])
         }
-        func preproof(_ stage: C.StageCapability,
+        func preproof(_ stage: C.CompiledStages.Stage,
             ownership: SceneResolvedMaterialDependencyOwnership,
             potential: [B] = []) -> Bool {
             __PREPROOF_CALL__

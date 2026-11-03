@@ -97,6 +97,15 @@ private func record() -> Cache.Record {
 private func file(_ root: URL, _ key: String, version: Int = currentSchemaVersion) -> URL {
     root.appendingPathComponent("SceneVariantAnalysis-v\(version)").appendingPathComponent(key + ".json")
 }
+private func waitForPublication(_ url: URL) throws {
+    let deadline = Date().addingTimeInterval(2)
+    while !FileManager.default.fileExists(atPath: url.path), Date() < deadline {
+        Thread.sleep(forTimeInterval: 0.005)
+    }
+    guard FileManager.default.fileExists(atPath: url.path) else {
+        throw NSError(domain: "variant-wire-publication", code: 1)
+    }
+}
 private func object(_ bytes: Data) throws -> [String: Any] {
     try JSONSerialization.jsonObject(with: bytes) as! [String: Any]
 }
@@ -146,6 +155,7 @@ private func cold(_ root: URL, write: Bool) throws {
         checks["load-miss-no-directory"] = Cache.load(keySHA256: key) == nil
             && !FileManager.default.fileExists(atPath: file(root, key).deletingLastPathComponent().path)
         Cache.store(record: record(), keySHA256: key)
+        try waitForPublication(file(root, key))
     }
     let value = try readOnlyLoad(root, key)
     checks["all-set-mirrors"] = value?.sourceCarriedRGBA?.auxiliaryDataSlots == Set(1...7)
@@ -178,6 +188,7 @@ private func orderedWire(_ root: URL) throws {
     let key = "ordered-combos"
     Cache.store(record: record(), keySHA256: key)
     let url = file(root, key)
+    try waitForPublication(url)
     var envelope = try object(Data(contentsOf: url))
     var payload = envelope["payload"] as! [String: Any]
     let pairs = payload["resolvedIntegerCombos"] as! [[String: Any]]
@@ -194,6 +205,7 @@ private func orderedWire(_ root: URL) throws {
 private func invalidWire(_ root: URL) throws {
     let key = "invalid"
     Cache.store(record: record(), keySHA256: key)
+    try waitForPublication(file(root, key))
     let url = file(root, key), original = try Data(contentsOf: file(root, key))
     let mutations: [(String, (inout [String: Any]) -> Void)] = [
         ("digest", { $0["recordSHA256"] = "foreign" }),

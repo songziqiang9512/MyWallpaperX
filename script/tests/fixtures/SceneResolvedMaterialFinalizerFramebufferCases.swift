@@ -35,7 +35,7 @@ func samplerPurposeToken(
         } else {
             reference = .graph(graphTexture())
         }
-        return sampler.purpose(for: reference)?.reportToken ?? "unproven"
+        return SceneResolvedMaterialShaderSchema.purpose(for: reference, sampler: sampler)?.reportToken ?? "unproven"
     } catch {
         return "schema-invalid"
     }
@@ -250,12 +250,13 @@ func reachableConditionalPurposeToken() -> String {
     do {
         guard let sampler = try SceneResolvedMaterialShaderSchema.reachableSamplers(
             conditionalTemplate,
+            textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: conditionalTemplate).get(),
             implicitFramebufferIdentity: graphTexture()
         )[1]?.first else { return "missing" }
         let reference = Template.TextureReference.asset(
             SceneVFSAssetPath("textures/conditional.tex")!
         )
-        return sampler.purpose(for: reference)?.reportToken ?? "unproven"
+        return SceneResolvedMaterialShaderSchema.purpose(for: reference, sampler: sampler)?.reportToken ?? "unproven"
     } catch {
         return "schema-invalid"
     }

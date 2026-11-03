@@ -4,6 +4,45 @@ import Foundation
 nonisolated final class SceneGraphExecutionTelemetry: @unchecked Sendable {
     typealias LogSink = @Sendable (String) -> Void
 
+    // Execution evidence remains process-wide across graph/runtime instances.
+    private static let genericShaderExecutionLock = NSLock()
+    private static var genericShaderExecutionIdentities = Set<String>()
+
+    static func recordGenericShaderExecution(
+        state: String,
+        profile: String,
+        backend: String,
+        graphInputDiagnostics: [String],
+        layerID: Int,
+        effectIndex: Int,
+        descriptorID: String,
+        nodeIndex: Int,
+        preparedKey: String
+    ) {
+        let graphInputs = graphInputDiagnostics.joined(separator: ",")
+        let identity = [
+            String(layerID), String(effectIndex), descriptorID,
+            String(nodeIndex), backend, preparedKey, graphInputs,
+        ].joined(separator: "|")
+        guard genericShaderExecutionLock.withLock({
+            genericShaderExecutionIdentities.insert(identity).inserted
+        }) else {
+            return
+        }
+        NSLog(
+            "MWX generic shader execution state=%@ profile=%@ layer=%d effect=%d descriptor=%@ node=%d backend=%@ prepared=%@ graphInputs=%@",
+            state,
+            profile,
+            layerID,
+            effectIndex,
+            descriptorID,
+            nodeIndex,
+            backend,
+            preparedKey,
+            graphInputs.isEmpty ? "-" : graphInputs
+        )
+    }
+
     private static let maximumTransactionsPerSubject = 64
     private static let explicitSourceEvidenceLayers = Set(
         (ProcessInfo.processInfo.environment["MYWALLPAPERX_SCENE_DEBUG_PUPPET_BONE_EVIDENCE"] ?? "")

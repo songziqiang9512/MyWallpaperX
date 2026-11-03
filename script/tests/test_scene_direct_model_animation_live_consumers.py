@@ -46,11 +46,8 @@ struct SceneDesktopWallpaperLaunchContext {
 }
 
 final class SceneDesktopWallpaperSession {
-    struct View {
-        var preparedDirectModelAnimationVisibilityTargets: Set<SceneDynamicTarget>
-    }
     struct Surface {
-        var metalView: View
+        var preparedDirectModelAnimationVisibilityTargets: Set<SceneDynamicTarget>
         var scriptGeneration: UInt64
     }
     var surfaces: [Int: Surface] = [:]
@@ -75,7 +72,7 @@ final class SceneDesktopWallpaperSession {
 
     static func surface(_ targets: Set<SceneDynamicTarget>, generation: UInt64 = 37)
         -> SceneDesktopWallpaperSession.Surface {
-        .init(metalView: .init(preparedDirectModelAnimationVisibilityTargets: targets),
+        .init(preparedDirectModelAnimationVisibilityTargets: targets,
             scriptGeneration: generation)
     }
 
@@ -184,7 +181,7 @@ final class SceneDesktopWallpaperSession {
         let session = readySession(targets)
         let launch = context(targets)
         var facts: [String: Bool] = [:]
-        facts["valid-program"] = ScenePropertyBindingProgramValidator().validate(program).diagnostics.isEmpty
+        facts["valid-program"] = program.validation.diagnostics.isEmpty
         facts["initial-conditional-values"] = state.userValues[a] == .bool(true)
             && state.userValues[b] == .bool(false) && state.revision == 0
         facts["ready-switch"] = state.apply(.string("second"), forPropertyKey: key,

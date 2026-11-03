@@ -7,6 +7,12 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         let variants: SceneResolvedMaterialVariantCache
         let attachmentStorage: SceneResolvedMaterialAttachmentKind
         let targetFormat: SceneGraphRenderTargetPlan.TextureFormat
+        private let outputStorage: SceneResolvedMaterialProgram.OutputStorage
+        let effectLocalFailureSlots: (
+            optionalTexture: Set<Int>,
+            sceneEnvironment: Set<Int>,
+            systemProvider: Set<Int>
+        )
 
         init(
             key: MaterialKey,
@@ -20,6 +26,27 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             self.variants = variants
             self.attachmentStorage = attachmentStorage
             self.targetFormat = targetFormat
+            outputStorage = switch attachmentStorage {
+            case .color: .color
+            case .scalarRedUnorm: .scalarRedUnorm
+            case .redGreenUnorm: .redGreenUnorm
+            case .scalarRedFloat16: .scalarRedFloat16
+            case .redGreenFloat16: .redGreenFloat16
+            case .preservedRGBAUnorm: .preservedRGBAUnorm
+            }
+            effectLocalFailureSlots = (
+                Set((0 ..< 8).filter { variants.provesEffectLocalOptionalTextureFailure(slot: $0) }),
+                Set((0 ..< 8).filter { variants.provesEffectLocalSceneEnvironmentTextureFailure(slot: $0) }),
+                Set((0 ..< 8).filter { variants.provesEffectLocalSystemProviderTextureFailure(slot: $0) })
+            )
+        }
+
+        func bindFrame(
+            _ input: SceneResolvedMaterialFinalizationInput
+        ) -> Result<SceneResolvedMaterialProgram, SceneResolvedMaterialFailure> {
+            return SceneResolvedMaterialProgramFinalizer.finalize(
+                input, variantCache: variants, outputStorage: outputStorage
+            )
         }
     }
 }
@@ -86,7 +113,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability {
         let lastEffect = stages.last?.product.graph.effects.first?.key
         let lastMaterial = materials.keys.first { $0.effect == lastEffect }
         let intermediates = materials.count == stages.count && stages.allSatisfy {
-            if case .resolved = $0 { return true }; return false
+            if case .resolved = $0.execution { return true }; return false
         } && lastMaterial.flatMap { replay[$0]?.terminal } == true
         return (intermediates, replay.values.allSatisfy(\.terminal),
                 replay.values.allSatisfy(\.placement))
@@ -109,19 +136,19 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability {
               admitted.terminalReplayBlendMode == 0,
               dependencyOwnership == .none, sceneBackgroundRequirement == nil,
               stages.count == 1, materials.count == 1,
-              case let .resolved(product, _, _) = stages[0],
-              product.clearFunctions.functions.isEmpty,
-              product.graph.renderTargets.isEmpty,
-              product.graph.effects.count == 1,
-              product.graph.nodes.count == 1,
-              let node = product.graph.nodes.first,
+              case .resolved = stages[0].execution,
+              stages[0].product.clearFunctions.functions.isEmpty,
+              stages[0].product.graph.renderTargets.isEmpty,
+              stages[0].product.graph.effects.count == 1,
+              stages[0].product.graph.nodes.count == 1,
+              let node = stages[0].product.graph.nodes.first,
               node.kind == .material, node.compose == nil,
-              node.target == product.graph.effects[0].output,
+              node.target == stages[0].product.graph.effects[0].output,
               let material = materials.values.first,
               material.attachmentStorage == .color,
               material.template.graphRole.effectInput == .layerSource,
               material.variants.capturedMainTargetSourceSlot(
-                  node: node, effect: product.graph.effects[0]) == 0 else { return false }
+                  node: node, effect: stages[0].product.graph.effects[0]) == 0 else { return false }
         let snapshot = material.variants.launchEnvelopeCapabilitySnapshot()
         return snapshot.allEntriesReady && !snapshot.variants.isEmpty
             && snapshot.variants.allSatisfy {

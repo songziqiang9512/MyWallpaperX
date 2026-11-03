@@ -103,7 +103,7 @@ private func activeSamplers(_ fragment: String) -> [Int: Schema.Sampler] {
 private func token(_ sampler: Schema.Sampler?) -> String {
     guard let sampler else { return "missing" }
     let source = sampler.sourceProvenPurpose?.reportToken ?? "nil"
-    let resolved = sampler.purpose(for: .asset(customPath))?.reportToken ?? "nil"
+    let resolved = Schema.purpose(for: .asset(customPath), sampler: sampler)?.reportToken ?? "nil"
     return "\(sampler.channelUse.rawValue)/\(source)/\(resolved)"
 }
 

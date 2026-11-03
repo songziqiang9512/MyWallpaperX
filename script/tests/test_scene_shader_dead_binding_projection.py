@@ -96,8 +96,7 @@ class SceneShaderDeadBindingProjectionTests(unittest.TestCase):
         key = hashlib.sha256(json.dumps(request, sort_keys=True).encode()).hexdigest()
         path = self.root / f"{key}.json"
         path.write_text(json.dumps(request))
-        completed = subprocess.run([str(self.binary), str(path), str(self.bundle),
-                                    str(self.root / "artifacts")], cwd=REPOSITORY_ROOT,
+        completed = subprocess.run([str(self.binary), str(path), str(self.bundle)], cwd=REPOSITORY_ROOT,
                                    capture_output=True, text=True, timeout=90)
         self.assertEqual(completed.returncode, 0, completed.stderr)
         output = json.loads(completed.stdout)
@@ -124,7 +123,7 @@ gl_Position = vec4(a_Position + vec3(counter), 1.0);"""))
         self.assertEqual(result.get("genericSlots"), slots, result)
         self.assertEqual(result["boundedMetalError"], "")
         self.assertEqual(result["genericMetalError"], "")
-        self.assertTrue(result.get("genericPublicationAccepted"), result)
+        self.assertTrue(result.get("genericProgramAccepted"), result)
 
     def assert_layout_uniform(self, result: dict, name: str, *, present: bool,
                               backends: tuple[str, ...] = ("bounded", "generic")) -> None:
@@ -149,7 +148,7 @@ gl_Position = vec4(a_Position + vec3(counter), 1.0);"""))
                 source = source.replace("v_Coordinates", varying)
                 fragment = ACTIVE_FRAGMENT.replace("g_Texture0", f"g_Texture{slot}")
                 fragment = fragment.replace("v_Coordinates", varying)
-                result = self.compile(source, fragment, metadata={"verifyWarmCache": True})
+                result = self.compile(source, fragment, metadata={"verifyRepeatedCompilation": True})
                 self.assert_compiled_slots(result, [slot])
                 self.assert_layout_uniform(result, name, present=False)
                 control = self.compile(vertex("""v_Coordinates.xy = a_TexCoord;
@@ -158,8 +157,8 @@ gl_Position = vec4(a_Position, 1.0);""", uniforms="").replace("v_Coordinates", v
                 self.assert_compiled_slots(control, [slot])
                 for backend in ("bounded", "generic"):
                     self.assertEqual(result[f"{backend}Layout"], control[f"{backend}Layout"])
-                self.assertEqual(result["genericWarmLayout"], result["genericLayout"])
-                self.assertTrue(result["genericWarmArtifactEqual"])
+                self.assertEqual(result["genericRepeatedLayout"], result["genericLayout"])
+                self.assertTrue(result["genericRepeatedArtifactEqual"])
 
     def test_audio_dynamic_loop_does_not_block_generic_dead_uniform_projection(self) -> None:
         fragment = """uniform sampler2D g_Texture0;
@@ -199,12 +198,12 @@ void main()""")
                     if active:
                         fragment = fragment.replace(
                             sample, f"mix({sample}, {helper}(v_Coordinates.xy), 0.5)")
-                    result = self.compile(source, fragment, metadata={"verifyWarmCache": True})
+                    result = self.compile(source, fragment, metadata={"verifyRepeatedCompilation": True})
                     self.assertEqual(result.get("genericSlots"), [0, slot] if active else [0],
                                      result.get("genericFailure", result))
                     self.assertEqual(result["genericMetalError"], "")
-                    self.assertEqual(result["genericWarmLayout"], result["genericLayout"])
-                    self.assertTrue(result["genericWarmArtifactEqual"])
+                    self.assertEqual(result["genericRepeatedLayout"], result["genericLayout"])
+                    self.assertTrue(result["genericRepeatedArtifactEqual"])
 
     def test_builder_projects_only_resources_absent_from_both_metal_interfaces(self) -> None:
         uniform = "struct MWXUniforms { float2 mwxRenderSize; };\n"

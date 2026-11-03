@@ -34,7 +34,7 @@ extension SceneMetalRenderer {
         compositionGroupRuntime: SceneCompositionGroupFrameRuntime?,
         commandBuffer: MTLCommandBuffer,
         effectExecutionTrace: SceneEffectExecutionFrameTrace?,
-        particleBatchesByID: [Int: [SceneParticleDrawBatch]],
+        particleBatchesByID: [Int: [SceneParticleMetalPipeline.PreparedBatch]],
         particlePipeline: SceneParticleMetalPipeline?,
         frameDepthLeases: inout [SceneParticleDepthTargetLease],
         particlePerformanceObservations: inout [SceneParticlePerformanceObservation]?,
@@ -393,11 +393,10 @@ extension SceneMetalRenderer {
                     for: layer, worldFramesByLayerID: frameWorldFrames,
                     parallaxMouseNormalized: parallaxMouseNormalized,
                     configuration: parallaxConfiguration,
-                    referenceWorldFrame: layerBatches.first?.referenceWorldFrame
+                    referenceWorldFrame: layerBatches.first?.draw.referenceWorldFrame
                 )
-                if let depthLease = renderParticleBatches(
+                if let depthLease = particlePipeline.drawBatches(
                     layerBatches,
-                    pipeline: particlePipeline,
                     model: model,
                     cameraFrame: cameraFrame,
                     layerUsesPerspective: cameraFrame.resolvesPerspective(for: layer),
@@ -407,7 +406,7 @@ extension SceneMetalRenderer {
                     ),
                     mainPass: layerMainPass,
                     commandBuffer: commandBuffer,
-                    preparedDepth: modelFrame.particleDepth[layer.id],
+                    preparedDepth: modelFrame.particleDepth[layer.id]?.acquisition,
                     performanceObservations: &particlePerformanceObservations
                 ) {
                     if modelFrame.particleDepth[layer.id] == nil { frameDepthLeases.append(depthLease) }

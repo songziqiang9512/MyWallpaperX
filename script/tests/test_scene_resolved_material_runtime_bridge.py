@@ -14,6 +14,7 @@ import unittest
 from pathlib import Path
 
 from script.tests.scene_dependency_binding_test_support import (
+    SCENE_DEPENDENCY_AGGREGATE_SUPPORT,
     SCENE_DEPENDENCY_BINDING_SUPPORT,
 )
 
@@ -61,8 +62,6 @@ METAL_RENDERER_DEPENDENCY_PROVIDERS = (
 METAL_VIEW_FRAME_CONTEXT = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+FrameContext.swift"
 )
-METAL_VIEW = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift"
-TEXT_TEXTURE_LOADER = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextTextureLoader.swift"
 HOST = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost.swift"
 DEBUG_RUNNER = REPOSITORY_ROOT / "MyWallpaperX/App/Debug/DebugScenePlaybackRunner.swift"
 DEBUG_SCENE_SWITCH_RUNNER = (
@@ -147,6 +146,7 @@ TEXTURE_SAMPLING_TYPES = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureSampling.swift"
 )
 STATIC_SOURCE_DRAW_ONLY_SOURCES = [
+    SCENE_ROOT / "Resources/Textures/SceneTextureLookupIdentity.swift",
     SCENE_ROOT / "Runtime/Frame/SceneMaterialRenderState.swift",
     SCENE_ROOT / "Rendering/Composition/SceneFramebufferSnapshot.swift",
     SCENE_ROOT / "Resources/Textures/SceneResourceBudget.swift",
@@ -162,11 +162,6 @@ STATIC_SOURCE_DRAW_ONLY_SOURCES = [
     TEXTURE_UV_TRANSFORM,
     TEXTURE_SAMPLING_TYPES,
 ]
-
-
-ASSET_HARNESS = (
-    Path(__file__).with_name("fixtures") / "SceneAssetCatalogHarness.swift"
-).read_text(encoding="utf-8")
 
 
 VFS_SUPPORT = (
@@ -192,7 +187,7 @@ enum SceneGPUStageTimestampHook {
     static func endedMain(_ encoder: MTLRenderCommandEncoder) {}
 }
 #endif
-''' + "\n".join(
+''' + SCENE_DEPENDENCY_AGGREGATE_SUPPORT + "\n".join(
     (Path(__file__).with_name("fixtures") / name).read_text(encoding="utf-8")
     for name in (
         "SceneSubmissionCoordinatorDependencies.swift",
@@ -205,17 +200,16 @@ enum SceneGPUStageTimestampHook {
         "SceneSubmissionLifecycleChecks.swift",
         "SceneSubmissionCoordinatorMain.swift",
     )
-) + SCENE_DEPENDENCY_BINDING_SUPPORT + RESOURCE_PHASE_UNAVAILABLE_SUPPORT + (
-    "extension SceneDependencyRenderPlan {\n" + _declaration(
-        (SCENE_ROOT / "Rendering/Dependencies/SceneDependencyRenderPlan+Aggregate.swift").read_text(encoding="utf-8"),
-        "MultiProviderAggregate", marker="    nonisolated struct MultiProviderAggregate: Hashable {",
-    ) + "\n}\n"
-)
+) + SCENE_DEPENDENCY_BINDING_SUPPORT + RESOURCE_PHASE_UNAVAILABLE_SUPPORT
 
 
 STATIC_SOURCE_DRAW_ONLY_HARNESS = (
     REPOSITORY_ROOT / "script/tests/fixtures/SceneStaticSourceDrawOnlyHarness.swift"
 ).read_text(encoding="utf-8") + RESOURCE_PHASE_UNAVAILABLE_HANDLE_SUPPORT
+STATIC_SOURCE_DRAW_ONLY_HARNESS += _declaration(
+    (Path(__file__).with_name("fixtures") / "SceneColorBlendCaptureRegionHarness.swift").read_text(encoding="utf-8"),
+    "SceneGPUStageTimestampHook", marker="enum SceneGPUStageTimestampHook {",
+)
 
 
 class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
@@ -234,26 +228,6 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
             self.assertEqual(built.returncode, 0, built.stderr)
             ran = subprocess.run([str(root / "run")], capture_output=True, text=True, timeout=10)
             self.assertEqual(ran.returncode, 0, ran.stdout + ran.stderr)
-
-    def test_preview_and_inline_reporting_only_describe_typed_execution_owners(self) -> None:
-        diagnostics = RENDERER_DIAGNOSTICS.read_text(encoding="utf-8")
-        view = METAL_VIEW.read_text(encoding="utf-8")
-        text_loader = TEXT_TEXTURE_LOADER.read_text(encoding="utf-8")
-
-        self.assertIn("effect runtime resolved-material", diagnostics)
-        self.assertIn("resolvedMaterialExecutionLayerIDs", diagnostics)
-        self.assertNotIn("if executionStageCount > 1", diagnostics)
-        self.assertNotIn("SceneEffectRuntimePlanner", diagnostics)
-        self.assertIn("return nil", diagnostics)
-
-        self.assertIn("renderer.effectRuntimeSummary(for:", view)
-        self.assertIn("effectSummary: textEffectSummary", view)
-        self.assertIn(
-            "effectSummary: (SceneRenderDescriptor.Layer) -> String? = { _ in nil }",
-            text_loader,
-        )
-        self.assertNotIn("SceneEffectRuntimePlanner.runtimeSummary", text_loader)
-        self.assertNotIn("legacyEffectRuntimeExcludedLayerIDs", view + text_loader)
 
     def test_resource_demands_share_schema_and_never_guess_regular_assets(self) -> None:
         source = RUNTIME_CATALOG.read_text(encoding="utf-8")
@@ -325,18 +299,8 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
             "?? subject.family",
             composition,
         )
-        self.assertIn("let dispositionCatalog =", diagnostics)
-        self.assertEqual(diagnostics.count("SceneEffectRuntimeDispositionCatalog("), 1)
         self.assertNotIn("installExecutionEvidence(", diagnostics)
-        self.assertIn("resolvedMaterialSubjects:", diagnostics)
-        self.assertIn("let dispositionCatalog =", execution_evidence)
         self.assertIn("installExecutionEvidence(", execution_evidence)
-        self.assertIn("resolvedMaterialSubjects:", execution_evidence)
-        self.assertIn("runtimeDispositionSubjects", diagnostics)
-        self.assertIn(
-            "dispositionCatalog.resolvedMaterialExecutionEvidenceSubjects",
-            execution_evidence,
-        )
         self.assertIn('backend: "resolved-material-graph"', composition)
         self.assertNotIn("authored-effect-graph", composition)
         self.assertIn(
@@ -505,7 +469,7 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         self,
     ) -> None:
         """Static-source draw-only degradation (docs/scene/capabilities/
-        static-source-draw-only-degradation.md §3.4): the unpublished draw
+        effect-execution-coverage.md#fallback §3.4): the unpublished draw
         rescue applies only when the passthrough plan's sole failing guard is
         the static-source graph role, with the request-side texture atom
         resolvable; every other guard and the flag-off behavior stay verbatim.
@@ -523,7 +487,7 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
                 binary = root / name
                 compilation = subprocess.run(
                     [
-                        "xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library",
+                        "xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library", "-D", "DEBUG",
                         *(str(source) for source in sources), str(harness),
                         "-framework", "Metal", "-module-cache-path",
                         str(root / "module-cache"), "-o", str(binary),

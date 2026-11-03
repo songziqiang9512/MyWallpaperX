@@ -3,6 +3,58 @@ import Foundation
 import Metal
 import simd
 
+func preparedTextureFormatCases() -> [String: Bool] {
+    typealias Schema = SceneResolvedMaterialShaderSchema
+    let empty = template(contract(revision: "prepared-empty-format",
+        semanticProbes: false,
+        fragmentSourceOverride: "void main() { gl_FragColor = vec4(0.2, 0.4, 0.6, 1.0); }"),
+        includePrimaryCandidate: false)
+    let emptyFormats = Schema.textureFormatSlots(in: empty)
+    let emptyFacts = SceneResolvedMaterialVariantCache.prepareTextureSelectionFacts(
+        in: empty, samplers: [:], implicitFramebufferIdentity: nil,
+        graphInputSourceSlotFacts: [:])
+    let disabled = template(contract(revision: "prepared-disabled-format",
+        samplerMetadata: #"{"formatcombo":false}"#))
+    let enabled = template(contract(revision: "prepared-enabled-format",
+        samplerMetadata: #"{"formatcombo":true}"#))
+    let malformed = template(contract(revision: "prepared-malformed-format",
+        samplerMetadata: #"{"formatcombo":"invalid"}"#))
+    let malformedFormats = Schema.textureFormatSlots(in: malformed)
+    let malformedCache = SceneResolvedMaterialVariantCache.launchValidated(
+        template: malformed, textureFormatSlots: malformedFormats, maximumVariantCount: 8)
+    let healthyCacheAfterFailure = SceneResolvedMaterialVariantCache.launchValidated(
+        template: empty, textureFormatSlots: emptyFormats, maximumVariantCount: 8)
+    let unreachable = template(contract(revision: "prepared-format-with-invalid-sampler",
+        samplerMetadata: #"{"mode":"invalid-mode"}"#))
+    let formatsSurviveReachabilityFailure: Bool
+    if case let .success(slots) = Schema.textureFormatSlots(in: unreachable), slots.isEmpty {
+        do {
+            _ = try Schema.reachableSamplers(unreachable, textureFormatSlots: slots,
+                implicitFramebufferIdentity: graphTexture())
+            formatsSurviveReachabilityFailure = false
+        } catch { formatsSurviveReachabilityFailure = true }
+    } else { formatsSurviveReachabilityFailure = false }
+    let malformedFailurePreserved: Bool
+    if case let .failure(parsed) = malformedFormats,
+       case let .failure(consumed) = malformedCache {
+        malformedFailurePreserved = parsed == consumed
+            && parsed.code == .authoredSamplerSchemaInvalid
+            && parsed.boundedDetails == ["texture-format-schema"]
+    } else { malformedFailurePreserved = false }
+    return [
+        "emptyFormatsArePrepared": (try? emptyFormats.get()) == Set<Int>(),
+        "emptySlotFactsAreFinal": emptyFacts.candidatePurposes.isEmpty
+            && emptyFacts.candidates.isEmpty && emptyFacts.defaults.isEmpty
+            && emptyFacts.graphInputPurposes.isEmpty && emptyFacts.mixedProviderSlots.isEmpty
+            && emptyFacts.regularNamedProviderPurposeSlots.isEmpty,
+        "disabledFormatHasNoDemand": (try? Schema.textureFormatSlots(in: disabled).get()) == Set<Int>(),
+        "enabledFormatRetainsSlot": (try? Schema.textureFormatSlots(in: enabled).get()) == [0],
+        "formatFailureRemainsTyped": malformedFailurePreserved,
+        "formatFailureKeepsHealthyOwner": (try? healthyCacheAfterFailure.get()) != nil,
+        "validFormatsSurviveReachabilityFailure": formatsSurviveReachabilityFailure,
+    ]
+}
+
 func effectForwardProjectionConsumption(_ device: MTLDevice) -> [String: Any] {
     var checks: [String: Bool] = [:]
     var rows: [[String: Any]] = []
@@ -43,7 +95,7 @@ func effectForwardProjectionConsumption(_ device: MTLDevice) -> [String: Any] {
             void main() { gl_FragColor = \(fragmentExpression); }
             """)
         guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(
-            template: template(shader), maximumVariantCount: 1
+            template: template(shader), textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: template(shader)), maximumVariantCount: 1
         ) else { checks[mode + "Prepared"] = false; continue }
         let preparation = cache.precompileLaunchEnvelope(
             implicitFramebufferIdentity: nil, outputStorage: .preservedRGBAUnorm
@@ -69,17 +121,17 @@ func effectForwardProjectionConsumption(_ device: MTLDevice) -> [String: Any] {
             var correct = token == (expectsFailure ? "uniform/hostUniformBindingInvalid" : "success")
             var forwardCount = 0, inverseCount = 0
             if case let .success(program) = resolved {
-                let forward = program.resolvedUniforms.filter {
-                    if case .host(.effectTextureProjectionMatrix) = $0.source { return true }; return false
+                let forward = zip(program.preparedAssembly.preparedUniformBindings, program.resolvedUniforms).filter {
+                    if case .host(.effectTextureProjectionMatrix) = $0.0.source { return true }; return false
                 }
-                let supplied = program.resolvedUniforms.filter {
-                    if case .host(.effectTextureProjectionMatrixInverse) = $0.source { return true }; return false
+                let supplied = zip(program.preparedAssembly.preparedUniformBindings, program.resolvedUniforms).filter {
+                    if case .host(.effectTextureProjectionMatrixInverse) = $0.0.source { return true }; return false
                 }
                 forwardCount = forward.count; inverseCount = supplied.count
                 correct = correct && forward.count == (mode == "dual" ? 2 : mode == "forward" ? 1 : 0)
                     && supplied.count == (mode == "inverse" ? 1 : 0)
-                if !forward.isEmpty { correct = correct && matches(forward, bits(inverse.inverse)) }
-                if !supplied.isEmpty { correct = correct && matches(supplied, bits(inverse)) }
+                if !forward.isEmpty { correct = correct && matches(forward.map { $0.1 }, bits(inverse.inverse)) }
+                if !supplied.isEmpty { correct = correct && matches(supplied.map { $0.1 }, bits(inverse)) }
             }
             checks[name] = correct
             rows.append(["name": name, "token": token, "forwardFields": forwardCount, "inverseFields": inverseCount])
@@ -91,88 +143,83 @@ func effectForwardProjectionConsumption(_ device: MTLDevice) -> [String: Any] {
     return ["checks": checks, "rows": rows]
 }
 
-func crossTemplateMaterialCacheTokens(_ device: MTLDevice) -> [String: String] {
-    let shader = contract(revision: "material-cache-identity")
-    let admitted = template(shader)
-    guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(
-        template: admitted,
-        maximumVariantCount: 8
-    ), case .success = cache.precompileLaunchEnvelope(
-        implicitFramebufferIdentity: graphTexture()
-    ), case let .success(frame) = SceneResolvedMaterialFrameSnapshot.validated(
-        textureSnapshot: snapshot(device),
-        dynamicSnapshot: dynamicSnapshot(frameIndex: 1, source: nil),
-        frameInputs: frameInputs(frameIndex: 1)
-    ) else { return ["setup": "failed"] }
-    let cases: [(String, Template)] = [
-        ("equivalent", template(shader)),
-        ("combos", template(shader, comboValues: ["CACHE_TEST": 1])),
-        ("textures", template(shader, candidateCount: 2)),
-        ("graphRole", template(shader, effectInputGraphTextureRole: .framebuffer)),
-        ("renderState", template(shader, renderState: state(blending: "additive"))),
-        ("inactiveCombos", template(shader, inheritedInactiveCombos: ["CACHE_TEST"])),
-        ("ownerEligibility", template(shader, previousBlurredCompositeGenericOwnerEligible: true)),
-        ("shaderContent", template(contract(
-            revision: "material-cache-identity", arithmetic: true
-        ))),
-        ("sourceGraph", template(contract(
-            revision: "material-cache-identity", includeSourceGraph: false
-        ))),
-        ("equivalentAfterRejection", template(shader)),
-    ]
-    return Dictionary(uniqueKeysWithValues: cases.map { name, candidate in
-        let input = frame.finalizationInput(
-            template: candidate,
-            layerID: 9001,
-            renderSize: CGSize(width: 640, height: 360),
-            modelViewProjection: matrix_identity_float4x4,
-            layerModelMatrix: layerModelMatrix,
+func preparedMaterialOwnershipCases(_ device: MTLDevice) -> [String: Bool] {
+    let shader = contract(revision: "prepared-material-ownership", runtimeLoop: true)
+    let definitions = [[0.2, 0.4, 0.6], [0.7, 0.3, 0.1]].enumerated().map { index, tint in
+        template(shader, uniformDeclarations: [staticDeclaration("Tint", components: tint),
+            staticDeclaration("Fractals", components: [index == 0 ? 5 : 7])])
+    }
+    do {
+        let caches = try definitions.map { material in
+            let cache = try SceneResolvedMaterialVariantCache.launchValidated(template: material,
+                textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: material),
+                maximumVariantCount: 8).get()
+            try cache.precompileLaunchEnvelope(implicitFramebufferIdentity: graphTexture()).get()
+            return cache
+        }
+        let counts = caches.map(\.counters)
+        let frame = try SceneResolvedMaterialFrameSnapshot.validated(
+            textureSnapshot: snapshot(device), dynamicSnapshot: dynamicSnapshot(frameIndex: 1, source: nil),
+            frameInputs: frameInputs(frameIndex: 1)).get()
+        let input = frame.finalizationInput(layerID: 9001, renderSize: CGSize(width: 640, height: 360),
+            modelViewProjection: matrix_identity_float4x4, layerModelMatrix: layerModelMatrix,
             effectOutputModelViewProjection: effectOutputModelViewProjection,
             effectTextureProjectionMatrixInverse: effectProjectionInverse,
-            implicitFramebufferIdentity: graphTexture()
-        )
-        switch cache.resolveSelection(input) {
-        case .success: return (name, "success")
-        case let .failure(failure):
-            return (name, "\(failure.phase.rawValue)/\(failure.code.rawValue)")
+            implicitFramebufferIdentity: graphTexture())
+        let first = try SceneResolvedMaterialProgramFinalizer.finalize(input, variantCache: caches[0]).get()
+        let second = try SceneResolvedMaterialProgramFinalizer.finalize(input, variantCache: caches[1]).get()
+        let recovered = try SceneResolvedMaterialProgramFinalizer.finalize(input, variantCache: caches[0]).get()
+        let tints = zip([first, second], [[0.2, 0.4, 0.6], [0.7, 0.3, 0.1]]).allSatisfy { program, tint in
+            guard let index = program.preparedAssembly.preparedUniformBindings.firstIndex(where: { $0.field.authoredName == "u_Tint" }),
+                  let expected = SceneResolvedMaterialUniformEncoder.encodeComponents(tint, as: .float3) else { return false }
+            return program.resolvedUniforms[index].encodedValue == expected
         }
-    })
+        return ["sameFrameUsesEachPreparedMaterial": tints && first.uniformBytes != second.uniformBytes,
+            "runtimeLoopsStayWithPreparedMaterial": first.runtimeLoopBounds != second.runtimeLoopBounds,
+            "returnToFirstMaterialKeepsExactIdentity": first.exactIdentity == recovered.exactIdentity,
+            "ordinaryFramesDoNotCompile": caches.map(\.counters) == counts]
+    } catch { return ["preparedMaterialOwnershipReady": false] }
 }
 
-func crossTemplateRuntimeLoopCacheToken(_ device: MTLDevice) -> String {
-    let shader = contract(revision: "runtime-loop-cache-identity", runtimeLoop: true)
-    let admitted = template(
-        shader,
-        uniformDeclarations: [staticDeclaration("Fractals", components: [5])]
-    )
-    let mismatched = template(
-        shader,
-        uniformDeclarations: [staticDeclaration("Fractals", components: [257])]
-    )
-    guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(
-        template: admitted,
-        maximumVariantCount: 8
-    ), case let .success(frame) = SceneResolvedMaterialFrameSnapshot.validated(
-        textureSnapshot: snapshot(device, kind: .ready, frameIndex: 1),
-        dynamicSnapshot: dynamicSnapshot(frameIndex: 1, source: nil),
-        frameInputs: frameInputs(frameIndex: 1)
-    ) else { return "setup-failed" }
-    let input = frame.finalizationInput(
-        template: mismatched,
-                layerID: 9001,
-                renderSize: CGSize(width: 640, height: 360),
-        modelViewProjection: matrix_identity_float4x4,
-        layerModelMatrix: layerModelMatrix,
-        effectOutputModelViewProjection: effectOutputModelViewProjection,
-        effectTextureProjectionMatrixInverse: effectProjectionInverse,
-        implicitFramebufferIdentity: nil
-    )
-    return failureToken(
-        SceneResolvedMaterialProgramFinalizer.finalize(
-            input,
-            variantCache: cache
-        )
-    )
+func preparedTextureCompanionCases() -> [String: String] {
+    let cases: [(String, String, String, Int, Bool)] = [
+        ("rotation-wrong-type", "Rotation", "vec3", 3, true),
+        ("translation-wrong-type", "Translation", "vec4", 4, true),
+        ("rotation-inactive-sampler", "Rotation", "vec4", 4, false),
+        ("translation-inactive-sampler", "Translation", "vec2", 2, false),
+    ]
+    var result: [String: String] = [:]
+    for (name, suffix, type, lanes, samplerActive) in cases {
+        for reserved in [true, false] {
+            let label = "\(reserved ? "reserved" : "ordinary")-static-\(name)"
+            let uniform = reserved ? "g_Texture1\(suffix)" : "own\(suffix)"
+            let sampler = samplerActive ? "uniform sampler2D g_Texture1;" : ""
+            let sample = samplerActive ? "vec4 sampled = texSample2D(g_Texture1, vec2(0.5));" : ""
+            let alpha = samplerActive ? " * sampled.a" : ""
+            let shader = contract(revision: label, semanticProbes: false, fragmentSourceOverride: """
+                \(sampler)
+                uniform \(type) \(uniform);
+                void main() { \(sample) gl_FragColor = vec4(\(uniform).x\(alpha), 0.0, 0.0, 1.0); }
+                """)
+            guard let prepared = prepared(shader), let frontend = SceneAuthoredShaderFrontend.compile(
+                vertexSource: prepared.vertex.source, fragmentSource: prepared.fragment.source).program else {
+                result[label] = "frontend-unavailable"; continue
+            }
+            let active = Set(frontend.textureBindings.map(\.slot))
+            let fields = frontend.uniformLayout.fields
+            do {
+                let nonHost = fields.filter { SceneResolvedMaterialHostUniformSchema.resolve($0, activeTextureSlots: active) == nil }
+                let schema = try SceneResolvedMaterialShaderSchema.activeUniforms(nonHost, prepared: prepared)
+                _ = try SceneResolvedMaterialProgramFinalizer.prepareUniformBindings(
+                    template: template(shader, uniformDeclarations: [staticDeclaration(uniform, components: Array(repeating: 0, count: lanes))]),
+                    fields: fields, activeUniforms: schema, activeTextureSlots: active, neutralTextureResolution: nil)
+                result[label] = "success"
+            } catch let failure as SceneResolvedMaterialFailure {
+                result[label] = "\(failure.phase.rawValue)/\(failure.code.rawValue)"
+            } catch { result[label] = "unexpected" }
+        }
+    }
+    return result
 }
 
 func reachabilityIdentityMismatchToken(_ device: MTLDevice) -> String {
@@ -180,6 +227,7 @@ func reachabilityIdentityMismatchToken(_ device: MTLDevice) -> String {
     let admitted = template(shader)
     guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(
         template: admitted,
+        textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: admitted),
         maximumVariantCount: 8
     ), case .success = cache.precompileLaunchEnvelope(
         implicitFramebufferIdentity: graphTexture()
@@ -189,9 +237,8 @@ func reachabilityIdentityMismatchToken(_ device: MTLDevice) -> String {
         frameInputs: frameInputs(frameIndex: 1)
     ) else { return "setup-failed" }
     let input = frame.finalizationInput(
-        template: admitted,
-                layerID: 9001,
-                renderSize: CGSize(width: 640, height: 360),
+        layerID: 9001,
+        renderSize: CGSize(width: 640, height: 360),
         modelViewProjection: matrix_identity_float4x4,
         layerModelMatrix: layerModelMatrix,
         effectOutputModelViewProjection: effectOutputModelViewProjection,
@@ -226,6 +273,7 @@ func variantSelectionKeyMismatchTokens(
     )
     guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(
         template: admitted,
+        textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: admitted),
         maximumVariantCount: 8,
         assetFormatFacts: [identity.reportToken: SceneShaderTextureFormat.rgba8888.macroValue]
     ), case .success = cache.precompileLaunchEnvelope(
@@ -246,9 +294,8 @@ func variantSelectionKeyMismatchTokens(
         frameInputs: frameInputs(frameIndex: 1)
     ) else { return ["failure": "setup-failed", "details": "setup-failed"] }
     let input = frame.finalizationInput(
-        template: admitted,
-                layerID: 9001,
-                renderSize: CGSize(width: 640, height: 360),
+        layerID: 9001,
+        renderSize: CGSize(width: 640, height: 360),
         modelViewProjection: matrix_identity_float4x4,
         layerModelMatrix: layerModelMatrix,
         effectOutputModelViewProjection: effectOutputModelViewProjection,
@@ -270,6 +317,7 @@ func resolverInvariantTokens(_ device: MTLDevice) -> [String: String] {
     let admitted = template(shader)
     guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(
         template: admitted,
+        textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: admitted),
         maximumVariantCount: 8
     ), case .success = cache.precompileLaunchEnvelope(
         implicitFramebufferIdentity: nil
@@ -279,29 +327,29 @@ func resolverInvariantTokens(_ device: MTLDevice) -> [String: String] {
         frameInputs: frameInputs(frameIndex: 1)
     ) else { return ["setup": "failed"] }
     let readyInput = readyFrame.finalizationInput(
-        template: admitted,
-                layerID: 9001,
-                renderSize: CGSize(width: 640, height: 360),
+        layerID: 9001,
+        renderSize: CGSize(width: 640, height: 360),
         modelViewProjection: matrix_identity_float4x4,
         layerModelMatrix: layerModelMatrix,
         effectOutputModelViewProjection: effectOutputModelViewProjection,
         effectTextureProjectionMatrixInverse: effectProjectionInverse
     )
-    guard case let .success(selection) = cache.resolveSelection(readyInput),
+    guard case let .success(variant) = cache.resolveSelection(readyInput),
           case let .success(absentFrame) = SceneResolvedMaterialFrameSnapshot.validated(
               textureSnapshot: snapshot(device, kind: .absent),
               dynamicSnapshot: dynamicSnapshot(frameIndex: 1, source: nil),
               frameInputs: frameInputs(frameIndex: 1)
           ) else { return ["setup": "failed"] }
     let absentInput = absentFrame.finalizationInput(
-        template: admitted,
-                layerID: 9001,
-                renderSize: CGSize(width: 640, height: 360),
+        layerID: 9001,
+        renderSize: CGSize(width: 640, height: 360),
         modelViewProjection: matrix_identity_float4x4,
         layerModelMatrix: layerModelMatrix,
         effectOutputModelViewProjection: effectOutputModelViewProjection,
         effectTextureProjectionMatrixInverse: effectProjectionInverse
     )
+    let reachableTexturePurposes = SceneResolvedMaterialVariantCache.consensusPurposes(
+        cache.launchEnvelopeCapabilitySnapshot().variants.map { $0.textureSelectionFacts.candidatePurposes })
 
     func token(_ body: () throws -> Void) -> String {
         do {
@@ -318,17 +366,20 @@ func resolverInvariantTokens(_ device: MTLDevice) -> [String: String] {
         "readiness": token {
             _ = try SceneResolvedMaterialTextureResolver.resolve(
                 absentInput,
-                variant: selection.variant,
-                reachableSamplers: selection.reachableSamplers
+                textureSlots: admitted.textureSlots,
+                variant: variant
             )
         },
         "variantKey": token {
             _ = try SceneResolvedMaterialTextureResolver.variantKey(
                 readyInput,
-                samplers: selection.variant.activeSamplers,
-                reachableSamplers: selection.reachableSamplers,
+                textureSlots: admitted.textureSlots,
+                samplers: variant.activeSamplers,
+                reachableTexturePurposes: reachableTexturePurposes,
                 formatSlots: [8],
-                allowPresenceIndependentDefaults: true
+                allowPresenceIndependentDefaults: true,
+                textureSelectionFacts: variant.textureSelectionFacts,
+                graphInputSourceSlotFacts: variant.graphInputSourceSlotFacts
             )
         },
     ]

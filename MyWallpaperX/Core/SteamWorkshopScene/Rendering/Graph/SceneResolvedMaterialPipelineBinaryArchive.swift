@@ -11,9 +11,9 @@ private typealias Tier = SceneResolvedMaterialPipelineBinaryArchive
 /// color write mask, pipeline function names, render state and the prepared
 /// MSL source digest. A digest, file or archive mismatch is always a safe
 /// miss: the pipeline still compiles from source on the launch warmup worker
-/// and only the warm start is lost. Serialization runs on the background
-/// launch warmup workers; ordinary frame preparation never constructs a
-/// session, never reads and never writes this tier. A disk hit warms the
+/// and only the warm start is lost. Publication runs independently on utility
+/// workers after pipeline compilation; ordinary frame preparation never
+/// constructs a session, never reads and never writes this tier. A disk hit warms the
 /// first pipeline state only — it never publishes ready before the state
 /// exists and is cached in the encoder.
 nonisolated enum SceneResolvedMaterialPipelineBinaryArchive {
@@ -113,48 +113,53 @@ nonisolated enum SceneResolvedMaterialPipelineBinaryArchive {
 #endif
 
         private func publish(descriptor: MTLRenderPipelineDescriptor) {
-            guard let directory = Tier.publishDirectory() else {
+            // Both successful compile paths return immediately after this handoff.
+            // The final descriptor and archive have no remaining writer.
+            let work = DispatchWorkItem { [self, descriptor] in
+                guard let directory = Tier.publishDirectory() else {
 #if DEBUG || SCENE_GRAPH_TESTING
-                recordPublicationFailure(reason: "cache-unavailable")
+                    recordPublicationFailure(reason: "cache-unavailable")
 #endif
-                return
-            }
-            let temporary = directory.appendingPathComponent(
-                ".\(digest).\(Tier.fileExtension).tmp-\(UUID().uuidString)",
-                isDirectory: false
-            )
-            do {
-                try archive.addRenderPipelineFunctions(descriptor: descriptor)
-                try archive.serialize(to: temporary)
-                let destination = directory.appendingPathComponent(
-                    "\(digest).\(Tier.fileExtension)", isDirectory: false
-                )
-                // First publication has no previous entry; removal is only
-                // part of replacing an existing one.
-                if FileManager.default.fileExists(atPath: destination.path) {
-                    try FileManager.default.removeItem(at: destination)
+                    return
                 }
-                try FileManager.default.moveItem(at: temporary, to: destination)
+                let temporary = directory.appendingPathComponent(
+                    ".\(digest).\(Tier.fileExtension).tmp-\(UUID().uuidString)",
+                    isDirectory: false
+                )
+                do {
+                    try archive.addRenderPipelineFunctions(descriptor: descriptor)
+                    try archive.serialize(to: temporary)
+                    let destination = directory.appendingPathComponent(
+                        "\(digest).\(Tier.fileExtension)", isDirectory: false
+                    )
+                    // First publication has no previous entry; removal is only
+                    // part of replacing an existing one.
+                    if FileManager.default.fileExists(atPath: destination.path) {
+                        try FileManager.default.removeItem(at: destination)
+                    }
+                    try FileManager.default.moveItem(at: temporary, to: destination)
 #if DEBUG || SCENE_GRAPH_TESTING
-                Tier.bump { $0.publications += 1 }
+                    Tier.bump { $0.publications += 1 }
 #endif
 #if DEBUG
-                NSLog(
-                    "MWX resolved material pipeline binary archive"
-                        + " schema=\(Tier.schemaName)"
-                        + " phase=launch-preparation outcome=store digest=%@",
-                    shortDigest
-                )
+                    NSLog(
+                        "MWX resolved material pipeline binary archive"
+                            + " schema=\(Tier.schemaName)"
+                            + " phase=launch-preparation outcome=store digest=%@",
+                        shortDigest
+                    )
 #endif
-                Tier.pruneOnce(directory: directory)
-            } catch {
-                // A failed publication must not leak the serialized scratch
-                // file; the live pipeline state is already independent.
-                try? FileManager.default.removeItem(at: temporary)
+                    Tier.pruneOnce(directory: directory)
+                } catch {
+                    // A failed publication must not leak the serialized scratch
+                    // file; the live pipeline state is already independent.
+                    try? FileManager.default.removeItem(at: temporary)
 #if DEBUG || SCENE_GRAPH_TESTING
-                recordPublicationFailure(reason: String(describing: error))
+                    recordPublicationFailure(reason: String(describing: error))
 #endif
+                }
             }
+            DispatchQueue.global(qos: .utility).async(execute: work)
         }
 
 #if DEBUG || SCENE_GRAPH_TESTING
@@ -179,23 +184,10 @@ nonisolated enum SceneResolvedMaterialPipelineBinaryArchive {
     /// Any mismatch degrades to a fresh archive; `nil` only means Metal
     /// could not even create an empty archive and the caller compiles plain.
     static func prepareSession(
-        frontend: SceneAuthoredShaderProgram,
-        renderState: SceneMaterialRenderState,
-        pixelFormat: MTLPixelFormat,
-        sampleCount: Int,
-        writeMask: MTLColorWriteMask,
-        passRole: SceneResolvedMaterialProgram.PassRole = .offscreenOverwrite,
+        key: SceneResolvedMaterialProgram.MetalCompileStateKey,
         device: MTLDevice
     ) -> Session? {
-        guard let digest = keyDigest(
-            frontend: frontend,
-            renderState: renderState,
-            pixelFormat: pixelFormat,
-            sampleCount: sampleCount,
-            writeMask: writeMask,
-            passRole: passRole,
-            device: device
-        ) else { return nil }
+        guard let digest = keyDigest(key: key) else { return nil }
         var loadedArchive: MTLBinaryArchive?
         var loadedFromDisk = false
         var hadDiskEntry = false
@@ -259,53 +251,37 @@ nonisolated enum SceneResolvedMaterialPipelineBinaryArchive {
     /// Stable cross-process identity digest. Fields are length-prefixed by
     /// the shared digest accumulator, so no field boundary can collide.
     static func keyDigest(
-        frontend: SceneAuthoredShaderProgram,
-        renderState: SceneMaterialRenderState,
-        pixelFormat: MTLPixelFormat,
-        sampleCount: Int,
-        writeMask: MTLColorWriteMask,
-        passRole: SceneResolvedMaterialProgram.PassRole = .offscreenOverwrite,
-        device: MTLDevice
+        key: SceneResolvedMaterialProgram.MetalCompileStateKey
     ) -> String? {
-        guard device.registryID != 0,
-              pixelFormat != .invalid,
-              sampleCount > 0,
-              writeMask.rawValue != 0,
-              !frontend.vertexFunctionName.isEmpty,
-              !frontend.fragmentFunctionName.isEmpty,
-              !frontend.metalSource.isEmpty else { return nil }
-        let renderStateIdentity = SceneResolvedMaterialProgramIdentity.renderState(
-            renderState
-        )
         var digest = ScenePersistentCacheDigest()
         digest.append(schemaName)
         // The OS version string carries the build number, so a driver or
         // Metal compiler update produces a new digest.
         digest.append(ProcessInfo.processInfo.operatingSystemVersionString)
-        digest.append(String(device.registryID))
-        digest.append(String(pixelFormat.rawValue))
-        digest.append(String(sampleCount))
-        digest.append(String(writeMask.rawValue))
-        digest.append(passRole.rawValue)
-        digest.append(frontend.vertexFunctionName)
-        digest.append(frontend.fragmentFunctionName)
-        digest.append(String(frontend.uniformBufferIndex))
+        digest.append(String(key.deviceRegistryID))
+        digest.append(String(key.attachmentPixelFormatRawValue))
+        digest.append(String(key.sampleCount))
+        digest.append(String(key.colorWriteMaskRawValue))
+        digest.append(key.passRole.rawValue)
+        digest.append(key.shader.vertexFunctionName)
+        digest.append(key.shader.fragmentFunctionName)
+        digest.append(String(key.shader.uniformBufferIndex))
         digest.append(
             [
-                renderStateIdentity.blending.rawValue,
-                renderStateIdentity.depthTest.rawValue,
-                renderStateIdentity.depthWrite.rawValue,
-                renderStateIdentity.cullMode.rawValue,
-                renderStateIdentity.alphaWriting.rawValue,
+                key.renderState.blending.rawValue,
+                key.renderState.depthTest.rawValue,
+                key.renderState.depthWrite.rawValue,
+                key.renderState.cullMode.rawValue,
+                key.renderState.alphaWriting.rawValue,
             ].joined(separator: "|")
         )
-        if passRole.readsCurrentAttachment {
-            guard let variant = frontend.attachmentReadVariant else { return nil }
-            digest.append(variant.metalSourceSHA256)
+        if key.passRole.readsCurrentAttachment {
+            guard let sourceDigest = key.attachmentReadMetalSourceSHA256 else { return nil }
+            digest.append(sourceDigest)
         } else {
             digest.append(
                 SceneGenericShaderProgramArtifact.sha256(
-                    Data(frontend.metalSource.utf8)
+                    Data(key.shader.metalSource.utf8)
                 )
             )
         }
@@ -336,9 +312,9 @@ nonisolated enum SceneResolvedMaterialPipelineBinaryArchive {
 
     private static func pruneOnce(directory: URL) {
         lock.lock()
-        defer { lock.unlock() }
-        guard !pruned else { return }
+        guard !pruned else { lock.unlock(); return }
         pruned = true
+        lock.unlock()
         ScenePersistentCacheSupport.prune(
             directory,
             retainedEntryLimit: retainedEntryLimit,

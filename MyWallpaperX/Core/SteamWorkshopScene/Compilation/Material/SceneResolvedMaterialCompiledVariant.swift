@@ -3,8 +3,78 @@ import Foundation
 /// Immutable shader/frontend/schema facts for one texture-readiness variant.
 /// Concrete resources and uniform values are bound by each frame snapshot.
 nonisolated struct SceneResolvedMaterialCompiledVariant {
-    typealias Sampler = SceneResolvedMaterialShaderSchema.Sampler
-    typealias Uniform = SceneResolvedMaterialShaderSchema.Uniform
+    typealias Uniform = SceneResolvedMaterialPreparedUniformSchema
+    typealias Sampler = SceneResolvedMaterialPreparedSamplerSchema
+
+    struct MixedProviderSlot: Hashable {
+        enum OptionalInput: Hashable {
+            case system(String)
+            case userProperty(String)
+
+            init?(_ reference: SceneResolvedMaterialTemplate.TextureReference) {
+                switch reference {
+                case let .provider(.system(name)) where !name.isEmpty: self = .system(name)
+                case let .userProperty(request) where !request.key.isEmpty:
+                    self = .userProperty(request.key)
+                default: return nil
+                }
+            }
+
+            func matches(_ reference: SceneResolvedMaterialTemplate.TextureReference) -> Bool {
+                switch (self, reference) {
+                case let (.system(expected), .provider(.system(actual))): expected == actual
+                case let (.userProperty(expected), .userProperty(actual)): expected == actual.key
+                default: false
+                }
+            }
+        }
+
+        let slot: Int
+        let lowerNamedReference: SceneNamedTextureReference
+        let optionalInput: OptionalInput
+
+        func purpose(
+            for reference: SceneResolvedMaterialTemplate.TextureReference
+        ) -> SceneTextureLoadPurpose? {
+            switch reference {
+            case let .provider(.namedLayerTarget(reference)) where reference == lowerNamedReference:
+                .premultipliedColor
+            case let reference where optionalInput.matches(reference): .preservedChannels
+            default: nil
+            }
+        }
+    }
+
+    struct TextureSelectionFacts {
+        struct Candidate {
+            let graphInputSourceFact: SceneResolvedMaterialGraphInputSourceSlotFact?
+            let preservesAbsentOverride: Bool
+            let defersUnreadyOptionalPromotion: Bool
+        }
+
+        struct DefaultReference {
+            let reference: SceneResolvedMaterialTemplate.TextureReference
+            let purpose: SceneTextureLoadPurpose?
+            let graphInputSourceFact: SceneResolvedMaterialGraphInputSourceSlotFact?
+            let noiseFallback: SceneResolvedMaterialTemplate.TextureReference?
+            let requiresPresenceIndependentAllowance: Bool
+        }
+
+        enum DefaultSource {
+            case reference(DefaultReference)
+            case internalTarget(String)
+        }
+
+        /// Candidate ordinals follow the immutable Template; nil remains an
+        /// unproven purpose rather than an absent texture or a color default.
+        let candidatePurposes: [Int: [SceneTextureLoadPurpose?]]
+        let candidates: [Int: [Candidate]]
+        let defaults: [Int: DefaultSource]
+        let graphInputPurposes: [Int: SceneTextureLoadPurpose]
+        let mixedProviderSlots: [Int: MixedProviderSlot]
+        let regularNamedProviderPurposeSlots: Set<Int>
+
+    }
 
     let readinessMask: UInt8
     let textureFormats: [SceneShaderTextureFormat?]
@@ -24,6 +94,7 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
         preparedAssembly.runtimeLoopBounds
     }
     let activeSamplers: [Int: Sampler]
+    let textureSelectionFacts: TextureSelectionFacts
     let graphInputSourceSlotFacts: [
         Int: SceneResolvedMaterialGraphInputSourceSlotFact
     ]
@@ -50,9 +121,9 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
         SceneResolvedMaterialProgramDerivation
             .SameAlphaReconstructedRGBInputContract?
     let activeUniforms: [String: Uniform]
-    let preparedUniformBindings: [
-        SceneResolvedMaterialPreparedUniformBinding
-    ]
+    var preparedUniformBindings: [SceneResolvedMaterialPreparedUniformBinding] {
+        preparedAssembly.preparedUniformBindings
+    }
     let neutralTextureResolution:
         SceneAuthoredShaderNeutralTextureResolutionFact?
     let preservesTargetPixelFootprint: Bool
@@ -65,6 +136,7 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
         preparedOutputContent: SceneTextureContent? = nil,
         routeDecision: SceneGenericShaderRouteDecision,
         activeSamplers: [Int: Sampler],
+        textureSelectionFacts: TextureSelectionFacts,
         graphInputSourceSlotFacts: [
             Int: SceneResolvedMaterialGraphInputSourceSlotFact
         ],
@@ -75,9 +147,6 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
             SceneResolvedMaterialProgramDerivation
                 .SameAlphaReconstructedRGBInputContract?,
         activeUniforms: [String: Uniform],
-        preparedUniformBindings: [
-            SceneResolvedMaterialPreparedUniformBinding
-        ],
         neutralTextureResolution:
             SceneAuthoredShaderNeutralTextureResolutionFact?,
         preservesTargetPixelFootprint: Bool = false
@@ -89,6 +158,7 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
         self.preparedOutputContent = preparedOutputContent
         self.routeDecision = routeDecision
         self.activeSamplers = activeSamplers
+        self.textureSelectionFacts = textureSelectionFacts
         self.graphInputSourceSlotFacts = graphInputSourceSlotFacts
         self.preservedAlphaRGBColorSlots = preservedAlphaRGBColorSlots
         self.sourceProvenOpaqueColorSlots = sourceProvenOpaqueColorSlots
@@ -97,7 +167,6 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
         self.sameAlphaReconstructedRGBInputContract =
             sameAlphaReconstructedRGBInputContract
         self.activeUniforms = activeUniforms
-        self.preparedUniformBindings = preparedUniformBindings
         self.neutralTextureResolution = neutralTextureResolution
         self.preservesTargetPixelFootprint = preservesTargetPixelFootprint
     }

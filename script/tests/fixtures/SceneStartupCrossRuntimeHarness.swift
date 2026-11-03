@@ -32,8 +32,10 @@ struct PlaybackPerformanceProfile {
 struct HarnessSettings {
     var pauseWhenOtherAppFocused = true, pauseWhenOtherAppFullscreen = true
     var pauseWhenUnplugged = true, pauseWhenIdle = true, restorePlaybackOnLaunch = false
+    var syncSystemWallpaper = false
 }
 enum DebugScenePlaybackRunner {
+    static func strictRequestedPropertyValues(after flag: String) -> [String: SceneUserPropertyValue]? { [:] }
     static func argumentValue(after flag: String) -> String? {
         let a = ProcessInfo.processInfo.arguments
         guard let i = a.firstIndex(of: flag), a.indices.contains(i + 1) else { return nil }
@@ -48,7 +50,29 @@ enum DebugSceneProductEntryPolicy {
         URL(fileURLWithPath: rawPath)
     }
 }
-@MainActor enum DebugSceneDaemonClientRunner { static let requiresProductCoordinator = true }
+@MainActor enum DebugSceneDaemonClientRunner {
+    static let requiresProductCoordinator = true
+    static let debugPropertyValue: SceneUserPropertyValue? = .number(0.85)
+}
+@MainActor final class PlaybackCommandMultiplexer {
+    static let shared = PlaybackCommandMultiplexer()
+    enum Command { case pause, resume, setProperty([String: SceneUserPropertyValue], revision: UInt64, recordID: String) }
+    enum Engine { case scene }
+    func dispatch(_ command: Command, to: Engine) -> Bool {
+        let client = SceneDaemonClient.shared
+        if case let .setProperty(_, revision, recordID) = command {
+            client.pendingPropertyRevisions[revision] = recordID
+            DispatchQueue.main.async {
+                client.debugStartupWireObserver?(1, 42, HarnessState.now(), [
+                    "event": "propertyUpdateResult", "revision": revision, "recordID": recordID, "accepted": true,
+                    "debugPlaybackRequestID": (HarnessState.scenario == "property-foreign-request" ? UUID() : client.activeRequestID!).uuidString,
+                    "debugDaemonPID": Int32(42)])
+                client.pendingPropertyRevisions.removeValue(forKey: revision)
+            }
+        }
+        return true
+    }
+}
 struct SteamWorkshopDownloadRecord {
     enum Status { case ready }; enum Content { case scene }; enum Dependency { case none }
     let id: String, title: String, description: String, tags: [String]
@@ -97,9 +121,31 @@ enum SceneDaemonProtocol {
     var activeRequestID: UUID?, pendingRequestID: UUID?
     var activeResourceLifetime: UUID?, pendingResourceLifetime: UUID?
     var requestResourceLifetimes: [UUID: UUID] = [:]
+    var pendingPropertyRevisions: [UInt64: String] = [:]
     var retiringResourceLifetimes: [UInt64: [UUID]] = [:], retiringTransports: [UInt64: UUID] = [:]
     func handle(_ command: Command) -> Bool { true }
-    func shutdown(completion: () -> Void) { completion() }
+    func shutdown(completion: () -> Void) {
+        DaemonPlaybackProcessRegistry.shared.liveProcessIdentifiers = []
+        completion()
+    }
+    func captureSurfaceFrame(completion: @escaping (URL?) -> Void) {
+        let capture = UUID().uuidString
+        let url = URL(fileURLWithPath: DebugScenePlaybackRunner.argumentValue(after: "--mwx-debug-scene-startup-report")!)
+            .deletingLastPathComponent().appendingPathComponent("peer-capture-\(capture).jpg")
+        try! Data("peer observation; no renderer evidence".utf8).write(to: url)
+        HarnessState.captureCount += 1
+        let index = HarnessState.captureCount
+        let paused = index == 3 || index == 4
+        let times = [1.0, 2, 3, HarnessState.scenario == "pause-clock-moving" ? 3.5 : 3, 4, 1]
+        let snapshot: [String: Any] = ["captureID": capture, "daemonPID": debugProcessIdentifier!,
+            "requestID": (HarnessState.scenario == "capture-foreign-request" ? UUID() : activeRequestID!).uuidString,
+            "sessionID": HarnessState.sceneSession.uuidString, "windowNumbers": [100 + HarnessState.sceneCount],
+            "sceneTime": times[min(index - 1, times.count - 1)],
+            "isPlaybackPaused": paused, "isFrameDriverActive": !paused, "uptimeMicros": HarnessState.now()]
+        debugStartupWireObserver?(1, debugProcessIdentifier, HarnessState.now(), ["event": "frameCaptured",
+            "requestID": capture, "path": url.path, "debugCapture": snapshot])
+        completion(url)
+    }
 }
 enum DebugWebPlaybackRunner { static let hasIsolatedStartupEnvironment = true }
 @MainActor enum BundledVideoLibrary {
@@ -129,6 +175,10 @@ enum DebugWebPlaybackRunner { static let hasIsolatedStartupEnvironment = true }
     var settings = HarnessSettings(), playbackSwitch = PlaybackSwitchState()
     var switchEndpoints: [UUID: Bool] = [:]
     var activeWallpaperRuntime: WallpaperRuntimeKind = .scene
+    func stopCurrentPlayback() {
+        playbackSwitch.committed = nil
+        SceneDaemonClient.shared.activeRequestID = nil
+    }
     @discardableResult
     func requestDiagnosticPlayback(reference: WallpaperReference, runtime: WallpaperRuntimeKind,
                                    cause: WallpaperPlaybackCause = .userSelection,
@@ -187,6 +237,7 @@ enum DebugWebPlaybackRunner { static let hasIsolatedStartupEnvironment = true }
 @MainActor enum HarnessState {
     static let scenario = DebugScenePlaybackRunner.argumentValue(after: "--fixture-scenario") ?? "reuse"
     static var selections: [String] = [], epoch: UInt64 = 0, sceneCount = 0
+    static var captureCount = 0, sceneSession = UUID()
     static func now() -> UInt64 { UInt64(ProcessInfo.processInfo.systemUptime * 1_000_000) }
     static func ticket(_ kind: WallpaperRuntimeKind) -> PlaybackSwitchTicket {
         epoch += 1; return .init(epoch: epoch, id: UUID(), runtime: kind)
@@ -198,11 +249,14 @@ enum DebugWebPlaybackRunner { static let hasIsolatedStartupEnvironment = true }
         HarnessState.selections.append("scene"); HarnessState.sceneCount += 1
         let client = SceneDaemonClient.shared, manager = WallpaperManager.shared
         let ticket = libraryPending.ticket, request = UUID(), execution = UUID()
-        let second = HarnessState.sceneCount == 2, fresh = second && HarnessState.scenario == "baseline"
+        let second = HarnessState.sceneCount == 2
+        let fresh = second && ["baseline", "new-pid"].contains(HarnessState.scenario)
+        let previous = client.activeRequestID
         let generation: UInt64 = fresh ? 2 : 1, pid: Int32 = fresh ? 43 : 42
         manager.playbackSwitch.pending = .init(selection: .init(ticket: ticket, executionID: execution))
         client.pendingSwitchTicket = ticket
         DispatchQueue.main.async {
+            HarnessState.sceneSession = UUID()
             client.debugProcessIdentifier = pid; client.endpointReady = true
             client.activeRequestID = request
             client.activeIntent = .init(recordID: record.id, source: ["managed": "same-approved-source"])
@@ -226,6 +280,11 @@ enum DebugWebPlaybackRunner { static let hasIsolatedStartupEnvironment = true }
             client.debugStartupObserver?(.init(phase: .parentFinalized, ticketID: ticket.id,
                 intentEpoch: ticket.epoch, requestID: request, executionID: execution,
                 transportGeneration: generation, daemonPID: pid, uptimeMicros: HarnessState.now()))
+            if let previous, DebugScenePlaybackRunner.argumentValue(after: "--mwx-debug-scene-startup-mode") == "lifecycle",
+               HarnessState.scenario != "missing-drain" {
+                client.debugStartupWireObserver?(generation, pid, HarnessState.now(), ["event": "launchResourcesReleased",
+                    "requestID": previous.uuidString, "resourcesRetired": true, "gpuDrained": true, "debugDaemonPID": pid])
+            }
         }
         return true
     }

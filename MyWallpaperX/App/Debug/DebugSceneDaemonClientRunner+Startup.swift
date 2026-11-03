@@ -34,6 +34,9 @@ private final class DebugSceneStartupRun {
     private var videoFacts: [String: Any] = [:]
     private var wireObservations: [[String: Any]] = []
     private var wireObservationOverflowed = false
+    private var lifecycleFacts: [String: Any] = [:]
+    private var lifecycleCaptures: [[String: Any]] = []
+    private var awaitingPropertyAcknowledgement = false
 
     private static func argument(_ flag: String) -> String? {
         DebugScenePlaybackRunner.argumentValue(after: flag)
@@ -65,7 +68,7 @@ private final class DebugSceneStartupRun {
             throw InvalidConfiguration(reason: "requires-stable-product-entry-without-evidence-or-switch-smoke")
         }
         guard let mode = Self.argument("--mwx-debug-scene-startup-mode"),
-              ["single", "sequence", "reentry-video"].contains(mode),
+              ["single", "sequence", "reentry-video", "lifecycle"].contains(mode),
               let reportPath = Self.argument("--mwx-debug-scene-startup-report"),
               reportPath.hasPrefix("/") else {
             throw InvalidConfiguration(reason: "invalid-startup-mode-or-report")
@@ -96,9 +99,21 @@ private final class DebugSceneStartupRun {
         }
         let first = try isolatedScene(rootURL.path)
         if let secondPath = Self.argument("--mwx-debug-scene-startup-second-root") {
-            guard mode == "sequence" else { throw InvalidConfiguration(reason: "second-root-requires-sequence") }
-            roots = [first, try isolatedScene(secondPath), first]
+            guard mode == "sequence" || mode == "lifecycle" else {
+                throw InvalidConfiguration(reason: "second-root-requires-sequence-or-lifecycle")
+            }
+            let second = try isolatedScene(secondPath)
+            roots = mode == "lifecycle" ? [first, second] : [first, second, first]
         } else { roots = mode == "single" ? [first] : [first, first] }
+        if mode == "lifecycle" {
+            guard roots.count == 2, roots[0] != roots[1],
+                  Self.argument("--mwx-debug-scene-property-key").map({ !$0.isEmpty }) == true,
+                  DebugSceneDaemonClientRunner.debugPropertyValue != nil,
+                  DebugScenePlaybackRunner.strictRequestedPropertyValues(
+                    after: "--mwx-debug-scene-properties-json")?.isEmpty == true else {
+                throw InvalidConfiguration(reason: "lifecycle-requires-two-scenes-and-one-typed-live-property")
+            }
+        }
         if let raw = Self.argument("--mwx-debug-scene-duration") {
             guard let value = Double(raw), value.isFinite, (5...120).contains(value) else {
                 throw InvalidConfiguration(reason: "invalid-row-timeout")
@@ -117,6 +132,7 @@ private final class DebugSceneStartupRun {
         settings.pauseWhenOtherAppFullscreen = false
         settings.pauseWhenUnplugged = false
         settings.pauseWhenIdle = false
+        if mode == "lifecycle" { settings.syncSystemWallpaper = false }
         WallpaperManager.shared.settings = settings
         let fps = requestedFPS ?? PlaybackPerformanceProfile.current.maxFPS
         _ = SceneDaemonClient.shared.handle(.setPerformanceProfile(maxFPS: fps))
@@ -124,10 +140,12 @@ private final class DebugSceneStartupRun {
 
     private func installObservers() {
         let client = SceneDaemonClient.shared
-        if mode == "reentry-video" {
+        if mode == "reentry-video" || mode == "lifecycle" {
             client.debugStartupWireObserver = { [weak self] generation, pid, uptime, payload in
                 self?.observeWire(generation: generation, pid: pid, uptime: uptime, payload: payload)
             }
+        }
+        if mode == "reentry-video" {
             observers.append(NotificationCenter.default.addObserver(
                 forName: .wallpaperSwitchDidFail, object: nil, queue: .main
             ) { [weak self] notification in
@@ -192,7 +210,9 @@ private final class DebugSceneStartupRun {
             MainActor.assumeIsolated {
                 guard let self, !self.finished,
                       let value = notification.object as? SceneDaemonClientFailure,
-                      value.recordID == self.current?.recordID else { return }
+                      value.recordID == self.current?.recordID
+                        || (self.mode == "lifecycle" && value.recordID == (self.rows.last?["recordID"] as? String))
+                else { return }
                 self.current?.fail("daemon-" + value.code)
                 self.finishCurrentAndStop(reason: value.message)
             }
@@ -278,7 +298,8 @@ private final class DebugSceneStartupRun {
         appendCurrent()
         if rows.last?["passed"] as? Bool != true {
             finish(reason: "Scene startup observations were invalid")
-        } else if rows.count == roots.count { finish(reason: nil) }
+        } else if mode == "lifecycle" { continueLifecycleAfterSelection() }
+        else if rows.count == roots.count { finish(reason: nil) }
         else if mode == "reentry-video" { selectInterstitialVideo() }
         else {
             // Leave the current notification/finalize stack before another selection.
@@ -305,7 +326,9 @@ private final class DebugSceneStartupRun {
         observers.removeAll()
         SceneDaemonClient.shared.debugStartupObserver = nil
         SceneDaemonClient.shared.debugStartupPrefixObserver = nil
-        if mode == "reentry-video" { SceneDaemonClient.shared.debugStartupWireObserver = nil }
+        if mode == "reentry-video" || mode == "lifecycle" {
+            SceneDaemonClient.shared.debugStartupWireObserver = nil
+        }
         var report: [String: Any] = [
             "schemaVersion": 1, "mode": mode, "launchEntry": "steam-workshop-set-as-wallpaper",
             "passed": reason == nil && rows.count == roots.count
@@ -325,10 +348,213 @@ private final class DebugSceneStartupRun {
             report["passed"] = report["passed"] as? Bool == true && cross["passed"] as? Bool == true
         }
         if let reason { report["failure"] = reason }
+        if mode == "lifecycle" {
+            lifecycleFacts["captures"] = lifecycleCaptures
+            lifecycleFacts["wireObservations"] = wireObservations
+            lifecycleFacts["shutdownCompletionObserved"] = false
+            lifecycleFacts["stopRequestedUptimeMicros"] = Self.now()
+            WallpaperManager.shared.stopCurrentPlayback()
+            lifecycleFacts["productStopClearedSelection"] = WallpaperManager.shared.playbackSwitch.committed == nil
+                && SceneDaemonClient.shared.activeRequestID == nil
+            report["lifecycleObservation"] = lifecycleFacts
+            report["shutdownEvidenceBoundary"] = "client completion and registry; outer gate checks daemon GPU drain callback and exact child exit"
+            let controlsPassed = report["passed"] as? Bool == true && !wireObservationOverflowed
+            report["passed"] = false
+            Self.write(report, to: reportURL)
+            let pid = rows.last?["daemonPID"] as? Int32
+            SceneDaemonClient.shared.shutdown {
+                self.lifecycleFacts["shutdownCompletionObserved"] = true
+                let exited = pid.map { !DaemonPlaybackProcessRegistry.shared.liveProcessIdentifiers.contains($0) } ?? false
+                self.lifecycleFacts["daemonUnregisteredAfterShutdown"] = exited
+                report["lifecycleObservation"] = self.lifecycleFacts
+                report["passed"] = controlsPassed && exited
+                    && self.lifecycleFacts["productStopClearedSelection"] as? Bool == true
+                Self.write(report, to: self.reportURL)
+                Self.retained = nil
+                NSApp.terminate(nil)
+            }
+            return
+        }
         Self.write(report, to: reportURL)
         SceneDaemonClient.shared.shutdown {
             Self.retained = nil
             NSApp.terminate(nil)
+        }
+    }
+
+    private func continueLifecycleAfterSelection() {
+        lifecycleFacts["systemWallpaperSyncDisabled"] = !WallpaperManager.shared.settings.syncSystemWallpaper
+        let work = DispatchWorkItem { [weak self] in
+            self?.finish(reason: "lifecycle-control-or-resource-release-timeout")
+        }
+        deadline = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + timeoutSeconds, execute: work)
+        if rows.count == 1 {
+            captureLifecycleFrame("a-before", row: rows[0]) { [weak self] in
+                guard let self, let key = Self.argument("--mwx-debug-scene-property-key"),
+                      let value = DebugSceneDaemonClientRunner.debugPropertyValue,
+                      let record = self.rows[0]["recordID"] as? String else { return }
+                self.awaitingPropertyAcknowledgement = true
+                self.lifecycleFacts["propertyDispatch"] = ["recordID": record, "revision": 1,
+                    "key": key, "value": value.foundationValue, "uptimeMicros": Self.now(),
+                    "requestID": SceneDaemonClient.shared.activeRequestID?.uuidString ?? "",
+                    "executionID": WallpaperManager.shared.playbackSwitch.committed?.executionID?.uuidString ?? "",
+                    "daemonPID": SceneDaemonClient.shared.debugProcessIdentifier.map { $0 as Any } ?? NSNull()]
+                guard PlaybackCommandMultiplexer.shared.dispatch(
+                    .setProperty([key: value], revision: 1, recordID: record), to: .scene) else {
+                    self.finish(reason: "lifecycle-property-dispatch-rejected"); return
+                }
+            }
+        } else {
+            let first = rows[0], second = rows[1]
+            let fresh = ["ticketID", "requestID", "executionID"].allSatisfy { key in
+                guard let a = first[key] as? String, let b = second[key] as? String else { return false }
+                return a != b
+            }
+            guard fresh, first["daemonPID"] as? Int32 == second["daemonPID"] as? Int32,
+                  first["daemonGeneration"] as? UInt64 == second["daemonGeneration"] as? UInt64 else {
+                finish(reason: "lifecycle-switch-did-not-preserve-daemon-and-refresh-selection"); return
+            }
+            lifecycleFacts["freshBSelectionInSameDaemon"] = true
+            captureLifecycleFrame("b-presented", row: second) { [weak self] in self?.awaitLifecycleRetirement() }
+        }
+    }
+
+    private func lifecycleIdentityMatches(_ row: [String: Any]) -> Bool {
+        let client = SceneDaemonClient.shared
+        let committed = WallpaperManager.shared.playbackSwitch.committed
+        return client.endpointReady && client.activeRequestID?.uuidString == row["requestID"] as? String
+            && client.debugProcessIdentifier == row["daemonPID"] as? Int32
+            && committed?.ticket.id.uuidString == row["ticketID"] as? String
+            && committed?.executionID?.uuidString == row["executionID"] as? String
+    }
+
+    private func captureLifecycleFrame(_ label: String, row: [String: Any], completion: @escaping () -> Void) {
+        guard !finished, lifecycleIdentityMatches(row) else {
+            finish(reason: "lifecycle-active-identity-changed-" + label); return
+        }
+        SceneDaemonClient.shared.captureSurfaceFrame { [weak self] url in
+            defer {
+                if let url, url.deletingLastPathComponent().path == "/private/tmp",
+                   url.lastPathComponent.hasPrefix("mwx-scene-frame-"), url.pathExtension == "jpg",
+                   UUID(uuidString: String(url.deletingPathExtension().lastPathComponent.dropFirst("mwx-scene-frame-".count))) != nil {
+                    try? FileManager.default.removeItem(at: url)
+                }
+            }
+            guard let self, !self.finished else { return }
+            guard let url, self.lifecycleIdentityMatches(row),
+                  let observation = self.wireObservations.last(where: {
+                      let payload = $0["payload"] as? [String: Any]
+                      return payload?["event"] as? String == "frameCaptured" && payload?["path"] as? String == url.path
+                  }), let payload = observation["payload"] as? [String: Any],
+                  let captureID = payload["requestID"] as? String,
+                  let snapshot = payload["debugCapture"] as? [String: Any],
+                  snapshot["captureID"] as? String == captureID,
+                  snapshot["requestID"] as? String == row["requestID"] as? String,
+                  snapshot["daemonPID"] as? Int32 == row["daemonPID"] as? Int32,
+                  let session = snapshot["sessionID"] as? String, UUID(uuidString: session) != nil,
+                  let windows = snapshot["windowNumbers"] as? [Int], !windows.isEmpty else {
+                self.finish(reason: "lifecycle-capture-or-host-association-missing-" + label); return
+            }
+            if let first = self.lifecycleCaptures.first?["host"] as? [String: Any], label != "b-presented" {
+                guard snapshot["sessionID"] as? String == first["sessionID"] as? String,
+                      windows == first["windowNumbers"] as? [Int] else {
+                    self.finish(reason: "lifecycle-session-or-window-changed-" + label); return
+                }
+            }
+            do {
+                let destination = self.reportURL.deletingLastPathComponent().appendingPathComponent(label + ".jpg")
+                try FileManager.default.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try FileManager.default.copyItem(at: url, to: destination)
+                self.lifecycleCaptures.append(["phase": label, "captureID": captureID, "path": destination.path,
+                    "ticketID": row["ticketID"] ?? NSNull(), "executionID": row["executionID"] ?? NSNull(),
+                    "daemonGeneration": observation["transportGeneration"] ?? NSNull(), "host": snapshot])
+            } catch {
+                self.finish(reason: "lifecycle-capture-persistence-" + label); return
+            }
+            completion()
+        }
+    }
+
+    private func observeLifecycleProperty(_ observation: [String: Any], payload: [String: Any]) {
+        guard awaitingPropertyAcknowledgement, let first = rows.first,
+              payload["recordID"] as? String == first["recordID"] as? String,
+              payload["revision"] as? UInt64 == 1 else { return }
+        guard observation["matchedPendingProperty"] as? Bool == true,
+              payload["accepted"] as? Bool == true,
+              payload["debugPlaybackRequestID"] as? String == first["requestID"] as? String,
+              payload["debugDaemonPID"] as? Int32 == first["daemonPID"] as? Int32,
+              observation["daemonPID"] as? Int32 == first["daemonPID"] as? Int32,
+              observation["transportGeneration"] as? UInt64 == first["daemonGeneration"] as? UInt64,
+              lifecycleIdentityMatches(first) else {
+            finish(reason: "lifecycle-property-acknowledgement-mismatch"); return
+        }
+        awaitingPropertyAcknowledgement = false
+        lifecycleFacts["propertyAcknowledgement"] = observation
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
+            guard let self, !self.finished else { return }
+            self.captureLifecycleFrame("a-property", row: first) { [weak self] in self?.pauseLifecycle() }
+        }
+    }
+
+    private func pauseLifecycle() {
+        guard PlaybackCommandMultiplexer.shared.dispatch(.pause, to: .scene) else {
+            finish(reason: "lifecycle-pause-rejected"); return
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+            guard let self, !self.finished else { return }
+            self.captureLifecycleFrame("a-paused-first", row: self.rows[0]) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+                    guard let self, !self.finished else { return }
+                    self.captureLifecycleFrame("a-paused-second", row: self.rows[0]) { [weak self] in self?.resumeLifecycle() }
+                }
+            }
+        }
+    }
+
+    private func resumeLifecycle() {
+        let paused = lifecycleCaptures.filter { ($0["phase"] as? String)?.hasPrefix("a-paused-") == true }
+            .compactMap { $0["host"] as? [String: Any] }
+        guard paused.count == 2,
+              paused.allSatisfy({ $0["isPlaybackPaused"] as? Bool == true && $0["isFrameDriverActive"] as? Bool == false }),
+              let time = paused[0]["sceneTime"] as? Double, time > 0,
+              paused[1]["sceneTime"] as? Double == time else {
+            finish(reason: "lifecycle-pause-clock-did-not-freeze"); return
+        }
+        lifecycleFacts["pauseClockFrozen"] = true
+        guard PlaybackCommandMultiplexer.shared.dispatch(.resume, to: .scene) else {
+            finish(reason: "lifecycle-resume-rejected"); return
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+            guard let self, !self.finished else { return }
+            self.captureLifecycleFrame("a-resumed", row: self.rows[0]) { [weak self] in
+                guard let self, let host = self.lifecycleCaptures.last?["host"] as? [String: Any],
+                      host["isPlaybackPaused"] as? Bool == false, host["isFrameDriverActive"] as? Bool == true,
+                      let resumed = host["sceneTime"] as? Double, resumed > time else {
+                    self?.finish(reason: "lifecycle-resume-clock-did-not-advance"); return
+                }
+                self.lifecycleFacts["resumeClockAdvanced"] = true
+                self.deadline?.cancel(); self.deadline = nil
+                self.selectNext()
+            }
+        }
+    }
+
+    private func awaitLifecycleRetirement() {
+        guard !finished, let first = rows.first else { return }
+        if let released = wireObservations.first(where: {
+            guard let payload = $0["payload"] as? [String: Any] else { return false }
+            return payload["event"] as? String == "launchResourcesReleased"
+                && payload["requestID"] as? String == first["requestID"] as? String
+                && payload["resourcesRetired"] as? Bool == true && payload["gpuDrained"] as? Bool == true
+                && payload["debugDaemonPID"] as? Int32 == first["daemonPID"] as? Int32
+                && $0["daemonPID"] as? Int32 == first["daemonPID"] as? Int32
+                && $0["transportGeneration"] as? UInt64 == first["daemonGeneration"] as? UInt64
+        }) {
+            lifecycleFacts["aLaunchResourcesReleased"] = released
+            finish(reason: nil)
+        } else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) { [weak self] in self?.awaitLifecycleRetirement() }
         }
     }
 
@@ -429,10 +655,16 @@ private final class DebugSceneStartupRun {
         let isHello = payload["role"] as? String == "scene-daemon"
         let event = payload["event"] as? String
         guard isHello || event == "switchControlResult" || event == "launchResourcesReleased"
-            || event == "exited" else { return }
+            || event == "exited" || (mode == "lifecycle" && (event == "frameCaptured" || event == "propertyUpdateResult"))
+        else { return }
         let keys = ["v", "role", "event", "sourceSchemaVersion", "requestRetirementSchemaVersion",
-                    "requestID", "operationID", "accepted", "requestRetired", "resourcesRetired", "gpuDrained"]
-        guard wireObservations.count < 64 else { wireObservationOverflowed = true; return }
+                    "requestID", "operationID", "accepted", "requestRetired", "resourcesRetired", "gpuDrained",
+                    "revision", "recordID", "path", "debugCapture", "debugPlaybackRequestID", "debugDaemonPID"]
+        guard wireObservations.count < 64 else {
+            wireObservationOverflowed = true
+            if mode == "lifecycle" { finish(reason: "lifecycle-wire-observation-overflow") }
+            return
+        }
         let controlMatches: Bool
         if let raw = payload["operationID"] as? String, let id = UUID(uuidString: raw),
            let control = SceneDaemonClient.shared.switchControls[id] {
@@ -440,11 +672,20 @@ private final class DebugSceneStartupRun {
                 && control.requestID?.uuidString == payload["requestID"] as? String
                 && control.transport.process.processIdentifier == pid
         } else { controlMatches = false }
-        wireObservations.append([
+        let propertyMatches: Bool
+        if let revision = payload["revision"] as? UInt64, let record = payload["recordID"] as? String {
+            propertyMatches = SceneDaemonClient.shared.pendingPropertyRevisions[revision] == record
+        } else { propertyMatches = false }
+        let observation: [String: Any] = [
             "transportGeneration": generation, "daemonPID": pid.map { $0 as Any } ?? NSNull(),
             "observedUptimeMicros": uptime, "matchedPendingControl": controlMatches,
+            "matchedPendingProperty": propertyMatches,
             "payload": payload.filter { keys.contains($0.key) }
-        ])
+        ]
+        wireObservations.append(observation)
+        if mode == "lifecycle", event == "propertyUpdateResult" {
+            observeLifecycleProperty(observation, payload: payload)
+        }
     }
 
     private var crossRuntimeReport: [String: Any] {

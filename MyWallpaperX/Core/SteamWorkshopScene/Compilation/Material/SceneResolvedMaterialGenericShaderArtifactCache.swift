@@ -29,15 +29,11 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
     }
 
     enum ProgramLoadFailure: Error {
-        case publicationMissing
-        case invalidJSON
         case contractRejected
         case compiler(SceneGenericShaderCompiler.Failure)
 
         var code: String {
             switch self {
-            case .publicationMissing: "compiler-publication-missing"
-            case .invalidJSON: "artifact-invalid-json"
             case .contractRejected: "artifact-contract-rejected"
             case let .compiler(failure): compilerFallbackCode(failure)
             }
@@ -49,7 +45,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
     private static let profileRouteEnvironment =
         "MWX_SCENE_GENERIC_SHADER_PROFILE_ROUTES"
     private static let cacheEnvironment = "MWX_SCENE_GENERIC_SHADER_CACHE"
-    private static let maximumArtifactBytes = 2 * 1_024 * 1_024
+    private static let maximumCachedArtifactBytes = 2 * 1_024 * 1_024
     static let maximumRouteAnalysisSourceBytes = 512 * 1_024
 #if DEBUG
     static let routeTelemetry = RouteTelemetry()
@@ -62,7 +58,6 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
     final class RouteTelemetry: @unchecked Sendable {
         private let lock = NSLock()
         private var counts: [String: Int] = [:]
-        private var executedIdentities = Set<String>()
 
         func record(
             state: RouteState,
@@ -109,38 +104,6 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                 reason,
                 requestKey,
                 count
-            )
-        }
-
-        func recordExecution(
-            routeDecision: RouteDecision,
-            backend: SceneAuthoredShaderProgram.Backend,
-            graphInputDiagnostics: [String],
-            layerID: Int,
-            effectIndex: Int,
-            descriptorID: String,
-            nodeIndex: Int,
-            preparedKey: String
-        ) {
-            let graphInputs = graphInputDiagnostics.joined(separator: ",")
-            let identity = [
-                String(layerID), String(effectIndex), descriptorID,
-                String(nodeIndex), backend.rawValue, preparedKey, graphInputs,
-            ].joined(separator: "|")
-            guard lock.withLock({ executedIdentities.insert(identity).inserted }) else {
-                return
-            }
-            NSLog(
-                "MWX generic shader execution state=%@ profile=%@ layer=%d effect=%d descriptor=%@ node=%d backend=%@ prepared=%@ graphInputs=%@",
-                routeDecision.state,
-                routeDecision.profile,
-                layerID,
-                effectIndex,
-                descriptorID,
-                nodeIndex,
-                backend.rawValue,
-                preparedKey,
-                graphInputs.isEmpty ? "-" : graphInputs
             )
         }
 
@@ -343,15 +306,8 @@ routeTelemetry.record(
                 routeDecision: routeDecision
             )
         }
-        guard let root = cacheDirectory(environment: environment) else {
-            return fallback(
-                state: routeState,
-                profile: profile,
-                code: "cache-unavailable",
-                requestKey: key
-            )
-        }
-        let artifactURL = root.appendingPathComponent("\(key).json", isDirectory: false)
+        let artifactURL = cacheDirectory(environment: environment)?
+            .appendingPathComponent("\(key).json", isDirectory: false)
         let fragmentOutputChannelUse = SceneAuthoredShaderFragmentOutputAnalyzer.analyze(
             source: fragmentSource
         )
@@ -365,15 +321,8 @@ routeTelemetry.record(
                 colorTransfer: colorTransfer,
                 fragmentOutputChannelUse: fragmentOutputChannelUse
             ),
-            validate: { data in
-                let artifact: SceneGenericShaderProgramArtifact
-                do {
-                    artifact = try JSONDecoder().decode(
-                        SceneGenericShaderProgramArtifact.self,
-                        from: data
-                    )
-                } catch { return .failure(.invalidJSON) }
-                guard let program = artifact.makeProgram(
+            validate: { artifact in
+                artifact.makeProgram(
                     expectedKey: key,
                     expectedOutputSemantics: outputSemantics,
                     expectedPremultipliedColorInputSlots:
@@ -381,8 +330,7 @@ routeTelemetry.record(
                     expectedColorBoundary: colorBoundary,
                     expectedColorTransfer: colorTransfer,
                     expectedFragmentOutputChannelUse: fragmentOutputChannelUse
-                ) else { return .failure(.contractRejected) }
-                return .success(program)
+                )
             },
             compile: {
                 SceneGenericShaderCompiler.compile(
@@ -395,7 +343,6 @@ routeTelemetry.record(
                     defaultBoundaryColorSlots: defaultBoundaryColorSlots,
                     colorBoundary: colorBoundary,
                     boundTextureSlots: activeTextureSlots,
-                    cacheRoot: root,
                     normalizedSources: resolvedAnalysisOutcome.normalizedSources
                 )
             }
@@ -421,10 +368,12 @@ routeTelemetry.record(
         )
 #endif
         if !analysisFromCache {
-            SceneGenericShaderAnalysisCache.store(
-                analysis: analysis,
-                input: resolutionInput
-            )
+            DispatchQueue.global(qos: .utility).async {
+                SceneGenericShaderAnalysisCache.store(
+                    analysis: analysis,
+                    input: resolutionInput
+                )
+            }
         }
         return .accepted(
             program: program,
@@ -453,27 +402,34 @@ routeTelemetry.record(
     /// A disk entry is a hit only after decoding and the complete Program
     /// contract have accepted it. Recheck inside the existing single-flight
     /// before compiling: another caller/process may have repaired the entry.
-    /// Atomic publication replaces invalid files without first deleting a
-    /// concurrently repaired entry. One request never retries a bad publication.
+    /// Successful compilation supplies the artifact directly; optional atomic
+    /// publication neither delays adoption nor transports the Program.
     static func loadOrCompileProgram(
-        artifactURL: URL,
+        artifactURL: URL?,
         key: SceneResolvedMaterialGenericShaderCompilationCoordinator.Key,
         coordinator: SceneResolvedMaterialGenericShaderCompilationCoordinator =
             compilationCoordinator,
-        validate: (Data) -> Result<SceneAuthoredShaderProgram, ProgramLoadFailure>,
-        compile: () -> Result<URL, SceneGenericShaderCompiler.Failure>
+        validate: (SceneGenericShaderProgramArtifact) -> SceneAuthoredShaderProgram?,
+        compile: () -> Result<SceneGenericShaderCompiler.Output, SceneGenericShaderCompiler.Failure>
     ) -> Result<SceneAuthoredShaderProgram, ProgramLoadFailure> {
-        func readProgram() -> Result<SceneAuthoredShaderProgram, ProgramLoadFailure> {
-            guard let data = regularFileData(artifactURL) else {
-                return .failure(.publicationMissing)
-            }
-            return validate(data)
+        func readProgram() -> SceneAuthoredShaderProgram? {
+            guard let artifactURL,
+                  let data = regularFileData(artifactURL),
+                  let artifact = try? JSONDecoder().decode(
+                    SceneGenericShaderProgramArtifact.self, from: data
+                  ) else { return nil }
+            return validate(artifact)
         }
-        if case let .success(program) = readProgram() { return .success(program) }
+        if let program = readProgram() { return .success(program) }
         let compilation = coordinator.perform(key: key) {
-            if case let .success(program) = readProgram() { return .success(program) }
+            if let program = readProgram() { return .success(program) }
             switch compile() {
-            case .success: return readProgram()
+            case let .success(output):
+                guard let program = validate(output.artifact) else {
+                    return .failure(.contractRejected)
+                }
+                publish(output.encodedData, at: artifactURL)
+                return .success(program)
             case let .failure(failure): return .failure(.compiler(failure))
             }
         }
@@ -482,7 +438,7 @@ routeTelemetry.record(
         switch result {
         case .success:
             routeTelemetry.recordCompilerLifecycle(
-                source: compilation.source, outcome: "published",
+                source: compilation.source, outcome: "accepted",
                 reason: "-", requestKey: key.requestKey
             )
         case let .failure(failure):
@@ -596,28 +552,37 @@ routeTelemetry.record(
         environment: [String: String]
     ) -> URL? {
         if let rawRoot = environment[cacheEnvironment] {
-            return validatedDirectory(rawRoot)
+            guard !rawRoot.isEmpty else { return nil }
+            return URL(fileURLWithPath: rawRoot, isDirectory: true).standardizedFileURL
         }
         guard let caches = FileManager.default.urls(
             for: .cachesDirectory,
             in: .userDomainMask
         ).first else { return nil }
-        let root = caches
+        return caches
             .appendingPathComponent("com.songziqiang.MyWallpaperX", isDirectory: true)
             // v11 retires the implicit coordinate transform and synthetic ABI.
             // The request-key version also invalidates custom cache roots.
             .appendingPathComponent("SceneGenericShaderPrograms-v11", isDirectory: true)
             .standardizedFileURL
-        do {
-            try FileManager.default.createDirectory(
-                at: root,
-                withIntermediateDirectories: true,
-                attributes: [.posixPermissions: 0o700]
-            )
-        } catch {
-            return nil
+    }
+
+    private static func publish(_ data: Data, at url: URL?) {
+        guard let url, (1 ... maximumCachedArtifactBytes).contains(data.count) else { return }
+        DispatchQueue.global(qos: .utility).async {
+            let directory = url.deletingLastPathComponent()
+            do {
+                try FileManager.default.createDirectory(
+                    at: directory,
+                    withIntermediateDirectories: true,
+                    attributes: [.posixPermissions: 0o700]
+                )
+                guard validatedDirectory(directory.path) != nil else { return }
+                try data.write(to: url, options: [.atomic])
+            } catch {
+                // The accepted Program does not depend on optional persistence.
+            }
         }
-        return validatedDirectory(root.path)
     }
 
     private static func compilerFallbackCode(
@@ -647,14 +612,13 @@ routeTelemetry.record(
             return "compiler-tool-\(sanitize(reason))"
         case let .artifact(reason):
             return "compiler-artifact-\(sanitize(reason))"
-        case .publication:
-            return "compiler-publication"
         }
     }
 
     private static func regularFileData(_ url: URL) -> Data? {
-        ScenePersistentCacheSupport.regularFileData(
-            url, maximumBytes: maximumArtifactBytes
+        guard validatedDirectory(url.deletingLastPathComponent().path) != nil else { return nil }
+        return ScenePersistentCacheSupport.regularFileData(
+            url, maximumBytes: maximumCachedArtifactBytes
         )
     }
 

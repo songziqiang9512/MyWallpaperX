@@ -203,6 +203,7 @@ HARNESS = r'''
         values: [String: SceneUserPropertyValue], prepared: Set<Int> = [],
         colorCapabilities: [Int: SceneResolvedMaterialExecutionCapabilityCatalog.Capability] = [:],
         unresolved: Set<Int> = [], sourceCandidates: Set<Int> = [],
+        preparedMaterialTargets: Set<SceneDynamicTarget> = [],
         definitions: [SceneUserPropertyDefinition] = [], rebuild: [String] = [],
         scriptConsumers: [String: Set<SceneDynamicTarget>] = [:],
         scriptTargets: Set<SceneDynamicTarget> = [], programOverride: ScenePropertyBindingProgram? = nil,
@@ -218,7 +219,7 @@ HARNESS = r'''
             resolvedMaterialExecutionCapabilities: .init(executionLayerIDs: prepared,
                 capabilities: colorCapabilities, unresolvedLayerIDs: unresolved),
             soundPlaybackProgram: .init(), preparedStaticModelLayerIDs: [],
-            preparedImageMaterialTargets: [], sourceMaterialCandidateConsumerLayerIDs: sourceCandidates,
+            preparedImageMaterialTargets: preparedMaterialTargets, sourceMaterialCandidateConsumerLayerIDs: sourceCandidates,
             propertyVectorScriptProgram: .init(livePropertyInputTargets: scriptTargets,
                 liveUserPropertyConsumerTargetsByKey: scriptConsumers),
             sceneScriptScalarProgram: .init(), sceneScriptStringProgram: .init()
@@ -468,6 +469,23 @@ HARNESS = r'''
         var rows: [String: [String: Bool]] = [:]
         rows["unboundBoolean"] = unboundBooleanFacts()
         rows["clearColor"] = clearColorFacts()
+        var sourceDeclarationFacts: [String: Bool] = [:]
+        for name in ["authoredAmount", "renamedUnboundAmount"] {
+            let target = SceneDynamicTarget.effectConstant(layerID: 3, effectIndex: 0, passIndex: 0, name: name)
+            let binding = Binding(key: name, target: target, type: .scalar, seed: .scalar(1))
+            var ready = state([hiddenImage], [binding], values: [name: .number(1)], preparedMaterialTargets: [target])
+            sourceDeclarationFacts[name + "-prepared-declaration-admitted"] = ready.activeConsumerTargets.contains(target)
+                && ready.apply(.number(2), forPropertyKey: name) && ready.userValues[target] == .scalar(2)
+                && ready.revision == 1
+            for (label, supplied) in [("missing", Set<SceneDynamicTarget>()),
+                ("different-target", Set([SceneDynamicTarget.effectConstant(layerID: 3, effectIndex: 0, passIndex: 1, name: name)]))] {
+                var unavailable = state([hiddenImage], [binding], values: [name: .number(1)], preparedMaterialTargets: supplied)
+                let before = unavailable
+                sourceDeclarationFacts[name + "-" + label + "-rejected"] = !unavailable.activeConsumerTargets.contains(target)
+                    && !unavailable.apply(.number(2), forPropertyKey: name) && unchanged(unavailable, before)
+            }
+        }
+        rows["preparedSourceDeclarations"] = sourceDeclarationFacts
         let effectColor = SceneDynamicTarget.layer(layerID: 4, field: .color)
         let effectBinding = Binding(key: "renamedTint", target: effectColor,
             type: .vector3, seed: .vector3(1, 1, 1))
@@ -782,6 +800,12 @@ class SceneHiddenPropertyConsumerTests(unittest.TestCase):
     def test_clear_color_requires_the_real_clear_consumer_and_keeps_atomicity(self) -> None:
         facts = self.rows["clearColor"]
         self.assertTrue(facts)
+        for name, passed in facts.items():
+            self.assertTrue(passed, name)
+
+    def test_prepared_source_declarations_keep_exact_live_consumer_identity(self) -> None:
+        facts = self.rows["preparedSourceDeclarations"]
+        self.assertEqual(len(facts), 6)
         for name, passed in facts.items():
             self.assertTrue(passed, name)
 

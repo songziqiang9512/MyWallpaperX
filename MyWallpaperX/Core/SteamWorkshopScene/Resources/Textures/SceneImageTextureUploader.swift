@@ -229,43 +229,6 @@ nonisolated final class SceneTextureUploadCommandQueue: @unchecked Sendable {
     }
 }
 
-nonisolated enum SceneTextureLoadPurpose: Hashable, Sendable {
-    case premultipliedColor
-    case straightAlbedo
-    case preservedChannels
-    case mask
-    case noise
-    case flow
-    case phase
-    case normal
-    case depth
-    case lookupTable
-
-    var isDataPurpose: Bool {
-        switch self {
-        case .preservedChannels, .mask, .noise, .flow, .phase, .normal,
-             .depth, .lookupTable:
-            true
-        case .premultipliedColor, .straightAlbedo:
-            false
-        }
-    }
-
-    var preservesSourceChannels: Bool {
-        switch self {
-        case .premultipliedColor:
-            false
-        case .straightAlbedo, .preservedChannels, .mask, .noise, .flow, .phase,
-             .normal, .depth, .lookupTable:
-            true
-        }
-    }
-
-    var requiresVolumeTexture: Bool {
-        self == .lookupTable
-    }
-}
-
 nonisolated enum SceneImageTextureUploader {
     private struct SourceImageLayout {
         let width: Int

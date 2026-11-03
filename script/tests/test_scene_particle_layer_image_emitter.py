@@ -34,7 +34,9 @@ MAP_SOURCES = [
 
 from script.tests import test_scene_solid_layers as descriptor_fixture
 from script.tests import test_scene_bc_texture_uploader as upload_fixture
-from script.tests.scene_particle_runtime_configuration_cases import NO_TIMESTAMP_OBSERVATION_SUPPORT
+from script.tests.scene_particle_runtime_configuration_cases import (
+    NO_TIMESTAMP_OBSERVATION_SUPPORT, _declaration,
+)
 from script.scene_swift_source_sets import scene_swift_sources
 
 SOURCES = list(dict.fromkeys(path.resolve() for path in [
@@ -46,6 +48,8 @@ SOURCES = list(dict.fromkeys(path.resolve() for path in [
     SOURCE_ROOT / "Format/SceneBCTextureDecoder.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticleDefinitionParser+InstanceOverride.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticleLayerImageEmitterCompiler.swift",
+    SOURCE_ROOT / "Systems/Particles/SceneParticleRopePlan.swift",
+    SOURCE_ROOT / "Rendering/Particles/SceneParticleRenderSupport.swift",
 ]))
 # Use the real descriptor/loader/compiler. Reuse existing link-only asset shells;
 # remove their unused particle shells because this harness links real particles.
@@ -64,8 +68,12 @@ DESCRIPTOR_SUPPORT = descriptor_fixture.HARNESS_SOURCE.split("@main", 1)[0].repl
 # descriptor builder. Keep that explicit empty input while matching its current
 # DTO types. Identity matching and material-state compilation remain product
 # sources; no shader compiler/diagnostic platform or alternate emitter is added.
-RUNTIME_DECLARATIONS = (SOURCE_ROOT / "Systems/Particles/SceneParticleRuntimeModels.swift").read_text().split(
-    "struct SceneParticleDrawBatch", 1)[0]
+runtime_models = (SOURCE_ROOT / "Systems/Particles/SceneParticleRuntimeModels.swift").read_text()
+RUNTIME_DECLARATIONS = (
+    "#if DEBUG\n" + _declaration(runtime_models, "enum SceneParticleRuntimeDiagnosticKind:")
+    + "\n" + _declaration(runtime_models, "struct SceneParticleRuntimeDiagnostic:")
+    + "\n#endif\n" + _declaration(runtime_models, "struct SceneParticleLayerImageEmitterCompilation {")
+)
 HARNESS_SOURCE = (NO_TIMESTAMP_OBSERVATION_SUPPORT + DESCRIPTOR_SUPPORT
                   + upload_fixture.HARNESS.split("@main", 1)[0]
                   + RUNTIME_DECLARATIONS + r'''

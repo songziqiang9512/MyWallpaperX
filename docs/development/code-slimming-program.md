@@ -7,11 +7,11 @@
 开批速览（每批动手前先读这里，再核 Git 状态；按需查对应 owner 和下文，不顺读全文）：
 
 - 已裁决至R110（视频生成直交付已修，完整照片级目标未结）（R61按优先级后补）。个人设置导入弹窗消失/设置变暗已由 R55（`ad1f3142d`）修复；测试 App 已交付，原配置完整导入仅待用户实测，没有新复现不重新修复、构建或复跑。
-- 近期已完成：R105 Pixabay搜索入口收窄；R104日期回退按需准备；R103网格顺序比较退出数组；R101/R102媒体需求与速率字符串复用。R89–R99结案见[历史记录](../history/cross-topic/code-slimming-r89-r99-closeouts-2026-11-03.md#completed-r89-r99)，保原载荷与验证上限；已完成项不作为新候选。
+- 近期已完成：R105 Pixabay搜索入口收窄；R104日期回退按需准备；R103网格顺序比较退出数组；R101/R102媒体需求与速率字符串复用。R89–R99结案见[历史记录](../history/cross-topic/code-slimming-r89-r99-closeouts-2026-11-03.md#completed-r89-r99)，验证范围以该记录为限；已完成项不作为新候选。
 - 保留/拒绝：R55 一次 Save 取消超时尚未归因；R56 绕过 TIFF 的候选因像素/尺寸差异已拒绝。较早 R23/R38/R43 的保护边界仍有效。
-- R62已交付：[本地资源先呈现与缩略图回访](local-library-loading-design.md#overview)。先解决启动短暂不可用和本地网格滚回黑卡，覆盖视频、图片及自建列表；已完成实现、最近门、Steam消费者及签名Debug；保留三项原生限制，真实用户库体感待人工验收。R61冷态导航已完成验证，见下文；不重复本专项。
+- R62已交付：[本地资源先呈现与缩略图回访](local-library-loading-design.md#overview)。先解决启动短暂不可用和本地网格滚回黑卡，覆盖视频、图片及自建列表；已完成实现、最近门、Steam消费者及签名Debug；保留三项原生限制，真实用户库体感待人工验收。R61冷态导航已完成验证，见[对应记录](../history/cross-topic/code-slimming-r61-r88-closeouts-2026-11-02.md#completed-r61-r88)；不重复本专项。
 
-- 已结 B1–B12 / 原生 UI1–UI9 按[历史记录](../history/cross-topic/code-slimming-b1-b12-ui1-ui9-2026-10-23.md)回查；本页保留当前范围、未解决项和 UI10 已批准设计，不从旧候选续开任务。 UI10已结试版/验收见[独立历史](../history/cross-topic/code-slimming-ui10-trials-2026-10-23.md)，批准设计仍留本页。
+- AppKit、Web、Steam 精简与原生 UI1–UI9 的历史验收见[历史记录](../history/cross-topic/code-slimming-b1-b12-ui1-ui9-2026-10-23.md)。本页保留当前范围、未解决项和 UI10 已批准设计；UI10 试版与验收见[独立历史](../history/cross-topic/code-slimming-ui10-trials-2026-10-23.md)。
 
 后续范围（2026-11-03）：按goal持续审查、优化所有非Scene代码及对应分类文档，Scene引擎不修改；现有能力须以原行为门和反例保持，不能用删功能换精简。
 
@@ -25,8 +25,6 @@
 
 本轮按用户固定流程循环：并行子代理在每份审查任务中携带用户固定prompt，核无功能收益的校验/认证/重复计算/嵌套、持续转发和补丁、过量实现与耦合；主agent审核问题和方案并决定是否修改，子代理实施，主agent复核真实行为/成本证据和最近门后决定窄提交，再开启下一轮。每批报告问题、当前影响、方案、功能变化及下一候选。当前目标授权主agent作修复和本地提交裁决，不授权推送；共享构建、原生窗口和GPU仍串行，其他会话改动保留。
 
-最近文档整理：R100将R89–R99非连续十段已结摘要逐字移入历史，仅可逆重定位一条相对链接；现役范围、待验、保留项和永久入口不变。产品/测试0；本批只核文档载荷、角色、预算与引用，不复验旧产品。
-
 最近产品验证：R110产品32增13删净+19，测试净+369（真实261行生成交付夹具复用原owner，3叶适配及Python装配）。同最终Swift门44controls/16checks旧仅A交付2与memory/disk新蓝4红→新全真，原validation21、nil21控制/3观察真；repair16在唯一方法装配提取真实normalizer后补过。联合门的repair编译失败保留，其余3绿门按未变helpers/方法/编译输入复用，非最终脚本全模块运行。6308/实际输入稳定；取消仅抑交付、clear无本请求递归重生、原独立2s repair边界保。生成切片6条已有装配actor诊断与Xcode产品分列：签名Debug26.657秒/5868输入稳定strict/deep过，仅原两C#警告，3产品最终字节相同。无窗口/DB/Catalog/FPS/Leaks/TSan全验收；三无位移wheel臂无效，禁止直接Window.sendEvent的03未跑。R108批量准备、R109透过区原生证据及未过完整目录CoreDrag边界仍见同设计，不重跑旧门。
 
 前批R104后台localDownloadStatistics在firstDownloadedAt或commit日期已存在时不准备localCreationDate，产品2增1删净+1、fixture8增；原日期helper/return与bytes枚举次序逐字保，无新helper/state/API或Scene/存储格式变化。优先级仍first→commit→creation→有效fetched，非nil distantPast提示值、metadata nil/创建缺失回退保。原14事实全留，补真实stats的commit与fetched不能盖过磁盘creation两项；同最终夹具旧/新16项全真等值，实际localCreationDate入口10→6（四次已知日期场景）。外部不可变extract hook只在生成Swift加stderr入口标记，产品和永久测试源不插桩；未另跑未观测sorting门，不称物理IO/时耗。Legacy初/变各31功能+12工作事实、42记录身份和错误9项均过；resolver事件仅按实际command的cases目录前缀归一（各294/314叶）后相等，不归一或认领真实文件时间/整记录对象等值。各6306源码输入/8实际子过程稳定；签名Debug26.161秒/5867输入稳定、strict/deep过，仅原两C#警告，独立静审接受。
@@ -36,10 +34,6 @@
 前批R102状态栏applyMetrics原为可见文本/AX重复取netUpString和netDownString；改两个局部let复用，产品6增4删净+2、测试0，无新state/helper/cache，值类型输入、格式算法及采样owner不改。源码getter读取4处→2处，仅面板刷新时的小收益，不称采样/IO或实测formatter次数、时耗/能耗。旧/新现役面板门编完整真实四文件和原动作片段，均6306输入/2实际进程稳定、PASS标记同且无约束冲突诊断；SystemStats为固定字符串叶，未测完整App计时器接线或真实格式化成本。签名Debug23.621秒/5867输入稳定、strict/deep过，仅原两C#警告，独立静审接受；UI文案、AX上传/下载对应、alignment和布局保持；仅两局部声明及四插值引用改变，不涉及Scene引擎/接口。
 
 前批R101共享媒体producer的private consumers原compactMap→Set只供八处非空判断；改computed hasMediaDemand Bool，产品9增11删净−2、测试0，无新状态/helper。八处（6直接/2 self）仍原位新鲜读取，保同步publish重入、异步epoch/selection/授权、UUID/lease/fanout、web artwork及全部Scene/Web接口；不触Scene引擎。相同原provider完整class旧/最终各33方法、34模式×DEBUG/优化-O共68次用例，stdout无需归一化逐项全等，各6306源码输入/70实际子过程稳定；完整真实Service/Store/WebArtwork/Palette配受控平台来源和偏好，不称真实权限/音乐App或引擎渲染。Root分组计数误判导致的误标旧码臂已中止、排除并清理，正式最终臂绑候选SHA；未计作新码通过。签名Debug26.591秒/5867输入稳定、strict/deep过，仅原两C#警告，独立静审接受。只认显式中间集合准备退出，不认领实际分配、时耗或能耗。
-
-<a id="completed-r89-r99"></a> [归档记录](../history/cross-topic/code-slimming-r89-r99-closeouts-2026-11-03.md#completed-r89-r99) <!-- archive-redirect -->
-
-<a id="completed-r61-r88"></a> [归档记录](../history/cross-topic/code-slimming-r61-r88-closeouts-2026-11-02.md#completed-r61-r88) <!-- archive-redirect -->
 
 前批裁决与待验保留：R54（65522bee6）事务内复用resolved UUID追加位置，25成员/6物理列表的MAX查询25→6仅属连接级计数。R55选择器退出后再显示反馈，原配置完整导入与未归因Save取消超时保持待验。R56拒绝绕过TIFF候选，保留原编码。R57（b761fdb80）独立暂存、原main守卫后rename至原stable，保Scene/编码/copy fallback/所有权；受控5秒utility/文件探针与122项检查、Debug通过，未证自然频率或真实Web/NSWorkspace。R58（9be599202）已取消metadata Task的AV准备1→0，保同步模板和后两异步检查，不当性能/真实UI证明。R59（87c27c3e3）成功尾部一次发布完整状态，54组4→1、216→54，其他阶段相同；保89项、新增6项typed终态/reset回调及20项视口检查通过；原73/73只属reset调用点note。内部同步中间通知明确退出，不承诺任意同步订阅者等价。较早保护边界和精确证据仍归各批记录及提交，不在这里追加过程流水账。
 
@@ -61,11 +55,9 @@
 - 非Scene枚举只读复核：Video导入/内置库的预取键、OnlineImage原图清理日期均有消费者；SIL递归nil预取省工证据不足，维护路径浅层枚举无频度证据，不另开批或新增测试。
 - 文件/版本只读复核：删除prepare与unlink分属捕获/实际删除时点，inode/device、fsync结果、transfer取消/单回调/delegate存活有真实消费者；版本门核不同发布产物和远端时点，prepared build已复用，App仅消费Sparkle版本展示。保留，本片未跑门；不把发布成本说成启动热路径。
 
-<a id="completed-r1-r26"></a> [归档记录](../history/cross-topic/code-slimming-r1-r26-2026-11-01.md#completed-r1-r26) <!-- archive-redirect -->
-
 每批先确认真实生产者与消费者、实际影响和最小方案，再按影响面执行最近行为门、适用 Debug 构建及必要代表运行。证据绑定本批源码、输入与执行边界；受控入口、构建或方法次数不代表完整 App、真实账户/媒体、稳定性能或发布验收。发现实际消费者或行为回退时停止该项删除；收益递减时撤回或换方向，不追加假设防御与兼容层。
 
-现役首读只保当前范围、循环授权、最近验证、未解决项和下一候选；已结过程按周期归档，保原文、链接和调整链，不逐批追加流水账。已结 B1–B12 / 原生 UI1–UI9 仅保永久历史锚点，UI10 已批准设计仍留本页。
+现役首读只保当前范围、循环授权、最近验证、未解决项和下一候选；历史记录只保留独立证据，不逐批追加流水账。UI10 已批准设计仍留本页。
 
 后继候选先沿真实消费链给出具体问题、方案及反例，由主agent裁决；私有候选不等于验证结项，不从历史“下一步”直接实施。R23 只有在标准宿主激活与事件流取得新证据后再考虑重开。
 
@@ -73,34 +65,9 @@ R23（4ba9e1b23起）：复核原生自动sender；当前原夹具编译无诊�
 
 “无调用”须排查 selector、协议回调、独立进程、作者脚本、动态资源及调试工具；测试、文档或结构登记出现名字不等于产品调用。退役时只删除已确认不可达的链路，不以行数作为收益或验收目标。
 
-<a id="第一批设计与停止条件"></a> [归档记录](../history/cross-topic/code-slimming-b1-b12-ui1-ui9-2026-10-23.md#第一批设计与停止条件) <!-- archive-redirect -->
-<a id="后续候选"></a> [归档记录](../history/cross-topic/code-slimming-b1-b12-ui1-ui9-2026-10-23.md#后续候选) <!-- archive-redirect -->
-<a id="第一批实施与证据"></a> [归档记录](../history/cross-topic/code-slimming-b1-b12-ui1-ui9-2026-10-23.md#第一批实施与证据) <!-- archive-redirect -->
-<a id="第二批范围与停止条件"></a> [归档记录](../history/cross-topic/code-slimming-b1-b12-ui1-ui9-2026-10-23.md#第二批范围与停止条件) <!-- archive-redirect -->
-<a id="第三批范围与停止条件"></a> [归档记录](../history/cross-topic/code-slimming-b1-b12-ui1-ui9-2026-10-23.md#第三批范围与停止条件) <!-- archive-redirect -->
-<a id="第四批范围与停止条件"></a> [归档记录](../history/cross-topic/code-slimming-b1-b12-ui1-ui9-2026-10-23.md#第四批范围与停止条件) <!-- archive-redirect -->
-<a id="第五批范围与停止条件"></a> [归档记录](../history/cross-topic/code-slimming-b1-b12-ui1-ui9-2026-10-23.md#第五批范围与停止条件) <!-- archive-redirect -->
-<a id="第六批范围与停止条件"></a> [归档记录](../history/cross-topic/code-slimming-b1-b12-ui1-ui9-2026-10-23.md#第六批范围与停止条件) <!-- archive-redirect -->
-<a id="第七批范围与停止条件"></a> [归档记录](../history/cross-topic/code-slimming-b1-b12-ui1-ui9-2026-10-23.md#第七批范围与停止条件) <!-- archive-redirect -->
-<a id="第八批范围与停止条件"></a> [归档记录](../history/cross-topic/code-slimming-b1-b12-ui1-ui9-2026-10-23.md#第八批范围与停止条件) <!-- archive-redirect -->
-<a id="第九批范围与停止条件"></a> [归档记录](../history/cross-topic/code-slimming-b1-b12-ui1-ui9-2026-10-23.md#第九批范围与停止条件) <!-- archive-redirect -->
-<a id="第十批范围与停止条件"></a> [归档记录](../history/cross-topic/code-slimming-b1-b12-ui1-ui9-2026-10-23.md#第十批范围与停止条件) <!-- archive-redirect -->
-<a id="第十一批范围与停止条件"></a> [归档记录](../history/cross-topic/code-slimming-b1-b12-ui1-ui9-2026-10-23.md#第十一批范围与停止条件) <!-- archive-redirect -->
-<a id="第十二批范围与停止条件"></a> [归档记录](../history/cross-topic/code-slimming-b1-b12-ui1-ui9-2026-10-23.md#第十二批范围与停止条件) <!-- archive-redirect -->
-<a id="原生-ui-等价精简第一批"></a> [归档记录](../history/cross-topic/code-slimming-b1-b12-ui1-ui9-2026-10-23.md#原生-ui-等价精简第一批) <!-- archive-redirect -->
-<a id="原生-ui-等价精简第二批"></a> [归档记录](../history/cross-topic/code-slimming-b1-b12-ui1-ui9-2026-10-23.md#原生-ui-等价精简第二批) <!-- archive-redirect -->
-<a id="原生-ui-第三批系统强调色与原生侧栏选择"></a> [归档记录](../history/cross-topic/code-slimming-b1-b12-ui1-ui9-2026-10-23.md#原生-ui-第三批系统强调色与原生侧栏选择) <!-- archive-redirect -->
-<a id="原生-ui-第四批steam-卡片按钮交回-nsbutton"></a> [归档记录](../history/cross-topic/code-slimming-b1-b12-ui1-ui9-2026-10-23.md#原生-ui-第四批steam-卡片按钮交回-nsbutton) <!-- archive-redirect -->
-<a id="原生-ui-第五批无渐隐面板使用原生滚动容器"></a> [归档记录](../history/cross-topic/code-slimming-b1-b12-ui1-ui9-2026-10-23.md#原生-ui-第五批无渐隐面板使用原生滚动容器) <!-- archive-redirect -->
-<a id="原生-ui-第六批跟踪区域交由-appkit-视口维护"></a> [归档记录](../history/cross-topic/code-slimming-b1-b12-ui1-ui9-2026-10-23.md#原生-ui-第六批跟踪区域交由-appkit-视口维护) <!-- archive-redirect -->
-<a id="原生-ui-第七批详情分隔线交回原生-nsbox"></a> [归档记录](../history/cross-topic/code-slimming-b1-b12-ui1-ui9-2026-10-23.md#原生-ui-第七批详情分隔线交回原生-nsbox) <!-- archive-redirect -->
-<a id="原生-ui-第八批详情徽章使用原生-nsbox-与系统语义色"></a> [归档记录](../history/cross-topic/code-slimming-b1-b12-ui1-ui9-2026-10-23.md#原生-ui-第八批详情徽章使用原生-nsbox-与系统语义色) <!-- archive-redirect -->
-<a id="原生-ui-第九批steam-详情标签交回原生绘制"></a> [归档记录](../history/cross-topic/code-slimming-b1-b12-ui1-ui9-2026-10-23.md#原生-ui-第九批steam-详情标签交回原生绘制) <!-- archive-redirect -->
-<a id="第九批试用后调整恢复标签半透明底色"></a> [归档记录](../history/cross-topic/code-slimming-b1-b12-ui1-ui9-2026-10-23.md#第九批试用后调整恢复标签半透明底色) <!-- archive-redirect -->
-
 ## 原生 UI 第十批：当前列表首图轻度背景染色
 
-本批从用户授权的新增视觉试版开始，现已完成用户试用并获准提交。第五至九批及原半透明恢复已窄提交5a0fd4b5d，保留并行Scene提交和工作区。目标只让主窗口侧栏与内容背景随当前列表排序/筛选后的第一张静态缩略图轻度染色；按钮、选中态、警告继续系统语义色，标签半透明保持。首版采用NSBox轻染，经用户试用后改为复用已有根view的backing layer并以系统颜色动画柔和衔接，移除两个额外NSBox；现有NSSplitView/网格bounds及safe-area结构保持，避免开启侧栏延展改变列数，不另加玻璃、材质、自绘或播放面。
+本批从用户授权的新增视觉试版开始，现已完成用户试用并获准提交。第五至九批及原半透明恢复已窄提交5a0fd4b5d。目标只让主窗口侧栏与内容背景随当前列表排序/筛选后的第一张静态缩略图轻度染色；按钮、选中态、警告继续系统语义色，标签半透明保持。首版采用NSBox轻染，经用户试用后改为复用已有根view的backing layer并以系统颜色动画柔和衔接，移除两个额外NSBox；现有NSSplitView/网格bounds及safe-area结构保持，避免开启侧栏延展改变列数，不另加玻璃、材质、自绘或播放面。
 
 ### 职责与数据流
 
@@ -118,7 +85,6 @@ R23（4ba9e1b23起）：复核原生自动sender；当前原夹具编译无诊�
 
 先验证首项排序/空列表、同首项去重、同ID换图、A→B迟到回调、同步cache命中取消、窗口可见性和颜色采样正反例。实际六入口编译/接线、原卡片几何/选中/滚动/动作门保持；比较背景安装前后布局和按钮强调色，覆盖深浅/辅助功能。冻结owned输入后交独立子代理对抗审查，修复后复审；复用唯一Debug缓存增量构建/原权限签名，启动最新App供用户试用。长期测试断言真实输入/输出/事件，临时像素/布局探针仅留有限本机证据。
 
-
 ### 第十批试用调整：柔和过渡与背景层合并设计
 
 用户已确认首图染色方向，并反馈切页瞬间闪烁及多层背景疑问。第一版只取色一次、两处共用，但refresh先立即clear再上新色，且侧栏/主内容各加一个NSBox。此轮退出两额外背景view，把同样低alpha色直接写入原先已存在的侧栏根view和主内容根view的backing layer；系统window底色与原生sidebar材质继续提供基础背景，不再叠独立取色背景层。main根仍为NSView，仅补window/appearance生命周期回调，原子视图、约束、safe area、hitTest与面板内容透明度不变。
@@ -132,9 +98,6 @@ R23（4ba9e1b23起）：复核原生自动sender；当前原夹具编译无诊�
 用户反馈过渡偏快且侧栏点击出现强调色→灰色切换。本轮延长同一背景动画至0.75秒，不改alpha、最终颜色、视图层级及快速重定向；侧栏只把NSTableRowView.isEmphasized归一为false，setter仍转发super，选中底色、圆角及子视图背景适配继续由原生super.drawSelection提供。原生中性灰选中在侧栏/内容焦点间保持，键盘焦点与页面导航照常，不恢复手写路径/固定颜色，也不新增抢焦点或延迟转移逻辑。[原生emphasis语义](https://developer.apple.com/documentation/appkit/nstablerowview/isemphasized)决定alternate/secondary颜色；本轮只固定后者。
 
 已结的0.75秒二次试用、0.38秒平滑版和首版验收见[历史记录](../history/cross-topic/code-slimming-ui10-trials-2026-10-23.md)，不代表当前源码重新验收。
-
-<a id="第十批平滑版验收038秒试用记录"></a> [归档记录](../history/cross-topic/code-slimming-ui10-trials-2026-10-23.md#第十批平滑版验收038秒试用记录) <!-- archive-redirect -->
-<a id="第十批首版实现与本机验收过渡调整前"></a> [归档记录](../history/cross-topic/code-slimming-ui10-trials-2026-10-23.md#第十批首版实现与本机验收过渡调整前) <!-- archive-redirect -->
 
 ## 退出
 

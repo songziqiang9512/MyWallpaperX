@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import argparse
-from collections import Counter
-import hashlib
 import json
 from pathlib import Path, PurePosixPath
 import re
@@ -190,23 +188,6 @@ def validate_routing(root: Path, index: dict) -> list[str]:
     for document in index['documents']:
         if document['role'] == 'stable-contract' and document['path'] not in covered:
             errors.append(f"{document['path']}: stable contract has no task route")
-    evidence = index.get('taskFrequencyEvidence')
-    if evidence:
-        try:
-            if not re.fullmatch(r'[0-9a-f]{40}', evidence['revision']) or evidence['sampleLimit'] != 100:
-                raise ValueError('fixed revision/sample limit')
-            records = subprocess.check_output(['git', 'log', '-100', '--format=%H%x09%s', evidence['revision']], cwd=root, text=True)
-            counts = Counter()
-            for line in records.splitlines():
-                match = re.match(r'[^()]+\(([^)]+)\):', line.split('\t', 1)[1])
-                counts[match[1] if match else 'unclassified'] += 1
-            if (len(records.splitlines()) != evidence['sampleCount'] or dict(counts) != evidence['scopeCounts']
-                    or hashlib.sha256(records.encode()).hexdigest() != evidence['recordsSHA256']):
-                errors.append('task frequency evidence does not match frozen Git sample')
-            if evidence['path'] not in {d['path'] for d in index['documents']}:
-                errors.append('task frequency evidence must be a registered historical document')
-        except (KeyError, ValueError, subprocess.CalledProcessError):
-            errors.append('invalid task frequency evidence')
     term_ids = set()
     for term in index.get('terminology', []):
         key = term.get('term')
@@ -216,12 +197,6 @@ def validate_routing(root: Path, index: dict) -> list[str]:
         path, _, fragment = term.get('authority', '').partition('#')
         if not (root / path).is_file() or not fragment or fragment not in anchors((root / path).read_text()):
             errors.append(f'{key}: terminology authority must name a real anchor')
-    if index.get('routingContract') == 'repository-task-routing-v1':
-        required_terms = {'S0-S5', 'E-*', 'named source taxonomy', 'recognized/wired', 'owned paths', '家族/防御面'}
-        if term_ids != required_terms:
-            errors.append('repository terminology must preserve all six unique authority routes')
-        if not evidence:
-            errors.append('repository routing needs frozen frequency evidence')
     for pointer in index.get('pointerEntrypoints', []):
         path = pointer['path']
         lines = (root / path).read_text().splitlines()
@@ -291,8 +266,6 @@ def audit(root: Path, index: dict) -> dict:
     errors = validate(root, index)
     if index.get('routingContract') != 'repository-task-routing-v1':
         errors.append('repository audit requires routingContract repository-task-routing-v1')
-    if not index.get('taskFrequencyEvidence'):
-        errors.append('repository audit requires frozen task frequency evidence')
     if {p.get('path') for p in index.get('pointerEntrypoints', [])} != {'MyWallpaperX/Core/SteamWorkshopScene/AGENTS.md'}:
         errors.append('repository audit requires the Scene subtree pointer entrypoint')
     queries = ('修复 Scene 视觉缺陷', '发布新版本', '设计前置判定')

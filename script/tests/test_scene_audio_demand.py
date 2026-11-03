@@ -53,23 +53,6 @@ def swift_body(source: str, signature: str) -> str:
 
 
 class SceneAudioDemandWiringTests(unittest.TestCase):
-    def test_demand_is_driven_by_actual_consumers(self) -> None:
-        source = DEMAND_SOURCE.read_text(encoding="utf-8")
-        capability = RESOLVED_CAPABILITY_SOURCE.read_text(encoding="utf-8")
-        self.assertIn("$0.variants.hasAudioSpectrumConsumer", capability)
-        self.assertNotIn("workshopAudioBars", capability)
-        self.assertIn(
-            "resolvedMaterialExecutionCapabilities.hasAudioSpectrumConsumer",
-            source,
-        )
-        self.assertIn("hasParticleAudioConsumer", source)
-        self.assertNotIn(
-            "supportsAudioProcessing",
-            source,
-            "project 级声明不是 consumer 信号",
-        )
-
-
     @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
     def test_compiled_activation_demand_transitions_are_atomic(self) -> None:
         """Run the production host demand helper through rebuild transitions."""
@@ -77,12 +60,42 @@ class SceneAudioDemandWiringTests(unittest.TestCase):
 import Foundation
 
 struct SceneResolvedMaterialExecutionCapabilityCatalog {
-    let hasAudioSpectrumConsumer: Bool
+    let audioConsumerLayerIDs: Set<Int>
 }
 
-struct StubScriptProgram {
-    let hasAudioConsumers: Bool
+final class StubDomain { var systemInputConsumersChanged = false }
+final class StubScriptProgram {
+    var hasAudioConsumers: Bool
+    var disabledTargets: Set<Int> = []
+    var systemInputConsumersChanged = false
+    let domain: StubDomain? = StubDomain()
+    init(hasAudioConsumers: Bool) { self.hasAudioConsumers = hasAudioConsumers }
+    func hasAudioConsumers(excludingTargets: Set<Int>) -> Bool { hasAudioConsumers }
 }
+struct StubLayer { let id: Int; let imagePath: String? }
+struct SceneScriptLayerTopologySnapshot {
+    var destroyedAuthoredLayerIDs: Set<Int> = []
+    var dynamicLayers: [StubLayer] = []
+}
+final class StubTopology {
+    var current = SceneScriptLayerTopologySnapshot()
+    func snapshot() -> SceneScriptLayerTopologySnapshot { current }
+}
+struct StubDescriptor { var layers: [StubLayer] = [] }
+struct StubRuntimeInput { var renderDescriptor = StubDescriptor() }
+final class StubSourceRuntime {
+    struct Material { let hasAudioSpectrumConsumer: Bool }
+    struct SourceMaterialConsumer { let layerID: Int; let prototypeLayerID: Int }
+    var sourceMaterials: [Int: Material] = [:]
+    var sourceMaterialPrototypeByModel: [String: Int] = [:]
+    SOURCE_MATERIAL_CONSUMER
+}
+struct StubCompositor { let resolvedMaterialRuntime: StubSourceRuntime? }
+struct StubRenderer { let imageCompositor: StubCompositor }
+struct StubView { let renderer: StubRenderer }
+struct StubParticle { let hasAudioConsumer: Bool }
+struct StubSurface { let metalView: StubView; var particlePlayback: StubParticle? = nil }
+final class StubSoundRegistry { var hasSources = true }
 
 struct StubSoundProgram {
     let bindings: [Int]
@@ -96,6 +109,8 @@ struct SceneDesktopWallpaperLaunchContext {
     let sceneScriptStringProgram: StubScriptProgram
     let sceneScriptCursorProgram: StubScriptProgram
     let soundPlaybackProgram: StubSoundProgram
+    let sceneScriptDynamicLayerRuntime = StubTopology()
+    var runtimeInput = StubRuntimeInput()
 
     init(
         material: Bool = false,
@@ -103,7 +118,7 @@ struct SceneDesktopWallpaperLaunchContext {
         sound: Bool = false
     ) {
         resolvedMaterialExecutionCapabilities = .init(
-            hasAudioSpectrumConsumer: material
+            audioConsumerLayerIDs: material ? [1] : []
         )
         propertyVectorScriptProgram = .init(hasAudioConsumers: script)
         sceneScriptScalarProgram = .init(hasAudioConsumers: false)
@@ -152,6 +167,12 @@ final class SceneAudioSpectrumInbox {
 
 final class SceneDesktopWallpaperSession {
     var audioDemand = (spectrum: false, currentProcess: false)
+    var surfaces: [Int: StubSurface] = [:]
+    var soundPlaybackRegistry: StubSoundRegistry?
+    var mediaReconciliations = 0
+    var pointerReconciliations = 0
+    func reconcileSystemMediaDemand() { mediaReconciliations += 1 }
+    func installPointerEventMonitorsIfNeeded() { pointerReconciliations += 1 }
     var onAudioDemandChanged: (() -> Void)?
     init() {
         onAudioDemandChanged = { [unowned self] in
@@ -241,6 +262,7 @@ enum AudioDemandTransitionHarness {
         )
         let knownConsumerHost = SceneDesktopWallpaperSession()
         knownConsumerHost.context = materialAndSound
+        knownConsumerHost.soundPlaybackRegistry = StubSoundRegistry()
         precondition(knownConsumerHost.rebuildSurfacesReconcilingAudioDemand(
             materialAndSound,
             rebuild: knownConsumerHost.rebuildSurfaces,
@@ -270,10 +292,48 @@ enum AudioDemandTransitionHarness {
         precondition(failedHost.rebuildCalls == 1)
         precondition(failedHost.stopCalls == 1)
 
+        knownConsumerHost.soundPlaybackRegistry?.hasSources = false
+        knownConsumerHost.reconcileSystemInputConsumers(materialAndSound, topologyChanged: true)
+        precondition(inbox.current.demanded && !inbox.current.includesCurrentProcess)
+        materialAndSound.sceneScriptDynamicLayerRuntime.current.destroyedAuthoredLayerIDs = [1]
+        knownConsumerHost.reconcileSystemInputConsumers(materialAndSound, topologyChanged: true)
+        precondition(!inbox.current.demanded)
+        let reconciliations = knownConsumerHost.mediaReconciliations
+        knownConsumerHost.reconcileSystemInputConsumers(materialAndSound)
+        precondition(knownConsumerHost.mediaReconciliations == reconciliations)
+        materialAndSound.propertyVectorScriptProgram.hasAudioConsumers = true
+        materialAndSound.propertyVectorScriptProgram.domain?.systemInputConsumersChanged = true
+        knownConsumerHost.reconcileSystemInputConsumers(materialAndSound)
+        precondition(inbox.current.demanded)
+        precondition(materialAndSound.propertyVectorScriptProgram.domain?.systemInputConsumersChanged == false)
+        materialAndSound.propertyVectorScriptProgram.hasAudioConsumers = false
+        materialAndSound.propertyVectorScriptProgram.domain?.systemInputConsumersChanged = true
+        knownConsumerHost.reconcileSystemInputConsumers(materialAndSound)
+        precondition(!inbox.current.demanded)
+
+        let sharedSource = StubSourceRuntime()
+        sharedSource.sourceMaterials[1] = .init(hasAudioSpectrumConsumer: true)
+        sharedSource.sourceMaterialPrototypeByModel["models/shared.json"] = 1
+        var aliasContext = SceneDesktopWallpaperLaunchContext()
+        aliasContext.runtimeInput.renderDescriptor.layers = [.init(id: 1, imagePath: "models/shared.json")]
+        aliasContext.sceneScriptDynamicLayerRuntime.current.destroyedAuthoredLayerIDs = [1]
+        aliasContext.sceneScriptDynamicLayerRuntime.current.dynamicLayers = [.init(id: -1, imagePath: "models/shared.json")]
+        let aliasHost = SceneDesktopWallpaperSession()
+        aliasHost.surfaces[1] = .init(metalView: .init(renderer: .init(imageCompositor: .init(resolvedMaterialRuntime: sharedSource))))
+        aliasHost.updateAudioSpectrumDemand(aliasContext, hasParticleAudioConsumer: false)
+        precondition(aliasHost.audioDemand.spectrum)
+        aliasContext.sceneScriptDynamicLayerRuntime.current.dynamicLayers = []
+        aliasHost.reconcileSystemInputConsumers(aliasContext, topologyChanged: true)
+        precondition(!aliasHost.audioDemand.spectrum)
+
         print("audio-demand-transition-ok")
     }
 }
 '''
+        bridge = (SCENE_ROOT / "Rendering/Graph/SceneResolvedMaterialRuntimeBridge+SourceMaterials.swift").read_text()
+        signature = "    func sourceMaterialConsumer(layerID: Int, modelPath: String?) -> SourceMaterialConsumer?"
+        body = swift_body(bridge, signature)
+        harness = harness.replace("    SOURCE_MATERIAL_CONSUMER", signature + " {" + body + "}")
         with tempfile.TemporaryDirectory(
             prefix="scene-audio-demand-transition-"
         ) as temp:
@@ -285,6 +345,7 @@ enum AudioDemandTransitionHarness {
                 [
                     shutil.which("swiftc") or "swiftc",
                     str(DEMAND_SOURCE),
+                    str(SCENE_ROOT / "Resources/Assets/SceneModelResourceIdentity.swift"),
                     str(harness_path),
                     "-o",
                     str(executable_path),
@@ -420,128 +481,6 @@ enum AudioCaptureDemandHarness {
             "统一 GraphExecutor 的 frame inputs 必须收到同一帧频谱",
         )
 
-    def test_unified_program_audio_consumer_source_contract(self) -> None:
-        source = RESOLVED_CAPABILITY_SOURCE.read_text(encoding="utf-8")
-        body = swift_body(source, "var hasAudioSpectrumConsumer: Bool")
-        self.assertIn("case .resolved(_, let materials, _):", body)
-        self.assertIn("$0.variants.hasAudioSpectrumConsumer", body)
-        self.assertNotIn("case .dedicated:", body)
-        self.assertNotIn("workshopAudioBars", body)
-
-    @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
-    def test_compiled_unified_program_audio_consumer_truth_table(self) -> None:
-        """Compile the production property body against a minimal typed catalog."""
-        source = RESOLVED_CAPABILITY_SOURCE.read_text(encoding="utf-8")
-        body = swift_body(source, "var hasAudioSpectrumConsumer: Bool")
-        harness = """
-struct VariantCapabilities {
-    let hasAudioSpectrumConsumer: Bool
-}
-
-struct MaterialCapability {
-    let variants: VariantCapabilities
-}
-
-enum StageCapability {
-    case resolved(Int, [String: MaterialCapability], Int?)
-    case visualFailurePassthrough
-    case initiallyInactivePassthrough
-}
-
-struct LayerCapability {
-    let stages: [StageCapability]
-}
-
-struct Catalog {
-    let capabilitiesByLayerID: [Int: LayerCapability]
-
-    var hasAudioSpectrumConsumer: Bool {
-""" + body + """
-    }
-}
-
-func demandsAudio(_ stage: StageCapability) -> Bool {
-    Catalog(
-        capabilitiesByLayerID: [1: LayerCapability(stages: [stage])]
-    ).hasAudioSpectrumConsumer
-}
-
-@main
-enum AudioDemandHarness {
-    static func main() {
-        let checks: [(String, Bool, Bool)] = [
-            (
-                "resolved-positive",
-                demandsAudio(.resolved(
-                    1,
-                    ["material": MaterialCapability(
-                        variants: VariantCapabilities(
-                            hasAudioSpectrumConsumer: true
-                        )
-                    )],
-                    nil
-                )),
-                true
-            ),
-            (
-                "resolved-negative",
-                demandsAudio(.resolved(
-                    1,
-                    ["material": MaterialCapability(
-                        variants: VariantCapabilities(
-                            hasAudioSpectrumConsumer: false
-                        )
-                    )],
-                    nil
-                )),
-                false
-            )
-        ]
-
-        for (name, actual, expected) in checks where actual != expected {
-            fatalError("\\(name): expected \\(expected), got \\(actual)")
-        }
-        if Catalog(capabilitiesByLayerID: [:]).hasAudioSpectrumConsumer {
-            fatalError("empty catalog must not demand audio")
-        }
-        print("audio-demand-ok")
-    }
-}
-"""
-        with tempfile.TemporaryDirectory(prefix="scene-audio-demand-") as temp:
-            temp_path = Path(temp)
-            harness_path = temp_path / "AudioDemandHarness.swift"
-            executable_path = temp_path / "AudioDemandHarness"
-            harness_path.write_text(harness, encoding="utf-8")
-            compile_result = subprocess.run(
-                [
-                    shutil.which("swiftc") or "swiftc",
-                    "-parse-as-library",
-                    str(harness_path),
-                    "-o",
-                    str(executable_path),
-                ],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            self.assertEqual(
-                compile_result.returncode,
-                0,
-                compile_result.stdout + compile_result.stderr,
-            )
-            run_result = subprocess.run(
-                [str(executable_path)],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            self.assertEqual(
-                run_result.returncode,
-                0,
-                run_result.stdout + run_result.stderr,
-            )
-            self.assertEqual(run_result.stdout.strip(), "audio-demand-ok")
 
 
 if __name__ == "__main__":

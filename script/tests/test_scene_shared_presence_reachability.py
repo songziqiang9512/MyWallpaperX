@@ -17,6 +17,7 @@ from script.tests.test_scene_sampler_default_purpose import REPOSITORY_ROOT, SCE
 HARNESS = r'''
 import Foundation
 import Metal
+import simd
 
 private typealias Template = SceneResolvedMaterialTemplate
 
@@ -125,9 +126,31 @@ private func render(_ program: SceneAuthoredShaderProgram) throws -> [[Int]]? {
     let commands = device.makeCommandQueue()!.makeCommandBuffer()!
     let encoder = commands.makeRenderCommandEncoder(descriptor: attachment)!
     encoder.setRenderPipelineState(pipeline)
-    let uniformBytes = Array<UInt8>(repeating: 0, count: max(16, program.uniformLayout.byteSize))
-    encoder.setVertexBytes(uniformBytes, length: uniformBytes.count, index: program.uniformBufferIndex)
-    encoder.setFragmentBytes(uniformBytes, length: uniformBytes.count, index: program.uniformBufferIndex)
+    let inputs = SceneAuthoredShaderUniformInputs(frameIndex: 1,
+        renderSize: CGSize(width: 2, height: 2), screenSize: CGSize(width: 2, height: 2),
+        modelViewProjection: matrix_identity_float4x4, layerModelMatrix: matrix_identity_float4x4,
+        effectOutputModelViewProjection: matrix_identity_float4x4,
+        effectTextureProjectionMatrixInverse: matrix_identity_float4x4,
+        sceneTime: 0, dayTime: 0, frameTime: 1 / 60,
+        pointerCurrentNDC: .zero, pointerPreviousNDC: .zero, vertexCoordinates: .unit)
+    let activeSlots = Set(program.textureBindings.map(\.slot))
+    var uniformBytes = Data(count: max(16, program.uniformLayout.byteSize))
+    for field in program.uniformLayout.fields {
+        guard let host = SceneResolvedMaterialHostUniformSchema.resolve(field,
+            activeTextureSlots: activeSlots),
+              let encoded = SceneResolvedMaterialUniformEncoder.encodeHost(host,
+                type: field.type, inputs: inputs, slots: []),
+              encoded.count == field.storageByteSize else {
+            throw NSError(domain: "self-authored-gpu-uniform", code: 1,
+                userInfo: [NSLocalizedDescriptionKey: field.name])
+        }
+        uniformBytes.replaceSubrange(field.offset ..< field.offset + field.storageByteSize,
+            with: encoded)
+    }
+    uniformBytes.withUnsafeBytes { bytes in
+        encoder.setVertexBytes(bytes.baseAddress!, length: bytes.count, index: program.uniformBufferIndex)
+        encoder.setFragmentBytes(bytes.baseAddress!, length: bytes.count, index: program.uniformBufferIndex)
+    }
     let sampler = device.makeSamplerState(descriptor: MTLSamplerDescriptor())!
     var resources: [MTLTexture] = []
     for binding in program.textureBindings {
@@ -164,14 +187,15 @@ private func facts(_ value: Template, absentSlots: Set<Int> = []) -> [String: An
     } catch { facts["seedFailure"] = String(describing: error) }
     do {
         let reachable = try SceneResolvedMaterialShaderSchema.reachableSamplers(
-            value, implicitFramebufferIdentity: nil)
+            value, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: value).get(),
+            implicitFramebufferIdentity: nil)
         facts["reachable"] = reachable.keys.sorted()
         facts["materialKeys"] = reachable.keys.sorted().map {
             reachable[$0]!.first!.materialKey ?? "<none>"
         }
     } catch { facts["reachabilityFailure"] = String(describing: error) }
     guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(
-        template: value, maximumVariantCount: 16) else {
+        template: value, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: value), maximumVariantCount: 16) else {
         facts["launch"] = "validation-failed"; return facts
     }
     let states = Dictionary(uniqueKeysWithValues: value.textureSlots.compactMap { slot

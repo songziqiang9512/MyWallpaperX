@@ -93,7 +93,7 @@ struct SceneSoundPlaybackRegistry {
                 scaleXYZ: [1,1,1], alpha: 1, effects: []),
             .init(id: 3, layerIndex: 2, name: "text", visible: true, originXYZ: [0,0,0],
                 scaleXYZ: [1,1,1], alpha: 1, effects: [], contentKind: "text",
-                textScript: .init(source: textSource), text: "Placeholder",
+                text: "Placeholder",
                 textStyle: .init(fontPath: nil, colorRGB: nil, pointSize: 12))])
         func binding(_ index: Int, _ key: String, _ source: String, _ authored: SceneJSONValue) -> SceneScriptBindingIR {
             .init(source: source, owner: .init(kind: .object, objectIndex: index, objectID: index+1,

@@ -13,7 +13,10 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
     private var capturedSurfaceID: UInt32?
     private var previousSurfaceID: UInt32?
     private var previousSurface: SceneScriptSurfaceInput?
-    private var disabledTargets: Set<SceneDynamicTarget> = []
+    private var disabledTargets: Set<SceneDynamicTarget> = [] {
+        didSet { if disabledTargets != oldValue { systemInputConsumersChanged = true } }
+    }
+    var systemInputConsumersChanged = false
     private var retiredTargets: Set<SceneDynamicTarget> = []
     private var scriptPropertiesJSONCache = SceneScriptPropertyInputJSONCache()
     private var pendingEvents: [SceneScriptCursorPendingEvent] = []
@@ -32,8 +35,17 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
     private let bindingsByLayer: [Int: [SceneScriptCursorBinding]]
     private let bindingsByTarget: [SceneDynamicTarget: SceneScriptCursorBinding]
     var capturedOwnerLayerIDs: Set<Int> { Set(capturedHits.keys) }
-    var ownerCount: Int { bindings.count }
-    var hasAudioConsumers: Bool { bindings.contains { !disabledTargets.contains($0.ownerTarget) && $0.owner.hasAudioRegistration } }
+    var ownerCount: Int { ownerTargets.subtracting(disabledTargets).count }
+    var hasAudioConsumers: Bool { hasAudioConsumers(excludingTargets: []) }
+
+    func hasActiveOwners(excludingTargets: Set<SceneDynamicTarget>) -> Bool {
+        !ownerTargets.subtracting(disabledTargets).isSubset(of: excludingTargets)
+    }
+
+    func hasAudioConsumers(excludingTargets: Set<SceneDynamicTarget>) -> Bool {
+        bindings.contains { !disabledTargets.contains($0.ownerTarget)
+            && !excludingTargets.contains($0.ownerTarget) && $0.owner.hasAudioRegistration }
+    }
 
     func edgeStateSnapshot() -> SceneScriptCursorEdgeState {
         .init(

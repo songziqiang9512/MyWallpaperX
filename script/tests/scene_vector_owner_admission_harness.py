@@ -90,7 +90,6 @@ enum Harness {
                 alpha: 1,
                 effects: [],
                 contentKind: "text",
-                textScript: .init(source: stringFailedSource),
                 text: "authored",
                 textStyle: .init(
                     fontPath: nil,

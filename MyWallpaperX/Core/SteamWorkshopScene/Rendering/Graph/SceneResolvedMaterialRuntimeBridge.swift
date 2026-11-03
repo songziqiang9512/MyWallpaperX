@@ -293,7 +293,8 @@ final class SceneResolvedMaterialRuntimeBridge {
         case rejected(reasonCode: String)
     }
 
-    private let catalog: SceneResolvedMaterialRuntimeCatalog
+    let userPropertyDemands: Set<SceneUserPropertyTextureIdentity>
+    let systemProviderDemands: Set<SceneSystemProviderTextureIdentity>
     private let orderedSystemProviderDemands: [SceneSystemProviderTextureIdentity]
     private let capabilities: SceneResolvedMaterialExecutionCapabilityCatalog
 
@@ -329,7 +330,8 @@ final class SceneResolvedMaterialRuntimeBridge {
 #endif
 
     init(
-        catalog: SceneResolvedMaterialRuntimeCatalog,
+        userPropertyDemands: Set<SceneUserPropertyTextureIdentity>,
+        systemProviderDemands: Set<SceneSystemProviderTextureIdentity>,
         capabilities: SceneResolvedMaterialExecutionCapabilityCatalog,
         assets: SceneMaterialAssetTextureCatalog,
         device: MTLDevice,
@@ -341,8 +343,9 @@ final class SceneResolvedMaterialRuntimeBridge {
 #endif
  }
     ) {
-        self.catalog = catalog
-        self.orderedSystemProviderDemands = catalog.systemProviderDemands.sorted(by: {
+        self.userPropertyDemands = userPropertyDemands
+        self.systemProviderDemands = systemProviderDemands
+        self.orderedSystemProviderDemands = systemProviderDemands.sorted(by: {
             $0.reportToken < $1.reportToken
         })
         self.capabilities = capabilities
@@ -397,14 +400,6 @@ final class SceneResolvedMaterialRuntimeBridge {
         assetProvider.discardFrame()
     }
 
-    var userPropertyDemands: Set<SceneUserPropertyTextureIdentity> {
-        catalog.userPropertyDemands
-    }
-
-    var systemProviderDemands: Set<SceneSystemProviderTextureIdentity> {
-        catalog.systemProviderDemands
-    }
-
     var shouldDeferFrame: Bool { submissions.shouldDeferFrame }
 
     func reserveDisplayScratch(pool: SceneOffscreenTexturePool, width: Int, height: Int,
@@ -456,7 +451,7 @@ final class SceneResolvedMaterialRuntimeBridge {
     func userPropertyDemands(
         including declaredPropertyKeys: [String]
     ) -> Set<SceneUserPropertyTextureIdentity> {
-        catalog.userPropertyDemands.union(declaredPropertyKeys.compactMap {
+        userPropertyDemands.union(declaredPropertyKeys.compactMap {
             SceneUserPropertyTextureIdentity(
                 propertyKey: $0,
                 purpose: .premultipliedColor
@@ -586,7 +581,7 @@ final class SceneResolvedMaterialRuntimeBridge {
                 && $0.effectIndex == subject.key.effectIndex
                 && $0.descriptorID == subject.key.descriptorID
         }?.reasonCode
-        guard let reason = dynamicReason ?? stage.visualFailureReasonCode else {
+        guard let reason = dynamicReason ?? stage.execution.visualFailureReasonCode else {
             return .encodedOutput
         }
         return .failed(

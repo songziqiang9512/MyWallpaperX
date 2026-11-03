@@ -271,7 +271,6 @@ nonisolated struct SceneRenderDescriptorBuilder {
                     puppetMeshPath: puppetMeshPath,
                     text: object.text,
                     textStyle: object.textStyle,
-                    textScript: object.textScript,
                     scriptBindings: object.scriptBindings,
                     textureAnimationScripts: object.textureAnimationScripts,
                     hasInlineScript: object.hasInlineScript,

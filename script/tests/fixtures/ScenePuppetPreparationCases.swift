@@ -3,7 +3,7 @@ import simd
 import Darwin
 
 // Peripheral immutable DTOs only. MDL parsing, pose preparation, evaluation,
-// playback, clipping, geometry, buffers and Metal types are production sources.
+// playback inputs and animation metadata are production sources.
 struct SceneRenderDescriptor {
     struct Layer {
         let id: Int
@@ -457,6 +457,9 @@ private enum ScenePuppetPreparationCases {
             for: sourceLayer(9, mesh: "bind.mdl", animated: true, animationID: 909),
             asset: asset("bind.mdl")))
         failures["unsupported-selector"] = try describe(ScenePuppetLayerLoad.preparePose(
+            for: sourceLayer(9, mesh: "bind.mdl", animated: true, clipRate: -1),
+            asset: asset("bind.mdl")))
+        failures["zero-rate"] = try describe(ScenePuppetLayerLoad.preparePose(
             for: sourceLayer(9, mesh: "bind.mdl", animated: true, clipRate: 0),
             asset: asset("bind.mdl")))
         failures["no-reference-script"] = try describe(ScenePuppetLayerLoad.preparePose(
@@ -470,7 +473,7 @@ private enum ScenePuppetPreparationCases {
             ("absent", "reference-absent-animation.mdl", true, 101, 1.0),
             ("unprepared", "shared.mdl", false, 101, 1.0),
             ("unknown", "shared.mdl", true, 909, 1.0),
-            ("unsupported", "shared.mdl", true, 101, 0.0),
+            ("unsupported", "shared.mdl", true, 101, -1.0),
             ("renamed", "renamed-reference-failure.mdl", true, 101, 1.0),
             ("independent", "independent-reference-failure.mdl", true, 101, 1.0),
             ("reordered", "reordered-reference-failure.mdl", true, 101, 1.0)

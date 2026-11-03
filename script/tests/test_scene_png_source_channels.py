@@ -80,7 +80,7 @@ for path in CommandLine.arguments.dropFirst() {
 ''')
         cls.binary = cls.root / 'decode'
         compiled = subprocess.run(
-            ['xcrun', 'swiftc', str(SOURCE), str(RESAMPLE_SOURCE),
+            ['xcrun', 'swiftc', str(SOURCE.with_name('SceneTextureLookupIdentity.swift')), str(SOURCE), str(RESAMPLE_SOURCE),
              str(RESOURCE_BUDGET_SOURCE), str(harness), '-o', str(cls.binary)],
             capture_output=True, text=True, timeout=60)
         if compiled.returncode:

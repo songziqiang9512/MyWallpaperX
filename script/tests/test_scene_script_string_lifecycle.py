@@ -30,7 +30,6 @@ enum Harness {
             alpha: 1,
             effects: [],
             contentKind: "text",
-            textScript: .init(source: source),
             text: "authored",
             textStyle: .init(fontPath: nil, colorRGB: [1, 1, 1], pointSize: 32)
         )])
@@ -97,7 +96,6 @@ enum Harness {
             alpha: 1,
             effects: [],
             contentKind: "text",
-            textScript: .init(source: propertySource),
             text: "placeholder",
             textStyle: .init(fontPath: nil, colorRGB: [1, 1, 1], pointSize: 32)
         )])
@@ -152,7 +150,6 @@ enum Harness {
             alpha: 1,
             effects: [],
             contentKind: "text",
-            textScript: .init(source: eventSource),
             text: "placeholder",
             textStyle: .init(
                 fontPath: "fonts/authored.ttf",
@@ -220,6 +217,7 @@ enum Harness {
             recordID: "storage-fixture",
             rootDirectory: storageRoot
         )
+        storage.prepare()
         try storage.apply([.init(
             kind: .set,
             globalScope: true,
@@ -232,6 +230,7 @@ enum Harness {
             recordID: "storage-fixture",
             rootDirectory: storageRoot
         )
+        reloaded.prepare()
         let persistedValue: String
         switch reloaded.read(
             screenIdentity: nil,
@@ -253,6 +252,7 @@ enum Harness {
             recordID: "storage-fixture",
             rootDirectory: storageRoot
         )
+        futureSession.prepare()
         let futureReadRejected: Bool
         if case .failure = futureSession.read(
             screenIdentity: nil,
@@ -339,7 +339,7 @@ enum Harness {
             id: 77, layerIndex: 0, name: "unseen module", visible: true,
             originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1], anglesXYZ: [0, 0, 0],
             colorRGB: nil, alpha: 1, effects: [], contentKind: "text",
-            textScript: .init(source: source), text: "authored",
+            text: "authored",
             textStyle: .init(fontPath: nil, colorRGB: [1, 1, 1], pointSize: 32)
         )])
         let domain = try SceneScriptQuickJSDomain()
@@ -496,7 +496,7 @@ enum Harness {
     export function update(value) {
         const labels = ['zero', 'one', 'two'];
         const now = new Date();
-        return scriptProperties.prefix + ':' + labels[1] + ':' + now.getFullYear();
+        return scriptProperties.prefix + ':' + labels[1] + ':' + now.getUTCFullYear();
     }
     export function destroy() {
         if (scriptProperties.prefix !== 'teardown') {
@@ -611,7 +611,7 @@ class SceneScriptStringLifecycleTests(unittest.TestCase):
         prefix, array_value, year = result["propertyValue"].split(":")
         self.assertEqual(prefix, "live")
         self.assertEqual(array_value, "one")
-        self.assertGreaterEqual(int(year), 2025)
+        self.assertEqual(int(year), 1970)
         self.assertEqual(result["persistedStorageValue"], "7")
         self.assertTrue(result["futureStorageReadRejected"])
         self.assertTrue(result["futureStorageWriteRejected"])

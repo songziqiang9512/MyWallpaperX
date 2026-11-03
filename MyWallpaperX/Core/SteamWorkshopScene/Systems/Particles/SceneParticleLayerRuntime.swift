@@ -20,7 +20,6 @@ struct SceneParticleRootRenderRuntime {
     let orientation: SceneParticleOrientation
     let orientationAxis: SIMD3<Float>?
     let usesPerspective: Bool
-    let instanceBuffer = SceneParticleMetalInstanceBuffer()
     var instances: [SceneParticleGPUInstance] = []
     var simulator: SceneParticleSimulator
     var ropeTrailHistory: SceneParticleRopeTrailHistory?

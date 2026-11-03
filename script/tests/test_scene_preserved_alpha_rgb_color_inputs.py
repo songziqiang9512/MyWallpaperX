@@ -38,21 +38,6 @@ SUPPORT = r'''
 import Foundation
 import Metal
 
-nonisolated enum SceneTextureLoadPurpose: Hashable, Sendable {
-    case premultipliedColor
-    case straightAlbedo
-    case preservedChannels
-    case mask
-    case noise
-    case flow
-    case phase
-    case normal
-    case depth
-    case lookupTable
-
-    var requiresVolumeTexture: Bool { self == .lookupTable }
-}
-
 nonisolated struct SceneResolvedMaterialNode {
     enum TextureProvenance: String, Hashable {
         case material
@@ -71,11 +56,6 @@ nonisolated enum SceneDynamicSource: Hashable {
     case userProperty
     case timeline
     case sceneScript
-}
-
-nonisolated struct SceneSystemProviderTextureIdentity: Hashable {
-    let name: String
-    let purpose: SceneTextureLoadPurpose
 }
 
 nonisolated enum SceneFrameTextureIdentity: Hashable {

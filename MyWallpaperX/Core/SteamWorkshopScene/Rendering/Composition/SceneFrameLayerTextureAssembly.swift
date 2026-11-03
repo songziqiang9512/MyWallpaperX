@@ -5,8 +5,6 @@ enum SceneFrameLayerTextureAssembly {
         base: SceneBaseImageTextureStore,
         dynamicImage: SceneDynamicImageTextureProviderSnapshot? = nil,
         dynamicText: SceneDynamicTextTextureStore.Snapshot?,
-        mediaThumbnail: SceneMediaThumbnailTextureStore.Snapshot? = nil,
-        mediaBindings: SceneBaseMaterialProviderBindingProgram = .empty,
         videoSources: [Int: SceneVideoTextureSource],
         retiredLayerIDs: Set<Int> = [],
         timing: SceneFrameTiming,
@@ -35,15 +33,11 @@ enum SceneFrameLayerTextureAssembly {
         }
 
         if let dynamicText {
-            for (layerID, layerSource) in dynamicText.layerSources {
+            for (layerID, layerSource) in dynamicText.layerSources where !retiredLayerIDs.contains(layerID) {
                 textures[layerID] = layerSource.texture
                 layerSourcePublications[layerID] = layerSource
             }
         }
-        // System media remains a separate provider. Authored material slots may
-        // consume it, but it must never overwrite a layer-source publication.
-        _ = mediaThumbnail
-        _ = mediaBindings
         for (layerID, source) in videoSources where !retiredLayerIDs.contains(layerID) {
             let preparedFrame = source.prepareFrame(for: timing)
             if collectsInitialVideoReadiness {

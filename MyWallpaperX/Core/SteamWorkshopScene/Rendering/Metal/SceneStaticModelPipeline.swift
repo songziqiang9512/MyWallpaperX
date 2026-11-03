@@ -2,7 +2,7 @@ import Metal
 import simd
 
 struct SceneStaticModelMesh {
-    fileprivate let vertexBuffer: MTLBuffer
+    let vertexBuffer: MTLBuffer
     fileprivate let indexBuffer: MTLBuffer
     let boundsMinimum: SIMD3<Float>
     let boundsMaximum: SIMD3<Float>

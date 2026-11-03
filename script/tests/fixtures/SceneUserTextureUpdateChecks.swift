@@ -237,7 +237,6 @@ final class ScriptDomain {
 struct ScriptProgram { var generation: UInt64 = 42; var domain: ScriptDomain? = .init() }
 struct SceneDesktopWallpaperLaunchContext {
     let recordID: String? = "record"
-    var userPropertyTextureLoad: SceneUserPropertyTextureLoadResult = .empty
     var liveState: ScenePropertyLiveUpdateState
     let resolvedMaterialCatalog: DemandCatalog
     let baseMaterialProviderBindings: DemandCatalog
@@ -349,7 +348,9 @@ final class SceneDesktopWallpaperSession {
         let second = texture("photo")!
         let publication = session.userPropertyTextureLoad.publications[.init(propertyKey: "photo", purpose: .normal)!]!
         results["monotonicContentGeneration"] = publication.contentGeneration > 2
-        results["contextConsumesCurrentSnapshot"] = session.launchContext!.userPropertyTextureLoad.textures["photo"] === second
+        results["existingSurfacesAdoptReplacement"] = session.surfaces.values.allSatisfy {
+            $0.metalView.snapshot.textures["photo"] === second
+        }
         results["newSurfaceConsumesCurrent"] = {
             let surface = SceneDesktopWallpaperSession.Surface(); surface.metalView.adoptUserPropertyTextures(session.userPropertyTextureLoad)
             return surface.metalView.snapshot.textures["photo"] === second
@@ -373,14 +374,13 @@ final class SceneDesktopWallpaperSession {
             let snapshot = SceneUserPropertyTextureLoadResult(textures: ["photo": initial],
                 textureCandidates: [:], providerStates: [:], reportLines: [])
             releaseSession.userPropertyTextureLoad = snapshot
-            releaseSession.launchContext!.userPropertyTextureLoad = snapshot
             releaseSession.surfaces.values.forEach { $0.metalView.adoptUserPropertyTextures(snapshot) }
         }
         var releaseOutcome: ScenePlaybackTextureUpdateOutcome?
         releaseSession.applyUserTextureUpdate(.init(references: [:], resetKeys: ["photo"],
             values: ["photo": .string("")], revision: 1, recordID: "record"), resolvedURLs: [:]) { releaseOutcome = $0 }
         while releaseOutcome == nil { RunLoop.main.run(until: Date().addingTimeInterval(0.005)) }
-        results["initialSnapshotRetiredFromContextAndSurfaces"] = releaseOutcome == .applied && retired == nil
+        results["initialSnapshotRetiredAfterReplacement"] = releaseOutcome == .applied && retired == nil
         results.merge(videoChecks()) { _, new in new }
         results.merge(initialPreparationChecks()) { _, new in new }
         let blocked = SceneDesktopWallpaperSession()
@@ -697,7 +697,6 @@ final class SceneDesktopWallpaperSession {
                 source: SceneTextureLoader.currentSourceKey(for: file.url)!)
             target.userPropertyTextureLoad = .init(textures: [:], textureCandidates: [:],
                 providerStates: [identity: .unavailable], videoDeclarations: ["other": declaration], reportLines: [])
-            target.launchContext!.userPropertyTextureLoad = target.userPropertyTextureLoad
             return target
         }
         let startup = initial("manual-prime-startup.mp4")

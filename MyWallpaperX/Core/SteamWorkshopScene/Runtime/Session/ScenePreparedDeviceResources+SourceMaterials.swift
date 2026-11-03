@@ -16,12 +16,13 @@ extension ScenePreparedDeviceResources {
             func reject(_ reason: String) {
                 logSink("source material unavailable: owner=\(entry.key.reportToken) reason=\(reason)")
             }
-            guard case let .template(template) = entry.entry else {
+            guard case let .template(template, textureFormatSlots) = entry.entry else {
                 if case let .failure(failure) = entry.entry { reject(String(describing: failure)) }
                 continue
             }
             guard case let .success(variants) = SceneResolvedMaterialVariantCache.launchValidated(
-                template: template, maximumVariantCount: 32, assetFormatFacts: assets.launchFormatFacts
+                template: template, textureFormatSlots: textureFormatSlots,
+                maximumVariantCount: 32, assetFormatFacts: assets.launchFormatFacts
             ) else { reject("variant-schema"); continue }
             switch variants.precompileLaunchEnvelope(
                 implicitFramebufferIdentity: nil,
@@ -45,7 +46,9 @@ extension ScenePreparedDeviceResources {
                       template.textureSlots.dropFirst().allSatisfy({ $0 == nil }),
                       envelope.variants.allSatisfy({ variant in
                           variant.activeSamplers.count == 1
-                              && variant.activeSamplers[0]?.purpose(for: reference) == .premultipliedColor
+                              && variant.activeSamplers[0].flatMap({
+                                  SceneResolvedMaterialShaderSchema.purpose(for: reference, sampler: $0)
+                              }) == .premultipliedColor
                       }) else {
                     reject("framebuffer-source-domain-unproven"); continue
                 }
@@ -61,8 +64,10 @@ extension ScenePreparedDeviceResources {
                       case let .asset(path) = reference else {
                     reject("source-domain-unavailable"); continue
                 }
-                let purposes = envelope.variants.compactMap {
-                    $0.activeSamplers[0]?.purpose(for: reference)
+                let purposes = envelope.variants.compactMap { variant in
+                    variant.activeSamplers[0].flatMap {
+                        SceneResolvedMaterialShaderSchema.purpose(for: reference, sampler: $0)
+                    }
                 }
                 guard purposes.count == envelope.variants.count,
                       Set(purposes).count == 1, let purpose = purposes.first else {
@@ -72,9 +77,7 @@ extension ScenePreparedDeviceResources {
             }
             let plans = envelope.variants.compactMap { variant in
                 SceneResolvedMaterialPassEncoder.WarmupPlan(
-                    identity: entry.key.reportToken, preparedKey: variant.preparedShader.cacheKey,
-                    frontend: variant.frontendProgram, renderState: template.renderState,
-                    frontendSchemaVersion: variant.preparedShader.vertex.frontendSchemaVersion,
+                    identity: entry.key.reportToken, prepared: variant.preparedAssembly,
                     pixelFormat: format, writeMask: .all, device: device)
             }
             guard plans.count == envelope.variants.count else {
@@ -84,7 +87,12 @@ extension ScenePreparedDeviceResources {
             guard report.failedKeyCount == 0, report.readyKeyCount > 0 else {
                 reject("pipeline-warmup"); continue
             }
-            prepared[layerID] = .init(template: template, bindFrame: { input in
+            prepared[layerID] = .init(declaredDynamicTargets: Set(
+                template.uniformDeclarations.compactMap { declaration in
+                    if case let .dynamic(value) = declaration.value { return value.target }
+                    return nil
+                }
+            ), hasAudioSpectrumConsumer: variants.hasAudioSpectrumConsumer, bindFrame: { input in
                 SceneResolvedMaterialProgramFinalizer.finalize(input, variantCache: variants)
             }, pixelFormat: format, outputDomain: outputDomain,
                 sharedModelPath: entry.sharedModelPath)

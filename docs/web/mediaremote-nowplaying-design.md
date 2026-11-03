@@ -60,7 +60,7 @@ Web 独立播放进程按 request UUID 接收主 App 的完整快照，不在子
 
 ## 来源、授权与失败
 
-沿用 [Scene 来源合同](../scene/roadmap/batch2/system-media-input-design.md)：有效系统 session（包括 paused）唯一决定选中来源；Music 公开只读接口仅补同一曲目允许的字段。系统选中Music时，公开事务仅补匹配元数据，不请求或复用其封面、不提取其颜色，避免无消费者封面失败连带丢补充；完整Music fallback仍读取封面并沿用原缓存/错误处理。曲目前后身份及异步selection/epoch检查保留。只有观察资源 missingResource 才允许完整 Music fallback；noSession、临时未知、超时和权限拒绝分别处理，不用 Music 的旧曲填空。迁移不扩展既有 Developer ID / Mac App Store backend 渠道范围，发布与签名仍按[发布流程](../release/release-signing.md)；共享服务换到主 App 后必须重新核验真实授权归属。
+沿用 [Scene 来源合同](../scene/capabilities/runtime-input-property-coverage.md#providers)：有效系统 session（包括 paused）唯一决定选中来源；Music 公开只读接口仅补同一曲目允许的字段。系统选中Music时，公开事务仅补匹配元数据，不请求或复用其封面、不提取其颜色，避免无消费者封面失败连带丢补充；完整Music fallback仍读取封面并沿用原缓存/错误处理。曲目前后身份及异步selection/epoch检查保留。只有观察资源 missingResource 才允许完整 Music fallback；noSession、临时未知、超时和权限拒绝分别处理，不用 Music 的旧曲填空。迁移不扩展既有 Developer ID / Mac App Store backend 渠道范围，发布与签名仍按[发布流程](../release/release-signing.md)；共享服务换到主 App 后必须重新核验真实授权归属。
 
 本修订撤销旧 D6 的“无系统会话回退页面媒体”建议。官方歌曲监听通道以系统歌曲为准，没歌曲就清空，不能显示壁纸自己的背景音。页面 media 观察继续服务音量、播放门和节点诊断，与官方系统媒体状态分离；原 `__myWallpaperMediaState` 的页面 direct writers 必须退出，禁止后台页面事件覆盖系统 snapshot。关闭开关发布 enabled=false 并清空曲目/封面/进度、STOPPED；开启但无 session 发布 enabled=true 和同样空内容。封面缺失只影响封面，系统服务失败不影响壁纸、频谱或其他列表。
 

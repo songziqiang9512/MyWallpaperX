@@ -56,8 +56,6 @@ final class SceneLayerColorBlendPipelineState {
     }
 }
 
-// Mechanical sync: the repository gained the lit base-capture pipeline slot
-// (D3 first slice); this fixture mirrors the existing pipeline stubs.
 final class SceneLitImageLayerPipeline {
     static let attempts = Counter()
     let deviceRegistryID: UInt64
@@ -65,6 +63,14 @@ final class SceneLitImageLayerPipeline {
     init?(device: MTLDevice, pixelFormat: MTLPixelFormat) {
         Self.attempts.increment()
         deviceRegistryID = device.registryID
+    }
+}
+
+enum ScenePuppetClipping {
+    static let attempts = Counter()
+    static func makePipeline(device: MTLDevice) -> MTLRenderPipelineState? {
+        attempts.increment()
+        return nil
     }
 }
 
@@ -114,6 +120,16 @@ enum Harness {
         let colorBlendAttemptsAfterConstruction =
             SceneLayerColorBlendPipelineState.attempts.read()
 
+        let clippingBeforePreparation = first.puppetClipping == nil
+            && ScenePuppetClipping.attempts.read() == 0
+        _ = first.preparePuppetClipping()
+        _ = first.preparePuppetClipping()
+        for _ in 0..<128 { _ = first.puppetClipping }
+        let clippingFailureCached = first.puppetClipping == nil
+            && ScenePuppetClipping.attempts.read() == 1
+        _ = second.preparePuppetClipping()
+        let clippingRepositoriesIndependent = ScenePuppetClipping.attempts.read() == 2
+
         let litBeforePreparation = first.litImageLayer == nil
         let litAttemptsBeforePreparation = SceneLitImageLayerPipeline.attempts.read()
         let litPrepared = first.prepareLitImageLayer()
@@ -130,6 +146,8 @@ enum Harness {
         let secondColorBlend = second.layerColorBlendState()
 
         let result: [String: Any] = [
+            "clippingPreparedOnce": clippingBeforePreparation && clippingFailureCached,
+            "clippingRepositoriesIndependent": clippingRepositoriesIndependent,
             "litPreparedOnce": litBeforePreparation && litAttemptsBeforePreparation == 0
                 && litPrepared && litFrameReadsDidNotCompile,
             "attemptsAfterConstruction": attemptsAfterConstruction,
@@ -191,6 +209,8 @@ class ScenePipelineRepositoryTests(unittest.TestCase):
             result = json.loads(completed.stdout)
 
         self.assertTrue(result["litPreparedOnce"])
+        self.assertTrue(result["clippingPreparedOnce"])
+        self.assertTrue(result["clippingRepositoriesIndependent"])
         self.assertEqual(result["attemptsAfterConstruction"], 0)
         self.assertEqual(result["colorBlendAttemptsAfterConstruction"], 0)
         self.assertEqual(result["firstSpotLightValueCount"], 128)

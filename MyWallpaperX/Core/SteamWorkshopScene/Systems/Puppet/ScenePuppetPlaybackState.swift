@@ -1,4 +1,4 @@
-import Metal
+import Foundation
 import simd
 
 final class ScenePuppetPlaybackState {
@@ -26,16 +26,17 @@ final class ScenePuppetPlaybackState {
         }
     }
 
-    private struct SubmissionState {
-        var frameSignature: [FrameSignature]?
-        var boneRevision: UInt64?
-        var nextVertexBufferIndex = 0
-        var attachmentFrames: [String: simd_float4x4] = [:]
-    }
-
-    struct Output {
-        let state: ScenePuppetPlaybackState
-        let product: SceneGeometryProduct
+    struct RenderFrame {
+        enum Geometry {
+            case image(vertices: [SceneQuadVertex], vertexCoverageVaries: Bool)
+            case direct(vertices: [SceneMdlStaticModel.Vertex], status: DirectModelPoseStatus)
+        }
+        let revision: UInt64
+        let geometry: Geometry
+#if DEBUG
+        let boneRevision: UInt64
+        let scriptWritten: Bool
+#endif
     }
 
     struct PoseConfiguration {
@@ -46,59 +47,30 @@ final class ScenePuppetPlaybackState {
     }
 
     enum Failure: Error, CustomStringConvertible {
-        case degenerateLayerSize
-        case evaluation(ScenePuppetAnimationEvaluationFailure)
-        case resourceAllocationFailed
         case directModelVertexCountMismatch
         case directAttachmentBasisUnqualified
-        case directModelStream(SceneStaticModelVertexStream.Failure)
 
         nonisolated var description: String {
             switch self {
-            case .degenerateLayerSize:
-                return "degenerate layer size"
-            case let .evaluation(failure):
-                return failure.description
-            case .resourceAllocationFailed:
-                return "Metal animation resource allocation failed"
             case .directAttachmentBasisUnqualified:
                 return "direct model attachment basis is unqualified"
             case .directModelVertexCountMismatch:
                 return "direct model bind/evaluator vertex counts do not match"
-            case let .directModelStream(failure):
-                return "direct model vertex stream: \(failure.rawValue)"
             }
         }
     }
 
-    /// Geometry storage is per layer/surface; pose, clocks and script state stay
-    /// on this PlaybackState for both sinks.
-    final class ImageGeometry {
-        let clipping: ScenePuppetClipping?
+    final class ImagePose {
         let mesh: SceneMdlPuppetMesh
-        let atlasTexture: MTLTexture
-        let vertexBuffers: [MTLBuffer]
-        let indexBuffer: MTLBuffer
-        let renderPipelineState: MTLRenderPipelineState
-        let authoredSize: SIMD2<Float>
         let hasBoneAlpha: Bool
         var positionScratch: [SIMD2<Float>]
         var vertexScratch: [SceneQuadVertex]
         var coverageScratch: [Float]
         var boneAlphaScratch: [Float]
 
-        init(mesh: SceneMdlPuppetMesh, atlasTexture: MTLTexture,
-             vertexBuffers: [MTLBuffer], indexBuffer: MTLBuffer,
-             renderPipelineState: MTLRenderPipelineState, authoredSize: SIMD2<Float>,
-             clipping: ScenePuppetClipping?, evaluator: ScenePuppetAnimationEvaluator,
+        init(mesh: SceneMdlPuppetMesh, evaluator: ScenePuppetAnimationEvaluator,
              selection: ScenePuppetAnimationSelection) {
             self.mesh = mesh
-            self.atlasTexture = atlasTexture
-            self.vertexBuffers = vertexBuffers
-            self.indexBuffer = indexBuffer
-            self.renderPipelineState = renderPipelineState
-            self.authoredSize = authoredSize
-            self.clipping = clipping
             hasBoneAlpha = selection.clips.contains {
                 evaluator.hasAlphaContribution(animationID: $0.animation.id)
             }
@@ -112,8 +84,8 @@ final class ScenePuppetPlaybackState {
     }
 
     enum Geometry {
-        case image(ImageGeometry)
-        case direct(DirectModelGeometry)
+        case image(ImagePose)
+        case direct(DirectModelPose)
     }
 
     let layerID: Int
@@ -142,8 +114,7 @@ final class ScenePuppetPlaybackState {
     private var preparedFrameSignature: [FrameSignature]?
     private var preparedBoneRevision: UInt64?
     private var preparedAttachmentFrames: [String: simd_float4x4] = [:]
-    private var lastPreparedVertexBufferIndex: Int?
-    private weak var preparedPublicationCommandBuffer: MTLCommandBuffer?
+    private var renderRevision: UInt64?
     private var renderBoneOverrides: [Int: simd_float4x4] = [:]
     /// Translation-only query overlay. Physical translation continues in the
     /// render pose after this overlay expires at the next simulation cadence.
@@ -151,94 +122,37 @@ final class ScenePuppetPlaybackState {
     private var lastBonePhysicsFrameIndex: UInt64?
 #if DEBUG
     private var recordedBoneSkin = false
-    private var recordedWorldDraw = false
-    private let boneEvidence = ScenePuppetBoneEvidence()
     private var boneWrittenInFrame = false
 #endif
     private var boneRevision: UInt64 = 0
     private var translationMotions: [Int: ScenePuppetTranslationMotion] = [:]
-    private let submissions = SceneSourceUpdateStateFIFO(
-        initial: SubmissionState()
-    )
-
     static func make(
-        layerID: Int,
-        mesh: SceneMdlPuppetMesh,
-        rig: SceneMdlPuppetRig,
-        selection: ScenePuppetAnimationSelection,
-        attachments: [SceneMdlPuppetAttachment],
-        atlasTexture: MTLTexture,
-        layerWidth: Float,
-        layerHeight: Float,
-        device: MTLDevice,
-        pipeline: SceneImageLayerPipeline,
-        clipping: ScenePuppetClipping? = nil
-    ) -> Result<Output, Failure> {
-        let evaluator: ScenePuppetAnimationEvaluator
-        do {
-            evaluator = try ScenePuppetAnimationEvaluator(
-                mesh: mesh,
-                rig: rig,
-                // Prepare selected absolute tracks once. Weight mixing shares
-                // the evaluator's bind poses; normal frames do not rebuild tracks.
-                additiveAnimations: selection.clips.map(\.animation)
-            )
-        } catch let failure as ScenePuppetAnimationEvaluationFailure {
-            return .failure(.evaluation(failure))
-        } catch {
-            return .failure(.resourceAllocationFailed)
-        }
-        return make(
-            layerID: layerID, mesh: mesh, evaluator: evaluator,
-            selection: selection, attachments: attachments,
-            atlasTexture: atlasTexture, layerWidth: layerWidth,
-            layerHeight: layerHeight, device: device, pipeline: pipeline,
-            clipping: clipping
-        )
-    }
-
-    /// A prepared pose can be instantiated for more than one layer or surface.
-    /// Only immutable evaluation data is shared; all CPU staging, bone state,
-    /// GPU buffers and submission state below belong to the new instance.
-    static func make(
-        layerID: Int,
-        mesh: SceneMdlPuppetMesh,
+        layerID: Int, mesh: SceneMdlPuppetMesh,
         evaluator: ScenePuppetAnimationEvaluator,
         selection: ScenePuppetAnimationSelection,
-        attachments: [SceneMdlPuppetAttachment],
-        atlasTexture: MTLTexture,
-        layerWidth: Float,
-        layerHeight: Float,
-        device: MTLDevice,
-        pipeline: SceneImageLayerPipeline,
-        clipping: ScenePuppetClipping? = nil
-    ) -> Result<Output, Failure> {
-        guard layerWidth.isFinite, layerHeight.isFinite,
-              layerWidth >= 1, layerHeight >= 1 else {
-            return .failure(.degenerateLayerSize)
-        }
-        let vertexBufferLength = mesh.vertices.count * MemoryLayout<SceneQuadVertex>.stride
-        var indices = mesh.indices
-        guard let indexBuffer = device.makeSceneBuffer(
-                  bytes: &indices,
-                  length: indices.count * MemoryLayout<UInt16>.stride
-              )
-        else {
-            return .failure(.resourceAllocationFailed)
-        }
-        let vertexBuffers = (0 ..< 3).compactMap { _ in
-            device.makeSceneBuffer(length: vertexBufferLength)
-        }
-        guard vertexBuffers.count == 3 else {
-            return .failure(.resourceAllocationFailed)
-        }
-        let image = ImageGeometry(mesh: mesh, atlasTexture: atlasTexture,
-            vertexBuffers: vertexBuffers, indexBuffer: indexBuffer,
-            renderPipelineState: pipeline.state, authoredSize: SIMD2(layerWidth, layerHeight),
-            clipping: clipping, evaluator: evaluator, selection: selection)
-        let state = ScenePuppetPlaybackState(layerID: layerID, geometry: .image(image),
+        attachments: [SceneMdlPuppetAttachment]
+    ) -> ScenePuppetPlaybackState {
+        ScenePuppetPlaybackState(layerID: layerID,
+            geometry: .image(ImagePose(mesh: mesh, evaluator: evaluator, selection: selection)),
             selection: selection, evaluator: evaluator, attachments: attachments)
-        return .success(Output(state: state, product: state.geometryProduct(image: image)))
+    }
+
+    var renderFrame: RenderFrame? {
+        guard let renderRevision else { return nil }
+        let output: RenderFrame.Geometry
+        switch geometry {
+        case let .image(image):
+            output = .image(vertices: image.vertexScratch, vertexCoverageVaries: image.hasBoneAlpha)
+        case let .direct(direct):
+            output = .direct(vertices: direct.outputVertices, status: direct.status)
+        }
+#if DEBUG
+        return RenderFrame(revision: renderRevision, geometry: output,
+            boneRevision: preparedBoneRevision ?? boneRevision,
+            scriptWritten: boneWrittenInFrame && preparedBoneRevision == boneRevision)
+#else
+        return RenderFrame(revision: renderRevision, geometry: output)
+#endif
     }
 
     /// CPU pose preparation belongs to the simulation frame. Missing drawables
@@ -251,6 +165,7 @@ final class ScenePuppetPlaybackState {
         guard frameSamples.count == selection.clips.count else {
             if case let .direct(direct) = geometry {
                 direct.useBindFallback(.invalidFrame)
+                renderRevision = (renderRevision ?? 0) &+ 1
                 preparedFrameSignature = nil
                 preparedBoneRevision = nil
                 preparedAttachmentFrames = [:]
@@ -260,6 +175,7 @@ final class ScenePuppetPlaybackState {
         if case let .direct(direct) = geometry,
            let blends = animationFrame.blends, blends.count != frameSamples.count {
             direct.useBindFallback(.invalidFrame)
+            renderRevision = (renderRevision ?? 0) &+ 1
             preparedFrameSignature = nil
             preparedBoneRevision = nil
             preparedAttachmentFrames = [:]
@@ -335,165 +251,20 @@ final class ScenePuppetPlaybackState {
                     layerID, boneRevision, image.positionScratch.count, displacement)
             }
     #endif
-            for index in image.mesh.vertices.indices {
-                let position = image.positionScratch[index]
-                image.vertexScratch[index] = SceneQuadVertex(
-                    position: position,
+            // Build a complete value once. Retained frozen frames keep their
+            // storage without first copying old vertices only to overwrite them.
+            image.vertexScratch = image.mesh.vertices.indices.map { index in
+                SceneQuadVertex(
+                    position: image.positionScratch[index],
                     texcoord: SIMD2(image.mesh.vertices[index].u, image.mesh.vertices[index].v),
                     vertexCoverage: image.coverageScratch[index]
                 )
             }
         }
+        renderRevision = (renderRevision ?? 0) &+ 1
         preparedFrameSignature = signature
         preparedBoneRevision = boneRevision
         return preparedAttachmentFrames
-    }
-
-    /// Sampling is fixed by animationFrame; sceneTime and dynamicValues only
-    /// identify the DEBUG evidence attached to this GPU publication.
-    func encode(
-        animationFrame: ScenePuppetAnimationPlaybackRuntime.LayerFrame,
-        sceneTime: Double,
-        dynamicValues: SceneDynamicSnapshot,
-        commandBuffer: MTLCommandBuffer,
-        transaction: SceneSourceUpdateTransaction
-    ) -> [String: simd_float4x4] {
-        let frames = prepareFrame(animationFrame: animationFrame)
-        guard case let .image(image) = geometry else {
-            if case let .direct(direct) = geometry {
-                direct.publish(on: commandBuffer, transaction: transaction)
-#if DEBUG
-                if ScenePuppetBoneEvidence.isEnabled(for: layerID) {
-                    direct.recordEvidence(boneEvidence, layerID: layerID,
-                        frame: dynamicValues.frameIndex, sceneTime: sceneTime,
-                        selection: selection, animationFrame: animationFrame,
-                        commandBuffer: commandBuffer)
-                }
-#endif
-            }
-            return frames
-        }
-        preparedPublicationCommandBuffer = nil
-        guard let preparedFrameSignature, let preparedBoneRevision else { return frames }
-        let attachmentFrames = submissions.update(transaction: transaction) { submission in
-            guard submission.frameSignature != preparedFrameSignature
-                    || submission.boneRevision != preparedBoneRevision else {
-                return submission.attachmentFrames
-            }
-            let vertexBuffer = image.vertexBuffers[submission.nextVertexBufferIndex]
-            lastPreparedVertexBufferIndex = submission.nextVertexBufferIndex
-            submission.nextVertexBufferIndex =
-                (submission.nextVertexBufferIndex + 1) % image.vertexBuffers.count
-            image.vertexScratch.withUnsafeBytes { bytes in
-                guard let source = bytes.baseAddress else { return }
-                vertexBuffer.contents().copyMemory(
-                    from: source,
-                    byteCount: bytes.count
-                )
-            }
-
-            submission.frameSignature = preparedFrameSignature
-            submission.boneRevision = preparedBoneRevision
-            submission.attachmentFrames = frames
-            return frames
-        }
-        preparedPublicationCommandBuffer = commandBuffer
-#if DEBUG
-        if ScenePuppetBoneEvidence.isEnabled(for: layerID) {
-        let publishedPositions = image.vertexScratch.map(\.position)
-        boneEvidence.record(layerID: layerID, revision: preparedBoneRevision,
-            frame: dynamicValues.frameIndex, sceneTime: sceneTime,
-            scriptWritten: boneWrittenInFrame && preparedBoneRevision == boneRevision,
-            displacement: zip(publishedPositions, image.mesh.vertices).reduce(Float(0)) {
-                max($0, simd_length($1.0 - SIMD2($1.1.x, $1.1.y)))
-            }, positions: publishedPositions, commandBuffer: commandBuffer)
-        }
-#endif
-        return attachmentFrames
-    }
-
-    private func geometryProduct(image: ImageGeometry) -> SceneGeometryProduct {
-        SceneGeometryProduct(
-            ownerLayerID: layerID,
-            samplingTexture: image.atlasTexture,
-            prepare: image.clipping.map { clipping in
-                { [self, image] commandBuffer, extent, mvp, retainAuxiliary in
-                    guard let index = lastPreparedVertexBufferIndex else { return }
-                    clipping.prepare(commandBuffer: commandBuffer, extent: extent, mvp: mvp,
-                        retainAuxiliary: retainAuxiliary,
-                        vertexCoverageVaries: image.hasBoneAlpha,
-                        vertices: image.vertexScratch, vertexBuffer: image.vertexBuffers[index], indexBuffer: image.indexBuffer)
-                }
-            },
-            isPreparedForPublication: { [self] commandBuffer in
-                preparedPublicationCommandBuffer === commandBuffer
-            },
-            encode: {
-            [self, image] encoder, sourceTexture, dependencyTexture, mvp, uniforms,
-            bindColorBlend in
-            guard let lastPreparedVertexBufferIndex else { return false }
-#if DEBUG
-            if !recordedWorldDraw,
-               SceneDesktopWallpaperHost.usesDebugEvidenceWindow {
-                recordedWorldDraw = true
-                var minimum = SIMD2<Float>(repeating: .greatestFiniteMagnitude)
-                var maximum = SIMD2<Float>(repeating: -.greatestFiniteMagnitude)
-                var visibleVertexCount = 0
-                for vertex in image.vertexScratch {
-                    let position = vertex.position
-                    let clip = mvp * SIMD4(
-                        position.x,
-                        position.y,
-                        0,
-                        1
-                    )
-                    guard clip.w.isFinite, abs(clip.w) > .ulpOfOne else { continue }
-                    let ndc = SIMD2(clip.x / clip.w, clip.y / clip.w)
-                    guard ndc.x.isFinite, ndc.y.isFinite else { continue }
-                    minimum = simd_min(minimum, ndc)
-                    maximum = simd_max(maximum, ndc)
-                    if abs(ndc.x) <= 1, abs(ndc.y) <= 1 {
-                        visibleVertexCount += 1
-                    }
-                }
-                NSLog(
-                    "MWX DEBUG SCENE: phase=puppet-world-draw layer=%d ndcMin=%.6f,%.6f ndcMax=%.6f,%.6f visibleVertices=%d totalVertices=%d",
-                    layerID, minimum.x, minimum.y, maximum.x, maximum.y,
-                    visibleVertexCount, image.vertexScratch.count
-                )
-            }
-#endif
-            if let bindColorBlend {
-                bindColorBlend(encoder, sourceTexture, mvp)
-            } else {
-#if DEBUG
-                ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
-#endif
-                encoder.setRenderPipelineState(image.renderPipelineState)
-                var matrix = mvp
-                encoder.setVertexBytes(&matrix, length: MemoryLayout<simd_float4x4>.size, index: 1)
-                var uniforms = uniforms
-                encoder.setFragmentBytes(&uniforms, length: MemoryLayout<SceneLayerFragmentUniforms>.size, index: 0)
-                encoder.setFragmentTexture(sourceTexture, index: 0)
-                encoder.setFragmentTexture(dependencyTexture ?? sourceTexture, index: 1)
-            }
-            encoder.setVertexBuffer(image.vertexBuffers[lastPreparedVertexBufferIndex], offset: 0, index: 0)
-            if let clipping = image.clipping {
-                clipping.draw(encoder: encoder, sourceTexture: sourceTexture, indexBuffer: image.indexBuffer)
-            } else {
-                SceneImageLayerPipeline.bindClipMask(encoder: encoder, texture: sourceTexture)
-                encoder.drawIndexedPrimitives(type: .triangle, indexCount: image.mesh.indices.count,
-                    indexType: .uint16, indexBuffer: image.indexBuffer, indexBufferOffset: 0)
-                #if DEBUG
-                SceneGPUStageTimestampHook.drew(encoder)
-                                ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: true)
-#endif
-            }
-            return true
-            },
-            authoredSize: image.authoredSize,
-            effectSourceExtentContract: .exactSamplingTexture
-        )
     }
 
     /// Returns the current render pose, including physical displacement.

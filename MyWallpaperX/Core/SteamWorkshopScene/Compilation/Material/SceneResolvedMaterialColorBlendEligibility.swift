@@ -190,7 +190,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
     private static func selectsSceneEnvironment(
         template: Template, sampler: SceneResolvedMaterialShaderSchema.Sampler, slot: Int
     ) -> Bool {
-        SceneResolvedMaterialTextureResolver.sceneEnvironmentReference(
+        SceneResolvedMaterialShaderSchema.sceneEnvironmentReference(
             template: template, sampler: sampler, slot: slot) != nil
     }
 
@@ -214,7 +214,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             )
             return profiles.contains(variant.routeDecision.profile)
                 && variant.frontendProgram.uniformLayout.fields.contains {
-                SceneResolvedMaterialUniformEncoder.hostUniform(
+                SceneResolvedMaterialHostUniformSchema.resolve(
                     $0,
                     activeTextureSlots: activeSlots
                 ) == .pointerPosition
@@ -371,7 +371,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
     func provesExactMixedNamedFallback(
         slot: Int,
         optionalInput expectedInput:
-            SceneResolvedMaterialMixedProviderSlotFact.OptionalInput? = nil
+            SceneResolvedMaterialCompiledVariant.MixedProviderSlot.OptionalInput? = nil
     ) -> Bool {
         guard (0 ..< 8).contains(slot) else { return false }
         let snapshot = launchEnvelopeCapabilitySnapshot()

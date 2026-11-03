@@ -4,7 +4,7 @@ import Metal
 extension SceneDesktopWallpaperSession {
     /// Stops all Scene owners, then submits one empty barrier to each surface's
     /// existing command queue. Completion means every command submitted before
-    /// teardown has reached a terminal GPU state and admitted font work ended.
+    /// teardown has reached a terminal GPU state and admitted resource work ended.
     func stopAndDrainGPU(
         completion: @escaping @MainActor (Bool) -> Void
     ) {
@@ -14,12 +14,6 @@ extension SceneDesktopWallpaperSession {
         drainStarted = true
         let drainingSurfaces = Array(surfaces.values) + Array(retiringSurfaces.values)
         let commandQueues = drainingSurfaces.map { $0.metalView.renderer.commandQueue }
-        let textStores = drainingSurfaces.compactMap { $0.metalView.dynamicTextTextures }
-        let textDrain = DispatchGroup()
-        for store in textStores {
-            textDrain.enter()
-            store.closeAndDrain { textDrain.leave() }
-        }
 #if DEBUG
         let captures = drainingSurfaces.map { $0.metalView.debugFrameCapture }
         let exportDrain = DispatchGroup()
@@ -31,13 +25,10 @@ extension SceneDesktopWallpaperSession {
         stop()
         let retirementDrain = retiringSurfaceDrain
         DispatchQueue.global(qos: .userInitiated).async {
-            // CPU loaders can submit uploads while unwinding. Close and join
-            // them before placing the final barriers on the surface queues.
-            textDrain.wait()
-            // Includes shared deferred work registered before context disposal,
-            // including stop-before-drain and earlier surface rebuild failures.
+            // Includes text and deferred loaders registered before context
+            // disposal, even after stop-before-drain or a failed rebuild.
+            // They can submit uploads before their CPU tails return.
             retirementDrain.wait()
-            withExtendedLifetime(textStores) {}
             let barriers = commandQueues.compactMap { queue -> MTLCommandBuffer? in
                 guard let buffer = queue.makeCommandBuffer() else { return nil }
                 buffer.label = "Scene daemon shutdown drain barrier"
@@ -67,7 +58,7 @@ extension SceneDesktopWallpaperSession {
 #endif
         }
     }
-    /// Rebuilt surfaces retain resources until font work and their queue end.
+    /// Rebuilt surfaces retain resources until their queue and exports end.
     /// A later stop includes any outstanding rebuild drains in its barrier.
     func retireSurface(_ surface: Surface) {
         let identity = ObjectIdentifier(surface)
@@ -76,8 +67,6 @@ extension SceneDesktopWallpaperSession {
         let resourceDrain = DispatchGroup()
         // Keep an admission open until the GPU barrier is terminal or rejected.
         resourceDrain.enter()
-        let textStore = surface.metalView.dynamicTextTextures
-        textStore?.close()
 #if DEBUG
         let capture = surface.metalView.debugFrameCapture
         resourceDrain.enter()
@@ -113,19 +102,8 @@ extension SceneDesktopWallpaperSession {
             DispatchQueue.main.async { deliver() }
 #endif
         }
-        let submitBarrier: @Sendable () -> Void = {
-            if let barrier { barrier.commit() }
-            else { resourceDrain.leave() }
-        }
-        if let textStore {
-            resourceDrain.enter()
-            textStore.closeAndDrain {
-                submitBarrier()
-                resourceDrain.leave()
-            }
-        } else {
-            submitBarrier()
-        }
+        if let barrier { barrier.commit() }
+        else { resourceDrain.leave() }
     }
 
     private func finishDrain(_ succeeded: Bool) {

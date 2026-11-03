@@ -467,7 +467,13 @@ static MWXSceneQuickJSLayerRecord *texture_animation_record_for_handle(
 ) {
     MWXSceneQuickJSLayerRecord *record = mwx_scene_quickjs_layer_record_for_handle(
         handle, MWX_SCENE_QUICKJS_LAYER_OWNER_BOUND);
-    return record != NULL && record->texture_animation_available ? record : NULL;
+    if (record == NULL) return NULL;
+    MWXSceneQuickJSOwner *owner = handle->domain->active_owner;
+    // Authored destroy stays in the callback journal until the host accepts it.
+    const MWXSceneQuickJSAuthoredLayerMutationRecord *pending =
+        mwx_scene_quickjs_authored_mutation_for_layer(owner,
+            (uint32_t)(record - owner->domain->layers));
+    return pending == NULL || !pending->destroyed ? record : NULL;
 }
 
 static bool append_texture_animation_command(
@@ -542,7 +548,7 @@ static JSValue texture_animation_get(
     MWXSceneQuickJSLayerAccessHandle *handle = opaque;
     MWXSceneQuickJSLayerRecord *record =
         texture_animation_record_for_handle(handle);
-    if (record == NULL)
+    if (record == NULL || !record->texture_animation_available)
         return JS_ThrowTypeError(context, "texture animation handle is stale");
     if ((enum TextureAnimationProperty)magic ==
         TEXTURE_ANIMATION_FRAME_COUNT)
@@ -565,7 +571,7 @@ static JSValue texture_animation_set(
     MWXSceneQuickJSLayerAccessHandle *handle = opaque;
     MWXSceneQuickJSLayerRecord *record =
         texture_animation_record_for_handle(handle);
-    if (record == NULL || argc != 1)
+    if (record == NULL || !record->texture_animation_available || argc != 1)
         return JS_ThrowTypeError(context, "texture animation handle is stale");
     if ((enum TextureAnimationProperty)magic != TEXTURE_ANIMATION_RATE)
         return JS_ThrowTypeError(
@@ -593,7 +599,7 @@ static JSValue texture_animation_call(
     MWXSceneQuickJSLayerAccessHandle *handle = opaque;
     MWXSceneQuickJSLayerRecord *record =
         texture_animation_record_for_handle(handle);
-    if (record == NULL)
+    if (record == NULL || !record->texture_animation_available)
         return JS_ThrowTypeError(context, "texture animation handle is stale");
     MWXSceneQuickJSOwner *owner = handle->domain->active_owner;
     double rate = 0, frame = 0;
@@ -738,7 +744,7 @@ static JSValue get_texture_animation(
 ) {
     (void)this_value; (void)argv; (void)magic;
     MWXSceneQuickJSLayerAccessHandle *handle = opaque;
-    MWXSceneQuickJSLayerRecord *record = mwx_scene_quickjs_layer_record_for_handle(handle, MWX_SCENE_QUICKJS_LAYER_OWNER_BOUND);
+    MWXSceneQuickJSLayerRecord *record = texture_animation_record_for_handle(handle);
     if (record == NULL || argc != 0)
         return JS_ThrowTypeError(context, "getTextureAnimation unavailable");
     if (!record->texture_animation_available) return JS_UNDEFINED;

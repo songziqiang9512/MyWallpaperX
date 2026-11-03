@@ -57,20 +57,6 @@
       "count": 1
     },
     {
-      "path": "script/tests/test_scene_audio_demand.py",
-      "scope": "SceneAudioDemandWiringTests.test_unified_program_audio_consumer_source_contract",
-      "method": "assertIn",
-      "literal": "case .resolved(_, let materials, _):",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_audio_demand.py",
-      "scope": "SceneAudioDemandWiringTests.test_unified_program_audio_consumer_source_contract",
-      "method": "assertNotIn",
-      "literal": "case .dedicated:",
-      "count": 1
-    },
-    {
       "path": "script/tests/test_scene_audio_spectrum_input.py",
       "scope": "SceneAudioSpectrumWiringTests.test_debug_audio_consumption_proof_joins_encoded_uniform_to_snapshot",
       "method": "assertIn",
@@ -162,41 +148,6 @@
       "count": 1
     },
     {
-      "path": "script/tests/test_scene_dynamic_text_generation.py",
-      "scope": "SceneDynamicTextGenerationTests.test_ready_texture_publication_declares_premultiplied_metadata",
-      "method": "assertNotIn",
-      "literal": "let renderSizes:",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_dynamic_text_generation.py",
-      "scope": "SceneDynamicTextGenerationTests.test_static_text_layers_leave_generation_state_untouched_after_preparation",
-      "method": "assertIn",
-      "literal": "guard !dynamicFields.isEmpty",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_dynamic_text_generation.py",
-      "scope": "SceneDynamicTextGenerationTests.test_static_text_layers_leave_generation_state_untouched_after_preparation",
-      "method": "assertIn",
-      "literal": "var signatureRefreshLayerIDs: Set<Int> = []",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_dynamic_text_generation.py",
-      "scope": "SceneDynamicTextGenerationTests.test_static_text_update_has_a_quiescent_gate_without_bypassing_dynamic_state",
-      "method": "assertIn",
-      "literal": "if !hasAdmittedDynamicLayer && !hasAuthoredDynamicFields",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_dynamic_text_generation.py",
-      "scope": "SceneDynamicTextGenerationTests.test_text_provider_frame_pin_is_cleared_only_at_host_outcome",
-      "method": "assertIn",
-      "literal": "let dynamicTextSnapshot = dynamicTextTextures?.prepareFrame()",
-      "count": 1
-    },
-    {
       "path": "script/tests/test_scene_effect_execution_telemetry.py",
       "scope": "SceneEffectExecutionTelemetryTests.test_unified_execution_uses_single_backend_identity",
       "method": "assertNotIn",
@@ -257,13 +208,6 @@
       "scope": "SceneFrameContextTests.test_time_of_day_is_a_typed_generic_vm_frame_input",
       "method": "assertIn",
       "literal": "struct SceneScriptFrameInput",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_frame_vm_routing.py",
-      "scope": "SceneFrameVMRoutingTests.test_alpha_display_fallback_wiring_in_runtime_model",
-      "method": "assertIn",
-      "literal": "let alphaClaimedTargets = sharedAlphaTargets\n            .union(projectedScalarTargets)\n            .union(timelineTargets)",
       "count": 1
     },
     {
@@ -390,69 +334,6 @@
       "scope": "SceneFrameVMRoutingTests.test_user_property_revision_ack_is_shared_and_restored_with_frame_state",
       "method": "assertIn",
       "literal": "struct SceneScriptAppliedUserPropertyState",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_layer_world_frame.py",
-      "scope": "SceneLayerWorldFrameTests.test_dynamic_world_frame_uses_snapshot_transform_index",
-      "method": "assertIn",
-      "literal": "guard let layer = byID[layerID]",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_media_thumbnail_provider.py",
-      "scope": "SceneMediaThumbnailProviderTests.test_base_material_route_reports_ready_and_rejected_provider",
-      "method": "assertIn",
-      "literal": "func commitPreparedFrame()",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_media_thumbnail_provider.py",
-      "scope": "SceneMediaThumbnailProviderTests.test_base_material_route_reports_ready_and_rejected_provider",
-      "method": "assertIn",
-      "literal": "func discardPreparedFrame()",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_media_thumbnail_provider.py",
-      "scope": "SceneMediaThumbnailProviderTests.test_base_material_route_reports_ready_and_rejected_provider",
-      "method": "assertIn",
-      "literal": "func prepareFrame() -> Snapshot",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_media_thumbnail_provider.py",
-      "scope": "SceneMediaThumbnailProviderTests.test_base_material_route_reports_ready_and_rejected_provider",
-      "method": "assertIn",
-      "literal": "if !snapshotDirty, let cachedSnapshot",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_media_thumbnail_provider.py",
-      "scope": "SceneMediaThumbnailProviderTests.test_base_material_route_reports_ready_and_rejected_provider",
-      "method": "assertIn",
-      "literal": "if layer.contentKind != \"solid\" {",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_media_thumbnail_provider.py",
-      "scope": "SceneMediaThumbnailProviderTests.test_base_material_route_reports_ready_and_rejected_provider",
-      "method": "assertIn",
-      "literal": "if let preparedFrameSnapshot { return preparedFrameSnapshot }",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_media_thumbnail_provider.py",
-      "scope": "SceneMediaThumbnailProviderTests.test_base_material_route_reports_ready_and_rejected_provider",
-      "method": "assertIn",
-      "literal": "let color = usesAuthoredLayerColor",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_opaque_alpha_weighted_loop_average_owner.py",
-      "scope": "SceneOpaqueAlphaWeightedLoopAverageOwnerTests.test_typed_opaque_input_contract_reaches_frame_finalization",
-      "method": "assertIn",
-      "literal": "let associatedOverOverlaySlot =",
       "count": 1
     },
     {
@@ -709,76 +590,6 @@
     },
     {
       "path": "script/tests/test_scene_realtime_path_policy.py",
-      "scope": "SceneRealtimePathPolicyTests.test_dynamic_layer_projection_is_revisioned",
-      "method": "assertIn",
-      "literal": "func applyingFrameValues(",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_realtime_path_policy.py",
-      "scope": "SceneRealtimePathPolicyTests.test_dynamic_layer_projection_is_revisioned",
-      "method": "assertIn",
-      "literal": "guard let index = layerIndicesByID[layer.id]",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_realtime_path_policy.py",
-      "scope": "SceneRealtimePathPolicyTests.test_dynamic_layer_projection_is_revisioned",
-      "method": "assertIn",
-      "literal": "if cachedSnapshotTopologyRevision != topologyRevision",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_realtime_path_policy.py",
-      "scope": "SceneRealtimePathPolicyTests.test_dynamic_layer_projection_is_revisioned",
-      "method": "assertIn",
-      "literal": "let dynamicLayerIDs: Set<Int>",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_realtime_path_policy.py",
-      "scope": "SceneRealtimePathPolicyTests.test_dynamic_layer_projection_is_revisioned",
-      "method": "assertIn",
-      "literal": "let dynamicLayerTopologyCache",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_realtime_path_policy.py",
-      "scope": "SceneRealtimePathPolicyTests.test_dynamic_layer_projection_is_revisioned",
-      "method": "assertIn",
-      "literal": "let layerIndicesByID: [Int: Int]",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_realtime_path_policy.py",
-      "scope": "SceneRealtimePathPolicyTests.test_dynamic_layer_projection_is_revisioned",
-      "method": "assertIn",
-      "literal": "let lightLayerIDs: [Int]",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_realtime_path_policy.py",
-      "scope": "SceneRealtimePathPolicyTests.test_dynamic_layer_projection_is_revisioned",
-      "method": "assertIn",
-      "literal": "let orderedLayerPositionsByID: [Int: Int]",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_realtime_path_policy.py",
-      "scope": "SceneRealtimePathPolicyTests.test_dynamic_layer_projection_is_revisioned",
-      "method": "assertIn",
-      "literal": "let orderedLayers: [SceneRenderDescriptor.Layer]",
-      "count": 2
-    },
-    {
-      "path": "script/tests/test_scene_realtime_path_policy.py",
-      "scope": "SceneRealtimePathPolicyTests.test_dynamic_layer_projection_is_revisioned",
-      "method": "assertNotIn",
-      "literal": "let orderedLayers = authoredLayerIDs.compactMap",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_realtime_path_policy.py",
       "scope": "SceneRealtimePathPolicyTests.test_normal_product_frames_skip_execution_diagnostics",
       "method": "assertIn",
       "literal": "guard capturesExecutionObservations else { return }",
@@ -789,7 +600,7 @@
       "scope": "SceneRealtimePathPolicyTests.test_normal_product_frames_skip_execution_diagnostics",
       "method": "assertIn",
       "literal": "if capturesExecutionDiagnostics {",
-      "count": 2
+      "count": 1
     },
     {
       "path": "script/tests/test_scene_realtime_path_policy.py",
@@ -963,13 +774,6 @@
       "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
       "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_claimed_route_is_current_and_all_post_claim_failures_close",
       "method": "assertIn",
-      "literal": "let dispositionCatalog =",
-      "count": 2
-    },
-    {
-      "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
-      "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_claimed_route_is_current_and_all_post_claim_failures_close",
-      "method": "assertIn",
       "literal": "let passthroughResolution = SceneLayerSourcePassthroughPlan.resolve(",
       "count": 1
     },
@@ -1073,13 +877,6 @@
     },
     {
       "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
-      "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_preview_and_inline_reporting_only_describe_typed_execution_owners",
-      "method": "assertNotIn",
-      "literal": "if executionStageCount > 1",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
       "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_resource_demands_share_schema_and_never_guess_regular_assets",
       "method": "assertIn",
       "literal": "guard projection.reachesDefault",
@@ -1142,31 +939,10 @@
       "count": 2
     },
     {
-      "path": "script/tests/test_scene_shader_presence_combo.py",
-      "scope": "AuthoredPresenceComboAdmissionTests.test_reachability_requires_authored_presence_combo",
-      "method": "assertIn",
-      "literal": "case .selected:",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_shader_presence_combo.py",
-      "scope": "AuthoredPresenceComboAdmissionTests.test_reachability_requires_authored_presence_combo",
-      "method": "assertIn",
-      "literal": "if required & bit == 0, hasOptionalSource { optional |= bit }",
-      "count": 1
-    },
-    {
       "path": "script/tests/test_scene_shader_variant_environment.py",
       "scope": "SceneShaderVariantEnvironmentTests.test_product_target_opt_in_is_carried_by_one_program_candidate",
       "method": "assertIn",
       "literal": "let compatibilityTargetAdmissionPending = prepared.all.allSatisfy",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_source_update_transaction.py",
-      "scope": "SceneSourceUpdateTransactionTests.test_dynamic_text_provider_publishes_only_after_frame_submission",
-      "method": "assertIn",
-      "literal": "func discardPreparedDynamicTextUpdate()",
       "count": 1
     },
     {
@@ -1251,20 +1027,6 @@
       "scope": "SceneStaticModelRenderingTests.test_renderer_uses_existing_main_pass_and_surface_route",
       "method": "assertIn",
       "literal": "let frameLightSnapshot = SceneLightSnapshot.make(",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_text_script_runtime.py",
-      "scope": "SceneTextScriptRuntimeTests.test_wall_date_context_is_shared_only_by_date_script_bindings",
-      "method": "assertIn",
-      "literal": "if wallDateContext == nil",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_text_script_runtime.py",
-      "scope": "SceneTextScriptRuntimeTests.test_wall_date_context_is_shared_only_by_date_script_bindings",
-      "method": "assertIn",
-      "literal": "var wallDateContext: SceneTextScriptSubsetRuntime.FrameContext?",
       "count": 1
     },
     {

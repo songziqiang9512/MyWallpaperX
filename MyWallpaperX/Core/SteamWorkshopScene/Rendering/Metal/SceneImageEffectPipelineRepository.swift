@@ -49,6 +49,7 @@ final class SceneImageEffectPipelineRepository {
     private let spotLightSlot: ScenePipelineSlot<SceneSpotLightPipeline>
     private let directDrawSlot: ScenePipelineSlot<SceneImageLayerPipeline>
     private let litImageLayerSlot: ScenePipelineSlot<SceneLitImageLayerPipeline>
+    private let puppetClippingSlot: ScenePipelineSlot<MTLRenderPipelineState>
 
     init(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {
         self.device = device
@@ -62,6 +63,7 @@ final class SceneImageEffectPipelineRepository {
         litImageLayerSlot = .init {
             SceneLitImageLayerPipeline(device: device, pixelFormat: pixelFormat)
         }
+        puppetClippingSlot = .init { ScenePuppetClipping.makePipeline(device: device) }
     }
 
     func layerColorBlendState() -> SceneLayerColorBlendPipelineState? {
@@ -73,6 +75,9 @@ final class SceneImageEffectPipelineRepository {
     /// Preparation is launch-only. Frame consumers never invoke a PSO factory.
     func prepareLitImageLayer() -> Bool { litImageLayerSlot.resolve() != nil }
     var litImageLayer: SceneLitImageLayerPipeline? { litImageLayerSlot.resolvedValue() }
+
+    func preparePuppetClipping() -> Bool { puppetClippingSlot.resolve() != nil }
+    var puppetClipping: MTLRenderPipelineState? { puppetClippingSlot.resolvedValue() }
 
     /// Independent quad assets emit light over the existing composition.
     /// Resolve at launch; ordinary frames may only read the prepared state.

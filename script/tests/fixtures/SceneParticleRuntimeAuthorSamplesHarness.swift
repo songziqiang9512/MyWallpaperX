@@ -20,18 +20,18 @@ extension Harness {
         let initial = runtime.advance(by: 0)
         let initialInstances = initial.first?.instances ?? []
         let firstPositions = initialInstances.map(\.positionAndSize)
-        initial.forEach { _ = $0.instanceBuffer.update(device: device, instances: $0.instances) }
-        let initialBufferMatchesData = initial.first?.instanceBuffer.count == initialInstances.count
+        guard let pipeline = SceneParticleMetalPipeline(device: device) else { throw HarnessError.noParticlePipeline }
+        let initialBufferMatchesData = pipeline.prepare(initial).first?.instanceBuffer.count == initialInstances.count
         let advanced = runtime.advance(by: 1)
         let advancedInstances = advanced.first?.instances ?? []
         let secondPositions = advancedInstances.map(\.positionAndSize)
         let override = descriptor.layers
             .first(where: { $0.id == 196 })?.particleInstanceOverride
-        guard let playback = SceneParticlePlaybackState(
+        let playback = SceneParticlePlaybackState(
             descriptor: descriptor,
             cacheDirectory: cache,
             device: device
-        ) else { throw HarnessError.noParticlePipeline }
+        )
 #if DEBUG
         let playbackReport = playback.loadReportLines(descriptor: descriptor)
 #endif

@@ -10,6 +10,7 @@ import Foundation
 @MainActor
 enum DebugScenePlaybackRunner {
     private static let debugRecordID = "debug-scene-playback"
+    private static let surfaceRebuildDelayEnvironmentKey = "MWX_SCENE_DEBUG_SURFACE_REBUILD_AFTER"
     private struct SceneRuntimeEvidence: Encodable {
         let schemaVersion = 1
         let sourceEntryPath: String
@@ -82,7 +83,12 @@ enum DebugScenePlaybackRunner {
             return
         }
         let environment = ProcessInfo.processInfo.environment
-        let surfaceStopRelaunchDelay = requestedSurfaceStopRelaunchDelay(
+        let surfaceStopRelaunchDelay = requestedSurfaceTransitionDelay(
+            environmentKey: surfaceStopRelaunchDelayEnvironmentKey,
+            duration: requestedDuration
+        )
+        let surfaceRebuildDelay = requestedSurfaceTransitionDelay(
+            environmentKey: surfaceRebuildDelayEnvironmentKey,
             duration: requestedDuration
         )
         let pauseResumeRequest = requestedPauseResumeRequest(
@@ -124,13 +130,21 @@ enum DebugScenePlaybackRunner {
             terminate(after: 0.1)
             return
         }
+        guard environment[surfaceRebuildDelayEnvironmentKey] == nil || surfaceRebuildDelay != nil else {
+            NSLog("MWX DEBUG SCENE: phase=precondition-failed reason=invalid-surface-rebuild-delay")
+            terminate(after: 0.1)
+            return
+        }
         let runtimeLifecycleProbeCount = [
             requestedExecutorInvalidationDelay != nil,
             sceneSwitchRequest != nil,
             surfaceStopRelaunchDelay != nil,
             pauseResumeRequest != nil,
         ].filter { $0 }.count
-        guard runtimeLifecycleProbeCount <= 1 else {
+        // Rebuild may share pause/resume; launch and executor mutations stay exclusive.
+        guard runtimeLifecycleProbeCount <= 1,
+              surfaceRebuildDelay == nil || (requestedExecutorInvalidationDelay == nil
+                && sceneSwitchRequest == nil && surfaceStopRelaunchDelay == nil) else {
             NSLog(
                 "MWX DEBUG SCENE: phase=precondition-failed reason=multiple-runtime-lifecycle-faults"
             )
@@ -209,6 +223,9 @@ enum DebugScenePlaybackRunner {
                     "MWX DEBUG SCENE: phase=surface-stop-relaunch state=configured delay=%.3f",
                     delay
                 )
+            }
+            if let delay = surfaceRebuildDelay {
+                NSLog("MWX DEBUG SCENE: phase=surface-rebuild state=configured delay=%.3f", delay)
             }
             if let request = pauseResumeRequest {
                 NSLog(
@@ -330,6 +347,7 @@ enum DebugScenePlaybackRunner {
                     request: pauseResumeRequest,
                     outputDirectory: evidenceDirectory
                 )
+                scheduleSurfaceRebuild(delay: surfaceRebuildDelay, outputDirectory: evidenceDirectory)
             }
             if let sequence = requestedLivePropertySequence {
                 if !sequence.isEmpty {
@@ -374,6 +392,68 @@ enum DebugScenePlaybackRunner {
 
     private static func scheduleStop(after duration: TimeInterval) {
         terminate(after: duration)
+    }
+
+    private static func scheduleSurfaceRebuild(delay: TimeInterval?, outputDirectory: URL) {
+        guard !isClosing, let delay else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            guard !isClosing else { return }
+            let captured = SceneScreenTopology.capture()
+            guard let first = captured.first else {
+                NSLog("MWX DEBUG SCENE: phase=surface-rebuild state=rejected reason=no-physical-display")
+                return
+            }
+            var requested = captured
+            requested[0] = .init(displayID: first.displayID, frame: first.frame.insetBy(dx: 0.5, dy: 0),
+                backingScaleFactor: first.backingScaleFactor)
+            let before = runtimeHost.debugSnapshot()
+            recordSurfaceRebuildSnapshot(before, stage: "before", captured: captured,
+                requested: requested, outputDirectory: outputDirectory)
+            runtimeHost.applyDisplayConfiguration(requested)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) {
+                guard !isClosing else { return }
+                let after = runtimeHost.debugSnapshot()
+                let accepted = before.sessionID != nil && before.sessionID == after.sessionID
+                    && before.requestID != nil && before.requestID == after.requestID
+                    && before.surfaceCount > 0 && before.surfaceCount == after.surfaceCount
+                    && Set(before.windowNumbers).isDisjoint(with: after.windowNumbers)
+                NSLog("MWX DEBUG SCENE: phase=surface-rebuild state=rebuilt accepted=%@ surfacesBefore=%d surfacesAfter=%d",
+                    accepted ? "true" : "false", before.surfaceCount, after.surfaceCount)
+                recordSurfaceRebuildSnapshot(after, stage: "after", captured: captured,
+                    requested: requested, outputDirectory: outputDirectory)
+                requestSnapshot(reason: "surface-rebuild-after", outputDirectory: outputDirectory)
+            }
+            let settledDelay = requestedDuration - delay - 0.75
+            DispatchQueue.main.asyncAfter(deadline: .now() + settledDelay) {
+                guard !isClosing else { return }
+                recordSurfaceRebuildSnapshot(runtimeHost.debugSnapshot(), stage: "settled", captured: captured,
+                    requested: requested, outputDirectory: outputDirectory)
+                requestSnapshot(reason: "surface-rebuild-settled", outputDirectory: outputDirectory)
+            }
+        }
+    }
+
+    private static func recordSurfaceRebuildSnapshot(
+        _ snapshot: SceneDesktopWallpaperHost.DebugSnapshot, stage: String,
+        captured: [SceneScreenTopology], requested: [SceneScreenTopology], outputDirectory: URL
+    ) {
+        func rows(_ topology: [SceneScreenTopology]) -> [[String: Any]] {
+            topology.map { ["displayID": Int($0.displayID), "scale": Double($0.backingScaleFactor),
+                "frame": [Double($0.frame.origin.x), Double($0.frame.origin.y),
+                    Double($0.frame.width), Double($0.frame.height)]] }
+        }
+        let sprites = Dictionary(uniqueKeysWithValues: snapshot.spriteAnimationLayerIDsByDisplay.map {
+            (String($0.key), $0.value)
+        })
+        let report: [String: Any] = ["stage": stage, "sessionID": snapshot.sessionID?.uuidString ?? "",
+            "requestID": snapshot.requestID?.uuidString ?? "", "sceneTime": snapshot.sceneTime,
+            "surfaceCount": snapshot.surfaceCount, "windowNumbers": snapshot.windowNumbers,
+            "isPlaybackPaused": snapshot.isPlaybackPaused, "isFrameDriverActive": snapshot.isFrameDriverActive,
+            "spriteAnimationLayerIDsByDisplay": sprites,
+            "capturedTopology": rows(captured), "requestedTopology": rows(requested)]
+        if let data = try? JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys]) {
+            try? data.write(to: outputDirectory.appendingPathComponent("surface-rebuild-\(stage).json"), options: .atomic)
+        }
     }
 
     private static func scheduleResizeSequence(outputDirectory: URL) {

@@ -5,11 +5,12 @@ extension DebugScenePlaybackRunner {
     static let surfaceStopRelaunchDelayEnvironmentKey =
         "MWX_SCENE_DEBUG_SURFACE_STOP_RELAUNCH_AFTER"
 
-    static func requestedSurfaceStopRelaunchDelay(
+    static func requestedSurfaceTransitionDelay(
+        environmentKey: String,
         duration: TimeInterval
     ) -> TimeInterval? {
         guard let raw = ProcessInfo.processInfo.environment[
-            surfaceStopRelaunchDelayEnvironmentKey
+            environmentKey
         ], let delay = TimeInterval(raw), delay.isFinite,
               delay >= 1,
               delay < duration - 2.5 else { return nil }

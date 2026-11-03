@@ -485,10 +485,9 @@ nonisolated enum SceneAuthoredShaderPreparation {
                 textureFormats: textureFormats
             )
             if case let .accepted(program) = result {
-                persistentPreparationCache.store(
-                    program,
-                    key: cacheKey
-                )
+                DispatchQueue.global(qos: .utility).async { [program, cacheKey] in
+                    persistentPreparationCache.store(program, key: cacheKey)
+                }
             }
             return result
         }

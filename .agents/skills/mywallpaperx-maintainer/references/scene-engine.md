@@ -23,27 +23,27 @@
 | 问题 | 唯一入口 |
 |---|---|
 | 最终执行单元、语言/进程/失败目标 | `docs/scene/architecture/runtime-architecture.md` 与长期技术边界 |
-| 工程结构、生命周期与成本消融设计 | `docs/scene/roadmap/engine-refactor-program.md`；当前顺序和验收按其链接进入对应现役工作卡 |
-| 作者能力、可见正确性与兼容验收顺序 | `docs/scene/roadmap/scene-compatibility-roadmap.md` |
-| 实际接线、进程、装载与释放 owner | `docs/scene/architecture/runtime-as-built-map.md`，随后核对 live call sites |
+| 组件分类、准备/实例状态/消费/释放职责 | `docs/scene/capabilities/runtime-systems-reference.md`；源码入口由运行架构维护 |
+| 工程结构、生命周期与成本消融设计 | `docs/scene/architecture/runtime-architecture.md`，当前问题从队列定位 |
+| 作者能力、可见正确性与兼容验收顺序 | `docs/scene/roadmap/scene-open-breakpoint-queue.md` |
+| 实际接线、进程、装载与释放 owner | `docs/scene/architecture/runtime-architecture.md`，随后核对 live call sites |
 | 主链、普通帧成本与风险分级验证 | `docs/scene/development/development-workflow.md`；通用工具入口查仓库开发工作流 |
-| 当前能力及明确缺口 | `docs/scene/capabilities/coverage-ledger.md` 与命中专项表 |
+| 当前能力及明确缺口 | `docs/scene/capabilities/README.md` 与命中专项表 |
 | 当前构建、GPU/compositor、sample、签名事实 | `docs/scene/capabilities/runtime-evidence-current.md` |
 | 来源类别和可用边界 | `docs/scene/development/source-index.md` |
 | 官方黑盒、参考研究与独立实现 | `docs/scene/development/official-client-behavior-research-workflow.md` |
-| corpus 中作者实际声明了什么 | `docs/scene/capabilities/scene-corpus-capability-inventory.md`；不证明运行支持 |
+| corpus 中作者实际声明了什么 | `script/scene_capability_census.py` 的本次生成报告；不证明运行支持 |
 | gate 成员、phase、readiness | 当前脚本 `--help`、`script/scene_validation_gates.json`、`script/scene_fast_suite.json` |
 
-不要每次 Scene 任务读取所有入口。工程任务由对应现役工作卡选序，作者兼容由兼容路线选序；涉及两条路线时选一个主结果与验收，能力台账和运行证据只回答各自事实。不要把当前 roadmap 阶段、具体 backend 推荐、旧计划、sample 数量或 evidence report 复制进 Skill。
+不要每次 Scene 任务读取所有入口。由当前问题队列和性能工作卡定位一个主结果与验收；能力表和运行证据只回答各自事实。不要把当前 roadmap 阶段、具体 backend 推荐、旧计划、sample 数量或 evidence report 复制进 Skill。
 
-<a id="来源与上下文隔离"></a>
 ## 来源与独立实现
 
 做语义结论时使用 `source-index.md` 当前定义的来源名和边界，不从 Skill 复制一份固定枚举。始终分开：作者公开合同、固定官方客户端可观察结果、版本有界静态职责、authored corpus、第三方结构模式、项目当前证据和项目策略。
 
 公开资料、现有 golden 和合法 corpus 仍不能回答当前问题时，定义候选解释和区分实验，选择能最快消除关键歧义的黑盒或有界源码/静态研究；静态结论不能替代官方运行结果。
 
-可以阅读作者脚本、shader、参考源码和反编译资料，研究后由同一 Agent 继续独立实现；阅读本身不触发停工或上下文隔离。旧 `research-context-only` 标签表示证据来源与局限，不是阅读禁令。不得直接复制、照译或移植参考实现；把结论落实到本项目的唯一 owner，以自有正反 fixture 和实际运行验收。第三方实现不能定义官方语义或证明官方结果一致。
+可以阅读作者脚本、shader、参考源码和反编译资料，研究后由同一 Agent 继续独立实现；阅读本身不触发停工或上下文隔离。不得直接复制、照译或移植参考实现；把结论落实到本项目的唯一 owner，以自有正反 fixture 和实际运行验收。第三方实现不能定义官方语义或证明官方结果一致。
 
 ## 重建统一执行链
 
@@ -52,13 +52,14 @@
 ```text
 authored project/scene/package/resource
   -> loss-preserving decode and authored identity/order
-  -> property/Timeline/script/input/provider state
-  -> material/shader/effect graph preparation
-  -> Program/reflection/binding/render state/targets
-  -> current GraphExecutor and specialized producers
+  -> prepared Program/graphs/bindings/resource requirements
+  -> typed frame update: properties/Timeline/VM/input/provider state
+  -> Metal encode through the existing executors and producers
   -> ordered layer and scene composition
   -> terminal drawable/readback observation
 ```
+
+准备工作发生在加载和实际失效边界；普通帧消费准备结果，只更新活动状态、采用就绪资源并编码。追踪时分清作者事实、不可变准备结果和实例当前值，以及变换依赖、行为更新顺序和渲染依赖；这些职责不要求新增平行状态树、管理器或统一组件框架。具体边界按运行时架构与组件合同裁决。
 
 “通用”表示共享 scene/object identity、frame semantics、typed state、resource/provider、Program、graph/target lifecycle 和唯一 compositor，不表示一个巨型 renderer。2D、3D、particle、text、media、lighting 可以保留必要 importer/simulation/geometry/provider，但不能拥有第二资源系统、clock、graph、property tree、history 或 final output。
 
@@ -66,7 +67,7 @@ authored project/scene/package/resource
 
 ## 定义 correctness atom
 
-每批只闭合一个可回滚纵向结果：
+常规兼容修复以一个可验证纵向结果限定范围：
 
 ```yaml
 capability_and_target: bounded author-visible result plus target contract
@@ -78,13 +79,17 @@ counterexamples: unsafe rejection; local failure; unseen composition/name
 evidence_limit: highest claim this batch can support
 ```
 
-先用隔离真实内容定位首断点，再实现服务该结果的最小公共 slice。parser、IR、diagnostic、census、完整 compiler/VM/particle platform、full matrix 或 release gate 只有实际服务当前 atom 或风险升级时才进入；它们单独通过不能记为视觉能力。
+先用隔离真实内容定位首断点，再实现服务该结果的最小公共 slice。parser、IR、diagnostic、census、完整 compiler/VM/particle platform、full matrix 或 release gate 只有实际服务当前结果或风险升级时才进入；它们单独通过不能记为视觉能力。
+
+架构级任务另按工程设计中的迁移合同核对完整范围、迁移前正确能力及最终退出条件，按能力族分批落实和提交。每批明确原 owner 的退出与独立收益，不能用一个易验证的小切片、目录搬迁或新增 facade 替代整体迁移；最终验证也不能缩成迁移中恰好通过的样本集合。
+
+收口分别核职责合同、实际执行与证据覆盖。没有普通帧解析、没有测得热点或未发现运行错误，不能关闭仍违反目标依赖/分期合同的真实结构债；纯DTO、混合namespace与算法调用也不能仅凭词法数混判。有限Context/descriptor审查与少量direct-host结果不能代替全部组件寿命和所要求的产品入口；入口覆盖按[验证方法](verification-and-handoff.md#首次隔离运行)实际经过的链裁决。由现役合同补齐真实缺口，不为清数字新增wrapper/cache或把独立兼容缺口扩成无限重构。
 
 checkpoint 使用新组合或未见 fixture 证明公共 primitive 不依赖 sample/layer/path/hash/asset/screenshot identity。只有 corpus fingerprint/schema/family 解释变化或现有 snapshot 无法回答影响面时刷新全 corpus。
 
 ## 新增或全量样本筛查
 
-先读 `docs/scene/development/corpus-diagnostic-workflow.md#log-first-corpus-audit`，复用其 census → benchmark → normalizer → archive 链。已知样本集合同时核 canonical snapshot 与后来登记的 subset/archive；统计双页可能尚未吸收后者，不把它的旧分母直接当新增基线。一次盘点产生能力并集与影响面，family/profile/声明数量不当独立加载链数。
+先读 `docs/scene/development/development-workflow.md#声明扫描与运行诊断`，复用其 census → benchmark → normalizer → archive 链。已知样本集合同时核本次 snapshot 与所选 subset/archive，不把历史报告分母直接当新增基线。一次盘点产生能力并集与影响面，family/profile/声明数量不当独立加载链数。
 
 批量日志筛查优先现有优化 DEBUG 配置，App只stage一次；按当前 `--help` 设置隔离worker、Ready后3–5秒及有界并发，先小批再按设备余量扩大。普通Debug冷准备超时先区分配置/争用，只串行补未决项，不整批重复。日志不授画面或未触发分支资格；过渡和延迟只对相关代表延长。需要看图时先核正式阶段、音频/鼠标条件，再找样本中的“截屏”或“已粘贴”参考，不把时间相位当缺陷。共同首错回当前队列核是否已闭，再选公共修复；历史raw拒绝不能直接重开现役已修项。
 
@@ -106,19 +111,21 @@ eligible local failure 必须证明 previous current 与不受影响 suffix 仍�
 
 route state 的名称、定义和进入条件只从当前 `AGENTS.md`、runtime architecture、roadmap 与代码/diagnostics 读取。对每个迁移 owner 实时确认：谁发布产品输出；新旧路径是否静默双执行；fallback typed reason/identity/count；回滚是否原子；旧 owner 是否仍被产品引用。
 
-公共前置 slice 可以在旧 owner 仍存在时交付，但不能声称 owner migration。只有 canonical gate 要求的可见正证、局部失败反例、未见组合、fallback 审计和回滚演练成立，且旧产品引用已撤销，才能更新 route/owner 权威。禁止长期静默双输出或把故障回滚状态当稳态完成。
+公共前置 slice 可以在旧 owner 仍存在时交付，但不能声称 owner migration。按受影响合同验证可见行为、局部失败、未见组合及实际使用的 fallback/回滚边界，撤销旧产品引用后再更新 owner 权威。复用已有请求、失效和输出机制；直接替换重复职责不因此要求新建 route registry、认证关卡或迁移状态机。禁止长期静默双输出或把故障回滚状态当稳态完成。
 
 ## 验证与声明
 
 从仓库开发工作流和 Scene 开发工作流选择 `script/verify_scene_change.py` 的适用阶段，运行前读取当前 `--help` 和预览，确认路径选择、phase 和 runtime prerequisites；`--owned-path` 只选择本批已变更文件，`--path` 可预览预期影响面，均不是文件锁或执行沙箱。inner 验证最近正反例；Swift 产品或构建输入变化做 checkpoint Debug build；GPU/VM/resource/lifecycle/visible 变化补相称 integration；共享合同、完整能力或发布结论才升级 milestone。
 
-可见或动态声明沿同一 identity 证明：实际 input -> selected route/Program/VM/component -> execution completion -> resource/target publication -> terminal compositor -> next-frame -> 预登记 ROI/事件方向 -> local-failure counterexample。没有这条链，只报告 structural/compiled/routed/host-stage 的真实等级。
+按所声明的结果沿同一 identity 取证：实际 input -> selected route/Program/VM/component -> execution completion -> 对应 consumer。视觉结果核 resource/target publication、terminal compositor 与预登记 ROI；声音、事件和脚本状态核各自真实输出或事件消费者。next-frame、局部失败反例按受影响语义选择；未到相应 consumer 时，只报告实际到达的阶段。
 
 像素正控只要求当前问题必需的真实贡献；先按既有几何、alpha与颜色合同确认oracle，未覆盖区及合法中性插值不必变化。仅断言误设且产品、输入、载体、二进制均未改时，保首失败并复用同身份有效GPU读回重放最终断言；不能称新GPU运行。
 
-分别处理当前 slice 可见、owner migration、官方 bounded parity 和 release readiness；等级定义查技术栈合同、对应路线与验证工作流，当前执行选择查 gate。recognized、wired、census、compile、route count、non-black、matrix 或单样本不能外推完整兼容。
+分别说明实际可见范围、owner交接、官方有界对照与发行验证；证据要求查技术栈合同和验证工作流，当前执行选择查gate。recognized、wired、census、compile、route count、non-black、matrix 或单样本不能外推完整兼容。
 
 真实 Workshop/Scene 根只读；runtime home、属性注入、cache、output 和样本使用隔离副本。确认启动的是当前 App/build，不复用旧截图/report/terminal observation。
+
+先核输入协议的调度时基：墙钟秒位、启动后时长与 simulation cadence 不能混用。运行窗口须覆盖协议规定的触发与尾部观测；窗口尚未覆盖该区间时，缺输入边或截图只能记取证未完成。已覆盖仍无事件则定位输入调度链，不能无限归为等待。延长窗口仍保原输入和失败记录，不以移动触发时间或取消断言冒充行为恢复。
 
 ## 反漂移终审
 

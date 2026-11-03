@@ -17,11 +17,14 @@ extension SceneDesktopWallpaperSession {
         _ context: SceneDesktopWallpaperLaunchContext,
         timing: SceneFrameTiming,
         dynamicValues: SceneDynamicSnapshot,
+        descriptor: SceneRenderDescriptor,
+        layersByID: [Int: SceneRenderDescriptor.Layer],
         worldFrames: [Int: simd_float4x4]
     ) -> SceneScriptFrameInput {
         let surface = surfaces.count == 1
             ? surfaces.values.first?.metalView.sceneScriptSurfaceInput(
-                timing: timing, dynamicValues: dynamicValues, worldFrames: worldFrames) : nil
+                timing: timing, dynamicValues: dynamicValues,
+                descriptor: descriptor, layersByID: layersByID, worldFrames: worldFrames) : nil
         let failures = context.sceneScriptStringProgram.preparePreparedTextCloneInputs(
             userValues: context.liveState.userValues,
             effectivePropertyValues: context.liveState.effectiveValues,
@@ -114,16 +117,45 @@ extension SceneDesktopWallpaperSession {
         plan: SceneScriptLayerMutationPlan,
         rejectedOwnerTargets: Set<SceneDynamicTarget>
     ) {
+        let newlyDestroyedLayerIDs: Set<Int>
+        if plan.dynamicTopologyChanged && !plan.destroyedAuthoredLayerIDs.isEmpty {
+            newlyDestroyedLayerIDs = plan.destroyedAuthoredLayerIDs.subtracting(
+                context.sceneScriptDynamicLayerRuntime.snapshot().destroyedAuthoredLayerIDs)
+        } else {
+            newlyDestroyedLayerIDs = []
+        }
         context.sceneScriptDynamicLayerRuntime.commit(plan)
         commitSceneScriptLayerMutations(
             context, rejectedOwnerTargets: rejectedOwnerTargets
         )
+        if !newlyDestroyedLayerIDs.isEmpty {
+            for surface in surfaces.values {
+                surface.particlePlayback?.retire(layerIDs: newlyDestroyedLayerIDs)
+            }
+            retireCommittedAnimationLayers(context, layerIDs: newlyDestroyedLayerIDs)
+        }
+    }
+
+    private func retireCommittedAnimationLayers(
+        _ context: SceneDesktopWallpaperLaunchContext, layerIDs: Set<Int>
+    ) {
+        context.textureAnimationPlaybackRuntime.retire(layerIDs: layerIDs)
+        let camera = context.runtimeInput.renderDescriptor.camera
+        let targets = Set(context.timelineProgram.bindings.compactMap { binding -> SceneDynamicTarget? in
+            let layerID: Int?
+            switch binding.target {
+            case .camera(.origin): layerID = camera.default2DOriginInputLayerID
+            case .camera(.zoom): layerID = camera.default2DInputLayerID
+            default: layerID = SceneScriptLayerMutationBridge.layerID(for: binding.target)
+            }
+            return layerID.map(layerIDs.contains) == true ? binding.target : nil
+        })
+        context.timelinePlaybackRuntime.retire(targets: targets)
     }
 
     func commitSimulatedSceneFrame(
         _ context: SceneDesktopWallpaperLaunchContext,
         pendingEvaluation: SceneEvaluationTransaction.PendingEvaluation,
-        pendingSharedLayerAlpha: SceneSharedLayerAlphaRuntime.PendingValues,
         animationMutations: [SceneTimelinePlaybackMutation],
         mediaPlaybackCommands: [SceneScriptMediaPlaybackCommand],
         textureAnimationCommands:
@@ -134,7 +166,6 @@ extension SceneDesktopWallpaperSession {
         layerPlan: SceneScriptLayerMutationPlan,
         rejectedOwnerTargets: Set<SceneDynamicTarget>
     ) {
-        sharedLayerAlphaRuntime.commitValues(pendingSharedLayerAlpha)
         if !animationMutations.isEmpty,
            case .success = context.timelinePlaybackRuntime.apply(
                animationMutations, sceneTime: timing.sceneTime
@@ -238,6 +269,7 @@ extension SceneDesktopWallpaperSession {
             frame: scriptFrame
         )
         context.sceneScriptStorageSession?.commitFrameTransaction()
+        reconcileSystemInputConsumers(context, topologyChanged: layerPlan.dynamicTopologyChanged)
     }
 
     func commitSceneMediaPlayback(

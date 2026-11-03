@@ -40,30 +40,27 @@ GENERIC_SOURCES = list(dict.fromkeys([
 HARNESS = COORDINATE_HARNESS + r'''
 @main private enum Main {
     static func main() throws {
-        guard CommandLine.arguments.count == 3,
+        guard CommandLine.arguments.count == 2,
               let bundle = Bundle(path: CommandLine.arguments[1]) else {
             throw NSError(domain: "compiler-bundle", code: 1)
         }
-        let cache = URL(fileURLWithPath: CommandLine.arguments[2], isDirectory: true)
-        try FileManager.default.createDirectory(at: cache, withIntermediateDirectories: true)
         var artifacts: [String: Any] = [:]
         let compileFixture: (CoordinateFixture) throws -> SceneAuthoredShaderProgram = { fixture in
             let key = SceneResolvedMaterialGenericShaderRequest.key(
                 vertexSource: fixture.vertex, fragmentSource: fixture.fragment,
                 outputSemantics: .color, expectedColorTransfer: nil,
                 premultipliedColorInputSlots: [])
-            let url: URL
+            let compiled: SceneGenericShaderCompiler.Output
             switch SceneGenericShaderCompiler.compile(requestKey: key,
                 vertexSource: fixture.vertex, fragmentSource: fixture.fragment,
-                cacheRoot: cache, bundle: bundle) {
-            case let .success(value): url = value
+                bundle: bundle) {
+            case let .success(value): compiled = value
             case let .failure(failure):
                 throw NSError(domain: "actual-swift-compiler-\(fixture.name)", code: 1,
                     userInfo: [NSLocalizedDescriptionKey: String(describing: failure)])
             }
-            let data = try Data(contentsOf: url)
-            let artifact = try JSONDecoder().decode(SceneGenericShaderProgramArtifact.self,
-                from: data)
+            let data = compiled.encodedData
+            let artifact = compiled.artifact
             // The source-proven output contract is the same authority used by Program.
             // It is not a hand-authored MSL artifact or a substitute compiler.
             guard let contract = SceneAuthoredShaderFrontend.compile(
@@ -76,7 +73,6 @@ HARNESS = COORDINATE_HARNESS + r'''
             artifacts[fixture.name] = [
                 "requestKey": key, "schemaVersion": artifact.schemaVersion,
                 "artifactSHA256": SceneGenericShaderProgramArtifact.sha256(data),
-                "publishedPath": url.path,
                 "metalSHA256": artifact.program.metalSourceSHA256,
             ]
             return frontend
@@ -126,7 +122,7 @@ class SceneGenericShaderTextureTransformCompilerTests(unittest.TestCase):
             capture_output=True, text=True, timeout=180)
         if compilation.returncode:
             raise RuntimeError(compilation.stderr)
-        completed = subprocess.run([str(binary), str(bundle), str(root / "artifacts")],
+        completed = subprocess.run([str(binary), str(bundle)],
             cwd=root, env=environment, capture_output=True, text=True, timeout=120)
         after = source_hashes(inputs)
         preserve_evidence(root, "generic", before, after, command, compilation, completed)

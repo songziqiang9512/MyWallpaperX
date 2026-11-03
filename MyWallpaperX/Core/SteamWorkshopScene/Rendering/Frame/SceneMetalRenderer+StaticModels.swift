@@ -299,7 +299,7 @@ extension SceneMetalRenderer {
     private func visitFramebufferSnapshotConsumers(
         layer: SceneRenderDescriptor.Layer, includesLayer: Bool,
         framePlans: [Int: SceneResolvedMaterialFrameTargetPlan], imageTextures: SceneBaseImageTextureSnapshot,
-        frameContext: SceneFrameContext, batches: [Int: [SceneParticleDrawBatch]],
+        frameContext: SceneFrameContext, batches: [Int: [SceneParticleMetalPipeline.PreparedBatch]],
         particlePipeline: SceneParticleMetalPipeline?, mainPass: SceneMainPassEncoder,
         groups: SceneCompositionGroupFrameRuntime?,
         utilityExecution: SceneUtilityLayerRuntimePlanner.Execution,
@@ -308,7 +308,7 @@ extension SceneMetalRenderer {
         if includesLayer,
            let pass = groups?.renderPass(forLayerID: layer.id) ?? (groups == nil ? mainPass : nil) {
             if particlePipeline != nil,
-               batches[layer.id]?.contains(where: { $0.refraction != nil }) == true,
+               batches[layer.id]?.contains(where: { $0.draw.refraction != nil }) == true,
                !particle(pass) { return false }
             let blend = layer.colorBlendMode ?? 0
             if ["image", "solid", "text"].contains(layer.contentKind), blend > 0,
@@ -349,7 +349,7 @@ extension SceneMetalRenderer {
     func prepareFramebufferSnapshotCapacity(
         orderedLayers: [SceneRenderDescriptor.Layer], visible: Set<Int>,
         framePlans: [Int: SceneResolvedMaterialFrameTargetPlan], imageTextures: SceneBaseImageTextureSnapshot,
-        frameContext: SceneFrameContext, batches: [Int: [SceneParticleDrawBatch]],
+        frameContext: SceneFrameContext, batches: [Int: [SceneParticleMetalPipeline.PreparedBatch]],
         particlePipeline: SceneParticleMetalPipeline?, mainPass: SceneMainPassEncoder,
         groups: SceneCompositionGroupFrameRuntime?,
         utilityExecution: SceneUtilityLayerRuntimePlanner.Execution
@@ -381,7 +381,7 @@ extension SceneMetalRenderer {
     func prepareModelShadow(
         state: StaticModelFrame, candidates: [Int: [StaticModelDraw]], lights: [SceneLightSnapshot.ShadowLight],
         orderedLayers: [SceneRenderDescriptor.Layer], visible: Set<Int>,
-        batches: [Int: [SceneParticleDrawBatch]], particlePipeline: SceneParticleMetalPipeline?,
+        batches: [Int: [SceneParticleMetalPipeline.PreparedBatch]], particlePipeline: SceneParticleMetalPipeline?,
         mainPass: SceneMainPassEncoder, groups: SceneCompositionGroupFrameRuntime?,
         pool: SceneOffscreenTexturePool, commandBuffer: MTLCommandBuffer,
         leases: inout [SceneParticleDepthTargetLease], mandatoryCapacity: () -> Bool,
@@ -403,7 +403,7 @@ extension SceneMetalRenderer {
     func prepareMandatoryDepth(
         state: StaticModelFrame, candidates: [Int: [StaticModelDraw]],
         orderedLayers: [SceneRenderDescriptor.Layer], visible: Set<Int>,
-        batches: [Int: [SceneParticleDrawBatch]], particlePipeline: SceneParticleMetalPipeline?,
+        batches: [Int: [SceneParticleMetalPipeline.PreparedBatch]], particlePipeline: SceneParticleMetalPipeline?,
         mainPass: SceneMainPassEncoder, groups: SceneCompositionGroupFrameRuntime?,
         commandBuffer: MTLCommandBuffer,
         leases: inout [SceneParticleDepthTargetLease]
@@ -420,7 +420,7 @@ extension SceneMetalRenderer {
                 if state.depthDeferralReason != nil || state.sceneDepthFailureReason != nil { return false }
             }
             if let particlePipeline, let layerBatches = batches[layer.id],
-               layerBatches.contains(where: { $0.renderState.depthWriteEnabled }) {
+               layerBatches.contains(where: { $0.draw.renderState.depthWriteEnabled }) {
                 let extent = pass.targetExtent
                 if let existing = state.particleDepth[layer.id] {
                     complete = complete && existing.lease != nil
@@ -445,7 +445,7 @@ extension SceneMetalRenderer {
         orderedLayers: [SceneRenderDescriptor.Layer], ordinaryLayerIDs: Set<Int> = [],
         visible: Set<Int>,
         worldFrames: [Int: simd_float4x4], snapshot: SceneDynamicSnapshot,
-        batches: [Int: [SceneParticleDrawBatch]], particlePipeline: SceneParticleMetalPipeline?,
+        batches: [Int: [SceneParticleMetalPipeline.PreparedBatch]], particlePipeline: SceneParticleMetalPipeline?,
         mainPass: SceneMainPassEncoder, groups: SceneCompositionGroupFrameRuntime?,
         commandBuffer: MTLCommandBuffer, leases: inout [SceneParticleDepthTargetLease]
     ) -> Set<Int> {
@@ -462,7 +462,7 @@ extension SceneMetalRenderer {
         for layer in orderedLayers where visible.contains(layer.id) {
             let requiresDepth = staticModelResources.pipeline != nil && layer.contentKind == "model"
                 || (particlePipeline != nil && batches[layer.id]?.contains(where: {
-                    $0.renderState.depthWriteEnabled
+                    $0.draw.renderState.depthWriteEnabled
                 }) == true)
             if requiresDepth, let groups, groups.renderPass(forLayerID: layer.id) == nil { return consumers }
         }
@@ -492,7 +492,7 @@ extension SceneMetalRenderer {
         imagePipeline: SceneImageLayerPipeline, frameContext: SceneFrameContext,
         worldFrames: [Int: simd_float4x4], cameraFrame: SceneParticleCameraFrame,
         parallax: SceneLayerParallax.Configuration, viewportSize: CGSize,
-        batches: [Int: [SceneParticleDrawBatch]], particlePipeline: SceneParticleMetalPipeline?,
+        batches: [Int: [SceneParticleMetalPipeline.PreparedBatch]], particlePipeline: SceneParticleMetalPipeline?,
         mainPass: SceneMainPassEncoder, groups: SceneCompositionGroupFrameRuntime?,
         utilityExecution: SceneUtilityLayerRuntimePlanner.Execution,
         pool: SceneOffscreenTexturePool, commandBuffer: MTLCommandBuffer,
@@ -541,7 +541,7 @@ extension SceneMetalRenderer {
                             guard depth.lease != nil else { return nil }
                         }
                     }
-                    if let particlePipeline, batches[layer.id]?.contains(where: { $0.renderState.depthWriteEnabled }) == true {
+                    if let particlePipeline, batches[layer.id]?.contains(where: { $0.draw.renderState.depthWriteEnabled }) == true {
                         if let existing = state.particleDepth[layer.id] {
                             guard existing.lease != nil else { return nil }
                         } else {

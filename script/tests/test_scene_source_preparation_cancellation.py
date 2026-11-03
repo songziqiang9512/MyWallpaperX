@@ -2,8 +2,9 @@
 
 The existing disk-builder source set supplies production parsing, source facts,
 descriptor and ModelBuilder. The production cancellation token/error are linked
-unchanged. Only the shader-interface leaf is a controlled unavailable result;
-its callback cancels during one synchronous proof to test the next boundary.
+unchanged. The existing static-model proof leaf cancels during one synchronous
+proof. Catalog cases compile the real constructor, graph/schema algorithms and
+material-demand closure; mixed owners supply their complete value declarations.
 No App, GPU execution or performance measurement is involved.
 """
 from __future__ import annotations
@@ -18,10 +19,46 @@ import tempfile
 import unittest
 
 from script.tests import test_scene_static_model_parts as parts
+from script.tests import test_scene_persistent_cache_behavior as cache
+from script.tests.test_scene_prepared_script_resource_catalog import swift_declaration
 
 
 REPO = Path(__file__).resolve().parents[2]
 SCENE = REPO / "MyWallpaperX/Core/SteamWorkshopScene"
+CATALOG_FIXTURE = Path(__file__).with_name("fixtures") / "SceneRuntimeCatalogPreparationChecks.swift"
+
+
+def catalog_preparation_inputs():
+    """Link the real constructor/algorithms; mixed owners contribute exact value declarations only."""
+    admission = (SCENE / "Compilation/Material/SceneResolvedMaterialExecutionCapabilityAdmission.swift").read_text()
+    route_owner = (SCENE / "Runtime/Frame/SceneResolvedMaterialExecutionCapabilityCatalog.swift").read_text()
+    dependency = (SCENE / "Compilation/Material/SceneResolvedMaterialExecutionCapability+DependencyOwnership.swift").read_text()
+    aggregate = (SCENE / "Rendering/Dependencies/SceneDependencyRenderPlan+Aggregate.swift").read_text()
+    named_model = (SCENE / "Rendering/Dependencies/SceneDependencyRenderPlan+StaticModel.swift").read_text()
+    transport = "\n".join([
+        swift_declaration(admission, "nonisolated struct SceneResolvedMaterialAdmittedLayer {"),
+        "nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {\n"
+        + swift_declaration(admission, "    struct Failure: Error {") + "\n"
+        + swift_declaration(admission, "    struct Candidate {") + "\n}",
+        "enum SceneResolvedMaterialExecutionCapabilityCatalog {\n"
+        + swift_declaration(route_owner, "    enum SourceRoute: Equatable {") + "\n}",
+        swift_declaration(dependency, "nonisolated enum SceneResolvedMaterialDependencyOwnership:"),
+        swift_declaration(named_model, "nonisolated struct SceneStaticModelNamedTextureBinding:"),
+        "extension SceneDependencyRenderPlan {\n"
+        + swift_declaration(aggregate, "    nonisolated struct MultiProviderAggregate:") + "\n}",
+    ])
+    sources = [*cache.SWIFT_SOURCES, *[SCENE / name for name in (
+        "Compilation/Material/SceneResolvedMaterialRuntimeCatalog.swift",
+        "Compilation/Material/SceneAuthoredMaterialResolver.swift",
+        "Compilation/Material/SceneResolvedMaterialTemplateCompiler.swift",
+        "Compilation/Material/SceneResolvedMaterialScriptBindingClassifier.swift",
+        "Compilation/Material/SceneResolvedMaterialShaderSchema+StaticModelInterface.swift",
+        "Compilation/Material/SceneResolvedMaterialPreviousBlurredCompositeOwnerAdmission.swift",
+        "Compilation/Material/SceneResolvedMaterialPreviousBlurredCompositeOwnerAdmission+DynamicScale.swift",
+        "Compilation/Material/SceneResolvedMaterialPreviousBlurredCompositeGraphAdmission.swift",
+        "Rendering/Dependencies/SceneDependencyRenderPlan.swift",
+    )]]
+    return sources, CATALOG_FIXTURE.read_text().replace("__CATALOG_PREPARATION_TRANSPORT__", transport)
 
 PROOF_LEAF = r'''
 enum ProofLeaf {
@@ -361,6 +398,7 @@ import CryptoKit
         checks.merge(try entrySelectionCases(root)) { _, new in new }
         checks.merge(try descriptorCases(root)) { _, new in new }
         checks.merge(try modelCases(root)) { _, new in new }
+        checks.merge(try catalogCases(root)) { _, new in new }
         print(String(decoding: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), as: UTF8.self))
     }
 }
@@ -443,14 +481,39 @@ class SceneSourcePreparationCancellationTests(unittest.TestCase):
                 "origin": {"script": "export function update(value) { return value; }", "value": "1 2 3",
                            "scriptproperties": {"rate": {"user": "amount", "value": 1}}},
             }]}))
+            catalog_root = root / "catalog"
+            catalog_root.mkdir()
+            (catalog_root / "project.json").write_text(json.dumps({"type": "scene", "file": "scene.json"}))
+            objects = []
+            for index, name in enumerate(("left", "right")):
+                objects.append({"id": 401 + index, "text": "Catalog " + name,
+                    "effects": [{"id": "scope-" + name, "file": f"effects/{name}/effect.json"}]})
+                entries = {
+                    f"effects/{name}/effect.json": json.dumps({"passes": [
+                        {"material": f"materials/{name}.json", "target": "first"},
+                        {"material": f"materials/{name}.json", "target": "second"},
+                        {"material": f"materials/{name}.json"}],
+                        "fbos": [{"name": "first", "scale": 1, "format": "rgba8888"},
+                                 {"name": "second", "scale": 1, "format": "rgba8888"}]}),
+                    f"materials/{name}.json": json.dumps({"passes": [{"shader": f"catalog/{name}",
+                        "blending": "normal", "depthtest": "disabled", "depthwrite": "disabled", "cullmode": "nocull"}]}),
+                    f"shaders/catalog/{name}.vert": "void main() { gl_Position = vec4(0.0); }",
+                    f"shaders/catalog/{name}.frag": "void main() { gl_FragColor = vec4(1.0); }",
+                }
+                for relative, text in entries.items():
+                    path = catalog_root / relative
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_text(text)
+            (catalog_root / "scene.json").write_text(json.dumps({"objects": objects}))
             support = parts.builder_support().split("@main enum PartsDependencies", 1)[0]
+            catalog_sources, catalog_harness = catalog_preparation_inputs()
             sources = list(dict.fromkeys([*parts.builder.SWIFT_SOURCES, *parts.reader.SWIFT_SOURCES,
-                SCENE / "Runtime/Session/SceneDesktopWallpaperLaunchModels.swift"]))
+                *catalog_sources, SCENE / "Runtime/Session/SceneDesktopWallpaperLaunchModels.swift"]))
             sources = [p for p in sources if p.name != "SceneStaticModelMaterialBindingUnavailableStub.swift"]
             harness, binary = work / "Harness.swift", work / "probe"
-            harness.write_text(support + PROOF_LEAF + MAIN)
+            harness.write_text(support + PROOF_LEAF + MAIN + catalog_harness)
             identities = {path: hashlib.sha256(path.read_bytes()).hexdigest()
-                for path in [*sources, harness, Path(__file__)]}
+                for path in [*sources, harness, Path(__file__), CATALOG_FIXTURE]}
             built = subprocess.run(["xcrun", "--sdk", "macosx", "swiftc", "-swift-version", "5",
                 *map(str, sources), str(harness), "-module-cache-path", str(work / "module-cache"),
                 "-framework", "Metal", "-o", str(binary)], capture_output=True, text=True, timeout=240)

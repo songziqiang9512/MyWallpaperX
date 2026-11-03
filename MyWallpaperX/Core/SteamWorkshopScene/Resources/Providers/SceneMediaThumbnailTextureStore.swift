@@ -104,7 +104,7 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
     private let queue: DispatchQueue
     private let imageDecoder: (Data) -> CGImage?
     private let lock = NSLock()
-    private var publicationHandler: (@Sendable () -> Void)?
+    private let onPublication: (@Sendable (SceneMediaThumbnailTextureStore) -> Void)?
     private var requestedGeneration: UInt64 = 0
     private var readyGeneration: UInt64 = 0
     private var currentTextures: [SceneTextureLoadPurpose: MTLTexture] = [:]
@@ -117,28 +117,23 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
     private var pendingRequest: DecodeRequest?
     private var cachedSnapshot: Snapshot?
     private var snapshotDirty = true
-    private var preparedFrameSnapshot: Snapshot?
 
     init(
         device: MTLDevice,
         textureUploadCommandQueue: SceneTextureUploadCommandQueue = .init(),
         decodingQueue: DispatchQueue? = nil,
         imageDecoder: @escaping (Data) -> CGImage? =
-            SceneMediaThumbnailTextureStore.decodeColorImage
+            SceneMediaThumbnailTextureStore.decodeColorImage,
+        onPublication: (@Sendable (SceneMediaThumbnailTextureStore) -> Void)? = nil
     ) {
         self.device = device
         self.textureUploadCommandQueue = textureUploadCommandQueue
         self.imageDecoder = imageDecoder
+        self.onPublication = onPublication
         self.queue = decodingQueue ?? DispatchQueue(
             label: "com.mywallpaperx.scene.media-thumbnail",
             qos: .userInitiated
         )
-    }
-
-    func setPublicationHandler(_ handler: @escaping @Sendable () -> Void) {
-        lock.lock()
-        publicationHandler = handler
-        lock.unlock()
     }
 
     func update(from input: SceneMediaThumbnailInbox.Snapshot) {
@@ -164,9 +159,8 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
             pendingRequest = nil
             readyGeneration = input.generation
             reportedPendingGeneration = nil
-            let handler = publicationHandler
             lock.unlock()
-            handler?()
+            onPublication?(self)
             return
         }
         let request = DecodeRequest(
@@ -176,41 +170,26 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
                 && !lastSuccessfulTextures.isEmpty
         )
         pendingRequest = request
-        lock.unlock()
-
         queue.async { [weak self] in
             self?.decode(request)
         }
-    }
-
-    /// Pins the provider publication used by one host frame. Decode/upload
-    /// completion may replace current/previous textures concurrently, but a
-    /// submitted or dropped frame must not observe a mid-frame generation.
-    func prepareFrame() -> Snapshot {
-        lock.lock()
-        defer { lock.unlock() }
-        if let preparedFrameSnapshot { return preparedFrameSnapshot }
-        let snapshot = makeSnapshotLocked()
-        preparedFrameSnapshot = snapshot
-        return snapshot
-    }
-
-    func commitPreparedFrame() {
-        lock.lock()
-        preparedFrameSnapshot = nil
         lock.unlock()
     }
 
-    func discardPreparedFrame() {
+    func cancelAndDrain(completion: @escaping @Sendable () -> Void) {
         lock.lock()
-        preparedFrameSnapshot = nil
+        pendingRequest?.cancel()
+        pendingRequest = nil
+        snapshotDirty = true
+        queue.async { [self] in
+            withExtendedLifetime(self) { completion() }
+        }
         lock.unlock()
     }
 
     func snapshot() -> Snapshot {
         lock.lock()
         defer { lock.unlock() }
-        if let preparedFrameSnapshot { return preparedFrameSnapshot }
         return makeSnapshotLocked()
     }
 
@@ -459,9 +438,8 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
                 + " hasPreviousPreserved=\(previousTextures[.preservedChannels] != nil)"
         )
 #endif
-        let handler = publicationHandler
         lock.unlock()
-        handler?()
+        onPublication?(self)
     }
 
     private func shouldContinue(_ request: DecodeRequest) -> Bool {

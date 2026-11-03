@@ -326,7 +326,6 @@ nonisolated extension SceneDocument {
         var usesPerspective: Bool? = nil
         let text: String?
         let textStyle: SceneTextDescriptor?
-        let textScript: SceneTextScriptDefinition?
         let scriptBindings: [SceneScriptBindingDefinition]
         let textureAnimationScripts: [SceneTextureAnimationScriptDefinition]
         let hasInlineScript: Bool

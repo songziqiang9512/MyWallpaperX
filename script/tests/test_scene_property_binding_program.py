@@ -70,6 +70,16 @@ enum Harness {
 
         let alphaTarget = SceneDynamicTarget.layer(layerID: 20, field: .alpha)
         let colorTarget = SceneDynamicTarget.layer(layerID: 10, field: .color)
+        let copiedProgram = compilation.program
+        let repeatedCurrentInputs = [compilation.program, decoded.program, copiedProgram].map { program in
+            [0.2, 0.8, 0.2].map { current in
+                let result = program.evaluate(effectiveValues: [
+                    "opacity": .number(current), "tint": .string("0.4 0.5 0.6")])
+                return result.userValues[alphaTarget] == .scalar(current) && result.diagnostics.isEmpty
+            }
+        }
+        let encodedProgram = try JSONSerialization.jsonObject(
+            with: JSONEncoder().encode(compilation.program)) as! [String: Any]
         let badEvaluation = compilation.program.evaluate(effectiveValues: [
             "opacity": .string("0.9"),
             "tint": .string("1 2"),
@@ -1087,14 +1097,15 @@ enum Harness {
             missingDefinitionProgram,
             mismatchedProgram,
         ]
-        let validator = ScenePropertyBindingProgramValidator()
-        let structureCodes = invalidPrograms.map { codes(validator.validate($0).diagnostics) }
-        let structureInstructionCounts = invalidPrograms.map { validator.validate($0).instructions.count }
+        let structureCodes = invalidPrograms.map { codes($0.validation.diagnostics) }
+        let structureInstructionCounts = invalidPrograms.map { $0.validation.instructions.count }
         let structureDecodeRejected = invalidPrograms.map(decodeFails)
         let mismatchedEvaluation = mismatchedProgram.evaluate(effectiveValues: ["opacity": .number(1)])
 
         let payload: [String: Any] = [
             "roundTrip": decoded == compilation,
+            "encodedProgramKeys": encodedProgram.keys.sorted(),
+            "repeatedCurrentInputs": repeatedCurrentInputs,
             "deterministic": compilation == reversed,
             "mixedDeterministic": deterministicForward == deterministicReverse,
             "definitionCount": compilation.program.definitions.count,
@@ -1552,6 +1563,9 @@ class ScenePropertyBindingProgramTests(unittest.TestCase):
 
     def test_program_is_codable_and_deterministic(self) -> None:
         self.assertTrue(self.result["roundTrip"])
+        self.assertEqual(self.result["encodedProgramKeys"], ["conditionalValueDomainsByPropertyKey",
+            "definitions", "instructions", "rebuildRequiredPropertyKeys"])
+        self.assertEqual(self.result["repeatedCurrentInputs"], [[True, True, True]] * 3)
         self.assertTrue(self.result["deterministic"])
         self.assertTrue(self.result["mixedDeterministic"])
         self.assertEqual(self.result["definitionCount"], 2)

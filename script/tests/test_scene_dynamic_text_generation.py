@@ -11,17 +11,19 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from .test_scene_prepared_script_resource_catalog import swift_declaration
+
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneDynamicTextGenerationState.swift"
 STORE_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneDynamicTextTextureStore.swift"
 )
-DRAW_REQUEST_SOURCE = (
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayerDrawRequest.swift"
+VIEW_SOURCE = (
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift"
 )
-HOST_SOURCE = (
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriver.swift"
+ASSEMBLY_SOURCE = (
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneFrameLayerTextureAssembly.swift"
 )
 
 HARNESS = r'''
@@ -116,9 +118,9 @@ enum Harness {
 }
 '''
 
-# Execute the production Store and generation scheduler. Only the non-target
-# descriptor/input/publication shells and raster producer are substituted; no
-# Store locking, ready/prepared/submitted state, or generation logic is copied.
+# Execute the real Store, scheduler, and View commit/discard methods. The View
+# carrier supplies only its two slots; publication admission and GPU composition
+# remain outside this controlled raster-worker probe.
 STORE_HARNESS = r'''
 import Foundation
 import Metal
@@ -147,6 +149,7 @@ struct SceneRenderDescriptor {
     }
     struct Layer {
         let id: Int
+        var visible = true
         let contentKind = "text"
         let text: String? = "A"
         let textStyle: TextStyle? = .init()
@@ -187,10 +190,38 @@ struct SceneLayerSourcePublication {
     let textCenterOffsetY: Float
     var texture: MTLTexture { publication.candidate.texture }
     init?(layerID: Int,publication: SceneTextureProviderPublication,
-          renderSizeWH: [Float],textCenterOffsetY: Float) {
+          renderSizeWH: [Float]? = nil,textCenterOffsetY: Float = 0) {
         self.layerID = layerID; self.publication = publication
-        self.renderSizeWH = renderSizeWH; self.textCenterOffsetY = textCenterOffsetY
+        self.renderSizeWH = renderSizeWH ?? []; self.textCenterOffsetY = textCenterOffsetY
     }
+}
+struct SceneFrameTiming {}
+enum SceneOrdinaryVideoFrameReadiness { case unavailable }
+struct SceneDynamicImageTextureProviderSnapshot {
+    let layerSources: [Int: SceneLayerSourcePublication]
+    let pendingLayerSourceIDs: Set<Int>
+    let videoLayerRenderSizesWH: [Int: [Float]]
+}
+struct SceneBaseImageTextureSnapshot {
+    let textures: [Int: MTLTexture]
+    let layerSourcePublications: [Int: SceneLayerSourcePublication]
+}
+struct SceneBaseImageTextureStore {
+    let textures: [Int: MTLTexture] = [:]
+    let unavailableOrdinaryVideoLayerIDs: Set<Int> = []
+    func snapshot(textures: [Int: MTLTexture], explicitLayerSources: [Int: SceneTextureProviderPublication],
+        layerSourcePublications: [Int: SceneLayerSourcePublication], pendingLayerSourceIDs: Set<Int>,
+        initialVideoReadiness: [Int: SceneOrdinaryVideoFrameReadiness]?) -> SceneBaseImageTextureSnapshot {
+        .init(textures: textures, layerSourcePublications: layerSourcePublications)
+    }
+}
+final class SceneVideoTextureSource {
+    struct Frame {
+        let texture: MTLTexture
+        func layerPublication(for layerID: Int) -> SceneTextureProviderPublication? { nil }
+    }
+    func prepareFrame(for timing: SceneFrameTiming) -> Frame? { preconditionFailure("unexpected video source") }
+    func initialFrameReadiness(preparedFrame: Frame?) -> SceneOrdinaryVideoFrameReadiness { .unavailable }
 }
 final class ControlledRasterProducer: @unchecked Sendable {
     let startedB = DispatchSemaphore(value: 0), startedC = DispatchSemaphore(value: 0)
@@ -243,6 +274,14 @@ enum SceneTextTextureLoader {
         return raster
     }
 }
+final class SceneMetalView {
+    var preparedTextSnapshot: SceneDynamicTextTextureStore.Snapshot?
+    private(set) var submittedTextSnapshot: SceneDynamicTextTextureStore.Snapshot?
+__VIEW_SUBMISSION_METHODS__
+}
+enum SceneFrameLayerTextureAssembly {
+__FRAME_ASSEMBLY_METHOD__
+}
 @main enum StoreProbe {
     static func main() throws {
         guard let device = MTLCreateSystemDefaultDevice() else {
@@ -261,6 +300,74 @@ enum SceneTextTextureLoader {
         let d = raster("g4",6,7,[360,70],19)
         let producer = ControlledRasterProducer(b,d)
         SceneTextTextureLoader.producer = producer
+        if CommandLine.arguments.contains("--authored-retirement") {
+            let store = SceneDynamicTextTextureStore(
+                descriptor: .init(layers: [.init(id: 7), .init(id: 8), .init(id: 9, visible: false)]),
+                resourceView: nil, device: device, initialRasters: [7: a, 8: a, 9: a],
+                dynamicTextFieldsByLayerID: [7: [.content]],
+                onPublication: { _ in producer.published.signal() })
+            let captured = store.snapshot(), surface = SceneMetalView()
+            surface.preparedTextSnapshot = captured; surface.commitPreparedDynamicTextFrame()
+            let filtered = SceneFrameLayerTextureAssembly.make(base: .init(), dynamicText: captured,
+                videoSources: [:], retiredLayerIDs: [7, 8], timing: .init())
+            var result = [
+                "surfaceFiltersRetiredTextFromCapturedPublication": Set(filtered.textures.keys) == [9]
+                    && Set(filtered.layerSourcePublications.keys) == [9],
+                "assemblyDoesNotMutateCapturedSnapshot": Set(captured.layerSources.keys) == [7, 8, 9],
+            ]
+            func values(_ deadContent: String, cloneContent: String = "D") -> SceneDynamicSnapshot {
+                .init(values: [
+                    .text(layerID: 7, field: .content): .init(value: .string(deadContent)),
+                    .text(layerID: 8, field: .content): .init(value: .string("C")),
+                    .text(layerID: -7, field: .content): .init(value: .string(cloneContent)),
+                ])
+            }
+            store.update(from: values("B"), dynamicTextFieldsByLayerID: [7: [.content]])
+            producer.wait(producer.startedB)
+            // B owns the real serial worker. C is admitted but still queued.
+            store.update(from: values("B"), dynamicTextFieldsByLayerID: [7: [.content], 8: [.content]])
+            let fields: [Int: Set<SceneDynamicTextField>] = [7: [.content], 8: [.content], -7: [.content]]
+            store.update(from: values("hot-caption"), dynamicLayers: [.init(id: -7)],
+                destroyedAuthoredLayerIDs: [7, 8], dynamicTextFieldsByLayerID: fields)
+            result["adoptedRetirementRemovesCurrentRasterAtom"] = Set(store.snapshot().layerSources.keys) == [9]
+            producer.allowC.signal(); producer.allowB.signal()
+            producer.wait(producer.startedD)
+            result["retiredQueuedLayerNeverEntersRasterLoader"] = producer.renderedContents() == ["B", "D"]
+            result["retiredInFlightResultDoesNotPublish"] = producer.published.wait(timeout: .now()) == .timedOut
+                && Set(store.snapshot().layerSources.keys) == [9]
+            producer.allowD.signal(); producer.wait(producer.published)
+            let live = store.snapshot()
+            result["liveCloneAndHiddenPeerRemainReady"] = Set(live.layerSources.keys) == [-7, 9]
+                && live.layerSources[-7]?.texture.label == "g4" && live.layerSources[9]?.texture.label == "g1"
+            result["cloneUsesOwnRasterWithoutRetiredFont"] = producer.renderedFonts() == ["g1", "none"]
+            for index in 0..<10 {
+                store.update(from: values("hot-caption-\(index)"), dynamicLayers: [.init(id: -7)],
+                    destroyedAuthoredLayerIDs: [7, 8], dynamicTextFieldsByLayerID: fields)
+            }
+            let afterHotUpdates = store.snapshot()
+            let drained = DispatchSemaphore(value: 0)
+            store.closeAndDrain { drained.signal() }; producer.wait(drained)
+            result["hotDeadCaptionCannotReactivateProducer"] = producer.renderedContents() == ["B", "D"]
+                && Set(afterHotUpdates.layerSources.keys) == [-7, 9]
+            result["oldSubmittedSnapshotRetainsItsRaster"] = Set(surface.submittedTextSnapshot!.layerSources.keys) == [7, 8, 9]
+                && surface.submittedTextSnapshot?.layerSources[7]?.texture === a.texture
+
+            // A static source has no field-driven work to take it off the fast path.
+            let staticStore = SceneDynamicTextTextureStore(descriptor: .init(layers: [.init(id: 17)]),
+                resourceView: nil, device: device, initialRasters: [17: a])
+            let staticSnapshot = staticStore.snapshot()
+            staticStore.update(from: .init(values: [:]), destroyedAuthoredLayerIDs: [17])
+            for index in 0..<10 {
+                staticStore.update(from: .init(values: [.text(layerID: 17, field: .content):
+                    .init(value: .string("dead-static-\(index)"))]), dynamicTextFieldsByLayerID: [17: [.content]])
+            }
+            staticStore.closeAndDrain { drained.signal() }; producer.wait(drained)
+            result["staticFastPathConsumesRetirementAndIgnoresLaterInterest"] = staticStore.snapshot().layerSources.isEmpty
+                && staticSnapshot.layerSources[17]?.texture === a.texture
+                && producer.renderedContents() == ["B", "D"]
+            print(String(decoding: try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]), as: UTF8.self))
+            return
+        }
         if CommandLine.arguments.contains("--retired-font") {
             let store = SceneDynamicTextTextureStore(descriptor: .init(layers: []),
                 resourceView: nil, device: device, initialRasters: [:],
@@ -292,42 +399,91 @@ enum SceneTextTextureLoader {
             let candidate = source.publication.candidate
             let generation: UInt64
             switch candidate.generation { case .provider(let value): generation = value }
-            return ["texture": source.texture.label!,"physicalSize": [source.texture.width,source.texture.height],
+            let requestLayer: Int
+            switch source.publication.requestIdentity { case .layerSource(let value): requestLayer = value }
+            let providerLayer: Int
+            switch candidate.identity { case .provider(.dynamicText(let value)): providerLayer = value }
+            return ["texture": source.texture.label!,
+                "textureSize": [source.texture.width,source.texture.height],
+                "physicalSize": [candidate.physicalSize.width,candidate.physicalSize.height],
+                "mappedSize": [candidate.mappedSize.width,candidate.mappedSize.height],
                 "renderSize": source.renderSizeWH,"offset": source.textCenterOffsetY,
-                "generation": generation,"publicationGeneration": source.publication.contentGeneration]
+                "generation": generation,"publicationGeneration": source.publication.contentGeneration,
+                "sourceLayer": source.layerID,"requestLayer": requestLayer,"providerLayer": providerLayer]
         }
-        var result: [String: Any] = ["initialSubmitted": atom(store.submittedSnapshot())]
-        _ = store.prepareFrame(); store.commitPreparedFrame()
-        result["initialCommitted"] = atom(store.submittedSnapshot())
-        _ = store.prepareFrame()
+        let surfaceA = SceneMetalView(), surfaceB = SceneMetalView()
+        let initial = store.snapshot()
+        var result: [String: Any] = ["initialReady": atom(initial),
+            "initialSubmittedA": atom(surfaceA.submittedTextSnapshot),
+            "initialSubmittedB": atom(surfaceB.submittedTextSnapshot)]
+        surfaceA.preparedTextSnapshot = initial; surfaceB.preparedTextSnapshot = initial
+        surfaceA.commitPreparedDynamicTextFrame(); surfaceB.commitPreparedDynamicTextFrame()
+        result["initialCommittedA"] = atom(surfaceA.submittedTextSnapshot)
+        result["initialCommittedB"] = atom(surfaceB.submittedTextSnapshot)
+
+        // Capture one attempt before raster publication. Both surfaces receive
+        // that value even if the second one prepares after the worker completes.
+        let frozenAttempt = store.snapshot()
+        surfaceA.preparedTextSnapshot = frozenAttempt
         update("B"); producer.wait(producer.startedB)
         producer.allowB.signal(); producer.wait(producer.published)
-        result["preparedWhileBReady"] = atom(store.snapshot())
-        result["submittedWhileBReady"] = atom(store.submittedSnapshot())
-        store.discardPreparedFrame()
-        result["readyAfterDiscard"] = atom(store.snapshot())
-        result["submittedAfterDiscard"] = atom(store.submittedSnapshot())
-        result["preparedB"] = atom(store.prepareFrame())
-        store.commitPreparedFrame()
-        result["committedB"] = atom(store.submittedSnapshot())
-        store.commitPreparedFrame()
-        result["commitWithoutPrepared"] = atom(store.submittedSnapshot())
+        surfaceB.preparedTextSnapshot = frozenAttempt
+        result["readyWhileAttemptFrozen"] = atom(store.snapshot())
+        result["frozenAttempt"] = atom(frozenAttempt)
+        result["preparedAWhileBReady"] = atom(surfaceA.preparedTextSnapshot)
+        result["preparedBWhileBReady"] = atom(surfaceB.preparedTextSnapshot)
+        result["submittedAWhileBReady"] = atom(surfaceA.submittedTextSnapshot)
+        result["submittedBWhileBReady"] = atom(surfaceB.submittedTextSnapshot)
+        surfaceA.commitPreparedDynamicTextFrame(); surfaceB.discardPreparedDynamicTextFrame()
+        result["submittedAAfterFrozenCommit"] = atom(surfaceA.submittedTextSnapshot)
+        result["submittedBAfterFrozenDiscard"] = atom(surfaceB.submittedTextSnapshot)
+
+        let nextAttempt = store.snapshot()
+        surfaceA.preparedTextSnapshot = nextAttempt; surfaceB.preparedTextSnapshot = nextAttempt
+        surfaceA.commitPreparedDynamicTextFrame(); surfaceB.discardPreparedDynamicTextFrame()
+        result["submittedAAfterNextCommit"] = atom(surfaceA.submittedTextSnapshot)
+        result["submittedBAfterNextDiscard"] = atom(surfaceB.submittedTextSnapshot)
+        result["preparedSlotsCleared"] = surfaceA.preparedTextSnapshot == nil
+            && surfaceB.preparedTextSnapshot == nil
+        surfaceA.commitPreparedDynamicTextFrame()
+        result["commitWithoutPrepared"] = atom(surfaceA.submittedTextSnapshot)
+        surfaceB.preparedTextSnapshot = nextAttempt; surfaceB.commitPreparedDynamicTextFrame()
+        result["submittedAAfterPeerRetry"] = atom(surfaceA.submittedTextSnapshot)
+        result["submittedBAfterRetry"] = atom(surfaceB.submittedTextSnapshot)
         update("C"); producer.wait(producer.startedC)
         update("D"); producer.allowC.signal()
         // D can enter only after the real serial Store finished failed C.
         // Keep D blocked while checking the complete previous raster atom.
         producer.wait(producer.startedD)
         result["readyAfterFailure"] = atom(store.snapshot())
-        result["submittedAfterFailure"] = atom(store.submittedSnapshot())
+        result["submittedAAfterFailure"] = atom(surfaceA.submittedTextSnapshot)
+        result["submittedBAfterFailure"] = atom(surfaceB.submittedTextSnapshot)
         producer.allowD.signal(); producer.wait(producer.published)
-        result["readyAfterRecovery"] = atom(store.snapshot())
-        result["submittedAfterRecovery"] = atom(store.submittedSnapshot())
+        let recovered = store.snapshot()
+        result["readyAfterRecovery"] = atom(recovered)
+        result["submittedAAfterRecovery"] = atom(surfaceA.submittedTextSnapshot)
+        result["submittedBAfterRecovery"] = atom(surfaceB.submittedTextSnapshot)
+        surfaceA.preparedTextSnapshot = recovered; surfaceB.preparedTextSnapshot = recovered
+        surfaceA.commitPreparedDynamicTextFrame(); surfaceB.discardPreparedDynamicTextFrame()
+        result["submittedAAfterRecoveryCommit"] = atom(surfaceA.submittedTextSnapshot)
+        result["submittedBAfterRecoveryDiscard"] = atom(surfaceB.submittedTextSnapshot)
+        result["originalCapturedSnapshot"] = atom(frozenAttempt)
         result["renderCalls"] = producer.renderedContents()
         result["fontInputs"] = producer.renderedFonts()
         print(String(decoding: try JSONSerialization.data(withJSONObject: result,options: [.sortedKeys]),as: UTF8.self))
     }
 }
 '''
+
+
+def store_harness() -> str:
+    source = VIEW_SOURCE.read_text(encoding="utf-8")
+    methods = "\n".join(swift_declaration(source, signature) for signature in (
+        "    func commitPreparedDynamicTextFrame()",
+        "    func discardPreparedDynamicTextFrame()",
+    ))
+    assembly = swift_declaration(ASSEMBLY_SOURCE.read_text(), "    static func make(")
+    return STORE_HARNESS.replace("__VIEW_SUBMISSION_METHODS__", methods).replace("__FRAME_ASSEMBLY_METHOD__", assembly)
 
 
 # Reuse only the DTOs above; this probe never allocates a texture or submits GPU work.
@@ -378,7 +534,6 @@ enum SceneTextTextureLoader {
         update("B")
         precondition(work.started.wait(timeout:.now()+5) == .success)
         update("C")
-        store.close()
         let drained = DispatchSemaphore(value:0)
         for _ in 0..<2 { store.closeAndDrain {work.note("drain");drained.signal()} }
         update("D")
@@ -431,21 +586,21 @@ class SceneDynamicTextGenerationTests(unittest.TestCase):
         self.assertIsNone(self.result["duplicate"])
         self.assertTrue(self.result["ordered"])
 
-    def test_store_submitted_atom_survives_async_ready_discard_and_failure(self) -> None:
+    def test_shared_ready_and_two_surface_submissions_remain_independent(self) -> None:
         parent = os.environ.get("MWX_DYNAMIC_TEXT_EVIDENCE")
         if parent:
             Path(parent).mkdir(parents=True, exist_ok=True)
         directory = Path(tempfile.mkdtemp(prefix="mwx-text-store-", dir=parent))
         try:
             harness = directory / "StoreHarness.swift"
-            harness.write_text(STORE_HARNESS, encoding="utf-8")
+            harness.write_text(store_harness(), encoding="utf-8")
             binary = directory / "text-store"
             resource_sources = [REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene" / path for path in
                                 ("Resources/Assets/SceneResourceIndex.swift", "Resources/Assets/SceneResourceView.swift",
                                  "../SteamWorkshopStorage/ScenePlaybackSource.swift", "Format/ScenePkgReader.swift",
                                  "Resources/Assets/SceneResourceIdentity.swift", "Resources/Assets/SceneResourceView+Backing.swift")]
             identity = {str(path): hashlib.sha256(path.read_bytes()).hexdigest()
-                        for path in (SOURCE, STORE_SOURCE, *resource_sources, Path(__file__), harness)}
+                        for path in (SOURCE, STORE_SOURCE, VIEW_SOURCE, ASSEMBLY_SOURCE, *resource_sources, Path(__file__), harness)}
             (directory / "source-identity.json").write_text(json.dumps(identity, indent=2))
             compiled = subprocess.run(
                 ["swiftc", str(SOURCE), str(STORE_SOURCE),
@@ -464,28 +619,46 @@ class SceneDynamicTextGenerationTests(unittest.TestCase):
             (directory / "result.json").write_text(json.dumps(result, indent=2))
             if result.get("metalUnavailable"):
                 self.skipTest("Metal is unavailable")
-            g1 = result["initialCommitted"]
-            g2 = result["committedB"]
-            self.assertEqual(result["initialSubmitted"], {})
-            for key in ("preparedWhileBReady", "submittedWhileBReady", "submittedAfterDiscard"):
+            g1 = result["initialReady"]
+            g2 = result["readyWhileAttemptFrozen"]
+            g4 = result["readyAfterRecovery"]
+            for key in ("initialSubmittedA", "initialSubmittedB"):
+                self.assertEqual(result[key], {}, key)
+            for key in ("initialCommittedA", "initialCommittedB", "frozenAttempt",
+                        "preparedAWhileBReady", "preparedBWhileBReady",
+                        "submittedAWhileBReady", "submittedBWhileBReady",
+                        "submittedAAfterFrozenCommit", "submittedBAfterFrozenDiscard",
+                        "submittedBAfterNextDiscard", "originalCapturedSnapshot"):
                 self.assertEqual(result[key], g1, key)
-            for key in ("readyAfterDiscard", "preparedB", "commitWithoutPrepared",
-                        "readyAfterFailure", "submittedAfterFailure", "submittedAfterRecovery"):
+            for key in ("submittedAAfterNextCommit", "commitWithoutPrepared",
+                        "submittedAAfterPeerRetry", "submittedBAfterRetry",
+                        "readyAfterFailure", "submittedAAfterFailure", "submittedBAfterFailure",
+                        "submittedAAfterRecovery", "submittedBAfterRecovery",
+                        "submittedBAfterRecoveryDiscard"):
                 self.assertEqual(result[key], g2, key)
+            self.assertTrue(result["preparedSlotsCleared"])
+            self.assertEqual(result["submittedAAfterRecoveryCommit"], g4)
             self.assertEqual(g1["texture"], "g1")
-            self.assertEqual(g1["physicalSize"], [2, 3])
+            self.assertEqual(g1["textureSize"], [2, 3])
             self.assertEqual(g1["renderSize"], [120, 30])
             self.assertEqual(g1["offset"], 3)
+            self.assertEqual(g1["generation"], 0)
             self.assertEqual(g2["texture"], "g2")
-            self.assertEqual(g2["physicalSize"], [4, 5])
+            self.assertEqual(g2["textureSize"], [4, 5])
             self.assertEqual(g2["renderSize"], [240, 50])
             self.assertEqual(g2["offset"], -11)
             self.assertGreater(g2["generation"], g1["generation"])
-            for atom in (g1, g2, result["readyAfterRecovery"]):
+            self.assertGreater(g4["generation"], g2["generation"])
+            for atom in (g1, g2, g4):
                 self.assertEqual(atom["generation"], atom["publicationGeneration"])
-            self.assertEqual(result["readyAfterRecovery"]["texture"], "g4")
-            self.assertEqual(result["readyAfterRecovery"]["renderSize"], [360, 70])
-            self.assertEqual(result["readyAfterRecovery"]["offset"], 19)
+                self.assertEqual(atom["physicalSize"], atom["textureSize"])
+                self.assertEqual(atom["mappedSize"], atom["textureSize"])
+                for field in ("sourceLayer", "requestLayer", "providerLayer"):
+                    self.assertEqual(atom[field], 7, field)
+            self.assertEqual(g4["texture"], "g4")
+            self.assertEqual(g4["textureSize"], [6, 7])
+            self.assertEqual(g4["renderSize"], [360, 70])
+            self.assertEqual(g4["offset"], 19)
             self.assertEqual(result["renderCalls"], ["B", "C", "D"])
             self.assertEqual(result["fontInputs"], ["g1", "g2", "g2"])
             # The same real Store transaction must preserve the complete old
@@ -495,16 +668,17 @@ class SceneDynamicTextGenerationTests(unittest.TestCase):
                 (directory / (flag[2:] + ".log")).write_text(rejected.stdout + rejected.stderr)
                 self.assertEqual(rejected.returncode, 0, rejected.stderr)
                 self.assertEqual(json.loads(rejected.stdout), result)
-            retired = subprocess.run([str(binary), "--retired-font"],
-                                     capture_output=True, text=True, timeout=30)
-            self.assertEqual(retired.returncode, 0, retired.stderr)
-            for field, passed in json.loads(retired.stdout).items():
-                self.assertTrue(passed, field)
+            for flag in ("--retired-font", "--authored-retirement"):
+                retired = subprocess.run([str(binary), flag], capture_output=True, text=True, timeout=30)
+                (directory / (flag[2:] + ".log")).write_text(retired.stdout + retired.stderr)
+                self.assertEqual(retired.returncode, 0, retired.stderr)
+                for field, passed in json.loads(retired.stdout).items():
+                    self.assertTrue(passed, field)
         finally:
             if not parent:
                 shutil.rmtree(directory)
 
-    def test_close_joins_actual_worker_and_rejects_late_admission(self) -> None:
+    def test_close_and_drain_joins_actual_worker_and_rejects_late_admission(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-text-cpu-drain-") as raw:
             directory = Path(raw)
             harness = directory / "Drain.swift"
@@ -553,6 +727,51 @@ class SceneDynamicTextGenerationTests(unittest.TestCase):
         self.assertIsNone(self.result["readyAfterReset"])
         self.assertIsNone(self.result["generationAfterReset"])
 
+    def test_typed_font_default_is_distinct_from_a_missing_override(self) -> None:
+        source = STORE_SOURCE.read_text(encoding="utf-8")
+        methods = "\n".join(swift_declaration(source, signature).replace("private ", "") for signature in (
+            "    private static func signature(", "    private static func stringValue(",
+            "    private static func scalarValue(", "    private static func colorValue(",
+        ))
+        preamble = STORE_HARNESS.split("enum SceneFrameTextureIdentity", 1)[0]
+        preamble = preamble.replace("let fontPath: String? = nil", "var fontPath: String? = nil")
+        preamble = preamble.replace("let textStyle: TextStyle? = .init()", "var textStyle: TextStyle? = .init()")
+        harness = preamble + "\nenum FontProbe {\n" + methods + r"""
+        }
+        @main enum Main {
+            static func main() {
+                var layer = SceneRenderDescriptor.Layer(id: 71)
+                layer.textStyle!.fontPath = "fonts/birth.ttf"
+                func signature(_ value: String?, interested: Bool = true) -> SceneDynamicTextSignature {
+                    let values: [SceneDynamicTarget: SceneDynamicSnapshot.Entry] = value.map {
+                        [.text(layerID: layer.id, field: .font): .init(value: .string($0))]
+                    } ?? [:]
+                    return FontProbe.signature(for: layer, snapshot: .init(values: values),
+                        dynamicFields: interested ? [.font] : [])
+                }
+                let result = ["missingUsesBirth": signature(nil).fontPath == "fonts/birth.ttf",
+                    "explicitDefaultIgnoresBirth": signature("").fontPath == nil,
+                    "typedPathWins": signature("fonts/next.ttf").fontPath == "fonts/next.ttf",
+                    "uninterestedKeepsBirth": signature("fonts/next.ttf", interested: false).fontPath == "fonts/birth.ttf"]
+                print(String(decoding: try! JSONSerialization.data(withJSONObject: result), as: UTF8.self))
+            }
+        }
+        """
+        with tempfile.TemporaryDirectory(prefix="mwx-text-font-signature-") as directory:
+            root = Path(directory)
+            swift = root / "FontProbe.swift"
+            swift.write_text(harness, encoding="utf-8")
+            binary = root / "probe"
+            compiled = subprocess.run(["swiftc", "-parse-as-library", str(SOURCE), str(swift),
+                "-module-cache-path", str(root / "modules"), "-o", str(binary)],
+                capture_output=True, text=True, timeout=60)
+            self.assertEqual(compiled.returncode, 0, compiled.stderr)
+            executed = subprocess.run([str(binary)], capture_output=True, text=True, timeout=10)
+            self.assertEqual(executed.returncode, 0, executed.stderr)
+            self.assertEqual(json.loads(executed.stdout), {"missingUsesBirth": True,
+                "explicitDefaultIgnoresBirth": True, "typedPathWins": True,
+                "uninterestedKeepsBirth": True})
+
     def test_continuous_updates_keep_only_one_render_in_flight_and_then_latest(self) -> None:
         self.assertFalse(self.result["queuedLatestStartedImmediately"])
         # 单在途调度保证按 generation 完成；中间结果可安全发布，随后只追最新，
@@ -562,100 +781,6 @@ class SceneDynamicTextGenerationTests(unittest.TestCase):
         self.assertTrue(self.result["scheduledLatestAccepted"])
         self.assertFalse(self.result["scheduledHasThirdTask"])
         self.assertEqual(self.result["scheduledReadyWidth"], 300)
-
-    def test_ready_texture_publication_declares_premultiplied_metadata(self) -> None:
-        source = STORE_SOURCE.read_text(encoding="utf-8")
-        for token in (
-            "SceneTextureProviderPublication(",
-            "requestIdentity: .layerSource(layerID)",
-            "candidate: SceneTextureCandidate(",
-            "identity: .provider(.dynamicText(layerID: layerID))",
-            "generation: .provider(contentGeneration: generation)",
-            "purpose: .premultipliedColor",
-            "content: .color(.resolved(.premultipliedAlpha))",
-            "SceneLayerSourcePublication(",
-            "renderSizeWH: raster.renderSizeWH",
-            "let snapshot = Snapshot(layerSources: layerSources)",
-        ):
-            self.assertIn(token, source)
-        self.assertNotIn("let renderSizes:", source)
-
-    def test_dynamic_text_candidate_is_an_exact_same_layer_graph_source(self) -> None:
-        source = DRAW_REQUEST_SOURCE.read_text(encoding="utf-8")
-        for token in (
-            'case let ("text", .provider(.dynamicText(candidateLayerID)))',
-            "acceptsCandidate = candidateLayerID == layer.id",
-            "SceneBaseImageTextureCandidateResolver.sample(",
-        ):
-            self.assertIn(token, source)
-
-    def test_text_provider_consumes_prepared_target_interest_before_signature_projection(self) -> None:
-        source = STORE_SOURCE.read_text(encoding="utf-8")
-        for token in (
-            "dynamicTextFieldsByLayerID",
-            "dynamicTextFieldsByLayerID: [Int: Set<SceneDynamicTextField>] = [:]",
-            "dynamicFields: Set<SceneDynamicTextField>",
-            "dynamicFields.contains(.content)",
-            "dynamicFields.contains(.font)",
-            "dynamicFields.contains(.pointSize)",
-            "dynamicFields.contains(.color)",
-            "dynamicFields.contains(.maxWidth)",
-        ):
-            self.assertIn(token, source)
-        host_source = HOST_SOURCE.read_text(encoding="utf-8")
-        self.assertIn("dynamicTextFieldsByLayerID:", host_source)
-        self.assertIn(
-            "launchContext.frameSchema.dynamicTextFieldsByLayerID", host_source
-        )
-
-    def test_text_provider_reuses_ready_publication_snapshot_until_completion_or_retirement(self) -> None:
-        source = STORE_SOURCE.read_text(encoding="utf-8")
-        for token in (
-            "private var cachedSnapshot: Snapshot?",
-            "private var snapshotDirty = true",
-            "private var preparedFrameSnapshot: Snapshot?",
-            "func prepareFrame() -> Snapshot",
-            "if let preparedFrameSnapshot { return preparedFrameSnapshot }",
-            "func commitPreparedFrame()",
-            "func discardPreparedFrame()",
-            "if !snapshotDirty, let cachedSnapshot { return cachedSnapshot }",
-            "cachedSnapshot = snapshot",
-            "snapshotDirty = true",
-        ):
-            self.assertIn(token, source)
-
-    def test_text_provider_frame_pin_is_cleared_only_at_host_outcome(self) -> None:
-        source = STORE_SOURCE.read_text(encoding="utf-8")
-        view = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift")
-        view_source = view.read_text(encoding="utf-8")
-        self.assertIn("let dynamicTextSnapshot = dynamicTextTextures?.prepareFrame()", view_source)
-        self.assertIn("dynamicTextTextures?.discardPreparedFrame()", view_source)
-        self.assertIn("dynamicTextTextures?.commitPreparedFrame()", view_source)
-        self.assertIn("return makeSnapshotLocked()", source)
-
-    def test_static_text_layers_leave_generation_state_untouched_after_preparation(self) -> None:
-        source = STORE_SOURCE.read_text(encoding="utf-8")
-        self.assertIn("var signatureRefreshLayerIDs: Set<Int> = []", source)
-        self.assertIn(
-            "guard !dynamicFields.isEmpty",
-            source,
-        )
-        self.assertIn(
-            "|| signatureRefreshLayerIDs.contains(layer.id) else { continue }",
-            source,
-        )
-
-    def test_static_text_update_has_a_quiescent_gate_without_bypassing_dynamic_state(self) -> None:
-        source = STORE_SOURCE.read_text(encoding="utf-8")
-        gate = source.index("let incomingHasDynamicTextFields")
-        normal_path = source.index("let admittedDynamic =", gate)
-        gate_source = source[gate:normal_path]
-        self.assertIn("dynamicLayers.isEmpty && !incomingHasDynamicTextFields", gate_source)
-        self.assertIn("hasAdmittedDynamicLayer", gate_source)
-        self.assertIn("hasAuthoredDynamicFields", gate_source)
-        self.assertIn("if !hasAdmittedDynamicLayer && !hasAuthoredDynamicFields", gate_source)
-        self.assertIn("return", gate_source)
-
 
 if __name__ == "__main__":
     unittest.main()

@@ -19,8 +19,7 @@ FIXTURE = Path(__file__).with_name("fixtures") / "SceneFramebufferSourceGraphChe
 class SceneFramebufferSourceGraphTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        prefix, marker, _ = graph.HARNESS.partition("@main\nprivate enum Harness")
-        assert marker, "shared actual executor support boundary missing"
+        prefix = graph.HARNESS_SUPPORT_SOURCE
         compiled, ran = graph.compile_lit_harness(graph.SUPPORT, prefix + FIXTURE.read_text())
         if compiled.returncode:
             raise AssertionError(compiled.stdout + compiled.stderr)

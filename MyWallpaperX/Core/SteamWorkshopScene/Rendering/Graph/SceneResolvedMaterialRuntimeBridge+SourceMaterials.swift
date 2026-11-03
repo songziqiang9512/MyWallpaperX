@@ -31,7 +31,9 @@ extension SceneResolvedMaterialRuntimeBridge.FramePreparationRequest {
 
 extension SceneResolvedMaterialRuntimeBridge {
     struct PreparedSourceMaterial {
-        let template: SceneResolvedMaterialTemplate
+        /// VM admission includes declarations inactive in the current variants.
+        let declaredDynamicTargets: Set<SceneDynamicTarget>
+        let hasAudioSpectrumConsumer: Bool
         let bindFrame: (SceneResolvedMaterialFinalizationInput)
             -> Result<SceneResolvedMaterialProgram, SceneResolvedMaterialFailure>
         let pixelFormat: MTLPixelFormat
@@ -127,7 +129,7 @@ extension SceneResolvedMaterialRuntimeBridge {
                     width: sourceCandidate.texture.width, height: sourceCandidate.texture.height,
                     commandBuffer: commandBuffer) else { continue }
             let size = CGSize(width: target.texture.width, height: target.texture.height)
-            let input = original.finalizationInput(template: material.template, layerID: layerID,
+            let input = original.finalizationInput(layerID: layerID,
                 renderSize: size,
                 modelViewProjection: SceneResolvedMaterialGraphExecutor.fullTargetMVP(target.texture),
                 layerModelMatrix: matrix_identity_float4x4,

@@ -354,7 +354,8 @@
         "script/tests/fixtures/SceneScriptQuickJSFixture.h",
         "script/tests/fixtures/SceneLayerPerspectiveQuickJSCases.c",
         "script/tests/fixtures/SceneImageFontStateQuickJSCases.c",
-        "script/tests/fixtures/SceneScriptBooleanTextCloneChecks.swift"
+        "script/tests/fixtures/SceneScriptBooleanTextCloneChecks.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneJSONValue.swift"
       ],
       "modules": [
         "test_scene_script_layer_order",
@@ -1075,7 +1076,6 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Input/**",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePointerProjection.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleWorldSpacePlan+Descriptor.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneMediaThumbnailCoordinator.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneDistanceFog.metalh",
         "script/tests/test_scene_image_distance_fog.py",
         "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneGPUCensus.swift",
@@ -1270,7 +1270,8 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder+Warmup.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialStageActivation.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneRenderTargetVocabulary.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneRenderTargetVocabulary.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneResolvedMaterialExecutionCapabilityCatalog.swift"
       ],
       "modules": [
         "test_scene_effect_render_graph",
@@ -1457,7 +1458,8 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityAdmission.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityTemplateAdmission.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialVisualFailureTopology.swift",
-        "script/tests/fixtures/SceneTerminalMaterialReplayProbe.swift"
+        "script/tests/fixtures/SceneTerminalMaterialReplayProbe.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneResolvedMaterialExecutionCapabilityCatalog.swift"
       ],
       "modules": [
         "test_scene_graph_resource_pass_encoder",
@@ -1490,7 +1492,8 @@
         "script/tests/test_scene_model_graph_albedo.py",
         "script/tests/test_scene_dependency_frame_demand.py",
         "script/tests/test_scene_source_color_named_and_lit.py",
-        "script/tests/fixtures/SceneDependencyRenderPlanTestSupport.swift"
+        "script/tests/fixtures/SceneDependencyRenderPlanTestSupport.swift",
+        "script/tests/fixtures/SceneDependencyRenderPlan*.swift"
       ],
       "modules": [
         "test_scene_dependency_capture_fault",
@@ -1875,7 +1878,7 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/SceneVideoTextureSourceRegistry.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Animation/SceneMultiImageSpritePlayback.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyTextureLoader.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+PuppetResources.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfacePuppets.swift",
         "script/tests/test_scene_resource_snapshots.py",
         "script/tests/test_scene_texture_resource_input.py",
         "script/tests/test_scene_texture_candidate.py",
@@ -1992,6 +1995,7 @@
       "id": "scene-background-color-input",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureResolver+Launch.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialShaderSchema+SamplerPurpose.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+Artifact.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+Frontend.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderArtifactCache.swift",
@@ -2330,6 +2334,32 @@
       "modules": [
         "test_scene_particle_scalar_speed_remap",
         "test_scene_particle_simulator"
+      ]
+    },
+    {
+      "id": "particle-instance-upload",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleMetalPipeline*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleMetalInstanceBuffer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleLayerRuntime.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleChildGraphExpansion.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRuntimeModels.swift",
+        "script/tests/test_scene_particle_upload_ownership.py",
+        "script/tests/fixtures/SceneParticleUploadOwnershipHarness.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePlaybackState.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceParticles.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceSimulation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+ParticleEmission.swift",
+        "script/tests/fixtures/ScenePausedFrameRecoveryHarness.swift"
+      ],
+      "modules": [
+        "test_scene_particle_upload_ownership",
+        "test_scene_particle_rendering",
+        "test_scene_particle_camera_rendering",
+        "test_scene_particle_runtime",
+        "test_scene_particle_playback_transaction",
+        "test_scene_paused_frame_recovery",
+        "test_scene_particle_playback_integration"
       ]
     },
     {
@@ -2730,9 +2760,7 @@
         "script/scene_capability_census_snapshot.json",
         "script/scene_capability_family_map.json",
         "script/scene_capability_repair_ledger.json",
-        "script/tests/scene_capability_census_test_support.py",
-        "docs/scene/capabilities/scene-corpus-capability-inventory.md",
-        "docs/scene/capabilities/scene-corpus-sample-inventory.md"
+        "script/tests/scene_capability_census_test_support.py"
       ],
       "modules": [
         "test_scene_capability_census",
@@ -2744,7 +2772,6 @@
       "patterns": [
         "script/scene_sample_acceptance_ledger.py",
         "script/scene_sample_acceptance_verdicts.json",
-        "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
         "script/scene_sample_debug_archive.json"
       ],
       "modules": [
@@ -3336,9 +3363,7 @@
     {
       "id": "system-media",
       "patterns": [
-        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneMusicPlayerSource.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneSystemMediaProvider.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneMediaThumbnailInbox.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/**",
         "MyWallpaperX/Shared/Settings/SceneMediaSourcePreference.swift",
         "MyWallpaperX/Shared/Settings/AppKitSettingsView.swift",
         "MyWallpaperX/Shared/Settings/AppKitSettingsView+Layout.swift",
@@ -3347,20 +3372,18 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceTeardown.swift",
         "script/tests/test_scene_music_player_source.py",
         "script/tests/test_scene_system_media_provider.py",
-        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneSystemMediaSource.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/Observer/SceneMediaObserver.m",
         "MyWallpaperX/Core/DaemonKit/DaemonNewlineJSON.swift",
         "script/build-scene-media-observer.sh",
         "script/tests/test_scene_system_media_source.py",
         "script/tests/test_scene_media_observer.py",
-        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneMediaArtworkPalette.swift",
         "script/tests/test_scene_media_artwork_palette.py",
         "MyWallpaperX/Core/Playback/SystemMedia/**",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemon*Media*.swift",
         "MyWallpaperX/App/Debug/DebugSystemMediaRunner.swift",
         "script/tests/test_scene_system_media_ipc.py",
         "script/tests/test_web_system_media.py",
-        "script/tests/fixtures/SceneSystemMediaIPCChecks.swift"
+        "script/tests/fixtures/SceneSystemMediaIPCChecks.swift",
+        "script/tests/fixtures/SceneMediaThumbnail*.swift"
       ],
       "modules": [
         "test_scene_music_player_source",
@@ -3377,9 +3400,9 @@
       "id": "puppet-clipping",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlPuppetMeshReader.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetClipping.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/ScenePuppetClipping.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetLayerLoad.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetMeshGeometry.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/ScenePuppetMeshGeometry.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetPlaybackState.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneGeometryProduct.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneMetalPipeline.swift",
@@ -3557,19 +3580,24 @@
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedPuppetResources.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResources.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+PuppetResources.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfacePuppets.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetLayerLoad.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetPlaybackState.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationPlaybackRuntime.swift",
         "script/tests/test_scene_puppet_preparation.py",
-        "script/tests/fixtures/ScenePuppetPreparationCases.swift"
+        "script/tests/fixtures/ScenePuppetPreparationCases.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResources+Puppets.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfacePuppetBones.swift",
+        "script/tests/fixtures/ScenePuppetBufferPublicationHarness.swift"
       ],
       "modules": [
         "test_scene_puppet_preparation",
         "test_scene_puppet_animation_playback_runtime",
         "test_scene_script_initial_layer_configuration",
         "test_scene_prepared_base_image_resources",
-        "test_scene_puppet_buffer_publication"
+        "test_scene_puppet_buffer_publication",
+        "test_scene_pipeline_repository",
+        "test_scene_puppet_direct_playback"
       ]
     },
     {
@@ -4133,7 +4161,7 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+Camera.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+SceneScriptCursorInteraction.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+PuppetBones.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfacePuppetBones.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+ParticlePlayback.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriver*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SoundProperties.swift",
@@ -4207,8 +4235,8 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+SceneDrawing.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+StaticModels.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+PuppetBones.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+PuppetResources.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfacePuppetBones.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfacePuppets.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneSourceUpdateTransaction.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneStaticModelPipeline.swift",
@@ -4217,7 +4245,7 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperLaunchContext+PuppetBones.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationEvaluator+Skinning.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationEvaluator.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetBoneEvidence.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePuppetBoneEvidence.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetLayerLoad.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetPlaybackState+DirectModel.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetPlaybackState.swift",
@@ -5626,6 +5654,17 @@
         "test_personal_settings_import",
         "test_playback_policy_delivery",
         "test_apple_silicon_release_contract"
+      ]
+    },
+    {
+      "id": "particle-layer-image",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleLayerImageEmitterCompiler.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleLayerImageEmissionMap.swift",
+        "script/tests/test_scene_particle_layer_image_emitter.py"
+      ],
+      "modules": [
+        "test_scene_particle_layer_image_emitter"
       ]
     }
   ],

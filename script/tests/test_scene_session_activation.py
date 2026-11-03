@@ -12,6 +12,7 @@ HARNESS = r'''
 import AppKit
 import Foundation
 final class SceneTextureDecodeCacheBudget {}
+struct SceneUserPropertyTextureLoadResult { let identity = UUID() }
 final class SceneFirstFramePresentationRegistration { let requestID=UUID() }
 final class SceneScriptLocalStorageSession {
     func retirePersistence() {}
@@ -33,6 +34,7 @@ final class SceneDesktopWallpaperSession {
     var surfaces: [CGDirectDisplayID: Int] = [1:1, 2:2]
     var onFirstFrameCompletion: ((CGDirectDisplayID, Bool)->Void)?
     var launchContext: SceneDesktopWallpaperLaunchContext?
+    var userPropertyTextureLoad: SceneUserPropertyTextureLoadResult?
     var soundPlaybackRegistry:SoundRegistry?
     var launchRequestID:UUID?
     var activeRecordID:String? { nil }
@@ -44,7 +46,10 @@ final class SceneDesktopWallpaperSession {
     var drains: [@MainActor (Bool)->Void] = []
     var drainResult:Bool?
     init(textureDecodeCacheBudget: SceneTextureDecodeCacheBudget) {}
-    func activate(_ context: SceneDesktopWallpaperLaunchContext) throws { launchContext=context }
+    func activate(_ context: SceneDesktopWallpaperLaunchContext,
+                  userPropertyTextureLoad: SceneUserPropertyTextureLoadResult) throws {
+        launchContext=context; self.userPropertyTextureLoad=userPropertyTextureLoad
+    }
     func promote(firstPresentation: SceneFirstFramePresentationRegistration?) { visible=true }
     func suspendPresentationForHandoff() { visible=false }
     @MainActor func stopAndDrainGPU(completion: @escaping @MainActor (Bool)->Void) {
@@ -81,10 +86,11 @@ final class SceneDesktopWallpaperSession {
     @MainActor static func main() async throws {
         let host=SceneDesktopWallpaperHost()
         var outcomes:[Bool]=[]
+        let preparedTextures=SceneUserPropertyTextureLoadResult()
         func begin() throws -> SceneDesktopWallpaperSession {
             let presentation=SceneFirstFramePresentationRegistration()
             host.launchState = .init(requestID:presentation.requestID,recordID:nil,phase:.preparingModel,message:"")
-            try host.beginCandidate(.init(),firstPresentation:presentation) { result in
+            try host.beginCandidate(.init(),userPropertyTextureLoad:preparedTextures,firstPresentation:presentation) { result in
                 if case .success=result {outcomes.append(true)} else {outcomes.append(false)}
             }
             return host.candidateSession!
@@ -92,6 +98,7 @@ final class SceneDesktopWallpaperSession {
         let a=try begin()
         a.onFirstFrameCompletion?(1,true)
         var result:[String:Bool]=[:]
+        result["candidateReceivesPreparedTextures"] = a.userPropertyTextureLoad?.identity == preparedTextures.identity
         result["allRequiredScreensGatePromotion"] = host.activeSession == nil && !a.visible
         a.onFirstFrameCompletion?(2,true)
         result["firstCandidatePromoted"] = host.activeSession === a && a.visible && outcomes == [true]
@@ -207,7 +214,7 @@ final class SceneDesktopWallpaperSession {
             let presentation=SceneFirstFramePresentationRegistration()
             let requestID=presentation.requestID
             delayedHost.launchState = .init(requestID:requestID,recordID:nil,phase:.preparingModel,message:"")
-            try delayedHost.beginCandidate(.init(),firstPresentation:presentation) { outcome in
+            try delayedHost.beginCandidate(.init(),userPropertyTextureLoad:.init(),firstPresentation:presentation) { outcome in
                 if case .success=outcome {delayedOutcomes.append(true)} else {delayedOutcomes.append(false)}
             }
             let candidate=delayedHost.candidateSession!

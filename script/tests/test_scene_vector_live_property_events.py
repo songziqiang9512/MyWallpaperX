@@ -407,8 +407,7 @@ HARNESS = r'''
         scalar.finalizeLayerMutations(committing: true)
         let textDescriptor = SceneRenderDescriptor(layers: [.init(id: 10, layerIndex: 0,
             name: "renamed text", visible: true, originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1],
-            alpha: 1, effects: [], contentKind: "text", textScript: .init(source: recoverySource),
-            text: "seed", textStyle: .init(fontPath: nil, colorRGB: [1, 1, 1], pointSize: 32))])
+            alpha: 1, effects: [], contentKind: "text", text: "seed", textStyle: .init(fontPath: nil, colorRGB: [1, 1, 1], pointSize: 32))])
         let textBinding = SceneScriptBindingIR(source: recoverySource,
             owner: .init(kind: .object, objectIndex: 0, objectID: 10,
                 effectIndex: nil, effectID: nil, passIndex: nil, passID: nil),
@@ -463,8 +462,7 @@ HARNESS = r'''
         let preparedTextSource = preparedEventSource.replacingOccurrences(of: "RETURN_VALUE", with: "'step-' + events")
         let preparedTextDescriptor = SceneRenderDescriptor(layers: [.init(id: 10, layerIndex: 0,
             name: "prepared text", visible: true, originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1],
-            alpha: 1, effects: [], contentKind: "text", textScript: .init(source: preparedTextSource),
-            text: "seed", textStyle: .init(fontPath: nil, colorRGB: [1, 1, 1], pointSize: 32))])
+            alpha: 1, effects: [], contentKind: "text", text: "seed", textStyle: .init(fontPath: nil, colorRGB: [1, 1, 1], pointSize: 32))])
         let preparedTextDomain = try SceneScriptQuickJSDomain()
         try preparedTextDomain.configureLayerCatalog(preparedTextDescriptor)
         let preparedText = SceneScriptStringProgram.compile(domain: preparedTextDomain,

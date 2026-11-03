@@ -12,35 +12,9 @@ from script.tests import test_scene_resolved_material_graph_executor as base
 
 class SceneAnimatedMaterialVisualFailureTests(unittest.TestCase):
     def test_invalid_frame_metadata_preserves_previous_current(self) -> None:
-        source = base.HARNESS
-        ready = "assetStates: [colorBlendMaskIdentity: .ready(.data)],"
-        unavailable = (
-            "assetStates: [colorBlendMaskIdentity: "
-            ".effectLocalUnavailable(.animatedFrameMetadataInvalid)],"
-        )
-        self.assertEqual(source.count(ready), 1)
-        source = source.replace(ready, unavailable)
-
-        sampler_call = """\
-        let samplerSchemaFailure = executeVisualFailurePassthrough(
-            claim: samplerSchemaPixelClaim,
-            capability: samplerSchemaPixelCapability,
-            capabilities: samplerSchemaPixelCapabilities,
-            generation: 8,
-            reason: "material-variant-envelope-sampler-schema"
-        )
-"""
-        metadata_call = """\
-        let samplerSchemaFailure = executeVisualFailurePassthrough(
-            claim: colorBlendClaim,
-            capability: colorBlendCapability,
-            capabilities: colorBlendCapabilities,
-            generation: 8,
-            reason: "material-variant-envelope-animated-frame-metadata"
-        )
-"""
-        self.assertEqual(source.count(sampler_call), 1)
-        source = source.replace(sampler_call, metadata_call)
+        source = base.HARNESS_SUPPORT_SOURCE + base.EXECUTOR_SCENARIOS_SOURCE + (
+            base.FIXTURE_ROOT / "SceneGraphExecutorAnimatedMetadataHarness.swift"
+        ).read_text(encoding="utf-8")
 
         compilation, completed = base.compile_harness(base.SUPPORT, source)
         self.assertEqual(compilation.returncode, 0, compilation.stderr)

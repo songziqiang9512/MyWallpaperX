@@ -1,7 +1,6 @@
 # SteamKit 迁移完成与计划退役（2026-10-16）
 
 > **历史证据 — 非现役入口**
->
 > 用户于 2026-10-16 明确要求将 SteamKit 迁移作为已完成专项退役。当前职责以[Steam 获取合同](../../architecture/steam-workshop-acquisition-contract.md)、当前源码和[发布流程](../../release/release-signing.md#steamservice-build-and-signing-boundary)为准；本文不是执行队列或重新验收报告。
 
 迁移的工程结果是 AppKit/Swift 产品状态经唯一 client 调用独立 SteamService/SteamKit，接通结构化浏览、认证、订阅、下载、持久任务和本地发布，旧 SteamCMD/社区自动登录获取职责退出。计划完成退役不表示旧 SK7 所列每项账号、发行、长稳与性能场景都已通过；未验证项保留其边界，按正常产品维护与发布验收处理，不再维持一套 SK 工作卡。
@@ -18,11 +17,3 @@
 | SK7 交接 | helper 内嵌、固定运行时、签名与许可职责已交现役发布 owner | [发布边界](../../release/release-signing.md#steamservice-build-and-signing-boundary)已有正式合同；本记录不将未测最低支持机、Release 公证/Gatekeeper、完整账号/下载、20 次交互、VoiceOver、长稳、跨卷/断电与性能目标改成通过 |
 
 旧计划还保留 2026-09-22 的安装包身份分歧：当时 `/Applications` 2.0.8 包缺 helper，隔离 Debug 候选含 bundled helper。该观察只能说明当时两份 bundle 不同，不能归因今天的安装包。2026-09-28 连续 HTTP 403 与更早 completed 记录也缺少同一完整构建身份；不据此宣称当前下载已恢复或仍失败。
-
-## 旧计划与证据保留
-
-退役前原路径为 `docs/scene/roadmap/scene-steamkit-migration-plan.md`，完整 160,846 字节正文保存在 Git：最后修改 commit `d0976c442257327f6f822f267f29345f5225c846`，blob `9276815078801dc4ab84437b062783c1f47851b9`，原文件 SHA-256 `bde869c9076f8e61a5d392be35706f34686ae0142869dea8e53445121daacc99`。其中顶部批次身份、§8 的历史实现/审查修复、§9.1 的分批验证及 §10 的早期能力记录可由该 Git 版本追溯；不复制其过时状态、待执行指令或当年的本机性能数值到现役合同。
-
-本次只按旧计划列出的原路径核对五处 installed-bundle/current-UI/public-layout/publication/current-HEAD evidence manifest 和 `/private/tmp/mwx-steam-simplify-keb67cex`，这些路径当前均不存在；没有扫描其他归档位置，不能断言证据全失或 raw 仍完整可重放。旧文档自身已注明若干批次仅留 observer summary，其审查批准不升级为原始账号/网络证据。当前保留的是 Git 中的事实、身份与证据上限，以及可继续维护的自有 fixture/source 入口。
-
-本次只做文档分责及源码静态核对，未运行 build、App、VM、Steam 网络、账号或测试，未改产品、真实库和凭据。[原 roadmap 路径](../../scene/roadmap/scene-steamkit-migration-plan.md)仅保退役导航；后续新故障按实际 identity 与最近门进入普通维护，发行证据仍归发布 owner。

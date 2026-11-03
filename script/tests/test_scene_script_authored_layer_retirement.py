@@ -57,12 +57,8 @@ private func binding(_ source: String, _ id: Int, _ index: Int,
 
 private func make(_ d: SceneRenderDescriptor, _ bindings: [SceneScriptBindingIR]) throws
     -> SceneScriptQuickJSProgramCandidate {
-    var prepared = d
-    for binding in bindings where binding.targetKey == "text" {
-        if let index = binding.owner.objectIndex { prepared.layers[index].textScript = .init(source: binding.source) }
-    }
-    return try .compile(authoredDescriptor: prepared, runtimeDescriptor: prepared, scriptBindings: bindings,
-        vectorProjection: SceneScriptVectorProgram.project(descriptor: prepared, scriptBindings: bindings),
+    return try .compile(authoredDescriptor: d, runtimeDescriptor: d, scriptBindings: bindings,
+        vectorProjection: SceneScriptVectorProgram.project(descriptor: d, scriptBindings: bindings),
         userPropertyDefinitions: [], timelineTargets: [], scalarExcludedTargets: [],
         stringExcludedTargets: [], admittedVectorPassTargets: [], generation: 1)
 }

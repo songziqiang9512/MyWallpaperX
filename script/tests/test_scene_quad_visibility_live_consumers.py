@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 HOST = SCENE / "Runtime/Session/SceneDesktopWallpaperHost+LiveConsumers.swift"
 ADMISSION = SCENE / "Compilation/Material/SceneResolvedMaterialExecutionCapabilityAdmission.swift"
-CATALOG = SCENE / "Compilation/Material/SceneResolvedMaterialExecutionCapability.swift"
+CATALOG = SCENE / "Runtime/Frame/SceneResolvedMaterialExecutionCapabilityCatalog.swift"
 
 CARRIERS = r'''
 import Foundation

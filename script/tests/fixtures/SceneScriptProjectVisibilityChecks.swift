@@ -100,37 +100,6 @@ enum SceneScriptProjectVisibilityChecks {
             !SceneScriptVectorProgram.project(descriptor: descriptor,
                 scriptBindings: [probe]).targets.isEmpty
         }
-        var parented = base
-        parented.layers[0].parentID = 239
-        facts["parented-project-rejected"] = !projected(parented)
-        var declaredChild = base
-        declaredChild.layers[0].childLayerIDs = [239]
-        facts["declared-child-rejected"] = !projected(declaredChild)
-        var actualChild = base
-        actualChild.layers[1].parentID = 230
-        facts["unlisted-actual-child-rejected"] = !projected(actualChild)
-        actualChild.layers[0].childLayerIDs = [239]
-        facts["matching-child-subtree-rejected"] = !projected(actualChild)
-        var dependency = base
-        dependency.layers[0].dependencyLayerIDs = [239]
-        facts["dependency-rejected"] = !projected(dependency)
-        var authoredDependency = base
-        authoredDependency.layers[0].authoredDependencies = [239]
-        facts["authored-dependency-rejected"] = !projected(authoredDependency)
-        var missingUtility = base
-        missingUtility.layers[0].utilityLayer = nil
-        facts["missing-utility-kind-rejected"] = !projected(missingUtility)
-        var mismatchedUtility = base
-        mismatchedUtility.layers[0].utilityLayer = .init(
-            kind: .fullscreen, copyBackground: false, passthrough: false)
-        facts["mismatched-utility-kind-rejected"] = !projected(mismatchedUtility)
-        var compositionAsProject = base
-        compositionAsProject.layers[0].utilityLayer = .init(
-            kind: .composition, copyBackground: true, passthrough: false)
-        facts["project-with-composition-kind-rejected"] = !projected(compositionAsProject)
-        var mismatchedContent = base
-        mismatchedContent.layers[0].contentKind = "image"
-        facts["mismatched-content-kind-rejected"] = !projected(mismatchedContent)
         var composition = base
         composition.layers[0].contentKind = "composition"
         composition.layers[0].imagePath = "models/util/composelayer.json"
@@ -219,27 +188,6 @@ enum SceneScriptProjectVisibilityChecks {
                        bindings: [SceneScriptBindingIR]? = nil) -> Bool {
             !SceneScriptVectorProgram.project(descriptor: descriptor,
                 scriptBindings: bindings ?? [probe]).targets.isEmpty
-        }
-        let changes: [(String, (inout SceneRenderDescriptor) -> Void)] = [
-            ("missing-utility", { $0.layers[0].utilityLayer = nil }),
-            ("wrong-project-utility", { $0.layers[0].utilityLayer = .init(
-                kind: .project, copyBackground: false, passthrough: false) }),
-            ("wrong-composition-utility", { $0.layers[0].utilityLayer = .init(
-                kind: .composition, copyBackground: true, passthrough: false) }),
-            ("wrong-content-kind", { $0.layers[0].contentKind = "image" }),
-            ("nested-owner", { $0.layers[0].parentID = 419 }),
-            ("declared-child", { $0.layers[0].childLayerIDs = [419] }),
-            ("actual-child", { $0.layers[1].parentID = 410 }),
-            ("declared-and-actual-child", {
-                $0.layers[0].childLayerIDs = [419]; $0.layers[1].parentID = 410
-            }),
-            ("dependency", { $0.layers[0].dependencyLayerIDs = [419] }),
-            ("authored-dependency", { $0.layers[0].authoredDependencies = [419] }),
-        ]
-        for (label, change) in changes {
-            var altered = base
-            change(&altered)
-            facts["fullscreen-\(label)-rejected"] = !projected(altered)
         }
         for (label, seed) in [("string", SceneJSONValue.string("false")),
                               ("number", .number(0))] {

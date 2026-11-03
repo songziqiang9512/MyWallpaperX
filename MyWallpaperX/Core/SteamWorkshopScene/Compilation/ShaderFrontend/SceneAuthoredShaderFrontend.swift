@@ -151,36 +151,44 @@ nonisolated enum SceneAuthoredShaderFrontend {
 
         func store(_ program: SceneAuthoredShaderProgram, for key: ProgramCacheKey) {
             guard valid(program) else { return }
-            lock.withLock {
+            _ = lock.withLock {
                 memory.insert(program, for: key, cost: key.cost(including: program))
-                guard let directory = directoryURL() else { return }
-                let keySHA256 = ProgramCacheDigest.hash(key)
-                let envelope = Envelope(
-                    schemaVersion: schemaVersion,
-                    key: key,
-                    keySHA256: keySHA256,
-                    programSHA256: ProgramCacheDigest.hash(program),
-                    program: program
+            }
+            DispatchQueue.global(qos: .utility).async { [program, key] in
+                SceneAuthoredShaderFrontend.programCache.publish(program, for: key)
+            }
+        }
+
+        private func publish(_ program: SceneAuthoredShaderProgram, for key: ProgramCacheKey) {
+            guard let directory = directoryURL() else { return }
+            let keySHA256 = ProgramCacheDigest.hash(key)
+            let envelope = Envelope(
+                schemaVersion: schemaVersion,
+                key: key,
+                keySHA256: keySHA256,
+                programSHA256: ProgramCacheDigest.hash(program),
+                program: program
+            )
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+            guard let data = try? encoder.encode(envelope) else { return }
+            do {
+                try FileManager.default.createDirectory(
+                    at: directory,
+                    withIntermediateDirectories: true
                 )
-                let encoder = JSONEncoder()
-                encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-                guard let data = try? encoder.encode(envelope) else { return }
-                do {
-                    try FileManager.default.createDirectory(
-                        at: directory,
-                        withIntermediateDirectories: true
-                    )
-                    if !pruned {
-                        prune(directory)
-                        pruned = true
-                    }
-                    try data.write(
-                        to: directory.appendingPathComponent("\(keySHA256).json"),
-                        options: .atomic
-                    )
-                } catch {
-                    // The freshly compiled Program remains valid in memory.
+                let shouldPrune = lock.withLock {
+                    guard !pruned else { return false }
+                    pruned = true
+                    return true
                 }
+                if shouldPrune { prune(directory) }
+                try data.write(
+                    to: directory.appendingPathComponent("\(keySHA256).json"),
+                    options: .atomic
+                )
+            } catch {
+                // The freshly compiled Program remains valid in memory.
             }
         }
 

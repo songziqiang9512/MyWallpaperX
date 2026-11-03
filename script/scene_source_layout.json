@@ -69,7 +69,6 @@
           "SceneResolvedMaterialExecutionCapabilityVariant+ProviderSlots.swift",
           "SceneResolvedMaterialExecutionCapabilityVariant.swift",
           "SceneResolvedMaterialGenericShaderArtifactCache+Diagnostics.swift",
-          "SceneResolvedMaterialGenericShaderArtifactCache+ExecutionTelemetry.swift",
           "SceneResolvedMaterialGenericShaderArtifactCache.swift",
           "SceneResolvedMaterialGenericShaderOwnerDeferral.swift",
           "SceneResolvedMaterialGenericShaderPreparationCoordination.swift",
@@ -300,9 +299,6 @@
           "SceneAuthoredShaderFrameInputs.swift",
           "SceneResolvedMaterialRuntimeLoopBoundResolver.swift",
           "SceneResolvedMaterialTextureResolver+GraphSelection.swift",
-          "SceneResolvedMaterialTextureResolver+Launch.swift",
-          "SceneResolvedMaterialTextureResolver+LaunchColor.swift",
-          "SceneResolvedMaterialTextureResolver+LaunchSelection.swift",
           "SceneResolvedMaterialTextureResolver.swift",
           "SceneResolvedMaterialTextureSelection.swift",
           "SceneResolvedMaterialUniformEncoder.swift",
@@ -374,7 +370,6 @@
           "SceneMetalRenderer+LayerTransforms.swift",
           "SceneMetalRenderer+LightEvidence.swift",
           "SceneMetalRenderer+ParticlePointer.swift",
-          "SceneMetalRenderer+Particles.swift",
           "SceneMetalRenderer+StaticModels.swift",
           "SceneMetalRenderer+TextureFrame.swift",
           "SceneMetalRenderer.swift",
@@ -382,11 +377,8 @@
           "SceneMetalView+Debug.swift",
           "SceneMetalView+FrameContext.swift",
           "SceneMetalView+Geometry.swift",
-          "SceneMetalView+ParticlePlayback.swift",
           "SceneMetalView+Pointer.swift",
           "SceneMetalView+PointerEvents.swift",
-          "SceneMetalView+PuppetBones.swift",
-          "SceneMetalView+PuppetResources.swift",
           "SceneMetalView+SceneScriptCursorInteraction.swift",
           "SceneMetalView.swift",
           "SceneResolvedMaterialFramePreflight+Admission.swift",
@@ -416,7 +408,9 @@
           "SceneLayerVisibility.swift",
           "SceneLayerWorldFrameResolver.swift",
           "SceneMatrix.swift",
-          "SceneTextLayerPivot.swift"
+          "SceneTextLayerPivot.swift",
+          "ScenePuppetMeshGeometry.swift",
+          "ScenePuppetClipping.swift"
         ],
         "responsibility": "Geometry: Prepared-product consumption, live frame binding, GPU encoding and unique output lifecycle."
       },
@@ -475,6 +469,7 @@
         "file_globs": [
           "SceneParticleDepthTargetPool.swift",
           "SceneParticleMetalInstanceBuffer.swift",
+          "SceneParticleMetalPipeline+Frame.swift",
           "SceneParticleMetalPipeline.swift",
           "SceneParticlePipelineRenderStateCompiler.swift",
           "SceneParticleRenderSupport.swift",
@@ -567,7 +562,8 @@
           "SceneTextureSampling.swift",
           "SceneTextureSlotBinding.swift",
           "SceneTextureUVTransform.swift",
-          "SceneResourceBudget.swift"
+          "SceneResourceBudget.swift",
+          "SceneTextureLookupIdentity.swift"
         ],
         "responsibility": "Textures: Shared resource identity, resolution, upload, residency and asynchronous publication."
       }
@@ -589,7 +585,9 @@
           "SceneScreenTopology.swift",
           "SceneStaticModelMaterialBindings.swift",
           "SceneSurfacePointerState.swift",
-          "SceneResolvedMaterialPreparedFrameInput.swift"
+          "SceneResolvedMaterialExecutionCapabilityCatalog.swift",
+          "SceneResolvedMaterialPreparedFrameInput.swift",
+          "SceneResolvedMaterialPreparedSamplerSchema.swift"
         ],
         "responsibility": "Frame: Scene process/session orchestration and frame handoff; capability algorithms stay with their systems."
       },
@@ -624,7 +622,7 @@
           "SceneDesktopWallpaperSession+Shutdown.swift",
           "SceneDesktopWallpaperSession+SoundProperties.swift",
           "SceneDesktopWallpaperSession+SurfaceTeardown.swift",
-          "SceneDesktopWallpaperSession+TextScriptReport.swift",
+          "SceneDesktopWallpaperSession+DynamicLayerVisibility.swift",
           "SceneDesktopWallpaperSession+VideoProviders.swift",
           "SceneDesktopWallpaperHost.swift",
           "SceneDesktopWallpaperHost+Activation.swift",
@@ -641,7 +639,12 @@
           "ScenePreparedDeviceResources+SourceMaterials.swift",
           "ScenePreparedPuppetResources.swift",
           "SceneInitialPresentationCohort.swift",
-          "SceneDesktopWallpaperSession+SurfaceSubmission.swift"
+          "SceneDesktopWallpaperSession+SurfaceSubmission.swift",
+          "SceneDesktopWallpaperSession+SurfaceParticles.swift",
+          "SceneDesktopWallpaperSession+SurfaceSimulation.swift",
+          "SceneDesktopWallpaperSession+SurfacePuppetBones.swift",
+          "SceneDesktopWallpaperSession+SurfacePuppets.swift",
+          "ScenePreparedDeviceResources+Puppets.swift"
         ],
         "responsibility": "Session: Scene process/session orchestration and frame handoff; capability algorithms stay with their systems."
       }
@@ -668,7 +671,6 @@
       "Media": {
         "file_globs": [
           "SceneAudioSpectrum.swift",
-          "SceneMediaThumbnailCoordinator.swift",
           "SceneMediaThumbnailInbox.swift",
           "SceneSoundPlaybackProgram.swift",
           "SceneSoundPlaybackRegistry.swift"
@@ -762,10 +764,6 @@
           "ScenePuppetAnimationPropertyTarget.swift",
           "SceneScriptDynamicProviderHostContract.swift",
           "SceneScriptValueOwnership.swift",
-          "SceneSharedLayerAlphaCompiler.swift",
-          "SceneSharedLayerAlphaProgram.swift",
-          "SceneSharedLayerAlphaRuntime.swift",
-          "SceneSharedLayerAlphaSyntax.swift",
           "SceneUserProperty.swift",
           "SceneUserPropertyBindings.swift",
           "SceneUserPropertyDefinitionParser.swift",
@@ -784,10 +782,7 @@
           "ScenePuppetAnimationSelection.swift",
           "ScenePuppetAttachmentFrameSnapshot.swift",
           "ScenePuppetAttachmentPoseProjection.swift",
-          "ScenePuppetBoneEvidence.swift",
-          "ScenePuppetClipping.swift",
           "ScenePuppetLayerLoad.swift",
-          "ScenePuppetMeshGeometry.swift",
           "ScenePuppetPlaybackState.swift",
           "ScenePuppetSkinMatrixProjection.swift",
           "ScenePuppetTranslationMotion.swift",
@@ -858,15 +853,7 @@
           "SceneTextDescriptor.swift",
           "SceneTextFontResolver.swift",
           "SceneTextGeometry.swift",
-          "SceneTextMediaPropertiesCompiler.swift",
           "SceneTextRowLimit.swift",
-          "SceneTextScriptCompiler.swift",
-          "SceneTextScriptDefinition.swift",
-          "SceneTextScriptProgram.swift",
-          "SceneTextScriptRuntime.swift",
-          "SceneTextScriptSubsetCompiler.swift",
-          "SceneTextScriptSubsetProgram.swift",
-          "SceneTextScriptSubsetRuntime.swift",
           "SceneTextTextureLoader.swift"
         ],
         "responsibility": "Text: Capability-owned state, evaluation and preparation; uses the existing clock, resource registry and compositor."
@@ -954,9 +941,19 @@
         "baseline_occurrences": 4,
         "allowed_files": [
           "Rendering/Composition/SceneLayerColorBlendPipeline.swift",
-          "Rendering/Frame/SceneMetalRenderer+Particles.swift",
-          "Rendering/Lighting/SceneSpotLightRuntime.swift"
-        ]
+          "Rendering/Lighting/SceneSpotLightRuntime.swift",
+          "Rendering/Particles/SceneParticleMetalPipeline+Frame.swift"
+        ],
+        "owner_relocation": {
+          "from_file": "Rendering/Frame/SceneMetalRenderer+Particles.swift",
+          "to_file": "Rendering/Particles/SceneParticleMetalPipeline+Frame.swift",
+          "from_contract_sha256": "b6657d2477ca31ffb13c7dcc79af9f5dc58f49ef4eba876036cb8ebf44f3bb3b",
+          "to_contract_sha256": "254b1fa854c63584dc85e0a9d2c575356052420d7137b67292dcd73f028685e5",
+          "design_doc": "docs/scene/architecture/runtime-architecture.md",
+          "owner": "Rendering/Particles SceneParticleMetalPipeline",
+          "reason": "The particle GPU encode and slot lifecycle move into the existing pipeline; the complete mainPass.encoder() call inventory, peer calls, count and global discovery remain unchanged.",
+          "retirement": "The old renderer particle extension and forwarding entry are removed. Retire this immutable inventory receipt only with full writer retirement."
+        }
       },
       {
         "id": "legacy-recovery-kinds",
@@ -1275,9 +1272,9 @@
       {
         "id": "shape-derived-analyzer-fleet",
         "role": "inventory",
-        "description": "Global five-suffix analyzer discovery retains its fixed 66-owner inventory, including the public WebM format parser. The frame input contract is registered at its actual Runtime/Frame owner. Exact passive results are classified individually; neither discovery nor execution ownership is exempted.",
+        "description": "Global five-suffix analyzer discovery tracks the remaining measured inventory, including the public WebM format parser. The frame input contract is registered at its actual Runtime/Frame owner. Exact passive results are classified individually; neither discovery nor execution ownership is exempted.",
         "pattern": "^[ \\t]*(?:@\\w+[ \\t]+)*(?:nonisolated[ \\t]+|public[ \\t]+|internal[ \\t]+|private[ \\t]+|fileprivate[ \\t]+|final[ \\t]+)*(?:struct|enum|class)[ \\t]+\\w*(?:Contract|Link|Parser|Admission|Conversion)\\b",
-        "baseline_occurrences": 66,
+        "baseline_occurrences": 63,
         "allowed_files": [
           "Compilation/Material/SceneDirectBoolEffectVisibilityRouteAdmission.swift",
           "Compilation/Material/SceneEffectStageAdmission.swift",
@@ -1323,13 +1320,10 @@
           "Systems/Particles/SceneParticleDefinitionParser.swift",
           "Systems/Particles/SceneParticlePeriodicEmission.swift",
           "Systems/Properties/SceneScriptDynamicProviderHostContract.swift",
-          "Systems/Properties/SceneSharedLayerAlphaSyntax.swift",
           "Systems/Properties/SceneUserPropertyBindings.swift",
           "Systems/Properties/SceneUserPropertyDefinitionParser.swift",
           "Systems/Script/SceneScriptCursorHitAdmission.swift",
-          "Systems/Script/SceneScriptLayerTopologyModels.swift",
-          "Systems/Text/SceneTextMediaPropertiesCompiler.swift",
-          "Systems/Text/SceneTextScriptSubsetCompiler.swift"
+          "Systems/Script/SceneScriptLayerTopologyModels.swift"
         ],
         "metric": "classified-declarations",
         "classifications": [
@@ -1412,10 +1406,9 @@
         "role": "inventory",
         "description": "Product call sites of the bounded Swift shader frontend are frozen until the E5 fallback audit retires that frontend; direction is shrink to zero.",
         "pattern": "SceneAuthoredShaderFrontend\\.compile\\(",
-        "baseline_occurrences": 2,
+        "baseline_occurrences": 1,
         "allowed_files": [
-          "Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+Frontend.swift",
-          "Compilation/Material/SceneResolvedMaterialProgram+Derivation.swift"
+          "Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+Frontend.swift"
         ],
         "owner_relocation": {
           "from_file": "Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift",
@@ -1511,6 +1504,7 @@
         "SceneGraphExecutionTelemetry.swift",
         "ScenePerformanceCounterHub.swift",
         "ScenePerformanceHUD.swift",
+        "ScenePuppetBoneEvidence.swift",
         "SceneSignposts.swift",
         "SceneTimelineFrameEvidence.swift"
       ],

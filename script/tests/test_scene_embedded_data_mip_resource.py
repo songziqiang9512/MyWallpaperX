@@ -19,7 +19,7 @@ from script.tests import test_scene_texture_candidate as fixture
 
 REPOSITORY_ROOT = fixture.REPOSITORY_ROOT
 SWIFT_SOURCES = fixture.SWIFT_SOURCES
-HARNESS = fixture.HARNESS.split("@main", 1)[0] + r'''
+HARNESS = fixture.HARNESS_SUPPORT_SOURCE + r'''
 @main
 private enum EmbeddedDataMipHarness {
     static func observe(

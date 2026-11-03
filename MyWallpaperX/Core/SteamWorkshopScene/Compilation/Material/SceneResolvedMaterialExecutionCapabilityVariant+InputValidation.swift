@@ -35,7 +35,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         sampler: SceneResolvedMaterialShaderSchema.Sampler
     ) -> Bool {
         guard case .asset = reference,
-              let purpose = sampler.purpose(for: reference) else { return false }
+              let purpose = SceneResolvedMaterialShaderSchema.purpose(for: reference, sampler: sampler) else { return false }
         return purpose.isDataPurpose
     }
 

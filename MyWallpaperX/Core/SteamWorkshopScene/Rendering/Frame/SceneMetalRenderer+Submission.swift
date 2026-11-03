@@ -20,7 +20,8 @@ extension SceneMetalRenderer {
         reflectionFrame: ReflectionFrame?,
         modelFrame: StaticModelFrame,
         mainPassForSubmission: SceneMainPassEncoder?,
-        particleBatches: [SceneParticleDrawBatch],
+        particleBatches: [SceneParticleMetalPipeline.PreparedBatch],
+        particlePipeline: SceneParticleMetalPipeline?,
         initialVideoPresentation: InitialVideoPresentation? = nil
     ) -> PreparedFrame {
         return PreparedFrame(commandBuffer: commandBuffer, initialVideoPresentation: initialVideoPresentation, submit: { present in
@@ -76,10 +77,7 @@ extension SceneMetalRenderer {
             modelFrame.cancel()
             mainPassForSubmission?.cancelCompositionPins()
             frameDepthLeases.forEach { $0.cancel() }
-            particleBatches.forEach {
-                _ = $0.instanceBuffer.cancelUncommittedSubmission(on: commandBuffer)
-                _ = $0.instanceBuffer.cancelPending()
-            }
+            particlePipeline?.cancel(particleBatches, on: commandBuffer)
             discardUnsubmittedFrameResources()
         })
     }

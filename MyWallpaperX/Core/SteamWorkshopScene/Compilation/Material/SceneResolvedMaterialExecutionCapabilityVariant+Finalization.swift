@@ -26,7 +26,6 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
         graphInputFacts: [Int: SceneResolvedMaterialGraphInputSourceSlotFact],
         uniforms: [String: SceneResolvedMaterialShaderSchema.Uniform],
-        preparedUniformBindings: [SceneResolvedMaterialPreparedUniformBinding],
         preparedAssembly: SceneResolvedMaterialProgram.PreparedAssembly
     ) {
         let sourceProvenOpaqueColorSlots: Set<Int>
@@ -55,32 +54,6 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             SceneResolvedMaterialProgramDerivation.associatedOverOverlaySlot(
                 fragmentSource: prepared.fragment.source
             )
-        let assemblyResult = Result<SceneResolvedMaterialProgram.PreparedAssembly, Error> {
-            try SceneResolvedMaterialProgram.PreparedAssembly(
-                preparedShader: prepared,
-                frontend: frontend,
-                renderState: template.renderState,
-                runtimeLoopBounds: runtimeLoopBounds,
-                hasEffectContext: template.effectContext != nil,
-                conditionalGeneratedRGBInputContract: conditionalGeneratedRGBInputContract,
-                associatedOverOverlaySlot: associatedOverOverlaySlot,
-                premultipliedColorInputSlots: premultipliedColorInputSlots
-            )
-        }
-        // ABI failure was historically the first admission result. Later
-        // template/sampler guards retain their own typed failure priority.
-        if case let .failure(error as Failure) = assemblyResult,
-           error.code == .shaderFrontendFailed {
-            throw failure(
-                .shaderFrontendFailed,
-                phase: .frontend,
-                genericOwnerFailure: genericOwnerFailure,
-                details: (boundedOutput.map {
-                    SceneResolvedMaterialExecutionCapabilityDiagnostics
-                        .frontendFailure(template: template, output: $0)
-                } ?? []) + artifactFailure
-            )
-        }
         let bindings = frontend.textureBindings
         let activeSlots = Set(bindings.map(\.slot))
         let samplers = sourceActiveSamplers.filter { activeSlots.contains($0.key) }
@@ -133,7 +106,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             )
         }
         let nonHost = frontend.uniformLayout.fields.filter {
-            SceneResolvedMaterialUniformEncoder.hostUniform(
+            SceneResolvedMaterialHostUniformSchema.resolve(
                 $0,
                 activeTextureSlots: activeSlots,
                 hasEffectContext: template.effectContext != nil
@@ -175,13 +148,38 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 details: ["prepared-uniform-binding-unexpected-failure"]
             )
         }
+        let preparedAssembly: SceneResolvedMaterialProgram.PreparedAssembly
+        do {
+            preparedAssembly = try .init(
+                preparedShader: prepared,
+                frontend: frontend,
+                renderState: template.renderState,
+                runtimeLoopBounds: runtimeLoopBounds,
+                preparedUniformBindings: preparedUniformBindings,
+                conditionalGeneratedRGBInputContract: conditionalGeneratedRGBInputContract,
+                associatedOverOverlaySlot: associatedOverOverlaySlot,
+                premultipliedColorInputSlots: premultipliedColorInputSlots
+            )
+        } catch let error as Failure {
+            if error.code == .shaderFrontendFailed {
+                throw failure(
+                    .shaderFrontendFailed,
+                    phase: .frontend,
+                    genericOwnerFailure: genericOwnerFailure,
+                    details: (boundedOutput.map {
+                        SceneResolvedMaterialExecutionCapabilityDiagnostics
+                            .frontendFailure(template: template, output: $0)
+                    } ?? []) + artifactFailure
+                )
+            }
+            throw error.withGenericOwnerFailure(genericOwnerFailure)
+        }
         return (
             sourceProvenOpaqueColorSlots,
             samplers,
             graphInputFacts,
             uniforms,
-            preparedUniformBindings,
-            try assemblyResult.get()
+            preparedAssembly
         )
     }
 

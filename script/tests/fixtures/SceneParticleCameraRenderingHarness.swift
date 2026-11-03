@@ -553,19 +553,17 @@ enum SceneParticleCameraRenderingHarness {
     static func depthBatch(_ device: MTLDevice, texture: MTLTexture,
         state: SceneParticlePipelineRenderState, z: Float, size: Float, x: Float = 0,
         refraction: SceneParticleRefractionBinding? = nil, rotation: Float = 0,
-        path: String = "particles/depth.json") -> SceneParticleDrawBatch? {
+        layerID: Int = 731, path: String = "particles/depth.json") -> SceneParticleDrawBatch? {
         let values = [SceneParticleGPUInstance(position: SIMD3(x, 0, z), size: size,
             rotation: SIMD3(0, rotation, 0), color: SIMD3(repeating: 1), alpha: 1)]
-        let buffer = SceneParticleMetalInstanceBuffer()
-        guard buffer.update(device: device, instances: values) else { return nil }
-        return .init(layerID: 731, particlePath: path, texture: texture,
+        return .init(layerID: layerID, particlePath: path, texture: texture,
             colorUVScale: SIMD2(repeating: 1), colorSampling: .directImageFallback,
-            refraction: refraction, renderState: state, instanceBuffer: buffer,
+            refraction: refraction, renderState: state, childTemplateIndex: nil,
             instances: values, orientation: .screen, orientationAxis: nil, usesPerspective: true)
     }
 
     static func depthDraw(_ name: String, device: MTLDevice, pipeline: SceneParticleMetalPipeline,
-        batches: [SceneParticleDrawBatch], camera: SceneParticleCameraFrame,
+        batches: [SceneParticleMetalPipeline.PreparedBatch], camera: SceneParticleCameraFrame,
         model: simd_float4x4 = SceneMatrix.identity())
         -> (pixels: [UInt8], hasLease: Bool, depthBytes: Int, completed: Bool)? {
         guard let queue = device.makeCommandQueue(), let command = queue.makeCommandBuffer(),
@@ -574,8 +572,7 @@ enum SceneParticleCameraRenderingHarness {
         let pass = SceneMainPassEncoder(commandBuffer: command, target: target,
             clearColor: MTLClearColorMake(0, 0, 0, 0), clearEnabled: false)
         var observations: [SceneParticlePerformanceObservation]? = nil
-        let renderer = SceneMetalRenderer(parallaxByLayerID: [:])
-        let lease = renderer.renderParticleBatches(batches, pipeline: pipeline, model: model,
+        let lease = pipeline.drawBatches(batches, model: model,
             cameraFrame: camera, viewportSize: SIMD2(repeating: 64), mainPass: pass,
             commandBuffer: command, preparedDepth: nil, performanceObservations: &observations)
         let finished = pass.finishEnsuringClear()
@@ -649,9 +646,9 @@ enum SceneParticleCameraRenderingHarness {
                     guard let a = depthBatch(device, texture: white, state: state(test, blend: .additive),
                         z: -4, size: 3.2, x: -0.3 + shift, refraction: binding, path: path),
                         let b = depthBatch(device, texture: white, state: state(test, blend: .additive),
-                        z: -7, size: 5.6, x: 0.4 + shift, refraction: binding, path: path),
+                        z: -7, size: 5.6, x: 0.4 + shift, refraction: binding, layerID: 732, path: path),
                         let result = depthDraw("A-\(variant)-\(order)-\(test)", device: device,
-                            pipeline: readonlyPipeline, batches: reversed ? [b, a] : [a, b], camera: camera)
+                            pipeline: readonlyPipeline, batches: readonlyPipeline.prepare(reversed ? [b, a] : [a, b]), camera: camera)
                     else { return ["failure": "A-\(variant)-\(order)"] }
                     results.append(result)
                 }
@@ -665,18 +662,18 @@ enum SceneParticleCameraRenderingHarness {
                 var results: [(pixels: [UInt8], hasLease: Bool, depthBytes: Int, completed: Bool)] = []
                 guard let writer = depthBatch(device, texture: red, state: state(true, write: true),
                     z: -3, size: 2.4), let baseline = depthDraw("B-\(variant)-writer", device: device,
-                        pipeline: pipeline, batches: [writer], camera: camera) else { return ["failure": "B-writer"] }
+                        pipeline: pipeline, batches: pipeline.prepare([writer]), camera: camera) else { return ["failure": "B-writer"] }
                 for test in [true, false] {
                     guard let writer = depthBatch(device, texture: red, state: state(true, write: true), z: -3, size: 2.4),
                           let reader = depthBatch(device, texture: white,
                             state: state(test, blend: renamed ? .additive : .translucent),
-                            z: -6, size: 6, x: shift, refraction: binding, path: path),
-                          let probe = depthBatch(device, texture: green, state: state(true), z: -8, size: 3),
+                            z: -6, size: 6, x: shift, refraction: binding, layerID: 732, path: path),
+                          let probe = depthBatch(device, texture: green, state: state(true), z: -8, size: 3, layerID: 733),
                           let coverage = depthBatch(device, texture: blue, state: state(true, blend: .alphaToCoverage),
-                            z: -6, size: 1, x: 2.8),
+                            z: -6, size: 1, x: 2.8, layerID: 734),
                           let result = depthDraw("B-\(variant)-\(order)-\(test)", device: device,
-                            pipeline: pipeline, batches: (writerFirst ? [writer, reader] : [reader, writer])
-                                + [probe, coverage], camera: camera) else { return ["failure": "B-\(variant)-\(order)"] }
+                            pipeline: pipeline, batches: pipeline.prepare((writerFirst ? [writer, reader] : [reader, writer])
+                                + [probe, coverage]), camera: camera) else { return ["failure": "B-\(variant)-\(order)"] }
                     results.append(result)
                 }
                 mixed.append(["variant": variant, "order": order, "completed": results.allSatisfy(\.completed),
@@ -714,7 +711,7 @@ enum SceneParticleCameraRenderingHarness {
                     guard let batch = depthBatch(device, texture: white, state: renderState,
                         z: z, size: size, x: shift, refraction: binding, rotation: rotation, path: path),
                           let result = depthDraw("C-\(variant)-\(name)-\(test)", device: device,
-                            pipeline: readonlyPipeline, batches: [batch], camera: camera) else { return ["failure": "C-\(name)"] }
+                            pipeline: readonlyPipeline, batches: readonlyPipeline.prepare([batch]), camera: camera) else { return ["failure": "C-\(name)"] }
                     results.append(result)
                 }
                 clipRows.append(["variant": variant, "geometry": name,
@@ -806,18 +803,15 @@ enum SceneParticleCameraRenderingHarness {
             let initial = runtime.advance(by: 0)
             _ = runtime.advance(by: 0.3)
             let later = runtime.advance(by: 1.0 / 60.0)
-            var uploadedInstanceCounts: [Int] = []
-            for batch in later {
-                guard batch.instanceBuffer.update(device: device, instances: batch.instances),
-                      let uploaded = batch.instanceBuffer.currentDrawState() else {
-                    runtime.teardown()
-                    return [["scenario": scenario, "completed": false, "reason": "instance-buffer-upload"]]
-                }
-                uploadedInstanceCounts.append(uploaded.count)
+            let prepared = pipeline.prepare(later)
+            guard prepared.count == later.count else {
+                runtime.teardown()
+                return [["scenario": scenario, "completed": false, "reason": "instance-buffer-upload"]]
             }
+            let uploadedInstanceCounts = prepared.map { $0.instanceBuffer.count }
             let model = SceneParticleCameraFrame.particleLayerModel(
                 worldFrame: SceneMatrix.translation(SIMD3(32, 32, 0)), parallaxOffset: .zero)
-            let draw = depthDraw("D-\(scenario)", device: device, pipeline: pipeline, batches: later, camera: camera, model: model)
+            let draw = depthDraw("D-\(scenario)", device: device, pipeline: pipeline, batches: prepared, camera: camera, model: model)
             var initialInstances: Int = 0
             for batch in initial { initialInstances += batch.instances.count }
             var center: [Int] = []

@@ -39,12 +39,12 @@ nonisolated enum SceneScriptDynamicProviderHostContract {
     }
 
     static func supports(keys: [String], host: HostKind) -> Bool {
-        ((host == .objectVisibility || host == .soundVolume || host == .passConstant)
+        if host == .objectText {
+            return keys.contains("script") && keys.contains("value")
+        }
+        return ((host == .objectVisibility || host == .soundVolume || host == .passConstant)
             && (keys == ["script", "user", "value"]
                 || keys == ["script", "scriptproperties", "user", "value"]))
-            || (host == .objectText
-                && (keys == ["script", "value"]
-                    || keys == ["script", "user", "value"]))
             || (host == .particleValue && keys == ["script", "value"])
             || (host == .particleValue
                 && keys == ["script", "user", "value"])

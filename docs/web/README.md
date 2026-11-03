@@ -17,15 +17,17 @@
 - [web-project-json-localization.md](web-project-json-localization.md)：原始声明、本地派生数据与本地化边界。
 - [web-wallpaper-benchmark-standard.md](web-wallpaper-benchmark-standard.md)：长期运行证据与评分合同；不保存当前 PASS 数字。
 
+- [跨源回复投递](cross-origin-reply-delivery-design.md)：frame定向回复与导航身份。
+- [下载失败项可见性](steam-downloads-failed-items-visibility-design.md)：失败项、重试和计数。
 - [冷启动项目解析设计](cold-descriptor-parse-offload-design.md)：后台解析与取消边界。
-- 启动职责继续查[Web 项目模型](web-project-json-runtime-model.md)与[独立宿主](dedicated-host-process-design.md)；[Scene/Web 启动专项完成记录](../history/cross-topic/wallpaper-startup-optimization-completed-2026-10-25.md)只保存实施取舍、STOP与有限验收，不产生现役任务。
+- 启动职责继续查[Web 项目模型](web-project-json-runtime-model.md)与[独立宿主](dedicated-host-process-design.md)；[Web启动记录](../history/cross-topic/wallpaper-startup-optimization-completed-2026-10-25.md)只保存实施取舍、STOP与有限验收，不产生现役任务。
 - [CSS 动画暂停设计](css-animation-freeze-redesign.md)：页面动画冻结与恢复合同。
 - [Scene/Web 共享歌曲信息方案](mediaremote-nowplaying-design.md)：共享采集迁移、五类媒体监听与失败恢复设计；实施状态见现役状态。
 - [独立桌面宿主与切换交接](dedicated-host-process-design.md)：Web 进程隔离、唯一采集 owner、候选交接与验收边界。
 
 ## 2. 历史材料
 
-- [统一历史索引](../history/README.md)：2026-04 阶段计划、2026-07 Web/Scene 状态快照、作者源码与 Steam CDN 代表样本基线。历史正文中的“当前”“下一步”、样本数字和命令只对其截止日期负责；本入口不再复制历史 PASS/coverage。
+- [统一历史索引](../history/README.md)：2026-04 阶段计划、2026-07 Web状态快照、作者源码与 Steam CDN 代表样本基线。历史正文中的“当前”“下一步”、样本数字和命令只对其截止日期负责；本入口不再复制历史 PASS/coverage。
 
 ## 3. 使用规则
 

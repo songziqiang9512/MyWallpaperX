@@ -179,9 +179,13 @@ private func compile(
     inheritedInactiveCombos: Set<String> = [],
     provenSceneScriptValueTargets: Set<SceneDynamicTarget> = []
 ) -> Result<Template, SceneResolvedMaterialFailure> {
-    SceneResolvedMaterialTemplateCompiler.compile(
+    guard case let .success(product) = admitTemplateGraph(value) else {
+        preconditionFailure("invalid graphs must be checked at graph admission")
+    }
+    return SceneResolvedMaterialTemplateCompiler.compile(
         material: material,
-        graph: value,
+        node: product.graph.nodes[0],
+        graphScope: .init(effect: product.graph.effects[0], renderTargets: product.graph.renderTargets),
         shaderContract: shaderContract ?? contract(material.shaderPath),
         inheritedInactiveCombos: inheritedInactiveCombos,
         provenSceneScriptValueTargets: provenSceneScriptValueTargets
@@ -199,12 +203,12 @@ private func failure(
     guard case let .failure(value) = result else { return nil }
     return value
 }
-private func assetFailure(_ path: String) -> SceneResolvedMaterialFailure? {
+private func compileAssetPath(_ path: String) -> Result<Template, SceneResolvedMaterialFailure> {
     var slots = [SceneResolvedMaterialNode.TextureSlot?].emptySlots
     slots[0] = .init(index: 0, candidates: [
         .init(source: .asset(path), provenance: .material),
     ])
-    return failure(compile(material(slots: slots)))
+    return compile(material(slots: slots))
 }
 private func sourceContracts() -> [String: Bool] {
     let colorTarget = SceneDynamicTarget.materialConstant(layerID: 123, passIndex: 5, name: "Surface", materialPath: "materials/source.json")
@@ -577,18 +581,14 @@ enum Harness {
         let chainedTemplate = template(compile(
             material(slots: chainedSlots), graph: graph(input: previousOutput)
         ))
-        let selfInputFailure = failure(compile(
-            material(), graph: graph(input: effectOutput(effectKey()))
-        ))
+        let selfInputFailure = templateGraphRejection(graph(input: effectOutput(effectKey())))
         let foreignLayerInput = Graph.TextureIdentity(
             kind: .effectOutput,
             layerID: 99,
             effect: .init(layerID: 99, effectIndex: 1, descriptorID: "foreign"),
             name: nil
         )
-        let foreignInputFailure = failure(compile(
-            material(), graph: graph(input: foreignLayerInput)
-        ))
+        let foreignInputFailure = templateGraphRejection(graph(input: foreignLayerInput))
         let blockedGraph = graph(blockers: [.init(
             effect: effectKey(),
             definitionPassIndex: nil,
@@ -615,8 +615,12 @@ enum Harness {
             .init(source: .graph(layerSource()), provenance: .explicitBinding),
         ])
         let escapedAssets = [
-            "../secret.png", "/tmp/secret.png", "C:\\secret.png",
+            "../secret.png", "/tmp/secret.png", "C:\\..\\secret.png",
             "textures//secret.png", "textures/./secret.png", "textures/\u{7f}.png",
+        ]
+        let relativeAssetNames = [
+            ("C:\\secret.png", "c:/secret.png"),
+            ("Textures/C:/Paint.PNG", "textures/c:/paint.png"),
         ]
         let escapedShaders = [
             "../effects/a", "/effects/a", "C:\\effects\\a", "effects//a",
@@ -690,7 +694,6 @@ enum Harness {
             .uniformBindingInvalid, .uniformContributorPolicyUnproven,
             .uniformScriptAttachmentUnproven, .colorContractUnproven,
             .frameSnapshotMismatch, .identityInvariant,
-            .variantSelectionTemplateIdentityInvariant,
             .variantSelectionReachabilityIdentityInvariant,
             .variantSelectionKeyInvariant, .variantSelectionUnexpectedFailure,
             .finalizerUnexpectedFailure,
@@ -837,31 +840,26 @@ enum Harness {
                         && value.scriptAttachments == [.unproven]
                 } == true
             },
-            "blockedGraphRejected": failure(compile(material(), graph: blockedGraph))?.phase
-                == .graph,
-            "invalidEffectIngressRejected": selfInputFailure?.code == .graphNodeInvalid
-                && foreignInputFailure?.code == .graphNodeInvalid,
-            "duplicateNodeRejected": failure(compile(
-                material(), graph: duplicateNodeGraph
-            ))?.code == .graphNodeInvalid,
-            "orphanNodeRejected": failure(compile(
-                material(), graph: orphanNodeGraph
-            ))?.code == .graphNodeInvalid,
-            "duplicatePartitionRejected": failure(compile(
-                material(), graph: duplicatePartitionGraph
-            ))?.code == .graphNodeInvalid,
-            "ownerMismatchRejected": failure(compile(
-                material(), graph: ownerMismatchGraph
-            ))?.code == .graphNodeInvalid,
-            "graphUniverseRejected": failure(compile(
-                material(), graph: invalidBindingGraph
-            ))?.code == .graphNodeInvalid
+            "blockedGraphRejected": templateGraphRejection(blockedGraph)?.code == .graphBlocked,
+            "invalidEffectIngressRejected": selfInputFailure?.code == .invalidGraph
+                && foreignInputFailure?.code == .invalidGraph,
+            "duplicateNodeRejected": templateGraphRejection(duplicateNodeGraph)?.code == .invalidGraph,
+            "orphanNodeRejected": templateGraphRejection(orphanNodeGraph)?.code == .invalidGraph,
+            "duplicatePartitionRejected": templateGraphRejection(duplicatePartitionGraph)?.code == .invalidGraph,
+            "ownerMismatchRejected": templateGraphRejection(ownerMismatchGraph)?.code == .invalidGraph,
+            "graphUniverseRejected": templateGraphRejection(invalidBindingGraph)?.code == .prunedResourceReferenced
                 && failure(compile(material(slots: ghostSlots)))?.code
                     == .textureReferenceInvalid
                 && failure(compile(material(slots: wrongBindingSlot)))?.code
                     == .textureReferenceInvalid,
             "assetVFSBoundaries": escapedAssets.allSatisfy {
-                assetFailure($0)?.code == .textureReferenceInvalid
+                failure(compileAssetPath($0))?.code == .textureReferenceInvalid
+            },
+            "assetDriveLikeNamesRemainRelative": relativeAssetNames.allSatisfy { raw, canonical in
+                guard let value = template(compileAssetPath(raw)),
+                      let slot = value.textureSlots[0],
+                      case let .asset(path)? = slot.candidates.first?.reference else { return false }
+                return path.value == canonical
             },
             "shaderNormalizationMatchesLoader": shaderNormalization != nil,
             "shaderEscapesRejected": shaderEscapeFailures
@@ -891,7 +889,6 @@ enum Harness {
                 "uniformBindingInvalid", "uniformContributorPolicyUnproven",
                 "uniformScriptAttachmentUnproven", "colorContractUnproven",
                 "frameSnapshotMismatch", "identityInvariant",
-                "variantSelectionTemplateIdentityInvariant",
                 "variantSelectionReachabilityIdentityInvariant",
                 "variantSelectionKeyInvariant", "variantSelectionUnexpectedFailure",
                 "finalizerUnexpectedFailure",

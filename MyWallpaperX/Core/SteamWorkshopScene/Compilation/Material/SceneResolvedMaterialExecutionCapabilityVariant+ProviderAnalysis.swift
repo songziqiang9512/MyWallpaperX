@@ -34,7 +34,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         graphR8TextureSlots: Set<Int>,
         activeTextureSlots: Set<Int>,
         activeOpacityMaskSlots: Set<Int>,
-        neutralTextureResolution: SceneAuthoredShaderNeutralTextureResolutionFact?
+        neutralTextureResolution: SceneAuthoredShaderNeutralTextureResolutionFact?,
+        textureSelectionFacts: Variant.TextureSelectionFacts
     ) {
         let sourceCarriedAuxiliaryDataSlots =
             sourceCarriedRGBAFact?.colorTransfer == sourceColorTransfer
@@ -44,13 +45,21 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 sampler.sourceProvenPurpose == nil ? nil : slot
             }
         )
-        let mixedProviderFacts = mixedProviderSlotFacts(
-            in: template,
-            samplers: sourceActiveSamplers
+        let sourceGraphInputFacts = SceneResolvedMaterialShaderSchema.graphInputSourceSlotFacts(
+            template: template,
+            samplers: sourceActiveSamplers,
+            inputIdentity: implicitFramebufferIdentity,
+            sourceColorTransfer: sourceColorTransfer
         )
-        let mixedProviderSlots = Set(mixedProviderFacts.keys)
+        let textureSelectionFacts = prepareTextureSelectionFacts(
+            in: template,
+            samplers: sourceActiveSamplers,
+            implicitFramebufferIdentity: implicitFramebufferIdentity,
+            graphInputSourceSlotFacts: sourceGraphInputFacts
+        )
+        let mixedProviderSlots = Set(textureSelectionFacts.mixedProviderSlots.keys)
         let selectedPurposeSlots = mixedProviderSlots.union(
-            regularNamedProviderPurposeSlots(in: template, samplers: sourceActiveSamplers)
+            textureSelectionFacts.regularNamedProviderPurposeSlots
         ).filter { variantKey.readinessMask & (1 << UInt8($0)) != 0 }
         let selectedProviderDataSlots = Set(selectedPurposeSlots.compactMap {
             slot in variantKey.selectedTexturePurposes[slot]
@@ -72,7 +81,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         }
         let activeSceneBackgroundTextureSlots = Set(
             sourceActiveSamplers.compactMap { slot, sampler in
-                SceneResolvedMaterialTextureResolver.sceneBackgroundDefault(
+                SceneResolvedMaterialShaderSchema.sceneBackgroundDefault(
                     template: template,
                     sampler: sampler,
                     slot: slot
@@ -80,7 +89,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             }
         )
         let activeSceneEnvironmentTextureSlots = Set(sourceActiveSamplers.compactMap { slot, sampler in
-            SceneResolvedMaterialTextureResolver.sceneEnvironmentReference(
+            SceneResolvedMaterialShaderSchema.sceneEnvironmentReference(
                 template: template, sampler: sampler, slot: slot) == nil ? nil : slot
         })
         let activeExternalProviderTextureSlots = externalProviderTextureSlots(
@@ -164,13 +173,6 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         } else {
             sameAlphaReconstructedRGBInputContract = nil
         }
-        let sourceGraphInputFacts = SceneResolvedMaterialShaderSchema
-            .graphInputSourceSlotFacts(
-                template: template,
-                samplers: sourceActiveSamplers,
-                inputIdentity: implicitFramebufferIdentity,
-                sourceColorTransfer: sourceColorTransfer
-            )
         var graphInputTextureSlots = Set(activeGraphTextureIdentities.keys)
         graphInputTextureSlots.formUnion(template.graphRole.bindings.compactMap {
             sourceActiveSamplers[$0.slot] == nil ? nil : $0.slot
@@ -222,7 +224,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             graphR8TextureSlots,
             activeTextureSlots,
             activeOpacityMaskSlots,
-            neutralTextureResolution
+            neutralTextureResolution,
+            textureSelectionFacts
         )
     }
 }

@@ -34,6 +34,7 @@ func mixedSystemNamedProviderTokens(
     let cache: SceneResolvedMaterialVariantCache
     switch SceneResolvedMaterialVariantCache.launchValidated(
         template: admitted,
+        textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: admitted),
         maximumVariantCount: 16
     ) {
     case let .success(value): cache = value
@@ -206,8 +207,7 @@ func namedProviderRuntimePurposeTokens(
             return "frame-rejected"
         }
         let input = snapshot.finalizationInput(
-            template: admitted,
-                        layerID: 9001,
+            layerID: 9001,
                         renderSize: CGSize(width: 2, height: 2),
             modelViewProjection: matrix_identity_float4x4,
             layerModelMatrix: matrix_identity_float4x4,
@@ -225,11 +225,13 @@ func namedProviderRuntimePurposeTokens(
             readinessCombo: nil,
             channelUse: .wholeVector
         )
+        let facts = SceneResolvedMaterialVariantCache.prepareTextureSelectionFacts(
+            in: admitted, samplers: [1: sampler], implicitFramebufferIdentity: graphTexture(),
+            graphInputSourceSlotFacts: [:])
         return SceneResolvedMaterialTextureResolver.selectionPurpose(
-            in: slot,
-            candidateOrdinal: 0,
+            reference: slot.candidates[0].reference,
+            declaredPurpose: facts.candidatePurposes[1]?[0],
             activeSampler: sampler,
-            reachableSamplers: [sampler],
             channelUse: .wholeVector,
             input: input
         )?.reportToken ?? "unproven"
@@ -244,11 +246,11 @@ func namedProviderRuntimePurposeTokens(
 }
 
 func inputAssociationMask(_ program: Program) -> UInt32? {
-    guard let uniform = program.resolvedUniforms.first(where: {
-        if case .host(.premultipliedColorInputMask) = $0.source { return true }
+    guard let uniform = zip(program.preparedAssembly.preparedUniformBindings, program.resolvedUniforms).first(where: {
+        if case .host(.premultipliedColorInputMask) = $0.0.source { return true }
         return false
-    }), uniform.encodedValue.count == 4 else { return nil }
-    return uniform.encodedValue.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) }
+    }), uniform.1.encodedValue.count == 4 else { return nil }
+    return uniform.1.encodedValue.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) }
 }
 
 func rtDefaultAdmissionTokens(_ device: MTLDevice) -> [String: String] {
@@ -259,7 +261,7 @@ func rtDefaultAdmissionTokens(_ device: MTLDevice) -> [String: String] {
         do {
             let samplers = try SceneResolvedMaterialShaderSchema.bootstrapSamplers(value)
             let facts = SceneResolvedMaterialShaderSchema.graphInputSourceSlotFacts(template: value, samplers: samplers, inputIdentity: graphTexture())
-            let projection = SceneResolvedMaterialTextureResolver.launchReadinessProjection(template: value, samplers: samplers, implicitFramebufferIdentity: graphTexture(), assetStates: [:])
+            let projection = SceneResolvedMaterialVariantCache.launchReadinessProjection(template: value, samplers: samplers, implicitFramebufferIdentity: graphTexture(), assetStates: [:])
             switch projection {
             case let .success(mask): result[token] = "ready:\(mask.requiredMask):fact:\(facts[0] != nil)"
             case let .failure(failure): result[token] = "rejected:\(failure.code)"
@@ -537,6 +539,7 @@ final class SceneResolvedMaterialFinalizerProviderResourceCases {
         guard case let .success(activeDefaultMaskCache) =
                 SceneResolvedMaterialVariantCache.launchValidated(
             template: self.activeDefaultTemplate,
+            textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: self.activeDefaultTemplate),
             maximumVariantCount: 8
         ) else {
             fatalError("active default fixture cache rejected")

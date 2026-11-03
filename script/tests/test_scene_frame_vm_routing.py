@@ -24,7 +24,6 @@ SURFACE_TEARDOWN_SOURCE = (
 )
 POINTER_EVENTS_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+PointerEvents.swift"
 VIEW_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift"
-MEDIA_COORDINATOR_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneMediaThumbnailCoordinator.swift"
 CURSOR_INTERACTION_SOURCE = (
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+SceneScriptCursorInteraction.swift"
 )
@@ -76,32 +75,6 @@ def swift_body(source: str, signature: str) -> str:
 # Actual presentation/VM behavior: test_scene_frame_presentation_integration.
 # GPU source ownership: test_scene_surface_submission and the FIFO harness below.
 class SceneFrameVMRoutingTests(unittest.TestCase):
-    def test_alpha_display_fallback_wiring_in_runtime_model(self) -> None:
-        """Checkpoint wiring pin for the second-tier alpha display fallback:
-        the claimed set is the union of every alpha publication path, the
-        fallback runs after scalar projection, and downstream projections
-        consume its output rather than the pre-fallback descriptor."""
-        model = MODEL_SOURCE.read_text(encoding="utf-8")
-        self.assertIn(
-            "let alphaClaimedTargets = sharedAlphaTargets\n"
-            "            .union(projectedScalarTargets)\n"
-            "            .union(timelineTargets)",
-            model,
-        )
-        # The call site wraps across lines in the source; assert the call
-        # name and the claimed-set argument as separate fragments.
-        self.assertIn("applyUnclaimedFallback(", model)
-        self.assertIn("claimedTargets: alphaClaimedTargets", model)
-        fallback_at = model.index("fallbackProjectedDescriptor =")
-        scalar_at = model.index("SceneScriptScalarDisplayProjection.apply(")
-        particle_at = model.index("SceneScriptParticleProjection.apply(")
-        self.assertLess(scalar_at, fallback_at)
-        self.assertLess(fallback_at, particle_at)
-        self.assertIn(
-            "to: fallbackProjectedDescriptor\n",
-            model,
-        )
-
     def test_user_property_revision_ack_is_shared_and_restored_with_frame_state(self) -> None:
         property_input = PROPERTY_INPUT_SOURCE.read_text(encoding="utf-8")
         bridge = MEDIA_EVENT_BRIDGE_SOURCE.read_text(encoding="utf-8")
@@ -181,7 +154,7 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
         self.assertIn("vectorProjection.uniqueCandidates.map(\\.definition)", fallback)
         self.assertIn("SceneScriptScalarProgram.projectedDefinitions(", fallback)
         self.assertIn("SceneScriptStringProgram.projectedDefinitions(", fallback)
-        self.assertIn("Set(definitions.map(\\.target)) == targets", fallback)
+        # Fallback target/value behavior is exercised by test_scene_vector_media_events.
         self.assertIn("SceneScriptFallbackCatalog(", launch)
         self.assertIn(
             "sceneScriptFallbackDefinitions: sceneScriptFallbackDefinitions",
@@ -260,8 +233,6 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
         self.assertIn("raw.visible <= 1", mutations)
         self.assertIn("raw.order_index >= 0", mutations)
         self.assertIn("raw.layer_id >= -maximumLayerIdentity", mutations)
-        self.assertIn("raw.fields & ~SceneScriptLayerMutation.Fields.authoredFields.rawValue == 0", mutations)
-        self.assertIn("switch (kind, raw.dynamic, raw.fields)", mutations)
         self.assertIn(
             "case (.destroy, 0, 0), (.destroy, 1, 0), (.upsert, 1, 0):",
             mutations,

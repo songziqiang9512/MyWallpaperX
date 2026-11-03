@@ -28,7 +28,6 @@ struct SceneMetalRenderer {
     /// Prepared group membership and execution order; passes remain frame-local.
     let utilityExecution: SceneUtilityLayerRuntimePlanner.Execution
     var utilityCaptureLayerIDs: Set<Int> { utilityExecution.captureLayerIDs }
-    let effectAdmissionCatalog: SceneEffectAdmissionCatalog
     let baseMaterialProviderBindings: SceneBaseMaterialProviderBindingProgram
     let staticModelResources: ScenePreparedStaticModelResources
     let spotLightRuntime: SceneSpotLightRuntime
@@ -88,7 +87,6 @@ struct SceneMetalRenderer {
             ) }
 #endif
 
-        var particleSubmissionCommandBuffer: MTLCommandBuffer? = nil
         var didTransferFrameOwnership = false
         guard !imageCompositor.shouldDeferResolvedMaterialFrame else {
             return .deferred(reasonCode: "resolved-material-frame-in-flight")
@@ -103,7 +101,6 @@ struct SceneMetalRenderer {
 
             return .deferred(reasonCode: "command-buffer-unavailable")
         }
-        particleSubmissionCommandBuffer = commandBuffer
 #if DEBUG
         SceneGPUStageTimestampHook.begin(commandBuffer, frameIndex: frameContext.frameIndex,
             registryEpochBeforeBegin: textureRegistry.frameEpoch)
@@ -174,29 +171,12 @@ struct SceneMetalRenderer {
         let sceneColor = colorStart.reservation
         let mainTarget = sceneColor?.raw ?? drawable.texture
         var displayMappingInput: SceneDisplayMappingPostProcess.Input = .textureSource
-        var particleBatches: [SceneParticleDrawBatch] = []
+        var particleBatches: [SceneParticleMetalPipeline.PreparedBatch] = []
         var particlePerformanceObservations: [SceneParticlePerformanceObservation]? =
             performanceTelemetry == nil ? nil : []
         defer {
             if !didTransferFrameOwnership {
-                if let commandBuffer = particleSubmissionCommandBuffer,
-                   commandBuffer.status == .notEnqueued {
-                    // A command accepted by Metal owns every marked slot until its
-                    // completion handler. Only the pre-enqueue window may be rolled
-                    // back after a synchronous renderer failure.
-                    particleBatches.forEach {
-                        _ = $0.instanceBuffer.cancelUncommittedSubmission(
-                            on: commandBuffer
-                        )
-                    }
-                    particleBatches.forEach {
-                        _ = $0.instanceBuffer.cancelPending()
-                    }
-                } else if particleSubmissionCommandBuffer == nil {
-                    particleBatches.forEach {
-                        _ = $0.instanceBuffer.cancelPending()
-                    }
-                }
+                particlePipeline?.cancel(particleBatches, on: commandBuffer)
             }
         }
         var initialVideoPresentation: InitialVideoPresentation? = collectsInitialVideoReadiness ? .init() : nil
@@ -275,6 +255,7 @@ struct SceneMetalRenderer {
             modelFrame: modelFrame,
             mainPassForSubmission: mainPassForSubmission,
             particleBatches: particleBatches,
+            particlePipeline: particlePipeline,
             initialVideoPresentation: initialVideoPresentation
         )
         didTransferFrameOwnership = true

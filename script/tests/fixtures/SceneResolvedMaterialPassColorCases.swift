@@ -36,6 +36,7 @@ func runSceneResolvedMaterialPassColorCases(
         slot3Texture: whiteMask
     )!
     let rgbaTarget = target(device: device)
+    prepareMaterialPipeline(baseline, encoder: encoder, target: rgbaTarget)
     let first = encoder.prepare(program: baseline, target: rgbaTarget)
     let attemptsAfterFirst = encoder.pipelineCompilationAttemptCount
     let libraryAttemptsAfterFirst =
@@ -139,6 +140,7 @@ func runSceneResolvedMaterialPassColorCases(
     let libraryAttemptsBeforeBGRA =
         encoder.metalLibraryCompilationAttemptCount
     let bgraTarget = target(device: device, format: .bgra8Unorm)
+    prepareMaterialPipeline(baseline, encoder: encoder, target: bgraTarget)
     let bgraPrepared = encoder.prepare(program: baseline, target: bgraTarget)
     let separateFormatPipeline = bgraPrepared != nil
         && encoder.pipelineCompilationAttemptCount == attemptsBeforeBGRA + 1
@@ -153,6 +155,7 @@ func runSceneResolvedMaterialPassColorCases(
         slot0Content: .color(.resolved(.straightAlpha)),
         slot0Purpose: .straightAlbedo
     )!
+    prepareMaterialPipeline(straight, encoder: encoder, target: rgbaTarget)
     let straightStoredWithoutAssociation = encoder.prepare(
         program: straight,
         target: rgbaTarget
@@ -237,6 +240,7 @@ func runSceneResolvedMaterialPassColorCases(
             gain: testCase.0
         )!
         let output = target(device: device, width: 1, height: 1)
+        prepareMaterialPipeline(straightProgram, encoder: encoder, target: output)
         guard let prepared = encoder.prepare(program: straightProgram, target: output),
               prepared.fragmentOutput == .premultipliedAlpha,
               let command = queue.makeCommandBuffer() else {
@@ -433,6 +437,9 @@ func runSceneResolvedMaterialPassColorCases(
     var maskedBoundaryGPUCompleted = false
     var maskedBoundaryPixelsMatch = false
     let maskedTarget = target(device: device, width: 1, height: 1)
+    if let maskedProgram {
+        prepareMaterialPipeline(maskedProgram, encoder: encoder, target: maskedTarget)
+    }
     if let maskedProgram,
        let prepared = encoder.prepare(program: maskedProgram, target: maskedTarget),
        let command = queue.makeCommandBuffer() {

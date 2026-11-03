@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Real frame-owner/Metal mandatory-depth handoff; peripheral preparation is stubbed.
 
-Compiles both production renderer extensions, pipelines, depth pool, offscreen pool
+Compiles the production renderer/particle frame owners, pipelines, depth pool, offscreen pool
 and main-pass encoder unchanged. The renderer shell supplies prepared inputs only.
 No App/daemon, real corpus, named-provider readiness or main renderer admission claim.
 """
@@ -40,7 +40,7 @@ SOURCES = list(dict.fromkeys([
     SCENE/'Rendering/Metal/SceneStaticModelVertexStream.swift',
     SCENE/'Rendering/Frame/SceneSourceUpdateTransaction.swift',
     SCENE/'Rendering/Frame/SceneMetalRenderer+StaticModels.swift',
-    SCENE/'Rendering/Frame/SceneMetalRenderer+Particles.swift',
+    SCENE/'Rendering/Particles/SceneParticleMetalPipeline+Frame.swift',
 ]))
 
 SHELL = r'''
@@ -100,13 +100,6 @@ enum SceneGPUStageTimestampHook {
 }
 #endif
 struct SceneParticlePerformanceObservation { let layerID:Int;let instanceCount:Int;let isRefraction:Bool }
-struct SceneParticleDrawBatch {
- let layerID:Int;let texture:MTLTexture;let colorUVScale:SIMD2<Float>;let colorSampling:SceneParticleTextureSampling
- let refraction:SceneParticleRefractionBinding?;let renderState:SceneParticlePipelineRenderState
- let instanceBuffer:SceneParticleMetalInstanceBuffer;let orientation:SceneParticleOrientation
- let orientationAxis:SIMD3<Float>?;let usesPerspective:Bool;var sizeIsWorldSpace:Bool = false
- var inheritsNativeSceneCamera:Bool = false
-}
 struct PreparedTexture {
  let texture:MTLTexture;var uvTransform:SceneTextureUVTransform = .identity
  var sampling:SceneTextureSampling = .directImageFallback
@@ -301,11 +294,11 @@ MAIN = r'''
       orthoHeight:64,fovDegrees:nil,perspectiveOverrideFOVDegrees:nil,nearZ:0.01,farZ:1000),viewportSize:CGSize(width:64,height:64))
   let light=SceneLightSnapshot.Directional(layerID:7,castsShadow:true,directionTowardLight:SIMD3(0,0,1),color:SIMD3(repeating:1),intensity:0.5)
   let lighting=SceneLightSnapshot(ambient:SIMD3(repeating:0.5),skylight: .zero,directional:[light],point:[],spot:[],overflowCount:0)
-  let instances=SceneParticleMetalInstanceBuffer()
-  precondition(instances.update(device:device,instances:[.init(position:SIMD3(48,48,0),size:12,rotation:.zero,color:SIMD3(1,0,1),alpha:1)]))
-  let batch=SceneParticleDrawBatch(layerID:4,texture:white,colorUVScale:SIMD2(repeating:1),colorSampling:.directImageFallback,
+  let batch=SceneParticleDrawBatch(layerID:4,particlePath:"particles/depth.json",texture:white,colorUVScale:SIMD2(repeating:1),colorSampling:.directImageFallback,
       refraction:nil,renderState:.init(blendMode:.translucent,cullMode:.none,depthTestEnabled:true,depthWriteEnabled:true),
-      instanceBuffer:instances,orientation:.screen,orientationAxis:nil,usesPerspective:false)
+      childTemplateIndex:nil,instances:[.init(position:SIMD3(48,48,0),size:12,rotation:.zero,color:SIMD3(1,0,1),alpha:1)],
+      orientation:.screen,orientationAxis:nil,usesPerspective:false)
+  let prepared=particles.prepare([batch]);precondition(prepared.count==1)
   let cb=queue.makeCommandBuffer()!
   let pass=SceneMainPassEncoder(commandBuffer:cb,target:output,clearColor:MTLClearColorMake(0.05,0.1,0.15,1),clearEnabled:true)
   let pool=SceneOffscreenTexturePool(device:device,pixelFormat:.bgra8Unorm,residentByteBudget:8*1024*1024)
@@ -329,7 +322,7 @@ MAIN = r'''
   precondition(candidates[5]?.isEmpty==true)
   if mode != "original" {
    renderer.prepareModelShadow(state:state,candidates:candidates,lights:[.directional(light)],orderedLayers:layers,visible:visible,
-      batches:[4:[batch]],particlePipeline:particles,mainPass:pass,groups:nil,pool:pool,commandBuffer:cb,
+      batches:[4:prepared],particlePipeline:particles,mainPass:pass,groups:nil,pool:pool,commandBuffer:cb,
       leases:&leases,mandatoryCapacity:{true},recordsEvidence:false,cameraFrame:camera)
   }
   let before=leases.count
@@ -350,8 +343,8 @@ MAIN = r'''
        cameraFrame:camera,lighting:lighting,pass:pass,commandBuffer:cb,leases:&leases)
   }
   var observations:[SceneParticlePerformanceObservation]?=[]
-  let usedParticle=renderer.renderParticleBatches([batch],pipeline:particles,model:matrix_identity_float4x4,cameraFrame:camera,
-      viewportSize:SIMD2(64,64),mainPass:pass,commandBuffer:cb,preparedDepth:state.particleDepth[4],performanceObservations:&observations)
+  let usedParticle=particles.drawBatches(prepared,model:matrix_identity_float4x4,cameraFrame:camera,
+      viewportSize:SIMD2(64,64),mainPass:pass,commandBuffer:cb,preparedDepth:state.particleDepth[4]?.acquisition,performanceObservations:&observations)
   if mode=="original",let usedParticle {leases.append(usedParticle)}
   let after=leases.count
   let consumedModel=state.sharedDepth(pass:pass,pool:renderer.staticModelDepthTargetPool,

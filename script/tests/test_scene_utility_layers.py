@@ -527,7 +527,7 @@ class SceneUtilityLayerTests(unittest.TestCase):
         compact_program = "".join(program_first.split())
         self.assertNotIn("SceneEffectStageExecutionPlan", compact_program)
         self.assertNotIn("supportsUtilityCapture", compact_program)
-        self.assertIn("compileStages(", compact_program)
+        self.assertIn("compileStage(", compact_program)
 
         compact_compositor = "".join(compositor.split())
         self.assertIn(

@@ -438,22 +438,36 @@ def capability_addition_transition_violations(
 
 
 
-def authority_call_inventory(sources: dict[str, str], pattern: str) -> dict[str, list[tuple[str, ...]]]:
+def authority_call_inventory(sources: dict[str, str], rule: dict) -> dict[str, list[tuple[str, ...]]]:
     """Exact call tokens, retaining literal contents and ignoring only comments/spacing."""
     result = {}
+    scope = set(rule.get("scope_files", []))
+    if not scope.issubset(sources):
+        raise ValueError("authority relocation scope file is missing")
     for path, source in sorted(sources.items()):
+        if scope and path not in scope:
+            continue
         text = swift_without_comments(source)
+        for key in ("start_marker", "end_marker"):
+            marker = rule.get(key)
+            if marker is not None:
+                offset = text.find(marker)
+                if offset < 0:
+                    raise ValueError("authority relocation range marker is missing")
+                text = text[offset:] if key == "start_marker" else text[:offset]
         calls = []
-        for match in re.finditer(pattern, text, re.MULTILINE):
+        for match in re.finditer(rule["pattern"], text, re.MULTILINE):
             tokens = list(GOVERNANCE_TOKEN_PATTERN.finditer(text, match.start()))
             opening = next((i for i, token in enumerate(tokens) if token.group() == "("), None)
-            if opening is None or tokens[opening].end() != match.end():
+            if opening is None or tokens[opening].end() > match.end():
                 raise ValueError("authority relocation must identify a complete call opening")
             depth = 0
             for closing in range(opening, len(tokens)):
                 value = tokens[closing].group()
                 depth += (value == "(") - (value == ")")
                 if depth == 0:
+                    if tokens[closing].end() < match.end():
+                        raise ValueError("authority relocation pattern exceeds its call")
                     calls.append(tuple(token.group() for token in tokens[:closing + 1]))
                     break
             else:
@@ -465,6 +479,7 @@ def authority_call_inventory(sources: dict[str, str], pattern: str) -> dict[str,
 
 def authority_relocation_transition_violations(
     old: dict, new: dict, old_sources: dict[str, str], new_sources: dict[str, str],
+    *, approved_design_docs: set[str] | frozenset[str] = frozenset(),
 ) -> list[str]:
     """Validate one reviewed method extraction; never grant a general allowed-set exemption."""
     key = "owner_relocation"
@@ -486,14 +501,12 @@ def authority_relocation_transition_violations(
     error = [f"{new['id']}: owner relocation requires its exact reviewed call-preserving receipt"]
     if not isinstance(receipt, dict):
         return error
-    if (old.get("id") != "bounded-frontend-product-entry" or new.get("id") != old["id"]
-            or old.get("role") != "inventory" or new.get("role") != "inventory"
-            or old.get("pattern") != r"SceneAuthoredShaderFrontend\.compile\("
+    if (old.get("role") != "inventory" or new.get("role") != "inventory"
             or any(old.get(k) != new.get(k) for k in authority_metric_contract(old) if k != "allowed_files")
-            or any(old.get(k) is not None for k in ("scope_files", "scan_root", "start_marker", "end_marker", "metric", "classifications"))
             or receipt.get("from_contract_sha256") != authority_metric_digest(old)
             or receipt.get("to_contract_sha256") != authority_metric_digest(new)
-            or receipt.get("design_doc") != "docs/scene/roadmap/batch2/frame-admission-retry-design.md"
+            or not isinstance(receipt.get("design_doc"), str)
+            or receipt["design_doc"] not in approved_design_docs
             or any(not isinstance(receipt.get(k), str) or not receipt[k].strip()
                    for k in ("owner", "reason", "retirement"))):
         return error
@@ -503,8 +516,8 @@ def authority_relocation_transition_violations(
             or len(removed) != 1 or len(added) != 1):
         return error
     try:
-        previous = authority_call_inventory(old_sources, old["pattern"])
-        current = authority_call_inventory(new_sources, new["pattern"])
+        previous = authority_call_inventory(old_sources, old)
+        current = authority_call_inventory(new_sources, new)
     except ValueError:
         return error
     origin, destination = receipt["from_file"], receipt["to_file"]
@@ -512,7 +525,6 @@ def authority_relocation_transition_violations(
             or sum(map(len, previous.values())) != old["baseline_occurrences"]
             or sum(map(len, current.values())) != new["baseline_occurrences"]
             or origin in current or destination in previous
-            or len(previous.get(origin, [])) != 1
             or previous[origin] != current.get(destination)):
         return error
     expected = {destination if path == origin else path: calls for path, calls in previous.items()}

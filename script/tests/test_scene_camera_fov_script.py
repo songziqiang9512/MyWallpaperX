@@ -12,11 +12,16 @@ import unittest
 
 from script.tests import scene_vector_vm_test_support as vm
 from script.tests.test_scene_particle_camera_frame import SWIFT_SOURCES as CAMERA_SOURCES
+from script.tests.test_scene_prepared_script_resource_catalog import swift_declaration
 
 ROOT = Path(__file__).resolve().parents[2]
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 FIXTURE = ROOT / "script/tests/fixtures/SceneCameraFOVScriptChecks.swift"
 LIFECYCLE = SCENE / "Runtime/Session/SceneDesktopWallpaperSession+FrameDriverLifecycle.swift"
+SCHEMA = SCENE / "Runtime/Session/SceneDesktopWallpaperLaunchFrameSchema.swift"
+RUNTIME_INPUT = SCENE / "Runtime/Frame/SceneRuntimeInput.swift"
+TIMELINE_COMPILER = SCENE / "Systems/Timeline/SceneTimelineTargetCompiler.swift"
+LAYER = SCENE / "Runtime/Frame/SceneRenderDescriptor+Layer.swift"
 EXTRA_SOURCES = [*CAMERA_SOURCES,
     SCENE / "Rendering/Geometry/SceneLayerVisibility.swift",
     SCENE / "Systems/Properties/SceneUserPropertyDefinitionParser.swift",
@@ -27,60 +32,39 @@ EXTRA_SOURCES = [*CAMERA_SOURCES,
     SCENE / "Systems/Properties/ScenePuppetAnimationPropertyTarget.swift",
     SCENE / "Systems/Properties/SceneEvaluationTransaction.swift",
     SCENE / "Systems/Properties/SceneDynamicDefinitionMerger.swift",
-    SCENE / "Runtime/Session/SceneDesktopWallpaperLaunchFrameSchema.swift",
 ]
 
 
 def camera_preamble() -> str:
-    # Replace the existing external camera carrier, never its algorithm.
+    # Reuse the VM fixture's external descriptor and the real camera algorithm.
     preamble = vm.SWIFT_PREAMBLE
-    start = preamble.index("struct SceneParticleCameraFrame {")
-    end = preamble.index("struct SceneFrameTiming {", start)
-    preamble = preamble[:start] + preamble[end:]
-    old = """    struct Camera {
-        var parallaxEnabled = false
-        var orthoWidth: Float? = nil
-        var orthoHeight: Float? = nil
-        var default2DInputLayerID: Int? = nil
-        var default2DOriginInputLayerID: Int? = nil
-        var nearZ: Float = 0.01
-        var farZ: Float = 10000
-    }"""
-    new = """    struct Camera {
-        var parallaxEnabled = false
-        var orthoWidth: Float? = nil
-        var orthoHeight: Float? = nil
-        var default2DInputLayerID: Int? = nil
-        var default2DOriginInputLayerID: Int? = nil
-        var eye: [Float] = [0, 0, 10]
-        var center: [Float] = [0, 0, 0]
-        var up: [Float] = [0, 1, 0]
+    camera_stub = swift_declaration(preamble, "struct SceneParticleCameraFrame {")
+    preamble = preamble.replace(camera_stub, "", 1)
+    camera = swift_declaration(preamble, "    struct Camera {")
+    camera_with_fov = camera[:-1] + """
         var fovDegrees: Float? = 100
         var perspectiveOverrideFOVDegrees: Float? = nil
-        var nearZ: Float = 0.01
-        var farZ: Float = 10000
-    }
-    typealias CameraDescriptor = Camera"""
-    if preamble.count(old) != 1:
-        raise AssertionError("existing camera carrier changed")
-    return preamble.replace(old, new) + """
+    }"""
+    schema = SCHEMA.read_text()
+    # Resource eligibility has its own production join gate; retain the actual
+    # frame schema without pulling device-resource preparation into this test.
+    schema = schema.replace(swift_declaration(
+        schema, "    static func preparedResourceCatalog("), "", 1)
+    return preamble.replace(camera, camera_with_fov, 1) + schema + "\n" + swift_declaration(
+        TIMELINE_COMPILER.read_text(), "nonisolated struct SceneTimelineBinding:") + """
 extension SceneRenderDescriptor.Layer {
     var displayScriptOwnership: SceneLayerDisplayScriptOwnership? { nil }
+__FRAMEBUFFER_MATERIAL_SOURCE__
 }
 struct SceneRuntimeInput {
     let propertyBindingProgram: ScenePropertyBindingProgram
     let renderDescriptor: SceneRenderDescriptor
     let scriptEffectVisibilityDefinitions: [SceneDynamicTargetDefinition] = []
+__DEFAULT_CAMERA_DEFINITIONS__
 }
 struct SceneTimelineProgram {
-    struct Binding { let definition: SceneDynamicTargetDefinition }
-    let bindings: [Binding] = []
+    let bindings: [SceneTimelineBinding] = []
 }
-struct SceneTextScriptProgram {
-    struct Binding { let definition: SceneDynamicTargetDefinition }
-    let bindings: [Binding] = []
-}
-struct SceneSharedLayerAlphaProgram { let definitions: [SceneDynamicTargetDefinition] = [] }
 struct SceneScriptMediaFrameCoordinator {
     init(vectorProgram: SceneScriptVectorProgram, stringProgram: SceneScriptStringProgram,
          scalarProgram: SceneScriptScalarProgram) {}
@@ -110,7 +94,10 @@ struct SceneDesktopWallpaperLaunchContext {
     }
 }
 struct SceneDesktopWallpaperSession {}
-"""
+""".replace("__DEFAULT_CAMERA_DEFINITIONS__", swift_declaration(
+        RUNTIME_INPUT.read_text(), "    func default2DCameraDefinitions(")).replace(
+            "__FRAMEBUFFER_MATERIAL_SOURCE__", swift_declaration(
+                LAYER.read_text(), "        nonisolated var hasFramebufferMaterialSource:"))
 
 
 def retirement_hook() -> str:
@@ -135,7 +122,8 @@ def retirement_hook() -> str:
 
 def run_probe(directory: Path) -> dict:
     inputs = [*dict.fromkeys([*vm.SWIFT_SOURCES, *EXTRA_SOURCES]), *vm.C_SOURCES, FIXTURE,
-              LIFECYCLE, Path(vm.__file__), Path(__file__)]
+              LIFECYCLE, SCHEMA, RUNTIME_INPUT, TIMELINE_COMPILER, LAYER,
+              Path(vm.__file__), Path(__file__)]
     before = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in inputs}
     binary = vm.compile_vector_harness(directory, FIXTURE.read_text(),
         "camera-fov-script", extra_swift_sources=tuple(EXTRA_SOURCES),

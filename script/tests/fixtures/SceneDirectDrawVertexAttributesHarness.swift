@@ -70,7 +70,7 @@ private func inputs(
 private func host(_ name: String, type: SceneAuthoredShaderValueType,
                   inputs: SceneAuthoredShaderUniformInputs) -> Data? {
     let field = SceneAuthoredShaderUniformLayout.Field(name: name, type: type, offset: 0)
-    guard let source = SceneResolvedMaterialUniformEncoder.hostUniform(
+    guard let source = SceneResolvedMaterialHostUniformSchema.resolve(
         field, activeTextureSlots: [], hasEffectContext: false) else { return nil }
     return SceneResolvedMaterialUniformEncoder.encodeHost(
         source, type: type, inputs: inputs, slots: Array(repeating: nil, count: 8))
@@ -166,7 +166,7 @@ private func sources(mode: String, renamed: Bool) -> Sources {
 }
 
 private func compiled(
-    _ sources: Sources, generic: Bool, bundle: Bundle, cache: URL
+    _ sources: Sources, generic: Bool, bundle: Bundle
 ) throws -> SceneAuthoredShaderProgram {
     let output = SceneAuthoredShaderFrontend.compile(
         vertexSource: sources.vertex, fragmentSource: sources.fragment)
@@ -177,14 +177,12 @@ private func compiled(
     let key = SceneResolvedMaterialGenericShaderRequest.key(
         vertexSource: sources.vertex, fragmentSource: sources.fragment,
         outputSemantics: .color, expectedColorTransfer: nil, premultipliedColorInputSlots: [])
-    let artifactURL: URL
+    let artifact: SceneGenericShaderProgramArtifact
     switch SceneGenericShaderCompiler.compile(requestKey: key, vertexSource: sources.vertex,
-        fragmentSource: sources.fragment, cacheRoot: cache, bundle: bundle) {
-    case let .success(url): artifactURL = url
+        fragmentSource: sources.fragment, bundle: bundle) {
+    case let .success(compiled): artifact = compiled.artifact
     case let .failure(reason): throw failure("generic-compile", String(describing: reason))
     }
-    let artifact = try JSONDecoder().decode(SceneGenericShaderProgramArtifact.self,
-        from: Data(contentsOf: artifactURL))
     guard let program = artifact.makeProgram(expectedKey: key,
         expectedColorTransfer: bounded.colorTransfer,
         expectedFragmentOutputChannelUse: bounded.fragmentOutputChannelUse) else {
@@ -197,7 +195,7 @@ private func uniformData(_ program: SceneAuthoredShaderProgram,
                          inputs: SceneAuthoredShaderUniformInputs) throws -> Data {
     var data = Data(count: max(16, program.uniformLayout.byteSize))
     for field in program.uniformLayout.fields {
-        guard let source = SceneResolvedMaterialUniformEncoder.hostUniform(
+        guard let source = SceneResolvedMaterialHostUniformSchema.resolve(
             field, activeTextureSlots: [], hasEffectContext: false),
               let value = SceneResolvedMaterialUniformEncoder.encodeHost(
             source, type: field.type, inputs: inputs, slots: Array(repeating: nil, count: 8)),
@@ -273,18 +271,16 @@ private func render(
                 ["cpu": cpu, "metalAvailable": false]), encoding: .utf8)!)
             return
         }
-        guard CommandLine.arguments.count >= 3,
+        guard CommandLine.arguments.count >= 2,
               let bundle = Bundle(path: CommandLine.arguments[1]) else {
             throw failure("compiler-bundle")
         }
-        let cache = URL(fileURLWithPath: CommandLine.arguments[2], isDirectory: true)
-        try FileManager.default.createDirectory(at: cache, withIntermediateDirectories: true)
         var results: [[String: Any]] = []
         for generic in [false, true] {
             for renamed in [false, true] {
                 for mode in ["constant", "uv", "position"] {
                     let pair = sources(mode: mode, renamed: renamed)
-                    let program = try compiled(pair, generic: generic, bundle: bundle, cache: cache)
+                    let program = try compiled(pair, generic: generic, bundle: bundle)
                     let library = try device.makeLibrary(source: program.metalSource, options: nil)
                     let descriptor = MTLRenderPipelineDescriptor()
                     descriptor.vertexFunction = library.makeFunction(name: program.vertexFunctionName)

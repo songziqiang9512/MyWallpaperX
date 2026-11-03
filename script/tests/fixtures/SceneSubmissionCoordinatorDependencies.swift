@@ -481,9 +481,10 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         let subjects: [ExactEffectSubject]
     }
     struct StageCapability {
+        struct Execution { let visualFailureReasonCode: String? }
         let subject: ExactEffectSubject?
         let dedicatedExecutionPlan: SceneEffectStageExecutionPlan?
-        let visualFailureReasonCode: String?
+        let execution: Execution
 
         init(
             subject: ExactEffectSubject?,
@@ -492,7 +493,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         ) {
             self.subject = subject
             self.dedicatedExecutionPlan = dedicatedExecutionPlan
-            self.visualFailureReasonCode = visualFailureReasonCode
+            execution = .init(visualFailureReasonCode: visualFailureReasonCode)
         }
     }
     struct ChainCapability {
@@ -775,10 +776,6 @@ enum SceneMediaThumbnailTextureStore {
             self.providerStates = providerStates
         }
     }
-}
-struct SceneResolvedMaterialRuntimeCatalog {
-    let userPropertyDemands: Set<SceneUserPropertyTextureIdentity>
-    let systemProviderDemands: Set<SceneSystemProviderTextureIdentity>
 }
 struct SceneMaterialAssetTextureCatalog {
     final class FrameProvider {

@@ -1,633 +1,337 @@
 #!/usr/bin/env python3
-"""Project-owned bounded text scripts must stay data-driven and fail closed."""
+"""Authored text bindings execute through the shared QuickJS and typed state."""
 
 from __future__ import annotations
 
 import json
-import shutil
+import os
+from pathlib import Path
 import subprocess
 import tempfile
 import unittest
-from pathlib import Path
 
+from .scene_vector_vm_test_support import compile_vector_harness
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
-SWIFT_SOURCES = [
-    SOURCE_ROOT / "Format/SceneJSONValue.swift",
-    SOURCE_ROOT / "Format/SceneScriptBindingDefinition.swift",
-    SOURCE_ROOT / "Systems/Properties/SceneScriptDynamicProviderHostContract.swift",
-    SOURCE_ROOT / "Systems/Properties/SceneUserProperty.swift",
-    SOURCE_ROOT / "Systems/Properties/SceneUserPropertyBindings.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextScriptDefinition.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextScriptSubsetProgram.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextScriptSubsetCompiler.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextScriptSubsetRuntime.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextMediaPropertiesCompiler.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextScriptProgram.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextScriptCompiler.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextScriptRuntime.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicDefinitionMerger.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneLayerVisibility.swift",
-]
 
 HARNESS = r'''
-import Foundation
-
-struct SceneRenderDescriptor {
-    struct Layer {
-        let id: Int
-        let contentKind: String
-        let parentID: Int?
-        let visible: Bool?
-        var displayScriptOwnership: SceneLayerDisplayScriptOwnership? = nil
-        let text: String?
-        let textScript: SceneTextScriptDefinition?
-    }
-    let layers: [Layer]
-}
-
-struct SceneTimelineBinding {
-    let definition: SceneDynamicTargetDefinition
-}
-
-struct SceneTimelineProgram {
-    let bindings: [SceneTimelineBinding]
-}
-
 @main
 enum Harness {
+    static let frozenDate = Date(timeIntervalSince1970: 1_785_280_025)
+    static let utc = TimeZone(secondsFromGMT: 0)!
+
+    final class Fixture {
+        let domain: SceneScriptQuickJSDomain
+        let program: SceneScriptStringProgram
+        let runtime: SceneScriptDynamicLayerRuntime
+        let parserDiagnostics: [SceneScriptBindingDiagnostic]
+        let targets: [SceneDynamicTarget]
+        var current: [SceneDynamicTarget: SceneDynamicValue]
+        var frameIndex: UInt64 = 0
+
+        init(_ wrappers: [[String: Any]], hiddenParent: Bool = false) throws {
+            var objects: [[String: Any]] = []
+            var layers: [SceneRenderDescriptor.Layer] = []
+            if hiddenParent {
+                objects.append(["id": 999, "visible": false])
+                layers.append(.init(id: 999, layerIndex: 0, name: "hidden parent",
+                    visible: false, originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1],
+                    alpha: 1, effects: [], contentKind: "container"))
+            }
+            for (index, wrapper) in wrappers.enumerated() {
+                let id = 100 + index
+                var object: [String: Any] = ["id": id, "text": wrapper]
+                if hiddenParent { object["parent"] = 999 }
+                objects.append(object)
+                layers.append(.init(id: id, layerIndex: layers.count, name: "text \(id)",
+                    visible: true, originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1],
+                    alpha: 1, effects: [], contentKind: "text",
+                    text: wrapper["value"] as? String,
+                    textStyle: .init(fontPath: nil, colorRGB: nil, pointSize: 32),
+                    sizeWH: [300, 80], parentID: hiddenParent ? 999 : nil))
+            }
+            if hiddenParent { layers[0].childLayerIDs = Array(100..<(100 + wrappers.count)) }
+            let parsed = SceneScriptBindingIRParser.parse(document: ["objects": objects])
+            let descriptor = SceneRenderDescriptor(layers: layers)
+            let domain = try SceneScriptQuickJSDomain()
+            try domain.configureLayerCatalog(descriptor)
+            self.domain = domain
+            parserDiagnostics = parsed.diagnostics
+            program = SceneScriptStringProgram.compile(domain: domain, descriptor: descriptor,
+                scriptBindings: parsed.bindings, generation: 1)
+            runtime = SceneScriptDynamicLayerRuntime(descriptor: descriptor,
+                authoredMutationLayerIDs: Set(100..<(100 + wrappers.count)))
+            targets = wrappers.indices.map { .text(layerID: 100 + $0, field: .content) }
+            current = Dictionary(uniqueKeysWithValues: program.definitions.map {
+                ($0.target, $0.authoredValue)
+            })
+        }
+
+        func step(
+            date: Date = Harness.frozenDate,
+            properties: [String: SceneUserPropertyValue] = [:],
+            userValues: [SceneDynamicTarget: SceneDynamicValue] = [:],
+            timelineValues: [SceneDynamicTarget: SceneDynamicValue] = [:],
+            media: SceneScriptMediaPropertiesEventInput? = nil,
+            interruptBudget: UInt64? = nil
+        ) throws -> [String: Any] {
+            frameIndex += 1
+            var inputs = current
+            inputs.merge(userValues) { _, next in next }
+            inputs.merge(timelineValues) { _, next in next }
+            let frame = SceneScriptFrameInput(timing: .init(wallDate: date,
+                simulationFrameTime: 1.0 / 60.0, sceneTime: Double(frameIndex) / 60),
+                timeZone: Harness.utc)
+            let result = program.evaluate(inputs: inputs, effectivePropertyValues: properties,
+                propertyRevision: frameIndex, frame: frame,
+                mediaPropertiesEvent: media, interruptBudget: interruptBudget)
+            try runtime.apply(result.layerMutations).get()
+            program.finalizeLayerMutations(committing: true)
+            var scriptValues = result.values
+            scriptValues.merge(runtime.snapshot().authoredLayerValues) { _, mutation in mutation }
+            let resolved = SceneDynamicSnapshotResolver().resolve(frameIndex: frameIndex,
+                generation: frameIndex, definitions: program.definitions,
+                userValues: userValues, timelineValues: timelineValues,
+                sceneScriptValues: scriptValues)
+            current = Dictionary(uniqueKeysWithValues: targets.compactMap { target in
+                resolved.snapshot[target].map { (target, $0.value) }
+            })
+            return [
+                "bindings": program.bindings.count,
+                "parserDiagnostics": parserDiagnostics.map { $0.code.rawValue },
+                "values": targets.map { Harness.string(resolved.snapshot[$0]?.value) },
+                "sources": targets.map { resolved.snapshot[$0]?.source.rawValue ?? "missing" },
+                "failures": targets.map { result.failures[$0]?.code ?? "ok" },
+                "mutations": result.layerMutations.count,
+                "publications": result.values.count,
+                "snapshotDiagnostics": resolved.diagnostics.count,
+            ]
+        }
+    }
+
+    static func wrapper(_ source: String, seed: String = "authored",
+                        properties: [String: Any] = [:],
+                        metadata: Bool = false) -> [String: Any] {
+        var result: [String: Any] = ["script": source, "value": seed,
+                                    "scriptproperties": properties]
+        if metadata {
+            result["label"] = "editor label"
+            result["editor"] = ["collapsed": true]
+        }
+        return result
+    }
+
+    static func string(_ value: SceneDynamicValue?) -> String {
+        if case let .string(text)? = value { return text }
+        return "missing"
+    }
+
+    static func calendarProperties(dayFirst: Bool, monthMode: String,
+                                   padDay: Bool, useSlash: Bool) -> [String: Any] {
+        ["dayFirst": dayFirst, "monthMode": monthMode,
+         "padDay": padDay, "useSlash": useSlash]
+    }
+
     static func main() throws {
-        let clockSource = """
+        let clocks = try Fixture([
+            wrapper(clock, properties: [
+                "separator": ["label": "delimiter", "value": ["value": ":"]],
+                "includeSeconds": ["value": ["user": "seconds", "value": true]],
+                "twentyFourHours": ["value": true],
+                "unusedMetadata": ["editorOnly": ["label": "unused"]],
+            ], metadata: true),
+            wrapper(clock, properties: ["separator": ":", "includeSeconds": ["user": NSNull(), "value": true],
+                                        "twentyFourHours": false]),
+            wrapper(clock, properties: ["separator": "-", "includeSeconds": false,
+                                        "twentyFourHours": true]),
+            wrapper(explicitClock, properties: ["separator": ":"]),
+            wrapper("""
+                export function update(value) {
+                    return new Date().getTime() + '|' + Date.now() + '|'
+                        + new Date(0).getUTCFullYear();
+                }
+                """),
+        ])
+        let dateSemantics = try Fixture([wrapper("""
+            export function update(value) {
+                const saved = Date.prototype.toString;
+                Date.prototype.toString = null;
+                let called;
+                try { called = Date(); } finally { Date.prototype.toString = saved; }
+                class DerivedDate extends Date {}
+                const derived = new DerivedDate();
+                return JSON.stringify([called === new Date().toString(),
+                    Date.UTC(1970, 0, 1), Date.parse('1970-01-01T00:00:00Z'),
+                    new Date(undefined).toString(), new Date(0).constructor === Date,
+                    derived instanceof DerivedDate, derived instanceof Date,
+                    derived.getTime() === Date.now()]);
+            }
+            """)])
+        let clockValues = try clocks.step(properties: ["seconds": .bool(true)])
+        let clockWithoutSeconds = try clocks.step(properties: ["seconds": .bool(false)])
+        let calendar = try Fixture([
+            wrapper(calendarSource, properties: calendarProperties(
+                dayFirst: false, monthMode: "2", padDay: true, useSlash: false)),
+            wrapper(calendarSource, properties: calendarProperties(
+                dayFirst: true, monthMode: "1", padDay: true, useSlash: true)),
+            wrapper(calendarSource, properties: calendarProperties(
+                dayFirst: true, monthMode: "1", padDay: false, useSlash: true)),
+        ])
+        let calendarValues = try calendar.step()
+        var dateCalendar = Calendar(identifier: .gregorian)
+        dateCalendar.timeZone = utc
+        let earlyDate = dateCalendar.date(from: .init(year: 2026, month: 7,
+            day: 8, hour: 7, minute: 0, second: 0))!
+        let earlyCalendar = try calendar.step(date: earlyDate)
+        let midnight = dateCalendar.date(from: .init(year: 2026, month: 7,
+            day: 29, hour: 0, minute: 0, second: 0))!
+        let midnightClock = try clocks.step(date: midnight, properties: ["seconds": .bool(true)])
+
+        let equivalent = try Fixture([
+            wrapper("""
+                export function update(value) {
+                    let digits = '';
+                    for (let index = 0; index < 3; index += 1) { digits += index; }
+                    return digits;
+                }
+                """),
+            wrapper("export function update(renamed) { return [0, 1, 2].join(''); }"),
+        ])
+        let hidden = try Fixture([wrapper(
+            "export function update(value) { return ['PREPARED', 'CHILD'].join(' '); }")],
+            hiddenParent: true)
+
+        let media = try Fixture([
+            wrapper("""
+                export let __workshopId = '1234567890';
+                export function init(value) { return ''; }
+                export function mediaPropertiesChanged(event) {
+                    thisLayer.text = event.title;
+                }
+                """, seed: ""),
+            wrapper("""
+                export function mediaPropertiesChanged(renamed) {
+                    thisLayer.text = renamed.artist
+                }
+                """, seed: "authored-artist"),
+        ])
+        let beforeMedia = try media.step()
+        let zeroMedia = try media.step(media: .init(title: "invalid", artist: "invalid", generation: 0))
+        let titleEvent = SceneScriptMediaPropertiesEventInput(
+            title: "Track 名称", artist: "Artist", generation: 1)
+        let mediaValues = try media.step(media: titleEvent)
+        let repeatedMedia = try media.step(media: titleEvent)
+        let clearedMedia = try media.step(media: .init(title: "", artist: "", generation: 2))
+        let staleMedia = try media.step(media: titleEvent)
+
+        let failures = try Fixture([
+            wrapper("""
+                let calls = 0;
+                export function update(value) {
+                    calls += 1;
+                    if (calls > 1) { thisLayer.text = 'must-not-leak'; throw new Error('local'); }
+                    return 'script:' + value;
+                }
+                """),
+            wrapper("export function update(value) { while (true) {} }"),
+            wrapper("export function update(value) { return 'healthy'; }"),
+        ])
+        let firstFailure = try failures.step(interruptBudget: 64)
+        let changedLower = try failures.step(
+            userValues: [failures.targets[0]: .string("user-2")],
+            timelineValues: [failures.targets[0]: .string("timeline-2")],
+            interruptBudget: 64)
+        let disabledLower = try failures.step(
+            timelineValues: [failures.targets[0]: .string("timeline-3")],
+            interruptBudget: 64)
+
+        let priority = try Fixture([wrapper(clock, properties: [
+            "separator": ":", "includeSeconds": true, "twentyFourHours": true])])
+        let priorityTarget = priority.targets[0]
+        let priorityValues = try priority.step(
+            userValues: [priorityTarget: .string("user")],
+            timelineValues: [priorityTarget: .string("timeline")])
+        let lowerPriority = SceneDynamicSnapshotResolver().resolve(frameIndex: 1,
+            generation: 1, definitions: priority.program.definitions,
+            userValues: [priorityTarget: .string("user")],
+            timelineValues: [priorityTarget: .string("timeline")])
+
+        let malformed = ["invalid", NSNull(), ["not-an-object"]] as [Any]
+        let malformedProperties = malformed.map { value -> [String: Any] in
+            let parsed = SceneScriptBindingIRParser.parse(document: ["objects": [[
+                "id": 100, "text": ["script": clock, "value": "fallback", "scriptproperties": value],
+            ]]])
+            return ["bindings": parsed.bindings.count,
+                    "diagnostics": parsed.diagnostics.map { $0.code.rawValue }]
+        }
+        let payload: [String: Any] = [
+            "clocks": clockValues, "dateSemantics": try dateSemantics.step(),
+            "clockWithoutSeconds": clockWithoutSeconds,
+            "midnightClock": midnightClock,
+            "calendar": calendarValues, "earlyCalendar": earlyCalendar,
+            "equivalent": try equivalent.step(), "hidden": try hidden.step(),
+            "beforeMedia": beforeMedia, "zeroMedia": zeroMedia,
+            "media": mediaValues, "repeatedMedia": repeatedMedia,
+            "clearedMedia": clearedMedia, "staleMedia": staleMedia,
+            "firstFailure": firstFailure, "changedLower": changedLower,
+            "disabledLower": disabledLower, "priority": priorityValues,
+            "lowerPriority": ["value": string(lowerPriority.snapshot[priorityTarget]?.value),
+                "source": lowerPriority.snapshot[priorityTarget]?.source.rawValue ?? "missing",
+                "diagnostics": lowerPriority.diagnostics.count],
+            "malformedProperties": malformedProperties,
+        ]
+        print(String(decoding: try JSONSerialization.data(withJSONObject: payload,
+            options: [.sortedKeys]), as: UTF8.self))
+    }
+
+    static let clock = """
         export function update(previousText) {
             const now = new Date();
             var hours = now.getHours();
             if (!scriptProperties.twentyFourHours) {
                 hours %= 12;
-                if (hours == 0) {
-                    hours = 12;
-                }
+                if (hours == 0) { hours = 12; }
             }
-            hours = ("00" + hours).slice(-2);
-            let minutes = ("00" + now.getMinutes()).slice(-2);
+            hours = ('00' + hours).slice(-2);
+            const minutes = ('00' + now.getMinutes()).slice(-2);
             previousText = hours + scriptProperties.separator + minutes;
             if (scriptProperties.includeSeconds) {
-                let seconds = ("00" + now.getSeconds()).slice(-2);
-                previousText += scriptProperties.separator + seconds;
+                previousText += scriptProperties.separator + ('00' + now.getSeconds()).slice(-2);
             }
             return previousText;
         }
         """
-        let calendarSource = """
+
+    static let explicitClock = """
+        export const scriptProperties = createScriptProperties()
+            .addText({name: 'separator', value: '-'}).finish();
+        export function update(renamed) {
+            const stamp = new Date(Date.now());
+            return [stamp.getHours(), stamp.getMinutes(), stamp.getSeconds()]
+                .map(number => String(number).padStart(2, '0')).join(scriptProperties.separator);
+        }
+        """
+
+    static let calendarSource = """
         let monthLabels;
-        var separator;
-
+        let separator;
         export function update(originalText) {
-            if (scriptProperties.monthMode === 2) {
-                return "strict equality must not coerce";
-            }
+            if (scriptProperties.monthMode === 2) { return 'must-not-coerce'; }
             if (scriptProperties.monthMode == 2) {
-                monthLabels = [
-                    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-                ]
-            } else if (scriptProperties.monthMode == 1) {
-                monthLabels = [
-                    "01", "02", "03", "04", "05", "06",
-                    "07", "08", "09", "10", "11", "12"
-                ]
+                monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
             } else {
-                monthLabels = [
-                    "January", "February", "March", "April", "May", "June",
-                    "July", "August", "September", "October", "November", "December"
-                ]
+                monthLabels = ['01', '02', '03', '04', '05', '06',
+                    '07', '08', '09', '10', '11', '12'];
             }
-            if (scriptProperties.useSlash == true) {
-                separator = ["/"]
-            }
-            if (scriptProperties.useSlash == false) {
-                separator = ["-"]
-            }
-            let current = new Date(); {
-                var dayNumber = current.getDate();
-                if (current.getDate() < 10 && scriptProperties.padDay) {
-                    dayNumber = "0" + current.getDate()
-                }
-                if (scriptProperties.dayFirst) {
-                    return dayNumber + separator + monthLabels[current.getMonth()];
-                } else if (scriptProperties.dayFirst == false) {
-                    return monthLabels[current.getMonth()] + separator + dayNumber;
-                }
-            }
+            separator = scriptProperties.useSlash ? ['/'] : ['-'];
+            const current = new Date();
+            let dayNumber = current.getDate();
+            if (dayNumber < 10 && scriptProperties.padDay) { dayNumber = '0' + dayNumber; }
+            return scriptProperties.dayFirst
+                ? dayNumber + separator + monthLabels[current.getMonth()]
+                : monthLabels[current.getMonth()] + separator + dayNumber;
         }
         """
-        let mediaTitleSource = """
-        'use strict';
-        // Inert Workshop asset reference.
-        export let __workshopId = '3571866376';
-        /** @param {MediaPropertiesEvent} event */
-        export function mediaPropertiesChanged(event) {
-            thisLayer.text = event.title;
-        }
-        export function init(value) {
-            return "";
-        }
-        """
-        let mediaArtistSource = """
-        export function mediaPropertiesChanged(event) {
-            thisLayer.text = event.artist;
-        }
-        """
-
-        let validProgram = SceneTextScriptCompiler.compile(
-            descriptor: SceneRenderDescriptor(layers: [
-                textLayer(
-                    id: 101,
-                    text: "fallback-clock-24",
-                    source: clockSource,
-                    properties: [
-                        "separator": .string(":"),
-                        "includeSeconds": .object([
-                            "user": .string("seconds"),
-                            "value": .bool(true),
-                        ]),
-                        "twentyFourHours": .bool(true),
-                    ]
-                ),
-                textLayer(
-                    id: 102,
-                    text: "fallback-clock-12",
-                    source: clockSource,
-                    properties: [
-                        "separator": .string(":"),
-                        "includeSeconds": .bool(true),
-                        "twentyFourHours": .bool(false),
-                    ]
-                ),
-                textLayer(
-                    id: 103,
-                    text: "fallback-calendar-label",
-                    source: calendarSource,
-                    properties: calendarProperties(
-                        dayFirst: false,
-                        monthMode: "2",
-                        padDay: true,
-                        useSlash: false
-                    )
-                ),
-                textLayer(
-                    id: 104,
-                    text: "fallback-calendar-numeric",
-                    source: calendarSource,
-                    properties: calendarProperties(
-                        dayFirst: true,
-                        monthMode: "1",
-                        padDay: true,
-                        useSlash: true
-                    )
-                ),
-                textLayer(
-                    id: 105,
-                    text: "fallback-calendar-unpadded",
-                    source: calendarSource,
-                    properties: calendarProperties(
-                        dayFirst: true,
-                        monthMode: "1",
-                        padDay: false,
-                        useSlash: true
-                    )
-                ),
-            ])
-        )
-        let fixtureTimeZone = TimeZone(secondsFromGMT: 0)!
-        let fixtureDate = utcDate(
-            year: 2026,
-            month: 7,
-            day: 28,
-            hour: 23,
-            minute: 7,
-            second: 5
-        )
-        let values = SceneTextScriptRuntime.values(
-            program: validProgram,
-            wallDate: fixtureDate,
-            timeZone: fixtureTimeZone
-        )
-        let earlyMonthValues = SceneTextScriptRuntime.values(
-            program: validProgram,
-            wallDate: utcDate(
-                year: 2026,
-                month: 7,
-                day: 8,
-                hour: 7,
-                minute: 0,
-                second: 0
-            ),
-            timeZone: fixtureTimeZone
-        )
-        let mediaProgram = SceneTextScriptCompiler.compile(
-            descriptor: SceneRenderDescriptor(layers: [
-                textLayer(
-                    id: 106,
-                    text: "",
-                    source: mediaTitleSource
-                ),
-                textLayer(
-                    id: 107,
-                    text: "authored-artist",
-                    source: mediaArtistSource
-                ),
-            ])
-        )
-        let mediaBeforeEvent = SceneTextScriptRuntime.values(
-            program: mediaProgram,
-            wallDate: fixtureDate,
-            timeZone: fixtureTimeZone
-        )
-        let mediaEventValues = SceneTextScriptRuntime.values(
-            program: mediaProgram,
-            wallDate: fixtureDate,
-            timeZone: fixtureTimeZone,
-            mediaProperties: .init(
-                title: "Bounded title",
-                artist: "Bounded artist",
-                generation: 1
-            )
-        )
-        let mediaClearValues = SceneTextScriptRuntime.values(
-            program: mediaProgram,
-            wallDate: fixtureDate,
-            timeZone: fixtureTimeZone,
-            mediaProperties: .init(title: "", artist: "", generation: 2)
-        )
-
-        guard let priorityDefinition = validProgram.bindings.first(where: {
-            $0.layerID == 101
-        })?.definition else {
-            throw HarnessError.missingPriorityBinding
-        }
-        let definitions = SceneDynamicDefinitionMerger.merge(
-            propertyDefinitions: [priorityDefinition],
-            timelineProgram: .init(bindings: [
-                .init(definition: priorityDefinition),
-            ]),
-            textScriptProgram: validProgram,
-            additionalDefinitions: [priorityDefinition]
-        )
-        let priorityTarget = SceneDynamicTarget.text(
-            layerID: 101,
-            field: .content
-        )
-        let priorityResolution = SceneDynamicSnapshotResolver().resolve(
-            frameIndex: 1,
-            generation: 1,
-            definitions: definitions,
-            userValues: [priorityTarget: .string("user")],
-            timelineValues: [priorityTarget: .string("timeline")],
-            sceneScriptValues: values
-        )
-        let authoredResolution = SceneDynamicSnapshotResolver().resolve(
-            frameIndex: 2,
-            generation: 1,
-            definitions: definitions
-        )
-
-        let loopSource = """
-        export function update(value) {
-            while (true) {}
-            return value;
-        }
-        """
-        let statementBudgetSource = "export function update(value) {\n"
-            + Array(repeating: "value += \"x\";", count: 128)
-                .joined(separator: "\n")
-            + "\nreturn value;\n}"
-        let runtimeBudgetExpression = Array(
-            repeating: "\"x\"",
-            count: 260
-        ).joined(separator: " + ")
-        let runtimeBudgetSource = """
-        export function update(value) {
-            return value + \(runtimeBudgetExpression);
-        }
-        """
-        let comparisonSource = """
-        export function update(value) {
-            if (new Date().getHours() >= 12) {
-                return "late";
-            }
-            return value;
-        }
-        """
-        let zeroParameterSource = """
-        export function update() {
-            return "not admitted";
-        }
-        """
-        let sharedParameterSource = """
-        export function update(value, sharedState) {
-            return sharedState;
-        }
-        """
-        let mediaSideEffectSource = """
-        export function mediaPropertiesChanged(event) {
-            console.log(event.title);
-            thisLayer.text = event.title;
-        }
-        """
-        let mediaUnknownFieldSource = """
-        export function mediaPropertiesChanged(event) {
-            thisLayer.text = event.album;
-        }
-        """
-        let mediaOtherHookSource = """
-        export function mediaPlaybackChanged(event) {
-            thisLayer.text = event.title;
-        }
-        """
-        let mediaASISource = """
-        export function mediaPropertiesChanged(event) {
-            thisLayer.text = event.title
-        }
-        """
-        let mediaEscapeSource = #"""
-        export let __workshopId = '\x33';
-        export function mediaPropertiesChanged(event) {
-            thisLayer.text = event.title;
-        }
-        """#
-        let mediaShadowSource = """
-        export function mediaPropertiesChanged(event) {
-            let event = thisLayer;
-            thisLayer.text = event.title;
-        }
-        """
-        let malformedMediaProperties = SceneTextScriptDefinition.parse([
-            "script": mediaArtistSource,
-            "scriptproperties": "not-an-object",
-            "value": "authored",
-        ] as [String: Any])
-        let nullMediaProperties = SceneTextScriptDefinition.parse([
-            "script": mediaArtistSource,
-            "scriptproperties": NSNull(),
-            "value": "authored",
-        ] as [String: Any])
-        let arrayMediaProperties = SceneTextScriptDefinition.parse([
-            "script": mediaArtistSource,
-            "scriptproperties": ["not-an-object"],
-            "value": "authored",
-        ] as [String: Any])
-        let mediaInitWouldReplaceAuthoredSource = """
-        export function mediaPropertiesChanged(event) {
-            thisLayer.text = event.title;
-        }
-        export function init(value) {
-            return "";
-        }
-        """
-
-        let hiddenTarget = SceneDynamicTarget.text(layerID: 302, field: .content)
-        let hiddenDescriptor = SceneRenderDescriptor(layers: [
-            .init(id: 301, contentKind: "container", parentID: nil, visible: false,
-                  text: nil, textScript: nil),
-            .init(id: 302, contentKind: "text", parentID: 301, visible: true,
-                  text: "FALLBACK", textScript: .init(
-                    source: "export function update(value) { return 'PREPARED CHILD'; }",
-                    properties: [:]))
-        ])
-        let unpreparedHidden = SceneTextScriptCompiler.compile(descriptor: hiddenDescriptor)
-        let preparedHidden = SceneTextScriptCompiler.compile(
-            descriptor: hiddenDescriptor, preparationLayerIDs: [301, 302])
-        let preparedValues = SceneTextScriptRuntime.values(
-            program: preparedHidden, wallDate: fixtureDate, timeZone: fixtureTimeZone)
-        let quickJSOwned = SceneTextScriptCompiler.compile(
-            descriptor: hiddenDescriptor, excludedTargets: [hiddenTarget],
-            preparationLayerIDs: [301, 302])
-
-        let payload: [String: Any] = [
-            "hiddenUnpreparedCount": unpreparedHidden.bindings.count,
-            "hiddenPreparedValue": string(preparedValues[hiddenTarget]),
-            "hiddenQuickJSOwnedCount": quickJSOwned.bindings.count,
-            "bindingCount": validProgram.bindings.count,
-            "diagnosticCount": diagnosticCodes(validProgram).count,
-            "reportOnlyStatePresent": Mirror(reflecting: validProgram).children.contains { $0.label == "diagnostics" },
-            "clock24": string(values[.text(layerID: 101, field: .content)]),
-            "clock12": string(values[.text(layerID: 102, field: .content)]),
-            "calendarLabel": string(values[.text(layerID: 103, field: .content)]),
-            "calendarNumeric": string(
-                earlyMonthValues[.text(layerID: 104, field: .content)]
-            ),
-            "calendarUnpadded": string(
-                earlyMonthValues[.text(layerID: 105, field: .content)]
-            ),
-            "definitionCount": definitions.count,
-            "definitionTargetCount": Set(definitions.map(\.target)).count,
-            "priorityValue": string(priorityResolution.snapshot[priorityTarget]?.value),
-            "prioritySource": priorityResolution.snapshot[priorityTarget]?.source.rawValue
-                ?? "missing",
-            "priorityDiagnostics": priorityResolution.diagnostics.count,
-            "authoredValue": string(authoredResolution.snapshot[priorityTarget]?.value),
-            "authoredSource": authoredResolution.snapshot[priorityTarget]?.source.rawValue
-                ?? "missing",
-            "mediaProperties": [
-                "bindingCount": mediaProgram.bindings.count,
-                "diagnosticCount": diagnosticCodes(mediaProgram).count,
-                "profiles": mediaProgram.bindings.map(\.profile.rawValue),
-                "beforeTitle": string(
-                    mediaBeforeEvent[.text(layerID: 106, field: .content)]
-                ),
-                "beforeArtist": string(
-                    mediaBeforeEvent[.text(layerID: 107, field: .content)]
-                ),
-                "title": string(
-                    mediaEventValues[.text(layerID: 106, field: .content)]
-                ),
-                "artist": string(
-                    mediaEventValues[.text(layerID: 107, field: .content)]
-                ),
-                "clearedTitle": string(
-                    mediaClearValues[.text(layerID: 106, field: .content)]
-                ),
-                "clearedArtist": string(
-                    mediaClearValues[.text(layerID: 107, field: .content)]
-                ),
-                "malformedPropertiesRejected": malformedMediaProperties == nil,
-                "nullPropertiesRejected": nullMediaProperties == nil,
-                "arrayPropertiesRejected": arrayMediaProperties == nil,
-            ],
-            "rejections": [
-                "loop": rejectionEvidence(id: 201, source: loopSource),
-                "statementBudget": rejectionEvidence(
-                    id: 202,
-                    source: statementBudgetSource
-                ),
-                "comparison": rejectionEvidence(
-                    id: 203,
-                    source: comparisonSource
-                ),
-                "zeroParameter": rejectionEvidence(
-                    id: 204,
-                    source: zeroParameterSource
-                ),
-                "sharedParameter": rejectionEvidence(
-                    id: 205,
-                    source: sharedParameterSource
-                ),
-                "runtimeBudget": rejectionEvidence(
-                    id: 206,
-                    source: runtimeBudgetSource
-                ),
-                "mediaSideEffect": rejectionEvidence(
-                    id: 207,
-                    source: mediaSideEffectSource
-                ),
-                "mediaUnknownField": rejectionEvidence(
-                    id: 208,
-                    source: mediaUnknownFieldSource
-                ),
-                "mediaOtherHook": rejectionEvidence(
-                    id: 209,
-                    source: mediaOtherHookSource
-                ),
-                "mediaASI": rejectionEvidence(
-                    id: 210,
-                    source: mediaASISource
-                ),
-                "mediaEscape": rejectionEvidence(
-                    id: 211,
-                    source: mediaEscapeSource
-                ),
-                "mediaShadow": rejectionEvidence(
-                    id: 212,
-                    source: mediaShadowSource
-                ),
-                "mediaInitWouldReplaceAuthored": rejectionEvidence(
-                    id: 213,
-                    source: mediaInitWouldReplaceAuthoredSource
-                ),
-            ],
-        ]
-        let data = try JSONSerialization.data(
-            withJSONObject: payload,
-            options: [.sortedKeys]
-        )
-        print(String(decoding: data, as: UTF8.self))
-    }
-
-    static func textLayer(
-        id: Int,
-        text: String,
-        source: String,
-        properties: [String: SceneJSONValue] = [:]
-    ) -> SceneRenderDescriptor.Layer {
-        .init(
-            id: id,
-            contentKind: "text",
-            parentID: nil,
-            visible: true,
-            text: text,
-            textScript: .init(source: source, properties: properties)
-        )
-    }
-
-    static func calendarProperties(
-        dayFirst: Bool,
-        monthMode: String,
-        padDay: Bool,
-        useSlash: Bool
-    ) -> [String: SceneJSONValue] {
-        [
-            "dayFirst": .bool(dayFirst),
-            "monthMode": .string(monthMode),
-            "padDay": .bool(padDay),
-            "useSlash": .bool(useSlash),
-        ]
-    }
-
-    static func rejectionEvidence(
-        id: Int,
-        source: String
-    ) -> [String: Any] {
-        let authoredText = "fallback-\(id)"
-        let target = SceneDynamicTarget.text(layerID: id, field: .content)
-        let program = SceneTextScriptCompiler.compile(
-            descriptor: .init(layers: [
-                textLayer(id: id, text: authoredText, source: source),
-            ])
-        )
-        let runtimeValues = SceneTextScriptRuntime.values(
-            program: program,
-            wallDate: utcDate(
-                year: 2026,
-                month: 7,
-                day: 28,
-                hour: 23,
-                minute: 7,
-                second: 5
-            ),
-            timeZone: TimeZone(secondsFromGMT: 0)!
-        )
-        let authoredDefinition = SceneDynamicTargetDefinition(
-            target: target,
-            valueType: .string,
-            authoredValue: .string(authoredText)
-        )
-        let resolution = SceneDynamicSnapshotResolver().resolve(
-            frameIndex: 3,
-            generation: 1,
-            definitions: [authoredDefinition],
-            sceneScriptValues: runtimeValues
-        )
-        return [
-            "bindingCount": program.bindings.count,
-            "diagnostics": diagnosticCodes(program),
-            "runtimeValue": string(runtimeValues[target]),
-            "authoredFallback": authoredText,
-            "resolved": string(resolution.snapshot[target]?.value),
-            "source": resolution.snapshot[target]?.source.rawValue ?? "missing",
-            "resolutionDiagnostics": resolution.diagnostics.count,
-        ]
-    }
-
-    static func diagnosticCodes(_ program: SceneTextScriptProgram) -> [String] {
-#if DEBUG
-        program.diagnostics.map { $0.code.rawValue }
-#else
-        []
-#endif
-    }
-
-    static func utcDate(
-        year: Int,
-        month: Int,
-        day: Int,
-        hour: Int,
-        minute: Int,
-        second: Int
-    ) -> Date {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
-        return calendar.date(from: .init(
-            calendar: calendar,
-            timeZone: calendar.timeZone,
-            year: year,
-            month: month,
-            day: day,
-            hour: hour,
-            minute: minute,
-            second: second
-        ))!
-    }
-
-    static func string(_ value: SceneDynamicValue?) -> String {
-        guard case let .string(value) = value else { return "missing" }
-        return value
-    }
-
-    enum HarnessError: Error {
-        case missingPriorityBinding
-    }
 }
 '''
 
@@ -635,162 +339,95 @@ enum Harness {
 class SceneTextScriptRuntimeTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        if shutil.which("swiftc") is None:
-            raise unittest.SkipTest("swiftc is unavailable")
-        cls.temporary_directory = tempfile.TemporaryDirectory(prefix="mwx-text-script-")
-        directory = Path(cls.temporary_directory.name)
-        harness = directory / "Harness.swift"
-        harness.write_text(HARNESS, encoding="utf-8")
-        cls.payloads = {}
-        cls.symbols = {}
-        for debug in (False, True):
-            name = "debug" if debug else "release"
-            binary = directory / ("text-script-runtime-" + name)
-            flags = ["-D", "DEBUG"] if debug else []
-            compilation = subprocess.run(
-                ["swiftc", "-O", *flags, *(str(path) for path in SWIFT_SOURCES), str(harness),
-                 "-module-cache-path", str(directory / ("modules-" + name)), "-o", str(binary)],
-                capture_output=True, text=True,
-            )
-            if compilation.returncode != 0:
-                raise RuntimeError(compilation.stderr)
-            execution = subprocess.run([str(binary)], capture_output=True, text=True, check=True)
-            cls.payloads[debug] = json.loads(execution.stdout)
-            cls.symbols[debug] = subprocess.run(
-                ["nm", str(binary)], capture_output=True, text=True, check=True
-            ).stdout
-        cls.payload = cls.payloads[True]
-
-    @classmethod
-    def tearDownClass(cls) -> None:
-        cls.temporary_directory.cleanup()
-
-    def test_hidden_prepared_child_executes_without_duplicating_quickjs_owner(self) -> None:
-        self.assertEqual(self.payload["hiddenUnpreparedCount"], 0)
-        self.assertEqual(self.payload["hiddenPreparedValue"], "PREPARED CHILD")
-        self.assertEqual(self.payload["hiddenQuickJSOwnedCount"], 0)
-
-    def test_release_omits_report_state_and_hash_without_changing_execution_or_fallback(self) -> None:
-        def playback_values(value):
-            if isinstance(value, dict):
-                return {key: playback_values(item) for key, item in value.items()
-                        if key not in {"diagnosticCount", "diagnostics", "reportOnlyStatePresent"}}
-            if isinstance(value, list):
-                return [playback_values(item) for item in value]
-            return value
-
-        self.assertTrue(self.payloads[True]["reportOnlyStatePresent"])
-        self.assertFalse(self.payloads[False]["reportOnlyStatePresent"])
-        self.assertEqual(playback_values(self.payloads[False]), playback_values(self.payloads[True]))
-        self.assertIn("SHA256", self.symbols[True])
-        self.assertNotIn("SHA256", self.symbols[False])
-
-    def test_project_owned_subset_clock_and_calendar_execute(self) -> None:
-        self.assertEqual(self.payload["bindingCount"], 5)
-        self.assertEqual(self.payload["diagnosticCount"], 0)
-        self.assertEqual(self.payload["clock24"], "23:07:05")
-        self.assertEqual(self.payload["clock12"], "11:07:05")
-        self.assertEqual(self.payload["calendarLabel"], "Jul-28")
-        self.assertEqual(self.payload["calendarNumeric"], "08/07")
-        self.assertEqual(self.payload["calendarUnpadded"], "8/07")
-
-    def test_scene_script_priority_and_definition_deduplication(self) -> None:
-        self.assertEqual(self.payload["definitionCount"], 5)
-        self.assertEqual(self.payload["definitionTargetCount"], 5)
-        self.assertEqual(self.payload["priorityValue"], "23:07:05")
-        self.assertEqual(self.payload["prioritySource"], "sceneScript")
-        self.assertEqual(self.payload["priorityDiagnostics"], 0)
-        self.assertEqual(self.payload["authoredValue"], "fallback-clock-24")
-        self.assertEqual(self.payload["authoredSource"], "authored")
-
-    def test_media_properties_title_and_artist_hooks_execute(self) -> None:
-        evidence = self.payload["mediaProperties"]
-        self.assertEqual(evidence["bindingCount"], 2, evidence)
-        self.assertEqual(evidence["diagnosticCount"], 0, evidence)
-        self.assertEqual(
-            evidence["profiles"],
-            [
-                "ecmaMediaPropertiesChangedSubset",
-                "ecmaMediaPropertiesChangedSubset",
-            ],
+        temporary = tempfile.TemporaryDirectory(prefix="mwx-text-script-vm-")
+        cls.addClassCleanup(temporary.cleanup)
+        binary = compile_vector_harness(Path(temporary.name), HARNESS, "text-script-runtime")
+        execution = subprocess.run(
+            [str(binary)], capture_output=True, text=True,
+            env={**os.environ, "TZ": "UTC"},
         )
-        self.assertEqual(evidence["title"], "Bounded title", evidence)
-        self.assertEqual(evidence["artist"], "Bounded artist", evidence)
-        self.assertTrue(evidence["malformedPropertiesRejected"], evidence)
-        self.assertTrue(evidence["nullPropertiesRejected"], evidence)
-        self.assertTrue(evidence["arrayPropertiesRejected"], evidence)
+        if execution.returncode:
+            raise AssertionError(execution.stdout + execution.stderr)
+        cls.payload = json.loads(execution.stdout.strip().splitlines()[-1])
 
-    def test_media_properties_generation_and_empty_clear_are_distinct(self) -> None:
-        evidence = self.payload["mediaProperties"]
-        self.assertEqual(evidence["beforeTitle"], "missing", evidence)
-        self.assertEqual(evidence["beforeArtist"], "missing", evidence)
-        self.assertEqual(evidence["clearedTitle"], "", evidence)
-        self.assertEqual(evidence["clearedArtist"], "", evidence)
+    def assert_clean(self, key: str, bindings: int) -> dict:
+        result = self.payload[key]
+        self.assertEqual(result["bindings"], bindings, result)
+        self.assertEqual(result["parserDiagnostics"], [], result)
+        self.assertEqual(result["failures"], ["ok"] * bindings, result)
+        self.assertEqual(result["snapshotDiagnostics"], 0, result)
+        return result
 
-    def test_wall_date_context_is_shared_only_by_date_script_bindings(self) -> None:
-        runtime = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextScriptRuntime.swift").read_text(
-            encoding="utf-8"
-        )
-        values = runtime.split("static func values(", 1)[1].split(
-            "private nonisolated static func content(", 1
-        )[0]
-        self.assertIn(
-            "var wallDateContext: SceneTextScriptSubsetRuntime.FrameContext?",
-            values,
-        )
-        script_subset = runtime.split(
-            "case let .scriptSubset(program, properties):", 1
-        )[1].split("case let .mediaProperties(field):", 1)[0]
-        self.assertIn("if wallDateContext == nil", script_subset)
-        self.assertIn("frameContext: wallDateContext", script_subset)
-        media_subset = runtime.split("case let .mediaProperties(field):", 1)[1]
-        self.assertNotIn("wallDateContext", media_subset)
+    def test_clock_properties_and_frozen_wall_date_use_the_real_vm(self) -> None:
+        result = self.assert_clean("clocks", 5)
+        self.assertEqual(result["values"], [
+            "23:07:05", "11:07:05", "23-07", "23:07:05",
+            "1785280025000|1785280025000|1970",
+        ])
+        without_seconds = self.assert_clean("clockWithoutSeconds", 5)
+        self.assertEqual(without_seconds["values"][:4], [
+            "23:07", "11:07:05", "23-07", "23:07:05",
+        ])
+        midnight = self.assert_clean("midnightClock", 5)
+        self.assertEqual(midnight["values"][:4], ["00:00:00", "12:00:00", "00-00", "00:00:00"])
 
-        subset_runtime = (
-            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextScriptSubsetRuntime.swift"
-        ).read_text(encoding="utf-8")
-        self.assertIn("nonisolated struct FrameContext: Sendable", subset_runtime)
-        self.assertEqual(subset_runtime.count("calendar.dateComponents("), 1)
+    def test_calendar_padding_arrays_and_ecmascript_equality(self) -> None:
+        self.assertEqual(self.assert_clean("calendar", 3)["values"], ["Jul-28", "28/07", "28/07"])
+        self.assertEqual(self.assert_clean("earlyCalendar", 3)["values"], ["Jul-08", "08/07", "8/07"])
 
-    def test_loop_and_statement_budget_fail_closed(self) -> None:
-        self.assert_compile_rejected("loop")
-        self.assert_compile_rejected("statementBudget")
+    def test_equivalent_expressions_and_legal_loops_are_executed(self) -> None:
+        self.assertEqual(self.assert_clean("equivalent", 2)["values"], ["012", "012"])
 
-    def test_unadmitted_comparison_and_update_signatures_fail_closed(self) -> None:
-        self.assert_compile_rejected("comparison")
-        self.assert_compile_rejected("zeroParameter")
-        self.assert_compile_rejected("sharedParameter")
+    def test_hidden_parent_does_not_remove_the_prepared_text_binding(self) -> None:
+        self.assertEqual(self.assert_clean("hidden", 1)["values"], ["PREPARED CHILD"])
 
-    def test_runtime_step_budget_preserves_authored_fallback(self) -> None:
-        evidence = self.payload["rejections"]["runtimeBudget"]
-        self.assertEqual(evidence["bindingCount"], 1, evidence)
-        self.assertEqual(evidence["diagnostics"], [], evidence)
-        self.assertEqual(evidence["runtimeValue"], "missing", evidence)
-        self.assertEqual(evidence["resolved"], evidence["authoredFallback"], evidence)
-        self.assertEqual(evidence["source"], "authored", evidence)
-        self.assertEqual(evidence["resolutionDiagnostics"], 0, evidence)
-
-    def test_unadmitted_media_properties_scripts_fail_closed(self) -> None:
-        for key in (
-            "mediaSideEffect",
-            "mediaUnknownField",
-            "mediaOtherHook",
-            "mediaASI",
-            "mediaEscape",
-            "mediaShadow",
-            "mediaInitWouldReplaceAuthored",
-        ):
+    def test_media_absence_generation_and_empty_clear_keep_their_distinct_meanings(self) -> None:
+        for key in ("beforeMedia", "zeroMedia"):
             with self.subTest(key=key):
-                self.assert_compile_rejected(key)
+                self.assertEqual(self.assert_clean(key, 2)["values"], ["", "authored-artist"])
+        self.assertEqual(self.assert_clean("media", 2)["values"], ["Track 名称", "Artist"])
+        repeated = self.assert_clean("repeatedMedia", 2)
+        self.assertEqual(repeated["values"], ["Track 名称", "Artist"])
+        self.assertEqual(repeated["mutations"], 0)
+        self.assertEqual(self.assert_clean("clearedMedia", 2)["values"], ["", ""])
+        stale = self.assert_clean("staleMedia", 2)
+        self.assertEqual(stale["values"], ["", ""])
+        self.assertEqual(stale["mutations"], 0)
 
-    def assert_compile_rejected(self, key: str) -> None:
-        evidence = self.payload["rejections"][key]
-        self.assertEqual(evidence["bindingCount"], 0, evidence)
-        self.assertEqual(evidence["diagnostics"], ["unknownProfile"], evidence)
-        self.assertEqual(evidence["runtimeValue"], "missing", evidence)
-        self.assertEqual(evidence["resolved"], evidence["authoredFallback"], evidence)
-        self.assertEqual(evidence["source"], "authored", evidence)
-        self.assertEqual(evidence["resolutionDiagnostics"], 0, evidence)
+    def test_date_preserves_native_construction_and_function_call_semantics(self) -> None:
+        result = self.assert_clean("dateSemantics", 1)
+        self.assertEqual(json.loads(result["values"][0]),
+                         [True, 0, 0, "Invalid Date", True, True, True, True])
+
+    def test_exception_and_vm_budget_keep_lower_current_and_healthy_peer(self) -> None:
+        first = self.payload["firstFailure"]
+        self.assertEqual(first["bindings"], 3, first)
+        self.assertEqual(first["parserDiagnostics"], [], first)
+        self.assertEqual(first["failures"], ["ok", "budget-exceeded", "ok"], first)
+        self.assertEqual(first["values"], ["script:authored", "authored", "healthy"], first)
+        changed = self.payload["changedLower"]
+        self.assertEqual(changed["failures"], ["exception", "ok", "ok"], changed)
+        self.assertEqual(changed["values"], ["timeline-2", "authored", "healthy"], changed)
+        self.assertEqual(changed["sources"][0], "timeline", changed)
+        self.assertEqual(changed["mutations"], 0, changed)
+        disabled = self.payload["disabledLower"]
+        self.assertEqual(disabled["failures"], ["ok", "ok", "ok"], disabled)
+        self.assertEqual(disabled["values"], ["timeline-3", "authored", "healthy"], disabled)
+        for result in (first, changed, disabled):
+            self.assertEqual(result["snapshotDiagnostics"], 0, result)
+
+    def test_typed_script_output_has_priority_and_lower_lanes_remain_valid(self) -> None:
+        result = self.assert_clean("priority", 1)
+        self.assertEqual(result["values"], ["23:07:05"])
+        self.assertEqual(result["sources"], ["sceneScript"])
+        self.assertEqual(self.payload["lowerPriority"], {
+            "value": "timeline", "source": "timeline", "diagnostics": 0,
+        })
+
+    def test_malformed_property_objects_are_rejected_by_the_format_entry(self) -> None:
+        for result in self.payload["malformedProperties"]:
+            with self.subTest(result=result):
+                self.assertEqual(result, {"bindings": 0, "diagnostics": ["invalidProperties"]})
 
 
 if __name__ == "__main__":

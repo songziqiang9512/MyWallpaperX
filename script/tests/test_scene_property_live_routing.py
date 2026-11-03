@@ -728,6 +728,7 @@ class SceneTextureSelectionAdmissionTests(unittest.TestCase):
         sources = [
             SCENE_ROOT / "Runtime/Session/SceneDesktopWallpaperLaunchModels.swift",
             SCENE_ROOT / "Systems/Properties/SceneUserProperty.swift",
+            SCENE_ROOT / "Resources/Textures/SceneTextureLookupIdentity.swift",
             SCENE_ROOT / "Resources/Textures/SceneImageTextureUploader.swift",
             SCENE_ROOT / "Resources/Textures/SceneImageTextureUploader+Resample.swift",
             SCENE_ROOT / "Resources/Textures/SceneResourceBudget.swift",

@@ -13,15 +13,14 @@
       "reviewedOn": "2026-09-08",
       "note": "10-19当前原包短播及独审，顶部/中段光束仍比官方宽软；52光卡、117雾与12水纹均实际执行。水纹大体限盆内，旧gross错位未定位。相位/viewport与实际slot域未齐，公共错误owner未知；旧fail保留，无新修复。",
       "remainingDifferences": "顶部/中段光束宽软、亮根/渐隐仍有外观差异；水波旧位置反馈未获同状态关闭，不按物理padding或观感推根因。",
-      "evidence": [
-        "docs/scene/capabilities/runtime-evidence-current.md"
-      ],
+      "evidence": [],
       "runs": [],
       "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/light-water-current-20261019/native/report.json"
       ],
       "unavailableLocalEvidence": [
-        ".artifacts/scene-evidence/runs/light-water-current-20261019/native/report.json"
+        ".artifacts/scene-evidence/runs/light-water-current-20261019/native/report.json",
+        "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
     "2775915974": {
@@ -39,10 +38,11 @@
       "reviewedOn": "2026-09-08",
       "note": "旧头部出画/左肘缺块已退出；后继真实原包保持头、左肘和黑口罩完整，点击口罩亦有实际后验。AA与警戒带运动仍待当前画面对照；整体历史fail不升级。",
       "remainingDifferences": "人物边缘AA及警戒带运动仍待当前对照；头部/左肘/口罩旧反馈已闭，构图与完整互动未验。",
-      "evidence": [
+      "evidence": [],
+      "noteReconciledOn": "2026-10-20",
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
-      ],
-      "noteReconciledOn": "2026-10-20"
+      ]
     },
     "3287715210": {
       "verdict": "fail",
@@ -56,18 +56,19 @@
       "remainingDifferences": "圆白热点已由共享零端点策略在原包与独审有界退出；Earth夜侧仍偏亮、颜色/光影与目录官方有差异，VM Date/作者phase及HDR域未同条件资格。全屏间歇闪烁保时序/负载复验，旧collision独立保留；不因零端点、资源或2D emission修正关闭。",
       "reviewer": "Codex 原包屏幕帧短窗、用户目视反馈与独立资源审查；非完整官方对照",
       "runs": [],
-      "evidence": [
-        "docs/scene/history/static-model-depth-pending-2026-10-19.md",
-        "docs/scene/history/lit-image-emission-albedo-2026-10-19.md",
-        "docs/scene/history/surface-zero-roughness-2026-10-19.md",
-        "docs/scene/history/model-scene-depth-domain-2026-10-19.md"
-      ],
+      "evidence": [],
       "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/static-model-depth-before-20261019/small/report.json",
         ".artifacts/scene-evidence/runs/static-model-depth-before-20261019/before/report.json",
         ".artifacts/scene-evidence/runs/static-model-depth-after-20261019/after/report.json",
         ".artifacts/scene-evidence/runs/static-model-depth-repeat-20261019/repeat/report.json",
         ".artifacts/scene-evidence/runs/model-scene-depth-domain-20261019/native/report.json"
+      ],
+      "unavailableLocalEvidence": [
+        "docs/scene/history/static-model-depth-pending-2026-10-19.md",
+        "docs/scene/history/lit-image-emission-albedo-2026-10-19.md",
+        "docs/scene/history/surface-zero-roughness-2026-10-19.md",
+        "docs/scene/history/model-scene-depth-domain-2026-10-19.md"
       ]
     },
     "3448845950": {
@@ -82,7 +83,8 @@
         ".artifacts/scene-evidence/runs/named-dependency-direct-anchor-344-20261020/current/report.json",
         ".artifacts/scene-evidence/runs/vec3-equals-344-20261021/current/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -143,13 +145,14 @@
       "reviewedOn": "2026-09-06",
       "note": "旧Water Waves影响人物全身的理由已被六组同构A/B否定，实际效果限于对应作者mask；该精确反馈已退出。保留09-06历史整体fail，不把过时理由继续当现役故障，也不据此新判整样本PASS。 10-29同owner合流后4秒原包日志无VM failure，旧重复target/destroy stale初始首门退出；无视觉裁决，历史verdict保持。",
       "remainingDifferences": "旧mask反馈已闭；历史整体fail未重新裁决，缺完整样本新结论，不新增泛化待修项。",
-      "evidence": [
-        "docs/scene/capabilities/runtime-evidence-current.md",
-        "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md"
-      ],
+      "evidence": [],
       "noteReconciledOn": "2026-10-29",
       "runs": [
         ".artifacts/scene-evidence/runs/owner-callback-coalescing-20261029/neighbors/report.json"
+      ],
+      "unavailableLocalEvidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md"
       ]
     },
     "3788734811": {
@@ -361,9 +364,7 @@
       "reviewer": "用户普通Release实测；既有Codex原图观察保留",
       "note": "10-20普通Release用户确认原Launcher目录/图片/音乐/App打开正常，遮挡无误触；此前原图中央Reze/手臂/身体、16透明花叶和210半透明dock已恢复。hover提前放大与199通用pointer倍率/投影待排查，作者宽半径不关闭该反馈；人物auxiliary动画及233/320余项仍开放。",
       "runs": [],
-      "evidence": [
-        "docs/scene/capabilities/runtime-evidence-current.md"
-      ],
+      "evidence": [],
       "remainingDifferences": "人物auxiliary拒绝仍bind-pose；233/320局部effect余项与通用pointer比例/投影待排查。210底板与16白块、本机目标打开反馈已退出；完整视觉/播放/交互未验。",
       "officialComparison": "compared",
       "unavailableLocalRuns": [
@@ -374,7 +375,8 @@
       "unavailableLocalEvidence": [
         ".artifacts/scene-evidence/runs/scene-intake-3577990983-20261017/final/samples/3577990983/runtime_evidence.zip",
         ".artifacts/scene-evidence/runs/puppet-multi-target-20261017/final/samples/3577990983/runtime_evidence.zip",
-        ".artifacts/scene-evidence/runs/usershortcut-authored-fallback-20261017/final/samples/3577990983/runtime_evidence.zip"
+        ".artifacts/scene-evidence/runs/usershortcut-authored-fallback-20261017/final/samples/3577990983/runtime_evidence.zip",
+        "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
     "3486887298": {
@@ -563,9 +565,7 @@
       "reviewer": "Codex root / native_camera_app_sol",
       "note": "10-19 mixed公共组后继：absolute alpha与relative origin/scale复用原owner，旧新原包各28s/native/默认，Program11→14、242三拒绝→0；25s肩颈火焰从旧常驻恢复按段淡出。观察器仅两transform四帧timeline，未导出alpha；不据此关闭脸/龙/小人/刀轨迹或双色音频。此前六binding输入资格保留。",
       "runs": [],
-      "evidence": [
-        "docs/scene/capabilities/runtime-evidence-current.md"
-      ],
+      "evidence": [],
       "remainingDifferences": "脸/头发、龙头/小人/刀准确轨迹与双色音频仍开放；403 literal-true资格仍STOP_UNKNOWN。242只闭混合组首拒与本淡出窗口；零key锚点不等于曲线静止，旧推断撤销。原目录无官方同phase截屏；不认整样本通过。",
       "officialComparison": "unknown",
       "unavailableLocalRuns": [
@@ -574,7 +574,8 @@
         ".artifacts/scene-evidence/runs/mixed-layer-group-20261019/native/report.json"
       ],
       "unavailableLocalEvidence": [
-        ".artifacts/scene-evidence/runs/combined-timeline-playback-20261017/final/samples/3233141951/runtime_evidence.zip"
+        ".artifacts/scene-evidence/runs/combined-timeline-playback-20261017/final/samples/3233141951/runtime_evidence.zip",
+        "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
     "3742133044": {
@@ -652,9 +653,7 @@
       "runs": [
         ".artifacts/scene-evidence/runs/text-ring-visible-window-20261021/current/report.json"
       ],
-      "evidence": [
-        "docs/scene/capabilities/runtime-evidence-current.md"
-      ],
+      "evidence": [],
       "remainingDifferences": "同帧slot1/最终MVP/g_Time、精确中心尺度及官方同媒体/phase未取得，不认精确全周期、整景或性能验收。值收敛后generation日志去重不作卡住证据；仅有新的可区分几何/官方ROI证据再开。",
       "unavailableLocalRuns": [
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/report.json",
@@ -664,7 +663,8 @@
       "unavailableLocalEvidence": [
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/selected-provider-admission-20261018/final/samples/3471294034/runtime_evidence.zip",
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/335-ui-group-attribution-20261018/final/samples/3351179520/runtime_evidence.zip",
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/composition-local-source-20261018/final/samples/3351179520/runtime_evidence.zip"
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/composition-local-source-20261018/final/samples/3351179520/runtime_evidence.zip",
+        "docs/scene/capabilities/runtime-evidence-current.md"
       ],
       "reviewedOn": "2026-10-21"
     },
@@ -693,9 +693,7 @@
       "verdict": "unreviewed",
       "note": "10-19旧App与最终深度候选在请求sceneTime30下均呈现整颗土星、星环、时钟/底部图标；exit0/runner FAIL[]、输入/App无漂移、正常停止排空。sun431 explicit test/write状态已准备，但像素归属与可归因遮挡收益未证；作者Date/媒体音量仍走实时时钟，非整图锁相对照。这里只退出“仅见intro”的观察边界，不证明自然开场全轨迹或官方parity，旧视觉余项保持unreviewed。",
       "runs": [],
-      "evidence": [
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/history/ordinary-native-image-depth-2026-10-19.md"
-      ],
+      "evidence": [],
       "remainingDifferences": "sun具体遮挡收益、自然开场全轨迹、全部参数/播放与旧视觉余项未闭；无完整同phase官方对照或性能结论。",
       "reviewedOn": "2026-10-19",
       "reviewer": "Codex root; bounded native depth integration",
@@ -704,7 +702,8 @@
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/ordinary-native-image-depth-20261019/native/report.json"
       ],
       "unavailableLocalEvidence": [
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/static-model-canvas-basis-20261018/final/samples/3617056047/runtime_evidence.zip"
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/static-model-canvas-basis-20261018/final/samples/3617056047/runtime_evidence.zip",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/history/ordinary-native-image-depth-2026-10-19.md"
       ]
     },
     "3797217144": {
@@ -713,11 +712,12 @@
       "note": "U09整组冻结首反馈已闭：原响应选项保留，基本放大/转正入场恢复；平滑、时相和整样本未验。",
       "reviewer": "unknown",
       "runs": [],
-      "evidence": [
-        "docs/scene/capabilities/runtime-evidence-current.md"
-      ],
+      "evidence": [],
       "remainingDifferences": "unknown",
-      "officialComparison": "unknown"
+      "officialComparison": "unknown",
+      "unavailableLocalEvidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
     },
     "3764725758": {
       "verdict": "unreviewed",
@@ -725,11 +725,12 @@
       "note": "10-18最终App两成员组/上部构图保持；旧光束/眼睛未闭，非整景PASS。 原记录：U01光束与眼睛反馈未闭；本轮目标已执行，尚缺确定可归因ROI，不记新修复。",
       "reviewer": "unknown",
       "runs": [],
-      "evidence": [
-        "docs/scene/capabilities/runtime-evidence-current.md"
-      ],
+      "evidence": [],
       "remainingDifferences": "unknown",
-      "officialComparison": "unknown"
+      "officialComparison": "unknown",
+      "unavailableLocalEvidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
     },
     "3549827466": {
       "verdict": "unreviewed",
@@ -737,11 +738,12 @@
       "note": "U02光束反馈未闭；本轮目标已执行，尚缺确定可归因ROI，不记新修复。",
       "reviewer": "unknown",
       "runs": [],
-      "evidence": [
-        "docs/scene/capabilities/runtime-evidence-current.md"
-      ],
+      "evidence": [],
       "remainingDifferences": "unknown",
-      "officialComparison": "unknown"
+      "officialComparison": "unknown",
+      "unavailableLocalEvidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
     },
     "3750342273": {
       "verdict": "unreviewed",
@@ -749,16 +751,15 @@
       "note": "10-19当前0ea907d9a对应App原包全尺寸七点受控输入，山体左右/上下响应并回中心、零深度文字固定，独审一致；完全缺渲染视差未复现，无新产品修复。真实鼠标/桌面路由、多屏、精确官方响应及整景未验，保持unreviewed。",
       "reviewer": "unknown",
       "runs": [],
-      "evidence": [
-        "docs/scene/capabilities/runtime-evidence-current.md"
-      ],
+      "evidence": [],
       "remainingDifferences": "尚无当前受控输入缺视差证据；真实鼠标/桌面路由、多屏及官方精确gain/delay未验，不自动认定新缺陷。",
       "officialComparison": "unknown",
       "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/parallax-current-20261019/native/report.json"
       ],
       "unavailableLocalEvidence": [
-        ".artifacts/scene-evidence/runs/parallax-current-20261019/native/report.json"
+        ".artifacts/scene-evidence/runs/parallax-current-20261019/native/report.json",
+        "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
     "2684431262": {
@@ -767,11 +768,12 @@
       "note": "2026-10-18用户补报（待当前身份复验）：官方略有发光；并入整体合成差异，不以旧巨大紫块本窗未见关闭发光观察。 旧记录：10-18原包可见斜盘、代码与洋红圆粒子，未见旧巨大紫块；缺同状态官方对照，合成反馈仍开放。",
       "reviewer": "unknown",
       "runs": [],
-      "evidence": [
-        "docs/scene/capabilities/runtime-evidence-current.md"
-      ],
+      "evidence": [],
       "remainingDifferences": "2026-10-18用户补报（待当前身份复验）：官方略有发光；并入整体合成差异，不以旧巨大紫块本窗未见关闭发光观察。",
-      "officialComparison": "unknown"
+      "officialComparison": "unknown",
+      "unavailableLocalEvidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
     },
     "3802005866": {
       "verdict": "unreviewed",
@@ -779,11 +781,12 @@
       "note": "10-18父本地组源首门已修；原包蓝条/框外白细线消失、音频保持。整景/HDR/phase/性能未裁决。见#composition-member-bounds-20261018。",
       "reviewer": "unknown",
       "runs": [],
-      "evidence": [
-        "docs/scene/capabilities/runtime-evidence-current.md"
-      ],
+      "evidence": [],
       "remainingDifferences": "unknown",
-      "officialComparison": "unknown"
+      "officialComparison": "unknown",
+      "unavailableLocalEvidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
     },
     "3351163962": {
       "verdict": "unreviewed",
@@ -791,11 +794,12 @@
       "note": "2026-10-18用户补报（待当前身份复验）：左上文字超出圆环，用户称官方在环内；确切文本/状态待确认。旧同viewport默认hour/seconds/greeting裁决保留，新范围开放，不直接改anchor。 旧记录：10-18同默认/908×590官方A两帧与native时钟相对布局差≤1.643px（门4px）；时分秒在环内、问候同跨环。U25该反馈按官方一致退出，非引擎修复或整景PASS。见#u25-u35-current-qualification-20261018。",
       "reviewer": "unknown",
       "runs": [],
-      "evidence": [
-        "docs/scene/capabilities/runtime-evidence-current.md"
-      ],
+      "evidence": [],
       "remainingDifferences": "2026-10-18用户补报（待当前身份复验）：左上文字超出圆环，用户称官方在环内；确切文本/状态待确认。旧同viewport默认hour/seconds/greeting裁决保留，新范围开放，不直接改anchor。",
-      "officialComparison": "unknown"
+      "officialComparison": "unknown",
+      "unavailableLocalEvidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
     },
     "2974757317": {
       "verdict": "unreviewed",
@@ -803,11 +807,12 @@
       "note": "10-18合法module-only Bool初始化保留于最终共享域后，原包两帧卡片下多余矩形消失、主卡/文字/背景保持；官方无CLI标记实验及改名/失败重建门有界支撑，独立U25布局保持。仅U35该反馈退出，不改整样本unreviewed。见#u25-u35-current-qualification-20261018。",
       "reviewer": "unknown",
       "runs": [],
-      "evidence": [
-        "docs/scene/capabilities/runtime-evidence-current.md"
-      ],
+      "evidence": [],
       "remainingDifferences": "unknown",
-      "officialComparison": "unknown"
+      "officialComparison": "unknown",
+      "unavailableLocalEvidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
     },
     "2849382252": {
       "verdict": "unreviewed",
@@ -815,16 +820,15 @@
       "note": "10-19原生attachment后继已闭三白弧低清（见#background-terminal-density-20261019）；本次独立原包非零PCM+中心pointer复验，三条连续白弧/人物保持，Program/GPU/末合成及次帧成立。完整音源/相位/同状态官方样式仍未验。",
       "reviewer": "unknown",
       "runs": [],
-      "evidence": [
-        "docs/scene/capabilities/runtime-evidence-current.md"
-      ],
+      "evidence": [],
       "remainingDifferences": "unknown",
       "officialComparison": "unknown",
       "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/generic-varying-first-gate-20261019/current/report.json"
       ],
       "unavailableLocalEvidence": [
-        ".artifacts/scene-evidence/runs/generic-varying-first-gate-20261019/current/samples/3745828537/runtime_evidence.zip"
+        ".artifacts/scene-evidence/runs/generic-varying-first-gate-20261019/current/samples/3745828537/runtime_evidence.zip",
+        "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
     "3754630802": {
@@ -833,11 +837,12 @@
       "note": "10-18通用蒙皮源XYZ保真修正：官方固定姿态仅Z清零与旧native对应，候选固定闭眼恢复，原包一次14s实际两次开→闭→开；此前34s未命中与旧协议失败不追认为通过。仅眨眼反馈有界关闭，完整30s/全部互动/官方数值及性能未验，整样本仍unreviewed。见#u27-lion-blink-qualification-20261018。",
       "reviewer": "unknown",
       "runs": [],
-      "evidence": [
-        "docs/scene/capabilities/runtime-evidence-current.md"
-      ],
+      "evidence": [],
       "remainingDifferences": "unknown",
-      "officialComparison": "unknown"
+      "officialComparison": "unknown",
+      "unavailableLocalEvidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
     },
     "3396722575": {
       "verdict": "unreviewed",
@@ -908,12 +913,7 @@
       "officialComparison": "compared",
       "note": "10-20当前App原包/clock-off两窗均App0/正常stop，侧clock穿正面随单开关消失，date仍透；原effect CPU/229 fallback/Rope FAIL保持。官方四向rim倒字和title黑影本就存在，不列错误；目录图未同pointer/phase，扁盒/粉顶仅保待同状态。官方原载体A缺外露clock与窗口资格，STOP_UNKNOWN且B未运行，default text test/write/cull未定，不改公共规则；五层source/typed相机及共享模型深度旧首错保持退出。",
       "runs": [],
-      "evidence": [
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/history/native-framebuffer-material-source-2026-10-19.md",
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/history/native-camera-frame-transforms-2026-10-19.md",
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/history/ordinary-native-image-depth-2026-10-19.md",
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/history/model-scene-depth-domain-2026-10-19.md"
-      ],
+      "evidence": [],
       "remainingDifferences": "侧clock/date跨面透见、同状态盒体构图与全屏背景；默认text深度仍UNKNOWN，effect CPU/229 fallback/Rope未闭；完整音乐/属性/互动与官方parity未验。",
       "unavailableLocalRuns": [
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/n03-static-model-normal-coverage-20261018/native/original333/result.json",
@@ -926,7 +926,11 @@
       "unavailableLocalEvidence": [
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/n03-static-model-normal-coverage-20261018/independent-product-review.json",
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/n03-static-model-normal-coverage-20261018/native/original333/results/3337494481/scene-after-window.png",
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/native-text-depth-333-20261020/current/samples/3337494481/runtime_evidence.zip"
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/native-text-depth-333-20261020/current/samples/3337494481/runtime_evidence.zip",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/history/native-framebuffer-material-source-2026-10-19.md",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/history/native-camera-frame-transforms-2026-10-19.md",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/history/ordinary-native-image-depth-2026-10-19.md",
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/docs/scene/history/model-scene-depth-domain-2026-10-19.md"
       ]
     },
     "3585542943": {
@@ -957,14 +961,16 @@
       ],
       "evidence": [
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u02-remaining-rays-fresh-20261018/independent-review.json",
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u02-remaining-rays-fresh-20261018/3581882134/results/3581882134/scene-series-0000-window.png",
-        "docs/scene/history/default-2d-camera-inputs-2026-10-16.md"
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u02-remaining-rays-fresh-20261018/3581882134/results/3581882134/scene-series-0000-window.png"
       ],
       "remainingDifferences": "左上暖亮/冷暗的具体照明观察保持UNKNOWN；需可区分ROI/同状态，不按preset名调size或增益。  不认完整官方phase、全部交互/整样本或性能通过。",
       "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/default-camera-single-20261019/before/report.json",
         ".artifacts/scene-evidence/runs/default-camera-single-20261019/after/report.json",
         ".artifacts/scene-evidence/runs/default-camera-single-20261019/off/report.json"
+      ],
+      "unavailableLocalEvidence": [
+        "docs/scene/history/default-2d-camera-inputs-2026-10-16.md"
       ]
     },
     "3603711180": {
@@ -981,14 +987,16 @@
       ],
       "evidence": [
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u02-remaining-rays-fresh-20261018/independent-review.json",
-        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u02-remaining-rays-fresh-20261018/3603711180/results/3603711180/scene-series-0000-window.png",
-        "docs/scene/history/default-2d-camera-inputs-2026-10-16.md",
-        "docs/scene/history/previous-blurred-composite-admission-2026-10-12.md",
-        "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md"
+        "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/tmp/u02-remaining-rays-fresh-20261018/3603711180/results/3603711180/scene-series-0000-window.png"
       ],
       "remainingDifferences": "旧666/effect2/672数值首拒已由非负有限零轴准入后继退出；目标不是空透明源，默认捕获背景，但细条被615后画UI大幅覆盖，两图camera/UI状态不同，未证独立像素收益。旧照明限定观察、完整phase/属性/交互与精确官方光形仍保原边界；不认整样本或性能通过。 10-29：565.origin跨owner分歧与跨callback Sound意图查询/首曲切换仍待资格；本轮无像素/听感或完整播放器裁决。",
       "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/default-camera-single-20261019/second/report.json"
+      ],
+      "unavailableLocalEvidence": [
+        "docs/scene/history/default-2d-camera-inputs-2026-10-16.md",
+        "docs/scene/history/previous-blurred-composite-admission-2026-10-12.md",
+        "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md"
       ]
     },
     "3806337293": {
@@ -997,10 +1005,7 @@
       "reviewer": "Codex 原包受控PCM/静音多相位与独立审查；非完整官方对照",
       "note": "2026-10-18灰层/过曝/缺环及后补路径整体自转已分别真实复现并修正；固定椭圆路径与条目移动保持，非完整样本/官方相位验收。",
       "runs": [],
-      "evidence": [
-        "docs/scene/capabilities/runtime-evidence-current.md",
-        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
-      ],
+      "evidence": [],
       "remainingDifferences": "所报灰层/过曝/缺环与固定路径整体自转均有界关闭；官方同phase/aspect、精确速度/音频幅度、完整交互及整样本未验，不据此改整样本verdict或造新可见缺陷。",
       "officialComparison": "unknown",
       "unavailableLocalRuns": [
@@ -1009,6 +1014,10 @@
         ".artifacts/scene-evidence/runs/procedural-solid-local-source-20261018/before/report.json",
         ".artifacts/scene-evidence/runs/procedural-solid-local-source-20261018/after/report.json",
         ".artifacts/scene-evidence/runs/procedural-solid-local-source-20261018/pcm/report.json"
+      ],
+      "unavailableLocalEvidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ]
     },
     "2932631210": {
@@ -1017,11 +1026,12 @@
       "reviewer": "Codex 仅用户反馈登记；未观看本次播放",
       "note": "2026-10-18用户补报（待当前身份复验）：背景圆环/漩涡差异大；旧人物缺失关闭证据保留，不关闭背景新范围。",
       "runs": [],
-      "evidence": [
-        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
-      ],
+      "evidence": [],
       "remainingDifferences": "仅用户反馈登记；未进行本次运行或官方对照。背景圆环/漩涡差异大；旧人物缺失关闭证据保留，不关闭背景新范围。 待锁当前App、输入/属性、phase、音源与viewport复验。",
-      "officialComparison": "unknown"
+      "officialComparison": "unknown",
+      "unavailableLocalEvidence": [
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
     },
     "3219398263": {
       "verdict": "unreviewed",
@@ -1029,11 +1039,12 @@
       "reviewer": "Codex 仅用户反馈登记；未观看本次播放",
       "note": "2026-10-18用户补报（待当前身份复验）：背景圆环/漩涡差异大；并入旧方向疑似相反观察，不从单帧改符号。",
       "runs": [],
-      "evidence": [
-        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
-      ],
+      "evidence": [],
       "remainingDifferences": "仅用户反馈登记；未进行本次运行或官方对照。背景圆环/漩涡差异大；并入旧方向疑似相反观察，不从单帧改符号。 待锁当前App、输入/属性、phase、音源与viewport复验。",
-      "officialComparison": "unknown"
+      "officialComparison": "unknown",
+      "unavailableLocalEvidence": [
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
     },
     "3113287126": {
       "verdict": "unreviewed",
@@ -1045,13 +1056,15 @@
         ".artifacts/scene-evidence/runs/particle-fractional-count-20261022/candidate/report.json"
       ],
       "evidence": [
-        "docs/scene/capabilities/runtime-evidence-current.md",
         ".artifacts/scene-evidence/runs/particle-fractional-count-20261022/before/report.json",
         ".artifacts/scene-evidence/runs/particle-fractional-count-20261022/candidate/report.json"
       ],
       "remainingDifferences": "425合法Count3.02已恢复初始化和GPU消费；该项不减少出生计划，不说明可见数量偏少已修。五个additive系统叠加、精确phase未受控且本目录无官方截屏，整体运动方向、可见密度及完整参数仍待对照。",
       "officialComparison": "unknown",
-      "noteReconciledOn": "2026-10-22"
+      "noteReconciledOn": "2026-10-22",
+      "unavailableLocalEvidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
     },
     "3748311238": {
       "verdict": "unreviewed",
@@ -1059,13 +1072,14 @@
       "reviewer": "Codex 仅用户反馈登记；未观看本次播放",
       "note": "10-19轴域后继已取得同动态宽频PCM修前/候选2/6/8s实图：柱盖高端平台退出、继续移动及圆角恢复，主体保持；用户最新App实测正常并撤回低/缺/卡观察。该精确反馈已闭；本轮仅同步既有有界结论，无新播放。",
       "runs": [],
-      "evidence": [
-        "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-        "docs/scene/capabilities/runtime-evidence-current.md"
-      ],
+      "evidence": [],
       "remainingDifferences": "仅柱盖高端悬留反馈已闭；全部音源/variant、精确phase、HDR、清晰度及完整样本未验，不继续把旧cap猜测列为当前故障。",
       "officialComparison": "unknown",
-      "noteReconciledOn": "2026-10-20"
+      "noteReconciledOn": "2026-10-20",
+      "unavailableLocalEvidence": [
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
     },
     "3749463715": {
       "verdict": "unreviewed",
@@ -1073,11 +1087,12 @@
       "reviewer": "Codex 仅用户反馈登记；未观看本次播放",
       "note": "2026-10-18用户补报（待当前身份复验）：观感帧率低，重复胸部拖动仍仅首次响应；交互与性能分开验，观感不等于已测FPS。",
       "runs": [],
-      "evidence": [
-        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
-      ],
+      "evidence": [],
       "remainingDifferences": "仅用户反馈登记；未进行本次运行或官方对照。观感帧率低，重复胸部拖动仍仅首次响应；交互与性能分开验，观感不等于已测FPS。 待锁当前App、输入/属性、phase、音源与viewport复验。",
-      "officialComparison": "unknown"
+      "officialComparison": "unknown",
+      "unavailableLocalEvidence": [
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
     },
     "2998757800": {
       "verdict": "unreviewed",
@@ -1085,11 +1100,12 @@
       "reviewer": "Codex 仅用户反馈登记；未观看本次播放",
       "note": "2026-10-18用户补报（待当前身份复验）：重复拖动仍仅首次响应；与3749463715是否同一owner未证。",
       "runs": [],
-      "evidence": [
-        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
-      ],
+      "evidence": [],
       "remainingDifferences": "仅用户反馈登记；未进行本次运行或官方对照。重复拖动仍仅首次响应；与3749463715是否同一owner未证。 待锁当前App、输入/属性、phase、音源与viewport复验。",
-      "officialComparison": "unknown"
+      "officialComparison": "unknown",
+      "unavailableLocalEvidence": [
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
     },
     "3792249095": {
       "verdict": "unreviewed",
@@ -1097,11 +1113,12 @@
       "reviewer": "Codex 仅用户反馈登记；未观看本次播放",
       "note": "2026-10-18用户补报（待当前身份复验）：外圈样式差异大；并入旧U11，尚未锁同声源/phase，不直接改半径或相机。",
       "runs": [],
-      "evidence": [
-        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
-      ],
+      "evidence": [],
       "remainingDifferences": "仅用户反馈登记；未进行本次运行或官方对照。外圈样式差异大；并入旧U11，尚未锁同声源/phase，不直接改半径或相机。 待锁当前App、输入/属性、phase、音源与viewport复验。",
-      "officialComparison": "unknown"
+      "officialComparison": "unknown",
+      "unavailableLocalEvidence": [
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
     },
     "2131872317": {
       "verdict": "unreviewed",
@@ -1123,13 +1140,14 @@
       "reviewer": "Codex 同原包PCM前后原图与独立审查；非完整官方对照",
       "note": "10-19透视neutral材质证明接通统一动态模板：同PCM非零阶段从无频谱恢复底部白条，后续静音收回，63动态层实际发布/绘制；频谱缺失首门退出，背景十字流星过大仍开放。",
       "runs": [],
-      "evidence": [
-        "docs/scene/history/source-material-entry-2026-10-08.md"
-      ],
+      "evidence": [],
       "remainingDifferences": "背景十字流星尺寸仍待同phase可归属几何/遮罩正控；world父/local子已有独立scale，未证重复乘，不改作者参数。未验真实系统音频、完整属性/交互/HDR及官方parity。",
       "officialComparison": "unknown",
       "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/perspective-neutral-tint-20261019/native/report.json"
+      ],
+      "unavailableLocalEvidence": [
+        "docs/scene/history/source-material-entry-2026-10-08.md"
       ]
     },
     "3768229922": {
@@ -1138,13 +1156,14 @@
       "reviewer": "Codex 仅用户反馈登记；未观看本次播放",
       "note": "2026-10-18用户补报（待当前身份复验）：开场标识/过渡不显示；需从加载开始锁完整开场窗口与属性。 10-19原包8s邻例已见PSYCHE GEAR标识，App0/stop1→0/GPU排空；主体与完整过渡未验，stationary hover最低变化FAIL保留。",
       "runs": [],
-      "evidence": [
-        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
-      ],
+      "evidence": [],
       "remainingDifferences": "本窗开场标识可见，主体及完整过渡仍未覆盖，不关闭原反馈；未测作者交互，不从stationary hover最低变化判产品缺陷。",
       "officialComparison": "unknown",
       "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/default-camera-single-20261019/adjacent/report.json"
+      ],
+      "unavailableLocalEvidence": [
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ]
     },
     "3554161528": {
@@ -1153,13 +1172,14 @@
       "reviewer": "Codex 仅用户反馈登记；未观看本次播放",
       "note": "10-19原包镜头由始终全景恢复近→全，正常退出/GPU排空；开场镜头缺失反馈已闭。旧缺光观察独立保留；本轮仅同步既有后验，无新播放。",
       "runs": [],
-      "evidence": [
-        "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-        "docs/scene/capabilities/runtime-evidence-current.md"
-      ],
+      "evidence": [],
       "remainingDifferences": "开场镜头缺失已闭；旧光照余项按U02及当前证据另行复验，完整画面/互动及同phase对照未验。",
       "officialComparison": "unknown",
-      "noteReconciledOn": "2026-10-20"
+      "noteReconciledOn": "2026-10-20",
+      "unavailableLocalEvidence": [
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ]
     },
     "3769761761": {
       "verdict": "unreviewed",
@@ -1167,11 +1187,12 @@
       "reviewer": "Codex 仅用户反馈登记；未观看本次播放",
       "note": "2026-10-18用户补报（待当前身份复验）：左侧向右下斜光仍缺；并入旧目标斜光观察，实际来源仍unknown。",
       "runs": [],
-      "evidence": [
-        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
-      ],
+      "evidence": [],
       "remainingDifferences": "仅用户反馈登记；未进行本次运行或官方对照。左侧向右下斜光仍缺；并入旧目标斜光观察，实际来源仍unknown。 待锁当前App、输入/属性、phase、音源与viewport复验。",
-      "officialComparison": "unknown"
+      "officialComparison": "unknown",
+      "unavailableLocalEvidence": [
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
     },
     "3042492564": {
       "verdict": "unreviewed",
@@ -1180,13 +1201,15 @@
       "note": "10-22普通图片加法末合成恢复X白亮核心；默认/关Shine与GPU末消费有界通过，完整属性/光束/媒体及粒子738仍开放。",
       "runs": [],
       "evidence": [
-        ".artifacts/scene-evidence/runs/builtin-image-additive-rgb-20261022/final/samples/3042492564/runtime_evidence.zip",
-        "docs/scene/capabilities/runtime-evidence-current.md"
+        ".artifacts/scene-evidence/runs/builtin-image-additive-rgb-20261022/final/samples/3042492564/runtime_evidence.zip"
       ],
       "remainingDifferences": "只关闭已证内建图片additive被丢为source-over的RGB首门；光束形状、媒体封面裁切/blur、布局及交互仍开放。原报告粒子738不可用不归X光；全属性、HDR、官方同phase/Alpha及整样本未验。",
       "officialComparison": "unknown",
       "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/default-camera-single-20261019/heldout/report.json"
+      ],
+      "unavailableLocalEvidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
     "2815826216": {
@@ -1196,7 +1219,8 @@
       "reviewer": "Codex root 原包短窗与目视后验；无官方截图对照",
       "officialComparison": "unknown",
       "runs": [],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/history/lit-image-emission-albedo-2026-10-19.md"
       ]
     },
@@ -1207,7 +1231,8 @@
       "officialComparison": "unknown",
       "note": "10-19 Gaussian零轴批健康相邻原包短窗exit0/FAIL[]、正常stop/GPU排空，房间/时钟/吊灯/窗/书架可见，右灰白poster仍在；只有candidate after，不认旧黑块修复、整样本PASS或官方parity。",
       "runs": [],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/history/previous-blurred-composite-admission-2026-10-12.md"
       ]
     },
@@ -1219,11 +1244,12 @@
       "remainingDifferences": "完整昼夜周期、同phase/viewport官方对照及全部参数/交互未验；不把未覆盖当新增故障。",
       "officialComparison": "unknown",
       "runs": [],
-      "evidence": [
-        "docs/scene/capabilities/runtime-evidence-current.md"
-      ],
+      "evidence": [],
       "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/mixed-layer-group-20261019/native/report.json"
+      ],
+      "unavailableLocalEvidence": [
+        "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
     "2507971256": {
@@ -1659,14 +1685,13 @@
       "runs": [
         ".artifacts/scene-evidence/runs/layer-sort-topology-only-20261029/native/report.json"
       ],
-      "evidence": [
-        "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md"
-      ],
+      "evidence": [],
       "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
       ],
       "unavailableLocalEvidence": [
-        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-04/current/samples/3808922316/runtime_evidence.zip"
+        ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/part-04/current/samples/3808922316/runtime_evidence.zip",
+        "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md"
       ]
     },
     "3768724269": {
@@ -1689,10 +1714,11 @@
       "reviewer": "历史用户反馈及10-21有界放置后验；本批仅同步覆盖层，未新运行",
       "note": "10-21同cover三点可逆已闭下游末材质放置偏移；物理入口/全profile/官方像素未扩。 历史观察：10-20用户报告上下层揭露位置在屏幕中心准确，越向边缘偏移越大，怀疑输入位移倍率；未取得当前App/viewport同点配准，不认已证根因。与357提前hover反馈并列待排查，不由其作者宽半径关闭。",
       "remainingDifferences": "下游末材质放置偏移已闭；物理输入倍率/DPI、多屏、全profile与官方精确像素仍待相应运行验收。",
-      "evidence": [
+      "evidence": [],
+      "runs": [],
+      "unavailableLocalEvidence": [
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
-      ],
-      "runs": []
+      ]
     },
     "2797943632": {
       "verdict": "unreviewed",
@@ -1704,7 +1730,8 @@
       "runs": [
         ".artifacts/scene-evidence/runs/new-sample-intake-20261021/group-01/current/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -1718,7 +1745,8 @@
       "runs": [
         ".artifacts/scene-evidence/runs/new-sample-intake-20261021/group-01/current/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -1732,7 +1760,8 @@
       "runs": [
         ".artifacts/scene-evidence/runs/new-sample-intake-20261021/group-01/current/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -1746,7 +1775,8 @@
       "runs": [
         ".artifacts/scene-evidence/runs/new-sample-intake-20261021/group-01/current/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -1760,7 +1790,8 @@
       "runs": [
         ".artifacts/scene-evidence/runs/new-sample-intake-20261021/group-02/current/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -1774,7 +1805,8 @@
       "runs": [
         ".artifacts/scene-evidence/runs/new-sample-intake-20261021/group-02/current/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -1788,7 +1820,8 @@
       "runs": [
         ".artifacts/scene-evidence/runs/new-sample-intake-20261021/group-02/current/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -1803,7 +1836,8 @@
         ".artifacts/scene-evidence/runs/new-sample-intake-20261021/group-02/current/report.json",
         ".artifacts/scene-evidence/runs/uniform-pure-initializer-20261021/after/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -1817,7 +1851,8 @@
       "runs": [
         ".artifacts/scene-evidence/runs/new-sample-intake-20261021/group-03/current/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -1831,7 +1866,8 @@
       "runs": [
         ".artifacts/scene-evidence/runs/new-sample-intake-20261021/group-03/current/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -1845,7 +1881,8 @@
       "runs": [
         ".artifacts/scene-evidence/runs/new-sample-intake-20261021/group-03/current/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -1859,7 +1896,8 @@
       "runs": [
         ".artifacts/scene-evidence/runs/new-sample-intake-20261021/group-04/current/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -1873,7 +1911,8 @@
       "runs": [
         ".artifacts/scene-evidence/runs/new-sample-intake-20261021/group-04/current/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -1887,7 +1926,8 @@
       "runs": [
         ".artifacts/scene-evidence/runs/new-sample-intake-20261021/group-04/current/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -1901,7 +1941,8 @@
       "runs": [
         ".artifacts/scene-evidence/runs/new-sample-intake-20261021/group-04/current/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -1916,7 +1957,8 @@
         ".artifacts/scene-evidence/runs/new-sample-intake-20261021/group-05/current/report.json",
         ".artifacts/scene-evidence/runs/varying-prefix-grouping-after-20261021/after/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -1931,7 +1973,8 @@
         ".artifacts/scene-evidence/runs/dead-varying-uniform-20261029/3175039950/native/report.json",
         ".artifacts/scene-evidence/runs/new-sample-intake-20261021/group-05/current/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md",
         "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md"
       ]
@@ -1946,7 +1989,8 @@
       "runs": [
         ".artifacts/scene-evidence/runs/new-sample-intake-20261021/group-05/current/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -1961,7 +2005,8 @@
         ".artifacts/scene-evidence/runs/new-sample-intake-20261021/group-06/current/report.json",
         ".artifacts/scene-evidence/runs/retired-layer-diagnostic-20261023-final/current/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -1975,7 +2020,8 @@
       "runs": [
         ".artifacts/scene-evidence/runs/new-sample-intake-20261021/group-07/current/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -1991,7 +2037,8 @@
         ".artifacts/scene-evidence/runs/new-sample-intake-20261021/eye-strong/current/report.json",
         ".artifacts/scene-evidence/runs/new-sample-intake-20261021/eye-silence/current/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -2006,7 +2053,8 @@
         ".artifacts/scene-evidence/runs/new-sample-intake-20261021/group-04/current/report.json",
         ".artifacts/scene-evidence/runs/independent-signal-opaque-aux-20261021/current/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -2021,7 +2069,8 @@
         ".artifacts/scene-evidence/runs/new-sample-intake-20261021/group-05/current/report.json",
         ".artifacts/scene-evidence/runs/video-runtime-switch-20261029/native/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md",
         "docs/scene/history/video-instance-observations-2026-10-29.md"
       ]
@@ -2038,7 +2087,8 @@
         ".artifacts/scene-evidence/runs/new-sample-intake-20261021/mask-theme1/current/report.json",
         ".artifacts/scene-evidence/runs/new-sample-intake-20261021/mask-theme2/current/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -2052,7 +2102,8 @@
       "runs": [
         ".artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -2067,7 +2118,8 @@
         ".artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/report.json",
         ".artifacts/scene-evidence/runs/varying-prefix-grouping-qualified-20261021/heldout/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -2082,7 +2134,8 @@
         ".artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/report.json",
         ".artifacts/scene-evidence/runs/varying-prefix-grouping-after-20261021/after/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -2097,7 +2150,8 @@
         ".artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/report.json",
         ".artifacts/scene-evidence/runs/packaged-ogg-extraction-20261021/current/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -2111,7 +2165,8 @@
       "runs": [
         ".artifacts/scene-evidence/runs/new-five-intake-followup-20261021/current/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -2125,7 +2180,8 @@
       "runs": [
         ".artifacts/scene-evidence/runs/packaged-ogg-extraction-20261021/current/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -2139,7 +2195,8 @@
       "runs": [
         ".artifacts/scene-evidence/runs/new-scene-intake-20261022/current/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -2154,7 +2211,8 @@
         ".artifacts/scene-evidence/runs/new-scene-intake-20261022/current/report.json",
         ".artifacts/scene-evidence/runs/native-text-bounds-20261022/final/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -2168,7 +2226,8 @@
       "runs": [
         ".artifacts/scene-evidence/runs/new-scene-intake-20261022/current/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -2182,7 +2241,8 @@
       "runs": [
         ".artifacts/scene-evidence/runs/new-scene-intake-20261022/current/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -2196,7 +2256,8 @@
       "runs": [
         ".artifacts/scene-evidence/runs/new-scene-intake-20261022/current/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -2210,7 +2271,8 @@
       "runs": [
         ".artifacts/scene-evidence/runs/new-scene-intake-20261022/current/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -2224,7 +2286,8 @@
       "runs": [
         ".artifacts/scene-evidence/runs/new-scene-intake-20261022/current/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -2238,7 +2301,8 @@
       "runs": [
         ".artifacts/scene-evidence/runs/new-scene-intake-20261022/current/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -2252,7 +2316,8 @@
       "runs": [
         ".artifacts/scene-evidence/runs/new-scene-intake-20261022/current/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -2266,7 +2331,8 @@
       "runs": [
         ".artifacts/scene-evidence/runs/new-scene-intake-20261022/current/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -2280,7 +2346,8 @@
       "runs": [
         ".artifacts/scene-evidence/runs/new-scene-intake-20261022/current/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -2295,7 +2362,8 @@
         ".artifacts/scene-evidence/runs/new-scene-intake-20261022/current/report.json",
         ".artifacts/scene-evidence/runs/composition-background-bounds-20261022/final/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -2309,7 +2377,8 @@
       "runs": [
         ".artifacts/scene-evidence/runs/new-scene-intake-20261022/current/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -2323,7 +2392,8 @@
       "runs": [
         ".artifacts/scene-evidence/runs/new-scene-intake-20261022/current/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -2337,7 +2407,8 @@
       "runs": [
         ".artifacts/scene-evidence/runs/new-scene-intake-20261022/current/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -2351,7 +2422,8 @@
       "runs": [
         ".artifacts/scene-evidence/runs/new-scene-intake-20261022/current/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -2365,7 +2437,8 @@
       "runs": [
         ".artifacts/scene-evidence/runs/new-scene-intake-20261022/current/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -2380,7 +2453,8 @@
         ".artifacts/scene-evidence/runs/fresh-composition-screen-20261023-baseline/baseline/report.json",
         ".artifacts/scene-evidence/runs/retired-layer-diagnostic-20261023-final/current/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "unavailableLocalEvidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"
       ]
     },
@@ -2430,10 +2504,11 @@
         ".artifacts/scene-evidence/runs/authored-sound-reference-20261029/native/report.json",
         ".artifacts/scene-evidence/runs/owner-callback-coalescing-20261029/native/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "remainingDifferences": "默认隐藏播放器的作者空引用不单独认缺图；实际动画/显示、交互、同phase官方画面与其他原包能力均未裁决。",
+      "unavailableLocalEvidence": [
         "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md"
-      ],
-      "remainingDifferences": "默认隐藏播放器的作者空引用不单独认缺图；实际动画/显示、交互、同phase官方画面与其他原包能力均未裁决。"
+      ]
     },
     "3763428294": {
       "verdict": "unreviewed",
@@ -2444,10 +2519,11 @@
       "runs": [
         ".artifacts/scene-evidence/runs/owner-callback-coalescing-20261029/native/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "remainingDifferences": "完整周期、属性/交互和同状态官方画面尚未裁决，不把短窗日志健康升级为整样本PASS。",
+      "unavailableLocalEvidence": [
         "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md"
-      ],
-      "remainingDifferences": "完整周期、属性/交互和同状态官方画面尚未裁决，不把短窗日志健康升级为整样本PASS。"
+      ]
     },
     "3779904456": {
       "verdict": "unreviewed",
@@ -2458,10 +2534,11 @@
       "runs": [
         ".artifacts/scene-evidence/runs/owner-callback-coalescing-20261029/native/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "remainingDifferences": "完整周期、属性/交互和同状态官方画面尚未裁决，不把短窗日志健康升级为整样本PASS。",
+      "unavailableLocalEvidence": [
         "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md"
-      ],
-      "remainingDifferences": "完整周期、属性/交互和同状态官方画面尚未裁决，不把短窗日志健康升级为整样本PASS。"
+      ]
     },
     "3804971850": {
       "verdict": "unreviewed",
@@ -2472,10 +2549,11 @@
       "runs": [
         ".artifacts/scene-evidence/runs/owner-callback-coalescing-20261029/neighbors/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "remainingDifferences": "完整周期、属性/交互和同状态官方画面尚未裁决，不把短窗日志健康升级为整样本PASS。",
+      "unavailableLocalEvidence": [
         "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md"
-      ],
-      "remainingDifferences": "完整周期、属性/交互和同状态官方画面尚未裁决，不把短窗日志健康升级为整样本PASS。"
+      ]
     },
     "3382111183": {
       "verdict": "unreviewed",
@@ -2488,10 +2566,11 @@
         ".artifacts/scene-evidence/runs/refract-r8-followup-20261029-candidate/candidate/report.json",
         ".artifacts/scene-evidence/runs/refract-r8-followup-20261029-audio/audio/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "remainingDifferences": "活动change3d frontend的vec3→vec2返回拒绝仍在；官方音频响应幅度/密度轨迹、完整媒体/属性与整幅视觉未资格。R8准备和实发射GPU首门退出，整样本unreviewed，不改为视觉PASS。",
+      "unavailableLocalEvidence": [
         "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md"
-      ],
-      "remainingDifferences": "活动change3d frontend的vec3→vec2返回拒绝仍在；官方音频响应幅度/密度轨迹、完整媒体/属性与整幅视觉未资格。R8准备和实发射GPU首门退出，整样本unreviewed，不改为视觉PASS。"
+      ]
     },
     "3622727585": {
       "verdict": "unreviewed",
@@ -2502,10 +2581,11 @@
       "runs": [
         ".artifacts/scene-evidence/runs/dead-attribute-lod-20261029/metadata/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "remainingDifferences": "624 utility source-program-unsupported仍归来源准入；完整属性/媒体、精确Timeline/官方同phase、HDR/多屏及长期性能未资格。视觉仍unreviewed。",
+      "unavailableLocalEvidence": [
         "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md"
-      ],
-      "remainingDifferences": "624 utility source-program-unsupported仍归来源准入；完整属性/媒体、精确Timeline/官方同phase、HDR/多屏及长期性能未资格。视觉仍unreviewed。"
+      ]
     },
     "3737267090": {
       "verdict": "unreviewed",
@@ -2516,10 +2596,11 @@
       "runs": [
         ".artifacts/scene-evidence/runs/uniform-key-fanout-20261030/metadata/report.json"
       ],
-      "evidence": [
+      "evidence": [],
+      "remainingDifferences": "默认关闭186的utility不足与成功scene-color-completed promotion误诊仍待处理；官方同phase、全属性/面板、HDR/多屏、长稳及性能未资格。",
+      "unavailableLocalEvidence": [
         "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md"
-      ],
-      "remainingDifferences": "默认关闭186的utility不足与成功scene-color-completed promotion误诊仍待处理；官方同phase、全属性/面板、HDR/多屏、长稳及性能未资格。"
+      ]
     }
   },
   "localEvidenceRetirement": {

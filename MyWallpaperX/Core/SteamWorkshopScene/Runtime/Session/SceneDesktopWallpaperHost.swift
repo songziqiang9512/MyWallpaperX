@@ -9,6 +9,10 @@ final class SceneDesktopWallpaperHost {
     struct DebugSnapshot {
         let surfaceCount: Int
         let windowNumbers: [Int]
+        let sessionID: UUID?
+        let requestID: UUID?
+        let sceneTime: TimeInterval
+        let spriteAnimationLayerIDsByDisplay: [CGDirectDisplayID: [Int]]
         let isPlaybackPaused: Bool
         let isFrameDriverActive: Bool
     }
@@ -181,6 +185,7 @@ final class SceneDesktopWallpaperHost {
 #if DEBUG
     func debugSnapshot() -> DebugSnapshot {
         activeSession?.debugSnapshot() ?? .init(surfaceCount: 0, windowNumbers: [],
+            sessionID: nil, requestID: nil, sceneTime: 0, spriteAnimationLayerIDsByDisplay: [:],
             isPlaybackPaused: playbackPaused, isFrameDriverActive: false)
     }
     func requestDebugSnapshot(windowNumber: Int, reason: String, outputDirectory: URL,

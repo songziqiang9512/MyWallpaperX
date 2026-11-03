@@ -28,37 +28,23 @@ nonisolated enum SceneLayerDynamicWorldFrameResolver {
             guard origin != nil || scale != nil || angles != nil else { continue }
             overrides[layer.id] = .init(origin: origin, scale: scale, angles: angles)
         }
-        if prepareLayerAttachments == nil, overrides.isEmpty,
-           puppetAttachmentFrames.framesByParentLayerID.isEmpty,
-           !dynamicLayerIDs.isEmpty {
-            // Dynamic script layers are currently root layers. Their complete
-            // frame record is applied to the cached descriptor projection,
-            // so refresh only their local world matrices instead of walking
-            // the entire authored hierarchy on every upsert.
-            var result = staticFrames
-            for layer in descriptor.layers
-                where dynamicLayerIDs.contains(layer.id) {
-                guard layer.parentID == nil else {
-                    // Keep the canonical parent/attachment semantics if a
-                    // future provider publishes a parented dynamic layer.
-                    return SceneLayerWorldFrameResolver.compute(
-                        layers: descriptor.layers,
-                        byID: byID,
-                        sceneOrthoHeight: descriptor.camera.orthoHeight,
-                        transformOverrides: overrides,
-                        puppetAttachmentFrames: puppetAttachmentFrames
-                    )
-                }
-                result[layer.id] = SceneLayerWorldFrameResolver.compute(
-                    layers: [layer], byID: [layer.id: layer],
-                    sceneOrthoHeight: descriptor.camera.orthoHeight
-                )[layer.id]
-            }
-            return result
-        }
         guard prepareLayerAttachments != nil || !overrides.isEmpty
                 || !puppetAttachmentFrames.framesByParentLayerID.isEmpty else {
             return staticFrames
+        }
+        if prepareLayerAttachments == nil,
+           puppetAttachmentFrames.framesByParentLayerID.isEmpty,
+           overrides.keys.allSatisfy(dynamicLayerIDs.contains) {
+            // Runtime-created layers are roots. Keep their live transforms
+            // outside the prepared descriptor and the authored hierarchy walk.
+            var result = staticFrames
+            for (layerID, transform) in overrides {
+                result[layerID] = SceneLayerWorldFrameResolver.localFrame(
+                    byID[layerID]!, sceneOrthoHeight: descriptor.camera.orthoHeight,
+                    transform: transform
+                )
+            }
+            return result
         }
         return SceneLayerWorldFrameResolver.compute(
             layers: descriptor.layers,

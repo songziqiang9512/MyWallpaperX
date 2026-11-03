@@ -35,7 +35,10 @@ struct SceneParticleCameraFrame {
 }
 
 struct SceneRenderDescriptor {
-    struct Camera { let orthoHeight: Float? }
+    struct Camera {
+        let orthoHeight: Float?
+        var default2DOriginInputLayerID: Int? { nil }
+    }
     struct Layer {
         var cameraPath: Bool? = nil
         let id: Int
@@ -127,6 +130,66 @@ func dynamicResult() -> [String: [Double]] {
             Double(frame.columns.3.x), Double(frame.columns.3.y),
         ])
     })
+}
+
+func fixedDynamicBirthResult(orthoHeight: Float?) -> [String: [String: [Double]]] {
+    let birth = SceneRenderDescriptor.Layer(
+        id: 10, parentID: nil, originXYZ: [10, 20, 3], scaleXYZ: [1, 1, 1],
+        anglesXYZ: [0, 0, 0], parentAttachmentBindFrame: nil
+    )
+    let parent = SceneRenderDescriptor.Layer(
+        id: 1, parentID: nil, originXYZ: [100, 50, 0], scaleXYZ: [2, 2, 1],
+        anglesXYZ: [0, 0, 0], parentAttachmentBindFrame: nil
+    )
+    let child = SceneRenderDescriptor.Layer(
+        id: 2, parentID: 1, attachmentName: "Attachment",
+        originXYZ: [10, 20, 0], scaleXYZ: nil, anglesXYZ: nil,
+        parentAttachmentBindFrame: attachmentFrame(x: 30, y: 40)
+    )
+    let descriptor = SceneRenderDescriptor(layers: [parent, child, birth],
+        camera: .init(orthoHeight: orthoHeight))
+    let byID = [1: parent, 2: child, 10: birth]
+    let staticFrames = SceneLayerWorldFrameResolver.compute(descriptor: descriptor, byID: byID)
+    let origin = SceneDynamicTarget.layer(layerID: 10, field: .origin)
+    let scale = SceneDynamicTarget.layer(layerID: 10, field: .scale)
+    let angles = SceneDynamicTarget.layer(layerID: 10, field: .angles)
+    let parentAngles = SceneDynamicTarget.layer(layerID: 1, field: .angles)
+    let definitions: [SceneDynamicTargetDefinition] = [
+        .init(target: origin, valueType: .vector3, authoredValue: .vector3(10, 20, 3)),
+        .init(target: scale, valueType: .vector3, authoredValue: .vector3(1, 1, 1)),
+        .init(target: angles, valueType: .vector3, authoredValue: .vector3(0, 0, 0)),
+        .init(target: parentAngles, valueType: .vector3, authoredValue: .vector3(0, 0, 0)),
+    ]
+    func resolved(_ phase: UInt64, rotateParent: Bool = false,
+                  attachments: ScenePuppetAttachmentFrameSnapshot = .empty) -> [Int: simd_float4x4] {
+        let snapshot = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: phase, generation: phase, definitions: definitions,
+            timelineValues: rotateParent ? [parentAngles: .vector3(0, 0, Double.pi / 2)] : [:],
+            sceneScriptValues: [
+                origin: phase == 1 ? .vector3(30, 40, 5) : .vector3(60, 70, 9),
+                scale: phase == 1 ? .vector3(2, 3, 4) : .vector3(4, 2, 1),
+                angles: .vector3(0, 0, phase == 1 ? 0 : Double.pi / 2),
+            ]
+        ).snapshot
+        return SceneLayerDynamicWorldFrameResolver.resolve(
+            descriptor: descriptor, byID: byID, snapshot: snapshot, staticFrames: staticFrames,
+            dynamicLayerIDs: [10], puppetAttachmentFrames: attachments)
+    }
+    let first = resolved(1), second = resolved(2)
+    let repeatedFirst = resolved(1)
+    let mixed = resolved(2, rotateParent: true)
+    let attached = resolved(1, attachments: .init(framesByParentLayerID: [
+        1: ["Attachment": simd_float4x4(columns: (
+            SIMD4(1, 0, 0, 0), SIMD4(0, 1, 0, 0),
+            SIMD4(0, 0, 1, 0), SIMD4(50, 60, 0, 1)
+        ))]
+    ]))
+    return ["birth": staticFrames, "first": first, "second": second,
+            "repeatedFirst": repeatedFirst, "mixed": mixed, "attached": attached].mapValues { frames in
+        Dictionary(uniqueKeysWithValues: frames.map { id, frame in
+            (String(id), SceneScriptLayerWorldTransformProjection.columnMajorValues(frame))
+        })
+    }
 }
 
 func overRangeOriginResult(_ origin: Double) -> [String: [Double]] {
@@ -352,6 +415,8 @@ enum Harness {
             ),
             "invalidFrame": result(attachment: [1, 2, 3]),
             "dynamic": dynamicResult(),
+            "fixedBirthCanvas": fixedDynamicBirthResult(orthoHeight: 1000),
+            "fixedBirthNative": fixedDynamicBirthResult(orthoHeight: nil),
             "dynamicAttachment": dynamicAttachmentResult(),
             "projectionColumnMajor": projectionColumnMajorResult(),
             "projectionRejectsNonFinite": rejectsNonFiniteProjection(),
@@ -441,12 +506,36 @@ class SceneLayerWorldFrameTests(unittest.TestCase):
         self.assertAlmostEqual(child[3], 2 + 4 * 0.9689124, places=5)
         self.assertAlmostEqual(child[4], 3, places=5)
 
-    def test_dynamic_world_frame_uses_snapshot_transform_index(self) -> None:
-        resolver = (
-            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneLayerDynamicWorldFrameResolver.swift"
-        ).read_text(encoding="utf-8")
-        self.assertIn("snapshot.dynamicTransformLayerIDsForFrame", resolver)
-        self.assertIn("guard let layer = byID[layerID]", resolver)
+    def test_fixed_dynamic_birth_consumes_each_typed_transform_snapshot(self) -> None:
+        for key, sign, height in (("fixedBirthCanvas", -1, 1000), ("fixedBirthNative", 1, 0)):
+            with self.subTest(projection=key):
+                row = self.result[key]
+                y = lambda value: height - value if height else value
+                self.assertEqual(row["birth"]["10"][12:15], [10, y(20), 3])
+                self.assertEqual(row["first"]["10"], [
+                    2, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 30, y(40), 5, 1,
+                ])
+                expected = [0, sign * 4, 0, 0, -sign * 2, 0, 0, 0,
+                            0, 0, 1, 0, 60, y(70), 9, 1]
+                for actual, value in zip(row["second"]["10"], expected, strict=True):
+                    self.assertAlmostEqual(actual, value, places=5)
+                self.assertEqual(row["repeatedFirst"], row["first"])
+                for layer_id in ("1", "2"):
+                    self.assertEqual(row["first"][layer_id], row["birth"][layer_id])
+                    self.assertEqual(row["second"][layer_id], row["birth"][layer_id])
+
+    def test_dynamic_root_updates_preserve_authored_hierarchy_and_live_attachments(self) -> None:
+        for key, child_translation, attached_translation in (
+            ("fixedBirthCanvas", [140, 870, 0], [220, 1030, 0]),
+            ("fixedBirthNative", [-20, 130, 0], [220, 210, 0]),
+        ):
+            with self.subTest(projection=key):
+                row = self.result[key]
+                self.assertEqual(row["mixed"]["10"], row["second"]["10"])
+                self.assertEqual(row["attached"]["10"], row["first"]["10"])
+                for actual, expected in zip(row["mixed"]["2"][12:15], child_translation, strict=True):
+                    self.assertAlmostEqual(actual, expected, places=4)
+                self.assertEqual(row["attached"]["2"][12:15], attached_translation)
 
     def test_scenescript_projection_preserves_column_major_mat4_abi(self) -> None:
         matrix = self.result["projectionColumnMajor"]

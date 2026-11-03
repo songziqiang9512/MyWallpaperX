@@ -144,7 +144,16 @@ HARNESS_PATH = (
     Path(__file__).with_name("fixtures")
     / "SceneMaterialCopyHistoryRenderingHarness.swift"
 )
-HARNESS = HARNESS_PATH.read_text(encoding="utf-8")
+HARNESS = HARNESS_PATH.read_text(encoding="utf-8") + HARNESS_PATH.with_name(
+    "SceneMaterialCopyHistoryRetirementChecks.swift"
+).read_text(encoding="utf-8")
+RETIREMENT_SURFACE_SUPPORT = HARNESS_PATH.with_name(
+    "SceneMaterialCopyHistoryRetirementSurfaceSupport.swift"
+).read_text(encoding="utf-8")
+SURFACE_ADOPTION = REPOSITORY_ROOT / (
+    "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/"
+    "SceneDesktopWallpaperSession+SurfaceSimulation.swift"
+)
 MAIN = HARNESS_PATH.with_name(
     "SceneMaterialCopyHistoryRenderingMain.swift"
 ).read_text(encoding="utf-8")
@@ -161,7 +170,7 @@ class SceneMaterialCopyHistoryRenderingTests(unittest.TestCase):
             harness = root / "Harness.swift"
             main = root / "Main.swift"
             binary = root / "material-copy-history-test"
-            support.write_text(SUPPORT, encoding="utf-8")
+            support.write_text(SUPPORT + RETIREMENT_SURFACE_SUPPORT, encoding="utf-8")
             harness.write_text(HARNESS, encoding="utf-8")
             main.write_text(MAIN, encoding="utf-8")
             environment = os.environ.copy()
@@ -179,6 +188,7 @@ class SceneMaterialCopyHistoryRenderingTests(unittest.TestCase):
                     "SCENE_GRAPH_TESTING",
                     str(support),
                     *(str(path) for path in SWIFT_SOURCES),
+                    str(SURFACE_ADOPTION),
                     str(harness),
                     str(HARNESS_PATH.with_name("SceneMaterialFrameResourceBundleChecks.swift")),
                     str(main),
@@ -217,7 +227,7 @@ class SceneMaterialCopyHistoryRenderingTests(unittest.TestCase):
                     assert_checks(child)
             elif isinstance(value, bool):
                 self.assertTrue(value, payload)
-        for section in ("resourceBundleIdentity", "resourceBundleCapacity", "environmentOverlay"):
+        for section in ("resourceBundleIdentity", "resourceBundleCapacity", "environmentOverlay", "historyRetirement"):
             assert_checks(payload[section])
         self.assertEqual(payload["quarterFailure"], "success", payload)
         self.assertEqual(payload["threeQuarterFailure"], "success", payload)

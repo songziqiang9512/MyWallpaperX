@@ -462,7 +462,7 @@ final class SceneResolvedMaterialGraphExecutor {
                 }
                 stageTerminalReplay = nil
                 if let failure = preparePassthrough(
-                    intent, dependencyOwnership: capability.dependencyOwnership,
+                    intent, stageCapability: stageCapability,
                     transition: transition, graph: graph, pairStep: pairStep, lease: lease,
                     snapshot: stageEntry, pair: &pair, publications: &publications, commands: &stageCommands,
                     effectLocalFailureReasonCode: &effectLocalFailureReasonCode,
@@ -758,23 +758,23 @@ final class SceneResolvedMaterialGraphExecutor {
         frameInputs: SceneResolvedMaterialRuntimeBridge.FrameInputs
     ) {
         guard capturesExecutionDiagnostics else { return }
-        for uniform in program.resolvedUniforms {
-            guard uniform.field.arrayCount == nil,
-                  case let .dynamic(
-                      declared: .userProperty(propertyKey),
-                      target: target,
-                      resolvedSource: .userProperty,
-                      scriptAttachments: attachments
-                  ) = uniform.source,
-                  attachments.isEmpty,
+        for (binding, uniform) in zip(
+            program.preparedAssembly.preparedUniformBindings, program.resolvedUniforms
+        ) {
+            guard binding.field.arrayCount == nil,
+                  case let .dynamic(dynamic) = binding.source,
+                  case let .userProperty(propertyKey) = dynamic.contributor,
+                  uniform.resolvedSource == .userProperty,
+                  dynamic.declaration.scriptAttachments.isEmpty,
                   case let .effectConstant(
                       layerID, effectIndex, passIndex, constant
-                  ) = target,
+                  ) = dynamic.declaration.target,
                   layerID == effect.layerID,
                   effectIndex == effect.effectIndex else { continue }
+            let target = dynamic.declaration.target
             let values: [Float]
             let type: String
-            switch uniform.field.type {
+            switch binding.field.type {
             case .float where uniform.encodedValue.count == MemoryLayout<Float>.size:
                 values = [uniform.encodedValue.withUnsafeBytes {
                     $0.loadUnaligned(as: Float.self)
@@ -800,10 +800,10 @@ final class SceneResolvedMaterialGraphExecutor {
                 continue
             }
             guard values.allSatisfy(\.isFinite) else { continue }
-            let stage = uniform.field.stage?.rawValue ?? "shared"
+            let stage = binding.field.stage?.rawValue ?? "shared"
             let identity = [
                 String(layerID), String(effectIndex), String(passIndex),
-                constant, propertyKey, uniform.field.name, stage,
+                constant, propertyKey, binding.field.name, stage,
                 type,
                 values.map { String($0.bitPattern) }.joined(separator: ","),
             ].joined(separator: "\u{1f}")
@@ -822,7 +822,7 @@ final class SceneResolvedMaterialGraphExecutor {
                 propertyKey,
                 passIndex,
                 constant,
-                uniform.field.name,
+                binding.field.name,
                 stage,
                 type,
                 frameInputs.dynamicValues.frameIndex,
@@ -846,11 +846,13 @@ final class SceneResolvedMaterialGraphExecutor {
         audioSpectrum: SceneAuthoredShaderAudioSpectrumInputs
     ) {
         guard capturesExecutionDiagnostics else { return }
-        for uniform in program.resolvedUniforms {
+        for (binding, uniform) in zip(
+            program.preparedAssembly.preparedUniformBindings, program.resolvedUniforms
+        ) {
             let side: String
             let expected: [Float]
             let count: Int
-            switch uniform.source {
+            switch binding.source {
             case let .host(.audioSpectrumLeft(value)):
                 side = "left"
                 count = value
@@ -872,8 +874,8 @@ final class SceneResolvedMaterialGraphExecutor {
             default:
                 continue
             }
-            guard uniform.field.type == .float,
-                  uniform.field.arrayCount == count,
+            guard binding.field.type == .float,
+                  binding.field.arrayCount == count,
                   expected.count == count,
                   uniform.encodedValue.count
                     == count * MemoryLayout<Float>.stride else {
@@ -899,7 +901,7 @@ final class SceneResolvedMaterialGraphExecutor {
             let identity = [
                 "audio-spectrum", String(effect.layerID),
                 String(effect.effectIndex), effect.descriptorID,
-                String(nodeIndex), uniform.field.name, side,
+                String(nodeIndex), binding.field.name, side,
                 String(count), state,
             ].joined(separator: "\u{1f}")
             typedUniformPublicationLock.lock()
@@ -916,7 +918,7 @@ final class SceneResolvedMaterialGraphExecutor {
                 effect.effectIndex,
                 effect.descriptorID,
                 nodeIndex,
-                uniform.field.name,
+                binding.field.name,
                 side,
                 count,
                 frameIndex,

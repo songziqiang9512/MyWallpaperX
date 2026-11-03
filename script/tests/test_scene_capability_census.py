@@ -34,6 +34,10 @@ class SceneCapabilityCensusTests(unittest.TestCase):
         expected = census.REPOSITORY_ROOT / ".artifacts/scene-evidence/census/scene_capability_census_snapshot.json"
         for command in ("generate", "verify", "query"):
             self.assertEqual(census.parse_args([command]).snapshot, expected)
+        for command in ("generate", "verify"):
+            self.assertTrue(census.parse_args([command]).markdown.is_relative_to(
+                census.REPOSITORY_ROOT / ".artifacts"
+            ))
         self.assertEqual(
             census.parse_args(["generate", "--sample-markdown", "/tmp/details.md"]).sample_markdown,
             Path("/tmp/details.md"),

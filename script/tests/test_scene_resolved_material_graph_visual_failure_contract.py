@@ -13,6 +13,7 @@ import subprocess
 import tempfile
 import unittest
 
+from script.scene_swift_source_sets import scene_swift_sources
 from script.tests.scene_harness_io import separate_graph_debug_output
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -38,6 +39,8 @@ SWIFT_SOURCES = list(dict.fromkeys([
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneGPUCensus.swift",
     SCENE_ROOT / "Diagnostics/SceneFramePerformanceTelemetry.swift",
     SCENE_ROOT / "Diagnostics/SceneGPUStageTimestampObservation.swift",
+    SCENE_ROOT / "Diagnostics/SceneGraphExecutionObservation.swift",
+    SCENE_ROOT / "Diagnostics/SceneGraphExecutionTelemetry.swift",
     *PUBLICATION_FIXTURE["SWIFT_SOURCES"],
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialAttachmentKind.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialAttachmentStorage.swift",
@@ -45,6 +48,7 @@ SWIFT_SOURCES = list(dict.fromkeys([
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPipelineBinaryArchive.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder+Warmup.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder.swift",
+    REPOSITORY_ROOT / "script/tests/fixtures/SceneMaterialPipelinePreparation.swift",
     RESOURCE_ENCODER_SOURCE,
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenResolutionPolicy.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneGraphConditionAdmission.swift",
@@ -52,6 +56,7 @@ SWIFT_SOURCES = list(dict.fromkeys([
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityAdmission.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneDirectBoolEffectVisibilityRouteAdmission.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+DependencyOwnership.swift",
+    *scene_swift_sources("resolved_material_execution_capability_contract"),
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+DynamicUniformRejection.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+Material.swift",
@@ -218,7 +223,7 @@ SOURCE_INDEPENDENT_GRAPH_HARNESS = r'''
                 diagnosticProvenance: .init(nodeIndex: node.nodeIndex, authoredShaderPath: shader.identity,
                     contractIdentity: shader.identity, contractCanonicalSHA256: shader.canonicalSHA256,
                     textureSources: [], uniformSources: []))!
-            entries[.init(effect: node.effect, nodeIndex: node.nodeIndex)] = .template(template)
+            entries[.init(effect: node.effect, nodeIndex: node.nodeIndex)] = .template(template, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: template))
         }
         let descriptor = SceneRenderDescriptor(layers: [.init(id: layer, effects: effects.map { effect in
             .init(id: effect.key.descriptorID, file: effect.definitionPath, visible: true,
@@ -240,8 +245,9 @@ SOURCE_INDEPENDENT_GRAPH_HARNESS = r'''
         var plans: [String] = []
         var initializedReads = 0
         for product in admitted.products {
-            let inputRole = SceneAuthoredEffectInputValidator.role(for: product.graph.effects[0].input,
-                layerID: layer)!
+            let inputRole = product.graph.effects[0].input.inputRole(
+                layerID: layer
+            )!
             switch Plan.make(graph: product.graph, inputRole: inputRole,
                 inputWidth: 8, inputHeight: 8) {
             case let .success(plan):
@@ -261,9 +267,8 @@ SOURCE_INDEPENDENT_GRAPH_HARNESS = r'''
         switch result {
         case let .failure(failure): observed["stageFailure"] = failure.code
         case let .success(compiled):
-            observed["stages"] = compiled.stages.map { $0.subject?.family ?? "none" }
             observed["resolved"] = compiled.stages.count == effects.count
-                && compiled.stages.allSatisfy { if case .resolved = $0 { return true }; return false }
+                && compiled.stages.allSatisfy { if case .resolved = $0.execution { return true }; return false }
             observed["materialCount"] = compiled.materials.count
             let first = compiled.materials[.init(effect: owner, nodeIndex: firstIndex)]!
             let snapshots = first.variants.launchEnvelopeCapabilitySnapshot()
@@ -362,8 +367,7 @@ class SceneResolvedMaterialGraphVisualFailureContractTests(unittest.TestCase):
     def test_captured_ingress_is_optional_for_prepared_graph_programs(self) -> None:
         from script.tests import test_scene_resolved_material_graph_executor as base
 
-        prefix, marker, _ = base.HARNESS.partition("@main\nprivate enum Harness")
-        self.assertTrue(marker)
+        prefix = base.HARNESS_SUPPORT_SOURCE
         compilation, completed = base.compile_harness(
             base.SUPPORT, prefix + SOURCE_INDEPENDENT_GRAPH_HARNESS
         )
@@ -395,8 +399,7 @@ class SceneResolvedMaterialGraphVisualFailureContractTests(unittest.TestCase):
     def test_program_preparation_cancellation_stops_batches_after_join(self) -> None:
         from script.tests import test_scene_resolved_material_graph_executor as base
 
-        prefix, marker, _ = base.HARNESS.partition("@main\nprivate enum Harness")
-        self.assertTrue(marker)
+        prefix = base.HARNESS_SUPPORT_SOURCE
         fixture = Path(__file__).with_name("fixtures") / "SceneProgramPreparationCancellationHarness.swift"
         compilation, completed = base.compile_harness(
             base.SUPPORT, prefix + fixture.read_text(encoding="utf-8"),
@@ -415,8 +418,7 @@ class SceneResolvedMaterialGraphVisualFailureContractTests(unittest.TestCase):
 
         # Compile the shared fixture declarations with an admission-only main;
         # no Metal command, texture, pipeline or GPU readback is created here.
-        prefix, marker, _ = base.HARNESS.partition("@main\nprivate enum Harness")
-        self.assertTrue(marker)
+        prefix = base.HARNESS_SUPPORT_SOURCE
         harness = prefix + r'''
 @main private enum LaunchTextureFailureHarness {
     static func main() throws {
@@ -429,7 +431,7 @@ class SceneResolvedMaterialGraphVisualFailureContractTests(unittest.TestCase):
         let claim = missing.claim(chain)
         let compiled = claim.flatMap { missing.resolve($0.token, for: chain) }
         let stages = compiled?.stages.map { $0.subject?.family ?? "none" } ?? []
-        let reasons = compiled?.stages.map { $0.visualFailureReasonCode ?? "none" } ?? []
+        let reasons = compiled?.stages.map { $0.execution.visualFailureReasonCode ?? "none" } ?? []
         let survivingMaterials = graph.nodes.map { node in
             compiled?.material(effect: node.effect, nodeIndex: node.nodeIndex) != nil
         }

@@ -31,7 +31,6 @@ AUDIO_SPECTRUM = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/Scen
 PUPPET = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetPlaybackState.swift"
 SPRITE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Animation/SceneMultiImageSpritePlayback.swift"
 PARTICLE_PLAYBACK = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePlaybackState.swift"
-PARTICLE_VIEW = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+ParticlePlayback.swift"
 DYNAMIC_TEXT = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneDynamicTextTextureStore.swift"
 DYNAMIC_IMAGE_PROVIDER = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/SceneDynamicImageTextureProvider.swift"
 TEXTURE_REGISTRY = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneFrameTextureRegistry.swift"
@@ -427,30 +426,6 @@ enum Harness {
             )
             output = subprocess.check_output([str(binary)], text=True).strip()
         self.assertEqual(output, "preserved")
-
-
-    def test_dynamic_text_provider_publishes_only_after_frame_submission(self) -> None:
-        view = VIEW.read_text(encoding="utf-8")
-        dynamic_text = DYNAMIC_TEXT.read_text(encoding="utf-8")
-        prepare = view.index(
-            "let dynamicTextSnapshot = dynamicTextTextures?.prepareFrame()"
-        )
-        local_discard = view.index(
-            "dynamicTextTextures?.discardPreparedFrame()", prepare
-        )
-        outcome = view.index("let outcome = renderer.renderFrame(", prepare)
-        pending = view.index("pendingDynamicTextUpdate = (", outcome)
-        commit = view.index("func commitPreparedDynamicTextUpdate()")
-        update = view.index("dynamicTextTextures?.update(", commit)
-
-        self.assertLess(prepare, outcome)
-        self.assertLess(outcome, local_discard)
-        self.assertLess(commit, update)
-        self.assertIn("func discardPreparedDynamicTextUpdate()", view)
-        self.assertIn("Dynamic text is asynchronous", view)
-        self.assertIn("private var generationState", dynamic_text)
-        self.assertIn("generationState.finish(request", dynamic_text)
-
 
 
 

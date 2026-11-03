@@ -1,10 +1,7 @@
 import Foundation
 
 extension SceneResolvedMaterialExecutionCapabilityCatalog {
-    typealias Graph = SceneAuthoredEffectRenderPlan
-    typealias MaterialKey = SceneResolvedMaterialRuntimeCatalog.Key
     typealias Template = SceneResolvedMaterialTemplate
-    typealias ExactEffectSubject = SceneEffectExactRuntimeSubject
 
     struct DynamicProducerCatalog {
         typealias UserProperty = SceneDynamicUserPropertyProducer
@@ -62,7 +59,10 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         let workers = min(max(maximumStageWorkers, 1), admitted.products.count)
         let resultLock = NSLock()
         var preparationError: Error?
-        var programResults = Array<Result<CompiledStages, Rejection>?>(
+        var programResults = Array<(
+            topologies: Set<StageCapability.PassthroughTopology>,
+            result: Result<CompiledStages, Rejection>?
+        )?>(
             repeating: nil, count: admitted.products.count
         )
         DispatchQueue.concurrentPerform(iterations: workers) { worker in
@@ -73,8 +73,13 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                         try cancellationCheck?()
                     }
                     let product = admitted.products[index]
-                    guard let effect = product.graph.effects.first,
-                          admitted.unavailableDependencyStageReasons[effect.key] == nil else {
+                    guard let effect = product.graph.effects.first else { continue }
+                    let topologies = preparePassthroughTopologies(
+                        graph: product.graph,
+                        pairStep: admitted.pairPlan.effects.first { $0.effect == effect.key }
+                    )
+                    if admitted.unavailableDependencyStageReasons[effect.key] != nil {
+                        resultLock.withLock { programResults[index] = (topologies, nil) }
                         continue
                     }
                     let initiallyInactive = admitted.initiallyInactiveEffectKeys.contains(effect.key)
@@ -105,8 +110,10 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                             admitted.requiresGraphOutputProvider,
                         terminalReplayBlendMode: admitted.terminalReplayBlendMode
                     )
-                    let programResult = try compileStages(
+                    let programResult = try compileStage(
                         singleStage,
+                        product: product,
+                        passthroughTopologies: topologies,
                         materialCatalog: materialCatalog,
                         demandIssues: demandIssues,
                         dynamicProducers: dynamicProducers,
@@ -117,7 +124,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                         backbufferFormat: backbufferFormat,
                         cancellationCheck: cancellationCheck
                     )
-                    resultLock.withLock { programResults[index] = programResult }
+                    resultLock.withLock { programResults[index] = (topologies, programResult) }
                 } catch {
                     resultLock.withLock {
                         if preparationError == nil { preparationError = error }
@@ -128,7 +135,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         }
         if let preparationError { throw preparationError }
         try cancellationCheck?()
-        var stages: [StageCapability] = []
+        var stages: [CompiledStages.Stage] = []
         var allMaterials: [MaterialKey: MaterialCapability] = [:]
         for (index, product) in admitted.products.enumerated() {
             guard let effect = product.graph.effects.first else {
@@ -136,32 +143,34 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             }
             let initiallyInactive = admitted.initiallyInactiveEffectKeys
                 .contains(effect.key)
+            guard let preparation = programResults[index] else {
+                return .failure(rejection("execution-stage-conservation"))
+            }
+            let passthroughTopologies = preparation.topologies
             if let reasonCode =
                     admitted.unavailableDependencyStageReasons[effect.key] {
                 guard product.clearFunctions.functions.isEmpty,
-                      dependencyStageFailureMayPassthrough(
-                          product.graph,
-                          pairStep: admitted.pairPlan.effects.first(where: {
-                              $0.effect == effect.key
-                          })
-                      ) else {
+                      passthroughTopologies.contains(.dependencyStage) else {
                     return .failure(rejection(
                         "dependency-stage-visual-failure-unsafe"
                     ))
                 }
-                stages.append(.visualFailurePassthrough(
+                stages.append((
                     product: product,
-                    reasonCode: reasonCode
+                    execution: .visualFailurePassthrough(
+                        reasonCode: reasonCode
+                    ),
+                    passthroughTopologies: passthroughTopologies
                 ))
                 continue
             }
-            guard let programResult = programResults[index] else {
+            guard let programResult = preparation.result else {
                 return .failure(rejection("execution-stage-conservation"))
             }
             switch programResult {
             case let .success(compiled):
                 guard compiled.stages.count == 1,
-                      case .resolved = compiled.stages[0],
+                      case .resolved = compiled.stages[0].execution,
                       Set(allMaterials.keys).isDisjoint(with: compiled.materials.keys)
                 else { return .failure(rejection("material-identity-duplicate")) }
                 let expectedVisibilityTarget = SceneDynamicTarget
@@ -170,20 +179,22 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                         effectIndex: effect.key.effectIndex
                     )
                 if initiallyInactive,
-                   compiled.stages[0].activationPolicy?
+                   compiled.stages[0].execution.activationPolicy?
                     .effectVisibilityTarget != expectedVisibilityTarget {
                     guard initiallyInactiveStageMayPassthrough(
                         product,
-                        pairPlan: admitted.pairPlan
+                        passthroughTopologies: passthroughTopologies
                     ) else {
                         return .failure(rejection(
                             "initially-inactive-stage-passthrough-unsafe"
                         ))
                     }
-                    stages.append(.initiallyInactivePassthrough(
+                    stages.append((
                         product: product,
-                        reasonCode:
-                            "initially-inactive-property-stage-passthrough"
+                        execution: .initiallyInactivePassthrough(
+                            reasonCode: "initially-inactive-property-stage-passthrough"
+                        ),
+                        passthroughTopologies: passthroughTopologies
                     ))
                     continue
                 }
@@ -202,16 +213,18 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     ) {
                         guard initiallyInactiveStageMayPassthrough(
                             product,
-                            pairPlan: admitted.pairPlan
+                            passthroughTopologies: passthroughTopologies
                         ) else {
                             return .failure(rejection(
                                 "initially-inactive-stage-passthrough-unsafe"
                             ))
                         }
-                        stages.append(.initiallyInactivePassthrough(
+                        stages.append((
                             product: product,
-                            reasonCode:
-                                "inactive-dependency-preproof-mismatch"
+                            execution: .initiallyInactivePassthrough(
+                                reasonCode: "inactive-dependency-preproof-mismatch"
+                            ),
+                            passthroughTopologies: passthroughTopologies
                         ))
                         continue
                     }
@@ -223,16 +236,18 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 if initiallyInactive {
                     guard initiallyInactiveStageMayPassthrough(
                         product,
-                        pairPlan: admitted.pairPlan
+                        passthroughTopologies: passthroughTopologies
                     ) else {
                         return .failure(rejection(
                             "initially-inactive-stage-passthrough-unsafe"
                         ))
                     }
-                    stages.append(.initiallyInactivePassthrough(
+                    stages.append((
                         product: product,
-                        reasonCode:
-                            "initially-inactive-property-stage-passthrough"
+                        execution: .initiallyInactivePassthrough(
+                            reasonCode: "initially-inactive-property-stage-passthrough"
+                        ),
+                        passthroughTopologies: passthroughTopologies
                     ))
                     continue
                 }
@@ -241,11 +256,15 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                           programFailure,
                           product: product,
                           pairPlan: admitted.pairPlan,
-                          dependencyOwnership: admitted.dependencyOwnership
+                          dependencyOwnership: admitted.dependencyOwnership,
+                          passthroughTopologies: passthroughTopologies
                       ) else { return .failure(programFailure) }
-                stages.append(.visualFailurePassthrough(
+                stages.append((
                     product: product,
-                    reasonCode: programFailure.code
+                    execution: .visualFailurePassthrough(
+                        reasonCode: programFailure.code
+                    ),
+                    passthroughTopologies: passthroughTopologies
                 ))
             }
         }
@@ -280,16 +299,10 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
 
     private static func initiallyInactiveStageMayPassthrough(
         _ product: SceneGraphAdmissionProduct,
-        pairPlan: SceneLayerFullFramePairPlan
+        passthroughTopologies: Set<StageCapability.PassthroughTopology>
     ) -> Bool {
-        guard product.clearFunctions.functions.isEmpty,
-              let effect = product.graph.effects.first else { return false }
-        return dependencyStageFailureMayPassthrough(
-            product.graph,
-            pairStep: pairPlan.effects.first(where: {
-                $0.effect == effect.key
-            })
-        )
+        product.clearFunctions.functions.isEmpty
+            && passthroughTopologies.contains(.dependencyStage)
     }
 
     /// An initially inactive stage with typed activation
@@ -309,12 +322,13 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
     /// subset check would wrongly downgrade valid aggregate members; those
     /// layers keep the finalize-level fail-closed (registered narrowing).
     private static func dependencyPreproofMayStayResolved(
-        stage: StageCapability,
+        stage: CompiledStages.Stage,
         ownership: SceneResolvedMaterialDependencyOwnership,
         potentialBindings: [SceneDependencyRenderPlan.Binding],
         layerID: Int
     ) -> Bool {
-        guard case let .resolved(product, _, _) = stage else { return true }
+        guard case .resolved = stage.execution else { return true }
+        let product = stage.product
         guard product.graph.layerID == layerID else { return false }
         switch ownership {
         case let .externalPrimary(binding):
@@ -403,7 +417,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         _ failure: Rejection,
         product: SceneGraphAdmissionProduct,
         pairPlan: SceneLayerFullFramePairPlan,
-        dependencyOwnership: SceneResolvedMaterialDependencyOwnership
+        dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
+        passthroughTopologies: Set<StageCapability.PassthroughTopology>
     ) -> Bool {
         switch dependencyOwnership {
         case .none, .graphInternal:
@@ -426,10 +441,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             ) else { return false }
         }
         if failure.code == "material-optional-named-fallback-unproven" {
-            return dependencyStageFailureMayPassthrough(
-                product.graph,
-                pairStep: pairPlan.effects.first { $0.effect == product.graph.effects.first?.key }
-            )
+            return passthroughTopologies.contains(.dependencyStage)
         }
         let ordinaryVisualFailure = [
             "material-generic-owner-revoked",
@@ -478,11 +490,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
               pairStep.nodes.count == product.graph.nodes.count else { return false }
 
         if !product.graph.renderTargets.isEmpty {
-            return preEncodeVisualFailureGraphMayPassthrough(
-                product.graph,
-                effect: effect,
-                pairStep: pairStep
-            )
+            return passthroughTopologies.contains(.preEncodeGraph)
         }
         guard pairStep.fullFrameOutputWriteCount == product.graph.nodes.count,
               (pairStep.inputMember == pairStep.outputMember)
@@ -524,7 +532,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         _ ownership: SceneResolvedMaterialDependencyOwnership,
         potentialBindings: [SceneDependencyRenderPlan.Binding],
         layerID: Int,
-        stages: [StageCapability]
+        stages: [CompiledStages.Stage]
     ) -> SceneResolvedMaterialDependencyOwnership? {
         var resolvedDependencyStages: [ResolvedExternalDependency] = []
         for stage in stages {
@@ -700,7 +708,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
     }
 
     private static func orderedStageDependencies(
-        _ stages: [StageCapability],
+        _ stages: [CompiledStages.Stage],
         binding: SceneDependencyRenderPlan.Binding
     ) -> [BindingDependency]? {
         var result: [BindingDependency] = []
@@ -726,7 +734,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
     /// its slot only after the exact single-stage previous-current topology is
     /// proven; an unrelated local stage contributes no aggregate dependency.
     private static func aggregateStageDependencies(
-        _ stages: [StageCapability],
+        _ stages: [CompiledStages.Stage],
         aggregate: SceneDependencyRenderPlan.MultiProviderAggregate
     ) -> [BindingDependency]? {
         var result: [BindingDependency] = []
@@ -746,7 +754,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     guard dependencies.count == 1 else { return nil }
                     result.append(contentsOf: dependencies.map(\.bindingDependency))
                 case .none:
-                    guard case .visualFailurePassthrough = stage,
+                    guard case .visualFailurePassthrough = stage.execution,
                           let slots = SceneResolvedMaterialDependencyOwnership
                               .externalPrimary(binding)
                               .preEncodeVisualFailureSlots(in: stage.product.graph),

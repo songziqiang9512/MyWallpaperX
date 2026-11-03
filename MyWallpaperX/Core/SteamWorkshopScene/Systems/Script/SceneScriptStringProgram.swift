@@ -57,7 +57,9 @@ nonisolated final class SceneScriptStringProgram: SceneScriptValueOwnerProgramRe
     var liveUserPropertyConsumerTargetsByKey:
         [String: Set<SceneDynamicTarget>]
     var livePropertyInputTargets: Set<SceneDynamicTarget>
-    var disabledTargets: Set<SceneDynamicTarget> = []
+    var disabledTargets: Set<SceneDynamicTarget> = [] {
+        didSet { if disabledTargets != oldValue { bindings.first?.noteSystemInputConsumersChanged() } }
+    }
     var retiredTargets: Set<SceneDynamicTarget> = []
 #if DEBUG
     private var reportedTargets: Set<SceneDynamicTarget> = []
@@ -833,7 +835,6 @@ nonisolated final class SceneScriptStringProgram: SceneScriptValueOwnerProgramRe
                   keys: binding.wrapperKeys ?? [],
                   host: .objectText
               ),
-              layer.textScript?.source == binding.source,
               case let .string(authored)? = binding.authoredValue,
               layer.text == authored,
               let properties = SceneScriptPropertyInputCodec.inputs(

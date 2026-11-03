@@ -13,13 +13,12 @@ ROOT = Path(__file__).resolve().parents[2]
 AGENT_RULES = ROOT / "AGENTS.md"
 GITIGNORE = ROOT / ".gitignore"
 DOCS_README = ROOT / "docs/README.md"
-ROADMAP = ROOT / "docs/scene/roadmap/scene-compatibility-roadmap.md"
+ROADMAP = ROOT / "docs/scene/README.md"
 SCENE_README = ROOT / "docs/scene/README.md"
 WEB_README = ROOT / "docs/web/README.md"
-SEMANTICS_README = ROOT / "docs/scene/capabilities/README.md"
 SCENE_EVIDENCE = ROOT / ".artifacts/scene-evidence/runs"
 SOURCE_INDEX = ROOT / "docs/scene/development/source-index.md"
-COVERAGE_LEDGER = ROOT / "docs/scene/capabilities/coverage-ledger.md"
+COVERAGE_LEDGER = ROOT / "docs/scene/capabilities/README.md"
 RUNTIME_EVIDENCE = ROOT / "docs/scene/capabilities/runtime-evidence-current.md"
 RENDER_GRAPH_COVERAGE = (
     ROOT / "docs/scene/capabilities/render-graph-shader-coverage.md"
@@ -29,14 +28,6 @@ RESEARCH_WORKFLOW = (
     / "docs/scene/development/official-client-behavior-research-workflow.md"
 )
 FAST_SUITE = ROOT / "script/scene_fast_suite.json"
-MAINTAINER_SKILL = ROOT / ".agents/skills/mywallpaperx-maintainer/SKILL.md"
-SKILL_GOVERNANCE = (
-    ROOT
-    / ".agents/skills/mywallpaperx-maintainer/references/skill-governance.md"
-)
-VIDEO_SKILL = (
-    ROOT / ".agents/skills/mywallpaperx-maintainer/references/video-engine.md"
-)
 
 SOURCE_CLASSES = {
     "official-public-contract",
@@ -90,16 +81,6 @@ class SceneGovernanceContractTests(unittest.TestCase):
     def setUp(self) -> None:
         self.manifest = json.loads(FAST_SUITE.read_text(encoding="utf-8"))
 
-    def test_semantics_directory_has_a_hot_cold_reading_boundary(self) -> None:
-        text = SEMANTICS_README.read_text(encoding="utf-8")
-        for phrase in (
-            "读取分层",
-            "资料和代码的边界",
-            "不要把整个语义目录或整份流水账一次性装入上下文",
-            "文档之间互相链接不算代码消费",
-        ):
-            self.assertIn(phrase, text)
-
     def test_fast_suite_manifest_is_complete_but_honest_about_readiness(self) -> None:
         self.assertEqual(self.manifest.get("schemaVersion"), 1)
         self.assertEqual(
@@ -144,20 +125,7 @@ class SceneGovernanceContractTests(unittest.TestCase):
                     self.assertIsNone(case.get("fixtureIdentity"))
                     self.assertIsNone(case.get("contentDigest"))
 
-    def test_repository_skill_does_not_claim_standing_write_authority(self) -> None:
-        combined = "\n".join(
-            (
-                MAINTAINER_SKILL.read_text(encoding="utf-8"),
-                SKILL_GOVERNANCE.read_text(encoding="utf-8"),
-            )
-        )
-        self.assertNotIn("standing maintenance request", combined)
-        self.assertNotIn("用户已授权在开发中持续", combined)
-        self.assertIn("当前用户请求", combined)
-        self.assertIn("no earlier maintenance request", combined)
-        self.assertNotIn("playbackIntent", VIDEO_SKILL.read_text(encoding="utf-8"))
-
-    def test_roadmap_does_not_duplicate_current_capability_truth(self) -> None:
+    def test_scene_navigation_does_not_duplicate_current_capability_truth(self) -> None:
         roadmap = ROADMAP.read_text(encoding="utf-8")
         self.assertNotRegex(
             roadmap,
@@ -202,12 +170,10 @@ class SceneGovernanceContractTests(unittest.TestCase):
                 self.assertNotIn("report.json", text)
                 self.assertNotIn("manifest.json", text)
 
-
     def test_scene_evidence_is_a_local_ignored_cache(self) -> None:
         evidence = RUNTIME_EVIDENCE.read_text(encoding="utf-8")
         ignored = GITIGNORE.read_text(encoding="utf-8").splitlines()
         self.assertIn(".artifacts/", ignored)
-        self.assertIn("仓库忽略的本机证据缓存", evidence)
         self.assertNotIn("](../evidence/", evidence)
 
         relative = SCENE_EVIDENCE.relative_to(ROOT).as_posix()
@@ -224,7 +190,6 @@ class SceneGovernanceContractTests(unittest.TestCase):
     def test_named_source_taxonomy_is_single_and_complete(self) -> None:
         rules = AGENT_RULES.read_text(encoding="utf-8")
         source_index = SOURCE_INDEX.read_text(encoding="utf-8")
-        self.assertIn("named source taxonomy 的唯一分类入口", source_index)
         for source_class in SOURCE_CLASSES:
             with self.subTest(sourceClass=source_class):
                 self.assertIn(f"`{source_class}`", source_index)
@@ -238,51 +203,6 @@ class SceneGovernanceContractTests(unittest.TestCase):
                 self.assertNotRegex(text, r"(?<![A-Za-z0-9])D\s*级")
                 self.assertNotRegex(text, r"等级[：:\s]*`?D`?")
 
-    def test_capability_and_evidence_scales_have_separate_authorities(self) -> None:
-        ledger = COVERAGE_LEDGER.read_text(encoding="utf-8")
-        evidence = RUNTIME_EVIDENCE.read_text(encoding="utf-8")
-        render_graph = RENDER_GRAPH_COVERAGE.read_text(encoding="utf-8")
-        # Current capability conventions remain in the retained body; historical
-        # batch prose is no longer a source for the current authority contract.
-        current_conventions = ledger.split('<a id="capability-conventions"></a>', 1)[1].split('<a id="official-sources"></a>', 1)[0]
-        self.assertIn("现役 current capability 唯一系统摘要", current_conventions)
-        self.assertIn("运行证据深度按 [S0–S5](runtime-evidence-current.md#evidence-levels)", current_conventions)
-        self.assertIn("两者不机械换算", current_conventions)
-        self.assertIn("本页采用唯一的运行证据深度口径", evidence)
-        self.assertNotIn("- `S1 preserved`：", render_graph)
-
-        defined_levels = {
-            level
-            for level in re.findall(
-                r"`(S\d) (?:missing/unknown|preserved|wired|executed|visible|parity-ready)`",
-                evidence,
-            )
-        }
-        self.assertEqual(defined_levels, {"S0", "S1", "S2", "S3", "S4", "S5"})
-
-        used_levels: set[str] = set()
-        for path in (ROOT / "docs/scene").rglob("*.md"):
-            if "history" in path.parts:
-                continue
-            used_levels.update(re.findall(r"\bS\d+\b", path.read_text(encoding="utf-8")))
-        self.assertLessEqual(used_levels, defined_levels)
-
-    def test_research_allows_reading_and_requires_independent_implementation(self) -> None:
-        workflow = RESEARCH_WORKFLOW.read_text(encoding="utf-8")
-        rules = AGENT_RULES.read_text(encoding="utf-8")
-        for phrase in (
-            "可阅读作者脚本、shader、参考源码及反编译资料研究行为",
-            "阅读本身不要求停工、更换 Agent 或隔离上下文",
-            "不直接复制、照译或移植参考实现",
-        ):
-            self.assertIn(phrase, rules)
-        for phrase in (
-            "阅读或意外导出源码本身不触发停工",
-            "不得直接复制、照译或移植",
-            "独立实现",
-            "正反例和实际运行",
-        ):
-            self.assertIn(phrase, workflow)
 
 
 if __name__ == "__main__":

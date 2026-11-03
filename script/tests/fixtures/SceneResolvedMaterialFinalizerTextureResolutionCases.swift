@@ -178,16 +178,16 @@ func neutralTextureResolutionToken(_ device: MTLDevice) -> String {
     }
     guard program.textureSlots[1] == nil else { return "slot1-bound" }
     guard program.textureSlots[2] != nil else { return "slot2-missing" }
-    guard let uniform = program.resolvedUniforms.first(where: {
-              $0.field.name == "g_Texture1Resolution"
+    guard let uniform = zip(program.preparedAssembly.preparedUniformBindings, program.resolvedUniforms).first(where: {
+              $0.0.field.name == "g_Texture1Resolution"
           }) else { return "uniform-missing" }
-    guard case let .neutralMissingTextureResolution(fact) = uniform.source
+    guard case let .neutralMissingTextureResolution(fact) = uniform.0.source
     else { return "uniform-source" }
     guard
           fact.resolutionSlot == 1,
-          uniform.encodedValue.count == 16,
+          uniform.1.encodedValue.count == 16,
           (0 ..< 4).allSatisfy({
-              sceneResolvedMaterialFixtureFloat(uniform.encodedValue, at: $0 * 4) == 2
+              sceneResolvedMaterialFixtureFloat(uniform.1.encodedValue, at: $0 * 4) == 2
           }),
           program.semanticIdentity.activeUniforms.contains(where: {
               guard $0.fieldName == "g_Texture1Resolution",
@@ -216,13 +216,13 @@ func neutralTextureResolutionUnseenToken(_ device: MTLDevice) -> String {
           program.textureSlots[5] != nil,
           program.exactIdentity.textureSlots[5]?.physicalExtent == [64, 32],
           program.exactIdentity.textureSlots[5]?.mappedExtent == [64, 32],
-          let uniform = program.resolvedUniforms.first(where: {
-              $0.field.name == "g_Texture3Resolution"
+          let uniform = zip(program.preparedAssembly.preparedUniformBindings, program.resolvedUniforms).first(where: {
+              $0.0.field.name == "g_Texture3Resolution"
           }),
-          case let .neutralMissingTextureResolution(fact) = uniform.source,
+          case let .neutralMissingTextureResolution(fact) = uniform.0.source,
           fact.resolutionSlot == 3,
-          uniform.encodedValue.count == 16,
-          (0 ..< 4).allSatisfy({ sceneResolvedMaterialFixtureFloat(uniform.encodedValue, at: $0 * 4) == 2 })
+          uniform.1.encodedValue.count == 16,
+          (0 ..< 4).allSatisfy({ sceneResolvedMaterialFixtureFloat(uniform.1.encodedValue, at: $0 * 4) == 2 })
     else { return failureToken(result) }
     return "success"
 }
@@ -250,13 +250,13 @@ func separateNeutralTextureResolutionToken(_ device: MTLDevice) -> String {
     guard case let .success(program) = result,
           program.textureSlots[7] == nil,
           program.exactIdentity.textureSlots[3]?.physicalExtent == [256, 256],
-          let uniform = program.resolvedUniforms.first(where: {
-              $0.field.name == "g_Texture7Resolution"
+          let uniform = zip(program.preparedAssembly.preparedUniformBindings, program.resolvedUniforms).first(where: {
+              $0.0.field.name == "g_Texture7Resolution"
           }),
-          case let .neutralMissingTextureResolution(fact) = uniform.source,
+          case let .neutralMissingTextureResolution(fact) = uniform.0.source,
           fact.resolutionSlot == 7,
           (0 ..< 4).allSatisfy({
-              sceneResolvedMaterialFixtureFloat(uniform.encodedValue, at: $0 * 4) == 2
+              sceneResolvedMaterialFixtureFloat(uniform.1.encodedValue, at: $0 * 4) == 2
           })
     else { return failureToken(result) }
     return "success"
@@ -519,10 +519,10 @@ func neutralTextureResolutionFinalizerFailures(
         guard case let .success(program) = defaultResult,
               let slot = program.textureSlots[1], slot.registryIdentity ==
                 .asset(.init(path: SceneVFSAssetPath("textures/default.tex")!, purpose: .mask)),
-              let uniform = program.resolvedUniforms.first(where: {
-                  $0.field.name == "g_Texture1Resolution"
-              }), case .host(.textureResolution(slot: 1)) = uniform.source,
-              (0..<4).map({ sceneResolvedMaterialFixtureFloat(uniform.encodedValue, at: $0 * 4) }) == [64, 32, 64, 32]
+              let uniform = zip(program.preparedAssembly.preparedUniformBindings, program.resolvedUniforms).first(where: {
+                  $0.0.field.name == "g_Texture1Resolution"
+              }), case .host(.textureResolution(slot: 1)) = uniform.0.source,
+              (0..<4).map({ sceneResolvedMaterialFixtureFloat(uniform.1.encodedValue, at: $0 * 4) }) == [64, 32, 64, 32]
         else { return failureToken(defaultResult) + "/default-resource-or-host" }
         return "success"
     }()

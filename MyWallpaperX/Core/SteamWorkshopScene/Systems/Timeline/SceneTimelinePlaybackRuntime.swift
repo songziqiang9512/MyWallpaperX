@@ -37,12 +37,12 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
     }
 
     /// Keep binding/handle ordinals independent of shared playback state.
-    private let orderedBindings: [SceneTimelineBinding]
+    private var orderedBindings: [SceneTimelineBinding]
     /// Prepared once: commands resolve any member to one state, while normal
     /// projection follows integer member indices without finding groups again.
-    private let stateIndices: [SceneDynamicTarget: Int]
-    private let stateMembers: [[Int]]
-    private let ownerAnimations: [SceneTimelineAnimation]
+    private var stateIndices: [SceneDynamicTarget: Int]
+    private var stateMembers: [[Int]]
+    private var ownerAnimations: [SceneTimelineAnimation]
     private var orderedStates: [State]
     private var pendingNextFrameObservations: Set<SceneDynamicTarget> = []
 
@@ -90,6 +90,39 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
         stateMembers = members
         ownerAnimations = animations
         orderedStates = states
+    }
+
+    func retire(targets: Set<SceneDynamicTarget>) {
+        guard !targets.isDisjoint(with: stateIndices.keys) else { return }
+        var bindings: [SceneTimelineBinding] = []
+        var indices: [SceneDynamicTarget: Int] = [:]
+        var members: [[Int]] = []
+        var animations: [SceneTimelineAnimation] = []
+        var states: [State] = []
+        var remappedStates: [Int: Int] = [:]
+        for binding in orderedBindings where !targets.contains(binding.target) {
+            guard let oldIndex = stateIndices[binding.target] else { continue }
+            let index: Int
+            if let existing = remappedStates[oldIndex] {
+                index = existing
+            } else {
+                index = states.count
+                remappedStates[oldIndex] = index
+                members.append([])
+                // A surviving member keeps the original owner's clock even if its binding retired.
+                animations.append(ownerAnimations[oldIndex])
+                states.append(orderedStates[oldIndex])
+            }
+            indices[binding.target] = index
+            members[index].append(bindings.count)
+            bindings.append(binding)
+        }
+        orderedBindings = bindings
+        stateIndices = indices
+        stateMembers = members
+        ownerAnimations = animations
+        orderedStates = states
+        pendingNextFrameObservations.formIntersection(indices.keys)
     }
 
     nonisolated func observationSnapshot() -> ObservationState {

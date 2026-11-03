@@ -80,7 +80,6 @@ import simd
             visible: true, originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1], alpha: 0.5,
             effects: [], contentKind: "text", text: "ready",
             textStyle: .init(fontPath: nil, colorRGB: [1, 1, 1], pointSize: 32))
-        peer.textScript = .init(source: peerSource)
         scene.layers.append(peer)
         var document = root(script: script, propertyInputs: propertyInputs)
         var objects = document["objects"] as! [[String: Any]]
@@ -98,10 +97,10 @@ import simd
             report: SceneUserPropertyBindingParser().parse(root: document), catalog: catalog()).program
         let schema = SceneDesktopWallpaperLaunchFrameSchema(
             runtimeInput: .init(propertyBindingProgram: propertyProgram, renderDescriptor: scene),
-            sharedLayerAlphaProgram: .init(), propertyVectorScriptProgram: candidate.vectorProgram,
+            propertyVectorScriptProgram: candidate.vectorProgram,
             sceneScriptFallbackDefinitions: [], sceneScriptScalarProgram: candidate.scalarProgram,
             sceneScriptStringProgram: candidate.stringProgram, sceneScriptOwnerLayerIDs: [7, 8],
-            preparedResourceLayerTemplates: [:], timelineProgram: .init(), textScriptProgram: .init())
+            preparedResourceLayerTemplates: [:], timelineProgram: .init())
         return .init(frameSchema: schema, sceneScriptScalarProgram: candidate.scalarProgram,
             sceneScriptStringProgram: candidate.stringProgram, sceneScriptCursorProgram: candidate.cursorProgram,
             propertyVectorScriptProgram: candidate.vectorProgram,

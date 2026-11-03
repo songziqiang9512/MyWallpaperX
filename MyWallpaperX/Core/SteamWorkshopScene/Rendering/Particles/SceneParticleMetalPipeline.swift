@@ -1,12 +1,41 @@
 import Metal
 import simd
 
+struct SceneParticleDrawBatch {
+    let layerID: Int
+    let particlePath: String
+    let texture: MTLTexture
+    let colorUVScale: SIMD2<Float>
+    let colorSampling: SceneParticleTextureSampling
+    let refraction: SceneParticleRefractionBinding?
+    let renderState: SceneParticlePipelineRenderState
+    let childTemplateIndex: Int?
+    let instances: [SceneParticleGPUInstance]
+    let orientation: SceneParticleOrientation
+    let orientationAxis: SIMD3<Float>?
+    let usesPerspective: Bool
+    /// Existing root RopeTrail admission, independent of Sprite material state.
+    var inheritsNativeSceneCamera: Bool = false
+    var referenceWorldFrame: simd_float4x4? = nil
+    var sizeIsWorldSpace: Bool = false
+}
+
 private struct SceneParticleQuadVertex {
     var position: SIMD2<Float>
     var texcoord: SIMD2<Float>
 }
 
-struct SceneParticleMetalPipeline {
+final class SceneParticleMetalPipeline {
+    struct PreparedBatch {
+        let draw: SceneParticleDrawBatch
+        let instanceBuffer: SceneParticleMetalInstanceBuffer
+    }
+
+    private struct InstanceBufferKey: Hashable {
+        let layerID: Int
+        let childTemplateIndex: Int?
+    }
+
     struct BlendConfiguration {
         let sourceRGB: MTLBlendFactor
         let destinationRGB: MTLBlendFactor
@@ -20,6 +49,7 @@ struct SceneParticleMetalPipeline {
     private let samplerStates: SceneParticleSamplerStateSet
     let framebufferSnapshot: SceneFramebufferSnapshot
     private let depthTargetPool = SceneParticleDepthTargetPool()
+    private var instanceBuffers: [InstanceBufferKey: SceneParticleMetalInstanceBuffer] = [:]
 
     var renderTargetResidentByteCost: Int {
         framebufferSnapshot.residentByteCost + depthTargetPool.residentByteCost
@@ -87,6 +117,36 @@ struct SceneParticleMetalPipeline {
             device: device,
             label: "Scene particle refraction background"
         )
+    }
+
+    func retire(layerIDs: Set<Int>) {
+        for key in instanceBuffers.keys.filter({ layerIDs.contains($0.layerID) }) {
+            instanceBuffers.removeValue(forKey: key)
+        }
+    }
+
+    func prepare(_ batches: [SceneParticleDrawBatch]) -> [PreparedBatch] {
+        batches.compactMap { batch in
+            let key = InstanceBufferKey(layerID: batch.layerID, childTemplateIndex: batch.childTemplateIndex)
+            let buffer: SceneParticleMetalInstanceBuffer
+            if let existing = instanceBuffers[key] {
+                buffer = existing
+            } else {
+                buffer = SceneParticleMetalInstanceBuffer()
+                instanceBuffers[key] = buffer
+            }
+            guard buffer.update(device: device, instances: batch.instances),
+                  buffer.currentDrawState() != nil else { return nil }
+            return PreparedBatch(draw: batch, instanceBuffer: buffer)
+        }
+    }
+
+    func cancel(_ batches: [PreparedBatch], on commandBuffer: MTLCommandBuffer) {
+        guard commandBuffer.status == .notEnqueued else { return }
+        for batch in batches {
+            batch.instanceBuffer.cancelUncommittedSubmission(on: commandBuffer)
+            batch.instanceBuffer.cancelPending()
+        }
     }
 
     static func blendConfiguration(

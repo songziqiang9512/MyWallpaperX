@@ -533,8 +533,10 @@ final class SceneResolvedMaterialFinalizerFixture {
             "admittedEffectIngress": fixture.preparation.admittedEffectIngress,
             "failures": fixture.failures.failures,
             "arithmeticColorBoundary": fixture.failures.arithmeticColorBoundary,
-            "materialCrossTemplateCache": crossTemplateMaterialCacheTokens(device),
+            "preparedMaterialOwnership": preparedMaterialOwnershipCases(device),
+            "preparedTextureCompanions": preparedTextureCompanionCases(),
             "preparedVariantFrames": scenePreparedVariantFrameCases(device),
+            "preparedTextureFormats": preparedTextureFormatCases(),
         ]
         return result.merging(extra) { _, additional in additional }
     }

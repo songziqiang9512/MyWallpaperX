@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-from script.tests.source_family import read_source_family
 import json
 import os
 from pathlib import Path
@@ -113,7 +112,7 @@ private func launchGateVariant(
         frontend: frontend,
         renderState: base.preparedAssembly.renderState,
         runtimeLoopBounds: base.runtimeLoopBounds,
-        hasEffectContext: base.preparedAssembly.hasEffectContext,
+        preparedUniformBindings: base.preparedAssembly.preparedUniformBindings,
         conditionalGeneratedRGBInputContract: base.conditionalGeneratedRGBInputContract,
         associatedOverOverlaySlot: base.associatedOverOverlaySlot,
         premultipliedColorInputSlots: base.premultipliedColorInputSlots
@@ -125,6 +124,7 @@ private func launchGateVariant(
         resolvedIntegerCombos: base.resolvedIntegerCombos,
         routeDecision: base.routeDecision,
         activeSamplers: base.activeSamplers,
+        textureSelectionFacts: base.textureSelectionFacts,
         graphInputSourceSlotFacts: base.graphInputSourceSlotFacts,
         preservedAlphaRGBColorSlots: base.preservedAlphaRGBColorSlots,
         sourceProvenOpaqueColorSlots: opaqueSlots,
@@ -133,7 +133,6 @@ private func launchGateVariant(
         sameAlphaReconstructedRGBInputContract:
             base.sameAlphaReconstructedRGBInputContract,
         activeUniforms: base.activeUniforms,
-        preparedUniformBindings: base.preparedUniformBindings,
         neutralTextureResolution: base.neutralTextureResolution
     )
 }
@@ -146,7 +145,7 @@ private func launchGateToken(
     content: SceneTextureContent?
 ) -> String {
     let facts = content.map { [internalTarget: $0] } ?? [:]
-    guard let failure = SceneResolvedMaterialTextureResolver.launchProgramFailure(
+    guard let failure = SceneResolvedMaterialVariantCache.launchProgramFailure(
         template: template,
         variants: [variant],
         readinessMask: variant.readinessMask,
@@ -241,6 +240,7 @@ private enum LaunchGateHarness {
         guard case let .success(cache) =
                 SceneResolvedMaterialVariantCache.launchValidated(
             template: material,
+            textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: material),
             maximumVariantCount: 8
         ), case .success = cache.precompileLaunchEnvelope(
             implicitFramebufferIdentity: input
@@ -517,39 +517,6 @@ class SceneOpaqueAlphaWeightedLoopAverageOwnerTests(unittest.TestCase):
                     **facts,
                 )
                 self.assertNotEqual(observed["routeProfile"], PROFILE)
-
-    def test_typed_opaque_input_contract_reaches_frame_finalization(self) -> None:
-        compilation = read_source_family(REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift")
-        finalizer = (
-            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgramFinalizer+ColorInputs.swift"
-        ).read_text(encoding="utf-8")
-        launch = (
-            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureResolver+LaunchColor.swift"
-        ).read_text(encoding="utf-8")
-
-        self.assertIn(
-            ".sourceProvenGraphTargetOpaqueAlphaWeightedLoopAverage.rawValue",
-            compilation,
-        )
-        self.assertIn(
-            "sourceProvenOpaqueColorSlots = [fact.sourceSlot]", compilation
-        )
-        self.assertIn(
-            "let associatedOverOverlaySlot =", compilation
-        )
-        self.assertIn(
-            "associatedOverOverlaySlot: associatedOverOverlaySlot", compilation
-        )
-        for source in (finalizer, launch):
-            self.assertIn(
-                "hasResolvedOpaqueColorSampleContract(", source
-            )
-            self.assertIn("variant.sourceProvenOpaqueColorSlots", source)
-        self.assertIn(
-            "associatedOverOverlaySlot:\n"
-            "                        variant.associatedOverOverlaySlot",
-            launch,
-        )
 
 class SceneOrdinaryColorBoundaryLaunchTests(unittest.TestCase):
     @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")

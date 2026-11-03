@@ -45,6 +45,34 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         emit(emission)
     }
 
+    /// Called when the surface adopts topology, before opening its next render.
+    /// Encoded ledgers keep their inputs; only future history promotion retires.
+    func retireHistory(layerIDs: Set<Int>) {
+        lock.lock()
+        defer { lock.unlock() }
+        assert(!frameIsActive && activeTransactions.isEmpty)
+        var retiredPins: [SceneGraphRenderTargetResidencyPin] = []
+        func keepingLiveTails(_ tails: [Graph.EffectKey: Tail]) -> [Graph.EffectKey: Tail] {
+            tails.filter { effect, tail in
+                guard layerIDs.contains(effect.layerID) else { return true }
+                if let pin = tail.historyPin { retiredPins.append(pin) }
+                return false
+            }
+        }
+        committedTails = keepingLiveTails(committedTails)
+        for index in pendingSubmissions.indices {
+            pendingSubmissions[index].finalTails = keepingLiveTails(
+                pendingSubmissions[index].finalTails)
+        }
+        restoreScheduledTailsLocked()
+        if pendingSubmissions.isEmpty {
+            releasePins(retiredPins)
+        } else {
+            pendingSubmissions[pendingSubmissions.count - 1]
+                .retiredHistoryPins.append(contentsOf: retiredPins)
+        }
+    }
+
     /// Ends the surface runtime before its pool is reset. In-flight ledgers and
     /// retired committed history stay pinned until their terminal callback.
     func invalidate(reason: SceneGraphExecutionResetReason) {
@@ -76,9 +104,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             if pendingSubmissions[retirementIndex].cancellationReason == nil {
                 pendingSubmissions[retirementIndex].cancellationReason = reason.rawValue
             }
-            if pendingSubmissions[retirementIndex].retiredHistoryPins.isEmpty {
-                pendingSubmissions[retirementIndex].retiredHistoryPins = committedPins
-            }
+            pendingSubmissions[retirementIndex].retiredHistoryPins.append(contentsOf: committedPins)
             for index in pendingSubmissions.indices {
                 if pendingSubmissions[index].cancellationReason == nil {
                     pendingSubmissions[index].cancellationReason = reason.rawValue

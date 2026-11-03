@@ -58,36 +58,49 @@ private func rulerSlot(_ fixture: CoordinateFixture, device: MTLDevice,
 
 private func rulerAssembly(_ fixture: CoordinateFixture, parameter: String,
                            frontend: SceneAuthoredShaderProgram, selected: Program.TextureSlot?,
-                           value: [Double], generation: UInt64) -> Program.AssemblyInput? {
+                           value: [Double], generation: UInt64) -> (frame: Program.FrameAssemblyInput, prepared: Program.PreparedAssembly)? {
     var slots = Array<Program.TextureSlot?>(repeating: nil, count: 8)
     slots[fixture.slot] = selected
     var uniforms: [Program.ResolvedUniform] = []
+    var bindings: [SceneResolvedMaterialPreparedUniformBinding] = []
     for field in frontend.uniformLayout.fields {
         let encoded: Data?
-        let source: Program.ResolvedUniform.Source
+        let source: SceneResolvedMaterialPreparedUniformBinding.Source
         if field.authoredName == parameter {
             encoded = SceneResolvedMaterialUniformEncoder.encodeComponents(value, as: field.type)
-            source = .staticValue
-        } else if let host = SceneResolvedMaterialUniformEncoder.hostUniform(field, slots: slots) {
+            guard let encoded else { return nil }
+            source = .staticValue(encoded)
+        } else if let host = SceneResolvedMaterialHostUniformSchema.resolve(field,
+            activeTextureSlots: Set(slots.enumerated().compactMap {
+                $0.element == nil ? nil : $0.offset
+            })) {
             encoded = SceneResolvedMaterialUniformEncoder.encodeHost(host, type: field.type,
                 inputs: inputs(generation: generation), slots: slots)
             source = .host(host)
         } else { return nil }
         guard let encoded else { return nil }
-        uniforms.append(.init(field: field, source: source, encodedValue: encoded))
+        bindings.append(.init(field: field, source: source))
+        uniforms.append(.init(encodedValue: encoded))
     }
-    return .init(preparedShader: prepared(fixture), textureSlots: slots, resolvedUniforms: uniforms,
+    guard let assembly = try? Program.PreparedAssembly(
+        preparedShader: prepared(fixture), frontend: frontend,
         renderState: SceneMaterialRenderState.compile(blending: "normal", depthTest: "disabled",
             depthWrite: "disabled", cullMode: "nocull", alphaWriting: nil)!,
+        runtimeLoopBounds: .none, preparedUniformBindings: bindings,
+        conditionalGeneratedRGBInputContract: nil, associatedOverOverlaySlot: nil,
+        premultipliedColorInputSlots: []
+    ) else { return nil }
+    return (.init(textureSlots: slots, resolvedUniforms: uniforms,
         graphRole: .init(effectInput: .layerSource, effectOutput: .effectOutput,
-            nodeTarget: .framebuffer, bindings: [.init(slot: fixture.slot, texture: .framebuffer)]))
+            nodeTarget: .framebuffer, bindings: [.init(slot: fixture.slot, texture: .framebuffer)]),
+        outputStorage: .color), assembly)
 }
 
-private func rulerProgram(_ assembly: Program.AssemblyInput,
-                          frontend: SceneAuthoredShaderProgram) -> Program? {
-    Program.assembleCompiled(assembly, frontend: frontend,
-        routeDecision: .init(profile: "ordinary-shader", state: "generic-only", fallbackOwner: "bounded-frontend"),
-        conditionalGeneratedRGBInputContract: nil)
+private func rulerProgram(
+    _ assembly: (frame: Program.FrameAssemblyInput, prepared: Program.PreparedAssembly)
+) -> Program? {
+    Program.assemblePrepared(assembly.frame, prepared: assembly.prepared,
+        routeDecision: .init(profile: "ordinary-shader", state: "generic-only", fallbackOwner: "bounded-frontend"))
 }
 
 private func renderRuler(_ program: Program, device: MTLDevice,
@@ -96,6 +109,7 @@ private func renderRuler(_ program: Program, device: MTLDevice,
         width: 2, height: 2, mipmapped: false)
     descriptor.storageMode = .shared; descriptor.usage = [.renderTarget, .shaderRead]
     let output = device.makeTexture(descriptor: descriptor)!
+    prepareMaterialPipeline(program, encoder: encoder, target: output)
     let pass = try encoder.prepareResult(program: program, target: output, attachmentStorage: .color).get()
     let command = queue.makeCommandBuffer()!
     guard encoder.encode(pass, commandBuffer: command) else { fatalError("ruler encode failed") }
@@ -110,8 +124,6 @@ private func renderRuler(_ program: Program, device: MTLDevice,
 @main private enum ScaleRulerMain {
     static func main() throws {
         let bundle = Bundle(path: CommandLine.arguments[1])!
-        let cache = URL(fileURLWithPath: CommandLine.arguments[2])
-        try FileManager.default.createDirectory(at: cache, withIntermediateDirectories: true)
         guard let device = MTLCreateSystemDefaultDevice(), let queue = device.makeCommandQueue(),
               let encoder = SceneResolvedMaterialPassEncoder(device: device) else { fatalError("Metal unavailable") }
         var observations: [[String: Any]] = []
@@ -123,14 +135,13 @@ private func renderRuler(_ program: Program, device: MTLDevice,
             let key = SceneResolvedMaterialGenericShaderRequest.key(vertexSource: canonical.vertex,
                 fragmentSource: canonical.fragment, outputSemantics: .color,
                 expectedColorTransfer: nil, premultipliedColorInputSlots: [])
-            let path: URL
+            let artifact: SceneGenericShaderProgramArtifact
             switch SceneGenericShaderCompiler.compile(requestKey: key, vertexSource: canonical.vertex,
-                fragmentSource: canonical.fragment, boundTextureSlots: [fixture.slot], cacheRoot: cache, bundle: bundle) {
-            case let .success(value): path = value
+                fragmentSource: canonical.fragment, boundTextureSlots: [fixture.slot], bundle: bundle) {
+            case let .success(compiled): artifact = compiled.artifact
             case let .failure(failure): throw NSError(domain: "self-ruler-compiler", code: 1,
                 userInfo: [NSLocalizedDescriptionKey: String(describing: failure)])
             }
-            let artifact = try JSONDecoder().decode(SceneGenericShaderProgramArtifact.self, from: Data(contentsOf: path))
             guard let frontend = artifact.makeProgram(expectedKey: key,
                 expectedColorTransfer: .passthrough(textureSlot: fixture.slot), expectedFragmentOutputChannelUse: .redDefined)
             else { fatalError("ruler artifact rejected") }
@@ -139,8 +150,9 @@ private func renderRuler(_ program: Program, device: MTLDevice,
                     let slot = rulerSlot(fixture, device: device, generation: generation)
                     let assembly = rulerAssembly(fixture, parameter: parameter, frontend: frontend,
                         selected: slot, value: value, generation: generation)!
-                    guard let program = rulerProgram(assembly, frontend: frontend) else { fatalError("ruler Program rejected") }
-                    let bytes = assembly.resolvedUniforms.first { $0.field.authoredName == parameter }!.encodedValue
+                    guard let program = rulerProgram(assembly) else { fatalError("ruler Program rejected") }
+                    let index = assembly.prepared.preparedUniformBindings.firstIndex { $0.field.authoredName == parameter }!
+                    let bytes = assembly.frame.resolvedUniforms[index].encodedValue
                     let encodedValues: [Float] = [0, 4].map { offset in bytes.withUnsafeBytes {
                         $0.loadUnaligned(fromByteOffset: offset, as: Float.self) } }
                     observations.append(["variant": variant, "resource": fixture.name, "parameter": parameter,
@@ -157,11 +169,11 @@ private func renderRuler(_ program: Program, device: MTLDevice,
             }
             let missing = rulerAssembly(fixture, parameter: parameter, frontend: frontend,
                 selected: nil, value: [12, 12], generation: 1)
-            negatives["\(variant)-missingRequiredSource"] = missing.flatMap { rulerProgram($0, frontend: frontend) } == nil
+            negatives["\(variant)-missingRequiredSource"] = missing.flatMap { rulerProgram($0) } == nil
             let unknown = rulerSlot(fixture, device: device, generation: 1, content: .color(.unresolved))
             let unproven = rulerAssembly(fixture, parameter: parameter, frontend: frontend,
                 selected: unknown, value: [12, 12], generation: 1)
-            negatives["\(variant)-unknownColor"] = unproven.flatMap { rulerProgram($0, frontend: frontend) } == nil
+            negatives["\(variant)-unknownColor"] = unproven.flatMap { rulerProgram($0) } == nil
         }
         print(String(decoding: try JSONSerialization.data(withJSONObject: ["observations": observations,
             "negatives": negatives], options: [.sortedKeys]), as: UTF8.self))

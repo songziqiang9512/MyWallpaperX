@@ -79,8 +79,8 @@ enum SceneGenericShaderPreparedNormalizationChecks {
 
     static func compile(
         _ input: Input, analysis: SceneGenericShaderAnalysis, pair: Pair?,
-        bundle: Bundle, root: URL
-    ) -> Result<URL, SceneGenericShaderCompiler.Failure> {
+        bundle: Bundle
+    ) -> Result<SceneGenericShaderCompiler.Output, SceneGenericShaderCompiler.Failure> {
         SceneGenericShaderCompiler.compile(
             requestKey: key(input, analysis),
             vertexSource: input.vertexSource, fragmentSource: input.fragmentSource,
@@ -89,7 +89,7 @@ enum SceneGenericShaderPreparedNormalizationChecks {
             premultipliedColorInputSlots: analysis.premultipliedColorInputSlots,
             defaultBoundaryColorSlots: analysis.defaultBoundaryColorSlots,
             colorBoundary: input.colorBoundary, boundTextureSlots: input.activeTextureSlots,
-            cacheRoot: root, normalizedSources: pair, bundle: bundle
+            normalizedSources: pair, bundle: bundle
         )
     }
 
@@ -98,10 +98,9 @@ enum SceneGenericShaderPreparedNormalizationChecks {
     }
 
     static func acceptedArtifact(
-        _ url: URL, input: Input, analysis: SceneGenericShaderAnalysis
+        _ compiled: SceneGenericShaderCompiler.Output, input: Input, analysis: SceneGenericShaderAnalysis
     ) throws -> Data {
-        let data = try Data(contentsOf: url)
-        let artifact = try JSONDecoder().decode(SceneGenericShaderProgramArtifact.self, from: data)
+        let artifact = compiled.artifact
         try expect(artifact.requestKey == key(input, analysis), "raw-request-key")
         let program = artifact.makeProgram(
             expectedKey: key(input, analysis), expectedOutputSemantics: input.outputSemantics,
@@ -111,10 +110,10 @@ enum SceneGenericShaderPreparedNormalizationChecks {
                 SceneAuthoredShaderFragmentOutputAnalyzer.analyze(source: input.fragmentSource)
         )
         try expect(program != nil, "actual-program-contract")
-        return data
+        return compiled.encodedData
     }
 
-    static func equivalence(bundle: Bundle, root: URL) throws -> [String: Any] {
+    static func equivalence(bundle: Bundle) throws -> [String: Any] {
         let variants = [
             (vertex, fragment),
             (vertex.replacingOccurrences(of: "v_TexCoord", with: "v_RenamedUV"),
@@ -144,19 +143,14 @@ enum SceneGenericShaderPreparedNormalizationChecks {
             let fields = try JSONSerialization.data(withJSONObject: pairFields(pair), options: [.sortedKeys])
             let oracle = try JSONSerialization.data(withJSONObject: pairFields(independent), options: [.sortedKeys])
             try expect(fields == oracle, "all-pair-fields")
-            let providedRoot = root.appendingPathComponent("provided-\(index)")
-            let ordinaryRoot = root.appendingPathComponent("ordinary-\(index)")
-            for path in [providedRoot, ordinaryRoot] {
-                try FileManager.default.createDirectory(at: path, withIntermediateDirectories: true)
-            }
             let provided = try compile(input, analysis: fresh.analysis, pair: pair,
-                bundle: bundle, root: providedRoot).get()
+                bundle: bundle).get()
             let ordinary = try compile(input, analysis: fresh.analysis, pair: nil,
-                bundle: bundle, root: ordinaryRoot).get()
+                bundle: bundle).get()
             let providedData = try acceptedArtifact(provided, input: input, analysis: fresh.analysis)
             let ordinaryData = try acceptedArtifact(ordinary, input: input, analysis: fresh.analysis)
             try expect(providedData == ordinaryData, "same-actual-artifact-and-program")
-            let artifact = try JSONDecoder().decode(SceneGenericShaderProgramArtifact.self, from: providedData)
+            let artifact = provided.artifact
             try expect(pair.vertexPositionInput == .clipSpace
                 && artifact.program.vertexPositionInput == "clipSpace", "fixed-quad-position-input")
             try expect(artifact.program.textureBindings.map(\.slot) == [0], "unchanged-texture-input")
@@ -175,7 +169,7 @@ enum SceneGenericShaderPreparedNormalizationChecks {
         return ["rows": rows]
     }
 
-    static func attributeBoundaries(bundle: Bundle, root: URL) throws -> [String: Any] {
+    static func attributeBoundaries(bundle: Bundle) throws -> [String: Any] {
         let extra = "attribute vec2 spareInput;\n" + vertex
         let cases: [(String, String, String, SceneGenericShaderSourceNormalizer.Failure)] = [
             ("live-varying", extra.replacingOccurrences(of: "v_TexCoord = a_TexCoord;",
@@ -212,7 +206,7 @@ enum SceneGenericShaderPreparedNormalizationChecks {
             let route = Cache.computeAnalysis(input: input)
             try expect(route.normalizedSources == nil, "rejected-route-has-no-pair-\(name)")
             guard case let .failure(.normalization(reason)) = compile(
-                input, analysis: route.analysis, pair: nil, bundle: bundle, root: root
+                input, analysis: route.analysis, pair: nil, bundle: bundle
             ), reason == String(describing: expected) else {
                 throw NSError(domain: "compiler-attribute-boundary-\(name)", code: 1)
             }
@@ -221,19 +215,19 @@ enum SceneGenericShaderPreparedNormalizationChecks {
         return ["rejected": rejected]
     }
 
-    static func budgets(low: Bundle, high: Bundle, missing: Bundle, root: URL) throws -> [String: Any] {
+    static func budgets(low: Bundle, high: Bundle, missing: Bundle) throws -> [String: Any] {
         let oversized = input(vertex: vertex, fragment: "//" + String(repeating: "x", count: 2_048) + "\n" + fragment)
         let lowAnalysis = Cache.computeAnalysis(input: oversized)
         try expect(lowAnalysis.normalizedSources != nil, "route-budget-allows-oversized-for-low-compiler")
         var rawFailures: [String] = []
         for pair in [lowAnalysis.normalizedSources, nil] {
-            let result = compile(oversized, analysis: lowAnalysis.analysis, pair: pair, bundle: low, root: root)
+            let result = compile(oversized, analysis: lowAnalysis.analysis, pair: pair, bundle: low)
             guard case .failure(.normalization("sourceTooLarge")) = result else {
                 throw NSError(domain: "actual-raw-budget-\(result)", code: 1)
             }
             rawFailures.append("sourceTooLarge")
             guard case .failure(.configuration("licenseBundleUnavailable")) =
-                compile(oversized, analysis: lowAnalysis.analysis, pair: pair, bundle: missing, root: root) else {
+                compile(oversized, analysis: lowAnalysis.analysis, pair: pair, bundle: missing) else {
                 throw NSError(domain: "bundle-must-resolve-first", code: 1)
             }
         }
@@ -245,7 +239,7 @@ enum SceneGenericShaderPreparedNormalizationChecks {
             "raw-fits-but-generated-output-exceeds-low-cap")
         for pair in [smallAnalysis.normalizedSources, nil] {
             guard case .failure(.workspace) =
-                compile(small, analysis: smallAnalysis.analysis, pair: pair, bundle: low, root: root) else {
+                compile(small, analysis: smallAnalysis.analysis, pair: pair, bundle: low) else {
                 throw NSError(domain: "normalized-output-budget", code: 1)
             }
         }
@@ -253,15 +247,15 @@ enum SceneGenericShaderPreparedNormalizationChecks {
             "//" + String(repeating: "x", count: Cache.maximumRouteAnalysisSourceBytes) + "\n" + fragment)
         let routeFailed = Cache.computeAnalysis(input: large)
         try expect(routeFailed.normalizedSources == nil, "route-size-failure-is-not-a-compiler-failure")
-        let largeURL = try compile(large, analysis: routeFailed.analysis, pair: routeFailed.normalizedSources,
-            bundle: high, root: root).get()
-        _ = try acceptedArtifact(largeURL, input: large, analysis: routeFailed.analysis)
+        let largeOutput = try compile(large, analysis: routeFailed.analysis, pair: routeFailed.normalizedSources,
+            bundle: high).get()
+        _ = try acceptedArtifact(largeOutput, input: large, analysis: routeFailed.analysis)
         let bad = input(vertex: vertex, fragment:
             "uniform samplerCube g_Cube;\nvoid main() { gl_FragColor = vec4(1.0); }\n")
         let badRoute = Cache.computeAnalysis(input: bad)
         try expect(badRoute.normalizedSources == nil, "route-structural-failure-has-no-pair")
         guard case .failure(.normalization("samplerUnsupported")) =
-            compile(bad, analysis: badRoute.analysis, pair: badRoute.normalizedSources, bundle: high, root: root) else {
+            compile(bad, analysis: badRoute.analysis, pair: badRoute.normalizedSources, bundle: high) else {
             throw NSError(domain: "compiler-still-attempts-structural-failure", code: 1)
         }
         return ["rawFailures": rawFailures, "bundleFirst": true, "outputBudget": true,
@@ -271,17 +265,16 @@ enum SceneGenericShaderPreparedNormalizationChecks {
 
     static func main() throws {
         let args = CommandLine.arguments
-        let root = URL(fileURLWithPath: args[2], isDirectory: true)
-        let bundles = args[3...6].map { Bundle(path: $0)! }
+        let bundles = args[2...5].map { Bundle(path: $0)! }
         let expectedHome = URL(fileURLWithPath: ProcessInfo.processInfo.environment["HOME"]!)
             .resolvingSymlinksInPath().standardizedFileURL
         try expect(FileManager.default.homeDirectoryForCurrentUser.resolvingSymlinksInPath()
             .standardizedFileURL == expectedHome, "isolated-home")
         let report: [String: Any]
         switch args[1] {
-        case "equivalence": report = try equivalence(bundle: bundles[0], root: root)
-        case "attributes": report = try attributeBoundaries(bundle: bundles[0], root: root)
-        default: report = try budgets(low: bundles[1], high: bundles[2], missing: bundles[3], root: root)
+        case "equivalence": report = try equivalence(bundle: bundles[0])
+        case "attributes": report = try attributeBoundaries(bundle: bundles[0])
+        default: report = try budgets(low: bundles[1], high: bundles[2], missing: bundles[3])
         }
         FileHandle.standardOutput.write(try JSONSerialization.data(withJSONObject: report, options: [.sortedKeys]))
     }

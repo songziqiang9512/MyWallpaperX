@@ -88,7 +88,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             graphR8TextureSlots,
             activeTextureSlots,
             activeOpacityMaskSlots,
-            neutralTextureResolution
+            neutralTextureResolution,
+            textureSelectionFacts
         ) = try deriveVariantProviderFacts(
             template: template,
             variantKey: variantKey,
@@ -143,7 +144,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             selectedPurposes: variantKey.selectedTexturePurposes,
             graphColorSlots: graphInputTextureSlots.union(graphTextureSlots),
             providerColorSlots: premultipliedColorAuxiliarySlots.union(
-                SceneResolvedMaterialTextureResolver.sceneBackgroundColorSlots(
+                SceneResolvedMaterialShaderSchema.sceneBackgroundColorSlots(
                     template: template, samplers: sourceActiveSamplers
                 )
             ),
@@ -201,12 +202,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             sourceActiveSamplers: sourceActiveSamplers,
             spatialWeightedColorBlendExternalColorSlot: spatialWeightedColorBlendExternalColorSlot,
             premultipliedColorAuxiliarySlots: premultipliedColorAuxiliarySlots,
-            mixedProviderSlots: Set(
-                mixedProviderSlotFacts(
-                    in: template,
-                    samplers: sourceActiveSamplers
-                ).keys
-            ),
+            mixedProviderSlots: Set(textureSelectionFacts.mixedProviderSlots.keys),
             outputSemantics: outputSemantics,
             artifactStart: artifactStart,
             artifactResolution: artifactResolution,
@@ -222,7 +218,6 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             samplers,
             graphInputFacts,
             uniforms,
-            preparedUniformBindings,
             preparedAssembly
         ) = try finalizeVariantBindings(
             template: template,
@@ -293,6 +288,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             ),
             routeDecision: routeDecision,
             activeSamplers: samplers,
+            textureSelectionFacts: restrictTextureSelectionFacts(textureSelectionFacts, to: Set(samplers.keys)),
             graphInputSourceSlotFacts: graphInputFacts,
             preservedAlphaRGBColorSlots: preservedAlphaRGBColorSlots,
             sourceProvenOpaqueColorSlots: sourceProvenOpaqueColorSlots,
@@ -305,7 +301,6 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             sameAlphaReconstructedRGBInputContract:
                 sameAlphaReconstructedRGBInputContract,
             activeUniforms: uniforms,
-            preparedUniformBindings: preparedUniformBindings,
             neutralTextureResolution: neutralTextureResolution,
             preservesTargetPixelFootprint: SceneAuthoredShaderSamePixelSourceAnalyzer
                 .preservesTargetPixelFootprint(vertexSource: compilerSources.vertex)
@@ -370,7 +365,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         for (slot, sampler) in samplers {
             let references = (template.textureSlots.indices.contains(slot)
                 ? template.textureSlots[slot]?.candidates.map(\.reference) : nil) ?? []
-            let purposes = references.compactMap { sampler.purpose(for: $0) }
+            let purposes = references.compactMap { SceneResolvedMaterialShaderSchema.purpose(for: $0, sampler: sampler) }
             if purposes.contains(.straightAlbedo) || purposes.contains(.premultipliedColor)
                 || sampler.sourceProvenPurpose == .straightAlbedo
                 || sampler.sourceProvenPurpose == .premultipliedColor {

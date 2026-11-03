@@ -260,8 +260,7 @@ import Foundation
                     throw Error('unknown prepared resource');
                 const wrapped = thisScene.createLayer({text:{value:'wrapped',
                     script:'export function init(){return "x";}'}});
-                if (wrapped.text === 'wrapped' || wrapped.text === 'x' ||
-                    wrapped.size !== undefined) throw Error('text wrapper interpreted');
+                if (wrapped !== null) throw Error('unprepared text template admitted');
                 if (rejected !== 9) throw Error('unsupported neighbor admitted: '+rejected);
             }
             if (v.x === 1) {
@@ -381,7 +380,7 @@ class SceneScriptCreateGeometryTests(unittest.TestCase):
 
     def test_unsupported_geometry_is_local_and_text_wrapper_remains_unconsumed(self) -> None:
         for run in self.runs:
-            self.assertEqual(run["createdCount"], 12)
+            self.assertEqual(run["createdCount"], 11)
             self.assertIs(run["textSizeAbsent"], True)
 
 

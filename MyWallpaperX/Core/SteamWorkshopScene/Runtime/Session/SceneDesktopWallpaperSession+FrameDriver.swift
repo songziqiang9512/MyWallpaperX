@@ -151,14 +151,15 @@ extension SceneDesktopWallpaperSession {
             )
 #endif
         }
-        guard launchContext != nil, !surfaces.isEmpty,
+        guard let mediaThumbnailTextures, launchContext != nil, !surfaces.isEmpty,
               !initialPresentationCohort.isHeld else { return .inactive }
-        if sceneClock.isPaused && surfaces.values.allSatisfy({ $0.metalView.hasSimulationFrame }) {
-            _ = refreshPausedMediaPublications()
+        if sceneClock.isPaused && surfaces.values.allSatisfy({ $0.simulationFrame != nil }) {
+            _ = refreshPausedMediaPublications(mediaThumbnailTextures.snapshot())
             return renderSurfaces()
         }
         promotePendingDeferredLayerVisibilityIfReady()
         guard let launchContext else { return .inactive }
+        defer { reconcileSystemInputConsumers(launchContext) }
 #if DEBUG
         if SceneDesktopWallpaperHost.usesDebugEvidenceWindow {
             SceneFramePerformanceTelemetry.debugEvidence.recordDriverCallback()
@@ -208,20 +209,10 @@ extension SceneDesktopWallpaperSession {
             sceneTime: timing.sceneTime
         )
         let mediaInput = SceneMediaThumbnailInbox.shared.latest()
-        let mediaThumbnailSnapshots = Dictionary(uniqueKeysWithValues:
-            surfaces.map { displayID, surface in
-                (
-                    displayID,
-                    surface.metalView.prepareMediaThumbnail()
-                )
-            }
-        )
+        let mediaThumbnailSnapshot = mediaThumbnailTextures.snapshot()
         let mediaThumbnailGenerationIsTerminal =
-            !mediaThumbnailSnapshots.isEmpty
-            && mediaThumbnailSnapshots.values.allSatisfy {
-                $0.generation == mediaInput.generation
-                    && $0.pendingGeneration == nil
-            }
+            mediaThumbnailSnapshot.generation == mediaInput.generation
+                && mediaThumbnailSnapshot.pendingGeneration == nil
         let sceneScriptMediaThumbnailEvent = mediaThumbnailGenerationIsTerminal
             ? SceneScriptMediaThumbnailEventInput(snapshot: mediaInput) : nil
         let sceneScriptMediaPlaybackEvent =
@@ -236,23 +227,6 @@ extension SceneDesktopWallpaperSession {
             thumbnail: sceneScriptMediaThumbnailEvent,
             timeline: sceneScriptMediaTimelineEvent
         )
-        let mediaProperties = mediaInput.properties.map {
-            SceneTextMediaPropertiesSnapshot(
-                title: $0.title,
-                artist: $0.artist,
-                generation: mediaInput.propertiesGeneration
-            )
-        } ?? .empty
-        let textScriptValues = SceneTextScriptRuntime.values(
-            program: launchContext.textScriptProgram,
-            wallDate: timing.wallDate,
-            mediaProperties: mediaProperties
-        )
-        let pendingSharedLayerAlpha = sharedLayerAlphaRuntime.prepareValues(
-            effectivePropertyValues: launchContext.liveState.effectiveValues,
-            frameTime: timing.simulationFrameTime
-        )
-        let sharedLayerAlphaValues = pendingSharedLayerAlpha.values
         let layerMutationSnapshot = launchContext.sceneScriptDynamicLayerRuntime
             .snapshot()
         // SceneScript `update(value)` receives the current published value;
@@ -266,8 +240,6 @@ extension SceneDesktopWallpaperSession {
             .previousValues(for: sceneScriptStatefulTargets,
                 userValues: frameUserValues, timelineValues: timelineValues)
         var commonSceneScriptValues = previousSceneScriptValues
-        commonSceneScriptValues.merge(textScriptValues) { _, current in current }
-        commonSceneScriptValues.merge(sharedLayerAlphaValues) { _, current in current }
         commonSceneScriptValues.merge(
             layerMutationSnapshot.authoredLayerValues
         ) { _, committedMutation in committedMutation }
@@ -284,12 +256,15 @@ extension SceneDesktopWallpaperSession {
         // Only the already committed topology may create surface geometry. This
         // occurs before the launch clock samples any newly registered instance.
         for surface in surfaces.values {
-            surface.metalView.synchronizeDynamicPuppets(layerMutationSnapshot)
+            surface.synchronizeDynamicPuppets(layerMutationSnapshot,
+                preparedResources: launchContext.preparedDeviceResources,
+                playbackRuntime: launchContext.puppetAnimationPlaybackRuntime)
         }
         launchContext.puppetAnimationPlaybackRuntime.synchronizeDynamicLayers(
             topologyRevision: layerMutationSnapshot.topologyRevision,
             liveLayerIDs: Set(layerMutationSnapshot.dynamicLayers.lazy
-                .filter { $0.puppetMeshPath != nil }.map(\.id)))
+                .filter { $0.puppetMeshPath != nil }.map(\.id)),
+            destroyedAuthoredLayerIDs: layerMutationSnapshot.destroyedAuthoredLayerIDs)
         let puppetAnimationFrame = launchContext.puppetAnimationPlaybackRuntime.advance(
             frameIndex: timing.frameIndex, sceneTime: timing.sceneTime,
             dynamicValues: preliminaryForSceneScript)
@@ -319,10 +294,15 @@ extension SceneDesktopWallpaperSession {
             .sceneScriptSnapshots(sceneTime: timing.sceneTime) ?? .empty
         let sceneScriptTextureAnimationSnapshots = launchContext.textureAnimationPlaybackRuntime.snapshots(
             sceneTime: timing.sceneTime)
+        let sceneScriptTopology = surfaces.values.first!.metalView.renderer
+            .resolveFrameTopology(layerTopology: layerMutationSnapshot)
         let puppetPoseFrames = surfaces.mapValues {
-            $0.metalView.prepareSceneScriptPuppetPoseFrame(
+            $0.prepareSceneScriptPuppetPoseFrame(
                 timing: timing, puppetAnimationFrame: puppetAnimationFrame,
-                dynamicValues: preliminaryForSceneScript
+                dynamicValues: preliminaryForSceneScript,
+                descriptor: sceneScriptTopology.descriptor, layersByID: sceneScriptTopology.layersByID,
+                staticWorldFrames: sceneScriptTopology.staticWorldFrames,
+                dynamicLayerIDs: sceneScriptTopology.dynamicLayerIDs
             )
         }
         let sceneScriptPuppetPoseFrame = surfaces.count == 1
@@ -335,11 +315,15 @@ extension SceneDesktopWallpaperSession {
             sceneScriptWorldFramesBySurface[displayID] = sceneScriptPuppetPoseFrame.worldFrames.isEmpty
                 ? surface.metalView.sceneScriptCursorWorldFrames(
                 dynamicValues: preliminaryForSceneScript,
+                descriptor: sceneScriptTopology.descriptor, layersByID: sceneScriptTopology.layersByID,
+                staticWorldFrames: sceneScriptTopology.staticWorldFrames,
+                dynamicLayerIDs: sceneScriptTopology.dynamicLayerIDs,
                 puppetAttachmentFrames: sceneScriptPuppetPoseFrame.attachmentFrames)
                 : sceneScriptPuppetPoseFrame.worldFrames
         }
         let sceneScriptFrame = prepareSceneScriptFrame(launchContext, timing: timing,
             dynamicValues: preliminaryForSceneScript,
+            descriptor: sceneScriptTopology.descriptor, layersByID: sceneScriptTopology.layersByID,
             worldFrames: sceneScriptWorldFramesBySurface.values.first ?? [:])
         let particleObservations = particlePlaybackObservations(
             context: launchContext,
@@ -374,14 +358,14 @@ extension SceneDesktopWallpaperSession {
                 puppetAnimationFrame.animationEvents,
                 failures: puppetAnimationFrame.eventFailures)
             if surfaces.count == 1 {
-                try surfaces.values.first?.metalView
-                    .publishSceneScriptPuppetPoseFrame(
-                        sceneScriptPuppetPoseFrame,
-                        context: launchContext,
-                        timing: timing,
-                        dynamicValues: preliminaryForSceneScript,
-                        worldFrames: sceneScriptWorldFramesBySurface.values.first ?? [:]
-                    )
+                try surfaces.values.first?.publishSceneScriptPuppetPoseFrame(
+                    sceneScriptPuppetPoseFrame,
+                    context: launchContext,
+                    timing: timing,
+                    dynamicValues: preliminaryForSceneScript,
+                    descriptor: sceneScriptTopology.descriptor, layersByID: sceneScriptTopology.layersByID,
+                    worldFrames: sceneScriptWorldFramesBySurface.values.first ?? [:]
+                )
             }
             sceneScriptLayerSnapshotFailure = nil
         } catch let failure as SceneScriptScalarRuntimeFailure {
@@ -401,7 +385,7 @@ extension SceneDesktopWallpaperSession {
         }
         let particleEmission = beginParticleEmissionFrame(context: launchContext, timing: timing,
             preliminary: preliminarySceneScriptResolution, topology: layerMutationSnapshot,
-            poses: puppetPoseFrames, audio: audioSpectrum, inputSurfaceIDs: Set(mediaThumbnailSnapshots.keys))
+            poses: puppetPoseFrames, audio: audioSpectrum, inputSurfaceIDs: Set(surfaces.keys))
         defer {
             particleEmission?.discard()
             launchContext.propertyVectorScriptProgram.domain?.endParticlePlaybackFrame()
@@ -438,6 +422,9 @@ extension SceneDesktopWallpaperSession {
             launchContext: launchContext,
             timing: timing,
             preliminaryForSceneScript: preliminaryForSceneScript,
+            descriptor: sceneScriptTopology.descriptor, layersByID: sceneScriptTopology.layersByID,
+            staticWorldFrames: sceneScriptTopology.staticWorldFrames,
+            dynamicLayerIDs: sceneScriptTopology.dynamicLayerIDs,
             puppetAttachmentFramesBySurface: puppetPoseFrames.mapValues(\.attachmentFrames),
             worldFramesBySurface: &sceneScriptWorldFramesBySurface,
             layerSnapshotFailure: sceneScriptLayerSnapshotFailure
@@ -670,7 +657,7 @@ extension SceneDesktopWallpaperSession {
                         && Set(self.surfaces.keys) == self.preparedSurfaceIDs
                         && self.surfaces.values.allSatisfy {
                             $0.scriptGeneration == launchContext.propertyVectorScriptProgram.generation
-                                && $0.metalView.validateParticlePlaybackTransitions(transitions)
+                                && $0.particlePlayback?.validatePlaybackTransitions(transitions) == true
                         })
                 },
                 rejectingParticleTransitions: { plan, admitted, rejected in
@@ -690,7 +677,7 @@ extension SceneDesktopWallpaperSession {
                         base: preliminarySceneScriptResolution, timelineValues: timeline,
                         sceneScriptValues: frameScriptValues(admitted, layerPlan: plan, excluding: rejected, timelineValues: timeline))
                     guard let failed = particleEmission.prepare(transitions, visibility: { instance in
-                        self.surfaces[instance.surfaceID]?.metalView.particlePlaybackVisibility(
+                        self.surfaces[instance.surfaceID]?.particlePlayback?.playbackVisibility(
                             layerID: instance.layerID, dynamicValues: resolution.snapshot)
                     }) else { return [] }
                     return Set(admitted.filter { bundle in
@@ -814,62 +801,70 @@ extension SceneDesktopWallpaperSession {
             particleEmission?.install()
             let stopped = Set(admission.layerPlan.particleTransitions.filter { $0.action == .stop }.map(\.layerID))
             for (id, surface) in surfaces {
-                surface.metalView.clearStoppedParticlePlaybackCaches(stopped)
+                surface.particlePlayback?.clearStoppedPlaybackCaches(stopped)
 #if DEBUG
-                surface.metalView.logExplicitParticleInstall(admission.layerPlan.particleTransitions,
+                surface.logExplicitParticleInstall(admission.layerPlan.particleTransitions,
                     frame: timing.frameIndex, surface: id)
 #endif
             }
         }
-        for (displayID, surface) in surfaces {
-            guard let mediaThumbnailSnapshot =
-                mediaThumbnailSnapshots[displayID] else {
-                continue
-            }
-            let resolvedDynamicValues = pendingEvaluation.resolution.snapshot
+        let resolvedDynamicValues = pendingEvaluation.resolution.snapshot
 #if DEBUG
-            let dynamicValues: SceneDynamicSnapshot
-            if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
-               debugDropDynamicValuesFrameIndex == timing.frameIndex {
-                dynamicValues = .empty(
-                    frameIndex: resolvedDynamicValues.frameIndex,
-                    generation: resolvedDynamicValues.generation
+        let dynamicValues: SceneDynamicSnapshot
+        if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
+           debugDropDynamicValuesFrameIndex == timing.frameIndex {
+            dynamicValues = .empty(
+                frameIndex: resolvedDynamicValues.frameIndex,
+                generation: resolvedDynamicValues.generation
+            )
+            if !debugDidDropDynamicValues {
+                debugDidDropDynamicValues = true
+                NSLog(
+                    "MWX DEBUG SCENE: phase=dynamic-snapshot-fault state=dropped frame=%llu generation=%llu resolvedValues=%d",
+                    resolvedDynamicValues.frameIndex,
+                    resolvedDynamicValues.generation,
+                    resolvedDynamicValues.count
                 )
-                if !debugDidDropDynamicValues {
-                    debugDidDropDynamicValues = true
-                    NSLog(
-                        "MWX DEBUG SCENE: phase=dynamic-snapshot-fault state=dropped frame=%llu generation=%llu resolvedValues=%d",
-                        resolvedDynamicValues.frameIndex,
-                        resolvedDynamicValues.generation,
-                        resolvedDynamicValues.count
-                    )
-                }
-            } else {
-                dynamicValues = resolvedDynamicValues
-                if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
-                   debugDidDropDynamicValues,
-                   !debugDidLogDynamicValuesRecovery,
-                   let faultFrameIndex = debugDropDynamicValuesFrameIndex,
-                   timing.frameIndex > faultFrameIndex {
-                    debugDidLogDynamicValuesRecovery = true
-                    NSLog(
-                        "MWX DEBUG SCENE: phase=dynamic-snapshot-fault state=recovered frame=%llu generation=%llu resolvedValues=%d",
-                        resolvedDynamicValues.frameIndex,
-                        resolvedDynamicValues.generation,
-                        resolvedDynamicValues.count
-                    )
-                }
             }
+        } else {
+            dynamicValues = resolvedDynamicValues
+            if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
+               debugDidDropDynamicValues,
+               !debugDidLogDynamicValuesRecovery,
+               let faultFrameIndex = debugDropDynamicValuesFrameIndex,
+               timing.frameIndex > faultFrameIndex {
+                debugDidLogDynamicValuesRecovery = true
+                NSLog(
+                    "MWX DEBUG SCENE: phase=dynamic-snapshot-fault state=recovered frame=%llu generation=%llu resolvedValues=%d",
+                    resolvedDynamicValues.frameIndex,
+                    resolvedDynamicValues.generation,
+                    resolvedDynamicValues.count
+                )
+            }
+        }
 #else
-            let dynamicValues = resolvedDynamicValues
+        let dynamicValues = resolvedDynamicValues
 #endif
+        pendingProviderUpdate = (
+            dynamicValues: dynamicValues,
+            dynamicLayers: layerTopology.dynamicLayers,
+            destroyedAuthoredLayerIDs: layerTopology.destroyedAuthoredLayerIDs,
+            dynamicTextFieldsByLayerID: launchContext.frameSchema.dynamicTextFieldsByLayerID,
+            mediaInput: mediaInput
+        )
+        let spriteLayerIDs = surfaces.values.reduce(into: Set<Int>()) {
+            $0.formUnion($1.metalView.spriteAnimationLayerIDs)
+        }
+        let spriteTimes = launchContext.textureAnimationPlaybackRuntime.playbackTimes(
+            layerIDs: spriteLayerIDs, sceneTime: timing.sceneTime)
+        for (displayID, surface) in surfaces {
 #if DEBUG
             logDebugDynamicLayerVisibilityIfChanged(
                 descriptor: launchContext.runtimeInput.renderDescriptor,
                 snapshot: dynamicValues, destroyedAuthoredLayerIDs: layerTopology.destroyedAuthoredLayerIDs
             )
 #endif
-            surface.metalView.applyParticlePlaybackTransitions(admission.layerPlan.particleTransitions)
+            surface.particlePlayback?.applyPlaybackTransitions(admission.layerPlan.particleTransitions)
 #if DEBUG
             if SceneDesktopWallpaperHost.usesDebugEvidenceWindow {
                 for transition in admission.layerPlan.particleTransitions {
@@ -879,16 +874,15 @@ extension SceneDesktopWallpaperSession {
             }
 #endif
             surface.didSubmitSimulationFrame = false
-            surface.metalView.updateSimulation(
+            surface.updateSimulation(
                 timing: timing, dynamicValues: dynamicValues,
                 puppetAnimationFrame: puppetAnimationFrame,
+                spriteTimes: spriteTimes,
                 layerTopology: layerTopology,
-                dynamicTextFieldsByLayerID:
-                    launchContext.frameSchema.dynamicTextFieldsByLayerID,
                 materialFunctionMutations: materialFunctionMutations,
                 puppetBoneMutations: puppetBoneMutations,
                 mediaThumbnail: mediaThumbnailSnapshot,
-                mediaInput: mediaInput,
+                mediaInputGeneration: mediaInput.generation,
                 audioSpectrum: audioSpectrum,
                 performanceTelemetry: SceneDesktopWallpaperHost.usesDebugEvidenceWindow
                     ? SceneFramePerformanceTelemetry.debugEvidence : nil
@@ -902,7 +896,6 @@ extension SceneDesktopWallpaperSession {
         commitSimulatedSceneFrame(
             launchContext,
             pendingEvaluation: pendingEvaluation,
-            pendingSharedLayerAlpha: pendingSharedLayerAlpha,
             animationMutations: animationMutations,
             mediaPlaybackCommands: mediaPlaybackCommands,
             textureAnimationCommands: textureAnimationCommands,
@@ -917,19 +910,23 @@ extension SceneDesktopWallpaperSession {
         // A later cadence samples fresh state; it never replays this VM frame.
         return attempt
     }
-    /// Refresh resources for the already-consumed cadence only when the whole
-    /// current surface cohort is terminal. A partial completion is not a draw.
+    /// Refresh the already-consumed cadence only when every current surface
+    /// expects this terminal publication. Do not sample a new inbox event.
     @discardableResult
-    func refreshPausedMediaPublications() -> Bool {
-        let publications = surfaces.mapValues { $0.metalView.pausedMediaThumbnailPublication() }
+    func refreshPausedMediaPublications(_ publication: SceneMediaThumbnailTextureStore.Snapshot) -> Bool {
         guard !surfaces.isEmpty, Set(surfaces.keys) == preparedSurfaceIDs,
-              Set(surfaces.values.map { $0.metalView.simulationFrameIndex }).count == 1,
-              publications.values.allSatisfy({ $0 != nil }),
-              Set(publications.values.compactMap { $0?.generation }).count == 1 else { return false }
+              let frameIndex = surfaces.values.first?.simulationFrame?.timing.frameIndex,
+              publication.pendingGeneration == nil,
+              surfaces.values.allSatisfy({ surface in
+                  guard let frame = surface.simulationFrame else { return false }
+                  return frame.timing.frameIndex == frameIndex
+                      && frame.mediaInputGeneration == publication.generation
+              }) else { return false }
         var changed = false
-        for (id, surface) in surfaces {
-            if let publication = publications[id] ?? nil,
-               surface.metalView.refreshPausedMediaThumbnail(publication) {
+        for surface in surfaces.values {
+            let current = surface.simulationFrame!.mediaThumbnail
+            if current.generation != publication.generation || current.pendingGeneration != nil {
+                surface.simulationFrame!.mediaThumbnail = publication
                 surface.didSubmitSimulationFrame = false
                 changed = true
             }

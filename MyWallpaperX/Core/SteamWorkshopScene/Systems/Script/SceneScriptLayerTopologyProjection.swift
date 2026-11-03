@@ -39,20 +39,6 @@ nonisolated extension SceneRenderDescriptor {
 }
 
 nonisolated extension SceneRenderDescriptor.Layer {
-    /// A dynamic layer's descriptor transform has to fit the renderer's Float
-    /// ABI. A finite Double outside that range would reach the prepared
-    /// descriptor as `inf` and fail the shared layer snapshot for every
-    /// consumer; the unsafe unit is this layer, so it is rejected here.
-    private static func descriptorTransform(
-        _ value: SIMD3<Double>
-    ) -> [Float]? {
-        let narrowed = [value.x, value.y, value.z].map(Float.init)
-        guard narrowed.allSatisfy(\.isFinite) else { return nil }
-        return narrowed
-    }
-}
-
-nonisolated extension SceneRenderDescriptor.Layer {
     static func preparedResourceLayer(
         _ mutation: SceneScriptLayerMutation,
         template: SceneScriptPreparedResourceLayerTemplate
@@ -62,11 +48,9 @@ nonisolated extension SceneRenderDescriptor.Layer {
                 == .orderedSame,
               template.kind != .composition || (!template.autosize && template.puppetMeshPath == nil)
                 else { return nil }
-        guard let origin = Self.descriptorTransform(mutation.origin),
-              let scale = Self.descriptorTransform(mutation.scale),
-              let angles = Self.descriptorTransform(mutation.angles) else {
-            return nil
-        }
+        let origin = [mutation.origin.x, mutation.origin.y, mutation.origin.z].map(Float.init)
+        let scale = [mutation.scale.x, mutation.scale.y, mutation.scale.z].map(Float.init)
+        let angles = [mutation.angles.x, mutation.angles.y, mutation.angles.z].map(Float.init)
         let color = [mutation.color.x, mutation.color.y, mutation.color.z].map {
             Float(max(0, min($0, 1)))
         }
@@ -95,7 +79,7 @@ nonisolated extension SceneRenderDescriptor.Layer {
             disablesParallaxPropagation: false, timelines: [],
             timelineDiagnostics: [], particleTimelines: [],
             particleTimelineDiagnostics: [], modelCropOffsetXY: nil,
-            puppetMeshPath: template.puppetMeshPath, text: nil, textStyle: nil, textScript: nil,
+            puppetMeshPath: template.puppetMeshPath, text: nil, textStyle: nil,
             scriptBindings: nil, textureAnimationScripts: nil,
             hasInlineScript: false, effects: [], effectFiles: [],
             texturePaths: []
@@ -113,11 +97,9 @@ nonisolated extension SceneRenderDescriptor.Layer {
         let style = SceneTextDescriptor.parse([
             "font": mutation.font, "pointsize": pointSize, "color": color,
         ])
-        guard let origin = Self.descriptorTransform(mutation.origin),
-              let scale = Self.descriptorTransform(mutation.scale),
-              let angles = Self.descriptorTransform(mutation.angles) else {
-            return nil
-        }
+        let origin = [mutation.origin.x, mutation.origin.y, mutation.origin.z].map(Float.init)
+        let scale = [mutation.scale.x, mutation.scale.y, mutation.scale.z].map(Float.init)
+        let angles = [mutation.angles.x, mutation.angles.y, mutation.angles.z].map(Float.init)
         return SceneRenderDescriptor.Layer(
             id: mutation.layerID, layerIndex: mutation.orderIndex, name: nil,
             cameraPath: nil, contentKind: "text", imagePath: nil, usesPerspective: mutation.perspective, particlePath: nil,
@@ -131,7 +113,7 @@ nonisolated extension SceneRenderDescriptor.Layer {
             scaleXYZ: scale, anglesXYZ: angles, parallaxDepthXY: [0, 0],
             disablesParallaxPropagation: false, timelines: [], timelineDiagnostics: [],
             particleTimelines: [], particleTimelineDiagnostics: [], modelCropOffsetXY: nil,
-            puppetMeshPath: nil, text: mutation.text, textStyle: style, textScript: nil,
+            puppetMeshPath: nil, text: mutation.text, textStyle: style,
             scriptBindings: nil, textureAnimationScripts: nil, hasInlineScript: false,
             effects: [], effectFiles: [], texturePaths: []
         )

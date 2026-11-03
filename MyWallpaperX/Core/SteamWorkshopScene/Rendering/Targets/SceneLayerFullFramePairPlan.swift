@@ -74,7 +74,7 @@ nonisolated struct SceneLayerFullFramePairPlan: Equatable {
     ) -> Result<Self, Failure> {
         guard let first = graphs.first else { return .failure(.emptyChain) }
         let layerID = first.layerID
-        let base = SceneAuthoredEffectInputValidator.layerSource(layerID: layerID)
+        let base = Graph.TextureIdentity.layerSource(layerID: layerID)
         var validated: [ValidatedEffect] = []
         var previousOutput: Graph.TextureIdentity?
         var previousEffectIndex: Int?

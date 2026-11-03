@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import io
 import json
 import os
 import re
 import subprocess
+import tarfile
 import tempfile
 import unittest
 from pathlib import Path
@@ -55,6 +57,16 @@ def committed_scene_layout(base_ref: str | None = None) -> dict[str, object] | N
         cwd=REPOSITORY_ROOT, capture_output=True, text=True, check=True,
     )
     return json.loads(result.stdout)
+
+
+def frozen_git_swift_sources(base_ref: str, roots: list[str]) -> dict[str, str]:
+    payload = subprocess.run(
+        ["git", "archive", "--format=tar", base_ref, "--", *roots],
+        cwd=REPOSITORY_ROOT, capture_output=True, check=True,
+    ).stdout
+    with tarfile.open(fileobj=io.BytesIO(payload), mode="r:") as archive:
+        return {member.name: archive.extractfile(member).read().decode("utf-8")
+                for member in archive if member.isfile() and member.name.endswith(".swift")}
 
 
 class SceneSemanticsCoverageTests(unittest.TestCase):
@@ -232,6 +244,16 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             old.removeprefix(scene_prefix): new.removeprefix(scene_prefix)
             for old, new in moves.items()
         }
+        fresh_relocations = [old for rule_id, old in previous.items()
+                             if current.get(rule_id, {}).get("owner_relocation") is not None
+                             and old.get("owner_relocation") is None]
+        frozen_sources, current_snapshots, approved_design_docs = {}, {}, set()
+        if fresh_relocations:
+            roots = sorted({rule.get("scan_root", scene_prefix.rstrip("/")) for rule in fresh_relocations})
+            frozen_sources = frozen_git_swift_sources(base_ref, roots)
+            approved_design_docs = {area["designDoc"] for area in json.loads(
+                (REPOSITORY_ROOT / "script/design_gated_areas.json").read_text())["areas"]
+                if area["status"] == "approved"}
         old_states = old_contract.get("completion_state")
         if old_states is not None:
             new_states = new_contract["completion_state"]
@@ -262,21 +284,17 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             relocation_errors = []
             previous_sources, current_sources = {}, {}
             if new_rule.get("owner_relocation") is not None and old_rule.get("owner_relocation") is None:
-                listing = subprocess.run(
-                    ["git", "grep", "-l", "-E", "--", old_rule["pattern"], base_ref, "--", scene_prefix],
-                    cwd=REPOSITORY_ROOT, capture_output=True, text=True, check=False,
-                )
-                self.assertIn(listing.returncode, (0, 1), listing.stderr)
-                for entry in listing.stdout.splitlines():
-                    relative = entry.removeprefix(f"{base_ref}:").removeprefix(scene_prefix)
-                    previous_sources[relative] = subprocess.run(
-                        ["git", "show", f"{base_ref}:{scene_prefix}{relative}"], cwd=REPOSITORY_ROOT,
-                        capture_output=True, text=True, check=True,
-                    ).stdout
-                current_sources = {path.relative_to(SCENE_SOURCE_ROOT).as_posix(): path.read_text()
-                                   for path in SCENE_SOURCE_ROOT.rglob("*.swift")}
+                prefix = old_rule.get("scan_root", scene_prefix.rstrip("/")) + "/"
+                previous_sources = {path.removeprefix(prefix): source for path, source in frozen_sources.items()
+                                    if path.startswith(prefix)}
+                if prefix not in current_snapshots:
+                    root = REPOSITORY_ROOT / prefix
+                    current_snapshots[prefix] = {path.relative_to(root).as_posix(): path.read_text()
+                                                 for path in root.rglob("*.swift")}
+                current_sources = dict(current_snapshots[prefix])
             relocation_errors = authority_relocation_transition_violations(
-                old_rule, new_rule, previous_sources, current_sources)
+                old_rule, new_rule, previous_sources, current_sources,
+                approved_design_docs=approved_design_docs)
             violations.extend(relocation_errors)
             exact_owner_relocated = (new_rule.get("owner_relocation") is not None
                                      and old_rule.get("owner_relocation") is None and not relocation_errors)
@@ -396,24 +414,39 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             git("config", "user.email", "ratchet@example.invalid")
             scene = root / "MyWallpaperX/Core/SteamWorkshopScene"
             scene.mkdir(parents=True)
-            (scene / "Owner.swift").write_text("struct Owner {}\n")
+            source = "func draw() { mainPass.encoder(); frame.mainPass.encoder() }\n"
+            (scene / "Origin.swift").write_text(source)
+            (scene / "Stable.swift").write_text(source)
             path = root / "script/scene_source_layout.json"
             path.parent.mkdir()
-            rule = {"id": "bounded-frontend-product-entry", "role": "inventory",
-                    "pattern": r"SceneAuthoredShaderFrontend\.compile\(",
-                    "baseline_occurrences": 1, "allowed_files": ["Owner.swift"]}
-            prior_rule = {**rule, "allowed_files": ["Origin.swift"]}
+            design_doc = "docs/scene/architecture/runtime-architecture.md"
+            (path.parent / "design_gated_areas.json").write_text(json.dumps({"areas": [
+                {"status": "approved", "designDoc": design_doc}]}))
+            prior_rule = {"id": "main-pass-writers", "role": "inventory",
+                          "pattern": r"(?:\bmainPass|\bframe\.mainPass)\.encoder\(\)",
+                          "baseline_occurrences": 4, "allowed_files": ["Origin.swift", "Stable.swift"]}
+            path.write_text(json.dumps({"render_chain_authority_ratchet": {"rules": [prior_rule]}}))
+            git("add", "script/scene_source_layout.json", "script/design_gated_areas.json",
+                "MyWallpaperX/Core/SteamWorkshopScene/Origin.swift", "MyWallpaperX/Core/SteamWorkshopScene/Stable.swift")
+            git("commit", "--quiet", "-m", "before owner relocation")
+            rule = {**prior_rule, "allowed_files": ["Owner.swift", "Stable.swift"]}
             rule["owner_relocation"] = {
                 "from_file": "Origin.swift", "to_file": "Owner.swift",
                 "from_contract_sha256": authority_metric_digest(prior_rule),
                 "to_contract_sha256": authority_metric_digest(rule),
-                "design_doc": "docs/scene/roadmap/batch2/frame-admission-retry-design.md",
+                "design_doc": design_doc,
                 "owner": "variant preparation", "reason": "original committed receipt",
                 "retirement": "retire only after all calls disappear",
             }
             layout = {"render_chain_authority_ratchet": {"rules": [rule]}}
+            (scene / "Origin.swift").unlink()
+            (scene / "Owner.swift").write_text(source.replace("draw()", "drawParticles()"))
             path.write_text(json.dumps(layout))
-            git("add", "script/scene_source_layout.json", "MyWallpaperX/Core/SteamWorkshopScene/Owner.swift")
+            with patch.dict(globals(), REPOSITORY_ROOT=root, SCENE_SOURCE_ROOT=scene, SCENE_LAYOUT_PATH=path):
+                with patch.dict(os.environ, MWX_VALIDATION_BASE="HEAD"):
+                    self.test_render_chain_ratchet_cannot_rise_above_committed_baseline()
+            git("add", "script/scene_source_layout.json", "MyWallpaperX/Core/SteamWorkshopScene/Origin.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Owner.swift")
             git("commit", "--quiet", "-m", "original receipt")
             original = git("rev-parse", "HEAD")
             rule["owner_relocation"]["reason"] = "rewritten in a later commit"
@@ -432,51 +465,78 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
                         committed_scene_layout()
 
     def test_owner_relocation_preserves_calls_and_refuses_forged_receipts(self) -> None:
-        old = {"id": "bounded-frontend-product-entry", "role": "inventory",
-               "pattern": r"SceneAuthoredShaderFrontend\.compile\(", "baseline_occurrences": 2,
-               "allowed_files": ["Origin.swift", "Stable.swift"]}
-        new = {**old, "allowed_files": ["Destination.swift", "Stable.swift"]}
-        receipt = {"from_file": "Origin.swift", "to_file": "Destination.swift",
-                   "from_contract_sha256": authority_metric_digest(old),
-                   "to_contract_sha256": authority_metric_digest(new),
-                   "design_doc": "docs/scene/roadmap/batch2/frame-admission-retry-design.md",
-                   "owner": "variant preparation", "reason": "whole frontend stage moved",
-                   "retirement": "retire only after all calls disappear"}
-        new["owner_relocation"] = receipt
-        call = 'SceneAuthoredShaderFrontend.compile(vertexSource: "a", fragmentSource: make("b"))'
-        previous = {"Origin.swift": call, "Stable.swift": call}
-        current = {"Origin.swift": "struct Retained {}", "Destination.swift": call, "Stable.swift": call}
-        self.assertEqual(authority_relocation_transition_violations(old, new, previous, current), [])
-        altered = copy.deepcopy(current)
-        altered["Destination.swift"] = call.replace('"a"', '"changed"')
-        self.assertTrue(authority_relocation_transition_violations(old, new, previous, altered))
-        for path in ("Destination.swift", "Third.swift"):
-            altered = {**current, path: call + "\n" + call}
-            self.assertTrue(authority_relocation_transition_violations(old, new, previous, altered))
-        for field, value in (("pattern", "compile"), ("scope_files", ["Destination.swift"]),
-                             ("baseline_occurrences", 3), ("allowed_files", ["Destination.swift", "Third.swift"])):
-            altered = copy.deepcopy(new)
-            altered[field] = value
-            altered["owner_relocation"]["to_contract_sha256"] = authority_metric_digest(altered)
-            self.assertTrue(authority_relocation_transition_violations(old, altered, previous, current))
-        for field in ("from_contract_sha256", "to_contract_sha256", "from_file", "to_file", "design_doc", "owner"):
-            altered = copy.deepcopy(new)
-            altered["owner_relocation"][field] = "forged"
-            if field == "owner":
-                altered["owner_relocation"][field] = ""
-            self.assertTrue(authority_relocation_transition_violations(old, altered, previous, current))
-        self.assertEqual(authority_relocation_transition_violations(new, copy.deepcopy(new), {}, {}), [])
-        for field, changed in (("pattern", "compile"), ("scope_files", ["Destination.swift"]),
-                               ("allowed_files", ["Destination.swift", "NewOwner.swift"])):
-            altered = copy.deepcopy(new); altered[field] = changed
-            self.assertTrue(authority_relocation_transition_violations(new, altered, {}, {}))
-        for action in ("rewrite", "delete"):
-            altered = copy.deepcopy(new)
-            if action == "rewrite":
-                altered["owner_relocation"]["reason"] = "rewrite a committed receipt"
-            else:
-                del altered["owner_relocation"]
-            self.assertTrue(authority_relocation_transition_violations(new, altered, {}, {}))
+        cases = (
+            ("bounded-frontend-product-entry", r"SceneAuthoredShaderFrontend\.compile\(",
+             'SceneAuthoredShaderFrontend.compile(vertexSource: "a", fragmentSource: make("b"))'),
+            ("main-pass-writers", r"(?:\bmainPass|\bframe\.mainPass)\.encoder\(\)",
+             "mainPass.encoder()\nframe.mainPass.encoder()"),
+        )
+        approved = {"docs/scene/architecture/runtime-architecture.md"}
+        for rule_id, pattern, call in cases:
+            with self.subTest(rule=rule_id):
+                old = {"id": rule_id, "role": "inventory", "pattern": pattern,
+                       "baseline_occurrences": 2 * len(call.splitlines()),
+                       "allowed_files": ["Origin.swift", "Stable.swift"]}
+                new = {**old, "allowed_files": ["Destination.swift", "Stable.swift"]}
+                new["owner_relocation"] = {
+                    "from_file": "Origin.swift", "to_file": "Destination.swift",
+                    "from_contract_sha256": authority_metric_digest(old),
+                    "to_contract_sha256": authority_metric_digest(new), "design_doc": next(iter(approved)),
+                    "owner": "render preparation", "reason": "whole call inventory moved",
+                    "retirement": "retire only after all calls disappear"}
+                previous = {"Origin.swift": call, "Stable.swift": call}
+                current = {"Origin.swift": "struct Retained {}", "Destination.swift": call, "Stable.swift": call}
+                def validate(before, after, old_sources, new_sources):
+                    return authority_relocation_transition_violations(
+                        before, after, old_sources, new_sources, approved_design_docs=approved)
+                self.assertEqual(validate(old, new, previous, current), [])
+                self.assertTrue(authority_relocation_transition_violations(old, new, previous, current))
+                self.assertTrue(validate(old, new, {**previous, "Third.swift": call}, current))
+                changed_call = call.replace('"a"', '"changed"').replace("encoder()", "encoder(depthTexture: target)")
+                for path in ("Destination.swift", "Stable.swift"):
+                    self.assertTrue(validate(old, new, previous, {**current, path: changed_call}))
+                for path in ("Destination.swift", "Third.swift", "Origin.swift"):
+                    self.assertTrue(validate(old, new, previous, {**current, path: call + "\n" + call}))
+                for field, value in (("id", "another-inventory"), ("role", "retirement"), ("pattern", "compile"),
+                                     ("scope_files", ["Destination.swift"]), ("scan_root", "Other"),
+                                     ("start_marker", "START"), ("end_marker", "END"),
+                                     ("baseline_occurrences", 5), ("allowed_files", ["Destination.swift", "Third.swift"])):
+                    altered = copy.deepcopy(new)
+                    altered[field] = value
+                    altered["owner_relocation"]["to_contract_sha256"] = authority_metric_digest(altered)
+                    self.assertTrue(validate(old, altered, previous, current))
+                for field in ("from_contract_sha256", "to_contract_sha256", "from_file", "to_file", "design_doc", "owner"):
+                    altered = copy.deepcopy(new)
+                    altered["owner_relocation"][field] = "" if field == "owner" else "forged"
+                    self.assertTrue(validate(old, altered, previous, current))
+                self.assertEqual(validate(new, copy.deepcopy(new), {}, {}), [])
+                for field, changed in (("pattern", "compile"), ("scope_files", ["Destination.swift"]),
+                                       ("allowed_files", ["Destination.swift", "NewOwner.swift"])):
+                    altered = copy.deepcopy(new); altered[field] = changed
+                    self.assertTrue(validate(new, altered, {}, {}))
+                for action in ("rewrite", "delete"):
+                    altered = copy.deepcopy(new)
+                    if action == "rewrite":
+                        altered["owner_relocation"]["reason"] = "rewrite a committed receipt"
+                    else:
+                        del altered["owner_relocation"]
+                    self.assertTrue(validate(new, altered, {}, {}))
+                retired = {**new, "baseline_occurrences": 0, "allowed_files": []}
+                del retired["owner_relocation"]
+                self.assertEqual(validate(new, retired, {}, {}), [])
+                self.assertTrue(validate(retired, new, previous, current))
+                bounded_old = {**old, "scan_root": "Product", "scope_files": [
+                    "Origin.swift", "Destination.swift", "Stable.swift"], "start_marker": "START", "end_marker": "END"}
+                bounded_new = {**new, **{key: bounded_old[key] for key in (
+                    "scan_root", "scope_files", "start_marker", "end_marker")}}
+                bounded_new["owner_relocation"] = {**new["owner_relocation"],
+                    "from_contract_sha256": authority_metric_digest(bounded_old),
+                    "to_contract_sha256": authority_metric_digest(bounded_new)}
+                bounded_previous = {path: "START\n" + source + "\nEND\n" + call for path, source in {
+                    **previous, "Destination.swift": "", "Outside.swift": call}.items()}
+                bounded_current = {path: "START\n" + source + "\nEND\n" + call for path, source in {
+                    **current, "Outside.swift": call}.items()}
+                self.assertEqual(validate(bounded_old, bounded_new, bounded_previous, bounded_current), [])
 
     def test_render_chain_ratchet_rejects_new_owner_recovery_and_selector(self) -> None:
         rules = [
@@ -722,6 +782,9 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
 
         live = copy.deepcopy(next(rule for rule in json.loads(SCENE_LAYOUT_PATH.read_text())[
             "render_chain_authority_ratchet"]["rules"] if rule["id"] == "shape-derived-analyzer-fleet"))
+        # This fixture models the historical 66-declaration correction;
+        # later owner retirement changes the live inventory independently.
+        live["baseline_occurrences"] = 66
         before = copy.deepcopy(live)
         del before["passive_result_correction"]
         before["classifications"].pop()
@@ -735,6 +798,8 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         live["passive_result_correction"]["source_sha256"] = {
             path: hashlib.sha256(source.encode()).hexdigest() for path, source in sources.items()
         }
+        live["passive_result_correction"]["from_contract_sha256"] = authority_metric_digest(before)
+        live["passive_result_correction"]["to_contract_sha256"] = authority_metric_digest(live)
         self.assertTrue(passive_result_inventory_correction_valid(before, live, sources))
         self.assertEqual(classification_transition_violations(before, live, sources), [])
         self.assertEqual(classification_transition_violations(live, copy.deepcopy(live)), [])

@@ -243,16 +243,6 @@ struct SceneBaseImageTextureStore {
         publications[layerID] = nil
     }
 
-    mutating func merge(_ incoming: [Int: MTLTexture]) {
-        textures.merge(incoming) { _, value in value }
-        for layerID in incoming.keys {
-            unavailableOrdinaryVideoLayerIDs.remove(layerID)
-            candidates[layerID] = nil
-            publications[layerID] = nil
-            geometryProducts[layerID] = nil
-        }
-    }
-
     func snapshot(
         textures: [Int: MTLTexture],
         explicitLayerSources: [Int: SceneTextureProviderPublication] = [:],

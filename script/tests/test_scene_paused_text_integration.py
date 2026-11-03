@@ -137,7 +137,8 @@ class ScenePausedTextIntegrationTests(unittest.TestCase):
                                      {surface for _, surface in completed}, redrawn)
                     self.assertIn("phase=frame-driver-start paused=true", log)
                     self.assertNotIn("phase=frame-driver-start paused=false", log)
-                    self.assertEqual(len(re.findall(r"phase=dynamic-text-published layer=11 generation=\d+ ", log)), 2)
+                    # The Session's shared Store logs this layer's first publication once.
+                    self.assertEqual(len(re.findall(r"phase=dynamic-text-published layer=11 generation=\d+ ", log)), 1)
                     self.assertEqual(len(re.findall(r"target=text\(layerID: 11,[^\n]*callback=completed inputUTF8Bytes=\d+ outputUTF8Bytes=8 route=generic-only", log)), 1)
                 self.assertEqual(file_hashes(inputs), identity["inputSHA256"])
                 self.assertEqual(app_hashes(self.app), self.frozen_app_hashes)

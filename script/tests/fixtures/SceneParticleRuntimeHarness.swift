@@ -241,6 +241,8 @@ enum Harness {
             ])
         case "playback-control":
             try printJSON(playbackControl())
+        case "authored-retirement":
+            try printJSON(authoredRetirement())
         case "delayed-children":
             try printJSON(delayedChildren())
         case "delayed-child-edges":
@@ -685,7 +687,7 @@ extension SceneParticleRuntime {
 }
 
 extension SceneParticlePlaybackState {
-    convenience init?(
+    convenience init(
         descriptor: SceneRenderDescriptor,
         cacheDirectory: URL,
         device: MTLDevice,

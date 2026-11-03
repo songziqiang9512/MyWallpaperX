@@ -6,6 +6,7 @@ extension SceneDesktopWallpaperHost {
     struct PreparedLaunch {
         let model: SceneRuntimeModel
         var context: SceneDesktopWallpaperLaunchContext
+        let userPropertyTextureLoad: SceneUserPropertyTextureLoadResult
     }
 
     func requestLaunch(
@@ -73,6 +74,9 @@ extension SceneDesktopWallpaperHost {
                 prepared.context.userShortcuts = userShortcuts
                 prepared.context.userShortcutKeys = Set(prepared.model.project.userProperties.definitions
                     .filter { $0.kind == .userShortcut }.map(\.key))
+                let model = prepared.model
+                let context = prepared.context
+                let userPropertyTextureLoad = prepared.userPropertyTextureLoad
                 DispatchQueue.main.async { [weak self] in
                     guard let self,
                           self.nextLaunchRequestGeneration == requestGeneration else {
@@ -87,7 +91,8 @@ extension SceneDesktopWallpaperHost {
                             message: "正在准备显示器与 Scene 表面"
                         ))
                         try self.beginCandidate(
-                            prepared.context,
+                            context,
+                            userPropertyTextureLoad: userPropertyTextureLoad,
                             firstPresentation: .init(requestID: requestID, recordID: recordID)
                         ) { [weak self] result in
                             guard let self, self.nextLaunchRequestGeneration == requestGeneration else { return }
@@ -95,20 +100,20 @@ extension SceneDesktopWallpaperHost {
                             case .success:
                                 self.launchCancellation = nil
                                 let reachability: ScenePreparedCallbackPropertyReachability?
-                                if let projectWitness = prepared.model.project.sourceWitness,
-                                   let sceneWitness = prepared.model.sceneDocument.sourceWitness,
+                                if let projectWitness = model.project.sourceWitness,
+                                   let sceneWitness = model.sceneDocument.sourceWitness,
                                    let session = self.activeSession {
                                     reachability = .init(source: .init(
-                                        rootPath: prepared.model.project.rootURL.resolvingSymlinksInPath().standardizedFileURL.path,
+                                        rootPath: model.project.rootURL.resolvingSymlinksInPath().standardizedFileURL.path,
                                         projectWitness: projectWitness, sceneWitness: sceneWitness),
                                         scriptGeneration: scriptGeneration,
                                         propertyKeys: session.preparedCallbackPropertyKeys(
-                                            definitions: prepared.model.project.userProperties.definitions))
+                                            definitions: model.project.userProperties.definitions))
                                 } else { reachability = nil }
                                 self.publishLaunchState(.init(requestID: requestID,
                                     recordID: recordID, phase: .launched, message: "Scene 首帧已完成并切换",
                                     callbackPropertyReachability: reachability))
-                                complete(.success(prepared.model))
+                                complete(.success(model))
                             case let .failure(error):
                                 self.finishLaunchFailure(error, requestID: requestID,
                                     recordID: recordID, completion: complete)
@@ -333,44 +338,21 @@ extension SceneDesktopWallpaperHost {
                 key: $0.propertyKey, target: $0.target, valueType: $0.valueType
             )
         }.map(\.target))
-        let boundedProducerTargets: [(
-            String, Set<SceneDynamicTarget>, Int, Set<SceneDynamicTarget>,
-            Set<SceneDynamicTarget>
-        )] = [
-            ("property-vector", propertyVectorScriptTargets,
-             propertyVectorScriptTargets.count,
-             model.propertyVectorProjection.animationTargets, vectorPropertyInputTargets),
-            ("shared-alpha", Set(model.sharedLayerAlphaProgram.definitions.map(\.target)),
-             model.sharedLayerAlphaProgram.definitions.count, [], []),
-        ]
-        var boundedSceneScriptTargets: Set<SceneDynamicTarget> = []
-        var boundedProducerConflicts: [String] =
+        var vectorProducerConflicts: [String] =
             model.propertyVectorProjection.duplicateTargets.isEmpty
                 ? [] : ["property-vector/duplicate"]
-        for (name, targets, definitionCount, allowedTimelineTargets, allowedPropertyInputs)
-            in boundedProducerTargets {
-            if targets.count != definitionCount {
-                boundedProducerConflicts.append("\(name)/duplicate")
-            }
-            if !targets.isDisjoint(with: propertyBindingTargets) &&
-                !targets.intersection(propertyBindingTargets)
-                    .subtracting(allowedPropertyInputs).isEmpty {
-                boundedProducerConflicts.append("\(name)/property")
-            }
-            let unownedTimelineOverlap = targets.intersection(timelineTargets)
-                .subtracting(allowedTimelineTargets)
-            if !unownedTimelineOverlap.isEmpty {
-                boundedProducerConflicts.append("\(name)/timeline")
-            }
-            if !targets.isDisjoint(with: boundedSceneScriptTargets) {
-                boundedProducerConflicts.append("\(name)/bounded-peer")
-            }
-            boundedSceneScriptTargets.formUnion(targets)
+        if !propertyVectorScriptTargets.intersection(propertyBindingTargets)
+            .subtracting(vectorPropertyInputTargets).isEmpty {
+            vectorProducerConflicts.append("property-vector/property")
         }
-        guard boundedProducerConflicts.isEmpty else {
+        if !propertyVectorScriptTargets.intersection(timelineTargets)
+            .subtracting(model.propertyVectorProjection.animationTargets).isEmpty {
+            vectorProducerConflicts.append("property-vector/timeline")
+        }
+        guard vectorProducerConflicts.isEmpty else {
             throw SceneDesktopWallpaperHostLaunchError
                 .conflictingBoundedSceneScriptTargets(
-                    " phases=\(boundedProducerConflicts.joined(separator: ","))"
+                    " phases=\(vectorProducerConflicts.joined(separator: ","))"
                 )
         }
         var soundPlaybackProgram = try SceneSoundPlaybackProgram.compile(
@@ -383,27 +365,16 @@ extension SceneDesktopWallpaperHost {
             descriptor: authoredRenderDescriptor,
             scriptBindings: model.sceneDocument.scriptBindings,
             timelineTargets: timelineTargets,
-            excludedTargets: boundedSceneScriptTargets
+            excludedTargets: propertyVectorScriptTargets
         )
         let sceneScriptScalarTargets = Set(sceneScriptScalarDefinitions.map(\.target))
-        guard sceneScriptScalarTargets.isDisjoint(
-            with: boundedSceneScriptTargets
-        ) else {
-            throw SceneDesktopWallpaperHostLaunchError
-                .invalidBoundedSceneScriptProgramAt("scalar-target-ownership")
-        }
-        let sceneScriptStringExcludedTargets = boundedSceneScriptTargets
+        let sceneScriptStringExcludedTargets = propertyVectorScriptTargets
             .union(sceneScriptScalarTargets)
         let sceneScriptStringTargets = SceneScriptStringProgram.projectedTargets(
             descriptor: runtimeInput.renderDescriptor,
             scriptBindings: model.sceneDocument.scriptBindings,
             excludedTargets: sceneScriptStringExcludedTargets
         )
-        guard sceneScriptStringTargets.isDisjoint(with: boundedSceneScriptTargets),
-              sceneScriptStringTargets.isDisjoint(with: sceneScriptScalarTargets) else {
-            throw SceneDesktopWallpaperHostLaunchError
-                .invalidBoundedSceneScriptProgramAt("string-target-ownership")
-        }
         guard let sceneScriptVectorMediaRoute =
                 SceneScriptVectorMediaRouteState.resolve(
                     ProcessInfo.processInfo.environment[
@@ -448,11 +419,6 @@ extension SceneDesktopWallpaperHost {
                 checkCancellation: { try cancellation?.check() }
             )
         }
-        let textScriptProgram = SceneTextScriptCompiler.compile(
-            descriptor: runtimeInput.renderDescriptor,
-            excludedTargets: sceneScriptStringTargets,
-            preparationLayerIDs: projectedLayerVisibilityRootLayerIDs
-        )
         let resolvedMaterialVisibleExecutionRootLayerIDs = SceneLayerVisibility
             .visibleLayerIDs(in: runtimeInput.renderDescriptor)
                 .union(projectedLayerVisibilityRootLayerIDs)
@@ -484,7 +450,7 @@ extension SceneDesktopWallpaperHost {
         let materialPropertyTargets = Set(runtimeInput.propertyBindingProgram.instructions.map(\.target))
         let provenMaterialBindings = model.propertyVectorProjection.materialBindings
         let loweredMaterialModelPaths = Set(provenMaterialBindings.filter(\.canLowerToCompositor).map(\.modelPath))
-        let resolvedMaterialCatalog = SceneResolvedMaterialRuntimeCatalog(
+        let resolvedMaterialCatalog = try SceneResolvedMaterialRuntimeCatalog(
             descriptor: runtimeInput.renderDescriptor,
             admissionCandidates: resolvedMaterialAdmissionCandidates,
             shaderContracts: runtimeInput.shaderContracts,
@@ -494,7 +460,8 @@ extension SceneDesktopWallpaperHost {
             provenSceneScriptValueTargets: provisionalSceneScriptValueTargets,
             materialInstancesByLayerID: model.sceneDocument.materialInstancesByLayerID,
             loweredSourceMaterialModelPaths: loweredMaterialModelPaths,
-            provenSourceMaterialBindings: provenMaterialBindings
+            provenSourceMaterialBindings: provenMaterialBindings,
+            cancellationCheck: { try cancellation?.check() }
         )
 #if DEBUG
         logPrepareStage("prepare-catalog")
@@ -594,7 +561,7 @@ extension SceneDesktopWallpaperHost {
         // Structural candidates need an actual prepared consumer. Partition
         // them before planning/evaluating modules; construction and fallback
         // use the same exclusions.
-        let scalarExcludedTargets = boundedSceneScriptTargets.union(
+        let scalarExcludedTargets = propertyVectorScriptTargets.union(
             sceneScriptScalarTargets.filter { target in
                 switch target {
                 case .layer(_, .brightness):
@@ -796,13 +763,9 @@ extension SceneDesktopWallpaperHost {
         NSLog("MWX LAUNCH-STAGE: stage=device-join elapsedMs=%.0f", (CACurrentMediaTime() - resourcesStageStart) * 1000)
 #endif
         let firstSurfaceRuntime = try firstSurfaceRuntimePreparation.value()
-        let preparedSourceMaterialTargets: Set<SceneDynamicTarget> = Set(firstSurfaceRuntime.sourceMaterials.values
-            .flatMap { material in
-                material.template.uniformDeclarations.compactMap { declaration in
-                    if case let .dynamic(value) = declaration.value { return value.target }
-                    return nil
-                }
-            })
+        let preparedSourceMaterialTargets = firstSurfaceRuntime.sourceMaterials.values.reduce(
+            into: Set<SceneDynamicTarget>()
+        ) { $0.formUnion($1.declaredDynamicTargets) }
         let preparedFirstSurfaceRuntime = ScenePreparedFirstSurfaceRuntime(firstSurfaceRuntime)
         let resourceCatalog = SceneDesktopWallpaperLaunchFrameSchema.preparedResourceCatalog(
             descriptor: runtimeInput.renderDescriptor,
@@ -818,15 +781,13 @@ extension SceneDesktopWallpaperHost {
 #endif
         let frameSchema = SceneDesktopWallpaperLaunchFrameSchema(
             runtimeInput: runtimeInput,
-            sharedLayerAlphaProgram: model.sharedLayerAlphaProgram,
             propertyVectorScriptProgram: propertyVectorScriptProgram,
             sceneScriptFallbackDefinitions: sceneScriptFallbackDefinitions,
             sceneScriptScalarProgram: sceneScriptScalarProgram,
             sceneScriptStringProgram: sceneScriptStringProgram,
             sceneScriptOwnerLayerIDs: sceneScriptOwnerLayerIDs,
             preparedResourceLayerTemplates: preparedResourceLayerTemplates,
-            timelineProgram: timelineProgram,
-            textScriptProgram: textScriptProgram
+            timelineProgram: timelineProgram
         )
         try cancellation?.check()
         let context = SceneDesktopWallpaperLaunchContext(
@@ -850,8 +811,6 @@ extension SceneDesktopWallpaperHost {
             textureAnimationPlaybackRuntime:
                 SceneTextureAnimationPlaybackRuntime(),
             puppetAnimationPlaybackRuntime: ScenePuppetAnimationPlaybackRuntime(),
-            textScriptProgram: textScriptProgram,
-            sharedLayerAlphaProgram: model.sharedLayerAlphaProgram,
             sceneScriptCursorProgram: sceneScriptCursorProgram,
             propertyVectorScriptProgram: propertyVectorScriptProgram,
             propertyVectorPassCandidateTargets:
@@ -895,7 +854,6 @@ extension SceneDesktopWallpaperHost {
                 sceneScriptStringProgram: sceneScriptStringProgram,
                 propertyDefinitions: model.project.userProperties.definitions
             ),
-            userPropertyTextureLoad: userPropertyTextureLoad,
             privateMediaCacheDirectory: privateMediaCacheDirectory,
             resourceView: model.resourceView,
             logURL: logURL,
@@ -907,7 +865,8 @@ extension SceneDesktopWallpaperHost {
 #if DEBUG
         NSLog("MWX LAUNCH-STAGE: stage=prepare-end elapsedMs=%.0f", (CACurrentMediaTime() - resourcesStageStart) * 1000)
 #endif
-        return PreparedLaunch(model: model, context: context)
+        return PreparedLaunch(model: model, context: context,
+                              userPropertyTextureLoad: userPropertyTextureLoad)
     }
 
     private func finishLaunchFailure(

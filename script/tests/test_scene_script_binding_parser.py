@@ -30,7 +30,6 @@ DOCUMENT_SOURCES = [
     SOURCE_ROOT / "Format/SceneDirectionalLightDefinition.swift",
     SOURCE_ROOT / "Format/ScenePointLightDefinition.swift",
     SOURCE_ROOT / "Format/SceneSpotLightDefinition.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextScriptDefinition.swift",
     SOURCE_ROOT / "Format/SceneDocument+NumericParsing.swift",
     SOURCE_ROOT / "Format/ScenePuppetAnimationLayer.swift",
     SOURCE_ROOT / "Format/SceneTimelineAnimation.swift",
@@ -323,7 +322,7 @@ struct ObjectPayload: Codable {
     let hasInlineScript: Bool
     let displayScriptFields: [String]
     let bindings: [SceneScriptBindingDefinition]
-    let textScript: SceneTextScriptDefinition?
+
 }
 
 enum HarnessError: Error { case missingFixture }
@@ -339,8 +338,7 @@ enum Harness {
                 id: $0.id,
                 hasInlineScript: $0.hasInlineScript,
                 displayScriptFields: $0.displayScriptOwnership.fields,
-                bindings: $0.scriptBindings,
-                textScript: $0.textScript
+                bindings: $0.scriptBindings
             )
         }
         let encoder = JSONEncoder()
@@ -566,8 +564,8 @@ class SceneScriptBindingParserTests(unittest.TestCase):
         self.assertIsNone(bindings["alpha"]["authoredValue"])
         self.assertEqual(bindings["text"]["authoredValue"], "fallback text")
         self.assertTrue(bindings["visible"]["authoredValue"])
-        self.assertEqual(self.objects[10]["textScript"]["source"], "text-source")
-        self.assertEqual(self.objects[10]["textScript"]["properties"], {})
+        self.assertEqual(bindings["text"]["source"], "text-source")
+        self.assertEqual(bindings["text"]["properties"], {})
 
     def test_nested_scripts_are_not_promoted_to_layer_property_bindings(self) -> None:
         self.assertTrue(self.objects[20]["hasInlineScript"])

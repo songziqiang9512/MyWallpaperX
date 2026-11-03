@@ -71,7 +71,7 @@ enum Harness {
         effectIndex: 0,
         descriptorID: "conditional-fbo-command-contract"
     )
-    static let source = SceneAuthoredEffectInputValidator.layerSource(
+    static let source = Graph.TextureIdentity.layerSource(
         layerID: layerID
     )
     static let output = Graph.TextureIdentity(

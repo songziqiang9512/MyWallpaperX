@@ -4,14 +4,16 @@ import simd
 extension SceneMetalRenderer {
     func makeCameraFrame(
         frameContext: SceneFrameContext,
+        descriptor: SceneRenderDescriptor,
+        layersByID: [Int: SceneRenderDescriptor.Layer],
         worldFrames: [Int: simd_float4x4]
     ) -> SceneParticleCameraFrame {
-        let camera = renderDescriptor.camera
+        let camera = descriptor.camera
         // Visibility controls consumption, not Timeline playback. Hidden paths
         // keep evaluating on SceneClock; showing one does not imply a replay.
         let consumesPath = camera.default2DInputLayerID.map {
             SceneLayerVisibility.isEffectivelyVisible(layerID: $0,
-                in: renderDescriptor, layersByID: layersByID,
+                in: descriptor, layersByID: layersByID,
                 snapshot: frameContext.dynamicValues)
         } ?? true
         let dynamic = frameContext.dynamicValues.cameraTransform()
@@ -41,7 +43,7 @@ extension SceneMetalRenderer {
             staticCenter: dynamic.center,
             staticUp: dynamic.up,
             nativePerspectiveOverride: SceneParticleCameraFrame.nativePerspectiveOverride(
-                descriptor: renderDescriptor, layersByID: layersByID,
+                descriptor: descriptor, layersByID: layersByID,
                 worldFrames: worldFrames, dynamicValues: frameContext.dynamicValues
             ),
             dynamicValues: frameContext.dynamicValues

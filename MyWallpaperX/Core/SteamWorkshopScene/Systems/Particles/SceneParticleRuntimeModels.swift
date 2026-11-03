@@ -1,5 +1,4 @@
 import Foundation
-import Metal
 import simd
 
 #if DEBUG
@@ -24,7 +23,6 @@ enum SceneParticleRuntimeDiagnosticKind: String, Codable, Sendable {
     case childSystemsUnsupported
     case textureLoadFailed
     case simulationLimitation
-    case instanceBufferAllocationFailed
 }
 
 struct SceneParticleRuntimeDiagnostic: Codable, Equatable, Hashable, Sendable {
@@ -47,24 +45,6 @@ struct SceneParticleLayerImageEmitterCompilation {
     )
 }
 
-struct SceneParticleDrawBatch {
-    let layerID: Int
-    let particlePath: String
-    let texture: MTLTexture
-    let colorUVScale: SIMD2<Float>
-    let colorSampling: SceneParticleTextureSampling
-    let refraction: SceneParticleRefractionBinding?
-    let renderState: SceneParticlePipelineRenderState
-    let instanceBuffer: SceneParticleMetalInstanceBuffer
-    let instances: [SceneParticleGPUInstance]
-    let orientation: SceneParticleOrientation
-    let orientationAxis: SIMD3<Float>?
-    let usesPerspective: Bool
-    /// Existing root RopeTrail admission, independent of Sprite material state.
-    var inheritsNativeSceneCamera: Bool = false
-    var referenceWorldFrame: simd_float4x4? = nil
-    var sizeIsWorldSpace: Bool = false
-}
 
 #if DEBUG
 struct SceneParticleRuntimeAudioEvaluationObservation: Hashable, Sendable {

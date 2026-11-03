@@ -1,8 +1,6 @@
 import Foundation
 
-/// Launch-scoped capability catalog compiled from immutable graph-admission
-/// products. No secondary renderer route participates in capability ownership.
-final class SceneResolvedMaterialExecutionCapabilityCatalog {
+extension SceneResolvedMaterialExecutionCapabilityCatalog {
     struct Rejection: Error {
         struct ProgramFailureAttribution {
             enum SourceRouteFailure {
@@ -120,205 +118,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
 
     }
 
-    struct Token: Hashable {
-        fileprivate let ownerID: UUID
-        let capabilityID: UUID
-        fileprivate let layerID: Int
-    }
-
-    struct ClaimedLayer {
-        let token: Token
-        let layerID: Int
-    }
-
-    struct SceneBackgroundRequirement: Equatable {
-        let layerID: Int
-        let effect: Graph.EffectKey
-        let nodeIndex: Int
-        let slot: Int
-        let bindingCount: Int
-        let capturesTextSourcePrefixRGB: Bool
-
-        init(layerID: Int, effect: Graph.EffectKey, nodeIndex: Int, slot: Int,
-             bindingCount: Int, capturesTextSourcePrefixRGB: Bool = false) {
-            self.layerID = layerID
-            self.effect = effect
-            self.nodeIndex = nodeIndex
-            self.slot = slot
-            self.bindingCount = bindingCount
-            self.capturesTextSourcePrefixRGB = capturesTextSourcePrefixRGB
-        }
-    }
-
-    struct RuntimeDispositionOwnership {
-        let layerID: Int
-        let subjects: [ExactEffectSubject]
-
-        fileprivate init(layerID: Int, subjects: [ExactEffectSubject]) {
-            self.layerID = layerID
-            self.subjects = subjects
-        }
-    }
-
-    enum StageCapability {
-        case resolved(
-            product: SceneGraphAdmissionProduct,
-            materials: [MaterialKey: MaterialCapability],
-            activation: SceneResolvedMaterialStageActivationPolicy?
-        )
-        case visualFailurePassthrough(
-            product: SceneGraphAdmissionProduct,
-            reasonCode: String
-        )
-        case initiallyInactivePassthrough(
-            product: SceneGraphAdmissionProduct,
-            reasonCode: String
-        )
-    }
-
-    typealias FrameInputContract = SceneResolvedMaterialFrameInputContract
-
-    final class LayerCapability {
-        let layerID: Int
-        let admittedProducts: [SceneGraphAdmissionProduct]
-        let stages: [StageCapability]
-        let pairPlan: SceneLayerFullFramePairPlan
-        let materials: [MaterialKey: MaterialCapability]
-        let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
-        let sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute
-        let sceneBackgroundRequirement: SceneBackgroundRequirement?
-        let requiresSceneEnvironment: Bool
-        let frameInputContract: FrameInputContract
-        let graphFramebufferColorRepresentations: [
-            Graph.TextureIdentity: SceneShaderColorRepresentation
-        ]
-        let isVisibleExecutionRoot: Bool
-        let isGraphOutputProvider: Bool
-        let requiresGraphOutputProvider: Bool
-        let supportsSourceSizedSolidEffects: Bool
-        let supportsTerminalMaterialReplay: Bool
-        let supportsPlacementSpaceTerminalReplay: Bool
-        let terminalReplayBlendMode: Int
-        let effectSubjectsAreConserved: Bool
-
-        fileprivate let capabilityID = UUID()
-
-        fileprivate init(
-            admitted: SceneResolvedMaterialAdmittedLayer,
-            stages: [StageCapability],
-            materials: [MaterialKey: MaterialCapability],
-            dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
-            sceneBackgroundRequirement: SceneBackgroundRequirement?,
-            directDrawGeometry: FrameInputContract.DirectDrawGeometryBinding?,
-            directDrawGeometryFallback: SceneResolvedMaterialAdmittedLayer.DirectDrawGeometryFallback?
-        ) {
-            layerID = admitted.layerID
-            admittedProducts = admitted.products
-            self.stages = stages
-            let effectKeys = admitted.products.flatMap { $0.graph.effects.map(\.key) }
-            let subjects = stages.compactMap(\.subject)
-            effectSubjectsAreConserved = !effectKeys.isEmpty
-                && Set(effectKeys).count == effectKeys.count
-                && subjects.count == effectKeys.count && subjects.map(\.key) == effectKeys
-            pairPlan = admitted.pairPlan
-            self.materials = materials
-            self.dependencyOwnership = dependencyOwnership
-            sourceRoute = admitted.sourceRoute
-            self.sceneBackgroundRequirement = sceneBackgroundRequirement
-            requiresSceneEnvironment = materials.values.contains {
-                $0.variants.hasSceneEnvironmentConsumer
-            }
-            let emittedOutputGeometrySource: FrameInputContract
-                .EmittedOutputGeometrySource = switch admitted.sourceRoute {
-            case .capturedLayerTexture:
-                .layerCard
-            case .capturedMainTargetTexture:
-                .captureGeometry
-            case .transparentDirectDraw:
-                .authoredCanvasDirectDraw
-            }
-            frameInputContract = .init(
-                effectTextureProjectionSource: .emittedOutputGeometry,
-                emittedOutputGeometrySource: emittedOutputGeometrySource,
-                requiresInvertibleEffectTextureProjection:
-                    stages.contains(
-                        where: \.requiresInvertibleEffectTextureProjection
-                    ),
-                directDrawGeometry: directDrawGeometry,
-                directDrawGeometryFallback: directDrawGeometryFallback
-            )
-            var graphColorRepresentations: [
-                Graph.TextureIdentity: SceneShaderColorRepresentation
-            ] = [:]
-            var hasIdentityConflict = false
-            for stage in stages {
-                guard case let .resolved(product, materials, _) = stage else {
-                    continue
-                }
-                for (identity, representation) in
-                    SceneResolvedMaterialExecutionCapabilityCatalog
-                        .independentAlphaSignalTargetRepresentations(
-                            product.graph,
-                            materials: materials
-                        ) {
-                    if graphColorRepresentations.updateValue(
-                        representation,
-                        forKey: identity
-                    ) != nil {
-                        hasIdentityConflict = true
-                    }
-                }
-            }
-            graphFramebufferColorRepresentations = hasIdentityConflict
-                ? [:] : graphColorRepresentations
-            isVisibleExecutionRoot = admitted.isVisibleExecutionRoot
-            isGraphOutputProvider = admitted.isGraphOutputProvider
-            requiresGraphOutputProvider = admitted.requiresGraphOutputProvider
-            let simpleColor = Self.simpleColorChainCapabilities(
-                admitted: admitted,
-                stages: stages,
-                materials: materials,
-                dependencyOwnership: dependencyOwnership,
-                sceneBackgroundRequirement: sceneBackgroundRequirement
-            )
-            supportsSourceSizedSolidEffects = simpleColor.intermediates
-            supportsPlacementSpaceTerminalReplay = simpleColor.placement
-            supportsTerminalMaterialReplay = simpleColor.terminal
-                || Self.backgroundAttachmentReplaySupported(
-                    admitted: admitted, stages: stages, materials: materials,
-                    dependencyOwnership: dependencyOwnership,
-                    sceneBackgroundRequirement: sceneBackgroundRequirement)
-            terminalReplayBlendMode = admitted.terminalReplayBlendMode
-        }
-
-        func material(for node: Graph.Node) -> MaterialCapability? {
-            materials[.init(effect: node.effect, nodeIndex: node.nodeIndex)]
-        }
-
-        func material(effect: Graph.EffectKey, nodeIndex: Int) -> MaterialCapability? {
-            materials[.init(effect: effect, nodeIndex: nodeIndex)]
-        }
-    }
-
-    private let ownerID = UUID()
-    private let capabilitiesByLayerID: [Int: LayerCapability]
-    private let productAuthorityRejectionReasonsByLayerID: [Int: String]
-    private let rejectedReasons: [String: Int]
-    private let programFailureAttributions: [
-        Rejection.ProgramFailureAttribution
-    ]
-    private let visualFailurePassthroughReasons: [String: Int]
-    private let initiallyInactivePassthroughReasons: [String: Int]
-    private let candidateCount: Int
-    private let variantLimit: Int
-    /// Layers whose visibility a property/projected-value owner can change
-    /// at runtime; computed by launch admission and consumed by evidence
-    /// consumers that must treat hidden-endpoint bindings as conditional.
-    private let dynamicVisibleRootLayerIDs: Set<Int>
-
-    var visibilityOwnedLayerIDs: Set<Int> { dynamicVisibleRootLayerIDs }
-
-    init(
+    convenience init(
         admissionCandidates: [
             SceneResolvedMaterialExecutionCapabilityAdmission.Candidate
         ],
@@ -332,10 +132,10 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         backbufferFormat: SceneGraphRenderTargetPlan.TextureFormat = .rgbaBackbuffer,
         cancellationCheck: (() throws -> Void)? = nil
     ) throws {
-        self.dynamicVisibleRootLayerIDs = dynamicVisibleRootLayerIDs
+        let ownerID = UUID()
         let demandIssues = materialCatalog.resourceDemandIssues
-        candidateCount = admissionCandidates.count
-        variantLimit = maximumVariantsPerMaterial
+        let candidateCount = admissionCandidates.count
+        let variantLimit = maximumVariantsPerMaterial
         var accepted: [Int: LayerCapability] = [:]
         var productAuthorityRejectedByLayerID: [Int: String] = [:]
         var rejected: [String: Int] = [:]
@@ -471,14 +271,10 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                     productAuthorityRejectedByLayerID.removeValue(
                         forKey: candidate.layerID
                     )
-                    for reason in compiled.stages.compactMap(
-                        \.visualFailureReasonCode
-                    ) {
+                    for reason in compiled.stages.compactMap({ $0.execution.visualFailureReasonCode }) {
                         visualFailurePassthroughs[reason, default: 0] += 1
                     }
-                    for reason in compiled.stages.compactMap(
-                        \.initiallyInactivePassthroughReasonCode
-                    ) {
+                    for reason in compiled.stages.compactMap({ $0.execution.initiallyInactivePassthroughReasonCode }) {
                         initiallyInactivePassthroughs[reason, default: 0] += 1
                     }
                 }
@@ -500,13 +296,40 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
 #if DEBUG
         SceneResolvedMaterialVariantCompileProfile.logSummaryIfMeasured()
 #endif
-        capabilitiesByLayerID = accepted
-        productAuthorityRejectionReasonsByLayerID =
-            productAuthorityRejectedByLayerID
-        rejectedReasons = rejected
-        programFailureAttributions = programFailures
-        visualFailurePassthroughReasons = visualFailurePassthroughs
-        initiallyInactivePassthroughReasons = initiallyInactivePassthroughs
+        let audioConsumerLayerIDs = Set(accepted.compactMap { layerID, capability in
+            capability.stages.contains { stage in
+                guard case let .resolved(materials, _) = stage.execution else { return false }
+                return materials.values.contains { $0.variants.hasAudioSpectrumConsumer }
+            } ? layerID : nil
+        })
+        var providerConsumers: [SceneSystemProviderTextureIdentity: Set<Int>] = [:]
+        for (layerID, capability) in accepted {
+            for stage in capability.stages {
+                guard case let .resolved(materials, _) = stage.execution else { continue }
+                for key in materials.keys {
+                    for provider in materialCatalog.systemProviderDemandsByMaterial[key] ?? [] {
+                        providerConsumers[provider, default: []].insert(layerID)
+                    }
+                }
+            }
+        }
+        self.init(
+            ownerID: ownerID,
+            capabilitiesByLayerID: accepted,
+            audioConsumerLayerIDs: audioConsumerLayerIDs,
+            systemProviderConsumerLayerIDs: providerConsumers,
+            productAuthorityRejectionReasonsByLayerID: productAuthorityRejectedByLayerID,
+            dynamicVisibleRootLayerIDs: dynamicVisibleRootLayerIDs,
+            reportLines: Self.prepareReportLines(
+                capabilitiesByLayerID: accepted,
+                candidateCount: candidateCount,
+                variantLimit: variantLimit,
+                rejectedReasons: rejected,
+                programFailureAttributions: programFailures,
+                visualFailurePassthroughReasons: visualFailurePassthroughs,
+                initiallyInactivePassthroughReasons: initiallyInactivePassthroughs
+            )
+        )
     }
 
     /// A hidden graph-output provider has product execution authority only
@@ -621,180 +444,15 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         }
     }
 
-    func claim(layerID: Int) -> ClaimedLayer? {
-        guard let capability = capabilitiesByLayerID[layerID] else { return nil }
-        return .init(
-            token: .init(
-                ownerID: ownerID,
-                capabilityID: capability.capabilityID,
-                layerID: layerID
-            ),
-            layerID: layerID
-        )
-    }
-
-    func productAuthorityRejectionReason(layerID: Int) -> String? {
-        productAuthorityRejectionReasonsByLayerID[layerID]
-    }
-
-    func resolve(_ token: Token) -> LayerCapability? {
-        guard token.ownerID == ownerID,
-              let capability = capabilitiesByLayerID[token.layerID],
-              token.capabilityID == capability.capabilityID else { return nil }
-        return capability
-    }
-
-    func runtimeDispositionOwnership(
-        token: Token,
-        subjects: [ExactEffectSubject]
-    ) -> RuntimeDispositionOwnership? {
-        guard let capability = resolve(token),
-              capability.effectSubjectsAreConserved else { return nil }
-        let expected = capability.stages.compactMap(\.subject)
-        let keys = subjects.map(\.key)
-        guard !subjects.isEmpty,
-              Set(keys).count == keys.count,
-              Set(keys) == Set(expected.map(\.key)),
-              Dictionary(uniqueKeysWithValues: subjects.map { ($0.key, $0.family) })
-                == Dictionary(uniqueKeysWithValues: expected.map { ($0.key, $0.family) }),
-              subjects.allSatisfy({ $0.key.layerID == capability.layerID }) else {
-            return nil
-        }
-        return .init(
-            layerID: capability.layerID,
-            subjects: subjects.sorted {
-                if $0.key.effectIndex != $1.key.effectIndex {
-                    return $0.key.effectIndex < $1.key.effectIndex
-                }
-                return $0.key.descriptorID < $1.key.descriptorID
-            }
-        )
-    }
-
-    var runtimeDispositionOwnerships: [RuntimeDispositionOwnership] {
-        capabilitiesByLayerID.keys.sorted().compactMap { layerID in
-            guard let claim = claim(layerID: layerID),
-                  let capability = resolve(claim.token) else { return nil }
-            return runtimeDispositionOwnership(
-                token: claim.token,
-                subjects: capability.stages.compactMap(\.subject)
-            )
-        }
-    }
-
-    var executionLayerIDs: Set<Int> {
-        Set(capabilitiesByLayerID.keys)
-    }
-
-    var admittedResolvedMaterialReferences: Set<SceneDependencyRenderPlan.Reference> {
-        capabilitiesByLayerID.values.reduce(into: []) { result, capability in
-            switch capability.dependencyOwnership {
-            case let .externalPrimary(binding):
-                for slot in binding.referenceSlots {
-                    result.insert(.init(
-                        consumerLayerID: binding.consumerLayerID,
-                        providerLayerID: binding.providerLayerID,
-                        slot: slot,
-                        variant: .primary
-                    ))
-                }
-            case let .externalAggregate(aggregate):
-                // Preserve every authored slot in a multi-provider owner so a
-                // subsequent generation can re-admit the exact aggregate
-                // vector before any dependent MaterialProgram is compiled.
-                for binding in aggregate.orderedBindings {
-                    result.insert(.init(
-                        consumerLayerID: binding.consumerLayerID,
-                        providerLayerID: binding.providerLayerID,
-                        slot: binding.slot,
-                        variant: .primary
-                    ))
-                }
-            case .none, .graphInternal:
-                break
-            }
-        }
-    }
-
-    func requiresSceneEnvironment(layerID: Int) -> Bool {
-        capabilitiesByLayerID[layerID]?.requiresSceneEnvironment == true
-    }
-
-    var sceneBackgroundLayerIDs: Set<Int> {
-        Set(capabilitiesByLayerID.values.compactMap {
-            $0.sceneBackgroundRequirement?.layerID
-        })
-    }
-
-    var launchPipelineWarmupCapabilities: [LayerCapability] {
-        capabilitiesByLayerID.keys.sorted().compactMap {
-            capabilitiesByLayerID[$0]
-        }
-    }
-
-    /// Dynamic uniforms owned by an admitted resolved graph remain live
-    /// property consumers.
-    var liveConsumerTargets: Set<SceneDynamicTarget> {
-        capabilitiesByLayerID.values.reduce(into: Set<SceneDynamicTarget>()) {
-            targets, capability in
-            for stage in capability.stages {
-                switch stage {
-                case .resolved(_, let materials, let activation):
-                    targets.formUnion(activation?.liveConsumerTargets ?? [])
-                    for material in materials.values {
-                        for declaration in material.template.uniformDeclarations {
-                            guard case let .dynamic(dynamic) = declaration.value,
-                                  dynamic.valueContributors.count == 1,
-                                  case .userProperty = dynamic.valueContributors[0]
-                            else { continue }
-                            targets.insert(dynamic.target)
-                        }
-                    }
-                case .visualFailurePassthrough, .initiallyInactivePassthrough:
-                    break
-                }
-            }
-        }
-    }
-
-    /// SceneScript value producers remain live through the shared Program executor.
-    var sceneScriptConsumerTargets: Set<SceneDynamicTarget> {
-        capabilitiesByLayerID.values.reduce(into: Set<SceneDynamicTarget>()) {
-            targets, capability in
-            for stage in capability.stages {
-                switch stage {
-                case .resolved(_, let materials, _):
-                    for material in materials.values {
-                        for declaration in material.template.uniformDeclarations {
-                            guard case let .dynamic(dynamic) = declaration.value,
-                                  dynamic.valueContributors == [.sceneScript] else {
-                                continue
-                            }
-                            targets.insert(dynamic.target)
-                        }
-                    }
-                case .visualFailurePassthrough, .initiallyInactivePassthrough:
-                    break
-                }
-            }
-        }
-    }
-
-    /// Unified owner migration preserves capture demand for every audio stage.
-    var hasAudioSpectrumConsumer: Bool {
-        capabilitiesByLayerID.values.contains { capability in
-            capability.stages.contains { stage in
-                switch stage {
-                case .resolved(_, let materials, _):
-                    return materials.values.contains { $0.variants.hasAudioSpectrumConsumer }
-                case .visualFailurePassthrough, .initiallyInactivePassthrough:
-                    return false
-                }
-            }
-        }
-    }
-
-    var reportLines: [String] {
+    private static func prepareReportLines(
+        capabilitiesByLayerID: [Int: LayerCapability],
+        candidateCount: Int,
+        variantLimit: Int,
+        rejectedReasons: [String: Int],
+        programFailureAttributions: [Rejection.ProgramFailureAttribution],
+        visualFailurePassthroughReasons: [String: Int],
+        initiallyInactivePassthroughReasons: [String: Int]
+    ) -> [String] {
         var result = [
             "resolved material execution capabilities: schema=layer-graph-capability-v1"
                 + " candidates=\(candidateCount)"
@@ -868,8 +526,109 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         }
         return result
     }
+}
 
-    /// This launch-time gate is intentionally no broader than Finalizer's
-    /// per-frame policy. It prevents a predictable post-claim failure from
-    /// preventing duplicate execution ownership.
+extension SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability {
+    fileprivate convenience init(
+        admitted: SceneResolvedMaterialAdmittedLayer,
+        stages: [SceneResolvedMaterialExecutionCapabilityCatalog.CompiledStages.Stage],
+        materials: [SceneResolvedMaterialKey:
+            SceneResolvedMaterialExecutionCapabilityCatalog.MaterialCapability],
+        dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
+        sceneBackgroundRequirement:
+            SceneResolvedMaterialExecutionCapabilityCatalog.SceneBackgroundRequirement?,
+        directDrawGeometry: SceneResolvedMaterialFrameInputContract.DirectDrawGeometryBinding?,
+        directDrawGeometryFallback: SceneResolvedMaterialFrameInputContract.DirectDrawGeometryFallback?
+    ) {
+        let capabilityID = UUID()
+        let preparedStages: [SceneResolvedMaterialExecutionCapabilityCatalog.StageCapability] = stages.map { stage in
+            .init(product: stage.product, execution: stage.execution,
+                  passthroughTopologies: stage.passthroughTopologies,
+                  preEncodeVisualFailureSlots: dependencyOwnership
+                    .preEncodeVisualFailureSlots(in: stage.product.graph))
+        }
+        let effectKeys = admitted.products.flatMap { $0.graph.effects.map(\.key) }
+        let subjects = preparedStages.compactMap(\.subject)
+        let effectSubjectsAreConserved = !effectKeys.isEmpty
+            && Set(effectKeys).count == effectKeys.count
+            && subjects.count == effectKeys.count && subjects.map(\.key) == effectKeys
+        let requiresSceneEnvironment = materials.values.contains {
+            $0.variants.hasSceneEnvironmentConsumer
+        }
+        let emittedOutputGeometrySource: SceneResolvedMaterialFrameInputContract
+            .EmittedOutputGeometrySource = switch admitted.sourceRoute {
+        case .capturedLayerTexture:
+            .layerCard
+        case .capturedMainTargetTexture:
+            .captureGeometry
+        case .transparentDirectDraw:
+            .authoredCanvasDirectDraw
+        }
+        let frameInputContract = SceneResolvedMaterialFrameInputContract(
+            effectTextureProjectionSource: .emittedOutputGeometry,
+            emittedOutputGeometrySource: emittedOutputGeometrySource,
+            requiresInvertibleEffectTextureProjection:
+                preparedStages.contains { $0.execution.requiresInvertibleEffectTextureProjection },
+            directDrawGeometry: directDrawGeometry,
+            directDrawGeometryFallback: directDrawGeometryFallback
+        )
+        var graphColorRepresentations: [
+            SceneAuthoredEffectRenderPlan.TextureIdentity: SceneShaderColorRepresentation
+        ] = [:]
+        var hasIdentityConflict = false
+        for stage in preparedStages {
+            guard case let .resolved(materials, _) = stage.execution else {
+                continue
+            }
+            for (identity, representation) in
+                SceneResolvedMaterialExecutionCapabilityCatalog
+                    .independentAlphaSignalTargetRepresentations(
+                        stage.product.graph,
+                        materials: materials
+                    ) {
+                if graphColorRepresentations.updateValue(
+                    representation,
+                    forKey: identity
+                ) != nil {
+                    hasIdentityConflict = true
+                }
+            }
+        }
+        let graphFramebufferColorRepresentations = hasIdentityConflict
+            ? [:] : graphColorRepresentations
+        let simpleColor = Self.simpleColorChainCapabilities(
+            admitted: admitted,
+            stages: preparedStages,
+            materials: materials,
+            dependencyOwnership: dependencyOwnership,
+            sceneBackgroundRequirement: sceneBackgroundRequirement
+        )
+        let supportsTerminalMaterialReplay = simpleColor.terminal
+            || Self.backgroundAttachmentReplaySupported(
+                admitted: admitted, stages: preparedStages, materials: materials,
+                dependencyOwnership: dependencyOwnership,
+                sceneBackgroundRequirement: sceneBackgroundRequirement)
+        self.init(
+            capabilityID: capabilityID,
+            layerID: admitted.layerID,
+            admittedProducts: admitted.products,
+            stages: preparedStages,
+            pairPlan: admitted.pairPlan,
+            materials: materials,
+            dependencyOwnership: dependencyOwnership,
+            sourceRoute: admitted.sourceRoute,
+            sceneBackgroundRequirement: sceneBackgroundRequirement,
+            requiresSceneEnvironment: requiresSceneEnvironment,
+            frameInputContract: frameInputContract,
+            graphFramebufferColorRepresentations: graphFramebufferColorRepresentations,
+            isVisibleExecutionRoot: admitted.isVisibleExecutionRoot,
+            isGraphOutputProvider: admitted.isGraphOutputProvider,
+            requiresGraphOutputProvider: admitted.requiresGraphOutputProvider,
+            supportsSourceSizedSolidEffects: simpleColor.intermediates,
+            supportsTerminalMaterialReplay: supportsTerminalMaterialReplay,
+            supportsPlacementSpaceTerminalReplay: simpleColor.placement,
+            terminalReplayBlendMode: admitted.terminalReplayBlendMode,
+            effectSubjectsAreConserved: effectSubjectsAreConserved
+        )
+    }
 }

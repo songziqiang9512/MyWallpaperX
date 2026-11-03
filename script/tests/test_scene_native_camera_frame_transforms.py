@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Native camera consumes the same typed world transforms as scene geometry."""
+"""Native camera consumes current topology and typed world transforms.
+
+MWX_NATIVE_CAMERA_BASELINE_FACTORY=1 selects only the pre-change factory signature.
+"""
 from __future__ import annotations
 
 import hashlib
@@ -30,7 +33,9 @@ def run_probe(directory: Path) -> dict:
     (directory / "input-freeze.json").write_text(json.dumps(before, indent=2) + "\n")
     try:
         with tempfile.TemporaryDirectory(prefix="compile-", dir=directory) as build:
-            binary = shared.vm.compile_vector_harness(Path(build), FIXTURE.read_text(),
+            fixture = FIXTURE.read_text().replace("#if CAMERA_BASELINE_FACTORY",
+                "#if true" if os.environ.get("MWX_NATIVE_CAMERA_BASELINE_FACTORY") == "1" else "#if false")
+            binary = shared.vm.compile_vector_harness(Path(build), fixture,
                 "native-camera-frame-transforms", extra_swift_sources=tuple(shared.EXTRA_SOURCES),
                 preamble=shared.preamble())
             run = subprocess.run([str(binary), str(binary.parent)], capture_output=True,
@@ -84,6 +89,13 @@ class SceneNativeCameraFrameTransformTests(unittest.TestCase):
         for name, passed in self.report["controls"].items():
             with self.subTest(case=name):
                 self.assertTrue(passed, self.report["controls"])
+
+    def test_committed_topology_reaches_the_production_camera_factory(self) -> None:
+        self.assertEqual(len(self.report["topology"]), 2)
+        for renamed, facts in enumerate(self.report["topology"]):
+            for name, passed in facts.items():
+                with self.subTest(renamed=bool(renamed), fact=name):
+                    self.assertTrue(passed, facts)
 
     def test_static_camera_typed_inputs_reach_shared_view_and_roundtrip(self) -> None:
         actual = self.report["staticCamera"]

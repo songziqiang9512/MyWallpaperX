@@ -30,6 +30,10 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
     private(set) var retryUserPropertyValues: [String: SceneUserPropertyValue]?
     private(set) var pendingUserPropertyRecoveryKeys: Set<String> = []
 
+    func noteSystemInputConsumersChanged() {
+        domain.systemInputConsumersChanged = true
+    }
+
     var pendingLayerTopologyIdentity: UInt64? {
         let identity = mwx_scene_quickjs_owner_pending_layer_topology_identity(handle)
         return identity == 0 ? nil : identity

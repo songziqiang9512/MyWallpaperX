@@ -104,7 +104,7 @@ import simd
                 contractIdentity: shader.identity, contractCanonicalSHA256: shader.canonicalSHA256,
                 textureSources: [], uniformSources: []))!
         let cache = try SceneResolvedMaterialVariantCache.launchValidated(
-            template: template, maximumVariantCount: 256).get()
+            template: template, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: template), maximumVariantCount: 256).get()
         let launch = cache.precompileLaunchEnvelope(implicitFramebufferIdentity: input,
             outputStorage: .color, outputIsRGBA8Unorm: false,
             assetStates: [.init(path: fallback, purpose: .straightAlbedo):

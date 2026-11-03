@@ -2,47 +2,26 @@ import Foundation
 
 nonisolated extension SceneResolvedMaterialTextureResolver {
     static func selectionPurpose(
-        in slot: Template.TextureSlot,
-        candidateOrdinal: Int,
-        activeSampler: SceneResolvedMaterialShaderSchema.Sampler?,
-        reachableSamplers: Set<SceneResolvedMaterialShaderSchema.Sampler>,
+        reference: Template.TextureReference,
+        declaredPurpose: SceneTextureLoadPurpose?,
+        activeSampler: SceneResolvedMaterialPreparedSamplerSchema?,
         channelUse: ChannelUse?,
         input: SceneResolvedMaterialFinalizationInput
     ) -> SceneTextureLoadPurpose? {
-        let reference = slot.candidates[candidateOrdinal].reference
-        let declared: SceneTextureLoadPurpose?
-        if let activeSampler {
-            declared = SceneResolvedMaterialTextureSlotPurpose.fact(
-                in: slot,
-                candidateOrdinal: candidateOrdinal,
-                sampler: activeSampler
-            )?.purpose
-        } else {
-            let purposes = reachableSamplers.compactMap {
-                SceneResolvedMaterialTextureSlotPurpose.fact(
-                    in: slot,
-                    candidateOrdinal: candidateOrdinal,
-                    sampler: $0
-                )?.purpose
-            }
-            guard purposes.count == reachableSamplers.count,
-                  Set(purposes).count == 1 else { return nil }
-            declared = purposes.first
-        }
         let resource: SceneFrameTextureResource
         switch reference {
         case let .provider(.namedLayerTarget(namedReference)):
             guard case let .ready(namedResource)? = input.textureSnapshot.lookup(
                 .namedLayerTarget(namedReference)
-            ) else { return declared }
+            ) else { return declaredPurpose }
             resource = namedResource
         case let .graph(identity) where identity.kind == .framebuffer:
             guard case let .ready(graphResource)? = input.textureSnapshot.lookup(
                 .graph(identity)
-            ) else { return declared }
+            ) else { return declaredPurpose }
             resource = graphResource
         default:
-            return declared
+            return declaredPurpose
         }
         switch resource.publication.candidate.content {
         case .scalarRedUnorm, .scalarRedFloat16:
@@ -64,7 +43,7 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
             guard activeSampler?.mode == .regular else { return nil }
             return .preservedChannels
         case .color:
-            return declared
+            return declaredPurpose
         }
     }
 

@@ -171,7 +171,7 @@ private func token(
 ) -> String {
     guard let sampler,
           let asset = SceneVFSAssetPath(path) else { return "missing" }
-    let purpose = sampler.purpose(for: .asset(asset))?.reportToken ?? "nil"
+    let purpose = Schema.purpose(for: .asset(asset), sampler: sampler)?.reportToken ?? "nil"
     return "\(sampler.channelUse.rawValue)/\(purpose)"
 }
 

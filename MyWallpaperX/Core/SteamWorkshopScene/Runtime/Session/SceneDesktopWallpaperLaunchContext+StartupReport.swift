@@ -35,11 +35,6 @@ extension SceneDesktopWallpaperLaunchContext {
                 + " profile=scenescript-vector-media-events"
                 + " input=typed-inbox liveProvider=unavailable"
                 + " targets=\(mediaOwnerTargetNames)",
-            "scene shared layer alpha: schema=bounded-shared-alpha-v1"
-                + " flags=\(sharedLayerAlphaProgram.initialFlags.keys.sorted())"
-                + " bindings=\(sharedLayerAlphaProgram.bindings.count)"
-                + " layerIDs=\(sharedLayerAlphaProgram.layerIDs)"
-                + " interaction=unavailable",
             "scene cursor events: schema=quickjs-ng-cursor-v1"
                 + " owners=\(sceneScriptCursorProgram.ownerCount)"
                 + " layerIDs=\(sceneScriptCursorProgram.ownerLayerIDs.sorted())"

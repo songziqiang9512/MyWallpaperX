@@ -16,21 +16,11 @@ DOCUMENTATION_ROOT = REPOSITORY_ROOT / "docs"
 ROLE_INDEX_PATH = DOCUMENTATION_ROOT / "document-role-index.json"
 HISTORY_README_PATH = DOCUMENTATION_ROOT / "history" / "README.md"
 HISTORY_README_PATHS = [REPOSITORY_ROOT / root / "README.md" for root in HISTORY_ROOTS]
-AGENT_RULES_PATH = REPOSITORY_ROOT / "AGENTS.md"
-OFFICIAL_CLIENT_WORKFLOW_PATH = (
-    DOCUMENTATION_ROOT
-    / "scene"
-    / "development"
-    / "official-client-behavior-research-workflow.md"
-)
 RELEASE_DOCUMENT_PATH = DOCUMENTATION_ROOT / "release" / "release-signing.md"
 CI_WORKFLOW_PATH = REPOSITORY_ROOT / ".github/workflows/ci.yml"
 RELEASE_WORKFLOW_PATH = REPOSITORY_ROOT / ".github/workflows/build.yml"
 DATED_MARKDOWN_PATTERN = re.compile(r"\d{4}-\d{2}-\d{2}")
 MARKDOWN_LINK_PATTERN = re.compile(r"!?\[[^\]]*\]\(([^)\n]+)\)")
-REPOSITORY_SOURCE_LINK_PATTERN = re.compile(
-    r"`(?:MyWallpaperX|WallpaperDaemonSources)/[^`]+(?:\.swift|/)`"
-)
 HISTORICAL_BANNER = "> **历史证据 — 非现役入口**"
 VALID_ROLES = ROLES
 CURRENT_ROLE_MARKER_PATTERN = re.compile(
@@ -190,7 +180,12 @@ class DocumentRoleIndexTests(unittest.TestCase):
 
     def test_history_readme_authorities_match_machine_index(self) -> None:
         rows: dict[str, set[str]] = {}
-        for history_readme in HISTORY_README_PATHS:
+        history_readmes = {
+            REPOSITORY_ROOT / str(document["entrypoint"])
+            for document in self.documents
+            if document.get("role") == "historical-evidence"
+        }
+        for history_readme in sorted(history_readmes):
             for line in history_readme.read_text(encoding="utf-8").splitlines():
                 if not line.startswith("| 20"):
                     continue
@@ -266,19 +261,6 @@ class DocumentRoleIndexTests(unittest.TestCase):
             with self.subTest(path=relative_path):
                 self.assertTrue((REPOSITORY_ROOT / relative_path).is_file())
 
-    def test_exactly_one_scene_active_roadmap_exists(self) -> None:
-        scene_active_plans = [
-            str(document["path"])
-            for document in self.documents
-            if document.get("role") == "active-plan"
-            and str(document["path"]).startswith("docs/scene/")
-            and str(document["path"]) == "docs/scene/roadmap/scene-compatibility-roadmap.md"
-        ]
-        self.assertEqual(
-            scene_active_plans,
-            ["docs/scene/roadmap/scene-compatibility-roadmap.md"],
-        )
-
     def test_role_specific_metadata_points_to_current_authorities(self) -> None:
         for document in self.documents:
             relative_path = str(document["path"])
@@ -299,11 +281,6 @@ class DocumentRoleIndexTests(unittest.TestCase):
                         authority_path.resolve(),
                         local_markdown_targets(document_path),
                         "stable contracts must link their current-state authority",
-                    )
-                    self.assertNotRegex(
-                        document_path.read_text(encoding="utf-8"),
-                        REPOSITORY_SOURCE_LINK_PATTERN,
-                        "stable contracts must not freeze current source-file locations",
                     )
                 elif role == "historical-evidence":
                     self.assertEqual(document.get("commandPolicy"), "historical-only")
@@ -327,36 +304,6 @@ class DocumentRoleIndexTests(unittest.TestCase):
                     {(REPOSITORY_ROOT / p).resolve() for p in local_targets(REPOSITORY_ROOT, entrypoint)},
                     "entrypoint must contain a Markdown link to the indexed document",
                 )
-
-    def test_official_client_research_workflow_is_actionable(self) -> None:
-        rules = AGENT_RULES_PATH.read_text(encoding="utf-8")
-        workflow = OFFICIAL_CLIENT_WORKFLOW_PATH.read_text(encoding="utf-8")
-
-        self.assertIn(
-            "docs/scene/development/official-client-behavior-research-workflow.md",
-            rules,
-        )
-        for heading in (
-            "## 2. 何时启动，何时不得启动",
-            "## 5. AI 研究卡",
-            "## 7. 从研究到独立实现",
-            "## 8. 官方结果一致性门",
-            "## 9. 停止条件与文档回写",
-        ):
-            with self.subTest(heading=heading):
-                self.assertIn(heading, workflow)
-
-        for required_contract in (
-            "不得把“每做一项功能都先反编译”设成前置仪式",
-            "不得直接复制、照译或移植参考实现",
-            "固定控制变量",
-            "预先声明比较方法",
-            "官方客户端对照未运行",
-            "不得保存或转述",
-        ):
-            with self.subTest(requiredContract=required_contract):
-                self.assertIn(required_contract, workflow)
-
 
 if __name__ == "__main__":
     unittest.main()

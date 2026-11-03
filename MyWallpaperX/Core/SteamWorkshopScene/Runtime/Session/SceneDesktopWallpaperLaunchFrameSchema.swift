@@ -157,15 +157,13 @@ nonisolated final class SceneDesktopWallpaperLaunchFrameSchema: @unchecked Senda
 
     init(
         runtimeInput: SceneRuntimeInput,
-        sharedLayerAlphaProgram: SceneSharedLayerAlphaProgram,
         propertyVectorScriptProgram: SceneScriptVectorProgram,
         sceneScriptFallbackDefinitions: [SceneDynamicTargetDefinition],
         sceneScriptScalarProgram: SceneScriptScalarProgram,
         sceneScriptStringProgram: SceneScriptStringProgram,
         sceneScriptOwnerLayerIDs: Set<Int>,
         preparedResourceLayerTemplates: [String: SceneScriptPreparedResourceLayerTemplate],
-        timelineProgram: SceneTimelineProgram,
-        textScriptProgram: SceneTextScriptProgram
+        timelineProgram: SceneTimelineProgram
     ) {
         mediaFrameCoordinator = .init(
             vectorProgram: propertyVectorScriptProgram,
@@ -208,9 +206,7 @@ nonisolated final class SceneDesktopWallpaperLaunchFrameSchema: @unchecked Senda
         self.launchDefinitions = SceneDynamicDefinitionMerger.merge(
             propertyDefinitions: runtimeInput.propertyBindingProgram.definitions,
             timelineProgram: timelineProgram,
-            textScriptProgram: textScriptProgram,
-            additionalDefinitions: sharedLayerAlphaProgram.definitions
-                + propertyVectorScriptProgram.definitions
+            additionalDefinitions: propertyVectorScriptProgram.definitions
                 + sceneScriptFallbackDefinitions
                 + sceneScriptScalarProgram.definitions
                 + sceneScriptStringProgram.definitions

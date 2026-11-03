@@ -44,15 +44,18 @@ class SceneUserPropertyVideoGPUTests(unittest.TestCase):
             "Rendering/Composition/SceneFrameLayerTextureAssembly.swift",
         ]
         sources = list(dict.fromkeys(textures.SWIFT_SOURCES + [SCENE / path for path in extras]))
-        # Reuse the existing real GPU draw helper, changing only its entry-point
-        # name in this temporary compilation unit; no provider algorithm is copied.
+        # Reuse the existing draw helpers and envelopes without compiling that
+        # fixture's unrelated entry point and storage/asset cases.
         fixture = ROOT / "script/tests/fixtures/SceneMaterialVideoAssetHarness.swift"
         support = cls.work / "MaterialVideoFixtureSupport.swift"
         fixture_text = fixture.read_text()
         if fixture_text.count("@main enum Harness {") != 1:
             raise RuntimeError("material video fixture entry point changed")
         carriers, _ = material.video_carrier_source(SCENE)
-        support.write_text("import Foundation\n" + carriers + "\n" + fixture_text.replace("@main enum Harness {", "enum MaterialVideoFixtureSupport {"))
+        draw = "\n".join(readiness.declaration(fixture_text, signature)
+            for signature in ("static func draw(", "static func request("))
+        support.write_text(fixture_text.split("@main enum Harness {", 1)[0]
+            + carriers + "\nenum MaterialVideoFixtureSupport {\n" + draw + "\n}\n")
         cls.environment = os.environ.copy()
         cls.environment["CLANG_MODULE_CACHE_PATH"] = str(cls.work / "clang-cache")
         home = cls.work / "home"

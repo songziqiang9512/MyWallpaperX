@@ -1,14 +1,16 @@
 #if DEBUG
 extension SceneMetalRenderer {
-    func installResolvedMaterialExecutionEvidence() {
-        let dispositionCatalog = SceneEffectRuntimeDispositionCatalog(
-            descriptor: renderDescriptor,
-            admissionCatalog: effectAdmissionCatalog,
-            resolvedMaterialSubjects: imageCompositor.resolvedMaterialRuntime?
-                .runtimeDispositionSubjects ?? []
+    func installResolvedMaterialExecutionEvidence(
+        reportLines: [String],
+        resolvedMaterialLayerIDs: Set<Int>,
+        subjects: [SceneResolvedMaterialRuntimeBridge.ExactEffectSubject]
+    ) {
+        effectExecutionTelemetry.installPreparedAdmission(
+            reportLines: reportLines,
+            resolvedMaterialLayerIDs: resolvedMaterialLayerIDs
         )
         imageCompositor.resolvedMaterialRuntime?.installExecutionEvidence(
-            dispositionCatalog.resolvedMaterialExecutionEvidenceSubjects
+            subjects
         )
     }
 }

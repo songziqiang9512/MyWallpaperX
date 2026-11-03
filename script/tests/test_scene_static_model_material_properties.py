@@ -9,6 +9,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from .test_scene_prepared_script_resource_catalog import swift_declaration
+
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
@@ -40,33 +42,7 @@ struct SceneScriptBindingIR {
     let targetPath: [SceneScriptBindingPathComponent]
 }
 enum SceneBaseMaterialColorModulationCompiler {
-    struct Binding {
-        let modelPath: String
-        let sourceLayerID: Int
-        let materialPath: String
-        let colorKey: String
-        let scriptSource: String?
-        let scriptProperties: [String: SceneJSONValue]
-        let authoredColor: SIMD3<Double>
-        var alphaKey: String? = nil
-        var authoredAlpha: Float = 1
-        var alphaUserPropertyKey: String? = nil
-        var alphaPropertyTarget: SceneDynamicTarget? {
-            guard alphaUserPropertyKey != nil, let alphaKey else { return nil }
-            return .materialConstant(layerID: sourceLayerID, passIndex: 0,
-                name: alphaKey, materialPath: materialPath)
-        }
-        var colorUserPropertyKey: String? = nil
-        var colorPropertyTarget: SceneDynamicTarget? {
-            guard colorUserPropertyKey != nil else { return nil }
-            return .materialConstant(layerID: sourceLayerID, passIndex: 0,
-                name: colorKey, materialPath: materialPath)
-        }
-        var colorBindingPath: [SceneUserPropertyPathComponent] {
-            [.key("materials"), .key(materialPath), .key("passes"), .index(0),
-             .key("constantshadervalues"), .key(colorKey)]
-        }
-    }
+    __BASE_MATERIAL_BINDING__
 }
 
 enum SceneShaderUserValueKind {
@@ -136,6 +112,10 @@ struct SceneRenderDescriptor {
     let materialPasses: [MaterialPassDescriptor]
 }
 '''
+STUBS = STUBS.replace("__BASE_MATERIAL_BINDING__", swift_declaration(
+    (SCENE_ROOT / "Compilation/Material/SceneBaseMaterialColorModulationCompiler.swift").read_text(),
+    "    struct Binding: Sendable {",
+))
 
 HARNESS = r'''
 import Foundation
@@ -376,9 +356,12 @@ enum Harness {
                     materialPath: "materials/model.json"), brightnessInputs),
             ]
         ).isEmpty)
-        // Candidate admission still owns malformed nested wrappers.
-        precondition(SceneScriptPropertyInputCodec.inputs([
+        let metadataInput = SceneScriptPropertyInputCodec.inputs([
             "minvalue": .object(["user": .string("minimum"), "value": .number(0), "extra": .bool(true)])
+        ])!
+        precondition(metadataInput["minvalue"]?.resolve(effectiveValues: ["minimum": .number(0.75)]) == .number(0.75))
+        precondition(SceneScriptPropertyInputCodec.inputs([
+            "minvalue": .object(["user": .number(7), "value": .number(0)])
         ]) == nil)
         print("nested-material-live-transaction: OK")
     }

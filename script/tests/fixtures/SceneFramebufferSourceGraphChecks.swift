@@ -36,12 +36,21 @@
                 contractIdentity: contract.identity, contractCanonicalSHA256: contract.canonicalSHA256,
                 textureSources: [], uniformSources: [])),
               case let .success(variants) = SceneResolvedMaterialVariantCache.launchValidated(
-                template: sourceTemplate, maximumVariantCount: 32, assetFormatFacts: [:]) else {
+                template: sourceTemplate, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: sourceTemplate), maximumVariantCount: 32, assetFormatFacts: [:]) else {
             print("{\"metalAvailable\":true,\"failure\":\"source-template\"}"); return
         }
         guard case .success = variants.precompileLaunchEnvelope(implicitFramebufferIdentity: nil,
             outputIsRGBA8Unorm: true, assetStates: [:]) else {
             print("{\"metalAvailable\":true,\"failure\":\"source-envelope\"}"); return
+        }
+        let sourcePipelinePlans = variants.launchEnvelopeCapabilitySnapshot().variants.map {
+            SceneResolvedMaterialPassEncoder.WarmupPlan(identity: "framebuffer-source-fixture",
+                prepared: $0.preparedAssembly, pixelFormat: .bgra8Unorm,
+                writeMask: .all, device: device)!
+        }
+        let sourceWarmup = executor.materialEncoder.warmup(sourcePipelinePlans)
+        guard sourceWarmup.failedKeyCount == 0, sourceWarmup.readyKeyCount > 0 else {
+            print("{\"metalAvailable\":true,\"failure\":\"source-pipeline-warmup\"}"); return
         }
         let pipeline = makeSourcePipeline(device)
         var rows: [[String: Any]] = []
@@ -70,7 +79,8 @@
             }
             var injectedPassKey: String?
             let sourceMaterial = SceneResolvedMaterialRuntimeBridge.PreparedSourceMaterial(
-                template: sourceTemplate,
+                declaredDynamicTargets: [],
+                hasAudioSpectrumConsumer: variants.hasAudioSpectrumConsumer,
                 bindFrame: { input in
                     if let injectedFailure { return .failure(injectedFailure) }
                     let result = SceneResolvedMaterialProgramFinalizer.finalize(input, variantCache: variants)

@@ -5,14 +5,20 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
     typealias Template = SceneResolvedMaterialTemplate
     typealias Failure = SceneResolvedMaterialFailure
 
-    private struct GraphContext {
-        let node: Graph.Node
+    struct GraphScope {
         let effect: Graph.Effect
         let textureUniverse: Set<Graph.TextureIdentity>
+
+        init(effect: Graph.Effect, renderTargets: [Graph.RenderTarget]) {
+            self.effect = effect
+            textureUniverse = Set([effect.input, effect.output] + renderTargets.map(\.texture))
+        }
     }
 
+    private typealias GraphContext = (node: Graph.Node, scope: GraphScope)
+
     static func compile(
-        material: SceneResolvedMaterialNode, graph: Graph,
+        material: SceneResolvedMaterialNode, node: Graph.Node, graphScope: GraphScope,
         shaderContract: SceneShaderContract,
         inheritedInactiveCombos: Set<String> = [],
         previousBlurredCompositeGenericOwnerEligible: Bool = false,
@@ -20,7 +26,11 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
         compatibilityTarget: SceneShaderCompatibilityTarget = .unprofiledMetal
     ) -> Result<Template, Failure> {
         do {
-            let context = try graphContext(material, graph: graph)
+            guard material.nodeIndex == node.nodeIndex, node.kind == .material,
+                  node.effect == graphScope.effect.key else {
+                throw graphFailure("material-node-invalid")
+            }
+            let context = (node: node, scope: graphScope)
             try validateShader(material.shaderPath, contract: shaderContract)
             let textures = try textureSlots(
                 material.textureSlots,
@@ -58,7 +68,7 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
                 uniforms: uniforms,
                 renderState: state,
                 graphRole: role,
-                effectContext: .init(key: context.effect.key, input: context.effect.input),
+                effectContext: .init(key: graphScope.effect.key, input: graphScope.effect.input),
                 inheritedInactiveCombos: inheritedInactiveCombos,
                 previousBlurredCompositeGenericOwnerEligible:
                     previousBlurredCompositeGenericOwnerEligible,
@@ -160,59 +170,6 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
             throw Failure(phase: .invariant, code: .identityInvariant)
         }
         return template
-    }
-
-    private static func graphContext(_ material: SceneResolvedMaterialNode, graph: Graph) throws -> GraphContext {
-        guard graph.blockers.isEmpty, !graph.effects.isEmpty
-        else { throw graphFailure("blocked-or-empty") }
-        let effectsByKey = Dictionary(grouping: graph.effects, by: \.key)
-        let nodesByIndex = Dictionary(grouping: graph.nodes, by: \.nodeIndex)
-        guard effectsByKey.values.allSatisfy({ $0.count == 1 }),
-              nodesByIndex.values.allSatisfy({ $0.count == 1 })
-        else { throw graphFailure("duplicate-effect-or-node") }
-
-        let effectKeys = Set(effectsByKey.keys)
-        var owners: [Int: Graph.EffectKey] = [:]
-        for effect in graph.effects {
-            guard effect.key.layerID == graph.layerID,
-                  !effect.nodeIndices.isEmpty,
-                  Set(effect.nodeIndices).count == effect.nodeIndices.count,
-                  SceneResolvedMaterialEffectIngress.accepts(effect.input, layerID: graph.layerID, owner: effect.key),
-                  validTexture(effect.output, layerID: graph.layerID, effects: effectKeys),
-                  effect.output.kind == .effectOutput,
-                  effect.output.effect == effect.key else {
-                throw graphFailure("invalid-effect")
-            }
-            for index in effect.nodeIndices {
-                guard owners.updateValue(effect.key, forKey: index) == nil
-                else { throw graphFailure("node-partition-overlap") }
-            }
-        }
-        guard Set(owners.keys) == Set(nodesByIndex.keys)
-        else { throw graphFailure("node-partition-incomplete") }
-
-        let targets = graph.renderTargets.map(\.texture)
-        guard Set(targets).count == targets.count,
-              targets.allSatisfy({
-                  $0.kind == .framebuffer
-                      && validTexture($0, layerID: graph.layerID, effects: effectKeys)
-              }) else { throw graphFailure("invalid-render-target") }
-        let universe = Set(graph.effects.flatMap { [$0.input, $0.output] } + targets)
-        guard graph.finalOutput.kind == .effectOutput,
-              universe.contains(graph.finalOutput)
-        else { throw graphFailure("invalid-final-output") }
-        for node in graph.nodes {
-            guard let owner = owners[node.nodeIndex], node.effect == owner,
-                  let effect = effectsByKey[owner]?.first,
-                  validNodeTextures(node, effect: effect, universe: universe)
-            else { throw graphFailure("invalid-node-owner-or-texture") }
-        }
-        guard let node = nodesByIndex[material.nodeIndex]?.first,
-              let owner = owners[material.nodeIndex],
-              let effect = effectsByKey[owner]?.first,
-              node.kind == .material
-        else { throw graphFailure("material-node-invalid") }
-        return .init(node: node, effect: effect, textureUniverse: universe)
     }
 
     private static func validateShader(_ authoredPath: String, contract: SceneShaderContract) throws {
@@ -322,7 +279,7 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
                 throw textureFailure(.userTextureUnknown, slot, candidate.provenance)
             }
         case let .graph(identity):
-            guard let context, context.textureUniverse.contains(identity),
+            guard let context, context.scope.textureUniverse.contains(identity),
                   context.node.bindings.contains(where: {
                       $0.slot == slot && $0.texture == identity
                   }) else {
@@ -414,9 +371,9 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
 
     private static func graphRole(_ context: GraphContext) -> Template.GraphRole? {
         guard let input = Template.GraphTextureRole(
-            rawValue: context.effect.input.kind.rawValue
+            rawValue: context.scope.effect.input.kind.rawValue
         ), let output = Template.GraphTextureRole(
-            rawValue: context.effect.output.kind.rawValue
+            rawValue: context.scope.effect.output.kind.rawValue
         ), let targetKind = context.node.target?.kind,
            let target = Template.GraphTextureRole(rawValue: targetKind.rawValue) else { return nil }
         let bindings: [Template.GraphBindingRole] = context.node.bindings.compactMap {
@@ -430,38 +387,6 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
         guard bindings.count == context.node.bindings.count else { return nil }
         return .init(effectInput: input, effectOutput: output,
                      nodeTarget: target, bindings: bindings)
-    }
-
-    private static func validNodeTextures(
-        _ node: Graph.Node, effect: Graph.Effect,
-        universe: Set<Graph.TextureIdentity>
-    ) -> Bool {
-        let identities = [node.target, node.commandSource, node.commandTarget].compactMap { $0 }
-            + node.bindings.map(\.texture)
-        guard identities.allSatisfy(universe.contains),
-              node.bindings.allSatisfy({
-                  $0.texture == effect.input
-                      || ($0.texture.kind == .framebuffer && $0.texture.effect == effect.key)
-              }) else { return false }
-        guard let target = node.target else { return node.kind != .material }
-        return [.framebuffer, .effectOutput].contains(target.kind)
-            && target.effect == effect.key
-    }
-
-    private static func validTexture(
-        _ identity: Graph.TextureIdentity, layerID: Int,
-        effects: Set<Graph.EffectKey>
-    ) -> Bool {
-        guard identity.layerID == layerID else { return false }
-        switch identity.kind {
-        case .layerSource: return identity.effect == nil && identity.name == nil
-        case .effectOutput:
-            return identity.effect.map(effects.contains) == true && identity.name == nil
-        case .framebuffer:
-            return identity.effect.map(effects.contains) == true
-                && identity.name?.isEmpty == false
-        case .unresolved: return false
-        }
     }
 
     private static func normalizedShaderPath(_ rawValue: String) -> String? {

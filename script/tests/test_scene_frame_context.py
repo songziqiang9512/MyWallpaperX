@@ -56,8 +56,8 @@ LIVE_CONSUMERS_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+LiveConsumers.swift"
 )
 VIEW_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift"
-MEDIA_THUMBNAIL_COORDINATOR_SOURCE = (
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneMediaThumbnailCoordinator.swift"
+SURFACE_SIMULATION_SOURCE = (
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceSimulation.swift"
 )
 VIEW_FRAME_CONTEXT_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+FrameContext.swift"
@@ -136,8 +136,7 @@ struct FrameTestRenderer {
 }
 struct FrameTestMetalLayer { var drawableSize = CGSize(width: 3024, height: 1964) }
 struct SceneMetalView {
-    enum RenderInvalidation { case surface, mediaPublication }
-    var onRenderInvalidated: ((RenderInvalidation) -> Void)?
+    var onRenderInvalidated: (() -> Void)?
     var renderer = FrameTestRenderer()
     var metalLayer = FrameTestMetalLayer()
     var offscreenTexturePool = FrameTestPool()
@@ -150,7 +149,7 @@ struct SceneMetalView {
 enum Harness {
     static func main() throws {
         var invalidatedView = SceneMetalView()
-        invalidatedView.onRenderInvalidated = { _ in InvalidationEvents.values.append("callback") }
+        invalidatedView.onRenderInvalidated = { InvalidationEvents.values.append("callback") }
         invalidatedView.invalidateResolvedMaterialRuntime(reason: .init(label: "executor"))
         let withCallback = InvalidationEvents.values
         InvalidationEvents.values = []
@@ -627,7 +626,7 @@ class SceneFrameContextTests(unittest.TestCase):
 
     def test_scenescript_material_mutation_stays_on_existing_frame_and_graph_chain(self) -> None:
         frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
-        view = VIEW_SOURCE.read_text(encoding="utf-8")
+        surface_simulation = SURFACE_SIMULATION_SOURCE.read_text(encoding="utf-8")
         view_frame_context = VIEW_FRAME_CONTEXT_SOURCE.read_text(encoding="utf-8")
         preflight = PREPFLIGHT_SOURCE.read_text(encoding="utf-8")
 
@@ -645,9 +644,9 @@ class SceneFrameContextTests(unittest.TestCase):
         )
         self.assertIn(
             "materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = []",
-            view,
+            surface_simulation,
         )
-        self.assertIn("materialFunctionMutations: materialFunctionMutations", view)
+        self.assertIn("materialFunctionMutations: materialFunctionMutations", surface_simulation)
         self.assertIn(
             "materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = []",
             view_frame_context,

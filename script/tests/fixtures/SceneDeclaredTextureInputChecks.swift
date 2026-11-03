@@ -1,5 +1,38 @@
 import Foundation
 
+func admitTemplateGraph(_ graph: SceneAuthoredEffectRenderPlan)
+    -> Result<SceneGraphAdmissionProduct, SceneGraphAdmissionFailure> {
+    var effects: [SceneRenderDescriptor.EffectDescriptor] = []
+    if let effect = graph.effects.first {
+        let passes = graph.nodes.filter { $0.kind == .material }.compactMap { node in
+            node.instancePassIndex.map {
+                SceneRenderDescriptor.EffectDescriptor.PassDescriptor(passIndex: $0,
+                    textureSlots: [], userTextureInputs: [], combos: [:], constantShaderValues: [:])
+            }
+        }
+        effects = (0...max(0, effect.key.effectIndex)).map { index in
+            .init(id: index == effect.key.effectIndex ? effect.key.descriptorID : "unused-\(index)",
+                passes: index == effect.key.effectIndex ? passes : [])
+        }
+    }
+    var seen = Set<String>()
+    let materials: [SceneRenderDescriptor.MaterialPassDescriptor] = graph.nodes.compactMap { node in
+        guard node.kind == .material, let id = node.materialPassID,
+              seen.insert(id).inserted else { return nil }
+        return .init(id: id, materialPath: node.materialPath ?? "", shaderPath: nil,
+            textureSlots: [], userTextureInputs: [], combos: [:], constantShaderValues: [:],
+            userShaderValues: [:], blending: nil, depthTest: nil, depthWrite: nil, cullMode: nil, alphaWriting: nil)
+    }
+    return SceneGraphAdmissionCompiler.compile(graph: graph,
+        descriptor: .init(layers: [.init(id: graph.layerID, effects: effects)], materialPasses: materials),
+        functions: nil)
+}
+
+func templateGraphRejection(_ graph: SceneAuthoredEffectRenderPlan) -> SceneGraphAdmissionFailure? {
+    guard case let .failure(failure) = admitTemplateGraph(graph) else { return nil }
+    return failure
+}
+
 func referenceToken(_ value: SceneResolvedMaterialTemplate.TextureReference) -> String {
     switch value {
     case let .asset(request): return "asset:\(request.value)"
@@ -129,8 +162,13 @@ func declaredFramebufferBindingChecks(shader: SceneShaderContract) -> [String: B
         }
         func compile(_ label: String, _ candidates: [Material.TextureCandidate],
                      context: Graph? = nil) -> Result<Template, SceneResolvedMaterialFailure> {
+            guard case let .success(product) = admitTemplateGraph(context ?? graph()) else {
+                preconditionFailure("invalid graphs must be checked at graph admission")
+            }
             let result = SceneResolvedMaterialTemplateCompiler.compile(
-                material: material(candidates), graph: context ?? graph(), shaderContract: shader)
+                material: material(candidates), node: product.graph.nodes[0],
+                graphScope: .init(effect: product.graph.effects[0], renderTargets: product.graph.renderTargets),
+                shaderContract: shader)
             record(label, result)
             return result
         }
@@ -163,8 +201,7 @@ func declaredFramebufferBindingChecks(shader: SceneShaderContract) -> [String: B
             effect: .init(layerID: layer + 1, effectIndex: index, descriptorID: descriptor), name: name)
         checks[prefix + "foreignRejected"] = rejected(compile("foreign", [
             .init(source: .graph(foreign), provenance: .explicitBinding)]), .textureReferenceInvalid)
-        checks[prefix + "undeclaredRejected"] = rejected(compile("undeclared", [terminal],
-            context: graph(declared: false)), .graphNodeInvalid)
+        checks[prefix + "undeclaredRejected"] = templateGraphRejection(graph(declared: false))?.code == .prunedResourceReferenced
         checks[prefix + "missingBindingRejected"] = rejected(compile("missing-binding", [lowerRT, terminal],
             context: graph(bindingSlot: nil)), .textureReferenceInvalid)
         checks[prefix + "wrongSlotRejected"] = rejected(compile("wrong-slot", [terminal],

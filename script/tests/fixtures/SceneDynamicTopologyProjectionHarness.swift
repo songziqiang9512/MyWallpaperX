@@ -2,7 +2,7 @@ import Foundation
 import simd
 
 // These value carriers delimit the topology cache's input boundary. The cache
-// and its frame-value application are compiled unchanged from production.
+// is compiled unchanged from production.
 struct SceneUtilityLayer { let framebufferSource: Int? }
 struct SceneRenderDescriptor {
     struct Layer {
@@ -91,14 +91,18 @@ enum SceneLightSnapshot {
                 && second.preparationLayerIDs == first.preparationLayerIDs
                 && first.framebufferSourceLayerIDs == [1]
                 && second.framebufferSourceLayerIDs == first.framebufferSourceLayerIDs,
-            "frameValuesPatchOrderedAndPreparation": second.layersByID[3]?.stamp == 20
-                && second.orderedLayers.first(where: { $0.id == 3 })?.stamp == 20
-                && second.preparationLayers?.first?.stamp == 20
+            "sameRevisionKeepsPreparedBirthValues": second.layersByID[3]?.stamp == 10
+                && second.descriptor.layers.first(where: { $0.id == 3 })?.stamp == 10
+                && second.orderedLayers.first(where: { $0.id == 3 })?.stamp == 10
+                && second.preparationLayers?.first?.stamp == 10
                 && first.layersByID[3]?.stamp == 10,
             "newRevisionRebuildsMembership": changedWasMiss && changed.orderedLayerIDs == [2, 4]
                 && changed.preparationLayerIDs == [2, 4]
                 && changed.framebufferSourceLayerIDs == [4]
-                && changed.imageMaterialStateLayerIDs == [2] && changed.lightLayerIDs == [2],
+                && changed.imageMaterialStateLayerIDs == [2] && changed.lightLayerIDs == [2]
+                && changed.layersByID[4]?.stamp == 30
+                && changed.orderedLayers.last?.stamp == 30
+                && changed.preparationLayers?.first?.stamp == 30,
             "missingPreparationRemainsInvalid": rejected.preparationLayers == nil
                 && rejected.preparationLayerIDs.isEmpty && rejected.framebufferSourceLayerIDs.isEmpty,
         ]

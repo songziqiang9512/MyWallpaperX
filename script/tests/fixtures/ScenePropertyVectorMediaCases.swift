@@ -404,10 +404,7 @@ extension Harness {
             mediaPropertiesEvent: stringEvent
         )
         let orderedDomain = try SceneScriptQuickJSDomain()
-        var orderedDescriptor = descriptor
-        orderedDescriptor.layers[2].textScript = .init(
-            source: orderedStringMediaSource
-        )
+        let orderedDescriptor = descriptor
         let orderedBindings = [
             alphaBinding(
                 source: orderedScalarMediaSource, value: 0.75,

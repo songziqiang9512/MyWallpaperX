@@ -7,13 +7,70 @@ modules; this gate verifies their Host presentation boundary with actual output.
 from pathlib import Path
 import json
 import os
+import plistlib
 import re
 import shutil
+import struct
 import subprocess
+import sys
 import tempfile
+import time
 import unittest
+import uuid
 
 from .scene_pkg_fixture import make_package
+
+
+def compile_pixel_probe(probe: Path) -> Path:
+    source, binary = probe / "probe.swift", probe / "probe"
+    source.write_text(r'''
+import Foundation
+import CoreGraphics
+import ImageIO
+let url = URL(fileURLWithPath: CommandLine.arguments[1])
+let source = CGImageSourceCreateWithURL(url as CFURL, nil)!
+let image = CGImageSourceCreateImageAtIndex(source, 0, nil)!
+let sprite = CommandLine.arguments.dropFirst(2).first == "sprite"
+let cyanOnly = CommandLine.arguments.dropFirst(2).first == "cyan"
+let magentaOnly = CommandLine.arguments.dropFirst(2).first == "magenta"
+var pixels = [UInt8](repeating: 0, count: image.width * image.height * 4)
+let green = pixels.withUnsafeMutableBytes { raw -> Int in
+    let context = CGContext(data: raw.baseAddress, width: image.width, height: image.height,
+        bitsPerComponent: 8, bytesPerRow: image.width * 4, space: CGColorSpaceCreateDeviceRGB(),
+        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue)!
+    context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+    return stride(from: 0, to: raw.count, by: 4).filter {
+        magentaOnly ? raw[$0] > 160 && raw[$0 + 1] < 80 && raw[$0 + 2] > 160
+            : cyanOnly ? raw[$0] < 80 && raw[$0 + 1] > 160 && raw[$0 + 2] > 160
+            : sprite ? raw[$0 + 2] > 160 && ((raw[$0] > 160 && raw[$0 + 1] < 80)
+            || (raw[$0] < 80 && raw[$0 + 1] > 160))
+            : raw[$0] < 80 && raw[$0 + 1] > 160 && raw[$0 + 2] < 80
+    }.count
+}
+if CommandLine.arguments.dropFirst(2).first == "lifecycle" {
+    let scale = max(Double(image.width) / 256, Double(image.height) / 256)
+    func samples(_ rect: [Double], columns: Int, rows: Int) -> [Int] {
+        var result: [Int] = []
+        for y in 0..<rows { for x in 0..<columns {
+            let px = Int((rect[0] + (Double(x) + 0.5) / Double(columns) * (rect[2] - rect[0]) - 128) * scale + Double(image.width) / 2)
+            let py = Int((rect[1] + (Double(y) + 0.5) / Double(rows) * (rect[3] - rect[1]) - 128) * scale + Double(image.height) / 2)
+            precondition(px >= 0 && px < image.width && py >= 0 && py < image.height, "preregistered lifecycle ROI cropped")
+            let offset = (py * image.width + px) * 4
+            result += pixels[offset..<offset + 3].map(Int.init)
+        } }
+        return result
+    }
+    let property = samples([118, 150, 138, 164], columns: 16, rows: 8)
+    let mean = (0..<3).map { channel in
+        Double(stride(from: channel, to: property.count, by: 3).reduce(0) { $0 + property[$1] }) / Double(property.count / 3)
+    }
+    let value: [String: Any] = ["size": [image.width, image.height], "propertyRGB": mean,
+        "motionRGB": samples([56, 108, 200, 148], columns: 64, rows: 20)]
+    print(String(decoding: try JSONSerialization.data(withJSONObject: value), as: UTF8.self))
+} else { print(Double(green) / Double(image.width * image.height)) }
+''')
+    subprocess.run(["xcrun", "swiftc", str(source), "-o", str(binary)], check=True, capture_output=True)
+    return binary
 
 
 class SceneFramePresentationIntegrationTests(unittest.TestCase):
@@ -24,36 +81,15 @@ class SceneFramePresentationIntegrationTests(unittest.TestCase):
             raise unittest.SkipTest("requires an explicitly staged Debug executable")
         cls.app = Path(app).resolve(strict=True)
         cls.probe_temp = tempfile.TemporaryDirectory(prefix="mwx-compositor-pixel-probe-")
-        probe = Path(cls.probe_temp.name)
-        source = probe / "probe.swift"
-        cls.pixel_probe = probe / "probe"
-        source.write_text(r'''
-import Foundation
-import CoreGraphics
-import ImageIO
-let url = URL(fileURLWithPath: CommandLine.arguments[1])
-let source = CGImageSourceCreateWithURL(url as CFURL, nil)!
-let image = CGImageSourceCreateImageAtIndex(source, 0, nil)!
-var pixels = [UInt8](repeating: 0, count: image.width * image.height * 4)
-let green = pixels.withUnsafeMutableBytes { raw -> Int in
-    let context = CGContext(data: raw.baseAddress, width: image.width, height: image.height,
-        bitsPerComponent: 8, bytesPerRow: image.width * 4, space: CGColorSpaceCreateDeviceRGB(),
-        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue)!
-    context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
-    return stride(from: 0, to: raw.count, by: 4).filter {
-        raw[$0] < 80 && raw[$0 + 1] > 160 && raw[$0 + 2] < 80
-    }.count
-}
-print(Double(green) / Double(image.width * image.height))
-''')
-        subprocess.run(["xcrun", "swiftc", str(source), "-o", str(cls.pixel_probe)], check=True, capture_output=True)
+        cls.pixel_probe = compile_pixel_probe(Path(cls.probe_temp.name))
 
     @classmethod
     def tearDownClass(cls):
         if hasattr(cls, "probe_temp"):
             cls.probe_temp.cleanup()
 
-    def run_scene(self, screens, fault, switching=False, retiring=False):
+    def run_scene(self, screens, fault, switching=False, retiring=False,
+                  animation_retirement=False, frozen=False):
         with tempfile.TemporaryDirectory(prefix="mwx-frame-presentation-") as temp:
             root = Path(temp)
             scene = root / "content"
@@ -94,16 +130,72 @@ print(Double(green) / Double(image.width * image.height))
                     {"id": 4, "name": "Live Bool owner", "image": "models/util/solidlayer.json",
                      "origin": "40 64 0", "size": "12 12", "color": "0 0 1",
                      "visible": {"value": True,
-                                 "script": "export function update(value) { return true; }"}},
+                                 "script": """export function update(value) {
+                                     thisScene.destroyLayer('Sprite victim'); return true;
+                                 }""" if frozen else "export function update(value) { return true; }"}},
                 ]
+            entries = []
+            if animation_retirement:
+                victim = "export function update(value) { return true; }" if frozen else """
+                    let a;
+                    export function update(value) {
+                        if (!a) { a=thisLayer.getTextureAnimation();
+                            if (!a || a.frameCount!==2) throw new Error('missing sprite metadata'); }
+                        if (engine.runtime >= 0.5) {
+                            a.setFrame(1); thisScene.destroyLayer(thisLayer);
+                        }
+                        return value;
+                    }
+                """
+                peer = """
+                    let a;
+                    export function update(value) {
+                        if (!a) { a=thisLayer.getTextureAnimation();
+                            if (!a || a.frameCount!==2) throw new Error('missing hidden sprite metadata');
+                            a.pause(); a.setFrame(1); }
+                        if (engine.runtime > 0.1 && a.getFrame()!==1)
+                            throw new Error('hidden sprite peer lost its paused frame');
+                        return engine.runtime > 1.25;
+                    }
+                """
+                objects += [
+                    {"id": 5, "name": "Sprite victim", "image": "models/sprite.json",
+                     "origin": "64 64 0", "size": "32 32", "visible": {"value": True, "script": victim},
+                     "alpha": {"value": 1, "animation": {"c0": [{"frame": 0, "value": 1},
+                         {"frame": 60, "value": 1}], "options": {"fps": 30, "length": 60,
+                             "mode": "single", "name": "sprite fade"}}}},
+                    {"id": 6, "name": "Hidden sprite peer", "image": "models/sprite.json",
+                     "origin": "64 64 0", "size": "24 24", "visible": {"value": False, "script": peer}},
+                ]
+                # Frozen redraw checks atlas UV; rebuild checks per-View multi-image MPS output.
+                blocks = [struct.pack("<HHI", color, color, 0) for color in (0xF81F, 0x07FF)]
+                width = 8 if frozen else 4
+                payloads = [b"".join(blocks)] if frozen else blocks
+                frames = [(0, 0.0, 0.5), (0, 0.5, 0.5)] if frozen else [(0, 0.0, 1.0), (1, 0.0, 1.0)]
+                atlas = b"TEXV0005\0TEXI0001\0" + struct.pack("<7I", 7, 4, width, 4, width, 4, 0)
+                atlas += b"TEXB0002\0" + struct.pack("<I", len(payloads))
+                for pixels in payloads:
+                    atlas += struct.pack("<6I", 1, width, 4, 0, len(pixels), len(pixels)) + pixels
+                atlas += b"TEXS0002\0" + struct.pack("<I", 2)
+                for image_index, x, extent in frames:
+                    atlas += struct.pack("<If6f", image_index, 0.25, x, 0, extent, 0, 0, 1)
+                entries += [("models/sprite.json", json.dumps({"material": "materials/sprite.json"}).encode()),
+                    ("materials/sprite.json", json.dumps({"passes": [{"shader": "generic4",
+                        "textures": ["materials/sprite.tex"], "combos": {"LIGHTING": 0, "REFLECTION": 0,
+                            "NORMALMAP": 0}, "constantshadervalues": {"alpha": 1, "brightness": 1,
+                                "color": "1 1 1"}, "blending": "normal", "cullmode": "nocull"}]}).encode()),
+                    ("materials/sprite.tex", atlas)]
             payload = json.dumps({"version": 3,
                 "general": {"orthogonalprojection": {"width": 128, "height": 128}},
                 "objects": objects}).encode()
-            (scene / "scene.pkg").write_bytes(make_package([("scene.json", payload)]))
+            (scene / "scene.pkg").write_bytes(make_package([("scene.json", payload), *entries]))
             home = root / "home"
             home.mkdir()
+            (root / "tmp").mkdir()
+            (root / "cache").mkdir()
             env = os.environ.copy()
             env.update(HOME=str(home), CFFIXED_USER_HOME=str(home),
+                       TMPDIR=str(root / "tmp"), MWX_SCENE_GENERIC_SHADER_CACHE=str(root / "cache"),
                        MWX_SCENE_DEBUG_SURFACE_COUNT=str(screens))
             env.pop("MWX_SCENE_DEBUG_REJECT_PREPARED_FRAME_ONCE", None)
             env.pop("MWX_SCENE_DEBUG_DRAWABLE_UNAVAILABLE_FRAMES", None)
@@ -111,6 +203,8 @@ print(Double(green) / Double(image.width * image.height))
             env.update(fault)
             command = [str(self.app), "--mwx-debug-scene-root", str(scene),
                 "--mwx-debug-scene-duration", "7", "--mwx-debug-scene-evidence-dir", str(root / "evidence")]
+            if frozen:
+                command += ["--mwx-debug-scene-start-paused", "--mwx-debug-scene-resize-sequence", "1:0.8,2:1"]
             log, result = "", None
             try:
                 result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=60)
@@ -120,6 +214,7 @@ print(Double(green) / Double(image.width * image.height))
                 self.assertNotIn("phase=launch-failed", log)
                 self.assertRegex(log, rf"phase=ready .*surfaces={screens} ")
                 self.assertIn(f"phase=stopped surfacesBefore={screens} surfacesAfter=0", log)
+                self.assertRegex(log, r"phase=stopped[^\n]*gpuDrained=true")
                 values = re.findall(r"dynamic-layer-visibility-v1 frame=(\d+) generation=(\d+) layer=1 source=sceneScript value=(true|false)", log)
                 if not retiring:
                     self.assertGreater(len(values), 20, log[-5000:])
@@ -131,13 +226,80 @@ print(Double(green) / Double(image.width * image.height))
                         self.assertEqual(value, "true" if int(frame) % 2 == 0 else "false")
                 completed = {(int(frame), int(surface)) for frame, surface in re.findall(
                     r"state=completed frame=(\d+) surface=(\d+) gpu=completed", log)}
-                self.assertTrue(any(frame == 2 for frame, _ in completed), log[-5000:])
+                self.assertTrue(completed if frozen else any(frame == 2 for frame, _ in completed), log[-5000:])
                 # Real final compositor capture, in addition to command completion.
                 captures = list((root / "evidence").glob("*-window.png"))
                 self.assertTrue(captures)
                 for capture in captures:
                     green_fraction = float(subprocess.check_output([str(self.pixel_probe), str(capture)], text=True))
                     self.assertGreater(green_fraction, 0.005, f"stable green layer missing from terminal compositor: {capture.name}")
+                    if animation_retirement and (frozen or "surface-rebuild" in capture.name
+                        or (capture.name == "scene-after-window.png"
+                            and "MWX_SCENE_DEBUG_SURFACE_REBUILD_AFTER" not in fault)):
+                        fraction = float(subprocess.check_output([str(self.pixel_probe), str(capture), "sprite"], text=True))
+                        if frozen:
+                            self.assertGreater(fraction, 0.01, f"frozen Sprite lost its adopted frame: {capture.name}")
+                            cyan = float(subprocess.check_output([str(self.pixel_probe), str(capture), "cyan"], text=True))
+                            self.assertLess(cyan, 0.001, "frozen atlas frame lost its original UV transform")
+                        elif "surface-rebuild-settled" in capture.name:
+                            cyan = float(subprocess.check_output([str(self.pixel_probe), str(capture), "cyan"], text=True))
+                            magenta = float(subprocess.check_output([str(self.pixel_probe), str(capture), "magenta"], text=True))
+                            self.assertGreater(cyan, 0.005, "hidden peer did not resume with its retained Sprite frame")
+                            self.assertLess(magenta, 0.001, "destroyed Sprite returned after rebuild")
+                        else:
+                            self.assertLess(fraction, 0.001, "retired Sprite reappeared in terminal output")
+                if animation_retirement:
+                    self.assertNotIn("uniformDeclarationInvalid", log)
+                    for message in ("missing sprite metadata", "missing hidden sprite metadata",
+                                    "hidden sprite peer lost its paused frame"):
+                        self.assertNotIn(message, log)
+                    self.assertRegex(log, r"textureAnimationCommands=[1-9]\d* callback=committed nextFrame=true")
+                    if frozen:
+                        self.assertRegex(log, r"dynamic-layer-visibility-v1 frame=0 generation=1 "
+                            r"layer=5 source=sceneScript value=true effective=true")
+                        self.assertRegex(log, r"dynamic-layer-visibility-v1 frame=0 generation=1 "
+                            r"layer=6 source=sceneScript value=false effective=false")
+                        self.assertEqual(re.findall(r"phase=owner-effects-admission frame=(\d+)", log), ["0"])
+                        self.assertRegex(log, r"lifecycle=layer-retirement owners=1 destroyCallbacks=0 "
+                            r"quiescent=1 failures=0 sceneTime=0\.000")
+                        before_retirement = log.split("lifecycle=layer-retirement", 1)[0]
+                        self.assertEqual(len(set(re.findall(
+                            r"state=prepared frame=0 surface=(\d+)", before_retirement))), screens)
+                if "MWX_SCENE_DEBUG_SURFACE_REBUILD_AFTER" in fault:
+                    observed = {stage: json.loads((root / "evidence" / f"surface-rebuild-{stage}.json").read_text())
+                                for stage in ("before", "after", "settled")}
+                    before, after, settled = (observed[stage] for stage in ("before", "after", "settled"))
+                    self.assertTrue(before["sessionID"] and before["requestID"], observed)
+                    for snapshot in observed.values():
+                        self.assertEqual(snapshot["sessionID"], before["sessionID"], observed)
+                        self.assertEqual(snapshot["requestID"], before["requestID"], observed)
+                        self.assertEqual(snapshot["surfaceCount"], screens, observed)
+                        self.assertEqual(len(snapshot["spriteAnimationLayerIDsByDisplay"]), screens, observed)
+                        self.assertTrue(all(ids == [6] for ids in
+                            snapshot["spriteAnimationLayerIDsByDisplay"].values()), observed)
+                    self.assertTrue(set(before["windowNumbers"]).isdisjoint(after["windowNumbers"]), observed)
+                    self.assertEqual(after["windowNumbers"], settled["windowNumbers"], observed)
+                    self.assertGreater(before["sceneTime"], 0.5, observed)
+                    self.assertAlmostEqual(before["sceneTime"], after["sceneTime"], places=9, msg=str(observed))
+                    for snapshot in (before, after):
+                        self.assertTrue(snapshot["isPlaybackPaused"], observed)
+                        self.assertFalse(snapshot["isFrameDriverActive"], observed)
+                    self.assertFalse(settled["isPlaybackPaused"], observed)
+                    self.assertTrue(settled["isFrameDriverActive"], observed)
+                    self.assertGreater(settled["sceneTime"], after["sceneTime"], observed)
+                    captured, requested = before["capturedTopology"], before["requestedTopology"]
+                    self.assertTrue(captured, observed)
+                    self.assertEqual([row["displayID"] for row in captured],
+                                     [row["displayID"] for row in requested], observed)
+                    self.assertNotEqual(captured[0]["frame"], requested[0]["frame"], observed)
+                    self.assertAlmostEqual(requested[0]["frame"][0] - captured[0]["frame"][0], 0.5)
+                    self.assertAlmostEqual(requested[0]["frame"][2] - captured[0]["frame"][2], -1)
+                    self.assertEqual(captured[1:], requested[1:], observed)
+                    self.assertTrue({str(row["displayID"]) for row in captured}.issubset(
+                        after["spriteAnimationLayerIDsByDisplay"]), observed)
+                    for phase in ("after", "settled"):
+                        self.assertTrue(any(f"surface-rebuild-{phase}" in path.name for path in captures), observed)
+                    self.assertRegex(log, r"phase=surface-rebuild state=rebuilt accepted=true")
                 return log, completed
             except subprocess.TimeoutExpired as error:
                 log = "".join(value.decode(errors="replace") if isinstance(value, bytes) else value or ""
@@ -150,7 +312,8 @@ print(Double(green) / Double(image.width * image.height))
                     (saved / "app.log").write_text(log)
                     (saved / "run.json").write_text(json.dumps({"command": command,
                         "returncode": result.returncode if result is not None else None,
-                        "screens": screens, "fault": fault, "retiring": retiring}, indent=2) + "\n")
+                        "screens": screens, "fault": fault, "retiring": retiring,
+                        "animationRetirement": animation_retirement, "frozen": frozen}, indent=2) + "\n")
                     for source in (root / "evidence").rglob("*"):
                         if source.is_file():
                             target = saved / source.relative_to(root / "evidence")
@@ -184,6 +347,17 @@ print(Double(green) / Double(image.width * image.height))
         for frame in {row[0] for row in post_retirement}:
             self.assertIn((frame, 2, "authored", "true", "true"), post_retirement)
             self.assertIn((frame, 4, "sceneScript", "true", "true"), post_retirement)
+
+    def test_sprite_retirement_keeps_shared_source_peer_through_pause(self):
+        log, _ = self.run_scene(2, {"MWX_SCENE_DEBUG_PAUSE_RESUME_AFTER": "1:2",
+            "MWX_SCENE_DEBUG_SURFACE_REBUILD_AFTER": "1.5"},
+            retiring=True, animation_retirement=True)
+        self.assertRegex(log, r"phase=pause-resume state=paused accepted=true")
+        self.assertRegex(log, r"phase=pause-resume state=resumed accepted=true")
+
+    def test_committed_destroy_keeps_paused_adopted_sprite_until_new_simulation(self):
+        log, _ = self.run_scene(2, {}, retiring=True, animation_retirement=True, frozen=True)
+        self.assertEqual(len(re.findall(r"phase=surface-resize .*accepted=true", log)), 2)
 
     def test_missing_drawable_keeps_peer_playing_and_recovers_latest(self):
         log, completed = self.run_scene(2, {"MWX_SCENE_DEBUG_DRAWABLE_UNAVAILABLE_FRAMES": "2"})
@@ -236,3 +410,416 @@ print(Double(green) / Double(image.width * image.height))
         self.assertEqual(log.count("phase=session-activated"), 1, log[-7000:])
         self.assertIn("phase=candidate-rejected-after-gpu", log)
         self.assertRegex(log, r"phase=scene-switch state=triggered accepted=false .*preserved=true running=true")
+
+
+class SceneProductDaemonLifecycleIntegrationTests(unittest.TestCase):
+    def test_product_daemon_lifecycle(self):
+        candidate = os.environ.get("MWX_SCENE_PRODUCT_INTEGRATION_APP")
+        if not candidate:
+            self.skipTest("requires an explicitly staged signed Debug.Startup App")
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+        from script.wallpaper_startup_benchmark import (
+            STARTUP_BUNDLE_ID, child_processes, finish_selection_process,
+            production_preferences_identity, reset_startup_defaults, tree_identity,
+        )
+        from script.web_benchmark_capture import stage_signed_app, verify_staged_app, discard_staged_app
+        from script.web_debug_defaults import make_debug_defaults_suite, delete_debug_defaults_suite, debug_defaults_suites
+        app = Path(candidate).resolve(strict=True)
+        info = plistlib.loads((app / "Contents/Info.plist").read_bytes())
+        self.assertEqual(info["CFBundleIdentifier"], STARTUP_BUNDLE_ID)
+        production_before = production_preferences_identity()
+        root = Path(tempfile.mkdtemp(prefix="mwx-product-scene-lifecycle-"))
+        cleanup = None
+        try:
+            output, home, workshop, scratch = (root / name for name in ("output", "home", "workshop", "tmp"))
+            for path in (output, home, workshop, scratch):
+                path.mkdir()
+            scenes = [workshop / "Scene" / name for name in ("99100001", "99100002")]
+            for index, scene in enumerate(scenes):
+                scene.mkdir(parents=True)
+                project = {"type": "scene", "file": "scene.json"}
+                objects = [{"id": 1, "name": "Owned property background", "image": "models/owned-solid.json",
+                            "origin": "128 128 0", "size": "256 256", "color": "1 0 0" if index == 0 else "0 0 1"}]
+                if index == 0:
+                    project["general"] = {"properties": {"gain": {"type": "slider", "value": 0.15, "min": 0, "max": 1}}}
+                    objects[0]["alpha"] = {"value": 0.15, "user": "gain"}
+                    objects.append({"id": 2, "name": "Owned moving witness", "image": "models/owned-solid.json",
+                        "size": "24 24", "color": "1 1 1", "origin": {"value": "64 128 0", "script":
+                            "export function update(value) { return new Vec3(64 + (engine.runtime * 32) % 128, 128, 0); }"}})
+                document = {"version": 3, "general": {"orthogonalprojection": {"width": 256, "height": 256},
+                    "clearcolor": "0 0 0"}, "objects": objects}
+                (scene / "project.json").write_text(json.dumps(project))
+                (scene / "scene.pkg").write_bytes(make_package([
+                    ("scene.json", json.dumps(document).encode()),
+                    ("models/owned-solid.json", json.dumps({"solidlayer": True, "width": 256, "height": 256}).encode())]))
+            inputs_before = tree_identity(workshop)
+            suite, token = make_debug_defaults_suite(), uuid.uuid4().hex
+            environment = {key: value for key, value in os.environ.items()
+                           if not key.startswith(("MWX_", "MYWALLPAPERX_"))}
+            environment.update(HOME=str(home), CFFIXED_USER_HOME=str(home), TMPDIR=str(scratch))
+            identity, cleanup, failure = None, None, None
+            final_drain_verified = False
+            observations = {}
+            try:
+                binary, identity = stage_signed_app(app / "Contents/MacOS" / info["CFBundleExecutable"], root)
+                self.assertEqual(identity["bundle_identifier"], STARTUP_BUNDLE_ID)
+                reset_startup_defaults(STARTUP_BUNDLE_ID)
+                subprocess.run(["/usr/bin/defaults", "write", STARTUP_BUNDLE_ID,
+                    "MWXStartupDefaultsToken", "-string", token], check=True, capture_output=True)
+                command = [str(binary), "--mwx-debug-suppress-main-window", "--mwx-debug-workshop-root", str(workshop),
+                    "--mwx-debug-user-defaults-suite", suite, "--mwx-debug-startup-defaults-token", token,
+                    "--mwx-debug-scene-daemon-client", "--mwx-debug-scene-product-entry", "--mwx-debug-scene-daemon-stable",
+                    "--mwx-debug-scene-root", str(scenes[0]), "--mwx-debug-scene-startup-second-root", str(scenes[1]),
+                    "--mwx-debug-scene-startup-mode", "lifecycle", "--mwx-debug-scene-startup-report", str(output / "native.json"),
+                    "--mwx-debug-scene-duration", "40", "--mwx-debug-scene-performance-fps", "30",
+                    "--mwx-debug-scene-property-key", "gain", "--mwx-debug-scene-property-type", "number",
+                    "--mwx-debug-scene-property-value", "0.85"]
+                (output / "command.json").write_text(json.dumps(command, indent=2))
+                children = {}
+                with (output / "app.log").open("w") as log:
+                    process = subprocess.Popen(command, env=environment, stdout=log,
+                                               stderr=subprocess.STDOUT, start_new_session=True)
+                    try:
+                        deadline = time.monotonic() + 100
+                        while process.poll() is None and time.monotonic() < deadline:
+                            children.update(child_processes(process.pid))
+                            time.sleep(0.1)
+                        self.assertIsNotNone(process.poll(), "product lifecycle did not exit within 100 seconds")
+                    finally:
+                        cleanup = finish_selection_process(process, children)
+                self.assertEqual(cleanup["exitCode"], 0, cleanup)
+                self.assertTrue(cleanup["ownedProcessesExited"], cleanup)
+                self.assertFalse(cleanup["remainingOwnedChildren"], cleanup)
+                log = (output / "app.log").read_text()
+                native = json.loads((output / "native.json").read_text())
+                self.assertTrue(native["passed"], native)
+                self.assertEqual(native["standardDefaultsDomain"], STARTUP_BUNDLE_ID)
+                self.assertTrue(native["standardDefaultsSentinelVerified"], native)
+                self.assertIn(suite, debug_defaults_suites(log))
+                rows = native["rows"]
+                self.assertEqual([row["recordID"] for row in rows], [scene.name for scene in scenes])
+                self.assertEqual(rows[0]["daemonPID"], rows[1]["daemonPID"])
+                self.assertIn(rows[1]["daemonPID"], children)
+                self.assertIn(str(binary), children[rows[1]["daemonPID"]])
+                for key in ("requestID", "ticketID", "executionID"):
+                    self.assertNotEqual(rows[0][key], rows[1][key])
+                self.assertRegex(log, rf"phase=daemon-gpu-drained request={rows[1]['requestID']} pid={rows[1]['daemonPID']} gpuDrained=true code=0")
+                final_drain_verified = True
+                lifecycle = native["lifecycleObservation"]
+                for key in ("systemWallpaperSyncDisabled", "pauseClockFrozen", "resumeClockAdvanced",
+                            "freshBSelectionInSameDaemon", "productStopClearedSelection",
+                            "shutdownCompletionObserved", "daemonUnregisteredAfterShutdown"):
+                    self.assertTrue(lifecycle[key], (key, lifecycle))
+                ack = lifecycle["propertyAcknowledgement"]
+                self.assertTrue(ack["matchedPendingProperty"])
+                self.assertEqual([lifecycle["propertyDispatch"][key] for key in ("requestID", "executionID", "daemonPID")],
+                                 [rows[0][key] for key in ("requestID", "executionID", "daemonPID")])
+                self.assertEqual((ack["payload"]["recordID"], ack["payload"]["revision"],
+                                  ack["payload"]["debugPlaybackRequestID"]), (scenes[0].name, 1, rows[0]["requestID"]))
+                release = lifecycle["aLaunchResourcesReleased"]
+                self.assertEqual(release["payload"]["requestID"], rows[0]["requestID"])
+                self.assertTrue(release["payload"]["gpuDrained"])
+                captures = lifecycle["captures"]
+                self.assertEqual([capture["phase"] for capture in captures],
+                    ["a-before", "a-property", "a-paused-first", "a-paused-second", "a-resumed", "b-presented"])
+                self.assertEqual(len({capture["captureID"] for capture in captures}), 6)
+                probe = compile_pixel_probe(root)
+                for capture in captures:
+                    observations[capture["phase"]] = json.loads(subprocess.check_output(
+                        [str(probe), capture["path"], "lifecycle"], text=True))
+                    row = rows[1 if capture["phase"] == "b-presented" else 0]
+                    self.assertEqual(capture["host"]["requestID"], row["requestID"])
+                    self.assertEqual(capture["host"]["daemonPID"], row["daemonPID"])
+                    self.assertEqual(capture["executionID"], row["executionID"])
+                    self.assertEqual(capture["daemonGeneration"], row["daemonGeneration"])
+                before, changed, blue = (observations[name]["propertyRGB"] for name in ("a-before", "a-property", "b-presented"))
+                self.assertGreater(changed[0] - before[0], 50, (before, changed))
+                self.assertLess(max(changed[1:]), 35, changed)
+                self.assertGreater(blue[2], 170, blue)
+                self.assertLess(max(blue[:2]), 35, blue)
+                def motion_difference(a, b):
+                    first, second = (observations[name]["motionRGB"] for name in (a, b))
+                    self.assertEqual(len(first), len(second))
+                    return sum(abs(x - y) for x, y in zip(first, second)) / len(first)
+                self.assertLess(motion_difference("a-paused-first", "a-paused-second"), 1.5)
+                self.assertGreater(motion_difference("a-paused-second", "a-resumed"), 3)
+                self.assertEqual(tree_identity(workshop), inputs_before)
+            except BaseException as error:
+                failure = error
+                raise
+            finally:
+                cleanup_errors = []
+                cleanup_complete = cleanup is None or cleanup.get("ownedProcessesExited") is True
+                if not cleanup_complete:
+                    cleanup_errors.append(("owned-processes", "private defaults and App retained until owned children exit"))
+                try:
+                    if identity:
+                        verify_staged_app(identity)
+                except BaseException as error:
+                    cleanup_errors.append(("verify-staged-app", str(error)))
+                for name, action in [
+                    ("private-suite", lambda: delete_debug_defaults_suite(suite, environment)),
+                    ("startup-domain", lambda: reset_startup_defaults(STARTUP_BUNDLE_ID)),
+                    ("staged-app", lambda: discard_staged_app(identity) if identity else None),
+                ]:
+                    if not cleanup_complete:
+                        continue
+                    try:
+                        action()
+                    except BaseException as error:
+                        cleanup_errors.append((name, str(error)))
+                try:
+                    if production_preferences_identity() != production_before:
+                        cleanup_errors.append(("production-preferences", "production preferences changed"))
+                except BaseException as error:
+                    cleanup_errors.append(("inspect-production-preferences", str(error)))
+                try:
+                    (output / "observations.json").write_text(json.dumps({"pixels": observations, "cleanup": cleanup,
+                        "appIdentity": identity, "failure": str(failure) if failure else None,
+                        "cleanupErrors": cleanup_errors, "daemonGPUDrainCallbackVerified": final_drain_verified,
+                        "passed": failure is None and not cleanup_errors and final_drain_verified}, indent=2))
+                    if destination := os.environ.get("MWX_SCENE_INTEGRATION_EVIDENCE"):
+                        saved = Path(destination) / self._testMethodName
+                        shutil.copytree(output, saved)
+                        shutil.copytree(workshop, saved / "inputs")
+                except BaseException as error:
+                    cleanup_errors.append(("retain-evidence", str(error)))
+                if cleanup_errors:
+                    if failure is not None:
+                        failure.add_note("owned lifecycle cleanup errors: " + repr(cleanup_errors))
+                    else:
+                        self.fail(repr(cleanup_errors))
+        finally:
+            if cleanup is None or cleanup.get("ownedProcessesExited") is True:
+                shutil.rmtree(root)
+            else:
+                print(f"Owned lifecycle process cleanup incomplete; retained {root}", file=sys.stderr)
+
+
+class SceneLastSystemInputConsumerIntegrationTests(unittest.TestCase):
+    """Real daemon Session demand and NSEvent monitor tokens, without device capture.
+
+    Media exports share these real owners, but DEBUG disables their system lease.
+    Media withdrawal is covered separately by the Session/IPC/Service owner gates.
+    """
+
+    @staticmethod
+    def fixture_entries(arm):
+        registration = """const audio = engine.registerAudioBuffers(16);
+export function cursorDown() {}
+export function mediaPlaybackChanged() {}
+"""
+        update = {
+            "destroy": "return value + audio.left[0] * 0;",
+            "exception": "if (engine.runtime >= 2) throw Error('owned-input-owner-failed'); return value;",
+            "hidden-peer": "if (engine.runtime >= 2) throw Error('owned-input-owner-failed'); return value;",
+            "bad-return": "if (engine.runtime >= 2) return 'owned-invalid-scalar'; return value;",
+        }[arm]
+        primary = {"id": 10, "name": "Owned input primary", "image": "models/owned-input-solid.json",
+            "origin": "96 128 0", "size": "48 48", "color": "1 0 0",
+            "alpha": {"value": 1, "script": registration + "export function update(value) { " + update + " }"}}
+        controller = {"id": 90, "name": "Owned healthy controller", "image": "models/owned-input-solid.json",
+            "origin": "160 128 0", "size": "24 24", "color": "0 1 0"}
+        if arm == "destroy":
+            controller["visible"] = {"value": True, "script": """let removed = false;
+export function update(value) {
+    if (!removed && engine.runtime >= 2) {
+        thisScene.destroyLayer('Owned input primary'); removed = true;
+    }
+    return value;
+}
+"""}
+        objects = [primary, controller]
+        if arm == "hidden-peer":
+            objects.append({"id": 20, "name": "Owned hidden input peer", "visible": False,
+                "image": "models/owned-input-solid.json", "origin": "128 128 0", "size": "24 24",
+                "alpha": {"value": 1, "script": registration + "export function update(value) { return value; }"}})
+        document = {"version": 3, "general": {"orthogonalprojection": {"width": 256, "height": 256},
+            "clearcolor": "0 0 0"}, "objects": objects}
+        return {"scene.json": json.dumps(document).encode(),
+            "models/owned-input-solid.json": json.dumps({"solidlayer": True, "width": 256, "height": 256}).encode()}
+
+    def run_consumer_case(self, arm):
+        configured = os.environ.get("MWX_SCENE_INTEGRATION_APP")
+        if not configured:
+            self.skipTest("requires an explicitly frozen signed Debug App executable")
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+        from script.wallpaper_startup_benchmark import (
+            child_processes, finish_selection_process, production_preferences_identity, tree_identity,
+        )
+        from script.web_benchmark_capture import stage_signed_app, verify_staged_app, discard_staged_app
+        from script.web_debug_defaults import make_debug_defaults_suite, delete_debug_defaults_suite, debug_defaults_suites
+        from .test_scene_fullscreen_visibility_integration import app_hashes, file_hashes
+        candidate = Path(configured).resolve(strict=True)
+        if candidate.suffix == ".app":
+            info = plistlib.loads((candidate / "Contents/Info.plist").read_bytes())
+            candidate = candidate / "Contents/MacOS" / info["CFBundleExecutable"]
+        sources = [Path(__file__).resolve(), *[Path(__file__).resolve().parents[2] / path for path in (
+            "MyWallpaperX/App/AppDelegate.swift",
+            "MyWallpaperX/App/Debug/DebugSceneDaemonClientRunner.swift",
+            "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+AudioDemand.swift",
+            "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+PointerEvents.swift",
+            "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriver.swift",
+            "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriverLifecycle.swift",
+            "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptScalarProgram.swift",
+            "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptCursorProgram.swift")]]
+        self.assertTrue(all(path.is_file() for path in sources), sources)
+        source_before, app_before = file_hashes(sources), app_hashes(candidate)
+        preferences_before = production_preferences_identity()
+        root = Path(tempfile.mkdtemp(prefix="mwx-last-system-input-"))
+        content, home, output, scratch = (root / name for name in ("content", "home", "output", "tmp"))
+        for path in (content, home, output, scratch):
+            path.mkdir()
+        entries = self.fixture_entries(arm)
+        (content / "project.json").write_text(json.dumps({"type": "scene", "file": "scene.json"}))
+        (content / "scene.pkg").write_bytes(make_package(list(entries.items())))
+        inputs_before = tree_identity(content)
+        suite = make_debug_defaults_suite()
+        environment = {key: value for key, value in os.environ.items()
+                       if not key.startswith(("MWX_", "MYWALLPAPERX_"))}
+        environment.update(HOME=str(home), CFFIXED_USER_HOME=str(home), TMPDIR=str(scratch),
+            MWX_SCENE_DEBUG_SURFACE_COUNT="1", MWX_SCENE_GENERIC_SHADER_CACHE=str(root / "shader-cache"))
+        identity, cleanup, failure = None, None, None
+        observed_children = {}
+        try:
+            binary, identity = stage_signed_app(candidate, root)
+            command = [str(binary), "--mwx-debug-suppress-main-window", "--mwx-debug-user-defaults-suite", suite,
+                "--mwx-debug-scene-daemon-client", "--mwx-debug-scene-daemon-stable",
+                "--mwx-debug-scene-root", str(content), "--mwx-debug-scene-evidence-dir", str(output),
+                "--mwx-debug-scene-duration", "10", "--mwx-debug-scene-audio-silence-fixture"]
+            (output / "preregistration.json").write_text(json.dumps({"arm": arm, "command": command,
+                "app": identity, "sources": source_before, "inputs": inputs_before,
+                "protocol": {"actionSceneTime": 2, "lastConsumerExits": arm in ("destroy", "exception"),
+                    "audio": "actual daemon demand received by Client before shutdown",
+                    "pointer": "actual monitor tokens for the presented request and one Session",
+                    "media": "not measured here; DEBUG system lease disabled",
+                    "physicalAudioCapture": False}}, indent=2))
+            children = {}
+            with (output / "app.log").open("w") as log:
+                process = subprocess.Popen(command, env=environment, stdout=log,
+                    stderr=subprocess.STDOUT, start_new_session=True)
+                try:
+                    deadline = time.monotonic() + 45
+                    while process.poll() is None and time.monotonic() < deadline:
+                        current_children = child_processes(process.pid)
+                        children.update(current_children)
+                        for pid, command_line in current_children.items():
+                            observed_children.setdefault(pid, set()).add(command_line)
+                        time.sleep(0.1)
+                    self.assertIsNotNone(process.poll(), "input consumer probe exceeded 45 seconds")
+                finally:
+                    cleanup = finish_selection_process(process, children)
+            self.assertEqual(cleanup["exitCode"], 0, cleanup)
+            self.assertTrue(cleanup["ownedProcessesExited"], cleanup)
+            self.assertFalse(cleanup["remainingOwnedChildren"], cleanup)
+            self.assertFalse(cleanup["errors"], cleanup)
+            log = (output / "app.log").read_text()
+            self.assertIn(suite, debug_defaults_suites(log))
+            result = json.loads((output / "scene-daemon-client-result.json").read_text())
+            self.assertEqual(result["launchEntry"], "direct-client", result)
+            self.assertEqual(result["firstPresentCount"], 1, result)
+            self.assertEqual(result["uniqueRequestCount"], 1, result)
+            self.assertEqual(result["failures"], [], result)
+            self.assertEqual(len(set(result["daemonProcessIDs"])), 1, result)
+            pid = result["daemonProcessIDs"][0]
+            self.assertIn(pid, children)
+            self.assertTrue(any(str(binary) in command_line for command_line in observed_children[pid]),
+                            observed_children[pid])
+            self.assertGreater(result["latestStats"]["rendered"], 0, result)
+            first = re.findall(r"phase=first-present count=1 record=debug-scene-daemon-client request=([0-9A-F-]+) pid=(\d+)", log)
+            self.assertEqual(len(first), 1, log[-6000:])
+            request, logged_pid = first[0]
+            self.assertEqual(int(logged_pid), pid)
+            finished = log.index("MWX SCENE CLIENT: phase=finished")
+            active_log = log[:finished]
+            monitors = list(re.finditer(r"phase=pointer-monitors request=([0-9A-F-]+) session=([0-9A-F-]+) installed=(\d+)", active_log))
+            self.assertTrue(monitors, active_log[-6000:])
+            self.assertEqual({match[1] for match in monitors}, {request})
+            self.assertEqual(len({match[2] for match in monitors}), 1)
+            self.assertGreater(int(monitors[0][3]), 0, "no actual NSEvent monitor token installed")
+            events = result["audioSpectrumDemandEvents"]
+            enabled = [index for index, event in enumerate(events) if event["requiresSpectrum"]]
+            self.assertTrue(enabled, result)
+            self.assertFalse(any(event["includesCurrentProcessOutput"] for event in events), result)
+            keep = arm in ("hidden-peer", "bad-return")
+            self.assertEqual(result["audioSpectrumDemanded"], keep, result)
+            self.assertEqual([int(match[3]) for match in monitors],
+                [int(monitors[0][3])] if keep else [int(monitors[0][3]), 0])
+            if keep:
+                self.assertTrue(all(event["requiresSpectrum"] for event in events[enabled[0]:]), result)
+            else:
+                self.assertFalse(events[-1]["requiresSpectrum"], result)
+                self.assertGreater(events[-1]["scopeEpoch"], events[enabled[0]]["scopeEpoch"], result)
+            if arm == "destroy":
+                self.assertRegex(active_log, r"lifecycle=layer-retirement owners=[1-9]\d* destroyCallbacks=\d+ quiescent=[1-9]\d* failures=0")
+                self.assertNotRegex(active_log, r"failure=.*code=(?:exception|bad-return)")
+            else:
+                code = "bad-return" if arm == "bad-return" else "exception"
+                self.assertRegex(active_log, rf"target=layer\(layerID: 10, field: [^)]+\.alpha\) failure=[^\n]* code={code} ")
+                if arm != "bad-return":
+                    self.assertIn("owned-input-owner-failed", active_log)
+                if arm == "hidden-peer":
+                    self.assertRegex(active_log, r"target=layer\(layerID: 20, field: [^)]+\.alpha\) callback=completed input=1 output=1 ")
+            self.assertEqual(tree_identity(content), inputs_before)
+        except BaseException as error:
+            failure = error
+            raise
+        finally:
+            cleanup_errors = []
+            preferences_after = None
+            complete = cleanup is None or cleanup.get("ownedProcessesExited") is True
+            if not complete:
+                cleanup_errors.append(("owned-processes", "processes remain; evidence and staged App retained"))
+            for name, action in (
+                ("staged-signature", lambda: verify_staged_app(identity) if identity else None),
+                ("private-suite", lambda: delete_debug_defaults_suite(suite, environment) if complete else None),
+                ("staged-app", lambda: discard_staged_app(identity) if identity and complete else None),
+            ):
+                try:
+                    action()
+                except BaseException as error:
+                    cleanup_errors.append((name, str(error)))
+            try:
+                if app_hashes(candidate) != app_before or file_hashes(sources) != source_before:
+                    cleanup_errors.append(("frozen-input", "App or source changed during input probe"))
+                if tree_identity(content) != inputs_before:
+                    cleanup_errors.append(("owned-input", "authored package changed during input probe"))
+                preferences_after = production_preferences_identity()
+                if preferences_after != preferences_before:
+                    cleanup_errors.append(("production-preferences", "production preferences changed"))
+            except BaseException as error:
+                cleanup_errors.append(("inspect-frozen-inputs", str(error)))
+            try:
+                (output / "observations.json").write_text(json.dumps({"arm": arm, "cleanup": cleanup,
+                    "failure": str(failure) if failure else None, "cleanupErrors": cleanup_errors,
+                    "observedChildCommands": {pid: sorted(commands) for pid, commands in observed_children.items()},
+                    "productionPreferencesBefore": preferences_before,
+                    "productionPreferencesAfter": preferences_after,
+                    "passed": failure is None and not cleanup_errors, "mediaNativeWithdrawalMeasured": False}, indent=2))
+                if destination := os.environ.get("MWX_SCENE_INTEGRATION_EVIDENCE"):
+                    saved = Path(destination) / self._testMethodName
+                    shutil.copytree(output, saved)
+                    shutil.copytree(content, saved / "inputs")
+            except BaseException as error:
+                cleanup_errors.append(("retain-evidence", str(error)))
+            if complete:
+                shutil.rmtree(root)
+            else:
+                print(f"Owned input probe cleanup incomplete; retained {root}", file=sys.stderr)
+            if cleanup_errors:
+                if failure is not None:
+                    failure.add_note("owned input probe cleanup errors: " + repr(cleanup_errors))
+                else:
+                    self.fail(repr(cleanup_errors))
+
+    def test_authored_destroy_releases_last_audio_and_pointer_consumer(self):
+        self.run_consumer_case("destroy")
+
+    def test_vm_exception_releases_last_audio_and_pointer_consumer(self):
+        self.run_consumer_case("exception")
+
+    def test_hidden_peer_retains_audio_demand_and_pointer_monitors(self):
+        self.run_consumer_case("hidden-peer")
+
+    def test_bad_return_retains_audio_demand_and_pointer_monitors(self):
+        self.run_consumer_case("bad-return")

@@ -137,6 +137,8 @@ private enum Harness {
                 && inFlightThreeQuarters.deferredWhileHistoryPending,
             "authoredWeightsProduceDistinctPixels": inFlightQuarter.frames[0]
                 .outputPixels != inFlightThreeQuarters.frames[0].outputPixels,
+            "historyRetirement": graphHistoryRetirementChecks(
+                device: device, queue: queue, source: source, pipeline: pipeline),
         ]
         let data = try JSONSerialization.data(
             withJSONObject: payload,

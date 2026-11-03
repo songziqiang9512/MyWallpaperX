@@ -29,6 +29,8 @@ final class SceneMetalView {
     var resolvedAttachmentMarkers: [Float] = []
     var requiresSceneScriptCameraWorldFrames = false
     func sceneScriptCursorWorldFrames(dynamicValues:SceneDynamicSnapshot,
+        descriptor:SceneRenderDescriptor,layersByID:[Int:SceneRenderDescriptor.Layer],
+        staticWorldFrames:[Int:simd_float4x4],dynamicLayerIDs:Set<Int>,
         puppetAttachmentFrames:ScenePuppetAttachmentFrameSnapshot) -> [Int:simd_float4x4] {
         worldResolveCount += 1
         let attachmentMarker = puppetAttachmentFrames.frame(parentLayerID:7,attachmentName:"camera")?.columns.3.x
@@ -39,7 +41,8 @@ final class SceneMetalView {
     var events = SceneSurfacePointerEventBuffer()
     func drainSceneScriptPointerEvents() -> SceneSurfacePointerEventBatch { events.drain() }
     func sceneScriptSurfaceInput(pointer:SceneSurfacePointerEvent,timing:SceneFrameTiming,
-        dynamicValues:SceneDynamicSnapshot,worldFrames:[Int:simd_float4x4]) -> SceneScriptSurfaceInput? {
+        dynamicValues:SceneDynamicSnapshot,descriptor:SceneRenderDescriptor,
+        layersByID:[Int:SceneRenderDescriptor.Layer],worldFrames:[Int:simd_float4x4]) -> SceneScriptSurfaceInput? {
         let marker = worldFrames[1]?.columns.3.x ?? -1
         surfaceInputFrameMarkers.append(marker)
         return .init(canvasSize:.init(100,100),screenSize:.init(Double(identity),100),
@@ -48,7 +51,8 @@ final class SceneMetalView {
     }
     func sceneScriptCursorFrameSample(pointer:SceneSurfacePointerEvent,surfaceID:UInt32,leavingSurface:SceneScriptSurfaceInput?,
         ownerLayerIDs:Set<Int>,capturedOwnerLayerIDs:Set<Int>,timing:SceneFrameTiming,
-        dynamicValues:SceneDynamicSnapshot,worldFrames:[Int:simd_float4x4]
+        dynamicValues:SceneDynamicSnapshot,descriptor:SceneRenderDescriptor,
+        layersByID:[Int:SceneRenderDescriptor.Layer],worldFrames:[Int:simd_float4x4]
     ) -> SceneScriptCursorFrameSample {
         consumedFrameMarkers.append(worldFrames[1]?.columns.3.x ?? -1)
         let hit = SceneScriptCursorHit(layerID:1,worldPosition:.init(Double(pointer.normalizedPosition.x),0,0),localPosition:.init(Double(pointer.normalizedPosition.x),0,0))
@@ -57,7 +61,8 @@ final class SceneMetalView {
         return .init(hits:pointer.isInside ? projections : [:],ownerProjections:projections,
             pointerPosition:pointer.normalizedPosition,primaryButtonIsDown:pointer.primaryButtonIsDown,
             surface:sceneScriptSurfaceInput(pointer:pointer,timing:timing,
-                dynamicValues:dynamicValues,worldFrames:worldFrames),surfaceID:surfaceID,leavingSurface:leavingSurface)
+                dynamicValues:dynamicValues,descriptor:descriptor,layersByID:layersByID,
+                worldFrames:worldFrames),surfaceID:surfaceID,leavingSurface:leavingSurface)
     }
 }
 struct SceneDesktopWallpaperLaunchContext { let sceneScriptCursorProgram:SceneScriptCursorProgram }
@@ -82,7 +87,8 @@ final class SceneDesktopWallpaperSession {
         worldFramesBySurface:inout [UInt32:[Int:simd_float4x4]]) -> SceneScriptCursorFrameBatch {
         prepareSceneScriptCursorBatch(launchContext:.init(sceneScriptCursorProgram:program),
             timing:.init(wallDate:Date(timeIntervalSince1970:0),simulationFrameTime:0.016,sceneTime:1),
-            preliminaryForSceneScript:.empty(frameIndex:0),puppetAttachmentFramesBySurface:puppetAttachmentFramesBySurface,
+            preliminaryForSceneScript:.empty(frameIndex:0),descriptor:.init(layers:[]),layersByID:[:],
+            staticWorldFrames:[:],dynamicLayerIDs:[],puppetAttachmentFramesBySurface:puppetAttachmentFramesBySurface,
             worldFramesBySurface:&worldFramesBySurface,
             layerSnapshotFailure:failed ? .invalidArgument("test") : nil)
     }

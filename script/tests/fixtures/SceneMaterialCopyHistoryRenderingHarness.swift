@@ -111,17 +111,19 @@ private func material(
     _ nodeIndex: Int,
     ordinal: Int,
     target: Graph.TextureIdentity,
-    bindings: [Graph.Binding]
+    bindings: [Graph.Binding],
+    owner: Graph.EffectKey = effect,
+    materialPassID: String? = nil
 ) -> Graph.Node {
     .init(
         nodeIndex: nodeIndex,
-        effect: effect,
+        effect: owner,
         definitionPassIndex: nodeIndex,
         materialOrdinal: ordinal,
         instancePassIndex: ordinal,
         kind: .material,
         materialPath: "materials/history-\(nodeIndex).json",
-        materialPassID: "history#\(ordinal)",
+        materialPassID: materialPassID ?? "history#\(ordinal)",
         target: target,
         bindings: bindings,
         commandSource: nil,
@@ -131,10 +133,13 @@ private func material(
     )
 }
 
-private func copyCommand() -> Graph.Node {
+private func copyCommand(
+    owner: Graph.EffectKey = effect, source: Graph.TextureIdentity = current,
+    destination: Graph.TextureIdentity = history
+) -> Graph.Node {
     .init(
         nodeIndex: 1,
-        effect: effect,
+        effect: owner,
         definitionPassIndex: 1,
         materialOrdinal: nil,
         instancePassIndex: nil,
@@ -143,8 +148,8 @@ private func copyCommand() -> Graph.Node {
         materialPassID: nil,
         target: nil,
         bindings: [],
-        commandSource: current,
-        commandTarget: history,
+        commandSource: source,
+        commandTarget: destination,
         compose: nil,
         conditions: nil
     )
@@ -165,27 +170,33 @@ private func target(
     )
 }
 
-private func graph() -> Graph {
+private func graph(layer: Int = layerID, readsHistoryAsPrimary: Bool = false) -> Graph {
+    let effect = Graph.EffectKey(layerID: layer, effectIndex: 0, descriptorID: "material-copy-history")
+    let input = Graph.TextureIdentity(kind: .layerSource, layerID: layer, effect: nil, name: nil)
+    let output = Graph.TextureIdentity(kind: .effectOutput, layerID: layer, effect: effect, name: nil)
+    let history = Graph.TextureIdentity(kind: .framebuffer, layerID: layer, effect: effect, name: "history")
+    let current = Graph.TextureIdentity(kind: .framebuffer, layerID: layer, effect: effect, name: "current")
     let nodes = [
         material(
             0,
             ordinal: 0,
             target: current,
             bindings: [
-                binding(slot: 0, name: "previous", texture: input),
-                binding(slot: 1, name: "history", texture: history),
-            ]
+                binding(slot: 0, name: readsHistoryAsPrimary ? "history" : "previous",
+                    texture: readsHistoryAsPrimary ? history : input),
+            ] + (readsHistoryAsPrimary ? [] : [binding(slot: 1, name: "history", texture: history)]),
+            owner: effect
         ),
-        copyCommand(),
+        copyCommand(owner: effect, source: current, destination: history),
         material(
             2,
             ordinal: 1,
             target: output,
-            bindings: [binding(slot: 0, name: "current", texture: current)]
+            bindings: [binding(slot: 0, name: "current", texture: current)], owner: effect
         ),
     ]
     return .init(
-        layerID: layerID,
+        layerID: layer,
         effects: [.init(
             key: effect,
             definitionPath: "effects/history/effect.json",
@@ -280,7 +291,8 @@ private func role(
 private func template(
     for node: Graph.Node,
     mixWeight: Double,
-    content: HistoryContentFixture
+    content: HistoryContentFixture,
+    namedProvider: SceneNamedTextureReference? = nil
 ) -> Template {
     guard let nodeTarget = node.target else {
         fatalError("material target missing")
@@ -297,6 +309,10 @@ private func template(
                 provenance: .explicitBinding
             ),
         ])
+    }
+    if let namedProvider {
+        slots[1] = .init(index: 1, candidates: [.init(
+            reference: .provider(.namedLayerTarget(namedProvider)), provenance: .instance)])
     }
     let uniforms: [Template.UniformDeclaration] = if node.nodeIndex == 0 {
         [.init(
@@ -352,13 +368,11 @@ private func catalog(
             SceneResolvedMaterialRuntimeCatalog.Entry
         )? in
         guard node.kind == .material else { return nil }
+        let value = template(for: node, mixWeight: mixWeight, content: content)
         return (
             .init(effect: node.effect, nodeIndex: node.nodeIndex),
-            .template(template(
-                for: node,
-                mixWeight: mixWeight,
-                content: content
-            ))
+            .template(value, textureFormatSlots:
+                SceneResolvedMaterialShaderSchema.textureFormatSlots(in: value))
         )
     })
     return .init(entries: entries, resourceDemandIssues: [])
@@ -367,9 +381,9 @@ private func catalog(
 private func descriptor(for graph: Graph) -> SceneRenderDescriptor {
     .init(
         layers: [.init(
-            id: layerID,
+            id: graph.layerID,
             effects: [.init(
-                id: effect.descriptorID,
+                id: graph.effects[0].key.descriptorID,
                 file: graph.effects[0].definitionPath,
                 visible: true,
                 passes: graph.nodes.compactMap {
@@ -392,16 +406,16 @@ private func descriptor(for graph: Graph) -> SceneRenderDescriptor {
 
 private func admitted(_ graph: Graph) -> AdmittedLayerGraph {
     let executionPlan = SceneEffectStageExecutionPlan(
-        layerID: layerID,
-        materialNodeCount: 2,
-        logicalRenderTargetCount: 2,
+        layerID: graph.layerID,
+        materialNodeCount: graph.nodes.filter { $0.kind == .material }.count,
+        logicalRenderTargetCount: graph.renderTargets.count,
         inputRole: .layerSource
     )
     return .init(
-        layerID: layerID,
+        layerID: graph.layerID,
         renderGraph: graph,
         stagePrograms: [.init(
-            effectKey: effect,
+            effectKey: graph.effects[0].key,
             inputRole: .layerSource,
             stageGraph: graph,
             executionPlan: executionPlan
@@ -622,191 +636,6 @@ struct CoordinatorFrameResult {
 struct CoordinatorSequenceResult {
     let frames: [CoordinatorFrameResult]
     let deferredWhileHistoryPending: Bool
-}
-
-private struct PendingCoordinatorFrame {
-    let commandBuffer: MTLCommandBuffer
-    let currentReadback: Readback
-    let historyReadback: Readback
-    let outputReadback: Readback
-    let finalContent: SceneTextureContent
-}
-
-private func claimedExecution(
-    catalog: Capabilities,
-    admitted: AdmittedLayerGraph
-) -> SceneResolvedMaterialRuntimeBridge.ClaimedExecution {
-    guard let claim = catalog.claim(admitted),
-          let capability = catalog.resolve(claim.token),
-          capability.layerID == layerID,
-          capability.effectSubjectsAreConserved else {
-        fatalError("coordinator claim unavailable")
-    }
-    return .init(
-        layerID: layerID,
-        dependencyOwnership: capability.dependencyOwnership,
-        sourceRoute: capability.sourceRoute,
-        token: claim.token
-    )
-}
-
-private func consumePreparedClaim(
-    _ claim: SceneResolvedMaterialRuntimeBridge.ClaimedExecution,
-    coordinator: SceneResolvedMaterialSubmissionCoordinator
-) {
-    coordinator.lock.lock()
-    defer { coordinator.lock.unlock() }
-    guard let identity = coordinator.preparedLedgerByLayerID[claim.layerID],
-          var ledger = coordinator.activeByID[identity],
-          ledger.capabilityToken == claim.token,
-          ledger.phase == .allocationCommitted,
-          !ledger.claimConsumed else {
-        fatalError("prepared coordinator claim unavailable")
-    }
-    ledger.claimConsumed = true
-    coordinator.activeByID[identity] = ledger
-    coordinator.frameClaimed += 1
-}
-
-private func submitCoordinatorFrame(
-    index: UInt64,
-    coordinator: SceneResolvedMaterialSubmissionCoordinator,
-    claim: SceneResolvedMaterialRuntimeBridge.ClaimedExecution,
-    graph: Graph,
-    executionPlan: SceneEffectStageExecutionPlan,
-    pool: SceneOffscreenTexturePool,
-    source: MTLTexture,
-    pipeline: SceneImageLayerPipeline,
-    queue: MTLCommandQueue,
-    expectedContent: SceneTextureContent,
-    usesExternalResourceBundle: Bool = true
-) -> PendingCoordinatorFrame {
-    guard let commandBuffer = queue.makeCommandBuffer() else {
-        fatalError("coordinator command buffer unavailable")
-    }
-    beginFrame(coordinator, index: index)
-    let allocation = framePlan(
-        pool: pool,
-        graph: graph,
-        commandBuffer: commandBuffer
-    )
-    let targetPlan = SceneResolvedMaterialFrameTargetPlan(
-        token: claim.token,
-        allocation: allocation
-    )
-    let request = SceneResolvedMaterialRuntimeBridge.FramePreparationRequest(
-        claim: claim,
-        targetPlan: targetPlan,
-        sourceTexture: source,
-        sourceUniforms: .neutral(),
-        sourcePipeline: pipeline,
-        frameInputs: .init()
-    )
-    let bundle = usesExternalResourceBundle ? coordinator.prepareFrameResourceBundle(
-        plans: [targetPlan], pool: pool, commandBuffer: commandBuffer) : nil
-    if usesExternalResourceBundle && bundle == nil { fatalError("resource bundle allocation failed") }
-    let generations = pool.allocationCache.locked {
-        Set(pool.allocationCache.residents.compactMap { key, entry -> UInt64? in
-            if case .pending = key { return entry.allocation.generation }
-            return nil
-        })
-    }
-    switch coordinator.prepareFrame(
-        [request], pool: pool, commandBuffer: commandBuffer, resourceBundle: bundle
-    ) {
-    case .ready:
-        break
-    case let .rejected(reason):
-        fatalError("coordinator frame preparation failed: \(reason)")
-    }
-    if usesExternalResourceBundle {
-        bundle?.cancel() // Ownership already moved; cannot cancel the local commit.
-        guard let identity = coordinator.preparedLedgerByLayerID[claim.layerID],
-              let commit = coordinator.activeByID[identity]?.commit,
-              generations.contains(commit.submissionPin.generation),
-              pool.allocationCache.locked({ pool.allocationCache.residents.values.allSatisfy {
-                  $0.preparationPins.isEmpty
-              } }) else { fatalError("external bundle did not transfer exact targets") }
-    }
-    consumePreparedClaim(claim, coordinator: coordinator)
-
-    let texture: MTLTexture
-    let ticket: SceneResolvedMaterialRuntimeBridge.ExecutionTicket
-    switch coordinator.executeClaimed(
-        claim: claim,
-        dependencyEffects: [],
-        commandBuffer: commandBuffer
-    ) {
-    case let .encoded(value, valueTicket):
-        texture = value
-        ticket = valueTicket
-    case let .failed(reason):
-        fatalError("coordinator execution failed: \(reason)")
-    }
-    let outputConsumed: SceneResolvedMaterialRuntimeBridge.CompositeOutcome
-    if expectedContent == .data {
-        outputConsumed = coordinator.markNamedPublication(
-            ticket,
-            texture: texture,
-            published: true
-        )
-    } else {
-        outputConsumed = coordinator.markComposite(
-            ticket,
-            texture: texture,
-            consumed: true
-        )
-    }
-    guard ticket.finalContent == expectedContent,
-          let stage = coordinator.activeByID[ticket.identity]?.prepared.stages.first,
-          let currentTexture = stage.frameResources[current]?.publication.texture,
-          let historyTexture = stage.frameResources[history]?.publication.texture,
-          currentTexture.width == extent.width,
-          currentTexture.height == extent.height,
-          historyTexture.width == extent.width,
-          historyTexture.height == extent.height,
-          texture.width == extent.width,
-          texture.height == extent.height,
-          case .consumed = outputConsumed,
-          coordinator.sealFrame(on: commandBuffer),
-          let currentReadback = appendReadback(
-              currentTexture, commandBuffer: commandBuffer
-          ), let historyReadback = appendReadback(
-              historyTexture, commandBuffer: commandBuffer
-          ), let outputReadback = appendReadback(
-              texture, commandBuffer: commandBuffer
-          ) else {
-        fatalError("coordinator publication or compositor failed")
-    }
-    commandBuffer.commit()
-    _ = coordinator.endFrame()
-    return .init(
-        commandBuffer: commandBuffer,
-        currentReadback: currentReadback,
-        historyReadback: historyReadback,
-        outputReadback: outputReadback,
-        finalContent: ticket.finalContent
-    )
-}
-
-private func completeCoordinatorFrame(
-    _ pending: PendingCoordinatorFrame,
-    coordinator: SceneResolvedMaterialSubmissionCoordinator
-) -> CoordinatorFrameResult {
-    let commandBuffer = pending.commandBuffer
-    commandBuffer.waitUntilCompleted()
-    let completed = commandBuffer.status == .completed && commandBuffer.error == nil
-    coordinator.completeCommandBuffer(
-        identity: ObjectIdentifier(commandBuffer), observationID: coordinator.commandBufferRecords[ObjectIdentifier(commandBuffer)]?.observationID ?? 0,
-        status: completed ? .completed : .failed
-    )
-    return .init(
-        currentPixels: pending.currentReadback.pixels,
-        historyPixels: pending.historyReadback.pixels,
-        outputPixels: pending.outputReadback.pixels,
-        completed: completed,
-        finalContent: pending.finalContent
-    )
 }
 
 func runCoordinatorSequence(

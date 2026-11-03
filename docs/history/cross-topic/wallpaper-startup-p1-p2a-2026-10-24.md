@@ -2,9 +2,9 @@
 
 > **历史证据 — 非现役入口**
 
-# 壁纸启动第二批：Web 同次准备与 Scene FD 读取基础
+# Web 同次准备
 
-> 2026-10-24 第二批记录：行为门、签名Debug和代表性真实设置回归通过；正式提速证据未通过。P1b/P2b及后续阶段未完成，所有实施改动保持未提交。步骤与取舍唯一维护于[启动专项](../../development/wallpaper-startup-optimization-plan.md)。
+> 截止：2026-10-24。当前Web职责见[项目模型](../../web/web-project-json-runtime-model.md)和[现役状态](../../web/current-state.md)。
 
 ## 本批边界与前驱
 
@@ -28,20 +28,6 @@ P1a 保留冷 summary 的独立文件读取，因此扫描 A 后解析 B 的错�
 
 声明入口变化须按原 resolver 的 regular-file、literal query/fragment、fallback 和 dependency-host 语义核对；不能把 `.html` 目录误当新有效入口而拒掉旧合法 fallback。旧版本租约保护具体来源路径，不能按同 itemID 的最新记录给旧 host 取新项目属性；原 property-source owner 改为返回 ID/具体目录/可选 project URL 的轻量来源，pin 分支只核目录与 project，不重建整库记录或从版本目录名推断作品 ID。目录有效但缺 project 的 inferred HTML host 仍保身份；无 pin 的旧兼容分支继续复用原完整发现与分类，其扫描成本未消除。
 
-## P2a 与后续输入资格
-
-ScenePkgReader 的 Data/FD 共用一个索引 codec。打开实例持有同一 FD，索引只读 header/table；entry 读取使用 pread、源状态检查、取消及 caller 提供的预期摘要。新接口预算是调用方策略，不是 PKGV 格式上限；原 URL/Data 与当前 extractor 明确走 compatibility，不收紧旧产品合法输入。
-
-extractor 沿同 FD 取得完整 snapshot，保原全包/entry hash、缓存损坏和路径/大小写语义。目前仍整包读取、hash并多一次 table 复核；没有按需产品收益结论。verified 接口只有 CPU 门消费者，P2b 必须接唯一 ResourceView handle/receipt，若该迁移停止则删除未采用入口。
-
-Reader 12项、既有 extractor 20项真实行为门通过：截断/overflow、预算边界与兼容、Data slice、同大小恢复mtime篡改、原路径替换、并发、取消及FD释放等。这些门不替代下述签名App与真实产品验证。
-
-只读盘点后选用 `3750342273` 的隔离副本作较重成本资格：计入摘要17文件/59,237,327B，摘要 `1e8d5e06a6a784923f3b270e53ed848f67a1bb2a720cccd76245bdb8c6cae1f0`。包52,533,256B、table1,468B、27entries；其中MP3 45,315,800B、TEX 7,152,119B，还含字体、粒子和作者shader，不能只迁JSON/TEX即认领完整输入。
-
-前驱一组 C0/C1/W0 真实设置全部通过，分别2165.425/1091.065/291.166ms；三个App正常退出、输入与生产偏好摘要不变。这仅资格与成本定位，不是五组正式统计。W0模型约87ms、资源约151ms；C0的编译/device准备也占等待，不能把全部耗时归整包解读。
-
-该副本是 legacy，缺可信receipt时仍须完整准入；不能靠mtime或复制marker认领managed暖挂载收益。后续隔离managed输入必须经真实transaction prepare和service publishCanonical完整入库，再由receipt owner核原tree发布。P2b还须覆盖project先认证、同root shader pair/texture sidecar、ImageIO Data、媒体流式物化和CPU/GPU drain，详见现役专项。
-
 ## 有效签名候选 v2 与 Web 结算
 
 首轮构建在独审发现整库记录重建问题后主动中断，exit75；未运行候选，不作产品构建失败或计时原点。修正后优化 Debug/WMO 构建331.076s成功，构建前后完整 Git 可见文件摘要均为`288f67597910bb7793c84ad203b395288deb4df96638a78b0db97a4a561b2dff`，无源码变化。v2 executable SHA-256 `180ee9d31245d4d99d620968aa675bc807ee879580bfd81ef8ed1c8d3d511ca6`，CDHash `048227695fc4c254a9bcba8894885b9a55189c14`，专用bundle/Team/版本与前驱一致；deep/strict验签通过。唯一编译诊断是未修改的InspectorBadgeView既存NSBox.borderType弃用警告。
@@ -61,31 +47,6 @@ Reader 12项、既有 extractor 20项真实行为门通过：截断/overflow、�
 v2轻输入30个暖原点的观测区间中位：selection→launch enqueue2.658ms，完整surface创建106.017ms，load→首次ready90.344ms，snapshot41.136ms，剩余policy等待0.840ms；这是回调区间，不能机械相加当完整因果账。C0/C1 selection→hello含空daemon等待，不是service/cache独占时间。资格轮C0的1180.768ms仍完整保留，不混入另起五组统计。首批600.186ms暖点本批未重现，仍无旧点归因，原保护证据继续保留。
 
 真实作者1103493745的一组前后C0/C1/W0中位为870.433→863.812、854.535→875.402、285.437→282.226ms，两arm18请求匹配commit并正常退出。这只是代表性启动/提交/退出回归；本批未重测实音、像素画面、书签移动或多屏，首批实音结果不能改标为v2重验。
-
-## Scene 产品资格与成本复核
-
-375与未参与修复的314各一组，共12个App、16个真实`setAsWallpaper`请求，均有drawable-presented与匹配parent finalize。W0确为同daemon/generation；全部正常退出、已观察所属子进程为空，输入和生产偏好双摘要不变。`daemonFinalizeAndDrainObserved=false`，不能把parent finalize写成已观察到daemon drain ACK，也不证明完整画面/音频。
-
-| 输入/条件 | 前驱ms | v2 ms |
-|---|---:|---:|
-| 375 C0 / C1 / W0 | 2155.579 / 1088.095 / 306.056 | 1783.391 / 1116.133 / 286.176 |
-| 314 C0 / C1 / W0 | 1439.459 / 971.016 / 123.802 | 1365.755 / 961.438 / 131.792 |
-
-单组不作收益或无回退证明。314暖增7.990ms主要落在surfaces→presented（58.931→67.268），model/资源区间未增加，不能归PKG复核。375暖总时虽下降，model观测区间却83.671→91.227ms，因而补成本定位与唯一一轮五组真实入口对照；两个原单组继续保留为qualification，不混入后续统计。model/program/resource数值是父端相邻回调的观察间隔，不是独占CPU或PKG耗时；surfaces→presented混合父端surface阶段观察与子端真实drawable-presented时间，不是两个父端观察点。
-
-真实extractor CPU定位使用冻结前驱/候选的实际Reader/Extractor、同一375副本、独立HOME/cache，五对AB/BA交替、每对每arm三次warm，rusage timeval换算ms，产物摘要在计时外。最初一次在HOME物理路径guard前失败，0次extractor；修正`/tmp`别名比较后才执行唯一有效轮。32次调用均成功，payload逐entry/index事实相同，源码和输入未变；全部15次/arm的CPU均值43.527→43.746ms（+0.220ms），墙钟43.644→43.956ms（+0.312ms）。未复现约7.56ms的extractor增量，未做消融，不能归因到pread/Set/复核/append中的某项。
-
-该CPU工具原报告仍为`passed=false`：它额外要求两arm completion marker原始JSON字节SHA相同，结果各自稳定但跨arm不同；原文未保留、临时cache已清理，不能推断语义相同或将报告改成PASS。该结果只作成本定位，不取代既有20项缓存行为门；缺失的原始marker语义证明也不能靠payload摘要补造。
-
-五组375真实入口共30个App、40个请求全部通过；前驱/候选各5个C0、5个C1、5个W0，W0只取同daemon第二次设置。保持原30FPS、固定输入、AB/BA、产品cache和噪声规则。
-
-| selection→实际presented | 前驱中位ms | v2中位ms | 前驱/候选噪声 | 配对降幅中位 |
-|---|---:|---:|---:|---:|
-| C0 | 1882.221 | 1788.309 | 8.115% / 3.795% | 8.085% |
-| C1 | 1106.510 | 1157.018 | 4.737% / 2.228% | −3.399% |
-| W0 | 304.910 | 282.518 | 6.725% / 7.101% | 2.286% |
-
-仍为**正式提速未通过**，不以总中位改善替代配对与噪声门。C1五对均变慢，总中位增加50.508ms（4.565%），配对增幅中位3.399%，未越沿用的相对非目标门`max(5%, 2×基线噪声)`；没有测全部CPU/GPU尾部、峰值内存或能耗，不能称性能卡整体通过。暖model观测中位80.704→81.606ms（+0.902ms），五对增量6.294/7.985/0.219/0.221/0.902ms，没有稳定重复首轮7.556ms，但不能说没有新增成本。新表不覆盖未参与修复314的完整统计、全部包或完整画面/音频。
 
 ## 未完成验证与产物
 

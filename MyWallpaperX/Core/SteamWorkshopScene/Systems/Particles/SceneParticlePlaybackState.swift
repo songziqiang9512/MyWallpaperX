@@ -6,13 +6,13 @@ final class SceneParticlePlaybackState {
     private nonisolated static let maximumRealtimeSimulationDelta: TimeInterval = 2.0 / 60.0
 
     let lifecycleIdentity = UUID()
-    let pipeline: SceneParticleMetalPipeline
+    var requiredPipelineVariants: Set<SceneParticlePipelineVariant> { runtime.requiredPipelineVariants }
     private let runtime: SceneParticleRuntime
-    private let retainedLayerIDs: Set<Int>
+    private var retainedLayerIDs: Set<Int>
     var preparedLayerIDs: Set<Int> { didTeardown ? [] : retainedLayerIDs }
-    /// Prepared once with the playback graph; no per-frame particle topology
-    /// scan is needed to decide whether pointer projection is required.
-    let pointerControlPointDemands: [Int: SceneParticlePointerDemand]
+    var pointerControlPointDemands: [Int: SceneParticlePointerDemand] {
+        runtime.pointerControlPointDemands
+    }
     private(set) var batches: [SceneParticleDrawBatch]
     /// Resource admission history. Empty batches are valid and do not prove
     /// that a layer produced particles or reached the GPU.
@@ -30,7 +30,7 @@ final class SceneParticlePlaybackState {
         runtime.lifecycleSnapshot
     }
 
-    init?(
+    init(
         descriptor: SceneRenderDescriptor,
         preparedAssets: SceneParticleAssetGraph,
         device: MTLDevice,
@@ -38,7 +38,8 @@ final class SceneParticlePlaybackState {
         layerImage: SceneParticleLayerImageEmitterCompilation = .empty,
         preparedParticleVisibilityLayerIDs: Set<Int> = [],
         initialDynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
-        initialPlayback: [Int: SceneParticlePlaybackSnapshot] = [:]
+        initialPlayback: [Int: SceneParticlePlaybackSnapshot] = [:],
+        destroyedAuthoredLayerIDs: Set<Int> = []
     ) {
         let runtime = SceneParticleRuntime(
             descriptor: descriptor,
@@ -50,19 +51,11 @@ final class SceneParticlePlaybackState {
             preparedParticleVisibilityLayerIDs:
                 preparedParticleVisibilityLayerIDs,
             initialDynamicValues: initialDynamicValues,
-            initialPlayback: initialPlayback
+            initialPlayback: initialPlayback,
+            destroyedAuthoredLayerIDs: destroyedAuthoredLayerIDs
         )
-        guard let pipeline = SceneParticleMetalPipeline(
-            device: device, pixelFormat: descriptor.colorTargetFormat.metalPixelFormat,
-            requiredVariants: runtime.requiredPipelineVariants
-        ) else {
-            runtime.teardown()
-            return nil
-        }
-        self.pipeline = pipeline
         self.runtime = runtime
         self.retainedLayerIDs = Set(runtime.activeLayerIDs)
-        self.pointerControlPointDemands = runtime.pointerControlPointDemands
         let layersByID = Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) })
         let initialWorldFrames = SceneLayerDynamicWorldFrameResolver.resolve(
             descriptor: descriptor, byID: layersByID, snapshot: initialDynamicValues,
@@ -192,6 +185,14 @@ final class SceneParticlePlaybackState {
     ) -> TimeInterval {
         guard simulationFrameDelta.isFinite else { return 0 }
         return min(max(simulationFrameDelta, 0), maximumRealtimeSimulationDelta)
+    }
+
+    func retire(layerIDs: Set<Int>) {
+        let retired = retainedLayerIDs.intersection(layerIDs)
+        guard !retired.isEmpty else { return }
+        runtime.retire(layerIDs: retired)
+        retainedLayerIDs.subtract(retired)
+        batches.removeAll { retired.contains($0.layerID) }
     }
 
     /// Returns one observation for the only successful active -> terminated

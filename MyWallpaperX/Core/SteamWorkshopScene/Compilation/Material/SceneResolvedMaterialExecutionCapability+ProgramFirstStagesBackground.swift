@@ -11,11 +11,12 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
 
     static func sceneBackgroundRequirement(
         admitted: SceneResolvedMaterialAdmittedLayer,
-        stages: [StageCapability]
+        stages: [CompiledStages.Stage]
     ) -> Result<SceneBackgroundRequirement?, Rejection> {
         var candidates: [SceneBackgroundCandidate] = []
         for stage in stages {
-            guard case let .resolved(product, materials, _) = stage else { continue }
+            guard case let .resolved(materials, _) = stage.execution else { continue }
+            let product = stage.product
             for material in materials.values {
                 let snapshot = material.variants.launchEnvelopeCapabilitySnapshot()
                 guard snapshot.allEntriesReady,
@@ -37,8 +38,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                                   // launch variant can select it.
                                   guard let sampler = variant.activeSamplers[slot]
                                   else { return false }
-                                  return SceneResolvedMaterialTextureResolver
-                                    .sceneBackgroundDefault(
+                                  return SceneResolvedMaterialShaderSchema.sceneBackgroundDefault(
                                         template: material.template,
                                         sampler: sampler,
                                         slot: slot
@@ -132,14 +132,16 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
     }
 
     static func textSourceCaptureRequirement(
-        admitted: SceneResolvedMaterialAdmittedLayer, stages: [StageCapability]
+        admitted: SceneResolvedMaterialAdmittedLayer, stages: [CompiledStages.Stage]
     ) -> SceneBackgroundRequirement? {
         guard admitted.isTopLevelTextSource, admitted.sourceRoute == .capturedLayerTexture,
               admitted.isVisibleExecutionRoot, !admitted.isGraphOutputProvider,
-              case let .resolved(product, materials, _)? = stages.first,
-              let effect = product.graph.effects.first,
+              let stage = stages.first,
+              case let .resolved(materials, _) = stage.execution,
+              let effect = stage.product.graph.effects.first,
               effect.input == admitted.pairPlan.baseCaptureIdentity,
               effect.input.kind == .layerSource else { return nil }
+        let product = stage.product
         let nodes = product.graph.nodes
         func sourceSlot(_ identity: Graph.TextureIdentity, in node: Graph.Node) -> Int? {
             guard let material = materials[.init(effect: node.effect, nodeIndex: node.nodeIndex)]

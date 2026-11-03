@@ -15,10 +15,7 @@ extension SceneResolvedMaterialPassEncoder {
 
         init?(
             identity: String,
-            preparedKey: String,
-            frontend: SceneAuthoredShaderProgram,
-            renderState: SceneMaterialRenderState,
-            frontendSchemaVersion: Int,
+            prepared: SceneResolvedMaterialProgram.PreparedAssembly,
             pixelFormat: MTLPixelFormat,
             sampleCount: Int = 1,
             writeMask: MTLColorWriteMask,
@@ -26,26 +23,29 @@ extension SceneResolvedMaterialPassEncoder {
             device: MTLDevice
         ) {
             if passRole.readsCurrentAttachment {
-                guard SceneResolvedMaterialProgram.PassRole.supportsAttachmentReadTarget(
+                guard prepared.frontendProgram.attachmentReadVariant != nil,
+                      SceneResolvedMaterialProgram.PassRole.supportsAttachmentReadTarget(
                     pixelFormat: pixelFormat, sampleCount: sampleCount, device: device
                 ) else { return nil }
             }
-            guard !identity.isEmpty, !preparedKey.isEmpty,
-                  let key = SceneResolvedMaterialProgramIdentity.metalCompileStateKey(
-                      frontend: frontend,
-                      renderState: renderState,
-                      frontendSchemaVersion: frontendSchemaVersion,
-                      attachmentPixelFormatRawValue: pixelFormat.rawValue,
-                      sampleCount: sampleCount,
-                      colorWriteMaskRawValue: writeMask.rawValue,
-                      passRole: passRole,
-                      deviceRegistryID: device.registryID
-                  ) else { return nil }
+            guard !identity.isEmpty, pixelFormat != .invalid,
+                  sampleCount > 0, !writeMask.isEmpty,
+                  device.registryID != 0 else { return nil }
             self.identity = identity
-            self.preparedKey = preparedKey
-            self.key = key
-            self.frontend = frontend
-            self.renderState = renderState
+            preparedKey = prepared.preparedIdentity.cacheKey
+            key = .init(
+                passRole: passRole,
+                shader: prepared.shaderIdentity,
+                renderState: prepared.renderStateIdentity,
+                attachmentPixelFormatRawValue: pixelFormat.rawValue,
+                sampleCount: sampleCount,
+                colorWriteMaskRawValue: writeMask.rawValue,
+                deviceRegistryID: device.registryID,
+                attachmentReadMetalSourceSHA256: passRole.readsCurrentAttachment
+                    ? prepared.frontendProgram.attachmentReadVariant?.metalSourceSHA256 : nil
+            )
+            frontend = prepared.frontendProgram
+            renderState = prepared.renderState
             self.pixelFormat = pixelFormat
             self.sampleCount = sampleCount
             self.writeMask = writeMask
@@ -137,18 +137,17 @@ extension SceneResolvedMaterialPassEncoder {
         )
     }
 
-    /// Warmup runs only from `SceneResolvedMaterialGraphExecutor.init`, before
-    /// the encoder can escape to a frame. Unique compile keys therefore may be
-    /// compiled concurrently, then published under the ordinary cache lock.
-    /// The persistent binary archive session is prepared and serialized here
-    /// on the background warmup workers; the frame path never touches it.
+    /// Graph and source-material preparation finish warmup before publication.
+    /// Unique keys may compile concurrently, then publish under the cache lock.
+    /// The persistent binary archive is loaded on the warmup workers;
+    /// successful PSOs hand optional publication to utility. Frames never touch it.
     private func warmupPipeline(_ plan: WarmupPlan) -> PreparationFailure? {
         lock.lock()
         if let existing = entries[plan.key] {
             lock.unlock()
             switch existing {
             case .ready: return nil
-            case let .failed(failure, _): return failure
+            case let .failed(failure): return failure
             }
         }
 #if DEBUG || SCENE_GRAPH_TESTING
@@ -158,12 +157,7 @@ extension SceneResolvedMaterialPassEncoder {
 
         let binaryArchiveSession = SceneResolvedMaterialPipelineBinaryArchive
             .prepareSession(
-                frontend: plan.frontend,
-                renderState: plan.renderState,
-                pixelFormat: plan.pixelFormat,
-                sampleCount: plan.sampleCount,
-                writeMask: plan.writeMask,
-                passRole: plan.key.passRole,
+                key: plan.key,
                 device: device
             )
         let result = compileUncachedPipeline(
@@ -179,10 +173,10 @@ extension SceneResolvedMaterialPassEncoder {
         defer { lock.unlock() }
         switch result {
         case let .success(pipeline):
-            entries[plan.key] = .ready(pipeline, origin: .launchWarmup)
+            entries[plan.key] = .ready(pipeline)
             return nil
         case let .failure(failure):
-            entries[plan.key] = .failed(failure, origin: .launchWarmup)
+            entries[plan.key] = .failed(failure)
 #if DEBUG || SCENE_GRAPH_TESTING
             failedPipelines += 1
 #endif
@@ -193,10 +187,8 @@ extension SceneResolvedMaterialPassEncoder {
 #if DEBUG || SCENE_GRAPH_TESTING
     func recordLaunchWarmupConsumption(
         key: SceneResolvedMaterialProgram.MetalCompileStateKey,
-        origin: PipelineOrigin,
         preparedKey: String
     ) {
-        guard origin == .launchWarmup else { return }
         let observation: (attempts: Int, hits: Int)? = withLock {
             guard consumedLaunchWarmupKeys.insert(key).inserted else { return nil }
             launchWarmupHits += 1

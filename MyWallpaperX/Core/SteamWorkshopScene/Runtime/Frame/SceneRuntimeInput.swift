@@ -1,7 +1,7 @@
 import Foundation
 
 nonisolated struct SceneRuntimeInput: Codable {
-    let renderDescriptor: SceneRenderDescriptor
+    private(set) var renderDescriptor: SceneRenderDescriptor
     let authoredEffectRenderPlans: [SceneAuthoredEffectRenderPlan]
     let propertyBindingProgram: ScenePropertyBindingProgram
     let directBoolEffectVisibilityTargets: Set<SceneDynamicTarget>
@@ -28,11 +28,9 @@ nonisolated struct SceneRuntimeInput: Codable {
     }
 
     func applyingPreparedImageGeometry(_ sizes: [Int: [Float]]) -> Self {
-        .init(renderDescriptor: renderDescriptor.applyingPreparedImageGeometry(sizes),
-            propertyBindingProgram: propertyBindingProgram,
-            effectivePropertyValues: effectivePropertyValues,
-            shaderContracts: shaderContracts,
-            scriptOwnedEffectVisibilityTargets: scriptOwnedEffectVisibilityTargets)
+        var prepared = self
+        prepared.renderDescriptor = renderDescriptor.applyingPreparedImageGeometry(sizes)
+        return prepared
     }
 
     init(

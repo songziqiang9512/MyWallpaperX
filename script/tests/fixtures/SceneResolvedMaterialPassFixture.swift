@@ -533,17 +533,14 @@ func bytes<T>(_ value: T) -> Data {
 }
 
 func uniforms(
-    shader: SceneShaderPreparedProgram,
+    frontend: SceneAuthoredShaderProgram,
     gain: Float = 0.5,
     malformed: Bool = false,
     values: [String: Data] = [:]
-) -> [Program.ResolvedUniform] {
-    let frontend = SceneAuthoredShaderFrontend.compile(
-        vertexSource: shader.vertex.source,
-        fragmentSource: shader.fragment.source
-    ).program!
+) -> (bindings: [SceneResolvedMaterialPreparedUniformBinding], values: [Program.ResolvedUniform]) {
     let activeTextureSlots = Set(frontend.textureBindings.map(\.slot))
-    return frontend.uniformLayout.fields.map { field in
+    var bindings: [SceneResolvedMaterialPreparedUniformBinding] = []
+    let resolved = frontend.uniformLayout.fields.map { field -> Program.ResolvedUniform in
         let value: Data
         if let explicit = values[field.name] {
             value = explicit
@@ -561,9 +558,12 @@ func uniforms(
         let source = SceneResolvedMaterialHostUniformSchema.resolve(
             field,
             activeTextureSlots: activeTextureSlots
-        ).map(Program.ResolvedUniform.Source.host) ?? .staticValue
-        return .init(field: field, source: source, encodedValue: value)
+        ).map(SceneResolvedMaterialPreparedUniformBinding.Source.host)
+            ?? .staticValue(malformed ? bytes(gain) : value)
+        bindings.append(.init(field: field, source: source))
+        return .init(encodedValue: value)
     }
+    return (bindings, resolved)
 }
 
 func program(
@@ -629,16 +629,20 @@ func program(
         guard let candidate = candidates[active] else { return nil }
         resolvedSlots[active] = candidate
     }
-    return Program.assemble(.init(
-        preparedShader: shader,
+    guard let preparedFrontend = SceneAuthoredShaderFrontend.compile(
+        vertexSource: shader.vertex.source, fragmentSource: shader.fragment.source,
+        boundTextureSlots: Set(resolvedSlots.indices.filter { resolvedSlots[$0] != nil })
+    ).program else { return nil }
+    let values = uniforms(frontend: preparedFrontend, gain: gain, malformed: malformedUniform, values: uniformValues)
+    guard let assembly = try? Program.PreparedAssembly(
+        preparedShader: shader, frontend: preparedFrontend, renderState: state(),
+        runtimeLoopBounds: .none, preparedUniformBindings: values.bindings,
+        conditionalGeneratedRGBInputContract: nil, associatedOverOverlaySlot: nil,
+        premultipliedColorInputSlots: []
+    ) else { return nil }
+    return Program.assemblePrepared(.init(
         textureSlots: resolvedSlots,
-        resolvedUniforms: uniforms(
-            shader: shader,
-            gain: gain,
-            malformed: malformedUniform,
-            values: uniformValues
-        ),
-        renderState: state(),
+        resolvedUniforms: values.values,
         graphRole: .init(
             effectInput: .layerSource,
             effectOutput: .effectOutput,
@@ -653,7 +657,8 @@ func program(
                 : []
         ),
         outputStorage: outputStorage
-    ))
+    ), prepared: assembly, routeDecision: .init(
+        profile: "self-authored-material-pass", state: "fixture", fallbackOwner: "none"))
 }
 
 func pixels(_ texture: MTLTexture) -> [UInt8] {
@@ -692,8 +697,9 @@ func render(
     queue: MTLCommandQueue,
     target: MTLTexture
 ) -> (prepared: Bool, encoded: Bool, completed: Bool, pixels: [UInt8]) {
-    guard let program,
-          let prepared = encoder.prepare(program: program, target: target),
+    guard let program else { return (false, false, false, []) }
+    prepareMaterialPipeline(program, encoder: encoder, target: target)
+    guard let prepared = encoder.prepare(program: program, target: target),
           let command = queue.makeCommandBuffer() else {
         return (false, false, false, [])
     }

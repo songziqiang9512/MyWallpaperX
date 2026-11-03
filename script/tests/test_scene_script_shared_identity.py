@@ -225,6 +225,7 @@ import Foundation
 
         let root = URL(fileURLWithPath: CommandLine.arguments[1])
         let storage = SceneScriptLocalStorageSession(recordID: "shared-boundary", rootDirectory: root)
+        storage.prepare()
         try d.configureStorage(storage); try d.setStorageScreenIdentity("screen")
         _ = storage.beginFrameTransaction()
         let mixed = try owner(d, """

@@ -63,7 +63,7 @@ enum SceneDocumentLoader {
         .init(id: id, layerIndex: index, name: name, visible: true,
               originXYZ: [0,0,0], scaleXYZ: [1,1,1], alpha: 1,
               effects: sourceEffect ? [.init(name:"source-effect")] : [],
-              contentKind: "text", textScript: source.map { .init(source: $0) }, text: "base",
+              contentKind: "text", text: "base",
               textStyle: .init(fontPath: nil, colorRGB: [1,1,1], pointSize: 32),
               initialConfiguration: .object(["name": .string(name), "text": text]))
     }
@@ -581,9 +581,11 @@ enum SceneDocumentLoader {
             let plan=layers.preflightOwnerEffects(update.ownerEffects)
             childFailures=plan.rejectedOwners.count+update.failures.count
             layers.commit(plan.layerPlan);f.program.finalizeLayerMutations(committing:true)
-            childText=layers.snapshot().dynamicLayers.first{$0.id == SceneScriptLayerMutationBridge.layerID(for:definition.target)}?.text ?? "absent"
+            childText=text(layers.snapshot().authoredLayerValues[definition.target])
             childRawSize=update.layerMutations.first?.pointSize ?? -1
-            childSize=layers.snapshot().dynamicLayers.first{$0.id == SceneScriptLayerMutationBridge.layerID(for:definition.target)}?.textStyle?.pointSize ?? -1
+            if case let .scalar(value)? = layers.snapshot().authoredLayerValues[.text(layerID:SceneScriptLayerMutationBridge.layerID(for:definition.target)!,field:.pointSize)] {
+                childSize=SceneTextDescriptor.renderedPointSize(value) ?? -1
+            }
             let partial=f.program.evaluate(inputs:[definition.target:.string("child-change")],
                 effectivePropertyValues:f.values,propertyRevision:0,targetFilter:definition.target,
                 frame:frame(3),userPropertiesJSON:f.userJSON)
@@ -592,7 +594,9 @@ enum SceneDocumentLoader {
             let partialPlan=layers.preflightOwnerEffects(partial.ownerEffects)
             childFailures += partialPlan.rejectedOwners.count+partial.failures.count
             layers.commit(partialPlan.layerPlan);f.program.finalizeLayerMutations(committing:true)
-            retainedSize=layers.snapshot().dynamicLayers.first{$0.id == SceneScriptLayerMutationBridge.layerID(for:definition.target)}?.textStyle?.pointSize ?? -1
+            if case let .scalar(value)? = layers.snapshot().authoredLayerValues[.text(layerID:SceneScriptLayerMutationBridge.layerID(for:definition.target)!,field:.pointSize)] {
+                retainedSize=SceneTextDescriptor.renderedPointSize(value) ?? -1
+            }
         }
         return ["status":status(created),"adopted":adoption.definitions.count,
             "creatorText":creatorText,"childText":childText,"childFailures":childFailures,"textDirty":textDirty,
@@ -600,6 +604,60 @@ enum SceneDocumentLoader {
             "retainedRawSize":retainedRawSize,"retainedSize":retainedSize,"partialSizeDirty":partialSizeDirty,
             "healthy":layers.snapshot().dynamicLayers.contains{$0.text == "healthy-peer"},
             "rejections":result.admission.rejectedOwners.count,"dynamic":layers.snapshot().dynamicLayers.count]
+    }
+    static func templateTransformUpdates() throws -> [String:Any] {
+        let source="export var scriptProperties={prefix:'fallback'};export function init(v){return v;}export function update(v){return v+'@'+engine.runtime;}"
+        let f=try fixture(clockSource:source,scriptOuterUser:false),layers=runtime(f)
+        let owner=try creator(f,"""
+            let child;
+            export function update(v){
+                if(!child)child=thisScene.createLayer({text:thisScene.getInitialLayerConfig('clock').text});
+                else {child.origin=new Vec3(v.x,2,0);child.visible=v.x!==3;
+                    const font=v.x===3?'   ':' fonts/current.ttf ';
+                    child.font=font;if(child.font!==font)throw Error('font getter lost raw path');}
+                return v;
+            }
+            """)
+        let born=try run(owner,f).get()
+        let birth=layers.preflightOwnerEffects([effects(born,owner)])
+        layers.commit(birth.layerPlan);owner.commitLayerMutations()
+        let adoption=f.program.adoptCommittedPreparedTextClones(frame:frame(1),
+            liveTextTemplates:birth.layerPlan.textTemplateIdentitiesByLayerID)
+        guard let target=adoption.definitions.first?.target,let seed=born.layerMutations.first?.text else {
+            return ["adopted":adoption.definitions.count]
+        }
+        var current=SceneDynamicValue.string(seed),outputs:[String]=[],rawInputs:[String]=[]
+        var failures=0,transformOnly=true,contentUnclaimed=true,worldPublicationKeepsAuthoredIDs=true
+        var typedFonts:[String]=[]
+        for step in 2...4 {
+            var inputs=[target:current]
+            inputs.merge(layers.snapshot().authoredLayerValues){_,committed in committed}
+            let preliminary=SceneDynamicSnapshotResolver().resolve(frameIndex:UInt64(step),generation:0,
+                definitions:layers.authoredLayerDefinitions,sceneScriptValues:inputs).snapshot
+            try f.domain.publishLayerSnapshot(preliminary,descriptor:f.descriptor,
+                preparedTextValues:layers.preparedTextValues(in:preliminary),awaitingHostFrameOutcome:true)
+            worldPublicationKeepsAuthoredIDs = worldPublicationKeepsAuthoredIDs
+                && f.domain.committedDynamicWorldTransformLayerIDs.isEmpty
+            let changed=try run(owner,f,Double(step)).get()
+            rawInputs.append(changed.layerMutations.first?.text ?? "absent")
+            transformOnly = transformOnly && !changed.layerMutations.isEmpty
+                && changed.layerMutations.allSatisfy{!$0.fields.contains(.text)}
+            let result=f.program.evaluate(inputs:[target:inputs[target]!],effectivePropertyValues:f.values,
+                propertyRevision:0,targetFilter:target,frame:frame(Double(step)),userPropertiesJSON:f.userJSON)
+            let plan=layers.preflightOwnerEffects([effects(changed,owner)]+result.ownerEffects)
+            failures += plan.rejectedOwners.count+result.failures.count
+            layers.commit(plan.layerPlan);owner.commitLayerMutations()
+            f.program.finalizeLayerMutations(committing:true)
+            f.domain.finalizeCommittedLayerSnapshot()
+            contentUnclaimed = contentUnclaimed && layers.snapshot().authoredLayerValues[target] == nil
+            typedFonts.append(text(layers.snapshot().authoredLayerValues[
+                .text(layerID:SceneScriptLayerMutationBridge.layerID(for:target)!,field:.font)]))
+            current=result.values[target] ?? current;outputs.append(text(current))
+        }
+        return ["adopted":adoption.definitions.count,"outputs":outputs,"rawInputs":rawInputs,
+            "transformOnly":transformOnly,"contentUnclaimed":contentUnclaimed,
+            "worldPublicationKeepsAuthoredIDs":worldPublicationKeepsAuthoredIDs,
+            "typedFonts":typedFonts,"failures":failures]
     }
     static func sameFrameCreatorDeletion() throws -> [String:Any] {
         let f=try fixture(),layers=runtime(f)
@@ -755,6 +813,7 @@ enum SceneDocumentLoader {
             "sortLateDiscard":try rejectedBirthSort(false),
             "textAccepted":try textSetters("accepted"),"textParentThrow":try textSetters("throw"),
             "textLateDiscard":try textSetters("late"),"sameFrameCreatorDeletion":try sameFrameCreatorDeletion(),
+            "templateTransformUpdates":try templateTransformUpdates(),
             "dynamicStringBounds":try dynamicStringBounds(),
             "emptyParticleScope":try particleScope(false),"particlePrefix":try particleScope(true),
             "childParticleRejected":try particleScope(true,badChild:true),
@@ -775,7 +834,9 @@ class PreparedTextCloneTests(unittest.TestCase):
                 Path(__file__).parent / "fixtures/SceneScriptBooleanTextCloneChecks.swift"),
             whole_module_optimization=True,
         )
-        execution = subprocess.run([str(binary)], capture_output=True, text=True, check=True)
+        execution = subprocess.run([str(binary)], capture_output=True, text=True)
+        if execution.returncode != 0:
+            raise RuntimeError(execution.stdout + execution.stderr)
         cls.result = json.loads(execution.stdout)
 
     def test_committed_clones_keep_fresh_init_update_and_user_state(self) -> None:
@@ -881,6 +942,14 @@ class PreparedTextCloneTests(unittest.TestCase):
                     "textDirty": False, "healthy": True, "rejections": 0, "dynamic": 1,
                     "creatorSize": -1, "childRawSize": -1, "childSize": -1,
                     "retainedRawSize": -1, "retainedSize": -1, "partialSizeDirty": False})
+
+    def test_transform_upsert_preserves_the_latest_template_string_result(self) -> None:
+        self.assertEqual(self.result["templateTransformUpdates"], {
+            "adopted": 1, "outputs": ["base@2", "base@2@3", "base@2@3@4"],
+            "rawInputs": ["base", "base@2", "base@2@3"],
+            "transformOnly": True, "contentUnclaimed": True,
+            "worldPublicationKeepsAuthoredIDs": True,
+            "typedFonts": ["fonts/current.ttf", "", "fonts/current.ttf"], "failures": 0})
 
     def test_birth_removed_with_its_creator_is_not_adopted(self) -> None:
         self.assertEqual(self.result["sameFrameCreatorDeletion"], {"rejections": 0,

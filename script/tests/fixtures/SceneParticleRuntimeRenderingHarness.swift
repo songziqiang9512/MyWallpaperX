@@ -262,9 +262,9 @@ extension Harness {
         let hidden = runtime.advance(by: 0, dynamicValues: snapshot(0))
         let recovered = runtime.advance(by: 0, dynamicValues: snapshot(1))
         let fallback = runtime.advance(by: 0)
-        guard let playback = SceneParticlePlaybackState(
+        let playback = SceneParticlePlaybackState(
             descriptor: descriptor, cacheDirectory: directory, device: device,
-            initialDynamicValues: snapshot(0.8)) else { throw HarnessError.noParticlePipeline }
+            initialDynamicValues: snapshot(0.8))
         let startup = values(playback.batches)
         let rejected = values(playback.advance(by: 0, dynamicValues: snapshot(0)))
         let restored = values(playback.batches)
@@ -441,9 +441,9 @@ extension Harness {
     }
 
     static func spriteBatchBounds(_ batch: SceneParticleDrawBatch, device: MTLDevice) -> [Int] {
-        guard batch.instanceBuffer.update(device: device, instances: batch.instances) else { return [] }
         let size = 64
         guard let pipeline = SceneParticleMetalPipeline(device: device),
+              let prepared = pipeline.prepare([batch]).first,
               let command = device.makeCommandQueue()?.makeCommandBuffer() else { return [] }
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(
             pixelFormat: .bgra8Unorm, width: size, height: size, mipmapped: false)
@@ -455,13 +455,13 @@ extension Harness {
         pass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
         pass.colorAttachments[0].storeAction = .store
         guard let encoder = command.makeRenderCommandEncoder(descriptor: pass) else { return [] }
-        pipeline.draw(texture: batch.texture, instances: batch.instanceBuffer,
+        pipeline.draw(texture: batch.texture, instances: prepared.instanceBuffer,
             uniforms: SceneParticleLayerUniforms(viewProjection: simd_float4x4(diagonal: SIMD4(1.0 / 32, 1.0 / 32, 1, 1)),
                 layerModel: matrix_identity_float4x4, basis: .init(right: SIMD3(1, 0, 0), up: SIMD3(0, 1, 0))),
             renderState: batch.renderState, colorUVScale: batch.colorUVScale,
             colorSampling: batch.colorSampling, encoder: encoder)
         encoder.endEncoding()
-        guard batch.instanceBuffer.markSubmitted(on: command) else { return [] }
+        guard prepared.instanceBuffer.markSubmitted(on: command) else { return [] }
         command.commit(); command.waitUntilCompleted()
         guard command.status == .completed else { return [] }
         var bytes = [UInt8](repeating: 0, count: size * size * 4)
@@ -785,9 +785,9 @@ extension Harness {
                 shaderPath: "genericparticle", texturePaths: ["shared.png"], blending: "additive")]
         )
         guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
-        guard let playback = SceneParticlePlaybackState(
+        let playback = SceneParticlePlaybackState(
             descriptor: descriptor, cacheDirectory: directory, device: device
-        ) else { throw HarnessError.noParticlePipeline }
+        )
 #if DEBUG
         let initial = playback.loadReportLines(descriptor: descriptor)
 #endif

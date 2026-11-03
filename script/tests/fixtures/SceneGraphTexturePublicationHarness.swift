@@ -262,8 +262,8 @@ private func resolveProgram(
     guard case .success(let value) = frame else {
         fatalError("frame snapshot failed")
     }
+    let material = template()
     let input = value.finalizationInput(
-        template: template(),
         layerID: 9001,
         renderSize: CGSize(width: 2, height: 2),
         modelViewProjection: matrix_identity_float4x4,
@@ -272,7 +272,8 @@ private func resolveProgram(
         effectTextureProjectionMatrixInverse: matrix_identity_float4x4
     )
     guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(
-        template: input.template,
+        template: material,
+        textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: material),
         maximumVariantCount: 16
     ), case .success = cache.precompileLaunchEnvelope(
         implicitFramebufferIdentity: input.implicitFramebufferIdentity

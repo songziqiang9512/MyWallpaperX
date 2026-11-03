@@ -13,12 +13,12 @@ extension SceneResolvedMaterialShaderSchema {
     /// variant selection still resolves one exact immutable Program.
     nonisolated static func reachableSamplers(
         _ template: Template,
+        textureFormatSlots: Set<Int>,
         implicitFramebufferIdentity: Graph.TextureIdentity?,
         textureFormatProfiles: [[Int: SceneShaderTextureFormat]]? = nil
     ) throws -> [Int: Set<Sampler>] {
         let profiles = try textureFormatProfiles
-            ?? SceneResolvedMaterialTextureResolver
-            .exhaustiveLaunchTextureFormatProfiles(template: template)
+            ?? exhaustiveTextureFormatProfiles(textureFormatSlots: textureFormatSlots)
         guard !profiles.isEmpty else { throw Issue.sampler("texture-format-envelope") }
         var cache: [ReachabilityVariantKey: [Int: Sampler]] = [:]
         func samplers(
@@ -112,6 +112,27 @@ extension SceneResolvedMaterialShaderSchema {
         return reachable
     }
 
+    private static func exhaustiveTextureFormatProfiles(
+        textureFormatSlots: Set<Int>
+    ) throws -> [[Int: SceneShaderTextureFormat]] {
+        var profiles: [[Int: SceneShaderTextureFormat]] = [[:]]
+        for slot in textureFormatSlots.sorted() {
+            var expanded: [[Int: SceneShaderTextureFormat]] = []
+            for profile in profiles {
+                for format in SceneShaderTextureFormat.allCases {
+                    var next = profile
+                    next[slot] = format
+                    expanded.append(next)
+                    guard expanded.count <= 256 else {
+                        throw Issue.sampler("texture-format-envelope")
+                    }
+                }
+            }
+            profiles = expanded
+        }
+        return profiles
+    }
+
     /// Sampler slots whose shader schema owns a presence combo such as
     /// `MASK` or `TIMEOFFSET`. Parse failure returns nil so callers keep the
     /// historical optional envelope instead of inventing combo facts.
@@ -189,7 +210,7 @@ extension SceneResolvedMaterialShaderSchema {
                 // be required independently of this hypothetical bit.
                 guard (0 ..< 8).contains(index),
                       let sampler = samplers[index],
-                      !sampler.usesGraphInputMaterialAlias,
+                      !usesGraphInputMaterialAlias(sampler),
                       !graphBoundSlots.contains(index),
                       let slot = template.textureSlots[index],
                       !slot.candidates.isEmpty,
@@ -256,8 +277,7 @@ extension SceneResolvedMaterialShaderSchema {
                 case .asset where sampler.readinessCombo == nil:
                     required |= bit
                 case .internalTarget where sampler.readinessCombo == nil:
-                    guard SceneResolvedMaterialTextureResolver
-                        .renderTargetDefault(
+                    guard SceneResolvedMaterialShaderSchema.renderTargetDefault(
                             template: template, sampler: sampler, slot: index,
                             inputIdentity: implicitFramebufferIdentity
                         ) != nil
@@ -268,7 +288,7 @@ extension SceneResolvedMaterialShaderSchema {
                 case .asset, .internalTarget, nil:
                     break
                 }
-                if sampler.usesGraphInputMaterialAlias,
+                if usesGraphInputMaterialAlias(sampler),
                    implicitFramebufferIdentity != nil
                 {
                     required |= bit

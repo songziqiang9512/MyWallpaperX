@@ -4,13 +4,13 @@ import json
 import shutil
 import unittest
 
-from script.tests.test_scene_resolved_material_graph_executor import HARNESS, SUPPORT, compile_lit_harness
+from script.tests.test_scene_resolved_material_graph_executor import HARNESS_SUPPORT_SOURCE, SUPPORT, compile_lit_harness
 
 
 @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
 class SceneSourceColorGraphTests(unittest.TestCase):
     def test_text_rt_capture_retains_projected_prefix_rgb_and_glyph_alpha(self) -> None:
-        harness = HARNESS.split("@main\nprivate enum Harness", 1)[0] + r'''
+        harness = HARNESS_SUPPORT_SOURCE + r'''
 private func sourceColorCatalog(_ graph: Graph) -> SceneResolvedMaterialRuntimeCatalog {
     var entries: [SceneResolvedMaterialRuntimeCatalog.Key: SceneResolvedMaterialRuntimeCatalog.Entry] = [:]
     for node in graph.nodes where node.kind == .material {
@@ -31,7 +31,7 @@ private func sourceColorCatalog(_ graph: Graph) -> SceneResolvedMaterialRuntimeC
             shaderContract: contract, diagnosticProvenance: .init(nodeIndex: node.nodeIndex,
                 authoredShaderPath: contract.identity, contractIdentity: contract.identity,
                 contractCanonicalSHA256: contract.canonicalSHA256, textureSources: [], uniformSources: []))!
-        entries[.init(effect: node.effect, nodeIndex: node.nodeIndex)] = .template(value)
+        entries[.init(effect: node.effect, nodeIndex: node.nodeIndex)] = .template(value, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: value))
     }
     return .init(entries: entries, resourceDemandIssues: [])
 }
@@ -351,7 +351,7 @@ private func sourceColorPipeline(_ device: MTLDevice, format: MTLPixelFormat) th
         self.assertEqual([name for name, passed in payload["results"].items() if not passed], [], payload)
 
     def test_actual_source_capture_alpha_override_and_terminal_composition(self) -> None:
-        harness = HARNESS.split("@main\nprivate enum Harness", 1)[0] + r'''
+        harness = HARNESS_SUPPORT_SOURCE + r'''
 @main private enum SourceCaptureContinuityHarness {
     static func main() throws {
         setenv("MWX_SCENE_GENERIC_SHADER_ROUTE", "disable-generic", 1)
@@ -380,7 +380,7 @@ private func sourceColorPipeline(_ device: MTLDevice, format: MTLPixelFormat) th
                 textureSources: [], uniformSources: []))!
         let chain = admittedGraph(value)
         let owners = capabilities(chain, catalog: .init(entries: [
-            .init(effect: effect, nodeIndex: 0): .template(sourceTemplate)
+            .init(effect: effect, nodeIndex: 0): .template(sourceTemplate, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: sourceTemplate))
         ], resourceDemandIssues: []))
         guard let claim = owners.claim(chain), let capability = owners.resolve(claim.token, for: chain),
               let material = capability.material(for: value.nodes[0]),
@@ -440,7 +440,7 @@ private func sourceColorPipeline(_ device: MTLDevice, format: MTLPixelFormat) th
                     guard case let .success(prepared) = preparation,
                           let overlaid = snapshot.overlayingGraphResources([input: base]),
                           case let .success(program) = SceneResolvedMaterialProgramFinalizer.finalize(
-                            overlaid.finalizationInput(template: material.template, layerID: layerID,
+                            overlaid.finalizationInput(layerID: layerID,
                                 renderSize: CGSize(width: extent.width, height: extent.height),
                                 modelViewProjection: matrix_identity_float4x4, layerModelMatrix: matrix_identity_float4x4,
                                 effectOutputModelViewProjection: matrix_identity_float4x4,
@@ -492,8 +492,8 @@ private func sourceColorPipeline(_ device: MTLDevice, format: MTLPixelFormat) th
                     if index == 1 { key = prepared.stages[0].programCacheKeys.first
                         frontendCount = material.variants.counters.frontendCompilationCount
                         libraryCount = executor.materialEncoder.metalLibraryCompilationAttemptCount }
-                    let mask = program.resolvedUniforms.first { $0.field.name == "mwxPremultipliedColorInputMask" }
-                        .map { $0.encodedValue.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) } }
+                    let mask = zip(program.preparedAssembly.preparedUniformBindings, program.resolvedUniforms).first { $0.0.field.name == "mwxPremultipliedColorInputMask" }
+                        .map { $0.1.encodedValue.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) } }
                     for (additive, read) in composedReads {
                         let effectAlpha: Float = 128 / 255, finalAlpha = effectAlpha * 0.6
                         var expectedComposite = (0..<3).map { channel in byte(

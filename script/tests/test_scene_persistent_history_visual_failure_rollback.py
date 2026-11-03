@@ -21,9 +21,6 @@ EXECUTOR_SOURCE = (
 VISUAL_FAILURE_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+VisualFailurePassthrough.swift"
 )
-CAPABILITY_SOURCE = (
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift"
-)
 SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneJSONValue.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneAuthoredEffectRenderPlan.swift",
@@ -497,7 +494,6 @@ class ScenePersistentHistoryVisualFailureRollbackTests(unittest.TestCase):
     ) -> None:
         executor = EXECUTOR_SOURCE.read_text(encoding="utf-8")
         visual = VISUAL_FAILURE_SOURCE.read_text(encoding="utf-8")
-        capability = CAPABILITY_SOURCE.read_text(encoding="utf-8")
         self.assertIn("previous: previous", executor)
         self.assertIn(
             "preEncodeVisualFailureGraphTopologyIsSupported",
@@ -507,7 +503,6 @@ class ScenePersistentHistoryVisualFailureRollbackTests(unittest.TestCase):
             "transition.nextState.historyClosureIdentities.isEmpty",
             visual,
         )
-        self.assertIn("preEncodeVisualFailureGraphMayPassthrough", capability)
 
 
 if __name__ == "__main__":

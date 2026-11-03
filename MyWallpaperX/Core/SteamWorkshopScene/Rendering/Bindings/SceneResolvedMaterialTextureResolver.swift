@@ -21,17 +21,19 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
 
     static func resolve(
         _ input: SceneResolvedMaterialFinalizationInput,
-        variant: SceneResolvedMaterialCompiledVariant,
-        reachableSamplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>]
+        textureSlots authoredTextureSlots: [Template.TextureSlot?],
+        variant: SceneResolvedMaterialCompiledVariant
     ) throws -> Resolution {
         let selection = try variantSelection(
             input,
+            textureSlots: authoredTextureSlots,
             samplers: variant.activeSamplers,
-            reachableSamplers: reachableSamplers,
+            reachableTexturePurposes: [:],
             formatSlots: [],
             channelUses: variant.preparedAssembly.samplerChannelUses,
             allowPresenceIndependentDefaults: true,
             restrictToSamplerSlots: true,
+            textureSelectionFacts: variant.textureSelectionFacts,
             graphInputSourceSlotFacts: variant.graphInputSourceSlotFacts
         )
         guard selection.key.readinessMask == variant.readinessMask else {
@@ -49,24 +51,28 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
 
     static func variantKey(
         _ input: SceneResolvedMaterialFinalizationInput,
-        samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
-        reachableSamplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>],
+        textureSlots authoredTextureSlots: [Template.TextureSlot?],
+        samplers: [Int: SceneResolvedMaterialPreparedSamplerSchema],
+        reachableTexturePurposes: [Int: [SceneTextureLoadPurpose?]],
         formatSlots: Set<Int>,
         channelUses: [Int: ChannelUse] = [:],
         allowPresenceIndependentDefaults: Bool,
         restrictToSamplerSlots: Bool = false,
+        textureSelectionFacts: SceneResolvedMaterialCompiledVariant.TextureSelectionFacts,
         graphInputSourceSlotFacts: [
             Int: SceneResolvedMaterialGraphInputSourceSlotFact
-        ] = [:]
+        ]
     ) throws -> SceneResolvedMaterialVariantKey {
         try variantSelection(
             input,
+            textureSlots: authoredTextureSlots,
             samplers: samplers,
-            reachableSamplers: reachableSamplers,
+            reachableTexturePurposes: reachableTexturePurposes,
             formatSlots: formatSlots,
             channelUses: channelUses,
             allowPresenceIndependentDefaults: allowPresenceIndependentDefaults,
             restrictToSamplerSlots: restrictToSamplerSlots,
+            textureSelectionFacts: textureSelectionFacts,
             graphInputSourceSlotFacts: graphInputSourceSlotFacts
         ).key
     }
@@ -75,12 +81,14 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
     // frame snapshot. Concrete resource checks remain at both use boundaries.
     private static func variantSelection(
         _ input: SceneResolvedMaterialFinalizationInput,
-        samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
-        reachableSamplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>],
+        textureSlots authoredTextureSlots: [Template.TextureSlot?],
+        samplers: [Int: SceneResolvedMaterialPreparedSamplerSchema],
+        reachableTexturePurposes: [Int: [SceneTextureLoadPurpose?]],
         formatSlots: Set<Int>,
         channelUses: [Int: ChannelUse],
         allowPresenceIndependentDefaults: Bool,
         restrictToSamplerSlots: Bool,
+        textureSelectionFacts: SceneResolvedMaterialCompiledVariant.TextureSelectionFacts,
         graphInputSourceSlotFacts: [Int: SceneResolvedMaterialGraphInputSourceSlotFact]
     ) throws -> (key: SceneResolvedMaterialVariantKey, selections: [Selection]) {
         guard formatSlots.allSatisfy((0 ..< 8).contains),
@@ -89,11 +97,13 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
         }
         let selections = try SceneResolvedMaterialTextureSelection.resolve(
             input,
+            textureSlots: authoredTextureSlots,
             samplers: samplers,
-            reachableSamplers: reachableSamplers,
+            reachableTexturePurposes: reachableTexturePurposes,
             channelUses: channelUses,
             allowPresenceIndependentDefaults: allowPresenceIndependentDefaults,
             restrictToSamplerSlots: restrictToSamplerSlots,
+            textureSelectionFacts: textureSelectionFacts,
             graphInputSourceSlotFacts: graphInputSourceSlotFacts
         )
         var mask: UInt8 = 0
@@ -102,8 +112,7 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
             repeating: nil,
             count: 8
         )
-        let regularNamedPurposeSlots = SceneResolvedMaterialVariantCache
-            .regularNamedProviderPurposeSlots(in: input.template, samplers: samplers)
+        let regularNamedPurposeSlots = textureSelectionFacts.regularNamedProviderPurposeSlots
         for (slot, selection) in selections.enumerated() {
             switch selection {
             case .absent: break
@@ -163,22 +172,13 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
                         slot: slot
                     )
                 }
-                if let sampler = samplers[slot],
-                   input.template.textureSlots.indices.contains(slot),
-                   let textureSlot = input.template.textureSlots[slot],
-                   let mixed = SceneResolvedMaterialMixedProviderSlotFact.resolve(
-                       in: textureSlot,
-                       sampler: sampler
-                   ) {
+                if let mixed = textureSelectionFacts.mixedProviderSlots[slot] {
                     let lower = Template.TextureReference.provider(
                         .namedLayerTarget(mixed.lowerNamedReference)
                     )
                     let purposeReference: Template.TextureReference
-                    if let identity = SceneResolvedMaterialShaderSchema.sameLayerCompositeInput(
-                        lower, template: input.template,
-                        inputIdentity: input.implicitFramebufferIdentity,
-                        consumerLayerID: input.layerID
-                    ), reference == .graph(identity) {
+                    if let sourceFact = textureSelectionFacts.candidates[slot]?.first?.graphInputSourceFact,
+                       reference == .graph(sourceFact.inputIdentity) {
                         // Selection normalized this exact lower candidate;
                         // its original mixed-provider proof still owns ABI.
                         purposeReference = lower
@@ -252,7 +252,7 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
 
     private static func samplerReadinessIncludes(
         selectionProvenance: Program.TextureSelectionProvenance,
-        sampler: SceneResolvedMaterialShaderSchema.Sampler?
+        sampler: SceneResolvedMaterialPreparedSamplerSchema?
     ) -> Bool {
         guard selectionProvenance == .shaderDefault,
               sampler?.readinessCombo != nil else { return true }

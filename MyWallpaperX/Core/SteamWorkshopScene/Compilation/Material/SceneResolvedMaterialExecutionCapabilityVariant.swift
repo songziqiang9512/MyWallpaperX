@@ -9,9 +9,9 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
     typealias Variant = SceneResolvedMaterialCompiledVariant
     typealias OutputStorage = SceneResolvedMaterialProgram.OutputStorage
 
-    struct Selection {
-        let variant: Variant
-        let reachableSamplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>]
+    private struct Reachability {
+        let samplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>]
+        let candidatePurposes: [Int: [SceneTextureLoadPurpose?]]
     }
 
     private enum Entry {
@@ -19,7 +19,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
         case failed(Failure)
     }
 
-    private let template: Template
+    let template: Template
     private let seedSamplers: [Int: SceneResolvedMaterialShaderSchema.Sampler]
     private let textureFormatSlots: Set<Int>
     private let assetFormatFacts: [String: Int]
@@ -33,9 +33,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
     private var capacityRejections = 0
 #endif
     private var cachedLaunchEnvelopeKeys = Set<SceneResolvedMaterialVariantKey>()
-    private var cachedReachableSamplers: [
-        Int: Set<SceneResolvedMaterialShaderSchema.Sampler>
-    ]?
+    private var cachedReachability: Reachability?
     private var cachedReachabilityIdentity: Graph.TextureIdentity?
     private var hasCachedReachability = false
     private var cachedOutputStorage: SceneResolvedMaterialProgram.OutputStorage?
@@ -47,13 +45,13 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
         Graph.TextureIdentity: SceneTextureContent
     ]?
     /// Stable-frame variant-selection memo. Selection depends only on the
-    /// template identity (guarded above), the reachability identity, the
+    /// owned template, the reachability identity, the
     /// snapshot's selection digest and this cache's own variant state, so a
     /// repeated (digest, framebuffer identity) pair reproduces the same
     /// selection without re-deriving per-variant keys. Entries are dropped
     /// whenever variant state itself changes.
     private var memoizedSelections: [
-        SelectionMemoKey: Result<Selection, Failure>
+        SelectionMemoKey: Result<Variant, Failure>
     ] = [:]
 
     private struct SelectionMemoKey: Hashable {
@@ -79,6 +77,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
 
     static func launchValidated(
         template: Template,
+        textureFormatSlots: Result<Set<Int>, Failure>,
         maximumVariantCount: Int,
         assetFormatFacts: [String: Int] = [:]
     ) -> Result<SceneResolvedMaterialVariantCache, Failure> {
@@ -95,14 +94,9 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
             ))
         }
         let formatSlots: Set<Int>
-        do {
-            formatSlots = try SceneResolvedMaterialTextureResolver
-                .launchTextureFormatSlots(template: template)
-        } catch {
-            return .failure(Self.failure(
-                .authoredSamplerSchemaInvalid,
-                details: ["texture-format-schema"]
-            ))
+        switch textureFormatSlots {
+        case let .success(value): formatSlots = value
+        case let .failure(failure): return .failure(failure)
         }
         return .success(.init(
             template: template,
@@ -148,7 +142,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
             template: template,
             variants: variants,
             allEntriesReady: variants.count == cachedLaunchEnvelopeKeys.count,
-            reachableSamplers: cachedReachableSamplers,
+            reachableSamplers: cachedReachability?.samplers,
             inputIdentity: cachedReachabilityIdentity,
             hasCachedReachability: hasCachedReachability
         )
@@ -262,7 +256,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
         guard template.comboValues["DIRECTDRAW"] == 1,
               template.graphRole.bindings.isEmpty,
               hasCachedReachability,
-              let reachable = cachedReachableSamplers,
+              let reachable = cachedReachability?.samplers,
               reachable[0] == nil,
               cachedLaunchEnvelopeKeys.allSatisfy({ key in
                   guard case let .ready(variant)? = entries[key] else {
@@ -276,7 +270,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
             guard (0 ..< template.textureSlots.count).contains(slot) else {
                 return false
             }
-            if samplers.contains(where: \.usesGraphInputMaterialAlias) {
+            if samplers.contains(where: SceneResolvedMaterialShaderSchema.usesGraphInputMaterialAlias) {
                 return false
             }
             if template.textureSlots[slot]?.candidates.contains(where: {
@@ -359,8 +353,8 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
             var seen = Set<UInt8>()
             var stable = false
             for _ in 0 ..< Self.maximumReadinessPasses {
-                let projection: SceneResolvedMaterialTextureResolver.LaunchReadinessProjection
-                switch SceneResolvedMaterialTextureResolver.launchReadinessProjection(
+                let projection: LaunchReadinessProjection
+                switch Self.launchReadinessProjection(
                     template: template, samplers: samplers,
                     implicitFramebufferIdentity: implicitFramebufferIdentity,
                     assetStates: assetStates,
@@ -380,8 +374,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                     )))
                 }
                 let profiles: [[SceneShaderTextureFormat?]]
-                switch SceneResolvedMaterialTextureResolver
-                    .launchTextureFormatProfiles(
+                switch Self.launchTextureFormatProfiles(
                         template: template,
                         samplers: samplers,
                         readinessMask: mask,
@@ -398,8 +391,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                 }
                 let purposeProfiles: [[SceneTextureLoadPurpose?]]
                 do {
-                    purposeProfiles = try SceneResolvedMaterialTextureResolver
-                        .launchSelectedTexturePurposeProfiles(
+                    purposeProfiles = try Self.launchSelectedTexturePurposeProfiles(
                             template: template,
                             samplers: samplers,
                             readinessMask: mask
@@ -469,8 +461,8 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                         details: ["graph-input-source-fact-divergence"]
                     )))
                 }
-                let nextProjection: SceneResolvedMaterialTextureResolver.LaunchReadinessProjection
-                switch SceneResolvedMaterialTextureResolver.launchReadinessProjection(
+                let nextProjection: LaunchReadinessProjection
+                switch Self.launchReadinessProjection(
                     template: template, samplers: variant.activeSamplers,
                     implicitFramebufferIdentity: implicitFramebufferIdentity,
                     assetStates: assetStates,
@@ -484,8 +476,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                 }
                 let next = nextProjection.mask(optionalAvailability: availability)
                 if next == mask {
-                    if let failure = SceneResolvedMaterialTextureResolver
-                        .launchProgramFailure(
+                    if let failure = Self.launchProgramFailure(
                             template: template,
                             variants: variants,
                             readinessMask: mask,
@@ -560,7 +551,15 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
         }
         cachedLaunchEnvelopeKeys = admittedKeys
         memoizedSelections.removeAll()
-        cachedReachableSamplers = reachableSamplers
+        cachedReachability = .init(
+            samplers: reachableSamplers,
+            candidatePurposes: Self.consensusPurposes(
+                admittedKeys.compactMap { key in
+                    guard case let .ready(variant)? = entries[key] else { return nil }
+                    return variant.textureSelectionFacts.candidatePurposes
+                }
+            )
+        )
         cachedReachabilityIdentity = implicitFramebufferIdentity
         hasCachedReachability = true
         return .success(reached.sorted())
@@ -568,32 +567,12 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
 
     func resolveSelection(
         _ input: SceneResolvedMaterialFinalizationInput
-    ) -> Result<Selection, Failure> {
+    ) -> Result<Variant, Failure> {
         lock.lock()
         defer { lock.unlock() }
-        guard input.template.diagnosticProvenance.contractCanonicalSHA256
-                == template.diagnosticProvenance.contractCanonicalSHA256,
-              input.template.diagnosticProvenance.nodeIndex == template.diagnosticProvenance.nodeIndex,
-              input.template.textureSlots == template.textureSlots,
-              input.template.combos == template.combos,
-              input.template.inheritedInactiveCombos == template.inheritedInactiveCombos,
-              input.template.uniformDeclarations == template.uniformDeclarations,
-              input.template.renderState == template.renderState,
-              input.template.graphRole == template.graphRole,
-              input.template.previousBlurredCompositeGenericOwnerEligible
-                == template.previousBlurredCompositeGenericOwnerEligible,
-              input.template.compatibilityTarget
-                == template.compatibilityTarget,
-              input.template.effectContext == template.effectContext,
-              input.template.shaderContract == template.shaderContract else {
-            return .failure(Self.failure(
-                .variantSelectionTemplateIdentityInvariant,
-                phase: .invariant
-            ))
-        }
         guard hasCachedReachability,
               cachedReachabilityIdentity == input.implicitFramebufferIdentity,
-              cachedReachableSamplers != nil else {
+              cachedReachability != nil else {
             return .failure(Self.failure(
                 .variantSelectionReachabilityIdentityInvariant,
                 phase: .invariant
@@ -616,11 +595,11 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
 
     private func resolveSelectionUncached(
         _ input: SceneResolvedMaterialFinalizationInput
-    ) -> Result<Selection, Failure> {
+    ) -> Result<Variant, Failure> {
         do {
             guard hasCachedReachability,
                   cachedReachabilityIdentity == input.implicitFramebufferIdentity,
-                  let reachableSamplers = cachedReachableSamplers else {
+                  let reachability = cachedReachability else {
                 throw Self.failure(
                     .variantSelectionReachabilityIdentityInvariant,
                     phase: .invariant
@@ -636,12 +615,14 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                     let resolvedKey = try SceneResolvedMaterialTextureResolver
                         .variantKey(
                             input,
+                            textureSlots: template.textureSlots,
                             samplers: variant.activeSamplers,
-                            reachableSamplers: reachableSamplers,
+                            reachableTexturePurposes: reachability.candidatePurposes,
                             formatSlots: textureFormatSlots,
                             channelUses: variant.preparedAssembly.samplerChannelUses,
                             allowPresenceIndependentDefaults: true,
                             restrictToSamplerSlots: false,
+                            textureSelectionFacts: variant.textureSelectionFacts,
                             graphInputSourceSlotFacts:
                                 variant.graphInputSourceSlotFacts
                         )
@@ -691,10 +672,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                     details: [invariantDetails.joined(separator: ",")]
                 )
             }
-            return .success(.init(
-                variant: variant,
-                reachableSamplers: reachableSamplers
-            ))
+            return .success(variant)
         } catch let failure as Failure {
             return .failure(failure)
         } catch {
@@ -808,13 +786,12 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                   of: conditionalFact.generatedOpaqueColorSlots
               ), sceneBackgroundSlots.allSatisfy({ slot in
                   guard let sampler = samplers[slot],
-                        let reference = SceneResolvedMaterialTextureResolver
-                            .sceneBackgroundDefault(
+                        let reference = SceneResolvedMaterialShaderSchema.sceneBackgroundDefault(
                                 template: template,
                                 sampler: sampler,
                                 slot: slot
                             ) else { return false }
-                  return sampler.purpose(for: reference) == .premultipliedColor
+                  return SceneResolvedMaterialShaderSchema.purpose(for: reference, sampler: sampler) == .premultipliedColor
               }) else { return result }
         result.formUnion(sceneBackgroundSlots)
         return result

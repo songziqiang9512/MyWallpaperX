@@ -1,31 +1,30 @@
 # Scene 开发入口
 
-先从 `roadmap/` 选一条现役路线；其余材料在同一 Scene 专题内按需读取，不决定下一步。
+<!-- document-role: navigation -->
 
-2026-10-06 暂停交接已被后继 Agent 接手（用户已授权恢复）；接手范围与工作卡见[暂停交接快照](history/scene-maintainer-handoff-2026-10-06.md)，现役顺序归各路线页。
+按问题选择入口，再从文档中的源码路径追到实际消费者。
 
-## 现在做什么
-
-| 任务 | 现役路线 |
+| 要解决的问题 | 文档 |
 |---|---|
-| 工程结构、生命周期与消融设计 | [重构顶层设计](roadmap/engine-refactor-program.md)，只规定边界 |
-| 整体 CPU/GPU、内存、启动与能耗 | [性能工作卡](roadmap/performance-convergence-card.md)，维护执行顺序 |
-| 属性面板响应、定义与编辑更新 | [属性工作卡](roadmap/properties-panel-card.md)，维护执行顺序 |
-| 作者能力、可见正确性与全样本验收 | [兼容 P 路线](roadmap/scene-compatibility-roadmap.md) |
-| Steam 获取、账号、下载与入库 | [获取合同](../architecture/steam-workshop-acquisition-contract.md)；迁移已[完成退役](../history/cross-topic/steamkit-migration-completed-2026-10-16.md) |
-| 用户反馈、静态缺口与公共首断点 | [唯一修复队列](roadmap/scene-open-breakpoint-queue.md)，只保未修问题并区分证据类型，服从 P 路线；已闭记录归历史 |
-| Batch 2 待实施能力设计与派生卡 | [设计与后继卡](roadmap/batch2/batch2-design-index.md)，服从兼容路线选序，批准不代表实现完成 |
+| 进程、加载、逐帧执行、组件所有权与退出 | [当前运行架构](architecture/runtime-architecture.md) |
+| 组件分类、状态、更新顺序与资源寿命 | [组件职责](capabilities/runtime-systems-reference.md) |
+| 功能支持和已知限制 | [能力总览](capabilities/README.md) |
+| 最近运行结果及其适用范围 | [运行证据](capabilities/runtime-evidence-current.md) |
+| 当前待解决的问题 | [问题队列](roadmap/scene-open-breakpoint-queue.md) |
+| 修改、验证和文档维护 | [开发工作流](development/development-workflow.md) |
 
-## 引擎如何工作
+## 架构专题
 
-[运行时架构](architecture/runtime-architecture.md)、[实际代码地图](architecture/runtime-as-built-map.md)、[进程合同](architecture/scene-runtime-daemon-contract.md)、[启动响应合同](architecture/scene-launch-responsiveness-contract.md)与[启动现况图](architecture/scene-startup-pipeline.md)各自维护目标或当前事实。
+- [启动、准备与缓存](architecture/scene-launch-responsiveness-contract.md)
+- [daemon 与 IPC](architecture/scene-runtime-daemon-contract.md)
+- [资源分配与额度](architecture/scene-resource-admission.md)
+- [源码依赖边界](architecture/scene-dependency-boundaries.md)
+- [GPU 计时与截图](architecture/gpu-stage-timestamp-diagnostics.md)
 
-[Sampler 合同](capabilities/sampler-alias-precedence.md)、[作者采样与公开 companion](architecture/runtime-architecture.md#authored-texture-companion)、[设计索引](roadmap/batch2/batch2-design-index.md)按首断点读取；局部失败查[alpha fallback](capabilities/alpha-display-fallback-design.md)、[资源准入](architecture/scene-resource-admission.md)与[draw-only降级](capabilities/static-source-draw-only-degradation.md)。
+## 开发工具与研究
 
-## 去哪里改代码
-
-[仓库源码地图](../architecture/repository-map.md)定位 owner；[Scene 开发工作流](development/development-workflow.md)说明实现与验证方法。
-
-## 目录怎么读、怎么维护
-
-[当前能力、证据摘要与语义参考](capabilities/README.md)按主题和精确锚点查询；[Scene 历史索引](history/README.md)保留已完成过程。`roadmap/batch2/` 保留待实施设计及派生卡，`architecture/` 放总体与跨能力合同，`capabilities/` 放能力设计、现况与语义参考，`development/` 放开发和研究方法，`history/` 保存完成过程；本页只导航。
+- [性能测量](roadmap/performance-convergence-card.md)
+- [官方行为研究](development/official-client-behavior-research-workflow.md)
+- [资料来源](development/source-index.md)
+- [仓库工作流](../development/repository-workflow.md)
+- [技术栈与平台](../architecture/technology-stack-boundaries.md)

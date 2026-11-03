@@ -43,7 +43,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
     }
 
     enum Entry {
-        case template(Template)
+        case template(Template, textureFormatSlots: Result<Set<Int>, Failure>)
         case failure(Failure)
     }
 
@@ -95,7 +95,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
             samplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>],
             reachableSamplerSlots: Set<Int>
         )
-        case failed(String)
+        case failed(String, textureFormatSlots: Result<Set<Int>, Failure>)
     }
 
     private final class ResourceDemandAnalysisCache: @unchecked Sendable {
@@ -150,6 +150,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
     let assetDemands: Set<SceneAssetTextureIdentity>
     let userPropertyDemands: Set<SceneUserPropertyTextureIdentity>
     let systemProviderDemands: Set<SystemProviderDemand>
+    let systemProviderDemandsByMaterial: [Key: Set<SystemProviderDemand>]
     let resourceDemandIssues: Set<ResourceDemandIssue>
 
     /// A template can become a completed source on any surface, even when the
@@ -184,17 +185,23 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         provenSceneScriptValueTargets: Set<SceneDynamicTarget> = [],
         materialInstancesByLayerID: [Int: SceneDocument.SceneLayerMaterialInstance] = [:],
         loweredSourceMaterialModelPaths: Set<String> = [],
-        provenSourceMaterialBindings: [SceneBaseMaterialColorModulationCompiler.Binding] = []
-    ) {
-        var records: [Key: [(graph: Graph, node: Graph.Node)]] = [:]
+        provenSourceMaterialBindings: [SceneBaseMaterialColorModulationCompiler.Binding] = [],
+        cancellationCheck: (() throws -> Void)? = nil
+    ) throws {
+        try cancellationCheck?()
+        var records: [Key: [(graph: Graph, node: Graph.Node,
+            scope: SceneResolvedMaterialTemplateCompiler.GraphScope)]] = [:]
         for candidate in admissionCandidates {
+            try cancellationCheck?()
             guard case let .success(admitted) = candidate.result else { continue }
             for product in admitted.products {
+                let scope = SceneResolvedMaterialTemplateCompiler.GraphScope(
+                    effect: product.graph.effects[0], renderTargets: product.graph.renderTargets)
                 for node in product.graph.nodes where node.kind == .material {
                     records[
                         Key(effect: node.effect, nodeIndex: node.nodeIndex),
                         default: []
-                    ].append((product.graph, node))
+                    ].append((product.graph, node, scope))
                 }
             }
         }
@@ -203,9 +210,12 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         var demands: Set<SceneAssetTextureIdentity> = []
         var userDemands: Set<SceneUserPropertyTextureIdentity> = []
         var systemDemands: Set<SystemProviderDemand> = []
+        var systemDemandsByMaterial: [Key: Set<SystemProviderDemand>] = [:]
         var demandIssues: Set<ResourceDemandIssue> = []
         var resolvedRecords: [Key: (
             graph: Graph,
+            node: Graph.Node,
+            scope: SceneResolvedMaterialTemplateCompiler.GraphScope,
             material: SceneResolvedMaterialNode
         )] = [:]
         var authoredEffectComboNames: [Graph.EffectKey: Set<String>] = [:]
@@ -213,6 +223,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         let resolveStart = CACurrentMediaTime()
 #endif
         for key in records.keys.sorted(by: Self.less) {
+            try cancellationCheck?()
             guard let matches = records[key], matches.count == 1,
                   let record = matches.first else {
                 compiled[key] = .failure(Failure(
@@ -245,7 +256,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                 ))
                 continue
             }
-            resolvedRecords[key] = (record.graph, material)
+            resolvedRecords[key] = (record.graph, record.node, record.scope, material)
         }
 #if DEBUG
         let resolveMs = (CACurrentMediaTime() - resolveStart) * 1000
@@ -254,96 +265,110 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
             compiled[$0] == nil && resolvedRecords[$0] != nil
         }
         let outcomesLock = NSLock()
+        var preparationError: Error?
         var outcomes = Array<CompilationOutcome?>(
             repeating: nil,
             count: pendingKeys.count
         )
         let resourceDemandAnalyses = ResourceDemandAnalysisCache()
         DispatchQueue.concurrentPerform(iterations: pendingKeys.count) { index in
-            let key = pendingKeys[index]
-            guard let record = resolvedRecords[key] else { return }
-            let material = record.material
-            let contracts = shaderContracts.filter {
-                Self.normalized($0.identity) == Self.normalized(material.shaderPath)
-            }
-            let outcome: CompilationOutcome
-            guard contracts.count == 1, let contract = contracts.first else {
-                outcome = .init(
-                    key: key,
-                    entry: .failure(Failure(
-                        phase: .shaderContract,
-                        code: .shaderIdentityMismatch,
-                        details: ["matching-contract-count=\(contracts.count)"]
-                    )),
-                    assetDemands: [],
-                    userPropertyDemands: [],
-                    systemProviderDemands: [],
-                    issues: []
-                )
-                outcomesLock.withLock { outcomes[index] = outcome }
-                return
-            }
-            switch SceneResolvedMaterialTemplateCompiler.compile(
-                material: material,
-                graph: record.graph,
-                shaderContract: contract,
-                inheritedInactiveCombos:
-                    authoredEffectComboNames[key.effect, default: []]
-                        .subtracting(material.combos.keys),
-                previousBlurredCompositeGenericOwnerEligible:
-                    SceneResolvedMaterialPreviousBlurredCompositeOwnerAdmission.accepts(
+            do {
+                try outcomesLock.withLock {
+                    if let preparationError { throw preparationError }
+                    try cancellationCheck?()
+                }
+                let key = pendingKeys[index]
+                guard let record = resolvedRecords[key] else { return }
+                let material = record.material
+                let contracts = shaderContracts.filter {
+                    Self.normalized($0.identity) == Self.normalized(material.shaderPath)
+                }
+                let outcome: CompilationOutcome
+                guard contracts.count == 1, let contract = contracts.first else {
+                    outcome = .init(
                         key: key,
-                        graph: record.graph,
-                        descriptor: descriptor,
-                        userPropertyProducers: userPropertyProducers,
-                        propertyDefinitions: propertyDefinitions,
-                        timelineDefinitions: timelineDefinitions
-                    ),
-                provenSceneScriptValueTargets: provenSceneScriptValueTargets,
-                compatibilityTarget: .windowsDX11ShaderModel4
-            ) {
-            case let .failure(failure):
-                outcome = .init(
-                    key: key,
-                    entry: .failure(failure),
-                    assetDemands: [],
-                    userPropertyDemands: [],
-                    systemProviderDemands: [],
-                    issues: []
-                )
-            case let .success(template):
-                var localDemands: Set<SceneAssetTextureIdentity> = []
-                var localUserDemands: Set<SceneUserPropertyTextureIdentity> = []
-                var localSystemDemands: Set<SystemProviderDemand> = []
-                var localIssues: Set<ResourceDemandIssue> = []
-                Self.collectResourceDemands(
-                    template,
-                    owner: .effect(key),
-                    implicitFramebufferIdentity: record.graph.effects.first {
-                        $0.key == key.effect
-                    }?.input,
-                    demands: &localDemands,
-                    userDemands: &localUserDemands,
-                    systemDemands: &localSystemDemands,
-                    issues: &localIssues,
-                    analyses: resourceDemandAnalyses
-                )
-                outcome = .init(
-                    key: key,
-                    entry: .template(template),
-                    assetDemands: localDemands,
-                    userPropertyDemands: localUserDemands,
-                    systemProviderDemands: localSystemDemands,
-                    issues: localIssues
-                )
+                        entry: .failure(Failure(
+                            phase: .shaderContract,
+                            code: .shaderIdentityMismatch,
+                            details: ["matching-contract-count=\(contracts.count)"]
+                        )),
+                        assetDemands: [],
+                        userPropertyDemands: [],
+                        systemProviderDemands: [],
+                        issues: []
+                    )
+                    outcomesLock.withLock { outcomes[index] = outcome }
+                    return
+                }
+                switch SceneResolvedMaterialTemplateCompiler.compile(
+                    material: material,
+                    node: record.node,
+                    graphScope: record.scope,
+                    shaderContract: contract,
+                    inheritedInactiveCombos:
+                        authoredEffectComboNames[key.effect, default: []]
+                            .subtracting(material.combos.keys),
+                    previousBlurredCompositeGenericOwnerEligible:
+                        SceneResolvedMaterialPreviousBlurredCompositeOwnerAdmission.accepts(
+                            key: key,
+                            graph: record.graph,
+                            descriptor: descriptor,
+                            userPropertyProducers: userPropertyProducers,
+                            propertyDefinitions: propertyDefinitions,
+                            timelineDefinitions: timelineDefinitions
+                        ),
+                    provenSceneScriptValueTargets: provenSceneScriptValueTargets,
+                    compatibilityTarget: .windowsDX11ShaderModel4
+                ) {
+                case let .failure(failure):
+                    outcome = .init(
+                        key: key,
+                        entry: .failure(failure),
+                        assetDemands: [],
+                        userPropertyDemands: [],
+                        systemProviderDemands: [],
+                        issues: []
+                    )
+                case let .success(template):
+                    var localDemands: Set<SceneAssetTextureIdentity> = []
+                    var localUserDemands: Set<SceneUserPropertyTextureIdentity> = []
+                    var localSystemDemands: Set<SystemProviderDemand> = []
+                    var localIssues: Set<ResourceDemandIssue> = []
+                    try cancellationCheck?()
+                    let textureFormatSlots = Self.collectResourceDemands(
+                        template,
+                        owner: .effect(key),
+                        implicitFramebufferIdentity: record.scope.effect.input,
+                        demands: &localDemands,
+                        userDemands: &localUserDemands,
+                        systemDemands: &localSystemDemands,
+                        issues: &localIssues,
+                        analyses: resourceDemandAnalyses
+                    )
+                    outcome = .init(
+                        key: key,
+                        entry: .template(template, textureFormatSlots: textureFormatSlots),
+                        assetDemands: localDemands,
+                        userPropertyDemands: localUserDemands,
+                        systemProviderDemands: localSystemDemands,
+                        issues: localIssues
+                    )
+                }
+                outcomesLock.withLock { outcomes[index] = outcome }
+            } catch {
+                outcomesLock.withLock { if preparationError == nil { preparationError = error } }
             }
-            outcomesLock.withLock { outcomes[index] = outcome }
         }
+        if let preparationError { throw preparationError }
+        try cancellationCheck?()
         for outcome in outcomes.compactMap({ $0 }) {
             compiled[outcome.key] = outcome.entry
             demands.formUnion(outcome.assetDemands)
             userDemands.formUnion(outcome.userPropertyDemands)
             systemDemands.formUnion(outcome.systemProviderDemands)
+            if !outcome.systemProviderDemands.isEmpty {
+                systemDemandsByMaterial[outcome.key] = outcome.systemProviderDemands
+            }
             demandIssues.formUnion(outcome.issues)
         }
 #if DEBUG
@@ -355,7 +380,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         )
 #endif
         sourceMaterialTargetFormat = descriptor.colorTargetFormat
-        sourceMaterialEntries = Self.compileSourceMaterials(
+        sourceMaterialEntries = try Self.compileSourceMaterials(
             descriptor: descriptor, shaderContracts: shaderContracts,
             instances: materialInstancesByLayerID,
             loweredModelPaths: loweredSourceMaterialModelPaths,
@@ -364,12 +389,15 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
             userPropertyProducers: userPropertyProducers,
             demands: &demands, userDemands: &userDemands,
             systemDemands: &systemDemands, issues: &demandIssues,
-            analyses: resourceDemandAnalyses
+            analyses: resourceDemandAnalyses,
+            cancellationCheck: cancellationCheck
         )
+        try cancellationCheck?()
         entries = compiled
         assetDemands = demands
         userPropertyDemands = userDemands
         systemProviderDemands = systemDemands
+        systemProviderDemandsByMaterial = systemDemandsByMaterial
         resourceDemandIssues = demandIssues
     }
 
@@ -389,14 +417,16 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         userDemands: inout Set<SceneUserPropertyTextureIdentity>,
         systemDemands: inout Set<SystemProviderDemand>,
         issues: inout Set<ResourceDemandIssue>,
-        analyses: ResourceDemandAnalysisCache
-    ) -> [Int: SourceMaterialEntry] {
+        analyses: ResourceDemandAnalysisCache,
+        cancellationCheck: (() throws -> Void)?
+    ) throws -> [Int: SourceMaterialEntry] {
         let links = Dictionary(grouping: descriptor.modelMaterialLinks) { normalized($0.modelPath) }
         let passes = Dictionary(grouping: descriptor.materialPasses) { normalized($0.materialPath) }
         let fullBindings = provenBindings.filter { !$0.canLowerToCompositor }
         var result: [Int: SourceMaterialEntry] = [:]
         for layer in descriptor.layers where layer.contentKind == "image"
             || layer.utilityLayer?.framebufferSource != nil {
+            try cancellationCheck?()
             // A puppet or static-model layer is consumed by its model/material
             // owner. Preparing it here only produced a shape failure for a
             // layer this catalog never serves, so skip it before any lookup.
@@ -489,11 +519,13 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                 }) else {
                     result[layer.id] = reject("provider-unsupported"); continue
                 }
-                collectResourceDemands(template, owner: .sourceMaterial(key),
+                try cancellationCheck?()
+                let textureFormatSlots = collectResourceDemands(template, owner: .sourceMaterial(key),
                     implicitFramebufferIdentity: nil, demands: &demands,
                     userDemands: &userDemands, systemDemands: &systemDemands,
                     issues: &issues, analyses: analyses)
-                result[layer.id] = .init(key: key, entry: .template(template),
+                result[layer.id] = .init(key: key,
+                    entry: .template(template, textureFormatSlots: textureFormatSlots),
                     sharedModelPath: proof.map { normalized($0.modelPath) },
                     capturesMainTarget: capturesMainTarget)
             }
@@ -589,7 +621,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         systemDemands: inout Set<SystemProviderDemand>,
         issues: inout Set<ResourceDemandIssue>,
         analyses: ResourceDemandAnalysisCache
-    ) {
+    ) -> Result<Set<Int>, Failure> {
         let analysisKey = SceneMaterialDemandAnalysisPersistentCache
             .ResourceDemandAnalysisKey(
             template: template,
@@ -604,11 +636,12 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                     reachableSamplerSlots: persisted.reachableSamplerSlots
                 )
             }
+            let formatSlots = SceneResolvedMaterialShaderSchema.textureFormatSlots(in: template)
             do {
-                let textureFormatSlots = try SceneResolvedMaterialTextureResolver
-                    .launchTextureFormatSlots(template: template)
+                let textureFormatSlots = try formatSlots.get()
                 var samplers = try SceneResolvedMaterialShaderSchema.reachableSamplers(
                     template,
+                    textureFormatSlots: textureFormatSlots,
                     implicitFramebufferIdentity: implicitFramebufferIdentity
                 )
                 let reachableSamplerSlots = Set(samplers.keys)
@@ -632,7 +665,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                     reachableSamplerSlots: reachableSamplerSlots
                 )
             } catch {
-                return .failed(String(describing: error))
+                return .failed(String(describing: error), textureFormatSlots: formatSlots)
             }
         }
         let textureFormatSlots: Set<Int>
@@ -643,7 +676,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
             textureFormatSlots = formatSlots
             samplers = reachable
             reachableSamplerSlots = activeSlots
-        case let .failed(errorDescription):
+        case let .failed(errorDescription, formatSlots):
 #if DEBUG
             print(
                 "MWX resolved material sampler reachability rejection:"
@@ -663,7 +696,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                     )
                 }
             }
-            return
+            return formatSlots
         }
         for slotIndex in 0 ..< 8 {
             let projection = demandProjection(
@@ -718,8 +751,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
             for sampler in samplers[slotIndex] ?? [] {
                 if sampler.readinessCombo != nil {
                     guard !textureFormatSlots.contains(slotIndex),
-                          SceneResolvedMaterialTextureResolver
-                            .presenceIndependentDefault(
+                          SceneResolvedMaterialShaderSchema.presenceIndependentDefault(
                                 template: template,
                                 sampler: sampler,
                                 slot: slotIndex
@@ -729,7 +761,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                 }
                 guard case let .asset(path)? = sampler.defaultTexture else { continue }
                 let reference = Template.TextureReference.asset(path)
-                guard let purpose = sampler.purpose(for: reference) else {
+                guard let purpose = SceneResolvedMaterialShaderSchema.purpose(for: reference, sampler: sampler) else {
                     if reachableSamplerSlots.contains(slotIndex) {
                         Self.diagnoseUnproven(
                             .asset(path), owner: owner, slot: sampler.slot,
@@ -745,6 +777,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                 demands.insert(.init(path: path, purpose: purpose))
             }
         }
+        return .success(textureFormatSlots)
     }
 
     private static func demandProjection(

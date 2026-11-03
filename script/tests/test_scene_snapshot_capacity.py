@@ -265,10 +265,10 @@ FRAME_MAIN=r'''
   let visible:Set<Int>=hidden || utility ? [1]:[1,6,42]
   let plans:[Int:SceneResolvedMaterialFrameTargetPlan]=utility ? [7:.init()]:[6:.init()]
   let dynamic=SceneDynamicSnapshot.empty(frameIndex:1,generation:1),context=SceneFrameContext(dynamicValues:dynamic)
-  let instances=SceneParticleMetalInstanceBuffer();precondition(instances.update(device:d,instances:[.init(position:SIMD3(48,48,0),size:12,rotation:.zero,color:SIMD3(repeating:1),alpha:1)]))
   let binding=SceneParticleRefractionBinding(normalTexture:white,amount:0,overbright:1,colorEncoding:.rgba,normalUsesParticleFrames:false,normalUVScale:SIMD2(repeating:1),normalSampling:.directImageFallback,normalFormat:nil)
-  let batch=SceneParticleDrawBatch(layerID:42,texture:white,colorUVScale:SIMD2(repeating:1),colorSampling:.directImageFallback,refraction:binding,renderState:.init(blendMode:.translucent,cullMode:.none,depthTestEnabled:false,depthWriteEnabled:false),instanceBuffer:instances,orientation:.screen,orientationAxis:nil,usesPerspective:false)
-  let batches:[Int:[SceneParticleDrawBatch]]=hidden || utility ? [:]:[42:[batch]]
+  let batch=SceneParticleDrawBatch(layerID:42,particlePath:"particles/refraction.json",texture:white,colorUVScale:SIMD2(repeating:1),colorSampling:.directImageFallback,refraction:binding,renderState:.init(blendMode:.translucent,cullMode:.none,depthTestEnabled:false,depthWriteEnabled:false),childTemplateIndex:nil,instances:[.init(position:SIMD3(48,48,0),size:12,rotation:.zero,color:SIMD3(repeating:1),alpha:1)],orientation:.screen,orientationAxis:nil,usesPerspective:false)
+  let prepared=particle.prepare([batch]);precondition(prepared.count==1)
+  let batches:[Int:[SceneParticleMetalPipeline.PreparedBatch]]=hidden || utility ? [:]:[42:prepared]
   let cb=q.makeCommandBuffer()!,pass=SceneMainPassEncoder(commandBuffer:cb,target:target,clearColor:MTLClearColorMake(0.5,0.25,0.75,1),clearEnabled:true)
   let camera=SceneParticleCameraFrame(camera:.init(eye:[0,0,0],center:[0,0,-1],up:[0,1,0],orthoWidth:64,orthoHeight:64,fovDegrees:nil,perspectiveOverrideFOVDegrees:nil,nearZ:0.01,farZ:1000),viewportSize:CGSize(width:64,height:64))
   var world=Dictionary(uniqueKeysWithValues:layers.map{($0.id,matrix_identity_float4x4)})
@@ -305,7 +305,7 @@ FRAME_MAIN=r'''
    renderer.imageCompositor.color.draw(layerTexture:green,backgroundTexture:bg,blendMode:1,mvp:transform,encoder:pass.encoder()!)
   }
   var observed:[SceneParticlePerformanceObservation]?=[]
-  if !hidden && !utility {_=renderer.renderParticleBatches([batch],pipeline:particle,model:matrix_identity_float4x4,cameraFrame:camera,viewportSize:SIMD2(64,64),mainPass:pass,commandBuffer:cb,performanceObservations:&observed)}
+  if !hidden && !utility {_=particle.drawBatches(prepared,model:matrix_identity_float4x4,cameraFrame:camera,viewportSize:SIMD2(64,64),mainPass:pass,commandBuffer:cb,performanceObservations:&observed)}
   precondition(pass.finishEnsuringClear());leases.forEach {$0.arm(on:cb)};state.arm(on:cb);cb.commit();cb.waitUntilCompleted();precondition(cb.status == .completed)
   var bytes=[UInt8](repeating:0,count:64*64*4);target.getBytes(&bytes,bytesPerRow:256,from:MTLRegionMake2D(0,0,64,64),mipmapLevel:0)
   func rgb(_ x:Int,_ y:Int)->[UInt8] {let i=(y*64+x)*4;return [bytes[i+2],bytes[i+1],bytes[i],bytes[i+3]]}

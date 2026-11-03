@@ -124,7 +124,7 @@ private func rejection(_ body: () throws -> SceneResolvedMaterialPreparedUniform
     catch { return "unexpected" }
 }
 
-private func assembly(effect: Bool, source: Program.ResolvedUniform.Source,
+private func assembly(effect: Bool,
     alpha: Float = 0.25, color: SIMD3<Float>? = nil,
     contractOverride: SceneShaderContract? = nil, scalarName: String = "g_Alpha") -> Program? {
     let contract = contractOverride ?? (color == nil ? alphaShader() : colorShader())
@@ -132,35 +132,50 @@ private func assembly(effect: Bool, source: Program.ResolvedUniform.Source,
           let frontend = SceneAuthoredShaderFrontend.compile(vertexSource: shader.vertex.source,
             fragmentSource: shader.fragment.source).program else { return nil }
     let slots = Array<Program.TextureSlot?>(repeating: nil, count: 8)
-    var values: [Program.ResolvedUniform] = []
-    for field in frontend.uniformLayout.fields {
+    let declarations: [Template.UniformDeclaration] = effect ? [] : frontend.uniformLayout.fields.compactMap { field in
         if field.authoredName == scalarName {
-            guard let encoded = SceneResolvedMaterialUniformEncoder.encode(
-                staticValue([Double(alpha)]), as: field.type) else { return nil }
-            values.append(.init(field: field, source: source, encodedValue: encoded))
-        } else if field.authoredName == "g_Color" || field.authoredName == "g_Color4" {
-            guard let color else { return nil }
+            return staticDeclaration(field.authoredName, components: [Double(alpha)])
+        }
+        if field.authoredName == "g_Color" || field.authoredName == "g_Color4", let color {
             var components = [Double(color.x), Double(color.y), Double(color.z)]
             if field.authoredName == "g_Color4" { components.append(Double(alpha)) }
-            guard let encoded = SceneResolvedMaterialUniformEncoder.encodeComponents(
-                components, as: field.type) else { return nil }
-            let actualSource: Program.ResolvedUniform.Source
-            if field.authoredName == "g_Color4", case .host(.effectDrawColor) = source {
-                actualSource = .host(.effectDrawColor4)
-            } else { actualSource = source }
-            values.append(.init(field: field, source: actualSource, encodedValue: encoded))
-        } else {
-            guard let host = SceneResolvedMaterialHostUniformSchema.resolve(field,
-                activeTextureSlots: [], hasEffectContext: effect),
-                let encoded = SceneResolvedMaterialUniformEncoder.encodeHost(host,
-                    type: field.type, inputs: uniformInputs(), slots: slots) else { return nil }
-            values.append(.init(field: field, source: .host(host), encodedValue: encoded))
+            return staticDeclaration(field.authoredName, components: components)
         }
+        return nil
     }
-    return Program.assemble(.init(preparedShader: shader,
-        textureSlots: slots, resolvedUniforms: values,
-        renderState: state(), graphRole: template(contract, includePrimaryCandidate: false).graphRole,
-        hasEffectContext: effect))
+    let context: Template.EffectContext? = effect ? .init(
+        key: .init(layerID: fixtureLayerID, effectIndex: 0, descriptorID: "self-owned-alpha"),
+        input: graphTexture()) : nil
+    let material = template(contract, includePrimaryCandidate: false,
+        uniformDeclarations: declarations, effectContext: context)
+    do {
+        let nonHost = frontend.uniformLayout.fields.filter {
+            SceneResolvedMaterialHostUniformSchema.resolve($0, activeTextureSlots: [], hasEffectContext: effect) == nil
+        }
+        let schema = try SceneResolvedMaterialShaderSchema.activeUniforms(nonHost, prepared: shader)
+        let bindings = try SceneResolvedMaterialProgramFinalizer.prepareUniformBindings(
+            template: material, fields: frontend.uniformLayout.fields, activeUniforms: schema,
+            activeTextureSlots: [], neutralTextureResolution: nil)
+        let values = try bindings.map { binding -> Program.ResolvedUniform in
+            switch binding.source {
+            case let .staticValue(value): return .init(encodedValue: value)
+            case let .host(host):
+                guard let value = SceneResolvedMaterialUniformEncoder.encodeHost(host,
+                    type: binding.field.type, inputs: drawUniformInputs(alpha: alpha, color: color ?? .init(repeating: 1)),
+                    slots: slots) else { throw NSError(domain: "draw-host-input", code: 1) }
+                return .init(encodedValue: value)
+            default: throw NSError(domain: "draw-prepared-source", code: 1)
+            }
+        }
+        let assembly = try Program.PreparedAssembly(
+            preparedShader: shader, frontend: frontend, renderState: state(),
+            runtimeLoopBounds: .none, preparedUniformBindings: bindings,
+            conditionalGeneratedRGBInputContract: nil, associatedOverOverlaySlot: nil,
+            premultipliedColorInputSlots: [])
+        return Program.assemblePrepared(.init(textureSlots: slots, resolvedUniforms: values,
+            graphRole: material.graphRole, outputStorage: .color), prepared: assembly,
+            routeDecision: .init(profile: "self-owned-draw-inputs", state: "fixture", fallbackOwner: "none"))
+    } catch { return nil }
 }
 
 private func variantAliasScope(effect: Bool, name: String = "g_Alpha") -> String {
@@ -179,15 +194,29 @@ private func variantAliasScope(effect: Bool, name: String = "g_Alpha") -> String
         input: graphTexture()) : nil
     let material = template(shader, includePrimaryCandidate: false, effectContext: context)
     guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(
-        template: material, maximumVariantCount: 4) else { return "launch-failed" }
+        template: material, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: material), maximumVariantCount: 4) else { return "launch-failed" }
     switch cache.precompileLaunchEnvelope(implicitFramebufferIdentity: nil) {
     case .success:
         let variants = cache.launchEnvelopeCapabilitySnapshot().variants
-        guard let bindings = variants.first?.preparedUniformBindings,
+        guard let bindings = variants.first?.preparedAssembly.preparedUniformBindings,
               let alpha = bindings.first(where: { $0.field.authoredName == name }),
               let gain = bindings.first(where: { $0.field.authoredName == "gain" }),
-              case let .host(host) = alpha.source,
               case .staticValue = gain.source else { return "wrong-ownership" }
+        if !effect {
+            let components: [Double] = scalar ? [0.75]
+                : name == "g_Color" ? [0.1, 0.2, 0.3] : [0.1, 0.2, 0.3, 0.75]
+            guard case .staticValue = alpha.source,
+                  let value = try? Program.resolvedAuthoredUniform(alpha, snapshot: .empty(frameIndex: 0)),
+                  let gainValue = try? Program.resolvedAuthoredUniform(gain, snapshot: .empty(frameIndex: 0)),
+                  let expected = SceneResolvedMaterialUniformEncoder.encode(staticValue(components), as: alpha.field.type),
+                  let expectedGain = SceneResolvedMaterialUniformEncoder.encode(
+                    staticValue(Array(repeating: 1, count: components.count)), as: gain.field.type),
+                  value.encodedValue == expected, gainValue.encodedValue == expectedGain else {
+                return "wrong-source-default-or-gain"
+            }
+            return "source-authored-default-and-gain"
+        }
+        guard case let .host(host) = alpha.source else { return "wrong-effect-owner" }
         let expected = SceneResolvedMaterialHostUniformSchema.resolve(alpha.field,
             activeTextureSlots: [], hasEffectContext: effect)
         guard host == expected else { return "wrong-host" }
@@ -247,23 +276,20 @@ private func colorFacts() throws -> [String: Any] {
             "effectAliasVariant": variantAliasScope(effect: true, name: name),
             "sourceAliasVariant": variantAliasScope(effect: false, name: name)])
     }
-    let first = assembly(effect: true, source: .host(.effectDrawColor), color: rgb)
-    let second = assembly(effect: true, source: .host(.effectDrawColor), alpha: 0.5, color: .init(0.2, 0.4, 0.1))
+    let first = assembly(effect: true, color: rgb)
+    let second = assembly(effect: true, alpha: 0.5, color: .init(0.2, 0.4, 0.1))
     let replay = first?.terminalReplay(unitModelViewProjection: matrix_identity_float4x4)
     let copied = SceneResolvedMaterialRuntimeBridge.FrameInputs(effectDrawAlpha: 0.25, effectDrawColor: rgb)
         .withDependencyEffects([])
     return ["colorFields": fields,
         "colorIdentityStable": first != nil && second != nil && first!.semanticIdentity == second!.semanticIdentity,
         "colorExactChanged": first != nil && second != nil && first!.exactIdentity != second!.exactIdentity,
-        "colorSourceHostRejected": assembly(effect: false, source: .host(.effectDrawColor), color: rgb) == nil,
-        "colorEffectStaticRejected": assembly(effect: true, source: .staticValue, color: rgb) == nil,
-        "colorSourceStaticAccepted": assembly(effect: false, source: .staticValue, color: rgb) != nil,
-        "colorWrongHostRejected": assembly(effect: true, source: .host(.time), color: rgb) == nil,
+        "colorSourceStaticAccepted": assembly(effect: false, color: rgb) != nil,
         "colorCopyPreserved": copied.effectDrawAlpha == 0.25 && copied.effectDrawColor == rgb,
-        "colorTerminalPreserved": replay != nil && replay!.resolvedUniforms.contains {
-            if case .host(.effectDrawColor4) = $0.source {
-                return sceneResolvedMaterialFixtureFloat($0.encodedValue, at: 0) == rgb.x
-                    && sceneResolvedMaterialFixtureFloat($0.encodedValue, at: 12) == 0.25
+        "colorTerminalPreserved": replay != nil && zip(replay!.preparedAssembly.preparedUniformBindings, replay!.resolvedUniforms).contains { binding, value in
+            if case .host(.effectDrawColor4) = binding.source {
+                return sceneResolvedMaterialFixtureFloat(value.encodedValue, at: 0) == rgb.x
+                    && sceneResolvedMaterialFixtureFloat(value.encodedValue, at: 12) == 0.25
             }; return false
         },
         "rgbDoesNotReadAlpha": SceneResolvedMaterialUniformEncoder.encodeHost(.effectDrawColor, type: .float3,
@@ -304,13 +330,16 @@ private func reductionFacts() throws -> [String: Any] {
     if case .staticValue = source.source { sourceIsStatic = true }
     if case .staticValue = sourceDeclared.source { sourceStaticOwned = true }
     if case .dynamic = sourceDynamic.source { sourceDynamicOwned = true }
-    func program(_ effect: Bool, _ source: Program.ResolvedUniform.Source, _ value: Float = 1) -> Program? {
-        assembly(effect: effect, source: source, alpha: value,
+    func program(_ effect: Bool, _ value: Float = 1) -> Program? {
+        assembly(effect: effect, alpha: value,
             contractOverride: shader, scalarName: name)
     }
-    let correct = host.flatMap { program(true, .host($0)) }
-    let sourceProgram = program(false, .staticValue, 0.125)
-    let sourceBytes = sourceProgram?.resolvedUniforms.first { $0.field.authoredName == name }?.encodedValue
+    let correct = program(true)
+    let sourceProgram = program(false, 0.125)
+    let sourceBytes = sourceProgram.flatMap { program -> Data? in
+        guard let index = program.preparedAssembly.preparedUniformBindings.firstIndex(where: { $0.field.authoredName == name }) else { return nil }
+        return program.resolvedUniforms[index].encodedValue
+    }
     let hostBytes = host.flatMap { SceneResolvedMaterialUniformEncoder.encodeHost($0,
         type: .float, inputs: drawUniformInputs(), slots: Array(repeating: nil, count: 8)) }
     let wrongType = host.map { SceneResolvedMaterialUniformEncoder.encodeHost($0,
@@ -331,12 +360,11 @@ private func reductionFacts() throws -> [String: Any] {
             declarations: [staticDeclaration(name, components: [0.2, 0.3])]) },
         "array": rejection { try preparedDrawAlpha(effect: true, name: name, arrayCount: 2) },
         "hostAssembly": correct != nil,
-        "effectStaticRejected": program(true, .staticValue) == nil,
-        "wrongHostRejected": program(true, .host(.time)) == nil,
-        "sourceHostRejected": host.map { program(false, .host($0)) == nil } ?? false,
         "sourceStaticAccepted": sourceProgram != nil,
-        "terminalPreserved": replay?.resolvedUniforms.contains {
-            $0.field.authoredName == name && sceneResolvedMaterialFixtureFloat($0.encodedValue, at: 0) == 1 } ?? false]
+        "terminalPreserved": replay.map { program in
+            zip(program.preparedAssembly.preparedUniformBindings, program.resolvedUniforms).contains { binding, value in
+                binding.field.authoredName == name && sceneResolvedMaterialFixtureFloat(value.encodedValue, at: 0) == 1 }
+        } ?? false]
 }
 
 @main private enum EffectDrawAlphaPreparationHarness {
@@ -363,8 +391,8 @@ private func reductionFacts() throws -> [String: Any] {
         var sourceStaticOwned = false, sourceDynamicOwned = false
         if case .staticValue = sourceDeclared.source { sourceStaticOwned = true }
         if case .dynamic = sourceDynamic.source { sourceDynamicOwned = true }
-        let first = assembly(effect: true, source: .host(.effectDrawAlpha))
-        let second = assembly(effect: true, source: .host(.effectDrawAlpha), alpha: 0.5)
+        let first = assembly(effect: true)
+        let second = assembly(effect: true, alpha: 0.5)
         let replay = first?.terminalReplay(unitModelViewProjection: matrix_identity_float4x4)
         let inputs = SceneAuthoredShaderUniformInputs(frameIndex: 1, renderSize: CGSize(width: 2, height: 2),
             screenSize: CGSize(width: 2, height: 2), modelViewProjection: matrix_identity_float4x4,
@@ -385,15 +413,12 @@ private func reductionFacts() throws -> [String: Any] {
             "wrongVector": rejection { try preparedDrawAlpha(effect: true, type: .float2) },
             "array": rejection { try preparedDrawAlpha(effect: true, arrayCount: 2) },
             "hostAssembly": first != nil,
-            "sourceHostRejected": assembly(effect: false, source: .host(.effectDrawAlpha)) == nil,
-            "effectStaticRejected": assembly(effect: true, source: .staticValue) == nil,
-            "sourceStaticAssembly": assembly(effect: false, source: .staticValue) != nil,
-            "wrongHostRejected": assembly(effect: true, source: .host(.time)) == nil,
+            "sourceStaticAssembly": assembly(effect: false) != nil,
             "identityStable": first != nil && second != nil && first!.semanticIdentity == second!.semanticIdentity,
             "exactBytesChanged": first != nil && second != nil && first!.exactIdentity != second!.exactIdentity,
-            "terminalAlphaPreserved": replay != nil && replay!.resolvedUniforms.contains {
-                if case .host(.effectDrawAlpha) = $0.source {
-                    return sceneResolvedMaterialFixtureFloat($0.encodedValue, at: 0) == 0.25
+            "terminalAlphaPreserved": replay != nil && zip(replay!.preparedAssembly.preparedUniformBindings, replay!.resolvedUniforms).contains { binding, value in
+                if case .host(.effectDrawAlpha) = binding.source {
+                    return sceneResolvedMaterialFixtureFloat(value.encodedValue, at: 0) == 0.25
                 }
                 return false
             },
@@ -412,7 +437,7 @@ private func reductionFacts() throws -> [String: Any] {
 '''
 
 
-METAL_HARNESS = graph_fixture.HARNESS.split("@main\nprivate enum Harness", 1)[0] + r'''
+METAL_HARNESS = graph_fixture.HARNESS_SUPPORT_SOURCE + r'''
 private func reductionVertex(_ shader: SceneShaderContract) -> SceneShaderContract {
     let stages = shader.stages.map { stage -> SceneShaderContract.Stage in
         guard stage.kind == .vertex else { return stage }
@@ -488,9 +513,9 @@ private func drawModulationFrames(
             contractIdentity: shader.identity, contractCanonicalSHA256: shader.canonicalSHA256,
             textureSources: [], uniformSources: []))!
     var entries: [SceneResolvedMaterialRuntimeCatalog.Key: SceneResolvedMaterialRuntimeCatalog.Entry] = [
-        .init(effect: effect, nodeIndex: 0): .template(materialTemplate)
+        .init(effect: effect, nodeIndex: 0): .template(materialTemplate, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: materialTemplate))
     ]
-    if reductionScale != nil { entries[.init(effect: effect, nodeIndex: 1)] = .template(template(for: terminal)) }
+    if reductionScale != nil { entries[.init(effect: effect, nodeIndex: 1)] = .template(template(for: terminal), textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: template(for: terminal))) }
     let materials = SceneResolvedMaterialRuntimeCatalog(entries: entries, resourceDemandIssues: [])
     let dependency = SceneDependencyRenderPlan.Binding(consumerLayerID: layerID,
         providerLayerID: provider.providerLayerID,
@@ -707,6 +732,7 @@ class SceneEffectDrawAlphaTests(unittest.TestCase):
                 *(path for path in finalizer_fixture.SHARED_FIXTURE_SOURCES
                   if path != finalizer_fixture.SUPPORT_SOURCE),
                 finalizer_fixture.SCENE_ROOT / "Compilation/ShaderContract/SceneShaderContractLoader.swift",
+                finalizer_fixture.SCENE_ROOT / "Resources/Assets/SceneShaderSourceResolver.swift",
                 finalizer_fixture.SCENE_ROOT / "Compilation/ShaderContract/SceneBuiltinShaderIdentity.swift",
             ],
         )
@@ -733,11 +759,10 @@ class SceneEffectDrawAlphaTests(unittest.TestCase):
             for key in ("array", "wrongType"):
                 self.assertEqual(field[key], "staticUniformBindingInvalid", field)
             self.assertEqual(field["effectAliasVariant"], "effect-host-and-authored-gain", field)
-            self.assertEqual(field["sourceAliasVariant"], "uniformBindingInvalid", field)
+            self.assertEqual(field["sourceAliasVariant"], "source-authored-default-and-gain", field)
 
     def test_color_identity_copy_terminal_and_unassociated_channels(self) -> None:
-        for key in ("colorIdentityStable", "colorExactChanged", "colorSourceHostRejected", "colorEffectStaticRejected",
-                    "colorSourceStaticAccepted", "colorWrongHostRejected", "colorCopyPreserved", "colorTerminalPreserved",
+        for key in ("colorIdentityStable", "colorExactChanged", "colorSourceStaticAccepted", "colorCopyPreserved", "colorTerminalPreserved",
                     "rgbDoesNotReadAlpha", "rgbaRejectsNonfiniteAlpha"):
             self.assertTrue(self.result[key], self.result)
 
@@ -753,11 +778,10 @@ class SceneEffectDrawAlphaTests(unittest.TestCase):
 
     def test_variant_schema_filter_shares_effect_scope(self) -> None:
         self.assertEqual(self.result["effectAliasVariant"], "effect-host-and-authored-gain", self.result)
-        self.assertEqual(self.result["sourceAliasVariant"], "uniformBindingInvalid", self.result)
+        self.assertEqual(self.result["sourceAliasVariant"], "source-authored-default-and-gain", self.result)
 
     def test_program_identity_rechecks_scope(self) -> None:
-        for key in ("hostAssembly", "sourceHostRejected", "effectStaticRejected", "sourceStaticAssembly",
-                    "wrongHostRejected", "identityStable", "exactBytesChanged", "terminalAlphaPreserved"):
+        for key in ("hostAssembly", "sourceStaticAssembly", "identityStable", "exactBytesChanged", "terminalAlphaPreserved"):
             self.assertTrue(self.result[key], self.result)
 
     def test_nonfinite_rejection_and_dependency_copy(self) -> None:
@@ -776,11 +800,10 @@ class SceneEffectDrawAlphaTests(unittest.TestCase):
             self.assertEqual(result[key], "hostUniformDeclarationConflict", result)
         for key in ("wrongScalar", "wrongVector", "wrongVectorStatic", "array"):
             self.assertEqual(result[key], "staticUniformBindingInvalid", result)
-        for key in ("wrongEncoderType", "hostAssembly", "effectStaticRejected", "wrongHostRejected",
-                    "sourceHostRejected", "terminalPreserved"):
+        for key in ("wrongEncoderType", "hostAssembly", "terminalPreserved"):
             self.assertTrue(result[key], result)
         self.assertEqual(result["effectAliasVariant"], "effect-host-and-authored-gain", result)
-        self.assertEqual(result["sourceAliasVariant"], "uniformBindingInvalid", result)
+        self.assertEqual(result["sourceAliasVariant"], "source-authored-default-and-gain", result)
 
 
 @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")

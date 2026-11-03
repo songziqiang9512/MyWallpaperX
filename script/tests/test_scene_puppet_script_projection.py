@@ -12,6 +12,8 @@ SOURCES = [
     "Format/SceneJSONValue.swift", "Format/SceneScriptBindingDefinition.swift",
     "Format/SceneScriptSourceEvidence.swift",
     "Systems/Properties/SceneScriptDynamicProviderHostContract.swift",
+    "Systems/Properties/SceneUserPropertyBindings.swift",
+    "Systems/Properties/SceneUserProperty.swift",
     "Format/ScenePuppetAnimationLayer.swift", "Format/SceneMdlPuppetAnimation.swift",
     "Format/SceneTimelineAnimation.swift",
     "Systems/Puppet/ScenePuppetAnimationSelection.swift",

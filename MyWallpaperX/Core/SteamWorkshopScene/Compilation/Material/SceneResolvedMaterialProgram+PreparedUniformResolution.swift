@@ -27,18 +27,7 @@ nonisolated extension SceneResolvedMaterialProgram {
         let field = binding.field
         switch binding.source {
         case let .staticValue(encoded):
-            guard encoded.count == field.storageByteSize else {
-                throw SceneResolvedMaterialFailure(
-                    phase: .invariant,
-                    code: .programAssemblyIdentityInvariant,
-                    details: [field.name, "prepared-static-byte-count"]
-                )
-            }
-            return .init(
-                field: field,
-                source: .staticValue,
-                encodedValue: encoded
-            )
+            return .init(encodedValue: encoded)
         case let .dynamic(prepared):
             let dynamic = prepared.declaration
             let contributor = prepared.contributor
@@ -102,16 +91,7 @@ nonisolated extension SceneResolvedMaterialProgram {
                     )
                 }
             }
-            return .init(
-                field: field,
-                source: .dynamic(
-                    declared: contributor,
-                    target: dynamic.target,
-                    resolvedSource: resolved.source,
-                    scriptAttachments: dynamic.scriptAttachments
-                ),
-                encodedValue: encoded
-            )
+            return .init(encodedValue: encoded, resolvedSource: resolved.source)
         default:
             throw SceneResolvedMaterialFailure(
                 phase: .uniform, code: .staticUniformBindingInvalid, details: [field.name]

@@ -33,19 +33,11 @@ DAEMON_RUNTIME_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonRuntime.swift"
 )
 DEBUG_RUNNER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/App/Debug/DebugScenePlaybackRunner.swift"
-ARGUMENTS_RUNNER_SOURCE = (
-    REPOSITORY_ROOT
-    / "MyWallpaperX/App/Debug/DebugScenePlaybackRunner+Arguments.swift"
-)
 PERFORMANCE_RUNNER_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/App/Debug/DebugScenePlaybackRunner+Performance.swift"
 )
 PROCESS_CPU_TIME_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/App/Debug/DebugScenePlaybackRunner+ProcessCPUTime.swift"
-)
-PARTICLE_PLAYBACK_SOURCE = (
-    REPOSITORY_ROOT
-    / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+ParticlePlayback.swift"
 )
 PREFLIGHT_SOURCE = (
     REPOSITORY_ROOT
@@ -517,7 +509,6 @@ class ScenePerformanceTelemetryTests(unittest.TestCase):
         view = VIEW_SOURCE.read_text(encoding="utf-8")
         renderer = read_source_family(RENDERER_SOURCE)
         runner = DEBUG_RUNNER_SOURCE.read_text(encoding="utf-8")
-        arguments_runner = ARGUMENTS_RUNNER_SOURCE.read_text(encoding="utf-8")
         performance_runner = PERFORMANCE_RUNNER_SOURCE.read_text(encoding="utf-8")
         self.assertIn("debugEvidence.recordDriverCallback()", frame_driver)
         self.assertIn("debugEvidence.recordFrameDelta", frame_driver)
@@ -526,7 +517,6 @@ class ScenePerformanceTelemetryTests(unittest.TestCase):
         self.assertIn("performanceTelemetry?.recordSubmitted", renderer)
         self.assertIn("schedulePerformanceMeasurement(", runner)
         self.assertIn("duration: requestedDuration", runner)
-        self.assertIn("min(max(duration, 7), 3_600)", arguments_runner)
         self.assertIn("afterSnapshotDelay: requestedAfterSnapshotDelay", runner)
         self.assertIn("applyRequestedPerformanceProfile()", runner)
         self.assertIn("PlaybackPerformanceProfile(rawValue: framesPerSecond)", performance_runner)

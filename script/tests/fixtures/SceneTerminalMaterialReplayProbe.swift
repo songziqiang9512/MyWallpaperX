@@ -27,25 +27,23 @@ private func terminalReplayProbe(device: MTLDevice, queue: MTLCommandQueue) -> [
             "g_ModelViewProjectionMatrixInverse": bytes(matrix_identity_float4x4),
         ], replayVertexSource: vertex)!
     let replay = material.terminalReplay(unitModelViewProjection: matrix_identity_float4x4)!
-    let mvp = replay.resolvedUniforms.first { $0.field.authoredName == "g_ModelViewProjectionMatrix" }!
-        .encodedValue.withUnsafeBytes { $0.loadUnaligned(as: simd_float4x4.self) }
-    let inverse = replay.resolvedUniforms.first { $0.field.authoredName == "g_ModelViewProjectionMatrixInverse" }!
-        .encodedValue.withUnsafeBytes { $0.loadUnaligned(as: simd_float4x4.self) }
-    let size = replay.resolvedUniforms.first { $0.field.authoredName == "mwxRenderSize" }!
-        .encodedValue.withUnsafeBytes { $0.loadUnaligned(as: SIMD2<Float>.self) }
+    let mvpIndex = replay.preparedAssembly.preparedUniformBindings.firstIndex { $0.field.authoredName == "g_ModelViewProjectionMatrix" }!
+    let mvp = replay.resolvedUniforms[mvpIndex].encodedValue.withUnsafeBytes { $0.loadUnaligned(as: simd_float4x4.self) }
+    let inverseIndex = replay.preparedAssembly.preparedUniformBindings.firstIndex { $0.field.authoredName == "g_ModelViewProjectionMatrixInverse" }!
+    let inverse = replay.resolvedUniforms[inverseIndex].encodedValue.withUnsafeBytes { $0.loadUnaligned(as: simd_float4x4.self) }
+    let sizeIndex = replay.preparedAssembly.preparedUniformBindings.firstIndex { $0.field.authoredName == "mwxRenderSize" }!
+    let size = replay.resolvedUniforms[sizeIndex].encodedValue.withUnsafeBytes { $0.loadUnaligned(as: SIMD2<Float>.self) }
     let target = texture(device: device, format: .bgra8Unorm, width: 16, height: 16,
                          usage: [.shaderRead, .renderTarget])
     let encoder = SceneResolvedMaterialPassEncoder(device: device)!
     let cold = encoder.prepareTerminalReplay(program: material, target: target,
         unitModelViewProjection: matrix_identity_float4x4)
     let coldRejected: Bool
-    if case .failure(.compileStateKeyRejected) = cold { coldRejected = true }
+    if case .failure(.pipelineNotPrepared) = cold { coldRejected = true }
     else { coldRejected = false }
     func plan(_ format: MTLPixelFormat, _ role: Program.PassRole)
         -> SceneResolvedMaterialPassEncoder.WarmupPlan {
-        .init(identity: "terminal-fixture", preparedKey: material.preparedShader.cacheKey,
-              frontend: material.frontendProgram, renderState: material.renderState,
-              frontendSchemaVersion: material.semanticIdentity.shader.frontendSchemaVersion,
+        .init(identity: "terminal-fixture", prepared: material.preparedAssembly,
               pixelFormat: format, writeMask: .all, passRole: role, device: device)!
     }
     let coldAttempts = encoder.pipelineCompilationAttemptCount
@@ -95,9 +93,7 @@ private func terminalReplayProbe(device: MTLDevice, queue: MTLCommandQueue) -> [
                         "g_ModelViewProjectionMatrixInverse": bytes(matrix_identity_float4x4)],
         replayVertexSource: vertex)!
     let straightWarmup = encoder.warmup([.init(
-        identity: "terminal-straight", preparedKey: straight.preparedShader.cacheKey,
-        frontend: straight.frontendProgram, renderState: straight.renderState,
-        frontendSchemaVersion: straight.semanticIdentity.shader.frontendSchemaVersion,
+        identity: "terminal-straight", prepared: straight.preparedAssembly,
         pixelFormat: .bgra8Unorm, writeMask: .all,
         passRole: .terminalStraightSourceOver, device: device)!])
     let straightAttempts = encoder.pipelineCompilationAttemptCount
@@ -202,13 +198,13 @@ private func terminalReplayProbe(device: MTLDevice, queue: MTLCommandQueue) -> [
     oldObject.removeValue(forKey: "vertexPositionInput")
     let oldModel = try! JSONDecoder().decode(SceneAuthoredShaderProgram.self,
         from: JSONSerialization.data(withJSONObject: oldObject))
-    let archiveOriginal = SceneResolvedMaterialPipelineBinaryArchive.keyDigest(
-        frontend: material.frontendProgram, renderState: material.renderState,
-        pixelFormat: .bgra8Unorm, sampleCount: 1, writeMask: .all, device: device)
-    let archiveTerminal = SceneResolvedMaterialPipelineBinaryArchive.keyDigest(
-        frontend: material.frontendProgram, renderState: material.renderState,
-        pixelFormat: .bgra8Unorm, sampleCount: 1, writeMask: .all,
-        passRole: .terminalSourceOver, device: device)
+    let archiveOriginal = material.metalCompileStateKey(
+        attachmentPixelFormat: .bgra8Unorm, sampleCount: 1, device: device
+    ).flatMap { SceneResolvedMaterialPipelineBinaryArchive.keyDigest(key: $0) }
+    let archiveTerminal = material.metalCompileStateKey(
+        attachmentPixelFormat: .bgra8Unorm, sampleCount: 1,
+        passRole: .terminalSourceOver, device: device
+    ).flatMap { SceneResolvedMaterialPipelineBinaryArchive.keyDigest(key: $0) }
     typealias PassRole = SceneResolvedMaterialProgram.PassRole
     let supportedAttachmentFormats = [MTLPixelFormat.bgra8Unorm, .rgba16Float].allSatisfy {
         PassRole.supportsAttachmentReadTarget(pixelFormat: $0, sampleCount: 1, device: device)

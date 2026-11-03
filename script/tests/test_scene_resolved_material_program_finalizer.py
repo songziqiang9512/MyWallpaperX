@@ -774,27 +774,40 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             "runtimeLoopNonIntegralExact": "frontend/shaderFrontendFailed",
             "runtimeLoopNonFiniteExact": "frontend/shaderFrontendFailed",
             "runtimeLoopMultipleProducer": "frontend/shaderFrontendFailed",
-            "runtimeLoopCrossTemplateCache": (
-                "invariant/variantSelectionTemplateIdentityInvariant"
-            ),
         }
         self.assertEqual(
             {name: self.result["failures"][name] for name in expected},
             expected,
         )
 
-    def test_material_cache_rejects_different_templates(self) -> None:
-        self.assertEqual(self.result["materialCrossTemplateCache"], {
-            "equivalent": "success",
-            "combos": "invariant/variantSelectionTemplateIdentityInvariant",
-            "textures": "invariant/variantSelectionTemplateIdentityInvariant",
-            "graphRole": "invariant/variantSelectionTemplateIdentityInvariant",
-            "renderState": "invariant/variantSelectionTemplateIdentityInvariant",
-            "inactiveCombos": "invariant/variantSelectionTemplateIdentityInvariant",
-            "ownerEligibility": "invariant/variantSelectionTemplateIdentityInvariant",
-            "shaderContent": "invariant/variantSelectionTemplateIdentityInvariant",
-            "sourceGraph": "invariant/variantSelectionTemplateIdentityInvariant",
-            "equivalentAfterRejection": "success",
+    def test_frame_uses_its_prepared_material_facts(self) -> None:
+        self.assertEqual(self.result["preparedMaterialOwnership"], {
+            "sameFrameUsesEachPreparedMaterial": True,
+            "runtimeLoopsStayWithPreparedMaterial": True,
+            "returnToFirstMaterialKeepsExactIdentity": True,
+            "ordinaryFramesDoNotCompile": True,
+        })
+
+    def test_texture_companion_static_ownership_is_checked_during_preparation(self) -> None:
+        expected = {
+            f"{prefix}-static-{case}": (
+                "uniform/staticUniformBindingInvalid" if prefix == "reserved" else "success"
+            )
+            for prefix in ("reserved", "ordinary")
+            for case in ("rotation-wrong-type", "translation-wrong-type",
+                         "rotation-inactive-sampler", "translation-inactive-sampler")
+        }
+        self.assertEqual(self.result["preparedTextureCompanions"], expected)
+
+    def test_prepared_texture_formats_keep_empty_results_and_local_failures(self) -> None:
+        self.assertEqual(self.result["preparedTextureFormats"], {
+            "emptyFormatsArePrepared": True,
+            "emptySlotFactsAreFinal": True,
+            "disabledFormatHasNoDemand": True,
+            "enabledFormatRetainsSlot": True,
+            "formatFailureRemainsTyped": True,
+            "formatFailureKeepsHealthyOwner": True,
+            "validFormatsSurviveReachabilityFailure": True,
         })
 
     def test_visual_passthrough_reasons_remain_bounded(self) -> None:

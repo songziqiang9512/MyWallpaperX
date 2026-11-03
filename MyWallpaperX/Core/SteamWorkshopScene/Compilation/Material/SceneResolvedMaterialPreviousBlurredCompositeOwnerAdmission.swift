@@ -37,8 +37,7 @@ nonisolated enum SceneResolvedMaterialPreviousBlurredCompositeOwnerAdmission {
               let layer = descriptor.layers.first(where: {
                   $0.id == graph.layerID
               }), sourceCohort(layer) != nil,
-              let inputRole = SceneAuthoredEffectInputValidator.role(
-                  for: graph.effects[0].input,
+              let inputRole = graph.effects[0].input.inputRole(
                   layerID: graph.layerID
               ), requiredInputRole == nil || requiredInputRole == inputRole,
               SceneResolvedMaterialPreviousBlurredCompositeGraphAdmission

@@ -1,9 +1,7 @@
 import Foundation
-import Metal
 import simd
 
-/// Prepares immutable MDL and pose data, then creates layer/surface-owned
-/// GeometryProducts. The atlas remains a sampling resource of each product.
+/// Prepares immutable MDL, animation selections and pose evaluation data.
 enum ScenePuppetLayerLoad {
     /// Launch-time payload installed into any existing SceneScript owner for
     /// the same authored layer.  The rig reader remains the sole source of
@@ -38,7 +36,7 @@ enum ScenePuppetLayerLoad {
     /// source and for each admitted creation template. An empty configuration
     /// never acquires the source layer's animation selection or script state.
     struct PreparedPose {
-        fileprivate enum PlaybackKind {
+        enum PlaybackKind {
             case animation
             case reference
             case script
@@ -51,14 +49,14 @@ enum ScenePuppetLayerLoad {
             }
         }
 
-        fileprivate enum Geometry {
+        enum Geometry {
             case unavailable(allowsMissingMeshTextureProduct: Bool, message: String)
             case bind(PreparedAsset, fallbackMessage: String?)
             case evaluated(PreparedAsset, ScenePuppetAnimationSelection,
                            ScenePuppetAnimationEvaluator, PlaybackKind, fallbackMessage: String?)
         }
 
-        fileprivate let geometry: Geometry
+        let geometry: Geometry
     }
 
     static func prepareAsset(
@@ -185,15 +183,6 @@ enum ScenePuppetLayerLoad {
             localMatrices: frame.localMatrices.flatMap(flatten),
             impulseUnavailable: rig.bones.map { $0.physicsDiagnostic == nil ? 0 : 1 }
         )
-    }
-
-    struct Outcome {
-        let geometryProduct: SceneGeometryProduct?
-        let playback: ScenePuppetPlaybackState?
-        /// True only when the authored package omits the referenced mesh. In
-        /// that case the image payload is the sole available authored product.
-        let allowsMissingMeshTextureProduct: Bool
-        let message: String
     }
 
     static func preparePose(
@@ -333,145 +322,7 @@ enum ScenePuppetLayerLoad {
         } catch {
             return .init(geometry: .bind(asset, fallbackMessage:
                 (fallbackMessage.map { $0 + "; " } ?? "")
-                    + "\(kind.failurePrefix): \(ScenePuppetPlaybackState.Failure.resourceAllocationFailed.description)"))
-        }
-    }
-
-    static func preparedGeometry(
-        for layer: SceneRenderDescriptor.Layer,
-        preparedPose: PreparedPose,
-        atlasTexture: MTLTexture,
-        device: MTLDevice,
-        pipeline: SceneImageLayerPipeline,
-        clippingPipeline: () -> MTLRenderPipelineState? = { nil },
-        loadClippingMask: (String) -> MTLTexture? = { _ in nil },
-        allocateClippingMask: @escaping ScenePuppetClipping.Allocator = { _, _, _, _ in nil }
-    ) -> Outcome? {
-        guard layer.puppetMeshPath != nil else { return nil }
-        let asset: PreparedAsset
-        let evaluated: (ScenePuppetAnimationSelection, ScenePuppetAnimationEvaluator,
-                        PreparedPose.PlaybackKind)?
-        var animationFallbackMessage: String?
-        switch preparedPose.geometry {
-        case let .unavailable(allowsMissing, message):
-            return Outcome(geometryProduct: nil, playback: nil,
-                allowsMissingMeshTextureProduct: allowsMissing, message: message)
-        case let .bind(value, fallbackMessage):
-            asset = value
-            evaluated = nil
-            animationFallbackMessage = fallbackMessage
-        case let .evaluated(value, selection, evaluator, kind, fallbackMessage):
-            asset = value
-            evaluated = (selection, evaluator, kind)
-            animationFallbackMessage = fallbackMessage
-        }
-        let mesh = asset.mesh
-        let clipping: ScenePuppetClipping?
-        if mesh.clipRecords.isEmpty {
-            clipping = nil
-        } else {
-            var paintTextures: [Int: MTLTexture] = [:]
-            for (index, record) in mesh.clipRecords.enumerated() {
-                if let texture = loadClippingMask(record.maskTexturePath),
-                   texture.pixelFormat == .r8Unorm {
-                    paintTextures[index] = texture
-                } else {
-#if DEBUG
-                    NSLog("MWX Puppet: layer=%d clip=%d mask unavailable; target part hidden", layer.id, index)
-#endif
-                }
-            }
-            clipping = ScenePuppetClipping(mesh: mesh, pipeline: clippingPipeline(),
-                paintTextures: paintTextures, allocate: allocateClippingMask)
-        }
-        let renderSize = layer.renderSizeWH ?? []
-        let layerWidth = renderSize.count > 0 ? renderSize[0] : 0
-        let layerHeight = renderSize.count > 1 ? renderSize[1] : 0
-        if let (selection, evaluator, kind) = evaluated {
-            switch ScenePuppetPlaybackState.make(
-                layerID: layer.id, mesh: mesh, evaluator: evaluator,
-                selection: selection, attachments: asset.attachments,
-                atlasTexture: atlasTexture, layerWidth: layerWidth,
-                layerHeight: layerHeight,
-                device: device, pipeline: pipeline, clipping: clipping
-            ) {
-            case let .success(output):
-                let message: String
-                switch kind {
-                case .animation:
-                    message = String(
-                        format: "puppet world geometry OK %@ mode=%@ ids=%@ clips=%d verts=%d tris=%d",
-                        mesh.version, selection.composition.rawValue,
-                        selection.clips.map { String($0.animation.id) }.joined(separator: ","),
-                        selection.clips.count, mesh.vertices.count, mesh.triangleCount)
-                case .reference:
-                    message = "puppet reference world geometry prepared"
-                case .script:
-                    message = "puppet script world geometry prepared"
-                }
-                return Outcome(geometryProduct: output.product, playback: output.state,
-                    allowsMissingMeshTextureProduct: false,
-                    message: message + (animationFallbackMessage.map { "; " + $0 } ?? ""))
-            case let .failure(failure):
-                animationFallbackMessage = (animationFallbackMessage.map { $0 + "; " } ?? "")
-                    + "\(kind.failurePrefix): \(failure.description)"
-            }
-        }
-        return staticOutcome(
-            layer: layer,
-            mesh: mesh,
-            atlasTexture: atlasTexture,
-            layerWidth: layerWidth,
-            layerHeight: layerHeight,
-            device: device,
-            pipeline: pipeline,
-            clipping: clipping,
-            animationFallbackMessage: animationFallbackMessage
-        )
-    }
-
-    private static func staticOutcome(
-        layer: SceneRenderDescriptor.Layer,
-        mesh: SceneMdlPuppetMesh,
-        atlasTexture: MTLTexture,
-        layerWidth: Float,
-        layerHeight: Float,
-        device: MTLDevice,
-        pipeline: SceneImageLayerPipeline,
-        clipping: ScenePuppetClipping?,
-        animationFallbackMessage: String?
-    ) -> Outcome {
-        switch ScenePuppetMeshGeometry.prepare(
-            layerID: layer.id,
-            mesh: mesh,
-            atlasTexture: atlasTexture,
-            layerWidth: layerWidth,
-            layerHeight: layerHeight,
-            device: device,
-            pipeline: pipeline,
-            clipping: clipping
-        ) {
-        case let .success(output):
-            return Outcome(
-                geometryProduct: output.product,
-                playback: nil,
-                allowsMissingMeshTextureProduct: false,
-                message: String(
-                    format: "puppet bind-pose world geometry OK %@ stride=%d verts=%d tris=%d",
-                    mesh.version,
-                    mesh.vertexStride,
-                    output.vertexCount,
-                    output.triangleCount
-                ) + (animationFallbackMessage.map { "; \($0)" } ?? "")
-            )
-        case let .failure(failure):
-            return Outcome(
-                geometryProduct: nil,
-                playback: nil,
-                allowsMissingMeshTextureProduct: false,
-                message: "puppet geometry preparation failed: \(failure.description) (\(layer.puppetMeshPath ?? "unknown"))"
-                    + (animationFallbackMessage.map { "; \($0)" } ?? "")
-            )
+                    + "\(kind.failurePrefix): \(error)"))
         }
     }
 

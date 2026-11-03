@@ -56,6 +56,17 @@ enum Harness {
     static func main() throws {
         let collector = LogCollector()
         let telemetry = SceneEffectExecutionTelemetry { collector.append($0) }
+        let reportLines = ["effectAdmissionSchema: 1", "effectStageRuntimeDispositionSchema: 1"]
+        let unobserved = SceneEffectExecutionTelemetry { collector.append($0) }
+        let reportInitiallyEmpty = telemetry.preparedRuntimeReportLines.isEmpty
+            && telemetry.effectRuntimeSummary(for: 7) == nil
+        telemetry.installPreparedAdmission(reportLines: reportLines, resolvedMaterialLayerIDs: [7])
+        let preparedReport = telemetry.preparedRuntimeReportLines
+        let admittedSummary = telemetry.effectRuntimeSummary(for: 7)
+        let foreignSummary = telemetry.effectRuntimeSummary(for: 8)
+        let reportDoesNotInventExecution = collector.snapshot().isEmpty
+        let observationIsInstanceOwned = unobserved.preparedRuntimeReportLines.isEmpty
+            && unobserved.effectRuntimeSummary(for: 7) == nil
 
         let failureThenSuccess = telemetry.makeFrame(frameIndex: 1)
         let identityA = SceneEffectExecutionIdentity(
@@ -202,6 +213,14 @@ enum Harness {
         }
 
         let payload: [String: Any] = [
+            "admissionObservation": [
+                "initiallyEmpty": reportInitiallyEmpty,
+                "reportPreserved": preparedReport == reportLines,
+                "summary": admittedSummary ?? "",
+                "foreignSummaryAbsent": foreignSummary == nil,
+                "noExecutionEmitted": reportDoesNotInventExecution,
+                "instanceOwned": observationIsInstanceOwned,
+            ],
             "logs": collector.snapshot(),
             "cohortA": cohortPayload(cohortA),
             "cohortB": cohortPayload(cohortB),
@@ -323,6 +342,13 @@ class SceneEffectExecutionTelemetryTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         cls.temporary_directory.cleanup()
+
+    def test_prepared_admission_observation_is_instance_owned_and_does_not_emit_execution(self) -> None:
+        observation = self.result["admissionObservation"]
+        self.assertEqual(observation["summary"], "effect runtime resolved-material-graph; graph owner")
+        for key in ("initiallyEmpty", "reportPreserved", "foreignSummaryAbsent", "noExecutionEmitted", "instanceOwned"):
+            with self.subTest(key=key):
+                self.assertIs(observation[key], True)
 
     def test_cpu_outcomes_are_independent_sticky_transitions(self) -> None:
         failure_then_success = [line for line in self.logs if "descriptor=descriptor%20A" in line]

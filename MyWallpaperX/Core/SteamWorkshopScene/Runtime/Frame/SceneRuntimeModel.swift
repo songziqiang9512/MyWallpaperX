@@ -7,7 +7,6 @@ struct SceneRuntimeModel {
     let resourceView: SceneResourceView
     let authoredRenderDescriptor: SceneRenderDescriptor
     let renderDescriptor: SceneRenderDescriptor
-    let sharedLayerAlphaProgram: SceneSharedLayerAlphaProgram
     let propertyVectorProjection: SceneScriptVectorCandidateCatalog
     let authoredEffectRenderPlans: [SceneAuthoredEffectRenderPlan]
     let runtimeInput: SceneRuntimeInput
@@ -105,14 +104,6 @@ struct SceneRuntimeModelBuilder {
         guard let renderDescriptor = sourceFacts.renderDescriptor else {
             throw BuildError.missingRenderDescriptor
         }
-        guard let sharedLayerAlphaProgram =
-                SceneSharedLayerAlphaProgramCompiler.compile(
-                    descriptor: renderDescriptor,
-                    scriptBindings: sceneDocument.scriptBindings,
-                    scriptSourceEvidence: sceneDocument.scriptSourceEvidence
-                ) else {
-            throw BuildError.missingRenderDescriptor
-        }
         let timelineTargets = Set(
             SceneTimelineTargetCompiler.compile(descriptor: renderDescriptor)
                 .bindings.map(\.target)
@@ -122,12 +113,8 @@ struct SceneRuntimeModelBuilder {
             scriptBindings: sceneDocument.scriptBindings,
             timelineTargets: timelineTargets
         )
-        let sharedAlphaProjectedDescriptor = SceneSharedLayerAlphaProjection.apply(
-            program: sharedLayerAlphaProgram,
-            to: renderDescriptor
-        )
         let displayProjectedDescriptor = SceneIdentityDisplayScriptProjection.apply(
-            to: sharedAlphaProjectedDescriptor,
+            to: renderDescriptor,
             sourceEvidence: sceneDocument.scriptSourceEvidence
         )
         let mediaProjectedDescriptor = SceneInitialMediaEffectVisibilityProjection.apply(
@@ -135,28 +122,16 @@ struct SceneRuntimeModelBuilder {
             scriptBindings: sceneDocument.scriptBindings,
             sourceEvidence: sceneDocument.scriptSourceEvidence
         )
-        let sharedAlphaTargets = Set(
-            sharedLayerAlphaProgram.definitions.map(\.target)
-        )
         let projectedScalarTargets = SceneScriptScalarProgram.projectedTargets(
             descriptor: renderDescriptor,
             scriptBindings: sceneDocument.scriptBindings,
             timelineTargets: timelineTargets
-        ).subtracting(sharedAlphaTargets)
+        )
         let scalarProjectedDescriptor = SceneScriptScalarDisplayProjection.apply(
             admittedTargets: projectedScalarTargets,
             to: mediaProjectedDescriptor
         )
-        // Second-tier display-authority release: an alpha target no
-        // publication path claims (shared ∪ scalar-projected ∪ timeline)
-        // can never receive a script publication, so its fail-closed
-        // ownership degrades to the authored alpha. Timeline targets are a
-        // deliberate superset here: the set is only used for membership, and
-        // a Timeline-driven alpha layer must not lose its live driver to a
-        // speculative release.
-        let alphaClaimedTargets = sharedAlphaTargets
-            .union(projectedScalarTargets)
-            .union(timelineTargets)
+        let alphaClaimedTargets = projectedScalarTargets.union(timelineTargets)
         let fallbackProjectedDescriptor = SceneScriptScalarDisplayProjection
             .applyUnclaimedFallback(
                 claimedTargets: alphaClaimedTargets,
@@ -282,7 +257,6 @@ struct SceneRuntimeModelBuilder {
             resourceView: sourceFacts.resourceView,
             authoredRenderDescriptor: renderDescriptor,
             renderDescriptor: runtimeInput.renderDescriptor,
-            sharedLayerAlphaProgram: sharedLayerAlphaProgram,
             propertyVectorProjection: propertyVectorProjection,
             authoredEffectRenderPlans: runtimeInput.authoredEffectRenderPlans,
             runtimeInput: runtimeInput

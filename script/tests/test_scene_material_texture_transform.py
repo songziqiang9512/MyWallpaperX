@@ -286,12 +286,16 @@ private func assembly(
     selected: Program.TextureSlot, generation: UInt64,
     outputStorage: Program.OutputStorage = .color,
     failure: ((String, String) -> Void)? = nil
-) -> Program.AssemblyInput? {
+) -> (frame: Program.FrameAssemblyInput, prepared: Program.PreparedAssembly)? {
     var slots = Array<Program.TextureSlot?>(repeating: nil, count: 8)
     slots[fixture.slot] = selected
     var resolved: [Program.ResolvedUniform] = []
+    var bindings: [SceneResolvedMaterialPreparedUniformBinding] = []
     for field in frontend.uniformLayout.fields {
-        guard let host = SceneResolvedMaterialUniformEncoder.hostUniform(field, slots: slots) else {
+        guard let host = SceneResolvedMaterialHostUniformSchema.resolve(field,
+            activeTextureSlots: Set(slots.enumerated().compactMap {
+                $0.element == nil ? nil : $0.offset
+            })) else {
             failure?("host-schema-missing", field.authoredName)
             return nil
         }
@@ -301,16 +305,22 @@ private func assembly(
             failure?("host-encode-rejected", field.authoredName)
             return nil
         }
-        resolved.append(.init(field: field, source: .host(host), encodedValue: value))
+        bindings.append(.init(field: field, source: .host(host)))
+        resolved.append(.init(encodedValue: value))
     }
-    return .init(preparedShader: prepared(fixture), textureSlots: slots,
-        resolvedUniforms: resolved,
+    guard let assembly = try? Program.PreparedAssembly(
+        preparedShader: prepared(fixture), frontend: frontend,
         renderState: SceneMaterialRenderState.compile(blending: "normal",
             depthTest: "disabled", depthWrite: "disabled", cullMode: "nocull",
             alphaWriting: nil)!,
+        runtimeLoopBounds: .none, preparedUniformBindings: bindings,
+        conditionalGeneratedRGBInputContract: nil, associatedOverOverlaySlot: nil,
+        premultipliedColorInputSlots: []
+    ) else { failure?("prepared-assembly-rejected", fixture.name); return nil }
+    return (.init(textureSlots: slots, resolvedUniforms: resolved,
         graphRole: .init(effectInput: .layerSource, effectOutput: .effectOutput,
             nodeTarget: .framebuffer, bindings: [.init(slot: fixture.slot, texture: .framebuffer)]),
-        outputStorage: outputStorage)
+        outputStorage: outputStorage), assembly)
 }
 
 private func render(
@@ -320,6 +330,7 @@ private func render(
     let output = target(device)
     let attachment: SceneResolvedMaterialAttachmentKind =
         program.outputContract == .preservedRGBAUnorm ? .preservedRGBAUnorm : .color
+    prepareMaterialPipeline(program, encoder: encoder, target: output, attachmentStorage: attachment)
     guard let pass = try? encoder.prepareResult(program: program, target: output,
             attachmentStorage: attachment).get(),
           let command = queue.makeCommandBuffer(),
@@ -366,10 +377,9 @@ private func runCoordinates(
                     selected: selected, generation: generation) else {
                 throw NSError(domain: "assembly-input-\(fixture.name)", code: index)
             }
-            let program = generic ? Program.assembleCompiled(input, frontend: compiled,
-                routeDecision: .init(profile: "ordinary-shader", state: "prefer-generic",
-                    fallbackOwner: "bounded-frontend"),
-                conditionalGeneratedRGBInputContract: nil) : Program.assemble(input)
+            let program = Program.assemblePrepared(input.frame, prepared: input.prepared,
+                routeDecision: .init(profile: "ordinary-shader", state: generic ? "generic" : "bounded",
+                    fallbackOwner: "none"))
             guard let program else {
                 throw NSError(domain: "program-\(fixture.name)", code: index,
                     userInfo: [NSLocalizedDescriptionKey: "transfer=\(compiled.colorTransfer)"])
@@ -442,10 +452,9 @@ private func runCompanions(
                         observation["status"] = status
                         observation["field"] = field
                     }) {
-                let program = generic ? Program.assembleCompiled(input, frontend: compiled,
-                    routeDecision: .init(profile: "ordinary-shader", state: "prefer-generic",
-                        fallbackOwner: "bounded-frontend"),
-                    conditionalGeneratedRGBInputContract: nil) : Program.assemble(input)
+                let program = Program.assemblePrepared(input.frame, prepared: input.prepared,
+                    routeDecision: .init(profile: "ordinary-shader", state: generic ? "generic" : "bounded",
+                        fallbackOwner: "none"))
                 if let program {
                     observation.merge(try render(program, encoder: encoder,
                         queue: queue, device: device)) { _, rendered in rendered }
@@ -476,9 +485,6 @@ private func runCompanions(
             "metalSHA256": SceneGenericShaderProgramArtifact.sha256(Data(compiled.metalSource.utf8)),
             "observations": observations]
     }
-    results.merge(try companionStaticFallbackRejections(frontend: frontend,
-        selected: selectedSlot(index: 1, texture: source,
-            transform: axis, generation: 1, isSpriteSheet: true))) { _, probe in probe }
     var result: [String: Any] = ["metalAvailable": true,
         "fixtures": results, "validation": validation]
     if !generic {
@@ -503,83 +509,6 @@ private func runCompanions(
         result["boundedArraySourceRejections"] = arrays
     }
     return result
-}
-
-// Compile each invalid declaration rather than mutating a field after reflection.
-// Ordinary-name controls prove that legal static bytes and the remaining inputs
-// are accepted, so reserved companion ownership is the rejecting boundary.
-private func companionStaticFallbackRejections(
-    frontend: (CoordinateFixture) throws -> SceneAuthoredShaderProgram,
-    selected: Program.TextureSlot
-) throws -> [String: Any] {
-    let cases: [(name: String, suffix: String, declaration: String,
-                 type: SceneAuthoredShaderValueType, samplerActive: Bool)] = [
-        ("rotation-wrong-type", "Rotation", "vec3", .float3, true),
-        ("translation-wrong-type", "Translation", "vec4", .float4, true),
-        ("rotation-inactive-sampler", "Rotation", "vec4", .float4, false),
-        ("translation-inactive-sampler", "Translation", "vec2", .float2, false),
-    ]
-    var results: [String: Any] = [:]
-    for testCase in cases {
-        for reserved in [true, false] {
-            let name = "\(reserved ? "reserved" : "ordinary")-static-\(testCase.name)"
-            let uniformName = reserved ? "g_Texture1\(testCase.suffix)" : "own\(testCase.suffix)"
-            let sampler = testCase.samplerActive ? "uniform sampler2D g_Texture1;" : ""
-            let sample = testCase.samplerActive
-                ? "vec4 sampled = texSample2D(g_Texture1, \(point));" : ""
-            let alpha = testCase.samplerActive ? " * sampled.a" : ""
-            let fixture = CoordinateFixture(name: name, vertex: vertex, fragment: """
-                \(sampler)
-                uniform \(testCase.declaration) \(uniformName);
-                void main() {
-                    \(sample)
-                    gl_FragColor = vec4(\(uniformName).x\(alpha), 0.0, 0.0, 1.0);
-                }
-                """, slot: 1)
-            let compiled = try frontend(fixture)
-            var slots = Array<Program.TextureSlot?>(repeating: nil, count: 8)
-            if testCase.samplerActive { slots[1] = selected }
-            // Only the source-authored field attempts static fallback. Existing
-            // compiler host fields (such as render size) retain their real owner.
-            let uniforms = try compiled.uniformLayout.fields.map { field -> Program.ResolvedUniform in
-                if field.authoredName == uniformName {
-                    return .init(field: field, source: .staticValue,
-                        encodedValue: Data(count: field.storageByteSize))
-                }
-                guard let host = SceneResolvedMaterialUniformEncoder.hostUniform(field, slots: slots),
-                      let value = SceneResolvedMaterialUniformEncoder.encodeHost(host,
-                        type: field.type, inputs: inputs(generation: 1), slots: slots) else {
-                    throw NSError(domain: "unexpected-static-probe-field", code: 1)
-                }
-                return .init(field: field, source: .host(host), encodedValue: value)
-            }
-            let input = Program.AssemblyInput(preparedShader: prepared(fixture),
-                textureSlots: slots, resolvedUniforms: uniforms,
-                renderState: SceneMaterialRenderState.compile(blending: "normal",
-                    depthTest: "disabled", depthWrite: "disabled", cullMode: "nocull",
-                    alphaWriting: nil)!,
-                graphRole: .init(effectInput: .layerSource, effectOutput: .effectOutput,
-                    nodeTarget: .framebuffer, bindings: testCase.samplerActive
-                        ? [.init(slot: 1, texture: .framebuffer)] : []),
-                outputStorage: .preservedRGBAUnorm)
-            let field = compiled.uniformLayout.fields.first { $0.authoredName == uniformName }
-            results[name] = [
-                "backend": String(describing: compiled.backend),
-                "metalSHA256": SceneGenericShaderProgramArtifact.sha256(Data(compiled.metalSource.utf8)),
-                "fieldShapeMatches": field?.type == testCase.type
-                    && field?.arrayCount == nil
-                    && compiled.uniformLayout.fields.filter { $0.authoredName == uniformName }.count == 1,
-                "activeSamplerMatches": compiled.textureBindings.map(\.slot)
-                    == (testCase.samplerActive ? [1] : []),
-                "assembleAccepted": Program.assemble(input) != nil,
-                "assembleCompiledAccepted": Program.assembleCompiled(input, frontend: compiled,
-                    routeDecision: .init(profile: "ordinary-shader", state: "prefer-generic",
-                        fallbackOwner: "bounded-frontend"),
-                    conditionalGeneratedRGBInputContract: nil) != nil,
-            ]
-        }
-    }
-    return results
 }
 
 private func companionRejections(
@@ -616,43 +545,34 @@ private func companionRejections(
             selected: selected, generation: 1, outputStorage: .preservedRGBAUnorm) else {
         return ["status": "producer-unavailable", "rejected": checks]
     }
-    func assembled(_ input: Program.AssemblyInput) -> Program? {
-        generic ? Program.assembleCompiled(input, frontend: frontend,
-            routeDecision: .init(profile: "ordinary-shader", state: "prefer-generic",
-                fallbackOwner: "bounded-frontend"),
-            conditionalGeneratedRGBInputContract: nil) : Program.assemble(input)
+    func assembled(_ input: Program.FrameAssemblyInput) -> Program? {
+        Program.assemblePrepared(input, prepared: baseline.prepared,
+            routeDecision: .init(profile: "ordinary-shader", state: generic ? "generic" : "bounded",
+                fallbackOwner: "none"))
     }
     func changedInput(slots: [Program.TextureSlot?]? = nil,
-                      uniforms: [Program.ResolvedUniform]? = nil) -> Program.AssemblyInput {
-        .init(preparedShader: baseline.preparedShader, textureSlots: slots ?? baseline.textureSlots,
-            resolvedUniforms: uniforms ?? baseline.resolvedUniforms, renderState: baseline.renderState,
-            graphRole: baseline.graphRole, outputStorage: baseline.outputStorage,
-            runtimeLoopBounds: baseline.runtimeLoopBounds)
+                      uniforms: [Program.ResolvedUniform]? = nil) -> Program.FrameAssemblyInput {
+        .init(textureSlots: slots ?? baseline.frame.textureSlots,
+            resolvedUniforms: uniforms ?? baseline.frame.resolvedUniforms,
+            graphRole: baseline.frame.graphRole, outputStorage: baseline.frame.outputStorage)
     }
     func replacingUniform(_ replace: (Program.ResolvedUniform) -> Program.ResolvedUniform)
         -> [Program.ResolvedUniform] {
-        baseline.resolvedUniforms.map { $0.field == field ? replace($0) : $0 }
+        zip(baseline.prepared.preparedUniformBindings, baseline.frame.resolvedUniforms).map {
+            $0.0.field == field ? replace($0.1) : $0.1
+        }
     }
     let emptySlots = Array<Program.TextureSlot?>(repeating: nil, count: 8)
     checks["encoderWrongType"] = SceneResolvedMaterialUniformEncoder.encodeHost(host,
         type: wrongType, inputs: inputs(generation: 1),
-        slots: baseline.textureSlots) == nil
+        slots: baseline.frame.textureSlots) == nil
     checks["encoderMissingBinding"] = SceneResolvedMaterialUniformEncoder.encodeHost(host,
         type: field.type, inputs: inputs(generation: 1), slots: emptySlots) == nil
     checks["programMissingBinding"] = assembled(changedInput(slots: emptySlots)) == nil
-    checks["programWrongType"] = assembled(changedInput(uniforms: replacingUniform {
-        .init(field: typedWrong, source: $0.source, encodedValue: $0.encodedValue)
-    })) == nil
-    checks["programArray"] = assembled(changedInput(uniforms: replacingUniform {
-        .init(field: arrayWrong, source: $0.source, encodedValue: $0.encodedValue)
-    })) == nil
-    checks["programWrongSource"] = assembled(changedInput(uniforms: replacingUniform {
-        .init(field: $0.field, source: .staticValue, encodedValue: $0.encodedValue)
-    })) == nil
     checks["programTruncatedBytes"] = assembled(changedInput(uniforms: replacingUniform {
-        .init(field: $0.field, source: $0.source, encodedValue: Data($0.encodedValue.dropLast()))
+        .init(encodedValue: Data($0.encodedValue.dropLast()))
     })) == nil
-    return ["status": "ready", "baselineProgramAccepted": assembled(baseline) != nil,
+    return ["status": "ready", "baselineProgramAccepted": assembled(baseline.frame) != nil,
         "rejected": checks]
 }
 '''
@@ -662,7 +582,8 @@ HARNESS = COORDINATE_HARNESS + r'''
     static func main() throws {
         let compileFixture: (CoordinateFixture) throws -> SceneAuthoredShaderProgram = { fixture in
             let compiled = SceneAuthoredShaderFrontend.compile(
-                vertexSource: fixture.vertex, fragmentSource: fixture.fragment)
+                vertexSource: fixture.vertex, fragmentSource: fixture.fragment,
+                boundTextureSlots: [fixture.slot])
             guard let frontend = compiled.program else {
                 throw NSError(domain: "bounded-\(fixture.name)", code: 1,
                     userInfo: [NSLocalizedDescriptionKey: String(describing: compiled.diagnostics)])
@@ -748,16 +669,6 @@ def assert_coordinate_pixels(test: unittest.TestCase, result: dict, backend: str
             test.assertEqual(len({f["pipelineAttempts"] for f in fixture["frames"]}), 1, fixture)
 
 
-STATIC_COMPANION_CASES = (
-    "rotation-wrong-type", "translation-wrong-type",
-    "rotation-inactive-sampler", "translation-inactive-sampler",
-)
-STATIC_COMPANION_FIXTURES = {
-    f"{prefix}-static-{case}"
-    for prefix in ("reserved", "ordinary") for case in STATIC_COMPANION_CASES
-}
-
-
 def assert_companion_pixels(test: unittest.TestCase, result: dict, backend: str) -> None:
     # Every value in each reviewed interval rounds to this RGBA8 output.
     # This does not recover the exact official floating-point value.
@@ -792,7 +703,7 @@ def assert_companion_pixels(test: unittest.TestCase, result: dict, backend: str)
         for profile, (mapped, _) in metadata.items()
     }
     fixtures = result["companions"]["fixtures"]
-    test.assertEqual(set(fixtures), set(expected) | STATIC_COMPANION_FIXTURES, result)
+    test.assertEqual(set(fixtures), set(expected), result)
     for name, profiles in expected.items():
         fixture = fixtures[name]
         test.assertEqual(fixture["backend"], backend)
@@ -824,8 +735,7 @@ def assert_companion_rejections(test: unittest.TestCase, result: dict) -> None:
     test.assertEqual(set(validation), {"companion-rotation-xyz", "companion-translation"})
     expected = {
         "schemaMissingActiveSampler", "schemaWrongType", "schemaArray", "schemaSlotEight",
-        "encoderWrongType", "encoderMissingBinding", "programMissingBinding", "programWrongType",
-        "programArray", "programWrongSource", "programTruncatedBytes",
+        "encoderWrongType", "encoderMissingBinding", "programMissingBinding", "programTruncatedBytes",
     }
     for name, probe in validation.items():
         with test.subTest(companion=name):
@@ -843,15 +753,6 @@ def assert_companion_rejections(test: unittest.TestCase, result: dict) -> None:
             with test.subTest(bounded_frontend_array_source=suffix):
                 test.assertTrue(probe["frontendRejected"], probe)
                 test.assertTrue(probe["unsupportedType"], probe)
-    for name in sorted(STATIC_COMPANION_FIXTURES):
-        with test.subTest(actual_frontend_static_binding=name):
-            probe = fixtures[name]
-            test.assertEqual(probe["backend"], backend, probe)
-            test.assertTrue(probe["fieldShapeMatches"], probe)
-            test.assertTrue(probe["activeSamplerMatches"], probe)
-            expected_acceptance = name.startswith("ordinary-")
-            test.assertEqual(probe["assembleAccepted"], expected_acceptance, probe)
-            test.assertEqual(probe["assembleCompiledAccepted"], expected_acceptance, probe)
 
 
 class SceneMaterialTextureTransformTests(unittest.TestCase):

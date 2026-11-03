@@ -2,11 +2,8 @@ import CoreGraphics
 import Foundation
 import Metal
 
-nonisolated enum SceneTextureLoadPurpose: Hashable, Sendable {
-    case premultipliedColor, straightAlbedo, preservedChannels, mask, noise
-    case flow, phase, normal, depth, lookupTable
-    var requiresVolumeTexture: Bool { self == .lookupTable }
-}
+private let quadUV01 = SIMD4<Float>(0, 1, 1, 1)
+private let quadUV23 = SIMD4<Float>(0, 0, 1, 0)
 
 nonisolated struct SceneResolvedMaterialNode {
     enum TextureProvenance: String, Hashable {
@@ -20,11 +17,6 @@ nonisolated enum SceneDynamicTarget: Hashable {
 
 nonisolated enum SceneDynamicSource: Hashable {
     case authored, userProperty, timeline, sceneScript
-}
-
-nonisolated struct SceneSystemProviderTextureIdentity: Hashable {
-    let name: String
-    let purpose: SceneTextureLoadPurpose
 }
 
 nonisolated enum SceneFrameTextureIdentity: Hashable {
@@ -239,26 +231,29 @@ private func bytes<T>(_ value: T) -> Data {
 }
 
 private func uniforms(
-    shader: SceneShaderPreparedProgram
-) -> [Program.ResolvedUniform] {
-    let frontend = SceneAuthoredShaderFrontend.compile(
-        vertexSource: shader.vertex.source,
-        fragmentSource: shader.fragment.source
-    ).program!
+    frontend: SceneAuthoredShaderProgram
+) -> (bindings: [SceneResolvedMaterialPreparedUniformBinding], values: [Program.ResolvedUniform]) {
     let activeTextureSlots = Set(frontend.textureBindings.map(\.slot))
-    return frontend.uniformLayout.fields.map { field in
+    var bindings: [SceneResolvedMaterialPreparedUniformBinding] = []
+    let values = frontend.uniformLayout.fields.map { field -> Program.ResolvedUniform in
         let value: Data
         if field.name == "mwxRenderSize" {
             value = bytes(SIMD2<Float>(2, 2))
+        } else if field.authoredName == "mwxVertexCoordinates01" {
+            value = bytes(quadUV01)
+        } else if field.authoredName == "mwxVertexCoordinates23" {
+            value = bytes(quadUV23)
         } else {
             value = bytes(Float(0))
         }
         let source = SceneResolvedMaterialHostUniformSchema.resolve(
             field,
             activeTextureSlots: activeTextureSlots
-        ).map(Program.ResolvedUniform.Source.host) ?? .staticValue
-        return .init(field: field, source: source, encodedValue: value)
+        ).map(SceneResolvedMaterialPreparedUniformBinding.Source.host) ?? .staticValue(value)
+        bindings.append(.init(field: field, source: source))
+        return .init(encodedValue: value)
     }
+    return (bindings, values)
 }
 
 private func program(
@@ -273,11 +268,20 @@ private func program(fragmentSource: String, bindings: [Int: Program.TextureSlot
     let shader = prepared(fragmentSource: fragmentSource)
     var textureSlots = Array<Program.TextureSlot?>(repeating: nil, count: 8)
     for (index, binding) in bindings { textureSlots[index] = binding }
-    return Program.assemble(.init(
-        preparedShader: shader,
+    guard let frontend = SceneAuthoredShaderFrontend.compile(
+        vertexSource: shader.vertex.source, fragmentSource: shader.fragment.source,
+        boundTextureSlots: Set(bindings.keys)
+    ).program else { return nil }
+    let values = uniforms(frontend: frontend)
+    guard let assembly = try? Program.PreparedAssembly(
+        preparedShader: shader, frontend: frontend, renderState: state(),
+        runtimeLoopBounds: .none, preparedUniformBindings: values.bindings,
+        conditionalGeneratedRGBInputContract: nil, associatedOverOverlaySlot: nil,
+        premultipliedColorInputSlots: []
+    ) else { return nil }
+    return Program.assemblePrepared(.init(
         textureSlots: textureSlots,
-        resolvedUniforms: uniforms(shader: shader),
-        renderState: state(),
+        resolvedUniforms: values.values,
         graphRole: .init(
             effectInput: .layerSource,
             effectOutput: .effectOutput,
@@ -285,7 +289,8 @@ private func program(fragmentSource: String, bindings: [Int: Program.TextureSlot
             bindings: bindings.keys.sorted().map { .init(slot: $0, texture: .framebuffer) }
         ),
         outputStorage: .color
-    ))
+    ), prepared: assembly, routeDecision: .init(
+        profile: "self-authored-signal-composition", state: "fixture", fallbackOwner: "none"))
 }
 
 private func pixels(_ texture: MTLTexture) -> [UInt8] {
@@ -327,6 +332,7 @@ private func execute(
     )
     var encoded = false
     var completed = false
+    if let program { prepareMaterialPipeline(program, encoder: encoder, target: target) }
     if let program,
        let prepared = encoder.prepare(program: program, target: target),
        let command = queue.makeCommandBuffer() {
@@ -462,6 +468,8 @@ private func renderBoundary(
         switch field.authoredName {
         case "mwxRenderSize": value = bytes(SIMD2<Float>(1, 1))
         case "g_ScalarWeight": value = bytes(Float(1))
+        case "mwxVertexCoordinates01": value = bytes(quadUV01)
+        case "mwxVertexCoordinates23": value = bytes(quadUV23)
         default:
             throw NSError(domain: "unbound-boundary-ABI-\(field.authoredName)", code: 1)
         }

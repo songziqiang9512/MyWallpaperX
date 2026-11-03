@@ -31,6 +31,16 @@ nonisolated struct SceneNamedTextureReference: Hashable, Sendable {
     nonisolated private static let prefix = "_rt_imageLayerComposite_"
 }
 
+/// Prepared classification of an authored render-target reference; resource
+/// allocation and publication remain with their current runtime owners.
+nonisolated enum SceneRenderTargetReferenceKind: Hashable {
+    case typedFrameInput
+    case sceneEnvironment
+    case namedLayerTarget(SceneNamedTextureReference)
+    /// Preserve an unknown or malformed spelling for the admitting caller.
+    case unadmitted(String)
+}
+
 nonisolated struct SceneEffectPassSlot: Hashable {
     let effectID: String
     let passIndex: Int
