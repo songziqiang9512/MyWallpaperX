@@ -34,17 +34,12 @@ from scene_swift_source_sets import scene_swift_sources  # noqa: E402
 # replacement Schema, purpose registry, selector, Eligibility, or shader parser.
 # Metal is a link dependency of those types; this harness never creates a device.
 SWIFT_SOURCES = list(dict.fromkeys([
+    *scene_swift_sources("shader_contract_resource_resolution"),
     SCENE_ROOT / "Resources/Textures/SceneResourceBudget.swift",
-    SCENE_ROOT / "Format/SceneJSONValue.swift",
-    SCENE_ROOT / "Compilation/ShaderContract/SceneShaderContractLoader.swift",
-    SCENE_ROOT / "Compilation/ShaderContract/SceneBuiltinShaderIdentity.swift",
     SCENE_ROOT / "Format/SceneBCTextureDecoder.swift",
     SCENE_ROOT / "Format/SceneTexContainer.swift",
     SCENE_ROOT / "Format/SceneTexDataReader.swift",
     SCENE_ROOT / "Systems/Properties/SceneDynamicSnapshot.swift",
-    SCENE_ROOT / "Compilation/ShaderContract/SceneShaderSourceGraph.swift",
-    SCENE_ROOT / "Compilation/ShaderContract/SceneShaderLegacyAnnotationJSON.swift",
-    SCENE_ROOT / "Compilation/ShaderContract/SceneShaderContract.swift",
     SCENE_ROOT / "Compilation/Graph/SceneAuthoredEffectRenderPlan.swift",
     SCENE_ROOT / "Runtime/Frame/SceneMaterialRenderState.swift",
     SCENE_ROOT / "Compilation/Material/SceneMaterialRenderState+Compilation.swift",
@@ -200,7 +195,6 @@ private func ownPrepared(
 private func template(
     _ prepared: Prepared,
     maskCandidates: [Template.TextureCandidate]? = nil,
-    owner: Bool = true,
     tintComponents: [Double] = [0.2, 0.4, 0.8],
     dynamicTint: Bool = false
 ) -> Template? {
@@ -226,7 +220,6 @@ private func template(
             nodeTarget: .effectOutput,
             bindings: [.init(slot: 0, texture: .framebuffer),
                        .init(slot: 2, texture: .layerSource)]),
-        previousBlurredCompositeGenericOwnerEligible: owner,
         effectContext: .init(key: consumer, input: ingress),
         shaderContract: prepared.shader,
         diagnosticProvenance: .init(nodeIndex: 3,
@@ -281,7 +274,6 @@ private func sourceSlots(_ prepared: Prepared, _ candidate: Template) -> Eligibi
         let internalDefault = try ownPrepared(defaultPath: "_rt_unseen_default")
         let regular = try ownPrepared(mode: nil)
         let rgb = try ownPrepared(mode: "rgbmask")
-        let unowned = template(first, owner: false)!
         let badOverrides: [(String, Template.TextureReference)] = [
             ("providerOverride", .provider(.namedLayerTarget(
                 .init(providerLayerID: 902, variant: .primary)))),
@@ -305,10 +297,6 @@ private func sourceSlots(_ prepared: Prepared, _ candidate: Template) -> Eligibi
             "nonfiniteStaticColor": validated(first, template: template(first,
                 tintComponents: [0.2, .infinity, 0.8])!) == nil,
             "dynamicColor": validated(first, template: template(first, dynamicTint: true)!) == nil,
-            "ownerEntryRejects": sourceSlots(first, unowned) == nil,
-            // validated is deliberately only the per-node proof. This positive
-            // control prevents conflating that API with the whole-owner gate.
-            "validatedDoesNotGrantOwner": validated(first, template: unowned) == expected,
         ]
         for (name, reference) in badOverrides {
             negatives[name] = validated(first, template: template(first,
@@ -404,7 +392,7 @@ class ScenePreviousCompositeDefaultMaskTests(unittest.TestCase):
         self.assertEqual(self.result["sourceAnalyzerMaskSlot"], 1)
         self.assertTrue(all(self.result["positives"].values()), self.result["positives"])
 
-    def test_adjacent_unsupported_inputs_and_owner_boundary_remain_rejected(self):
+    def test_adjacent_unsupported_typed_inputs_remain_rejected(self):
         self.assertTrue(all(self.result["negatives"].values()), self.result["negatives"])
         self.assertFalse(self.result["assetPixelsRead"])
         self.assertFalse(self.result["metalDeviceCreated"])

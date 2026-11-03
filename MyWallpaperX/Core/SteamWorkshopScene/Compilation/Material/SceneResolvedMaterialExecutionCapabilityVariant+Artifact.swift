@@ -102,7 +102,6 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             colorBlendSourceSlot = nil
         }
         if let fact = previousBlurredCompositeAnalyzerFact,
-            template.previousBlurredCompositeGenericOwnerEligible,
             let slots = SceneResolvedMaterialPreviousBlurredCompositeEligibility
                 .validated(
                     shape: fact,

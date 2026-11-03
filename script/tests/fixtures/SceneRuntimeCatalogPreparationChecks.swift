@@ -67,7 +67,6 @@ extension CancellationProbe {
                         && a.inheritedInactiveCombos == b.inheritedInactiveCombos
                         && a.uniformDeclarations == b.uniformDeclarations && a.renderState == b.renderState
                         && a.graphRole == b.graphRole && a.effectContext == b.effectContext
-                        && a.previousBlurredCompositeGenericOwnerEligible == b.previousBlurredCompositeGenericOwnerEligible
                         && a.compatibilityTarget == b.compatibilityTarget
                         && a.shaderContract == b.shaderContract && a.diagnosticProvenance == b.diagnosticProvenance
                         && formatsA == formatsB

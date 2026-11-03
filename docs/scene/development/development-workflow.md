@@ -92,7 +92,7 @@ python3.12 -B script/scene_sample_debug_archive.py \
 | 当前限制 | 负责代码 | 扩展时应验证 |
 |---|---|---|
 | 动态图片依赖在准备期从 `thisScene.createLayer` 的直接路径或平面配置 literal 发现，不求值任意 JavaScript 表达式 | [ReferenceAnalysis](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptDynamicImageReferenceAnalysis.swift) | typed 间接依赖、模块/嵌套表达式及健康邻例；不能改成帧内 IO 或整目录预加载 |
-| previous-blurred-composite 仍有四 pass、两 quarter targets、binding/state/combo 与有界 source 资格 | [GraphAdmission](../../../MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialPreviousBlurredCompositeGraphAdmission.swift)、[SourceAnalyzer](../../../MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.swift) | 改名和等价输入、错误绑定/状态/producer、溢出及实际 GPU 输出；更宽支持落在同一准备和执行 owner |
+| 双输入组合的颜色补偿仍用有界 source/MSL 数据流识别，尚未由通用 typed shader ABI 完整表达 | [SourceAnalyzer](../../../MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.swift)、[颜色边界](../capabilities/render-graph-shader-coverage.md#color) | 原 compiler/ABI 内以通用表示与数据流替代，保PMA/straight/data、alpha/HDR和真实像素反例；不能继续增加算法族或固定源码名单 |
 
 路径、hash 或固定源码形状若承担兼容选择，须在本节说明实际必要性、影响范围、正反例和替换条件。资源查找 identity、缓存键和标准 API 名称不因此成为视觉特判许可；样本身份不得选择产品算法。
 

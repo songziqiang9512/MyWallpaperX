@@ -40,7 +40,6 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectDefinition.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneAuthoredEffectRenderPlan.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneAuthoredMaterialResolver.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialPreviousBlurredCompositeGraphAdmission.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderSourceGraph.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderLegacyAnnotationJSON.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderContract.swift",

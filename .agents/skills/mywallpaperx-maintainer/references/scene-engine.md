@@ -63,6 +63,8 @@ authored project/scene/package/resource
 
 “通用”表示共享 scene/object identity、frame semantics、typed state、resource/provider、Program、graph/target lifecycle 和唯一 compositor，不表示一个巨型 renderer。2D、3D、particle、text、media、lighting 可以保留必要 importer/simulation/geometry/provider，但不能拥有第二资源系统、clock、graph、property tree、history 或 final output。
 
+所有effect沿实际编译、接口/表示、资源与执行合同准入；不要把效果名、固定源码形状、pass数量或kernel/方向/scale组合当播放许可。已由原owner接纳的事实直接传递。遗留源码形状补偿按[技术栈合同](../../../../docs/architecture/technology-stack-boundaries.md)作为待通用化债务处理，不能以继续扩大模式名单代替通用能力。
+
 目录和二级职责从 `script/scene_source_layout.json`、当前源码和自动测试获取。不要把旧目录表当长期 owner；新增或移动类型族时同步所有现役 standalone source lists/harnesses。
 
 ## 定义 correctness atom

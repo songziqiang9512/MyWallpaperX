@@ -26,8 +26,8 @@ nonisolated enum SceneResolvedMaterialExactPreviousInputShadow {
     }
 }
 
-/// Cross-checks the bounded two-source composite proof against exact graph
-/// identities and immutable typed host data before granting product authority.
+/// Resolves the composite's source fact against exact graph inputs and typed
+/// sampler/uniform data. Upstream passes keep their own Program contracts.
 nonisolated enum SceneResolvedMaterialPreviousBlurredCompositeEligibility {
     typealias Graph = SceneAuthoredEffectRenderPlan
     typealias Template = SceneResolvedMaterialTemplate
@@ -46,8 +46,7 @@ nonisolated enum SceneResolvedMaterialPreviousBlurredCompositeEligibility {
         implicitFramebufferIdentity: Graph.TextureIdentity?,
         activeGraphTextureIdentities: [Int: Graph.TextureIdentity]
     ) -> Slots? {
-        guard template.previousBlurredCompositeGenericOwnerEligible,
-              let fact = SceneAuthoredShaderPreviousBlurredCompositeAnalyzer
+        guard let fact = SceneAuthoredShaderPreviousBlurredCompositeAnalyzer
             .analyze(fragmentSource: fragmentSource) else { return nil }
         return validated(
             shape: fact,
@@ -170,7 +169,7 @@ nonisolated enum SceneResolvedMaterialPreviousBlurredCompositeEligibility {
 
     /// The graph binding that shadows named input provenance is intentionally
     /// identical to the dependency-owner predicate. A different alias, slot,
-    /// or identity must keep the incumbent instead of opening an owner gap.
+    /// or identity cannot stand in for the selected graph ingress.
     static func exactPreviousInputBinding(
         bindings: [Graph.Binding],
         slot: Int,

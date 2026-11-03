@@ -445,7 +445,7 @@
       "owner": "scene-material-color-boundary",
       "status": "approved",
       "designDoc": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "design_notes": "render-graph-shader-coverage.md#scalar-data-read：准备期以已证标量phase读取兼容二维data，保选中资产的原purpose/identity；ShaderSchema统一裁决，TextureSlotPurpose复用，替换严格相等限制。颜色/volume、其他source proof和错误候选链仍拒绝。改名/等价、反例、Metal像素及独立真实样本验收，不增普通帧工作或owner。",
+      "design_notes": "render-graph-shader-coverage.md#scalar-data-read与#composite-input-admission：实际编译、接口/表示、资源与执行合同共用；退出旧整段composite形状owner、Template许可布尔和专用API/测试，不加source token/新planner。逐节点source/identity/binding/mask/颜色及Program/Finalizer/graph hazard仍归原consumer；2/5pass、独立参数、颜色/数据与错误身份真实GPU验收，普通帧不加工作。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgram+ColorDerivation.swift",
@@ -455,7 +455,12 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderTextureChannelAnalyzer.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderFrontendModel.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialShaderSchema.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialShaderSchema+SamplerPurpose.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialShaderSchema+SamplerPurpose.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialPreviousBlurredCompositeEligibility.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+Artifact.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialTemplateCompiler.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgram.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialRuntimeCatalog.swift"
       ],
       "contentPatterns": []
     },

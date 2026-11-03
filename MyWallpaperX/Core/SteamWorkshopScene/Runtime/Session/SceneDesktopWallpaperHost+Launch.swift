@@ -455,8 +455,6 @@ extension SceneDesktopWallpaperHost {
             admissionCandidates: resolvedMaterialAdmissionCandidates,
             shaderContracts: runtimeInput.shaderContracts,
             userPropertyProducers: userPropertyProducers,
-            propertyDefinitions: propertyBindingDefinitions,
-            timelineDefinitions: timelineDefinitions,
             provenSceneScriptValueTargets: provisionalSceneScriptValueTargets,
             materialInstancesByLayerID: model.sceneDocument.materialInstancesByLayerID,
             loweredSourceMaterialModelPaths: loweredMaterialModelPaths,

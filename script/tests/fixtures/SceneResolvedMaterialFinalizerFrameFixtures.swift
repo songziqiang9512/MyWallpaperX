@@ -217,7 +217,6 @@ func template(
     secondCandidates: [Template.TextureCandidate]? = nil,
     comboValues: [String: Int] = [:],
     inheritedInactiveCombos: Set<String> = [],
-    previousBlurredCompositeGenericOwnerEligible: Bool = false,
     uniformDeclarations: [Template.UniformDeclaration] = [],
     renderState: SceneMaterialRenderState = state(),
     textureSlotsOverride: [Template.TextureSlot?]? = nil,
@@ -257,8 +256,6 @@ func template(
             bindings: graphBindingsOverride ?? (includePrimaryCandidate
                 ? [.init(slot: slot, texture: primaryGraphTextureRole)] : [])
         ),
-        previousBlurredCompositeGenericOwnerEligible:
-            previousBlurredCompositeGenericOwnerEligible,
         effectContext: effectContext,
         compatibilityTarget: compatibilityTarget,
         shaderContract: shader,

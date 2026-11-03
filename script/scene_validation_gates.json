@@ -1229,9 +1229,6 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderRouteProfile.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialHostUniformSchema.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialPreviousBlurredCompositeEligibility.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialPreviousBlurredCompositeGraphAdmission.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialPreviousBlurredCompositeOwnerAdmission+DynamicScale.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialPreviousBlurredCompositeOwnerAdmission.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgram+ColorDerivation.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgram+Derivation.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgram.swift",
@@ -1326,9 +1323,7 @@
     {
       "id": "authored-fallback-owner-revocation",
       "patterns": [
-        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialPreviousBlurredCompositeOwnerAdmission.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialPreviousBlurredCompositeOwnerAdmission+DynamicScale.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialPreviousBlurredCompositeGraphAdmission.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialPreviousBlurredComposite*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialRuntimeCatalog.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialVariantAnalysisCache.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/ScenePersistentSamplerRecord.swift",
@@ -1340,17 +1335,17 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+Stages.swift",
         "script/tests/test_scene_generic_shader_incumbent_owner_deferred.py",
         "script/tests/test_scene_property_binding_program.py",
-        "script/tests/test_scene_resolved_material_previous_blurred_composite_graph_admission.py",
         "script/tests/test_scene_previous_composite_scale.py",
         "script/tests/fixtures/ScenePreviousCompositeScaleHarness.swift",
         "script/tests/test_scene_shader_vec2_authored_fallback.py"
       ],
       "modules": [
-        "test_scene_resolved_material_previous_blurred_composite_graph_admission",
         "test_scene_generic_shader_incumbent_owner_deferred",
         "test_scene_property_binding_program",
         "test_scene_previous_composite_scale",
-        "test_scene_shader_vec2_authored_fallback"
+        "test_scene_shader_vec2_authored_fallback",
+        "test_scene_standard_blur_previous_composite",
+        "test_scene_previous_composite_default_mask"
       ]
     },
     {

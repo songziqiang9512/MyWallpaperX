@@ -1,9 +1,11 @@
-"""Owned KERNEL1 four-pass blur -> actual App pixels and effect visibility.
+"""Owned two/four/five-pass filters -> actual App pixels and effect visibility.
 
 The three-point weights and offsets below are our test oracle, not official
 Gaussian weights or an official pixel-parity claim. Every package asset is
 authored here or by the existing owned fullscreen fixture. The existing App
 runner supplies input/App identity, same-window, Metal capture and drain checks.
+These topologies qualify generic execution of these authored graphs, not all
+effect combinations or the ordinary color ABI for arbitrary alpha/HDR inputs.
 """
 from pathlib import Path
 import hashlib
@@ -18,6 +20,8 @@ from .test_scene_composition_authored_order_integration import VERTEX, encoded
 
 _BASE_ENTRIES = fullscreen.fixture_entries
 _ENCODED = fullscreen.encoded
+SQUARE_REGIONS = {"center": (124, 124, 132, 132), "horizontalWing": (92, 124, 100, 132),
+                  "verticalWing": (124, 92, 132, 100), "healthyLaterPeer": (184, 120, 200, 136)}
 GAUSSIAN_VERTEX = b'''
 // [COMBO] {"combo":"KERNEL","default":0,"options":[0,1]}
 // [COMBO] {"combo":"VERTICAL","default":0,"options":[0,1]}
@@ -73,8 +77,16 @@ void main() {
 '''
 
 
+def square_oracle(levels, regions, enabled):
+    levels = levels if enabled else (255, 0, 0)
+    return {name: {"canvasRect": rect, "expectedRGB": (0, 255, 0)
+            if name == "healthyLaterPeer" else (levels[index],) * 3}
+            for index, (name, rect) in enumerate(regions.items())}
+
+
 def fixture_entries(*, sampling_scale=(1, 1), square_pattern=False,
-                    rename_resources=False, **parameters):
+                    rename_resources=False, processing_stages=None, target_names=None,
+                    fbo_scale=4, active_square_rgb=None, regions=SQUARE_REGIONS, **parameters):
     project, entries = _BASE_ENTRIES(**parameters)
     scene = json.loads(entries["scene.json"])
     scene["objects"][0]["color"] = "0 0 0"
@@ -84,7 +96,11 @@ def fixture_entries(*, sampling_scale=(1, 1), square_pattern=False,
             "image": "models/own_solid.json", "origin": f"{x} 128 0",
             "size": "32 32" if square_pattern else "32 256", "color": "1 1 1"})
     layer = next(value for value in scene["objects"] if value["id"] == 20)
-    layer["name"] = "Owned four-pass KERNEL1 blur"
+    stages = processing_stages or (("blur_downsample4", None, 0),
+        ("blur_gaussian", sampling_scale, 0), ("blur_gaussian", sampling_scale, 1))
+    target_names = target_names or ("_rt_OwnQuarterA", "_rt_OwnQuarterB")
+    targets = [target_names[index % len(target_names)] for index in range(len(stages))]
+    layer["name"] = f"Owned {len(stages) + 1}-pass filter graph"
     effect_path = ("effects/independent/soften/effect.json" if rename_resources
                    else "effects/own/blur/effect.json")
     shader_prefix = "independent/stages" if rename_resources else "own/effects"
@@ -94,70 +110,69 @@ def fixture_entries(*, sampling_scale=(1, 1), square_pattern=False,
     for path in ("effects/own_dim/effect.json", "materials/own_dim.json",
                  "shaders/own_dim.vert", "shaders/own_dim.frag"):
         entries.pop(path)
-    material_names = ("downsample", "horizontal", "vertical", "combine")
-    targets = ("_rt_OwnQuarterA", "_rt_OwnQuarterB", "_rt_OwnQuarterA", None)
-    sources = ("previous", "_rt_OwnQuarterA", "_rt_OwnQuarterB", "_rt_OwnQuarterA")
+    shader_names = ({"blur_downsample4": "extract", "blur_gaussian": "weighted_filter",
+                     "half_gain": "attenuate", "blur_combine": "output_mix"}
+                    if rename_resources else {})
     passes = []
-    for index, name in enumerate(material_names):
-        effect_pass = {"material": f"{material_prefix}_{name}.json",
-                       "bind": [{"name": sources[index], "index": 0}]}
-        if targets[index]:
+    for index, (shader, scale, direction) in enumerate((*stages, ("blur_combine", None, 0))):
+        terminal = index == len(stages)
+        effect_pass = {"material": f"{material_prefix}_{index}.json",
+                       "bind": [{"name": targets[index - 1] if index else "previous", "index": 0}]}
+        if not terminal:
             effect_pass["target"] = targets[index]
-        if index == 3:
+        if terminal:
             effect_pass["bind"].append({"name": "previous", "index": 2})
         passes.append(effect_pass)
-        shader = "blur_gaussian" if index in (1, 2) else "blur_downsample4" if index == 0 else "blur_combine"
-        material = {"shader": f"{shader_prefix}/{shader}", "textures": [],
+        material = {"shader": f"{shader_prefix}/{shader_names.get(shader, shader)}", "textures": [],
                     "blending": "normal", "depthtest": "disabled",
                     "depthwrite": "disabled", "cullmode": "nocull"}
-        if index in (1, 2):
-            material.update(combos={"KERNEL": 1, "VERTICAL": index - 1},
-                            constantshadervalues={"scale": " ".join(map(str, sampling_scale))})
+        if scale is not None:
+            material.update(combos={"KERNEL": 1, "VERTICAL": direction},
+                            constantshadervalues={"scale": " ".join(map(str, scale))})
         entries[effect_pass["material"]] = encoded({"passes": [material]})
     entries[effect_path] = encoded({"version": 1, "passes": passes,
-        "fbos": [{"name": name, "scale": 4, "format": "rgba_backbuffer"}
-                 for name in ("_rt_OwnQuarterA", "_rt_OwnQuarterB")]})
+        "fbos": [{"name": name, "scale": fbo_scale, "format": "rgba_backbuffer"}
+                 for name in dict.fromkeys(targets)]})
+    used_shaders = {stage[0] for stage in stages} | {"blur_combine"}
     for name, vertex, fragment in (
         ("blur_downsample4", VERTEX, b"uniform sampler2D g_Texture0;\nvarying vec2 v_TexCoord;\nvoid main(){gl_FragColor=texSample2D(g_Texture0,v_TexCoord);}\n"),
         ("blur_gaussian", GAUSSIAN_VERTEX, GAUSSIAN_FRAGMENT),
+        ("half_gain", VERTEX, b"uniform sampler2D g_Texture0;\nvarying vec2 v_TexCoord;\nvoid main(){vec4 c=texSample2D(g_Texture0,v_TexCoord);gl_FragColor=vec4(c.rgb*0.5,c.a);}\n"),
         ("blur_combine", VERTEX, COMPOSITE_FRAGMENT)):
+        if name not in used_shaders:
+            continue
         if rename_resources and name == "blur_gaussian":
             vertex = vertex.replace(b"v_Offset", b"v_FilterDelta").replace(
                 b"g_Scale.y * 0.125", b"g_Scale.y / 8.0").replace(
                 b"g_Scale.x * 0.125", b"g_Scale.x / 8.0")
             fragment = fragment.replace(b"v_Offset", b"v_FilterDelta").replace(b"albedo", b"weightedColor")
-        entries[f"shaders/{shader_prefix}/{name}.vert"] = vertex
-        entries[f"shaders/{shader_prefix}/{name}.frag"] = fragment
+        entries[f"shaders/{shader_prefix}/{shader_names.get(name, name)}.vert"] = vertex
+        entries[f"shaders/{shader_prefix}/{shader_names.get(name, name)}.frag"] = fragment
     oracle = {"testSHA256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         "kernel": 1, "weights": [.25, .5, .25], "canvasOffset": 32,
+        "processingStages": stages, "targetNames": list(dict.fromkeys(targets)), "fboScale": fbo_scale,
         "sequence": [False, True, False], "expectedWhiteStripeRGB": [255, 128, 255],
         "evidenceBoundary": "self-authored filter, not official Gaussian weights or pixel parity"}
     if square_pattern:
         horizontal, vertical = (amount != 0 for amount in sampling_scale)
-        active = (round(255 * (.5 if horizontal else 1) * (.5 if vertical else 1)),
+        active = active_square_rgb or (round(255 * (.5 if horizontal else 1) * (.5 if vertical else 1)),
                   round(255 * .5 * (.5 if vertical else 1)) if horizontal else 0,
                   round(255 * .25 * (.5 if horizontal else 1)) if vertical else 0)
-        rectangles = {"center": (124, 124, 132, 132), "horizontalWing": (92, 124, 100, 132),
-                      "verticalWing": (124, 92, 132, 100), "healthyLaterPeer": (184, 120, 200, 136)}
-        def description(enabled):
-            levels = active if enabled else (255, 0, 0)
-            return {name: {"canvasRect": rect, "expectedRGB": (0, 255, 0)
-                    if name == "healthyLaterPeer" else (levels[index],) * 3}
-                    for index, (name, rect) in enumerate(rectangles.items())}
         oracle.pop("expectedWhiteStripeRGB")
         oracle.update(pattern="two32x32-squares", samplingScale=list(sampling_scale),
-            qualifiedAxisAmounts=[0, .99], fboScale=4, sequence=[False, True, True, False],
-            snapshotOracles={"scene-ready-window.png": description(False),
-                "scene-series-0002-window.png": description(True),
-                "scene-series-0004-window.png": description(True),
-                "scene-after-window.png": description(False)},
-            captureBoundary="two settled enabled captures; not adjacent-frame pixel samples",
-            allZeroBoundary="downsample and upsample remain; not original-image identity")
+            sequence=[False, True, True, False],
+            snapshotOracles={"scene-ready-window.png": square_oracle(active, regions, False),
+                "scene-series-0002-window.png": square_oracle(active, regions, True),
+                "scene-series-0004-window.png": square_oracle(active, regions, True),
+                "scene-after-window.png": square_oracle(active, regions, False)},
+            captureBoundary="two settled enabled captures; not adjacent-frame pixel samples")
+        if processing_stages is None:
+            oracle["allZeroBoundary"] = "downsample and upsample remain; not original-image identity"
     entries["owned-blur-oracle.json"] = encoded(oracle)
-    if square_pattern:
+    if square_pattern and processing_stages is None:
         entries["owned-zero-axis-input.json"] = encoded({"scale": list(sampling_scale),
             "squareCenters": [[64, 128], [128, 128]], "squareSize": [32, 32],
-            "fboScale": 4, "renamedResourcesAndEquivalentOffsets": rename_resources,
+            "fboScale": fbo_scale, "renamedResourcesAndEquivalentOffsets": rename_resources,
             "boundary": "zero sampling offsets retain downsample/upsample; not original-image identity"})
     return project, entries
 
@@ -175,31 +190,26 @@ class SceneStandardBlurVisibilityIntegrationTests(unittest.TestCase):
         self.assertNotIn("source-proven-previous-blurred-composite-unowned", log)
         self.assertEqual(hashlib.sha256(Path(__file__).read_bytes()).hexdigest(), identity)
 
-    def _run_zero_axis_case(self, scale, expected_active, *, rename_resources=False):
+    def _run_square_case(self, scale, expected_active, *, rename_resources=False,
+                         processing_stages=None, target_names=None, fbo_scale=4,
+                         regions=SQUARE_REGIONS, sampling_domain=None):
         identity = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
-        regions = {"center": (124, 124, 132, 132), "horizontalWing": (92, 124, 100, 132),
-                   "verticalWing": (124, 92, 132, 100), "healthyLaterPeer": (184, 120, 200, 136)}
 
         def inputs(**parameters):
             return fixture_entries(sampling_scale=scale, square_pattern=True,
-                                   rename_resources=rename_resources, **parameters)
-
-        def oracle(name):
-            # Two settled captures while enabled, then the original producer
-            # is restored. These are not adjacent GPU pixel captures.
-            active = name.startswith("scene-series-")
-            levels = expected_active if active else (255, 0, 0)
-            return {name: {"canvasRect": rect,
-                        "expectedRGB": (0, 255, 0) if name == "healthyLaterPeer"
-                        else (levels[index],) * 3}
-                        for index, (name, rect) in enumerate(regions.items())}
+                rename_resources=rename_resources, processing_stages=processing_stages,
+                target_names=target_names, fbo_scale=fbo_scale, active_square_rgb=expected_active,
+                regions=regions, **parameters)
 
         def encode_protocol(value):
             # Fill the existing capture protocol before it is frozen/written
             # or the App starts; retain the one shared PNG measurement owner.
             if isinstance(value, dict) and "snapshotOracles" in value:
-                value["snapshotOracles"] = {name: oracle(name) for name in value["snapshotOracles"]}
-                value["gaussianZeroAxis"] = {"scale": list(scale), "fboScale": 4,
+                value["snapshotOracles"] = {name: square_oracle(expected_active, regions,
+                    name.startswith("scene-series-")) for name in value["snapshotOracles"]}
+                value["ownedFilterGraph"] = {"scale": list(scale), "fboScale": fbo_scale,
+                    "processingStages": processing_stages, "targetNames": target_names,
+                    "samplingDomain": sampling_domain,
                     "renamedResourcesAndEquivalentOffsets": rename_resources,
                     "boundary": "two settled enabled captures plus consecutive GPU completions, not adjacent-frame pixel samples"}
             return _ENCODED(value)
@@ -207,7 +217,11 @@ class SceneStandardBlurVisibilityIntegrationTests(unittest.TestCase):
         with patch.object(fullscreen, "fixture_entries", inputs), patch.object(fullscreen, "encoded", encode_protocol):
             log, pixels = self.run_case(inactive_effect=True, launch={"mode": "on", "fx": False},
                 sequence=[{"fx": True}, {"fx": True}, {"fx": False}], expected_dims=[False, False, False])
-        self.assertRegex(log, r"generic shader execution state=generic-only profile=source-proven-previous-blurred-composite layer=20 effect=0 [^\n]*node=3 ")
+        terminal = len(processing_stages) if processing_stages is not None else 3
+        self.assertRegex(log, rf"generic shader execution state=generic-only profile=source-proven-previous-blurred-composite layer=20 effect=0 [^\n]*node={terminal} ")
+        self.assertRegex(log, rf"axis=graph-execution [^\n]*layer=20 effect=0 [^\n]*"
+            rf"materialNodes={terminal + 1} copyNodes=0 [^\n]*rejectedNodes=0 [^\n]*"
+            r"compositorConsumed=true outcome=succeeded failure=- gpuCompletion=completed")
         self.assertNotIn("source-proven-previous-blurred-composite-unowned", log)
         completed = {int(frame) for frame in re.findall(
             r"state=completed frame=(\d+) surface=\d+ gpu=completed", log)}
@@ -217,13 +231,35 @@ class SceneStandardBlurVisibilityIntegrationTests(unittest.TestCase):
         self.assertEqual(hashlib.sha256(Path(__file__).read_bytes()).hexdigest(), identity)
 
     def test_horizontal_sampling_with_zero_vertical_axis(self):
-        self._run_zero_axis_case((.99, 0), (128, 128, 0), rename_resources=True)
+        self._run_square_case((.99, 0), (128, 128, 0), rename_resources=True)
 
     def test_vertical_sampling_with_zero_horizontal_axis(self):
-        self._run_zero_axis_case((0, .99), (128, 0, 64))
+        self._run_square_case((0, .99), (128, 0, 64))
 
     def test_all_zero_sampling_keeps_the_downsample_chain(self):
-        self._run_zero_axis_case((0, 0), (255, 0, 0))
+        self._run_square_case((0, 0), (255, 0, 0))
 
     def test_two_positive_axes_remain_a_separable_neighbor(self):
-        self._run_zero_axis_case((.99, .99), (64, 64, 32))
+        self._run_square_case((.99, .99), (64, 64, 32))
+
+    def test_two_pass_renamed_graph_samples_before_composite(self):
+        self._run_square_case((.99, 0), (128, 128, 0), rename_resources=True,
+            processing_stages=(("blur_gaussian", (.99, 0), 0),),
+            target_names=("_rt_IndependentIntermediate",), fbo_scale=1)
+
+    def test_five_pass_renamed_graph_keeps_independent_sampling_and_gain(self):
+        # UV offsets span the captured viewport, including its cover crop.
+        # Half gain makes skipping the fourth producer visible in every lit ROI.
+        self._run_square_case((.99, 1.99), (32, 32, 16), rename_resources=True,
+            processing_stages=(("blur_downsample4", None, 0),
+                ("blur_gaussian", (.99, .17), 0), ("blur_gaussian", (.37, 1.99), 1),
+                ("half_gain", None, 0)),
+            target_names=("_rt_IndependentSeed", "_rt_IndependentAcross",
+                          "_rt_IndependentAlong", "_rt_IndependentAttenuated"),
+            fbo_scale=2, regions={**SQUARE_REGIONS, "verticalWing": (124, 83, 132, 91)},
+            sampling_domain={"sourceExtent": [3024, 1964], "uvDomain": "full captured viewport",
+                "coverScale": "max(sourceWidth / 256, sourceHeight / 256)",
+                "visibleCanvasHeight": "sourceHeight / coverScale",
+                "verticalCanvasOffset": "(1.99 / 8) * visibleCanvasHeight = 41.3583068783",
+                "verticalWingCenterY": "128 - verticalCanvasOffset = 86.6416931217",
+                "verticalWingROI": "round(verticalWingCenterY) +/- 4 = [83, 91]"})

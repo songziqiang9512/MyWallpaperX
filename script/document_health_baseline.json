@@ -25,8 +25,8 @@
       "bytes": 5740
     },
     "docs/architecture/technology-stack-boundaries.md": {
-      "lines": 198,
-      "bytes": 21096
+      "lines": 200,
+      "bytes": 21689
     },
     "docs/development/apple-silicon-optimization-plan.md": {
       "lines": 399,
@@ -125,12 +125,12 @@
       "bytes": 6872
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 78,
-      "bytes": 8826
+      "lines": 81,
+      "bytes": 9796
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 38,
-      "bytes": 5706
+      "lines": 39,
+      "bytes": 6561
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 81,
@@ -150,7 +150,7 @@
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 104,
-      "bytes": 12099
+      "bytes": 12057
     },
     "docs/scene/development/official-client-behavior-research-workflow.md": {
       "lines": 70,
@@ -161,8 +161,8 @@
       "bytes": 4260
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 155,
-      "bytes": 20589
+      "lines": 157,
+      "bytes": 21519
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -354,15 +354,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/development/development-workflow.md",
-      "before": "ea1859d77a3c8f1b398ce1f456a3db1250efef4608549079e88deb65b1300f23",
-      "after": "1b3ba1620f05781b1d0f35dfb5623f568640d7c3358b645c8cd6c1fda26fb5ad",
-      "owner": "scene-measurement",
-      "reason": "Define full-corpus attempt/input/inventory boundaries, actual draw/capture receipts, aggregate leads and fallback versus authored-operation proof in existing diagnostic owners.",
-      "decision": "docs/scene/development/development-workflow.md#corpus-runtime-measurement"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/scene-resource-admission.md",
       "before": "1fc894d7f9152714cd29d4e596ed00325765dc8a232f996f4f012c06edfcfacc",
       "after": "55486afe5f65c0bab713aa99e0f2fef0ec53ff9bca96cf2f6da90327e518845a",
@@ -372,30 +363,48 @@
     },
     {
       "section": "bodies",
+      "path": "docs/architecture/technology-stack-boundaries.md",
+      "before": "cb15af3de90aaaf56327e7fcbfe9e80598b731588438471656d6aef11f5e5deb",
+      "after": "96336635bdea8a2a76cbaf27eabc97f9a35a2656df6ac0ddaaaa6200c022313d",
+      "owner": "scene-generic-execution",
+      "reason": "Define all-effect admission by actual compiler, typed interfaces, resources and execution; source-shape compensation remains generic compiler debt.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#composite-input-admission"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "b6825129e13059ffe589256a47c1729c88fe72ab441611a140b69e485585e8b6",
-      "after": "3c860cf4c9f4f781fb3562504a0011eab350e061d8bce3156a07c7b511285f61",
-      "owner": "scene-material-input",
-      "reason": "Record source-proven scalar phase consumption of original 2D data purposes, with same-input material/GPU/tail and independent native pixel qualification.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#scalar-data-read"
+      "before": "3c860cf4c9f4f781fb3562504a0011eab350e061d8bce3156a07c7b511285f61",
+      "after": "07d6c8630cbe9a2e5545fe044a126d88ba1c9f0721eaee51941afc0f8abb5ce4",
+      "owner": "scene-generic-execution",
+      "reason": "Describe the current per-node composite inputs and existing graph/Program owners without whole-stage shape permission.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#composite-input-admission"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "9c9f1b8604e7f9272e78d36ac634bc2d8683418b46e7476c8acf808978972dd0",
-      "after": "37424c1d45e4e1c849cc2ce8d58c76ca462a69dbd6e677000da452c97f6ddd62",
-      "owner": "scene-material-input",
-      "reason": "Record source-proven scalar phase consumption of original 2D data purposes, with same-input material/GPU/tail and independent native pixel qualification.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#scalar-data-read"
+      "before": "37424c1d45e4e1c849cc2ce8d58c76ca462a69dbd6e677000da452c97f6ddd62",
+      "after": "9c90d18ce0da9868bfa3d77004cc2da55149adeb44a7524adbcb6794f1bae9b2",
+      "owner": "scene-generic-execution",
+      "reason": "Record the frozen composite App, exact author-sample consumption and bounded native or pixel qualification.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#composite-input-admission"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/development/development-workflow.md",
+      "before": "1b3ba1620f05781b1d0f35dfb5623f568640d7c3358b645c8cd6c1fda26fb5ad",
+      "after": "e2c8626027b720dd9fe8f739d9f493610ba215a5d01dee52640d000c835cd86b",
+      "owner": "scene-generic-execution",
+      "reason": "Replace algorithm-family permission with the remaining source/MSL color-boundary debt and its generic typed ABI exit.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#composite-input-admission"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "3255223553e52822dafc64860c1669645acd60306b1a1d616639343d74e4b649",
-      "after": "7c8052767120cccf570e174126c723a5775733dd8337c61928c30ba122b81c74",
-      "owner": "scene-material-input",
-      "reason": "Replace blur frontend speculation with four exact kernel gates and two captured-subtree owner gates; record proven missing periodic state and unresolved count/fraction semantics; remove the repaired texture-purpose issue.",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
+      "before": "7c8052767120cccf570e174126c723a5775733dd8337c61928c30ba122b81c74",
+      "after": "c74b668b3d19f3994b05f0e748f7d5e846d7d9b9e9fd224b3caf207c697afa40",
+      "owner": "scene-generic-execution",
+      "reason": "Remove recovered composite breakpoints and record current source-route, intrinsic conversion, particle and mixed-subtree first facts.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#composite-input-admission"
     }
   ]
 }

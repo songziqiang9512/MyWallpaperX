@@ -224,11 +224,7 @@ class SceneValidationRoutingTests(unittest.TestCase):
         self.assertIn("authored-fallback-owner-revocation", groups)
         focused = next(gate for gate in gates if gate.gate_id == "focused-tests")
         self.assertIn(
-            "test_scene_resolved_material_previous_blurred_composite_graph_admission",
-            focused.command,
-        )
-        self.assertNotIn(
-            "test_scene_resolved_material_unit_previous_blurred_composite_graph_admission",
+            "test_scene_standard_blur_previous_composite",
             focused.command,
         )
 

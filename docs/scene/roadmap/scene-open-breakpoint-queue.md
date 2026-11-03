@@ -13,21 +13,23 @@
 
 | 定位 | 当前事实与下一步 |
 |---|---|
-| blur kernel准入 · 2879793348/132e0、3725148661/757e4、3747595588/503e1、3750312644/346e0 | 实例KERNEL2先被GraphAdmission的`[0,1]`限制拒绝，进入`source-proven-previous-blurred-composite-unowned/route-observe-only`，尚未后端编译。sourceCapture已编码，目标effect仅copy；扩域须核Gaussian varying与实际输出。287另有COMPOSITE0下未被读取的BLENDMODE28限制，不能据此放开所有blend。 |
-| blur子树source · 3632522893/765e1、3830727231/723e0 | child分别为[785]及[438,602,724,728,730,732]，先被OwnerAdmission的child-empty限制拒绝；sourceCapture已编码，effect仅copy。沿原utility source/graph与生命周期补资格，不另造blur采集链；外层`shaderFrontendFailed`不能归为AST失败。 |
-| shader重载 · 3042660491、3746066933 | old_film的mix、fog的dot分别实际stage-link/Metal library失败；先区分作者dialect、类型推导与转换，延长播放不能消除。 |
+| shader重载 · 3042660491/127e0、3746066933/17e1 | 两例已获backend许可；实际为mix(vec4,vec3,scalar)与dot(vec4复合表达式,vec3)的stage-link/Metal失败。原BuiltInVectorConversion仅覆盖简单identifier，嵌套CAST3/dot和复合表达式未统一推导；在原typed intrinsic边界补通用参数转换，先资格混合宽度的作者方言语义，不按shader加正则。 |
+| shader表示与许可 | 通用compiler仍有source形状colorTransfer补偿及unowned route门；已有typed colorBoundary时，ArtifactBuilder仍先生成专用MSL再丢弃该代码。沿原builder/typed ABI直接拥有lowering及metadata，保alpha-only、data/signal、输入/输出表示和实际接口约束；不把SourceAnalyzer识别名单扩成效果名单。 |
 | linked timeline producer · 2999344788、3577990983 | bokeh的linked parent/children timeline在准备期报`dynamic-uniform-producer-unavailable`；原载荷未指出missing uniform，需沿BindingProgram/producer取得精确未接入字段。 |
 | graph引用 · 2804817823、2972071249、3504669359 | secondary-self `_19_b`、forward `_234_a`、多provider `_91_a/_1030_a`被编译器拒绝。hidden辅助provider是否仍发布按真实consumer资格，不改成全局prepass或丢原作者顺序。 |
-| subtree+dependency · 3465215190、3529515784、3554161528、3781757083、3788897599、3806222046、3809609151、3825183869 | 八例同报`execution-route-utility-composition-subtree-shape`：captured subtree与非none dependency ownership组合被准入guard拒绝。沿原utility route/ownership补合同，不按shader分八个任务；有效可见性字段不代父组/实际draw资格。 |
+| subtree容器 · 3529515784/175、3825183869/187 | SourceRoute先拒container42及container403/402，后者下有15text/16solid。容器只承变换、不自产生draw；沿原parent闭包与render order跳过无绘制容器，不能按成员名单拒整个合法后代。 |
+| subtree粒子 · 3465215190/2481、3781757083/133、3806222046/454、3809609151/42 | SourceRoute先拒子树particle成员；现layer main-pass能draw，但局部composition raster/camera消费尚未接入。补原粒子绘制的局部投影及target消费，不凭顶层可draw就裸放子树。 |
+| subtree来源组合 · 3554161528/1111、3788897599/196 | 前者child411同时为dependency411，后者project带child291，均先被SourceRoute结构检查拒绝。与上两行共享错误码，不能统一归为后置dependency guard；分别核实际source/publication及project子树语义。 |
+| 混合子树source · 3830727231/882 | 当前五个active effect（opacity、waterflow及3个shake）均`r5-no-runtime-owner`，同帧无882 sourceCapture/material/tail；children含composition93、particles202/206/209、solid790。原始与本次输入摘要一致、状态一致，首拒绝child尚未知；沿composition source接入核对，不能归为五个shader失败或用723 blur成功关闭它。 |
 | Program阶段守恒 · 3086016320/430 | 明确`execution-stage-conservation`准备拒绝，原码由多个guard共用、具体缺项未知；沿ProgramFirstStages定位，保父426默认alpha=0的输入边界。 |
 | uniform / provider · 3511024658/73、3759799379/319 | 前者`dynamic-uniform-unavailable`未给具体字段，不能直接称缺音频；后者dependency309报`dependency-provider-rejected`，需原composition projection/route首拒绝原因。 |
 | source/模型 · 2804817823/28/32 | 9个资产已加载，两个Puppet source明确拒`MDLV0013`，不是两个纹理文件缺失。沿MDL/Puppet几何owner补格式/姿态资格。 |
 | composition source · 3292370168/239、3039882306/772 | 前者active、无children/URL却引用151，持续未draw；hidden505另有utility capture失败。后者音频composition无对应CPU/graph/所选帧draw，需受控audio/source输入；hidden1084 pending失败、868 fallback不挪作当前可见层证明。 |
 | world-space动态祖先 · 3448877775/15706 | parent15705有origin script/timeline，RopeTrail flags1在模拟前被`dynamicSystemTransform`拒绝。沿ParticleRuntime的当帧world变换消费扩域，不能改作者flags或只延长播放。 |
 | REFRACT normal空槽 · 3566323704/552/141 | material显式`[particle/drop,null]`被要求非空normal的planner拒绝，尚未进入缺文件lookup；缺省normal语义待资格，不造纹理补洞。 |
-| REFRACT cull · 3042623710/330 | REFRACT1+cull normal被planner/noCull接口与render-state compiler拒绝；需实际refraction几何/cull合同，不泛化放开所有材质。 |
+| REFRACT cull · 3042623710/330 | RefractionPlan与RenderStateCompiler两层要求noCull，而MetalPipeline已有back-cull执行。沿原材质/几何编译收敛重复限制，以真实绕序、source capture/UV及反射像素验证normal cull；不另建REFRACT特例名单。 |
 | RopeTrail参数 · 3337494481、3527426897 | 前者10个root先被flags1拒绝，负subdivision=-16为后续未资格形状；后者637/1323缺length被拒。分别核flags与隐式length语义，不取绝对值或猜默认。 |
-| Rope A2C · 3807668787/958 | alphaToCoverage只准ordinary screenSprite，当前Rope材质未接纳；沿原粒子render-state/profile资格，保其他健康层。 |
+| Rope A2C · 3807668787/958 | RenderStateCompiler将A2C绑定screenSprite的spriteProfile而拒Rope；现coverage vertex复用已有trail joins的particleVertex。把材质coverage与几何/相机资格分开，沿真实PSO/attachment需求及轨迹像素验证，不再按renderer名授许可。 |
 | 周期发射上限 · 3564173599/1987、3749463715/405/412 | `maxtoemitperperiod=32`被nil gate拒绝，22秒长窗无对应出生/draw。Plan无cap、State无逐周期计数，活跃时长先合并多窗；instance.count是否缩放上限、出生消费点及fraction/触顶换窗语义尚未证。先做定窗/count2/非整fraction/短命容量1的区分实验，再沿原emitter与值快照补调度，不能仅删guard或末端min32；explicit不随自然发射扩大资格。 |
 | 粒子算子实际unsupported | 3749463715/3564173599的distance-between-CP、3742497499的distance-to-CP、3527426897的map-sequence、3773747576的sphere collision、3780119725的bounds collision均有dispatcher事实（6样本10组件）。各原operator/initializer owner独立补语义；collision坐标与outside-born先取可区分输入。 |
 | 粒子出生拒绝 · 3009275235/255、3248220186/2157、3746066933/85、3799613625/452 | 有真实`birth-construction-rejected`，当前首事实未细分最终失败字段，原因未知；先核出生构造的真实失败，不猜finite或作者错误。 |

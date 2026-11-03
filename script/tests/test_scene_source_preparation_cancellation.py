@@ -53,9 +53,6 @@ def catalog_preparation_inputs():
         "Compilation/Material/SceneResolvedMaterialTemplateCompiler.swift",
         "Compilation/Material/SceneResolvedMaterialScriptBindingClassifier.swift",
         "Compilation/Material/SceneResolvedMaterialShaderSchema+StaticModelInterface.swift",
-        "Compilation/Material/SceneResolvedMaterialPreviousBlurredCompositeOwnerAdmission.swift",
-        "Compilation/Material/SceneResolvedMaterialPreviousBlurredCompositeOwnerAdmission+DynamicScale.swift",
-        "Compilation/Material/SceneResolvedMaterialPreviousBlurredCompositeGraphAdmission.swift",
         "Rendering/Dependencies/SceneDependencyRenderPlan.swift",
     )]]
     return sources, CATALOG_FIXTURE.read_text().replace("__CATALOG_PREPARATION_TRANSPORT__", transport)

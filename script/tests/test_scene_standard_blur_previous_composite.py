@@ -21,6 +21,7 @@ STOCK_ROOT = (
 sys.path.insert(0, str(REPOSITORY_ROOT / "script"))
 
 from scene_swift_source_sets import scene_swift_sources
+from script.tests.test_scene_prepared_script_resource_catalog import swift_declaration
 
 
 SWIFT_SOURCES = list(dict.fromkeys([
@@ -132,7 +133,6 @@ nonisolated struct SceneResolvedMaterialTemplate {
     let comboValues: [String: Int]
     let inheritedInactiveCombos: [String]
     let uniformDeclarations: [UniformDeclaration]
-    let previousBlurredCompositeGenericOwnerEligible: Bool
     let effectContext: EffectContext?
     let shaderContract: SceneShaderContract
     let compatibilityTarget: SceneShaderCompatibilityTarget = .unprofiledMetal
@@ -154,7 +154,6 @@ private struct Output: Codable {
     let explicitDefaultTintEligible: Bool
     let explicitStaticTintEligible: Bool
     let explicitDynamicRejected: Bool
-    let ownerCohortRejected: Bool
     let duplicateAliasesRejected: Bool
     let wrongSlotRejected: Bool
     let maskCandidateAccepted: Bool
@@ -166,11 +165,6 @@ private struct Output: Codable {
     let tintedDefaultEligible: Bool
     let malformedDefaultRejected: Bool
     let duplicateDeclarationRejected: Bool
-    let stockGaussianScaleConsumer: Bool
-    let wrongGaussianTypeRejected: Bool
-    let gaussianArrayRejected: Bool
-    let missingGaussianDefaultRejected: Bool
-    let unequalGaussianDefaultRejected: Bool
     let previousInputShadowCases: [String: Bool]
 }
 
@@ -209,40 +203,6 @@ private func prepare(_ root: URL, maskReady: Bool = false)
             textureReadiness: [0: true, 1: maskReady, 2: true]
         ) else { return nil }
     return (contract, prepared)
-}
-
-private func prepareGaussian(_ root: URL)
-    throws -> (SceneShaderContract, SceneShaderPreparedProgram)? {
-    let contracts = try SceneShaderContractLoader().load(
-        shaderReferences: ["effects/blur_gaussian"], rootURL: root
-    )
-    guard contracts.count == 1, let contract = contracts.first,
-          contract.diagnostics.isEmpty else { return nil }
-    guard case let .accepted(prepared) =
-        SceneAuthoredShaderPreparation.prepareShaderStages(
-            contract: contract,
-            compatibilityTarget: .windowsDX11ShaderModel4,
-            combos: ["KERNEL": 0, "VERTICAL": 0],
-            textureReadiness: [0: true]
-        ) else { return nil }
-    return (contract, prepared)
-}
-
-private func gaussianScaleConsumerEligible(
-    _ value: (SceneShaderContract, SceneShaderPreparedProgram)?
-) -> Bool {
-    guard let (_, prepared) = value,
-          let schema = SceneResolvedMaterialShaderSchema.uniqueActiveUniform(
-              materialKey: "scale", type: .float2,
-              stage: .vertex, prepared: prepared
-          ), let fallback = schema.defaultValue else { return false }
-    let components = fallback.componentBitPatterns.map {
-        Double(bitPattern: $0)
-    }
-    return schema.materialKeys == ["g_Scale", "scale"]
-        && components.count == 2
-        && components.allSatisfy(\.isFinite)
-        && components[0] == components[1]
 }
 
 private let effectKey = Graph.EffectKey(
@@ -287,7 +247,6 @@ private let dynamicDeclaration = Template.UniformDeclaration(
 private func template(
     contract: SceneShaderContract,
     declarations: [Template.UniformDeclaration] = [],
-    ownerEligible: Bool = true,
     includeMask: Bool = false,
     maskReference: Template.TextureReference? = nil,
     input: Graph.TextureIdentity = previous,
@@ -315,7 +274,6 @@ private func template(
         comboValues: [:],
         inheritedInactiveCombos: [],
         uniformDeclarations: declarations,
-        previousBlurredCompositeGenericOwnerEligible: ownerEligible,
         effectContext: .init(key: consumer, input: input),
         shaderContract: contract
     )
@@ -325,7 +283,6 @@ private func eligible(
     _ value: (SceneShaderContract, SceneShaderPreparedProgram)?,
     declarations: [Template.UniformDeclaration] = [],
     identities: [Int: Graph.TextureIdentity]? = nil,
-    ownerEligible: Bool = true,
     includeMask: Bool = false,
     maskReference: Template.TextureReference? = nil,
     input: Graph.TextureIdentity = previous,
@@ -342,7 +299,7 @@ private func eligible(
         samplers: samplers,
         template: template(
             contract: contract, declarations: declarations,
-            ownerEligible: ownerEligible, includeMask: includeMask,
+            includeMask: includeMask,
             maskReference: maskReference, input: input, consumer: consumer,
             blurTarget: blurTarget, inputProvenance: inputProvenance
         ),
@@ -642,7 +599,6 @@ private struct Harness {
             explicitDynamicRejected: !eligible(
                 stock, declarations: [dynamicDeclaration]
             ),
-            ownerCohortRejected: !eligible(stock, ownerEligible: false),
             duplicateAliasesRejected: !eligible(
                 stock, declarations: [
                     declaration("g_CompositeColor", [1, 1, 1]),
@@ -669,16 +625,6 @@ private struct Harness {
             tintedDefaultEligible: eligible(try prepare(roots[2])),
             malformedDefaultRejected: !eligible(try prepare(roots[3])),
             duplicateDeclarationRejected: !eligible(try prepare(roots[4])),
-            stockGaussianScaleConsumer:
-                gaussianScaleConsumerEligible(try prepareGaussian(roots[0])),
-            wrongGaussianTypeRejected:
-                !gaussianScaleConsumerEligible(try prepareGaussian(roots[7])),
-            gaussianArrayRejected:
-                !gaussianScaleConsumerEligible(try prepareGaussian(roots[8])),
-            missingGaussianDefaultRejected:
-                !gaussianScaleConsumerEligible(try prepareGaussian(roots[9])),
-            unequalGaussianDefaultRejected:
-                !gaussianScaleConsumerEligible(try prepareGaussian(roots[10])),
             previousInputShadowCases: previousInputShadowCases(stock)
         )
         FileHandle.standardOutput.write(try JSONEncoder().encode(output))
@@ -713,7 +659,11 @@ class StandardBlurPreviousCompositeTests(unittest.TestCase):
         )
         if not schema_boundary:
             raise RuntimeError("Prepared uniform schema declaration boundary was not found")
-        support.write_text(SUPPORT + "\n" + uniform_schema, encoding="utf-8")
+        program_source = (SCENE_ROOT / "Compilation/Material/SceneResolvedMaterialProgram.swift").read_text()
+        failure = swift_declaration(
+            program_source, "nonisolated struct SceneResolvedMaterialFailure:"
+        )
+        support.write_text(SUPPORT + "\n" + uniform_schema + "\n" + failure, encoding="utf-8")
         harness.write_text(HARNESS, encoding="utf-8")
         cls.binary = cls.root / "standard-blur-previous-composite"
         subprocess.run([
@@ -734,10 +684,6 @@ class StandardBlurPreviousCompositeTests(unittest.TestCase):
                 root / "shaders/effects/blur_combine.vert",
             STOCK_ROOT / "effects/blur/shaders/effects/blur_combine.frag":
                 root / "shaders/effects/blur_combine.frag",
-            STOCK_ROOT / "effects/blur/shaders/effects/blur_gaussian.vert":
-                root / "shaders/effects/blur_gaussian.vert",
-            STOCK_ROOT / "effects/blur/shaders/effects/blur_gaussian.frag":
-                root / "shaders/effects/blur_gaussian.frag",
             STOCK_ROOT / "shaders/common_composite.h":
                 root / "shaders/common_composite.h",
             STOCK_ROOT / "shaders/common.h": root / "shaders/common.h",
@@ -748,33 +694,6 @@ class StandardBlurPreviousCompositeTests(unittest.TestCase):
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, destination)
         if mutation is not None:
-            if mutation.startswith("gaussian-"):
-                vertex = root / "shaders/effects/blur_gaussian.vert"
-                source = vertex.read_text(encoding="utf-8")
-                declaration = "uniform vec2 g_Scale;"
-                self.assertIn(declaration, source)
-                if mutation == "gaussian-type":
-                    source = source.replace(
-                        declaration, "uniform vec3 g_Scale;", 1
-                    )
-                elif mutation == "gaussian-array":
-                    source = source.replace(
-                        declaration, "uniform vec2 g_Scale[2];", 1
-                    )
-                elif mutation == "gaussian-missing-default":
-                    marker = ',"default":"1 1"'
-                    self.assertIn(marker, source)
-                    source = source.replace(marker, "", 1)
-                elif mutation == "gaussian-unequal-default":
-                    marker = '"default":"1 1"'
-                    self.assertIn(marker, source)
-                    source = source.replace(
-                        marker, '"default":"1 0.5"', 1
-                    )
-                else:
-                    raise AssertionError(mutation)
-                vertex.write_text(source, encoding="utf-8")
-                return root
             fragment = root / "shaders/effects/blur_combine.frag"
             if mutation == "wrong-mask-purpose":
                 source = fragment.read_text(encoding="utf-8")
@@ -824,14 +743,6 @@ class StandardBlurPreviousCompositeTests(unittest.TestCase):
             self.stock_root("duplicate", "duplicate"),
             self.stock_root("wrong-mask-purpose", "wrong-mask-purpose"),
             self.stock_root("mask-green-channel", "mask-green-channel"),
-            self.stock_root("gaussian-type", "gaussian-type"),
-            self.stock_root("gaussian-array", "gaussian-array"),
-            self.stock_root(
-                "gaussian-missing-default", "gaussian-missing-default"
-            ),
-            self.stock_root(
-                "gaussian-unequal-default", "gaussian-unequal-default"
-            ),
         ]
         completed = subprocess.run(
             [str(self.binary), *map(str, roots)], check=True,

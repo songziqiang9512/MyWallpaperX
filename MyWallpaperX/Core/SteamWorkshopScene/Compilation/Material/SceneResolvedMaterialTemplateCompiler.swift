@@ -21,7 +21,6 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
         material: SceneResolvedMaterialNode, node: Graph.Node, graphScope: GraphScope,
         shaderContract: SceneShaderContract,
         inheritedInactiveCombos: Set<String> = [],
-        previousBlurredCompositeGenericOwnerEligible: Bool = false,
         provenSceneScriptValueTargets: Set<SceneDynamicTarget> = [],
         compatibilityTarget: SceneShaderCompatibilityTarget = .unprofiledMetal
     ) -> Result<Template, Failure> {
@@ -70,8 +69,6 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
                 graphRole: role,
                 effectContext: .init(key: graphScope.effect.key, input: graphScope.effect.input),
                 inheritedInactiveCombos: inheritedInactiveCombos,
-                previousBlurredCompositeGenericOwnerEligible:
-                    previousBlurredCompositeGenericOwnerEligible,
                 compatibilityTarget: compatibilityTarget
             ))
         } catch {
@@ -122,7 +119,6 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
                 ),
                 effectContext: nil,
                 inheritedInactiveCombos: inheritedInactiveCombos,
-                previousBlurredCompositeGenericOwnerEligible: false,
                 compatibilityTarget: compatibilityTarget
             ))
         } catch {
@@ -140,7 +136,6 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
         graphRole: Template.GraphRole,
         effectContext: Template.EffectContext?,
         inheritedInactiveCombos: Set<String>,
-        previousBlurredCompositeGenericOwnerEligible: Bool,
         compatibilityTarget: SceneShaderCompatibilityTarget
     ) throws -> Template {
         let combos = material.combos.sorted { $0.key < $1.key }.map {
@@ -153,8 +148,6 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
             uniformDeclarations: uniforms.values,
             renderState: renderState,
             graphRole: graphRole,
-            previousBlurredCompositeGenericOwnerEligible:
-                previousBlurredCompositeGenericOwnerEligible,
             effectContext: effectContext,
             compatibilityTarget: compatibilityTarget,
             shaderContract: shaderContract,

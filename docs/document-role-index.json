@@ -162,7 +162,7 @@
       "lastReviewed": "2026-11-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "94bad4a0425f329ae12427f8ff4480954d68a27450ac80f9f64ab6154e44e380",
+        "sourceSHA256": "aea36e0ee7aac8974f4f080a79d89b62cc002dd2b37f42928b0d0e8e06783bbd",
         "method": "document_registry --audit + document_health --check",
         "scope": "当前源码职责、工具入口与文档引用核对。",
         "limitations": "文档核对未新增App、GPU、官方对照或性能运行。"
@@ -852,7 +852,7 @@
       "lastReviewed": "2026-11-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c56a65a383004e460bd506dc4718c8202674f6da2f1cd520809d51fff11cee37",
+        "sourceSHA256": "63d9c4a2abdd095d36224571ea6375c662874e45cc0bde19a40b8dfbe65cb88f",
         "method": "document_registry --audit + document_health --check",
         "scope": "当前源码职责、工具入口与文档引用核对。",
         "limitations": "文档核对未新增App、GPU、官方对照或性能运行。"

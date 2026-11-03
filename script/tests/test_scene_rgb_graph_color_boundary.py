@@ -328,18 +328,6 @@ def harness_text() -> str:
     return prefix + helpers + HARNESS
 
 
-def support_text() -> str:
-    # The reused graph leaf shell predates the neutral Key move. Bind its
-    # catalog to the actual production value; do not duplicate that DTO.
-    old = """    struct Key: Hashable {
-        let effect: Graph.EffectKey
-        let nodeIndex: Int
-    }"""
-    if fixture.SUPPORT.count(old) != 1:
-        raise RuntimeError("shared graph Key shell changed; review its production alias")
-    return fixture.SUPPORT.replace(old, "    typealias Key = SceneResolvedMaterialKey")
-
-
 def prepare_gate(directory: Path) -> dict:
     """Compile and run only the CPU branch; retain the exact binary for GPU release."""
     directory.mkdir(parents=True, exist_ok=True)
@@ -354,7 +342,7 @@ def prepare_gate(directory: Path) -> dict:
         inputs[str(relative)] = hashlib.sha256(payload).hexdigest()
         sources.append(target)
     support, harness = directory / "Support.swift", directory / "Harness.swift"
-    support.write_text(support_text())
+    support.write_text(fixture.SUPPORT)
     harness.write_text(harness_text())
     binary = directory / "probe"
     environment = dict(os.environ, CLANG_MODULE_CACHE_PATH=str(directory / "module-cache"),
@@ -418,7 +406,7 @@ def run_prepared(directory: Path) -> dict:
             raise RuntimeError("RGB graph gate source identity changed: " + path)
     if manifest["harnessSHA256"] != hashlib.sha256(harness_text().encode()).hexdigest():
         raise RuntimeError("RGB graph helper identity changed")
-    if manifest["supportSHA256"] != hashlib.sha256(support_text().encode()).hexdigest():
+    if manifest["supportSHA256"] != hashlib.sha256(fixture.SUPPORT.encode()).hexdigest():
         raise RuntimeError("RGB graph support identity changed")
     environment = dict(os.environ, MWX_SCENE_GENERIC_SHADER_CACHE=str(directory / "shader-cache"),
         MWX_SCENE_PIPELINE_BINARY_ARCHIVE=str(directory / "pipeline-cache"))

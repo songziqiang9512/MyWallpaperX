@@ -67,6 +67,8 @@ Scene执行链为 `authored data → prepared Program/graph/resources → typed 
 
 作者 shader 的词法、语法、类型和代码生成由通用 compiler backend 承担；ECMAScript 语言行为由真实 VM 承担；粒子组合由 component interpreter 承担。Swift host 负责输入规范化、能力/资源边界、调用预算、结果校验和生命周期，不再把这些完整语言逐项重写成 Swift 专用 parser/compiler。
 
+所有 Scene effect 共用实际编译、活跃接口/表示、资源依赖和执行合同。效果名、固定源码形状、pass/target数量或kernel/方向/scale组合不能成为播放许可白名单；准备 owner 已接纳的事实不由另一效果 owner 重判。拒绝须落到确实未实现的语言/操作/组件、实际接口或资源不相容、越界/预算及生命周期错误，并限于受影响单元。现有按源码形状工作的兼容补偿属于待通用化债务，应由原编译器/typed ABI边界替代，不能持续扩大模式名单或变成永久规范。
+
 上述三类动态输入由同一个 frame commit 决定 producer 优先级、同帧/下一帧可见性和冲突，但保持不同 typed channel；resource generation 或 topology mutation 不得为复用普通 property 代码而伪装成 value-only 更新。
 
 sample ID、layer ID、路径、hash 和资产名称可以用于装载作者声明、选择共享 component/API primitive、identity、缓存、provenance、诊断和回归定位；不能选择样本专用可见算法或固定输出。definition/material/shader path 选择对应作者数据，以及 particle/API name 选择共享 registry 项，属于正常数据驱动执行。

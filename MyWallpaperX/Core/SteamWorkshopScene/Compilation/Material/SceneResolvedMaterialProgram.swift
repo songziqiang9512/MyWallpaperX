@@ -291,9 +291,6 @@ nonisolated struct SceneResolvedMaterialTemplate {
     let uniformDeclarations: [UniformDeclaration]
     let renderState: SceneMaterialRenderState
     let graphRole: GraphRole
-    /// Temporary owner-transfer gate: only a whole static/no-mask/KERNEL0
-    /// compound with a validated incumbent may authorize its generic finalizer.
-    let previousBlurredCompositeGenericOwnerEligible: Bool
     /// Exact authored effect ingress retained for source-derived graph-input
     /// facts. GraphTextureRole alone deliberately cannot distinguish another
     /// layer, a named target, or a non-contiguous effect output.
@@ -316,7 +313,6 @@ nonisolated struct SceneResolvedMaterialTemplate {
         uniformDeclarations: [UniformDeclaration],
         renderState: SceneMaterialRenderState,
         graphRole: GraphRole,
-        previousBlurredCompositeGenericOwnerEligible: Bool = false,
         effectContext: EffectContext? = nil,
         compatibilityTarget: SceneShaderCompatibilityTarget = .unprofiledMetal,
         shaderContract: SceneShaderContract,
@@ -342,8 +338,6 @@ nonisolated struct SceneResolvedMaterialTemplate {
             uniformDeclarations: uniformDeclarations.sorted { $0.name < $1.name },
             renderState: renderState,
             graphRole: graphRole,
-            previousBlurredCompositeGenericOwnerEligible:
-                previousBlurredCompositeGenericOwnerEligible,
             effectContext: effectContext,
             compatibilityTarget: compatibilityTarget,
             shaderContract: shaderContract,
@@ -356,7 +350,6 @@ nonisolated struct SceneResolvedMaterialTemplate {
         inheritedInactiveCombos: [String],
         uniformDeclarations: [UniformDeclaration], renderState: SceneMaterialRenderState,
         graphRole: GraphRole,
-        previousBlurredCompositeGenericOwnerEligible: Bool,
         effectContext: EffectContext?,
         compatibilityTarget: SceneShaderCompatibilityTarget,
         shaderContract: SceneShaderContract,
@@ -368,8 +361,6 @@ nonisolated struct SceneResolvedMaterialTemplate {
         self.uniformDeclarations = uniformDeclarations
         self.renderState = renderState
         self.graphRole = graphRole
-        self.previousBlurredCompositeGenericOwnerEligible =
-            previousBlurredCompositeGenericOwnerEligible
         self.effectContext = effectContext
         self.compatibilityTarget = compatibilityTarget
         self.shaderContract = shaderContract

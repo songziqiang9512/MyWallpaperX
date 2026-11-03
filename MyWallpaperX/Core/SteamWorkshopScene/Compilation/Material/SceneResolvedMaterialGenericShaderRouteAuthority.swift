@@ -83,8 +83,8 @@ nonisolated extension SceneGenericShaderCapabilityProfile {
     /// preserved-alpha RGB filters and the previous/blurred composite
     /// have no complete, visually safe secondary owner: disabling their
     /// generic owner must reject that effect back to the safe previous-current
-    /// boundary. A source-proven composite that lacks the surrounding graph
-    /// owner token remains quarantined behind the verified incumbent.
+    /// boundary. A composite with unresolved input identities or representation
+    /// remains local to its existing failed-material path.
     var validatedRollbackOwner: SceneGenericShaderFallbackOwner {
         switch self {
         case .sourceProvenGraphInputPreservedAlphaRGBFilter,

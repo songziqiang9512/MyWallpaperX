@@ -180,8 +180,6 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         admissionCandidates: [AdmissionCandidate],
         shaderContracts: [SceneShaderContract],
         userPropertyProducers: Set<SceneDynamicUserPropertyProducer>,
-        propertyDefinitions: [SceneDynamicTargetDefinition] = [],
-        timelineDefinitions: Set<SceneDynamicTargetDefinition> = [],
         provenSceneScriptValueTargets: Set<SceneDynamicTarget> = [],
         materialInstancesByLayerID: [Int: SceneDocument.SceneLayerMaterialInstance] = [:],
         loweredSourceMaterialModelPaths: Set<String> = [],
@@ -213,7 +211,6 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         var systemDemandsByMaterial: [Key: Set<SystemProviderDemand>] = [:]
         var demandIssues: Set<ResourceDemandIssue> = []
         var resolvedRecords: [Key: (
-            graph: Graph,
             node: Graph.Node,
             scope: SceneResolvedMaterialTemplateCompiler.GraphScope,
             material: SceneResolvedMaterialNode
@@ -256,7 +253,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                 ))
                 continue
             }
-            resolvedRecords[key] = (record.graph, record.node, record.scope, material)
+            resolvedRecords[key] = (record.node, record.scope, material)
         }
 #if DEBUG
         let resolveMs = (CACurrentMediaTime() - resolveStart) * 1000
@@ -308,15 +305,6 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                     inheritedInactiveCombos:
                         authoredEffectComboNames[key.effect, default: []]
                             .subtracting(material.combos.keys),
-                    previousBlurredCompositeGenericOwnerEligible:
-                        SceneResolvedMaterialPreviousBlurredCompositeOwnerAdmission.accepts(
-                            key: key,
-                            graph: record.graph,
-                            descriptor: descriptor,
-                            userPropertyProducers: userPropertyProducers,
-                            propertyDefinitions: propertyDefinitions,
-                            timelineDefinitions: timelineDefinitions
-                        ),
                     provenSceneScriptValueTargets: provenSceneScriptValueTargets,
                     compatibilityTarget: .windowsDX11ShaderModel4
                 ) {

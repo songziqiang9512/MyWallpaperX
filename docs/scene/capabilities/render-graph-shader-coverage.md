@@ -59,7 +59,10 @@ HDR 合成与显示 EDR 分开：scene color/Bloom 先保浮点范围，唯一�
 
 Prepared target/transition 保有序读写；pool 租约、publication 与 completion 绑定实际 command buffer。unique history 的 seed、reused、失败与取消由原 Coordinator 管理，不靠普通帧重建或全图哈希恢复。
 
-前级图像/模糊合成的有界入口由 `PreviousBlurredCompositeGraphAdmission`、OwnerAdmission 与 Eligibility 共同证明源角色、四 pass/局部 target 关系、state、常量及实际 shader；资源路径或效果名不能授予算法。超出该入口不代表所有通用 graph 都应拒绝。
+<a id="composite-input-admission"></a>
+前级双输入合成沿[全效果统一合同](../../architecture/technology-stack-boundaries.md#31-swift-拥有产品状态语言运行时拥有语言语义)准备。Layer admission持源route，Graph计划持有序读写、target和history；逐节点Eligibility消费实际shader事实、previous/局部FBO身份、binding、mask与颜色输入，Program/Finalizer持uniform、purpose/表示和publication，MSL lowering与PSO检查实际接口。Pass数量、target数量、kernel、方向、scale组合及未消费combo不另授整段执行许可；失败只影响真实不兼容单元并保previous-current。已定义的透明clear可作输入，缺失的实际纹理不能伪装ready。
+
+当前颜色补偿仍依赖有界source/MSL识别，属于[待通用化边界](../development/development-workflow.md#compatibility-exceptions)，不代表任意shader表示已覆盖。后继改造沿原compiler/typed ABI替代该限制，保真实binding、target hazard、颜色/数据和publication反例；不增加效果族名单、source许可token或第二套资源/输出owner。已验2/5pass、独立参数与改名图的真实Metal像素及作者内容，具体输入和资格归[运行证据](runtime-evidence-current.md#coverage)。
 
 Surface 采用已提交销毁成员时，原 Coordinator 过滤该层 committed 及 pending final tails，保已编码 ledger/pins 到原终态。活 named consumer 的独立 copy、hidden provider、consumer 自身 tail 与 scene color 按真实引用保留。
 
