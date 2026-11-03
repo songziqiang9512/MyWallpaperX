@@ -274,7 +274,7 @@ final class SceneResolvedMaterialGraphExecutor {
             lease: firstLease,
             member: capability.pairPlan.baseCaptureMember
         )
-        let sourceCommand: Command
+        var sourceCommand: Command
         var baseRepresentation: SceneShaderColorRepresentation = .premultipliedAlpha
         switch capability.sourceRoute {
         case .capturedLayerTexture, .capturedMainTargetTexture:
@@ -306,7 +306,12 @@ final class SceneResolvedMaterialGraphExecutor {
                       target: baseTarget,
                       uniforms: sourceUniforms,
                       pipeline: sourcePipeline,
-                      sourceLighting: sourceLighting
+                      sourceLighting: sourceLighting,
+                      prefix: capability.sceneBackgroundRequirement?.capturesTextSourcePrefixRGB == true
+                        ? sceneBackgroundResource.map {
+                            ($0.publication.texture, frameInputs.terminalReplayModelViewProjection
+                                ?? frameInputs.effectOutputModelViewProjection)
+                        } : nil
                   ) else { return .failure(.captureRejected) }
             baseRepresentation = capture.preservesStraightSourceColor ? .straightAlpha : .premultipliedAlpha
             sourceCommand = .resource(capture)
@@ -409,7 +414,10 @@ final class SceneResolvedMaterialGraphExecutor {
             var stageTerminalReplay: SceneResolvedMaterialPassEncoder.PreparedPass?
             var effectLocalFailureReasonCode: String?
             var effectLocalActivationBypassReasonCode: String?
-            if let failure = prepare(
+            var stageEntry = VisualFailureSnapshot(
+                pair: pair, publications: publications, commandCount: stageCommands.count
+            )
+            let preparation = prepare(
                 stageIndex: index,
                 transition: transition,
                 graph: graph,
@@ -424,14 +432,42 @@ final class SceneResolvedMaterialGraphExecutor {
                 terminalReplayBlendMode: terminalReplayBlendMode,
                 terminalReplayIsOptional: terminalReplayIsOptional,
                 terminalMaterialReplay: &stageTerminalReplay,
+                visualFailureSnapshot: stageEntry,
                 pair: &pair,
                 publications: &publications,
-                commands: &stageCommands,
-                effectLocalFailureReasonCode: &effectLocalFailureReasonCode,
-                effectLocalActivationBypassReasonCode:
-                    &effectLocalActivationBypassReasonCode
-            ) {
+                commands: &stageCommands
+            )
+            switch preparation {
+            case .prepared:
+                break
+            case let .failure(failure):
                 return .failure(failure)
+            case let .passthrough(intent):
+                if index == 0, capability.sceneBackgroundRequirement?.capturesTextSourcePrefixRGB == true {
+                    guard case let .resource(capture) = sourceCommand,
+                          let ordinary = resourceEncoder?.prepareOrdinarySourceCapture(capture)
+                    else { return .failure(.captureRejected) }
+                    let representation: SceneShaderColorRepresentation =
+                        ordinary.preservesStraightSourceColor ? .straightAlpha : .premultipliedAlpha
+                    guard let entry = pairResource(
+                        lease: lease, identity: pairStep.inputIdentity, member: pairStep.inputMember,
+                        generation: stageEntry.pair.resource.resourceGeneration, representation: representation
+                    ) else { return .failure(.captureRejected) }
+                    sourceCommand = .resource(ordinary)
+                    var entryPublications = stageEntry.publications
+                    entryPublications[pairStep.inputIdentity] = entry
+                    stageEntry = .init(pair: .init(member: pairStep.inputMember, resource: entry,
+                        representation: representation),
+                        publications: entryPublications, commandCount: stageEntry.commandCount)
+                }
+                stageTerminalReplay = nil
+                if let failure = preparePassthrough(
+                    intent, stageCapability: stageCapability,
+                    transition: transition, graph: graph, pairStep: pairStep, lease: lease,
+                    snapshot: stageEntry, pair: &pair, publications: &publications, commands: &stageCommands,
+                    effectLocalFailureReasonCode: &effectLocalFailureReasonCode,
+                    effectLocalActivationBypassReasonCode: &effectLocalActivationBypassReasonCode
+                ) { return .failure(failure) }
             }
             let committedTransition: State.Transition
             var discardedPersistentTargetState = false

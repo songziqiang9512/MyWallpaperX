@@ -47,7 +47,6 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         tail = stages[failure:failure + 2500]
         self.assertIn("visualFailurePassthrough", tail)
         self.assertIn("return .failure(programFailure)", tail)
-        self.assertIn("prepareVisualFailurePassthrough", executor)
         self.assertIn("snapshot", executor)
 
     def test_aggregate_catalog_reuse_exports_each_authored_reference_slot(self) -> None:

@@ -20,14 +20,14 @@ final class SceneGraphResourcePassEncoder {
 
         var writtenTexture: MTLTexture {
             switch operation {
-            case let .sourceCapture(_, target, _, _, _),
+            case let .sourceCapture(_, target, _, _, _, _),
                  let .initialization(target, _), let .copy(_, target): target
             }
         }
 
         var preservesStraightSourceColor: Bool {
-            guard case let .sourceCapture(_, _, uniforms, _, _) = operation else { return false }
-            return uniforms.sourceSampling.y & 2 != 0
+            guard case let .sourceCapture(_, _, uniforms, _, _, _) = operation else { return false }
+            return uniforms.sourceSampling.y & 6 != 0
         }
 
         fileprivate let ownerToken: UUID
@@ -41,7 +41,8 @@ final class SceneGraphResourcePassEncoder {
             target: MTLTexture,
             uniforms: SceneLayerFragmentUniforms,
             pipeline: SceneImageLayerPipeline,
-            sourceLighting: SceneBaseMaterialLitCapturePayload?
+            sourceLighting: SceneBaseMaterialLitCapturePayload?,
+            prefixTexture: MTLTexture?
         )
         case initialization(target: MTLTexture, clear: Plan.ClearColor)
         case copy(source: MTLTexture, target: MTLTexture)
@@ -67,7 +68,8 @@ final class SceneGraphResourcePassEncoder {
         target: MTLTexture,
         uniforms: SceneLayerFragmentUniforms,
         pipeline: SceneImageLayerPipeline,
-        sourceLighting: SceneBaseMaterialLitCapturePayload? = nil
+        sourceLighting: SceneBaseMaterialLitCapturePayload? = nil,
+        prefix: (texture: MTLTexture, modelViewProjection: simd_float4x4)? = nil
     ) -> PreparedCommand? {
         withLock {
             guard validSourceCapture(
@@ -77,10 +79,19 @@ final class SceneGraphResourcePassEncoder {
             ) else { return nil }
             let lighting = sourceLighting?.validated(for: target)
             var uniforms = uniforms
-            // Only the existing unlit full-target capture retains straight storage.
-            // Lit output and its unlit fallback remain associated.
+            // A text carrier preserves prefix RGB independently of glyph A;
+            // the glyph keeps its real input representation during modulation.
             uniforms.sourceSampling.y &= 1
-            if lighting == nil, uniforms.sourceSampling.y == 1 { uniforms.sourceSampling.y = 3 }
+            if let prefix {
+                guard lighting == nil, prefix.texture !== target,
+                      prefix.texture.device.registryID == device.registryID,
+                      prefix.texture.sampleCount == 1,
+                      prefix.texture.usage.contains(.shaderRead) else { return nil }
+                uniforms.sourceSampling.y |= 4
+                uniforms.sourceCaptureProjection = prefix.modelViewProjection
+            } else if lighting == nil, uniforms.sourceSampling.y == 1 {
+                uniforms.sourceSampling.y = 3
+            }
             return PreparedCommand(
                 kind: .sourceCapture,
                 ownerToken: ownerToken,
@@ -90,10 +101,21 @@ final class SceneGraphResourcePassEncoder {
                     target: target,
                     uniforms: uniforms,
                     pipeline: pipeline,
-                    sourceLighting: lighting
+                    sourceLighting: lighting,
+                    prefixTexture: prefix?.texture
                 )
             )
         }
+    }
+
+    /// Replaces an unencoded prefix capture using its original glyph inputs.
+    func prepareOrdinarySourceCapture(_ command: PreparedCommand) -> PreparedCommand? {
+        guard case let .sourceCapture(source, target, uniforms, pipeline, lighting, _) = command.operation
+        else { return nil }
+        return prepareSourceCapture(
+            source: source, target: target, uniforms: uniforms,
+            pipeline: pipeline, sourceLighting: lighting
+        )
     }
 
     /// Returns a complete immutable clear operation without creating an encoder
@@ -149,7 +171,7 @@ final class SceneGraphResourcePassEncoder {
             }
 
             switch command.operation {
-            case let .sourceCapture(source, target, uniforms, pipeline, sourceLighting):
+            case let .sourceCapture(source, target, uniforms, pipeline, sourceLighting, prefixTexture):
                 guard validSourceCapture(
                     source: source,
                     target: target,
@@ -161,6 +183,7 @@ final class SceneGraphResourcePassEncoder {
                     uniforms: uniforms,
                     pipeline: pipeline,
                     sourceLighting: sourceLighting,
+                    prefixTexture: prefixTexture,
                     commandBuffer: commandBuffer
                 )
             case .initialization(let target, let clear):
@@ -189,6 +212,7 @@ final class SceneGraphResourcePassEncoder {
         uniforms: SceneLayerFragmentUniforms,
         pipeline: SceneImageLayerPipeline,
         sourceLighting: SceneBaseMaterialLitCapturePayload?,
+        prefixTexture: MTLTexture?,
         commandBuffer: MTLCommandBuffer
     ) -> Bool {
         let sourceLighting = sourceLighting?.resolvingEnvironment(
@@ -226,6 +250,7 @@ final class SceneGraphResourcePassEncoder {
             pipeline.bind(encoder: encoder)
             pipeline.drawLayer(
                 texture: source,
+                dependencyTexture: prefixTexture,
                 mvp: Self.fullTargetMVP,
                 uniforms: uniforms,
                 encoder: encoder

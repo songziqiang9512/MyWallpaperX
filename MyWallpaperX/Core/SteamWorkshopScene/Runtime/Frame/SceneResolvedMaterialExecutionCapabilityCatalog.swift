@@ -29,6 +29,17 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         let nodeIndex: Int
         let slot: Int
         let bindingCount: Int
+        let capturesTextSourcePrefixRGB: Bool
+
+        init(layerID: Int, effect: Graph.EffectKey, nodeIndex: Int, slot: Int,
+             bindingCount: Int, capturesTextSourcePrefixRGB: Bool = false) {
+            self.layerID = layerID
+            self.effect = effect
+            self.nodeIndex = nodeIndex
+            self.slot = slot
+            self.bindingCount = bindingCount
+            self.capturesTextSourcePrefixRGB = capturesTextSourcePrefixRGB
+        }
     }
 
     struct RuntimeDispositionOwnership {

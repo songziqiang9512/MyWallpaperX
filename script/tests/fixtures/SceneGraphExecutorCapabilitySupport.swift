@@ -59,6 +59,8 @@ private func capabilities(
     assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState] = [:],
     assetFormatFacts: [String: Int] = [:],
     capturedMainTarget: Bool = false,
+    contentKind: String = "image",
+    parentID: Int? = nil,
     terminalReplayBlendMode: Int = 0,
     forcedInitiallyInactiveEffectKeys: Set<Graph.EffectKey> = []
 ) -> Capabilities {
@@ -93,6 +95,8 @@ private func capabilities(
             }
         )
     if capturedMainTarget { consumer.utilityLayer = .init(kind: .fullscreen) }
+    consumer.contentKind = contentKind
+    consumer.parentID = parentID
     consumer.colorBlendMode = terminalReplayBlendMode
     var layers: [SceneRenderDescriptor.Layer] = [consumer]
     if let namedProvider, let dependencyBinding {
@@ -170,7 +174,11 @@ private func capabilities(
         ]
     }
     let descriptor = SceneRenderDescriptor(
-        layers: layers,
+        layers: parentID.map { id in
+            var parent = SceneRenderDescriptor.Layer(id: id, effects: [])
+            parent.childLayerIDs = [consumer.id]
+            return [parent] + layers
+        } ?? layers,
         materialPasses: materialPasses,
         effectDefinitions: graph.effects.map {
             .init(
@@ -210,6 +218,7 @@ private func capabilities(
                     admitted.initiallyInactiveEffectKeys
                     .union(forcedInitiallyInactiveEffectKeys),
                 sourceRoute: admitted.sourceRoute,
+                isTopLevelTextSource: admitted.isTopLevelTextSource,
                 isVisibleExecutionRoot: admitted.isVisibleExecutionRoot,
                 isGraphOutputProvider: admitted.isGraphOutputProvider,
                 requiresGraphOutputProvider: admitted.requiresGraphOutputProvider,

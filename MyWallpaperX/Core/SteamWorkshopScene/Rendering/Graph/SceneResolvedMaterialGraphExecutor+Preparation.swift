@@ -4,6 +4,17 @@ import Metal
 import simd
 
 extension SceneResolvedMaterialGraphExecutor {
+    enum StagePreparationResult {
+        case prepared
+        case passthrough(StagePassthrough)
+        case failure(Failure)
+    }
+
+    enum StagePassthrough {
+        case activation(reasonCode: String, bypassProven: Bool)
+        case visualFailure(reasonCode: String, boundedDetail: String?, rejection: Failure)
+    }
+
     /// Prepare raw material output in the original pair. It samples the same
     /// main attachment only when this graph is encoded at its authored boundary.
     func prepareFramebufferSourceMaterial(
@@ -78,17 +89,11 @@ extension SceneResolvedMaterialGraphExecutor {
         terminalReplayBlendMode: Int,
         terminalReplayIsOptional: Bool,
         terminalMaterialReplay: inout SceneResolvedMaterialPassEncoder.PreparedPass?,
+        visualFailureSnapshot: VisualFailureSnapshot,
         pair: inout PairAtom,
         publications: inout [Graph.TextureIdentity: SceneFrameTextureResource],
-        commands: inout [Command],
-        effectLocalFailureReasonCode: inout String?,
-        effectLocalActivationBypassReasonCode: inout String?
-    ) -> Failure? {
-        let visualFailureSnapshot = VisualFailureSnapshot(
-            pair: pair,
-            publications: publications,
-            commandCount: commands.count
-        )
+        commands: inout [Command]
+    ) -> StagePreparationResult {
         if let activation = stageCapability.execution.activationPolicy {
             let decision = activation.evaluate(
                 dynamicValues: frameInputs.dynamicValues,
@@ -118,77 +123,24 @@ extension SceneResolvedMaterialGraphExecutor {
                     // this effect executed until its bypass is provable.
                     break
                 }
-                return prepareActivationPassthrough(
-                    reasonCode: reasonCode,
-                    stageCapability: stageCapability,
-                    transition: transition,
-                    graph: graph,
-                    pairStep: pairStep,
-                    lease: lease,
-                    snapshot: visualFailureSnapshot,
-                    pair: &pair,
-                    publications: &publications,
-                    commands: &commands,
-                    effectLocalActivationBypassReasonCode:
-                        &effectLocalActivationBypassReasonCode,
-                    bypassProven: true
-                )
+                return .passthrough(.activation(reasonCode: reasonCode, bypassProven: true))
             case let .rejected(reasonCode):
-                return prepareVisualFailurePassthrough(
-                    reasonCode: reasonCode,
-                    stageCapability: stageCapability,
-                    transition: transition,
-                    graph: graph,
-                    pairStep: pairStep,
-                    lease: lease,
-                    snapshot: visualFailureSnapshot,
-                    pair: &pair,
-                    publications: &publications,
-                    commands: &commands,
-                    effectLocalFailureReasonCode:
-                        &effectLocalFailureReasonCode
-                )
+                return .passthrough(.visualFailure(reasonCode: reasonCode,
+                    boundedDetail: nil, rejection: .graphStructureRejected))
             }
         }
         if case let .initiallyInactivePassthrough(reasonCode) = stageCapability.execution {
-            return prepareActivationPassthrough(
-                reasonCode: reasonCode,
-                stageCapability: stageCapability,
-                transition: transition,
-                graph: graph,
-                pairStep: pairStep,
-                lease: lease,
-                snapshot: visualFailureSnapshot,
-                pair: &pair,
-                publications: &publications,
-                commands: &commands,
-                effectLocalActivationBypassReasonCode:
-                    &effectLocalActivationBypassReasonCode
-            )
+            return .passthrough(.activation(reasonCode: reasonCode, bypassProven: false))
         }
         if case let .visualFailurePassthrough(reasonCode) = stageCapability.execution {
-            return prepareVisualFailurePassthrough(
-                reasonCode: reasonCode,
-                stageCapability: stageCapability,
-                transition: transition,
-                graph: graph,
-                pairStep: pairStep,
-                lease: lease,
-                snapshot: visualFailureSnapshot,
-                pair: &pair,
-                publications: &publications,
-                commands: &commands,
-                effectLocalFailureReasonCode: &effectLocalFailureReasonCode
-            )
+            return .passthrough(.visualFailure(reasonCode: reasonCode,
+                boundedDetail: nil, rejection: .graphStructureRejected))
         }
-        if let result = prepareUnavailableDependencyPassthrough(
-            frameInputs: frameInputs, stageCapability: stageCapability,
-            transition: transition, graph: graph, pairStep: pairStep, lease: lease,
-            snapshot: visualFailureSnapshot, pair: &pair,
-            publications: &publications, commands: &commands,
-            effectLocalFailureReasonCode: &effectLocalFailureReasonCode
-        ) {
-            return result
+        if let unavailable = frameInputs.dependencyUnavailability,
+           let slots = stageCapability.preEncodeVisualFailureSlots,
+           !slots.isEmpty {
+            return .passthrough(.visualFailure(reasonCode: unavailable.rawValue,
+                boundedDetail: nil, rejection: .graphStructureRejected))
         }
         let dependencyInputs = frameInputs.dependencyEffects
         var dependencyFrame = frame
@@ -200,7 +152,7 @@ extension SceneResolvedMaterialGraphExecutor {
                     overlaying: dependency.namedReference,
                     resource: resource,
                     frameEpoch: dependency.frameEpoch
-                  ) else { return .graphPublicationRejected }
+                  ) else { return .failure(.graphPublicationRejected) }
             dependencyFrame = replacement
         }
         let preparedExecution = lease.table.capabilityID == nil ? nil : lease.table.preparedExecution
@@ -229,7 +181,7 @@ extension SceneResolvedMaterialGraphExecutor {
                               capability: capability,
                               representation: initialization.representation
                           )
-                      ) else { return .resourceCommandRejected }
+                      ) else { return .failure(.resourceCommandRejected) }
                 if case let .materialFunctionClear(
                     _, invocationOrdinal, targetOrdinal
                 ) = reason {
@@ -259,12 +211,12 @@ extension SceneResolvedMaterialGraphExecutor {
                           pair: pair,
                           lease: lease
                       ), let material = capability.material(for: node) else {
-                    return .graphStructureRejected
+                    return .failure(.graphStructureRejected)
                 }
                 guard let overlaid = dependencyFrame.overlayingGraphResources(
                     publications
                 ) else {
-                    return .graphPublicationRejected
+                    return .failure(.graphPublicationRejected)
                 }
                 let authoredGeometry = frameInputs.directDrawSourceMaterialKey
                     == .init(effect: node.effect, nodeIndex: node.nodeIndex)
@@ -272,7 +224,7 @@ extension SceneResolvedMaterialGraphExecutor {
                 if let authoredGeometry {
                     guard authoredGeometry.frameIndex == overlaid.frameIndex,
                           authoredGeometry.generation == overlaid.dynamicGeneration else {
-                        return .graphStructureRejected
+                        return .failure(.graphStructureRejected)
                     }
                 }
                 let finalized = material.bindFrame(
@@ -353,7 +305,7 @@ extension SceneResolvedMaterialGraphExecutor {
                         reasonCode = "material-variant-selection-key-unstable"
                     } else {
                         guard failure.phase == .uniform else {
-                            return rejection
+                            return .failure(rejection)
                         }
                         switch failure.code {
                         case .hostUniformInputUnavailable:
@@ -372,25 +324,14 @@ extension SceneResolvedMaterialGraphExecutor {
                             reasonCode =
                                 "material-finalizer-uniform-declaration-conflict"
                         default:
-                            return rejection
+                            return .failure(rejection)
                         }
                     }
-                    return prepareVisualFailurePassthrough(
+                    return .passthrough(.visualFailure(
                         reasonCode: reasonCode,
-                        stageCapability: stageCapability,
-                        transition: transition,
-                        graph: graph,
-                        pairStep: pairStep,
-                        lease: lease,
-                        snapshot: visualFailureSnapshot,
-                        pair: &pair,
-                        publications: &publications,
-                        commands: &commands,
-                        effectLocalFailureReasonCode:
-                            &effectLocalFailureReasonCode,
                         boundedDetail: failure.boundedDetails.first,
                         rejection: rejection
-                    )
+                    ))
                 }
                 guard let passPreparation = prepareMaterialPass(
                     program: program,
@@ -399,11 +340,11 @@ extension SceneResolvedMaterialGraphExecutor {
                     descriptor: fboTarget?.resource.descriptor,
                     partialCoverage: authoredGeometry != nil
                 ) else {
-                    return .graphStructureRejected
+                    return .failure(.graphStructureRejected)
                 }
                 guard case let .success(prepared) = passPreparation else {
                     guard case let .failure(failure) = passPreparation else {
-                        return .materialPassEncoderRejected
+                        return .failure(.materialPassEncoderRejected)
                     }
                     let rejection = Failure.materialPassPreparationRejected(
                         stageIndex: stageIndex,
@@ -413,23 +354,13 @@ extension SceneResolvedMaterialGraphExecutor {
                         failure: failure
                     )
                     guard let reasonCode = failure.effectLocalPreEncodeReasonCode else {
-                        return rejection
+                        return .failure(rejection)
                     }
-                    return prepareVisualFailurePassthrough(
+                    return .passthrough(.visualFailure(
                         reasonCode: reasonCode,
-                        stageCapability: stageCapability,
-                        transition: transition,
-                        graph: graph,
-                        pairStep: pairStep,
-                        lease: lease,
-                        snapshot: visualFailureSnapshot,
-                        pair: &pair,
-                        publications: &publications,
-                        commands: &commands,
-                        effectLocalFailureReasonCode:
-                            &effectLocalFailureReasonCode,
+                        boundedDetail: nil,
                         rejection: rejection
-                    )
+                    ))
                 }
                 commands.append(.material(prepared))
                 // The executor selects the last successful material and keeps
@@ -458,13 +389,13 @@ extension SceneResolvedMaterialGraphExecutor {
                             terminalMaterialReplay = nil
                             break
                         }
-                        return .materialPassPreparationRejected(
+                        return .failure(.materialPassPreparationRejected(
                             stageIndex: stageIndex,
                             nodeIndex: nodeIndex,
                             materialOrdinal: ordinal,
                             programKey: program.preparedShader.cacheKey,
                             failure: failure
-                        )
+                        ))
                     }
                 }
 #if DEBUG
@@ -517,21 +448,21 @@ extension SceneResolvedMaterialGraphExecutor {
                         resource: fboTarget.resource,
                         content: prepared.storedContent
                     ) else {
-                        return .graphPublicationRejected
+                        return .failure(.graphPublicationRejected)
                     }
                     publications[fboTarget.identity] = publication
                 } else {
                     guard let identity = node.target,
                           let member = pairNode.fullFrameWriteMember else {
-                        return .graphStructureRejected
+                        return .failure(.graphStructureRejected)
                     }
                     guard let fragmentOutput = prepared.fragmentOutput
                         ?? (prepared.storedContent == .data
                             ? pair.representation : nil) else {
-                        return .graphStructureRejected
+                        return .failure(.graphStructureRejected)
                     }
                     guard let generation = nextPairGeneration() else {
-                        return .contentGenerationOverflow
+                        return .failure(.contentGenerationOverflow)
                     }
                     guard let publication = pairResource(
                         lease: lease,
@@ -541,7 +472,7 @@ extension SceneResolvedMaterialGraphExecutor {
                         representation: fragmentOutput,
                         content: prepared.storedContent
                     ) else {
-                        return .graphPublicationRejected
+                        return .failure(.graphPublicationRejected)
                     }
                     publications[identity] = publication
                     if pairNode.rotatesAfterNode {
@@ -553,7 +484,7 @@ extension SceneResolvedMaterialGraphExecutor {
                             representation: fragmentOutput,
                             content: prepared.storedContent
                         ) else {
-                            return .graphPublicationRejected
+                            return .failure(.graphPublicationRejected)
                         }
                         publications[pairStep.inputIdentity] = input
                         pair = .init(
@@ -586,7 +517,7 @@ extension SceneResolvedMaterialGraphExecutor {
                           identity: target,
                           resource: targetResource,
                           content: content
-                      ) else { return .resourceCommandRejected }
+                      ) else { return .failure(.resourceCommandRejected) }
                 commands.append(.resource(prepared))
                 publications[target] = publication
 
@@ -604,7 +535,7 @@ extension SceneResolvedMaterialGraphExecutor {
                       let targetPublication = publications[target],
                       let newSource = targetPublication.rewrappedForGraphIdentity(source),
                       let newTarget = sourcePublication.rewrappedForGraphIdentity(target)
-                else { return .resourceCommandRejected }
+                else { return .failure(.resourceCommandRejected) }
                 publications[source] = newSource
                 publications[target] = newTarget
             }
@@ -618,7 +549,7 @@ extension SceneResolvedMaterialGraphExecutor {
                   lease: lease,
                   member: pairStep.outputMember
               ) else {
-            return .graphPublicationRejected
+            return .failure(.graphPublicationRejected)
         }
         // The boundary output is the next stage's pair atom even when the
         // authored node leaves `compose` unset. Re-anchor the atom from the
@@ -629,7 +560,7 @@ extension SceneResolvedMaterialGraphExecutor {
             resource: final,
             representation: representation
         )
-        return nil
+        return .prepared
     }
 
     private func validate(

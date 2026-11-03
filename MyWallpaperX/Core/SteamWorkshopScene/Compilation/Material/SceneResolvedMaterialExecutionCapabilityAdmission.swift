@@ -20,6 +20,7 @@ nonisolated struct SceneResolvedMaterialAdmittedLayer {
     let unavailableDependencyStageReasons: [Graph.EffectKey: String]
     let initiallyInactiveEffectKeys: Set<Graph.EffectKey>
     let sourceRoute: SourceRoute
+    let isTopLevelTextSource: Bool
     let isVisibleExecutionRoot: Bool
     let isGraphOutputProvider: Bool
     /// Launch preparation demand from a direct model material. This preserves
@@ -39,6 +40,7 @@ nonisolated struct SceneResolvedMaterialAdmittedLayer {
         unavailableDependencyStageReasons: [Graph.EffectKey: String] = [:],
         initiallyInactiveEffectKeys: Set<Graph.EffectKey> = [],
         sourceRoute: SourceRoute,
+        isTopLevelTextSource: Bool = false,
         isVisibleExecutionRoot: Bool,
         isGraphOutputProvider: Bool,
         isStaticModelGraphOutputPreparationRoot: Bool = false,
@@ -55,6 +57,7 @@ nonisolated struct SceneResolvedMaterialAdmittedLayer {
         self.unavailableDependencyStageReasons = unavailableDependencyStageReasons
         self.initiallyInactiveEffectKeys = initiallyInactiveEffectKeys
         self.sourceRoute = sourceRoute
+        self.isTopLevelTextSource = isTopLevelTextSource
         self.isVisibleExecutionRoot = isVisibleExecutionRoot
         self.isGraphOutputProvider = isGraphOutputProvider
         self.isStaticModelGraphOutputPreparationRoot =
@@ -755,6 +758,7 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                     unavailableDependencyStageReasons,
                 initiallyInactiveEffectKeys: initiallyInactiveEffectKeys,
                 sourceRoute: sourceRoute,
+                isTopLevelTextSource: layer.contentKind == "text" && layer.parentID == nil,
                 isVisibleExecutionRoot: isVisibleExecutionRoot,
                 isGraphOutputProvider: isGraphOutputProvider,
                 isStaticModelGraphOutputPreparationRoot:

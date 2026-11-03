@@ -7,45 +7,10 @@ extension SceneResolvedMaterialGraphExecutor {
         let commandCount: Int
     }
 
-    /// The outer optional means this graph owns no slot for the unavailable
-    /// dependency; the inner optional is the normal passthrough result.
-    func prepareUnavailableDependencyPassthrough(
-        frameInputs: SceneResolvedMaterialRuntimeBridge.FrameInputs,
-        stageCapability: SceneResolvedMaterialExecutionCapabilityCatalog.StageCapability,
-        transition: State.Transition,
-        graph: Graph,
-        pairStep: Pair.EffectStep,
-        lease: SceneGraphRenderTargetLease,
-        snapshot: VisualFailureSnapshot,
-        pair: inout PairAtom,
-        publications: inout [Graph.TextureIdentity: SceneFrameTextureResource],
-        commands: inout [Command],
-        effectLocalFailureReasonCode: inout String?
-    ) -> Failure?? {
-        guard let unavailable = frameInputs.dependencyUnavailability,
-              let slots = stageCapability.preEncodeVisualFailureSlots,
-              !slots.isEmpty else { return nil }
-        return .some(prepareVisualFailurePassthrough(
-            reasonCode: unavailable.rawValue,
-            stageCapability: stageCapability,
-            transition: transition,
-            graph: graph,
-            pairStep: pairStep,
-            lease: lease,
-            snapshot: snapshot,
-            pair: &pair,
-            publications: &publications,
-            commands: &commands,
-            effectLocalFailureReasonCode: &effectLocalFailureReasonCode
-        ))
-    }
-
-    /// Preserves the previous current for one launch-time visual contract or
-    /// pre-encode frame preparation failure. This is an exact pair-member copy,
-    /// not a fabricated shader result. Live resource availability, target,
-    /// dependency and runtime encode failures never reach this path.
-    func prepareVisualFailurePassthrough(
-        reasonCode: String,
+    /// Applies one effect-entry passthrough after the outer loop has chosen
+    /// the source representation. The only GPU work remains the original pair copy.
+    func preparePassthrough(
+        _ passthrough: StagePassthrough,
         stageCapability: SceneResolvedMaterialExecutionCapabilityCatalog.StageCapability,
         transition: State.Transition,
         graph: Graph,
@@ -56,70 +21,91 @@ extension SceneResolvedMaterialGraphExecutor {
         publications: inout [Graph.TextureIdentity: SceneFrameTextureResource],
         commands: inout [Command],
         effectLocalFailureReasonCode: inout String?,
-        boundedDetail: String? = nil,
-        rejection: Failure = .graphStructureRejected
+        effectLocalActivationBypassReasonCode: inout String?
     ) -> Failure? {
-        let ordinaryReason = [
-            "material-generic-owner-revoked",
-            "material-variant-envelope-frontend",
-            "material-variant-envelope-shader-preparation",
-            "material-variant-envelope-color-contract",
-            "material-variant-envelope-sampler-schema",
-            "material-variant-envelope-uniform-schema",
-            "material-variant-envelope-animated-frame-metadata",
-            "material-variant-envelope-texture-purpose",
-            "material-variant-envelope-texture-binding",
-            "material-dynamic-uniform-contributor-policy",
-            "material-dynamic-uniform-contributor-producer-unavailable",
-            "material-dynamic-uniform-script-attachment-unproven",
-            "material-dynamic-uniform-producer-unavailable",
-            "material-pass-preparation-library-compilation",
-            "material-pass-preparation-vertex-function",
-            "material-pass-preparation-fragment-function",
-            "material-pass-preparation-pipeline-compilation",
-            "material-pass-preparation-pipeline-not-prepared",
-            "material-finalizer-dynamic-uniform-binding",
-            "material-finalizer-host-input-unavailable",
-            "material-finalizer-static-uniform-binding",
-            "material-finalizer-host-uniform-declaration-conflict",
-            "material-finalizer-uniform-declaration-conflict",
-            "material-finalizer-color-contract",
-            "material-variant-selection-key-unstable",
-            "material-finalizer-optional-texture-unavailable",
-            "material-finalizer-optional-texture-purpose-mismatch",
-            "material-finalizer-optional-texture-content-mismatch",
-            "material-finalizer-optional-texture-sampling-unresolved",
-            "material-finalizer-scene-environment-unavailable",
-            "material-finalizer-system-provider-pending",
-            "material-finalizer-system-provider-unavailable",
-            "material-finalizer-system-provider-purpose-mismatch",
-            "material-finalizer-system-provider-sampling-unresolved",
-            "effect-activation-visibility-type-invalid",
-            "effect-activation-scalar-type-invalid",
-            "dependency-stage-reference-unavailable",
-            "dependency-stage-secondary-reference-unavailable",
-            "dependency-stage-reference-unsupported",
-            "external-primary-provider-source-unavailable",
-        ].contains(reasonCode)
-        let framebufferPreparationLimitation =
-            reasonCode == "material-variant-envelope-invariant"
-                && !graph.renderTargets.isEmpty
-        let ordinaryColorContractLimitation =
-            reasonCode != "material-finalizer-color-contract"
-                || graph.renderTargets.isEmpty
-        guard stageCapability.preEncodeVisualFailureSlots != nil,
-              ordinaryReason || framebufferPreparationLimitation
-                || reasonCode == "material-optional-named-fallback-unproven",
-              ordinaryColorContractLimitation,
-              visualFailureTopologyIsSupported(
-                  stageCapability: stageCapability,
-                  reasonCode: reasonCode,
-                  transition: transition,
-                  graph: graph,
-                  pairStep: pairStep,
-                  snapshot: snapshot
-              ) else {
-            return rejection
+        let reasonCode: String
+        let boundedDetail: String?
+        let rejection: Failure
+        let isActivation: Bool
+        switch passthrough {
+        case let .activation(reason, bypassProven):
+            guard bypassProven || activationBypassIsProvable(
+                reasonCode: reason, stageCapability: stageCapability,
+                transition: transition, graph: graph, pairStep: pairStep, snapshot: snapshot
+            ) else { return .graphStructureRejected }
+            reasonCode = reason
+            boundedDetail = nil
+            rejection = .graphStructureRejected
+            isActivation = true
+        case let .visualFailure(reason, detail, failure):
+            reasonCode = reason
+            boundedDetail = detail
+            rejection = failure
+            isActivation = false
+        }
+        if !isActivation {
+            let ordinaryReason = [
+                "material-generic-owner-revoked",
+                "material-variant-envelope-frontend",
+                "material-variant-envelope-shader-preparation",
+                "material-variant-envelope-color-contract",
+                "material-variant-envelope-sampler-schema",
+                "material-variant-envelope-uniform-schema",
+                "material-variant-envelope-animated-frame-metadata",
+                "material-variant-envelope-texture-purpose",
+                "material-variant-envelope-texture-binding",
+                "material-dynamic-uniform-contributor-policy",
+                "material-dynamic-uniform-contributor-producer-unavailable",
+                "material-dynamic-uniform-script-attachment-unproven",
+                "material-dynamic-uniform-producer-unavailable",
+                "material-pass-preparation-library-compilation",
+                "material-pass-preparation-vertex-function",
+                "material-pass-preparation-fragment-function",
+                "material-pass-preparation-pipeline-compilation",
+                "material-pass-preparation-pipeline-not-prepared",
+                "material-finalizer-dynamic-uniform-binding",
+                "material-finalizer-host-input-unavailable",
+                "material-finalizer-static-uniform-binding",
+                "material-finalizer-host-uniform-declaration-conflict",
+                "material-finalizer-uniform-declaration-conflict",
+                "material-finalizer-color-contract",
+                "material-variant-selection-key-unstable",
+                "material-finalizer-optional-texture-unavailable",
+                "material-finalizer-optional-texture-purpose-mismatch",
+                "material-finalizer-optional-texture-content-mismatch",
+                "material-finalizer-optional-texture-sampling-unresolved",
+                "material-finalizer-scene-environment-unavailable",
+                "material-finalizer-system-provider-pending",
+                "material-finalizer-system-provider-unavailable",
+                "material-finalizer-system-provider-purpose-mismatch",
+                "material-finalizer-system-provider-sampling-unresolved",
+                "effect-activation-visibility-type-invalid",
+                "effect-activation-scalar-type-invalid",
+                "dependency-stage-reference-unavailable",
+                "dependency-stage-secondary-reference-unavailable",
+                "dependency-stage-reference-unsupported",
+                "external-primary-provider-source-unavailable",
+            ].contains(reasonCode)
+            let framebufferPreparationLimitation =
+                reasonCode == "material-variant-envelope-invariant"
+                    && !graph.renderTargets.isEmpty
+            let ordinaryColorContractLimitation =
+                reasonCode != "material-finalizer-color-contract"
+                    || graph.renderTargets.isEmpty
+            guard stageCapability.preEncodeVisualFailureSlots != nil,
+                  ordinaryReason || framebufferPreparationLimitation
+                    || reasonCode == "material-optional-named-fallback-unproven",
+                  ordinaryColorContractLimitation,
+                  visualFailureTopologyIsSupported(
+                      stageCapability: stageCapability,
+                      reasonCode: reasonCode,
+                      transition: transition,
+                      graph: graph,
+                      pairStep: pairStep,
+                      snapshot: snapshot
+                  ) else {
+                return rejection
+            }
         }
         let failure = prepareStagePassthrough(
             pairStep: pairStep,
@@ -131,6 +117,10 @@ extension SceneResolvedMaterialGraphExecutor {
             rejection: rejection
         )
         guard failure == nil else { return failure }
+        if isActivation {
+            effectLocalActivationBypassReasonCode = reasonCode
+            return nil
+        }
 #if DEBUG
         ScenePerformanceCounterHub.shared.bump(.fallbackBranches)
 #endif
@@ -182,50 +172,6 @@ extension SceneResolvedMaterialGraphExecutor {
             pairStep: pairStep,
             snapshot: snapshot
         )
-    }
-
-    /// Expected author/provider inactivity is observable but is not a visual
-    /// failure or a fallback to an old renderer. The same atomic pair copy
-    /// preserves effect-entry current and discards uncommitted target history.
-    /// A caller that already proved the bypass passes `bypassProven` so the
-    /// frame does not repeat the topology proof.
-    func prepareActivationPassthrough(
-        reasonCode: String,
-        stageCapability: SceneResolvedMaterialExecutionCapabilityCatalog.StageCapability,
-        transition: State.Transition,
-        graph: Graph,
-        pairStep: Pair.EffectStep,
-        lease: SceneGraphRenderTargetLease,
-        snapshot: VisualFailureSnapshot,
-        pair: inout PairAtom,
-        publications: inout [Graph.TextureIdentity: SceneFrameTextureResource],
-        commands: inout [Command],
-        effectLocalActivationBypassReasonCode: inout String?,
-        bypassProven: Bool = false,
-        rejection: Failure = .graphStructureRejected
-    ) -> Failure? {
-        guard bypassProven || activationBypassIsProvable(
-            reasonCode: reasonCode,
-            stageCapability: stageCapability,
-            transition: transition,
-            graph: graph,
-            pairStep: pairStep,
-            snapshot: snapshot
-        ) else {
-            return rejection
-        }
-        let failure = prepareStagePassthrough(
-            pairStep: pairStep,
-            lease: lease,
-            snapshot: snapshot,
-            pair: &pair,
-            publications: &publications,
-            commands: &commands,
-            rejection: rejection
-        )
-        guard failure == nil else { return failure }
-        effectLocalActivationBypassReasonCode = reasonCode
-        return nil
     }
 
     private func prepareStagePassthrough(

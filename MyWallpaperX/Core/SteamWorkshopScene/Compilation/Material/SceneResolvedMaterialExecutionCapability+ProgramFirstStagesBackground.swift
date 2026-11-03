@@ -60,7 +60,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 }
             }
         }
-        guard !candidates.isEmpty else { return .success(nil) }
+        let textCapture = textSourceCaptureRequirement(admitted: admitted, stages: stages)
+        guard !candidates.isEmpty else { return .success(textCapture) }
         guard Set(candidates.map(\.key)).count == candidates.count,
               let candidate = candidates.sorted(by: {
                   if $0.key.effect.effectIndex != $1.key.effect.effectIndex {
@@ -125,8 +126,50 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             effect: candidate.key.effect,
             nodeIndex: candidate.key.nodeIndex,
             slot: candidate.slot,
-            bindingCount: candidates.count
+            bindingCount: candidates.count,
+            capturesTextSourcePrefixRGB: textCapture != nil
         ))
+    }
+
+    static func textSourceCaptureRequirement(
+        admitted: SceneResolvedMaterialAdmittedLayer, stages: [CompiledStages.Stage]
+    ) -> SceneBackgroundRequirement? {
+        guard admitted.isTopLevelTextSource, admitted.sourceRoute == .capturedLayerTexture,
+              admitted.isVisibleExecutionRoot, !admitted.isGraphOutputProvider,
+              let stage = stages.first,
+              case let .resolved(materials, _) = stage.execution,
+              let effect = stage.product.graph.effects.first,
+              effect.input == admitted.pairPlan.baseCaptureIdentity,
+              effect.input.kind == .layerSource else { return nil }
+        let product = stage.product
+        let nodes = product.graph.nodes
+        func sourceSlot(_ identity: Graph.TextureIdentity, in node: Graph.Node) -> Int? {
+            guard let material = materials[.init(effect: node.effect, nodeIndex: node.nodeIndex)]
+            else { return nil }
+            if identity == effect.input {
+                return material.variants.capturedMainTargetSourceSlot(node: node, effect: effect)
+            }
+            guard let active = material.variants.launchEnvelopeActiveTextureSlots else { return nil }
+            return node.bindings.first {
+                $0.texture == identity && $0.slot.map(active.contains) == true
+            }?.slot
+        }
+        for (index, node) in nodes.enumerated() {
+            if node.commandSource == effect.input { return nil }
+            guard let slot = sourceSlot(effect.input, in: node) else { continue }
+            guard node.kind == .material, let target = node.target,
+                  target.kind == .framebuffer,
+                  product.graph.renderTargets.contains(where: { $0.texture == target }),
+                  let consumer = nodes.dropFirst(index + 1).first(where: {
+                      $0.target == target || $0.commandTarget == target
+                        || $0.commandSource == target || sourceSlot(target, in: $0) != nil
+                  }), consumer.commandSource == target || sourceSlot(target, in: consumer) != nil
+                  else { return nil }
+            return .init(layerID: admitted.layerID, effect: effect.key,
+                         nodeIndex: node.nodeIndex, slot: slot, bindingCount: 0,
+                         capturesTextSourcePrefixRGB: true)
+        }
+        return nil
     }
 
     static func sceneBackgroundCandidateIsOrdered(
