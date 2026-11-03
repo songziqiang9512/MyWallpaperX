@@ -137,6 +137,22 @@ def fixture_scene() -> dict:
         for index, (name, fields) in enumerate(cases)]}
 
 
+def brightness_scene(hdr: bool) -> dict:
+    base = {"font": "systemfont_arial", "pointsize": 14, "color": "0.125 0.375 0.0625",
+        "size": "384 192", "padding": 16, "alpha": 0.37, "backgroundbrightness": 2}
+    # A literal-color control preserves the current HDR raster, including its
+    # existing 8-bit ceiling, without implementing a brightness rule here.
+    variants = [("zero", {"brightness": 0}), ("one", {"brightness": 1}),
+        ("four", {"brightness": 4}), ("unrelated-title", {"brightness": {"value": 4}}),
+        ("baked-four", {"brightness": 1, "color": "0.5 1 0.25"})]
+    objects = []
+    for name, fields in variants:
+        for suffix, content in [("", "MWX"), ("-changed", "WMWX")]:
+            objects.append(base | fields | {"id": 700 + 13 * len(objects),
+                "name": name + suffix, "text": content})
+    return {"version": 3, "general": {"hdr": hdr, "bloom": False}, "objects": objects}
+
+
 # These are the existing standalone DTO seams, not a second raster/model owner.
 SWIFT_SUPPORT = ROW_HARNESS.partition("\n@main\n")[0]
 HARNESS = SWIFT_SUPPORT + r'''
@@ -346,8 +362,7 @@ enum DecorationProbe {
         }
     }
 
-    static func main() throws {
-        let url = URL(fileURLWithPath: CommandLine.arguments[1])
+    static func load(_ url: URL) throws -> (SceneDocument, SceneRenderDescriptor) {
         let document = try SceneDocumentLoader().load(from: url)
         let project = SceneProject(rootURL: url.deletingLastPathComponent(),
             entryPath: url.lastPathComponent, userProperties: .empty)
@@ -357,6 +372,58 @@ enum DecorationProbe {
             resourceReferences: SceneResourceReferenceIndex(missingReferences: [],
                 builtInReferenceCount: 0, runtimeProvidedReferenceCount: 0),
             capabilityProfile: SceneCapabilityProfile(firstStageRendererGaps: [])) else { throw ProbeError.descriptor }
+        return (document, descriptor)
+    }
+
+    static func brightnessChecks(_ url: URL, device: MTLDevice) throws -> [String: Any] {
+        let (document, descriptor) = try load(url)
+        let resourceView = SceneResourceView(projectRoot: .init(source: .loose,
+            url: url.deletingLastPathComponent()), packageRoot: nil, stockRoot: nil)
+        let loaded = SceneTextTextureLoader.load(descriptor: descriptor,
+            resourceView: resourceView, device: device)
+        let layers = Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.name!, $0) })
+        let objects = Dictionary(uniqueKeysWithValues: document.objects.map { ($0.id, $0) })
+        var images: [String: Image] = [:]
+        for (name, layer) in layers {
+            guard let raster = loaded.rasters[layer.id] else { throw ProbeError.texture(name) }
+            images[name] = Image(raster.texture, logicalSize: raster.renderSizeWH)
+        }
+        let unit = images["one"]!, baked = images["baked-four"]!
+        let coverage = stride(from: 3, to: unit.bytes.count, by: 4).map { unit.bytes[$0] }
+        var cases: [String: Any] = [:]
+        for name in ["zero", "one", "four", "unrelated-title"] {
+            let layer = layers[name]!, style = layer.textStyle!, image = images[name]!
+            var dynamic: [String: Any] = [:]
+            for (variant, content) in [("same", "MWX"), ("changed", "WMWX")] {
+                guard let raster = try SceneTextTextureLoader.makeDynamicTexture(for: layer,
+                    content: content, pointSize: style.pointSize, colorRGB: style.colorRGB,
+                    resourceView: resourceView, device: device) else { throw ProbeError.texture(name + variant) }
+                let updated = Image(raster.texture, logicalSize: raster.renderSizeWH)
+                let reference = images[name + (variant == "same" ? "" : "-changed")]!
+                dynamic[variant] = ["matchesStaticControl": updated.size == reference.size
+                    && updated.logicalSize == reference.logicalSize && updated.bytes == reference.bytes,
+                    "differsFromInitial": updated.bytes != image.bytes,
+                    "sameCenterOffset": raster.centerOffsetY == loaded.rasters[layers[name
+                        + (variant == "same" ? "" : "-changed")]!.id]!.centerOffsetY]
+            }
+            cases[name] = ["documentBrightness": objects[layer.id]!.brightness!,
+                "layerBrightness": layer.brightness!, "effectiveBrightness": style.brightness,
+                "backgroundBrightness": style.backgroundBrightness, "layerAlpha": layer.alpha!,
+                "sameAsUnit": image.size == unit.size && image.bytes == unit.bytes,
+                "sameAsBakedFour": image.size == baked.size && image.bytes == baked.bytes,
+                "sameGeometry": image.size == unit.size && image.logicalSize == unit.logicalSize
+                    && loaded.rasters[layer.id]!.centerOffsetY == loaded.rasters[layers["one"]!.id]!.centerOffsetY,
+                "sameCoverage": stride(from: 3, to: image.bytes.count, by: 4).map { image.bytes[$0] } == coverage,
+                "pixels": image.statistics, "dynamic": dynamic]
+        }
+        let raw = try JSONSerialization.jsonObject(with: Data(contentsOf: url))
+        return ["documentHDR": document.general.hdrEnabled, "descriptorHDR": descriptor.hdrEnabled,
+            "authoredRootPreserved": document.authoredRoot == SceneJSONValue(jsonObject: raw), "cases": cases]
+    }
+
+    static func main() throws {
+        let url = URL(fileURLWithPath: CommandLine.arguments[1])
+        let (_, descriptor) = try load(url)
         guard let device = MTLCreateSystemDefaultDevice() else { throw ProbeError.metal }
         let resourceView = SceneResourceView(projectRoot: .init(source: .loose,
             url: url.deletingLastPathComponent()), packageRoot: nil, stockRoot: nil)
@@ -492,6 +559,8 @@ enum DecorationProbe {
                 "identicalRaster": cap.size == scaled.size && cap.bytes == scaled.bytes]
         }
         let result: [String: Any] = ["cases": cases, "dynamic": dynamic,
+            "brightness": ["sdr": try brightnessChecks(URL(fileURLWithPath: CommandLine.arguments[2]), device: device),
+                "hdr": try brightnessChecks(URL(fileURLWithPath: CommandLine.arguments[3]), device: device)],
             "outlineGeometry": outlineGeometry,
             "shadowGeometry": shadowGeometry, "worldAnchors": worldAnchors,
             "backgroundSourceOverError": backgroundError, "transparentBorderPixels": transparentBorderPixels,
@@ -520,21 +589,25 @@ class SceneTextDecorationTests(unittest.TestCase):
             cls.root = Path(cls.temporary.name)
         fixture = cls.root / "scene.json"
         fixture.write_text(json.dumps(fixture_scene(), sort_keys=True, indent=2) + "\n", encoding="utf-8")
+        brightness_fixtures = [cls.root / "brightness-sdr.json", cls.root / "brightness-hdr.json"]
+        for path, hdr in zip(brightness_fixtures, [False, True]):
+            path.write_text(json.dumps(brightness_scene(hdr), sort_keys=True, indent=2) + "\n", encoding="utf-8")
         harness = cls.root / "Harness.swift"
         harness.write_text(HARNESS, encoding="utf-8")
         binary = cls.root / "probe"
         command = ["xcrun", "--sdk", "macosx", "swiftc", *(str(path) for path in SWIFT_SOURCES),
             str(harness), "-framework", "Metal", "-framework", "CoreText", "-o", str(binary)]
         identity_sources = [Path(__file__).resolve(), Path(__file__).with_name("test_scene_text_row_limit.py"),
-            *SWIFT_SOURCES, fixture, harness]
+            *SWIFT_SOURCES, fixture, *brightness_fixtures, harness]
         identity = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in identity_sources}
+        run_command = [str(binary), str(fixture), *map(str, brightness_fixtures)]
         (cls.root / "prerun.json").write_text(json.dumps({"compileCommand": command,
-            "runCommand": [str(binary), str(fixture)], "sourceSHA256": identity}, indent=2), encoding="utf-8")
+            "runCommand": run_command, "sourceSHA256": identity}, indent=2), encoding="utf-8")
         compiled = subprocess.run(command, capture_output=True, text=True, timeout=120)
         (cls.root / "compile.log").write_text(compiled.stdout + compiled.stderr, encoding="utf-8")
         if compiled.returncode:
             raise RuntimeError(compiled.stderr)
-        completed = subprocess.run([str(binary), str(fixture)], capture_output=True, text=True, timeout=60)
+        completed = subprocess.run(run_command, capture_output=True, text=True, timeout=60)
         (cls.root / "run.log").write_text(completed.stdout + completed.stderr, encoding="utf-8")
         if completed.returncode:
             raise RuntimeError(completed.stderr)
@@ -609,6 +682,48 @@ class SceneTextDecorationTests(unittest.TestCase):
             with self.subTest(case=name):
                 self.assertTrue(case["sameAsStatic"])
                 self.assertTrue(all(value > 0 for value in case["logicalSize"]))
+
+    def test_text_brightness_keeps_raw_declarations_and_coverage_in_both_modes(self) -> None:
+        for mode in ["sdr", "hdr"]:
+            result = self.result["brightness"][mode]
+            self.assertEqual(result["documentHDR"], mode == "hdr")
+            self.assertEqual(result["descriptorHDR"], mode == "hdr")
+            self.assertTrue(result["authoredRootPreserved"])
+            for name, declared in [("zero", 0), ("one", 1), ("four", 4), ("unrelated-title", 4)]:
+                with self.subTest(mode=mode, case=name):
+                    case = result["cases"][name]
+                    self.assertEqual(case["documentBrightness"], declared)
+                    self.assertEqual(case["layerBrightness"], declared)
+                    self.assertEqual(case["effectiveBrightness"], declared if mode == "hdr" else 1)
+                    self.assertEqual(case["backgroundBrightness"], 2)
+                    self.assertAlmostEqual(case["layerAlpha"], 0.37)
+                    self.assertTrue(case["sameGeometry"])
+                    self.assertTrue(case["sameCoverage"])
+                    self.assertGreater(case["pixels"]["ink"], 100)
+                    self.assertEqual(case["pixels"]["premultipliedViolations"], 0)
+
+    def test_sdr_ignores_foreground_brightness_and_hdr_keeps_existing_output(self) -> None:
+        for name, case in self.result["brightness"]["sdr"]["cases"].items():
+            with self.subTest(mode="sdr", case=name):
+                self.assertTrue(case["sameAsUnit"])
+                self.assertFalse(case["sameAsBakedFour"])
+        hdr = self.result["brightness"]["hdr"]["cases"]
+        self.assertEqual(hdr["zero"]["pixels"]["channelMass"], [0, 0, 0])
+        self.assertFalse(hdr["zero"]["sameAsUnit"])
+        self.assertTrue(hdr["one"]["sameAsUnit"])
+        for name in ["four", "unrelated-title"]:
+            with self.subTest(mode="hdr", case=name):
+                self.assertFalse(hdr[name]["sameAsUnit"])
+                self.assertTrue(hdr[name]["sameAsBakedFour"])
+
+    def test_brightness_style_survives_dynamic_content_without_changing_pixels(self) -> None:
+        for mode in ["sdr", "hdr"]:
+            for name, case in self.result["brightness"][mode]["cases"].items():
+                for variant, dynamic in case["dynamic"].items():
+                    with self.subTest(mode=mode, case=name, variant=variant):
+                        self.assertTrue(dynamic["matchesStaticControl"])
+                        self.assertTrue(dynamic["sameCenterOffset"])
+                        self.assertEqual(dynamic["differsFromInitial"], variant == "changed")
 
     def test_dynamic_content_font_point_size_and_color_keep_authored_decorations(self) -> None:
         for variant in ["content", "font", "pointSize", "color"]:

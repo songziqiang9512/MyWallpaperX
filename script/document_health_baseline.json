@@ -130,11 +130,11 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 30,
-      "bytes": 3165
+      "bytes": 3032
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
-      "lines": 75,
-      "bytes": 7614
+      "lines": 81,
+      "bytes": 8510
     },
     "docs/scene/capabilities/runtime-systems-reference.md": {
       "lines": 65,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 119,
-      "bytes": 13436
+      "bytes": 13434
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -336,12 +336,12 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "d8d738d65a3bd66a965ae63f03462c2aaf2f4a4f718b925f62078dee4d8f3e1b",
-      "after": "a55facc551681844d8247f0dab7d41c6cc88b6d36a0f42afc41105da7dfb307f",
-      "owner": "scene-script",
-      "reason": "Document the existing solid Vec3 consumer and bind the current native color qualification.",
-      "decision": "docs/scene/development/development-workflow.md#document-maintenance"
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "before": "ed4771230ab917a276b3e0e076b55cb1e744b93e39a8002bfd7f089b89c6e60d",
+      "after": "844df4313c39f276ffba832976f0a628754cd7c0093eb67c72c50ead535a70ce",
+      "owner": "scene-text",
+      "reason": "Define effective foreground HDR brightness in the existing text preparation contract, with raw declaration preservation and explicit HDR/background limits.",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#文字-hdr-亮度"
     }
   ]
 }

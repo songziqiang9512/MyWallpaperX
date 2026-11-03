@@ -120,7 +120,7 @@ import Foundation
 struct SceneTextDescriptor: Codable {
     let padding: Float
     init(padding: Float = 0) { self.padding = padding }
-    static func parse(_ root: [String: Any]) -> SceneTextDescriptor { .init() }
+    static func parse(_ root: [String: Any], hdrEnabled: Bool = false) -> SceneTextDescriptor { .init() }
 }
 
 enum SceneTextGeometry {

@@ -128,6 +128,7 @@ nonisolated struct SceneDocumentLoader {
                 authoredRoot: authoredObjects.indices.contains(index)
                     ? authoredObjects[index]
                     : object,
+                hdrEnabled: general.hdrEnabled,
                 missingParallaxDepth: missingParallaxDepth,
                 declaredTexturePropertyKeys: declaredTexturePropertyKeys,
                 startupMaterialScalarKeys: Set(["metallic", "roughness", "emissivecolor", "emissivebrightness", "reflectivity", "reflectivitydistance"].filter { key in
@@ -184,6 +185,7 @@ nonisolated struct SceneDocumentLoader {
     nonisolated private static func parseObject(
         _ root: [String: Any],
         authoredRoot: [String: Any],
+        hdrEnabled: Bool,
         missingParallaxDepth: String?,
         declaredTexturePropertyKeys: Set<String>,
         startupMaterialScalarKeys: Set<String>
@@ -267,7 +269,7 @@ nonisolated struct SceneDocumentLoader {
             disablesParallaxPropagation: visibleValue(root["disablepropagation"]) ?? false,
             usesPerspective: root["perspective"] as? Bool,
             text: text,
-            textStyle: text == nil ? nil : SceneTextDescriptor.parse(root),
+            textStyle: text == nil ? nil : SceneTextDescriptor.parse(root, hdrEnabled: hdrEnabled),
             scriptBindings: SceneScriptBindingDefinition.parseLayerProperties(in: root),
             textureAnimationScripts:
                 SceneTextureAnimationScriptDefinition.parseLayerProperties(in: root),

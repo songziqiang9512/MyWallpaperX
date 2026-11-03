@@ -56,12 +56,15 @@ struct SceneTextDescriptor: Codable {
         return Float(max(1, min(value, 1_024)))
     }
 
-    nonisolated static func parse(_ root: [String: Any]) -> SceneTextDescriptor {
+    nonisolated static func parse(
+        _ root: [String: Any], hdrEnabled: Bool = false
+    ) -> SceneTextDescriptor {
         SceneTextDescriptor(
             fontPath: normalizedPath(string(root["font"])),
             pointSize: max(1, number(root["pointsize"]) ?? 32),
             colorRGB: paddedColor(SceneDocumentLoader.floatVector(root["color"]), fill: 1),
-            brightness: max(0, number(root["brightness"]) ?? 1),
+            // Authored brightness is HDR gain; SDR must retain the source color.
+            brightness: hdrEnabled ? max(0, number(root["brightness"]) ?? 1) : 1,
             horizontalAlignment: string(root["horizontalalign"]) ?? "center",
             verticalAlignment: string(root["verticalalign"]) ?? "center",
             screenAnchor: string(root["anchor"]) ?? "none",

@@ -52,6 +52,12 @@ Session 共享一个 DynamicTextTextureStore，按内容/样式签名和 generat
 
 初始与动态文字均作为 layer source，raster 颜色与 layer tint 保原乘色语义。没有实际活 layer/clone/named/particle 消费者时退休活动 producer 并撤迟到发布权，保留准备模板与冻结/GPU 引用；hidden 不作为退出。Surface rebuild 复用共享 Store，完整 stop 排空已接纳任务。
 
+### 文字 HDR 亮度
+
+文字前景 `brightness` 是 HDR gain，[官方作者说明](https://docs.wallpaperengine.io/en/scene/effects/bloom.html)也将文字列为此选项的消费者。Document 准备 TextStyle 时按已解析的 `hdrEnabled` 采用：非 HDR 为1、HDR保留声明值；原始对象和 Layer 继续保真。初始/动态栅格共用有效样式，替代无条件烘入亮度的采用方式，不向 Store/loader 传 general，也不加普通帧分支。
+
+新 launch 重建样式，Surface rebuild 复用 Store，不新增缓存字段或迁移状态。`backgroundbrightness` 仍需独立语义资格；HDR开启保既有8bit栅格行为，不表示高光保真。验证使用非白色0/1/高亮、wrapper及改名的初始/动态纹理，核字色、alpha、几何与原声明，并保HDR原输出；固定扫描相位、真实邻例和官方截图各有独立证明边界。
+
 源码：[DynamicTextTextureStore](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneDynamicTextTextureStore.swift)。字体/排版精确像素、所有样式与官方布局 parity 仍需逐输入比较。
 
 <a id="providers"></a>

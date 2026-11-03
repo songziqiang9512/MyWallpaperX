@@ -318,7 +318,7 @@ struct SceneTextDescriptor: Codable {
         self.padding = padding
     }
 
-    static func parse(_ root: [String: Any]) -> SceneTextDescriptor { .init() }
+    static func parse(_ root: [String: Any], hdrEnabled: Bool = false) -> SceneTextDescriptor { .init() }
 }
 
 enum SceneTextGeometry {
@@ -880,7 +880,7 @@ class SceneSolidLayerTests(unittest.TestCase):
     def test_authored_brightness_multiplies_layer_tint_but_not_text(self) -> None:
         # 官方随包 razer_bedroom 的 wave layer 用 brightness 3.0/4.0 过曝发光；未声明的 layer
         # 保持 nil（harness 用 -1 表示），text layer 的声明也照原样进 descriptor，但因为
-        # contentKind 为 text，compositor 必须跳过乘法，交给 CoreText 栅格化消费。
+        # contentKind 为 text，compositor 跳过乘法；CoreText 消费按 HDR 开关准备的有效样式。
         self.assertEqual(self.result["descriptorBrightness"], [-1, 3, 4])
         self.assertEqual(self.result["brightnessContentKinds"], ["image", "text"])
 

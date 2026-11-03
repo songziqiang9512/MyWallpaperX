@@ -28,7 +28,7 @@
 | particle direct color | `ScenePropertyBindingCompiler+TargetMapping`的 absolute `.color`仍返回 nil；先确定合法定义和单位，再接同一 instruction/出生 consumer。normalizedColor 是不同目标。 |
 | 隐藏 / 离屏视频 | backend dormant策略仍待资格；显示隐藏、资源仍被named采样与实际source停止分开，不能以hidden统一停decoder。 |
 | typed event / callback 时序 | 3028048463的531.alpha空数组、506.origin；3603711180的跨 callback Sound 查询；event-only Vec/numeric String 的控制归属分别待核。保作者当前值失败策略，不无差别容错。 |
-| 版本 / 显示输出扩域 | 物理HDR/EDR、更广lighting/receiver组合与未知模型/粒子profile仍待对应资格；PNG或代表输入不证明全域。 |
+| 版本 / 显示输出扩域 | 物理HDR/EDR、lighting/receiver及未知模型/粒子profile待资格；文字backgroundbrightness、HDR8bit裁剪待核：TextDescriptor/TextureLoader。 |
 
 上述范围的实现依据分别为[Script](../capabilities/scenescript-api-coverage.md)、[effect/composition](../capabilities/effect-execution-coverage.md)、[graph/shader](../capabilities/render-graph-shader-coverage.md)、[模型/Puppet](../capabilities/advanced-object-coverage.md)和[粒子](../capabilities/particle-component-coverage.md)。
 
@@ -45,7 +45,7 @@
 | 3034166869 /3223543799 | 其余 effect、媒体与完整画面；常开音条与条件隐藏分开，不凭短窗结构状态实施。 |
 | 3141464346 | Puppet 同 phase 位置、右下音频环与 shader 链；188/332蒸汽不能代音频环。 |
 | 2957870426 /3383210272 | 中央竖光白色、birth Color Random/colorn 的样式；需实际出生与有效音频输入。 |
-| 3586308277 | 文字从右到左扫描的可见度；固定作者时间、遮罩、属性与 viewport，直接核此样本的实际画面。 |
+| 3586308277 | SDR原色已恢复；待核原动画扫描时间、方向与可见度，官方像素未获资格。 |
 | 3351179520 | 文字环位置/尺度/旋转；需同帧 slot1、MVP、g_Time 与可归属 glyph，而非强制各TRS同心同速。 |
 
 ### 其他待核
