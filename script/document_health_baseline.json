@@ -129,8 +129,8 @@
       "bytes": 8267
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 30,
-      "bytes": 2692
+      "lines": 34,
+      "bytes": 4461
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 81,
@@ -149,8 +149,8 @@
       "bytes": 7544
     },
     "docs/scene/development/development-workflow.md": {
-      "lines": 91,
-      "bytes": 8319
+      "lines": 104,
+      "bytes": 12099
     },
     "docs/scene/development/official-client-behavior-research-workflow.md": {
       "lines": 70,
@@ -161,8 +161,8 @@
       "bytes": 4260
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 119,
-      "bytes": 13403
+      "lines": 156,
+      "bytes": 20522
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -351,6 +351,33 @@
       "owner": "scene-video-assets",
       "reason": "Specify opaque straight asset preparation/publication and terminal local-failure behavior in the existing video contract, with strict pending and identity boundaries.",
       "decision": "docs/scene/capabilities/material-video-assets.md#视频资产的颜色用途"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/development/development-workflow.md",
+      "before": "ea1859d77a3c8f1b398ce1f456a3db1250efef4608549079e88deb65b1300f23",
+      "after": "1b3ba1620f05781b1d0f35dfb5623f568640d7c3358b645c8cd6c1fda26fb5ad",
+      "owner": "scene-measurement",
+      "reason": "Define full-corpus attempt/input/inventory boundaries, actual draw/capture receipts, aggregate leads and fallback versus authored-operation proof in existing diagnostic owners.",
+      "decision": "docs/scene/development/development-workflow.md#corpus-runtime-measurement"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "d6adbab8245e4b0a71e76dcd2871a5bad549f15cf37546a074fdc3e05319d70c",
+      "after": "95581a83a399483c351787143fa7f84f6eb6cef7fe3a2ae2cac5adf6cdd1d5ac",
+      "owner": "scene-measurement",
+      "reason": "Replace bounded video-only scope with current full-corpus identities, per-stage observations, visual triage and explicit unknowns; keep exact local receipts outside canonical docs.",
+      "decision": "docs/scene/development/development-workflow.md#corpus-runtime-measurement"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "7c583d66209690810a6b0fc0b3e3c611ad7e47c5d4600a958abc0d3dd1d73df5",
+      "after": "204d56d6d86cd62acb66fee600993bddac3bfca3a08d53b8862029a33f54ec42",
+      "owner": "scene-measurement",
+      "reason": "Replace speculative/stale first-cause leads with full-corpus current facts, newly observed generic and individual breakpoints, and preserve input-specific user feedback pending qualified experiments.",
+      "decision": "docs/scene/development/development-workflow.md#corpus-runtime-measurement"
     }
   ]
 }

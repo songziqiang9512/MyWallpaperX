@@ -118,7 +118,9 @@ def shader_profile(resource: ResolvedResource) -> dict[str, Any]:
     structural_source = _strip_c_family_comments(source)
     conditioned_lines = _preprocessor_conditioned_lines(structural_source)
     uniform_records: set[tuple[str, str, str, int | None, str]] = set()
-    for match in UNIFORM_PATTERN.finditer(structural_source):
+    uniform_indices = {}
+    for declaration_index, match in enumerate(UNIFORM_PATTERN.finditer(structural_source)):
+        uniform_indices[match.start()] = declaration_index
         value_type, name, array_expression = match.groups()
         if array_expression is None:
             array_state = "scalar"
@@ -180,7 +182,10 @@ def shader_profile(resource: ResolvedResource) -> dict[str, Any]:
         mode = value.get("mode")
         if isinstance(mode, str):
             sampler_modes.add(mode.casefold())
-    for name, marker, raw_object in SAMPLER_ANNOTATION_PATTERN.findall(source):
+    for match in SAMPLER_ANNOTATION_PATTERN.finditer(source):
+        if match.start() not in uniform_indices:
+            continue
+        name, marker, raw_object = match.groups()
         try:
             value = json.loads(raw_object)
         except json.JSONDecodeError:
@@ -189,6 +194,7 @@ def shader_profile(resource: ResolvedResource) -> dict[str, Any]:
             continue
         slot_match = re.fullmatch(r"g_Texture(\d+)", name, re.IGNORECASE)
         sampler_annotations.append({
+            "declaration_index": uniform_indices[match.start()],
             "name": name,
             "slot": int(slot_match.group(1)) if slot_match else None,
             "marker": marker.casefold() if marker else None,
@@ -200,7 +206,10 @@ def shader_profile(resource: ResolvedResource) -> dict[str, Any]:
             "default": normalize_path(value["default"])
             if not marker and isinstance(value.get("default"), str) else None,
         })
-    for value_type, name, marker, raw_object in UNIFORM_ANNOTATION_PATTERN.findall(source):
+    for match in UNIFORM_ANNOTATION_PATTERN.finditer(source):
+        if match.start() not in uniform_indices:
+            continue
+        value_type, name, marker, raw_object = match.groups()
         try:
             value = json.loads(raw_object)
         except json.JSONDecodeError:
@@ -365,6 +374,7 @@ def census_package_resources(
                     "owner_occurrence": identity,
                     "sampler_name": sampler["name"],
                     "slot_index": sampler.get("slot"),
+                    "sampler_declaration_index": sampler["declaration_index"],
                 }
                 resource_identity = ({
                     "origin": resolved.origin,

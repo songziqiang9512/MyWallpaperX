@@ -117,7 +117,7 @@ extension SceneMetalRenderer {
                             viewportSize: CGSize(width: source.width, height: source.height))
                     else { return false }
                     let uv = geometry.sourceUV
-                    return SceneOffscreenEffectRenderer.captureSource(
+                    let encoded = SceneOffscreenEffectRenderer.captureSource(
                         sourceTexture: source, target: target,
                         sourceUniforms: SceneLayerFragmentUniforms(
                             time: 0, alpha: 1, dependencyBlendMode: 0, usesDependencyBlend: 0,
@@ -125,6 +125,14 @@ extension SceneMetalRenderer {
                             tint: .init(repeating: 1), textureFrame0: uv.uniform0,
                             textureFrame1: uv.uniform1),
                         pipeline: pipeline, commandBuffer: commandBuffer)
+#if DEBUG
+                    if let trace = mainPass.compositionTrace, trace.isCompositionSelected {
+                        trace.recordComposition(.init(kind: "group-background-capture",
+                            source: .init(source, role: "enclosing-color"), target: .init(target, role: "group-color"),
+                            outcome: encoded ? "draw-encoded" : "failed"))
+                    }
+#endif
+                    return encoded
                 })
         }
         return (mainPass, groups)
@@ -202,7 +210,8 @@ extension SceneMetalRenderer {
                              dynamicValues: SceneDynamicSnapshot, commandBuffer: MTLCommandBuffer,
                              output: SceneDisplayMappingPostProcess.Output = .sRGB,
                              input: SceneDisplayMappingPostProcess.Input = .textureSource,
-                             compositionGroupRuntime: SceneCompositionGroupFrameRuntime? = nil) -> FrameOutcome? {
+                             compositionGroupRuntime: SceneCompositionGroupFrameRuntime? = nil,
+                             executionTrace: SceneEffectExecutionFrameTrace? = nil) -> FrameOutcome? {
         // Consume the existing main-pass completion fact (or completed paused
         // raw). Neither Bloom nor either display input may read an unsafe source.
         guard sourceCompleted else {
@@ -215,6 +224,21 @@ extension SceneMetalRenderer {
             // Only display scratch sees Bloom or the nonlinear output curve.
             // A paused export reuses raw without traversing authored layers.
             let copied = copySceneColor(sceneColor.raw, to: display, commandBuffer: commandBuffer)
+#if DEBUG
+            if let executionTrace, executionTrace.isCompositionSelected {
+                executionTrace.recordComposition(.init(kind: "scene-color-copy",
+                    source: .init(sceneColor.raw, role: sceneColor.requiresDraw ? "scene-raw-current" : "scene-raw-completed"),
+                    target: .init(display, role: "scene-display"), access: "copy-source",
+                    outcome: copied ? "encoded" : "failed",
+                    details: ["reusesCompletedRaw": String(!sceneColor.requiresDraw),
+                        "producerFrameIndex": String(sceneColor.producerReceipt.frameIndex),
+                        "producerFrameEpoch": String(sceneColor.producerReceipt.frameEpoch),
+                        "producerExecutionEpoch": String(sceneColor.producerReceipt.executionEpoch),
+                        "producerCommandBufferObservationID": sceneColor.producerReceipt.commandBufferObservationID.uuidString,
+                        "producerAllocationGeneration": String(sceneColor.producerReceipt.allocationGeneration),
+                        "producerResetEpoch": sceneColor.producerReceipt.resetEpoch.uuidString]))
+            }
+#endif
             if copied {
                 bloomPostProcess?.encode(configuration: renderDescriptor.camera.bloom.resolving(
                     dynamicValues), source: display,
@@ -229,6 +253,14 @@ extension SceneMetalRenderer {
             if !mapped && !copySceneColor(sceneColor.raw, to: target, commandBuffer: commandBuffer) {
                 return .dropped(reasonCode: "scene-color-display-export-unavailable")
             }
+#if DEBUG
+            if let executionTrace, executionTrace.isCompositionSelected {
+                executionTrace.recordComposition(.init(kind: "export",
+                    source: .init(mapped ? display : sceneColor.raw, role: mapped ? "scene-display" : "scene-raw-fallback"),
+                    target: .init(target, role: "drawable"), access: mapped ? "texture-bind" : "copy-source",
+                    outcome: "exported", details: ["mapped": String(mapped)]))
+            }
+#endif
             guard imageCompositor.resolvedMaterialRuntime?.markSceneColorOutput(
                 on: commandBuffer, mapped: mapped) == true else {
                 return .dropped(reasonCode: "scene-color-output-identity-rejected")
@@ -241,6 +273,14 @@ extension SceneMetalRenderer {
             if input == .colorAttachment {
                 mapped = displayMappingPostProcess?.encodeAttachment(target: target,
                     commandBuffer: commandBuffer, output: output) == true
+#if DEBUG
+                if let executionTrace, executionTrace.isCompositionSelected {
+                    executionTrace.recordComposition(.init(kind: "export",
+                        source: .init(target, role: "main-color"), target: .init(target, role: "drawable"),
+                        access: "color-attachment-read", outcome: mapped ? "exported" : "unmapped",
+                        reason: mapped ? nil : "display-mapping-not-encoded"))
+                }
+#endif
             } else if let displayMappingPostProcess,
                let offscreenTexturePool,
                let scratch = compositionGroupRuntime?.terminalScratch(matching: target, on: commandBuffer)
@@ -250,6 +290,17 @@ extension SceneMetalRenderer {
                copySceneColor(target, to: scratch, commandBuffer: commandBuffer) {
                 mapped = displayMappingPostProcess.encode(source: scratch, target: target,
                     commandBuffer: commandBuffer, output: output)
+#if DEBUG
+                if let executionTrace, executionTrace.isCompositionSelected {
+                    executionTrace.recordComposition(.init(kind: "display-scratch-copy",
+                        source: .init(target, role: "main-color"), target: .init(scratch, role: "display-scratch"),
+                        access: "copy-source", outcome: "encoded"))
+                    executionTrace.recordComposition(.init(kind: "export",
+                        source: .init(scratch, role: "display-scratch"), target: .init(target, role: "drawable"),
+                        outcome: mapped ? "exported" : "unmapped",
+                        reason: mapped ? nil : "display-mapping-not-encoded"))
+                }
+#endif
             }
             if !mapped && output.isLinear {
                 return .dropped(reasonCode: "scene-linear-display-export-unavailable")
@@ -258,6 +309,12 @@ extension SceneMetalRenderer {
         guard imageCompositor.endResolvedMaterialFrame(on: commandBuffer) else {
             return .dropped(reasonCode: "resolved-material-frame-seal-rejected")
         }
+#if DEBUG
+        if let executionTrace, executionTrace.isCompositionSelected {
+            executionTrace.recordComposition(.init(kind: "frame-seal", target: .init(target, role: "drawable"),
+                access: "terminal-output", outcome: "sealed"))
+        }
+#endif
         return nil
     }
 

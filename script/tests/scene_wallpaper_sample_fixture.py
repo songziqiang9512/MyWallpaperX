@@ -85,6 +85,8 @@ def run_sample_fixture(
     no_execution_observations: bool = False,
     control: dict[str, Any] | None = None,
     log_only: bool = False,
+    terminal_snapshot: bool = False,
+    snapshot_max_edge: int | None = None,
 ) -> tuple[dict[str, Any], list[str]]:
     control = control or {}
     sample = {"id": "123", "expected_runtime_evidence_schema": 1}
@@ -99,6 +101,8 @@ def run_sample_fixture(
         (source / "project.json").write_text(json.dumps({
             "type": "scene", "file": "scene.json"
         }))
+        if "project_bytes" in control:
+            (source / "project.json").write_bytes(control["project_bytes"])
         if control.get("missing_project"):
             (source / "project.json").unlink()
         if control.get("loose_source"):
@@ -119,6 +123,8 @@ def run_sample_fixture(
             def __init__(self, command: list[str], **options: Any) -> None:
                 observed_command.extend(command)
                 environment = options["env"]
+                if "observed_environment" in control:
+                    control["observed_environment"].update(environment)
                 if environment["HOME"] != environment["CFFIXED_USER_HOME"]:
                     raise AssertionError("isolated HOME identity differs")
                 if Path(environment["TMPDIR"]).parent != Path(environment["HOME"]):
@@ -168,13 +174,16 @@ def run_sample_fixture(
                     )
                 if not control.get("missing_performance"):
                     messages.append(control.get("performance_log", PERFORMANCE_LOG))
+                if "snapshot_receipts" in control:
+                    messages.extend(control["snapshot_receipts"](result_dir))
                 messages.append("MWX DEBUG SCENE: phase=stopped surfacesBefore=1 surfacesAfter=0"
                     + (" gpuDrained=true" if log_only and not control.get("missing_drain") else ""))
                 messages.extend(control.get("log_lines", []))
                 options["stdout"].write("\n".join(messages) + "\n")
                 options["stdout"].flush()
-                if not log_only and not control.get("missing_png"):
-                    write_png(result_dir / "scene-ready-window.png", black=control.get("black", False))
+                if (not log_only or terminal_snapshot) and not control.get("missing_png"):
+                    if not log_only:
+                        write_png(result_dir / "scene-ready-window.png", black=control.get("black", False))
                     write_png(result_dir / "scene-after-window.png", black=control.get("black", False), shifted=True)
                 self.wait_count = 0
 
@@ -196,7 +205,16 @@ def run_sample_fixture(
                 if "process_actions" in control:
                     control["process_actions"].append("kill")
 
-        with mock.patch.object(owner.subprocess, "Popen", EvidenceProcess):
+        lifecycle_owner = inspect.getmodule(owner.prepare_sample_input)
+        copy_sample = lifecycle_owner.copy_sample
+
+        def observed_copy(source: Path, destination: Path) -> None:
+            copy_sample(source, destination)
+            if "copy_observer" in control:
+                control["copy_observer"](source, destination)
+
+        with mock.patch.object(owner.subprocess, "Popen", EvidenceProcess), \
+                mock.patch.object(lifecycle_owner, "copy_sample", side_effect=observed_copy):
             result = benchmark.run_sample(
                 runtime_binary=root / "self-fixture-executable",
                 sample_root=root / "samples",
@@ -209,5 +227,7 @@ def run_sample_fixture(
                 no_execution_observations=no_execution_observations,
                 startup_timeout_allowance=control.get("startup_timeout_allowance", 60),
                 log_only=log_only,
+                terminal_snapshot=terminal_snapshot,
+                snapshot_max_edge=snapshot_max_edge,
             )
         return normalize_fixture_paths(result, root), normalize_fixture_paths(observed_command, root)

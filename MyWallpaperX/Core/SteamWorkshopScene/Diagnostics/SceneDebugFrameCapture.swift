@@ -37,6 +37,13 @@ nonisolated final class SceneDebugFrameCapture: @unchecked Sendable {
     private static let lane = WorkLane()
     private let lock = NSLock()
     private let isEnabled = ProcessInfo.processInfo.arguments.contains("--mwx-debug-scene-evidence-dir")
+    private static let maximumExportEdge: Int? = {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard let index = arguments.firstIndex(of: "--mwx-debug-scene-capture-max-edge"),
+              arguments.indices.contains(index + 1), let edge = Int(arguments[index + 1]),
+              (128...4_096).contains(edge) else { return nil }
+        return edge
+    }()
     private var pendingRequests: [Request] = []
     private var nextID: UInt64 = 0
     private var outstanding = 0
@@ -54,6 +61,11 @@ nonisolated final class SceneDebugFrameCapture: @unchecked Sendable {
 
     func configure(_ layer: CAMetalLayer) {
         if isEnabled { layer.framebufferOnly = false }
+    }
+
+    var pendingRequestID: UInt64? {
+        lock.lock(); defer { lock.unlock() }
+        return closed ? nil : pendingRequests.first?.id
     }
 
     @discardableResult
@@ -141,6 +153,9 @@ nonisolated final class SceneDebugFrameCapture: @unchecked Sendable {
                      to: buffer, destinationOffset: 0,
                      destinationBytesPerRow: rowBytes, destinationBytesPerImage: byteCount)
         encoder.endEncoding()
+        NSLog("MWX DEBUG SCENE: phase=snapshot-encoded request=%llu commandBufferToken=%@ textureToken=%@ width=%ld height=%ld", request.id,
+              String(UInt(bitPattern: ObjectIdentifier(commandBuffer))),
+              String(UInt(bitPattern: ObjectIdentifier(texture))), width, height)
         // Outstanding was registered before commit, including the GPU/callback gap.
         commandBuffer.addCompletedHandler { [self] completed in
             guard completed.status == .completed else {
@@ -216,7 +231,8 @@ nonisolated final class SceneDebugFrameCapture: @unchecked Sendable {
                 bitsPerPixel: isFloat ? 64 : 32, bytesPerRow: rowBytes,
                 space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: bitmapInfo,
                 provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent),
-              let png = NSBitmapImageRep(cgImage: source).representation(using: .png, properties: [:])
+              let exported = imageForExport(source),
+              let png = NSBitmapImageRep(cgImage: exported).representation(using: .png, properties: [:])
         else { return "png-encode" }
         let outputURL = request.outputDirectory.appendingPathComponent("scene-\(request.reason)-window.png")
         do {
@@ -225,8 +241,22 @@ nonisolated final class SceneDebugFrameCapture: @unchecked Sendable {
                 NSLog("MWX DEBUG SCENE: phase=snapshot-color request=%llu transfer=linear-srgb peak=%.6f", request.id, peak)
             }
             NSLog("MWX DEBUG SCENE: phase=snapshot reason=%@ request=%llu source=metal path=%@", request.reason, request.id, outputURL.path)
+            NSLog("MWX DEBUG SCENE: phase=snapshot-extent request=%llu sourceWidth=%ld sourceHeight=%ld outputWidth=%ld outputHeight=%ld", request.id, width, height, exported.width, exported.height)
             return nil
         } catch { return "write" }
+    }
+
+    private static func imageForExport(_ source: CGImage) -> CGImage? {
+        guard let maximumExportEdge, max(source.width, source.height) > maximumExportEdge else { return source }
+        let scale = Double(maximumExportEdge) / Double(max(source.width, source.height))
+        let width = max(1, Int((Double(source.width) * scale).rounded()))
+        let height = max(1, Int((Double(source.height) * scale).rounded()))
+        guard let context = CGContext(data: nil, width: width, height: height,
+            bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        context.interpolationQuality = .high
+        context.draw(source, in: CGRect(x: 0, y: 0, width: CGFloat(width), height: CGFloat(height)))
+        return context.makeImage()
     }
 }
 #endif

@@ -2,9 +2,86 @@
 
 from __future__ import annotations
 
+import json
 import re
+from collections.abc import Mapping
+from pathlib import Path
 from typing import Any
 from urllib.parse import unquote
+
+
+def structured_runtime_observations(log_text: str, prefix: str) -> dict[str, Any]:
+    events, errors = [], 0
+    for line in log_text.splitlines():
+        if prefix not in line:
+            continue
+        try:
+            event = json.loads(line.partition(prefix)[2].strip())
+        except json.JSONDecodeError:
+            errors += 1
+            continue
+        if not isinstance(event, dict) or event.get("schemaVersion") != 1:
+            errors += 1
+            continue
+        events.append(event)
+    return {"events": events, "observed_count": len(events), "parse_errors": errors,
+            "claim_boundary": "observed-runtime-stages-not-per-input-visible-contribution"}
+
+
+def terminal_snapshot_metrics(result_dir: Path, log_text: str) -> dict[str, Any]:
+    from web_benchmark_capture import png_rgb_pixels
+    path = result_dir / "scene-after-window.png"
+    image = png_rgb_pixels(path)
+    receipts = re.findall(r"phase=snapshot reason=after request=(\d+) source=metal path=([^\r\n]+)", log_text)
+    request = next((value for value, location in receipts if Path(location.strip()).resolve() == path.resolve()), None)
+    result: dict[str, Any] = {"status": "missing-or-invalid", "path": str(path),
+                              "claim_boundary": "terminal-png-not-presented-or-per-input-visibility"}
+    encoded = re.search(rf"phase=snapshot-encoded request={request} commandBufferToken=(\d+) textureToken=(\d+) width=(\d+) height=(\d+)", log_text) if request else None
+    if image is None or encoded is None or int(encoded[3]) < 1 or int(encoded[4]) < 1:
+        return result
+    width, height, rows = image
+    result.update(status="captured", request_id=int(request), output_width=width, output_height=height,
+                  non_black=any(value > 2 for row in rows for value in row))
+    result.update(command_buffer_token=encoded[1], texture_token=encoded[2],
+                  source_width=int(encoded[3]), source_height=int(encoded[4]))
+    return result
+
+
+def terminal_composition_snapshot(capture: Mapping[str, Any], observations: Mapping[str, Any]) -> dict[str, Any]:
+    if not capture:
+        return {}
+    result = {key: capture[key] for key in (
+        "status", "path", "request_id", "command_buffer_token", "texture_token",
+        "source_width", "source_height", "output_width", "output_height",
+        "non_black", "claim_boundary") if key in capture}
+    result["composition_receipt_matched"] = False
+    if capture.get("status") != "captured" or not all(
+        isinstance(capture.get(key), int) and not isinstance(capture[key], bool) and capture[key] > 0
+        for key in ("request_id", "source_width", "source_height")
+    ) or not all(isinstance(capture.get(key), str) and capture[key]
+                 for key in ("command_buffer_token", "texture_token")):
+        return result
+    events = observations.get("events", [])
+    if not isinstance(events, list):
+        return result
+    matches = [event for event in events if isinstance(event, Mapping)
+        and event.get("schemaVersion") == 1
+        and event.get("captureRequestID") == capture["request_id"]
+        and event.get("commandBufferToken") == capture["command_buffer_token"]]
+    if len(matches) != 1:
+        return result
+    event = matches[0]
+    rows = event.get("rows", [])
+    sealed = [row for row in rows if isinstance(row, Mapping)
+        and row.get("kind") == "frame-seal" and row.get("outcome") == "sealed"
+        and isinstance(row.get("target"), Mapping)
+        and row["target"].get("textureToken") == capture["texture_token"]
+        and row["target"].get("width") == capture["source_width"]
+        and row["target"].get("height") == capture["source_height"]] if isinstance(rows, list) else []
+    if event.get("gpuStatus") == "completed" and event.get("surfaceIdentity") and len(sealed) == 1:
+        result.update(composition_receipt_matched=True, frame_index=event.get("frameIndex"),
+                      surface_identity=event["surfaceIdentity"])
+    return result
 
 
 RESOLVED_MATERIAL_GRAPH_OBSERVATION_RE = re.compile(

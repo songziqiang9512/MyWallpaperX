@@ -17,6 +17,11 @@ final class SceneGraphResourcePassEncoder {
         }
 
         let kind: Kind
+#if DEBUG
+        var compositionTrace: SceneEffectExecutionFrameTrace?
+        var compositionLayerID: Int?
+        var compositionEffectIndex: Int?
+#endif
 
         var writtenTexture: MTLTexture {
             switch operation {
@@ -159,7 +164,7 @@ final class SceneGraphResourcePassEncoder {
         _ command: PreparedCommand,
         commandBuffer: MTLCommandBuffer
     ) -> Bool {
-        withLock {
+        let encoded = withLock {
             guard command.ownerToken == ownerToken,
                   command.resetGeneration == resetGeneration,
                   ObjectIdentifier(commandBuffer.commandQueue)
@@ -204,6 +209,34 @@ final class SceneGraphResourcePassEncoder {
                 )
             }
         }
+#if DEBUG
+        if let trace = command.compositionTrace {
+            let source: MTLTexture?
+            let prefix: MTLTexture?
+            let access: String
+            switch command.operation {
+            case let .sourceCapture(texture, _, _, _, _, prefixTexture):
+                source = texture; prefix = prefixTexture; access = "texture-bind"
+            case let .copy(texture, _):
+                source = texture; prefix = nil; access = "copy-source"
+            case .initialization:
+                source = nil; prefix = nil; access = "attachment-clear"
+            }
+            let target = SceneCompositionTextureObservation(command.writtenTexture, role: "graph-resource-target")
+            trace.recordComposition(.init(kind: String(describing: command.kind),
+                layerID: command.compositionLayerID, effectIndex: command.compositionEffectIndex,
+                source: source.map { .init($0, role: "graph-resource-source") }, target: target,
+                access: access, outcome: encoded ? "encoded" : "failed",
+                reason: encoded ? nil : "resource-command-rejected"))
+            if let prefix {
+                trace.recordComposition(.init(kind: "sourceCapture", layerID: command.compositionLayerID,
+                    effectIndex: command.compositionEffectIndex, slot: 1,
+                    source: .init(prefix, role: "text-prefix"), target: target,
+                    outcome: encoded ? "draw-encoded" : "failed"))
+            }
+        }
+#endif
+        return encoded
     }
 
     private func encodeSourceCapture(

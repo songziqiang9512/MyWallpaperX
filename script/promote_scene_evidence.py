@@ -39,6 +39,7 @@ DEFAULT_EVIDENCE_KEYS = (
     "hover_snapshot",
     "pointer_trajectory_snapshots",
     "after_snapshot",
+    "snapshot_capture",
 )
 
 
@@ -132,7 +133,14 @@ def promotion_plan(
             seen_sources: set[Path] = set()
             for key in evidence_keys:
                 raw_value = evidence.get(key)
-                if key == "pointer_trajectory_snapshots":
+                if key == "snapshot_capture":
+                    if not isinstance(raw_value, dict) or raw_value.get("status") != "captured":
+                        continue
+                    source_path = raw_value.get("path")
+                    if not isinstance(source_path, str) or not source_path:
+                        raise ValueError(f"captured snapshot path is missing: {report_path}")
+                    sources = [(key, source_path)]
+                elif key == "pointer_trajectory_snapshots":
                     if raw_value is None:
                         continue
                     if not isinstance(raw_value, list) or len(raw_value) not in (

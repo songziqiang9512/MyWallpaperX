@@ -97,6 +97,26 @@ struct SceneImageLayerCompositor {
         executionOrigin: SceneEffectExecutionOrigin = .image
     ) -> DrawOutcome {
         var request = request
+#if DEBUG
+        if let executionTrace, executionTrace.isCompositionSelected {
+            var source = SceneCompositionTextureObservation(request.baseTextureCandidate?.texture ?? request.texture,
+                role: "layer-source-selection")
+            if let candidate = request.baseTextureCandidate {
+                source.candidateIdentity = String(describing: candidate.identity)
+                source.candidateGeneration = String(describing: candidate.generation)
+                source.purpose = String(describing: candidate.purpose)
+                source.content = String(describing: candidate.content)
+                source.uv = [candidate.uvTransform.origin.x, candidate.uvTransform.origin.y,
+                    candidate.uvTransform.xAxis.x, candidate.uvTransform.xAxis.y,
+                    candidate.uvTransform.yAxis.x, candidate.uvTransform.yAxis.y]
+                source.sampling = "\(candidate.sampling.filter.rawValue)/\(candidate.sampling.addressMode.rawValue)"
+            }
+            source.logical = request.layer.imagePath
+            executionTrace.recordComposition(.init(kind: "source-selection", layerID: request.layer.id,
+                source: source, access: "selected", outcome: "prepared",
+                reason: request.baseTextureCandidate == nil ? "candidate-provenance-unavailable" : nil))
+        }
+#endif
         let usesMaterialSource = request.layer.utilityLayer?.framebufferSource != nil
         if usesMaterialSource {
             guard request.resolvedMaterialFrameTargetPlan != nil,
@@ -344,14 +364,23 @@ struct SceneImageLayerCompositor {
                     return target
                 }) else { return .failed }
                 renderedTexture = mainPass.encodeOffscreen { commandBuffer in
-                    SceneOffscreenEffectRenderer.captureSource(
+                    let encoded = SceneOffscreenEffectRenderer.captureSource(
                         sourceTexture: request.texture,
                         target: target.texture,
                         sourceUniforms: directUniforms,
                         pipeline: pipeline,
                         commandBuffer: commandBuffer,
                         sourceLighting: request.sourceLighting
-                    ) ? target.texture : nil
+                    )
+#if DEBUG
+                    if let executionTrace, executionTrace.isCompositionSelected {
+                        executionTrace.recordComposition(.init(kind: "sourceCapture", layerID: request.layer.id,
+                            source: .init(request.texture, role: "ordinary-source"),
+                            target: .init(target.texture, role: "ordinary-capture"),
+                            outcome: encoded ? "draw-encoded" : "failed"))
+                    }
+#endif
+                    return encoded ? target.texture : nil
                 }
             }
             // Optional lighting can miss before capture emits any command.

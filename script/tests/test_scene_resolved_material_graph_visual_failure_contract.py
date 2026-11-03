@@ -37,6 +37,8 @@ SWIFT_SOURCES = list(dict.fromkeys([
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneMainPassEncoder.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneGPUCensus.swift",
+    SCENE_ROOT / "Diagnostics/SceneEffectExecutionFrameTrace.swift",
+    SCENE_ROOT / "Diagnostics/SceneEffectExecutionTelemetry.swift",
     SCENE_ROOT / "Diagnostics/SceneFramePerformanceTelemetry.swift",
     SCENE_ROOT / "Diagnostics/SceneGPUStageTimestampObservation.swift",
     SCENE_ROOT / "Diagnostics/SceneGraphExecutionObservation.swift",

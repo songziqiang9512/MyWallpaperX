@@ -55,8 +55,11 @@ nonisolated final class SceneEffectExecutionTelemetry: @unchecked Sendable {
         }
     }
 
-    func makeFrame(frameIndex: UInt64) -> SceneEffectExecutionFrameTrace {
-        SceneEffectExecutionFrameTrace(frameIndex: frameIndex, telemetry: self)
+    func makeFrame(frameIndex: UInt64, observesComposition: Bool = false,
+                   commandBufferToken: String? = nil, captureRequestID: UInt64? = nil) -> SceneEffectExecutionFrameTrace {
+        SceneEffectExecutionFrameTrace(frameIndex: frameIndex, telemetry: self,
+            observesComposition: observesComposition, commandBufferToken: commandBufferToken,
+            captureRequestID: captureRequestID)
     }
 
     @discardableResult
@@ -65,11 +68,14 @@ nonisolated final class SceneEffectExecutionTelemetry: @unchecked Sendable {
         on commandBuffer: MTLCommandBuffer
     ) -> Bool {
         guard let cohort = trace.freeze() else { return false }
+        let composition = trace.isCompositionSelected ? trace.frozenCompositionObservation() : nil
         commandBuffer.addCompletedHandler { [weak self] completed in
             let status: SceneFrameCommandBufferStatus = completed.status == .completed
                 ? .completed
                 : .failed
             self?.reduceSharedCommandBufferStatus(cohort: cohort, status: status)
+            self?.emitComposition(composition, status: status.rawValue,
+                error: completed.error.map { String(describing: $0) })
         }
         return true
     }
@@ -81,6 +87,22 @@ nonisolated final class SceneEffectExecutionTelemetry: @unchecked Sendable {
     ) -> Bool {
         guard let cohort = trace.freeze() else { return false }
         return reduceSharedCommandBufferStatus(cohort: cohort, status: status)
+    }
+
+    func recordCompositionCancellation(for trace: SceneEffectExecutionFrameTrace) {
+        guard trace.isCompositionSelected else { return }
+        _ = trace.freeze()
+        emitComposition(trace.frozenCompositionObservation(), status: "cancelled-not-submitted")
+    }
+
+    private func emitComposition(_ observation: SceneCompositionFrameObservation?,
+                                 status: String, error: String? = nil) {
+        guard var observation else { return }
+        observation.gpuStatus = status
+        observation.gpuError = error.map { String($0.prefix(512)) }
+        guard let data = try? JSONEncoder().encode(observation),
+              let json = String(data: data, encoding: .utf8) else { return }
+        logSink("MWX SCENE COMPOSITION OBSERVATION: " + json)
     }
 
     func recordInvocationTransition(
@@ -141,6 +163,14 @@ nonisolated final class SceneEffectExecutionTelemetry: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         return operation()
+    }
+}
+
+extension SceneCompositionTextureObservation {
+    init(_ texture: MTLTexture, role: String) {
+        self.init(textureToken: String(UInt(bitPattern: ObjectIdentifier(texture))),
+            width: texture.width, height: texture.height,
+            pixelFormat: texture.pixelFormat.rawValue, role: role)
     }
 }
 

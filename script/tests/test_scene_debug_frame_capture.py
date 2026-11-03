@@ -99,6 +99,24 @@ enum SceneGPUStageTimestampHook {
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let device = MTLCreateSystemDefaultDevice()!, queue = device.makeCommandQueue()!
         let baseline = SceneResourceBudget.shared.snapshot.residentBytes
+        if CommandLine.arguments.contains("--mwx-debug-scene-capture-max-edge") {
+            let capture = SceneDebugFrameCapture(), source = texture(device, width: 1304, value: 192)
+            let pixels = [SIMD4<UInt8>](repeating: .init(64, 128, 192, 255), count: 1304 * 4)
+            pixels.withUnsafeBytes { source.replace(region: MTLRegionMake2D(0, 0, 1304, 4),
+                mipmapLevel: 0, withBytes: $0.baseAddress!, bytesPerRow: 1304 * 4) }
+            check(capture.pendingRequestID == nil, "unrequested capture must not select a frame")
+            capture.request(reason: "after", outputDirectory: dir)
+            check(capture.pendingRequestID != nil, "pending capture selects the next frame")
+            encode(capture, source, queue); drain(capture)
+            check(capture.pendingRequestID == nil, "completed capture leaves no pending selection")
+            let rep = try image(dir, "after")
+            check(rep.pixelsWide == 512 && rep.pixelsHigh == 2, "preview preserves aspect")
+            check(source.width == 1304 && source.height == 4, "preview does not resize rendering")
+            var pixel = [Int](repeating: 0, count: 4); rep.getPixel(&pixel, atX: 128, y: 0)
+            check(zip(pixel, [192, 128, 64, 255]).allSatisfy { abs($0 - $1) <= 2 }, "preview keeps source channels")
+            waitForLeaseReturn(to: baseline)
+            return
+        }
         try autoreleasepool {
             // Required FIFO, original wide-row case, 16-bit gradient and alpha.
             let events = Events()
@@ -318,6 +336,12 @@ class SceneDebugFrameCaptureTests(unittest.TestCase):
             self.assertEqual(completed.returncode, 0, completed.stderr)
             self.assertGreater((evidence / "scene-ready-window.png").stat().st_size, 0)
             self.assertGreater((evidence / "scene-after-window.png").stat().st_size, 0)
+            preview = directory / "preview"
+            resized = subprocess.run([str(binary), "--mwx-debug-scene-capture-max-edge", "512",
+                                      "--mwx-debug-scene-evidence-dir", str(preview)],
+                                     capture_output=True, text=True)
+            self.assertEqual(resized.returncode, 0, resized.stderr)
+            self.assertIn("sourceWidth=1304 sourceHeight=4 outputWidth=512 outputHeight=2", resized.stderr)
 
 
 if __name__ == "__main__":

@@ -25,8 +25,10 @@ final class SceneParticleRuntime {
     private(set) var pointerControlPointDemands: [Int: SceneParticlePointerDemand] = [:]
     private(set) var requiredPipelineVariants: Set<SceneParticlePipelineVariant> = []
 #if DEBUG
-    private var pendingAudioEvaluationObservations:
+    var pendingAudioEvaluationObservations:
         [SceneParticleRuntimeAudioEvaluationObservation] = []
+    var pendingComponentObservations: [SceneParticleRuntimeComponentObservation]? =
+        SceneParticleDefinitionParser.componentObservationEnabled ? [] : nil
 #endif
 
     func playbackLiveCount(charging: (UInt64) throws -> Void) throws -> Int {
@@ -596,15 +598,8 @@ final class SceneParticleRuntime {
                         } : nil
                 )
 #if DEBUG
-                pendingAudioEvaluationObservations.append(contentsOf:
-                    root.simulator.consumeAudioEvaluationObservations().map {
-                        SceneParticleRuntimeAudioEvaluationObservation(
-                            layerID: layerID,
-                            particlePath: layers[index].particlePath,
-                            evaluation: $0
-                        )
-                    }
-                )
+                collectEvaluationObservations(layerID: layerID,
+                    particlePath: layers[index].particlePath, simulator: root.simulator)
 #endif
                 births = root.simulator.consumeBirthEvents()
                 deaths = root.simulator.consumeDeathEvents()
@@ -629,15 +624,7 @@ final class SceneParticleRuntime {
                     isVisible: isVisible
                 )
 #if DEBUG
-                pendingAudioEvaluationObservations.append(contentsOf:
-                    childRuntime.consumeAudioEvaluationObservations().map {
-                        SceneParticleRuntimeAudioEvaluationObservation(
-                            layerID: layerID,
-                            particlePath: $0.particlePath,
-                            evaluation: $0.evaluation
-                        )
-                    }
-                )
+                collectEvaluationObservations(layerID: layerID, childRuntime: childRuntime)
 #endif
                 batches.append(contentsOf: result.batches)
 #if DEBUG
@@ -670,6 +657,10 @@ final class SceneParticleRuntime {
                 referenceWorldFrame: root.simulator.rootWorldTranslation?.referenceWorldFrame,
                 sizeIsWorldSpace: root.definition.flags.isWorldSpace
             ))
+#if DEBUG
+            batches[batches.count - 1].debugRendererComponentIndex = root.debugRendererComponentIndex
+            batches[batches.count - 1].debugRendererKind = root.debugRendererKind
+#endif
             layers[index].rootRender = root
         }
         return batches
@@ -693,6 +684,7 @@ final class SceneParticleRuntime {
         }, frozenWorldSpaceLayerIDs: frozenWorldSpaceLayerIDs)
 #if DEBUG
         snapshot.pendingAudioEvaluationObservations = pendingAudioEvaluationObservations
+        snapshot.pendingComponentObservations = pendingComponentObservations
         snapshot.adoptedWorldSpaceLayerIDs = liveWorldSpaceAdoptedLayerIDs
 #endif
         return snapshot
@@ -715,6 +707,7 @@ final class SceneParticleRuntime {
         }
 #if DEBUG
         pendingAudioEvaluationObservations = snapshot.pendingAudioEvaluationObservations
+        pendingComponentObservations = snapshot.pendingComponentObservations
 #endif
         frozenWorldSpaceLayerIDs = snapshot.frozenWorldSpaceLayerIDs
 #if DEBUG
@@ -746,6 +739,7 @@ final class SceneParticleRuntime {
 #if DEBUG
         liveWorldSpaceAdoptedLayerIDs.subtract(layerIDs)
         pendingAudioEvaluationObservations.removeAll { layerIDs.contains($0.layerID) }
+        pendingComponentObservations?.removeAll { layerIDs.contains($0.layerID) }
 #endif
     }
 
@@ -964,7 +958,7 @@ final class SceneParticleRuntime {
             controlPointForceFrame: forceFrame,
             stepSnapshotPolicy: render.ropeTrail?.stepSnapshotPolicy
         )
-        return SceneParticleRootRenderRuntime(
+        var root = SceneParticleRootRenderRuntime(
             definition: asset.definition,
             pointerControlPointIdentities: asset.definition.pointerControlPointIdentities(environment: forceEnvironment),
             trail: render.trail,
@@ -992,5 +986,15 @@ final class SceneParticleRuntime {
                 SceneParticleRopeTrailHistory.init(plan:)
             )
         )
+#if DEBUG
+        if let sources = asset.definition.componentObservationSources {
+            let typedIndex = asset.definition.renderers.firstIndex(of: render.renderer)
+            root.debugRendererComponentIndex = typedIndex.flatMap { sources["renderer"]?[$0].componentIndex }
+            root.debugRendererKind = asset.definition.rendererWasImplicit ? "sprite"
+                : typedIndex.flatMap { sources["renderer"]?[$0].kind }
+            simulator.observeSelectedRenderer(typedIndex: typedIndex)
+        }
+#endif
+        return root
     }
 }

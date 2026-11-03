@@ -121,6 +121,9 @@ extension SceneMetalRenderer {
             utilityExecution: frameProjection.utilityExecution,
             sourceGeometriesByRootID: sourceGeometriesByRootID,
             imagePipeline: imagePipeline)
+#if DEBUG
+        mainPass.compositionTrace = effectExecutionTrace
+#endif
         compositionGroupRuntime = groups
         mainPassForSubmission = mainPass
 #if DEBUG
@@ -437,7 +440,8 @@ extension SceneMetalRenderer {
 #endif
         let finalized = finalizeResolvedMaterialFrameTargets(preparationRequests,
             resourceBundle: resourceBundle, pool: offscreenTexturePool,
-            commandBuffer: commandBuffer, performanceTelemetry: performanceTelemetry)
+            commandBuffer: commandBuffer, performanceTelemetry: performanceTelemetry,
+            executionTrace: effectExecutionTrace)
 #if DEBUG
         performanceTelemetry?.endStage("frame-admission")
 #endif

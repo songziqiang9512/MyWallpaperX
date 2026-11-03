@@ -639,11 +639,14 @@ class SceneMetalView: NSView {
         )
         #if DEBUG
             let linearCapture = usesLinearDisplayOutput
+            let compositionCaptureRequestID = SceneDesktopWallpaperHost.usesDebugEvidenceWindow
+                ? debugFrameCapture.pendingRequestID : nil
             let frameReadback: (MTLTexture, MTLCommandBuffer) -> Void = { [debugFrameCapture] texture, buffer in
                 debugFrameCapture.encodeIfRequested(texture: texture, commandBuffer: buffer,
                     linearSRGB: linearCapture)
             }
         #else
+            let compositionCaptureRequestID: UInt64? = nil
             let frameReadback: ((MTLTexture, MTLCommandBuffer) -> Void)? = nil
         #endif
 #if DEBUG
@@ -675,6 +678,7 @@ performanceTelemetry?.recordPreparation(
         }
         let outcome = renderer.renderFrame(
             collectsInitialVideoReadiness: collectsInitialVideoReadiness,
+            compositionCaptureRequestID: compositionCaptureRequestID,
             imageTextures: frameImageTextures,
             layerTopology: layerTopology,
             userPropertyTextures: frameUserTextures.textures,

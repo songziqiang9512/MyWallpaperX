@@ -179,10 +179,31 @@ enum Harness {
             for: laterFrame, status: .failed
         )
 
+        let compositionCollector = LogCollector()
+        let compositionTelemetry = SceneEffectExecutionTelemetry { compositionCollector.append($0) }
+        let disabledComposition = compositionTelemetry.makeFrame(frameIndex: 50)
+        disabledComposition.recordComposition(.init(kind: "ordinary", layerID: 5))
+        let disabledCompositionIsEmpty = disabledComposition.freeze() == nil
+        let ordinary = compositionTelemetry.makeFrame(frameIndex: 51, observesComposition: true,
+            commandBufferToken: "ordinary-buffer")
+        ordinary.setCompositionSurface(displayID: 12, identity: "surface-incarnation")
+        ordinary.setCompositionPresentRequested(false)
+        ordinary.recordComposition(.init(kind: "ordinary", layerID: 5,
+            source: .init(textureToken: "texture-a", width: 16, height: 8, pixelFormat: 80, role: "source"),
+            target: .init(textureToken: "texture-b", width: 32, height: 16, pixelFormat: 80, role: "drawable")))
+        let ordinaryCohort = ordinary.freeze()
+        ordinary.recordComposition(.init(kind: "late-row"))
+        let ordinaryFreezeIsStable = ordinary.freeze()?.cohortSHA256 == ordinaryCohort?.cohortSHA256
+        compositionTelemetry.recordCompositionCancellation(for: ordinary)
+        let bounded = compositionTelemetry.makeFrame(frameIndex: 52, observesComposition: true)
+        for _ in 0..<4200 { bounded.recordComposition(.init(kind: "particle", layerID: 7)) }
+        compositionTelemetry.recordCompositionCancellation(for: bounded)
+
         var metalAvailable = false
         var emptyObserved = false
         var realObserved = false
         var metalLogs: [String] = []
+        var compositionMetalLogs: [String] = []
         if let device = MTLCreateSystemDefaultDevice(),
            let queue = device.makeCommandQueue(),
            let emptyCommand = queue.makeCommandBuffer(),
@@ -210,6 +231,22 @@ enum Harness {
             command.commit()
             _ = completion.wait(timeout: .now() + 5)
             metalLogs = metalCollector.snapshot()
+            let surfaceCollector = LogCollector()
+            let surfaceTelemetry = SceneEffectExecutionTelemetry { surfaceCollector.append($0) }
+            for surfaceID in [UInt32(12), UInt32(13)] {
+                guard let buffer = queue.makeCommandBuffer() else { continue }
+                let selected = surfaceTelemetry.makeFrame(frameIndex: 60, observesComposition: true,
+                    commandBufferToken: String(UInt(bitPattern: ObjectIdentifier(buffer))))
+                selected.setCompositionSurface(displayID: surfaceID, identity: "surface-\(surfaceID)")
+                selected.setCompositionPresentRequested(surfaceID == 12)
+                selected.recordComposition(.init(kind: surfaceID == 12 ? "ordinary" : "particle", layerID: 9))
+                _ = surfaceTelemetry.observeSharedCommandBuffer(for: selected, on: buffer)
+                let completed = DispatchSemaphore(value: 0)
+                buffer.addCompletedHandler { _ in completed.signal() }
+                buffer.commit()
+                _ = completed.wait(timeout: .now() + 5)
+            }
+            compositionMetalLogs = surfaceCollector.snapshot()
         }
 
         let payload: [String: Any] = [
@@ -234,6 +271,11 @@ enum Harness {
             "emptyObserved": emptyObserved,
             "realObserved": realObserved,
             "metalLogs": metalLogs,
+            "compositionLogs": compositionCollector.snapshot(),
+            "compositionMetalLogs": compositionMetalLogs,
+            "disabledCompositionIsEmpty": disabledCompositionIsEmpty,
+            "ordinaryFreezeIsStable": ordinaryFreezeIsStable,
+            "ordinaryAttemptedEffects": ordinaryCohort?.attemptedEffects ?? -1,
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -461,6 +503,38 @@ class SceneEffectExecutionTelemetryTests(unittest.TestCase):
         self.assertNotIn("axis=effect-gpu", joined)
         self.assertNotIn("stage gpu", joined)
         self.assertNotIn("succeeded", joined)
+
+    def test_selected_draw_only_trace_freezes_without_inventing_effects(self) -> None:
+        self.assertTrue(self.result["disabledCompositionIsEmpty"])
+        self.assertTrue(self.result["ordinaryFreezeIsStable"])
+        self.assertEqual(self.result["ordinaryAttemptedEffects"], 0)
+        observed = self._composition_rows(self.result["compositionLogs"])
+        ordinary = next(row for row in observed if row["frameIndex"] == 51)
+        self.assertEqual(ordinary["gpuStatus"], "cancelled-not-submitted")
+        self.assertFalse(ordinary["presentRequested"])
+        self.assertEqual(ordinary["displayID"], 12)
+        self.assertEqual(ordinary["surfaceIdentity"], "surface-incarnation")
+        self.assertEqual([row["kind"] for row in ordinary["rows"]], ["ordinary"])
+        self.assertEqual(ordinary["rows"][0]["source"]["textureToken"], "texture-a")
+        bounded = next(row for row in observed if row["frameIndex"] == 52)
+        self.assertGreater(bounded["truncatedRows"], 0)
+        self.assertEqual(len(bounded["rows"]) + bounded["truncatedRows"], 4200)
+
+    def test_selected_surfaces_emit_independently_of_sticky_gpu_fact(self) -> None:
+        if not self.result["metalAvailable"]:
+            self.skipTest("Metal device is unavailable")
+        observed = self._composition_rows(self.result["compositionMetalLogs"])
+        self.assertEqual(len(observed), 2)
+        self.assertEqual({row["displayID"] for row in observed}, {12, 13})
+        self.assertEqual({row["surfaceIdentity"] for row in observed}, {"surface-12", "surface-13"})
+        self.assertEqual({row["gpuStatus"] for row in observed}, {"completed"})
+        self.assertEqual({row["presentRequested"] for row in observed}, {True, False})
+        self.assertEqual({row["frameIndex"] for row in observed}, {60})
+
+    @staticmethod
+    def _composition_rows(lines: list[str]) -> list[dict[str, object]]:
+        prefix = "MWX SCENE COMPOSITION OBSERVATION: "
+        return [json.loads(line[len(prefix):]) for line in lines if line.startswith(prefix)]
 
     def test_unified_execution_uses_single_backend_identity(self) -> None:
         composition = GRAPH_COMPOSITION_SOURCE.read_text(encoding="utf-8")

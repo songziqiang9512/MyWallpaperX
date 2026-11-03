@@ -23,6 +23,7 @@ struct SceneRenderDescriptor {
     struct Layer {
         let id: Int
         let contentKind: String
+        var imagePath: String? = nil
         var effects: [EffectDescriptor] = []
         var colorBlendMode: Int? = nil
         var clampUVs: Bool = false
@@ -185,6 +186,10 @@ final class SceneImageEffectPipelineRepository {
 }
 
 final class SceneMainPassEncoder {
+    var compositionTrace: SceneEffectExecutionFrameTrace? = nil
+    var compositionTarget: SceneCompositionTextureObservation {
+        preconditionFailure("composition observation is outside this draw-only fixture")
+    }
     func retainCompositionPin(_ pin: SceneGraphRenderTargetResidencyPin?) {}
     let device: MTLDevice
     init(device: MTLDevice) { self.device = device }
@@ -258,58 +263,11 @@ final class FixtureCompositionPool: SceneOffscreenTexturePool {
     }
 }
 
-enum SceneEffectExecutionOrigin { case image, solid, text, quad }
-
-enum SceneEffectRouteOperationOutcome: Equatable {
-    case encoded
-    case failed(reasonCode: String)
-}
-
-enum SceneEffectCPUInvocationOutcome {
-    case encodedOutput
-    case failed(reasonCode: String)
-}
-
-struct SceneEffectExecutionIdentity {
-    let layerID: Int
-    let effectIndex: Int
-    let descriptorID: String
-}
-
-final class SceneEffectExecutionFrameTrace {
-    struct RouteRecord: Equatable {
-        let layerID: Int
-        let origin: SceneEffectExecutionOrigin
-        let operation: String
-        let outcome: SceneEffectRouteOperationOutcome
-    }
-
-    private(set) var records: [RouteRecord] = []
-
-    @discardableResult
-    func recordRouteOperation(
-        layerID: Int,
-        origin: SceneEffectExecutionOrigin,
-        operation: String,
-        outcome: SceneEffectRouteOperationOutcome
-    ) -> Bool {
-        records.append(.init(
-            layerID: layerID,
-            origin: origin,
-            operation: operation,
-            outcome: outcome
-        ))
-        return true
-    }
-
-    @discardableResult
-    func recordExact(
-        identity: SceneEffectExecutionIdentity,
-        origin: SceneEffectExecutionOrigin,
-        family: String,
-        backend: String,
-        outcome: SceneEffectCPUInvocationOutcome
-    ) -> Bool { true }
+nonisolated final class FixtureEffectLogs: @unchecked Sendable {
+    private let lock = NSLock()
+    private var values: [String] = []
+    func append(_ value: String) { lock.lock(); values.append(value); lock.unlock() }
+    func snapshot() -> [String] { lock.lock(); defer { lock.unlock() }; return values }
 }
 
 enum SceneResolvedMaterialExecutionCapabilityCatalog {
@@ -370,6 +328,8 @@ final class SceneResolvedMaterialRuntimeBridge {
         case claimed(ClaimedExecution)
     }
     struct ExecutionTicket {
+        var identity: UInt64 { preconditionFailure("no graph transaction in this fixture") }
+        var epoch: UInt64 { preconditionFailure("no graph transaction in this fixture") }
         let finalContent: SceneTextureContent
         let consumesExternalPrimaryDependency: Bool
         var hasTerminalMaterialReplay: Bool { false }
@@ -452,7 +412,8 @@ final class SceneResolvedMaterialRuntimeBridge {
         pool: SceneOffscreenTexturePool?,
         commandBuffer: MTLCommandBuffer,
         resourceBundle: SceneResolvedMaterialFrameResourceBundle? = nil,
-        performanceTelemetry: SceneFramePerformanceTelemetry?
+        performanceTelemetry: SceneFramePerformanceTelemetry?,
+        executionTrace: SceneEffectExecutionFrameTrace? = nil
     ) -> FramePreparationResult {
         precondition(resourceBundle == nil, "resource phase is outside this draw-only fixture")
         return .ready
@@ -721,7 +682,9 @@ struct StaticSourceDrawOnlyHarness {
             && retainedTexture != nil && retainedTexture === rolledBackTexture
             && rolledBackTexture?.width == 4 && rolledBackTexture?.height == 4
         SceneImageLayerMainPassRenderer.recorded.removeAll()
-        let degradedTrace = SceneEffectExecutionFrameTrace()
+        let degradedLogs = FixtureEffectLogs()
+        let degradedTelemetry = SceneEffectExecutionTelemetry { degradedLogs.append($0) }
+        let degradedTrace = degradedTelemetry.makeFrame(frameIndex: 1)
         let degradedOutcome = compositor.drawOutcome(
             request,
             explicitLayerSourcePublication: publication,
@@ -741,16 +704,12 @@ struct StaticSourceDrawOnlyHarness {
                 === request.texture
             && SceneImageLayerMainPassRenderer.recorded[0].dependencyTexture
                 == nil
-        report.compositorDegradedTraceOperation = degradedTrace.records == [
-            .init(
-                layerID: 875,
-                origin: .image,
-                operation: "degraded-static-source-draw-only",
-                outcome: .encoded
-            )
-        ]
+        report.compositorDegradedTraceOperation = degradedLogs.snapshot().count == 1
+            && degradedLogs.snapshot()[0].contains("operation=degraded-static-source-draw-only outcome=encoded")
         SceneImageLayerMainPassRenderer.recorded.removeAll()
-        let failedTrace = SceneEffectExecutionFrameTrace()
+        let failedLogs = FixtureEffectLogs()
+        let failedTelemetry = SceneEffectExecutionTelemetry { failedLogs.append($0) }
+        let failedTrace = failedTelemetry.makeFrame(frameIndex: 2)
         let failedOutcome = compositor.drawOutcome(
             request,
             explicitLayerSourcePublication: publication,
@@ -763,17 +722,8 @@ struct StaticSourceDrawOnlyHarness {
         )
         report.compositorFlagOffFails = failedOutcome == .failed
             && SceneImageLayerMainPassRenderer.recorded.isEmpty
-        report.compositorFlagOffTraceReason = failedTrace.records == [
-            .init(
-                layerID: 875,
-                origin: .image,
-                operation: "unclaimed-effect-product-authority",
-                outcome: .failed(
-                    reasonCode:
-                        "unclaimed-visible-effects-static-source-graph-role-present"
-                )
-            )
-        ]
+        report.compositorFlagOffTraceReason = failedLogs.snapshot().count == 1
+            && failedLogs.snapshot()[0].contains("operation=unclaimed-effect-product-authority outcome=failed reason=unclaimed-visible-effects-static-source-graph-role-present")
         // A capture encoder can be unavailable before any command is emitted.
         // The optional lit path must draw the original authored source intact.
         let target = makeTexture(device)

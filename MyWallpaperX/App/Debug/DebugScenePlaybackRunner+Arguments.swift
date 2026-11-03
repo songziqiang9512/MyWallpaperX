@@ -10,6 +10,10 @@ extension DebugScenePlaybackRunner {
         ProcessInfo.processInfo.arguments.contains("--mwx-debug-scene-log-only")
     }
 
+    static var requestedTerminalSnapshot: Bool {
+        requestedLogOnly && ProcessInfo.processInfo.arguments.contains("--mwx-debug-scene-terminal-snapshot")
+    }
+
     static var requestedDuration: TimeInterval {
         guard let raw = argumentValue(after: "--mwx-debug-scene-duration"),
               let duration = TimeInterval(raw), duration.isFinite else {

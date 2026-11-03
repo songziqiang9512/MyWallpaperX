@@ -55,7 +55,7 @@ python3.12 -B script/scene_capability_census.py verify \
 
 ```sh
 python3.12 -B script/scene_wallpaper_benchmark.py \
-  --app <签名App可执行文件> --sample-root <含Scene的隔离父目录> \
+  --app <签名App可执行文件> --sample-root <只读且含Scene的输入父目录> \
   --matrix <本次matrix.json> --output-dir <本次结果目录> \
   --log-only --duration 4 --jobs 1
 python3.12 -B script/scene_sample_debug_archive.py \
@@ -63,9 +63,22 @@ python3.12 -B script/scene_sample_debug_archive.py \
   --output <本次archive.json>
 ```
 
-具体参数以脚本 `--help` 为准。`--log-only` 保留执行观察与停止，不请求 PNG，也不计算视觉或运动指标；只有日志模式允许 `--jobs > 1`。增加并发前先验证资源与进程隔离，正式性能和真实系统输入仍串行。短窗未触发的定时、随机、条件或输入分支记未覆盖，只为相关行为延长观察。
+具体参数以脚本 `--help` 为准。单独 `--log-only` 保留执行观察与停止；加 `--terminal-snapshot` 在 after 点取一张 Metal PNG，`--snapshot-max-edge` 只缩导出、不改渲染尺寸，仍不计算正式视觉或性能指标。该筛查模式允许 `--jobs > 1`；增加并发前核资源/进程隔离、每图 request 与 Surface/GPU 回执及排空。正式性能和真实系统输入仍串行。`--startup-timeout-allowance` 是 supervisor 总期限中额外的准备余量，不改变 Ready 后观察时长。短窗未触发的定时、随机、条件或输入分支只对对应子集延长。
 
 分别判断 `declared / prepared / executed / failed / not-triggered / unknown`。图层隐藏、alpha 为零、离屏、延迟或缺输入不能直接判缺图；先确认目标 consumer、作者过渡和实际 scene time。并发超时、OOM、缺 drawable 等现象先用同输入串行复核。原始失败与后续恢复保留在同次报告，不用重试覆盖失败。
+
+<a id="corpus-runtime-measurement"></a>
+### 全量运行测量
+
+目标是逐样本定位合法输入的首个缺口，同时保留通用能力与样本个别问题。复用上述工具链和现有 DEBUG trace、提交 completion、terminal capture；产品执行仍由原资源、组件、Graph 和 compositor 负责，观测不参与准入或改变画面。
+
+- **输入与分母**：census 保发现集合、非法 project 和合法 loose；注释不作 shader 声明，条件分支保声明 ordinal。树清单共用口径、复用已读摘要，benchmark 记录隔离副本实际身份。archive 按内容关联显式 attempt，保原失败，末次传入作为当前投影；库存及其派生声明与真实 scene consumer 分开。聚合加载比例只作cohort线索，不顶替精确consumer失败。身份缺失或内容漂移只影响测量资格，不升级为播放许可。
+- **实际消费**：Program 既有选中 slot/资源归因随真实 encode 保留；replay 取替换后的物理 binding，attachment-read 独立标记。普通 source、geometry、particle、group 与颜色导出记录实际 input→target，沿原 command-buffer completion 和 sealed tail 接终端；保 Surface/提交身份及 presentRequested。图输出纹理合成与 terminal material replay 分开。
+- **逐组件**：准备期保作者原 ordinal、definition/child 身份与选中 renderer；模拟观察区分尝试、实际求值、接纳出生及真实拒绝。batch/draw/GPU 与 CPU 观察分别记录；effect旁路保copy/GPU事实与原失败，不算作者operation执行。无法将某组件结果精确接到实例或最终像素时保 unknown，不能用下游非空代替因果证明。
+- **成本与边界**：新载荷只在显式 DEBUG 测量启用，沿原捕获请求选少量帧，在分配和格式化前取样；只传小值，不持有纹理，不新增全图 hash、逐粒子历史或 completion owner。Release在调用处退出；关闭时没有新增观测表/循环，避免逐粒子进入空helper或构造payload，普通成功算子在实际循环后记首witness。达到诊断容量明确报告截断。bound、draw-encoded、GPU-completed、terminal-consumed/exported、present-requested 和 PNG-observed 分开，均不自动授予逐纹理可见贡献或官方 parity。
+- **运行与画面**：普通样本 Ready 后观察3–4秒，慢准备使用现有 supervisor allowance，过场/延迟只延长对应子集。日志模式可显式请求一张指定 Surface 的 terminal PNG 并保原渲染尺寸；预览缩放只影响导出，记录源/导出尺寸。同request/CB/Surface/GPU与drawable token/extent唯一匹配可证明普通/粒子场景终端，不制造不存在的graph分母或覆盖真实错误。此筛查允许隔离并发，真实系统输入和正式性能仍串行；先小批核每进程路径、实际读回、GPU与停止排空，再按宿主余量增并发。
+
+验收先覆盖坏/非对象 project、loose、内容漂移、多 attempt、无终端或跨层拼接反例，以及真实改名输入、replay/attachment-read、纯普通层和粒子、取样关闭与截断。冻结源码/构建/运行身份后再全量；缺读口、未触发、作者错误、实际不支持、错误拒绝与视觉疑点分别归队。PNG本身不要求每个包内闲置或未选资源出画；需要可见贡献裁决的未决项用实际时间/输入及局部差分复核。测量完成后按当前证据替换开放队列，不以日志无错关闭未取得资格的能力。
 
 ## 截图与时序
 

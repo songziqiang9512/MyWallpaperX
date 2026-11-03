@@ -132,7 +132,8 @@ extension SceneMetalRenderer {
         resourceBundle: SceneResolvedMaterialFrameResourceBundle?,
         pool offscreenTexturePool: SceneOffscreenTexturePool?,
         commandBuffer: MTLCommandBuffer,
-        performanceTelemetry: SceneFramePerformanceTelemetry? = nil
+        performanceTelemetry: SceneFramePerformanceTelemetry? = nil,
+        executionTrace: SceneEffectExecutionFrameTrace? = nil
     ) -> Bool {
 #if DEBUG
         performanceTelemetry?.beginStage("admit-prepare-frame")
@@ -147,7 +148,8 @@ extension SceneMetalRenderer {
             pool: offscreenTexturePool,
             commandBuffer: commandBuffer,
             resourceBundle: resourceBundle,
-            performanceTelemetry: performanceTelemetry
+            performanceTelemetry: performanceTelemetry,
+            executionTrace: executionTrace
         ) {
         case .ready:
             // Observation only: splits admit-prepare-frame into the

@@ -75,9 +75,32 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                     mock.patch.object(sys, "stderr", io.StringIO()), self.assertRaises(SystemExit):
                 benchmark.parse_args()
 
+    def test_terminal_snapshot_cli_keeps_bounded_export_and_finite_supervisor_allowance(self):
+        base = ["scene_wallpaper_benchmark.py", "--app", "/tmp/App", "--sample-root", "/tmp/samples", "--output-dir", "/tmp/results"]
+        for edge in (128, 512, 4096):
+            with self.subTest(edge=edge), mock.patch.object(sys, "argv", base + [
+                "--log-only", "--terminal-snapshot", "--snapshot-max-edge", str(edge),
+                "--startup-timeout-allowance", "180.5", "--jobs", "2",
+            ]):
+                args = benchmark.parse_args()
+                self.assertTrue(args.terminal_snapshot)
+                self.assertEqual(args.snapshot_max_edge, edge)
+                self.assertEqual(args.startup_timeout_allowance, 180.5)
+                self.assertEqual((args.duration, args.jobs), (4, 2))
+        invalid = [["--terminal-snapshot"],
+                   ["--log-only", "--terminal-snapshot", "--snapshot-max-edge", "127"],
+                   ["--log-only", "--terminal-snapshot", "--snapshot-max-edge", "4097"]]
+        invalid.extend(["--startup-timeout-allowance", value] for value in ("0", "-1", "nan", "inf"))
+        for options in invalid:
+            with self.subTest(options=options), mock.patch.object(sys, "argv", base + options), \
+                    mock.patch.object(sys, "stderr", io.StringIO()), self.assertRaises(SystemExit) as error:
+                benchmark.parse_args()
+            self.assertEqual(error.exception.code, 2)
+
     def test_parallel_scheduler_preserves_order_retires_each_worker_and_joins_on_error(self):
-        for tool_error in (False, True):
-            with self.subTest(tool_error=tool_error), tempfile.TemporaryDirectory() as directory:
+        for tool_error, terminal, identity_failure in ((False, False, False), (False, True, False),
+                                                       (True, False, False), (False, False, True)):
+            with self.subTest(tool_error=tool_error, terminal=terminal, identity_failure=identity_failure), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
                 matrix = root / "matrix.json"
                 matrix.write_text(json.dumps({"schema_version": 1, "name": "isolated-log-audit",
@@ -107,6 +130,9 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                     self.assertTrue(arguments["runtime_binary"].is_file())
                     self.assertTrue(arguments["log_only"])
                     self.assertEqual(arguments["duration"], 4)
+                    self.assertEqual(arguments["startup_timeout_allowance"], 180)
+                    self.assertEqual(arguments["terminal_snapshot"], terminal)
+                    self.assertEqual(arguments["snapshot_max_edge"], 512 if terminal else None)
                     with lock:
                         events.append(identity)
                     if identity in {"11", "22"}:
@@ -130,11 +156,20 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
 
                 command = ["scene_wallpaper_benchmark.py", "--app", str(root / "App"),
                            "--sample-root", str(root / "samples"), "--matrix", str(matrix),
-                           "--output-dir", str(output), "--log-only", "--jobs", "2"]
+                           "--output-dir", str(output), "--log-only", "--jobs", "2",
+                           "--startup-timeout-allowance", "180"]
+                if terminal:
+                    command += ["--terminal-snapshot", "--snapshot-max-edge", "512"]
+
+                def verify_identity(identity):
+                    identity["verified_after"] = not identity_failure
+                    if identity_failure:
+                        raise benchmark.AppIdentityError("staged executable changed")
+
                 with mock.patch.object(sys, "argv", command), \
                         mock.patch.object(sys, "stdout", io.StringIO()), \
                         mock.patch.object(benchmark, "stage_signed_app", side_effect=stage) as staged, \
-                        mock.patch.object(benchmark, "verify_staged_app") as verified, \
+                        mock.patch.object(benchmark, "verify_staged_app", side_effect=verify_identity) as verified, \
                         mock.patch.object(benchmark, "run_sample", side_effect=run), \
                         mock.patch.object(lifecycle, "discard_staged_app") as discarded:
                     if tool_error:
@@ -145,10 +180,15 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                         report = json.loads((output / "report.json").read_text())
                         self.assertEqual([value["id"] for value in report["samples"]], ["11", "22", "33", "bad"])
                         self.assertEqual(report["samples"][-1]["input_status"], "source-invalid")
-                        self.assertTrue(all(value["passed"] for value in report["samples"][:-1]))
+                        self.assertTrue(all(value["passed"] is (not identity_failure) for value in report["samples"][:-1]))
                         self.assertTrue(all(value["runtime_home"] is None for value in report["samples"]))
                         self.assertEqual(report["summary"]["preview_visual"]["status"], "not-requested")
                         self.assertFalse(report["summary"]["performance"]["comparison_eligible"])
+                        self.assertEqual(report["startup_timeout_allowance"], 180)
+                        self.assertEqual(report["app_identity"]["verified_after"], not identity_failure)
+                        self.assertIn("not-visual-parity-or-performance" if terminal else "not-visual-or-performance", report["claim_boundary"])
+                        for row in report["samples"]:
+                            self.assertEqual(json.loads((output / "results" / row["id"] / "result.json").read_text()), row)
                         verified.assert_called_once()
                         discarded.assert_called_once()
                     staged.assert_called_once()

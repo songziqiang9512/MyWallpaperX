@@ -362,6 +362,18 @@ class SceneDebugEvidenceScheduleTests(unittest.TestCase):
         self.assertEqual(payload["snapshotLookups"], 0)
         self.assertEqual(payload["previewLog"], "fixture-launch-evidence\n")
 
+    def test_terminal_snapshot_keeps_one_after_frame_with_declared_or_absent_pointer(self) -> None:
+        for pointer in (False, True):
+            with self.subTest(pointer=pointer):
+                payload = self.run_schedule(pointer=pointer, extra=(
+                    "--mwx-debug-scene-log-only", "--mwx-debug-scene-terminal-snapshot",
+                ))
+                captures = [row for row in payload["events"] if row["event"].startswith("capture:")]
+                self.assertEqual([row["event"] for row in captures], ["capture:after"])
+                self.assertEqual(payload["snapshotLookups"], 1)
+                self.assert_after_deadline(payload, pointer=False)
+                self.assertFalse(next(row for row in payload["events"] if row["event"] == "launch")["inside"])
+
     def test_log_only_fixes_undeclared_pointer_outside_without_changing_visual_input(self) -> None:
         for log_only in (False, True):
             with self.subTest(log_only=log_only):

@@ -42,6 +42,8 @@ COLOR_CARRIER_ANALYZER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorksh
 SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneGPUCensus.swift",
+    SCENE_ROOT / "Diagnostics/SceneEffectExecutionFrameTrace.swift",
+    SCENE_ROOT / "Diagnostics/SceneEffectExecutionTelemetry.swift",
     *AUTHORED_SHADER_FRONTEND_SOURCES,
     *(
         []

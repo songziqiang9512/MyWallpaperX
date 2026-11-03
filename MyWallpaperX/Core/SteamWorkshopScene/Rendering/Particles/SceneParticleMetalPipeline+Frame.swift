@@ -43,9 +43,55 @@ extension SceneParticleMetalPipeline {
             return nil
         }
         var clearsDepth = usesDepth
+#if DEBUG
+        var observationBatchOrdinal = 0
+#endif
         for prepared in batches {
             let batch = prepared.draw
             let instanceBuffer = prepared.instanceBuffer
+#if DEBUG
+            let observeBindings: ((MTLTexture, SceneParticleRefractionBinding.NormalArguments?, MTLTexture?, Int) -> Void)?
+            if let trace = mainPass.compositionTrace, trace.isCompositionSelected {
+                let target = mainPass.compositionTarget
+                let depth = depthLease.map { SceneCompositionTextureObservation($0.texture, role: "particle-depth") }
+                let ordinal = observationBatchOrdinal
+                let layerID = batch.layerID
+                let colorUV = [batch.colorUVScale.x, batch.colorUVScale.y]
+                let sampling = String(describing: batch.colorSampling)
+                var batchDetails = ["batchOrdinal": String(ordinal),
+                        "particlePath": batch.particlePath,
+                        "childTemplateIndex": batch.childTemplateIndex.map(String.init) ?? "root",
+                        "rendererComponentIndex": batch.debugRendererComponentIndex.map(String.init) ?? "implicit",
+                        "rendererKind": batch.debugRendererKind ?? "unknown"]
+                if let depth { batchDetails["depthTextureToken"] = depth.textureToken }
+                observeBindings = { color, normal, background, count in
+                    var details = batchDetails
+                    details["instanceCount"] = String(count)
+                    var source = SceneCompositionTextureObservation(color, role: "particle-color")
+                    source.uv = colorUV
+                    source.sampling = sampling
+                    trace.recordComposition(.init(kind: "particle", layerID: layerID, slot: 0,
+                        source: source, target: target, details: details))
+                    if let normal {
+                        var source = SceneCompositionTextureObservation(normal.texture, role: "particle-normal")
+                        source.uv = [normal.uvScale.x, normal.uvScale.y]
+                        source.sampling = String(describing: normal.sampling)
+                        var normalDetails = details
+                        normalDetails["usesParticleFrames"] = String(normal.usesParticleFrames)
+                        normalDetails["authoredFormat"] = normal.authoredFormat.map { String($0.rawValue) } ?? "unknown"
+                        trace.recordComposition(.init(kind: "particle", layerID: layerID, slot: 1,
+                            source: source, target: target, details: normalDetails))
+                    }
+                    if let background {
+                        trace.recordComposition(.init(kind: "particle", layerID: layerID, slot: 2,
+                            source: .init(background, role: "particle-background"), target: target, details: details))
+                    }
+                }
+            } else { observeBindings = nil }
+            observationBatchOrdinal += 1
+#else
+            let observeBindings: ((MTLTexture, SceneParticleRefractionBinding.NormalArguments?, MTLTexture?, Int) -> Void)? = nil
+#endif
             let uniforms = cameraFrame.particleUniforms(
                 layerModel: model,
                 orientation: batch.orientation,
@@ -60,7 +106,15 @@ extension SceneParticleMetalPipeline {
             let didEncode: Bool
             if let refraction = batch.refraction {
                 let captured = mainPass.withReadableTarget { target, buffer in
-                    snapshot(target: target, commandBuffer: buffer)
+                    let background = snapshot(target: target, commandBuffer: buffer)
+#if DEBUG
+                    if let background, let trace = mainPass.compositionTrace, trace.isCompositionSelected {
+                        trace.recordComposition(.init(kind: "particle-background-copy", layerID: batch.layerID,
+                            source: .init(target, role: "main-color"), target: .init(background, role: "particle-background"),
+                            access: "copy-source", outcome: "encoded"))
+                    }
+#endif
+                    return background
                 }
                 if let background = captured ?? nil,
                    let encoder = mainPass.encoder(
@@ -77,7 +131,7 @@ extension SceneParticleMetalPipeline {
                         colorUVScale: batch.colorUVScale,
                         colorSampling: batch.colorSampling,
                         usesDepthAttachment: usesDepth,
-                        encoder: encoder
+                        encoder: encoder, observeBindings: observeBindings
                     )
                 } else {
                     didEncode = false
@@ -96,11 +150,19 @@ extension SceneParticleMetalPipeline {
                     colorUVScale: batch.colorUVScale,
                     colorSampling: batch.colorSampling,
                     usesDepthAttachment: usesDepth,
-                    encoder: encoder
+                    encoder: encoder, observeBindings: observeBindings
                 )
             } else {
                 didEncode = false
             }
+#if DEBUG
+            if !didEncode, let trace = mainPass.compositionTrace, trace.isCompositionSelected {
+                trace.recordComposition(.init(kind: "particle", layerID: batch.layerID,
+                    target: mainPass.compositionTarget, outcome: "failed", reason: "particle-draw-not-encoded",
+                    details: ["childTemplateIndex": batch.childTemplateIndex.map(String.init) ?? "root",
+                        "batchOrdinal": String(observationBatchOrdinal - 1)]))
+            }
+#endif
             if didEncode {
                 clearsDepth = false
 #if DEBUG

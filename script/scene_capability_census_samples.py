@@ -3,6 +3,7 @@
 from __future__ import annotations
 import re
 from collections import Counter
+from contextlib import nullcontext
 from pathlib import Path, PurePosixPath
 from typing import Any
 from scene_capability_census_effects import (
@@ -19,8 +20,9 @@ from scene_capability_census_io import (
     decode_json,
     normalize_path,
     package_category,
+    package_path as resolve_package_path,
     path_identity,
-    sha256_file,
+    read_project,
     tree_manifest,
 )
 from scene_capability_census_particles import census_particle_layer
@@ -522,6 +524,7 @@ def _sample_census(
 ) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
     sample_id = sample.name
     file_digests: dict[Path, str] = {}
+    project, project_error = read_project(sample, file_digests=file_digests)
     tree_sha, file_count, byte_count = tree_manifest(sample, file_digests=file_digests)
     project_path = sample / "project.json"
     base = {
@@ -543,53 +546,36 @@ def _sample_census(
         ),
         "has_user_observation": (sample / "用户观察说明.md").is_file(),
     }
-    if not project_path.is_file():
-        base["diagnostics"].append({"code": "project-json-missing"})
-        return base, [], [], []
-    try:
-        project = decode_json(project_path.read_bytes())
-    except ValueError as error:
-        base["diagnostics"].append({"code": str(error)})
-        return base, [], [], []
-    if not isinstance(project, dict):
-        base["diagnostics"].append({"code": "project-root-not-object"})
+    base["project_sha256"] = file_digests.get(project_path)
+    if project_error:
+        base["diagnostics"].append({"code": project_error})
         return base, [], [], []
     schema.add_document("project", project, sample_id)
-    project_type = project.get("type")
-    if not isinstance(project_type, str) or project_type.strip().casefold() != "scene":
-        base["diagnostics"].append({"code": "project-type-not-scene"})
-        return base, [], [], []
-    entry_name, preferred_package = project_package_name(project)
-    package_path = sample / preferred_package
-    if not package_path.is_file() and preferred_package != "scene.pkg":
-        fallback = sample / "scene.pkg"
-        package_path = fallback if fallback.is_file() else package_path
+    project_type = project.get("type", "scene")
+    entry_name, _ = project_package_name(project)
+    package_path = resolve_package_path(sample, project)
     base.update({
         "title": project_title_metadata(project.get("title"), sample_id),
         "project_type": project_type,
         "entry_path": entry_name,
-        "package_file": package_path.name,
-        "project_sha256": file_digests.get(project_path) or sha256_file(project_path),
-        "package_sha256": (file_digests.get(package_path) or sha256_file(package_path))
-            if package_path.is_file() else None,
-        "package_byte_count": package_path.stat().st_size if package_path.is_file() else 0,
+        "package_file": package_path.name if package_path is not None else None,
+        "package_sha256": file_digests[package_path] if package_path is not None else None,
+        "package_byte_count": package_path.stat().st_size if package_path is not None else 0,
         "preview_file": project.get("preview") if isinstance(project.get("preview"), str) else None,
     })
-    if not package_path.is_file():
-        base["diagnostics"].append({"code": "package-missing"})
-        return base, [], [], []
-
     occurrences: list[dict[str, Any]] = []
     textures: list[dict[str, Any]] = []
     unclassified: list[dict[str, Any]] = []
-    with PkgArchive(package_path) as archive:
-        base["package_magic"] = archive.magic
-        base["package_entry_count"] = len(archive.entries)
-        base["package_unique_path_count"] = len({path_identity(entry.path) for entry in archive.entries})
-        base["package_categories"] = dict(sorted(Counter(
-            package_category(entry.path) for entry in archive.entries
-        ).items()))
-        base["diagnostics"].extend(archive.diagnostics)
+    with PkgArchive(package_path) if package_path is not None else nullcontext() as archive:
+        base["inventory_scope"] = "package-entries-and-referenced-resources" if archive else "referenced-loose-and-stock-resources"
+        if archive is not None:
+            base["package_magic"] = archive.magic
+            base["package_entry_count"] = len(archive.entries)
+            base["package_unique_path_count"] = len({path_identity(entry.path) for entry in archive.entries})
+            base["package_categories"] = dict(sorted(Counter(
+                package_category(entry.path) for entry in archive.entries
+            ).items()))
+            base["diagnostics"].extend(archive.diagnostics)
         observed_json: set[tuple[str, str, int | None]] = set()
 
         def observe_json(resource: ResolvedResource, value: Any) -> None:
@@ -607,38 +593,42 @@ def _sample_census(
                 sample_id,
             )
 
-        entry_matches = archive.matches(entry_name)
-        if len(entry_matches) != 1:
-            base["diagnostics"].append({
-                "code": "entry-cardinality-mismatch",
-                "count": len(entry_matches),
-            })
-            return base, [], [], []
-        entry = entry_matches[0]
+        if archive is not None:
+            entry_matches = archive.matches(entry_name)
+            if len(entry_matches) != 1:
+                base["diagnostics"].append({"code": "entry-cardinality-mismatch", "count": len(entry_matches)})
+                return base, [], [], []
+            scene_resource = ResolvedResource("package", entry_name, archive=archive, entry=entry_matches[0])
+        else:
+            loose_entry = sample / entry_name
+            if not loose_entry.is_file():
+                base["diagnostics"].append({"code": "scene-entry-missing"})
+                return base, [], [], []
+            scene_resource = ResolvedResource("loose", entry_name, file_path=loose_entry)
         try:
-            scene = decode_json(archive.read_entry(entry) or b"")
+            scene = decode_json(scene_resource.read_bytes())
         except ValueError as error:
             base["diagnostics"].append({"code": str(error)})
             return base, [], [], []
         if not isinstance(scene, dict):
             base["diagnostics"].append({"code": "scene-root-not-object"})
             return base, [], [], []
-        base["scene_entry_sha256"] = archive.entry_sha256(entry)
-        base["scene_entry_byte_count"] = entry.size
+        base["scene_entry_sha256"] = file_digests[scene_resource.file_path] if scene_resource.file_path else scene_resource.sha256()
+        base["scene_entry_byte_count"] = scene_resource.size
         view = SceneResourceView(
             sample,
             stock_root,
             archive,
             json_observer=observe_json,
         )
-        package_resources, package_resource_diagnostics = census_package_resources(
-            sample_id=sample_id,
-            archive=archive,
-            observe_json=observe_json,
-            view=view,
-        )
-        occurrences.extend(package_resources)
-        base["diagnostics"].extend(package_resource_diagnostics)
+        if archive is not None:
+            package_resources, package_resource_diagnostics = census_package_resources(
+                sample_id=sample_id, archive=archive, observe_json=observe_json, view=view,
+            )
+            occurrences.extend(package_resources)
+            base["diagnostics"].extend(package_resource_diagnostics)
+        else:
+            observe_json(scene_resource, scene)
         objects = scene.get("objects") if isinstance(scene.get("objects"), list) else []
         layer_visibilities = authored_layer_visibilities(objects)
         base["object_count"] = len(objects)

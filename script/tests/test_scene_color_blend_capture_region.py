@@ -29,7 +29,9 @@ SOURCES = [SCENE / p for p in (
     "Rendering/Composition/SceneImageLayerMainPassRenderer.swift",
     "Resources/Textures/SceneResourceBudget.swift",
     "Diagnostics/ScenePerformanceCounterHub.swift",
-    "Diagnostics/SceneGPUCensus.swift")]
+    "Diagnostics/SceneGPUCensus.swift",
+    "Diagnostics/SceneEffectExecutionFrameTrace.swift",
+    "Diagnostics/SceneEffectExecutionTelemetry.swift")]
 SHADER = SCENE / "Rendering/Composition/SceneImageLayer.metal"
 FOG = SHADER.with_name("SceneDistanceFog.metalh")
 

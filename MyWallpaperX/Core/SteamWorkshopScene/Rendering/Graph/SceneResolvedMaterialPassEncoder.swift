@@ -12,6 +12,39 @@ final class SceneResolvedMaterialPassEncoder {
         let role: SceneResolvedMaterialProgram.PassRole
 #if DEBUG
         var programCacheKey = ""
+        var compositionTrace: SceneEffectExecutionFrameTrace?
+        var compositionRows: [SceneCompositionObservationRow] = []
+
+        mutating func observeComposition(program: SceneResolvedMaterialProgram, layerID: Int,
+                                         effectIndex: Int? = nil, nodeIndex: Int? = nil,
+                                         materialOrdinal: Int? = nil) {
+            compositionRows = program.semanticIdentity.shader.textureSlots.compactMap { index in
+                guard let slot = program.textureSlots[index] else { return nil }
+                var source = SceneCompositionTextureObservation(slot.resource.publication.candidate,
+                    role: "program-input")
+                switch slot.reference {
+                case let .asset(path): source.logical = "asset:" + path.value
+                case let .userProperty(request): source.logical = "user-property:" + request.key
+                case let .provider(request): source.logical = "provider:" + String(describing: request)
+                case let .graph(identity): source.logical = "graph:" + String(describing: identity)
+                }
+                switch slot.diagnosticSelectionProvenance {
+                case let .authored(origin): source.provenance = "authored." + origin.rawValue
+                case .shaderDefault: source.provenance = "shader-default"
+                case .implicitFramebuffer: source.provenance = "implicit-framebuffer"
+                case .materialGraphInputAlias: source.provenance = "material-graph-input-alias"
+                case .dormantUnresolvedMaterialGraphInput: source.provenance = "dormant-unresolved-material-graph-input"
+                }
+                source.generation = slot.resource.resourceGeneration
+                source.contentGeneration = slot.resource.publication.contentGeneration
+                return .init(kind: "material", layerID: layerID, effectIndex: effectIndex,
+                    nodeIndex: nodeIndex, materialOrdinal: materialOrdinal, slot: index, source: source)
+            }
+            if compositionRows.isEmpty {
+                compositionRows = [.init(kind: "material", layerID: layerID, effectIndex: effectIndex,
+                    nodeIndex: nodeIndex, materialOrdinal: materialOrdinal, access: "no-texture-input")]
+            }
+        }
 #endif
 
         fileprivate let ownerToken: UUID
@@ -271,7 +304,12 @@ final class SceneResolvedMaterialPassEncoder {
     ) -> ((MTLRenderCommandEncoder) -> Void)? {
         guard pass.role != .offscreenOverwrite,
               target === pass.target,
-              isValid(pass, commandBuffer: commandBuffer) else { return nil }
+              isValid(pass, commandBuffer: commandBuffer) else {
+#if DEBUG
+            recordComposition(pass, encoded: false, reason: "terminal-draw-rejected")
+#endif
+            return nil
+        }
         return { [self] encoder in encodeDraw(pass, encoder: encoder) }
     }
 
@@ -294,7 +332,12 @@ final class SceneResolvedMaterialPassEncoder {
         commandBuffer: MTLCommandBuffer
     ) -> Bool {
         guard pass.role == .offscreenOverwrite,
-              isValid(pass, commandBuffer: commandBuffer) else { return false }
+              isValid(pass, commandBuffer: commandBuffer) else {
+#if DEBUG
+            recordComposition(pass, encoded: false, reason: "material-pass-rejected")
+#endif
+            return false
+        }
 
         let descriptor = MTLRenderPassDescriptor()
         descriptor.colorAttachments[0].texture = pass.target
@@ -321,6 +364,9 @@ final class SceneResolvedMaterialPassEncoder {
         let timestampEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)
         #endif
         guard let encoder = timestampEncoder else {
+#if DEBUG
+            recordComposition(pass, encoded: false, reason: "material-encoder-unavailable")
+#endif
             return false
         }
         encoder.label = "Scene resolved material pass"
@@ -372,11 +418,42 @@ final class SceneResolvedMaterialPassEncoder {
             encoder.setFragmentSamplerState(binding.sampler, index: binding.slot)
         }
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+#if DEBUG
+        recordComposition(pass, encoded: true)
+#endif
         #if DEBUG
         SceneGPUStageTimestampHook.drew(encoder)
                 ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: false)
 #endif
     }
+
+#if DEBUG
+    private func recordComposition(_ pass: PreparedPass, encoded: Bool, reason: String? = nil) {
+        if let trace = pass.compositionTrace {
+            for var row in pass.compositionRows {
+                row.kind = pass.role == .offscreenOverwrite ? "material" : "terminal-material-replay"
+                row.target = .init(pass.target, role: pass.role == .offscreenOverwrite ? "graph-material-target" : "terminal-replay-target")
+                if let slot = row.slot, let binding = pass.bindings.first(where: { $0.slot == slot }) {
+                    let actual = pass.role.readsCurrentAttachment && slot == 0 ? pass.target : binding.texture
+                    let token = String(UInt(bitPattern: ObjectIdentifier(actual)))
+                    if row.source?.textureToken != token {
+                        row.details = ["preparedTextureToken": row.source?.textureToken ?? "unknown",
+                            "selectionMetadataRole": "prepared-logical-origin",
+                            "physicalBinding": pass.role.readsCurrentAttachment && slot == 0 ? "current-attachment" : "replacement-copy"]
+                    }
+                    row.source?.textureToken = token
+                    row.source?.width = actual.width
+                    row.source?.height = actual.height
+                    row.source?.pixelFormat = actual.pixelFormat.rawValue
+                    row.access = pass.role.readsCurrentAttachment && slot == 0 ? "color-attachment-read" : "texture-bind"
+                }
+                row.outcome = encoded ? "draw-encoded" : "failed"
+                row.reason = reason
+                trace.recordComposition(row)
+            }
+        }
+    }
+#endif
 
     func reset() {
         lock.lock()
@@ -632,3 +709,21 @@ final class SceneResolvedMaterialPassEncoder {
         return body()
     }
 }
+
+#if DEBUG
+extension SceneCompositionTextureObservation {
+    init(_ candidate: SceneTextureCandidate, role: String) {
+        self.init(candidate.texture, role: role)
+        candidateIdentity = String(describing: candidate.identity)
+        candidateGeneration = String(describing: candidate.generation)
+        purpose = String(describing: candidate.purpose)
+        content = String(describing: candidate.content)
+        provenance = "candidate"
+        uv = [candidate.uvTransform.origin.x, candidate.uvTransform.origin.y,
+              candidate.uvTransform.xAxis.x, candidate.uvTransform.xAxis.y,
+              candidate.uvTransform.yAxis.x, candidate.uvTransform.yAxis.y]
+        sampling = "\(candidate.sampling.filter.rawValue)/\(candidate.sampling.addressMode.rawValue)"
+    }
+
+}
+#endif

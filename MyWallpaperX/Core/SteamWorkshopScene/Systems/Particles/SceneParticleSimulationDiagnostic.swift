@@ -62,6 +62,66 @@ nonisolated struct SceneParticleSimulationDiagnostic: Hashable, Sendable {
     let kind: SceneParticleSimulationDiagnosticKind
     let componentName: String?
 }
+
+nonisolated struct SceneParticleComponentObservation: Hashable, Sendable {
+    let category: String
+    let componentIndex: Int
+    let kind: String
+    let stage: String
+    let reason: String
+    let origin: String
+    let simulationTime: Double
+    let particleID: UInt64?
+}
+
+nonisolated struct SceneParticleComponentObservationState: Sendable {
+    struct Identity: Hashable, Sendable {
+        let category: String
+        let componentIndex: Int
+        let stage: String
+        let reason: String
+        let origin: String
+    }
+
+    let sources: [String: [SceneParticleComponentSource]]
+    var observed: Set<Identity> = []
+    var pending: [SceneParticleComponentObservation] = []
+    var origin = "prepared"
+    var activeOperatorIndex: Int?
+    var didTruncate = false
+
+    init(sources: [String: [SceneParticleComponentSource]]) {
+        self.sources = sources
+        for category in sources.keys.sorted() {
+            for index in sources[category, default: []].indices {
+                record(category, index, "declared", reason: "authored-component", time: 0)
+            }
+        }
+    }
+
+    mutating func record(
+        _ category: String, _ typedIndex: Int, _ stage: String,
+        reason: String, time: Double, particleID: UInt64? = nil
+    ) {
+        guard let source = sources[category]?[typedIndex] else { return }
+        let identity = Identity(category: category, componentIndex: source.componentIndex,
+                                stage: stage, reason: reason, origin: origin)
+        guard !observed.contains(identity) else { return }
+        guard observed.count < 1024 else {
+            if !didTruncate {
+                didTruncate = true
+                pending.append(.init(category: "observation", componentIndex: -1,
+                    kind: "capacity", stage: "truncated", reason: "first-fact-capacity-1024",
+                    origin: origin, simulationTime: time, particleID: nil))
+            }
+            return
+        }
+        observed.insert(identity)
+        pending.append(.init(category: category, componentIndex: source.componentIndex,
+            kind: source.kind, stage: stage, reason: reason, origin: origin,
+            simulationTime: time, particleID: particleID))
+    }
+}
 #endif
 
 extension SceneParticleInitializer {

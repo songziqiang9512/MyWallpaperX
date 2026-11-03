@@ -28,6 +28,7 @@ from scene_diagnostic_report_io import (
     load_preview_oracle_registry,
     load_report as _load_report,
 )
+from scene_wallpaper_graph_output_metrics import terminal_composition_snapshot
 
 
 SCHEMA_VERSION = 1
@@ -47,6 +48,7 @@ STAGE_ORDER = {
     "publication": 70,
     "terminal-compositor": 80,
     "next-frame": 90,
+    "lifecycle": 100,
 }
 SEVERITY_ORDER = {"warning": 0, "degraded": 1, "blocking": 2}
 
@@ -223,71 +225,53 @@ def _preserved(
     return layer_id in compositor_ids and layer_id in next_frame_ids
 
 
-def _process_events(sample: Mapping[str, Any]) -> list[dict[str, Any]]:
-    events: list[dict[str, Any]] = []
-    if sample.get("timed_out") is True:
-        events.append(_event(
-            stage="process",
-            owner="DebugScenePlaybackRunner",
-            reason_code="process-timeout",
-            profile_or_shape="scene-process",
-            failure_radius="scene",
-            severity="blocking",
-            evidence_basis="sample.timed_out",
-        ))
-    else:
-        exit_code = _integer(sample.get("exit_code"))
-        if exit_code is not None and exit_code != 0:
-            events.append(_event(
-                stage="process",
-                owner="DebugScenePlaybackRunner",
-                reason_code="process-exit-nonzero",
-                profile_or_shape="scene-process",
-                failure_radius="scene",
-                severity="blocking",
-                evidence_basis="sample.exit_code",
-            ))
+def _process_events(sample: Mapping[str, Any], app_verified_after: object = None) -> list[dict[str, Any]]:
     runtime = _mapping(sample.get("runtime"))
+    lifecycle = _mapping(runtime.get("lifecycle"))
     surfaces = _integer(runtime.get("surfaces"))
+    exit_code = _integer(sample.get("exit_code"))
+    source_invalid = sample.get("input_status") == "source-invalid"
+    specs = []
+    if app_verified_after is False:
+        specs.append(("process", "verify_staged_app", "measurement-app-identity-verification-failed",
+                      "staged-app", "report.app_identity.verified_after"))
+    if sample.get("timed_out") is True:
+        specs.append(("process", "DebugScenePlaybackRunner", "process-timeout",
+                      "scene-process", "sample.timed_out"))
+    elif exit_code is not None and exit_code != 0:
+        specs.append(("process", "DebugScenePlaybackRunner", "process-exit-nonzero",
+                      "scene-process", "sample.exit_code"))
     if surfaces is None:
-        source_invalid = sample.get("input_status") == "source-invalid"
-        events.append(_event(
-            stage="resource-load" if source_invalid else "launch",
-            owner="SceneProjectLoader" if source_invalid else "SceneDesktopWallpaperHost",
-            reason_code="project-json-missing" if source_invalid else "ready-event-missing",
-            profile_or_shape="project-entry" if source_invalid else "scene-surface",
-            failure_radius="scene",
-            severity="blocking",
-            evidence_basis="sample.input_status" if source_invalid else "runtime.surfaces",
+        specs.append((
+            "resource-load" if source_invalid else "launch",
+            "SceneProjectLoader" if source_invalid else "SceneDesktopWallpaperHost",
+            _token(sample.get("input_reason_code"), "project-json-missing") if source_invalid else "ready-event-missing",
+            "project-entry" if source_invalid else "scene-surface",
+            ("sample.input_reason_code" if sample.get("input_reason_code") else "sample.input_status") if source_invalid else "runtime.surfaces",
         ))
     elif surfaces < 1:
-        events.append(_event(
-            stage="launch",
-            owner="SceneDesktopWallpaperHost",
-            reason_code="surface-unavailable",
-            profile_or_shape="scene-surface",
-            failure_radius="scene",
-            severity="blocking",
-            evidence_basis="runtime.surfaces",
-        ))
-    return events
+        specs.append(("launch", "SceneDesktopWallpaperHost", "surface-unavailable",
+                      "scene-surface", "runtime.surfaces"))
+    if lifecycle.get("stopped_observed") is False:
+        specs.append(("lifecycle", "SceneDesktopWallpaperHost", "stop-event-missing",
+                      "scene-stop", "runtime.lifecycle.stopped_observed"))
+    elif lifecycle.get("stopped_observed") is True:
+        for field, reason in (("surfaces_released", "surfaces-not-released"),
+                              ("gpu_drained", "gpu-drain-incomplete")):
+            if lifecycle.get(field) is False:
+                specs.append(("lifecycle", "SceneDesktopWallpaperHost", reason,
+                              "scene-stop", "runtime.lifecycle." + field))
+    return [_event(
+        stage=stage, owner=owner, reason_code=reason, profile_or_shape=shape,
+        failure_radius="scene", severity="blocking", evidence_basis=basis,
+    ) for stage, owner, reason, shape, basis in specs]
 
-
-def _resource_events(runtime: Mapping[str, Any]) -> list[dict[str, Any]]:
-    """Report authored drawable inputs that never reached a runtime owner.
-
-    Benchmark matrices historically made these ratios optional expectations.
-    Basic-display triage still needs these ratios as cohort leads, but the
-    aggregate may include dormant/on-demand candidates. Downstream route and
-    output evidence must prove that a currently visible drawable was lost.
-    """
+def _loader_cohort_leads(runtime: Mapping[str, Any]) -> list[dict[str, Any]]:
     specifications = (
         ("texture_candidates", "loaded_textures", "BaseImageTextureStore",
          "base-image-texture-load-incomplete", "image-layer", None),
         ("text_candidates", "loaded_textures_text", "SceneTextTextureLoader",
          "text-texture-load-incomplete", "text-layer", None),
-        ("solid_candidates", "loaded_solid_layers", "SceneSolidTextureLoader",
-         "solid-texture-load-incomplete", "solid-layer", None),
         ("particle_candidates", "loaded_particle_layers", "ParticleRuntime",
          "particle-layer-load-incomplete", "particle-layer",
          "particle_sticky_loaded"),
@@ -307,19 +291,15 @@ def _resource_events(runtime: Mapping[str, Any]) -> list[dict[str, Any]]:
             continue
         if loaded >= candidates:
             continue
-        events.append(_event(
-            stage="resource-load",
-            owner=owner,
-            reason_code=reason,
-            profile_or_shape=shape,
-            failure_radius="scene",
-            # The aggregate loader ratio includes intentionally dormant and
-            # on-demand candidates. It is a cohort lead, not proof that the
-            # currently visible frame lost this drawable family.
-            severity="degraded",
-            evidence_basis=f"runtime.{loaded_field}/{candidate_field}",
-        ))
+        events.append({"owner": owner, "reasonCode": reason, "family": shape,
+            "loaded": loaded, "candidates": candidates,
+            "evidenceBasis": f"runtime.{loaded_field}/{candidate_field}",
+            "claimBoundary": "aggregate-count-lead-not-active-input-failure"})
+    return events
 
+
+def _resource_events(runtime: Mapping[str, Any]) -> list[dict[str, Any]]:
+    events: list[dict[str, Any]] = []
     skipped_composites = _integer(
         runtime.get("skipped_unsupported_composite_count")
     )
@@ -748,12 +728,22 @@ def _evidence_summary(sample: Mapping[str, Any]) -> dict[str, Any]:
         capability = _mapping(resolved.get("capability"))
         accepted = _integer_set(capability.get("accepted_layer_ids"))
     compositor, next_frame = _terminal_sets(runtime)
+    gpu_completed = _integer_set(graph.get("successful_gpu_completed_layer_ids"))
     evidence = _mapping(sample.get("evidence"))
     borders = _mapping(evidence.get("flat_border_ratio"))
     preview = _mapping(evidence.get("preview_visual"))
     preview_metrics = _mapping(preview.get("metrics"))
+    capture = _mapping(evidence.get("snapshot_capture"))
     return {
         "surfaceCount": _integer(runtime.get("surfaces")),
+        "lifecycle": dict(_mapping(runtime.get("lifecycle"))),
+        "terminalSnapshot": terminal_composition_snapshot(capture, _mapping(runtime.get("composition_observations"))),
+        "solidLoadCounts": {key: runtime.get(key) for key in (
+            "loaded_solid_layers", "solid_candidates")},
+        "loaderCohortLeads": _loader_cohort_leads(runtime),
+        "layerSourceRecoveryAdvisory": {
+            "diagnosticCount": graph.get("layer_source_transient_diagnostics_recovered"),
+            "claimBoundary": "same-layer-later-terminal-success-not-input-recovery"},
         "visualObservationStatus": evidence.get("visual_status", "requested"),
         "readyNonBlackObserved": evidence.get("ready_non_black") is True,
         "afterNonBlackObserved": evidence.get("after_non_black") is True,
@@ -762,10 +752,8 @@ def _evidence_summary(sample: Mapping[str, Any]) -> dict[str, Any]:
         "previewSpatialColorSimilarityAdvisory": preview_metrics.get(
             "spatial_color_similarity"
         ),
-        "graphEvidenceObserved": (
-            resolved.get("has_evidence") is True
-            or graph.get("has_evidence") is True
-        ),
+        "successfulGPUCompletedLayerIds": sorted(gpu_completed),
+        "gpuCompletedTerminalLayerIds": sorted(gpu_completed & compositor),
         "acceptedGraphLayerCount": len(accepted),
         "terminalCompositorLayerCount": len(compositor),
         "nextFrameLayerCount": len(next_frame),
@@ -776,6 +764,7 @@ def _sample_observation(
     sample: Mapping[str, Any],
     report_index: int,
     preview_oracle_uncontrolled: Mapping[str, str] | None = None,
+    app_verified_after: object = None,
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     sample_id = sample.get("id")
     if not isinstance(sample_id, str) or not sample_id:
@@ -784,7 +773,7 @@ def _sample_observation(
         )
     runtime = _mapping(sample.get("runtime"))
     compositor_ids, next_frame_ids = _terminal_sets(runtime)
-    events = _process_events(sample)
+    events = _process_events(sample, app_verified_after)
     events.extend(_resource_events(runtime))
     events.extend(_admission_events(runtime, compositor_ids, next_frame_ids))
     events.extend(_scene_script_events(sample))
@@ -797,17 +786,14 @@ def _sample_observation(
     events.extend(_named_target_events(runtime))
     events.extend(_output_events(sample, preview_oracle_uncontrolled))
     events = _deduplicate(events)
+    summary = _evidence_summary(sample)
 
     if any(event["severity"] == "blocking" for event in events):
         status = "blocked"
     elif events:
         status = "degraded"
     else:
-        summary = _evidence_summary(sample)
-        if summary["graphEvidenceObserved"]:
-            status = "terminal-chain-complete"
-        else:
-            status = "runtime-evidence-incomplete"
+        status = "terminal-compositor-observed" if compositor_ids or summary["terminalSnapshot"].get("composition_receipt_matched") else "runtime-evidence-incomplete"
 
     failures = sample.get("failures")
     failure_count = len(failures) if isinstance(failures, list) else 0
@@ -826,7 +812,7 @@ def _sample_observation(
             "failureCount": failure_count,
             "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints",
         },
-        "evidenceSummary": _evidence_summary(sample),
+        "evidenceSummary": summary,
     }
     return observation, events
 
@@ -933,6 +919,7 @@ def normalize_reports(
                 raw_sample,
                 report_index,
                 preview_oracle_uncontrolled,
+                _mapping(report.get("app_identity")).get("verified_after"),
             )
             samples.append(observation)
             cluster_inputs.append((

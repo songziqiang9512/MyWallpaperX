@@ -600,6 +600,11 @@ final class SceneCompositionGroupFrameRuntime {
                     blit.endEncoding()
 #if DEBUG
                     SceneGPUCensus.recordTextureCopy(texture: target)
+                    if let trace = pass.compositionTrace, trace.isCompositionSelected {
+                        trace.recordComposition(.init(kind: "group-background-copy", layerID: rootID,
+                            source: .init(source, role: "enclosing-color"), target: .init(target, role: "group-color"),
+                            access: "copy-source", outcome: "encoded"))
+                    }
 #endif
                     return true
                 } ?? false
@@ -661,6 +666,9 @@ final class SceneCompositionGroupFrameRuntime {
             submissionOwner: parentPass,
             worldClipToTargetClip: sourceGeometry?.worldClipToSourceClip
         )
+#if DEBUG
+        pass.compositionTrace = parentPass.compositionTrace
+#endif
         passesByRootID[rootID] = pass
         texturesByRootID[rootID] = target.texture
         sourcePins.append(target.pin)

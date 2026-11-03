@@ -24,7 +24,18 @@ extension SceneMetalRenderer {
         particlePipeline: SceneParticleMetalPipeline?,
         initialVideoPresentation: InitialVideoPresentation? = nil
     ) -> PreparedFrame {
-        return PreparedFrame(commandBuffer: commandBuffer, initialVideoPresentation: initialVideoPresentation, submit: { present in
+        let compositionSurface: ((UInt32, ObjectIdentifier) -> Void)?
+#if DEBUG
+        if let effectExecutionTrace, effectExecutionTrace.isCompositionSelected {
+            compositionSurface = { displayID, identity in
+                effectExecutionTrace.setCompositionSurface(displayID: displayID,
+                    identity: String(UInt(bitPattern: identity)))
+            }
+        } else { compositionSurface = nil }
+#else
+        compositionSurface = nil
+#endif
+        return PreparedFrame(commandBuffer: commandBuffer, initialVideoPresentation: initialVideoPresentation, observeCompositionSurface: compositionSurface, submit: { present in
 #if DEBUG
             if !SceneGPUStageTimestampHook.isSelected(commandBuffer) {
                 encodeFrameReadback?(drawable.texture, commandBuffer)
@@ -41,6 +52,7 @@ extension SceneMetalRenderer {
             }
 #if DEBUG
             if let effectExecutionTrace {
+                effectExecutionTrace.setCompositionPresentRequested(present)
                 effectExecutionTelemetry.observeSharedCommandBuffer(
                     for: effectExecutionTrace, on: commandBuffer
                 )
@@ -69,6 +81,9 @@ extension SceneMetalRenderer {
         }, cancel: {
 #if DEBUG
             SceneGPUStageTimestampHook.cancel(commandBuffer, reason: "prepared-frame-cancelled")
+            if let effectExecutionTrace {
+                effectExecutionTelemetry.recordCompositionCancellation(for: effectExecutionTrace)
+            }
 #endif
             imageCompositor.cancelUnsubmittedResolvedMaterialFrame(on: commandBuffer)
             sourceUpdateTransaction.cancel()

@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import shutil
 import sys
@@ -16,53 +15,13 @@ SCRIPT_DIRECTORY = Path(__file__).resolve().parent
 if str(SCRIPT_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIRECTORY))
 
-from scene_capability_census_io import is_sample_directory_name
-
-
-DERIVED_NAMES = {
-    ".DS_Store",
-    ".mywallpaperx-steam-version.json",
-    ".mywallpaperx-scene-interpretation.json",
-    ".mywallpaperx-scene-preview-log.txt",
-}
-
-
-def sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
-def package_path(sample: Path, project: dict[str, Any]) -> Path | None:
-    raw_entry = project.get("file")
-    entry = raw_entry.strip().replace("\\", "/") if isinstance(raw_entry, str) else ""
-    entry_name = Path(entry).name if entry else "scene.json"
-    derived_name = str(Path(entry_name).with_suffix(".pkg"))
-    names = [derived_name] if derived_name == "scene.pkg" else [derived_name, "scene.pkg"]
-    return next((sample / name for name in names if (sample / name).is_file()), None)
-
-
-def tree_manifest(sample: Path) -> tuple[str, int, int]:
-    digest = hashlib.sha256()
-    count = 0
-    byte_count = 0
-    for path in sorted(item for item in sample.rglob("*") if item.is_file()):
-        if path.name in DERIVED_NAMES:
-            continue
-        relative = path.relative_to(sample).as_posix()
-        payload_hash = sha256(path)
-        size = path.stat().st_size
-        digest.update(relative.encode("utf-8"))
-        digest.update(b"\0")
-        digest.update(payload_hash.encode("ascii"))
-        digest.update(b"\0")
-        digest.update(str(size).encode("ascii"))
-        digest.update(b"\n")
-        count += 1
-        byte_count += size
-    return digest.hexdigest(), count, byte_count
+from scene_capability_census_io import (
+    DERIVED_SAMPLE_NAMES as DERIVED_NAMES,
+    iter_sample_directories,
+    package_path,
+    read_project,
+    tree_manifest,
+)
 
 
 def create_snapshot(args: argparse.Namespace) -> int:
@@ -76,14 +35,10 @@ def create_snapshot(args: argparse.Namespace) -> int:
     manifest_samples = []
     matrix_samples = []
     skipped = []
-    for sample in sorted(source_root.iterdir(), key=lambda item: item.name):
-        if not sample.is_dir() or not is_sample_directory_name(sample.name):
-            continue
+    for sample in iter_sample_directories(source_root):
         project_path = sample / "project.json"
-        if not project_path.is_file():
-            skipped.append({"id": sample.name, "reason": "missing project.json"})
-            continue
-        project = json.loads(project_path.read_text(encoding="utf-8"))
+        file_digests: dict[Path, str] = {}
+        project, project_error = read_project(sample, file_digests=file_digests)
         package = package_path(sample, project)
 
         destination = isolated_scene_root / sample.name
@@ -93,13 +48,13 @@ def create_snapshot(args: argparse.Namespace) -> int:
             ignore=shutil.ignore_patterns(*DERIVED_NAMES),
         )
         title = project.get("title") if isinstance(project.get("title"), str) else sample.name
-        tree_hash, file_count, byte_count = tree_manifest(sample)
+        tree_hash, file_count, byte_count = tree_manifest(sample, file_digests=file_digests)
         sample_manifest = {
             "id": sample.name,
             "title": title,
             "package_file": package.name if package is not None else None,
-            "project_sha256": sha256(project_path),
-            "package_sha256": sha256(package) if package is not None else None,
+            "project_sha256": file_digests.get(project_path),
+            "package_sha256": file_digests[package] if package is not None else None,
             "tree_sha256": tree_hash,
             "file_count": file_count,
             "byte_count": byte_count,
@@ -110,10 +65,13 @@ def create_snapshot(args: argparse.Namespace) -> int:
             "title": title,
             "project_sha256": sample_manifest["project_sha256"],
             "package_sha256": sample_manifest["package_sha256"],
+            "package_file": sample_manifest["package_file"],
+            "tree_sha256": tree_hash,
             "expected_runtime_evidence_schema": args.runtime_evidence_schema,
         }
-        if package is None:
-            matrix_sample.update(package_file=None, tree_sha256=tree_hash)
+        if project_error:
+            for row in (sample_manifest, matrix_sample):
+                row.update(input_status="source-invalid", input_reason_code=project_error)
         matrix_samples.append(matrix_sample)
 
     manifest = {

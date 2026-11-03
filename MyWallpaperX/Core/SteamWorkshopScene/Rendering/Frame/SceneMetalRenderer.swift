@@ -47,6 +47,7 @@ struct SceneMetalRenderer {
     let dynamicLayerTopologyCache = SceneDynamicLayerRenderTopologyCache()
     func renderFrame(
         collectsInitialVideoReadiness: Bool = false,
+        compositionCaptureRequestID: UInt64? = nil,
         imageTextures: SceneBaseImageTextureSnapshot,
         layerTopology: SceneScriptLayerTopologySnapshot? = nil,
         userPropertyTextures: [String: MTLTexture] = [:],
@@ -129,12 +130,24 @@ struct SceneMetalRenderer {
         // 诊断/基准模式（runtime-architecture §5.5）；正常播放为 nil，
         // 全部 record 调用点为 optional 旁路。
 #if DEBUG
+        let observesComposition = compositionCaptureRequestID != nil
         let effectExecutionTrace: SceneEffectExecutionFrameTrace? =
             SceneDesktopWallpaperHost.usesDebugEvidenceWindow
-            ? effectExecutionTelemetry.makeFrame(frameIndex: frameContext.frameIndex)
+            ? effectExecutionTelemetry.makeFrame(frameIndex: frameContext.frameIndex,
+                observesComposition: observesComposition,
+                commandBufferToken: observesComposition
+                    ? String(UInt(bitPattern: ObjectIdentifier(commandBuffer))) : nil,
+                captureRequestID: compositionCaptureRequestID)
             : nil
 #else
         let effectExecutionTrace: SceneEffectExecutionFrameTrace? = nil
+#endif
+#if DEBUG
+        defer {
+            if !didTransferFrameOwnership, let effectExecutionTrace {
+                effectExecutionTelemetry.recordCompositionCancellation(for: effectExecutionTrace)
+            }
+        }
 #endif
         let frameVisibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(
             in: frameProjection.descriptor, layersByID: frameProjection.layersByID,
@@ -239,7 +252,8 @@ struct SceneMetalRenderer {
             offscreenTexturePool: offscreenTexturePool, dynamicValues: frameContext.dynamicValues,
             commandBuffer: commandBuffer, output: displayOutput,
             input: displayMappingInput,
-            compositionGroupRuntime: compositionGroupRuntime) { return failure }
+            compositionGroupRuntime: compositionGroupRuntime,
+            executionTrace: effectExecutionTrace) { return failure }
         let preparedFrame = makePreparedFrame(
             commandBuffer: commandBuffer,
             drawable: drawable,

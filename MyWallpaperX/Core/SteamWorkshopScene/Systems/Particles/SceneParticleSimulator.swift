@@ -15,6 +15,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     let maximumParticleCount: Int
 #if DEBUG
     private(set) var diagnostics: [SceneParticleSimulationDiagnostic]
+    var componentObservation: SceneParticleComponentObservationState?
 #endif
     var particles: [SceneParticleState] = []
     /// Birth-state samples whose complete authored lifetime fell inside the
@@ -43,14 +44,14 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     private let hasWorldSpaceMovement: Bool
     /// Immutable operator admission and turbulence data prepared with the definition.
     /// Dynamic audio and speed values are still read on every frame.
-    private let operatorAudioExecutionAdmission: [Bool]
+    let operatorAudioExecutionAdmission: [Bool]
     /// Launch-stable operator normalization and declaration plans.  Keep all
     /// frame-varying inputs (audio, overrides, particle age/position) live in
     /// the execution helpers.
-    private let operatorExecutionPlans: [SceneParticleOperatorExecutionPlan]
+    let operatorExecutionPlans: [SceneParticleOperatorExecutionPlan]
     let hasWorldControlPointForce: Bool
     var controlPointForceFrame: SceneParticleControlPointForceFrame?
-    private let maintainsVortexRadius: Bool
+    let maintainsVortexRadius: Bool
     /// Launch-stable control-point identity lookup. Dynamic pointer and
     /// SceneScript values still arrive through `dynamicControlPoints`; only
     /// the authored identity metadata is indexed once for the particle hot
@@ -74,7 +75,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     /// Only these operators own per-particle oscillation cache entries. Keeping
     /// the indices prepared avoids scanning every operator for each death.
     private let positionOscillationOperatorIndices: [Int]
-    private let turbulencePlans: [SceneParticleTurbulencePlan?]
+    let turbulencePlans: [SceneParticleTurbulencePlan?]
     let simulationSeed: UInt64
     private var emitters: [SceneParticleEmitterState]
     var random: SceneParticleRandomGenerator
@@ -82,7 +83,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     private var nextParticleID: UInt64 = 0
     private(set) var explicitBirthEventStart: Int?
     let explicitInitializerWork: UInt64?
-    private var normalizedLives: [Double] = []
+    var normalizedLives: [Double] = []
     var dynamicControlPoints: [Int: SIMD3<Double>] = [:]
     /// The frame gravity conversion and world-space birth directions run
     /// through for the current advance: the caller's per-frame resolution of
@@ -187,6 +188,10 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         let authoredMaximum = min(max(definition.maximumCount ?? 1, 0), 20_000)
         maximumParticleCount = min(authoredMaximum, max(particleBudget ?? authoredMaximum, 0))
 #if DEBUG
+        componentObservation = definition.componentObservationSources.map {
+            SceneParticleComponentObservationState(sources: $0)
+        }
+        componentObservation?.origin = "prewarm"
         diagnostics = SceneParticleSimulationMath.diagnostics(
             definition, instanceOverride, eventColorContext: eventColorContext,
             controlPointForceEnvironment: controlPointForceEnvironment
@@ -201,6 +206,9 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         activeWorldSpaceFrame = worldSpaceFrame
         warmUp(duration: definition.startTime ?? 0, stepBudget: prewarmStepBudget,
                historyCapacity: stepSnapshotPolicy?.maximumSnapshots ?? 0)
+#if DEBUG
+        componentObservation?.origin = "live"
+#endif
         birthEvents.removeAll(keepingCapacity: true)
         deathEvents.removeAll(keepingCapacity: true)
     }
@@ -332,6 +340,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         snapshot.diagnostics = diagnostics
         snapshot.observedNonSilentAudioComponents = observedNonSilentAudioComponents
         snapshot.pendingAudioEvaluationObservations = pendingAudioEvaluationObservations
+        snapshot.componentObservation = componentObservation
 #endif
         return snapshot
     }
@@ -359,6 +368,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         diagnostics = snapshot.diagnostics
         observedNonSilentAudioComponents = snapshot.observedNonSilentAudioComponents
         pendingAudioEvaluationObservations = snapshot.pendingAudioEvaluationObservations
+        componentObservation = snapshot.componentObservation
 #endif
         eventColorContext = snapshot.eventColorContext
         stepSnapshotRecorder = snapshot.stepSnapshotRecorder
@@ -530,7 +540,15 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
 
     private nonisolated func emit(index: Int, duration: Double) {
         let emitter = definition.emitters[index]
-        if case .unsupported = emitter.kind { return }
+#if DEBUG
+        componentObservation?.record("emitter", index, "attempted", reason: "natural-emission-dispatch", time: simulationTime)
+#endif
+        if case .unsupported = emitter.kind {
+#if DEBUG
+            componentObservation?.record("emitter", index, "unsupported", reason: "unknown-emitter-kind", time: simulationTime)
+#endif
+            return
+        }
         let spawnPlan = emitterSpawnPlans[index]
         guard let emitterFrame = definition.emitterControlPointFrame(
             for: emitter, instanceOverride: activeInstanceOverride,
@@ -539,10 +557,20 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             controlPointsByID: controlPointsByID,
             controlPointSourcesAreValid: controlPointSourcesAreValid,
             preparedOrigin: spawnPlan.origin
-        ) else { return }
+        ) else {
+#if DEBUG
+            componentObservation?.record("emitter", index, "unavailable", reason: "control-point-frame-unavailable", time: simulationTime)
+#endif
+            return
+        }
         guard let audioScale = emissionAudioScale(
             for: spawnPlan, emitterIndex: index
-        ) else { return }
+        ) else {
+#if DEBUG
+            componentObservation?.record("emitter", index, "unavailable", reason: "audio-response-plan-unavailable", time: simulationTime)
+#endif
+            return
+        }
         // A scaled step may span many random windows. Reject before advancing
         // this emitter's schedule or RNG; at most 1024 full windows plus the
         // currently partial window can be visited by an accepted step.
@@ -553,13 +581,19 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
                 kind: .invalidEmitterState, componentName: "periodic-budget:\(index)"
             )
             if !diagnostics.contains(diagnostic) { diagnostics.append(diagnostic) }
+            componentObservation?.record("emitter", index, "rejected", reason: "periodic-window-budget", time: simulationTime)
 #endif
             return
         }
         guard let activeDuration = emitters[index].scheduledActiveDuration(
             plan: spawnPlan, stepDuration: duration,
             maximumEmissionDuration: maximumEmissionDuration
-        ) else { return }
+        ) else {
+#if DEBUG
+            componentObservation?.record("emitter", index, "unknown", reason: "schedule-inactive-or-unavailable", time: simulationTime)
+#endif
+            return
+        }
 
         var count = 0
         if !emitters[index].emittedInstantaneous, (spawnPlan.instantaneousCount ?? 0) > 0 {
@@ -580,6 +614,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
                     kind: .invalidEmitterState, componentName: "emission:\(index)"
                 )
                 if !diagnostics.contains(diagnostic) { diagnostics.append(diagnostic) }
+                componentObservation?.record("emitter", index, "rejected", reason: "nonfinite-emission-accumulator", time: simulationTime)
 #endif
                 return
             }
@@ -591,11 +626,22 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             )
         }
         count = min(count, maximumParticleCount - particles.count)
+#if DEBUG
+        componentObservation?.record("emitter", index, "evaluated", reason: "scheduled-count-evaluated", time: simulationTime)
+        if count == 0 { componentObservation?.record("emitter", index, "not-triggered", reason: "zero-admitted-count", time: simulationTime) }
+#endif
         for _ in 0..<count {
             if let particle = makeParticle(
                 emitter, spawnPlan: spawnPlan, frame: emitterFrame
             ) {
                 appendBirth(particle)
+#if DEBUG
+                componentObservation?.record("emitter", index, "accepted-birth", reason: "natural-birth-appended", time: simulationTime, particleID: particle.id)
+#endif
+            } else {
+#if DEBUG
+                componentObservation?.record("emitter", index, "rejected", reason: "birth-construction-rejected", time: simulationTime)
+#endif
             }
         }
     }
@@ -607,6 +653,12 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
 
     func emitExplicitly(count: Int, context: EmissionContext,
                         chargeWork: (UInt64) throws -> Void) throws {
+#if DEBUG
+        let observationOrigin = componentObservation?.origin
+        componentObservation?.origin = "explicit"
+        defer { if let observationOrigin { componentObservation?.origin = observationOrigin } }
+        componentObservation?.record("emitter", 0, "attempted", reason: "explicit-emission-command", time: simulationTime)
+#endif
         guard (0...1024).contains(count), playbackHasWork != nil,
               let initializerWork = explicitInitializerWork else { throw SceneParticleEmissionFailure.unavailable }
         guard count <= maximumParticleCount - particles.count else { throw SceneParticleEmissionFailure.budgetExceeded }
@@ -634,6 +686,9 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
                 throw SceneParticleEmissionFailure.unavailable
             }
             appendBirth(particle)
+#if DEBUG
+            componentObservation?.record("emitter", 0, "accepted-birth", reason: "explicit-birth-appended", time: simulationTime, particleID: particle.id)
+#endif
         }
     }
 
@@ -708,7 +763,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
 
     /// Reject only this particle's unsafe operator result, before either half
     /// of the integration is committed or narrowed to the GPU's Float ABI.
-    private nonisolated func acceptsMotionResult(
+    nonisolated func acceptsMotionResult(
         _ velocity: SIMD3<Double>, _ position: SIMD3<Double>, component: String
     ) -> Bool {
         if SceneParticleSimulationMath.isGPUFinite(velocity)
@@ -720,247 +775,11 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             kind: .invalidOperatorState, componentName: component
         )
         if !diagnostics.contains(diagnostic) { diagnostics.append(diagnostic) }
+        if let index = componentObservation?.activeOperatorIndex {
+            componentObservation?.record("operator", index, "rejected", reason: "nonfinite-motion-result", time: simulationTime)
+        }
 #endif
         return false
-    }
-
-    private nonisolated func apply(
-        _ value: SceneParticleOperator,
-        operatorIndex: Int,
-        duration: Double
-    ) {
-        guard operatorAudioExecutionAdmission[operatorIndex] else { return }
-        switch value.kind {
-        case .movement:
-            guard let plan = operatorExecutionPlans[operatorIndex].movement else {
-                break
-            }
-            let gravity = plan.gravity(through: activeWorldSpaceFrame)
-                * effectiveSpeedOverride
-            let radiusIsActive = maintainsVortexRadius && vortexOriginIsActive
-            for index in particles.indices {
-                if !radiusIsActive { particles[index].vortexRadius = nil }
-                let acceleration = gravity - particles[index].velocity * plan.drag
-                let integrated = particles[index].velocity + acceleration * duration
-                let (position, velocity) = vortexMovement(
-                    particle: particles[index], velocity: integrated, duration: duration
-                )
-                guard acceptsMotionResult(velocity, position, component: "movement") else {
-                    continue
-                }
-                particles[index].velocity = velocity
-                particles[index].position = position
-            }
-        case .angularMovement:
-            guard let plan = operatorExecutionPlans[operatorIndex].angularMovement else {
-                break
-            }
-            for index in particles.indices {
-                let acceleration = plan.force - particles[index].angularVelocity * plan.drag
-                let velocity = particles[index].angularVelocity + acceleration * duration
-                let position = particles[index].rotation + velocity * duration
-                guard acceptsMotionResult(velocity, position, component: "angularmovement") else {
-                    continue
-                }
-                particles[index].angularVelocity = velocity
-                particles[index].rotation = position
-            }
-        case .alphaFade:
-            let executionPlan = operatorExecutionPlans[operatorIndex]
-            guard let fadePlan = executionPlan.alphaFade else { break }
-            for index in particles.indices {
-                let life = normalizedLives[index]
-                if life <= fadePlan.fadeIn {
-                    particles[index].alpha *= SceneParticleSimulationMath.changeAmount(
-                        life, 0, fadePlan.fadeIn
-                    )
-                }
-                if life > fadePlan.fadeOut {
-                    particles[index].alpha *= 1 - SceneParticleSimulationMath.changeAmount(
-                        life, fadePlan.fadeOut, 1
-                    )
-                }
-            }
-        case .alphaChange:
-            guard let plan = operatorExecutionPlans[operatorIndex].scalarChange else {
-                break
-            }
-            for index in particles.indices {
-                particles[index].alpha *= plan.value(at: normalizedLives[index])
-            }
-        case .sizeChange:
-            guard let plan = operatorExecutionPlans[operatorIndex].scalarChange else {
-                break
-            }
-            for index in particles.indices {
-                particles[index].size *= plan.value(at: normalizedLives[index])
-            }
-        case .colorChange:
-            guard let plan = operatorExecutionPlans[operatorIndex].colorChange else {
-                break
-            }
-            for index in particles.indices {
-                particles[index].color *= plan.value(at: normalizedLives[index])
-            }
-        case .oscillateAlpha:
-            let executionPlan = operatorExecutionPlans[operatorIndex]
-            guard let oscillationPlan = executionPlan.scalarOscillation else {
-                break
-            }
-            let blend = executionPlan.blend
-            for index in particles.indices {
-                let factor = oscillationFactor(
-                    oscillationPlan,
-                    index,
-                    operatorIndex,
-                    age: particles[index].age
-                )
-                particles[index].alpha *= 1 + (factor - 1)
-                    * operatorBlend(blend, normalizedLives[index])
-            }
-        case .oscillateSize:
-            let executionPlan = operatorExecutionPlans[operatorIndex]
-            guard let oscillationPlan = executionPlan.scalarOscillation else {
-                break
-            }
-            let blend = executionPlan.blend
-            for index in particles.indices {
-                let factor = oscillationFactor(
-                    oscillationPlan,
-                    index,
-                    operatorIndex,
-                    age: particles[index].age,
-                )
-                particles[index].size *= 1 + (factor - 1)
-                    * operatorBlend(blend, normalizedLives[index])
-            }
-        case .oscillatePosition:
-            let executionPlan = operatorExecutionPlans[operatorIndex]
-            guard let oscillationPlan = executionPlan.positionOscillation else {
-                break
-            }
-            let mask = executionPlan.positionMask
-            let blend = executionPlan.blend
-            for index in particles.indices {
-                let oscillation = positionOscillation(
-                    oscillationPlan,
-                    particleIndex: index,
-                    operatorIndex: operatorIndex,
-                    mask: mask
-                )
-                let delta = positionOscillationDelta(
-                    oscillation,
-                    blend: blend,
-                    mask: mask,
-                    age: particles[index].age,
-                    lifetime: particles[index].lifetime,
-                    duration: duration
-                )
-                SceneParticleSimulationMath.addFinite(
-                    delta, to: &particles[index].position
-                )
-            }
-        case .turbulence:
-            guard let plan = turbulencePlans[operatorIndex] else { break }
-            let speedOverride = effectiveSpeedOverride
-            let phaseAudioFactor = plan.audioResponse.map {
-                1 + evaluateAudioResponse(
-                    $0, componentKind: .operator, componentIndex: operatorIndex
-                )
-            } ?? 1
-            for index in particles.indices {
-                let phase = turbulenceRandom(
-                    plan.phaseMinimum, plan.phaseMaximum,
-                    index, operatorIndex, 0
-                ) * phaseAudioFactor
-                let speed = turbulenceRandom(
-                    plan.minimumSpeed, plan.maximumSpeed, index, operatorIndex, 1
-                ) * speedOverride
-                let direction = SceneParticleSimulationMath.turbulenceDirection(
-                    position: particles[index].position,
-                    time: simulationTime,
-                    phase: phase,
-                    scale: plan.scale,
-                    timeScale: plan.timeScale,
-                    mask: plan.mask
-                )
-                let delta = direction * speed * duration
-                    * plan.blendAmount(normalizedLives[index])
-                SceneParticleSimulationMath.addFinite(delta, to: &particles[index].velocity)
-            }
-        case .controlPointAttract:
-            applyControlPointForce(
-                plan: operatorExecutionPlans[operatorIndex].controlPointForce,
-                duration: duration,
-                normalizedLives: normalizedLives,
-                blend: operatorExecutionPlans[operatorIndex].blend
-            )
-        case .boids:
-            applyBoids(
-                plan: operatorExecutionPlans[operatorIndex].boids,
-                duration: duration
-            )
-        case .vortex:
-            let audioScale = operatorExecutionPlans[operatorIndex].audioResponse.map {
-                evaluateAudioResponse(
-                    $0, componentKind: .operator, componentIndex: operatorIndex
-                )
-            }
-            applyVortex(
-                plan: operatorExecutionPlans[operatorIndex].vortex,
-                duration: duration,
-                audioScale: audioScale
-            )
-        case .capVelocity:
-            applyCapVelocity(
-                plan: operatorExecutionPlans[operatorIndex].capVelocity,
-                normalizedLives: normalizedLives,
-                blendPlan: operatorExecutionPlans[operatorIndex].blend
-            )
-        case .remapValue:
-            if let plan = operatorExecutionPlans[operatorIndex].scalarSpeedRemap {
-                for index in particles.indices {
-                    guard let multiplier = SceneParticleSimulationMath.scalarSpeedRemapMultiplier(
-                        plan, normalizedLife: normalizedLives[index],
-                        particleID: particles[index].id, simulationSeed: simulationSeed
-                    ) else { continue }
-                    let velocity = particles[index].velocity * multiplier
-                    guard acceptsMotionResult(velocity, particles[index].position,
-                        component: "remapvalue-speed") else { continue }
-                    particles[index].velocity = velocity
-                }
-                break
-            }
-            guard let plan = operatorExecutionPlans[operatorIndex].velocityRemap else {
-                break
-            }
-            for index in particles.indices {
-                guard let amount = SceneParticleSimulationMath.remapNoiseAmount(
-                    position: particles[index].position,
-                    time: simulationTime,
-                    particleID: particles[index].id,
-                    simulationSeed: simulationSeed,
-                    inputScale: plan.inputScale
-                ) else { continue }
-                particles[index].velocity = plan.minimum
-                    + (plan.maximum - plan.minimum) * amount
-            }
-        case .reduceMovement:
-            applyReduceMovement(
-                plan: operatorExecutionPlans[operatorIndex].reduceMovement,
-                duration: duration
-            )
-        case .collisionPlane:
-            applyCollisionPlane(
-                plan: operatorExecutionPlans[operatorIndex].collisionPlane
-            )
-        case let .inheritEventColor(declaration):
-            guard declaration.isBoundedSetColor,
-                  let color = eventColorContext.operatorColor else { break }
-            for index in particles.indices { particles[index].color = color }
-        case .unsupported:
-            break
-        }
     }
 
 }

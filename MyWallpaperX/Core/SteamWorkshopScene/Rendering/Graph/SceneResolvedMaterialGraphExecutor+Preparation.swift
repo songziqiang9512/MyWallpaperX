@@ -21,7 +21,8 @@ extension SceneResolvedMaterialGraphExecutor {
         _ source: SceneResolvedMaterialRuntimeBridge.FramebufferSourceMaterial,
         layerID: Int, sourceTexture: MTLTexture, target: MTLTexture,
         frame: SceneResolvedMaterialFrameSnapshot,
-        frameInputs: SceneResolvedMaterialRuntimeBridge.FrameInputs
+        frameInputs: SceneResolvedMaterialRuntimeBridge.FrameInputs,
+        executionTrace: SceneEffectExecutionFrameTrace? = nil
     ) -> Result<(
         pass: SceneResolvedMaterialPassEncoder.PreparedPass,
         representation: SceneShaderColorRepresentation
@@ -56,7 +57,11 @@ extension SceneResolvedMaterialGraphExecutor {
         }
         guard program.textureSlots.first??.registryIdentity == .sceneBackground(layerID)
         else { return .failure(.captureRejected) }
+#if DEBUG
+        var pass: SceneResolvedMaterialPassEncoder.PreparedPass
+#else
         let pass: SceneResolvedMaterialPassEncoder.PreparedPass
+#endif
         switch materialEncoder.prepareResult(program: program, target: target) {
         case let .success(value): pass = value
         case let .failure(failure):
@@ -71,6 +76,11 @@ extension SceneResolvedMaterialGraphExecutor {
                 failure: .fragmentOutputRejected
             ))
         }
+#if DEBUG
+        if executionTrace?.isCompositionSelected == true {
+            pass.observeComposition(program: program, layerID: layerID)
+        }
+#endif
         return .success((pass, representation))
     }
 
@@ -88,6 +98,7 @@ extension SceneResolvedMaterialGraphExecutor {
         terminalReplayTarget: MTLTexture?,
         terminalReplayBlendMode: Int,
         terminalReplayIsOptional: Bool,
+        executionTrace: SceneEffectExecutionFrameTrace?,
         terminalMaterialReplay: inout SceneResolvedMaterialPassEncoder.PreparedPass?,
         visualFailureSnapshot: VisualFailureSnapshot,
         pair: inout PairAtom,
@@ -364,7 +375,16 @@ extension SceneResolvedMaterialGraphExecutor {
                         rejection: rejection
                     ))
                 }
-                commands.append(.material(prepared))
+#if DEBUG
+                var observedPass = prepared
+                if executionTrace?.isCompositionSelected == true {
+                    observedPass.observeComposition(program: program, layerID: node.effect.layerID,
+                        effectIndex: node.effect.effectIndex, nodeIndex: nodeIndex, materialOrdinal: ordinal)
+                }
+#else
+                let observedPass = prepared
+#endif
+                commands.append(.material(observedPass))
                 // The executor selects the last successful material and keeps
                 // any input that later passthrough commands would overwrite.
                 if let terminalReplayTarget,
@@ -381,7 +401,16 @@ extension SceneResolvedMaterialGraphExecutor {
                         readsCurrentAttachment: capability.sourceRoute == .capturedMainTargetTexture
                     ) {
                     case let .success(replay):
-                        terminalMaterialReplay = replay
+#if DEBUG
+                        var observedReplay = replay
+                        if executionTrace?.isCompositionSelected == true {
+                            observedReplay.observeComposition(program: program, layerID: node.effect.layerID,
+                                effectIndex: node.effect.effectIndex, nodeIndex: nodeIndex, materialOrdinal: ordinal)
+                        }
+#else
+                        let observedReplay = replay
+#endif
+                        terminalMaterialReplay = observedReplay
                     case let .failure(failure):
                         if capability.sourceRoute == .capturedMainTargetTexture
                             || (terminalReplayIsOptional
@@ -727,3 +756,36 @@ extension SceneResolvedMaterialGraphExecutor {
         return frame.replacingTextureSnapshot(replacement)
     }
 }
+
+#if DEBUG
+extension SceneResolvedMaterialGraphExecutor {
+    func attachCompositionObservation(to graph: inout PreparedGraph,
+                                     trace: SceneEffectExecutionFrameTrace?, layerID: Int) {
+        guard let trace, trace.isCompositionSelected else { return }
+        func observed(_ command: Command, effectIndex: Int?) -> Command {
+            switch command {
+            case var .material(pass):
+                pass.compositionTrace = trace
+                return .material(pass)
+            case var .resource(command):
+                command.compositionTrace = trace
+                command.compositionLayerID = layerID
+                command.compositionEffectIndex = effectIndex
+                return .resource(command)
+            case let .functionClear(original, invocation, target):
+                var command = original
+                command.compositionTrace = trace
+                command.compositionLayerID = layerID
+                command.compositionEffectIndex = effectIndex
+                return .functionClear(command, invocationOrdinal: invocation, targetOrdinal: target)
+            }
+        }
+        graph.sourceCommand = observed(graph.sourceCommand, effectIndex: nil)
+        for index in graph.stages.indices {
+            let effectIndex = graph.stages[index].effect.effectIndex
+            graph.stages[index].commands = graph.stages[index].commands.map { observed($0, effectIndex: effectIndex) }
+        }
+        graph.terminalMaterialReplay?.compositionTrace = trace
+    }
+}
+#endif

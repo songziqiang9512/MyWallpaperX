@@ -20,6 +20,12 @@ final class SceneMainPassEncoder {
     }
 
     var targetPixelFormat: MTLPixelFormat { target.pixelFormat }
+#if DEBUG
+    var compositionTrace: SceneEffectExecutionFrameTrace?
+    var compositionTarget: SceneCompositionTextureObservation {
+        .init(target, role: submissionOwner == nil ? "main-color" : "group-color")
+    }
+#endif
 
     func rasterModelViewProjection(_ worldMVP: simd_float4x4) -> simd_float4x4 {
         worldClipToTargetClip.map { $0 * worldMVP } ?? worldMVP
@@ -126,6 +132,12 @@ final class SceneMainPassEncoder {
         encoder.label = "Scene main layer composite"
 #if DEBUG
         SceneGPUCensus.recordMainPassRender(usesDepth: depthTexture != nil)
+#endif
+#if DEBUG
+        if nextLoadAction == .clear, let trace = compositionTrace, trace.isCompositionSelected {
+            trace.recordComposition(.init(kind: "clear", target: compositionTarget,
+                access: "attachment-clear", outcome: "encoded"))
+        }
 #endif
         activeEncoder = encoder
         activeDepthTexture = depthTexture

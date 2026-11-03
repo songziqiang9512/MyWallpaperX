@@ -24,6 +24,8 @@ SCENE = REPO / 'MyWallpaperX/Core/SteamWorkshopScene'
 SOURCES = list(dict.fromkeys([
     *scene_swift_sources("scene_resource_input"),
     *pool_fixture.SWIFT_SOURCES,
+    SCENE/'Diagnostics/SceneEffectExecutionFrameTrace.swift',
+    SCENE/'Diagnostics/SceneEffectExecutionTelemetry.swift',
     *model_fixture.MODEL_SUPPORT_SOURCES,
     *(p for p in particle_fixture.SWIFT_SOURCES if p.parent.name != 'fixtures'),
     *(getattr(model_fixture, name) for name in [
@@ -185,12 +187,6 @@ enum SceneLitCapturePayloadResolution {
  enum Miss { case profileMissing }
  case miss(Miss)
 }
-struct SceneEffectExecutionFrameTrace {
- enum Outcome { case failed(reasonCode:String) }
- func recordRouteOperation(layerID:Int,origin:String,operation:String,outcome:Outcome) {
-  fatalError("unused RF13 ordered preparation shell")
- }
-}
 struct FixtureLightingProfile { let surfaceEnabled:Bool }
 struct FixtureProviderBindings {
  let lightingProfileByLayerID:[Int:FixtureLightingProfile]
@@ -213,7 +209,7 @@ extension SceneBaseImageTextureSnapshot {
 }
 extension SceneMetalRenderer {
  var baseMaterialProviderBindings:FixtureProviderBindings { fatalError("unused RF13 ordered preparation shell") }
- static func effectExecutionOrigin(for contentKind:String)->String { fatalError("unused RF13 ordered preparation shell") }
+ static func effectExecutionOrigin(for contentKind:String)->SceneEffectExecutionOrigin { fatalError("unused RF13 ordered preparation shell") }
  func captureRawDependencyProvider(layer:SceneRenderDescriptor.Layer,source:MTLTexture?,
   imageTextures:SceneBaseImageTextureSnapshot,imagePipeline:SceneImageLayerPipeline,
   frameContext:SceneFrameContext,worldFrames:[Int:simd_float4x4],cameraFrame:SceneParticleCameraFrame,

@@ -266,7 +266,8 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
         pool: SceneOffscreenTexturePool?,
         commandBuffer: MTLCommandBuffer,
         resourceBundle: SceneResolvedMaterialFrameResourceBundle? = nil,
-        performanceTelemetry: SceneFramePerformanceTelemetry? = nil
+        performanceTelemetry: SceneFramePerformanceTelemetry? = nil,
+        executionTrace: SceneEffectExecutionFrameTrace? = nil
     ) -> Bridge.FramePreparationResult {
         // Move ownership before locking. A later bundle cancel or second take
         // cannot cancel the possession executing this frame preparation.
@@ -536,7 +537,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                 materialFunctionInvocations:
                     request.materialFunctionInvocations,
                 effectGeneration: effectGeneration,
-                resetGeneration: resetGeneration
+                resetGeneration: resetGeneration, executionTrace: executionTrace
             )
 #if DEBUG
             performanceTelemetry?.endStage("admit-executor-prepare")
@@ -700,6 +701,14 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                 prepared: candidate.prepared
             )
             let identity = firstIdentity + UInt64(offset)
+#if DEBUG
+            if let executionTrace, executionTrace.isCompositionSelected {
+                executionTrace.recordComposition(.init(kind: "graph-transaction", layerID: candidate.layerID,
+                    access: "transaction-identity", outcome: "prepared",
+                    details: ["runtimeInstanceIdentity": runtimeInstanceIdentity,
+                        "transactionID": String(identity), "executionEpoch": String(executionEpoch)]))
+            }
+#endif
             activeByID[identity] = .init(
                 identity: identity,
                 epoch: executionEpoch,

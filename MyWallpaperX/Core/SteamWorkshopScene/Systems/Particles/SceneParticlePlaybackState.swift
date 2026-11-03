@@ -23,6 +23,10 @@ final class SceneParticlePlaybackState {
     private(set) var committedNonemptyBatchLayerIDs: Set<Int> = []
     private var reportedAudioEvaluationIdentities:
         Set<SceneParticleRuntimeAudioEvaluationIdentity> = []
+    private var reportedComponentObservationIdentities:
+        Set<SceneParticleRuntimeComponentObservationIdentity>? =
+            SceneParticleDefinitionParser.componentObservationEnabled ? [] : nil
+    private var didReportComponentObservationTruncation = false
 #endif
     private var didTeardown = false
     var hasAudioConsumer: Bool { runtime.hasAudioConsumer }
@@ -141,11 +145,53 @@ final class SceneParticlePlaybackState {
             committedNonemptyBatchLayerIDs.insert(batch.layerID)
         }
         publishCommittedAudioEvaluationObservations()
+        publishCommittedComponentObservations()
 #endif
         return batches
     }
 
 #if DEBUG
+    private func publishCommittedComponentObservations() {
+        guard reportedComponentObservationIdentities != nil else { return }
+        for observation in runtime.consumeComponentObservations() {
+            let identity = SceneParticleRuntimeComponentObservationIdentity(observation)
+            guard reportedComponentObservationIdentities?.contains(identity) == false else { continue }
+            let reportingTruncation = (reportedComponentObservationIdentities?.count ?? 0) >= 8192
+            if reportingTruncation {
+                guard !didReportComponentObservationTruncation else { continue }
+                didReportComponentObservationTruncation = true
+            } else {
+                reportedComponentObservationIdentities?.insert(identity)
+            }
+            let value = observation.evaluation
+            var payload: [String: Any] = [
+                "schemaVersion": 1, "layerID": observation.layerID,
+                "particlePath": observation.particlePath,
+                "childTemplateIndex": observation.childTemplateIndex as Any? ?? NSNull(),
+                "childSystemID": observation.childSystemID as Any? ?? NSNull(),
+                "childParticlePath": observation.childParticlePath as Any? ?? NSNull(),
+                "category": value.category, "componentIndex": value.componentIndex,
+                "kind": value.kind, "stage": value.stage, "reason": value.reason,
+                "origin": value.origin, "simulationTime": value.simulationTime,
+                "particleID": value.particleID as Any? ?? NSNull(),
+                "observationScope": "first-fact-per-template",
+                "instanceWitness": "unknown", "finalContribution": "unknown"
+            ]
+            if reportingTruncation {
+                payload["category"] = "observation"
+                payload["componentIndex"] = -1
+                payload["stage"] = "truncated"
+                payload["reason"] = "playback-first-fact-capacity-8192"
+            }
+            do {
+                let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
+                NSLog("MWX SCENE PARTICLE COMPONENT OBSERVATION: %@", String(decoding: data, as: UTF8.self))
+            } catch {
+                NSLog("MWX particle component observation serialization failed: %@", String(describing: error))
+            }
+        }
+    }
+
     private func publishCommittedAudioEvaluationObservations() {
         for observation in runtime.consumeAudioEvaluationObservations() {
             let evaluation = observation.evaluation

@@ -16,6 +16,7 @@ from typing import Any, Callable, Iterable, Iterator
 
 DERIVED_SAMPLE_NAMES = {
     ".DS_Store",
+    ".mywallpaperx-steam-version.json",
     ".mywallpaperx-scene-interpretation.json",
     ".mywallpaperx-scene-preview-log.txt",
 }
@@ -57,6 +58,36 @@ def sha256_bytes(payload: bytes) -> str:
     return hashlib.sha256(payload).hexdigest()
 
 
+def read_project(
+    sample: Path, *, file_digests: dict[Path, str] | None = None
+) -> tuple[dict[str, Any], str | None]:
+    path = sample / "project.json"
+    if not path.is_file():
+        return {}, "project-json-missing"
+    payload = path.read_bytes()
+    if file_digests is not None and path not in file_digests:
+        file_digests[path] = sha256_bytes(payload)
+    try:
+        project = json.loads(payload.decode("utf-8-sig"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return {}, "json-decode-failed"
+    if not isinstance(project, dict):
+        return {}, "project-root-not-object"
+    kind = project.get("type")
+    if "type" in project and (not isinstance(kind, str) or kind.strip().casefold() != "scene"):
+        return project, "project-type-not-scene"
+    return project, None
+
+
+def package_path(sample: Path, project: dict[str, Any]) -> Path | None:
+    raw_entry = project.get("file")
+    entry = raw_entry.strip().replace("\\", "/") if isinstance(raw_entry, str) else ""
+    entry_name = PurePosixPath(entry).name if entry else "scene.json"
+    derived_name = str(PurePosixPath(entry_name).with_suffix(".pkg"))
+    names = [derived_name] if derived_name == "scene.pkg" else [derived_name, "scene.pkg"]
+    return next((sample / name for name in names if (sample / name).is_file()), None)
+
+
 def canonical_sha256(value: Any) -> str:
     payload = json.dumps(
         value,
@@ -94,14 +125,18 @@ def tree_manifest(
     digest = hashlib.sha256()
     file_count = 0
     byte_count = 0
-    for path in sorted(
-        item for item in root.rglob("*") if item.is_file() and not item.is_symlink()
-    ):
-        if path.name in DERIVED_SAMPLE_NAMES:
-            continue
+    # Snapshot copytree dereferences links, so identity includes the same bytes
+    # under each authored relative path, including linked directories.
+    paths = []
+    for directory, directories, files in os.walk(root, followlinks=True):
+        directories[:] = [name for name in directories if name not in DERIVED_SAMPLE_NAMES]
+        paths.extend(Path(directory) / name for name in files if name not in DERIVED_SAMPLE_NAMES)
+    for path in sorted(paths):
         relative = path.relative_to(root).as_posix()
         size = path.stat().st_size
-        file_digest = sha256_file(path)
+        file_digest = file_digests.get(path) if file_digests is not None else None
+        if file_digest is None:
+            file_digest = sha256_file(path)
         if file_digests is not None:
             file_digests[path] = file_digest
         digest.update(relative.encode("utf-8"))
@@ -375,7 +410,7 @@ class SceneResourceView:
         self,
         sample_root: Path,
         stock_root: Path,
-        archive: PkgArchive,
+        archive: PkgArchive | None,
         json_observer: Callable[[ResolvedResource, Any], None] | None = None,
     ) -> None:
         self.sample_root = sample_root
@@ -395,7 +430,7 @@ class SceneResourceView:
             if identity in seen or safe_relative_path(candidate) is None:
                 continue
             seen.add(identity)
-            entry = self.archive.entry(candidate)
+            entry = self.archive.entry(candidate) if self.archive is not None else None
             if entry is not None:
                 return ResolvedResource(
                     origin="package",

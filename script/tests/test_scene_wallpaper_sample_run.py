@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import sys
 import tempfile
@@ -17,6 +18,7 @@ import scene_wallpaper_benchmark as benchmark
 import scene_wallpaper_sample_run as sample_run
 import web_benchmark_capture as capture
 import scene_preview_visual_evidence as visual
+from scene_capability_census_io import tree_manifest
 from scene_preview_visual_evidence import _write_rgb_png
 from script.tests.scene_wallpaper_benchmark_test_support import effect_execution_log
 from script.tests.scene_wallpaper_sample_fixture import run_sample_fixture, write_png
@@ -339,15 +341,124 @@ class SceneWallpaperSampleRunTests(unittest.TestCase):
             run_sample_fixture(benchmark, log_only=True, no_execution_observations=True)
 
     def test_missing_project_is_a_source_invalid_row_without_starting_process(self):
+        inputs = [({"missing_project": True}, "project-json-missing"),
+                  ({"project_bytes": b"{"}, "json-decode-failed"),
+                  ({"project_bytes": b"[]"}, "project-root-not-object"),
+                  ({"project_bytes": b"\xff{}"}, "json-decode-failed"),
+                  ({"project_bytes": b'{"type":"video"}'}, "project-type-not-scene")]
         for log_only in (False, True):
-            with self.subTest(log_only=log_only):
-                result, command = run_sample_fixture(benchmark, log_only=log_only,
-                    control={"missing_project": True})
-                self.assertEqual(command, [])
-                self.assertEqual(result["input_status"], "source-invalid")
+            for control, reason in inputs:
+                with self.subTest(log_only=log_only, reason=reason):
+                    result, command = run_sample_fixture(benchmark, log_only=log_only, control=control)
+                    self.assertEqual(command, [])
+                    self.assertEqual(result["input_status"], "source-invalid")
+                    self.assertEqual(result["input_reason_code"], reason)
+                    self.assertFalse(result["passed"])
+                    self.assertFalse(result["runtime_retained"])
+                    self.assertIsNone(result["exit_code"])
+                    expected_digest = hashlib.sha256(control["project_bytes"]).hexdigest() if "project_bytes" in control else None
+                    self.assertEqual(result["hashes"]["project_sha256"], expected_digest)
+                    self.assertIsNone(result["hashes"]["package_sha256"])
+
+    def test_input_hashes_describe_frozen_copy_even_when_source_changes(self):
+        expected, source_after = {}, {}
+
+        def after_copy(source, destination):
+            (destination / "authored-sidecar.bin").write_bytes(b"copied-sidecar")
+            expected.update(project_sha256=hashlib.sha256((destination / "project.json").read_bytes()).hexdigest(),
+                            package_sha256=hashlib.sha256((destination / "scene.pkg").read_bytes()).hexdigest(),
+                            tree_sha256=tree_manifest(destination)[0])
+            (source / "project.json").write_text('{"type":"scene","file":"changed.json"}')
+            (source / "scene.pkg").write_bytes(b"CHANGED-SOURCE")
+            source_after.update(project_sha256=hashlib.sha256((source / "project.json").read_bytes()).hexdigest(),
+                                package_sha256=hashlib.sha256((source / "scene.pkg").read_bytes()).hexdigest(),
+                                tree_sha256=tree_manifest(source)[0])
+
+        result, _ = run_sample_fixture(benchmark, control={"copy_observer": after_copy})
+        self.assertTrue(result["passed"], result["failures"])
+        self.assertEqual(result["hashes"], expected)
+        self.assertTrue(all(result["hashes"][key] != value for key, value in source_after.items()))
+        self.assertEqual(result["package_file"], "scene.pkg")
+
+    def test_inherited_scene_fault_time_and_observation_variables_do_not_enter_child(self):
+        inherited = {"MWX_SCENE_DEBUG_EXECUTOR_INVALIDATE_AFTER": "2", "MWX_SCENE_PARTICLE_COMPONENT_OBSERVATION": "old",
+                     "MYWALLPAPERX_SCENE_DEBUG_POINTER_SECOND": "59", "MWX_SCENE_GPU_STAGE_TIMESTAMPS_OUTPUT": "/tmp/foreign",
+                     "MWX_SCENE_DEBUG_SCENE_SWITCH_ROOT": "/tmp/foreign", "MWX_SCENE_DEBUG_SCENE_SWITCH_AFTER": "2",
+                     "USER_TOOL_FIXTURE": "preserved"}
+        for terminal in (False, True):
+            observed = {}
+            control = {"observed_environment": observed}
+            if terminal:
+                control["snapshot_receipts"] = lambda result_dir: [
+                    "phase=snapshot-encoded request=1 commandBufferToken=2 textureToken=3 width=8 height=8",
+                    f"phase=snapshot reason=after request=1 source=metal path={result_dir / 'scene-after-window.png'}",
+                ]
+            with self.subTest(terminal=terminal), mock.patch.dict(os.environ, inherited):
+                result, _ = run_sample_fixture(benchmark, log_only=True, terminal_snapshot=terminal,
+                    sample_overrides={"cursor_start_second": 12}, control=control)
+            self.assertTrue(result["passed"], result["failures"])
+            for key in inherited:
+                if key not in {"USER_TOOL_FIXTURE", "MYWALLPAPERX_SCENE_DEBUG_POINTER_SECOND", "MWX_SCENE_PARTICLE_COMPONENT_OBSERVATION"}:
+                    self.assertNotIn(key, observed)
+            self.assertEqual(observed["USER_TOOL_FIXTURE"], "preserved")
+            self.assertEqual(observed["MYWALLPAPERX_SCENE_DEBUG_POINTER_SECOND"], "12.0")
+            self.assertEqual(observed.get("MWX_SCENE_PARTICLE_COMPONENT_OBSERVATION"), "1" if terminal else None)
+
+    def test_terminal_snapshot_uses_real_receipt_identity_dimensions_and_keeps_log_only_claim(self):
+        def receipts(result_dir):
+            return ["MWX DEBUG SCENE: phase=snapshot-encoded request=17 commandBufferToken=43 textureToken=67 width=16 height=16",
+                    f"MWX DEBUG SCENE: phase=snapshot reason=after request=17 source=metal path={result_dir / 'scene-after-window.png'}"]
+        result, command = run_sample_fixture(benchmark, log_only=True, terminal_snapshot=True, snapshot_max_edge=512,
+                                            control={"snapshot_receipts": receipts})
+        self.assertTrue(result["passed"], result["failures"])
+        self.assertIn("--mwx-debug-scene-terminal-snapshot", command)
+        self.assertEqual(command[command.index("--mwx-debug-scene-capture-max-edge") + 1], "512")
+        self.assertEqual(result["observation_duration_seconds"], 7)
+        evidence = result["evidence"]
+        self.assertEqual(evidence["visual_status"], "not-requested")
+        capture = evidence["snapshot_capture"]
+        self.assertEqual(capture["status"], "captured")
+        self.assertEqual((capture["request_id"], capture["command_buffer_token"], capture["texture_token"]), (17, "43", "67"))
+        self.assertEqual((capture["source_width"], capture["source_height"], capture["output_width"], capture["output_height"]), (16, 16, 8, 8))
+        self.assertIn("not-presented-or-per-input-visibility", capture["claim_boundary"])
+        self.assertTrue(result["runtime"]["lifecycle"]["gpu_drained"])
+
+    def test_terminal_capture_missing_misrouted_or_unencoded_is_unqualified(self):
+        for failure in ("missing-png", "wrong-path", "missing-encoded", "wrong-request", "missing-tokens", "zero-source-size"):
+            def receipts(result_dir):
+                path = result_dir / ("foreign.png" if failure == "wrong-path" else "scene-after-window.png")
+                encoded_request = 18 if failure == "wrong-request" else 17
+                lines = [f"MWX DEBUG SCENE: phase=snapshot reason=after request=17 source=metal path={path}"]
+                if failure != "missing-encoded":
+                    token = "" if failure == "missing-tokens" else "commandBufferToken=43 textureToken=67 "
+                    width = 0 if failure == "zero-source-size" else 8
+                    lines.insert(0, f"MWX DEBUG SCENE: phase=snapshot-encoded request={encoded_request} {token}width={width} height=8")
+                return lines
+            with self.subTest(failure=failure):
+                result, _ = run_sample_fixture(benchmark, log_only=True, terminal_snapshot=True,
+                    control={"snapshot_receipts": receipts, "missing_png": failure == "missing-png"})
                 self.assertFalse(result["passed"])
-                self.assertFalse(result["runtime_retained"])
-                self.assertIsNone(result["exit_code"])
+                self.assertEqual(result["evidence"]["snapshot_capture"]["status"], "missing-or-invalid")
+                self.assertIn("terminal snapshot missing or invalid", result["failures"])
+
+    def test_structured_runtime_observations_retain_truncation_and_count_bad_json_and_schema(self):
+        composition = {"schemaVersion": 1, "frameIndex": 7, "commandBufferToken": "c", "surfaceIdentity": "s",
+                       "gpuStatus": "completed", "rows": [{"kind": "ordinary", "layerID": 1}], "truncatedRows": 9}
+        particle = {"schemaVersion": 1, "layerID": 1, "particlePath": "particles/test.json", "componentIndex": 0,
+                    "stage": "truncated", "reason": "capacity", "observationScope": "first-fact-per-template"}
+        composition_prefix = "MWX SCENE COMPOSITION OBSERVATION: "
+        particle_prefix = "MWX SCENE PARTICLE COMPONENT OBSERVATION: "
+        lines = [composition_prefix + json.dumps(composition), particle_prefix + json.dumps(particle)]
+        for prefix in (composition_prefix, particle_prefix):
+            lines += [prefix + '{"schemaVersion":1,', prefix + '[]', prefix + '{"schemaVersion":2}',
+                      prefix + '{"schemaVersion":"1"}']
+        result, _ = run_sample_fixture(benchmark, log_only=True, control={"log_lines": lines})
+        for field, event in (("composition_observations", composition), ("particle_component_observations", particle)):
+            observations = result["runtime"][field]
+            self.assertEqual(observations["events"], [event])
+            self.assertEqual(observations["parse_errors"], 4)
+            self.assertEqual(observations["observed_count"], 1)
+            self.assertIn("not-per-input-visible-contribution", observations["claim_boundary"])
 
     def test_unknown_process_tool_error_stops_owned_child_and_is_not_a_result_row(self):
         actions, waits = [], []

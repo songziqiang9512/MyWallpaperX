@@ -246,10 +246,17 @@ def bounded_duration(raw: str, minimum: float = 7) -> float:
         )
     return max(value, minimum)
 
+
+def write_sample_result(output_dir: Path, result: dict) -> None:
+    path = output_dir / "results" / str(result["id"]) / "result.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--app", required=True, type=Path, help="signed MyWallpaperX executable")
-    parser.add_argument("--sample-root", required=True, type=Path, help="isolated root containing Scene/<id>")
+    parser.add_argument("--sample-root", required=True, type=Path,
+                        help="read-only source root containing Scene/<id>; selected inputs use private worker copies")
     parser.add_argument(
         "--matrix",
         type=Path,
@@ -293,7 +300,13 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument("--log-only", action="store_true",
-                        help="collect runtime logs without PNG or visual qualification")
+                        help="collect logs without visual qualification; PNG only with --terminal-snapshot")
+    parser.add_argument("--terminal-snapshot", action="store_true",
+                        help="log-only screening: one Surface terminal PNG after ready; no visual parity or performance qualification")
+    parser.add_argument("--snapshot-max-edge", type=int, default=1280,
+                        help="terminal-snapshot export edge in pixels, 128..4096; render extent is unchanged")
+    parser.add_argument("--startup-timeout-allowance", type=float, default=60,
+                        help="supervisor total deadline is duration plus this allowance (seconds)")
     parser.add_argument("--jobs", type=int, default=1,
                         help="bounded sample concurrency; multiple jobs require --log-only")
     parser.add_argument("--duration", type=lambda raw: bounded_duration(raw, 0))
@@ -387,6 +400,10 @@ def parse_args() -> argparse.Namespace:
     args = parser.parse_args()
     if args.jobs < 1:
         parser.error("--jobs must be a positive integer")
+    if not math.isfinite(args.startup_timeout_allowance) or args.startup_timeout_allowance <= 0:
+        parser.error("--startup-timeout-allowance must be finite and positive")
+    if args.terminal_snapshot and (not args.log_only or not 128 <= args.snapshot_max_edge <= 4096):
+        parser.error("--terminal-snapshot requires --log-only and a snapshot edge in 128..4096")
     args.duration = max(args.duration if args.duration is not None else (4 if args.log_only else 7),
                         3 if args.log_only else 7)
     if args.jobs != 1 and not args.log_only:
@@ -584,9 +601,14 @@ def main() -> int:
                     no_execution_observations=args.no_execution_observations,
                     require_cursor_ripple_persistence=args.require_cursor_ripple_persistence,
                     log_only=args.log_only,
+                    terminal_snapshot=args.terminal_snapshot,
+                    snapshot_max_edge=args.snapshot_max_edge if args.terminal_snapshot else None,
+                    startup_timeout_allowance=args.startup_timeout_allowance,
                 )
                 apply_runtime_retention(runtime_root, app_identity, [result], args.keep_runtime,
                                         finalize_stage=False)
+                write_sample_result(output_dir, result)
+                print(f"Scene sample {sample['id']}: {'PASS' if result['passed'] else 'CHECK'} failures={len(result.get('failures', []))}", flush=True)
                 return result
 
             if args.jobs == 1:
@@ -628,6 +650,8 @@ def main() -> int:
                 result["baseline"]["failures"].append(failure)
                 result["baseline"]["passed"] = False
                 result["baseline"]["status"] = "staged-app-identity-failure"
+            else:
+                write_sample_result(output_dir, result)
 
     summary = (
         summarize_product_entry_results(results)
@@ -667,7 +691,9 @@ def main() -> int:
         "samples": results,
     }
     if args.log_only:
-        report.update(jobs=args.jobs, claim_boundary="runtime-diagnostics-only-not-visual-or-performance")
+        report.update(jobs=args.jobs, startup_timeout_allowance=args.startup_timeout_allowance,
+                      claim_boundary=("runtime-diagnostics-with-terminal-png-not-visual-parity-or-performance"
+                                      if args.terminal_snapshot else "runtime-diagnostics-only-not-visual-or-performance"))
     if args.product_entry_audio_baseline:
         report["product_entry_property_overrides"] = (
             product_entry_property_overrides

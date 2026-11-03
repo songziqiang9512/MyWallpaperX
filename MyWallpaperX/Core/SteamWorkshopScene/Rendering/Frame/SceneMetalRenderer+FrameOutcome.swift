@@ -51,6 +51,9 @@ extension SceneMetalRenderer {
     /// unsubmitted resources; GPU ownership starts only in submit().
     final class PreparedFrame: Equatable {
         let initialVideoPresentation: InitialVideoPresentation?
+#if DEBUG
+        private let compositionSurfaceObservation: ((UInt32, ObjectIdentifier) -> Void)?
+#endif
         private var commandBuffer: MTLCommandBuffer?
         private var submitActions: ((Bool) -> Void)?
         private var cancelActions: (() -> Void)?
@@ -58,8 +61,12 @@ extension SceneMetalRenderer {
 
         init(commandBuffer: MTLCommandBuffer,
              initialVideoPresentation: InitialVideoPresentation? = nil,
+             observeCompositionSurface: ((UInt32, ObjectIdentifier) -> Void)? = nil,
              submit: @escaping (Bool) -> Void, cancel: @escaping () -> Void) {
             self.initialVideoPresentation = initialVideoPresentation
+#if DEBUG
+            compositionSurfaceObservation = observeCompositionSurface
+#endif
             self.commandBuffer = commandBuffer
             submitActions = submit
             cancelActions = cancel
@@ -88,6 +95,10 @@ extension SceneMetalRenderer {
         }
 
 #if DEBUG
+        func observeCompositionSurface(displayID: UInt32, identity: ObjectIdentifier) {
+            compositionSurfaceObservation?(displayID, identity)
+        }
+
         func observeGPUStageSurface(frameIndex: UInt64, surfaceID: UInt32) {
             guard let commandBuffer else { return }
             SceneGPUStageTimestampHook.surface(commandBuffer, frameIndex: frameIndex, surfaceID: surfaceID)

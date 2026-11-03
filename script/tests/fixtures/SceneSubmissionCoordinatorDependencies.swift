@@ -914,7 +914,8 @@ final class SceneResolvedMaterialGraphExecutor {
         materialFunctionInvocations:
             [SceneGraphMaterialFunctionInvocationRequest] = [],
         effectGeneration: UInt64,
-        resetGeneration: UInt64
+        resetGeneration: UInt64,
+        executionTrace: SceneEffectExecutionFrameTrace? = nil
     ) -> Result<PreparedGraph, Failure> {
         Self.prepareCallCount += 1
         Self.prepareTokens.append(token.value)

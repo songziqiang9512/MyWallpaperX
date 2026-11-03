@@ -643,14 +643,16 @@ final class SceneResolvedMaterialRuntimeBridge {
         pool: SceneOffscreenTexturePool?,
         commandBuffer: MTLCommandBuffer,
         resourceBundle: SceneResolvedMaterialFrameResourceBundle? = nil,
-        performanceTelemetry: SceneFramePerformanceTelemetry? = nil
+        performanceTelemetry: SceneFramePerformanceTelemetry? = nil,
+        executionTrace: SceneEffectExecutionFrameTrace? = nil
     ) -> FramePreparationResult {
         submissions.prepareFrame(
             requests,
             pool: pool,
             commandBuffer: commandBuffer,
             resourceBundle: resourceBundle,
-            performanceTelemetry: performanceTelemetry
+            performanceTelemetry: performanceTelemetry,
+            executionTrace: executionTrace
         )
     }
 

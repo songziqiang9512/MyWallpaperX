@@ -25,6 +25,7 @@ final class SceneParticleChildRuntime {
             [Int: Set<SceneParticleAudioComponentIdentity>] = [:]
         var pendingAudioEvaluationObservations:
             [SceneParticleChildAudioEvaluationObservation] = []
+        var pendingComponentObservations: [SceneParticleRuntimeComponentObservation]? = nil
 #endif
     }
 
@@ -105,6 +106,8 @@ final class SceneParticleChildRuntime {
         [Int: Set<SceneParticleAudioComponentIdentity>] = [:]
     private var pendingAudioEvaluationObservations:
         [SceneParticleChildAudioEvaluationObservation] = []
+    private var pendingComponentObservations: [SceneParticleRuntimeComponentObservation]? =
+        SceneParticleDefinitionParser.componentObservationEnabled ? [] : nil
 #endif
 
     init(
@@ -151,6 +154,17 @@ final class SceneParticleChildRuntime {
         // is topology, while each value is only cleared/refilled per frame.
         for template in expansion.templates {
             instanceScratch[template.index] = []
+#if DEBUG
+            if let parentPath = template.debugParentParticlePath,
+               let componentIndex = template.debugParentComponentIndex {
+                pendingComponentObservations?.append(.init(layerID: layerID,
+                    particlePath: parentPath,
+                    evaluation: .init(category: "children", componentIndex: componentIndex,
+                        kind: "child-template", stage: "prepared-executable", reason: "accepted-child-template",
+                        origin: "prepared", simulationTime: 0, particleID: nil),
+                    childTemplateIndex: template.index, childParticlePath: template.path))
+            }
+#endif
         }
         unsupportedDetails = expansion.unsupportedDetails
         handlesAllChildren = expansion.handledRootChildren == rootAsset.definition.children.count
@@ -314,6 +328,10 @@ final class SceneParticleChildRuntime {
                 usesPerspective: template.usesPerspective,
                 sizeIsWorldSpace: template.definition.flags.isWorldSpace
             ))
+#if DEBUG
+            batches[batches.count - 1].debugRendererComponentIndex = template.debugRendererComponentIndex
+            batches[batches.count - 1].debugRendererKind = template.debugRendererKind
+#endif
         }
 #if DEBUG
         // Throttled spawn/instance census (~1s of sim time) distinguishes
@@ -365,6 +383,7 @@ final class SceneParticleChildRuntime {
 #if DEBUG
         snapshot.observedAudioComponentsByTemplate = observedAudioComponentsByTemplate
         snapshot.pendingAudioEvaluationObservations = pendingAudioEvaluationObservations
+        snapshot.pendingComponentObservations = pendingComponentObservations
 #endif
         return snapshot
     }
@@ -389,11 +408,18 @@ final class SceneParticleChildRuntime {
 #if DEBUG
         observedAudioComponentsByTemplate = snapshot.observedAudioComponentsByTemplate
         pendingAudioEvaluationObservations = snapshot.pendingAudioEvaluationObservations
+        pendingComponentObservations = snapshot.pendingComponentObservations
 #endif
         instanceScratch.removeAll(keepingCapacity: true)
     }
 
 #if DEBUG
+    func appendComponentObservations(to destination: inout [SceneParticleRuntimeComponentObservation]?) {
+        guard let pendingComponentObservations else { return }
+        destination?.append(contentsOf: pendingComponentObservations)
+        self.pendingComponentObservations?.removeAll(keepingCapacity: true)
+    }
+
     func consumeAudioEvaluationObservations()
         -> [SceneParticleChildAudioEvaluationObservation] {
         defer { pendingAudioEvaluationObservations.removeAll(keepingCapacity: true) }
@@ -408,6 +434,7 @@ final class SceneParticleChildRuntime {
         frameLimitations.removeAll(keepingCapacity: false)
         observedAudioComponentsByTemplate.removeAll(keepingCapacity: false)
         pendingAudioEvaluationObservations.removeAll(keepingCapacity: false)
+        pendingComponentObservations?.removeAll(keepingCapacity: false)
 #endif
     }
 
@@ -578,6 +605,13 @@ final class SceneParticleChildRuntime {
     private func collectAudioEvaluationObservations(systemAt index: Int) {
         guard let template = templatesByIndex[systems[index].templateIndex] else {
             return
+        }
+        if pendingComponentObservations != nil {
+            pendingComponentObservations?.append(contentsOf:
+                systems[index].simulator.consumeComponentObservations().map {
+                    .init(layerID: layerID, particlePath: template.path, evaluation: $0,
+                          childTemplateIndex: template.index, childSystemID: systems[index].id)
+                })
         }
         let observations = systems[index].simulator.consumeAudioEvaluationObservations()
         guard !observations.isEmpty else { return }

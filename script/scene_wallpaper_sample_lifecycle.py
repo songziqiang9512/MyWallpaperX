@@ -10,7 +10,8 @@ import stat
 import subprocess
 from pathlib import Path
 from scene_product_entry_audio_baseline import classify_product_entry_result, product_entry_command
-from scene_sample_snapshot import DERIVED_NAMES, tree_manifest
+from scene_sample_snapshot import DERIVED_NAMES
+from scene_capability_census_io import read_project, package_path as authored_package_path, tree_manifest
 from typing import Any, Callable
 from web_benchmark_capture import discard_staged_app
 
@@ -27,24 +28,31 @@ def sha256(path: Path) -> str:
             digest.update(chunk)
     return digest.hexdigest()
 
-def scene_package_path(source: Path) -> Path | None:
-    project_path = source / "project.json"
-    if not project_path.is_file():
-        return None
-    try:
-        project = json.loads(project_path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        project = {}
-    raw_entry = project.get("file")
-    entry = raw_entry.strip().replace("\\", "/") if isinstance(raw_entry, str) else ""
-    entry_name = Path(entry).name if entry else "scene.json"
-    derived_name = str(Path(entry_name).with_suffix(".pkg"))
-    package_names = (
-        [derived_name]
-        if derived_name == "scene.pkg"
-        else [derived_name, "scene.pkg"]
-    )
-    return next((source / name for name in package_names if (source / name).is_file()), None)
+def scene_package_path(source: Path, project: dict[str, Any] | None = None) -> Path | None:
+    if project is None:
+        project, reason = read_project(source)
+        if reason:
+            return None
+    return authored_package_path(source, project)
+
+
+def prepare_sample_input(source: Path, destination: Path) -> tuple[str | None, dict, str | None]:
+    digests: dict[Path, str] = {}
+    _, reason = read_project(source, file_digests=digests)
+    hashes = {"project_sha256": digests.get(source / "project.json"), "package_sha256": None}
+    if reason:
+        return reason, hashes, None
+    copy_sample(source, destination)
+    digests = {}
+    project, reason = read_project(destination, file_digests=digests)
+    hashes["project_sha256"] = digests.get(destination / "project.json")
+    if reason:
+        return reason, hashes, None
+    hashes["tree_sha256"] = tree_manifest(destination, file_digests=digests)[0]
+    package = authored_package_path(destination, project)
+    if package is not None:
+        hashes["package_sha256"] = digests[package]
+    return None, hashes, package.name if package is not None else None
 
 def copy_sample(source: Path, destination: Path) -> None:
     if not (source / "project.json").is_file():
@@ -89,10 +97,8 @@ def run_product_entry_audio_sample(
     runtime_home.mkdir(parents=True)
     runtime_workshop.mkdir(parents=True)
 
-    package_path = scene_package_path(source) if source.is_dir() else None
-    preflight_failures: list[str] = []
-    if not (source / "project.json").is_file():
-        preflight_failures.append("Scene sample project.json is missing")
+    input_reason, hashes, _ = prepare_sample_input(source, runtime_sample)
+    preflight_failures = [f"Scene sample input invalid: {input_reason}"] if input_reason else []
     if preflight_failures:
         return {
             "id": sample_id,
@@ -107,7 +113,8 @@ def run_product_entry_audio_sample(
             "command": None,
             "exit_code": None,
             "timed_out": False,
-            "hashes": {},
+            "hashes": hashes,
+            "input_status": "source-invalid", "input_reason_code": input_reason,
             "evidence": {},
             "daemon_client_result": None,
             "property_overrides": property_overrides,
@@ -117,13 +124,6 @@ def run_product_entry_audio_sample(
             "runtime_retained": True,
         }
 
-    copy_sample(source, runtime_sample)
-    hashes = {
-        "project_sha256": sha256(source / "project.json"),
-        "package_sha256": sha256(package_path) if package_path is not None else None,
-    }
-    if package_path is None:
-        hashes["tree_sha256"] = tree_manifest(source)[0]
     command = product_entry_command(
         runtime_binary=runtime_binary,
         runtime_sample=runtime_sample,

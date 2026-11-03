@@ -413,9 +413,14 @@ def snapshot_payload(census: dict[str, Any]) -> dict[str, Any]:
                     "material_pass_index", "slot_index", "fbo_index", "component_category",
                     "component_index", "package_entry_index", "property_name",
                     "owner_occurrence", "declaration_kind", "json_pointer",
+                    "definition_path", "definition_depth", "particle_material", "pass_index",
+                    "sampler_name", "sampler_declaration_index",
                 )
                 if key in value["location"]
             },
+            **{key: value[key] for key in (
+                "component_name", "definition_path", "reference", "slot_state", "resource", "state",
+            ) if key in value},
         }
         for value in census["occurrences"]
     ]

@@ -285,13 +285,31 @@ enum SceneLayerColorBlendRenderer {
                 ? SceneLayerSourcePassthroughPlan.projectedGeometry(for: mvp)?
                     .pixelRegion(width: target.width, height: target.height)
                 : nil
-            return colorBlendPipeline.snapshot(
+            let snapshot = colorBlendPipeline.snapshot(
                 target: target, commandBuffer: commandBuffer, region: region)
+#if DEBUG
+            if let snapshot, let trace = mainPass.compositionTrace, trace.isCompositionSelected {
+                trace.recordComposition(.init(kind: "background-copy", layerID: layer.id,
+                    source: .init(target, role: "main-color"), target: .init(snapshot, role: "background-snapshot"),
+                    access: "copy-source", outcome: "encoded"))
+            }
+#endif
+            return snapshot
         }
         guard let background = captured ?? nil,
               let encoder = mainPass.encoder() else {
             return false
         }
+#if DEBUG
+        var didEncodeBlend = false
+        defer {
+            if let trace = mainPass.compositionTrace, trace.isCompositionSelected {
+                trace.recordComposition(.init(kind: "color-blend-background", layerID: layer.id, slot: 1,
+                    source: .init(background, role: "background-snapshot"), target: mainPass.compositionTarget,
+                    outcome: didEncodeBlend ? "draw-encoded" : "failed"))
+            }
+        }
+#endif
         if let geometryProduct {
             let bindColorBlend: SceneGeometryProduct.ColorBlendBinder = {
                 encoder, layerTexture, geometryMVP in
@@ -305,7 +323,7 @@ enum SceneLayerColorBlendRenderer {
                     encoder: encoder
                 )
             }
-            return geometryProduct.encode(
+            let encoded = geometryProduct.encode(
                 encoder,
                 texture,
                 dependencyTexture,
@@ -313,6 +331,10 @@ enum SceneLayerColorBlendRenderer {
                 uniforms,
                 bindColorBlend
             )
+#if DEBUG
+            didEncodeBlend = encoded
+#endif
+            return encoded
         }
         colorBlendPipeline.draw(
             layerTexture: texture,
@@ -323,6 +345,9 @@ enum SceneLayerColorBlendRenderer {
             distanceFog: uniforms.distanceFog,
             encoder: encoder
         )
+#if DEBUG
+        didEncodeBlend = true
+#endif
         return true
     }
 }

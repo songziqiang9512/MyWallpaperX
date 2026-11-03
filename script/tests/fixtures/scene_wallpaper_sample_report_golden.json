@@ -16,7 +16,8 @@
   "timed_out": false,
   "hashes": {
     "project_sha256": "57e95be850ab94b75038e9750efdb81414ee77408982424407d7d0246d6c1c51",
-    "package_sha256": "c9cd081085db2735741b704762ebbaa66122648e18346a522c11f3317072c247"
+    "package_sha256": "c9cd081085db2735741b704762ebbaa66122648e18346a522c11f3317072c247",
+    "tree_sha256": "b916eb93a21db84282b9293511e8becbd994c3f31bdc082f3c9ac6ae1aee64f5"
   },
   "package_file": "scene.pkg",
   "runtime_sample": "<fixture>/output/runtime/runtime-samples/123",
@@ -59,6 +60,24 @@
     }
   },
   "runtime": {
+    "composition_observations": {
+      "events": [],
+      "observed_count": 0,
+      "parse_errors": 0,
+      "claim_boundary": "observed-runtime-stages-not-per-input-visible-contribution"
+    },
+    "particle_component_observations": {
+      "events": [],
+      "observed_count": 0,
+      "parse_errors": 0,
+      "claim_boundary": "observed-runtime-stages-not-per-input-visible-contribution"
+    },
+    "lifecycle": {
+      "ready_observed": true,
+      "stopped_observed": true,
+      "surfaces_released": true,
+      "gpu_drained": false
+    },
     "layers": 1,
     "image_layers": 1,
     "effects": 0,
@@ -637,5 +656,6 @@
       "missing_resource_count": 0,
       "error": null
     }
-  }
+  },
+  "observation_duration_seconds": 7
 }

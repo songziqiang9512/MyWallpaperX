@@ -73,7 +73,7 @@ final class SceneResolvedMaterialGraphExecutor {
         let persistentResources: [Graph.TextureIdentity: SceneFrameTextureResource]
         let effectOutputResource: SceneFrameTextureResource
 
-        fileprivate var commands: [Command]
+        var commands: [Command]
 
 #if DEBUG
         var programCacheKeys: [String] {
@@ -92,7 +92,7 @@ final class SceneResolvedMaterialGraphExecutor {
     }
 
     struct PreparedGraph {
-        let stages: [PreparedStage]
+        var stages: [PreparedStage]
         let finalTexture: MTLTexture
         let finalResource: SceneFrameTextureResource
         let historyTokensByEffect: [Graph.EffectKey: Set<State.PhysicalToken>]
@@ -102,7 +102,7 @@ final class SceneResolvedMaterialGraphExecutor {
         fileprivate let ownerToken: UUID
         fileprivate let resetGeneration: UInt64
         fileprivate let queueIdentity: ObjectIdentifier
-        fileprivate let sourceCommand: Command
+        var sourceCommand: Command
         /// Held by the existing submission ledger through GPU completion.
         let terminalInputPins: [SceneGraphRenderTargetResidencyPin]
     }
@@ -222,7 +222,8 @@ final class SceneResolvedMaterialGraphExecutor {
         materialFunctionInvocations:
             [SceneGraphMaterialFunctionInvocationRequest] = [],
         effectGeneration: UInt64,
-        resetGeneration: UInt64
+        resetGeneration: UInt64,
+        executionTrace: SceneEffectExecutionFrameTrace? = nil
     ) -> Result<PreparedGraph, Failure> {
         guard let capability = capabilities.resolve(token),
               commandBuffer.status == .notEnqueued,
@@ -286,7 +287,7 @@ final class SceneResolvedMaterialGraphExecutor {
                 switch prepareFramebufferSourceMaterial(
                     framebufferSourceMaterial, layerID: capability.layerID,
                     sourceTexture: sourceTexture, target: baseTarget,
-                    frame: executionFrame, frameInputs: frameInputs
+                    frame: executionFrame, frameInputs: frameInputs, executionTrace: executionTrace
                 ) {
                 case let .success(source):
                     baseRepresentation = source.representation
@@ -431,6 +432,7 @@ final class SceneResolvedMaterialGraphExecutor {
                     ? terminalReplayTarget : nil,
                 terminalReplayBlendMode: terminalReplayBlendMode,
                 terminalReplayIsOptional: terminalReplayIsOptional,
+                executionTrace: executionTrace,
                 terminalMaterialReplay: &stageTerminalReplay,
                 visualFailureSnapshot: stageEntry,
                 pair: &pair,
@@ -579,7 +581,12 @@ final class SceneResolvedMaterialGraphExecutor {
                 }
             }
         }
-        return .success(.init(
+#if DEBUG
+        var preparedGraph: PreparedGraph
+#else
+        let preparedGraph: PreparedGraph
+#endif
+        preparedGraph = PreparedGraph(
             stages: stages,
             finalTexture: terminal.publication.texture,
             finalResource: terminal,
@@ -591,7 +598,11 @@ final class SceneResolvedMaterialGraphExecutor {
             queueIdentity: queueIdentity,
             sourceCommand: sourceCommand,
             terminalInputPins: terminalInputPins
-        ))
+        )
+#if DEBUG
+        attachCompositionObservation(to: &preparedGraph, trace: executionTrace, layerID: capability.layerID)
+#endif
+        return .success(preparedGraph)
     }
 
     /// `true` means every preflighted command was appended. Commit still waits

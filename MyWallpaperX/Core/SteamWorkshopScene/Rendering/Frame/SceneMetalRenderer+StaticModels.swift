@@ -254,6 +254,14 @@ extension SceneMetalRenderer {
                 writesDepth: draw.entry.writesDepth, shadows: state.shadows,
                 frameEpoch: textureRegistry.frameEpoch, commandBuffer: commandBuffer, encoder: encoder)
 #if DEBUG
+            if let trace = pass.compositionTrace, trace.isCompositionSelected {
+                var source = SceneCompositionTextureObservation(draw.texture, role: "model-color")
+                source.sampling = String(describing: draw.sampling)
+                trace.recordComposition(.init(kind: "model", layerID: layer.id, slot: 0,
+                    source: source, target: pass.compositionTarget,
+                    outcome: encoded ? "draw-encoded" : "failed",
+                    reason: "model-internal-material-bindings-not-observed"))
+            }
             if SceneDesktopWallpaperHost.usesDebugEvidenceWindow && frameContext.frameIndex <= 2 {
                 let w = draw.world
                 let world = [w.columns.0.x, w.columns.0.y, w.columns.0.z, w.columns.0.w,

@@ -22,7 +22,6 @@ if str(SCRIPT_ROOT) not in sys.path:
 
 import scene_capability_census as census
 import scene_capability_census_io as census_io
-import scene_capability_census_samples as census_samples
 from scene_capability_census_io import ResolvedResource
 from scene_capability_census_profiles import family_key, scenescript_audio_registrations, script_profile
 from script.tests.scene_capability_census_test_support import json_bytes, make_fixture, pkg
@@ -107,6 +106,13 @@ class SceneCapabilityCensusObservationTests(unittest.TestCase):
                 if item["domain"] == "texture" and item["kind"] != "package-resource"
             ]
             self.assertTrue(all("effective_visibility" in item for item in texture_uses))
+            compact = census.snapshot_payload(first)["validation"]["occurrence_index"]["items"]
+            component_rows = [item for item in compact if "component_index" in item["location"]]
+            self.assertEqual({item["location"]["definition_path"] for item in component_rows},
+                             {"particles/root.json", "particles/child.json"})
+            self.assertTrue(all("component_name" in item for item in component_rows))
+            compact_texture = next(item for item in compact if item["kind"] == "image-material-slot")
+            self.assertEqual(compact_texture["resource"]["relative_path"], "materials/image.tex")
             image_slots = [item for item in texture_uses if item["kind"] == "image-material-slot"]
             self.assertEqual(
                 {item["effective_visibility"] for item in image_slots},
@@ -445,6 +451,47 @@ class SceneCapabilityCensusObservationTests(unittest.TestCase):
                 host["runtime_admission_state"], "launch-envelope-unjoined"
             )
 
+    def test_shader_default_occurrences_follow_live_declarations_and_distinguish_conditional_duplicates(self) -> None:
+        source = '''
+// uniform sampler2D g_Texture3; // {"default":"ghost/line"}
+/*
+uniform sampler2D g_Texture3; // {"default":"ghost/block"}
+*/
+uniform float gain;
+uniform sampler2D g_Texture3; // {"default":"actual/resource"}
+#if CHOICE
+uniform sampler2D customSampler; // {"default":"branch/first"}
+#else
+uniform sampler2D customSampler; // {"default":"branch/second"}
+#endif
+'''
+        for renamed in (False, True):
+            text = source if not renamed else source.replace("g_Texture3", "g_Texture7").replace(
+                "customSampler", "renamedSampler").replace("actual/resource", "renamed/resource")
+            with self.subTest(renamed=renamed), tempfile.TemporaryDirectory(prefix="mwx-census-sampler-declarations-") as directory:
+                samples, stock, matrix, ledger = make_fixture(Path(directory))
+                (samples / "0000000001/scene.pkg").write_bytes(pkg([
+                    ("scene.json", json_bytes({"objects": []})),
+                    ("shaders/fixture.frag", text.encode("utf-8")),
+                ]))
+                result = census.build_census(samples, stock, matrix, ledger)
+                defaults = [item for item in result["occurrences"] if item["kind"] == "shader-default-slot"]
+                self.assertEqual(len(defaults), 3)
+                self.assertEqual(len({item["occurrence_id"] for item in defaults}), 3)
+                self.assertEqual({item["location"]["sampler_declaration_index"] for item in defaults}, {1, 2, 3})
+                self.assertEqual({item["reference"] for item in defaults},
+                                 {"renamed/resource" if renamed else "actual/resource", "branch/first", "branch/second"})
+                conditional = [item for item in defaults if item["slot_index"] is None]
+                self.assertEqual(len(conditional), 2)
+                self.assertEqual(len({item["location"]["sampler_name"] for item in conditional}), 1)
+                self.assertEqual(result["validation"]["failures"], [])
+                shader = next(item for item in result["occurrences"] if item["domain"] == "shader")
+                self.assertEqual(len(shader["profile"]["sampler_annotations"]), 3)
+                self.assertEqual(len(shader["profile"]["uniform_annotations"]), 3)
+                compact = census.snapshot_payload(result)["validation"]["occurrence_index"]["items"]
+                self.assertTrue(all("sampler_declaration_index" in item["location"]
+                                    for item in compact if item["kind"] == "shader-default-slot"))
+
     def test_system_usertextures_are_typed_by_scope_role_and_visibility(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-scene-census-") as directory:
             samples, stock, matrix, ledger = make_fixture(Path(directory))
@@ -516,16 +563,29 @@ class SceneCapabilityCensusObservationTests(unittest.TestCase):
     def test_failed_directories_keep_diagnostics_and_actual_material_presence(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-census-failed-") as directory:
             samples, stock, matrix, ledger = make_fixture(Path(directory), include_failures=True)
+            loose = samples / "0000000004"
+            loose.mkdir()
+            shutil.copyfile(samples / "0000000001/project.json", loose / "project.json")
+            with census_io.PkgArchive(samples / "0000000001/scene.pkg") as archive:
+                for entry in archive.entries:
+                    destination = loose / entry.path
+                    destination.parent.mkdir(parents=True, exist_ok=True)
+                    destination.write_bytes(archive.read_entry(entry))
             result = census.build_census(samples, stock, matrix, ledger)
             summary = result["summary"]
-            self.assertEqual(summary["discovered_sample_count"], 3)
-            self.assertEqual(summary["parsed_sample_count"], 1)
+            self.assertEqual(summary["discovered_sample_count"], 4)
+            self.assertEqual(summary["parsed_sample_count"], 2)
             self.assertEqual(summary["failed_sample_count"], 2)
             self.assertEqual(
                 summary["discovered_sample_count"],
                 summary["parsed_sample_count"] + summary["failed_sample_count"],
             )
             rows = {row["sample_id"]: row for row in result["samples"]}
+            self.assertEqual(rows[loose.name]["parse_state"], "parsed")
+            self.assertIsNone(rows[loose.name]["package_file"])
+            self.assertIsNone(rows[loose.name]["package_sha256"])
+            self.assertGreater(len(rows[loose.name]["occurrence_refs"]), 0)
+            self.assertEqual(rows[loose.name]["inventory_scope"], "referenced-loose-and-stock-resources")
             for sample_id, code, material_present in (
                 ("0000000002", "project-json-missing", False),
                 ("0000000003", "json-decode-failed", True),
@@ -538,7 +598,17 @@ class SceneCapabilityCensusObservationTests(unittest.TestCase):
                     self.assertIs(row["has_user_observation"], material_present)
                     self.assertGreater(row["file_count"], 0)
                     self.assertEqual(row["occurrence_refs"], [])
+                    self.assertEqual(row["project_sha256"], hashlib.sha256((samples / sample_id / "project.json").read_bytes()).hexdigest() if code != "project-json-missing" else None)
             self.assertEqual(result["validation"]["failures"], [])
+
+    def test_loose_primary_scene_is_not_filled_from_stock(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-census-loose-entry-") as directory:
+            samples, stock, matrix, ledger = make_fixture(Path(directory))
+            (samples / "0000000001/scene.pkg").unlink()
+            (stock / "scene.json").write_bytes(json_bytes({"objects": []}))
+            row = census.build_census(samples, stock, matrix, ledger)["samples"][0]
+            self.assertEqual(row["parse_state"], "failed")
+            self.assertEqual(row["diagnostics"], [{"code": "scene-entry-missing"}])
 
 
 class SceneCapabilityCensusSubsetTests(unittest.TestCase):
@@ -642,7 +712,7 @@ class SceneCapabilityCensusSubsetTests(unittest.TestCase):
             self.assertEqual(query.sample, "0000000001")
             self.assertFalse(hasattr(query, "sample_ids"))
 
-    def test_manifest_digests_are_reused_once_and_symlink_identity_keeps_its_fallback(self) -> None:
+    def test_manifest_digests_are_reused_once_including_dereferenced_symlinks(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-census-hash-reuse-") as directory:
             root = Path(directory).resolve()
             samples, stock, matrix, ledger = make_fixture(root)
@@ -657,8 +727,7 @@ class SceneCapabilityCensusSubsetTests(unittest.TestCase):
                     project.symlink_to(external)
                 expected_tree = census_io.tree_manifest(sample)
                 with self.subTest(symlink_project=linked), \
-                        patch.object(census_io, "sha256_file", wraps=census_io.sha256_file) as hashed, \
-                        patch.object(census_samples, "sha256_file", wraps=census_samples.sha256_file) as fallback:
+                        patch.object(census_io, "sha256_file", wraps=census_io.sha256_file) as hashed:
                     built = census.build_census(samples, stock, matrix, ledger)
                 row = built["samples"][0]
                 self.assertEqual((row["tree_sha256"], row["file_count"], row["byte_count"]), expected_tree)
@@ -666,8 +735,7 @@ class SceneCapabilityCensusSubsetTests(unittest.TestCase):
                 self.assertEqual(row["package_sha256"], expected_package)
                 counts = Counter(call.args[0] for call in hashed.call_args_list)
                 self.assertEqual(counts[package], 1)
-                self.assertEqual(counts[project], 0 if linked else 1)
-                self.assertEqual([call.args[0] for call in fallback.call_args_list], [project] if linked else [])
+                self.assertEqual(counts[project], 0)
 
 
 if __name__ == "__main__":

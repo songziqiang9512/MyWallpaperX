@@ -2,6 +2,61 @@ import Foundation
 import simd
 
 #if DEBUG
+struct SceneParticleRuntimeComponentObservation: Sendable {
+    let layerID: Int
+    let particlePath: String
+    let evaluation: SceneParticleComponentObservation
+    var childTemplateIndex: Int? = nil
+    var childSystemID: UInt64? = nil
+    var childParticlePath: String? = nil
+}
+
+struct SceneParticleRuntimeComponentObservationIdentity: Hashable {
+    let layerID: Int
+    let particlePath: String
+    let childTemplateIndex: Int?
+    let fact: SceneParticleComponentObservationState.Identity
+
+    init(_ observation: SceneParticleRuntimeComponentObservation) {
+        layerID = observation.layerID
+        particlePath = observation.particlePath
+        childTemplateIndex = observation.childTemplateIndex
+        let value = observation.evaluation
+        fact = .init(category: value.category, componentIndex: value.componentIndex,
+                     stage: value.stage, reason: value.reason, origin: value.origin)
+    }
+}
+
+extension SceneParticleRuntime {
+    func collectEvaluationObservations(layerID: Int, particlePath: String,
+                                       simulator: SceneParticleSimulator) {
+        pendingAudioEvaluationObservations.append(contentsOf:
+            simulator.consumeAudioEvaluationObservations().map {
+                .init(layerID: layerID, particlePath: particlePath, evaluation: $0)
+            })
+        guard pendingComponentObservations != nil else { return }
+        pendingComponentObservations?.append(contentsOf:
+            simulator.consumeComponentObservations().map {
+                .init(layerID: layerID, particlePath: particlePath, evaluation: $0)
+            })
+    }
+
+    func collectEvaluationObservations(layerID: Int, childRuntime: SceneParticleChildRuntime) {
+        pendingAudioEvaluationObservations.append(contentsOf:
+            childRuntime.consumeAudioEvaluationObservations().map {
+                .init(layerID: layerID, particlePath: $0.particlePath, evaluation: $0.evaluation)
+            })
+        guard pendingComponentObservations != nil else { return }
+        childRuntime.appendComponentObservations(to: &pendingComponentObservations)
+    }
+
+    func consumeComponentObservations() -> [SceneParticleRuntimeComponentObservation] {
+        guard pendingComponentObservations != nil else { return [] }
+        defer { pendingComponentObservations?.removeAll(keepingCapacity: true) }
+        return pendingComponentObservations ?? []
+    }
+}
+
 enum SceneParticleRuntimeDiagnosticKind: String, Codable, Sendable {
     case missingDefinition
     case invalidDefinition
@@ -105,6 +160,7 @@ extension SceneParticleRuntime {
 #if DEBUG
         var pendingAudioEvaluationObservations:
             [SceneParticleRuntimeAudioEvaluationObservation] = []
+        var pendingComponentObservations: [SceneParticleRuntimeComponentObservation]? = nil
 #endif
         /// World-space freeze/adopt bookkeeping enters the same
         /// transaction as the simulation values: a discarded frame rolls

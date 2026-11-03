@@ -40,6 +40,7 @@ from scene_wallpaper_effect_preparation import (
 from scene_wallpaper_graph_execution import resolved_material_graph_execution_metrics
 from scene_wallpaper_graph_output_metrics import (
     named_graph_output_publication_execution_metrics,
+    structured_runtime_observations, terminal_snapshot_metrics,
     visible_graph_output_publication_execution_metrics,
 )
 from scene_wallpaper_layer_runtime import (
@@ -75,9 +76,8 @@ from scene_wallpaper_property_updates import (
 from scene_wallpaper_runtime_metadata import runtime_evidence_metrics
 from scene_wallpaper_sample_acceptance import sample_result_failures
 from scene_wallpaper_sample_lifecycle import (
-    SAMPLE_ROOT_DERIVED_FILES, copy_sample, scene_package_path, sha256,
+    SAMPLE_ROOT_DERIVED_FILES, prepare_sample_input,
 )
-from scene_sample_snapshot import tree_manifest
 from scene_wallpaper_typed_publications import (
     media_thumbnail_runtime_metrics, media_thumbnail_store_metrics,
     scene_script_scalar_runtime_metrics, text_script_runtime_metrics,
@@ -149,6 +149,8 @@ def run_sample(
     no_execution_observations: bool = False,
     startup_timeout_allowance: float = 60,
     log_only: bool = False,
+    terminal_snapshot: bool = False,
+    snapshot_max_edge: int | None = None,
 ) -> dict[str, Any]:
     # Playback duration starts after preparation; cold shader/resource work
     # needs its own bounded allowance in the supervising process.
@@ -156,6 +158,8 @@ def run_sample(
         raise ValueError("startup_timeout_allowance must be finite and positive")
     if log_only and no_execution_observations:
         raise ValueError("log-only runs require execution observations")
+    if terminal_snapshot and not log_only:
+        raise ValueError("terminal_snapshot requires log_only")
     execution_observations_enabled = not no_execution_observations
     validate_execution_observation_policy(
         execution_observations_enabled=execution_observations_enabled,
@@ -169,26 +173,20 @@ def run_sample(
     runtime_sample = runtime_root / "runtime-samples" / sample_id
     runtime_home = runtime_root / "runtime-homes" / sample_id
     result_dir.mkdir(parents=True)
-    if not (source / "project.json").is_file():
+    input_reason, hashes, package_file = prepare_sample_input(source, runtime_sample)
+    if input_reason:
         return {
             "id": sample_id, "title": sample.get("title"), "passed": False,
-            "input_status": "source-invalid", "failures": ["Scene sample project.json is missing"],
-            "exit_code": None, "timed_out": False, "hashes": {},
-            "runtime_sample": None, "runtime_home": None, "runtime_retained": False,
+            "input_status": "source-invalid", "input_reason_code": input_reason,
+            "failures": [f"Scene sample input invalid: {input_reason}"],
+            "exit_code": None, "timed_out": False, "hashes": hashes,
+            "runtime_sample": str(runtime_sample) if runtime_sample.exists() else None,
+            "runtime_home": None, "runtime_retained": False,
             "evidence": {"visual_status": "not-requested"}, "runtime": {},
         }
     runtime_home.mkdir(parents=True)
     runtime_tmp = runtime_home / "tmp"
     runtime_tmp.mkdir(mode=0o700)
-    copy_sample(source, runtime_sample)
-    package_path = scene_package_path(source)
-
-    hashes = {
-        "project_sha256": sha256(source / "project.json"),
-        "package_sha256": sha256(package_path) if package_path is not None else None,
-    }
-    if package_path is None:
-        hashes["tree_sha256"] = tree_manifest(source)[0]
     failures: list[str] = []
     for key, actual in hashes.items():
         expected = sample.get(key)
@@ -207,6 +205,10 @@ def run_sample(
     ]
     if log_only:
         command.append("--mwx-debug-scene-log-only")
+    if terminal_snapshot:
+        command.append("--mwx-debug-scene-terminal-snapshot")
+        if snapshot_max_edge is not None:
+            command.extend(["--mwx-debug-scene-capture-max-edge", str(snapshot_max_edge)])
     append_performance_profile_argument(command, performance_fps)
     append_performance_warmup_argument(command, performance_warmup)
     if no_execution_observations:
@@ -324,9 +326,14 @@ def run_sample(
                 json.dumps(pointer_trajectory, separators=(",", ":")),
             ])
     environment = os.environ.copy()
+    for key in tuple(environment):
+        if key.startswith(("MWX_SCENE_", "MYWALLPAPERX_SCENE_DEBUG_")):
+            del environment[key]
     environment["HOME"] = str(runtime_home)
     environment["CFFIXED_USER_HOME"] = str(runtime_home)
     environment["TMPDIR"] = str(runtime_tmp) + "/"
+    if terminal_snapshot:
+        environment["MWX_SCENE_PARTICLE_COMPONENT_OBSERVATION"] = "1"
     if "cursor_start_second" in sample:
         second = float(sample["cursor_start_second"])
         if not math.isfinite(second) or not 0 <= second < 60:
@@ -610,7 +617,7 @@ def run_sample(
         "exit_code": exit_code,
         "timed_out": timed_out,
         "hashes": hashes,
-        "package_file": package_path.name if package_path is not None else None,
+        "package_file": package_file,
         "runtime_sample": str(runtime_sample),
         "runtime_home": str(runtime_home),
         "runtime_retained": True,
@@ -626,6 +633,12 @@ def run_sample(
             **visual,
         },
         "runtime": {
+            "composition_observations": structured_runtime_observations(log_text, "MWX SCENE COMPOSITION OBSERVATION: "),
+            "particle_component_observations": structured_runtime_observations(log_text, "MWX SCENE PARTICLE COMPONENT OBSERVATION: "),
+            "lifecycle": {"ready_observed": ready_match is not None,
+                          "stopped_observed": stopped_match is not None,
+                          "surfaces_released": stopped_match is not None and int(stopped_match.group("after")) == 0,
+                          "gpu_drained": bool(re.search(r"phase=stopped[^\n]*gpuDrained=true(?:\s|$)", log_text))},
             "layers": int(ready_match.group("layers")) if ready_match else None,
             "image_layers": int(ready_match.group("images")) if ready_match else None,
             "effects": int(ready_match.group("effects")) if ready_match else None,
@@ -921,6 +934,12 @@ def run_sample(
         log_only=log_only,
     ))
     result["passed"] = not failures
+    if terminal_snapshot:
+        result["evidence"]["snapshot_capture"] = terminal_snapshot_metrics(result_dir, log_text)
+        if result["evidence"]["snapshot_capture"]["status"] != "captured":
+            failures.append("terminal snapshot missing or invalid")
+            result["passed"] = False
+    result["observation_duration_seconds"] = duration
     if startup_timeout_allowance != 60:
         result["startup_timeout_allowance"] = startup_timeout_allowance
     return result

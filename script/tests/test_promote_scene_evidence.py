@@ -16,6 +16,38 @@ SPEC.loader.exec_module(promotion)
 
 
 class PromoteSceneEvidenceTests(unittest.TestCase):
+    def test_terminal_capture_is_preserved_without_window_capture_and_deduplicated(self):
+        for window_capture in (False, True):
+            with self.subTest(window_capture=window_capture), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory).resolve()
+                report_path = self.make_report(root)
+                report = json.loads(report_path.read_text())
+                evidence = report["samples"][0]["evidence"]
+                image = Path(evidence["after_snapshot"])
+                evidence["snapshot_capture"] = {"status": "captured", "path": str(image),
+                    "request_id": 1, "claim_boundary": "terminal-png-not-presented-or-per-input-visibility"}
+                if not window_capture:
+                    for key in ("ready_snapshot", "hover_snapshot", "after_snapshot", "pointer_trajectory_snapshots"):
+                        evidence.pop(key)
+                report_path.write_text(json.dumps(report))
+                with mock.patch.object(promotion, "EVIDENCE_ROOT", root / "evidence"):
+                    package = promotion.promote([("terminal", report_path)], Path("run"), 1)
+                manifest = json.loads((package / "manifest.json").read_text())
+                copies = [row for row in manifest["runs"][0]["files"]
+                          if row["sha256"] == promotion.sha256(image)]
+                self.assertEqual(len(copies), 1)
+                self.assertEqual((package / copies[0]["path"]).read_bytes(), image.read_bytes())
+                self.assertEqual((package / "terminal/report.json").read_bytes(), report_path.read_bytes())
+
+    def test_captured_snapshot_without_a_path_is_not_silently_omitted(self):
+        with tempfile.TemporaryDirectory() as directory:
+            report_path = self.make_report(Path(directory).resolve())
+            report = json.loads(report_path.read_text())
+            report["samples"][0]["evidence"]["snapshot_capture"] = {"status": "captured"}
+            report_path.write_text(json.dumps(report))
+            with self.assertRaisesRegex(ValueError, "captured snapshot path is missing"):
+                promotion.promotion_plan([("terminal", report_path)])
+
     def make_report(self, root: Path, escaped: Path | None = None) -> Path:
         output = root / "output"
         result = output / "results/42"

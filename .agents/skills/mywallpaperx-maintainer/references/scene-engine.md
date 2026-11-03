@@ -91,7 +91,9 @@ checkpoint 使用新组合或未见 fixture 证明公共 primitive 不依赖 sam
 
 先读 `docs/scene/development/development-workflow.md#声明扫描与运行诊断`，复用其 census → benchmark → normalizer → archive 链。已知样本集合同时核本次 snapshot 与所选 subset/archive，不把历史报告分母直接当新增基线。一次盘点产生能力并集与影响面，family/profile/声明数量不当独立加载链数。
 
-批量日志筛查优先现有优化 DEBUG 配置，App只stage一次；按当前 `--help` 设置隔离worker、Ready后3–5秒及有界并发，先小批再按设备余量扩大。普通Debug冷准备超时先区分配置/争用，只串行补未决项，不整批重复。日志不授画面或未触发分支资格；过渡和延迟只对相关代表延长。需要看图时先核正式阶段、音频/鼠标条件，再找样本中的“截屏”或“已粘贴”参考，不把时间相位当缺陷。共同首错回当前队列核是否已闭，再选公共修复；历史raw拒绝不能直接重开现役已修项。
+批量筛查优先现有优化 DEBUG 配置，每批 App只stage一次；按当前 `--help` 设置隔离worker、Ready后3–5秒及有界并发，先小批再按设备余量扩大。`--log-only --terminal-snapshot` 可附一次 after Metal读回，导出缩放保持原渲染尺寸；它仍是诊断profile。核同一捕获request、command buffer、Surface/frame与GPU回执，再把PNG作为画面观察；绑定、局部graph tail及全景非黑均不授逐输入可见贡献。普通Debug冷准备超时先区分配置/争用，只补未决项；过渡、延迟和输入分支只对相应子集延长，不整批重复。
+
+分别核作者声明、被选输入和实际消费；包内库存、注释样例、未选条件分支不能作缺图分母，聚合加载比例只作线索，raw ordinal或pass归因丢失则保unknown。旁路copy的GPU完成不授原effect执行；无graph的普通/粒子输出可由唯一捕获request/CB/Surface/GPU及drawable token/extent见证，不虚构graph ID。恢复前后的失败与成功分开保留；pre-Ready拒绝不能不经同subject和后续消费者核对就当持续故障，也不能用一个后续good掩盖身份/安全错误。看图先核阶段与输入，再找作者参考；共同首错回当前队列核是否已闭，再选公共修复，历史raw拒绝不能直接重开现役已修项。
 
 ## Identity、frame channel 与失效域
 

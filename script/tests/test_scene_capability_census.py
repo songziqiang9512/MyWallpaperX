@@ -412,6 +412,11 @@ class SceneCapabilityCensusTests(unittest.TestCase):
                              {"repair-gate-file-missing", "repair-evidence-file-missing"})
             self.assertEqual(len(failures), 2)
 
+    def test_default_repair_ledger_repository_references_do_not_require_private_corpus(self) -> None:
+        ledger = census.load_repair_ledger(census.DEFAULT_LEDGER)
+        declared_samples = {sample for row in ledger["families"] for sample in row.get("targeted_samples", [])}
+        self.assertEqual(census.validate_repair_references(ledger, declared_samples, census.REPOSITORY_ROOT), [])
+
     def test_default_repair_ledger_has_no_dangling_references(self) -> None:
         ledger = census.load_repair_ledger(census.DEFAULT_LEDGER)
         if not census.DEFAULT_SNAPSHOT.is_file():

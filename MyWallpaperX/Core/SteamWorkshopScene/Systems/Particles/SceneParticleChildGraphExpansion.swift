@@ -35,6 +35,13 @@ struct SceneParticleChildTemplate {
     let depth: Int
     let parentAssetPath: String?
     let instanceOverride: SceneParticleInstanceOverride?
+#if DEBUG
+    var debugParentParticlePath: String? = nil
+    var debugParentComponentIndex: Int? = nil
+    var debugRendererTypedIndex: Int? = nil
+    var debugRendererComponentIndex: Int? = nil
+    var debugRendererKind: String? = nil
+#endif
 }
 
 /// Expands authored child declarations into strict templates. Depth-one declarations keep
@@ -93,7 +100,12 @@ enum SceneParticleChildGraphExpansion {
                 result.handledRootChildren += 1
             case let .rejected(detail):
                 result.unsupportedDetails.append(detail)
-            case let .accepted(template, asset):
+            case let .accepted(acceptedTemplate, asset):
+                var template = acceptedTemplate
+#if DEBUG
+                template.debugParentParticlePath = rootAsset.relativePath
+                template.debugParentComponentIndex = rootAsset.definition.componentObservationSources?["children"]?[index].componentIndex
+#endif
                 nextTemplateIndex += 1
                 if !asset.definition.children.isEmpty,
                    expandedParentPaths.insert(template.path).inserted
@@ -119,7 +131,12 @@ enum SceneParticleChildGraphExpansion {
                             continue
                         case let .rejected(detail):
                             result.unsupportedDetails.append(detail)
-                        case let .accepted(nestedTemplate, _):
+                        case let .accepted(acceptedNestedTemplate, _):
+                            var nestedTemplate = acceptedNestedTemplate
+#if DEBUG
+                            nestedTemplate.debugParentParticlePath = template.path
+                            nestedTemplate.debugParentComponentIndex = asset.definition.componentObservationSources?["children"]?[nestedIndex].componentIndex
+#endif
                             nextTemplateIndex += 1
                             result.templates.append(nestedTemplate)
                         }
@@ -342,8 +359,7 @@ enum SceneParticleChildGraphExpansion {
         {
             return .rejected("\(path):ropeAggregateSegmentBudget")
         }
-        return .accepted(
-            SceneParticleChildTemplate(
+        var template = SceneParticleChildTemplate(
                 index: templateIndex,
                 path: path,
                 definition: asset.definition,
@@ -374,9 +390,17 @@ enum SceneParticleChildGraphExpansion {
                 depth: depth,
                 parentAssetPath: parentAssetPath,
                 instanceOverride: instanceOverride
-            ),
-            asset
-        )
+            )
+#if DEBUG
+        if let sources = asset.definition.componentObservationSources {
+            let typedIndex = asset.definition.renderers.firstIndex(of: render.renderer)
+            template.debugRendererTypedIndex = typedIndex
+            template.debugRendererComponentIndex = typedIndex.flatMap { sources["renderer"]?[$0].componentIndex }
+            template.debugRendererKind = asset.definition.rendererWasImplicit ? "sprite"
+                : typedIndex.flatMap { sources["renderer"]?[$0].kind }
+        }
+#endif
+        return .accepted(template, asset)
     }
 }
 
@@ -387,7 +411,7 @@ extension SceneParticleChildTemplate {
         maximumEmissionDuration: Double? = nil,
         eventColorContext: SceneParticleEventColorContext = .unavailable
     ) -> SceneParticleSimulator {
-        SceneParticleSimulator(
+        let simulator = SceneParticleSimulator(
             definition: definition,
             instanceOverride: instanceOverride,
             initialDynamicInstanceOverride: instanceOverride?.resolving(dynamicInstanceValues),
@@ -397,6 +421,10 @@ extension SceneParticleChildTemplate {
             worldSpaceFrame: worldSpaceFrame,
             eventColorContext: eventColorContext
         )
+#if DEBUG
+        simulator.observeSelectedRenderer(typedIndex: debugRendererTypedIndex)
+#endif
+        return simulator
     }
 
     func instance(

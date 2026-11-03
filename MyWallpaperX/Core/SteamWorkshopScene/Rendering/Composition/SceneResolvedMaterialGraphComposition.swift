@@ -289,7 +289,8 @@ extension SceneImageLayerCompositor {
         pool: SceneOffscreenTexturePool?,
         commandBuffer: MTLCommandBuffer,
         resourceBundle: SceneResolvedMaterialFrameResourceBundle? = nil,
-        performanceTelemetry: SceneFramePerformanceTelemetry? = nil
+        performanceTelemetry: SceneFramePerformanceTelemetry? = nil,
+        executionTrace: SceneEffectExecutionFrameTrace? = nil
     ) -> SceneResolvedMaterialRuntimeBridge.FramePreparationResult {
         guard let resolvedMaterialRuntime else {
             return requests.isEmpty
@@ -300,7 +301,8 @@ extension SceneImageLayerCompositor {
             pool: pool,
             commandBuffer: commandBuffer,
             resourceBundle: resourceBundle,
-            performanceTelemetry: performanceTelemetry
+            performanceTelemetry: performanceTelemetry,
+            executionTrace: executionTrace
         )
     }
 
@@ -401,6 +403,11 @@ extension SceneImageLayerCompositor {
         ) {
         case .consumed:
 #if DEBUG
+            if let executionTrace, executionTrace.isCompositionSelected {
+                executionTrace.recordComposition(.init(kind: "tail-consume", layerID: layerID,
+                    target: mainPass.compositionTarget, access: "terminal-material-replay", outcome: "terminal-consumed",
+                    details: ["transactionID": String(ticket.identity), "executionEpoch": String(ticket.epoch)]))
+            }
             executionTrace?.recordRouteOperation(
                 layerID: layerID,
                 origin: executionOrigin,
@@ -442,6 +449,13 @@ extension SceneImageLayerCompositor {
             consumed: consumed
         ) {
         case .consumed:
+#if DEBUG
+            if let executionTrace, executionTrace.isCompositionSelected {
+                executionTrace.recordComposition(.init(kind: "tail-consume", layerID: layerID,
+                    source: .init(texture, role: "graph-output"), access: "output-texture-composite", outcome: "terminal-consumed",
+                    details: ["transactionID": String(ticket.identity), "executionEpoch": String(ticket.epoch)]))
+            }
+#endif
             return true
         case let .failed(reasonCode):
 #if DEBUG
@@ -472,6 +486,13 @@ extension SceneImageLayerCompositor {
             published: published
         ) {
         case .consumed:
+#if DEBUG
+            if let executionTrace, executionTrace.isCompositionSelected {
+                executionTrace.recordComposition(.init(kind: "tail-consume", layerID: layerID,
+                    source: .init(texture, role: "graph-output"), access: "named-publication-only", outcome: "terminal-consumed",
+                    details: ["transactionID": String(ticket.identity), "executionEpoch": String(ticket.epoch)]))
+            }
+#endif
             return true
         case let .failed(reasonCode):
 #if DEBUG

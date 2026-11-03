@@ -23,6 +23,10 @@ struct SceneParticleRootRenderRuntime {
     var instances: [SceneParticleGPUInstance] = []
     var simulator: SceneParticleSimulator
     var ropeTrailHistory: SceneParticleRopeTrailHistory?
+#if DEBUG
+    var debugRendererComponentIndex: Int? = nil
+    var debugRendererKind: String? = nil
+#endif
 }
 
 /// Per-layer mutable particle state owned by one SceneParticleRuntime launch.

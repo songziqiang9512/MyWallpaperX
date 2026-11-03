@@ -1082,7 +1082,7 @@
       "owner": "Existing corpus, signed Debug runner, sample lifecycle and diagnostic normalizer owners",
       "status": "approved",
       "designDoc": "docs/scene/development/development-workflow.md",
-      "design_notes": "",
+      "design_notes": "Section corpus-runtime-measurement: preserve discovery/content/attempt identity and inventory scope; exact draw/capture receipts on selected DEBUG frames, component stages and local passthrough kept separate; aggregate ratios are leads. Existing trace/completion/output owners, bounded opt-in data, no Release calls or empty per-particle helper, honest unknowns; one PNG at original render extent and qualified isolated concurrency.",
       "matchPatterns": [
         "script/scene_capability_census.py",
         "script/scene_capability_census_io.py",
@@ -1095,7 +1095,16 @@
         "script/scene_wallpaper_sample_lifecycle.py",
         "script/scene_wallpaper_sample_acceptance.py",
         "script/scene_diagnostic_report.py",
-        "script/scene_sample_acceptance_ledger.py"
+        "script/scene_sample_acceptance_ledger.py",
+        "script/scene_sample_snapshot.py",
+        "script/scene_sample_debug_archive.py",
+        "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/**/*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/**/*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/*Particle*.swift",
+        "script/scene_capability_census_resources.py",
+        "script/scene_wallpaper_graph_output_metrics.py",
+        "script/promote_scene_evidence.py"
       ],
       "contentPatterns": []
     },

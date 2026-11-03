@@ -36,6 +36,7 @@ nonisolated extension SceneParticleSimulator {
 #if DEBUG
         var observedNonSilentAudioComponents: Set<SceneParticleAudioComponentIdentity> = []
         var pendingAudioEvaluationObservations: [SceneParticleAudioEvaluationObservation] = []
+        var componentObservation: SceneParticleComponentObservationState? = nil
 #endif
         let eventColorContext: SceneParticleEventColorContext
         var stepSnapshotRecorder: SceneParticleStepSnapshotRecorder?

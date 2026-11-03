@@ -49,6 +49,29 @@ nonisolated extension SceneParticleSimulator {
     }
 
 #if DEBUG
+    func observeSelectedRenderer(typedIndex: Int?) {
+        guard componentObservation != nil else { return }
+        let origin = componentObservation?.origin
+        componentObservation?.origin = "prepared"
+        if definition.rendererWasImplicit {
+            componentObservation?.pending.append(.init(category: "renderer", componentIndex: -1,
+                kind: "sprite", stage: "prepared-executable", reason: "implicit-default-selected",
+                origin: "prepared", simulationTime: simulationTime, particleID: nil))
+        } else {
+            for index in definition.renderers.indices {
+                componentObservation?.record("renderer", index, index == typedIndex ? "prepared-executable" : "not-selected",
+                    reason: index == typedIndex ? "selected-renderer" : "another-renderer-selected", time: simulationTime)
+            }
+        }
+        if let origin { componentObservation?.origin = origin }
+    }
+
+    func consumeComponentObservations() -> [SceneParticleComponentObservation] {
+        guard componentObservation != nil else { return [] }
+        defer { componentObservation?.pending.removeAll(keepingCapacity: true) }
+        return componentObservation?.pending ?? []
+    }
+
     nonisolated func consumeAudioEvaluationObservations()
         -> [SceneParticleAudioEvaluationObservation] {
         defer { pendingAudioEvaluationObservations.removeAll(keepingCapacity: true) }

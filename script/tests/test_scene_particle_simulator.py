@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import shutil
 import subprocess
 import tempfile
@@ -46,6 +47,7 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleStepSnapshotRecorder.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePlaybackModels.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+Operators.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+ExplicitEmission.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRuntime+PlaybackTransaction.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+Initializer.swift",
@@ -56,6 +58,7 @@ SWIFT_SOURCES = [
 
 
 SPHERE_SAMPLING_SOURCE = Path(__file__).with_name("fixtures") / "SceneParticleSphereSamplingChecks.swift"
+COMPONENT_OBSERVATION_SOURCE = Path(__file__).with_name("fixtures") / "SceneParticleComponentObservationChecks.swift"
 
 HARNESS_SOURCE = r'''
 import Foundation
@@ -64,7 +67,9 @@ import simd
 @main
 enum Harness {
     static func main() throws {
-        if CommandLine.arguments.dropFirst().first == "force-safety" {
+        if CommandLine.arguments.dropFirst().first == "component-observation" {
+            try printJSON(SceneParticleComponentObservationChecks.run())
+        } else if CommandLine.arguments.dropFirst().first == "force-safety" {
             try printJSON(forceSafetyResults())
         } else if CommandLine.arguments.dropFirst().first == "periodic-overrides" {
             try printJSON(periodicOverrideResults())
@@ -3410,7 +3415,7 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         harness.write_text(HARNESS_SOURCE, encoding="utf-8")
         cls.binary = directory / "scene-particle-runtime"
         subprocess.run(
-            [swiftc, "-D", "DEBUG", *(str(path) for path in SWIFT_SOURCES), str(SPHERE_SAMPLING_SOURCE),
+            [swiftc, "-D", "DEBUG", *(str(path) for path in SWIFT_SOURCES), str(SPHERE_SAMPLING_SOURCE), str(COMPONENT_OBSERVATION_SOURCE),
              str(harness), "-o", str(cls.binary)],
             check=True,
             capture_output=True,
@@ -3428,6 +3433,19 @@ class SceneParticleSimulatorTests(unittest.TestCase):
             [str(cls.binary), *arguments], check=True, capture_output=True, text=True
         )
         return json.loads(result.stdout)
+
+    def test_component_observation_records_only_real_first_facts_and_rolls_back_candidates(self) -> None:
+        for enabled in ("0", "1"):
+            with self.subTest(enabled=enabled):
+                completed = subprocess.run(
+                    [str(self.binary), "component-observation"], check=True, capture_output=True,
+                    text=True, env={**os.environ, "MWX_SCENE_PARTICLE_COMPONENT_OBSERVATION": enabled},
+                )
+                results = json.loads(completed.stdout)
+                self.assertTrue(results)
+                for name, passed in results.items():
+                    with self.subTest(check=name):
+                        self.assertTrue(passed, name)
 
     def test_simulation_rate_scales_one_time_domain_and_preserves_pause_and_rollback(self) -> None:
         result = self.run_harness("simulation-rate")
@@ -3995,110 +4013,6 @@ class SceneParticleSimulatorTests(unittest.TestCase):
             self.results["fineHalfLifeOscillationPosition"],
         ):
             self.assertAlmostEqual(coarse, fine, places=10)
-
-    def test_operator_execution_plans_are_prepared_once(self) -> None:
-        simulator_source = (
-            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator.swift"
-        ).read_text(encoding="utf-8")
-        control_point_source = (
-            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+ControlPointForce.swift"
-        ).read_text(encoding="utf-8")
-        emitter_control_point_source = (
-            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleControlPointForce.swift"
-        ).read_text(encoding="utf-8")
-        cap_velocity_source = (
-            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+CapVelocity.swift"
-        ).read_text(encoding="utf-8")
-        vortex_source = (
-            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+Vortex.swift"
-        ).read_text(encoding="utf-8")
-        boids_source = (
-            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+Boids.swift"
-        ).read_text(encoding="utf-8")
-        collision_source = (
-            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+CollisionPlane.swift"
-        ).read_text(encoding="utf-8")
-        execution_plan_source = (
-            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleOscillationCache.swift"
-        ).read_text(encoding="utf-8")
-        emitter_plan_source = (
-            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePeriodicEmission.swift"
-        ).read_text(encoding="utf-8")
-        initializer_plan_source = (
-            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+Initializer.swift"
-        ).read_text(encoding="utf-8")
-        random_source = (
-            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+Random.swift"
-        ).read_text(encoding="utf-8")
-
-        self.assertIn("operatorExecutionPlans", simulator_source)
-        self.assertIn("SceneParticleOperatorExecutionPlan(", simulator_source)
-        self.assertIn("definition: definition", simulator_source)
-        # Plans stay launch-prepared; the world frame is applied per advance
-        # through the prepared movement plan's conversion method instead of
-        # being baked into the plan at construction.
-        self.assertIn(
-            "plan.gravity(through: activeWorldSpaceFrame)",
-            simulator_source,
-        )
-        self.assertIn("scalarOscillation", simulator_source)
-        self.assertIn("movement", simulator_source)
-        self.assertIn("angularMovement", simulator_source)
-        self.assertIn("alphaFade", simulator_source)
-        self.assertIn("scalarChange", simulator_source)
-        self.assertIn("colorChange", simulator_source)
-        self.assertIn("boids", simulator_source)
-        self.assertIn("vortex", simulator_source)
-        self.assertIn("capVelocity", simulator_source)
-        self.assertIn("velocityRemap", simulator_source)
-        self.assertIn("collisionPlane", simulator_source)
-        self.assertIn("controlPointForce", simulator_source)
-        self.assertIn("reduceMovement", simulator_source)
-        self.assertIn("emitterSpawnPlans", simulator_source)
-        self.assertIn("SceneParticleEmitterSpawnPlan.init", simulator_source)
-        self.assertIn("initializerExecutionPlans", simulator_source)
-        self.assertIn("SceneParticleInitializerExecutionPlan.init", simulator_source)
-        self.assertIn("let alphaFade:", execution_plan_source)
-        self.assertIn("let boids:", execution_plan_source)
-        self.assertIn("let vortex:", execution_plan_source)
-        self.assertIn("let capVelocity:", execution_plan_source)
-        self.assertIn("let velocityRemap:", execution_plan_source)
-        self.assertIn("let collisionPlane:", execution_plan_source)
-        self.assertIn("if let controlPointsByID", emitter_control_point_source)
-        self.assertIn("preparedOrigin", emitter_control_point_source)
-        self.assertIn("if controlPointsByID.isEmpty", control_point_source)
-        self.assertIn("SceneParticleEmitterSpawnPlan", emitter_plan_source)
-        self.assertIn("let initialDelayAdmission", emitter_plan_source)
-        self.assertIn("let periodicEmissionAdmission", emitter_plan_source)
-        self.assertIn("let audioResponsePlan", emitter_plan_source)
-        self.assertIn("plan: SceneParticleEmitterSpawnPlan", emitter_plan_source)
-        self.assertIn("SceneParticleRandomScalarPlan", initializer_plan_source)
-        self.assertIn("SceneParticleRandomVectorPlan", initializer_plan_source)
-        self.assertIn("SceneParticleRandomColorPlan", initializer_plan_source)
-        self.assertIn("SceneParticleTurbulentVelocityPlan", initializer_plan_source)
-        self.assertIn("let positionOffset: SceneParticlePositionOffsetPlan?", initializer_plan_source)
-        self.assertIn("executionPlan.turbulentVelocity", initializer_plan_source)
-        # `emissionAudioScale` 的调用形状不再断言：AGENTS §4 禁止把源码文本/参数标签
-        # 当作通过条件，且该调用的 emitterIndex 归属由 spawn plan 自己表达。
-        self.assertIn("let directions = plan.directions", random_source)
-        self.assertIn("let minimum = plan.boxDistanceMinimum", random_source)
-        self.assertNotIn(
-            "controlPointsByID?[source]\\n            ?? controlPoints.first",
-            control_point_source,
-        )
-        self.assertIn("positionOscillationOperatorIndices", simulator_source)
-        self.assertIn("definition.operators.indices.filter", simulator_source)
-        self.assertNotIn("SceneParticleOperatorBlendPlan(value)", simulator_source)
-        self.assertNotIn("SceneParticlePositionOscillationPlan(value)", simulator_source)
-        self.assertNotIn("SceneParticleOperatorBlendPlan(value)", control_point_source)
-        self.assertNotIn("SceneParticleOperatorBlendPlan(value)", cap_velocity_source)
-        self.assertNotIn("value.capVelocityPlan", cap_velocity_source)
-        self.assertNotIn("value.boundedVelocityRemapPlan", simulator_source)
-        self.assertNotIn("definition.boidsPlan(for:", boids_source)
-        self.assertNotIn("value.collisionPlanePlan", collision_source)
-        self.assertNotIn("value.vortexPlan", vortex_source)
-        self.assertNotIn("SceneParticleAudioResponsePlan(value.audioResponse)", vortex_source)
-        # `audioResponsePlan:` 的字段标签同样是实现形状，迁移为上面的"不得内联构造"反向门。
 
     def test_color_initializer_interpolates_between_authored_colors(self) -> None:
         self.assertTrue(self.results["colorUsesSingleInterpolation"])

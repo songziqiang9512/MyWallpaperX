@@ -15,7 +15,7 @@ import argparse
 import hashlib
 import json
 import sys
-from collections import Counter
+from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -25,7 +25,7 @@ SCRIPT_DIRECTORY = SCRIPT_PATH.parent
 if str(SCRIPT_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIRECTORY))
 
-from scene_capability_census_io import iter_sample_directories
+from scene_capability_census_io import iter_sample_directories, path_identity, sha256_file
 from scene_diagnostic_report import (
     load_preview_oracle_registry,
     normalize_reports,
@@ -39,14 +39,6 @@ DEFAULT_SNAPSHOT = REPOSITORY_ROOT / ".artifacts/scene-evidence/census/scene_cap
 CLAIM_BOUNDARY = (
     "runtime-first-breakpoint-and-lifecycle-diagnostics-only-not-visual-correctness"
 )
-
-
-def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def _json(path: Path) -> tuple[Mapping[str, Any], str]:
@@ -73,8 +65,8 @@ def _sample_status(observation: Mapping[str, Any] | None) -> str:
         return "blocked"
     if status == "degraded":
         return "degraded-runtime"
-    if status == "terminal-chain-complete":
-        return "structural-chain-complete-visual-review"
+    if status == "terminal-compositor-observed":
+        return "terminal-compositor-observed-visual-review"
     if status == "runtime-evidence-incomplete":
         return "runtime-evidence-incomplete"
     return "runtime-status-unknown"
@@ -92,9 +84,308 @@ def _next_action(status: str, first_breakpoint: Mapping[str, Any] | None) -> str
         return "locate-first-runtime-breakpoint"
     if status == "degraded-runtime":
         return "inspect-fallback-and-authored-visual-ROI"
-    if status == "structural-chain-complete-visual-review":
+    if status == "terminal-compositor-observed-visual-review":
         return "perform-authored-preview-and-next-frame-visual-review"
+    if status in {"input-identity-unknown", "input-identity-mismatch"}:
+        return "rerun-with-observed-matching-input-identity"
     return "add-or-reproduce-runtime-evidence"
+
+
+def _input_identity(row: Mapping[str, Any], sample: Mapping[str, Any]) -> dict[str, Any]:
+    observed = sample.get("hashes")
+    observed = observed if isinstance(observed, Mapping) else {}
+    fields = ["project_sha256", "tree_sha256"]
+    if row.get("package_sha256") is not None:
+        fields.append("package_sha256")
+    mismatches = [field for field in fields if row.get(field) is not None
+                  and observed.get(field) is not None and row[field] != observed[field]]
+    if row.get("package_sha256") is None and observed.get("package_sha256") is not None:
+        mismatches.append("package_sha256")
+    missing = [field for field in fields if row.get(field) is None or observed.get(field) is None]
+    source_invalid = row.get("parse_state") == "failed" and sample.get("input_status") == "source-invalid"
+    if mismatches:
+        status = "mismatch"
+    elif source_invalid:
+        status = "source-invalid"
+    else:
+        status = "unknown" if missing else "matched"
+    return {
+        "status": status, "missingFields": missing, "mismatchedFields": mismatches,
+        "expectedHashes": {field: row.get(field) for field in ("project_sha256", "tree_sha256", "package_sha256")},
+        "observedHashes": dict(observed),
+    }
+
+
+def _occurrence_locations(occurrences: Sequence[Mapping[str, Any]]) -> dict[str, dict[str, Any]]:
+    by_id = {item["occurrence_id"]: item for item in occurrences}
+    resolved: dict[str, dict[str, Any]] = {}
+    for identity in by_id:
+        pending, visiting = [], set()
+        cursor = identity
+        while cursor in by_id and cursor not in resolved:
+            if cursor in visiting:
+                raise ValueError(f"cyclic census occurrence owner: {cursor}")
+            visiting.add(cursor)
+            location = by_id[cursor].get("location", {})
+            pending.append((cursor, location))
+            cursor = location.get("owner_occurrence")
+        location = resolved.get(cursor, {})
+        for cursor, own_location in reversed(pending):
+            location = {**location, **own_location}
+            resolved[cursor] = location
+    return resolved
+
+
+def _occurrence_observations(
+    occurrences: Sequence[Mapping[str, Any]], locations: Mapping[str, Mapping[str, Any]],
+    runtime: Mapping[str, Any],
+    *, qualify: bool = True,
+) -> dict[str, Any]:
+    layers: dict[object, list[str]] = defaultdict(list)
+    effects: dict[tuple[object, object], list[str]] = defaultdict(list)
+    textures: dict[tuple[object, object, object, str], list[str]] = defaultdict(list)
+    components: dict[tuple[object, str, object, object], list[str]] = defaultdict(list)
+    layer_objects: dict[object, set[object]] = defaultdict(set)
+    output: dict[str, dict[str, Any]] = {}
+    for item in occurrences:
+        identity = item["occurrence_id"]
+        location = locations[identity]
+        layer = location.get("layer_id")
+        if layer is not None and "object_index" in location:
+            layer_objects[layer].add(location["object_index"])
+        inventory = "package_entry_index" in location and "layer_id" not in location and "object_index" not in location
+        output[identity] = {
+            "occurrenceId": identity, "domain": item.get("domain"), "kind": item.get("kind"),
+            "familyKey": item.get("family_key"),
+            "consumptionScope": "inventory-only" if inventory else "authored-occurrence",
+            "authoredVisibility": item.get("effective_visibility"),
+            "authoredInputState": item.get("slot_state", item.get("state")),
+            "observedStages": ["declared"], "evidenceRefs": [], "reasons": [],
+            "observationState": "inventory-only" if inventory else "unknown",
+            "visibleContribution": "unknown",
+            **({"instanceCoverage": "unknown"} if item.get("domain") == "particle" else {}),
+        }
+        if inventory:
+            continue
+        domain, kind = item.get("domain"), item.get("kind")
+        if domain == "layer" or (domain == "particle" and kind == "layer"):
+            layers[layer].append(identity)
+        elif domain == "effect":
+            effects[(layer, location.get("effect_index"))].append(identity)
+        elif domain == "texture":
+            resource = item.get("resource")
+            resource = resource if isinstance(resource, Mapping) else {}
+            paths = {path_identity(value) for value in (item.get("reference"), resource.get("relative_path")) if isinstance(value, str)}
+            if layer is not None:
+                for path in paths:
+                    textures[(layer, location.get("effect_index"), location.get("slot_index"), path)].append(identity)
+        elif domain == "particle" and "component_index" in location:
+            path = location.get("definition_path")
+            if isinstance(path, str):
+                components[(layer, path_identity(path), location.get("component_category"), location["component_index"])].append(identity)
+
+    def record(identities: Sequence[str], stages: Sequence[str], reference: dict[str, Any], reason: object = None) -> None:
+        for identity in identities:
+            observed = output[identity]
+            observed["observedStages"] = sorted(set(observed["observedStages"]) | set(stages))
+            observed["evidenceRefs"].append(reference)
+            if isinstance(reason, str) and reason and reason not in observed["reasons"]:
+                observed["reasons"].append(reason)
+
+    disposition = runtime.get("effect_runtime_disposition", {})
+    resolved = runtime.get("resolved_material_graph_execution", {})
+    graph = resolved.get("graph_observations", {}) if isinstance(resolved, Mapping) else {}
+    fallback_sources = (
+        ("effectDisposition", disposition.get("records", []) if isinstance(disposition, Mapping) else []),
+        ("visualFailurePassthrough", graph.get("visual_failure_passthroughs", []) if isinstance(graph, Mapping) else []),
+    )
+    if qualify:
+        for channel, records in fallback_sources:
+            for index, entry in enumerate(records if isinstance(records, list) else []):
+                if not isinstance(entry, Mapping):
+                    continue
+                if channel == "effectDisposition" and not (
+                    entry.get("attribution") == "exact-key" and entry.get("kind") in {"fallback", "passthrough"}
+                ):
+                    continue
+                layer = entry.get("layer_id")
+                identities = effects.get((layer, entry.get("effect_index")), [])
+                if len(layer_objects.get(layer, set())) > 1:
+                    record(identities, [], {"channel": channel, "recordIndex": index}, "authored-layer-identity-ambiguous")
+                    continue
+                record(identities, ["fallback"], {"channel": channel, "recordIndex": index}, entry.get("reason"))
+
+    sources = {}
+    for channel, field in (("composition", "composition_observations"), ("particleComponent", "particle_component_observations")):
+        carrier = runtime.get(field)
+        carrier = carrier if isinstance(carrier, Mapping) else {}
+        events = carrier.get("events", [])
+        events = events if isinstance(events, list) else []
+        sources[channel] = {key: value for key, value in carrier.items() if key != "events"}
+        sources[channel]["eventCount"] = len(events)
+        sources[channel]["truncatedRows"] = 0
+        for event_index, event in enumerate(events):
+            if not isinstance(event, Mapping) or event.get("schemaVersion") != 1:
+                continue
+            truncated = event.get("truncatedRows")
+            if isinstance(truncated, int):
+                sources[channel]["truncatedRows"] += truncated
+            if not qualify:
+                continue
+            if channel == "particleComponent":
+                path = event.get("particlePath")
+                if not isinstance(path, str):
+                    continue
+                key = (event.get("layerID"), path_identity(path), event.get("category"), event.get("componentIndex"))
+                identities = components.get(key, [])
+                if len(identities) == 1:
+                    stage = event.get("stage")
+                    record(identities, [stage] if isinstance(stage, str) else [], {"channel": channel, "eventIndex": event_index}, event.get("reason"))
+                elif identities:
+                    record(identities, [], {"channel": channel, "eventIndex": event_index}, "particle-definition-identity-ambiguous")
+                continue
+            rows = event.get("rows", [])
+            rows = rows if isinstance(rows, list) else []
+            logical_tails = {
+                (row.get("layerID"), row.get("source", {}).get("textureToken")): row_index
+                for row_index, row in enumerate(rows)
+                if isinstance(row, Mapping) and row.get("outcome") == "terminal-consumed"
+                and row.get("access") in {"output-texture-composite", "terminal-material-replay"}
+                and isinstance(row.get("source"), Mapping)
+                and isinstance(row["source"].get("textureToken"), str)
+                and row["source"]["textureToken"]
+            }
+            for row_index, row in enumerate(rows):
+                if not isinstance(row, Mapping):
+                    continue
+                layer = row.get("layerID")
+                if layer is None:
+                    continue
+                identities = [*layers.get(layer, []), *effects.get((layer, row.get("effectIndex")), [])]
+                source = row.get("source")
+                source = source if isinstance(source, Mapping) else {}
+                logical = source.get("logical")
+                access, outcome = row.get("access"), row.get("outcome")
+                details = row.get("details")
+                details = details if isinstance(details, Mapping) else {}
+                if row.get("kind") == "particle":
+                    path, ordinal = details.get("particlePath"), details.get("rendererComponentIndex")
+                    if isinstance(path, str) and isinstance(ordinal, str) and ordinal.isdecimal():
+                        candidates = components.get((layer, path_identity(path), "renderer", int(ordinal)), [])
+                        if len(candidates) == 1:
+                            identities.extend(candidates)
+                        elif candidates:
+                            record(candidates, [], {"channel": channel, "eventIndex": event_index, "rowIndex": row_index}, "particle-renderer-identity-ambiguous")
+                if access == "texture-bind" and isinstance(logical, str) and logical.startswith("asset:"):
+                    candidates = textures.get((layer, row.get("effectIndex"), row.get("slot"), path_identity(logical[6:])), [])
+                    if candidates and details.get("selectionMetadataRole") == "prepared-logical-origin":
+                        record(candidates, ["logical-origin-attributed"], {"channel": channel, "eventIndex": event_index, "rowIndex": row_index}, "physical-binding-replaced")
+                    elif len(candidates) == 1:
+                        identities.extend(candidates)
+                    elif candidates:
+                        record(candidates, [], {"channel": channel, "eventIndex": event_index, "rowIndex": row_index}, "authored-pass-identity-ambiguous")
+                reference = {"channel": channel, "eventIndex": event_index, "rowIndex": row_index}
+                if len(layer_objects.get(layer, set())) > 1:
+                    record(identities, [], reference, "authored-layer-identity-ambiguous")
+                    continue
+                if not event.get("surfaceIdentity") or not event.get("commandBufferToken"):
+                    record(identities, [], reference, "surface-or-submission-identity-unavailable")
+                    continue
+                stages = [outcome] if isinstance(outcome, str) else []
+                if row.get("kind") == "tail-consume" and outcome == "terminal-consumed":
+                    stages = ["named-publication-only" if access == "named-publication-only" else "logical-tail-consumed"]
+                if access == "texture-bind" and outcome in {"draw-encoded", "encoded"}:
+                    stages.append("bound")
+                elif access == "color-attachment-read" and outcome in {"draw-encoded", "encoded"}:
+                    stages.append("attachment-read-encoded")
+                if event.get("gpuStatus") == "completed" and outcome in {"draw-encoded", "encoded", "terminal-consumed"}:
+                    stages.append("gpu-completed")
+                elif event.get("gpuStatus") == "failed":
+                    stages.append("gpu-failed")
+                target = row.get("target")
+                target = target if isinstance(target, Mapping) else {}
+                tail_index = logical_tails.get((layer, target.get("textureToken")))
+                if tail_index is not None and outcome in {"draw-encoded", "encoded"} and event.get("gpuStatus") == "completed":
+                    stages.append("logical-tail-consumed")
+                    reference["logicalTailRowIndex"] = tail_index
+                record(identities, stages, reference, row.get("reason"))
+    for observed in output.values():
+        if observed["consumptionScope"] == "inventory-only":
+            continue
+        stages = set(observed["observedStages"])
+        if stages & {"failed", "gpu-failed", "rejected", "unsupported"}:
+            state = "failed"
+        elif "fallback" in stages:
+            state = "fallback"
+        elif stages & {"evaluated", "accepted-birth", "gpu-completed"}:
+            state = "executed"
+        elif stages & {"draw-encoded", "encoded", "logical-tail-consumed"}:
+            state = "encoded"
+        elif stages & {"prepared", "prepared-executable"}:
+            state = "prepared"
+        elif "not-selected" in stages:
+            state = "not-selected"
+        elif "not-triggered" in stages:
+            state = "not-triggered"
+        else:
+            state = "unknown"
+        observed["observationState"] = state
+    return {
+        "claimBoundary": "exact-declaration-or-bounded-consumer-observation-not-visible-contribution",
+        "sources": sources, "indexedOccurrenceCount": len(output), "occurrences": list(output.values()),
+        "scopeCounts": dict(sorted(Counter(item["consumptionScope"] for item in output.values()).items())),
+        "runtimeCandidateStateCounts": dict(sorted(Counter(
+            item["observationState"] for item in output.values() if item["consumptionScope"] == "authored-occurrence"
+        ).items())),
+        "stateCounts": dict(sorted(Counter(item["observationState"] for item in output.values()).items())),
+        "reasonGroups": [
+            {"domain": domain, "kind": kind, "reason": reason, "occurrenceCount": count}
+            for (domain, kind, reason), count in sorted(Counter(
+                (str(item["domain"]), str(item["kind"]), reason)
+                for item in output.values() for reason in item["reasons"]
+            ).items())
+        ],
+    }
+
+
+def _attempt(
+    row: Mapping[str, Any], raw: Mapping[str, Any], observation: Mapping[str, Any],
+    report_meta: Mapping[str, Any], sample_index: int, app_identity: object,
+    occurrences: Sequence[Mapping[str, Any]], locations: Mapping[str, Mapping[str, Any]],
+) -> dict[str, Any]:
+    identity = _input_identity(row, raw)
+    status = _sample_status(observation)
+    first = observation.get("firstBreakpoint")
+    first = first if isinstance(first, Mapping) else None
+    raw_runtime = raw.get("runtime")
+    raw_runtime = raw_runtime if isinstance(raw_runtime, Mapping) else {}
+    app_verified_after = app_identity.get("verified_after") if isinstance(app_identity, Mapping) else None
+    runtime = {
+        "status": status, "firstBreakpoint": first,
+        "secondaryEvents": observation.get("secondaryEvents", []),
+        "evidenceSummary": observation.get("evidenceSummary", {}),
+        "benchmarkResultIgnored": observation.get("benchmarkResultIgnored", {}),
+        "occurrenceObservations": {
+            **_occurrence_observations(occurrences, locations, raw_runtime,
+                                      qualify=identity["status"] == "matched" and app_verified_after is not False),
+            "inputQualification": identity["status"],
+        },
+    }
+    if identity["status"] in {"unknown", "mismatch"}:
+        runtime.update(observedStatus=status, status="input-identity-" + identity["status"])
+    raw_evidence = raw.get("evidence")
+    paths = {
+        str(key): value for key, value in raw_evidence.items() if isinstance(value, str)
+    } if isinstance(raw_evidence, Mapping) else {}
+    reference = {"path": report_meta["path"], "sha256": report_meta["sha256"], "sampleIndex": sample_index}
+    return {
+        "id": f"{report_meta['sha256']}:{sample_index}",
+        "inputIdentity": identity, "appIdentity": app_identity,
+        "inputStatus": raw.get("input_status"), "inputReasonCode": raw.get("input_reason_code"),
+        "runtime": runtime, "evidence": {"report": reference, "sampleEvidencePaths": paths,
+            "snapshotCapture": raw_evidence.get("snapshot_capture") if isinstance(raw_evidence, Mapping) else None},
+        "nextAction": "rerun-with-verified-app-identity" if app_verified_after is False else _next_action(runtime["status"], first),
+    }
 
 
 def build_archive(
@@ -162,9 +453,9 @@ def build_archive(
         )
 
     reports: list[Mapping[str, Any]] = []
-    raw_by_id: dict[str, tuple[Path, str, int, Mapping[str, Any]]] = {}
+    raw_by_id: dict[str, list[tuple[int, int, Mapping[str, Any]]]] = {}
     report_meta: list[dict[str, Any]] = []
-    for report_path in report_paths:
+    for report_index, report_path in enumerate(report_paths):
         report, report_sha = _json(report_path)
         raw_samples = report.get("samples")
         if not isinstance(raw_samples, list):
@@ -177,15 +468,17 @@ def build_archive(
             "sampleCount": len(raw_samples),
         })
         reports.append(report)
+        seen_ids: set[str] = set()
         for index, sample in enumerate(raw_samples):
             if not isinstance(sample, Mapping) or not isinstance(sample.get("id"), str):
                 raise ValueError(f"malformed sample in benchmark report: {report_path}")
             sample_id = sample["id"]
-            if base_archive_path is not None and sample_id not in static_by_id:
-                raise ValueError(f"new report sample is outside the subset census: {sample_id}")
-            if sample_id in raw_by_id:
-                raise ValueError(f"duplicate sample id across reports: {sample_id}")
-            raw_by_id[sample_id] = (report_path, report_sha, index, sample)
+            if sample_id not in static_by_id:
+                raise ValueError(f"report sample is outside the census: {sample_id}")
+            if sample_id in seen_ids:
+                raise ValueError(f"duplicate sample id within report {report_path}: {sample_id}")
+            seen_ids.add(sample_id)
+            raw_by_id.setdefault(sample_id, []).append((report_index, index, sample))
 
     preview_oracle_registry_path = (
         Path(__file__).resolve().parent
@@ -196,10 +489,17 @@ def build_archive(
     )
     normalized = normalize_reports(reports, preview_oracle_uncontrolled)
     observations = {
-        str(item["sampleId"]): item
+        (item["reportIndex"], str(item["sampleId"])): item
         for item in normalized.get("samples", [])
         if isinstance(item, Mapping) and isinstance(item.get("sampleId"), str)
     }
+    occurrence_rows = snapshot.get("occurrences")
+    if not isinstance(occurrence_rows, list):
+        occurrence_rows = snapshot.get("validation", {}).get("occurrence_index", {}).get("items", [])
+    occurrences_by_sample: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
+    for item in occurrence_rows:
+        sample_id = item.get("sample_id", item.get("location", {}).get("sample_id"))
+        occurrences_by_sample[str(sample_id)].append(item)
 
     archive_samples: list[dict[str, Any]] = []
     for sample_id in sample_ids:
@@ -207,49 +507,28 @@ def build_archive(
             archive_samples.append(retained[sample_id])
             continue
         row = static_by_id[sample_id]
-        observation = observations.get(sample_id)
-        status = _sample_status(observation)
-        first = observation.get("firstBreakpoint") if observation else None
-        if not isinstance(first, Mapping):
-            first = None
-
-        runtime: dict[str, Any] = {
-            "status": status,
-            "firstBreakpoint": first,
-        }
-        if observation:
-            runtime["secondaryEvents"] = observation.get("secondaryEvents", [])
-            runtime["evidenceSummary"] = observation.get("evidenceSummary", {})
-            runtime["benchmarkResultIgnored"] = observation.get(
-                "benchmarkResultIgnored", {}
+        occurrences = occurrences_by_sample[sample_id]
+        locations = _occurrence_locations(occurrences)
+        attempts: dict[str, dict[str, Any]] = {}
+        selected = None
+        for report_index, sample_index, raw in raw_by_id.get(sample_id, []):
+            attempt = _attempt(
+                row, raw, observations[(report_index, sample_id)], report_meta[report_index],
+                sample_index, reports[report_index].get("app_identity"),
+                occurrences, locations,
             )
-
-        evidence: dict[str, Any] = {"report": None}
-        raw_info = raw_by_id.get(sample_id)
-        if raw_info:
-            report_path, report_sha, report_index, raw_sample = raw_info
-            raw_evidence = raw_sample.get("evidence")
-            paths = {
-                str(key): value
-                for key, value in raw_evidence.items()
-                if isinstance(value, str)
-            } if isinstance(raw_evidence, Mapping) else {}
-            evidence = {
-                "report": {
-                    "path": str(report_path),
-                    "sha256": report_sha,
-                    "sampleIndex": report_index,
-                },
-                "sampleEvidencePaths": paths,
-            }
-
+            attempts[attempt["id"]] = attempt
+            selected = attempt
         archive_samples.append({
             "id": sample_id,
             "title": row.get("title", sample_id),
             "authored": {
                 "projectSha256": row.get("project_sha256"),
                 "packageSha256": row.get("package_sha256"),
+                "treeSha256": row.get("tree_sha256"),
                 "parseState": row.get("parse_state"),
+                "diagnostics": row.get("diagnostics", []),
+                "inventoryScope": row.get("inventory_scope"),
                 "objectCount": row.get("object_count"),
                 "occurrenceCount": row.get("occurrence_count"),
                 "visibleOccurrenceCount": row.get("visible_occurrence_count"),
@@ -257,15 +536,29 @@ def build_archive(
                 "particleLayerCount": row.get("particle_layer_count"),
                 "dynamicFeatureCounts": row.get("dynamic_feature_counts", {}),
             },
-            "runtime": runtime,
-            "evidence": evidence,
-            "nextAction": _next_action(status, first),
+            "attempts": list(attempts.values()),
+            "selectedAttempt": selected["id"] if selected else None,
+            "selectionBasis": "last-explicit-report" if selected else None,
+            "runtime": selected["runtime"] if selected else {
+                "status": "not-run", "firstBreakpoint": None,
+                "occurrenceObservations": _occurrence_observations(occurrences, locations, {}),
+            },
+            "evidence": selected["evidence"] if selected else {"report": None},
+            "nextAction": selected["nextAction"] if selected else _next_action("not-run", None),
         })
 
     status_counts: Counter[str] = Counter()
     breakpoint_counts: Counter[str] = Counter()
+    scope_counts: Counter[str] = Counter()
+    runtime_candidate_states: Counter[str] = Counter()
+    scope_sample_count = 0
     for row in archive_samples:
         status_counts[row["runtime"]["status"]] += 1
+        observation = row["runtime"].get("occurrenceObservations", {})
+        if "scopeCounts" in observation and observation.get("indexedOccurrenceCount") == row["authored"].get("occurrenceCount"):
+            scope_sample_count += 1
+            scope_counts.update(observation["scopeCounts"])
+            runtime_candidate_states.update(observation["runtimeCandidateStateCounts"])
         first = row["runtime"].get("firstBreakpoint")
         if first:
             key = f"{first.get('stage', 'unknown-stage')}:{first.get('reasonCode', 'unknown-reason')}"
@@ -303,6 +596,15 @@ def build_archive(
         "summary": {
             "sampleCount": len(archive_samples),
             "reportedSampleCount": sum(row["evidence"].get("report") is not None for row in archive_samples),
+            "attemptCount": sum(len(row.get("attempts", [])) if "attempts" in row else int(row["evidence"].get("report") is not None) for row in archive_samples),
+            "sourceInvalidAttemptCount": sum(attempt.get("inputStatus") == "source-invalid" for row in archive_samples for attempt in row.get("attempts", [])),
+            "occurrenceScopes": {
+                "classifiedSampleCount": scope_sample_count,
+                "unclassifiedSampleCount": len(archive_samples) - scope_sample_count,
+                "inventoryOnlyCount": scope_counts["inventory-only"],
+                "runtimeCandidateCount": scope_counts["authored-occurrence"],
+                "runtimeCandidateStateCounts": dict(sorted(runtime_candidate_states.items())),
+            },
             "statusCounts": dict(sorted(status_counts.items())),
             "firstBreakpointCounts": dict(sorted(breakpoint_counts.items())),
             "normalizedDiagnosticClaim": normalized.get("claimBoundary"),

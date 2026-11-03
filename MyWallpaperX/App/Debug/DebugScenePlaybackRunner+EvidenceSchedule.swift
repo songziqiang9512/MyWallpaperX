@@ -100,7 +100,9 @@ extension DebugScenePlaybackRunner {
             if requestedLogOnly, reason == "ready" { continue }
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
                 guard !isClosing else { return }
-                requestSnapshot(reason: reason, outputDirectory: outputDirectory)
+                if !requestedTerminalSnapshot || requestedHoverPointer == nil {
+                    requestSnapshot(reason: reason, outputDirectory: outputDirectory)
+                }
                 // The launch-time particle summary undercounts child-only
                 // containers (their particles spawn after advance-by-0); the
                 // after point captures the settled state for the evidence.
@@ -141,7 +143,7 @@ extension DebugScenePlaybackRunner {
 
     static func requestSnapshot(reason: String, outputDirectory: URL,
                                 kind: SceneDebugFrameCapture.RequestClass = .required) {
-        guard !isClosing, !requestedLogOnly else { return }
+        guard !isClosing, !requestedLogOnly || (requestedTerminalSnapshot && reason == "after") else { return }
         guard let windowNumber = runtimeHost.debugSnapshot().windowNumbers.first else {
             SceneDebugFrameCapture.reportRejected(reason: reason, stage: "surface-lookup")
             return

@@ -18,6 +18,10 @@ struct SceneParticleDrawBatch {
     var inheritsNativeSceneCamera: Bool = false
     var referenceWorldFrame: simd_float4x4? = nil
     var sizeIsWorldSpace: Bool = false
+#if DEBUG
+    var debugRendererComponentIndex: Int? = nil
+    var debugRendererKind: String? = nil
+#endif
 }
 
 private struct SceneParticleQuadVertex {
@@ -174,7 +178,8 @@ final class SceneParticleMetalPipeline {
         colorUVScale: SIMD2<Float> = SIMD2(repeating: 1),
         colorSampling: SceneParticleTextureSampling,
         usesDepthAttachment: Bool = false,
-        encoder: MTLRenderCommandEncoder
+        encoder: MTLRenderCommandEncoder,
+        observeBindings: ((MTLTexture, SceneParticleRefractionBinding.NormalArguments?, MTLTexture?, Int) -> Void)? = nil
     ) -> Bool {
         let variant = SceneParticlePipelineVariant(
             blendMode: renderState.blendMode, usesDepthAttachment: usesDepthAttachment
@@ -226,6 +231,7 @@ final class SceneParticleMetalPipeline {
             instanceCount: drawState.count
         )
         #if DEBUG
+        observeBindings?(texture, nil, nil, drawState.count)
         SceneGPUStageTimestampHook.drew(encoder)
                 ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: true)
 #endif
@@ -255,7 +261,8 @@ final class SceneParticleMetalPipeline {
         colorUVScale: SIMD2<Float>,
         colorSampling: SceneParticleTextureSampling,
         usesDepthAttachment: Bool = false,
-        encoder: MTLRenderCommandEncoder
+        encoder: MTLRenderCommandEncoder,
+        observeBindings: ((MTLTexture, SceneParticleRefractionBinding.NormalArguments?, MTLTexture?, Int) -> Void)? = nil
     ) -> Bool {
         let variant = SceneParticlePipelineVariant(
             isRefraction: true, blendMode: renderState.blendMode,
@@ -320,6 +327,7 @@ final class SceneParticleMetalPipeline {
             instanceCount: drawState.count
         )
         #if DEBUG
+        observeBindings?(texture, normal, background, drawState.count)
         SceneGPUStageTimestampHook.drew(encoder)
                 ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: true)
 #endif

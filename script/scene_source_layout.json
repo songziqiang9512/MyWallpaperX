@@ -735,6 +735,7 @@
           "SceneParticleSimulator+ReduceMovement.swift",
           "SceneParticleSimulator+Vortex.swift",
           "SceneParticleSimulator.swift",
+          "SceneParticleSimulator+Operators.swift",
           "SceneParticleStepSnapshotRecorder.swift",
           "SceneParticleTextureSource.swift",
           "SceneParticleTrailRenderPlan.swift",

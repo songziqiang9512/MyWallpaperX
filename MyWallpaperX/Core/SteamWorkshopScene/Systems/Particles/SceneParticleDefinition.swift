@@ -1,5 +1,13 @@
 import Foundation
 
+#if DEBUG
+nonisolated struct SceneParticleComponentSource: Equatable, Sendable {
+    let componentIndex: Int
+    let kind: String
+}
+
+#endif
+
 nonisolated enum SceneParticleNumericValue: Codable, Equatable, Sendable {
     case scalar(Double)
     case vector([Double])
@@ -340,6 +348,9 @@ nonisolated struct SceneParticleDefinition: Equatable, Sendable {
     let controlPoints: [SceneParticleControlPoint]
     let children: [SceneParticleChild]
     let diagnostics: [SceneParticleDiagnostic]
+#if DEBUG
+    var componentObservationSources: [String: [SceneParticleComponentSource]]? = nil
+#endif
 
     /// Sphere/Box emitters share the same source for pointer demand, emission
     /// and initializer admission. A pointer-driven CP0 is the implicit origin.

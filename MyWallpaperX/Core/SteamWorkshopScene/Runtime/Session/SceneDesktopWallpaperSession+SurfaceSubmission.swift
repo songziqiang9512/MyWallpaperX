@@ -39,6 +39,7 @@ extension SceneDesktopWallpaperSession {
 #if DEBUG
             if case let .prepared(candidate) = frameOutcome {
                 candidate.observeGPUStageSurface(frameIndex: simulationFrameIndex, surfaceID: displayID)
+                candidate.observeCompositionSurface(displayID: displayID, identity: ObjectIdentifier(surface))
             }
             if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
                simulationFrameIndex <= 2,

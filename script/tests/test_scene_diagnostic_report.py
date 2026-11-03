@@ -202,7 +202,7 @@ class SceneDiagnosticReportTests(unittest.TestCase):
         )
         self.assertEqual(observation["basicDisplayStatus"], "blocked")
 
-    def test_incomplete_drawable_census_is_a_pre_effect_cohort_lead(self) -> None:
+    def test_aggregate_loader_lead_does_not_hide_an_exact_effect_failure(self) -> None:
         missing = sample(
             "missing-base",
             layer_id=7,
@@ -224,13 +224,17 @@ class SceneDiagnosticReportTests(unittest.TestCase):
 
         self.assertEqual(
             observation["firstBreakpoint"]["reasonCode"],
-            "base-image-texture-load-incomplete",
-        )
-        self.assertEqual(
-            observation["secondaryEvents"][0]["reasonCode"],
             "shader-unsupported",
         )
+        self.assertEqual(observation["secondaryEvents"], [])
+        lead = observation["evidenceSummary"]["loaderCohortLeads"][0]
+        self.assertEqual((lead["reasonCode"], lead["loaded"], lead["candidates"]),
+                         ("base-image-texture-load-incomplete", 2, 3))
         self.assertEqual(observation["basicDisplayStatus"], "degraded")
+        missing["runtime"]["effect_stage_admission"]["records"] = []
+        observation = diagnostic.normalize_reports([report(missing)])["samples"][0]
+        self.assertIsNone(observation["firstBreakpoint"])
+        self.assertEqual(observation["basicDisplayStatus"], "terminal-compositor-observed")
 
     def test_flat_output_diverging_from_preview_is_a_terminal_blocker(self) -> None:
         fixtures = []
@@ -286,7 +290,7 @@ class SceneDiagnosticReportTests(unittest.TestCase):
                 observation = diagnostic.normalize_reports([report(fixture)])["samples"][0]
                 self.assertIsNone(observation["firstBreakpoint"])
                 self.assertEqual(observation["secondaryEvents"], [])
-                self.assertEqual(observation["basicDisplayStatus"], "terminal-chain-complete")
+                self.assertEqual(observation["basicDisplayStatus"], "terminal-compositor-observed")
                 self.assertEqual(observation["evidenceSummary"]["afterFlatBorderRatio"], 1.0)
                 self.assertEqual(
                     observation["evidenceSummary"]["previewSpatialColorSimilarityAdvisory"],
@@ -330,11 +334,12 @@ class SceneDiagnosticReportTests(unittest.TestCase):
         self.assertEqual(diagnostic._resource_events(runtime), [])
         runtime["particle_sticky_loaded"] = 1
         self.assertEqual(
-            [event["reasonCode"] for event in diagnostic._resource_events(runtime)],
+            [event["reasonCode"] for event in diagnostic._loader_cohort_leads(runtime)],
             ["particle-layer-load-incomplete"],
         )
+        self.assertEqual(diagnostic._resource_events(runtime), [])
 
-    def test_each_drawable_family_reports_an_incomplete_load(self) -> None:
+    def test_loader_leads_keep_different_solid_populations_out_of_failures(self) -> None:
         missing = sample("missing-drawables")
         missing["runtime"].update({
             "text_candidates": 2,
@@ -355,12 +360,85 @@ class SceneDiagnosticReportTests(unittest.TestCase):
             ),
         }
 
-        self.assertEqual(reasons, {
-            "text-texture-load-incomplete",
-            "solid-texture-load-incomplete",
-            "particle-layer-load-incomplete",
-            "authored-composite-skipped-unsupported",
+        self.assertEqual(reasons, {"authored-composite-skipped-unsupported"})
+
+        summary = result["samples"][0]["evidenceSummary"]
+        self.assertEqual({lead["reasonCode"] for lead in summary["loaderCohortLeads"]},
+                         {"text-texture-load-incomplete", "particle-layer-load-incomplete"})
+        self.assertEqual(summary["solidLoadCounts"], {
+            "solid_candidates": 2, "loaded_solid_layers": 1,
         })
+        solid_only = sample("textured-and-procedural-solids")
+        solid_only["runtime"].update(solid_candidates=19, loaded_solid_layers=0)
+        observation = diagnostic.normalize_reports([report(solid_only)])["samples"][0]
+        self.assertIsNone(observation["firstBreakpoint"])
+        self.assertEqual(observation["basicDisplayStatus"], "terminal-compositor-observed")
+
+    def test_terminal_snapshot_is_independent_of_window_visual_observation(self) -> None:
+        fixture = sample("terminal-png")
+        capture = {"status": "captured", "path": "/tmp/terminal.png", "request_id": 7,
+            "command_buffer_token": "submit", "texture_token": "drawable",
+            "source_width": 3024, "source_height": 1964, "output_width": 1280, "output_height": 831,
+            "non_black": True, "claim_boundary": "terminal-png-not-presented-or-per-input-visibility"}
+        fixture["evidence"] = {"visual_status": "not-requested", "snapshot_capture": capture}
+        graph = fixture["runtime"]["resolved_material_graph_execution"]["graph_observations"]
+        graph["layer_source_transient_diagnostics_recovered"] = 1
+        observation = diagnostic.normalize_reports([report(fixture)])["samples"][0]
+        summary = observation["evidenceSummary"]
+        self.assertEqual(summary["terminalSnapshot"], {**capture, "composition_receipt_matched": False})
+        self.assertFalse(summary["afterNonBlackObserved"])
+        self.assertEqual(summary["visualObservationStatus"], "not-requested")
+        self.assertEqual(summary["layerSourceRecoveryAdvisory"]["diagnosticCount"], 1)
+        self.assertIsNone(observation["firstBreakpoint"])
+        fixture["evidence"]["snapshot_capture"] = {"status": "missing"}
+        fixture["runtime"]["resolved_material_graph_execution"]["executor"]["failure_count"] = 1
+        observation = diagnostic.normalize_reports([report(fixture)])["samples"][0]
+        self.assertEqual(observation["evidenceSummary"]["terminalSnapshot"],
+                         {"status": "missing", "composition_receipt_matched": False})
+        self.assertEqual(observation["firstBreakpoint"]["reasonCode"], "graph-executor-reported-failure")
+        self.assertEqual(observation["basicDisplayStatus"], "blocked")
+        del fixture["evidence"]["snapshot_capture"]
+        self.assertEqual(diagnostic._evidence_summary(fixture)["terminalSnapshot"], {})
+
+    def test_ordinary_terminal_capture_joins_the_actual_gpu_frame_without_a_graph(self) -> None:
+        fixture = sample("ordinary-output")
+        fixture["runtime"] = {"surfaces": 1}
+        capture = {"status": "captured", "request_id": 7, "command_buffer_token": "submission-31",
+                   "texture_token": "drawable-42", "source_width": 3024, "source_height": 1964}
+        fixture["evidence"] = {"visual_status": "not-requested", "snapshot_capture": capture}
+        event = {"schemaVersion": 1, "captureRequestID": 7, "commandBufferToken": "submission-31",
+                 "surfaceIdentity": "surface-18", "gpuStatus": "completed", "frameIndex": 99,
+                 "rows": [{"kind": "frame-seal", "outcome": "sealed", "target": {
+                     "textureToken": "drawable-42", "width": 3024, "height": 1964}}]}
+        fixture["runtime"]["composition_observations"] = {"events": [event]}
+        observation = diagnostic.normalize_reports([report(fixture)])["samples"][0]
+        self.assertEqual(observation["basicDisplayStatus"], "terminal-compositor-observed")
+        self.assertEqual(observation["evidenceSummary"]["acceptedGraphLayerCount"], 0)
+        self.assertEqual(observation["evidenceSummary"]["gpuCompletedTerminalLayerIds"], [])
+        self.assertEqual(observation["evidenceSummary"]["terminalSnapshot"]["frame_index"], 99)
+        fixture["runtime"]["resolved_material_graph_execution"] = {"executor": {"failure_count": 1}}
+        blocked = diagnostic.normalize_reports([report(fixture)])["samples"][0]
+        self.assertEqual(blocked["basicDisplayStatus"], "blocked")
+        self.assertEqual(blocked["firstBreakpoint"]["reasonCode"], "graph-executor-reported-failure")
+        del fixture["runtime"]["resolved_material_graph_execution"]
+        for key, wrong in (("captureRequestID", 8), ("commandBufferToken", "other"),
+                           ("surfaceIdentity", None), ("gpuStatus", "failed")):
+            original = event[key]
+            event[key] = wrong
+            with self.subTest(key=key):
+                value = diagnostic.normalize_reports([report(fixture)])["samples"][0]
+                self.assertEqual(value["basicDisplayStatus"], "runtime-evidence-incomplete")
+            event[key] = original
+        for key, wrong in (("textureToken", "other"), ("width", 1), ("height", 1)):
+            target = event["rows"][0]["target"]
+            original, target[key] = target[key], wrong
+            with self.subTest(target_key=key):
+                value = diagnostic.normalize_reports([report(fixture)])["samples"][0]
+                self.assertFalse(value["evidenceSummary"]["terminalSnapshot"]["composition_receipt_matched"])
+            target[key] = original
+        fixture["runtime"]["composition_observations"]["events"].append(event)
+        value = diagnostic.normalize_reports([report(fixture)])["samples"][0]
+        self.assertEqual(value["basicDisplayStatus"], "runtime-evidence-incomplete")
 
     def test_effect_local_fallback_clusters_without_sample_or_layer_identity(self) -> None:
         fixtures = []
@@ -472,6 +550,7 @@ class SceneDiagnosticReportTests(unittest.TestCase):
         logged["evidence"] = {"visual_status": "not-requested"}
         visual["evidence"] = {}
         invalid = {"id": "invalid", "input_status": "source-invalid", "runtime": {},
+                   "input_reason_code": "project-root-not-object",
                    "evidence": {"visual_status": "not-requested"}}
         normalized = diagnostic.normalize_reports([report(logged, visual, invalid)])
         observed = {value["sampleId"]: value for value in normalized["samples"]}
@@ -480,7 +559,7 @@ class SceneDiagnosticReportTests(unittest.TestCase):
         self.assertFalse(observed["logged"]["evidenceSummary"]["readyNonBlackObserved"])
         self.assertEqual(observed["visual"]["firstBreakpoint"]["reasonCode"],
                          "terminal-output-non-black-missing")
-        self.assertEqual(observed["invalid"]["firstBreakpoint"]["reasonCode"], "project-json-missing")
+        self.assertEqual(observed["invalid"]["firstBreakpoint"]["reasonCode"], "project-root-not-object")
         self.assertEqual(observed["invalid"]["firstBreakpoint"]["owner"], "SceneProjectLoader")
 
     def test_rejected_callbacks_without_code_retain_typed_failure(self):
@@ -641,7 +720,7 @@ class SceneDiagnosticReportTests(unittest.TestCase):
         self.assertEqual(observation["secondaryEvents"], [])
         self.assertEqual(
             observation["basicDisplayStatus"],
-            "terminal-chain-complete",
+            "terminal-compositor-observed",
         )
         self.assertEqual(observation["benchmarkResultIgnored"]["failureCount"], 2)
 
@@ -662,10 +741,40 @@ class SceneDiagnosticReportTests(unittest.TestCase):
 
         self.assertEqual(result["samples"][0]["firstBreakpoint"], None)
         self.assertEqual(result["clusters"], [])
+        self.assertEqual(result["samples"][0]["basicDisplayStatus"], "terminal-compositor-observed")
+        self.assertEqual(result["samples"][0]["evidenceSummary"]["gpuCompletedTerminalLayerIds"], [1])
         self.assertEqual(
             result["claimBoundary"],
             "runtime-and-output-diagnostics-only-not-visual-correctness",
         )
+
+    def test_graph_presence_and_disjoint_gpu_terminal_sets_never_claim_complete(self) -> None:
+        empty = sample("empty", resolved={"has_evidence": True})
+        disjoint = sample("disjoint")
+        graph = disjoint["runtime"]["resolved_material_graph_execution"]["graph_observations"]
+        graph["successful_gpu_completed_layer_ids"] = [999]
+        observations = {row["sampleId"]: row for row in diagnostic.normalize_reports([report(empty, disjoint)])["samples"]}
+        self.assertEqual(observations["empty"]["basicDisplayStatus"], "runtime-evidence-incomplete")
+        self.assertEqual(observations["disjoint"]["basicDisplayStatus"], "terminal-compositor-observed")
+        summary = observations["disjoint"]["evidenceSummary"]
+        self.assertEqual(summary["successfulGPUCompletedLayerIds"], [999])
+        self.assertEqual(summary["gpuCompletedTerminalLayerIds"], [])
+
+    def test_stop_and_drain_failures_use_runtime_facts_and_missing_legacy_fields_stay_unknown(self) -> None:
+        for lifecycle, expected in [
+            ({}, []),
+            ({"stopped_observed": False, "surfaces_released": False, "gpu_drained": False}, ["stop-event-missing"]),
+            ({"stopped_observed": True, "surfaces_released": False, "gpu_drained": False}, ["gpu-drain-incomplete", "surfaces-not-released"]),
+            ({"stopped_observed": True, "surfaces_released": True, "gpu_drained": True}, []),
+        ]:
+            with self.subTest(lifecycle=lifecycle):
+                fixture = sample("stop")
+                fixture["runtime"]["lifecycle"] = lifecycle
+                observation = diagnostic.normalize_reports([report(fixture)])["samples"][0]
+                events = [observation["firstBreakpoint"], *observation["secondaryEvents"]]
+                reasons = sorted(event["reasonCode"] for event in events if event and event["stage"] == "lifecycle")
+                self.assertEqual(reasons, expected)
+                self.assertEqual(observation["basicDisplayStatus"], "blocked" if expected else "terminal-compositor-observed")
 
     def test_registered_preview_oracle_skips_flat_preview_divergence(self) -> None:
         """A registered time-dependent sample must not earn a blocking
@@ -695,7 +804,7 @@ class SceneDiagnosticReportTests(unittest.TestCase):
         by_id = {s["sampleId"]: s for s in result["samples"]}
         self.assertEqual(
             by_id["3792249095"]["basicDisplayStatus"],
-            "terminal-chain-complete",
+            "terminal-compositor-observed",
         )
         self.assertEqual(by_id["3792249095"]["firstBreakpoint"], None)
         self.assertEqual(

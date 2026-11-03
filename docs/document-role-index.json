@@ -852,7 +852,7 @@
       "lastReviewed": "2026-11-03",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c0a5e2e81f78527d9bf81039ec8df6c8a7e3fadefb50f895845a431e38fc9499",
+        "sourceSHA256": "c56a65a383004e460bd506dc4718c8202674f6da2f1cd520809d51fff11cee37",
         "method": "document_registry --audit + document_health --check",
         "scope": "当前源码职责、工具入口与文档引用核对。",
         "limitations": "文档核对未新增App、GPU、官方对照或性能运行。"

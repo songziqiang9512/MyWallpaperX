@@ -1,6 +1,11 @@
 import Foundation
 
 nonisolated struct SceneParticleDefinitionParser {
+#if DEBUG
+    static let componentObservationEnabled = ProcessInfo.processInfo.environment[
+        "MWX_SCENE_PARTICLE_COMPONENT_OBSERVATION"
+    ] == "1"
+#endif
     nonisolated enum ParseError: Error {
         case invalidJSON
     }
@@ -14,25 +19,56 @@ nonisolated struct SceneParticleDefinitionParser {
 
     nonisolated func parse(root: [String: Any]) -> SceneParticleDefinition {
         var diagnostics: [SceneParticleDiagnostic] = []
+#if DEBUG
+        var sources: [String: [SceneParticleComponentSource]]? =
+            Self.componentObservationEnabled ? [:] : nil
+        func recordSource(_ category: String, _ index: Int, _ root: [String: Any]) {
+            guard sources != nil else { return }
+            sources?[category, default: []].append(.init(
+                componentIndex: index,
+                kind: category == "children" ? (root["type"] as? String ?? "static")
+                    : Self.componentName(root)
+            ))
+        }
+#endif
         if Self.normalizedPath(root["material"] as? String) == nil {
             diagnostics.append(.init(kind: .missingRequiredField, path: "material", componentName: nil))
         }
         let emitters = parseComponents(root["emitter"], section: "emitter", diagnostics: &diagnostics) {
-            parseEmitter($0, diagnostics: &$1)
+            component, index, diagnostics in
+#if DEBUG
+            recordSource("emitter", index, component)
+#endif
+            return parseEmitter(component, diagnostics: &diagnostics)
         }
         if emitters.isEmpty {
             diagnostics.append(.init(kind: .missingRequiredField, path: "emitter", componentName: nil))
         }
         let initializers = parseComponents(
             root["initializer"], section: "initializer", diagnostics: &diagnostics
-        ) { parseInitializer($0, diagnostics: &$1) }
+        ) { component, index, diagnostics in
+#if DEBUG
+            recordSource("initializer", index, component)
+#endif
+            return parseInitializer(component, diagnostics: &diagnostics)
+        }
         let operators = parseComponents(
             root["operator"], section: "operator", diagnostics: &diagnostics
-        ) { parseOperator($0, diagnostics: &$1) }
+        ) { component, index, diagnostics in
+#if DEBUG
+            recordSource("operator", index, component)
+#endif
+            return parseOperator(component, diagnostics: &diagnostics)
+        }
         let rendererWasImplicit = root["renderer"] == nil
         var renderers = parseComponents(
             root["renderer"], section: "renderer", diagnostics: &diagnostics
-        ) { parseRenderer($0, diagnostics: &$1) }
+        ) { component, index, diagnostics in
+#if DEBUG
+            recordSource("renderer", index, component)
+#endif
+            return parseRenderer(component, diagnostics: &diagnostics)
+        }
         if rendererWasImplicit {
             renderers = [.init(
                 id: nil, kind: .sprite, orientation: nil, axis: nil, rawFlags: 0,
@@ -42,7 +78,19 @@ nonisolated struct SceneParticleDefinitionParser {
             )]
         }
 
-        return SceneParticleDefinition(
+        let controlPoints = Self.componentRoots(root["controlpoint"]) { component, index in
+#if DEBUG
+            recordSource("controlpoint", index, component)
+#endif
+            return parseControlPoint(component)
+        }
+        let children = Self.componentRoots(root["children"]) { component, index in
+#if DEBUG
+            recordSource("children", index, component)
+#endif
+            return parseChild(component)
+        }
+        var definition = SceneParticleDefinition(
             materialPath: Self.normalizedPath(root["material"] as? String),
             maximumCount: Self.integer(root["maxcount"]),
             startTime: Self.number(root["starttime"]),
@@ -54,10 +102,14 @@ nonisolated struct SceneParticleDefinitionParser {
             operators: operators,
             renderers: renderers,
             rendererWasImplicit: rendererWasImplicit,
-            controlPoints: Self.componentRoots(root["controlpoint"]).map(parseControlPoint),
-            children: Self.componentRoots(root["children"]).map(parseChild),
+            controlPoints: controlPoints,
+            children: children,
             diagnostics: diagnostics
         )
+#if DEBUG
+        definition.componentObservationSources = sources
+#endif
+        return definition
     }
 
     private nonisolated func parseEmitter(
@@ -316,7 +368,7 @@ nonisolated struct SceneParticleDefinitionParser {
         _ rawValue: Any?,
         section: String,
         diagnostics: inout [SceneParticleDiagnostic],
-        transform: ([String: Any], inout [SceneParticleDiagnostic]) -> T
+        transform: ([String: Any], Int, inout [SceneParticleDiagnostic]) -> T
     ) -> [T] {
         guard rawValue != nil else { return [] }
         guard let values = rawValue as? [Any] else {
@@ -330,12 +382,16 @@ nonisolated struct SceneParticleDefinitionParser {
                 ))
                 return nil
             }
-            return transform(root, &diagnostics)
+            return transform(root, index, &diagnostics)
         }
     }
 
-    private nonisolated static func componentRoots(_ rawValue: Any?) -> [[String: Any]] {
-        (rawValue as? [Any] ?? []).compactMap { $0 as? [String: Any] }
+    private nonisolated static func componentRoots<T>(
+        _ rawValue: Any?, transform: ([String: Any], Int) -> T
+    ) -> [T] {
+        (rawValue as? [Any] ?? []).enumerated().compactMap { index, value in
+            (value as? [String: Any]).map { transform($0, index) }
+        }
     }
 
     nonisolated static func componentName(_ root: [String: Any]) -> String {

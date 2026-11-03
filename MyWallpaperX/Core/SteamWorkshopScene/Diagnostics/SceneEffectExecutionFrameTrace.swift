@@ -137,6 +137,53 @@ nonisolated struct SceneEffectRouteEvent: Hashable, Sendable {
     }
 }
 
+nonisolated struct SceneCompositionTextureObservation: Codable, Sendable {
+    var textureToken: String
+    var width: Int
+    var height: Int
+    var pixelFormat: UInt
+    var role: String
+    var logical: String? = nil
+    var provenance: String? = nil
+    var candidateIdentity: String? = nil
+    var candidateGeneration: String? = nil
+    var purpose: String? = nil
+    var content: String? = nil
+    var generation: UInt64? = nil
+    var contentGeneration: UInt64? = nil
+    var uv: [Float]? = nil
+    var sampling: String? = nil
+}
+
+nonisolated struct SceneCompositionObservationRow: Codable, Sendable {
+    var kind: String
+    var layerID: Int? = nil
+    var effectIndex: Int? = nil
+    var nodeIndex: Int? = nil
+    var materialOrdinal: Int? = nil
+    var slot: Int? = nil
+    var source: SceneCompositionTextureObservation? = nil
+    var target: SceneCompositionTextureObservation? = nil
+    var access: String = "texture-bind"
+    var outcome: String = "draw-encoded"
+    var reason: String? = nil
+    var details: [String: String]? = nil
+}
+
+nonisolated struct SceneCompositionFrameObservation: Codable, Sendable {
+    var schemaVersion = 1
+    let frameIndex: UInt64
+    let commandBufferToken: String?
+    var captureRequestID: UInt64? = nil
+    var surfaceIdentity: String? = nil
+    var displayID: UInt32? = nil
+    var presentRequested = false
+    var gpuStatus = "not-submitted"
+    var gpuError: String? = nil
+    var rows: [SceneCompositionObservationRow] = []
+    var truncatedRows = 0
+}
+
 nonisolated final class SceneEffectExecutionFrameTrace: @unchecked Sendable {
     let frameIndex: UInt64
 
@@ -146,10 +193,19 @@ nonisolated final class SceneEffectExecutionFrameTrace: @unchecked Sendable {
     private var routeEvents: Set<SceneEffectRouteEvent> = []
     private var isFrozen = false
     private var frozenCohort: SceneEffectExecutionFrameCohort?
+    let isCompositionSelected: Bool
+    private var compositionObservation: SceneCompositionFrameObservation?
 
-    init(frameIndex: UInt64, telemetry: SceneEffectExecutionTelemetry) {
+    init(frameIndex: UInt64, telemetry: SceneEffectExecutionTelemetry,
+         observesComposition: Bool = false, commandBufferToken: String? = nil,
+         captureRequestID: UInt64? = nil) {
         self.frameIndex = frameIndex
         self.telemetry = telemetry
+        isCompositionSelected = observesComposition
+        if observesComposition {
+            compositionObservation = .init(frameIndex: frameIndex, commandBufferToken: commandBufferToken,
+                captureRequestID: captureRequestID)
+        }
     }
 
     @discardableResult
@@ -201,7 +257,7 @@ nonisolated final class SceneEffectExecutionFrameTrace: @unchecked Sendable {
         withLock {
             if isFrozen { return frozenCohort }
             isFrozen = true
-            guard !invocationEvents.isEmpty || !routeEvents.isEmpty else { return nil }
+            guard !invocationEvents.isEmpty || !routeEvents.isEmpty || isCompositionSelected else { return nil }
 
             let subjects = Set(invocationEvents.map(\.subject))
             let returned = Set(invocationEvents.lazy.filter {
@@ -228,6 +284,40 @@ nonisolated final class SceneEffectExecutionFrameTrace: @unchecked Sendable {
             frozenCohort = cohort
             return cohort
         }
+    }
+
+    func recordComposition(_ row: SceneCompositionObservationRow) {
+        guard isCompositionSelected else { return }
+        withLock {
+            guard !isFrozen else { return }
+            // The diagnostic budget never changes resource admission or playback.
+            guard compositionObservation!.rows.count < 4096 else {
+                compositionObservation!.truncatedRows += 1
+                return
+            }
+            compositionObservation!.rows.append(row)
+        }
+    }
+
+    func setCompositionSurface(displayID: UInt32, identity: String) {
+        guard isCompositionSelected else { return }
+        withLock {
+            guard !isFrozen else { return }
+            compositionObservation?.displayID = displayID
+            compositionObservation?.surfaceIdentity = identity
+        }
+    }
+
+    func setCompositionPresentRequested(_ present: Bool) {
+        guard isCompositionSelected else { return }
+        withLock {
+            guard !isFrozen else { return }
+            compositionObservation?.presentRequested = present
+        }
+    }
+
+    func frozenCompositionObservation() -> SceneCompositionFrameObservation? {
+        withLock { compositionObservation }
     }
 
     private func recordInvocation(
