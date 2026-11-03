@@ -17,9 +17,8 @@
 | 通道与操作推导 | 无typed边界的颜色兼容、alpha-only/packed data及有序signal仍有有界source事实；反射中的vec4本身不能说明通道意图。沿原compiler/ABI补实际跨函数、条件合流与操作能力缺口，保持未取得的表示资格；不为效果写法追加识别名单。 |
 | linked timeline producer · 2999344788、3577990983 | bokeh的linked parent/children timeline在准备期报`dynamic-uniform-producer-unavailable`；原载荷未指出missing uniform，需沿BindingProgram/producer取得精确未接入字段。 |
 | graph引用 · 2804817823、2972071249、3504669359 | secondary-self `_19_b`、forward `_234_a`、多provider `_91_a/_1030_a`被编译器拒绝。hidden辅助provider是否仍发布按真实consumer资格，不改成全局prepass或丢原作者顺序。 |
-| subtree容器 · 3529515784/175、3825183869/187 | SourceRoute先拒container42及container403/402，后者下有15text/16solid。容器只承变换、不自产生draw；沿原parent闭包与render order跳过无绘制容器，不能按成员名单拒整个合法后代。 |
 | subtree粒子 · 3465215190/2481、3781757083/133、3806222046/454、3809609151/42 | SourceRoute先拒子树particle成员；现layer main-pass能draw，但局部composition raster/camera消费尚未接入。补原粒子绘制的局部投影及target消费，不凭顶层可draw就裸放子树。 |
-| subtree来源组合 · 3554161528/1111、3788897599/196 | 前者child411同时为dependency411，后者project带child291，均先被SourceRoute结构检查拒绝。与上两行共享错误码，不能统一归为后置dependency guard；分别核实际source/publication及project子树语义。 |
+| subtree来源组合 · 3554161528/1111、3788897599/196 | 前者child411同时为dependency411，后者project带child291，均先被SourceRoute结构检查拒绝。同码可来自SourceRoute或后置ownership检查，不能合并归因；分别核实际source/publication及project子树语义。 |
 | 混合子树source · 3830727231/882 | 当前五个active effect（opacity、waterflow及3个shake）均`r5-no-runtime-owner`，同帧无882 sourceCapture/material/tail；children含composition93、particles202/206/209、solid790。原始与本次输入摘要一致、状态一致，首拒绝child尚未知；沿composition source接入核对，不能归为五个shader失败或用723 blur成功关闭它。 |
 | Program阶段守恒 · 3086016320/430 | 明确`execution-stage-conservation`准备拒绝，原码由多个guard共用、具体缺项未知；沿ProgramFirstStages定位，保父426默认alpha=0的输入边界。 |
 | uniform / provider · 3511024658/73、3759799379/319 | 前者`dynamic-uniform-unavailable`未给具体字段，不能直接称缺音频；后者dependency309报`dependency-provider-rejected`，需原composition projection/route首拒绝原因。 |
@@ -58,6 +57,7 @@
 | 定位 | 下一步 |
 |---|---|
 | composition · 2731896598 | childless透视与三维angles组合需真实几何/Camera/回绘资格，不以false-only代作者输入。 |
+| source-less quad | 已可见的parented quad走原group raster；`VisibilityAdmission`的quadLeaf仍要求parentID=nil，需原prepared capability下的隐藏/显示、组source清理及健康peer反例。`supportsTransparentDirectDraw`仍整体排除active slot0；显式资产slot0是否真正依赖graph应沿实际sampler/绑定资格，不按slot编号猜测。后者尚无真实输入运行资格。 |
 | source material · 3616476797/113、3679907516/71/74/83、3141464346 | 逐pass核source-only state/lookup/活动purpose；314重点232/277/321/386/416/420/481/719，不从VERSION2或translucent推通用接口。 |
 | static model / resolved render state | 任意shader、多pass与更广blend/depth/cull须原binding compiler和fullscreen/output用途资格；保深度、淡出与PMA。 |
 | Puppet · 3577990983、3822822401、3779107475 | auxiliary/reference、非中性通道、dense state1及多contributor姿态按真实reference/attachment坐标基资格，Reader识别不等于evaluator执行。 |

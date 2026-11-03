@@ -144,8 +144,9 @@ enum CompositionSourceProbe {
         var passthrough = utility; passthrough.passthrough = true
         func layer(_ id: Int, parent: Int? = nil, children: [Int] = [],
                    utility: SceneUtilityLayer? = nil,
+                   kind: String? = nil,
                    effects: [SceneRenderDescriptor.EffectDescriptor] = []) -> SceneRenderDescriptor.Layer {
-            .init(parentID: parent, id: id, contentKind: utility == nil ? "solid" : "composition",
+            .init(parentID: parent, id: id, contentKind: kind ?? (utility == nil ? "solid" : "composition"),
                 utilityLayer: utility, dependencyLayerIDs: [], childLayerIDs: children,
                 visible: true, effects: effects)
         }
@@ -155,7 +156,8 @@ enum CompositionSourceProbe {
         for (index, ids) in [[101, 203, 307, 401], [outer, inner, middle, leaf]].enumerated() {
             let roots = [layer(ids[0], children: [ids[1]], utility: utility),
                 layer(ids[1], parent: ids[0], children: [ids[2]], utility: utility),
-                layer(ids[2], parent: ids[1], children: [ids[3]], utility: passthrough),
+                layer(ids[2], parent: ids[1], children: [ids[3]],
+                    utility: index == 0 ? passthrough : nil, kind: index == 0 ? nil : "container"),
                 layer(ids[3], parent: ids[2])]
             var descriptor = SceneRenderDescriptor(layers: index == 0 ? roots : Array(roots.reversed()),
                 renderOrderLayerIDs: [ids[3], ids[0], ids[2], ids[1]])
@@ -172,6 +174,7 @@ enum CompositionSourceProbe {
                 && execution.memberRootsByLayerID[ids[3]] == ids[1]
                 && execution.localSourceRootIDs == Set([ids[0], ids[1]])
                 && execution.membersByRootID[ids[2]] == nil
+                && (index == 0 || plans[ids[2]] == nil)
             selected = execution
             for visible in [true, false] {
                 let changedRoot = layer(ids[0], children: [ids[1]], utility: utility,

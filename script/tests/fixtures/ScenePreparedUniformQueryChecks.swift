@@ -32,7 +32,8 @@ private enum ScenePreparedUniformQueryChecks {
 
     static func prepare(_ name: String, keys: [String] = ["anchor"],
         type: String = "vec2", defaultValue: String = "1 1", range: String? = nil,
-        declarations: [Template.UniformDeclaration] = [], renamed: Bool = false
+        declarations: [Template.UniformDeclaration] = [], renamed: Bool = false,
+        combos: [String: Int] = [:]
     ) throws -> Prepared {
         let fields = keys.indices.map { renamed ? "u_Moved\($0)" : "u_Point\($0)" }
         let uniforms = zip(keys, fields).map { key, field in
@@ -60,7 +61,7 @@ private enum ScenePreparedUniformQueryChecks {
                 \(uniforms)
                 void main() { gl_FragColor = \(color); }
                 """)
-        let material = template(shader, includePrimaryCandidate: false, comboValues: ["DIRECTDRAW": 1],
+        let material = template(shader, includePrimaryCandidate: false, comboValues: combos,
             uniformDeclarations: declarations)
         let cache = try SceneResolvedMaterialVariantCache.launchValidated(
             template: material, textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: material), maximumVariantCount: 1).get()
@@ -276,7 +277,7 @@ private enum ScenePreparedUniformQueryChecks {
         var mismatch: SceneResolvedMaterialFailure?
         do { _ = try input(snapshot, textureFrame: 43) }
         catch let failure as SceneResolvedMaterialFailure { mismatch = failure }
-        return [
+        var facts = [
             "non-float2-keeps-valid-shader-uniform-but-is-not-geometry":
                 Program.resolvePreparedPoint(binding, snapshot: snapshot) == nil
                 && queried.encodedValue.count == 16
@@ -287,6 +288,49 @@ private enum ScenePreparedUniformQueryChecks {
                 && mismatch?.code == .frameSnapshotMismatch,
             "no-texture-resource-or-finalizer-slot-created": program.textureSlots.allSatisfy { $0 == nil },
         ]
+        for (name, combos) in [("absent", [:]), ("zero", ["DIRECTDRAW": 0]),
+                               ("one", ["DIRECTDRAW": 1]), ("unrelated", ["OWN_VARIANT": 7])] {
+            let independent = try prepare("source-free-\(name)", combos: combos)
+            let linked = try finalize(independent, snapshot).get()
+            facts["source-free-\(name)-uses-prepared-program-without-license"] =
+                independent.cache.supportsTransparentDirectDraw
+                && linked.frontendProgram.textureBindings.isEmpty
+                && linked.textureSlots.allSatisfy { $0 == nil }
+        }
+        let independentTemplate = vector3.cache.launchEnvelopeCapabilitySnapshot().template
+        let unprepared = try SceneResolvedMaterialVariantCache.launchValidated(
+            template: independentTemplate,
+            textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: independentTemplate),
+            maximumVariantCount: 1).get()
+        facts["source-free-unprepared-cache-is-not-executable"] = !unprepared.supportsTransparentDirectDraw
+        for slot in [0, 3] {
+            for combo in [0, 1] {
+                let shader = contract(revision: "graph-input-\(slot)-\(combo)", semanticProbes: false,
+                    vertexSourceOverride: """
+                        attribute vec3 a_Position;
+                        attribute vec2 a_TexCoord;
+                        varying vec2 v_TexCoord;
+                        void main() { v_TexCoord = a_TexCoord; gl_Position = vec4(a_Position, 1.0); }
+                        """,
+                    fragmentSourceOverride: """
+                        uniform sampler2D g_Texture\(slot); // {"material":"framebuffer"}
+                        varying vec2 v_TexCoord;
+                        void main() { gl_FragColor = texSample2D(g_Texture\(slot), v_TexCoord); }
+                        """)
+                let input = template(shader, slot: slot, graphBindingsOverride: slot == 0 ? nil : [],
+                    comboValues: ["DIRECTDRAW": combo])
+                let dependent = try SceneResolvedMaterialVariantCache.launchValidated(template: input,
+                    textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: input),
+                    maximumVariantCount: 1).get()
+                try dependent.precompileLaunchEnvelope(implicitFramebufferIdentity: graphTexture()).get()
+                let variants = dependent.launchEnvelopeCapabilitySnapshot().variants
+                facts["graph-input-slot\(slot)-combo\(combo)-remains-source-dependent"] =
+                    !dependent.supportsTransparentDirectDraw && variants.count == 1
+                    && variants[0].frontendProgram.textureBindings.map(\.slot) == [slot]
+                    && variants[0].graphInputSourceSlotFacts[slot]?.inputIdentity == graphTexture()
+            }
+        }
+        return facts
     }
 
     static func main() throws {

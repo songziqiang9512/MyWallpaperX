@@ -100,10 +100,6 @@ nonisolated enum SceneUtilityLayerSourceRoute {
                 || (layer.parentID == nil && localSource) else {
             return .failure(.compositionSubtreeShape)
         }
-        // Existing color producers can draw into this target. Depth-tested
-        // models, particles and lights retain their existing unsupported route.
-        // Plain members may own transform-parent chains; membership follows
-        // the full parent closure, so only the member kind is restricted.
         for childID in descendants {
             guard let child = layersByID[childID] else {
                 return .failure(.compositionSubtreeShape)
@@ -119,8 +115,12 @@ nonisolated enum SceneUtilityLayerSourceRoute {
                     return .failure(.compositionSubtreeShape)
                 }
             } else {
-                guard ["image", "solid", "text"].contains(child.contentKind) else {
+                // These draw paths do not yet consume the group's local raster map.
+                switch child.contentKind {
+                case "model", "spotLight", "particle":
                     return .failure(.compositionSubtreeShape)
+                default:
+                    break
                 }
             }
         }

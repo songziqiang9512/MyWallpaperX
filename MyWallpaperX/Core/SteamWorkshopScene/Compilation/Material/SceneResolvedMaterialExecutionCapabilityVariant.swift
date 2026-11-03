@@ -247,14 +247,12 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
         }
     }
 
-    /// A source-less object route is executable only when the authored
-    /// variant explicitly selects DIRECTDRAW and the complete launch envelope
-    /// proves that no active sampler can consume the graph input.
+    /// A source-less route requires the prepared launch envelope to carry no
+    /// implicit or graph input dependency.
     var supportsTransparentDirectDraw: Bool {
         lock.lock()
         defer { lock.unlock() }
-        guard template.comboValues["DIRECTDRAW"] == 1,
-              template.graphRole.bindings.isEmpty,
+        guard template.graphRole.bindings.isEmpty,
               hasCachedReachability,
               let reachable = cachedReachability?.samplers,
               reachable[0] == nil,

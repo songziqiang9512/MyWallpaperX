@@ -113,8 +113,8 @@
       "bytes": 7033
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
-      "lines": 48,
-      "bytes": 5044
+      "lines": 50,
+      "bytes": 5757
     },
     "docs/scene/capabilities/material-video-assets.md": {
       "lines": 57,
@@ -129,8 +129,8 @@
       "bytes": 10921
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 40,
-      "bytes": 7175
+      "lines": 41,
+      "bytes": 8028
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 81,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 158,
-      "bytes": 21823
+      "bytes": 21957
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -381,15 +381,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "9c90d18ce0da9868bfa3d77004cc2da55149adeb44a7524adbcb6794f1bae9b2",
-      "after": "b419184983fb6f5131d8d0c5f897927f5affdfbe4769e6a894deec6a61813141",
-      "owner": "scene-typed-color-compilation",
-      "reason": "Record broad and final-role App identities, dynamic tint pixels, exact author consumption and bounded native/tool coverage.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#typed-color-compilation"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/development/development-workflow.md",
       "before": "e2c8626027b720dd9fe8f739d9f493610ba215a5d01dee52640d000c835cd86b",
       "after": "2a81a44c9e73b7087764b6bbbf63da0bd0eb388b6002b9ae4eff8281b1f4275f",
@@ -399,12 +390,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/effect-execution-coverage.md",
+      "before": "9a73f8365f4e5dd0e2a145a8fbb00693060913dfc3ce5ed186a7672e7de68a6c",
+      "after": "249ee5650046cc7702291f6b82bd7fc9f55e2d3ee774aecb17f4f0902e41c7ca",
+      "owner": "Scene composition/source preparation",
+      "reason": "Current drawable/interface responsibility, exact typed source-free qualification and bounded runtime evidence; queue retains only open facts.",
+      "decision": "docs/scene/capabilities/effect-execution-coverage.md#composition"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "b419184983fb6f5131d8d0c5f897927f5affdfbe4769e6a894deec6a61813141",
+      "after": "71a7f71e69f5014e72f9232c4d8f625d50dbc890f84a7b06b9731ae15babf074",
+      "owner": "Scene composition/source preparation",
+      "reason": "Current drawable/interface responsibility, exact typed source-free qualification and bounded runtime evidence; queue retains only open facts.",
+      "decision": "docs/scene/capabilities/effect-execution-coverage.md#composition"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "c74b668b3d19f3994b05f0e748f7d5e846d7d9b9e9fd224b3caf207c697afa40",
-      "after": "f997c81325ee90fd82bb0880543a2867ec1a9abe784facd7f98d6e388b185bac",
-      "owner": "scene-typed-color-compilation",
-      "reason": "Replace repaired typed color permission with remaining channel/operation gaps and the proven oversized compiler fixture owner; preserve independent source/producer problems.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#typed-color-compilation"
+      "before": "f997c81325ee90fd82bb0880543a2867ec1a9abe784facd7f98d6e388b185bac",
+      "after": "ba68f9425ad7d9bb9f321bb0f6be75d143cc826bc27ef63d61158aba1ad5039c",
+      "owner": "Scene composition/source preparation",
+      "reason": "Current drawable/interface responsibility, exact typed source-free qualification and bounded runtime evidence; queue retains only open facts.",
+      "decision": "docs/scene/capabilities/effect-execution-coverage.md#composition"
     }
   ]
 }

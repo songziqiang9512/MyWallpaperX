@@ -33,6 +33,10 @@ CYAN = (0, 255, 255)
 ROI_RECTS = {"background": (116, 116, 140, 140),
              "child": (52, 116, 76, 140),
              "nonchild": (180, 116, 204, 140)}
+LAYER_IDS = {"background": 1, "composition": 20, "child": 21, "nonchild": 30,
+             "containers": [42]}
+RENAMED_LAYER_IDS = {"background": 73, "composition": 901, "child": 218, "nonchild": 709,
+                     "containers": [403, 402]}
 VERTEX = (b"attribute vec3 a_Position;\nattribute vec2 a_TexCoord;\n"
           b"varying vec2 v_TexCoord;\n"
           b"void main(){gl_Position=vec4(a_Position,1.0);v_TexCoord=a_TexCoord;}\n")
@@ -46,94 +50,154 @@ def encoded(value):
 
 
 def fixture_entries(*, copy_background=None, order="baseline", enabled=True,
-                    effect=True, childless=False, hide_child_next_frame=False):
+                    effect=True, childless=False, hide_child_next_frame=False,
+                    container=False, renamed=False, hide_container_next_frame=False, quad=False):
     """None omits the authored field; false and true remain distinct inputs."""
     if copy_background is not None and not isinstance(copy_background, bool):
         raise ValueError("copy_background must be omitted, false, or true")
     if order not in ("baseline", "nonchild-after-root", "child-before-root"):
         raise ValueError(f"unknown authored order: {order}")
-    root = {"id": 20, "name": "Owned composition root",
+    ids = RENAMED_LAYER_IDS if renamed else LAYER_IDS
+    solid_path = "models/alternate_card.json" if renamed else "models/own_solid.json"
+    shader = "alternate_invert" if renamed else "own_invert"
+    effect_path = f"effects/{shader}/effect.json"
+    root = {"id": ids["composition"], "name": "Owned composition root",
             "image": "models/util/composelayer.json", "origin": "128 128 0",
             "size": "256 256", "visible": True}
     if copy_background is not None:
         root["copybackground"] = copy_background
     if effect:
-        root["effects"] = [{"id": 200, "file": "effects/own_invert/effect.json",
+        root["effects"] = [{"id": 200, "file": effect_path,
                             "visible": enabled}]
-    background = {"id": 1, "name": "Owned full-scene background",
-                  "image": "models/own_solid.json", "origin": "128 128 0",
+    background = {"id": ids["background"], "name": "Owned full-scene background",
+                  "image": solid_path, "origin": "128 128 0",
                   "size": "256 256", "color": "1 1 0" if childless else "0 0 1",
                   "visible": True}
-    child = {"id": 21, "parent": 20, "name": "Owned yellow child",
-             "image": "models/own_solid.json", "origin": "-64 0 0",
+    child = {"id": ids["child"], "parent": ids["composition"], "name": "Owned yellow child",
+             "image": solid_path, "origin": "-64 0 0",
              "size": "48 48", "color": "1 1 0", "visible": True}
+    containers = []
+    if container:
+        for index, layer_id in enumerate(ids["containers"]):
+            containers.append({"id": layer_id,
+                               "parent": ids["composition"] if index == 0 else ids["containers"][index - 1],
+                               "name": "Owned transform parent", "visible": True,
+                               "origin": ("-32 0 0" if renamed else "-48 0 0") if index == 0 else "-8 0 0",
+                               "scale": "2 0.5 1" if index == 0 else "1 1 1"})
+        child.update(parent=ids["containers"][-1], origin="-8 0 0")
+        if hide_container_next_frame:
+            containers[0]["visible"] = {
+                "script": "export function update(v) { return engine.runtime < 2.5; }", "value": True}
     if hide_child_next_frame:
         child["visible"] = {"script": "export function update(v) { return engine.runtime < 2.5; }",
                             "value": True}
-    nonchild = {"id": 30, "name": "Owned red nonchild",
-                "image": "models/own_solid.json", "origin": "192 128 0",
+    if quad:
+        for key in ("image", "size", "color"):
+            child.pop(key)
+        child.update(shape="quad", scale="0.1875 0.1875 1", effects=[
+            {"id": 210, "file": "effects/own_yellow/effect.json", "visible": True}])
+        root["size"] = "224 112"
+    nonchild = {"id": ids["nonchild"], "name": "Owned red nonchild",
+                "image": solid_path, "origin": "192 128 0",
                 "size": "48 48", "color": "1 0 0", "visible": True}
     if childless:
         objects = [background, root]
     elif order == "nonchild-after-root":
-        objects = [background, root, nonchild, child]
+        objects = [background, root, nonchild, *containers, child]
     elif order == "child-before-root":
-        objects = [background, nonchild, child, root]
+        objects = [background, nonchild, child, *reversed(containers), root]
     else:
-        objects = [background, nonchild, root, child]
+        objects = [background, nonchild, root, *containers, child]
     scene = {"version": 3,
              "general": {"orthogonalprojection": {"width": CANVAS[0], "height": CANVAS[1]},
                          "clearcolor": "0 0 0"}, "objects": objects}
     entries = {
         "scene.json": encoded(scene),
         # Declare our own solid model, instead of resolving a stock model.
-        "models/own_solid.json": encoded({"solidlayer": True, "width": 256, "height": 256}),
+        solid_path: encoded({"solidlayer": True, "width": 256, "height": 256}),
         # This utility path is the public authored type discriminator. Its
         # bytes are ours; no stock model, material, image, or shader is read.
         "models/util/composelayer.json": encoded({"width": 256, "height": 256, "autosize": False}),
-        "effects/own_invert/effect.json": encoded({"passes": [{"material": "materials/own_invert.json"}]}),
-        "materials/own_invert.json": encoded({"passes": [{
-            "shader": "own_invert", "textures": [None], "blending": "normal",
+        effect_path: encoded({"passes": [{"material": f"materials/{shader}.json"}]}),
+        f"materials/{shader}.json": encoded({"passes": [{
+            "shader": shader, "textures": [None], "blending": "normal",
             "depthtest": "disabled", "depthwrite": "disabled", "cullmode": "nocull"}]}),
-        "shaders/own_invert.vert": VERTEX,
-        "shaders/own_invert.frag": FRAGMENT,
+        f"shaders/{shader}.vert": VERTEX,
+        f"shaders/{shader}.frag": FRAGMENT,
     }
+    if quad:
+        entries.update({
+            "effects/own_yellow/effect.json": encoded({"passes": [{"material": "materials/own_yellow.json"}]}),
+            "materials/own_yellow.json": encoded({"passes": [{"shader": "own_yellow", "textures": [],
+                "blending": "normal", "depthtest": "disabled", "depthwrite": "disabled", "cullmode": "nocull"}]}),
+            "shaders/own_yellow.vert": VERTEX,
+            "shaders/own_yellow.frag": b"void main(){gl_FragColor=vec4(1.0,1.0,0.0,1.0);}\n"})
     return {"type": "scene", "file": "scene.json"}, entries
 
 
 def preregistration(*, copy_background=None, order="baseline", enabled=True,
-                    effect=True, childless=False, hide_child_next_frame=False):
+                    effect=True, childless=False, hide_child_next_frame=False,
+                    container=False, renamed=False, hide_container_next_frame=False, quad=False):
     """The expected colors come from the approved contract, never the capture."""
     active_effect = effect and enabled
     copies = copy_background is not False
+    ids = RENAMED_LAYER_IDS if renamed else LAYER_IDS
+    rects = dict(ROI_RECTS)
     if childless:
         expected = dict.fromkeys(ROI_RECTS, BLUE if active_effect and copies else YELLOW)
     else:
         expected = {"background": YELLOW if active_effect and copies else BLUE,
                     "child": BLUE if active_effect else YELLOW,
                     "nonchild": CYAN if active_effect and copies and order != "nonchild-after-root" else RED}
+    if quad and copies:
+        expected["child"] = (0, 0, 0) if active_effect else (255, 255, 255)
+    if container:
+        rects.update(child=(56, 124, 72, 132), horizontalWing=(96, 124, 104, 132),
+                     verticalOutside=(60, 144, 68, 148))
+        expected.update(horizontalWing=expected["child"], verticalOutside=expected["background"])
     protocol = {"canvas": CANVAS,
             "parameters": {"copybackground": "omitted" if copy_background is None else copy_background,
                            "order": order, "effectPresent": effect, "effectEnabled": enabled,
-                           "childless": childless},
+                           "childless": childless, "container": container, "renamed": renamed, "quad": quad},
+            "layerIDs": ids,
             "worldCenters": {"composition": [128, 128], "child": [64, 128], "nonchild": [192, 128]},
             "oracle": {name: {"canvasRect": rect, "expectedRGB": expected[name]}
-                       for name, rect in ROI_RECTS.items()},
+                       for name, rect in rects.items()},
             "channelTolerance": CHANNEL_TOLERANCE,
             "minimumCorrectAreaFraction": MINIMUM_CORRECT_FRACTION,
             "captureMapping": "centered orthographic cover, scale=max(width/256,height/256)",
             "timingBoundary": "ready and later after Metal readbacks; no strict adjacent-frame binding",
             "evidenceBoundary": "bounded D1 order/copybackground behavior using owned procedural solids; not official pixel parity"}
-    if hide_child_next_frame:
+    if container:
+        protocol["containerGeometry"] = {
+            "worldTransform": ("T(128,128) T(-32,0) S(2,.5) T(-8,0) T(-8,0)"
+                               if renamed else "T(128,128) T(-48,0) S(2,.5) T(-8,0)"),
+            "childAuthoredSize": [48, 48], "childWorldBounds": [16, 116, 112, 140],
+            "oracleBasis": "center=(128-48+2*(-8),128)=(64,128); extent=(2*48,.5*48)=(96,24); "
+                           "horizontalWing is inside only the widened card; verticalOutside is outside its reduced height",
+            "alphaBoundary": "each draw retains its own layer alpha; container alpha inheritance is not claimed"}
+    if quad:
+        protocol["quadGeometry"] = {
+            "unitExtent": [256, 256], "leafScale": [48 / 256, 48 / 256, 1],
+            "compositionSize": [224, 112], "compositionWorldBounds": [16, 72, 240, 184],
+            "oracleBasis": "source-less constant-yellow Program uses the existing alpha-weighted additive final lane; "
+                           "alpha1 yellow + copied blue = white, then root invert = black; "
+                           "the same parent transform produces child bounds [16,116,112,140]"}
+        protocol["evidenceBoundary"] = "owned source-less quad Program and root Program through local group raster; not official pixel parity"
+    if hide_child_next_frame or hide_container_next_frame:
         later_expected = dict(expected, child=expected["background"])
-        protocol["parameters"]["hideChildNextFrame"] = True
-        protocol["visibilityTransition"] = {"layer": 21, "initialVisible": True,
+        if container:
+            later_expected["horizontalWing"] = expected["background"]
+        protocol["parameters"].update(hideChildNextFrame=hide_child_next_frame,
+                                      hideContainerNextFrame=hide_container_next_frame)
+        protocol["visibilityTransition"] = {"layer": ids["containers"][0] if hide_container_next_frame else ids["child"],
+                                             "initialVisible": True,
                                              "hiddenAfterRuntimeSeconds": 2.5}
         protocol["snapshotOracles"] = {
             "scene-ready-window.png": protocol["oracle"],
             "scene-after-window.png": {
                 name: {"canvasRect": rect, "expectedRGB": later_expected[name]}
-                for name, rect in ROI_RECTS.items()}}
+                for name, rect in rects.items()}}
     return protocol
 
 
@@ -236,9 +300,13 @@ class SceneCompositionAuthoredOrderIntegrationTests(unittest.TestCase):
                                         and not (parameters.get("childless", False)
                                                  and parameters.get("copy_background") is False))
                 if needs_visible_effect:
-                    self.assertRegex(log + preview, r"generic shader execution [^\n]*layer=20 effect=0 ")
-                if parameters.get("hide_child_next_frame", False):
-                    self.assertRegex(log, r"layer=21 source=sceneScript value=false effective=false")
+                    root_id = protocol.get("layerIDs", LAYER_IDS)["composition"]
+                    self.assertRegex(log + preview, rf"generic shader execution [^\n]*layer={root_id} effect=0 ")
+                if parameters.get("quad", False):
+                    quad_id = protocol["layerIDs"]["child"]
+                    self.assertRegex(log + preview, rf"generic shader execution [^\n]*layer={quad_id} effect=0 ")
+                if transition := protocol.get("visibilityTransition"):
+                    self.assertRegex(log, rf"layer={transition['layer']} source=sceneScript value=false effective=false")
                 for name, measurement in pixels.items():
                     for roi, value in measurement["rois"].items():
                         with self.subTest(capture=name, roi=roi):
@@ -302,6 +370,21 @@ class SceneCompositionAuthoredOrderIntegrationTests(unittest.TestCase):
 
     def test_hidden_next_frame_child_reveals_fresh_copied_background(self):
         self.run_case(hide_child_next_frame=True)
+
+    def test_transform_container_effect_keeps_scaled_wings(self):
+        self.run_case(copy_background=True, container=True)
+
+    def test_transform_container_effect_off_keeps_scaled_wings(self):
+        self.run_case(copy_background=True, container=True, enabled=False)
+
+    def test_hidden_transform_container_reveals_fresh_background(self):
+        self.run_case(copy_background=True, container=True, hide_container_next_frame=True)
+
+    def test_renamed_transform_chain_before_root_keeps_authored_order(self):
+        self.run_case(copy_background=True, container=True, renamed=True, order="child-before-root")
+
+    def test_parented_quad_program_uses_transform_container_raster(self):
+        self.run_case(copy_background=True, container=True, quad=True)
 
 
 if __name__ == "__main__":

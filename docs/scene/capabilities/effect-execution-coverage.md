@@ -22,6 +22,8 @@ Effect 名称是作者内容与编辑器分类，不是渲染算法选择器。d
 
 固定 parent 分组在 topology 准备边界形成成员与执行顺序，当前 visibility 只门控真实消费。组根按作者位置合成，child 不在组外重复绘制。`copybackground` 缺省/true 使用当时 enclosing 背景，false 从透明源开始；不能改成全局最终画面或末后代 prefix。
 
+成员接纳以实际绘制所需的投影与输入为边界，不按类型许可名单。无 draw 的变换、相机元数据、声音和全局灯光成员保留完整 parent 闭包、作者顺序与显隐，由原 owner 消费；不要求它们产生颜色源。当前 model、particle、spotLight 绘制尚未消费组的局部 raster，保持相关 source 局部拒绝。image/solid/text 与 direct-draw quad 使用原 world frame、组 raster 与唯一 compositor；不新增容器 renderer 或资源/状态 owner。无 source 的 quad 由已编译 variant 的实际 sampler、graph 输入与完整准备结果决定可执行性；`DIRECTDRAW` 只参与作者 shader 分支选择，不作为播放许可。
+
 嵌套组与 named provider 沿原 pool、reservation、typed dependency 和 pin 工作。隐藏 provider 仍可能被活 consumer 使用，不能因不可见清除其准备或发布。跨 consumer 的背景 prefix 依赖与独立 prepass 不是同一语义。
 
 无 child 的 captured-main source Program 只在作者顺序截点捕获并编码，不移到整个层循环前批处理，不拿历史 framebuffer 充当当前背景。source capture MVP 与最终 output MVP 分开；透视、深度、passthrough 和带依赖 utility 的支持范围由原 SourceRoute/Camera/Dependency owner 决定，不强行改成普通 quad。

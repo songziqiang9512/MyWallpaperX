@@ -943,7 +943,7 @@ class ScriptVisibleRootTests(unittest.TestCase):
     def test_unsupported_composition_subtrees_reject_locally(self):
         for name in ('passthrough', 'dependency', 'authored-dependency', 'inner-dependency',
                      'inner-authored-dependency', 'inner-passthrough', 'inner-kind',
-                     'particle', 'model', 'container', 'fullscreen', 'missing-parent', 'child-index'):
+                     'particle', 'model', 'fullscreen', 'missing-parent', 'child-index'):
             with self.subTest(case=name):
                 run = subprocess.run([str(self.binary), 'composition-' + name],
                                      capture_output=True, text=True)
@@ -951,3 +951,10 @@ class ScriptVisibleRootTests(unittest.TestCase):
                 result = json.loads(run.stdout)
                 self.assertEqual(result['targets'], [130])
                 self.assertEqual(result['preparation'], [])
+
+    def test_composition_structural_member_keeps_visibility_and_healthy_peer(self):
+        run = subprocess.run([str(self.binary), 'composition-container'], capture_output=True, text=True)
+        self.assertEqual(run.returncode, 0, run.stderr[-3000:])
+        result = json.loads(run.stdout)
+        self.assertEqual(result['targets'], [100, 110, 111, 130])
+        self.assertEqual(result['preparation'], [100, 110, 111, 112, 120])

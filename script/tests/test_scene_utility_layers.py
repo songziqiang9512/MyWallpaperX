@@ -114,13 +114,14 @@ enum Harness {
                    childPerspective: Bool = false, passthrough: Bool = false,
                    childKind: String = "solid", dependencies: [Int] = [],
                    reverseMembers: Bool = false,
+                   transformParents: [Int] = [], reverseStorage: Bool = true,
                    nestedBackground: Bool = false) -> [String: Any] {
             var object: [String: Any] = ["config": ["passthrough": passthrough]]
             if let copy { object["copybackground"] = copy }
             let utility = SceneUtilityLayer.parse(imagePath: "models/util/composelayer.json",
                 object: object)!
             let memberIDs = Array(ids.dropFirst())
-            let root = SceneRenderDescriptor.Layer(id: ids[0], childLayerIDs: memberIDs,
+            var root = SceneRenderDescriptor.Layer(id: ids[0], childLayerIDs: memberIDs,
                 dependencyLayerIDs: dependencies, contentKind: "composition", utilityLayer: utility,
                 usesPerspective: rootPerspective, effects: rootEffects)
             var children = memberIDs.map { id in
@@ -128,6 +129,17 @@ enum Harness {
                     contentKind: childKind, usesPerspective: childPerspective, effects: childEffects)
             }
             var order = reverseMembers ? Array(memberIDs.reversed()) : memberIDs
+            if let first = transformParents.first, let last = transformParents.last {
+                root.childLayerIDs = [first]
+                for index in children.indices { children[index].parentID = last }
+                for (index, id) in transformParents.enumerated() {
+                    children.append(.init(id: id,
+                        parentID: index == 0 ? root.id : transformParents[index - 1],
+                        childLayerIDs: index + 1 == transformParents.count
+                            ? memberIDs : [transformParents[index + 1]], contentKind: "container"))
+                }
+                order = transformParents + order
+            }
             if nestedBackground {
                 children[0].contentKind = "composition"
                 children[0].utilityLayer = SceneUtilityLayer.parse(
@@ -137,7 +149,8 @@ enum Harness {
                     contentKind: "solid"))
                 order.append(ids[0] + 1000)
             }
-            var descriptor = SceneRenderDescriptor(layers: Array(children.reversed()) + [root],
+            var descriptor = SceneRenderDescriptor(layers: reverseStorage
+                ? Array(children.reversed()) + [root] : [root] + children,
                 renderOrderOverride: [ids[0]] + order)
             descriptor.camera.authoredOrthographicProjectionActive = ortho
             switch SceneUtilityLayerSourceRoute.resolve(layer: root, descriptor: descriptor) {
@@ -164,12 +177,25 @@ enum Harness {
                 rootEffects: [.init(id: 630, file: "effects/other/renamed.json", visible: true)],
                 reverseMembers: true),
             "child-effect": probe("child-effect", childEffects: [.init(visible: true)]),
+            "transform-chain": probe("transform-chain", copy: true, childKind: "image",
+                transformParents: [42, 43]),
+            "transform-chain-storage": probe("transform-chain-storage", copy: true,
+                childKind: "image", transformParents: [42, 43], reverseStorage: false),
+            "renamed-transform-chain": probe("renamed-transform-chain", ids: [901, 218, 307],
+                copy: true, childKind: "text", reverseMembers: true,
+                transformParents: [403, 402], reverseStorage: false),
+            "empty-container": probe("empty-container", childKind: "container"),
+            "sound-member": probe("sound", childKind: "sound"),
+            "point-light-member": probe("point-light", childKind: "pointLight"),
+            "directional-light-member": probe("directional-light", childKind: "directionalLight"),
+            "quad-member": probe("quad", childKind: "quad"),
             "not-orthographic": probe("native", ortho: false),
             "root-perspective": probe("perspective", rootPerspective: true),
             "child-perspective": probe("child-perspective", childPerspective: true),
             "passthrough": probe("passthrough", passthrough: true),
-            "model-member": probe("model", childKind: "model"),
-            "particle-member": probe("particle", childKind: "particle"),
+            "model-member": probe("model", childKind: "model", transformParents: [42]),
+            "particle-member": probe("particle", childKind: "particle", transformParents: [42, 43]),
+            "spot-light-member": probe("spot-light", childKind: "spotLight"),
             "external-dependency": probe("dependent", dependencies: [901]),
             "nested-background": probe("nested", rootEffects: [.init(visible: false)],
                 nestedBackground: true),
@@ -248,6 +274,14 @@ enum Harness {
         let child = SceneRenderDescriptor.Layer(id: 21, parentID: plain.id, contentKind: "solid")
         var group = plain; group.childLayerIDs = [child.id]
         result["children"] = route(group, peers: [child, provider], order: [30, 21, 20])
+        var transformParent = child
+        transformParent.contentKind = "container"; transformParent.childLayerIDs = [22]
+        let descendant = SceneRenderDescriptor.Layer(id: 22, parentID: child.id, contentKind: "image")
+        result["transform-parent"] = route(group, peers: [descendant, provider, transformParent],
+            order: [30, 22, 20, 21])
+        var wrongDescendant = descendant; wrongDescendant.parentID = group.id
+        result["wrong-descendant-parent"] = route(group,
+            peers: [wrongDescendant, transformParent, provider])
         for copy in [false, true] {
             var passingGroup = group; passingGroup.utilityLayer = utility(copy: copy, passthrough: true)
             result["passthrough-children-\(copy)"] = route(passingGroup, peers: [child])
@@ -386,6 +420,14 @@ class SceneUtilityLayerTests(unittest.TestCase):
             ("renamed-hidden-effect", 73, [218, 81], True, False),
             ("renamed-visible-effect", 73, [218, 81], True, False),
             ("child-effect", 20, [21], True, True),
+            ("transform-chain", 20, [42, 43, 21], True, False),
+            ("transform-chain-storage", 20, [42, 43, 21], True, False),
+            ("renamed-transform-chain", 901, [403, 402, 307, 218], True, False),
+            ("empty-container", 20, [21], True, True),
+            ("sound-member", 20, [21], True, True),
+            ("point-light-member", 20, [21], True, True),
+            ("directional-light-member", 20, [21], True, True),
+            ("quad-member", 20, [21], True, True),
             ("passthrough", 20, [21], True, True),
         ):
             with self.subTest(route=name):
@@ -403,7 +445,8 @@ class SceneUtilityLayerTests(unittest.TestCase):
         self.assertEqual(routes["nested-background"], {
             "root": 20, "members": [21, 1020], "isolated": True, "local": False,
             "copyBackground": True, "authoredCopyOmitted": True})
-        for name in ("model-member", "particle-member", "external-dependency"):
+        for name in ("model-member", "particle-member", "spot-light-member",
+                     "external-dependency"):
             with self.subTest(route=name):
                 self.assertEqual(routes[name], {"failure": "utility-composition-subtree-shape"})
 
@@ -432,9 +475,11 @@ class SceneUtilityLayerTests(unittest.TestCase):
         routes = self.result["sourceRoutes"]
         self.assertEqual(routes["children"], {"trigger": 20, "isolated": True,
                                                "capturesSubtree": True, "members": [21]})
+        self.assertEqual(routes["transform-parent"], {"trigger": 20, "isolated": True,
+                                                    "capturesSubtree": True, "members": [22, 21]})
         for name in ("child-flat", "child-authored", "child-both", "duplicate-id",
                      "duplicate-order", "unlisted-child", "missing-child",
-                     "duplicate-child", "wrong-parent", "cycle",
+                     "duplicate-child", "wrong-parent", "wrong-descendant-parent", "cycle",
                      "passthrough-children-false", "passthrough-children-true",
                      "passthrough-duplicate-id", "passthrough-duplicate-order"):
             with self.subTest(route=name):
