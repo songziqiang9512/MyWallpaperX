@@ -18,7 +18,7 @@ final class WallpaperManager {
     init(_ directory: URL) { thumbnailCacheDirectory = directory }
     func isThumbnailGenerationInFlight(for path: String) -> Bool { false }
     func hasRecentThumbnailGenerationFailure(for path: String) -> Bool { false }
-    func ensurePreviewAssetsForWallpaper(_ wallpaper: VideoWallpaper) { preparedIDs.append(wallpaper.id) }
+    func ensurePreviewAssetsForWallpaper(_ wallpaper: VideoWallpaper, completion: ((String?) -> Void)? = nil) { preparedIDs.append(wallpaper.id); completion?(nil) }
     // ACTUAL_PATH_METHODS
 }
 

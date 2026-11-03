@@ -23,9 +23,10 @@ final class WallpaperManager {
     func count(_ id: String) -> Int { lock.lock(); defer { lock.unlock() }; return counts[Data(id.utf8), default: 0] }
     func normalizedPath(_ path: String) -> String { path }
     func normalizedSourcePathExists(_ path: String) -> Bool { !path.contains("absent") }
+    func pathExists(_ path: String) -> Bool { normalizedSourcePathExists(path) }
     func isThumbnailGenerationInFlight(for path: String) -> Bool { false }
     func hasRecentThumbnailGenerationFailure(for path: String) -> Bool { false }
-    func ensurePreviewAssetsForWallpaper(_ wallpaper: VideoWallpaper) { preparedIDs.append(wallpaper.id) }
+    func ensurePreviewAssetsForWallpaper(_ wallpaper: VideoWallpaper, completion: ((String?) -> Void)? = nil) { preparedIDs.append(wallpaper.id); completion?(nil) }
     func resolvedThumbnailPath(for wallpaper: VideoWallpaper) -> String? {
         lock.lock(); counts[Data(wallpaper.id.utf8), default: 0] += 1
         let block = blockedID == wallpaper.id

@@ -230,7 +230,6 @@ final class AppKitWallpaperItem: WallpaperCardCollectionViewItem, WallpaperGridH
                 } else {
                     self.placeholderLabel.stringValue = "生成中..."
                     self.placeholderLabel.toolTip = nil
-                    wallpaperManager.ensurePreviewAssetsForWallpaper(wallpaper)
                 }
             }
         }

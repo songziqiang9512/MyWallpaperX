@@ -70,30 +70,34 @@ extension WallpaperManager {
 
     }
 
-    func ensurePreviewAssetsForWallpaper(_ wallpaper: VideoWallpaper) {
+    func ensurePreviewAssetsForWallpaper(_ wallpaper: VideoWallpaper, completion: ((String?) -> Void)? = nil) {
         // 资产补齐是按需触发的：能直接命中缓存就不重复生成，没命中才后台补。
         let sourceURL = URL(fileURLWithPath: wallpaper.path)
         let normalized = normalizedPath(sourceURL.path)
         guard pathExists(normalized) else {
             let title = wallpaper.displayTitle
             reportMissingIndexedFile(path: normalized, displayTitle: title)
+            completion?(nil)
             return
         }
 
-        if resolvedThumbnailPath(for: wallpaper) != nil {
+        if let path = resolvedThumbnailPath(for: wallpaper) {
             scheduleStaticFrameGeneration(for: sourceURL)
+            completion?(path)
             return
         }
 
         guard shouldRetryThumbnailGeneration(for: normalized) || isThumbnailGenerationInFlight(for: normalized) else {
             notifyThumbnailReady(forPath: sourceURL.path)
             scheduleStaticFrameGeneration(for: sourceURL)
+            completion?(nil)
             return
         }
 
-        generateThumbnail(for: sourceURL) { [weak self] _ in
-            guard let self else { return }
+        generateThumbnail(for: sourceURL) { [weak self] path in
+            guard let self else { completion?(nil); return }
             self.notifyThumbnailReady(forPath: sourceURL.path)
+            completion?(path)
         }
         scheduleStaticFrameGeneration(for: sourceURL)
     }

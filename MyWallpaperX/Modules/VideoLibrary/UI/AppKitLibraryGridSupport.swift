@@ -110,18 +110,34 @@ final class AppKitThumbnailProvider {
                                cancellation: ThumbnailCacheRequestCancellation, completion: @escaping (NSImage?, String?) -> Void) {
         decodeQueue.async { [weak self] in
             guard let self, !cancellation.cancelled else { return }
+            let load: (String?) -> Void = { [weak self] thumbPath in
+                guard let self, !cancellation.cancelled else { return }
+                guard let thumbPath else {
+                    DispatchQueue.main.async { if !cancellation.cancelled { completion(nil, nil) } }
+                    return
+                }
+                self.cache.load(forKey: thumbPath, priority: priority, cancellation: cancellation, loader: {
+                    NSImage(contentsOfFile: thumbPath)
+                }, completion: { image in
+                    DispatchQueue.main.async { if !cancellation.cancelled { completion(image, thumbPath) } }
+                })
+            }
             // The derived asset must remain valid after clear/rebuild. A source
             // video path alone cannot identify a reusable thumbnail.
-            guard let thumbPath = self.wallpaperManager.resolvedThumbnailPath(for: wallpaper) else {
-                DispatchQueue.main.async { if !cancellation.cancelled { completion(nil, nil) } }
+            if let thumbPath = self.wallpaperManager.resolvedThumbnailPath(for: wallpaper) {
+                load(thumbPath)
                 return
             }
-            guard !cancellation.cancelled else { return }
-            self.cache.load(forKey: thumbPath, priority: priority, cancellation: cancellation, loader: {
-                NSImage(contentsOfFile: thumbPath)
-            }, completion: { image in
-                DispatchQueue.main.async { if !cancellation.cancelled { completion(image, thumbPath) } }
-            })
+            guard priority == .visible else { load(nil); return }
+            let normalized = self.wallpaperManager.normalizedPath(wallpaper.path)
+            guard self.wallpaperManager.pathExists(normalized) else { load(nil); return }
+            let key = self.wallpaperManager.thumbnailOutputURL(
+                forKey: self.wallpaperManager.cacheKey(forNormalizedPath: normalized)).path
+            self.cache.remove(forKey: key)
+            DispatchQueue.main.async { [weak self] in
+                guard let self, !cancellation.cancelled else { return }
+                self.wallpaperManager.ensurePreviewAssetsForWallpaper(wallpaper, completion: load)
+            }
         }
     }
 

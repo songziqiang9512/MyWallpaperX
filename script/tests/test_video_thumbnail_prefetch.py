@@ -78,6 +78,70 @@ def prepare_video_thumbnail_generator_sources(tree: Path, work: Path, fixture: P
     return [source, frozen_model, frozen_still_frame, support], hashes
 
 
+def prepare_video_generated_delivery_sources(tree: Path, work: Path):
+    """Join the real generator and Provider/card; control only downstream leaves."""
+    def replace_once(text, old, new):
+        assert text.count(old) == 1, 'unique original assembly leaf required: ' + old
+        return text.replace(old, new, 1)
+    fixture = tree / 'script/tests/fixtures/VideoGeneratedThumbnailDeliveryChecks.swift'
+    core = tree / 'MyWallpaperX/Modules/VideoLibrary/Core'
+    ui = tree / 'MyWallpaperX/Modules/VideoLibrary/UI'
+    shared = tree / 'MyWallpaperX/Shared/UI'
+    generator_fixture = tree / 'script/tests/fixtures/VideoThumbnailGeneratorChecks.swift'
+    manager_file = core / 'WallpaperManager.swift'
+    assets_file = core / 'WallpaperManager+CacheAssets.swift'
+    provider_file = ui / 'AppKitLibraryGridSupport.swift'
+    card_file = ui / 'AppKitLibraryGridItemView.swift'
+    fields_file = tree / 'script/tests/fixtures/VideoCardProbeFields.swift'
+    helper_file = tree / 'script/tests/test_video_thumbnail_prefetch.py'
+    dependency_paths = [generator_fixture, manager_file, assets_file, provider_file, card_file, fields_file, helper_file,
+        Path(__file__).resolve(), fixture]
+    original_hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in dependency_paths}
+    manager = manager_file.read_text()
+    prefix = generator_fixture.read_text().split('@main enum VideoThumbnailGeneratorChecks {', 1)[0]
+    prefix = replace_once(prefix, '    let importStages = ThumbnailCompletions()',
+        '    let importStages = ThumbnailCompletions()\n    var wallpapers: [VideoWallpaper] = []\n'
+        '    let thumbnailReadySubject = PassthroughSubject<String, Never>()')
+    methods = [declaration(manager, signature) for signature in
+        ['    var thumbnailReadyPublisher:', '    func notifyThumbnailReady(', '    func normalizedSourcePathExists(']]
+    ensure = declaration(assets_file.read_text(), '    func ensurePreviewAssetsForWallpaper(')
+    methods.append(ensure.replace('{\n', '{\n        importStages.record("ensure-" + wallpaper.path, nil)\n', 1))
+    methods.append('    func scheduleStaticFrameGeneration(for url: URL) { importStages.record("schedule-static-" + url.path, nil) }')
+    methods.append('    func reportMissingIndexedFile(path: String, displayTitle: String) { importStages.record("missing-" + path, nil) }')
+    prefix = replace_once(prefix,
+        '    func notifyThumbnailReady(forPath path: String) { importStages.record("ready-" + path, nil) }',
+        '\n\n'.join(methods))
+    prefix = replace_once(prefix, '    func updateWallpaperAssetPaths(forPath: String, staticFramePath: String) {}',
+        '    func updateWallpaperAssetPaths(forPath: String, staticFramePath: String) { importStages.record("model-" + forPath, nil) }')
+    template = work / 'ReadyTemplate.swift'
+    template.write_text(prefix + fixture.read_text())
+    sources, helper_hashes = prepare_video_thumbnail_generator_sources(tree, work, template)
+    original_hashes.update(helper_hashes)
+    provider = provider_file.read_text()
+    provider = replace_once(provider, '    private let decodeQueue = DispatchQueue(', '    let decodeQueue = DispatchQueue(')
+    card = card_file.read_text()
+    start, end = card.index('    func configure('), card.index('    private func setupViews()')
+    card_methods = card[start:end]
+    card_methods = replace_once(card_methods, '            self.thumbnailRequestIsPending = false',
+        '            VideoReadyDeliveryTrace.cardFinal(self.observationName, image: image != nil)\n'
+        '            self.thumbnailRequestIsPending = false')
+    actual_provider = work / 'ActualProviderAndCard.swift'
+    actual_provider.write_text(provider + '\n@MainActor final class VideoCardProbe {\n'
+        + fields_file.read_text() + '\n    var observationName = ""\n' + card_methods + '\n}\n')
+    sources.append(actual_provider)
+    for name in ['GridThumbnailDecoder.swift', 'DecodedThumbnailMemoryCache.swift', 'ThumbnailCache.swift']:
+        original = shared / name
+        original_hashes[str(original)] = hashlib.sha256(original.read_bytes()).hexdigest()
+        copy = work / name
+        text = original.read_text()
+        if name == 'ThumbnailCache.swift':
+            assert text.count('private let imageCache:') == 1 and text.count('private func diskCacheURL(') == 1
+            text = text.replace('private let imageCache:', 'let imageCache:', 1).replace('private func diskCacheURL(', 'func diskCacheURL(', 1)
+        copy.write_text(text)
+        sources.append(copy)
+    return sources, original_hashes
+
+
 def with_actual_video_cache_paths(tree: Path, fixture: str) -> str:
     """Supply the real pure path owner to controlled Manager leaves."""
     core = tree / 'MyWallpaperX/Modules/VideoLibrary/Core'
@@ -268,7 +332,9 @@ class VideoThumbnailPrefetchTests(unittest.TestCase):
             sources = [source, shared / 'GridThumbnailDecoder.swift', shared / 'DecodedThumbnailMemoryCache.swift',
                 shared / 'ThumbnailCache.swift', ROOT / 'script/tests/fixtures/VideoVisiblePreviewRepairChecks.swift']
             prepared_fixture = work / 'VideoVisiblePreviewRepairChecks.swift'
-            prepared_fixture.write_text(with_actual_video_cache_paths(ROOT, sources[-1].read_text()))
+            normalizer = declaration((ROOT / 'MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager.swift').read_text(), '    func normalizedPath(')
+            prepared_fixture.write_text(with_actual_video_cache_paths(ROOT, sources[-1].read_text())
+                + '\nextension WallpaperManager {\n' + normalizer + '\n}\n')
             sources[-1] = prepared_fixture
             binary = work / 'checks'
             build = subprocess.run(['xcrun', 'swiftc', *SWIFT_ISOLATION_FLAGS, '-warnings-as-errors', '-parse-as-library',
@@ -343,6 +409,46 @@ class VideoThumbnailPrefetchTests(unittest.TestCase):
 @unittest.skipUnless(sys.platform == 'darwin' and shutil.which('ffmpeg'),
                      'macOS and ffmpeg owned fixture generator required')
 class VideoThumbnailGeneratorTests(unittest.TestCase):
+    def test_generated_thumbnail_completion_reaches_waiting_card_and_replaces_stale_pixels(self):
+        proof = os.environ.get('MWX_VIDEO_PREFETCH_PROOF_DIR')
+        with tempfile.TemporaryDirectory(prefix='mwx-video-generated-delivery-', dir='/private/tmp') as directory:
+            work = Path(directory); inputs = work / 'inputs'; inputs.mkdir()
+            home = work / 'home'; home.mkdir()
+            for name, color in [('A', 'red'), ('B', 'blue')]:
+                generated = subprocess.run(['ffmpeg', '-nostdin', '-v', 'error', '-f', 'lavfi', '-i',
+                    'color=c=' + color + ':s=512x288:r=2', '-t', '2', '-c:v', 'libx264', '-pix_fmt', 'yuv420p',
+                    '-preset', 'fast', '-threads', '1', str(inputs / (name + '.mov'))],
+                    capture_output=True, text=True, timeout=20)
+                self.assertEqual(generated.returncode, 0, generated.stdout + generated.stderr)
+            sources, hashes = prepare_video_generated_delivery_sources(ROOT, work)
+            compiled_hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in sources}
+            binary = work / 'delivery'
+            command = ['xcrun', 'swiftc', *SWIFT_ISOLATION_FLAGS, '-D', 'DEBUG', '-parse-as-library',
+                *map(str, sources), '-module-cache-path', str(work / 'modules'), '-o', str(binary)]
+            build = subprocess.run(command, capture_output=True, text=True, timeout=150)
+            target = Path(proof) / 'generated-delivery' if proof else None
+            if target:
+                target.mkdir(parents=True, exist_ok=True)
+                for source in sources: shutil.copy2(source, target / source.name)
+                (target / 'compile.json').write_text(json.dumps({'command': command, 'returncode': build.returncode,
+                    'stdout': build.stdout, 'stderr': build.stderr, 'sourceSHA256': hashes, 'compiledSHA256': compiled_hashes,
+                    'mediaSHA256': {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs.glob('*.mov')}}, indent=2))
+            self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
+            run = subprocess.run([str(binary), str(inputs)], capture_output=True, text=True, timeout=75,
+                env=dict(os.environ, HOME=str(home), CFFIXED_USER_HOME=str(home)))
+            if target:
+                (target / 'runtime.json').write_text(json.dumps({'returncode': run.returncode,
+                    'stdout': run.stdout, 'stderr': run.stderr}, indent=2))
+            self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+            facts = json.loads(run.stdout)
+            print('VIDEO GENERATED DELIVERY FACTS ' + json.dumps(facts, sort_keys=True))
+            self.assertEqual(hashes, {path: hashlib.sha256(Path(path).read_bytes()).hexdigest() for path in hashes})
+            self.assertEqual(compiled_hashes, {path: hashlib.sha256(Path(path).read_bytes()).hexdigest() for path in compiled_hashes})
+            for group in ['controls', 'checks']:
+                self.assertTrue(facts[group])
+                for name, passed in facts[group].items():
+                    with self.subTest(group=group, name=name): self.assertIs(passed, True, facts)
+
     def test_real_generator_cache_aliases_clear_generation_and_jpeg_results(self):
         proof = os.environ.get('MWX_VIDEO_THUMBNAIL_GENERATOR_PROOF_DIR')
         with tempfile.TemporaryDirectory(prefix='mwx-video-generator-', dir='/private/tmp') as directory:

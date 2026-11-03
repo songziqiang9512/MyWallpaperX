@@ -7,6 +7,23 @@
 
 2026-11-02用户目标：打开App先显示上次本地内容，目录检查在后台更新；本地视频、图片和自建列表快速双向滚动时，已取得缩略图优先复用。该卡同时覆盖列表内已入库Steam/Pixabay/在线图片的本地记录，在线浏览预算和播放引擎保持。状态：R62实现、最近行为门和签名Debug已完成，保留文末三项原生验证限制；真实用户库人工体验待验。R61普通精简候选后移。
 
+<a id="generated-delivery"></a>
+## R110：可见视频请求直接等待派生图生成
+
+2026-11-03完成原可见请求的生成→解码→卡片交付；**真实用户库与完整照片级滚动仍未验收**。真实A/B视频、原批导入/generator/Provider/cache/card方法复现：A首次请求在原AV挂起时返回最终nil；A随后ready/JPEG可解码、B仍挂起、原batch尚未进静帧时，旧卡经原repair仍无图，新卡读取同A有正确红像素。ready事件无统一网格消费者，repair见JPEG存在也不再生成；旧请求已结束。早期repair另外安排的静帧可能间接重配，不称必定永久黑卡。
+
+**数据流与最小替换。** 原可见请求→原ensurePreviewAssets的源存在/冷却/inflight策略及可选completion→原generateThumbnail→同cache解码→原卡片token/requestID批准。已有JPEG保原resolver/validation/暖缓存；prefetch miss仍直接nil。仅cold visible miss在原decodeQueue确认源存在、撤销自身canonical派生key的旧memory/disk再handoff，批准输出path直接进入load，不二次stat/normalize或递归请求。缺源仍本卡文案，不因新ensure入口增加全局missing提示。最终nil后的Card ensure调用退出，避免clear/失败后从UI自行重生；已有独立可见修复与静帧策略保留。
+
+产品32增13删净+19行，无新owner/state/cache/observer/timer/model写入、Core→UI或shared-cache API更改。额外成本限冷visible miss的一次源检查、canonical键和精确缓存失效；同时miss可能重复失效，不添第二单飞表。取消抑制后续交付，不物理中止共享AV；cache.remove沿原语义仅撤回填权，不取消全部旧在途消费者。clear释放本请求后不递归重生，不代表以后独立2秒repair永不生成。可见ensure可新增一次原static调度，不能把原batch静帧尚未进入写成新版无静帧工作。
+
+**最近门。** 同最终Swift夹具44控制/16行为事实：旧44控制全真，仅A直接交付2项与memory/disk新蓝像素4项红；候选全真。真实红→蓝MOV重生后，首次交付和后继cache命中均为新蓝，模型未写；prefetch/missing无ensure与AV、missing无全局report，冷却0AV、取消无迟到、clear一次nil且旧生成不落新JPEG/不从Card再启动保持。原validation21、nil路径21控制及3像素/同turn观察均通过；repair16在补真实normalizer装配后单独通过。6308输入与实际编译输入稳定。测试净+369行：复用原生成/路径/缓存owner，新261行真实场景与原Python装配/方法，不复制业务算法；三个旧控制Manager只适配completion/pathExists。
+
+首次联合门因repair fixture缺normalizedPath编译失败，原样保留；只在该方法装配提取真实normalizer后补跑。最终Python仅此处较已绿版变化，其余helpers/生成门和另6原方法字节保，已绿3方法按实际编译输入复用；不冒称最终脚本重跑全模块。生成切片有原nonisolated Manager装配的6条actor诊断，不等于产品新警告。签名Debug26.657秒/5868输入稳定，strict/deep通过，仅原CS0665/CS8603；测试后来加入，最终3产品字节与App相同。未重跑已知完整hover原生限制；静帧/model/metadata/report为记录叶，不证明完整Catalog/DB/window或Leaks/TSan。
+
+**滚动调查与下一步。** 原R108/R109直接clip位移没有经过scrollWheel。新增固定8ms/238包尝试虽解码phase/momentum，实际event.window=0、clip无位移，全部排除滚动性能证据；第二版正常5126pt文档/600pt clip仍不能形成窗口输入。实际Scroll/Clip/Collection三个类兼容值均true，只满足[Apple的必要条件](https://developer.apple.com/documentation/appkit/nsview/iscompatiblewithresponsivescrolling)，不证明响应式滚动全链已运行。后续直接NSWindow.sendEvent方案因[官方明确禁止直接调用](https://developer.apple.com/documentation/appkit/nswindow/sendevent%28_%3A%29)撤回，未执行，不堆模拟层或私有字段。
+
+下一优先换成隔离窗口的合法原生输入/代表App采样，拆make来源查找/原生创建/绑定配置，不先删参与动画准入的needs检查或沿用旧source map。SIL selection的异步重复几何是后续候选，须量测和即时/布局/复用反例后裁决。真实视频/图片/自建混合、超驻留、硬件滚动/窗口像素/FPS/能耗及拖拽仍待，R55/R62/R109已结修复不重做，Scene不触。
+
 <a id="toolbar-underlay"></a>
 ## R109：工具栏透过区域也持续取得图片
 
@@ -20,7 +37,7 @@
 
 抽取前完整目录夹具两次40秒超时，未到工具栏段；最终抽取后只运行聚焦门，未重跑完整门。重试1秒主线程采样626/626在CoreDrag等待mouseUp。没有删原拖拽测试、补伪mouseUp或改产品焦点；完整目录交互仍未通过，单独聚焦门不能替代它。签名Debug 28.545秒/5868构建输入稳定，strict/deep通过，无新增Swift警告，仅原CS0665/CS8603。最终测试抽取在构建后完成，三行产品字节与已构建App相同。
 
-**下一验收。** 交付冻结Debug后核真实所有列表工具栏回滑、触控板连续滚动与拖拽。最小host非完整Main split，160张图片非混合/超驻留用户库；照片级目标、帧率/能耗和R106残余仍未证明。之后优先量测cell同步刷新成本或新视频生成Ready等待窗口，不沿用过期viewport map，不追加刷新链；R62/R55已结问题不重做。
+**下一验收。** 交付冻结Debug后核真实所有列表工具栏回滑、触控板连续滚动与拖拽。最小host非完整Main split，160张图片非混合/超驻留用户库；照片级目标、帧率/能耗和R106残余仍未证明。视频生成交付见[R110](#generated-delivery)，之后优先量测cell同步刷新成本，不沿用过期viewport map，不追加刷新链；R62/R55已结问题不重做。
 
 <a id="viewport-lookup"></a>
 ## R108：一次视口内批量读取来源

@@ -34,7 +34,7 @@
     },
     "docs/development/code-slimming-program.md": {
       "lines": 112,
-      "bytes": 26041
+      "bytes": 26300
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -353,8 +353,8 @@
       "bytes": 4916
     },
     "docs/development/local-library-loading-design.md": {
-      "lines": 118,
-      "bytes": 24309
+      "lines": 135,
+      "bytes": 28816
     }
   },
   "archives": [
@@ -1822,11 +1822,11 @@
     {
       "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
-      "before": "77610a8b511dd945e81276e645bb8662aa654648a0adf3b2d438467b63d82e8b",
-      "after": "31c6f90faed8a42a26c8cbc851c1df24ede191834efd3cadf87d18f09e96e3de",
+      "before": "31c6f90faed8a42a26c8cbc851c1df24ede191834efd3cadf87d18f09e96e3de",
+      "after": "9ab0a387128abec60f3810e75a1235af0b84b2571bb97ba5bbae6fa7623e030b",
       "owner": "repository-maintainer",
-      "reason": "R109 native toolbar pixel-demand correction: replace current quick route and record valid old/new checks, scoped capture proof, full-directory CoreDrag timeout and pending user-library validation.",
-      "decision": "docs/development/local-library-loading-design.md#toolbar-underlay"
+      "reason": "R110 direct generated-thumbnail delivery and cold-cache ownership decision; replace current quick route, preserve behavior/compilation/reuse proof limits and rejected zero-motion input attempts.",
+      "decision": "docs/development/local-library-loading-design.md#generated-delivery"
     },
     {
       "section": "bodies",
@@ -2065,11 +2065,11 @@
     {
       "section": "bodies",
       "path": "docs/development/local-library-loading-design.md",
-      "before": "0d70e6da086223f4fc137f8b064bf77575e6dfd09c85b119ae5297a4b3e38a18",
-      "after": "11c6e5d514c411422c71c4b26d8d9eb93f30f244176df458fa570620190e0aea",
+      "before": "11c6e5d514c411422c71c4b26d8d9eb93f30f244176df458fa570620190e0aea",
+      "after": "e2c8785543860e0609127596471bc300ce652af3300693752f7e846c69e0f482",
       "owner": "repository-maintainer",
-      "reason": "R109 native toolbar pixel-demand correction: replace current quick route and record valid old/new checks, scoped capture proof, full-directory CoreDrag timeout and pending user-library validation.",
-      "decision": "docs/development/local-library-loading-design.md#toolbar-underlay"
+      "reason": "R110 direct generated-thumbnail delivery and cold-cache ownership decision; replace current quick route, preserve behavior/compilation/reuse proof limits and rejected zero-motion input attempts.",
+      "decision": "docs/development/local-library-loading-design.md#generated-delivery"
     },
     {
       "section": "archives",

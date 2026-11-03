@@ -1759,7 +1759,7 @@
       "owner": "Existing source indexes, App Catalog and thumbnail providers",
       "status": "approved",
       "designDoc": "docs/development/local-library-loading-design.md",
-      "design_notes": "R62索引先呈现、R106有界位移预取、R107 Video暖键及R108原Adapter批量来源准备已结。R109真实自动toolbar复现safe交互区误裁图片需求；只改Grid两处/目录一处为原生visibleRect，safe交互/anchor及原预算保持，无新owner/state。原生对象与聚焦行为门通过，完整目录CoreDrag超时、真实用户库/照片级目标仍待，见#toolbar-underlay。Scene不改。",
+      "design_notes": "R62索引先呈现、R106有界预取、R107暖键、R108本次批量来源、R109工具栏像素需求已结。R110真实生成后旧卡不交付已复现并修：原visible请求直等ensure completion、cold精确撤销旧像素、退出UI最终nil重生入口，不加owner/state/observer/model发布或Core→UI。44/16与最近门通过，签名Debug过；无位移wheel模拟排除、实际混合库/照片级及完整目录CoreDrag限制保持，见#generated-delivery。Scene不改。",
       "matchPatterns": [
         "MyWallpaperX/App/WallpaperLibraryCatalogController.swift",
         "MyWallpaperX/App/WallpaperLibraryWorkspace.swift",
@@ -1784,7 +1784,8 @@
         "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopWebValidationModels.swift",
         "MyWallpaperX/Shared/UI/GridThumbnailPrefetchDemand.swift",
         "MyWallpaperX/App/WallpaperLibraryCellAdapter.swift",
-        "MyWallpaperX/Shell/AppKitPlaylistDirectoryController.swift"
+        "MyWallpaperX/Shell/AppKitPlaylistDirectoryController.swift",
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+CacheAssets.swift"
       ],
       "contentPatterns": []
     }

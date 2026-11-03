@@ -26,11 +26,12 @@ final class WallpaperManager: @unchecked Sendable {
         if blocked { entered.signal(); release.wait() }
         return !path.contains("absent")
     }
+    func pathExists(_ path: String) -> Bool { normalizedSourcePathExists(path) }
     func resolvedThumbnailPath(for value: VideoWallpaper) -> String? {
         lock.lock(); previewCalls.append(value.path); checksOffMain = checksOffMain && !Thread.isMainThread; lock.unlock()
         return value.thumbnailPath
     }
-    func ensurePreviewAssetsForWallpaper(_ value: VideoWallpaper) { preparationOnMain = preparationOnMain && Thread.isMainThread; prepared.append(value.id) }
+    func ensurePreviewAssetsForWallpaper(_ value: VideoWallpaper, completion: ((String?) -> Void)? = nil) { preparationOnMain = preparationOnMain && Thread.isMainThread; prepared.append(value.id); completion?(nil) }
 }
 
 @main enum VideoVisiblePreviewRepairChecks {
