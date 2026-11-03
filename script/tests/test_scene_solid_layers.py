@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from script.scene_swift_source_sets import scene_swift_sources
 from script.tests.source_family import read_source_family
+from script.tests.test_scene_prepared_script_resource_catalog import swift_declaration
 from script.tests.test_scene_particle_simulator import SWIFT_SOURCES as PARTICLE_SOURCES
 import json
 import re
@@ -21,6 +23,11 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "script/tests/fixtures/SceneUserPropertyResolutionStub.swift",
     REPOSITORY_ROOT / "script/tests/fixtures/SceneStaticModelMaterialBindingUnavailableStub.swift",
     SOURCE_ROOT / "Runtime/Frame/SceneStaticModelMaterialBindings.swift",
+    SOURCE_ROOT / "Runtime/Frame/SceneMaterialRenderState.swift",
+    SOURCE_ROOT / "Compilation/Material/SceneMaterialRenderState+Compilation.swift",
+    SOURCE_ROOT / "Resources/Assets/SceneModelResourceIdentity.swift",
+    SOURCE_ROOT / "Compilation/ShaderContract/SceneBuiltinShaderIdentity.swift",
+    *scene_swift_sources("authored_shader_frontend_support"),
     Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift",
     SOURCE_ROOT / "Format/SceneCompatibilityContext.swift",
@@ -57,6 +64,8 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneLayerWorldFrameResolver.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleWorldSpacePlan.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleWorldSpacePlan+Descriptor.swift",
+    SOURCE_ROOT / "Systems/Particles/SceneParticleRopePlan.swift",
+    SOURCE_ROOT / "Rendering/Particles/SceneParticleRenderSupport.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneMetalPipeline.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneSolidLayerTexture.swift",
     SOURCE_ROOT / "Resources/Assets/SceneResourceIndex.swift",
@@ -357,47 +366,7 @@ struct SceneMdlPuppetAttachment {
     let sceneBindFrameColumnMajor: [Float]
 }
 
-struct SceneAssetCatalog {
-    struct ModelAsset {
-        let relativePath: String
-        let materialPath: String?
-        let cropOffsetXY: [Float]?
-        let isSolidLayer: Bool
-        let declaredSizeWH: [Float]?
-        let puppetPath: String?
-        let puppetAttachments: [SceneMdlPuppetAttachment]
-    }
-
-    struct MaterialAsset {
-        struct Pass {
-            let shader: String?
-            let textures: [String]
-            let textureSlots: [String?]
-            let userTextureInputs: [SceneEffectTextureInput?]
-            let combos: [String: Int]
-            let constantShaderValues: [String: SceneDocument.ShaderValue]
-            let userShaderValues: [String: String]
-            let blending: String?
-            let depthTest: String?
-            let depthWrite: String?
-            let cullMode: String?
-            let alphaWriting: String?
-        }
-
-        let relativePath: String
-        let rawSHA256: String
-        let shaderPathIndependentSHA256: String
-        let passes: [Pass]
-    }
-
-    let models: [ModelAsset]
-    let materials: [MaterialAsset]
-    let effectDefinitions: [SceneEffectDefinition]
-    let effectDefinitionDiagnostics: [SceneEffectDefinitionDiagnostic]
-    let shaderReferences: [String]
-    var shaderContracts: [Never] { [] }
-    let textureReferences: [String]
-}
+__ASSET_CATALOG_DECLARATION__
 
 struct SceneResourceReferenceIndex {
     let missingReferences: [String]
@@ -434,27 +403,27 @@ enum Harness {
                 .init(
                     relativePath: "models/user/declared.json",
                     materialPath: nil,
-                    cropOffsetXY: nil,
+                    autosize: nil,
                     isSolidLayer: false,
                     declaredSizeWH: [1920, 1080],
+                    cropOffsetXY: nil,
                     puppetPath: nil,
                     puppetAttachments: []
                 ),
                 .init(
                     relativePath: "models/user/photo.json",
                     materialPath: nil,
-                    cropOffsetXY: nil,
+                    autosize: nil,
                     isSolidLayer: false,
                     declaredSizeWH: [4000, 3000],
+                    cropOffsetXY: nil,
                     puppetPath: nil,
                     puppetAttachments: []
                 ),
             ],
             materials: [],
             effectDefinitions: [],
-            effectDefinitionDiagnostics: [],
-            shaderReferences: [],
-            textureReferences: []
+            shaderContracts: []
         )
         let resourceReferences = SceneResourceReferenceIndex(
             missingReferences: [], builtInReferenceCount: 3,
@@ -676,6 +645,12 @@ enum Harness {
     }
 }
 '''
+
+
+# Compile the real Catalog value transport without its unrelated resource loader.
+HARNESS_SOURCE = HARNESS_SOURCE.replace("__ASSET_CATALOG_DECLARATION__", swift_declaration(
+    (SOURCE_ROOT / "Resources/Assets/SceneAssetCatalog.swift").read_text(encoding="utf-8"),
+    "struct SceneAssetCatalog {"))
 
 
 class SceneSolidLayerTests(unittest.TestCase):

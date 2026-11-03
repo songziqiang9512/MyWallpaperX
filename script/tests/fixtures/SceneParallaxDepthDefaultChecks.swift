@@ -11,7 +11,7 @@ func sceneParallaxDepthDefaultChecks(project: SceneProject) throws -> [String: B
         "cameraparallaxmouseinfluence": 0.5,
     ]
     let catalog = SceneAssetCatalog(models: [], materials: [], effectDefinitions: [],
-        effectDefinitionDiagnostics: [], shaderReferences: [], textureReferences: [])
+        shaderContracts: [])
     var results: [String: Bool] = [:]
     func object(_ id: Int, depth: Any? = nil, resource: String = "models/owned/ridge.json") -> [String: Any] {
         var value: [String: Any] = ["id": id, "image": resource,

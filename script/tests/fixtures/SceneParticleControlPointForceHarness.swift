@@ -36,8 +36,7 @@ import simd
         let document = try SceneDocumentLoader().load(from: url)
         let project = SceneProject(rootURL: directory, entryPath: "scene.json", userProperties: .empty)
         return SceneRenderDescriptorBuilder().build(project: project, sceneDocument: document,
-            assetCatalog: .init(models: [], materials: [], effectDefinitions: [], effectDefinitionDiagnostics: [],
-                                shaderReferences: [], textureReferences: []),
+            assetCatalog: .init(models: [], materials: [], effectDefinitions: [], shaderContracts: []),
             resourceReferences: .init(missingReferences: [], builtInReferenceCount: 0, runtimeProvidedReferenceCount: 0),
             capabilityProfile: .init(firstStageRendererGaps: []))!
     }

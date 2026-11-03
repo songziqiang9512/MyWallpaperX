@@ -445,7 +445,7 @@ nonisolated extension SceneScriptVectorProgram {
     }
 
     /// Object color scripts only become VM owners after launch planning has
-    /// identified an existing typed consumer. Images consume the value in the
+    /// identified an existing typed consumer. Images and solids consume it in the
     /// one compositor; text consumes it while rerasterizing its canonical
     /// provider publication before any authored effect suffix executes.
     private static func layerColorProjection(
@@ -475,6 +475,8 @@ nonisolated extension SceneScriptVectorProgram {
         guard validWrapper else { return nil }
         let target: SceneDynamicTarget
         switch layer.contentKind {
+        case "solid":
+            target = .layer(layerID: layerID, field: .color)
         case "image":
             guard layer.effects.isEmpty else { return nil }
             target = .layer(layerID: layerID, field: .color)

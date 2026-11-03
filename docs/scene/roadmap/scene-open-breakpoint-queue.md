@@ -11,7 +11,6 @@
 
 | 定位 | 当前问题 / 下一步 |
 |---|---|
-| solid 颜色脚本 · 自有19 | Vec3 颜色投影与 consumer 的接受范围待对齐；从 `SceneScriptVectorCandidateCatalog`及动态 definition 开始，保非白 seed、改名和 image 邻例，不能只放宽 return 类型。 |
 | composition 透视 · 2731896598 | childless passthrough 的 perspective 与三维 angles 组合待资格。沿 `SceneUtilityLayerSourceRoute`/Camera/回绘核实际几何，不以 false-only 代替作者输入。 |
 | named 多槽 · 3086016320 / layer430 | 封面转场的 execution-stage conservation 与 selected/potential 依赖向量待复核；父426默认 alpha=0，先取得可见输入，沿原 dependency ownership。 |
 | forward background · 2972071249 / 313→234 | 后置隐藏 composition 的 copy-background 与作者前缀依赖待资格；不能用全局 prepass 丢弃原顺序。 |

@@ -78,11 +78,11 @@ func sceneUserShortcutFallbackChecks(project: SceneProject) throws -> [String: [
     try Data("owned renamed resolver fixture".utf8).write(to: renamedAsset)
     let document = try SceneDocumentLoader().load(from: sceneURL)
     let catalog = SceneAssetCatalog(models: [.init(relativePath: "models/owned/registered-solid.json",
-        materialPath: nil, cropOffsetXY: nil, isSolidLayer: true, declaredSizeWH: nil,
+        materialPath: nil, autosize: nil, isSolidLayer: true, declaredSizeWH: nil, cropOffsetXY: nil,
         puppetPath: nil, puppetAttachments: []), .init(relativePath: "models/owned/puppet-solid.json",
-        materialPath: nil, cropOffsetXY: nil, isSolidLayer: true, declaredSizeWH: nil,
+        materialPath: nil, autosize: nil, isSolidLayer: true, declaredSizeWH: nil, cropOffsetXY: nil,
         puppetPath: "models/owned/rig.mdl", puppetAttachments: [])], materials: [],
-        effectDefinitions: [], effectDefinitionDiagnostics: [], shaderReferences: [], textureReferences: [])
+        effectDefinitions: [], shaderContracts: [])
     let descriptor = SceneRenderDescriptorBuilder().build(project: project, sceneDocument: document,
         assetCatalog: catalog, resourceReferences: .init(missingReferences: [],
             builtInReferenceCount: 0, runtimeProvidedReferenceCount: 0),

@@ -93,8 +93,168 @@ HARNESS = r'''
   out["captureClosed"]=down.layerMutations.first?.solid == false
   _=cap.cursorProgram.dispatch(batch:.init(samples:[.init(hits:[:],pointerPosition:.zero,primaryButtonIsDown:false)],overflowed:false),frame:frame,userPropertiesJSON:"{}")
   out["captureUpWithoutClick"]=update(cap,ct) == 0.3
+  out["colorCases"]=try colorChecks()
   print(String(decoding:try JSONSerialization.data(withJSONObject:out,options:[.sortedKeys]),as:UTF8.self))
  }
+}
+'''
+
+COLOR_CASES = r'''
+extension Harness {
+    static func colorOwner(
+        source: String, kind: String = "solid", id: Int = 92,
+        name: String = "color subject", properties: [String: SceneJSONValue] = [:],
+        effectful: Bool = false, admitted: Bool = true, matchingSeed: Bool = true
+    ) throws -> (program: SceneScriptVectorProgram, descriptor: SceneRenderDescriptor,
+                 target: SceneDynamicTarget) {
+        let pass = SceneRenderDescriptor.EffectDescriptor.PassDescriptor(
+            passIndex: 0, id: 20, constantShaderValues: [:])
+        let descriptor = SceneRenderDescriptor(layers: [.init(
+            id: id, layerIndex: 0, name: name, visible: true,
+            originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1],
+            colorRGB: matchingSeed ? [0.2, 0.4, 0.6] : [0.2, 0.4, 0.9],
+            scaleHasScript: nil, alpha: 1,
+            effects: effectful ? [.init(name: "color suffix", effectID: 10, passes: [pass])] : [],
+            contentKind: kind, sizeWH: [8, 8])])
+        let binding = SceneScriptBindingIR(
+            source: source,
+            owner: .init(kind: .object, objectIndex: 0, objectID: id, effectIndex: nil, effectID: nil, passIndex: nil, passID: nil),
+            targetPath: [.key("objects"), .index(0), .key("color")],
+            properties: properties, authoredValue: .string("0.2 0.4 0.6"),
+            valueType: .string,
+            wrapperKeys: properties.isEmpty ? ["script", "value"] : ["script", "scriptproperties", "value"])
+        let projection = SceneScriptVectorProgram.project(
+            descriptor: descriptor, scriptBindings: [binding],
+            admittedLayerColorConsumerIDs: admitted ? [id] : [])
+        let candidate = try SceneScriptQuickJSProgramCandidate.compile(
+            authoredDescriptor: descriptor, runtimeDescriptor: descriptor,
+            scriptBindings: [binding], vectorProjection: projection,
+            userPropertyDefinitions: [], timelineTargets: [], scalarExcludedTargets: [],
+            stringExcludedTargets: [], admittedVectorPassTargets: [], generation: UInt64(id))
+        return (candidate.vectorProgram, descriptor, .layer(layerID: id, field: .color))
+    }
+
+    static func nearColor(_ actual: SIMD3<Float>, _ expected: SIMD3<Float>) -> Bool {
+        abs(actual.x - expected.x) < 0.000001
+            && abs(actual.y - expected.y) < 0.000001
+            && abs(actual.z - expected.z) < 0.000001
+    }
+
+    static func colorChecks() throws -> [String: Bool] {
+        var facts: [String: Bool] = [:]
+        let source = """
+        export function update(value) {
+            if (!(value instanceof Vec3)) throw Error('color input lost Vec3');
+            return new Vec3(value.x + 0.1, value.y * 0.5, value.z);
+        }
+        """
+        let propertySource = """
+        export function update(value) {
+            if (!(value instanceof Vec3)) throw Error('color input lost Vec3');
+            return new Vec3(value.x + scriptProperties.step, value.y * scriptProperties.gain, value.z);
+        }
+        """
+        for (label, id, kind, properties, effectful) in [
+            ("solidPlain", 92, "solid", false, false),
+            ("solidProperties", 93, "solid", true, false),
+            ("solidRenamed", 702, "solid", false, false),
+            ("solidEffectful", 703, "solid", false, true),
+            ("imagePeer", 704, "image", false, false),
+        ] {
+            let owner = try colorOwner(
+                source: properties ? propertySource : source, kind: kind, id: id,
+                name: label == "solidRenamed" ? "Unseen copper square" : label,
+                properties: properties ? ["step": .number(0.1), "gain": .number(0.5)] : [:],
+                effectful: effectful)
+            let index = SceneDynamicSnapshotResolver.prepare(definitions: owner.program.definitions)
+            let seed = SceneDynamicSnapshotResolver().resolve(frameIndex: 1, generation: 1, index: index)
+            let inputs = seed.snapshot.typedValues(
+                for: owner.program.inputTargets, valueTypes: owner.program.inputValueTypes)
+            let result = owner.program.evaluate(
+                inputs: inputs, effectivePropertyValues: [:], frame: frame)
+            let projected = SceneDynamicSnapshotResolver().resolve(
+                frameIndex: 1, generation: 1, index: index, base: seed, sceneScriptValues: result.values)
+            facts[label + "Admitted"] = owner.program.bindings.count == 1
+                && owner.program.definitions.map(\.target) == [owner.target]
+            facts[label + "NonWhiteSeed"] = inputs[owner.target] == .vector3(0.2, 0.4, 0.6)
+            facts[label + "Typed"] = result.failures.isEmpty
+                && projected.snapshot[owner.target]?.value.valueType == .vector3
+                && projected.snapshot[owner.target]?.source == .sceneScript
+            facts[label + "Consumed"] = nearColor(
+                SceneDynamicLayerValues.color(layerID: id, authoredValue: owner.descriptor.layers[0].colorRGB,
+                                              snapshot: projected.snapshot),
+                SIMD3(0.3, 0.2, 0.6))
+        }
+        for (label, kind, effectful, admitted, matchingSeed) in [
+            ("effectfulImage", "image", true, true, true),
+            ("missingConsumer", "solid", false, false, true),
+            ("mismatchedSeed", "solid", false, true, false),
+        ] {
+            let owner = try colorOwner(source: source, kind: kind, effectful: effectful,
+                                       admitted: admitted, matchingSeed: matchingSeed)
+            let result = owner.program.evaluate(inputs: [owner.target: .vector3(0.2, 0.4, 0.6)],
+                                                effectivePropertyValues: [:], frame: frame)
+            facts[label + "Rejected"] = owner.program.bindings.isEmpty
+                && owner.program.definitions.isEmpty && result.values[owner.target] == nil
+        }
+        for (label, failureBody, code) in [
+            ("badReturn", "return {};", "bad-return"),
+            ("exception", "throw Error('solid color rejection');", "exception"),
+        ] {
+            let owner = try colorOwner(source: """
+            let calls = 0;
+            export function update(value) {
+                if (++calls === 1) return new Vec3(0.8, 0.3, 0.2);
+                \(failureBody)
+            }
+            """)
+            let index = SceneDynamicSnapshotResolver.prepare(definitions: owner.program.definitions)
+            let seed = SceneDynamicSnapshotResolver().resolve(frameIndex: 1, generation: 1, index: index)
+            let first = owner.program.evaluate(
+                inputs: seed.snapshot.typedValues(for: owner.program.inputTargets,
+                                                  valueTypes: owner.program.inputValueTypes),
+                effectivePropertyValues: [:], frame: frame)
+            let current = SceneDynamicSnapshotResolver().resolve(
+                frameIndex: 1, generation: 1, index: index, base: seed, sceneScriptValues: first.values)
+            let failed = owner.program.evaluate(
+                inputs: current.snapshot.typedValues(for: owner.program.inputTargets,
+                                                     valueTypes: owner.program.inputValueTypes),
+                effectivePropertyValues: [:], frame: frame)
+            let retained = SceneDynamicSnapshotResolver().resolve(
+                frameIndex: 2, generation: 1, index: index, base: current, sceneScriptValues: failed.values)
+            facts[label + "Rejected"] = failed.failures[owner.target]?.code == code
+                && failed.values[owner.target] == nil
+            facts[label + "RetainedCurrent"] = first.failures.isEmpty
+                && current.snapshot[owner.target]?.source == .sceneScript
+                && retained.snapshot[owner.target] == current.snapshot[owner.target]
+                && nearColor(SceneDynamicLayerValues.color(
+                    layerID: 92, authoredValue: owner.descriptor.layers[0].colorRGB,
+                    snapshot: retained.snapshot), SIMD3(0.8, 0.3, 0.2))
+        }
+        let media = try colorOwner(source: """
+        let color = new Vec3(0.2, 0.4, 0.6);
+        export function mediaThumbnailChanged(event) { color = event.primaryColor.copy(); }
+        export function update(value) { return color.copy(); }
+        """, id: 905, name: "Renamed thumbnail signal")
+        let mediaIndex = SceneDynamicSnapshotResolver.prepare(definitions: media.program.definitions)
+        let mediaSeed = SceneDynamicSnapshotResolver().resolve(frameIndex: 1, generation: 1, index: mediaIndex)
+        let mediaResult = media.program.evaluate(
+            inputs: mediaSeed.snapshot.typedValues(for: media.program.inputTargets,
+                                                   valueTypes: media.program.inputValueTypes),
+            effectivePropertyValues: [:], frame: frame,
+            mediaThumbnailEvent: .init(hasThumbnail: true, primaryColor: .init(0.7, 0.25, 0.4), generation: 1))
+        let mediaProjection = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 1, generation: 1, index: mediaIndex, base: mediaSeed,
+            sceneScriptValues: mediaResult.values)
+        facts["mediaOwner"] = media.program.mediaThumbnailTargets == [media.target]
+        facts["mediaTyped"] = mediaResult.failures.isEmpty
+            && mediaProjection.snapshot[media.target]?.source == .sceneScript
+            && mediaProjection.snapshot[media.target]?.value.valueType == .vector3
+        facts["mediaConsumed"] = nearColor(SceneDynamicLayerValues.color(
+            layerID: 905, authoredValue: media.descriptor.layers[0].colorRGB,
+            snapshot: mediaProjection.snapshot), SIMD3(0.7, 0.25, 0.4))
+        return facts
+    }
 }
 '''
 
@@ -102,7 +262,8 @@ class DynamicSolidTests(unittest.TestCase):
  @classmethod
  def setUpClass(cls):
   with tempfile.TemporaryDirectory(prefix="mwx-solid-vm-") as temp:
-   exe=compile_vector_harness(Path(temp),HARNESS,"solid")
+   consumer = Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicLayerValues.swift"
+   exe=compile_vector_harness(Path(temp),HARNESS+COLOR_CASES,"solid",extra_swift_sources=(consumer,))
    cls.value=json.loads(subprocess.run([str(exe)],check=True,capture_output=True,text=True).stdout)
  def test_both_directions_publish_and_read_back_next_frame(self):
   for direction in ("disable","enable"):
@@ -117,3 +278,17 @@ class DynamicSolidTests(unittest.TestCase):
  def test_conflicts_dynamic_journal_and_capture_release(self):
   for key in ("preflightUnpublished","conflictOverridden","laterOwnerValueApplied","dynamicCreatedFalse","dynamicStagedTrue","dynamicRollback","captureClosed","captureUpWithoutClick"):
    with self.subTest(key=key): self.assertTrue(self.value[key])
+
+ def test_solid_color_vec3_reaches_typed_snapshot_and_real_color_consumer(self):
+  for case in ("solidPlain","solidProperties","solidRenamed","solidEffectful","imagePeer"):
+   for stage in ("Admitted","NonWhiteSeed","Typed","Consumed"):
+    with self.subTest(case=case,stage=stage): self.assertTrue(self.value["colorCases"][case+stage])
+
+ def test_solid_color_media_event_uses_real_vec3_owner_and_consumer(self):
+  for key in ("mediaOwner","mediaTyped","mediaConsumed"):
+   with self.subTest(key=key): self.assertTrue(self.value["colorCases"][key])
+
+ def test_solid_color_failure_keeps_current_value_and_does_not_widen_image_admission(self):
+  for key in ("badReturnRejected","badReturnRetainedCurrent","exceptionRejected","exceptionRetainedCurrent",
+              "effectfulImageRejected","missingConsumerRejected","mismatchedSeedRejected"):
+   with self.subTest(key=key): self.assertTrue(self.value["colorCases"][key])

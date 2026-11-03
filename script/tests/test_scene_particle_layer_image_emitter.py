@@ -51,19 +51,13 @@ SOURCES = list(dict.fromkeys(path.resolve() for path in [
     SOURCE_ROOT / "Systems/Particles/SceneParticleRopePlan.swift",
     SOURCE_ROOT / "Rendering/Particles/SceneParticleRenderSupport.swift",
 ]))
-# Use the real descriptor/loader/compiler. Reuse existing link-only asset shells;
+# Use the real descriptor/loader/compiler and Catalog values; reuse unrelated link leaves.
 # remove their unused particle shells because this harness links real particles.
 DESCRIPTOR_SUPPORT = descriptor_fixture.HARNESS_SOURCE.split("@main", 1)[0].replace(
     "struct SceneParticleInstanceOverride: Codable {}\n\n"
     "struct SceneParticleDefinitionParser {\n"
     "    func parseInstanceOverride(_ raw: Any?) -> SceneParticleInstanceOverride? { nil }\n"
-    "}\n", "").replace(
-    "var shaderContracts: [Never] { [] }",
-    "var shaderContracts: [SceneShaderContract] { [] }",
-).replace(
-    "let puppetAttachments: [SceneMdlPuppetAttachment]",
-    "let puppetAttachments: [SceneMdlPuppetAttachment]\n        var passthrough: Bool? = nil",
-)
+    "}\n", "")
 # This fixture passes an empty model/material/shader catalog to the real
 # descriptor builder. Keep that explicit empty input while matching its current
 # DTO types. Identity matching and material-state compilation remain product
@@ -231,7 +225,7 @@ HARNESS_SOURCE = (NO_TIMESTAMP_OBSERVATION_SUPPORT + DESCRIPTOR_SUPPORT
             project: SceneProject(rootURL: root,entryPath: url.lastPathComponent,userProperties: .empty),
             sceneDocument: document,
             assetCatalog: SceneAssetCatalog(models: [],materials: [],effectDefinitions: [],
-                effectDefinitionDiagnostics: [],shaderReferences: [],textureReferences: []),
+                shaderContracts: []),
             resourceReferences: SceneResourceReferenceIndex(missingReferences: [],
                 builtInReferenceCount: 0,runtimeProvidedReferenceCount: 0),
             capabilityProfile: SceneCapabilityProfile(firstStageRendererGaps: []))
