@@ -14,15 +14,19 @@ import Foundation
     static func main() throws {
         func make(start: Double = 0, lifetime: Double = 10, cacheMotion: Bool = false,
                   initial: SceneParticlePlaybackSnapshot = .init(),
-                  maximum: Int = 100, emitter: [String: Any]? = nil, multiple: Bool = false, children: [[String: Any]] = []) throws -> SceneParticleSimulator {
-            let root: [String: Any] = ["material": "p.json", "maxcount": maximum, "starttime": start,
-                "emitter": Array(repeating: emitter ?? ["name": "boxrandom", "rate": 4, "duration": 1, "distancemax": 2], count: multiple ? 2 : 1),
+                  maximum: Int = 100, emitter: [String: Any]? = nil, multiple: Bool = false,
+                  children: [[String: Any]] = [], step: Double = 0.25,
+                  instance: SceneParticleInstanceOverride? = nil,
+                  emitterList: [[String: Any]]? = nil, material: String = "p.json",
+                  flags: Int = 0) throws -> SceneParticleSimulator {
+            let root: [String: Any] = ["material": material, "maxcount": maximum, "starttime": start, "flags": flags,
+                "emitter": emitterList ?? Array(repeating: emitter ?? ["name": "boxrandom", "rate": 4, "duration": 1, "distancemax": 2], count: multiple ? 2 : 1),
                 "initializer": [["name": "lifetimerandom", "min": lifetime, "max": lifetime]],
                 "operator": cacheMotion ? [["name": "oscillateposition", "frequencymin": 2, "frequencymax": 2,
                     "scalemin": "8 4 0", "scalemax": "8 4 0", "phasemin": 0, "phasemax": 0, "mask": "1 0.5 0"]] : [],
                 "children": children, "renderer": [["name": "sprite"]]]
             return SceneParticleSimulator(definition: try SceneParticleDefinitionParser().parse(root: root),
-                initialPlayback: initial, seed: 81, fixedTimeStep: 0.25,
+                instanceOverride: instance, initialPlayback: initial, seed: 81, fixedTimeStep: step,
                 stepSnapshotPolicy: .init(interval: 0.25, maximumSnapshots: 8))
         }
         func command(_ sim: SceneParticleSimulator, _ action: SceneParticlePlaybackAction, _ revision: UInt64) {
@@ -263,6 +267,215 @@ import Foundation
                       context: SceneParticleSimulator.EmissionContext = .init()) throws -> SceneParticleSimulator.PlaybackCandidate {
             try sim.preparePlaybackCandidate(commands:[(.init(layerID:42,action:.emit,
                 revision:sim.playback.revision+1,count:count),context)],charge:{_,_ in},release:{_ in})
+        }
+        do {
+            func schedule(_ fields: [String: Any] = [:]) -> [String: Any] {
+                var authored: [String: Any] = ["id": 17, "name": "boxrandom", "flags": 4,
+                    "rate": 8, "distancemin": 0, "distancemax": 2, "maxtoemitperperiod": 2,
+                    "minperiodicduration": 1, "maxperiodicduration": 1,
+                    "minperiodicdelay": 1, "maxperiodicdelay": 1]
+                authored.merge(fields) { _, value in value }
+                return authored
+            }
+            let parser = SceneParticleDefinitionParser()
+            let capped = try make(lifetime: 60, emitter: schedule())
+            capped.advance(by: 0.25)
+            result["cap-first-window-two"] = capped.particles.count == 2
+                && capped.playbackObservation?.rearmHasWork == true
+            capped.advance(by: 1.75)
+            result["cap-does-not-enter-gap-early"] = capped.particles.count == 2
+            capped.advance(by: 0.25)
+            result["cap-new-window-replenishes"] = capped.particles.count == 4
+                && capped.birthEvents.map(\.id) == [0, 1, 2, 3]
+            let sphere = try make(lifetime: 60, emitter: schedule(["name": "sphererandom",
+                "directions": "1 0 0", "sign": "1 0 0", "distancemin": 2, "distancemax": 2]))
+            sphere.advance(by: 2.25)
+            result["cap-sphere-uses-the-same-periodic-consumer"] = sphere.particles.count == 4
+                && sphere.particles.allSatisfy { $0.position == SIMD3(2, 0, 0) }
+            for (count, cap, expected) in [(0.25, 2, 0), (0.5, 3, 1), (1.24, 2, 2), (1.15, 2, 2)] {
+                let values = parser.parseInstanceOverride(["count": count])
+                let fields = schedule(["maxtoemitperperiod": cap,
+                    "minperiodicduration": 2, "maxperiodicduration": 2])
+                let sim = try make(lifetime: 60, emitter: fields, instance: values)
+                var unlimited = fields; unlimited.removeValue(forKey: "maxtoemitperperiod")
+                let control = try make(lifetime: 60, emitter: unlimited, instance: values)
+                sim.advance(by: 2); control.advance(by: 2)
+                result["cap-count-floor-first-\(count)"] = sim.particles.count == expected
+                    && control.particles.count > expected && sim.playbackObservation?.rearmHasWork == true
+                sim.advance(by: 3)
+                result["cap-count-floor-second-\(count)"] = sim.particles.count == expected * 2
+            }
+            let growing = try make(lifetime: 60, emitter: schedule(["rate": 4,
+                "minperiodicduration": 2, "maxperiodicduration": 2]))
+            growing.advance(by: 0.25)
+            let one = growing.particles.count
+            let doubled = parser.parseInstanceOverride(["count": 2])
+            let disabledCount = try make(lifetime: 60, emitter: schedule(), instance: doubled, flags: 32)
+            disabledCount.advance(by: 2.25)
+            result["cap-count-disable-flag-keeps-rate-and-quota-unscaled"] = disabledCount.particles == capped.particles
+                && disabledCount.frameSnapshot().random.state == capped.frameSnapshot().random.state
+            growing.advance(by: 0.25, dynamicInstanceOverride: doubled)
+            let three = growing.particles.count
+            growing.advance(by: 0.25, dynamicInstanceOverride: doubled)
+            result["cap-live-count-keeps-consumed-quota"] = one == 1 && three == 3
+                && growing.particles.count == 4
+            let halved = parser.parseInstanceOverride(["count": 0.5])
+            growing.advance(by: 1.25, dynamicInstanceOverride: halved)
+            result["cap-live-count-decrease-does-not-refund"] = growing.particles.count == 4
+            growing.advance(by: 1.25, dynamicInstanceOverride: halved)
+            result["cap-live-count-new-window-uses-current-value"] = growing.particles.count == 5
+            for (cap, first, next) in [(1, 1, 2), (4, 2, 3)] {
+                let sim = try make(lifetime: 60, emitter: schedule(["rate": 1,
+                    "maxtoemitperperiod": cap, "minperiodicduration": 2.5,
+                    "maxperiodicduration": 2.5]))
+                sim.advance(by: 2.5)
+                let firstCount = sim.particles.count
+                sim.advance(by: 1.25)
+                let beforeCarry = sim.particles.count
+                sim.advance(by: 0.25)
+                result["cap-fraction-crosses-window-\(cap)"] = firstCount == first
+                    && beforeCarry == first && sim.particles.count == next
+                    && sim.frameSnapshot().emitters[0].remainder == 0
+            }
+            var noCap = schedule(["minperiodicduration": 0.5, "maxperiodicduration": 1,
+                "minperiodicdelay": 0.5, "maxperiodicdelay": 1])
+            noCap.removeValue(forKey: "maxtoemitperperiod")
+            for cap in [0, -1] {
+                var fields = noCap; fields["maxtoemitperperiod"] = cap
+                let control = try make(lifetime: 60, emitter: noCap, instance: doubled)
+                let sim = try make(lifetime: 60, emitter: fields, instance: doubled)
+                for duration in [0.25, 0.5, 1.5, 2.25] {
+                    sim.advance(by: duration); control.advance(by: duration)
+                }
+                let a = sim.frameSnapshot(), b = control.frameSnapshot()
+                result["cap-nonpositive-unlimited-sequence-\(cap)"] = !a.particles.isEmpty
+                    && a.particles == b.particles && a.birthEvents == b.birthEvents
+                    && a.deathEvents == b.deathEvents && a.random.state == b.random.state
+                    && a.nextParticleID == b.nextParticleID && a.simulationTime == b.simulationTime
+                    && a.emitters[0].elapsed == b.emitters[0].elapsed
+                    && a.emitters[0].remainder == b.emitters[0].remainder
+            }
+            let renamed = schedule(["id": 823, "maxtoemitperperiod": "2"])
+            let renamedSim = try make(lifetime: 60, emitter: renamed, material: "other/fog.json")
+            renamedSim.advance(by: 2.25)
+            result["cap-resource-id-numeric-text-equivalence"] = renamedSim.particles == capped.particles
+                && renamedSim.birthEvents == capped.birthEvents
+                && renamedSim.frameSnapshot().random.state == capped.frameSnapshot().random.state
+            let first = schedule(["origin": "0 0 0", "distancemax": 0])
+            let second = schedule(["origin": "10 0 0", "distancemax": 0, "maxtoemitperperiod": 1])
+            var third = schedule(["origin": "20 0 0", "distancemax": 0])
+            third.removeValue(forKey: "maxtoemitperperiod")
+            let independent = try make(lifetime: 60, emitterList: [first, second, third])
+            independent.advance(by: 0.25)
+            result["cap-emitter-authored-order"] = independent.particles.map(\.position.x) == [0, 0, 10, 20, 20]
+            independent.advance(by: 2)
+            result["cap-emitter-independent-and-unlimited-peer"] = independent.particles.count == 16
+                && independent.particles.filter { $0.position.x == 0 }.count == 4
+                && independent.particles.filter { $0.position.x == 10 }.count == 2
+                && independent.particles.filter { $0.position.x == 20 }.count == 10
+            let malformedCaps: [Any] = [true, 1.5, "bad", Double.infinity, Double.nan]
+            for (index, malformed) in malformedCaps.enumerated() {
+                let bad = schedule(["maxtoemitperperiod": malformed, "distancemax": 0])
+                let peer: [String: Any] = ["name": "boxrandom", "rate": 4,
+                    "origin": "40 0 0", "distancemin": 0, "distancemax": 0]
+                let sim = try make(lifetime: 60, emitterList: [bad, peer])
+                sim.advance(by: 0.25)
+                result["cap-malformed-local-peer-\(index)"] = sim.particles.count == 1
+                    && sim.particles[0].position.x == 40 && sim.particles[0].id == 0
+            }
+            let warm = try make(start: 2.25, lifetime: 60, emitter: schedule())
+            result["cap-prewarm-live-handoff"] = warm.particles == capped.particles
+                && warm.frameSnapshot().random.state == capped.frameSnapshot().random.state
+                && warm.frameSnapshot().nextParticleID == 4
+            command(warm, .pause, 1); warm.advance(by: 0.5); command(warm, .play, 2)
+            warm.advance(by: 0.25)
+            result["cap-pause-retains-window-quota"] = warm.particles.count == 4
+            command(warm, .stop, 3); command(warm, .play, 4); warm.advance(by: 0.25)
+            result["cap-stop-play-rearms-quota-with-new-ids"] = warm.particles.map(\.id) == [4, 5]
+            let crowded = try make(lifetime: 0.75, maximum: 1, emitter: schedule())
+            crowded.advance(by: 1)
+            result["cap-project-request-policy-consumes-capacity-blocked-demand"] = crowded.particles.isEmpty
+                && crowded.frameSnapshot().nextParticleID == 1
+            crowded.advance(by: 1.25)
+            result["cap-capacity-refills-only-in-new-window"] = crowded.particles.map(\.id) == [1]
+            let retry = try make(lifetime: 60, emitter: schedule())
+            retry.advance(by: 0.25)
+            let saved = retry.frameSnapshot()
+            retry.advance(by: 2)
+            let future = retry.frameSnapshot()
+            retry.restoreFrame(saved); retry.advance(by: 2)
+            let repeated = retry.frameSnapshot()
+            result["cap-snapshot-retry-preserves-phase-quota-rng-events"] = future.particles.count == 4
+                && repeated.particles == future.particles && repeated.birthEvents == future.birthEvents
+                && repeated.deathEvents == future.deathEvents && repeated.random.state == future.random.state
+                && repeated.nextParticleID == future.nextParticleID
+            retry.restoreFrame(saved)
+            let invalid = parser.parseInstanceOverride(["lifetime": 0])
+            do {
+                _ = try retry.preparePlaybackCandidate(commands: [
+                    (.init(layerID: 42, action: .emit, revision: 1, count: 1), .init()),
+                    (.init(layerID: 42, action: .emit, revision: 2, count: 1),
+                     .init(instanceOverride: invalid))], charge: { _, _ in }, release: { _ in })
+                result["cap-exact-n-failure-restores"] = false
+            } catch {
+                let restored = retry.frameSnapshot()
+                result["cap-exact-n-failure-restores"] = restored.particles == saved.particles
+                    && restored.birthEvents == saved.birthEvents && restored.random.state == saved.random.state
+                    && restored.nextParticleID == saved.nextParticleID && restored.playback == saved.playback
+            }
+            retry.advance(by: 2)
+            result["cap-exact-n-failure-keeps-next-natural-window"] = retry.particles == future.particles
+                && retry.frameSnapshot().random.state == future.random.state
+            let manualCap = try make(lifetime: 60, emitter: schedule())
+            manualCap.restoreFrame(try explicit(manualCap, count: 1).state)
+            manualCap.advance(by: 0.25)
+            result["cap-explicit-does-not-spend-natural-quota"] = manualCap.particles.count == 3
+            manualCap.restoreFrame(try explicit(manualCap, count: 1).state)
+            manualCap.advance(by: 0.25)
+            result["cap-explicit-remains-available-at-natural-limit"] = manualCap.particles.count == 4
+            let crossed = try make(lifetime: 60, emitter: schedule(),
+                instance: parser.parseInstanceOverride(["rate": 16]))
+            let sliced = try make(lifetime: 60, emitter: schedule())
+            crossed.advance(by: 0.5); sliced.advance(by: 8)
+            result["cap-scaled-step-applies-each-crossed-window"] = crossed.particles.count == 8
+                && crossed.particles.map(\.position) == sliced.particles.map(\.position)
+                && crossed.frameSnapshot().random.state == sliced.frameSnapshot().random.state
+                && crossed.frameSnapshot().nextParticleID == sliced.frameSnapshot().nextParticleID
+            let randomFields = schedule(["maxperiodicduration": 2, "maxperiodicdelay": 2])
+            let randomBase = try make(lifetime: 60, emitter: randomFields)
+            let randomScaled = try make(lifetime: 60, emitter: randomFields, step: 0.125,
+                instance: parser.parseInstanceOverride(["rate": 2]))
+            randomBase.advance(by: 8); randomScaled.advance(by: 4)
+            result["cap-random-window-rate-step-rng-equivalence"] = !randomBase.particles.isEmpty
+                && randomBase.particles == randomScaled.particles
+                && randomBase.birthEvents == randomScaled.birthEvents
+                && randomBase.frameSnapshot().random.state == randomScaled.frameSnapshot().random.state
+            let randomSaved = randomBase.frameSnapshot()
+            randomBase.advance(by: 4)
+            let randomFuture = randomBase.frameSnapshot()
+            randomBase.restoreFrame(randomSaved); randomBase.advance(by: 4)
+            result["cap-random-window-snapshot-restores-private-schedule-rng"] = randomBase.particles == randomFuture.particles
+                && randomBase.birthEvents == randomFuture.birthEvents
+                && randomBase.frameSnapshot().random.state == randomFuture.random.state
+                && randomBase.frameSnapshot().nextParticleID == randomFuture.nextParticleID
+            let budgetFields = schedule(["minperiodicduration": 0.5, "maxperiodicduration": 0.5,
+                "minperiodicdelay": 0.5, "maxperiodicdelay": 0.5])
+            let boundary = try make(lifetime: 1e6, maximum: 2048, emitter: budgetFields,
+                instance: parser.parseInstanceOverride(["rate": 2048]))
+            boundary.advance(by: 0.25)
+            result["cap-original-1024-window-boundary"] = boundary.particles.count == 1024
+            let excessive = try make(lifetime: 1e6, emitter: budgetFields,
+                instance: parser.parseInstanceOverride(["rate": 2049]))
+            let beforeExcessive = excessive.frameSnapshot()
+            excessive.advance(by: 0.25)
+            let refused = excessive.frameSnapshot()
+            result["cap-original-window-budget-is-local"] = refused.particles.isEmpty
+                && refused.nextParticleID == beforeExcessive.nextParticleID
+                && refused.random.state == beforeExcessive.random.state
+                && refused.emitters[0].elapsed == beforeExcessive.emitters[0].elapsed
+                && refused.emitters[0].remainder == beforeExcessive.emitters[0].remainder
+            excessive.advance(by: 0.25, dynamicInstanceOverride: parser.parseInstanceOverride(["rate": 1]))
+            result["cap-window-budget-refusal-retains-next-schedule"] = excessive.particles.map(\.id) == [0, 1]
         }
         func radial(_ bounds: [String: Any], renamed: Bool = false, peer: Bool = false,
                     streaming: Bool = false, omitsSign: Bool = false,

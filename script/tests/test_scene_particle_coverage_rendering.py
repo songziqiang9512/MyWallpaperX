@@ -398,5 +398,44 @@ class SceneParticleCoverageRenderingTests(unittest.TestCase):
         self.assertLessEqual(rejected["maximumByteError"], 1, rejected)
 
 
+    def test_periodic_cap_windows_and_uncapped_neighbor_reach_literal_gpu_geometry(self) -> None:
+        rows = {row["name"]: row for row in self.result["periodicBirth"]}
+        cases = {
+            "periodicFirst": (2, [64.2666667, 32, 76.2666667, 64], 384, [True, False, False, False]),
+            "periodicGap": (2, [80.2666667, 32, 92.2666667, 64], 384, [False, True, False, False]),
+            "periodicSecond": (4, [64.2666667, 32, 108.2666667, 64], 768, [True, False, True, False]),
+            "renamedPeriodicSecond": (4, [64.2666667, 32, 108.2666667, 64], 768, [True, False, True, False]),
+            "periodicUncapped": (7, [60.2666667, 32, 108.2666667, 64], 1152, [True, False, True, True]),
+            "periodicZeroCap": (7, [60.2666667, 32, 108.2666667, 64], 1152, [True, False, True, True]),
+            "periodicInvalidDuration": (0, [], 0, [False, False, False, False]),
+        }
+        self.assertEqual(set(rows), set(cases))
+        source, clear, peer = [96, 160, 224, 255], [16, 24, 40, 102], [192, 96, 48, 255]
+        for name, (count, bounds, area, probes) in cases.items():
+            row = rows[name]
+            with self.subTest(name=name):
+                self.assertEqual([f["liveParticles"] for f in row["facts"]], [count, 1])
+                self.assertEqual([f["instances"] for f in row["facts"]], [count, 1])
+                self.assertEqual(row["encoded"], [count > 0, True])
+                self.assertTrue(row["completed"])
+                self.assertTrue(row["verticesFinite"])
+                self.assertEqual(row["vertexCount"], count * 4)
+                self.assertEqual(len(row["vertexBounds"]), len(bounds))
+                for measured, expected in zip(row["vertexBounds"], bounds, strict=True):
+                    self.assertAlmostEqual(measured, expected, delta=.002)
+                self.assertEqual(row["frozenPixels"], [source if p else clear for p in probes] + [peer, clear])
+                histogram = {"192,96,48,255": 64, "16,24,40,102": 12224 - area}
+                if area:
+                    histogram["96,160,224,255"] = area
+                    self.assertTrue(row["facts"][0]["liveBirthAccepted"])
+                self.assertEqual(row["histogram"], histogram)
+                self.assertLessEqual(row["maximumByteError"], 1)
+        for field in ("vertexBounds", "frozenPixels", "histogram"):
+            self.assertEqual(rows["periodicSecond"][field], rows["renamedPeriodicSecond"][field])
+        for field in ("layerID", "particlePath", "authoredMaterialPath", "authoredTexturePath"):
+            self.assertNotEqual(rows["periodicSecond"]["facts"][0][field],
+                                rows["renamedPeriodicSecond"]["facts"][0][field])
+
+
 if __name__ == "__main__":
     unittest.main()

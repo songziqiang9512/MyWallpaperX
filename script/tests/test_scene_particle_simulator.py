@@ -2042,8 +2042,6 @@ enum Harness {
         periodicMalformed.advance(by: 1.5)
         var periodicBurst = simulator(periodicBurstJSON, seed: 101, step: 0.25)
         periodicBurst.advance(by: 1.5)
-        var periodicLimited = simulator(periodicLimitedJSON, seed: 101, step: 0.25)
-        periodicLimited.advance(by: 1.5)
         let periodicOverride = SceneParticleDefinitionParser().parseInstanceOverride(
             try object(#"{"rate":2}"#)
         )
@@ -2530,8 +2528,6 @@ enum Harness {
             "periodicMalformedDiagnostics": periodicMalformed.diagnostics.map(\.kind.rawValue),
             "periodicBurstCount": periodicBurst.particles.count,
             "periodicBurstDiagnostics": periodicBurst.diagnostics.map(\.kind.rawValue),
-            "periodicLimitedCount": periodicLimited.particles.count,
-            "periodicLimitedDiagnostics": periodicLimited.diagnostics.map(\.kind.rawValue),
             "periodicOverriddenCount": periodicOverridden.particles.count,
             "periodicOverriddenDiagnostics": periodicOverridden.diagnostics.map(\.kind.rawValue),
             "delayedRateBeforeCount": delayedRateBeforeCount,
@@ -2907,11 +2903,6 @@ enum Harness {
     private static let periodicBurstJSON = periodicJSON.replacingOccurrences(
         of: #""rate":4"#,
         with: #""rate":4,"instantaneous":1"#
-    )
-
-    private static let periodicLimitedJSON = periodicJSON.replacingOccurrences(
-        of: #""rate":4"#,
-        with: #""rate":4,"maxtoemitperperiod":2"#
     )
 
     private static let periodicDelayedJSON = periodicJSON.replacingOccurrences(
@@ -3792,7 +3783,7 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(self.results["periodicOverriddenCount"], 6)
         self.assertEqual(self.results["periodicOverriddenDiagnostics"], ["periodicEmissionBounded"])
         for prefix in [
-            "periodicMalformed", "periodicBurst", "periodicLimited"
+            "periodicMalformed", "periodicBurst"
         ]:
             self.assertEqual(self.results[f"{prefix}Count"], 0)
             self.assertEqual(

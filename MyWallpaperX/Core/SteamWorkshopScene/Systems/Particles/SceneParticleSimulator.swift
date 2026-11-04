@@ -585,47 +585,33 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
 #endif
             return
         }
-        guard let activeDuration = emitters[index].scheduledActiveDuration(
+        let countScale = definition.flags.disablesCountOverrides
+            ? 1
+            : max(0, overrideScalar(activeInstanceOverride?.count))
+        let count: Int
+        switch emitters[index].scheduledEmissionCount(
             plan: spawnPlan, stepDuration: duration,
-            maximumEmissionDuration: maximumEmissionDuration
-        ) else {
+            maximumEmissionDuration: maximumEmissionDuration,
+            countScale: countScale, audioScale: audioScale,
+            maximumCount: maximumParticleCount
+        ) {
+        case .inactive:
 #if DEBUG
             componentObservation?.record("emitter", index, "unknown", reason: "schedule-inactive-or-unavailable", time: simulationTime)
 #endif
             return
-        }
-
-        var count = 0
-        if !emitters[index].emittedInstantaneous, (spawnPlan.instantaneousCount ?? 0) > 0 {
-            count = max(0, spawnPlan.instantaneousCount ?? 0)
-            emitters[index].emittedInstantaneous = true
-        } else {
-            let authoredRate = spawnPlan.rate ?? 5
-            let countScale = definition.flags.disablesCountOverrides
-                ? 1
-                : max(0, overrideScalar(activeInstanceOverride?.count))
-            let scaledRate = (authoredRate.isFinite ? authoredRate : 0)
-                * countScale * audioScale
-            let rate = scaledRate.isFinite ? max(0, scaledRate) : 0
-            let accumulated = emitters[index].remainder + rate * activeDuration
-            guard accumulated.isFinite else {
+        case .invalidAccumulator:
 #if DEBUG
-                let diagnostic = SceneParticleSimulationDiagnostic(
-                    kind: .invalidEmitterState, componentName: "emission:\(index)"
-                )
-                if !diagnostics.contains(diagnostic) { diagnostics.append(diagnostic) }
-                componentObservation?.record("emitter", index, "rejected", reason: "nonfinite-emission-accumulator", time: simulationTime)
-#endif
-                return
-            }
-            let integral = floor(accumulated + 1e-12)
-            emitters[index].remainder = max(0, accumulated - integral)
-            count = Int(min(integral, Double(maximumParticleCount)))
-            count = emitters[index].boundedRateEmissionCount(
-                count, limitsToOnePerFrame: spawnPlan.limitsToOnePerFrame
+            let diagnostic = SceneParticleSimulationDiagnostic(
+                kind: .invalidEmitterState, componentName: "emission:\(index)"
             )
+            if !diagnostics.contains(diagnostic) { diagnostics.append(diagnostic) }
+            componentObservation?.record("emitter", index, "rejected", reason: "nonfinite-emission-accumulator", time: simulationTime)
+#endif
+            return
+        case let .count(requested):
+            count = min(requested, maximumParticleCount - particles.count)
         }
-        count = min(count, maximumParticleCount - particles.count)
 #if DEBUG
         componentObservation?.record("emitter", index, "evaluated", reason: "scheduled-count-evaluated", time: simulationTime)
         if count == 0 { componentObservation?.record("emitter", index, "not-triggered", reason: "zero-admitted-count", time: simulationTime) }

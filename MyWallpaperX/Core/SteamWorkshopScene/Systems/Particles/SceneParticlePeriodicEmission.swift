@@ -17,6 +17,7 @@ nonisolated struct SceneParticlePeriodicEmissionPlan: Sendable {
     let maximumDuration: Double
     let minimumDelay: Double
     let maximumDelay: Double
+    let maximumEmissionCount: Int?
 }
 
 /// Launch-stable emitter inputs used while creating particles. Dynamic control
@@ -110,6 +111,12 @@ nonisolated struct SceneParticleEmitterSpawnPlan: Sendable {
 }
 
 nonisolated struct SceneParticleEmitterState: Sendable {
+    nonisolated enum ScheduledEmission: Sendable {
+        case inactive
+        case invalidAccumulator
+        case count(Int)
+    }
+
     var elapsed = 0.0
     var remainder = 0.0
     var emittedInstantaneous = false
@@ -119,6 +126,7 @@ nonisolated struct SceneParticleEmitterState: Sendable {
     private var periodicIsEmitting = true
     private var periodicRemaining: Double?
     private var periodicRandom: SceneParticleRandomGenerator
+    private var periodicUsedCount = 0.0
 
     nonisolated init(seed: UInt64, emitterIndex: Int) {
         periodicRandom = SceneParticleRandomGenerator(
@@ -134,6 +142,7 @@ nonisolated struct SceneParticleEmitterState: Sendable {
         emittedRateThisFrame = false
         periodicIsEmitting = true
         periodicRemaining = nil
+        periodicUsedCount = 0
     }
 
     nonisolated mutating func beginFrame() {
@@ -167,15 +176,18 @@ nonisolated struct SceneParticleEmitterState: Sendable {
         return elapsed >= limit
     }
 
-    nonisolated mutating func scheduledActiveDuration(
+    nonisolated mutating func scheduledEmissionCount(
         plan: SceneParticleEmitterSpawnPlan,
         stepDuration: Double,
-        maximumEmissionDuration: Double? = nil
-    ) -> Double? {
+        maximumEmissionDuration: Double? = nil,
+        countScale: Double,
+        audioScale: Double,
+        maximumCount: Int
+    ) -> ScheduledEmission {
         let scheduled = activeDurationAfterInitialDelay(
             admission: plan.initialDelayAdmission, stepDuration: stepDuration
         )
-        guard scheduled > 0 else { return nil }
+        guard scheduled > 0 else { return .inactive }
         // Integrate the overlap, including a partial final step. Initial delay,
         // duration and periodic windows all consume the same simulation time.
         let available: Double
@@ -185,11 +197,30 @@ nonisolated struct SceneParticleEmitterState: Sendable {
             available = scheduled
         }
         elapsed += scheduled
-        guard available > 0 else { return nil }
-        let active = periodicActiveDuration(
-            admission: plan.periodicEmissionAdmission, stepDuration: available
-        )
-        return active > 0 ? active : nil
+        guard available > 0 else { return .inactive }
+        if case .disabled = plan.periodicEmissionAdmission,
+           !emittedInstantaneous, (plan.instantaneousCount ?? 0) > 0 {
+            emittedInstantaneous = true
+            return .count(max(0, plan.instantaneousCount ?? 0))
+        }
+        let authoredRate = plan.rate ?? 5
+        let scaledRate = (authoredRate.isFinite ? authoredRate : 0) * countScale * audioScale
+        let rate = scaledRate.isFinite ? max(0, scaledRate) : 0
+        switch plan.periodicEmissionAdmission {
+        case .disabled:
+            guard let count = Self.integratedRateCount(
+                rate: rate, duration: available, remainder: &remainder, maximumCount: maximumCount
+            ) else { return .invalidAccumulator }
+            return .count(boundedRateEmissionCount(count, limitsToOnePerFrame: plan.limitsToOnePerFrame))
+        case .unsupported:
+            return .inactive
+        case let .supported(configuration):
+            return periodicEmissionCount(
+                configuration: configuration, stepDuration: available, rate: rate,
+                countScale: countScale, maximumCount: maximumCount,
+                limitsToOnePerFrame: plan.limitsToOnePerFrame
+            )
+        }
     }
 
     private nonisolated mutating func activeDurationAfterInitialDelay(
@@ -211,36 +242,78 @@ nonisolated struct SceneParticleEmitterState: Sendable {
         }
     }
 
-    private nonisolated mutating func periodicActiveDuration(
-        admission: SceneParticlePeriodicEmissionAdmission,
-        stepDuration: Double
-    ) -> Double {
-        switch admission {
-        case .disabled:
-            return stepDuration
-        case .unsupported:
-            return 0
-        case let .supported(configuration):
-            var remainingStep = stepDuration
-            var active = 0.0
-            while remainingStep > 1e-12 {
-                if periodicRemaining == nil {
-                    let range = periodicIsEmitting
-                        ? (configuration.minimumDuration, configuration.maximumDuration)
-                        : (configuration.minimumDelay, configuration.maximumDelay)
-                    periodicRemaining = periodicRandom.value(range.0, range.1)
-                }
-                let slice = min(remainingStep, periodicRemaining ?? 0)
-                if periodicIsEmitting { active += slice }
-                remainingStep -= slice
-                periodicRemaining = max((periodicRemaining ?? 0) - slice, 0)
-                if periodicRemaining ?? 0 <= 1e-12 {
-                    periodicIsEmitting.toggle()
-                    periodicRemaining = nil
+    private nonisolated static func integratedRateCount(
+        rate: Double, duration: Double, remainder: inout Double, maximumCount: Int
+    ) -> Int? {
+        let accumulated = remainder + rate * duration
+        guard accumulated.isFinite else { return nil }
+        let integral = floor(accumulated + 1e-12)
+        remainder = max(0, accumulated - integral)
+        return Int(min(integral, Double(maximumCount)))
+    }
+
+    private nonisolated mutating func periodicEmissionCount(
+        configuration: SceneParticlePeriodicEmissionPlan, stepDuration: Double,
+        rate: Double, countScale: Double, maximumCount: Int, limitsToOnePerFrame: Bool
+    ) -> ScheduledEmission {
+        let limit = configuration.maximumEmissionCount.map { floor(Double($0) * countScale) }
+        var remainingStep = stepDuration
+        var active = 0.0
+        var count = 0
+        // Invalid accumulation rejects the request, but the original window
+        // clock still advances; commit the numeric accumulation only on success.
+        var nextRemainder = remainder
+        var nextUsedCount = periodicUsedCount
+        var invalidAccumulator = false
+        while remainingStep > 1e-12 {
+            if periodicRemaining == nil {
+                let range = periodicIsEmitting
+                    ? (configuration.minimumDuration, configuration.maximumDuration)
+                    : (configuration.minimumDelay, configuration.maximumDelay)
+                periodicRemaining = periodicRandom.value(range.0, range.1)
+            }
+            let slice = min(remainingStep, periodicRemaining ?? 0)
+            if periodicIsEmitting {
+                active += slice
+                if let limit, !invalidAccumulator {
+                    if let requested = Self.integratedRateCount(
+                        rate: rate, duration: slice, remainder: &nextRemainder, maximumCount: maximumCount
+                    ) {
+                        let remaining = max(limit - nextUsedCount, 0)
+                        // Compare before converting: an overflowing scaled limit
+                        // still admits the original bounded request without Int(infinity).
+                        let admitted = remaining >= Double(requested) ? requested : Int(remaining)
+                        nextUsedCount += Double(admitted)
+                        count += min(admitted, maximumCount - count)
+                    } else {
+                        invalidAccumulator = true
+                    }
                 }
             }
-            return active
+            remainingStep -= slice
+            periodicRemaining = max((periodicRemaining ?? 0) - slice, 0)
+            if periodicRemaining ?? 0 <= 1e-12 {
+                periodicIsEmitting.toggle()
+                periodicRemaining = nil
+                if periodicIsEmitting {
+                    periodicUsedCount = 0
+                    nextUsedCount = 0
+                }
+            }
         }
+        guard active > 0 else { return .inactive }
+        guard !invalidAccumulator else { return .invalidAccumulator }
+        if limit != nil {
+            remainder = nextRemainder
+            periodicUsedCount = nextUsedCount
+        } else {
+            // Uncapped schedules retain their original aggregate-then-integrate order.
+            guard let requested = Self.integratedRateCount(
+                rate: rate, duration: active, remainder: &remainder, maximumCount: maximumCount
+            ) else { return .invalidAccumulator }
+            count = requested
+        }
+        return .count(boundedRateEmissionCount(count, limitsToOnePerFrame: limitsToOnePerFrame))
     }
 }
 
@@ -263,7 +336,6 @@ nonisolated extension SceneParticleEmitter {
         if case .unsupported = initialDelayAdmission { return .unsupported }
         guard rawFlags & ~4 == 0,
               !value.hasMalformedFields,
-              value.maximumEmissionCount == nil,
               (instantaneousCount ?? 0) == 0,
               (duration ?? 0) == 0,
               !audioResponse.isEnabled,
@@ -283,7 +355,8 @@ nonisolated extension SceneParticleEmitter {
             minimumDuration: minimumDuration,
             maximumDuration: maximumDuration,
             minimumDelay: minimumDelay,
-            maximumDelay: maximumDelay
+            maximumDelay: maximumDelay,
+            maximumEmissionCount: value.maximumEmissionCount.flatMap { $0 > 0 ? $0 : nil }
         ))
     }
 }

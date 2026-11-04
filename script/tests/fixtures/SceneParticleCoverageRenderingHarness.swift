@@ -82,7 +82,7 @@ enum SceneParticleCoverageRenderingHarness {
         return ["device": device.name, "sampleCount": 1,
                 "coverage": coverage, "ordinary": ordinary, "missing": missing,
                 "runtime": runtime.0, "runtimeDepth": runtime.1, "signedBirth": runtime.2,
-                "signBirth": runtime.3, "boxBirth": runtime.4]
+                "signBirth": runtime.3, "boxBirth": runtime.4, "periodicBirth": runtime.5]
     }
 
     private static func referenceState(
@@ -266,6 +266,8 @@ enum SceneParticleCoverageRenderingHarness {
         var birthSign: String? = nil
         var birthDirections = "1 0 0"
         var birthEmitterKind: String? = nil
+        var naturalEmitter: [String: Any]? = nil
+        var observationSteps: Int? = nil
     }
 
     private struct RuntimeProduct {
@@ -313,6 +315,9 @@ enum SceneParticleCoverageRenderingHarness {
              "max": input.shape == "peer" ? 8 : 16],
             ["name": "colorrandom", "min": [255, 255, 255], "max": [255, 255, 255]],
         ]
+        if input.naturalEmitter != nil {
+            initializers.append(["name": "velocityrandom", "min": [16, 0, 0], "max": [16, 0, 0]])
+        }
         if input.shape == "moving" {
             initializers.append(["name": "velocityrandom", "min": [80, 40, 0], "max": [80, 40, 0]])
         }
@@ -348,9 +353,10 @@ enum SceneParticleCoverageRenderingHarness {
                 emitter["instantaneous"] = 16
                 if let sign = input.birthSign { emitter["sign"] = sign }
             }
+            if let natural = input.naturalEmitter { emitter.merge(natural) { _, value in value } }
             return emitter
         }
-        let moves = input.shape == "moving" || input.birthSpeed != nil
+        let moves = input.shape == "moving" || input.birthSpeed != nil || input.naturalEmitter != nil
         try Harness.writeJSON([
             "material": material, "maxcount": 16, "starttime": 0,
             "emitter": emitters,
@@ -371,11 +377,14 @@ enum SceneParticleCoverageRenderingHarness {
             renderOrderLayerIDs: [layerID], materialPasses: [pass]),
             cacheDirectory: root, device: device, stockTextureBundleURL: nil)
         var batches = runtime.advance(by: 0)
-        for _ in 0..<(moves ? 30 : 2) { batches = runtime.advance(by: 1.0 / 60) }
+        for _ in 0..<(input.observationSteps ?? (moves ? 30 : 2)) {
+            batches = runtime.advance(by: 1.0 / 60)
+        }
         guard let batch = batches.first else {
             throw failure("runtime-\(input.name)-\(runtime.diagnostics)")
         }
-        let observesBirth = input.birthSpeed != nil || input.birthSign != nil || input.birthEmitterKind != nil
+        let observesBirth = input.birthSpeed != nil || input.birthSign != nil
+            || input.birthEmitterKind != nil || input.naturalEmitter != nil
         let birthFacts = !observesBirth ? [] : runtime.consumeComponentObservations().filter {
             $0.layerID == layerID && $0.childTemplateIndex == nil
                 && $0.particlePath.lowercased() == path.lowercased() && $0.evaluation.origin == "live"
@@ -419,7 +428,7 @@ enum SceneParticleCoverageRenderingHarness {
     private static func runtimeCases(
         device: MTLDevice, queue: MTLCommandQueue, pipeline: SceneParticleMetalPipeline,
         ordinaryPipeline: SceneParticleMetalPipeline, library: MTLLibrary
-    ) throws -> ([[String: Any]], [[String: Any]], [[String: Any]], [[String: Any]], [[String: Any]]) {
+    ) throws -> ([[String: Any]], [[String: Any]], [[String: Any]], [[String: Any]], [[String: Any]], [[String: Any]]) {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(
             "mwx-particle-coverage-live-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -592,7 +601,29 @@ enum SceneParticleCoverageRenderingHarness {
             row["authoredEmitterKind"] = kind
             boxBirth.append(row)
         }
-        return (rows, depthRows, signedBirth, signBirth, boxBirth)
+        var periodicBirth: [[String: Any]] = []
+        for (name, cap, steps, active) in [
+            ("periodicFirst", 2, 45, 1.0), ("periodicGap", 2, 105, 1.0),
+            ("periodicSecond", 2, 165, 1.0), ("renamedPeriodicSecond", 2, 165, 1.0),
+            ("periodicUncapped", -1, 165, 1.0), ("periodicZeroCap", 0, 165, 1.0),
+            ("periodicInvalidDuration", 2, 165, -1.0),
+        ] {
+            var emitter: [String: Any] = ["id": 37, "flags": 4, "rate": 4, "instantaneous": 0,
+                "minperiodicduration": active, "maxperiodicduration": active,
+                "minperiodicdelay": 1, "maxperiodicdelay": 1]
+            if cap >= 0 { emitter["maxtoemitperperiod"] = cap }
+            let product = try make(.init(name: name, renderer: "sprite", shape: "signedBirth",
+                blend: .translucent, naturalEmitter: emitter, observationSteps: steps))
+            let points = [SIMD2(68, 48), SIMD2(84, 48), SIMD2(104, 48),
+                          SIMD2(62, 48), SIMD2(116, 14), SIMD2(4, 4)]
+            var row = try render(name, [runtimeDraw(product, camera: camera),
+                runtimeDraw(peer, camera: camera, origin: SIMD3(116, 14, 0))], frozenPoints: points)
+            row["authoredCap"] = cap >= 0 ? cap as Any : NSNull()
+            row["authoredRate"] = 4
+            row["observationSteps"] = steps
+            periodicBirth.append(row)
+        }
+        return (rows, depthRows, signedBirth, signBirth, boxBirth, periodicBirth)
     }
 
     private static func vertexProbe(device: MTLDevice) throws -> MTLRenderPipelineState {
