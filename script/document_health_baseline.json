@@ -5,8 +5,8 @@
   "maxReviewAgeDays": 60,
   "bodies": {
     "docs/architecture/appkit-migration.md": {
-      "lines": 213,
-      "bytes": 21611
+      "lines": 216,
+      "bytes": 25201
     },
     "docs/architecture/playback-lifecycle-transaction-design.md": {
       "lines": 50,
@@ -33,20 +33,20 @@
       "bytes": 77975
     },
     "docs/development/code-slimming-program.md": {
-      "lines": 104,
-      "bytes": 25951
+      "lines": 172,
+      "bytes": 46096
     },
     "docs/development/local-library-loading-design.md": {
-      "lines": 135,
-      "bytes": 28816
+      "lines": 173,
+      "bytes": 38760
     },
     "docs/development/lock-screen-screensaver-design.md": {
       "lines": 117,
       "bytes": 23214
     },
     "docs/development/main-window-playlists-redesign.md": {
-      "lines": 596,
-      "bytes": 110936
+      "lines": 598,
+      "bytes": 111928
     },
     "docs/development/pixiv-online-browser-design.md": {
       "lines": 166,
@@ -207,6 +207,10 @@
     "docs/web/web-wallpaper-benchmark-standard.md": {
       "lines": 86,
       "bytes": 8377
+    },
+    "docs/development/thumbnail-delivery-design.md": {
+      "lines": 180,
+      "bytes": 43570
     }
   },
   "archives": [
@@ -432,6 +436,51 @@
       "owner": "Scene prepared named inputs and forward provider publication",
       "reason": "Retire the closed single-reference restriction and obsolete replay narrative; retain one current same-upstream multi-slot contract, bounded literal-pixel evidence and the remaining multi-upstream/order/visible-output gaps. No new runtime owner or per-slot provider-ID proof is claimed.",
       "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-input-ownership"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/local-library-loading-design.md",
+      "before": "e2c8785543860e0609127596471bc300ce652af3300693752f7e846c69e0f482",
+      "after": "5cb4c9ebb29ae5864071b95ee6d4d0cd9e0aae543a6231481b39294e615d7848",
+      "owner": "repository-maintainer",
+      "reason": "Keep one current thumbnail migration authority, R113-R115 verified scope and unresolved presentation boundaries. R115 retires online image ownership and duplicate preview while documenting actual reuse, source publication and test/build evidence; compact prior quick summaries.",
+      "decision": "docs/development/thumbnail-delivery-design.md#decision"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/code-slimming-program.md",
+      "before": "182c167688ef2bcf6d2a2f669659990937319b6af70382e7d82e6c030e93f8ae",
+      "after": "1d36f94fc8a43e30915c18130dfb5f81d1763ddeb34e83f5571ff5efc97f98a4",
+      "owner": "repository-maintainer",
+      "reason": "Complete Ready-before-optional-persistence delivery in the original bounded worker, source/hook ordering, invalidation and transient ready reuse; record exact synthetic before/after evidence, cross-target tail-window tradeoff, real AV and consumer gates. Synchronize the user-authorized workspace closeout; no new product cache/queue or whole-App FPS claim.",
+      "decision": "docs/development/thumbnail-delivery-design.md#decision"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/thumbnail-delivery-design.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "af6609f3e0b876bbde5fb2fbe918d8af146627c2339575c4080580e0bb2f3edf",
+      "owner": "repository-maintainer",
+      "reason": "Complete Ready-before-optional-persistence delivery in the original bounded worker, source/hook ordering, invalidation and transient ready reuse; record exact synthetic before/after evidence, cross-target tail-window tradeoff, real AV and consumer gates. Synchronize the user-authorized workspace closeout; no new product cache/queue or whole-App FPS claim.",
+      "decision": "docs/development/thumbnail-delivery-design.md#decision"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/appkit-migration.md",
+      "before": "52c8b670fbbe0ec16ef842c662581064838a23b8c462fc584329c7c0ad9f196f",
+      "after": "e837183ea29c4e646a7e192b21b471648e03fdfc036b337511a216e9efcb6c7b",
+      "owner": "repository-maintainer",
+      "reason": "Keep current non-displaying Steam prefetch ownership and measured 96-image retirement; preserve fallback/retry/display state and prior target-size scope. Reject the ambiguous static-animation terminal candidate using actual ImageIO counterexamples; retain native timeout evidence and explicit FPS/RSS limits.",
+      "decision": "docs/development/thumbnail-delivery-design.md#decision"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/main-window-playlists-redesign.md",
+      "before": "0908fea04b7a33166d77e1645d34a45431db478725c3c79613e83d4a1d06fd71",
+      "owner": "repository-maintainer",
+      "after": "003818c59b91071d97feef612a8ce228b3e9748399b5a9887aeabb38b5a52f84",
+      "reason": "Replace full-history native controls with diffable table reuse and one lightweight task presentation lifetime; preserve all source preparation, progress, warm revisit and close behavior. Record paired 100/1000 native resource counts, corrected fixture lifetimes and actual scoped validation; compact prior target-size results without changing proof ceilings.",
+      "decision": "docs/development/main-window-playlists-redesign.md#page-catalog"
     }
   ]
 }

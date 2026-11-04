@@ -750,6 +750,149 @@ import Foundation
                 checks["ui-pending-policy-does-not-bypass-original-alias-validation"] = true
             }
         }
+        do {
+            func resolutionRelationships(aliases: [WallpaperReferenceAlias] = [],
+                                         locators: [WallpaperReferenceLocator] = []) -> UserCollectionsSnapshot {
+                .init(revision: 1, resetEpoch: relations.resetEpoch, migrationManifestID: nil,
+                      playlists: [], members: [], favorites: [], recent: [], aliases: aliases, locators: locators)
+            }
+            func resolveMeasured(_ name: String, _ references: [WallpaperReference], catalog: WallpaperLibraryCatalog,
+                                 relationships: UserCollectionsSnapshot) throws -> (items: [WallpaperContentItem], work: [Int], locatorReads: Int) {
+                func counts() -> [Int] {
+                    [WallpaperLibraryQuery.normalizedDTOs, WallpaperLibraryQuery.unavailableDTOs,
+                     WallpaperLibraryQuery.itemWrites, WallpaperLibraryQuery.locatorWrites]
+                }
+                let before = counts()
+                let locatorReads = WallpaperLibraryQuery.locatorReads
+                let items = try WallpaperLibraryQuery.resolve(references, catalog: catalog, relationships: relationships)
+                let work = zip(counts(), before).map { $0.0 - $0.1 }
+                let reads = WallpaperLibraryQuery.locatorReads - locatorReads
+                FileHandle.standardError.write(Data(("RESOLUTION WORK \(name) \(references.count) "
+                    + work.map(String.init).joined(separator: " ") + " \(reads)\n").utf8))
+                return (items, work, reads)
+            }
+            let tailReference = ref(.staticImageLibrary, "single-4999")
+            let tail = item(tailReference, "Full tail", kind: .image, size: 987654321,
+                date: Date(timeIntervalSince1970: 123), update: .init(phase: .failed, failureMessage: "retained failure"),
+                path: "/single/tail.jpg", author: "Author", summary: "Summary", description: "Description",
+                tags: ["one", "two"], rating: .sensitive, acquisition: .init(phase: .queued),
+                capabilities: [.inspect, .play, .organize, .reveal])
+            var many = WallpaperLibraryCatalog(images: (0..<5000).map {
+                item(ref(.staticImageLibrary, "single-\($0)"), "Image \($0)", kind: .image, size: Int64($0))
+            })
+            many.images[4999] = tail
+            let manyLocators = many.images.map {
+                WallpaperReferenceLocator(reference: $0.reference,
+                    locator: .init(path: "/stored/\($0.reference.sourceID)", titleHint: "Stored", mediaKind: .web))
+            }
+            let ordinaryRelations = resolutionRelationships(locators: manyLocators)
+            let tailResult = try resolveMeasured("tail", [tailReference], catalog: many, relationships: ordinaryRelations)
+            checks["single-tail-preserves-complete-source-dto-including-current-locator"] = tailResult.items == [tail]
+            checks["single-tail-only-normalizes-and-indexes-requested-row"] = tailResult.work == [1, 0, 1, 1]
+            checks["single-tail-retains-all-locator-canonical-reads"] = tailResult.locatorReads == 5000
+
+            let native = ref(.steamWorkshop, "single-native"), firstBacking = ref(.videoLibrary, "single-first-backing")
+            let secondBacking = ref(.videoLibrary, "single-second-backing"), relocated = ref(.videoLibrary, "single-relocated")
+            let aliases: [WallpaperReferenceAlias] = [
+                .init(alias: relocated, canonical: firstBacking, proof: .explicitUserRelocation),
+                .init(alias: firstBacking, canonical: native, proof: .publishedDownload),
+                .init(alias: secondBacking, canonical: native, proof: .publishedDownload)]
+            let first = item(firstBacking, "First backing", size: 42, path: "/single/first.mp4")
+            let second = item(secondBacking, "Second backing", size: 99, path: "/single/second.mp4")
+            let nativeFirst = item(native, "Earlier native", kind: .scene, size: 123)
+            let nativeLast = item(native, "Last native", kind: .web, size: 456, author: "Native owner",
+                acquisition: .init(phase: .waiting), capabilities: [.inspect, .play, .delete])
+            var mixed = many
+            mixed.videos = [first]
+            mixed.downloads = [nativeFirst, nativeLast, second]
+            let ownerRelations = resolutionRelationships(aliases: aliases, locators: manyLocators)
+            let nativeResult = try resolveMeasured("native", [relocated], catalog: mixed, relationships: ownerRelations)
+            checks["single-chain-alias-keeps-last-native-owner-over-earlier-and-later-backings"] = nativeResult.items == [nativeLast]
+            checks["single-native-only-prepares-matching-owners-with-original-decision-order"] = nativeResult.work == [4, 0, 3, 0]
+            var backingOnly = many
+            backingOnly.videos = [first]
+            backingOnly.downloads = [second]
+            let backingResult = try resolveMeasured("backing", [native], catalog: backingOnly, relationships: ownerRelations)
+            let expectedBacking = WallpaperContentItem(reference: native, providerReference: firstBacking,
+                locator: .init(path: "/single/first.mp4", titleHint: "First backing", mediaKind: .video),
+                title: "First backing", kind: .video, publishedAvailability: .available,
+                capabilities: [.inspect, .play, .organize], metadata: .init(fileSizeBytes: 42),
+                acquisition: .idle, update: .idle, aliases: [])
+            checks["single-without-native-keeps-complete-first-backing-dto-and-owner"] = backingResult.items == [expectedBacking]
+            checks["single-backing-does-not-index-unrelated-items-or-later-fallback"] = backingResult.work == [2, 0, 1, 0]
+
+            let missing = ref(.steamWorkshop, "single-missing"), missingAlias = ref(.videoLibrary, "single-missing-alias")
+            let finalLocator = WallpaperLocator(path: "/single/missing-final.jpg", titleHint: "Final missing", mediaKind: .image)
+            let missingRelations = resolutionRelationships(aliases: aliases + [
+                .init(alias: missingAlias, canonical: missing, proof: .publishedDownload)],
+                locators: manyLocators + [
+                    .init(reference: missing, locator: .init(titleHint: "Old canonical", mediaKind: .video)),
+                    .init(reference: missingAlias, locator: .init(titleHint: "Later alias", mediaKind: .web)),
+                    .init(reference: missing, locator: finalLocator)])
+            let expectedMissing = WallpaperContentItem(reference: missing, providerReference: missing, locator: finalLocator,
+                title: "Final missing", kind: .image, publishedAvailability: .unavailable, capabilities: [.inspect],
+                metadata: .init(), acquisition: .idle, update: .idle, aliases: [])
+            let missingResult = try resolveMeasured("missing", [missingAlias], catalog: many, relationships: missingRelations)
+            checks["single-missing-keeps-last-canonicalized-locator-and-inspect-only-dto"] = missingResult.items == [expectedMissing]
+            checks["single-missing-creates-only-fallback-and-matching-locator-index"] = missingResult.work == [0, 1, 0, 3]
+            checks["single-missing-still-canonicalizes-all-locators"] = missingResult.locatorReads == 5003
+            let noLocator = ref(.pixiv, "single-no-locator")
+            let noLocatorResult = try resolveMeasured("no-locator", [noLocator], catalog: many, relationships: ordinaryRelations)
+            let expectedNoLocator = WallpaperContentItem(reference: noLocator, providerReference: noLocator,
+                locator: .init(mediaKind: .unknown), title: "single-no-locator", kind: .unknown,
+                publishedAvailability: .unavailable, capabilities: [.inspect], metadata: .init(),
+                acquisition: .idle, update: .idle, aliases: [])
+            checks["single-no-locator-retains-unknown-fallback"] = noLocatorResult.items == [expectedNoLocator]
+            checks["single-no-locator-does-not-prepare-unrelated-dtos-or-indexes"] = noLocatorResult.work == [0, 1, 0, 0]
+
+            let repeated = try resolveMeasured("repeated", [tailReference], catalog: many, relationships: ordinaryRelations)
+            checks["repeated-single-request-keeps-complete-result"] = repeated.items == [tail]
+            checks["repeated-single-request-keeps-bounded-preparation"] = repeated.work == [1, 0, 1, 1]
+            let updatedTail = item(tailReference, "Updated source", kind: .image, size: 7,
+                path: "/single/new.jpg", acquisition: .init(phase: .failed, failureMessage: "new fact"), capabilities: [.inspect])
+            many.images[4999] = updatedTail
+            let updated = try resolveMeasured("updated", [tailReference], catalog: many,
+                relationships: resolutionRelationships(locators: [.init(reference: tailReference, locator: .init(titleHint: "Not source"))]))
+            checks["next-single-request-uses-updated-source-without-retaining-old-dto-or-locator"] = updated.items == [updatedTail]
+            checks["updated-single-keeps-request-local-work"] = updated.work == [1, 0, 1, 1]
+            let duplicateResult = try resolveMeasured("duplicates", [tailReference, relocated, missingAlias, tailReference],
+                catalog: mixed, relationships: missingRelations)
+            checks["multi-resolve-keeps-input-order-repeated-request-and-original-owner"] = duplicateResult.items
+                == [tail, nativeLast, expectedMissing, tail]
+            checks["multi-resolve-retains-full-original-preparation-path"] = duplicateResult.work == [5004, 1, 5003, 5003]
+            let emptyResult = try resolveMeasured("empty", [], catalog: many, relationships: ordinaryRelations)
+            checks["empty-resolve-retains-empty-result-and-full-original-preparation-path"] = emptyResult.items.isEmpty
+                && emptyResult.work == [5000, 0, 5000, 5000]
+
+            let cycleA = ref(.videoLibrary, "single-cycle-a"), cycleB = ref(.steamWorkshop, "single-cycle-b")
+            let cycle: [WallpaperReferenceAlias] = [
+                .init(alias: cycleA, canonical: cycleB, proof: .publishedDownload),
+                .init(alias: cycleB, canonical: cycleA, proof: .publishedDownload)]
+            var brokenCatalog = many
+            brokenCatalog.downloads = [item(cycleA, "Unrequested cycle")]
+            let cycleRelations = resolutionRelationships(aliases: cycle)
+            let locatorCycle = resolutionRelationships(aliases: cycle, locators: [.init(reference: cycleA, locator: .init())])
+            let conflict = resolutionRelationships(aliases: cycle + [
+                .init(alias: cycleA, canonical: tailReference, proof: .explicitUserRelocation)])
+            let errorCases: [(String, WallpaperLibraryCatalog, UserCollectionsSnapshot, [WallpaperReference], UserCollectionsError)] = [
+                ("unrequested-catalog-cycle", brokenCatalog, cycleRelations, [tailReference], .corruptData("alias cycle")),
+                ("unrequested-locator-cycle", many, locatorCycle, [tailReference], .corruptData("alias cycle")),
+                ("requested-cycle", many, cycleRelations, [cycleA], .corruptData("alias cycle")),
+                ("conflict-before-catalog-cycle", brokenCatalog, conflict, [tailReference], .corruptData("conflicting alias")),
+                ("empty-catalog-cycle", brokenCatalog, cycleRelations, [], .corruptData("alias cycle")),
+                ("empty-locator-cycle", many, locatorCycle, [], .corruptData("alias cycle")),
+                ("empty-conflict", many, conflict, [], .corruptData("conflicting alias"))]
+            for (name, inputs, relationships, requested, expected) in errorCases {
+                do {
+                    _ = try WallpaperLibraryQuery.resolve(requested, catalog: inputs, relationships: relationships)
+                    checks["single-resolution-retains-error-boundary-\(name)"] = false
+                } catch let error as UserCollectionsError {
+                    checks["single-resolution-retains-error-boundary-\(name)"] = error == expected
+                }
+            }
+            checks["single-resolution-does-not-newly-reject-unused-alias-cycle"] = try WallpaperLibraryQuery.resolve(
+                [tailReference], catalog: many, relationships: cycleRelations) == [updatedTail]
+        }
         print(String(data: try JSONEncoder().encode(checks), encoding: .utf8)!)
         if checks.values.contains(false) { exit(1) }
     }

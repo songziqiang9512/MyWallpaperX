@@ -32,20 +32,29 @@ private final class GridViewportToolbarProbe: NSObject, NSToolbarDelegate {
     static func main() throws {
         initializeNativeAppHarness()
         var checks: [String: Bool] = [:]
-        let items = (0..<200).map { index -> WallpaperContentItem in
+        let items = (0..<1_000).map { index -> WallpaperContentItem in
             let reference = WallpaperReference(provider: WallpaperProvider.allCases[index % WallpaperProvider.allCases.count], sourceID: "\(index)")
             return .init(reference: reference, providerReference: reference, locator: .init(mediaKind: .video),
                 title: "\(index)", kind: .video, publishedAvailability: .available, capabilities: [.inspect, .play],
                 metadata: .init(), acquisition: .idle, update: .idle, aliases: [])
         }
-        let controller = WallpaperLibraryGridController { collection, path, _, _ in
-            collection.makeItem(withIdentifier: ViewportCell.reuse, for: path)
+        var firstFactoryPixels: (Int, CGFloat)?
+        let controller = WallpaperLibraryGridController { collection, path, _, state in
+            if firstFactoryPixels == nil {
+                let side = WallpaperLibraryGridMetrics(clipWidth: collection.enclosingScrollView!.contentView.bounds.width, preferredColumns: 5).coverSide
+                firstFactoryPixels = (state.thumbnailRequest.width, collection.convertToBacking(NSSize(width: side, height: side)).width)
+            }
+            return collection.makeItem(withIdentifier: ViewportCell.reuse, for: path)
         }
         controller.loadViewIfNeeded()
         controller.collection.register(ViewportCell.self, forItemWithIdentifier: ViewportCell.reuse)
-        controller.setCellVisible = { cell, visible in (cell as? ViewportCell)?.visible = visible }
+        controller.setCellVisible = { cell, state in (cell as? ViewportCell)?.visible = state != nil }
         var emissions: [([WallpaperReference], [WallpaperReference])] = []
-        controller.onViewport = { visible, nearby in emissions.append((visible.map(\.providerReference), nearby.map(\.providerReference))) }
+        var emittedPixels: [Int] = [], configuredPixels: [Int] = []
+        controller.updateCell = { _, _, state in configuredPixels.append(state.thumbnailRequest.width) }
+        controller.onViewport = { visible, nearby, request in
+            emittedPixels.append(request.width); emissions.append((visible.map(\.providerReference), nearby.map(\.providerReference)))
+        }
         func update(page: WallpaperLibraryPage = .images) {
             controller.update(page: page, items: items, selection: controller.selection, preferredColumns: 5,
                 permitsDragging: false, scrollAnchor: nil)
@@ -68,7 +77,7 @@ private final class GridViewportToolbarProbe: NSObject, NSToolbarDelegate {
         controller.collection.layoutSubtreeIfNeeded()
         defer { window.orderOut(nil); replacement.orderOut(nil); window.close(); replacement.close() }
         checks["order-in-acquires-shared-visible-and-nearby-leases"] = wait { emissions.last?.0.isEmpty == false && emissions.last?.1.isEmpty == false }
-        let layout = controller.collection.collectionViewLayout!
+        let layout = controller.collection.collectionViewLayout as! NSCollectionViewFlowLayout
         func expectedVisible() -> [WallpaperReference] {
             layout.layoutAttributesForElements(in: controller.collection.visibleRect).compactMap { attribute -> Int? in
                 guard attribute.representedElementCategory == .item, attribute.frame.intersects(controller.collection.visibleRect),
@@ -115,6 +124,58 @@ private final class GridViewportToolbarProbe: NSObject, NSToolbarDelegate {
             && (reverseIndices.last! + 1...reverseIndices.last! + reverseAfter).allSatisfy { reverseNearby.contains(items[$0].providerReference) }
             && Set(reverse.0).isDisjoint(with: reverseNearby)
             && reverse.1.first == items[reverseIndices.first! - 1].providerReference
+        func scrollReceipt(_ y: CGFloat) -> (visible: [WallpaperReference], nearby: [WallpaperReference])? {
+            let previous = emissions.count
+            let clip = controller.scrollView.contentView
+            let proposed = NSRect(origin: NSPoint(x: clip.bounds.minX, y: y), size: clip.bounds.size)
+            clip.scroll(to: clip.constrainBoundsRect(proposed).origin)
+            controller.scrollView.reflectScrolledClipView(clip)
+            let expected = expectedVisible()
+            guard wait({ emissions.dropFirst(previous).contains { $0.0 == expected } }) else { return nil }
+            return emissions.dropFirst(previous).first { $0.0 == expected }
+        }
+        func shares(_ receipt: (visible: [WallpaperReference], nearby: [WallpaperReference])) -> (before: Int, after: Int) {
+            let first = Int(receipt.visible.first!.sourceID)!, last = Int(receipt.visible.last!.sourceID)!
+            return (receipt.nearby.filter { Int($0.sourceID)! < first }.count,
+                receipt.nearby.filter { Int($0.sourceID)! > last }.count)
+        }
+        let fineY = layout.layoutAttributesForItem(at: IndexPath(item: columns * 20, section: 0))!.frame.minY + 20
+        let fineBase = scrollReceipt(fineY), fineDown = scrollReceipt(fineY + 2), fineDownAgain = scrollReceipt(fineY + 4)
+        if let base = fineBase, let down = fineDown, let again = fineDownAgain {
+            let counts = shares(down)
+            checks["two-within-row-downward-moves-keep-forward-share-and-identical-neighbors"] = base.visible == down.visible
+                && down.visible == again.visible && down.nearby == again.nearby
+                && counts.after >= counts.before * 2 && counts.after <= counts.before * 2 + 2
+        } else { checks["two-within-row-downward-moves-keep-forward-share-and-identical-neighbors"] = false }
+        let fineUp = scrollReceipt(fineY + 2), fineUpAgain = scrollReceipt(fineY)
+        if let up = fineUp, let again = fineUpAgain {
+            let counts = shares(up)
+            checks["two-within-row-upward-moves-keep-reverse-share-and-identical-neighbors"] = up.visible == again.visible
+                && up.nearby == again.nearby && counts.before >= counts.after * 2 && counts.before <= counts.after * 2 + 2
+        } else { checks["two-within-row-upward-moves-keep-reverse-share-and-identical-neighbors"] = false }
+        let beforeStill = emissions.count
+        controller.view.needsLayout = true; window.contentView?.layoutSubtreeIfNeeded()
+        let stillReceived = wait { emissions.count > beforeStill }
+        if stillReceived, let still = emissions.dropFirst(beforeStill).first, !still.0.isEmpty {
+            let counts = shares(still)
+            checks["stationary-native-layout-restores-the-original-neutral-neighbors"] = abs(counts.before - counts.after) <= 1
+        } else { checks["stationary-native-layout-restores-the-original-neutral-neighbors"] = false }
+        let stride = layout.itemSize.height + layout.minimumLineSpacing
+        let middleY = layout.layoutAttributesForItem(at: IndexPath(item: columns * 100, section: 0))!.frame.minY
+        let sixPages = controller.scrollView.contentView.bounds.height * 6
+        for (phaseIndex, phase) in [CGFloat(0.1), 0.4, 0.8].enumerated() {
+            for direction in [CGFloat(-1), 1] {
+                let name = "six-page-native-landing-phase-\(phaseIndex)-direction-\(Int(direction))"
+                let origin = middleY + stride * phase
+                _ = scrollReceipt(origin)
+                let approach = scrollReceipt(origin + sixPages * direction)
+                let landed = scrollReceipt(origin + sixPages * direction * 2)
+                checks[name] = approach.map { before in landed.map { next in
+                    let required = Set(next.visible).subtracting(before.visible)
+                    return !required.isEmpty && required.isSubset(of: Set(before.nearby)) && before.nearby.count <= 96
+                } ?? false } ?? false
+            }
+        }
         let beforeRemote = emissions.count
         update(page: .wallhaven); spin()
         controller.scrollView.contentView.scroll(to: NSPoint(x: 0, y: y))
@@ -180,7 +241,7 @@ private final class GridViewportToolbarProbe: NSObject, NSToolbarDelegate {
         controller.scrollToTop(animated: false); spin()
         checks["reselected-sidebar-scroll-to-top-preserves-selection-and-page-items"] = controller.scrollView.contentView.bounds.origin == .zero
             && controller.selection == selection && controller.items == items && emissions.last?.0 == expectedVisible()
-        var resizeAndZoom = true
+        var resizeAndZoom = true, pixelGeometryMatches = true
         for style: NSScroller.Style in [.legacy, .overlay] {
             controller.scrollView.scrollerStyle = style
             for width: CGFloat in [620, 1000, 2800, 1000] {
@@ -197,10 +258,23 @@ private final class GridViewportToolbarProbe: NSObject, NSToolbarDelegate {
                     resizeAndZoom = resizeAndZoom && rowCount == metric.columns
                         && frames.allSatisfy { abs($0.width - metric.coverSide) < 0.5 && $0.width == $0.height
                             && $0.maxX <= controller.scrollView.contentView.bounds.width + 0.5 }
+                    if let frame = frames.first, let pixels = configuredPixels.last {
+                        let required = controller.collection.convertToBacking(frame.size).width
+                        pixelGeometryMatches = pixelGeometryMatches && pixels % 64 == 0
+                            && CGFloat(pixels) >= required && CGFloat(pixels) < required + 64
+                            && pixels <= 4096
+                    } else { pixelGeometryMatches = false }
                 }
             }
         }
         checks["shared-native-grid-resize-zoom-and-both-scroller-styles-fit-real-clip"] = resizeAndZoom
+        checks["shared-native-grid-configures-covering-pixel-target-across-resize-and-zoom"] = pixelGeometryMatches
+        checks["settled-native-viewport-shares-the-configured-pixel-target"] = wait {
+            emittedPixels.last != nil && emittedPixels.last == configuredPixels.last
+        }
+        checks["first-cell-target-does-not-use-its-unprepared-frame"] = firstFactoryPixels.map {
+            $0.0 % 64 == 0 && CGFloat($0.0) >= $0.1 && CGFloat($0.0) < $0.1 + 64
+        } == true
         let beforeEmpty = emissions.count
         controller.update(page: .images, items: [], selection: controller.selection, preferredColumns: 6,
             permitsDragging: false, scrollAnchor: nil)
@@ -236,9 +310,9 @@ private final class GridViewportToolbarProbe: NSObject, NSToolbarDelegate {
         toolbarController.loadViewIfNeeded()
         toolbarController.view.frame = NSRect(x: 0, y: 0, width: 800, height: 600)
         toolbarController.collection.register(ViewportCell.self, forItemWithIdentifier: ViewportCell.reuse)
-        toolbarController.setCellVisible = { cell, visible in (cell as? ViewportCell)?.visible = visible }
+        toolbarController.setCellVisible = { cell, state in (cell as? ViewportCell)?.visible = state != nil }
         var toolbarEmissions: [([WallpaperReference], [WallpaperReference])] = []
-        toolbarController.onViewport = { visible, nearby in
+        toolbarController.onViewport = { visible, nearby, _ in
             toolbarEmissions.append((visible.map(\.providerReference), nearby.map(\.providerReference)))
         }
         toolbarController.update(page: .images, items: items, selection: toolbarController.selection, preferredColumns: 5,

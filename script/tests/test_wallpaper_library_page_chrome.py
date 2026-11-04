@@ -22,10 +22,11 @@ ROOT = Path(__file__).resolve().parents[2]
 class WallpaperLibraryPageChromeTests(unittest.TestCase):
     def test_all_page_feedback_current_actions_and_native_viewport(self):
         paths = [ROOT / "MyWallpaperX" / name for name in (
-            "Models/WallpaperReference.swift", "Shared/UI/WallpaperPlaylistArtwork.swift", "Models/WallpaperContent.swift", "Models/WallpaperLibraryPage.swift",
+            "Shared/ThumbnailRequest.swift", "Models/WallpaperReference.swift", "Shared/UI/WallpaperPlaylistArtwork.swift", "Models/WallpaperContent.swift", "Models/WallpaperLibraryPage.swift",
             "Core/LibraryCollections/WallpaperLibraryQuery.swift",
             "Shared/Components/WallpaperLibraryControlStyle.swift", "Shared/Components/WallpaperLibraryGridMetrics.swift", "Shared/Components/WallpaperLibrarySymbols.swift",
             "Shared/Components/WallpaperCardInteractionView.swift", "Shared/UI/BoxSelectionState.swift",
+            "Shared/Components/WallpaperCardControlsView.swift", "Shared/Components/WallpaperCardSupportViews.swift", "Shared/UI/InspectorFooterMetrics.swift",
             "Shared/UI/WallpaperLibrarySheetPresentation.swift", "Shared/UI/WallpaperGridNoticeView.swift",
             "Shared/UI/GridThumbnailPrefetchDemand.swift", "Shared/UI/WallpaperGridScrollView.swift",
             "Shared/UI/WallpaperArtworkDemandObservation.swift", "Shell/WallpaperLibraryGridController.swift",

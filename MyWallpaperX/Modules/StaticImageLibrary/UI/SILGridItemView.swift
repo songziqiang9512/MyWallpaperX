@@ -94,7 +94,7 @@ final class SILGridItem: WallpaperCardCollectionViewItem, WallpaperGridHoverItem
         updateThumbnailFrame()
         selectionTint.frame = imageContainer.bounds
         hoverOutline.frame = imageContainer.bounds.insetBy(dx: 1, dy: 1)
-        overlayView.frame = imageContainer.bounds
+        overlayView.frame = imageContainer.frame
         imageContainer.layer?.cornerRadius = 14
         hoverOutline.layer?.cornerRadius = 13
         let metrics = WallpaperCardBarMetrics(cardWidth: b.width)
@@ -175,6 +175,7 @@ final class SILGridItem: WallpaperCardCollectionViewItem, WallpaperGridHoverItem
         isMultiSelectMode: Bool,
         thumbnailVisible: Bool,
         isPlaying: Bool = false,
+        cachedThumbnail: NSImage? = nil,
         thumbnailLoader: @escaping (ThumbnailCacheRequestCancellation, @escaping (SILThumbnailLoadResult) -> Void) -> Void
     ) {
         let unchangedResource = wallpaperID?.utf8.elementsEqual(wallpaper.id.utf8) == true
@@ -206,7 +207,10 @@ final class SILGridItem: WallpaperCardCollectionViewItem, WallpaperGridHoverItem
         loadingPlaceholderWork?.cancel()
         loadingPlaceholderWork = nil
         applyHoverVisibility(isHovering, animated: false)
-        if !unchangedResource { thumbnailView.image = nil }
+        if !unchangedResource || thumbnailView.image == nil {
+            thumbnailView.image = cachedThumbnail
+            updateThumbnailFrame()
+        }
         placeholderLabel.stringValue = "加载中..."
         placeholderLabel.isHidden = true
         beginThumbnailLoad()
@@ -258,7 +262,7 @@ final class SILGridItem: WallpaperCardCollectionViewItem, WallpaperGridHoverItem
                 self.placeholderLabel.stringValue = "缩略图不可用"
                 self.placeholderLabel.isHidden = false
             }
-            self.lastLayoutInputs = nil
+            self.updateThumbnailFrame()
             self.layoutSubviewsManually()
         }
     }
@@ -266,10 +270,10 @@ final class SILGridItem: WallpaperCardCollectionViewItem, WallpaperGridHoverItem
     func applySelectionState(isSelected: Bool, multiSelectMode: Bool) {
         isMultiSelect = multiSelectMode; isSelectedState = isSelected
         applyHoverVisibility(isHovering, animated: false)
+        refreshThemeAwareAppearance()
         // 强制在主线程下一个 runloop 刷新，确保 frame 已经由 apply(_:) 设置完毕
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
-            self.refreshThemeAwareAppearance()
             self.updateMultiSelectBadge(selected: self.isSelectedState)
             if self.imageContainer.bounds.width > 0 {
                 let badgeSize: CGFloat = 24
@@ -470,7 +474,7 @@ final class SILGridItem: WallpaperCardCollectionViewItem, WallpaperGridHoverItem
         imageView = thumbnailView
         imageContainer.addSubview(selectionTint)
         imageContainer.addSubview(hoverOutline)
-        imageContainer.addSubview(overlayView)
+        view.addSubview(overlayView)
         imageContainer.addSubview(placeholderLabel)
         imageContainer.addSubview(multiSelectBadge)
         multiSelectBadge.addSubview(multiSelectIcon)

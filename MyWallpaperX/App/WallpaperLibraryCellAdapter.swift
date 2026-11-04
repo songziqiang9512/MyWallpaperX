@@ -23,6 +23,7 @@ import Combine
         var content: WallpaperContentItem
         var source: Source
         var visible = false
+        var thumbnailRequest: ThumbnailRequest?
         init(_ content: WallpaperContentItem, source: Source) { self.content = content; self.source = source }
     }
     private let manager: WallpaperManager
@@ -76,7 +77,7 @@ import Combine
     /// One bounded viewport lease, shared with each original provider. Visible
     /// cards keep their existing priority and producers; an earlier prefetch
     /// remains leased while it becomes visible, without starting another one.
-    func updateViewport(visible: [WallpaperContentItem], prefetch: [WallpaperContentItem]) {
+    func updateViewport(visible: [WallpaperContentItem], prefetch: [WallpaperContentItem], request: ThumbnailRequest? = nil) {
         let visible = visible.filter { $0.publishedAvailability.isAvailable }
         let prefetch = prefetch.filter { $0.publishedAvailability.isAvailable }
         let wanted = Set((visible + prefetch).map(\.providerReference))
@@ -86,12 +87,14 @@ import Combine
             return nil
         }
         let visibleVideos = visible.compactMap(video)
-        videoThumbnails.replacePrefetch(with: prefetch.compactMap(video), retainingVisible: visibleVideos)
+        videoThumbnails.replacePrefetch(with: prefetch.compactMap(video), retainingVisible: visibleVideos, request: request)
         videoThumbnails.updateVisiblePreviewDemand(with: visibleVideos)
         for reference in Array(prefetches.keys) where !wanted.contains(reference) {
             prefetches.removeValue(forKey: reference)?.cancel()
         }
         let nearby = Set(prefetch.map(\.providerReference))
+        let requestKey = request.map { "\($0.width)x\($0.height):\($0.mode == .fill ? "fill" : "fit")" } ?? ""
+        let steamPixelLimit = request.map { min(800, GridThumbnailDecoder.pixelLimit(width: CGFloat($0.width), scale: 1)) } ?? 256
         var seen = Set<WallpaperReference>()
         for content in prefetch + visible {
             let reference = content.providerReference
@@ -100,7 +103,7 @@ import Combine
             if case .video = source { continue }
             let isNearby = nearby.contains(reference)
             guard isNearby || prefetches[reference] != nil else { continue }
-            let assets = prefetchAssets(content, source: source)
+            let assets = prefetchAssets(content, source: source, requestKey: requestKey, steamPixelLimit: steamPixelLimit)
             if let old = prefetches[reference], old.assets == assets, old.isWarm() { continue }
             prefetches.removeValue(forKey: reference)?.cancel()
             guard isNearby else { continue }
@@ -110,33 +113,37 @@ import Combine
                 let cancellation = ThumbnailCacheRequestCancellation()
                 demand.cancel = { cancellation.cancel() }
                 demand.isWarm = { !cancellation.cancelled }
-                imageThumbnails.load(path: value.path, priority: .prefetch, cancellation: cancellation) { [weak demand, cache = imageThumbnails.cache] result in
+                imageThumbnails.load(path: value.path, request: request, priority: .prefetch, cancellation: cancellation) { [weak demand, cache = imageThumbnails.cache] result in
                     guard !cancellation.cancelled, case .image = result else { return }
-                    demand?.isWarm = { !cancellation.cancelled && cache.cachedImage(forKey: value.path) != nil }
+                    demand?.isWarm = { !cancellation.cancelled && cache.hasCachedResult(forKey: value.path, request: request) }
                 }
             case .pixabay(let value):
                 let cancellation = ThumbnailCacheRequestCancellation()
                 demand.cancel = { cancellation.cancel() }
                 demand.isWarm = { !cancellation.cancelled }
-                PixabayDownloadedThumbnailStore.loadThumbnail(value, priority: .prefetch, cancellation: cancellation) { [weak demand] key, _ in
+                PixabayDownloadedThumbnailStore.loadThumbnail(value, request: request, priority: .prefetch, cancellation: cancellation) { [weak demand] key, _ in
                     guard !cancellation.cancelled else { return }
-                    demand?.isWarm = { !cancellation.cancelled && PixabayDownloadedThumbnailStore.sharedCache.hasCachedResult(forKey: key) }
+                    demand?.isWarm = { !cancellation.cancelled && PixabayDownloadedThumbnailStore.sharedCache.hasCachedResult(forKey: key, request: request) }
                 }
             case .steam(let value):
                 let item = value.displayItem ?? SteamWorkshopDownloadGridSupport.fallbackDisplayItem(for: value)
                 let urls = steamWorkshopPreviewSources(item: item, record: value)
                 let preview = SteamWorkshopPreviewState(loaders: .live(priority: .prefetch))
-                preview.configure(previewURL: urls.primary, fallbackImageURL: urls.fallback, fallbackVideoURL: value.videoURL,
-                    refreshToken: steam.previewReloadToken, maxPixelSize: 256)
                 demand.cancel = { preview.reset() }
+                preview.onChange = { [weak preview, weak demand] in
+                    // Ready pixels belong to the bounded cache; this consumer never displays them.
+                    if preview?.image != nil { demand?.cancel = {} }
+                }
+                preview.configure(previewURL: urls.primary, fallbackImageURL: urls.fallback, fallbackVideoURL: value.videoURL,
+                    refreshToken: steam.previewReloadToken, maxPixelSize: steamPixelLimit)
             case .onlineImage(let record):
                 guard let url = OnlineImageLibrary.shared.localURL(for: record) else { continue }
                 let cancellation = ThumbnailCacheRequestCancellation()
                 demand.cancel = { cancellation.cancel() }
                 demand.isWarm = { !cancellation.cancelled }
-                imageThumbnails.load(path: url.path, priority: .prefetch, cancellation: cancellation) { [weak demand, cache = imageThumbnails.cache] result in
+                imageThumbnails.load(path: url.path, request: request, priority: .prefetch, cancellation: cancellation) { [weak demand, cache = imageThumbnails.cache] result in
                     guard !cancellation.cancelled, case .image = result else { return }
-                    demand?.isWarm = { !cancellation.cancelled && cache.cachedImage(forKey: url.path) != nil }
+                    demand?.isWarm = { !cancellation.cancelled && cache.hasCachedResult(forKey: url.path, request: request) }
                 }
             case .video, .missing: continue
             }
@@ -146,20 +153,20 @@ import Combine
 
     func repairVisiblePreviews() { videoThumbnails.repairVisiblePreviews() }
 
-    private func prefetchAssets(_ content: WallpaperContentItem, source: Source) -> [Data] {
+    private func prefetchAssets(_ content: WallpaperContentItem, source: Source, requestKey: String, steamPixelLimit: Int) -> [Data] {
         var values = [content.locator.path ?? "", content.metadata.thumbnailPath ?? "",
             content.metadata.previewURL?.absoluteString ?? "", content.metadata.previewVideoURL?.absoluteString ?? "",
             content.metadata.resourceRevision ?? "", String(describing: content.metadata.fileSizeBytes),
             String(describing: content.metadata.modifiedAt)]
         switch source {
-        case .image(let value): values.append(value.path)
-        case .pixabay(let value): values += [value.localURL.absoluteString, value.thumbnailSourceKey ?? ""]
+        case .image(let value): values += [value.path, requestKey]
+        case .pixabay(let value): values += [value.localURL.absoluteString, value.thumbnailSourceKey ?? "", requestKey]
         case .steam(let value):
             let item = value.displayItem ?? SteamWorkshopDownloadGridSupport.fallbackDisplayItem(for: value)
             let urls = steamWorkshopPreviewSources(item: item, record: value)
             values += [urls.primary?.absoluteString ?? "", urls.fallback?.absoluteString ?? "",
-                value.videoURL?.absoluteString ?? "", String(steam.previewReloadToken)]
-        case .onlineImage(let record): values.append(record.revision.uuidString)
+                value.videoURL?.absoluteString ?? "", String(steam.previewReloadToken), String(steamPixelLimit)]
+        case .onlineImage(let record): values += [record.revision.uuidString, requestKey]
         case .video, .missing: break
         }
         return values.map { Data($0.utf8) }
@@ -182,7 +189,7 @@ import Combine
         bindings.setObject(binding, forKey: cell)
         // Collection views can request a cell before display. Acquiring pixels
         // is deferred until their real willDisplay callback grants demand.
-        setVisible(cell, false)
+        setVisible(cell, nil)
         configure(cell, binding: binding, state: state, reloadContent: true)
         return cell
     }
@@ -203,8 +210,13 @@ import Combine
         configure(cell, binding: binding, state: state, reloadContent: reload)
     }
 
-    func setVisible(_ cell: NSCollectionViewItem, _ visible: Bool) {
-        bindings.object(forKey: cell)?.visible = visible
+    func setVisible(_ cell: NSCollectionViewItem, _ state: WallpaperLibraryGridController.CellState?) {
+        let visible = state != nil
+        let binding = bindings.object(forKey: cell)
+        binding?.visible = visible
+        if let state, let binding, binding.thumbnailRequest != state.thumbnailRequest {
+            configure(cell, binding: binding, state: state, reloadContent: false)
+        }
         switch cell {
         case let card as AppKitWallpaperItem: card.setThumbnailVisible(visible)
         case let card as SILGridItem: card.setThumbnailVisible(visible)
@@ -263,6 +275,8 @@ import Combine
 
     private func configure(_ cell: NSCollectionViewItem, binding: Binding,
                            state: WallpaperLibraryGridController.CellState, reloadContent: Bool) {
+        let thumbnailRequestChanged = binding.thumbnailRequest != state.thumbnailRequest
+        binding.thumbnailRequest = state.thumbnailRequest
         let content = binding.content, provider = content.providerReference
         let playing = isPlaying(content.reference)
         let switching = isSwitching(content.reference)
@@ -287,9 +301,9 @@ import Combine
         case (.video(let row), let card as AppKitWallpaperItem):
             card.onPlayRequested = canPlay ? { _ in primary() } : nil
             card.onInspectRequested = inspect.map { action in { _ in action() } }
-            if reloadContent {
+            if reloadContent || thumbnailRequestChanged {
                 card.configure(wallpaper: row, isSelected: state.isSelected, isPlaying: playing,
-                    multiSelectMode: state.isSelecting,
+                    multiSelectMode: state.isSelecting, thumbnailRequest: state.thumbnailRequest,
                     wallpaperManager: manager, thumbnailProvider: videoThumbnails)
             } else {
                 card.applySelectionState(isSelected: state.isSelected, multiSelectMode: state.isSelecting)
@@ -299,11 +313,12 @@ import Combine
         case (.image(let row), let card as SILGridItem):
             card.onApplyRequested = canPlay ? { _ in primary() } : nil
             card.onInspectRequested = inspect.map { action in { _ in action() } }
-            if reloadContent {
+            if reloadContent || thumbnailRequestChanged {
                 card.configure(wallpaper: row, isSelected: state.isSelected, isMultiSelectMode: state.isSelecting,
-                    thumbnailVisible: binding.visible, isPlaying: playing) { [weak imageThumbnails] cancellation, completion in
+                    thumbnailVisible: binding.visible, isPlaying: playing,
+                    cachedThumbnail: imageThumbnails.cache.cachedImage(forKey: row.path, request: state.thumbnailRequest)) { [weak imageThumbnails] cancellation, completion in
                         guard let imageThumbnails else { completion(.unavailable); return }
-                        imageThumbnails.load(path: row.path, cancellation: cancellation, completion: completion)
+                        imageThumbnails.load(path: row.path, request: state.thumbnailRequest, cancellation: cancellation, completion: completion)
                     }
             } else {
                 card.applySelectionState(isSelected: state.isSelected, multiSelectMode: state.isSelecting)
@@ -340,9 +355,9 @@ import Combine
         case (.pixabay(let row), let card as AppKitPixabayDownloadsItem):
             card.onPrimaryAction = canPlay ? { _ in primary() } : nil
             card.onInspectRequested = inspect.map { action in { _ in action() } }
-            if reloadContent {
+            if reloadContent || thumbnailRequestChanged {
                 card.configure(entry: row, isSelected: state.isSelected, isMultiSelectMode: state.isSelecting,
-                    isPlaying: playing, thumbnailDemandActive: binding.visible)
+                    isPlaying: playing, request: state.thumbnailRequest, thumbnailDemandActive: binding.visible)
             } else {
                 card.applySelectionState(state.isSelected, multiSelectMode: state.isSelecting)
                 card.applyPlayingState(isPlaying: playing)
@@ -351,7 +366,7 @@ import Combine
         case (.onlineImage(let record), let card as OnlineImageGridItem):
             let fraction = OnlineImageLibrary.shared.progress[record.id]
             card.configure(content: content, request: nil, selected: state.isSelected, selecting: state.isSelecting,
-                playing: playing, switching: switching, busy: fraction != nil, fraction: fraction,
+                playing: playing, switching: switching, busy: fraction != nil, fraction: fraction, thumbnailRequest: state.thumbnailRequest,
                 onPrimary: canPlay ? primary : nil, onInspect: inspect)
         case (.missing, let card as WallpaperLibraryUnavailableItem):
             card.configure(content: content, selected: state.isSelected, selecting: state.isSelecting)

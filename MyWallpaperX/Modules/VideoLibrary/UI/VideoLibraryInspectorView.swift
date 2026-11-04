@@ -19,6 +19,13 @@ final class VideoLibraryInspectorView: NSView {
     private var cancellables = Set<AnyCancellable>()
     private var libraryActions: WallpaperInspectorActions
     private weak var playlistButton: InspectorFooterButton?
+    private var titleField: NSTextField?
+    private var summaryField: NSTextField?
+    private var pathField: NSTextField?
+    private var metadataSection: NSStackView?
+    private var metadataFields: [(label: String, value: NSTextField)] = []
+    private var playlistSection: NSStackView?
+    private var noticeSection: NSView?
 
     private var currentWallpaper: VideoWallpaper {
         wallpaperManager.wallpapers.first { $0.id.utf8.elementsEqual(wallpaperID.utf8) } ?? initialWallpaper
@@ -32,8 +39,7 @@ final class VideoLibraryInspectorView: NSView {
         super.init(frame: .zero)
         setup()
         observeManager()
-        loadDetails()
-        loadPreviewImage()
+        loadDetails(for: currentWallpaper)
         refreshFooterActions()
     }
 
@@ -51,9 +57,10 @@ final class VideoLibraryInspectorView: NSView {
         super.viewDidMoveToWindow()
         if window != nil {
             hasMounted = true
-            if previewCancellation?.cancelled == true { loadPreviewImage() }
+            let wallpaper = currentWallpaper
+            loadPreviewImage(for: wallpaper)
             if loadingTask == nil,
-               details?.isLoading != false || loadedDetailsPath != currentWallpaper.path { loadDetails() }
+               details?.isLoading != false || loadedDetailsPath != wallpaper.path { loadDetails(for: wallpaper) }
         } else if hasMounted {
             loadingTask?.cancel()
             loadingTask = nil
@@ -61,8 +68,9 @@ final class VideoLibraryInspectorView: NSView {
         }
     }
 
-    private var fileExists: Bool {
-        FileManager.default.fileExists(atPath: currentWallpaper.path)
+    override func viewDidChangeBackingProperties() {
+        super.viewDidChangeBackingProperties()
+        loadPreviewImage()
     }
 
     /// 预览图异步加载：走 VideoLibraryThumbnailStore 共享缓存（后台解码、主线程补图），
@@ -75,6 +83,8 @@ final class VideoLibraryInspectorView: NSView {
     private var hasMounted = false
     /// 上一次预览加载的资产身份：$wallpapers 的无关 publish（收藏切换等）不重复触发磁盘解码。
     private var lastPreviewLoadIdentity: PreviewAssetIdentity?
+    private var previewRequest: ThumbnailRequest?
+    private lazy var previewThumbnails = AppKitThumbnailProvider(wallpaperManager: wallpaperManager)
 
     /// 预览资产的解析输入身份：源路径 + 两个派生资产路径。
     private struct PreviewAssetIdentity: Equatable {
@@ -83,90 +93,21 @@ final class VideoLibraryInspectorView: NSView {
         let staticFramePath: String?
     }
 
-    private func loadPreviewImage() {
-        guard !hasMounted || window != nil else { return }
+    private func loadPreviewImage(for wallpaper: VideoWallpaper? = nil) {
+        guard let window, let request = ThumbnailRequest(size: previewSurface.bounds.size,
+            scale: window.backingScaleFactor, mode: .fill) else { return }
+        let wallpaper = wallpaper ?? currentWallpaper
+        let identity = PreviewAssetIdentity(path: wallpaper.path,
+            thumbnailPath: wallpaper.thumbnailPath, staticFramePath: wallpaper.staticFramePath)
+        guard identity != lastPreviewLoadIdentity || previewRequest != request || previewCancellation?.cancelled == true else { return }
         previewCancellation?.cancel()
-        let cancellation = ThumbnailCacheRequestCancellation()
-        previewCancellation = cancellation
-        let wallpaper = currentWallpaper
-        // 重载开始回到「加载中」：占位不算缺失，缺失提示由本轮完成时裁决
-        lastPreviewLoadIdentity = PreviewAssetIdentity(
-            path: wallpaper.path,
-            thumbnailPath: wallpaper.thumbnailPath,
-            staticFramePath: wallpaper.staticFramePath
-        )
-        let manager = wallpaperManager
-        weak let weakSelf = self
-        // 路径解析含文件存在性 stat，放后台执行
-        DispatchQueue.global(qos: .userInitiated).async {
-            guard !cancellation.cancelled else { return }
-            let thumbPath = manager.resolvedThumbnailPath(for: wallpaper)
-            // 缩略图缺失时回退静帧；降采样解码结果用独立键，避免同键不同解码形状互覆
-            var staticFramePath: String?
-            if thumbPath == nil,
-               let path = wallpaper.staticFramePath,
-               FileManager.default.fileExists(atPath: path) {
-                staticFramePath = path
+        if let previous = lastPreviewLoadIdentity, previous.path != identity.path { previewSurface.updateImage(nil, missing: false) }
+        lastPreviewLoadIdentity = identity; previewRequest = request
+        previewCancellation = previewThumbnails.loadThumbnail(for: wallpaper, request: request,
+            fallbackImagePath: wallpaper.staticFramePath) { [weak self] image in
+                self?.previewCancellation = nil
+                self?.previewSurface.updateImage(image, missing: image == nil)
             }
-            guard let sourcePath = thumbPath ?? staticFramePath else {
-                DispatchQueue.main.async {
-                    guard let self = weakSelf, !cancellation.cancelled else { return }
-                    // 本轮结论是「无预览」：旧图必须清空，否则资源替换后旧资源的
-                    // 预览会一直挂在面板上
-                    self.previewSurface.updateImage(nil, missing: true)
-                }
-                return
-            }
-            let isStaticFrameFallback = thumbPath == nil
-            let key = isStaticFrameFallback
-                ? "inspector-static-frame:\(sourcePath)"
-                : sourcePath
-            VideoLibraryThumbnailStore.sharedCache.load(forKey: key, cancellation: cancellation, loader: {
-                // 与网格共用缩略图路径键；静帧回退按预览所需尺寸降采样解码
-                isStaticFrameFallback
-                    ? Self.downscaledPreviewImage(from: sourcePath)
-                    : NSImage(contentsOfFile: sourcePath)
-            }, completion: { image in
-                // ThumbnailCache 内存命中会在调用线程同步回调，统一收敛回主线程。
-                DispatchQueue.main.async {
-                    guard let self = weakSelf, !cancellation.cancelled else { return }
-                    self.previewSurface.updateImage(image, missing: image == nil)
-                }
-            })
-        }
-    }
-
-    /// 源路径或派生资产路径变化（资源替换/静帧补齐）时重载预览；
-    /// 身份未变化的 publish（收藏切换等）不重复触发磁盘解码。
-    private func reloadPreviewIfAssetIdentityChanged() {
-        let wallpaper = currentWallpaper
-        let identity = PreviewAssetIdentity(
-            path: wallpaper.path,
-            thumbnailPath: wallpaper.thumbnailPath,
-            staticFramePath: wallpaper.staticFramePath
-        )
-        guard identity != lastPreviewLoadIdentity else { return }
-        loadPreviewImage()
-    }
-
-    /// Inspector 预览高度仅 156pt；静帧原图按 4096px 上限生成（WallpaperManager+StaticFramePipeline），
-    /// 整图直接解码最坏 ~67MB，这里按 800px 上限在后台降采样
-    /// （模式同 SteamWorkshopPreviewImageSupport 的网格解码上限）。
-    private static func downscaledPreviewImage(from path: String, maxPixelSize: Int = 800) -> NSImage? {
-        let sourceOptions: [CFString: Any] = [kCGImageSourceShouldCache: false]
-        guard let source = CGImageSourceCreateWithURL(URL(fileURLWithPath: path) as CFURL, sourceOptions as CFDictionary) else {
-            return nil
-        }
-        let options: [CFString: Any] = [
-            kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
-            kCGImageSourceShouldCache: false
-        ]
-        guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
-            return nil
-        }
-        return NSImage(cgImage: cgImage, size: .zero)
     }
 
     private var secondaryFactText: String? {
@@ -186,15 +127,8 @@ final class VideoLibraryInspectorView: NSView {
         ].filter { !$0.1.isEmpty }
     }
 
-    private var noticeItems: [(icon: String, text: String)] {
-        var items: [(icon: String, text: String)] = []
-        if !fileExists {
-            items.append(("exclamationmark.triangle.fill", "源文件不存在，详情信息可能不是最新状态"))
-        }
-        return items
-    }
-
     private func setup() {
+        previewSurface.onSizeChange = { [weak self] in self?.loadPreviewImage() }
         translatesAutoresizingMaskIntoConstraints = false
         wantsLayer = true
         layer?.backgroundColor = NSColor.clear.cgColor
@@ -213,7 +147,6 @@ final class VideoLibraryInspectorView: NSView {
 
         let contentStack = makeContentStack()
         self.contentStack = contentStack
-        rebuildContent()
         let documentContainer = InspectorContentDocumentView()
         documentContainer.translatesAutoresizingMaskIntoConstraints = false
         documentContainer.addSubview(contentStack)
@@ -243,16 +176,18 @@ final class VideoLibraryInspectorView: NSView {
 
     private func observeManager() {
         wallpaperManager.$wallpapers
+            .dropFirst()
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 guard let self else { return }
                 // 派生图片补齐或清空也会发布模型，视频源路径可以保持不变。
-                self.reloadPreviewIfAssetIdentityChanged()
+                let wallpaper = self.currentWallpaper
+                self.loadPreviewImage(for: wallpaper)
                 if self.loadedDetailsPath != nil,
-                   self.loadedDetailsPath != self.currentWallpaper.path {
-                    self.loadDetails()
+                   self.loadedDetailsPath != wallpaper.path {
+                    self.loadDetails(for: wallpaper)
                 } else {
-                    self.rebuildContent()
+                    self.refreshContent(for: wallpaper)
                 }
             }
             .store(in: &cancellables)
@@ -263,9 +198,11 @@ final class VideoLibraryInspectorView: NSView {
         wallpaperManager.thumbnailReadyPublisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] changedPath in
-                guard let self,
-                      self.wallpaperManager.normalizedPath(self.currentWallpaper.path) == changedPath else { return }
-                self.loadPreviewImage()
+                guard let self, self.window != nil, self.previewCancellation == nil else { return }
+                let wallpaper = self.currentWallpaper
+                guard self.wallpaperManager.normalizedPath(wallpaper.path) == changedPath else { return }
+                self.previewRequest = nil
+                self.loadPreviewImage(for: wallpaper)
             }
             .store(in: &cancellables)
     }
@@ -276,20 +213,48 @@ final class VideoLibraryInspectorView: NSView {
         return stack
     }
 
-    private func rebuildContent() {
-        guard let contentStack else { return }
-        contentStack.arrangedSubviews.forEach {
-            contentStack.removeArrangedSubview($0)
-            $0.removeFromSuperview()
+    private func refreshContent(for wallpaper: VideoWallpaper) {
+        guard let details else { return }
+        let sourceMissing = !FileManager.default.fileExists(atPath: wallpaper.path)
+        if titleField == nil {
+            addContentSection(makePreviewSection(for: wallpaper))
+            addContentSection(makeContentSection())
+            addContentSection(makeTagsSection())
+            addContentSection(makeFileLocationSection(for: wallpaper))
+            addContentSection(makeNoticeSection(missing: sourceMissing))
+            return
         }
-        addContentSection(makePreviewSection())
-        addContentSection(makeContentSection())
-        addContentSection(makeTagsSection())
-        if details != nil {
-            addContentSection(makeFileLocationSection())
+
+        updateText(wallpaper.displayTitle, in: titleField)
+        let summary = secondaryFactText
+        updateText(summary ?? "", in: summaryField)
+        if summaryField?.isHidden != (summary == nil) { summaryField?.isHidden = summary == nil }
+        updateText(details.pathText, in: pathField)
+        updateMetadataFacts()
+        if noticeSection?.isHidden != !sourceMissing { noticeSection?.isHidden = !sourceMissing }
+    }
+
+    private func updateText(_ text: String, in field: NSTextField?) {
+        if field?.stringValue != text { field?.stringValue = text }
+    }
+
+    private func updateMetadataFacts() {
+        guard let metadataSection else { return }
+        let facts = metadataFacts
+        if metadataFields.count != facts.count || zip(metadataFields, facts).contains(where: { $0.0.label != $0.1.0 }) {
+            metadataSection.arrangedSubviews.last?.removeFromSuperview()
+            metadataSection.addArrangedSubview(makeMetadataGrid(facts))
+            return
         }
-        if !noticeItems.isEmpty {
-            addContentSection(makeNoticeSection())
+        for (binding, fact) in zip(metadataFields, facts) {
+            updateText(fact.1, in: binding.value)
+        }
+    }
+
+    private func makeMetadataGrid(_ facts: [(String, String)]) -> NSView {
+        metadataFields.removeAll(keepingCapacity: true)
+        return WallpaperLibraryControlStyle.inspectorFacts(facts) { label, value in
+            self.metadataFields.append((label, value))
         }
     }
 
@@ -299,7 +264,7 @@ final class VideoLibraryInspectorView: NSView {
         section.widthAnchor.constraint(equalTo: contentStack.widthAnchor).isActive = true
     }
 
-    private func makePreviewSection() -> NSView {
+    private func makePreviewSection(for wallpaper: VideoWallpaper) -> NSView {
         let stack = VideoLibraryInspectorViews.makeVerticalStack(spacing: 8)
 
         let preview = previewSurface
@@ -308,69 +273,74 @@ final class VideoLibraryInspectorView: NSView {
         preview.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
 
         let title = VideoLibraryInspectorViews.makeLabel(
-            currentWallpaper.displayTitle,
+            wallpaper.displayTitle,
             font: .systemFont(ofSize: 19, weight: .semibold),
             color: .labelColor
         )
         title.maximumNumberOfLines = 2
         title.lineBreakMode = .byTruncatingTail
         stack.addArrangedSubview(title)
+        titleField = title
 
-        if let secondaryFactText {
-            let facts = VideoLibraryInspectorViews.makeLabel(
-                secondaryFactText,
-                font: .systemFont(ofSize: 11, weight: .medium),
-                color: .secondaryLabelColor
-            )
-            facts.maximumNumberOfLines = 2
-            stack.addArrangedSubview(facts)
-        }
+        let summary = secondaryFactText
+        let facts = VideoLibraryInspectorViews.makeLabel(
+            summary ?? "",
+            font: .systemFont(ofSize: 11, weight: .medium),
+            color: .secondaryLabelColor
+        )
+        facts.maximumNumberOfLines = 2
+        stack.addArrangedSubview(facts)
+        facts.isHidden = summary == nil
+        summaryField = facts
 
         return stack
     }
 
     private func makeContentSection() -> NSView {
-        if details == nil {
-            return VideoLibraryInspectorViews.makeLoadingView("正在读取文件信息…")
-        }
-
         let stack = VideoLibraryInspectorViews.makeVerticalStack(spacing: 14)
         WallpaperLibraryControlStyle.addSectionDivider(to: stack)
         stack.addArrangedSubview(VideoLibraryInspectorViews.makeSectionTitle("原数据"))
-        stack.addArrangedSubview(WallpaperLibraryControlStyle.inspectorFacts(metadataFacts))
+        stack.addArrangedSubview(makeMetadataGrid(metadataFacts))
+        metadataSection = stack
         return stack
     }
 
     private func makeTagsSection() -> NSView {
         let stack = VideoLibraryInspectorViews.makeVerticalStack(spacing: 14)
         WallpaperLibraryControlStyle.addSectionDivider(to: stack)
-        let names = libraryActions.state.playlistNames
         stack.addArrangedSubview(VideoLibraryInspectorViews.makeSectionTitle("播放列表"))
-
-        if names.isEmpty {
-            stack.addArrangedSubview(
-                VideoLibraryInspectorViews.makeLabel("当前未加入任何播放列表", font: .systemFont(ofSize: 13), color: .secondaryLabelColor)
-            )
-        } else {
-            let row = NSStackView()
-            row.orientation = .horizontal
-            row.alignment = .centerY
-            row.spacing = 8
-            row.translatesAutoresizingMaskIntoConstraints = false
-            names.forEach { row.addArrangedSubview(InspectorBadgeView(text: $0, truncatesText: true)) }
-            stack.addArrangedSubview(row)
-        }
-
+        stack.addArrangedSubview(makePlaylistContent())
+        playlistSection = stack
         return stack
     }
 
-    private func makeFileLocationSection() -> NSView {
+    private func refreshPlaylistContent() {
+        guard let playlistSection else { return }
+        playlistSection.arrangedSubviews.last?.removeFromSuperview()
+        playlistSection.addArrangedSubview(makePlaylistContent())
+    }
+
+    private func makePlaylistContent() -> NSView {
+        let names = libraryActions.state.playlistNames
+        if names.isEmpty {
+            return VideoLibraryInspectorViews.makeLabel("当前未加入任何播放列表", font: .systemFont(ofSize: 13), color: .secondaryLabelColor)
+        }
+        let row = NSStackView()
+        row.orientation = .horizontal
+        row.alignment = .centerY
+        row.spacing = 8
+        row.translatesAutoresizingMaskIntoConstraints = false
+        names.forEach { row.addArrangedSubview(InspectorBadgeView(text: $0, truncatesText: true)) }
+        return row
+    }
+
+    private func makeFileLocationSection(for wallpaper: VideoWallpaper) -> NSView {
         let stack = VideoLibraryInspectorViews.makeVerticalStack(spacing: 14)
         WallpaperLibraryControlStyle.addSectionDivider(to: stack)
         stack.addArrangedSubview(VideoLibraryInspectorViews.makeSectionTitle("文件位置"))
 
         let path = VideoLibraryInspectorViews.makeLabel(
-            details?.pathText ?? currentWallpaper.path,
+            details?.pathText ?? wallpaper.path,
             font: .systemFont(ofSize: 13),
             color: .labelColor
         )
@@ -379,16 +349,18 @@ final class VideoLibraryInspectorView: NSView {
         path.allowsExpansionToolTips = true
         path.isSelectable = true
         stack.addArrangedSubview(path)
+        pathField = path
 
         return stack
     }
 
-    private func makeNoticeSection() -> NSView {
+    private func makeNoticeSection(missing: Bool) -> NSView {
         let stack = VideoLibraryInspectorViews.makeVerticalStack(spacing: 8)
         WallpaperLibraryControlStyle.addSectionDivider(to: stack)
-        noticeItems.forEach { item in
-            stack.addArrangedSubview(VideoLibraryInspectorViews.makeNotice(icon: item.icon, text: item.text))
-        }
+        stack.addArrangedSubview(VideoLibraryInspectorViews.makeNotice(
+            icon: "exclamationmark.triangle.fill", text: "源文件不存在，详情信息可能不是最新状态"))
+        stack.isHidden = !missing
+        noticeSection = stack
         return stack
     }
 
@@ -494,8 +466,10 @@ final class VideoLibraryInspectorView: NSView {
 
     func updateLibraryActions(_ actions: WallpaperInspectorActions) {
         let changed = libraryActions.state != actions.state
+        let playlistsChanged = libraryActions.state.playlistNames != actions.state.playlistNames
         libraryActions = actions
-        if changed { rebuildContent() }
+        if playlistsChanged { refreshPlaylistContent() }
+        if changed { refreshContent(for: currentWallpaper) }
         refreshFooterActions()
     }
 
@@ -521,17 +495,18 @@ final class VideoLibraryInspectorView: NSView {
         )
     }
 
-    private func loadDetails() {
+    private func loadDetails(for wallpaper: VideoWallpaper) {
         guard !hasMounted || window != nil else { return }
         loadingTask?.cancel()
         details = nil
         loadedDetailsPath = nil
-        rebuildContent()
-        let wallpaper = currentWallpaper
         loadedDetailsPath = wallpaper.path
         loadingTask = loadWallpaperInspectorDetails(for: wallpaper) { [weak self] loadedDetails in
-            self?.details = loadedDetails
-            self?.rebuildContent()
+            guard let self else { return }
+            // The placeholder is synchronous; final values may follow a model publication.
+            let current = self.details == nil ? wallpaper : self.currentWallpaper
+            self.details = loadedDetails
+            self.refreshContent(for: current)
         }
     }
 

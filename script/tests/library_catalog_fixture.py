@@ -68,6 +68,18 @@ def assemble_catalog_fixture(main_fixture=None):
     ]
     controller_path = "MyWallpaperX/App/WallpaperLibraryCatalogController.swift"
     controller = re.sub(r"\bprivate\s+", "", source(controller_path))
+    selection = "        ids.indices.filter { references.contains(.init(provider: provider, sourceID: ids[$0])) }"
+    merge = "        let byReference = Dictionary(updates.map { ($0.providerReference, $0) }, uniquingKeysWith: { first, _ in first })"
+    if controller.count(selection) != 1 or controller.count(merge) != 1:
+        raise AssertionError("Visible scan observation entries must be unique")
+    controller = controller.replace(selection,
+        '        CatalogFileProbe.shared.noteScan("selection-" + provider.rawValue)\n        return ' + selection.strip(), 1)
+    controller = controller.replace(merge, '        CatalogFileProbe.shared.noteScan("merge")\n' + merge, 1)
+    refresh = "    func refreshVisibleAvailability() async {"
+    if controller.count(refresh) != 1:
+        raise AssertionError("Visible refresh completion observation must be unique")
+    controller = controller.replace(refresh,
+        refresh + '\n        defer { CatalogFileProbe.shared.noteScan("refresh-finished") }', 1)
     inputs = dict(read_inputs)
     inputs.update({p: hashlib.sha256((ROOT / p).read_bytes()).hexdigest() for p in paths + [controller_path]})
     return fixture, controller, paths, inputs

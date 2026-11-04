@@ -50,7 +50,7 @@ import Combine
     func makePopoverController() -> DownloadTasksPopoverController {
         DownloadTasksPopoverController(snapshot: { [weak self] in self?.snapshot() ?? .init() }, changes: changes,
             bindings: .init(perform: { [weak self] row, action in self?.perform(row, action: action) },
-                loadThumbnail: { [weak self] row, receive in self?.loadThumbnail(row, receive: receive) },
+                loadThumbnail: { [weak self] row, request, receive in self?.loadThumbnail(row, request: request, receive: receive) },
                 observeProgress: { [weak self] row, receive in self?.observeProgress(row, receive: receive) }),
             retryAllFailed: { [weak self] rows in
                 guard let self else { return }
@@ -266,41 +266,43 @@ import Combine
         publishedPreviewURL ?? steam.browserItemForDownload(id: id)?.previewImageURL
     }
 
-    private func loadThumbnail(_ row: DownloadTaskRow, receive: @escaping (NSImage?) -> Void) -> (() -> Void)? {
+    private func loadThumbnail(_ row: DownloadTaskRow, request: ThumbnailRequest, receive: @escaping (NSImage?) -> Void) -> (() -> Void)? {
         let reference = row.id.reference
         if reference.provider == .steamWorkshop,
            let url = steamPreviewURL(id: reference.sourceID, publishedPreviewURL: steam.latestDownloadRecord(for: reference.sourceID)?.previewURL) {
             let cancellation = SteamWorkshopPreviewLoadCancellation()
-            steamWorkshopLoadPreviewImage(from: url, cancellation: cancellation, completion: receive)
+            steamWorkshopLoadPreviewImage(from: url,
+                maxPixelSize: min(800, GridThumbnailDecoder.pixelLimit(width: CGFloat(request.width), scale: 1)),
+                cancellation: cancellation, completion: receive)
             return { cancellation.cancel() }
         }
         if reference.provider == .pixabay, let id = Int(reference.sourceID) {
             if let entry = pixabay.downloadedContent.entries.first(where: { $0.id == id && $0.isAvailable }) {
                 let cancellation = ThumbnailCacheRequestCancellation()
-                PixabayDownloadedThumbnailStore.loadThumbnail(entry, priority: .visible, cancellation: cancellation) { _, image in receive(image) }
+                PixabayDownloadedThumbnailStore.loadThumbnail(entry, request: request, priority: .visible, cancellation: cancellation) { _, image in receive(image) }
                 return { cancellation.cancel() }
             }
-            if let url = pixabay.downloadActivity(for: id)?.previewURL { return loadRemoteThumbnail(.init(url: url), receive: receive) }
+            if let url = pixabay.downloadActivity(for: id)?.previewURL { return loadRemoteThumbnail(.init(url: url), request: request, receive: receive) }
         } else if let id = OnlineImageAssetID(reference: reference) {
             if let record = images.record(for: reference), !images.snapshot.unavailable.contains(id), let url = images.localURL(for: record) {
                 let cancellation = ThumbnailCacheRequestCancellation()
-                localThumbnails.load(path: url.path, cancellation: cancellation) { result in
+                localThumbnails.load(path: url.path, request: request, cancellation: cancellation) { result in
                     if case .image(let image) = result { receive(image) } else { receive(nil) }
                 }
                 return { cancellation.cancel() }
             }
             if let url = images.downloadActivity(for: id)?.previewURL {
-                return loadRemoteThumbnail(images.thumbnailRequest(url: url, source: id.source), receive: receive)
+                return loadRemoteThumbnail(images.thumbnailRequest(url: url, source: id.source), request: request, receive: receive)
             }
         }
         return nil
     }
 
-    private func loadRemoteThumbnail(_ request: OnlineImageThumbnailRequest, receive: @escaping (NSImage?) -> Void) -> (() -> Void)? {
+    private func loadRemoteThumbnail(_ source: OnlineImageThumbnailRequest, request: ThumbnailRequest, receive: @escaping (NSImage?) -> Void) -> (() -> Void)? {
         let cache = OnlineImageThumbnailCache.shared
-        if let ready = cache.readyImage(for: request, maxPixelSize: 128) { receive(ready); return nil }
+        if let ready = cache.readyImage(for: source, request: request) { receive(ready); return nil }
         let task = Task {
-            let image = await cache.image(for: request, maxPixelSize: 128, priority: .visible)
+            let image = await cache.image(for: source, request: request, priority: .visible)
             if !Task.isCancelled { receive(image) }
         }
         return { task.cancel() }

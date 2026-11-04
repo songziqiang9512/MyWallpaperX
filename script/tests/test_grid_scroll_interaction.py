@@ -17,6 +17,7 @@ from script.tests.native_app_harness import native_app_session
 from script.tests.test_ui_library_algorithms import declaration
 
 ROOT = Path(__file__).resolve().parents[2]
+REQUEST = ROOT / "MyWallpaperX/Shared/ThumbnailRequest.swift"
 PRODUCTION = ROOT / "MyWallpaperX/Shared/UI/WallpaperGridScrollView.swift"
 FIXTURE = ROOT / "script/tests/fixtures/GridScrollInteractionChecks.swift"
 MENU_FIXTURE = ROOT / "script/tests/fixtures/GridContextMenuHoverChecks.swift"
@@ -55,7 +56,7 @@ class GridScrollInteractionTests(unittest.TestCase):
         )
         for name in ("home", "tmp"):
             (cls.work / name).mkdir()
-        paths = (PRODUCTION, FIXTURE, MENU_FIXTURE, NATIVE_MENU_FIXTURE, COLLECTION, CARD_INTERACTION, Path(__file__),
+        paths = (REQUEST, PRODUCTION, FIXTURE, MENU_FIXTURE, NATIVE_MENU_FIXTURE, COLLECTION, CARD_INTERACTION, Path(__file__),
                  ROOT / "script/tests/test_ui_library_algorithms.py")
         inputs = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in paths}
         original = PRODUCTION.read_text()
@@ -132,7 +133,7 @@ class GridScrollInteractionTests(unittest.TestCase):
             fixture = fixture.replace(marker, marker + f' GridContextMenuInputTrace.record("item.mouse{callback}", event: event);', 1)
         fixture_copy.write_text(fixture + "\n" + MENU_FIXTURE.read_text() + "\n" + NATIVE_MENU_FIXTURE.read_text())
         command = ["xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library",
-                   "-default-isolation", "MainActor", str(production_copy), *native_sources, str(fixture_copy),
+                   "-default-isolation", "MainActor", str(REQUEST), str(production_copy), *native_sources, str(fixture_copy),
                    "-module-cache-path", str(cls.work / "swift-modules"),
                    "-framework", "AppKit", "-o", str(cls.binary)]
         build = subprocess.run(command, capture_output=True, text=True,

@@ -7,6 +7,44 @@
 
 2026-11-02用户目标：打开App先显示上次本地内容，目录检查在后台更新；本地视频、图片和自建列表快速双向滚动时，已取得缩略图优先复用。该卡同时覆盖列表内已入库Steam/Pixabay/在线图片的本地记录，在线浏览预算和播放引擎保持。状态：R62实现、最近行为门和签名Debug已完成，保留文末三项原生验证限制；真实用户库人工体验待验。R61普通精简候选后移。
 
+<a id="adaptive-grid-size"></a>
+## R112：按实际卡片像素保留单一清晰缩略图（已实现/未提交，体验目标未验收）
+
+后续全模块目标已由[统一交付设计](thumbnail-delivery-design.md#overview)接管：按来源复用、兼容清晰结果共享、必要构图按需缓存，替代本节互斥单Entry作为最终目标。本页保留R112实现与原证据；本地与在线共享需求/准备接入及剩余跨模块范围见该统一设计，不代表全模块已统一。
+
+本批Git边界：用户已允许继续实施与验证，但明确要求最终暂不提交，待其检查具体结果后确认；旧循环提交授权不适用于本批。方案须同时报告优点、成本及反例，不把用户建议当无需评估的技术结论。
+
+2026-11-03用户明确否决双层缩略图与低清→高清渐进替换，要求按屏幕、分辨率和行列/卡片大小控制像素占用，同预算保留更多可用图。R111候选未合入、未提交、未构建完整Debug，隔离Source的产品/测试候选已逐文件恢复到R110提交；下述诊断仍有效，候选改善不作为已交付能力。
+
+**R112修改前的断点。** 原SIL固定512最长边，180count常先于192MiB触发淘汰；Video派生图固定400×400上限，大Retina方卡的短边可能不足。网格是正方形aspect-fill，150pt@2x需300×300可见像素，不能把ImageIO最长边设为300后仍保证清晰。当时memory、inflight及磁盘均仅按path，SIL Inspector还共用该键写800；只给source loader加size会被旧盘图/内存命中绕过。首次make可能尚无正确cell frame，reloadData还可能早于layout更新，目标须取当前Grid布局意图并转换backing像素。
+
+**实测结论。** 相同1024张自有图片、800×600/5列、2x、52pt工具栏及18次六页下/上真实窗口输入，两臂clip路线逐项一致。150pt需300px，当前归320：单Entry实际733184→409600字节（约−44%），LRU180→491张；配置192MiB不变，但原count先淘汰只用约126MiB，新版可用满约192MiB，因此总驻留内存可能增加，不等于RSS降低。精确输入期间405次willDisplay即时无图405→289，反向回访190→91；磁盘decode开始1738→652、源ImageIO重抽均0、无trace截断。235个manual-visible项未达原360覆盖门，仍为false；对象回调不是屏幕/FPS证据，真实混合库和触控板未验。尺寸节省有效但未消除空卡，不认领照片级。
+
+**最近验证。** 缓存69/Decoder41/lease63事实通过；真实AV20事实、原生成/clear/卡片交付及邻接Inspector、Pixabay、SIL需求/离屏重授予、GridViewport/Adapter、调度门通过。首次SIL不受控持卡反例曾失败，产品未据此修改；保原10断言改用原controller+idle factory固定未复用前提并新增grant前身份/旧像素检查后通过，不能称原失败因果已证。旋转夹具改官方输入display_rotation才取得真实90°track，未据坏夹具修产品。最终Debug29.731秒/5923输入稳定、strict/deep签名过；首次全编译的本批8条async隔离警告已通过原queue续流修正并重编消除，另有未改Scene及CS0665/CS8603警告，最终增量仅AppIntents无依赖metadata skip。review App保留隔离位置，未安装/启动真实用户库。
+
+**改动规模。** 产品18个既有文件净增220行，测试24文件净增560行：尺寸必须贯穿Grid/原Adapter/三处UI消费者、原provider/缓存/视频生成，增加目标标签与类型化回执但不新建owner、尺寸索引或缓存层；当前最大产品文件998行。测试复用原实现与真实ImageIO/AV/窗口，装配清单随真实依赖更新，不复制业务计算。
+
+**后续裁决。** 缩尺寸与保更多图不能单独保证无空卡；优先查剩余非驻留图的提前解码/交付和旧Video master首次质量升级。Video400→320需要新增AV，合成单任务约6–24ms，仅说明额外工作存在。复用既有lane的质量预取只研究未实施：Core remove丢handlers，盲加continuation可缺终态；不加第二协调器或96个AV。64px分档减少连续resize的重解码，但300→320多约14%像素；更细分档与频繁resize成本待实测再选，不宣称任何布局均省。
+
+**已选数据流与职责。** 原Grid从当前clip宽/列数的Metrics得点尺寸，经collection.convertToBacking取backing像素，向上归64px档（上限4096），同一整数随CellState和viewport传原Adapter/provider；显示准入使用CellState?（nil撤销），离屏保留卡重授予时只有目标变化才用已绑定来源重配，不再查全源表；原生挂载、resize、列数和backing变化重发原有有界需求，无轮询/全库遍历。ImageIO重用orientation/aspect-fill计算，后台绘制独立连续的中心方形位图，避免仅cropping仍持整张底图。小原图允许其真实上限，不把上采样叫新增细节。
+
+**原缓存内的单图语义。** ThumbnailCache.load/cachedImage增加可选pixelSide，默认nil保原uncropped消费；DecodedThumbnailMemoryCache每源唯一Entry记录已完成的square目标（原生小源允许其真实上限），仅同构图且目标像素足够时命中，已有更大清晰方图可直接复用，避免为缩小强制重解码/可观察替换；新冷项用当前尺寸，旧大项到LRU退出前暂留较高占用。这比另建exact/min两套读API简单；不保尺寸集合或preview tier。在途image key为(source,pixelSide)，同尺寸单飞、不同尺寸不错误合并；完成仅替换同源Entry。默认Inspector/状态栏/Artwork消费者继续原未裁图语义，不给其增加缓存或迁出既有owner；与网格可能互换唯一Entry并额外后台解码，这是换取无variants状态的明确成本。remove/clear覆盖同源全部target请求/唯一Entry；内存压力仍原释放语义，不加新代次、latest-target表或时钟。
+
+**磁盘与源质量。** 每源仍一份uncropped JPEG，暖盘按目标下采样并绘制方图；不足覆盖则走原source一次，生成时持久化原未裁图、只将目标方图入内存/最终交付。SIL源master至少保原512最长边，Video至少保原400（原生不足例外），防止小网格写小盘图后默认详情消费者变糊；仅内存按当前卡片裁小。暖盘缩小不把较大盘图改写成小盘图，不增加尺寸文件族；并发不同尺寸都先盘miss时，原单generation队列后完成的小图仍可能替换较大盘图，后继大需求可额外回源，但不得误满足。接受此有限重算成本，不加latest-target目录或每次generation重复盘读。Video沿原canonical派生生成owner按需取得足够短边，保默认400路径的现有使用；旧小派生图与在途400结果不能被大目标当最终清晰结果。必要的大小比较只放原读取/生成边界，不在普通暖内存路径stat。缓存不是源许可，真实小源/失败不得自递归生成。
+
+**公开依据与取舍。** Apple公开PHCachingImageManager要求预热与请求的targetSize/contentMode/options一致，已准备项立即返回；它支持按需求后台预备，不能证明Photos内部会整库解码常驻。本批沿此原则统一尺寸与需求，在原cache内保单图；拒绝全库常驻和可观察低清→高清双层交付。参考：[Apple预热接口](https://developer.apple.com/documentation/photos/phcachingimagemanager/startcachingimages%28for%3Atargetsize%3Acontentmode%3Aoptions%3A%29)。
+
+**预算/取舍。** SIL192MiB/Video128MiB总已解码字节保持，将两者count提高到4096有界元数据上限，让实际bytesPerRow×height主导。150pt@2x归320px方图紧致RGBA约400KiB，192MiB理论约491张（不含行对齐、色深、对象、在途或卡片持有，非RSS/实测）；大卡可能更贵，不能承诺任何布局都减少占用。选择直接生成当前清晰方图，替代未裁缩图仍缓存将被裁掉像素；拒绝全局改尺寸清全库、永久尺寸索引与多阶段低清回调。现有图在重布局/正确请求完成前按原View生命周期持有，不清空或闪loading；新最终图必须满足其目标或真实源上限。Scene不改。
+
+**验证。** 用当前指标尺寸×1x/2x、列数/窗口/换屏、方/竖/全景/方向信息，以及先小后大/先大后小、旧盘暖、迟到结果、清理/单键失效检查像素充足、缓存成本和单次正确交付。复用已确认合法窗口输入；真实视频/图片/自建混合及帧节奏继续验，不以对象有图替代Photos级体验。设计已在实施前落库；各片段须通过真实门后才合入。
+
+<a id="progressive-return"></a>
+## R111：真实回滚诊断与已撤回候选
+
+原正常App生命周期、合法窗口输入、原Grid/Adapter/SIL/cache/native52pt工具栏，1024张自有盘暖图片/180count192MiB：25单页下再25单页上实际445项可见，预取领先可见插入最小18.54ms，已创建可见卡均同步有图；淘汰均count而非bytes/压力。9次六页下再9次六页上复现190项先赋图→真实淘汰→反向可见无图→同绑定重新赋图，最长30.499ms；18真实窗口输入、405次willDisplay均身份/可见相交成立，无源重抽/截断。此路线仅235 manual-visible项，未达探针360覆盖门，具体因果可成立但不称完整超驻留门通过。AX读取另导致Time Profiler152个make栈中150来自AX，不能归作自然滚动成本。
+
+私有双层96px候选曾在相同18次位移观察到405次可见对象无图→0、后继清晰交付405次，但用户明确要求不可观察渐进，方案整体撤回，不合入其双层预览产品/测试或宣称已交付；原SIL selection精简候选亦未合。屏幕像素、物理触控板/FPS、真实混合和完整照片级均未由本实验证明。后续只按[R112](#adaptive-grid-size)推进，不重做R55/R62/R109已结事项，Scene不改。
+
 <a id="generated-delivery"></a>
 ## R110：可见视频请求直接等待派生图生成
 

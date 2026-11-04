@@ -27,7 +27,7 @@ class LibraryWindowToolbarTests(unittest.TestCase):
             'Core/LibraryCollections/UserCollectionsStore.swift', 'Core/LibraryCollections/UserCollectionsController.swift',
             'Core/LibraryCollections/WallpaperLibraryQuery.swift', 'Shell/WallpaperLibraryPresentation.swift',
             'Shared/Components/ActionMenuItem.swift', 'Shared/Components/WallpaperLibraryControlStyle.swift', 'Shared/Components/WallpaperLibraryGridMetrics.swift',
-            'Shared/Components/WallpaperLibraryZoomControl.swift', 'App/WallpaperLibraryWindowToolbar.swift',
+            'Shared/Components/WallpaperLibraryZoomControl.swift', 'Shared/UI/UIInteractionAnimation.swift', 'App/WallpaperLibraryWindowToolbar.swift',
             'Shared/UI/WallpaperFilterPanelController.swift', 'Shared/UI/ToolbarMenuPopover.swift',
         ]
         paths = [Path(os.environ.get('MWX_LIBRARY_TOOLBAR_SOURCE', ROOT / 'MyWallpaperX' / name))
@@ -37,7 +37,11 @@ class LibraryWindowToolbarTests(unittest.TestCase):
         paths.append(ROOT / 'script/tests/fixtures/ToolbarMenuAnchorChecks.swift')
         fixture = ROOT / 'script/tests/fixtures/LibraryWindowToolbarHarness.swift'
         sheet = ROOT / 'MyWallpaperX/Shared/UI/WallpaperLibrarySheetPresentation.swift'
-        observed = paths + [sheet, fixture, Path(__file__).resolve(), ROOT / 'script/tests/native_app_harness.py']
+        pixabay = ROOT / 'MyWallpaperX/Modules/Pixabay/Toolbar/PixabayToolbarController.swift'
+        pixabay_source = pixabay.read_text()
+        layout_start = pixabay_source.index('    let pixabayIdentifiers:')
+        pixabay_layout = pixabay_source[layout_start:pixabay_source.index('\n    ]', layout_start) + len('\n    ]')]
+        observed = paths + [sheet, fixture, pixabay, Path(__file__).resolve(), ROOT / 'script/tests/native_app_harness.py']
         hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in observed}
         with tempfile.TemporaryDirectory(prefix='mwx-window-toolbar-', dir='/private/tmp') as directory:
             work = Path(directory)
@@ -61,7 +65,9 @@ class LibraryWindowToolbarTests(unittest.TestCase):
                 copies.append(str(copied))
             harness = work / 'Checks.swift'
             harness.write_text('import AppKit\n' + declaration(sheet.read_text(), '@MainActor enum WallpaperLibrarySheetPresentation') + '\n'
-                + declaration(sheet.read_text(), '@MainActor class WallpaperLibraryModalPanel:') + '\n' + fixture.read_text())
+                + declaration(sheet.read_text(), '@MainActor class WallpaperLibraryModalPanel:') + '\n'
+                + declaration(pixabay.read_text(), 'extension NSToolbarItem.Identifier {') + '\n'
+                + fixture.read_text().replace('// ACTUAL_PIXABAY_IDENTIFIERS', pixabay_layout))
             binary = prepare_native_app(work, 'LibraryWindowToolbar')
             built = subprocess.run(['xcrun', 'swiftc', *SWIFT_ISOLATION_FLAGS, '-warnings-as-errors', '-parse-as-library',
                 *copies, str(harness), '-module-cache-path', str(work / 'modules'), '-o', str(binary)],

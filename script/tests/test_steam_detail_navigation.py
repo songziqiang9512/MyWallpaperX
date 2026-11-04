@@ -14,17 +14,20 @@ class SteamDetailNavigationTests(unittest.TestCase):
     def test_inspector_publications_use_current_selection_and_own_close_token(self):
         source = (ROOT / 'MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserView.swift').read_text()
         observer = method(source, '        service.$selectedBrowserItem') + '.store(in: &cancellables)'
+        host_observer = method(source, '    private func observeInspectorHost(')
+        host_observer = host_observer[host_observer.index('        NotificationCenter.default.publisher(for: .inspectorHostDidPresent)'):].split('\n\n', 1)[0]
         methods = '\n'.join(method(source, signature) for signature in (
             '    private func syncSelectedInspectorItem(', '    private func makePresentation(',
             '    private func handleInspectorDidPresent(', '    private func handleInspectorDidClose('))
         harness = r'''
 import AppKit
 import Combine
-enum ModuleIdentifier: String { case steamWorkshop }
+enum ModuleIdentifier: String { case steamWorkshop, videoLibrary }
 extension Notification.Name {
     static let inspectorHostOpenRequested = Notification.Name("open")
     static let inspectorHostCloseRequested = Notification.Name("close")
     static let inspectorHostMountContentRequested = Notification.Name("mount")
+    static let inspectorHostDidPresent = Notification.Name("present")
 }
 struct SteamWorkshopBrowserItem { let id: String; var title: String { id }; var author: String { "Author" } }
 @MainActor final class DetailServiceLeaf {
@@ -40,6 +43,7 @@ struct SteamWorkshopBrowserItem { let id: String; var title: String { id }; var 
     var isHandlingHostClose = false
     var removals = 0, installs: [String] = []
     func bind() { // OBSERVER
+        // HOST_OBSERVER
     }
     func installInspectorContent(for item: SteamWorkshopBrowserItem) { installs.append(item.id) }
     func removeInspectorContent() { removals += 1 }
@@ -54,8 +58,8 @@ struct SteamWorkshopBrowserItem { let id: String; var title: String { id }; var 
             if let request = InspectorHostRequest(userInfo: note.userInfo) { opened.append(request.token.cardID) }
         }
         defer { NotificationCenter.default.removeObserver(observation) }
-        func note(_ id: String) -> Notification {
-            let request = InspectorHostRequest(token: .init(module: .steamWorkshop, cardID: id), title: id)
+        func note(_ id: String, module: ModuleIdentifier = .steamWorkshop) -> Notification {
+            let request = InspectorHostRequest(token: .init(module: module, cardID: id), title: id)
             return Notification(name: Notification.Name("host-event"), userInfo: request.userInfo)
         }
         probe.bind()
@@ -64,6 +68,18 @@ struct SteamWorkshopBrowserItem { let id: String; var title: String { id }; var 
         try await Task.sleep(for: .milliseconds(40))
         var checks = ["queued-publisher-never-reopens-a-superseded-inspector":
             !opened.isEmpty && opened.allSatisfy { $0 == "current-item" }]
+        let installsBeforePresent = probe.installs.count
+        NotificationCenter.default.post(name: .inspectorHostDidPresent, object: nil, userInfo: note("current-item").userInfo)
+        checks["real-host-publisher-installs-current-details-before-post-returns"] =
+            probe.installs.count == installsBeforePresent + 1 && probe.installs.last == "current-item"
+            && probe.visibleCardID == "current-item"
+        let ownInstalls = probe.installs.count
+        NotificationCenter.default.post(name: .inspectorHostDidPresent, object: nil,
+            userInfo: note("current-item", module: .videoLibrary).userInfo)
+        checks["other-module-present-cannot-install-browser-details"] = probe.installs.count == ownInstalls
+        NotificationCenter.default.post(name: .inspectorHostDidPresent, object: nil,
+            userInfo: note("steamWorkshop:current-item:" + UUID().uuidString).userInfo)
+        checks["Coordinator-token-present-cannot-install-browser-details"] = probe.installs.count == ownInstalls
         probe.handleInspectorDidPresent(note("current-item"))
         probe.handleInspectorDidClose(note("old-author-item"))
         checks["old-close-cannot-dismiss-current-browser-details"] = probe.service.selectedBrowserItem?.id == "current-item"
@@ -90,7 +106,7 @@ struct SteamWorkshopBrowserItem { let id: String; var title: String { id }; var 
         print(String(data: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
     }
 }
-'''.replace('// OBSERVER', observer).replace('// METHODS', methods)
+'''.replace('// OBSERVER', observer).replace('// HOST_OBSERVER', host_observer).replace('// METHODS', methods)
         with tempfile.TemporaryDirectory(prefix='mwx-browser-inspector-', dir='/private/tmp') as directory:
             work = Path(directory); actual = work / 'Checks.swift'; actual.write_text(harness)
             sources = [ROOT / 'MyWallpaperX/Shared/UI' / name for name in (

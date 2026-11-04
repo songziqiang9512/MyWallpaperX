@@ -18,6 +18,7 @@ PIPELINE = CORE / 'SteamWorkshopDownloadThumbnailPipeline.swift'
 IMAGE_SUPPORT = CORE / 'SteamWorkshopPreviewImageSupport.swift'
 SOURCES = [SHARED / 'DecodedThumbnailMemoryCache.swift', SHARED / 'GridThumbnailDecoder.swift',
            SHARED / 'ThumbnailCache.swift', CORE / 'SteamWorkshopPreviewRequestCoordinator.swift', IMAGE_SUPPORT]
+SOURCES.append(ROOT / "MyWallpaperX/Shared/ThumbnailRequest.swift")
 CHECKS = {'startsWithoutDiskCache', 'coldRequestsComplete', 'coldVideosProduceRealFrames',
           'sameKeySharesOneGeneration', 'differentKeyGeneratesIndependently',
           'memoryWarmReturnsWithoutGeneration', 'badMediaCompletesWithFailure',

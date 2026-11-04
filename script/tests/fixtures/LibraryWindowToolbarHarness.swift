@@ -178,8 +178,7 @@ extension WallpaperLibraryCatalog { var catalog: Self { self } }
 @MainActor final class PixabayToolbarController {
     static var latest: PixabayToolbarController!
     var titleUpdateHandler: ((String) -> Void)?
-    let pixabayIdentifiers: [NSToolbarItem.Identifier] = [.sidebarTrackingSeparator, .init("ToolbarTitle"), .flexibleSpace,
-        .init("fixture-online-settings"), .init("downloadTasks"), .init("fixture-online-filter"), .init("fixture-online-search")]
+    // ACTUAL_PIXABAY_IDENTIFIERS
     var queries = "kept Pixabay server query", focused = 0
     var makeZoomAction: ((Int) -> (() -> Void)?)?
     private var items: [NSToolbarItem.Identifier: NSToolbarItem] = [:]
@@ -306,7 +305,7 @@ extension WallpaperLibraryCatalog { var catalog: Self { self } }
             _ = workspace.presentation.switchPage(value); controller.refresh(); settle()
         }
         func item(_ raw: String) -> NSToolbarItem { controller.toolbar.items.first { $0.itemIdentifier.rawValue == raw }! }
-        func title() -> String { (item("ToolbarTitle").view as! NSTextField).stringValue }
+        func title() -> String { ((item("ToolbarTitle").view as! NSStackView).arrangedSubviews[0] as! NSTextField).stringValue }
         func hasSharedSearchWidth(_ field: NSSearchField) -> Bool {
             let expected = NSRect(x: field.bounds.minX, y: field.bounds.minY, width: 220, height: field.bounds.height)
             return field.backingAlignedRect(field.bounds, options: .alignAllEdgesNearest).width
@@ -322,11 +321,11 @@ extension WallpaperLibraryCatalog { var catalog: Self { self } }
             return groups
         }
         func titleMetadataMatches(_ expected: String, summary: String? = nil) -> Bool {
-            let native = item("ToolbarTitle"), label = native.view as! NSTextField
+            let native = item("ToolbarTitle"), title = native.view as! NSStackView, label = title.arrangedSubviews[0] as! NSTextField
             return label.stringValue == expected && label.accessibilityLabel() == expected
                 && native.label == expected && native.paletteLabel == expected
                 && native.toolTip == (summary.map { "\(expected)\n\($0)" } ?? expected)
-                && label.accessibilityHelp() == summary
+                && label.accessibilityHelp() == summary && abs(label.alignmentRect(forFrame: label.frame).minX - 8) < 0.5
         }
         func trigger(_ raw: String) -> Bool {
             let control = item(raw)
@@ -789,9 +788,11 @@ extension WallpaperLibraryCatalog { var catalog: Self { self } }
         page(.workshop)
         checks["workshop-reentry-reuses-original-source-control-identity"] = item("fixture-steam-search") === sourceItem
         page(.pixabay)
+        let pixabayOrder = controller.toolbar.items.map(\.itemIdentifier)
+        checks["real-pixabay-toolbar-places-sort-before-filter"] = pixabayOrder.firstIndex(of: .pixabayOrder)! < pixabayOrder.firstIndex(of: .pixabayFilter)!
         controller.focusSearch(); controller.performZoom(delta: -1)
         checks["pixabay-retains-settings-filter-search-with-one-page-column-owner"] = PixabayToolbarController.latest.focused == 1
-            && workspace.presentation.queryState.preferredColumns == 6 && controller.toolbar.items.contains { $0.itemIdentifier.rawValue == "fixture-online-settings" }
+            && workspace.presentation.queryState.preferredColumns == 6 && controller.toolbar.items.contains { $0.itemIdentifier.rawValue == "ToolbarPixabaySettings" }
         let onlineBeforeResize = PixabayToolbarController.latest.layoutUpdates
         NotificationCenter.default.post(name: NSWindow.didResizeNotification, object: window)
         checks["active-pixabay-controls-recompute-shared-zoom-without-a-retired-category-width-owner"] = PixabayToolbarController.latest.layoutUpdates == onlineBeforeResize + 1
@@ -952,7 +953,7 @@ extension WallpaperLibraryCatalog { var catalog: Self { self } }
         checks["long-playlist-title-retains-the-source-name-trimming-contract"] = longName == requestedLongName.trimmingCharacters(in: .whitespacesAndNewlines)
             && longName != requestedLongName
         window.setContentSize(NSSize(width: 900, height: 560)); settle()
-        let longTitle = item("ToolbarTitle").view as! NSTextField
+        let longTitle = (item("ToolbarTitle").view as! NSStackView).arrangedSubviews[0] as! NSTextField
         // Auto Layout sizes native text fields by their alignment rect, not
         // their drawing frame. An independent stock label keeps that distinction
         // honest without increasing the product's 280 pt layout budget.

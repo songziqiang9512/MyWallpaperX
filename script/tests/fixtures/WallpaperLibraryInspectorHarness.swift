@@ -66,13 +66,12 @@ final class PixabayDownloadsInspectorView: RecordingInspectorView {
 final class OnlineImageInspectorView: NSView {
     let artwork: OnlineImageArtwork
     let initialPageIndex: Int
-    let thumbnailPixelSize: Int
     let onAuthor: ((OnlineImageAuthor) -> Void)?
     var actions: WallpaperInspectorActions?
     init(artwork: OnlineImageArtwork, library: OnlineImageLibrary,
          makeLibraryActions: @escaping (WallpaperReference) -> WallpaperInspectorActions?,
-         onAuthor: ((OnlineImageAuthor) -> Void)? = nil, initialPageIndex: Int = 0, thumbnailPixelSize: Int = 800) {
-        self.artwork = artwork; self.initialPageIndex = initialPageIndex; self.onAuthor = onAuthor; self.thumbnailPixelSize = thumbnailPixelSize
+         onAuthor: ((OnlineImageAuthor) -> Void)? = nil, initialPageIndex: Int = 0) {
+        self.artwork = artwork; self.initialPageIndex = initialPageIndex; self.onAuthor = onAuthor
         super.init(frame: .zero)
     }
     required init?(coder: NSCoder) { nil }
@@ -91,7 +90,6 @@ private final class ImageSelectionBrowserLeaf {
     private var selection = Selection()
     var acceptsInput = true
     let grid = ImageSelectionGridLeaf()
-    var thumbnailPixelSize = 512
     var contents: [WallpaperReference: WallpaperContentItem] = [:]
     var onSelectionChange: ((WallpaperContentItem?) -> Void)?
     var onEscape: (() -> Void)?
@@ -468,7 +466,7 @@ final class ForeignPreviewOwner: NSObject, QLPreviewPanelDataSource {
         checks["real-image-selection-callback-updates-existing-quicklook-fixed-reference"] = coordinator.previewReference == imageIDs[2].reference
             && coordinator.previewURL == library.localURL(for: imageRecords[2]) && panel.dataSource === coordinator
         checks["image-selection-sync-preserves-real-artwork-and-author-callback"] = selectedImageView.artwork == shells[1]
-            && selectedImageView.initialPageIndex == 0 && selectedImageView.onAuthor != nil && selectedImageView.thumbnailPixelSize == browser.thumbnailPixelSize
+            && selectedImageView.initialPageIndex == 0 && selectedImageView.onAuthor != nil
         let acceptedImageReference = browser.selectedContent?.reference
         let acceptedImageToken = coordinator.inspectorToken
         browser.acceptsInput = false
@@ -993,7 +991,7 @@ final class ForeignPreviewOwner: NSObject, QLPreviewPanelDataSource {
         checks["cleared-pixabay-selection-releases-current-inspector-without-reopening"] = coordinator.inspectedReference == nil
             && coordinator.previewReference == nil
         window.orderOut(nil)
-        checks.merge(try await inspectorPresentationRefreshChecks(), uniquingKeysWith: { _, new in new })
+        checks.merge(try await inspectorPresentationRefreshChecks(split: split), uniquingKeysWith: { _, new in new })
         print(String(data: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
     }
 }

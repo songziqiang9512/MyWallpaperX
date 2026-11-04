@@ -1,10 +1,28 @@
 import AppKit
 import Foundation
 
-// Only maintenance trimming is excluded. Request actors, decoder, memory owner,
-// source publication, cancellation handlers and permits are production code.
-nonisolated enum ThumbnailCache {
-    static func trimDiskCache(directory: URL, sizeLimit: UInt64, expireBefore: Date? = nil) -> Bool { false }
+// HTTP replies and worker suspension are controlled; all cache, decode,
+// publication, cancellation and maintenance bodies remain production code.
+extension ThumbnailCache {
+    nonisolated fileprivate func suspendDecodeQueue(_ value: Bool) {
+        if value { decodeQueue.suspend() } else { decodeQueue.resume() }
+    }
+    nonisolated fileprivate func drainDecodeQueue() async {
+        await withCheckedContinuation { continuation in
+            decodeQueue.async(flags: .barrier) { continuation.resume() }
+        }
+    }
+    nonisolated fileprivate func evictReady(_ key: String) { imageCache.removeObject(forKey: key as NSString) }
+    nonisolated fileprivate func taskCount() -> Int {
+        lock.lock(); defer { lock.unlock() }
+        return requests.values.filter { $0.task != nil }.count
+    }
+    nonisolated fileprivate func decodeAudit() -> (requests: Int, consumers: Int, concurrency: Int, promoted: Int) {
+        lock.lock(); defer { lock.unlock() }
+        let images = requests.filter { if case .image = $0.key { return true }; return false }.map(\.value)
+        return (images.count, images.reduce(0) { $0 + $1.consumers.count }, runningDecode,
+                images.filter { $0.priority == .visible }.count)
+    }
 }
 
 nonisolated private final class ProtocolState: @unchecked Sendable {
@@ -12,6 +30,39 @@ nonisolated private final class ProtocolState: @unchecked Sendable {
     private var requests: [String: [ControlledThumbnailProtocol]] = [:]
     private var starts: [String: Int] = [:]
     private var stops: [String: Int] = [:]
+    private var rawStores: [String: Int] = [:]
+    private var storedAfterReady = Set<String>()
+    private var heldInput: (key: String, data: Data, entered: DispatchSemaphore, release: DispatchSemaphore)?
+    private var requestedHooks: [String: Int] = [:]
+    private var cancelledSourceHooks = Set<String>()
+    func holdInput(_ key: String, data: Data, entered: DispatchSemaphore, release: DispatchSemaphore) {
+        lock.lock(); heldInput = (key, data, entered, release); lock.unlock()
+    }
+    func releaseInputHold() { lock.lock(); heldInput = nil; lock.unlock() }
+    func pauseInput(_ data: Data, key: String) {
+        lock.lock(); let held = heldInput; lock.unlock()
+        if let held, held.key == key, data == held.data {
+            held.entered.signal(); held.release.wait()
+        }
+    }
+    func requestedHook(_ url: URL) { lock.lock(); requestedHooks[url.absoluteString, default: 0] += 1; lock.unlock() }
+    func sourceHook(_ url: URL, cancelled: Bool) {
+        lock.lock(); defer { lock.unlock() }
+        if cancelled { cancelledSourceHooks.insert(url.absoluteString) }
+    }
+    func hookAudit(_ url: URL) -> (requested: Int, cancelled: Bool) {
+        lock.lock(); defer { lock.unlock() }
+        return (requestedHooks[url.absoluteString, default: 0], cancelledSourceHooks.contains(url.absoluteString))
+    }
+    func stored(_ url: URL, alreadyReady: Bool) {
+        lock.lock(); defer { lock.unlock() }
+        rawStores[url.absoluteString, default: 0] += 1
+        if alreadyReady { storedAfterReady.insert(url.absoluteString) }
+    }
+    func storeAudit(_ url: URL) -> (count: Int, afterReady: Bool) {
+        lock.lock(); defer { lock.unlock() }
+        return (rawStores[url.absoluteString, default: 0], storedAfterReady.contains(url.absoluteString))
+    }
     func start(_ value: ControlledThumbnailProtocol) {
         lock.lock(); defer { lock.unlock() }
         let key = value.request.url!.absoluteString
@@ -75,6 +126,10 @@ extension OnlineImageThumbnailCache {
         store(data: data, for: request.cacheURL, generation: cacheGeneration, scopeID: request.scopeID)
     }
     fileprivate func evictRawMemory(_ resource: URL) { memCache.removeObject(forKey: resource.absoluteString as NSString) }
+    fileprivate func evictRaw(_ resource: URL) {
+        evictRawMemory(resource)
+        try? FileManager.default.removeItem(at: cacheFile(for: resource))
+    }
     fileprivate func scopeAudit(_ id: String, resource: URL) -> (count: Int, receipts: Int, contains: Bool) {
         (scopes.count, scopes[id]?.urls.count ?? 0, scopes[id]?.urls.contains(resource) == true)
     }
@@ -89,11 +144,16 @@ extension OnlineImageThumbnailCache {
     }
     fileprivate func allDiskEntriesExist(_ resources: [URL]) -> Bool { resources.allSatisfy(hasDiskEntry) }
     fileprivate func noDiskEntriesExist(_ resources: [URL]) -> Bool { resources.allSatisfy { !hasDiskEntry($0) } }
-    fileprivate func drainDecodeQueue() async {
-        await withCheckedContinuation { continuation in
-            decodeQueue.addBarrierBlock { continuation.resume() }
-        }
+    fileprivate func drainDecodeQueue() async { await preparedImages.drainDecodeQueue() }
+    fileprivate func holdActor(_ entered: DispatchSemaphore, release: DispatchSemaphore) {
+        holdProbe(entered, release: release)
     }
+    nonisolated fileprivate func resumeDecodeWhileActorHeld() { preparedImages.suspendDecodeQueue(false) }
+    nonisolated fileprivate func prepareTasksWhileActorHeld() -> Int { preparedImages.taskCount() }
+    nonisolated fileprivate func prepareAuditWhileActorHeld() -> (requests: Int, consumers: Int, concurrency: Int, promoted: Int) {
+        preparedImages.decodeAudit()
+    }
+    fileprivate func evictReady(_ url: URL) { preparedImages.evictReady(url.absoluteString) }
     fileprivate func diskReadContract() throws {
         let resource = url("disk-read")
         let file = cacheFile(for: resource)
@@ -115,26 +175,33 @@ extension OnlineImageThumbnailCache {
         try expect(cachedData(for: resource) == nil, "unreadable cache entry must miss")
         try FileManager.default.removeItem(at: file)
     }
-    fileprivate func suspendDecodeQueue(_ value: Bool) { decodeQueue.isSuspended = value }
+    fileprivate func suspendDecodeQueue(_ value: Bool) { preparedImages.suspendDecodeQueue(value) }
     fileprivate func decodeAudit() -> (requests: Int, consumers: Int, concurrency: Int, promoted: Int) {
-        (decoding.count, decoding.values.reduce(0) { $0 + $1.consumers.count },
-         decodeQueue.maxConcurrentOperationCount,
-         decoding.values.filter { $0.operation.queuePriority == .veryHigh }.count)
+        preparedImages.decodeAudit()
     }
 }
 
-private enum Failure: Error { case assertion(String) }
-private func expect(_ condition: Bool, _ label: String) throws {
+nonisolated private enum Failure: Error { case assertion(String) }
+nonisolated private func expect(_ condition: Bool, _ label: String) throws {
     if !condition { throw Failure.assertion(label) }
 }
-private func eventually(_ label: String, _ condition: @Sendable () async -> Bool) async throws {
+nonisolated private func eventually(_ label: String, _ condition: @Sendable () async -> Bool) async throws {
     for _ in 0..<3000 {
         if await condition() { return }
         try await Task.sleep(nanoseconds: 1_000_000)
     }
     throw Failure.assertion("timed out: " + label)
 }
-private func url(_ name: String) -> URL { URL(string: "https://thumbnail.test/" + name)! }
+nonisolated private func thumbnailTarget(_ width: Int) -> ThumbnailRequest {
+    ThumbnailRequest(width: width, height: width * 9 / 16, mode: .fit)
+}
+nonisolated private func url(_ name: String) -> URL { URL(string: "https://thumbnail.test/" + name)! }
+nonisolated private func wasSignalled(_ semaphore: DispatchSemaphore) -> Bool {
+    semaphore.wait(timeout: .now()) == .success
+}
+nonisolated private func holdProbe(_ entered: DispatchSemaphore, release: DispatchSemaphore) {
+    entered.signal(); release.wait()
+}
 
 @main private struct OnlineImageThumbnailSchedulingHarness {
     static func coordinator() -> OnlineImageThumbnailRequestCoordinator {
@@ -142,7 +209,7 @@ private func url(_ name: String) -> URL { URL(string: "https://thumbnail.test/" 
         config.protocolClasses = [ControlledThumbnailProtocol.self]
         return OnlineImageThumbnailRequestCoordinator(session: WallpaperNetworkSession(URLSession(configuration: config)))
     }
-    static func pngData(width: Int = 32, height: Int = 18) -> Data {
+    static func pngData(width: Int = 1600, height: Int = 900) -> Data {
         let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height,
             bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
             colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
@@ -214,43 +281,183 @@ private func url(_ name: String) -> URL { URL(string: "https://thumbnail.test/" 
         await cache.suspendDecodeQueue(true)
         let generation = await cache.publicationGeneration()
         let data = pngData(), resource = url("decode")
-        let first = Task { await cache.storeAndDecode(data: data, for: resource, maxPixelSize: 256,
-            generation: generation, priority: .prefetch) }
+        await cache.store(data: data, for: resource, generation: generation)
+        let first = Task { await cache.image(for: resource, request: thumbnailTarget(256), priority: .prefetch) }
         try await eventually("queued first decode") { await cache.decodeAudit().requests == 1 }
-        let second = Task { await cache.storeAndDecode(data: data, for: resource, maxPixelSize: 256,
-            generation: generation, priority: .visible) }
+        let second = Task { await cache.image(for: resource, request: thumbnailTarget(256), priority: .visible) }
         try await eventually("joined decode") { await cache.decodeAudit().consumers == 2 }
         let audit = await cache.decodeAudit()
-        try expect(audit.requests == 1 && audit.concurrency == 2 && audit.promoted == 1,
+        try expect(audit.requests == 1 && audit.concurrency > 0 && audit.concurrency <= 2 && audit.promoted == 1,
             "decode did not coalesce, bound, or promote")
         first.cancel()
         try expect(await first.value == nil, "cancelled decode consumer waited on suspended queue")
         try expect(await cache.decodeAudit().requests == 1, "one cancellation removed live shared decode")
         await cache.suspendDecodeQueue(false)
         try expect(await second.value != nil, "remaining decode consumer lost result")
-        try expect(cache.readyImage(for: resource, maxPixelSize: 256) != nil, "ready pixels not published")
+        try expect(cache.readyImage(for: resource, request: thumbnailTarget(256)) != nil, "ready pixels not published")
 
         await cache.suspendDecodeQueue(true)
-        let stale = Task { await cache.storeAndDecode(data: data, for: url("clear-decode"),
-            maxPixelSize: 512, generation: generation, priority: .prefetch) }
+        await cache.store(data: data, for: url("clear-decode"), generation: generation)
+        let stale = Task { await cache.image(for: url("clear-decode"), request: thumbnailTarget(512), priority: .prefetch) }
         try await eventually("stale decode queued") { await cache.decodeAudit().requests == 1 }
         await cache.clearAll()
         try expect(await stale.value == nil, "clear did not release suspended decode consumer")
         await cache.suspendDecodeQueue(false)
         try expect(await cache.cachedData(for: url("clear-decode")) == nil, "clear stale decode wrote raw cache")
     }
+    static func preparationPolicy() async throws {
+        let cache = OnlineImageThumbnailCache(requestCoordinator: coordinator())
+        await cache.clearAll()
+        let resource = url("corrupt-cache-fallback"), data = pngData()
+        let generation = await cache.publicationGeneration()
+        await cache.store(data: Data([1, 2, 3]), for: resource, generation: generation)
+        let repaired = Task { await cache.image(for: resource, request: thumbnailTarget(512), priority: .visible) }
+        try await eventually("corrupt raw cache falls back to HTTP once") { ControlledThumbnailProtocol.state.count(resource) == 1 }
+        ControlledThumbnailProtocol.state.deliver(resource, data: data)
+        let image = await repaired.value
+        try expect(image != nil && cache.readyImage(for: resource, request: thumbnailTarget(512)) === image,
+            "corrupt optional raw cache masked a valid HTTP image")
+        try expect(await cache.cachedData(for: resource) == data, "ready publication preceded successful raw publication")
+        try expect(await cache.image(for: resource, request: thumbnailTarget(256), priority: .visible) === image
+            && cache.hasReadyImage(for: resource, request: thumbnailTarget(256))
+            && ControlledThumbnailProtocol.state.count(resource) == 1, "compatible smaller request repeated HTTP/decode")
+        let badURL = url("invalid-http-data")
+        let bad = Task { await cache.image(for: badURL, request: thumbnailTarget(512), priority: .visible) }
+        try await eventually("bad data HTTP starts") { ControlledThumbnailProtocol.state.count(badURL) == 1 }
+        ControlledThumbnailProtocol.state.deliver(badURL, data: Data([3, 2, 1]))
+        try expect(await bad.value == nil, "invalid HTTP bytes became ready pixels")
+        try expect(await cache.cachedData(for: badURL) == nil && !cache.hasReadyImage(for: badURL, request: thumbnailTarget(512)),
+            "invalid HTTP bytes persisted before successful preparation")
+
+        await cache.suspendDecodeQueue(true)
+        let knownURL = url("known-data-identity")
+        await cache.store(data: data, for: knownURL, generation: generation)
+        let red = Task { await cache.image(for: knownURL, request: thumbnailTarget(256), priority: .visible) }
+        try await eventually("first known Data queued") { await cache.decodeAudit().requests == 1 }
+        let replacement = pngData(width: 64, height: 36)
+        await cache.store(data: replacement, for: knownURL, generation: generation)
+        let blue = Task { await cache.image(for: knownURL, request: thumbnailTarget(256), priority: .visible) }
+        try await eventually("different known Data cannot join old input") { await cache.decodeAudit().requests == 2 }
+        let queuedURL = url("third-short-decode")
+        await cache.store(data: data, for: queuedURL, generation: generation)
+        let third = Task { await cache.image(for: queuedURL, request: thumbnailTarget(256), priority: .prefetch) }
+        try await eventually("third short decode waits in the same owner") { await cache.decodeAudit().requests == 3 }
+        let audit = await cache.decodeAudit()
+        try expect(audit.concurrency == 2 && audit.consumers == 3, "known-data preparation bypassed the original two decode slots")
+        await cache.suspendDecodeQueue(false)
+        try expect(await red.value?.size == NSSize(width: 256, height: 144), "first known input received replacement data")
+        try expect(await blue.value?.size == NSSize(width: 64, height: 36), "replacement known input received old pixels")
+        try expect(await third.value != nil, "queued short decode lost its bounded slot")
+        try expect(await cache.cachedData(for: knownURL) == replacement, "cached-data decode rewrote an older raw version")
+
+        await cache.suspendDecodeQueue(true)
+        let joinURL = url("cached-creator-http-join")
+        await cache.store(data: data, for: joinURL, generation: generation)
+        let storesBefore = ControlledThumbnailProtocol.state.storeAudit(joinURL).count
+        let cachedCreator = Task { await cache.image(for: joinURL, request: thumbnailTarget(512), priority: .prefetch) }
+        try await eventually("cached creator registers before raw eviction") { await cache.decodeAudit().requests == 1 }
+        await cache.evictRaw(joinURL)
+        let httpJoin = Task { await cache.image(for: joinURL, request: thumbnailTarget(512), priority: .visible) }
+        try await eventually("same-data HTTP join fetched missing raw") { ControlledThumbnailProtocol.state.count(joinURL) == 1 }
+        ControlledThumbnailProtocol.state.deliver(joinURL, data: data)
+        try await eventually("HTTP consumer joins cached creator") { await cache.decodeAudit().consumers == 2 }
+        await cache.suspendDecodeQueue(false)
+        let joinedImage = await cachedCreator.value
+        let joinedHTTP = await httpJoin.value
+        try expect(joinedImage != nil && joinedHTTP === joinedImage,
+            "cached creator and same-data HTTP join lost shared result")
+        let stores = ControlledThumbnailProtocol.state.storeAudit(joinURL)
+        try expect(stores.count - storesBefore == 1 && !stores.afterReady,
+            "same-data successful source was missing, duplicated, or stored after ready publication")
+        try expect(await cache.cachedData(for: joinURL) == data && cache.readyImage(for: joinURL, request: thumbnailTarget(512)) === joinedImage,
+            "same-data HTTP join did not ensure raw before ready")
+
+        let oldRawURL = url("cached-old-must-not-rewrite-new-HTTP")
+        await cache.store(data: data, for: oldRawURL, generation: generation)
+        let rawBefore = ControlledThumbnailProtocol.state.storeAudit(oldRawURL).count
+        let oldEntered = DispatchSemaphore(value: 0), oldRelease = DispatchSemaphore(value: 0)
+        defer { oldRelease.signal(); ControlledThumbnailProtocol.state.releaseInputHold() }
+        ControlledThumbnailProtocol.state.holdInput(oldRawURL.absoluteString, data: data, entered: oldEntered, release: oldRelease)
+        let cachedOld = Task { await cache.image(for: oldRawURL, request: thumbnailTarget(256), priority: .prefetch) }
+        try await eventually("cached A decoded but held before publication") { wasSignalled(oldEntered) }
+        await cache.evictRaw(oldRawURL)
+        let freshHTTP = Task { await cache.image(for: oldRawURL, request: thumbnailTarget(256), priority: .visible) }
+        try await eventually("new HTTP B after raw eviction") { ControlledThumbnailProtocol.state.count(oldRawURL) == 1 }
+        ControlledThumbnailProtocol.state.deliver(oldRawURL, data: replacement)
+        try expect(await freshHTTP.value?.size == NSSize(width: 64, height: 36), "new HTTP input joined old cached Data")
+        try expect(await cache.cachedData(for: oldRawURL) == replacement, "HTTP B did not store before its final callback")
+        oldRelease.signal()
+        try expect(await cachedOld.value?.size == NSSize(width: 256, height: 144), "cached A lost its independent old input")
+        ControlledThumbnailProtocol.state.releaseInputHold()
+        try expect(await cache.cachedData(for: oldRawURL) == replacement
+            && ControlledThumbnailProtocol.state.storeAudit(oldRawURL).count - rawBefore == 1,
+            "late cached A rewrote newer HTTP B raw data")
+
+        let warmStore = ThumbnailCache(namespace: "online-held-warm-" + UUID().uuidString)
+        for operation in ["clear", "prefix"] {
+            let key = "held-warm/" + operation
+            var firstWarm: NSImage?
+            for await value in warmStore.prepare(data, forKey: key, request: thumbnailTarget(512)) { firstWarm = value }
+            try expect(firstWarm != nil, "warm lifecycle setup failed")
+            let enteredWarm = DispatchSemaphore(value: 0), releaseWarm = DispatchSemaphore(value: 0)
+            defer { releaseWarm.signal() }
+            let warming = Task { () -> NSImage? in
+                for await value in warmStore.prepare(data, forKey: key, request: thumbnailTarget(512), beforePublication: {
+                    holdProbe(enteredWarm, release: releaseWarm); return true
+                }) { return value }
+                return nil
+            }
+            try await eventually("warm successful-source hook held") { wasSignalled(enteredWarm) }
+            if operation == "clear" { warmStore.clearAll(cancelInFlight: true) }
+            else { warmStore.removeImages(withKeyPrefix: "held-warm/", cancelInFlight: true) }
+            try expect(await warming.value == nil, "clear/prefix did not terminate held warm stream")
+            releaseWarm.signal()
+            try expect(warmStore.cachedImage(forKey: key, request: thumbnailTarget(512)) == nil,
+                "held warm hook refilled invalidated ready pixels")
+            var nextWarm: NSImage?
+            for await value in warmStore.prepare(data, forKey: key, request: thumbnailTarget(512)) { nextWarm = value }
+            try expect(nextWarm != nil, "fresh request joined an invalidated warm hook")
+        }
+
+        await cache.suspendDecodeQueue(true)
+        let heldURL = url("cancel-before-raw-hook")
+        let held = Task { await cache.image(for: heldURL, request: thumbnailTarget(512), priority: .visible) }
+        try await eventually("held raw-hook HTTP") { ControlledThumbnailProtocol.state.count(heldURL) == 1 }
+        ControlledThumbnailProtocol.state.deliver(heldURL, data: data)
+        try await eventually("held raw-hook registered synchronously") { await cache.decodeAudit().requests == 1 }
+        let entered = DispatchSemaphore(value: 0), release = DispatchSemaphore(value: 0)
+        defer { release.signal() }
+        let blocker = Task.detached { await cache.holdActor(entered, release: release) }
+        try await eventually("actor held before source publication") { wasSignalled(entered) }
+        cache.resumeDecodeWhileActorHeld()
+        try await eventually("successful decode waits at actor hook") {
+            cache.prepareTasksWhileActorHeld() == 1 && ControlledThumbnailProtocol.state.hookAudit(heldURL).requested == 1
+        }
+        held.cancel()
+        try await eventually("last consumer revoked before raw hook") { cache.prepareAuditWhileActorHeld().requests == 0 }
+        release.signal()
+        await blocker.value
+        try expect(await held.value == nil, "cancelled last consumer received held preparation")
+        try expect(ControlledThumbnailProtocol.state.hookAudit(heldURL).cancelled,
+            "cancelled successful-source action never exercised the actor cancellation guard")
+        await cache.drainDecodeQueue()
+        try expect(await cache.cachedData(for: heldURL) == nil && !cache.hasReadyImage(for: heldURL, request: thumbnailTarget(512)),
+            "cancelled pre-publication hook wrote raw or ready data")
+        await cache.clearAll()
+    }
+
     static func prefetchedVisibleReuse() async throws {
         let cache = OnlineImageThumbnailCache(requestCoordinator: coordinator())
         await cache.clearAll()
         let resource = url("prefetched-visible-reuse"), data = pngData()
-        let prefetch = Task { await cache.image(for: resource, maxPixelSize: 512, priority: .prefetch) }
+        let prefetch = Task { await cache.image(for: resource, request: thumbnailTarget(512), priority: .prefetch) }
         try await eventually("neighbor thumbnail HTTP") { ControlledThumbnailProtocol.state.count(resource) == 1 }
         ControlledThumbnailProtocol.state.deliver(resource, data: data)
         let image = await prefetch.value
-        try expect(image != nil && cache.readyImage(for: resource, maxPixelSize: 512) === image,
+        try expect(image != nil && cache.readyImage(for: resource, request: thumbnailTarget(512)) === image,
             "neighbor did not publish ready pixels for the card's same tier")
         let before = await cache.decodeAudit()
-        let visible = await cache.image(for: resource, maxPixelSize: 512, priority: .visible)
+        let visible = await cache.image(for: resource, request: thumbnailTarget(512), priority: .visible)
         try expect(visible === image && ControlledThumbnailProtocol.state.count(resource) == 1,
             "visible same-tier consumer refetched an already prefetched thumbnail")
         try expect(await cache.decodeAudit().requests == before.requests, "warm visible consumer scheduled another decode")
@@ -260,14 +467,14 @@ private func url(_ name: String) -> URL { URL(string: "https://thumbnail.test/" 
         let cache = OnlineImageThumbnailCache(requestCoordinator: coordinator())
         await cache.clearAll()
         let resource = url("clear-network"), data = pngData()
-        let old = Task { await cache.image(for: resource, maxPixelSize: 256, priority: .visible) }
+        let old = Task { await cache.image(for: resource, request: thumbnailTarget(256), priority: .visible) }
         try await eventually("old HTTP") { ControlledThumbnailProtocol.state.count(resource) == 1 }
         await cache.clearAll()
         ControlledThumbnailProtocol.state.deliver(resource, data: data)
         try expect(await old.value == nil, "late HTTP request crossed cache clear epoch")
         try expect(await cache.cachedData(for: resource) == nil, "late HTTP repopulated raw cache")
-        try expect(cache.readyImage(for: resource, maxPixelSize: 256) == nil, "late HTTP repopulated decoded cache")
-        let fresh = Task { await cache.image(for: resource, maxPixelSize: 256, priority: .visible) }
+        try expect(cache.readyImage(for: resource, request: thumbnailTarget(256)) == nil, "late HTTP repopulated decoded cache")
+        let fresh = Task { await cache.image(for: resource, request: thumbnailTarget(256), priority: .visible) }
         try await eventually("fresh HTTP") { ControlledThumbnailProtocol.state.count(resource) == 2 }
         ControlledThumbnailProtocol.state.deliver(resource, data: data)
         try expect(await fresh.value != nil, "fresh request failed after clear")
@@ -292,58 +499,58 @@ private func url(_ name: String) -> URL { URL(string: "https://thumbnail.test/" 
             && !a.cacheURL.absoluteString.contains("account-A-fixture")
             && !a.cacheURL.absoluteString.contains("pixiv"), "scope key exposes source/session text or aliases another scope")
         let invalid = OnlineImageThumbnailRequest(url: resource, scopeID: "missing-transport")
-        try expect(await cache.image(for: invalid, maxPixelSize: 256, priority: .visible) == nil,
+        try expect(await cache.image(for: invalid, request: thumbnailTarget(256), priority: .visible) == nil,
             "scoped request used default transport")
         try expect(ControlledThumbnailProtocol.state.count(resource) == 0, "invalid transport reached network")
 
-        let unaffected = Task { await cache.image(for: other, maxPixelSize: 256, priority: .visible) }
+        let unaffected = Task { await cache.image(for: other, request: thumbnailTarget(256), priority: .visible) }
         try await eventually("unrelated request") { ControlledThumbnailProtocol.state.count(other) == 1 }
         ControlledThumbnailProtocol.state.deliver(other, data: data)
         try expect(await unaffected.value != nil, "anonymous image did not load")
-        let first = Task { await cache.image(for: a, maxPixelSize: 256, priority: .prefetch) }
+        let first = Task { await cache.image(for: a, request: thumbnailTarget(256), priority: .prefetch) }
         try await eventually("scope A") { ControlledThumbnailProtocol.state.count(resource) == 1 }
-        let joined = Task { await cache.image(for: a, maxPixelSize: 256, priority: .visible) }
+        let joined = Task { await cache.image(for: a, request: thumbnailTarget(256), priority: .visible) }
         try await eventually("scope A shares producer") { await coordinator.consumerCount(a.cacheURL) == 2 }
         first.cancel()
         try expect(await first.value == nil, "scoped consumer did not cancel independently")
         ControlledThumbnailProtocol.state.deliver(resource, data: data)
         try expect(await joined.value != nil, "remaining scoped consumer lost result")
-        let secondScope = Task { await cache.image(for: b, maxPixelSize: 256, priority: .visible) }
+        let secondScope = Task { await cache.image(for: b, request: thumbnailTarget(256), priority: .visible) }
         try await eventually("scope B uses separate producer") { ControlledThumbnailProtocol.state.count(resource) == 2 }
         let pending = ControlledThumbnailProtocol.state.pendingRequests(resource)
         try expect(pending.first?.value(forHTTPHeaderField: "Referer") == b.referer?.absoluteString,
             "source Referer missing from explicit transport")
         ControlledThumbnailProtocol.state.deliver(resource, data: data)
         try expect(await secondScope.value != nil, "second scope failed")
-        try expect(cache.readyImage(for: a, maxPixelSize: 256) != nil && cache.readyImage(for: b, maxPixelSize: 256) != nil,
+        try expect(cache.readyImage(for: a, request: thumbnailTarget(256)) != nil && cache.readyImage(for: b, request: thumbnailTarget(256)) != nil,
             "scoped ready pixels missing")
-        try expect(cache.readyImage(for: resource, maxPixelSize: 256) == nil, "scoped image leaked to anonymous URL key")
-        try expect(await cache.image(for: a, maxPixelSize: 256, priority: .visible) != nil
+        try expect(cache.readyImage(for: resource, request: thumbnailTarget(256)) == nil, "scoped image leaked to anonymous URL key")
+        try expect(await cache.image(for: a, request: thumbnailTarget(256), priority: .visible) != nil
             && ControlledThumbnailProtocol.state.count(resource) == 2, "scoped warm hit refetched")
         let aFile = await cache.hasDiskEntry(a.cacheURL), bFile = await cache.hasDiskEntry(b.cacheURL)
         try expect(aFile && bFile, "scoped raw data not persisted")
         let generation = await cache.publicationGeneration()
         await cache.invalidate(scopeID: "account-A-fixture")
         try expect(await cache.publicationGeneration() == generation, "scope invalidation cleared global generation")
-        try expect(cache.readyImage(for: a, maxPixelSize: 256) == nil
-            && cache.readyImage(for: b, maxPixelSize: 256) != nil
-            && cache.readyImage(for: other, maxPixelSize: 256) != nil, "scope invalidation crossed sources")
+        try expect(cache.readyImage(for: a, request: thumbnailTarget(256)) == nil
+            && cache.readyImage(for: b, request: thumbnailTarget(256)) != nil
+            && cache.readyImage(for: other, request: thumbnailTarget(256)) != nil, "scope invalidation crossed sources")
         let oldRaw = await cache.cachedData(for: a.cacheURL)
         let oldFile = await cache.hasDiskEntry(a.cacheURL), survivingFile = await cache.hasDiskEntry(b.cacheURL)
         try expect(oldRaw == nil && !oldFile && survivingFile, "scope disk/raw invalidation crossed sources or left old data")
 
         await cache.suspendDecodeQueue(true)
-        let staleDecode = Task { await cache.image(for: a, maxPixelSize: 512, priority: .visible) }
+        let staleDecode = Task { await cache.image(for: a, request: thumbnailTarget(512), priority: .visible) }
         try await eventually("scope A fresh producer") { ControlledThumbnailProtocol.state.count(resource) == 3 }
         ControlledThumbnailProtocol.state.deliver(resource, data: data)
         try await eventually("scope A suspended decode") { await cache.decodeAudit().requests == 1 }
         await cache.invalidate(scopeID: "account-A-fixture")
         try expect(await staleDecode.value == nil, "revoked scoped decode delivered pixels")
         await cache.suspendDecodeQueue(false)
-        try expect(cache.readyImage(for: a, maxPixelSize: 512) == nil
-            && cache.readyImage(for: b, maxPixelSize: 256) != nil, "stale decode republished or removed other scope")
+        try expect(cache.readyImage(for: a, request: thumbnailTarget(512)) == nil
+            && cache.readyImage(for: b, request: thumbnailTarget(256)) != nil, "stale decode republished or removed other scope")
 
-        let staleNetwork = Task { await cache.image(for: a, maxPixelSize: 256, priority: .visible) }
+        let staleNetwork = Task { await cache.image(for: a, request: thumbnailTarget(256), priority: .visible) }
         try await eventually("scope A pending network") { ControlledThumbnailProtocol.state.count(resource) == 4 }
         let stoppedBeforeInvalidation = ControlledThumbnailProtocol.state.count(resource, stopped: true)
         await cache.invalidate(scopeID: "account-A-fixture")
@@ -351,7 +558,7 @@ private func url(_ name: String) -> URL { URL(string: "https://thumbnail.test/" 
         try await eventually("scope transport cancelled") {
             ControlledThumbnailProtocol.state.count(resource, stopped: true) > stoppedBeforeInvalidation
         }
-        try expect(cache.readyImage(for: b, maxPixelSize: 256) != nil, "scope network cancellation removed another scope")
+        try expect(cache.readyImage(for: b, request: thumbnailTarget(256)) != nil, "scope network cancellation removed another scope")
         await cache.clearAll()
     }
 
@@ -372,9 +579,9 @@ private func url(_ name: String) -> URL { URL(string: "https://thumbnail.test/" 
         let anonymous = url("compaction-anonymous")
         let data = pngData(), freshData = pngData(width: 64, height: 36)
         await cache.seedScopedRaw(original, data: data)
-        try expect(await cache.image(for: original, maxPixelSize: 256, priority: .visible) != nil,
+        try expect(await cache.image(for: original, request: thumbnailTarget(256), priority: .visible) != nil,
             "first scoped pixel tier did not decode")
-        try expect(await cache.image(for: original, maxPixelSize: 512, priority: .visible) != nil,
+        try expect(await cache.image(for: original, request: thumbnailTarget(512), priority: .visible) != nil,
             "second scoped pixel tier did not decode")
         await cache.evictRawMemory(original.cacheURL)
         let fillers = (0..<600).map { scoped("compaction-filler-\($0)", scope) }
@@ -385,20 +592,21 @@ private func url(_ name: String) -> URL { URL(string: "https://thumbnail.test/" 
         let oldFiles = [original.cacheURL] + fillers.map(\.cacheURL)
         try expect(await cache.allDiskEntriesExist(oldFiles),
             "metadata compaction must not delete real disk entries")
-        try expect(cache.readyImage(for: original, maxPixelSize: 256) != nil
-            && cache.readyImage(for: original, maxPixelSize: 512) != nil,
+        try expect(cache.readyImage(for: original, request: thumbnailTarget(256)) != nil
+            && cache.readyImage(for: original, request: thumbnailTarget(512)) != nil,
             "raw receipt compaction unexpectedly discarded resident decoded tiers")
 
         await cache.seedScopedRaw(neighbor, data: data)
-        try expect(await cache.image(for: neighbor, maxPixelSize: 256, priority: .visible) != nil,
+        try expect(await cache.image(for: neighbor, request: thumbnailTarget(256), priority: .visible) != nil,
             "neighbor scope did not warm")
         let generation = await cache.publicationGeneration()
-        try expect(await cache.storeAndDecode(data: data, for: anonymous, maxPixelSize: 256,
-            generation: generation) != nil, "anonymous source did not warm")
+        await cache.store(data: data, for: anonymous, generation: generation)
+        try expect(await cache.image(for: anonymous, request: thumbnailTarget(256), priority: .visible) != nil,
+            "anonymous source did not warm")
         await cache.suspendDecodeQueue(true)
         let lateRequest = fillers[0]
-        let stale = Task { await cache.image(for: lateRequest, maxPixelSize: 1200, priority: .visible) }
-        let survivor = Task { await cache.image(for: neighbor, maxPixelSize: 1200, priority: .visible) }
+        let stale = Task { await cache.image(for: lateRequest, request: thumbnailTarget(1200), priority: .visible) }
+        let survivor = Task { await cache.image(for: neighbor, request: thumbnailTarget(1200), priority: .visible) }
         try await eventually("two scoped decodes suspended") { await cache.decodeAudit().requests == 2 }
         await cache.invalidate(scopeID: scope)
         try expect(await stale.value == nil, "compacted scope invalidation retained its decode consumer")
@@ -406,12 +614,12 @@ private func url(_ name: String) -> URL { URL(string: "https://thumbnail.test/" 
             "compacted scope invalidation changed the anonymous clear epoch")
         try expect(await cache.noDiskEntriesExist(oldFiles),
             "scope namespace invalidation left disk files omitted from compacted metadata")
-        try expect(cache.readyImage(for: original, maxPixelSize: 256) == nil
-            && cache.readyImage(for: original, maxPixelSize: 512) == nil,
+        try expect(cache.readyImage(for: original, request: thumbnailTarget(256)) == nil
+            && cache.readyImage(for: original, request: thumbnailTarget(512)) == nil,
             "prefix removal left a resident pixel tier without a raw receipt")
         let remaining = await cache.decodeAudit()
-        try expect(remaining.requests == 1 && cache.readyImage(for: neighbor, maxPixelSize: 256) != nil
-            && cache.readyImage(for: anonymous, maxPixelSize: 256) != nil,
+        try expect(remaining.requests == 1 && cache.readyImage(for: neighbor, request: thumbnailTarget(256)) != nil
+            && cache.readyImage(for: anonymous, request: thumbnailTarget(256)) != nil,
             "one scope invalidation removed an unrelated decode or ready image")
         let neighborFile = await cache.hasDiskEntry(neighbor.cacheURL)
         let anonymousFile = await cache.hasDiskEntry(anonymous)
@@ -420,7 +628,7 @@ private func url(_ name: String) -> URL { URL(string: "https://thumbnail.test/" 
         // Reuse the same opaque scope and URL while its cancelled operation is
         // still queued. Only the new revision may publish its larger source.
         await cache.seedScopedRaw(lateRequest, data: freshData)
-        let fresh = Task { await cache.image(for: lateRequest, maxPixelSize: 1200, priority: .visible) }
+        let fresh = Task { await cache.image(for: lateRequest, request: thumbnailTarget(1200), priority: .visible) }
         try await eventually("replacement scope decode queued") { await cache.decodeAudit().requests == 2 }
         await cache.suspendDecodeQueue(false)
         try expect(await survivor.value != nil, "neighbor decode lost its consumer during another scope's retirement")
@@ -432,11 +640,12 @@ private func url(_ name: String) -> URL { URL(string: "https://thumbnail.test/" 
         await cache.drainDecodeQueue()
         try expect(await cache.cachedData(for: lateRequest.cacheURL) == freshData,
             "cancelled scope decode overwrote the fresh raw publication")
-        try expect(cache.readyImage(for: neighbor, maxPixelSize: 1200) != nil,
+        try expect(cache.readyImage(for: neighbor, request: thumbnailTarget(1200)) != nil,
             "neighbor pixel tier failed to publish after the scope disk scan")
 
+        await cache.evictReady(lateRequest.cacheURL)
         await cache.suspendDecodeQueue(true)
-        let cleared = Task { await cache.image(for: lateRequest, maxPixelSize: 1600, priority: .visible) }
+        let cleared = Task { await cache.image(for: lateRequest, request: thumbnailTarget(1600), priority: .visible) }
         try await eventually("scoped clear decode queued") { await cache.decodeAudit().requests == 1 }
         await cache.clearAll()
         try expect(await cleared.value == nil, "clearAll retained a scoped decode consumer")
@@ -444,9 +653,9 @@ private func url(_ name: String) -> URL { URL(string: "https://thumbnail.test/" 
             "clearAll retained scope registration metadata")
         await cache.suspendDecodeQueue(false)
         await cache.drainDecodeQueue()
-        try expect(cache.readyImage(for: lateRequest, maxPixelSize: 1200) == nil
-            && cache.readyImage(for: lateRequest, maxPixelSize: 1600) == nil
-            && cache.readyImage(for: neighbor, maxPixelSize: 1200) == nil,
+        try expect(cache.readyImage(for: lateRequest, request: thumbnailTarget(1200)) == nil
+            && cache.readyImage(for: lateRequest, request: thumbnailTarget(1600)) == nil
+            && cache.readyImage(for: neighbor, request: thumbnailTarget(1200)) == nil,
             "clearAll or a late scoped decode revived cleared ready pixels")
         try expect(await cache.noDiskEntriesExist(oldFiles + [neighbor.cacheURL, anonymous]),
             "clearAll or a late scoped decode revived cleared disk namespaces")
@@ -482,7 +691,7 @@ private func url(_ name: String) -> URL { URL(string: "https://thumbnail.test/" 
         let tint = ListThumbnailTintSource()
         tint.update(id: "retired-tint", assets: [tintRequest.cacheURL.absoluteString]) { completion in
             let task = Task {
-                completion(await cache.image(for: tintRequest, maxPixelSize: 256, priority: .prefetch))
+                completion(await cache.image(for: tintRequest, request: thumbnailTarget(256), priority: .prefetch))
             }
             return { task.cancel() }
         }
@@ -491,7 +700,7 @@ private func url(_ name: String) -> URL { URL(string: "https://thumbnail.test/" 
         let first = UUID(), second = UUID()
         await scheduler.occupy(first, priority: .visible)
         await scheduler.occupy(second, priority: .visible)
-        let queued = Task { await cache.image(for: queuedRequest, maxPixelSize: 256, priority: .prefetch) }
+        let queued = Task { await cache.image(for: queuedRequest, request: thumbnailTarget(256), priority: .prefetch) }
         try await eventually("old scoped transport waits behind visible work") { await scheduler.auditState().3 == 1 }
         try expect(ControlledThumbnailProtocol.state.count(queuedURL) == 0, "queue boundary did not delay task creation")
 
@@ -509,11 +718,11 @@ private func url(_ name: String) -> URL { URL(string: "https://thumbnail.test/" 
         try expect(ControlledThumbnailProtocol.state.count(queuedURL) == 0
             && ControlledThumbnailProtocol.state.count(tintURL) == 0,
             "retired captured requests reached HTTP")
-        try expect(cache.readyImage(for: queuedRequest, maxPixelSize: 256) == nil
-            && cache.readyImage(for: tintRequest, maxPixelSize: 256) == nil,
+        try expect(cache.readyImage(for: queuedRequest, request: thumbnailTarget(256)) == nil
+            && cache.readyImage(for: tintRequest, request: thumbnailTarget(256)) == nil,
             "retired captured requests published pixels")
 
-        let neighbor = Task { await cache.image(for: neighborURL, maxPixelSize: 256, priority: .visible) }
+        let neighbor = Task { await cache.image(for: neighborURL, request: thumbnailTarget(256), priority: .visible) }
         try await eventually("neighbor source remains live") { ControlledThumbnailProtocol.state.count(neighborURL) == 1 }
         ControlledThumbnailProtocol.state.deliver(neighborURL, data: data)
         try expect(await neighbor.value != nil, "retirement blocked the adjacent public source")
@@ -542,6 +751,7 @@ private func url(_ name: String) -> URL { URL(string: "https://thumbnail.test/" 
         try await leases()
         try await scheduler()
         try await decode()
+        try await preparationPolicy()
         try await prefetchedVisibleReuse()
         try await fullRequestEpoch()
         try await scopes()

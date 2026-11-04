@@ -2,11 +2,11 @@ import AppKit
 import Foundation
 
 /// 视频库缩略图共享缓存，模式与 SILThumbnailStore 一致：
-/// NSCache 内存缓存 + in-flight 去重 + 磁盘层都由 ThumbnailCache 承担。
+/// 有界 LRU 内存缓存 + in-flight 去重 + 磁盘层都由 ThumbnailCache 承担。
 nonisolated enum VideoLibraryThumbnailStore {
     static let sharedCache = ThumbnailCache(
         label: "com.mywallpaper.videolibrary.thumbnail",
-        countLimit: 360,
+        countLimit: 4096,
         // 网格 + Inspector 共用，128MB 封顶防止长会话膨胀（预算总表见 ThumbnailCache.init 注释）
         totalCostLimit: 128 * 1024 * 1024,
         namespace: "videolibrary"
@@ -28,6 +28,7 @@ final class AppKitThumbnailProvider {
     private struct Prefetch {
         let path: String
         let thumbnailPath: String?
+        let request: ThumbnailRequest?
         let cancellation: ThumbnailCacheRequestCancellation
         var readyKey: String?
     }
@@ -91,72 +92,100 @@ final class AppKitThumbnailProvider {
         }
     }
 
-    func cachedThumbnail(for wallpaper: VideoWallpaper) -> NSImage? {
+    func cachedThumbnail(for wallpaper: VideoWallpaper, request: ThumbnailRequest? = nil) -> NSImage? {
         let path = wallpaper.thumbnailPath ?? wallpaperManager.thumbnailOutputURL(
             forKey: wallpaperManager.cacheKey(forNormalizedPath: wallpaper.path)
         ).path
-        return cache.cachedImage(forKey: path)
+        return cache.cachedImage(forKey: path, request: request)
     }
 
     @discardableResult
-    func loadThumbnail(for wallpaper: VideoWallpaper, priority: ThumbnailCacheRequestPriority = .visible,
+    func loadThumbnail(for wallpaper: VideoWallpaper, request: ThumbnailRequest? = nil, fallbackImagePath: String? = nil,
+                       priority: ThumbnailCacheRequestPriority = .visible,
                        completion: @escaping (NSImage?) -> Void) -> ThumbnailCacheRequestCancellation {
         let cancellation = ThumbnailCacheRequestCancellation()
-        loadThumbnail(for: wallpaper, priority: priority, cancellation: cancellation) { image, _ in completion(image) }
+        loadThumbnail(for: wallpaper, request: request, fallbackImagePath: fallbackImagePath, priority: priority, cancellation: cancellation) { image, _ in completion(image) }
         return cancellation
     }
 
-    private func loadThumbnail(for wallpaper: VideoWallpaper, priority: ThumbnailCacheRequestPriority,
+    private func loadThumbnail(for wallpaper: VideoWallpaper, request: ThumbnailRequest?, fallbackImagePath: String?,
+                               priority: ThumbnailCacheRequestPriority,
                                cancellation: ThumbnailCacheRequestCancellation, completion: @escaping (NSImage?, String?) -> Void) {
         decodeQueue.async { [weak self] in
             guard let self, !cancellation.cancelled else { return }
-            let load: (String?) -> Void = { [weak self] thumbPath in
+            let load: ((path: String, input: ThumbnailInput)?) -> Void = { [weak self] asset in
                 guard let self, !cancellation.cancelled else { return }
-                guard let thumbPath else {
+                guard let asset else {
                     DispatchQueue.main.async { if !cancellation.cancelled { completion(nil, nil) } }
                     return
                 }
-                self.cache.load(forKey: thumbPath, priority: priority, cancellation: cancellation, loader: {
-                    NSImage(contentsOfFile: thumbPath)
-                }, completion: { image in
-                    DispatchQueue.main.async { if !cancellation.cancelled { completion(image, thumbPath) } }
+                self.cache.load(forKey: asset.path, request: request, priority: priority, cancellation: cancellation,
+                    input: asset.input, completion: { image in
+                    if Thread.isMainThread {
+                        if !cancellation.cancelled { completion(image, asset.path) }
+                    } else {
+                        DispatchQueue.main.async { if !cancellation.cancelled { completion(image, asset.path) } }
+                    }
                 })
             }
-            // The derived asset must remain valid after clear/rebuild. A source
-            // video path alone cannot identify a reusable thumbnail.
+
+            // A memory hit still validates the derived file, as clear/rebuild can remove it.
+            var normalized: String?
+            var canonicalPath: String?
             if let thumbPath = self.wallpaperManager.resolvedThumbnailPath(for: wallpaper) {
-                load(thumbPath)
+                if request == nil || self.cache.cachedImage(forKey: thumbPath, request: request) != nil {
+                    load((thumbPath, .preparedFile(URL(filePath: thumbPath, directoryHint: .notDirectory), nativeSize: nil)))
+                    return
+                }
+                let path = self.wallpaperManager.normalizedPath(wallpaper.path)
+                let canonical = self.wallpaperManager.thumbnailOutputURL(
+                    forKey: self.wallpaperManager.cacheKey(forNormalizedPath: path)).path
+                normalized = path
+                canonicalPath = canonical
+                if thumbPath != canonical,
+                   self.wallpaperManager.normalizedPath(thumbPath) != self.wallpaperManager.normalizedPath(canonical) {
+                    load((thumbPath, .sourceFile(URL(filePath: thumbPath, directoryHint: .notDirectory))))
+                    return
+                }
+                if let request, let pixels = self.wallpaperManager.thumbnailPixelSize(at: thumbPath), request.isCovered(by: pixels) {
+                    load((thumbPath, .preparedFile(URL(filePath: thumbPath, directoryHint: .notDirectory), nativeSize: nil)))
+                    return
+                }
+            } else if let fallbackImagePath, self.wallpaperManager.pathExists(fallbackImagePath) {
+                load((fallbackImagePath, .sourceFile(URL(filePath: fallbackImagePath, directoryHint: .notDirectory))))
                 return
             }
             guard priority == .visible else { load(nil); return }
-            let normalized = self.wallpaperManager.normalizedPath(wallpaper.path)
-            guard self.wallpaperManager.pathExists(normalized) else { load(nil); return }
-            let key = self.wallpaperManager.thumbnailOutputURL(
-                forKey: self.wallpaperManager.cacheKey(forNormalizedPath: normalized)).path
-            self.cache.remove(forKey: key)
+            let sourcePath = normalized ?? self.wallpaperManager.normalizedPath(wallpaper.path)
+            guard self.wallpaperManager.pathExists(sourcePath) else { load(nil); return }
+            let key = canonicalPath ?? self.wallpaperManager.thumbnailOutputURL(
+                forKey: self.wallpaperManager.cacheKey(forNormalizedPath: sourcePath)).path
+            if canonicalPath == nil { self.cache.remove(forKey: key) }
             DispatchQueue.main.async { [weak self] in
                 guard let self, !cancellation.cancelled else { return }
-                self.wallpaperManager.ensurePreviewAssetsForWallpaper(wallpaper, completion: load)
+                self.wallpaperManager.ensurePreviewAssetsForWallpaper(wallpaper, request: request) { asset in
+                    load(asset.map { ($0.path, .preparedFile(URL(filePath: $0.path, directoryHint: .notDirectory), nativeSize: $0.nativeSize)) })
+                }
             }
         }
     }
 
     /// A grid owns one desired set. Removed consumers release their lease;
     /// another visible consumer of the same derived path remains unaffected.
-    func replacePrefetch(with wallpapers: [VideoWallpaper], retainingVisible visible: [VideoWallpaper] = []) {
+    func replacePrefetch(with wallpapers: [VideoWallpaper], retainingVisible visible: [VideoWallpaper] = [], request: ThumbnailRequest? = nil) {
         let wanted = Set((wallpapers + visible).map { Data($0.id.utf8) })
         for id in Array(prefetches.keys) where !wanted.contains(id) { prefetches.removeValue(forKey: id)?.cancellation.cancel() }
         for (wallpaper, startsIfMissing) in wallpapers.map({ ($0, true) }) + visible.map({ ($0, false) }) {
             let identity = Data(wallpaper.id.utf8)
             if let old = prefetches[identity], old.path == wallpaper.path,
-               old.thumbnailPath == wallpaper.thumbnailPath,
-               old.readyKey.map({ cache.cachedImage(forKey: $0) != nil }) ?? true { continue }
+               old.thumbnailPath == wallpaper.thumbnailPath, old.request == request,
+               old.readyKey.map({ cache.hasCachedResult(forKey: $0, request: request) }) ?? true { continue }
             cancelPrefetch(id: wallpaper.id)
             guard startsIfMissing else { continue }
             let cancellation = ThumbnailCacheRequestCancellation()
-            prefetches[identity] = Prefetch(path: wallpaper.path, thumbnailPath: wallpaper.thumbnailPath,
+            prefetches[identity] = Prefetch(path: wallpaper.path, thumbnailPath: wallpaper.thumbnailPath, request: request,
                                                cancellation: cancellation, readyKey: nil)
-            loadThumbnail(for: wallpaper, priority: .prefetch, cancellation: cancellation) { [weak self] image, key in
+            loadThumbnail(for: wallpaper, request: request, fallbackImagePath: nil, priority: .prefetch, cancellation: cancellation) { [weak self] image, key in
                 guard let self, !cancellation.cancelled, image != nil,
                       self.prefetches[identity]?.cancellation === cancellation else { return }
                 self.prefetches[identity]?.readyKey = key

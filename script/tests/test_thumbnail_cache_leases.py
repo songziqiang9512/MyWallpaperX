@@ -16,9 +16,10 @@ class ThumbnailCacheLeaseTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="mwx-thumbnail-leases-", dir="/private/tmp") as temporary:
             work = pathlib.Path(temporary)
             core = ROOT / "MyWallpaperX/Modules/SteamWorkshop/Core"
-            sources = [ROOT / "MyWallpaperX/Shared/UI/GridThumbnailDecoder.swift", ROOT / "MyWallpaperX/Shared/UI/DecodedThumbnailMemoryCache.swift", ROOT / "MyWallpaperX/Shared/UI/ThumbnailCache.swift",
+            sources = [ROOT / "MyWallpaperX/Shared/UI/GridThumbnailDecoder.swift", ROOT / "MyWallpaperX/Shared/UI/DecodedThumbnailMemoryCache.swift", pathlib.Path(os.environ.get("MWX_THUMBNAIL_CACHE_SOURCE", ROOT / "MyWallpaperX/Shared/UI/ThumbnailCache.swift")),
                 core / "SteamWorkshopPreviewRequestCoordinator.swift", core / "SteamWorkshopPreviewImageSupport.swift", core / "SteamWorkshopPreviewSource.swift", core / "SteamWorkshopModels.swift",
                 ROOT / "script/tests/fixtures/SteamThumbnailLeaseChecks.swift"]
+            sources.append(ROOT / "MyWallpaperX/Shared/ThumbnailRequest.swift")
             coordinator = core / "SteamWorkshopPreviewRequestCoordinator.swift"
             source = coordinator.read_text()
             self.assertEqual(source.count("Date()"), 3)
@@ -28,18 +29,25 @@ class ThumbnailCacheLeaseTests(unittest.TestCase):
                 .replace(".timeIntervalSinceNow", ".timeIntervalSince(LeaseClock.now)"))
             sources[sources.index(coordinator)] = observed
             stub = work / "Dependencies.swift"
-            stub.write_text("nonisolated enum SteamWorkshopWebDependencyStatus: Equatable { case none, available(itemID: String), missing(itemID: String) }\n")
+            stub.write_text("nonisolated enum SteamWorkshopWebDependencyStatus: Equatable, Codable { case none, available(itemID: String), missing(itemID: String) }\n")
             sources.append(stub)
             binary = work / "leases"
             build = subprocess.run(["xcrun", "swiftc", *SWIFT_ISOLATION_FLAGS, "-warnings-as-errors", "-parse-as-library", *map(str, sources),
                 "-module-cache-path", str(work / "modules"), "-o", str(binary)],
                 capture_output=True, text=True, timeout=120)
+            if proof := os.environ.get("MWX_LEASE_PROOF_DIR"):
+                target = pathlib.Path(proof); target.mkdir(parents=True, exist_ok=True)
+                (target / "build.log").write_text(build.stdout + build.stderr)
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
             self.assertNotIn("warning:", build.stderr, build.stdout + build.stderr)
             home = work / "home"
             home.mkdir()
             result = subprocess.run([str(binary)], env=dict(os.environ, HOME=str(home), CFFIXED_USER_HOME=str(home)),
                 capture_output=True, text=True, timeout=45)
+            if proof := os.environ.get("MWX_LEASE_PROOF_DIR"):
+                target = pathlib.Path(proof)
+                (target / "runtime.log").write_text(result.stderr)
+                (target / "stdout.log").write_text(result.stdout)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             checks = json.loads(result.stdout)
             counts = [json.loads(line.removeprefix("Lease request counts: "))
@@ -51,6 +59,7 @@ class ThumbnailCacheLeaseTests(unittest.TestCase):
                 target.mkdir(parents=True, exist_ok=True)
                 (target / "checks.json").write_text(json.dumps(checks, indent=2) + "\n")
                 (target / "runtime.log").write_text(result.stderr)
+                (target / "stdout.log").write_text(result.stdout)
             for name, passed in checks.items():
                 with self.subTest(name=name):
                     self.assertTrue(passed)

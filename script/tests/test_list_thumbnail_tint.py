@@ -91,7 +91,7 @@ class ListThumbnailTintTests(unittest.TestCase):
             self.assertEqual(template.count(marker), 1)
             template = template.replace(marker, fragment.replace("private func ", "func "))
         preview_path, preview = steam_source_projection()
-        self.run_case("projections", [*STEAM_SOURCES, FIXTURES / "ListThumbnailTintCacheLeaves.swift"],
+        self.run_case("projections", [*STEAM_SOURCES, APP / "Shared/ThumbnailRequest.swift", FIXTURES / "ListThumbnailTintCacheLeaves.swift"],
             fragments=template + "\n" + preview, originals=[*paths.values(), preview_path, STEAM_IMAGE_SUPPORT,
                 FIXTURES / "ListThumbnailTintProjectionChecks.swift"])
 

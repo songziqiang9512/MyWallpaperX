@@ -1,5 +1,6 @@
     var currentWallpaperID: String?
     var currentWallpaper: VideoWallpaper?
+    var currentThumbnailRequest: ThumbnailRequest?
     var imageTaskID: UUID?
     var imageCancellation: ThumbnailCacheRequestCancellation?
     var loadingPlaceholderWorkItem: DispatchWorkItem?

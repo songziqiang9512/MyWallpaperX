@@ -30,6 +30,7 @@ class SILSquareCardTests(unittest.TestCase):
             "DecodedThumbnailMemoryCache.swift", "GridThumbnailDecoder.swift", "ThumbnailCache.swift",
             "AppearanceAwareContainerView.swift", "NSViewExtensions.swift", "UIInteractionAnimation.swift",
             "WallpaperGridScrollView.swift", "BoxSelectionState.swift", "GridThumbnailPrefetchDemand.swift")]
+        sources.append(ROOT / "MyWallpaperX/Shared/ThumbnailRequest.swift")
         sources += [ROOT / "MyWallpaperX" / name for name in (
                     "Models/WallpaperReference.swift", "Models/WallpaperContent.swift", "Models/WallpaperLibraryPage.swift",
                     "Shared/Components/WallpaperLibraryGridMetrics.swift", "Shell/WallpaperLibraryGridController.swift")]

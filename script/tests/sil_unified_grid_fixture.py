@@ -35,13 +35,11 @@ def assemble(work: Path, *, count_layout=False, count_collection=False, cache_na
         signature = "nonisolated func silGridThumbnailFailureSignature(atPath path: String) -> String? {"
         assert provider.count(signature) == 1
         provider = provider.replace(signature, signature + "\n    SILSignatureReads.shared.record()", 1)
-        image = "nonisolated func silGridThumbnailImage(atPath path: String) -> NSImage? {"
-        assert provider.count(image) == 1
-        provider = provider.replace(image, image + "\n    SILSignatureReads.shared.recordDecode()", 1)
-        failure_boundary = "                            decodeFailureSignature.store(signature)"
+        failure_boundary = next(line for line in provider.splitlines() if line.strip() == "decodeFailureSignature.store(signature)")
         assert provider.count(failure_boundary) == 1
+        indentation = failure_boundary[:-len(failure_boundary.lstrip())]
         provider = provider.replace(failure_boundary,
-            "                            SILFailureDeliveryProbe.shared.waitIfHeld(path)\n" + failure_boundary, 1)
+            indentation + "SILFailureDeliveryProbe.shared.waitIfHeld(path)\n" + failure_boundary, 1)
         failures = "    private var failureSourceSignatures: [String: String] = [:]"
         assert provider.count(failures) == 1
         # Read-only observation in the compiled copy. Negative entries below
@@ -106,7 +104,7 @@ def assemble(work: Path, *, count_layout=False, count_collection=False, cache_na
         "Models/VideoWallpaper.swift", "Models/WallpaperReference.swift", "Models/WallpaperContent.swift",
         "Core/OnlineImages/OnlineImageModels.swift", "Core/OnlineImages/OnlineImageContentProjection.swift",
         "Models/WallpaperLibraryPage.swift", "Modules/StaticImageLibrary/Core/StaticImageLibraryContentProjection.swift",
-        "Shared/UI/DecodedThumbnailMemoryCache.swift",
+        "Shared/ThumbnailRequest.swift", "Shared/UI/DecodedThumbnailMemoryCache.swift",
         "Shared/UI/GridThumbnailDecoder.swift", "Shared/UI/ThumbnailCache.swift",
         "Shared/UI/AppearanceAwareContainerView.swift", "Shared/UI/NSViewExtensions.swift",
         "Shared/UI/UIInteractionAnimation.swift", "Shared/UI/WallpaperGridScrollView.swift",
@@ -116,4 +114,13 @@ def assemble(work: Path, *, count_layout=False, count_collection=False, cache_na
         "Shared/Components/WallpaperLibraryControlStyle.swift",
         "Shared/Components/WallpaperCardControlsView.swift", "Shared/Components/WallpaperLibraryGridMetrics.swift")]
     dependencies.append(online_library_stub)
+    if observe_failure_signatures:
+        decoder = app / "Shared/UI/GridThumbnailDecoder.swift"
+        body = decoder.read_text()
+        boundary = "        case .sourceFile(let url, let onFailure):"
+        assert body.count(boundary) == 1
+        copy = work / "GridThumbnailDecoder.swift"
+        copy.write_text(body.replace(boundary, boundary + "\n            SILSignatureReads.shared.recordDecode()", 1))
+        dependencies[dependencies.index(decoder)] = copy
+        original.append(decoder)
     return sources + dependencies, original + dependencies

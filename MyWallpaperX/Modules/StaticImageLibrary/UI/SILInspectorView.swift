@@ -15,8 +15,8 @@ final class SILInspectorView: NSView {
     private weak var playlistButton: InspectorFooterButton?
     private var renderedWallpaper: SILWallpaper?
     private var previewPath: String?
+    private var previewRequest: ThumbnailRequest?
     private var previewCancellation: ThumbnailCacheRequestCancellation?
-    private var hasMounted = false
 
     private var wallpaper: SILWallpaper {
         service.wallpapers.first { $0.id.utf8.elementsEqual(wallpaperID.utf8) } ?? initialWallpaper
@@ -43,61 +43,53 @@ final class SILInspectorView: NSView {
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         if window != nil {
-            hasMounted = true
-            if previewCancellation?.cancelled == true { loadPreviewImage() }
-        } else if hasMounted {
+            loadPreviewImage()
+        } else {
             previewCancellation?.cancel()
         }
     }
 
-    /// 预览图异步加载（共享缓存内存命中同步回调，其余后台解码后主线程补图）
+    override func viewDidChangeBackingProperties() {
+        super.viewDidChangeBackingProperties()
+        loadPreviewImage()
+    }
+
     private let previewSurface = SILInspectorPreviewSurfaceView(image: nil)
     private lazy var previewHeightConstraint = previewSurface.heightAnchor.constraint(equalToConstant: 156)
 
     private func loadPreviewImage() {
-        guard !hasMounted || window != nil else { return }
+        guard let window, let request = ThumbnailRequest(size: previewSurface.bounds.size,
+            scale: window.backingScaleFactor, mode: .fill) else { return }
+        let sourcePath = wallpaper.path
+        guard previewPath != sourcePath || previewRequest != request || previewCancellation?.cancelled == true else { return }
         previewCancellation?.cancel()
+        if previewPath != nil, previewPath != sourcePath { previewSurface.updateImage(nil) }
         let cancellation = ThumbnailCacheRequestCancellation()
         previewCancellation = cancellation
-        let sourcePath = wallpaper.path
-        previewPath = sourcePath
-        // 与 SIL 网格共用同一缓存键（图片路径）：网格已解码 512px 版本时直接命中，
-        // 未命中才在本 loader 里按 Inspector 预览所需尺寸（156pt 高 → 800px）后台降采样解码。
-        SILThumbnailStore.sharedCache.load(forKey: sourcePath, cancellation: cancellation, cachesFailure: false, loader: {
-            guard let source = CGImageSourceCreateWithURL(URL(fileURLWithPath: sourcePath) as CFURL, nil) else { return nil }
-            let options: [CFString: Any] = [
-                kCGImageSourceThumbnailMaxPixelSize: 800,
-                kCGImageSourceCreateThumbnailFromImageAlways: true,
-                kCGImageSourceCreateThumbnailWithTransform: true
-            ]
-            guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
-            return NSImage(cgImage: cgImage, size: .zero)
-        }, completion: { [weak self] image in
-            guard let self else { return }
-            self.previewSurface.updateImage(image)
-        })
+        previewPath = sourcePath; previewRequest = request
+        SILThumbnailStore.sharedCache.load(forKey: sourcePath, request: request,
+            cancellation: cancellation, cachesFailure: false,
+            input: .sourceFile(URL(filePath: sourcePath, directoryHint: .notDirectory)), completion: { [weak self] image in
+                self?.previewSurface.updateImage(image)
+            })
     }
 
-    private var secondaryFactText: String? {
-        [fileSizeText, formatText]
-            .compactMap { $0 }
-            .joined(separator: "  ·  ")
-            .nilIfEmpty
-    }
-
-    private var metadataFacts: [(String, String)] {
+    private func metadataFacts(for wallpaper: SILWallpaper) -> [(String, String)] {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         formatter.timeStyle = .short
+        let resolution = wallpaper.pixelWidth.flatMap { width in
+            wallpaper.pixelHeight.map { "\(width) × \($0)" }
+        }
         return [
-            resolutionText.map { ("分辨率", $0) },
+            resolution.map { ("分辨率", $0) },
             ("添加时间", formatter.string(from: wallpaper.addedAt)),
             wallpaper.lastUsed > .distantPast ? ("最近使用", formatter.string(from: wallpaper.lastUsed)) : nil
         ]
         .compactMap { $0 }
     }
 
-    private var notices: [(icon: String, text: String)] {
+    private func notices(for wallpaper: SILWallpaper) -> [(icon: String, text: String)] {
         var result: [(String, String)] = []
         if !FileManager.default.fileExists(atPath: wallpaper.path) {
             result.append(("exclamationmark.triangle.fill", "原始图片文件当前不可用"))
@@ -109,6 +101,7 @@ final class SILInspectorView: NSView {
     }
 
     private func setup() {
+        previewSurface.onSizeChange = { [weak self] in self?.loadPreviewImage() }
         translatesAutoresizingMaskIntoConstraints = false
         wantsLayer = true
         layer?.backgroundColor = NSColor.clear.cgColor
@@ -127,7 +120,7 @@ final class SILInspectorView: NSView {
 
         let contentStack = makeContentStack()
         self.contentStack = contentStack
-        rebuildContent()
+        rebuildContent(wallpaper)
         let documentContainer = InspectorContentDocumentView()
         documentContainer.translatesAutoresizingMaskIntoConstraints = false
         documentContainer.addSubview(contentStack)
@@ -155,7 +148,6 @@ final class SILInspectorView: NSView {
             footerStack.widthAnchor.constraint(equalTo: rootStack.widthAnchor)
         ])
 
-        loadPreviewImage()
     }
 
     private func makeContentStack() -> NSStackView {
@@ -168,17 +160,17 @@ final class SILInspectorView: NSView {
         return stack
     }
 
-    private func rebuildContent() {
+    private func rebuildContent(_ wallpaper: SILWallpaper) {
         guard let contentStack else { return }
         renderedWallpaper = wallpaper
         contentStack.arrangedSubviews.forEach {
             contentStack.removeArrangedSubview($0)
             $0.removeFromSuperview()
         }
-        addContentSection(makePreviewSection())
-        addContentSection(makeContentSection())
+        addContentSection(makePreviewSection(wallpaper))
+        addContentSection(makeContentSection(wallpaper))
         addContentSection(makeTagsSection())
-        let notices = self.notices
+        let notices = notices(for: wallpaper)
         if !notices.isEmpty {
             addContentSection(makeNoticeSection(notices))
         }
@@ -190,7 +182,7 @@ final class SILInspectorView: NSView {
         section.widthAnchor.constraint(equalTo: contentStack.widthAnchor).isActive = true
     }
 
-    private func makePreviewSection() -> NSView {
+    private func makePreviewSection(_ wallpaper: SILWallpaper) -> NSView {
         let stack = SILInspectorViews.makeVerticalStack(spacing: 8)
 
         let preview = previewSurface
@@ -208,6 +200,10 @@ final class SILInspectorView: NSView {
         title.lineBreakMode = .byTruncatingTail
         stack.addArrangedSubview(title)
 
+        let fileSize = wallpaper.fileSize.map { String(format: "%.2f MB", Double($0) / 1_048_576) }
+        let format = URL(filePath: wallpaper.path, directoryHint: .notDirectory).pathExtension.uppercased()
+        let secondaryFactText = [fileSize, format.isEmpty ? nil : format]
+            .compactMap { $0 }.joined(separator: "  ·  ").nilIfEmpty
         if let secondaryFactText {
             let facts = SILInspectorViews.makeLabel(
                 secondaryFactText,
@@ -221,12 +217,12 @@ final class SILInspectorView: NSView {
         return stack
     }
 
-    private func makeContentSection() -> NSView {
+    private func makeContentSection(_ wallpaper: SILWallpaper) -> NSView {
         let stack = SILInspectorViews.makeVerticalStack(spacing: 14)
 
         WallpaperLibraryControlStyle.addSectionDivider(to: stack)
         stack.addArrangedSubview(SILInspectorViews.makeSectionTitle("原数据"))
-        stack.addArrangedSubview(WallpaperLibraryControlStyle.inspectorFacts(metadataFacts))
+        stack.addArrangedSubview(WallpaperLibraryControlStyle.inspectorFacts(metadataFacts(for: wallpaper)))
 
         WallpaperLibraryControlStyle.addSectionDivider(to: stack)
         stack.addArrangedSubview(SILInspectorViews.makeSectionTitle("文件位置"))
@@ -358,29 +354,14 @@ final class SILInspectorView: NSView {
         primaryButton?.setTitle(actions.state.primaryTitle)
         primaryButton?.setSymbol(actions.state.primarySymbolName, accessibilityDescription: actions.state.primaryTitle)
         playlistButton?.isEnabled = actions.state.canOrganize
-        if changed || renderedWallpaper != wallpaper { rebuildContent() }
-        if previewPath != wallpaper.path { loadPreviewImage() }
+        let current = wallpaper
+        if changed || renderedWallpaper != current { rebuildContent(current) }
+        if previewPath != current.path { loadPreviewImage() }
     }
 
     @objc private func setAsDesktopWallpaper() {
         guard libraryActions.state.canPerformPrimary else { return }
         libraryActions.onPrimary()
-    }
-
-    private var fileSizeText: String? {
-        guard let fileSize = wallpaper.fileSize else { return nil }
-        return String(format: "%.2f MB", Double(fileSize) / 1_048_576)
-    }
-
-    private var formatText: String? {
-        let ext = URL(fileURLWithPath: wallpaper.path).pathExtension.uppercased()
-        return ext.isEmpty ? nil : ext
-    }
-
-    private var resolutionText: String? {
-        guard let width = wallpaper.pixelWidth,
-              let height = wallpaper.pixelHeight else { return nil }
-        return "\(width) × \(height)"
     }
 
     @objc private func revealInFinder() {

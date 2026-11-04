@@ -30,7 +30,7 @@ class WallpaperPlaylistPickerTests(unittest.TestCase):
             'Shared/UI/ListThumbnailTintSource.swift', 'Shared/UI/WallpaperLibrarySheetPresentation.swift',
             'Shared/Components/ActionMenuItem.swift', 'Shared/Components/WallpaperLibraryGridMetrics.swift',
             'Shared/Components/WallpaperLibraryZoomControl.swift', 'Shared/Components/WallpaperCardInteractionView.swift',
-            'Shared/UI/WallpaperGridScrollView.swift', 'Shared/UI/BoxSelectionState.swift',
+            'Shared/ThumbnailRequest.swift', 'Shared/UI/WallpaperGridScrollView.swift', 'Shared/UI/BoxSelectionState.swift',
             'Shared/UI/GridThumbnailPrefetchDemand.swift', 'Shared/UI/WallpaperInspectorActions.swift',
             'Shell/WallpaperLibraryGridController.swift', 'App/WallpaperPlaylistPickerController.swift',
             'App/MainMenuBuilder.swift', 'App/MainWindowMenuCommands.swift',

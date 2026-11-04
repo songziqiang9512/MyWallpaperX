@@ -368,7 +368,7 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
             width: barWidth,
             height: metrics.barHeight
         )
-        controlBar.frame = barFrame
+        controlBar.frame = cardView.convert(barFrame, to: view)
         controlBar.apply(metrics: metrics)
         controlBar.layoutSubtreeIfNeeded()
 

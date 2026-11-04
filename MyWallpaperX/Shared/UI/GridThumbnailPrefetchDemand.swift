@@ -1,9 +1,9 @@
 import Foundation
 
-/// Bounded offscreen demand ordered by distance, weighted toward known travel.
+/// Bounded nearby demand plus the next native layout viewport, ordered for travel.
 /// Visible consumers serve the viewport; equal scores favor travel direction.
 nonisolated enum GridThumbnailPrefetchDemand {
-    static func indices(visibleIndices: [Int], itemCount: Int, neighborLimit: Int, direction: Int,
+    static func indices(visibleIndices: [Int], predictedIndices: [Int] = [], itemCount: Int, neighborLimit: Int, direction: Int,
                         forwardBias: Int = 1) -> [Int] {
         guard itemCount > 0, neighborLimit > 0 else { return [] }
         let valid = visibleIndices.filter { $0 >= 0 && $0 < itemCount }
@@ -26,6 +26,16 @@ nonisolated enum GridThumbnailPrefetchDemand {
             if takeBefore { result.append(before); before -= 1 }
             else { result.append(after); after += 1 }
         }
-        return result
+        let predicted = predictedIndices.filter { (0..<itemCount).contains($0) && ($0 < first || $0 > last) }
+        guard predicted.contains(where: { $0 <= before || $0 >= after }) else { return result }
+        var planned = Array(result.prefix(last - first + 1))
+        var seen = Set(planned)
+        guard seen.union(predicted).count <= limit else { return result }
+        let approaching = direction < 0 ? Array(predicted.reversed()) : predicted
+        for index in approaching + result {
+            if planned.count == limit { break }
+            if seen.insert(index).inserted { planned.append(index) }
+        }
+        return planned
     }
 }

@@ -61,9 +61,10 @@ import QuickLookUI
         self.makePrimaryAction = makePrimaryAction; self.makeFavoriteAction = makeFavoriteAction
         self.canOrganize = canOrganize; self.onChoosePlaylist = onChoosePlaylist
         super.init()
-        NotificationCenter.default.publisher(for: .inspectorHostDidPresent).receive(on: DispatchQueue.main)
+        // Shell publishes on Main; mounting and closing finish in the same turn.
+        NotificationCenter.default.publisher(for: .inspectorHostDidPresent)
             .sink { [weak self] note in self?.mount(note) }.store(in: &subscriptions)
-        NotificationCenter.default.publisher(for: .inspectorHostDidClose).receive(on: DispatchQueue.main)
+        NotificationCenter.default.publisher(for: .inspectorHostDidClose)
             .sink { [weak self] note in self?.didClose(note) }.store(in: &subscriptions)
         struct RefreshInput: Equatable {
             let page: WallpaperLibraryPage
@@ -117,12 +118,12 @@ import QuickLookUI
             acquisition: .idle, update: .idle, aliases: [])
     }
 
-    func inspectOnlineArtwork(_ artwork: OnlineImageArtwork, onAuthor: ((OnlineImageAuthor) -> Void)? = nil, thumbnailPixelSize: Int = 800) {
+    func inspectOnlineArtwork(_ artwork: OnlineImageArtwork, onAuthor: ((OnlineImageAuthor) -> Void)? = nil) {
         let content = OnlineImageLibrary.shared.content(for: artwork.firstAssetID.reference) ?? OnlineImageContentProjection.remote(artwork)
-        inspect(content: content, artwork: artwork, onAuthor: onAuthor, thumbnailPixelSize: thumbnailPixelSize)
+        inspect(content: content, artwork: artwork, onAuthor: onAuthor)
     }
 
-    private func inspect(content: WallpaperContentItem, artwork: OnlineImageArtwork?, onAuthor: ((OnlineImageAuthor) -> Void)?, pixabayItem: PixabayVideoItem? = nil, thumbnailPixelSize: Int = 800) {
+    private func inspect(content: WallpaperContentItem, artwork: OnlineImageArtwork?, onAuthor: ((OnlineImageAuthor) -> Void)?, pixabayItem: PixabayVideoItem? = nil, presentsCurrent: Bool = true) {
         _ = revokeForResetIfNeeded()
         let current = resolved(content)
         if let previous = inspection, previous.content.reference == current.reference,
@@ -130,9 +131,9 @@ import QuickLookUI
            matchesSourceView(previous.view, content: current) {
             inspection?.content = current
             updateActions(on: previous.view, content: current, token: previous.token, pixabayItem: pixabayItem)
+            if presentsCurrent { present(content: current, token: previous.token) }
             return
         }
-        let replacingVisibleContent = inspection != nil
         if let previous = inspection { releaseSourceInspection(previous.content) }
         let module = module(for: current.providerReference.provider)
         let token = InspectorCardToken(module: module, cardID: current.reference.storageKey + ":" + UUID().uuidString)
@@ -144,30 +145,31 @@ import QuickLookUI
             let value = artwork ?? OnlineImageArtwork(source: assetID.source, artworkID: assetID.artworkID,
                 title: current.title, sourceURL: record?.sourceURL ?? current.metadata.sourceURL ?? sourceBase.appendingPathComponent(assetID.artworkID),
                 author: current.metadata.author, authorID: record?.authorID)
-            hosted = OnlineImageInspectorView(artwork: value, library: .shared,
+            let view = OnlineImageInspectorView(artwork: value, library: .shared,
                 makeLibraryActions: { [weak self] reference in
                     guard let self, self.inspection?.token == token,
                           let local = OnlineImageLibrary.shared.content(for: reference) else { return nil }
                     return self.actions(for: local, token: token)
-                }, onAuthor: onAuthor ?? onOnlineImageAuthor, initialPageIndex: assetID.pageIndex, thumbnailPixelSize: thumbnailPixelSize)
+                }, onAuthor: onAuthor ?? onOnlineImageAuthor, initialPageIndex: assetID.pageIndex)
+            view.updateLibraryActions(actions)
+            hosted = view
         } else { hosted = makeView(for: current, actions: actions, pixabayItem: pixabayItem) }
         inspection = Inspection(token: token, content: current, view: hosted)
-        InspectorHostActions.postOpen(module: module, presentation: .infoPanel(cardID: token.cardID,
-            title: current.title, subtitle: current.providerReference.provider.libraryDisplayName,
-            preferredWidth: current.providerReference.provider == .videoLibrary ? 368 : 356,
+        present(content: current, token: token)
+    }
+
+    private func present(content: WallpaperContentItem, token: InspectorCardToken) {
+        InspectorHostActions.postOpen(module: token.module, presentation: .infoPanel(cardID: token.cardID,
+            title: content.title, subtitle: content.providerReference.provider.libraryDisplayName,
+            preferredWidth: content.providerReference.provider == .videoLibrary ? 368 : 356,
             focusPolicy: .preserveCurrentResponder))
-        if replacingVisibleContent {
-            // Mount in the same native event turn. The host stays presented,
-            // while the new token immediately revokes the former view's actions.
-            mountCurrentContent()
-        }
     }
 
     /// Called with the accepted fixed-ref selection. Catalog events never open
     /// a hidden Inspector or preview; they can only update an existing lease.
-    func syncSelection(content: WallpaperContentItem?, artwork: OnlineImageArtwork? = nil, onAuthor: ((OnlineImageAuthor) -> Void)? = nil, pixabayItem: PixabayVideoItem? = nil, thumbnailPixelSize: Int = 800) {
+    func syncSelection(content: WallpaperContentItem?, artwork: OnlineImageArtwork? = nil, onAuthor: ((OnlineImageAuthor) -> Void)? = nil, pixabayItem: PixabayVideoItem? = nil) {
         guard let content else { closeInspector(); closePreview(); return }
-        if inspection != nil { inspect(content: content, artwork: artwork, onAuthor: onAuthor, pixabayItem: pixabayItem, thumbnailPixelSize: thumbnailPixelSize) }
+        if inspection != nil { inspect(content: content, artwork: artwork, onAuthor: onAuthor, pixabayItem: pixabayItem, presentsCurrent: false) }
         if previewReference != nil { updateVisiblePreview(content: content) }
     }
 
@@ -230,7 +232,7 @@ import QuickLookUI
 
     private func refreshInspectedContent() {
         guard !revokeForResetIfNeeded() else { return }
-        if let inspection { inspect(content: inspection.content) }
+        if let inspection { inspect(content: inspection.content, artwork: nil, onAuthor: nil, presentsCurrent: false) }
         if let previewReference, let content = remotePreview != nil
             ? OnlineImageLibrary.shared.content(for: previewReference)
             : (try? workspace.content(for: previewReference)) {

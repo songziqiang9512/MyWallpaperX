@@ -21,7 +21,7 @@ import AppKit
     private final class Cover {
         let identity: Identity?
         let customAssetID: UUID?
-        var sourceImage: NSImage?
+        weak var sourceImage: NSImage?
         var cancellation: Cancellation?
         init(_ identity: Identity?, customAssetID: UUID?) { self.identity = identity; self.customAssetID = customAssetID }
         func cancel() { let pending = cancellation; cancellation = nil; pending?() }
@@ -74,7 +74,10 @@ import AppKit
                 let urls = steamWorkshopPreviewSources(item: item, record: row)
                 let state = SteamWorkshopPreviewState(loaders: .live(priority: .prefetch))
                 state.onChange = { [weak state] in
-                    if let image = state?.image { completion(image) }
+                    guard let state, let image = state.image else { return }
+                    state.onChange = nil
+                    state.reset()
+                    completion(image)
                 }
                 state.configure(previewURL: urls.primary, fallbackImageURL: urls.fallback,
                                 fallbackVideoURL: row.videoURL, maxPixelSize: 256)
@@ -199,7 +202,8 @@ import AppKit
             rendered[id] = WallpaperPlaylistArtwork(image: nil, isCustom: assetID != nil)
             changed = true
             let complete: (NSImage?) -> Void = { [weak self, weak cover] image in
-                guard let self, let cover, self.covers[id] === cover, cover.sourceImage !== image else { return }
+                guard let self, let cover, self.covers[id] === cover,
+                      cover.sourceImage !== image || (image == nil && self.rendered[id]?.image != nil) else { return }
                 cover.sourceImage = image
                 self.rendered[id] = WallpaperPlaylistArtwork(image: image.flatMap(Self.square), isCustom: assetID != nil)
                 self.publish()

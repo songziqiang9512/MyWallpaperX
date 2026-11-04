@@ -62,6 +62,7 @@ class UIProjectionEfficiencyTests(unittest.TestCase):
             binary = work / 'ui-projection'
             build = subprocess.run([
                 'xcrun', 'swiftc', '-parse-as-library', str(source),
+                str(APP / 'Shared/ThumbnailRequest.swift'),
                 str(APP / 'Shared/UI/ListThumbnailTintSource.swift'),
                 str(APP / 'Shared/UI/WallpaperInspectorActions.swift'),
                 str(ROOT / 'script/tests/fixtures/ListThumbnailTintCacheLeaves.swift'),

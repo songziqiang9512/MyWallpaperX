@@ -9,16 +9,18 @@ import AppKit
         let isSelected: Bool
         let isSelecting: Bool
         let isFocused: Bool
+        let thumbnailRequest: ThumbnailRequest
     }
     typealias CellFactory = (NSCollectionView, IndexPath, WallpaperContentItem, CellState) -> NSCollectionViewItem
     typealias Header = (view: NSView, heightForWidth: (CGFloat) -> CGFloat)
     private let makeCell: CellFactory
     var updateCell: ((NSCollectionViewItem, WallpaperContentItem, CellState) -> Void)?
     var needsCellReplacement: ((NSCollectionViewItem, WallpaperContentItem) -> Bool)?
-    var setCellVisible: ((NSCollectionViewItem, Bool) -> Void)?
+    /// A current state grants display demand; nil revokes it.
+    var setCellVisible: ((NSCollectionViewItem, CellState?) -> Void)?
     /// Value-only viewport demand. Source owners retain pixels, scheduling and
     /// file freshness; this grid owns geometry and the mounted visibility lease.
-    var onViewport: (([WallpaperContentItem], [WallpaperContentItem]) -> Void)?
+    var onViewport: (([WallpaperContentItem], [WallpaperContentItem], ThumbnailRequest) -> Void)?
     /// Returns the presentation's accepted session receipt. Its asynchronous
     /// view echo can then be distinguished from a reset or a later page visit.
     var onSelection: ((Set<WallpaperReference>, WallpaperReference?) -> UUID?)?
@@ -182,11 +184,12 @@ import AppKit
         // Complete the scroll view's native tiling as well as the document's
         // flow layout before consuming a saved position.
         scrollView.layoutSubtreeIfNeeded()
-        updateLayout()
+        let geometryChanged = updateLayout()
         collection.layoutSubtreeIfNeeded()
         scrollView.layoutSubtreeIfNeeded()
         applyPendingScroll()
         applying = false
+        if geometryChanged { refreshVisibleCells() }
         scheduleViewport()
     }
 
@@ -255,6 +258,7 @@ import AppKit
                 return
             }
         }
+        if orderChanged { lastViewportOffsetY = nil }
         if entering {
             if !resetScroll { reportScrollAnchor() }
             cancelViewport()
@@ -294,10 +298,10 @@ import AppKit
         if animateStructure {
             let retained = Set(items.map(\.reference))
             for cell in collection.visibleItems() where (cell.representedObject as? WallpaperReference).map(retained.contains) != true {
-                invalidateAccessibilityActivation(cell); setCellVisible?(cell, false)
+                invalidateAccessibilityActivation(cell); setCellVisible?(cell, nil)
             }
         } else if orderChanged || entering || headerChanged || footerChanged {
-            collection.visibleItems().forEach { invalidateAccessibilityActivation($0); setCellVisible?($0, false) }
+            collection.visibleItems().forEach { invalidateAccessibilityActivation($0); setCellVisible?($0, nil) }
         } else if !replacedCells.isEmpty {
             replacedCells.compactMap { collection.item(at: $0) }.forEach(invalidateAccessibilityActivation)
         }
@@ -347,6 +351,7 @@ import AppKit
                         _ = self.restoreScroll(reference: oldAnchor.reference, offset: Double(oldAnchor.offset), atTop: wasAtTop)
                     }
                     self.applying = false
+                    self.lastViewportOffsetY = nil
                     self.scheduleViewport()
                 })
             }
@@ -409,6 +414,7 @@ import AppKit
             lastClipWidth = width
             onClipWidthChange?(width)
         }
+        if changed || widthChanged { lastViewportOffsetY = nil }
         return changed
     }
 
@@ -458,9 +464,15 @@ import AppKit
     /// settlement after detachment must not recreate its saved view position.
     func invalidateScrollReceipt() { acceptsScrollReceipts = false }
 
+    private var thumbnailRequest: ThumbnailRequest {
+        let side = WallpaperLibraryGridMetrics(clipWidth: scrollView.contentView.bounds.width, preferredColumns: preferredColumns).coverSide
+        return scrollView.gridThumbnailRequest(coverSide: side)
+    }
+
     private func state(for item: WallpaperContentItem) -> CellState {
         CellState(isSelected: selection.references.contains(item.reference), isSelecting: selection.isSelecting,
-            isFocused: selection.focusedReference == item.reference)
+            isFocused: selection.focusedReference == item.reference,
+            thumbnailRequest: thumbnailRequest)
     }
 
     func numberOfSections(in collectionView: NSCollectionView) -> Int { 1 }
@@ -480,14 +492,14 @@ import AppKit
         let matches = self.item(at: indexPath)?.reference == (item.representedObject as? WallpaperReference)
         if matches, let value = self.item(at: indexPath) {
             bindAccessibilityActivation(item, content: value)
-        }
-        setCellVisible?(item, matches && viewportIsVisible && frame.intersects(collection.visibleRect))
+            setCellVisible?(item, viewportIsVisible && frame.intersects(collection.visibleRect) ? state(for: value) : nil)
+        } else { setCellVisible?(item, nil) }
         scheduleViewport()
     }
     func collectionView(_ collectionView: NSCollectionView, didEndDisplaying item: NSCollectionViewItem,
                         forRepresentedObjectAt indexPath: IndexPath) {
         invalidateAccessibilityActivation(item)
-        setCellVisible?(item, false)
+        setCellVisible?(item, nil)
     }
 
     private func item(at index: IndexPath?) -> WallpaperContentItem? {
@@ -545,14 +557,18 @@ import AppKit
                 viewportWindowVisibility = window.observe(\.isVisible, options: [.new]) { [weak self] _, _ in
                     MainActor.assumeIsolated { self?.synchronizeViewportVisibility() }
                 }
-                for name in [NSWindow.didMiniaturizeNotification, NSWindow.didDeminiaturizeNotification] {
+                for name in [NSWindow.didMiniaturizeNotification, NSWindow.didDeminiaturizeNotification,
+                             NSWindow.didChangeBackingPropertiesNotification] {
                     viewportWindowObservers.append(NotificationCenter.default.addObserver(forName: name, object: window, queue: .main) { [weak self] _ in
                         MainActor.assumeIsolated { self?.synchronizeViewportVisibility() }
                     })
                 }
             }
         }
-        if viewportIsVisible { scheduleViewport() } else { cancelViewport() }
+        if viewportIsVisible {
+            refreshVisibleCells()
+            scheduleViewport()
+        } else { cancelViewport() }
     }
 
     private func scheduleViewport() {
@@ -573,30 +589,27 @@ import AppKit
         viewportWork?.cancel()
         viewportWork = nil
         lastViewportOffsetY = nil
-        collection.visibleItems().forEach { invalidateAccessibilityActivation($0); setCellVisible?($0, false) }
+        collection.visibleItems().forEach { invalidateAccessibilityActivation($0); setCellVisible?($0, nil) }
         if hasViewportDemand {
             hasViewportDemand = false
-            onViewport?([], [])
+            onViewport?([], [], thumbnailRequest)
         }
     }
 
     private func publishViewport() {
         guard viewportIsVisible else { cancelViewport(); return }
-        let viewport = collection.visibleRect
-        let indices = layout.layoutAttributesForElements(in: viewport).compactMap { attribute -> Int? in
-            guard attribute.representedElementCategory == .item, attribute.frame.intersects(viewport),
-                  let path = attribute.indexPath, items.indices.contains(path.item) else { return nil }
-            return path.item
-        }.sorted()
+        let indices = scrollView.gridItemIndices(in: collection, itemCount: items.count)
         let visiblePaths = Set(indices.map { IndexPath(item: $0, section: 0) })
         for cell in collection.visibleItems() {
             let path = collection.indexPath(for: cell)
             let visible = path.map(visiblePaths.contains) == true && item(at: path)?.reference == (cell.representedObject as? WallpaperReference)
             if visible, let content = item(at: path) {
                 bindAccessibilityActivation(cell, content: content)
+                setCellVisible?(cell, state(for: content))
+            } else {
+                invalidateAccessibilityActivation(cell)
+                setCellVisible?(cell, nil)
             }
-            else { invalidateAccessibilityActivation(cell) }
-            setCellVisible?(cell, visible)
         }
         // Scroll distance comes from clip bounds; intersection may be null.
         let offset = scrollView.gridViewportRect.minY
@@ -606,12 +619,16 @@ import AppKit
         let metrics = WallpaperLibraryGridMetrics(clipWidth: scrollView.contentView.bounds.width, preferredColumns: preferredColumns)
         let recentCrossedItems = Int(ceil(abs(deltaY) / (metrics.coverSide + WallpaperLibraryGridMetrics.verticalSpacing)))
             * metrics.columns
-        let nearby = GridThumbnailPrefetchDemand.indices(visibleIndices: indices, itemCount: items.count,
-            neighborLimit: page?.isRemoteBrowse == true ? min(24, metrics.columns * 2)
-                : min(96, max(max(metrics.columns * 2, indices.count * 2), recentCrossedItems * 3)), direction: direction,
-            forwardBias: page?.isRemoteBrowse == true ? 1 : 2)
+        let isRemote = page?.isRemoteBrowse == true
+        let neighborLimit = isRemote ? min(24, metrics.columns * 2)
+            : min(96, max(max(metrics.columns * 2, indices.count * 2), recentCrossedItems * 3))
+        let predicted = isRemote || direction == 0 || indices.isEmpty ? []
+            : scrollView.gridPredictedItemIndices(in: collection, deltaY: deltaY, itemCount: items.count)
+        let nearby = GridThumbnailPrefetchDemand.indices(visibleIndices: indices, predictedIndices: predicted, itemCount: items.count,
+            neighborLimit: neighborLimit, direction: direction, forwardBias: isRemote ? 1 : 2)
         hasViewportDemand = !indices.isEmpty || !nearby.isEmpty
-        onViewport?(indices.map { items[$0] }, nearby.map { items[$0] })
+        onViewport?(indices.map { items[$0] }, nearby.map { items[$0] },
+                    thumbnailRequest)
     }
 
     func scrollToTop(animated: Bool = true) {
@@ -659,7 +676,7 @@ import AppKit
             selection.sessionID = receipt
             if gestureSessionID != nil { gestureSessionID = receipt }
         }
-        applyNativeSelection()
+        if selection != previous { applyNativeSelection() }
         if let window = collection.window, window.firstResponder !== collection { window.makeFirstResponder(collection) }
         return true
     }

@@ -15,6 +15,7 @@
       "docs/development/pixiv-online-browser-design.md",
       "docs/development/repository-workflow.md",
       "docs/development/status-bar-panel-redesign.md",
+      "docs/development/thumbnail-delivery-design.md",
       "docs/development/ui-quality-audit.md",
       "docs/development/validation-simplification-plan.md",
       "docs/development/wallhaven-online-browser-design.md",
@@ -235,6 +236,12 @@
       "role": "navigation",
       "entrypoint": "docs/development/repository-improvement.md",
       "purpose": "已完成分类设计的永久旧链接及classification_migration历史身份；现行职责由工作流和机器合同承担。"
+    },
+    {
+      "path": "docs/development/thumbnail-delivery-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/README.md",
+      "retirementCondition": "全模块消费者完成统一请求、来源与代码复用及有效呈现验收后，稳定职责归AppKit合同，实施结算归精简专项；未覆盖的源/面板不得随局部批次提前退役。"
     },
     {
       "path": "docs/development/ui-quality-audit.md",
@@ -1810,6 +1817,65 @@
         "grid-thumbnail-return-reuse",
         "steam-download-thumbnail-generation",
         "sil-native-square-cards",
+        "shared-download-management"
+      ],
+      "verificationPhases": [
+        {
+          "phase": "inner",
+          "gateRefs": [
+            "document-links",
+            "design-gate"
+          ],
+          "requiredArguments": [
+            "--path"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "thumbnail-delivery",
+      "title": "全模块缩略图交付、滚动与跨面板复用",
+      "keywords": [
+        "缩略图",
+        "网格滚动",
+        "回访空卡",
+        "图片缓存",
+        "picker",
+        "详情缩略图",
+        "代码复用",
+        "本地在线策略"
+      ],
+      "documents": [
+        "docs/development/thumbnail-delivery-design.md",
+        "docs/development/local-library-loading-design.md",
+        "docs/architecture/appkit-migration.md",
+        "docs/architecture/repository-map.md"
+      ],
+      "sourcePaths": [
+        "MyWallpaperX/Shared/UI",
+        "MyWallpaperX/App/WallpaperLibraryCellAdapter.swift",
+        "MyWallpaperX/App/WallpaperPlaylistPickerController.swift",
+        "MyWallpaperX/App/WallpaperLibraryArtworkProvider.swift",
+        "MyWallpaperX/App/DownloadTasksController.swift",
+        "MyWallpaperX/App/StatusBarPanelViewController.swift",
+        "MyWallpaperX/Shell/WallpaperLibraryGridController.swift",
+        "MyWallpaperX/Modules/VideoLibrary/UI",
+        "MyWallpaperX/Modules/StaticImageLibrary/UI",
+        "MyWallpaperX/Modules/SteamWorkshop/UI",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopPreviewSource.swift",
+        "MyWallpaperX/Modules/Pixabay/UI"
+      ],
+      "verification": "先核设计内消费者和真实数据流；现有缓存、SIL/Video/Steam/在线、Inspector/Picker行为门按输入装配复用，必须补跨消费者实际生成/解码计数与构图反例。无有效输入或截断的探针不作滚动/帧证据；Swift产品变更后Debug和相称原生运行。",
+      "owner": "App/Shell UI consumers and existing thumbnail/source owners",
+      "firstRead": "docs/development/thumbnail-delivery-design.md#overview",
+      "nearestTestGroups": [
+        "thumbnail-cache-consumer-lifetime",
+        "grid-thumbnail-return-reuse",
+        "steam-download-thumbnail-generation",
+        "sil-native-square-cards",
+        "main-library-inspector",
+        "system-status-display",
+        "settings-cache-actions",
         "shared-download-management"
       ],
       "verificationPhases": [

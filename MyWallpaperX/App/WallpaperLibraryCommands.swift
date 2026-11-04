@@ -660,9 +660,9 @@ nonisolated struct WallpaperLibraryFavoriteActionState: Equatable, Sendable {
 nonisolated struct WallpaperLibraryCardStateProjection {
     private let canonicalReferences: [WallpaperReference: WallpaperReference]
     private let favorites: Set<WallpaperReference>
-    private let playingReference: WallpaperReference?
-    private let switchingReference: WallpaperReference?
-    let committedTicket: PlaybackSwitchTicket?
+    private var playingReference: (raw: WallpaperReference, canonical: WallpaperReference)?
+    private var switchingReference: (raw: WallpaperReference, canonical: WallpaperReference, isActive: Bool)?
+    private(set) var committedTicket: PlaybackSwitchTicket?
 
     init(items: [WallpaperContentItem], relationships: UserCollectionsSnapshot,
          committedReference: WallpaperReference?, sequenceTicket: PlaybackSwitchTicket?, runtimeTicket: PlaybackSwitchTicket?,
@@ -670,29 +670,46 @@ nonisolated struct WallpaperLibraryCardStateProjection {
          pendingReference: WallpaperReference? = nil, pendingSequenceTicket: PlaybackSwitchTicket? = nil,
          pendingRuntimeTicket: PlaybackSwitchTicket? = nil) throws {
         var references = Set(items.map(\.reference) + relationships.favorites.map(\.reference) + additionalReferences)
-        if let committedReference { references.insert(committedReference) }
-        if let pendingReference { references.insert(pendingReference) }
-        let canonical = try WallpaperLibraryQuery.canonicalReferences(references, relationships: relationships)
+        let playbackReferences = Set([committedReference, pendingReference].compactMap { $0 })
+        let transientReferences = playbackReferences.subtracting(references)
+        references.formUnion(playbackReferences)
+        var canonical = try WallpaperLibraryQuery.canonicalReferences(references, relationships: relationships)
+        let playbackCanonical = Dictionary(uniqueKeysWithValues: playbackReferences.map { ($0, canonical[$0] ?? $0) })
+        for reference in transientReferences { canonical.removeValue(forKey: reference) }
         canonicalReferences = canonical
         favorites = Set(relationships.favorites.map { canonical[$0.reference] ?? $0.reference })
-        if let pendingReference, let pendingSequenceTicket, pendingSequenceTicket == pendingRuntimeTicket {
-            switchingReference = canonical[pendingReference] ?? pendingReference
-        } else { switchingReference = nil }
-        if let committedReference, let sequenceTicket, sequenceTicket == runtimeTicket {
-            playingReference = canonical[committedReference] ?? committedReference
-            committedTicket = sequenceTicket
-        } else {
-            playingReference = nil
-            committedTicket = nil
+        updatePlayback(committedReference: committedReference, sequenceTicket: sequenceTicket, runtimeTicket: runtimeTicket,
+            pendingReference: pendingReference, pendingSequenceTicket: pendingSequenceTicket,
+            pendingRuntimeTicket: pendingRuntimeTicket, canonical: playbackCanonical)
+    }
+
+    // Current identities remain queryable even when their ticket pair is inactive.
+    mutating func updatePlayback(committedReference: WallpaperReference?, sequenceTicket: PlaybackSwitchTicket?,
+                                runtimeTicket: PlaybackSwitchTicket?, pendingReference: WallpaperReference?,
+                                pendingSequenceTicket: PlaybackSwitchTicket?, pendingRuntimeTicket: PlaybackSwitchTicket?,
+                                canonical: [WallpaperReference: WallpaperReference]) {
+        playingReference = committedReference.map { (raw: $0, canonical: canonical[$0] ?? $0) }
+        committedTicket = committedReference != nil && sequenceTicket == runtimeTicket ? sequenceTicket : nil
+        switchingReference = pendingReference.map {
+            (raw: $0, canonical: canonical[$0] ?? $0,
+             isActive: pendingSequenceTicket != nil && pendingSequenceTicket == pendingRuntimeTicket)
         }
     }
 
-    func canonical(_ reference: WallpaperReference) -> WallpaperReference { canonicalReferences[reference] ?? reference }
+    func canonical(_ reference: WallpaperReference) -> WallpaperReference {
+        if let playingReference, playingReference.raw == reference { return playingReference.canonical }
+        if let switchingReference, switchingReference.raw == reference { return switchingReference.canonical }
+        return canonicalReferences[reference] ?? reference
+    }
     func isFavorite(_ reference: WallpaperReference) -> Bool { favorites.contains(canonical(reference)) }
     func favoriteActionState(for content: WallpaperContentItem, canEdit: Bool) -> WallpaperLibraryFavoriteActionState {
         .init(canEdit: canEdit, hasItems: true, allFavorite: isFavorite(content.reference),
             allOrganizable: content.capabilities.contains(.organize))
     }
-    func isPlaying(_ reference: WallpaperReference) -> Bool { playingReference == canonical(reference) }
-    func isSwitching(_ reference: WallpaperReference) -> Bool { switchingReference == canonical(reference) }
+    func isPlaying(_ reference: WallpaperReference) -> Bool {
+        committedTicket != nil && playingReference?.canonical == canonical(reference)
+    }
+    func isSwitching(_ reference: WallpaperReference) -> Bool {
+        switchingReference?.isActive == true && switchingReference?.canonical == canonical(reference)
+    }
 }

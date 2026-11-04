@@ -21,7 +21,7 @@ class LibraryKeyboardNavigationTests(unittest.TestCase):
     def test_native_four_direction_navigation_first_responder_and_retired_leases(self):
         paths = ["MyWallpaperX/Models/WallpaperReference.swift", "MyWallpaperX/Models/WallpaperContent.swift",
             "MyWallpaperX/Models/WallpaperLibraryPage.swift", "MyWallpaperX/Shared/Components/WallpaperLibraryGridMetrics.swift",
-            "MyWallpaperX/Shared/Components/WallpaperCardInteractionView.swift", "MyWallpaperX/Shared/UI/WallpaperGridScrollView.swift",
+            "MyWallpaperX/Shared/Components/WallpaperCardInteractionView.swift", "MyWallpaperX/Shared/ThumbnailRequest.swift", "MyWallpaperX/Shared/UI/WallpaperGridScrollView.swift",
             "MyWallpaperX/Shared/UI/BoxSelectionState.swift", "MyWallpaperX/Shared/UI/GridThumbnailPrefetchDemand.swift",
             "MyWallpaperX/Shell/WallpaperLibraryGridController.swift", "script/tests/fixtures/NativeAppHarness.swift",
             "script/tests/fixtures/LibraryKeyboardNavigationHarness.swift"]
@@ -37,7 +37,7 @@ class LibraryKeyboardNavigationTests(unittest.TestCase):
             run = run_native_app(binary, timeout=45)
             self.assertEqual(run.launch_returncode, 0, run.stdout + run.stderr)
             checks = json.loads(run.stdout)
-            self.assertEqual(len(checks), 15)
+            self.assertEqual(len(checks), 17)
             for name, passed in checks.items():
                 with self.subTest(name=name): self.assertIs(passed, True, run.stdout + run.stderr)
         self.assertEqual(identities, {p: hashlib.sha256((ROOT / p).read_bytes()).hexdigest() for p in paths})

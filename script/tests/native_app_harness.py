@@ -99,5 +99,11 @@ def run_native_app(
                     except ProcessLookupError:
                         pass
             raise
+        finally:
+            if proof_environment is not None and (destination := os.environ.get(proof_environment)):
+                proof = Path(destination)
+                proof.mkdir(parents=True, exist_ok=True)
+                (proof / (binary.name + ".stdout")).write_bytes(stdout.read_bytes())
+                (proof / (binary.name + ".stderr")).write_bytes(stderr.read_bytes())
     return NativeAppLaunch(launched.returncode, stdout.read_text(),
                            stderr.read_text() + launched.stdout + launched.stderr)

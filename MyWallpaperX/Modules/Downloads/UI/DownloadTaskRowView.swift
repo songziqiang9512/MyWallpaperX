@@ -1,32 +1,21 @@
 import AppKit
+import Combine
 
-/// The original source adapters supply commands and consumer leases directly.
-/// The row holds no downloader, cache or account state.
+/// Native controls only; the task presentation retains its leases across reuse.
 @MainActor final class DownloadTaskRowView: NSView {
-    struct Bindings {
-        var perform: (DownloadTaskRow, DownloadTaskAction) -> Void
-        var loadThumbnail: ((DownloadTaskRow, @escaping (NSImage?) -> Void) -> (() -> Void)?)? = nil
-        var observeProgress: ((DownloadTaskRow, @escaping (DownloadTaskProgress) -> Void) -> (() -> Void)?)? = nil
-    }
-
-    private let bindings: Bindings
+    private static let placeholder = NSImage(systemSymbolName: "photo", accessibilityDescription: nil)
     private let thumbnailView = NSImageView()
     private let titleLabel = NSTextField(labelWithString: "")
     private let statusLabel = NSTextField(labelWithString: "")
     private let progressBar = NSLevelIndicator()
     private let actionsStack = NSStackView()
     private var buttons: [DownloadTaskAction: NSButton] = [:]
-    private var row: DownloadTaskRow?
-    private var thumbnailKey: String?
-    private var cancelThumbnail: (() -> Void)?
-    private var cancelProgress: (() -> Void)?
-    private var lastByteSample: (bytes: Int64, date: Date)?
-    private var lastProgressSequence = -1
-    var displayedTask: DownloadTaskRow? { row }
+    private var presentation: DownloadTaskRowPresentation?
+    private var presentationSubscription: AnyCancellable?
+    var displayedTask: DownloadTaskRow? { presentation?.row }
 
-    init(bindings: Bindings) {
-        self.bindings = bindings
-        super.init(frame: .zero)
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
         translatesAutoresizingMaskIntoConstraints = false
         thumbnailView.translatesAutoresizingMaskIntoConstraints = false
         thumbnailView.imageScaling = .scaleProportionallyUpOrDown
@@ -34,7 +23,7 @@ import AppKit
         thumbnailView.layer?.cornerRadius = 6
         thumbnailView.layer?.masksToBounds = true
         thumbnailView.layer?.backgroundColor = NSColor.quaternaryLabelColor.withAlphaComponent(0.16).cgColor
-        thumbnailView.image = NSImage(systemSymbolName: "photo", accessibilityDescription: nil)
+        thumbnailView.image = Self.placeholder
         thumbnailView.contentTintColor = .tertiaryLabelColor
         thumbnailView.setAccessibilityElement(false)
         titleLabel.font = .systemFont(ofSize: 13, weight: .semibold)
@@ -68,8 +57,8 @@ import AppKit
             heightAnchor.constraint(equalToConstant: 76),
             thumbnailView.leadingAnchor.constraint(equalTo: leadingAnchor),
             thumbnailView.centerYAnchor.constraint(equalTo: centerYAnchor),
-            thumbnailView.widthAnchor.constraint(equalToConstant: 48),
-            thumbnailView.heightAnchor.constraint(equalToConstant: 48),
+            thumbnailView.widthAnchor.constraint(equalToConstant: DownloadTaskRowPresentation.thumbnailSide),
+            thumbnailView.heightAnchor.constraint(equalToConstant: DownloadTaskRowPresentation.thumbnailSide),
             titleLabel.leadingAnchor.constraint(equalTo: thumbnailView.trailingAnchor, constant: 10),
             titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 14),
             titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: actionsStack.leadingAnchor, constant: -8),
@@ -85,55 +74,80 @@ import AppKit
         ])
     }
 
+    convenience init(bindings: DownloadTaskRowPresentation.Bindings) {
+        self.init(frame: .zero)
+        bind(DownloadTaskRowPresentation(bindings: bindings))
+    }
+
     @available(*, unavailable)
     required init?(coder: NSCoder) { nil }
 
     func configure(_ next: DownloadTaskRow) {
-        let changedAttempt = row?.id != next.id
-        let changedPhase = row?.phase != next.phase
-        let needsProgressBinding = changedAttempt || row?.phase.isTerminal == true
-        if changedAttempt || next.phase.isTerminal {
-            cancelProgress?()
-            cancelProgress = nil
+        presentation?.configure(next, request: window.flatMap { DownloadTaskRowPresentation.thumbnailRequest(for: $0) })
+    }
+
+    func bind(_ presentation: DownloadTaskRowPresentation?) {
+        presentationSubscription = nil
+        self.presentation = presentation
+        guard let presentation else { clearContent(); return }
+        presentationSubscription = presentation.changes.sink { [weak self] change in
+            guard let self else { return }
+            switch change {
+            case .content: self.renderContent(); self.prepareThumbnail()
+            case .progress: self.renderStatus()
+            case .thumbnail: self.renderThumbnail()
+            }
         }
-        if changedAttempt {
-            lastByteSample = nil
-            lastProgressSequence = -1
-        }
-        row = next
-        titleLabel.stringValue = next.title
-        progressBar.setAccessibilityLabel("下载进度：\(next.title)")
-        for action in DownloadTaskAction.allCases where next.actions.contains(action) { _ = button(for: action) }
+        renderContent()
+        prepareThumbnail()
+    }
+
+    private func renderContent() {
+        guard let row = presentation?.row else { clearContent(); return }
+        titleLabel.stringValue = row.title
+        progressBar.setAccessibilityLabel("下载进度：\(row.title)")
+        for action in DownloadTaskAction.allCases where row.actions.contains(action) { _ = button(for: action) }
         for (action, button) in buttons {
-            button.isHidden = !next.actions.contains(action)
+            button.isHidden = !row.actions.contains(action)
+            button.isEnabled = row.actions.contains(action)
             button.toolTip = Self.title(action)
-            button.setAccessibilityLabel("\(Self.title(action))：\(next.title)")
+            button.setAccessibilityLabel("\(Self.title(action))：\(row.title)")
         }
-        if let progress = next.progress {
-            if changedAttempt || changedPhase || progress.phase != .transferring || progress.sequence != lastProgressSequence {
-                apply(progress)
-            }
-        }
-        else if changedAttempt || changedPhase || next.phase != .transferring { applyFallback(next) }
-        if !next.phase.isTerminal, needsProgressBinding {
-            cancelProgress = bindings.observeProgress?(next) { [weak self] progress in
-                guard let self, self.row?.id == next.id else { return }
-                self.apply(progress)
-            }
-        }
-        if changedAttempt || thumbnailKey != next.thumbnailKey {
-            cancelThumbnail?()
-            cancelThumbnail = nil
-            thumbnailKey = next.thumbnailKey
-            thumbnailView.image = NSImage(systemSymbolName: "photo", accessibilityDescription: nil)
-            if next.thumbnailKey != nil {
-                cancelThumbnail = bindings.loadThumbnail?(next) { [weak self] image in
-                    guard let self, self.row?.id == next.id,
-                          self.thumbnailKey == next.thumbnailKey, let image else { return }
-                    self.thumbnailView.image = image
-                }
-            }
-        }
+        renderStatus()
+        renderThumbnail()
+    }
+
+    private func clearContent() {
+        titleLabel.stringValue = ""
+        statusLabel.stringValue = ""
+        statusLabel.toolTip = nil
+        statusLabel.textColor = .secondaryLabelColor
+        progressBar.isHidden = true
+        progressBar.doubleValue = 0
+        progressBar.setAccessibilityLabel("")
+        progressBar.setAccessibilityValue("")
+        thumbnailView.image = Self.placeholder
+        for button in buttons.values { button.isHidden = true; button.isEnabled = false }
+    }
+
+    private func renderThumbnail() {
+        thumbnailView.image = presentation?.image ?? Self.placeholder
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window != nil { prepareThumbnail() }
+    }
+
+    override func viewDidChangeBackingProperties() {
+        super.viewDidChangeBackingProperties()
+        prepareThumbnail()
+    }
+
+    private func prepareThumbnail() {
+        guard let presentation, let window,
+              let request = DownloadTaskRowPresentation.thumbnailRequest(for: window) else { return }
+        presentation.prepareThumbnail(request)
     }
 
     private func button(for action: DownloadTaskAction) -> NSButton {
@@ -160,66 +174,22 @@ import AppKit
     }
 
     func unbind() {
-        cancelProgress?()
-        cancelThumbnail?()
-        cancelProgress = nil
-        cancelThumbnail = nil
-        row = nil
-        thumbnailKey = nil
-        lastByteSample = nil
-        lastProgressSequence = -1
+        presentation?.unbind()
     }
 
-    private func applyFallback(_ row: DownloadTaskRow) {
-        var text = row.statusText ?? row.phase.title
-        if row.phase.isTerminal, let date = row.recordedAt {
-            text += " · " + Self.dateFormatter.string(from: date)
-        }
-        status(text, phase: row.phase, fraction: row.phase == .completed ? 1 : nil)
-    }
-
-    private func apply(_ progress: DownloadTaskProgress) {
-        var parts = [progress.statusText ?? progress.phase.title]
-        if progress.phase == .transferring, let bytes = progress.verifiedBytes {
-            if let rate = sampleRate(bytes: bytes, sequence: progress.sequence) {
-                parts.append(ByteCountFormatter.string(fromByteCount: Int64(rate), countStyle: .file) + "/s")
-            }
-            var size = ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
-            if let total = progress.totalBytes {
-                size += " / " + ByteCountFormatter.string(fromByteCount: total, countStyle: .file)
-            }
-            parts.append(size)
-        }
-        status(parts.joined(separator: " · "), phase: progress.phase, fraction: progress.fraction)
-    }
-
-    private func status(_ text: String, phase: DownloadTaskPhase, fraction: Double?) {
-        statusLabel.stringValue = text
-        statusLabel.toolTip = text
-        statusLabel.textColor = phase == .failed ? .systemRed : .secondaryLabelColor
-        progressBar.isHidden = fraction == nil
-        progressBar.doubleValue = fraction.flatMap { $0.isFinite ? min(1, max(0, $0)) : nil } ?? 0
-        progressBar.setAccessibilityValue(text)
-    }
-
-    private func sampleRate(bytes: Int64, sequence: Int) -> Double? {
-        defer {
-            if sequence > lastProgressSequence {
-                lastProgressSequence = sequence
-                lastByteSample = (bytes, Date())
-            }
-        }
-        guard sequence > lastProgressSequence, let previous = lastByteSample else { return nil }
-        let elapsed = Date().timeIntervalSince(previous.date)
-        guard elapsed >= 0.08, bytes > previous.bytes else { return nil }
-        let rate = Double(bytes - previous.bytes) / elapsed
-        return rate.isFinite && rate > 0 ? rate : nil
+    private func renderStatus() {
+        guard let status = presentation?.status else { return }
+        statusLabel.stringValue = status.text
+        statusLabel.toolTip = status.text
+        statusLabel.textColor = status.phase == .failed ? .systemRed : .secondaryLabelColor
+        progressBar.isHidden = status.fraction == nil
+        progressBar.doubleValue = status.fraction.flatMap { $0.isFinite ? min(1, max(0, $0)) : nil } ?? 0
+        progressBar.setAccessibilityValue(status.text)
     }
 
     @objc private func invoke(_ sender: NSButton) {
-        guard let row, let action = buttons.first(where: { $0.value === sender })?.key,
-              row.actions.contains(action) else { return }
-        bindings.perform(row, action)
+        guard let action = buttons.first(where: { $0.value === sender })?.key else { return }
+        presentation?.perform(action)
     }
 
     private static func title(_ action: DownloadTaskAction) -> String {
@@ -233,12 +203,4 @@ import AppKit
         case .removeHistory: return "清除记录"
         }
     }
-
-    private static let dateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = .current
-        formatter.dateStyle = .short
-        formatter.timeStyle = .short
-        return formatter
-    }()
 }

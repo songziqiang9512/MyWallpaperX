@@ -5,6 +5,7 @@ Shell, user library, media renderer or present a real modal sheet.
 """
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -82,7 +83,7 @@ class WallpaperLibraryCommandTransactionsTests(unittest.TestCase):
         # is a controlled draft UI; its native lifecycle has a separate gate.
         fixture += '\n' + organization_path.read_text() + '\n' + completion_fixture.read_text()
         fixture += '\n' + recent_sidebar_fixture.read_text()
-        composition_path = ROOT / 'MyWallpaperX/App/WallpaperLibraryWindowComposition.swift'
+        composition_path = Path(os.environ.get('MWX_LIBRARY_COMPOSITION_SOURCE', ROOT / 'MyWallpaperX/App/WallpaperLibraryWindowComposition.swift'))
         steam_path = ROOT / 'MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserItem+Presentation.swift'
         composition = composition_path.read_text()
         binding_start = '        steam.$navigationVersion.dropFirst()'
@@ -94,6 +95,21 @@ class WallpaperLibraryCommandTransactionsTests(unittest.TestCase):
         fixture = fixture.replace('// ACTUAL_STEAM_NAVIGATION_BINDING', composition[start:end])
         projection_fixture = ROOT / 'script/tests/fixtures/WallpaperLibraryCompositionProjectionChecks.swift'
         fixture += '\n' + projection_fixture.read_text()
+        inspector_start = composition.index('    lazy var inspector = WallpaperLibraryInspectorCoordinator(')
+        inspector_end = composition.index('    private lazy var adapter:', inspector_start)
+        inspector = composition[inspector_start:inspector_end]
+        primary_label = '        makePrimaryAction: '
+        self.assertEqual(inspector.count(primary_label + '{'), 1)
+        primary = declaration(inspector, primary_label + '{').removeprefix(primary_label)
+        self.assertEqual(fixture.count('// ACTUAL_INSPECTOR_PRIMARY_FACTORY'), 1)
+        fixture = fixture.replace('// ACTUAL_INSPECTOR_PRIMARY_FACTORY', primary)
+        # Count only entry into the existing controlled capture leaf. Its
+        # original return expression stays intact; no Workspace query is copied.
+        capture_owner = '@MainActor private final class CommandWorkspace {'
+        self.assertEqual(fixture.count(capture_owner), 1)
+        fixture = fixture.replace(capture_owner, capture_owner + '\n    var inspectorCaptureEntries = 0', 1)
+        capture = declaration(fixture, '    func capturePlaybackSnapshot(for ref:')
+        fixture = fixture.replace(capture, capture.replace('{', '{inspectorCaptureEntries += 1;return ', 1), 1)
         fixture = fixture.replace('// ACTUAL_CARD_STATE_PREPARATION', declaration(composition, '    private func prepareCardState('))
         fixture = fixture.replace('// ACTUAL_RENDER_SIGNATURE', declaration(composition, '    private struct RenderSignature:'))
         fixture = fixture.replace('// ACTUAL_FILE_DROP_BINDING', declaration(composition, '    private func configureFileDrop('))

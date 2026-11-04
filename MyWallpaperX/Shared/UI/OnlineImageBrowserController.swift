@@ -13,9 +13,19 @@ import Combine
     private var resetScroll = false
     private var shown = false
     private var permitsDisplay = true
-    private var prefetched: [WallpaperReference: Task<Void, Never>] = [:]
+    private final class Prefetch {
+        let source: String
+        let revision: String?
+        let request: ThumbnailRequest
+        let cancel: () -> Void
+        var isWarm: () -> Bool = { true }
+        init(source: String, revision: String?, request: ThumbnailRequest, cancel: @escaping () -> Void) {
+            self.source = source; self.revision = revision; self.request = request; self.cancel = cancel
+        }
+    }
+    private let localThumbnails = SILThumbnailProvider()
+    private var prefetched: [WallpaperReference: Prefetch] = [:]
     private var autoLoadedCount: Int?
-    private var prefetchPixelSize = 0
     private var projectedItems: [WallpaperContentItem] = []
     private var projectedArtworks: [OnlineImageArtwork] = []
     private var artworkByReference: [WallpaperReference: OnlineImageArtwork] = [:]
@@ -47,10 +57,6 @@ import Combine
         return cell
     }
     var clipWidth: CGFloat { grid.isViewLoaded ? grid.scrollView.contentView.bounds.width : 0 }
-    var thumbnailPixelSize: Int {
-        GridThumbnailDecoder.pixelLimit(width: WallpaperLibraryGridMetrics(clipWidth: clipWidth, preferredColumns: preferredColumns).coverSide,
-            scale: view.window?.backingScaleFactor ?? 2)
-    }
     var selectedContent: WallpaperContentItem? {
         selection.references.count == 1 ? selection.references.first.flatMap { contentByReference[$0] } : nil
     }
@@ -77,7 +83,9 @@ import Combine
         grid.updateCell = { [weak self] cell, content, state in
             if let card = cell as? OnlineImageGridItem { self?.configure(card, content: content, state: state) }
         }
-        grid.setCellVisible = { cell, visible in (cell as? OnlineImageGridItem)?.setThumbnailVisible(visible) }
+        grid.setCellVisible = { cell, state in
+            (cell as? OnlineImageGridItem)?.setThumbnailVisible(state != nil, thumbnailRequest: state?.thumbnailRequest)
+        }
         grid.opensDetailsOnSingleClick = { [weak self] in self?.opensDetailsOnSingleClick() == true }
         grid.onInspect = { [weak self] in self?.inspect($0) }
         grid.scrollView.onRefresh = { [weak self] in
@@ -108,7 +116,7 @@ import Combine
             autoLoadedCount = nil
             if session.state.next == nil, session.state.error != nil { session.refresh() }
         }
-        grid.onViewport = { [weak self] visible, prefetch in self?.viewport(visible, prefetch) }
+        grid.onViewport = { [weak self] visible, prefetch, request in self?.viewport(visible, prefetch, request: request) }
         grid.menuProvider = { [weak self] values in
             guard let self, acceptsInput else { return nil }
             return values.first.flatMap { self.makeMenu?($0) }
@@ -219,7 +227,7 @@ import Combine
             playing: isPlaying?(content.reference) == true,
             switching: isSwitching?(content.reference) == true,
             busy: artwork.map { library.progress[$0.firstAssetID] != nil } == true,
-            fraction: artwork.flatMap { library.progress[$0.firstAssetID] }, refreshToken: session.state.refreshToken,
+            fraction: artwork.flatMap { library.progress[$0.firstAssetID] }, refreshToken: session.state.refreshToken, thumbnailRequest: state.thumbnailRequest,
             onPrimary: primary(content), onInspect: { [weak self] in
                 guard let self, acceptsInput, let current = contentByReference[content.reference],
                       grid.select([current.reference], focus: current.reference) else { return }
@@ -244,16 +252,46 @@ import Combine
         }
     }
 
-    private func viewport(_ visible: [WallpaperContentItem], _ nearby: [WallpaperContentItem]) {
+    private func viewport(_ visible: [WallpaperContentItem], _ nearby: [WallpaperContentItem], request: ThumbnailRequest) {
         guard shown else { cancelPrefetch(); return }
-        let pixels = thumbnailPixelSize
-        if prefetchPixelSize != pixels { cancelPrefetch(); prefetchPixelSize = pixels }
-        let wanted = Set(nearby.map(\.reference))
+        let nearbyReferences = Set(nearby.map(\.reference))
+        let wanted = nearbyReferences.union(visible.map(\.reference))
         for key in Array(prefetched.keys) where !wanted.contains(key) { prefetched.removeValue(forKey: key)?.cancel() }
-        for content in nearby where prefetched[content.reference] == nil && !content.publishedAvailability.isAvailable {
-            guard let art = artwork(content), let url = art.thumbnailURL ?? art.previewURL else { continue }
-            let request = library.thumbnailRequest(url: url, source: art.source)
-            prefetched[content.reference] = Task { _ = await OnlineImageThumbnailCache.shared.image(for: request, maxPixelSize: pixels, priority: .prefetch) }
+        for content in nearby + visible {
+            let startsIfMissing = nearbyReferences.contains(content.reference)
+            guard startsIfMissing || prefetched[content.reference] != nil else { continue }
+            if content.publishedAvailability.isAvailable, let path = content.locator.path {
+                let revision = content.metadata.resourceRevision
+                if let old = prefetched[content.reference], old.source.utf8.elementsEqual(path.utf8),
+                   old.revision == revision, old.request == request, !startsIfMissing || old.isWarm() { continue }
+                prefetched.removeValue(forKey: content.reference)?.cancel()
+                guard startsIfMissing else { continue }
+                let cancellation = ThumbnailCacheRequestCancellation()
+                let demand = Prefetch(source: path, revision: revision, request: request, cancel: { cancellation.cancel() })
+                prefetched[content.reference] = demand
+                localThumbnails.load(path: path, request: request, priority: .prefetch, cancellation: cancellation) { [weak demand, cache = localThumbnails.cache] result in
+                    if case .image = result {
+                        demand?.isWarm = { !cancellation.cancelled && cache.hasCachedResult(forKey: path, request: request) }
+                    }
+                }
+            } else if !content.publishedAvailability.isAvailable, let art = artwork(content), let url = art.thumbnailURL ?? art.previewURL {
+                let remote = library.thumbnailRequest(url: url, source: art.source)
+                if let old = prefetched[content.reference], old.source == remote.cacheURL.absoluteString,
+                   old.request == request, !startsIfMissing || old.isWarm() { continue }
+                prefetched.removeValue(forKey: content.reference)?.cancel()
+                guard startsIfMissing else { continue }
+                let task = Task { [weak self] in
+                    let image = await OnlineImageThumbnailCache.shared.image(for: remote, request: request, priority: .prefetch)
+                    guard !Task.isCancelled, image != nil else { return }
+                    self?.prefetched[content.reference]?.isWarm = {
+                        OnlineImageThumbnailCache.shared.hasReadyImage(for: remote, request: request)
+                    }
+                }
+                prefetched[content.reference] = Prefetch(source: remote.cacheURL.absoluteString, revision: nil,
+                    request: request, cancel: { task.cancel() })
+            } else {
+                prefetched.removeValue(forKey: content.reference)?.cancel()
+            }
         }
         if !session.state.isLoading, session.state.next != nil, autoLoadedCount != session.state.items.count,
            (session.state.items.isEmpty || visible.contains(where: { $0.reference == session.state.items.last?.firstAssetID.reference })) {
@@ -269,7 +307,7 @@ import Combine
         let request = library.thumbnailRequest(url: url, source: first.source)
         listThumbnailTintSource.update(id: first.id, assets: [request.cacheURL.absoluteString]) { completion in
             let task = Task {
-                let image = await OnlineImageThumbnailCache.shared.image(for: request, maxPixelSize: 256, priority: .prefetch)
+                let image = await OnlineImageThumbnailCache.shared.image(for: request, request: .init(width: 256, height: 256, mode: .fit), priority: .prefetch)
                 if !Task.isCancelled { completion(image) }
             }
             return { task.cancel() }
@@ -277,7 +315,7 @@ import Combine
     }
 
     private func cancelPrefetch() {
-        prefetched.values.forEach { $0.cancel() }; prefetched.removeAll(); prefetchPixelSize = 0
+        prefetched.values.forEach { $0.cancel() }; prefetched.removeAll()
     }
 
     private func footerText(_ state: OnlineImageBrowserSession.State, count: Int) -> String? {

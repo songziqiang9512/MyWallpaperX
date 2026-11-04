@@ -105,7 +105,7 @@ extension SteamWorkshopService {
             let fallbackKey = prepared.fallbackKey
             let identity = prepared.identity
             if let old = demands[candidateID], old.identity == identity,
-               old.readyKey.map({ SteamWorkshopPreviewImageCache.shared.cachedImage(forKey: $0) != nil }) ?? true { continue }
+               old.readyKey.map({ steamWorkshopCachedPreviewImage(forStillKey: $0, maxPixelSize: source.pixels) != nil }) ?? true { continue }
             demands.removeValue(forKey: candidateID)?.cancellation.cancel()
             guard source.startsIfMissing else { continue }
             let cancellation = SteamWorkshopPreviewLoadCancellation()

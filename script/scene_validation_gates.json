@@ -3110,6 +3110,7 @@
         "MyWallpaperX/Modules/VideoLibrary/UI/VideoLibraryInspectorView.swift",
         "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperLibrarySupport.swift",
         "script/tests/fixtures/VideoInspectorPreviewHarness.swift",
+        "script/tests/fixtures/VideoInspectorHostBackfillChecks.swift",
         "MyWallpaperX/Shared/UI/InspectorBadgeView.swift"
       ],
       "modules": [
@@ -4605,7 +4606,9 @@
         "script/tests/test_library_visible_source_lifecycle.py",
         "script/tests/fixtures/LibraryVisibleSourceLifecycleHarness.swift",
         "script/tests/test_library_keyboard_navigation.py",
-        "script/tests/fixtures/LibraryKeyboardNavigationHarness.swift"
+        "script/tests/fixtures/LibraryKeyboardNavigationHarness.swift",
+        "MyWallpaperX/Shared/ThumbnailRequest.swift",
+        "script/tests/fixtures/ThumbnailImagePublicationChecks.swift"
       ],
       "modules": [
         "test_thumbnail_return_reuse",
@@ -4978,7 +4981,9 @@
       "patterns": [
         "MyWallpaperX/Modules/Pixabay/UI/AppKitPixabayBrowserItem.swift",
         "MyWallpaperX/Modules/Pixabay/UI/AppKitPixabayDownloadsItem.swift",
-        "script/tests/fixtures/PixabayCardPresentationChecks.swift"
+        "script/tests/fixtures/PixabayCardPresentationChecks.swift",
+        "script/tests/fixtures/PixabayNativeCardClickChecks.swift",
+        "script/tests/fixtures/PixabayThumbnailGenerationChecks.swift"
       ],
       "modules": [
         "test_grid_card_lifecycle",
@@ -5238,6 +5243,7 @@
         "script/tests/fixtures/WallpaperLibraryInspectorHarness.swift",
         "script/tests/fixtures/WallpaperInspectorOrganizationHarness.swift",
         "script/tests/fixtures/VideoInspectorPreviewHarness.swift",
+        "script/tests/fixtures/VideoInspectorHostBackfillChecks.swift",
         "script/tests/fixtures/SteamDetailInvalidationHarness.swift",
         "script/tests/fixtures/SteamDetailFooterHarness.swift",
         "MyWallpaperX/Modules/Pixabay/UI/PixabayDownloadsInspectorSupport.swift",
@@ -5258,7 +5264,9 @@
         "script/tests/fixtures/InspectorPresentationRefreshChecks.swift",
         "MyWallpaperX/Shared/UI/WallpaperOpenWithMenu.swift",
         "script/tests/test_wallpaper_open_with_menu.py",
-        "script/tests/fixtures/WallpaperOpenWithMenuChecks.swift"
+        "script/tests/fixtures/WallpaperOpenWithMenuChecks.swift",
+        "script/tests/fixtures/InspectorOnlineFirstTurnChecks.swift",
+        "script/tests/fixtures/SILInspectorRenderSnapshotChecks.swift"
       ],
       "modules": [
         "test_wallpaper_library_inspector",
@@ -5417,7 +5425,8 @@
         "script/tests/fixtures/NativeAppHarness.swift",
         "script/tests/fixtures/WallpaperLibrarySidebarHarness.swift",
         "script/tests/fixtures/PlaylistDirectoryHarness.swift",
-        "MyWallpaperX/Shared/UI/WallpaperPlaylistArtwork.swift"
+        "MyWallpaperX/Shared/UI/WallpaperPlaylistArtwork.swift",
+        "script/tests/fixtures/ArtworkSteamSourceLifetimeChecks.swift"
       ],
       "modules": [
         "test_wallpaper_library_artwork",

@@ -96,7 +96,13 @@ import Combine
         let operationErrorEvent: UInt64
         let visible: Bool
 
-        func hasSameCardInputs(as other: Self) -> Bool {
+        func hasSamePlaybackInputs(as other: Self) -> Bool {
+            sequenceReference == other.sequenceReference && sequenceTicket == other.sequenceTicket && ticket == other.ticket
+                && pendingReference == other.pendingReference && pendingSequenceTicket == other.pendingSequenceTicket
+                && pendingRuntimeTicket == other.pendingRuntimeTicket
+        }
+
+        func hasSameSourceInputs(as other: Self) -> Bool {
             var query = self.query, otherQuery = other.query
             query.preferredColumns = 5; otherQuery.preferredColumns = 5
             query.scrollAnchor = nil; otherQuery.scrollAnchor = nil
@@ -104,9 +110,6 @@ import Combine
             query.scrollAtTop = nil; otherQuery.scrollAtTop = nil
             return page == other.page && catalogRevision == other.catalogRevision && projectionRevision == other.projectionRevision
                 && relationshipsRevision == other.relationshipsRevision && resetEpoch == other.resetEpoch
-                && sequenceReference == other.sequenceReference && sequenceTicket == other.sequenceTicket && ticket == other.ticket
-                && pendingReference == other.pendingReference && pendingSequenceTicket == other.pendingSequenceTicket
-                && pendingRuntimeTicket == other.pendingRuntimeTicket
                 && query == otherQuery && items == other.items
         }
     }
@@ -125,7 +128,7 @@ import Combine
         steam: steam, pixabay: pixabay,
         makePrimaryAction: { [weak self] content in
             guard let self else { return nil }
-            return self.commands.makePrimaryAction(for: content)
+            return self.commands.makePrimaryAction(for: content, from: self.sourceSnapshot)
         }, makeFavoriteAction: { [weak self] in self?.makeCardFavoriteAction($0) },
         canOrganize: { [weak self] in self?.commands.canOrganize == true },
         availabilityChanges: commands.availabilityChanges,
@@ -287,9 +290,9 @@ import Combine
         grid.updateCell = { [weak self] in self?.adapter.updateCell($0, content: $1, state: $2) }
         grid.needsCellReplacement = { [weak self] in self?.adapter.needsCellReplacement($0, content: $1) ?? false }
         grid.setCellVisible = { [weak self] in self?.adapter.setVisible($0, $1) }
-        grid.onViewport = { [weak self] visible, prefetch in
+        grid.onViewport = { [weak self] visible, prefetch, request in
             guard let self else { return }
-            self.adapter.updateViewport(visible: visible, prefetch: prefetch)
+            self.adapter.updateViewport(visible: visible, prefetch: prefetch, request: request)
             self.workspace.catalog.setVisibleReferences(Set(visible.map(\.providerReference)), sourceToken: self.gridDemand)
         }
         grid.onSelection = { [weak self] refs, focus in
@@ -505,8 +508,19 @@ import Combine
 
     private func prepareCardState(_ state: WallpaperLibraryPresentationState, catalog: WallpaperLibraryCatalog,
                                   relationships: UserCollectionsSnapshot, signature: RenderSignature, previousSignature: RenderSignature?) {
-        if cardState != nil, let previousSignature, signature.hasSameCardInputs(as: previousSignature) { return }
         do {
+            let committed = manager.libraryPlaybackSequence.committed
+            let pending = manager.libraryPlaybackSequence.pending
+            if cardState != nil, let previousSignature, signature.hasSameSourceInputs(as: previousSignature) {
+                if signature.hasSamePlaybackInputs(as: previousSignature) { return }
+                let references = Set([committed?.reference, pending?.proposal.entry.reference].compactMap { $0 })
+                let canonical = try references.isEmpty ? [:] : WallpaperLibraryQuery.canonicalReferences(references, relationships: relationships)
+                cardState?.updatePlayback(committedReference: committed?.reference,
+                    sequenceTicket: committed?.ticket, runtimeTicket: manager.playbackSwitch.committed?.ticket,
+                    pendingReference: pending?.proposal.entry.reference, pendingSequenceTicket: pending?.ticket,
+                    pendingRuntimeTicket: manager.playbackSwitch.pending?.selection.ticket, canonical: canonical)
+                return
+            }
             var seen = Set<WallpaperReference>()
             let references = (state.queryResult.items.map(\.reference) + catalog.downloads.map(\.reference)).filter { seen.insert($0).inserted }
             let resolved = try WallpaperLibraryQuery.resolve(references, catalog: catalog, relationships: relationships)
@@ -514,8 +528,6 @@ import Combine
             downloadedContent = Dictionary(catalog.downloads.compactMap { item in
                 byReference[item.reference].map { (item.providerReference, $0) }
             }, uniquingKeysWith: { first, _ in first })
-            let committed = manager.libraryPlaybackSequence.committed
-            let pending = manager.libraryPlaybackSequence.pending
             let projection = try WallpaperLibraryCardStateProjection(items: state.queryResult.items + resolved, relationships: relationships,
                 committedReference: committed?.reference, sequenceTicket: committed?.ticket, runtimeTicket: manager.playbackSwitch.committed?.ticket,
                 additionalReferences: relationships.members.map(\.reference),

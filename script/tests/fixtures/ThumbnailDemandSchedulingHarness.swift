@@ -1,14 +1,22 @@
 import AppKit
 import ImageIO
 
-final class DemandEvents: @unchecked Sendable {
+@MainActor func demandImage(_ width: Int, color: NSColor = .systemRed) -> NSImage {
+    let context = CGContext(data: nil, width: width, height: 30, bitsPerComponent: 8, bytesPerRow: width * 4,
+        space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+    context.setFillColor(color.cgColor)
+    context.fill(CGRect(x: 0, y: 0, width: width, height: 30))
+    return NSImage(cgImage: context.makeImage()!, size: NSSize(width: width, height: 30))
+}
+
+nonisolated final class DemandEvents: @unchecked Sendable {
     private let lock = NSLock()
     private var entries: [String] = []
     func record(_ name: String) { lock.lock(); entries.append(name); lock.unlock() }
     var values: [String] { lock.lock(); defer { lock.unlock() }; return entries }
 }
 
-final class DemandBlockingGate: @unchecked Sendable {
+nonisolated final class DemandBlockingGate: @unchecked Sendable {
     private let semaphore = DispatchSemaphore(value: 0)
     private let lock = NSLock()
     private var hasStarted = false
@@ -25,7 +33,7 @@ final class DemandBlockingGate: @unchecked Sendable {
 
 // Only the copied source's final recursive filesystem leaf is observed/held.
 // Cache invalidation, detachment, locking and queue scheduling stay production.
-enum ThumbnailClearObservation {
+nonisolated enum ThumbnailClearObservation {
     static let gate = DemandBlockingGate(), events = DemandEvents()
     static func remove(_ directory: URL) {
         if directory.lastPathComponent.hasPrefix("asynchronous-clear-") {
@@ -36,12 +44,27 @@ enum ThumbnailClearObservation {
     }
 }
 
-enum ThumbnailEncodingObservation {
+nonisolated enum ThumbnailEncodingObservation {
     static let encodings = DemandEvents(), finishes = DemandEvents()
     static func count(_ format: String) -> Int { encodings.values.filter { $0 == format }.count }
+    static func finished(_ key: String) -> Int { finishes.values.filter { $0 == key }.count }
 }
 
-private final class DemandImageGate: @unchecked Sendable {
+// Hold real staged files by encoded image width; source admission stays production.
+nonisolated private final class DemandStagingObservation: @unchecked Sendable {
+    let events = DemandEvents()
+    let gates: [Int: DemandBlockingGate]
+    init(widths: [Int]) { gates = Dictionary(uniqueKeysWithValues: widths.map { ($0, DemandBlockingGate()) }) }
+    func write(_ data: Data, to url: URL) throws {
+        try data.write(to: url)
+        let width = NSBitmapImageRep(data: data)!.pixelsWide
+        events.record(String(width))
+        gates[width]?.wait()
+    }
+    func releaseAll() { gates.values.forEach { $0.release() } }
+}
+
+nonisolated final class DemandImageGate: @unchecked Sendable {
     private let lock = NSLock()
     private var continuation: CheckedContinuation<NSImage?, Never>?
     private var stopped = false
@@ -63,13 +86,13 @@ private final class DemandImageGate: @unchecked Sendable {
         let pending = continuation; continuation = nil
         lock.unlock(); pending?.resume(returning: nil)
     }
-    func resume(_ image: NSImage) {
+    func resume(_ image: NSImage?) {
         lock.lock(); let pending = continuation; continuation = nil; lock.unlock()
         pending?.resume(returning: image)
     }
 }
 
-private final class DemandDataGate: @unchecked Sendable {
+nonisolated final class DemandDataGate: @unchecked Sendable {
     private let lock = NSLock()
     private var continuation: CheckedContinuation<Void, Never>?
     var waiting: Bool { lock.lock(); defer { lock.unlock() }; return continuation != nil }
@@ -80,12 +103,21 @@ private final class DemandDataGate: @unchecked Sendable {
 @main struct ThumbnailDemandSchedulingHarness {
     @MainActor static func main() throws {
         _ = NSApplication.shared
-        let context = CGContext(data: nil, width: 40, height: 30, bitsPerComponent: 8, bytesPerRow: 160,
-            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
-        context.setFillColor(NSColor.systemRed.cgColor)
-        context.fill(CGRect(x: 0, y: 0, width: 40, height: 30))
-        let image = NSImage(cgImage: context.makeImage()!, size: NSSize(width: 40, height: 30))
-        let bytes = NSBitmapImageRep(cgImage: context.makeImage()!).representation(using: .png, properties: [:])!
+        func makeImage(_ width: Int) -> NSImage {
+            demandImage(width)
+        }
+        let image = makeImage(40)
+        let bytes = NSBitmapImageRep(cgImage: image.cgImage(forProposedRect: nil, context: nil, hints: nil)!)
+            .representation(using: .png, properties: [:])!
+        func sourceInput(_ width: Int) throws -> ThumbnailInput {
+            let source = makeImage(width)
+            let data = NSBitmapImageRep(cgImage: source.cgImage(forProposedRect: nil, context: nil, hints: nil)!)
+                .representation(using: .png, properties: [:])!
+            let url = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
+                .appendingPathComponent("known-source-\(width).png", isDirectory: false)
+            try data.write(to: url)
+            return .sourceFile(url)
+        }
         func pump(_ seconds: TimeInterval = 3, _ condition: () -> Bool) -> Bool {
             let until = Date().addingTimeInterval(seconds)
             while !condition(), Date() < until { RunLoop.main.run(until: Date().addingTimeInterval(0.005)) }
@@ -93,92 +125,128 @@ private final class DemandDataGate: @unchecked Sendable {
         }
         var checks: [String: Bool] = [:]
         var metrics: [String: Double] = [:]
-        // This probe deliberately uses the pre-D17 public API too. Compile the
-        // same fixture against baseline without -D D17_SCHEDULING for comparison.
         let cache = ThumbnailCache(namespace: "demand-" + UUID().uuidString)
         var warm: NSImage?
-        cache.load(forKey: "warm", loader: { image }) { warm = $0 }
-        checks["warmImageSeeded"] = pump { warm != nil }
+        let initialWarmFinishes = ThumbnailEncodingObservation.finished("warm")
+        cache.load(forKey: "warm", input: .image(image)) { warm = $0 }
+        checks["warmImageSeeded"] = pump { warm != nil && ThumbnailEncodingObservation.finished("warm") > initialWarmFinishes }
         cache.imageCache.removeAllObjects(); warm = nil
-        let heavy = DemandBlockingGate()
+        let heavy = DemandImageGate()
         var heavyFinished = false
-        cache.load(forKey: "slow-generator", loader: { heavy.wait(); return image }) { heavyFinished = $0 != nil }
-        checks["slowGeneratorStarted"] = pump { heavy.started }
+        cache.loadImageAsync(forKey: "slow-generator", loader: { (await heavy.image()).map { .image($0) } }) { heavyFinished = $0 != nil }
+        checks["slowGeneratorStarted"] = pump { heavy.waiting }
         let started = Date()
-        cache.load(forKey: "warm", loader: { preconditionFailure("warm disk must not regenerate") }) { warm = $0 }
+        cache.load(forKey: "warm", input: .sourceData(Data())) { warm = $0 }
         let warmBeforeRelease = pump(0.25) { warm != nil }
         metrics["warmReadBeforeGeneratorRelease"] = warmBeforeRelease ? 1 : 0
         metrics["warmReadObservationMilliseconds"] = Date().timeIntervalSince(started) * 1000
-        heavy.release()
+        heavy.resume(image)
         checks["slowAndWarmFinishAfterRelease"] = pump { heavyFinished && warm != nil }
-        #if D17_SCHEDULING
         checks["warmDiskReadDoesNotWaitForBlockedGenerator"] = warmBeforeRelease
-        let events = DemandEvents(), generation = DemandBlockingGate()
-        cache.load(forKey: "generation-blocker", loader: { generation.wait(); return image }) { _ in }
-        checks["serialGenerationBlockerStarted"] = pump { generation.started }
+
+        let coldStages = DemandStagingObservation(widths: Array(41...45))
+        let cold = ThumbnailCache(namespace: "known-source-cap-" + UUID().uuidString,
+            writeEncodedData: { try coldStages.write($0, to: $1) })
+        var coldFinished = 0, diskReturn: NSImage?
+        let coldWarmFinishes = ThumbnailEncodingObservation.finished("warm")
+        cold.load(forKey: "warm", input: .image(image)) { diskReturn = $0 }
+        checks["knownSourceWarmDiskSeeded"] = pump { diskReturn != nil && ThumbnailEncodingObservation.finished("warm") > coldWarmFinishes }
+        cold.imageCache.removeAllObjects(); diskReturn = nil
+        for index in 0..<4 {
+            cold.load(forKey: "cold-\(index)", input: try sourceInput(41 + index)) { _ in coldFinished += 1 }
+        }
+        checks["fourKnownColdInputsOccupySourceSlots"] = pump(0.5) { (41...44).allSatisfy { coldStages.gates[$0]!.started } }
+        cold.load(forKey: "cold-fifth", input: try sourceInput(45)) { _ in coldFinished += 1 }
+        RunLoop.main.run(until: Date().addingTimeInterval(0.04))
+        checks["heldDerivedWritesDeliverFourImagesButFifthKnownInputStillWaits"] = pump(0.3) { coldFinished == 4 }
+            && !coldStages.gates[45]!.started
+        cold.load(forKey: "warm", input: .sourceData(Data())) { diskReturn = $0 }
+        checks["warmDiskReturnsWhileKnownColdSourcesRemainHeld"] = pump(0.25) { diskReturn != nil }
+            && coldFinished == 4 && diskReturn?.size.width == 40
+        coldStages.gates[41]!.release()
+        checks["oneKnownSourceReleaseAdmitsTheFifthInput"] = pump(0.5) { coldStages.gates[45]!.started }
+            && !(42...44).contains { coldStages.gates[$0]!.finished }
+        coldStages.releaseAll()
+        checks["allKnownColdInputsDrainAfterRelease"] = pump { coldFinished == 5 }
+        cold.clearAll()
+
+        let priorityStages = DemandStagingObservation(widths: Array(51...56))
+        let priorityCache = ThumbnailCache(namespace: "known-source-priority-" + UUID().uuidString,
+            writeEncodedData: { try priorityStages.write($0, to: $1) })
+        var blockersFinished = 0
+        for index in 0..<2 {
+            priorityCache.load(forKey: "priority-blocker-\(index)", priority: .prefetch,
+                input: try sourceInput(51 + index)) { _ in blockersFinished += 1 }
+        }
+        checks["twoKnownPrefetchInputsCanOccupyBackgroundSlots"] = pump(0.5) { (51...52).allSatisfy { priorityStages.gates[$0]!.started } }
         let dropped = ThumbnailCacheRequestCancellation()
-        cache.load(forKey: "cancel-queued", priority: .prefetch, cancellation: dropped,
-            loader: { events.record("cancelled-loader"); return image }) { _ in events.record("cancelled-callback") }
+        priorityCache.load(forKey: "cancel-queued", priority: .prefetch, cancellation: dropped,
+            input: try sourceInput(57)) { _ in priorityStages.events.record("cancelled-callback") }
+        RunLoop.main.run(until: Date().addingTimeInterval(0.04))
+        checks["thirdKnownPrefetchCannotUseReservedVisibleCapacity"] = !priorityStages.events.values.contains("57")
+        for index in 2..<4 {
+            priorityCache.load(forKey: "priority-blocker-\(index)", input: try sourceInput(51 + index)) { _ in blockersFinished += 1 }
+        }
+        checks["knownPrioritySourcesHoldAllFourSlots"] = pump(0.5) { (51...54).allSatisfy { priorityStages.gates[$0]!.started } }
         let low = ThumbnailCacheRequestCancellation(), promoted = ThumbnailCacheRequestCancellation()
-        var promotedDelivered = false, survivorDelivered = false
-        cache.load(forKey: "older-prefetch", priority: .prefetch, cancellation: low,
-            loader: { events.record("older"); return image }) { _ in }
-        cache.load(forKey: "promoted-prefetch", priority: .prefetch, cancellation: promoted,
-            loader: { events.record("promoted"); return image }) { _ in }
-        // Let the short disk misses reach the occupied generation lane.
+        var promotedImage: NSImage?, survivorDelivered = false, olderFinished = false
+        priorityCache.load(forKey: "older-prefetch", priority: .prefetch, cancellation: low,
+            input: try sourceInput(55)) { _ in olderFinished = true }
+        priorityCache.load(forKey: "promoted-prefetch", priority: .prefetch, cancellation: promoted,
+            input: try sourceInput(56)) { _ in }
         RunLoop.main.run(until: Date().addingTimeInterval(0.06))
         let visible = ThumbnailCacheRequestCancellation()
-        cache.load(forKey: "promoted-prefetch", priority: .visible, cancellation: visible,
-            loader: { events.record("duplicate-promoted-loader"); return image }) { promotedDelivered = $0 != nil }
+        priorityCache.load(forKey: "promoted-prefetch", priority: .visible, cancellation: visible,
+            input: .image(makeImage(58))) { promotedImage = $0 }
         dropped.cancel(); promoted.cancel()
-        generation.release()
-        checks["remainingConsumerReceivesPromotedResult"] = pump { promotedDelivered && events.values.contains("older") }
-        checks["lastCancelledQueuedConsumerNeverRunsLoaderOrCallback"] = !events.values.contains("cancelled-loader")
-            && !events.values.contains("cancelled-callback") && cache.cachedImage(forKey: "cancel-queued") == nil
-        checks["visibleJoinPromotesPendingPrefetchAheadOfOlderPrefetch"] = events.values.first == "promoted"
-        checks["sameKeyHasOnlyOneGenerator"] = !events.values.contains("duplicate-promoted-loader")
-        cache.load(forKey: "cancel-queued", loader: { image }) { survivorDelivered = $0 != nil }
+        priorityStages.gates[51]!.release()
+        checks["visibleKnownJoinUsesTheFirstReleasedSourceSlot"] = pump(0.5) { priorityStages.gates[56]!.started }
+        priorityStages.releaseAll()
+        checks["remainingConsumerReceivesPromotedResult"] = pump { promotedImage != nil && olderFinished && blockersFinished == 4 }
+        checks["lastCancelledQueuedConsumerNeverStagesOrCallsBack"] = !priorityStages.events.values.contains("57")
+            && !priorityStages.events.values.contains("cancelled-callback") && priorityCache.cachedImage(forKey: "cancel-queued") == nil
+        checks["visibleJoinPromotesPendingPrefetchAheadOfOlderPrefetch"] = priorityStages.events.values.filter { $0 == "55" || $0 == "56" }.first == "56"
+        checks["sameKeyUsesOnlyTheFirstKnownInput"] = promotedImage?.size.width == 56
+            && priorityStages.events.values.filter { $0 == "56" }.count == 1 && !priorityStages.events.values.contains("58")
+        priorityCache.load(forKey: "cancel-queued", input: .image(image)) { survivorDelivered = $0 != nil }
         checks["cancellationDoesNotPoisonFailureCache"] = pump { survivorDelivered }
-        low.cancel(); visible.cancel()
+        low.cancel(); visible.cancel(); priorityCache.clearAll()
 
-        let sharedGate = DemandBlockingGate()
+        let sharedGate = DemandImageGate()
         let first = ThumbnailCacheRequestCancellation(), second = ThumbnailCacheRequestCancellation()
         var firstFinished = false, secondFinished = false
-        cache.load(forKey: "shared-sync", cancellation: first,
-            loader: { sharedGate.wait(); return image }) { firstFinished = $0 != nil }
-        checks["sharedSyncGeneratorStarted"] = pump { sharedGate.started }
-        cache.load(forKey: "shared-sync", cancellation: second,
-            loader: { preconditionFailure("shared key regenerated") }) { secondFinished = $0 != nil }
+        cache.loadImageAsync(forKey: "shared-unknown", cancellation: first,
+            loader: { (await sharedGate.image()).map { .image($0) } }) { firstFinished = $0 != nil }
+        checks["sharedUnknownProducerStarted"] = pump { sharedGate.waiting }
+        cache.load(forKey: "shared-unknown", cancellation: second, input: .image(makeImage(60))) { secondFinished = $0 === image }
         let sharedJPEGCount = ThumbnailEncodingObservation.count("jpeg")
-        first.cancel(); sharedGate.release()
-        checks["cancelOnePreservesOtherConsumer"] = pump { secondFinished } && !firstFinished
-        checks["remainingSyncConsumerStillEncodesJPEG"] = ThumbnailEncodingObservation.count("jpeg") == sharedJPEGCount + 1
-        let lateGate = DemandBlockingGate(), lateToken = ThumbnailCacheRequestCancellation()
+        first.cancel(); sharedGate.resume(image)
+        checks["cancelOnePreservesOtherConsumer"] = pump { secondFinished && ThumbnailEncodingObservation.finished("shared-unknown") > 0 } && !firstFinished
+        checks["remainingConsumerStillEncodesJPEG"] = ThumbnailEncodingObservation.count("jpeg") == sharedJPEGCount + 1
+        let lateGate = DemandImageGate(), lateToken = ThumbnailCacheRequestCancellation()
         var lateDelivered = false
-        cache.load(forKey: "late-sync", cancellation: lateToken,
-            loader: { lateGate.wait(); return image }) { _ in lateDelivered = true }
-        checks["lateSyncGeneratorStarted"] = pump { lateGate.started }
+        cache.loadImageAsync(forKey: "late-unknown", cancellation: lateToken,
+            loader: { (await lateGate.image()).map { .image($0) } }) { _ in lateDelivered = true }
+        checks["lateUnknownProducerStarted"] = pump { lateGate.waiting }
         let lateJPEGCount = ThumbnailEncodingObservation.count("jpeg")
-        lateToken.cancel(); lateGate.release()
-        checks["lateSyncGeneratorReturns"] = pump {
-            lateGate.finished && ThumbnailEncodingObservation.finishes.values.contains("late-sync")
-        }
+        lateToken.cancel()
+        checks["lateUnknownProducerCancelled"] = pump { lateGate.cancelled }
         checks["cancelledRunningGeneratorSkipsJPEGEncoding"] = ThumbnailEncodingObservation.count("jpeg") == lateJPEGCount
-        checks["cancelledRunningGeneratorCannotPublish"] = !lateDelivered && cache.cachedImage(forKey: "late-sync") == nil
+        checks["cancelledRunningGeneratorCannotPublish"] = !lateDelivered && cache.cachedImage(forKey: "late-unknown") == nil
         var replacement: NSImage?
-        cache.load(forKey: "late-sync", loader: { image }) { replacement = $0 }
-        checks["sameKeyAfterCancelledSyncCanStartFresh"] = pump { replacement != nil }
+        cache.load(forKey: "late-unknown", input: .image(image)) { replacement = $0 }
+        checks["sameKeyAfterCancelledProducerCanStartFresh"] = pump { replacement != nil }
 
-        let pinnedGate = DemandBlockingGate(), pinnedToken = ThumbnailCacheRequestCancellation()
-        var legacyDelivered = false
-        cache.load(forKey: "pinned-sync", cancellation: pinnedToken,
-            loader: { pinnedGate.wait(); return image }) { _ in }
-        checks["pinnedSyncGeneratorStarted"] = pump { pinnedGate.started }
-        cache.load(forKey: "pinned-sync", loader: { nil }) { legacyDelivered = $0 != nil }
+        let pinnedGate = DemandImageGate(), pinnedToken = ThumbnailCacheRequestCancellation()
+        var pinnedImage: NSImage?
+        cache.loadImageAsync(forKey: "pinned-unknown", cancellation: pinnedToken,
+            loader: { (await pinnedGate.image()).map { .image($0) } }) { _ in }
+        checks["pinnedUnknownProducerStarted"] = pump { pinnedGate.waiting }
+        cache.load(forKey: "pinned-unknown", input: .image(makeImage(60))) { pinnedImage = $0 }
         let pinnedJPEGCount = ThumbnailEncodingObservation.count("jpeg")
-        pinnedToken.cancel(); pinnedGate.release()
-        checks["legacyUncancellableLoadPinsGenerator"] = pump { legacyDelivered }
-        checks["pinnedSyncConsumerStillEncodesJPEG"] = ThumbnailEncodingObservation.count("jpeg") == pinnedJPEGCount + 1
+        pinnedToken.cancel(); pinnedGate.resume(image)
+        checks["uncancellableLoadPinsOriginalProducer"] = pump { pinnedImage != nil && ThumbnailEncodingObservation.finished("pinned-unknown") > 0 } && pinnedImage === image
+        checks["pinnedConsumerStillEncodesJPEG"] = ThumbnailEncodingObservation.count("jpeg") == pinnedJPEGCount + 1
 
         for mode in ["cancelled", "peer", "pinned"] {
             let key = "png-decoder-" + mode
@@ -207,43 +275,43 @@ private final class DemandDataGate: @unchecked Sendable {
         let originalBytes = bytes + Data("original-encoded-suffix".utf8)
         let originalJPEGCount = ThumbnailEncodingObservation.count("jpeg")
         var originalImage: NSImage?, originalDisk: Data?, originalDiskFinished = false
-        cache.loadImageData(forKey: "original-encoded", loader: { originalBytes }) { originalImage = $0 }
-        checks["syncImageDataRetainsOriginalEncoding"] = pump { originalImage != nil }
+        cache.loadImageDataAsync(forKey: "original-encoded", loader: { originalBytes }) { originalImage = $0 }
+        checks["asyncImageDataRetainsOriginalEncoding"] = pump { originalImage != nil }
             && ThumbnailEncodingObservation.count("jpeg") == originalJPEGCount
         cache.loadRawDataAsync(forKey: "original-encoded", loader: { nil }) { originalDisk = $0; originalDiskFinished = true }
-        checks["syncImageDataPreservesOriginalDiskBytes"] = pump { originalDiskFinished } && originalDisk == originalBytes
+        checks["asyncImageDataPreservesOriginalDiskBytes"] = pump { originalDiskFinished } && originalDisk == originalBytes
 
         for clear in [false, true] {
-            let gate = DemandBlockingGate()
+            let gate = DemandImageGate()
             let writes = DemandEvents()
             let isolated = ThumbnailCache(namespace: "sync-clear-" + UUID().uuidString, writeEncodedData: { data, url in
                 writes.record("write"); try data.write(to: url)
             })
             var delivered = false
             var originalCallbacks = 0, joinedCallbacks = 0
-            isolated.load(forKey: "invalidated", loader: { gate.wait(); return image }) {
+            isolated.loadImageAsync(forKey: "invalidated", loader: { (await gate.image()).map { .image($0) } }) {
                 delivered = $0 != nil; originalCallbacks += 1
             }
             let label = clear ? "clear" : "remove"
-            checks[label + "SyncLoadStarted"] = pump { gate.started }
+            checks[label + "UnknownProducerStarted"] = pump { gate.waiting }
             if clear { isolated.clearAll() } else { isolated.remove(forKey: "invalidated") }
             var joined: NSImage?
-            isolated.load(forKey: "invalidated", loader: { preconditionFailure("invalidated live request must still coalesce") }) {
+            isolated.load(forKey: "invalidated", input: .image(makeImage(60))) {
                 joined = $0; joinedCallbacks += 1
             }
             let jpegCount = ThumbnailEncodingObservation.count("jpeg")
-            gate.release()
-            checks[label + "PreservesExistingSyncConsumer"] = pump { delivered }
+            gate.resume(image)
+            checks[label + "PreservesExistingConsumer"] = pump { delivered }
             checks[label + "InvalidatedConsumerSkipsOptionalJPEGEncoding"] = ThumbnailEncodingObservation.count("jpeg") == jpegCount
             checks[label + "InvalidatedConsumerSkipsStagedWrites"] = writes.values.isEmpty
             checks[label + "JoinAfterInvalidationStillReceivesOneCurrentResult"] = pump { joined != nil }
                 && originalCallbacks == 1 && joinedCallbacks == 1 && joined === image
-            checks[label + "SyncResultDoesNotRepopulateMemory"] = isolated.cachedImage(forKey: "invalidated") == nil
+            checks[label + "ResultDoesNotRepopulateMemory"] = isolated.cachedImage(forKey: "invalidated") == nil
             var readFinished = false, disk: Data?
             isolated.loadRawDataAsync(forKey: "invalidated", loader: { nil }) { disk = $0; readFinished = true }
-            checks[label + "SyncResultDoesNotRepopulateDisk"] = pump { readFinished } && disk == nil
+            checks[label + "ResultDoesNotRepopulateDisk"] = pump { readFinished } && disk == nil
             var fresh: NSImage?
-            isolated.load(forKey: "invalidated", loader: { image }) { fresh = $0 }
+            isolated.load(forKey: "invalidated", input: .image(image)) { fresh = $0 }
             checks[label + "CompletedInvalidatedRequestAllowsFreshCachedRequest"] = pump { fresh != nil }
                 && isolated.cachedImage(forKey: "invalidated") != nil
             isolated.clearAll()
@@ -310,14 +378,15 @@ private final class DemandDataGate: @unchecked Sendable {
             let label = clear ? "clearAfterEncoding" : "removeAfterEncoding"
             var delivered: NSImage?, callbacks = 0
             let jpegCount = ThumbnailEncodingObservation.count("jpeg")
-            late.load(forKey: "encoded", loader: { image }) { delivered = $0; callbacks += 1 }
+            late.load(forKey: "encoded", input: .image(image)) { delivered = $0; callbacks += 1 }
             checks[label + "HasAlreadyEncodedBeforeInvalidation"] = pump { stageGate.started }
                 && ThumbnailEncodingObservation.count("jpeg") == jpegCount + 1
+            checks[label + "ImageIsPublishedBeforeBlockedDerivedWrite"] = pump(0.3) { callbacks == 1 }
             if clear { late.clearAll() } else { late.remove(forKey: "encoded") }
             stageGate.release()
-            checks[label + "StillDeliversOriginalConsumerExactlyOnce"] = pump { delivered != nil }
+            checks[label + "StillDeliversOriginalConsumerExactlyOnce"] = pump { delivered != nil && stageGate.finished && writes.values == ["write"] }
                 && callbacks == 1 && delivered === image && writes.values == ["write"]
-            checks[label + "FinalPermissionCheckStillBlocksMemoryPublication"] = late.cachedImage(forKey: "encoded") == nil
+            checks[label + "InvalidationClearsAlreadyPublishedMemory"] = late.cachedImage(forKey: "encoded") == nil
             var finished = false, persisted: Data?
             late.loadRawDataAsync(forKey: "encoded", loader: { nil }) { persisted = $0; finished = true }
             checks[label + "FinalPermissionCheckStillBlocksDiskPublication"] = pump { finished } && persisted == nil
@@ -327,8 +396,8 @@ private final class DemandDataGate: @unchecked Sendable {
         let deleteGate = ThumbnailClearObservation.gate, deletionEvents = ThumbnailClearObservation.events
         let asynchronousClear = ThumbnailCache(namespace: "asynchronous-clear-" + UUID().uuidString)
         var beforeClear: NSImage?
-        asynchronousClear.load(forKey: "before-clear", loader: { image }) { beforeClear = $0 }
-        checks["asynchronousClearSeededRealDiskAndMemory"] = pump { beforeClear != nil }
+        asynchronousClear.load(forKey: "before-clear", input: .image(image)) { beforeClear = $0 }
+        checks["asynchronousClearSeededRealDiskAndMemory"] = pump { beforeClear != nil && ThumbnailEncodingObservation.finished("before-clear") > 0 }
         asynchronousClear.clearAll {
             deletionEvents.record(Thread.isMainThread ? "clear-completed-main" : "clear-completed-background")
         }
@@ -339,29 +408,35 @@ private final class DemandDataGate: @unchecked Sendable {
             deletionEvents.values.contains("main-remains-responsive")
         }
         var duringClear: NSImage?
-        asynchronousClear.load(forKey: "new-generation", loader: { image }) { duringClear = $0 }
+        asynchronousClear.load(forKey: "new-generation", input: .image(image)) { duringClear = $0 }
         checks["newGenerationCanPublishWhileOldDirectoryDeletionIsBlocked"] = pump(0.3) { duringClear != nil }
             && !deleteGate.finished && !deletionEvents.values.contains("clear-completed-main")
         deleteGate.release()
-        checks["clearCompletionWaitsForTheRetiredDirectoryDeletion"] = pump { deletionEvents.values.contains("clear-completed-main") }
+        checks["clearCompletionWaitsForTheRetiredDirectoryDeletion"] = pump {
+            deletionEvents.values.contains("clear-completed-main") && ThumbnailEncodingObservation.finished("new-generation") > 0
+        }
         var newDiskFinished = false, newDiskData: Data?
         asynchronousClear.loadRawDataAsync(forKey: "new-generation", loader: { nil }) {
             newDiskData = $0; newDiskFinished = true
         }
         checks["deletingTheRetiredDirectoryCannotDeletePostClearDiskWrites"] = pump { newDiskFinished } && newDiskData != nil
         let failures = DemandEvents()
+        let badSource = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true).appendingPathComponent("bad-source.png", isDirectory: false)
+        try Data("invalid-image".utf8).write(to: badSource)
         var failureCount = 0
-        negative.load(forKey: "bad", loader: { failures.record("generated"); return nil }) { _ in failureCount += 1 }
+        negative.load(forKey: "bad", input: .sourceFile(badSource, onFailure: { failures.record("generated") })) { _ in failureCount += 1 }
         checks["firstNilCompletes"] = pump { failureCount == 1 }
-        negative.load(forKey: "bad", loader: { failures.record("generated-again"); return image }) { _ in failureCount += 1 }
+        negative.load(forKey: "bad", input: .sourceFile(badSource, onFailure: { failures.record("generated-again") })) { _ in failureCount += 1 }
         checks["nilLoadRetainsOriginalNegativeCacheSemantics"] = failureCount == 2 && failures.values == ["generated"]
         checks["negativeCacheIsWarmBeforeExplicitClear"] = negative.hasCachedResult(forKey: "bad")
 
         let neighboring = ThumbnailCache(namespace: "neighbor-" + UUID().uuidString, usesFailureCache: true)
         var neighborImage: NSImage?, neighborFailure = false
-        neighboring.load(forKey: "neighbor-image", loader: { image }) { neighborImage = $0 }
-        neighboring.load(forKey: "neighbor-failure", loader: { nil }) { _ in neighborFailure = true }
-        checks["neighborNamespaceHasImageAndFailureBeforeClear"] = pump { neighborImage != nil && neighborFailure }
+        neighboring.load(forKey: "neighbor-image", input: .image(image)) { neighborImage = $0 }
+        neighboring.load(forKey: "neighbor-failure", input: .sourceData(Data())) { _ in neighborFailure = true }
+        checks["neighborNamespaceHasImageAndFailureBeforeClear"] = pump {
+            neighborImage != nil && neighborFailure && ThumbnailEncodingObservation.finished("neighbor-image") > 0
+        }
             && neighboring.hasCachedResult(forKey: "neighbor-failure")
         negative.clearAll()
         checks["atomicClearRemovesItsNegativeConclusion"] = !negative.hasCachedResult(forKey: "bad")
@@ -369,44 +444,45 @@ private final class DemandDataGate: @unchecked Sendable {
             && neighboring.hasCachedResult(forKey: "neighbor-failure")
         neighboring.imageCache.removeAllObjects()
         neighborImage = nil
-        neighboring.load(forKey: "neighbor-image", loader: { preconditionFailure("another namespace's disk was cleared") }) { neighborImage = $0 }
+        neighboring.load(forKey: "neighbor-image", input: .sourceData(Data())) { neighborImage = $0 }
         checks["atomicClearKeepsOtherNamespaceDisk"] = pump { neighborImage != nil }
         var afterClear: NSImage?
-        negative.load(forKey: "bad", loader: { failures.record("generated-after-clear"); return image }) { afterClear = $0 }
-        checks["sameKeySucceedsAfterExplicitClearWithoutChangingIdentity"] = pump { afterClear != nil }
-            && failures.values == ["generated", "generated-after-clear"]
+        let afterClearJPEGCount = ThumbnailEncodingObservation.count("jpeg")
+        negative.load(forKey: "bad", input: .image(image)) { afterClear = $0 }
+        checks["sameKeySucceedsAfterExplicitClearWithoutChangingIdentity"] = pump { afterClear != nil && ThumbnailEncodingObservation.finished("bad") > 1 }
+            && ThumbnailEncodingObservation.count("jpeg") == afterClearJPEGCount + 1
         negative.imageCache.removeAllObjects()
         afterClear = nil
-        negative.load(forKey: "bad", loader: { preconditionFailure("clearAll did not recreate its namespace directory") }) { afterClear = $0 }
+        negative.load(forKey: "bad", input: .sourceData(Data())) { afterClear = $0 }
         checks["atomicClearRecreatesDirectoryForNewDiskReturns"] = pump { afterClear != nil }
 
         let clearNil = ThumbnailCache(namespace: "clear-held-nil-" + UUID().uuidString, usesFailureCache: true)
-        let heldNil = DemandBlockingGate(), heldNilToken = ThumbnailCacheRequestCancellation()
+        let heldNil = DemandImageGate(), heldNilToken = ThumbnailCacheRequestCancellation()
         var heldNilCompletions = 0, heldNilImages = 0
-        clearNil.load(forKey: "same-key", cancellation: heldNilToken, loader: { heldNil.wait(); return nil }) { result in
+        clearNil.loadImageAsync(forKey: "same-key", cancellation: heldNilToken, loader: { (await heldNil.image()).map { .image($0) } }) { result in
             heldNilCompletions += 1
             if result != nil { heldNilImages += 1 }
         }
-        checks["oldNilProducerIsHeldBeforeAtomicClear"] = pump { heldNil.started }
+        checks["oldNilProducerIsHeldBeforeAtomicClear"] = pump { heldNil.waiting }
         clearNil.clearAll()
-        heldNil.release()
+        heldNil.resume(nil)
         checks["atomicClearPreservesExactlyOneOldNilConsumerCompletion"] = pump { heldNilCompletions == 1 }
             && heldNilImages == 0 && !heldNilToken.cancelled
         checks["oldNilProducerCannotRefillFailureAfterAtomicClear"] = !clearNil.hasCachedResult(forKey: "same-key")
         var heldNilRecovery: NSImage?
-        clearNil.load(forKey: "same-key", loader: { image }) { heldNilRecovery = $0 }
+        clearNil.load(forKey: "same-key", input: .image(image)) { heldNilRecovery = $0 }
         checks["sameKeyAfterHeldNilClearCanGenerateAndCacheSuccess"] = pump { heldNilRecovery != nil }
             && clearNil.hasCachedResult(forKey: "same-key") && heldNilCompletions == 1
         clearNil.clearAll(); neighboring.clearAll()
 
-        let cancelledFailureGate = DemandBlockingGate(), cancelledFailure = ThumbnailCacheRequestCancellation()
+        let cancelledFailureGate = DemandImageGate(), cancelledFailure = ThumbnailCacheRequestCancellation()
         var failureWasDelivered = false, failureRecovered = false
-        negative.load(forKey: "cancelled-failure", cancellation: cancelledFailure,
-            loader: { cancelledFailureGate.wait(); return nil }) { _ in failureWasDelivered = true }
-        checks["negativeCacheCandidateStarted"] = pump { cancelledFailureGate.started }
-        cancelledFailure.cancel(); cancelledFailureGate.release()
-        checks["cancelledNilGeneratorReturns"] = pump { cancelledFailureGate.finished }
-        negative.load(forKey: "cancelled-failure", loader: { image }) { failureRecovered = $0 != nil }
+        negative.loadImageAsync(forKey: "cancelled-failure", cancellation: cancelledFailure,
+            loader: { (await cancelledFailureGate.image()).map { .image($0) } }) { _ in failureWasDelivered = true }
+        checks["negativeCacheCandidateStarted"] = pump { cancelledFailureGate.waiting }
+        cancelledFailure.cancel()
+        checks["cancelledNilGeneratorReturns"] = pump { cancelledFailureGate.cancelled }
+        negative.load(forKey: "cancelled-failure", input: .image(image)) { failureRecovered = $0 != nil }
         checks["cancelledNilCannotPopulateNegativeCache"] = pump { failureRecovered } && !failureWasDelivered
 
         let decodeEvents = DemandEvents(), decodeGate = DemandBlockingGate()
@@ -425,9 +501,9 @@ private final class DemandDataGate: @unchecked Sendable {
         let asyncGate = DemandImageGate(), asyncToken = ThumbnailCacheRequestCancellation()
         var oldAsyncDelivered = false, queuedAsyncDelivered = false
         cache.loadImageAsync(forKey: "async-generator", cancellation: asyncToken,
-            loader: { await asyncGate.image() }) { _ in oldAsyncDelivered = true }
+            loader: { (await asyncGate.image()).map { .image($0) } }) { _ in oldAsyncDelivered = true }
         checks["asyncGenerationStartedWithoutBlockingThread"] = pump { asyncGate.waiting }
-        cache.loadImageAsync(forKey: "next-async-generator", loader: { image }) { queuedAsyncDelivered = $0 != nil }
+        cache.loadImageAsync(forKey: "next-async-generator", loader: { .image(image) }) { queuedAsyncDelivered = $0 != nil }
         RunLoop.main.run(until: Date().addingTimeInterval(0.04))
         checks["asyncGenerationKeepsBoundedSlotUntilCallback"] = !queuedAsyncDelivered
         asyncToken.cancel()
@@ -438,14 +514,14 @@ private final class DemandDataGate: @unchecked Sendable {
         let firstGeneration = DemandImageGate(), congestionGate = DemandBlockingGate(), congestionEvents = DemandEvents()
         let generationOrder = DemandEvents()
         var firstPublished = false, pendingGenerated = 0, shortFinished = 0, priorMissesFinished = false
-        congested.loadImageAsync(forKey: "first-image", loader: { await firstGeneration.image() }) { firstPublished = $0 != nil }
+        congested.loadImageAsync(forKey: "first-image", loader: { (await firstGeneration.image()).map { .image($0) } }) { firstPublished = $0 != nil }
         checks["congestionFirstGeneratorHoldsSlot"] = pump { firstGeneration.waiting }
         for index in 0..<8 {
             congested.loadImageAsync(forKey: "congested-image-\(index)", loader: {
                 let previous = generationOrder.values.last ?? "first-image"
                 generationOrder.record("congested-image-\(index)")
                 congestionEvents.record(congested.cachedImage(forKey: previous) == nil ? "ran-ahead" : "publication-ordered")
-                return NSImage(data: bytes)
+                return NSImage(data: bytes).map { .image($0) }
             }) { _ in pendingGenerated += 1 }
         }
         congested.loadRawDataAsync(forKey: "miss-barrier", loader: { nil }) { _ in priorMissesFinished = true }
@@ -472,16 +548,17 @@ private final class DemandDataGate: @unchecked Sendable {
         let handoffToken = ThumbnailCacheRequestCancellation()
         var cancelledHandoffDelivered = false, followingHandoffFinished = false
         handoff.loadImageAsync(forKey: "cancel-before-publish", cancellation: handoffToken,
-            loader: { NSImage(data: bytes) }) { _ in cancelledHandoffDelivered = true }
-        checks["asyncHandoffStagedBeforePublication"] = pump { handoffGate.started }
+            loader: { NSImage(data: bytes).map { .image($0) } }) { _ in cancelledHandoffDelivered = true }
+        checks["asyncHandoffDerivedWriteHeldAfterImagePublication"] = pump { handoffGate.started }
+            && pump(0.3) { cancelledHandoffDelivered }
         handoff.loadImageAsync(forKey: "next-after-handoff", loader: {
-            handoffEvents.record("next-started"); return NSImage(data: bytes)
+            handoffEvents.record("next-started"); return NSImage(data: bytes).map { .image($0) }
         }) { followingHandoffFinished = $0 != nil }
         RunLoop.main.run(until: Date().addingTimeInterval(0.04))
-        checks["generationSlotRetainedUntilPublication"] = !handoffEvents.values.contains("next-started")
+        checks["generationSlotRetainedThroughPublishedDerivedTail"] = !handoffEvents.values.contains("next-started")
         handoffToken.cancel(); handoffGate.release()
         checks["cancelledHandoffReturnsSlotForNextGenerator"] = pump { followingHandoffFinished }
-        checks["cancelledHandoffDoesNotPublishImage"] = !cancelledHandoffDelivered && handoff.cachedImage(forKey: "cancel-before-publish") == nil
+        checks["cancellingAlreadyDeliveredConsumerKeepsReadyImage"] = cancelledHandoffDelivered && handoff.cachedImage(forKey: "cancel-before-publish") != nil
         handoff.clearAll()
 
         let ingress = ThumbnailCache(namespace: "source-ingress-" + UUID().uuidString)
@@ -600,8 +677,8 @@ private final class DemandDataGate: @unchecked Sendable {
             prefetch.cancel(); visible.cancel()
         }
         negative.clearAll()
-        #endif
         cache.clearAll()
+        checks.merge(try ThumbnailImagePublicationChecks.run(), uniquingKeysWith: { _, current in current })
         print(String(data: try JSONSerialization.data(withJSONObject: ["checks": checks, "metrics": metrics], options: [.sortedKeys]), encoding: .utf8)!)
     }
 }

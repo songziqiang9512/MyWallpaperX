@@ -18,7 +18,7 @@ struct PixabayVideoItem: Equatable {
     @Published var downloadedIDs: Set<Int> = []
     @Published var downloadProgressByID: [Int: Double] = [:]
     var prioritizedWindows: [[Int]] = []
-    func prioritizeVisibleItemIDs(_ ids: [Int], maxPixelSize: Int = 512) { prioritizedWindows.append(ids) }
+    func prioritizeVisibleItemIDs(_ ids: [Int], request: ThumbnailRequest) { prioritizedWindows.append(ids) }
     func thumbnailPrefetchNeedsRefresh() -> Bool { false }
     func cancelThumbnailPrefetch() {}
 }
@@ -47,7 +47,7 @@ extension Notification.Name {
     var wallpaperAction: (() -> Void)?
     var inspectAction: (() -> Void)?
     func configure(item: PixabayVideoItem, isDownloading: Bool, isDownloaded: Bool,
-                   downloadProgress: Double?, thumbnailDemandActive: Bool? = nil,
+                   downloadProgress: Double?, thumbnailRequest: ThumbnailRequest?, thumbnailDemandActive: Bool? = nil,
                    organization: WallpaperInspectorActions? = nil, onInspect: (() -> Void)? = nil, onDownload: @escaping () -> Void,
                    onSetAsWallpaper: @escaping () -> Void) {
         states.append(State(id: item.id, title: item.title, downloading: isDownloading,
@@ -57,6 +57,7 @@ extension Notification.Name {
         wallpaperAction = onSetAsWallpaper
         inspectAction = onInspect
     }
+    func beginDisplayingThumbnail(request: ThumbnailRequest?) {}
     func setKeyboardFocus(_ focused: Bool) { isSelected = focused }
     func updateOrganization(_ actions: WallpaperInspectorActions?, for itemID: Int) {
         // A recording boundary only: the complete real card gate proves its
@@ -69,6 +70,7 @@ extension Notification.Name {
     var cells: [IndexPath: NSCollectionViewItem] = [:]
     func makeItem(withIdentifier: NSUserInterfaceItemIdentifier, for indexPath: IndexPath) -> NSCollectionViewItem { AppKitPixabayBrowserItem() }
     func indexPathsForVisibleItems() -> Set<IndexPath> { visible }
+    func visibleItems() -> [NSCollectionViewItem] { Array(cells.values) }
     func item(at indexPath: IndexPath) -> NSCollectionViewItem? { cells[indexPath] }
     func cell(_ index: Int) -> AppKitPixabayBrowserItem {
         cells[IndexPath(item: index, section: 0)] as! AppKitPixabayBrowserItem
@@ -133,11 +135,12 @@ extension Notification.Name {
     var itemsByID: [Int: PixabayVideoItem] = [:]
     var lastConsumedProgress: [Int: Double] = [:]
     var lastPrioritizedVisibleIDs: [Int]?
-    var lastPrioritizedPixelLimit = 0
+    var lastPrioritizedRequest: ThumbnailRequest?
     var isThumbnailDemandUpdateScheduled = false
     var canLoadThumbnails = true
     let window: NSWindow? = nil
     let flowLayout = NSCollectionViewFlowLayout()
+    var thumbnailRequest: ThumbnailRequest? { .init(width: 512, height: 512, mode: .fill) }
     var lastLoadedCount = 0
     let scrollView = NSScrollView()
     let collectionView = RecordingCollection()
@@ -154,9 +157,6 @@ extension Notification.Name {
     // ONLINE_METHODS
 }
 
-enum GridThumbnailDecoder {
-    static func pixelLimit(width: CGFloat, scale: CGFloat) -> Int { 512 }
-}
 
 @main struct UIProjectionEfficiencyHarness {
     @MainActor static func pump(_ duration: TimeInterval = 0.04) {

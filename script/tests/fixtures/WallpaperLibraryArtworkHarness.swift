@@ -1,4 +1,18 @@
 import AppKit
+import ImageIO
+
+@MainActor func artworkEncodedSourceData(_ index: Int) -> Data {
+    let context = CGContext(data: nil, width: 800, height: 800, bitsPerComponent: 8,
+        bytesPerRow: 3200, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)!
+    context.setFillColor(red: CGFloat((index * 37) % 256) / 255, green: CGFloat((index * 71) % 256) / 255,
+        blue: CGFloat((index * 113) % 256) / 255, alpha: 1)
+    context.fill(CGRect(x: 0, y: 0, width: 800, height: 800))
+    let data = NSMutableData()
+    let writer = CGImageDestinationCreateWithData(data, "public.jpeg" as CFString, 1, nil)!
+    CGImageDestinationAddImage(writer, context.makeImage()!, nil)
+    precondition(CGImageDestinationFinalize(writer))
+    return data as Data
+}
 
 // Only the existing pixel/source leaves are controlled. The complete production
 // consumer, identity, leases, drawing and tint source run below.
@@ -32,11 +46,11 @@ enum SteamWorkshopDownloadGridSupport { static func fallbackDisplayItem(for row:
 func steamWorkshopPreviewSources(item: SteamWorkshopBrowserItem, record: SteamWorkshopDownloadRecord) -> (primary: URL?, fallback: URL?) { (URL(fileURLWithPath: "/preview/" + item.id), nil) }
 final class SteamWorkshopPreviewState {
     struct Loaders { static func live(priority: ThumbnailCacheRequestPriority) -> Self { .init() } }
-    static var pixels: [Int] = []; static var resets = 0
+    static var pixels: [Int] = []; static weak var last: SteamWorkshopPreviewState?
     var onChange: (() -> Void)?; var image: NSImage? = .init(size: .init(width: 10, height: 10))
-    init(loaders: Loaders) {}
+    init(loaders: Loaders) { Self.last = self }
     func configure(previewURL: URL?, fallbackImageURL: URL?, fallbackVideoURL: URL?, maxPixelSize: Int) { Self.pixels.append(maxPixelSize); onChange?() }
-    func reset() { Self.resets += 1 }
+    func reset() { image = nil }
 }
 struct PixabayDownloadedEntry { let id: Int }
 struct PixabayContent { var entries: [PixabayDownloadedEntry] = [] }
@@ -242,6 +256,83 @@ final class ArtworkRequests {
         checks["new-epoch-same-asset-loads-new-bytes"] = (color(resetImage, 240, 240)?.greenComponent ?? 0) > 0.9
         resetProvider.setDemand(sourceToken: resetToken, playlistIDs: [])
 
+        let sourceCache = DecodedThumbnailMemoryCache(countLimit: 256, totalCostLimit: 128 * 1024 * 1024)
+        var sourceObservations: [() -> Int] = [], outputObservations: [() -> Int] = []
+        var sourceCallbacks: [String: (NSImage?) -> Void] = [:]
+        var resourceCovers: [UUID: WallpaperPlaylistArtwork] = [:], resourcePublications = 0
+        var resourceCanceled = Set<String>()
+        func observePixels(_ image: NSImage) -> () -> Int {
+            let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil)!
+            let bytes = cg.bytesPerRow * cg.height
+            return { [weak image] in image == nil ? 0 : bytes }
+        }
+        func livePixels(_ observations: [() -> Int]) -> [String: Int] {
+            let bytes = observations.map { $0() }
+            return ["alive": bytes.filter { $0 > 0 }.count, "bytes": bytes.reduce(0, +)]
+        }
+        func encodedSource(_ index: Int) -> NSImage {
+            let data = artworkEncodedSourceData(index)
+            let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary)!
+            let pixels = CGImageSourceCreateImageAtIndex(source, 0, [kCGImageSourceShouldCacheImmediately: true] as CFDictionary)!
+            return NSImage(cgImage: pixels, size: NSSize(width: pixels.width, height: pixels.height))
+        }
+        let resourceProvider = WallpaperLibraryArtworkProvider(loader: { content, completion in
+            let id = content.providerReference.sourceID
+            sourceCallbacks[id] = completion
+            autoreleasepool {
+                let source = sourceCache.object(forKey: id as NSString) ?? encodedSource(Int(id)!)
+                let observation = observePixels(source)
+                sourceObservations.append(observation)
+                sourceCache.setObject(source, forKey: id as NSString, cost: observation())
+                completion(source)
+                let output = resourceCovers.values.compactMap(\.image).last
+                let publication = resourcePublications
+                completion(source)
+                checks["real-same-instance-echo-does-not-recompose-or-publish"] = (checks["real-same-instance-echo-does-not-recompose-or-publish"] ?? true)
+                    && resourcePublications == publication && output != nil
+            }
+            return { resourceCanceled.insert(id) }
+        })
+        resourceProvider.onCoversChanged = { resourceCovers = $0; resourcePublications += 1 }
+        let resourceItems = Dictionary(uniqueKeysWithValues: (0..<96).map { (item(String($0)).reference, item(String($0))) })
+        let resourceEntries = (0..<96).map { WallpaperPlaylistDirectoryEntry(id: UUID(), name: "Memory \($0)", count: 1, coverReference: item(String($0)).reference) }
+        let resourceToken = UUID()
+        resourceProvider.update(entries: resourceEntries) { refs in refs.compactMap { resourceItems[$0] } }
+        resourceProvider.setDemand(sourceToken: resourceToken, playlistIDs: Set(resourceEntries.map(\.id)))
+        let readySources = livePixels(sourceObservations)
+        checks["real-source-cache-eviction-is-not-defeated-by-composed-covers"] = readySources["alive"]! < 96 && resourceCovers.count == 96
+        autoreleasepool {
+            for cover in resourceCovers.values { if let image = cover.image { outputObservations.append(observePixels(image)) } }
+        }
+        let expectedColors = resourceEntries.map { color(resourceCovers[$0.id]?.image, 128, 128)! }
+        sourceCache.removeAllObjects()
+        let clearedSources = livePixels(sourceObservations), clearedOutputs = livePixels(outputObservations)
+        checks["real-source-cache-clear-releases-originals-without-canceling-display-leases"] = clearedSources["alive"] == 0 && resourceCanceled.isEmpty
+        checks["real-composed-colors-and-alpha-survive-original-release"] = zip(resourceEntries, expectedColors).allSatisfy { entry, expected in
+            autoreleasepool {
+                color(resourceCovers[entry.id]?.image, 128, 128) == expected
+            }
+        }
+        let replacedEntry = resourceEntries[0], replace = sourceCallbacks[resourceEntries[0].coverReference!.sourceID]!
+        let oldOutputID = ObjectIdentifier(resourceCovers[replacedEntry.id]!.image!)
+        autoreleasepool {
+            replace(solid(.green))
+            if let image = resourceCovers[replacedEntry.id]?.image { outputObservations.append(observePixels(image)) }
+        }
+        checks["non-nil-replacement-updates-the-existing-cover"] = resourceCovers[replacedEntry.id]?.image.map(ObjectIdentifier.init) != oldOutputID
+            && (color(resourceCovers[replacedEntry.id]?.image, 128, 128)?.greenComponent ?? 0) > 0.9
+        let beforeNil = resourcePublications
+        replace(nil)
+        checks["nil-after-original-release-clears-the-rendered-cover"] = resourceCovers[replacedEntry.id]?.image == nil && resourcePublications == beforeNil + 1
+        replace(nil)
+        checks["repeated-nil-does-not-publish-an-unchanged-cover"] = resourcePublications == beforeNil + 1
+        resourceProvider.setDemand(sourceToken: resourceToken, playlistIDs: [])
+        let retiredOutputs = livePixels(outputObservations)
+        checks["last-display-demand-retires-all-composed-images-and-leases"] = retiredOutputs["alive"] == 0 && resourceCanceled.count == 96
+        let resource: [String: Any] = ["inputCount": 96, "readySources": readySources, "clearedSources": clearedSources,
+            "clearedOutputs": clearedOutputs, "retiredOutputs": retiredOutputs,
+            "composedColorSamples": expectedColors.map { [$0.redComponent, $0.greenComponent, $0.blueComponent, $0.alphaComponent] }]
+
         let manager = WallpaperManager(), images = SILService(), steam = SteamWorkshopService(), pixabay = PixabayService()
         manager.wallpapers = [.init(id: "v")]; images.wallpapers = [.init(id: "i", path: "/image")]
         steam.downloads = [.init(id: "s")]; pixabay.downloadedContent.entries = [.init(id: 7)]
@@ -254,7 +345,7 @@ final class ArtworkRequests {
             && SILThumbnailProvider.paths == ["/image"] && SteamWorkshopPreviewState.pixels == [256] && PixabayDownloadedThumbnailStore.ids == [7]
         let invalid = live.load(content: item("007", provider: .pixabay)) { _ in }
         invalid(); leases.forEach { $0() }
-        checks["live-original-cancellation-and-canonical-numeric-source-boundaries"] = SteamWorkshopPreviewState.resets == 1 && PixabayDownloadedThumbnailStore.ids == [7]
-        print(String(data: try! JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
+        checks["live-original-cancellation-and-canonical-numeric-source-boundaries"] = SteamWorkshopPreviewState.last?.image == nil && PixabayDownloadedThumbnailStore.ids == [7]
+        print(String(data: try! JSONSerialization.data(withJSONObject: ["checks": checks, "resource": resource], options: [.sortedKeys]), encoding: .utf8)!)
     }
 }

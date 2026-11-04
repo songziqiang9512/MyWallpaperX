@@ -50,7 +50,8 @@ class SteamPreviewLifecycleTests(unittest.TestCase):
             row_copy = work / "DownloadTaskRowView.swift"
             row_copy.write_text(row.replace("private let thumbnailView =", "let thumbnailView =", 1))
             sources += [row_copy, ROOT / "MyWallpaperX/Models/DownloadTask.swift",
-                        ROOT / "MyWallpaperX/Modules/Downloads/Core/DownloadTaskProjection.swift"]
+                        ROOT / "MyWallpaperX/Modules/Downloads/Core/DownloadTaskProjection.swift",
+                        ROOT / "MyWallpaperX/Modules/Downloads/UI/DownloadTaskRowPresentation.swift"]
             probe = work / "PopoverPreviewProbe.swift"
             probe.write_text(POPOVER_PROBE)
             harness = ROOT / "script/tests/fixtures/SteamPreviewLifecycleHarness.swift"
@@ -102,20 +103,27 @@ import AppKit
 @MainActor final class SteamPopoverPreviewProbe {
     let row: DownloadTaskRowView
     let url: URL
+    private let window: NSWindow
     var thumbnailView: NSImageView { row.thumbnailView }
     init(url: URL) {
         self.url = url
-        row = DownloadTaskRowView(bindings: .init(perform: { _, _ in }, loadThumbnail: { _, receive in
+        row = DownloadTaskRowView(bindings: .init(perform: { _, _ in }, loadThumbnail: { _, _, receive in
+            // Keep this gate's original 800px static-cache oracle; Controller
+            // target routing is covered by its separate demand gate.
             let cancellation = SteamWorkshopPreviewLoadCancellation()
             steamWorkshopLoadPreviewImage(from: url, cancellation: cancellation, completion: receive)
             return { cancellation.cancel() }
         }))
+        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 320, height: 76),
+            styleMask: [.titled], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.contentView = row
     }
     func load() {
         row.configure(.init(id: .init(reference: .init(provider: .steamWorkshop, sourceID: "row"), attemptID: "preview"),
                             title: "queue preview", phase: .completed, thumbnailKey: url.absoluteString))
     }
-    func unbind() { row.unbind() }
+    func unbind() { row.unbind(); window.contentView = nil; window.close() }
 }
 '''
 

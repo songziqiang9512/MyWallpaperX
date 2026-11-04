@@ -67,6 +67,18 @@
 
 项目 UI 是 AppKit-first。优先现有 `NSWindowController`、coordinator、responder chain、toolbar/sidebar/inspector、panel/menu、pasteboard 和 drag/drop owner；既有 SwiftUI 只是受控残留，不为新功能创建新 SwiftUI 产品面或扩大 `NSHostingView` bridge。
 
+原生Swift夹具沿产品isolation flags编译；`autoreleasepool`闭包内声明的局部UI函数显式标`@MainActor`，不靠降编译模式消除隔离错误。资源寿命观测按完整动作/回调划分局部pool，几何和弱引用读取也及时drain，只让值或weak观察跨阶段；测试自身强持旧view或整流程共一个pool会污染存活计数，须先排除这些观察效应，再判断产品owner，不放宽真实释放断言。
+
+ScreenCaptureKit的自身进程窗口查询可能返回零frame；按已确认的自身NSWindow设置输出尺寸，并核实际buffer/PNG宽高，帧计数或complete状态不能代替有效画面。高负载探针须观察实际排队、解码与预算淘汰，条目数量不能证明压力成立。需要前台交互结论时，在测量起点及动作期间核active/key；后台启动造成失焦的运行只作诊断，有帧和位移不代替前台资格。
+
+AX树遍历可通过`NSCollectionView.accessibilityItemAtIndexPath`触发真实cell构造；采集工具的截图也可能先读AX。将观察放在动作区间之外并按栈单列，不能把观察造成的Main忙段归为业务瓶颈。AX按钮动作可能先scrollToVisible，须与坐标鼠标事件区分。`CALayer.presentation()`近似当前事务起点的呈现；同一事务内隔一段时间重读不等于实时屏幕采样，跨事务的显式flush也须计为探针扰动，不能由此声称像素/FPS。
+
+滚动呈现探针把预热、等待输入与实际测量分段；有界逐帧预算应围绕真实动作计数，初始校准帧单列，不能在等待前台或输入服务时耗尽。进程、AX或截图可访问不证明动作到达；核实际输入/位移及测量段采样，未到达或截断时保留失败入口，不能据此认领流畅度，也不能改产品来迎合探针。 `performClick`的模拟按压开销与真实action handler分段，纯动作派发可用原控件`sendAction`并单列协议，不混为物理输入或与旧协议时耗作A/B。
+
+合成`postEvent`/`sendEvent`不会移动系统指针。若同一门还读取`mouseLocationOutsideOfEventStream`，事件位置与指针输入须一致，复用现有受控窗口即可；否则一次正常布局回调就可能取消模拟hover。保留放大/命中断言，修正不一致的夹具输入，不把它报成产品回退。受控指针仍不能证明真实指针跨越新sibling控件的跟踪。原生控件的mouseDown也可能异步返回，合成按压不能强制要求嵌套eventTracking循环；让真实事件泵递送mouseUp，再分别核控件入口与业务动作。Timer未运行或up根本未发，不能归因为产品吞击。
+
+[visibleItems](https://developer.apple.com/documentation/appkit/nscollectionview/visibleitems%28%29)含AppKit管理的离屏成员，需另记实际几何相交、绑定及图片属性，不能直接称屏幕可见或泄漏。[hitTest](https://developer.apple.com/documentation/appkit/nsview/hittest%28_%3A%29)的点属于接收者superview坐标；观察前核具体API坐标合同。Main预期layout、实际cell/文字和presentation属性均不等于已绘像素；屏幕身份须有同一截图内可核对的标题/rect等锚点，缺失或截断直说，不靠强制layout/display或扩大采样把缺证变通过；额外绘制锚点须说明其对失效/合成的扰动。
+
 窗口变化检查 role、identity、display、restoration、teardown、accessibility、drag region、visible-frame placement、Spaces/collection behavior、focus/input 和 borderless wallpaper level。主窗口、panel、Video helper window、Web surface、Scene output 各由当前唯一 owner 管理；不要把通用 SwiftUI scene/window modifier 套进当前 AppKit 生命周期。
 
 UI 只投影产品状态并发命令，不能成为第二 runtime 真值。多显示器行为使用目标 display 的当前 geometry，不假设固定分辨率或单屏。
@@ -89,9 +101,13 @@ UI 只投影产品状态并发命令，不能成为第二 runtime 真值。多�
 
 导出源码运行测试时，为导出目录提供独立 `.git`，不要让测试进程继承指向真实工作树的 `GIT_DIR`、`GIT_WORK_TREE` 或 `GIT_INDEX_FILE`。测试夹具会初始化仓库、切换分支和创建提交；refs、index、config必须独立，只读对象缓存可以共享。
 
+普通GUI副本先核Foundation实际目录和standard偏好域真实读值，不能把空HOME或独立bundleID当作禁恢复/禁登录；路径别名按实际身份比较。只给本次唯一测试域配值并精确清理，不写生产域；固定Keychain/IPC名及AppGroup/getpwuid派生目录另沿实际触达链核对，不能称全文件隔离；未记录原inode的用户运行点不按名称清理。前台测试先准备输入协议；xctrace用真实started通知准入，不把PID或目录存在当ready，再按动作时间戳核TOC覆盖，结束后的动作不作性能对照。单一Darwin通知注册的FD由notify_cancel关闭，不再重复close；用既有busy路径保护固定运行点时须标记通道未验收并核前后节点。
+
+调试器attach后，不用父方Popen的退出状态代替目标退出：先核已绑定身份的实际PID消失，再释放原生会话和运行点租约。断点须在目标模块加载后记录resolved locations；pending ID不算观察就绪。调试器退出、目标仍活时，先关闭精确测试目标并保留无效运行，不能认作产品失败或有效点击证据。
+
 真实 Scene/Workshop root 与用户视频只读。sample copy、runtime home、property injection、cache、manifest、screenshots、reports 和 evidence 使用每次全新隔离位置；记录 App/helper 的绝对路径、hash、PID 和 display/request/surface identity。检查旧 `/Applications` App 没有抢占 helper、URL handler 或 writer。
 
-同一时刻只运行一个会竞争 App、helper、GPU、benchmark、matrix 或共享 DerivedData 的任务。结束后确认进程退出或明确保留。高体量输出另加载 artifact governance。
+同一时刻只运行一个会竞争 App、helper、GPU、benchmark、matrix 或共享 DerivedData 的任务。先核门是否已由`run_native_app`持会话锁；父进程不得持同一flock再等子进程取锁，按真实tempfile目录/inode选唯一锁owner。结束后确认进程退出或明确保留。高体量输出另加载 artifact governance。
 
 声明按实际最高阶段：static/recognized、compiled/linked、process alive、accepted/host ready、prepared、published/composited、visible bounded case、matrix profile、signed staged、official bounded comparison、release。较低阶段不能冒充较高阶段；所有 PASS 绑定 frozen source diff 或 commit、精确 build identity、输入、环境和 gate version。产品源码、gate/build input 或 App identity 变化后，旧 runtime 证据不再证明当前候选。
 

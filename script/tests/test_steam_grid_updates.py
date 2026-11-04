@@ -104,6 +104,7 @@ class SteamGridUpdateTests(unittest.TestCase):
                        *[UI / name for name in names], ROOT / 'MyWallpaperX/Shared/Components/WallpaperLibraryGridMetrics.swift',
                        ROOT / 'MyWallpaperX/Shared/UI/WallpaperGridScrollView.swift',
                        ROOT / 'MyWallpaperX/Shared/UI/WallpaperLibrarySheetPresentation.swift']
+            sources.append(ROOT / "MyWallpaperX/Shared/ThumbnailRequest.swift")
             sources += [*STEAM_SOURCES, preview, ROOT / 'script/tests/fixtures/ListThumbnailTintSteamModelLeaves.swift']
             build = subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-default-isolation', 'MainActor',
                                     *map(str, sources), '-o', str(binary)], capture_output=True, text=True, timeout=120)
@@ -153,6 +154,7 @@ class SteamGridUpdateTests(unittest.TestCase):
             preview.write_text(steam_source_projection()[1])
             sources = [ROOT / 'MyWallpaperX/Shared/UI/WallpaperGridScrollView.swift', UI / 'SteamWorkshopGridLayoutSupport.swift', UI / 'SteamWorkshopBrowserFooterSupport.swift',
                 UI / 'AppKitSteamWorkshopBrowserFooterComponents.swift', ROOT / 'MyWallpaperX/Shared/Components/WallpaperLibraryGridMetrics.swift', source]
+            sources.append(ROOT / "MyWallpaperX/Shared/ThumbnailRequest.swift")
             sources += [*STEAM_SOURCES, preview, ROOT / 'script/tests/fixtures/ListThumbnailTintSteamModelLeaves.swift']
             build = subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-default-isolation', 'MainActor', *map(str, sources),
                 '-module-cache-path', str(work / 'modules'), '-o', str(binary)], capture_output=True, text=True, timeout=120)

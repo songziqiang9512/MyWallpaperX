@@ -53,7 +53,7 @@ nonisolated enum WallpaperLibraryQuery {
 
     static func resolve(_ references: [WallpaperReference], catalog: WallpaperLibraryCatalog,
                         relationships: UserCollectionsSnapshot) throws -> [WallpaperContentItem] {
-        let resolver = try Resolver(catalog: catalog, relationships: relationships)
+        let resolver = try Resolver(catalog: catalog, relationships: relationships, only: references.count == 1 ? references[0] : nil)
         return try references.map { try resolver.resolve($0) }
     }
 
@@ -334,14 +334,19 @@ nonisolated enum WallpaperLibraryQuery {
             self.aliases = try WallpaperLibraryQuery.aliasMap(aliases)
         }
 
-        init(catalog: WallpaperLibraryCatalog, relationships: UserCollectionsSnapshot) throws {
+        init(catalog: WallpaperLibraryCatalog, relationships: UserCollectionsSnapshot, only reference: WallpaperReference? = nil) throws {
             try self.init(aliases: relationships.aliases)
+            let target = try reference.map { try canonical($0) }
             for item in [catalog.videos, catalog.images, catalog.downloads].joined() {
                 let key = try canonical(item.reference)
+                guard target == nil || key == target else { continue }
                 let normalized = WallpaperLibraryQuery.replacingReference(item, with: key)
                 if items[key] == nil || normalized.providerReference == key { items[key] = normalized }
             }
-            for item in relationships.locators { locators[try canonical(item.reference)] = item.locator }
+            for item in relationships.locators {
+                let key = try canonical(item.reference)
+                if target == nil || key == target { locators[key] = item.locator }
+            }
         }
 
         func canonical(_ reference: WallpaperReference) throws -> WallpaperReference {

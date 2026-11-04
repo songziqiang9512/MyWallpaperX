@@ -97,12 +97,13 @@ private final class GridUnifiedToolbarProbe: NSObject, NSToolbarDelegate {
             controller.updateCell = { cell, value, _ in
                 (cell as? GridProbeCell)?.representedReference = value.reference
             }
-            controller.setCellVisible = { cell, visible in
+            controller.setCellVisible = { cell, state in
+                let visible = state != nil
                 let key = ObjectIdentifier(cell)
                 if visible, let reference = (cell as? GridProbeCell)?.representedReference { leases[key] = reference }
                 else { leases.removeValue(forKey: key); hidden.insert(key) }
             }
-            controller.onViewport = { visible, nearby in
+            controller.onViewport = { visible, nearby, _ in
                 visibleDemand = visible.map(\.reference); nearbyDemand = nearby.map(\.reference)
             }
             controller.onSelection = { _, _ in actions += 1; return UUID() }
@@ -256,7 +257,7 @@ private final class GridUnifiedToolbarProbe: NSObject, NSToolbarDelegate {
         controller.onPrimaryAction = { played.append($0.reference) }
         controller.onDelete = { deleted.append($0.map(\.reference)) }
         controller.onQuickLook = { quickLook.append($0.reference) }
-        controller.setCellVisible = { _, visible in if !visible { hiddenCells += 1 } }
+        controller.setCellVisible = { _, state in if state == nil { hiddenCells += 1 } }
         var presentedTitles: [WallpaperReference: String] = [:]
         var presentedTransfers: [WallpaperReference: WallpaperContentTransferState] = [:]
         controller.updateCell = { cell, value, _ in

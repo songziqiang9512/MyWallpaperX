@@ -119,32 +119,63 @@ import Foundation
         let generation = visibleAvailabilityGeneration
         let references = Set(visibleReferences.values.flatMap { $0 })
         let videoRevision = revisions[.videoLibrary]
-        let videoValues = references.contains(where: { $0.provider == .videoLibrary })
-            ? manager.wallpapers.filter { references.contains(.init(provider: .videoLibrary, sourceID: $0.id)) } : []
+        let videoValues: [VideoWallpaper]
+        if references.contains(where: { $0.provider == .videoLibrary }) {
+            let values = manager.wallpapers
+            let indices = await Self.visibleSourceIndices(values.map(\.id), references: references, provider: .videoLibrary)
+            guard !Task.isCancelled, generation == visibleAvailabilityGeneration else { return }
+            videoValues = indices.map { values[$0] }
+        } else { videoValues = [] }
         if !videoValues.isEmpty {
             let updates = await manager.libraryContentItems(from: videoValues, reusing: [], refreshAvailability: true)
             guard !Task.isCancelled, generation == visibleAvailabilityGeneration else { return }
-            mergeVisibleAvailability(updates, provider: .videoLibrary, revision: videoRevision)
+            await mergeVisibleAvailability(updates, provider: .videoLibrary, revision: videoRevision, generation: generation)
+            guard !Task.isCancelled, generation == visibleAvailabilityGeneration else { return }
             if revisions[.videoLibrary] == videoRevision { visibleLocalFactsRefreshed.send() }
         }
         let imageRevision = revisions[.staticImageLibrary]
-        let imageValues = references.contains(where: { $0.provider == .staticImageLibrary })
-            ? images.wallpapers.filter { references.contains(.init(provider: .staticImageLibrary, sourceID: $0.id)) } : []
+        let imageValues: [SILWallpaper]
+        if references.contains(where: { $0.provider == .staticImageLibrary }) {
+            let values = images.wallpapers
+            let indices = await Self.visibleSourceIndices(values.map(\.id), references: references, provider: .staticImageLibrary)
+            guard !Task.isCancelled, generation == visibleAvailabilityGeneration else { return }
+            imageValues = indices.map { values[$0] }
+        } else { imageValues = [] }
         if !imageValues.isEmpty {
             let updates = await images.libraryContentItems(from: imageValues, reusing: [], refreshAvailability: true)
             guard !Task.isCancelled, generation == visibleAvailabilityGeneration else { return }
-            mergeVisibleAvailability(updates, provider: .staticImageLibrary, revision: imageRevision)
+            await mergeVisibleAvailability(updates, provider: .staticImageLibrary, revision: imageRevision, generation: generation)
         }
     }
 
-    private func mergeVisibleAvailability(_ updates: [WallpaperContentItem], provider: WallpaperProvider, revision: UInt64?) {
+    private func mergeVisibleAvailability(_ updates: [WallpaperContentItem], provider: WallpaperProvider,
+                                          revision: UInt64?, generation: UUID) async {
         // A rename/removal/reimport can publish while its old path is checked.
         // Only the unchanged source generation may accept the worker receipt.
         guard let revision, revisions[provider] == revision, publishedRevisions[provider] == revision else { return }
-        let byReference = Dictionary(updates.map { ($0.providerReference, $0) }, uniquingKeysWith: { first, _ in first })
         let previous = provider == .videoLibrary ? catalog.videos : catalog.images
-        let next = previous.map { byReference[$0.providerReference] ?? $0 }
+        guard let next = await Self.mergedVisibleAvailability(updates, into: previous),
+              !Task.isCancelled, generation == visibleAvailabilityGeneration else { return }
         publish(next, provider: provider, revision: revision, loaded: catalog.loadedProviders.contains(provider))
+    }
+
+    @concurrent nonisolated private static func visibleSourceIndices(_ ids: [String], references: Set<WallpaperReference>,
+                                                                    provider: WallpaperProvider) async -> [Int] {
+        ids.indices.filter { references.contains(.init(provider: provider, sourceID: ids[$0])) }
+    }
+
+    @concurrent nonisolated private static func mergedVisibleAvailability(_ updates: [WallpaperContentItem],
+                                                                         into previous: [WallpaperContentItem]) async -> [WallpaperContentItem]? {
+        let byReference = Dictionary(updates.map { ($0.providerReference, $0) }, uniquingKeysWith: { first, _ in first })
+        var next = previous
+        var changed = false
+        for index in previous.indices {
+            guard let update = byReference[previous[index].providerReference],
+                  update != previous[index] else { continue }
+            next[index] = update
+            changed = true
+        }
+        return changed ? next : nil
     }
 
     /// Explicit refresh intent, separate from querying, searching or scrolling.

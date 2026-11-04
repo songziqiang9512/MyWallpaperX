@@ -184,7 +184,6 @@ final class AppKitSteamWorkshopBrowserView: NSView, ListThumbnailTintProviding {
 
     private func observeInspectorHost() {
         NotificationCenter.default.publisher(for: .inspectorHostDidPresent)
-            .receive(on: DispatchQueue.main)
             .sink { [weak self] notification in self?.handleInspectorDidPresent(notification) }
             .store(in: &cancellables)
 

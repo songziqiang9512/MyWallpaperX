@@ -1,6 +1,7 @@
 """Real remote toolbar factories and native overflow with recording service leaves."""
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -253,9 +254,10 @@ class LibraryRemoteToolbarTests(unittest.TestCase):
             'Shared/Components/WallpaperLibraryZoomControl.swift', 'Shared/UI/ToolbarMenuPopover.swift',
             'Shared/Components/WallpaperLibraryControlStyle.swift',
             'Shared/UI/WallpaperFilterPanelController.swift', 'Shared/UI/WallpaperLibrarySheetPresentation.swift',
-            'Models/WallpaperReference.swift', 'Models/WallpaperContent.swift', 'Models/DownloadTask.swift',
+            'Models/WallpaperReference.swift', 'Models/WallpaperContent.swift', 'Models/DownloadTask.swift', 'Shared/ThumbnailRequest.swift',
             'Core/OnlineImages/OnlineImageModels.swift',
             'Modules/Downloads/Core/DownloadHistoryStore.swift', 'Modules/Downloads/Core/DownloadTaskProjection.swift',
+            'Modules/Downloads/UI/DownloadTaskRowPresentation.swift',
             'Modules/Downloads/UI/DownloadTaskRowView.swift', 'Modules/Downloads/UI/DownloadTasksPopover.swift',
             'Modules/SteamWorkshop/Core/SteamWorkshopBrowseFilters.swift',
             'Modules/SteamWorkshop/Core/SteamWorkshopAgeRatingSupport.swift',
@@ -329,7 +331,15 @@ class LibraryRemoteToolbarTests(unittest.TestCase):
                 capture_output=True, text=True, timeout=120)
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
             run = run_native_app(binary, timeout=35)
+            if destination := os.environ.get('MWX_REMOTE_TOOLBAR_PROOF_DIR'):
+                proof = Path(destination); proof.mkdir(parents=True, exist_ok=True)
+                (proof / 'compile.log').write_text(build.stdout + build.stderr)
+                (proof / 'stdout.log').write_text(run.stdout)
+                (proof / 'stderr.log').write_text(run.stderr)
+                (proof / 'inputs.json').write_text(json.dumps(hashes, indent=2) + '\n')
             self.assertEqual(run.launch_returncode, 0, run.stdout + run.stderr)
+            for diagnostic in ('Unable to simultaneously satisfy constraints', 'Conflicting constraints detected'):
+                self.assertNotIn(diagnostic, run.stderr)
             self.assertTrue(run.stdout.strip(), run.stderr)
             checks = json.loads(run.stdout)
             self.assertTrue(checks)

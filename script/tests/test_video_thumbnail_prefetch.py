@@ -39,7 +39,8 @@ def prepare_video_thumbnail_generator_sources(tree: Path, work: Path, fixture: P
     model = tree / 'MyWallpaperX/Models/VideoWallpaper.swift'
     still_frame = tree / 'MyWallpaperX/Shared/VideoStillFrame.swift'
     fixture = fixture or tree / 'script/tests/fixtures/VideoThumbnailGeneratorChecks.swift'
-    inputs = [pipeline, manager, persistence, static_frames, application, import_processing, model, still_frame, fixture]
+    request_file = tree / 'MyWallpaperX/Shared/ThumbnailRequest.swift'
+    inputs = [pipeline, manager, persistence, static_frames, application, import_processing, model, still_frame, request_file, fixture]
     hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}
     manager_source = manager.read_text()
     fields = []
@@ -71,11 +72,15 @@ def prepare_video_thumbnail_generator_sources(tree: Path, work: Path, fixture: P
     shared_decode = shared_decode.replace(entry, '        VideoThumbnailObservations.shared.beginDecode(generator)\n'
         '        defer { VideoThumbnailObservations.shared.endDecode() }\n' + entry)
     observed = observed.replace(hash_leaf, '        VideoThumbnailObservations.shared.hashed()\n' + hash_leaf)
+    native_entry = '    private func thumbnailNativeSize(for asset: AVAsset) async -> CGSize? {'
+    assert observed.count(native_entry) == 1
+    observed = observed.replace(native_entry, native_entry + '\n        if let url = (asset as? AVURLAsset)?.url { importStages.record("native-" + url.path, nil) }', 1)
     source = work / pipeline.name; source.write_text(observed)
     support = work / 'VideoThumbnailGeneratorChecks.swift'; support.write_text(harness)
     frozen_model = work / model.name; shutil.copy2(model, frozen_model)
     frozen_still_frame = work / still_frame.name; frozen_still_frame.write_text(shared_decode)
-    return [source, frozen_model, frozen_still_frame, support], hashes
+    frozen_request = work / request_file.name; shutil.copy2(request_file, frozen_request)
+    return [source, frozen_model, frozen_still_frame, frozen_request, support], hashes
 
 
 def prepare_video_generated_delivery_sources(tree: Path, work: Path):
@@ -90,33 +95,69 @@ def prepare_video_generated_delivery_sources(tree: Path, work: Path):
     generator_fixture = tree / 'script/tests/fixtures/VideoThumbnailGeneratorChecks.swift'
     manager_file = core / 'WallpaperManager.swift'
     assets_file = core / 'WallpaperManager+CacheAssets.swift'
+    static_file = core / 'WallpaperManager+StaticFramePipeline.swift'
     provider_file = ui / 'AppKitLibraryGridSupport.swift'
     card_file = ui / 'AppKitLibraryGridItemView.swift'
     fields_file = tree / 'script/tests/fixtures/VideoCardProbeFields.swift'
     helper_file = tree / 'script/tests/test_video_thumbnail_prefetch.py'
+    status_file = tree / 'MyWallpaperX/App/StatusBarPanelViewController.swift'
+    status_owner_file = tree / 'MyWallpaperX/App/StatusBarController.swift'
     dependency_paths = [generator_fixture, manager_file, assets_file, provider_file, card_file, fields_file, helper_file,
-        Path(__file__).resolve(), fixture]
+        Path(__file__).resolve(), fixture, status_file, status_owner_file]
     original_hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in dependency_paths}
     manager = manager_file.read_text()
     prefix = generator_fixture.read_text().split('@main enum VideoThumbnailGeneratorChecks {', 1)[0]
     prefix = replace_once(prefix, '    let importStages = ThumbnailCompletions()',
         '    let importStages = ThumbnailCompletions()\n    var wallpapers: [VideoWallpaper] = []\n'
-        '    let thumbnailReadySubject = PassthroughSubject<String, Never>()')
+        '    let thumbnailReadySubject = PassthroughSubject<String, Never>()\n'
+        '    @MainActor private static var sharedStorage: WallpaperManager?\n'
+        '    @MainActor static var shared: WallpaperManager {\n'
+        '        get { sharedStorage! }\n'
+        '        set { sharedStorage = newValue }\n'
+        '    }')
     methods = [declaration(manager, signature) for signature in
         ['    var thumbnailReadyPublisher:', '    func notifyThumbnailReady(', '    func normalizedSourcePathExists(']]
     ensure = declaration(assets_file.read_text(), '    func ensurePreviewAssetsForWallpaper(')
     methods.append(ensure.replace('{\n', '{\n        importStages.record("ensure-" + wallpaper.path, nil)\n', 1))
-    methods.append('    func scheduleStaticFrameGeneration(for url: URL) { importStages.record("schedule-static-" + url.path, nil) }')
+    methods.append('    func scheduleStaticFrameGeneration(for url: URL, preparation: StaticFramePreparation = .full) { importStages.record("schedule-static-" + url.path, nil) }')
     methods.append('    func reportMissingIndexedFile(path: String, displayTitle: String) { importStages.record("missing-" + path, nil) }')
     prefix = replace_once(prefix,
         '    func notifyThumbnailReady(forPath path: String) { importStages.record("ready-" + path, nil) }',
         '\n\n'.join(methods))
     prefix = replace_once(prefix, '    func updateWallpaperAssetPaths(forPath: String, staticFramePath: String) {}',
         '    func updateWallpaperAssetPaths(forPath: String, staticFramePath: String) { importStages.record("model-" + forPath, nil) }')
+    status = status_file.read_text()
+    status_methods = [declaration(status, signature) for signature in [
+        '    func releasePreview(', '    func thumbnailBecameReady(',
+        '    private func loadVideoCover(', '    private func loadPreparedVideoCover(']]
+    status_methods[1] = replace_once(status_methods[1],
+        '        // Only the derived asset changed;',
+        '        matchingReadyCount += 1\n'
+        '        VideoReadyDeliveryTrace.note("status-ready", ["path": item.path, "count": matchingReadyCount])\n'
+        '        if matchingReadyCount == 8 { readyOverflow = true; releasePreview(); return }\n'
+        '        // Only the derived asset changed;')
+    status_methods[2] = status_methods[2].replace('    private func ', '    func ', 1)
+    status_methods[2] = status_methods[2].replace('{\n', '{\n        loadStarts += 1\n'
+        '        VideoReadyDeliveryTrace.note("status-load", ["path": item.path, "count": loadStarts])\n', 1)
+    status_methods[3] = replace_once(status_methods[3],
+        '\n            guard let self, self.imageGeneration == generation else { return }',
+        '\n            guard let self, self.imageGeneration == generation else { return }\n'
+        '            self.finals.append(image != nil)\n'
+        '            VideoReadyDeliveryTrace.note("status-final", ["path": item.path, "hasImage": image != nil])')
+    observing = declaration(status_owner_file.read_text(), '    private func startObserving(')
+    start = observing.index('        wallpaperManager.thumbnailReadyPublisher.receive(on: DispatchQueue.main)')
+    end = observing.index('}.store(in: &cancellables)', start) + len('}.store(in: &cancellables)')
+    joined = replace_once(fixture.read_text(), '    // ACTUAL_STATUS_METHODS', '\n\n'.join(status_methods))
+    joined = replace_once(joined, '        // ACTUAL_STATUS_SUBSCRIPTION', observing[start:end])
     template = work / 'ReadyTemplate.swift'
-    template.write_text(prefix + fixture.read_text())
+    template.write_text(prefix + '\n' + declaration(static_file.read_text(), 'nonisolated enum StaticFramePreparation') + '\n' + joined)
     sources, helper_hashes = prepare_video_thumbnail_generator_sources(tree, work, template)
     original_hashes.update(helper_hashes)
+    pipeline = sources[0]
+    pipeline.write_text(replace_once(pipeline.read_text(),
+        '    func generateThumbnail(for url: URL, request: ThumbnailRequest? = nil, completion: @escaping (VideoThumbnailAsset?) -> Void) {',
+        '    func generateThumbnail(for url: URL, request: ThumbnailRequest? = nil, completion: @escaping (VideoThumbnailAsset?) -> Void) {\n'
+        '        importStages.record("requested-" + url.path, nil)'))
     provider = provider_file.read_text()
     provider = replace_once(provider, '    private let decodeQueue = DispatchQueue(', '    let decodeQueue = DispatchQueue(')
     card = card_file.read_text()
@@ -137,6 +178,18 @@ def prepare_video_generated_delivery_sources(tree: Path, work: Path):
         if name == 'ThumbnailCache.swift':
             assert text.count('private let imageCache:') == 1 and text.count('private func diskCacheURL(') == 1
             text = text.replace('private let imageCache:', 'let imageCache:', 1).replace('private func diskCacheURL(', 'func diskCacheURL(', 1)
+            begin = declaration(text, '    private func beginImageRequest(')
+            observed = replace_once(begin,
+                'if let cached = cachedImage(forKey: key, request: target) { completion(cached); return nil }',
+                'if let cached = cachedImage(forKey: key, request: target) { VideoProviderDeliveryObservation.shared.memoryHit(key); completion(cached); return nil }')
+            observed = replace_once(observed,
+                '                if cancellation?.cancelled != true { completion(image) }',
+                '                VideoProviderDeliveryObservation.shared.enterMainCallback(key)\n'
+                '                defer { VideoProviderDeliveryObservation.shared.leaveMainCallback(key) }\n'
+                '                if cancellation?.cancelled != true { completion(image) }')
+            text = text.replace(begin, observed, 1)
+            finish = 'cachesFailure: Bool = false) -> Bool {'
+            text = replace_once(text, finish, finish + '\n        defer { VideoProviderDeliveryObservation.shared.recordFinish(key) }')
         copy.write_text(text)
         sources.append(copy)
     return sources, original_hashes
@@ -150,11 +203,11 @@ def with_actual_video_cache_paths(tree: Path, fixture: str) -> str:
     field = manager[start:manager.index('\n\n', start)]
     pipeline = (core / 'WallpaperManager+CachePipeline.swift').read_text()
     methods = '\n'.join(declaration(pipeline, signature) for signature in
-        ['    func cacheKey(', '    func thumbnailOutputURL('])
+        ['    func cacheKey(', '    func thumbnailOutputURL(', '    func thumbnailPixelSize('])
     matches = list(re.finditer(r'^final class WallpaperManager[^\n{]*\{', fixture, re.MULTILINE))
     if len(matches) != 1: raise AssertionError('one controlled Manager declaration required')
     opening = matches[0].end()
-    return 'import CryptoKit\n' + fixture[:opening] + '\n' + field + fixture[opening:] + \
+    return 'import CryptoKit\nimport ImageIO\n' + declaration(pipeline, 'nonisolated struct VideoThumbnailAsset') + '\n' + fixture[:opening] + '\n' + field + fixture[opening:] + \
         '\nextension WallpaperManager {\n' + methods + '\n}\n'
 
 
@@ -226,10 +279,10 @@ class VideoThumbnailPrefetchTests(unittest.TestCase):
             item = (ROOT / 'MyWallpaperX/Modules/VideoLibrary/UI/AppKitLibraryGridItemView.swift').read_text()
             start = item.index('    func configure(')
             end = item.index('    private func setupViews()', start)
-            actual.write_text('import AppKit\n' + provider + '\n@MainActor final class VideoCardProbe {\n' +
+            actual.write_text('import AppKit\nimport ImageIO\n' + provider + '\n@MainActor final class VideoCardProbe {\n' +
                 (ROOT / 'script/tests/fixtures/VideoCardProbeFields.swift').read_text() + item[start:end] + '\n}')
             shared = ROOT / 'MyWallpaperX/Shared/UI'
-            sources = [actual, shared / 'GridThumbnailDecoder.swift', shared / 'DecodedThumbnailMemoryCache.swift',
+            sources = [actual, shared.parent / 'ThumbnailRequest.swift', shared / 'GridThumbnailDecoder.swift', shared / 'DecodedThumbnailMemoryCache.swift',
                        shared / 'ThumbnailCache.swift', ROOT / 'script/tests/fixtures/VideoThumbnailPrefetchChecks.swift']
             prepared_fixture = work / 'VideoThumbnailPrefetchChecks.swift'
             prepared_fixture.write_text(with_actual_video_cache_paths(ROOT, sources[-1].read_text()))
@@ -283,7 +336,7 @@ class VideoThumbnailPrefetchTests(unittest.TestCase):
                 f'VideoPathObservations.shared.record("{label}")\n        return ' + expression, 1))
         methods.append(declaration(manager, '    func normalizedSourcePathExists('))
         methods.extend(declaration(pipeline, signature) for signature in
-            ['    func cacheKey(', '    func thumbnailOutputURL(', '    func existingThumbnailPath(', '    func resolvedThumbnailPath('])
+            ['    func cacheKey(', '    func thumbnailOutputURL(', '    func existingThumbnailPath(', '    func resolvedThumbnailPath(', '    func thumbnailPixelSize('])
         template = fixture.read_text()
         self.assertEqual(template.count('// ACTUAL_PATH_METHODS'), 1)
         template = template.replace('// ACTUAL_PATH_METHODS', '\n\n'.join(methods))
@@ -297,9 +350,9 @@ class VideoThumbnailPrefetchTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='mwx-video-nil-card-', dir='/private/tmp') as directory:
             work = Path(directory)
             source = work / 'ActualVideoNilThumbnailChecks.swift'
-            source.write_text(provider + '\n@MainActor final class VideoCardProbe {\n' + inputs[4].read_text()
+            source.write_text('import ImageIO\n' + declaration(pipeline, 'nonisolated struct VideoThumbnailAsset') + '\n' + provider + '\n@MainActor final class VideoCardProbe {\n' + inputs[4].read_text()
                 + item[start:end] + '\n}\n' + template)
-            sources = [source, ROOT / 'MyWallpaperX/Models/VideoWallpaper.swift',
+            sources = [source, shared.parent / 'ThumbnailRequest.swift', ROOT / 'MyWallpaperX/Models/VideoWallpaper.swift',
                 *[shared / name for name in ['GridThumbnailDecoder.swift', 'DecodedThumbnailMemoryCache.swift', 'ThumbnailCache.swift']]]
             binary = work / 'checks'
             build = subprocess.run(['xcrun', 'swiftc', *SWIFT_ISOLATION_FLAGS, '-warnings-as-errors', '-parse-as-library',
@@ -329,7 +382,7 @@ class VideoThumbnailPrefetchTests(unittest.TestCase):
             work = Path(directory)
             source = work / 'Provider.swift'; source.write_text(support)
             shared = ROOT / 'MyWallpaperX/Shared/UI'
-            sources = [source, shared / 'GridThumbnailDecoder.swift', shared / 'DecodedThumbnailMemoryCache.swift',
+            sources = [source, shared.parent / 'ThumbnailRequest.swift', shared / 'GridThumbnailDecoder.swift', shared / 'DecodedThumbnailMemoryCache.swift',
                 shared / 'ThumbnailCache.swift', ROOT / 'script/tests/fixtures/VideoVisiblePreviewRepairChecks.swift']
             prepared_fixture = work / 'VideoVisiblePreviewRepairChecks.swift'
             normalizer = declaration((ROOT / 'MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager.swift').read_text(), '    func normalizedPath(')
@@ -364,7 +417,7 @@ class VideoThumbnailPrefetchTests(unittest.TestCase):
             work = Path(directory)
             actual = work / 'ActualCard.swift'
             actual.write_text(leaves + '\n' + provider + '\n' + card)
-            sources = [actual, ROOT / 'MyWallpaperX/Shared/Components/WallpaperLibraryControlStyle.swift', ROOT / 'MyWallpaperX/Shared/Components/WallpaperCardInteractionView.swift',
+            sources = [actual, shared.parent / 'ThumbnailRequest.swift', ROOT / 'MyWallpaperX/Shared/Components/WallpaperLibraryControlStyle.swift', ROOT / 'MyWallpaperX/Shared/Components/WallpaperCardInteractionView.swift',
                        ROOT / 'MyWallpaperX/Shared/Components/WallpaperCardSupportViews.swift',
                        ROOT / 'MyWallpaperX/Shared/Components/WallpaperCardControlsView.swift', fixtures / 'VideoCardInteractionHarness.swift',
                        fixtures / 'GridCardInteractionChecks.swift', fixtures / 'NativeAppHarness.swift', *[shared / name for name in [
@@ -410,6 +463,12 @@ class VideoThumbnailPrefetchTests(unittest.TestCase):
                      'macOS and ffmpeg owned fixture generator required')
 class VideoThumbnailGeneratorTests(unittest.TestCase):
     def test_generated_thumbnail_completion_reaches_waiting_card_and_replaces_stale_pixels(self):
+        self._run_generated_delivery()
+
+    def test_status_cover_uses_provider_final_and_real_ready_subscription(self):
+        self._run_generated_delivery('--status-cover')
+
+    def _run_generated_delivery(self, mode=None):
         proof = os.environ.get('MWX_VIDEO_PREFETCH_PROOF_DIR')
         with tempfile.TemporaryDirectory(prefix='mwx-video-generated-delivery-', dir='/private/tmp') as directory:
             work = Path(directory); inputs = work / 'inputs'; inputs.mkdir()
@@ -426,7 +485,7 @@ class VideoThumbnailGeneratorTests(unittest.TestCase):
             command = ['xcrun', 'swiftc', *SWIFT_ISOLATION_FLAGS, '-D', 'DEBUG', '-parse-as-library',
                 *map(str, sources), '-module-cache-path', str(work / 'modules'), '-o', str(binary)]
             build = subprocess.run(command, capture_output=True, text=True, timeout=150)
-            target = Path(proof) / 'generated-delivery' if proof else None
+            target = Path(proof) / ('status-cover' if mode else 'generated-delivery') if proof else None
             if target:
                 target.mkdir(parents=True, exist_ok=True)
                 for source in sources: shutil.copy2(source, target / source.name)
@@ -434,7 +493,7 @@ class VideoThumbnailGeneratorTests(unittest.TestCase):
                     'stdout': build.stdout, 'stderr': build.stderr, 'sourceSHA256': hashes, 'compiledSHA256': compiled_hashes,
                     'mediaSHA256': {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs.glob('*.mov')}}, indent=2))
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
-            run = subprocess.run([str(binary), str(inputs)], capture_output=True, text=True, timeout=75,
+            run = subprocess.run([str(binary), str(inputs), *([mode] if mode else [])], capture_output=True, text=True, timeout=75,
                 env=dict(os.environ, HOME=str(home), CFFIXED_USER_HOME=str(home)))
             if target:
                 (target / 'runtime.json').write_text(json.dumps({'returncode': run.returncode,
@@ -448,6 +507,46 @@ class VideoThumbnailGeneratorTests(unittest.TestCase):
                 self.assertTrue(facts[group])
                 for name, passed in facts[group].items():
                     with self.subTest(group=group, name=name): self.assertIs(passed, True, facts)
+
+    def test_adaptive_generator_upgrades_inflight_and_caps_native_size(self):
+        proof = os.environ.get('MWX_VIDEO_THUMBNAIL_GENERATOR_PROOF_DIR')
+        with tempfile.TemporaryDirectory(prefix='mwx-video-adaptive-', dir='/private/tmp') as directory:
+            work = Path(directory); home = work / 'home'; home.mkdir()
+            for name, size in [('large', '1280x720'), ('small', '512x288')]:
+                generated = subprocess.run(['ffmpeg', '-nostdin', '-v', 'error', '-f', 'lavfi', '-i',
+                    'testsrc2=size=' + size + ':rate=2', '-t', '2', '-c:v', 'libx264', '-pix_fmt', 'yuv420p',
+                    '-preset', 'fast', '-threads', '1', str(work / (name + '.mp4'))],
+                    capture_output=True, text=True, timeout=20)
+                self.assertEqual(generated.returncode, 0, generated.stdout + generated.stderr)
+            rotated = subprocess.run(['ffmpeg', '-nostdin', '-v', 'error', '-display_rotation:v:0', '90', '-i', str(work / 'large.mp4'),
+                '-c', 'copy', str(work / 'rotated90.mp4')],
+                capture_output=True, text=True, timeout=20)
+            self.assertEqual(rotated.returncode, 0, rotated.stdout + rotated.stderr)
+            sources, hashes = prepare_video_thumbnail_generator_sources(ROOT, work)
+            compiled_hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in sources}
+            command = ['xcrun', 'swiftc', *SWIFT_ISOLATION_FLAGS, '-D', 'DEBUG', '-parse-as-library',
+                *map(str, sources), '-module-cache-path', str(work / 'modules'), '-o', str(work / 'adaptive')]
+            build = subprocess.run(command, capture_output=True, text=True, timeout=150)
+            target = Path(proof) / 'adaptive' if proof else None
+            if target:
+                target.mkdir(parents=True, exist_ok=True)
+                for source in sources: shutil.copy2(source, target / source.name)
+                (target / 'compile.json').write_text(json.dumps({'command': command, 'returncode': build.returncode,
+                    'stdout': build.stdout, 'stderr': build.stderr, 'sourceSHA256': hashes, 'compiledSHA256': compiled_hashes,
+                    'mediaSHA256': {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in work.glob('*.mp4')}}, indent=2))
+            self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
+            run = subprocess.run([str(work / 'adaptive'), str(work), '--adaptive'], capture_output=True, text=True, timeout=75,
+                env=dict(os.environ, HOME=str(home), CFFIXED_USER_HOME=str(home)))
+            if target:
+                (target / 'runtime.json').write_text(json.dumps({'returncode': run.returncode,
+                    'stdout': run.stdout, 'stderr': run.stderr}, indent=2))
+            self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+            facts = json.loads(run.stdout)
+            print('VIDEO ADAPTIVE QUALITY FACTS ' + json.dumps(facts, sort_keys=True))
+            for name, passed in facts['checks'].items():
+                with self.subTest(name=name): self.assertIs(passed, True, facts)
+            self.assertEqual(hashes, {path: hashlib.sha256(Path(path).read_bytes()).hexdigest() for path in hashes})
+            self.assertEqual(compiled_hashes, {path: hashlib.sha256(Path(path).read_bytes()).hexdigest() for path in compiled_hashes})
 
     def test_real_generator_cache_aliases_clear_generation_and_jpeg_results(self):
         proof = os.environ.get('MWX_VIDEO_THUMBNAIL_GENERATOR_PROOF_DIR')
@@ -513,6 +612,12 @@ class VideoStaticFramePipelineTests(unittest.TestCase):
                     '-pix_fmt', 'yuv420p', '-crf', '20', '-preset', 'fast', '-threads', '1', str(seed)],
                     capture_output=True, text=True, timeout=15)
                 self.assertEqual(generated.returncode, 0, generated.stdout + generated.stderr)
+            seed = root / 'four-k.mp4'; seeds.append(seed)
+            generated = subprocess.run(['ffmpeg', '-nostdin', '-v', 'error', '-f', 'lavfi',
+                '-i', 'testsrc2=size=3840x2160:rate=1', '-t', '2', '-c:v', 'libx264',
+                '-pix_fmt', 'yuv420p', '-crf', '24', '-preset', 'fast', '-threads', '1', str(seed)],
+                capture_output=True, text=True, timeout=25)
+            self.assertEqual(generated.returncode, 0, generated.stdout + generated.stderr)
             results = []
             for configuration, flags in [('debug', ['-D', 'DEBUG']), ('release', ['-O', '-whole-module-optimization'])]:
                 work = root / configuration; work.mkdir()

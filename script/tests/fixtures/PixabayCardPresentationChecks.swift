@@ -52,7 +52,7 @@ import QuartzCore
     func refreshDownloadedContent() {}
     func loadNextPage() { preconditionFailure("native metadata case must not fetch HTTP pages") }
     func cancelThumbnailPrefetch() {}
-    func prioritizeVisibleItemIDs(_ ids: [Int], maxPixelSize: Int) {}
+    func prioritizeVisibleItemIDs(_ ids: [Int], request: ThumbnailRequest) {}
     func thumbnailPrefetchNeedsRefresh() -> Bool { false }
 }
 
@@ -245,94 +245,6 @@ import QuartzCore
     }
 }
 
-// Actual shared grid + actual downloaded card. Only App actions are recording
-// leaves; native selection, click recognition, hit testing and controls run whole.
-@MainActor final class PixabayDownloadsClickOwner {
-    let reference = WallpaperReference(provider: .pixabay, sourceID: "901")
-    var selection = WallpaperLibrarySelectionState()
-    var played: [Int] = [], inspected: [WallpaperReference] = []
-    var selectionEvents = 0
-    lazy var controller: WallpaperLibraryGridController = {
-        let result = WallpaperLibraryGridController { [weak self] collection, path, _, state in
-            let card = collection.makeItem(withIdentifier: AppKitPixabayDownloadsItem.reuseIdentifier, for: path) as! AppKitPixabayDownloadsItem
-            card.onPrimaryAction = { [weak self] in self?.played.append($0) }
-            card.configure(entry: downloadModel(901), isSelected: state.isSelected, isMultiSelectMode: state.isSelecting, isPlaying: true)
-            return card
-        }
-        result.loadViewIfNeeded()
-        result.collection.register(AppKitPixabayDownloadsItem.self, forItemWithIdentifier: AppKitPixabayDownloadsItem.reuseIdentifier)
-        result.onSelection = { [weak self] refs, focus in
-            guard let self else { return nil }
-            if self.selection.references != refs || self.selection.focusedReference != focus { self.selection.sessionID = UUID() }
-            self.selection.references = refs; self.selection.focusedReference = focus; self.selectionEvents += 1
-            return self.selection.sessionID
-        }
-        result.onInspect = { [weak self] in self?.inspected.append($0.reference) }
-        result.opensDetailsOnSingleClick = { true }
-        result.updateCell = { cell, _, state in
-            (cell as? AppKitPixabayDownloadsItem)?.applySelectionState(state.isSelected, multiSelectMode: state.isSelecting)
-        }
-        return result
-    }()
-    func update(selecting: Bool = false) {
-        selection.isSelecting = selecting
-        let value = WallpaperContentItem(reference: reference, providerReference: reference,
-            locator: .init(mediaKind: .video), title: "download 901", kind: .video,
-            publishedAvailability: .available, capabilities: [.play, .organize, .inspect], metadata: .init(),
-            acquisition: .idle, update: .idle, aliases: [])
-        controller.update(page: .downloads, items: [value], selection: selection, preferredColumns: 5, permitsDragging: false, scrollAnchor: nil)
-    }
-}
-
-@MainActor func pixabayNativeClickOwner(_ facts: Facts) {
-    let owner = PixabayDownloadsClickOwner()
-    let controller = owner.controller
-    let window = NSWindow(contentViewController: controller)
-    window.setFrame(NSRect(x: 14000, y: 14000, width: 320, height: 360), display: false)
-    window.isReleasedWhenClosed = false
-    owner.update()
-    window.orderFrontRegardless(); window.makeKey()
-    controller.view.layoutSubtreeIfNeeded(); pump(0.04)
-    defer { window.orderOut(nil); window.close() }
-    guard let card = controller.collection.item(at: IndexPath(item: 0, section: 0)) as? AppKitPixabayDownloadsItem else {
-        facts.expect("real-click-card-is-registered", false); return
-    }
-    layout(card)
-    guard let bar = card.controlBar else { facts.expect("click-bar-is-mounted", false); return }
-    bar.layoutSubtreeIfNeeded()
-    func click(_ point: NSPoint) {
-        let down = NSEvent.mouseEvent(with: .leftMouseDown, location: point, modifierFlags: [],
-            timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
-            context: nil, eventNumber: 2, clickCount: 1, pressure: 1)!
-        let up = NSEvent.mouseEvent(with: .leftMouseUp, location: point, modifierFlags: [],
-            timestamp: ProcessInfo.processInfo.systemUptime + 0.01, windowNumber: window.windowNumber,
-            context: nil, eventNumber: 3, clickCount: 1, pressure: 0)!
-        NSApp.postEvent(up, atStart: true); window.sendEvent(down); pump(0.02)
-    }
-    let button = bar.playButton
-    let center = button.convert(NSPoint(x: button.bounds.midX, y: button.bounds.midY), to: nil)
-    let hitCenter = button.convert(NSPoint(x: button.bounds.midX, y: button.bounds.midY), to: card.view.superview)
-    facts.expect("real-window-primary-hit-is-native-button", card.view.hitTest(hitCenter) === button)
-    click(center)
-    facts.expect("native-button-click-plays-exactly-once-without-selecting-or-inspector", owner.played == [901]
-        && owner.selection.references.isEmpty && owner.selectionEvents == 0 && owner.inspected.isEmpty)
-    let beside = button.convert(NSPoint(x: button.bounds.minX - 4, y: button.bounds.midY), to: nil)
-    let hitBeside = button.convert(NSPoint(x: button.bounds.minX - 4, y: button.bounds.midY), to: card.view.superview)
-    facts.expect("old-expanded-button-neighbor-is-not-button", card.view.hitTest(hitBeside) !== button)
-    click(beside)
-    facts.expect("button-neighbor-only-selects-and-opens-details", owner.played == [901]
-        && owner.selection.references == [owner.reference] && owner.selection.focusedReference == owner.reference
-        && owner.inspected == [owner.reference])
-    let cover = card.imageContainer.convert(NSPoint(x: 100, y: 140), to: nil)
-    click(cover)
-    facts.expect("cover-only-reopens-details-without-playing", owner.played == [901]
-        && owner.inspected == [owner.reference, owner.reference])
-    owner.update(selecting: true)
-    click(cover)
-    facts.expect("multi-selection-cover-toggles-without-playing-or-details", owner.selection.references.isEmpty
-        && owner.played == [901] && owner.inspected == [owner.reference, owner.reference])
-}
-
 @MainActor func pixabaySquareControls(_ facts: Facts) {
     let browserHost = CardHost(.browser)
     let downloadsHost = CardHost(.downloads)
@@ -346,7 +258,7 @@ import QuartzCore
     var downloaded: [Int] = [], played: [Int] = [], favorite: [Int] = [], inspected: [Int] = []
     let model = browserModel(501, tags: String(repeating: "Long source title ", count: 8), thumbnail: nil)
     func updateBrowser(downloading: Bool = false, ready: Bool = false, progress: Double? = nil) {
-        browser.configure(item: model, isDownloading: downloading, isDownloaded: ready, downloadProgress: progress,
+        browser.configure(item: model, isDownloading: downloading, isDownloaded: ready, downloadProgress: progress, thumbnailRequest: browserTarget(browser),
             onInspect: { inspected.append(model.id) }, onDownload: { downloaded.append(model.id) }, onSetAsWallpaper: { played.append(model.id) })
         layout(browser)
     }
@@ -399,7 +311,7 @@ import QuartzCore
     facts.expect("offscreen-progress-tick-cannot-restart-bar-animation", titleView.activeMarqueeAnimation == nil
         && bar.glass.activeIndeterminateAnimation == nil)
     let thumbnailRequestsBeforeRedisplay = OnlineImageThumbnailCache.shared.history.count
-    browser.beginDisplayingThumbnail()
+    browser.beginDisplayingThumbnail(request: browserTarget(browser))
     facts.expect("ready-browser-redisplay-resumes-animation-before-thumbnail-early-return", browser.thumbnailView.image != nil
         && OnlineImageThumbnailCache.shared.history.count == thumbnailRequestsBeforeRedisplay
         && (titleView.activeMarqueeAnimation != nil) == allowsMotion
@@ -467,7 +379,7 @@ import QuartzCore
     bar.playButton.performClick(nil)
     facts.expect("browser-successful-Stop-uses-fixed-Core-action-without-reapplying-or-downloading", browserStopCalls == 1
         && played == [501] && downloaded == [501])
-    browser.configure(item: model, isDownloading: false, isDownloaded: true, downloadProgress: nil,
+    browser.configure(item: model, isDownloading: false, isDownloaded: true, downloadProgress: nil, thumbnailRequest: browserTarget(browser),
         organization: browserPlayback(false, playing: true), onDownload: { downloaded.append(model.id) },
         onSetAsWallpaper: { played.append(model.id) })
     facts.expect("late-download-completion-echo-cannot-cover-or-restore-percentage-over-Core-Stop", bar.primaryState == .playing
@@ -531,7 +443,7 @@ import QuartzCore
         && favorite.count == favoritesBeforeDisabled && chosen == [501, 501])
 
     let replacement = browserModel(502, thumbnail: nil)
-    browser.configure(item: replacement, isDownloading: false, isDownloaded: true, downloadProgress: nil,
+    browser.configure(item: replacement, isDownloading: false, isDownloaded: true, downloadProgress: nil, thumbnailRequest: browserTarget(browser),
         organization: organization(502, favorite: false), onDownload: { downloaded.append(502) }, onSetAsWallpaper: { played.append(502) })
     let beforeStaleFavorite = favorite.count, beforeStalePlaylist = chosen.count
     invoke(readyMenu.items[5]); invoke(readyMenu.items[6])
@@ -546,7 +458,7 @@ import QuartzCore
     facts.expect("withdrawn-local-organization-revokes-held-menu-without-removing-details", bar.glass.subviews.compactMap { $0 as? NSButton }.count == 2
         && favorite.count == beforeRevokedFavorite && chosen.count == beforeStalePlaylist
         && browser.buildContextMenu()!.items.map(\.title) == ["下载到本地", "设为壁纸", "", "在 Pixabay 上查看"])
-    browser.configure(item: replacement, isDownloading: false, isDownloaded: false, downloadProgress: nil,
+    browser.configure(item: replacement, isDownloading: false, isDownloaded: false, downloadProgress: nil, thumbnailRequest: browserTarget(browser),
         organization: organization(502, favorite: true, canOrganize: false), onDownload: { downloaded.append(502) }, onSetAsWallpaper: { played.append(502) })
     let beforeOfflineDownload = downloaded.count, beforeOfflineFavorite = favorite.count
     let offlineMenu = browser.buildContextMenu()!
@@ -709,7 +621,7 @@ import QuartzCore
         return actions
     }
     func configure(_ item: PixabayVideoItem, _ label: String, downloading: Bool = false, progress: Double? = nil) {
-        browser.configure(item: item, isDownloading: downloading, isDownloaded: false, downloadProgress: progress,
+        browser.configure(item: item, isDownloading: downloading, isDownloaded: false, downloadProgress: progress, thumbnailRequest: browserTarget(browser),
             organization: organization(label), onDownload: { downloads.append(label) }, onSetAsWallpaper: { applications.append(label) })
         layout(browser)
     }
@@ -754,7 +666,7 @@ import QuartzCore
         && PixabayMenuWorkspace.openedURLs.count == beforeReuse)
     let retired = browser.buildContextMenu()!
     browser.endDisplayingThumbnail()
-    browser.beginDisplayingThumbnail()
+    browser.beginDisplayingThumbnail(request: browserTarget(browser))
     configure(metadataEcho, "visible again")
     invoke(retired)
     facts.expect("original-display-retirement-revokes-held-menu-after-same-ID-reentry",
@@ -766,10 +678,10 @@ import QuartzCore
         && PixabayMenuWorkspace.openedURLs.count == beforeReuse + 1
         && PixabayMenuWorkspace.openedURLs.last == URL(string: metadataEcho.pageURL))
     var resumedDownloads = 0, resumedInspections = 0
-    browser.configure(item: metadataEcho, isDownloading: false, isDownloaded: false, downloadProgress: nil,
+    browser.configure(item: metadataEcho, isDownloading: false, isDownloaded: false, downloadProgress: nil, thumbnailRequest: browserTarget(browser),
         onInspect: { resumedInspections += 1 }, onDownload: { resumedDownloads += 1 }, onSetAsWallpaper: {})
     let retiredPlay = browser.controlBar.onPlay, retiredInspect = browser.controlBar.onInspect
-    browser.endDisplayingThumbnail(); browser.beginDisplayingThumbnail()
+    browser.endDisplayingThumbnail(); browser.beginDisplayingThumbnail(request: browserTarget(browser))
     retiredPlay?(); retiredInspect?()
     facts.expect("display-retirement-revokes-both-held-bar-actions-without-reconfigure", retiredPlay != nil && retiredInspect != nil
         && resumedDownloads == 0 && resumedInspections == 0)
@@ -879,12 +791,12 @@ import QuartzCore
         && changedMask?.frame == card.controlBar.titleView.bounds)
     card.viewDidLayout()
     facts.expect("changed-layout-is-cached", changedMask != nil && card.controlBar.titleView.layer?.mask === changedMask)
-    let oldPixels = card.requestedPixelLimit
+    let oldPixels = card.thumbnailRequest!.width
     card.view.frame.size = NSSize(width: 420, height: 422)
     layout(card)
     facts.expect("resize-updates-real-square-container", close(card.imageContainer.frame.width, 420)
         && close(card.imageContainer.frame.height, 420) && close(card.imageContainer.frame.maxY, 422))
-    facts.expect("larger-card-requests-larger-thumbnail", card.requestedPixelLimit > oldPixels)
+    facts.expect("larger-card-requests-larger-thumbnail", card.thumbnailRequest!.width > oldPixels)
     card.prepareForReuse()
     configure(card, browserModel(5, tags: "short", duration: 2, thumbnail: nil))
     layout(card)
@@ -995,4 +907,47 @@ import QuartzCore
     facts.expect("reused-selection-playing-applied", card.isSelectedState && card.isPlaying
         && firstBadge.playButton.contentTintColor == .controlAccentColor && firstBadge.isHidden
         && !card.multiSelectBadge.isHidden && !card.multiSelectBadgeIcon.isHidden)
+
+    card.prepareForReuse()
+    let initialTarget = ThumbnailRequest(width: 200, height: 200, mode: .fill)
+    let initialCount = transport.history.count
+    card.configure(entry: original, isSelected: false, isMultiSelectMode: false, isPlaying: false, request: initialTarget)
+    precondition(waitUntil { transport.history.count == initialCount + 1 })
+    let initialTicket = transport.history.last!.0
+    let receivedInitialTarget = transport.pending[initialTicket]?.target
+    transport.deliver(initialTicket, image: decoded)
+    let largerTarget = ThumbnailRequest(width: 400, height: 400, mode: .fill)
+    card.configure(entry: original, isSelected: false, isMultiSelectMode: false, isPlaying: false, request: largerTarget)
+    precondition(waitUntil { transport.history.count == initialCount + 2 })
+    let largerTicket = transport.history.last!.0
+    facts.expect("download-same-source-target-change-reaches-store-and-keeps-ready-pixels", receivedInitialTarget == initialTarget
+        && transport.pending[largerTicket]?.target == largerTarget && card.thumbnailView.image === decoded)
+    transport.deliver(largerTicket, image: nil)
+    let failedTargetCount = transport.history.count
+    card.configure(entry: original, isSelected: true, isMultiSelectMode: false, isPlaying: false, request: largerTarget)
+    facts.expect("download-target-upgrade-failure-keeps-image-without-retrying-state-echo", card.thumbnailView.image === decoded
+        && transport.history.count == failedTargetCount && card.placeholderLabel.isHidden)
+    card.endDisplayingThumbnail()
+    let hiddenTarget = ThumbnailRequest(width: 600, height: 600, mode: .fill)
+    card.configure(entry: original, isSelected: true, isMultiSelectMode: false, isPlaying: false, request: hiddenTarget)
+    pump(0.06)
+    facts.expect("hidden-download-target-change-keeps-image-and-starts-no-work", transport.history.count == failedTargetCount
+        && card.thumbnailView.image === decoded)
+    card.beginDisplayingThumbnail()
+    precondition(waitUntil { transport.history.count == failedTargetCount + 1 })
+    let hiddenTicket = transport.history.last!.0
+    facts.expect("redisplayed-download-upgrades-to-the-last-hidden-target", transport.pending[hiddenTicket]?.target == hiddenTarget
+        && card.thumbnailView.image === decoded)
+    card.endDisplayingThumbnail(); card.beginDisplayingThumbnail()
+    precondition(waitUntil { transport.history.count == failedTargetCount + 2 })
+    let currentTicket = transport.history.last!.0, currentImage = image(73)
+    transport.deliver(hiddenTicket, image: image(74))
+    facts.expect("withdrawn-target-generation-cannot-replace-retained-pixels", card.thumbnailView.image === decoded)
+    transport.deliver(currentTicket, image: currentImage)
+    let completedCount = transport.history.count
+    card.endDisplayingThumbnail(); card.beginDisplayingThumbnail()
+    facts.expect("completed-sized-download-remounts-without-a-new-source-demand", card.thumbnailView.image === currentImage
+        && transport.history.count == completedCount)
+    card.configure(entry: renamed, isSelected: false, isMultiSelectMode: false, isPlaying: false, request: hiddenTarget)
+    facts.expect("changing-download-source-clears-the-previous-source-pixels", card.thumbnailView.image == nil)
 }

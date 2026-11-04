@@ -69,9 +69,9 @@ import Combine
         grid.needsCellReplacement = { [weak self] in self?.adapter.needsCellReplacement($0, content: $1) ?? false }
         grid.setCellVisible = { [weak self] in self?.setCellVisible($0, $1) }
         grid.onClipWidthChange = { [weak self] _ in self?.refreshZoom() }
-        grid.onViewport = { [weak self] visible, prefetch in
+        grid.onViewport = { [weak self] visible, prefetch, request in
             guard let self else { return }
-            self.adapter.updateViewport(visible: visible, prefetch: prefetch)
+            self.adapter.updateViewport(visible: visible, prefetch: prefetch, request: request)
             self.workspace.catalog.setVisibleReferences(Set(visible.map(\.providerReference)), sourceToken: self.gridDemand)
         }
         grid.onSelection = { [weak self] refs, focus in
@@ -161,7 +161,7 @@ import Combine
     }
     private func selectionAppearance(_ state: WallpaperLibraryGridController.CellState) -> WallpaperLibraryGridController.CellState {
         // Use the existing checkmark cards while native selection remains single.
-        .init(isSelected: state.isSelected, isSelecting: true, isFocused: state.isFocused)
+        .init(isSelected: state.isSelected, isSelecting: true, isFocused: state.isFocused, thumbnailRequest: state.thumbnailRequest)
     }
     var canFocusSearch: Bool { ownsInput && search.isEnabled }
     func focusSearch() { if canFocusSearch { panel.makeFirstResponder(search) } }
@@ -297,7 +297,7 @@ import Combine
         guard !isClosed else { return }
         isClosed = true
         WallpaperLibrarySheetPresentation.dismiss(panel)
-        grid.collection.visibleItems().forEach { setCellVisible($0, false) }
+        grid.collection.visibleItems().forEach { setCellVisible($0, nil) }
         adapter.updateViewport(visible: [], prefetch: [])
         workspace.catalog.setVisibleReferences([], sourceToken: gridDemand)
         subscriptions.removeAll()
@@ -322,9 +322,9 @@ import Combine
         marker.isHidden = !marker.isInViewport || !existingReferences.contains(reference)
     }
 
-    private func setCellVisible(_ cell: NSCollectionViewItem, _ visible: Bool) {
-        adapter.setVisible(cell, visible)
-        if visible, let path = grid.collection.indexPath(for: cell), grid.items.indices.contains(path.item) {
+    private func setCellVisible(_ cell: NSCollectionViewItem, _ state: WallpaperLibraryGridController.CellState?) {
+        adapter.setVisible(cell, state.map(selectionAppearance))
+        if state != nil, let path = grid.collection.indexPath(for: cell), grid.items.indices.contains(path.item) {
             configureExistingMarker(cell, reference: grid.items[path.item].reference, visible: true)
         } else {
             cell.view.subviews.compactMap { $0 as? PickerExistingMemberMarker }.forEach { $0.isInViewport = false; $0.isHidden = true }

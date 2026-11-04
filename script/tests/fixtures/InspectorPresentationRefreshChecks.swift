@@ -1,7 +1,12 @@
 import AppKit
 import Combine
+import QuartzCore
 
 // ACTUAL_PRESENTATION_STATE
+
+@MainActor enum InspectorHostPublicationObservation {
+    static var didClose: ((InspectorCardToken) -> Void)?
+}
 
 /// Publish the production state value through the Coordinator's real Combine
 /// subscription. Only source metadata/views remain the existing recording leaves.
@@ -102,7 +107,7 @@ private final class InspectorCardRouteProbe {
     return checks
 }
 
-@MainActor func inspectorPresentationRefreshChecks() async throws -> [String: Bool] {
+@MainActor func inspectorPresentationRefreshChecks(split: AppKitMainSplitViewController) async throws -> [String: Bool] {
     let workspace = WallpaperLibraryWorkspace(), manager = WallpaperManager()
     let reference = WallpaperReference(provider: .videoLibrary, sourceID: "refresh-input")
     let value = WallpaperContentItem(reference: reference, providerReference: reference,
@@ -215,5 +220,179 @@ private final class InspectorCardRouteProbe {
         && workspace.presentation.publications == unchangedPresentation
     onlineCoordinator.closeInspector()
     checks.merge(await inspectorCardRouteChecks(), uniquingKeysWith: { _, new in new })
+    checks.merge(await inspectorReopenChecks(split: split), uniquingKeysWith: { _, new in new })
+    return checks
+}
+
+@MainActor private func inspectorReopenChecks(split: AppKitMainSplitViewController) async -> [String: Bool] {
+    let workspace = WallpaperLibraryWorkspace(), manager = WallpaperManager()
+    let reference = WallpaperReference(provider: .videoLibrary, sourceID: "reopen-video")
+    let content = WallpaperContentItem(reference: reference, providerReference: reference,
+        locator: .init(titleHint: "Reopen", mediaKind: .video), title: "Reopen", kind: .video,
+        publishedAvailability: .available, capabilities: [.inspect], metadata: .init(), acquisition: .idle, update: .idle, aliases: [])
+    manager.wallpapers = [.init(id: reference.sourceID)]; workspace.catalog.catalog.videos = [content]
+    workspace.publishPresentation()
+    let coordinator = WallpaperLibraryInspectorCoordinator(workspace: workspace, manager: manager,
+        images: SILService(), steam: SteamWorkshopService(), pixabay: PixabayService(),
+        makePrimaryAction: { _ in nil }, makeFavoriteAction: { _ in nil }, canOrganize: { false },
+        availabilityChanges: Empty<Void, Never>().eraseToAnyPublisher(), onChoosePlaylist: { _, _ in })
+    let probe = InspectorProbe()
+    let host = split.children.flatMap(\.children).compactMap { $0 as? InspectorHostViewController }.first!
+    let animationHost = host.view.superview!, overlay = animationHost.superview!
+    let trailing = overlay.constraints.first {
+        ($0.firstItem as? NSView) === animationHost && $0.firstAttribute == .trailing
+    }!
+    func closeButton(in root: NSView) -> NSButton? {
+        if let button = root as? NSButton, button.toolTip == "关闭详情" { return button }
+        for child in root.subviews { if let button = closeButton(in: child) { return button } }
+        return nil
+    }
+    var checks: [String: Bool] = [:], frames: [[String: Any]] = []
+    @discardableResult func record(_ stage: String) -> NSRect? {
+        let presentation = animationHost.layer?.presentation()?.frame
+        frames.append(["stage": stage, "hostSeconds": ProcessInfo.processInfo.systemUptime,
+            "presentationFrame": presentation.map { NSStringFromRect($0) } ?? "nil",
+            "modelFrame": NSStringFromRect(animationHost.frame), "trailing": trailing.constant,
+            "overlayBounds": NSStringFromRect(overlay.bounds), "hidden": overlay.isHidden,
+            "windowVisible": overlay.window?.isVisible == true])
+        return presentation
+    }
+    split.view.window?.makeKeyAndOrderFront(nil)
+    var expectedFinalToken: InspectorCardToken?
+    InspectorHostPublicationObservation.didClose = { token in
+        guard token == expectedFinalToken else { return }
+        checks["real-Shell-didClose-is-consumed-before-its-post-returns"] = coordinator.inspectorToken == nil
+        record("after-real-didClose-post-returns")
+    }
+    defer {
+        InspectorHostPublicationObservation.didClose = nil
+        coordinator.closeInspector(); split.view.window?.orderOut(nil)
+    }
+    try? await Task.sleep(for: .milliseconds(350))
+    func reopen(_ name: String, open: () -> Void) async {
+        open()
+        checks[name + "-didPresent-mounts-in-the-open-turn"] = probe.mounts.contains {
+            $0.0 == coordinator.inspectorToken && $0.1.isDescendant(of: host.view)
+        }
+        try? await Task.sleep(for: .milliseconds(350))
+        guard let token = coordinator.inspectorToken,
+              let originalView = probe.mounts.last(where: { $0.0 == token })?.1,
+              let close = closeButton(in: host.view) else {
+            checks[name + "-real-host-and-close-button-exist"] = false
+            return
+        }
+        checks[name + "-real-host-and-close-button-exist"] = originalView.isDescendant(of: host.view)
+        close.performClick(nil)
+        checks[name + "-real-close-immediately-releases-overlay-input"] = overlay.hitTest(NSPoint(x: 10, y: 10)) == nil
+        try? await Task.sleep(for: .milliseconds(70))
+        let closing = record(name + "-mid-close")
+        checks[name + "-close-has-real-in-flight-presentation"] = closing.map {
+            let offset = $0.maxX - overlay.bounds.maxX
+            return offset > 0.5 && offset < animationHost.frame.width + 48
+        } == true
+        let opens = probe.opens.count, mounts = probe.mounts.count
+        open(); record(name + "-reopen-same-turn")
+        checks[name + "-explicit-reopen-reuses-token-view-and-mount"] = coordinator.inspectorToken == token
+            && originalView.isDescendant(of: host.view) && probe.opens.count == opens + 1 && probe.mounts.count == mounts
+        for index in 0..<6 {
+            try? await Task.sleep(for: .milliseconds(16)); record(name + "-reopen-frame-\(index)")
+        }
+        try? await Task.sleep(for: .milliseconds(300))
+        record(name + "-after-old-close-completion")
+        checks[name + "-old-close-cannot-hide-explicitly-reopened-content"] = coordinator.inspectorToken == token
+            && originalView.isDescendant(of: host.view) && !overlay.isHidden
+            && abs(animationHost.frame.maxX - overlay.bounds.maxX) <= 0.5
+        coordinator.closeInspector(); try? await Task.sleep(for: .milliseconds(300))
+    }
+    await reopen("same-video") { coordinator.inspect(content: content) }
+    let file = PixabayVideoFile(url: "https://example.invalid/reopen.mp4", width: 1280, height: 720, size: 1, thumbnail: "https://example.invalid/reopen.png")
+    let remote = PixabayVideoItem(id: 117, pageURL: "https://pixabay.com/videos/id-117/", tags: "Reopen", duration: 1,
+        user: "fixture", videos: .init(large: file, medium: file, small: nil, tiny: nil))
+    await reopen("same-pixabay") { coordinator.inspectPixabayItem(remote) }
+    let artwork = OnlineImageArtwork(source: .wallhaven, artworkID: "r117", title: "Reopen",
+        sourceURL: URL(string: "https://wallhaven.cc/w/r117")!)
+    await reopen("same-online-image") { coordinator.inspectOnlineArtwork(artwork) }
+    coordinator.inspect(content: content); try? await Task.sleep(for: .milliseconds(350))
+    let closingToken = coordinator.inspectorToken
+    record("cross-source-before-close-command")
+    if let closingToken { InspectorHostActions.postClose(module: closingToken.module, cardID: closingToken.cardID) }
+    try? await Task.sleep(for: .milliseconds(32))
+    let crossSourceClosing = record("cross-source-mid-close")
+    checks["cross-source-close-has-real-in-flight-presentation"] = crossSourceClosing.map {
+        let offset = $0.maxX - overlay.bounds.maxX
+        return offset > 0.5 && offset < animationHost.frame.width + 48
+    } == true
+    coordinator.inspectPixabayItem(remote); record("cross-source-reopen-same-turn")
+    let crossSourceToken = coordinator.inspectorToken
+    let crossSourceView = probe.mounts.last(where: { $0.0 == crossSourceToken })?.1
+    for index in 0..<6 {
+        try? await Task.sleep(for: .milliseconds(16)); record("cross-source-reopen-frame-\(index)")
+    }
+    try? await Task.sleep(for: .milliseconds(300))
+    record("cross-source-after-old-close-completion")
+    checks["cross-source-reopen-keeps-the-new-token-and-view-visible"] = crossSourceToken != nil
+        && crossSourceToken != closingToken && coordinator.inspectorToken == crossSourceToken
+        && crossSourceView?.isDescendant(of: host.view) == true && !overlay.isHidden
+        && abs(animationHost.frame.maxX - overlay.bounds.maxX) <= 0.5
+    coordinator.closeInspector(); try? await Task.sleep(for: .milliseconds(300))
+    coordinator.inspect(content: content); try? await Task.sleep(for: .milliseconds(350))
+    let opens = probe.opens.count
+    expectedFinalToken = coordinator.inspectorToken
+    closeButton(in: host.view)?.performClick(nil)
+    try? await Task.sleep(for: .milliseconds(70))
+    workspace.catalog.catalog.revision += 1; workspace.publishPresentation()
+    coordinator.syncSelection(content: content)
+    try? await Task.sleep(for: .milliseconds(350))
+    checks["catalog-and-selection-render-echo-cannot-reopen-a-closing-inspector"] = coordinator.inspectorToken == nil
+        && overlay.isHidden && probe.opens.count == opens
+    checks["real-Shell-close-post-return-was-observed"] = checks["real-Shell-didClose-is-consumed-before-its-post-returns"] != nil
+    workspace.publishPresentation(); coordinator.syncSelection(content: content)
+    await WallpaperLibraryInspectorHarness.pump()
+    checks["catalog-and-selection-render-echo-cannot-open-a-hidden-inspector"] = coordinator.inspectorToken == nil
+        && overlay.isHidden && probe.opens.count == opens
+    coordinator.inspect(content: content)
+    try? await Task.sleep(for: .milliseconds(16))
+    let beforeBusy = record("entrance-before-Main-busy")
+    // The render server must advance the slide while Main cannot run a
+    // constraint-animation tick. Do not force layout or display in this interval.
+    let busyDeadline = CACurrentMediaTime() + 0.08
+    while CACurrentMediaTime() < busyDeadline {}
+    // presentationLayer samples the start of the current transaction. End it
+    // before the second read; this does not run AppKit layout/animation ticks.
+    CATransaction.flush()
+    let afterBusy = record("entrance-after-Main-busy")
+    checks["inspector-entrance-continues-moving-while-Main-is-busy"] = beforeBusy.flatMap { before in
+        afterBusy.map { before.minX - $0.minX > 20 }
+    } == true
+    checks["busy-entrance-keeps-the-current-content-mounted"] = coordinator.inspectorToken != nil
+        && probe.mounts.last?.1.isDescendant(of: host.view) == true && !overlay.isHidden
+    coordinator.closeInspector()
+    try? await Task.sleep(for: .milliseconds(350))
+    let underlay = overlay.superview!.subviews.first { $0 !== overlay }!
+    let bar = WallpaperCardControlsView(frame: NSRect(x: 24, y: 40, width: 260, height: 44))
+    underlay.addSubview(bar)
+    defer { bar.removeFromSuperview() }
+    var cardOpens = 0
+    bar.onInspect = { cardOpens += 1; coordinator.inspect(content: content) }
+    bar.layoutSubtreeIfNeeded()
+    bar.detailButton.performClick(nil)
+    let cardToken = coordinator.inspectorToken, cardMounts = probe.mounts.count, cardCloses = probe.closes.count
+    let detailPoint = bar.detailButton.convert(NSPoint(x: bar.detailButton.bounds.midX, y: bar.detailButton.bounds.midY), to: overlay.superview)
+    let playPoint = bar.playButton.convert(NSPoint(x: bar.playButton.bounds.midX, y: bar.playButton.bounds.midY), to: overlay.superview)
+    checks["opening-overlay-passes-real-detail-button-but-keeps-play-shielded"] = cardOpens == 1 && cardToken != nil
+        && overlay.hitTest(detailPoint) == nil && overlay.hitTest(playPoint) != nil
+    bar.detailButton.performClick(nil)
+    checks["detail-button-closes-in-flight-host-through-native-responder"] = overlay.hitTest(NSPoint(x: 10, y: 10)) == nil
+        && cardOpens == 1 && probe.closes.count == cardCloses + 1
+    bar.detailButton.performClick(nil)
+    try? await Task.sleep(for: .milliseconds(350))
+    checks["next-detail-click-reopens-in-flight-host-without-new-view-or-token"] = cardOpens == 2
+        && coordinator.inspectorToken == cardToken && probe.mounts.count == cardMounts && !overlay.isHidden
+    coordinator.closeInspector()
+    try? await Task.sleep(for: .milliseconds(350))
+    if let data = try? JSONSerialization.data(withJSONObject: frames, options: [.sortedKeys]) {
+        FileHandle.standardError.write(Data("INSPECTOR REOPEN FRAMES ".utf8)); FileHandle.standardError.write(data)
+        FileHandle.standardError.write(Data([10]))
+    }
     return checks
 }

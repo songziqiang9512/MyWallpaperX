@@ -14,6 +14,7 @@ private actor IdentityMediaGate {
     static let shared = IdentityMediaGate()
     var blocked = false
     var count = 0
+    var requests: [ThumbnailRequest?] = []
     var waiting: [CheckedContinuation<NSImage?, Never>] = []
     let image: NSImage
     init() {
@@ -26,6 +27,10 @@ private actor IdentityMediaGate {
         count += 1
         if blocked { return await withCheckedContinuation { waiting.append($0) } }
         return image
+    }
+    func input(request: ThumbnailRequest?) async -> ThumbnailInput? {
+        requests.append(request)
+        return (await frame()).map { .image($0, nativeSize: CGSize(width: 10, height: 10)) }
     }
     func block() { blocked = true }
     func release() { blocked = false; let old = waiting; waiting.removeAll(); old.forEach { $0.resume(returning: image) } }
@@ -103,7 +108,7 @@ private enum Failure: Error { case assertion(String) }
 
         await gate.block()
         var blockerDone = false
-        cache.loadImageAsync(forKey: "generation-blocker", loader: { await gate.frame() }) { _ in blockerDone = true }
+        cache.loadImageAsync(forKey: "generation-blocker", loader: { (await gate.frame()).map { .image($0) } }) { _ in blockerDone = true }
         try await wait("generation blocker must start") { await gate.waitingCount == 1 }
         let queued = directory.appendingPathComponent("queued.mp4")
         try Data(repeating: 6, count: 63).write(to: queued)
@@ -168,10 +173,40 @@ private enum Failure: Error { case assertion(String) }
         cache.remove(forKey: failedKey)
         try expect(!cache.hasCachedResult(forKey: failedKey), "single-key invalidation retained its old negative conclusion")
         var recoveredImage: NSImage?
-        cache.loadImageAsync(forKey: failedKey, loader: { await gate.frame() }) { recoveredImage = $0 }
+        cache.loadImageAsync(forKey: failedKey, loader: { (await gate.frame()).map { .image($0) } }) { recoveredImage = $0 }
         try await wait("explicitly invalidated failure must remain retryable") { recoveredImage != nil }
         try expect(cache.hasCachedResult(forKey: failedKey), "a recovered image must be a warm original-cache conclusion")
+        let sized = directory.appendingPathComponent("actual-target.mp4")
+        try Data(repeating: 9, count: 111).write(to: sized)
+        let sizedEntry = PixabayDownloadedEntry(localURL: sized, thumbnailSourceKey: nil)
+        let target = ThumbnailRequest(width: 8, height: 8, mode: .fill)
+        var sizedImage: NSImage?
+        PixabayDownloadedThumbnailStore.loadThumbnail(sizedEntry, request: target,
+            priority: .visible, cancellation: ThumbnailCacheRequestCancellation()) { _, image in sizedImage = image }
+        try await wait("sized request must finish") { sizedImage != nil }
+        let observedTarget = await gate.requests.last!
+        let sizedFrames = await gate.count
+        var compatibleImage: NSImage?
+        PixabayDownloadedThumbnailStore.loadThumbnail(sizedEntry, request: ThumbnailRequest(width: 4, height: 4, mode: .fill),
+            priority: .visible, cancellation: ThumbnailCacheRequestCancellation()) { _, image in compatibleImage = image }
+        try await wait("compatible warm target must finish") { compatibleImage != nil }
+        let compatibleFrames = await gate.count
+        try expect(observedTarget == target && compatibleImage === sizedImage && compatibleFrames == sizedFrames,
+            "actual target was lost or a compatible warm request sampled AV again")
+        let oversized = ThumbnailRequest(width: 20, height: 20, mode: .fill)
+        var nativeImage: NSImage?
+        PixabayDownloadedThumbnailStore.loadThumbnail(sizedEntry, request: oversized,
+            priority: .visible, cancellation: ThumbnailCacheRequestCancellation()) { _, image in nativeImage = image }
+        try await wait("native-capped request must finish") { nativeImage != nil }
+        let nativeFrames = await gate.count
+        var nativeWarm: NSImage?
+        PixabayDownloadedThumbnailStore.loadThumbnail(sizedEntry, request: oversized,
+            priority: .visible, cancellation: ThumbnailCacheRequestCancellation()) { _, image in nativeWarm = image }
+        try await wait("native-capped warm request must finish") { nativeWarm != nil }
+        let nativeWarmFrames = await gate.count
+        try expect(nativeWarm === nativeImage && nativeWarmFrames == nativeFrames,
+            "source native cap was lost and caused repeated AV or a false negative cache")
         try expect(IdentityProbe.shared.mainThreadCalls == 0, "downloaded producer performed source validation on the main thread")
-        print("{\"scanReplacementUsesActualIdentity\":true,\"sameKeyVisibleSurvivesPrefetchCancel\":true,\"activeReplacementFinishesUncachedAndRetries\":true,\"queuedReplacementFinishesBeforeSampling\":true,\"currentWarmKeyResolvesOnceWithoutAV\":true,\"warmOldHintUsesCurrentSource\":true,\"prefetchAndVisibleShareLiveIdentity\":true,\"cachedFailureAndSingleKeyInvalidationUseOriginalResult\":true,\"fingerprintOffMain\":true}")
+        print("{\"scanReplacementUsesActualIdentity\":true,\"sameKeyVisibleSurvivesPrefetchCancel\":true,\"activeReplacementFinishesUncachedAndRetries\":true,\"queuedReplacementFinishesBeforeSampling\":true,\"currentWarmKeyResolvesOnceWithoutAV\":true,\"warmOldHintUsesCurrentSource\":true,\"prefetchAndVisibleShareLiveIdentity\":true,\"cachedFailureAndSingleKeyInvalidationUseOriginalResult\":true,\"actualTargetReachesGenerationAndCompatibleWarmPixelsAvoidAV\":true,\"nativeCappedPixelsRemainWarmForLargeTarget\":true,\"fingerprintOffMain\":true}")
     }
 }

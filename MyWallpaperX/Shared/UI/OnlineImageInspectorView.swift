@@ -11,7 +11,7 @@ final class OnlineImageInspectorView: NSView {
     private let onAuthor: ((OnlineImageAuthor) -> Void)?
     private let initialReference: WallpaperReference
     private var firstThumbnailURL: URL?
-    private let thumbnailPixelSize: Int
+    private var previewRequest: ThumbnailRequest?
     private var pageIndex: Int
     private var assets: [OnlineImageAsset] = []
     private var boundActions: (WallpaperReference, WallpaperInspectorActions)?
@@ -52,17 +52,15 @@ final class OnlineImageInspectorView: NSView {
 
     init(artwork: OnlineImageArtwork, library: OnlineImageLibrary,
          makeLibraryActions: @escaping (WallpaperReference) -> WallpaperInspectorActions?,
-         onAuthor: ((OnlineImageAuthor) -> Void)? = nil, initialPageIndex: Int = 0, thumbnailPixelSize: Int = 800) {
+         onAuthor: ((OnlineImageAuthor) -> Void)? = nil, initialPageIndex: Int = 0) {
         self.artwork = artwork; self.library = library
         self.makeLibraryActions = makeLibraryActions; self.onAuthor = onAuthor
         firstThumbnailURL = artwork.thumbnailURL ?? artwork.previewURL
-        self.thumbnailPixelSize = thumbnailPixelSize
         pageIndex = max(0, initialPageIndex)
         initialReference = OnlineImageAssetID(source: artwork.source, artworkID: artwork.artworkID, pageIndex: max(0, initialPageIndex)).reference
         super.init(frame: .zero)
         setup()
         observeLibrary()
-        refreshContent()
         loadPreview()
         resolveDetails()
     }
@@ -95,12 +93,20 @@ final class OnlineImageInspectorView: NSView {
         if window != nil {
             hasMounted = true
             if isRetired {
-                isRetired = false; observeLibrary(); loadPreview(); resolveDetails()
+                // Prepare loading state before observation catches up synchronously.
+                isRetired = false; resolveDetails(); observeLibrary()
             }
+            loadPreview()
         } else if hasMounted { retire() }
     }
 
+    override func viewDidChangeBackingProperties() {
+        super.viewDidChangeBackingProperties()
+        loadPreview()
+    }
+
     private func setup() {
+        preview.onSizeChange = { [weak self] in self?.loadPreview() }
         translatesAutoresizingMaskIntoConstraints = false
         wantsLayer = true; layer?.backgroundColor = NSColor.clear.cgColor
         let root = SILInspectorViews.makeVerticalStack(spacing: 12)
@@ -162,7 +168,7 @@ final class OnlineImageInspectorView: NSView {
     }
 
     private func observeLibrary() {
-        library.$snapshot.receive(on: DispatchQueue.main).sink { [weak self] _ in
+        library.$snapshot.dropFirst().receive(on: DispatchQueue.main).sink { [weak self] _ in
             guard let self, !isRetired else { return }
             refreshContent(); loadPreview()
         }.store(in: &subscriptions)
@@ -171,6 +177,7 @@ final class OnlineImageInspectorView: NSView {
             updateControls()
         }.store(in: &subscriptions)
         observeSession()
+        refreshContent()
     }
 
     private func observeSession() {
@@ -290,33 +297,31 @@ final class OnlineImageInspectorView: NSView {
     }
 
     private func loadPreview() {
-        guard !isRetired else { return }
+        guard !isRetired, let window, let target = ThumbnailRequest(size: preview.bounds.size,
+            scale: window.backingScaleFactor, mode: .fill) else { return }
         let id = assetID
         let local = isLocalAvailable ? currentRecord.flatMap(library.localURL(for:)) : nil
         // The first page keeps the grid URL even when richer detail metadata arrives.
         let remote = pageIndex == 0 ? firstThumbnailURL ?? artwork.thumbnailURL ?? artwork.previewURL : currentAsset?.previewURL
         let key = local.map { "local:\($0.path):\(currentRecord?.revision.uuidString ?? "")" }
             ?? remote.map { "remote:\(artwork.source == .pixiv ? library.pixivScope : "public"):\($0.absoluteString)" }
-        guard key != lastPreviewKey || displayedPage != id else { return }
-        lastPreviewKey = key
+        guard key != lastPreviewKey || displayedPage != id || previewRequest != target else { return }
+        lastPreviewKey = key; previewRequest = target
         previewTask?.cancel(); previewTask = nil; localCancellation?.cancel(); localCancellation = nil
         let token = UUID(); previewID = token
         if displayedPage != id { preview.updateImage(nil); displayedPage = id }
         if let local {
             let cancellation = ThumbnailCacheRequestCancellation(); localCancellation = cancellation
-            localThumbnails.load(path: local.path, cancellation: cancellation) { [weak self] result in
+            localThumbnails.load(path: local.path, request: target, cancellation: cancellation) { [weak self] result in
                 guard let self, !isRetired, previewID == token, assetID == id, !cancellation.cancelled else { return }
                 localCancellation = nil
                 if case .image(let image) = result { preview.updateImage(image) }
             }
         } else if let remote {
             let request = library.thumbnailRequest(url: remote, source: artwork.source)
-            for pixels in [thumbnailPixelSize, 256, 512, 800, 1200, 1600, 2400, 3200, 4096] {
-                if let image = OnlineImageThumbnailCache.shared.readyImage(for: request, maxPixelSize: pixels) { preview.updateImage(image); return }
-            }
-            let pixels = thumbnailPixelSize
+            if let image = OnlineImageThumbnailCache.shared.readyImage(for: request, request: target) { preview.updateImage(image); return }
             previewTask = Task { [weak self] in
-                let image = await OnlineImageThumbnailCache.shared.image(for: request, maxPixelSize: pixels, priority: .visible)
+                let image = await OnlineImageThumbnailCache.shared.image(for: request, request: target, priority: .visible)
                 guard let self, !Task.isCancelled, !isRetired, previewID == token, assetID == id else { return }
                 previewTask = nil
                 if let image { preview.updateImage(image) }

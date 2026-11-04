@@ -8,7 +8,7 @@ import Combine
     private let contentController: DownloadTasksContentController
 
     init(snapshot: @escaping () -> DownloadTaskSnapshot, changes: AnyPublisher<Void, Never>,
-         bindings: DownloadTaskRowView.Bindings, retryAllFailed: (([DownloadTaskRow]) -> Void)? = nil,
+         bindings: DownloadTaskRowPresentation.Bindings, retryAllFailed: (([DownloadTaskRow]) -> Void)? = nil,
          clearHistory: (() -> Void)? = nil) {
         contentController = DownloadTasksContentController(snapshot: snapshot, changes: changes, bindings: bindings,
             retryAllFailed: retryAllFailed, clearHistory: clearHistory)
@@ -42,27 +42,35 @@ import Combine
 
 /// Aggregation presentation only. The App connects the original publishers and
 /// source commands; opening local history performs no authentication or scan.
-@MainActor final class DownloadTasksContentController: NSViewController {
+@MainActor final class DownloadTasksContentController: NSViewController, NSTableViewDelegate {
+    private enum Section: Hashable { case content }
+    private enum Item: Hashable {
+        case notice, activeHeader, historyHeader
+        case task(DownloadTaskIdentity)
+    }
     private let snapshot: () -> DownloadTaskSnapshot
     private let changes: AnyPublisher<Void, Never>
-    private let bindings: DownloadTaskRowView.Bindings
+    private let bindings: DownloadTaskRowPresentation.Bindings
     private let retryAllFailed: (([DownloadTaskRow]) -> Void)?
     private let clearHistory: (() -> Void)?
     private var subscription: AnyCancellable?
-    private var rowsByID: [DownloadTaskIdentity: DownloadTaskRowView] = [:]
+    private var statesByID: [DownloadTaskIdentity: DownloadTaskRowPresentation] = [:]
+    private var dataSource: NSTableViewDiffableDataSource<Section, Item>!
     private let countLabel = NSTextField(labelWithString: "")
     private let retryButton = NSButton(title: "重试全部", target: nil, action: nil)
     private let clearButton = NSButton(title: "清空历史", target: nil, action: nil)
     private let emptyLabel = NSTextField(labelWithString: "暂无下载任务")
     private let scrollView = NSScrollView()
-    private let documentView = DownloadTasksDocumentView()
-    private let rowsStack = NSStackView()
+    private let tableView = NSTableView()
     private let activeLabel = NSTextField(labelWithString: "进行中")
     private let historyLabel = NSTextField(labelWithString: "历史记录")
     private let noticeLabel = NSTextField(wrappingLabelWithString: "")
+    private lazy var activeCell = DownloadTasksTableCell(content: activeLabel, identifier: NSUserInterfaceItemIdentifier("active"))
+    private lazy var historyCell = DownloadTasksTableCell(content: historyLabel, identifier: NSUserInterfaceItemIdentifier("history"))
+    private lazy var noticeCell = DownloadTasksTableCell(content: noticeLabel, identifier: NSUserInterfaceItemIdentifier("notice"))
 
     init(snapshot: @escaping () -> DownloadTaskSnapshot, changes: AnyPublisher<Void, Never>,
-         bindings: DownloadTaskRowView.Bindings, retryAllFailed: (([DownloadTaskRow]) -> Void)?, clearHistory: (() -> Void)?) {
+         bindings: DownloadTaskRowPresentation.Bindings, retryAllFailed: (([DownloadTaskRow]) -> Void)?, clearHistory: (() -> Void)?) {
         self.snapshot = snapshot
         self.changes = changes
         self.bindings = bindings
@@ -77,7 +85,13 @@ import Combine
 
     override func loadView() {
         let size = DownloadTasksPopoverController.panelSize
-        let root = NSView(frame: NSRect(origin: .zero, size: size))
+        let root = DownloadTasksRootView(frame: NSRect(origin: .zero, size: size))
+        root.onThumbnailRequest = { [weak self] request in
+            guard let self else { return }
+            for item in dataSource.snapshot().itemIdentifiers {
+                if case .task(let id) = item { statesByID[id]?.prepareThumbnail(request) }
+            }
+        }
         view = root
         preferredContentSize = size
         NSLayoutConstraint.activate([
@@ -103,18 +117,33 @@ import Combine
             label.font = .systemFont(ofSize: 11, weight: .semibold)
             label.textColor = .secondaryLabelColor
         }
-        rowsStack.orientation = .vertical
-        rowsStack.alignment = .leading
-        rowsStack.spacing = 0
-        rowsStack.translatesAutoresizingMaskIntoConstraints = false
         noticeLabel.textColor = .secondaryLabelColor
         noticeLabel.font = .systemFont(ofSize: 11)
-        documentView.translatesAutoresizingMaskIntoConstraints = false
-        documentView.addSubview(rowsStack)
+        tableView.frame = NSRect(x: 0, y: 0, width: size.width, height: 0)
+        tableView.autoresizingMask = [.width]
+        tableView.style = .plain
+        tableView.headerView = nil
+        tableView.backgroundColor = .clear
+        tableView.selectionHighlightStyle = .none
+        tableView.focusRingType = .none
+        tableView.floatsGroupRows = false
+        tableView.rowSizeStyle = .custom
+        tableView.rowHeight = 76
+        tableView.intercellSpacing = .zero
+        tableView.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
+        let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("task"))
+        column.width = size.width
+        column.minWidth = 0
+        column.resizingMask = .autoresizingMask
+        tableView.addTableColumn(column)
+        dataSource = NSTableViewDiffableDataSource(tableView: tableView) { [weak self] table, _, _, item in
+            self?.cell(for: item, in: table) ?? NSView()
+        }
+        tableView.delegate = self
         scrollView.drawsBackground = false
         scrollView.hasVerticalScroller = true
         scrollView.autohidesScrollers = true
-        scrollView.documentView = documentView
+        scrollView.documentView = tableView
         for child in [countLabel, retryButton, clearButton, scrollView, emptyLabel] {
             child.translatesAutoresizingMaskIntoConstraints = false
             root.addSubview(child)
@@ -130,11 +159,6 @@ import Combine
             scrollView.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             scrollView.bottomAnchor.constraint(equalTo: root.bottomAnchor),
-            documentView.widthAnchor.constraint(equalTo: scrollView.contentView.widthAnchor),
-            rowsStack.topAnchor.constraint(equalTo: documentView.topAnchor),
-            rowsStack.leadingAnchor.constraint(equalTo: documentView.leadingAnchor, constant: 16),
-            rowsStack.trailingAnchor.constraint(equalTo: documentView.trailingAnchor, constant: -16),
-            rowsStack.bottomAnchor.constraint(equalTo: documentView.bottomAnchor),
             emptyLabel.centerXAnchor.constraint(equalTo: scrollView.centerXAnchor),
             emptyLabel.centerYAnchor.constraint(equalTo: scrollView.centerYAnchor)
         ])
@@ -151,56 +175,44 @@ import Combine
     func stopObserving() {
         subscription?.cancel()
         subscription = nil
-        rowsByID.values.forEach { $0.unbind() }
-        rowsByID.removeAll()
-        rowsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        tableView.enumerateAvailableRowViews { [self] rowView, _ in unbindView(in: rowView) }
+        statesByID.values.forEach { $0.unbind() }
+        statesByID.removeAll()
+        dataSource.apply(NSDiffableDataSourceSnapshot<Section, Item>(), animatingDifferences: false)
     }
 
     private func reconcile() {
         let value = snapshot()
         let rows = value.active + value.history
         let liveIDs = Set(rows.map(\.id))
-        for (id, row) in rowsByID where !liveIDs.contains(id) {
-            row.unbind()
-            rowsStack.removeArrangedSubview(row)
-            row.removeFromSuperview()
-            rowsByID.removeValue(forKey: id)
+        for (id, state) in statesByID where !liveIDs.contains(id) {
+            state.unbind()
+            statesByID.removeValue(forKey: id)
         }
+        let request = view.window.flatMap { DownloadTaskRowPresentation.thumbnailRequest(for: $0) }
         for row in rows {
-            if let existing = rowsByID[row.id] { existing.configure(row) }
-            else {
-                let view = DownloadTaskRowView(bindings: bindings)
-                rowsByID[row.id] = view
-                view.configure(row)
-            }
+            let state = statesByID[row.id] ?? DownloadTaskRowPresentation(bindings: bindings)
+            statesByID[row.id] = state
+            state.configure(row, request: request)
         }
+        let noticeChanged = noticeLabel.stringValue != (value.notice ?? "")
+        noticeLabel.stringValue = value.notice ?? ""
         activeLabel.stringValue = "进行中 · \(value.active.count)"
         historyLabel.stringValue = "历史记录 · \(value.history.count)"
-        var ordered: [NSView] = []
-        if let notice = value.notice { noticeLabel.stringValue = notice; ordered.append(noticeLabel) }
-        if !value.active.isEmpty { ordered.append(activeLabel) }
-        ordered.append(contentsOf: value.active.compactMap { rowsByID[$0.id] })
-        if !value.history.isEmpty { ordered.append(historyLabel) }
-        ordered.append(contentsOf: value.history.compactMap { rowsByID[$0.id] })
-        let retained = Set(ordered.map(ObjectIdentifier.init))
-        for child in rowsStack.arrangedSubviews where !retained.contains(ObjectIdentifier(child)) {
-            rowsStack.removeArrangedSubview(child)
-            child.removeFromSuperview()
-        }
-        var installed = rowsStack.arrangedSubviews
-        let installedIDs = Set(installed.map(ObjectIdentifier.init))
-        for (index, child) in ordered.enumerated() {
-            if installed.indices.contains(index), installed[index] === child { continue }
-            if installedIDs.contains(ObjectIdentifier(child)), let previous = installed.firstIndex(where: { $0 === child }) {
-                rowsStack.removeArrangedSubview(child)
-                installed.remove(at: previous)
-            }
-            rowsStack.insertArrangedSubview(child, at: index)
-            // Reordering retains these constraints; detached views install them only after joining the stack.
-            if !installedIDs.contains(ObjectIdentifier(child)), child === noticeLabel || child is DownloadTaskRowView {
-                child.widthAnchor.constraint(equalTo: rowsStack.widthAnchor).isActive = true
-            }
-            installed.insert(child, at: index)
+        var ordered: [Item] = []
+        if value.notice != nil { ordered.append(.notice) }
+        if !value.active.isEmpty { ordered.append(.activeHeader) }
+        ordered.append(contentsOf: value.active.map { .task($0.id) })
+        if !value.history.isEmpty { ordered.append(.historyHeader) }
+        ordered.append(contentsOf: value.history.map { .task($0.id) })
+        let current = dataSource.snapshot()
+        if current.sectionIdentifiers != [.content] || current.itemIdentifiers != ordered {
+            var next = NSDiffableDataSourceSnapshot<Section, Item>()
+            next.appendSections([.content])
+            next.appendItems(ordered, toSection: .content)
+            dataSource.apply(next, animatingDifferences: false)
+        } else if noticeChanged {
+            updateNoticeHeight()
         }
         countLabel.stringValue = "下载任务 · \(value.count) 项"
         retryButton.isEnabled = retryAllFailed != nil && value.history.contains { $0.phase == .failed && $0.actions.contains(.retry) }
@@ -208,14 +220,96 @@ import Combine
         emptyLabel.isHidden = value.count != 0
     }
 
+    private func cell(for item: Item, in table: NSTableView) -> NSView {
+        switch item {
+        case .task(let id):
+            let identifier = NSUserInterfaceItemIdentifier("download-task")
+            let cell = table.makeView(withIdentifier: identifier, owner: self) as? DownloadTasksTableCell
+                ?? DownloadTasksTableCell(content: DownloadTaskRowView(frame: .zero), identifier: identifier)
+            (cell.content as! DownloadTaskRowView).bind(statesByID[id])
+            return cell
+        case .notice: return noticeCell
+        case .activeHeader: return activeCell
+        case .historyHeader: return historyCell
+        }
+    }
+
+    func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
+        switch dataSource.itemIdentifier(forRow: row) {
+        case .notice?:
+            let bounds = NSRect(x: 0, y: 0, width: max(1, tableView.bounds.width - 32), height: .greatestFiniteMagnitude)
+            return max(14, ceil(noticeLabel.cell?.cellSize(forBounds: bounds).height ?? 14))
+        case .activeHeader?, .historyHeader?: return 14
+        default: return 76
+        }
+    }
+
+    func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool { false }
+
+    func tableView(_ tableView: NSTableView, didRemove rowView: NSTableRowView, forRow row: Int) {
+        unbindView(in: rowView)
+    }
+
+    private func unbindView(in rowView: NSTableRowView) {
+        let cell = rowView.view(atColumn: 0) as? DownloadTasksTableCell
+        (cell?.content as? DownloadTaskRowView)?.bind(nil)
+    }
+
+    func tableViewColumnDidResize(_ notification: Notification) { updateNoticeHeight() }
+
+    private func updateNoticeHeight() {
+        if let row = dataSource.row(forItemIdentifier: .notice) {
+            tableView.noteHeightOfRows(withIndexesChanged: IndexSet(integer: row))
+        }
+    }
+
     @objc private func handleRetryAll() {
-        let candidates = rowsStack.arrangedSubviews.compactMap { ($0 as? DownloadTaskRowView)?.displayedTask }
+        let candidates = dataSource.snapshot().itemIdentifiers.compactMap { item -> DownloadTaskRow? in
+            guard case .task(let id) = item else { return nil }
+            return statesByID[id]?.row
+        }
             .filter { $0.phase == .failed && $0.actions.contains(.retry) }
         retryAllFailed?(candidates)
     }
     @objc private func handleClearHistory() { clearHistory?() }
 }
 
-private final class DownloadTasksDocumentView: NSView {
-    override var isFlipped: Bool { true }
+private final class DownloadTasksTableCell: NSTableCellView {
+    let content: NSView
+
+    init(content: NSView, identifier: NSUserInterfaceItemIdentifier) {
+        self.content = content
+        super.init(frame: .zero)
+        self.identifier = identifier
+        content.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(content)
+        NSLayoutConstraint.activate([
+            content.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            content.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            content.topAnchor.constraint(equalTo: topAnchor), content.bottomAnchor.constraint(equalTo: bottomAnchor)
+        ])
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { nil }
+}
+
+private final class DownloadTasksRootView: NSView {
+    var onThumbnailRequest: ((ThumbnailRequest) -> Void)?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        prepareThumbnails()
+    }
+
+    override func viewDidChangeBackingProperties() {
+        super.viewDidChangeBackingProperties()
+        prepareThumbnails()
+    }
+
+    private func prepareThumbnails() {
+        if let window, let request = DownloadTaskRowPresentation.thumbnailRequest(for: window) {
+            onThumbnailRequest?(request)
+        }
+    }
 }

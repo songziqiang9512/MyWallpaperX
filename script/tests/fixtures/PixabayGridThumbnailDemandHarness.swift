@@ -11,11 +11,14 @@ enum OnlineImageThumbnailRequestPriority { case visible, prefetch }
     var pending: [UUID: Pending] = [:]
     var ready: [URL: NSImage] = [:]
     var history: [URL: Int] = [:]
+    var targets: [URL: ThumbnailRequest] = [:]
     var generation = 0
     func publicationGeneration() async -> Int { generation }
-    func readyImage(for url: URL, maxPixelSize: Int) -> NSImage? { ready[url] }
-    func image(for url: URL, maxPixelSize: Int, priority: OnlineImageThumbnailRequestPriority) async -> NSImage? {
+    func readyImage(for url: URL, request: ThumbnailRequest) -> NSImage? { ready[url] }
+    func hasReadyImage(for url: URL, request: ThumbnailRequest) -> Bool { ready[url] != nil }
+    func image(for url: URL, request: ThumbnailRequest, priority: OnlineImageThumbnailRequestPriority) async -> NSImage? {
         if let value = ready[url] { return value }
+        targets[url] = request
         history[url, default: 0] += 1
         return await withCheckedContinuation { pending[UUID()] = Pending(url: url, continuation: $0) }
     }
@@ -68,7 +71,7 @@ struct PixabayDownloadedEntry: Equatable {
     var pending: [String: [(ThumbnailCacheRequestCancellation, (NSImage?) -> Void)]] = [:]
     var tokens: [String: ThumbnailCacheRequestCancellation] = [:]
     func cachedImage(forKey key: String) -> NSImage? { ready[key] }
-    func hasCachedResult(forKey key: String) -> Bool { ready[key] != nil || failed.contains(key) }
+    func hasCachedResult(forKey key: String, request: ThumbnailRequest? = nil) -> Bool { ready[key] != nil || failed.contains(key) }
     func load(_ key: String, cancellation: ThumbnailCacheRequestCancellation, completion: @escaping (NSImage?) -> Void) {
         loads[key, default: 0] += 1
         tokens[key] = cancellation
@@ -91,7 +94,7 @@ struct PixabayDownloadedEntry: Equatable {
 @MainActor enum PixabayDownloadedThumbnailStore {
     static let sharedCache = DownloadedCache()
     static func cacheKey(for url: URL) -> String { url.path }
-    static func loadThumbnail(_ entry: PixabayDownloadedEntry, priority: ThumbnailCacheRequestPriority,
+    static func loadThumbnail(_ entry: PixabayDownloadedEntry, request: ThumbnailRequest? = nil, priority: ThumbnailCacheRequestPriority,
         cancellation: ThumbnailCacheRequestCancellation,
         completion: @escaping (String, NSImage?) -> Void) {
         let hint = entry.thumbnailSourceKey ?? entry.localURL.path
@@ -108,7 +111,9 @@ struct PixabayDownloadedEntry: Equatable {
     func endDisplayingThumbnail() { ends += 1 }
 }
 @MainActor final class AppKitPixabayDownloadsItem: DemandCard { static let reuseIdentifier = NSUserInterfaceItemIdentifier("downloads") }
-@MainActor final class AppKitPixabayBrowserItem: DemandCard {}
+@MainActor final class AppKitPixabayBrowserItem: DemandCard {
+    func beginDisplayingThumbnail(request: ThumbnailRequest?) { super.beginDisplayingThumbnail() }
+}
 @MainActor final class DemandCollection: NSCollectionView {
     var indexes = Set([IndexPath(item: 25, section: 0), IndexPath(item: 26, section: 0)])
     var cards: [NSCollectionViewItem] = []
@@ -133,7 +138,7 @@ enum AppKitSteamWorkshopBrowserItem { static let reuseIdentifier = NSUserInterfa
 enum WallpaperLibraryUnavailableItem { static let reuseIdentifier = NSUserInterfaceItemIdentifier("missing") }
 enum ThumbnailCacheRequestPriority { case visible, prefetch }
 final class AppKitThumbnailProvider {
-    func replacePrefetch(with: [VideoWallpaper], retainingVisible: [VideoWallpaper]) {}
+    func replacePrefetch(with: [VideoWallpaper], retainingVisible: [VideoWallpaper], request: ThumbnailRequest?) {}
     func updateVisiblePreviewDemand(with: [VideoWallpaper]) {}
 }
 enum SILThumbnailLoadResult { case image(NSImage), unavailable }
@@ -142,7 +147,7 @@ final class OnlineImageGridItem: NSCollectionViewItem {
 }
 final class SILThumbnailProvider {
     let cache = DownloadedCache()
-    func load(path: String, priority: ThumbnailCacheRequestPriority, cancellation: ThumbnailCacheRequestCancellation,
+    func load(path: String, request: ThumbnailRequest?, priority: ThumbnailCacheRequestPriority, cancellation: ThumbnailCacheRequestCancellation,
               completion: @escaping (SILThumbnailLoadResult) -> Void) { preconditionFailure("non-Pixabay source") }
 }
 enum SteamWorkshopDownloadGridSupport {
@@ -193,11 +198,12 @@ final class SteamWorkshopPreviewState {
         super.init(frame: frame)
         controller.loadViewIfNeeded(); controller.view.frame = bounds
         controller.collection.register(AppKitPixabayDownloadsItem.self, forItemWithIdentifier: AppKitPixabayDownloadsItem.reuseIdentifier)
-        controller.setCellVisible = { cell, visible in
+        controller.setCellVisible = { cell, state in
+                let visible = state != nil
             guard let card = cell as? AppKitPixabayDownloadsItem else { return }
             if visible { card.beginDisplayingThumbnail() } else { card.endDisplayingThumbnail() }
         }
-        controller.onViewport = { [weak self] in self?.demand.updateViewport(visible: $0, prefetch: $1) }
+        controller.onViewport = { [weak self] visible, prefetch, _ in self?.demand.updateViewport(visible: visible, prefetch: prefetch) }
         addSubview(controller.view)
         controller.update(page: .downloads, items: demand.content(), selection: .init(), preferredColumns: 5,
             permitsDragging: false, scrollAnchor: nil)
@@ -212,15 +218,13 @@ final class SteamWorkshopPreviewState {
     let flowLayout = NSCollectionViewFlowLayout()
     var orderedIDs = Array(0..<60)
     var lastPrioritizedVisibleIDs: [Int]?
-    var lastPrioritizedPixelLimit = 0
+    var lastPrioritizedRequest: ThumbnailRequest?
+    var thumbnailRequest: ThumbnailRequest? { .init(width: 512, height: 512, mode: .fill) }
     var isThumbnailDemandUpdateScheduled = false
     var thumbnailWindowObservation: NSKeyValueObservation?
     var thumbnailWindowObservers: [NSObjectProtocol] = []
     // BROWSER_LIFECYCLE
     // BROWSER_DEMAND_METHODS
-}
-nonisolated enum GridThumbnailDecoder {
-    static func pixelLimit(width: CGFloat, scale: CGFloat) -> Int { 512 }
 }
 
 private enum Failure: Error { case assertion(String) }
@@ -240,28 +244,34 @@ private enum Failure: Error { case assertion(String) }
         let service = PixabayService()
         service.seed()
         let cache = OnlineImageThumbnailCache.shared
-        service.prioritizeVisibleItemIDs([25, 26])
+        service.prioritizeVisibleItemIDs([25, 26], request: .init(width: 512, height: 512, mode: .fill))
         try eventually("near request") { service.requestCount(27) == 1 }
+        try expect(cache.targets[service.items[27].previewThumbnailURL!] == .init(width: 512, height: 512, mode: .fill), "remote preheat lost its grid request")
         let requestID = service.requestID(27)
-        service.prioritizeVisibleItemIDs([27, 28])
+        service.prioritizeVisibleItemIDs([27, 28], request: .init(width: 512, height: 512, mode: .fill))
         try expect(service.requestID(27) == requestID, "near->visible removed producer lease")
-        service.prioritizeVisibleItemIDs([25, 26])
+        service.prioritizeVisibleItemIDs([25, 26], request: .init(width: 512, height: 512, mode: .fill))
         cache.complete(service.items[27].previewThumbnailURL!, image: NSImage(size: NSSize(width: 1, height: 1)))
         try eventually("near completes") { service.requestCompleted(27) }
         cache.ready.removeAll()
         try expect(service.thumbnailPrefetchNeedsRefresh(), "identical viewport failed to notice decoded eviction")
-        service.prioritizeVisibleItemIDs([25, 26])
+        service.prioritizeVisibleItemIDs([25, 26], request: .init(width: 512, height: 512, mode: .fill))
         try eventually("evicted ready preheated again") { service.requestCount(27) == 2 }
         cache.complete(service.items[28].previewThumbnailURL!, image: nil)
         try eventually("bad source completes") { service.requestCompleted(28) }
         let failuresBefore = service.requestCount(28)
-        service.prioritizeVisibleItemIDs([25, 26]); pump()
+        service.prioritizeVisibleItemIDs([25, 26], request: .init(width: 512, height: 512, mode: .fill)); pump()
         try expect(service.requestCount(28) == failuresBefore, "terminal bad source retried without new epoch")
         cache.generation += 1
-        service.prioritizeVisibleItemIDs([25, 26])
+        service.prioritizeVisibleItemIDs([25, 26], request: .init(width: 512, height: 512, mode: .fill))
         try eventually("clear permits bad source retry") { service.requestCount(28) == failuresBefore + 1 }
         service.cancelThumbnailPrefetch()
         cache.drain()
+        let countBeforeResize = service.requestCount(27)
+        service.prioritizeVisibleItemIDs([25, 26], request: .init(width: 320, height: 320, mode: .fill))
+        try eventually("new grid target replaces old lease") { service.requestCount(27) == countBeforeResize + 1 }
+        try expect(cache.targets[service.items[27].previewThumbnailURL!] == .init(width: 320, height: 320, mode: .fill), "resized preheat retained the old target")
+        service.cancelThumbnailPrefetch(); cache.drain()
     }
 
     @MainActor static func lifecycle() throws {

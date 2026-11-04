@@ -2,11 +2,17 @@
 
 <!-- document-role: active-plan -->
 
-复核日期：2026-11-03。负责人：repository-maintainer。本轮起点：`af44ce421`；下文前批结算只对应各自基线。
+复核日期：2026-11-05。负责人：repository-maintainer。专项起点：`af44ce421`；下文前批结算只对应各自基线。
 
 开批速览（每批动手前先读这里，再核 Git 状态；按需查对应 owner 和下文，不顺读全文）：
 
-- 已裁决至R110（视频生成直交付已修，完整照片级目标未结）（R61按优先级后补）。个人设置导入弹窗消失/设置变暗已由 R55（`ad1f3142d`）修复；测试 App 已交付，原配置完整导入仅待用户实测，没有新复现不重新修复、构建或复跑。
+- 最新缓存交付批：有效图先交付，可选PNG/JPEG仍在原worker有界尾写；原bytes/hook先交、失效与同target回访保留。调度/租约、实际冷暖像素与签名Debug已验，详见下文。首图后立刻换不兼容尺寸可能再准备源；不称总工作或FPS降低。
+- 前批Steam封面：单次临时State成功后退出cache外原图持有；96图、真实State/Artwork及签名Debug已验，不重做。派生缓存保留，直接改raw暖返及强制PNG filter已由当前批反例退出。
+- 前批长历史：下载任务改原生Table复用可见控件，原图片准备/回访保图及进度迁到唯一轻量呈现状态；100/1000行的原生行为、释放和签名Debug已验，下文结算。前批48pt/backing与Steam暖借图保持，不重做；编码成本已由当前批承接，不等于整App RSS/FPS结论。
+- 前批封面寿命：Artwork方图生成后弱持去重源图，cache退出后不再额外长期保原图；显示方图、颜色和租约已验。Steam临时State由当前批收尾，真实尺寸汇总另评，不重做这条弱源回收链。
+- 前批预取寿命：Steam非显示预取成功即释放临时State，显示State、fallback和重试保留；不盲加每viewport补热。静态动画终态缓存候选因截断GIF反例已拒，不重开；源码职责归[统一设计](thumbnail-delivery-design.md#decision)。
+- 前批尺寸资源已完成：Steam混合/Picker预取与显示同档；Pixabay下载卡/详情接真实尺寸、同源升级保图。真实AV/ImageIO、最近门及旧版对照已做，完整拖拽旧新同阶段超时仍未结；不重复尺寸批或盲扩预热预算。
+- 前批资源/交互已完成：同值选择退出整页Set/状态发布及可见卡片重复投影；详情bar可打断开关，标题右移8pt，Pixabay排序→筛选及标题短淡化。不重做R131、共享Inspector动画及个人设置导入R55（`ad1f3142d`）。持续解码高压、Steam/混合列表完整体验及关闭态中心偶发失效仍未结；没有新复现不重修已结事项。
 - 近期已完成：R105 Pixabay搜索入口收窄；R104日期回退按需准备；R103网格顺序比较退出数组；R101/R102媒体需求与速率字符串复用。R89–R99结案见[历史记录](../history/cross-topic/code-slimming-r89-r99-closeouts-2026-11-03.md#completed-r89-r99)，验证范围以该记录为限；已完成项不作为新候选。
 - 保留/拒绝：R55 一次 Save 取消超时尚未归因；R56 绕过 TIFF 的候选因像素/尺寸差异已拒绝。较早 R23/R38/R43 的保护边界仍有效。
 - R62已交付：[本地资源先呈现与缩略图回访](local-library-loading-design.md#overview)。先解决启动短暂不可用和本地网格滚回黑卡，覆盖视频、图片及自建列表；已完成实现、最近门、Steam消费者及签名Debug；保留三项原生限制，真实用户库体感待人工验收。R61冷态导航已完成验证，见[对应记录](../history/cross-topic/code-slimming-r61-r88-closeouts-2026-11-02.md#completed-r61-r88)；不重复本专项。
@@ -15,7 +21,69 @@
 
 后续范围（2026-11-03）：按goal持续审查、优化所有非Scene代码及对应分类文档，Scene引擎不修改；现有能力须以原行为门和反例保持，不能用删功能换精简。
 
-当前批R110（2026-11-03）：真实A/B生成已复现旧卡在JPEG ready后仍无图。原Provider请求直接等ensure completion，失效本key旧缓存，Card最终nil重生入口退出；产品净+19，无新owner/state/observer/model写入。[根因、前后事实与限制](local-library-loading-design.md#generated-delivery)。新增44控制/16行为旧仅6红→新全真；原validation/nil/repair最近门通过，repair补真实normalizer装配后单跑，不冒称全模块绿。签名Debug已构建；native wheel模拟三臂无实际位移均拒作性能证据，直接NSWindow.sendEvent路线按官方约束撤回，未执行。下一优先合法原生窗口输入/代表App采样拆make成本，再裁SIL重复selection几何；真实混合/超驻留与照片级仍待。R55/R62/R109不重做，Scene不触。
+当前执行方式：本轮按用户新优先级审查资源重复工作，并处理指定交互；沿真实owner以旧版对照和最近行为门验证。涉及帧率/可见卡顿仍须完整App同负载动作、Main调用栈和呈现证据；组件计数、构建、presentation属性不代替屏幕帧率或用户验收，不按局部代码气味连续产出微优化。
+
+当前缓存交付批（2026-11-05）：原ThumbnailCache把最终图交付排在派生PNG/JPEG编码、stage/rename之后，冷图已可显示仍等待可选落盘。沿[统一设计](thumbnail-delivery-design.md#decision)，先完成原bytes/hook准入、发布display与一次回调，再由同Request/worker完成原编码/写；原槽保到尾部。LRU淘汰且tail未完时同步借原worker的publishedImage同引用，不填LRU或复制像素；clear/remove、新hook及新generation使旧tail弃交，nil仍先负缓存/retire再回调。产品唯一Cache 889→927行，净+38用于发布/持久化分阶段与原结果复用；没有新owner、队列、格式、缓存或持久状态。
+
+同两种合成1600² JPEG和3帧GIF、256/512/800档各3次，旧新各36组×4阶段（144请求）：全部输入hash、帧数、原bytes及RGBA像素相同，编码/loader/写次数与字节量相同，两暖盘阶段零loader/编码/写。800档复杂JPEG首callback中位70.215→20.545ms、平滑JPEG15.856→3.925ms，复杂JPEG暖盘11.228→10.406ms；GIF首图仍须原帧扫描，改善有限。只证明该组件首图等待缩短，不是用户库分布、总吞吐、RSS、FPS或Photos体验。raw重建GIF约33–38ms而PNG暖返约0.7–2.7ms，因此不删派生缓存；公开PNG filter比较无稳定收益，不改编码器或按样本加分支。
+
+首callback不再承诺可选文件已落盘：立刻换不兼容target时，tail窄窗可能沿原来源再准备，原槽仍有界；不为此新增跨target母图owner。原回访门的盘复用断言改等实际finish/rename，保零源增量、未裁像素、一次回调及小图不得覆盖母图；另明确held-tail不同target的正确早交与两次输入准备，Ready后取消不能撤已交回调。首次发布前loader/decode/raw stage取消反例保持。调度182项、租约63项、回访124项、真实AV14项、在线8组及Artwork72项已过；同最终夹具旧调度19项、旧租约2项仅新早交/持图事实红。提交前已复核全部工作区差异，修正盘回访夹具的Ready/落盘前提与过期观察入口，保留原像素、AV次数和取消断言；补齐新请求/夹具到现有门的映射。原生host初轮在启动几何未稳、进场只余4.9px才释放回填，时限断言失败；改等真实pending/稳定几何并要求明确早段，原完成时限不放宽，最终19项通过。独立host集成场景与direct-preview分文件，共用原helper，无产品改动。相关源输入稳定，签名Debug29.702s、1192 App Swift同主仓、零编译错误/警告、strict/deep通过。证据归本机`.artifacts/cache-variant-comparison-20261105`；完整App高压交互、连续尺寸升级频率及关闭态偶发吞击仍未验收。
+
+前批Steam封面临时State已结：原单次State成功后清onChange/reset再交局部图，净+3行；96张800²暖源在128MiB LRU清后旧仍持245760000B、新为0，独立方图像素SHA不变。24真实State+48原Artwork、取色64、屏保缩略图11和签名Debug通过；真实成功视频文件回退、完整屏保宿主未测，不外推RSS。必要证据归`.artifacts/resource-cost-review-20261105`，不重开其源寿命链。
+
+前批下载长历史（2026-11-05）：原NSStackView为全部活动/历史创建完整RowView，通用下载历史不截断，屏幕外也持控件与约束。按[任务面板设计](main-window-playlists-redesign.md#page-catalog)，以原生NSTableView/Diffable/makeView复用可见控件；原行身份、图/租约、进度和速率样本迁至唯一DownloadTaskRowPresentation，替换原View内状态。图片仍按原顺序全量准备并保留，远跳/回访不重绑；删除/关闭才撤模型，回收仅解绑视图。未新增图片缓存、下载队列或持久化owner，来源与动作不改；产品3文件净+188行用于原生复用与必要状态/控件分离，旧全量Stack及View内状态同批退出。
+
+同一真实生产Row/Content、400×460原生NSWindow、受控pending取图的对照：100条构造+挂窗/布局约490→86ms，1000条约7153→86ms；1000条视图16016→125、约束86066→636，仍6条可见、1000次图片准备、终态进度订阅0、关闭取消1000。计时不含真实取图/整App业务，不等同RSS/FPS或Photos级体验。表格采用系统懒测行高，未为初次估算高度强算全表；原生远跳/回返与实际行几何另验。
+
+最终100/1000压力门在首屏/远跳/回返分别125/151/137个视图、636/755/684条约束，图身份、速率、同值控件、完整批量重试、pending重排/删除/迟到与关闭旧按钮均通过；cache清后weak状态/图片全0。首轮新夹具漏MainActor、把占位符bounds当48pt对齐区、跨完整流程的autoreleasepool及测试强持旧Row，均保失败记录并以旧新同输入/逐turn drain修正，没有改产品迎合断言；420pt可交7个部分可见行，仍严格核原有限复用margin。实际行/长提示/21条来源路由、真实缓存Preview原direct90项和原生Toolbar111项通过；完整active-hover尾部及既有拖拽失败仍未销账。签名Debug29.861s、0编译错误/警告、strict/deep通过，1192 App Swift输入稳定且与主仓一致。证据归本机`.artifacts/task-history-resource-audit-20261105`。
+
+前批48pt下载需求保持：真实window backing/fit交原Controller/provider；同值不重载，跨backing保图，重排离窗不撤租约，旧id/key/目标拒绝。SteamSource与Hydration共用精确优先/较大ready图借用，不复制小图别名；冷母版和较大暖图策略不变。ImageIO实测Steam800²/2560000B→256²/262144B；sourceFile512×341/698368B→96×64/24576B；4K AV的Pixabay520×292/616704B→96×54/20736B，仍后台0.5秒帧且暖返不取帧。这些是交付像素，不是AV内部成本/RSS。前批21路由、复用114、AV14、租约63、Toolbar111与Preview direct90及签名Debug证据归`.artifacts/download-row-thumbnail-demand-20261105`，不重跑未受影响的源/媒体全门。
+
+缓存交付与Steam封面State已完成本轮收敛；入口准入、clear/remove撤销和有界图寿命继续保留。下一先评真实连续尺寸升级是否抵消早交收益；Artwork实际需求汇总及持续解码高压另评，不直接新增跨target聚合。指定标题缩进、Pixabay排序→筛选、可打断详情bar及标题淡化沿前批实现，不重复；完整App交互/FPS与关闭态中心偶发无响应仍需真实复现，不认领根治。
+
+前批封面寿命（2026-11-05）：Artwork已同步绘制独立方图，Cover.sourceImage仅供同对象回执去重，却额外强持未裁原图。改弱引用，并保弱源归零后nil回执清已有方图；来源准入、构图、alpha、取色、同实例echo及最后消费者撤租约不变。不在成功时提前取消，不改Steam liveLoader，不增cache、Task或持久状态；产品3增2删净+1行。
+
+真实96张独立800² JPEG由ImageIO解码，受控来源交原Artwork和实际128MiB DecodedThumbnailMemoryCache：旧/新就绪原图96/52张，clear后96张245,760,000B→0；96张输出方图均保留201,326,592B，撤完需求归0，96个颜色/alpha采样旧新相同。这里统计弱存活NSImage及CG bytesPerRow×height，缓存/来源准备和整App RSS/FPS不可等同。输出在本机仍有较大像素成本，实际需求汇总另评，不能盲降色深或清晰度。
+
+原/新增封面48项新全过；同最终夹具旧仅两个原图回收检查失败。初轮直接比较源色与lockFocus成图的断言在旧新均失败，改为释放前后成图采样，并核旧新一致，保原记录，不改产品色彩链迎合夹具。原生目录工具栏/需求31项与编辑器54项通过；目录夹具漏编ThumbnailRequest，补真实依赖后重跑，本批未跑其完整拖拽。签名Debug27.282s、0编译错误/警告、strict/deep通过，1191 App Swift输入稳定且与主仓一致。证据归本机`.artifacts/artwork-resource-lifetime-20261105`；无暂存/提交/推送。
+
+48pt下载需求及长历史控件已分批完成。封面尺寸汇总及多列表同源重复方图仍需成本与消费者证据，不顺手加第二cache。指定UI改动沿前批实现，不重复；持续大量解码和完整App交互/FPS待验。
+
+前批预取寿命（2026-11-05）：Adapter取消闭包长期强持非显示PreviewState及其就绪图，绕过cache淘汰寿命。现先安装取消，再configure，成功onChange仅以双弱引用解除临时持有；同步暖命中、加载/失败重试、image→remote→video与原取消保留，无新API、mode、cache或调度owner。Steam完成兴趣仍best-effort；未做字节/方向预算前，不加每viewport补热查询以免近邻集大于cache时循环解码。显示State与原UI不改。
+
+同最终真实Adapter分支、State、ImageIO/cache及96张不同像素800² JPEG对照：旧就绪/clear后均96图245760000B（234.375MiB），新就绪52图133120000B，clear后只剩显示State的一图2560000B；消费者全退都0。观察只持weak NSImage并计实际CGImage行字节，统计的是对象持有对应位图，不是RSS/系统立刻归还或FPS。原源码仅新增回收断言失败，新全过；recording Adapter验证同步/异步、nil/取消/迟到与重复viewport不补热，Picker保持原生近门。批次证据归本机`.artifacts/steam-resource-lifetime-20261105`。
+
+静态动画终态候选已撤：ImageIO对本机截断多帧GIF可报一帧Complete，替换为增量factory也无助，不能缓存这个含糊结果而影响恢复。候选及测试按本批before逐字退回，保继承修改，输入分布/哈希与失败夹具留证；不再为此堆解析器、白名单或新负缓存。候选期间原生Steam完整card-interactions超时，撤回后不拿其余事实说整门通过，也不改输入处理。共享原生launcher的证据复制移入finally，真实无窗App超时已验证stdout/stderr保留及精确PID结束，避免再次丢唯一现场。
+
+最终产品仅Adapter +5/-1，净+4行；测试+178/-4，用于实际96图/弱观察、同步异步退役及超时证据，不以测试量替代产品收益。最终同夹具真实复用/持有、完整Adapter与原生Picker三门通过；签名Debug28.67s、零编译错误/警告，strict/deep通过，1191份App Swift与构建输入相同。未暂存/提交；整App高压/FPS/RSS、既有拖拽和关闭态吞击仍未结。后继Artwork/任务行候选已由随后两批承接，按当前速览继续，拒绝无证的动画负缓存候选。
+
+当前尺寸资源批（2026-11-05）：已证混合页/Picker的Steam预取固定256，而显示按256/512/800，尺寸又在缓存key内，冷入屏会准备另一档；现由Adapter复用原像素分档、同档保租约，跨档才替换。Pixabay下载Store原固定520×300，Adapter与详情遗漏实际request；现沿原缓存承接真实尺寸，复用Core的旋转尺寸读取，保0.5秒、源版本前后检查、取消与nil旧入口。卡片同源升级保图、隐藏后再显示补未完需求，退出强置entry=nil的递归重配；已有图不再排加载提示定时器。详情共用一个request和原取消句柄，退出hasMounted及本地/远端重复触发分支。没有新缓存、跨源任务聚合或数据库格式。
+
+真实4K/小源/90°旋转视频的AV与缓存12事实通过：64px卡片结果16KiB，旧实际520×292结果约602KiB；512px结果1MiB，随后小卡/fit复用不新取帧。旧磁盘派生升级、native cap、原帧时间、后台AV及clear均过。旧实现对照只补忽略新request参数的调用适配、保原生成与缓存正文，8个目标断言失败；Adapter旧/新用相同最终夹具，旧目标档断言失败、新门全真。真实Steam ImageIO证明同档邻近→可见共用图且只进一次decoder，不外推所有冷请求为一次。
+
+22个相关测试方法通过；完整card-interactions旧/新均在online-downloads拖拽阶段超时，新栈为NSCoreDragManager等mouseUp，未认产品根因或拖拽通过。测试输出已改为finally保留，超时也不丢唯一现场。新增详情resize夹具先误改未约束子View，后改真实Host preferredWidth并等实际cache准入，错误过程保留。独立静审接受；签名Debug31.30s、零编译错误/警告，strict/deep通过，1191份App Swift与构建输入相同。证据归本机`.artifacts/thumbnail-demand-audit-20261105`；无新增整App持续解码压力、FPS或实际内存峰值结论，未暂存/提交。
+
+前批持图候选已由当前寿命批量化并处理，不再把234MiB当作未测估算；显示/预取仍沿同一缓存，不重复相加。下一方向是Artwork/48pt任务行的实际目标及跨消费者复用，或实际变化选择的整页扫描；先查producer→consumer和真实反馈成本。静态动画终态候选已拒，完整拖拽及整App高负载呈现仍未结。
+
+当前资源/交互批（2026-11-04）：Presentation旧实现同值选择仍构造整页引用Set并发布，Composition、工具栏和详情随之刷新；Grid接受同值回执仍扫描所有索引并重配可见项。现先拒绝旧session，再原地复用同值选择；Grid保留准入回调、拒绝恢复和焦点，只跳过接受后完整selection未变的投影。无新增缓存、索引或常驻状态。5000项真实Presentation的100次重复选择零发布；真实原生Grid的100次准入保留而不重配已出现卡片。相同最终夹具换旧实现，两门各仅新增成本断言失败；原引用裁剪、拒绝恢复和键盘行为保持。键盘夹具补等真实条目拓扑接纳，避免在原生删除动画尚未完成时发下一步输入，不改产品租约规则。
+
+资源审查保留：Video的Grid/Picker/详情复用同一store，provider与取消句柄有独立寿命；SIL/在线本地图片复用像素缓存。在线压缩字节与就绪像素分别服务网络和显示，预算不是预分配内存。Pixabay与Video/桌面静帧的帧选择、版本和删除权不同，本轮退出直接共文件候选；实际变化的选择仍有整页扫描。未量化播放器/实际峰值，不声称全仓无浪费。
+
+交互以[统一设计](thumbnail-delivery-design.md#decision)为准：共享bar调用Shell原生responder，保原来源打开动作与唯一token，遮罩只放行真实可用的详情按钮，其他命中/滚动规则保持。关闭仍发原通知，保Steam浏览页的关闭请求订阅；原生Host验证通知送达、进入关闭、关闭反向重开及同token/view，独立bar原动作和Video预览/释放门保持；不等于所有来源物理连点或关闭态吞击已解决。工具栏原生门覆盖所有来源标题的8pt对齐、AX/窄窗与真实Pixabay顺序；仅标题短淡化，不追加整页截图/网格动画。10个相关测试方法及文档/代码/设计门通过；最终签名Debug24.07s，零编译错误/警告，strict/deep通过，1191份App Swift与构建输入相同。保留产物和已纠正的夹具失败日志归本机`.artifacts/resource-ui-review-20261104`。
+
+当前共享Inspector动画修复（2026-11-04）：5000份隔离视频文件、5000张不同像素JPEG的完整App中，旧约束`animator()`依赖Main逐帧插值，进入时Main存在选中重算、单项解析和布局的49–142ms忙段。active/key全程成立的位置采样中，三次进入的模型/呈现值相同，首次大幅追赶进度，只记录到58/89/87ms移动。仅将共享Host改为一次布局目标、`allowsImplicitAnimation`交层承载后，模型各设一次，呈现有16/18/17个中间位置（133/141/136ms）；原240ms时长、曲线、约束、挂载/取消及transition generation保持，无新owner、缓存、Task或持久状态，产品净+3行。
+
+验证：同5000项App对照及短按连续切换最终内容/状态正确；原生Host原有身份、关闭、重开、来源替换与过期回调检查保持，新回归在Main忙80ms后以新事务读取呈现值，旧仅此移动断言失败，新全过。首次探针在同一事务取两次快照无效；一次旧对照在既有QuickLook等待阶段超时，均保留原记录，不作为产品红绿证据。签名Debug构建29.90s、0编译错误/警告，strict/deep通过，所有Main App Swift字节与构建输入一致。运行身份、动作、CPU/位置原数据和失败采集归本机`.artifacts/inspector-root-cause-20261104`；不据此认领像素连续呈现、FPS、持续解码高压、Steam/混合列表完整体验或偶发播放/详情吞击已修。
+
+共享动画修复后的同值选择候选已由本轮承接；实际变化的选中索引、整页顺序比较和详情单项Query扫描仍未改。复用现有权威，不叠缓存/兼容owner；下载、混合列表和在线详情的来源重任务仍须各自完整App验证。
+
+前批R131仍有效：Video首个同步placeholder安装完整模板，metadata/库发布只回填实际UI字段；facts标签结构与列表名称变化才替换局部，无新模型cache/Task。50个预览事实、17个原生检查和30个身份检查通过，旧仅正文成本/身份对照失败；签名Debug33.388s且无编译诊断。该组件夹具的5000模型/单JPEG及受控metadata并不代表完整网格压力。R132 Steam Manager刷新候选已停止、未整合，不发布该候选App；个人设置导入R55等已结项不重做。
+
+前批定位：R130原StaticFrame worker用full/thumbnailFallback需求，在缩略图已覆盖目标时省多余AV/模型发布，显式full和坏/小图回退保持；实际4K与交付/repair门、签名Debug及无效LLDB探针的保护边界归R130证据包。R129周期筛选/合并移出Main、R128当前App动作采样边界仍归各包；不把组件计数当全App呈现证明。
+
+近期完成项（不重复实施）：R112–R118单一目标、共享解码/有界缓存及交付复用；R119/R121初始化与模型复用，R120来源并发，R122稳定bar，R123播放派生复用，R124视频元数据后台/详情同页来源，R125单项Query，R126无变化轮询退出，R127在线首值唯一正文/同步重挂载。当前职责/取舍归[统一设计](thumbnail-delivery-design.md#decision)，执行数字归对应有界证据包，不在首读堆流水。R111渐进候选仍拒绝，R55/R62/R109不重做。
+
+保留失败：R117真正冷页两页/33ms空卡、R118暖盘不代表冷页、R121首开/返程失败、R122完整Grid/Video拖拽超时与旧Grid同阶段复现，仍按原包保护；不能据限定控件/重排门说完整拖拽过，也未证明环境根因。状态面板的真实Provider切片与受控传输的完整UI门仍分列，不外推为完整App性能；具体当前方法归统一设计和UI验证参考。
 
 开批先核本段、最近相关提交及工作区；查到已完成、已拒绝或已有证据的事项时，复用结论。仅在代码/输入改变、新失败或明确未覆盖范围需要验证时重跑，压缩上下文不构成重跑理由。批次结束同步这里，避免把历史“下一步”当成当前任务。
 
@@ -23,9 +91,9 @@
 
 减少没有产品消费者的实现、状态和维护分支，收敛重复计算，保持用户操作、作者内容、持久化、IPC和输出。本文拥有精简候选、分批顺序与验收，引擎职责仍归[技术栈合同](../architecture/technology-stack-boundaries.md)；前批授权、状态和验证只属于当时记录，不自动续开旧候选。
 
-本轮按用户固定流程循环：并行子代理在每份审查任务中携带用户固定prompt，核无功能收益的校验/认证/重复计算/嵌套、持续转发和补丁、过量实现与耦合；主agent审核问题和方案并决定是否修改，子代理实施，主agent复核真实行为/成本证据和最近门后决定窄提交，再开启下一轮。每批报告问题、当前影响、方案、功能变化及下一候选。当前目标授权主agent作修复和本地提交裁决，不授权推送；共享构建、原生窗口和GPU仍串行，其他会话改动保留。
+本轮按用户固定流程循环：并行子代理在每份审查任务中携带用户固定prompt，核无功能收益的校验/认证/重复计算/嵌套、持续转发和补丁、过量实现与耦合；主agent审核问题和方案并决定是否修改，子代理实施，主agent复核真实行为/成本证据和最近门后报告窄提交建议，再开启下一轮。每批报告问题、当前影响、方案、功能变化及下一候选。Git按每轮用户授权执行；2026-11-05已明确授权本批收尾、全工作区复核后提交，未授权推送或下一轮自主优化。共享构建、原生窗口和GPU仍串行，其他会话改动保留。
 
-最近产品验证：R110产品32增13删净+19，测试净+369（真实261行生成交付夹具复用原owner，3叶适配及Python装配）。同最终Swift门44controls/16checks旧仅A交付2与memory/disk新蓝4红→新全真，原validation21、nil21控制/3观察真；repair16在唯一方法装配提取真实normalizer后补过。联合门的repair编译失败保留，其余3绿门按未变helpers/方法/编译输入复用，非最终脚本全模块运行。6308/实际输入稳定；取消仅抑交付、clear无本请求递归重生、原独立2s repair边界保。生成切片6条已有装配actor诊断与Xcode产品分列：签名Debug26.657秒/5868输入稳定strict/deep过，仅原两C#警告，3产品最终字节相同。无窗口/DB/Catalog/FPS/Leaks/TSan全验收；三无位移wheel臂无效，禁止直接Window.sendEvent的03未跑。R108批量准备、R109透过区原生证据及未过完整目录CoreDrag边界仍见同设计，不重跑旧门。
+前批R110产品验证：产品32增13删净+19，测试净+369（真实261行生成交付夹具复用原owner，3叶适配及Python装配）。同最终Swift门44controls/16checks旧仅A交付2与memory/disk新蓝4红→新全真，原validation21、nil21控制/3观察真；repair16在唯一方法装配提取真实normalizer后补过。联合门的repair编译失败保留，其余3绿门按未变helpers/方法/编译输入复用，非最终脚本全模块运行。6308/实际输入稳定；取消仅抑交付、clear无本请求递归重生、原独立2s repair边界保。生成切片6条已有装配actor诊断与Xcode产品分列：签名Debug26.657秒/5868输入稳定strict/deep过，仅原两C#警告，3产品最终字节相同。无窗口/DB/Catalog/FPS/Leaks/TSan全验收；三无位移wheel臂无效，禁止直接Window.sendEvent的03未跑。R108批量准备、R109透过区原生证据及未过完整目录CoreDrag边界仍见同设计，不重跑旧门。
 
 前批R104后台localDownloadStatistics在firstDownloadedAt或commit日期已存在时不准备localCreationDate，产品2增1删净+1、fixture8增；原日期helper/return与bytes枚举次序逐字保，无新helper/state/API或Scene/存储格式变化。优先级仍first→commit→creation→有效fetched，非nil distantPast提示值、metadata nil/创建缺失回退保。原14事实全留，补真实stats的commit与fetched不能盖过磁盘creation两项；同最终夹具旧/新16项全真等值，实际localCreationDate入口10→6（四次已知日期场景）。外部不可变extract hook只在生成Swift加stderr入口标记，产品和永久测试源不插桩；未另跑未观测sorting门，不称物理IO/时耗。Legacy初/变各31功能+12工作事实、42记录身份和错误9项均过；resolver事件仅按实际command的cases目录前缀归一（各294/314叶）后相等，不归一或认领真实文件时间/整记录对象等值。各6306源码输入/8实际子过程稳定；签名Debug26.161秒/5867输入稳定、strict/deep过，仅原两C#警告，独立静审接受。
 

@@ -61,6 +61,7 @@ import Combine
         toolbar.autosavesConfiguration = false
         window.toolbar = toolbar
         titleLabel.font = .systemFont(ofSize: 16, weight: .bold)
+        titleLabel.wantsLayer = true
         titleLabel.lineBreakMode = .byTruncatingTail
         titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         titleLabel.setContentHuggingPriority(.defaultLow, for: .horizontal)
@@ -234,7 +235,16 @@ import Combine
         } else {
             summary = "显示 \(model.queryResult.items.count) / 共 \(model.queryResult.unfilteredCount) 张壁纸"
         }
-        titleLabel.stringValue = value
+        if titleLabel.stringValue != value {
+            if !titleLabel.stringValue.isEmpty, titleLabel.window?.occlusionState.contains(.visible) == true,
+               !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+                let transition = CATransition()
+                transition.type = .fade
+                transition.duration = UIInteractionAnimation.selectionFadeDuration
+                titleLabel.layer?.add(transition, forKey: "title-change")
+            }
+            titleLabel.stringValue = value
+        }
         titleLabel.setAccessibilityLabel(value)
         titleLabel.setAccessibilityHelp(summary)
         items[.title]?.label = value
@@ -332,7 +342,11 @@ import Combine
             item = NSToolbarItem(itemIdentifier: id)
             item.target = self; item.action = #selector(invoke(_:))
             item.isBordered = action != .title
-            if action == .title { item.view = titleLabel }
+            if action == .title {
+                let title = NSStackView(views: [titleLabel])
+                title.edgeInsets = NSEdgeInsets(top: 0, left: WallpaperLibraryGridMetrics.edgeInset, bottom: 0, right: 0)
+                item.view = title
+            }
             else { item.image = NSImage(systemSymbolName: symbol(action), accessibilityDescription: nil) }
         }
         item.label = label(action)

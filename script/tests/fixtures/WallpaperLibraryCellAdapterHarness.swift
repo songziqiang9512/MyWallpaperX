@@ -24,6 +24,7 @@ struct SteamWorkshopDownloadRecord: Equatable {
     let id: String; let title: String; let status: Status
     var displayItem: SteamWorkshopBrowserItem? = nil
     var videoURL: URL? = nil
+    var previewURL: URL? = nil
 }
 final class SteamWorkshopDownloadProgressStore {}
 final class SteamWorkshopService {
@@ -56,8 +57,10 @@ final class AppKitThumbnailProvider {
     static var batches: [([String], [String])] = []
     static var batchPaths: [([String], [String])] = []
     static var cancelled = 0
+    static var thumbnailRequests: [ThumbnailRequest?] = []
     init(wallpaperManager: WallpaperManager) {}
-    func replacePrefetch(with values: [VideoWallpaper], retainingVisible: [VideoWallpaper]) {
+    func replacePrefetch(with values: [VideoWallpaper], retainingVisible: [VideoWallpaper], request: ThumbnailRequest? = nil) {
+        Self.thumbnailRequests.append(request)
         Self.batches.append((values.map(\.id), retainingVisible.map(\.id)))
         Self.batchPaths.append((values.map(\.path), retainingVisible.map(\.path)))
     }
@@ -70,30 +73,45 @@ final class AppKitThumbnailProvider {
 final class RecordingThumbnailCache {
     var images: [String: NSImage] = [:]
     var failures: Set<String> = []
-    func cachedImage(forKey key: String) -> NSImage? { images[key] }
-    func hasCachedResult(forKey key: String) -> Bool { images[key] != nil || failures.contains(key) }
+    func cachedImage(forKey key: String, request: ThumbnailRequest? = nil) -> NSImage? { images[key] }
+    func hasCachedResult(forKey key: String, request: ThumbnailRequest? = nil) -> Bool { images[key] != nil || failures.contains(key) }
 }
 enum PixabayDownloadedThumbnailStore {
     static let sharedCache = RecordingThumbnailCache()
     static var completions: [(String, NSImage?) -> Void] = []
     static var requests: [(Int, ThumbnailCacheRequestCancellation)] = []
     static var requestedURLs: [URL] = []
-    static func loadThumbnail(_ entry: PixabayDownloadedEntry, priority: ThumbnailCacheRequestPriority,
+    static func loadThumbnail(_ entry: PixabayDownloadedEntry, request: ThumbnailRequest? = nil, priority: ThumbnailCacheRequestPriority,
         cancellation: ThumbnailCacheRequestCancellation,
                          completion: @escaping (String, NSImage?) -> Void) { requests.append((entry.id, cancellation)); requestedURLs.append(entry.localURL); completions.append(completion) }
 }
 func steamWorkshopPreviewSources(item: SteamWorkshopBrowserItem, record: SteamWorkshopDownloadRecord)
-    -> (primary: URL?, fallback: URL?) { (URL(string: "https://fixture.invalid/" + item.id), nil) }
+    -> (primary: URL?, fallback: URL?) { (record.previewURL ?? URL(string: "https://fixture.invalid/" + item.id), nil) }
 final class SteamWorkshopPreviewState {
     struct Loaders { static func live(priority: ThumbnailCacheRequestPriority) -> Loaders { Loaders() } }
     static var configured: [SteamWorkshopPreviewState] = []
+    static var configurationCount = 0
+    static var resetCount = 0
+    static var completesSynchronously = false
+    static let cache = RecordingThumbnailCache()
+    var onChange: (() -> Void)?
+    var image: NSImage?
     var resets = 0
     var pixelSize: Int?
+    var previewURL: URL?
+    var refreshToken: Int?
     init(loaders: Loaders) {}
     func configure(previewURL: URL?, fallbackImageURL: URL?, fallbackVideoURL: URL?, refreshToken: Int, maxPixelSize: Int) {
-        pixelSize = maxPixelSize; Self.configured.append(self)
+        pixelSize = maxPixelSize; self.previewURL = previewURL; self.refreshToken = refreshToken
+        Self.configurationCount += 1; Self.configured.append(self)
+        if Self.completesSynchronously { deliver(NSImage(size: NSSize(width: 48, height: 48))) }
     }
-    func reset() { resets += 1 }
+    func deliver(_ image: NSImage?) {
+        self.image = image
+        if let image, let previewURL { Self.cache.images[previewURL.absoluteString] = image }
+        onChange?()
+    }
+    func reset() { resets += 1; Self.resetCount += 1; image = nil; onChange?() }
 }
 enum SILThumbnailLoadResult { case image(NSImage), unavailable }
 final class SILThumbnailProvider {
@@ -101,18 +119,21 @@ final class SILThumbnailProvider {
     let cache = SILThumbnailProvider.sharedCache
     static var completions: [(SILThumbnailLoadResult) -> Void] = []
     static var requests: [(String, ThumbnailCacheRequestPriority, ThumbnailCacheRequestCancellation)] = []
-    func load(path: String, priority: ThumbnailCacheRequestPriority = .visible,
+    static var thumbnailRequests: [ThumbnailRequest?] = []
+    func load(path: String, request: ThumbnailRequest? = nil, priority: ThumbnailCacheRequestPriority = .visible,
               cancellation: ThumbnailCacheRequestCancellation, completion: @escaping (SILThumbnailLoadResult) -> Void) {
+        Self.thumbnailRequests.append(request)
         Self.requests.append((path, priority, cancellation)); Self.completions.append(completion)
     }
 }
 final class WallpaperLibraryGridController {
-    struct CellState { let isSelected: Bool; let isSelecting: Bool; let isFocused: Bool }
+    struct CellState { let isSelected: Bool; let isSelecting: Bool; let isFocused: Bool; let thumbnailRequest: ThumbnailRequest }
 }
 class AppearanceAwareContainerView: NSView { var appearanceDidChangeHandler: (() -> Void)? }
 class RecordingCard: NSCollectionViewItem {
     var configurations = 0; var visible = false; var playing = false
     var switching = false
+    var configuredRequests: [ThumbnailRequest?] = []
     var presentedTitle = ""; var selectedState = false; var selecting = false
     override func loadView() { view = NSView() }
     func applySwitchingState(isSwitching: Bool) { switching = isSwitching }
@@ -146,10 +167,11 @@ final class OnlineImageGridItem: RecordingCard {
     var heldPrimary: (() -> Void)? { bar?.onPlay }
     var heldInspect: (() -> Void)? { bar?.onInspect }
     func activatePrimary() { if canPerformPrimary { bar?.onPlay?() } }
-    func setThumbnailVisible(_ value: Bool) { visible = value }
+    func setThumbnailVisible(_ value: Bool, thumbnailRequest: ThumbnailRequest? = nil) { visible = value }
     func configure(content: WallpaperContentItem, request: Any?, selected: Bool, selecting: Bool,
-                   playing: Bool, switching: Bool = false, busy: Bool = false, fraction: Double? = nil, refreshToken: UUID? = nil,
+                   playing: Bool, switching: Bool = false, busy: Bool = false, fraction: Double? = nil, refreshToken: UUID? = nil, thumbnailRequest: ThumbnailRequest? = nil,
                    onPrimary: (() -> Void)?, onInspect: (() -> Void)?) {
+        configuredRequests.append(thumbnailRequest)
         configurations += 1; presentedTitle = content.title; selectedState = selected
         self.content = content; self.playing = playing; self.selecting = selecting; self.switching = switching
         self.onPrimary = onPrimary; self.onInspect = onInspect
@@ -185,19 +207,22 @@ final class AppKitWallpaperItem: RecordingCard {
     var onPlayRequested: ((String) -> Void)?; var onInspectRequested: ((String) -> Void)?
     func setThumbnailVisible(_ visible: Bool) { self.visible = visible }
     func configure(wallpaper: VideoWallpaper, isSelected: Bool, isPlaying: Bool,
-                   multiSelectMode: Bool, wallpaperManager: WallpaperManager, thumbnailProvider: AppKitThumbnailProvider) {
+                   multiSelectMode: Bool, thumbnailRequest: ThumbnailRequest? = nil, wallpaperManager: WallpaperManager, thumbnailProvider: AppKitThumbnailProvider) {
+        configuredRequests.append(thumbnailRequest)
         configurations += 1; presentedTitle = wallpaper.title; selectedState = isSelected; playing = isPlaying
     }
     func applySelectionState(isSelected: Bool, multiSelectMode: Bool) { selectedState = isSelected; selecting = multiSelectMode }
     func applyPlayingState(isPlaying: Bool) { playing = isPlaying }
 }
 final class SILGridItem: RecordingCard {
+    var recordedLoader: ((ThumbnailCacheRequestCancellation, @escaping (SILThumbnailLoadResult) -> Void) -> Void)?
     static let reuseID = NSUserInterfaceItemIdentifier("image")
     var onApplyRequested: ((String) -> Void)?; var onInspectRequested: ((String) -> Void)?
     func setThumbnailVisible(_ visible: Bool) { self.visible = visible }
     func configure(wallpaper: SILWallpaper, isSelected: Bool, isMultiSelectMode: Bool,
-                   thumbnailVisible: Bool, isPlaying: Bool,
+                   thumbnailVisible: Bool, isPlaying: Bool, cachedThumbnail: NSImage? = nil,
                    thumbnailLoader: @escaping (ThumbnailCacheRequestCancellation, @escaping (SILThumbnailLoadResult) -> Void) -> Void) {
+        recordedLoader = thumbnailLoader
         configurations += 1; presentedTitle = wallpaper.title; selectedState = isSelected; visible = thumbnailVisible
         playing = isPlaying
     }
@@ -210,7 +235,7 @@ final class AppKitPixabayDownloadsItem: RecordingCard {
     func beginDisplayingThumbnail() { visible = true }
     func endDisplayingThumbnail() { visible = false }
     func configure(entry: PixabayDownloadedEntry, isSelected: Bool, isMultiSelectMode: Bool,
-                   isPlaying: Bool, thumbnailDemandActive: Bool?) {
+                   isPlaying: Bool, request: ThumbnailRequest? = nil, thumbnailDemandActive: Bool?) {
         configurations += 1; selectedState = isSelected; playing = isPlaying; visible = thumbnailDemandActive ?? visible
     }
     func applySelectionState(_ selected: Bool, multiSelectMode: Bool) { self.selectedState = selected; selecting = multiSelectMode }
@@ -278,7 +303,7 @@ final class AdapterCollectionDataSource: NSObject, NSCollectionViewDataSource {
         collection.dataSource = collectionDataSource
         collection.collectionViewLayout = NSCollectionViewFlowLayout()
         collection.reloadData()
-        let state = WallpaperLibraryGridController.CellState(isSelected: false, isSelecting: false, isFocused: true)
+        let state = WallpaperLibraryGridController.CellState(isSelected: false, isSelecting: false, isFocused: true, thumbnailRequest: .init(width: 320, height: 320, mode: .fill))
         func make(_ item: WallpaperContentItem) -> NSCollectionViewItem {
             adapter.makeCell(collection: collection, indexPath: IndexPath(item: 0, section: 0), content: item, state: state)
         }
@@ -289,9 +314,9 @@ final class AdapterCollectionDataSource: NSObject, NSCollectionViewDataSource {
         let workshop = make(s) as! AppKitSteamWorkshopBrowserItem, pixabay = make(o) as! AppKitPixabayDownloadsItem
         checks["fourProvidersUseOriginalRegisteredCellClasses"] = video.presentedTitle == "video" && image.presentedTitle == "image" && workshop.organization != nil && pixabay.onPrimaryAction != nil
         checks["factoryDoesNotAcquireOffscreenDemand"] = [video, image, workshop, pixabay].allSatisfy { !$0.visible }
-        for card in [video, image, workshop, pixabay] { adapter.setVisible(card, true) }
+        for card in [video, image, workshop, pixabay] { adapter.setVisible(card, state) }
         checks["allOriginalDisplayLifecyclesReceiveVisibleDemand"] = [video, image, workshop, pixabay].allSatisfy(\.visible)
-        for card in [video, image, workshop, pixabay] { adapter.setVisible(card, false) }
+        for card in [video, image, workshop, pixabay] { adapter.setVisible(card, nil) }
         checks["allOriginalDisplayLifecyclesReleaseDemand"] = [video, image, workshop, pixabay].allSatisfy { !$0.visible }
         video.onPlayRequested?("1"); image.onApplyRequested?("1"); workshop.onSet?(); pixabay.onPrimaryAction?(1)
         checks["sameNumberAcrossProvidersDoesNotRetargetPrimary"] = primary.map(\.providerReference) == [v.providerReference, i.providerReference, s.providerReference, o.providerReference]
@@ -306,7 +331,7 @@ final class AdapterCollectionDataSource: NSObject, NSCollectionViewDataSource {
         backing.onPlayRequested?("1")
         checks["sourceThumbnailIdentityAndCanonicalCommandIdentityAreSeparate"] = backing.presentedTitle == "video" && primary.last?.reference == s.reference && primary.last?.providerReference == v.providerReference
         playing = [v.reference, i.reference, o.reference, s.reference]
-        let selected = WallpaperLibraryGridController.CellState(isSelected: true, isSelecting: false, isFocused: true)
+        let selected = WallpaperLibraryGridController.CellState(isSelected: true, isSelecting: false, isFocused: true, thumbnailRequest: .init(width: 320, height: 320, mode: .fill))
         let counts = [video.configurations, image.configurations, pixabay.configurations]
         adapter.updateCell(video, content: v, state: selected); adapter.updateCell(image, content: i, state: selected); adapter.updateCell(pixabay, content: o, state: selected)
         checks["selectionAndPlayingDoNotReconfigureMedia"] = [video.configurations, image.configurations, pixabay.configurations] == counts
@@ -595,13 +620,13 @@ final class AdapterCollectionDataSource: NSObject, NSCollectionViewDataSource {
             styleMask: [.titled], backing: .buffered, defer: false)
         imageWindow.isReleasedWhenClosed = false
         imageWindow.contentView = wallCard.view
-        adapter.setVisible(wallCard, true)
+        adapter.setVisible(wallCard, state)
         defer { imageWindow.close() }
         let retryCount = primary.count
         wallCard.activatePrimary()
         checks["missing-online-image-card-admits-retry-without-fabricating-play"] = !retryRows[0].capabilities.contains(.play)
             && wallCard.canPerformPrimary && primary.count == retryCount + 1 && primary.last?.reference == wallID.reference
-        adapter.setVisible(wallCard, true); adapter.setVisible(hiddenCard, false)
+        adapter.setVisible(wallCard, state); adapter.setVisible(hiddenCard, nil)
         let configured = wallCard.configurations, hiddenUpdates = hiddenCard.transferUpdates
         resetSourceReads()
         library.progress = [wallID: 0.4, hiddenID: 0.8]
@@ -638,7 +663,7 @@ final class AdapterCollectionDataSource: NSObject, NSCollectionViewDataSource {
         let previewRows = records.map { OnlineImageContentProjection.local($0, url: library.localURL(for: $0)!, available: true) }
         let previewCard = make(previewRows[0]) as! OnlineImageGridItem
         imageWindow.contentView = previewCard.view
-        adapter.setVisible(previewCard, true)
+        adapter.setVisible(previewCard, state)
         let wallPreview = previewCard.heldInspect
         wallPreview?()
         checks["image-card-detail-carries-its-fixed-current-asset-reference"] = wallPreview != nil && inspections.last?.reference == wallID.reference
@@ -759,6 +784,151 @@ final class AdapterCollectionDataSource: NSObject, NSCollectionViewDataSource {
         adapter.updateViewport(visible: [], prefetch: [])
         checks["batch-empty-demand-does-not-read-source-arrays"] =
             [manager.sourceReads, images.sourceReads, steam.sourceReads, pixabayService.sourceReads] == [0, 0, 0, 0]
+
+        manager.wallpapers = [.init(id: "size-video", title: "size", path: "/size-video")]
+        images.wallpapers = [.init(id: "size-image", path: "/size-image", title: "size")]
+        let sizeVideo = content(.videoLibrary, "size-video"), sizeImage = content(.staticImageLibrary, "size-image")
+        let sizedVideo = make(sizeVideo) as! AppKitWallpaperItem, sizedImage = make(sizeImage) as! SILGridItem
+        let targetImageLease = ThumbnailCacheRequestCancellation()
+        sizedImage.recordedLoader?(targetImageLease) { _ in }
+        checks["grid-target-reaches-original-video-card-and-sil-loader"] =
+            sizedVideo.configuredRequests.last == ThumbnailRequest(width: 320, height: 320, mode: .fill) && SILThumbnailProvider.thumbnailRequests.last == ThumbnailRequest(width: 320, height: 320, mode: .fill)
+        let beforeSame = (sizedVideo.configurations, sizedImage.configurations)
+        adapter.updateCell(sizedVideo, content: sizeVideo, state: state)
+        adapter.updateCell(sizedImage, content: sizeImage, state: state)
+        checks["same-target-update-keeps-original-local-configurations"] =
+            sizedVideo.configurations == beforeSame.0 && sizedImage.configurations == beforeSame.1
+        let larger = WallpaperLibraryGridController.CellState(isSelected: false, isSelecting: false,
+            isFocused: true, thumbnailRequest: .init(width: 640, height: 640, mode: .fill))
+        adapter.updateCell(sizedVideo, content: sizeVideo, state: larger)
+        adapter.updateCell(sizedImage, content: sizeImage, state: larger)
+        sizedImage.recordedLoader?(ThumbnailCacheRequestCancellation()) { _ in }
+        checks["new-target-reconfigures-both-original-local-cards-once"] =
+            sizedVideo.configurations == beforeSame.0 + 1 && sizedImage.configurations == beforeSame.1 + 1
+                && sizedVideo.configuredRequests.last == ThumbnailRequest(width: 640, height: 640, mode: .fill) && SILThumbnailProvider.thumbnailRequests.last == ThumbnailRequest(width: 640, height: 640, mode: .fill)
+        adapter.updateViewport(visible: [], prefetch: [sizeVideo, sizeImage], request: .init(width: 640, height: 640, mode: .fill))
+        let sizeCount = SILThumbnailProvider.requests.count, sizeLease = SILThumbnailProvider.requests.last!.2
+        checks["visible-and-nearby-use-the-same-target-value"] =
+            AppKitThumbnailProvider.thumbnailRequests.last == ThumbnailRequest(width: 640, height: 640, mode: .fill) && SILThumbnailProvider.thumbnailRequests.last == ThumbnailRequest(width: 640, height: 640, mode: .fill)
+        adapter.updateViewport(visible: [], prefetch: [sizeVideo, sizeImage], request: .init(width: 640, height: 640, mode: .fill))
+        checks["same-target-keeps-the-current-prefetch-lease"] =
+            !sizeLease.cancelled && SILThumbnailProvider.requests.count == sizeCount
+        adapter.updateViewport(visible: [], prefetch: [sizeVideo, sizeImage], request: .init(width: 320, height: 320, mode: .fill))
+        checks["new-target-retires-obsolete-nearby-interest"] = sizeLease.cancelled
+            && SILThumbnailProvider.requests.count == sizeCount + 1 && SILThumbnailProvider.thumbnailRequests.last == ThumbnailRequest(width: 320, height: 320, mode: .fill)
+
+        for (surface, subject) in [("mixed", adapter), ("picker", pickerAdapter)] {
+            subject.updateViewport(visible: [], prefetch: [])
+            let source = URL(string: "https://fixture.invalid/steam-sized-\(surface)")!
+            var record = SteamWorkshopDownloadRecord(id: "steam-sized", title: "Steam sized", status: .ready, previewURL: source)
+            steam.downloads = [record]
+            let steamContent = content(.steamWorkshop, record.id)
+            var previous: SteamWorkshopPreviewState?
+            var previousTier: Int?
+            for (width, tier) in [(256, 256), (257, 512), (512, 512), (513, 800), (900, 800)] {
+                let before = SteamWorkshopPreviewState.configured.count
+                subject.updateViewport(visible: [], prefetch: [steamContent], request: .init(width: width, height: width, mode: .fill))
+                let current = SteamWorkshopPreviewState.configured.last!
+                checks["\(surface)-steam-\(width)-backing-pixels-prefetches-\(tier)-tier"] = current.pixelSize == tier
+                    && current.previewURL == source
+                if let previous, previousTier == tier {
+                    checks["\(surface)-steam-same-\(tier)-tier-geometry-keeps-one-prefetch"] = current === previous
+                        && previous.resets == 0 && SteamWorkshopPreviewState.configured.count == before
+                } else {
+                    checks["\(surface)-steam-enter-\(tier)-tier-retires-only-old-interest"] = SteamWorkshopPreviewState.configured.count == before + 1
+                        && (previous.map { $0.resets == 1 } ?? true)
+                }
+                previous = current; previousTier = tier
+            }
+            let ready = previous!, configured = SteamWorkshopPreviewState.configured.count
+            subject.updateViewport(visible: [steamContent], prefetch: [], request: .init(width: 799, height: 799, mode: .fill))
+            checks["\(surface)-steam-same-tier-nearby-to-visible-keeps-original-interest"] = ready.resets == 0
+                && SteamWorkshopPreviewState.configured.count == configured
+            let smaller = ThumbnailRequest(width: 320, height: 320, mode: .fill)
+            subject.updateViewport(visible: [steamContent], prefetch: [], request: smaller)
+            checks["\(surface)-steam-visible-tier-change-retires-obsolete-prefetch-without-duplicate"] = ready.resets == 1
+                && SteamWorkshopPreviewState.configured.count == configured
+            subject.updateViewport(visible: [], prefetch: [steamContent], request: smaller)
+            let renewed = SteamWorkshopPreviewState.configured.last!
+            let replacement = source.appendingPathComponent("replacement")
+            record.previewURL = replacement; steam.downloads = [record]
+            subject.updateViewport(visible: [], prefetch: [steamContent], request: smaller)
+            let changed = SteamWorkshopPreviewState.configured.last!
+            checks["\(surface)-steam-same-tier-source-replacement-revokes-old-interest"] = renewed.resets == 1
+                && changed !== renewed && changed.pixelSize == 512 && changed.previewURL == replacement
+            steam.previewReloadToken += 1
+            subject.updateViewport(visible: [], prefetch: [steamContent], request: smaller)
+            let reloaded = SteamWorkshopPreviewState.configured.last!
+            checks["\(surface)-steam-preview-reload-revokes-same-source-and-tier"] = changed.resets == 1
+                && reloaded !== changed && reloaded.pixelSize == 512 && reloaded.refreshToken == steam.previewReloadToken
+            subject.updateViewport(visible: [], prefetch: [])
+            checks["\(surface)-steam-targeted-prefetch-leaves-no-interest-after-close"] = reloaded.resets == 1
+        }
+
+        for synchronous in [true, false] {
+            let mode = synchronous ? "synchronous" : "asynchronous"
+            adapter.updateViewport(visible: [], prefetch: [])
+            SteamWorkshopPreviewState.configured.removeAll()
+            SteamWorkshopPreviewState.completesSynchronously = synchronous
+            let source = URL(string: "https://fixture.invalid/steam-lifetime-\(mode)")!
+            steam.downloads = [.init(id: mode, title: mode, status: .ready, previewURL: source)]
+            let row = content(.steamWorkshop, mode)
+            let target = ThumbnailRequest(width: 512, height: 512, mode: .fill)
+            adapter.updateViewport(visible: [], prefetch: [row], request: target)
+            weak var observed = SteamWorkshopPreviewState.configured.last
+            SteamWorkshopPreviewState.configured.removeAll()
+            if !synchronous {
+                checks["steam-pending-preview-remains-owned-without-observation-registry"] = observed != nil
+                observed?.deliver(NSImage(size: NSSize(width: 48, height: 48)))
+            }
+            checks["steam-\(mode)-success-releases-nondisplay-state"] = observed == nil
+                && SteamWorkshopPreviewState.cache.images[source.absoluteString] != nil
+            let configured = SteamWorkshopPreviewState.configurationCount
+            adapter.updateViewport(visible: [], prefetch: [row], request: target)
+            checks["steam-\(mode)-completed-interest-does-not-recreate-state"] = SteamWorkshopPreviewState.configurationCount == configured
+            SteamWorkshopPreviewState.cache.images.removeAll()
+            adapter.updateViewport(visible: [], prefetch: [row], request: target)
+            adapter.updateViewport(visible: [row], prefetch: [], request: target)
+            checks["steam-\(mode)-eviction-keeps-best-effort-interest-without-decode-loop"] = SteamWorkshopPreviewState.configurationCount == configured
+                && SteamWorkshopPreviewState.cache.images.isEmpty
+            adapter.updateViewport(visible: [], prefetch: [])
+        }
+        SteamWorkshopPreviewState.completesSynchronously = false
+        steam.downloads = [.init(id: "pending-lifetime", title: "Pending", status: .ready)]
+        let pendingRow = content(.steamWorkshop, "pending-lifetime")
+        adapter.updateViewport(visible: [], prefetch: [pendingRow])
+        weak var failed = SteamWorkshopPreviewState.configured.last
+        SteamWorkshopPreviewState.configured.removeAll()
+        failed?.deliver(nil)
+        let beforeSteamFailureEcho = SteamWorkshopPreviewState.configurationCount
+        adapter.updateViewport(visible: [], prefetch: [pendingRow])
+        checks["steam-nil-presentation-keeps-state-for-original-retry-and-fallback"] = failed != nil
+            && SteamWorkshopPreviewState.configurationCount == beforeSteamFailureEcho
+        let beforePendingCancel = SteamWorkshopPreviewState.resetCount
+        adapter.updateViewport(visible: [], prefetch: [])
+        checks["steam-pending-cancel-resets-and-releases-state"] = failed == nil
+            && SteamWorkshopPreviewState.resetCount == beforePendingCancel + 1
+
+        let lateSource = URL(string: "https://fixture.invalid/steam-late-lifetime")!
+        var lateRecord = SteamWorkshopDownloadRecord(id: "late-lifetime", title: "Late", status: .ready, previewURL: lateSource)
+        steam.downloads = [lateRecord]
+        let lateRow = content(.steamWorkshop, lateRecord.id)
+        adapter.updateViewport(visible: [], prefetch: [lateRow])
+        let retired = SteamWorkshopPreviewState.configured.last!
+        lateRecord.previewURL = lateSource.appendingPathComponent("replacement"); steam.downloads = [lateRecord]
+        adapter.updateViewport(visible: [], prefetch: [lateRow])
+        weak var replacement = SteamWorkshopPreviewState.configured.last
+        SteamWorkshopPreviewState.configured.removeAll()
+        // Inject beyond the leaf's reset to test the Adapter's weak old-demand
+        // receipt; the real State's generation rejection has its own gate.
+        retired.deliver(NSImage(size: NSSize(width: 48, height: 48)))
+        checks["steam-late-success-on-reset-state-cannot-retire-current-source-interest"] = retired.resets == 1
+            && replacement != nil && replacement?.resets == 0
+        let beforeReplacementCancel = SteamWorkshopPreviewState.resetCount
+        adapter.updateViewport(visible: [], prefetch: [])
+        checks["steam-late-reset-callback-leaves-current-cancel-effective"] = replacement == nil
+            && SteamWorkshopPreviewState.resetCount == beforeReplacementCancel + 1
+        SteamWorkshopPreviewState.cache.images.removeAll()
 
         let data = try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))

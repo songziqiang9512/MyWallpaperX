@@ -69,14 +69,19 @@ nonisolated struct PixabayDownloadedAssetMetadata: Sendable {
     }
 
     private static func resolutionString(for asset: AVAsset) async -> String? {
+        guard let size = await nativeSize(for: asset) else { return nil }
+        return "\(Int(size.width))×\(Int(size.height))"
+    }
+
+    static func nativeSize(for asset: AVAsset) async -> CGSize? {
         guard let tracks = try? await asset.loadTracks(withMediaType: .video), let track = tracks.first,
               let naturalSize = try? await track.load(.naturalSize),
               let preferredTransform = try? await track.load(.preferredTransform) else { return nil }
-        let transformed = naturalSize.applying(preferredTransform)
+        let transformed = CGRect(origin: .zero, size: naturalSize).applying(preferredTransform).size
         let width = abs(transformed.width).rounded(), height = abs(transformed.height).rounded()
         guard width.isFinite, height.isFinite, width > 0, height > 0,
               width < Double(Int.max), height < Double(Int.max) else { return nil }
-        return "\(Int(width))×\(Int(height))"
+        return CGSize(width: width, height: height)
     }
 }
 

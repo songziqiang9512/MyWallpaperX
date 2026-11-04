@@ -152,7 +152,7 @@ struct ToolbarActivity {
         Publishers.MergeMany(publishers).receive(on: RunLoop.main).sink { [weak self] in self?.changed.send() }.store(in: &subscriptions)
     }
     func steamProgress(id: String, attempt: String) -> DownloadTaskProgress? { nil }
-    func loadThumbnail(_ row: DownloadTaskRow, receive: @escaping (NSImage?) -> Void) -> (() -> Void)? { nil }
+    func loadThumbnail(_ row: DownloadTaskRow, request: ThumbnailRequest, receive: @escaping (NSImage?) -> Void) -> (() -> Void)? { nil }
     func observeProgress(_ row: DownloadTaskRow, receive: @escaping (DownloadTaskProgress) -> Void) -> (() -> Void)? {
         progressLeases += 1
         return { [weak self] in self?.progressLeases -= 1; self?.endedProgressLeases += 1 }
@@ -774,13 +774,13 @@ extension NSToolbarItem.Identifier { static let downloadTasks = Self("downloadTa
         checks["closing-the-real-task-popover-revokes-row-observation"] = overflowTaskDidClose && !downloadController.isShown
             && !rows.isEmpty && rows.allSatisfy { $0.displayedTask == nil } && leasesBeforeClose > 0
             && taskCommands.progressLeases == 0 && taskCommands.endedProgressLeases > endedBeforeClose
-            && taskRoot.map { descendants($0, DownloadTaskRowView.self).isEmpty } == true
+            && taskRoot.map { descendants($0, DownloadTaskRowView.self).allSatisfy { $0.displayedTask == nil } } == true
         window.setContentSize(NSSize(width: 600, height: 500)); await settle()
         NotificationCenter.default.post(name: .steamWorkshopModeDidChange, object: nil, userInfo: ["enabled": false])
         NotificationCenter.default.post(name: .pixabayModeDidChange, object: nil, userInfo: ["enabled": true])
         await install(pixabay.pixabayIdentifiers, factory: pixabay.makeItem(for:))
         checks["pixabay-has-five-native-groups-and-one-settings-download-source-group"] = groups() == [[.pixabaySettings, .downloadTasks],
-            [.pixabayFilter], [.pixabayOrder], [.pixabayZoom], [.pixabaySearch]]
+            [.pixabayOrder], [.pixabayFilter], [.pixabayZoom], [.pixabaySearch]]
         window.setContentSize(NSSize(width: 1200, height: 500)); await settle()
         let accountImage = NSImage(systemSymbolName: "person.crop.circle", accessibilityDescription: "API Key")
         let accountButton = pixabay.settingsToolbarItem.view as? NSButton

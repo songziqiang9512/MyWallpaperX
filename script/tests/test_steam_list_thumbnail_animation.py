@@ -46,12 +46,14 @@ SOURCES = [
     CORE / "SteamWorkshopPreviewRequestCoordinator.swift",
     ROOT / "MyWallpaperX/Shared/UI/ThumbnailCache.swift",
     CORE / "SteamWorkshopModels.swift",
+    ROOT / "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopWebValidationModels.swift",
     CORE / "SteamWorkshopDownloadProgress.swift",
     CORE / "SteamWorkshopDownloadThumbnailPipeline.swift",
     SHARED_UI / "UIInteractionAnimation.swift",
     SHARED_UI / "AppearanceAwareContainerView.swift",
     SHARED_UI / "NSViewExtensions.swift",
 ]
+SOURCES.append(ROOT / "MyWallpaperX/Shared/ThumbnailRequest.swift")
 
 SUPPORT = r'''
 import AppKit
@@ -87,13 +89,6 @@ enum SteamSubscriptionProbeState: Equatable {
     case loading
     case writing
     case reconciling
-}
-
-// Mirror of the Web/Core validation enum referenced by the shared models.
-nonisolated enum SteamWorkshopWebDependencyStatus: Equatable {
-    case none
-    case available(itemID: String)
-    case missing(itemID: String)
 }
 
 final class SteamSubscriptionsProbe {
@@ -205,7 +200,7 @@ private final class CardSource: NSObject, NSCollectionViewDataSource {
         // 4. Hover plays; leaving stops.
         item.mouseEntered(with: enterEvent(true))
         precondition(item.previewImageView.animates, "a hovered card must animate")
-        precondition(item.controlBar.superview === item.cardView, "hover must attach original glass")
+        precondition(item.controlBar.isDescendant(of: item.view), "hover must attach original glass")
         let bar = item.controlBar
         item.mouseExited(with: enterEvent(false))
         item.mouseEntered(with: enterEvent(true))
@@ -215,7 +210,7 @@ private final class CardSource: NSObject, NSCollectionViewDataSource {
         item.shouldPersistBarVisibility = true
         let revealDeadline = Date().addingTimeInterval(0.35)
         while Date() < revealDeadline { RunLoop.main.run(until: Date().addingTimeInterval(0.005)) }
-        precondition(item.controlBar === bar && item.controlBar.superview === item.cardView,
+        precondition(item.controlBar === bar && item.controlBar.isDescendant(of: item.view),
             "a stale collapse completion must not detach a revealed persistent bar")
         item.shouldPersistBarVisibility = false
         item.mouseExited(with: enterEvent(false))
@@ -276,14 +271,14 @@ private final class CardSource: NSObject, NSCollectionViewDataSource {
         fresh.currentDisplayContext = .downloads
         fresh.shouldPersistBarVisibility = true
         fresh.applyHoverStyle(animated: false)
-        precondition(fresh.controlBar.superview === fresh.cardView && fresh.controlBar.alphaValue > 0,
+        precondition(fresh.controlBar.isDescendant(of: fresh.view) && fresh.controlBar.alphaValue > 0,
             "persistent bar must remain attached")
         fresh.isMultiSelectMode = true
         fresh.applyHoverStyle(animated: false)
         precondition(fresh.controlBar.superview == nil, "multi-select must detach persistent glass")
         fresh.isMultiSelectMode = false
         fresh.applyHoverStyle(animated: false)
-        precondition(fresh.controlBar.superview === fresh.cardView, "exit multi-select must restore persistent glass")
+        precondition(fresh.controlBar.isDescendant(of: fresh.view), "exit multi-select must restore persistent glass")
         fresh.prepareForReuse()
         precondition(fresh.controlBar.superview == nil, "reuse must retire old presentation")
         window.orderOut(nil)

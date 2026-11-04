@@ -17,7 +17,7 @@ class GridWindowThumbnailLifecycleTests(unittest.TestCase):
         from script.tests.test_video_thumbnail_prefetch import SWIFT_ISOLATION_FLAGS
         paths = ["Models/WallpaperReference.swift", "Models/WallpaperContent.swift", "Models/WallpaperLibraryPage.swift",
             "Shared/Components/WallpaperLibraryGridMetrics.swift", "Shared/Components/WallpaperCardInteractionView.swift",
-            "Shared/UI/WallpaperGridScrollView.swift", "Shared/UI/BoxSelectionState.swift",
+            "Shared/ThumbnailRequest.swift", "Shared/UI/WallpaperGridScrollView.swift", "Shared/UI/BoxSelectionState.swift",
             "Shared/UI/GridThumbnailPrefetchDemand.swift", "Shell/WallpaperLibraryGridController.swift"]
         sources = [ROOT / "MyWallpaperX" / path for path in paths]
         sources += [ROOT / "script/tests/fixtures" / name for name in
@@ -46,8 +46,10 @@ class GridWindowThumbnailLifecycleTests(unittest.TestCase):
             demand = source
             signatures = ['    private var thumbnailDemandIsVisible:', '    private func cancelPreviewPrefetch(',
                           '    private func prioritizeVisibleItemsForHydration(' if index == 1 else '    private func schedulePreviewPrefetch(',
-                          '    private func syncVisiblePreviewAnimationStates(']
+                          '    private func syncVisiblePreviewAnimationStates(', '    private func reportClipWidth(']
             pieces += [method(demand, signature) for signature in signatures]
+            pieces += [line for line in source.splitlines() if line.startswith(
+                ('    var onClipWidthChange:', '    private var lastReportedClipWidth:'))]
             if index > 0:
                 pieces.append('override func installNotifications() {\n' + method(source,
                     '        for name in [NSWindow.didMiniaturizeNotification, NSWindow.didDeminiaturizeNotification]') + '\n}')
