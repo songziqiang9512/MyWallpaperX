@@ -20,6 +20,7 @@ private func claimedExecution(
     }
     return .init(
         layerID: admitted.layerID,
+        pairPlan: capability.pairPlan,
         dependencyOwnership: capability.dependencyOwnership,
         sourceRoute: capability.sourceRoute,
         token: claim.token

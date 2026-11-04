@@ -29,85 +29,78 @@ extension SceneDependencyRenderPlan {
         return active
     }
 
-    /// Builds descriptor-only carriers one exact slot at a time. They never
-    /// enter product edges or targets here; Program finalization may promote
-    /// a carrier after proving its selected Program and activation policy.
+    /// Prepares source/render candidates; only a selected Program consumes them.
     nonisolated static func potentialNamedBindings(
         descriptor: SceneRenderDescriptor,
-        visibleLayerIDs: Set<Int>,
-        executableUtilityConsumerLayerIDs: Set<Int> = []
+        authoredPlans: [SceneAuthoredEffectRenderPlan] = [],
+        visibleLayerIDs: Set<Int>
     ) -> [Int: [Binding]] {
-        let layersByID = Dictionary(uniqueKeysWithValues: descriptor.layers.map {
-            ($0.id, $0)
-        })
-        let order = Dictionary(uniqueKeysWithValues:
-            descriptor.renderOrderLayerIDs.enumerated().map {
-                ($0.element, $0.offset)
-            }
-        )
-        let productReferences = SceneDependencyGraphAnalysis.references(
-            in: descriptor.layers
-        )
-        let potentialReferences = Set(SceneDependencyGraphAnalysis
-            .potentialNamedReferences(in: descriptor.layers)
-        )
-        let allPotentialReferences = Array(potentialReferences)
-        let routeDisabled = ProcessInfo.processInfo.environment[
-            "MWX_SCENE_NAMED_PROVIDER_ROUTE"
-        ] == "disable-generic"
-        var result: [Int: [Binding]] = [:]
-        for reference in allPotentialReferences {
-            let admittedPotentialReferences: Set<Reference> = [reference]
-            let references = productReferences + [reference]
-            let cyclicLayerIDs = SceneDependencyGraphAnalysis.cyclicLayerIDs(
-                edges: productDependencyEdges(
-                    layers: descriptor.layers,
-                    references: references,
-                    productReferences: productReferences,
-                    potentialReferences: potentialReferences,
-                    admittedPotentialReferences: admittedPotentialReferences
-                )
-            )
-            guard let layer = layersByID[reference.consumerLayerID] else {
+        let layersByID = Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) })
+        let order = Dictionary(uniqueKeysWithValues: descriptor.renderOrderLayerIDs.enumerated()
+            .map { ($0.element, $0.offset) })
+        let references = Set(SceneDependencyGraphAnalysis.references(in: descriptor.layers)
+            + SceneDependencyGraphAnalysis.potentialNamedReferences(in: descriptor.layers))
+        let byConsumer = Dictionary(grouping: references, by: \.consumerLayerID)
+        let graphs = Dictionary(grouping: authoredPlans, by: \.layerID)
+        let materials = Dictionary(grouping: descriptor.materialPasses, by: \.id)
+        var orderedByConsumer: [Int: [Reference]] = [:]
+        var activeTexturePathsByLayerID: [Int: [String]] = [:]
+        for layer in descriptor.layers {
+            guard let matches = graphs[layer.id], matches.count == 1, let graph = matches.first else {
+                orderedByConsumer[layer.id] = authoredReferenceOrder(
+                    for: layer, references: byConsumer[layer.id] ?? [])
                 continue
             }
-            var ignoredIssues: [Issue] = []
-            guard let binding = executableBinding(
-                for: layer,
-                references: [reference],
-                directReferences: productReferences.filter {
-                    $0.consumerLayerID == layer.id
-                },
-                layersByID: layersByID,
-                order: order,
-                visibleLayerIDs: visibleLayerIDs,
-                cyclicLayerIDs: cyclicLayerIDs,
-                executableUtilityConsumerLayerIDs:
-                    executableUtilityConsumerLayerIDs,
-                admittedResolvedMaterialReferences: [reference],
-                potentialEffectID: reference.slot.effectID,
-                namedProviderRouteDisabled: routeDisabled,
-                issues: &ignoredIssues
-            ), binding.requiresResolvedMaterialProgram else { continue }
-            result[layer.id, default: []].append(binding)
-        }
-        return result.mapValues { bindings in
-            Array(Set(bindings)).sorted {
-                (
-                    $0.consumerLayerID,
-                    $0.providerLayerID,
-                    $0.slot.effectID,
-                    $0.slot.passIndex,
-                    $0.slot.slotIndex
-                ) < (
-                    $1.consumerLayerID,
-                    $1.providerLayerID,
-                    $1.slot.effectID,
-                    $1.slot.passIndex,
-                    $1.slot.slotIndex
-                )
+            var ordered: [Reference] = []
+            var seen: Set<Reference> = []
+            for node in graph.nodes where node.kind == .material {
+                let passIndex = node.instancePassIndex ?? node.definitionPassIndex
+                let instanceReferences = (byConsumer[layer.id] ?? []).filter {
+                    $0.slot.effectID == node.effect.descriptorID && $0.slot.passIndex == passIndex
+                }
+                let material = node.materialPassID.flatMap { materials[$0] }
+                    .flatMap { $0.count == 1 ? $0.first : nil }
+                let definitionReferences = (material?.textureSlots ?? []).enumerated().compactMap {
+                    slot, path -> Reference? in
+                    guard let reference = SceneNamedTextureReference.parse(path) else { return nil }
+                    return .init(consumerLayerID: layer.id, providerLayerID: reference.providerLayerID,
+                        slot: .init(effectID: node.effect.descriptorID, passIndex: passIndex, slotIndex: slot),
+                        variant: reference.variant)
+                }
+                let bySlot = Dictionary(grouping: definitionReferences + instanceReferences, by: { $0.slot.slotIndex })
+                for slot in bySlot.keys.sorted() {
+                    for reference in bySlot[slot] ?? [] where seen.insert(reference).inserted {
+                        ordered.append(reference)
+                    }
+                }
+                if let effect = layer.effects.first(where: { $0.id == node.effect.descriptorID }),
+                   effect.visible != false {
+                    activeTexturePathsByLayerID[layer.id, default: []]
+                        .append(contentsOf: material?.textureSlots.compactMap { $0 } ?? [])
+                    if let instancePassIndex = node.instancePassIndex,
+                       let pass = effect.passes.first(where: { $0.passIndex == instancePassIndex }) {
+                        activeTexturePathsByLayerID[layer.id, default: []]
+                            .append(contentsOf: pass.texturePaths + pass.textureSlots.compactMap { $0 })
+                    }
+                }
             }
+            orderedByConsumer[layer.id] = ordered
         }
+        var result: [Int: [Binding]] = [:]
+        for layer in descriptor.layers {
+            let bindings = (orderedByConsumer[layer.id] ?? []).compactMap { reference in
+                let provider = layersByID[reference.providerLayerID]
+                let providerReferences = orderedByConsumer[reference.providerLayerID]?.filter { item in
+                    provider?.effects.first(where: { $0.id == item.slot.effectID })?.visible != false
+                }
+                return programInputBinding(for: reference, layer: layer, layersByID: layersByID,
+                    order: order, visibleLayerIDs: visibleLayerIDs,
+                    providerReferences: providerReferences,
+                    providerTexturePaths: activeTexturePathsByLayerID[reference.providerLayerID])
+            }
+            if !bindings.isEmpty { result[layer.id] = bindings }
+        }
+        return result
     }
 
     /// Removes descriptor-only fallback metadata from the product dependency
@@ -362,11 +355,7 @@ extension SceneDependencyRenderPlan {
               provider.authoredDependencies.isEmpty,
               provider.dependencyLayerIDs.isEmpty,
               provider.visible != false,
-              visibleLayerIDs.contains(provider.id),
-              aggregateReferenceShapeIsStrict(
-                  layer: layer,
-                  reference: reference
-              ) else {
+              visibleLayerIDs.contains(provider.id) else {
             return nil
         }
         let effects = visibleEffects.filter {

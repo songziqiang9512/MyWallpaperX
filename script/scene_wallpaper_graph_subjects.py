@@ -14,14 +14,17 @@ from typing import Any
 
 
 def resolved_material_graph_exact_backend_metrics(
-    accepted_layer_ids: list[int],
+    expected_layer_ids: list[int],
     effect_execution: dict[str, Any],
     static_disposition: dict[str, Any] | None,
     graph_observations: dict[str, Any],
+    *,
+    admitted_layer_ids: list[int],
     dormant_layer_ids: set[int] | None = None,
     activation_dormant_identities: set[tuple[int, int, str]] | None = None,
 ) -> dict[str, Any]:
-    accepted_layers = set(accepted_layer_ids)
+    expected_layers = set(expected_layer_ids)
+    admitted_layers = set(admitted_layer_ids)
     disposition_is_valid, _, eligible_exact = (
         _effect_execution_static_catalog(static_disposition)
     )
@@ -39,7 +42,7 @@ def resolved_material_graph_exact_backend_metrics(
         activation_dormant_identities or set()
     ).intersection(eligible_exact_identities)
     required_by_layer: dict[int, set[tuple[int, str]]] = {
-        layer_id: set() for layer_id in accepted_layers
+        layer_id: set() for layer_id in expected_layers
     }
     if disposition_is_valid:
         for subject in eligible_exact:
@@ -47,7 +50,7 @@ def resolved_material_graph_exact_backend_metrics(
             effect_index = subject.get("effect_index")
             descriptor_id = subject.get("descriptor_id")
             if (
-                layer_id in accepted_layers
+                layer_id in expected_layers
                 and isinstance(effect_index, int)
                 and not isinstance(effect_index, bool)
                 and isinstance(descriptor_id, str)
@@ -69,7 +72,7 @@ def resolved_material_graph_exact_backend_metrics(
         and all(isinstance(invocation, dict) for invocation in invocations)
     )
     successful_by_layer: dict[int, set[tuple[int, str]]] = {
-        layer_id: set() for layer_id in accepted_layers
+        layer_id: set() for layer_id in expected_layers
     }
     cpu_effect_local_passthroughs = effect_local_passthrough_cpu_keys(
         effect_execution
@@ -122,7 +125,7 @@ def resolved_material_graph_exact_backend_metrics(
     unproven_effect_local_passthroughs = {
         value for value in effect_local_passthroughs
         if value[:3] not in eligible_exact_identities
-        or value[0] not in accepted_layers
+        or value[0] not in admitted_layers
     }
     program_required_layer_ids = sorted(
         layer_id for layer_id, subjects in required_by_layer.items()
@@ -181,7 +184,7 @@ def resolved_material_graph_exact_backend_metrics(
                 resolved_backend_layer_ids.add(layer_id)
             if exact_identity in activation_dormant:
                 continue
-            if layer_id not in accepted_layers:
+            if layer_id not in expected_layers:
                 continue
             if invocation.get("backend") != RESOLVED_MATERIAL_GRAPH_BACKEND:
                 wrong_backend_layer_ids.add(layer_id)
@@ -219,7 +222,7 @@ def resolved_material_graph_exact_backend_metrics(
                 failed_layer_ids.add(layer_id)
 
     complete_layer_ids = sorted(
-        layer_id for layer_id in accepted_layers
+        layer_id for layer_id in expected_layers
         if disposition_is_valid
         and (
             not required_by_layer[layer_id]
@@ -232,9 +235,9 @@ def resolved_material_graph_exact_backend_metrics(
             )
         )
     )
-    missing_layer_ids = sorted(accepted_layers.difference(complete_layer_ids))
+    missing_layer_ids = sorted(expected_layers.difference(complete_layer_ids))
     unexpected_layer_ids = sorted(
-        resolved_backend_layer_ids.difference(accepted_layers)
+        resolved_backend_layer_ids.difference(expected_layers)
         .difference(dormant_layer_ids or set())
     )
     return {

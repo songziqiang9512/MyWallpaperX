@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Descriptor-only optional fallbacks survive an inactive authored stage."""
+"""Cold named source candidates and typed final Plan demand remain distinct."""
 
 from __future__ import annotations
 
@@ -160,11 +160,26 @@ enum Harness {
         let plan = SceneDependencyRenderPlan(
             descriptor: descriptor, visibleLayerIDs: visible
         )
+        // The Set parameter is a cold auxiliary seam, not Program execution authority.
         let admittedPlan = SceneDependencyRenderPlan(
             descriptor: descriptor, visibleLayerIDs: visible,
             admittedResolvedMaterialReferences: admittedReferences
                 ?? Set(direct + potential)
         )
+        // Typed selection input only. Program compilation/readiness is covered
+        // by the real Program/GraphExecutor gates, not by these descriptor rows.
+        let selected = admittedReferences ?? Set(direct + potential)
+        let preparedInputs = carriers.filter {
+            selected.contains(.init(consumerLayerID: $0.consumerLayerID,
+                providerLayerID: $0.providerLayerID, slot: $0.slot, variant: .primary))
+        }
+        let preparedPlan = SceneDependencyRenderPlan(
+            descriptor: descriptor, visibleLayerIDs: visible,
+            preparedNamedInputBindingsByConsumerLayerID: [consumerID: preparedInputs]
+        )
+        let preparedVector = preparedPlan.multiProviderAggregatesByConsumerLayerID[consumerID]?.bindings
+            ?? preparedPlan.bindingsByConsumerLayerID[consumerID].map { [$0] } ?? []
+        let preparedSlots: [[String: Any]] = preparedVector.flatMap { slotRows($0) }
         let directAdmittedPlan = SceneDependencyRenderPlan(
             descriptor: descriptor, visibleLayerIDs: visible,
             admittedResolvedMaterialReferences: Set(direct)
@@ -178,7 +193,7 @@ enum Harness {
             potentialReferences: Set(potential),
             admittedPotentialReferences: []
         )
-        return [
+        var result: [String: Any] = [
             "allDirect": SceneNamedTextureDependencyReferenceAnalysis.references(
                 in: descriptor.layers, includingInactiveEffects: true).map { ["provider": $0.providerLayerID] },
             "direct": direct.map(referenceRow),
@@ -222,6 +237,14 @@ enum Harness {
             "admittedSlots": slotRows(admittedBinding),
             "admittedEffectConsumers": admittedPlan.requiredEffectConsumerLayerIDs.sorted(),
         ]
+        result["preparedSlots"] = preparedSlots
+        result["preparedProviders"] = preparedPlan.requiredProviderLayerIDs.sorted()
+        result["preparedGraphProviders"] = preparedPlan.requiredGraphOutputProviderLayerIDs.sorted()
+        result["preparedEffects"] = preparedVector.flatMap(\.referenceSlots).map(\.effectID)
+        result["preparedRequiresProgram"] = preparedVector.allSatisfy(\.requiresResolvedMaterialProgram)
+        result["preparedForward"] = preparedVector.map(\.requiresForwardCapture)
+        result["preparedEffectConsumers"] = preparedPlan.requiredEffectConsumerLayerIDs.sorted()
+        return result
     }
 
     // Resource names are deliberately unrelated to the stock blend declaration.
@@ -313,6 +336,7 @@ enum Harness {
             "unsupportedConsumer": descriptor(
                 effects: [effect()], consumerKind: "particle"
             ),
+            "solidConsumer": descriptor(effects: [effect()], consumerKind: "solid"),
         ]
         var payload = cases.mapValues { inspect($0) }
         let graph = graphDescriptor()
@@ -370,23 +394,21 @@ enum Harness {
         ] {
             payload[name] = inspect(generic, admittedReferences: Set(genericDirect + [bad]))
         }
-        // Call the production helper directly with deliberately inconsistent
-        // effect metadata; this is not a claim that author parsing emits it.
-        let consumer = graph.layers.first { $0.id == consumerID }!
-        let layersByID = Dictionary(uniqueKeysWithValues: graph.layers.map { ($0.id, $0) })
-        let pair = direct + [potential[0]]
-        let control = SceneDependencyRenderPlan.visibleImageGraphOutputReferences(
-            layer: consumer, visibleEffects: Array(consumer.effects.prefix(2)),
-            references: pair, layersByID: layersByID,
-            visibleLayerIDs: [providerID, consumerID])
-        let duplicate = SceneDependencyRenderPlan.visibleImageGraphOutputReferences(
-            layer: consumer, visibleEffects: [consumer.effects[0], consumer.effects[0]],
-            references: pair, layersByID: layersByID,
-            visibleLayerIDs: [providerID, consumerID])
-        payload["graphDuplicateEffectMissingSibling"] = [
-            "controlEffects": control?.map { $0.slot.effectID } ?? [],
-            "rejected": duplicate == nil,
-        ]
+        let cycleDescriptor = descriptor(effects: [effect(visible: true, kind: nil)],
+            providerDependencies: [consumerID], providerEffects: [effect(
+                id: "back", visible: true, kind: nil, namedProviderID: consumerID)])
+        let outward = SceneDependencyRenderPlan.Binding(consumerLayerID: consumerID,
+            providerLayerID: providerID,
+            slot: .init(effectID: "optional-stage", passIndex: 0, slotIndex: 1),
+            blendMode: 0, kind: .imageLayerBlend, requiresResolvedMaterialProgram: true)
+        let inward = SceneDependencyRenderPlan.Binding(consumerLayerID: providerID,
+            providerLayerID: consumerID, slot: .init(effectID: "back", passIndex: 0, slotIndex: 1),
+            blendMode: 0, kind: .imageLayerBlend, requiresResolvedMaterialProgram: true)
+        let cyclicPlan = SceneDependencyRenderPlan(descriptor: cycleDescriptor,
+            visibleLayerIDs: [consumerID], preparedNamedInputBindingsByConsumerLayerID: [
+                consumerID: [outward], providerID: [inward]])
+        payload["preparedCycle"] = ["hasCycle": cyclicPlan.issues.contains { $0.kind == .cyclicDependency },
+            "providers": cyclicPlan.requiredProviderLayerIDs.sorted()]
         let data = try JSONSerialization.data(withJSONObject: payload)
         print(String(decoding: data, as: UTF8.self))
     }
@@ -468,36 +490,18 @@ class SceneInactiveOptionalNamedDependencyTests(unittest.TestCase):
         self.assertFalse(direct["runtimeRequiresProgram"])
         self.assertEqual(direct["runtimeProviders"], [101])
         self.assertEqual(direct["potential"], [])
-        mixed = self.results["activeDirectWithInactiveOptional"]
-        self.assertEqual(mixed["direct"], direct["direct"])
-        self.assertEqual(mixed["runtimeBindings"], direct["runtimeBindings"])
-        self.assertFalse(mixed["runtimeRequiresProgram"])
-        self.assertEqual(mixed["productEdges"], [101])
-        self.assertEqual(
-            [row["effect"] for row in mixed["carriers"]], ["optional-stage"]
-        )
-        self.assertEqual(
-            mixed["carriers"][0]["referenceEffects"], ["optional-stage"]
-        )
-        self.assertTrue(mixed["carriers"][0]["requiresProgram"])
-        for name in (
-            "activeDirectWithInactiveOptional", "forwardDirectWithInactiveOptional",
-        ):
+        for name, forward in (("activeDirectWithInactiveOptional", False),
+                              ("forwardDirectWithInactiveOptional", True)):
             with self.subTest(name=name):
-                self.assertEqual(
-                    self.results[name]["runtimeBindings"], ["direct-stage"]
-                )
-                self.assertEqual(
-                    self.results[name]["admittedReferenceEffects"],
-                    ["direct-stage", "optional-stage"],
-                )
-                self.assertTrue(self.results[name]["admittedRequiresProgram"])
-                self.assertEqual(self.results[name]["admittedProviders"], [101])
-                self.assertEqual(self.results[name]["admittedEffectConsumers"], [202])
-        self.assertFalse(mixed["admittedForwardCapture"])
-        self.assertTrue(
-            self.results["forwardDirectWithInactiveOptional"]["admittedForwardCapture"]
-        )
+                row = self.results[name]
+                self.assertEqual(row["runtimeBindings"], ["direct-stage"])
+                self.assertEqual([c["effect"] for c in row["carriers"]],
+                                 ["direct-stage", "optional-stage"])
+                self.assertTrue(all(c["requiresProgram"] for c in row["carriers"]))
+                self.assertEqual(row["preparedEffects"], ["direct-stage", "optional-stage"])
+                self.assertEqual(row["preparedProviders"], [101])
+                self.assertTrue(row["preparedRequiresProgram"])
+                self.assertEqual(row["preparedForward"], [forward, forward])
         for field in ("direct", "runtimeBindings", "productEdges"):
             self.assertEqual(self.results["inactiveDirect"][field], [])
 
@@ -520,111 +524,98 @@ class SceneInactiveOptionalNamedDependencyTests(unittest.TestCase):
         self.assertEqual(len(self.results["inactiveSystem"]["potential"]), 1)
 
     def test_visible_effectful_provider_keeps_exact_optional_carriers(self) -> None:
-        for name, ids in (
-            ("graphThree", ["z-direct", "m-current", "a-previous"]),
-            ("graphRenamed", ["stage-80", "stage-04", "stage-57"]),
-        ):
+        for name, ids in (("graphThree", ["z-direct", "m-current", "a-previous"]),
+                          ("graphRenamed", ["stage-80", "stage-04", "stage-57"])):
             row = self.results[name]
-            with self.subTest(name=name, boundary="base"):
+            with self.subTest(name=name):
                 self.assertEqual(row["runtimeKind"], "visibleImageGraphOutput")
-                self.assertEqual(row["runtimeSlots"], [
-                    {"effect": ids[0], "pass": 0, "slot": 1}
-                ])
+                self.assertEqual(row["runtimeSlots"], [{"effect": ids[0], "pass": 0, "slot": 1}])
                 self.assertFalse(row["runtimeRequiresProgram"])
-                self.assertEqual(row["runtimeProviders"], [101])
                 self.assertEqual(row["runtimeGraphProviders"], [101])
                 self.assertEqual([ref["effect"] for ref in row["potential"]], ids[1:])
-            with self.subTest(name=name, boundary="potential"):
-                self.assertEqual(len(row["carriers"]), 2)
-                self.assertEqual(row["carrierKinds"], ["visibleImageGraphOutput"] * 2)
-                self.assertEqual({carrier["effect"] for carrier in row["carriers"]}, set(ids[1:]))
-                for carrier in row["carriers"]:
-                    self.assertEqual(carrier, {
-                        "consumer": 202, "provider": 101, "effect": carrier["effect"],
-                        "pass": 0, "slot": 1, "requiresProgram": True,
-                        "referenceEffects": [carrier["effect"]],
-                    })
+                # Source candidates include the direct read and optional reads;
+                # each still requires an actual Program before consumption.
+                self.assertEqual([c["effect"] for c in row["carriers"]], ids)
+                self.assertEqual(row["carrierKinds"], ["visibleImageGraphOutput"] * 3)
+                self.assertTrue(all(c["requiresProgram"] for c in row["carriers"]))
+                self.assertEqual(row["preparedEffects"], ids)
+                self.assertEqual(row["preparedProviders"], [101])
         unique = self.results["graphUniqueOptional"]
-        only_slot = {"effect": "only-optional", "pass": 0, "slot": 1}
         self.assertEqual(unique["runtimeIdentity"], {})
-        self.assertEqual(unique["carrierIdentities"], [{
-            "consumer": 202, "provider": 101, "slot": only_slot,
-            "referenceSlots": [only_slot], "blendMode": 0,
-            "kind": "visibleImageGraphOutput", "requiresForwardCapture": False,
-            "requiresProgram": True,
-        }])
-        self.assertEqual(unique["admittedIdentity"], unique["carrierIdentities"][0])
+        self.assertEqual(unique["preparedSlots"], [{"effect": "only-optional", "pass": 0, "slot": 1}])
+        self.assertEqual(unique["preparedProviders"], [101])
+        self.assertTrue(unique["preparedRequiresProgram"])
 
     def test_admitted_visible_graph_slots_preserve_author_order_and_one_provider(self) -> None:
-        # This seam represents an already-proved Program's exact references;
-        # it does not prove Program compilation, media readiness or activation.
-        for name, ids in (
-            ("graphThree", ["z-direct", "m-current", "a-previous"]),
-            ("graphRenamed", ["stage-80", "stage-04", "stage-57"]),
-            ("graphOnlyCurrentAdmitted", ["z-direct", "m-current"]),
-        ):
+        # Already-selected typed inputs exercise the final Plan. They do not
+        # stand in for actual Program compilation, readiness or activation.
+        for name, ids in (("graphThree", ["z-direct", "m-current", "a-previous"]),
+                          ("graphRenamed", ["stage-80", "stage-04", "stage-57"]),
+                          ("graphOnlyCurrentAdmitted", ["z-direct", "m-current"])):
             with self.subTest(name=name):
                 row = self.results[name]
-                self.assertEqual(row["admittedKind"], "visibleImageGraphOutput")
-                self.assertEqual(row["admittedSlots"], [
-                    {"effect": effect, "pass": 0, "slot": 1} for effect in ids
-                ])
-                self.assertTrue(row["admittedRequiresProgram"])
-                self.assertFalse(row["admittedForwardCapture"])
-                self.assertEqual(row["admittedProviders"], [101])
-                self.assertEqual(row["admittedGraphProviders"], [101])
-                self.assertEqual(row["admittedEffectConsumers"], [202])
-        for name in ("graphNoProgram", "graphForeignAdmission", "graphWrongSlotAdmission"):
+                self.assertEqual(row["preparedSlots"], [{"effect": effect, "pass": 0, "slot": 1} for effect in ids])
+                self.assertTrue(row["preparedRequiresProgram"])
+                self.assertEqual(row["preparedForward"], [False] * len(ids))
+                self.assertEqual(row["preparedProviders"], [101])
+                self.assertEqual(row["preparedGraphProviders"], [101])
+                self.assertEqual(row["preparedEffectConsumers"], [202])
+        empty = self.results["graphNoProgram"]
+        self.assertEqual(empty["preparedSlots"], [])
+        self.assertEqual(empty["preparedProviders"], [])
+        self.assertEqual(empty["preparedEffectConsumers"], [])
+        for name in ("graphForeignAdmission", "graphWrongSlotAdmission"):
+            self.assertEqual(self.results[name]["preparedEffects"], ["z-direct"])
+        missing = self.results["graphWrongProvider"]
+        self.assertEqual(missing["preparedEffects"], ["z-direct", "m-current"])
+        self.assertEqual(missing["preparedProviders"], [101])
+        for name, last in (("graphWrongSlot", {"effect": "a-previous", "pass": 0, "slot": 2}),
+                           ("graphWrongPass", {"effect": "a-previous", "pass": 1, "slot": 1})):
             with self.subTest(name=name):
-                self.assertEqual(self.results[name]["admittedSlots"], [
-                    {"effect": "z-direct", "pass": 0, "slot": 1}
-                ])
-                self.assertFalse(self.results[name]["admittedRequiresProgram"])
-        for name in ("graphWrongProvider", "graphWrongSlot", "graphWrongPass"):
-            with self.subTest(name=name):
-                self.assertNotIn("a-previous", self.results[name]["admittedReferenceEffects"])
-                self.assertTrue(all(carrier["effect"] != "a-previous"
-                                    for carrier in self.results[name]["carriers"]))
+                self.assertEqual(self.results[name]["preparedEffects"], ["z-direct", "m-current", "a-previous"])
+                self.assertEqual(self.results[name]["preparedSlots"][-1], last)
         forward = self.results["graphForward"]
         self.assertEqual(forward["carriers"], [])
-        self.assertEqual(forward["runtimeSlots"], [])
-        self.assertEqual(forward["admittedSlots"], [])
-        duplicate = self.results["graphDuplicateEffectMissingSibling"]
-        self.assertEqual(duplicate["controlEffects"], ["z-direct", "m-current"])
-        self.assertTrue(duplicate["rejected"])
+        self.assertEqual(forward["preparedSlots"], [])
         before = self.results["graphOptionalBeforeDirect"]
-        direct_slot = {"effect": "direct-b", "pass": 0, "slot": 1}
-        optional_slot = {"effect": "optional-a", "pass": 0, "slot": 1}
-        expected_base = {
-            "consumer": 202, "provider": 101, "slot": direct_slot,
-            "referenceSlots": [direct_slot], "blendMode": 0,
-            "kind": "visibleImageGraphOutput", "requiresForwardCapture": False,
-            "requiresProgram": False,
-        }
-        self.assertEqual(before["runtimeIdentity"], expected_base)
-        self.assertEqual(before["admittedIdentity"], {
-            **expected_base, "referenceSlots": [optional_slot, direct_slot],
-            "requiresProgram": True,
-        })
+        self.assertEqual(before["runtimeSlots"], [{"effect": "direct-b", "pass": 0, "slot": 1}])
+        self.assertEqual(before["preparedEffects"], ["optional-a", "direct-b"])
+        self.assertEqual(before["preparedProviders"], [101])
 
-    def test_invalid_candidates_and_disabled_route_keep_rejecting(self) -> None:
-        for name in (
-            "missingProvider", "wrongProvider", "secondary", "unsupportedSlot",
-            "unsupportedPass", "providerChildren", "providerCycle", "unsupportedConsumer",
-            "unsupportedPath", "unsupportedKind", "emptyOptional",
-        ):
+    def test_source_boundaries_and_final_cycle_remain_distinct_from_program_permission(self) -> None:
+        for name in ("missingProvider", "secondary", "providerChildren", "unsupportedPath",
+                     "unsupportedKind", "emptyOptional"):
             with self.subTest(name=name):
                 self.assertEqual(self.results[name]["carriers"], [])
-                self.assertEqual(self.results[name]["admittedReferenceEffects"], [])
+                self.assertEqual(self.results[name]["preparedSlots"], [])
+                self.assertEqual(self.results[name]["preparedProviders"], [])
         for name in ("unsupportedPath", "unsupportedKind", "emptyOptional"):
             self.assertEqual(self.results[name]["potential"], [])
-        for name in ("inactiveSystem", "inactiveProperty", "activeSystem"):
-            self.assertEqual(self.disabled_results[name]["carriers"], [])
-            self.assertEqual(self.disabled_results[name]["runtimeBindings"], [])
+        for name, pass_index, slot_index in (("wrongProvider", 0, 1), ("unsupportedSlot", 0, 0),
+                                            ("unsupportedPass", 1, 1), ("providerCycle", 0, 1),
+                                            ("unsupportedConsumer", 0, 1), ("solidConsumer", 0, 1)):
+            with self.subTest(name=name):
+                carrier = self.results[name]["carriers"]
+                self.assertEqual([(c["provider"], c["pass"], c["slot"]) for c in carrier],
+                                 [(101, pass_index, slot_index)])
+                self.assertTrue(carrier[0]["requiresProgram"])
+        self.assertTrue(self.results["preparedCycle"]["hasCycle"])
+        self.assertEqual(self.results["preparedCycle"]["providers"], [])
+
+    def test_debug_switch_controls_legacy_route_not_prepared_program_inputs(self) -> None:
+        for name in ("inactiveSystem", "inactiveProperty", "activeSystem", "activeDirect"):
+            with self.subTest(name=name):
+                row, disabled = self.results[name], self.disabled_results[name]
+                self.assertEqual(disabled["carriers"], row["carriers"])
+                self.assertEqual(disabled["preparedSlots"], row["preparedSlots"])
+                self.assertEqual(disabled["preparedProviders"], row["preparedProviders"])
+        self.assertEqual(self.disabled_results["activeDirect"]["runtimeBindings"], [])
+        self.assertEqual(self.disabled_results["graphThree"]["runtimeSlots"],
+                         self.results["graphThree"]["runtimeSlots"])
 
     def test_generic_direct_anchor_survives_earlier_inactive_admission(self) -> None:
-        # These references represent Program-authorized slots, as in the
-        # existing graph-output seam; this does not compile or activate a Program.
+        # The cold auxiliary API retains its direct anchor; the typed prepared
+        # rows above cover final demand without claiming to compile a Program.
         for name, direct, order in (
             ("textInactiveBeforeDirect", "active-mask", ["dormant-mask", "active-mask"]),
             ("imageInactiveBeforeDirect", "active-mask", ["dormant-mask", "active-mask"]),
@@ -660,14 +651,15 @@ class SceneInactiveOptionalNamedDependencyTests(unittest.TestCase):
             {"effect": "dormant-mask", "pass": 0, "slot": 1}
         ])
 
-    def test_generic_admission_cannot_promote_unproved_siblings(self) -> None:
-        self.assertEqual(self.results["genericNoProgram"]["admittedIdentity"], {})
+    def test_generic_typed_selection_cannot_revive_unread_siblings(self) -> None:
+        self.assertEqual(self.results["genericNoProgram"]["preparedSlots"], [])
+        self.assertEqual(self.results["genericNoProgram"]["preparedProviders"], [])
         for name in ("genericForeignAdmission", "genericWrongSlotAdmission"):
             with self.subTest(name=name):
                 row = self.results[name]
-                self.assertEqual(row["admittedIdentity"], row["directAdmittedIdentity"])
-                self.assertEqual(row["admittedReferenceEffects"], ["active-mask"])
-                self.assertEqual(row["admittedProviders"], [101])
+                self.assertEqual(row["preparedEffects"], ["active-mask"])
+                self.assertEqual(row["preparedProviders"], [101])
+                self.assertTrue(row["preparedRequiresProgram"])
 
 
 if __name__ == "__main__":

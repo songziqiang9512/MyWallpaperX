@@ -8,10 +8,6 @@ struct SceneImageLayerTerminalDepthBinding {
 nonisolated enum SceneResolvedMaterialExecutionCapabilityCatalog {struct Token:Hashable {let capabilityID=UUID()}}
 struct FixtureSource {let texture:MTLTexture;let candidate:SceneTextureCandidate;var usesAuthoredLayerColor:Bool=true}
 struct SceneLayerParallax {struct Configuration {}}
-struct SceneEffectExecutionFrameTrace {
- enum Outcome {case failed(reasonCode:String)}
- func recordRouteOperation(layerID:Int,origin:String,operation:String,outcome:Outcome) {fatalError("unexpected invalid test input")}
-}
 final class SceneMetalRenderer {
  let device:MTLDevice;let staticModelResources:ScenePreparedStaticModelResources
  var utilityExecution=SceneUtilityLayerRuntimePlanner.Execution()
@@ -24,7 +20,7 @@ final class SceneMetalRenderer {
   dependencyRuntime=SceneDependencyFrameRuntime(descriptor:descriptor,visibleLayerIDs:Set(descriptor.layers.filter{$0.visible != false}.map(\.id)),executableUtilityConsumerLayerIDs:[],device:device)
   layersByID=Dictionary(uniqueKeysWithValues:descriptor.layers.map{($0.id,$0)})
  }
- static func effectExecutionOrigin(for kind:String)->String {kind}
+ static func effectExecutionOrigin(for kind:String)->SceneEffectExecutionOrigin {.init(rawValue:kind) ?? .image}
  func baseMaterialReadyProviderUsesAuthoredLayerColor(for layer:SceneRenderDescriptor.Layer,dynamicValues:SceneDynamicSnapshot)->Bool {true}
  func baseMaterialTextureSelection(for layer:SceneRenderDescriptor.Layer,imageTextures:SceneBaseImageTextureSnapshot,readyProviderUsesAuthoredLayerColor:Bool)->FixtureImageSelection {
   .init(source:imageTextures.sources[layer.id])

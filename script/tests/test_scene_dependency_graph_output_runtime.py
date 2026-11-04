@@ -28,6 +28,9 @@ GEOMETRY_RUNTIME_SOURCE = RUNTIME_SOURCE.with_name(
 EFFECT_INPUT_RESOLUTION_RUNTIME_SOURCE = RUNTIME_SOURCE.with_name(
     "SceneDependencyFrameRuntime+EffectInputResolution.swift"
 )
+PLAN_SOURCE = RUNTIME_SOURCE.with_name("SceneDependencyRenderPlan.swift")
+PLAN_AGGREGATE_SOURCE = RUNTIME_SOURCE.with_name("SceneDependencyRenderPlan+Aggregate.swift")
+PLAN_FORWARD_SOURCE = RUNTIME_SOURCE.with_name("SceneDependencyRenderPlan+ForwardPreparation.swift")
 GEOMETRY_PRODUCT_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneGeometryProduct.swift"
 )
@@ -86,235 +89,48 @@ struct SceneRenderDescriptor {
     var staticModelConsumerProviders: [Int: Int] = [:]
 }
 
-struct SceneDependencyRenderPlan {
-    struct Reference: Hashable {
-        let consumerLayerID: Int
-        let providerLayerID: Int
-        let slot: SceneEffectPassSlot
-        let variant: SceneNamedTextureReference.Variant
-    }
+struct SceneStaticModelNamedTextureBinding: Hashable {
+    let consumerLayerID: Int
+    let providerLayerID: Int
+    let materialPath: String
+    let passIndex: Int
+    let slotIndex: Int
+    let variant: SceneNamedTextureReference.Variant
+    let requiresForwardCapture: Bool
+}
 
-    struct Binding: Hashable {
-        enum Kind: Hashable {
-            case resolvedMaterial
-            case solidLayer
-            case imageLayerBlend
-            case geometryLayer
-            case visibleImageGraphOutput
-        }
-
-        let consumerLayerID: Int
-        let providerLayerID: Int
-        let slot: SceneEffectPassSlot
-        let referenceSlots: [SceneEffectPassSlot]
-        let blendMode: Int
-        let kind: Kind
-        let requiresForwardCapture: Bool
-        let requiresResolvedMaterialProgram: Bool
-
-        init(
-            consumerLayerID: Int,
-            providerLayerID: Int,
-            slot: SceneEffectPassSlot,
-            referenceSlots: [SceneEffectPassSlot]? = nil,
-            blendMode: Int,
-            kind: Kind,
-            requiresForwardCapture: Bool = false,
-            requiresResolvedMaterialProgram: Bool = false
-        ) {
-            self.consumerLayerID = consumerLayerID
-            self.providerLayerID = providerLayerID
-            self.slot = slot
-            self.referenceSlots = referenceSlots ?? [slot]
-            self.blendMode = blendMode
-            self.kind = kind
-            self.requiresForwardCapture = requiresForwardCapture
-            self.requiresResolvedMaterialProgram =
-                requiresResolvedMaterialProgram
-        }
-    }
-
-    struct MultiProviderAggregate: Hashable {
-        let consumerLayerID: Int
-        let bindings: [Binding]
-        let authoredSlotOrder: [SceneEffectPassSlot]
-
-        var orderedBindings: [Binding] {
-            guard authoredSlotOrder.count == bindings.count else { return [] }
-            var bindingsBySlot: [SceneEffectPassSlot: Binding] = [:]
-            for binding in bindings {
-                guard bindingsBySlot.updateValue(
-                    binding, forKey: binding.slot
-                ) == nil else { return [] }
-            }
-            guard bindingsBySlot.count == authoredSlotOrder.count else {
-                return []
-            }
-            return authoredSlotOrder.compactMap { bindingsBySlot[$0] }
-        }
-
-        var providerLayerIDs: Set<Int> {
-            Set(bindings.map(\.providerLayerID))
-        }
-
-        var referenceSlots: [SceneEffectPassSlot] {
-            authoredSlotOrder
-        }
-
-        var hasStrictBindingVector: Bool {
-            guard bindings.count >= 2,
-                  authoredSlotOrder.count == bindings.count,
-                  Set(authoredSlotOrder).count == authoredSlotOrder.count,
-                  Set(authoredSlotOrder) == Set(bindings.map(\.slot)),
-                  bindings == orderedBindings,
-                  Set(bindings.map(\.providerLayerID)).count > 1 else {
-                return false
-            }
-            return bindings.allSatisfy { binding in
-                binding.consumerLayerID == consumerLayerID
-                    && binding.providerLayerID != consumerLayerID
-                    && binding.referenceSlots == [binding.slot]
-                    && (
-                        binding.kind == .imageLayerBlend
-                            || binding.kind == .geometryLayer
-                    )
-                    && binding.blendMode == 0
-                    && binding.requiresResolvedMaterialProgram
-            }
-        }
-
-        func admits(_ references: [Reference]) -> Bool {
-            guard hasStrictBindingVector else { return false }
-            let expected = orderedBindings.map {
-                Reference(
-                    consumerLayerID: consumerLayerID,
-                    providerLayerID: $0.providerLayerID,
-                    slot: $0.slot,
-                    variant: .primary
-                )
-            }
-            return references == expected
-        }
-    }
-
-    struct StaticModelBinding {
-        let consumerLayerID: Int
-        let providerLayerID: Int
-        let materialPath: String
-        let passIndex: Int
-        let slotIndex: Int
-        let variant: SceneNamedTextureReference.Variant
-        let requiresForwardCapture: Bool
-    }
-
-    let bindingsByConsumerLayerID: [Int: Binding]
-    let multiProviderAggregatesByConsumerLayerID:
-        [Int: MultiProviderAggregate]
-    let staticModelBindingsByConsumerLayerID: [Int: StaticModelBinding]
-    let requiredProviderLayerIDs: Set<Int>
-    let requiredGraphOutputProviderLayerIDs: Set<Int>
-    let requiredEffectConsumerLayerIDs: Set<Int>
-
+// Already-prepared fixture inputs; admission is exercised by the Plan gate.
+// Binding/Aggregate and the projections below are compiled from production.
+extension SceneDependencyRenderPlan {
     init(
         descriptor: SceneRenderDescriptor,
         visibleLayerIDs: Set<Int>,
         executableUtilityConsumerLayerIDs: Set<Int>,
         verifiedXRayStageKeys: Set<SceneAuthoredEffectRenderPlan.EffectKey>,
-        admittedResolvedMaterialReferences: Set<Reference> = []
+        admittedResolvedMaterialReferences: Set<Reference> = [],
+        preparedNamedInputBindingsByConsumerLayerID: [Int: [Binding]] = [:]
     ) {
-        _ = visibleLayerIDs
-        _ = executableUtilityConsumerLayerIDs
-        _ = verifiedXRayStageKeys
-        _ = admittedResolvedMaterialReferences
+        references = []
+        namedReferenceConsumerLayerIDs = Set(descriptor.bindings.keys).union(descriptor.aggregates.keys)
+        self.executableUtilityConsumerLayerIDs = executableUtilityConsumerLayerIDs
+        multiProviderCandidateLayerIDs = Set(descriptor.aggregates.keys)
         bindingsByConsumerLayerID = descriptor.bindings
         multiProviderAggregatesByConsumerLayerID = descriptor.aggregates
         staticModelBindingsByConsumerLayerID = Dictionary(
-            uniqueKeysWithValues: descriptor.staticModelConsumerProviders.map {
-                consumer, provider in
-                (consumer, StaticModelBinding(
-                    consumerLayerID: consumer,
-                    providerLayerID: provider,
-                    materialPath: "materials/unseen/runtime.json",
-                    passIndex: 0,
-                    slotIndex: 0,
-                    variant: .primary,
-                    requiresForwardCapture: true
-                ))
-            }
-        )
-        requiredProviderLayerIDs = Set(descriptor.bindings.values.map(
-            \.providerLayerID
-        )).union(
-            descriptor.aggregates.values.flatMap { $0.providerLayerIDs }
-        ).union(descriptor.staticModelConsumerProviders.values)
-        requiredGraphOutputProviderLayerIDs =
-            descriptor.graphOutputProviderLayerIDs
-        requiredEffectConsumerLayerIDs = Set(descriptor.bindings.keys)
-            .union(descriptor.aggregates.keys)
-    }
-
-    func aggregateBindingIsPlanned(_ binding: Binding) -> Bool {
-        guard let aggregate = multiProviderAggregatesByConsumerLayerID[
-            binding.consumerLayerID
-        ], aggregate.hasStrictBindingVector else {
-            return false
-        }
-        return aggregate.bindings.contains(binding)
-    }
-
-    func resolvedMaterialExecutionLayerIDs(
-        visibleRootLayerIDs: Set<Int>,
-        availableExecutionLayerIDs: Set<Int>
-    ) -> Set<Int> {
-        var reachable = visibleRootLayerIDs.intersection(
-            availableExecutionLayerIDs
-        )
-        var changed = true
-        while changed {
-            changed = false
-            for binding in bindingsByConsumerLayerID.values
-            where reachable.contains(binding.consumerLayerID)
-                && requiredGraphOutputProviderLayerIDs.contains(
-                    binding.providerLayerID
-                )
-                && availableExecutionLayerIDs.contains(binding.providerLayerID)
-            {
-                changed = reachable.insert(binding.providerLayerID).inserted
-                    || changed
-            }
-            for aggregate in multiProviderAggregatesByConsumerLayerID.values
-            where reachable.contains(aggregate.consumerLayerID) {
-                for providerID in aggregate.providerLayerIDs
-                where requiredGraphOutputProviderLayerIDs.contains(providerID)
-                    && availableExecutionLayerIDs.contains(providerID) {
-                    changed = reachable.insert(providerID).inserted
-                        || changed
-                }
-            }
-        }
-        return reachable
-    }
-
-    func blocksStaticLayerSourcePassthrough(for layerID: Int) -> Bool {
-        _ = layerID
-        return false
-    }
-
-    func resolvedMaterialPreparationOrder(
-        authoredLayerIDs: [Int]
-    ) -> [Int]? {
-        authoredLayerIDs
-    }
-
-    func forwardDependencyPreparationOrder(
-        authoredLayerIDs: [Int],
-        activeExecutionLayerIDs: Set<Int>,
-        activeStaticModelConsumerLayerIDs: Set<Int> = []
-    ) -> [Int]? {
-        _ = authoredLayerIDs
-        _ = activeExecutionLayerIDs
-        _ = activeStaticModelConsumerLayerIDs
-        return []
+            uniqueKeysWithValues: descriptor.staticModelConsumerProviders.map { consumer, provider in
+                (consumer, SceneStaticModelNamedTextureBinding(
+                    consumerLayerID: consumer, providerLayerID: provider,
+                    materialPath: "materials/unseen/runtime.json", passIndex: 0,
+                    slotIndex: 0, variant: .primary, requiresForwardCapture: true))
+            })
+        requiredProviderLayerIDs = Set(descriptor.bindings.values.map(\.providerLayerID))
+            .union(descriptor.aggregates.values.flatMap { $0.providerLayerIDs })
+            .union(descriptor.staticModelConsumerProviders.values)
+        requiredGraphOutputProviderLayerIDs = descriptor.graphOutputProviderLayerIDs
+        requiredEffectConsumerLayerIDs = Set(descriptor.bindings.keys).union(descriptor.aggregates.keys)
+        staticLayerSourcePassthroughBlockedLayerIDs = []
+        cyclicLayerIDs = []
+        issues = []
     }
 }
 
@@ -803,11 +619,7 @@ enum Harness {
         )
         let mixedAggregate = SceneDependencyRenderPlan.MultiProviderAggregate(
             consumerLayerID: 713,
-            bindings: [mixedAggregateBinding, mixedSiblingBinding],
-            authoredSlotOrder: [
-                mixedAggregateBinding.slot,
-                mixedSiblingBinding.slot,
-            ]
+            bindings: [mixedAggregateBinding, mixedSiblingBinding]
         )
         let mixedRuntime = SceneDependencyFrameRuntime(
             descriptor: .init(
@@ -854,16 +666,15 @@ enum Harness {
             failureReason: &mixedSiblingReservationFailure
         )
         let missingAggregateRegistry = SceneFrameTextureRegistry(frameEpoch: 18)
-        let aggregatePublicationMissIsUnavailable: Bool
+        let aggregatePublicationMissHasNoAvailableInputs: Bool
         switch mixedRuntime.aggregateEffectInputResolution(
             for: mixedAggregate,
             textureRegistry: missingAggregateRegistry
         ) {
-        case let .unavailable(reasonCode):
-            aggregatePublicationMissIsUnavailable =
-                reasonCode == "external-primary-provider-capture-unavailable"
-        case .ready, .invalid:
-            aggregatePublicationMissIsUnavailable = false
+        case let .ready(inputs):
+            aggregatePublicationMissHasNoAvailableInputs = inputs.isEmpty
+        case .invalid:
+            aggregatePublicationMissHasNoAvailableInputs = false
         }
         let wrongAggregateRegistry = SceneFrameTextureRegistry(frameEpoch: 18)
         let foreignAggregateTexture = texture(
@@ -883,7 +694,7 @@ enum Harness {
         case let .invalid(reasonCode):
             aggregatePublicationIdentityDriftIsInvalid =
                 reasonCode == "external-primary-aggregate-publication-mismatch"
-        case .ready, .unavailable:
+        case .ready:
             aggregatePublicationIdentityDriftIsInvalid = false
         }
         let mixedOutput = texture(device, label: "mixed-provider-output")
@@ -901,8 +712,7 @@ enum Harness {
                 commandBuffer: commandBuffer
             ) == .published
         let mixedConsumerKindsShareProviderPublication =
-            mixedAggregate.hasStrictBindingVector
-                && mixedAggregateReservationFailure == nil
+            mixedAggregateReservationFailure == nil
                 && mixedVisibleReservationFailure == nil
                 && mixedSiblingReservationFailure == nil
                 && mixedSiblingInput != nil
@@ -1234,8 +1044,7 @@ enum Harness {
         )
         let geometryAggregate = SceneDependencyRenderPlan.MultiProviderAggregate(
             consumerLayerID: 802,
-            bindings: [geometryBinding, geometrySiblingBinding],
-            authoredSlotOrder: [geometryBinding.slot, geometrySiblingBinding.slot]
+            bindings: [geometryBinding, geometrySiblingBinding]
         )
         func geometryRuntime() -> SceneDependencyFrameRuntime {
             SceneDependencyFrameRuntime(
@@ -1916,8 +1725,8 @@ enum Harness {
             "reserved": provisionalInput != nil && reservationFailure == nil,
             "mixedConsumerKindsShareProviderPublication":
                 mixedConsumerKindsShareProviderPublication,
-            "aggregatePublicationMissIsUnavailable":
-                aggregatePublicationMissIsUnavailable,
+            "aggregatePublicationMissHasNoAvailableInputs":
+                aggregatePublicationMissHasNoAvailableInputs,
             "aggregatePublicationIdentityDriftIsInvalid":
                 aggregatePublicationIdentityDriftIsInvalid,
             "preparedExtentReserved": preparedExtentInput?.texture.width == 8
@@ -2014,6 +1823,22 @@ enum Harness {
 }
 '''
 
+# Share the actual projections, not a second implementation in a test stub.
+# The remaining Aggregate helpers require full descriptor admission and are
+# covered by test_scene_dependency_render_plan instead of this resource gate.
+_plan_projection = PLAN_AGGREGATE_SOURCE.read_text().split(
+    "    /// A forward graph runs before any authored compositor layer.", 1
+)[0] + "\n}\n"
+_plan_support_end = HARNESS_SOURCE.index("struct SceneDependencyEffectInput {")
+HARNESS_SOURCE = (HARNESS_SOURCE[:_plan_support_end] + _plan_projection
+                  + PLAN_FORWARD_SOURCE.read_text() + HARNESS_SOURCE[_plan_support_end:])
+DESCRIPTOR_SUPPORT = HARNESS_SOURCE[
+    HARNESS_SOURCE.index("struct SceneRenderDescriptor {"):
+    HARNESS_SOURCE.index("struct SceneStaticModelNamedTextureBinding:")]
+PREPARED_DEPENDENCY_SUPPORT = HARNESS_SOURCE[
+    HARNESS_SOURCE.index("struct SceneUtilityLayer {"):
+    HARNESS_SOURCE.index("enum SceneFrameTextureIdentity")]
+
 # Legacy named-model scaffolds still extract the prepared peripheral leaves
 # above. These two runtime gates compile the real GeometryProduct instead.
 GEOMETRY_HARNESS_SOURCE = (
@@ -2041,6 +1866,7 @@ class SceneDependencyGraphOutputRuntimeTests(unittest.TestCase):
                     "--sdk",
                     "macosx",
                     "swiftc",
+                    str(PLAN_SOURCE),
                     str(RUNTIME_SOURCE),
                     str(AGGREGATE_VALIDATION_RUNTIME_SOURCE),
                     str(GEOMETRY_RUNTIME_SOURCE),
@@ -2081,7 +1907,7 @@ class SceneDependencyGraphOutputRuntimeTests(unittest.TestCase):
                     "inactiveProviderNeedsNoReservation": True,
                     "reserved": True,
                     "mixedConsumerKindsShareProviderPublication": True,
-                    "aggregatePublicationMissIsUnavailable": True,
+                    "aggregatePublicationMissHasNoAvailableInputs": True,
                     "aggregatePublicationIdentityDriftIsInvalid": True,
                     "preparedExtentReserved": True,
                     "preparedExtentInstalled": True,
@@ -2543,7 +2369,13 @@ def run_native_atlas_probe():
         Path(parent).mkdir(parents=True, exist_ok=True)
     work = Path(tempfile.mkdtemp(prefix="atlas-named-", dir=parent))
     snapshot = work / "production"
-    sources = list(native.DEPENDENCY_SOURCES)
+    sources = list(dict.fromkeys([
+        *native.DEPENDENCY_SOURCES,
+        native.SCENE / "Diagnostics/SceneEffectExecutionFrameTrace.swift",
+        native.SCENE / "Diagnostics/SceneEffectExecutionTelemetry.swift",
+        native.SCENE / "Diagnostics/SceneFramePerformanceTelemetry.swift",
+        native.SCENE / "Diagnostics/SceneGPUStageTimestampObservation.swift",
+    ]))
     metal = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayer.metal"
     uniforms = metal.with_name("SceneImageLayerCompositor+Uniforms.swift")
     ref = os.environ.get("MWX_ATLAS_NAMED_PRODUCT_REF")
@@ -2582,6 +2414,7 @@ def run_native_atlas_probe():
     support = native.dependency_support() + uniform_extension + ATLAS_NATIVE_MAIN + ATLAS_NATIVE_EXTRA + fixture_data.decode()
     identity = {"inputs": inputs, "harnessSHA256": hashlib.sha256(support.encode()).hexdigest(),
                 "testSHA256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+                "swiftFlags": ["-DDEBUG"],
                 "scope": "real native owners; prepared plan and unused peripherals scaffolded"}
     (work / "input-manifest.json").write_text(json.dumps(identity, indent=2))
     previous = {key: os.environ.get(key) for key in
@@ -2590,7 +2423,8 @@ def run_native_atlas_probe():
     os.environ.pop("MWX_DIRECTIONAL_SHADOW_PRODUCT_SNAPSHOT", None)
     try:
         result = run_swift([snapshot / s.relative_to(REPOSITORY_ROOT) for s in sources],
-            support, label="atlas-named", metal_sources=[snapshot / metal.relative_to(REPOSITORY_ROOT)])
+            support, label="atlas-named", metal_sources=[snapshot / metal.relative_to(REPOSITORY_ROOT)],
+            swift_flags=("-DDEBUG",))
     finally:
         for key, value in previous.items():
             if value is None: os.environ.pop(key, None)
@@ -2657,7 +2491,7 @@ class SceneAtlasNamedNativeOwnerTests(unittest.TestCase):
                             "preparedMatchesReadyIdentity", "preparedMatchesReadyContent", "sourceUnchanged", "completed"):
                     self.assertTrue(row[key], (key, row))
                 if row["route"] == "mixed-raw-aggregate":
-                    self.assertTrue(row["unavailableBeforeCapture"], row)
+                    self.assertTrue(row["noAvailableInputsBeforeCapture"], row)
                     self.assertTrue(row["slotOrderPreserved"], row)
                 else:
                     self.assertTrue(row["publicationMatchesReadyContent"], row)

@@ -85,6 +85,7 @@ struct SceneImageLayerCompositor {
             MTLTexture,
             SceneTextureContent
         ) -> SceneGraphOutputPublicationResult)? = nil,
+        compositeOutput: Bool = true,
         // Invariant: the draw-only rescue is passed only when the fallback
         // publisher is nil (see the renderer call site); a non-nil publisher
         // handles the graph-role case by capture, and the two together are
@@ -152,6 +153,7 @@ struct SceneImageLayerCompositor {
         guard !resolvedMaterialRoute.isRejected else { return .failed }
         let resolvedMaterialClaim = resolvedMaterialRoute.execution
         guard !usesMaterialSource || resolvedMaterialClaim != nil else { return .failed }
+        guard compositeOutput || resolvedMaterialClaim != nil else { return .failed }
         let hasUnclaimedVisibleEffects = request.layer.effects.contains {
             $0.visible != false
         } && resolvedMaterialClaim == nil
@@ -236,50 +238,17 @@ struct SceneImageLayerCompositor {
         }
         let dependencyEffect = request.dependencyEffects.first
         let hasDependencyInput = !request.dependencyEffects.isEmpty
-        if request.dependencyEffects.count > 1 {
-            // An aggregate vector is meaningful only to the exact resolved
-            // material owner that claimed the same ordered binding atom. Do
-            // not let an unclaimed/direct draw report the vector as consumed
-            // while silently ignoring it in the legacy main-pass path.
-            guard let claim = resolvedMaterialClaim,
-                  case let .externalAggregate(aggregate) =
-                    claim.dependencyOwnership,
-                  aggregate.hasStrictBindingVector,
-                  request.dependencyEffects.count == aggregate.bindings.count
-            else {
-                _ = rejectResolvedMaterialClaim(
-                    resolvedMaterialClaim,
-                    reasonCode: "dependency-aggregate-input-invalid"
-                )
-                return .failed
-            }
-        } else if let claim = resolvedMaterialClaim,
-                  case .externalAggregate = claim.dependencyOwnership {
-            _ = rejectResolvedMaterialClaim(
-                resolvedMaterialClaim,
-                reasonCode: "dependency-aggregate-input-missing"
-            )
-            return .failed
-        }
-
-        let graphConsumesExternalPrimary = request
+        let graphConsumesExternalPrimary = resolvedMaterialClaim != nil && request
             .resolvedMaterialFrameTargetPlan?
             .consumesExternalPrimaryDependency == true
-        guard (dependencyEffect.map {
-            if graphConsumesExternalPrimary {
-                // Frame preflight and the runtime bridge have already matched
-                // the exact dependency ownership atom. Preserve both product
-                // shapes they admit: primary color input in slot 1, and the
-                // structural hidden-solid carrier in slot 3 with normal blend.
-                return ($0.slotIndex == 1
-                    && (0...SceneBlendModeShaderSource.maximumMode)
-                        .contains($0.blendMode))
+        // The direct shader consumes one fixed input. Programs consume the
+        // complete prepared vector through the shared executor instead.
+        guard graphConsumesExternalPrimary || (request.dependencyEffects.count <= 1
+            && (dependencyEffect.map {
+                ($0.slotIndex == 1
+                    && ($0.blendMode == 0 || $0.blendMode == 5))
                     || ($0.slotIndex == 3 && $0.blendMode == 0)
-            }
-            return ($0.slotIndex == 1
-                && ($0.blendMode == 0 || $0.blendMode == 5))
-                || ($0.slotIndex == 3 && $0.blendMode == 0)
-        } ?? true) else {
+            } ?? true)) else {
             _ = rejectResolvedMaterialClaim(resolvedMaterialClaim,
                 reasonCode: "dependency-input-invalid")
             return .failed
@@ -421,7 +390,7 @@ struct SceneImageLayerCompositor {
             var graphOutputPublished = false
             if let ticket = graphExecutionTicket,
                ticket.hasTerminalMaterialReplay {
-                guard request.terminalMaterialState == nil,
+                guard compositeOutput, request.terminalMaterialState == nil,
                       resolvedMaterialGraphOutputPublisher == nil,
                       (ticket.terminalReadsCurrentAttachment
                         ? request.layer.utilityLayer?.kind == .composition
@@ -434,7 +403,6 @@ struct SceneImageLayerCompositor {
                                 && request.distanceFog.color.w <= 0.5)),
                       request.geometryProduct == nil,
                       ticket.consumesExternalPrimaryDependency == hasDependencyInput,
-                      !request.requiresDependencyEffect || ticket.consumesExternalPrimaryDependency,
                       ticket.terminalReplayBlendMode == (request.layer.colorBlendMode ?? 0),
                       ((request.layer.colorBlendMode ?? 0) == 0
                         || (request.layer.contentKind == "solid" && request.layer.colorBlendMode == 31
@@ -468,6 +436,15 @@ struct SceneImageLayerCompositor {
                 case .published:
                     graphOutputPublished = true
                 case let .unavailable(reasonCode):
+                    if !compositeOutput {
+                        guard discardResolvedMaterialNamedPublicationLocally(
+                            graphExecutionTicket, texture: finalTexture,
+                            reasonCode: reasonCode, layerID: request.layer.id,
+                            executionTrace: executionTrace, executionOrigin: executionOrigin
+                        ) else { return .failed }
+                        return .normal(consumedDependency:
+                            graphExecutionTicket.consumesExternalPrimaryDependency)
+                    }
 #if DEBUG
                     executionTrace?.recordRouteOperation(
                         layerID: request.layer.id,
@@ -514,10 +491,9 @@ struct SceneImageLayerCompositor {
                 }
             }
             if let graphExecutionTicket,
-               graphExecutionTicket.finalContent == .data {
-                // Typed RGBA data is a named-provider payload. It must never
-                // enter the color compositor, even when the provider also
-                // appears in the visible render order.
+               !compositeOutput || graphExecutionTicket.finalContent == .data {
+                // Hidden outputs and typed data terminate at their named
+                // publication without entering the color compositor.
                 guard resolvedMaterialGraphOutputPublisher != nil,
                       graphOutputPublished,
                       consumeResolvedMaterialNamedPublication(

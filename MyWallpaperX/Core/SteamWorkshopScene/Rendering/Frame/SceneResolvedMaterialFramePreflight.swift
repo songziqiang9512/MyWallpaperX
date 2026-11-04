@@ -50,7 +50,6 @@ extension SceneMetalRenderer {
                 .intersection(staticModelResources.namedAlbedoLayerIDs)
         )
         let activeExecutionLayerIDs = demand.activeExecutionLayerIDs
-        let unavailableAggregateConsumers = demand.unavailableLayerIDs
         compositionGroupRuntime?.reserveSources(
             orderedRootIDs: utilityExecution.orderedRootIDs,
             visibleLayerIDs: frameVisibleLayerIDs,
@@ -114,6 +113,15 @@ extension SceneMetalRenderer {
         let imageMVP: (SceneRenderDescriptor.Layer, [Float]?) -> simd_float4x4 = {
             cameraFrame.viewProjection(for: $0) * imageModel($0, $1)
         }
+        let dependencyProviderPlacement: (SceneRenderDescriptor.Layer)
+            -> (mvp: simd_float4x4, viewport: CGSize) = { provider in
+            let worldMVP = cameraFrame.captureViewProjection(for: provider)
+                * imageModel(provider, imageTextures.layerSourceRenderSize(for: provider.id))
+            guard provider.utilityLayer != nil else { return (worldMVP, viewportSize) }
+            return (compositionGroupRuntime?.rasterModelViewProjection(
+                forLayerID: provider.id, worldMVP: worldMVP) ?? worldMVP,
+                compositionGroupRuntime?.enclosingTargetSize(forLayerID: provider.id) ?? viewportSize)
+        }
         let geometryModel: (
             SceneRenderDescriptor.Layer, SceneGeometryProduct
         ) -> simd_float4x4 = { layer, product in
@@ -165,8 +173,7 @@ extension SceneMetalRenderer {
             // are intentionally not in `availableExecutionLayerIDs` and still
             // flow through the ordinary fail-closed claim path below.
             if availableExecutionLayerIDs.contains(layer.id),
-               !activeExecutionLayerIDs.contains(layer.id),
-               !unavailableAggregateConsumers.contains(layer.id) {
+               !activeExecutionLayerIDs.contains(layer.id) {
                 continue
             }
             let route = imageCompositor.preflightResolvedMaterialClaim(
@@ -182,17 +189,6 @@ extension SceneMetalRenderer {
                 return .rejected(reasonCode: reasonCode)
             case let .claimed(value):
                 claim = value
-            }
-            if unavailableAggregateConsumers.contains(layerID) {
-                graphTargetFallbacks[layerID] = SceneResolvedMaterialRuntimeBridge
-                    .FrameInputs.DependencyUnavailability.providerSourceUnavailable.rawValue
-                continue
-            }
-            if case let .externalPrimary(binding) = claim.dependencyOwnership,
-               binding.kind != .resolvedMaterial,
-               imageTextures.isLayerSourcePending(binding.providerLayerID) {
-                sourceCoverageFallbacks[layer.id] = "layer-source-not-ready"
-                continue
             }
             let selectedMainSource: MTLTexture
             if let compositionGroupRuntime {
@@ -521,23 +517,14 @@ extension SceneMetalRenderer {
             case .none, .graphInternal:
                 dependencyUnavailability = nil
             case .externalPrimary(let binding):
-                guard binding.consumerLayerID == layerID,
+                guard liveLayerIDs.contains(binding.providerLayerID),
+                      !dependencyRuntime.plan.cyclicLayerIDs.contains(binding.providerLayerID),
                       let providerLayer = layersByID[binding.providerLayerID] else {
-                    return invalid("layer-\(layerID)-dependency-binding-invalid")
-                }
-                guard liveLayerIDs.contains(binding.providerLayerID) else {
                     dependencyEffects = []
                     dependencyUnavailability = .providerSourceUnavailable
                     break
                 }
-                let providerWorldMVP = cameraFrame.captureViewProjection(for: providerLayer)
-                    * imageModel(providerLayer,
-                        imageTextures.layerSourceRenderSize(for: providerLayer.id))
-                let providerMVP = providerLayer.utilityLayer == nil ? providerWorldMVP
-                    : compositionGroupRuntime?.rasterModelViewProjection(
-                        forLayerID: providerLayer.id, worldMVP: providerWorldMVP) ?? providerWorldMVP
-                let providerViewport = providerLayer.utilityLayer == nil ? viewportSize
-                    : compositionGroupRuntime?.enclosingTargetSize(forLayerID: providerLayer.id) ?? viewportSize
+                let providerPlacement = dependencyProviderPlacement(providerLayer)
                 let preparedOutputExtent = preparedGraphOutputExtent(
                     for: binding.providerLayerID,
                     plans: byLayerID
@@ -591,8 +578,8 @@ extension SceneMetalRenderer {
                         providerLayer: providerLayer,
                         providerTexture: source?.texture,
                         providerCandidate: source?.candidate,
-                        layerMVP: providerMVP,
-                        viewportSize: providerViewport,
+                        layerMVP: providerPlacement.mvp,
+                        viewportSize: providerPlacement.viewport,
                         preparedOutputExtent: preparedOutputExtent,
                         geometryProduct: geometryProduct,
                         providerOutputMVP: providerOutputMVP,
@@ -643,6 +630,12 @@ extension SceneMetalRenderer {
                     }
                     break
                 }
+                if binding.kind == .geometryLayer,
+                   imageTextures.geometryProducts[providerLayer.id] == nil {
+                    dependencyEffects = []
+                    dependencyUnavailability = .providerSourceUnavailable
+                    break
+                }
                 guard let reservedInput = reserveDependencyInput(
                     providerSource
                 ) else {
@@ -663,10 +656,12 @@ extension SceneMetalRenderer {
                 guard let reservedInputs =
                     reserveExternalAggregateDependencyInputs(
                         aggregate: aggregate,
+                        liveLayerIDs: liveLayerIDs,
                         plans: byLayerID,
                         imageTextures: imageTextures,
                         frameContext: frameContext,
                         imageMVP: imageMVP,
+                        providerPlacement: dependencyProviderPlacement,
                         geometryMVP: geometryMVP,
                         baseMaterialSelections: &baseMaterialSelections,
                         failureReason: &aggregateFailureReason

@@ -79,10 +79,6 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         // same-frame snapshot in its own identity; the target contract
         // keeps both namespaces distinct, so an owned composite does not
         // alias the background provider.
-        let dependencyIsCompatible = switch admitted.dependencyOwnership {
-        case .none, .externalPrimary, .graphInternal: true
-        case .externalAggregate: false
-        }
         let ordered = candidates.allSatisfy {
             sceneBackgroundCandidateIsOrdered(
                 $0,
@@ -101,15 +97,13 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         if !(routeSupportsBackground
                 && admitted.isVisibleExecutionRoot
                 && !admitted.isGraphOutputProvider
-                && dependencyIsCompatible
                 && ordered) {
             NSLog(
-                "MWX DEBUG SCENE: phase=capability-admission layer=%d scene-background-compose-shape route=%@ visible=%d provider=%d depCompat=%d ordered=%d",
+                "MWX DEBUG SCENE: phase=capability-admission layer=%d scene-background-compose-shape route=%@ visible=%d provider=%d ordered=%d",
                 admitted.layerID,
                 String(describing: admitted.sourceRoute),
                 admitted.isVisibleExecutionRoot ? 1 : 0,
                 admitted.isGraphOutputProvider ? 1 : 0,
-                dependencyIsCompatible ? 1 : 0,
                 ordered ? 1 : 0
             )
         }
@@ -117,7 +111,6 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         guard routeSupportsBackground,
               admitted.isVisibleExecutionRoot,
               !admitted.isGraphOutputProvider,
-              dependencyIsCompatible,
               ordered else {
             return .failure(rejection("scene-background-compose-shape"))
         }
@@ -376,10 +369,11 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             guard variant.activeSamplers[candidate.slot] != nil else {
                 return true
             }
-            return variant.premultipliedColorInputSlots.contains(candidate.slot)
+            return variant.frontendProgram.colorBoundary?
+                .colorInputSlots.contains(candidate.slot)
+                ?? variant.premultipliedColorInputSlots.contains(candidate.slot)
         } && snapshot.variants.contains { variant in
             variant.activeSamplers[candidate.slot] != nil
-                && variant.premultipliedColorInputSlots.contains(candidate.slot)
         }
     }
 

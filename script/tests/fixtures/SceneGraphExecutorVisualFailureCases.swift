@@ -13,7 +13,7 @@ private func executeVisualFailurePassthrough(
     capability: Capabilities.LayerCapability?,
     capabilities: Capabilities,
     generation: UInt64,
-    reason: String,
+    reason: String?,
     rejectedAtLaunch: Bool = false,
     textureEntries: [
         SceneFrameTextureIdentity: SceneFrameTextureLookupStatus
@@ -61,9 +61,7 @@ private func executeVisualFailurePassthrough(
     let preparationFailureCode = failureCode(preparation)
     guard case let .success(prepared) = preparation,
           prepared.stages.count == 3,
-          prepared.stages[1].programCacheKeys == [
-              "visual-failure-passthrough:" + reason
-          ], prepared.stages[1].effectLocalFailureReasonCode == reason,
+          prepared.stages[1].effectLocalFailureReasonCode == reason,
           prepared.stages[0].programCacheKeys.allSatisfy({
               !$0.hasPrefix("visual-failure-passthrough:")
           }), prepared.stages[2].programCacheKeys.allSatisfy({
@@ -71,6 +69,17 @@ private func executeVisualFailurePassthrough(
           }), prepared.finalResource.publication.requestIdentity
             == .graph(chainedFinalOutput) else {
         return (false, false, false, false, preparationFailureCode)
+    }
+    if let reason {
+        guard prepared.stages[1].programCacheKeys == [
+            "visual-failure-passthrough:" + reason
+        ] else { return (false, false, false, false, preparationFailureCode) }
+    } else {
+        guard capabilities.preparedNamedInputBindingsByConsumerLayerID[capability.layerID] == [],
+              prepared.stages.allSatisfy({
+                  $0.effectLocalFailureReasonCode == nil
+                      && $0.programCacheKeys.allSatisfy { !$0.hasPrefix("visual-failure-passthrough:") }
+              }) else { return (false, false, false, false, preparationFailureCode) }
     }
     var observedStageIndices: [Int] = []
     var stageReadbacks: [Readback] = []
@@ -96,7 +105,11 @@ private func executeVisualFailurePassthrough(
     }
     command.commit()
     command.waitUntilCompleted()
-    let expectedPixels: [[UInt8]] = [
+    let expectedPixels: [[UInt8]] = reason == nil ? [
+        [255, 0, 0, 255],
+        [0, 255, 0, 255],
+        [0, 0, 255, 255],
+    ] : [
         [255, 0, 0, 255],
         [255, 0, 0, 255],
         [0, 255, 0, 255],
@@ -374,7 +387,7 @@ private func runVisualFailureCases(
         capability: forwardUnavailableCapability,
         capabilities: forwardUnavailableCapabilities,
         generation: 49,
-        reason: "dependency-stage-reference-unavailable"
+        reason: nil
     )
 
     let backwardUnsupportedFailure = executeVisualFailurePassthrough(
@@ -386,7 +399,7 @@ private func runVisualFailureCases(
         capability: backwardUnsupportedCapability,
         capabilities: backwardUnsupportedCapabilities,
         generation: 51,
-        reason: "dependency-stage-reference-unsupported"
+        reason: nil
     )
 
     // Static uniform errors revoke the generic owner during the launch
@@ -478,14 +491,15 @@ private func runVisualFailureCases(
             declarationConflictFailure.gpuCompleted,
         "declarationConflictFailurePreservesPreviousAndContinuesSuffix":
             declarationConflictFailure.continued,
-        "colorBlendOptionalMaskLaunchEnvelopeProved":
-            colorBlendOptionalMaskProof
-                && colorBlendSnapshot?.variants.count == 2
-                && colorBlendSnapshot?.allEntriesReady == true
-                && Set(colorBlendProfiles) == [
-                    SceneGenericShaderCapabilityProfile
-                        .sourceProvenGraphInputColorBlend.rawValue,
-                ],
+        "colorBlendOptionalMaskLaunchEnvelopeProved": {
+            guard colorBlendOptionalMaskProof, let snapshot = colorBlendSnapshot,
+                  snapshot.hasCachedReachability, snapshot.allEntriesReady,
+                  snapshot.variants.count == 2 else { return false }
+            let masks = snapshot.variants.compactMap { $0.activeSamplers[1] }
+            return masks.count == 1
+                && masks[0].mode == .opacityMask && masks[0].readinessCombo != nil
+                && snapshot.variants.allSatisfy { $0.activeSamplers[0]?.mode == .regular }
+        }(),
         "systemProviderLaunchEnvelopeProved":
             systemProviderLaunchEnvelopeProof
                 && systemProviderSnapshot?.hasCachedReachability == true
@@ -500,13 +514,13 @@ private func runVisualFailureCases(
             namedLayerTargetCannotUseSystemProviderProof,
         "graphInputCannotUseSystemProviderProof":
             graphInputCannotUseSystemProviderProof,
-        "forwardUnavailableDependencyPreservesPreviousAndContinuesSuffix":
+        "unconsumedForwardMetadataKeepsPreparedProgramAndAuthoredPixels":
             forwardUnavailableFailure.prepared
                 && forwardUnavailableFailure.encoded
                 && forwardUnavailableFailure.gpuCompleted
                 && forwardUnavailableFailure.continued
                 && forwardUnavailableFailure.failureCode == "success",
-        "unsupportedBackwardReferencePreservesPreviousAndContinuesSuffix":
+        "unconsumedBackwardMetadataKeepsPreparedProgramAndAuthoredPixels":
             backwardUnsupportedFailure.prepared
                 && backwardUnsupportedFailure.encoded
                 && backwardUnsupportedFailure.gpuCompleted

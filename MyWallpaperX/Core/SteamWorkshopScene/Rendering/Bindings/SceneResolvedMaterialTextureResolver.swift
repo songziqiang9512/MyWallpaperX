@@ -472,6 +472,10 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
         reference: Template.TextureReference,
         purpose: SceneTextureLoadPurpose
     ) -> Failure.EffectLocalVisualFallback? {
+        if case .provider(.namedLayerTarget) = reference,
+           fallback == .optionalTextureUnavailable {
+            return .namedProviderUnavailable
+        }
         if reference == .provider(.sceneEnvironment),
            purpose == .premultipliedColor, fallback == .optionalTextureUnavailable {
             return .sceneEnvironmentUnavailable
@@ -485,6 +489,10 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
         reference: Template.TextureReference,
         purpose: SceneTextureLoadPurpose
     ) -> Failure.EffectLocalVisualFallback? {
+        if case .provider(.namedLayerTarget) = reference,
+           optional == .optionalTextureUnavailable {
+            return .namedProviderUnavailable
+        }
         if reference == .provider(.sceneEnvironment),
            purpose == .premultipliedColor, optional == .optionalTextureUnavailable {
             return .sceneEnvironmentUnavailable

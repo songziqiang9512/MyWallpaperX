@@ -74,50 +74,6 @@ extension SceneDependencyFrameRuntime {
             && texture.usage.contains(.shaderRead)
     }
 
-    /// Validates the complete aggregate input atom in authored slot order.
-    /// Every field participates in the comparison; a set of provider/slot
-    /// strings is insufficient because it can hide consumer, variant, blend,
-    /// epoch, order, or physical-texture drift.
-    func aggregateInputVectorIsValid(
-        _ inputs: [SceneDependencyEffectInput],
-        aggregate: SceneDependencyRenderPlan.MultiProviderAggregate,
-        frameEpoch: UInt64
-    ) -> Bool {
-        guard frameEpoch > 0,
-              aggregate.hasStrictBindingVector,
-              plan.multiProviderAggregatesByConsumerLayerID[
-                  aggregate.consumerLayerID
-              ] == aggregate,
-              inputs.count == aggregate.bindings.count else {
-            return false
-        }
-        var texturesByProvider: [Int: MTLTexture] = [:]
-        var textureIdentities = Set<ObjectIdentifier>()
-        for (input, binding) in zip(inputs, aggregate.bindings) {
-            guard input.consumerLayerID == aggregate.consumerLayerID,
-                  input.consumerLayerID == binding.consumerLayerID,
-                  input.providerLayerID == binding.providerLayerID,
-                  input.variant == .primary,
-                  input.slot == binding.slot,
-                  input.blendMode == binding.blendMode,
-                  input.frameEpoch == frameEpoch,
-                  Self.isValidDependencyTexture(input.texture) else {
-                return false
-            }
-            if let existing = texturesByProvider[input.providerLayerID] {
-                guard existing === input.texture else { return false }
-            } else {
-                texturesByProvider[input.providerLayerID] = input.texture
-                guard textureIdentities.insert(
-                    ObjectIdentifier(input.texture)
-                ).inserted else {
-                    return false
-                }
-            }
-        }
-        return true
-    }
-
 #if DEBUG
     /// Emits one bounded, first-failure record for the prepared graph-output
     /// install seam. The ordinary rejection path remains unchanged; this is

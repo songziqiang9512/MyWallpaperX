@@ -79,6 +79,7 @@ extension SceneResolvedMaterialRuntimeBridge {
 
     struct ClaimedExecution {
         let layerID: Int
+        let pairPlan: SceneLayerFullFramePairPlan
         let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
         let sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute
         let token: SceneResolvedMaterialExecutionCapabilityCatalog.Token

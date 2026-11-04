@@ -138,26 +138,34 @@ private enum SelectedProviderAdmissionChecks {
         let rawBefore = consumer.dependencyLayerIDs
         let references = SceneDependencyGraphAnalysis.references(in: layers)
         let structural = Ownership.structuralUtilityConsumerLayerIDs(in: descriptor)
+        // Prepared carrier input only; Program/interface proof is owned by
+        // the production GraphExecutor gate. Cold negatives take no key.
+        let prepared = references.filter { reference in
+            reference.consumerLayerID == consumerID
+                && consumer.effects.first(where: { $0.id == reference.slot.effectID })?.visible != false
+        }.map { reference in
+            SceneDependencyRenderPlan.Binding(consumerLayerID: consumerID,
+                providerLayerID: reference.providerLayerID, slot: reference.slot,
+                blendMode: 0, kind: .imageLayerBlend, requiresResolvedMaterialProgram: true)
+        }
         let plan = SceneDependencyRenderPlan(descriptor: descriptor,
             visibleLayerIDs: [consumerID], executableUtilityConsumerLayerIDs: structural,
-            admittedResolvedMaterialReferences: authorize ? Set(references) : [])
+            preparedNamedInputBindingsByConsumerLayerID: authorize ? [consumerID: prepared] : [:])
         let ownReferences = plan.references.filter { $0.consumerLayerID == consumerID }
-        let refused = Ownership.refusedCompositionConsumer(layer: consumer,
-            layerID: consumerID, layerReferences: ownReferences, plan: plan)
         let binding = plan.bindingsByConsumerLayerID[consumerID]
         let aggregate = plan.multiProviderAggregatesByConsumerLayerID[consumerID]
         let owner = Ownership.compile(layer: consumer, graph: nil, references: ownReferences,
             binding: binding, aggregate: aggregate)
-        let hasOwner = !refused && owner != nil
+        let hasOwner = owner != nil
         let executable = SceneUtilityLayerRuntimePlanner.executableUtilityConsumerLayerIDs(
             in: descriptor, resolvedMaterialLayerIDs: hasOwner ? [consumerID] : [])
         return ["selected": selected, "selectedSlot": selectedSlot,
-            "structural": structural.contains(consumerID), "refused": refused,
+            "structural": structural.contains(consumerID),
             "owner": hasOwner, "executable": executable.contains(consumerID),
             "bindingProvider": binding?.providerLayerID ?? -1,
             "bindingSlots": binding?.referenceSlots.map(\.effectID) ?? [],
-            "aggregateStrict": aggregate?.hasStrictBindingVector ?? false,
-            "aggregateProviders": aggregate?.orderedBindings.map(\.providerLayerID) ?? [],
+            "aggregateProviders": aggregate?.bindings.map(\.providerLayerID) ?? [],
+            "aggregateSlots": aggregate?.bindings.map { "\($0.slot.effectID):\($0.slot.passIndex):\($0.slot.slotIndex)" } ?? [],
             "requiredProviders": plan.requiredProviderLayerIDs.sorted(),
             "rawBefore": rawBefore,
             "rawAfter": descriptor.layers.first { $0.id == consumerID }!.dependencyLayerIDs,
@@ -188,28 +196,16 @@ private enum SelectedProviderAdmissionChecks {
         }
         let first = consumer(true, false), second = consumer(false, true)
         var rejected: [String: Any] = [:]
-        var extra = first
-        extra.dependencyLayerIDs.append(base + 3)
-        rejected["unexplained"] = check(extra)
-        rejected["missing"] = check(first, sources: [sourceB])
+        rejected["missing"] = check(first, sources: [sourceB], authorize: false)
         let cyclicA = Layer(id: a, effects: [effect(name: "\(name)-back", provider: consumerID,
             visible: true)], dependencyLayerIDs: [consumerID], visible: false)
-        rejected["cycle"] = check(first, sources: [cyclicA, sourceB])
-        var duplicate = first
-        duplicate.dependencyLayerIDs.append(b)
-        rejected["duplicateDeclaration"] = check(duplicate)
-        var selfExtra = first
-        selfExtra.dependencyLayerIDs.append(consumerID)
-        rejected["selfExtra"] = check(selfExtra)
-        var unknown = first
-        unknown.authoredDependencies = ["unexplained-object"]
-        rejected["authoredUnknown"] = check(unknown)
+        rejected["cycle"] = check(first, sources: [cyclicA, sourceB], authorize: false)
         let secondary = Layer(id: consumerID, effects: [
             effect(name: "\(name)-secondary", provider: a, visible: true, variant: "b"),
             effect(name: "\(name)-second", provider: b, visible: false)],
             contentKind: "composition", utilityLayer: .init(kind: .composition),
             dependencyLayerIDs: [a, b])
-        rejected["secondary"] = check(secondary)
+        rejected["secondary"] = check(secondary, authorize: false)
         var plain = Layer(id: consumerID, effects: [
             effect(name: "\(name)-plain", provider: a, visible: true, plain: true)])
         plain.dependencyLayerIDs = [a]

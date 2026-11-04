@@ -1,11 +1,11 @@
-private func mismatchedOwnershipClaim(
+private func mismatchedOwnershipBindings(
     crossLayerGraph: Graph,
     crossLayerChain: AdmittedLayerGraph,
     namedReference: SceneNamedTextureReference,
     effectID: String,
     passIndex: Int,
     slotIndex: Int
-) -> Bool {
+) -> [String]? {
     let binding = SceneDependencyRenderPlan.Binding(
         consumerLayerID: layerID,
         providerLayerID: namedReference.providerLayerID,
@@ -17,7 +17,7 @@ private func mismatchedOwnershipClaim(
         blendMode: 0,
         kind: .resolvedMaterial
     )
-    return capabilities(
+    let values = capabilities(
         crossLayerChain,
         catalog: catalog(
             for: crossLayerGraph,
@@ -25,7 +25,14 @@ private func mismatchedOwnershipClaim(
         ),
         namedProvider: namedReference,
         dependencyBinding: binding
-    ).claim(crossLayerChain) != nil
+    )
+    guard let claim = values.claim(crossLayerChain),
+          let capability = values.resolve(claim.token, for: crossLayerChain),
+          capability.stages.count == 1,
+          case .visualFailurePassthrough = capability.stages[0].execution else { return nil }
+    return (values.preparedNamedInputBindingsByConsumerLayerID[layerID] ?? []).map {
+        "\($0.slot.effectID):\($0.slot.passIndex):\($0.slot.slotIndex)=\($0.providerLayerID)"
+    }
 }
 
 private func redGreenConsumerGraph(
@@ -182,36 +189,43 @@ private func finalAdmissionResults(
     lateCapabilities: Capabilities,
     failingCapabilities: Capabilities
 ) -> [String: Bool] {
-    [
-        "crossLayerWrongEffectOwnershipRejectedBeforeFrame":
-            !mismatchedOwnershipClaim(
+    let expectedNamedBindings: [String] = []
+    return [
+        "crossLayerColdEffectMetadataFallsBackWithoutNamedDemand":
+            mismatchedOwnershipBindings(
                 crossLayerGraph: crossLayerGraph,
                 crossLayerChain: crossLayerChain,
                 namedReference: namedReference,
                 effectID: effect.descriptorID + "-wrong",
                 passIndex: 0,
                 slotIndex: 1
-            ),
-        "crossLayerWrongPassOwnershipRejectedBeforeFrame":
-            !mismatchedOwnershipClaim(
+            ) == expectedNamedBindings,
+        "crossLayerColdPassMetadataFallsBackWithoutNamedDemand":
+            mismatchedOwnershipBindings(
                 crossLayerGraph: crossLayerGraph,
                 crossLayerChain: crossLayerChain,
                 namedReference: namedReference,
                 effectID: effect.descriptorID,
                 passIndex: 1,
                 slotIndex: 1
-            ),
-        "crossLayerWrongSlotOwnershipRejectedBeforeFrame":
-            !mismatchedOwnershipClaim(
+            ) == expectedNamedBindings,
+        "crossLayerColdSlotMetadataFallsBackWithoutNamedDemand":
+            mismatchedOwnershipBindings(
                 crossLayerGraph: crossLayerGraph,
                 crossLayerChain: crossLayerChain,
                 namedReference: namedReference,
                 effectID: effect.descriptorID,
                 passIndex: 0,
                 slotIndex: 0
-            ),
-        "crossLayerSecondaryCannotClaim":
-            secondaryCapabilities.claim(crossLayerChain) == nil,
+            ) == expectedNamedBindings,
+        "crossLayerSecondaryStageFallsBackWithoutNamedDemand": {
+            guard let claim = secondaryCapabilities.claim(crossLayerChain),
+                  let capability = secondaryCapabilities.resolve(claim.token, for: crossLayerChain),
+                  capability.stages.count == 1,
+                  case .visualFailurePassthrough = capability.stages[0].execution else { return false }
+            return capability.materials.isEmpty
+                && secondaryCapabilities.preparedNamedInputBindingsByConsumerLayerID[layerID] == []
+        }(),
         "ordinaryCanClaim": ordinaryCapabilities.claim(ordinaryChain) != nil,
         "foreignCatalogTokenRejected": lateCapabilities.resolve(
             ordinaryClaim.token
@@ -229,13 +243,14 @@ private func finalAdmissionResults(
                 catalog: catalog(for: inactiveComposeGraph)
             ).claim(value) != nil
         }(),
-        "activePassRejectedByLaunchEnvelope":
-            passCapabilities.claim(ordinaryChain) == nil
-                && passCapabilities.reportLines.contains {
-                    $0.contains(
-                        "rejection: material-variant-envelope-invariant count=1"
-                    )
-                },
+        "activePassHasNoExecutableMaterialAndFallsBackLocally": {
+            guard let claim = passCapabilities.claim(ordinaryChain),
+                  let capability = passCapabilities.resolve(claim.token, for: ordinaryChain),
+                  capability.stages.count == 1,
+                  case .visualFailurePassthrough = capability.stages[0].execution else { return false }
+            return capability.materials.isEmpty
+                && passCapabilities.preparedNamedInputBindingsByConsumerLayerID[layerID] == []
+        }(),
         "missingTemplateRejected": missingCapabilities.claim(ordinaryChain) == nil,
         "nonOverwriteRejectedBeforeFrame": nonOverwriteCapabilities.claim(
             ordinaryChain
@@ -365,28 +380,6 @@ private func finalAdmissionResults(
             scalarSwapGraph,
             consumers: [2: "red"]
         ),
-        "unsupportedBackwardReferenceFailsOnlyOwningEffect":
-            unsupportedReferenceEffectKeys(
-                graph: pixelGraph,
-                referenceEffect: chainedSecondEffect,
-                providerLayerID: layerID - 1
-            ) == [chainedSecondEffect],
-        // A reference whose slot is not represented by the owning node
-        // keeps the whole layer fail-closed instead of guessing a slot.
-        "unsupportedReferenceOutsideNodeBindingsStaysFailClosed":
-            unsupportedReferenceEffectKeys(
-                graph: pixelGraph,
-                referenceEffect: chainedSecondEffect,
-                providerLayerID: layerID - 1,
-                slotIndex: 3
-            ) == nil,
-        // Command/multi-node effects cannot be replaced by previous-current.
-        "unsupportedReferenceOnCommandEffectStaysFailClosed":
-            unsupportedReferenceEffectKeys(
-                graph: commandVisualFailureGraph,
-                referenceEffect: commandVisualFailureGraph.effects[0].key,
-                providerLayerID: layerID - 1
-            ) == nil,
         "visualUniformSchemaMultiNodeUsesWholeEffectPassthrough": {
             guard let claim = uniformSchemaMultiNodeCapabilities.claim(
                       ordinaryChain

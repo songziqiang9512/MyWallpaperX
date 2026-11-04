@@ -98,7 +98,7 @@ extension AtlasNamedProbe {
                 blendMode: 0, kind: .imageLayerBlend, requiresResolvedMaterialProgram: true)
         }
         let aggregate = SceneDependencyRenderPlan.MultiProviderAggregate(consumerLayerID: 802,
-            bindings: bindings, authoredSlotOrder: bindings.map(\.slot))
+            bindings: bindings)
         let runtime = SceneDependencyFrameRuntime(descriptor: .init(layers: providers,
             bindings: [:], graphOutputProviderLayerIDs: [], aggregates: [802: aggregate]),
             visibleLayerIDs: [800, 801, 802], executableUtilityConsumerLayerIDs: [], device: device)
@@ -116,10 +116,10 @@ extension AtlasNamedProbe {
                 frameEpoch: epoch, failureReason: &reason))
             reasons.append(reason)
         }
-        let unavailableBeforeCapture: Bool
-        if case .unavailable = runtime.aggregateEffectInputResolution(for: aggregate, textureRegistry: registry) {
-            unavailableBeforeCapture = true
-        } else { unavailableBeforeCapture = false }
+        let noAvailableInputsBeforeCapture: Bool
+        if case let .ready(values) = runtime.aggregateEffectInputResolution(for: aggregate, textureRegistry: registry) {
+            noAvailableInputsBeforeCapture = values.isEmpty
+        } else { noAvailableInputsBeforeCapture = false }
         for index in providers.indices {
             published.append(status(runtime.captureProviderIfRequired(layer: providers[index],
                 sourceTexture: inputs[index].0, sourceCandidate: candidates[index],
@@ -136,7 +136,7 @@ extension AtlasNamedProbe {
         cb.commit(); cb.waitUntilCompleted(); registry.commitFramePublication()
         return ["route": "mixed-raw-aggregate", "published": published.allSatisfy { $0 == "published" } ? "published" : published.joined(separator: ","),
             "reserved": prepared.allSatisfy { $0 != nil } && reasons.allSatisfy { $0 == nil },
-            "unavailableBeforeCapture": unavailableBeforeCapture,
+            "noAvailableInputsBeforeCapture": noAvailableInputsBeforeCapture,
             "preparedContentMatchesSource": zip(prepared, candidates).allSatisfy { $0.0?.content == $0.1.content },
             "actualContentMatchesSource": ready && zip(actual, candidates).allSatisfy { $0.0.content == $0.1.content },
             "preparedMatchesReadyIdentity": ready && zip(prepared, actual).allSatisfy { samePreparedIdentity($0.0, $0.1) },

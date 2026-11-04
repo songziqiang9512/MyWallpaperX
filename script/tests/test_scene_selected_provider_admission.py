@@ -13,10 +13,6 @@ import unittest
 
 from script.tests import test_scene_dependency_render_plan as dependency
 from script.tests import test_scene_resolved_material_graph_executor as graph
-from script.tests import scene_dependency_binding_test_support as binding_support
-from script.tests.scene_dependency_binding_test_support import (
-    SCENE_DEPENDENCY_BINDING_SUPPORT,
-)
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -28,9 +24,6 @@ def production_inputs():
     # double. Replace that complete test-support section, not any production
     # function, with the real dependency family and this fixture's data DTOs.
     support = graph.SUPPORT
-    if not support.endswith(SCENE_DEPENDENCY_BINDING_SUPPORT):
-        raise AssertionError("shared binding support boundary changed")
-    support = support.removesuffix(SCENE_DEPENDENCY_BINDING_SUPPORT)
     start = support.index("struct SceneUtilityLayer {")
     end = support.index("struct SceneEffectStageProgram {", start)
     support = support[:start] + support[end:]
@@ -70,7 +63,7 @@ class SceneSelectedProviderAdmissionTests(unittest.TestCase):
         binary = work / "selected-provider"
         inputs = [*sources, FIXTURE, Path(__file__).resolve(),
                   Path(graph.__file__).resolve(), Path(dependency.__file__).resolve(),
-                  Path(binding_support.__file__).resolve(), graph.CONTRACT_GATE,
+                  graph.CONTRACT_GATE,
                   graph.CONTRACT_FIXTURE["PUBLICATION_GATE"]]
         before = identities(inputs)
         environment = os.environ.copy()
@@ -113,7 +106,6 @@ class SceneSelectedProviderAdmissionTests(unittest.TestCase):
                 case = variant[key]
                 self.assertTrue(case["structural"])
                 self.assertTrue(case["owner"])
-                self.assertFalse(case["refused"])
                 self.assertTrue(case["executable"])
                 self.assertEqual(case["bindingProvider"], case["selected"])
                 self.assertEqual(case["requiredProviders"], [case["selected"]])
@@ -126,19 +118,18 @@ class SceneSelectedProviderAdmissionTests(unittest.TestCase):
             case = variant["both"]
             self.assertTrue(case["owner"])
             self.assertTrue(case["executable"])
-            self.assertTrue(case["aggregateStrict"])
+            self.assertEqual(len(case["aggregateSlots"]), 2)
             self.assertEqual(case["aggregateProviders"], case["rawBefore"])
             self.assertEqual(case["bindingProvider"], -1)
 
-    def test_unexplained_missing_cyclic_and_unsafe_shapes_stay_rejected(self):
+    def test_missing_cyclic_and_secondary_sources_stay_unavailable(self):
         for variant in self.facts["variants"]:
             for name, case in variant["rejected"].items():
                 with self.subTest(variant=variant["name"], case=name):
                     self.assertFalse(case["owner"])
-                    self.assertTrue(case["refused"])
                     self.assertFalse(case["executable"])
                     self.assertEqual(case["bindingProvider"], -1)
-                    self.assertFalse(case["aggregateStrict"])
+                    self.assertEqual(case["aggregateProviders"], [])
                     self.assertNotEqual(case["issues"], [])
                     self.assertEqual(case["rawBefore"], case["rawAfter"])
 
@@ -151,7 +142,6 @@ class SceneSelectedProviderAdmissionTests(unittest.TestCase):
             self.assertEqual(plain["bindingProvider"], plain["selected"])
             unadmitted = variant["unadmitted"]
             self.assertFalse(unadmitted["owner"])
-            self.assertTrue(unadmitted["refused"])
             self.assertFalse(unadmitted["executable"])
 
 

@@ -35,6 +35,16 @@ struct SceneAuthoredEffectRenderPlan {
         let effectIndex: Int
         let descriptorID: String
     }
+    enum NodeKind { case material, copy, swap }
+    struct Node {
+        let effect: EffectKey
+        let definitionPassIndex: Int
+        var instancePassIndex: Int? = nil
+        var materialPassID: String? = nil
+        var kind: NodeKind = .material
+    }
+    let layerID: Int
+    var nodes: [Node] = []
 }
 
 #endif
@@ -54,6 +64,7 @@ struct SceneRenderDescriptor {
 
     struct MaterialPassDescriptor {
         var combos: [String: Int] = [:]
+        var id: String = ""
         let materialPath: String
         let passIndex: Int
         let texturePaths: [String]

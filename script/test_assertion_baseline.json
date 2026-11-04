@@ -527,13 +527,6 @@
     },
     {
       "path": "script/tests/test_scene_resolved_material_execution_capability.py",
-      "scope": "SceneResolvedMaterialExecutionCapabilityTests.test_aggregate_catalog_reuse_exports_each_authored_reference_slot",
-      "method": "assertIn",
-      "literal": "case let .externalAggregate(aggregate):",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_resolved_material_execution_capability.py",
       "scope": "SceneResolvedMaterialExecutionCapabilityTests.test_capability_catalog_has_one_program_first_execution_route",
       "method": "assertIn",
       "literal": "case let .failure(programFailure):",
@@ -692,34 +685,6 @@
       "method": "assertNotIn",
       "literal": "guard let claim = route.execution else { continue }",
       "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
-      "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_external_dependency_is_late_ready_and_composited_once",
-      "method": "assertIn",
-      "literal": "func recordClaimedFailure(reasonCode: String)",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
-      "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_external_dependency_is_late_ready_and_composited_once",
-      "method": "assertIn",
-      "literal": "let consumesExternalPrimaryDependency: Bool",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
-      "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_external_dependency_is_late_ready_and_composited_once",
-      "method": "assertIn",
-      "literal": "let dependencyOwnership: SceneResolvedMaterialDependencyOwnership",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",
-      "scope": "SceneResolvedMaterialRuntimeBridgeTests.test_external_dependency_is_late_ready_and_composited_once",
-      "method": "assertNotIn",
-      "literal": "let preparedDependencyEffect:",
-      "count": 2
     },
     {
       "path": "script/tests/test_scene_resolved_material_runtime_bridge.py",

@@ -318,16 +318,6 @@ extension SceneImageLayerCompositor {
         )
     }
 
-    func rejectResolvedMaterialDependencySubgraphLocally(
-        layerID: Int,
-        reasonCode: String
-    ) -> Bool {
-        resolvedMaterialRuntime?.rejectPreparedExternalDependencyLocally(
-            layerID: layerID,
-            reasonCode: reasonCode
-        ) ?? false
-    }
-
     func preflightResolvedMaterialClaim(
         layerID: Int
     ) -> SceneResolvedMaterialClaimRoute {

@@ -1,112 +1,8 @@
 import Foundation
 
 extension SceneDependencyRenderPlan {
-    /// A lossless, frame-scoped description of a composition consumer that
-    /// names more than one external primary provider.  This is intentionally
-    /// separate from `Binding`: the legacy binding owns exactly one provider
-    /// and must never project an aggregate onto its first reference.
-    nonisolated struct MultiProviderAggregate: Hashable {
-        let consumerLayerID: Int
-        let bindings: [Binding]
-        /// The exact layer.effects -> pass -> slot order in which the
-        /// authored graph names its external providers. Effect identifiers
-        /// are descriptive strings and are not an ordering authority.
-        let authoredSlotOrder: [SceneEffectPassSlot]
-
-        init(
-            consumerLayerID: Int,
-            bindings: [Binding],
-            authoredSlotOrder: [SceneEffectPassSlot]
-        ) {
-            self.consumerLayerID = consumerLayerID
-            self.bindings = bindings
-            self.authoredSlotOrder = authoredSlotOrder
-        }
-
-        /// The aggregate vector has one binding per authored external slot.
-        /// Keep this ordering canonical at the plan boundary so every later
-        /// reservation/execute seam can reject a reordered or duplicated
-        /// provider atom instead of relying on a set comparison.
-        var orderedBindings: [Binding] {
-            guard authoredSlotOrder.count == bindings.count else { return [] }
-            var bindingsBySlot: [SceneEffectPassSlot: Binding] = [:]
-            for binding in bindings {
-                guard bindingsBySlot.updateValue(
-                    binding,
-                    forKey: binding.slot
-                ) == nil else {
-                    return []
-                }
-            }
-            guard bindingsBySlot.count == authoredSlotOrder.count else {
-                return []
-            }
-            return authoredSlotOrder.compactMap { bindingsBySlot[$0] }
-        }
-
-        /// Runtime aggregate consumers only support the exact image-primary
-        /// binding shape emitted by `multiProviderAggregate`. Keeping this
-        /// invariant on the value itself lets reservation and execution paths
-        /// share one fail-closed check without reinterpreting the descriptor.
-        var hasStrictBindingVector: Bool {
-            guard bindings.count >= 2,
-                  authoredSlotOrder.count == bindings.count,
-                  Set(authoredSlotOrder).count == authoredSlotOrder.count,
-                  Set(authoredSlotOrder) == Set(bindings.map(\.slot)),
-                  bindings == orderedBindings,
-                  Set(bindings.map(\.providerLayerID)).count > 1 else {
-                return false
-            }
-            return bindings.allSatisfy { binding in
-                binding.consumerLayerID == consumerLayerID
-                    && binding.providerLayerID != consumerLayerID
-                    && binding.referenceSlots == [binding.slot]
-                    && (
-                        binding.kind == .imageLayerBlend
-                            || binding.kind == .geometryLayer
-                    )
-                    && binding.blendMode == 0
-                    && binding.requiresResolvedMaterialProgram
-            }
-        }
-
-        var providerLayerIDs: Set<Int> {
-            Set(bindings.map(\.providerLayerID))
-        }
-
-        var referenceSlots: [SceneEffectPassSlot] {
-            authoredSlotOrder
-        }
-
-        /// Pure admission check shared by runtime seams and deterministic
-        /// fixtures. It requires the whole provider/slot vector exactly once
-        /// and in the canonical authored slot order; a set comparison would
-        /// allow a caller to bind the right providers to the wrong slots.
-        func admits(_ references: [Reference]) -> Bool {
-            guard hasStrictBindingVector else { return false }
-            let expected = orderedBindings.map {
-                Reference(
-                    consumerLayerID: consumerLayerID,
-                    providerLayerID: $0.providerLayerID,
-                    slot: $0.slot,
-                    variant: .primary
-                )
-            }
-            return references == expected
-        }
-    }
-
     nonisolated func blocksStaticLayerSourcePassthrough(for layerID: Int) -> Bool {
         staticLayerSourcePassthroughBlockedLayerIDs.contains(layerID)
-    }
-
-    nonisolated func aggregateBindingIsPlanned(
-        _ binding: Binding
-    ) -> Bool {
-        guard let aggregate = multiProviderAggregatesByConsumerLayerID[
-            binding.consumerLayerID
-        ], aggregate.hasStrictBindingVector else { return false }
-        return aggregate.bindings.contains(binding)
     }
 
     /// Restricts prepared graph work to roots that are visible in the current
@@ -146,10 +42,10 @@ extension SceneDependencyRenderPlan {
             }
             for aggregate in multiProviderAggregatesByConsumerLayerID.values
             where reachable.contains(aggregate.consumerLayerID) {
-                for providerID in aggregate.providerLayerIDs
-                where requiredGraphOutputProviderLayerIDs.contains(providerID)
-                    && availableExecutionLayerIDs.contains(providerID) {
-                    changed = reachable.insert(providerID).inserted
+                for binding in aggregate.bindings
+                where requiredGraphOutputProviderLayerIDs.contains(binding.providerLayerID)
+                    && availableExecutionLayerIDs.contains(binding.providerLayerID) {
+                    changed = reachable.insert(binding.providerLayerID).inserted
                         || changed
                 }
             }
@@ -159,13 +55,20 @@ extension SceneDependencyRenderPlan {
     /// A forward graph runs before any authored compositor layer. It may use
     /// its own layer source, static assets, frame inputs and one exact primary
     /// named input that the same dependency plan validates and schedules
-    /// first. The main target, secondary targets and undeclared named inputs
-    /// remain authored-order-dependent and are rejected.
+    /// first. The main target and secondary targets retain authored-order
+    /// dependencies and are rejected here.
     nonisolated static func providerGraphIsAuthoredOrderIndependent(
-        _ layer: SceneRenderDescriptor.Layer
+        _ layer: SceneRenderDescriptor.Layer,
+        references: [Reference]? = nil,
+        texturePaths: [String]? = nil
     ) -> Bool {
-        let references = SceneDependencyGraphAnalysis.references(in: [layer])
-        guard let activeDependencies = activeDependencyProviderLayerIDs(
+        let projectedDependencies = references.map { references in
+            Set(references.compactMap {
+                $0.providerLayerID == layer.id ? nil : $0.providerLayerID
+            })
+        }
+        let references = references ?? SceneDependencyGraphAnalysis.references(in: [layer])
+        guard let activeDependencies = projectedDependencies ?? activeDependencyProviderLayerIDs(
             layer: layer,
             references: references
         ) else { return false }
@@ -180,19 +83,12 @@ extension SceneDependencyRenderPlan {
                   reference.providerLayerID == dependencyLayerID,
                   reference.variant == .primary else { return false }
         }
-        return layer.effects.filter { $0.visible != false }.allSatisfy { effect in
-            effect.passes.allSatisfy { pass in
-                let authoredPaths = pass.texturePaths
-                    + pass.textureSlots.compactMap { $0 }
-                return authoredPaths.allSatisfy { path in
-                    guard path.caseInsensitiveCompare("_rt_FullFrameBuffer")
-                        != .orderedSame else { return false }
-                    guard let named = SceneNamedTextureReference.parse(path)
-                    else { return true }
-                    return activeDependencies == [named.providerLayerID]
-                        && named.variant == .primary
-                }
-            }
+        let paths = texturePaths ?? layer.effects.filter { $0.visible != false }
+            .flatMap(\.passes).flatMap { $0.texturePaths + $0.textureSlots.compactMap { $0 } }
+        return paths.allSatisfy { path in
+            guard path.caseInsensitiveCompare("_rt_FullFrameBuffer") != .orderedSame else { return false }
+            guard let named = SceneNamedTextureReference.parse(path) else { return true }
+            return activeDependencies == [named.providerLayerID] && named.variant == .primary
         }
     }
     /// Reconstructs the descriptor's authored effect/pass/slot order for the
@@ -228,83 +124,59 @@ extension SceneDependencyRenderPlan {
         return ordered
     }
 
-    /// B2 only owns the resource carrier for a narrow, ordinary material
-    /// input shape.  The shader/program remains responsible for the visual
-    /// semantics, but the dependency plan must prove that each external
-    /// reference is one unambiguous primary sampler: pass zero, slot one,
-    /// exactly one pass, no user texture override, and no mask/secondary
-    /// texture.  This accepts the stock Blend two-slot form and the stock
-    /// X-Ray three-slot form (whose trailing slot is an authored hole) while
-    /// rejecting arbitrary effect/pass payloads before reservation.
-    nonisolated static func aggregateReferenceShapeIsStrict(
+    /// Chooses the existing publication renderer for a typed named slot.
+    nonisolated static func programInputBinding(
+        for reference: Reference,
         layer: SceneRenderDescriptor.Layer,
-        reference: Reference
-    ) -> Bool {
+        layersByID: [Int: SceneRenderDescriptor.Layer],
+        order: [Int: Int],
+        visibleLayerIDs: Set<Int>,
+        providerReferences: [Reference]? = nil,
+        providerTexturePaths: [String]? = nil
+    ) -> Binding? {
         guard reference.consumerLayerID == layer.id,
+              reference.providerLayerID != layer.id,
               reference.variant == .primary,
-              reference.slot.passIndex == 0,
-              reference.slot.slotIndex == 1 else { return false }
-        let matchingEffects = layer.effects.filter {
-            $0.id == reference.slot.effectID && $0.visible != false
+              let provider = layersByID[reference.providerLayerID],
+              provider.childLayerIDs.isEmpty,
+              provider.authoredDependencies.isEmpty,
+              let providerOrder = order[provider.id],
+              let consumerOrder = order[layer.id],
+              providerOrder != consumerOrder else { return nil }
+        let hasEffects = provider.effects.contains { $0.visible != false }
+        let kind: Binding.Kind
+        if provider.puppetMeshPath != nil {
+            guard provider.contentKind == "image", hasNoUtilityLayer(provider) else { return nil }
+            kind = .geometryLayer
+        } else if isImageOrTextCompositeProvider(provider) {
+            kind = .imageLayerBlend
+        } else if isVisibleGraphOutputProvider(provider, visibleLayerIDs: visibleLayerIDs) {
+            kind = .visibleImageGraphOutput
+        } else if provider.contentKind == "solid", hasNoUtilityLayer(provider),
+                  provider.dependencyLayerIDs.isEmpty,
+                  provider.visible == false || hasEffects {
+            kind = .solidLayer
+        } else if provider.utilityLayer?.kind == .composition,
+                  provider.contentKind == "composition" {
+            kind = .resolvedMaterial
+        } else {
+            return nil
         }
-        guard matchingEffects.count == 1,
-              let effect = matchingEffects.first,
-              effect.passes.count == 1,
-              let pass = effect.passes.first,
-              pass.passIndex == 0,
-              (pass.textureSlots.count == 2
-                  || pass.textureSlots.count == 3),
-              pass.textureSlots[0] == nil,
-              pass.textureSlots.indices.contains(1),
-              let namedPath = pass.textureSlots[1],
-              SceneNamedTextureReference.parse(namedPath)
-                  == .init(
-                      providerLayerID: reference.providerLayerID,
-                      variant: .primary
-                  ),
-              pass.userTextureInputs.isEmpty,
-              pass.texturePaths.count
-                  == pass.textureSlots.compactMap({ $0 }).count,
-              normalizedPaths(pass.texturePaths)
-                  == normalizedPaths(pass.textureSlots.compactMap { $0 }),
-              aggregateCombosAreStrict(pass.combos) else {
-            return false
+        let forward = providerOrder > consumerOrder
+        if forward {
+            // A visible graph's frame ticket still owns its main output.
+            guard !(hasEffects && provider.visible != false
+                    && visibleLayerIDs.contains(provider.id)),
+                  kind == .imageLayerBlend || kind == .geometryLayer,
+                  (provider.effects.isEmpty && provider.dependencyLayerIDs.isEmpty)
+                    || (hasEffects && providerGraphIsAuthoredOrderIndependent(provider,
+                        references: providerReferences, texturePaths: providerTexturePaths))
+            else { return nil }
         }
-        if pass.textureSlots.count == 3 {
-            guard pass.textureSlots[2] == nil else { return false }
-        }
-        return true
-    }
-
-    private nonisolated static func aggregateCombosAreStrict(
-        _ authored: [String: Int]
-    ) -> Bool {
-        let allowed = Set([
-            "BLENDMODE", "TRANSFORMUV", "TRANSFORMREPEAT", "WRITEALPHA",
-            "NUMBLENDTEXTURES", "OPACITYMASK",
-        ])
-        var normalized: [String: Int] = [:]
-        for (key, value) in authored {
-            let normalizedKey = key.uppercased()
-            guard allowed.contains(normalizedKey),
-                  normalized.updateValue(value, forKey: normalizedKey) == nil
-            else { return false }
-        }
-        let transformUV = normalized["TRANSFORMUV", default: 0]
-        let transformRepeat = normalized["TRANSFORMREPEAT", default: 0]
-        return normalized["BLENDMODE", default: 0] == 0
-            && normalized["NUMBLENDTEXTURES", default: 1] == 1
-            && normalized["OPACITYMASK", default: 0] == 0
-            && (0...1).contains(transformUV)
-            && (0...2).contains(transformRepeat)
-            && (transformUV == 1 || transformRepeat == 0)
-            && (0...1).contains(normalized["WRITEALPHA", default: 0])
-    }
-
-    private nonisolated static func normalizedPaths(_ paths: [String]) -> [String] {
-        paths.map {
-            $0.replacingOccurrences(of: "\\", with: "/").lowercased()
-        }
+        return Binding(consumerLayerID: layer.id, providerLayerID: provider.id,
+                       slot: reference.slot, blendMode: 0, kind: kind,
+                       requiresForwardCapture: forward,
+                       requiresResolvedMaterialProgram: true)
     }
 
     /// Checks one nested provider's complete active dependency owner. A
@@ -432,35 +304,18 @@ extension SceneDependencyRenderPlan {
         return activeReferences.count >= 2 && providerIDs.count > 1
     }
 
-    /// Returns whether a layer can own a lossless aggregate publication. The
-    /// original B2 atom is a childless composition utility; hidden image graph
-    /// providers use the same typed external-primary vector and therefore may
-    /// participate in a nested closure. Visible ordinary images stay on their
-    /// existing single-provider route until a separate contract proves them.
     nonisolated static func isMultiProviderAggregateCandidate(
         layer: SceneRenderDescriptor.Layer,
         references: [Reference]
     ) -> Bool {
-        let isUtility = isMultiProviderUtilityCandidate(
-            layer: layer,
-            references: references
-        )
-        let isHiddenImage = layer.contentKind == "image"
-            && layer.puppetMeshPath == nil
-            && layer.utilityLayer == nil
-            && layer.visible == false
-            && layer.childLayerIDs.isEmpty
-            && layer.authoredDependencies.isEmpty
-        guard isUtility || isHiddenImage else { return false }
-        let activeReferences = references.filter { reference in
-            layer.effects.first(where: { $0.id == reference.slot.effectID })?
-                .visible != false
-        }
-        let providerIDs = Set(activeReferences.compactMap { reference in
-            reference.providerLayerID == layer.id
-                ? nil : reference.providerLayerID
-        })
-        return activeReferences.count >= 2 && providerIDs.count > 1
+        guard layer.authoredDependencies.isEmpty,
+              hasNoUtilityLayer(layer) || supportsStructuralUtilityConsumer(layer)
+        else { return false }
+        return references.filter { reference in
+            reference.providerLayerID != layer.id
+                && layer.effects.first(where: { $0.id == reference.slot.effectID })?
+                    .visible != false
+        }.count >= 2
     }
 
 }

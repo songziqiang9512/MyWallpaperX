@@ -10,7 +10,6 @@ enum SceneResolvedMaterialDependencyInputResolution {
 
 enum SceneResolvedMaterialAggregateInputResolution {
     case ready([SceneDependencyEffectInput])
-    case unavailable(reasonCode: String)
     case invalid(reasonCode: String)
 }
 
@@ -28,9 +27,6 @@ enum SceneGraphOutputPublicationResult: Equatable {
 final class SceneDependencyFrameRuntime {
     struct ResolvedMaterialFrameDemand {
         let activeExecutionLayerIDs: Set<Int>
-        /// Active consumers whose aggregate input or upstream aggregate is
-        /// unavailable. They keep a local fallback without graph demand.
-        let unavailableLayerIDs: Set<Int>
     }
 
     enum GraphOutputPublicationRole {
@@ -135,6 +131,8 @@ final class SceneDependencyFrameRuntime {
         executableUtilityConsumerLayerIDs: Set<Int>,
         verifiedXRayStageKeys: Set<SceneAuthoredEffectRenderPlan.EffectKey> = [],
         admittedResolvedMaterialReferences: Set<SceneDependencyRenderPlan.Reference> = [],
+        preparedNamedInputBindingsByConsumerLayerID:
+            [Int: [SceneDependencyRenderPlan.Binding]] = [:],
         device: MTLDevice
     ) {
         self.plan = SceneDependencyRenderPlan(
@@ -143,7 +141,9 @@ final class SceneDependencyFrameRuntime {
             executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs,
             verifiedXRayStageKeys: verifiedXRayStageKeys,
             admittedResolvedMaterialReferences:
-                admittedResolvedMaterialReferences
+                admittedResolvedMaterialReferences,
+            preparedNamedInputBindingsByConsumerLayerID:
+                preparedNamedInputBindingsByConsumerLayerID
         )
         self.targetPool = SceneNamedRenderTargetPool(
             device: device, pixelFormat: descriptor.colorTargetFormat.metalPixelFormat
@@ -230,38 +230,12 @@ final class SceneDependencyFrameRuntime {
             .union(visibleRootLayerIDs.intersection(activeStaticModelConsumerLayerIDs)
                 .intersection(modelConsumers))
         let available = availableExecutionLayerIDs.intersection(liveLayerIDs)
-        // An aggregate cannot consume a partial vector. Propagate the miss
-        // through the immutable prepared bindings before preparing targets.
-        var unavailable = Set(plan.multiProviderAggregatesByConsumerLayerID
-            .values.filter { !$0.providerLayerIDs.isSubset(of: liveLayerIDs) }
-            .map(\.consumerLayerID))
-        var changed = !unavailable.isEmpty
-        while changed {
-            let previousCount = unavailable.count
-            for binding in plan.bindingsByConsumerLayerID.values
-            where unavailable.contains(binding.providerLayerID) {
-                unavailable.insert(binding.consumerLayerID)
-            }
-            for aggregate in plan.multiProviderAggregatesByConsumerLayerID.values
-            where !aggregate.providerLayerIDs.isDisjoint(with: unavailable) {
-                unavailable.insert(aggregate.consumerLayerID)
-            }
-            changed = previousCount != unavailable.count
-        }
-        var active = plan.resolvedMaterialExecutionLayerIDs(
+        let active = plan.resolvedMaterialExecutionLayerIDs(
             visibleRootLayerIDs: executionRoots,
             availableExecutionLayerIDs: available
         )
-        unavailable.formIntersection(active)
-        if !unavailable.isEmpty {
-            active = plan.resolvedMaterialExecutionLayerIDs(
-                visibleRootLayerIDs: executionRoots,
-                availableExecutionLayerIDs: available.subtracting(unavailable)
-            )
-        }
         let result = ResolvedMaterialFrameDemand(
-            activeExecutionLayerIDs: active,
-            unavailableLayerIDs: unavailable
+            activeExecutionLayerIDs: active
         )
         resolvedMaterialDemandMemo = (
             visibleRootLayerIDs,

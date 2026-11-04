@@ -21,9 +21,9 @@ extension SceneMetalRenderer {
             descriptor: renderDescriptor,
             resolvedMaterialLayerIDs:
                 imageCompositor.resolvedMaterialRuntime?.executionLayerIDs ?? [],
-            admittedResolvedMaterialReferences:
+            preparedNamedInputBindingsByConsumerLayerID:
                 imageCompositor.resolvedMaterialRuntime?
-                    .admittedResolvedMaterialReferences ?? [],
+                    .preparedNamedInputBindingsByConsumerLayerID ?? [:],
             propertyVisibilityOwnedLayerIDs:
                 imageCompositor.resolvedMaterialRuntime?
                     .visibilityOwnedLayerIDs ?? []

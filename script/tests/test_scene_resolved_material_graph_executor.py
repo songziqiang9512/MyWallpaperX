@@ -13,9 +13,6 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests.scene_dependency_binding_test_support import (
-    SCENE_DEPENDENCY_BINDING_SUPPORT,
-)
 from script.tests.scene_framebuffer_source_test_support import (
     framebuffer_source_material_declarations,
 )
@@ -142,12 +139,15 @@ def compile_lit_harness(
 
 
 FIXTURE_ROOT = Path(__file__).with_name("fixtures")
+DEPENDENCY_ROOT = Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies"
+DEPENDENCY_MODEL = (DEPENDENCY_ROOT / "SceneDependencyRenderPlan.swift").read_text()
+DEPENDENCY_MODEL += (DEPENDENCY_ROOT / "SceneDependencyRenderPlan+StaticModel.swift").read_text().split(
+    "extension SceneDependencyRenderPlan {", 1)[0]
 SUPPORT = (
     PUBLICATION_FIXTURE["SUPPORT"]
     + (FIXTURE_ROOT / "SceneGraphExecutorRuntimeSupport.swift").read_text(encoding="utf-8").replace(
         "/* SOURCE_MATERIAL_DECLARATIONS */", framebuffer_source_material_declarations()
-    )
-    + SCENE_DEPENDENCY_BINDING_SUPPORT
+    ).replace("/* DEPENDENCY_PLAN_MODEL */", DEPENDENCY_MODEL)
 )
 HARNESS_SUPPORT_SOURCE = "".join(
     (FIXTURE_ROOT / name).read_text(encoding="utf-8")
@@ -188,6 +188,71 @@ HARNESS = HARNESS_SUPPORT_SOURCE + EXECUTOR_SCENARIOS_SOURCE + (
 
 @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
 class SceneResolvedMaterialGraphExecutorTests(unittest.TestCase):
+    def test_named_inputs_each_contribute_through_prepared_slot_vectors(self) -> None:
+        harness = HARNESS_SUPPORT_SOURCE + (FIXTURE_ROOT / "SceneGraphExecutorNamedDependencyCases.swift").read_text() + r'''
+@main private enum NamedVectorHarness {
+    static func main() throws {
+        guard let device = MTLCreateSystemDefaultDevice(), let queue = device.makeCommandQueue() else {
+            print("{\"metalAvailable\":false}"); return
+        }
+        let result: [String: Any] = ["metalAvailable": true,
+            "rows": runNamedInputVectorCases(device: device, queue: queue,
+                sourcePipeline: makeSourcePipeline(device))]
+        print(String(decoding: try JSONSerialization.data(withJSONObject: result,
+            options: [.sortedKeys]), as: UTF8.self))
+    }
+}
+'''
+        compilation, completed = compile_lit_harness(SUPPORT, harness)
+        self.assertEqual(compilation.returncode, 0, compilation.stderr)
+        self.assertIsNotNone(completed)
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        result = json.loads(completed.stdout)
+        if not result["metalAvailable"]:
+            self.skipTest("Metal is unavailable")
+        self.assertEqual(len(result["rows"]), 23)
+        expected = {"both": [148, 64, 28, 255], "A0": [4, 40, 16, 255],
+                    "B0": [144, 24, 12, 255], "swap": [60, 128, 52, 255]}
+        for row in result["rows"]:
+            topology = row["topology"]
+            with self.subTest(topology=topology, control=row["control"]):
+                self.assertTrue(row["prepared"], row)
+                self.assertTrue(row["completed"], row)
+                self.assertEqual(row["peer"], [0, 255, 0, 255])
+                pixel = expected[row["control"]]
+                if topology in ("unused", "missingSuffix"):
+                    pixel = [192, 32, 16, 255]
+                elif topology in ("missing", "metadataMissing"):
+                    pixel = [24, 40, 56, 255]
+                elif topology == "metadata":
+                    # Physical/mapped extent4x2; rotation/translation are zero.
+                    pixel = [128, 64, 64, 255]
+                elif topology == "background":
+                    pixel = [108, 68, 72, 255]  # .5A + .25B + .25(32,48,192).
+                for actual, value in zip(row["pixel"], pixel, strict=True):
+                    self.assertAlmostEqual(actual, value, delta=1, msg=str(row))
+                providers = [901, 902]
+                if topology == "sameProvider" or topology == "unused":
+                    providers = [901]
+                elif topology in ("metadata", "metadataMissing"):
+                    providers = [902]
+                elif topology == "renamed":
+                    providers = [1901, 1902]
+                self.assertEqual(row["providers"], providers)
+                self.assertEqual(row["backgroundRequired"], topology == "background")
+                if topology not in ("missing", "missingSuffix", "metadataMissing"):
+                    self.assertFalse(any(row["failures"]), row)
+                if topology == "sameProvider":
+                    self.assertEqual(row["bindings"], ["z-first:0:2=901", "z-first:0:5=901"])
+                elif topology == "passes":
+                    self.assertEqual(row["bindings"], ["z-first:0:2=901", "z-first:1:5=902"])
+                elif topology == "cross":
+                    self.assertEqual(row["bindings"], ["z-first:0:2=901", "a-second:0:5=902"])
+                elif topology == "unused":
+                    self.assertEqual(row["bindings"], ["z-first:0:2=901"])
+                elif topology in ("metadata", "metadataMissing"):
+                    self.assertEqual(row["bindings"], ["z-first:0:5=902"])
+
     def test_signal_raw_passthrough_crosses_effects_and_keeps_actual_fallback(self) -> None:
         harness = HARNESS_SUPPORT_SOURCE + (FIXTURE_ROOT / "SceneGraphExecutorRawSignalHarness.swift").read_text(encoding="utf-8")
         compilation, completed = compile_lit_harness(SUPPORT, harness)

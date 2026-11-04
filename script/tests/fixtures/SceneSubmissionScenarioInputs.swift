@@ -49,13 +49,14 @@ private func makeTexture(_ device: MTLDevice, _ label: String) -> MTLTexture {
 }
 
 private func makeResource(
+    identity: Graph.TextureIdentity = historyIdentity,
     texture: MTLTexture,
     token: String,
     generation: UInt64
 ) -> SceneFrameTextureResource {
     .init(
         publication: .init(
-            requestIdentity: .graph(historyIdentity),
+            requestIdentity: .graph(identity),
             candidate: .init(
                 texture: texture,
                 identity: .provider(.graph(
@@ -211,11 +212,13 @@ private func makeAtomicPrepared(
     terminalContent: SceneTextureContent = .color(.resolved(.premultipliedAlpha)),
     discardedPersistentTargetState: Bool = false,
     forgedDiscardTransaction: Bool = false,
-    nodeCount: Int = 1
+    nodeCount: Int = 1,
+    terminalTexture: MTLTexture? = nil,
+    failureReason: String? = nil
 ) -> SceneResolvedMaterialGraphExecutor.PreparedGraph {
     let key = effect(for: layerID)
     let output = outputIdentity(for: layerID)
-    let texture = makeTexture(device, "atomic-final-\(layerID)")
+    let texture = terminalTexture ?? makeTexture(device, "atomic-final-\(layerID)")
     let resource = SceneFrameTextureResource(
         publication: .init(
             requestIdentity: .graph(output),
@@ -285,9 +288,8 @@ private func makeAtomicPrepared(
         persistentResources: [:],
         effectOutputResource: resource,
         programCacheKeys: ["atomic-program-\(layerID)"],
-        effectLocalFailureReasonCode: discardedPersistentTargetState
-            ? "fixture-effect-local-visual-failure"
-            : nil,
+        effectLocalFailureReasonCode: failureReason ?? (discardedPersistentTargetState
+            ? "fixture-effect-local-visual-failure" : nil),
         effectLocalActivationBypassReasonCode: nil,
         discardedPersistentTargetState: discardedPersistentTargetState
     )
@@ -376,6 +378,7 @@ private func makeLedger(
         preparedDependencyUnavailability: nil,
         commandBuffer: commandBuffer,
         committedBaseTails: coordinator.committedTails,
+        preparationContext: nil,
         blueprint: blueprint,
         candidateTails: candidate,
         commit: commit,
@@ -449,7 +452,8 @@ private func makeCapabilities(
         )
         return .init(
             layerID: layerID,
-            pairPlan: .init(layerID: layerID),
+            pairPlan: .init(layerID: layerID,
+                effects: SceneResolvedMaterialGraphExecutor.preparedByToken[layerID]?.stages.map(\.pairStep) ?? []),
             admittedProducts: [.init(graph: graph)],
             stages: [.init(
                 subject: .init(

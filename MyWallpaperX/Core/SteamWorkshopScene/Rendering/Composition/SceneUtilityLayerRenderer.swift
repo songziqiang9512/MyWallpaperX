@@ -18,6 +18,10 @@ enum SceneUtilityLayerRenderer {
         audioSpectrum: SceneAudioSpectrumSnapshot,
         dependencyEffects: [SceneDependencyEffectInput] = [],
         requiresDependencyEffect: Bool = false,
+        resolvedMaterialGraphOutputPublisher: ((
+            MTLTexture, SceneTextureContent
+        ) -> SceneGraphOutputPublicationResult)? = nil,
+        compositeOutput: Bool = true,
         pipeline: SceneImageLayerPipeline,
         compositor: SceneImageLayerCompositor,
         offscreenTexturePool: SceneOffscreenTexturePool,
@@ -84,13 +88,16 @@ enum SceneUtilityLayerRenderer {
                 dynamicValues: dynamicValues,
                 audioSpectrum: audioSpectrum
             )
-            return compositor.draw(
+            return compositor.drawOutcome(
                 request,
+                explicitLayerSourcePublication: nil,
+                resolvedMaterialGraphOutputPublisher: resolvedMaterialGraphOutputPublisher,
+                compositeOutput: compositeOutput,
                 pipeline: pipeline,
                 mainPass: mainPass,
                 executionTrace: executionTrace,
                 executionOrigin: executionOrigin
-            )
+            ).encoded
         }
         return mainPass.withReadableTarget { sourceTexture, _ in
             let request = SceneImageLayerDrawRequest(
@@ -119,13 +126,16 @@ enum SceneUtilityLayerRenderer {
                     audioSpectrum: audioSpectrum,
                     terminalDepth: terminalDepth
                 )
-            return compositor.draw(
+            return compositor.drawOutcome(
                 request,
+                explicitLayerSourcePublication: nil,
+                resolvedMaterialGraphOutputPublisher: resolvedMaterialGraphOutputPublisher,
+                compositeOutput: compositeOutput,
                 pipeline: pipeline,
                 mainPass: mainPass,
                 executionTrace: executionTrace,
                 executionOrigin: executionOrigin
-            )
+            ).encoded
         } ?? false
     }
 }

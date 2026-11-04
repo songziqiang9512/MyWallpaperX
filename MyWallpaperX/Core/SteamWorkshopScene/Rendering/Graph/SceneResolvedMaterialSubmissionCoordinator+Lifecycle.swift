@@ -246,7 +246,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
               case let .history(pinEffect, pinTokens) = pin.purpose else {
             return false
         }
-        return pinEffect == effect && pinTokens == tokens
+        return pinEffect == effect && pinTokens.isSuperset(of: tokens)
     }
 
     func tailsAreValid(_ tails: [Graph.EffectKey: Tail]) -> Bool {

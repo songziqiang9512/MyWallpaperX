@@ -283,7 +283,6 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         Self.retainExecutableDependencyClosure(
             in: &accepted,
             rejected: &rejected,
-            candidateLayerIDs: Set(admissionCandidates.map(\.layerID)),
             staticModelGraphOutputProviderLayerIDs: Set(
                 admissionCandidates.compactMap { candidate in
                     guard case let .success(admitted) = candidate.result,
@@ -334,113 +333,56 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
 
     /// A hidden graph-output provider has product execution authority only
     /// while it remains reachable from an admitted visible consumer or an
-    /// admitted direct model material demand. The model never owns a graph
-    /// capability itself. The closure is recomputed after Program compilation so a
-    /// rejected consumer cannot leave an orphan provider transaction that has
-    /// no named-target reservation and would otherwise drop the whole frame.
+    /// admitted direct model material demand. Failed or inactive-passthrough
+    /// stages contribute no named inputs, so their providers need no transaction.
     private static func retainExecutableDependencyClosure(
         in accepted: inout [Int: LayerCapability],
         rejected: inout [String: Int],
-        candidateLayerIDs: Set<Int>,
         staticModelGraphOutputProviderLayerIDs: Set<Int>
     ) {
-        var didChange = true
-        while didChange {
-            didChange = false
-
-            let graphProviderLayerIDs = Set(accepted.compactMap { layerID, capability in
-                capability.isGraphOutputProvider ? layerID : nil
-            })
-            let unavailableConsumers = accepted.compactMap { layerID, capability -> Int? in
-                guard capability.requiresGraphOutputProvider else { return nil }
-                let providerLayerIDs: Set<Int>
-                switch capability.dependencyOwnership {
-                case let .externalPrimary(binding):
-                    guard binding.consumerLayerID == layerID else { return layerID }
-                    providerLayerIDs = [binding.providerLayerID]
-                case let .externalAggregate(aggregate):
-                    guard aggregate.consumerLayerID == layerID,
-                          aggregate.hasStrictBindingVector else {
-                        return layerID
-                    }
-                    providerLayerIDs = aggregate.providerLayerIDs
-                case .none, .graphInternal:
-                    return layerID
-                }
-                // A static provider with no admitted graph candidate has no
-                // execution capability by design. Candidate IDs distinguish
-                // that terminal source from a graph provider that was rejected
-                // during admission/program preparation and therefore must make
-                // the complete consumer closure unavailable.
-                let knownGraphOrCandidateProviderIDs = graphProviderLayerIDs
-                    .union(candidateLayerIDs)
-                let expectedProviderIDs = providerLayerIDs.intersection(
-                    knownGraphOrCandidateProviderIDs
-                )
-                guard !expectedProviderIDs.isEmpty else { return layerID }
-                return expectedProviderIDs.allSatisfy {
-                    accepted[$0] != nil
-                } ? nil : layerID
-            }
-            if !unavailableConsumers.isEmpty {
-                for layerID in unavailableConsumers {
-                    accepted.removeValue(forKey: layerID)
-                    rejected["dependency-graph-provider-unavailable", default: 0] += 1
-#if DEBUG
-                    NSLog(
-                        "MWX DEBUG SCENE: phase=capability-admission layer=%d outcome=rejected-by-closure reason=dependency-graph-provider-unavailable",
-                        layerID
-                    )
-#endif
-                }
-                didChange = true
-                continue
-            }
-
-            var reachable = Set(accepted.compactMap { layerID, capability in
-                capability.isVisibleExecutionRoot ? layerID : nil
-            })
-            reachable.formUnion(
-                staticModelGraphOutputProviderLayerIDs.intersection(
-                    graphProviderLayerIDs
-                )
+        let graphProviderLayerIDs = Set(accepted.compactMap { layerID, capability in
+            capability.isGraphOutputProvider ? layerID : nil
+        })
+        var reachable = Set(accepted.compactMap { layerID, capability in
+            capability.isVisibleExecutionRoot ? layerID : nil
+        })
+        reachable.formUnion(
+            staticModelGraphOutputProviderLayerIDs.intersection(
+                graphProviderLayerIDs
             )
-            var frontier = Array(reachable)
-            while let layerID = frontier.popLast() {
-                guard let capability = accepted[layerID] else { continue }
-                switch capability.dependencyOwnership {
-                case let .externalPrimary(binding):
-                    guard let provider = accepted[binding.providerLayerID],
-                          provider.isGraphOutputProvider,
-                          reachable.insert(binding.providerLayerID).inserted else {
-                        continue
-                    }
-                    frontier.append(binding.providerLayerID)
-                case let .externalAggregate(aggregate):
-                    for providerLayerID in aggregate.providerLayerIDs {
-                        guard let provider = accepted[providerLayerID],
-                              provider.isGraphOutputProvider,
-                              reachable.insert(providerLayerID).inserted else {
-                            continue
-                        }
-                        frontier.append(providerLayerID)
-                    }
-                case .none, .graphInternal:
+        )
+        var frontier = Array(reachable)
+        while let layerID = frontier.popLast() {
+            guard let capability = accepted[layerID] else { continue }
+            switch capability.dependencyOwnership {
+            case let .externalPrimary(binding):
+                guard let provider = accepted[binding.providerLayerID],
+                      provider.isGraphOutputProvider,
+                      reachable.insert(binding.providerLayerID).inserted else {
                     continue
                 }
-            }
-            let unreachableProviders = accepted.compactMap {
-                layerID, capability -> Int? in
-                capability.isGraphOutputProvider && !reachable.contains(layerID)
-                    ? layerID : nil
-            }
-            if !unreachableProviders.isEmpty {
-                for layerID in unreachableProviders {
-                    accepted.removeValue(forKey: layerID)
-                    rejected["dependency-graph-provider-unreachable", default: 0] += 1
+                frontier.append(binding.providerLayerID)
+            case let .externalAggregate(aggregate):
+                for providerLayerID in aggregate.providerLayerIDs {
+                    guard let provider = accepted[providerLayerID],
+                          provider.isGraphOutputProvider,
+                          reachable.insert(providerLayerID).inserted else {
+                        continue
+                    }
+                    frontier.append(providerLayerID)
                 }
-                didChange = true
+            case .none, .graphInternal:
+                continue
             }
+        }
+        let unreachableProviders = accepted.compactMap {
+            layerID, capability -> Int? in
+            capability.isGraphOutputProvider && !reachable.contains(layerID)
+                ? layerID : nil
+        }
+        for layerID in unreachableProviders {
+            accepted.removeValue(forKey: layerID)
+            rejected["dependency-graph-provider-unreachable", default: 0] += 1
         }
     }
 
@@ -623,7 +565,6 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability {
             graphFramebufferColorRepresentations: graphFramebufferColorRepresentations,
             isVisibleExecutionRoot: admitted.isVisibleExecutionRoot,
             isGraphOutputProvider: admitted.isGraphOutputProvider,
-            requiresGraphOutputProvider: admitted.requiresGraphOutputProvider,
             supportsSourceSizedSolidEffects: simpleColor.intermediates,
             supportsTerminalMaterialReplay: supportsTerminalMaterialReplay,
             supportsPlacementSpaceTerminalReplay: simpleColor.placement,

@@ -310,7 +310,7 @@ final class SceneResolvedMaterialRuntimeBridge {
     }
     struct Token: Equatable {}
     enum DependencyOwnership {
-        struct Aggregate { let hasStrictBindingVector: Bool; let bindings: [Int] }
+        struct Aggregate { let bindings: [Int] }
         case unowned
         case externalAggregate(Aggregate)
     }
@@ -403,10 +403,6 @@ final class SceneResolvedMaterialRuntimeBridge {
         texture: MTLTexture,
         reasonCode: String
     ) -> MarkOutcome { .consumed }
-    func rejectPreparedExternalDependencyLocally(
-        layerID: Int,
-        reasonCode: String
-    ) -> Bool { false }
     func prepareFrame(
         _ requests: [FramePreparationRequest],
         pool: SceneOffscreenTexturePool?,

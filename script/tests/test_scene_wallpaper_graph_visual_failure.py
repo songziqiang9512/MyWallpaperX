@@ -344,5 +344,85 @@ class SceneWallpaperGraphVisualFailureTests(unittest.TestCase):
         )
 
 
+    def test_hidden_admitted_fallback_keeps_identity_without_execution_demand(
+        self,
+    ) -> None:
+        preview = "\n".join([
+            "resolved material execution capabilities: "
+            "schema=layer-graph-capability-v1 candidates=1 accepted=1 "
+            "rejected=0 variantLimit=8",
+            "resolved material execution capability: "
+            "schema=layer-graph-route-v1 layer=68 status=accepted",
+        ])
+        hidden = (
+            "MWX dynamic layer visibility: "
+            "schema=dynamic-layer-visibility-v1 frame=1 generation=1 "
+            "layer=68 source=userProperty value=false effective=false\n"
+        )
+        disposition, execution, expectation = (
+            resolved_graph_effect_local_failure_evidence()
+        )
+        metrics = benchmark.resolved_material_graph_execution_metrics(
+            preview,
+            hidden + resolved_graph_visual_failure_log(),
+            effect_execution=execution,
+            static_disposition=disposition,
+        )
+        self.assertEqual(
+            metrics["dynamic_visibility"]["execution_expected_layer_ids"], [],
+        )
+        self.assertEqual(metrics["exact_backend"]["required_layer_ids"], [])
+        self.assertEqual(
+            metrics["exact_backend"]["effect_local_passthroughs"],
+            [expectation],
+        )
+        self.assertEqual(
+            metrics["exact_backend"]["unproven_effect_local_passthroughs"], [],
+        )
+        self.assertIn(
+            "resolved material graph unexpected effect-local passthrough",
+            benchmark.resolved_material_graph_execution_failures(
+                metrics, require_evidence=True, sample={},
+            ),
+        )
+        cases = (
+            (
+                preview.replace("layer=68 status=accepted", "layer=76 status=accepted"),
+                disposition,
+                resolved_graph_visual_failure_log(),
+                "resolved material graph effect-local passthrough identity unproven",
+            ),
+            (
+                preview,
+                static_effect_disposition(
+                    records=[], groups=[{"layer_id": 68, "kind": "resolved"}],
+                ),
+                resolved_graph_visual_failure_log(),
+                "resolved material graph effect-local passthrough identity unproven",
+            ),
+            (
+                preview,
+                disposition,
+                resolved_graph_visual_failure_log(include_visual_next_frame=False),
+                "resolved material graph effect-local passthrough exact join failed",
+            ),
+            (
+                preview,
+                disposition,
+                resolved_graph_visual_failure_log().replace(
+                    "descriptor=68%23effect%230 ", "descriptor=68%23effect%231 ",
+                ),
+                "resolved material graph effect-local passthrough exact join failed",
+            ),
+        )
+        for admitted, static, log, failure in cases:
+            with self.subTest(failure=failure, admitted=admitted):
+                invalid = benchmark.resolved_material_graph_execution_metrics(
+                    admitted, hidden + log, effect_execution=execution,
+                    static_disposition=static,
+                )
+                self.assertIn(failure, invalid["validation_failures"])
+
+
 if __name__ == "__main__":
     unittest.main()

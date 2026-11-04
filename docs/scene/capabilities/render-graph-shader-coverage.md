@@ -47,6 +47,25 @@ Material、instance、user texture、effect 显式 binding 及 shader default �
 - 真实空槽 Resolution 的名义 `[2,2,2,2]` 只用于已证明精确成对归一化、无 default 且 template/frame 都为空的路径；pending/nonempty 槽不能套用此值。
 - 纹理 reduction 改变工作采样域，不改变最终放置与原材质语义；source-sized raster、camera projection 与 terminal placement 分别消费各自准备事实。
 
+<a id="named-input-ownership"></a>
+### Named 输入与发布
+
+多来源输入由实际 prepared 资源接口决定。作者声明保原 effect/pass/slot 顺序；所选模板与已准备变体的实际 sampler、Resolution 等资源需求决定外部输入，graph `previous` 覆盖的 provenance 和变体死槽不额外获得 provider owner。准备与热更新沿原 Catalog、Program fold 和 DependencyPlan，不新增许可 token、registry 或第二次完整编译。
+
+输入接口的槽位与名称和变体内的通道用法分别归属。PMA、straight 与数据变体可以有不同的已编译通道事实；相同资源接口不能因这些事实不同而整体拒绝。颜色适配与局部失败证明消费实际生效的 typed ABI，不以编译 profile 名称或未被实际 emitter 采用的旧标志授予许可。
+
+定义 material 的输入与 instance override 共同形成实际绑定；没有 override 不表示没有 pass 或 named 输入。原 prepared graph/material 保定义 pass 的来源，候选资源准备沿同一 typed 引用形成，实际编译再收敛需求，不能要求作者重复填写 instance textures 才能获得 provider。
+
+- 材质编译负责 shader、combo、颜色/数据角色、uniform 与真实采样；资源计划只负责精确 provider、投影/来源能力、依赖顺序和循环。可执行的普通 solid/image 与 utility 消费同一有序资源向量，不按效果名、blend combo、固定槽数或 pass0/slot1 放行。同一 provider 多槽保每个 consumer 身份，共用原 publication；单来源的既有直接合成语义不能被当作任意 shader 的执行替身。
+- Aggregate 在准备入口形成唯一有序 Binding 数组，slot 留在各 Binding 中；不另存作者顺序数组，不在每帧重建 Dictionary/Set 认证静态结构。Program fold 按实际 stage/slot 消费多个输入，成功 stage 与局部旁路分别形成当前需求；失效输入不能借首 provider、错误槽或其他 publication 顶替。
+- Runtime 只消费该准备结果，并在实际资源处核当前 activation、epoch、publication、纹理及 pin。缺供货使真正依赖它的 operation 局部保 previous-current，健康后继继续；跨帧/错误纹理不能进入普通视觉失败路径。现有 provider 尚无 source/graph 消费者、secondary、forward 依赖顺序或局部投影不成立时，保其具体缺口，不靠清除元数据假装支持。
+
+原提交 ledger 在 named 输入预约到实际 publication 之间保本帧 request、原 targets、该层准备时的 previous tails 及原 pool/观测输入。正常帧仍只准备一次命令；只有实际供货缩成原向量的严格子集、存留资源身份未漂移且尚未编码时，才沿原 Executor 用同一 frame、Program、leases 和 clock 重准备本层，更新原 blueprint/tails。原 commit 保有 history 完整 swap 环的 pin，恢复只消费其覆盖的真实 token；不二次提交 allocation，不预生成备用命令或新建恢复 owner。上下文在原 ledger 编码/终态退出时释放。普通语义/失供货回退由实际入口的 typed 分类与已准备 rollback 拓扑决定，不用 failure 字符串名单重新认证。
+
+Utility provider 在原 utility 触发点取 source、执行与发布，不再由普通 provider prepass 重复执行。原 compositor 的发布回调消费同一 graph ticket；当前可见输出继续主合成，隐藏输出只完成 named publication。发布统计的 named/visible 类别不改变取源时机。普通供货缺失沿既有局部 discard，错误 identity 仍拒绝；不以 alpha=0 代替隐藏，也不另存可见状态或恢复命令。
+
+回归沿[依赖计划](../../../script/tests/test_scene_dependency_render_plan.py)、[真实 Metal 执行](../../../script/tests/test_scene_resolved_material_graph_executor.py)、[提交生命周期](../../../script/tests/test_scene_resolved_material_runtime_bridge.py)和[签名 App 输入贡献](../../../script/tests/test_scene_mixed_provider_abi_integration.py)分别核对准备、供货、执行与像素。绑定或非黑不足以证明每个输入贡献；实际覆盖与未取得的资格归[运行证据](runtime-evidence-current.md#coverage)。
+
 <a id="color"></a>
 ## 颜色、数据与显示
 

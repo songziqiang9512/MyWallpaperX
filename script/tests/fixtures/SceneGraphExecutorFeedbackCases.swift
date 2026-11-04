@@ -222,14 +222,43 @@ private func runFeedbackCases(
         }
     }
 
-    var secondarySelfUnavailablePrepared = false
-    var secondarySelfUnavailableEncoded = false
-    var secondarySelfUnavailableGPUCompleted = false
-    var secondarySelfUnavailablePreservedPreviousCurrent = false
-    var secondarySelfUnavailableDiscardedTargetState = false
-    if let claim = secondarySelfUnavailableCapabilities.claim(
-            secondarySelfUnavailableChain
-       ), let executor = Executor(
+    var secondarySelfMetadataPrepared = false
+    var secondarySelfMetadataEncoded = false
+    var secondarySelfMetadataGPUCompleted = false
+    var secondarySelfMetadataPreservedPreviousCurrent = false
+    var secondarySelfMetadataRetainedTargetState = false
+    let secondarySelfClaim = secondarySelfUnavailableCapabilities.claim(secondarySelfUnavailableChain)
+    let secondarySelfCapability = secondarySelfClaim.flatMap {
+        secondarySelfUnavailableCapabilities.resolve($0.token, for: secondarySelfUnavailableChain)
+    }
+    var secondarySelfProbe: [String: Any] = [
+        "case": "self-secondary-fbo", "claim": secondarySelfClaim != nil,
+        "resolved": secondarySelfCapability != nil, "prepare": "not-entered",
+        "report": Array(secondarySelfUnavailableCapabilities.reportLines.prefix(8)),
+        "bindings": (secondarySelfUnavailableCapabilities.preparedNamedInputBindingsByConsumerLayerID[layerID] ?? []).map {
+            "\($0.slot.effectID):\($0.slot.passIndex):\($0.slot.slotIndex)=\($0.providerLayerID)"
+        },
+    ]
+    let graphBindings: [[String: Any]] = secondarySelfUnavailableGraph.nodes.prefix(4).map {
+        ["node": $0.nodeIndex, "slots": $0.bindings.map { $0.slot ?? -1 },
+         "textures": $0.bindings.map { String(describing: $0.texture) }]
+    }
+    secondarySelfProbe["graphBindings"] = graphBindings
+    if let capability = secondarySelfCapability {
+        secondarySelfProbe["ownership"] = capability.dependencyOwnership.reportKind
+        var materials: [[String: Any]] = []
+        for material in capability.materials.values.sorted(by: { $0.key.nodeIndex < $1.key.nodeIndex }).prefix(4) {
+            let snapshot = material.variants.launchEnvelopeCapabilitySnapshot()
+            let variants: [[String: Any]] = snapshot.variants.prefix(4).map {
+                ["readiness": Int($0.readinessMask), "samplers": $0.activeSamplers.keys.sorted(),
+                 "frontendSlots": $0.frontendProgram.textureBindings.map(\.slot)]
+            }
+            materials.append(["node": material.key.nodeIndex, "ready": snapshot.allEntriesReady,
+                "variants": variants])
+        }
+        secondarySelfProbe["materials"] = materials
+    }
+    if let claim = secondarySelfClaim, let executor = Executor(
            device: device,
            capabilities: secondarySelfUnavailableCapabilities
        ), let commandBuffer = queue.makeCommandBuffer() {
@@ -252,43 +281,53 @@ private func runFeedbackCases(
             effectGeneration: 50,
             resetGeneration: 50
         )
+        secondarySelfProbe["prepare"] = failureCode(preparation)
+        if case let .success(prepared) = preparation {
+            secondarySelfProbe["stageCount"] = prepared.stages.count
+            let stages: [[String: Any]] = prepared.stages.prefix(4).map {
+                ["failure": $0.effectLocalFailureReasonCode ?? "-",
+                 "activation": $0.effectLocalActivationBypassReasonCode ?? "-",
+                 "programKeys": $0.programCacheKeys,
+                 "frameResources": $0.frameResources.keys.map { String(describing: $0) }.sorted()]
+            }
+            secondarySelfProbe["stages"] = stages
+            secondarySelfProbe["intents"] = intentKinds(prepared)
+        }
         if case let .success(prepared) = preparation,
+           prepared.stages.count == 1,
            let stage = prepared.stages.first,
-           stage.effectLocalFailureReasonCode
-                == "dependency-stage-secondary-reference-unavailable",
-           stage.programCacheKeys == [
-               "visual-failure-passthrough:"
-                   + "dependency-stage-secondary-reference-unavailable"
-           ] {
-            secondarySelfUnavailablePrepared = true
-            secondarySelfUnavailableDiscardedTargetState =
-                stage.transition.transaction.intents.isEmpty
-                && stage.transition.transaction.mappingBefore.isEmpty
-                && stage.transition.transaction.mappingAfter.isEmpty
-                && stage.transition.nextState.logicalMapping.isEmpty
-                && stage.transition.nextState.historyClosureIdentities.isEmpty
-                && stage.frameResources.isEmpty
-                && stage.persistentResources.isEmpty
-            secondarySelfUnavailableEncoded = executor.encode(
+           stage.effectLocalFailureReasonCode == nil,
+           stage.programCacheKeys.count == 2,
+           secondarySelfUnavailableCapabilities.preparedNamedInputBindingsByConsumerLayerID[layerID] == [] {
+            secondarySelfMetadataPrepared = true
+            secondarySelfMetadataRetainedTargetState =
+                intentKinds(prepared) == ["material", "material"]
+                && stage.frameResources[first] != nil
+            secondarySelfMetadataEncoded = executor.encode(
                 prepared,
                 commandBuffer: commandBuffer
             )
-            let readback = secondarySelfUnavailableEncoded
+            secondarySelfProbe["encoded"] = secondarySelfMetadataEncoded
+            let readback = secondarySelfMetadataEncoded
                 ? appendReadback(
                     prepared.finalTexture,
                     commandBuffer: commandBuffer
                 ) : nil
             commandBuffer.commit()
             commandBuffer.waitUntilCompleted()
-            secondarySelfUnavailableGPUCompleted =
+            secondarySelfMetadataGPUCompleted =
                 commandBuffer.status == .completed
                 && commandBuffer.error == nil
-            secondarySelfUnavailablePreservedPreviousCurrent =
+            secondarySelfProbe["gpuCompleted"] = secondarySelfMetadataGPUCompleted
+            secondarySelfMetadataPreservedPreviousCurrent =
                 readback.map {
                     matches($0.firstPixel, [0, 0, 255, 255])
                         && matches($0.lastPixel, [0, 0, 255, 255])
                 } ?? false
         }
+    }
+    if let data = try? JSONSerialization.data(withJSONObject: secondarySelfProbe, options: [.sortedKeys]) {
+        FileHandle.standardError.write(Data("MWX TEST self-secondary-fbo ".utf8) + data + Data([10]))
     }
 
     precondition(shaderContract(nodeIndex: 1, pass: false).canonicalSHA256
@@ -310,16 +349,16 @@ private func runFeedbackCases(
             commandVisualFailureDiscardedPreparedPrefix,
         "commandVisualFailureRecoversOnNextFrame":
             commandVisualFailureRecoveredNextFrame,
-        "secondarySelfUnavailableFBOFailurePrepared":
-            secondarySelfUnavailablePrepared,
-        "secondarySelfUnavailableFBOFailureEncoded":
-            secondarySelfUnavailableEncoded,
-        "secondarySelfUnavailableFBOFailureGPUCompleted":
-            secondarySelfUnavailableGPUCompleted,
-        "secondarySelfUnavailableFBOPreservesPreviousCurrent":
-            secondarySelfUnavailablePreservedPreviousCurrent,
-        "secondarySelfUnavailableFBODiscardsTargetState":
-            secondarySelfUnavailableDiscardedTargetState,
+        "unconsumedSelfSecondaryFBOProgramPrepared":
+            secondarySelfMetadataPrepared,
+        "unconsumedSelfSecondaryFBOProgramEncoded":
+            secondarySelfMetadataEncoded,
+        "unconsumedSelfSecondaryFBOProgramGPUCompleted":
+            secondarySelfMetadataGPUCompleted,
+        "unconsumedSelfSecondaryFBOPreservesAuthoredPixels":
+            secondarySelfMetadataPreservedPreviousCurrent,
+        "unconsumedSelfSecondaryFBORetainsAuthoredTarget":
+            secondarySelfMetadataRetainedTargetState,
     ]
     return results
 }

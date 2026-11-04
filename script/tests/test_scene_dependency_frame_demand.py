@@ -12,22 +12,12 @@ from . import test_scene_dependency_graph_output_runtime as support
 # Reuse the existing runtime scaffold. Only the plan projection is instrumented;
 # the production owner and its memo are compiled unchanged, without telemetry.
 SCAFFOLD = support.GEOMETRY_HARNESS_SOURCE.split("@main", 1)[0].replace(
-    "struct SceneDependencyRenderPlan {",
-    "struct SceneDependencyRenderPlan {\n    static var demandProjectionCount = 0;", 1
+    "extension SceneDependencyRenderPlan {",
+    "extension SceneDependencyRenderPlan {\n    static var demandProjectionCount = 0;", 1
 ).replace(
     "        var reachable = visibleRootLayerIDs.intersection(",
     "        Self.demandProjectionCount += 1\n"
     "        var reachable = visibleRootLayerIDs.intersection(", 1
-).replace(
-    "        var changed = true\n        while changed {",
-    """        for binding in staticModelBindingsByConsumerLayerID.values
-        where visibleRootLayerIDs.contains(binding.consumerLayerID)
-            && requiredGraphOutputProviderLayerIDs.contains(binding.providerLayerID)
-            && availableExecutionLayerIDs.contains(binding.providerLayerID) {
-            reachable.insert(binding.providerLayerID)
-        }
-        var changed = true
-        while changed {""", 1
 )
 
 HARNESS = r'''
@@ -43,7 +33,7 @@ HARNESS = r'''
         }
         let vector = [binding(22, 11), binding(22, 12)]
         let aggregate = SceneDependencyRenderPlan.MultiProviderAggregate(
-            consumerLayerID: 22, bindings: vector, authoredSlotOrder: vector.map(\.slot))
+            consumerLayerID: 22, bindings: vector)
         let live: Set<Int> = [11, 12, 22, 44, 55, 66, 77, 40]
         let available: Set<Int> = [11, 22, 44, 55, 66, 40]
         let visible: Set<Int> = [44, 55, 40]
@@ -64,7 +54,6 @@ HARNESS = r'''
                     activeStaticModelConsumerLayerIDs: models)
             }
             rows[label] = ["active": demand.activeExecutionLayerIDs.sorted(),
-                "unavailable": demand.unavailableLayerIDs.sorted(),
                 "projections": SceneDependencyRenderPlan.demandProjectionCount]
         }
         query("initial", roots: visible, liveIDs: live, graph: available)
@@ -104,7 +93,7 @@ class SceneDependencyFrameDemandTests(unittest.TestCase):
         source, binary = root / "Harness.swift", root / "demand"
         source.write_text(SCAFFOLD + HARNESS)
         compilation = subprocess.run([
-            "xcrun", "--sdk", "macosx", "swiftc", str(support.RUNTIME_SOURCE),
+            "xcrun", "--sdk", "macosx", "swiftc", str(support.PLAN_SOURCE), str(support.RUNTIME_SOURCE),
             str(support.AGGREGATE_VALIDATION_RUNTIME_SOURCE), str(support.GEOMETRY_RUNTIME_SOURCE),
             str(support.EFFECT_INPUT_RESOLUTION_RUNTIME_SOURCE), str(support.STATIC_MODEL_RUNTIME_SOURCE),
             str(support.GEOMETRY_PRODUCT_SOURCE),
@@ -121,37 +110,38 @@ class SceneDependencyFrameDemandTests(unittest.TestCase):
         if cls.rows.get("metalUnavailable"):
             raise unittest.SkipTest("Metal unavailable")
 
-    def assert_row(self, name, active, unavailable, projections):
-        self.assertEqual(self.rows[name], {"active": active, "unavailable": unavailable,
-                                         "projections": projections})
+    def assert_row(self, name, active, projections):
+        self.assertEqual(self.rows[name], {"active": active, "projections": projections})
 
-    def test_stable_and_deleted_aggregate_frames_reuse_one_memo(self):
+    def test_stable_and_deleted_provider_frames_reuse_one_memo(self):
         for name in ("initial", "stable"):
-            self.assert_row(name, [11, 22, 40, 44, 55], [], 1)
+            self.assert_row(name, [11, 22, 40, 44, 55], 1)
         for name in ("staticDeleted", "deletedStable"):
-            self.assert_row(name, [11, 40, 55], [22, 44], 3)
+            self.assert_row(name, [11, 22, 40, 44, 55], 2)
 
-    def test_live_static_provider_changes_invalidate_without_graph_id_change(self):
-        self.assert_row("staticDeleted", [11, 40, 55], [22, 44], 3)
-        self.assert_row("staticRestored", [11, 22, 40, 44, 55], [], 6)
+    def test_missing_static_provider_keeps_consumer_and_healthy_dependency_demand(self):
+        # A missing input is resolved by its operation. Consumer22, its
+        # downstream44 and the healthy A-only55 must remain executable.
+        self.assert_row("staticDeleted", [11, 22, 40, 44, 55], 2)
+        self.assert_row("staticRestored", [11, 22, 40, 44, 55], 5)
 
-    def test_visibility_changes_remove_unused_fallback_and_orphan_demand(self):
+    def test_visibility_changes_remove_orphan_demand(self):
         for name in ("consumerHidden", "hiddenStable"):
-            self.assert_row(name, [11, 40, 55], [], 4)
-        self.assert_row("noDependentRoot", [40], [], 5)
+            self.assert_row(name, [11, 40, 55], 3)
+        self.assert_row("noDependentRoot", [40], 4)
 
     def test_available_graph_changes_invalidate_and_restore(self):
-        self.assert_row("graphUnavailable", [22, 40, 44, 55], [], 7)
-        self.assert_row("graphRestored", [11, 22, 40, 44, 55], [], 8)
+        self.assert_row("graphUnavailable", [22, 40, 44, 55], 6)
+        self.assert_row("graphRestored", [11, 22, 40, 44, 55], 7)
 
     def test_only_prepared_visible_models_activate_their_live_provider(self):
-        self.assert_row("modelUnprepared", [40], [], 9)
+        self.assert_row("modelUnprepared", [40], 8)
         for name in ("modelPrepared", "modelStable"):
-            self.assert_row(name, [40, 66], [], 10)
-        self.assert_row("modelHidden", [40], [], 11)
-        self.assert_row("modelProviderDeleted", [40], [], 12)
-        self.assert_row("modelGraphUnavailable", [40], [], 13)
-        self.assert_row("modelGraphRestored", [40, 66], [], 14)
+            self.assert_row(name, [40, 66], 9)
+        self.assert_row("modelHidden", [40], 10)
+        self.assert_row("modelProviderDeleted", [40], 11)
+        self.assert_row("modelGraphUnavailable", [40], 12)
+        self.assert_row("modelGraphRestored", [40, 66], 13)
 
 
 if __name__ == "__main__":

@@ -20,16 +20,19 @@ enum Harness {
         try SceneSubmissionAdmissionChecks.capabilityAndTargetAdmission(
             device: device, queue: queue, results: &results
         )
-        try SceneSubmissionPublicationChecks.aggregatePublicationMiss(
+        try SceneSubmissionPublicationChecks.lateNamedInputAvailability(
             device: device, queue: queue, results: &results
         )
-        try SceneSubmissionAtomicPreparationChecks.rollbackAndTransitiveCapture(
+        try SceneSubmissionPublicationChecks.lateProviderContentPropagation(
+            device: device, queue: queue, results: &results
+        )
+        try SceneSubmissionAtomicPreparationChecks.atomicPreparationRollback(
+            device: device, queue: queue, results: &results
+        )
+        try SceneSubmissionAtomicPreparationChecks.lateHistoryRollback(
             device: device, queue: queue, results: &results
         )
         try SceneSubmissionPublicationChecks.preparedProviderAndNamedSuffix(
-            device: device, queue: queue, results: &results
-        )
-        try SceneSubmissionAtomicPreparationChecks.externalDependencyCapture(
             device: device, queue: queue, results: &results
         )
         try SceneSubmissionPublicationChecks.repeatedTerminalPublication(

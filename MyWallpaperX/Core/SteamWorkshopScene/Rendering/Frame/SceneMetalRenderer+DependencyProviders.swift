@@ -3,9 +3,8 @@ import Metal
 import simd
 
 extension SceneMetalRenderer {
-    /// Resolves the complete dependency input vector for one image draw. The
-    /// aggregate path remains lossless; a missing or invalid member falls
-    /// through to the same typed failure used by the legacy single input.
+    /// Resolves available dependency inputs for one image draw. Missing
+    /// aggregate supply stays local; actual resource drift remains a failure.
     func resolveDependencyEffectInputs(
         layerID: Int,
         requiresDependencyEffect: Bool,
@@ -15,7 +14,7 @@ extension SceneMetalRenderer {
         textureRegistry: SceneFrameTextureRegistry
     ) -> (
         dependencyEffects: [SceneDependencyEffectInput],
-        failure: (reasonCode: String, isOrdinaryUnavailable: Bool)?
+        failure: String?
     ) {
         if bypassReason != nil {
             return ([], nil)
@@ -29,10 +28,8 @@ extension SceneMetalRenderer {
                 ) {
                 case let .ready(inputs):
                     return (inputs, nil)
-                case let .unavailable(reasonCode):
-                    return ([], (reasonCode, true))
                 case let .invalid(reasonCode):
-                    return ([], (reasonCode, false))
+                    return ([], reasonCode)
                 }
             }
             switch dependencyRuntime.resolvedMaterialEffectInputResolution(
@@ -41,10 +38,10 @@ extension SceneMetalRenderer {
             ) {
             case let .ready(input):
                 return ([input], nil)
-            case let .unavailable(reasonCode):
-                return ([], (reasonCode, true))
+            case .unavailable:
+                return ([], nil)
             case let .invalid(reasonCode):
-                return ([], (reasonCode, false))
+                return ([], reasonCode)
             }
         }
         return (
@@ -72,6 +69,7 @@ extension SceneMetalRenderer {
         imagePipeline: SceneImageLayerPipeline? = nil,
         executionTrace: SceneEffectExecutionFrameTrace?
     ) -> Bool? {
+        guard layer.utilityLayer == nil else { return nil }
         guard dependencyRuntime.requiresDemandedGraphOutputCapture(
             for: layer.id
         ) else { return nil }
@@ -95,13 +93,6 @@ extension SceneMetalRenderer {
                 ) {
                 case let .ready(inputs):
                     dependencyEffects = inputs
-                case let .unavailable(reasonCode):
-                    dependencyRuntime.recordBindingFailure(for: layer.id)
-                    return imageCompositor
-                        .rejectResolvedMaterialDependencySubgraphLocally(
-                            layerID: layer.id,
-                            reasonCode: reasonCode
-                        )
                 case let .invalid(reasonCode):
                     dependencyRuntime.recordBindingFailure(for: layer.id)
                     imageCompositor.recordResolvedMaterialFramePreflightFailure(
@@ -116,13 +107,8 @@ extension SceneMetalRenderer {
                 ) {
                 case let .ready(input):
                     dependencyEffects = [input]
-                case let .unavailable(reasonCode):
-                    dependencyRuntime.recordBindingFailure(for: layer.id)
-                    return imageCompositor
-                        .rejectResolvedMaterialDependencySubgraphLocally(
-                            layerID: layer.id,
-                            reasonCode: reasonCode
-                        )
+                case .unavailable:
+                    break
                 case let .invalid(reasonCode):
                     dependencyRuntime.recordBindingFailure(for: layer.id)
                     imageCompositor.recordResolvedMaterialFramePreflightFailure(
@@ -133,10 +119,8 @@ extension SceneMetalRenderer {
             }
         }
 
-        // Resolve an external provider before consuming the execution claim.
-        // An ordinary missing publication can then remove this unencoded
-        // transaction locally and let the same rule cascade through later
-        // hidden providers without invalidating independent frame work.
+        // Resolve available slots before consuming the claim; operations
+        // reading missing publications retain their own effect entry.
         let claim: SceneResolvedMaterialRuntimeBridge.ClaimedExecution
         switch imageCompositor.resolvedMaterialClaim(layerID: layer.id) {
         case let .claimed(value):

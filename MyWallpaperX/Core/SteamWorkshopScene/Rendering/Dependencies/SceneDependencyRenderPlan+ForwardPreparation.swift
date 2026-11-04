@@ -125,7 +125,7 @@ extension SceneDependencyRenderPlan {
         guard Set(authoredLayerIDs).count == authoredLayerIDs.count else {
             return nil
         }
-        let available = Set(authoredLayerIDs)
+        let available = Set(authoredLayerIDs).intersection(requiredProviderLayerIDs)
         // Aggregate consumers own several independently captured providers.
         // Keep these bindings in the same forward-preparation ledger as the
         // legacy one-provider route; otherwise a provider authored after its

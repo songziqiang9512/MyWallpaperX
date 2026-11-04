@@ -157,6 +157,9 @@ struct SceneImageLayerMasks {}
 struct SceneDynamicSnapshot {}
 struct SceneAudioSpectrumSnapshot {}
 struct SceneDependencyEffectInput {}
+struct SceneTextureProviderPublication {}
+struct SceneTextureContent {}
+struct SceneGraphOutputPublicationResult {}
 struct SceneImageLayerPipeline { let supportsReadOnlyDepth = false }
 // This alpha handoff probe never requests a depth capability. The empty leaf
 // carries the optional signature without duplicating the depth/frame owner.
@@ -200,12 +203,17 @@ final class SceneMainPassEncoder {
     }
 }
 final class SceneImageLayerCompositor {
+    struct DrawOutcome { let encoded: Bool }
     var requests: [SceneImageLayerDrawRequest] = []
-    func draw(_ request: SceneImageLayerDrawRequest, pipeline: SceneImageLayerPipeline,
+    func drawOutcome(_ request: SceneImageLayerDrawRequest,
+              explicitLayerSourcePublication: SceneTextureProviderPublication?,
+              resolvedMaterialGraphOutputPublisher: ((MTLTexture, SceneTextureContent)
+                  -> SceneGraphOutputPublicationResult)?,
+              compositeOutput: Bool, pipeline: SceneImageLayerPipeline,
               mainPass: SceneMainPassEncoder, executionTrace: SceneEffectExecutionFrameTrace?,
-              executionOrigin: SceneEffectExecutionOrigin) -> Bool {
+              executionOrigin: SceneEffectExecutionOrigin) -> DrawOutcome {
         requests.append(request)
-        return true
+        return DrawOutcome(encoded: true)
     }
 }
 @main enum Harness {

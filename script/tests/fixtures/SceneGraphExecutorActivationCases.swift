@@ -325,13 +325,8 @@ private func runActivationCases(
         generation: 60
     )
 
-    // 反门 (documented fail-closed): the same consumer shape with NO
-    // sceneScript producer - the activation policy fails to construct
-    // and the initially-inactive stage must downgrade, but a
-    // named-consuming leaf stage does not satisfy the passthrough
-    // topology (only effect-input or .unresolved bindings do), so the
-    // whole layer fails closed. This is the recorded D2b constraint:
-    // the carve-out must guarantee the policy constructs.
+    // Without a visibility producer the initially-inactive stage retains its
+    // source; no compiled Program or external named demand may survive it.
     let dependencyNoProducerCapabilities = capabilities(
         dependencyActivationChain,
         catalog: catalog(
@@ -351,14 +346,13 @@ private func runActivationCases(
                 for: dependencyActivationChain
             )
         }
-    // The observable rejection code is execution-stage-conservation:
-    // the passthrough-unsafe stage is omitted first, and the stage-count
-    // guard masks the inner code. Both mean the same fail-closed layer.
-    let unproducedNamedSlotConsumerFailsClosed =
-        dependencyNoProducerCapability == nil
-        && dependencyNoProducerCapabilities.reportLines.contains {
-            $0.contains("execution-stage-conservation")
-        }
+    let unproducedNamedSlotConsumerStaysInactiveWithoutDemand = {
+        guard let capability = dependencyNoProducerCapability,
+              capability.stages.count == 1,
+              case .initiallyInactivePassthrough = capability.stages[0].execution else { return false }
+        return capability.materials.isEmpty
+            && dependencyNoProducerCapabilities.preparedNamedInputBindingsByConsumerLayerID[layerID] == []
+    }()
 
     // 反门 (downgrade viability): the real corpus shape - an ACTIVE
     // sibling effect carries the externalPrimary binding while the
@@ -498,8 +492,7 @@ private func runActivationCases(
             initiallyInactiveEffectKeys: [chainedSecondEffect],
             sourceRoute: .capturedLayerTexture,
             isVisibleExecutionRoot: true,
-            isGraphOutputProvider: false,
-            requiresGraphOutputProvider: false
+            isGraphOutputProvider: false
         )
     }
     let downgradeStageResult = try downgradeAdmitted.map {
@@ -563,13 +556,8 @@ private func runActivationCases(
             == .externalPrimary(downgradeSiblingBinding)
     }()
 
-    // Registered boundary (review P2-1): a script-gated stage whose
-    // resolved named dependency points at a provider OUTSIDE the
-    // layer's externalPrimary binding fails the pre-proof, and the
-    // downgrade is rejected by the passthrough topology (the stage's
-    // bindings carry a named texture, which the leaf branch does not
-    // accept) - the whole layer fails closed. The corpus does not
-    // contain this shape; this fixture pins the fail-closed behavior.
+    // The script target remains correct; only the cold named carrier differs
+    // from the selected provider. Its inactive fallback cannot acquire a Program.
     let mismatchedScriptStageCapabilities = capabilities(
         dependencyActivationChain,
         catalog: catalog(
@@ -598,8 +586,13 @@ private func runActivationCases(
                 for: dependencyActivationChain
             )
         }
-    let mismatchedScriptStageFailsClosed =
-        mismatchedScriptStageCapability == nil
+    let inactiveWrongProviderCarrierHasNoProgramOrNamedDemand = {
+        guard let capability = mismatchedScriptStageCapability,
+              capability.stages.count == 1,
+              case .initiallyInactivePassthrough = capability.stages[0].execution else { return false }
+        return capability.materials.isEmpty
+            && mismatchedScriptStageCapabilities.preparedNamedInputBindingsByConsumerLayerID[layerID] == []
+    }()
 
     // Coverage gap (recorded): the passthrough predicate's
     // `.unresolved` slot-binding disjunct is not reachable from a
@@ -638,14 +631,14 @@ private func runActivationCases(
                 && inactiveDependencyActivation.gpu
                 && inactiveDependencyActivation.pixelsPreserved
                 && inactiveDependencyActivation.fallbackFree,
-        "unproducedNamedSlotConsumerFailsClosed":
-            unproducedNamedSlotConsumerFailsClosed,
+        "unproducedNamedSlotConsumerStaysInactiveWithoutDemand":
+            unproducedNamedSlotConsumerStaysInactiveWithoutDemand,
         "parallelStagePreparationPreservesAuthoredResult":
             parallelStagePreparationPreservesAuthoredResult,
         "downgradeWithActiveSiblingResolvesPassthrough":
             downgradeWithActiveSiblingResolvesPassthrough,
-        "mismatchedScriptStageFailsClosed":
-            mismatchedScriptStageFailsClosed,
+        "inactiveWrongProviderCarrierHasNoProgramOrNamedDemand":
+            inactiveWrongProviderCarrierHasNoProgramOrNamedDemand,
     ]
     return (
         sourcePipeline,

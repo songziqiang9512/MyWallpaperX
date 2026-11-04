@@ -437,8 +437,9 @@ final class SceneResolvedMaterialRuntimeBridge {
         capabilities.executionLayerIDs
     }
 
-    var admittedResolvedMaterialReferences: Set<SceneDependencyRenderPlan.Reference> {
-        capabilities.admittedResolvedMaterialReferences
+    var preparedNamedInputBindingsByConsumerLayerID:
+        [Int: [SceneDependencyRenderPlan.Binding]] {
+        capabilities.preparedNamedInputBindingsByConsumerLayerID
     }
 
     func requiresSceneEnvironment(layerID: Int) -> Bool {
@@ -662,16 +663,6 @@ final class SceneResolvedMaterialRuntimeBridge {
 
     func preparedExternalDependencyBypassReason(layerID: Int) -> String? {
         submissions.preparedExternalDependencyBypassReason(layerID: layerID)
-    }
-
-    func rejectPreparedExternalDependencyLocally(
-        layerID: Int,
-        reasonCode: String
-    ) -> Bool {
-        submissions.rejectPreparedExternalDependencyLocally(
-            layerID: layerID,
-            reasonCode: reasonCode
-        )
     }
 
     func markComposite(

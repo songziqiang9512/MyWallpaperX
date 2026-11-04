@@ -113,8 +113,8 @@
       "bytes": 7033
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
-      "lines": 63,
-      "bytes": 8597
+      "lines": 65,
+      "bytes": 8860
     },
     "docs/scene/capabilities/material-video-assets.md": {
       "lines": 57,
@@ -125,12 +125,12 @@
       "bytes": 10249
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 99,
-      "bytes": 13324
+      "lines": 118,
+      "bytes": 17568
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 45,
-      "bytes": 12144
+      "lines": 49,
+      "bytes": 14207
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 81,
@@ -161,8 +161,8 @@
       "bytes": 4260
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 159,
-      "bytes": 23204
+      "lines": 163,
+      "bytes": 24808
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -372,39 +372,12 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "f604e539ff6d27eb51d64ea17a69056ee2c8574f1cfda77334e028ac283ea3cf",
-      "after": "4e3b66f1ad1378a2f398317e5accb39d628ea4716a68726ac36773ec1b3ba6ae",
-      "owner": "Scene shader preparation and current runtime evidence",
-      "reason": "Replace repeated intrinsic source-shape proofs with one typed argument plan; record current HLSL4, Metal, author/neighbor qualification and the independently located const-scope debt.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#intrinsic-argument-conversion"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/effect-execution-coverage.md",
-      "before": "249ee5650046cc7702291f6b82bd7fc9f55e2d3ee774aecb17f4f0902e41c7ca",
-      "after": "a72a67b3f928f217472ed7aff6787b677ead62c5189c7b9695cc1d0069f52ba1",
-      "owner": "scene-composition-particles",
-      "reason": "Define target-aware particle XY/depth/refraction and input affine ownership in the existing composition contract; no new renderer or permission whitelist.",
-      "decision": "docs/scene/capabilities/effect-execution-coverage.md#particle-subtree-raster"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
       "before": "b93dc52ddc8787f46b02144f86e977d7f52bbe97cd4491730c3d32e462172b7a",
       "after": "09da070560da4b3e007d7a22f8658d7fd49ebc66eae4d16ef335ee449c404034",
       "owner": "scene-particle-material-raster",
       "reason": "Separate actual material/raster inputs from geometry and camera selection; define existing depth ownership and finite backend overbright without renderer permissions.",
       "decision": "docs/scene/capabilities/particle-component-coverage.md#material-state"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "baa0abfd9e72bc4b7e830f5ef5b54df2c41d10242ce83fa7f29060d75284ec7f",
-      "after": "37a3c34590957277b8ab6816eb093eae8cb53f5d158cd8bd7937588196dc1d8d",
-      "owner": "scene-particle-material-raster",
-      "reason": "Bind the actual Debug dylib and phase-matched author draws to CPU/Metal controls, preserving weak original-alpha trajectory and attribution limits.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#coverage"
     },
     {
       "section": "bodies",
@@ -417,12 +390,39 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/effect-execution-coverage.md",
+      "before": "a72a67b3f928f217472ed7aff6787b677ead62c5189c7b9695cc1d0069f52ba1",
+      "after": "4ed3989160b5a4579b885e841c9acacaabf2d85ce7b5cde4ff9e2abcdd1f50e5",
+      "owner": "scene-prepared-named-inputs",
+      "reason": "Route utility source execution and named versus visible output to the existing unique trigger/compositor contract.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-input-ownership"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "4e3b66f1ad1378a2f398317e5accb39d628ea4716a68726ac36773ec1b3ba6ae",
+      "after": "da96e1783668267eef2ec636e262b37e2939afbd43e230ab2562d595b12a85fa",
+      "owner": "scene-prepared-named-inputs",
+      "reason": "Describe actual prepared material/definition inputs, effective ABI, ordered vectors, local supply loss and unique utility publication; retire design-only prose.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-input-ownership"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "37a3c34590957277b8ab6816eb093eae8cb53f5d158cd8bd7937588196dc1d8d",
+      "after": "47bfa5da6ed552cbd3504545c94ae013c4b07762704a75a2ed8c28f2dab0375d",
+      "owner": "scene-prepared-named-inputs",
+      "reason": "Bind the final signed Debug source/dylib identity to actual input-contribution controls and author publication/tail chains, preserving reader replay and remaining failures.",
+      "decision": "docs/scene/capabilities/runtime-evidence-current.md#coverage"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "832a2789f2dc90504ded90ff7db450823e2463f7a992d9e55646c580e4c33a6d",
-      "after": "4420cb0b6fa6716b368ab5e18daa6a7f8987a01cec237114dce1b34842aae712",
-      "owner": "scene-particle-material-raster",
-      "reason": "Replace retired Rope material rejection with the current original-alpha visible-trajectory breakpoint and retain actual unconsumed material-input limits.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#material-state"
+      "before": "4420cb0b6fa6716b368ab5e18daa6a7f8987a01cec237114dce1b34842aae712",
+      "after": "b9e3c824210ccee1617ae16613845dd183341205406dd7bd06ce00940307b874",
+      "owner": "scene-prepared-named-inputs",
+      "reason": "Replace retired named-input refusals with current measured supply/source/activation cutpoints and retain genuine opacity, Puppet and scheduling gaps.",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     }
   ]
 }

@@ -37,17 +37,26 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
         case prepared, allocationCommitted, encoded, outputConsumed, sealed
     }
 
+    struct PreparationContext {
+        let request: Bridge.FramePreparationRequest
+        let targets: ScenePreparedPersistentGraphTargets
+        let previousTails: [Graph.EffectKey: Tail]
+        let pool: SceneOffscreenTexturePool
+        let executionTrace: SceneEffectExecutionFrameTrace?
+    }
+
     struct PreparedLedger {
         let identity, epoch, frameIndex: UInt64
         let layerID: Int
         let capabilityToken:
             SceneResolvedMaterialExecutionCapabilityCatalog.Token
-        let prepared: SceneResolvedMaterialGraphExecutor.PreparedGraph
-        let preparedDependencyEffects: [SceneDependencyEffectInput]
+        var prepared: SceneResolvedMaterialGraphExecutor.PreparedGraph
+        var preparedDependencyEffects: [SceneDependencyEffectInput]
         let preparedDependencyUnavailability:
             Bridge.FrameInputs.DependencyUnavailability?
         let commandBuffer: MTLCommandBuffer
         let committedBaseTails: [Graph.EffectKey: Tail]
+        var preparationContext: PreparationContext?
         var blueprint: CandidateBlueprint?
         var candidateTails: [Graph.EffectKey: Tail]?
         var commit: Commit?
@@ -206,15 +215,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
               frameLocalFallbacks.isEmpty,
               fallbacks.allSatisfy({ layerID, reasonCode in
                   guard let claim = capabilities.claim(layerID: layerID),
-                        let capability = capabilities.resolve(claim.token) else { return false }
-                  if reasonCode == Bridge.FrameInputs.DependencyUnavailability
-                        .providerSourceUnavailable.rawValue {
-                      if case let .externalAggregate(aggregate) = capability.dependencyOwnership {
-                          return aggregate.consumerLayerID == layerID && aggregate.hasStrictBindingVector
-                      }
-                      return dependencyReservationMatches(nil, unavailability: .providerSourceUnavailable,
-                          ownership: capability.dependencyOwnership)
-                  }
+                        capabilities.resolve(claim.token) != nil else { return false }
                   return allowedReasons.contains(reasonCode)
               }) else {
             lock.unlock()
@@ -349,7 +350,6 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                   capability.layerID == claim.layerID,
                   capability.pairPlan.layerID == claim.layerID,
                   capability.effectSubjectsAreConserved,
-                  capability.dependencyOwnership == claim.dependencyOwnership,
                   (claim.dependencyOwnership.isAggregate
                     ? request.frameInputs.dependencyUnavailability == nil
                         && dependencyEffectsReservationMatches(
@@ -424,17 +424,19 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
         var candidates: [PreparedFrameCandidate] = []
         var candidateInputIndices: [Int] = []
         var provisionalTails = scheduledTails
-        let externallyConsumedProviderLayerIDs = Set(requests.flatMap {
-            request -> [Int] in
+        var externallyConsumedProviderLayerIDs = Set<Int>()
+        for request in requests {
             switch request.claim.dependencyOwnership {
             case let .externalPrimary(binding):
-                return [binding.providerLayerID]
+                externallyConsumedProviderLayerIDs.insert(binding.providerLayerID)
             case let .externalAggregate(aggregate):
-                return Array(aggregate.providerLayerIDs)
+                for binding in aggregate.bindings {
+                    externallyConsumedProviderLayerIDs.insert(binding.providerLayerID)
+                }
             default:
-                return []
+                break
             }
-        })
+        }
         for index in requests.indices {
             let request = requests[index]
             let claim = request.claim
@@ -491,10 +493,10 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                     }
                 }
             case let .externalAggregate(aggregate):
-                preparedDependencyEffects = zip(
-                    aggregate.bindings, preparedDependencyEffects
-                ).map { binding, input in
-                    guard binding.kind != .geometryLayer,
+                preparedDependencyEffects = preparedDependencyEffects.map { input in
+                    guard let binding = aggregate.bindings.first(where: {
+                        $0.slot == input.slot
+                    }), binding.kind != .geometryLayer,
                           let provider = candidates.first(where: {
                         $0.layerID == input.providerLayerID
                     }) else { return input }
@@ -506,38 +508,21 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
             case .none, .graphInternal:
                 break
             }
-            let frameInputs = request.frameInputs.withDependencyEffects(
-                preparedDependencyEffects
+            let previousTails = Dictionary(uniqueKeysWithValues:
+                claim.pairPlan.effects.compactMap { step in
+                    provisionalTails[step.effect].map { (step.effect, $0) }
+                })
+            let preparationContext = PreparationContext(
+                request: request, targets: targets, previousTails: previousTails,
+                pool: pool, executionTrace: executionTrace
             )
 #if DEBUG
             performanceTelemetry?.beginStage("admit-executor-prepare")
 #endif
 
-            let result = executor.prepare(
-                token: claim.token,
-                leases: targets.leases,
-                historyRehydrateCopiesByEffect:
-                    targets.historyRehydrateCopiesByEffect,
-                frame: frame,
-                sceneBackgroundResource: request.sceneBackgroundResource,
-                sourceTexture: request.sourceTexture,
-                sourceUniforms: request.sourceUniforms,
-                sourcePipeline: request.sourcePipeline,
-                framebufferSourceMaterial: request.framebufferSourceMaterial,
-                sourceLighting: request.sourceLighting,
-                terminalReplayTarget: request.terminalReplayTarget,
-                terminalReplayBlendMode: request.terminalReplayBlendMode,
-                terminalReplayIsOptional: request.terminalReplayIsOptional,
-                pool: pool,
-                frameInputs: frameInputs,
-                commandBuffer: commandBuffer,
-                previousStates: provisionalTails.mapValues(\.state),
-                previousGraphResources:
-                    provisionalTails.mapValues(\.persistentResources),
-                materialFunctionInvocations:
-                    request.materialFunctionInvocations,
-                effectGeneration: effectGeneration,
-                resetGeneration: resetGeneration, executionTrace: executionTrace
+            let result = prepareGraph(
+                preparationContext, dependencyEffects: preparedDependencyEffects,
+                executor: executor, frame: frame, commandBuffer: commandBuffer
             )
 #if DEBUG
             performanceTelemetry?.endStage("admit-executor-prepare")
@@ -601,7 +586,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
             }
             guard let blueprint = candidateBlueprintLocked(
                 for: prepared,
-                startingAt: provisionalTails
+                startingAt: previousTails
             ), candidateIsCommitReadyLocked(
                 targets: targets,
                 prepared: prepared,
@@ -629,6 +614,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                     preparedDependencyUnavailability,
                 commandBuffer: commandBuffer,
                 committedBaseTails: committedTails,
+                preparationContext: preparedDependencyEffects.isEmpty ? nil : preparationContext,
                 blueprint: blueprint,
                 targets: targets
             ))
@@ -721,6 +707,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                     candidate.preparedDependencyUnavailability,
                 commandBuffer: candidate.commandBuffer,
                 committedBaseTails: candidate.committedBaseTails,
+                preparationContext: candidate.preparationContext,
                 blueprint: candidate.blueprint,
                 candidateTails: candidateTails,
                 commit: commit,

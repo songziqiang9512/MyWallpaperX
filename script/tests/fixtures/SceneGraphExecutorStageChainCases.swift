@@ -47,15 +47,6 @@ private func runStageChainCases(
             ),
             variant: .secondary
         )
-    let mixedForwardUnavailableKeys = mixedForwardUnavailableEffectKeys(
-        graph: pixelGraph,
-        secondaryReference: exactSecondaryPreviousReference
-    )
-    let nonImmediateMixedForwardUnavailableKeys =
-        mixedForwardUnavailableEffectKeys(
-            graph: pixelGraph,
-            secondaryReference: nonImmediateSecondaryReference
-        )
     let pixelCapabilities = capabilities(
         pixelChain,
         catalog: catalog(for: pixelGraph)
@@ -410,8 +401,6 @@ private func runStageChainCases(
         "orderedStagesGPUCompleted": chainedStagesGPUCompleted,
         "orderedStagesPreservePriorPixelContribution":
             chainedStagePixelsPreserved,
-        "mixedForwardAndSecondaryKeepsOnlyForwardOwner":
-            mixedForwardUnavailableKeys == [chainedSecondEffect],
         // A backward provider has no binding contract in this launch;
         // only the exact single-pass effect holding the reference fails
         // soft while the rest of the chain stays admitted.
@@ -424,8 +413,7 @@ private func runStageChainCases(
                     return false
                 }) == true,
         "nonImmediateSecondaryCannotBeShadowed":
-            nonImmediateMixedForwardUnavailableKeys == nil
-                && !SceneResolvedMaterialExactPreviousInputShadow.accepts(
+            !SceneResolvedMaterialExactPreviousInputShadow.accepts(
                     .init(providerLayerID: layerID, variant: .secondary),
                     input: input,
                     consumer: chainedFirstEffect

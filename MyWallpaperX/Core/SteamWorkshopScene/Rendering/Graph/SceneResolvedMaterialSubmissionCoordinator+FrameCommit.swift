@@ -12,6 +12,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             Bridge.FrameInputs.DependencyUnavailability?
         let commandBuffer: MTLCommandBuffer
         let committedBaseTails: [Graph.EffectKey: Tail]
+        let preparationContext: PreparationContext?
         let blueprint: CandidateBlueprint
         let targets: ScenePreparedPersistentGraphTargets
     }

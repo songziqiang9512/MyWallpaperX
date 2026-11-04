@@ -26,6 +26,8 @@ Effect 名称是作者内容与编辑器分类，不是渲染算法选择器。d
 
 嵌套组与 named provider 沿原 pool、reservation、typed dependency 和 pin 工作。隐藏 provider 仍可能被活 consumer 使用，不能因不可见清除其准备或发布。跨 consumer 的背景 prefix 依赖与独立 prepass 不是同一语义。
 
+Utility provider 在原 source 触发点执行一次，由同一 compositor 发布；当前可见输出继续主合成，隐藏输出只供 named consumer。资源与 ticket 合同见[Named 输入职责](render-graph-shader-coverage.md#named-input-ownership)。
+
 无 child 的 captured-main source Program 只在作者顺序截点捕获并编码，不移到整个层循环前批处理，不拿历史 framebuffer 充当当前背景。source capture MVP 与最终 output MVP 分开；透视、深度、passthrough 和带依赖 utility 的支持范围由原 SourceRoute/Camera/Dependency owner 决定，不强行改成普通 quad。
 
 源码：[Composition runtime](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerRuntimePlan.swift)、[Dependency runtime](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyFrameRuntime.swift)、[Graph composition](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneResolvedMaterialGraphComposition.swift)。

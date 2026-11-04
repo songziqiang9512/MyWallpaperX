@@ -224,23 +224,15 @@ extension SceneMetalRenderer {
         } else {
             resolvedMaterialGraphOutputPublisher = nil
         }
-        if let failure = resolvedDependencyFailure {
+        if let reasonCode = resolvedDependencyFailure {
             dependencyRuntime.recordBindingFailure(for: layer.id)
-            if failure.isOrdinaryUnavailable,
-               imageCompositor
-                .rejectResolvedMaterialDependencySubgraphLocally(
-                    layerID: layer.id,
-                    reasonCode: failure.reasonCode
-                ) {
-                return (false, nil)
-            }
             imageCompositor.recordResolvedMaterialFramePreflightFailure(
-                failure.reasonCode
+                reasonCode
             )
             return (true, nil)
         }
         if request.requiresDependencyEffect,
-           request.dependencyEffects.isEmpty {
+           request.dependencyEffects.isEmpty, resolvedFramePlan == nil {
             dependencyRuntime.recordBindingFailure(for: layer.id)
             return (false, nil)
         }

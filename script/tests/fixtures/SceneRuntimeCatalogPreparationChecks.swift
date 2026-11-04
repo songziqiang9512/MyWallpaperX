@@ -46,7 +46,7 @@ extension CancellationProbe {
             let admitted = SceneResolvedMaterialAdmittedLayer(layerID: graph.layerID,
                 products: [product], pairPlan: pair, dependencyOwnership: .none,
                 sourceRoute: .capturedLayerTexture, isVisibleExecutionRoot: true,
-                isGraphOutputProvider: false, requiresGraphOutputProvider: false)
+                isGraphOutputProvider: false)
             return SceneResolvedMaterialExecutionCapabilityAdmission.Candidate(
                 layerID: graph.layerID, result: .success(admitted))
         }

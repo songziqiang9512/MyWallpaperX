@@ -83,41 +83,19 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
 }
 
 nonisolated extension SceneResolvedMaterialDependencyOwnership {
-    /// Returns the external provider slots owned by this exact single-effect
-    /// stage. `nil` means the dependency owner cannot authorize a visual
-    /// fallback for the stage. Empty slots mean this stage is independent of
-    /// the layer's external dependency; it may use the ordinary framebuffer
-    /// rollback proof without consuming or publishing that provider.
+    /// Projects the prepared external inputs belonging to this stage.
     func preEncodeVisualFailureSlots(
         in graph: SceneAuthoredEffectRenderPlan
     ) -> [SceneEffectPassSlot]? {
+        guard let effect = graph.effects.first else { return nil }
         switch self {
         case .none, .graphInternal:
             return []
         case let .externalPrimary(binding):
-            guard graph.effects.count == 1,
-                  let effect = graph.effects.first,
-                  graph.layerID == binding.consumerLayerID,
-                  effect.key.layerID == binding.consumerLayerID else {
-                return nil
-            }
-            let slots = binding.referenceSlots.filter {
-                $0.effectID == effect.key.descriptorID
-            }
-            guard !slots.isEmpty else { return [] }
-            guard graph.renderTargets.isEmpty else { return nil }
-            guard Set(slots).count == slots.count,
-                  slots.allSatisfy({ slot in
-                      graph.nodes.filter({ node in
-                          node.effect == effect.key
-                              && node.kind == .material
-                              && node.instancePassIndex == slot.passIndex
-                              && node.materialOrdinal != nil
-                      }).count == 1
-                  }) else { return nil }
-            return slots
-        case .externalAggregate:
-            return nil
+            return binding.referenceSlots.filter { $0.effectID == effect.key.descriptorID }
+        case let .externalAggregate(aggregate):
+            return aggregate.bindings.flatMap(\.referenceSlots)
+                .filter { $0.effectID == effect.key.descriptorID }
         }
     }
 }

@@ -1,279 +1,189 @@
 extension Harness {
     static func multiProviderResults() -> [String: Any] {
-        let multiProviderPositivePlan = multiProviderCompositionPlan()
-        let multiProviderAuthoredOrderPlan = multiProviderCompositionPlan(
-            reverseEffectIDs: true
-        )
-        let multiProviderMismatchPlan = multiProviderCompositionPlan(
-            dependencies: [601]
-        )
-        let multiProviderDuplicatePlan = multiProviderCompositionPlan(
-            duplicateSlot: true
-        )
-        let multiProviderUnsafePlan = multiProviderCompositionPlan(
-            providerChildLayerIDs: [699]
-        )
-        let multiProviderWrongPassPlan = multiProviderCompositionPlan(
-            passIndex: 1
-        )
-        let multiProviderWrongSlotPlan = multiProviderCompositionPlan(
-            slotIndex: 2
-        )
-        let multiProviderUserTexturePlan = multiProviderCompositionPlan(
-            userTexture: true
-        )
-        let multiProviderExtraPassPlan = multiProviderCompositionPlan(
-            extraPass: true
-        )
-        let multiProviderExtraSlotsPlan = multiProviderCompositionPlan(
-            extraSlotCount: 2
-        )
-        let multiProviderUnknownComboPlan = multiProviderCompositionPlan(
-            unknownCombo: true
-        )
-        let multiProviderMissingProviderOrderPlan =
-            multiProviderCompositionPlan(omitRenderOrderID: 601)
-        let multiProviderMissingConsumerOrderPlan =
-            multiProviderCompositionPlan(omitRenderOrderID: 603)
-        let multiProviderInactiveSupersetPlan =
-            multiProviderInactiveSupersetCompositionPlan()
-        let multiProviderVisibleProviderPlan = multiProviderCompositionPlan(
-            providerVisible: true
-        )
-        let multiProviderVisibleEffectfulProviderPlan =
-            multiProviderCompositionPlan(
-                providerVisible: true,
-                providerEffectful: true,
-                providerTexturePaths: ["assets/provider-source.tex"]
-            )
-        let multiProviderForwardSafeProviderPlan = multiProviderCompositionPlan(
-            providerEffectful: true,
-            providerTexturePaths: ["assets/noise.tex"],
-            providerFirst: false
-        )
-        let multiProviderForwardUnsafeProviderPlan = multiProviderCompositionPlan(
-            providerEffectful: true,
-            providerTexturePaths: ["_rt_FullFrameBuffer"],
-            providerFirst: false
-        )
-        let multiProviderForwardVisibleEffectfulGeometryPlan =
-            multiProviderCompositionPlan(
-                providerVisible: true,
-                providerEffectful: true,
-                providerTexturePaths: ["assets/provider-source.tex"],
-                providerFirst: false,
-                geometryProviderID: 601
-            )
-        let multiProviderGeometryPlan = multiProviderCompositionPlan(
-            geometryProviderID: 601
-        )
-        let nestedGeometryAggregatePlan = nestedGeometryProviderAggregatePlan()
-        return [
-            "multiProviderCandidate": [
-                "candidate": multiProviderPositivePlan
-                    .multiProviderCandidateLayerIDs.contains(603),
-                "aggregate": multiProviderPositivePlan
-                    .multiProviderAggregatesByConsumerLayerID[603]
-                    .map { aggregate in
-                        let reversed =
-                            SceneDependencyRenderPlan.MultiProviderAggregate(
-                                consumerLayerID: aggregate.consumerLayerID,
-                                bindings: Array(aggregate.bindings.reversed()),
-                                authoredSlotOrder: aggregate.authoredSlotOrder
-                            )
-                        let wrongBlend =
-                            SceneDependencyRenderPlan.MultiProviderAggregate(
-                                consumerLayerID: aggregate.consumerLayerID,
-                                bindings: aggregate.bindings.enumerated().map {
-                                    index, binding in
-                                    guard index == 0 else { return binding }
-                                    return .init(
-                                        consumerLayerID: binding.consumerLayerID,
-                                        providerLayerID: binding.providerLayerID,
-                                        slot: binding.slot,
-                                        referenceSlots: binding.referenceSlots,
-                                        blendMode: 5,
-                                        kind: binding.kind,
-                                        requiresForwardCapture:
-                                            binding.requiresForwardCapture,
-                                        requiresResolvedMaterialProgram:
-                                            binding.requiresResolvedMaterialProgram
-                                    )
-                                },
-                                authoredSlotOrder: aggregate.authoredSlotOrder
-                            )
-                        return [
-                            "providers": aggregate.providerLayerIDs.sorted(),
-                            "slots": aggregate.referenceSlots.map {
-                                "\($0.effectID):\($0.passIndex):\($0.slotIndex)"
-                            },
-                            "strict": aggregate.hasStrictBindingVector,
-                            "reversedStrict": reversed.hasStrictBindingVector,
-                            "wrongBlendStrict": wrongBlend.hasStrictBindingVector,
-                        ]
-                    },
-                "authoredOrder": multiProviderAuthoredOrderPlan
-                    .multiProviderAggregatesByConsumerLayerID[603]
-                    .map { aggregate in
-                        [
-                            "slots": aggregate.authoredSlotOrder.map {
-                                "\($0.effectID):\($0.passIndex):\($0.slotIndex)"
-                            },
-                            "bindingSlots": aggregate.bindings.map {
-                                "\($0.slot.effectID):\($0.slot.passIndex):\($0.slot.slotIndex)"
-                            },
-                            "strict": aggregate.hasStrictBindingVector,
-                            "admitted": aggregate.admits(
-                                multiProviderAuthoredOrderPlan.references
-                                    .filter { $0.consumerLayerID == 603 }
-                            ),
-                        ]
-                    },
-                "aggregateAdmission": multiProviderPositivePlan
-                    .multiProviderAggregatesByConsumerLayerID[603]
-                    .map { aggregate in
-                        let references = multiProviderPositivePlan.references
-                            .filter { $0.consumerLayerID == 603 }
-                        let missing = Array(references.dropLast())
-                        let duplicate = references + [references[0]]
-                        let wrongProvider = references.enumerated().map {
-                            offset, reference in
-                            offset == 0 ? .init(
-                                consumerLayerID: reference.consumerLayerID,
-                                providerLayerID: 999,
-                                slot: reference.slot,
-                                variant: reference.variant
-                            ) : reference
-                        }
-                        return [
-                            "positive": aggregate.admits(references),
-                            "reversed": aggregate.admits(
-                                Array(references.reversed())
-                            ),
-                            "missing": aggregate.admits(missing),
-                            "duplicate": aggregate.admits(duplicate),
-                            "wrongProvider": aggregate.admits(wrongProvider),
-                        ]
-                    },
-                "binding": multiProviderPositivePlan
-                    .bindingsByConsumerLayerID[603] == nil,
-                "requiredProviders": multiProviderPositivePlan
-                    .requiredProviderLayerIDs.sorted(),
-                "requiredEffect": multiProviderPositivePlan
-                    .requiredEffectConsumerLayerIDs.contains(603),
-            ],
-            "multiProviderRejects": [
-                "dependencyMismatch": multiProviderMismatchPlan
-                    .multiProviderCandidateLayerIDs.contains(603)
-                    && multiProviderMismatchPlan
-                        .bindingsByConsumerLayerID[603] == nil,
-                "duplicateSlot": multiProviderDuplicatePlan
-                    .multiProviderCandidateLayerIDs.contains(603)
-                    && multiProviderDuplicatePlan
-                        .bindingsByConsumerLayerID[603] == nil,
-                "unsafeProvider": multiProviderUnsafePlan
-                    .multiProviderCandidateLayerIDs.contains(603)
-                    && multiProviderUnsafePlan
-                        .bindingsByConsumerLayerID[603] == nil,
-                "unsafeAggregate": multiProviderUnsafePlan
-                    .multiProviderAggregatesByConsumerLayerID[603] == nil,
-                "wrongPass": multiProviderWrongPassPlan
-                    .multiProviderAggregatesByConsumerLayerID[603] == nil,
-                "wrongSlot": multiProviderWrongSlotPlan
-                    .multiProviderAggregatesByConsumerLayerID[603] == nil,
-                "userTexture": multiProviderUserTexturePlan
-                    .multiProviderAggregatesByConsumerLayerID[603] == nil,
-                "extraPass": multiProviderExtraPassPlan
-                    .multiProviderAggregatesByConsumerLayerID[603] == nil,
-                "extraSlots": multiProviderExtraSlotsPlan
-                    .multiProviderAggregatesByConsumerLayerID[603] == nil,
-                "unknownCombo": multiProviderUnknownComboPlan
-                    .multiProviderAggregatesByConsumerLayerID[603] == nil,
-                "missingProviderOrder": multiProviderMissingProviderOrderPlan
-                    .multiProviderAggregatesByConsumerLayerID[603] == nil,
-                "missingConsumerOrder": multiProviderMissingConsumerOrderPlan
-                    .multiProviderAggregatesByConsumerLayerID[603] == nil,
-                "visibleProvider": multiProviderVisibleProviderPlan
-                    .multiProviderAggregatesByConsumerLayerID[603] == nil,
-                "visibleEffectfulProvider":
-                    multiProviderVisibleEffectfulProviderPlan
-                        .multiProviderAggregatesByConsumerLayerID[603] != nil,
-                "forwardSafeProvider": multiProviderForwardSafeProviderPlan
-                    .multiProviderAggregatesByConsumerLayerID[603] != nil,
-                "forwardUnsafeProvider": multiProviderForwardUnsafeProviderPlan
-                    .multiProviderAggregatesByConsumerLayerID[603] == nil,
-                "forwardVisibleEffectfulGeometryProvider":
-                    multiProviderForwardVisibleEffectfulGeometryPlan
-                        .multiProviderAggregatesByConsumerLayerID[603] == nil,
-            ],
-            "multiProviderGeometry": multiProviderGeometryPlan
-                .multiProviderAggregatesByConsumerLayerID[603]
-                .map { aggregate in
-                    [
-                        "providers": aggregate.bindings.map(\.providerLayerID),
-                        "kinds": aggregate.bindings.map {
-                            String(describing: $0.kind)
-                        },
-                        "slots": aggregate.bindings.map {
-                            "\($0.slot.effectID):\($0.slot.passIndex):\($0.slot.slotIndex)"
-                        },
-                        "strict": aggregate.hasStrictBindingVector,
-                        "admitted": aggregate.admits(
-                            multiProviderGeometryPlan.references.filter {
-                                $0.consumerLayerID == 603
-                            }
-                        ),
-                    ]
-                },
-            "nestedGeometryAggregate": [
-                "nestedBindingKind": nestedGeometryAggregatePlan
-                    .bindingsByConsumerLayerID[701]
-                    .map { String(describing: $0.kind) } ?? "none",
-                "nestedRequiresProgram": nestedGeometryAggregatePlan
-                    .bindingsByConsumerLayerID[701]?
-                    .requiresResolvedMaterialProgram == true,
-                "aggregateProviders": nestedGeometryAggregatePlan
-                    .multiProviderAggregatesByConsumerLayerID[703]?
-                    .bindings.map(\.providerLayerID) ?? [],
-                "aggregateKinds": nestedGeometryAggregatePlan
-                    .multiProviderAggregatesByConsumerLayerID[703]?
-                    .bindings.map { String(describing: $0.kind) } ?? [],
-                "requiredProviders": nestedGeometryAggregatePlan
-                    .requiredProviderLayerIDs.sorted(),
-                "graphProviders": nestedGeometryAggregatePlan
-                    .requiredGraphOutputProviderLayerIDs.sorted(),
-                "issues": nestedGeometryAggregatePlan.issues.map {
-                    "\($0.layerID):\($0.kind.rawValue):\($0.providerLayerID ?? -1)"
-                },
-            ],
-            "multiProviderInactiveSuperset": [
-                "candidate": multiProviderInactiveSupersetPlan
-                    .multiProviderCandidateLayerIDs.contains(603),
-                "references": multiProviderInactiveSupersetPlan.references
-                    .filter { $0.consumerLayerID == 603 }
-                    .map { reference in
-                        [
-                            "provider": reference.providerLayerID,
-                            "slot": "\(reference.slot.effectID):\(reference.slot.passIndex):\(reference.slot.slotIndex)",
-                        ]
-                    },
-                "aggregate": multiProviderInactiveSupersetPlan
-                    .multiProviderAggregatesByConsumerLayerID[603]
-                    .map { aggregate in
-                        [
-                            "providers": aggregate.providerLayerIDs.sorted(),
-                            "strict": aggregate.hasStrictBindingVector,
-                            "admitted": aggregate.admits(
-                                multiProviderInactiveSupersetPlan.references
-                                    .filter { $0.consumerLayerID == 603 }
-                            ),
-                        ]
-                    },
-                "requiredProviders": multiProviderInactiveSupersetPlan
-                    .requiredProviderLayerIDs.sorted(),
-                "declaredProviders": [601, 602, 604],
-            ],
+        let positive = multiProviderCompositionPlan()
+        let authored = multiProviderCompositionPlan(reverseEffectIDs: true)
+        let declaredSubset = multiProviderCompositionPlan(dependencies: [601])
+        let duplicate = multiProviderCompositionPlan(duplicateSlot: true)
+        let unsafe = multiProviderCompositionPlan(providerChildLayerIDs: [699])
+        let visible = multiProviderCompositionPlan(providerVisible: true)
+        let visibleGraph = multiProviderCompositionPlan(providerVisible: true,
+            providerEffectful: true, providerTexturePaths: ["assets/provider-source.tex"])
+        let forward = multiProviderCompositionPlan(providerEffectful: true,
+            providerTexturePaths: ["assets/noise.tex"], providerFirst: false)
+        let forwardUnsafe = multiProviderCompositionPlan(providerEffectful: true,
+            providerTexturePaths: ["_rt_FullFrameBuffer"], providerFirst: false)
+        let forwardGeometry = multiProviderCompositionPlan(providerVisible: true,
+            providerEffectful: true, providerTexturePaths: ["assets/provider-source.tex"],
+            providerFirst: false, geometryProviderID: 601)
+        let geometry = multiProviderCompositionPlan(geometryProviderID: 601)
+        let nested = nestedGeometryProviderAggregatePlan()
+        let inactive = multiProviderInactiveSupersetCompositionPlan()
+        func slots(_ plan: SceneDependencyRenderPlan) -> [String] {
+            plan.multiProviderAggregatesByConsumerLayerID[603]?.bindings.map {
+                "\($0.slot.effectID):\($0.slot.passIndex):\($0.slot.slotIndex)"
+            } ?? []
+        }
+        var inactiveReferences: [[String: Any]] = []
+        for reference in inactive.references where reference.consumerLayerID == 603 {
+            let slot = "\(reference.slot.effectID):\(reference.slot.passIndex):\(reference.slot.slotIndex)"
+            inactiveReferences.append(["provider": reference.providerLayerID, "slot": slot])
+        }
+        let positiveAggregate: [String: Any] = [
+            "providers": positive.requiredProviderLayerIDs.sorted(), "slots": slots(positive),
         ]
+        let candidate: [String: Any] = [
+            "candidate": positive.multiProviderCandidateLayerIDs.contains(603),
+            "aggregate": positiveAggregate,
+            "authoredSlots": slots(authored),
+            "requiredProviders": positive.requiredProviderLayerIDs.sorted(),
+            "requiredEffect": positive.requiredEffectConsumerLayerIDs.contains(603),
+        ]
+        let rejects: [String: Bool] = [
+            "duplicateSlot": duplicate.multiProviderAggregatesByConsumerLayerID[603] == nil,
+            "unsafeProvider": unsafe.multiProviderAggregatesByConsumerLayerID[603] == nil,
+            "missingProviderOrder": multiProviderCompositionPlan(omitRenderOrderID: 601)
+                .multiProviderAggregatesByConsumerLayerID[603] == nil,
+            "missingConsumerOrder": multiProviderCompositionPlan(omitRenderOrderID: 603)
+                .multiProviderAggregatesByConsumerLayerID[603] == nil,
+            "visibleEffectfulProvider": visibleGraph.multiProviderAggregatesByConsumerLayerID[603] != nil,
+            "forwardSafeProvider": forward.multiProviderAggregatesByConsumerLayerID[603] != nil,
+            "forwardUnsafeProvider": forwardUnsafe.multiProviderAggregatesByConsumerLayerID[603] == nil,
+            "forwardVisibleEffectfulGeometryProvider": forwardGeometry.multiProviderAggregatesByConsumerLayerID[603] == nil,
+        ]
+        let coldCarriers: [String: Any] = [
+            "declaredSubsetSlots": slots(declaredSubset),
+            "declaredSubsetProviders": declaredSubset.requiredProviderLayerIDs.sorted(),
+            "declaredSubsetRequiresProgram": declaredSubset
+                .multiProviderAggregatesByConsumerLayerID[603]?.bindings
+                .map(\.requiresResolvedMaterialProgram) ?? [],
+            "visibleProviderSlots": slots(visible),
+            "visibleProviderKinds": visible.multiProviderAggregatesByConsumerLayerID[603]?
+                .bindings.map { String(describing: $0.kind) } ?? [],
+            "visibleProviderRequiresProgram": visible
+                .multiProviderAggregatesByConsumerLayerID[603]?.bindings
+                .map(\.requiresResolvedMaterialProgram) ?? [],
+        ]
+        let geometryResult: [String: Any] = [
+            "providers": geometry.multiProviderAggregatesByConsumerLayerID[603]?.bindings.map(\.providerLayerID) ?? [],
+            "kinds": geometry.multiProviderAggregatesByConsumerLayerID[603]?.bindings.map { String(describing: $0.kind) } ?? [],
+            "slots": slots(geometry),
+        ]
+        var nestedIssues: [String] = []
+        for issue in nested.issues {
+            let providerID: Int = issue.providerLayerID ?? -1
+            nestedIssues.append("\(issue.layerID):\(issue.kind.rawValue):\(providerID)")
+        }
+        let nestedGeometry: [String: Any] = [
+            "nestedBindingKind": nested.bindingsByConsumerLayerID[701].map { String(describing: $0.kind) } ?? "none",
+            "nestedRequiresProgram": nested.bindingsByConsumerLayerID[701]?.requiresResolvedMaterialProgram == true,
+            "aggregateProviders": nested.multiProviderAggregatesByConsumerLayerID[703]?.bindings.map(\.providerLayerID) ?? [],
+            "aggregateKinds": nested.multiProviderAggregatesByConsumerLayerID[703]?.bindings.map { String(describing: $0.kind) } ?? [],
+            "requiredProviders": nested.requiredProviderLayerIDs.sorted(),
+            "graphProviders": nested.requiredGraphOutputProviderLayerIDs.sorted(),
+            "issues": nestedIssues,
+        ]
+        let inactiveAggregate: [String: Any] = [
+            "providers": inactive.requiredProviderLayerIDs.sorted(), "slots": slots(inactive),
+        ]
+        let inactiveSuperset: [String: Any] = [
+            "candidate": inactive.multiProviderCandidateLayerIDs.contains(603),
+            "references": inactiveReferences,
+            "aggregate": inactiveAggregate,
+            "requiredProviders": inactive.requiredProviderLayerIDs.sorted(),
+            "declaredProviders": [601, 602, 604],
+        ]
+        return [
+            "multiProviderCandidate": candidate,
+            "multiProviderRejects": rejects,
+            "multiProviderColdCarriers": coldCarriers,
+            "multiProviderGeometry": geometryResult,
+            "nestedGeometryAggregate": nestedGeometry,
+            "multiProviderInactiveSuperset": inactiveSuperset,
+            "preparedNamedInputs": preparedNamedInputResults(),
+        ]
+    }
+
+    // This gate takes an already-prepared vector as typed input. Shader active
+    // sampler proof and pixel contribution are tested by Program/GPU/App gates.
+    static func preparedNamedInputResults() -> [String: Any] {
+        typealias Slot = (effect: String, pass: Int, slot: Int, provider: Int)
+        func inspect(
+            _ kind: String, _ declared: [Slot], active: [Int]? = [0, 1],
+            providers: [Int] = [901, 902], consumerID: Int = 903,
+            resource: String = "owned", visible: Bool = true,
+            providerFirst: Bool = true, variant: String = "a"
+        ) -> [String: Any] {
+            var effectIDs: [String] = []
+            for slot in declared where !effectIDs.contains(slot.effect) { effectIDs.append(slot.effect) }
+            let effects = effectIDs.map { effectID -> SceneRenderDescriptor.EffectDescriptor in
+                let members = declared.filter { $0.effect == effectID }
+                var passIDs: [Int] = []
+                for slot in members where !passIDs.contains(slot.pass) { passIDs.append(slot.pass) }
+                let passes = passIDs.map { passID -> SceneRenderDescriptor.EffectDescriptor.PassDescriptor in
+                    let passMembers = members.filter { $0.pass == passID }
+                    var paths = Array<String?>(repeating: nil, count: (passMembers.map { $0.slot }.max() ?? 0) + 1)
+                    for slot in passMembers {
+                        paths[slot.slot] = "_rt_imageLayerComposite_\(slot.provider)_\(variant)"
+                    }
+                    return .init(passIndex: passID, texturePaths: paths.compactMap { $0 },
+                        textureSlots: paths, combos: ["\(resource)_VARIANT": 7],
+                        constantShaderValues: ["\(resource)_weight": .init(components: [0.75])])
+                }
+                return .init(id: effectID, file: "effects/\(resource)/\(effectID).json", visible: true, passes: passes)
+            }
+            let consumer = SceneRenderDescriptor.Layer(id: consumerID, contentKind: kind,
+                utilityLayer: nil, dependencyLayerIDs: Set(declared.map { $0.provider }).sorted(),
+                childLayerIDs: [], visible: visible, effects: effects)
+            let sources = providers.map { SceneRenderDescriptor.Layer(id: $0, contentKind: "image",
+                utilityLayer: nil, dependencyLayerIDs: [], childLayerIDs: [], visible: false, effects: []) }
+            let bindings = active?.map { index -> SceneDependencyRenderPlan.Binding in
+                let slot = declared[index]
+                return .init(consumerLayerID: consumerID, providerLayerID: slot.provider,
+                    slot: .init(effectID: slot.effect, passIndex: slot.pass, slotIndex: slot.slot),
+                    blendMode: 0, kind: .imageLayerBlend, requiresForwardCapture: !providerFirst,
+                    requiresResolvedMaterialProgram: true)
+            }
+            let plan = SceneDependencyRenderPlan(descriptor: .init(layers: sources + [consumer],
+                renderOrderLayerIDs: providerFirst ? providers + [consumerID] : [consumerID] + providers),
+                visibleLayerIDs: visible ? [consumerID] : [],
+                preparedNamedInputBindingsByConsumerLayerID: bindings.map { [consumerID: $0] } ?? [:])
+            let vector = plan.multiProviderAggregatesByConsumerLayerID[consumerID]?.bindings
+                ?? plan.bindingsByConsumerLayerID[consumerID].map { [$0] } ?? []
+            return [
+                "bindings": vector.map { "\($0.slot.effectID):\($0.slot.passIndex):\($0.slot.slotIndex)=\($0.providerLayerID)" },
+                "single": plan.bindingsByConsumerLayerID[consumerID] != nil,
+                "aggregate": plan.multiProviderAggregatesByConsumerLayerID[consumerID] != nil,
+                "requiredProviders": plan.requiredProviderLayerIDs.sorted(),
+                "requiresEffect": plan.requiredEffectConsumerLayerIDs.contains(consumerID),
+                "referenceProviders": Set(plan.references.filter { $0.consumerLayerID == consumerID }.map(\.providerLayerID)).sorted(),
+                "forward": vector.map(\.requiresForwardCapture),
+                "requiresProgram": vector.allSatisfy(\.requiresResolvedMaterialProgram),
+                "execution": plan.resolvedMaterialExecutionLayerIDs(
+                    visibleRootLayerIDs: visible ? [consumerID] : [],
+                    availableExecutionLayerIDs: Set(providers + [consumerID])).sorted(),
+                "issues": plan.issues.filter { $0.layerID == consumerID }.map(\.kind.rawValue).sorted(),
+            ]
+        }
+        let same: [Slot] = [("z-first", 0, 2, 901), ("z-first", 0, 5, 902)]
+        let across: [Slot] = [("z-first", 0, 2, 901), ("a-second", 1, 5, 902)]
+        let dead: [Slot] = [("z-first", 0, 2, 901), ("z-first", 0, 5, 999)]
+        var rows: [String: Any] = [:]
+        for kind in ["solid", "image"] {
+            rows["\(kind)SameEffect"] = inspect(kind, same)
+            rows["\(kind)AcrossEffects"] = inspect(kind, across)
+        }
+        rows["sameProvider"] = inspect("solid", [("one", 1, 2, 901), ("one", 1, 5, 901)], providers: [901])
+        rows["renamed"] = inspect("image", [("sun", 1, 2, 1701), ("moon", 0, 5, 1702)],
+            providers: [1701, 1702], consumerID: 1703, resource: "renamed_resource")
+        rows["emptyPrepared"] = inspect("solid", dead, active: [], providers: [901])
+        rows["emptyPreparedSelf"] = inspect("image", [("self", 0, 1, 903)], active: [], providers: [])
+        rows["oneActive"] = inspect("solid", dead, active: [0], providers: [901])
+        rows["cold"] = inspect("solid", same, active: nil)
+        rows["missingCold"] = inspect("solid", same, active: nil, providers: [901])
+        rows["hidden"] = inspect("image", same, visible: false)
+        rows["forward"] = inspect("image", same, providerFirst: false)
+        rows["secondaryCold"] = inspect("solid", same, active: nil, variant: "b")
+        return rows
     }
 
     static func multiProviderCompositionPlan(
@@ -284,12 +194,6 @@ extension Harness {
         providerEffectful: Bool = false,
         providerTexturePaths: [String] = [],
         providerFirst: Bool = true,
-        passIndex: Int = 0,
-        slotIndex: Int = 1,
-        userTexture: Bool = false,
-        extraPass: Bool = false,
-        extraSlotCount: Int = 0,
-        unknownCombo: Bool = false,
         omitRenderOrderID: Int? = nil,
         reverseEffectIDs: Bool = false,
         geometryProviderID: Int? = nil
@@ -338,48 +242,9 @@ extension Harness {
             id: String,
             path: String
         ) -> SceneRenderDescriptor.EffectDescriptor {
-            let authoredSlotCount = max(2, slotIndex + 1)
-            var authoredSlots = Array<String?>(
-                repeating: nil,
-                count: authoredSlotCount
-            )
-            authoredSlots[slotIndex] = path
-            authoredSlots.append(contentsOf: Array(
-                repeating: nil,
-                count: max(0, extraSlotCount)
-            ))
-            var userTextureInputs: [SceneEffectTextureInput?] = []
-            if userTexture {
-                userTextureInputs = Array(
-                    repeating: nil,
-                    count: authoredSlots.count
-                )
-                userTextureInputs[0] = .init(kind: .path, value: "override")
-            }
-            var combos = ["BLENDMODE": 0]
-            if unknownCombo {
-                combos["UNSAFE_COMBO"] = 1
-            }
-            let primaryPass = SceneRenderDescriptor.EffectDescriptor
-                .PassDescriptor(
-                    passIndex: passIndex,
-                    texturePaths: authoredSlots.compactMap { $0 },
-                    textureSlots: authoredSlots,
-                    userTextureInputs: userTextureInputs,
-                    combos: combos,
-                    constantShaderValues: [:]
-                )
-            var passes = [primaryPass]
-            if extraPass {
-                passes.append(.init(
-                    passIndex: passIndex + 1,
-                    texturePaths: [],
-                    textureSlots: [],
-                    userTextureInputs: [],
-                    combos: [:],
-                    constantShaderValues: [:]
-                ))
-            }
+            let passes: [SceneRenderDescriptor.EffectDescriptor.PassDescriptor] = [.init(
+                passIndex: 0, texturePaths: [path], textureSlots: [nil, path],
+                combos: ["BLENDMODE": 0], constantShaderValues: [:])]
             return .init(
                 id: id,
                 file: "effects/workshop/unseen/multi/effect.json",

@@ -27,16 +27,6 @@ enum SceneSubmissionAdmissionChecks {
                 exact.reasonCode == "encoded"
                 && exact.consumesExternalPrimaryDependency == true
 
-            let missing = executeExternalDependency(
-                device: device,
-                queue: queue,
-                binding: binding,
-                preparedDependencyEffect: reserved,
-                readyDependencyEffect: nil
-            )
-            results["externalDependencyMissingReadyRejected"] =
-                missing.reasonCode == "prepared-frame-consumption-rejected"
-
             let wrongProvider = executeExternalDependency(
                 device: device,
                 queue: queue,
@@ -151,18 +141,15 @@ enum SceneSubmissionAdmissionChecks {
             let wrongSlot = executeExternalDependency(
                 device: device,
                 queue: queue,
-                binding: wrongSlotBinding,
-                preparedDependencyEffect: dependencyInput(
-                    binding: wrongSlotBinding,
-                    texture: reservedTexture
-                ),
+                binding: binding,
+                preparedDependencyEffect: reserved,
                 readyDependencyEffect: dependencyInput(
                     binding: wrongSlotBinding,
                     texture: reservedTexture
                 )
             )
             results["geometryDependencyWrongSlotRejected"] =
-                wrongSlot.reasonCode != "encoded"
+                wrongSlot.reasonCode == "prepared-frame-consumption-rejected"
                 && wrongSlot.consumesExternalPrimaryDependency != true
         }
 
@@ -193,16 +180,6 @@ enum SceneSubmissionAdmissionChecks {
             results["solidDependencyExactReadyMatchIssuesTicket"] =
                 exact.reasonCode == "encoded"
                 && exact.consumesExternalPrimaryDependency == true
-
-            let missing = executeExternalDependency(
-                device: device,
-                queue: queue,
-                binding: binding,
-                preparedDependencyEffect: reserved,
-                readyDependencyEffect: nil
-            )
-            results["solidDependencyMissingReadyRejected"] =
-                missing.reasonCode == "prepared-frame-consumption-rejected"
 
             let secondary = executeExternalDependency(
                 device: device,

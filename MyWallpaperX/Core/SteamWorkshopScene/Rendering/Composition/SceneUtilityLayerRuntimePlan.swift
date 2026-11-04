@@ -86,7 +86,9 @@ enum SceneUtilityLayerRuntimePlanner {
         in descriptor: SceneRenderDescriptor,
         resolvedMaterialLayerIDs: Set<Int> = [],
         admittedResolvedMaterialReferences:
-            Set<SceneDependencyRenderPlan.Reference> = []
+            Set<SceneDependencyRenderPlan.Reference> = [],
+        preparedNamedInputBindingsByConsumerLayerID:
+            [Int: [SceneDependencyRenderPlan.Binding]] = [:]
     ) -> [Int: SceneUtilityLayerRuntimePlan] {
         let dependencyPlan = SceneDependencyRenderPlan(
             descriptor: descriptor,
@@ -95,7 +97,9 @@ enum SceneUtilityLayerRuntimePlanner {
                 in: descriptor,
                 resolvedMaterialLayerIDs: resolvedMaterialLayerIDs
             ),
-            admittedResolvedMaterialReferences: admittedResolvedMaterialReferences
+            admittedResolvedMaterialReferences: admittedResolvedMaterialReferences,
+            preparedNamedInputBindingsByConsumerLayerID:
+                preparedNamedInputBindingsByConsumerLayerID
         )
         return plans(
             in: descriptor,
@@ -110,7 +114,7 @@ enum SceneUtilityLayerRuntimePlanner {
         resolvedMaterialLayerIDs: Set<Int>
     ) -> [Int: SceneUtilityLayerRuntimePlan] {
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
-        let namedTargetLayerIDs = Set(descriptor.layers.flatMap(\.dependencyLayerIDs))
+        let namedTargetLayerIDs = dependencyPlan.requiredProviderLayerIDs
         return Dictionary(uniqueKeysWithValues: descriptor.layers.compactMap { layer in
             guard let utility = layer.utilityLayer else { return nil }
             let sourceRoute = try? SceneUtilityLayerSourceRoute.resolve(
@@ -135,38 +139,21 @@ enum SceneUtilityLayerRuntimePlanner {
             let isolatedComposition = utility.kind == .composition
                 && sourceRoute?.usesIsolatedGroupTarget == true
             let preparedComposition = utility.kind == .composition
-                && (!utility.passthrough || isolatedComposition) && sourceRoute != nil
-                && layer.dependencyLayerIDs.isEmpty && layer.authoredDependencies.isEmpty
+                && sourceRoute != nil
                 && resolvedMaterialLayerIDs.contains(layer.id)
-            let binding = dependencyPlan.bindingsByConsumerLayerID[layer.id]
-            let isAggregate = dependencyPlan
-                .multiProviderAggregatesByConsumerLayerID[layer.id] != nil
-            let isLegacyExecutable = binding != nil
-                && dependencyPlan.executableUtilityConsumerLayerIDs.contains(layer.id)
-            let preparedDependencyComposition = utility.kind == .composition
-                && sourceRoute?.capturesCompositionSubtree == false
-                && resolvedMaterialLayerIDs.contains(layer.id)
-                && (isAggregate || isLegacyExecutable)
             let preparedCompositionSource = sourceRoute?.usesAuthoredLocalSource == true
                 && !hasVisibleEffects
             let preparedUtility = preparedFullscreen || preparedProject || preparedComposition
-                || preparedDependencyComposition || preparedCompositionSource
+                || preparedCompositionSource
             // Hidden prepared groups retain their source plan. No-effect
             // groups retain only ordering and allocate no capture target.
             if !visibleLayerIDs.contains(layer.id) && !preparedUtility
                 && !(isolatedComposition && !hasVisibleEffects) {
                 disposition = .skippedHidden
-            } else if !layer.dependencyLayerIDs.isEmpty {
-                // A dependency-bearing utility captures only with an exact
-                // aggregate owner or the legacy single-provider binding. A
-                // missing binding is not evidence that an effect was safely
-                // replaced; treating it as capture would publish a base image
-                // under an unowned named target.
-                if preparedDependencyComposition {
-                    disposition = .capture
-                } else {
-                    disposition = .unsupportedDependencies
-                }
+            } else if !layer.dependencyLayerIDs.isEmpty && !preparedComposition {
+                // Prepared Programs already own their actual external demand,
+                // including no reads from a descriptor's dependency superset.
+                disposition = .unsupportedDependencies
             } else if !hasVisibleEffects && !preparedUtility {
                 disposition = .skippedNoEffect
             } else if sourceRoute == nil, !layer.childLayerIDs.isEmpty {
@@ -232,6 +219,8 @@ enum SceneUtilityLayerRuntimePlanner {
         resolvedMaterialLayerIDs: Set<Int> = [],
         admittedResolvedMaterialReferences:
             Set<SceneDependencyRenderPlan.Reference> = [],
+        preparedNamedInputBindingsByConsumerLayerID:
+            [Int: [SceneDependencyRenderPlan.Binding]] = [:],
         propertyVisibilityOwnedLayerIDs: Set<Int> = []
     ) -> [String] {
         let executableConsumers = executableUtilityConsumerLayerIDs(
@@ -242,7 +231,9 @@ enum SceneUtilityLayerRuntimePlanner {
             descriptor: descriptor,
             visibleLayerIDs: SceneLayerVisibility.visibleLayerIDs(in: descriptor),
             executableUtilityConsumerLayerIDs: executableConsumers,
-            admittedResolvedMaterialReferences: admittedResolvedMaterialReferences
+            admittedResolvedMaterialReferences: admittedResolvedMaterialReferences,
+            preparedNamedInputBindingsByConsumerLayerID:
+                preparedNamedInputBindingsByConsumerLayerID
         )
         let plans = plans(
             in: descriptor,

@@ -261,12 +261,13 @@ from script.tests import test_scene_frame_texture_registry as registry_fixture
 
 DEPENDENCY_SOURCES = list(dict.fromkeys([
     *registry_fixture.SWIFT_SOURCES,
+    dependency_fixture.PLAN_SOURCE,
     dependency_fixture.RUNTIME_SOURCE, dependency_fixture.STATIC_MODEL_RUNTIME_SOURCE,
     dependency_fixture.AGGREGATE_VALIDATION_RUNTIME_SOURCE,
     dependency_fixture.GEOMETRY_RUNTIME_SOURCE,
     dependency_fixture.EFFECT_INPUT_RESOLUTION_RUNTIME_SOURCE,
     SCENE/'Rendering/Dependencies/SceneNamedRenderTargetPool.swift', SCENE/'Rendering/Dependencies/SceneDependencyCaptureFault.swift',
-    SCENE/'Rendering/Metal/SceneMetalPipeline.swift',
+    SCENE/'Rendering/Metal/SceneMetalPipeline.swift', SCENE/'Runtime/Frame/SceneMaterialRenderState.swift',
     SCENE/'Rendering/Composition/SceneOffscreenEffectRenderer+Capture.swift',
     SCENE/'Rendering/Composition/SceneMainPassEncoder.swift',
     SCENE/'Rendering/Geometry/SceneMatrix.swift',
@@ -280,11 +281,11 @@ def dependency_support():
     fixture=dependency_fixture.HARNESS_SOURCE
     # Reuse prepared-input scaffolding only, excluding all fake runtime owners
     # (registry, target pool, capture renderer, main pass, telemetry and textures).
-    plan=fixture.split('struct SceneUtilityLayer',1)[1].split('enum SceneFrameTextureIdentity',1)[0]
+    plan=dependency_fixture.PREPARED_DEPENDENCY_SUPPORT
     peripheral=fixture.split('typealias ColorBlendBinder',1)[1].split('enum SceneMatrix',1)[0]
     geometry=fixture.split('struct SceneGeometryProduct',1)[1].split('final class SceneImageLayerPipeline',1)[0]
     return ('import Foundation\nimport CoreGraphics\nimport Metal\nimport simd\n'
-        +'struct SceneUtilityLayer'+plan
+        +plan
         +'typealias ColorBlendBinder'+peripheral+'struct SceneGeometryProduct'+geometry
         +DEPENDENCY_EXTRA)
 
@@ -356,8 +357,7 @@ def ordered_support():
         ' var graphOutputProviderLayerIDs:Set<Int>=[]\n'
         ' var aggregates:[Int:SceneDependencyRenderPlan.MultiProviderAggregate]=[:]\n'
         ' var staticModelConsumerProviders:[Int:Int]=[:]')
-    start=dep.index('struct SceneRenderDescriptor');end=dep.index('struct SceneDependencyRenderPlan',start)
-    dep=dep[:start]+descriptor+dep[end:]
+    dep=dep.replace(dependency_fixture.DESCRIPTOR_SUPPORT,descriptor,1)
     # Real offscreen pool sources supply the residency pin type.
     a=dep.index('final class SceneGraphRenderTargetResidencyPin');b=dep.index('extension SceneLayerFragmentUniforms',a)
     dep=dep[:a]+dep[b:]
@@ -706,7 +706,6 @@ def mixed_main():
     from script.tests import test_scene_snapshot_capacity as previous
     s=previous.FRAME_MAIN
     # The shared fixture supplies the author scale for canonical-down vertices.
-    # Preserve the established original encoders and exact output oracle.
     s=s.replace('let renderer=SceneMetalRenderer(device:d,resources:.init(pipeline:model,entries:[1:[entry]]))',
       'let descriptor=SceneRenderDescriptor(layers:[])\n  let renderer=SceneMetalRenderer(device:d,resources:.init(pipeline:model,entries:[1:[entry]]),descriptor:descriptor)')
     s=s.replace('let plans:[Int:SceneResolvedMaterialFrameTargetPlan]=utility ? [7:.init()]:[6:.init()]',r'''
@@ -740,6 +739,7 @@ def mixed_main():
                 '["normal","optional-quota","utility-trigger","hidden-no-demand","color-prefix-failure","particle-prefix-failure","utility-prefix-failure","terminal-bloom-failure"]')
     s=s.replace('let utility=mode=="utility-trigger"', 'let utility=mode=="utility-trigger" || mode=="utility-prefix-failure"')
     s=s.replace('depthTestEnabled:false,depthWriteEnabled:false','depthTestEnabled:true,depthWriteEnabled:true')
+    s=s.replace('SceneParticleMetalPipeline(device:d)!','SceneParticleMetalPipeline(device:d,requiredVariants:[.init(isRefraction:true,blendMode:.translucent,usesDepthAttachment:true)])!')
     s=s.replace('if mode=="optional-quota" {','if mode=="optional-quota" || mode.hasSuffix("failure") {')
     s=s.replace('let mandatory=d.heapTextureSizeAndAlign(descriptor:td).size+2*d.heapTextureSizeAndAlign(descriptor:sd).size',
         '''let depthCost=d.heapTextureSizeAndAlign(descriptor:td).size,snapshotCost=d.heapTextureSizeAndAlign(descriptor:sd).size
@@ -755,7 +755,7 @@ def mixed_main():
     s=s.replace('terminalCapacity:{terminalCalled=true;return true}',
         'terminalCapacity:{terminalCalled=true;if mode=="terminal-bloom-failure" {terminalReady=bloom.prepareCapacity(configuration:bloomConfig,source:target)};return terminalReady}')
     s=s.replace('let published = !state.shadows.isEmpty','let published = !state.shadows.isEmpty\n  let prefixLeases=leases.count\n  if held>0 && mode != "optional-quota" {SceneResourceBudget.shared.release(held,kind:.gpu);held=0}')
-    s=s.replace('commandBuffer:cb,performanceObservations:&observed)', 'commandBuffer:cb,preparedDepth:state.particleDepth[42],performanceObservations:&observed)')
+    s=s.replace('commandBuffer:cb,performanceObservations:&observed)', 'commandBuffer:cb,preparedDepth:state.particleDepth[42]?.acquisition,performanceObservations:&observed)')
     s=s.replace('precondition(pass.finishEnsuringClear());leases.forEach',
         'precondition(pass.finishEnsuringClear());var bloomEncoded=false;if mode=="terminal-bloom-failure" {bloomEncoded=bloom.encode(configuration:bloomConfig,source:target,commandBuffer:cb)};leases.forEach')
     s=s.replace('"mode":mode,"capacity":capacity,','"mode":mode,"capacity":capacity,"terminalReady":terminalReady,"bloomEncoded":bloomEncoded,"prefixLeases":prefixLeases,')

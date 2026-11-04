@@ -48,45 +48,21 @@ enum SceneUtilityPlanFrameRenderer {
                 mouseNormalized: frameContext.pointer.current,
                 modelViewProjection: mvp
             )
-            let requiresDependencyEffect = dependencyRuntime.requiresEffect(
-                for: layer.id
+            let framePlan = resolvedMaterialFrameTargetPlans[layer.id]
+            let dependencyBypassReason = framePlan == nil ? nil : imageCompositor
+                .preparedResolvedMaterialExternalDependencyBypassReason(layerID: layer.id)
+            let requiresDependencyEffect = (framePlan?.consumesExternalPrimaryDependency
+                ?? dependencyRuntime.requiresEffect(for: layer.id)) && dependencyBypassReason == nil
+            let dependencyResolution = renderer.resolveDependencyEffectInputs(
+                layerID: layer.id,
+                requiresDependencyEffect: requiresDependencyEffect,
+                hasResolvedFramePlan: framePlan != nil,
+                bypassReason: dependencyBypassReason,
+                dependencyRuntime: dependencyRuntime,
+                textureRegistry: renderer.textureRegistry
             )
-            // A composition utility resolves the complete dependency vector
-            // before entering the shared compositor: its aggregate slot
-            // order when the plan owns one, otherwise the single-provider
-            // input.
-            let dependencyEffects: [SceneDependencyEffectInput]
-            var dependencyAggregateInvalidReason: String?
-            if let aggregate = dependencyRuntime.plan
-                .multiProviderAggregatesByConsumerLayerID[layer.id] {
-                switch dependencyRuntime.aggregateEffectInputResolution(
-                    for: aggregate,
-                    textureRegistry: renderer.textureRegistry
-                ) {
-                case let .ready(inputs):
-                    dependencyEffects = inputs
-                case .unavailable(reasonCode: _):
-                    // Ordinary provider miss: this utility layer keeps its
-                    // previous-current output and the shared binding
-                    // telemetry records the local fallback below.
-                    dependencyEffects = []
-                case let .invalid(reasonCode):
-                    dependencyEffects = []
-                    dependencyAggregateInvalidReason = reasonCode
-                }
-            } else {
-                dependencyEffects = dependencyRuntime.effectInput(
-                    for: layer.id,
-                    textureRegistry: renderer.textureRegistry
-                ).map { [$0] } ?? []
-            }
-            if let reasonCode = dependencyAggregateInvalidReason {
-                // Reservation, epoch, slot-vector or publication identity
-                // drift is only visible here. It must fail closed instead of
-                // being localised as an ordinary provider miss, and it must
-                // stop the whole layer loop like every other `.invalid`
-                // consumer: the frame is sealed as failed, so continuing only
-                // encodes work that can never be presented.
+            let dependencyEffects = dependencyResolution.dependencyEffects
+            if let reasonCode = dependencyResolution.failure {
                 dependencyRuntime.recordBindingFailure(for: layer.id)
                 imageCompositor.recordResolvedMaterialFramePreflightFailure(
                     reasonCode
@@ -95,7 +71,7 @@ enum SceneUtilityPlanFrameRenderer {
             }
             let captured: Bool
             if requiresDependencyEffect,
-               dependencyEffects.isEmpty {
+               dependencyEffects.isEmpty, framePlan == nil {
                 dependencyRuntime.recordBindingFailure(for: layer.id)
                 captured = false
             } else {
@@ -125,6 +101,24 @@ enum SceneUtilityPlanFrameRenderer {
                             for: layer.id, encoded: false, on: commandBuffer)
                     }
                     continue
+                }
+                let compositeOutput = frameVisibleLayerIDs.contains(layer.id)
+                let publisher: ((MTLTexture, SceneTextureContent) -> SceneGraphOutputPublicationResult)?
+                if dependencyRuntime.requiresDemandedGraphOutputCapture(for: layer.id) {
+                    publisher = { texture, content in
+                        dependencyRuntime.publishGraphOutputIfRequired(
+                            layerID: layer.id,
+                            texture: texture,
+                            publicationRole: compositeOutput ? .visibleMainLoop : .namedProviderPrepass,
+                            textureRegistry: renderer.textureRegistry,
+                            commandBuffer: commandBuffer,
+                            content: content,
+                            imagePipeline: imagePipeline,
+                            retainAuxiliary: compositePass.retainAuxiliaryRelease
+                        ) ?? .invalid(reasonCode: "named-provider-publication-route-missing")
+                    }
+                } else {
+                    publisher = nil
                 }
                 let terminalDepth: SceneImageLayerTerminalDepthBinding?
                 let terminalMVP: simd_float4x4?
@@ -163,6 +157,8 @@ enum SceneUtilityPlanFrameRenderer {
                     audioSpectrum: frameContext.audioSpectrum,
                     dependencyEffects: dependencyEffects,
                     requiresDependencyEffect: requiresDependencyEffect,
+                    resolvedMaterialGraphOutputPublisher: publisher,
+                    compositeOutput: compositeOutput,
                     pipeline: imagePipeline,
                     compositor: imageCompositor,
                     offscreenTexturePool: offscreenTexturePool,

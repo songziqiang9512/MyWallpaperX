@@ -67,6 +67,6 @@ extension SceneImageLayerCompositor {
  func recordResolvedMaterialFramePreflightFailure(_ reason:String) {fatalError("unused graph admission")}
  func endResolvedMaterialFrame(on cb:MTLCommandBuffer)->Bool {fatalError("unused graph admission")}
  func deferResolvedMaterialFrame()->Bool {fatalError("unused graph admission")}
- func prepareResolvedMaterialFrame(_ value:[SceneResolvedMaterialRuntimeBridge.FramePreparationRequest],pool:SceneOffscreenTexturePool?,commandBuffer:MTLCommandBuffer,resourceBundle:SceneResolvedMaterialFrameResourceBundle? = nil,performanceTelemetry:SceneFramePerformanceTelemetry?)->Preparation {fatalError("graph finalization outside admission sizing probe")}
+ func prepareResolvedMaterialFrame(_ value:[SceneResolvedMaterialRuntimeBridge.FramePreparationRequest],pool:SceneOffscreenTexturePool?,commandBuffer:MTLCommandBuffer,resourceBundle:SceneResolvedMaterialFrameResourceBundle? = nil,performanceTelemetry:SceneFramePerformanceTelemetry?,executionTrace:SceneEffectExecutionFrameTrace? = nil)->Preparation {fatalError("graph finalization outside admission sizing probe")}
  func preparedResolvedMaterialOutputTexturesByLayerID()->[Int:MTLTexture]? {fatalError("unused graph admission")}
 }

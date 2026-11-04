@@ -72,6 +72,7 @@ struct SceneLayerFullFramePairPlan {
         let nodes: [NodeStep]
     }
     let layerID: Int
+    var effects: [EffectStep] = []
 }
 
 struct SceneGraphExecutionState: Equatable {
@@ -552,8 +553,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
     // The legacy one-phase inputs contain no authored environment sampler.
     func requiresSceneEnvironment(layerID: Int) -> Bool { false }
     var visibilityOwnedLayerIDs: Set<Int> { [] }
-    var admittedResolvedMaterialReferences:
-        Set<SceneDependencyRenderPlan.Reference> { [] }
+    let preparedNamedInputBindingsByConsumerLayerID: [Int: [SceneDependencyRenderPlan.Binding]] = [:]
     var sceneBackgroundLayerIDs: Set<Int> {
         Set(capabilitiesByLayerID.values.compactMap {
             $0.sceneBackgroundRequirement?.layerID
@@ -885,6 +885,19 @@ final class SceneResolvedMaterialGraphExecutor {
     static var prepareCallCount = 0
     static var prepareTokens: [Int] = []
     static var preparedByToken: [Int: PreparedGraph] = [:]
+    static var preparedResponsesByToken: [Int: [PreparedGraph]] = [:]
+    struct PreparationCall {
+        let token: Int
+        let inputs: [SceneDependencyEffectInput]
+        let previousStates: [Graph.EffectKey: State]
+        let previousResources: [Graph.EffectKey: [Graph.TextureIdentity: SceneFrameTextureResource]]
+        let poolID, traceID: ObjectIdentifier?
+        let frameIndex: UInt64
+        let frameTime, time: Float
+        let leaseGenerations: [UInt64]
+    }
+    static var prepareCalls: [PreparationCall] = []
+    static var encodeInputs: [PreparedGraph] = []
     static var preparedDependencyTextureByToken: [Int: ObjectIdentifier] = [:]
     static var encodeSucceeds = false
     private let capabilities: SceneResolvedMaterialExecutionCapabilityCatalog
@@ -919,11 +932,24 @@ final class SceneResolvedMaterialGraphExecutor {
     ) -> Result<PreparedGraph, Failure> {
         Self.prepareCallCount += 1
         Self.prepareTokens.append(token.value)
+        Self.prepareCalls.append(PreparationCall(token: token.value, inputs: frameInputs.dependencyEffects,
+            previousStates: previousStates, previousResources: previousGraphResources,
+            poolID: pool.map { ObjectIdentifier($0) }, traceID: executionTrace.map { ObjectIdentifier($0) },
+            frameIndex: frame.frameIndex, frameTime: frameInputs.frameTime, time: frameInputs.time,
+            leaseGenerations: leases.map(\.generation)))
         if let texture = frameInputs.dependencyEffects.first?.texture {
             Self.preparedDependencyTextureByToken[token.value] =
                 ObjectIdentifier(texture)
         }
-        guard var prepared = Self.preparedByToken[token.value] else { return .failure(.unavailable) }
+        var prepared: PreparedGraph
+        if var responses = Self.preparedResponsesByToken[token.value] {
+            guard !responses.isEmpty else { return .failure(.unavailable) }
+            prepared = responses.removeFirst()
+            Self.preparedResponsesByToken[token.value] = responses
+        } else {
+            guard let value = Self.preparedByToken[token.value] else { return .failure(.unavailable) }
+            prepared = value
+        }
         if prepared.terminalMaterialReplay != nil {
             var role = PreparedTerminalPass.Role(terminalReplayBlendMode: terminalReplayBlendMode)
             if case .capturedMainTargetTexture? = capabilities.capabilitiesByLayerID[token.value]?.sourceRoute {
@@ -940,7 +966,8 @@ final class SceneResolvedMaterialGraphExecutor {
         _ value: PreparedGraph,
         commandBuffer: MTLCommandBuffer
     ) -> Result<Void, Failure> {
-        _ = value; _ = commandBuffer
+        Self.encodeInputs.append(value)
+        _ = commandBuffer
         return Self.encodeSucceeds ? .success(()) : .failure(.unavailable)
     }
     func reset() -> Bool { true }

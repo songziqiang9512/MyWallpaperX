@@ -112,231 +112,59 @@ enum SceneDependencyGraphAnalysis {
     }
 }
 
-struct SceneDependencyRenderPlan {
-    struct Reference: Hashable {
-        let consumerLayerID: Int
-        let providerLayerID: Int
-        let slot: SceneEffectPassSlot
-        let variant: SceneNamedTextureReference.Variant
-    }
+/* DEPENDENCY_PLAN_MODEL */
 
-    /// This production-facing harness has no aggregate fixtures, but the
-    /// ownership compiler still needs the evolved type to compile. Keep the
-    /// stub typed and fail-closed so adding the catalog does not change any
-    /// existing single-provider assertions.
-    struct MultiProviderAggregate: Hashable {
-        let consumerLayerID: Int
-        let bindings: [Binding]
-        let authoredSlotOrder: [SceneEffectPassSlot]
-
-        var orderedBindings: [Binding] {
-            guard authoredSlotOrder.count == bindings.count else { return [] }
-            var bindingsBySlot: [SceneEffectPassSlot: Binding] = [:]
-            for binding in bindings {
-                guard bindingsBySlot.updateValue(
-                    binding, forKey: binding.slot
-                ) == nil else { return [] }
-            }
-            guard bindingsBySlot.count == authoredSlotOrder.count else {
-                return []
-            }
-            return authoredSlotOrder.compactMap { bindingsBySlot[$0] }
-        }
-
-        var providerLayerIDs: Set<Int> {
-            Set(bindings.map(\.providerLayerID))
-        }
-
-        var referenceSlots: [SceneEffectPassSlot] {
-            authoredSlotOrder
-        }
-
-        var hasStrictBindingVector: Bool {
-            bindings.count >= 2
-                && authoredSlotOrder.count == bindings.count
-                && Set(authoredSlotOrder).count == authoredSlotOrder.count
-                && Set(authoredSlotOrder) == Set(bindings.map(\.slot))
-                && bindings == orderedBindings
-                && Set(bindings.map(\.providerLayerID)).count > 1
-        }
-
-        func admits(_ references: [Reference]) -> Bool {
-            guard hasStrictBindingVector else { return false }
-            let expected = orderedBindings.map {
-                Reference(
-                    consumerLayerID: consumerLayerID,
-                    providerLayerID: $0.providerLayerID,
-                    slot: $0.slot,
-                    variant: .primary
-                )
-            }
-            return references == expected
-        }
-    }
-
-    let references: [Reference]
-    let namedReferenceConsumerLayerIDs: Set<Int>
-    let requiredEffectConsumerLayerIDs: Set<Int>
-    let bindingsByConsumerLayerID: [Int: Binding]
-    let multiProviderAggregatesByConsumerLayerID:
-        [Int: MultiProviderAggregate] = [:]
-    /// The admission excludes a static-model bound composition consumer before
-    /// it honours a missing binding; this harness never binds one, so the map
-    /// stays empty. The element type is local because the production
-    /// static-model binding does not compile in this source set.
-    struct StaticModelBinding: Hashable { var providerLayerID: Int = 0 }
-    let staticModelBindingsByConsumerLayerID: [Int: StaticModelBinding] = [:]
-    let requiredProviderLayerIDs: Set<Int>
-    let requiredGraphOutputProviderLayerIDs: Set<Int>
-    let staticLayerSourcePassthroughBlockedLayerIDs: Set<Int>
-    /// The admission consults this projection's issues as the authority for a
-    /// composition consumer whose external provider was refused; this stub
-    /// fixture never refuses one, so the list stays empty.
-    let issues: [Issue] = []
-
-    enum IssueKind: String {
-        case dependencyMismatch
-        case missingProvider
-        case cyclicDependency
-        case unsupportedConsumer
-        case unsupportedVariant
-        case forwardUtilityProvider
-        case namedProviderRouteDisabled
-    }
-
-    struct Issue: Hashable {
-        let kind: IssueKind
-        let layerID: Int
-        let providerLayerID: Int?
-    }
-
+// Preselected carrier data only. Program preparation below is production.
+extension SceneDependencyRenderPlan {
     static func isMultiProviderUtilityCandidate(
-        layer: SceneRenderDescriptor.Layer,
-        references: [Reference]
-    ) -> Bool {
-        _ = layer
-        _ = references
-        return false
-    }
+        layer: SceneRenderDescriptor.Layer, references: [Reference]
+    ) -> Bool { layer.utilityLayer != nil && Set(references.map(\.providerLayerID)).count > 1 }
 
     static func activeDependencyProviderLayerIDs(
-        layer: SceneRenderDescriptor.Layer,
-        references: [Reference]
-    ) -> Set<Int>? {
-        _ = layer
-        return Set(references.map(\.providerLayerID))
-    }
+        layer: SceneRenderDescriptor.Layer, references: [Reference]
+    ) -> Set<Int>? { Set(references.map(\.providerLayerID)) }
 
     static func potentialNamedBindings(
-        descriptor: SceneRenderDescriptor,
+        descriptor: SceneRenderDescriptor, authoredPlans: [SceneAuthoredEffectRenderPlan] = [],
         visibleLayerIDs: Set<Int>,
         executableUtilityConsumerLayerIDs: Set<Int> = []
     ) -> [Int: [Binding]] {
-        _ = executableUtilityConsumerLayerIDs
-        return Dictionary(uniqueKeysWithValues: descriptor.layers.compactMap {
-            layer in
-            guard visibleLayerIDs.contains(layer.id),
-                  !layer.potentialNamedBindings.isEmpty else { return nil }
-            return (layer.id, layer.potentialNamedBindings)
-        })
+        Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0.potentialNamedBindings) })
     }
 
     init(
-        descriptor: SceneRenderDescriptor,
-        visibleLayerIDs: Set<Int>,
+        descriptor: SceneRenderDescriptor, visibleLayerIDs: Set<Int>,
         executableUtilityConsumerLayerIDs: Set<Int> = [],
-        admittedResolvedMaterialReferences: Set<Reference> = []
+        admittedResolvedMaterialReferences: Set<Reference> = [],
+        preparedNamedInputBindingsByConsumerLayerID: [Int: [Binding]] = [:]
     ) {
-        let products = SceneDependencyGraphAnalysis.references(
-            in: descriptor.layers
-        )
-        let potentials = Set(
-            SceneDependencyGraphAnalysis
-                .potentialNamedReferences(in: descriptor.layers)
-        ).intersection(admittedResolvedMaterialReferences)
+        let products = SceneDependencyGraphAnalysis.references(in: descriptor.layers)
+        let potentials = Set(SceneDependencyGraphAnalysis.potentialNamedReferences(in: descriptor.layers))
+            .intersection(admittedResolvedMaterialReferences)
         references = products + potentials.filter { !products.contains($0) }
-        namedReferenceConsumerLayerIDs = Set(references.compactMap {
-            visibleLayerIDs.contains($0.consumerLayerID) ? $0.consumerLayerID : nil
-        })
-        requiredEffectConsumerLayerIDs = namedReferenceConsumerLayerIDs
-        var bindings: [Int: Binding] = [:]
-        for layer in descriptor.layers where visibleLayerIDs.contains(layer.id) {
-            guard layer.utilityLayer == nil
-                    || executableUtilityConsumerLayerIDs.contains(layer.id) else {
-                continue
-            }
-            let admittedReferences = Set(products).union(potentials)
-            let matches = (
-                layer.namedBindings + layer.potentialNamedBindings
-            ).filter { candidate in
-                candidate.consumerLayerID == layer.id
-                    && (!candidate.requiresResolvedMaterialProgram
-                        || candidate.referenceSlots.allSatisfy({ slot in
-                            admittedReferences.contains(.init(
-                                consumerLayerID: candidate.consumerLayerID,
-                                providerLayerID: candidate.providerLayerID,
-                                slot: slot,
-                                variant: .primary
-                            ))
-                        }))
-            }
-            if matches.count == 1 {
-                bindings[layer.id] = matches[0]
-            } else if let first = matches.first,
-                      matches.allSatisfy({ candidate in
-                          candidate.consumerLayerID == first.consumerLayerID
-                              && candidate.providerLayerID == first.providerLayerID
-                              && candidate.blendMode == first.blendMode
-                              && candidate.kind == first.kind
-                              && candidate.requiresForwardCapture
-                                  == first.requiresForwardCapture
-                              && candidate.requiresResolvedMaterialProgram
-                                  == first.requiresResolvedMaterialProgram
-                      }) {
-                let slots = admittedReferences.compactMap { reference in
-                    reference.consumerLayerID == first.consumerLayerID
-                        && reference.providerLayerID == first.providerLayerID
-                        ? reference.slot : nil
-                }.sorted { lhs, rhs in
-                    let lhsIndex = layer.effects.firstIndex {
-                        $0.id == lhs.effectID
-                    } ?? Int.max
-                    let rhsIndex = layer.effects.firstIndex {
-                        $0.id == rhs.effectID
-                    } ?? Int.max
-                    if lhsIndex != rhsIndex { return lhsIndex < rhsIndex }
-                    if lhs.passIndex != rhs.passIndex {
-                        return lhs.passIndex < rhs.passIndex
-                    }
-                    return lhs.slotIndex < rhs.slotIndex
-                }
-                if slots.count == matches.count,
-                   Set(slots).count == slots.count {
-                    bindings[layer.id] = .init(
-                        consumerLayerID: first.consumerLayerID,
-                        providerLayerID: first.providerLayerID,
-                        slot: slots[0],
-                        referenceSlots: slots,
-                        blendMode: first.blendMode,
-                        kind: first.kind,
-                        requiresForwardCapture: first.requiresForwardCapture,
-                        requiresResolvedMaterialProgram:
-                            first.requiresResolvedMaterialProgram
-                    )
-                }
-            }
+        namedReferenceConsumerLayerIDs = Set(references.map(\.consumerLayerID))
+        self.executableUtilityConsumerLayerIDs = executableUtilityConsumerLayerIDs
+        multiProviderCandidateLayerIDs = []
+        var singles: [Int: Binding] = [:]
+        var aggregates: [Int: MultiProviderAggregate] = [:]
+        for layer in descriptor.layers {
+            let vector = preparedNamedInputBindingsByConsumerLayerID[layer.id] ?? layer.namedBindings
+            if vector.count == 1 { singles[layer.id] = vector[0] }
+            if vector.count > 1 { aggregates[layer.id] = .init(consumerLayerID: layer.id, bindings: vector) }
         }
-        bindingsByConsumerLayerID = bindings
-        requiredProviderLayerIDs = Set(bindings.values.map(\.providerLayerID))
-        requiredGraphOutputProviderLayerIDs = Set(bindings.values.compactMap { binding in
-            descriptor.layers.first(where: { $0.id == binding.providerLayerID })
-                .flatMap { provider in
-                    provider.effects.contains(where: { $0.visible != false })
-                        ? provider.id : nil
-                }
-        })
-        staticLayerSourcePassthroughBlockedLayerIDs =
-            namedReferenceConsumerLayerIDs.union(requiredProviderLayerIDs)
+        bindingsByConsumerLayerID = singles
+        multiProviderAggregatesByConsumerLayerID = aggregates
+        requiredEffectConsumerLayerIDs = Set(singles.keys).union(aggregates.keys)
+        staticModelBindingsByConsumerLayerID = [:]
+        let vector = descriptor.layers.flatMap { preparedNamedInputBindingsByConsumerLayerID[$0.id] ?? $0.namedBindings }
+        let providerIDs = Set(vector.map(\.providerLayerID))
+        requiredProviderLayerIDs = providerIDs
+        requiredGraphOutputProviderLayerIDs = Set(descriptor.layers.filter {
+            providerIDs.contains($0.id) && !$0.effects.isEmpty
+        }.map(\.id))
+        staticLayerSourcePassthroughBlockedLayerIDs = namedReferenceConsumerLayerIDs.union(requiredProviderLayerIDs)
+        cyclicLayerIDs = []
+        issues = []
     }
 }
 

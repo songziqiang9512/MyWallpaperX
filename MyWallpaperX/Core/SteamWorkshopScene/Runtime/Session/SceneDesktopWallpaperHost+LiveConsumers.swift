@@ -126,9 +126,9 @@ extension SceneDesktopWallpaperHost {
             in: descriptor,
             resolvedMaterialLayerIDs:
                 resolvedMaterialExecutionCapabilities.executionLayerIDs,
-            admittedResolvedMaterialReferences:
+            preparedNamedInputBindingsByConsumerLayerID:
                 resolvedMaterialExecutionCapabilities
-                    .admittedResolvedMaterialReferences
+                    .preparedNamedInputBindingsByConsumerLayerID
         )
         let effectTargets = resolvedMaterialExecutionCapabilities.liveConsumerTargets
         let lightTargets = SceneLightSnapshot.liveConsumerTargets(

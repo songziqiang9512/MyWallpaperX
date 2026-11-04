@@ -31,40 +31,29 @@ extension SceneDependencyFrameRuntime {
         )
     }
 
-    /// Resolves every publication in a multi-provider aggregate in authored
-    /// slot order. A member that is merely unpublished this frame is an
-    /// ordinary `unavailable`; a missing reservation, a mismatched slot
-    /// vector or a publication identity drift rejects the whole aggregate as
-    /// `invalid`, so execution cannot silently consume a partial provider set
-    /// and callers cannot downgrade integrity drift into a local miss.
+    /// Keeps available publications in authored slot order. Missing supply
+    /// stays local to its operation; existing resource identity drift is invalid.
     func aggregateEffectInputResolution(
         for aggregate: SceneDependencyRenderPlan.MultiProviderAggregate,
         textureRegistry: SceneFrameTextureRegistry
     ) -> SceneResolvedMaterialAggregateInputResolution {
         let frameEpoch = textureRegistry.frameEpoch
-        guard frameEpoch > 0,
-              aggregate.hasStrictBindingVector,
-              plan.multiProviderAggregatesByConsumerLayerID[
-                  aggregate.consumerLayerID
-              ] == aggregate else {
+        guard frameEpoch > 0 else {
             return .invalid(
-                reasonCode: "external-primary-aggregate-contract-invalid"
+                reasonCode: "external-primary-frame-epoch-invalid"
             )
         }
         synchronizeReservations(to: frameEpoch)
-        // `hasStrictBindingVector` proves this is already canonical. Do not
-        // sort here: silently reordering a corrupted aggregate would hide an
-        // authored slot/order mismatch from the execution ledger.
-        let orderedBindings = aggregate.bindings
         var inputs: [SceneDependencyEffectInput] = []
-        for binding in orderedBindings {
+        for binding in aggregate.bindings {
             let reference = SceneNamedTextureReference(
                 providerLayerID: binding.providerLayerID,
                 variant: .primary
             )
             guard let reservation = reservationsByProviderLayerID[
                 binding.providerLayerID
-            ], reservation.frameEpoch == frameEpoch,
+            ] else { continue }
+            guard reservation.frameEpoch == frameEpoch,
                   reservation.providerLayerID == binding.providerLayerID,
                   reservation.kind == .init(binding.kind) else {
                 return .invalid(
@@ -74,11 +63,7 @@ extension SceneDependencyFrameRuntime {
             guard let resource = textureRegistry.completeNamedLayerTargetResource(
                 reference: reference,
                 frameEpoch: frameEpoch
-            ) else {
-                return .unavailable(
-                    reasonCode: "external-primary-provider-capture-unavailable"
-                )
-            }
+            ) else { continue }
             guard resource.publication.texture === reservation.texture else {
                 return .invalid(
                     reasonCode: "external-primary-aggregate-publication-mismatch"
@@ -91,15 +76,6 @@ extension SceneDependencyFrameRuntime {
                 texture: texture,
                 content: resource.publication.candidate.content
             ))
-        }
-        guard aggregateInputVectorIsValid(
-            inputs,
-            aggregate: aggregate,
-            frameEpoch: frameEpoch
-        ) else {
-            return .invalid(
-                reasonCode: "external-primary-aggregate-input-invalid"
-            )
         }
         return .ready(inputs)
     }
@@ -114,6 +90,9 @@ extension SceneDependencyFrameRuntime {
     ) -> SceneResolvedMaterialDependencyInputResolution {
         guard let binding = plan.bindingsByConsumerLayerID[consumerLayerID] else {
             return .invalid(reasonCode: "external-primary-binding-missing")
+        }
+        guard !plan.cyclicLayerIDs.contains(binding.providerLayerID) else {
+            return .unavailable(reasonCode: "external-primary-provider-capture-unavailable")
         }
         let frameEpoch = textureRegistry.frameEpoch
         guard frameEpoch > 0 else {

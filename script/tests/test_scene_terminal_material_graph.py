@@ -105,7 +105,6 @@ private func dependencySizingChecks(
             dependencyOwnership: ownership, sourceRoute: capability.sourceRoute,
             isVisibleExecutionRoot: capability.isVisibleExecutionRoot,
             isGraphOutputProvider: capability.isGraphOutputProvider,
-            requiresGraphOutputProvider: capability.requiresGraphOutputProvider,
             terminalReplayBlendMode: capability.terminalReplayBlendMode)
         let sizing = SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability.simpleColorChainCapabilities(
             admitted: admitted, stages: capability.stages, materials: capability.materials,
@@ -122,7 +121,7 @@ private func dependencySizingChecks(
         slot: .init(effectID: binding.slot.effectID, passIndex: 0, slotIndex: 2),
         blendMode: 0, kind: binding.kind)
     let aggregate = SceneDependencyRenderPlan.MultiProviderAggregate(consumerLayerID: binding.consumerLayerID,
-        bindings: [binding, other], authoredSlotOrder: [binding.slot, other.slot])
+        bindings: [binding, other])
     return ["ordinaryExternalAccepted": supports(.externalPrimary(binding)),
         "geometryDependencyRejected": !supports(.externalPrimary(geometry)),
         "advancedDependencyBlendRejected": !supports(.externalPrimary(advanced)),
@@ -646,13 +645,13 @@ private func densityCase(
     func sizing(
         sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute = .capturedLayerTexture,
         dependency: SceneResolvedMaterialDependencyOwnership = .none,
-        provider: Bool = false, requiredProvider: Bool = false
+        provider: Bool = false
     ) -> Bool {
         let candidate = SceneResolvedMaterialAdmittedLayer(layerID: capability.layerID,
             products: capability.admittedProducts, pairPlan: capability.pairPlan,
             dependencyOwnership: dependency, sourceRoute: sourceRoute,
             isVisibleExecutionRoot: capability.isVisibleExecutionRoot,
-            isGraphOutputProvider: provider, requiresGraphOutputProvider: requiredProvider,
+            isGraphOutputProvider: provider,
             terminalReplayBlendMode: capability.terminalReplayBlendMode)
         let result = Capabilities.LayerCapability.simpleColorChainCapabilities(admitted: candidate,
             stages: capability.stages, materials: capability.materials,
@@ -785,7 +784,7 @@ private func densityCase(
                 && mainCapability?.supportsSourceSizedSolidEffects == false,
             "capturedMainDependencyRejected": !sizing(sourceRoute: .capturedMainTargetTexture,
                 dependency: .externalPrimary(dependency)),
-            "providerRejected": !sizing(provider: true) && !sizing(requiredProvider: true),
+            "providerRejected": !sizing(provider: true),
             "complexGraphNotASetupFailure": complexCapability != nil,
             "complexGraphRejected": complexCapability?.supportsTerminalMaterialReplay == false
                 && complexCapability?.supportsSourceSizedSolidEffects == false,

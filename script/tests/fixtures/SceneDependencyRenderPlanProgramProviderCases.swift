@@ -155,12 +155,14 @@ extension Harness {
             slot.effectID + ":" + String(slot.passIndex)
                 + ":" + String(slot.slotIndex)
         } ?? []
-        let vectorExpandedSlots = vectorPlan.bindingsByConsumerLayerID[
+        let vectorExpandedBindings = vectorPlan.multiProviderAggregatesByConsumerLayerID[
             vectorConsumer.id
-        ]?.referenceSlots.map { slot in
-            slot.effectID + ":" + String(slot.passIndex)
-                + ":" + String(slot.slotIndex)
-        } ?? []
+        ]?.bindings ?? vectorPlan.bindingsByConsumerLayerID[
+            vectorConsumer.id
+        ].map { [$0] } ?? []
+        let vectorExpandedSlots = vectorExpandedBindings.map {
+            "\($0.slot.effectID):\($0.slot.passIndex):\($0.slot.slotIndex)"
+        }
         let propertyProvider = layer(1331, visible: false)
         let propertyConsumer = SceneRenderDescriptor.Layer(
             id: 1511,
@@ -264,115 +266,221 @@ extension Harness {
                 shadowedProvider.id, selectedMultiReferenceConsumer.id,
             ]
         )
-        return [
-            "shadowedNamedReferences": [
-                "referenceCount": shadowedPlan.references.count,
-                "binding": shadowedPlan.bindingsByConsumerLayerID[
-                    shadowedConsumer.id
-                ]?.kind == .resolvedMaterial,
-                "provider": shadowedPlan.bindingsByConsumerLayerID[
-                    shadowedConsumer.id
-                ]?.providerLayerID ?? -1,
-                "issues": shadowedPlan.issues.map {
-                    "\($0.layerID):\($0.kind.rawValue):\($0.providerLayerID ?? -1)"
-                },
-            ],
-            "mixedSystemNamedProvider": [
-                "potentialCount": allMixedPotentialReferences.count,
-                "references": mixedProviderPlan.references.count,
-                "bindingKind": mixedProviderPlan.bindingsByConsumerLayerID[
-                    mixedConsumer.id
-                ].map { String(describing: $0.kind) } ?? "none",
-                "requiresForwardCapture": mixedProviderPlan
-                    .bindingsByConsumerLayerID[mixedConsumer.id]?
-                    .requiresForwardCapture == true,
-                "requiresProgram": mixedProviderPlan.bindingsByConsumerLayerID[
-                    mixedConsumer.id
-                ]?.requiresResolvedMaterialProgram == true,
-                "provider": mixedProviderPlan.bindingsByConsumerLayerID[
-                    mixedConsumer.id
-                ]?.providerLayerID ?? -1,
-                "issues": mixedProviderPlan.issues.map {
-                    "\($0.layerID):\($0.kind.rawValue):\($0.providerLayerID ?? -1)"
-                },
-            ],
-            "singleProviderProgramVector": [
-                "directReferences": vectorDirectPlan.references.count,
-                "directSlots": vectorDirectSlots,
-                "potentialBindings": vectorPotentialBindings.count,
-                "potentialSingletons": vectorPotentialBindings.allSatisfy {
-                    $0.referenceSlots == [$0.slot]
-                },
-                "expandedReferences": vectorPlan.references.count,
-                "expandedSlots": vectorExpandedSlots,
-                "provider": vectorPlan.bindingsByConsumerLayerID[
-                    vectorConsumer.id
-                ]?.providerLayerID ?? -1,
-                "kind": vectorPlan.bindingsByConsumerLayerID[
-                    vectorConsumer.id
-                ].map { String(describing: $0.kind) } ?? "none",
-                "forward": vectorPlan.bindingsByConsumerLayerID[
-                    vectorConsumer.id
-                ]?.requiresForwardCapture == true,
-                "requiresProgram": vectorPlan.bindingsByConsumerLayerID[
-                    vectorConsumer.id
-                ]?.requiresResolvedMaterialProgram == true,
-                "issues": vectorPlan.issues.map {
-                    "\($0.layerID):\($0.kind.rawValue):\($0.providerLayerID ?? -1)"
-                },
-            ],
-            "mixedSystemNamedUnadmitted": [
-                "references": mixedProviderUnadmittedPlan.references.count,
-                "binding": mixedProviderUnadmittedPlan
-                    .bindingsByConsumerLayerID[mixedConsumer.id] != nil,
-                "requiresEffect": mixedProviderUnadmittedPlan
-                    .requiredEffectConsumerLayerIDs.contains(mixedConsumer.id),
-                "consumerBlocked": mixedProviderUnadmittedPlan
-                    .blocksStaticLayerSourcePassthrough(for: mixedConsumer.id),
-                "providerBlocked": mixedProviderUnadmittedPlan
-                    .blocksStaticLayerSourcePassthrough(for: mixedProvider.id),
-            ],
-            "mixedPropertyNamedProvider": [
-                "potentialCount": propertyPotentialReferences.count,
-                "unadmittedReferences": propertyUnadmittedPlan.references.count,
-                "unadmittedBinding": propertyUnadmittedPlan
-                    .bindingsByConsumerLayerID[propertyConsumer.id] != nil,
-                "unadmittedConsumerBlocked": propertyUnadmittedPlan
-                    .blocksStaticLayerSourcePassthrough(for: propertyConsumer.id),
-                "unadmittedProviderBlocked": propertyUnadmittedPlan
-                    .blocksStaticLayerSourcePassthrough(for: propertyProvider.id),
-                "admittedReferences": propertyAdmittedPlan.references.count,
-                "admittedBinding": propertyAdmittedPlan
-                    .bindingsByConsumerLayerID[propertyConsumer.id]?
-                    .requiresResolvedMaterialProgram == true,
-                "admittedProvider": propertyAdmittedPlan
-                    .bindingsByConsumerLayerID[propertyConsumer.id]?
-                    .providerLayerID ?? -1,
-            ],
-            "potentialCycleIsolation": [
-                "broadCycles": SceneDependencyGraphAnalysis.cyclicLayerIDs(
-                    edges: broadPotentialEdges
-                ).sorted(),
-                "isolatedCycles": SceneDependencyGraphAnalysis.cyclicLayerIDs(
-                    edges: isolatedEdges
-                ).sorted(),
-                "isolatedConsumerEdges": Array(
-                    isolatedEdges[isolatedConsumer.id] ?? []
-                ).sorted(),
-                "unadmittedProviderEdges": Array(
-                    isolatedEdges[cyclicPotentialProvider.id] ?? []
-                ).sorted(),
-            ],
-            "selectedMultiReferenceAccepted":
-                selectedMultiReferencePlan.bindingsByConsumerLayerID[
-                    selectedMultiReferenceConsumer.id
-                ]?.kind == .resolvedMaterial
-                && selectedMultiReferencePlan.references.filter {
-                    $0.consumerLayerID == selectedMultiReferenceConsumer.id
-                }.count == 2
-                && selectedMultiReferencePlan.requiredProviderLayerIDs == [
-                    shadowedProvider.id
-                ],
+        let selectedMultiBindings = selectedMultiReferencePlan
+            .multiProviderAggregatesByConsumerLayerID[selectedMultiReferenceConsumer.id]?
+            .bindings ?? selectedMultiReferencePlan.bindingsByConsumerLayerID[
+                selectedMultiReferenceConsumer.id
+            ].map { [$0] } ?? []
+        let shadowedNamedReferences: [String: Any] = [
+            "referenceCount": shadowedPlan.references.count,
+            "binding": shadowedPlan.bindingsByConsumerLayerID[
+                shadowedConsumer.id
+            ]?.kind == .resolvedMaterial,
+            "provider": shadowedPlan.bindingsByConsumerLayerID[
+                shadowedConsumer.id
+            ]?.providerLayerID ?? -1,
+            "issues": shadowedPlan.issues.map {
+                "\($0.layerID):\($0.kind.rawValue):\($0.providerLayerID ?? -1)"
+            },
         ]
+        let mixedSystemNamedProvider: [String: Any] = [
+            "potentialCount": allMixedPotentialReferences.count,
+            "references": mixedProviderPlan.references.count,
+            "bindingKind": mixedProviderPlan.bindingsByConsumerLayerID[
+                mixedConsumer.id
+            ].map { String(describing: $0.kind) } ?? "none",
+            "requiresForwardCapture": mixedProviderPlan
+                .bindingsByConsumerLayerID[mixedConsumer.id]?
+                .requiresForwardCapture == true,
+            "requiresProgram": mixedProviderPlan.bindingsByConsumerLayerID[
+                mixedConsumer.id
+            ]?.requiresResolvedMaterialProgram == true,
+            "provider": mixedProviderPlan.bindingsByConsumerLayerID[
+                mixedConsumer.id
+            ]?.providerLayerID ?? -1,
+            "issues": mixedProviderPlan.issues.map {
+                "\($0.layerID):\($0.kind.rawValue):\($0.providerLayerID ?? -1)"
+            },
+        ]
+        let singleProviderProgramVector: [String: Any] = [
+            "directReferences": vectorDirectPlan.references.count,
+            "directSlots": vectorDirectSlots,
+            "potentialBindings": vectorPotentialBindings.count,
+            "potentialSingletons": vectorPotentialBindings.allSatisfy {
+                $0.referenceSlots == [$0.slot]
+            },
+            "expandedReferences": vectorPlan.references.count,
+            "expandedSlots": vectorExpandedSlots,
+            "providers": vectorExpandedBindings.map(\.providerLayerID),
+            "requiredProviders": vectorPlan.requiredProviderLayerIDs.sorted(),
+            "kinds": vectorExpandedBindings.map { String(describing: $0.kind) },
+            "forward": vectorExpandedBindings.map(\.requiresForwardCapture),
+            "requiresProgram": vectorExpandedBindings.map(\.requiresResolvedMaterialProgram),
+            "issues": vectorPlan.issues.map {
+                "\($0.layerID):\($0.kind.rawValue):\($0.providerLayerID ?? -1)"
+            },
+        ]
+        let mixedSystemNamedUnadmitted: [String: Any] = [
+            "references": mixedProviderUnadmittedPlan.references.count,
+            "binding": mixedProviderUnadmittedPlan
+                .bindingsByConsumerLayerID[mixedConsumer.id] != nil,
+            "requiresEffect": mixedProviderUnadmittedPlan
+                .requiredEffectConsumerLayerIDs.contains(mixedConsumer.id),
+            "consumerBlocked": mixedProviderUnadmittedPlan
+                .blocksStaticLayerSourcePassthrough(for: mixedConsumer.id),
+            "providerBlocked": mixedProviderUnadmittedPlan
+                .blocksStaticLayerSourcePassthrough(for: mixedProvider.id),
+        ]
+        let mixedPropertyNamedProvider: [String: Any] = [
+            "potentialCount": propertyPotentialReferences.count,
+            "unadmittedReferences": propertyUnadmittedPlan.references.count,
+            "unadmittedBinding": propertyUnadmittedPlan
+                .bindingsByConsumerLayerID[propertyConsumer.id] != nil,
+            "unadmittedConsumerBlocked": propertyUnadmittedPlan
+                .blocksStaticLayerSourcePassthrough(for: propertyConsumer.id),
+            "unadmittedProviderBlocked": propertyUnadmittedPlan
+                .blocksStaticLayerSourcePassthrough(for: propertyProvider.id),
+            "admittedReferences": propertyAdmittedPlan.references.count,
+            "admittedBinding": propertyAdmittedPlan
+                .bindingsByConsumerLayerID[propertyConsumer.id]?
+                .requiresResolvedMaterialProgram == true,
+            "admittedProvider": propertyAdmittedPlan
+                .bindingsByConsumerLayerID[propertyConsumer.id]?
+                .providerLayerID ?? -1,
+        ]
+        let potentialCycleIsolation: [String: Any] = [
+            "broadCycles": SceneDependencyGraphAnalysis.cyclicLayerIDs(
+                edges: broadPotentialEdges
+            ).sorted(),
+            "isolatedCycles": SceneDependencyGraphAnalysis.cyclicLayerIDs(
+                edges: isolatedEdges
+            ).sorted(),
+            "isolatedConsumerEdges": Array(
+                isolatedEdges[isolatedConsumer.id] ?? []
+            ).sorted(),
+            "unadmittedProviderEdges": Array(
+                isolatedEdges[cyclicPotentialProvider.id] ?? []
+            ).sorted(),
+        ]
+        let selectedMultiReferences: [String: Any] = [
+            "slots": selectedMultiBindings.map {
+                "\($0.slot.effectID):\($0.slot.passIndex):\($0.slot.slotIndex)"
+            },
+            "providers": selectedMultiBindings.map(\.providerLayerID),
+            "requiredProviders": selectedMultiReferencePlan.requiredProviderLayerIDs.sorted(),
+            "kinds": selectedMultiBindings.map { String(describing: $0.kind) },
+            "requiresProgram": selectedMultiBindings.map(\.requiresResolvedMaterialProgram),
+            "references": selectedMultiReferencePlan.references.filter {
+                $0.consumerLayerID == selectedMultiReferenceConsumer.id
+            }.count,
+        ]
+        let cycleConsumer = consumer(100, provider: 110,
+            effectPath: "effects/review/front/effect.json")
+        let cyclicA = consumer(110, provider: 120, visible: false,
+            effectPath: "effects/review/hidden-a/effect.json")
+        let cyclicB = consumer(120, provider: 110, visible: false,
+            effectPath: "effects/review/hidden-b/effect.json")
+        let healthyConsumer = consumer(200, provider: 210,
+            effectPath: "effects/review/peer/effect.json")
+        let healthyProvider = layer(210, visible: false)
+        let forwardLayers = [cycleConsumer, healthyConsumer, cyclicA, cyclicB, healthyProvider]
+        let forwardLayerIDs = forwardLayers.map(\.id)
+        let forwardDescriptor = SceneRenderDescriptor(
+            layers: forwardLayers, renderOrderLayerIDs: forwardLayerIDs)
+        let preparedForwardBindings = SceneDependencyRenderPlan.potentialNamedBindings(
+            descriptor: forwardDescriptor, visibleLayerIDs: [100, 200])
+        let preparedForwardPlan = SceneDependencyRenderPlan(
+            descriptor: forwardDescriptor, visibleLayerIDs: [100, 200],
+            preparedNamedInputBindingsByConsumerLayerID: preparedForwardBindings)
+        let candidateBindings = [100, 110, 120, 200].flatMap {
+            preparedForwardBindings[$0] ?? []
+        }
+        let preparedForwardCycle: [String: Any] = [
+            "candidateProviders": candidateBindings.map(\.providerLayerID),
+            "candidateForward": candidateBindings.map(\.requiresForwardCapture),
+            "cycles": preparedForwardPlan.cyclicLayerIDs.sorted(),
+            "requiredProviders": preparedForwardPlan.requiredProviderLayerIDs.sorted(),
+            "graphProviders": preparedForwardPlan.requiredGraphOutputProviderLayerIDs.sorted(),
+            "consumerBindingRetained": preparedForwardPlan.bindingsByConsumerLayerID[100]?
+                .providerLayerID == 110,
+            "activeExecution": preparedForwardPlan.resolvedMaterialExecutionLayerIDs(
+                visibleRootLayerIDs: [100, 200],
+                availableExecutionLayerIDs: [100, 110, 120, 200]).sorted(),
+            "cycleOnlyForward": preparedForwardPlan.forwardDependencyPreparationOrder(
+                authoredLayerIDs: forwardLayerIDs, activeExecutionLayerIDs: [100]) ?? [-1],
+            "withHealthyForward": preparedForwardPlan.forwardDependencyPreparationOrder(
+                authoredLayerIDs: forwardLayerIDs, activeExecutionLayerIDs: [100, 200]) ?? [-1],
+        ]
+        return [
+            "shadowedNamedReferences": shadowedNamedReferences,
+            "mixedSystemNamedProvider": mixedSystemNamedProvider,
+            "singleProviderProgramVector": singleProviderProgramVector,
+            "mixedSystemNamedUnadmitted": mixedSystemNamedUnadmitted,
+            "mixedPropertyNamedProvider": mixedPropertyNamedProvider,
+            "potentialCycleIsolation": potentialCycleIsolation,
+            "selectedMultiReferences": selectedMultiReferences,
+            "preparedForwardCycle": preparedForwardCycle,
+            "definitionMaterialProviders": definitionMaterialProviderResults(),
+        ]
+    }
+
+    static func definitionMaterialProviderResults() -> [String: Any] {
+        let sourceA = layer(1601, visible: false), sourceB = layer(1602, visible: false)
+        let lower = "_rt_imageLayerComposite_1601_a", upper = "_rt_imageLayerComposite_1602_a"
+        var rows: [[String: Any]] = []
+        for overridden in [false, true] {
+            let identifier = overridden ? 1604 : 1603
+            let effectID = overridden ? "instance-override" : "definition-shared"
+            let passes: [SceneRenderDescriptor.EffectDescriptor.PassDescriptor] = overridden
+                ? [0, 1].map { .init(passIndex: $0, textureSlots: [nil, nil, upper],
+                    combos: [:], constantShaderValues: [:]) } : []
+            let consumer = SceneRenderDescriptor.Layer(id: identifier, contentKind: "image",
+                utilityLayer: nil, dependencyLayerIDs: [1601, 1602], childLayerIDs: [], visible: true,
+                effects: [.init(id: effectID, file: "effects/reused-definition.json", visible: true, passes: passes)])
+            let effect = SceneAuthoredEffectRenderPlan.EffectKey(layerID: identifier,
+                effectIndex: 0, descriptorID: effectID)
+            let graph = SceneAuthoredEffectRenderPlan(layerID: identifier, nodes: [
+                .init(effect: effect, definitionPassIndex: 0, instancePassIndex: overridden ? 0 : nil,
+                    materialPassID: "reused-material#0"),
+                .init(effect: effect, definitionPassIndex: 2, instancePassIndex: overridden ? 1 : nil,
+                    materialPassID: "reused-material#0"),
+            ])
+            var descriptor = SceneRenderDescriptor(layers: [sourceA, sourceB, consumer],
+                renderOrderLayerIDs: [1601, 1602, identifier])
+            descriptor.materialPasses = [.init(id: "reused-material#0", materialPath: "materials/reused.json",
+                passIndex: 0, texturePaths: [lower], textureSlots: [nil, nil, lower], userTextureInputs: [])]
+            let candidates = SceneDependencyRenderPlan.potentialNamedBindings(
+                descriptor: descriptor, authoredPlans: [graph], visibleLayerIDs: [identifier])[identifier] ?? []
+            rows.append(["overridden": overridden,
+                "passes": candidates.map { $0.slot.passIndex }, "slots": candidates.map { $0.slot.slotIndex },
+                "providers": candidates.map(\.providerLayerID),
+                "effects": candidates.map { $0.slot.effectID },
+                "requiresProgram": candidates.map(\.requiresResolvedMaterialProgram)])
+        }
+        var forward: [[String: Any]] = []
+        for (readsBackground, declaresDependency) in [(false, true), (false, false), (true, true), (true, false)] {
+            let front = consumer(1700, provider: 1710)
+            let hidden = SceneRenderDescriptor.Layer(id: 1710, contentKind: "image", utilityLayer: nil,
+                dependencyLayerIDs: declaresDependency ? [1720] : [], childLayerIDs: [], visible: false,
+                effects: [.init(id: "hidden-definition", file: "effects/hidden-definition.json", visible: true, passes: [])])
+            let terminal = layer(1720, visible: false)
+            let graph = SceneAuthoredEffectRenderPlan(layerID: 1710, nodes: [.init(
+                effect: .init(layerID: 1710, effectIndex: 0, descriptorID: "hidden-definition"),
+                definitionPassIndex: 0, materialPassID: "hidden-material#0")])
+            let input = "_rt_imageLayerComposite_1720_a"
+            var descriptor = SceneRenderDescriptor(layers: [front, hidden, terminal], renderOrderLayerIDs: [1700, 1710, 1720])
+            descriptor.materialPasses = [.init(id: "hidden-material#0", materialPath: "materials/hidden.json",
+                passIndex: 0, texturePaths: readsBackground ? ["_rt_FullFrameBuffer", input] : [input],
+                textureSlots: [readsBackground ? "_rt_FullFrameBuffer" : nil, nil, input], userTextureInputs: [])]
+            let candidates = SceneDependencyRenderPlan.potentialNamedBindings(
+                descriptor: descriptor, authoredPlans: [graph], visibleLayerIDs: [1700])
+            forward.append(["readsBackground": readsBackground, "declaresDependency": declaresDependency,
+                "frontProviders": (candidates[1700] ?? []).map(\.providerLayerID),
+                "frontForward": (candidates[1700] ?? []).map(\.requiresForwardCapture),
+                "frontKinds": (candidates[1700] ?? []).map { String(describing: $0.kind) },
+                "hiddenProviders": (candidates[1710] ?? []).map(\.providerLayerID),
+                "hiddenKinds": (candidates[1710] ?? []).map { String(describing: $0.kind) }])
+        }
+        return ["passes": rows, "forward": forward]
     }
 }

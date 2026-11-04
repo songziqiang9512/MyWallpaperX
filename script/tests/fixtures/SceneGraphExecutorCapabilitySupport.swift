@@ -212,8 +212,6 @@ private func capabilities(
                 dependencyOwnership: admitted.dependencyOwnership,
                 potentialExternalPrimaryBindings:
                     admitted.potentialExternalPrimaryBindings,
-                unavailableDependencyStageReasons:
-                    admitted.unavailableDependencyStageReasons,
                 initiallyInactiveEffectKeys:
                     admitted.initiallyInactiveEffectKeys
                     .union(forcedInitiallyInactiveEffectKeys),
@@ -221,7 +219,6 @@ private func capabilities(
                 isTopLevelTextSource: admitted.isTopLevelTextSource,
                 isVisibleExecutionRoot: admitted.isVisibleExecutionRoot,
                 isGraphOutputProvider: admitted.isGraphOutputProvider,
-                requiresGraphOutputProvider: admitted.requiresGraphOutputProvider,
                 terminalReplayBlendMode: admitted.terminalReplayBlendMode
             )
             return .init(layerID: candidate.layerID, result: .success(marked))
@@ -234,86 +231,6 @@ private func capabilities(
         assetFormatFacts: assetFormatFacts,
         assetStates: assetStates
     )
-}
-
-private func mixedForwardUnavailableEffectKeys(
-    graph: Graph,
-    secondaryReference: SceneDependencyRenderPlan.Reference
-) -> Set<Graph.EffectKey>? {
-    let providerLayerID = layerID + 1
-    var consumer = SceneRenderDescriptor.Layer(
-        id: layerID,
-        effects: graph.effects.map { effect in
-            .init(
-                id: effect.key.descriptorID,
-                file: effect.definitionPath,
-                visible: true,
-                passes: [.init(passIndex: 0, combos: [:])]
-            )
-        }
-    )
-    consumer.dependencyLayerIDs = [providerLayerID]
-    let provider = SceneRenderDescriptor.Layer(id: providerLayerID, effects: [])
-    let descriptor = SceneRenderDescriptor(
-        layers: [consumer, provider],
-        materialPasses: [],
-        effectDefinitions: []
-    )
-    let forwardReference = SceneDependencyRenderPlan.Reference(
-        consumerLayerID: layerID,
-        providerLayerID: providerLayerID,
-        slot: .init(
-            effectID: chainedSecondEffect.descriptorID,
-            passIndex: 0,
-            slotIndex: 0
-        ),
-        variant: .primary
-    )
-    return SceneResolvedMaterialDependencyOwnershipCompiler
-        .forwardUnavailableEffectKeys(
-            layer: consumer,
-            graph: graph,
-            descriptor: descriptor,
-            references: [forwardReference, secondaryReference],
-            binding: nil
-        )
-}
-
-private func unsupportedReferenceEffectKeys(
-    graph: Graph,
-    referenceEffect: Graph.EffectKey,
-    providerLayerID: Int,
-    slotIndex: Int = 0
-) -> Set<Graph.EffectKey>? {
-    var consumer = SceneRenderDescriptor.Layer(
-        id: layerID,
-        effects: graph.effects.map { effect in
-            .init(
-                id: effect.key.descriptorID,
-                file: effect.definitionPath,
-                visible: true,
-                passes: [.init(passIndex: 0, combos: [:])]
-            )
-        }
-    )
-    consumer.dependencyLayerIDs = providerLayerID == layerID ? [] : [providerLayerID]
-    let reference = SceneDependencyRenderPlan.Reference(
-        consumerLayerID: layerID,
-        providerLayerID: providerLayerID,
-        slot: .init(
-            effectID: referenceEffect.descriptorID,
-            passIndex: 0,
-            slotIndex: slotIndex
-        ),
-        variant: .primary
-    )
-    return SceneResolvedMaterialDependencyOwnershipCompiler
-        .unsupportedReferenceEffectKeys(
-            layer: consumer,
-            graph: graph,
-            references: [reference],
-            binding: nil
-        )
 }
 
 private func compilerCounts(

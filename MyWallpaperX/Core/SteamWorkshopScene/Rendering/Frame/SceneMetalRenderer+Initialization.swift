@@ -83,8 +83,8 @@ extension SceneMetalRenderer {
                 visibleLayerIDs.union(resolvedMaterialVisibleRootLayerIDs),
             executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs,
             verifiedXRayStageKeys: verifiedXRayStageKeys,
-            admittedResolvedMaterialReferences: resolvedMaterialRuntime?
-                .admittedResolvedMaterialReferences ?? [],
+            preparedNamedInputBindingsByConsumerLayerID: resolvedMaterialRuntime?
+                .preparedNamedInputBindingsByConsumerLayerID ?? [:],
             device: device
         )
         self.dependencyRuntime = dependencyRuntime

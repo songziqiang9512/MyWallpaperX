@@ -465,7 +465,7 @@ final class SceneResolvedMaterialGraphExecutor {
                 stageTerminalReplay = nil
                 if let failure = preparePassthrough(
                     intent, stageCapability: stageCapability,
-                    transition: transition, graph: graph, pairStep: pairStep, lease: lease,
+                    pairStep: pairStep, lease: lease,
                     snapshot: stageEntry, pair: &pair, publications: &publications, commands: &stageCommands,
                     effectLocalFailureReasonCode: &effectLocalFailureReasonCode,
                     effectLocalActivationBypassReasonCode: &effectLocalActivationBypassReasonCode

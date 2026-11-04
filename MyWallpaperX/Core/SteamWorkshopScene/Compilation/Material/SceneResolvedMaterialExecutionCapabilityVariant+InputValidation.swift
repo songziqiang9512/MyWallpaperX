@@ -99,7 +99,10 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         }
         guard schemas.dropFirst().allSatisfy({
             $0.samplers == baseline.samplers
-                && $0.bindings == baseline.bindings
+                && $0.bindings.count == baseline.bindings.count
+                && zip($0.bindings, baseline.bindings).allSatisfy { binding, base in
+                    binding.slot == base.slot && binding.name == base.name
+                }
         }) else {
             return failure(
                 .samplerVariantSchemaDivergence,

@@ -1,6 +1,40 @@
 import Metal
 
 extension SceneResolvedMaterialSubmissionCoordinator {
+    func prepareGraph(
+        _ context: PreparationContext,
+        dependencyEffects: [SceneDependencyEffectInput],
+        executor: SceneResolvedMaterialGraphExecutor,
+        frame: SceneResolvedMaterialFrameSnapshot,
+        commandBuffer: MTLCommandBuffer
+    ) -> Result<SceneResolvedMaterialGraphExecutor.PreparedGraph,
+        SceneResolvedMaterialGraphExecutor.Failure> {
+        let request = context.request
+        return executor.prepare(
+            token: request.claim.token,
+            leases: context.targets.leases,
+            historyRehydrateCopiesByEffect: context.targets.historyRehydrateCopiesByEffect,
+            frame: frame,
+            sceneBackgroundResource: request.sceneBackgroundResource,
+            sourceTexture: request.sourceTexture,
+            sourceUniforms: request.sourceUniforms,
+            sourcePipeline: request.sourcePipeline,
+            framebufferSourceMaterial: request.framebufferSourceMaterial,
+            sourceLighting: request.sourceLighting,
+            terminalReplayTarget: request.terminalReplayTarget,
+            terminalReplayBlendMode: request.terminalReplayBlendMode,
+            terminalReplayIsOptional: request.terminalReplayIsOptional,
+            pool: context.pool,
+            frameInputs: request.frameInputs.withDependencyEffects(dependencyEffects),
+            commandBuffer: commandBuffer,
+            previousStates: context.previousTails.mapValues(\.state),
+            previousGraphResources: context.previousTails.mapValues(\.persistentResources),
+            materialFunctionInvocations: request.materialFunctionInvocations,
+            effectGeneration: effectGeneration, resetGeneration: resetGeneration,
+            executionTrace: context.executionTrace
+        )
+    }
+
     func dependencyEffectsReservationMatches(
         _ effects: [SceneDependencyEffectInput],
         ownership: SceneResolvedMaterialDependencyOwnership,
@@ -9,139 +43,20 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         guard case let .externalAggregate(aggregate) = ownership else {
             return false
         }
-        return aggregateDependencyEffectsMatch(
-            effects,
-            aggregate: aggregate,
-            frameEpoch: frameEpoch
-        )
-    }
-
-    /// Rejects one prepared external-dependency transaction before encoding,
-    /// releases only its allocation, and rebases independent successors on the
-    /// last terminal-output tails. Integrity failures still use the frame-failure
-    /// path; this entry point accepts only the typed ordinary capture miss.
-    func rejectPreparedExternalDependencyLocally(
-        layerID: Int,
-        reasonCode: String
-    ) -> Bool {
-        guard reasonCode == "external-primary-provider-capture-unavailable"
-        else { return false }
-        var emission = Emission()
-        lock.lock()
-        guard terminalFailureReason == nil, frameIsActive,
-              framePreparationComplete, !frameRequiresDrop,
-              frameFailure == nil,
-              frameLocalFallbacks[layerID] == nil,
-              let identity = preparedLedgerByLayerID[layerID],
-              let index = activeTransactions.firstIndex(of: identity),
-              let ledger = activeByID[identity],
-              ledger.layerID == layerID,
-              let capability = capabilities.resolve(ledger.capabilityToken),
-              capability.layerID == layerID,
-              externalDependencyOwnershipIsSupported(
-                  capability.dependencyOwnership
-              ),
-              ledger.phase == .allocationCommitted,
-              !ledger.claimConsumed,
-              preparedDependencyReservationMatches(
-                  ledger,
-                  ownership: capability.dependencyOwnership
-              ),
-              ledger.prepared.historyTokensByEffect.isEmpty,
-              ledger.prepared.stages.allSatisfy({
-                  $0.transition.nextState.historyClosureIdentities.isEmpty
-                      && ledger.committedBaseTails[$0.effect] == nil
-              }),
-              ledger.commandBuffer.status == .notEnqueued,
-              activeTransactions[..<index].allSatisfy({
-                  activeByID[$0]?.phase == .outputConsumed
-              }) else {
-            lock.unlock()
-            return false
+        guard frameEpoch > 0 else { return false }
+        var inputs = effects.makeIterator()
+        var input = inputs.next()
+        for binding in aggregate.bindings {
+            guard let current = input else { return true }
+            guard current.slot == binding.slot else { continue }
+            guard current.consumerLayerID == binding.consumerLayerID,
+                  current.providerLayerID == binding.providerLayerID,
+                  current.variant == .primary,
+                  current.blendMode == binding.blendMode,
+                  current.frameEpoch == frameEpoch else { return false }
+            input = inputs.next()
         }
-        let successorIDs = Array(
-            activeTransactions[activeTransactions.index(after: index)...]
-        )
-        var rebasedTails = scheduledTails
-        var rebasedByIdentity: [UInt64: [Graph.EffectKey: Tail]] = [:]
-        for successorID in successorIDs {
-            guard let successor = activeByID[successorID],
-                  successor.phase == .allocationCommitted,
-                  let blueprint = successor.blueprint,
-                  let commit = successor.commit else {
-                lock.unlock()
-                return false
-            }
-            rebasedTails = committedCandidateTailsLocked(
-                blueprint: blueprint,
-                startingAt: rebasedTails,
-                commit: commit,
-                prepared: successor.prepared
-            )
-            guard tailsAreValid(rebasedTails) else {
-                lock.unlock()
-                return false
-            }
-            rebasedByIdentity[successorID] = rebasedTails
-        }
-        emission = terminalizeLedgerLocked(
-            identity,
-            as: .failed(reasonCode: reasonCode, gpu: nil)
-        )
-        preparedLedgerByLayerID.removeValue(forKey: layerID)
-        frameLocalFallbacks[layerID] = reasonCode
-        for successorID in successorIDs {
-            activeByID[successorID]?.candidateTails =
-                rebasedByIdentity[successorID]
-        }
-#if DEBUG
-        emission.diagnostics.append(
-            "dependency-subgraph-local-rejection layer=\(layerID) reason=\(reasonCode)"
-        )
-#endif
-
-        lock.unlock()
-        emit(emission)
-        return true
-    }
-
-    private func preparedDependencyReservationMatches(
-        _ ledger: PreparedLedger,
-        ownership: SceneResolvedMaterialDependencyOwnership
-    ) -> Bool {
-        switch ownership {
-        case .externalPrimary:
-            // The vector is empty when the provider is merely unavailable
-            // this frame (marker set); one element when reserved.
-            return ledger.preparedDependencyEffects.count <= 1
-                && dependencyReservationMatches(
-                    ledger.preparedDependencyEffects.first,
-                    unavailability: ledger.preparedDependencyUnavailability,
-                    ownership: ownership
-                )
-        case .externalAggregate:
-            guard ledger.preparedDependencyUnavailability == nil,
-                  let frameEpoch = frame?.textureRegistrySnapshot.frameEpoch
-            else { return false }
-            return dependencyEffectsReservationMatches(
-                ledger.preparedDependencyEffects,
-                ownership: ownership,
-                frameEpoch: frameEpoch
-            )
-        case .none, .graphInternal:
-            return false
-        }
-    }
-
-    private func externalDependencyOwnershipIsSupported(
-        _ ownership: SceneResolvedMaterialDependencyOwnership
-    ) -> Bool {
-        switch ownership {
-        case .externalPrimary, .externalAggregate:
-            return true
-        case .none, .graphInternal:
-            return false
-        }
+        return input == nil
     }
 
     func executeClaimed(
@@ -174,6 +89,22 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             return .failed(reasonCode: reason)
         case let .accepted(admittedLedger, identity, executor):
             var ledger = admittedLedger
+            if dependencyEffects.count < ledger.preparedDependencyEffects.count {
+                guard let frame,
+                      let updated = refreshPreparedDependencySuffixLocked(
+                        from: identity, dependencyEffects: dependencyEffects,
+                        executor: executor, frame: frame, commandBuffer: commandBuffer
+                      ) else {
+                    emission = claimedFailureLocked(reason: "prepared-frame-consumption-rejected")
+#if DEBUG
+                    emission.diagnostics.append("late-dependency-preparation-rejected layer=\(claim.layerID)")
+#endif
+                    lock.unlock()
+                    emit(emission)
+                    return .failed(reasonCode: "prepared-frame-consumption-rejected")
+                }
+                ledger = updated
+            }
 #if DEBUG
             let encodeResult = SceneGPUStageTimestampHook.graphScope(commandBuffer,
                 layerID: claim.layerID, ledgerID: identity) {
@@ -198,18 +129,10 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                 return .failed(reasonCode: reason)
             }
             ledger.phase = .encoded
+            ledger.preparationContext = nil
             activeByID[identity] = ledger
             frameEncoded += 1
-            let consumesExternalPrimaryDependency: Bool
-            if case .externalPrimary = claim.dependencyOwnership,
-               ledger.preparedDependencyUnavailability == nil {
-                consumesExternalPrimaryDependency = true
-            } else if case let .externalAggregate(aggregate) = claim.dependencyOwnership,
-                      !aggregate.providerLayerIDs.isEmpty {
-                consumesExternalPrimaryDependency = true
-            } else {
-                consumesExternalPrimaryDependency = false
-            }
+            let consumesExternalPrimaryDependency = !dependencyEffects.isEmpty
             let result = Bridge.ExecutionResult.encoded(
                 texture: ledger.prepared.finalTexture,
                 ticket: .init(
@@ -284,8 +207,6 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         else { return .rejected(detail: "capability-unresolved") }
         guard capability.layerID == claim.layerID
         else { return .rejected(detail: "capability-layer-mismatch") }
-        guard capability.dependencyOwnership == claim.dependencyOwnership
-        else { return .rejected(detail: "capability-ownership-mismatch") }
         guard ledger.claimConsumed else { return .rejected(detail: "claim-not-consumed") }
         guard ledger.phase == .allocationCommitted
         else { return .rejected(detail: "ledger-phase-\(ledger.phase.rawValue)") }
@@ -296,8 +217,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         guard dependenciesMatch(
             preparedEffects: ledger.preparedDependencyEffects,
             preparedUnavailability: ledger.preparedDependencyUnavailability,
-            readyEffects: dependencyEffects,
-            ownership: claim.dependencyOwnership
+            readyEffects: dependencyEffects
         ) else { return .rejected(detail: "dependency-input-mismatch") }
         guard sceneBackgroundTextureMatches(
             prepared: ledger.prepared.sceneBackgroundResource,
@@ -324,53 +244,19 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         case .none, .graphInternal:
             return input == nil && unavailability == nil
         case .externalPrimary(let binding):
-            switch binding.kind {
-            case .resolvedMaterial:
-                guard binding.slot.slotIndex == 1,
-                      binding.blendMode == 0 else { return false }
-            case .solidLayer:
-                guard binding.slot.passIndex == 0,
-                      (
-                        binding.slot.slotIndex == 3
-                            || (binding.slot.slotIndex == 1
-                                && binding.requiresResolvedMaterialProgram)
-                      ),
-                      binding.blendMode == 0 else { return false }
-            case .imageLayerBlend:
-                guard binding.slot.passIndex == 0,
-                      binding.slot.slotIndex == 1,
-                      SceneImageLayerBlendDependencyContract.supports(
-                          blendMode: binding.blendMode
-                      ),
-                      binding.blendMode == 0
-                        || binding.requiresResolvedMaterialProgram else {
-                    return false
-                }
-            case .geometryLayer:
-                guard binding.slot.passIndex == 0,
-                      binding.slot.slotIndex == 1,
-                      binding.blendMode == 0,
-                      binding.requiresResolvedMaterialProgram else {
-                    return false
-                }
-            case .visibleImageGraphOutput:
-                guard binding.slot.passIndex == 0,
-                      binding.slot.slotIndex == 1,
-                      binding.blendMode == 0 else { return false }
-            }
             if let unavailability {
                 return input == nil
                     && unavailability == .providerSourceUnavailable
             }
-            guard let input else { return false }
+            guard let input,
+                  let frameEpoch = frame?.textureRegistrySnapshot.frameEpoch,
+                  frameEpoch > 0, input.frameEpoch == frameEpoch else { return false }
             return input.consumerLayerID == binding.consumerLayerID
                 && input.providerLayerID == binding.providerLayerID
                 && input.variant == .primary
                 && input.slot == binding.slot
                 && input.blendMode == binding.blendMode
         case .externalAggregate:
-            // Aggregate execution is intentionally fail-closed until the
-            // submission ledger carries the complete ordered input vector.
             return false
         }
     }
@@ -398,62 +284,105 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         preparedEffects: [SceneDependencyEffectInput],
         preparedUnavailability:
             Bridge.FrameInputs.DependencyUnavailability?,
-        readyEffects: [SceneDependencyEffectInput],
-        ownership: SceneResolvedMaterialDependencyOwnership
+        readyEffects: [SceneDependencyEffectInput]
     ) -> Bool {
-        if case let .externalAggregate(aggregate) = ownership {
-            // Aggregate owners never carry an unavailability marker. Both
-            // vectors must match the exact authored consumer/provider/slot/
-            // variant/blend order in the current frame epoch and preserve
-            // physical texture identity.
-            guard preparedUnavailability == nil,
-                  let frameEpoch = frame?.textureRegistrySnapshot.frameEpoch,
-                  aggregateDependencyEffectsMatch(
-                      preparedEffects,
-                      aggregate: aggregate,
-                      frameEpoch: frameEpoch
-                  ),
-                  aggregateDependencyEffectsMatch(
-                      readyEffects,
-                      aggregate: aggregate,
-                      frameEpoch: frameEpoch
-                  ) else {
-                return false
+        guard readyEffects.count <= preparedEffects.count else { return false }
+        if preparedUnavailability != nil { return readyEffects.isEmpty }
+        guard let frameEpoch = frame?.textureRegistrySnapshot.frameEpoch else { return false }
+        var inputs = readyEffects.makeIterator()
+        var input = inputs.next()
+        for prepared in preparedEffects {
+            guard let ready = input else { return true }
+            guard prepared.slot == ready.slot else { continue }
+            guard prepared.consumerLayerID == ready.consumerLayerID,
+                  prepared.providerLayerID == ready.providerLayerID,
+                  prepared.variant == ready.variant,
+                  prepared.blendMode == ready.blendMode,
+                  prepared.frameEpoch == frameEpoch,
+                  ready.frameEpoch == frameEpoch,
+                  prepared.content == ready.content,
+                  prepared.texture === ready.texture else { return false }
+            input = inputs.next()
+        }
+        return input == nil
+    }
+
+    private func reprepareDependenciesLocked(
+        _ ledger: inout PreparedLedger,
+        dependencyEffects: [SceneDependencyEffectInput],
+        executor: SceneResolvedMaterialGraphExecutor,
+        frame: SceneResolvedMaterialFrameSnapshot,
+        commandBuffer: MTLCommandBuffer
+    ) -> Bool {
+        guard let context = ledger.preparationContext, let commit = ledger.commit,
+              case let .success(prepared) = prepareGraph(
+                context, dependencyEffects: dependencyEffects,
+                executor: executor, frame: frame, commandBuffer: commandBuffer
+              ), let blueprint = candidateBlueprintLocked(
+                for: prepared, startingAt: context.previousTails
+              ), candidateIsCommitReadyLocked(
+                targets: context.targets, prepared: prepared, blueprint: blueprint
+              ) else { return false }
+        for (effect, tokens) in prepared.historyTokensByEffect {
+            guard historyPinMatches(commit.historyPinsByEffect[effect],
+                effect: effect, tokens: tokens, generation: commit.submissionPin.generation)
+            else { return false }
+        }
+        ledger.prepared = prepared
+        ledger.preparedDependencyEffects = dependencyEffects
+        ledger.blueprint = blueprint
+        return true
+    }
+
+    private func refreshPreparedDependencySuffixLocked(
+        from identity: UInt64,
+        dependencyEffects: [SceneDependencyEffectInput],
+        executor: SceneResolvedMaterialGraphExecutor,
+        frame: SceneResolvedMaterialFrameSnapshot,
+        commandBuffer: MTLCommandBuffer
+    ) -> PreparedLedger? {
+        guard let index = activeTransactions.firstIndex(of: identity),
+              var first = activeByID[identity],
+              reprepareDependenciesLocked(&first, dependencyEffects: dependencyEffects,
+                executor: executor, frame: frame, commandBuffer: commandBuffer)
+        else { return nil }
+        activeByID[identity] = first
+        var tails = scheduledTails
+        for transactionID in activeTransactions[index...] {
+            guard var ledger = activeByID[transactionID],
+                  let commit = ledger.commit else { return nil }
+            if transactionID != identity, let context = ledger.preparationContext {
+                var contentChanged = false
+                let effects = ledger.preparedDependencyEffects.map { input in
+                    let binding: SceneDependencyRenderPlan.Binding?
+                    switch context.request.claim.dependencyOwnership {
+                    case let .externalPrimary(value): binding = value
+                    case let .externalAggregate(aggregate):
+                        binding = aggregate.bindings.first { $0.slot == input.slot }
+                    case .none, .graphInternal: binding = nil
+                    }
+                    guard binding?.kind != .geometryLayer,
+                          let providerID = preparedLedgerByLayerID[input.providerLayerID],
+                          let provider = activeByID[providerID] else { return input }
+                    let content = provider.prepared.finalResource.publication.candidate.content
+                    guard content != input.content else { return input }
+                    contentChanged = true
+                    return input.withContent(content)
+                }
+                if contentChanged,
+                   !reprepareDependenciesLocked(&ledger, dependencyEffects: effects,
+                    executor: executor, frame: frame, commandBuffer: commandBuffer) {
+                    return nil
+                }
             }
-            return zip(preparedEffects, readyEffects).allSatisfy {
-                $0.consumerLayerID == $1.consumerLayerID
-                    && $0.providerLayerID == $1.providerLayerID
-                    && $0.variant == $1.variant
-                    && $0.slot == $1.slot
-                    && $0.blendMode == $1.blendMode
-                    && $0.frameEpoch == $1.frameEpoch
-                    && $0.content == $1.content
-                    && $0.texture === $1.texture
-            }
+            guard let blueprint = ledger.blueprint else { return nil }
+            tails = committedCandidateTailsLocked(blueprint: blueprint,
+                startingAt: tails, commit: commit, prepared: ledger.prepared)
+            guard tailsAreValid(tails) else { return nil }
+            ledger.candidateTails = tails
+            activeByID[transactionID] = ledger
         }
-        // Non-aggregate owners carry at most one input: a single-provider
-        // owner holds a one-element vector, none/graphInternal an empty one.
-        guard preparedEffects.count <= 1, readyEffects.count <= 1 else {
-            return false
-        }
-        let prepared = preparedEffects.first
-        let ready = readyEffects.first
-        guard dependencyReservationMatches(
-                prepared,
-                unavailability: preparedUnavailability,
-                ownership: ownership
-              ),
-              preparedUnavailability == nil
-                || ready == nil,
-              preparedUnavailability != nil
-                || dependencyReservationMatches(ready, ownership: ownership) else {
-            return false
-        }
-        if preparedUnavailability != nil { return true }
-        guard let prepared, let ready else { return true }
-        return prepared.frameEpoch == ready.frameEpoch
-            && prepared.content == ready.content
-            && prepared.texture === ready.texture
+        return activeByID[identity]
     }
 
     func preparedExternalDependencyBypassReason(layerID: Int) -> String? {
@@ -467,11 +396,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
               ledger.phase == .allocationCommitted,
               !ledger.claimConsumed,
               let unavailable = ledger.preparedDependencyUnavailability,
-              ledger.preparedDependencyEffects.isEmpty,
-              ledger.prepared.stages.contains(where: {
-                  $0.effect.layerID == layerID
-                      && $0.effectLocalFailureReasonCode == unavailable.rawValue
-              }) else { return nil }
+              ledger.preparedDependencyEffects.isEmpty else { return nil }
         return unavailable.rawValue
     }
 
@@ -491,58 +416,5 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             return prepared == nil && ready == nil
         }
         return prepared.publication.texture === ready
-    }
-
-    /// Checks one aggregate vector without reducing it to a provider/slot
-    /// set. The order and every identity-bearing field are part of the frame
-    /// contract; texture validation also rejects cross-provider aliasing that
-    /// could make two authored inputs observe one physical target.
-    private func aggregateDependencyEffectsMatch(
-        _ effects: [SceneDependencyEffectInput],
-        aggregate: SceneDependencyRenderPlan.MultiProviderAggregate,
-        frameEpoch: UInt64
-    ) -> Bool {
-        guard frameEpoch > 0,
-              aggregate.hasStrictBindingVector,
-              effects.count == aggregate.bindings.count else {
-            return false
-        }
-        var texturesByProvider: [Int: MTLTexture] = [:]
-        var textureIdentities = Set<ObjectIdentifier>()
-        for (effect, binding) in zip(effects, aggregate.bindings) {
-            guard effect.consumerLayerID == aggregate.consumerLayerID,
-                  effect.consumerLayerID == binding.consumerLayerID,
-                  effect.providerLayerID == binding.providerLayerID,
-                  effect.variant == .primary,
-                  effect.slot == binding.slot,
-                  effect.blendMode == binding.blendMode,
-                  effect.frameEpoch == frameEpoch,
-                  isValidAggregateDependencyTexture(effect.texture) else {
-                return false
-            }
-            if let existing = texturesByProvider[effect.providerLayerID] {
-                guard existing === effect.texture else { return false }
-            } else {
-                texturesByProvider[effect.providerLayerID] = effect.texture
-                guard textureIdentities.insert(
-                    ObjectIdentifier(effect.texture)
-                ).inserted else {
-                    return false
-                }
-            }
-        }
-        return true
-    }
-
-    private func isValidAggregateDependencyTexture(
-        _ texture: MTLTexture
-    ) -> Bool {
-        texture.width > 0
-            && texture.height > 0
-            && texture.textureType == .type2D
-            && texture.sampleCount == 1
-            && texture.mipmapLevelCount == 1
-            && texture.usage.contains(.renderTarget)
-            && texture.usage.contains(.shaderRead)
     }
 }

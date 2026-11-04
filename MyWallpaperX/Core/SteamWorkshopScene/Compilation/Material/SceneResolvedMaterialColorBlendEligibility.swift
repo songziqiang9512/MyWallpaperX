@@ -231,8 +231,6 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             return true
         }
         let snapshot = launchEnvelopeCapabilitySnapshot()
-        let profile = SceneGenericShaderCapabilityProfile
-            .sourceProvenGraphInputColorBlend.rawValue
         guard snapshot.hasCachedReachability,
               snapshot.inputIdentity != nil,
               snapshot.allEntriesReady,
@@ -253,9 +251,6 @@ nonisolated extension SceneResolvedMaterialVariantCache {
               }), !snapshot.template.graphRole.bindings.contains(where: {
                   $0.slot == slot
               }), snapshot.variants.allSatisfy({ variant in
-                  guard variant.routeDecision.profile == profile else {
-                      return false
-                  }
                   let sampler = variant.activeSamplers[slot]
                   let bindings = variant.frontendProgram.textureBindings.filter {
                       $0.slot == slot
@@ -366,8 +361,9 @@ nonisolated extension SceneResolvedMaterialVariantCache {
     }
 
     /// Proves that every reachable sampler and every precompiled launch
-    /// variant conserves the exact lower named-color / higher optional-data
-    /// selection. This proof grants dependency promotion and nothing else.
+    /// variant conserves the exact lower source / higher optional-data
+    /// selection. An ingress alias keeps its prepared graph representation;
+    /// external named color requires both publication ABIs below.
     func provesExactMixedNamedFallback(
         slot: Int,
         optionalInput expectedInput:
@@ -376,7 +372,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         guard (0 ..< 8).contains(slot) else { return false }
         let snapshot = launchEnvelopeCapabilitySnapshot()
         guard snapshot.hasCachedReachability,
-              snapshot.inputIdentity != nil,
+              let inputIdentity = snapshot.inputIdentity,
               snapshot.allEntriesReady,
               !snapshot.variants.isEmpty,
               let reachableSamplers = snapshot.reachableSamplers?[slot],
@@ -404,15 +400,32 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                       $0.slot == slot
                   }
                   return sampler == nil ? bindings.isEmpty : bindings.count == 1
-              }), snapshot.variants.contains(where: {
-                  $0.activeSamplers[slot] != nil
-                      && $0.premultipliedColorInputSlots.contains(slot)
-              }), snapshot.variants.contains(where: {
-                  $0.activeSamplers[slot] != nil
-                      && !$0.premultipliedColorInputSlots.contains(slot)
               }) else {
             return false
         }
-        return true
+        if snapshot.variants.contains(where: { $0.activeSamplers[slot] != nil }),
+           snapshot.variants.allSatisfy({ variant in
+               guard variant.activeSamplers[slot] != nil else { return true }
+               guard let source = variant.textureSelectionFacts.candidates[slot]?
+                    .first?.graphInputSourceFact else { return false }
+               return source.slot == slot
+                   && source.inputIdentity == inputIdentity
+                   && source.selectionProvenance
+                    == .authored(declaration.candidates[0].provenance)
+           }) {
+            return true
+        }
+        return snapshot.variants.contains(where: {
+            let colorInput = $0.frontendProgram.colorBoundary?
+                .colorInputSlots.contains(slot)
+                ?? $0.premultipliedColorInputSlots.contains(slot)
+            return $0.activeSamplers[slot] != nil && colorInput
+        }) && snapshot.variants.contains(where: {
+            let colorInput = $0.frontendProgram.colorBoundary?
+                .colorInputSlots.contains(slot)
+                ?? $0.premultipliedColorInputSlots.contains(slot)
+            return $0.activeSamplers[slot] != nil && !colorInput
+                && $0.preservedChannelsProviderInputSlots.contains(slot)
+        })
     }
 }

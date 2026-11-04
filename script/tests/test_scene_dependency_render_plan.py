@@ -109,15 +109,17 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
     def tearDownClass(cls) -> None:
         cls.temporary_directory.cleanup()
 
-    def test_utility_capture_retains_prepared_binding_for_future_visibility(self) -> None:
+    def test_utility_capture_uses_prepared_program_and_retains_future_visibility(self) -> None:
         result = self.result["preparedUtility"]
         self.assertEqual(result["capture"], "capture")
         self.assertEqual(result["convenience"], "capture")
-        self.assertEqual(result["missingBinding"], "unsupportedDependencies")
+        # A prepared Program and source route own capture; the cold Plan does
+        # not separately license it through a legacy singleton binding.
+        self.assertEqual(result["missingBinding"], "capture")
         self.assertEqual(result["unadmitted"], "unsupportedDependencies")
         self.assertEqual(result["hidden"], "capture")
         self.assertEqual(result["captures"], [950])
-        self.assertEqual(result["restrictedRoots"], "unsupportedDependencies")
+        self.assertEqual(result["restrictedRoots"], "capture")
         self.assertEqual(result["expandedRoots"], "capture")
         self.assertEqual(result["hiddenExpandedRoots"], "capture")
         self.assertFalse(result["restrictedFramebuffer"])
@@ -330,7 +332,12 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
             },
             self.result,
         )
-        self.assertTrue(self.result["selectedMultiReferenceAccepted"])
+        self.assertEqual(self.result["selectedMultiReferences"], {
+            "slots": ["effect-431:0:1", "effect-432:0:1"],
+            "providers": [420, 420], "requiredProviders": [420],
+            "kinds": ["resolvedMaterial", "resolvedMaterial"],
+            "requiresProgram": [True, True], "references": 2,
+        })
         self.assertEqual(
             self.result["potentialCycleIsolation"],
             {
@@ -365,7 +372,7 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
             {
                 "directReferences": 1,
                 "directSlots": ["effect-964:0:1"],
-                "potentialBindings": 2,
+                "potentialBindings": 3,
                 "potentialSingletons": True,
                 "expandedReferences": 3,
                 "expandedSlots": [
@@ -373,118 +380,154 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
                     "effect-965:0:1",
                     "effect-966:0:1",
                 ],
-                "provider": 1325,
-                "kind": "imageLayerBlend",
-                "forward": True,
-                "requiresProgram": True,
+                "providers": [1325, 1325, 1325],
+                "requiredProviders": [1325],
+                "kinds": ["imageLayerBlend"] * 3,
+                "forward": [True] * 3,
+                "requiresProgram": [True] * 3,
                 "issues": [],
             },
             self.result,
         )
 
-    def test_multi_provider_composition_candidate_is_fail_closed(
-        self,
-    ) -> None:
-        self.assertEqual(
-            self.result["multiProviderCandidate"],
-            {
-                "candidate": True,
-                "aggregate": {
-                    "providers": [601, 602],
-                    "slots": ["first:0:1", "second:0:1"],
-                    "strict": True,
-                    "reversedStrict": False,
-                    "wrongBlendStrict": False,
-                },
-                "authoredOrder": {
-                    "slots": [
-                        "z-authored-first:0:1",
-                        "a-authored-second:0:1",
-                    ],
-                    "bindingSlots": [
-                        "z-authored-first:0:1",
-                        "a-authored-second:0:1",
-                    ],
-                    "strict": True,
-                    "admitted": True,
-                },
-                "aggregateAdmission": {
-                    "positive": True,
-                    "reversed": False,
-                    "missing": False,
-                    "duplicate": False,
-                    "wrongProvider": False,
-                },
-                "binding": True,
-                "requiredProviders": [601, 602],
-                "requiredEffect": True,
-            },
-        )
-        self.assertEqual(
-            self.result["multiProviderRejects"],
-            {
-                "dependencyMismatch": True,
-                "duplicateSlot": True,
-                "unsafeProvider": True,
-                "unsafeAggregate": True,
-                "wrongPass": True,
-                "wrongSlot": True,
-                "userTexture": True,
-                "extraPass": True,
-                "extraSlots": True,
-                "unknownCombo": True,
-                "missingProviderOrder": True,
-                "missingConsumerOrder": True,
-                "visibleProvider": True,
-                "visibleEffectfulProvider": True,
-                "forwardSafeProvider": True,
-                "forwardUnsafeProvider": True,
-                "forwardVisibleEffectfulGeometryProvider": True,
-            },
-        )
-        self.assertEqual(
-            self.result["multiProviderGeometry"],
-            {
-                "providers": [601, 602],
-                "kinds": ["geometryLayer", "imageLayerBlend"],
-                "slots": ["first:0:1", "second:0:1"],
-                "strict": True,
-                "admitted": True,
-            },
-        )
-        self.assertEqual(
-            self.result["nestedGeometryAggregate"],
-            {
-                "nestedBindingKind": "geometryLayer",
-                "nestedRequiresProgram": True,
-                "aggregateProviders": [702, 701],
-                "aggregateKinds": ["imageLayerBlend", "geometryLayer"],
-                "requiredProviders": [700, 701, 702],
-                "graphProviders": [700, 701],
-                "issues": [],
-            },
-        )
+    def test_definition_material_candidates_keep_effective_pass_identity(self) -> None:
+        # These are potential source carriers. Actual Program selection and
+        # pixel contribution belong to the GraphExecutor/App gates.
+        self.assertEqual(self.result["definitionMaterialProviders"]["passes"], [
+            {"overridden": False, "passes": [0, 2], "slots": [2, 2],
+             "providers": [1601, 1601], "effects": ["definition-shared"] * 2,
+             "requiresProgram": [True] * 2},
+            {"overridden": True, "passes": [0, 0, 1, 1], "slots": [2] * 4,
+             "providers": [1601, 1602, 1601, 1602], "effects": ["instance-override"] * 4,
+             "requiresProgram": [True] * 4},
+        ])
 
-    def test_multi_provider_inactive_effect_keeps_declaration_superset_strict(
-        self,
-    ) -> None:
-        self.assertEqual(
-            self.result["multiProviderInactiveSuperset"],
-            {
-                "candidate": True,
-                "references": [
-                    {"provider": 601, "slot": "first:0:1"},
-                    {"provider": 602, "slot": "second:0:1"},
-                ],
-                "aggregate": {
-                    "providers": [601, 602],
-                    "strict": True,
-                    "admitted": True,
-                },
-                "requiredProviders": [601, 602],
-                "declaredProviders": [601, 602, 604],
-            },
-        )
+    def test_definition_forward_provider_keeps_background_phase_boundary(self) -> None:
+        self.assertEqual(self.result["definitionMaterialProviders"]["forward"], [
+            {"readsBackground": False, "declaresDependency": True,
+             "frontProviders": [1710], "frontForward": [True], "frontKinds": ["imageLayerBlend"],
+             "hiddenProviders": [1720], "hiddenKinds": ["imageLayerBlend"]},
+            {"readsBackground": False, "declaresDependency": False,
+             "frontProviders": [1710], "frontForward": [True], "frontKinds": ["imageLayerBlend"],
+             "hiddenProviders": [1720], "hiddenKinds": ["imageLayerBlend"]},
+            {"readsBackground": True, "declaresDependency": True,
+             "frontProviders": [], "frontForward": [], "frontKinds": [],
+             "hiddenProviders": [1720], "hiddenKinds": ["imageLayerBlend"]},
+            {"readsBackground": True, "declaresDependency": False,
+             "frontProviders": [], "frontForward": [], "frontKinds": [],
+             "hiddenProviders": [1720], "hiddenKinds": ["imageLayerBlend"]},
+        ])
+
+    def test_multi_provider_cold_plan_preserves_authored_binding_order(self) -> None:
+        self.assertEqual(self.result["multiProviderCandidate"], {
+            "candidate": True,
+            "aggregate": {"providers": [601, 602], "slots": ["first:0:1", "second:0:1"]},
+            "authoredSlots": ["z-authored-first:0:1", "a-authored-second:0:1"],
+            "requiredProviders": [601, 602], "requiredEffect": True,
+        })
+        self.assertEqual(self.result["multiProviderRejects"], {
+            "duplicateSlot": True, "unsafeProvider": True,
+            "missingProviderOrder": True, "missingConsumerOrder": True,
+            "visibleEffectfulProvider": True,
+            "forwardSafeProvider": True, "forwardUnsafeProvider": True,
+            "forwardVisibleEffectfulGeometryProvider": True,
+        })
+        # Cold carriers still require a Program. Consumer dependency metadata
+        # and provider visibility do not replace its actual resource interface.
+        self.assertEqual(self.result["multiProviderColdCarriers"], {
+            "declaredSubsetSlots": ["first:0:1", "second:0:1"],
+            "declaredSubsetProviders": [601, 602],
+            "declaredSubsetRequiresProgram": [True, True],
+            "visibleProviderSlots": ["first:0:1", "second:0:1"],
+            "visibleProviderKinds": ["imageLayerBlend", "imageLayerBlend"],
+            "visibleProviderRequiresProgram": [True, True],
+        })
+
+    def test_geometry_and_nested_providers_keep_actual_order_and_demand(self) -> None:
+        self.assertEqual(self.result["multiProviderGeometry"], {
+            "providers": [601, 602], "kinds": ["geometryLayer", "imageLayerBlend"],
+            "slots": ["first:0:1", "second:0:1"],
+        })
+        self.assertEqual(self.result["nestedGeometryAggregate"], {
+            "nestedBindingKind": "geometryLayer", "nestedRequiresProgram": True,
+            "aggregateProviders": [702, 701], "aggregateKinds": ["imageLayerBlend", "geometryLayer"],
+            "requiredProviders": [700, 701, 702], "graphProviders": [700, 701], "issues": [],
+        })
+        self.assertEqual(self.result["multiProviderInactiveSuperset"], {
+            "candidate": True,
+            "references": [{"provider": 601, "slot": "first:0:1"}, {"provider": 602, "slot": "second:0:1"}],
+            "aggregate": {"providers": [601, 602], "slots": ["first:0:1", "second:0:1"]},
+            "requiredProviders": [601, 602], "declaredProviders": [601, 602, 604],
+        })
+
+    def test_prepared_solid_and_image_vectors_use_exact_active_slots(self) -> None:
+        # Typed preparation input only; Program compilation and per-input
+        # contribution are exercised by the separate GPU/App gates.
+        rows = self.result["preparedNamedInputs"]
+        for kind in ("solid", "image"):
+            for layout, expected in (
+                ("SameEffect", ["z-first:0:2=901", "z-first:0:5=902"]),
+                ("AcrossEffects", ["z-first:0:2=901", "a-second:1:5=902"]),
+            ):
+                with self.subTest(kind=kind, layout=layout):
+                    row = rows[kind + layout]
+                    self.assertEqual(row["bindings"], expected)
+                    self.assertEqual(row["requiredProviders"], [901, 902])
+                    self.assertEqual(row["referenceProviders"], [901, 902])
+                    self.assertFalse(row["single"])
+                    self.assertTrue(row["aggregate"] and row["requiresProgram"])
+                    self.assertEqual(row["forward"], [False, False])
+                    self.assertEqual(row["issues"], [])
+
+    def test_same_provider_repeated_slots_and_renamed_inputs_keep_identity(self) -> None:
+        rows = self.result["preparedNamedInputs"]
+        same = rows["sameProvider"]
+        self.assertEqual(same["bindings"], ["one:1:2=901", "one:1:5=901"])
+        self.assertTrue(same["aggregate"])
+        self.assertEqual(same["requiredProviders"], [901])
+        self.assertEqual(same["referenceProviders"], [901])
+        renamed = rows["renamed"]
+        self.assertEqual(renamed["bindings"], ["sun:1:2=1701", "moon:0:5=1702"])
+        self.assertEqual(renamed["requiredProviders"], [1701, 1702])
+        self.assertTrue(renamed["requiresProgram"])
+        self.assertEqual(renamed["issues"], [])
+
+    def test_prepared_empty_and_partial_keys_do_not_revive_dead_descriptor_slots(self) -> None:
+        rows = self.result["preparedNamedInputs"]
+        empty = rows["emptyPrepared"]
+        self.assertEqual(empty["bindings"], [])
+        self.assertEqual(empty["requiredProviders"], [])
+        self.assertEqual(empty["referenceProviders"], [])
+        self.assertFalse(empty["requiresEffect"])
+        self.assertEqual(empty["issues"], [])
+        self_input = rows["emptyPreparedSelf"]
+        self.assertEqual(self_input["bindings"], [])
+        self.assertEqual(self_input["requiredProviders"], [])
+        self.assertFalse(self_input["requiresEffect"])
+        # Graph previous retains its self reference without external demand.
+        self.assertEqual(self_input["referenceProviders"], [903])
+        self.assertEqual(self_input["issues"], [])
+        active = rows["oneActive"]
+        self.assertEqual(active["bindings"], ["z-first:0:2=901"])
+        self.assertTrue(active["single"])
+        self.assertFalse(active["aggregate"])
+        self.assertEqual(active["requiredProviders"], [901])
+        self.assertEqual(active["referenceProviders"], [901])
+        self.assertEqual(active["issues"], [])
+        # An absent key remains the cold candidate path; an explicit empty
+        # vector above is the prepared Program's zero-dependency fact.
+        cold = rows["cold"]
+        self.assertEqual(cold["bindings"], ["z-first:0:2=901", "z-first:0:5=902"])
+        self.assertEqual(cold["requiredProviders"], [901, 902])
+        self.assertTrue(cold["requiresProgram"])
+
+    def test_prepared_visibility_and_existing_external_boundaries_remain_distinct(self) -> None:
+        rows = self.result["preparedNamedInputs"]
+        self.assertEqual(rows["hidden"]["execution"], [])
+        self.assertEqual(rows["forward"]["forward"], [True, True])
+        self.assertEqual(rows["forward"]["requiredProviders"], [901, 902])
+        self.assertIn("missingProvider", rows["missingCold"]["issues"])
+        self.assertEqual(rows["secondaryCold"]["bindings"], [])
 
     def test_cycle_forward_and_invalid_external_primary_contracts_fail_closed(self) -> None:
         self.assertEqual(self.result["cycles"], [4, 5])
@@ -505,6 +548,18 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
                 f"{layer_id}:unsupportedConsumer:-1",
                 self.result["issues"],
             )
+
+    def test_prepared_forward_cycle_keeps_healthy_forward_provider(self) -> None:
+        row = self.result["preparedForwardCycle"]
+        self.assertEqual(row["candidateProviders"], [110, 120, 110, 210])
+        self.assertEqual(row["candidateForward"], [True, True, False, True])
+        self.assertEqual(row["cycles"], [110, 120])
+        self.assertEqual(row["requiredProviders"], [210])
+        self.assertEqual(row["graphProviders"], [])
+        self.assertTrue(row["consumerBindingRetained"])
+        self.assertEqual(row["activeExecution"], [100, 200])
+        self.assertEqual(row["cycleOnlyForward"], [])
+        self.assertEqual(row["withHealthyForward"], [210])
 
     def test_matrix_shape_keeps_hidden_consumer_out_of_runtime_liveness(self) -> None:
         # Conditional-content consumers (hidden layers declaring dependency

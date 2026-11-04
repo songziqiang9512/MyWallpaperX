@@ -64,7 +64,6 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
 
         enum PassthroughTopology: Hashable {
             case dependencyStage
-            case framebuffer
             case preEncodeGraph
         }
 
@@ -92,7 +91,6 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         ]
         let isVisibleExecutionRoot: Bool
         let isGraphOutputProvider: Bool
-        let requiresGraphOutputProvider: Bool
         let supportsSourceSizedSolidEffects: Bool
         let supportsTerminalMaterialReplay: Bool
         let supportsPlacementSpaceTerminalReplay: Bool
@@ -116,7 +114,6 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             graphFramebufferColorRepresentations: [Graph.TextureIdentity: SceneShaderColorRepresentation],
             isVisibleExecutionRoot: Bool,
             isGraphOutputProvider: Bool,
-            requiresGraphOutputProvider: Bool,
             supportsSourceSizedSolidEffects: Bool,
             supportsTerminalMaterialReplay: Bool,
             supportsPlacementSpaceTerminalReplay: Bool,
@@ -137,7 +134,6 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             self.graphFramebufferColorRepresentations = graphFramebufferColorRepresentations
             self.isVisibleExecutionRoot = isVisibleExecutionRoot
             self.isGraphOutputProvider = isGraphOutputProvider
-            self.requiresGraphOutputProvider = requiresGraphOutputProvider
             self.supportsSourceSizedSolidEffects = supportsSourceSizedSolidEffects
             self.supportsTerminalMaterialReplay = supportsTerminalMaterialReplay
             self.supportsPlacementSpaceTerminalReplay = supportsPlacementSpaceTerminalReplay
@@ -247,32 +243,15 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         Set(capabilitiesByLayerID.keys)
     }
 
-    var admittedResolvedMaterialReferences: Set<SceneDependencyRenderPlan.Reference> {
-        capabilitiesByLayerID.values.reduce(into: []) { result, capability in
+    var preparedNamedInputBindingsByConsumerLayerID: [Int: [SceneDependencyRenderPlan.Binding]] {
+        capabilitiesByLayerID.mapValues { capability in
             switch capability.dependencyOwnership {
             case let .externalPrimary(binding):
-                for slot in binding.referenceSlots {
-                    result.insert(.init(
-                        consumerLayerID: binding.consumerLayerID,
-                        providerLayerID: binding.providerLayerID,
-                        slot: slot,
-                        variant: .primary
-                    ))
-                }
+                [binding]
             case let .externalAggregate(aggregate):
-                // Preserve every authored slot in a multi-provider owner so a
-                // subsequent generation can re-admit the exact aggregate
-                // vector before any dependent MaterialProgram is compiled.
-                for binding in aggregate.orderedBindings {
-                    result.insert(.init(
-                        consumerLayerID: binding.consumerLayerID,
-                        providerLayerID: binding.providerLayerID,
-                        slot: binding.slot,
-                        variant: .primary
-                    ))
-                }
+                aggregate.bindings
             case .none, .graphInternal:
-                break
+                []
             }
         }
     }

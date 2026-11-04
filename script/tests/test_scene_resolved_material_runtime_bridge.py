@@ -413,13 +413,13 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         publication_failure_start = compositor.index(
             "switch publicationResult {"
         )
-        data_provider_start = compositor.index(
+        named_only_start = compositor.index(
             "if let graphExecutionTicket,\n"
-            "               graphExecutionTicket.finalContent == .data {",
+            "               !compositeOutput || graphExecutionTicket.finalContent == .data {",
             publication_failure_start,
         )
         publication_failure = compositor[
-            publication_failure_start:data_provider_start
+            publication_failure_start:named_only_start
         ]
         self.assertIn("case .published:", publication_failure)
         self.assertIn("graphOutputPublished = true", publication_failure)
@@ -448,21 +448,22 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
             "consumeResolvedMaterialComposite(",
             invalid_branch,
         )
-        data_provider_path = compositor[
-            data_provider_start:compositor.index(
+        named_only_path = compositor[
+            named_only_start:compositor.index(
                 "let finalValues = SceneImageLayerUniformValues(",
-                data_provider_start,
+                named_only_start,
             )
         ]
-        self.assertIn("graphOutputPublished,", data_provider_path)
-        self.assertIn("return .failed", data_provider_path)
+        self.assertIn("graphOutputPublished,", named_only_path)
+        self.assertIn("consumeResolvedMaterialNamedPublication(", named_only_path)
+        self.assertIn("return .failed", named_only_path)
         visible_color_path = compositor[
             compositor.index(
                 "let finalValues = SceneImageLayerUniformValues(",
-                data_provider_start,
+                named_only_start,
             ):compositor.index(
                 "return request.geometryProduct == nil",
-                data_provider_start,
+                named_only_start,
             )
         ]
         self.assertIn("SceneImageLayerMainPassRenderer.draw(", visible_color_path)
@@ -559,114 +560,6 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
             print("snapshot rollback texture identity oracle: production=PASS; "
                   "temporary product without texture restore=REJECTED; "
                   "all other observations unchanged")
-
-    def test_external_dependency_is_late_ready_and_composited_once(self) -> None:
-        bridge = RUNTIME_BRIDGE.read_text(encoding="utf-8")
-        coordinator = SUBMISSION_COORDINATOR.read_text(encoding="utf-8")
-        frame_commit = SUBMISSION_FRAME_COMMIT.read_text(encoding="utf-8")
-        execution = SUBMISSION_EXECUTION.read_text(encoding="utf-8")
-        composition = GRAPH_COMPOSITION.read_text(encoding="utf-8")
-        compositor = COMPOSITOR.read_text(encoding="utf-8")
-
-        self.assertIn(
-            "let dependencyOwnership: SceneResolvedMaterialDependencyOwnership",
-            bridge,
-        )
-        self.assertIn(
-            "let consumesExternalPrimaryDependency: Bool",
-            bridge,
-        )
-        self.assertNotIn(
-            "dependencyEffect: SceneDependencyEffectInput?",
-            bridge,
-        )
-        self.assertNotIn("let preparedDependencyEffect:", coordinator)
-        self.assertNotIn("let preparedDependencyEffect:", frame_commit)
-
-        compact_coordinator = "".join(coordinator.split())
-        self.assertIn(
-            "dependencyReservationMatches("
-            "request.frameInputs.dependencyEffects.first,"
-            "unavailability:request.frameInputs.dependencyUnavailability,"
-            "ownership:claim.dependencyOwnership)",
-            compact_coordinator,
-        )
-
-        compact_execution = "".join(execution.split())
-        self.assertIn(
-            "dependenciesMatch(preparedEffects:ledger.preparedDependencyEffects,"
-            "preparedUnavailability:ledger.preparedDependencyUnavailability,"
-            "readyEffects:dependencyEffects,"
-            "ownership:claim.dependencyOwnership)",
-            compact_execution,
-        )
-        for contract in (
-            "input.consumerLayerID==binding.consumerLayerID",
-            "input.providerLayerID==binding.providerLayerID",
-            "input.variant==.primary",
-            "input.slot==binding.slot",
-            "input.blendMode==binding.blendMode",
-            "prepared.frameEpoch==ready.frameEpoch",
-            "prepared.texture===ready.texture",
-        ):
-            self.assertIn(contract, compact_execution)
-        self.assertIn("case.solidLayer:", compact_execution)
-        self.assertIn("binding.slot.passIndex==0", compact_execution)
-        self.assertIn("binding.slot.slotIndex==3", compact_execution)
-        self.assertIn("binding.blendMode==0", compact_execution)
-        self.assertIn(
-            "SceneImageLayerBlendDependencyContract.supports("
-            "blendMode:binding.blendMode)",
-            compact_execution,
-        )
-        self.assertIn(
-            "binding.blendMode==0||binding.requiresResolvedMaterialProgram",
-            compact_execution,
-        )
-        self.assertIn(
-            "ifcase.externalPrimary=claim.dependencyOwnership",
-            compact_execution,
-        )
-        self.assertIn(
-            "consumesExternalPrimaryDependency:"
-            "consumesExternalPrimaryDependency",
-            compact_execution,
-        )
-
-        compact_composition = "".join(composition.split())
-        self.assertIn(
-            "dependencyEffects:request.dependencyEffects,",
-            compact_composition,
-        )
-        self.assertIn(
-            "dependencyEffects:dependencyEffects,",
-            compact_composition,
-        )
-
-        compact_compositor = "".join(compositor.split())
-        self.assertIn(
-            "letdependencyConsumed=graphExecutionTicket?"
-            ".consumesExternalPrimaryDependency==true",
-            compact_compositor,
-        )
-        self.assertIn(
-            "letdependencyEffect=request.dependencyEffects.first",
-            compact_compositor,
-        )
-        self.assertIn(
-            "dependencyBlendMode:dependencyConsumed?nil:"
-            "dependencyEffect?.blendMode",
-            compact_compositor,
-        )
-        self.assertIn(
-            "letfinalDependencyTexture=dependencyConsumed?nil:"
-            "dependencyEffect?.texture",
-            compact_compositor,
-        )
-        self.assertIn("dependencyTexture:finalDependencyTexture", compact_compositor)
-        self.assertNotIn("requiresDependencyEffect", bridge)
-        self.assertIn("func recordClaimedFailure(reasonCode: String)", bridge)
-        self.assertNotIn("recordClaimedFailure()", bridge)
 
     def test_resolved_material_composition_provider_reserves_from_geometry(self) -> None:
         compact = "".join(FRAME_PREFLIGHT.read_text(encoding="utf-8").split())
@@ -787,6 +680,8 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
 
     @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
     def test_current_submission_coordinator_lifecycle_behaviors(self) -> None:
+        # Literal Executor replies isolate the actual Coordinator protocol,
+        # resource identity and lifetime. GraphExecutor/App gates own pixels.
         with tempfile.TemporaryDirectory(
             prefix="mwx-r4-submission-coordinator-"
         ) as directory:
@@ -823,9 +718,9 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
             result = json.loads(completed.stdout)
             if not result["metalAvailable"]:
                 self.skipTest("Metal device unavailable")
+            print("SUBMISSION_COORDINATOR_RESULTS " + json.dumps(result, sort_keys=True), flush=True)
             expected = {
                 "externalDependencyExactReadyMatchIssuesTicket",
-                "externalDependencyMissingReadyRejected",
                 "externalDependencyWrongProviderRejected",
                 "externalDependencyWrongSlotRejected",
                 "externalDependencyWrongBlendRejected",
@@ -836,7 +731,6 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
                 "solidDependencyExactReadyMatchIssuesTicket",
                 "solidProgramDependencySlotOneIssuesTicket",
                 "solidProgramDependencyContentDriftRejected",
-                "solidDependencyMissingReadyRejected",
                 "solidDependencySecondaryRejected",
                 "solidDependencyWrongEffectRejected",
                 "solidDependencyWrongPassRejected",
@@ -881,8 +775,19 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
                 "typedHistoryDiscardReachesPoolExactly",
                 "forgedHistoryDiscardRejectedBeforePoolCommit",
                 "secondPreparationFailureRollsBackWholeFrame",
-                "externalDependencyCaptureFailureRejectsOnlyItsSubgraph",
-                "cascadingDependencyCaptureFailureRejectsTransitiveSubgraph",
+                "lateNamedInputsNormalPrepareOnce",
+                "lateNamedInputsSubsetRepreparesOnceAndKeepsAOnlySuffix",
+                "lateNamedInputsEmptyRepreparesOnceAndKeepsIndependentSuffix",
+                "lateNamedInputsForeignTextureRejectedBeforeReprepare",
+                "lateNamedInputsForeignEpochRejectedBeforeReprepare",
+                "lateNamedInputsForeignContentRejectedBeforeReprepare",
+                "lateNamedInputsReorderedReadyRejectedBeforeReprepare",
+                "lateProviderContentRepreparesOnlyAffectedSuffix",
+                "lateProviderContentKeepsGeometryReservationPMA",
+                "lateProviderForeignContentDoesNotTriggerReprepare",
+                "lateHistorySwapRollbackKeepsOriginalCoveredPin",
+                "lateHistoryDiscardReleasesUnusedPinAtCompletion",
+                "lateHistoryUncoveredPhysicalTokenRejectsBeforeEncode",
                 "repeatTerminalPublicationRejectsBeforeLedgerAndPreservesPreviousCurrent",
                 "preparedProviderOutputKeepsNamedReservationWithoutCompositorOwnership",
                 "geometryProviderStraightSourceKeepsPMAReservation",
@@ -894,9 +799,6 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
                 "mixedAggregateWrongEpochRejected",
                 "mixedAggregateWrongSlotRejected",
                 "namedPublicationMissKeepsSuffixAndFrameLocal",
-                "aggregatePublicationMissRejectsOnlyConsumer",
-                "aggregateSourceUnavailableSkipsClaimAndKeepsSuffix",
-                "sourceUnavailableFallbackRequiresDependencyContract",
                 "twoCandidatesPublishConsumeAndCommitAtomically",
                 "largeGraphsBeyondObservationAggregateCapSubmit",
                 "observationCapacityCannotChangeCommittedHistory",

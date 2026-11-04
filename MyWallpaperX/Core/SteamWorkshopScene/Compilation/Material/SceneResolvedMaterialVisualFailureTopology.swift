@@ -10,7 +10,6 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         let framebuffer = visualFailureFramebufferTopologyMayPassthrough(
             graph, effect: effect, pairStep: pairStep
         )
-        if framebuffer { result.insert(.framebuffer) }
         if dependencyStageFailureMayPassthrough(
             graph, pairStep: pairStep, framebufferTopologyIsSupported: framebuffer
         ) { result.insert(.dependencyStage) }
@@ -60,9 +59,9 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
     /// command is encoded. At that boundary every graph already accepted by
     /// the shared target planner can be skipped atomically: the executor keeps
     /// the effect-entry current, preserves only committed history, and drops
-    /// the candidate node/command prefix. This predicate deliberately does not
-    /// admit unavailable dependencies; those retain the narrower no-history
-    /// contract above because their producer lifecycle is a separate owner.
+    /// the candidate node/command prefix. A selected named input with no
+    /// publication uses the same effect-entry rollback; wrong publications
+    /// remain identity failures at their consuming boundary.
     private static func preEncodeVisualFailureGraphMayPassthrough(
         _ graph: Graph,
         effect: Graph.Effect,

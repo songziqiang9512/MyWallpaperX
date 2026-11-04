@@ -17,7 +17,6 @@ nonisolated struct SceneResolvedMaterialAdmittedLayer {
     let pairPlan: SceneLayerFullFramePairPlan
     let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
     let potentialExternalPrimaryBindings: [SceneDependencyRenderPlan.Binding]
-    let unavailableDependencyStageReasons: [Graph.EffectKey: String]
     let initiallyInactiveEffectKeys: Set<Graph.EffectKey>
     let sourceRoute: SourceRoute
     let isTopLevelTextSource: Bool
@@ -26,7 +25,6 @@ nonisolated struct SceneResolvedMaterialAdmittedLayer {
     /// Launch preparation demand from a direct model material. This preserves
     /// the provider capability without making either layer a visible graph root.
     let isStaticModelGraphOutputPreparationRoot: Bool
-    let requiresGraphOutputProvider: Bool
     let terminalReplayBlendMode: Int
     let directDrawGeometryRole: DirectDrawGeometryRole?
     let directDrawGeometryFallback: DirectDrawGeometryFallback?
@@ -37,14 +35,12 @@ nonisolated struct SceneResolvedMaterialAdmittedLayer {
         pairPlan: SceneLayerFullFramePairPlan,
         dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
         potentialExternalPrimaryBindings: [SceneDependencyRenderPlan.Binding] = [],
-        unavailableDependencyStageReasons: [Graph.EffectKey: String] = [:],
         initiallyInactiveEffectKeys: Set<Graph.EffectKey> = [],
         sourceRoute: SourceRoute,
         isTopLevelTextSource: Bool = false,
         isVisibleExecutionRoot: Bool,
         isGraphOutputProvider: Bool,
         isStaticModelGraphOutputPreparationRoot: Bool = false,
-        requiresGraphOutputProvider: Bool,
         terminalReplayBlendMode: Int = 0,
         directDrawGeometryRole: DirectDrawGeometryRole? = nil,
         directDrawGeometryFallback: DirectDrawGeometryFallback? = nil
@@ -54,7 +50,6 @@ nonisolated struct SceneResolvedMaterialAdmittedLayer {
         self.pairPlan = pairPlan
         self.dependencyOwnership = dependencyOwnership
         self.potentialExternalPrimaryBindings = potentialExternalPrimaryBindings
-        self.unavailableDependencyStageReasons = unavailableDependencyStageReasons
         self.initiallyInactiveEffectKeys = initiallyInactiveEffectKeys
         self.sourceRoute = sourceRoute
         self.isTopLevelTextSource = isTopLevelTextSource
@@ -62,7 +57,6 @@ nonisolated struct SceneResolvedMaterialAdmittedLayer {
         self.isGraphOutputProvider = isGraphOutputProvider
         self.isStaticModelGraphOutputPreparationRoot =
             isStaticModelGraphOutputPreparationRoot
-        self.requiresGraphOutputProvider = requiresGraphOutputProvider
         self.terminalReplayBlendMode = terminalReplayBlendMode
         self.directDrawGeometryRole = directDrawGeometryRole
         self.directDrawGeometryFallback = directDrawGeometryFallback
@@ -338,19 +332,26 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                 structuralUtilityDependencyConsumerLayerIDs,
             admittedResolvedMaterialReferences: productDependencyReferences
         )
-        let potentialDependencyReferences = Set(
-            SceneDependencyGraphAnalysis
-                .potentialNamedReferences(in: descriptor.layers)
-        )
         let potentialBindingsByConsumerLayerID = SceneDependencyRenderPlan
             .potentialNamedBindings(
             descriptor: descriptor,
-            visibleLayerIDs: executableVisibleRootLayerIDs,
-            executableUtilityConsumerLayerIDs:
-                structuralUtilityDependencyConsumerLayerIDs
+            authoredPlans: authoredPlans,
+            visibleLayerIDs: executableVisibleRootLayerIDs
         )
-        let graphOutputProviderLayerIDs =
+        var graphOutputProviderLayerIDs =
             dependencyPlan.requiredGraphOutputProviderLayerIDs
+        var pendingProviders = Array(executableVisibleRootLayerIDs.union(graphOutputProviderLayerIDs))
+        var visitedConsumers: Set<Int> = []
+        while let consumerID = pendingProviders.popLast() {
+            guard visitedConsumers.insert(consumerID).inserted else { continue }
+            for binding in potentialBindingsByConsumerLayerID[consumerID] ?? [] {
+                guard let providers = descriptorGroups[binding.providerLayerID],
+                      providers.count == 1, let provider = providers.first,
+                      provider.effects.contains(where: { $0.visible != false }),
+                      graphOutputProviderLayerIDs.insert(provider.id).inserted else { continue }
+                pendingProviders.append(provider.id)
+            }
+        }
         let staticModelGraphOutputProviderLayerIDs = Set(
             dependencyPlan.staticModelBindingsByConsumerLayerID.values
                 .map(\.providerLayerID)
@@ -382,35 +383,9 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
             let layerReferences = dependencyPlan.references.filter {
                 $0.consumerLayerID == layerID
             }
-            // The dependency projection owns "this consumer has no executable
-            // route"; the admission only honours it (see the ownership
-            // compiler for the two shapes deliberately kept outside).
-            if SceneResolvedMaterialDependencyOwnershipCompiler
-                .refusedCompositionConsumer(
-                    layer: layer,
-                    layerID: layerID,
-                    layerReferences: layerReferences,
-                    plan: dependencyPlan
-                ) {
-                return .init(
-                    layerID: layerID,
-                    result: .failure(failure("dependency-provider-rejected"))
-                )
-            }
             let binding = dependencyPlan.bindingsByConsumerLayerID[layerID]
-            let layerPotentialReferences = potentialDependencyReferences.filter {
-                $0.consumerLayerID == layerID
-            }
-            let hasPotentialOnlyDependencyMetadata = layerReferences.isEmpty
-                && !layerPotentialReferences.isEmpty
-                && layer.authoredDependencies.isEmpty
-                && Set(layer.dependencyLayerIDs) == Set(
-                    layerPotentialReferences.map(\.providerLayerID)
-                )
-            // Potential carriers remain descriptor-only until Program
-            // finalization selects their exact optional fallback. Preserve
-            // them beside an already-owned direct slot so one provider can be
-            // conserved across a mixed direct/optional authored stage vector.
+            // Candidates prepare sources, not reads. Program compilation decides
+            // which of these slots actually needs an external publication.
             let potentialExternalPrimaryBindings =
                 potentialBindingsByConsumerLayerID[layerID] ?? []
             let compiledDependencyOwnership =
@@ -424,71 +399,14 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                     aggregate: dependencyPlan
                         .multiProviderAggregatesByConsumerLayerID[layerID]
                 )
-            let unavailableDependencyStageReasons: [Graph.EffectKey: String]
-            if compiledDependencyOwnership != nil {
-                unavailableDependencyStageReasons = [:]
-            } else if let keys =
-                        SceneResolvedMaterialDependencyOwnershipCompiler
-                            .forwardUnavailableEffectKeys(
-                                layer: layer,
-                                graph: (rawGroups[layerID]?.count == 1)
-                                    ? rawGroups[layerID]?.first : nil,
-                                descriptor: descriptor,
-                                references: layerReferences,
-                                binding: binding
-                            ) {
-                unavailableDependencyStageReasons = Dictionary(
-                    uniqueKeysWithValues: keys.map {
-                        ($0, "dependency-stage-reference-unavailable")
-                    }
-                )
-            } else if let keys =
-                        SceneResolvedMaterialDependencyOwnershipCompiler
-                            .secondarySelfUnavailableEffectKeys(
-                                layer: layer,
-                                graph: (rawGroups[layerID]?.count == 1)
-                                    ? rawGroups[layerID]?.first : nil,
-                                references: layerReferences,
-                                binding: binding
-                            ) {
-                unavailableDependencyStageReasons = Dictionary(
-                    uniqueKeysWithValues: keys.map {
-                        ($0, "dependency-stage-secondary-reference-unavailable")
-                    }
-                )
-            } else if let keys =
-                        SceneResolvedMaterialDependencyOwnershipCompiler
-                            .unsupportedReferenceEffectKeys(
-                                layer: layer,
-                                graph: (rawGroups[layerID]?.count == 1)
-                                    ? rawGroups[layerID]?.first : nil,
-                                references: layerReferences,
-                                binding: binding
-                            ) {
-                // No binding contract exists for these references. Only the
-                // exact effects holding them fail soft; the remaining chain
-                // keeps executing instead of rejecting the whole layer.
-                unavailableDependencyStageReasons = Dictionary(
-                    uniqueKeysWithValues: keys.map {
-                        ($0, "dependency-stage-reference-unsupported")
-                    }
-                )
-            } else {
-                unavailableDependencyStageReasons = [:]
-            }
             let dependencyOwnership = compiledDependencyOwnership
-                ?? ((layerReferences.isEmpty
-                        && (!potentialExternalPrimaryBindings.isEmpty
-                            || hasPotentialOnlyDependencyMetadata))
-                    || !unavailableDependencyStageReasons.isEmpty
-                    ? SceneResolvedMaterialDependencyOwnership.none : nil)
+                ?? SceneResolvedMaterialDependencyOwnership.none
             let sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute
             switch executionSourceRoute(
                 layer,
                 descriptor: descriptor,
                 visibleLayerIDs: executableVisibleRootLayerIDs,
-                graphOutputProviderLayerIDs: graphOutputProviderLayerIDs,
-                dependencyOwnership: dependencyOwnership
+                graphOutputProviderLayerIDs: graphOutputProviderLayerIDs
             ) {
             case let .success(route):
                 sourceRoute = route
@@ -503,8 +421,7 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
             // the effect keeps its authored value; the prepared pair chain is
             // unchanged because activation never edits topology.
             let graphs = rawGroups[layerID] ?? []
-            guard graphs.count == 1, let graph = graphs.first,
-                  let dependencyOwnership else {
+            guard graphs.count == 1, let graph = graphs.first else {
                 return .init(
                     layerID: layerID,
                     result: .failure(failure("raw-graph-count"))
@@ -554,8 +471,6 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                     dependencyOwnership: dependencyOwnership,
                     potentialExternalPrimaryBindings:
                         potentialExternalPrimaryBindings,
-                    unavailableDependencyStageReasons:
-                        unavailableDependencyStageReasons,
                     initiallyInactiveEffectKeys:
                         initiallyInactiveEffectKeys,
                     sourceRoute: sourceRoute,
@@ -565,20 +480,6 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                         graphOutputProviderLayerIDs.contains(layerID),
                     isStaticModelGraphOutputPreparationRoot:
                         staticModelGraphOutputProviderLayerIDs.contains(layerID),
-                    requiresGraphOutputProvider: {
-                        switch dependencyOwnership {
-                        case let .externalPrimary(binding):
-                            return graphOutputProviderLayerIDs.contains(
-                                binding.providerLayerID
-                            )
-                        case let .externalAggregate(aggregate):
-                            return aggregate.providerLayerIDs.contains {
-                                graphOutputProviderLayerIDs.contains($0)
-                            }
-                        default:
-                            return false
-                        }
-                    }(),
                     conditionSchemaEvidence: conditionSchemaEvidence
                 )
             )
@@ -589,58 +490,22 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
         _ layer: SceneRenderDescriptor.Layer,
         descriptor: SceneRenderDescriptor,
         visibleLayerIDs: Set<Int>,
-        graphOutputProviderLayerIDs: Set<Int>,
-        dependencyOwnership: SceneResolvedMaterialDependencyOwnership?
+        graphOutputProviderLayerIDs: Set<Int>
     ) -> Result<SceneResolvedMaterialAdmittedLayer.SourceRoute, Failure> {
         guard visibleLayerIDs.contains(layer.id)
                 || graphOutputProviderLayerIDs.contains(layer.id) else {
             return .failure(failure("execution-route-layer-hidden"))
         }
-        guard let dependencyOwnership else {
-            return .failure(failure("execution-route-dependency-owner"))
-        }
         if let _ = layer.utilityLayer {
-            let utilityRoute: SceneUtilityLayerSourceRoute.Resolution
             switch SceneUtilityLayerSourceRoute.resolve(
                 layer: layer,
                 descriptor: descriptor
             ) {
-            case let .success(resolution):
-                utilityRoute = resolution
+            case .success:
+                return .success(.capturedMainTargetTexture)
             case let .failure(routeFailure):
                 return .failure(failure("execution-route-\(routeFailure.rawValue)"))
             }
-            switch dependencyOwnership {
-            case .none:
-                break
-            case let .externalPrimary(binding):
-                guard binding.consumerLayerID == layer.id,
-                      binding.kind == .resolvedMaterial
-                        || binding.kind == .solidLayer
-                        // A plain text/raster provider rides the
-                        // imageLayerBlend carrier; the utility captures the
-                        // same typed publication through its own route.
-                        || binding.kind == .imageLayerBlend else {
-                    return .failure(failure("execution-route-utility-shape"))
-                }
-            case let .externalAggregate(aggregate):
-                guard aggregate.consumerLayerID == layer.id,
-                      aggregate.bindings.count > 1 else {
-                    return .failure(failure("execution-route-aggregate-shape"))
-                }
-            case .graphInternal:
-                // Same-layer primary composite references resolve from the
-                // utility's own base capture; the captured main-target route
-                // already owns that source.
-                break
-            }
-            if utilityRoute.capturesCompositionSubtree,
-               dependencyOwnership != .none {
-                return .failure(failure(
-                    "execution-route-utility-composition-subtree-shape"
-                ))
-            }
-            return .success(.capturedMainTargetTexture)
         }
         switch layer.contentKind {
         case "image", "solid", "text":
@@ -659,13 +524,11 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
         descriptor: SceneRenderDescriptor,
         dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
         potentialExternalPrimaryBindings: [SceneDependencyRenderPlan.Binding],
-        unavailableDependencyStageReasons: [Graph.EffectKey: String],
         initiallyInactiveEffectKeys: Set<Graph.EffectKey>,
         sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute,
         isVisibleExecutionRoot: Bool,
         isGraphOutputProvider: Bool,
         isStaticModelGraphOutputPreparationRoot: Bool,
-        requiresGraphOutputProvider: Bool,
         conditionSchemaEvidence: [Graph.EffectKey: SceneGraphConditionSchemaEvidence]
     ) -> Result<SceneResolvedMaterialAdmittedLayer, Failure> {
         do {
@@ -754,8 +617,6 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                 dependencyOwnership: dependencyOwnership,
                 potentialExternalPrimaryBindings:
                     potentialExternalPrimaryBindings,
-                unavailableDependencyStageReasons:
-                    unavailableDependencyStageReasons,
                 initiallyInactiveEffectKeys: initiallyInactiveEffectKeys,
                 sourceRoute: sourceRoute,
                 isTopLevelTextSource: layer.contentKind == "text" && layer.parentID == nil,
@@ -763,7 +624,6 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                 isGraphOutputProvider: isGraphOutputProvider,
                 isStaticModelGraphOutputPreparationRoot:
                     isStaticModelGraphOutputPreparationRoot,
-                requiresGraphOutputProvider: requiresGraphOutputProvider,
                 terminalReplayBlendMode: layer.colorBlendMode ?? 0,
                 directDrawGeometryRole: directDrawGeometryRole,
                 directDrawGeometryFallback: directDrawGeometryFallback

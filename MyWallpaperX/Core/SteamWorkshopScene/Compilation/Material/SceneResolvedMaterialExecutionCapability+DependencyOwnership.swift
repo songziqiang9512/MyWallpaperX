@@ -30,7 +30,7 @@ nonisolated enum SceneResolvedMaterialDependencyOwnership: Equatable {
         case let .externalPrimary(binding):
             binding.referenceSlots.count
         case let .externalAggregate(aggregate):
-            aggregate.referenceSlots.count
+            aggregate.bindings.count
         }
     }
 
@@ -46,36 +46,6 @@ nonisolated enum SceneResolvedMaterialDependencyOwnership: Equatable {
 nonisolated enum SceneResolvedMaterialDependencyOwnershipCompiler {
     typealias Graph = SceneAuthoredEffectRenderPlan
     typealias Reference = SceneDependencyRenderPlan.Reference
-
-    /// This composition consumer declares an *external* dependency but the
-    /// projection produced no executable route for it — no binding, no
-    /// aggregate, and no static-model binding — so its composition route
-    /// cannot execute (the utility plan records the same consumer as
-    /// `unsupportedDependencies`). Admitting it anyway would only leave the
-    /// graph demanding execution evidence no route can produce, so the
-    /// projection is the single authority for the executable set too. Keying on
-    /// "no route" rather than on one issue kind also covers the
-    /// missing/cyclic/secondary-variant refusals, which emit other kinds.
-    ///
-    /// Three shapes stay outside on purpose: a self reference (`provider ==
-    /// layer`), which this compiler routes as `graph-internal`; a static-model
-    /// bound consumer, whose provider arrives through its own binding map; and
-    /// an ordinary image consumer, which keeps the designed per-effect
-    /// fail-soft (only its unbound dependency stage degrades and the rest of
-    /// the chain still executes).
-    static func refusedCompositionConsumer(
-        layer: SceneRenderDescriptor.Layer,
-        layerID: Int,
-        layerReferences: [SceneDependencyRenderPlan.Reference],
-        plan: SceneDependencyRenderPlan
-    ) -> Bool {
-        guard layer.utilityLayer?.kind == .composition,
-              layerReferences.contains(where: { $0.providerLayerID != layerID })
-        else { return false }
-        return plan.bindingsByConsumerLayerID[layerID] == nil
-            && plan.multiProviderAggregatesByConsumerLayerID[layerID] == nil
-            && plan.staticModelBindingsByConsumerLayerID[layerID] == nil
-    }
 
     static func structuralUtilityConsumerLayerIDs(
         in descriptor: SceneRenderDescriptor
@@ -123,82 +93,8 @@ nonisolated enum SceneResolvedMaterialDependencyOwnershipCompiler {
             return SceneResolvedMaterialDependencyOwnership.none
         }
 
-        if let aggregate {
-            let declaredProviderIDs = Set(
-                layer.dependencyLayerIDs.filter { $0 != layer.id }
-            )
-            let activeProviderIDs = SceneDependencyRenderPlan
-                .activeDependencyProviderLayerIDs(
-                    layer: layer,
-                    references: effectiveReferences
-                )
-            guard binding == nil,
-                  aggregate.consumerLayerID == layer.id,
-                  layer.authoredDependencies.isEmpty,
-                  layer.dependencyLayerIDs.count > 1,
-                  layer.dependencyLayerIDs.count == declaredProviderIDs.count,
-                  activeProviderIDs != nil,
-                  Set(aggregate.bindings.map(\.providerLayerID))
-                      == (activeProviderIDs ?? []),
-                  aggregate.admits(effectiveReferences),
-                  aggregate.bindings.allSatisfy({ candidate in
-                      candidate.consumerLayerID == layer.id
-                  }) else { return nil }
-            return .externalAggregate(aggregate)
-        }
-
-        if let binding {
-            let supportedBinding = switch binding.kind {
-            case .resolvedMaterial:
-                binding.slot.slotIndex == 1 && binding.blendMode == 0
-            case .solidLayer:
-                binding.slot.passIndex == 0
-                    && binding.blendMode == 0
-                    && (
-                        binding.slot.slotIndex == 3
-                            || (binding.slot.slotIndex == 1
-                                && binding.requiresResolvedMaterialProgram)
-                    )
-            case .imageLayerBlend:
-                binding.slot.passIndex == 0
-                    && binding.slot.slotIndex == 1
-                    && (binding.requiresResolvedMaterialProgram
-                        || binding.blendMode == 0)
-            case .geometryLayer:
-                binding.slot.passIndex == 0
-                    && binding.slot.slotIndex == 1
-                    && binding.blendMode == 0
-                    && binding.requiresResolvedMaterialProgram
-            case .visibleImageGraphOutput:
-                binding.slot.passIndex == 0
-                    && binding.slot.slotIndex == 1
-                    && binding.blendMode == 0
-            }
-            guard supportedBinding,
-                  binding.consumerLayerID == layer.id,
-                  layer.authoredDependencies.isEmpty,
-                  // The dependency plan has already source-proved inactive
-                  // alternatives and selected the one active publication.
-                  // Ownership consumes that binding instead of re-reading the
-                  // descriptor's all-variant dependency superset.
-                  layer.dependencyLayerIDs.contains(binding.providerLayerID),
-                  (binding.kind == .resolvedMaterial
-                    || ((binding.kind == .imageLayerBlend
-                            || binding.kind == .visibleImageGraphOutput)
-                        && binding.requiresResolvedMaterialProgram)
-                    || effectiveReferences.count == 1),
-                  effectiveReferences.first != nil,
-                  binding.referenceSlots == effectiveReferences.map(\.slot),
-                  effectiveReferences.allSatisfy({ candidate in
-                      candidate.consumerLayerID == binding.consumerLayerID
-                          && candidate.providerLayerID == binding.providerLayerID
-                          && candidate.slot.slotIndex == binding.slot.slotIndex
-                          && candidate.variant == .primary
-                  }) else {
-                return nil
-            }
-            return .externalPrimary(binding)
-        }
+        if let aggregate { return .externalAggregate(aggregate) }
+        if let binding { return .externalPrimary(binding) }
 
         // Same-layer composite references name the layer's own target. The
         // declared form (`dependencies == [self]`) keeps the historical
@@ -292,261 +188,26 @@ nonisolated enum SceneResolvedMaterialDependencyOwnershipCompiler {
             && matches[0].texture == effect.input
     }
 
-    /// A forward primary provider is not executable in the current frame
-    /// order. When every such reference belongs to an exact ordinary
-    /// single-pass effect, that effect may be replaced by previous-current
-    /// while unrelated suffix effects keep the layer-local pair chain. This
-    /// does not authorize the provider or change dependency ordering.
-    static func forwardUnavailableEffectKeys(
-        layer: SceneRenderDescriptor.Layer,
-        graph: Graph?,
-        descriptor: SceneRenderDescriptor,
-        references: [Reference],
-        binding: SceneDependencyRenderPlan.Binding?
-    ) -> Set<Graph.EffectKey>? {
-        let effectiveReferences = ownerRequiringReferences(
-            references,
-            layer: layer,
-            graph: graph
-        )
-        guard binding == nil,
-              layer.authoredDependencies.isEmpty,
-              effectiveReferences.count == 1,
-              Set(effectiveReferences).count == effectiveReferences.count,
-              effectiveReferences.allSatisfy({
-                  $0.consumerLayerID == layer.id
-                    && $0.providerLayerID != layer.id
-                    && $0.variant == .primary
-              }),
-              let graph, graph.layerID == layer.id,
-              graph.blockers.isEmpty,
-              let consumerOrder = descriptor.renderOrderLayerIDs.firstIndex(
-                  of: layer.id
-              ) else { return nil }
 
-        let providerIDs = Set(effectiveReferences.map(\.providerLayerID))
-        guard providerIDs.count == 1,
-              layer.dependencyLayerIDs.count == 1,
-              Set(layer.dependencyLayerIDs) == providerIDs,
-              providerIDs.allSatisfy({ providerID in
-                  descriptor.layers.filter({ $0.id == providerID }).count == 1
-                    && descriptor.renderOrderLayerIDs.firstIndex(of: providerID)
-                        .map({ $0 > consumerOrder }) == true
-              }) else { return nil }
-
-        var keys = Set<Graph.EffectKey>()
-        for reference in effectiveReferences {
-            guard let key = exactSinglePassPassthroughEffectKey(
-                for: reference,
-                layer: layer,
-                graph: graph
-            ) else { return nil }
-            keys.insert(key)
-        }
-        return keys.isEmpty ? nil : keys
-    }
-
-    /// An owner-requiring reference without any supported binding cannot be
-    /// satisfied in this launch: the provider may be hidden, ordered in an
-    /// unsupported direction, or the consumer/utility shape may have no
-    /// binding contract. When every such reference belongs to an exact
-    /// ordinary single-pass material effect, only those effects fail soft to
-    /// previous-current while unrelated effects keep the layer-local pair
-    /// chain. This does not authorize the provider, publish a named target or
-    /// change dependency ordering; the layer keeps `.none` ownership.
-    static func unsupportedReferenceEffectKeys(
-        layer: SceneRenderDescriptor.Layer,
-        graph: Graph?,
-        references: [Reference],
-        binding: SceneDependencyRenderPlan.Binding?
-    ) -> Set<Graph.EffectKey>? {
-        let effectiveReferences = ownerRequiringReferences(
-            references,
-            layer: layer,
-            graph: graph
-        )
-        guard binding == nil,
-              layer.authoredDependencies.isEmpty,
-              !effectiveReferences.isEmpty,
-              Set(effectiveReferences).count == effectiveReferences.count,
-              effectiveReferences.allSatisfy({ $0.consumerLayerID == layer.id }),
-              let graph, graph.layerID == layer.id,
-              graph.blockers.isEmpty else { return nil }
-        var keys = Set<Graph.EffectKey>()
-        for reference in effectiveReferences {
-            guard let key = exactSinglePassPassthroughEffectKey(
-                for: reference,
-                layer: layer,
-                graph: graph
-            ) else { return nil }
-            keys.insert(key)
-        }
-        return keys.isEmpty ? nil : keys
-    }
-
-    /// The exact ordinary single-pass material effect that owns one
-    /// unavailable reference. Multi-node, command, condition, compose and
-    /// render-target owning effects are not replaceable by previous-current
-    /// and therefore keep the whole layer fail-closed.
-    private static func exactSinglePassPassthroughEffectKey(
-        for reference: Reference,
-        layer: SceneRenderDescriptor.Layer,
-        graph: Graph
-    ) -> Graph.EffectKey? {
-        let descriptorMatches = layer.effects.enumerated().filter {
-            $0.element.id == reference.slot.effectID
-                && $0.element.visible != false
-        }
-        guard descriptorMatches.count == 1,
-              let descriptorMatch = descriptorMatches.first,
-              descriptorMatch.element.passes.filter({
-                  $0.passIndex == reference.slot.passIndex
-              }).count == 1 else { return nil }
-        let key = Graph.EffectKey(
-            layerID: layer.id,
-            effectIndex: descriptorMatch.offset,
-            descriptorID: descriptorMatch.element.id
-        )
-        let effectMatches = graph.effects.filter { $0.key == key }
-        guard effectMatches.count == 1, let effect = effectMatches.first,
-              effect.nodeIndices.count == 1,
-              graph.renderTargets.allSatisfy({ $0.texture.effect != key })
-        else { return nil }
-        let nodes = graph.nodes.filter { $0.effect == key }
-        guard nodes.count == 1, let node = nodes.first,
-              node.kind == .material,
-              node.instancePassIndex == reference.slot.passIndex,
-              node.target == effect.output,
-              node.commandSource == nil,
-              node.commandTarget == nil,
-              node.conditions == nil,
-              node.compose == nil || node.compose == .bool(false),
-              node.bindings.isEmpty || node.bindings.contains(where: {
-                  $0.slot == reference.slot.slotIndex
-                    && ($0.texture == effect.input
-                        || $0.texture.kind == .unresolved)
-              }) else { return nil }
-        return key
-    }
-
-    /// A secondary self reference has no producer contract yet. If it belongs
-    /// to one exact effect whose loss-preserving graph already maps that slot
-    /// to the effect input, the entire effect may fail soft to previous-current.
-    /// This does not authorize `_b` publication or consumption.
-    static func secondarySelfUnavailableEffectKeys(
-        layer: SceneRenderDescriptor.Layer,
-        graph: Graph?,
-        references: [Reference],
-        binding: SceneDependencyRenderPlan.Binding?
-    ) -> Set<Graph.EffectKey>? {
-        guard binding == nil,
-              layer.authoredDependencies.isEmpty,
-              layer.dependencyLayerIDs.isEmpty,
-              references.count == 1,
-              let reference = references.first,
-              reference.consumerLayerID == layer.id,
-              reference.providerLayerID == layer.id,
-              reference.variant == .secondary,
-              let graph, graph.layerID == layer.id,
-              graph.blockers.isEmpty else { return nil }
-
-        let descriptorMatches = layer.effects.enumerated().filter {
-            $0.element.id == reference.slot.effectID
-                && $0.element.visible != false
-        }
-        guard descriptorMatches.count == 1,
-              let descriptorMatch = descriptorMatches.first,
-              descriptorMatch.element.passes.filter({
-                  $0.passIndex == reference.slot.passIndex
-              }).count == 1 else { return nil }
-        let key = Graph.EffectKey(
-            layerID: layer.id,
-            effectIndex: descriptorMatch.offset,
-            descriptorID: descriptorMatch.element.id
-        )
-        let effectMatches = graph.effects.filter { $0.key == key }
-        guard effectMatches.count == 1, let effect = effectMatches.first else {
-            return nil
-        }
-        let nodeMatches = graph.nodes.filter {
-            $0.effect == key
-                && $0.instancePassIndex == reference.slot.passIndex
-        }
-        guard nodeMatches.count == 1, let node = nodeMatches.first,
-              node.kind == .material,
-              node.commandSource == nil,
-              node.commandTarget == nil,
-              node.conditions == nil,
-              node.compose == nil || node.compose == .bool(false) else {
-            return nil
-        }
-        let bindingMatches = node.bindings.filter {
-            $0.slot == reference.slot.slotIndex
-        }
-        guard bindingMatches.count == 1,
-              bindingMatches.first?.texture == effect.input else { return nil }
-        return [key]
-    }
 }
 
 extension SceneResolvedMaterialExecutionCapabilityCatalog {
-    struct BindingDependency: Hashable {
+    struct ResolvedExternalDependency: Equatable {
         let consumerLayerID: Int
         let providerLayerID: Int
         let slot: SceneEffectPassSlot
-    }
-
-    struct ResolvedExternalDependency: Hashable {
-        enum Origin: Hashable {
-            case terminalNamed
-            case exactMixedOptionalFallback
-        }
-
-        let materialKey: MaterialKey
-        let consumerLayerID: Int
-        let providerLayerID: Int
-        let slot: SceneEffectPassSlot
-        let origin: Origin
-
-        var bindingDependency: BindingDependency {
-            .init(
-                consumerLayerID: consumerLayerID,
-                providerLayerID: providerLayerID,
-                slot: slot
-            )
-        }
     }
 
     private struct ResolvedNamedCandidate {
         let key: MaterialKey
         let slot: Int
         let reference: SceneNamedTextureReference
-        let origin: ResolvedExternalDependency.Origin
     }
 
     enum ResolvedExternalDependencyAnalysis {
         case none
         case exact([ResolvedExternalDependency])
         case invalid
-    }
-
-    static func visualFailureExternalDependencies(
-        in stage: CompiledStages.Stage,
-        binding: SceneDependencyRenderPlan.Binding
-    ) -> [BindingDependency] {
-        guard case .visualFailurePassthrough = stage.execution,
-              let slots = SceneResolvedMaterialDependencyOwnership
-                .externalPrimary(binding)
-                .preEncodeVisualFailureSlots(in: stage.product.graph) else {
-            return []
-        }
-        return slots.map {
-            BindingDependency(
-                consumerLayerID: binding.consumerLayerID,
-                providerLayerID: binding.providerLayerID,
-                slot: $0
-            )
-        }
     }
 
     static func resolvedExternalDependencies(
@@ -586,14 +247,30 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             return lhs.key.effect.descriptorID < rhs.key.effect.descriptorID
         }
         for material in materials.values.sorted(by: authoredMaterialPrecedes) {
-            for slot in material.template.textureSlots.compactMap({ $0 }) {
+            let snapshot = material.variants.launchEnvelopeCapabilitySnapshot()
+            var consumedSlots = Set(snapshot.variants.flatMap { variant in
+                variant.activeSamplers.keys
+            })
+            for variant in snapshot.variants {
+                for binding in variant.preparedAssembly.preparedUniformBindings {
+                    switch binding.source {
+                    case let .host(.textureResolution(slot)),
+                         let .host(.textureRotation(slot)),
+                         let .host(.textureTranslation(slot)),
+                         let .selfCompositeTextureResolution(slot, _):
+                        consumedSlots.insert(slot)
+                    default:
+                        break
+                    }
+                }
+            }
+            for slot in material.template.textureSlots.compactMap({ $0 })
+            where consumedSlots.contains(slot.index) {
                 let reference: SceneNamedTextureReference?
-                let origin: ResolvedExternalDependency.Origin?
                 if let selected = slot.candidates.last,
                    case let .provider(.namedLayerTarget(value)) =
                     selected.reference {
                     reference = value
-                    origin = .terminalNamed
                 } else if material.variants
                     .provesExactMixedNamedFallback(
                         slot: slot.index
@@ -607,19 +284,16 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     // provider edge even though it is not the static last
                     // candidate.
                     reference = value
-                    origin = .exactMixedOptionalFallback
                 } else {
                     reference = nil
-                    origin = nil
                 }
-                guard let reference, let origin else {
+                guard let reference else {
                     continue
                 }
                 namedCandidates.append(.init(
                     key: material.key,
                     slot: slot.index,
-                    reference: reference,
-                    origin: origin
+                    reference: reference
                 ))
             }
         }
@@ -646,6 +320,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             return .invalid
         }
         var result: [ResolvedExternalDependency] = []
+        var dependenciesBySlot: [SceneEffectPassSlot: ResolvedExternalDependency] = [:]
         for item in namedCandidates {
             let nodeMatches = product.graph.nodes.filter {
                 $0.nodeIndex == item.key.nodeIndex
@@ -656,59 +331,26 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             }
             guard nodeMatches.count == 1,
                   effectMatches.count == 1,
-                  let passIndex = nodeMatches.first?.instancePassIndex else {
+                  let node = nodeMatches.first else {
                 return .invalid
             }
-            result.append(.init(
-                materialKey: item.key,
+            let passIndex = node.instancePassIndex ?? node.definitionPassIndex
+            let dependency = ResolvedExternalDependency(
                 consumerLayerID: item.key.effect.layerID,
                 providerLayerID: item.reference.providerLayerID,
                 slot: .init(
                     effectID: item.key.effect.descriptorID,
                     passIndex: passIndex,
                     slotIndex: item.slot
-                ),
-                origin: item.origin
-            ))
+                )
+            )
+            if let existing = dependenciesBySlot[dependency.slot] {
+                guard existing == dependency else { return .invalid }
+                continue
+            }
+            dependenciesBySlot[dependency.slot] = dependency
+            result.append(dependency)
         }
-        guard Set(result).count == result.count else { return .invalid }
-        let orderedResult = result.sorted {
-            let lhs = $0
-            let rhs = $1
-            // Effect index and graph node order are the authored authority;
-            // descriptor IDs are arbitrary labels and must never reorder the
-            // aggregate provider vector.
-            if lhs.materialKey.effect.effectIndex
-                != rhs.materialKey.effect.effectIndex {
-                return lhs.materialKey.effect.effectIndex
-                    < rhs.materialKey.effect.effectIndex
-            }
-            let lhsNodeOrder = product.graph.nodes.firstIndex {
-                $0.nodeIndex == lhs.materialKey.nodeIndex
-                    && $0.effect == lhs.materialKey.effect
-            } ?? Int.max
-            let rhsNodeOrder = product.graph.nodes.firstIndex {
-                $0.nodeIndex == rhs.materialKey.nodeIndex
-                    && $0.effect == rhs.materialKey.effect
-            } ?? Int.max
-            if lhsNodeOrder != rhsNodeOrder {
-                return lhsNodeOrder < rhsNodeOrder
-            }
-            if lhs.slot.passIndex != rhs.slot.passIndex {
-                return lhs.slot.passIndex < rhs.slot.passIndex
-            }
-            if lhs.slot.slotIndex != rhs.slot.slotIndex {
-                return lhs.slot.slotIndex < rhs.slot.slotIndex
-            }
-            if lhs.providerLayerID != rhs.providerLayerID {
-                return lhs.providerLayerID < rhs.providerLayerID
-            }
-            if lhs.materialKey.nodeIndex != rhs.materialKey.nodeIndex {
-                return lhs.materialKey.nodeIndex < rhs.materialKey.nodeIndex
-            }
-            return lhs.materialKey.effect.descriptorID
-                < rhs.materialKey.effect.descriptorID
-        }
-        return .exact(orderedResult)
+        return .exact(result)
     }
 }

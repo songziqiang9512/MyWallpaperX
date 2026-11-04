@@ -9,9 +9,11 @@ import json
 import os
 import re
 import shutil
+import struct
 import subprocess
 import tempfile
 import unittest
+import zlib
 
 from .test_scene_hidden_provider_integration import fixture_entries as hidden_fixture
 from .test_scene_directional_shadow_integration import png
@@ -71,6 +73,117 @@ def fixture_entries(*, three_candidates=False):
     return project, entries
 
 
+def named_vector_entries(control, *, utility_provider=None):
+    """Owned inputs; every consumer samples actual named publications."""
+    renamed = control == "swapRename"
+    shift, prefix, weight = (1000, "retitled_vector", "u_UnseenRatio") if renamed else (0, "own_vector", "g_OwnWeight")
+    aid, bid, pid = 11 + shift, 12 + shift, 13 + shift
+    a, b = ((0, 0, 0, 255) if control == "A0" else (192, 32, 16, 255)), \
+           ((0, 0, 0, 255) if control == "B0" else (16, 160, 64, 255))
+    entry = (24, 40, 56, 255)
+    project, entries = hidden_fixture()
+    project["general"]["properties"]["showVector"] = {"type": "bool", "value": True}
+    scene = json.loads(entries["scene.json"])
+    objects = []
+    for identifier, asset, x in ((aid, "a", 24), (bid, "b", 64), (pid, "pattern", 104)):
+        if control == "missing" and identifier == bid:
+            continue
+        objects.append({"id": identifier, "name": f"{prefix} hidden {asset}",
+                        "image": f"models/{prefix}/{asset}.json", "origin": f"{x} 92 0",
+                        "size": "24 24", "visible": False})
+    sa, sb = (bid, aid) if renamed else (aid, bid)
+    named = lambda identifier: f"_rt_imageLayerComposite_{identifier}_a"
+    vertex = entries["shaders/own_sample.vert"]
+
+    def effect(name, slot_sources, body, *, reads_previous=False):
+        textures = [None] * (max(slot_sources, default=0) + 1)
+        declarations = [f'uniform float {weight}; // {{"default":0.75}}']
+        if reads_previous:
+            declarations.append("uniform sampler2D g_Texture0;")
+        for slot, provider in slot_sources.items():
+            textures[slot] = named(provider)
+            declarations.append(f"uniform sampler2D g_Texture{slot};")
+        declarations.append("varying vec2 v_TexCoord;")
+        shader = "\n".join(declarations) + "\nvoid main() { " + body + " }\n"
+        path = f"{prefix}/{name}"
+        entries[f"effects/{path}/effect.json"] = encoded({"passes": [{"material": f"materials/{path}.json"}]})
+        entries[f"materials/{path}.json"] = encoded({"passes": [{"shader": path, "textures": textures,
+            "blending": "normal", "depthtest": "disabled", "depthwrite": "disabled", "cullmode": "nocull"}]})
+        entries[f"shaders/{path}.vert"], entries[f"shaders/{path}.frag"] = vertex, shader.encode()
+        return {"id": f"{prefix}-{name}", "file": f"effects/{path}/effect.json", "visible": True}
+
+    def mix(left, right):
+        return f"gl_FragColor = vec4({weight} * ({left}).rgb + (1.0 - {weight}) * ({right}).rgb, 1.0);"
+
+    single = effect("z-single", {2: sa, 5: sb}, mix("texSample2D(g_Texture2,v_TexCoord)", "texSample2D(g_Texture5,v_TexCoord)"))
+    first = effect("z-first", {2: sa}, "gl_FragColor = texSample2D(g_Texture2,v_TexCoord);")
+    second = effect("a-second", {5: sb}, mix("texSample2D(g_Texture0,v_TexCoord)", "texSample2D(g_Texture5,v_TexCoord)"), reads_previous=True)
+    left, right = ("0.75", "0.25") if renamed else ("0.25", "0.75")
+    paired = effect("same-provider", {2: pid, 5: pid}, mix(
+        f"texSample2D(g_Texture2,vec2({left},0.5))", f"texSample2D(g_Texture5,vec2({right},0.5))"))
+    healthy = effect("healthy-a-only", {2: aid}, "gl_FragColor = texSample2D(g_Texture2,v_TexCoord);")
+    if utility_provider is not None:
+        color = ", ".join(f"{channel}.0 / 255.0" for channel in a[:3])
+        objects[0].update(name=f"{prefix} {utility_provider} composition a",
+            image="models/util/composelayer.json", copybackground=False,
+            visible=utility_provider == "visible",
+            effects=[effect("constant-a", {}, f"gl_FragColor = vec4({color}, 1.0);")])
+        entries["models/util/composelayer.json"] = encoded({"width": 24, "height": 24, "autosize": False})
+    shown = {"user": "showVector", "value": True}
+    consumers = [
+        {"id": 22 + shift, "name": f"{prefix} solid", "image": "models/util/solidlayer.json",
+         "origin": "24 72 0", "size": "24 24", "color": "0.094117647 0.156862745 0.219607843",
+         "visible": shown, "dependencies": [aid, bid], "effects": [single]},
+        {"id": 23 + shift, "name": f"{prefix} image cross effect", "image": f"models/{prefix}/entry.json",
+         "origin": "64 72 0", "size": "24 24", "visible": shown,
+         "dependencies": [aid, bid], "effects": [first, second]},
+        {"id": 24 + shift, "name": f"{prefix} one provider two slots", "image": f"models/{prefix}/entry.json",
+         "origin": "104 72 0", "size": "24 24", "visible": shown,
+         "dependencies": [pid], "effects": [paired]},
+        {"id": 25 + shift, "name": f"{prefix} healthy a-only", "image": f"models/{prefix}/entry.json",
+         "origin": "64 40 0", "size": "24 24", "visible": shown,
+         "dependencies": [aid], "effects": [healthy]},
+        {"id": 33 + shift, "name": f"{prefix} green peer", "image": "models/util/solidlayer.json",
+         "origin": "104 40 0", "size": "24 24", "color": "0 1 0"},
+    ]
+    scene["objects"] = objects + consumers
+    entries["scene.json"] = encoded(scene)
+    entries["models/util/solidlayer.json"] = encoded({"solidlayer": True, "width": 128, "height": 128})
+    for name, color in (("a", a), ("b", b), ("entry", entry)):
+        entries[f"models/{prefix}/{name}.json"] = encoded({"material": f"materials/{prefix}/{name}.json"})
+        entries[f"materials/{prefix}/{name}.json"] = encoded({"passes": [{"shader": "genericimage", "textures": [f"materials/{prefix}/{name}.png"]}]})
+        entries[f"materials/{prefix}/{name}.png"] = png(color)
+    # Four rows of two constant left/right texels; UV .25/.75 samples each
+    # source independently, even though both slots share one publication.
+    raw = (b"\0" + bytes(a) * 2 + bytes(b) * 2) * 4
+    chunks = [(b"IHDR", struct.pack(">IIBBBBB", 4, 4, 8, 6, 0, 0, 0)),
+              (b"IDAT", zlib.compress(raw)), (b"IEND", b"")]
+    pattern = b"\x89PNG\r\n\x1a\n" + b"".join(struct.pack(">I", len(data)) + kind + data
+        + struct.pack(">I", zlib.crc32(kind + data) & 0xffffffff) for kind, data in chunks)
+    entries[f"models/{prefix}/pattern.json"] = encoded({"material": f"materials/{prefix}/pattern.json"})
+    entries[f"materials/{prefix}/pattern.json"] = encoded({"passes": [{"shader": "genericimage", "textures": [f"materials/{prefix}/pattern.png"]}]})
+    entries[f"materials/{prefix}/pattern.png"] = pattern
+    return project, entries
+
+
+def named_vector_oracle(control, shown, *, utility_provider=None):
+    mixed = {"both": (148, 64, 28), "A0": (4, 40, 16), "B0": (144, 24, 12),
+             "swapRename": (60, 128, 52), "missing": (148, 64, 28)}[control]
+    a = (0, 0, 0) if control == "A0" else (192, 32, 16)
+    expected = {"solid": (24, 40, 56) if control == "missing" else mixed,
+                "image": a if control == "missing" else mixed, "sameProvider": mixed, "aOnly": a}
+    rects = {"solid": (40, 104, 56, 120), "image": (120, 104, 136, 120),
+             "sameProvider": (200, 104, 216, 120), "aOnly": (120, 168, 136, 184)}
+    oracle = {name: {"canvasRect": rect, "expectedRGB": expected[name] if shown else (0, 0, 0)}
+              for name, rect in rects.items()}
+    oracle["peer"] = {"canvasRect": (200, 168, 216, 184), "expectedRGB": (0, 255, 0)}
+    for name, x in (("hiddenA", 48), ("hiddenB", 128), ("hiddenPattern", 208)):
+        oracle[name] = {"canvasRect": (x - 8, 64, x + 8, 80), "expectedRGB": (0, 0, 0)}
+    if utility_provider == "visible":
+        oracle["hiddenA"]["expectedRGB"] = a
+    return oracle
+
+
 class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -81,7 +194,8 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
         cls.exe = app / "Contents/MacOS/MyWallpaperX" if app.suffix == ".app" else app
         cls.app_identity = app_hashes(cls.exe)
 
-    def run_case(self, *, three_candidates=False, cache_condition="normal"):
+    def run_case(self, *, three_candidates=False, cache_condition="normal",
+                 named_control=None, initially_shown=True, live_shown=None, utility_provider=None):
         parent = os.environ.get("MWX_SCENE_INTEGRATION_EVIDENCE")
         if parent:
             Path(parent).mkdir(parents=True, exist_ok=True)
@@ -92,7 +206,8 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
         content, home, evidence = root / "content", root / "home", root / "evidence"
         content.mkdir()
         home.mkdir()
-        project, entries = fixture_entries(three_candidates=three_candidates)
+        project, entries = (named_vector_entries(named_control, utility_provider=utility_provider) if named_control is not None
+                            else fixture_entries(three_candidates=three_candidates))
         (content / "project.json").write_bytes(encoded(project))
         (content / "scene.pkg").write_bytes(make_package(list(entries.items())))
         expected = (255, 255, 255) if three_candidates else EXPECTED_RGB
@@ -108,9 +223,28 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
                     "channelTolerance": 2, "minimumCorrectFraction": .99,
                     "oracle": oracle, "optionalSystemInput": "absent mediaThumbnail",
                     "colorBoundary": "named PMA sample -> straight RGB, alpha mask -> one PMA output"}
+        if named_control is not None:
+            later_shown = initially_shown if live_shown is None else live_shown
+            protocol = {"namedControl": named_control,
+                "sourceA": (0, 0, 0) if named_control == "A0" else (192, 32, 16),
+                "sourceB": (0, 0, 0) if named_control == "B0" else (16, 160, 64),
+                "sourceEntry": (24, 40, 56), "weightA": .75, "weightB": .25, "slots": (2, 5),
+                "sourcePatternUV": ((.75, .5), (.25, .5)) if named_control == "swapRename" else ((.25, .5), (.75, .5)),
+                "initiallyShown": initially_shown, "liveShown": live_shown,
+                "utilityProvider": None if utility_provider is None else {
+                    "kind": "composition", "visible": utility_provider == "visible",
+                    "copybackground": False, "size": (24, 24), "childCount": 0, "alpha": 1},
+                "sceneCanvas": 128, "oracleCanvas": 256,
+                "channelTolerance": 2, "minimumCorrectFraction": .99,
+                "oracle": named_vector_oracle(named_control, initially_shown, utility_provider=utility_provider),
+                "afterOracle": named_vector_oracle(named_control, later_shown, utility_provider=utility_provider),
+                "colorBoundary": "owned opaque color inputs; actual named samples, no output color substitution"}
+        properties = {"showVector": initially_shown} if named_control is not None else {"mode": "off"}
         command = [str(self.exe), "--mwx-debug-scene-root", str(content),
                    "--mwx-debug-scene-duration", "6", "--mwx-debug-scene-evidence-dir", str(evidence),
-                   "--mwx-debug-scene-properties-json", json.dumps({"mode": "off"})]
+                   "--mwx-debug-scene-properties-json", json.dumps(properties)]
+        if named_control is not None and live_shown is not None:
+            command += ["--mwx-debug-scene-live-properties-json", json.dumps({"showVector": live_shown})]
         before_inputs = file_hashes(tuple(content.iterdir()))
         identity = {"command": command, "appSHA256": self.app_identity,
                     "inputSHA256": before_inputs,
@@ -136,7 +270,9 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
         log = (root / "app.log").read_text()
         preview = "\n".join(path.read_text() for path in evidence.glob("*preview*.log"))
         captures = sorted(evidence.glob("*-window.png"))
-        pixels = {path.name: measure_capture(path, protocol) for path in captures}
+        pixels = {path.name: measure_capture(path, {**protocol,
+            "oracle": protocol.get("afterOracle", protocol["oracle"])
+                if path.name == "scene-after-window.png" else protocol["oracle"]}) for path in captures}
         (root / "result.json").write_bytes(encoded({"exit": result.returncode, "pixels": pixels,
             "appAfter": app_hashes(self.exe), "inputsAfter": file_hashes(tuple(content.iterdir())),
             "boundary": "owned inputs and actual Metal/compositor, no official parity"}))
@@ -162,6 +298,19 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
                 with self.subTest(capture=capture, roi=roi):
                     self.assertGreater(value["total"], 0, value)
                     self.assertGreaterEqual(value["correct"] / value["total"], .99, value)
+        if named_control is not None:
+            shift = 1000 if named_control == "swapRename" else 0
+            if initially_shown or live_shown:
+                phase = "named-target-capture" if utility_provider is None else (
+                    "visible-graph-output-publication" if utility_provider == "visible"
+                    else "named-graph-output-publication")
+                self.assertIn(f"phase={phase} layer={11 + shift} status=succeeded", log)
+                consumers = (23, 24, 25) if named_control == "missing" else (22, 23, 24, 25)
+                for consumer in consumers:
+                    self.assertIn(f"phase=named-target-binding layer={consumer + shift} status=succeeded", log)
+                if named_control == "missing":
+                    self.assertNotIn(f"phase=named-target-binding layer={22 + shift} status=succeeded", log)
+            return
         capture_event = "phase=named-target-capture layer=11 status=succeeded"
         binding_event = "phase=named-target-binding layer=22 status=succeeded"
         if three_candidates:
@@ -185,6 +334,20 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
 
     def test_readonly_cache_preserves_half_alpha_named_color(self):
         self.run_case(cache_condition="readonly")
+
+    def test_named_slot_vectors_have_independent_input_contribution_and_local_failure(self):
+        for control in ("both", "A0", "B0", "swapRename", "missing"):
+            with self.subTest(control=control):
+                self.run_case(named_control=control)
+
+    def test_named_slot_vector_consumers_toggle_without_exposing_hidden_providers(self):
+        self.run_case(named_control="both", initially_shown=False, live_shown=True)
+        self.run_case(named_control="both", initially_shown=True, live_shown=False)
+
+    def test_childless_composition_provider_publishes_to_named_consumers_hidden_and_visible(self):
+        for visibility in ("hidden", "visible"):
+            with self.subTest(utilityProvider=visibility):
+                self.run_case(named_control="both", utility_provider=visibility)
 
 
 if __name__ == "__main__":

@@ -61,6 +61,17 @@ nonisolated struct SceneDependencyRenderPlan {
     }
 
 
+    /// Prepared external inputs in authored effect/pass/slot order.
+    nonisolated struct MultiProviderAggregate: Hashable {
+        let consumerLayerID: Int
+        let bindings: [Binding]
+
+        var providerLayerIDs: Set<Int> {
+            Set(bindings.map(\.providerLayerID))
+        }
+
+    }
+
     nonisolated enum IssueKind: String {
         case dependencyMismatch
         case missingProvider
@@ -80,14 +91,11 @@ nonisolated struct SceneDependencyRenderPlan {
     let references: [Reference]
     let namedReferenceConsumerLayerIDs: Set<Int>
     let executableUtilityConsumerLayerIDs: Set<Int>
-    /// Reachable childless composition consumers whose visible effects name
-    /// more than one external primary image provider. This is a deferred
-    /// candidate only: until the runtime aggregate owner exists it must stay
-    /// out of `bindingsByConsumerLayerID` and all provider requirements.
+    /// Reachable consumers with multiple external input slots. Cold candidates
+    /// alone do not grant provider ownership.
     let multiProviderCandidateLayerIDs: Set<Int>
-    /// Strictly admitted aggregate descriptions.  Runtime owners may consume
-    /// this value when their reservation/input/publication atom is available;
-    /// until then it remains out of the legacy binding and provider sets.
+    /// Prepared input vectors consumed by the existing reservation and
+    /// publication owners, separate from the legacy single-input route.
     let multiProviderAggregatesByConsumerLayerID: [Int: MultiProviderAggregate]
     let requiredEffectConsumerLayerIDs: Set<Int>
     let bindingsByConsumerLayerID: [Int: Binding]

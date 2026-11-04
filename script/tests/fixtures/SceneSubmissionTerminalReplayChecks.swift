@@ -138,6 +138,7 @@ enum SceneSubmissionTerminalReplayChecks {
                 preparedDependencyUnavailability: unavailable,
                 commandBuffer: buffer,
                 committedBaseTails: coordinator.committedTails,
+                preparationContext: nil,
                 blueprint: nil,
                 candidateTails: [:],
                 commit: makeCommit(generation: 1),

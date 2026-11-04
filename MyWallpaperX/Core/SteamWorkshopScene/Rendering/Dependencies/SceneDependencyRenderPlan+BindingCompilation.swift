@@ -6,7 +6,8 @@ extension SceneDependencyRenderPlan {
         visibleLayerIDs: Set<Int>,
         executableUtilityConsumerLayerIDs: Set<Int> = [],
         verifiedXRayStageKeys: Set<SceneAuthoredEffectRenderPlan.EffectKey> = [],
-        admittedResolvedMaterialReferences: Set<Reference> = []
+        admittedResolvedMaterialReferences: Set<Reference> = [],
+        preparedNamedInputBindingsByConsumerLayerID: [Int: [Binding]] = [:]
     ) {
         let layersByID = Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) })
         let order = Dictionary(uniqueKeysWithValues: descriptor.renderOrderLayerIDs.enumerated().map {
@@ -22,21 +23,37 @@ extension SceneDependencyRenderPlan {
         let admittedPotentialReferences = potentialReferences.intersection(
             admittedResolvedMaterialReferences
         )
-        let references = productReferences + admittedPotentialReferences.filter {
-            !productReferences.contains($0)
+        let preparedReferences = descriptor.layers.flatMap { layer in
+            (preparedNamedInputBindingsByConsumerLayerID[layer.id] ?? []).flatMap { binding in
+                binding.referenceSlots.map { slot in
+                    Reference(consumerLayerID: layer.id, providerLayerID: binding.providerLayerID,
+                              slot: slot, variant: .primary)
+                }
+            }
         }
+        let references = productReferences.filter {
+            preparedNamedInputBindingsByConsumerLayerID[$0.consumerLayerID] == nil
+                || $0.consumerLayerID == $0.providerLayerID
+        } + admittedPotentialReferences.filter {
+            preparedNamedInputBindingsByConsumerLayerID[$0.consumerLayerID] == nil
+                && !productReferences.contains($0)
+        } + preparedReferences
         // Keep authored order and multiplicity in each bucket, including
         // optional references admitted above. These indices live only for
         // this compilation; frame execution consumes the resulting plan.
         let referencesByConsumer = Dictionary(grouping: references, by: \.consumerLayerID)
         let referencesByProvider = Dictionary(grouping: references, by: \.providerLayerID)
-        let dependencyEdges = Self.productDependencyEdges(
+        var dependencyEdges = Self.productDependencyEdges(
             layers: descriptor.layers,
             references: references,
             productReferences: productReferences,
             potentialReferences: potentialReferences,
             admittedPotentialReferences: admittedPotentialReferences
         )
+        for (consumerID, preparedBindings) in preparedNamedInputBindingsByConsumerLayerID {
+            dependencyEdges[consumerID] = Set(preparedBindings.map(\.providerLayerID)
+                .filter { $0 != consumerID })
+        }
         let availableLayerIDs = Set(layersByID.keys)
         let xRayExemptConsumerLayerIDs = Set(visibleLayerIDs.filter { layerID in
             guard let layer = layersByID[layerID] else { return false }
@@ -101,7 +118,8 @@ extension SceneDependencyRenderPlan {
         }
         let multiProviderCandidateLayerIDs = Set<Int>(
             descriptor.layers.compactMap { layer in
-                guard reachableConsumerLayerIDs.contains(layer.id) else {
+                guard reachableConsumerLayerIDs.contains(layer.id),
+                      preparedNamedInputBindingsByConsumerLayerID[layer.id] == nil else {
                     return nil
                 }
                 let layerReferences = referencesByConsumer[layer.id] ?? []
@@ -151,7 +169,9 @@ extension SceneDependencyRenderPlan {
             }
         }
 
-        for layer in descriptor.layers where reachableConsumerLayerIDs.contains(layer.id) {
+        for layer in descriptor.layers
+        where reachableConsumerLayerIDs.contains(layer.id)
+            && preparedNamedInputBindingsByConsumerLayerID[layer.id] == nil {
             let layerReferences = referencesByConsumer[layer.id] ?? []
             guard !layerReferences.isEmpty else { continue }
             guard let binding = Self.executableBinding(
@@ -235,6 +255,20 @@ extension SceneDependencyRenderPlan {
         // deterministic and fail closed for unknown providers, cycles, or an
         // unresolved sibling; no aggregate projects a partial provider set.
         var multiProviderAggregates: [Int: MultiProviderAggregate] = [:]
+        for layer in descriptor.layers where reachableConsumerLayerIDs.contains(layer.id) {
+            guard let preparedBindings = preparedNamedInputBindingsByConsumerLayerID[layer.id],
+                  !preparedBindings.isEmpty else { continue }
+            for binding in preparedBindings where cyclicLayerIDs.contains(binding.providerLayerID) {
+                issues.append(.init(kind: .cyclicDependency, layerID: layer.id,
+                                    providerLayerID: binding.providerLayerID))
+            }
+            if preparedBindings.count == 1 {
+                bindings[layer.id] = preparedBindings[0]
+            } else {
+                multiProviderAggregates[layer.id] = .init(
+                    consumerLayerID: layer.id, bindings: preparedBindings)
+            }
+        }
         var pendingAggregateLayerIDs = multiProviderCandidateLayerIDs
         var admittedAggregate = true
         while admittedAggregate && !pendingAggregateLayerIDs.isEmpty {
@@ -295,8 +329,10 @@ extension SceneDependencyRenderPlan {
         })
         self.executableUtilityConsumerLayerIDs = executableUtilityConsumerLayerIDs
         self.multiProviderCandidateLayerIDs = multiProviderCandidateLayerIDs
+            .union(multiProviderAggregates.keys)
         self.multiProviderAggregatesByConsumerLayerID = multiProviderAggregates
         self.requiredEffectConsumerLayerIDs = Set(descriptor.layers.compactMap { layer in
+            guard preparedNamedInputBindingsByConsumerLayerID[layer.id] == nil else { return nil }
             let layerReferences = referencesByConsumer[layer.id] ?? []
             let consumerEffects = Self.admittedConsumerEffects(
                 layer,
@@ -333,12 +369,17 @@ extension SceneDependencyRenderPlan {
                 return nil
             }
             return layer.id
-        }).union(multiProviderAggregates.keys)
+        }).union(multiProviderAggregates.keys).union(
+            preparedNamedInputBindingsByConsumerLayerID.compactMap { layerID, inputs in
+                inputs.isEmpty || !reachableConsumerLayerIDs.contains(layerID) ? nil : layerID
+            }
+        )
         self.bindingsByConsumerLayerID = bindings
         self.staticModelBindingsByConsumerLayerID = staticModelResolution.bindings
         self.requiredProviderLayerIDs = Set(bindings.values.map(\.providerLayerID))
             .union(multiProviderAggregates.values.flatMap { $0.providerLayerIDs })
             .union(staticModelResolution.bindings.values.map(\.providerLayerID))
+            .subtracting(cyclicLayerIDs)
         self.requiredGraphOutputProviderLayerIDs = Set(bindings.values.compactMap { binding in
             guard let provider = layersByID[binding.providerLayerID],
                   provider.effects.contains(where: { $0.visible != false }) else {
@@ -354,7 +395,7 @@ extension SceneDependencyRenderPlan {
                 where: { $0.visible != false }
             ) == true else { return nil }
             return binding.providerLayerID
-        })
+        }).subtracting(cyclicLayerIDs)
         self.staticLayerSourcePassthroughBlockedLayerIDs = passthroughBlockedLayerIDs
         self.cyclicLayerIDs = cyclicLayerIDs
         self.issues = Array(Set(issues)).sorted {
@@ -826,9 +867,6 @@ extension SceneDependencyRenderPlan {
         ) != nil
     }
 
-    /// Compiles the candidate into a lossless aggregate admission record.
-    /// Every provider and authored slot must be independently safe; any
-    /// ambiguity remains rejected instead of silently selecting one provider.
     private nonisolated static func multiProviderAggregate(
         layer: SceneRenderDescriptor.Layer,
         references: [Reference],
@@ -840,128 +878,29 @@ extension SceneDependencyRenderPlan {
         legacyBindings: [Int: Binding],
         admittedAggregates: [Int: MultiProviderAggregate]
     ) -> MultiProviderAggregate? {
-        guard isMultiProviderAggregateCandidate(
-            layer: layer,
-            references: references
-        ) else { return nil }
-        let activeReferences = references.filter { reference in
-            layer.effects.first(where: { $0.id == reference.slot.effectID })?
-                .visible != false
-        }
-        guard let authoredActiveReferences = authoredReferenceOrder(
-            for: layer,
-            references: activeReferences
-        ) else { return nil }
-        guard let activeDependencyProviderIDs =
-                activeDependencyProviderLayerIDs(
-                    layer: layer,
-                    references: authoredActiveReferences
-                ) else { return nil }
-        guard Set(authoredActiveReferences.map(\.slot)).count
-                == authoredActiveReferences.count,
-              authoredActiveReferences.allSatisfy({ reference in
-                  reference.consumerLayerID == layer.id
-                      && reference.variant == .primary
-                      && layer.dependencyLayerIDs.contains(
-                          reference.providerLayerID
-                      )
+        guard isMultiProviderAggregateCandidate(layer: layer, references: references),
+              !cyclicLayerIDs.contains(layer.id),
+              let ordered = authoredReferenceOrder(for: layer, references: references.filter { reference in
+                  reference.providerLayerID != layer.id
+                      && layer.effects.first(where: { $0.id == reference.slot.effectID })?
+                        .visible != false
               }),
-              authoredActiveReferences.allSatisfy({
-                  aggregateReferenceShapeIsStrict(
-                      layer: layer,
-                      reference: $0
-                  )
-              }) else { return nil }
-        let providerIDs = Set(authoredActiveReferences.map(\.providerLayerID))
-        let declaredProviderIDs = Set(
-            layer.dependencyLayerIDs.filter { $0 != layer.id }
-        )
-        // `dependencyLayerIDs` is the authored superset. Inactive effect
-        // alternatives may name providers that are not part of this frame's
-        // graph; the aggregate itself must carry exactly the active provider
-        // vector while the helper above still proves the full declaration.
-        guard layer.dependencyLayerIDs.count == declaredProviderIDs.count,
-              declaredProviderIDs.allSatisfy({ layersByID[$0] != nil }),
-              providerIDs == activeDependencyProviderIDs,
-              providerIDs.count > 1,
-              !cyclicLayerIDs.contains(layer.id) else { return nil }
-        let bindings = authoredActiveReferences.compactMap { reference -> Binding? in
-            guard let provider = layersByID[reference.providerLayerID],
-                  provider.contentKind == "image",
-                  hasNoUtilityLayer(provider),
-                  provider.childLayerIDs.isEmpty,
-                  !cyclicLayerIDs.contains(provider.id),
-                  let providerOrder = order[provider.id],
-                  let consumerOrder = order[layer.id],
-                  providerOrder != consumerOrder else { return nil }
-            let providerIsVisibleGraphOutput = Self
-                .isVisibleGraphOutputProvider(
-                    provider,
-                    visibleLayerIDs: visibleLayerIDs
-                )
-            let providerIsVisibleGeometryOutput = provider.puppetMeshPath != nil
-                && provider.visible != false
-                && visibleLayerIDs.contains(provider.id)
-                && provider.authoredDependencies.isEmpty
-                && provider.dependencyLayerIDs.isEmpty
-            guard provider.visible == false
-                    || providerIsVisibleGraphOutput
-                    || providerIsVisibleGeometryOutput else {
-                return nil
-            }
-            let providerHasVisibleEffects = provider.effects.contains {
-                $0.visible != false
-            }
-            let bindingKind: Binding.Kind = provider.puppetMeshPath == nil
-                ? .imageLayerBlend : .geometryLayer
-            let requiresForwardCapture = providerOrder > consumerOrder
-            // Pre-executing a visible effect graph would consume its one
-            // frame ticket before authored order reaches the provider.  The
-            // named publication is not a substitute for its main-compositor
-            // output, so keep this shape fail-closed until one ticket can own
-            // both outputs without double execution.
-            guard !(requiresForwardCapture
-                && providerHasVisibleEffects
-                && provider.visible != false
-                && visibleLayerIDs.contains(provider.id)) else { return nil }
-            let supportsForwardSourceCapture = requiresForwardCapture
-                && provider.effects.isEmpty
-                && provider.dependencyLayerIDs.isEmpty
-            let supportsForwardGraphExecution = requiresForwardCapture
-                && providerHasVisibleEffects
-                && providerGraphIsAuthoredOrderIndependent(provider)
-            guard !requiresForwardCapture
-                    || supportsForwardSourceCapture
-                    || supportsForwardGraphExecution,
-                  let providerDependencies =
-                    activeDependencyProviderLayerIDs(
-                        layer: provider,
-                        references: referencesByConsumer[provider.id] ?? []
-                    ),
+              Set(ordered.map(\.slot)).count == ordered.count else { return nil }
+        let bindings = ordered.compactMap { reference -> Binding? in
+            guard !cyclicLayerIDs.contains(reference.providerLayerID),
+                  let provider = layersByID[reference.providerLayerID],
+                  let dependencies = activeDependencyProviderLayerIDs(
+                    layer: provider, references: referencesByConsumer[provider.id] ?? []),
                   providerDependenciesAreAdmitted(
-                      provider: provider,
-                      activeDependencies: providerDependencies,
-                      layersByID: layersByID,
-                      cyclicLayerIDs: cyclicLayerIDs,
-                      legacyBindings: legacyBindings,
-                      admittedAggregates: admittedAggregates
-                  ) else { return nil }
-            return Binding(
-                consumerLayerID: layer.id,
-                providerLayerID: provider.id,
-                slot: reference.slot,
-                blendMode: 0,
-                kind: bindingKind,
-                requiresForwardCapture: requiresForwardCapture,
-                requiresResolvedMaterialProgram: true
-            )
+                    provider: provider, activeDependencies: dependencies,
+                    layersByID: layersByID, cyclicLayerIDs: cyclicLayerIDs,
+                    legacyBindings: legacyBindings, admittedAggregates: admittedAggregates)
+            else { return nil }
+            return programInputBinding(for: reference, layer: layer, layersByID: layersByID,
+                                       order: order, visibleLayerIDs: visibleLayerIDs)
         }
-        guard bindings.count == authoredActiveReferences.count else { return nil }
-        return MultiProviderAggregate(
-            consumerLayerID: layer.id,
-            bindings: bindings,
-            authoredSlotOrder: authoredActiveReferences.map(\.slot)
-        )
+        guard bindings.count == ordered.count else { return nil }
+        return .init(consumerLayerID: layer.id, bindings: bindings)
     }
 
 }

@@ -38,10 +38,7 @@ nonisolated enum SceneUtilityLayerSourceRoute {
         }
         // A childless passthrough has no members to pass through. Its explicit
         // background choice still owns the effect input, including transparency.
-        guard utility.kind == .composition,
-              layer.childLayerIDs.isEmpty
-                || (layer.dependencyLayerIDs.isEmpty
-                    && layer.authoredDependencies.isEmpty) else {
+        guard utility.kind == .composition else {
             return .failure(.compositionSubtreeShape)
         }
         let groupedLayers = Dictionary(grouping: descriptor.layers, by: \.id)

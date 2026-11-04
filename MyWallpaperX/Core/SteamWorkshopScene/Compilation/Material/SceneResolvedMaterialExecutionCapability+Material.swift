@@ -66,7 +66,6 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability {
     ) -> (intermediates: Bool, terminal: Bool, placement: Bool) {
         guard admitted.isVisibleExecutionRoot,
               !admitted.isGraphOutputProvider,
-              !admitted.requiresGraphOutputProvider,
               case .capturedLayerTexture = admitted.sourceRoute,
               sceneBackgroundRequirement == nil,
               !stages.isEmpty, !materials.isEmpty else { return (false, false, false) }
@@ -131,7 +130,6 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability {
         sceneBackgroundRequirement: SceneResolvedMaterialExecutionCapabilityCatalog.SceneBackgroundRequirement?
     ) -> Bool {
         guard admitted.isVisibleExecutionRoot, !admitted.isGraphOutputProvider,
-              !admitted.requiresGraphOutputProvider,
               admitted.sourceRoute == .capturedMainTargetTexture,
               admitted.terminalReplayBlendMode == 0,
               dependencyOwnership == .none, sceneBackgroundRequirement == nil,

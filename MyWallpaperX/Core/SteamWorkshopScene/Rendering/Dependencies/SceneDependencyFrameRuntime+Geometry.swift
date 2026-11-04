@@ -62,29 +62,6 @@ extension SceneDependencyFrameRuntime {
             failureReason = "frame-epoch-invalid"
             return nil
         }
-        guard binding.providerLayerID == providerLayer.id else {
-            failureReason = "provider-layer-mismatch"
-            return nil
-        }
-        guard plan.bindingsByConsumerLayerID[binding.consumerLayerID] == binding
-            || plan.aggregateBindingIsPlanned(binding) else {
-            failureReason = "binding-not-planned"
-            return nil
-        }
-        // Aggregate members are an ordered, primary vector. Keep the strict
-        // shape check at reservation time so a forged/partial member cannot
-        // acquire a target and fail only after graph execution has started.
-        if plan.aggregateBindingIsPlanned(binding) {
-            guard binding.consumerLayerID != binding.providerLayerID,
-                  binding.referenceSlots == [binding.slot],
-                  binding.kind == .imageLayerBlend
-                    || binding.kind == .geometryLayer,
-                  binding.blendMode == 0,
-                  binding.requiresResolvedMaterialProgram else {
-                failureReason = "aggregate-binding-shape-mismatch"
-                return nil
-            }
-        }
         let requiresGraphOutput = plan.requiredGraphOutputProviderLayerIDs
             .contains(providerLayer.id)
         // Prepared extents come from the provider's frame plan. A caller may

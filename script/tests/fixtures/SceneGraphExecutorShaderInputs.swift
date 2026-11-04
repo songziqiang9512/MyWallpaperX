@@ -282,9 +282,7 @@ private func template(
     colorBlendMaskPath: SceneVFSAssetPath? = nil,
     explicitPreviousSampler: Bool = false
 ) -> Template {
-    guard let target = node.target,
-          let inputBinding = node.bindings.first,
-          let slot = inputBinding.slot else {
+    guard let target = node.target, !node.bindings.isEmpty else {
         fatalError("material fixture is incomplete")
     }
     let pixelTransform: Int? = if let explicitPixelTransform {
@@ -327,12 +325,14 @@ private func template(
         explicitPreviousSampler: explicitPreviousSampler
     )
     var slots = Array<Template.TextureSlot?>(repeating: nil, count: 8)
-    slots[slot] = .init(index: slot, candidates: [
-        .init(
-            reference: .graph(inputBinding.texture),
-            provenance: .explicitBinding
-        ),
-    ])
+    var graphBindings: [Template.GraphBindingRole] = []
+    for binding in node.bindings {
+        let slot = binding.slot!
+        slots[slot] = .init(index: slot, candidates: [
+            .init(reference: .graph(binding.texture), provenance: .explicitBinding),
+        ])
+        graphBindings.append(.init(slot: slot, texture: role(binding.texture)))
+    }
     if let namedProvider {
         slots[1] = .init(index: 1, candidates: [
             .init(
@@ -412,7 +412,7 @@ private func template(
             effectInput: effectInput,
             effectOutput: role(output),
             nodeTarget: role(target),
-            bindings: [.init(slot: slot, texture: role(inputBinding.texture))]
+            bindings: graphBindings
         ),
         shaderContract: contract,
         diagnosticProvenance: .init(

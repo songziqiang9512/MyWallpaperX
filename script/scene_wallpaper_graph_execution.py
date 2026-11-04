@@ -458,6 +458,7 @@ def resolved_material_graph_execution_metrics(
         effect_execution,
         static_disposition,
         graph_observations,
+        admitted_layer_ids=accepted_layer_ids,
         dormant_layer_ids=set(dormant_layer_set),
         activation_dormant_identities=(
             authored_deactivated_activation_identities(log_text)

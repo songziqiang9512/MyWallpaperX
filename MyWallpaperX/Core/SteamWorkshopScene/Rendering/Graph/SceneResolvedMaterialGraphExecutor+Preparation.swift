@@ -123,10 +123,7 @@ extension SceneResolvedMaterialGraphExecutor {
                 break
             case let .inactive(reasonCode):
                 guard activationBypassIsProvable(
-                    reasonCode: reasonCode,
                     stageCapability: stageCapability,
-                    transition: transition,
-                    graph: graph,
                     pairStep: pairStep,
                     snapshot: visualFailureSnapshot
                 ) else {
@@ -145,12 +142,6 @@ extension SceneResolvedMaterialGraphExecutor {
         }
         if case let .visualFailurePassthrough(reasonCode) = stageCapability.execution {
             return .passthrough(.visualFailure(reasonCode: reasonCode,
-                boundedDetail: nil, rejection: .graphStructureRejected))
-        }
-        if let unavailable = frameInputs.dependencyUnavailability,
-           let slots = stageCapability.preEncodeVisualFailureSlots,
-           !slots.isEmpty {
-            return .passthrough(.visualFailure(reasonCode: unavailable.rawValue,
                 boundedDetail: nil, rejection: .graphStructureRejected))
         }
         let dependencyInputs = frameInputs.dependencyEffects
@@ -284,7 +275,7 @@ extension SceneResolvedMaterialGraphExecutor {
                               let slot = failure.slot else { return nil }
                         let proven: Bool
                         switch fallback {
-                        case .assetUnavailable:
+                        case .assetUnavailable, .namedProviderUnavailable:
                             proven = true
                         case .optionalTextureUnavailable,
                              .optionalTexturePurposeMismatch,

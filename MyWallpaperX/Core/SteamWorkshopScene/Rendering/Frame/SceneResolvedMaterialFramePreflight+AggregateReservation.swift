@@ -3,25 +3,22 @@ import Metal
 import simd
 
 extension SceneMetalRenderer {
-    /// Reserves the complete provider vector for one multi-provider claim.
-    /// Every member is resolved and reserved in the plan's authored order; a
-    /// missing source or malformed reservation rejects the whole unsafe unit.
+    /// Reserves available provider inputs in authored order. Missing sources
+    /// leave their operations unavailable; malformed resources remain errors.
     func reserveExternalAggregateDependencyInputs(
         aggregate: SceneDependencyRenderPlan.MultiProviderAggregate,
+        liveLayerIDs: Set<Int>,
         plans: [Int: SceneResolvedMaterialFrameTargetPlan],
         imageTextures: SceneBaseImageTextureSnapshot,
         frameContext: SceneFrameContext,
         imageMVP: (SceneRenderDescriptor.Layer, [Float]?) -> simd_float4x4,
+        providerPlacement: (SceneRenderDescriptor.Layer) -> (mvp: simd_float4x4, viewport: CGSize),
         geometryMVP: (
             SceneRenderDescriptor.Layer, SceneGeometryProduct
         ) -> simd_float4x4,
         baseMaterialSelections: inout [Int: SceneBaseMaterialTextureSelection],
         failureReason: inout String?
     ) -> [SceneDependencyEffectInput]? {
-        guard aggregate.hasStrictBindingVector else {
-            failureReason = "multi-provider-binding-vector-invalid"
-            return nil
-        }
         guard let consumerLayer = layersByID[aggregate.consumerLayerID] else {
             failureReason = "multi-provider-consumer-missing"
             return nil
@@ -32,36 +29,35 @@ extension SceneMetalRenderer {
         )
         var dependencyEffects: [SceneDependencyEffectInput] = []
         for binding in aggregate.bindings {
-            guard let providerLayer = layersByID[binding.providerLayerID] else {
-                failureReason = "multi-provider-provider-missing"
-                return nil
-            }
-            let providerSelection = cachedBaseMaterialTextureSelectionImpl(
-                for: providerLayer,
-                imageTextures: imageTextures,
-                readyProviderUsesAuthoredLayerColor:
-                    baseMaterialReadyProviderUsesAuthoredLayerColor(
-                        for: providerLayer,
-                        dynamicValues: frameContext.dynamicValues
-                    ),
-                cache: &baseMaterialSelections
-            )
-            guard let providerSource = providerSelection.source else {
-                failureReason =
-                    "multi-provider-provider-source-"
-                        + (providerSelection.rejectedProviderReason ?? "missing")
-                return nil
+            guard liveLayerIDs.contains(binding.providerLayerID),
+                  !dependencyRuntime.plan.cyclicLayerIDs.contains(binding.providerLayerID),
+                  let providerLayer = layersByID[binding.providerLayerID] else { continue }
+            let providerSource: SceneBaseMaterialTextureSource?
+            if binding.kind == .resolvedMaterial {
+                providerSource = nil
+            } else {
+                switch cachedBaseMaterialTextureSelectionImpl(
+                    for: providerLayer,
+                    imageTextures: imageTextures,
+                    readyProviderUsesAuthoredLayerColor:
+                        baseMaterialReadyProviderUsesAuthoredLayerColor(
+                            for: providerLayer,
+                            dynamicValues: frameContext.dynamicValues
+                        ),
+                    cache: &baseMaterialSelections
+                ) {
+                case let .source(source): providerSource = source
+                case .missing, .pendingAuthoredVideo: continue
+                case let .rejected(reason):
+                    failureReason = "multi-provider-provider-source-" + reason
+                    return nil
+                }
             }
             let geometryProduct: SceneGeometryProduct?
             let providerOutputMVP: simd_float4x4?
             if binding.kind == .geometryLayer {
-                guard let product = imageTextures.geometryProduct(
-                    for: providerLayer.id,
-                    matching: providerSource.texture
-                ) else {
-                    failureReason = "multi-provider-geometry-product-invalid"
-                    return nil
-                }
+                guard let product = imageTextures.geometryProducts[providerLayer.id]
+                else { continue }
                 geometryProduct = product
                 providerOutputMVP = geometryMVP(providerLayer, product)
                     * SceneMatrix.scale(SIMD3(
@@ -74,16 +70,14 @@ extension SceneMetalRenderer {
                 providerOutputMVP = nil
             }
             var reason: String?
+            let placement = providerPlacement(providerLayer)
             guard let input = dependencyRuntime.reserveEffectInput(
                 for: binding,
                 providerLayer: providerLayer,
-                providerTexture: providerSource.texture,
-                providerCandidate: providerSource.candidate,
-                layerMVP: imageMVP(
-                    providerLayer,
-                    imageTextures.layerSourceRenderSize(for: providerLayer.id)
-                ),
-                viewportSize: frameContext.screenSize,
+                providerTexture: providerSource?.texture,
+                providerCandidate: providerSource?.candidate,
+                layerMVP: placement.mvp,
+                viewportSize: placement.viewport,
                 preparedOutputExtent: preparedGraphOutputExtent(
                     for: providerLayer.id,
                     plans: plans
@@ -95,6 +89,7 @@ extension SceneMetalRenderer {
                 frameEpoch: textureRegistry.frameEpoch,
                 failureReason: &reason
             ) else {
+                if reason == "image-provider-mapping-unavailable" { continue }
                 failureReason =
                     "multi-provider-reservation-invalid"
                         + (reason.map { "-\($0)" } ?? "")

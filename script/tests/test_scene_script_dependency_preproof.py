@@ -1,7 +1,7 @@
-"""CPU proof regression for script-gated exact optional named dependencies.
+"""CPU projection of actual named reads onto prepared source carriers.
 
-Compiles the production proof functions against prepared dependency atoms. It
-does not prove the frontend/variant producer, GPU sampling, or media delivery.
+The dependency records are typed fixture inputs. Program/variant production,
+publication identity and GPU sampling remain covered by their real owner gates.
 """
 import json
 from pathlib import Path
@@ -9,6 +9,10 @@ import subprocess
 import tempfile
 import unittest
 
+from script.tests.scene_dependency_binding_test_support import (
+    SCENE_DEPENDENCY_AGGREGATE_SUPPORT,
+    SCENE_DEPENDENCY_BINDING_SUPPORT,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
@@ -34,205 +38,95 @@ def declaration(source: str, signature: str) -> str:
 SUPPORT = r'''
 import Foundation
 struct SceneDependencyRenderPlan {}
-struct PreparedGraph { let layerID: Int; let renderTargets: [Int] }
-struct SceneGraphAdmissionProduct {
-    let graph: PreparedGraph
-    let dependencies: SceneResolvedMaterialExecutionCapabilityCatalog.ResolvedExternalDependencyAnalysis
-}
 enum SceneResolvedMaterialExecutionCapabilityCatalog {
-    typealias MaterialKey = Int
-    enum StageCapability {
-        enum Execution {
-            case resolved(materials: [Int: Bool], activation: SceneResolvedMaterialStageActivationPolicy?)
-        }
-        enum PassthroughTopology: Hashable { case dependencyStage, framebuffer, preEncodeGraph }
-    }
+    struct Rejection: Error { let code: String }
     struct CompiledStages {
-        typealias Stage = (product: SceneGraphAdmissionProduct,
-            execution: StageCapability.Execution,
-            passthroughTopologies: Set<StageCapability.PassthroughTopology>)
+        struct Stage { let dependencies: ResolvedExternalDependencyAnalysis }
     }
-    // These adapters expose fixture metadata. They do not produce dependency
-    // proofs or normalize candidate/provider/slot identities.
+    // The real projection consumes the Program producer's typed records.
+    // This passive seam does not reproduce shader or dependency analysis.
     static func resolvedExternalDependencies(in stage: CompiledStages.Stage) -> ResolvedExternalDependencyAnalysis {
-        stage.product.dependencies
+        stage.dependencies
     }
-    static func visualFailureExternalDependencies(in stage: CompiledStages.Stage,
-        binding: SceneDependencyRenderPlan.Binding) -> [BindingDependency] { [] }
-    static func aggregateStageDependencies(_ stages: [CompiledStages.Stage],
-        aggregate: SceneDependencyRenderPlan.MultiProviderAggregate) -> [BindingDependency]? {
-        fatalError("aggregate finalization is outside this fixture")
-    }
-    static func aggregateDependenciesMatch(_ dependencies: [BindingDependency],
-        aggregate: SceneDependencyRenderPlan.MultiProviderAggregate) -> Bool {
-        fatalError("aggregate finalization is outside this fixture")
-    }
+    static func rejection(_ code: String) -> Rejection { .init(code: code) }
 }
 '''
 
 CHECKS = r'''
 @main
-enum Checks {
+private enum Checks {
     static func main() throws {
         typealias C = SceneResolvedMaterialExecutionCapabilityCatalog
         typealias B = SceneDependencyRenderPlan.Binding
         typealias D = C.ResolvedExternalDependency
         let consumer = 81, provider = 879
-        let first = SceneEffectPassSlot(effectID: "961", passIndex: 0, slotIndex: 1)
-        let second = SceneEffectPassSlot(effectID: "970", passIndex: 0, slotIndex: 1)
-        let target = SceneDynamicTarget.effectVisibility(layerID: consumer, effectIndex: 1)
-        let activation = SceneResolvedMaterialStageActivationPolicy(effectVisibilityTarget: target,
-            requiresPointerPositionProvider: false, scalarMinimum: nil)
+        let first = SceneEffectPassSlot(effectID: "z-first", passIndex: 1, slotIndex: 2)
+        let second = SceneEffectPassSlot(effectID: "a-next", passIndex: 0, slotIndex: 5)
         func binding(_ slot: SceneEffectPassSlot, consumerID: Int = consumer,
-            providerID: Int = provider, blend: Int = 0, kind: B.Kind = .resolvedMaterial,
+            providerID: Int = provider, blend: Int = 0, kind: B.Kind = .imageLayerBlend,
             forward: Bool = false, program: Bool = true, slots: [SceneEffectPassSlot]? = nil) -> B {
             .init(consumerLayerID: consumerID, providerLayerID: providerID, slot: slot,
                 referenceSlots: slots, blendMode: blend, kind: kind,
                 requiresForwardCapture: forward, requiresResolvedMaterialProgram: program)
         }
-        func dependency(_ slot: SceneEffectPassSlot, key: Int, consumerID: Int = consumer,
-            providerID: Int = provider, origin: D.Origin) -> D {
-            .init(materialKey: key, consumerLayerID: consumerID, providerLayerID: providerID,
-                slot: slot, origin: origin)
+        func dependency(_ slot: SceneEffectPassSlot, providerID: Int = provider) -> D {
+            .init(consumerLayerID: consumer, providerLayerID: providerID, slot: slot)
         }
-        func stage(_ dependencies: C.ResolvedExternalDependencyAnalysis,
-            layerID: Int = consumer, fbo: Bool = false) -> C.CompiledStages.Stage {
-            (product: .init(graph: .init(layerID: layerID,
-                renderTargets: fbo ? [1] : []), dependencies: dependencies),
-                execution: .resolved(materials: [1: true], activation: activation),
-                passthroughTopologies: [])
-        }
-        func preproof(_ stage: C.CompiledStages.Stage,
-            ownership: SceneResolvedMaterialDependencyOwnership,
-            potential: [B] = []) -> Bool {
-            __PREPROOF_CALL__
+        func project(_ dependencies: C.ResolvedExternalDependencyAnalysis,
+            ownership: SceneResolvedMaterialDependencyOwnership = .none,
+            sources: [B] = []) -> (bindings: [B], internalReferenceCount: Int)? {
+            switch C.preparedNamedInputs(stage: .init(dependencies: dependencies),
+                ownership: ownership, candidates: sources, layerID: consumer) {
+            case let .success(value): return value
+            case .failure: return nil
+            }
         }
         let base = binding(first), optional = binding(second)
-        let direct = dependency(first, key: 1, origin: .terminalNamed)
-        let mixed = dependency(second, key: 2, origin: .exactMixedOptionalFallback)
-        let baseStage = stage(.exact([direct])), mixedStage = stage(.exact([mixed]))
+        let direct = dependency(first), mixed = dependency(second)
+        let both = project(.exact([direct, mixed]), ownership: .externalPrimary(base), sources: [optional])
         var result: [String: Bool] = [:]
-        result["exactMixedScriptStageStaysResolved"] = preproof(mixedStage,
-            ownership: .externalPrimary(base), potential: [optional])
-        result["terminalNamedExistingOwnerStaysResolved"] = preproof(baseStage,
-            ownership: .externalPrimary(base))
-        result["allOptionalStageStaysResolved"] = preproof(mixedStage,
-            ownership: .none, potential: [optional])
-        let finalized = C.finalizeDependencyOwnership(.externalPrimary(base),
-            potentialBindings: [optional], layerID: consumer, stages: [baseStage, mixedStage])
-        let expanded = binding(first, slots: [first, second])
-        result["finalizerPreservesExactAuthoredSlotOrder"] = finalized == .externalPrimary(expanded)
-        result["finalizerPromotesAllOptionalOwner"] = C.finalizeDependencyOwnership(.none,
-            potentialBindings: [optional], layerID: consumer, stages: [mixedStage])
-                == .externalPrimary(optional)
-        let legacyBase = binding(first, kind: .imageLayerBlend, forward: true, program: false)
-        let programOptional = binding(second, kind: .imageLayerBlend, forward: true)
-        result["legacyDirectBaseAcceptsStricterProgramSibling"] = preproof(mixedStage,
-            ownership: .externalPrimary(legacyBase), potential: [programOptional])
-        result["expandedOwnerKeepsStricterProgramRequirement"] = C.finalizeDependencyOwnership(
-            .externalPrimary(legacyBase), potentialBindings: [programOptional], layerID: consumer,
-            stages: [baseStage, mixedStage]) == .externalPrimary(
-                binding(first, kind: .imageLayerBlend, forward: true, slots: [first, second]))
-        result["directOnlyOwnerRetainsAuthoredRequirement"] = C.finalizeDependencyOwnership(
-            .externalPrimary(legacyBase), potentialBindings: [programOptional], layerID: consumer,
-            stages: [baseStage]) == .externalPrimary(legacyBase)
-        result["finalizerRejectsMissingDirectSlot"] = C.finalizeDependencyOwnership(.externalPrimary(base),
-            potentialBindings: [optional], layerID: consumer, stages: [mixedStage]) == nil
-        result["finalizerRejectsDuplicateOptionalSlot"] = C.finalizeDependencyOwnership(.externalPrimary(base),
-            potentialBindings: [optional], layerID: consumer,
-            stages: [baseStage, mixedStage, mixedStage]) == nil
-        result["finalizerKeepsReverseAuthoredOrder"] = C.finalizeDependencyOwnership(.externalPrimary(base),
-            potentialBindings: [optional], layerID: consumer, stages: [mixedStage, baseStage])
-                == .externalPrimary(binding(first, slots: [second, first]))
-        let bad: [(String, [B])] = [
-            ("missingPotential", []),
-            ("wrongConsumer", [binding(second, consumerID: consumer + 1)]),
-            ("wrongProvider", [binding(second, providerID: provider + 1)]),
-            ("wrongSlot", [binding(first)]),
-            ("duplicatePotential", [optional, optional]),
-            ("multipleReferenceSlots", [binding(second, slots: [first, second])]),
-            ("blendMismatch", [binding(second, blend: 1)]),
-            ("kindMismatch", [binding(second, kind: .solidLayer)]),
-            ("captureMismatch", [binding(second, forward: true)]),
-            ("unprovenProgram", [binding(second, program: false)]),
-        ]
-        for (name, potential) in bad {
-            result["rejects_" + name] = !preproof(mixedStage,
-                ownership: .externalPrimary(base), potential: potential)
-            result["finalizerRejects_" + name] = C.finalizeDependencyOwnership(.externalPrimary(base),
-                potentialBindings: potential, layerID: consumer, stages: [baseStage, mixedStage]) == nil
+        result["preparedReadsConserveBothSameProviderSlots"] = both?.bindings == [base, optional]
+        result["optionalOnlyUsesItsActualPreparedSource"] = project(.exact([mixed]), sources: [optional])?.bindings == [optional]
+        result["sourceSupersetDoesNotInventDemand"] = project(.exact([direct]), sources: [base, optional])?.bindings == [base]
+        result["authoredReadOrderIsNotLexicalEffectOrder"] = project(.exact([mixed, direct]),
+            sources: [base, optional])?.bindings == [optional, base]
+        let other = binding(second, providerID: 880)
+        result["differentProvidersUseOneOrderedVector"] = project(.exact([direct,
+            dependency(second, providerID: 880)]), sources: [base, other])?.bindings == [base, other]
+        let legacy = binding(first, program: false)
+        let projected = binding(first)
+        result["legacyCarrierProjectsAProgramRequiredRead"] = project(.exact([direct]),
+            ownership: .externalPrimary(legacy))?.bindings == [projected]
+        let legacyVector = binding(first, slots: [first, second])
+        result["legacySourceProjectsOnlyTheActualReadSlot"] = project(.exact([mixed]),
+            ownership: .externalPrimary(legacyVector))?.bindings == [optional]
+        result["unreadCandidateHasNoFinalDemand"] = project(.none, sources: [optional])?.bindings == []
+        result["emptyProgramReadVectorHasNoFinalDemand"] = project(.exact([]), sources: [optional])?.bindings == []
+        let own = project(.exact([dependency(first, providerID: consumer)]))
+        result["selfReadRequiresNoExternalCarrier"] = own?.bindings == [] && own?.internalReferenceCount == 1
+        result["invalidProducerAnalysisIsRejected"] = project(.invalid, sources: [base]) == nil
+        result["missingActualSourceIsRejectedLocally"] = project(.exact([mixed]), sources: [base]) == nil
+        for (name, source) in [
+            ("wrongSourceConsumer", binding(second, consumerID: consumer + 1)),
+            ("wrongSourceProvider", binding(second, providerID: provider + 1)),
+            ("wrongSourceSlot", base),
+        ] {
+            result[name] = project(.exact([mixed]), sources: [source]) == nil
         }
-        result["rejectsWrongGraphConsumer"] = !preproof(stage(.exact([mixed]), layerID: consumer + 1),
-            ownership: .externalPrimary(base), potential: [optional])
-        result["rejectsWrongDependencyConsumer"] = !preproof(stage(.exact([
-            dependency(second, key: 2, consumerID: consumer + 1, origin: .exactMixedOptionalFallback)])),
-            ownership: .externalPrimary(base), potential: [optional])
-        result["rejectsWrongBaseConsumer"] = !preproof(mixedStage,
-            ownership: .externalPrimary(binding(first, consumerID: consumer + 1)), potential: [optional])
-        result["rejectsExternalFramebuffer"] = !preproof(stage(.exact([mixed]), fbo: true),
-            ownership: .externalPrimary(base), potential: [optional])
-        result["rejectsPromotedFramebuffer"] = !preproof(stage(.exact([mixed]), fbo: true),
-            ownership: .none, potential: [optional])
-        result["rejectsUnprovenDependency"] = !preproof(stage(.invalid),
-            ownership: .externalPrimary(base), potential: [optional])
-        result["nonePromotesProvenTerminalNamed"] = preproof(baseStage, ownership: .none, potential: [base])
-        result["noneRejectsUnprovenTerminalNamed"] = !preproof(baseStage, ownership: .none)
-        let inactiveDirectStage = stage(.exact([dependency(second, key: 2, origin: .terminalNamed)]))
-        result["inactiveDirectPreproof"] = preproof(inactiveDirectStage,
-            ownership: .externalPrimary(base), potential: [optional])
-        result["inactiveDirectFinalization"] = C.finalizeDependencyOwnership(.externalPrimary(base),
-            potentialBindings: [optional], layerID: consumer, stages: [baseStage, inactiveDirectStage])
-                == .externalPrimary(expanded)
-        result["inactiveDirectOnlyFinalization"] = C.finalizeDependencyOwnership(.none,
-            potentialBindings: [optional], layerID: consumer, stages: [inactiveDirectStage])
-                == .externalPrimary(optional)
-        for (name, potential) in bad {
-            result["directPreproofRejects_" + name] = !preproof(inactiveDirectStage,
-                ownership: .externalPrimary(base), potential: potential)
-            result["directFinalizerRejects_" + name] = C.finalizeDependencyOwnership(.externalPrimary(base),
-                potentialBindings: potential, layerID: consumer, stages: [baseStage, inactiveDirectStage]) == nil
-        }
-        result["inactiveDirectFramebufferRejected"] = !preproof(stage(.exact([
-            dependency(second, key: 2, origin: .terminalNamed)]), fbo: true),
-            ownership: .externalPrimary(base), potential: [optional])
-        result["unrelatedFramebufferStageRetainsActivation"] = preproof(stage(.none, fbo: true),
-            ownership: .externalPrimary(base), potential: [optional])
-        result["emptyExactFramebufferStageRetainsActivation"] = preproof(stage(.exact([]), fbo: true),
-            ownership: .externalPrimary(base), potential: [optional])
-        result["selfFramebufferStageRetainsActivation"] = preproof(stage(.exact([
-            dependency(second, key: 2, providerID: consumer, origin: .terminalNamed)]), fbo: true),
-            ownership: .graphInternal(referenceCount: 1))
-        result["inactiveDirectMissingBaseRejected"] = C.finalizeDependencyOwnership(.externalPrimary(base),
-            potentialBindings: [optional], layerID: consumer, stages: [inactiveDirectStage]) == nil
-        result["inactiveDirectDuplicateRejected"] = C.finalizeDependencyOwnership(.externalPrimary(base),
-            potentialBindings: [optional], layerID: consumer,
-            stages: [baseStage, inactiveDirectStage, inactiveDirectStage]) == nil
-        let third = SceneEffectPassSlot(effectID: "980", passIndex: 0, slotIndex: 1)
-        let thirdStage = stage(.exact([dependency(third, key: 3, origin: .exactMixedOptionalFallback)]))
-        result["mixedCandidateAuthoredOrder"] = C.finalizeDependencyOwnership(.externalPrimary(base),
-            potentialBindings: [binding(third), optional], layerID: consumer,
-            stages: [baseStage, thirdStage, inactiveDirectStage])
-                == .externalPrimary(binding(first, slots: [first, third, second]))
-        result["noneRejectsWrongDependencyConsumer"] = C.finalizeDependencyOwnership(.none,
-            potentialBindings: [optional], layerID: consumer, stages: [stage(.exact([
-                dependency(second, key: 2, consumerID: consumer + 1, origin: .terminalNamed)]))]) == nil
-        result["noneRejectsMixedProviders"] = !preproof(stage(.exact([mixed,
-            dependency(first, key: 3, providerID: provider + 1, origin: .exactMixedOptionalFallback)])),
-            ownership: .none, potential: [optional, binding(first, providerID: provider + 1)])
-        result["dependencyFreeStageStaysResolved"] = preproof(stage(.none), ownership: .none)
+        let target = SceneDynamicTarget.effectVisibility(layerID: consumer, effectIndex: 1)
+        let activation = SceneResolvedMaterialStageActivationPolicy(effectVisibilityTarget: target,
+            requiresPointerPositionProvider: false, scalarMinimum: nil)
         let active = SceneDynamicSnapshotResolver().resolve(frameIndex: 1, generation: 1,
             definitions: [.init(target: target, valueType: .bool, authoredValue: .bool(false))],
             sceneScriptValues: [target: .bool(true)]).snapshot
         let inactive = SceneDynamicSnapshotResolver().resolve(frameIndex: 2, generation: 1,
             definitions: [.init(target: target, valueType: .bool, authoredValue: .bool(false))],
             sceneScriptValues: [target: .bool(false)]).snapshot
-        result["realActivationConsumesScriptTrue"] = preproof(mixedStage,
-            ownership: .externalPrimary(base), potential: [optional])
+        result["realActivationConsumesScriptTrue"] = both?.bindings == [base, optional]
             && activation.evaluate(dynamicValues: active, pointerIsInside: true) == .active
         result["realActivationConsumesScriptFalse"] = activation.evaluate(dynamicValues: inactive,
             pointerIsInside: true) == .inactive(reasonCode: "effect-activation-visibility-disabled")
-        print(String(data: try JSONSerialization.data(withJSONObject: result, options: .sortedKeys),
-            encoding: .utf8)!)
+        print(String(decoding: try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]), as: UTF8.self))
     }
 }
 '''
@@ -240,38 +134,18 @@ enum Checks {
 
 def compile_proof(program_source: str):
     ownership_source = OWNERSHIP.read_text()
-    plan_source = (SCENE / "Rendering/Dependencies/SceneDependencyRenderPlan.swift").read_text()
-    aggregate_source = (SCENE / "Rendering/Dependencies/SceneDependencyRenderPlan+Aggregate.swift").read_text()
-    support = SUPPORT + "\nextension SceneDependencyRenderPlan {\n" + declaration(
-        plan_source, "nonisolated struct Binding:"
-    ) + "\n" + declaration(aggregate_source, "nonisolated struct MultiProviderAggregate:").replace(
-        declaration(aggregate_source, "        func admits("), ""
-    ) + "\n}\n"
+    support = SUPPORT + SCENE_DEPENDENCY_BINDING_SUPPORT + SCENE_DEPENDENCY_AGGREGATE_SUPPORT
     support += declaration(ownership_source, "nonisolated enum SceneResolvedMaterialDependencyOwnership:")
     support += "\nextension SceneResolvedMaterialExecutionCapabilityCatalog {\n"
-    for signature in ["    struct BindingDependency:", "    struct ResolvedExternalDependency:",
-                      "    enum ResolvedExternalDependencyAnalysis"]:
+    for signature in ("    struct ResolvedExternalDependency:", "    enum ResolvedExternalDependencyAnalysis"):
         support += declaration(ownership_source, signature) + "\n"
-    for name in ["dependencyPreproofMayStayResolved", "finalizeDependencyOwnership",
-                 "expandedPotentialBinding", "exactPotentialBinding", "compatible",
-                 "orderedStageDependencies", "matches"]:
-        marker = f"    private static func {name}("
-        position = 0
-        while marker in program_source[position:]:
-            position = program_source.index(marker, position)
-            extracted = declaration(program_source[position:], marker)
-            support += extracted.replace("private static func", "static func", 1) + "\n"
-            position += len(extracted)
+    support += declaration(program_source, "    private static func preparedNamedInputs(").replace(
+        "private static func", "static func", 1)
     support += "\n}\n"
-    signature = declaration(program_source, "    private static func dependencyPreproofMayStayResolved(")
-    call = "C.dependencyPreproofMayStayResolved(stage: stage, ownership: ownership"
-    if "potentialBindings:" in signature.split("-> Bool", 1)[0]:
-        call += ", potentialBindings: potential, layerID: consumer"
-    harness = CHECKS.replace("__PREPROOF_CALL__", call + ")")
     with tempfile.TemporaryDirectory(prefix="mwx-script-dependency-proof-") as directory:
         root = Path(directory)
         source = root / "Proof.swift"
-        source.write_text(support + harness)
+        source.write_text(support + CHECKS)
         binary = root / "proof"
         compiled = subprocess.run(["xcrun", "swiftc", "-parse-as-library", str(source),
             str(SCENE / "Resources/Textures/SceneNamedTextureReference.swift"),
