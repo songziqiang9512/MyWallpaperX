@@ -65,6 +65,7 @@ struct SceneAuthoredEffectRenderPlan {
 struct SceneUtilityLayer {
     enum Kind { case composition }
     let kind: Kind
+    var copyBackground: Bool = true
 }
 
 struct SceneRenderDescriptor {
@@ -461,6 +462,9 @@ enum SceneCaptureGeometryResolver {
 final class SceneImageLayerPipeline {}
 
 enum SceneOffscreenEffectRenderer {
+    static func beginEncoder(commandBuffer: MTLCommandBuffer, target: MTLTexture) -> MTLRenderCommandEncoder? {
+        fatalError("raw utility capture requires the native-owner probe")
+    }
     static var lastTextureFrame0 = SIMD4<Float>.zero
     static var lastTextureFrame1 = SIMD4<Float>.zero
     static var lastSourceSampling = SIMD2<UInt32>.zero
@@ -2015,6 +2019,7 @@ ATLAS_NATIVE_MAIN = r'''
             report["budget"] = budget(d)
             report["geometryRepresentation"] = geometryRepresentation(d)
             report["rawImageRepresentation"] = rawImageRepresentation(d)
+            report["emptyUtilityNamedSource"] = emptyUtilityNamedSource(d)
         }
         print(String(decoding: try JSONSerialization.data(withJSONObject: report,
             options: [.sortedKeys]), as: UTF8.self))
@@ -2480,14 +2485,14 @@ class SceneAtlasNamedNativeOwnerTests(unittest.TestCase):
 
     def test_raw_image_reservation_and_publication_preserve_representation(self):
         rows = self.report["rawImageRepresentation"]
-        self.assertEqual(len(rows), 5)
-        self.assertEqual([(r["route"], r["straight"]) for r in rows[:4]],
-                         [(route, straight) for route in ("image-layer-blend", "visible-image-raw-fallback")
+        self.assertEqual(len(rows), 7)
+        self.assertEqual([(r["route"], r["straight"]) for r in rows[:6]],
+                         [(route, straight) for route in ("image-layer-blend", "visible-image-raw-fallback", "solid-layer")
                           for straight in (False, True)])
         for row in rows:
             with self.subTest(route=row["route"], straight=row.get("straight")):
                 self.assertEqual(row["published"], "published", row)
-                for key in ("reserved", "preparedContentMatchesSource", "actualContentMatchesSource",
+                for key in ("reserved", "preparedContentMatchesExpected", "actualContentMatchesExpected",
                             "preparedMatchesReadyIdentity", "preparedMatchesReadyContent", "sourceUnchanged", "completed"):
                     self.assertTrue(row[key], (key, row))
                 if row["route"] == "mixed-raw-aggregate":
@@ -2499,6 +2504,26 @@ class SceneAtlasNamedNativeOwnerTests(unittest.TestCase):
                 self.assertEqual(len(row["pixel"]), len(row["expected"]), row)
                 for actual, expected in zip(row["pixel"], row["expected"], strict=True):
                     self.assertAlmostEqual(actual, expected, delta=1, msg=row)
+
+    def test_empty_raw_utility_clears_only_named_target_once_per_epoch(self):
+        row = self.report["emptyUtilityNamedSource"]
+        self.assertEqual(row["noDemandCapture"], "not-required", row)
+        self.assertEqual(row["noDemandTargetCount"], 0, row)
+        self.assertFalse(row["noDemandPublication"], row)
+        self.assertEqual(row["published"], "published", row)
+        self.assertEqual(row["repeated"], "published", row)
+        self.assertEqual(row["nextPublication"], "published", row)
+        self.assertEqual(row["targetExtent"], [4, 2], row)
+        self.assertEqual(row["firstPixels"], [0] * 32, row)
+        self.assertEqual(row["repeatedPixels"], [203, 91, 17, 255] * 8, row)
+        self.assertEqual(row["nextEpochPixels"], [0] * 32, row)
+        self.assertEqual(row["enclosingPixels"], row["enclosingInput"], row)
+        self.assertNotEqual(row["enclosingInput"], [0] * 32, row)
+        self.assertLess(row["epoch"], row["nextEpoch"], row)
+        for key in ("reserved", "preparedMatchesReadyIdentity", "publicationPMA",
+                    "repeatedPublicationStable", "oneResidentTarget", "reusedTarget",
+                    "nextReserved", "nextPreparedMatchesReadyIdentity", "completed"):
+            self.assertTrue(row[key], (key, row))
 
     def test_illegal_metadata_and_texture_identity_are_hard_rejected(self):
         self.assertFalse(self.report["safety"]["invalidActualTextureAccepted"])

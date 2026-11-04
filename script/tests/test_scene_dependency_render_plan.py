@@ -133,6 +133,39 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
                     "framebufferRefraction", "framebufferBlend"):
             self.assertTrue(result[key], key)
 
+    def test_independent_named_sources_keep_exact_candidates_and_forward_supply(self) -> None:
+        rows = self.result["independentNamedSources"]
+        cases = (
+            ("member", "member-read:0:1=120", 120, "resolvedMaterial", True, "skippedNoEffect"),
+            ("solidBefore", "source-read:0:2=210", 210, "solidLayer", False, "none"),
+            ("solidAfter", "source-read:0:2=210", 210, "solidLayer", True, "none"),
+            ("renamed", "renamed-read:1:5=330", 330, "solidLayer", True, "none"),
+        )
+        for key, binding, provider, kind, forward, disposition in cases:
+            with self.subTest(key=key):
+                row = rows[key]
+                self.assertEqual(row["candidates"], [binding])
+                self.assertEqual(row["bindings"], [binding])
+                self.assertEqual(row["kinds"], [kind])
+                self.assertEqual(row["forward"], [forward])
+                self.assertEqual(row["providers"], [provider])
+                self.assertEqual(row["prepass"], [provider] if forward else [])
+                self.assertEqual(row["graphProviders"], [])
+                self.assertEqual(row["utilityCaptures"], [])
+                self.assertEqual(row["providerDisposition"], disposition)
+
+    def test_unused_named_sources_and_attachment_prefixes_do_not_gain_prepass(self) -> None:
+        rows = self.result["independentNamedSources"]
+        for key in ("member", "solidBefore", "solidAfter", "renamed"):
+            with self.subTest(key=key):
+                self.assertEqual(rows[key]["noDemand"], {
+                    "providers": [], "prepass": [], "requiresEffect": False, "references": 0,
+                })
+        self.assertEqual(rows["negativeCandidates"], {
+            "copyBackgroundPrefix": {"before": [410], "forward": []},
+            "effectfulMainBackground": {"before": [410], "forward": []},
+        })
+
     def test_utility_selection_preserves_single_and_multiple_dependencies(self) -> None:
         # Hidden, unadmitted, child-owning, non-composition and inactive-effect
         # consumers must not gain a route while sharing the reference index.

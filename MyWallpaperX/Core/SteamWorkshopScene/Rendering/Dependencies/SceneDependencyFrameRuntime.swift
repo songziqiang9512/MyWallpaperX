@@ -543,8 +543,24 @@ final class SceneDependencyFrameRuntime {
                 )
             }
         case .resolvedMaterial:
-            guard let utility = layer.utilityLayer,
-                  let geometry = SceneCaptureGeometryResolver.resolve(
+            guard let utility = layer.utilityLayer else {
+                captureTelemetry.recordFailure(layerID: layer.id)
+                return .invalid(reasonCode: "resolved-provider-geometry-invalid")
+            }
+            // This raw utility carrier has no members. Without background
+            // input its authored source is transparent, not the enclosing pass.
+            if !utility.copyBackground {
+                encoded = mainPass.encodeOffscreen { commandBuffer in
+                    let encoder = SceneOffscreenEffectRenderer.beginEncoder(
+                        commandBuffer: commandBuffer, target: target)
+                    encoder?.endEncoding()
+                    captureTelemetry.record(layerID: layer.id,
+                        encoded: encoder != nil, on: commandBuffer)
+                    return encoder != nil
+                }
+                break
+            }
+            guard let geometry = SceneCaptureGeometryResolver.resolve(
                       kind: utility.kind,
                       layerMVP: layerMVP,
                       viewportSize: viewportSize
@@ -581,6 +597,8 @@ final class SceneDependencyFrameRuntime {
                 return .unavailable(reasonCode: "solid-provider-source-unavailable")
             }
             var uniforms = SceneLayerFragmentUniforms.neutral()
+            uniforms.sourceSampling.y = sourceCandidate?.content
+                == .color(.resolved(.straightAlpha)) ? 1 : 0
             uniforms.alpha = max(0, providerAlpha ?? Float(layer.alpha ?? 1))
             let color = usesAuthoredLayerColor
                 ? providerColor ?? SIMD3(layer.colorRGB ?? [], fill: 1)

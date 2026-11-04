@@ -221,6 +221,7 @@ extension Harness {
         return [
             "utilitySelection": utilitySelection(),
             "preparedUtility": preparedUtilityResults(),
+            "independentNamedSources": independentNamedSourceResults(),
             "parsedVariants": parsed,
             "invalidReference": SceneNamedTextureReference.parse("_rt_imageLayerComposite_bad_a") == nil,
             "referenceCount": plan.references.count,
@@ -353,6 +354,114 @@ extension Harness {
                 extraTexture: true
             )?.requiresResolvedMaterialProgram == true,
         ]
+    }
+
+    static func independentNamedSourceResults() -> [String: Any] {
+        func readEffect(_ id: String, provider: Int, pass: Int = 0, slot: Int = 2)
+            -> SceneRenderDescriptor.EffectDescriptor {
+            let path = "_rt_imageLayerComposite_\(provider)_a"
+            var slots = [String?](repeating: nil, count: slot + 1)
+            slots[slot] = path
+            return .init(id: id, file: "effects/controlled/\(id)/effect.json", visible: true,
+                passes: [.init(passIndex: pass, texturePaths: [path], textureSlots: slots,
+                    combos: [:], constantShaderValues: [:])])
+        }
+        func observe(_ descriptor: SceneRenderDescriptor, consumer: Int, provider: Int)
+            -> [String: Any] {
+            let visible = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
+            let candidates = SceneDependencyRenderPlan.potentialNamedBindings(
+                descriptor: descriptor, visibleLayerIDs: visible)[consumer] ?? []
+            // The CPU seam selects this authored read; Program/sampler execution
+            // and transparent-source pixels remain the real rendering gate's job.
+            let plan = SceneDependencyRenderPlan(descriptor: descriptor,
+                visibleLayerIDs: visible,
+                preparedNamedInputBindingsByConsumerLayerID: [consumer: candidates])
+            let binding = plan.bindingsByConsumerLayerID[consumer]
+            let inputs: [SceneDependencyRenderPlan.Binding] = binding.map { [$0] } ?? []
+            let unused = SceneDependencyRenderPlan(descriptor: descriptor,
+                visibleLayerIDs: visible,
+                preparedNamedInputBindingsByConsumerLayerID: [consumer: []])
+            let utilities = SceneUtilityLayerRuntimePlanner.plans(in: descriptor,
+                dependencyPlan: plan, resolvedMaterialLayerIDs: [])
+            let noDemand: [String: Any] = [
+                "providers": unused.requiredProviderLayerIDs.sorted(),
+                "prepass": unused.forwardDependencyPreparationOrder(
+                    authoredLayerIDs: descriptor.renderOrderLayerIDs,
+                    activeExecutionLayerIDs: [consumer]) ?? [-1],
+                "requiresEffect": unused.requiredEffectConsumerLayerIDs.contains(consumer),
+                "references": unused.references.filter { $0.consumerLayerID == consumer }.count,
+            ]
+            var result: [String: Any] = [:]
+            result["candidates"] = candidates.map {
+                "\($0.slot.effectID):\($0.slot.passIndex):\($0.slot.slotIndex)=\($0.providerLayerID)"
+            }
+            result["bindings"] = inputs.map {
+                "\($0.slot.effectID):\($0.slot.passIndex):\($0.slot.slotIndex)=\($0.providerLayerID)"
+            }
+            result["kinds"] = inputs.map { String(describing: $0.kind) }
+            result["forward"] = inputs.map(\.requiresForwardCapture)
+            result["providers"] = plan.requiredProviderLayerIDs.sorted()
+            result["graphProviders"] = plan.requiredGraphOutputProviderLayerIDs.sorted()
+            result["prepass"] = plan.forwardDependencyPreparationOrder(
+                authoredLayerIDs: descriptor.renderOrderLayerIDs,
+                activeExecutionLayerIDs: [consumer]) ?? [-1]
+            result["utilityCaptures"] = utilities.values.filter(\.shouldCapture).map(\.layerID).sorted()
+            result["providerDisposition"] = utilities[provider]?.disposition.rawValue ?? "none"
+            result["noDemand"] = noDemand
+            return result
+        }
+        var emptySource = SceneUtilityLayer(kind: .composition)
+        emptySource.copyBackground = false
+        let parent = SceneRenderDescriptor.Layer(id: 110, contentKind: "composition",
+            utilityLayer: .init(kind: .composition), dependencyLayerIDs: [120],
+            childLayerIDs: [120], visible: true,
+            effects: [readEffect("member-read", provider: 120, slot: 1)])
+        var child = SceneRenderDescriptor.Layer(id: 120, contentKind: "composition",
+            utilityLayer: emptySource, dependencyLayerIDs: [], childLayerIDs: [],
+            visible: true, effects: [])
+        child.parentID = parent.id
+        let member = observe(.init(layers: [parent, child], renderOrderLayerIDs: [110, 120]),
+            consumer: 110, provider: 120)
+
+        let solid = SceneRenderDescriptor.Layer(id: 210, contentKind: "solid", utilityLayer: nil,
+            dependencyLayerIDs: [], childLayerIDs: [], visible: false, effects: [])
+        let solidConsumer = SceneRenderDescriptor.Layer(id: 220, contentKind: "image", utilityLayer: nil,
+            dependencyLayerIDs: [210], childLayerIDs: [], visible: true,
+            effects: [readEffect("source-read", provider: 210)])
+        let before = observe(.init(layers: [solid, solidConsumer], renderOrderLayerIDs: [210, 220]),
+            consumer: 220, provider: 210)
+        let after = observe(.init(layers: [solid, solidConsumer], renderOrderLayerIDs: [220, 210]),
+            consumer: 220, provider: 210)
+        let renamedSolid = SceneRenderDescriptor.Layer(id: 330, contentKind: "solid", utilityLayer: nil,
+            dependencyLayerIDs: [], childLayerIDs: [], visible: false, effects: [])
+        let renamedConsumer = SceneRenderDescriptor.Layer(id: 340, contentKind: "image", utilityLayer: nil,
+            dependencyLayerIDs: [330], childLayerIDs: [], visible: true,
+            effects: [readEffect("renamed-read", provider: 330, pass: 1, slot: 5)])
+        let renamed = observe(.init(layers: [renamedConsumer, renamedSolid],
+            renderOrderLayerIDs: [340, 330]), consumer: 340, provider: 330)
+
+        let prefixConsumer = consumer(420, provider: 410)
+        let prefix = layer(410, kind: .composition, visible: false)
+        let backgroundGraph = SceneRenderDescriptor.Layer(id: 410, contentKind: "image",
+            utilityLayer: nil, dependencyLayerIDs: [], childLayerIDs: [], visible: false,
+            effects: [.init(id: "background-read", file: "effects/controlled/background/effect.json",
+                visible: true, passes: [.init(passIndex: 0,
+                    texturePaths: ["_rt_FullFrameBuffer"], textureSlots: ["_rt_FullFrameBuffer"],
+                    combos: [:], constantShaderValues: [:])])])
+        var negatives: [String: [String: [Int]]] = [:]
+        for (name, provider) in [("copyBackgroundPrefix", prefix), ("effectfulMainBackground", backgroundGraph)] {
+            let descriptor = SceneRenderDescriptor(layers: [prefixConsumer, provider],
+                renderOrderLayerIDs: [420, 410])
+            let forward = SceneDependencyRenderPlan.potentialNamedBindings(
+                descriptor: descriptor, visibleLayerIDs: [420])[420]?.map(\.providerLayerID) ?? []
+            let beforeDescriptor = SceneRenderDescriptor(layers: descriptor.layers,
+                renderOrderLayerIDs: [410, 420])
+            let before = SceneDependencyRenderPlan.potentialNamedBindings(
+                descriptor: beforeDescriptor, visibleLayerIDs: [420])[420]?.map(\.providerLayerID) ?? []
+            negatives[name] = ["before": before, "forward": forward]
+        }
+        return ["member": member, "solidBefore": before, "solidAfter": after,
+            "renamed": renamed, "negativeCandidates": negatives]
     }
 
     static func preparedUtilityResults() -> [String: Any] {

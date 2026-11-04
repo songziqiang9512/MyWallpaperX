@@ -17,12 +17,11 @@
 | 通道与操作推导 | 无typed边界的颜色兼容、alpha-only/packed data及有序signal仍有有界source事实；反射中的vec4本身不能说明通道意图。沿原compiler/ABI补实际跨函数、条件合流与操作能力缺口，保持未取得的表示资格；不为效果写法追加识别名单。 |
 | linked timeline producer · 2999344788、3577990983 | bokeh的linked parent/children timeline在准备期报`dynamic-uniform-producer-unavailable`；原载荷未指出missing uniform，需沿BindingProgram/producer取得精确未接入字段。 |
 | named供货 · 2972071249/313e9→234 | 234是hidden、childless composition，e0/e1 inactive，当前无publication/transaction/binding；313前九段Program与tail健康，e9精确为`dependency-stage-reference-unavailable`。沿原utility source与实际供货截点接入，不能仅靠未带layerID的hidden拒绝总数归因。 |
-| named/source执行截点 | `providerGraphIsAuthoredOrderIndependent`仍限定单引用/单上游，并检查潜在而非最终选中的背景路径；同源多槽、多上游与死lower candidate仍可能误拒。DependencyPlan的原始renderOrder与utility展开后的成员次序未统一；background proof也整体排除graph provider。沿实际prepared需求和原utility执行顺序建立唯一供货截点，分别核真实prefix、独立source与循环，不加member或效果例外。 |
+| named/source执行截点 | `providerGraphIsAuthoredOrderIndependent`仍限定单引用/单上游，并检查潜在而非最终选中的背景路径；同源多槽、多上游与死lower candidate仍可能误拒。DependencyPlan的原始renderOrder与utility展开后的成员次序未统一；background proof也整体排除graph provider。沿实际prepared需求和原utility执行顺序建立唯一供货截点；forward闭包含可见上游时，还需保其作者位主输出，不能固定`isVisibleExecutionRoot:false`并跳过作者位。此为代码可构造边界，尚无逐作者缺图资格；分别核真实prefix、独立source与循环，不加member或效果例外。 |
 | 初始停用named准备 | DirectBool的startup-inactive准备仍从descriptor instance引用出发，与definition材质候选及实际Program需求未统一；当前为代码边界，尚无逐作者资格。沿原prepared需求保source和热启用，不要求作者重复填写override或另存许可状态。 |
-| subtree来源组合 · 3554161528/1111、3788897599/196 | 前者composition source由真实成员路线准备，child411同时被named采样时需核实际source与供货截点；后者project带child291仍缺project子树source消费者。分别核source/publication，不能因共用原因码合并归因。 |
+| subtree来源 · 3788897599/196 | project带child291仍缺project子树source消费者；沿原source与发布截点补能力，不因共用原因码合并其他group归因。 |
 | composition 其他绘制消费者 | `SceneUtilityLayerSourceRoute` 对 model/spotLight 仍整类拒绝；原绘制未消费局部 raster。核实际 nearest target 的投影、深度、光照及 viewport/local 模式，沿原 draw owner 接通，不以新组件/效果名单代缺失消费者。 |
 | composition 内 REFRACT 官方单位 | 当前粒子映射保本引擎 canonical 全局 screen-UV amount，宽窄画布与物理 extent 有内部资格。官方 owned loose fixture 的 amount0、neutral、mask0 仍有相同非背景卡片，尚不能据此区分 canvas/viewport 单位；先核官方背景输入、取景和控制，再做同 world 几何的尺寸/旋转对照，不能由现有 J 数学推为官方像素一致。 |
-| named solid供货 · 3086016320/430→259 | 430已准备；e0 blend431、e2 blendgradient435精确为`dependency-stage-reference-unavailable`，hidden且无effects的solid259未发布。e3 opacity/e4 roundedmask与tail仍执行。沿实际solid source/preparation与供货次序修复；保父426默认alpha=0边界，独立e1 activation归下表。 |
 | uniform · 3511024658/73 | `dynamic-uniform-unavailable`未给具体字段；沿原uniform producer取精确缺项，不能直接称缺音频。 |
 | source/模型 · 2804817823/28/32 | 9个资产已加载，两个Puppet source明确拒`MDLV0013`，不是两个纹理文件缺失。沿MDL/Puppet几何owner补格式/姿态资格。 |
 | layer source · 3292370168/239 | frame0真实`layer-source-not-ready`，选中frame18无239 sourceCapture/material/tail，整段无该层CPU调用；descriptor实际kind=image，parent/provider151为image/video，不能由composelayer_depthtest.json文件名归成group shader失败。沿真实base/video source准备定位；hidden505另有utility capture失败，209→147健康named链不代验239。 |
@@ -50,7 +49,7 @@
 | 片头后的mutation · 3599986633/702.visibility | 长窗约Ready+7秒开始，5项layer mutation整批报`invalid authored layer destroy`并保previous-current，16秒窗重复557次。主体可见不证明callback成功；沿原SceneScript mutation/destroy边界核作者调用、退休对象及事务范围，不猜作者错或无差别吞错。 |
 | 缺输入 · 3736952187、3763323436 | project.json不存在，未启动App；补合法输入后再跑，不作引擎失败。 |
 | named demand · 2069136288、3395777145、3829467967 | 未达静态planned的269/395/946无当前active consumer；需property分支输入，不能要求默认帧执行所有潜在capture。 |
-| activation读口 · 3639999624/84e1、3086016320/430e1 | 实际`activation-passthrough:inactive-dependency-preproof-mismatch`被reader判malformed/missing；前者作者visible=false，有GPU完成及后续e2消费。对齐原producer/reader分类并保inactive资格，不能改渲染消报告；此问题与hidden provider的exact身份命名空间分开。 |
+| activation读口 · 3639999624/84e1 | 实际`activation-passthrough:inactive-dependency-preproof-mismatch`被reader判malformed/missing；作者visible=false，有GPU完成及后续e2消费。对齐原producer/reader分类并保inactive资格，不能改渲染消报告；此问题与hidden provider的exact身份命名空间分开。 |
 | 来源阶段读口 | 17样本的19个source-not-ready subject均在Ready前，14样本后有同layer成功；2982559622/3800572533另有资源前置失败后同subject成功。只证layer后续成功，不证同slot恢复；2804817823/3186328539/3292370168无相同恢复，318的1045在frame1变hidden，不能要求必draw。 |
 | 纹理关联与最终贡献 | 全部声明有索引，但ordinary/geometry/particle部分实际draw未携带asset provenance，graph/provider引用也有未闭关联。不得解析Swift描述字符串猜identity；沿已存在Candidate/Resource carrier补最小typed映射。单帧bind/GPU/tail不证明全部实例或最终可见像素，动态输入、材质与render-target的未观测阶段仍保unknown。 |
 | 条件/周期分支 | 3042492564需click开关/父组，3768303048需day/night与pointer输入；延长秒数不能替代。3764725758的后续inactive事实、3830665420的10个鸟实例都不能证第二轮，首事实去重没有保完整周期回执；按实际模拟时刻/事件资格，不由墙钟授通过。 |
@@ -156,7 +155,7 @@
 | console.warn · 3605722997 | 先确认实际 callee/堆栈与可达调用，再判断API缺口。 |
 | 3028048463/531.alpha、3280903509/225.alpha | 空数组与Vec3返回scalar分别核作者配置、时序与字段归属；不静默强转。 |
 | presented / performance 记录 | 实际GPU完成与系统呈现分开；沿present callback和stream身份资格普通窗口/多Surface，终端PNG不代呈现率。 |
-| 编译门组织 | `test_scene_generic_shader_program_artifact.py`仍有9343行，混有大量Swift夹具与不同编译合同；按现有compiler/ABI/资源职责收敛，先退重复与失效夹具，保真实行为/像素oracle，不能只搬文件凑行数。局部验证按现有模块门及时输出，避免长suite结束才暴露编译错误。 |
+| 编译门组织 | `test_scene_generic_shader_program_artifact.py`有9343行；`test_scene_dependency_graph_output_runtime.py`有2594行，其中1789行是内嵌Swift共用壳，另混有legacy与真实native probe。沿compiler/ABI、被动夹具、资源与实际行为职责收敛，先退重复和失效部分，保调用API、原字节及像素oracle，不能只搬文件或压缩行数过门。现CodeHealth只覆盖Swift，不能据此称Python已达1000行上限。局部门及时输出编译失败，不等待长suite结束。 |
 | capture · 3766415113 | 普通capture需实际窗口frame/时机资格；本轮Metal终端PNG不覆盖普通截图入口。 |
 | 自有9000000015 | 90/91/92健康peer须有真实texture source及可区分ROI，先资格夹具，不能借主文字/clone输出代peer。 |
 

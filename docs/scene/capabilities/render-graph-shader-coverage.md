@@ -62,9 +62,18 @@ Material、instance、user texture、effect 显式 binding 及 shader default �
 
 原提交 ledger 在 named 输入预约到实际 publication 之间保本帧 request、原 targets、该层准备时的 previous tails 及原 pool/观测输入。正常帧仍只准备一次命令；只有实际供货缩成原向量的严格子集、存留资源身份未漂移且尚未编码时，才沿原 Executor 用同一 frame、Program、leases 和 clock 重准备本层，更新原 blueprint/tails。原 commit 保有 history 完整 swap 环的 pin，恢复只消费其覆盖的真实 token；不二次提交 allocation，不预生成备用命令或新建恢复 owner。上下文在原 ledger 编码/终态退出时释放。普通语义/失供货回退由实际入口的 typed 分类与已准备 rollback 拓扑决定，不用 failure 字符串名单重新认证。
 
-Utility provider 在原 utility 触发点取 source、执行与发布，不再由普通 provider prepass 重复执行。原 compositor 的发布回调消费同一 graph ticket；当前可见输出继续主合成，隐藏输出只完成 named publication。发布统计的 named/visible 类别不改变取源时机。普通供货缺失沿既有局部 discard，错误 identity 仍拒绝；不以 alpha=0 代替隐藏，也不另存可见状态或恢复命令。
+Utility graph provider 在原 utility 触发点取 source、执行与发布，不再由普通 provider prepass 重复执行。原 compositor 的发布回调消费同一 graph ticket；当前可见输出继续主合成，隐藏输出只完成 named publication。发布统计的 named/visible 类别不改变取源时机。普通供货缺失沿既有局部 discard，错误 identity 仍拒绝；不以 alpha=0 代替隐藏，也不另存可见状态或恢复命令。
 
 回归沿[依赖计划](../../../script/tests/test_scene_dependency_render_plan.py)、[真实 Metal 执行](../../../script/tests/test_scene_resolved_material_graph_executor.py)、[提交生命周期](../../../script/tests/test_scene_resolved_material_runtime_bridge.py)和[签名 App 输入贡献](../../../script/tests/test_scene_mixed_provider_abi_integration.py)分别核对准备、供货、执行与像素。绑定或非黑不足以证明每个输入贡献；实际覆盖与未取得的资格归[运行证据](runtime-evidence-current.md#coverage)。
+
+<a id="independent-named-source"></a>
+### 独立来源的 named 发布
+
+来源是否依赖合成顺序，由它真正读取的内容决定。普通图片、文字、solid 的独立来源与 geometry 沿原捕获器发布；没有成员、没有效果的 composition 在 `copyBackground=false` 时拥有透明空来源。它不读取 enclosing attachment，按需直接清原 reserved named target 并发布，不造空 Program、graph ticket、group target 或第二份纹理。已预约的空来源只消费原 target 尺寸，不因局部画布与主屏投影不同而重算捕获尺寸。solid 消费 candidate 的真实颜色表示，straight RGB 在捕获时关联自身 alpha 后发布 PMA；已有 PMA 不重复关联，并保真实 source texture 与本帧 tint/alpha。不能因 provider 位于 consumer 后面就被 kind 白名单拒绝。effectful provider 仍消费实际 graph 输出，不能以清空或 base texture 冒充材质结果。
+
+这些独立来源可由原 forward prepass 供货，实际顺序点再次遇到时复用原 frame epoch 的已发布 target，不二次捕获。读取 attachment prefix 或成员 subtree 的来源保原取源截点；不能为满足前向引用而挪到全局 prepass、借父组背景或使用上一帧。当前 utility 展开顺序与 cold candidate 的 raw order 仍有独立调度缺口，本设计不声称统一它们；独立来源的提前准备不改变作者主合成顺序。
+
+缺 source 或普通编码失败只使消费它的 operation 保 previous-current，健康后继继续；错误 epoch、resource、content、extent 与 pin 仍由原发布/资源入口拒绝。验收沿现有依赖计划、composition source 与签名 App 门：前/后置 solid 同像素，资源/ID/槽位改名、真实 alpha/tint、无效果透明来源与彩色 enclosing prefix 可区分，缺源及健康 peer 有正反例。无需求不分配或发布；原作者定向复验只授实际 source→publication→sampler→terminal 链，不外推背景前缀取时或逐资产最终贡献。
 
 <a id="color"></a>
 ## 颜色、数据与显示

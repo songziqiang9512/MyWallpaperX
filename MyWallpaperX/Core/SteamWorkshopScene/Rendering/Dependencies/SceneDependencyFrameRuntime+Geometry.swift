@@ -208,7 +208,10 @@ extension SceneDependencyFrameRuntime {
         }
         if let reservation,
            reservation.frameEpoch == frameEpoch,
-           reservation.kind == .geometry {
+           reservation.kind == .geometry || (reservation.kind == .resolvedMaterial
+                && layer.utilityLayer?.copyBackground == false) {
+            // Clearing an empty source consumes no projection. The prepared
+            // target stays authoritative across enclosing and main viewports.
             return (reservation.width, reservation.height)
         }
         if let binding = providerBindings.first {

@@ -125,12 +125,12 @@
       "bytes": 10249
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 118,
-      "bytes": 17568
+      "lines": 127,
+      "bytes": 19617
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 49,
-      "bytes": 14207
+      "lines": 52,
+      "bytes": 15897
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 81,
@@ -161,8 +161,8 @@
       "bytes": 4260
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 163,
-      "bytes": 24808
+      "lines": 162,
+      "bytes": 24668
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -400,28 +400,28 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "4e3b66f1ad1378a2f398317e5accb39d628ea4716a68726ac36773ec1b3ba6ae",
-      "after": "da96e1783668267eef2ec636e262b37e2939afbd43e230ab2562d595b12a85fa",
-      "owner": "scene-prepared-named-inputs",
-      "reason": "Describe actual prepared material/definition inputs, effective ABI, ordered vectors, local supply loss and unique utility publication; retire design-only prose.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-input-ownership"
+      "before": "da96e1783668267eef2ec636e262b37e2939afbd43e230ab2562d595b12a85fa",
+      "after": "846aaeba824b5c1690a6dd0efe33b68907a687495d3bce6b6e3ff567c03ed3a6",
+      "owner": "scene-independent-named-sources",
+      "reason": "Keep independent source capture and existing prepared-target/representation authority explicit without fake Programs, graph output substitutes or prefix prepass.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#independent-named-source"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "37a3c34590957277b8ab6816eb093eae8cb53f5d158cd8bd7937588196dc1d8d",
-      "after": "47bfa5da6ed552cbd3504545c94ae013c4b07762704a75a2ed8c28f2dab0375d",
-      "owner": "scene-prepared-named-inputs",
-      "reason": "Bind the final signed Debug source/dylib identity to actual input-contribution controls and author publication/tail chains, preserving reader replay and remaining failures.",
+      "before": "47bfa5da6ed552cbd3504545c94ae013c4b07762704a75a2ed8c28f2dab0375d",
+      "after": "54a207a0fedbc6dd8e4fd975344b3729b49bb0f04eab81d45f5747c640e2eab0",
+      "owner": "scene-independent-named-sources",
+      "reason": "Bind the signed three-source Debug identity to actual failed and corrected native/App pixels and five-author source-publication-tail-main evidence, with phase limits.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#coverage"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "4420cb0b6fa6716b368ab5e18daa6a7f8987a01cec237114dce1b34842aae712",
-      "after": "b9e3c824210ccee1617ae16613845dd183341205406dd7bd06ce00940307b874",
-      "owner": "scene-prepared-named-inputs",
-      "reason": "Replace retired named-input refusals with current measured supply/source/activation cutpoints and retain genuine opacity, Puppet and scheduling gaps.",
+      "before": "b9e3c824210ccee1617ae16613845dd183341205406dd7bd06ce00940307b874",
+      "after": "fd18b6f1f864036ac5d7e744492dec8ad918e7b7f0fce42c2a6a09eb514c95a5",
+      "owner": "scene-independent-named-sources",
+      "reason": "Retire remeasured 355/308 source and 308 activation assertions; keep prefix and forward-closure gaps and locate existing oversized test fixtures.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     }
   ]

@@ -164,13 +164,16 @@ extension SceneDependencyRenderPlan {
         }
         let forward = providerOrder > consumerOrder
         if forward {
+            let independentRawSource = provider.effects.isEmpty
+                && provider.dependencyLayerIDs.isEmpty
+                && provider.utilityLayer?.copyBackground != true
+            let independentGraph = hasEffects && provider.utilityLayer == nil
+                && providerGraphIsAuthoredOrderIndependent(provider,
+                    references: providerReferences, texturePaths: providerTexturePaths)
             // A visible graph's frame ticket still owns its main output.
             guard !(hasEffects && provider.visible != false
                     && visibleLayerIDs.contains(provider.id)),
-                  kind == .imageLayerBlend || kind == .geometryLayer,
-                  (provider.effects.isEmpty && provider.dependencyLayerIDs.isEmpty)
-                    || (hasEffects && providerGraphIsAuthoredOrderIndependent(provider,
-                        references: providerReferences, texturePaths: providerTexturePaths))
+                  independentRawSource || independentGraph
             else { return nil }
         }
         return Binding(consumerLayerID: layer.id, providerLayerID: provider.id,

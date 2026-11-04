@@ -18,7 +18,7 @@ import zlib
 from .test_scene_hidden_provider_integration import fixture_entries as hidden_fixture
 from .test_scene_directional_shadow_integration import png
 from .test_scene_fullscreen_visibility_integration import app_hashes, file_hashes
-from .test_scene_composition_authored_order_integration import measure_capture
+from .test_scene_composition_authored_order_integration import measure_capture, VERTEX
 from .scene_pkg_fixture import make_package
 
 
@@ -46,6 +46,16 @@ EXPECTED_RGB = tuple(round(c * SOURCE_RGBA[3] / 255 * MASK_RGBA[0] / 255)
 
 def encoded(value):
     return json.dumps(value, sort_keys=True).encode()
+
+
+def horizontal_pair_png(left, right):
+    raw = (b"\0" + bytes(left) * 2 + bytes(right) * 2) * 4
+    chunks = [(b"IHDR", struct.pack(">IIBBBBB", 4, 4, 8, 6, 0, 0, 0)),
+              (b"IDAT", zlib.compress(raw)), (b"IEND", b"")]
+    return b"\x89PNG\r\n\x1a\n" + b"".join(
+        struct.pack(">I", len(data)) + kind + data
+        + struct.pack(">I", zlib.crc32(kind + data) & 0xffffffff)
+        for kind, data in chunks)
 
 
 def fixture_entries(*, three_candidates=False):
@@ -155,14 +165,9 @@ def named_vector_entries(control, *, utility_provider=None):
         entries[f"materials/{prefix}/{name}.png"] = png(color)
     # Four rows of two constant left/right texels; UV .25/.75 samples each
     # source independently, even though both slots share one publication.
-    raw = (b"\0" + bytes(a) * 2 + bytes(b) * 2) * 4
-    chunks = [(b"IHDR", struct.pack(">IIBBBBB", 4, 4, 8, 6, 0, 0, 0)),
-              (b"IDAT", zlib.compress(raw)), (b"IEND", b"")]
-    pattern = b"\x89PNG\r\n\x1a\n" + b"".join(struct.pack(">I", len(data)) + kind + data
-        + struct.pack(">I", zlib.crc32(kind + data) & 0xffffffff) for kind, data in chunks)
     entries[f"models/{prefix}/pattern.json"] = encoded({"material": f"materials/{prefix}/pattern.json"})
     entries[f"materials/{prefix}/pattern.json"] = encoded({"passes": [{"shader": "genericimage", "textures": [f"materials/{prefix}/pattern.png"]}]})
-    entries[f"materials/{prefix}/pattern.png"] = pattern
+    entries[f"materials/{prefix}/pattern.png"] = horizontal_pair_png(a, b)
     return project, entries
 
 
@@ -184,6 +189,100 @@ def named_vector_oracle(control, shown, *, utility_provider=None):
     return oracle
 
 
+def independent_source_entries(control):
+    renamed = control == "renamed"
+    prefix, sample = ("woven_inputs", "incoming") if renamed else ("own_source_boundary", "sampled")
+    identifiers = dict(zip(("parent", "red", "empty", "solid", "consumer", "peer"),
+                           (901, 403, 218, 709, 73, 42) if renamed else (20, 21, 30, 11, 22, 33)))
+    empty_slot, solid_slot = (5, 2) if renamed else (2, 5)
+    entries = {}
+
+    def effect(name, slot, provider, body):
+        path = f"{prefix}/{name}"
+        textures = [None] * (slot + 1)
+        if provider is not None:
+            textures[slot] = f"_rt_imageLayerComposite_{provider}_a"
+        entries[f"effects/{path}/effect.json"] = encoded({"passes": [{"material": f"materials/{path}.json"}]})
+        entries[f"materials/{path}.json"] = encoded({"passes": [{"shader": path, "textures": textures,
+            "blending": "normal", "depthtest": "disabled", "depthwrite": "disabled", "cullmode": "nocull"}]})
+        entries[f"shaders/{path}.vert"] = VERTEX
+        entries[f"shaders/{path}.frag"] = (
+            f"uniform sampler2D g_Texture{slot};\nvarying vec2 v_TexCoord;\nvoid main() {{ {body} }}\n").encode()
+        return {"id": f"{prefix}-{name}", "file": f"effects/{path}/effect.json", "visible": True}
+
+    parent_effects = [
+        effect("read-empty", empty_slot, identifiers["empty"],
+            f"vec4 {sample}=texSample2D(g_Texture{empty_slot},v_TexCoord);"
+            f"gl_FragColor=vec4({sample}.a,{sample}.r,{sample}.b,1.0);"),
+        effect("blue-suffix", 0, None,
+            f"vec4 {sample}=texSample2D(g_Texture0,v_TexCoord);"
+            f"gl_FragColor=vec4({sample}.rgb+vec3(0.0,0.0,0.125),{sample}.a);"),
+    ]
+    consumer_effects = [
+        effect("read-solid", solid_slot, identifiers["solid"],
+            f"gl_FragColor=texSample2D(g_Texture{solid_slot},v_TexCoord);"),
+        effect("green-suffix", 0, None,
+            f"vec4 {sample}=texSample2D(g_Texture0,v_TexCoord);"
+            f"{sample}.rgb*=vec3(1.0,0.5,1.0);gl_FragColor={sample};"),
+    ]
+    plain = f"models/{prefix}/plain.json"
+    solid_model, solid_material = f"models/{prefix}/solid.json", f"materials/{prefix}/solid.json"
+    solid_texture = f"materials/{prefix}/solid.png"
+    entry_model, entry_material = f"models/{prefix}/entry.json", f"materials/{prefix}/entry.json"
+    objects = [
+        {"id": identifiers["parent"], "name": f"{prefix} enclosing composition", "image": "models/util/composelayer.json",
+         "origin": "40 64 0", "size": "40 24", "copybackground": True,
+         "dependencies": [identifiers["empty"]], "effects": parent_effects},
+        {"id": identifiers["red"], "parent": identifiers["parent"], "name": f"{prefix} red enclosing prefix",
+         "image": plain, "origin": "0 0 0", "size": "40 24", "color": "1 0 0"},
+        {"id": identifiers["empty"], "parent": identifiers["parent"], "name": f"{prefix} source only",
+         "image": "models/util/composelayer.json", "origin": "0 0 0", "size": "16 8",
+         "copybackground": False, "visible": False},
+        {"id": identifiers["consumer"], "name": f"{prefix} textured solid consumer", "image": entry_model,
+         "origin": "88 64 0", "size": "24 24", "dependencies": [identifiers["solid"]], "effects": consumer_effects},
+        {"id": identifiers["peer"], "name": f"{prefix} healthy green peer", "image": plain,
+         "origin": "104 40 0", "size": "12 12", "color": "0 1 0"},
+    ]
+    if control == "missing-X":
+        objects = [item for item in objects if item["id"] != identifiers["empty"]]
+    solid = {"id": identifiers["solid"], "name": f"{prefix} hidden textured solid", "image": solid_model,
+             "origin": "104 92 0", "size": "24 12", "color": "0.5 0.25 0.75", "alpha": 0.5, "visible": False,
+             "instance": {"textures": [solid_texture]}}
+    objects.insert(0 if control == "before" else len(objects), solid)
+    scene = {"version": 3, "general": {"orthogonalprojection": {"width": 128, "height": 128},
+        "clearcolor": "0 0 1"}, "objects": objects}
+    entries.update({"scene.json": encoded(scene),
+        "models/util/composelayer.json": encoded({"width": 40, "height": 24, "autosize": False}),
+        plain: encoded({"solidlayer": True, "width": 128, "height": 128}),
+        solid_model: encoded({"solidlayer": True, "material": solid_material, "width": 32, "height": 16}),
+        solid_material: encoded({"passes": [{"shader": "genericimage", "textures": [solid_texture],
+            "blending": "translucent", "depthtest": "disabled", "depthwrite": "disabled", "cullmode": "nocull"}]}),
+        entry_model: encoded({"material": entry_material}),
+        entry_material: encoded({"passes": [{"shader": "genericimage", "textures": [f"materials/{prefix}/entry.png"]}]}),
+        f"materials/{prefix}/entry.png": png((24, 40, 56, 255)),
+    })
+    missing_solid = control == "decodeFailed-S-source"
+    entries[solid_texture] = (b"owned decodeFailed PNG source" if missing_solid
+                             else horizontal_pair_png((192, 128, 64, 128), (64, 192, 128, 255)))
+    protocol = {"independentSourceControl": control, "layerIDs": identifiers,
+        "slots": {"empty": empty_slot, "solid": solid_slot}, "rawLayerOrder": [item["id"] for item in objects],
+        "emptyRGBA": (0, 0, 0, 0), "enclosingPrefixRGBA": (255, 0, 0, 255), "mainPrefixRGBA": (0, 0, 255, 255),
+        "solidRGBA": ((192, 128, 64, 128), (64, 192, 128, 255)), "solidTint": (.5, .25, .75), "solidAlpha": .5,
+        "solidTexture": solid_texture, "solidSourceOutcome": "decodeFailed" if missing_solid else "loaded",
+        "sourceOnlyHasProgram": False,
+        "sceneCanvas": 128, "oracleCanvas": 256, "channelTolerance": 2, "minimumCorrectFraction": .99,
+        "oracle": {
+            "transparentChild": {"canvasRect": (64, 120, 96, 136),
+                                 "expectedRGB": (255, 0, 32) if control == "missing-X" else (0, 0, 32)},
+            "solidLeft": {"canvasRect": (160, 120, 168, 136), "expectedRGB": (24, 20, 56) if missing_solid else (24, 4, 203)},
+            "solidRight": {"canvasRect": (184, 120, 192, 136), "expectedRGB": (24, 20, 56) if missing_solid else (16, 12, 176)},
+            "hiddenSolid": {"canvasRect": (200, 68, 216, 76), "expectedRGB": (0, 0, 255)},
+            "mainPrefix": {"canvasRect": (124, 120, 136, 136), "expectedRGB": (0, 0, 255)},
+            "peer": {"canvasRect": (200, 168, 216, 184), "expectedRGB": (0, 255, 0)},
+        }, "colorBoundary": "source-only transparent RGBA; real solid texture/tint/alpha; healthy previous-current suffixes"}
+    return {"type": "scene", "file": "scene.json"}, entries, protocol
+
+
 class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -195,7 +294,7 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
         cls.app_identity = app_hashes(cls.exe)
 
     def run_case(self, *, three_candidates=False, cache_condition="normal",
-                 named_control=None, initially_shown=True, live_shown=None, utility_provider=None):
+                 named_control=None, initially_shown=True, live_shown=None, utility_provider=None, source_control=None):
         parent = os.environ.get("MWX_SCENE_INTEGRATION_EVIDENCE")
         if parent:
             Path(parent).mkdir(parents=True, exist_ok=True)
@@ -206,8 +305,11 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
         content, home, evidence = root / "content", root / "home", root / "evidence"
         content.mkdir()
         home.mkdir()
-        project, entries = (named_vector_entries(named_control, utility_provider=utility_provider) if named_control is not None
-                            else fixture_entries(three_candidates=three_candidates))
+        if source_control is not None:
+            project, entries, source_protocol = independent_source_entries(source_control)
+        else:
+            project, entries = (named_vector_entries(named_control, utility_provider=utility_provider) if named_control is not None
+                                else fixture_entries(three_candidates=three_candidates))
         (content / "project.json").write_bytes(encoded(project))
         (content / "scene.pkg").write_bytes(make_package(list(entries.items())))
         expected = (255, 255, 255) if three_candidates else EXPECTED_RGB
@@ -239,7 +341,10 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
                 "oracle": named_vector_oracle(named_control, initially_shown, utility_provider=utility_provider),
                 "afterOracle": named_vector_oracle(named_control, later_shown, utility_provider=utility_provider),
                 "colorBoundary": "owned opaque color inputs; actual named samples, no output color substitution"}
-        properties = {"showVector": initially_shown} if named_control is not None else {"mode": "off"}
+        if source_control is not None:
+            protocol = source_protocol
+        properties = ({} if source_control is not None else
+                      {"showVector": initially_shown} if named_control is not None else {"mode": "off"})
         command = [str(self.exe), "--mwx-debug-scene-root", str(content),
                    "--mwx-debug-scene-duration", "6", "--mwx-debug-scene-evidence-dir", str(evidence),
                    "--mwx-debug-scene-properties-json", json.dumps(properties)]
@@ -298,6 +403,34 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
                 with self.subTest(capture=capture, roi=roi):
                     self.assertGreater(value["total"], 0, value)
                     self.assertGreaterEqual(value["correct"] / value["total"], .99, value)
+        if source_control is not None:
+            identifiers = protocol["layerIDs"]
+            for kind, missing in (("empty", source_control == "missing-X"),
+                                  ("solid", source_control == "decodeFailed-S-source")):
+                capture = f"phase=named-target-capture layer={identifiers[kind]} status=succeeded"
+                if missing:
+                    self.assertNotIn(capture, log)
+                else:
+                    self.assertIn(capture, log)
+            for kind in ("empty", "solid"):
+                self.assertNotRegex(log + preview, rf"generic shader execution [^\n]*layer={identifiers[kind]} effect=")
+                self.assertNotRegex(log, rf"axis=effect-cpu-invocation [^\n]*layer={identifiers[kind]} effect=")
+                self.assertNotRegex(log, rf"axis=graph-execution [^\n]*layer={identifiers[kind]} ")
+            if source_control == "decodeFailed-S-source":
+                self.assertRegex(preview, rf'layer {identifiers["solid"]} "[^"\n]*": decode failed \(')
+            for kind, missing in (("parent", source_control == "missing-X"),
+                                  ("consumer", source_control == "decodeFailed-S-source")):
+                layer_id = identifiers[kind]
+                for effect_index in (0, 1):
+                    outcome = "failed" if missing and effect_index == 0 else "encoded-output"
+                    self.assertRegex(log, rf"axis=effect-cpu-invocation [^\n]*layer={layer_id} effect={effect_index} "
+                        rf"[^\n]*backend=resolved-material-graph outcome={outcome} ")
+                binding = f"phase=named-target-binding layer={layer_id} status=succeeded"
+                if missing:
+                    self.assertNotIn(binding, log)
+                else:
+                    self.assertIn(binding, log)
+            return
         if named_control is not None:
             shift = 1000 if named_control == "swapRename" else 0
             if initially_shown or live_shown:
@@ -348,6 +481,16 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
         for visibility in ("hidden", "visible"):
             with self.subTest(utilityProvider=visibility):
                 self.run_case(named_control="both", utility_provider=visibility)
+
+    def test_independent_sources_preserve_rgba_and_pixels_before_after_and_renamed(self):
+        for control in ("before", "after", "renamed"):
+            with self.subTest(sourceControl=control):
+                self.run_case(source_control=control)
+
+    def test_missing_or_decode_failed_independent_source_preserves_healthy_suffix_and_peer(self):
+        for control in ("missing-X", "decodeFailed-S-source"):
+            with self.subTest(sourceControl=control):
+                self.run_case(source_control=control)
 
 
 if __name__ == "__main__":

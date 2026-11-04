@@ -37,18 +37,21 @@ extension AtlasNamedProbe {
     static func rawImageRepresentation(_ device: MTLDevice) -> [[String: Any]] {
         let queue = device.makeCommandQueue()!, pipeline = SceneImageLayerPipeline(device: device)!
         var rows: [[String: Any]] = []
-        for graphFallback in [false, true] {
+        for kind in [SceneDependencyRenderPlan.Binding.Kind.imageLayerBlend, .visibleImageGraphOutput, .solidLayer] {
+            let graphFallback = kind == .visibleImageGraphOutput, solid = kind == .solidLayer
             for straight in [false, true] {
-                let provider = SceneRenderDescriptor.Layer(id: 700, contentKind: "image",
+                let provider = SceneRenderDescriptor.Layer(id: 700, contentKind: solid ? "solid" : "image",
                     utilityLayer: nil, alpha: 1, colorRGB: [1, 1, 1])
                 let binding = SceneDependencyRenderPlan.Binding(consumerLayerID: 701,
                     providerLayerID: 700, slot: .init(effectID: "owned-raw", passIndex: 0, slotIndex: 1),
-                    blendMode: 0, kind: graphFallback ? .visibleImageGraphOutput : .imageLayerBlend)
+                    blendMode: 0, kind: kind)
                 let runtime = SceneDependencyFrameRuntime(descriptor: .init(layers: [provider],
                     bindings: [701: binding], graphOutputProviderLayerIDs: graphFallback ? [700] : []),
                     visibleLayerIDs: [700, 701], executableUtilityConsumerLayerIDs: [], device: device)
-                let registry = SceneFrameTextureRegistry(), (source, expected) = rawCaptureSource(device, straight: straight)
+                let registry = SceneFrameTextureRegistry(), (source, sourceBytes) = rawCaptureSource(device, straight: straight)
                 let candidate = rawCaptureCandidate(source, straight: straight)
+                let expected: [UInt8] = solid ? [32, 64, 100, 128] : sourceBytes
+                let expectedContent = solid ? SceneTextureContent.color(.resolved(.premultipliedAlpha)) : candidate.content
                 let epoch = registry.beginFrame(frameIndex: 1, layerSources: [:]), cb = queue.makeCommandBuffer()!
                 var reason: String?
                 let prepared = runtime.reserveEffectInput(for: binding, providerLayer: provider,
@@ -70,15 +73,15 @@ extension AtlasNamedProbe {
                     reference: .init(providerLayerID: 700, variant: .primary), frameEpoch: epoch)
                 let finished = main.finishEnsuringClear(), copied = prepared.map { readback(device, $0.texture, cb) }
                 cb.commit(); cb.waitUntilCompleted(); registry.commitFramePublication()
-                rows.append(["route": graphFallback ? "visible-image-raw-fallback" : "image-layer-blend",
+                rows.append(["route": solid ? "solid-layer" : (graphFallback ? "visible-image-raw-fallback" : "image-layer-blend"),
                     "straight": straight, "published": status(published), "reserved": prepared != nil && reason == nil,
-                    "preparedContentMatchesSource": prepared?.content == candidate.content,
-                    "actualContentMatchesSource": actual?.content == candidate.content,
+                    "preparedContentMatchesExpected": prepared?.content == expectedContent,
+                    "actualContentMatchesExpected": actual?.content == expectedContent,
                     "preparedMatchesReadyIdentity": samePreparedIdentity(prepared, actual),
                     "preparedMatchesReadyContent": prepared?.content == actual?.content,
                     "publicationMatchesReadyContent": atom?.publication.candidate.content == actual?.content,
                     "distinctNamedTarget": prepared?.texture !== source && atom?.publication.texture === prepared?.texture,
-                    "sourceUnchanged": read(source) == expected, "pixel": copied.map(read) ?? [], "expected": expected,
+                    "sourceUnchanged": read(source) == sourceBytes, "pixel": copied.map(read) ?? [], "expected": expected,
                     "completed": finished && cb.status == .completed && cb.error == nil])
             }
         }
@@ -137,8 +140,8 @@ extension AtlasNamedProbe {
         return ["route": "mixed-raw-aggregate", "published": published.allSatisfy { $0 == "published" } ? "published" : published.joined(separator: ","),
             "reserved": prepared.allSatisfy { $0 != nil } && reasons.allSatisfy { $0 == nil },
             "noAvailableInputsBeforeCapture": noAvailableInputsBeforeCapture,
-            "preparedContentMatchesSource": zip(prepared, candidates).allSatisfy { $0.0?.content == $0.1.content },
-            "actualContentMatchesSource": ready && zip(actual, candidates).allSatisfy { $0.0.content == $0.1.content },
+            "preparedContentMatchesExpected": zip(prepared, candidates).allSatisfy { $0.0?.content == $0.1.content },
+            "actualContentMatchesExpected": ready && zip(actual, candidates).allSatisfy { $0.0.content == $0.1.content },
             "preparedMatchesReadyIdentity": ready && zip(prepared, actual).allSatisfy { samePreparedIdentity($0.0, $0.1) },
             "preparedMatchesReadyContent": ready && zip(prepared, actual).allSatisfy { $0.0?.content == $0.1.content },
             "slotOrderPreserved": actual.map(\.providerLayerID) == [801, 800] && actual.map { $0.slot.slotIndex } == [1, 2],
@@ -146,4 +149,97 @@ extension AtlasNamedProbe {
             "pixel": copied.flatMap(read), "expected": inputs.flatMap { $0.1 },
             "completed": finished && cb.status == .completed && cb.error == nil]
     }
+
+    static func emptyUtilityNamedSource(_ device: MTLDevice) -> [String: Any] {
+        let queue = device.makeCommandQueue()!, pipeline = SceneImageLayerPipeline(device: device)!
+        let provider = SceneRenderDescriptor.Layer(id: 900, contentKind: "composition",
+            utilityLayer: .init(kind: .composition, copyBackground: false), alpha: 1, colorRGB: [1, 1, 1])
+        let binding = SceneDependencyRenderPlan.Binding(consumerLayerID: 901,
+            providerLayerID: 900, slot: .init(effectID: "empty-source", passIndex: 0, slotIndex: 2),
+            blendMode: 0, kind: .resolvedMaterial, requiresForwardCapture: true,
+            requiresResolvedMaterialProgram: true)
+        let runtime = SceneDependencyFrameRuntime(descriptor: .init(layers: [provider],
+            bindings: [901: binding], graphOutputProviderLayerIDs: []),
+            visibleLayerIDs: [901], executableUtilityConsumerLayerIDs: [], device: device)
+        let noDemand = SceneDependencyFrameRuntime(descriptor: .init(layers: [provider],
+            bindings: [:], graphOutputProviderLayerIDs: []),
+            visibleLayerIDs: [901], executableUtilityConsumerLayerIDs: [], device: device)
+        let registry = SceneFrameTextureRegistry(), reference = SceneNamedTextureReference(
+            providerLayerID: 900, variant: .primary)
+        let viewport = CGSize(width: 4, height: 2), mainViewport = CGSize(width: 8, height: 4)
+        let enclosing = pattern(device, 8, 4, 5)
+        let enclosingInput = read(enclosing), epoch = registry.beginFrame(frameIndex: 1, layerSources: [:])
+        let cb = queue.makeCommandBuffer()!, main = SceneMainPassEncoder(commandBuffer: cb,
+            target: enclosing, clearColor: MTLClearColorMake(0, 0, 0, 0), clearEnabled: false)
+        let notRequired = noDemand.captureProviderIfRequired(layer: provider, sourceTexture: nil,
+            sourceCandidate: nil, layerMVP: matrix_identity_float4x4, viewportSize: mainViewport,
+            pipeline: pipeline, textureRegistry: registry, mainPass: main)
+        let noDemandPublished = registry.completeNamedLayerTargetResource(
+            reference: reference, frameEpoch: epoch) != nil
+        var reason: String?
+        let prepared = runtime.reserveEffectInput(for: binding, providerLayer: provider,
+            providerTexture: nil, providerCandidate: nil, layerMVP: matrix_identity_float4x4,
+            viewportSize: viewport, frameEpoch: epoch, failureReason: &reason)
+        let published = runtime.captureProviderIfRequired(layer: provider, sourceTexture: nil,
+            sourceCandidate: nil, layerMVP: matrix_identity_float4x4, viewportSize: mainViewport,
+            pipeline: pipeline, textureRegistry: registry, mainPass: main)
+        let actual = runtime.effectInput(for: 901, textureRegistry: registry)
+        let atom = registry.completeNamedLayerTargetResource(reference: reference, frameEpoch: epoch)
+        guard let prepared else {
+            return ["reserved": false, "reason": reason as Any? ?? NSNull(), "published": status(published)]
+        }
+        let first = readback(device, prepared.texture, cb)
+        // A literal test write distinguishes idempotent publication from a
+        // second production clear. No source texture or graph stands in for the handler.
+        let marker = MTLRenderPassDescriptor()
+        marker.colorAttachments[0].texture = prepared.texture
+        marker.colorAttachments[0].loadAction = .clear
+        marker.colorAttachments[0].storeAction = .store
+        marker.colorAttachments[0].clearColor = MTLClearColorMake(17.0 / 255, 91.0 / 255, 203.0 / 255, 1)
+        let markerEncoder = cb.makeRenderCommandEncoder(descriptor: marker)
+        markerEncoder?.endEncoding()
+        let repeated = runtime.captureProviderIfRequired(layer: provider, sourceTexture: nil,
+            sourceCandidate: nil, layerMVP: matrix_identity_float4x4, viewportSize: mainViewport,
+            pipeline: pipeline, textureRegistry: registry, mainPass: main)
+        let repeatedAtom = registry.completeNamedLayerTargetResource(reference: reference, frameEpoch: epoch)
+        let repeatedPixels = readback(device, prepared.texture, cb)
+        let finished = main.finishEnsuringClear()
+        cb.commit(); cb.waitUntilCompleted(); registry.commitFramePublication()
+        let firstPixels = read(first), markerPixels = read(repeatedPixels)
+        let firstCompleted = finished && markerEncoder != nil && cb.status == .completed && cb.error == nil
+        let nextEpoch = registry.beginFrame(frameIndex: 2, layerSources: [:]), nextCB = queue.makeCommandBuffer()!
+        let nextMain = SceneMainPassEncoder(commandBuffer: nextCB, target: enclosing,
+            clearColor: MTLClearColorMake(0, 0, 0, 0), clearEnabled: false)
+        var nextReason: String?
+        let nextPrepared = runtime.reserveEffectInput(for: binding, providerLayer: provider,
+            providerTexture: nil, providerCandidate: nil, layerMVP: matrix_identity_float4x4,
+            viewportSize: viewport, frameEpoch: nextEpoch, failureReason: &nextReason)
+        let nextPublication = runtime.captureProviderIfRequired(layer: provider, sourceTexture: nil,
+            sourceCandidate: nil, layerMVP: matrix_identity_float4x4, viewportSize: mainViewport,
+            pipeline: pipeline, textureRegistry: registry, mainPass: nextMain)
+        let nextActual = runtime.effectInput(for: 901, textureRegistry: registry)
+        let nextPixels = nextPrepared.map { readback(device, $0.texture, nextCB) }
+        let nextFinished = nextMain.finishEnsuringClear()
+        nextCB.commit(); nextCB.waitUntilCompleted(); registry.commitFramePublication()
+        return ["epoch": epoch, "nextEpoch": nextEpoch,
+            "noDemandCapture": status(notRequired), "noDemandTargetCount": noDemand.targetPool.residentTextureCount,
+            "noDemandPublication": noDemandPublished, "reserved": reason == nil,
+            "published": status(published), "repeated": status(repeated), "nextPublication": status(nextPublication),
+            "targetExtent": [prepared.texture.width, prepared.texture.height],
+            "preparedMatchesReadyIdentity": samePreparedIdentity(prepared, actual),
+            "publicationPMA": atom?.publication.candidate.content == .color(.resolved(.premultipliedAlpha)),
+            "repeatedPublicationStable": atom != nil && repeatedAtom != nil
+                && atom?.publication.texture === repeatedAtom?.publication.texture
+                && atom?.publication.contentGeneration == repeatedAtom?.publication.contentGeneration
+                && atom?.resourceGeneration == repeatedAtom?.resourceGeneration,
+            "oneResidentTarget": runtime.targetPool.residentTextureCount == 1,
+            "reusedTarget": nextPrepared?.texture === prepared.texture,
+            "nextReserved": nextPrepared != nil && nextReason == nil,
+            "nextPreparedMatchesReadyIdentity": samePreparedIdentity(nextPrepared, nextActual),
+            "firstPixels": firstPixels, "repeatedPixels": markerPixels,
+            "nextEpochPixels": nextPixels.map(read) ?? [], "enclosingInput": enclosingInput,
+            "enclosingPixels": read(enclosing), "completed": firstCompleted
+                && nextFinished && nextCB.status == .completed && nextCB.error == nil]
+    }
+
 }

@@ -13,6 +13,8 @@
 
 Named输入定向复验基于`961dd50c8e1872ff224f3224aff21d03b3afaab4`及43个Swift产品路径。签名Debug的exec SHA为`b6c3c4091727fef71756d67ba1ab91192daf8c2094761e14da3dd6f9c01bd0d1`、dylib为`18d3d5eb8a692d945dfb53d9c27d6c5b7a5cb16547ce7221b24f92a8de974338`，metallib为`80b49e42259c9bf4bbe5273d8fefe51013f5e152b66da431b85417e0dbb3b1a7`。构建前后43源一致，原字节、构建收据及有界原生验证保在`.artifacts/scene-goal-named-inputs-20261104/`；同为`-Onone`/DEBUG，只授本专项资格。
 
+独立 named 来源定向复验基于`6f9cb0d672c7f405de9c93e5ce5f3e4c0499bae3`及3个Swift产品路径。签名Debug的exec SHA为`bb2ee8f1c7de703c6e080f10b2ab52daf23467d97b6cb70713b78b569931f37a`、dylib为`94132f24066ab28f418b1be5631fd20adbc8bb27bdc30985ec62e986d1da683e`；metallib与上述named专项相同。构建前后源码一致，原字节、两次实际失败与修正及运行收据保在`.artifacts/scene-goal-source-schedule-20261104/`；`-Onone`/DEBUG，不授优化性能资格。
+
 <a id="coverage"></a>
 ## 全库运行与逐项阶段
 
@@ -27,6 +29,7 @@ Named输入定向复验基于`961dd50c8e1872ff224f3224aff21d03b3afaab4`及43个S
 | 全量索引 | 263,724声明中51,786是包库存及其派生项，211,938有作者consumer关系；不能将整个集合当活动执行分母。38,963个consumer纹理声明有7,732项实际绑定/GPU阶段证据，31,231项关联或触发阶段未知；原effect有42项fallback，copy完成不作原operation执行。逐实例及最终像素贡献均未取得通用资格。 |
 | Prepared named与可见贡献 | 23组实际Metal向量涵盖同effect/跨effect/跨pass、同provider多槽、改名、换源、metadata-only Resolution、同帧背景与局部缺失；same-layer四readiness及mixed/optional反例保留。签名App有13次真实调用、26张PNG，A0/B0、slot重接与资源改名、同源不同UV、缺失健康后继、双向显隐、hidden/visible childless utility provider、半alpha与坏缓存控制均达预登记ROI。missing原日志误要求旁路操作成功绑定，修正后以同App/输入/PNG字节重放，未伪称新GPU运行。普通帧prepare一次、晚失供货严格子集、history/pin与foreign resource由实际Coordinator门验证，executor stub只授协议/状态；rotation/translation非零元数据、完整动画与性能未资格。 |
 | 作者named链 | 9作者4秒子集同census三输入摘要，两个既有邻例保持PASS，整体原报告3 PASS/6 CHECK。350/69 e0/e1由copy恢复成真实材质，分别采91/1030 publication并经e2进入tail；375/319实际采309与slot7 mask，输出经group到main；280/19 e0五个material及后续e1…e5、tail成立。3个before与9个after均核原JSON、request/CB/Surface/sealed source/GPU，无截断。350隐藏1030的身份误报以独立admitted namespace修reader并对原字节重后处理：9/9期望分母未变、其余8图指标逐字段不变，真实opacity/Puppet/source/activation失败仍保。缺图、逐资产终端贡献及官方parity不由这些链授予；当前首断点见问题队列。 |
+| 独立 named 来源 | 38项真实依赖计划方法、10项native owner方法通过；后者含7组image/solid straight与PMA输入、真实透明清空、同epoch复用、跨epoch重清和资源/预算反例。局部4×2预约与主8×4捕获先实际误拒，修正后只消费原target；native几何为被动夹具，生产组变换由App另证。5个App控制/10张PNG全部达严格ROI：前/后置、ID/资源/槽位改名、无效果透明来源、半alpha纹理/tint、缺child与真实decode-failed来源及健康后继。半alpha solid从实测(48,8,215)恢复为预登记(24,4,203)，opaque邻区不变；来源均无Program事务，失败原图/输入保留。5作者同三输入摘要的4秒复验为4 PASS/2972071249既有CHECK；355/411以220² PMA raw publication供1111e0真实slot1材质，再经roundedmask/tail/main；308/259以32² PMA同publication供430e0/e2真实slot1材质，再经426组source/opacity到main。430e1实际visibility-disabled copy，CPU encoded-output不作该段shader执行证明。295/377邻例保持，377保既有source瞬态与同层恢复；297前缀取时、默认父alpha下的逐资产可见贡献、完整动画及parity未资格。 |
 | 视觉粗筛 | 633张全部实际查看：539未见明显粗筛异常、14视觉疑点、35需时间/输入、45参考不足；另开40张原图复核。作者preview仅方向性，无视觉PASS或官方parity。 |
 | 长窗与过场 | 稀疏3766387484在模拟约9.995秒接纳出生，所选帧root/child各2；两个雷电profile仍因周期上限拒绝。10个片头样本补至Ready+约15秒，实际看到标识退场或主体变化。3764725758/3830665420的第二轮仍未资格。 |
 | 失败与恢复 | 原CHECK、精确拒绝、pre-Ready失败与后续成功均保留；首次3780119725 stop附近31条ledger失败，22秒/10秒复验未复现，不删原失败。当前首因与有价值个案归[开放队列](../roadmap/scene-open-breakpoint-queue.md)。 |
