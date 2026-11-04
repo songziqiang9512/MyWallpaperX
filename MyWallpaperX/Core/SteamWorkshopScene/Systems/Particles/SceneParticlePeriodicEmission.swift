@@ -56,17 +56,16 @@ nonisolated struct SceneParticleEmitterSpawnPlan: Sendable {
         directions = SceneParticleSimulationMath.vector(
             value.directions, fallback: SIMD3(1, 1, 0)
         )
-        var preparedSign = SceneParticleSimulationMath.vector(value.sign, fallback: .zero)
-        // Sign selects an integer direction; fractions truncate before sampling.
-        for component in 0..<3 {
-            preparedSign[component] = preparedSign[component].rounded(.towardZero)
-        }
-        sign = preparedSign
-        sphereAxisMask = (abs(directions.x) > 1e-6 ? 1 : 0)
-            | (abs(directions.y) > 1e-6 ? 2 : 0)
-            | (abs(directions.z) > 1e-6 ? 4 : 0)
-
         if case .sphereRandom = value.kind {
+            var preparedSign = SceneParticleSimulationMath.vector(value.sign, fallback: .zero)
+            // Sign selects an integer direction; fractions truncate before sampling.
+            for component in 0..<3 {
+                preparedSign[component] = preparedSign[component].rounded(.towardZero)
+            }
+            sign = preparedSign
+            sphereAxisMask = (abs(directions.x) > 1e-6 ? 1 : 0)
+                | (abs(directions.y) > 1e-6 ? 2 : 0)
+                | (abs(directions.z) > 1e-6 ? 4 : 0)
             let dimensions = Double(max(sphereAxisMask.nonzeroBitCount, 1))
             let minimum = max(
                 0, SceneParticleSimulationMath.scalar(value.distanceMinimum, fallback: 0)
@@ -79,6 +78,8 @@ nonisolated struct SceneParticleEmitterSpawnPlan: Sendable {
             sphereRadiusInverseDimension = 1 / dimensions
         } else {
             // Other shapes never consume radial sampling or prepare its powers.
+            sign = .zero
+            sphereAxisMask = 0
             sphereRadiusPowerMinimum = 0
             sphereRadiusPowerMaximum = 0
             sphereRadiusInverseDimension = 1

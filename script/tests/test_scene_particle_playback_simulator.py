@@ -407,6 +407,59 @@ import Foundation
                     && restored.nextParticleID == before.nextParticleID
             }
         }
+        let boxFields: [String: Any] = ["name": "boxrandom", "directions": "-4 1 0",
+            "distancemin": "2 3 0", "distancemax": "2 5 0"]
+        let boxControl = try radial(boxFields, omitsSign: true)
+        boxControl.advance(by: 0.25)
+        result["box-sign-omitted-real-negative-x-and-nonzero-extent"] = boxControl.particles.count == 4
+            && boxControl.birthEvents.allSatisfy {
+                $0.position.x == -4 && (5...7).contains($0.position.y) && $0.position.z == 0
+            } && Set(boxControl.birthEvents.map { $0.position.y }).count > 1
+        let ignoredBoxSigns: [(String, Any?, Bool)] = [("omitted", nil, false), ("zero", 0, false),
+            ("ten", "10 10 10", false), ("fraction", 0.75, false), ("garbage", "unusedAxis", false),
+            ("short-vector", "1 0", false), ("bool", true, false), ("nonfinite", "nan inf -inf", false),
+            ("renamed-wrapper", ["user": "otherUnusedAxis", "value": "ignoredValue"], true)]
+        for (label, rawSign, renamed) in ignoredBoxSigns {
+            var fields = boxFields
+            if let rawSign { fields["sign"] = rawSign }
+            let actual = try radial(fields, renamed: renamed, omitsSign: rawSign == nil)
+            actual.advance(by: 0.25)
+            let before = actual.frameSnapshot()
+            result["box-sign-\(label)-ignored-with-same-real-state-events-rng-id"] =
+                actual.definition.emitters[0].sign == nil
+                && !actual.definition.emitters[0].hasMalformedDirectionsOrSign
+                && actual.particles == boxControl.particles && actual.birthEvents == boxControl.birthEvents
+                && before.random.state == boxControl.frameSnapshot().random.state
+                && before.nextParticleID == boxControl.frameSnapshot().nextParticleID
+                && (!renamed || (actual.definition.materialPath != boxControl.definition.materialPath
+                    && actual.definition.emitters[0].id != boxControl.definition.emitters[0].id))
+            let candidate = try explicit(actual, count: 2)
+            let reference = try explicit(boxControl, count: 2)
+            result["box-sign-\(label)-exact-n-keeps-candidate-and-committed-state"] =
+                candidate.state.particles.count == 6 && candidate.state.particles == reference.state.particles
+                && candidate.state.birthEvents == reference.state.birthEvents
+                && candidate.state.random.state == reference.state.random.state
+                && candidate.state.nextParticleID == reference.state.nextParticleID
+                && actual.particles == before.particles && actual.birthEvents == before.birthEvents
+                && actual.frameSnapshot().random.state == before.random.state
+                && actual.frameSnapshot().nextParticleID == before.nextParticleID
+        }
+        for (label, rawDirections) in [("shape", "1 0"), ("nonfinite", "nan 1 0"),
+                                       ("retained-cap", "1000001 1 0")] {
+            let sim = try radial(["name": "boxrandom", "directions": rawDirections,
+                                  "sign": "unusedAxis"], peer: true, streaming: true)
+            sim.advance(by: 0.25)
+            let first = sim.frameSnapshot()
+            _ = sim.consumeBirthEvents()
+            sim.advance(by: 0.25)
+            result["box-directions-\(label)-still-rejects-locally-with-peer-and-survivor"] =
+                !sim.definition.emitters[0].hasBoundedDirectionsAndSign
+                && first.particles.count == 1 && sim.particles.count == 2
+                && sim.particles[0].id == first.particles[0].id
+                && sim.particles[0].age == first.particles[0].age + 0.25
+                && sim.particles.allSatisfy { $0.position == SIMD3(40, 2, 0) && $0.velocity == .zero }
+                && sim.birthEvents.count == 1 && sim.birthEvents[0].position == SIMD3(40, 2, 0)
+        }
         let signedManual = try radial(["sign": "10 0 0", "speedmin": -4, "speedmax": -4],
                                       initial: .init(intent: .paused))
         let signedCandidate = try explicit(signedManual, count: 2)

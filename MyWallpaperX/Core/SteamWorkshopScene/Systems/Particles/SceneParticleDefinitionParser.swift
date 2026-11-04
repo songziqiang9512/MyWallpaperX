@@ -126,22 +126,28 @@ nonisolated struct SceneParticleDefinitionParser {
             kind = .unsupported(name)
             diagnostics.append(.init(kind: .unsupportedEmitter, path: "emitter", componentName: name))
         }
+        let directions = Self.numericValue(root["directions"])
+        let signSource: Any? = kind == .boxRandom ? nil : root["sign"]
+        let sign = Self.numericValue(signSource)
+        let duration = Self.number(root["duration"])
         return SceneParticleEmitter(
             id: Self.integer(root["id"]), kind: kind,
             origin: Self.numericValue(root["origin"]),
-            directions: Self.numericValue(root["directions"]),
-            sign: Self.numericValue(root["sign"]),
+            directions: directions,
+            sign: sign,
             distanceMinimum: Self.numericValue(root["distancemin"]),
             distanceMaximum: Self.numericValue(root["distancemax"]),
             rate: Self.number(root["rate"]),
             instantaneousCount: Self.integer(root["instantaneous"]),
             speedMinimum: Self.number(root["speedmin"]),
             speedMaximum: Self.number(root["speedmax"]),
-            duration: Self.number(root["duration"]),
+            duration: duration,
             controlPoint: Self.integer(root["controlpoint"]),
             audioResponse: Self.audioResponse(root), periodicEmission: .init(root: root),
-            hasMalformedDirectionsOrSign: ["directions", "sign"].contains { root[$0] != nil && !(root[$0] is NSNull) && Self.numericValue(root[$0]) == nil },
-            hasMalformedDuration: root["duration"] != nil && !(root["duration"] is NSNull) && Self.number(root["duration"]) == nil,
+            hasMalformedDirectionsOrSign:
+                (root["directions"] != nil && !(root["directions"] is NSNull) && directions == nil)
+                || (signSource != nil && !(signSource is NSNull) && sign == nil),
+            hasMalformedDuration: root["duration"] != nil && !(root["duration"] is NSNull) && duration == nil,
             rawFlags: Self.integer(root["flags"]) ?? 0
         )
     }

@@ -121,16 +121,16 @@
       "bytes": 5938
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 103,
-      "bytes": 13086
+      "lines": 105,
+      "bytes": 13931
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 136,
       "bytes": 21117
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 69,
-      "bytes": 24582
+      "lines": 72,
+      "bytes": 26152
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 107,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 166,
-      "bytes": 28189
+      "bytes": 28372
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -364,10 +364,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "8d4194171ab6343d6226a0170a7ace789100d3267907e84e222879947792e657",
-      "after": "965df1494f5733ecb42e3924b0b07a008f6cd538b7ed3d28a8381dc98885d526",
-      "owner": "scene-emitter-integer-sign",
-      "reason": "Define finite component-wise integer direction selection once in the original cold plan, preserving RNG and geometry consumers without a numeric enum or new owner.",
+      "before": "965df1494f5733ecb42e3924b0b07a008f6cd538b7ed3d28a8381dc98885d526",
+      "after": "f1ff7aef628971af26fa1f8c2830067529d068b188b335f14982ae237617014d",
+      "owner": "scene-box-unused-sign",
+      "reason": "Define cold Box-only ignored-sign projection, parse-once facts and Sphere-only preparation while preserving LayerImage/raw provenance and actual consumer boundaries.",
       "decision": "docs/scene/capabilities/particle-component-coverage.md#emitter-sign"
     },
     {
@@ -409,19 +409,19 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "2fa0a3ca700fe99fc998e0186462425fa8f9abe814ef43413be347220cf6c9a9",
-      "after": "f59a4d74b5acc93d34c7af311e116e15b0ef48499e59995c126ecaa3256cd8c5",
-      "owner": "scene-emitter-integer-sign",
-      "reason": "Bind exact current source/App identities to native consumer, actual Metal, fixed-client geometry limitations and two-author/three-neighbor output evidence.",
+      "before": "f59a4d74b5acc93d34c7af311e116e15b0ef48499e59995c126ecaa3256cd8c5",
+      "after": "d4f0b1fb25f38f1e9d4c417e8b5eacdcb619004bd3573e8656cd0ea8f2913d76",
+      "owner": "scene-box-unused-sign",
+      "reason": "Bind exact two-source App identity to Box native equivalence, actual Metal readback, whole-RGB owned App differential and unchanged three-author neighbors without widening proof.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#coverage"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "f2cc85db234098e9713d34b66304555c4e975d99b3f7841c3fe3a808f3e6790d",
-      "after": "8a92f6a4ed02264e6779f716b541df9a43c026194bcc7588267e0585ec49e13a",
-      "owner": "scene-emitter-integer-sign",
-      "reason": "Remove obsolete sign assertions and retain current direction/unused-input, ancestor/child, prewarm and exact oversized regression-fixture responsibility boundaries.",
+      "before": "8a92f6a4ed02264e6779f716b541df9a43c026194bcc7588267e0585ec49e13a",
+      "after": "75b2428e1bc593ac34af82d21f54ffd68a00290d0b17567d3ef6fd3e3992100d",
+      "owner": "scene-box-unused-sign",
+      "reason": "Remove the resolved Box sign refusal, preserve the active Directions numerical counterexample and exact current regression-fixture debt.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     }
   ]

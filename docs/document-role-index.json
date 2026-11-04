@@ -1920,10 +1920,11 @@
         "发射器sign",
         "Sphere sign",
         "非单位sign",
-        "方向选择"
+        "方向选择",
+        "Box sign"
       ],
       "authority": "docs/scene/capabilities/particle-component-coverage.md#emitter-sign",
-      "owner": "Scene emitter SpawnPlan / Simulator"
+      "owner": "Scene emitter Parser / SpawnPlan / Simulator"
     }
   ],
   "pointerEntrypoints": [

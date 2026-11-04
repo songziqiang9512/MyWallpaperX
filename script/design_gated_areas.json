@@ -1790,7 +1790,7 @@
       "owner": "Scene Session / typed programs and component owners",
       "status": "approved",
       "designDoc": "docs/scene/architecture/runtime-architecture.md",
-      "design_notes": "Existing component execution contracts: docs/scene/capabilities/render-graph-shader-coverage.md#source-channel-layout and docs/scene/capabilities/runtime-input-property-coverage.md#effect-linked-timeline. Preserve one prepared resource/value chain, clock and output; replace old admission or duplicate work in the responsible owner. Verification and limits belong to those contracts. Property target-local fallback and no-writer rebuild retirement: docs/scene/capabilities/runtime-input-property-coverage.md#property-target-fallback. Preserve other consumers rebuild marks and atomic live updates. Source-free quad dependency and hierarchy contract: docs/scene/capabilities/effect-execution-coverage.md#source-free-quad. Existing prepared sampler/input facts and nearest raster own execution; no blanket slot0 or parentless permission. Emitter numeric preparation: docs/scene/capabilities/particle-component-coverage.md#emitter-speed and #emitter-sign. Prepare finite ordered speed endpoints and component-wise integer direction selection in the existing cold SpawnPlan; reuse original radial sampling/RNG and final multiplied Float birth checks. Retire arbitrary numeric permission without changing space or scheduling semantics.",
+      "design_notes": "Existing component execution contracts: docs/scene/capabilities/render-graph-shader-coverage.md#source-channel-layout and docs/scene/capabilities/runtime-input-property-coverage.md#effect-linked-timeline. Preserve one prepared resource/value chain, clock and output; replace old admission or duplicate work in the responsible owner. Verification and limits belong to those contracts. Property target-local fallback and no-writer rebuild retirement: docs/scene/capabilities/runtime-input-property-coverage.md#property-target-fallback. Preserve other consumers rebuild marks and atomic live updates. Source-free quad dependency and hierarchy contract: docs/scene/capabilities/effect-execution-coverage.md#source-free-quad. Existing prepared sampler/input facts and nearest raster own execution; no blanket slot0 or parentless permission. Emitter numeric preparation: docs/scene/capabilities/particle-component-coverage.md#emitter-speed and #emitter-sign. Prepare finite ordered speed endpoints and shape-owned integer direction selection in the existing cold SpawnPlan; ignore unused Box sign at the original Parser while preserving other shapes and parse each used numeric field once; reuse original radial sampling/RNG and final multiplied Float birth checks. Retire arbitrary numeric permission without changing space or scheduling semantics.",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextScript*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextMediaPropertiesCompiler.swift",
@@ -1965,7 +1965,8 @@
         "script/tests/fixtures/SceneMaterialCopyHistoryRetirementChecks.swift",
         "script/tests/fixtures/SceneRuntimeCatalogPreparationChecks.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinition.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePeriodicEmission.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePeriodicEmission.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser.swift"
       ],
       "contentPatterns": []
     },

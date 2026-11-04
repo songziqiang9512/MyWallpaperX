@@ -82,7 +82,7 @@ enum SceneParticleCoverageRenderingHarness {
         return ["device": device.name, "sampleCount": 1,
                 "coverage": coverage, "ordinary": ordinary, "missing": missing,
                 "runtime": runtime.0, "runtimeDepth": runtime.1, "signedBirth": runtime.2,
-                "signBirth": runtime.3]
+                "signBirth": runtime.3, "boxBirth": runtime.4]
     }
 
     private static func referenceState(
@@ -265,6 +265,7 @@ enum SceneParticleCoverageRenderingHarness {
         var birthSpeed: Double? = nil
         var birthSign: String? = nil
         var birthDirections = "1 0 0"
+        var birthEmitterKind: String? = nil
     }
 
     private struct RuntimeProduct {
@@ -324,7 +325,7 @@ enum SceneParticleCoverageRenderingHarness {
         }
         if input.renderer == "spritetrail" { renderer["length"] = 0.2 }
         let emitters: [[String: Any]] = origins.map { origin in
-            var emitter: [String: Any] = ["name": "sphererandom", "rate": 0,
+            var emitter: [String: Any] = ["name": input.birthEmitterKind ?? "sphererandom", "rate": 0,
                 "instantaneous": 1, "distancemin": 0, "distancemax": 0,
                 "speedmin": 0, "speedmax": 0, "origin": origin]
             if let speed = input.birthSpeed {
@@ -335,12 +336,17 @@ enum SceneParticleCoverageRenderingHarness {
                 emitter["speedmin"] = speed
                 emitter["speedmax"] = speed
             }
-            if let sign = input.birthSign {
+            if input.birthSign != nil || input.birthEmitterKind != nil {
                 emitter["directions"] = input.birthDirections
-                emitter["sign"] = sign
-                emitter["distancemin"] = 24
-                emitter["distancemax"] = 24
+                if input.birthEmitterKind == "boxrandom" {
+                    emitter["distancemin"] = "-24 0 0"
+                    emitter["distancemax"] = "-24 0 0"
+                } else {
+                    emitter["distancemin"] = 24
+                    emitter["distancemax"] = 24
+                }
                 emitter["instantaneous"] = 16
+                if let sign = input.birthSign { emitter["sign"] = sign }
             }
             return emitter
         }
@@ -369,7 +375,7 @@ enum SceneParticleCoverageRenderingHarness {
         guard let batch = batches.first else {
             throw failure("runtime-\(input.name)-\(runtime.diagnostics)")
         }
-        let observesBirth = input.birthSpeed != nil || input.birthSign != nil
+        let observesBirth = input.birthSpeed != nil || input.birthSign != nil || input.birthEmitterKind != nil
         let birthFacts = !observesBirth ? [] : runtime.consumeComponentObservations().filter {
             $0.layerID == layerID && $0.childTemplateIndex == nil
                 && $0.particlePath.lowercased() == path.lowercased() && $0.evaluation.origin == "live"
@@ -413,7 +419,7 @@ enum SceneParticleCoverageRenderingHarness {
     private static func runtimeCases(
         device: MTLDevice, queue: MTLCommandQueue, pipeline: SceneParticleMetalPipeline,
         ordinaryPipeline: SceneParticleMetalPipeline, library: MTLLibrary
-    ) throws -> ([[String: Any]], [[String: Any]], [[String: Any]], [[String: Any]]) {
+    ) throws -> ([[String: Any]], [[String: Any]], [[String: Any]], [[String: Any]], [[String: Any]]) {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(
             "mwx-particle-coverage-live-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -568,7 +574,25 @@ enum SceneParticleCoverageRenderingHarness {
             row["authoredDirections"] = directions
             signBirth.append(row)
         }
-        return (rows, depthRows, signedBirth, signBirth)
+        // A fixed negative Box coordinate must stay left even with sign+10.
+        let boxPoints = [SIMD2(40, 48), SIMD2(88, 48), SIMD2(64, 48), SIMD2(116, 14), SIMD2(4, 4)]
+        let boxInputs: [(String, String?, String)] = [
+            ("boxNoSign", nil, "boxrandom"), ("boxZeroSign", "0", "boxrandom"),
+            ("boxTenSign", "10 10 10", "boxrandom"), ("boxFractionSign", "0.75", "boxrandom"),
+            ("renamedBoxGarbageSign", "unknownAxis", "boxrandom"),
+            ("sphereGarbageSign", "unknownAxis", "sphererandom"),
+        ]
+        var boxBirth: [[String: Any]] = []
+        for (name, sign, kind) in boxInputs {
+            let product = try make(.init(name: name, renderer: "sprite", shape: "signedBirth",
+                blend: .translucent, birthSign: sign, birthEmitterKind: kind))
+            var row = try render(name, [runtimeDraw(product, camera: camera),
+                runtimeDraw(peer, camera: camera, origin: SIMD3(116, 14, 0))], frozenPoints: boxPoints)
+            if let sign { row["authoredSign"] = sign } else { row["authoredSign"] = NSNull() }
+            row["authoredEmitterKind"] = kind
+            boxBirth.append(row)
+        }
+        return (rows, depthRows, signedBirth, signBirth, boxBirth)
     }
 
     private static func vertexProbe(device: MTLDevice) throws -> MTLRenderPipelineState {

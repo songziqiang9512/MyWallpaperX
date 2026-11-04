@@ -345,6 +345,58 @@ class SceneParticleCoverageRenderingTests(unittest.TestCase):
         for field in ("layerID", "particlePath", "authoredMaterialPath", "authoredTexturePath"):
             self.assertNotEqual(original["facts"][0][field], renamed["facts"][0][field], field)
 
+    def test_box_ignores_unconsumed_sign_and_sphere_failure_keeps_the_encoder_peer(self) -> None:
+        rows = {row["name"]: row for row in self.result["boxBirth"]}
+        controls = (("boxNoSign", None), ("boxZeroSign", "0"), ("boxTenSign", "10 10 10"),
+                    ("boxFractionSign", "0.75"), ("renamedBoxGarbageSign", "unknownAxis"))
+        self.assertEqual(set(rows), {name for name, _ in controls} | {"sphereGarbageSign"})
+        clear, source, peer = [16, 24, 40, 102], [96, 160, 224, 255], [192, 96, 48, 255]
+        # Fixed Box(-24,0,0) around screen(64,48); sign+10 must not move it right.
+        for name, sign in controls:
+            row = rows[name]
+            with self.subTest(name=name):
+                self.assertEqual(row["authoredSign"], sign)
+                self.assertEqual(row["authoredEmitterKind"], "boxrandom")
+                self.assertEqual(row["encoded"], [True, True], row)
+                self.assertTrue(row["completed"], row)
+                self.assertTrue(row["verticesFinite"], row)
+                self.assertEqual([fact["liveParticles"] for fact in row["facts"]], [16, 1])
+                self.assertEqual([fact["instances"] for fact in row["facts"]], [16, 1])
+                self.assertEqual([fact["actualRenderer"] for fact in row["facts"]], ["sprite", "sprite"])
+                self.assertEqual(row["facts"][0]["textureExtent"], [4, 16])
+                self.assertTrue(row["facts"][0]["liveBirthAccepted"], row)
+                self.assertFalse(row["facts"][0]["liveBirthRejected"], row)
+                self.assertNotIn("emitterShapeUnsupported", row["facts"][0]["diagnostics"])
+                self.assertEqual(row["vertexCount"], 64)
+                for actual, wanted in zip(row["vertexBounds"], [36, 32, 44, 64], strict=True):
+                    self.assertAlmostEqual(actual, wanted, delta=.002, msg=name)
+                self.assertEqual(row["frozenPoints"], [[40, 48], [88, 48], [64, 48], [116, 14], [4, 4]])
+                self.assertEqual(row["frozenPixels"], [source, clear, clear, peer, clear])
+                self.assertEqual(row["histogram"],
+                                 {"96,160,224,255": 256, "192,96,48,255": 64, "16,24,40,102": 11968})
+                self.assertLessEqual(row["maximumByteError"], 1, row)
+                for field in ("histogram", "vertexBounds", "frozenPixels"):
+                    self.assertEqual(row[field], rows["boxNoSign"][field], field)
+        for field in ("layerID", "particlePath", "authoredMaterialPath", "authoredTexturePath"):
+            self.assertNotEqual(rows["boxNoSign"]["facts"][0][field],
+                                rows["renamedBoxGarbageSign"]["facts"][0][field], field)
+
+        rejected = rows["sphereGarbageSign"]
+        self.assertEqual(rejected["authoredEmitterKind"], "sphererandom")
+        self.assertEqual(rejected["authoredSign"], rows["renamedBoxGarbageSign"]["authoredSign"])
+        self.assertEqual(rejected["facts"][0]["textureExtent"], [4, 16])
+        self.assertEqual([fact["liveParticles"] for fact in rejected["facts"]], [0, 1])
+        self.assertEqual([fact["instances"] for fact in rejected["facts"]], [0, 1])
+        self.assertFalse(rejected["facts"][0]["liveBirthAccepted"], rejected)
+        self.assertTrue(rejected["facts"][0]["liveBirthRejected"], rejected)
+        self.assertEqual(rejected["encoded"], [False, True], rejected)
+        self.assertTrue(rejected["completed"], rejected)
+        self.assertEqual(rejected["vertexCount"], 0)
+        self.assertEqual(rejected["vertexBounds"], [])
+        self.assertEqual(rejected["frozenPixels"], [clear, clear, clear, peer, clear])
+        self.assertEqual(rejected["histogram"], {"192,96,48,255": 64, "16,24,40,102": 12224})
+        self.assertLessEqual(rejected["maximumByteError"], 1, rejected)
+
 
 if __name__ == "__main__":
     unittest.main()

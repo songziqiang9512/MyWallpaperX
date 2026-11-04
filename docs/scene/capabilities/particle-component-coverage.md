@@ -5,7 +5,7 @@
 <a id="simulation"></a>
 ## 准备、模拟与空间
 
-DefinitionParser 保作者顺序和未知字段；原组件 owner 准备 emitter/initializer/operator、control point、child 和 renderer 计划。每屏 PlaybackState 拥有模拟器、RNG、活动实例和轨迹历史，Session cadence 推进一次；View/GPU 重试不重新出生、执行事件或模拟。
+DefinitionParser 保作者顺序、已有字段解析与未知组件诊断；原组件 owner 准备 emitter/initializer/operator、control point、child 和 renderer 计划。每屏 PlaybackState 拥有模拟器、RNG、活动实例和轨迹历史，Session cadence 推进一次；View/GPU 重试不重新出生、执行事件或模拟。
 
 root local/world、layer/world/camera、attachment 与 child space 分别保身份。共享 canonical world/camera 供 emission 和 draw 使用，不能每粒子重解层级、把 Pointer force 的 reference origin 混作发射源，或用 abs/clamp 猜坐标。
 
@@ -34,9 +34,11 @@ speedmin/speedmax 是原发射方向上的有符号数值；缺少的每个端�
 验收经过真实Parser→冷计划→constructor→state/事件及Runtime→生产vertex/Metal：固定一轴/半径的负速度向内、正/逆序与单端缺省、改名、1e6以上但最终Float合法的输入；非有限端点、实际Float溢出及健康peer分别核。作者沿相同输入与有效rate/音频分支核accepted birth、目标batch与最终捕获，汇总PASS不代出生或draw；未做官方同条件对照时只声明本引擎已证数值合同。
 
 <a id="emitter-sign"></a>
-### Sphere 发射方向选择
+### 发射方向字段
 
-sign 在原冷 SpawnPlan 逐分量向零取整，零保持双侧，非零的符号选择该轴正/负侧；其幅度不乘入距离或速度。Definition 保作者有限数值及原有形状诊断，去除只准-1/0/1的数值枚举许可；不改变 Directions、半径分布、RNG、CP、instance override、world 转换或最终新生数值检查，不新增 owner、状态、缓存或普通帧工作。两个同源雨粒子的整数10因此可进入既有constructor；小数0.5不被误作强制正侧。
+Sphere 的 sign 在原冷 SpawnPlan 逐分量向零取整，零保持双侧，非零的符号选择该轴正/负侧；其幅度不乘入距离或速度。Definition 保作者有限数值及原有形状诊断，去除只准-1/0/1的数值枚举许可；不改变 Directions、半径分布、RNG、CP、instance override、world 转换或最终新生数值检查，不新增 owner、状态、缓存或普通帧工作。两个同源雨粒子的整数10因此可进入既有constructor；小数0.5不被误作强制正侧。
+
+Box 不消费 sign，解析入口把该无关字段投影为 nil，不因其合法、错型或非有限内容拒绝有效 Box；原 root 字典及既有组件来源记录不改。Directions、sign 与 duration 在原 parseEmitter 各解析一次，复用已解析结果判 malformed；仅 Box 忽略 sign，Sphere、LayerImage 及未知 kind 的字段和资格保持。原 SpawnPlan 的 Sphere 分支才准备 sign 与轴 mask，其他 shape 写中性值；不增加字段、owner、fallback 或普通帧工作。验收核 Box 缺省/零/非单位/小数/垃圾 sign 的相同实际出生、事件、RNG 和 Metal 输出，并用带有效 emission map 的 LayerImage、Sphere 坏输入和无关健康 peer 保反例。当前没有该门独立活动拒绝的作者资格，不宣称恢复某个 Workshop 作者。
 
 此分量语义依据固定官方客户端的合法、非单位、小数及跨轴静止几何控制；取整后取符号与等价阈值实现的内部形式未区分。手工原生JPEG中心读数不是RGB阈值分析、精确计数、分布或全参数官方一致证明，具体运行范围见[证据](runtime-evidence-current.md)。
 

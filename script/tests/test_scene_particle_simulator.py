@@ -1271,7 +1271,6 @@ enum Harness {
             #""name":"sphererandom","directions":"1000001 1 0""#,
             #""name":"sphererandom","directions":"1 1""#,
             #""name":"sphererandom","directions":"bad""#,
-            #""name":"boxrandom","directions":"1 1 0","sign":"1 0 0""#,
         ].map { fields -> SceneParticleSimulator in
             var simulator = simulator(emitterShapeJSON(fields), seed: 3, step: 1)
             simulator.advance(by: 1)
@@ -2108,6 +2107,17 @@ enum Harness {
         )
         layerImage.advance(by: 0.1)
         layerImageMissingMap.advance(by: 0.1)
+        let signedLayerImageDefinition = SceneParticleDefinitionParser().parse(root: try object(
+            layerImageJSON.replacingOccurrences(of: #""name":"layerimage""#,
+                with: #""name":"layerimage","sign":"1 0 0""#)))
+        let signedLayerImage = SceneParticleSimulator(definition: signedLayerImageDefinition,
+            seed: 1, fixedTimeStep: 0.1, layerImageEmissionMap: layerImageMap)
+        signedLayerImage.advance(by: 0.1)
+        let layerImageExplicitSignRejected: Bool =
+            signedLayerImageDefinition.emitters[0].sign == .vector([1, 0, 0])
+            && !signedLayerImageDefinition.emitters[0].hasMalformedDirectionsOrSign
+            && !signedLayerImageDefinition.emitters[0].hasBoundedDirectionsAndSign
+            && signedLayerImage.particles.isEmpty && signedLayerImage.playbackHasWork == nil
         let delayedLayerImageDefinition = SceneParticleDefinitionParser().parse(
             root: try object(delayedLayerImageJSON)
         )
@@ -2546,6 +2556,7 @@ enum Harness {
             },
             "layerImagePosition": layerImage.particles.first.map { vector($0.position) } ?? [],
             "layerImageMissingMapCount": layerImageMissingMap.particles.count,
+            "layerImageExplicitSignRetainedAndRejectedWithReadyMap": layerImageExplicitSignRejected,
             "delayedLayerImageBeforeCount": delayedLayerImageBeforeCount,
             "delayedLayerImageCount": delayedLayerImage.particles.count,
             "diagnostics": diagnosticSimulator.diagnostics.map(\.kind.rawValue).sorted()
@@ -3716,6 +3727,7 @@ class SceneParticleSimulatorTests(unittest.TestCase):
     def test_layer_image_emitter_uses_injected_alpha_bitmap_position(self) -> None:
         self.assertEqual(self.results["layerImagePosition"], [-15, 5, 0])
         self.assertEqual(self.results["layerImageMissingMapCount"], 0)
+        self.assertTrue(self.results["layerImageExplicitSignRetainedAndRejectedWithReadyMap"])
 
     def test_pointer_control_point_force_is_bounded_and_directional(self) -> None:
         self.assertEqual(self.results["pointerPullVelocity"], [2, 0, 0])
@@ -3937,10 +3949,10 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(
             self.results["boxDirectionsDiagnostics"], ["emitterShapeBounded"]
         )
-        self.assertEqual(self.results["invalidEmitterShapeCounts"], [0, 0, 0, 0, 0])
+        self.assertEqual(self.results["invalidEmitterShapeCounts"], [0, 0, 0, 0])
         self.assertEqual(
             self.results["invalidEmitterShapeDiagnostics"],
-            [["emitterShapeUnsupported"]] * 5,
+            [["emitterShapeUnsupported"]] * 4,
         )
 
     def test_change_angular_and_oscillation_operators_execute(self) -> None:
