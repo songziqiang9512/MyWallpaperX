@@ -15,20 +15,21 @@
 |---|---|
 | uniform const作用域 | `SceneGenericShaderRuntimeConstantNormalizer`仍用全文value-name表及exactReference之后的同名token计数；无关helper形参`pow`或`u_gain`会阻止纯uniform派生全局const降低。现有`pow-value-shadow`/`pow-uniform-shadow`回归保留原const，属于实现边界。沿初始化/调用token和真实读写复用binding facts，保纯度、out/inout与compile-time consumer限制；用基线、改名及无关同名形参的同Program A/B/A像素验证，尚无真实作者影响资格。 |
 | 通道与操作推导 | 无typed边界的颜色兼容、alpha-only/packed data及有序signal仍有有界source事实；反射中的vec4本身不能说明通道意图。沿原compiler/ABI补实际跨函数、条件合流与操作能力缺口，保持未取得的表示资格；不为效果写法追加识别名单。 |
-| linked timeline producer · 2999344788、3577990983 | bokeh的linked parent/children timeline在准备期报`dynamic-uniform-producer-unavailable`；原载荷未指出missing uniform，需沿BindingProgram/producer取得精确未接入字段。 |
+| 无 lane 联动值 · 2999344788/89e0 | Gamma在pass4仅有parent/preview/value5，无c0，Parser为`missingLanes`；Aperture声明child Gamma，连通分量不能发布真实producer，当前App仍局部旁路e0。无lane是否为纯控制或保原常量尚未资格，不借根值、preview或shader default补曲线。沿[数值联动合同](../capabilities/runtime-input-property-coverage.md#effect-linked-timeline)核真实值语义；健康waterflow/e1保持。 |
+| material default动画入口 | AssetCatalog的material ShaderValue未调用TimelineParser，Resolver再用instance覆盖；无override的动画wrapper可能被当staticExact冻结。typed material timeline和definition-only pass还缺完整producer/pass identity；这是静态代码边界，尚无作者运行资格。沿原解析及有效material/instance源接入，不另建资源owner。 |
 | named供货 · 2972071249/313e9→234 | 234 hidden/childless；作者两effect visible=true，真实两节点authored图存在；inactive来自layer-hidden execution route。313前九段Program/tail健康，e9=`dependency-stage-reference-unavailable`。copyBackground省略默认未官方资格；prefix普通资源/颜色未资格、取时未知，不能raw source冒充效果结果。 |
 | named/source执行截点 | `providerGraphIsAuthoredOrderIndependent`仍限定单引用/单上游，并检查潜在而非最终选中的背景路径；同源多槽、多上游与死lower candidate仍可能误拒。DependencyPlan的原始renderOrder与utility展开后的成员次序未统一；background proof也整体排除graph provider。沿实际prepared需求和原utility执行顺序建立唯一供货截点；forward闭包含可见上游时，还需保其作者位主输出，不能固定`isVisibleExecutionRoot:false`并跳过作者位。此为代码可构造边界，尚无逐作者缺图资格；分别核真实prefix、独立source与循环，不加member或效果例外。 |
 | 初始停用named准备 | DirectBool的startup-inactive准备仍从descriptor instance引用出发，与definition材质候选及实际Program需求未统一；当前为代码边界，尚无逐作者资格。沿原prepared需求保source和热启用，不要求作者重复填写override或另存许可状态。 |
 | subtree来源 · 3788897599/196 | project带child291仍缺project子树source消费者；沿原source与发布截点补能力，不因共用原因码合并其他group归因。 |
 | composition 其他绘制消费者 | `SceneUtilityLayerSourceRoute` 对 model/spotLight 仍整类拒绝；原绘制未消费局部 raster。核实际 nearest target 的投影、深度、光照及 viewport/local 模式，沿原 draw owner 接通，不以新组件/效果名单代缺失消费者。 |
 | composition 内 REFRACT 官方单位 | 当前粒子映射保本引擎 canonical 全局 screen-UV amount，宽窄画布与物理 extent 有内部资格。官方 owned loose fixture 的 amount0、neutral、mask0 仍有相同非背景卡片，尚不能据此区分 canvas/viewport 单位；先核官方背景输入、取景和控制，再做同 world 几何的尺寸/旋转对照，不能由现有 J 数学推为官方像素一致。 |
-| uniform · 3511024658/73 | `dynamic-uniform-unavailable`未给具体字段；沿原uniform producer取精确缺项，不能直接称缺音频。 |
+| 属性错型覆盖 · 3511024658/73e0 | 原运行首缺按原始输入重建为pass0 `Bar Color`→vec3 `u_BarColor`；同key newproperty为Bool，实际控制effect visibility，DocumentResolver却将原颜色fallback覆盖成true。BindingProgram保vec3 definition但无该target instruction；另原fallback检查按全key已有producer拒绝其他target回退。沿类型与完整target保原色、健康Bool消费者及实际producer资格，不借同key代target；当前App需同输入定向复验，官方错型行为未知。 |
 | source/模型 · 2804817823/28/32 | 9个资产已加载，两个Puppet source明确拒`MDLV0013`，不是两个纹理文件缺失。沿MDL/Puppet几何owner补格式/姿态资格。 |
 | layer source · 3292370168/239 | frame0真实`layer-source-not-ready`，选中frame18无239 sourceCapture/material/tail，整段无该层CPU调用；descriptor实际kind=image，parent/provider151为image/video，不能由composelayer_depthtest.json文件名归成group shader失败。沿真实base/video source准备定位；hidden505另有utility capture失败，209→147健康named链不代验239。 |
 | 音频composition · 3039882306/772 | 当前无对应CPU/graph/所选帧draw，需受控audio/source输入；hidden1084 pending失败、868 fallback不挪作当前可见层证明。 |
-| world-space动态祖先 · 3448877775/15706 | parent15705有origin script/timeline，RopeTrail flags1在模拟前被`dynamicSystemTransform`拒绝。沿ParticleRuntime的当帧world变换消费扩域，不能改作者flags或只延长播放。 |
+| world-space动态祖先 · 3448877775/15706 | parent15705有origin script/timeline，RopeTrail definition flags1在模拟前被`dynamicSystemTransform`拒绝。原adapter仍只选root自身writer、排child；该作者还有ropeTrail/eventdeath child边界。沿ParticleRuntime的当帧world/reference与子资源消费者扩域，不能只删guard、改作者flags或延长播放。 |
 | REFRACT normal空槽 · 3566323704/552/141 | material显式`[particle/drop,null]`被要求非空normal的planner拒绝，尚未进入缺文件lookup；缺省normal语义待资格，不造纹理补洞。 |
-| RopeTrail参数 · 3337494481、3527426897 | 前者10个root先被flags1拒绝，负subdivision=-16为后续未资格形状；后者637/1323缺length被拒。分别核flags与隐式length语义，不取绝对值或猜默认。 |
+| RopeTrail参数 · 3337494481、3527426897 | 前者活动10root先被renderer flags1拒绝；对应20层definition flags0，负subdivision=-16仍未资格。另224/251的definition flags1是静态hidden，不归动态祖先拒绝。后者637/1323缺length被拒。分别核renderer输入与隐式length语义，不取绝对值或猜默认。 |
 | Rope A2C可见轨迹 · 3807668787/958 | 原作者已进入实际A2C Rope，五个缩导出活动相位126/224/224/252/238段均编码并GPU完成，camera与几何沿原约定。另次原尺寸图仅两个pointer端点有弱色信号，完整轨迹仍未资格；缩图不能判原始像素缺失。静态核无重复alpha、后置opaque覆盖或TEX padding，sickle单图mask稀疏且mip峰值降低，实际LOD未知。alpha1/0仅私有诊断，不能改作者alpha或放大增益冒称修复。先用可区分的UV/LOD/coverage输入定位；官方precoverage数学与本机sampleCount1尚无同输入差异资格，不据名称新增MSAA/resolve。 |
 | 粒子子资源 · 3788897599/568 | mouse=true活动复验中parent getsuga_tenshou与child0 red_fire均draw，另一个getsuga.json child仍有`textureLoadFailed`；尚无具体缺失texture键，不能合并归因A2C、project196或父树全部不可用。沿原AssetGraph/TextureLoader定位实际资源及作者缺省，保健康成员继续呈现。 |
 | 周期发射上限 · 3564173599/1987、3749463715/405/412 | `maxtoemitperperiod=32`被nil gate拒绝，22秒长窗无对应出生/draw。Plan无cap、State无逐周期计数，活跃时长先合并多窗；instance.count是否缩放上限、出生消费点及fraction/触顶换窗语义尚未证。先做定窗/count2/非整fraction/短命容量1的区分实验，再沿原emitter与值快照补调度，不能仅删guard或末端min32；explicit不随自然发射扩大资格。 |
@@ -45,12 +46,13 @@
 | 必需binding · 3556263543 | 五个文字psyhue e0在真实采样slot2缺authored/default binding而持续旁路，e1与终端健康。缺项已证，隐式phase默认语义仍未知；不是census注释里的slot3。不得随意填纹理，也不能把copy的GPU完成算原effect执行。 |
 | 隐藏分支shader | 3607684497/59e0的`v_TexCoordKernel`明确varying type/array拒绝；2887099508/257e0明确g_Point1 script attachment未资格；2932157836/299e1 node1/slot0、3745828537/1087e0 node0/slot1缺binding资格，2857410102/91e3仅有聚合purpose原因。均保never-visible边界；3042492564另有aa_gaussian/node3 stage-link失败，不能与blur slot0混因。 |
 | 作者脚本与VM边界 | 初次32样本、含长窗33样本有实际script诊断；初次TypeError涉及21样本45个target，不能按异常类批量归作者或引擎。2890473419四个origin脚本仅声明shadowLayer即写visible、2982559622把Vec3返回给alpha为已证输入问题；3504669359实际触及prepared Puppet metadata unavailable。其余按`task/full-script-failure-recon.json`逐target核上下文/producer/API/回调顺序。 |
-| 片头后的mutation · 3599986633/702.visibility | 长窗约Ready+7秒开始，5项layer mutation整批报`invalid authored layer destroy`并保previous-current，16秒窗重复557次。主体可见不证明callback成功；沿原SceneScript mutation/destroy边界核作者调用、退休对象及事务范围，不猜作者错或无差别吞错。 |
+| 片头后的mutation · 3599986633/702.visibility | 约Ready+7秒，702脚本hide后destroy“片头”，同owner合并为一项destroy；三个authored children650/654/700未同时声明销毁，被原guard拒绝，702保previous-current，16秒窗重复557次。总数5另含175对四文字层的显隐，按owner隔离。沿原destroy/subtree核父销毁时子层寿命；官方只明示延迟移除，递归退休或脱父仍需资格，不拆owner原子性吞错。 |
 | 缺输入 · 3736952187、3763323436 | project.json不存在，未启动App；补合法输入后再跑，不作引擎失败。 |
 | named demand · 2069136288、3395777145、3829467967 | 未达静态planned的269/395/946无当前active consumer；需property分支输入，不能要求默认帧执行所有潜在capture。 |
 | activation读口 · 3639999624/84e1 | 实际`activation-passthrough:inactive-dependency-preproof-mismatch`被reader判malformed/missing；作者visible=false，有GPU完成及后续e2消费。对齐原producer/reader分类并保inactive资格，不能改渲染消报告；此问题与hidden provider的exact身份命名空间分开。 |
 | 来源阶段读口 | 17样本的19个source-not-ready subject均在Ready前，14样本后有同layer成功；2982559622/3800572533另有资源前置失败后同subject成功。只证layer后续成功，不证同slot恢复；2804817823/3186328539/3292370168无相同恢复，318的1045在frame1变hidden，不能要求必draw。 |
 | 纹理关联与最终贡献 | 全部声明有索引，但ordinary/geometry/particle部分实际draw未携带asset provenance，graph/provider引用也有未闭关联。不得解析Swift描述字符串猜identity；沿已存在Candidate/Resource carrier补最小typed映射。单帧bind/GPU/tail不证明全部实例或最终可见像素，动态输入、材质与render-target的未观测阶段仍保unknown。 |
+| 连续PNG读口 · 3577990983片头 | 7秒/.6秒捕获实际写出4PNG，另6项superseded、1项teardown，整次保CHECK。等待lane时pending request仍挂逐帧composition，CB地址可复用；两次actual capture有多个request/CB候选，现reader以len1拒绝。当前按encoded行→同CB completed记录及同帧uniform有界核对；自动读口应沿原reader保编码/事件顺序或原DEBUG传frame/stream/generation，不能取首个request匹配，导出背压原因另核。 |
 | 条件/周期分支 | 3042492564需click开关/父组，3768303048需day/night与pointer输入；延长秒数不能替代。3764725758的后续inactive事实、3830665420的10个鸟实例都不能证第二轮，首事实去重没有保完整周期回执；按实际模拟时刻/事件资格，不由墙钟授通过。 |
 
 ## 需定向扩域的能力入口

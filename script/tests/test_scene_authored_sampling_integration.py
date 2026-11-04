@@ -5,6 +5,7 @@ host image mapping once; authored sampling of that capture keeps its own UV.
 Companion cases explicitly map a separately bound authored atlas once.
 """
 from pathlib import Path
+import copy
 import hashlib
 import json
 import math
@@ -22,6 +23,7 @@ from script.scene_wallpaper_graph_output_metrics import (
     structured_runtime_observations, terminal_composition_snapshot,
 )
 from .scene_pkg_fixture import make_package
+from .fixtures.scene_timeline_combined_cases import linked_effect_constants
 
 CANVAS = (256, 192)
 COLORS = ((255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0))
@@ -123,6 +125,13 @@ def changing_atlas(permute=False):
     return bytes(result)
 
 
+def solid_texture(rgb):
+    pixels = bytes((*rgb, 255)) * 256
+    return (b"TEXV0005\0TEXI0001\0" + struct.pack("<7I", 0, 0, 16, 16, 16, 16, 0)
+            + b"TEXB0002\0" + struct.pack("<2I", 1, 1)
+            + struct.pack("<5I", 16, 16, 0, len(pixels), len(pixels)) + pixels)
+
+
 def data_layout_fixture(case):
     renamed, broken = case == "data-layout-renamed", case == "data-layout-bad-mask"
     prefix, word, shift = ("unseen_density", "amount", 1000) if renamed else ("own_channel_data", "density", 0)
@@ -143,18 +152,13 @@ def data_layout_fixture(case):
             return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data) & 0xffffffff)
         return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", 16, 16, 8, 4 if alpha else 0, 0, 0, 0))
                 + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b""))
-    def solid_tex(rgb):
-        pixels = bytes((*rgb, 255)) * 256
-        return (b"TEXV0005\0TEXI0001\0" + struct.pack("<7I", 0, 0, 16, 16, 16, 16, 0)
-                + b"TEXB0002\0" + struct.pack("<2I", 1, 1)
-                + struct.pack("<5I", 16, 16, 0, len(pixels), len(pixels)) + pixels)
     entries, objects, panels = {}, [], []
     for index, (name, x, y) in enumerate((("gray", 64, 64), ("gray-alpha", 192, 64), ("peer", 128, 144))):
         layer, path = 51 + shift + index, f"{prefix}/{name}"
         model, material, source = f"models/{path}.json", f"materials/{path}.json", f"materials/{path}.tex"
         entries[model] = encoded({"material": material})
         entries[material] = encoded({"passes": [{"shader": "genericimage", "textures": [source]}]})
-        entries[source] = solid_tex((0, 255, 0) if name == "peer" else (120, 180, 240))
+        entries[source] = solid_texture((0, 255, 0) if name == "peer" else (120, 180, 240))
         obj = {"id": layer, "name": path, "image": model, "origin": f"{x} {CANVAS[1] - y} 0",
                "size": "64 32", "visible": True}
         if name != "peer":
@@ -182,7 +186,69 @@ def data_layout_fixture(case):
     return {"type": "scene", "file": "scene.json"}, entries, panels, palettes
 
 
+def timeline_layout_fixture(case):
+    renamed = case == "timeline-layout-renamed"
+    prefix, keys, shift = ("unseen_clock", ("drive", "turn"), 1000) if renamed else (
+        "own_linked", ("master", "follower"), 0)
+    root, child = linked_effect_constants(root_key=keys[0], child_key=keys[1], fps=10,
+        length=200, startpaused=False, root_lane=[{"frame": 0, "value": .2}, {"frame": 200, "value": .8}],
+        child_lane=[{"frame": 0, "value": .9}, {"frame": 200, "value": .3}])
+    entries, objects = {}, []
+    for index, x in enumerate((64, 192)):
+        layer, path = 61 + shift + index, f"{prefix}/card{index}"
+        entries[f"models/{path}.json"] = encoded({"material": f"materials/{path}.json"})
+        entries[f"materials/{path}.json"] = encoded({"passes": [{"shader": "genericimage",
+            "textures": [f"materials/{path}.tex"]}]})
+        entries[f"materials/{path}.tex"] = solid_texture((180, 180, 180) if index == 0 else (0, 255, 0))
+        obj = {"id": layer, "image": f"models/{path}.json", "origin": f"{x} 96 0",
+               "size": "64 32", "visible": True}
+        if index == 0:
+            definitions, overrides = [], []
+            for ordinal in range(4):
+                scalar_key = keys[ordinal % 2]
+                shader = f"{prefix}/channel{ordinal}"
+                uniform = "u_master" if ordinal % 2 == 0 else "u_follower"
+                body = [f"vec4(c.r*{uniform},c.g,c.b,c.a)", f"vec4(c.r,c.g*{uniform},c.b,c.a)",
+                        f"vec4(c.r,c.g,c.b*{uniform},c.a)", f"vec4(c.rgb,c.a*{uniform})"][ordinal]
+                entries[f"materials/{shader}.json"] = encoded({"passes": [{"shader": shader,
+                    "textures": [None], "blending": "normal", "depthtest": "disabled",
+                    "depthwrite": "disabled", "cullmode": "nocull"}]})
+                entries[f"shaders/{shader}.vert"] = VERTEX
+                entries[f"shaders/{shader}.frag"] = ("uniform sampler2D g_Texture0;\n"
+                    f'uniform float {uniform}; // {{"material":"{scalar_key}"}}\n'
+                    "varying vec2 v_TexCoord;\nvoid main(){vec4 c=texSample2D(g_Texture0,v_TexCoord);"
+                    f"gl_FragColor={body};}}\n").encode()
+                definition = {"material": f"materials/{shader}.json",
+                    "bind": [{"name": "previous" if ordinal == 0 else f"step{ordinal - 1}", "index": 0}]}
+                if ordinal < 3:
+                    definition["target"] = f"step{ordinal}"
+                definitions.append(definition)
+                value = copy.deepcopy(root if ordinal % 2 == 0 else child)
+                if ordinal % 2 == 0:
+                    value["animation"]["options"]["name"] = f"{prefix} clock {ordinal}"
+                if case == "timeline-layout-bad-link" and ordinal == 3:
+                    value["animation"]["options"]["parent"]["key"] = "unavailable_root"
+                overrides.append({"constantshadervalues": {scalar_key: value}})
+            entries[f"effects/{prefix}/linked/effect.json"] = encoded({"passes": definitions,
+                "fbos": [{"name": f"step{i}", "scale": 1, "format": "rgba_backbuffer"} for i in range(3)]})
+            suffix = f"{prefix}/suffix"
+            entries[f"effects/{suffix}/effect.json"] = encoded({"passes": [{"material": f"materials/{suffix}.json"}]})
+            entries[f"materials/{suffix}.json"] = encoded({"passes": [{"shader": suffix, "textures": [None],
+                "blending": "normal", "depthtest": "disabled", "depthwrite": "disabled", "cullmode": "nocull"}]})
+            entries[f"shaders/{suffix}.vert"] = VERTEX
+            entries[f"shaders/{suffix}.frag"] = (b"uniform sampler2D g_Texture0;\nvarying vec2 v_TexCoord;\n"
+                b"void main(){vec4 c=texSample2D(g_Texture0,v_TexCoord);gl_FragColor=vec4(c.r,c.g*0.5,c.b,c.a);}\n")
+            obj["effects"] = [{"id": layer * 10, "file": f"effects/{prefix}/linked/effect.json", "passes": overrides},
+                              {"id": layer * 10 + 1, "file": f"effects/{suffix}/effect.json"}]
+        objects.append(obj)
+    entries["scene.json"] = encoded({"version": 3, "general": {"orthogonalprojection": {
+        "width": CANVAS[0], "height": CANVAS[1]}, "clearcolor": "0 0 0"}, "objects": objects})
+    return {"type": "scene", "file": "scene.json"}, entries, [(61 + shift, 64, 96, False), (62 + shift, 192, 96, False)]
+
+
 def case_fixture(case):
+    if case.startswith("timeline-layout"):
+        return timeline_layout_fixture(case)
     if case.startswith("data-layout"):
         return data_layout_fixture(case)[:3]
     project, entries = fixture_entries()
@@ -283,6 +349,13 @@ def preregistration(case="padding"):
                                   "GAAlpha": [255, 0, 64, 255], "purpose": "mask", "read": "r only"}
         for panel in protocol["panels"]:
             panel["quadrantRGB"] = protocol["paletteByLayer"][str(panel["id"])]
+    if case.startswith("timeline-layout"):
+        protocol["timeline"] = {"root": ".2+.03*sceneTime", "child": ".9-.03*sceneTime",
+            "pixelRGB": "[180*root*child,90*child*child,180*root*child]",
+            "sceneTimeWindow": [0, 6], "maximumClockBracketSeconds": .4,
+            "passNodeIndices": [0, 1, 2, 3],
+            "identity": "same stream/frame/generation; four full pass targets; no image-derived fitting",
+            "badLinkRGB": [180, 90, 180], "peerRGB": [0, 255, 0]}
     return protocol
 
 
@@ -331,6 +404,98 @@ class SceneAuthoredSamplingIntegrationTests(unittest.TestCase):
             raise unittest.SkipTest("requires explicitly frozen Debug App executable")
         cls.app = Path(executable).resolve(strict=True)
 
+    def capture_event(self, capture, log, observations):
+        reason = "ready" if "ready" in capture.name else "after"
+        request = re.search(rf"phase=snapshot reason={reason} request=(\d+) source=metal path={re.escape(str(capture))}", log)
+        self.assertIsNotNone(request)
+        receipt = re.search(rf"phase=snapshot-encoded request={request[1]} commandBufferToken=(\d+) textureToken=(\d+) width=(\d+) height=(\d+)", log)
+        self.assertIsNotNone(receipt)
+        matched = terminal_composition_snapshot({"status": "captured", "request_id": int(request[1]),
+            "command_buffer_token": receipt[1], "texture_token": receipt[2],
+            "source_width": int(receipt[3]), "source_height": int(receipt[4])}, observations)
+        self.assertTrue(matched["composition_receipt_matched"], matched)
+        event = next(e for e in observations["events"] if e["captureRequestID"] == int(request[1])
+                     and e["commandBufferToken"] == receipt[1])
+        self.assertEqual(event["truncatedRows"], 0)
+        return event
+
+    def timeline_palette(self, case, log, event):
+        layer = 1061 if case == "timeline-layout-renamed" else 61
+        prefix = "MWX DEBUG SCENE: phase=timeline-frame-input json="
+        records = [json.loads(line.split(prefix, 1)[1]) for line in log.splitlines() if prefix in line]
+        frames = [r for r in records if r["kind"] == "frame" and r["stream"] == event["displayID"]]
+        self.assertTrue(frames, "requested clock observations must reach the App")
+        self.assertTrue(all(r["observationComplete"] and r["frame"] == r["snapshotFrame"] for r in frames))
+        frame = event["frameIndex"]
+        lower = max((r for r in frames if r["frame"] <= frame), key=lambda r: r["frame"])
+        upper = min((r for r in frames if r["frame"] >= frame), key=lambda r: r["frame"])
+        self.assertLessEqual(upper["sceneTime"] - lower["sceneTime"], .4)
+        values, generations = {}, set()
+        for line in log.splitlines():
+            if "MWX typed input consumption: channel=timeline consumer=material-uniform " not in line:
+                continue
+            fields = dict(re.findall(r"(\w+)=([^\s]+)", line))
+            if (fields.get("layer"), fields.get("effect"), fields.get("frame"), fields.get("stage")) != (
+                    str(layer), "0", str(frame), "fragment"):
+                continue
+            index = int(fields["pass"])
+            expected = (("drive", "turn") if case == "timeline-layout-renamed" else ("master", "follower"))[index % 2]
+            self.assertEqual(fields["constant"], expected)
+            self.assertEqual(fields["uniform"], "u_master" if index % 2 == 0 else "u_follower")
+            scalar = re.fullmatch(r"scalar\(([^)]+)\)", fields["value"])
+            self.assertIsNotNone(scalar)
+            value = float(scalar[1])
+            if index in values:
+                self.assertEqual(values[index], value)
+            values[index] = value
+            generations.add(int(fields["generation"]))
+        broken = case == "timeline-layout-bad-link"
+        if broken:
+            self.assertEqual(values, {})
+            color = (180, 90, 180)
+        else:
+            self.assertEqual(set(values), {0, 1, 2, 3})
+            self.assertEqual(len(generations), 1)
+            generation = next(iter(generations))
+            self.assertLessEqual(lower["generation"], generation)
+            self.assertLessEqual(generation, upper["generation"])
+            self.assertEqual(values[0], values[2])
+            self.assertEqual(values[1], values[3])
+            self.assertAlmostEqual(values[0] + values[1], 1.1, delta=1e-6)
+            for index, value in values.items():
+                endpoints = [(.2 + .03 * r["sceneTime"] if index % 2 == 0 else .9 - .03 * r["sceneTime"])
+                             for r in (lower, upper)]
+                self.assertGreaterEqual(value, min(endpoints) - 1e-6)
+                self.assertLessEqual(value, max(endpoints) + 1e-6)
+            root, child = values[0], values[1]
+            color = tuple(round(v) for v in (180 * root * child, 90 * child * child, 180 * root * child))
+        rows = [r for r in event["rows"] if r.get("layerID") == layer]
+        self.assertTrue(any(r["kind"] == "sourceCapture" and r["outcome"] == "encoded" for r in rows))
+        self.assertTrue(any(r["kind"] == "tail-consume" and r["outcome"] == "terminal-consumed" for r in rows))
+        material = [r for r in rows if r["kind"] == "material" and r["outcome"] == "draw-encoded"]
+        self.assertEqual({r["effectIndex"] for r in material}, {1} if broken else {0, 1})
+        if not broken:
+            self.assertEqual({r["nodeIndex"] for r in material if r["effectIndex"] == 0}, {0, 1, 2, 3})
+        source = next(r for r in rows if r["kind"] == "sourceCapture" and r["outcome"] == "encoded")
+        suffix = next(r for r in material if r["effectIndex"] == 1)
+        if broken:
+            stages = [next(r for r in rows if r["kind"] == "copy" and r["effectIndex"] == 0
+                           and r["outcome"] == "encoded")]
+        else:
+            stages = sorted((r for r in material if r["effectIndex"] == 0), key=lambda r: r["nodeIndex"])
+        chain = [source, *stages, suffix]
+        for producer, consumer in zip(chain, chain[1:]):
+            self.assertEqual(producer["target"]["textureToken"], consumer["source"]["textureToken"])
+        tail = next(r for r in rows if r["kind"] == "tail-consume" and r["outcome"] == "terminal-consumed")
+        ordinary = next(r for r in rows if r["kind"] == "ordinary" and r["outcome"] == "draw-encoded")
+        seal = next(r for r in event["rows"] if r["kind"] == "frame-seal" and r["outcome"] == "sealed")
+        self.assertEqual(suffix["target"]["textureToken"], tail["source"]["textureToken"])
+        self.assertEqual(tail["source"]["textureToken"], ordinary["source"]["textureToken"])
+        self.assertEqual(ordinary["target"]["textureToken"], seal["target"]["textureToken"])
+        return {str(layer): (color,) * 4, str(layer + 1): ((0, 255, 0),) * 4}, {
+            "frame": frame, "clockBracket": [lower["sceneTime"], upper["sceneTime"]],
+            "uniformValues": values, "generations": sorted(generations), "expectedRGB": color}
+
     def run_case(self, case):
         protocol = preregistration(case)
         with tempfile.TemporaryDirectory(prefix="mwx-authored-sampling-") as temporary:
@@ -343,7 +508,14 @@ class SceneAuthoredSamplingIntegrationTests(unittest.TestCase):
             (content / "scene.pkg").write_bytes(make_package(list(entries.items())))
             (root / "preregistration.json").write_bytes(encoded(protocol))
             env = os.environ.copy()
+            if case.startswith("timeline-layout"):
+                for key in tuple(env):
+                    if key.startswith(("MWX_SCENE_", "MYWALLPAPERX_SCENE_DEBUG_")):
+                        del env[key]
             env.update(HOME=str(home), CFFIXED_USER_HOME=str(home), MWX_SCENE_DEBUG_SURFACE_COUNT="1")
+            if case.startswith("timeline-layout"):
+                env["MYWALLPAPERX_SCENE_DEBUG_TIMELINE_EVIDENCE"] = json.dumps({
+                    "layerIDs": [panel_specs[0][0]], "sceneTimeWindow": [0, 6], "interval": .2, "maxSamples": 32})
             command = [str(self.app), "--mwx-debug-scene-root", str(content),
                        "--mwx-debug-scene-duration", "8" if case == "resize" else "6",
                        "--mwx-debug-scene-evidence-dir", str(evidence)]
@@ -357,10 +529,18 @@ class SceneAuthoredSamplingIntegrationTests(unittest.TestCase):
             try:
                 preview = "\n".join(p.read_text() for p in evidence.glob("*preview*.log"))
                 captures = sorted(evidence.glob("*-window.png"))
-                measurements = {p.name: measure_capture(p, panel_specs,
-                    second_frame=case in ("new-frame", "companion-frame") and "after" in p.name,
-                    palettes=protocol.get("paletteByLayer"))
-                    for p in captures}
+                observations = structured_runtime_observations(log, "MWX SCENE COMPOSITION OBSERVATION: ")
+                measurements = {}
+                for capture in captures:
+                    palette = protocol.get("paletteByLayer")
+                    if case.startswith("timeline-layout"):
+                        palette, timeline = self.timeline_palette(case, log, self.capture_event(capture, log, observations))
+                    measurement = measure_capture(capture, panel_specs,
+                        second_frame=case in ("new-frame", "companion-frame") and "after" in capture.name,
+                        palettes=palette)
+                    if case.startswith("timeline-layout"):
+                        measurement["timeline"] = timeline
+                    measurements[capture.name] = measurement
                 (root / "measurements.json").write_bytes(encoded(measurements))
                 self.assertEqual(result.returncode, 0, log[-6000:])
                 self.assertIn("gpuDrained=true", log)
@@ -369,7 +549,7 @@ class SceneAuthoredSamplingIntegrationTests(unittest.TestCase):
                 self.assertTrue(any("ready" in p.name for p in captures))
                 self.assertTrue(any("after" in p.name for p in captures))
                 effect_layers = (22,) if case == "raw-miss" else (12, 22, 31)
-                if case.startswith("data-layout"):
+                if case.startswith(("data-layout", "timeline-layout")):
                     effect_layers = ()
                 if case.startswith("invalid-companion-"):
                     effect_layers = (22, 31)
@@ -387,7 +567,6 @@ class SceneAuthoredSamplingIntegrationTests(unittest.TestCase):
                 provider = 22 if case == "padding" else 12
                 if case.startswith("data-layout"):
                     shift = 1000 if case == "data-layout-renamed" else 0
-                    observations = structured_runtime_observations(log, "MWX SCENE COMPOSITION OBSERVATION: ")
                     self.assertEqual(observations["parse_errors"], 0)
                     self.assertEqual(set(measurements), {"scene-ready-window.png", "scene-after-window.png"})
                     for layer in (51 + shift, 52 + shift):
@@ -399,17 +578,7 @@ class SceneAuthoredSamplingIntegrationTests(unittest.TestCase):
                             if outcome == "encoded-output":
                                 self.assertRegex(log + preview, rf"generic shader execution [^\n]*layer={layer} effect={effect} ")
                     for capture in captures:
-                        reason = "ready" if "ready" in capture.name else "after"
-                        request = re.search(rf"phase=snapshot reason={reason} request=(\d+) source=metal path={re.escape(str(capture))}", log)
-                        self.assertIsNotNone(request)
-                        receipt = re.search(rf"phase=snapshot-encoded request={request[1]} commandBufferToken=(\d+) textureToken=(\d+) width=(\d+) height=(\d+)", log)
-                        self.assertIsNotNone(receipt)
-                        matched = terminal_composition_snapshot({"status": "captured", "request_id": int(request[1]),
-                            "command_buffer_token": receipt[1], "texture_token": receipt[2],
-                            "source_width": int(receipt[3]), "source_height": int(receipt[4])}, observations)
-                        self.assertTrue(matched["composition_receipt_matched"], matched)
-                        event = next(e for e in observations["events"] if e["captureRequestID"] == int(request[1]))
-                        self.assertEqual(event["truncatedRows"], 0)
+                        event = self.capture_event(capture, log, observations)
                         for layer in (51 + shift, 52 + shift):
                             rows = [r for r in event["rows"] if r.get("layerID") == layer]
                             self.assertTrue(any(r["kind"] == "sourceCapture" and r["outcome"] == "encoded" for r in rows))
@@ -420,6 +589,14 @@ class SceneAuthoredSamplingIntegrationTests(unittest.TestCase):
                             self.assertEqual(bool(masks), not (case == "data-layout-bad-mask" and layer == 51))
                             for mask in masks:
                                 self.assertEqual((mask["source"]["purpose"], mask["source"]["content"]), ("mask", "data"))
+                elif case.startswith("timeline-layout"):
+                    self.assertEqual(observations["parse_errors"], 0)
+                    self.assertEqual(len(measurements), 2)
+                    layer = panel_specs[0][0]
+                    for effect in (0, 1):
+                        outcome = "failed" if effect == 0 and case == "timeline-layout-bad-link" else "encoded-output"
+                        self.assertRegex(log, rf"axis=effect-cpu-invocation [^\n]*layer={layer} effect={effect} "
+                                             rf"[^\n]*backend=resolved-material-graph outcome={outcome} ")
                 elif case == "raw-miss":
                     self.assertNotIn("phase=named-target-capture layer=12 status=succeeded", log)
                     self.assertNotIn("phase=named-target-binding layer=31 status=succeeded", log)
@@ -446,7 +623,7 @@ class SceneAuthoredSamplingIntegrationTests(unittest.TestCase):
             finally:
                 if destination := os.environ.get("MWX_SCENE_INTEGRATION_EVIDENCE"):
                     saved = Path(destination) / self._testMethodName
-                    if case.startswith("data-layout"):
+                    if case.startswith(("data-layout", "timeline-layout")):
                         saved /= case
                     saved.mkdir(parents=True, exist_ok=True)
                     for name in ("content", "evidence"):
@@ -494,5 +671,10 @@ class SceneAuthoredSamplingIntegrationTests(unittest.TestCase):
 
     def test_gray_and_gray_alpha_data_drive_pixels_and_fail_locally(self):
         for case in ("data-layout", "data-layout-renamed", "data-layout-bad-mask"):
+            with self.subTest(case=case):
+                self.run_case(case)
+
+    def test_linked_numeric_uniforms_share_clock_and_preserve_local_failure(self):
+        for case in ("timeline-layout", "timeline-layout-renamed", "timeline-layout-bad-link"):
             with self.subTest(case=case):
                 self.run_case(case)

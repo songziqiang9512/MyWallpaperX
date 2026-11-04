@@ -332,6 +332,13 @@ def run_sample(
     environment["HOME"] = str(runtime_home)
     environment["CFFIXED_USER_HOME"] = str(runtime_home)
     environment["TMPDIR"] = str(runtime_tmp) + "/"
+    timeline_frame_evidence = sample.get("timeline_frame_evidence")
+    if timeline_frame_evidence is not None:
+        if not isinstance(timeline_frame_evidence, dict):
+            raise ValueError("timeline_frame_evidence must be a JSON object")
+        environment["MYWALLPAPERX_SCENE_DEBUG_TIMELINE_EVIDENCE"] = json.dumps(
+            timeline_frame_evidence, separators=(",", ":"), allow_nan=False
+        )
     if execution_observations_enabled and (terminal_snapshot or pointer_trajectory is not None):
         environment["MWX_SCENE_PARTICLE_COMPONENT_OBSERVATION"] = "1"
     if "cursor_start_second" in sample:
@@ -632,6 +639,8 @@ def run_sample(
             "sample_root_residue": sample_root_residue,
             **visual,
         },
+        **({"timeline_frame_evidence": timeline_frame_evidence}
+           if timeline_frame_evidence is not None else {}),
         "runtime": {
             "composition_observations": structured_runtime_observations(log_text, "MWX SCENE COMPOSITION OBSERVATION: "),
             "particle_component_observations": structured_runtime_observations(log_text, "MWX SCENE PARTICLE COMPONENT OBSERVATION: "),

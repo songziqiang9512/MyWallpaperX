@@ -41,7 +41,8 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
     /// Prepared once: commands resolve any member to one state, while normal
     /// projection follows integer member indices without finding groups again.
     private var stateIndices: [SceneDynamicTarget: Int]
-    private var stateMembers: [[Int]]
+    /// State -> equivalent sample groups -> original binding indices.
+    private var stateMembers: [[[Int]]]
     private var ownerAnimations: [SceneTimelineAnimation]
     private var orderedStates: [State]
     private var pendingNextFrameObservations: Set<SceneDynamicTarget> = []
@@ -64,7 +65,7 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
         orderedBindings = program.bindings
         var indices: [SceneDynamicTarget: Int] = [:]
         var ownerIndices: [SceneDynamicTarget: Int] = [:]
-        var members: [[Int]] = []
+        var members: [[[Int]]] = []
         var animations: [SceneTimelineAnimation] = []
         var states: [State] = []
         for (bindingIndex, binding) in program.bindings.enumerated() {
@@ -84,7 +85,13 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
                     : .playing(anchorSceneTime: 0, anchorElapsedFrames: 0))
             }
             indices[binding.target] = stateIndex
-            members[stateIndex].append(bindingIndex)
+            if let group = members[stateIndex].firstIndex(where: {
+                Self.samplesMatch(binding, program.bindings[$0[0]])
+            }) {
+                members[stateIndex][group].append(bindingIndex)
+            } else {
+                members[stateIndex].append([bindingIndex])
+            }
         }
         stateIndices = indices
         stateMembers = members
@@ -96,11 +103,13 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
         guard !targets.isDisjoint(with: stateIndices.keys) else { return }
         var bindings: [SceneTimelineBinding] = []
         var indices: [SceneDynamicTarget: Int] = [:]
-        var members: [[Int]] = []
+        var members: [[[Int]]] = []
         var animations: [SceneTimelineAnimation] = []
         var states: [State] = []
         var remappedStates: [Int: Int] = [:]
-        for binding in orderedBindings where !targets.contains(binding.target) {
+        var remappedBindings: [Int: Int] = [:]
+        for (bindingIndex, binding) in orderedBindings.enumerated()
+            where !targets.contains(binding.target) {
             guard let oldIndex = stateIndices[binding.target] else { continue }
             let index: Int
             if let existing = remappedStates[oldIndex] {
@@ -114,8 +123,14 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
                 states.append(orderedStates[oldIndex])
             }
             indices[binding.target] = index
-            members[index].append(bindings.count)
+            remappedBindings[bindingIndex] = bindings.count
             bindings.append(binding)
+        }
+        for (oldIndex, index) in remappedStates {
+            members[index] = stateMembers[oldIndex].compactMap { group in
+                let surviving = group.compactMap { remappedBindings[$0] }
+                return surviving.isEmpty ? nil : surviving
+            }
         }
         orderedBindings = bindings
         stateIndices = indices
@@ -193,7 +208,7 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
             for mutation in mutations {
                 if let index = stateIndices[mutation.target] {
                     pendingNextFrameObservations.formUnion(
-                        stateMembers[index].map { orderedBindings[$0].target }
+                        stateMembers[index].joined().map { orderedBindings[$0].target }
                     )
                 }
             }
@@ -259,18 +274,22 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
     ) {
         let elapsed = elapsedFrames(state: state, animation: ownerAnimations[stateIndex],
             sceneTime: sceneTime)
-        let members = stateMembers[stateIndex]
-        for index in members {
-            let binding = orderedBindings[index]
+        let groups = stateMembers[stateIndex]
+        for group in groups {
+            let binding = orderedBindings[group[0]]
             guard let value = SceneTimelineRuntime.value(of: binding, elapsedFrames: elapsed) else {
                 // A bad lane may not leave a partially published group behind.
-                for member in members { values.removeValue(forKey: orderedBindings[member].target) }
+                for member in groups.joined() {
+                    values.removeValue(forKey: orderedBindings[member].target)
+                }
                 return
             }
-            values[binding.target] = value
+            for index in group {
+                values[orderedBindings[index].target] = value
+            }
         }
         guard observe, !pendingNextFrameObservations.isEmpty else { return }
-        for index in members {
+        for index in groups.joined() {
             let target = orderedBindings[index].target
             guard pendingNextFrameObservations.remove(target) != nil,
                   let value = values[target] else { continue }
@@ -280,6 +299,65 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
                 String(describing: target), elapsed, String(describing: value)
             )
 #endif
+        }
+    }
+
+    private static func samplesMatch(
+        _ lhs: SceneTimelineBinding,
+        _ rhs: SceneTimelineBinding
+    ) -> Bool {
+        var lhsOptions = lhs.animation.options
+        var rhsOptions = rhs.animation.options
+        lhsOptions.name = nil
+        rhsOptions.name = nil
+        return lhsOptions == rhsOptions
+            && lanesMatch(lhs.animation.lanes, rhs.animation.lanes)
+            && lhs.animation.isRelative == rhs.animation.isRelative
+            && lhs.animation.previewValue == rhs.animation.previewValue
+            && lhs.composition == rhs.composition
+            && lhs.definition.valueType == rhs.definition.valueType
+            && authoredValuesMatch(lhs.definition.authoredValue, rhs.definition.authoredValue)
+            && lhs.definition.userPropertyNumericRange == rhs.definition.userPropertyNumericRange
+    }
+
+    /// Signed zero must survive shared sampling into the actual uniform bytes.
+    private static func lanesMatch(
+        _ lhs: [[SceneTimelineKeyframe]],
+        _ rhs: [[SceneTimelineKeyframe]]
+    ) -> Bool {
+        guard lhs.count == rhs.count else { return false }
+        for (lhsLane, rhsLane) in zip(lhs, rhs) {
+            guard lhsLane.count == rhsLane.count else { return false }
+            for (lhsKey, rhsKey) in zip(lhsLane, rhsLane) {
+                guard lhsKey == rhsKey else { return false }
+                guard lhsKey.frame.bitPattern == rhsKey.frame.bitPattern,
+                      lhsKey.value.bitPattern == rhsKey.value.bitPattern else { return false }
+                guard lhsKey.back?.x.bitPattern == rhsKey.back?.x.bitPattern,
+                      lhsKey.back?.y.bitPattern == rhsKey.back?.y.bitPattern else { return false }
+                guard lhsKey.front?.x.bitPattern == rhsKey.front?.x.bitPattern,
+                      lhsKey.front?.y.bitPattern == rhsKey.front?.y.bitPattern else { return false }
+            }
+        }
+        return true
+    }
+
+    private static func authoredValuesMatch(
+        _ lhs: SceneDynamicValue,
+        _ rhs: SceneDynamicValue
+    ) -> Bool {
+        switch (lhs, rhs) {
+        case let (.scalar(x), .scalar(y)):
+            x.bitPattern == y.bitPattern
+        case let (.vector2(x0, x1), .vector2(y0, y1)):
+            x0.bitPattern == y0.bitPattern && x1.bitPattern == y1.bitPattern
+        case let (.vector3(x0, x1, x2), .vector3(y0, y1, y2)):
+            x0.bitPattern == y0.bitPattern && x1.bitPattern == y1.bitPattern
+                && x2.bitPattern == y2.bitPattern
+        case let (.vector4(x0, x1, x2, x3), .vector4(y0, y1, y2, y3)):
+            x0.bitPattern == y0.bitPattern && x1.bitPattern == y1.bitPattern
+                && x2.bitPattern == y2.bitPattern && x3.bitPattern == y3.bitPattern
+        default:
+            lhs == rhs
         }
     }
 

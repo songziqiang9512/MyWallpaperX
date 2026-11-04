@@ -129,12 +129,12 @@
       "bytes": 21117
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 55,
-      "bytes": 16933
+      "lines": 58,
+      "bytes": 18327
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
-      "lines": 81,
-      "bytes": 8510
+      "lines": 94,
+      "bytes": 11130
     },
     "docs/scene/capabilities/runtime-systems-reference.md": {
       "lines": 65,
@@ -149,8 +149,8 @@
       "bytes": 7544
     },
     "docs/scene/development/development-workflow.md": {
-      "lines": 104,
-      "bytes": 12490
+      "lines": 106,
+      "bytes": 13025
     },
     "docs/scene/development/official-client-behavior-research-workflow.md": {
       "lines": 70,
@@ -161,8 +161,8 @@
       "bytes": 4260
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 161,
-      "bytes": 24411
+      "lines": 163,
+      "bytes": 26296
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -336,15 +336,6 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "ed4771230ab917a276b3e0e076b55cb1e744b93e39a8002bfd7f089b89c6e60d",
-      "after": "844df4313c39f276ffba832976f0a628754cd7c0093eb67c72c50ead535a70ce",
-      "owner": "scene-text",
-      "reason": "Define effective foreground HDR brightness in the existing text preparation contract, with raw declaration preservation and explicit HDR/background limits.",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#文字-hdr-亮度"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/material-video-assets.md",
       "before": "c042c47f01928a700441b2054af6cbd452fe5d368b666b39bb4d48419ab70f72",
       "after": "10b681951077c221b1d39130677576969c60238de6229be5d0d88666f210e63d",
@@ -381,15 +372,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/development/development-workflow.md",
-      "before": "2a81a44c9e73b7087764b6bbbf63da0bd0eb388b6002b9ae4eff8281b1f4275f",
-      "after": "41b5d33a54c9db89cdd10ec70e1bb0c4590e08c2578d28b33f33e4a8f01e96d6",
-      "owner": "scene-particle-material-raster",
-      "reason": "Describe existing phased capture versus terminal-only screening, explicit export size and source-size weak-signal checks without pixel or performance overclaims.",
-      "decision": "docs/scene/development/development-workflow.md#corpus-runtime-measurement"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/effect-execution-coverage.md",
       "before": "a72a67b3f928f217472ed7aff6787b677ead62c5189c7b9695cc1d0069f52ba1",
       "after": "4ed3989160b5a4579b885e841c9acacaabf2d85ce7b5cde4ff9e2abcdd1f50e5",
@@ -408,20 +390,38 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "before": "844df4313c39f276ffba832976f0a628754cd7c0093eb67c72c50ead535a70ce",
+      "after": "241b690a78443ff2f4a1367c22f788b263b1107a98d44109baa0e8183fc12223",
+      "owner": "scene-linked-uniform-producers",
+      "reason": "Define generic per-effect linked targets, one actual root clock and own per-pass values; replace flat sampling with cold bit-preserving value groups.",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#effect-linked-timeline"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/development/development-workflow.md",
+      "before": "41b5d33a54c9db89cdd10ec70e1bb0c4590e08c2578d28b33f33e4a8f01e96d6",
+      "after": "883d7a8a6ae402cf83934c6e86b85d4d8ebbf0c8e22914c55e0318fc5ca7a0b6",
+      "owner": "scene-linked-uniform-producers",
+      "reason": "Document the per-sample existing clock observation transport and active-phase capture join required for short Single controls.",
+      "decision": "docs/scene/development/development-workflow.md#corpus-runtime-measurement"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "54a207a0fedbc6dd8e4fd975344b3729b49bb0f04eab81d45f5747c640e2eab0",
-      "after": "c2ef4f38ac21acb784c15430dff34bc28ebd1ad76b258d0b73a7349659abb1f7",
-      "owner": "scene-source-channel-layouts",
-      "reason": "Bind two-source signed Debug identity to native source-layout, actual four-mip upload, six controlled captures and three author runs; remove the superseded opacity failure assertion and keep proof limits.",
+      "before": "c2ef4f38ac21acb784c15430dff34bc28ebd1ad76b258d0b73a7349659abb1f7",
+      "after": "ba444d48fe239d8189625813f7c2b6d6d7f3daf2215e9312f3ca62b4678f3c5a",
+      "owner": "scene-linked-uniform-producers",
+      "reason": "Bind three-source signed Debug identity to native linked-target behavior, exact four-pass consumed values and six controlled PNGs; distinguish author material execution, intro coverage, partial periodic capture and unknown final contribution.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#coverage"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "fd18b6f1f864036ac5d7e744492dec8ad918e7b7f0fce42c2a6a09eb514c95a5",
-      "after": "25b198f08d3202445e30054f03122232b1fe2fc8cc11515e2b18698f5974dfff",
-      "owner": "scene-source-channel-layouts",
-      "reason": "Retire the natively located and author-retested grayscale mask gap; distinguish hidden layer admission from authored effect activation in297 and preserve unqualified prefix/default semantics.",
+      "before": "25b198f08d3202445e30054f03122232b1fe2fc8cc11515e2b18698f5974dfff",
+      "after": "8a92e96081ad74aa067bd62515e933879e64ca844effb20d2ccfd27023748c5a",
+      "owner": "scene-linked-uniform-producers",
+      "reason": "Retain no-lane and material-default gaps, remove the restored complete-curve assertion, and locate actual property-target, destroy-owner, particle-flag and periodic-capture boundaries without claiming unexecuted repairs.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     }
   ]

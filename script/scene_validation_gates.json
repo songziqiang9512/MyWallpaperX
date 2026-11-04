@@ -798,7 +798,8 @@
         "test_scene_vector_owner_admission",
         "test_scene_nested_property_binding",
         "test_scene_color_script_property",
-        "test_scene_shader_vec2_authored_fallback"
+        "test_scene_shader_vec2_authored_fallback",
+        "test_scene_effect_timeline_groups"
       ]
     },
     {
@@ -1525,7 +1526,8 @@
     {
       "id": "authored-sampling-integration",
       "patterns": [
-        "script/tests/test_scene_authored_sampling_integration.py"
+        "script/tests/test_scene_authored_sampling_integration.py",
+        "script/tests/fixtures/scene_timeline_combined_cases.py"
       ],
       "modules": [
         "test_scene_authored_sampling_integration"
@@ -4110,13 +4112,16 @@
     {
       "id": "timeline-fixture-inputs",
       "patterns": [
+        "script/tests/test_scene_effect_timeline_groups.py",
+        "script/tests/fixtures/SceneEffectTimelineGroupsHarness.swift",
         "script/tests/fixtures/SceneTimelineTargetCompilerHarness.swift",
         "script/tests/fixtures/SceneTimelineCombinedPlaybackChecks.swift",
         "script/tests/fixtures/scene_timeline_combined_cases.py"
       ],
       "modules": [
         "test_scene_timeline_target_compiler",
-        "test_scene_timeline_runtime"
+        "test_scene_timeline_runtime",
+        "test_scene_effect_timeline_groups"
       ]
     },
     {

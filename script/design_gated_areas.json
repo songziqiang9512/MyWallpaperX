@@ -1632,7 +1632,7 @@
       "status": "approved",
       "owner": "Existing layer handles, animation journals and shared playback runtimes",
       "designDoc": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "design_notes": "",
+      "design_notes": "Numeric linked effect targets and sampling membership use docs/scene/capabilities/runtime-input-property-coverage.md#effect-linked-timeline. Full pass targets retain distinct curves/fallbacks and share only the prepared owner state; root names use the existing scene-only animation handles.",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSPuppetAnimationHost.c",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerHandleHost.c",
@@ -1786,7 +1786,7 @@
       "owner": "Scene Session / typed programs and component owners",
       "status": "approved",
       "designDoc": "docs/scene/architecture/runtime-architecture.md",
-      "design_notes": "Source-channel layout design: docs/scene/capabilities/render-graph-shader-coverage.md#source-channel-layout. Replace fixed RGB4/gray2 admission in the existing image uploader with actual packed 8-bit RGB/RGBA/G/GA and alpha/padding facts. Direct data expansion preserves bytes, alpha and every authored mip without color raster/ICC or a new runtime owner; native loader/GPU, controlled output and original author consumer-chain evidence define acceptance.",
+      "design_notes": "Existing component execution contracts: docs/scene/capabilities/render-graph-shader-coverage.md#source-channel-layout and docs/scene/capabilities/runtime-input-property-coverage.md#effect-linked-timeline. Preserve one prepared resource/value chain, clock and output; replace old admission or duplicate work in the responsible owner. Verification and limits belong to those contracts.",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextScript*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextMediaPropertiesCompiler.swift",

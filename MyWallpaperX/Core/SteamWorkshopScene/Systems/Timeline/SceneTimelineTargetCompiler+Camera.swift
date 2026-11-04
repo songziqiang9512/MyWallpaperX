@@ -36,10 +36,10 @@ nonisolated enum Scene2DCameraTimelineCompiler {
         }
         let owner = pair.root == .origin ? pair.origin : pair.zoom
         let groupedOrigin = SceneTimelineTargetCompiler.groupedAnimation(
-            pair.origin, owner: owner, isOwner: pair.root == .origin
+            pair.origin, owner: owner, name: pair.root == .origin ? owner.options.name : nil
         )
         let groupedZoom = SceneTimelineTargetCompiler.groupedAnimation(
-            pair.zoom, owner: owner, isOwner: pair.root == .zoom
+            pair.zoom, owner: owner, name: pair.root == .zoom ? owner.options.name : nil
         )
         guard groupedOrigin.componentCount == 3, groupedZoom.componentCount == 1 else {
             return rejected(labels, reason: "componentMismatch")

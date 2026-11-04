@@ -852,7 +852,7 @@
       "lastReviewed": "2026-11-04",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "082a5c8d981eb653e5ee0d8d91d34865093997cf3e4a9a36cf45c5442a790749",
+        "sourceSHA256": "f23e904d285cf2a65eb150b5c5ee17bb82f1e0b4c561c92a8029a40386af737d",
         "method": "document_registry --audit + document_health --check",
         "scope": "当前源码职责、工具入口与文档引用核对。",
         "limitations": "文档核对未新增App、GPU、官方对照或性能运行。"
@@ -1838,6 +1838,17 @@
       ],
       "authority": "docs/scene/capabilities/render-graph-shader-coverage.md#source-channel-layout",
       "owner": "Scene资源上传"
+    },
+    {
+      "term": "数值联动Timeline",
+      "aliases": [
+        "Timeline",
+        "数值联动",
+        "effect linked timeline",
+        "parent/children"
+      ],
+      "authority": "docs/scene/capabilities/runtime-input-property-coverage.md#effect-linked-timeline",
+      "owner": "Scene Timeline准备与播放"
     },
     {
       "term": "named source taxonomy",

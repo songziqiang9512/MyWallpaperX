@@ -97,6 +97,7 @@ def animation(lanes, mode="loop", fps=30, length=60, **extra):
 
 SCENE_FIXTURE = {
     "version": 3,
+    "general": {"orthogonalprojection": {"width": 1280, "height": 720}},
     "objects": [
         {
             "id": 10,
@@ -781,7 +782,7 @@ class SceneTimelineTargetCompilerTests(unittest.TestCase):
                 camera[field] = copy.deepcopy(peer)
                 camera[field]["animation"]["options"][relationship] = (
                     {"key": reference} if relationship == "parent" else [{"key": reference}])
-                result = self.compile_fixture({"version": 3, "objects": [camera]},
+                result = self.compile_fixture({**SCENE_FIXTURE, "objects": [camera]},
                                               f"incoming-{field}-{relationship}")
                 self.assertEqual(result["bindings"], [], result)
                 self.assertTrue(result["diagnostics"], result)
@@ -789,7 +790,7 @@ class SceneTimelineTargetCompilerTests(unittest.TestCase):
         camera["alpha"] = {"value": 1, "animation": animation([[keyframe(0, 0), keyframe(15, 1)]])}
         camera["scale"] = {"value": "1 1 1", "animation": animation(
             [[keyframe(0, 0), keyframe(15, 0.5)]] * 3, relative=True)}
-        result = self.compile_fixture({"version": 3, "objects": [camera]}, "unlinked-camera-peer")
+        result = self.compile_fixture({**SCENE_FIXTURE, "objects": [camera]}, "unlinked-camera-peer")
         self.assertEqual({b["target"] for b in result["bindings"]},
                          {"camera:origin", "camera:zoom", "layer:66:alpha", "layer:66:scale"})
         self.assertEqual(result["diagnostics"], [])
@@ -822,7 +823,7 @@ class SceneTimelineTargetCompilerTests(unittest.TestCase):
         second = copy.deepcopy(camera)
         second["id"] = 67
         multiple = self.compile_fixture(
-            {"version": 3, "objects": [camera, second]}, "multiple-camera-paths"
+            {**SCENE_FIXTURE, "objects": [camera, second]}, "multiple-camera-paths"
         )
         self.assertEqual(multiple["bindings"], [])
         self.assertEqual(
@@ -837,7 +838,7 @@ class SceneTimelineTargetCompilerTests(unittest.TestCase):
 
         camera["zoom"]["animation"]["c0"][0]["value"] = 0
         unsafe = self.compile_fixture(
-            {"version": 3, "objects": [camera]}, "unsafe-camera-zoom"
+            {**SCENE_FIXTURE, "objects": [camera]}, "unsafe-camera-zoom"
         )
         self.assertEqual(unsafe["bindings"], [])
         self.assertEqual(
@@ -853,7 +854,7 @@ class SceneTimelineTargetCompilerTests(unittest.TestCase):
         ))
         camera["zoom"]["animation"]["c0"][0]["front"]["y"] = -3
         unsafe_control = self.compile_fixture(
-            {"version": 3, "objects": [camera]}, "unsafe-camera-control"
+            {**SCENE_FIXTURE, "objects": [camera]}, "unsafe-camera-control"
         )
         self.assertEqual(unsafe_control["bindings"], [])
         self.assertEqual(
@@ -870,7 +871,7 @@ class SceneTimelineTargetCompilerTests(unittest.TestCase):
         camera["zoom"]["animation"]["c0"][0]["back"]["y"] = -3
         camera["zoom"]["animation"]["c0"][-1]["front"]["y"] = -3
         unused_controls = self.compile_fixture(
-            {"version": 3, "objects": [camera]}, "unused-camera-controls"
+            {**SCENE_FIXTURE, "objects": [camera]}, "unused-camera-controls"
         )
         self.assertEqual(len(unused_controls["bindings"]), 2)
         self.assertEqual(unused_controls["diagnostics"], [])

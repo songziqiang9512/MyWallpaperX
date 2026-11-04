@@ -383,6 +383,7 @@ class SceneWallpaperSampleRunTests(unittest.TestCase):
     def test_inherited_scene_fault_time_and_observation_variables_do_not_enter_child(self):
         inherited = {"MWX_SCENE_DEBUG_EXECUTOR_INVALIDATE_AFTER": "2", "MWX_SCENE_PARTICLE_COMPONENT_OBSERVATION": "old",
                      "MYWALLPAPERX_SCENE_DEBUG_POINTER_SECOND": "59", "MWX_SCENE_GPU_STAGE_TIMESTAMPS_OUTPUT": "/tmp/foreign",
+                     "MYWALLPAPERX_SCENE_DEBUG_TIMELINE_EVIDENCE": "foreign timeline configuration",
                      "MWX_SCENE_DEBUG_SCENE_SWITCH_ROOT": "/tmp/foreign", "MWX_SCENE_DEBUG_SCENE_SWITCH_AFTER": "2",
                      "USER_TOOL_FIXTURE": "preserved"}
         for terminal in (False, True):
@@ -403,6 +404,36 @@ class SceneWallpaperSampleRunTests(unittest.TestCase):
             self.assertEqual(observed["USER_TOOL_FIXTURE"], "preserved")
             self.assertEqual(observed["MYWALLPAPERX_SCENE_DEBUG_POINTER_SECOND"], "12.0")
             self.assertEqual(observed.get("MWX_SCENE_PARTICLE_COMPONENT_OBSERVATION"), "1" if terminal else None)
+            self.assertNotIn("timeline_frame_evidence", result)
+
+    def test_explicit_timeline_evidence_uses_existing_environment_transport_and_report(self):
+        key = "MYWALLPAPERX_SCENE_DEBUG_TIMELINE_EVIDENCE"
+        for config in (
+            {"layerIDs": [89, 233], "sceneTimeWindow": [0, 5], "interval": .2, "maxSamples": 26},
+            # Swift owns its configuration schema; this adapter only carries JSON.
+            {"futureNativeField": {"enabled": True}},
+        ):
+            observed = {}
+            with self.subTest(config=config), mock.patch.dict(os.environ, {
+                key: "foreign", "MYWALLPAPERX_SCENE_DEBUG_SCENE_TIME": "99",
+            }):
+                result, _ = run_sample_fixture(benchmark, log_only=True,
+                    sample_overrides={"timeline_frame_evidence": config},
+                    control={"observed_environment": observed})
+            self.assertEqual(json.loads(observed[key]), config)
+            self.assertNotIn("MYWALLPAPERX_SCENE_DEBUG_SCENE_TIME", observed)
+            self.assertEqual(result["timeline_frame_evidence"], config)
+            self.assertNotIn("timeline_frame_evidence", result["runtime"])
+
+    def test_timeline_evidence_transport_rejects_non_object_and_nonfinite_json(self):
+        for config in ([], "timeline", True, 3, {"interval": float("inf")},
+                       {"sceneTimeWindow": [0, float("nan")]}):
+            observed = {}
+            with self.subTest(config=config), self.assertRaises(ValueError):
+                run_sample_fixture(benchmark, log_only=True,
+                    sample_overrides={"timeline_frame_evidence": config},
+                    control={"observed_environment": observed})
+            self.assertEqual(observed, {})
 
     def test_terminal_snapshot_uses_real_receipt_identity_dimensions_and_keeps_log_only_claim(self):
         def receipts(result_dir):

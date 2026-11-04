@@ -628,11 +628,13 @@ struct SceneMetalRenderer {
                 authoredConfiguration: fixture.descriptor.layers[0].initialConfiguration)
             let reversedOrigin = reversed.map { pair in
                 SceneTimelineTargetCompiler.groupedAnimation(pair.origin,
-                    owner: pair.root == .origin ? pair.origin : pair.zoom, isOwner: pair.root == .origin)
+                    owner: pair.root == .origin ? pair.origin : pair.zoom,
+                    name: pair.root == .origin ? pair.origin.options.name : nil)
             }
             let reversedZoom = reversed.map { pair in
                 SceneTimelineTargetCompiler.groupedAnimation(pair.zoom,
-                    owner: pair.root == .origin ? pair.origin : pair.zoom, isOwner: pair.root == .zoom)
+                    owner: pair.root == .origin ? pair.origin : pair.zoom,
+                    name: pair.root == .zoom ? pair.zoom.options.name : nil)
             }
             facts[prefix + "parsed-member-order-independent"] = reversed?.root == (zoomRoot ? .zoom : .origin)
                 && reversedOrigin == fixture.timeline.bindings.first { $0.target == originTarget }?.animation

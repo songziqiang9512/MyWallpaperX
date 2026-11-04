@@ -3,6 +3,18 @@
 import copy
 
 
+def linked_effect_constants(*, root_key, child_key, fps, length, startpaused,
+                            root_lane, child_lane):
+    """Owned numeric curves; only the authored key links share a clock."""
+    root = {"value": 0, "animation": {"c0": copy.deepcopy(root_lane), "relative": False,
+        "options": {"fps": fps, "length": length, "mode": "single", "startpaused": startpaused,
+                    "children": [{"key": child_key}]}}}
+    child = {"value": 0, "animation": {"c0": copy.deepcopy(child_lane), "relative": False,
+        "options": {"fps": fps + 7, "length": length + 13, "mode": "loop",
+                    "startpaused": not startpaused, "parent": {"key": root_key}}}}
+    return root, child
+
+
 def combined_scene(*, renamed=False, response=(None, None)):
     def key(frame, value):
         return {"frame": frame, "value": value}
@@ -193,4 +205,128 @@ def mixed_combined_scenes():
         elif label == "response-loop":
             root_options["smoothing"] = 0.4
         cases["reject-" + label] = (scene, {"groupCount": 0})
+    return cases
+
+
+def effect_linked_scene(*, renamed=False, variant="aliases", autoplay=False):
+    """Four complete pass targets; expected key values are authored numbers."""
+    layer, peer = (4701, 4801) if renamed else (701, 801)
+    root_key, child_key, tail_key = ("DriveX", "BiasY", "EdgeK") if renamed else ("Signal", "Bias", "Tail")
+    frames = (0, 10, 20, 30, 40)
+    root_values, child_values = (.2, .8, .8, .4, .4), (.6, .3, .3, .9, .9)
+    lane = lambda values: [{"frame": frame, "value": value} for frame, value in zip(frames, values)]
+    root, child = linked_effect_constants(root_key=root_key, child_key=child_key,
+        fps=10, length=40, startpaused=not autoplay,
+        root_lane=lane(root_values), child_lane=lane(child_values))
+    root["animation"]["options"]["name"] = "unseen clock" if renamed else "numeric group"
+    placements = [(0, root_key, root, root_values), (1, child_key, child, child_values),
+                  (2, root_key, copy.deepcopy(root), root_values),
+                  (3, child_key, copy.deepcopy(child), child_values)]
+    if variant == "different-curves":
+        for index, values, fallback in ((2, (.9, .1, .1, .7, .7), .125),
+                                        (3, (.1, .5, .5, .2, .2), .25)):
+            pass_index, key, wrapper, _ = placements[index]
+            wrapper["value"] = fallback
+            wrapper["animation"]["c0"] = lane(values)
+            placements[index] = (pass_index, key, wrapper, values)
+    if variant == "signed-zero":
+        for index, zero in ((0, 0.0), (2, -0.0)):
+            pass_index, key, wrapper, _ = placements[index]
+            wrapper["value"] = 0.0
+            wrapper["animation"]["c0"] = lane((zero,) * 5)
+            placements[index] = (pass_index, key, wrapper, (zero,) * 5)
+    if variant == "names":
+        placements[2][2]["animation"]["options"]["name"] = "second root handle"
+    response = None
+    if variant in ("wide-finite-response", "loop-response"):
+        response = [1, 201] if variant == "wide-finite-response" else [.4, 87]
+        for _, key, wrapper, _ in placements:
+            if key == root_key:
+                wrapper["animation"]["options"].update(smoothing=response[0], stiffness=response[1])
+                if variant == "loop-response":
+                    wrapper["animation"]["options"]["mode"] = "loop"
+    if variant in ("chain", "fork", "distributed-wire"):
+        values = (.4, .6, .6, .2, .2)
+        tail = {"value": .125, "animation": {"c0": lane(values), "relative": False,
+            "options": {"fps": 29, "length": 91, "mode": "loop", "startpaused": False,
+                        "parent": {"key": child_key if variant == "chain" else root_key}}}}
+        parent = child_key if variant == "chain" else root_key
+        if variant == "distributed-wire":
+            placements[2][2]["animation"]["options"]["children"] = [{"key": tail_key}]
+        else:
+            for _, key, wrapper, _ in placements:
+                if key == parent:
+                    wrapper["animation"]["options"].setdefault("children", []).append({"key": tail_key})
+        placements.append((4, tail_key, tail, values))
+
+    rejected = variant in ("missing-child", "missing-parent", "cycle", "clock-conflict", "missing-lanes")
+    if variant == "missing-child":
+        placements = [entry for entry in placements if entry[1] != child_key]
+    elif variant == "missing-parent":
+        for _, key, wrapper, _ in placements:
+            if key == child_key:
+                wrapper["animation"]["options"]["parent"] = {"key": "absent"}
+    elif variant == "cycle":
+        for _, key, wrapper, _ in placements:
+            options = wrapper["animation"]["options"]
+            if key == root_key:
+                options["parent"] = {"key": child_key}
+            else:
+                options["children"] = [{"key": root_key}]
+    elif variant == "clock-conflict":
+        placements[2][2]["animation"]["options"]["fps"] = 20
+    elif variant == "missing-lanes":
+        for _, key, wrapper, _ in placements:
+            if key == child_key:
+                del wrapper["animation"]["c0"]
+
+    passes = [{} for _ in range(max(entry[0] for entry in placements) + 1)]
+    targets, frame_values, fallbacks = [], {str(frame): {} for frame in (0, 10, 30, 40)}, {}
+    for pass_index, key, wrapper, values in placements:
+        passes[pass_index].setdefault("constantshadervalues", {})[key] = wrapper
+        target = f"effect:{layer}:0:{pass_index}:{key}"
+        targets.append(target)
+        fallbacks[target] = wrapper["value"]
+        for frame in (0, 10, 30, 40):
+            frame_values[str(frame)][target] = values[frames.index(frame)]
+    # Same keys in another effect are real independent contributors, not sources
+    # for a missing member in effect0. This track must continue during group pause.
+    independent = {"value": .5, "animation": {"c0": lane((.1, .3, .5, .7, .9)),
+        "options": {"fps": 5, "length": 40, "mode": "single", "startpaused": False}}}
+    other = {"value": .25, "animation": {"c0": lane((.875,) * 5),
+        "options": {"fps": 20, "length": 40, "mode": "single", "startpaused": False}}}
+    independent_e0 = None
+    if variant == "unlinked-same-key":
+        while len(passes) <= 5:
+            passes.append({})
+        passes[5] = {"constantshadervalues": {root_key: copy.deepcopy(independent)}}
+        independent_e0 = f"effect:{layer}:0:5:{root_key}"
+    resource = "moved-signal" if renamed else "owned-signal"
+    scene = {"version": 3, "objects": [
+        {"id": layer, "name": resource, "image": f"models/{resource}.json", "size": "64 32",
+         "effects": [{"id": 3209 if renamed else 9001, "file": f"effects/{resource}/effect.json", "passes": passes},
+                     {"id": 78 if renamed else 17, "file": f"effects/{resource}-peer/effect.json",
+                      "passes": [{"constantshadervalues": {root_key: independent}},
+                                 {"constantshadervalues": {child_key: other}}]}]},
+        {"id": peer, "name": "healthy independent layer", "image": "models/healthy.json", "size": "16 16",
+         "alpha": {"value": .75, "animation": {"c0": lane((.75,) * 5),
+                    "options": {"fps": 10, "length": 40, "mode": "single"}}}},
+    ]}
+    expected = {"accepted": not rejected, "layer": layer, "peer": peer, "rootKey": root_key,
+                "targets": sorted(targets) if not rejected else [], "fallbacks": fallbacks,
+                "frames": frame_values, "rootName": root["animation"]["options"]["name"],
+                "mode": "loop" if variant == "loop-response" else "single", "response": response,
+                "signedZero": ({"positive": f"effect:{layer}:0:0:{root_key}",
+                                "negative": f"effect:{layer}:0:2:{root_key}"} if variant == "signed-zero" else None),
+                "independentE0": independent_e0,
+                "names": [root["animation"]["options"]["name"]] + (["second root handle"] if variant == "names" else [])}
+    return scene, expected
+
+
+def effect_linked_cases():
+    variants = ("aliases", "different-curves", "names", "chain", "fork", "unlinked-same-key",
+                "signed-zero", "distributed-wire", "wide-finite-response", "loop-response", "missing-child",
+                "missing-parent", "cycle", "clock-conflict", "missing-lanes")
+    cases = {variant: effect_linked_scene(variant=variant) for variant in variants}
+    cases["renamed"] = effect_linked_scene(renamed=True)
     return cases
