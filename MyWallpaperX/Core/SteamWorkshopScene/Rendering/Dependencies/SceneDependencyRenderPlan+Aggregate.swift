@@ -53,8 +53,8 @@ extension SceneDependencyRenderPlan {
         return reachable
     }
     /// A forward graph runs before any authored compositor layer. It may use
-    /// its own layer source, static assets, frame inputs and one exact primary
-    /// named input that the same dependency plan validates and schedules
+    /// its own layer source, static assets, frame inputs and primary named
+    /// inputs from one upstream that the same dependency plan schedules
     /// first. The main target and secondary targets retain authored-order
     /// dependencies and are rejected here.
     nonisolated static func providerGraphIsAuthoredOrderIndependent(
@@ -77,11 +77,11 @@ extension SceneDependencyRenderPlan {
         } else {
             guard activeDependencies.count == 1,
                   let dependencyLayerID = activeDependencies.first,
-                  references.count == 1,
-                  let reference = references.first,
-                  reference.consumerLayerID == layer.id,
-                  reference.providerLayerID == dependencyLayerID,
-                  reference.variant == .primary else { return false }
+                  references.allSatisfy({
+                      $0.consumerLayerID == layer.id
+                          && $0.providerLayerID == dependencyLayerID
+                          && $0.variant == .primary
+                  }) else { return false }
         }
         let paths = texturePaths ?? layer.effects.filter { $0.visible != false }
             .flatMap(\.passes).flatMap { $0.texturePaths + $0.textureSlots.compactMap { $0 } }

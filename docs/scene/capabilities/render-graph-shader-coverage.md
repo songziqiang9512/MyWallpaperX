@@ -65,7 +65,7 @@ Material、instance、user texture、effect 显式 binding 及 shader default �
 
 定义 material 的输入与 instance override 共同形成实际绑定；没有 override 不表示没有 pass 或 named 输入。原 prepared graph/material 保定义 pass 的来源，候选资源准备沿同一 typed 引用形成，实际编译再收敛需求，不能要求作者重复填写 instance textures 才能获得 provider。
 
-- 材质编译负责 shader、combo、颜色/数据角色、uniform 与真实采样；资源计划只负责精确 provider、投影/来源能力、依赖顺序和循环。可执行的普通 solid/image 与 utility 消费同一有序资源向量，不按效果名、blend combo、固定槽数或 pass0/slot1 放行。同一 provider 多槽保每个 consumer 身份，共用原 publication；单来源的既有直接合成语义不能被当作任意 shader 的执行替身。
+- 材质编译负责 shader、combo、颜色/数据角色、uniform 与真实采样；资源计划只负责精确 provider、投影/来源能力、依赖顺序和循环。可执行的普通 solid/image 与 utility 消费同一有序资源向量，不按效果名、blend combo、固定槽数或 pass0/slot1 放行。同一 provider 多槽保每个 consumer 身份，共用原 publication；前向隐藏 graph 读取同一上游的多个 primary 槽也沿原有序 Binding 和供货闭包执行，不再以引用数一为条件。单来源的既有直接合成语义不能被当作任意 shader 的执行替身。
 - Aggregate 在准备入口形成唯一有序 Binding 数组，slot 留在各 Binding 中；不另存作者顺序数组，不在每帧重建 Dictionary/Set 认证静态结构。Program fold 按实际 stage/slot 消费多个输入，成功 stage 与局部旁路分别形成当前需求；失效输入不能借首 provider、错误槽或其他 publication 顶替。
 - Runtime 只消费该准备结果，并在实际资源处核当前 activation、epoch、publication、纹理及 pin。缺供货使真正依赖它的 operation 局部保 previous-current，健康后继继续；跨帧/错误纹理不能进入普通视觉失败路径。现有 provider 尚无 source/graph 消费者、secondary、forward 依赖顺序或局部投影不成立时，保其具体缺口，不靠清除元数据假装支持。
 

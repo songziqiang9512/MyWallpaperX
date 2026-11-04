@@ -423,6 +423,26 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
             self.result,
         )
 
+    def test_hidden_forward_provider_keeps_two_slots_of_one_upstream(self) -> None:
+        rows = self.result["forwardRepeatedProvider"]
+        for name, upstream, middle, slots in [
+            ("same", 1901, 1903, ["vector:0:2=1901", "vector:0:5=1901"]),
+            ("renamed", 2901, 2903, ["omega:2:1=2901", "omega:2:6=2901"]),
+        ]:
+            with self.subTest(variant=name):
+                row = rows[name]
+                self.assertEqual(row["candidateCount"], 1)
+                self.assertEqual(row["consumerProvider"], middle)
+                self.assertEqual(row["middleBindings"], slots)
+                self.assertEqual(row["middleProviders"], [upstream, upstream])
+                self.assertEqual(row["requiredProviders"], [upstream, middle])
+                self.assertEqual(row["forwardOrder"], [upstream, middle])
+        for name in ["twoProviders", "secondary", "self", "background", "visible"]:
+            with self.subTest(rejected=name):
+                self.assertEqual(rows[name]["candidateCount"], 0)
+                self.assertEqual(rows[name]["consumerProvider"], -1)
+        self.assertFalse(rows["foreignConsumerAccepted"])
+
     def test_definition_material_candidates_keep_effective_pass_identity(self) -> None:
         # These are potential source carriers. Actual Program selection and
         # pixel contribution belong to the GraphExecutor/App gates.

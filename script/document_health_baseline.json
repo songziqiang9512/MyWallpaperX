@@ -126,11 +126,11 @@
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 136,
-      "bytes": 21117
+      "bytes": 21256
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 78,
-      "bytes": 30088
+      "lines": 80,
+      "bytes": 30820
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 107,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 172,
-      "bytes": 31751
+      "bytes": 31726
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -372,15 +372,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "846aaeba824b5c1690a6dd0efe33b68907a687495d3bce6b6e3ff567c03ed3a6",
-      "after": "f41e98978de02a5dab9a2cb47e5f8ad1b9b1f7ec449d4995d7e76a193897808a",
-      "owner": "scene-source-channel-layouts",
-      "reason": "Define generic packed image expansion and the existing source/mip ownership, direct data path and actual-format failure boundaries before implementation.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#source-channel-layout"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/development/development-workflow.md",
       "before": "41b5d33a54c9db89cdd10ec70e1bb0c4590e08c2578d28b33f33e4a8f01e96d6",
       "after": "883d7a8a6ae402cf83934c6e86b85d4d8ebbf0c8e22914c55e0318fc5ca7a0b6",
@@ -396,15 +387,6 @@
       "owner": "scene-property-target-fallback",
       "reason": "Define one authored numeric fallback and typed current chain, target-local source admission and no-writer rebuild retirement while preserving other consumers and atomic updates.",
       "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#property-target-fallback"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "eeedc3ee2869bb96f5e3b16f56f8d55b3fe6a6259e8a42f768558d404cefc88f",
-      "after": "4c58efdb79a3c2733f65f0585e890f8d4d7fbb5622c032fc33cbb54eee578684",
-      "owner": "Scene particle control-point components and runtime evidence",
-      "reason": "Keep one current component contract for Between/Maintain and CP space; replace stale unsupported assertions, bind bounded CPU/Metal/App evidence, and retain only unresolved arc, scheduling, parent and Remap gaps.",
-      "decision": "docs/scene/architecture/runtime-architecture.md#particle-control-point-components"
     },
     {
       "section": "bodies",
@@ -426,12 +408,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "f41e98978de02a5dab9a2cb47e5f8ad1b9b1f7ec449d4995d7e76a193897808a",
+      "after": "010d6acb9f76fb0e624727704f9b606ca8423a9b44a9eab177f97d2f2495d179",
+      "owner": "Scene prepared named inputs and forward provider publication",
+      "reason": "Retire the closed single-reference restriction and obsolete replay narrative; retain one current same-upstream multi-slot contract, bounded literal-pixel evidence and the remaining multi-upstream/order/visible-output gaps. No new runtime owner or per-slot provider-ID proof is claimed.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-input-ownership"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "4c58efdb79a3c2733f65f0585e890f8d4d7fbb5622c032fc33cbb54eee578684",
+      "after": "6715e3a071b674eb1ae7a46d01bc6d40e836ae032b3ce9aea53a3d3ae41ae1f6",
+      "owner": "Scene prepared named inputs and forward provider publication",
+      "reason": "Retire the closed single-reference restriction and obsolete replay narrative; retain one current same-upstream multi-slot contract, bounded literal-pixel evidence and the remaining multi-upstream/order/visible-output gaps. No new runtime owner or per-slot provider-ID proof is claimed.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-input-ownership"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "39ea890fa0433378e6c05bf088f594bb62537c97b22a792b0949e1ce19fb6dfa",
-      "after": "b056207347f5d3e1dd0fa8f44724449ccd6f8a95ac33de8df7ecfeec10ee39e7",
-      "owner": "Scene generic particle remap contract and bounded official controls",
-      "reason": "Save generic source/range/transform/operation/output ownership before implementation; replace the Remap entry with current consumers and measured unknowns, and link the queue to that single fact source. No new formula or runtime capability is claimed.",
-      "decision": "docs/scene/architecture/runtime-architecture.md#particle-scalar-remap"
+      "before": "b056207347f5d3e1dd0fa8f44724449ccd6f8a95ac33de8df7ecfeec10ee39e7",
+      "after": "b5aa07abdd2be86cb1515419100868ba6f41333630b5ebfb2aa7fe10dcf8ba52",
+      "owner": "Scene prepared named inputs and forward provider publication",
+      "reason": "Retire the closed single-reference restriction and obsolete replay narrative; retain one current same-upstream multi-slot contract, bounded literal-pixel evidence and the remaining multi-upstream/order/visible-output gaps. No new runtime owner or per-slot provider-ID proof is claimed.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-input-ownership"
     }
   ]
 }

@@ -421,7 +421,60 @@ extension Harness {
             "selectedMultiReferences": selectedMultiReferences,
             "preparedForwardCycle": preparedForwardCycle,
             "definitionMaterialProviders": definitionMaterialProviderResults(),
+            "forwardRepeatedProvider": forwardRepeatedProviderResults(),
         ]
+    }
+
+    static func forwardRepeatedProviderResults() -> [String: Any] {
+        var rows: [String: Any] = [:]
+        for mode in ["same", "renamed", "twoProviders", "secondary", "self", "background", "visible"] {
+            let renamed = mode == "renamed"
+            let upstreamID = renamed ? 2901 : 1901
+            let otherID = upstreamID + 1, middleID = upstreamID + 2, consumerID = upstreamID + 3
+            let effectID = renamed ? "omega" : "vector"
+            let passIndex = renamed ? 2 : 0
+            let indices = renamed ? [1, 6] : [2, 5]
+            let providers = mode == "self" ? [middleID, middleID]
+                : mode == "twoProviders" ? [upstreamID, otherID] : [upstreamID, upstreamID]
+            var textures = Array<String?>(repeating: nil, count: indices[1] + 1)
+            for index in indices.indices {
+                let suffix = mode == "secondary" && index == 1 ? "b" : "a"
+                textures[indices[index]] = "_rt_imageLayerComposite_\(providers[index])_\(suffix)"
+            }
+            var paths = textures.compactMap { $0 }
+            if mode == "background" { paths.append("_rt_FullFrameBuffer") }
+            let middle = SceneRenderDescriptor.Layer(id: middleID, contentKind: "image", utilityLayer: nil,
+                dependencyLayerIDs: Array(Set(providers)).sorted(), childLayerIDs: [],
+                visible: mode == "visible", effects: [.init(id: effectID,
+                    file: renamed ? "effects/retitled/other/effect.json" : "effects/owned/vector/effect.json",
+                    visible: true, passes: [.init(passIndex: passIndex, texturePaths: paths,
+                        textureSlots: textures, combos: [:], constantShaderValues: [:])])])
+            let front = consumer(consumerID, provider: middleID,
+                                 effectPath: "effects/owned/front/effect.json")
+            let layers = [front, middle, layer(upstreamID, visible: false), layer(otherID, visible: false)]
+            let order = layers.map(\.id)
+            let descriptor = SceneRenderDescriptor(layers: layers, renderOrderLayerIDs: order)
+            let visible: Set<Int> = mode == "visible" ? [consumerID, middleID] : [consumerID]
+            let candidates = SceneDependencyRenderPlan.potentialNamedBindings(
+                descriptor: descriptor, visibleLayerIDs: visible)
+            let plan = SceneDependencyRenderPlan(descriptor: descriptor, visibleLayerIDs: visible,
+                preparedNamedInputBindingsByConsumerLayerID: candidates)
+            let bindings = plan.multiProviderAggregatesByConsumerLayerID[middleID]?.bindings ?? []
+            rows[mode] = [
+                "candidateCount": candidates[consumerID]?.count ?? 0,
+                "consumerProvider": plan.bindingsByConsumerLayerID[consumerID]?.providerLayerID ?? -1,
+                "middleBindings": bindings.map { "\($0.slot.effectID):\($0.slot.passIndex):\($0.slot.slotIndex)=\($0.providerLayerID)" },
+                "middleProviders": bindings.map(\.providerLayerID),
+                "requiredProviders": plan.requiredProviderLayerIDs.sorted(),
+                "forwardOrder": plan.forwardDependencyPreparationOrder(
+                    authoredLayerIDs: order, activeExecutionLayerIDs: [consumerID]) ?? [-1],
+            ]
+        }
+        let foreign = SceneDependencyRenderPlan.Reference(consumerLayerID: 77, providerLayerID: 1901,
+            slot: .init(effectID: "foreign", passIndex: 0, slotIndex: 2), variant: .primary)
+        rows["foreignConsumerAccepted"] = SceneDependencyRenderPlan.providerGraphIsAuthoredOrderIndependent(
+            layer(1903, dependencies: [1901], visible: false), references: [foreign], texturePaths: [])
+        return rows
     }
 
     static func definitionMaterialProviderResults() -> [String: Any] {
