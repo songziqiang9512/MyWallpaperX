@@ -22,7 +22,7 @@ nonisolated func silGridThumbnailImage(atPath path: String) -> NSImage? { nil }
     var result: NSImage?
     var urls: [URL] = []
     var priorities: [TintThumbnailPriority] = []
-    func image(for url: URL, maxPixelSize: Int, priority: TintThumbnailPriority) async -> NSImage? {
+    func image(for url: URL, request: ThumbnailRequest, priority: TintThumbnailPriority) async -> NSImage? {
         urls.append(url); priorities.append(priority); return result
     }
 }

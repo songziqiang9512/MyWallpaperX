@@ -1,23 +1,41 @@
 import AppKit
 
-/// The decoded tier of an existing thumbnail owner. A strict byte/count budget
-/// and access order keep recent cards useful without retaining an entire library.
-/// Kernel memory-pressure events release this tier; there is no polling timer.
+/// All compositions share one access-order chain and one decoded-byte budget.
 nonisolated final class DecodedThumbnailMemoryCache: @unchecked Sendable {
     private final class Entry {
         let key: NSString
         let image: NSImage
         let cost: Int
+        let pixels: CGSize
+        let nativeSize: CGSize?
+        let crop: ThumbnailRequest?
+        let signature: Data?
         weak var previous: Entry?
         var next: Entry?
-        init(key: NSString, image: NSImage, cost: Int) {
+        init(key: NSString, image: NSImage, cost: Int, pixels: CGSize, nativeSize: CGSize?, crop: ThumbnailRequest?, signature: Data?) {
             self.key = key; self.image = image; self.cost = cost
+            self.pixels = pixels; self.nativeSize = nativeSize; self.crop = crop; self.signature = signature
+        }
+        func covers(_ request: ThumbnailRequest?) -> Bool {
+            guard let request else { return crop == nil }
+            if let crop {
+                guard request.mode == .fill, crop.hasSameAspect(as: request) else { return false }
+                return request.isCovered(by: pixels, nativeSize: nativeSize.map { crop.cropSize(in: $0) })
+            }
+            return request.isCovered(by: pixels, nativeSize: nativeSize)
+        }
+        func dominates(_ other: Entry) -> Bool {
+            guard pixels.width >= other.pixels.width, pixels.height >= other.pixels.height else { return false }
+            if nativeSize == nil, other.nativeSize != nil { return false }
+            if let crop { return other.crop.map { crop.hasSameAspect(as: $0) } == true }
+            return true
         }
     }
     private let lock = NSLock()
     private let countLimit: Int
     private let totalCostLimit: Int
-    private var entries: [NSString: Entry] = [:]
+    private var entries: [NSString: [Entry]] = [:]
+    private var entryCount = 0
     private var oldest: Entry?
     private var newest: Entry?
     private var totalCost = 0
@@ -32,55 +50,82 @@ nonisolated final class DecodedThumbnailMemoryCache: @unchecked Sendable {
     }
     deinit { pressure.cancel() }
 
-    func object(forKey key: NSString) -> NSImage? {
+    func object(forKey key: NSString, request: ThumbnailRequest? = nil, signature: Data? = nil) -> NSImage? {
         lock.lock(); defer { lock.unlock() }
-        guard let entry = entries[key] else { return nil }
+        guard let entry = matchingEntry(forKey: key, request: request, signature: signature) else { return nil }
         detach(entry); append(entry)
         return entry.image
     }
 
-    func setObject(_ image: NSImage, forKey key: NSString, cost: Int) {
+    func containsObject(forKey key: NSString, request: ThumbnailRequest? = nil, signature: Data? = nil) -> Bool {
         lock.lock(); defer { lock.unlock() }
-        if let old = entries.removeValue(forKey: key) { detach(old); totalCost -= old.cost }
+        return matchingEntry(forKey: key, request: request, signature: signature) != nil
+    }
+
+    private func matchingEntry(forKey key: NSString, request: ThumbnailRequest?, signature: Data?) -> Entry? {
+        var selected: Entry?
+        for entry in entries[key] ?? [] {
+            guard signature.map({ entry.signature == $0 }) ?? true, entry.covers(request) else { continue }
+            if let current = selected, current.cost <= entry.cost { continue }
+            selected = entry
+        }
+        return selected
+    }
+
+    /// Explicit new data replaces atomically; same-source work may preserve adequate results.
+    func setObject(_ image: NSImage, forKey key: NSString, cost: Int, pixels: CGSize? = nil,
+                   nativeSize: CGSize? = nil, crop: ThumbnailRequest? = nil, signature: Data? = nil,
+                   preservingCompatibleResults: Bool = false) {
         let cost = max(1, cost)
-        // A single oversized image must not evict the useful working set.
         guard cost <= totalCostLimit else { return }
-        let entry = Entry(key: key, image: image, cost: cost)
-        entries[key] = entry; append(entry); totalCost += cost
-        while entries.count > countLimit || totalCost > totalCostLimit {
+        let pixels = pixels ?? image.cgImage(forProposedRect: nil, context: nil, hints: nil)
+            .map { CGSize(width: $0.width, height: $0.height) } ?? image.size
+        let entry = Entry(key: key, image: image, cost: cost, pixels: pixels, nativeSize: nativeSize, crop: crop, signature: signature)
+        lock.lock(); defer { lock.unlock() }
+        let previous = entries[key] ?? []
+        if preservingCompatibleResults {
+            guard !previous.contains(where: { $0.signature == signature && $0.dominates(entry) }) else { return }
+            for old in previous where old.signature != signature || entry.dominates(old) { remove(old) }
+        } else {
+            for old in previous { remove(old) }
+        }
+        entries[key, default: []].append(entry); append(entry)
+        entryCount += 1; totalCost += cost
+        while entryCount > countLimit || totalCost > totalCostLimit {
             guard let victim = oldest else { break }
-            entries.removeValue(forKey: victim.key)
-            detach(victim); totalCost -= victim.cost
+            remove(victim)
         }
     }
 
     func removeObject(forKey key: NSString) {
         lock.lock(); defer { lock.unlock() }
-        if let entry = entries.removeValue(forKey: key) { detach(entry); totalCost -= entry.cost }
+        for entry in entries[key] ?? [] { remove(entry) }
     }
 
-    /// Account invalidation visits only the bounded resident tier, never a history of requests.
     func removeObjects(withKeyPrefix prefix: String) {
         lock.lock(); defer { lock.unlock() }
         for key in entries.keys.filter({ ($0 as String).hasPrefix(prefix) }) {
-            guard let entry = entries.removeValue(forKey: key) else { continue }
-            detach(entry); totalCost -= entry.cost
+            for entry in entries[key] ?? [] { remove(entry) }
         }
     }
 
     func removeAllObjects() {
         lock.lock(); defer { lock.unlock() }
-        // Break the chain iteratively, avoiding a recursive release for a large budget.
-        while let entry = oldest { detach(entry) }
-        entries.removeAll(keepingCapacity: false); totalCost = 0
+        // Detaching each node also avoids a recursive release of a long chain.
+        while let entry = oldest { remove(entry) }
+        entries.removeAll(keepingCapacity: false)
     }
 
+    private func remove(_ entry: Entry) {
+        entries[entry.key]?.removeAll { $0 === entry }
+        if entries[entry.key]?.isEmpty == true { entries.removeValue(forKey: entry.key) }
+        detach(entry); entryCount -= 1; totalCost -= entry.cost
+    }
     private func detach(_ entry: Entry) {
         if let previous = entry.previous { previous.next = entry.next } else { oldest = entry.next }
         if let next = entry.next { next.previous = entry.previous } else { newest = entry.previous }
         entry.previous = nil; entry.next = nil
     }
-
     private func append(_ entry: Entry) {
         entry.previous = newest
         newest?.next = entry

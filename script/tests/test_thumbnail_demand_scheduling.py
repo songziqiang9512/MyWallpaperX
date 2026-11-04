@@ -5,6 +5,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from script.tests.test_thumbnail_return_reuse import SWIFT_ISOLATION_FLAGS
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -14,10 +15,13 @@ class ThumbnailDemandSchedulingTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="mwx-thumbnail-demand-", dir="/private/tmp") as temporary:
             work = Path(temporary)
             sources = [ROOT / "MyWallpaperX/Shared/UI/DecodedThumbnailMemoryCache.swift",
-                       ROOT / "MyWallpaperX/Shared/UI/ThumbnailCache.swift",
-                       ROOT / "script/tests/fixtures/ThumbnailDemandSchedulingHarness.swift"]
-            # This one case evicts only decoded memory to prove a real disk
-            # return. Expose the original owner only in this compiled copy.
+                       Path(os.environ.get("MWX_THUMBNAIL_CACHE_SOURCE", ROOT / "MyWallpaperX/Shared/UI/ThumbnailCache.swift")),
+                       ROOT / "MyWallpaperX/Shared/UI/GridThumbnailDecoder.swift",
+                       ROOT / "script/tests/fixtures/ThumbnailDemandSchedulingHarness.swift",
+                       ROOT / "script/tests/fixtures/ThumbnailImagePublicationChecks.swift"]
+            sources.append(ROOT / "MyWallpaperX/Shared/ThumbnailRequest.swift")
+            # Disk-return cases evict decoded memory without clearing files.
+            # Expose the original owner only in this compiled copy.
             cache = sources[1].read_text()
             self.assertEqual(cache.count("private let imageCache:"), 1)
             deletion = "if detached { try? FileManager.default.removeItem(at: retired) }"
@@ -37,27 +41,36 @@ class ThumbnailDemandSchedulingTests(unittest.TestCase):
             cache_copy = work / "ThumbnailCache.swift"
             cache_copy.write_text(cache.replace("private let imageCache:", "let imageCache:", 1))
             sources[1] = cache_copy
-            build = subprocess.run(["xcrun", "swiftc", "-warnings-as-errors", "-parse-as-library", "-D", "D17_SCHEDULING",
+            build = subprocess.run(["xcrun", "swiftc", "-warnings-as-errors", "-parse-as-library",
+                                    *SWIFT_ISOLATION_FLAGS,
                                     *map(str, sources), "-module-cache-path", str(work / "modules"),
                                     "-o", str(work / "checks")], capture_output=True, text=True, timeout=120)
+            if proof := os.environ.get("MWX_DEMAND_PROOF_DIR"):
+                target = Path(proof); target.mkdir(parents=True, exist_ok=True)
+                (target / "build.log").write_text(build.stdout + build.stderr)
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
             home = work / "home"
             home.mkdir()
             run = subprocess.run([str(work / "checks")], env=dict(os.environ,
                                  HOME=str(home), CFFIXED_USER_HOME=str(home)),
-                                 capture_output=True, text=True, timeout=45)
+                                 capture_output=True, text=True, timeout=90)
+            if proof := os.environ.get("MWX_DEMAND_PROOF_DIR"):
+                target = Path(proof)
+                (target / "runtime.log").write_text(run.stderr)
+                (target / "stdout.log").write_text(run.stdout)
             self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
             facts = json.loads(run.stdout)
-            for name, passed in facts["checks"].items():
-                with self.subTest(name=name):
-                    self.assertTrue(passed)
-            self.assertGreaterEqual(len(facts["checks"]), 75)
             if proof := os.environ.get("MWX_DEMAND_PROOF_DIR"):
                 target = Path(proof)
                 target.mkdir(parents=True, exist_ok=True)
                 (target / "results.json").write_text(json.dumps(facts, indent=2) + "\n")
                 (target / "build.log").write_text(build.stdout + build.stderr)
                 (target / "runtime.log").write_text(run.stderr)
+                (target / "stdout.log").write_text(run.stdout)
+            for name, passed in facts["checks"].items():
+                with self.subTest(name=name):
+                    self.assertTrue(passed, run.stdout + run.stderr)
+            self.assertGreaterEqual(len(facts["checks"]), 75)
 
 
 if __name__ == "__main__":

@@ -77,9 +77,9 @@ class WallpaperLibraryWorkspaceTests(unittest.TestCase):
                     (work / Path(path).name).write_text(source)
                 elif path == "MyWallpaperX/Core/LibraryCollections/WallpaperLibraryQuery.swift":
                     source = instrument_catalog_preparations((ROOT / path).read_text())
-                    marker = "        init(catalog: WallpaperLibraryCatalog, relationships: UserCollectionsSnapshot) throws {"
+                    marker = "            try self.init(aliases: relationships.aliases)"
                     self.assertEqual(source.count(marker), 1, marker)
-                    source = source.replace(marker, marker + "\n            WorkspaceIdentityQueryProbe.catalogInitializations += 1", 1)
+                    source = source.replace(marker, "            WorkspaceIdentityQueryProbe.catalogInitializations += 1\n" + marker, 1)
                     (work / Path(path).name).write_text(source)
                 else:
                     shutil.copy2(ROOT / path, work / Path(path).name)

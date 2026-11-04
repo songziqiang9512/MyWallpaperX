@@ -68,8 +68,8 @@ nonisolated struct PickerPlayingValue { let reference: WallpaperReference; let t
         _ = playing(content.reference)
     }
     func needsCellReplacement(_ cell: NSCollectionViewItem, content: WallpaperContentItem) -> Bool { false }
-    func setVisible(_ cell: NSCollectionViewItem, _ visible: Bool) {}
-    func updateViewport(visible: [WallpaperContentItem], prefetch: [WallpaperContentItem]) { viewport = visible }
+    func setVisible(_ cell: NSCollectionViewItem, _ state: WallpaperLibraryGridController.CellState?) {}
+    func updateViewport(visible: [WallpaperContentItem], prefetch: [WallpaperContentItem], request: ThumbnailRequest? = nil) { viewport = visible }
     func repairVisiblePreviews() {}
 }
 @MainActor enum PickerAlerts { static var count = 0; static var hiddenWindowAlerts = 0 }

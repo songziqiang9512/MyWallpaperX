@@ -72,11 +72,12 @@ private final class GridAnimationUnavailableCell: NSCollectionViewItem {
         grid.collection.register(GridAnimationUnavailableCell.self, forItemWithIdentifier: unavailable)
         grid.needsCellReplacement = { cell, item in (cell is GridAnimationUnavailableCell) != (item.publishedAvailability == .unavailable) }
         grid.updateCell = { cell, item, _ in (cell as? GridAnimationCell)?.label.stringValue = item.title }
-        grid.setCellVisible = { cell, visible in
+        grid.setCellVisible = { cell, state in
+                let visible = state != nil
             if visible, let ref = cell.representedObject as? WallpaperReference { leases[ObjectIdentifier(cell)] = ref }
             else { leases.removeValue(forKey: ObjectIdentifier(cell)) }
         }
-        grid.onViewport = { visible, nearby in demand = (visible + nearby).map(\.reference) }
+        grid.onViewport = { visible, nearby, _ in demand = (visible + nearby).map(\.reference) }
         let window = NSWindow(contentViewController: grid)
         window.isReleasedWhenClosed = false
         window.setContentSize(.init(width: 900, height: 700))

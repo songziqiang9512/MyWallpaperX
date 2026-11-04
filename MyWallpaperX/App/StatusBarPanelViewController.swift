@@ -109,17 +109,16 @@ final class StatusBarPanelViewController: NSViewController {
     }
 
     func thumbnailBecameReady(at normalizedPath: String) {
-        guard case let .video(item) = displayedCoverSource,
+        guard videoCancellation == nil, case let .video(item) = displayedCoverSource,
               WallpaperManager.shared.normalizedPath(item.path) == normalizedPath else { return }
         // Only the derived asset changed; the wallpaper model may be identical.
         // Invalidate this consumer, not the shared cache or another card.
-        videoCancellation?.cancel()
         imageGeneration &+= 1
         let expected = imageGeneration
         loadVideoCover(item, generation: expected)
     }
 
-    private func loadVideoCover(_ item: VideoWallpaper, generation: UInt64, mayGenerate: Bool = true) {
+    private func loadVideoCover(_ item: VideoWallpaper, generation: UInt64) {
         // The existing cache may create/migrate its directory on first access.
         // Warm that owner off-main before constructing the lightweight provider.
         let preparation = ThumbnailCacheRequestCancellation()
@@ -129,29 +128,16 @@ final class StatusBarPanelViewController: NSViewController {
             _ = VideoLibraryThumbnailStore.sharedCache
             DispatchQueue.main.async {
                 guard let self, self.imageGeneration == generation, !preparation.cancelled else { return }
-                self.loadPreparedVideoCover(item, generation: generation, mayGenerate: mayGenerate)
+                self.loadPreparedVideoCover(item, generation: generation)
             }
         }
     }
 
-    private func loadPreparedVideoCover(_ item: VideoWallpaper, generation: UInt64, mayGenerate: Bool) {
+    private func loadPreparedVideoCover(_ item: VideoWallpaper, generation: UInt64) {
         videoCancellation = videoPreview.loadThumbnail(for: item) { [weak self] image in
             guard let self, self.imageGeneration == generation else { return }
-            if let image { self.panel.cover.setImage(image) }
-            guard image == nil else { return }
-            guard mayGenerate else { self.panel.cover.setImage(nil); return }
-            let manager = WallpaperManager.shared
-            let path = manager.normalizedPath(item.path)
-            guard manager.shouldRetryThumbnailGeneration(for: path) || manager.isThumbnailGenerationInFlight(for: path) else {
-                self.panel.cover.setImage(nil); return
-            }
-            // Cached reads do not create a missing derived image. A status-only
-            // replay needs the same bounded single-flight generator as a card.
-            manager.generateThumbnail(for: URL(fileURLWithPath: item.path)) { [weak self] output in
-                guard let self, self.imageGeneration == generation else { return }
-                guard output != nil else { self.panel.cover.setImage(nil); return }
-                self.loadVideoCover(item, generation: generation, mayGenerate: false)
-            }
+            self.videoCancellation = nil
+            self.panel.cover.setImage(image)
         }
     }
 

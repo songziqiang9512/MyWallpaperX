@@ -573,6 +573,29 @@ import Foundation
             checks["newExplicitRemovalRetiresOlderWaitingSelectionAdjustment"] = view.selectionState.references.isEmpty
                 && view.queryResult.items.map(\.reference) == [two, three]
         }
+        do {
+            let name = suite + ".same-selection", defaults = UserDefaults(suiteName: suite + ".same-selection")!
+            defer { defaults.removePersistentDomain(forName: name) }
+            let view = WallpaperLibraryPresentation(collections: controller, defaults: defaults)
+            let rows = (0..<5000).map { item(.init(provider: .videoLibrary, sourceID: "repeat-\($0)")) }
+            _ = view.update(catalog: .init(videos: rows, revision: 1), relationships: controller.snapshot)
+            let target = rows.last!.reference
+            view.setSelection([target], focused: target)
+            let lease = view.selectionState.sessionID
+            var publications = 0
+            let observation = view.$state.dropFirst().sink { _ in publications += 1 }
+            defer { observation.cancel() }
+            let accepted = (0..<100).allSatisfy { _ in view.setSelection([target], focused: target, expectedSessionID: lease) }
+            checks["sameSelectionReusesLeaseWithoutRepublishingLargePage"] = accepted && publications == 0
+                && view.selectionState.sessionID == lease && view.selectionState.focusedReference == target
+            publications = 0
+            checks["sameSelectionStillRejectsStaleSession"] = !view.setSelection([target], focused: target, expectedSessionID: UUID())
+                && publications == 0
+            let missing = WallpaperReference(provider: .videoLibrary, sourceID: "not-visible")
+            view.setSelection([missing], focused: missing)
+            checks["changedSelectionStillPrunesUnknownReferencesAndPublishes"] = publications == 1
+                && view.selectionState.references.isEmpty && view.selectionState.focusedReference == nil
+        }
         let priorErrorEvent = model.state.lastErrorEvent
         let repeated = NSError(domain: "notice-test", code: 1, userInfo: [NSLocalizedDescriptionKey: "重复错误"])
         model.report(repeated)

@@ -192,7 +192,7 @@ extension AppKitSteamWorkshopBrowserItem {
         barPresentationGeneration &+= 1
         let presentation = barPresentationGeneration
         if shouldRevealBar, controlBar.superview == nil {
-            cardView.addSubview(controlBar)
+            view.addSubview(controlBar)
         }
         refreshThemeAwareAppearance()
         let barDuration = shouldRevealBar

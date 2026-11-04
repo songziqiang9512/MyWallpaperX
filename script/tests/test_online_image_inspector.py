@@ -25,6 +25,8 @@ ROOT = Path(__file__).resolve().parents[2]
 class OnlineImageInspectorTests(unittest.TestCase):
     def test_footer_actions_grid_thumbnail_reuse_and_page_scope_cancellation(self):
         paths = [ROOT / name for name in (
+            "MyWallpaperX/Shared/ThumbnailRequest.swift",
+            "MyWallpaperX/Shared/UI/DecodedThumbnailMemoryCache.swift",
             "MyWallpaperX/Models/WallpaperReference.swift",
             "MyWallpaperX/Models/WallpaperContent.swift",
             "MyWallpaperX/Core/OnlineImages/OnlineImageModels.swift",

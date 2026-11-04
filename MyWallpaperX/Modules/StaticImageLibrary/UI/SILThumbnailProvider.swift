@@ -9,19 +9,6 @@ enum SILThumbnailLoadResult {
     case unavailable
 }
 
-/// Both visible and nearby consumers use the same bounded, display-size decode.
-nonisolated func silGridThumbnailImage(atPath path: String) -> NSImage? {
-    guard let source = CGImageSourceCreateWithURL(URL(fileURLWithPath: path) as CFURL,
-        [kCGImageSourceShouldCache: false] as CFDictionary),
-        let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
-            kCGImageSourceThumbnailMaxPixelSize: 512,
-            kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceShouldCacheImmediately: true
-        ] as CFDictionary) else { return nil }
-    return NSImage(cgImage: image, size: .zero)
-}
-
 nonisolated func silGridThumbnailFailureSignature(atPath path: String) -> String? {
     guard let attrs = try? FileManager.default.attributesOfItem(atPath: path) else { return nil }
     let size = (attrs[.size] as? NSNumber)?.int64Value ?? -1
@@ -29,7 +16,7 @@ nonisolated func silGridThumbnailFailureSignature(atPath path: String) -> String
     return "\(path)|\(size)|\(modified)"
 }
 
-/// decodeQueue 解码失败签名的跨队列载体：loader 写入、主线程 completion 读取
+/// 解码失败签名的跨队列载体：失败回调写入、主线程 completion 读取
 private final class SILDecodeFailureSignature: @unchecked Sendable {
     private let lock = NSLock()
     private var value: String?
@@ -50,11 +37,11 @@ final class SILThumbnailProvider {
 
     init(cache: ThumbnailCache = SILThumbnailStore.sharedCache) { self.cache = cache }
 
-    func load(path: String, priority: ThumbnailCacheRequestPriority = .visible,
+    func load(path: String, request: ThumbnailRequest? = nil, priority: ThumbnailCacheRequestPriority = .visible,
               cancellation: ThumbnailCacheRequestCancellation,
               completion: @escaping (SILThumbnailLoadResult) -> Void) {
         // 内存快路径：命中直接同步完成，零文件系统调用、零队列跳转
-        if let cached = self.cache.cachedImage(forKey: path) {
+        if let cached = self.cache.cachedImage(forKey: path, request: request) {
             completion(.image(cached))
             return
         }
@@ -81,18 +68,15 @@ final class SILThumbnailProvider {
                     // source identity. Do not guess that it describes this file.
                     self.cache.remove(forKey: path)
                 }
-                // 新失败的源身份只由实际 loader 在失败处带回；加入其他
+                // 新失败的源身份只由实际解码在失败处带回；加入其他
                 // producer 的 completion 不猜签名，也不在主线程 stat。
                 let decodeFailureSignature = SILDecodeFailureSignature()
-                self.cache.load(forKey: path, priority: priority, cancellation: cancellation, loader: {
-                    let decodeFailure: () -> NSImage? = {
+                self.cache.load(forKey: path, request: request, priority: priority, cancellation: cancellation,
+                    input: .sourceFile(URL(filePath: path, directoryHint: .notDirectory), onFailure: {
                         if let signature = silGridThumbnailFailureSignature(atPath: path) {
                             decodeFailureSignature.store(signature)
                         }
-                        return nil
-                    }
-                    return silGridThumbnailImage(atPath: path) ?? decodeFailure()
-                }, completion: { [weak self] image in
+                    }), completion: { [weak self] image in
                     guard let self else {
                         completion(image.map(SILThumbnailLoadResult.image) ?? .unavailable)
                         return
@@ -100,7 +84,7 @@ final class SILThumbnailProvider {
                     if image != nil || !self.cache.hasCachedFailure(forKey: path) {
                         self.failureSourceSignatures.removeValue(forKey: path)
                     } else if let failureSignature = decodeFailureSignature.stored {
-                        // Only this loader can identify its failed source. A
+                        // Only this decode can identify its failed source. A
                         // joined producer's nil must not acquire a guessed memo.
                         self.failureSourceSignatures[path] = failureSignature
                     }

@@ -1,45 +1,59 @@
-"""Actual Video Inspector metadata helper's immediate template and async terminal.
+"""Complete production Video metadata helper: synchronous template and async facts.
 
-Compiles the production DTO/helper and unchanged format/resolution/codec bodies
-with the real VideoWallpaper model and AVFoundation. Inputs are a self-written
-invalid video and a small generated PNG in a temporary HOME. This proves layout
-facts before return, fallback terminal values and immediate cancellation. One
-test-copy scheduling hook pauses after real AV work, before MainActor delivery,
-to prove cancellation at that boundary without substituting AV results; it
-also counts actual AV preparation entry, not I/O or CPU cost. It does not
-establish valid-media codec/duration accuracy or native Inspector UI.
+Compiles the whole Support file, retaining its actual isolation annotations,
+with the real VideoWallpaper model and AVFoundation. A generated rotated H264
+MOV, malformed video, generated PNG and absent path exercise real metadata,
+file facts and AV fallback. Test-copy entries record the original attributes,
+DateFormatter and AV initialization threads under one lock. A MainActor probe
+holds only final delivery; no file/AV result, cancellation or executor is replaced.
+Checks cover call placement, output and this H264 sample's duration, rotated
+size and codec. They do not establish accuracy for arbitrary media, I/O latency,
+native Inspector animation or full-App behavior.
 """
 import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import tempfile
 import unittest
 
-from script.tests.test_ui_library_algorithms import declaration
-
 ROOT = Path(__file__).resolve().parents[2]
-SUPPORT = ROOT / "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperLibrarySupport.swift"
+SUPPORT = Path(os.environ.get("MWX_VIDEO_METADATA_SUPPORT_SOURCE", ROOT / "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperLibrarySupport.swift"))
 MODEL = ROOT / "MyWallpaperX/Models/VideoWallpaper.swift"
 FIXTURE = ROOT / "script/tests/fixtures/VideoInspectorMetadataHarness.swift"
 
 
+def observe_production(source):
+    for statement, stage in (
+        ('let attributes = (try? FileManager.default.attributesOfItem(atPath: path)) ?? [:]', 'attributes'),
+        ('let dateFormatter = DateFormatter()', 'formatter'),
+        ('let asset = AVURLAsset(url: url)', 'av'),
+    ):
+        pattern = r'(?m)^([ \t]*)' + re.escape(statement) + r'$'
+        if len(re.findall(pattern, source)) != 1:
+            raise AssertionError('production observation entry is no longer unique: ' + statement)
+        source = re.sub(pattern, lambda match: match[1] + 'InspectorMetadataWorkProbe.shared.record(path, stage: "' + stage + '")\n' + match[0], source)
+    # Both arms retain their own original delivery cancellation check. The old
+    # source remains synchronous before its Task; no compatibility scheduler.
+    old = '        await MainActor.run {'
+    current = '        guard !Task.isCancelled else { return }\n        completion(details)'
+    if source.count(old) == 1:
+        source = source.replace(old, '        await InspectorMetadataDeliveryProbe.waitIfHeld(path)\n' + old, 1)
+        delivery = 'before original MainActor.run'
+    elif source.count(current) == 1:
+        source = source.replace(current, '        await InspectorMetadataDeliveryProbe.waitIfHeld(path)\n' + current, 1)
+        delivery = 'before original final cancellation guard'
+    else:
+        raise AssertionError('production final delivery boundary is no longer unique')
+    return source, delivery
+
+
 class VideoInspectorMetadataTests(unittest.TestCase):
     def test_real_helper_publishes_complete_template_before_return_and_honors_cancellation(self):
-        source = SUPPORT.read_text()
-        production = "import Foundation\nimport AVFoundation\n" + declaration(source, "struct WallpaperInspectorDetails:")
-        helper_body = declaration(source, "func loadWallpaperInspectorDetails(")
-        boundary = "        await MainActor.run {"
-        self.assertEqual(helper_body.count(boundary), 1)
-        helper_body = helper_body.replace(boundary, "        await InspectorMetadataDeliveryProbe.waitIfHeld(path)\n" + boundary, 1)
-        asset = "        let asset = AVURLAsset(url: url)"
-        self.assertEqual(helper_body.count(asset), 1)
-        helper_body = helper_body.replace(asset, "        InspectorMetadataDeliveryProbe.avPreparationEntries[path, default: 0] += 1\n" + asset, 1)
-        production += "\n@discardableResult\n" + helper_body
-        production += "\n" + "\n".join(declaration(source, signature) for signature in (
-            "private func formattedDuration(", "private func videoResolutionText(", "private func videoCodecText("))
-        paths = [SUPPORT, MODEL, FIXTURE, Path(__file__).resolve(), ROOT / "script/tests/test_ui_library_algorithms.py"]
+        production, delivery = observe_production(SUPPORT.read_text())
+        paths = [SUPPORT, MODEL, FIXTURE, Path(__file__).resolve()]
         inputs = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in paths}
         with tempfile.TemporaryDirectory(prefix="mwx-inspector-metadata-", dir="/private/tmp") as folder:
             work = Path(folder)
@@ -55,7 +69,7 @@ class VideoInspectorMetadataTests(unittest.TestCase):
                 Path(destination).mkdir(parents=True, exist_ok=True)
                 proof = Path(tempfile.mkdtemp(prefix="metadata-", dir=destination))
                 (proof / "inputs.json").write_text(json.dumps({"inputs": inputs, "command": command, "scope": __doc__,
-                    "transforms": ["extract production declarations; count actual AV preparation entry; insert awaitable scheduling probe immediately before final MainActor delivery; no AV result or cancellation substitution"]}, indent=2))
+                    "transforms": ["compile complete production Support; retain all isolation annotations", "record actual attributes/DateFormatter/AV initialization threads under a lock", "await scheduling probe " + delivery + "; original cancellation check and all results retained"]}, indent=2))
                 (proof / "compile.log").write_text(build.stdout + build.stderr)
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
             run = subprocess.run([str(work / "checks"), str(work)], capture_output=True, text=True, env=env, timeout=45)
@@ -65,10 +79,11 @@ class VideoInspectorMetadataTests(unittest.TestCase):
             self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
             checks = json.loads(run.stdout)
             self.assertTrue(checks)
-            for name, passed in checks.items():
-                self.assertIs(passed, True, name + "\n" + run.stderr)
             self.assertEqual(inputs, {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in paths})
             print(json.dumps(checks, sort_keys=True))
+            for name, passed in checks.items():
+                with self.subTest(check=name):
+                    self.assertIs(passed, True, name + "\n" + run.stderr)
 
 
 if __name__ == "__main__":

@@ -35,7 +35,7 @@ class LibraryVisibleSourceLifecycleTests(unittest.TestCase):
                 env=dict(os.environ, HOME=str(work / "home"), CFFIXED_USER_HOME=str(work / "home")))
             self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
             checks = json.loads(run.stdout)
-            self.assertEqual(len(checks), 40)
+            self.assertEqual(len(checks), 68)
             for name, passed in checks.items():
                 with self.subTest(name=name): self.assertIs(passed, True, run.stderr)
             negative = subprocess.run([str(binary), str(work / "negative-media")], capture_output=True, text=True, timeout=40,

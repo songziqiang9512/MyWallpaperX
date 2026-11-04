@@ -15,10 +15,11 @@ final class WallpaperManager {
     let thumbnailCacheDirectory: URL
     var wallpapers: [VideoWallpaper] = []
     var preparedIDs: [String] = []
+    var preparedRequests: [ThumbnailRequest?] = []
     init(_ directory: URL) { thumbnailCacheDirectory = directory }
     func isThumbnailGenerationInFlight(for path: String) -> Bool { false }
     func hasRecentThumbnailGenerationFailure(for path: String) -> Bool { false }
-    func ensurePreviewAssetsForWallpaper(_ wallpaper: VideoWallpaper, completion: ((String?) -> Void)? = nil) { preparedIDs.append(wallpaper.id); completion?(nil) }
+    func ensurePreviewAssetsForWallpaper(_ wallpaper: VideoWallpaper, request: ThumbnailRequest? = nil, completion: ((VideoThumbnailAsset?) -> Void)? = nil) { preparedIDs.append(wallpaper.id); preparedRequests.append(request); completion?(nil) }
     // ACTUAL_PATH_METHODS
 }
 
@@ -121,6 +122,33 @@ final class WallpaperManager {
         configure(nilRecord, clearedCard)
         controls["explicitCacheRemovalCannotSupplyReadyPixels"] = clearedCard.thumbnailImageView.image == nil
         controls["fixtureDoesNotBackfillModelOrPublishSourceRows"] = manager.wallpapers == [nilRecord]
+        var square: NSImage?
+        let squareLease = provider.loadThumbnail(for: explicit, request: ThumbnailRequest(width: 64, height: 64, mode: .fill)) { square = $0 }
+        controls["explicitNativeSmallImageCompletesRequestedSquare"] = pump { square != nil }
+            && square?.size == NSSize(width: 30, height: 30)
+        let squareCard = VideoCardProbe()
+        squareCard.setThumbnailVisible(false)
+        squareCard.configure(wallpaper: explicit, isSelected: false, isPlaying: false, multiSelectMode: false,
+            thumbnailRequest: ThumbnailRequest(width: 64, height: 64, mode: .fill), wallpaperManager: manager, thumbnailProvider: provider)
+        controls["requestedSquareIsReadyInHiddenConfigureTurn"] = square != nil && squareCard.thumbnailImageView.image === square
+        controls["largerSquareSatisfiesSmallerGridRequest"] = square != nil
+            && provider.cachedThumbnail(for: explicit, request: ThumbnailRequest(width: 32, height: 32, mode: .fill)) === square
+        let uncropped = provider.cachedThumbnail(for: explicit)
+        controls["squareDoesNotMasqueradeAsUncroppedRole"] = uncropped === configuredWarm && uncropped !== square
+            && uncropped?.size == NSSize(width: 40, height: 30)
+        let beforePrefetch = manager.preparedIDs.count
+        provider.replacePrefetch(with: [nilRecord], request: ThumbnailRequest(width: 128, height: 128, mode: .fill))
+        var prefetchDrained = false
+        provider.decodeQueue.async { DispatchQueue.main.async { prefetchDrained = true } }
+        controls["adaptivePrefetchMissNeverGenerates"] = pump { prefetchDrained } && manager.preparedIDs.count == beforePrefetch
+        var visibleMissCompleted = false
+        let adaptiveMissLease = provider.loadThumbnail(for: nilRecord, request: ThumbnailRequest(width: 128, height: 128, mode: .fill)) { image in
+            visibleMissCompleted = image == nil
+        }
+        controls["visibleMissHandsRequestedSideToOriginalGeneratorOnce"] = pump { visibleMissCompleted }
+            && manager.preparedIDs.count == beforePrefetch + 1 && manager.preparedRequests.last! == ThumbnailRequest(width: 128, height: 128, mode: .fill)
+        provider.cancelAllPrefetch()
+        withExtendedLifetime((squareLease, adaptiveMissLease)) {}
         withExtendedLifetime((warmLease, configuredLease)) {}
         let result: [String: Any] = ["controls": controls, "observations": observations,
             "work": ["beforeWarmConfigure": syncBefore, "afterWarmConfigure": syncAfter],

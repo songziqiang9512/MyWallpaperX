@@ -17,7 +17,18 @@ nonisolated func steamWorkshopPreviewStillKey(for url: URL, maxPixelSize: Int = 
 }
 
 func steamWorkshopCachedPreviewImage(for url: URL, maxPixelSize: Int = 800) -> NSImage? {
-    SteamWorkshopPreviewImageCache.shared.cachedImage(forKey: steamWorkshopPreviewStillKey(for: url, maxPixelSize: maxPixelSize))
+    steamWorkshopCachedPreviewImage(forStillKey: steamWorkshopPreviewStillKey(for: url, maxPixelSize: maxPixelSize), maxPixelSize: maxPixelSize)
+}
+
+nonisolated func steamWorkshopCachedPreviewImage(forStillKey key: String, maxPixelSize: Int) -> NSImage? {
+    let cache = SteamWorkshopPreviewImageCache.shared
+    if let image = cache.cachedImage(forKey: key) { return image }
+    // This internal key already contains the prepared source fingerprint.
+    let source = key.dropFirst("steam-still-v1:\(maxPixelSize):".count)
+    for tier in [256, 512, 800] where tier > maxPixelSize {
+        if let image = cache.cachedImage(forKey: "steam-still-v1:\(tier):\(source)") { return image }
+    }
+    return nil
 }
 
 nonisolated func steamWorkshopLoadPreviewImage(
@@ -29,6 +40,10 @@ nonisolated func steamWorkshopLoadPreviewImage(
 ) {
     let rawKey = url.isFileURL ? steamWorkshopLocalPreviewCacheKey(for: url) : steamWorkshopPreviewCacheKey(for: url)
     let stillKey = "steam-still-v1:\(maxPixelSize):\(rawKey)"
+    if let ready = steamWorkshopCachedPreviewImage(forStillKey: stillKey, maxPixelSize: maxPixelSize) {
+        if cancellation?.cancelled != true { completion(ready) }
+        return
+    }
     SteamWorkshopPreviewImageCache.shared.loadImageDataAsync(
         forKey: stillKey, sourceDataKey: rawKey,
         priority: priority == .prefetch ? .prefetch : .visible,

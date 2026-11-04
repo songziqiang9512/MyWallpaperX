@@ -47,7 +47,8 @@ final class AppKitPixabayBrowserItem: NSCollectionViewItem, WallpaperGridHoverIt
     private var currentItemID     = -1
     private var currentPageURL:   String? = nil
     private var currentThumbnailURL: URL?
-    private var requestedPixelLimit = 0
+    private var thumbnailRequest: ThumbnailRequest?
+    private var thumbnailRequestFinished = false
     private var thumbnailRequestID = UUID()
     private var thumbnailTask:    Task<Void, Never>?
     private var terminalThumbnailFailureGeneration: Int?
@@ -73,7 +74,7 @@ final class AppKitPixabayBrowserItem: NSCollectionViewItem, WallpaperGridHoverIt
         presentedItem = nil
         currentItemID = -1
         currentThumbnailURL = nil
-        requestedPixelLimit = 0
+        thumbnailRequest = nil; thumbnailRequestFinished = false
         currentPageURL = nil
         thumbnailView.image = nil
         placeholderView.isHidden = true
@@ -96,12 +97,15 @@ final class AppKitPixabayBrowserItem: NSCollectionViewItem, WallpaperGridHoverIt
     func configure(
         item: PixabayVideoItem,
         isDownloading: Bool, isDownloaded: Bool, downloadProgress: Double?,
+        thumbnailRequest: ThumbnailRequest?,
         thumbnailDemandActive: Bool? = nil,
         organization: WallpaperInspectorActions? = nil,
         onInspect: (() -> Void)? = nil,
         onDownload: @escaping () -> Void,
         onSetAsWallpaper: @escaping () -> Void
     ) {
+        let resized = self.thumbnailRequest != thumbnailRequest
+        self.thumbnailRequest = thumbnailRequest
         let wasActive = isThumbnailDemandActive
         if let thumbnailDemandActive { isThumbnailDemandActive = thumbnailDemandActive }
         if !isThumbnailDemandActive { endDisplayingThumbnail() }
@@ -134,11 +138,16 @@ final class AppKitPixabayBrowserItem: NSCollectionViewItem, WallpaperGridHoverIt
             terminalThumbnailFailureGeneration = nil
             thumbnailRequestID = UUID()
             currentThumbnailURL = item.previewThumbnailURL
-            requestedPixelLimit = 0
+            thumbnailRequestFinished = false
             thumbnailView.image = nil
             placeholderView.isHidden = true
             if isThumbnailDemandActive { loadThumbnail(url: item.previewThumbnailURL) }
-        } else if isThumbnailDemandActive && !wasActive { beginDisplayingThumbnail() }
+        } else if resized {
+            thumbnailTask?.cancel(); thumbnailTask = nil
+            terminalThumbnailFailureGeneration = nil
+            thumbnailRequestID = UUID(); thumbnailRequestFinished = false
+            if isThumbnailDemandActive { loadThumbnail(url: item.previewThumbnailURL) }
+        } else if isThumbnailDemandActive && !wasActive { beginDisplayingThumbnail(request: thumbnailRequest) }
         setDownloadState(
             isDownloading: isDownloading,
             isDownloaded: isDownloaded,
@@ -210,22 +219,19 @@ final class AppKitPixabayBrowserItem: NSCollectionViewItem, WallpaperGridHoverIt
     }
 
     private func loadThumbnail(url: URL?) {
-        guard isThumbnailDemandActive else { return }
+        guard isThumbnailDemandActive, let request = thumbnailRequest else { return }
         thumbnailTask?.cancel()
         terminalThumbnailFailureGeneration = nil
         let requestID = UUID()
         thumbnailRequestID = requestID
-        if requestedPixelLimit == 0 {
-            thumbnailView.image = nil; placeholderView.isHidden = true
-        }
-        let pixelLimit = GridThumbnailDecoder.pixelLimit(width: view.bounds.width, scale: view.window?.backingScaleFactor ?? 2)
-        requestedPixelLimit = pixelLimit
+        thumbnailRequestFinished = false
         guard let url else {
             placeholderLabel.stringValue = "暂无缩略图"
             placeholderView.isHidden = false
             return
         }
-        if let ready = OnlineImageThumbnailCache.shared.readyImage(for: url, maxPixelSize: pixelLimit) {
+        if let ready = OnlineImageThumbnailCache.shared.readyImage(for: url, request: request) {
+            thumbnailRequestFinished = true
             thumbnailView.image = ready
             layoutThumbnail()
             placeholderView.isHidden = true
@@ -239,10 +245,11 @@ final class AppKitPixabayBrowserItem: NSCollectionViewItem, WallpaperGridHoverIt
         thumbnailTask = Task { [weak self] in
             let generation = await OnlineImageThumbnailCache.shared.publicationGeneration()
             guard !Task.isCancelled else { return }
-            guard let img = await OnlineImageThumbnailCache.shared.image(for: url, maxPixelSize: pixelLimit, priority: .visible) else {
+            guard let img = await OnlineImageThumbnailCache.shared.image(for: url, request: request, priority: .visible) else {
                 guard !Task.isCancelled else { return }
                 await MainActor.run {
                     guard let self, self.currentItemID == id, self.thumbnailRequestID == requestID else { return }
+                    self.thumbnailRequestFinished = true
                     self.terminalThumbnailFailureGeneration = generation
                     if self.thumbnailView.image == nil { self.placeholderView.isHidden = false }
                     self.placeholderLabel.stringValue = "暂无缩略图"
@@ -252,6 +259,7 @@ final class AppKitPixabayBrowserItem: NSCollectionViewItem, WallpaperGridHoverIt
             guard !Task.isCancelled else { return }
             await MainActor.run {
                 guard let self, self.currentItemID == id, self.thumbnailRequestID == requestID else { return }
+                self.thumbnailRequestFinished = true
                 self.thumbnailView.image = img
                 self.layoutThumbnail()
                 self.placeholderView.isHidden = true
@@ -270,11 +278,18 @@ final class AppKitPixabayBrowserItem: NSCollectionViewItem, WallpaperGridHoverIt
         thumbnailRequestID = UUID()
     }
 
-    func beginDisplayingThumbnail() {
+    func beginDisplayingThumbnail(request: ThumbnailRequest?) {
+        if let request, thumbnailRequest != request {
+            thumbnailRequest = request
+            thumbnailTask?.cancel(); thumbnailTask = nil
+            terminalThumbnailFailureGeneration = nil
+            thumbnailRequestID = UUID(); thumbnailRequestFinished = false
+        }
         isThumbnailDemandActive = true
         updateControlBarContent()
         applyHoverVisibility(hoverVisible, animated: false)
-        guard thumbnailView.image == nil, thumbnailTask == nil, let url = currentThumbnailURL else { return }
+        guard !thumbnailRequestFinished || thumbnailView.image == nil else { return }
+        guard thumbnailTask == nil, let url = currentThumbnailURL else { return }
         if let failedGeneration = terminalThumbnailFailureGeneration {
             let requestID = thumbnailRequestID
             thumbnailTask = Task { [weak self] in
@@ -425,7 +440,7 @@ final class AppKitPixabayBrowserItem: NSCollectionViewItem, WallpaperGridHoverIt
         imageContainer.addSubview(thumbnailView)
         imageContainer.addSubview(placeholderView)
         imageContainer.addSubview(hoverOutlineView)
-        imageContainer.addSubview(controlBar)
+        view.addSubview(controlBar)
         imageContainer.addSubview(durationBadgeView)
 
         hoverTracking.update(in: imageContainer, owner: self)
@@ -458,10 +473,6 @@ final class AppKitPixabayBrowserItem: NSCollectionViewItem, WallpaperGridHoverIt
         lastLayoutInputs = inputs
         let w = view.bounds.width
         guard w > 0 else { return }
-        if let url = currentThumbnailURL,
-           GridThumbnailDecoder.pixelLimit(width: w, scale: view.window?.backingScaleFactor ?? 2) > requestedPixelLimit {
-            loadThumbnail(url: url)
-        }
         let h = w
 
         // Square preview; the original image stays unchanged for other consumers.
@@ -504,8 +515,8 @@ final class AppKitPixabayBrowserItem: NSCollectionViewItem, WallpaperGridHoverIt
         )
 
         let metrics = WallpaperCardBarMetrics(cardWidth: w)
-        controlBar.frame = NSRect(x: metrics.barHorizontalInset, y: metrics.barBottomInset,
-            width: max(0,w-metrics.barHorizontalInset*2), height: metrics.barHeight)
+        controlBar.frame = imageContainer.convert(NSRect(x: metrics.barHorizontalInset, y: metrics.barBottomInset,
+            width: max(0,w-metrics.barHorizontalInset*2), height: metrics.barHeight), to: view)
         controlBar.apply(metrics: metrics)
         controlBar.layoutSubtreeIfNeeded()
         updateControlBarContent()
@@ -535,7 +546,7 @@ final class AppKitPixabayBrowserItem: NSCollectionViewItem, WallpaperGridHoverIt
         barVisibilityRevision &+= 1
         let revision = barVisibilityRevision
         if show {
-            if controlBar.superview == nil { imageContainer.addSubview(controlBar) }
+            if controlBar.superview == nil { view.addSubview(controlBar) }
             controlBar.isHidden = false
         }
         controlBar.setActive(show && visible && isThumbnailDemandActive)

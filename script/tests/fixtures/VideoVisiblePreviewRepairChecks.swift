@@ -31,7 +31,7 @@ final class WallpaperManager: @unchecked Sendable {
         lock.lock(); previewCalls.append(value.path); checksOffMain = checksOffMain && !Thread.isMainThread; lock.unlock()
         return value.thumbnailPath
     }
-    func ensurePreviewAssetsForWallpaper(_ value: VideoWallpaper, completion: ((String?) -> Void)? = nil) { preparationOnMain = preparationOnMain && Thread.isMainThread; prepared.append(value.id); completion?(nil) }
+    func ensurePreviewAssetsForWallpaper(_ value: VideoWallpaper, request: ThumbnailRequest? = nil, completion: ((VideoThumbnailAsset?) -> Void)? = nil) { preparationOnMain = preparationOnMain && Thread.isMainThread; prepared.append(value.id); completion?(nil) }
 }
 
 @main enum VideoVisiblePreviewRepairChecks {

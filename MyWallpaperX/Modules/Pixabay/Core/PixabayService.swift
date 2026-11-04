@@ -87,7 +87,7 @@ final class PixabayService: ObservableObject {
     private struct ThumbnailPrefetch {
         let id: UUID
         let url: URL
-        let pixelSize: Int
+        let request: ThumbnailRequest
         let task: Task<Void, Never>
         var completed = false
         var failed = false
@@ -199,19 +199,19 @@ final class PixabayService: ObservableObject {
         fetchPage(page: currentPage + 1, appending: true)
     }
 
-    func prioritizeVisibleItemIDs(_ ids: [Int], maxPixelSize: Int = 512) {
+    func prioritizeVisibleItemIDs(_ ids: [Int], request: ThumbnailRequest) {
         let visibleIndexes = ids.compactMap { itemIndexByID[$0] }.sorted()
         guard let first = visibleIndexes.first else { cancelThumbnailPrefetch(); return }
         let direction = previousVisibleStart.map { first == $0 ? 0 : (first > $0 ? 1 : -1) } ?? 0
         previousVisibleStart = first
         let indices = GridThumbnailPrefetchDemand.indices(visibleIndices: visibleIndexes,
             itemCount: items.count, neighborLimit: Constants.visibleThumbnailPrefetchLimit, direction: direction)
-        prefetchThumbnailImages(for: indices.map { items[$0] }, visibleIDs: Set(ids), maxPixelSize: maxPixelSize)
+        prefetchThumbnailImages(for: indices.map { items[$0] }, visibleIDs: Set(ids), request: request)
     }
 
     func thumbnailPrefetchNeedsRefresh() -> Bool {
         thumbnailPrefetches.values.contains {
-            $0.completed && !$0.failed && OnlineImageThumbnailCache.shared.readyImage(for: $0.url, maxPixelSize: $0.pixelSize) == nil
+            $0.completed && !$0.failed && !OnlineImageThumbnailCache.shared.hasReadyImage(for: $0.url, request: $0.request)
         }
     }
 
@@ -608,7 +608,7 @@ final class PixabayService: ObservableObject {
         return c?.url
     }
 
-    private func prefetchThumbnailImages(for items: [PixabayVideoItem], visibleIDs: Set<Int>, maxPixelSize: Int) {
+    private func prefetchThumbnailImages(for items: [PixabayVideoItem], visibleIDs: Set<Int>, request target: ThumbnailRequest) {
         let candidates = items.compactMap { item -> (Int, URL)? in
             item.previewThumbnailURL.map { (item.id, $0) }
         }
@@ -621,8 +621,8 @@ final class PixabayService: ObservableObject {
         }
         for (id, url) in candidates {
             let previous = thumbnailPrefetches[id]
-            if let current = previous, current.url == url, current.pixelSize == maxPixelSize {
-                if !current.completed || OnlineImageThumbnailCache.shared.readyImage(for: url, maxPixelSize: maxPixelSize) != nil { continue }
+            if let current = previous, current.url == url, current.request == target {
+                if !current.completed || OnlineImageThumbnailCache.shared.hasReadyImage(for: url, request: target) { continue }
             }
             previous?.task.cancel()
             let requestID = UUID()
@@ -631,17 +631,17 @@ final class PixabayService: ObservableObject {
                 // A terminal bad source is retained until source/tier or clear
                 // changes; a successfully decoded image can be preheated again
                 // after memory eviction without another network fetch.
-                let sameSource = previous?.url == url && previous?.pixelSize == maxPixelSize
+                let sameSource = previous?.url == url && previous?.request == target
                 let suppressFailure = sameSource && previous?.failed == true && previous?.generation == generation
                 let failed: Bool
                 if suppressFailure { failed = true }
-                else { failed = await OnlineImageThumbnailCache.shared.image(for: url, maxPixelSize: maxPixelSize, priority: .prefetch) == nil }
+                else { failed = await OnlineImageThumbnailCache.shared.image(for: url, request: target, priority: .prefetch) == nil }
                 guard !Task.isCancelled, let self, self.thumbnailPrefetches[id]?.id == requestID else { return }
                 self.thumbnailPrefetches[id]?.completed = true
                 self.thumbnailPrefetches[id]?.failed = failed
                 self.thumbnailPrefetches[id]?.generation = generation
             }
-            thumbnailPrefetches[id] = ThumbnailPrefetch(id: requestID, url: url, pixelSize: maxPixelSize, task: task)
+            thumbnailPrefetches[id] = ThumbnailPrefetch(id: requestID, url: url, request: target, task: task)
         }
     }
 }

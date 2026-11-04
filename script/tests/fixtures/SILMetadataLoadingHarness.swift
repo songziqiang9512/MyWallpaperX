@@ -318,7 +318,7 @@ nonisolated func ProbeFileExists(_ path: String) -> Bool {
         // path. The explicit card stays offscreen; no thumbnail decoder runs.
         let cards = NSCollectionView(frame: NSRect(x: 0, y: 0, width: 800, height: 600)), dataSource = MetadataItems()
         cards.dataSource = dataSource; cards.collectionViewLayout = NSCollectionViewFlowLayout(); cards.reloadData()
-        let state = WallpaperLibraryGridController.CellState(isSelected: false, isSelecting: false, isFocused: false)
+        let state = WallpaperLibraryGridController.CellState(isSelected: false, isSelecting: false, isFocused: false, thumbnailRequest: .init(width: 320, height: 320, mode: .fill))
         let cell = adapter.makeCell(collection: cards, indexPath: IndexPath(item: 0, section: 0), content: first[0], state: state) as! SILGridItem
         cell.view.frame = NSRect(x: 0, y: 0, width: initialFrame.width, height: initialFrame.height)
         cell.viewDidLayout(); cell.applyHoverVisibility(true, animated: false)

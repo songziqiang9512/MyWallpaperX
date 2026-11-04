@@ -139,7 +139,7 @@ class WallpaperManager: ObservableObject {
     let thumbnailQueue = DispatchQueue(label: "com.mywallpaper.thumbnail", qos: .utility, attributes: .concurrent)
     let staticFrameQueue = DispatchQueue(label: "com.mywallpaper.staticframe", qos: .background)
     let thumbnailGenerationLimiter = DispatchSemaphore(value: 2)
-    var thumbnailInFlightHandlers: [String: [(String?) -> Void]] = [:]
+    var thumbnailInFlightHandlers: [String: [(request: ThumbnailRequest?, completion: (VideoThumbnailAsset?) -> Void)]] = [:]
     let thumbnailInFlightLock = NSLock()
     var scheduledStaticFramePaths = Set<String>()
     let staticFrameScheduleLock = NSLock()

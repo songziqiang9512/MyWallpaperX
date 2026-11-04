@@ -34,7 +34,8 @@ final class OnlineImageGridItem: WallpaperCardCollectionViewItem, WallpaperGridH
     private var task: Task<Void, Never>?
     private var cancellation: ThumbnailCacheRequestCancellation?
     private var requestID = UUID()
-    private var pixelLimit = 0
+    private var thumbnailRequestFinished = false
+    private var thumbnailRequest: ThumbnailRequest?
     private var hasFailed = false
     private var refreshToken: UUID?
     var reference: WallpaperReference? { content?.providerReference }
@@ -67,7 +68,7 @@ final class OnlineImageGridItem: WallpaperCardCollectionViewItem, WallpaperGridH
     override func prepareForReuse() {
         super.prepareForReuse()
         setOriginalPreviewLoading(false)
-        retireRequest(); content = nil; request = nil; pixelLimit = 0; hasFailed = false
+        retireRequest(); content = nil; request = nil; thumbnailRequestFinished = false; thumbnailRequest = nil; hasFailed = false
         thumbnail.image = nil; visible = false; hovering = false
         cardSelected = false; selecting = false; switching = false; playing = false; busy = false
         onPrimary = nil; onInspect = nil
@@ -81,7 +82,7 @@ final class OnlineImageGridItem: WallpaperCardCollectionViewItem, WallpaperGridH
     }
 
     func configure(content: WallpaperContentItem, request: OnlineImageThumbnailRequest?, selected: Bool, selecting: Bool,
-                   playing: Bool, switching: Bool = false, busy: Bool = false, fraction: Double? = nil, refreshToken: UUID? = nil,
+                   playing: Bool, switching: Bool = false, busy: Bool = false, fraction: Double? = nil, refreshToken: UUID? = nil, thumbnailRequest: ThumbnailRequest? = nil,
                    onPrimary: (() -> Void)?, onInspect: (() -> Void)?) {
         loadViewIfNeeded()
         let changed = self.content?.providerReference != content.providerReference
@@ -89,6 +90,8 @@ final class OnlineImageGridItem: WallpaperCardCollectionViewItem, WallpaperGridH
             || self.content?.locator.path != content.locator.path || self.request?.cacheURL != request?.cacheURL
         let mustClear = self.content?.providerReference != content.providerReference
             || self.request?.cacheURL != request?.cacheURL && self.request?.scopeID != request?.scopeID
+        let resized = self.thumbnailRequest != thumbnailRequest
+        self.thumbnailRequest = thumbnailRequest
         let explicitRefresh = self.refreshToken != refreshToken
         self.refreshToken = refreshToken
         self.content = content; self.request = request
@@ -102,10 +105,12 @@ final class OnlineImageGridItem: WallpaperCardCollectionViewItem, WallpaperGridH
         badgeIcon.isHidden = !selected
         updateAppearance()
         if changed {
-            retireRequest(); if mustClear { thumbnail.image = nil }; pixelLimit = 0; hasFailed = false
+            retireRequest(); if mustClear { thumbnail.image = nil }; thumbnailRequestFinished = false; hasFailed = false
             placeholder.stringValue = thumbnail.image == nil ? "加载中" : ""; loadThumbnail()
+        } else if resized {
+            retireRequest(); thumbnailRequestFinished = false; hasFailed = false; loadThumbnail()
         } else if explicitRefresh, hasFailed {
-            hasFailed = false; pixelLimit = 0; loadThumbnail()
+            hasFailed = false; thumbnailRequestFinished = false; loadThumbnail()
         }
         updateVisibility(); view.needsLayout = true
     }
@@ -117,8 +122,13 @@ final class OnlineImageGridItem: WallpaperCardCollectionViewItem, WallpaperGridH
         updateVisibility()
     }
 
-    func setThumbnailVisible(_ value: Bool) {
-        guard visible != value else { return }
+    func setThumbnailVisible(_ value: Bool, thumbnailRequest: ThumbnailRequest? = nil) {
+        let resized = thumbnailRequest != nil && self.thumbnailRequest != thumbnailRequest
+        if resized {
+            self.thumbnailRequest = thumbnailRequest
+            retireRequest(); thumbnailRequestFinished = false; hasFailed = false
+        }
+        guard visible != value || resized else { return }
         visible = value
         if value { loadThumbnail() }
         else { retireRequest(); hovering = false; updateAppearance() }
@@ -141,7 +151,7 @@ final class OnlineImageGridItem: WallpaperCardCollectionViewItem, WallpaperGridH
             originalPreviewSpinner?.frame = .init(x: surface.bounds.midX - 14, y: surface.bounds.midY - 14, width: 28, height: 28)
         }
         refreshGridHover(isScrolling: view.isGridHoverSuppressed)
-        if visible, task == nil, cancellation == nil, !hasFailed { loadThumbnail() }
+        if visible, !thumbnailRequestFinished, task == nil, cancellation == nil, !hasFailed { loadThumbnail() }
     }
 
     func setOriginalPreviewLoading(_ value: Bool) {
@@ -179,26 +189,21 @@ final class OnlineImageGridItem: WallpaperCardCollectionViewItem, WallpaperGridH
     }
 
     private func loadThumbnail() {
-        guard visible, task == nil, cancellation == nil, !hasFailed, let content else { return }
+        guard visible, !thumbnailRequestFinished, task == nil, cancellation == nil, !hasFailed,
+              let content, let thumbnailRequest else { return }
         let id = UUID(); requestID = id
         if thumbnail.image == nil { placeholder.stringValue = "加载中" }
         if content.publishedAvailability.isAvailable, let path = content.locator.path {
-            guard thumbnail.image == nil || pixelLimit == 0 else { return }
-            pixelLimit = 800
             let cancellation = ThumbnailCacheRequestCancellation(); self.cancellation = cancellation
-            localThumbnails.load(path: path, cancellation: cancellation) { [weak self] result in
+            localThumbnails.load(path: path, request: thumbnailRequest, cancellation: cancellation) { [weak self] result in
                 guard let self, requestID == id, !cancellation.cancelled else { return }
                 self.cancellation = nil
                 if case .image(let image) = result { receive(image) } else { receive(nil) }
             }
         } else if let request {
-            let wanted = GridThumbnailDecoder.pixelLimit(width: view.bounds.width, scale: view.window?.backingScaleFactor ?? 2)
-            guard thumbnail.image == nil || wanted > pixelLimit else { return }
-            pixelLimit = wanted
-            if let image = OnlineImageThumbnailCache.shared.readyImage(for: request, maxPixelSize: pixelLimit) { receive(image); return }
-            let pixels = pixelLimit
+            if let image = OnlineImageThumbnailCache.shared.readyImage(for: request, request: thumbnailRequest) { receive(image); return }
             task = Task { [weak self] in
-                let image = await OnlineImageThumbnailCache.shared.image(for: request, maxPixelSize: pixels, priority: .visible)
+                let image = await OnlineImageThumbnailCache.shared.image(for: request, request: thumbnailRequest, priority: .visible)
                 guard let self, !Task.isCancelled, requestID == id else { return }
                 task = nil; receive(image)
             }
@@ -206,6 +211,7 @@ final class OnlineImageGridItem: WallpaperCardCollectionViewItem, WallpaperGridH
     }
 
     private func receive(_ image: NSImage?) {
+        thumbnailRequestFinished = true
         if let image { thumbnail.image = image }
         hasFailed = image == nil
         placeholder.stringValue = thumbnail.image == nil ? "缩略图暂不可用" : ""
@@ -242,7 +248,7 @@ final class OnlineImageGridItem: WallpaperCardCollectionViewItem, WallpaperGridH
         guard let bar else { return }
         barVisibilityRevision &+= 1
         let revision = barVisibilityRevision
-        if show, bar.superview == nil { surface.addSubview(bar) }
+        if show, bar.superview == nil { view.addSubview(bar) }
         bar.setActive(show && hovering)
         bar.glass.setProgressAnimationVisible(show)
         let finish = { [weak self, weak bar] in
@@ -269,8 +275,8 @@ final class OnlineImageGridItem: WallpaperCardCollectionViewItem, WallpaperGridH
     private func layoutControls() {
         guard let bar else { return }
         let metrics = WallpaperCardBarMetrics(cardWidth: surface.bounds.width)
-        bar.frame = .init(x: metrics.barHorizontalInset, y: metrics.barBottomInset,
-            width: max(0, surface.bounds.width - 2 * metrics.barHorizontalInset), height: metrics.barHeight)
+        bar.frame = surface.convert(NSRect(x: metrics.barHorizontalInset, y: metrics.barBottomInset,
+            width: max(0, surface.bounds.width - 2 * metrics.barHorizontalInset), height: metrics.barHeight), to: view)
         bar.apply(metrics: metrics)
     }
 

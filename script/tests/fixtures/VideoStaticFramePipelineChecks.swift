@@ -18,6 +18,7 @@ nonisolated final class WallpaperManager: @unchecked Sendable {
     var settings = Settings()
     var playbackSwitch = SwitchState()
     var currentWallpaper: VideoWallpaper?
+    let importStages = ThumbnailCompletions()
     var updates: [(String, String?, Bool)] = []
     var applied: [String] = []
     init(root: URL) throws {
@@ -49,6 +50,7 @@ nonisolated final class WallpaperManager: @unchecked Sendable {
         let invalid = root.appendingPathComponent("invalid.mp4"), missing = root.appendingPathComponent("missing.mp4")
         let observed = VideoThumbnailObservations.shared, callbacks = ThumbnailCompletions()
         var checks: [String: Bool] = [:], work: [String: [String: Int]] = [:]
+        var preparationFacts: [String: [String: Int]] = [:]
         func pump(_ condition: () -> Bool) -> Bool {
             let end = Date().addingTimeInterval(15)
             while !condition(), Date() < end { RunLoop.main.run(until: Date().addingTimeInterval(0.003)) }
@@ -155,6 +157,81 @@ nonisolated final class WallpaperManager: @unchecked Sendable {
             && observed.count(b) == beforeSchedule + 1 && scheduled.scheduledStaticFramePaths.isEmpty
             && !fm.fileExists(atPath: expected(scheduled, a).path)
 
+        let fourK = root.appendingPathComponent("four-k.mp4")
+        let covered = ThumbnailRequest(width: 128, height: 128, mode: .fill)
+        let larger = ThumbnailRequest(width: 800, height: 800, mode: .fill)
+        for name in ["legacy-ready", "four-k-ready", "default-full", "undersized", "bad-header"] {
+            let source = name == "four-k-ready" ? fourK : a
+            let value = try owner("preparation-" + name, source: source)
+            let release = hold(value)
+            var released = false
+            defer { if !released { release.signal() } }
+            if name == "default-full" { value.scheduleStaticFrameGeneration(for: source) }
+            else {
+                let request = name == "four-k-ready" ? covered : name == "undersized" ? larger : nil
+                value.scheduleStaticFrameGeneration(for: source, preparation: .thumbnailFallback(request))
+            }
+            precondition(!value.scheduledStaticFramePaths.isEmpty)
+            let thumbnailURL = expected(value, source, suffix: "_thumb.jpg")
+            var thumbnail: VideoThumbnailAsset?
+            if name == "bad-header" { try Data("not a JPEG".utf8).write(to: thumbnailURL) }
+            else {
+                value.generateThumbnail(for: source, request: covered) { thumbnail = $0 }
+                precondition(pump { thumbnail != nil }, "owned thumbnail did not complete")
+            }
+            let thumbnailPixels = value.thumbnailPixelSize(at: thumbnailURL.path)
+            if name == "four-k-ready" {
+                checks["fallbackUsesActual4KSourceAndCoveredDecodedThumbnail"] = thumbnail?.nativeSize == CGSize(width: 3840, height: 2160)
+                    && thumbnailPixels.map { covered.isCovered(by: $0) } == true
+            }
+            let beforeStatic = observed.count(source)
+            released = true; release.signal()
+            let settled = pump { value.scheduledStaticFramePaths.isEmpty }
+            let frame = expected(value, source)
+            let framePixels = value.thumbnailPixelSize(at: frame.path)
+            let needsFull = ["default-full", "undersized", "bad-header"].contains(name)
+            checks["preparation-" + name + "-preserves-required-work"] = settled
+                && observed.count(source) == beforeStatic + (needsFull ? 1 : 0)
+                && value.updates.count == (needsFull ? 1 : 0)
+                && (needsFull ? signature(frame.path) == pixelsA : !fm.fileExists(atPath: frame.path))
+            preparationFacts[name] = ["additionalAVCalls": observed.count(source) - beforeStatic,
+                "modelUpdates": value.updates.count, "thumbnailWidth": Int(thumbnailPixels?.width ?? 0),
+                "thumbnailHeight": Int(thumbnailPixels?.height ?? 0), "fullFrameWidth": Int(framePixels?.width ?? 0),
+                "fullFrameHeight": Int(framePixels?.height ?? 0)]
+        }
+        do {
+            let value = try owner("fallback-existing-static")
+            let frame = expected(value, a)
+            try fm.copyItem(atPath: referenceA!, toPath: frame.path)
+            let release = hold(value)
+            defer { release.signal() }
+            let before = observed.count(a)
+            value.scheduleStaticFrameGeneration(for: a, preparation: .thumbnailFallback(larger))
+            checks["fallbackReusesExistingStaticWithoutThumbnailOrQueueWorker"] = pump { value.updates.count == 1 }
+                && value.updates.first?.1 == frame.path && signature(frame.path) == pixelsA
+                && !fm.fileExists(atPath: expected(value, a, suffix: "_thumb.jpg").path)
+                && value.scheduledStaticFramePaths.isEmpty && observed.count(a) == before
+        }
+        do {
+            let value = try owner("fallback-cleared-before-worker")
+            let release = hold(value)
+            var released = false
+            defer { if !released { release.signal() } }
+            let before = observed.count(a)
+            value.scheduleStaticFrameGeneration(for: a, preparation: .thumbnailFallback(nil))
+            // Keep the real delayed work queued behind the existing gate;
+            // clear's empty schedule set alone is not a worker completion.
+            let deadline = Date().addingTimeInterval(1.6)
+            precondition(pump { Date() >= deadline })
+            value.clearPreviewCacheArtifacts()
+            released = true; release.signal()
+            let drained = DecodeHold()
+            value.staticFrameQueue.async { DispatchQueue.main.async { drained.arrive() } }
+            checks["clearRejectsQueuedFallbackWithoutAVOrModelPublication"] = pump { drained.didEnter }
+                && observed.count(a) == before && value.updates.isEmpty
+                && value.scheduledStaticFramePaths.isEmpty && !fm.fileExists(atPath: expected(value, a).path)
+        }
+
         let cleared = try owner("cleared")
         let releaseClear = hold(cleared), beforeClear = observed.count(a)
         request(cleared, a, "cleared-before-worker")
@@ -220,6 +297,6 @@ nonisolated final class WallpaperManager: @unchecked Sendable {
             && [basic, queued, scheduled, cleared, late, synced, declared, removed].allSatisfy { $0.updates.allSatisfy { $0.2 } }
         checks["realDecodeOffMainAndNoOutstandingDecode"] = observed.boundedOffMain
         print(String(decoding: try JSONSerialization.data(withJSONObject: ["checks": checks, "work": work,
-            "referencePixels": [pixelsA!, pixelsB!]], options: [.sortedKeys]), as: UTF8.self))
+            "referencePixels": [pixelsA!, pixelsB!], "preparation": preparationFacts], options: [.sortedKeys]), as: UTF8.self))
     }
 }

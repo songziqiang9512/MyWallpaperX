@@ -14,13 +14,15 @@ import ImageIO
 // WEB_PROJECT
 
 @MainActor enum CatalogVisibleFilterProbe {
-    static var videoVisits = 0
-    static var imageVisits = 0
+    static var videoScans: Int { CatalogFileProbe.shared.scans.visits["selection-videoLibrary", default: 0] }
+    static var imageScans: Int { CatalogFileProbe.shared.scans.visits["selection-staticImageLibrary", default: 0] }
     static var unionBuilds = 0
+    static var publishEntries = 0
+    static var installEntries = 0
 }
 
-// Instrument only the original detached file worker. FileManager and both
-// production projection bodies still execute; a barrier models one slow stat.
+// Observe real file workers and pure visible scans. Barriers hold their
+// actual entry without substituting results.
 nonisolated final class CatalogFileProbe: @unchecked Sendable {
     static let shared = CatalogFileProbe()
     private let lock = NSLock()
@@ -30,6 +32,33 @@ nonisolated final class CatalogFileProbe: @unchecked Sendable {
     private var maximum = 0
     private var total = 0
     private var stayedOffMain = true
+    private var scanVisits: [String: Int] = [:]
+    private var mainScans = Set<String>()
+    private var nextScanBarrier: (String, DispatchSemaphore)?
+    func holdScan(_ key: String) -> DispatchSemaphore {
+        lock.lock(); defer { lock.unlock() }
+        let barrier = DispatchSemaphore(value: 0)
+        nextScanBarrier = (key, barrier)
+        return barrier
+    }
+    func noteScan(_ key: String) {
+        lock.lock()
+        scanVisits[key, default: 0] += 1
+        if Thread.isMainThread { mainScans.insert(key) }
+        let barrier = nextScanBarrier.flatMap { $0.0 == key ? $0.1 : nil }
+        if barrier != nil { nextScanBarrier = nil }
+        lock.unlock()
+        barrier?.wait()
+    }
+    func resetScans(_ key: String? = nil) {
+        lock.lock(); defer { lock.unlock() }
+        if let key { scanVisits[key] = 0; mainScans.remove(key) }
+        else { scanVisits.removeAll(); mainScans.removeAll() }
+    }
+    var scans: (visits: [String: Int], onMain: Set<String>) {
+        lock.lock(); defer { lock.unlock() }
+        return (scanVisits, mainScans)
+    }
     func holdNext() -> DispatchSemaphore {
         lock.lock(); defer { lock.unlock() }
         let barrier = DispatchSemaphore(value: 0)
@@ -266,7 +295,7 @@ extension SteamWorkshopDownloadRecord { var isSceneLaunchable: Bool { false } }
         _ = await wait { controller.catalog.videos.count == 2 }
         await controller.videoTask?.value
         let videoToken = UUID(), imageToken = UUID()
-        CatalogVisibleFilterProbe.videoVisits = 0; CatalogVisibleFilterProbe.imageVisits = 0
+        CatalogFileProbe.shared.resetScans("selection-videoLibrary"); CatalogFileProbe.shared.resetScans("selection-staticImageLibrary")
         var visiblePreviewRepairs = 0
         let previewRepairs = controller.visibleLocalFactsRefreshed.sink { visiblePreviewRepairs += 1 }
         defer { previewRepairs.cancel() }
@@ -278,7 +307,7 @@ extension SteamWorkshopDownloadRecord { var isSceneLaunchable: Bool { false } }
             controller.catalog.videos[0].publishedAvailability == .unavailable && controller.catalog.images[0].publishedAvailability == .unavailable
         }
         checks["mixed-visible-scope-traverses-both-providers-and-repairs-video-previews"] =
-            CatalogVisibleFilterProbe.videoVisits > 0 && CatalogVisibleFilterProbe.imageVisits > 0 && visiblePreviewRepairs > 0
+            CatalogVisibleFilterProbe.videoScans > 0 && CatalogVisibleFilterProbe.imageScans > 0 && visiblePreviewRepairs > 0
         checks["visible-check-does-not-probe-offscreen-resources-or-remove-source-models"] = controller.catalog.videos[1].publishedAvailability == .available
             && manager.wallpapers.count == 2 && images.wallpapers.count == 1
         try Data([3]).write(to: sharedFile)
@@ -291,34 +320,69 @@ extension SteamWorkshopDownloadRecord { var isSceneLaunchable: Bool { false } }
         try await Task.sleep(for: .milliseconds(2100))
         checks["hidden-or-closed-consumers-release-file-probe-demand"] = controller.visibleAvailabilityTask == nil
             && controller.catalog.videos[0].publishedAvailability == .available && controller.catalog.images[0].publishedAvailability == .available
-        CatalogVisibleFilterProbe.videoVisits = 0; CatalogVisibleFilterProbe.imageVisits = 0; visiblePreviewRepairs = 0
+        CatalogFileProbe.shared.resetScans("selection-videoLibrary"); CatalogFileProbe.shared.resetScans("selection-staticImageLibrary"); visiblePreviewRepairs = 0
         await controller.refreshVisibleAvailability()
         checks["empty-visible-scope-skips-both-provider-arrays-and-preview-repair"] =
-            CatalogVisibleFilterProbe.videoVisits == 0 && CatalogVisibleFilterProbe.imageVisits == 0 && visiblePreviewRepairs == 0
+            CatalogVisibleFilterProbe.videoScans == 0 && CatalogVisibleFilterProbe.imageScans == 0 && visiblePreviewRepairs == 0
         controller.setVisibleReferences([still.providerReference], sourceToken: imageToken)
         checks["one-consumer-scope-never-refreshes-another-provider"] = await wait { controller.catalog.images[0].publishedAvailability == .unavailable }
             && controller.catalog.videos[0].publishedAvailability == .available
         checks["image-only-visible-scope-skips-video-array-and-preview-repair"] =
-            CatalogVisibleFilterProbe.videoVisits == 0 && CatalogVisibleFilterProbe.imageVisits > 0 && visiblePreviewRepairs == 0
-        CatalogVisibleFilterProbe.videoVisits = 0; CatalogVisibleFilterProbe.imageVisits = 0
+            CatalogVisibleFilterProbe.videoScans == 0 && CatalogVisibleFilterProbe.imageScans > 0 && visiblePreviewRepairs == 0
+        CatalogFileProbe.shared.resetScans("selection-videoLibrary"); CatalogFileProbe.shared.resetScans("selection-staticImageLibrary")
         controller.setVisibleReferences([video.providerReference], sourceToken: videoToken)
         controller.setVisibleReferences([], sourceToken: imageToken)
         checks["releasing-one-viewport-does-not-cancel-another-consumer"] = await wait { controller.catalog.videos[0].publishedAvailability == .unavailable }
             && controller.visibleAvailabilityTask != nil
         checks["video-only-visible-scope-skips-image-array-and-keeps-preview-repair"] =
-            CatalogVisibleFilterProbe.videoVisits > 0 && CatalogVisibleFilterProbe.imageVisits == 0 && visiblePreviewRepairs > 0
+            CatalogVisibleFilterProbe.videoScans > 0 && CatalogVisibleFilterProbe.imageScans == 0 && visiblePreviewRepairs > 0
         controller.setVisibleReferences([], sourceToken: videoToken)
         try Data([4]).write(to: sharedFile)
         controller.refreshAvailability()
         _ = await wait { controller.catalog.videos[0].publishedAvailability == .available }
+        do {
+            await controller.videoTask?.value; await controller.imageTask?.value; await controller.steamTask?.value
+            await controller.visibleAvailabilityTask?.value
+            controller.visibleReferences = [UUID(): [video.providerReference, still.providerReference]]
+            let stable = controller.catalog
+            visiblePreviewRepairs = 0; CatalogFileProbe.shared.resetScans("selection-videoLibrary"); CatalogFileProbe.shared.resetScans("selection-staticImageLibrary")
+            let beforePublish = CatalogVisibleFilterProbe.publishEntries, beforeInstall = CatalogVisibleFilterProbe.installEntries
+            await controller.refreshVisibleAvailability()
+            checks["unchanged-mixed-visible-refresh-still-delivers-video-repair-and-checks-images"] = visiblePreviewRepairs == 1
+                && CatalogVisibleFilterProbe.videoScans > 0 && CatalogVisibleFilterProbe.imageScans > 0
+            checks["unchanged-mixed-visible-refresh-preserves-catalog-content-and-revision"] = controller.catalog.videos == stable.videos
+                && controller.catalog.images == stable.images && controller.catalog.revision == stable.revision
+            checks["unchanged-mixed-visible-refresh-skips-publish-and-install"] = CatalogVisibleFilterProbe.publishEntries == beforePublish
+                && CatalogVisibleFilterProbe.installEntries == beforeInstall
+            let scans = CatalogFileProbe.shared.scans
+            checks["visible-source-selection-runs-off-main"] = scans.visits["selection-videoLibrary", default: 0] > 0
+                && scans.visits["selection-staticImageLibrary", default: 0] > 0
+                && scans.onMain.isDisjoint(with: ["selection-videoLibrary", "selection-staticImageLibrary"])
+            checks["visible-item-merge-runs-off-main"] = scans.visits["merge", default: 0] > 0 && !scans.onMain.contains("merge")
+            let sourceRevision = controller.revisions[.videoLibrary]!
+            let staleBarrier = CatalogFileProbe.shared.holdNext()
+            defer { staleBarrier.signal(); CatalogFileProbe.shared.stop() }
+            visiblePreviewRepairs = 0; CatalogFileProbe.shared.resetScans("selection-staticImageLibrary")
+            let staleRefresh = Task { await controller.refreshVisibleAvailability() }
+            let held = await wait { CatalogFileProbe.shared.snapshot.active == 1 }
+            controller.revisions[.videoLibrary] = sourceRevision &+ 1
+            staleBarrier.signal()
+            await staleRefresh.value
+            checks["retired-video-visible-receipt-cannot-repair-or-replace-current-catalog"] = held && visiblePreviewRepairs == 0
+                && controller.catalog.videos == stable.videos && controller.catalog.images == stable.images
+                && controller.catalog.revision == stable.revision
+            checks["retired-video-receipt-does-not-skip-independent-image-check"] = CatalogVisibleFilterProbe.imageScans > 0
+            controller.revisions[.videoLibrary] = sourceRevision
+            controller.visibleReferences = [:]
+        }
         // Rapid viewport changes and hide/reopen during a slow source stat
         // must wait for its real completion, not merely cancel its parent Task.
         let held = CatalogFileProbe.shared.holdNext()
         let boundedToken = UUID()
-        CatalogVisibleFilterProbe.videoVisits = 0; CatalogVisibleFilterProbe.imageVisits = 0
+        CatalogFileProbe.shared.resetScans("selection-videoLibrary"); CatalogFileProbe.shared.resetScans("selection-staticImageLibrary")
         controller.setVisibleReferences([video.providerReference], sourceToken: boundedToken)
         _ = await wait { CatalogFileProbe.shared.snapshot.active == 1 }
-        let firstVideoVisits = CatalogVisibleFilterProbe.videoVisits
+        let firstVideoScans = CatalogVisibleFilterProbe.videoScans
         let stableGeneration = controller.visibleAvailabilityGeneration
         let remote = WallpaperReference(provider: .steamWorkshop, sourceID: "remote-viewport")
         CatalogVisibleFilterProbe.unionBuilds = 0
@@ -370,17 +434,17 @@ extension SteamWorkshopDownloadRecord { var isSceneLaunchable: Bool { false } }
             CatalogFileProbe.shared.snapshot.active == 0 && CatalogFileProbe.shared.snapshot.total == 2
         }
         checks["same-reference-reopen-rechecks-only-the-current-provider-array"] =
-            CatalogVisibleFilterProbe.videoVisits > firstVideoVisits && CatalogVisibleFilterProbe.imageVisits == 0
+            CatalogVisibleFilterProbe.videoScans > firstVideoScans && CatalogVisibleFilterProbe.imageScans == 0
         checks["coalesced-catchup-keeps-single-flight-through-uninterruptible-worker"] = CatalogFileProbe.shared.snapshot.maximum == 1
         controller.setVisibleReferences([], sourceToken: boundedToken)
         _ = await wait { controller.visibleAvailabilityTask == nil }
         let beforeHidden = CatalogFileProbe.shared.snapshot.total
-        CatalogVisibleFilterProbe.videoVisits = 0; CatalogVisibleFilterProbe.imageVisits = 0
+        CatalogFileProbe.shared.resetScans("selection-videoLibrary"); CatalogFileProbe.shared.resetScans("selection-staticImageLibrary")
         try await Task.sleep(for: .milliseconds(50))
         checks["empty-scope-never-restarts-a-retired-slow-file-worker"] = CatalogFileProbe.shared.snapshot.total == beforeHidden
             && controller.visibleAvailabilityTask == nil
         checks["closed-visible-scope-never-traverses-either-provider-array"] =
-            CatalogVisibleFilterProbe.videoVisits == 0 && CatalogVisibleFilterProbe.imageVisits == 0
+            CatalogVisibleFilterProbe.videoScans == 0 && CatalogVisibleFilterProbe.imageScans == 0
         CatalogFileProbe.shared.stop()
 
         let projectionBarrier = CatalogFileProbe.shared.holdNext()
@@ -477,7 +541,7 @@ extension SteamWorkshopDownloadRecord { var isSceneLaunchable: Bool { false } }
         checks["new-source-generation-replaces-current-video-content"] = await wait { controller.catalog.videos.first?.reference.sourceID == "new" }
         checks["late-old-source-completion-cannot-overwrite-new-catalog"] = !controller.publish([video], provider: .videoLibrary, revision: oldRevision)
             && controller.catalog.videos.first?.reference.sourceID == "new"
-        controller.mergeVisibleAvailability([video], provider: .videoLibrary, revision: oldRevision)
+        await controller.mergeVisibleAvailability([video], provider: .videoLibrary, revision: oldRevision, generation: controller.visibleAvailabilityGeneration)
         checks["late-visible-file-result-cannot-revive-replaced-source-generation"] = controller.catalog.videos.first?.reference.sourceID == "new"
         let nfc = "Caf\u{00E9}", nfd = "Cafe\u{0301}"
         manager.wallpapers = [VideoWallpaper(id: nfc, title: "one", path: sharedFile.path), VideoWallpaper(id: nfd, title: "two", path: sharedFile.path)]
@@ -831,6 +895,67 @@ extension SteamWorkshopDownloadRecord { var isSceneLaunchable: Bool { false } }
             checks["steam-fresh-does-not-reuse-unchecked-warm-availability"] = warm.catalog.loadedProviders.contains(.steamWorkshop)
                 && warm.publishedRevisions[.steamWorkshop] == warm.revisions[.steamWorkshop]
                 && warm.catalog.downloads.first { $0.reference.sourceID == "warm-video" }?.publishedAvailability == .unavailable
+        }
+        do {
+            func row(_ provider: WallpaperProvider, _ id: String, size: Int64 = 3,
+                     availability: WallpaperPublishedAvailability = .available,
+                     capabilities: WallpaperContentCapabilities = [.inspect, .play, .organize]) -> WallpaperContentItem {
+                let reference = WallpaperReference(provider: provider, sourceID: id)
+                return .init(reference: reference, providerReference: reference,
+                    locator: .init(path: sharedFile.path, titleHint: id, mediaKind: provider == .videoLibrary ? .video : .image),
+                    title: id, kind: provider == .videoLibrary ? .video : .image, publishedAvailability: availability,
+                    capabilities: capabilities, metadata: .init(fileSizeBytes: size), acquisition: .idle, update: .idle, aliases: [])
+            }
+            for provider in [WallpaperProvider.videoLibrary, .staticImageLibrary] {
+                var rows = (0..<4999).map { row(provider, "large-\($0)") }
+                rows.append(rows[3])
+                let revision: UInt64 = 777
+                controller.revisions[provider] = revision; controller.publishedRevisions[provider] = revision
+                var initial = controller.catalog
+                if provider == .videoLibrary { initial.videos = rows } else { initial.images = rows }
+                controller.install(initial)
+                let original = controller.catalog, originalRevisions = controller.revisions
+                var beforePublish = CatalogVisibleFilterProbe.publishEntries, beforeInstall = CatalogVisibleFilterProbe.installEntries
+                await controller.mergeVisibleAvailability([rows[3], rows[4000], row(provider, "not-in-source")], provider: provider, revision: revision, generation: controller.visibleAvailabilityGeneration)
+                checks["large-\(provider)-unchanged-or-unmatched-updates-preserve-full-catalog-and-source-facts"] =
+                    controller.catalog.videos == original.videos && controller.catalog.images == original.images
+                    && controller.catalog.downloads == original.downloads && controller.catalog.revision == original.revision
+                    && controller.catalog.loadedProviders == original.loadedProviders && controller.catalog.sourceScanStatuses == original.sourceScanStatuses
+                    && controller.revisions == originalRevisions && controller.publishedRevisions[provider] == revision
+                checks["large-\(provider)-unchanged-or-unmatched-updates-skip-publish-and-install"] =
+                    CatalogVisibleFilterProbe.publishEntries == beforePublish && CatalogVisibleFilterProbe.installEntries == beforeInstall
+                let metadata = row(provider, "large-3", size: 123), ignoredDuplicate = row(provider, "large-3", size: 999)
+                var expected = rows
+                expected[3] = metadata; expected[4999] = metadata
+                beforePublish = CatalogVisibleFilterProbe.publishEntries; beforeInstall = CatalogVisibleFilterProbe.installEntries
+                await controller.mergeVisibleAvailability([metadata, ignoredDuplicate], provider: provider, revision: revision, generation: controller.visibleAvailabilityGeneration)
+                let changed = provider == .videoLibrary ? controller.catalog.videos : controller.catalog.images
+                checks["large-\(provider)-metadata-only-change-keeps-first-update-replaces-all-duplicate-rows-and-order"] = changed == expected
+                    && controller.catalog.revision == original.revision &+ 1 && controller.revisions == originalRevisions
+                checks["large-\(provider)-metadata-change-uses-original-single-publication-chain"] =
+                    CatalogVisibleFilterProbe.publishEntries == beforePublish + 1 && CatalogVisibleFilterProbe.installEntries == beforeInstall + 1
+                let unavailable = row(provider, "large-4000", availability: .unavailable, capabilities: [.inspect])
+                expected[4000] = unavailable
+                beforePublish = CatalogVisibleFilterProbe.publishEntries; beforeInstall = CatalogVisibleFilterProbe.installEntries
+                await controller.mergeVisibleAvailability([unavailable], provider: provider, revision: revision, generation: controller.visibleAvailabilityGeneration)
+                checks["large-\(provider)-availability-and-capabilities-change-retains-complete-other-rows"] =
+                    (provider == .videoLibrary ? controller.catalog.videos : controller.catalog.images) == expected
+                    && controller.catalog.revision == original.revision &+ 2 && controller.revisions == originalRevisions
+                checks["large-\(provider)-availability-change-uses-original-single-publication-chain"] =
+                    CatalogVisibleFilterProbe.publishEntries == beforePublish + 1 && CatalogVisibleFilterProbe.installEntries == beforeInstall + 1
+                let rejected: [(String, UInt64?, UInt64)] = [
+                    ("nil", nil, revision), ("stale", revision - 1, revision), ("not-yet-published", revision, revision - 1)]
+                for (name, receipt, published) in rejected {
+                    controller.publishedRevisions[provider] = published
+                    beforePublish = CatalogVisibleFilterProbe.publishEntries; beforeInstall = CatalogVisibleFilterProbe.installEntries
+                    await controller.mergeVisibleAvailability([rows[4000]], provider: provider, revision: receipt, generation: controller.visibleAvailabilityGeneration)
+                    checks["large-\(provider)-\(name)-revision-cannot-enter-publication-or-replace-rows"] =
+                        (provider == .videoLibrary ? controller.catalog.videos : controller.catalog.images) == expected
+                        && controller.catalog.revision == original.revision &+ 2
+                        && CatalogVisibleFilterProbe.publishEntries == beforePublish && CatalogVisibleFilterProbe.installEntries == beforeInstall
+                }
+                controller.publishedRevisions[provider] = revision
+            }
         }
         print(String(decoding: try JSONEncoder().encode(checks), as: UTF8.self))
     }

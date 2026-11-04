@@ -27,25 +27,28 @@
 
 - 主窗口内容控制器为 AppKit `NSSplitViewController`。
 - 左侧为 `WallpaperLibrarySidebarController`，使用 `NSOutlineView` source list 样式。
-- `WallpaperLibraryWindowComposition` 装配统一 Grid、列表目录与原远端浏览；`AppKitDetailHostViewController` 仅挂载子控制器。
+- `WallpaperLibraryWindowComposition` 装配统一 Grid、列表目录与原远端浏览；`AppKitDetailHostViewController` 仅挂载子控制器。 共享Inspector在既有Shell内先布局起点，再以`NSAnimationContext.allowsImplicitAnimation`提交层承载的布局过渡，避免Main逐帧插值约束与来源刷新竞争；原时长/曲线、token/取消、命中和重挂载协议保持。
 - `WallpaperLibraryPresentation` 持有页面/query/selection；App Commands、InspectorCoordinator 分别处理固定引用命令、QL/详情；旧 `SelectedItem` 及源选择槽已退役。
+- 同值选择先验证session，再复用现状态，不重建页内引用Set或发布；Grid仍请求准入、保拒绝恢复及焦点，完整selection未变才省原生选择/可见卡片投影。共用工具栏标题前导8pt，换值仅标签短淡化，减少动态效果/不可见时即时；Pixabay排序在筛选前。
 - Shell 不持有 SwiftUI `Binding`、`@State`、`@EnvironmentObject`。
 
 ### 模块层
 
 - 本地/下载/关系内容共用 `WallpaperLibraryGridController`，`WallpaperLibraryCellAdapter` 复用各来源卡片和唯一缓存；原浏览页继续由各远端服务分页；仅在线浏览装配原生下拉刷新，本地无刷新任务。图片/视频“打开方式”由共享NSWorkspace菜单查询系统handlers并持固定文件目标，无应用目录扫描。
 - 模块保留导入、元数据、下载、文件与引擎职责；源旧 Grid/Toolbar/QL 与 tag/favorite/recent 写侧退出，历史输入解码仍供迁移使用。
-- App Workspace 连接唯一 Catalog、Store 与 Manager 原播放票据；共享值跨层，不在 Shell 重建服务或媒体索引。
+- App Workspace 连接唯一 Catalog、Store 与 Manager 原播放票据；共享值跨层，不在 Shell 重建服务或媒体索引。 Query单项只构造目标DTO和索引，仍沿当前来源扫描canonical身份，保owner/locator覆盖与错误范围；批量/空请求及页面投影沿原全量路径。
+- Catalog可见性回填仅在完整item变化时发布，保更新first-wins、重复row与来源代次；无变化退出merge后仍沿原条件发视频预览修复通知并检查图片，不新增常驻索引。
+- 混合页/Picker的Steam预取沿原decoder使用显示同档，只有跨档换需求；Pixabay下载卡/详情沿实际request共享原store，取帧与元数据复用Core旋转尺寸。同源目标升级保图、隐藏只撤消费并在重显补未完目标，换源仍撤旧；详情本地/远端共用原request与取消句柄。nil旧入口、帧选择和缓存预算保持，较大预取不等于总内存下降。
+- Steam非显示预取成功后释放临时PreviewState，由原有界cache保就绪像素；待完成、失败重试与video回退仍沿原State。取消闭包先于configure安装以覆盖同步暖命中，成功onChange双弱引用退役；真实显示State继续保图。完成兴趣仍best-effort，来源/档位/reload按原assets替换，不新增模式或逐viewport强制补热。
 
 ### Inspector
 
-- `InspectorHostStore`、`InspectorHostRequest`、mount notification 机制保留。
-- SwiftUI `InspectorHost` 替换为 AppKit panel view。
-- SwiftUI `InspectorHostBridge` 替换为模块侧显式监听/请求：
-  - 选中项出现：发起 inspector open。
-  - inspector present：mount 模块提供的 `NSView`。
-  - 选中项清空：发起 inspector close。
-- 各模块 inspector 内容改为 AppKit `NSView`。
+- `InspectorHostStore`/request/token拥有当前呈现，Shell承接open、mount与关闭动画；模块提供AppKit `NSView`，不重建第二宿主。
+- App InspectorCoordinator 的显式详情请求可重开同项并复用原token/view；同项selection/catalog回填只更新已有内容与actions，不能复活正在关闭或隐藏的详情。实际来源/视图类型变化仍按原替换路径发open；选中项清空发close。详情动作与网格共用已呈现页面的不可变来源快照，无准备快照沿原fallback（本地page、远程single）；旧action保持原来源，后续render重绑。
+- Shell先确定request与卡片宽度，同Main turn发DidPresent供Coordinator及Steam Browser挂载/首次布局，再开始0.24s滑入；不等异步元数据或图片。Video Core helper同步装完整模板（大小缓存或占位、日期占位），stat/日期/AV由同文件@concurrent准备，原单Task回Main补值并保取消。Video完整正文只建一次，预览/标题/摘要/路径保持节点，终值原位更新；facts标签结构或播放列表名称变化仅替换对应内容，复用Style同步value绑定。原刷新点仍检查源文件缺失/恢复，命令读取保持即时来源，不叠模型缓存。
+- Online详情在订阅/session就绪后同步装正文，仅跳snapshot首值；后续同值/新值与progress/session反馈保留。重挂载先准备loading再同步读当前内容，旧error仍由详情成功清除，初始preview/detail顺序保持。
+- 关闭中重开从当前偏移反向，只有原本隐藏才设离屏起点；旧关闭完成受原transition generation约束。DidClose由Shell Main完成回调发出，Coordinator当turn释放；Steam独立close订阅仍排队，token归属不混用。焦点捕获/恢复、356/368宽度及面板UI保持。
+- 共享卡片详情按钮沿原生responder交Shell开关：打开含进入中即发原关闭通知，保Steam浏览页订阅；关闭中沿原来源动作重开。遮罩仅放行背后真实且可用的详情按钮，其余背景/滚动/控件仍沿原规则；不另建toggle状态或每来源转发。独立bar无Shell时调用原打开动作，异步取消、token及内容挂载仍归原owner。
 
 ### Steam 缩略图状态与资源寿命
 

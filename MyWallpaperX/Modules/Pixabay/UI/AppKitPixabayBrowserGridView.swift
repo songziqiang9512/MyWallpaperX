@@ -18,7 +18,7 @@ final class AppKitPixabayBrowserContainerView: NSView, ModuleFocusable, ListThum
         listThumbnailTintSource.update(id: first.map { String($0.id) }, assets: first.map { [$0.previewThumbnailURL?.absoluteString ?? ""] } ?? []) { completion in
             guard let url = first?.previewThumbnailURL else { completion(nil); return {} }
             let task = Task {
-                let image = await OnlineImageThumbnailCache.shared.image(for: url, maxPixelSize: 256, priority: .prefetch)
+                let image = await OnlineImageThumbnailCache.shared.image(for: url, request: .init(width: 256, height: 256, mode: .fit), priority: .prefetch)
                 guard !Task.isCancelled else { return }
                 completion(image)
             }
@@ -58,7 +58,7 @@ final class AppKitPixabayBrowserContainerView: NSView, ModuleFocusable, ListThum
     private var itemsByID:  [Int: PixabayVideoItem] = [:]
     private var lastConsumedProgress: [Int: Double] = [:]
     private var lastPrioritizedVisibleIDs: [Int]?
-    private var lastPrioritizedPixelLimit = 0
+    private var lastPrioritizedRequest: ThumbnailRequest?
     private var isThumbnailDemandUpdateScheduled = false
     private var thumbnailWindowObservation: NSKeyValueObservation?
     private var thumbnailWindowObservers: [NSObjectProtocol] = []
@@ -128,6 +128,7 @@ final class AppKitPixabayBrowserContainerView: NSView, ModuleFocusable, ListThum
                 isDownloading: svc.downloadingIDs.contains(id),
                 isDownloaded:  self.isItemDownloaded(id),
                 downloadProgress: svc.downloadProgressByID[id],
+                thumbnailRequest: self.thumbnailRequest,
                 thumbnailDemandActive: self.canLoadThumbnails,
                 organization: self.makeOrganization?(item),
                 onInspect: self.onInspect.map { _ in { [weak self] in _ = self?.selectItem(withID: id, opensDetails: true) } },
@@ -315,6 +316,7 @@ final class AppKitPixabayBrowserContainerView: NSView, ModuleFocusable, ListThum
                 isDownloading: self.service.downloadingIDs.contains(id),
                 isDownloaded:  self.isItemDownloaded(id),
                 downloadProgress: self.service.downloadProgressByID[id],
+                thumbnailRequest: self.thumbnailRequest,
                 thumbnailDemandActive: self.canLoadThumbnails,
                 organization: self.makeOrganization?(item),
                 onInspect: self.onInspect.map { _ in { [weak self] in _ = self?.selectItem(withID: id, opensDetails: true) } },
@@ -442,7 +444,7 @@ final class AppKitPixabayBrowserContainerView: NSView, ModuleFocusable, ListThum
     private func updateThumbnailWindowVisibility() {
         lastPrioritizedVisibleIDs = nil
         guard canLoadThumbnails else { pauseThumbnailDemand(); return }
-        collectionView.visibleItems().forEach { ($0 as? AppKitPixabayBrowserItem)?.beginDisplayingThumbnail() }
+        collectionView.visibleItems().forEach { ($0 as? AppKitPixabayBrowserItem)?.beginDisplayingThumbnail(request: thumbnailRequest) }
         updateVisibleThumbnailPriorities()
     }
 
@@ -477,6 +479,11 @@ final class AppKitPixabayBrowserContainerView: NSView, ModuleFocusable, ListThum
         }
     }
 
+    private var thumbnailRequest: ThumbnailRequest? {
+        guard window != nil else { return nil }
+        return scrollView.gridThumbnailRequest(coverSide: flowLayout.itemSize.width)
+    }
+
     private func applyThumbnailDemand() {
         guard canLoadThumbnails else { pauseThumbnailDemand(); return }
         let visibleIDs = collectionView.indexPathsForVisibleItems()
@@ -490,13 +497,15 @@ final class AppKitPixabayBrowserContainerView: NSView, ModuleFocusable, ListThum
                 guard indexPath.item < orderedIDs.count else { return nil }
                 return orderedIDs[indexPath.item]
             }
-        let pixelLimit = GridThumbnailDecoder.pixelLimit(width: flowLayout.itemSize.width,
-            scale: window?.backingScaleFactor ?? 2)
-        guard lastPrioritizedVisibleIDs != visibleIDs || lastPrioritizedPixelLimit != pixelLimit
+        guard let request = thumbnailRequest else { return }
+        guard lastPrioritizedVisibleIDs != visibleIDs || lastPrioritizedRequest != request
             || service.thumbnailPrefetchNeedsRefresh() else { return }
+        if lastPrioritizedRequest != request {
+            collectionView.visibleItems().forEach { ($0 as? AppKitPixabayBrowserItem)?.beginDisplayingThumbnail(request: request) }
+        }
         lastPrioritizedVisibleIDs = visibleIDs
-        lastPrioritizedPixelLimit = pixelLimit
-        service.prioritizeVisibleItemIDs(visibleIDs, maxPixelSize: pixelLimit)
+        lastPrioritizedRequest = request
+        service.prioritizeVisibleItemIDs(visibleIDs, request: request)
     }
 
     // MARK: - Layout
@@ -545,7 +554,7 @@ final class AppKitPixabayBrowserContainerView: NSView, ModuleFocusable, ListThum
 extension AppKitPixabayBrowserContainerView: NSCollectionViewDelegate {
     func collectionView(_ collectionView: NSCollectionView, willDisplay item: NSCollectionViewItem,
         forRepresentedObjectAt indexPath: IndexPath) {
-        if canLoadThumbnails { (item as? AppKitPixabayBrowserItem)?.beginDisplayingThumbnail() }
+        if canLoadThumbnails { (item as? AppKitPixabayBrowserItem)?.beginDisplayingThumbnail(request: thumbnailRequest) }
         else { (item as? AppKitPixabayBrowserItem)?.endDisplayingThumbnail() }
         (item as? AppKitPixabayBrowserItem)?.setKeyboardFocus(dataSource.itemIdentifier(for: indexPath) == keyboardFocusedID)
         updateVisibleThumbnailPriorities()

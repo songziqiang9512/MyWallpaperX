@@ -57,7 +57,7 @@ import AppKit
         return stack
     }
 
-    static func inspectorFact(label title: String, value: String) -> NSView {
+    private static func inspectorFact(label title: String, value: String) -> (view: NSView, valueField: NSTextField) {
         let stack = NSStackView()
         stack.orientation = .vertical; stack.alignment = .leading; stack.spacing = 6
         stack.translatesAutoresizingMaskIntoConstraints = false
@@ -69,10 +69,11 @@ import AppKit
         stack.addArrangedSubview(label); stack.addArrangedSubview(text)
         text.translatesAutoresizingMaskIntoConstraints = false
         text.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
-        return stack
+        return (stack, text)
     }
 
-    static func inspectorFacts(_ facts: [(String, String)]) -> NSView {
+    // Bindings are delivered during construction and are not retained by the grid.
+    static func inspectorFacts(_ facts: [(String, String)], bindValue: ((String, NSTextField) -> Void)? = nil) -> NSView {
         let stack = NSStackView()
         stack.orientation = .vertical; stack.alignment = .leading; stack.spacing = 12
         stack.translatesAutoresizingMaskIntoConstraints = false
@@ -80,9 +81,13 @@ import AppKit
             let row = NSStackView()
             row.orientation = .horizontal; row.alignment = .top; row.spacing = 12; row.distribution = .fillEqually
             row.translatesAutoresizingMaskIntoConstraints = false
-            row.addArrangedSubview(inspectorFact(label: facts[index].0, value: facts[index].1))
-            row.addArrangedSubview(index + 1 < facts.count
-                ? inspectorFact(label: facts[index + 1].0, value: facts[index + 1].1) : NSView())
+            for factIndex in index..<min(index + 2, facts.count) {
+                let fact = facts[factIndex]
+                let cell = inspectorFact(label: fact.0, value: fact.1)
+                row.addArrangedSubview(cell.view)
+                bindValue?(fact.0, cell.valueField)
+            }
+            if index + 1 == facts.count { row.addArrangedSubview(NSView()) }
             stack.addArrangedSubview(row)
             row.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
         }

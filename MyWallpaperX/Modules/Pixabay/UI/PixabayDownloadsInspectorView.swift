@@ -17,24 +17,26 @@ final class PixabayDownloadsInspectorView: NSView {
     private let scrollView = InspectorFadingScrollView()
     private let documentContainer = InspectorContentDocumentView()
     private let contentStack = NSStackView()
-    private let previewSurface: PixabayDownloadsPreviewSurfaceView
+    private let previewSurface: SILInspectorPreviewSurfaceView
     private lazy var previewHeightConstraint = previewSurface.heightAnchor.constraint(equalToConstant: 156)
     private weak var primaryButton: InspectorFooterButton?
     private weak var revealButton: InspectorFooterButton?
     private var previewCancellation: ThumbnailCacheRequestCancellation?
-    private var hasMounted = false
+    private var previewRequest: ThumbnailRequest?
 
     init(itemID: Int, service: PixabayService? = nil, libraryActions: WallpaperInspectorActions? = nil, remoteItem: PixabayVideoItem? = nil) {
         self.service = service ?? .shared
         self.libraryActions = libraryActions
         self.itemID = itemID
         self.remoteItem = remoteItem
-        previewSurface = PixabayDownloadsPreviewSurfaceView(itemID: itemID, previewImage: nil)
+        previewSurface = SILInspectorPreviewSurfaceView(image: nil, placeholderSymbol: "film.stack")
         super.init(frame: .zero)
         // The downloaded-content owner has already prepared these values.
         // Build the final top-aligned layout before mounting; no loading-size pass.
         snapshot = PixabayDownloadsInspectorSnapshot.load(itemID: itemID, service: self.service)
+        previewSurface.setAccessibilityLabel("在线图库下载项预览 \(itemID)")
         setup()
+        previewSurface.onSizeChange = { [weak self] in self?.loadPreviewImage() }
         loadPreviewImage()
         downloadingSubscription = self.service.$downloadingIDs.map { $0.contains(itemID) }.removeDuplicates()
             .receive(on: DispatchQueue.main).sink { [weak self] _ in self?.refreshSnapshotIfNeeded(); self?.refreshFooterActions() }
@@ -50,31 +52,39 @@ final class PixabayDownloadsInspectorView: NSView {
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         if window != nil {
-            hasMounted = true
             refreshSnapshotIfNeeded()
             refreshFooterActions()
-            if previewCancellation?.cancelled == true { loadPreviewImage() }
-        } else if hasMounted {
+            loadPreviewImage()
+        } else {
             previewCancellation?.cancel()
         }
     }
 
+    override func viewDidChangeBackingProperties() {
+        super.viewDidChangeBackingProperties()
+        loadPreviewImage()
+    }
+
     private func loadPreviewImage() {
-        guard !hasMounted || window != nil else { return }
+        guard let window, let request = ThumbnailRequest(size: previewSurface.bounds.size,
+            scale: window.backingScaleFactor, mode: .fill) else { return }
+        guard previewRequest != request || previewCancellation?.cancelled != false else { return }
+        let keepsCurrentImage = previewRequest != nil
+        previewRequest = request
         previewCancellation?.cancel()
         let cancellation = ThumbnailCacheRequestCancellation()
         previewCancellation = cancellation
         if let entry = snapshot?.entry {
-            PixabayDownloadedThumbnailStore.loadThumbnail(entry, priority: .visible, cancellation: cancellation) { [weak self] _, image in
+            PixabayDownloadedThumbnailStore.loadThumbnail(entry, request: request, priority: .visible, cancellation: cancellation) { [weak self] _, image in
                 guard !cancellation.cancelled else { return }
-                self?.previewSurface.updateImage(image)
+                if image != nil || !keepsCurrentImage { self?.previewSurface.updateImage(image) }
             }
         } else if let url = remoteItem?.previewThumbnailURL {
             let task = Task { [weak self] in
-                let image = await OnlineImageThumbnailCache.shared.image(for: url, maxPixelSize: 800, priority: .visible)
+                let image = await OnlineImageThumbnailCache.shared.image(for: url, request: request, priority: .visible)
                 cancellation.clearCancellationHandler()
                 guard !cancellation.cancelled else { return }
-                self?.previewSurface.updateImage(image)
+                if let image { self?.previewSurface.updateImage(image) }
             }
             cancellation.installCancellationHandler { task.cancel() }
         } else { previewSurface.updateImage(nil) }
@@ -91,6 +101,7 @@ final class PixabayDownloadsInspectorView: NSView {
         rebuildContent()
         if previous?.localURL != entry?.localURL || previous?.fileSize != entry?.fileSize
             || previous?.thumbnailSourceKey != entry?.thumbnailSourceKey || previousURL != remoteItem?.previewThumbnailURL {
+            previewRequest = nil
             loadPreviewImage()
         }
     }

@@ -1,8 +1,8 @@
-"""Production Pixabay actors: HTTP leases, queue cancellation/promotion and decode/clear epochs.
+"""Production online actors and shared preparation: HTTP leases, cancellation/promotion and clear epochs.
 
 The actual network lifetime, decoder and decoded memory owner are retained.
-Only maintenance trim is stubbed; URLProtocol controls HTTP replies, a suspended
-real decode queue controls publication, and the real tint source retains a loader
+URLProtocol controls HTTP replies, a suspended
+shared decode queue controls publication, and the real tint source retains a loader
 until its shared transport retires. No user media, external network, UI
 performance claim or app activation is involved.
 """
@@ -20,8 +20,10 @@ PIPELINE = ROOT / 'MyWallpaperX/Shared/UI/OnlineImageThumbnailPipeline.swift'
 SOURCES = [ROOT / 'MyWallpaperX/Shared/WallpaperNetworkSession.swift', PIPELINE,
            ROOT / 'MyWallpaperX/Shared/UI/GridThumbnailDecoder.swift',
            ROOT / 'MyWallpaperX/Shared/UI/DecodedThumbnailMemoryCache.swift',
+           ROOT / 'MyWallpaperX/Shared/UI/ThumbnailCache.swift',
            ROOT / 'MyWallpaperX/Shared/UI/ListThumbnailTintSource.swift',
            ROOT / 'script/tests/fixtures/OnlineImageThumbnailSchedulingHarness.swift']
+SOURCES.append(ROOT / "MyWallpaperX/Shared/ThumbnailRequest.swift")
 
 
 @unittest.skipUnless(sys.platform == 'darwin', 'AppKit decoding requires macOS')
@@ -36,7 +38,23 @@ class OnlineImageThumbnailSchedulingTests(unittest.TestCase):
                                TMPDIR=str(work / 'tmp') + '/')
             # Same-file extensions observe the real private actors without adding product diagnostics.
             source = work / 'Harness.swift'
-            source.write_text('\n'.join(path.read_text() for path in SOURCES))
+            raw_write = '        try? data.write(to: file, options: .atomic)'
+            instrumented = PIPELINE.read_text()
+            self.assertEqual(instrumented.count(raw_write), 1)
+            instrumented = instrumented.replace(raw_write, raw_write + '\n        ControlledThumbnailProtocol.state.stored(url, alreadyReady: preparedImages.hasCachedResult(forKey: url.absoluteString))')
+            source_call = '                await self?.publishSource(data, for: url, generation: generation, scope: scope) ?? false'
+            self.assertEqual(instrumented.count(source_call), 1)
+            instrumented = instrumented.replace(source_call,
+                '                ControlledThumbnailProtocol.state.requestedHook(url)\n' + source_call.replace('await self?', 'return await self?'))
+            publisher = '    private func publishSource(_ data: Data, for url: URL, generation: Int, scope: ScopeStamp?) -> Bool {'
+            self.assertEqual(instrumented.count(publisher), 1)
+            instrumented = instrumented.replace(publisher, publisher + '\n        ControlledThumbnailProtocol.state.sourceHook(url, cancelled: Task.isCancelled)')
+            cache_path = ROOT / 'MyWallpaperX/Shared/UI/ThumbnailCache.swift'
+            cache = cache_path.read_text()
+            decoded = '                    let image = autoreleasepool { GridThumbnailDecoder.decodeInput(.sourceData(data), request: target) }'
+            self.assertEqual(cache.count(decoded), 1)
+            cache = cache.replace(decoded, decoded + '\n                    ControlledThumbnailProtocol.state.pauseInput(data, key: key)')
+            source.write_text('\n'.join(instrumented if path == PIPELINE else cache if path == cache_path else path.read_text() for path in SOURCES))
             inputs = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in SOURCES}
             binary = work / 'online-scheduling'
             command = ['xcrun', 'swiftc', '-parse-as-library', '-default-isolation', 'MainActor',
@@ -48,7 +66,8 @@ class OnlineImageThumbnailSchedulingTests(unittest.TestCase):
                 proof = Path(tempfile.mkdtemp(prefix='online-', dir=destination))
                 (proof / 'compile.log').write_text(build.stdout + build.stderr)
                 (proof / 'inputs.json').write_text(json.dumps({'inputs': inputs, 'command': command,
-                    'scope': __doc__, 'transforms': ['concatenate unmodified production sources and fixture']}, indent=2))
+                    'scope': __doc__, 'assembledSHA256': hashlib.sha256(source.read_bytes()).hexdigest(),
+                    'transforms': ['concatenate production sources and fixture; after the actual raw atomic-write attempt record write count and ready membership; hold one decoded known input; observe source-hook request/cancellation entry']}, indent=2))
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
             self.assertEqual(inputs, {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in SOURCES})
             result = subprocess.run([str(binary)], capture_output=True, text=True, env=environment, timeout=30)

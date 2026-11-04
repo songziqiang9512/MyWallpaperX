@@ -21,7 +21,7 @@ nonisolated final class ThumbnailCacheRequestCancellation: @unchecked Sendable {
 enum SILThumbnailLoadResult { case image(NSImage), unavailable }
 @MainActor final class SILThumbnailProvider {
     static var images: [String: NSImage] = [:]
-    func load(path: String, cancellation: ThumbnailCacheRequestCancellation, completion: (SILThumbnailLoadResult) -> Void) {
+    func load(path: String, request: ThumbnailRequest?, cancellation: ThumbnailCacheRequestCancellation, completion: (SILThumbnailLoadResult) -> Void) {
         completion(Self.images[path].map(SILThumbnailLoadResult.image) ?? .unavailable)
     }
 }
@@ -40,24 +40,29 @@ enum WallpaperLibrarySheetPresentation {
 @MainActor final class OnlineImageThumbnailCache {
     static let shared = OnlineImageThumbnailCache()
     enum Priority { case visible }
-    struct Request { let request: OnlineImageFixtureThumbnailRequest; let pixels: Int }
-    var ready: [String: NSImage] = [:]
+    struct Request { let request: OnlineImageFixtureThumbnailRequest; let target: ThumbnailRequest }
+    let ready = DecodedThumbnailMemoryCache(countLimit: 16, totalCostLimit: 64 * 1024 * 1024)
     var requests: [Request] = []
     var inspected: [Request] = []
     var holds = false
     var pending: [Int: CheckedContinuation<NSImage?, Never>] = [:]
-    func key(_ request: OnlineImageFixtureThumbnailRequest, _ pixels: Int) -> String {
-        "\(request.scopeID):\(request.url.absoluteString)@\(pixels)"
+    func key(_ request: OnlineImageFixtureThumbnailRequest) -> NSString {
+        "\(request.scopeID):\(request.url.absoluteString)" as NSString
     }
-    func readyImage(for request: OnlineImageFixtureThumbnailRequest, maxPixelSize: Int) -> NSImage? {
-        inspected.append(.init(request: request, pixels: maxPixelSize))
-        return ready[key(request, maxPixelSize)]
+    func install(_ image: NSImage, for request: OnlineImageFixtureThumbnailRequest) {
+        let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil)!
+        let pixels = CGSize(width: cg.width, height: cg.height)
+        ready.setObject(image, forKey: key(request), cost: cg.bytesPerRow * cg.height, pixels: pixels, nativeSize: pixels)
     }
-    func image(for request: OnlineImageFixtureThumbnailRequest, maxPixelSize: Int, priority: Priority) async -> NSImage? {
+    func readyImage(for remote: OnlineImageFixtureThumbnailRequest, request: ThumbnailRequest) -> NSImage? {
+        inspected.append(.init(request: remote, target: request))
+        return ready.object(forKey: key(remote), request: request)
+    }
+    func image(for remote: OnlineImageFixtureThumbnailRequest, request: ThumbnailRequest, priority: Priority) async -> NSImage? {
         let ticket = requests.count
-        requests.append(.init(request: request, pixels: maxPixelSize))
+        requests.append(.init(request: remote, target: request))
         if holds { return await withCheckedContinuation { pending[ticket] = $0 } }
-        return ready[key(request, maxPixelSize)]
+        return ready.object(forKey: key(remote), request: request)
     }
     func complete(_ ticket: Int, image: NSImage?) { pending.removeValue(forKey: ticket)?.resume(returning: image) }
 }
@@ -74,7 +79,10 @@ enum WallpaperLibrarySheetPresentation {
     @MainActor static func descendants(_ root: NSView) -> [NSView] { [root] + root.subviews.flatMap(descendants) }
     @MainActor static func title(_ button: InspectorFooterButton) -> String { button.accessibilityLabel() ?? "" }
     @MainActor static func makeImage(_ color: NSColor) -> NSImage {
-        NSImage(size: .init(width: 10, height: 10), flipped: false) { rect in color.setFill(); rect.fill(); return true }
+        let context = CGContext(data: nil, width: 1024, height: 1024, bitsPerComponent: 8,
+            bytesPerRow: 4096, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        context.setFillColor(color.cgColor); context.fill(CGRect(x: 0, y: 0, width: 1024, height: 1024))
+        return NSImage(cgImage: context.makeImage()!, size: .init(width: 1024, height: 1024))
     }
     @MainActor static func main() async throws {
         _ = NSApplication.shared
@@ -94,7 +102,7 @@ enum WallpaperLibrarySheetPresentation {
             author: art.author, authorID: art.authorID)
         library.assetResolver = { _ in [asset] }
         let request = library.thumbnailRequest(url: thumb, source: .wallhaven)
-        cache.ready[cache.key(request, 512)] = green
+        cache.install(green, for: request)
         var applied: [WallpaperReference] = [], authors: [OnlineImageAuthor] = []
         var switching = false, playing = false, canPerformPrimary = true
         let playback = try playingImagePrimary(asset.id.reference)
@@ -107,7 +115,8 @@ enum WallpaperLibrarySheetPresentation {
                 onChoosePlaylist: { _ in preconditionFailure("retired playlist button") })
         }
         let view = OnlineImageInspectorView(artwork: art, library: library, makeLibraryActions: actions,
-            onAuthor: { authors.append($0) }, thumbnailPixelSize: 512)
+            onAuthor: { authors.append($0) })
+        checks["zero-unmounted-preview-does-not-request-images"] = cache.requests.isEmpty && cache.inspected.isEmpty
         let window = NSWindow(contentRect: .init(x: 14000, y: 14000, width: 356, height: 700), styleMask: [.borderless], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         let host = NSView(frame: .init(x: 0, y: 0, width: 356, height: 700)); window.contentView = host
@@ -120,6 +129,14 @@ enum WallpaperLibrarySheetPresentation {
         host.layoutSubtreeIfNeeded()
         checks["grid-cache-image-is-reused-with-no-remote-image-request-or-detail-source-upgrade"] = view.preview.image === green
             && cache.requests.isEmpty && cache.inspected.allSatisfy { $0.request.url == thumb }
+        let firstTarget = ThumbnailRequest(size: view.preview.bounds.size, scale: window.backingScaleFactor, mode: .fill)
+        checks["first-mount-requests-real-preview-backing-fill"] = firstTarget != nil && cache.inspected.last?.target == firstTarget
+        let firstPixel = view.preview.image, beforeResize = cache.requests.count
+        inspectorWidth.constant = 500; host.layoutSubtreeIfNeeded()
+        let resizedTarget = ThumbnailRequest(size: view.preview.bounds.size, scale: window.backingScaleFactor, mode: .fill)
+        checks["compatible-two-target-native-resize-reuses-shared-ready-image"] = resizedTarget != firstTarget
+            && cache.inspected.last?.target == resizedTarget && view.preview.image === firstPixel && cache.requests.count == beforeResize
+        inspectorWidth.constant = 356; host.layoutSubtreeIfNeeded()
         for appearance in [NSAppearance.Name.aqua, .darkAqua] {
             view.appearance = NSAppearance(named: appearance)
             host.layoutSubtreeIfNeeded()
@@ -255,11 +272,15 @@ enum WallpaperLibrarySheetPresentation {
         let secondLibrary = OnlineImageLibrary()
         secondLibrary.detailResolver = { _ in pixiv }; secondLibrary.assetResolver = { _ in pages }
         cache.holds = true
-        let pending = OnlineImageInspectorView(artwork: pixiv, library: secondLibrary, makeLibraryActions: { _ in nil }, thumbnailPixelSize: 1200)
+        let pending = OnlineImageInspectorView(artwork: pixiv, library: secondLibrary, makeLibraryActions: { _ in nil })
+        host.addSubview(pending)
+        NSLayoutConstraint.activate([pending.leadingAnchor.constraint(equalTo: host.leadingAnchor), pending.trailingAnchor.constraint(equalTo: host.trailingAnchor),
+            pending.topAnchor.constraint(equalTo: host.topAnchor), pending.bottomAnchor.constraint(equalTo: host.bottomAnchor)])
+        host.layoutSubtreeIfNeeded()
         await pump { pending.assets.count == 2 && !cache.pending.isEmpty }
         let firstTicket = cache.requests.count - 1
         checks["cold-inspector-uses-grid-thumbnail-url-scope-and-pixel-tier"] = cache.requests[firstTicket].request.url == thumb
-            && cache.requests[firstTicket].request.scopeID == "fixture-pixiv" && cache.requests[firstTicket].pixels == 1200
+            && cache.requests[firstTicket].request.scopeID == "fixture-pixiv" && cache.requests[firstTicket].target == ThumbnailRequest(size: pending.preview.bounds.size, scale: window.backingScaleFactor, mode: .fill)
         _ = pending.nextButton.accessibilityPerformPress()
         await pump { cache.requests.count == firstTicket + 2 }
         let secondTicket = cache.requests.count - 1
@@ -273,7 +294,7 @@ enum WallpaperLibrarySheetPresentation {
         PixivSession.shared.state = .init(scopeID: "fixture-new-account")
         await pump { pending.observedScope == "fixture-new-account" }
         checks["account-change-retires-old-grid-url-without-reissuing-it"] = cache.requests.count == beforeScope && pending.preview.image == nil
-        pending.retire()
+        pending.retire(); pending.removeFromSuperview()
 
         let lookupLibrary = OnlineImageLibrary()
         let lookupArtwork = OnlineImageArtwork(source: .pixiv, artworkID: "lookup-pages", title: "Lookup pages",
@@ -297,8 +318,8 @@ enum WallpaperLibrarySheetPresentation {
         checks["lookup-multi-page-details-reach-the-real-tail-page"] = lookupView.assets == lookupPages
             && lookupView.pageIndex == 63 && lookupView.pageLabel.stringValue == "第64 / 共64张"
             && title(lookupView.primaryButton) == "下载图片" && lookupView.primaryButton.isEnabled
-        func lookupRecord(_ author: String?, _ authorID: String?) -> OnlineImageLocalRecord {
-            .init(assetID: lookupPages[63].id, title: "Local lookup", sourceURL: art.sourceURL,
+        func lookupRecord(_ author: String?, _ authorID: String?, title: String = "Local lookup") -> OnlineImageLocalRecord {
+            .init(assetID: lookupPages[63].id, title: title, sourceURL: art.sourceURL,
                 author: author, authorID: authorID, tags: [], relativePath: "lookup.png", pixelWidth: 10, pixelHeight: 10,
                 fileSizeBytes: 10, firstDownloadedAt: .distantPast, revision: UUID())
         }
@@ -427,8 +448,17 @@ enum WallpaperLibrarySheetPresentation {
         host.addSubview(lookupView)
         lookupView.removeFromSuperview()
         let retiredForRemount = lookupView.isRetired && lookupView.hasMounted
+        lookupLibrary.snapshot = .init(records: [lookupRecord("Local Author", "local-author", title: "Current hidden source")])
         lookupLibrary.progress = [progressMarker: 0.9, lookupPages[63].id: 0.8]
+        var remountDetail: CheckedContinuation<OnlineImageArtwork, Never>?
+        lookupLibrary.detailResolver = { _ in await withCheckedContinuation { remountDetail = $0 } }
+        defer { remountDetail?.resume(returning: lookupArtwork) }
         host.addSubview(lookupView)
+        checks["remount-synchronously-catches-up-current-local-content-and-progress"] = lookupView.titleLabel.stringValue == "Current hidden source"
+            && lookupView.renderedProgress == 0.8 && lookupView.isResolving && title(lookupView.primaryButton) == "设为壁纸"
+        await pump { remountDetail != nil }
+        remountDetail?.resume(returning: lookupArtwork); remountDetail = nil
+        lookupLibrary.detailResolver = { _ in lookupArtwork }
         await pump { !lookupView.isResolving && lookupView.assets == lookupPages && lookupView.renderedProgress == 0.8 }
         checks["lookup-remount-replays-current-progress-without-a-source-action"] = retiredForRemount && !lookupView.isRetired
             && lookupView.window === window && lookupView.renderedProgress == 0.8 && title(lookupView.primaryButton) == "设为壁纸"
@@ -460,16 +490,27 @@ enum WallpaperLibrarySheetPresentation {
         recoveryLibrary.detailResolver = { _ in throw recoveryError }
         recoveryLibrary.assetResolver = { _ in [recoveryAsset] }
         let recoveryView = OnlineImageInspectorView(artwork: recoverySeed, library: recoveryLibrary,
-            makeLibraryActions: { _ in nil }, thumbnailPixelSize: 512)
+            makeLibraryActions: { _ in nil })
         host.addSubview(recoveryView)
+        NSLayoutConstraint.activate([recoveryView.leadingAnchor.constraint(equalTo: host.leadingAnchor), recoveryView.trailingAnchor.constraint(equalTo: host.trailingAnchor),
+            recoveryView.topAnchor.constraint(equalTo: host.topAnchor), recoveryView.bottomAnchor.constraint(equalTo: host.bottomAnchor)])
+        host.layoutSubtreeIfNeeded()
         await pump { !recoveryView.isResolving }
         checks["detail-failure-before-remount-is-visible-and-finishes-request"] = recoveryView.detailTask == nil
             && !recoveryView.isResolving && !recoveryView.notice.isHidden
             && recoveryView.notice.stringValue == recoveryError.localizedDescription && !recoveryView.primaryButton.isEnabled
         recoveryView.removeFromSuperview()
         let retiredRecovery = recoveryView.isRetired && recoveryView.hasMounted && recoveryView.window == nil
-        recoveryLibrary.detailResolver = { _ in recoveredArtwork }
+        var recoveryDetail: CheckedContinuation<OnlineImageArtwork, Never>?
+        recoveryLibrary.detailResolver = { _ in await withCheckedContinuation { recoveryDetail = $0 } }
+        defer { recoveryDetail?.resume(returning: recoveredArtwork) }
         host.addSubview(recoveryView)
+        checks["remount-keeps-existing-error-priority-while-new-detail-is-held"] = recoveryView.isResolving
+            && recoveryView.errorText == recoveryError.localizedDescription && !recoveryView.notice.isHidden
+            && recoveryView.notice.stringValue == recoveryError.localizedDescription
+        await pump { recoveryDetail != nil }
+        recoveryDetail?.resume(returning: recoveredArtwork); recoveryDetail = nil
+        host.layoutSubtreeIfNeeded()
         await pump { !recoveryView.isResolving && recoveryView.assets == [recoveryAsset] }
         checks["successful-detail-after-remount-clears-prior-error"] = retiredRecovery && !recoveryView.isRetired
             && recoveryView.window === window && recoveryView.errorText == nil && recoveryView.notice.isHidden
@@ -482,6 +523,47 @@ enum WallpaperLibrarySheetPresentation {
         checks["remount-recovery-restores-current-download-action"] = recoveryCanDownload
             && recoveryLibrary.downloads == [recoveryAsset.id] && recoveryLibrary.downloadApplyFlags == [false]
         recoveryView.removeFromSuperview()
+        let unknownLibrary = OnlineImageLibrary()
+        let unknownSeed = OnlineImageArtwork(source: .wallhaven, artworkID: "remount-unknown", title: "Unknown work", sourceURL: art.sourceURL)
+        let unknownView = OnlineImageInspectorView(artwork: unknownSeed, library: unknownLibrary, makeLibraryActions: { _ in nil })
+        checks["unknown-constructor-shows-loading-before-detail-task-runs"] = unknownView.isResolving
+            && unknownView.notice.stringValue == "正在获取作品详情…"
+        host.addSubview(unknownView)
+        await pump { !unknownView.isResolving }
+        checks["unknown-completed-detail-keeps-original-unconfirmed-type-notice"] = !unknownView.isResolving
+            && unknownView.notice.stringValue == "作品类型尚未确认，暂不支持下载或应用。" && !unknownView.primaryButton.isEnabled
+        unknownView.removeFromSuperview()
+        var unknownDetails: [Int: CheckedContinuation<OnlineImageArtwork, Never>] = [:]
+        unknownLibrary.detailResolver = { _ in
+            let request = unknownLibrary.detailRequests.count
+            return await withCheckedContinuation { unknownDetails[request] = $0 }
+        }
+        defer {
+            unknownLibrary.detailResolver = nil
+            for continuation in unknownDetails.values { continuation.resume(returning: unknownSeed) }
+        }
+        host.addSubview(unknownView)
+        checks["unknown-remount-synchronously-replaces-unconfirmed-notice-with-loading"] = unknownView.isResolving
+            && unknownView.notice.stringValue == "正在获取作品详情…" && !unknownView.notice.isHidden
+        await pump { unknownDetails[2] != nil }
+        let retiredDetail = unknownView.detailTask
+        unknownView.removeFromSuperview()
+        host.addSubview(unknownView)
+        await pump { unknownDetails[3] != nil }
+        var obsolete = unknownSeed; obsolete.title = "Obsolete detail must not appear"
+        let oldCompletion = unknownDetails.removeValue(forKey: 2)
+        oldCompletion?.resume(returning: obsolete)
+        if oldCompletion != nil { await retiredDetail?.value }
+        checks["late-retired-detail-cannot-replace-new-remount-request"] = oldCompletion != nil && retiredDetail?.isCancelled == true
+            && unknownDetails[3] != nil && unknownView.isResolving && unknownView.artwork == unknownSeed
+            && unknownView.titleLabel.stringValue == unknownSeed.title
+        var currentUnknown = unknownSeed; currentUnknown.title = "Current unknown detail"
+        unknownDetails.removeValue(forKey: 3)?.resume(returning: currentUnknown)
+        await pump { !unknownView.isResolving }
+        checks["current-remount-detail-completes-with-original-unknown-type-rules"] = unknownView.artwork == currentUnknown
+            && unknownView.notice.stringValue == "作品类型尚未确认，暂不支持下载或应用。" && unknownView.detailTask == nil
+            && !unknownView.primaryButton.isEnabled && unknownView.titleLabel.stringValue == currentUnknown.title
+        unknownView.removeFromSuperview()
         let report = try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys])
         print(String(decoding: report, as: UTF8.self))
     }

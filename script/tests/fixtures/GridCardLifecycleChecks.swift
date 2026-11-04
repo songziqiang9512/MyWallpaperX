@@ -11,6 +11,7 @@ enum GridCardMotionFixture {
 @MainActor final class CardThumbnailTransport {
     struct Pending {
         let key: String
+        let target: ThumbnailRequest?
         let completion: (NSImage?) -> Void
     }
     var cached: [String: NSImage] = [:]
@@ -31,16 +32,16 @@ enum GridCardMotionFixture {
         // Do not execute the AVAsset loader. Keep every callback, including
         // equal-key requests, so stale success/failure is deliverable.
         nextID += 1
-        pending[nextID] = Pending(key: key, completion: completion)
+        pending[nextID] = Pending(key: key, target: nil, completion: completion)
         history.append((nextID, key))
     }
 
-    func loadImageAsync(forKey key: String, priority: ThumbnailCacheRequestPriority,
-        cancellation: ThumbnailCacheRequestCancellation?, loader: @escaping @Sendable () async -> NSImage?,
+    func loadImageAsync(forKey key: String, request: ThumbnailRequest? = nil, priority: ThumbnailCacheRequestPriority,
+        cancellation: ThumbnailCacheRequestCancellation?, loader: @escaping @Sendable () async -> ThumbnailInput?,
         completion: @escaping (NSImage?) -> Void) {
         if let image = cached[key] { completion(image); return }
         nextID += 1
-        pending[nextID] = Pending(key: key, completion: completion)
+        pending[nextID] = Pending(key: key, target: request, completion: completion)
         history.append((nextID, key))
     }
 
@@ -76,27 +77,27 @@ nonisolated final class ThumbnailCacheRequestCancellation: @unchecked Sendable {
     var generation = 0
     func publicationGeneration() async -> Int { generation }
 
-    func readyImage(for url: URL, maxPixelSize: Int) -> NSImage? { nil }
+    func readyImage(for url: URL, request target: ThumbnailRequest) -> NSImage? { nil }
 
-    func cachedImage(for url: URL, maxPixelSize: Int) async -> NSImage? {
+    func cachedImage(for url: URL, request target: ThumbnailRequest) async -> NSImage? {
         await withCheckedContinuation { continuation in
             nextID += 1
-            pending[nextID] = Pending(url: url, pixels: maxPixelSize, continuation: continuation)
-            history.append((nextID, url, maxPixelSize))
+            pending[nextID] = Pending(url: url, pixels: target.width, continuation: continuation)
+            history.append((nextID, url, target.width))
         }
     }
 
-    func storeAndDecode(data: Data, for url: URL, maxPixelSize: Int, generation: Int) async -> NSImage? {
+    func storeAndDecode(data: Data, for url: URL, request target: ThumbnailRequest, generation: Int) async -> NSImage? {
         decoded[data]
     }
 
-    func image(for url: URL, maxPixelSize: Int, priority: OnlineImageThumbnailRequestPriority) async -> NSImage? {
+    func image(for url: URL, request target: ThumbnailRequest, priority: OnlineImageThumbnailRequestPriority) async -> NSImage? {
         let generation = await publicationGeneration()
-        if let image = await cachedImage(for: url, maxPixelSize: maxPixelSize) { return image }
+        if let image = await cachedImage(for: url, request: target) { return image }
         guard !Task.isCancelled,
               let data = await OnlineImageThumbnailRequestCoordinator.shared.loadData(from: url, priority: priority),
               !Task.isCancelled else { return nil }
-        return await storeAndDecode(data: data, for: url, maxPixelSize: maxPixelSize, generation: generation)
+        return await storeAndDecode(data: data, for: url, request: target, generation: generation)
     }
 
     func deliver(_ ticket: Int, image: NSImage?) {
@@ -112,14 +113,14 @@ nonisolated final class ThumbnailCacheRequestCancellation: @unchecked Sendable {
 struct OnlineImageThumbnailRequest { let cacheURL: URL; let scopeID: String? }
 enum SILThumbnailLoadResult { case image(NSImage), unavailable }
 @MainActor final class SILThumbnailProvider {
-    func load(path: String, cancellation: ThumbnailCacheRequestCancellation, completion: @escaping (SILThumbnailLoadResult) -> Void) {
+    func load(path: String, request: ThumbnailRequest?, cancellation: ThumbnailCacheRequestCancellation, completion: @escaping (SILThumbnailLoadResult) -> Void) {
         preconditionFailure("bar binding must not read local media")
     }
 }
 extension OnlineImageThumbnailCache {
-    func readyImage(for request: OnlineImageThumbnailRequest, maxPixelSize: Int) -> NSImage? { preconditionFailure("bar binding must not load a thumbnail") }
-    func image(for request: OnlineImageThumbnailRequest, maxPixelSize: Int, priority: OnlineImageThumbnailRequestPriority) async -> NSImage? {
-        preconditionFailure("bar binding must not start a remote request")
+    func readyImage(for request: OnlineImageThumbnailRequest, request target: ThumbnailRequest) -> NSImage? { readyImage(for: request.cacheURL, request: target) }
+    func image(for request: OnlineImageThumbnailRequest, request target: ThumbnailRequest, priority: OnlineImageThumbnailRequestPriority) async -> NSImage? {
+        await image(for: request.cacheURL, request: target, priority: priority)
     }
 }
 
@@ -194,11 +195,15 @@ func waitUntil(_ seconds: TimeInterval = 1, _ predicate: () -> Bool) -> Bool {
     return predicate()
 }
 
+@MainActor func browserTarget(_ card: AppKitPixabayBrowserItem) -> ThumbnailRequest? {
+    ThumbnailRequest(size: .init(width: card.view.bounds.width, height: card.view.bounds.width), scale: card.view.window?.backingScaleFactor ?? 1, mode: .fill)
+}
 @MainActor func layout(_ item: NSCollectionViewItem) {
     item.view.needsLayout = true
     item.view.layoutSubtreeIfNeeded()
     // Drive the complete controller callback, including its production key.
     item.viewDidLayout()
+    if let browser = item as? AppKitPixabayBrowserItem, browser.isThumbnailDemandActive { browser.beginDisplayingThumbnail(request: browserTarget(browser)) }
     CATransaction.flush()
 }
 
@@ -225,7 +230,7 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
 @MainActor func configure(_ card: AppKitPixabayBrowserItem, _ item: PixabayVideoItem,
                           downloading: Bool = false, downloaded: Bool = false) {
     card.configure(item: item, isDownloading: downloading, isDownloaded: downloaded,
-        downloadProgress: downloading ? 0.7 : nil, onDownload: {}, onSetAsWallpaper: {})
+        downloadProgress: downloading ? 0.7 : nil, thumbnailRequest: browserTarget(card), onDownload: {}, onSetAsWallpaper: {})
 }
 
 @MainActor func image(_ marker: Int) -> NSImage {
@@ -491,23 +496,25 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
     host.scroll.viewDidChangeBackingProperties()
     facts.expect("production-backing-callback-dirties-real-visible-cards", !visible.isEmpty
         && visible.allSatisfy { $0.view.needsLayout })
-    // Do not call layout(card) or viewDidLayout here. The production scroll
-    // callback's needsLayout must reach the real controller through AppKit.
+    // AppKit still delivers the backing layout; the owning grid now grants
+    // the request explicitly instead of each card recomputing its own tier.
     host.scroll.layoutSubtreeIfNeeded()
     host.collection.layoutSubtreeIfNeeded()
+    card.beginDisplayingThumbnail(request: browserTarget(card))
     let upgraded = waitUntil { !Set(cache.pending.keys).subtracting(pendingBeforeChange).isEmpty }
     facts.expect("same-size-backing-change-reaches-thumbnail-request", upgraded,
-        "old pixels=\(firstRequest.pixels), current pixels=\(card.requestedPixelLimit)")
+        "old pixels=\(firstRequest.pixels), current pixels=\(card.thumbnailRequest?.width ?? 0)")
     guard let second = Set(cache.pending.keys).subtracting(pendingBeforeChange).first,
           let secondRequest = cache.pending[second] else { return }
     facts.expect("request-tier-increases-with-same-card-size", card.view.bounds.size == size
         && firstRequest.url == secondRequest.url && secondRequest.pixels > firstRequest.pixels
-        && card.requestedPixelLimit == secondRequest.pixels,
+        && card.thumbnailRequest?.width == secondRequest.pixels,
         "injected NSWindow scale 1→2, size=\(size), pixels=\(firstRequest.pixels)→\(secondRequest.pixels)")
     let large = image(8)
     cache.deliver(second, image: large)
     facts.expect("upgraded-cache-image-reaches-card", waitUntil { card.thumbnailView.image === large })
     let requestCount = cache.history.count
+    card.beginDisplayingThumbnail(request: browserTarget(card))
     host.scroll.viewDidChangeBackingProperties()
     host.scroll.layoutSubtreeIfNeeded()
     host.collection.layoutSubtreeIfNeeded()
@@ -662,7 +669,7 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
     guard let old = Set(cache.pending.keys).subtracting(before).first else { return }
     card.endDisplayingThumbnail()
     before = Set(cache.pending.keys)
-    card.beginDisplayingThumbnail()
+    card.beginDisplayingThumbnail(request: browserTarget(card))
     facts.expect("unfinished-restarts-on-display", waitUntil { !Set(cache.pending.keys).subtracting(before).isEmpty })
     guard let current = Set(cache.pending.keys).subtracting(before).first else { return }
     let ready = image(40)
@@ -671,7 +678,7 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
     cache.deliver(current, image: ready)
     facts.expect("resumed-visible-request-publishes", waitUntil { card.thumbnailView.image === ready })
     let requestCount = cache.history.count
-    card.endDisplayingThumbnail(); card.beginDisplayingThumbnail(); pump(0.03)
+    card.endDisplayingThumbnail(); card.beginDisplayingThumbnail(request: browserTarget(card)); pump(0.03)
     facts.expect("ready-image-survives-visibility-cycle", card.thumbnailView.image === ready && cache.history.count == requestCount)
 
     card.prepareForReuse()
@@ -679,10 +686,10 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
     OnlineImageThumbnailRequestCoordinator.shared.deliver(networkTicket, data: nil)
     facts.expect("terminal-failure-recorded", waitUntil { card.terminalThumbnailFailureGeneration != nil })
     let terminalCount = cache.history.count
-    card.endDisplayingThumbnail(); card.beginDisplayingThumbnail(); pump(0.03)
+    card.endDisplayingThumbnail(); card.beginDisplayingThumbnail(request: browserTarget(card)); pump(0.03)
     facts.expect("terminal-failure-not-retried-on-display", cache.history.count == terminalCount)
     cache.generation += 1
-    card.endDisplayingThumbnail(); card.beginDisplayingThumbnail()
+    card.endDisplayingThumbnail(); card.beginDisplayingThumbnail(request: browserTarget(card))
     facts.expect("clear-epoch-allows-new-visible-attempt", waitUntil { cache.history.count > terminalCount })
 
     card.endDisplayingThumbnail()
@@ -691,7 +698,7 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
     configure(card, browserModel(1205, thumbnail: "hidden-current"), downloaded: false)
     pump(0.12)
     facts.expect("hidden-configure-two-identities-starts-no-work", cache.history.count == hiddenCount && card.thumbnailView.image == nil)
-    card.beginDisplayingThumbnail()
+    card.beginDisplayingThumbnail(request: browserTarget(card))
     facts.expect("show-configured-hidden-starts-latest-only", waitUntil { cache.history.count == hiddenCount + 1 }
         && cache.history.last?.1 == card.currentThumbnailURL)
 
@@ -783,7 +790,7 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
     var downloaded: [Int] = [], played: [Int] = [], inspected: [Int] = []
     func update(_ id: Int, busy: Bool, ready: Bool) {
         let item = browserModel(id, thumbnail: nil)
-        card.configure(item: item, isDownloading: busy, isDownloaded: ready, downloadProgress: busy ? 0.4 : nil,
+        card.configure(item: item, isDownloading: busy, isDownloaded: ready, downloadProgress: busy ? 0.4 : nil, thumbnailRequest: browserTarget(card),
             onInspect: { inspected.append(id) }, onDownload: { downloaded.append(id) }, onSetAsWallpaper: { played.append(id) })
         layout(card)
         card.applyHoverVisibility(true, animated: false)
@@ -909,6 +916,26 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
         let retiredPlay = bar.onPlay, retiredInspect = bar.onInspect
         card.prepareForReuse(); retiredPlay?(); retiredInspect?()
         facts.expect(name + ".online-image-reuse-rejects-both-retained-actions", plays == ["B", "echo", "ready"] && inspections == plays)
+        let cache = OnlineImageThumbnailCache.shared
+        let reference = WallpaperReference(provider: provider, sourceID: "target")
+        let content = WallpaperContentItem(reference: reference, providerReference: reference,
+            locator: .init(mediaKind: .image), title: "target", kind: .image,
+            publishedAvailability: .remote, capabilities: [], metadata: .init(),
+            acquisition: .idle, update: .idle, aliases: [])
+        let remote = OnlineImageThumbnailRequest(cacheURL: URL(string: "https://fixture.invalid/target-\(name)")!, scopeID: nil)
+        let small = ThumbnailRequest(width: 240, height: 240, mode: .fill), large = ThumbnailRequest(width: 480, height: 480, mode: .fill)
+        card.configure(content: content, request: remote, selected: false, selecting: false, playing: false, thumbnailRequest: small, onPrimary: nil, onInspect: nil)
+        card.setThumbnailVisible(true, thumbnailRequest: small)
+        let initial = cache.history.count; precondition(waitUntil { cache.history.count > initial })
+        let pixels = image(60); cache.deliver(cache.history.last!.0, image: pixels); precondition(waitUntil { card.thumbnail.image === pixels })
+        card.setThumbnailVisible(false); card.setThumbnailVisible(false, thumbnailRequest: large)
+        facts.expect(name + ".hidden-target-change-keeps-pixels-without-work", card.thumbnail.image === pixels && !card.thumbnailRequestFinished && cache.history.count == initial + 1)
+        card.setThumbnailVisible(true, thumbnailRequest: large); precondition(waitUntil { cache.history.count == initial + 2 })
+        card.setThumbnailVisible(false); card.setThumbnailVisible(true, thumbnailRequest: large); precondition(waitUntil { cache.history.count == initial + 3 })
+        facts.expect(name + ".unfinished-target-cancellation-regrants-with-held-pixels", card.thumbnail.image === pixels && !card.thumbnailRequestFinished)
+        cache.deliver(cache.history[initial + 1].0, image: image(61)); cache.deliver(cache.history.last!.0, image: pixels); precondition(waitUntil { card.thumbnailRequestFinished })
+        card.setThumbnailVisible(false); card.setThumbnailVisible(true, thumbnailRequest: large); pump(0.03)
+        facts.expect(name + ".final-target-reentry-does-not-reload", card.thumbnail.image === pixels && cache.history.count == initial + 3)
         card.view.removeFromSuperview()
     }
 }

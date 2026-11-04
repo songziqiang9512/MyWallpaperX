@@ -38,30 +38,38 @@ enum PixabayDownloadedThumbnailStore {
 nonisolated private final class PixabayThumbnailVideoGeneration: @unchecked Sendable {
     private let lock = NSLock()
     private let generator: AVAssetImageGenerator
-    private var continuation: CheckedContinuation<NSImage?, Never>?
+    private let request: ThumbnailRequest?
+    private var continuation: CheckedContinuation<ThumbnailInput?, Never>?
     private var cancelled = false
 
-    init(url: URL) {
+    init(url: URL, request: ThumbnailRequest?) {
+        self.request = request
         generator = AVAssetImageGenerator(asset: AVURLAsset(url: url))
         generator.appliesPreferredTrackTransform = true
         generator.maximumSize = CGSize(width: 520, height: 300)
     }
 
-    func image() async -> NSImage? {
+    func image() async -> ThumbnailInput? {
         await withTaskCancellationHandler {
-            await withCheckedContinuation { continuation in
+            let nativeSize: CGSize?
+            if let request {
+                guard let size = await PixabayDownloadedAssetMetadata.nativeSize(for: generator.asset) else { return nil }
+                nativeSize = size
+                generator.maximumSize = request.decodedSize(for: size)
+            } else { nativeSize = nil }
+            return await withCheckedContinuation { continuation in
                 lock.lock()
                 if cancelled { lock.unlock(); continuation.resume(returning: nil); return }
                 self.continuation = continuation
                 generator.generateCGImageAsynchronously(for: CMTime(seconds: 0.5, preferredTimescale: 600)) { [self] image, _, _ in
-                    finish(image.map { NSImage(cgImage: $0, size: .zero) })
+                    finish(image.map { .image(NSImage(cgImage: $0, size: .zero), nativeSize: nativeSize) })
                 }
                 lock.unlock()
             }
         } onCancel: { self.cancel() }
     }
 
-    private func finish(_ image: NSImage?) {
+    private func finish(_ image: ThumbnailInput?) {
         lock.lock()
         let pending = continuation
         continuation = nil
@@ -82,11 +90,11 @@ nonisolated private final class PixabayThumbnailVideoGeneration: @unchecked Send
 }
 
 extension PixabayDownloadedThumbnailStore {
-    nonisolated static func generateThumbnail(from url: URL) async -> NSImage? {
-        await PixabayThumbnailVideoGeneration(url: url).image()
+    nonisolated static func generateThumbnail(from url: URL, request: ThumbnailRequest?) async -> ThumbnailInput? {
+        await PixabayThumbnailVideoGeneration(url: url, request: request).image()
     }
 
-    static func loadThumbnail(_ entry: PixabayDownloadedEntry, priority: ThumbnailCacheRequestPriority,
+    static func loadThumbnail(_ entry: PixabayDownloadedEntry, request: ThumbnailRequest? = nil, priority: ThumbnailCacheRequestPriority,
         cancellation: ThumbnailCacheRequestCancellation,
         completion: @escaping (String, NSImage?) -> Void) {
         guard !cancellation.cancelled else { return }
@@ -100,14 +108,14 @@ extension PixabayDownloadedThumbnailStore {
                 return cacheKey(for: url)
             }.value
             guard let key, !cancellation.cancelled else { return }
-            cache.loadImageAsync(forKey: key, priority: priority, cancellation: cancellation, loader: {
+            cache.loadImageAsync(forKey: key, request: request, priority: priority, cancellation: cancellation, loader: {
                 // The producer may wait behind another generation. Never publish
                 // pixels from a later source revision under this request's key.
                 guard cacheKey(for: url) == key else {
                     cache.remove(forKey: key)
                     return nil
                 }
-                let image = await generateThumbnail(from: url)
+                let image = await generateThumbnail(from: url, request: request)
                 guard cacheKey(for: url) == key else {
                     cache.remove(forKey: key)
                     return nil
@@ -167,6 +175,8 @@ final class AppKitPixabayDownloadsItem: WallpaperCardCollectionViewItem, Wallpap
     private var thumbnailRequestID = UUID()
     private var thumbnailCancellation: ThumbnailCacheRequestCancellation?
     private var thumbnailLoadingWork: DispatchWorkItem?
+    private var thumbnailRequest: ThumbnailRequest?
+    private var needsThumbnail = true
     private var isThumbnailDemandActive = true
     private var presentedEntry: PixabayDownloadedEntry?
     private var currentEntryID = -1
@@ -197,6 +207,8 @@ final class AppKitPixabayDownloadsItem: WallpaperCardCollectionViewItem, Wallpap
         thumbnailCancellation = nil
         isThumbnailDemandActive = true
         thumbnailLoadingWork?.cancel(); thumbnailLoadingWork = nil
+        thumbnailRequest = nil
+        needsThumbnail = true
         presentedEntry = nil
         currentEntryID = -1
         thumbnailView.image = nil
@@ -225,52 +237,58 @@ final class AppKitPixabayDownloadsItem: WallpaperCardCollectionViewItem, Wallpap
         isSelected: Bool,
         isMultiSelectMode: Bool,
         isPlaying: Bool,
+        request: ThumbnailRequest? = nil,
         thumbnailDemandActive: Bool? = nil
     ) {
-        let wasActive = isThumbnailDemandActive
         if currentEntryID != entry.id { isSwitching = false }
         if let thumbnailDemandActive { isThumbnailDemandActive = thumbnailDemandActive }
         if !isThumbnailDemandActive { endDisplayingThumbnail() }
         applySelectionState(isSelected, multiSelectMode: isMultiSelectMode)
         applyPlayingState(isPlaying: isPlaying)
-        guard presentedEntry != entry else {
-            if isThumbnailDemandActive && !wasActive { beginDisplayingThumbnail() }
-            return
-        }
         let imageChanged = currentEntryID != entry.id || presentedEntry?.localURL != entry.localURL
             || presentedEntry?.fileSize != entry.fileSize || presentedEntry?.thumbnailSourceKey != entry.thumbnailSourceKey
+        let requestChanged = thumbnailRequest != request
+        let metadataChanged = presentedEntry != entry
+        thumbnailRequest = request
         presentedEntry = entry
         currentEntryID = entry.id
-        currentTitle = entry.displayTitle
-        currentMetadata = entry.metaLine
-        updateControlBarContent()
-        view.needsLayout = true
-
-        guard imageChanged else {
-            if isThumbnailDemandActive && !wasActive { beginDisplayingThumbnail() }
-            return
+        if metadataChanged {
+            currentTitle = entry.displayTitle
+            currentMetadata = entry.metaLine
+            updateControlBarContent()
+            view.needsLayout = true
         }
-        thumbnailCancellation?.cancel(); thumbnailCancellation = nil
-        thumbnailLoadingWork?.cancel(); thumbnailLoadingWork = nil
+        if imageChanged || requestChanged {
+            thumbnailCancellation?.cancel(); thumbnailCancellation = nil
+            thumbnailLoadingWork?.cancel(); thumbnailLoadingWork = nil
+            thumbnailRequestID = UUID()
+            needsThumbnail = true
+        }
+        if imageChanged {
+            thumbnailView.image = nil
+            placeholderLabel.stringValue = "加载中..."
+            placeholderLabel.isHidden = true
+        }
+        if isThumbnailDemandActive && needsThumbnail { beginDisplayingThumbnail() }
+    }
+
+    private func loadThumbnail(_ entry: PixabayDownloadedEntry) {
+        needsThumbnail = false
         let requestID = UUID()
         thumbnailRequestID = requestID
-        thumbnailView.image = nil
-        placeholderLabel.stringValue = "加载中..."
-        placeholderLabel.isHidden = true
-        guard isThumbnailDemandActive else { return }
-        let loadingWork = DispatchWorkItem { [weak self] in
-            guard let self, self.thumbnailRequestID == requestID, self.thumbnailView.image == nil else { return }
-            self.placeholderLabel.isHidden = false
+        if thumbnailView.image == nil {
+            let loadingWork = DispatchWorkItem { [weak self] in
+                guard let self, self.thumbnailRequestID == requestID, self.thumbnailView.image == nil else { return }
+                self.placeholderLabel.isHidden = false
+            }
+            thumbnailLoadingWork = loadingWork
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: loadingWork)
         }
-        thumbnailLoadingWork = loadingWork
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: loadingWork)
         let id = entry.id
         weak let item = self
-        // 共享缓存自带 in-flight 去重与失败负缓存：同键并发只抽一次帧，
-        // 失败（损坏/不支持的编码）记录结论后不再重复 AVAsset 重试。
         let cancellation = ThumbnailCacheRequestCancellation()
         thumbnailCancellation = cancellation
-        PixabayDownloadedThumbnailStore.loadThumbnail(entry, priority: .visible,
+        PixabayDownloadedThumbnailStore.loadThumbnail(entry, request: thumbnailRequest, priority: .visible,
             cancellation: cancellation, completion: { _, image in
             // ThumbnailCache 统一主线程回调；卡片已复用为其他条目时丢弃结果
             guard let item, item.currentEntryID == id, item.thumbnailRequestID == requestID else { return }
@@ -280,7 +298,7 @@ final class AppKitPixabayDownloadsItem: WallpaperCardCollectionViewItem, Wallpap
                 item.thumbnailView.image = image
                 item.layoutThumbnail()
                 item.placeholderLabel.isHidden = true
-            } else {
+            } else if item.thumbnailView.image == nil {
                 // 生成失败：结束加载态，呈现静态失败文案，
                 // 避免占位符永远停留「加载中...」。
                 item.showThumbnailFailureState()
@@ -291,6 +309,7 @@ final class AppKitPixabayDownloadsItem: WallpaperCardCollectionViewItem, Wallpap
     func endDisplayingThumbnail() {
         isThumbnailDemandActive = false
         controlBar?.setActive(false)
+        if thumbnailCancellation != nil || thumbnailView.image == nil { needsThumbnail = true }
         thumbnailCancellation?.cancel()
         thumbnailCancellation = nil
         thumbnailLoadingWork?.cancel(); thumbnailLoadingWork = nil
@@ -300,9 +319,8 @@ final class AppKitPixabayDownloadsItem: WallpaperCardCollectionViewItem, Wallpap
     func beginDisplayingThumbnail() {
         isThumbnailDemandActive = true
         applyHoverVisibility(isHovering, animated: false)
-        guard thumbnailView.image == nil, thumbnailCancellation == nil, let entry = presentedEntry else { return }
-        presentedEntry = nil
-        configure(entry: entry, isSelected: isSelectedState, isMultiSelectMode: isMultiSelectMode, isPlaying: isPlaying)
+        guard (needsThumbnail || thumbnailView.image == nil), thumbnailCancellation == nil, let entry = presentedEntry else { return }
+        loadThumbnail(entry)
     }
 
     /// 缩略图生成失败态：占位文案替换为失败提示并重新排版居中。
@@ -402,8 +420,8 @@ final class AppKitPixabayDownloadsItem: WallpaperCardCollectionViewItem, Wallpap
         )
 
         let metrics = WallpaperCardBarMetrics(cardWidth: width)
-        controlBarFrame = NSRect(x: metrics.barHorizontalInset, y: metrics.barBottomInset,
-            width: max(0, width - metrics.barHorizontalInset * 2), height: metrics.barHeight)
+        controlBarFrame = imageContainer.convert(NSRect(x: metrics.barHorizontalInset, y: metrics.barBottomInset,
+            width: max(0, width - metrics.barHorizontalInset * 2), height: metrics.barHeight), to: view)
         controlBar?.frame = controlBarFrame
         controlBar?.apply(metrics: metrics)
         updateControlBarContent()
@@ -484,7 +502,7 @@ final class AppKitPixabayDownloadsItem: WallpaperCardCollectionViewItem, Wallpap
         barVisibilityRevision &+= 1
         let revision = barVisibilityRevision
         if show {
-            if bar.superview == nil { imageContainer.addSubview(bar) }
+            if bar.superview == nil { view.addSubview(bar) }
             bar.isHidden = false
         }
         bar.setActive(show && visible && isThumbnailDemandActive)

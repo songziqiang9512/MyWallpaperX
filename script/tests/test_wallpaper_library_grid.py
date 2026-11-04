@@ -31,7 +31,7 @@ class WallpaperLibraryGridTests(unittest.TestCase):
                  "MyWallpaperX/Shared/Components/WallpaperLibraryGridMetrics.swift",
                  "MyWallpaperX/Shared/Components/WallpaperLibrarySymbols.swift",
                  "MyWallpaperX/Shared/Components/WallpaperCardInteractionView.swift",
-                 "MyWallpaperX/Shared/UI/WallpaperGridScrollView.swift", "MyWallpaperX/Shared/UI/BoxSelectionState.swift",
+                 "MyWallpaperX/Shared/ThumbnailRequest.swift", "MyWallpaperX/Shared/UI/WallpaperGridScrollView.swift", "MyWallpaperX/Shared/UI/BoxSelectionState.swift",
                  "MyWallpaperX/Shared/UI/GridThumbnailPrefetchDemand.swift",
                  "MyWallpaperX/Shared/UI/WallpaperGridNoticeView.swift",
                  "MyWallpaperX/Shell/WallpaperLibraryGridController.swift",

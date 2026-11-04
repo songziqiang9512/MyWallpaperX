@@ -1564,7 +1564,7 @@
       "owner": "Modules/Downloads presentation/history; source-native execution",
       "status": "approved",
       "designDoc": "docs/development/main-window-playlists-redesign.md",
-      "design_notes": "用户M05/M06/M11授权。原来源拥有执行/进度/发布/账号准入，Steam JobStore保唯一历史，非Steam仅真实终态ledger；无登录可读本地历史，跨账号修改不得借当前账号。通用任务面板不加来源筛选，无第二执行队列或播放许可。清历史不重新seed复活；固定身份重试不改浏览query；commit后取消保完成事实。",
+      "design_notes": "用户M05/M06/M11授权。原来源拥有执行/进度/发布/账号准入，Steam JobStore保唯一历史，非Steam仅真实终态ledger；无登录可读本地历史，跨账号修改不得借当前账号。通用任务面板不加来源筛选，无第二执行队列或播放许可。清历史不重新seed复活；固定身份重试不改浏览query；commit后取消保完成事实。 长历史按主界面现役设计使用原生Table复用，唯一行呈现状态替换每行重型View状态；保原预热/保图与进度/身份动作，不新增执行/图片缓存owner或截断历史。",
       "matchPatterns": [
         "MyWallpaperX/Modules/Downloads/*",
         "MyWallpaperX/App/DownloadTasksController.swift",
@@ -1927,7 +1927,7 @@
       "owner": "Existing source indexes, App Catalog and thumbnail providers",
       "status": "approved",
       "designDoc": "docs/development/local-library-loading-design.md",
-      "design_notes": "R62索引先呈现、R106有界预取、R107暖键、R108本次批量来源、R109工具栏像素需求已结。R110真实生成后旧卡不交付已复现并修：原visible请求直等ensure completion、cold精确撤销旧像素、退出UI最终nil重生入口，不加owner/state/observer/model发布或Core→UI。44/16与最近门通过，签名Debug过；无位移wheel模拟排除、实际混合库/照片级及完整目录CoreDrag限制保持，见#generated-delivery。Scene不改。",
+      "design_notes": "R62/R106–R110已结边界保留，R111渐进候选撤回。R112单一目标/紧致方图实现未提交，完整体验未验收；原证据与启动先呈现归本卡。用户新增全模块/跨面板复用目标由unified-thumbnail-delivery及其设计接管，不能把旧互斥单Entry当最终合同。Scene引擎不改。",
       "matchPatterns": [
         "MyWallpaperX/App/WallpaperLibraryCatalogController.swift",
         "MyWallpaperX/App/WallpaperLibraryWorkspace.swift",
@@ -1954,6 +1954,40 @@
         "MyWallpaperX/App/WallpaperLibraryCellAdapter.swift",
         "MyWallpaperX/Shell/AppKitPlaylistDirectoryController.swift",
         "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+CacheAssets.swift"
+      ],
+      "contentPatterns": []
+    },
+    {
+      "id": "unified-thumbnail-delivery",
+      "title": "全模块缩略图共享来源、交付和代码复用",
+      "owner": "Existing thumbnail/source owners, Presentation/Grid admission and Shell Inspector responder",
+      "status": "approved",
+      "designDoc": "docs/development/thumbnail-delivery-design.md",
+      "design_notes": "Shared二维请求、覆盖和同源交付服务网格/详情/picker，来源HTTP/账户/raw与预算仍归原owner。Video静帧full与UI thumbnailFallback由原延迟worker按实际像素覆盖分流，显式播放/导入/桌面同步消费及失败回退保留；不新增任务、中心或来源表。当前组件验证与完整呈现未结项归专项，不能外推全下载/Photos级；Git遵循本轮用户明确授权，未授权推送；Scene引擎不改。 R131 Video完整模板只建一次，原位回填实际字段；Style同步绑定既有valueField，无新UI owner/cache，真实Host动画中回填验证另列上限。 图片Ready与可选派生文件分离仍用同Request/worker和原槽；publishedImage复用原worker已有就绪图，撤权/新hook时才开新代，原bytes/sourcePublication先于交图，失败先retire，clear/remove沿原身份撤写，不增队列/epoch。 Ready不承诺可选文件已落盘；不兼容target在tail窄窗仍可沿原来源再准备，不扩母图cache，真实盘回访门等提交后保持零源增量。",
+      "matchPatterns": [
+        "MyWallpaperX/Shared/UI/ThumbnailCache.swift",
+        "MyWallpaperX/Shared/UI/DecodedThumbnailMemoryCache.swift",
+        "MyWallpaperX/Shared/UI/GridThumbnailDecoder.swift",
+        "MyWallpaperX/Shared/UI/GridThumbnailPrefetchDemand.swift",
+        "MyWallpaperX/Shared/UI/OnlineImageThumbnailPipeline.swift",
+        "MyWallpaperX/Shared/UI/OnlineImageBrowserController.swift",
+        "MyWallpaperX/Shared/UI/OnlineImageGridItem.swift",
+        "MyWallpaperX/Shared/UI/OnlineImageInspectorView.swift",
+        "MyWallpaperX/App/WallpaperLibraryCellAdapter.swift",
+        "MyWallpaperX/App/WallpaperLibraryArtworkProvider.swift",
+        "MyWallpaperX/App/WallpaperPlaylistPickerController.swift",
+        "MyWallpaperX/App/DownloadTasksController.swift",
+        "MyWallpaperX/App/StatusBarPanelViewController.swift",
+        "MyWallpaperX/Shell/WallpaperLibraryGridController.swift",
+        "MyWallpaperX/Modules/VideoLibrary/UI/*",
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+Cache*.swift",
+        "MyWallpaperX/Modules/StaticImageLibrary/UI/*",
+        "MyWallpaperX/Modules/Pixabay/UI/*",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/*",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopPreview*.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopDownloadThumbnailPipeline.swift",
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+StaticFramePipeline.swift",
+        "MyWallpaperX/Shared/Components/WallpaperLibraryControlStyle.swift"
       ],
       "contentPatterns": []
     }

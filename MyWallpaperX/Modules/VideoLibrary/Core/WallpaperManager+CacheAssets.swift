@@ -70,7 +70,7 @@ extension WallpaperManager {
 
     }
 
-    func ensurePreviewAssetsForWallpaper(_ wallpaper: VideoWallpaper, completion: ((String?) -> Void)? = nil) {
+    func ensurePreviewAssetsForWallpaper(_ wallpaper: VideoWallpaper, request: ThumbnailRequest? = nil, completion: ((VideoThumbnailAsset?) -> Void)? = nil) {
         // 资产补齐是按需触发的：能直接命中缓存就不重复生成，没命中才后台补。
         let sourceURL = URL(fileURLWithPath: wallpaper.path)
         let normalized = normalizedPath(sourceURL.path)
@@ -81,25 +81,24 @@ extension WallpaperManager {
             return
         }
 
-        if let path = resolvedThumbnailPath(for: wallpaper) {
-            scheduleStaticFrameGeneration(for: sourceURL)
-            completion?(path)
+        if request == nil, let path = resolvedThumbnailPath(for: wallpaper) {
+            completion?(VideoThumbnailAsset(path: path, nativeSize: nil))
             return
         }
 
         guard shouldRetryThumbnailGeneration(for: normalized) || isThumbnailGenerationInFlight(for: normalized) else {
             notifyThumbnailReady(forPath: sourceURL.path)
-            scheduleStaticFrameGeneration(for: sourceURL)
+            scheduleStaticFrameGeneration(for: sourceURL, preparation: .thumbnailFallback(request))
             completion?(nil)
             return
         }
 
-        generateThumbnail(for: sourceURL) { [weak self] path in
+        generateThumbnail(for: sourceURL, request: request) { [weak self] path in
             guard let self else { completion?(nil); return }
             self.notifyThumbnailReady(forPath: sourceURL.path)
             completion?(path)
         }
-        scheduleStaticFrameGeneration(for: sourceURL)
+        scheduleStaticFrameGeneration(for: sourceURL, preparation: .thumbnailFallback(request))
     }
 
     private func applyAssetPaths(

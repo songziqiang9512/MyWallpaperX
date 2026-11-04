@@ -4,7 +4,6 @@
 //
 
 import AppKit
-import QuartzCore
 
 struct PixabayDownloadsInspectorSnapshot {
     let entry: PixabayDownloadedEntry
@@ -76,74 +75,5 @@ enum PixabayDownloadsInspectorViews {
         )
         button.translatesAutoresizingMaskIntoConstraints = false
         return button
-    }
-}
-
-final class PixabayDownloadsPreviewSurfaceView: NSView {
-    private var previewImage: NSImage?
-    private let placeholderView = NSImageView()
-
-    init(itemID: Int, previewImage: NSImage?) {
-        self.previewImage = previewImage
-        super.init(frame: .zero)
-        setup(itemID: itemID)
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        nil
-    }
-
-    func updateImage(_ image: NSImage?) {
-        previewImage = image
-        placeholderView.isHidden = image != nil
-        needsDisplay = true
-    }
-
-    override func draw(_ dirtyRect: NSRect) {
-        super.draw(dirtyRect)
-        NSGradient(
-            starting: NSColor.white.withAlphaComponent(0.22),
-            ending: NSColor.controlAccentColor.withAlphaComponent(0.20)
-        )?.draw(in: bounds, angle: -45)
-
-        guard let previewImage else { return }
-
-        let imageSize = previewImage.size
-        guard imageSize.width > 0, imageSize.height > 0, bounds.width > 0, bounds.height > 0 else { return }
-
-        let scale = max(bounds.width / imageSize.width, bounds.height / imageSize.height)
-        let targetSize = NSSize(width: imageSize.width * scale, height: imageSize.height * scale)
-        let targetRect = NSRect(
-            x: bounds.midX - targetSize.width / 2,
-            y: bounds.midY - targetSize.height / 2,
-            width: targetSize.width,
-            height: targetSize.height
-        )
-        previewImage.draw(in: targetRect, from: .zero, operation: .sourceOver, fraction: 1)
-    }
-
-    private func setup(itemID: Int) {
-        wantsLayer = true
-        layer?.cornerRadius = 16
-        layer?.masksToBounds = true
-        layer?.borderColor = NSColor.white.withAlphaComponent(0.09).cgColor
-        layer?.borderWidth = 0.45
-        setAccessibilityLabel("在线图库下载项预览 \(itemID)")
-
-        placeholderView.image = NSImage(systemSymbolName: "film.stack", accessibilityDescription: nil)
-        placeholderView.contentTintColor = .secondaryLabelColor
-        placeholderView.symbolConfiguration = .init(pointSize: 28, weight: .medium)
-        placeholderView.translatesAutoresizingMaskIntoConstraints = false
-        placeholderView.isHidden = previewImage != nil
-
-        addSubview(placeholderView)
-
-        NSLayoutConstraint.activate([
-            placeholderView.centerXAnchor.constraint(equalTo: centerXAnchor),
-            placeholderView.centerYAnchor.constraint(equalTo: centerYAnchor),
-            placeholderView.widthAnchor.constraint(equalToConstant: 36),
-            placeholderView.heightAnchor.constraint(equalToConstant: 36)
-        ])
     }
 }

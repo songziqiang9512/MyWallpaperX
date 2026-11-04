@@ -11,7 +11,7 @@
 
     @MainActor static func audit(_ provider: WallpaperProvider, root: URL) async throws -> [String: Bool] {
         var checks: [String: Bool] = [:]
-        for mutation in ["replacePath", "delete", "reorder", "notVisible", "hidden"] {
+        for mutation in ["replacePath", "delete", "reorder", "notVisible", "hidden", "selectionReplace", "mergeReplace", "mergeHide"] {
             let prefix = provider.rawValue + ":" + mutation + ":"
             let folder = root.appendingPathComponent(provider.rawValue + "-" + mutation)
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -39,28 +39,41 @@
             precondition(ready, "initial catalog must settle before controlling its existing file worker")
             let aRef = WallpaperReference(provider: provider, sourceID: "A")
             let bRef = WallpaperReference(provider: provider, sourceID: "B")
-            let token = UUID(), held = CatalogFileProbe.shared.holdNext()
+            let token = UUID()
+            let sourceReplacement = mutation == "selectionReplace" || mutation == "mergeReplace"
+            let phase: String? = mutation == "selectionReplace" ? "selection-" + provider.rawValue : mutation == "mergeHide" || mutation == "mergeReplace" ? "merge" : nil
+            CatalogFileProbe.shared.resetScans()
+            let held = phase.map { CatalogFileProbe.shared.holdScan($0) } ?? CatalogFileProbe.shared.holdNext()
+            defer { held.signal(); CatalogFileProbe.shared.stop() }
+            if mutation == "mergeHide" || mutation == "mergeReplace" { try FileManager.default.removeItem(at: a) }
+            var repairs = 0
+            let repairSubscription = controller.visibleLocalFactsRefreshed.sink { repairs += 1 }
+            defer { repairSubscription.cancel() }
             controller.setVisibleReferences([aRef], sourceToken: token)
-            let entered = await wait { CatalogFileProbe.shared.snapshot.active == 1 }
+            let entered = await wait {
+                phase.map { CatalogFileProbe.shared.scans.visits[$0, default: 0] == 1 } ?? (CatalogFileProbe.shared.snapshot.active == 1)
+            }
             var mainResponded = false
             DispatchQueue.main.async { mainResponded = true }
             _ = await wait { mainResponded }
             for _ in 0..<40 { controller.setVisibleReferences([aRef], sourceToken: token) }
             let blocked = CatalogFileProbe.shared.snapshot
-            checks[prefix + "actualWorkerIsOffMainSingleFlightDuringRepeatedViewportInput"] = entered && mainResponded
-                && blocked.active == 1 && blocked.maximum == 1 && blocked.total == 1 && blocked.offMain
+            let scans = CatalogFileProbe.shared.scans
+            let singleFlight = phase.map { scans.visits[$0, default: 0] == 1 && !scans.onMain.contains($0) }
+                ?? (blocked.active == 1 && blocked.maximum == 1 && blocked.total == 1 && blocked.offMain)
+            checks[prefix + "actualWorkerIsOffMainSingleFlightDuringRepeatedViewportInput"] = entered && mainResponded && singleFlight
             // The captured old worker will now discover A missing. Its result
             // can commit only if source generation and consumer scope still match.
-            try FileManager.default.removeItem(at: a)
+            if mutation != "mergeHide" && mutation != "mergeReplace" { try FileManager.default.removeItem(at: a) }
             var mutationPublished = true
             switch mutation {
-            case "replacePath":
+            case "replacePath", "selectionReplace", "mergeReplace":
                 // A negative-control run omits this source publication. The
                 // unchanged old snapshot must not satisfy our replacement case.
-                if ProcessInfo.processInfo.environment["MWX_TEST_DROP_REPLACEMENT"] != "1" {
-                    try replace([("A", replacement), ("B", b)])
+                if mutation != "replacePath" || ProcessInfo.processInfo.environment["MWX_TEST_DROP_REPLACEMENT"] != "1" {
+                    try replace(sourceReplacement ? [("B", b), ("A", replacement)] : [("A", replacement), ("B", b)])
                 }
-                mutationPublished = await wait { items().first?.locator.path == replacement.path }
+                mutationPublished = await wait { items().first { $0.reference == aRef }?.locator.path == replacement.path }
             case "delete":
                 try replace([("B", b)])
                 mutationPublished = await wait { items().map(\.reference) == [bRef] }
@@ -68,19 +81,35 @@
                 try replace([("B", b), ("A", a)])
                 mutationPublished = await wait { items().map(\.reference) == [bRef, aRef] }
             case "notVisible": controller.setVisibleReferences([bRef], sourceToken: token)
+            case "mergeHide":
+                controller.setVisibleReferences([], sourceToken: token)
+                controller.setVisibleReferences([aRef], sourceToken: token)
+                controller.setVisibleReferences([], sourceToken: token)
+                checks[prefix + "cancelledParentKeepsItsHeldPureWorker"] = controller.visibleAvailabilityTask?.isCancelled == true
+                    && CatalogFileProbe.shared.scans.visits["merge", default: 0] == 1
             default: controller.setVisibleReferences([], sourceToken: token)
             }
             let acceptedBeforeCompletion = items()
             held.signal()
-            _ = await wait { CatalogFileProbe.shared.snapshot.active == 0 }
-            try await Task.sleep(for: .milliseconds(80))
-            let expectedAPath = mutation == "replacePath" ? replacement.path : a.path
+            if phase != nil {
+                if sourceReplacement {
+                    let completed = await wait { CatalogFileProbe.shared.scans.visits["refresh-finished", default: 0] > 0 }
+                    mutationPublished = mutationPublished && completed
+                }
+                controller.setVisibleReferences([], sourceToken: token)
+                _ = await wait { controller.visibleAvailabilityTask == nil }
+            } else {
+                _ = await wait { CatalogFileProbe.shared.snapshot.active == 0 }
+                try await Task.sleep(for: .milliseconds(80))
+            }
+            if mutation == "mergeHide" { checks[prefix + "retiredMergeDoesNotSendVideoRepair"] = repairs == 0 }
+            let expectedAPath = mutation == "replacePath" || sourceReplacement ? replacement.path : a.path
             let currentAPathIsCorrect = mutation == "delete" ? items().allSatisfy { $0.reference != aRef }
                 : items().first { $0.reference == aRef }?.locator.path == expectedAPath
             checks[prefix + "lateRealFileResultCannotOverwriteAcceptedIdentityOrderOrFacts"] = mutationPublished && currentAPathIsCorrect
                 && items() == acceptedBeforeCompletion
                 && items().allSatisfy { $0.publishedAvailability == .available && $0.capabilities.contains(.play) }
-            let expected = mutation == "delete" ? [bRef] : mutation == "reorder" ? [bRef, aRef] : [aRef, bRef]
+            let expected = mutation == "delete" ? [bRef] : mutation == "reorder" || sourceReplacement ? [bRef, aRef] : [aRef, bRef]
             checks[prefix + "oldIndexOccupantNeverReceivesAnotherResourcesResult"] = items().map(\.reference) == expected
                 && items().first { $0.reference == bRef }?.locator.path == b.path
             controller.setVisibleReferences([], sourceToken: token)

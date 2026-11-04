@@ -1,9 +1,18 @@
 import AppKit
 import QuartzCore
 
+@objc protocol WallpaperInspectorCardSource {
+    var inspectorCardButton: NSButton { get }
+    func openInspectorFromCard()
+}
+
+@objc protocol WallpaperInspectorCardActionHandling {
+    func toggleInspectorFromCard(_ sender: NSView)
+}
+
 /// Presentation only. The source adapter supplies current state and commands;
 /// this view does not resolve identities, select items or write user data.
-final class WallpaperCardControlsView: NSView {
+final class WallpaperCardControlsView: NSView, WallpaperInspectorCardSource {
     enum PrimaryState { case apply, switching, playing, download }
 
     let glass = WallpaperCardGlassBarView()
@@ -124,5 +133,12 @@ final class WallpaperCardControlsView: NSView {
     }
 
     @objc private func play() { onPlay?() }
-    @objc private func inspect() { onInspect?() }
+    var inspectorCardButton: NSButton { detailButton }
+    func openInspectorFromCard() { onInspect?() }
+
+    @objc private func inspect() {
+        if !NSApp.sendAction(#selector(WallpaperInspectorCardActionHandling.toggleInspectorFromCard(_:)), to: nil, from: self) {
+            openInspectorFromCard()
+        }
+    }
 }

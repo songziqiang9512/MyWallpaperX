@@ -106,6 +106,7 @@ nonisolated final class ThumbnailCompletions: @unchecked Sendable {
 @main enum VideoThumbnailGeneratorChecks {
     @MainActor static func main() throws {
         let root = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
+        if CommandLine.arguments.contains("--adaptive") { try adaptiveChecks(root: root); return }
         let fm = FileManager.default
         let first = root.appendingPathComponent("first.mp4")
         let second = root.appendingPathComponent("renamed.mp4")
@@ -118,7 +119,7 @@ nonisolated final class ThumbnailCompletions: @unchecked Sendable {
         var checks: [String: Bool] = [:], work: [String: [String: Int]] = [:]
         var jpegFailures: [[String: Any]] = []
         func request(_ name: String, _ url: URL, using owner: WallpaperManager? = nil) {
-            (owner ?? manager).generateThumbnail(for: url) { results.record(name, $0) }
+            (owner ?? manager).generateThumbnail(for: url) { results.record(name, $0?.path) }
         }
         func pump(_ predicate: () -> Bool) -> Bool {
             let deadline = Date().addingTimeInterval(15)
@@ -345,6 +346,214 @@ nonisolated final class ThumbnailCompletions: @unchecked Sendable {
             "jpegFailures": jpegFailures,
             "initialJPEGSHA256": SHA256.hash(data: firstJPEG).map { String(format: "%02x", $0) }.joined(),
             "scope": "real CachePipeline/AV/JPEG and clear-generation; provider/Prefs/App absent"]
+        print(String(data: try JSONSerialization.data(withJSONObject: output, options: [.sortedKeys]), encoding: .utf8)!)
+    }
+
+    @MainActor static func adaptiveChecks(root: URL) throws {
+        let fm = FileManager.default, observed = VideoThumbnailObservations.shared
+        let manager = try WallpaperManager(root: root.appendingPathComponent("adaptive-cache"))
+        let results = ThumbnailCompletions()
+        let large = root.appendingPathComponent("large.mp4"), small = root.appendingPathComponent("small.mp4")
+        var checks: [String: Bool] = [:], dimensions: [String: Int] = [:]
+        func pump(_ predicate: () -> Bool) -> Bool {
+            let deadline = Date().addingTimeInterval(15)
+            while !predicate(), Date() < deadline { RunLoop.main.run(until: Date().addingTimeInterval(0.003)) }
+            return predicate()
+        }
+        func shortSide(_ path: String?) -> Int {
+            guard let path, let source = CGImageSourceCreateWithURL(URL(fileURLWithPath: path) as CFURL, nil),
+                  let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return 0 }
+            return min(image.width, image.height)
+        }
+        func request(_ name: String, _ url: URL, _ side: Int?) {
+            manager.generateThumbnail(for: url, request: side.map { ThumbnailRequest(width: $0, height: $0, mode: .fill) }) { asset in
+                dimensions[name] = shortSide(asset?.path)
+                results.record(name, asset?.path)
+            }
+        }
+        let originalHold = observed.holdNext(large)
+        request("default", large, nil)
+        let entered = pump { originalHold.didEnter }
+        request("large", large, 576)
+        request("joined-small", large, 128)
+        checks["largerConsumerWaitsForOriginal400Worker"] = entered && results.count("large") == 0
+        originalHold.release.signal()
+        checks["eachConsumerCompletesOnceAfterItsTarget"] = pump {
+            results.count("default") == 1 && results.count("large") == 1 && results.count("joined-small") == 1
+        } && dimensions["large", default: 0] >= 576 && dimensions["joined-small", default: 0] >= 128
+        checks["sameSourceSeriallyUpgradesCanonicalJPEG"] = observed.count(large) == 2
+            && results.path("default") == results.path("large") && results.path("large") == results.path("joined-small")
+            && shortSide(results.path("large")) >= 576
+        let upgradedURL = manager.thumbnailOutputURL(forKey: manager.cacheKey(forNormalizedPath: manager.normalizedPath(large.path)))
+        let upgradedBytes = try? Data(contentsOf: upgradedURL)
+        request("smaller-later", large, 384)
+        let smallerCompleted = pump { results.count("smaller-later") == 1 }
+        let laterBytes = try? Data(contentsOf: upgradedURL)
+        checks["existingLargerJPEGNeedsNoNewAV"] = smallerCompleted && upgradedBytes != nil
+            && observed.count(large) == 2 && dimensions["smaller-later", default: 0] >= 576 && laterBytes == upgradedBytes
+        request("native-small", small, 800)
+        checks["nativeSmallSourceIsNotUpsampled"] = pump { results.count("native-small") == 1 }
+            && dimensions["native-small"] == 288 && observed.count(small) == 1
+        request("native-small-again", small, 800)
+        checks["nativeLimitDoesNotRegenerateForever"] = pump { results.count("native-small-again") == 1 }
+            && dimensions["native-small-again"] == 288 && observed.count(small) == 1
+        let rotated = root.appendingPathComponent("rotated90.mp4")
+        request("rotation90", rotated, 576)
+        let rotatedCompleted = pump { results.count("rotation90") == 1 }
+        let rotatedSource = results.path("rotation90").flatMap { CGImageSourceCreateWithURL(URL(fileURLWithPath: $0) as CFURL, nil) }
+        let rotatedImage = rotatedSource.flatMap { CGImageSourceCreateImageAtIndex($0, 0, nil) }
+        var rotationTrack: [String: Double] = [:]
+        Task { @MainActor in
+            guard let tracks = try? await AVURLAsset(url: rotated).loadTracks(withMediaType: .video), let track = tracks.first,
+                  let size = try? await track.load(.naturalSize), let transform = try? await track.load(.preferredTransform) else { return }
+            rotationTrack = ["width": size.width, "height": size.height, "a": transform.a, "b": transform.b,
+                "c": transform.c, "d": transform.d, "tx": transform.tx, "ty": transform.ty]
+        }
+        _ = pump { !rotationTrack.isEmpty }
+        checks["rotationFixtureCarriesQuarterTurnTrackTransform"] = abs(rotationTrack["a", default: 1]) < 0.000001
+            && abs(rotationTrack["d", default: 1]) < 0.000001 && abs(rotationTrack["b", default: 0]) > 0.99
+            && abs(rotationTrack["c", default: 0]) > 0.99
+        checks["actual90DegreeTrackHasPortraitTargetPixels"] = rotatedCompleted && dimensions["rotation90", default: 0] >= 576
+            && (rotatedImage?.width ?? 0) < (rotatedImage?.height ?? 0) && observed.count(rotated) == 1
+        let isolation = root.appendingPathComponent("failed-large-isolation.mp4")
+        try fm.copyItem(at: large, to: isolation)
+        let baseHold = observed.holdNext(isolation)
+        request("isolation-default", isolation, nil)
+        let baseEntered = pump { baseHold.didEnter }
+        let upgradeHold = observed.holdNext(isolation)
+        request("isolation-small", isolation, 128)
+        request("isolation-large", isolation, 576)
+        baseHold.release.signal()
+        let upgradeEntered = pump { upgradeHold.didEnter }
+        var originalDeliveriesDrained = false
+        DispatchQueue.main.async { originalDeliveriesDrained = true }
+        checks["actual225PixelsRelease128Before576Finishes"] = baseEntered && upgradeEntered
+            && pump { originalDeliveriesDrained } && results.count("isolation-small") == 1
+            && dimensions["isolation-small", default: 0] >= 128 && results.count("isolation-large") == 0
+        let isolationURL = manager.thumbnailOutputURL(forKey: manager.cacheKey(forNormalizedPath: manager.normalizedPath(isolation.path)))
+        let isolatedBytes = try? Data(contentsOf: isolationURL)
+        do {
+            let permissions = try fm.attributesOfItem(atPath: manager.thumbnailCacheDirectory.path)[.posixPermissions]!
+            defer { try? fm.setAttributes([.posixPermissions: permissions], ofItemAtPath: manager.thumbnailCacheDirectory.path) }
+            try fm.setAttributes([.posixPermissions: 0o500], ofItemAtPath: manager.thumbnailCacheDirectory.path)
+            checks["ownedJPEGDirectoryIsReadOnlyForUpgradeFailure"] = !fm.isWritableFile(atPath: manager.thumbnailCacheDirectory.path)
+            upgradeHold.release.signal()
+            let failed = pump { results.count("isolation-large") == 1 }
+            let retained = try? Data(contentsOf: isolationURL)
+            checks["failedLargerUpgradeCannotRevokeSatisfiedSmallConsumer"] = failed && isolatedBytes != nil
+                && results.path("isolation-large") == nil && results.count("isolation-small") == 1
+                && results.path("isolation-small") == isolationURL.path && dimensions["isolation-small", default: 0] >= 128
+                && retained == isolatedBytes && shortSide(isolationURL.path) >= 128
+        }
+        checks["filesystemFailureDoesNotReextractOtherFrames"] = observed.count(isolation) == 2
+        let floorSource = root.appendingPathComponent("small-target-master.mp4")
+        try fm.copyItem(at: large, to: floorSource)
+        request("small-target", floorSource, 128)
+        checks["smallGridTargetKeepsLegacyUncroppedMasterQuality"] = pump { results.count("small-target") == 1 }
+            && dimensions["small-target", default: 0] >= 225
+        request("default-after-small-target", floorSource, nil)
+        checks["defaultRoleRetains400MasterWithoutExtraAV"] = results.count("default-after-small-target") == 1
+            && dimensions["default-after-small-target", default: 0] >= 225 && observed.count(floorSource) == 1
+        let beforeRetinaUpgrade = observed.count(floorSource)
+        let retinaStart = ProcessInfo.processInfo.systemUptime
+        request("retina-upgrade", floorSource, 320)
+        checks["legacy400MasterUpgradesFor320RetinaDemand"] = pump { results.count("retina-upgrade") == 1 }
+            && dimensions["retina-upgrade", default: 0] >= 320 && observed.count(floorSource) == beforeRetinaUpgrade + 1
+        let retinaSeconds = ProcessInfo.processInfo.systemUptime - retinaStart
+        request("retina-disk-hit", floorSource, 320)
+        checks["sameRetinaDemandDoesNotRepeatAV"] = pump { results.count("retina-disk-hit") == 1 }
+            && dimensions["retina-disk-hit", default: 0] >= 320 && observed.count(floorSource) == beforeRetinaUpgrade + 1
+        let failure = root.appendingPathComponent("upgrade-failure.mp4")
+        try fm.copyItem(at: large, to: failure)
+        request("failure-base", failure, nil)
+        let failureBaseCompleted = pump { results.count("failure-base") == 1 }
+        let previousURL = manager.thumbnailOutputURL(forKey: manager.cacheKey(forNormalizedPath: manager.normalizedPath(failure.path)))
+        let previousBytes = try? Data(contentsOf: previousURL)
+        try Data("owned invalid replacement".utf8).write(to: failure)
+        request("failed-upgrade", failure, 576)
+        let failureCompleted = pump { results.count("failed-upgrade") == 1 }
+        let retainedBytes = try? Data(contentsOf: previousURL)
+        checks["failedUpgradeKeepsOriginalValidJPEG"] = failureBaseCompleted && failureCompleted && previousBytes != nil
+            && results.path("failed-upgrade") == nil && shortSide(previousURL.path) > 0 && retainedBytes == previousBytes
+        let fitSource = root.appendingPathComponent("rect-fit.mp4")
+        try fm.copyItem(at: large, to: fitSource)
+        var fitAsset: VideoThumbnailAsset?, fitFinals: [Bool] = []
+        manager.generateThumbnail(for: fitSource, request: ThumbnailRequest(width: 576, height: 576, mode: .fit)) {
+            fitAsset = $0; fitFinals.append($0 != nil)
+        }
+        let fitCompleted = pump { fitAsset != nil }
+        let fitImage = fitAsset.flatMap { NSImage(contentsOfFile: $0.path) }?.cgImage(forProposedRect: nil, context: nil, hints: nil)
+        checks["fitPreservesWholeUncroppedFrameAndNativeReceipt"] = fitCompleted
+            && (575...576).contains(fitImage?.width ?? 0) && fitImage?.height == 324
+            && abs(Double(fitImage?.width ?? 0) - Double(fitImage?.height ?? 0) * 16.0 / 9.0) <= 1
+            && fitAsset?.nativeSize == CGSize(width: 1280, height: 720) && observed.count(fitSource) == 1
+        let fitAttemptsAfterFirst = observed.count(fitSource)
+        let fitCanonical = manager.thumbnailOutputURL(forKey: manager.cacheKey(forNormalizedPath: manager.normalizedPath(fitSource.path)))
+        let fitStoredAfterFirst = NSImage(contentsOf: fitCanonical)?.cgImage(forProposedRect: nil, context: nil, hints: nil)
+        var fittingRectangle: VideoThumbnailAsset?, rectangleFinals: [Bool] = []
+        manager.generateThumbnail(for: fitSource, request: ThumbnailRequest(width: 480, height: 320, mode: .fill)) {
+            fittingRectangle = $0; rectangleFinals.append($0 != nil)
+        }
+        checks["existingFitMasterCoversCompatibleRectangleWithoutAV"] = pump { fittingRectangle != nil }
+            && fittingRectangle?.path == fitAsset?.path && observed.count(fitSource) == 1
+        let fitStoredAfterRectangle = NSImage(contentsOf: fitCanonical)?.cgImage(forProposedRect: nil, context: nil, hints: nil)
+        let fitObservations: [String: Any] = ["callbackArrived": !fitFinals.isEmpty, "callbackFinals": fitFinals,
+            "fitPumpSucceeded": fitCompleted, "callbackWidth": fitImage?.width ?? 0, "callbackHeight": fitImage?.height ?? 0,
+            "nativeReceiptPresent": fitAsset?.nativeSize != nil,
+            "nativeWidth": fitAsset?.nativeSize?.width ?? 0, "nativeHeight": fitAsset?.nativeSize?.height ?? 0,
+            "canonicalPath": fitCanonical.path, "storedWidthAfterFit": fitStoredAfterFirst?.width ?? 0,
+            "storedHeightAfterFit": fitStoredAfterFirst?.height ?? 0, "AVAttemptsAfterFit": fitAttemptsAfterFirst,
+            "compatibleRectangleFinals": rectangleFinals, "AVAttemptsAfterRectangle": observed.count(fitSource),
+            "storedWidthAfterRectangle": fitStoredAfterRectangle?.width ?? 0,
+            "storedHeightAfterRectangle": fitStoredAfterRectangle?.height ?? 0]
+
+        let rectangleSource = root.appendingPathComponent("rect-fill.mp4")
+        try fm.copyItem(at: large, to: rectangleSource)
+        var rectangleAsset: VideoThumbnailAsset?
+        manager.generateThumbnail(for: rectangleSource, request: ThumbnailRequest(width: 480, height: 320, mode: .fill)) { rectangleAsset = $0 }
+        let rectangleCompleted = pump { rectangleAsset != nil }
+        let rectangleImage = rectangleAsset.flatMap { NSImage(contentsOfFile: $0.path) }?.cgImage(forProposedRect: nil, context: nil, hints: nil)
+        checks["rectangularFillCoversBothAxesWithoutCroppingMaster"] = rectangleCompleted
+            && (rectangleImage?.width ?? 0) >= 480 && (rectangleImage?.height ?? 0) >= 320
+            && abs(Double(rectangleImage?.width ?? 0) / Double(max(1, rectangleImage?.height ?? 0)) - 16.0 / 9.0) < 0.01
+            && observed.count(rectangleSource) == 1
+
+        let mixedSource = root.appendingPathComponent("mixed-targets.mp4")
+        try fm.copyItem(at: large, to: mixedSource)
+        let mixedHold = observed.holdNext(mixedSource)
+        var mixedDefault: VideoThumbnailAsset?, mixedFit: VideoThumbnailAsset?, mixedFill: VideoThumbnailAsset?
+        var mixedCounts = [0, 0, 0]
+        manager.generateThumbnail(for: mixedSource) { mixedDefault = $0; mixedCounts[0] += 1 }
+        let mixedEntered = pump { mixedHold.didEnter }
+        manager.generateThumbnail(for: mixedSource, request: ThumbnailRequest(width: 800, height: 200, mode: .fit)) { mixedFit = $0; mixedCounts[1] += 1 }
+        manager.generateThumbnail(for: mixedSource, request: ThumbnailRequest(width: 320, height: 576, mode: .fill)) { mixedFill = $0; mixedCounts[2] += 1 }
+        mixedHold.release.signal()
+        let mixedCompleted = pump { mixedCounts == [1, 1, 1] }
+        let mixedImage = mixedFill.flatMap { NSImage(contentsOfFile: $0.path) }?.cgImage(forProposedRect: nil, context: nil, hints: nil)
+        checks["mixedFillFitConsumersShareOneNecessaryUpgrade"] = mixedEntered && mixedCompleted
+            && mixedDefault?.path == mixedFit?.path && mixedFit?.path == mixedFill?.path
+            && (mixedImage?.width ?? 0) >= 800 && (mixedImage?.height ?? 0) >= 576
+            && observed.count(mixedSource) == 2
+        checks["mixedTargetUpgradeLoadsNativeMetadataOnce"] = manager.importStages.count("native-" + mixedSource.path) == 1
+        let cleared = root.appendingPathComponent("adaptive-clear.mp4")
+        try fm.copyItem(at: large, to: cleared)
+        let clearHold = observed.holdNext(cleared)
+        request("adaptive-cleared", cleared, 576)
+        let clearEntered = pump { clearHold.didEnter }
+        manager.clearPreviewCacheArtifacts()
+        checks["clearDrainsSizedConsumerOnceWithNil"] = clearEntered && pump { results.count("adaptive-cleared") == 1 }
+            && results.path("adaptive-cleared") == nil
+        clearHold.release.signal()
+        let drained = DecodeHold()
+        manager.thumbnailQueue.async(flags: .barrier) { drained.arrive() }
+        let clearURL = manager.thumbnailOutputURL(forKey: manager.cacheKey(forNormalizedPath: manager.normalizedPath(cleared.path)))
+        checks["clearPreventsLateAdaptiveJPEG"] = pump { drained.didEnter } && !fm.fileExists(atPath: clearURL.path)
+        checks["adaptiveWorkStaysBoundedOffMain"] = observed.boundedOffMain && results.onceOnMain
+        let output: [String: Any] = ["checks": checks, "callbackShortSides": dimensions,
+            "observations": ["unheld400To320Seconds": retinaSeconds, "rotationJPEGWidth": rotatedImage?.width ?? 0,
+                "rotationJPEGHeight": rotatedImage?.height ?? 0, "rotationAVAttempts": observed.count(rotated), "rotationTrack": rotationTrack, "fit": fitObservations],
+            "AVAttempts": ["large": observed.count(large), "small": observed.count(small), "failed": observed.count(failure), "isolatedFailure": observed.count(isolation), "smallThenRetina": observed.count(floorSource)],
+            "scope": "actual AV/JPEG quality, shared source group, native cap and clear; no window/Catalog"]
         print(String(data: try JSONSerialization.data(withJSONObject: output, options: [.sortedKeys]), encoding: .utf8)!)
     }
 }

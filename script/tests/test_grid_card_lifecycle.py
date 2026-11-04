@@ -13,10 +13,14 @@ warm transfer configuration and updates; no rendering or material cost is inferr
 The Downloads click case compiles the complete shared production GridController
 and the real card. It dispatches real window mouse events across the native
 button and its neighbors; only application actions are recording leaves.
+Hover-edge coordinates follow the actual bar/card presentation-layer ancestry;
+center count1/count2 and outer-edge actions use the same native event route.
 
 Window pointer and backing scale are controlled inputs on a real NSWindow.
 Activation/visibility remain actual AppKit state; no real display migration is
-claimed by the injected 1x-to-2x backing callback case.
+claimed by the injected 1x-to-2x backing callback case. The card-level
+fixture grants the real ThumbnailRequest computed from its mounted bounds and
+controlled scale; the full Browser container gate covers the source owner.
 """
 from __future__ import annotations
 
@@ -64,9 +68,11 @@ DEPENDENCIES = [
     ROOT / "script/tests/fixtures/GridCardInteractionChecks.swift",
     ROOT / "script/tests/fixtures/WallpaperLibraryGridCardReflowChecks.swift",
     ROOT / "script/tests/fixtures/PixabayCardPresentationChecks.swift",
+    ROOT / "script/tests/fixtures/PixabayNativeCardClickChecks.swift",
     ROOT / "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopKeyboardCollectionView.swift",
     ROOT / "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopGridKeyboardNavigation.swift",
 ]
+DEPENDENCIES.append(ROOT / "MyWallpaperX/Shared/ThumbnailRequest.swift")
 FIXTURE = ROOT / "script/tests/fixtures/GridCardLifecycleChecks.swift"
 CLICK_SOURCES = [ROOT / "MyWallpaperX" / name for name in (
     "Models/WallpaperReference.swift", "Models/WallpaperContent.swift", "Models/WallpaperLibraryPage.swift",
@@ -208,10 +214,11 @@ class GridCardLifecycleTests(unittest.TestCase):
                     if Path(owner).resolve() == self.binary.resolve():
                         os.kill(pid, signal.SIGKILL)
                 raise
-        output, errors = stdout.read_text(), stderr.read_text()
-        if self.proof:
-            (self.proof / (name + ".stdout")).write_text(output)
-            (self.proof / (name + ".stderr")).write_text(errors + run.stderr)
+            finally:
+                output, errors = stdout.read_text(), stderr.read_text()
+                if self.proof:
+                    (self.proof / (name + ".stdout")).write_text(output)
+                    (self.proof / (name + ".stderr")).write_text(errors)
         self.assertEqual(run.returncode, 0, output + errors + run.stderr)
         self.assertTrue(output, "native App did not produce its completed result: " + errors)
         facts = json.loads(output)

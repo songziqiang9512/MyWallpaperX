@@ -55,6 +55,8 @@ private final class KeyboardCell: NSCollectionViewItem {
         func update(_ state: WallpaperLibrarySelectionState, _ items: [WallpaperContentItem] = values, zoom: Int = 5) {
             grid.update(page: .downloads, items: items, selection: state, preferredColumns: zoom,
                 permitsDragging: false, scrollAnchor: nil)
+            let deadline = Date().addingTimeInterval(1)
+            while grid.selection.sessionID != state.sessionID || grid.items != items, Date() < deadline { spin(0.005) }
         }
         var matrix = true, writes = true, inputs = true, steps = 0
         for width in [CGFloat(100), 480, 900] {
@@ -133,6 +135,22 @@ private final class KeyboardCell: NSCollectionViewItem {
         grid.collection.keyDown(with: event(36, in: window)); grid.collection.keyDown(with: event(49, in: window))
         checks["returnAndSpaceUseCurrentCanonicalProviderIdentity"] = plays.last == values[1].reference && previews.last == values[1].reference
 
+        do {
+            let originalSelection = grid.onSelection, originalUpdate = grid.updateCell
+            defer { grid.onSelection = originalSelection; grid.updateCell = originalUpdate }
+            var admissions = 0, updates = 0
+            grid.onSelection = { _, _ in admissions += 1; return grid.selection.sessionID }
+            grid.updateCell = { cell, content, state in updates += 1; originalUpdate?(cell, content, state) }
+            update(single)
+            let before = updates, hasCells = !grid.collection.visibleItems().isEmpty
+            window.makeFirstResponder(search)
+            let accepted = (0..<100).allSatisfy { _ in grid.select(single.references, focus: single.focusedReference) }
+            checks["unchangedAcceptedSelectionKeepsAdmissionWithoutReprojectingCells"] = hasCells && accepted && admissions == 100 && updates == before
+                && window.firstResponder === grid.collection && grid.selection == single
+            grid.onSelection = { _, _ in nil }
+            checks["rejectedSelectionStillRestoresNativeSelectionAndCells"] = !grid.select([values[3].reference], focus: values[3].reference)
+                && grid.selection == single && updates > before
+        }
         var retiredEmissions = 0
         weak var weakGrid: WallpaperLibraryGridController?
         weak var weakView: NSView?
@@ -146,7 +164,7 @@ private final class KeyboardCell: NSCollectionViewItem {
             weakGrid = temporary; weakView = temporary?.view
             temporary!.view.frame = NSRect(x: 0, y: 0, width: 500, height: 400)
             temporaryWindow!.contentView!.addSubview(temporary!.view)
-            temporary!.onViewport = { _, _ in retiredEmissions += 1 }
+            temporary!.onViewport = { _, _, _ in retiredEmissions += 1 }
             temporary!.update(page: .images, items: values, selection: .init(), preferredColumns: 5, permitsDragging: false, scrollAnchor: nil)
             temporaryWindow!.orderFrontRegardless(); spin()
             temporary!.view.removeFromSuperview()

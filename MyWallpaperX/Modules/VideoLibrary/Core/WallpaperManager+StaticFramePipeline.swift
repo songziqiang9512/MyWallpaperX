@@ -5,6 +5,11 @@
 
 import Foundation
 
+nonisolated enum StaticFramePreparation: Sendable {
+    case full
+    case thumbnailFallback(ThumbnailRequest?)
+}
+
 extension WallpaperManager {
     func staticFrameOutputURL(forKey key: String) -> URL {
         // 静帧路径和缩略图路径分开，避免不同派生资产互相覆盖。
@@ -18,7 +23,7 @@ extension WallpaperManager {
         return pathExists(path) ? path : nil
     }
 
-    func scheduleStaticFrameGeneration(for url: URL) {
+    func scheduleStaticFrameGeneration(for url: URL, preparation: StaticFramePreparation = .full) {
         // 静帧生成走延迟调度，优先让缩略图先出来，避免导入后卡住主线程感知。
         guard pathExists(url.path) else { return }
         let capturedGeneration = currentCacheGeneration()
@@ -38,10 +43,15 @@ extension WallpaperManager {
         staticFrameQueue.asyncAfter(deadline: .now() + 1.5) { [weak self] in
             guard let self else { return }
             let outputPath: String?
-            if self.currentCacheGeneration() == capturedGeneration {
-                outputPath = self.generateStaticFrame(for: url)
-            } else {
+            if self.currentCacheGeneration() != capturedGeneration {
                 outputPath = nil
+            } else if case .thumbnailFallback(let request) = preparation,
+                      let thumbnailPath = self.existingThumbnailPath(for: url),
+                      let pixels = self.thumbnailPixelSize(at: thumbnailPath),
+                      request?.isCovered(by: pixels) ?? true {
+                outputPath = nil
+            } else {
+                outputPath = self.generateStaticFrame(for: url)
             }
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }

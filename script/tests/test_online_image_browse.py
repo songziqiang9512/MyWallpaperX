@@ -35,21 +35,29 @@ class OnlineImageBrowseTests(unittest.TestCase):
                                   ("CANCEL_PREFETCH", "    private func cancelPrefetch("),
                                   ("FOOTER", "    private func footerText(")):
             content = content.replace("// PRODUCTION_" + marker, declaration(text, signature).replace("private func", "func"))
+        provider = ROOT / "MyWallpaperX/Modules/StaticImageLibrary/UI/SILThumbnailProvider.swift"
+        store = ROOT / "MyWallpaperX/Modules/StaticImageLibrary/Core/SILService.swift"
+        content = content.replace("// PRODUCTION_PREFETCH_RECORD", declaration(text, "    private final class Prefetch").replace("private ", ""))
+        content = content.replace("// PRODUCTION_SIL_STORE", declaration(store.read_text(), "enum SILThumbnailStore"))
         scroll = ROOT / "MyWallpaperX/Shared/UI/WallpaperGridScrollView.swift"
-        identities = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in (controller, fixture, scroll)}
+        dependencies = [ROOT / "MyWallpaperX" / name for name in ("Shared/ThumbnailRequest.swift",
+            "Shared/UI/GridThumbnailDecoder.swift", "Shared/UI/DecodedThumbnailMemoryCache.swift", "Shared/UI/ThumbnailCache.swift")]
+        identities = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in (controller, fixture, scroll, provider, store, *dependencies)}
         with tempfile.TemporaryDirectory(prefix="mwx-image-paging-", dir="/private/tmp") as directory:
             work = Path(directory); source = work / "Checks.swift"; source.write_text(content)
             binary = work / "checks"
             built = subprocess.run(["xcrun", "swiftc", *SWIFT_ISOLATION_FLAGS, "-warnings-as-errors", "-parse-as-library",
-                str(source), str(scroll), "-module-cache-path", str(work / "modules"), "-o", str(binary)], capture_output=True, text=True, timeout=90)
+                str(source), str(scroll), str(provider), *map(str, dependencies), "-module-cache-path", str(work / "modules"), "-o", str(binary)], capture_output=True, text=True, timeout=90)
             self.assertEqual(built.returncode, 0, built.stdout + built.stderr)
-            result = subprocess.run([str(binary)], capture_output=True, text=True, timeout=30)
+            home = work / "home"; home.mkdir()
+            result = subprocess.run([str(binary)], capture_output=True, text=True, timeout=30,
+                env=dict(os.environ, HOME=str(home), CFFIXED_USER_HOME=str(home)))
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             checks = json.loads(result.stdout); self.assertGreaterEqual(len(checks), 10)
             for name, passed in checks.items():
                 with self.subTest(name=name): self.assertIs(passed, True)
             print(result.stdout)
-        self.assertEqual(identities, {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in (controller, fixture, scroll)})
+        self.assertEqual(identities, {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in (controller, fixture, scroll, provider, store, *dependencies)})
 
     def test_cache_query_pagination_author_return_and_scope_boundaries(self):
         paths = [

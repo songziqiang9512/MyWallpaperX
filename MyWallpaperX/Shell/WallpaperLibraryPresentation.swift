@@ -285,6 +285,8 @@ nonisolated struct WallpaperLibrarySelectionReceipt: Sendable {
     func setSelection(_ references: Set<WallpaperReference>, focused: WallpaperReference? = nil,
                       isSelecting: Bool = false, expectedSessionID: UUID? = nil) -> Bool {
         if let expectedSessionID, expectedSessionID != selectionState.sessionID { return false }
+        guard references != selectionState.references || focused != selectionState.focusedReference
+                || isSelecting != selectionState.isSelecting else { return true }
         var session = sessions[page] ?? Session()
         var next = session.selection
         next.references = references
@@ -295,10 +297,9 @@ nonisolated struct WallpaperLibrarySelectionReceipt: Sendable {
             next.references.formIntersection(visible)
             if let focus = next.focusedReference, !visible.contains(focus) { next.focusedReference = nil }
         }
-        if next != session.selection {
-            next.sessionID = UUID()
-            pendingRemovals.removeAll()
-        }
+        guard next != session.selection else { return true }
+        next.sessionID = UUID()
+        pendingRemovals.removeAll()
         session.selection = next
         sessions[page] = session
         var snapshot = state

@@ -43,6 +43,7 @@ final class AppKitWallpaperItem: WallpaperCardCollectionViewItem, WallpaperGridH
     }
     private var currentWallpaperID: String?
     private var currentWallpaper: VideoWallpaper?
+    private var currentThumbnailRequest: ThumbnailRequest?
     private var imageTaskID: UUID?
     private var imageCancellation: ThumbnailCacheRequestCancellation?
     private var loadingPlaceholderWorkItem: DispatchWorkItem?
@@ -79,6 +80,7 @@ final class AppKitWallpaperItem: WallpaperCardCollectionViewItem, WallpaperGridH
         lastLayoutInputs = nil
         currentWallpaperID = nil
         currentWallpaper = nil
+        currentThumbnailRequest = nil
         imageTaskID = nil
         imageCancellation?.cancel()
         imageCancellation = nil
@@ -120,6 +122,7 @@ final class AppKitWallpaperItem: WallpaperCardCollectionViewItem, WallpaperGridH
         isSelected: Bool,
         isPlaying: Bool,
         multiSelectMode: Bool,
+        thumbnailRequest: ThumbnailRequest? = nil,
         wallpaperManager: WallpaperManager,
         thumbnailProvider: AppKitThumbnailProvider
     ) {
@@ -130,6 +133,7 @@ final class AppKitWallpaperItem: WallpaperCardCollectionViewItem, WallpaperGridH
         if currentWallpaperID != wallpaper.id { isSwitching = false }
         currentWallpaperID = wallpaper.id
         currentWallpaper = wallpaper
+        currentThumbnailRequest = thumbnailRequest
         self.isPlaying = isPlaying
         self.isMultiSelectMode = multiSelectMode
         loadingPlaceholderWorkItem?.cancel()
@@ -161,7 +165,7 @@ final class AppKitWallpaperItem: WallpaperCardCollectionViewItem, WallpaperGridH
 
         thumbnailWallpaperManager = wallpaperManager
         currentThumbnailProvider = thumbnailProvider
-        if let image = thumbnailProvider.cachedThumbnail(for: wallpaper) {
+        if let image = thumbnailProvider.cachedThumbnail(for: wallpaper, request: thumbnailRequest) {
             thumbnailImageView.image = image
             layoutThumbnail()
         }
@@ -201,7 +205,7 @@ final class AppKitWallpaperItem: WallpaperCardCollectionViewItem, WallpaperGridH
         loadingPlaceholderWorkItem = loading
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: loading)
         imageCancellation?.cancel()
-        imageCancellation = thumbnailProvider.loadThumbnail(for: wallpaper) { [weak self] image in
+        imageCancellation = thumbnailProvider.loadThumbnail(for: wallpaper, request: currentThumbnailRequest) { [weak self] image in
             guard let self,
                   self.imageTaskID == requestID,
                   self.currentWallpaperID == wallpaper.id else {
@@ -281,7 +285,7 @@ final class AppKitWallpaperItem: WallpaperCardCollectionViewItem, WallpaperGridH
         imageView = thumbnailImageView
         imageContainer.addSubview(selectionTintView)
         imageContainer.addSubview(hoverOutlineView)
-        imageContainer.addSubview(overlayView)
+        view.addSubview(overlayView)
         imageContainer.addSubview(placeholderLabel)
         imageContainer.addSubview(multiSelectBadge)
         multiSelectBadge.addSubview(multiSelectBadgeIcon)

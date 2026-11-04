@@ -28,7 +28,7 @@ GRID_SOURCES = [ROOT / 'MyWallpaperX' / name for name in (
     'Models/WallpaperReference.swift', 'Models/WallpaperContent.swift', 'Models/WallpaperLibraryPage.swift',
     'Core/OnlineImages/OnlineImageModels.swift', 'Core/OnlineImages/OnlineImageContentProjection.swift',
     'Shared/Components/WallpaperLibraryGridMetrics.swift', 'Shared/Components/WallpaperCardInteractionView.swift',
-    'Shared/UI/WallpaperGridScrollView.swift', 'Shared/UI/BoxSelectionState.swift')]
+    'Shared/ThumbnailRequest.swift', 'Shared/UI/GridThumbnailDecoder.swift', 'Shared/UI/WallpaperGridScrollView.swift', 'Shared/UI/BoxSelectionState.swift')]
 GRID_SOURCES.append(ROOT / 'script/tests/fixtures/OnlineImageLibraryAppStub.swift')
 SOURCES = [SERVICE, BROWSER, ADAPTER, GRID, HELPER, FIXTURE, *GRID_SOURCES]
 
@@ -47,7 +47,7 @@ def harness_source():
                  '    override func viewDidUnhide(')
     template = template.replace('// ADAPTER_DEMAND_DECLARATIONS', '\n'.join(declaration(adapter, value).replace('private ', '') for value in (
         '    private enum Source:', '    private final class Prefetch', '    func updateViewport(',
-        '    private func prefetchAssets(', '    private func resolveSource(')))
+        '    private func prefetchAssets(', '    private func resolveSource(', '    private func resolveSources(')))
     template = template.replace('// BROWSER_LIFECYCLE', '\n'.join(declaration(browser, value) for value in lifecycle))
     template = template.replace('// BROWSER_DEMAND_METHODS', '\n'.join(declaration(browser, value) for value in (
         '    private var canLoadThumbnails:', '    private func updateThumbnailWindowVisibility(',

@@ -126,10 +126,10 @@ import Combine
         if let browser = browsers[source] { return browser }
         let browser = OnlineImageBrowserController(session: session, library: library)
         browser.opensDetailsOnSingleClick = { [weak self] in self?.opensDetailsOnSingleClick() == true }
-        browser.onInspect = { [weak self, weak browser] artwork in
+        browser.onInspect = { [weak self] artwork in
             self?.inspector.inspectOnlineArtwork(artwork, onAuthor: { [weak self] author in
                 self?.openAuthor(author, from: page)
-            }, thumbnailPixelSize: browser?.thumbnailPixelSize ?? 800)
+            })
         }
         browser.onPreview = { [weak self] content in _ = self?.inspector.preview(content: content) }
         browser.isPreviewLoading = { [weak self] reference in self?.inspector.loadingPreviewReference == reference }
@@ -138,14 +138,14 @@ import Combine
             if inspector.previewReference != nil { inspector.closePreview() }
             else { inspector.closeInspector() }
         }
-        browser.onSelectionChange = { [weak self, weak session, weak browser] content in
+        browser.onSelectionChange = { [weak self, weak session] content in
             guard let self else { return }
             let artwork = content.flatMap { content in
                 session?.state.items.first { $0.firstAssetID.reference == content.providerReference }
             }
             inspector.syncSelection(content: content, artwork: artwork, onAuthor: { [weak self] author in
                 self?.openAuthor(author, from: page)
-            }, thumbnailPixelSize: browser?.thumbnailPixelSize ?? 800)
+            })
         }
         browser.onRestoreColumns = { [weak self] columns in
             guard let self else { return }
@@ -187,7 +187,7 @@ import Combine
         inspector.inspectOnlineArtwork(artwork, onAuthor: { [weak self] author in
             guard let self else { return }
             self.openAuthor(author, from: self.workspace.presentation.page)
-        }, thumbnailPixelSize: browsers[session.source]?.thumbnailPixelSize ?? 800)
+        })
     }
     func previewSelected() { if let content = selectedContent { _ = inspector.preview(content: content) } }
     func selectedPrimaryAction() -> (title: String, action: () -> Void)? {

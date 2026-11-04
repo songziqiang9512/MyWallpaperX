@@ -26,7 +26,7 @@ final class WallpaperManager {
     func pathExists(_ path: String) -> Bool { normalizedSourcePathExists(path) }
     func isThumbnailGenerationInFlight(for path: String) -> Bool { false }
     func hasRecentThumbnailGenerationFailure(for path: String) -> Bool { false }
-    func ensurePreviewAssetsForWallpaper(_ wallpaper: VideoWallpaper, completion: ((String?) -> Void)? = nil) { preparedIDs.append(wallpaper.id); completion?(nil) }
+    func ensurePreviewAssetsForWallpaper(_ wallpaper: VideoWallpaper, request: ThumbnailRequest? = nil, completion: ((VideoThumbnailAsset?) -> Void)? = nil) { preparedIDs.append(wallpaper.id); completion?(nil) }
     func resolvedThumbnailPath(for wallpaper: VideoWallpaper) -> String? {
         lock.lock(); counts[Data(wallpaper.id.utf8), default: 0] += 1
         let block = blockedID == wallpaper.id

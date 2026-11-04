@@ -491,6 +491,11 @@ enum UserCollectionsCommand { case setFavorite(WallpaperOrganizationItem, Bool, 
         controller.thumbnailBecameReady(at: "/fixture/another.mp4")
         precondition(AppKitThumbnailProvider.completions.count == 1, "another video's ready cannot reload this cover")
         controller.thumbnailBecameReady(at: video.path)
+        precondition(AppKitThumbnailProvider.completions.count == 1 && !AppKitThumbnailProvider.cancellations[0].cancelled,
+                     "ready cannot cancel or reenter the Provider's pending final")
+        let initialReadyImage = solidImage(CGColor(red: 1, green: 0, blue: 0, alpha: 1), size: NSSize(width: 40, height: 30))
+        AppKitThumbnailProvider.completions[0](initialReadyImage)
+        controller.thumbnailBecameReady(at: video.path)
         pumpUntil { AppKitThumbnailProvider.completions.count == 2 }
         precondition(AppKitThumbnailProvider.completions.count == 2)
         collections.snapshot.favorites = [.init(reference: reference)]
@@ -551,7 +556,6 @@ enum UserCollectionsCommand { case setFavorite(WallpaperOrganizationItem, Bool, 
         AppKitThumbnailProvider.completions[0](imageA)
         let imageView = panel.cover.subviews.compactMap { $0 as? NSImageView }.first!
         precondition(imageView.image === readyImage, "late video cover cannot replace the retained cover while Scene loads")
-        precondition(AppKitThumbnailProvider.cancellations[0].cancelled)
         controller.releasePreview()
         controller.thumbnailBecameReady(at: video.path)
         precondition(AppKitThumbnailProvider.completions.count == 2, "closed panel releases ready demand")
@@ -636,26 +640,32 @@ enum UserCollectionsCommand { case setFavorite(WallpaperOrganizationItem, Bool, 
         let cacheMiss = AppKitThumbnailProvider.completions.last!
         let generationsBefore = manager.thumbnailGenerationCallbacks.count
         cacheMiss(nil)
-        precondition(manager.thumbnailGenerationCallbacks.count == generationsBefore + 1, "status-only video replay generates a missing thumbnail on demand")
-        manager.thumbnailGenerationCallbacks.last!("/generated.jpg")
-        let readsBeforeGenerated = AppKitThumbnailProvider.completions.count
-        pumpUntil { AppKitThumbnailProvider.completions.count > readsBeforeGenerated }
-        let generatedRead = AppKitThumbnailProvider.completions.last!
-        generatedRead(readyImage)
-        precondition(imageView.image === readyImage)
-        generatedRead(nil)
-        precondition(manager.thumbnailGenerationCallbacks.count == generationsBefore + 1, "a failed derived image read must not recurse into generation")
+        precondition(manager.thumbnailGenerationCallbacks.count == generationsBefore && imageView.image == nil,
+                     "the Provider's nil final cannot start a second generator")
+        let readsBeforeReady = AppKitThumbnailProvider.completions.count
+        controller.thumbnailBecameReady(at: manager.normalizedPath(video.path))
+        pumpUntil { AppKitThumbnailProvider.completions.count > readsBeforeReady }
+        let readyRead = AppKitThumbnailProvider.completions.last!
+        readyRead(readyImage)
+        precondition(imageView.image === readyImage, "an external ready event still reacquires the cover")
+        let readsBeforeFailedReady = AppKitThumbnailProvider.completions.count
+        controller.thumbnailBecameReady(at: manager.normalizedPath(video.path))
+        pumpUntil { AppKitThumbnailProvider.completions.count > readsBeforeFailedReady }
+        AppKitThumbnailProvider.completions.last!(nil)
+        precondition(manager.thumbnailGenerationCallbacks.count == generationsBefore && imageView.image == nil,
+                     "a failed derived image read must not recurse into generation")
         controller.releasePreview()
         controller.apply(snapshot(), refreshToken: 0)
         let readsBeforeDelayed = AppKitThumbnailProvider.completions.count
         pumpUntil { AppKitThumbnailProvider.completions.count > readsBeforeDelayed }
-        AppKitThumbnailProvider.completions.last!(nil)
-        let delayedGeneration = manager.thumbnailGenerationCallbacks.last!
+        let delayedRead = AppKitThumbnailProvider.completions.last!
+        let delayedCancellation = AppKitThumbnailProvider.cancellations.last!
         controller.releasePreview()
+        precondition(delayedCancellation.cancelled, "closing cancels the still-pending Provider consumer")
         let readsBeforeClose = AppKitThumbnailProvider.completions.count
-        delayedGeneration("/generated-after-close.jpg")
+        delayedRead(readyImage)
         precondition(AppKitThumbnailProvider.completions.count == readsBeforeClose && imageView.image == nil,
-                     "late generation cannot reacquire a closed panel's image consumer")
+                     "a late Provider final cannot reacquire a closed panel's image consumer")
 
         let coverController = StatusBarPanelViewController()
         func applyCover(_ content: StatusBarPanelPresentation.Content, token: Int = 17) {
@@ -685,7 +695,6 @@ enum UserCollectionsCommand { case setFavorite(WallpaperOrganizationItem, Bool, 
         pumpUntil { AppKitThumbnailProvider.completions.count == firstVideoRead + 2 }
         precondition(AppKitThumbnailProvider.wallpapers.last == editedVideo,
                      "same-resource metadata retains the latest snapshot for derived-image readiness")
-        AppKitThumbnailProvider.completions.last!(readyImage)
 
         applyCover(.video(editedVideo), token: 18)
         precondition(stableCover.image === readyImage && AppKitThumbnailProvider.cancellations.last!.cancelled,

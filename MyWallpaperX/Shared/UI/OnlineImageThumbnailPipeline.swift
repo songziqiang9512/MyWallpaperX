@@ -248,18 +248,6 @@ actor OnlineImageThumbnailRequestScheduler {
 
 // MARK: - 缩略图磁盘缓存
 
-/// Only accessed after Operation has finished; OperationQueue publishes completion after main.
-nonisolated private final class OnlineImageThumbnailDecodeOperation: Operation, @unchecked Sendable {
-    let data: Data
-    let maxPixelSize: Int
-    private(set) var image: NSImage?
-    init(data: Data, maxPixelSize: Int) { self.data = data; self.maxPixelSize = maxPixelSize }
-    override func main() {
-        guard !isCancelled else { return }
-        image = autoreleasepool { GridThumbnailDecoder.decode(data, maxPixelSize: maxPixelSize) }
-    }
-}
-
 actor OnlineImageThumbnailCache {
     static let shared = OnlineImageThumbnailCache()
 
@@ -282,19 +270,26 @@ actor OnlineImageThumbnailCache {
         c.totalCostLimit = 60 * 1024 * 1024
         return c
     }()
-    /// 解码结果缓存：网格卡片每次进入视口都会对同一 URL 请求缩略图，
-    /// 缓存解码后的 NSImage 避免重复解析 JPEG（压缩数据仍由 memCache/磁盘缓存）
-    private nonisolated let decodedImageCache = DecodedThumbnailMemoryCache(
-        countLimit: 120, totalCostLimit: 64 * 1024 * 1024)
+    private nonisolated let preparedImages = ThumbnailCache(
+        label: "com.mywallpaper.onlineimages.thumbnail.decode", countLimit: 120,
+        totalCostLimit: 64 * 1024 * 1024, namespace: "online-image-preparation")
 
-    /// Ready pixels only; safe for a synchronous main-thread card reuse.
-    nonisolated func readyImage(for url: URL, maxPixelSize: Int) -> NSImage? {
-        decodedImageCache.object(forKey: "\(url.absoluteString)@\(maxPixelSize)" as NSString)
+    /// Ready pixels only; membership checks do not promote the LRU entry.
+    nonisolated func readyImage(for url: URL, request: ThumbnailRequest) -> NSImage? {
+        preparedImages.cachedImage(forKey: url.absoluteString, request: request)
     }
 
-    nonisolated func readyImage(for request: OnlineImageThumbnailRequest, maxPixelSize: Int) -> NSImage? {
-        guard request.hasValidTransport else { return nil }
-        return readyImage(for: request.cacheURL, maxPixelSize: maxPixelSize)
+    nonisolated func readyImage(for source: OnlineImageThumbnailRequest, request: ThumbnailRequest) -> NSImage? {
+        guard source.hasValidTransport else { return nil }
+        return readyImage(for: source.cacheURL, request: request)
+    }
+
+    nonisolated func hasReadyImage(for url: URL, request: ThumbnailRequest) -> Bool {
+        preparedImages.hasCachedResult(forKey: url.absoluteString, request: request)
+    }
+
+    nonisolated func hasReadyImage(for source: OnlineImageThumbnailRequest, request: ThumbnailRequest) -> Bool {
+        source.hasValidTransport && hasReadyImage(for: source.cacheURL, request: request)
     }
 
     private let requestCoordinator: OnlineImageThumbnailRequestCoordinator
@@ -307,28 +302,6 @@ actor OnlineImageThumbnailCache {
     }
     private var scopes: [String: ScopeState] = [:]
     private var invalidatingScopes: [String: Int] = [:]
-    private struct DecodeKey: Hashable, Sendable {
-        let url: URL
-        let pixelSize: Int
-        let generation: Int
-        let data: Data
-        let scope: ScopeStamp?
-    }
-    private struct DecodeRequest {
-        let id: UUID
-        let operation: OnlineImageThumbnailDecodeOperation
-        var persistsSourceData: Bool
-        var consumers: [UUID: CheckedContinuation<NSImage?, Never>]
-    }
-    private var decoding: [DecodeKey: DecodeRequest] = [:]
-    private let decodeQueue: OperationQueue = {
-        let queue = OperationQueue()
-        queue.name = "com.mywallpaper.onlineimages.thumbnail.decode"
-        queue.qualityOfService = .utility
-        queue.maxConcurrentOperationCount = 2
-        return queue
-    }()
-
     init(requestCoordinator: OnlineImageThumbnailRequestCoordinator = .shared) {
         self.requestCoordinator = requestCoordinator
         Task { await self.evictExpired() }
@@ -358,7 +331,7 @@ actor OnlineImageThumbnailCache {
             for url in scope.urls {
                 memCache.removeObject(forKey: url.absoluteString as NSString)
             }
-            decodedImageCache.removeObjects(withKeyPrefix: scope.keyPrefix)
+            preparedImages.removeImages(withKeyPrefix: scope.keyPrefix, cancelInFlight: true)
             // Disk eviction already bounds these files. Inspect names once on
             // account change instead of retaining every URL ever requested.
             for file in (try? FileManager.default.contentsOfDirectory(at: cacheDir, includingPropertiesForKeys: nil)) ?? [] {
@@ -367,12 +340,6 @@ actor OnlineImageThumbnailCache {
                       key.hasPrefix(scope.keyPrefix) else { continue }
                 try? FileManager.default.removeItem(at: file)
             }
-        }
-        let keys = decoding.keys.filter { $0.scope?.id == scopeID }
-        for key in keys {
-            guard let request = decoding.removeValue(forKey: key) else { continue }
-            request.operation.cancel()
-            request.consumers.values.forEach { $0.resume(returning: nil) }
         }
         await requestCoordinator.invalidate(scopeID: scopeID)
         if let count = invalidatingScopes[scopeID], count > 1 { invalidatingScopes[scopeID] = count - 1 }
@@ -415,129 +382,58 @@ actor OnlineImageThumbnailCache {
     /// 清空缓存（内存 + 磁盘）：设置「清除缓存」统一入口调用
     func clearAll() {
         cacheGeneration &+= 1
-        let requests = Array(decoding.values)
-        decoding.removeAll()
-        for request in requests {
-            request.operation.cancel()
-            request.consumers.values.forEach { $0.resume(returning: nil) }
-        }
         memCache.removeAllObjects()
-        decodedImageCache.removeAllObjects()
+        preparedImages.clearAll(cancelInFlight: true)
         scopes.removeAll()
         try? FileManager.default.removeItem(at: cacheDir)
         try? FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
     }
 
-    // MARK: 解码结果缓存
-
     /// Captures the clear epoch before either disk or network work begins.
-    func image(for url: URL, maxPixelSize: Int, priority: OnlineImageThumbnailRequestPriority) async -> NSImage? {
-        await image(for: OnlineImageThumbnailRequest(url: url), maxPixelSize: maxPixelSize, priority: priority)
+    func image(for url: URL, request: ThumbnailRequest, priority: OnlineImageThumbnailRequestPriority) async -> NSImage? {
+        await image(for: OnlineImageThumbnailRequest(url: url), request: request, priority: priority)
     }
 
-    func image(for request: OnlineImageThumbnailRequest, maxPixelSize: Int, priority: OnlineImageThumbnailRequestPriority) async -> NSImage? {
-        guard request.hasValidTransport, request.scopeID.map({ invalidatingScopes[$0] == nil }) ?? true else { return nil }
-        let scope = register(request)
-        let url = request.cacheURL
+    func image(for source: OnlineImageThumbnailRequest, request: ThumbnailRequest,
+               priority: OnlineImageThumbnailRequestPriority) async -> NSImage? {
+        guard source.hasValidTransport, source.scopeID.map({ invalidatingScopes[$0] == nil }) ?? true else { return nil }
+        let scope = register(source)
+        let url = source.cacheURL
         let generation = cacheGeneration
-        if let image = await cachedImage(for: url, maxPixelSize: maxPixelSize, priority: priority, scope: scope) {
+        guard !Task.isCancelled else { return nil }
+        if let image = readyImage(for: source, request: request) { return image }
+        if let data = cachedData(for: url, scopeID: scope?.id),
+           let image = await prepare(data, for: url, request: request, generation: generation,
+               priority: priority, scope: scope, persistsSourceData: false) { return image }
+        guard !Task.isCancelled, generation == cacheGeneration, isCurrent(scope),
+              let data = await requestCoordinator.loadData(for: source, priority: priority) else { return nil }
+        return await prepare(data, for: url, request: request, generation: generation,
+            priority: priority, scope: scope, persistsSourceData: true)
+    }
+
+    private func prepare(_ data: Data, for url: URL, request: ThumbnailRequest, generation: Int,
+                         priority: OnlineImageThumbnailRequestPriority, scope: ScopeStamp?,
+                         persistsSourceData: Bool) async -> NSImage? {
+        guard !Task.isCancelled, generation == cacheGeneration, isCurrent(scope) else { return nil }
+        let publish: (@Sendable () async -> Bool)?
+        if persistsSourceData {
+            publish = { [weak self] in
+                await self?.publishSource(data, for: url, generation: generation, scope: scope) ?? false
+            }
+        } else { publish = nil }
+        // No actor suspension separates the freshness check and registration.
+        let images = preparedImages.prepare(data, forKey: url.absoluteString, request: request,
+            priority: priority == .visible ? .visible : .prefetch, beforePublication: publish)
+        for await image in images {
             return !Task.isCancelled && generation == cacheGeneration && isCurrent(scope) ? image : nil
         }
-        guard !Task.isCancelled, generation == cacheGeneration, isCurrent(scope),
-              let data = await requestCoordinator.loadData(for: request, priority: priority),
-              !Task.isCancelled, generation == cacheGeneration, isCurrent(scope),
-              let image = await decode(data, for: url, maxPixelSize: maxPixelSize, generation: generation,
-                priority: priority, persistsSourceData: true, scope: scope),
-              !Task.isCancelled, generation == cacheGeneration, isCurrent(scope) else { return nil }
-        return image
+        return nil
     }
 
-    func cachedImage(for url: URL, maxPixelSize: Int = 800,
-        priority: OnlineImageThumbnailRequestPriority = .visible) async -> NSImage? {
-        await cachedImage(for: url, maxPixelSize: maxPixelSize, priority: priority, scope: nil)
-    }
-
-    private func cachedImage(for url: URL, maxPixelSize: Int,
-        priority: OnlineImageThumbnailRequestPriority, scope: ScopeStamp?) async -> NSImage? {
-        guard !Task.isCancelled, isCurrent(scope) else { return nil }
-        let key = "\(url.absoluteString)@\(maxPixelSize)" as NSString
-        if let image = decodedImageCache.object(forKey: key) { return image }
-        let generation = cacheGeneration
-        guard let data = cachedData(for: url, scopeID: scope?.id),
-              let image = await decode(data, for: url, maxPixelSize: maxPixelSize,
-                generation: generation, priority: priority, persistsSourceData: false, scope: scope),
-              !Task.isCancelled, generation == cacheGeneration, isCurrent(scope) else { return nil }
-        return image
-    }
-
-    func storeAndDecode(data: Data, for url: URL, maxPixelSize: Int = 800,
-        generation: Int, priority: OnlineImageThumbnailRequestPriority = .visible) async -> NSImage? {
-        guard !Task.isCancelled, generation == cacheGeneration,
-              let image = await decode(data, for: url, maxPixelSize: maxPixelSize,
-                generation: generation, priority: priority, persistsSourceData: true),
-              !Task.isCancelled, generation == cacheGeneration else { return nil }
-        return image
-    }
-
-    private func decode(_ data: Data, for url: URL, maxPixelSize: Int, generation: Int,
-        priority: OnlineImageThumbnailRequestPriority, persistsSourceData: Bool, scope: ScopeStamp? = nil) async -> NSImage? {
-        let key = DecodeKey(url: url, pixelSize: maxPixelSize, generation: generation, data: data, scope: scope)
-        let consumerID = UUID()
-        return await withTaskCancellationHandler {
-            guard !Task.isCancelled, generation == cacheGeneration, isCurrent(scope) else { return nil }
-            return await withCheckedContinuation { continuation in
-                if var request = decoding[key] {
-                    request.consumers[consumerID] = continuation
-                    request.persistsSourceData = request.persistsSourceData || persistsSourceData
-                    if priority == .visible {
-                        request.operation.queuePriority = .veryHigh
-                        if !request.operation.isExecuting { request.operation.qualityOfService = .userInitiated }
-                    }
-                    decoding[key] = request
-                    return
-                }
-                let requestID = UUID()
-                let operation = OnlineImageThumbnailDecodeOperation(data: data, maxPixelSize: maxPixelSize)
-                operation.queuePriority = priority == .visible ? .veryHigh : .low
-                operation.qualityOfService = priority == .visible ? .userInitiated : .utility
-                operation.completionBlock = { [weak self, weak operation] in
-                    let image = operation?.isCancelled == false ? operation?.image : nil
-                    Task { await self?.finishDecode(key: key, requestID: requestID, image: image) }
-                }
-                decoding[key] = DecodeRequest(id: requestID, operation: operation,
-                    persistsSourceData: persistsSourceData, consumers: [consumerID: continuation])
-                decodeQueue.addOperation(operation)
-            }
-        } onCancel: { Task { await self.cancelDecodeConsumer(consumerID, key: key) } }
-    }
-
-    private func cancelDecodeConsumer(_ id: UUID, key: DecodeKey) {
-        guard var request = decoding[key], let continuation = request.consumers.removeValue(forKey: id) else { return }
-        continuation.resume(returning: nil)
-        if request.consumers.isEmpty {
-            decoding.removeValue(forKey: key)
-            request.operation.cancel()
-        } else { decoding[key] = request }
-    }
-
-    private func finishDecode(key: DecodeKey, requestID: UUID, image: NSImage?) {
-        guard let request = decoding[key], request.id == requestID else { return }
-        let result = key.generation == cacheGeneration && isCurrent(key.scope) ? image : nil
-        if let result {
-            // Publish once before resuming any consumer. This closes the gap in
-            // which a new card could start the same decode before its first
-            // consumer had resumed and populated the ready tier.
-            decodedImageCache.setObject(result, forKey: "\(key.url.absoluteString)@\(key.pixelSize)" as NSString,
-                cost: Self.decodedImageCost(result))
-            if request.persistsSourceData { store(data: key.data, for: key.url, generation: key.generation, scopeID: key.scope?.id) }
-        }
-        decoding.removeValue(forKey: key)
-        request.consumers.values.forEach { $0.resume(returning: result) }
-    }
-
-    private static func decodedImageCost(_ image: NSImage) -> Int {
-        guard let rep = image.representations.first else { return 0 }
-        return max(1, rep.pixelsWide * rep.pixelsHigh * 4)
+    private func publishSource(_ data: Data, for url: URL, generation: Int, scope: ScopeStamp?) -> Bool {
+        guard !Task.isCancelled, generation == cacheGeneration, isCurrent(scope) else { return false }
+        store(data: data, for: url, generation: generation, scopeID: scope?.id)
+        return true
     }
 
     /// 删除 7 天前的缓存文件

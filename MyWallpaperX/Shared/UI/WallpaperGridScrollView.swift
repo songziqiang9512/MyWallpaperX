@@ -234,6 +234,29 @@ final class WallpaperGridScrollView: NSScrollView {
         pullCountLabel.isHidden = false
     }
 
+    // Display demand includes toolbar underlap; the safe interaction rect does not.
+    func gridItemIndices(in collectionView: NSCollectionView, viewport: NSRect? = nil, itemCount: Int) -> [Int] {
+        let rect = viewport ?? collectionView.visibleRect
+        guard !rect.isEmpty, let layout = collectionView.collectionViewLayout else { return [] }
+        return layout.layoutAttributesForElements(in: rect).compactMap { attribute -> Int? in
+            guard attribute.representedElementCategory == .item, attribute.frame.intersects(rect),
+                  let path = attribute.indexPath, path.section == 0, (0..<itemCount).contains(path.item) else { return nil }
+            return path.item
+        }.sorted()
+    }
+
+    func gridPredictedItemIndices(in collectionView: NSCollectionView, deltaY: CGFloat, itemCount: Int) -> [Int] {
+        let predictedBounds = contentView.constrainBoundsRect(contentView.bounds.offsetBy(dx: 0, dy: deltaY))
+        let viewport = collectionView.convert(predictedBounds, from: contentView).intersection(collectionView.bounds)
+        return gridItemIndices(in: collectionView, viewport: viewport, itemCount: itemCount)
+    }
+
+    func gridThumbnailRequest(coverSide: CGFloat) -> ThumbnailRequest {
+        let pixels = (documentView ?? self).convertToBacking(NSSize(width: coverSide, height: coverSide))
+        let side = min(4096, Int(ceil(max(pixels.width, pixels.height) / 64)) * 64)
+        return ThumbnailRequest(width: side, height: side, mode: .fill)
+    }
+
     override func viewDidChangeBackingProperties() {
         super.viewDidChangeBackingProperties()
         // A window can move to a Retina screen without changing card sizes.

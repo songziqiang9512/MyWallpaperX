@@ -81,13 +81,14 @@ enum SILInspectorViews {
 }
 
 final class SILInspectorPreviewSurfaceView: NSView {
+    var onSizeChange: (() -> Void)?
     private var image: NSImage?
     private let placeholderView = NSImageView()
 
-    init(image: NSImage?) {
+    init(image: NSImage?, placeholderSymbol: String = "photo") {
         self.image = image
         super.init(frame: .zero)
-        setup()
+        setup(placeholderSymbol: placeholderSymbol)
     }
 
     @available(*, unavailable)
@@ -99,6 +100,12 @@ final class SILInspectorPreviewSurfaceView: NSView {
         self.image = image
         placeholderView.isHidden = image != nil
         needsDisplay = true
+    }
+
+    override func setFrameSize(_ newSize: NSSize) {
+        let changed = newSize != frame.size
+        super.setFrameSize(newSize)
+        if changed { onSizeChange?() }
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -124,14 +131,14 @@ final class SILInspectorPreviewSurfaceView: NSView {
         image.draw(in: targetRect, from: .zero, operation: .sourceOver, fraction: 1)
     }
 
-    private func setup() {
+    private func setup(placeholderSymbol: String) {
         wantsLayer = true
         layer?.cornerRadius = 16
         layer?.masksToBounds = true
         layer?.borderColor = NSColor.white.withAlphaComponent(0.09).cgColor
         layer?.borderWidth = 0.45
 
-        placeholderView.image = NSImage(systemSymbolName: "photo", accessibilityDescription: nil)
+        placeholderView.image = NSImage(systemSymbolName: placeholderSymbol, accessibilityDescription: nil)
         placeholderView.contentTintColor = .secondaryLabelColor
         placeholderView.symbolConfiguration = .init(pointSize: 28, weight: .medium)
         placeholderView.translatesAutoresizingMaskIntoConstraints = false

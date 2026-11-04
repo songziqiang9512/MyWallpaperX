@@ -10,6 +10,7 @@ nonisolated enum SteamWorkshopWebDependencyStatus: Equatable, Codable { case non
     var browserItems: [SteamWorkshopBrowserItem] = []
     var displayedBrowserItems: [SteamWorkshopBrowserItem] = []
     var downloads: [SteamWorkshopDownloadRecord] = []
+    var previewReloadToken = 0
     func latestDownloadRecord(for id: String) -> SteamWorkshopDownloadRecord? { downloads.first { $0.id == id } }
 }
 
@@ -18,6 +19,31 @@ nonisolated final class ReuseCounter: @unchecked Sendable {
     private var counts: [String: Int] = [:]
     func increment(_ key: String) { lock.lock(); counts[key, default: 0] += 1; lock.unlock() }
     func count(_ key: String) -> Int { lock.lock(); defer { lock.unlock() }; return counts[key, default: 0] }
+}
+
+nonisolated enum ReuseInputObservation {
+    static let counter = ReuseCounter()
+}
+
+@MainActor enum AdapterPrefetchRetentionProbe {
+    final class Entry {
+        weak var image: NSImage?
+        let bytes: Int
+        init(_ image: NSImage) {
+            self.image = image
+            let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil)!
+            bytes = cg.bytesPerRow * cg.height
+        }
+    }
+    static var entries: [String: Entry] = [:]
+    static func record(_ image: NSImage, source: URL) {
+        guard source.lastPathComponent.hasPrefix("prefetch-retention-") else { return }
+        entries[source.lastPathComponent] = Entry(image)
+    }
+    static var live: [String: Int] {
+        let held = entries.values.filter { $0.image != nil }
+        return ["images": held.count, "bytes": held.reduce(0) { $0 + $1.bytes }]
+    }
 }
 
 // This wrapper is used only by the temporary production prefetch copy.
@@ -29,8 +55,9 @@ nonisolated func checkedPrefetchKey(for url: URL, maxPixelSize: Int) -> String {
 @main struct ThumbnailReturnReuseChecks {
     @MainActor static func main() throws {
         var checks: [String: Bool] = [:]
-        func pump(_ test: () -> Bool) -> Bool {
-            let deadline = Date().addingTimeInterval(8)
+        var taskRowPixels: [String: [String: Int]] = [:]
+        func pump(_ seconds: TimeInterval = 8, _ test: () -> Bool) -> Bool {
+            let deadline = Date().addingTimeInterval(seconds)
             while !test(), Date() < deadline { RunLoop.main.run(until: Date().addingTimeInterval(0.005)) }
             return test()
         }
@@ -74,11 +101,11 @@ nonisolated func checkedPrefetchKey(for url: URL, maxPixelSize: Int) -> String {
         memory.removeAllObjects()
         checks["pressureAndExplicitReleaseEmptyMemoryTier"] = (0..<5).allSatisfy { memory.object(forKey: "thread-\($0)" as NSString) == nil }
 
-        func stillBytes(width: Int, height: Int, orientation: Int = 1) -> Data {
+        func stillBytes(width: Int, height: Int, orientation: Int = 1, color: NSColor = .red) -> Data {
             let cg = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8,
                 bytesPerRow: width * 4, space: CGColorSpaceCreateDeviceRGB(),
                 bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
-            cg.setFillColor(NSColor.red.cgColor); cg.fill(CGRect(x: 0, y: 0, width: width, height: height))
+            cg.setFillColor(color.cgColor); cg.fill(CGRect(x: 0, y: 0, width: width, height: height))
             let data = NSMutableData()
             let destination = CGImageDestinationCreateWithData(data, UTType.jpeg.identifier as CFString, 1, nil)!
             CGImageDestinationAddImage(destination, cg.makeImage()!, [kCGImagePropertyOrientation: orientation] as CFDictionary)
@@ -94,33 +121,111 @@ nonisolated func checkedPrefetchKey(for url: URL, maxPixelSize: Int) -> String {
                     && max(cg.width, cg.height) <= 800
             }
         }
+        for tier in [256, 512, 800] {
+            let previewURL = root.appendingPathComponent("steam-target-\(tier).jpg")
+            try stillBytes(width: 1200, height: 1200).write(to: previewURL)
+            let shared = SteamWorkshopPreviewImageCache.shared
+            shared.clearAll()
+            let decodeKey = "steam-decode-\(tier)", before = ReuseInputObservation.counter.count("steam-decode-\(tier)")
+            let preheated = SteamWorkshopPreviewState(loaders: .live(priority: .prefetch))
+            preheated.configure(previewURL: previewURL, fallbackVideoURL: nil, maxPixelSize: tier)
+            let prepared = pump { preheated.image != nil }
+            let first = preheated.image
+            let pixels = first?.cgImage(forProposedRect: nil, context: nil, hints: nil)
+            if let pixels {
+                taskRowPixels["steam-\(tier)"] = ["width": pixels.width, "height": pixels.height,
+                    "bytes": pixels.bytesPerRow * pixels.height]
+            }
+            let visible = SteamWorkshopPreviewState()
+            visible.configure(previewURL: previewURL, fallbackVideoURL: nil, maxPixelSize: tier)
+            checks["steam-\(tier)-visible-reuses-prefetched-pixels-without-decoding"] = prepared && first != nil
+                && pixels?.width == tier && pixels?.height == tier && visible.image === first
+                && ReuseInputObservation.counter.count(decodeKey) == before + 1
+            if tier > 256 {
+                checks["steam-\(tier)-preparation-does-not-create-unused-256-variant"] =
+                    shared.cachedImage(forKey: steamWorkshopPreviewStillKey(for: previewURL, maxPixelSize: 256)) == nil
+            }
+            try stillBytes(width: 1200, height: 1200, color: .blue).write(to: previewURL, options: .atomic)
+            visible.configure(previewURL: previewURL, fallbackVideoURL: nil, maxPixelSize: tier)
+            let replaced = pump { visible.image != nil && visible.image !== first }
+            let replacement = visible.image
+            let color = replacement?.cgImage(forProposedRect: nil, context: nil, hints: nil)
+                .flatMap { NSBitmapImageRep(cgImage: $0).colorAt(x: 4, y: 4)?.usingColorSpace(.deviceRGB) }
+            checks["steam-\(tier)-source-replacement-does-not-borrow-old-ready-pixels"] = replaced
+                && (color?.blueComponent ?? 0) > 0.9 && (color?.redComponent ?? 1) < 0.1
+                && ReuseInputObservation.counter.count(decodeKey) == before + 2
+            shared.clearAll()
+            let readyAfterClear = steamWorkshopCachedPreviewImage(for: previewURL, maxPixelSize: tier)
+            let afterClear = SteamWorkshopPreviewState()
+            afterClear.configure(previewURL: previewURL, fallbackVideoURL: nil, maxPixelSize: tier)
+            checks["steam-\(tier)-clear-requires-fresh-pixels-but-keeps-live-view"] = readyAfterClear == nil
+                && visible.image === replacement && pump { afterClear.image != nil }
+                && afterClear.image !== replacement && ReuseInputObservation.counter.count(decodeKey) == before + 3
+            preheated.reset(); visible.reset(); afterClear.reset()
+        }
         let fallbackStore = ThumbnailCache(namespace: "generated-local-" + UUID().uuidString)
-        let generationCounter = ReuseCounter()
+        let generationCounter = ReuseInputObservation.counter
+        let inputsBeforeReturns = generationCounter.count("input")
         for _ in 0..<8 {
             var image: NSImage?
-            fallbackStore.load(forKey: "existing-thumbnail") {
-                generationCounter.increment("extract"); return red
-            } completion: { image = $0 }
-            _ = pump { image != nil }; fallbackStore.imageCache.removeAllObjects()
+            let finishesBeforeReturn = generationCounter.count("finish:existing-thumbnail")
+            fallbackStore.load(forKey: "existing-thumbnail", input: .image(red)) { image = $0 }
+            precondition(pump { image != nil && generationCounter.count("finish:existing-thumbnail") > finishesBeforeReturn })
+            fallbackStore.imageCache.removeAllObjects()
         }
-        checks["sharedLocalDiskCacheAvoidsRepeatedSourceExtraction"] = generationCounter.count("extract") == 1
+        checks["sharedLocalDiskCacheAvoidsRepeatedSourceExtraction"] = generationCounter.count("input") == inputsBeforeReturns + 1
 
         var pixabayChecksFinished = false
         Task { @MainActor in
             let pixabayCache = OnlineImageThumbnailCache.shared
             await pixabayCache.clearAll()
             let epoch = await pixabayCache.publicationGeneration()
-            let first = await pixabayCache.storeAndDecode(data: original, for: remote, maxPixelSize: 512, generation: epoch)
-            checks["onlineReadyPixelsAvailableSynchronously"] = first != nil && pixabayCache.readyImage(for: remote, maxPixelSize: 512) === first
+            let target = ThumbnailRequest(width: 512, height: 288, mode: .fit)
+            await pixabayCache.store(data: original, for: remote, generation: epoch)
+            let first = await pixabayCache.image(for: remote, request: target, priority: .visible)
+            checks["onlineReadyPixelsAvailableSynchronously"] = first != nil && pixabayCache.readyImage(for: remote, request: target) === first
+            let explicitURL = remote.appendingPathComponent("same-generation-new-data")
+            let inputs = ThumbnailCache(namespace: "known-online-input-" + UUID().uuidString)
+            func prepare(_ bytes: Data) async -> NSImage? {
+                for await image in inputs.prepare(bytes, forKey: explicitURL.absoluteString, request: target) { return image }
+                return nil
+            }
+            let explicitRed = await prepare(stillBytes(width: 160, height: 160))
+            let blueBytes = stillBytes(width: 160, height: 160, color: .blue)
+            let explicitBlue = await prepare(blueBytes)
+            let readyBlue = inputs.cachedImage(forKey: explicitURL.absoluteString, request: target)
+            func color(_ image: NSImage?) -> NSColor? {
+                image?.cgImage(forProposedRect: nil, context: nil, hints: nil)
+                    .map { NSBitmapImageRep(cgImage: $0) }?.colorAt(x: 40, y: 40)?.usingColorSpace(.deviceRGB)
+            }
+            checks["onlineExplicitNewDataAtomicallyReplacesSameURLReadyPixels"] = explicitRed != nil && explicitBlue != nil
+                && readyBlue === explicitBlue && (color(explicitRed)?.redComponent ?? 0) > 0.9
+                && (color(readyBlue)?.blueComponent ?? 0) > 0.9 && (color(readyBlue)?.redComponent ?? 1) < 0.1
+            let warmHook = ReuseCounter()
+            var deniedWarm: NSImage?
+            for await image in inputs.prepare(blueBytes,
+                forKey: explicitURL.absoluteString, request: target, beforePublication: {
+                    warmHook.increment("calls"); return false
+                }) { deniedWarm = image }
+            checks["knownInputWarmHitStillRunsSuccessfulSourceHookOnce"] = deniedWarm == nil && warmHook.count("calls") == 1
+                && inputs.cachedImage(forKey: explicitURL.absoluteString, request: target) === readyBlue
+            let stale = Task { await pixabayCache.image(for: remote.appendingPathComponent("late-online.gif"), request: target, priority: .visible) }
+            let pending = root.appendingPathComponent("online-http-held")
+            for _ in 0..<3000 {
+                if FileManager.default.fileExists(atPath: pending.path) { break }
+                try? await Task.sleep(nanoseconds: 1_000_000)
+            }
+            checks["onlineClearHeldActualHTTPBeforeReply"] = FileManager.default.fileExists(atPath: pending.path)
             await pixabayCache.clearAll()
-            // A delayed HTTP/prefetch response still carries its pre-clear epoch.
-            let late = await pixabayCache.storeAndDecode(data: original, for: remote, maxPixelSize: 512, generation: epoch)
+            try? Data().write(to: root.appendingPathComponent("online-http-release"))
+            let late = await stale.value
             await pixabayCache.store(data: original, for: remote, generation: epoch)
             let raw = await pixabayCache.cachedData(for: remote)
             checks["onlineClearRejectsOldVisibleAndPrefetchPublication"] = late == nil && raw == nil
-                && pixabayCache.readyImage(for: remote, maxPixelSize: 512) == nil
+                && pixabayCache.readyImage(for: remote, request: target) == nil
             let next = await pixabayCache.publicationGeneration()
-            let fresh = await pixabayCache.storeAndDecode(data: original, for: remote, maxPixelSize: 512, generation: next)
+            await pixabayCache.store(data: original, for: remote, generation: next)
+            let fresh = await pixabayCache.image(for: remote, request: target, priority: .visible)
             checks["onlineNewGenerationStillPublishesNormally"] = fresh != nil
             await pixabayCache.clearAll()
             pixabayChecksFinished = true
@@ -131,6 +236,7 @@ nonisolated func checkedPrefetchKey(for url: URL, maxPixelSize: Int) -> String {
         let cache = ThumbnailCache(namespace: "return-reuse-" + UUID().uuidString)
         func load() -> NSImage? {
             var result: NSImage?
+            let finishesBeforeReturn = ReuseInputObservation.counter.count("finish:still-512")
             cache.loadImageDataAsync(forKey: "still-512", sourceDataKey: "original", loader: {
                 counter.increment("network"); return original
             }, decoder: { bytes in
@@ -142,7 +248,8 @@ nonisolated func checkedPrefetchKey(for url: URL, maxPixelSize: Int) -> String {
                 if !Thread.isMainThread { counter.increment("off-main-callback") }
                 result = $0
             }
-            _ = pump { result != nil }; return result
+            precondition(pump { result != nil && ReuseInputObservation.counter.count("finish:still-512") > finishesBeforeReturn })
+            return result
         }
         let first = load()!
         checks["coldSourceCreatesStillAndRetainsOriginal"] = counter.count("network") == 1 && counter.count("original-decode") == 1
@@ -213,6 +320,32 @@ nonisolated func checkedPrefetchKey(for url: URL, maxPixelSize: Int) -> String {
         checks["forwardBiasTwoRemainsBoundedUniqueAndOutsideVisibleSpan"] = biasedBounded == [5,6,2,7,1,0]
             && Set(biasedBounded) == [0,1,2,5,6,7] && biasedBounded.count == 6
 
+        let rapidForward = GridThumbnailPrefetchDemand.indices(visibleIndices: Array(100...119), predictedIndices: Array(203...222),
+            itemCount: 1_000, neighborLimit: 96, direction: 1, forwardBias: 2)
+        checks["nativeForwardLandingFitsTheOriginalBudget"] = Set(203...222).isSubset(of: Set(rapidForward))
+            && rapidForward.count == 96 && Set(rapidForward).count == 96 && Set(100...119).isDisjoint(with: rapidForward)
+            && rapidForward.first == 120 && rapidForward.contains(99)
+        let rapidReverse = GridThumbnailPrefetchDemand.indices(visibleIndices: Array(400...419), predictedIndices: Array(297...316),
+            itemCount: 1_000, neighborLimit: 96, direction: -1, forwardBias: 2)
+        checks["nativeReverseLandingKeepsImmediateNeighbors"] = Set(297...316).isSubset(of: Set(rapidReverse))
+            && rapidReverse.count == 96 && Set(rapidReverse).count == 96 && Set(400...419).isDisjoint(with: rapidReverse)
+            && rapidReverse.first == 399 && rapidReverse.contains(420)
+        let covered = GridThumbnailPrefetchDemand.indices(visibleIndices: Array(40...51), predictedIndices: Array(45...58),
+            itemCount: 100, neighborLimit: 12, direction: 1, forwardBias: 2)
+        checks["alreadyCoveredNativePredictionKeepsTheOriginalOrder"] = covered == biasedForward
+        let remoteLanding = GridThumbnailPrefetchDemand.indices(visibleIndices: Array(100...119), predictedIndices: Array(203...222),
+            itemCount: 1_000, neighborLimit: 18, direction: 1)
+        checks["unfundedNativePredictionKeepsEveryOriginalNeighbor"] = remoteLanding == GridThumbnailPrefetchDemand.indices(
+            visibleIndices: Array(100...119), itemCount: 1_000, neighborLimit: 18, direction: 1)
+        let largeViewport = GridThumbnailPrefetchDemand.indices(visibleIndices: Array(100...159), predictedIndices: Array(400...459),
+            itemCount: 1_000, neighborLimit: 96, direction: 1, forwardBias: 2)
+        checks["localFullViewportPairExceedingBudgetKeepsOriginalNeighbors"] = largeViewport == GridThumbnailPrefetchDemand.indices(
+            visibleIndices: Array(100...159), itemCount: 1_000, neighborLimit: 96, direction: 1, forwardBias: 2)
+        let edge = GridThumbnailPrefetchDemand.indices(visibleIndices: Array(950...969), predictedIndices: [-1] + Array(980...999) + [1_000],
+            itemCount: 1_000, neighborLimit: 96, direction: 1, forwardBias: 2)
+        checks["nativePredictionEntryClampsInvalidIndicesAndKeepsTheLastItems"] = Set(980...999).isSubset(of: Set(edge))
+            && edge.allSatisfy { (0..<1_000).contains($0) } && Set(edge).count == edge.count
+
         let online = item("local-ready", remote.appendingPathComponent("local-ready.gif"))
         let installed = record(online, preview: local)
         var requests: [(URL, Int, SteamWorkshopPreviewLoadCancellation, (NSImage?) -> Void)] = []
@@ -279,6 +412,52 @@ nonisolated func checkedPrefetchKey(for url: URL, maxPixelSize: Int) -> String {
             && requests.last!.1 == 512
         coalesced.cancelAll()
 
+        do {
+            let source = root.appendingPathComponent("steam-warm-task-row.jpg")
+            try stillBytes(width: 1200, height: 1200).write(to: source)
+            let shared = SteamWorkshopPreviewImageCache.shared
+            var large: NSImage?
+            steamWorkshopLoadPreviewImage(from: source, maxPixelSize: 800) { large = $0 }
+            precondition(pump { large != nil })
+            let beforeDecode = ReuseInputObservation.counter.count("steam-decode-256")
+            var returned = false, synchronous = false, small: NSImage?
+            steamWorkshopLoadPreviewImage(from: source, maxPixelSize: 256) { small = $0; synchronous = !returned }
+            returned = true
+            precondition(pump { small != nil })
+            checks["steam-small-task-row-borrows-larger-ready-image-synchronously"] = synchronous && small === large
+                && steamWorkshopCachedPreviewImage(for: source, maxPixelSize: 256) === large
+                && ReuseInputObservation.counter.count("steam-decode-256") == beforeDecode
+            let exact = steamWorkshopPreviewStillKey(for: source, maxPixelSize: 256)
+            checks["steam-warm-borrow-does-not-add-a-smaller-physical-variant"] = shared.cachedImage(forKey: exact) == nil
+            shared.remove(forKey: exact)
+            let candidate = SteamWorkshopPreviewPrefetchController.Candidate(id: "warm-row", item: item("warm-row", source), record: nil)
+            var loads = 0
+            let prefetch = SteamWorkshopPreviewPrefetchController(load: { url, pixels, cancellation, completion in
+                loads += 1
+                steamWorkshopLoadPreviewImage(from: url, maxPixelSize: pixels, cancellation: cancellation, completion: completion)
+            })
+            prefetch.replace(with: [candidate], maxPixelSize: 256); settle(prefetch)
+            precondition(pump { shared.cachedImage(forKey: exact) != nil || loads == 1 })
+            prefetch.replace(with: [candidate], maxPixelSize: 256); settle(prefetch)
+            checks["steam-preheat-recognizes-borrowed-ready-image-without-rebinding"] = loads == 1
+            let cancellation = SteamWorkshopPreviewLoadCancellation(); cancellation.cancel()
+            var cancelledDelivery = false
+            steamWorkshopLoadPreviewImage(from: source, maxPixelSize: 256, cancellation: cancellation) { _ in cancelledDelivery = true }
+            checks["steam-cancelled-warm-borrow-does-not-deliver"] = !cancelledDelivery
+            prefetch.cancelAll(); steamWorkshopInvalidatePreview(source)
+            checks["steam-invalidation-retires-all-compatible-ready-tiers"] = steamWorkshopCachedPreviewImage(for: source, maxPixelSize: 256) == nil
+                && steamWorkshopCachedPreviewImage(for: source, maxPixelSize: 800) == nil
+            var fresh: NSImage?
+            steamWorkshopLoadPreviewImage(from: source, maxPixelSize: 256) { fresh = $0 }
+            precondition(pump { fresh != nil })
+            let beforeLarge = ReuseInputObservation.counter.count("steam-decode-800")
+            var larger: NSImage?
+            steamWorkshopLoadPreviewImage(from: source, maxPixelSize: 800) { larger = $0 }
+            checks["steam-smaller-ready-image-cannot-satisfy-a-larger-request"] = pump { larger != nil }
+                && larger !== fresh && larger?.cgImage(forProposedRect: nil, context: nil, hints: nil)?.width == 800
+                && ReuseInputObservation.counter.count("steam-decode-800") == beforeLarge + 1
+        }
+
         let selected = steamWorkshopPreviewSources(item: online, record: installed)
         checks["onlineAndSubscriptionPickInstalledPreviewBeforeRemote"] = selected.primary == local && selected.fallback == online.previewImageURL
         checks["incompleteDownloadKeepsRemotePreview"] = steamWorkshopPreviewSources(item: online,
@@ -295,6 +474,7 @@ nonisolated func checkedPrefetchKey(for url: URL, maxPixelSize: Int) -> String {
         service.displayedBrowserItems = [online]; service.downloads = [installed]
         let prefetch = SteamWorkshopPreviewPrefetchController()
         prefetch.replace(with: [.init(id: online.id, item: online, record: installed)], maxPixelSize: 256)
+        settle(prefetch)
         checks["prefetchSharesInstalledSourceAndRequestedPixelTier"] = pump { steamWorkshopCachedPreviewImage(for: local, maxPixelSize: 256) != nil }
         let oldKey = steamWorkshopPreviewStillKey(for: local, maxPixelSize: 512)
         try Data([0, 1, 2, 3]).write(to: local)
@@ -309,7 +489,243 @@ nonisolated func checkedPrefetchKey(for url: URL, maxPixelSize: Int) -> String {
         _ = load()
         checks["explicitClearRequiresFreshSource"] = counter.count("network") == 2
         state.reset()
-        print(String(data: try JSONSerialization.data(withJSONObject: ["checks": checks, "counts": [
+        do {
+            let targetCounter = ReuseCounter()
+            let master = NSImage(data: stillBytes(width: 1600, height: 800))!
+            func pixels(_ image: NSImage?) -> NSSize? {
+                image?.cgImage(forProposedRect: nil, context: nil, hints: nil).map { NSSize(width: $0.width, height: $0.height) }
+            }
+            func square(_ side: Int) -> ThumbnailRequest { .init(width: side, height: side, mode: .fill) }
+            func targetLoad(_ store: ThumbnailCache, _ key: String, _ request: ThumbnailRequest?, _ input: ThumbnailInput) -> NSImage? {
+                var result: NSImage?, complete = false
+                store.load(forKey: key, request: request, input: input, completion: {
+                    targetCounter.increment("callback")
+                    if !Thread.isMainThread { targetCounter.increment("off-main") }
+                    result = $0; complete = true
+                })
+                if !pump(8, { complete }) { targetCounter.increment("timeout") }
+                return result
+            }
+            let sized = ThumbnailCache(countLimit: 8, totalCostLimit: 16 * 1024 * 1024,
+                namespace: "request-target-" + UUID().uuidString)
+            let seedFinish = ReuseInputObservation.counter.count("finish:source")
+            let small = targetLoad(sized, "source", square(128), .image(master))
+            checks["firstSquareDiskSeedFinishesAfterOneImageCallback"] = pump {
+                ReuseInputObservation.counter.count("finish:source") > seedFinish
+            } && targetCounter.count("callback") == 1
+            checks["squareTargetIsOwnedPixelsAndCannotSatisfyLargerOrUncropped"] = pixels(small) == NSSize(width: 128, height: 128)
+                && sized.cachedImage(forKey: "source", request: square(128)) === small
+                && sized.cachedImage(forKey: "source", request: square(320)) == nil && sized.cachedImage(forKey: "source") == nil
+            var returned = false, synchronous = false
+            var smaller: NSImage?
+            let sourcesBeforeWarm = ReuseInputObservation.counter.count("input")
+            sized.load(forKey: "source", request: square(64), input: .image(master)) {
+                smaller = $0; synchronous = !returned && Thread.isMainThread
+            }
+            returned = true
+            checks["largerWarmSquareSatisfiesSmallerWithoutReplacementOrSource"] = synchronous && smaller === small
+                && ReuseInputObservation.counter.count("input") == sourcesBeforeWarm
+            let callbacksBeforeLarge = targetCounter.count("callback")
+            let large = targetLoad(sized, "source", square(320), .image(master))
+            checks["largerTargetUsesUncroppedDiskWithOneFinalCallback"] = pixels(large) == NSSize(width: 320, height: 320)
+                && ReuseInputObservation.counter.count("input") == sourcesBeforeWarm && targetCounter.count("callback") == callbacksBeforeLarge + 1
+            checks["dominatedSquareSizeRetiresInsteadOfKeepingSizeHistory"] = large != nil && large !== small
+                && sized.cachedImage(forKey: "source", request: square(128)) === large
+                && sized.cachedImage(forKey: "source", request: square(320)) === large
+            let fitRequest = ThumbnailRequest(width: 128, height: 128, mode: .fit)
+            let fit = targetLoad(sized, "source", fitRequest, .image(master))
+            checks["necessaryUncroppedAndSquareCompositionsCoexist"] = pixels(fit) == NSSize(width: 128, height: 64)
+                && sized.cachedImage(forKey: "source", request: fitRequest) === fit
+                && sized.cachedImage(forKey: "source", request: square(320)) === large
+            let fullRequest = ThumbnailRequest(width: 1600, height: 800, mode: .fit)
+            let uncropped = targetLoad(sized, "source", fullRequest, .image(master))
+            checks["uncroppedReadyFrameServesGridWithoutRoleConflict"] = pixels(uncropped) == NSSize(width: 1600, height: 800)
+                && sized.cachedImage(forKey: "source") === uncropped
+                && sized.cachedImage(forKey: "source", request: square(320)) === uncropped
+                && ReuseInputObservation.counter.count("input") == sourcesBeforeWarm
+            sized.imageCache.removeAllObjects()
+            _ = targetLoad(sized, "source", square(128), .image(master))
+            let uncroppedAgain = targetLoad(sized, "source", fullRequest, .image(master))
+            checks["smallerDiskDecodeNeverPersistsItsCroppedPixels"] = pixels(uncroppedAgain) == NSSize(width: 1600, height: 800)
+                && ReuseInputObservation.counter.count("input") == sourcesBeforeWarm
+            let nativeSmall = NSImage(data: stillBytes(width: 96, height: 64))!
+            let native = targetLoad(sized, "native-small", square(320), .image(nativeSmall, nativeSize: CGSize(width: 96, height: 64)))
+            let afterNative = ReuseInputObservation.counter.count("input")
+            checks["nativeSmallSourceCompletesAtRealShortSideAndStaysWarm"] = pixels(native) == NSSize(width: 64, height: 64)
+                && sized.cachedImage(forKey: "native-small", request: square(640)) === native
+                && targetLoad(sized, "native-small", square(128), .image(master)) === native && ReuseInputObservation.counter.count("input") == afterNative
+            let legacyFinish = ReuseInputObservation.counter.count("finish:legacy-small")
+            _ = targetLoad(sized, "legacy-small", nil, .image(nativeSmall))
+            checks["legacySmallDiskSeedFinishesBeforeMemoryEviction"] = pump {
+                ReuseInputObservation.counter.count("finish:legacy-small") > legacyFinish
+            }
+            sized.imageCache.removeAllObjects()
+            let beforeUpgrade = ReuseInputObservation.counter.count("input")
+            let upgraded = targetLoad(sized, "legacy-small", square(320), .image(master))
+            checks["oldSmallDiskDerivativeFallsBackToSourceOnce"] = pixels(upgraded) == NSSize(width: 320, height: 320)
+                && ReuseInputObservation.counter.count("input") == beforeUpgrade + 1
+            let prepared = root.appendingPathComponent("prepared-master.jpg")
+            let preparedBytes = stillBytes(width: 800, height: 400)
+            try preparedBytes.write(to: prepared)
+            let preparedWrites = ReuseCounter()
+            let preparedStore = ThumbnailCache(namespace: "prepared-" + UUID().uuidString, writeEncodedData: { data, url in
+                preparedWrites.increment("write"); try data.write(to: url)
+            })
+            let preparedImage = targetLoad(preparedStore, "prepared", square(320), .preparedFile(prepared, nativeSize: nil))
+            let preparedAfterLoad = try Data(contentsOf: prepared)
+            checks["preparedJPEGDeliversPixelsWithoutEncodingOrCopying"] = pixels(preparedImage) == CGSize(width: 320, height: 320)
+                && preparedWrites.count("write") == 0 && preparedAfterLoad == preparedBytes
+            for operation in ["both", "cancel-small", "remove", "clear"] {
+                let started = ReuseCounter(), release = DispatchSemaphore(value: 0)
+                let store = ThumbnailCache(countLimit: 8, totalCostLimit: 16 * 1024 * 1024,
+                    namespace: "request-flight-" + operation + UUID().uuidString, writeEncodedData: { data, url in
+                        started.increment("write")
+                        if release.wait(timeout: .now() + 5) != .success { started.increment("timeout") }
+                        try data.write(to: url)
+                    })
+                let smallToken = ThumbnailCacheRequestCancellation(), largeToken = ThumbnailCacheRequestCancellation()
+                var first: NSImage?, second: NSImage?, firstCalls = 0, secondCalls = 0
+                let inputsBefore = ReuseInputObservation.counter.count("input")
+                let finishesBefore = ReuseInputObservation.counter.count("finish:same-source")
+                store.load(forKey: "same-source", request: square(128), cancellation: smallToken,
+                    input: .image(master), completion: { first = $0; firstCalls += 1 })
+                let firstHeld = pump { started.count("write") == 1 }
+                let firstEarly = pump(0.25) { firstCalls == 1 }
+                store.load(forKey: "same-source", request: square(320), cancellation: largeToken,
+                    input: .image(master), completion: { second = $0; secondCalls += 1 })
+                let bothHeld = pump { started.count("write") == 2 }
+                let secondEarly = pump(0.25) { secondCalls == 1 }
+                checks["different-target-\(operation)-publishes-each-shape-once-before-derived-writes-finish"] = firstHeld && bothHeld && firstEarly && secondEarly
+                    && firstCalls == 1 && secondCalls == 1 && pixels(first) == NSSize(width: 128, height: 128)
+                    && pixels(second) == NSSize(width: 320, height: 320)
+                checks["different-target-\(operation)-prepares-two-inputs-while-master-disk-is-pending"] =
+                    ReuseInputObservation.counter.count("input") == inputsBefore + 2
+                if operation == "cancel-small", firstCalls == 1 { smallToken.cancel() }
+                if operation == "remove" { store.remove(forKey: "same-source") }
+                if operation == "clear" { store.clearAll() }
+                release.signal(); release.signal()
+                let finished = pump {
+                    firstCalls == 1 && secondCalls == 1 && ReuseInputObservation.counter.count("finish:same-source") == finishesBefore + 2
+                }
+                // The older comparison reaches Ready only after releasing its writer.
+                if operation == "cancel-small", !smallToken.cancelled { smallToken.cancel() }
+                checks["different-target-\(operation)-keeps-each-consumer-shape-and-cancellation"] = firstHeld && bothHeld && finished
+                    && started.count("timeout") == 0 && secondCalls == 1 && pixels(second) == NSSize(width: 320, height: 320)
+                    && firstCalls == 1 && pixels(first) == NSSize(width: 128, height: 128)
+                if operation == "remove" || operation == "clear" {
+                    checks["different-target-\(operation)-revokes-all-target-cache-writes"] = store.cachedImage(forKey: "same-source", request: square(128)) == nil
+                        && store.cachedImage(forKey: "same-source", request: square(320)) == nil && store.cachedImage(forKey: "same-source") == nil
+                } else {
+                    checks["different-target-\(operation)-leaves-one-current-square"] = second != nil
+                        && store.cachedImage(forKey: "same-source", request: square(128)) === second
+                        && store.cachedImage(forKey: "same-source", request: square(320)) === second && store.cachedImage(forKey: "same-source") == nil
+                }
+            }
+            let decoded = GridThumbnailDecoder.Image(master, nativeSize: CGSize(width: 1600, height: 800))!
+            let crops = [square(100), ThumbnailRequest(width: 120, height: 80, mode: .fill), ThumbnailRequest(width: 80, height: 120, mode: .fill)]
+            let frames = crops.map { GridThumbnailDecoder.render(decoded, request: $0)! }
+            let cost = frames.reduce(0) { $0 + $1.cost }
+            let variants = DecodedThumbnailMemoryCache(countLimit: 8, totalCostLimit: cost)
+            for frame in frames {
+                variants.setObject(frame.image, forKey: "variants", cost: frame.cost, pixels: frame.pixels,
+                    nativeSize: frame.nativeSize, crop: frame.crop, preservingCompatibleResults: true)
+            }
+            checks["thirdNecessaryCompositionSharesTheSameLRU"] = zip(crops, frames).allSatisfy {
+                variants.object(forKey: "variants", request: $0.0) === $0.1.image
+            }
+            checks["membershipPeekFindsCurrentVariant"] = variants.containsObject(forKey: "variants", request: crops[0])
+            let added = GridThumbnailDecoder.render(decoded, request: square(32))!
+            variants.setObject(added.image, forKey: "another-source", cost: added.cost, pixels: added.pixels,
+                nativeSize: added.nativeSize, crop: added.crop, preservingCompatibleResults: true)
+            checks["allVariantsShareByteBudgetAndPeekDoesNotPromote"] = variants.object(forKey: "variants", request: crops[0]) == nil
+                && variants.object(forKey: "variants", request: crops[1]) === frames[1].image
+                && variants.object(forKey: "variants", request: crops[2]) === frames[2].image
+            variants.setObject(master, forKey: "variants", cost: cost + 1, preservingCompatibleResults: true)
+            checks["oversizeCannotDeleteValidSameSourceVariants"] = variants.object(forKey: "variants", request: crops[1]) === frames[1].image
+                && variants.object(forKey: "variants", request: crops[2]) === frames[2].image
+            variants.removeObject(forKey: "variants")
+            checks["singleSourceRemoveClearsEveryComposition"] = crops.allSatisfy { variants.object(forKey: "variants", request: $0) == nil }
+            let largeFit = GridThumbnailDecoder.render(decoded, request: .init(width: 640, height: 640, mode: .fit))!
+            let smallFit = GridThumbnailDecoder.render(decoded, request: fitRequest)!
+            let fitStore = DecodedThumbnailMemoryCache(countLimit: 8, totalCostLimit: 4 * 1024 * 1024)
+            for frame in [largeFit, smallFit] {
+                fitStore.setObject(frame.image, forKey: "late-fit", cost: frame.cost, pixels: frame.pixels,
+                    nativeSize: frame.nativeSize, crop: frame.crop, preservingCompatibleResults: true)
+            }
+            checks["lateSmallFitCannotReplaceLargerReadyFit"] = fitStore.object(forKey: "late-fit", request: .init(width: 600, height: 300, mode: .fit)) === largeFit.image
+                && fitStore.object(forKey: "late-fit", request: fitRequest) === largeFit.image
+            fitStore.setObject(nativeSmall, forKey: "proof", cost: 96 * 64 * 4)
+            checks["unknownPixelsDoNotInventNativeLimit"] = fitStore.object(forKey: "proof", request: square(320)) == nil
+            fitStore.setObject(nativeSmall, forKey: "proof", cost: 96 * 64 * 4, nativeSize: CGSize(width: 96, height: 64), preservingCompatibleResults: true)
+            checks["samePixelsCanGainRealNativeProof"] = fitStore.object(forKey: "proof", request: square(320)) === nativeSmall
+            fitStore.removeAllObjects()
+            checks["pressureReleasePathClearsEveryVariant"] = fitStore.object(forKey: "proof") == nil && fitStore.object(forKey: "late-fit") == nil
+            checks["squareTargetCallbacksStayOnMainWithoutTimeout"] = targetCounter.count("off-main") == 0 && targetCounter.count("timeout") == 0
+        }
+        do {
+            let source = root.appendingPathComponent("task-row-still.jpg")
+            try stillBytes(width: 1200, height: 800).write(to: source)
+            let store = ThumbnailCache(namespace: "task-row-fit-" + UUID().uuidString)
+            let targets: [(String, ThumbnailRequest?)] = [("still-legacy", nil), ("still-row", .init(width: 96, height: 96, mode: .fit))]
+            for (name, request) in targets {
+                var image: NSImage?
+                store.load(forKey: name, request: request, input: .sourceFile(source)) { image = $0 }
+                let complete = pump { image != nil }
+                let pixels = image?.cgImage(forProposedRect: nil, context: nil, hints: nil)
+                checks["\(name)-real-source-file-load-completes"] = complete && pixels != nil
+                if let pixels {
+                    taskRowPixels[name] = ["width": pixels.width, "height": pixels.height,
+                        "bytes": pixels.bytesPerRow * pixels.height]
+                }
+            }
+            checks["task-row-fit-keeps-whole-frame-with-smaller-delivery"] = taskRowPixels["still-row"]?["width"] == 96
+                && taskRowPixels["still-row"]?["height"] == 64
+                && taskRowPixels["still-row"]!["bytes"]! < taskRowPixels["still-legacy"]!["bytes"]!
+            let beforeWarm = ReuseInputObservation.counter.count("input")
+            var warm: NSImage?, synchronous = false, returned = false
+            store.load(forKey: "still-row", request: .init(width: 48, height: 48, mode: .fit), input: .sourceFile(source)) {
+                warm = $0; synchronous = !returned
+            }
+            returned = true
+            checks["task-row-fit-warm-return-borrows-compatible-pixels-without-source-work"] = warm != nil && synchronous
+                && ReuseInputObservation.counter.count("input") == beforeWarm
+            if let pixels = warm?.cgImage(forProposedRect: nil, context: nil, hints: nil) {
+                taskRowPixels["still-row-warm"] = ["width": pixels.width, "height": pixels.height,
+                    "bytes": pixels.bytesPerRow * pixels.height]
+            }
+            store.clearAll(cancelInFlight: true)
+        }
+        var retention: [String: [String: Int]] = [:]
+        do {
+            var didClear = false
+            SteamWorkshopPreviewImageCache.shared.clearAll(cancelInFlight: true) { DispatchQueue.main.async { didClear = true } }
+            precondition(pump { didClear })
+            let sourceURLs = try (0..<96).map { index -> URL in
+                let url = root.appendingPathComponent("prefetch-retention-\(index).jpg")
+                let color = NSColor(calibratedHue: CGFloat(index) / 96, saturation: 0.7, brightness: 0.8, alpha: 1)
+                try autoreleasepool { try stillBytes(width: 800, height: 800, color: color).write(to: url) }
+                return url
+            }
+            var demands = sourceURLs.enumerated().map { index, url in
+                makeAdapterSteamPrefetch(record(item("retention-\(index)", url), preview: url), pixels: 800)
+            }
+            precondition(pump { AdapterPrefetchRetentionProbe.entries.count == 96 })
+            let displayed = SteamWorkshopPreviewState()
+            displayed.configure(previewURL: sourceURLs.last!, fallbackVideoURL: nil, maxPixelSize: 800)
+            precondition(pump { displayed.image != nil })
+            retention["ready-with-cache-and-live-view"] = AdapterPrefetchRetentionProbe.live
+            didClear = false
+            SteamWorkshopPreviewImageCache.shared.clearAll(cancelInFlight: true) { DispatchQueue.main.async { didClear = true } }
+            precondition(pump { didClear })
+            checks["completed-nondisplaying-prefetch-does-not-pin-evicted-pixels"] = pump { AdapterPrefetchRetentionProbe.live["images"] == 1 }
+            retention["cache-cleared-live-view-held"] = AdapterPrefetchRetentionProbe.live
+            checks["cache-clear-keeps-the-actual-displayed-image"] = displayed.image != nil
+            checks["completed-steam-preheat-keeps-best-effort-interest-without-refill-loop"] = demands.allSatisfy { $0.isWarm() }
+            demands.forEach { $0.cancel() }; demands.removeAll(); displayed.reset()
+            checks["releasing-all-actual-consumers-releases-observed-pixels"] = pump { AdapterPrefetchRetentionProbe.live["images"] == 0 }
+            retention["all-consumers-released"] = AdapterPrefetchRetentionProbe.live
+        }
+        print(String(data: try JSONSerialization.data(withJSONObject: ["checks": checks, "retention": retention, "taskRowPixels": taskRowPixels, "counts": [
             "network": counter.count("network"), "originalDecodes": counter.count("original-decode"),
             "stillDecodes": counter.count("still-decode")]], options: [.sortedKeys]), encoding: .utf8)!)
     }

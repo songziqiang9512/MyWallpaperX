@@ -48,20 +48,26 @@ nonisolated final class SILCacheAdmissions: @unchecked Sendable {
 }
 
 @MainActor final class SILInspectorPreviewProbe: NSView {
-    final class Surface {
+    final class Surface: NSView {
         var image: NSImage?
         var updates = 0
         func updateImage(_ value: NSImage?) { image = value; updates += 1 }
     }
     var wallpaper: SILWallpaper
-    var hasMounted = false
     var previewPath: String?
+    var previewRequest: ThumbnailRequest?
     var previewCancellation: ThumbnailCacheRequestCancellation?
-    let previewSurface = Surface()
+    let previewSurface = Surface(frame: NSRect(x: 0, y: 0, width: 256, height: 156))
     init(path: String) { wallpaper = SILWallpaper(path: path); super.init(frame: .zero) }
     required init?(coder: NSCoder) { nil }
+    func attach() -> NSWindow {
+        let owner = NSWindow(contentRect: previewSurface.frame, styleMask: [.titled], backing: .buffered, defer: false)
+        owner.isReleasedWhenClosed = false; owner.contentView = self
+        return owner
+    }
     func load() { loadPreviewImage() }
     // ACTUAL_INSPECTOR_PREVIEW_LOAD
+    // ACTUAL_INSPECTOR_MOUNT
 }
 
 @MainActor enum SILLoadObservation {
@@ -101,9 +107,9 @@ nonisolated final class SILCacheAdmissions: @unchecked Sendable {
         super.init(frame: NSRect(x: 0, y: 0, width: 800, height: 500))
         controller.updateCell = { adapter.updateCell($0, content: $1, state: $2) }
         controller.setCellVisible = { adapter.setVisible($0, $1) }
-        controller.onViewport = { [weak self] visible, nearby in
+        controller.onViewport = { [weak self] visible, nearby, request in
             self?.visible = visible; self?.nearby = nearby
-            adapter.updateViewport(visible: visible, prefetch: nearby)
+            adapter.updateViewport(visible: visible, prefetch: nearby, request: request)
         }
         controller.loadViewIfNeeded(); controller.view.frame = bounds
         addSubview(controller.view)
@@ -127,6 +133,10 @@ nonisolated final class SILCacheAdmissions: @unchecked Sendable {
     func fire() { controller.publishViewport() }
     func schedule() { controller.scheduleViewport() }
     func cancel() { controller.cancelViewport() }
+}
+
+@MainActor enum SILFullLayoutObservation {
+    static var bodies: [ObjectIdentifier: Int] = [:]
 }
 
 @main private enum Checks {
@@ -308,13 +318,13 @@ nonisolated final class SILCacheAdmissions: @unchecked Sendable {
             let gateKey = mixed.path + "-producer"
             heldProbe.hold(gateKey)
             var firstCompletions = 0, secondCompletions = 0
-            mixedCache.load(forKey: mixed.path, cachesFailure: firstCachesFailure, loader: {
-                heldProbe.waitIfHeld(gateKey)
-                return silGridThumbnailImage(atPath: mixed.path)
-            }) { value in precondition(value == nil); firstCompletions += 1 }
+            mixedCache.load(forKey: mixed.path, cachesFailure: firstCachesFailure,
+                input: .sourceFile(URL(filePath: mixed.path, directoryHint: .notDirectory),
+                    onFailure: { heldProbe.waitIfHeld(gateKey) })) { value in precondition(value == nil); firstCompletions += 1 }
             wait("first mixed-policy producer is held") { heldProbe.waiting(gateKey) }
             mixedCache.load(forKey: mixed.path, cachesFailure: !firstCachesFailure,
-                loader: { preconditionFailure("mixed policy must not create another same-key producer") }) { value in
+                input: .sourceFile(URL(filePath: mixed.path, directoryHint: .notDirectory),
+                    onFailure: { preconditionFailure("mixed policy must not decode another same-key producer") })) { value in
                 precondition(value == nil); secondCompletions += 1
             }
             heldProbe.release(gateKey)
@@ -323,7 +333,7 @@ nonisolated final class SILCacheAdmissions: @unchecked Sendable {
                 mixedCache.hasCachedFailure(forKey: mixed.path) == firstCachesFailure
             try bytes.write(to: mixed)
             var independent: NSImage?
-            mixedCache.load(forKey: mixed.path, cachesFailure: false, loader: { silGridThumbnailImage(atPath: mixed.path) }) { independent = $0 }
+            mixedCache.load(forKey: mixed.path, cachesFailure: false, input: .sourceFile(URL(filePath: mixed.path, directoryHint: .notDirectory))) { independent = $0 }
             wait("later independent false demand bypasses the original negative conclusion") { independent != nil }
             checks[firstCachesFailure ? "independentFalseBypassesEarlierTrueFailure" : "independentFalseDoesNotManufactureNegativeCache"] =
                 !mixedCache.hasCachedFailure(forKey: mixed.path) && firstCompletions == 1 && secondCompletions == 1
@@ -339,27 +349,30 @@ nonisolated final class SILCacheAdmissions: @unchecked Sendable {
         wait("actual SIL store has a real provider failure") { inspectorSeed != nil }
         precondition(SILThumbnailStore.sharedCache.hasCachedFailure(forKey: inspectorPath.path))
         let inspector = SILInspectorPreviewProbe(path: inspectorPath.path)
-        inspector.load()
+        let inspectorWindow = inspector.attach(); defer { inspectorWindow.close() }
         wait("actual Inspector false policy still completes its invalid source") { inspector.previewSurface.updates == 1 }
         checks["inspectorFalsePolicyKeepsItsOwnFailedDemandRetryable"] = inspector.previewSurface.image == nil
             && SILCacheAdmissions.shared.values(inspectorPath.path) == [true, false]
         try bytes.write(to: inspectorPath)
         try fm.setAttributes([.modificationDate: before], ofItemAtPath: inspectorPath.path)
-        inspector.load()
-        wait("actual Inspector preview retries the repaired unchanged source") { inspector.previewSurface.image != nil }
+        inspectorWindow.contentView = nil
+        inspectorWindow.contentView = inspector
+        wait("actual Inspector preview remount retries the repaired unchanged source") { inspector.previewSurface.image != nil }
         let inspectorPixels = inspector.previewSurface.image!.cgImage(forProposedRect: nil, context: nil, hints: nil)!
-        checks["inspectorOriginalPreviewMethodBypassesNegativeCacheAndKeeps800Pixels"] =
-            max(inspectorPixels.width, inspectorPixels.height) == 800
+        checks["inspectorOriginalPreviewMethodBypassesNegativeCacheAndCoversItsBackingBounds"] =
+            inspectorPixels.width >= Int(ceil(256 * inspectorWindow.backingScaleFactor))
+            && inspectorPixels.height >= Int(ceil(156 * inspectorWindow.backingScaleFactor))
             && SILCacheAdmissions.shared.values(inspectorPath.path) == [true, false, false]
             && !SILThumbnailStore.sharedCache.hasCachedFailure(forKey: inspectorPath.path)
         SILThumbnailStore.sharedCache.imageCache.removeAllObjects()
         var recoveredDiskImage: NSImage?
+        let decodesBeforeDiskReturn = probe.decodeCount
         SILThumbnailStore.sharedCache.load(forKey: inspectorPath.path,
-            loader: { preconditionFailure("successful Inspector disk return must not revive the old negative cache") }) { recoveredDiskImage = $0 }
+            input: .sourceFile(URL(filePath: inspectorPath.path, directoryHint: .notDirectory))) { recoveredDiskImage = $0 }
         wait("ordinary true demand reads the successful Inspector disk result") { recoveredDiskImage != nil }
         checks["successfulFalseDemandRetiresOldFailureAcrossMemoryEviction"] =
             !SILThumbnailStore.sharedCache.hasCachedFailure(forKey: inspectorPath.path)
-            && inspector.previewSurface.updates == 2
+            && inspector.previewSurface.updates == 2 && probe.decodeCount == decodesBeforeDiskReturn
         var cancelledCompleted = false
         let token = ThumbnailCacheRequestCancellation(); token.cancel()
         probe.reset()
@@ -368,7 +381,128 @@ nonisolated final class SILCacheAdmissions: @unchecked Sendable {
         checks["cancelledVisibleMissDoesNotCompleteOrReadSignature"] = !cancelledCompleted && probe.count == 0
         return checks
     }
+    @MainActor static func warmLayoutChecks() throws -> [String: Bool] {
+        func pixels(_ width: Int, _ height: Int) -> NSImage {
+            let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8,
+                bytesPerRow: width * 4, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+            context.setFillColor(NSColor.systemGreen.cgColor)
+            context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+            return NSImage(cgImage: context.makeImage()!, size: NSSize(width: width, height: height))
+        }
+        let cache = ThumbnailCache(countLimit: 4, totalCostLimit: 4 * 1024 * 1024,
+            namespace: "sil-full-layout-" + UUID().uuidString)
+        let provider = SILThumbnailProvider(cache: cache)
+        var model = SILWallpaper(path: "/fixture/full-layout.png"); model.id = "layout"
+        let landscape = pixels(400, 200), portrait = pixels(200, 400)
+        var seeded: NSImage?
+        cache.load(forKey: model.path, input: .image(landscape)) { seeded = $0 }
+        wait("real cache prepares the known landscape") { seeded != nil }
+        let ready = seeded!
+        let card = SILGridItem(); _ = card.view
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 240, height: 240),
+            styleMask: [.titled], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        let host = NSView(frame: NSRect(x: 0, y: 0, width: 240, height: 240))
+        window.contentView = host; host.addSubview(card.view); window.orderFrontRegardless()
+        defer { card.prepareForReuse(); window.orderOut(nil); window.close() }
+        let attributes = NSCollectionViewLayoutAttributes(forItemWith: IndexPath(item: 0, section: 0))
+        attributes.frame = NSRect(x: 0, y: 0, width: 240, height: 240)
+        card.apply(attributes)
+        func count() -> Int { SILFullLayoutObservation.bodies[ObjectIdentifier(card), default: 0] }
+        func borderIsSelected(_ selected: Bool) -> Bool {
+            var color: CGColor?
+            card.imageContainer.effectiveAppearance.performAsCurrentDrawingAppearance {
+                color = (selected ? WallpaperLibraryControlStyle.cardOutlineColor(selected: true,
+                    in: card.imageContainer.effectiveAppearance) : NSColor.separatorColor).cgColor
+            }
+            return card.imageContainer.layer?.borderWidth == (selected ? WallpaperLibraryControlStyle.cardSelectionBorderWidth : 1)
+                && card.imageContainer.layer?.borderColor == color
+        }
+        var checks: [String: Bool] = [:], work: [String: Int] = [:]
+        var loads = 0, insideGrant = false, synchronous = false
+        card.configure(wallpaper: model, isSelected: false, isMultiSelectMode: false,
+            thumbnailVisible: false, cachedThumbnail: cache.cachedImage(forKey: model.path)) { token, reply in
+                loads += 1
+                provider.load(path: model.path, cancellation: token) { result in synchronous = insideGrant; reply(result) }
+            }
+        card.apply(attributes)
+        let signatures = SILSignatureReads.shared.count, decodes = SILSignatureReads.shared.decodeCount
+        var before = count()
+        insideGrant = true; card.setThumbnailVisible(true); insideGrant = false
+        work["warmProviderFinal"] = count() - before
+        checks["warm-layout-real-provider-remains-synchronous-and-source-free"] = synchronous && loads == 1
+            && SILSignatureReads.shared.count == signatures && SILSignatureReads.shared.decodeCount == decodes
+        checks["warm-layout-final-keeps-identity-crop-and-hidden-placeholder"] = card.wallpaperID == model.id
+            && card.thumbnailView.image === ready && card.thumbnailView.frame == NSRect(x: -120, y: 0, width: 480, height: 240)
+            && card.thumbnailRequestFinished && card.thumbnailCancellation == nil && card.loadingPlaceholderWork == nil && card.placeholderLabel.isHidden
+        var reply: ((SILThumbnailLoadResult) -> Void)?, token: ThumbnailCacheRequestCancellation?
+        checks["warm-layout-laid-out-unselected-border-is-current"] = borderIsSelected(false)
+        before = count()
+        card.configure(wallpaper: model, isSelected: true, isMultiSelectMode: false, thumbnailVisible: true) { token = $0; reply = $1 }
+        checks["warm-layout-selection-feedback-is-synchronous-before-any-final-or-pump"] = borderIsSelected(true)
+            && card.thumbnailView.image === ready && !card.thumbnailRequestFinished && count() == before
+        provider.load(path: model.path, cancellation: token!) { reply?($0) }
+        work["selectedWarmFinal"] = count() - before
+        checks["warm-layout-selected-warm-final-keeps-border-and-current-pixels"] = borderIsSelected(true)
+            && card.thumbnailView.image === ready && card.thumbnailRequestFinished
+        card.configure(wallpaper: model, isSelected: false, isMultiSelectMode: false, thumbnailVisible: true) { token = $0; reply = $1 }
+        checks["warm-layout-unselection-feedback-is-synchronous-while-image-is-held"] = borderIsSelected(false)
+        checks["warm-layout-same-resource-retains-pixels-while-new-result-is-held"] = card.thumbnailView.image === ready && !card.thumbnailRequestFinished
+        before = count(); reply?(.image(portrait)); work["changedAspectFinal"] = count() - before
+        checks["warm-layout-same-size-new-aspect-updates-only-the-image-frame"] = card.thumbnailView.image === portrait
+            && card.thumbnailView.frame == NSRect(x: 0, y: -120, width: 240, height: 480) && card.placeholderLabel.isHidden && borderIsSelected(false)
+        before = count(); attributes.frame.size = NSSize(width: 320, height: 320); card.apply(attributes)
+        work["changedSize"] = count() - before
+        checks["warm-layout-size-change-still-lays-out-the-entire-card"] = card.imageContainer.bounds.size == NSSize(width: 320, height: 320)
+            && card.thumbnailView.frame == NSRect(x: 0, y: -160, width: 320, height: 640)
+        card.configure(wallpaper: model, isSelected: true, isMultiSelectMode: false, thumbnailVisible: true) { token = $0; reply = $1 }
+        checks["warm-layout-selection-before-failure-is-immediate"] = borderIsSelected(true)
+        reply?(.unavailable)
+        checks["warm-layout-failure-keeps-the-current-selection-border"] = borderIsSelected(true)
+        let unavailableFrame = card.placeholderLabel.frame
+        before = count()
+        card.configure(wallpaper: model, isSelected: false, isMultiSelectMode: false,
+            thumbnailVisible: true, cachedThumbnail: ready) { _, finish in finish(.unavailable) }
+        work["repeatUnavailable"] = count() - before
+        checks["warm-layout-repeated-failure-clears-refilled-pixels-and-restores-image-bounds"] = card.thumbnailView.image == nil
+            && card.thumbnailView.frame == card.imageContainer.bounds && !card.placeholderLabel.isHidden
+            && card.placeholderLabel.stringValue == "缩略图不可用" && card.placeholderLabel.frame == unavailableFrame && borderIsSelected(false)
+        card.configure(wallpaper: model, isSelected: false, isMultiSelectMode: false,
+            thumbnailVisible: true, cachedThumbnail: ready) { _, finish in finish(.missingFile) }
+        checks["warm-layout-missing-file-keeps-its-own-label-and-nil-image-frame"] = card.thumbnailView.image == nil
+            && card.thumbnailView.frame == card.imageContainer.bounds && !card.placeholderLabel.isHidden
+            && card.placeholderLabel.stringValue == "原文件不存在" && abs(card.placeholderLabel.frame.midX - 160) < 0.5
+        card.configure(wallpaper: model, isSelected: true, isMultiSelectMode: false, thumbnailVisible: true) { token = $0; reply = $1 }
+        checks["warm-layout-selection-before-cancellation-is-immediate"] = borderIsSelected(true)
+        pump(0.13)
+        checks["warm-layout-slow-request-still-shows-the-original-delayed-loading"] = !card.placeholderLabel.isHidden
+            && card.placeholderLabel.stringValue == "加载中..." && !card.thumbnailRequestFinished
+        let cancelledToken = token, stale = reply
+        card.setThumbnailVisible(false); stale?(.image(portrait))
+        checks["warm-layout-hidden-consumer-rejects-its-late-image"] = cancelledToken?.cancelled == true
+            && card.thumbnailView.image == nil && borderIsSelected(true)
+        card.prepareForReuse(); var replacement = model; replacement.id = "replacement"; replacement.path += ".new"
+        card.configure(wallpaper: replacement, isSelected: false, isMultiSelectMode: false, thumbnailVisible: true) { token = $0; reply = $1 }
+        card.apply(attributes)
+        before = count(); stale?(.image(portrait)); work["staleAfterReuse"] = count() - before
+        checks["warm-layout-reuse-rejects-old-identity-and-preserves-loading"] = card.wallpaperID == replacement.id
+            && card.thumbnailView.image == nil && !card.thumbnailRequestFinished
+        before = count(); reply?(.image(ready)); work["reusedFinal"] = count() - before
+        pump(0.13)
+        checks["warm-layout-reused-final-keeps-current-source-and-cancels-delayed-placeholder"] = card.wallpaperID == replacement.id
+            && card.thumbnailView.image === ready && card.thumbnailView.frame == NSRect(x: -160, y: 0, width: 640, height: 320)
+            && card.thumbnailRequestFinished && card.thumbnailCancellation == nil && card.loadingPlaceholderWork == nil && card.placeholderLabel.isHidden
+        let raw = String(decoding: try JSONSerialization.data(withJSONObject: work, options: [.sortedKeys]), as: UTF8.self)
+        FileHandle.standardError.write(Data("SIL full layout work: \(raw)\n".utf8))
+        return checks
+    }
+
     @MainActor static func main() throws {
+        if CommandLine.arguments.dropFirst().first == "--warm-layout" {
+            initializeNativeAppHarness()
+            print(String(decoding: try JSONSerialization.data(withJSONObject: warmLayoutChecks(), options: [.sortedKeys]), as: UTF8.self))
+            return
+        }
         if CommandLine.arguments.dropFirst().first == "--card-reflow" {
             initializeNativeAppHarness()
             let checks = wallpaperGridCardReflowChecks(label: "static-image", provider: .staticImageLibrary,
@@ -409,6 +543,112 @@ nonisolated final class SILCacheAdmissions: @unchecked Sendable {
             print(String(data: try JSONEncoder().encode(checks), encoding: .utf8)!)
             return
         }
+        if CommandLine.arguments.dropFirst().first == "--adaptive-return" {
+            initializeNativeAppHarness()
+            let root = URL(fileURLWithPath: CommandLine.arguments[2], isDirectory: true)
+            try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+            var checks: [String: Bool] = [:]
+            let master = root.appendingPathComponent("master.png")
+            try writePNG(master)
+            let provider = SILThumbnailProvider()
+            var seed: SILThumbnailLoadResult?
+            provider.load(path: master.path, request: .init(width: 128, height: 128, mode: .fill), cancellation: .init()) { seed = $0 }
+            wait("small grid source publishes its final square") { seed != nil }
+            if case let .image(image)? = seed {
+                checks["small-grid-final-is-one-128-square"] = image.size == NSSize(width: 128, height: 128)
+            } else { checks["small-grid-final-is-one-128-square"] = false }
+            var stored: CGImageSource?
+            wait("unique seed commits its decodable uncropped master before disk-return checks") {
+                guard let source = CGImageSourceCreateWithURL(provider.cache.diskCacheURL(for: master.path) as CFURL, nil),
+                      let image = CGImageSourceCreateImageAtIndex(source, 0, nil),
+                      image.width >= 512, image.width > image.height else { return false }
+                stored = source
+                return true
+            }
+            let storedProperties = CGImageSourceCopyPropertiesAtIndex(stored!, 0, nil)! as NSDictionary
+            let storedWidth = (storedProperties[kCGImagePropertyPixelWidth] as! NSNumber).intValue
+            let storedHeight = (storedProperties[kCGImagePropertyPixelHeight] as! NSNumber).intValue
+            let sourceDecodes = SILSignatureReads.shared.decodeCount
+            provider.cache.imageCache.removeAllObjects()
+            let parked = root.appendingPathComponent("master-parked.png")
+            try FileManager.default.moveItem(at: master, to: parked)
+            let inspector = SILInspectorPreviewProbe(path: master.path)
+            let inspectorWindow = inspector.attach(); defer { inspectorWindow.close() }
+            inspector.load()
+            wait("actual rectangular Inspector consumer completes its disk return") { inspector.previewSurface.updates == 1 }
+            checks["small-grid-keeps-uncropped-512-master-for-rectangular-inspector"] = inspector.previewSurface.image.map {
+                storedWidth >= 512 && storedWidth > storedHeight
+                    && $0.size.width >= ceil(256 * inspectorWindow.backingScaleFactor)
+                    && $0.size.height >= ceil(156 * inspectorWindow.backingScaleFactor)
+            } == true
+            checks["rectangular-inspector-return-needs-no-source-reextract"] = SILSignatureReads.shared.decodeCount == sourceDecodes
+                && !FileManager.default.fileExists(atPath: master.path) && inspector.previewSurface.image != nil
+            let tiny = root.appendingPathComponent("tiny.png")
+            let context = CGContext(data: nil, width: 32, height: 24, bitsPerComponent: 8, bytesPerRow: 128,
+                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+            context.setFillColor(CGColor(red: 0.2, green: 0.7, blue: 0.4, alpha: 1)); context.fill(CGRect(x: 0, y: 0, width: 32, height: 24))
+            let destination = CGImageDestinationCreateWithURL(tiny as CFURL, UTType.png.identifier as CFString, 1, nil)!
+            CGImageDestinationAddImage(destination, context.makeImage()!, nil)
+            precondition(CGImageDestinationFinalize(destination))
+            var tinyResult: SILThumbnailLoadResult?
+            provider.load(path: tiny.path, request: .init(width: 128, height: 128, mode: .fill), cancellation: .init()) { tinyResult = $0 }
+            wait("native small source completes") { tinyResult != nil }
+            if case let .image(image)? = tinyResult {
+                checks["master-floor-does-not-upscale-a-native-small-source"] = image.size == NSSize(width: 24, height: 24)
+            } else { checks["master-floor-does-not-upscale-a-native-small-source"] = false }
+            let paths = try (0..<160).map { index -> String in
+                let path = root.appendingPathComponent("card-\(index).png")
+                try FileManager.default.copyItem(at: parked, to: path); return path.path
+            }
+            let grid = PrefetchGrid(paths: paths)
+            grid.autoresizingMask = [.width, .height]
+            grid.controller.view.autoresizingMask = [.width, .height]
+            let window = NSWindow(contentRect: grid.frame, styleMask: [.titled, .resizable], backing: .buffered, defer: false)
+            window.isReleasedWhenClosed = false; window.contentView = grid; window.center(); window.orderFrontRegardless()
+            defer { grid.cancel(); window.orderOut(nil); window.close() }
+            window.contentView?.layoutSubtreeIfNeeded()
+            let oldRequest = grid.controller.thumbnailRequest
+            let oldSide = oldRequest.width
+            let path = IndexPath(item: 120, section: 0)
+            var oldResult: SILThumbnailLoadResult?
+            grid.adapter.imageThumbnails.load(path: paths[120], request: oldRequest, cancellation: .init()) { oldResult = $0 }
+            wait("held offscreen source is ready") { oldResult != nil }
+            // This idle factory isolates the prepared card from the live grid's reuse.
+            let factory = NSCollectionView()
+            factory.dataSource = grid.controller
+            factory.collectionViewLayout = NSCollectionViewFlowLayout()
+            defer { withExtendedLifetime(factory) {} }
+            let held = grid.controller.collectionView(factory, itemForRepresentedObjectAt: path) as! SILGridItem
+            let oldPixels = held.thumbnailView.image
+            checks["held-offscreen-card-starts-with-old-target-pixels"] = !held.isThumbnailVisible
+                && held.thumbnailView.image?.size == NSSize(width: oldSide, height: oldSide)
+            window.setContentSize(NSSize(width: 1200, height: 500))
+            window.contentView?.layoutSubtreeIfNeeded()
+            let currentRequest = grid.controller.thumbnailRequest
+            let currentSide = currentRequest.width
+            checks["native-resize-increases-the-required-target"] = currentSide > oldSide
+            let attributes = grid.controller.layout.layoutAttributesForItem(at: path)!
+            grid.controller.scrollView.contentView.scroll(to: NSPoint(x: 0, y: attributes.frame.minY))
+            grid.controller.scrollView.reflectScrolledClipView(grid.controller.scrollView.contentView)
+            window.contentView?.layoutSubtreeIfNeeded()
+            // An actual invalidation prevents a newer warmed image masking the old captured loader.
+            grid.thumbnailCache.remove(forKey: paths[120])
+            held.apply(attributes)
+            checks["before-grant-held-card-still-has-source-120-and-its-old-pixels"] =
+                held.wallpaperID == "120" && held.wallpaperPath == paths[120] && !held.isThumbnailVisible
+                    && oldPixels != nil && held.thumbnailView.image === oldPixels
+            let readsBeforeGrant = grid.images.sourceReads
+            grid.controller.collectionView(grid.controller.collection, willDisplay: held, forRepresentedObjectAt: path)
+            checks["regrant-reuses-bound-source-without-another-library-search"] = grid.images.sourceReads == readsBeforeGrant
+            checks["regrant-does-not-clear-the-current-correct-resource"] = held.thumbnailView.image != nil
+            wait("retained card finishes its original display request") { held.thumbnailRequestFinished }
+            checks["retained-offscreen-card-receives-the-current-final-target"] = held.thumbnailView.image?.size
+                == NSSize(width: min(currentSide, 700), height: min(currentSide, 700))
+            grid.controller.collectionView(grid.controller.collection, didEndDisplaying: held, forRepresentedObjectAt: path)
+            checks["nil-revocation-releases-the-held-card-demand"] = !held.isThumbnailVisible && held.thumbnailCancellation == nil
+            print(String(decoding: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), as: UTF8.self))
+            return
+        }
         let residentReturn = CommandLine.arguments.dropFirst().first == "--resident-return"
         if residentReturn { initializeNativeAppHarness() }
         else { _ = NSApplication.shared; NSApp.setActivationPolicy(.accessory) }
@@ -439,7 +679,7 @@ nonisolated final class SILCacheAdmissions: @unchecked Sendable {
             let settled = {
                 grid.pendingWork == nil && !grid.visible.isEmpty
                     && SILLoadObservation.requests.values.allSatisfy { $0.cancelled || SILLoadObservation.completed.contains(ObjectIdentifier($0)) }
-                    && grid.nearby.allSatisfy { value in grid.thumbnailCache.cachedImage(forKey: paths[Int(value.reference.sourceID)!]) != nil }
+                    && grid.nearby.allSatisfy { value in grid.thumbnailCache.cachedImage(forKey: paths[Int(value.reference.sourceID)!], request: grid.controller.thumbnailRequest) != nil }
                     && grid.visible.allSatisfy { value in
                         guard let card = grid.controller.collection.item(at: IndexPath(item: Int(value.reference.sourceID)!, section: 0)) as? SILGridItem else { return false }
                         return card.wallpaperID == value.reference.sourceID && card.thumbnailRequestFinished && card.thumbnailView.image != nil
@@ -465,7 +705,7 @@ nonisolated final class SILCacheAdmissions: @unchecked Sendable {
             }
             checks["productionResidentReturnSeedsTwentyNativeImages"] = expected.count == 20
             checks["productionResidentReturnKeepsTwentyImagesInOriginalCache"] = expected.allSatisfy { entry in
-                grid.thumbnailCache.cachedImage(forKey: paths[Int(entry.key)!]) === entry.value
+                grid.thumbnailCache.cachedImage(forKey: paths[Int(entry.key)!], request: grid.controller.thumbnailRequest) === entry.value
             }
             FileHandle.standardError.write(Data("SIL RESIDENT POOL reused=\(rebound.count) expected=\(expected.count)\n".utf8))
             let sourceDecodes = SILSignatureReads.shared.decodeCount
@@ -503,7 +743,7 @@ nonisolated final class SILCacheAdmissions: @unchecked Sendable {
         checks["backwardNearestIsIncluded"] = firstTokens[String(backward)] != nil
         checks["visibleItemsDoNotStartPrefetch"] = visibleIDs.allSatisfy { firstTokens[String($0)] == nil }
         wait("nearby decoded images") {
-            firstTokens.keys.allSatisfy { grid.thumbnailCache.cachedImage(forKey: paths[Int($0)!]) != nil }
+            firstTokens.keys.allSatisfy { grid.thumbnailCache.cachedImage(forKey: paths[Int($0)!], request: grid.controller.thumbnailRequest) != nil }
         }
         checks["emptyFailureSetPrefetchDoesNotReadSignature"] = SILSignatureReads.shared.count == 0
         // The real unified grid also decodes visible cards. Let that initial
@@ -515,21 +755,21 @@ nonisolated final class SILCacheAdmissions: @unchecked Sendable {
         }
         grid.fire(); firstTokens = grid.tokens
         wait("settled nearby images remain warm") {
-            firstTokens.keys.allSatisfy { grid.thumbnailCache.cachedImage(forKey: paths[Int($0)!]) != nil }
+            firstTokens.keys.allSatisfy { grid.thumbnailCache.cachedImage(forKey: paths[Int($0)!], request: grid.controller.thumbnailRequest) != nil }
         }
-        let ready = grid.thumbnailCache.cachedImage(forKey: paths[forward])!
-        checks["nearbyImageIsDownsampled"] = ready.size.width == 512 && ready.size.height <= 512
+        let ready = grid.thumbnailCache.cachedImage(forKey: paths[forward], request: grid.controller.thumbnailRequest)!
+        checks["nearbyImageIsDownsampled"] = ready.size.width == CGFloat(grid.controller.thumbnailRequest.width) && ready.size.height == ready.size.width
         for _ in 0..<20 { grid.fire() }
         checks["unchangedViewportRetainsLeases"] = firstTokens.allSatisfy { grid.tokens[$0.key] === $0.value }
         var extraLoads = 0
         for index in 0..<144 {
-            grid.thumbnailCache.load(forKey: "other-consumer-\(index)", loader: { ready }) { _ in extraLoads += 1 }
+            grid.thumbnailCache.load(forKey: "other-consumer-\(index)", input: .image(ready)) { _ in extraLoads += 1 }
         }
         wait("other consumers finish") { extraLoads == 144 }
-        checks["testActuallyEvictsNearbyImages"] = grid.thumbnailCache.cachedImage(forKey: paths[forward]) == nil
+        checks["testActuallyEvictsNearbyImages"] = grid.thumbnailCache.cachedImage(forKey: paths[forward], request: grid.controller.thumbnailRequest) == nil
         grid.fire()
         let handoffToken = grid.tokens[String(forward)]
-        wait("evicted near images reheat") { grid.thumbnailCache.cachedImage(forKey: paths[forward]) != nil }
+        wait("evicted near images reheat") { grid.thumbnailCache.cachedImage(forKey: paths[forward], request: grid.controller.thumbnailRequest) != nil }
         checks["completedEvictedDemandCanReheat"] = handoffToken !== firstTokens[String(forward)] && firstTokens[String(forward)]?.cancelled == true
         let beforeForwardScroll = grid.tokens
         grid.scroll(to: forward)

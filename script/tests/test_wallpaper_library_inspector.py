@@ -23,6 +23,18 @@ from script.tests.test_ui_library_algorithms import declaration
 from script.tests.native_app_harness import prepare_native_app, run_native_app
 
 ROOT = Path(__file__).resolve().parents[2]
+
+INSPECTOR_COORDINATOR_SOURCES = [ROOT / "MyWallpaperX" / name for name in (
+    "Models/WallpaperReference.swift", "Models/WallpaperContent.swift", "Models/WallpaperLibraryPage.swift",
+    "Core/OnlineImages/OnlineImageModels.swift", "Core/OnlineImages/OnlineImageContentProjection.swift",
+    "Modules/Pixabay/Core/PixabayModels.swift",
+    "Core/LibraryCollections/WallpaperLibraryQuery.swift", "Shared/UI/WallpaperInspectorActions.swift",
+    "Shared/UI/InspectorHost.swift", "Shared/UI/InspectorHostActions.swift", "Shared/UI/InspectorHostBridge.swift",
+    "Shared/UI/InspectorHostViewController.swift", "Shared/UI/ListThumbnailTintSource.swift",
+    "Shared/UI/WallpaperLibrarySheetPresentation.swift", "Shared/Components/WallpaperLibraryControlStyle.swift", "Shared/Components/WallpaperCardControlsView.swift",
+    "Shared/Components/WallpaperCardSupportViews.swift", "Shared/UI/InspectorFooterMetrics.swift",
+    "Shell/AppKitListBackgroundTint.swift", "Shell/AppKitMainSplitView.swift",
+    "App/WallpaperLibraryInspectorCoordinator.swift")]
 DOWNLOADED_STORE = ROOT / "MyWallpaperX/Modules/Pixabay/UI/AppKitPixabayDownloadsItem.swift"
 DOWNLOADED_IDENTITY = ROOT / "MyWallpaperX/Modules/Pixabay/Core/PixabayDownloadedContent.swift"
 DOWNLOADED_CARD_DEPENDENCIES = [ROOT / "MyWallpaperX" / name for name in (
@@ -90,9 +102,11 @@ def original_inspector_gate_source(path, tree=ROOT):
             raise ValueError("expected one real downloaded store insertion point")
         content = content.replace("// ACTUAL_DOWNLOADED_STORE", actual)
     elif "final class SILInspectorView: NSView" in content:
-        method = declaration(content, "    private var notices:")
-        content = content.replace(method, method.replace("{",
-            '{\n        SILInspectorPreparationProbe.record("notices")', 1), 1)
+        notice_boundary = "        var result: [(String, String)] = []"
+        if content.count(notice_boundary) != 1:
+            raise ValueError("expected one real SIL notice construction")
+        content = content.replace(notice_boundary, notice_boundary +
+            '\n        SILInspectorPreparationProbe.record("notices")', 1)
         constructor = "        let formatter = DateFormatter()"
         if content.count(constructor) != 1:
             raise ValueError("expected one real SIL formatter constructor")
@@ -103,7 +117,7 @@ def original_inspector_gate_source(path, tree=ROOT):
         if method.count(boundary) != 1:
             raise ValueError("expected original public async cache admission")
         observed = method.replace(boundary,
-            "        DownloadedInspectorCacheProbe.shared.registered(key, priority: priority, cancellation: cancellation)\n"
+            "        DownloadedInspectorCacheProbe.shared.registered(key, target: target, priority: priority, cancellation: cancellation)\n"
             "        let originalCompletion = completion\n"
             "        let completion: (NSImage?) -> Void = { image in\n"
             "            DownloadedInspectorCacheProbe.shared.completed(cancellation, image: image)\n"
@@ -119,7 +133,7 @@ def prepare_sil_inspector_sources(tree, work, inspector_override=None, fixture_t
     downloaded_store = tree / "MyWallpaperX/Modules/Pixabay/UI/AppKitPixabayDownloadsItem.swift"
     downloaded_identity = tree / "MyWallpaperX/Modules/Pixabay/Core/PixabayDownloadedContent.swift"
     sources = [tree / "MyWallpaperX" / name for name in (
-        "Shared/UI/DecodedThumbnailMemoryCache.swift", "Shared/UI/ThumbnailCache.swift",
+        "Shared/ThumbnailRequest.swift", "Shared/UI/GridThumbnailDecoder.swift", "Shared/UI/DecodedThumbnailMemoryCache.swift", "Shared/UI/ThumbnailCache.swift",
         "Shared/UI/WallpaperInspectorActions.swift", "Shared/UI/InspectorFooterMetrics.swift",
         "Shared/UI/InspectorBadgeView.swift", "Shared/UI/InspectorFadingScrollView.swift",
         "Shared/UI/ModuleFocusable.swift", "Shared/UI/InspectorHost.swift", "Shared/UI/InspectorHostBridge.swift",
@@ -148,7 +162,7 @@ def prepare_sil_inspector_sources(tree, work, inspector_override=None, fixture_t
 class WallpaperLibraryInspectorTests(unittest.TestCase):
     def test_unbound_image_inspector_cannot_be_constructed(self):
         paths = [ROOT / "MyWallpaperX" / name for name in (
-            "Shared/UI/DecodedThumbnailMemoryCache.swift", "Shared/UI/ThumbnailCache.swift",
+            "Shared/ThumbnailRequest.swift", "Shared/UI/GridThumbnailDecoder.swift", "Shared/UI/DecodedThumbnailMemoryCache.swift", "Shared/UI/ThumbnailCache.swift",
             "Shared/UI/WallpaperInspectorActions.swift", "Shared/UI/InspectorFooterMetrics.swift",
             "Shared/UI/InspectorBadgeView.swift", "Shared/UI/InspectorFadingScrollView.swift",
             "Shared/UI/ModuleFocusable.swift", "Shared/UI/InspectorHost.swift", "Shared/UI/InspectorHostBridge.swift",
@@ -179,16 +193,7 @@ class WallpaperLibraryInspectorTests(unittest.TestCase):
         self.assertEqual(hashes, {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in observed})
 
     def test_fixed_identity_host_and_native_preview(self):
-        sources = [ROOT / "MyWallpaperX" / name for name in (
-            "Models/WallpaperReference.swift", "Models/WallpaperContent.swift", "Models/WallpaperLibraryPage.swift",
-            "Core/OnlineImages/OnlineImageModels.swift", "Core/OnlineImages/OnlineImageContentProjection.swift",
-            "Modules/Pixabay/Core/PixabayModels.swift",
-            "Core/LibraryCollections/WallpaperLibraryQuery.swift", "Shared/UI/WallpaperInspectorActions.swift",
-            "Shared/UI/InspectorHost.swift", "Shared/UI/InspectorHostActions.swift", "Shared/UI/InspectorHostBridge.swift",
-            "Shared/UI/InspectorHostViewController.swift", "Shared/UI/ListThumbnailTintSource.swift",
-            "Shared/UI/WallpaperLibrarySheetPresentation.swift", "Shared/Components/WallpaperLibraryControlStyle.swift",
-            "Shell/AppKitListBackgroundTint.swift", "Shell/AppKitMainSplitView.swift",
-            "App/WallpaperLibraryInspectorCoordinator.swift")]
+        sources = list(INSPECTOR_COORDINATOR_SOURCES)
         sources.append(ROOT / "script/tests/fixtures/OnlineImageLibraryAppStub.swift")
         sources.append(ROOT / "script/tests/fixtures/NativeAppHarness.swift")
         sources.append(ROOT / "script/tests/fixtures/InspectorPresentationRefreshChecks.swift")
@@ -227,6 +232,14 @@ class WallpaperLibraryInspectorTests(unittest.TestCase):
                     selection = render[render.index("        let selected = state.selectionState"):]
                     actual = actual.replace("// ACTUAL_CARD_INSPECT_SELECTION_SYNC", "\n".join(selection.splitlines()[:2]))
                     target.write_text(actual)
+                elif source.name == "AppKitMainSplitView.swift":
+                    actual = source.read_text()
+                    method = declaration(actual, "    private func handleInspectorClose(")
+                    boundary = "                userInfo: currentRequest.userInfo\n            )"
+                    self.assertEqual(method.count(boundary), 1)
+                    observed = method.replace(boundary, boundary +
+                        "\n            InspectorHostPublicationObservation.didClose?(currentRequest.token)", 1)
+                    target.write_text(actual.replace(method, observed, 1))
                 elif source == harness:
                     actual = source.read_text().replace("// ACTUAL_FAVORITE_ACTION_STATE", declaration(
                         commands.read_text(), "nonisolated struct WallpaperLibraryFavoriteActionState"))
@@ -244,6 +257,7 @@ class WallpaperLibraryInspectorTests(unittest.TestCase):
                 else:
                     target.write_bytes(source.read_bytes())
                 frozen.append(target)
+            compiled = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in [*frozen, helpers]}
             binary = prepare_native_app(work, "InspectorChecks")
             result = subprocess.run(["xcrun", "swiftc", "-parse-as-library", "-swift-version", "5", "-default-isolation", "MainActor",
                 *map(str, frozen), str(helpers), "-module-cache-path", str(work / "modules"), "-o", str(binary)],
@@ -256,7 +270,138 @@ class WallpaperLibraryInspectorTests(unittest.TestCase):
             self.assertGreaterEqual(len(checks), 21)
             for name, passed in checks.items():
                 with self.subTest(name=name): self.assertIs(passed, True, run.stdout + run.stderr)
+            self.assertEqual(compiled, {str(path): hashlib.sha256(Path(path).read_bytes()).hexdigest() for path in compiled})
+            print(json.dumps({"inspectorCompiledInputs": compiled}, sort_keys=True))
         self.assertEqual(hashes, {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in dependencies})
+
+    def test_real_online_view_binds_initial_actions_through_coordinator_before_native_turn(self):
+        sources = list(INSPECTOR_COORDINATOR_SOURCES) + [ROOT / "MyWallpaperX" / name for name in (
+            "Shared/ThumbnailRequest.swift", "Shared/UI/DecodedThumbnailMemoryCache.swift",
+            "Shared/UI/InspectorFooterMetrics.swift", "Shared/UI/InspectorFadingScrollView.swift",
+            "Modules/StaticImageLibrary/UI/SILInspectorSupport.swift", "Shared/UI/OnlineImageInspectorView.swift")]
+        sources += [ROOT / "script/tests/fixtures" / name for name in (
+            "OnlineImageLibraryAppStub.swift", "NativeAppHarness.swift", "InspectorOnlineFirstTurnChecks.swift")]
+        routing = ROOT / "script/tests/fixtures/WallpaperLibraryInspectorHarness.swift"
+        presentation_checks = ROOT / "script/tests/fixtures/InspectorPresentationRefreshChecks.swift"
+        online_leaves = ROOT / "script/tests/fixtures/OnlineImageInspectorHarness.swift"
+        presentation = ROOT / "MyWallpaperX/Shell/WallpaperLibraryPresentation.swift"
+        module = ROOT / "MyWallpaperX/Shared/UI/ModuleFocusable.swift"
+        popover = ROOT / "MyWallpaperX/Shared/UI/ToolbarMenuPopover.swift"
+        inputs = sources + [routing, presentation_checks, online_leaves, presentation, module, popover, Path(__file__).resolve()]
+        hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}
+        with tempfile.TemporaryDirectory(prefix="mwx-inspector-online-first-turn-", dir="/private/tmp") as directory:
+            work = Path(directory)
+            routing_text, presentation_checks_text, online_leaves_text = (
+                routing.read_text(), presentation_checks.read_text(), online_leaves.read_text())
+            carriers = "import AppKit\nimport Combine\nimport QuickLookUI\n" + "\n".join(
+                declaration(routing_text, signature) for signature in (
+                    "struct VideoWallpaper", "struct SILWallpaper", "struct SteamWorkshopBrowserItem",
+                    "struct SteamWorkshopDownloadRecord", "struct PixabayEntry", "struct PixabaySnapshot",
+                    "final class WallpaperManager", "final class SILService", "final class PixabayService",
+                    "final class SteamWorkshopService", "enum SteamWorkshopDownloadGridSupport",
+                    "class RecordingInspectorView", "final class VideoLibraryInspectorView",
+                    "final class SILInspectorView", "final class AppKitSteamWorkshopItemDetailView",
+                    "final class PixabayDownloadsInspectorView", "final class WallpaperLibraryWorkspace",
+                    "final class InspectorProbe"))
+            carriers += "\n" + declaration(presentation.read_text(), "nonisolated struct WallpaperLibraryPresentationState:")
+            carriers += "\n" + "\n".join(declaration(presentation_checks_text, signature) for signature in (
+                "final class InspectorPresentation:", "final class InspectorCatalog"))
+            leaves = "import AppKit\nimport Combine\n" + "\n".join(
+                declaration(online_leaves_text, signature) for signature in (
+                    "@MainActor final class PixivSession", "extension OnlineImageLibrary",
+                    "nonisolated final class ThumbnailCacheRequestCancellation:", "enum SILThumbnailLoadResult",
+                    "@MainActor final class SILThumbnailProvider", "@MainActor final class OnlineImageThumbnailCache"))
+            protocol = "import Foundation\n" + declaration(module.read_text(), "enum ModuleIdentifier: String {")
+            protocol += "\n" + declaration(popover.read_text(), "protocol ToolbarGridScrollDismissalSurface:")
+            protocol += "\nextension Notification.Name {\n" + "\n".join(
+                f'    static let {name} = Notification.Name("{name}")' for name in (
+                    "inspectorHostOpenRequested", "inspectorHostCloseRequested", "inspectorHostMountContentRequested",
+                    "inspectorHostDidPresent", "inspectorHostDidClose")) + "\n}\n"
+            frozen = []
+            for name, content in (("SourceCarriers.swift", carriers), ("OnlineIOLeaves.swift", leaves), ("HostProtocol.swift", protocol)):
+                copied = work / name; copied.write_text(content); frozen.append(copied)
+            for index, path in enumerate(sources):
+                content = path.read_text()
+                if path.name in ("OnlineImageInspectorView.swift", "SILInspectorSupport.swift"):
+                    content = re.sub(r"\bprivate\s+", "", content)
+                if path.name == "OnlineImageInspectorView.swift":
+                    entry = "    func refreshContent() {"
+                    self.assertEqual(content.count(entry), 1)
+                    content = content.replace(entry, entry +
+                        "\n        InspectorOnlineFirstTurnObservation.refreshes[ObjectIdentifier(self), default: 0] += 1", 1)
+                copied = work / f"Source{index}.swift"; copied.write_text(content); frozen.append(copied)
+            compiled = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in frozen}
+            binary = prepare_native_app(work, "OnlineInspectorFirstTurn")
+            build = subprocess.run(["xcrun", "swiftc", "-parse-as-library", "-swift-version", "5", "-default-isolation", "MainActor",
+                *map(str, frozen), "-module-cache-path", str(work / "modules"), "-o", str(binary)],
+                capture_output=True, text=True, timeout=150)
+            self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
+            run = run_native_app(binary, [str(work)], timeout=25)
+            self.assertEqual(run.launch_returncode, 0, run.stdout + run.stderr)
+            self.assertTrue(run.stdout.strip(), run.stderr)
+            checks = json.loads(run.stdout)
+            self.assertGreaterEqual(len(checks), 12)
+            for name, passed in checks.items():
+                with self.subTest(name=name): self.assertIs(passed, True, run.stdout + run.stderr)
+            self.assertEqual(compiled, {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in frozen})
+            receipts = [json.loads(line.removeprefix("ONLINE FIRST TURN ")) for line in run.stderr.splitlines()
+                if line.startswith("ONLINE FIRST TURN ")]
+            self.assertEqual(len(receipts), 1, run.stderr)
+            print(json.dumps({"onlineFirstTurn": checks, "receipts": receipts[0], "compiledInputs": compiled}, sort_keys=True))
+        self.assertEqual(hashes, {str(path): hashlib.sha256(Path(path).read_bytes()).hexdigest() for path in inputs})
+
+    def test_sil_render_resolves_large_library_model_once_per_update(self):
+        fixture = ROOT / "script/tests/fixtures/SILInspectorRenderSnapshotChecks.swift"
+        with tempfile.TemporaryDirectory(prefix="mwx-sil-render-snapshot-", dir="/private/tmp") as directory:
+            work = Path(directory)
+            frozen, hashes = prepare_sil_inspector_sources(ROOT, work)
+            hashes[str(fixture)] = hashlib.sha256(fixture.read_bytes()).hexdigest()
+            leaves = "@main struct WallpaperInspectorOrganizationHarness"
+            lookup = "        service.wallpapers.first { $0.id.utf8.elementsEqual(wallpaperID.utf8) } ?? initialWallpaper"
+            replaced_main = observed_lookup = 0
+            for path in frozen:
+                content = path.read_text()
+                if leaves in content:
+                    self.assertEqual(content.count(leaves), 1)
+                    content = content[:content.index(leaves)] + fixture.read_text()
+                    replaced_main += 1
+                if "final class SILInspectorView: NSView" in content:
+                    self.assertEqual(content.count(lookup), 1)
+                    content = content.replace(lookup,
+                        "        SILRenderSnapshotProbe.queries += 1\n"
+                        "        return service.wallpapers.first {\n"
+                        "            SILRenderSnapshotProbe.visits += 1\n"
+                        "            return $0.id.utf8.elementsEqual(wallpaperID.utf8)\n"
+                        "        } ?? initialWallpaper", 1)
+                    observed_lookup += 1
+                path.write_text(content)
+            self.assertEqual((replaced_main, observed_lookup), (1, 1))
+            compiled = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in frozen}
+            binary = work / "checks"
+            command = ["xcrun", "swiftc", "-parse-as-library", "-swift-version", "5", "-default-isolation", "MainActor",
+                *map(str, frozen), "-module-cache-path", str(work / "modules"), "-o", str(binary)]
+            result = subprocess.run(command, capture_output=True, text=True, timeout=150)
+            retained = Path(os.environ["MWX_SIL_INSPECTOR_EVIDENCE"]) / "render-snapshot" if os.environ.get("MWX_SIL_INSPECTOR_EVIDENCE") else None
+            if retained:
+                retained.mkdir(parents=True, exist_ok=True)
+                (retained / "inputs.json").write_text(json.dumps({"source": hashes, "compiled": compiled, "command": command}, indent=2))
+                (retained / "compile.log").write_text(result.stdout + result.stderr)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            home = work / "home"; home.mkdir()
+            run = subprocess.run([str(binary), str(work)], capture_output=True, text=True, timeout=30,
+                env=dict(os.environ, HOME=str(home), CFFIXED_USER_HOME=str(home)))
+            if retained:
+                (retained / "runtime.log").write_text(run.stdout + run.stderr)
+            self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+            report = json.loads(run.stdout)
+            if retained: (retained / "report.json").write_text(json.dumps(report, indent=2, ensure_ascii=False))
+            for name, passed in report["checks"].items():
+                with self.subTest(functional=name): self.assertIs(passed, True, run.stdout + run.stderr)
+            for name, passed in report["budgets"].items():
+                with self.subTest(work=name): self.assertIs(passed, True, run.stdout + run.stderr)
+            self.assertEqual(compiled, {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in frozen})
+            print(json.dumps({"silRenderSnapshot": report}, ensure_ascii=False, sort_keys=True))
+        self.assertEqual(hashes, {path: hashlib.sha256(Path(path).read_bytes()).hexdigest() for path in hashes})
 
     def test_original_image_and_pixabay_views_use_injected_actions(self):
         with tempfile.TemporaryDirectory(prefix="mwx-inspector-actions-", dir="/private/tmp") as directory:
@@ -320,7 +465,7 @@ class WallpaperLibraryInspectorTests(unittest.TestCase):
             self.assertIs(report["functional"]["checks"]["cancelledReleasedRequestDoesNotInvokeCallback"], True)
             self.assertEqual(report["functional"]["completionThreads"], [True, True])
             self.assertEqual(len(report["functional"]["requestedKeys"]), 3)
-            self.assertEqual(report["work"], {"warmReadyAtInitReturn": 1, "delayedReadyAtDeliveryReturn": 1,
+            self.assertEqual(report["work"], {"warmReadyAtMountedReturn": 1, "delayedReadyAtDeliveryReturn": 1,
                                              "deliveredCallbacks": 2, "suppressedCallbacks": 1})
             phases = ("none", "missing", "active", "both")
             self.assertTrue({"sil-facts-notices-" + phase for phase in phases} <= checks.keys())

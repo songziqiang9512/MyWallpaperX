@@ -39,6 +39,7 @@ class PlaylistDirectoryTests(unittest.TestCase):
                  "MyWallpaperX/Shared/UI/WallpaperLibrarySheetPresentation.swift",
                  "MyWallpaperX/Shared/UI/WallpaperArtworkDemandObservation.swift",
                  "MyWallpaperX/Shared/UI/WallpaperGridScrollView.swift",
+                 "MyWallpaperX/Shared/ThumbnailRequest.swift",
                  "MyWallpaperX/Shell/AppKitPlaylistDirectoryController.swift",
                  "MyWallpaperX/Shell/AppKitDetailHostViewController.swift",
                  "MyWallpaperX/Shell/PlaylistOrganizationActions.swift",

@@ -34,16 +34,19 @@ class WallpaperLibraryCatalogTests(unittest.TestCase):
             load, declaration(image_source, "    func invalidatePendingMetadataLoad()"),
             declaration(image_source, "    private func applyLoadedImageDimensions(")])
         fixture = fixture.replace("// IMAGE_METADATA_RECEIPT", methods)
-        for provider, counter in (("videoLibrary", "videoVisits"), ("staticImageLibrary", "imageVisits")):
-            marker = f"references.contains(.init(provider: .{provider}, sourceID: $0.id))"
-            self.assertEqual(controller.count(marker), 1, marker)
-            controller = controller.replace(marker, f"CatalogVisibleFilterProbe.{counter} += 1; return {marker}")
         for marker in (
             "        let previous = Set(visibleReferences.values.flatMap { $0 })",
             "        guard previous != Set(visibleReferences.values.flatMap({ $0 })) else { return }",
         ):
             self.assertEqual(controller.count(marker), 1, marker)
             controller = controller.replace(marker, "        CatalogVisibleFilterProbe.unionBuilds += 1\n" + marker)
+        for marker, counter in (("    @discardableResult func publish(", "publishEntries"),
+                                ("    func install(", "installEntries")):
+            method = declaration(controller, marker)
+            self.assertEqual(controller.count(method), 1, marker)
+            opening = method.index("{") + 1
+            observed = method[:opening] + f"\n        CatalogVisibleFilterProbe.{counter} += 1" + method[opening:]
+            controller = controller.replace(method, observed, 1)
         with tempfile.TemporaryDirectory(prefix="mwx-live-catalog-", dir="/private/tmp") as directory:
             work = Path(directory)
             (work / "Checks.swift").write_text(fixture)

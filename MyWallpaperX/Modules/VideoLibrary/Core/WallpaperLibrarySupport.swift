@@ -68,7 +68,7 @@ struct WallpaperDeletionFailure: Identifiable {
     }
 }
 
-struct WallpaperInspectorDetails: Equatable {
+nonisolated struct WallpaperInspectorDetails: Equatable, Sendable {
     let fileSizeText: String
     let formatText: String
     let durationText: String
@@ -79,13 +79,36 @@ struct WallpaperInspectorDetails: Equatable {
     var isLoading = false
 }
 
+@MainActor
 @discardableResult
 func loadWallpaperInspectorDetails(
     for wallpaper: VideoWallpaper,
     completion: @escaping (WallpaperInspectorDetails) -> Void
 ) -> Task<Void, Never> {
-    let url = URL(fileURLWithPath: wallpaper.path)
+    let url = URL(fileURLWithPath: wallpaper.path, isDirectory: false)
     let path = wallpaper.path
+    let formatText = url.pathExtension.isEmpty ? "未知" : url.pathExtension.uppercased()
+
+    // Keep every section present before mounting; file facts arrive with AV metadata.
+    completion(WallpaperInspectorDetails(
+        fileSizeText: wallpaper.fileSize.map { String(format: "%.2f MB", Double($0) / (1024 * 1024)) } ?? "读取中…",
+        formatText: formatText, durationText: wallpaper.duration.map { formattedDuration(Double($0)) } ?? "读取中…",
+        codecText: "读取中…", resolutionText: wallpaper.resolution ?? "读取中…",
+        addedDateText: "读取中…", pathText: path, isLoading: true))
+
+    return Task { @MainActor in
+        guard !Task.isCancelled,
+              let details = await prepareWallpaperInspectorDetails(for: wallpaper) else { return }
+        guard !Task.isCancelled else { return }
+        completion(details)
+    }
+}
+
+@concurrent
+nonisolated private func prepareWallpaperInspectorDetails(for wallpaper: VideoWallpaper) async -> WallpaperInspectorDetails? {
+    guard !Task.isCancelled else { return nil }
+    let path = wallpaper.path
+    let url = URL(fileURLWithPath: path, isDirectory: false)
     let formatText = url.pathExtension.isEmpty ? "未知" : url.pathExtension.uppercased()
     let attributes = (try? FileManager.default.attributesOfItem(atPath: path)) ?? [:]
     let fileSize = attributes[.size] as? Int64 ?? 0
@@ -95,47 +118,34 @@ func loadWallpaperInspectorDetails(
     dateFormatter.dateStyle = .medium
     dateFormatter.timeStyle = .medium
     let addedDateText = dateFormatter.string(from: creationDate)
+    guard !Task.isCancelled else { return nil }
 
-    // Publish the complete layout template before the view is mounted. AV
-    // fills values later, without adding/removing metadata or path sections.
-    completion(WallpaperInspectorDetails(fileSizeText: fileSizeText, formatText: formatText,
-        durationText: wallpaper.duration.map { formattedDuration(Double($0)) } ?? "读取中…",
-        codecText: "读取中…", resolutionText: wallpaper.resolution ?? "读取中…",
-        addedDateText: addedDateText, pathText: path, isLoading: true))
-
-    return Task {
-        guard !Task.isCancelled else { return }
-        let asset = AVURLAsset(url: url)
-        var durationText = wallpaper.duration.map { formattedDuration(Double($0)) } ?? "未知"
-        if let duration = try? await asset.load(.duration) {
-            let durationSeconds = CMTimeGetSeconds(duration)
-            if durationSeconds.isFinite && durationSeconds > 0 {
-                durationText = formattedDuration(durationSeconds)
-            }
-        }
-        guard !Task.isCancelled else { return }
-
-        let resolutionText = await videoResolutionText(for: asset, fallback: wallpaper.resolution)
-        let codecText = await videoCodecText(for: asset)
-
-        let details = WallpaperInspectorDetails(
-            fileSizeText: fileSizeText,
-            formatText: formatText,
-            durationText: durationText,
-            codecText: codecText,
-            resolutionText: resolutionText,
-            addedDateText: addedDateText,
-            pathText: path
-        )
-
-        await MainActor.run {
-            guard !Task.isCancelled else { return }
-            completion(details)
+    let asset = AVURLAsset(url: url)
+    var durationText = wallpaper.duration.map { formattedDuration(Double($0)) } ?? "未知"
+    if let duration = try? await asset.load(.duration) {
+        let durationSeconds = CMTimeGetSeconds(duration)
+        if durationSeconds.isFinite && durationSeconds > 0 {
+            durationText = formattedDuration(durationSeconds)
         }
     }
+    guard !Task.isCancelled else { return nil }
+
+    let resolutionText = await videoResolutionText(for: asset, fallback: wallpaper.resolution)
+    guard !Task.isCancelled else { return nil }
+    let codecText = await videoCodecText(for: asset)
+
+    return WallpaperInspectorDetails(
+        fileSizeText: fileSizeText,
+        formatText: formatText,
+        durationText: durationText,
+        codecText: codecText,
+        resolutionText: resolutionText,
+        addedDateText: addedDateText,
+        pathText: path
+    )
 }
 
-private func formattedDuration(_ seconds: Double) -> String {
+nonisolated private func formattedDuration(_ seconds: Double) -> String {
     let totalSeconds = max(0, Int(seconds.rounded()))
     let hours = totalSeconds / 3600
     let minutes = (totalSeconds % 3600) / 60
@@ -147,12 +157,13 @@ private func formattedDuration(_ seconds: Double) -> String {
     return String(format: "%d:%02d", minutes, remainingSeconds)
 }
 
-private func videoResolutionText(for asset: AVAsset, fallback: String? = nil) async -> String {
+nonisolated private func videoResolutionText(for asset: AVAsset, fallback: String? = nil) async -> String {
     guard let tracks = try? await asset.loadTracks(withMediaType: .video),
-          let track = tracks.first else {
+          !Task.isCancelled, let track = tracks.first else {
         return fallback ?? "未知"
     }
     guard let naturalSize = try? await track.load(.naturalSize),
+          !Task.isCancelled,
           let preferredTransform = try? await track.load(.preferredTransform) else {
         return fallback ?? "未知"
     }
@@ -163,9 +174,9 @@ private func videoResolutionText(for asset: AVAsset, fallback: String? = nil) as
     return "\(width) × \(height)"
 }
 
-private func videoCodecText(for asset: AVAsset) async -> String {
+nonisolated private func videoCodecText(for asset: AVAsset) async -> String {
     guard let tracks = try? await asset.loadTracks(withMediaType: .video),
-          let track = tracks.first,
+          !Task.isCancelled, let track = tracks.first,
           let formatDescriptions = try? await track.load(.formatDescriptions),
           let formatDescription = formatDescriptions.first else {
         return "未知"

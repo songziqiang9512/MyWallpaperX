@@ -1,14 +1,6 @@
-// VideoInspectorPreviewHarness.swift
-// 视频详情面板预览刷新行为 harness（问题 6）。
-//
-// 编译真实产品文件（VideoLibraryInspectorView 及其共享 UI/缓存依赖），
-// 只对视图实际消费的 manager/helper 面提供最小桩：
-// - WallpaperManager 桩保留 $wallpapers / thumbnailReadyPublisher /
-//   resolvedThumbnailPath / normalizedPath / 播放与选择动作的同一消费面，
-//   resolvedThumbnailPath 可按源路径注入结果或阻塞（迟到回调用）；
-// - 缩略图共享缓存用独立 namespace 的真实 ThumbnailCache，保留后台解码行为。
-//
-// 场景输出 `RESULT <name> PASS|FAIL`，由 test_video_inspector_preview_reload 断言。
+// 编译真实 Video Inspector、Host 和缩略图缓存；仅 Manager/metadata 来源叶受控。
+// CLI 输出 RESULT，原生模式输出 JSON 呈现轨迹与身份事实。
+// 5000 个模型与一张 JPEG 不代表完整网格高压。
 
 import AppKit
 import QuartzCore
@@ -26,19 +18,11 @@ import Foundation
     static var reads: [String: Int] = [:]
 }
 
-// MARK: - 视图消费面桩（不复制产品逻辑）
-
-struct InspectorSelectionStub {}
-
-enum UIActionHelper {
-    static var favoriteWrites = 0
-    static var tagWrites = 0
-    static func toggleFavoriteSelection(manager: WallpaperManager, selection: InspectorSelectionStub) { favoriteWrites += 1 }
-    static func presentTagPicker(
-        manager: WallpaperManager,
-        window: NSWindow?,
-        completion: @escaping () -> Void
-    ) { tagWrites += 1 }
+@MainActor enum InspectorContentBuildProbe {
+    static var bodies = 0
+    static var bodiesByView: [ObjectIdentifier: Int] = [:]
+    static var finalBodies: [String: [Int]] = [:]
+    static var hostConfigurations = 0
 }
 
 struct WallpaperInspectorDetails: Equatable {
@@ -53,10 +37,11 @@ struct WallpaperInspectorDetails: Equatable {
 }
 
 @MainActor
-private enum InspectorMetadataProbe {
+enum InspectorMetadataProbe {
     static var starts: [String: Int] = [:]
     static var terminals: [String: Int] = [:]
     static var heldPaths: Set<String> = []
+    static var omittedFacts: Set<String> = []
     static var pending: [String: [CheckedContinuation<Void, Never>]] = [:]
     static func waitIfHeld(_ path: String) async {
         if heldPaths.contains(path) {
@@ -84,15 +69,17 @@ func loadWallpaperInspectorDetails(
         await MainActor.run {
             guard !Task.isCancelled else { return }
             InspectorMetadataProbe.terminals[wallpaper.path, default: 0] += 1
+            let before = InspectorContentBuildProbe.bodies
             completion(WallpaperInspectorDetails(
                 fileSizeText: "1 MB",
                 formatText: "MP4",
                 durationText: "0:30",
-                codecText: "High Efficiency Video Coding Long Value",
+                codecText: InspectorMetadataProbe.omittedFacts.contains(wallpaper.path) ? "" : "High Efficiency Video Coding Long Value",
                 resolutionText: "3840×2160",
-                addedDateText: "2026年10月25日 20:30",
+                addedDateText: InspectorMetadataProbe.omittedFacts.contains(wallpaper.path) ? "" : "2026年10月25日 20:30",
                 pathText: wallpaper.path
             ))
+            InspectorContentBuildProbe.finalBodies[wallpaper.path, default: []].append(InspectorContentBuildProbe.bodies - before)
         }
     }
 }
@@ -104,17 +91,28 @@ enum VideoLibraryThumbnailStore {
     )
 }
 
-/// Observes real cache API registrations and controlled producer leaves. The
+/// Observes real cache registrations, source decoding and generation barriers. The
 /// production cache still chooses, coalesces and cancels every queued request.
 nonisolated final class InspectorCacheDemandProbe: @unchecked Sendable {
     static let shared = InspectorCacheDemandProbe()
-    private struct Registration { let cancellation: (any ThumbnailCacheLoadCancellation)? }
+    private struct Registration { let request: ThumbnailRequest?; let cancellation: (any ThumbnailCacheLoadCancellation)? }
     private let lock = NSLock()
     private var registrations: [String: [Registration]] = [:]
     private var loads: [String: Int] = [:]
-    func registered(_ key: String, cancellation: (any ThumbnailCacheLoadCancellation)?) {
+    private var heldSources: [String: DispatchSemaphore] = [:]
+    func hold(_ key: String) {
+        lock.lock(); heldSources[key] = DispatchSemaphore(value: 0); lock.unlock()
+    }
+    func release(_ key: String) {
+        lock.lock(); let gate = heldSources.removeValue(forKey: key); lock.unlock()
+        gate?.signal()
+    }
+    func registered(_ key: String, request: ThumbnailRequest?, cancellation: (any ThumbnailCacheLoadCancellation)?) {
         lock.lock(); defer { lock.unlock() }
-        registrations[key, default: []].append(.init(cancellation: cancellation))
+        registrations[key, default: []].append(.init(request: request, cancellation: cancellation))
+    }
+    func requestDescriptions(_ key: String) -> [String] {
+        lock.lock(); defer { lock.unlock() }; return (registrations[key] ?? []).map { String(describing: $0.request) }
     }
     func registrationCount(_ key: String) -> Int {
         lock.lock(); defer { lock.unlock() }
@@ -125,8 +123,11 @@ nonisolated final class InspectorCacheDemandProbe: @unchecked Sendable {
         return !values.isEmpty && values.allSatisfy { $0.cancellation?.cancelled == true }
     }
     func loaded(_ key: String) {
-        lock.lock(); defer { lock.unlock() }
+        lock.lock()
         loads[key, default: 0] += 1
+        let gate = heldSources[key]
+        lock.unlock()
+        if let gate { precondition(gate.wait(timeout: .now() + 10) == .success, "source blocker was not released") }
     }
     func loadCount(_ key: String) -> Int {
         lock.lock(); defer { lock.unlock() }
@@ -137,7 +138,10 @@ nonisolated final class InspectorCacheDemandProbe: @unchecked Sendable {
 final class WallpaperManager: ObservableObject {
     @Published var wallpapers: [VideoWallpaper] = []
     var effectiveCurrentWallpaper: VideoWallpaper? { wallpapers.first }
-    var currentSelectionContext: InspectorSelectionStub { InspectorSelectionStub() }
+    let thumbnailCacheDirectory = FileManager.default.temporaryDirectory
+
+    func ensurePreviewAssetsForWallpaper(_ wallpaper: VideoWallpaper, request: ThumbnailRequest? = nil,
+        completion: ((VideoThumbnailAsset?) -> Void)? = nil) { completion?(nil) }
 
     /// 源路径 -> 已解析缩略图路径。主线程写、后台队列读，锁保护。
     private var resolvedPlan: [String: String] = [:]
@@ -251,7 +255,7 @@ private func waitFor(timeout: TimeInterval, _ predicate: () -> Bool) -> Bool {
     return predicate()
 }
 
-private func firstSubview(of root: NSView, matching test: (NSView) -> Bool) -> NSView? {
+func firstSubview(of root: NSView, matching test: (NSView) -> Bool) -> NSView? {
     if test(root) { return root }
     for subview in root.subviews {
         if let found = firstSubview(of: subview, matching: test) { return found }
@@ -267,7 +271,7 @@ private func noticeVisible(in root: NSView) -> Bool {
 }
 
 /// 预览面板的占位图（film 图标）是否可见——image != nil 时占位被隐藏。
-private func placeholderVisible(in root: NSView) -> Bool {
+func placeholderVisible(in root: NSView) -> Bool {
     guard let surface = firstSubview(of: root, matching: { $0 is VideoLibraryInspectorPreviewSurfaceView }),
           let icon = surface.subviews.first(where: { $0 is NSImageView }) else {
         return false
@@ -276,7 +280,7 @@ private func placeholderVisible(in root: NSView) -> Bool {
 }
 
 /// 预览面板中心像素（aspect-fill 后中心必然落在图片内），用于区分“哪张图”。
-private func centerPixel(in root: NSView) -> (red: CGFloat, green: CGFloat, blue: CGFloat)? {
+func centerPixel(in root: NSView) -> (red: CGFloat, green: CGFloat, blue: CGFloat)? {
     guard let surface = firstSubview(of: root, matching: { $0 is VideoLibraryInspectorPreviewSurfaceView }),
           let rep = surface.bitmapImageRepForCachingDisplay(in: surface.bounds) else {
         return nil
@@ -296,12 +300,12 @@ private func looksBlue(_ pixel: (red: CGFloat, green: CGFloat, blue: CGFloat)?) 
     return pixel.blue > 0.55 && pixel.red < 0.45 && pixel.green < 0.45
 }
 
-private func looksGreen(_ pixel: (red: CGFloat, green: CGFloat, blue: CGFloat)?) -> Bool {
+func looksGreen(_ pixel: (red: CGFloat, green: CGFloat, blue: CGFloat)?) -> Bool {
     guard let pixel else { return false }
     return pixel.green > 0.55 && pixel.red < 0.45 && pixel.blue < 0.5
 }
 
-private func writeJPEG(_ path: String, red: CGFloat, green: CGFloat, blue: CGFloat, width: Int, height: Int) {
+func writeJPEG(_ path: String, red: CGFloat, green: CGFloat, blue: CGFloat, width: Int, height: Int) {
     // CGContext 直接填充 sRGB 像素，避免逐像素 setColor 的色彩空间转换噪声
     guard let context = CGContext(
         data: nil,
@@ -337,6 +341,19 @@ enum Harness {
         let isolatedRoot = URL(fileURLWithPath: runtimeHome).resolvingSymlinksInPath().path
         precondition(caches.resolvingSymlinksInPath().path.hasPrefix(isolatedRoot + "/"),
                      "cache root must be isolated: \(caches.path)")
+        if CommandLine.arguments.contains("--host-backfill") {
+            initializeNativeAppHarness()
+            let app = NSApplication.shared
+            Task { @MainActor in
+                do { try await hostBackfill() }
+                catch { fputs("\(error)\n", stderr); exit(1) }
+                app.stop(nil)
+                if let wake = NSEvent.otherEvent(with: .applicationDefined, location: .zero, modifierFlags: [],
+                    timestamp: 0, windowNumber: 0, context: nil, subtype: 0, data1: 0, data2: 0) { app.postEvent(wake, atStart: false) }
+            }
+            app.run()
+            return
+        }
         _ = NSApplication.shared
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("mwx-video-inspector-\(UUID().uuidString)", isDirectory: true)
@@ -374,7 +391,12 @@ enum Harness {
         let previewActions = WallpaperInspectorActions(state: .init(isPlaying: false, isFavorite: false,
             canPerformPrimary: false, canFavorite: false, canOrganize: false, playlistNames: ["已迁移列表"]),
             onPrimary: {}, onToggleFavorite: {}, onChoosePlaylist: { _ in })
+        let buildsBeforeInit = InspectorContentBuildProbe.bodies
         let inspector = VideoLibraryInspectorView(wallpaper: wallpaperA, wallpaperManager: manager, libraryActions: previewActions)
+        let initialContentBuilds = InspectorContentBuildProbe.bodies - buildsBeforeInit
+        check(firstSubview(of: inspector) { ($0 as? NSTextField)?.stringValue == videoA } != nil
+            && firstSubview(of: inspector) { ($0 as? NSTextField)?.stringValue == "读取中…" } != nil,
+              "s16-complete-metadata-template-exists-before-native-mount")
         container.addSubview(inspector)
         NSLayoutConstraint.activate([
             inspector.leadingAnchor.constraint(equalTo: container.leadingAnchor),
@@ -453,6 +475,9 @@ enum Harness {
         let filledPreview = firstSubview(of: inspector) { $0 is VideoLibraryInspectorPreviewSurfaceView }!
         check(filledPreview === initialPreview && filledPreview.convert(filledPreview.bounds, to: container) == initialFrame,
               "s10-thumbnail-arrival-updates-only-the-same-fixed-preview")
+        let actualRequest = ThumbnailRequest(size: filledPreview.bounds.size, scale: window.backingScaleFactor, mode: .fill)!
+        check(VideoLibraryThumbnailStore.sharedCache.cachedImage(forKey: thumbRed, request: actualRequest) != nil,
+              "s16-preview-uses-its-real-two-dimensional-backing-request-and-original-path-key")
 
         // 场景 3：无关 publish（收藏切换，资产身份不变）不重复读取预览
         _ = manager.drainResolveLog()
@@ -496,8 +521,10 @@ enum Harness {
         manager.wallpapers = [VideoWallpaper(id: "card-a", title: "A", path: videoC, isFavorite: true)]
         drain(0.5)
         manager.wallpapers = [VideoWallpaper(id: "card-a", title: "A", path: videoD, isFavorite: true)]
-        let backToMissing = waitFor(timeout: 4.0) { noticeVisible(in: inspector) && placeholderVisible(in: inspector) }
+        check(placeholderVisible(in: inspector) && !looksGreen(centerPixel(in: inspector)),
+              "s16-source-replacement-clears-pixels-before-the-serial-old-resolver-is-released")
         manager.releaseResolvedThumbnail(for: videoC)
+        let backToMissing = waitFor(timeout: 4.0) { noticeVisible(in: inspector) && placeholderVisible(in: inspector) }
         drain(1.5)
         let latePixel = centerPixel(in: inspector)
         print("DETAIL s6-pixel \(latePixel.map { "\($0.red) \($0.green) \($0.blue)" } ?? "nil")")
@@ -511,9 +538,13 @@ enum Harness {
         )]
         check(waitFor(timeout: 4.0) { looksRed(centerPixel(in: inspector)) },
               "s8-same-path-static-frame-arrives")
+        manager.blockResolvedThumbnail(for: videoD)
         manager.wallpapers = [VideoWallpaper(
             id: "card-a", title: "A", path: videoD, staticFramePath: thumbBlue
         )]
+        drain(0.05)
+        check(looksRed(centerPixel(in: inspector)), "s16-derived-path-update-keeps-current-pixels-while-resolving")
+        manager.releaseResolvedThumbnail(for: videoD)
         check(waitFor(timeout: 4.0) { looksBlue(centerPixel(in: inspector)) },
               "s8-same-path-static-frame-replaced")
         manager.wallpapers = [VideoWallpaper(id: "card-a", title: "A", path: videoD)]
@@ -571,15 +602,15 @@ enum Harness {
         _ = organized.perform(NSSelectorFromString("toggleFavorite"))
         _ = organized.perform(NSSelectorFromString("presentTagPicker"))
         _ = organized.perform(NSSelectorFromString("setAsWallpaper"))
-        check(newFavorite == 1 && newMembership == 1 && newPrimary == 1 && UIActionHelper.favoriteWrites == 0
-            && UIActionHelper.tagWrites == 0 && manager.primaryWrites == 0, "s9-fixed-actions-never-write-old-selection-owners")
+        check(newFavorite == 1 && newMembership == 1 && newPrimary == 1 && manager.primaryWrites == 0,
+            "s9-fixed-actions-never-write-old-selection-owners")
         let readonly = WallpaperInspectorActions(state: .init(isPlaying: false, isFavorite: true, canPerformPrimary: true,
             canFavorite: false, canOrganize: false, playlistNames: ["New Store List"]), onPrimary: { newPrimary += 1 },
             onToggleFavorite: { newFavorite += 1 }, onChoosePlaylist: { _ in newMembership += 1 })
         organized.updateLibraryActions(readonly)
         _ = organized.perform(NSSelectorFromString("toggleFavorite"))
         _ = organized.perform(NSSelectorFromString("presentTagPicker"))
-        check(newFavorite == 1 && newMembership == 1 && UIActionHelper.favoriteWrites == 0 && UIActionHelper.tagWrites == 0,
+        check(newFavorite == 1 && newMembership == 1,
             "s9-readonly-injected-actions-refuse-organization")
         check(firstSubview(of: organized) { ($0 as? NSScrollView).map { !$0.hasVerticalScroller && !$0.hasHorizontalScroller } == true } != nil,
             "s9-original-hidden-inspector-scrollbars-preserved")
@@ -634,7 +665,7 @@ enum Harness {
         let favoritePressed = favoriteFooter.accessibilityPerformPress()
         check(stopTitle && primaryChanged && favoriteChanged && primaryControl.isEnabled && favoriteFooter.isEnabled
             && playlistControl?.isEnabled == false && stopPressed && favoritePressed && injectedStops == 1 && injectedFavorites == 1
-            && manager.primaryWrites == 0 && UIActionHelper.favoriteWrites == 0,
+            && manager.primaryWrites == 0,
             "s15-injected-playing-favorite-and-permissions-update-native-footer")
         let stoppedActions = WallpaperInspectorActions(state: .init(isPlaying: false, isFavorite: true, canPerformPrimary: false,
             canFavorite: false, canOrganize: false, playlistNames: ["New Store List"]), onPrimary: { injectedStops += 1 },
@@ -650,8 +681,8 @@ enum Harness {
         organized.removeFromSuperview()
 
         // Hold the actual single generation lane. A separate public consumer
-        // supplies the queued producer leaf, then withdraws once the real view
-        // has joined. No private cache state or product cancellation is mocked.
+        // joins the real view at its mounted target, then withdraws. No private
+        // cache state, source decoder or product cancellation is mocked.
         let demandProbe = InspectorCacheDemandProbe.shared
         let demandCache = VideoLibraryThumbnailStore.sharedCache
         func makeDemandView(_ key: String, manager: WallpaperManager) -> VideoLibraryInspectorView {
@@ -664,26 +695,35 @@ enum Harness {
             view.layoutSubtreeIfNeeded()
             return view
         }
-        func blockGeneration(_ name: String) -> DispatchSemaphore {
-            let release = DispatchSemaphore(value: 0)
-            demandCache.load(forKey: name, loader: {
-                demandProbe.loaded(name)
-                precondition(release.wait(timeout: .now() + 10) == .success, "generation blocker was not released")
-                return nil
-            }, completion: { _ in })
-            precondition(waitFor(timeout: 3) { demandProbe.loadCount(name) == 1 })
-            return release
+        func currentRequest(_ view: VideoLibraryInspectorView) -> ThumbnailRequest {
+            let surface = firstSubview(of: view) { $0 is VideoLibraryInspectorPreviewSurfaceView }!
+            return ThumbnailRequest(size: surface.bounds.size, scale: view.window!.backingScaleFactor, mode: .fill)!
+        }
+        func blockSources(_ name: String) -> () -> Void {
+            var completed = 0
+            let paths = (0..<4).map { root.appendingPathComponent("\(name)-\($0).jpg").path }
+            for path in paths {
+                writeJPEG(path, red: 0.5, green: 0.5, blue: 0.5, width: 24, height: 24)
+                demandProbe.hold(path)
+                demandCache.load(forKey: path,
+                    input: .sourceFile(URL(filePath: path, directoryHint: .notDirectory))) { _ in completed += 1 }
+            }
+            precondition(waitFor(timeout: 3) { paths.allSatisfy { demandProbe.loadCount($0) == 1 } })
+            return {
+                paths.forEach { demandProbe.release($0) }
+                precondition(waitFor(timeout: 3) { completed == 4 })
+            }
         }
         let queuedPath = root.appendingPathComponent("cancelled-inspector.jpg").path
         writeJPEG(queuedPath, red: 0.1, green: 0.8, blue: 0.2, width: 24, height: 24)
-        let queuedRelease = blockGeneration("queue-blocker-\(UUID().uuidString)")
-        let queuedConsumer = ThumbnailCacheRequestCancellation()
-        demandCache.load(forKey: queuedPath, cancellation: queuedConsumer, loader: {
-            demandProbe.loaded(queuedPath)
-            return NSImage(contentsOfFile: queuedPath)
-        }, completion: { _ in })
+        let queuedRelease = blockSources("queue-blocker-\(UUID().uuidString)")
         let queuedManager = WallpaperManager()
         let queuedView = makeDemandView(queuedPath, manager: queuedManager)
+        precondition(waitFor(timeout: 3) { demandProbe.registrationCount(queuedPath) == 1 })
+        let queuedRequest = currentRequest(queuedView)
+        let queuedConsumer = ThumbnailCacheRequestCancellation()
+        demandCache.load(forKey: queuedPath, request: queuedRequest, cancellation: queuedConsumer,
+            input: .sourceFile(URL(filePath: queuedPath, directoryHint: .notDirectory)), completion: { _ in })
         precondition(waitFor(timeout: 3) { demandProbe.registrationCount(queuedPath) == 2 })
         queuedConsumer.cancel()
         queuedView.removeFromSuperview()
@@ -692,30 +732,31 @@ enum Harness {
         drain(0.1)
         check(demandProbe.registrationCount(queuedPath) == requestsBeforeNotification,
               "s12-removed-inspector-does-not-reacquire-on-thumbnail-notification")
-        queuedRelease.signal()
-        var queueDrained = false
-        demandCache.load(forKey: "queue-drain-\(UUID().uuidString)", loader: { nil }, completion: { _ in queueDrained = true })
-        precondition(waitFor(timeout: 3) { queueDrained })
+        queuedRelease()
         check(demandProbe.allRegistrationsCancelled(queuedPath) && demandProbe.loadCount(queuedPath) == 0
-            && demandCache.cachedImage(forKey: queuedPath) == nil,
-              "s12-removed-only-consumer-detaches-before-queued-loader")
+            && demandCache.cachedImage(forKey: queuedPath) == nil && demandCache.cachedImage(forKey: queuedPath, request: queuedRequest) == nil,
+              "s12-removed-only-consumer-detaches-before-queued-source")
 
         let sharedPath = root.appendingPathComponent("shared-inspector.jpg").path
         writeJPEG(sharedPath, red: 0.1, green: 0.8, blue: 0.2, width: 24, height: 24)
-        let sharedRelease = blockGeneration("shared-blocker-\(UUID().uuidString)")
-        let producerConsumer = ThumbnailCacheRequestCancellation()
-        demandCache.load(forKey: sharedPath, cancellation: producerConsumer, loader: {
-            demandProbe.loaded(sharedPath)
-            return NSImage(contentsOfFile: sharedPath)
-        }, completion: { _ in })
+        let sharedRelease = blockSources("shared-blocker-\(UUID().uuidString)")
         let sharedManager = WallpaperManager()
         let withdrawn = makeDemandView(sharedPath, manager: sharedManager)
         let remaining = makeDemandView(sharedPath, manager: sharedManager)
+        precondition(waitFor(timeout: 3) { demandProbe.registrationCount(sharedPath) == 2 })
+        let sharedRequest = currentRequest(remaining)
+        precondition(currentRequest(withdrawn) == sharedRequest, "mounted consumers must share the same real target")
+        let producerConsumer = ThumbnailCacheRequestCancellation()
+        demandCache.load(forKey: sharedPath, request: sharedRequest, cancellation: producerConsumer,
+            input: .sourceFile(URL(filePath: sharedPath, directoryHint: .notDirectory)), completion: { _ in })
         precondition(waitFor(timeout: 3) { demandProbe.registrationCount(sharedPath) == 3 })
         producerConsumer.cancel()
         withdrawn.removeFromSuperview()
-        sharedRelease.signal()
+        sharedRelease()
         precondition(waitFor(timeout: 3) { !placeholderVisible(in: remaining) })
+        if demandProbe.loadCount(sharedPath) != 1 || !looksGreen(centerPixel(in: remaining)) {
+            print("DETAIL s12-shared requests=\(demandProbe.requestDescriptions(sharedPath)) loads=\(demandProbe.loadCount(sharedPath)) pixel=\(String(describing: centerPixel(in: remaining)))")
+        }
         check(demandProbe.loadCount(sharedPath) == 1 && looksGreen(centerPixel(in: remaining)),
               "s12-other-consumer-keeps-the-shared-producer-alive")
         check(placeholderVisible(in: withdrawn), "s12-removed-consumer-does-not-receive-shared-result")
@@ -724,15 +765,18 @@ enum Harness {
         precondition(waitFor(timeout: 3) { !placeholderVisible(in: withdrawn) })
         let shownImage = firstSubview(of: withdrawn) { $0 is VideoLibraryInspectorPreviewSurfaceView }
         withdrawn.removeFromSuperview()
+        let registrationsBeforeCompletedRemount = demandProbe.registrationCount(sharedPath)
         container.addSubview(withdrawn); withdrawn.layoutSubtreeIfNeeded()
         check(!placeholderVisible(in: withdrawn) && demandProbe.loadCount(sharedPath) == 1
+            && demandProbe.registrationCount(sharedPath) == registrationsBeforeCompletedRemount
             && shownImage === firstSubview(of: withdrawn) { $0 is VideoLibraryInspectorPreviewSurfaceView },
-              "s12-remount-reacquires-without-clearing-or-decoding-current-image")
+              "s12-completed-remount-keeps-current-image-without-new-demand-or-decoding")
         withdrawn.removeFromSuperview(); remaining.removeFromSuperview()
 
         let releasedPath = root.appendingPathComponent("released-inspector.jpg").path
         writeJPEG(releasedPath, red: 0.8, green: 0.1, blue: 0.2, width: 24, height: 24)
         let releasedManager = WallpaperManager()
+        let releasedBlocker = blockSources("released-blocker-\(UUID().uuidString)")
         weak var releasedDemandView: VideoLibraryInspectorView?
         autoreleasepool {
             let value = makeDemandView(releasedPath, manager: releasedManager)
@@ -740,6 +784,7 @@ enum Harness {
             precondition(waitFor(timeout: 3) { demandProbe.registrationCount(releasedPath) == 1 })
             value.removeFromSuperview()
         }
+        releasedBlocker()
         drain(0.05)
         check(releasedDemandView == nil && demandProbe.allRegistrationsCancelled(releasedPath),
               "s12-released-view-cancels-its-registered-consumer")
@@ -751,11 +796,43 @@ enum Harness {
         metadataManager.wallpapers = [metadataWallpaper]
         metadataManager.setResolvedThumbnail(thumbGreen, for: metadataPath)
         InspectorMetadataProbe.heldPaths.insert(metadataPath)
+        InspectorContentBuildProbe.bodiesByView.removeAll()
         let metadataView = VideoLibraryInspectorView(wallpaper: metadataWallpaper, wallpaperManager: metadataManager, libraryActions: previewActions)
+        let metadataIdentity = ObjectIdentifier(metadataView)
+        let beforeFirstMount = InspectorContentBuildProbe.bodiesByView[metadataIdentity, default: 0]
         container.addSubview(metadataView); metadataView.frame = container.bounds
         precondition(waitFor(timeout: 3) { InspectorMetadataProbe.pending[metadataPath]?.count == 1 })
+        drain(0.03)
         check(InspectorMetadataProbe.starts[metadataPath] == 1,
               "s13-first-mount-does-not-duplicate-inflight-metadata")
+        check(beforeFirstMount == 1 && InspectorContentBuildProbe.bodiesByView[metadataIdentity] == beforeFirstMount,
+              "s17-subscription-initial-value-does-not-rebuild-mounted-template")
+        let beforeFirstPublication = InspectorContentBuildProbe.bodiesByView[metadataIdentity, default: 0]
+        let firstPublished = VideoWallpaper(id: metadataWallpaper.id, title: "First real publication", path: metadataPath,
+            thumbnailPath: thumbBlue)
+        metadataManager.setResolvedThumbnail(thumbBlue, for: metadataPath)
+        metadataManager.wallpapers = [firstPublished]
+        check(waitFor(timeout: 3) {
+            firstSubview(of: metadataView) { ($0 as? NSTextField)?.stringValue == firstPublished.title } != nil
+                && looksBlue(centerPixel(in: metadataView))
+        } && InspectorContentBuildProbe.bodiesByView[metadataIdentity] == beforeFirstPublication
+            && InspectorMetadataProbe.starts[metadataPath] == 1 && InspectorMetadataProbe.terminals[metadataPath] == nil,
+              "s17-first-real-publication-updates-body-and-preview-while-metadata-is-held")
+        let beforeIdenticalPublication = InspectorContentBuildProbe.bodiesByView[metadataIdentity, default: 0]
+        metadataManager.wallpapers = [firstPublished]
+        drain(0.03)
+        check(InspectorContentBuildProbe.bodiesByView[metadataIdentity] == beforeIdenticalPublication,
+              "s17-later-identical-model-publication-still-refreshes-external-assets")
+        try! FileManager.default.removeItem(atPath: metadataPath)
+        metadataManager.wallpapers = [firstPublished]
+        check(waitFor(timeout: 3) { firstSubview(of: metadataView) {
+            ($0 as? NSTextField)?.stringValue.contains("源文件不存在") == true && !$0.isHiddenOrHasHiddenAncestor } != nil },
+            "s18-identical-publication-detects-actual-source-removal")
+        try! Data("restored-owned-source".utf8).write(to: URL(fileURLWithPath: metadataPath))
+        metadataManager.wallpapers = [firstPublished]
+        check(waitFor(timeout: 3) { firstSubview(of: metadataView) {
+            ($0 as? NSTextField)?.stringValue.contains("源文件不存在") == true && !$0.isHiddenOrHasHiddenAncestor } == nil },
+            "s18-identical-publication-clears-notice-after-source-recovery")
         metadataView.removeFromSuperview()
         container.addSubview(metadataView); metadataView.layoutSubtreeIfNeeded()
         precondition(waitFor(timeout: 3) { InspectorMetadataProbe.pending[metadataPath]?.count == 2 })
@@ -771,6 +848,8 @@ enum Harness {
               "s13-completed-metadata-remount-does-not-reread")
         metadataView.removeFromSuperview()
 
+        let contentBuilds = ["initial": initialContentBuilds, "firstFinal": InspectorContentBuildProbe.finalBodies[videoA]?.first ?? -1]
+        print("CONTENT BUILDS " + String(data: try! JSONEncoder().encode(contentBuilds), encoding: .utf8)!)
         print("PREVIEW LOOKUPS " + String(data: try! JSONEncoder().encode(previewLookupWork), encoding: .utf8)!)
         if failureNames.isEmpty {
             print("ALL SCENARIOS PASS")
@@ -778,4 +857,6 @@ enum Harness {
             print("FAILED: \(failureNames.joined(separator: ","))")
         }
     }
+
+
 }

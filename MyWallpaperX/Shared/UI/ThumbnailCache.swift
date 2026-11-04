@@ -51,20 +51,14 @@ nonisolated enum ThumbnailCacheRequestPriority: Int, Comparable, Sendable {
 /// 线程安全：并发读写通过 NSLock 保护 in-flight 表，解码图 LRU 自身线程安全。
 nonisolated final class ThumbnailCache: @unchecked Sendable {
 
-    /// 缓存容量（最大图片数量）
-    private let countLimit: Int
-
-    /// 内存缓存总字节上限（按已解码位图的像素字节数计）
-    private let totalCostLimit: Int
-
     /// 磁盘缓存 namespace：同一缓存根目录下按 `<ns>/` 子目录隔离，
     /// 「清除缓存」可按 namespace 实例级清空，不再整根互殃。
     private let namespace: String
     private let writeEncodedData: @Sendable (Data, URL) throws -> Void
 
-    /// 失败负缓存（可选，默认关闭，仅作用于 load(forKey:loader:completion:)）：
-    /// loader 返回 nil 时记录结论，重复加载直接回 nil，避免损坏内容反复触发 IO/解码。
-    /// 调用方需让键携带内容指纹（如 mtime+size），内容变化后自然换新键。
+    /// 失败负缓存（可选，默认关闭）：输入解码或异步图像生成失败后复用 nil，避免重复 IO/解码。
+    /// 指纹键随内容变化失效；SIL 使用路径键，由 Provider 核对失败来源签名。
+    /// 源变化或原失败来源未知时，Provider 撤销旧失败，使实际需求重新解码。
     private let failureCache: NSCache<NSString, NSNumber>?
 
     private let decodeQueue: DispatchQueue
@@ -72,8 +66,12 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
     private let sourceQueue: DispatchQueue
     private let maintenanceQueue: DispatchQueue
     private let imageCache: DecodedThumbnailMemoryCache
-    private enum RequestKey: Hashable { case image(String), raw(String) }
+    private enum RequestKey: Hashable { case image(String, ThumbnailRequest? = nil, Data? = nil), raw(String) }
+    private enum SourcePublication {
+        case none, required(@Sendable () async -> Bool), published
+    }
     private final class Request: @unchecked Sendable {
+        var sourcePublication = SourcePublication.none
         var consumers: [UUID: ThumbnailCacheRequestPriority] = [:]
         var pinnedPriority: ThumbnailCacheRequestPriority?
         var priority: ThumbnailCacheRequestPriority {
@@ -84,6 +82,7 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
         var sourceDataKey: String?
         var onPriorityPromotion: (@Sendable () -> Void)?
         var task: Task<Void, Never>?
+        var publishedImage: NSImage?
         var imageCompletions: [UUID: (NSImage?) -> Void] = [:]
         var rawCompletions: [UUID: (Data?) -> Void] = [:]
     }
@@ -158,8 +157,6 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
          namespace: String,
          usesFailureCache: Bool = false,
          writeEncodedData: @escaping @Sendable (Data, URL) throws -> Void = { try $0.write(to: $1) }) {
-        self.countLimit = countLimit
-        self.totalCostLimit = totalCostLimit
         self.namespace = namespace
         self.writeEncodedData = writeEncodedData
         self.failureCache = usesFailureCache ? NSCache<NSString, NSNumber>() : nil
@@ -175,99 +172,146 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
     // MARK: - 公开接口
 
     /// Memory hits deliver synchronously. Short disk reads never wait behind
-    /// a slow synchronous video generator. A nil cancellation pins legacy work.
+    /// media generation. A nil cancellation pins its shared work.
     /// cachesFailure controls negative lookup/creation; a successful cached
     /// image still retires an older failure for the same key.
     func load(
         forKey key: String,
+        request target: ThumbnailRequest? = nil,
         priority: ThumbnailCacheRequestPriority = .visible,
         cancellation: (any ThumbnailCacheLoadCancellation)? = nil,
         cachesFailure: Bool = true,
-        loader: @escaping () -> NSImage?,
+        input: ThumbnailInput,
         completion: @escaping (NSImage?) -> Void
     ) {
-        loadSynchronously(forKey: key, priority: priority, cancellation: cancellation,
-            cachesFailure: cachesFailure, decoder: Self.decodeStoredImage, generate: {
-                (loader(), nil)
-            }, completion: completion)
-    }
-
-    /// One media-generation slot spans callback, encoding and publication. A
-    /// decoded image is never parked outside that slot in a congested decode lane.
-    func loadImageAsync(
-        forKey key: String,
-        priority: ThumbnailCacheRequestPriority = .visible,
-        cancellation: (any ThumbnailCacheLoadCancellation)? = nil,
-        loader: @escaping @Sendable () async -> NSImage?,
-        completion: @escaping (NSImage?) -> Void
-    ) {
-        guard let request = beginImageRequest(key: key, priority: priority,
-                cancellation: cancellation, checksFailure: true, completion: completion) else { return }
-        enqueue(key: .image(key), request: request, lane: .decode) { [self] done in
+        guard let request = beginImageRequest(key: key, target: target, priority: priority,
+                cancellation: cancellation, checksFailure: cachesFailure, completion: completion) else { return }
+        enqueue(key: .image(key, target), request: request, lane: .decode) { [self] done in
             defer { done() }
             let outputURL = diskCacheURL(for: key)
-            if let image = storedImage(at: outputURL, decoder: Self.decodeStoredImage) {
-                finishImageRequest(request, key: key, outputURL: outputURL, image: image)
+            if let image = storedImage(at: outputURL, decoder: { GridThumbnailDecoder.decodeStoredImage($0, request: target) }) {
+                finishImageRequest(request, key: key, outputURL: outputURL, image: image, target: target)
                 return
             }
-            enqueue(key: .image(key), request: request, lane: .generation) { [self] generated in
-                let task = Task { [self] in
-                    guard !Task.isCancelled, self.isCurrent(request, key: .image(key)) else { generated(); return }
-                    let image = await loader()
-                    guard !Task.isCancelled, self.isCurrent(request, key: .image(key)) else { generated(); return }
-                    let priority = self.currentPriority(request, key: .image(key))
-                    self.generationQueue.async(qos: priority == .visible ? .userInitiated : .utility) { [self] in
-                        // This handoff is not removable from pendingDecode.
-                        // Even after cancellation it runs and returns its slot.
-                        defer { generated() }
-                        guard isCurrent(request, key: .image(key)) else { return }
-                        finishImageRequest(request, key: key, outputURL: outputURL, image: image,
-                            encodedData: image.flatMap(Self.jpegData), cachesFailure: true)
-                    }
-                }
-                install(task: task, request: request, key: .image(key))
+            enqueue(key: .image(key, target), request: request, lane: .source) { [self] sourceFinished in
+                defer { sourceFinished() }
+                guard isCurrent(request, key: .image(key, target)) else { return }
+                let image = GridThumbnailDecoder.decodeInput(input, request: target)
+                finishImageRequest(request, key: key, outputURL: outputURL, image: image, target: target,
+                    encodedData: input.persistsImage ? image.flatMap { Self.jpegData($0.image) } : nil,
+                    cachesFailure: cachesFailure)
             }
         }
     }
 
-    /// Retains encoded animation bytes rather than converting them to JPEG.
-    func loadImageData(
+    /// The hook is one successful-source publication action, shared by joiners.
+    /// Registration is synchronous; preparation never acquires a source slot.
+    func prepare(
+        _ data: Data,
         forKey key: String,
+        request target: ThumbnailRequest? = nil,
         priority: ThumbnailCacheRequestPriority = .visible,
-        cancellation: (any ThumbnailCacheLoadCancellation)? = nil,
-        loader: @escaping () -> Data?,
-        decoder: @escaping (Data) -> NSImage? = { NSImage(data: $0) },
-        completion: @escaping (NSImage?) -> Void
-    ) {
-        loadSynchronously(forKey: key, priority: priority, cancellation: cancellation,
-            cachesFailure: false, decoder: decoder, generate: {
-                guard let data = loader(), let image = decoder(data) else { return (nil, nil) }
-                return (image, data)
-            }, completion: completion)
+        beforePublication: (@Sendable () async -> Bool)? = nil
+    ) -> AsyncStream<NSImage?> {
+        let signature = Data(SHA256.hash(data: data))
+        return AsyncStream(bufferingPolicy: .bufferingNewest(1)) { continuation in
+            let cancellation = ThumbnailCacheRequestCancellation()
+            continuation.onTermination = { _ in cancellation.cancel() }
+            let complete: (NSImage?) -> Void = { image in
+                cancellation.clearCancellationHandler()
+                if !cancellation.cancelled { continuation.yield(image); continuation.finish() }
+            }
+            let cached = imageCache.object(forKey: key as NSString, request: target, signature: signature)
+                ?? inFlightReadyImage(key: key, target: target, signature: signature)
+            if let cached, beforePublication == nil { complete(cached); return }
+            guard let request = registerImageRequest(key: key, target: target, signature: signature,
+                priority: priority, cancellation: cancellation, beforePublication: beforePublication,
+                completion: complete) else { return }
+            let requestKey = RequestKey.image(key, target, signature)
+            if let cached {
+                publishPreparation(request, key: requestKey, hasImage: true) { accepted in
+                    self.finishCachedImageRequest(request, key: requestKey, image: accepted ? cached : nil)
+                }
+            } else {
+                enqueue(key: requestKey, request: request, lane: .decode) { [self] done in
+                    let image = autoreleasepool { GridThumbnailDecoder.decodeInput(.sourceData(data), request: target) }
+                    publishPreparation(request, key: requestKey, hasImage: image != nil, done: done) { accepted in
+                        self.finishImageRequest(request, key: key, outputURL: nil,
+                            image: accepted ? image : nil, target: target, signature: signature)
+                    }
+                }
+            }
+        }
     }
 
-    private func loadSynchronously(
-        forKey key: String, priority: ThumbnailCacheRequestPriority,
-        cancellation: (any ThumbnailCacheLoadCancellation)?, cachesFailure: Bool,
-        decoder: @escaping (Data) -> NSImage?,
-        generate: @escaping () -> (NSImage?, Data?),
+    private func publishPreparation(_ request: Request, key: RequestKey, hasImage: Bool,
+                                    done: @escaping @Sendable () -> Void = {},
+                                    finish: @escaping (Bool) -> Bool) {
+        let task = Task { [self] in
+            defer { done() }
+            var accepted = true
+            // none can upgrade to required once; taking it marks published.
+            // finish atomically rejects a late upgrade, so at most two passes run.
+            while !Task.isCancelled, isCurrent(request, key: key) {
+                if hasImage, let publish = takeSourcePublication(request, key: key) { accepted = await publish() }
+                if finish(accepted) { return }
+            }
+        }
+        install(task: task, request: request, key: key)
+    }
+
+    private func takeSourcePublication(_ request: Request, key: RequestKey) -> (@Sendable () async -> Bool)? {
+        lock.lock(); defer { lock.unlock() }
+        guard requests[key] === request, case .required(let publish) = request.sourcePublication else { return nil }
+        request.sourcePublication = .published
+        return publish
+    }
+
+    private func finishCachedImageRequest(_ request: Request, key: RequestKey, image: NSImage?) -> Bool {
+        lock.lock()
+        guard requests[key] === request else { lock.unlock(); return false }
+        if image != nil, case .required = request.sourcePublication { lock.unlock(); return false }
+        let completions = retireImageLocked(request, key: key)
+        lock.unlock()
+        completions.forEach { $0(image) }
+        return true
+    }
+
+    /// One generation slot spans the source callback, composition and publication.
+    func loadImageAsync(
+        forKey key: String,
+        request target: ThumbnailRequest? = nil,
+        priority: ThumbnailCacheRequestPriority = .visible,
+        cancellation: (any ThumbnailCacheLoadCancellation)? = nil,
+        loader: @escaping @Sendable () async -> ThumbnailInput?,
         completion: @escaping (NSImage?) -> Void
     ) {
-        guard let request = beginImageRequest(key: key, priority: priority,
-                cancellation: cancellation, checksFailure: cachesFailure, completion: completion) else { return }
-        enqueue(key: .image(key), request: request, lane: .decode) { [self] done in
+        guard let request = beginImageRequest(key: key, target: target, priority: priority,
+                cancellation: cancellation, checksFailure: true, completion: completion) else { return }
+        enqueue(key: .image(key, target), request: request, lane: .decode) { [self] done in
             defer { done() }
             let outputURL = diskCacheURL(for: key)
-            if let image = storedImage(at: outputURL, decoder: decoder) {
-                finishImageRequest(request, key: key, outputURL: outputURL, image: image)
+            if let image = storedImage(at: outputURL, decoder: { GridThumbnailDecoder.decodeStoredImage($0, request: target) }) {
+                finishImageRequest(request, key: key, outputURL: outputURL, image: image, target: target)
                 return
             }
-            enqueue(key: .image(key), request: request, lane: .generation) { [self] generated in
-                defer { generated() }
-                guard isCurrent(request, key: .image(key)) else { return }
-                let (image, data) = generate()
-                finishImageRequest(request, key: key, outputURL: outputURL, image: image,
-                    encodedData: data ?? image.flatMap(Self.jpegData), cachesFailure: cachesFailure)
+            enqueue(key: .image(key, target), request: request, lane: .generation) { [self] generated in
+                let task = Task { [self] in
+                    guard !Task.isCancelled, self.isCurrent(request, key: .image(key, target)) else { generated(); return }
+                    let input = await loader()
+                    guard !Task.isCancelled, self.isCurrent(request, key: .image(key, target)) else { generated(); return }
+                    let priority = self.currentPriority(request, key: .image(key, target))
+                    self.generationQueue.async(qos: priority == .visible ? .userInitiated : .utility) { [self] in
+                        // This handoff always runs, including after the final consumer cancels.
+                        defer { generated() }
+                        guard isCurrent(request, key: .image(key, target)) else { return }
+                        let image = input.flatMap { GridThumbnailDecoder.decodeInput($0, request: target) }
+                        finishImageRequest(request, key: key, outputURL: outputURL, image: image, target: target,
+                            encodedData: input?.persistsImage == true ? image.flatMap { Self.jpegData($0.image) } : nil,
+                            cachesFailure: true)
+                    }
+                }
+                install(task: task, request: request, key: .image(key, target))
             }
         }
     }
@@ -276,6 +320,7 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
     /// decode lane, so an actor/Task hop cannot silently create unbounded decode.
     func loadImageDataAsync(
         forKey key: String,
+        request target: ThumbnailRequest? = nil,
         sourceDataKey: String? = nil,
         priority: ThumbnailCacheRequestPriority = .visible,
         onPriorityPromotion: (@Sendable () -> Void)? = nil,
@@ -284,7 +329,7 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
         cancellation: (any ThumbnailCacheLoadCancellation)? = nil,
         completion: @escaping (NSImage?) -> Void
     ) {
-        loadImageDataAsync(forKey: key, sourceDataKey: sourceDataKey, priority: priority,
+        loadImageDataAsync(forKey: key, request: target, sourceDataKey: sourceDataKey, priority: priority,
             onPriorityPromotion: onPriorityPromotion, loader: { _ in await loader() },
             decoder: decoder, cancellation: cancellation, completion: completion)
     }
@@ -294,6 +339,7 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
     /// covers visible consumers joining after downstream registration.
     func loadImageDataAsync(
         forKey key: String,
+        request target: ThumbnailRequest? = nil,
         sourceDataKey: String? = nil,
         priority: ThumbnailCacheRequestPriority = .visible,
         onPriorityPromotion: (@Sendable () -> Void)? = nil,
@@ -302,41 +348,41 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
         cancellation: (any ThumbnailCacheLoadCancellation)? = nil,
         completion: @escaping (NSImage?) -> Void
     ) {
-        guard let request = beginImageRequest(key: key, priority: priority,
+        guard let request = beginImageRequest(key: key, target: target, priority: priority,
                 cancellation: cancellation, sourceDataKey: sourceDataKey,
                 onPriorityPromotion: onPriorityPromotion, completion: completion) else { return }
-        enqueue(key: .image(key), request: request, lane: .decode) { [self] done in
+        enqueue(key: .image(key, target), request: request, lane: .decode) { [self] done in
             defer { done() }
             let outputURL = diskCacheURL(for: key)
-            if let image = storedImage(at: outputURL, decoder: decoder) {
-                finishImageRequest(request, key: key, outputURL: outputURL, image: image)
+            if let image = storedImage(at: outputURL, decoder: { decoder($0).flatMap { GridThumbnailDecoder.Image($0, nativeSize: nil) } }) {
+                finishImageRequest(request, key: key, outputURL: outputURL, image: image, target: target)
                 return
             }
             let sourceDataURL = sourceDataKey.map { diskCacheURL(for: $0) }
-            if let sourceDataURL, let image = storedImage(at: sourceDataURL, decoder: decoder) {
-                finishImageRequest(request, key: key, outputURL: outputURL, image: image, encodedData: Self.pngData(image))
+            if let sourceDataURL, let image = storedImage(at: sourceDataURL, decoder: { decoder($0).flatMap { GridThumbnailDecoder.Image($0, nativeSize: nil) } }) {
+                finishImageRequest(request, key: key, outputURL: outputURL, image: image, target: target, encodedData: Self.pngData(image.image))
                 return
             }
-            enqueue(key: .image(key), request: request, lane: .source) { [self] sourceFinished in
+            enqueue(key: .image(key, target), request: request, lane: .source) { [self] sourceFinished in
                 let task = Task { [self] in
                     var transferred = false
                     defer { if !transferred { sourceFinished() } }
                     guard !Task.isCancelled else { return }
                     let data = await loader { [weak self, request] in
-                        self?.currentPriority(request, key: .image(key)) ?? .prefetch
+                        self?.currentPriority(request, key: .image(key, target)) ?? .prefetch
                     }
-                    guard !Task.isCancelled, self.isCurrent(request, key: .image(key)) else { return }
+                    guard !Task.isCancelled, self.isCurrent(request, key: .image(key, target)) else { return }
                     transferred = true
-                    self.enqueue(key: .image(key), request: request, lane: .decode,
+                    self.enqueue(key: .image(key, target), request: request, lane: .decode,
                             onAbandon: sourceFinished) { [self] decoded in
                         defer { decoded(); sourceFinished() }
-                        let image = data.flatMap(decoder)
-                        finishImageRequest(request, key: key, outputURL: outputURL, image: image,
-                            encodedData: sourceDataKey == nil ? (image == nil ? nil : data) : image.flatMap(Self.pngData),
-                            sourceData: image == nil ? nil : data, sourceDataURL: sourceDataURL)
+                        let image = data.flatMap(decoder).flatMap { GridThumbnailDecoder.Image($0, nativeSize: nil) }
+                        finishImageRequest(request, key: key, outputURL: outputURL, image: image, target: target,
+                            encodedData: sourceDataKey == nil ? nil : image.flatMap { Self.pngData($0.image) },
+                            sourceData: image == nil ? nil : data, sourceDataURL: sourceDataURL ?? outputURL)
                     }
                 }
-                install(task: task, request: request, key: .image(key))
+                install(task: task, request: request, key: .image(key, target))
             }
         }
     }
@@ -344,37 +390,58 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
     /// Registers every image path with the same request owner. Only the creator
     /// receives a request to start; joining consumers update its pending priority.
     private func beginImageRequest(
-        key: String, priority: ThumbnailCacheRequestPriority,
+        key: String, target: ThumbnailRequest? = nil, priority: ThumbnailCacheRequestPriority,
         cancellation: (any ThumbnailCacheLoadCancellation)?,
         sourceDataKey: String? = nil, checksFailure: Bool = false,
         onPriorityPromotion: (@Sendable () -> Void)? = nil,
         completion: @escaping (NSImage?) -> Void
     ) -> Request? {
         guard cancellation?.cancelled != true else { return nil }
-        if let cached = imageCache.object(forKey: key as NSString) { completion(cached); return nil }
+        if let cached = cachedImage(forKey: key, request: target) { completion(cached); return nil }
         if checksFailure, failureCache?.object(forKey: key as NSString) != nil { completion(nil); return nil }
-        let consumer = UUID()
         let deliver: (NSImage?) -> Void = { image in
-            cancellation?.clearCancellationHandler()
-            if cancellation?.cancelled != true { completion(image) }
+            DispatchQueue.main.async {
+                cancellation?.clearCancellationHandler()
+                if cancellation?.cancelled != true { completion(image) }
+            }
         }
+        return registerImageRequest(key: key, target: target, priority: priority,
+            cancellation: cancellation, sourceDataKey: sourceDataKey,
+            onPriorityPromotion: onPriorityPromotion, completion: deliver)
+    }
+
+    private func registerImageRequest(
+        key: String, target: ThumbnailRequest?, signature: Data? = nil, priority: ThumbnailCacheRequestPriority,
+        cancellation: (any ThumbnailCacheLoadCancellation)?, sourceDataKey: String? = nil,
+        onPriorityPromotion: (@Sendable () -> Void)? = nil,
+        beforePublication: (@Sendable () async -> Bool)? = nil,
+        completion: @escaping (NSImage?) -> Void
+    ) -> Request? {
+        let consumer = UUID()
+        let requestKey = RequestKey.image(key, target, signature)
         lock.lock()
-        let startsProducer = requests[.image(key)] == nil
-        let request = requests[.image(key)] ?? Request()
+        if let previous = requests[requestKey], previous.publishedImage != nil {
+            _ = retireImageLocked(previous, key: requestKey)
+        }
+        let startsProducer = requests[requestKey] == nil
+        let request = requests[requestKey] ?? Request()
         if startsProducer {
             request.sourceDataKey = sourceDataKey
             request.onPriorityPromotion = onPriorityPromotion
-            requests[.image(key)] = request
+            requests[requestKey] = request
+        }
+        if let beforePublication, case .none = request.sourcePublication {
+            request.sourcePublication = .required(beforePublication)
         }
         let previousPriority = request.priority
-        request.imageCompletions[consumer] = deliver
+        request.imageCompletions[consumer] = completion
         register(consumer: consumer, priority: priority, cancellation: cancellation, request: request)
         let promotion = !startsProducer && previousPriority == .prefetch && request.priority == .visible
             ? request.onPriorityPromotion : nil
         lock.unlock()
         promotion?()
         cancellation?.installCancellationHandler { [weak self] in
-            self?.detachConsumer(consumer, key: .image(key), request: request)
+            self?.detachConsumer(consumer, key: requestKey, request: request)
         }
         return startsProducer ? request : nil
     }
@@ -405,6 +472,7 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
         pendingSource.removeAll { $0.request === request }
         let task = request.task
         request.task = nil
+        request.publishedImage = nil
         lock.unlock()
         task?.cancel()
         abandoned.forEach { $0() }
@@ -426,8 +494,8 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
         else { lock.unlock(); task.cancel() }
     }
 
-    /// Two short IO/decode slots, one media-generation slot, and four async
-    /// sources (matching Steam's visible HTTP cap, at most two admitted as
+    /// Two short IO/decode slots, one media-generation slot, and four sources
+    /// (known inputs or async acquisition, at most two admitted as
     /// prefetch). Admission class stays fixed when consumer priority changes;
     /// running work is not preempted if its visible consumer leaves. Pending
     /// selection uses current priority. Slots span decode/publication too.
@@ -497,45 +565,76 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
         }
     }
 
-    private func storedImage(at url: URL, decoder: (Data) -> NSImage?) -> NSImage? {
+    private func storedImage(at url: URL, decoder: (Data) -> GridThumbnailDecoder.Image?) -> GridThumbnailDecoder.Image? {
         guard let data = try? Data(contentsOf: url) else { return nil }
         return decoder(data)
     }
 
     @discardableResult
-    private func finishImageRequest(_ request: Request, key: String, outputURL: URL, image: NSImage?,
+    private func finishImageRequest(_ request: Request, key: String, outputURL: URL?,
+                                    image: GridThumbnailDecoder.Image?, target: ThumbnailRequest? = nil, signature: Data? = nil,
                                     encodedData: @autoclosure () -> Data? = nil, sourceData: Data? = nil, sourceDataURL: URL? = nil,
                                     cachesFailure: Bool = false) -> Bool {
+        let requestKey = RequestKey.image(key, target, signature)
         lock.lock()
-        guard requests[.image(key)] === request else { lock.unlock(); return false }
+        guard requests[requestKey] === request else { lock.unlock(); return false }
+        if image != nil, case .required = request.sourcePublication { lock.unlock(); return false }
         let allowsCaching = request.allowsCaching
         lock.unlock()
-        let staged = allowsCaching ? stageEncodedData(encodedData()) : nil
+        let display = image.flatMap { GridThumbnailDecoder.render($0, request: target) }
+        let displayImage = display?.image
         let rawStaged = allowsCaching ? stageEncodedData(sourceDataURL == nil ? nil : sourceData) : nil
+        var staged = display == nil && allowsCaching ? stageEncodedData(encodedData()) : nil
         defer {
             if let staged { try? FileManager.default.removeItem(at: staged) }
             if let rawStaged { try? FileManager.default.removeItem(at: rawStaged) }
         }
         lock.lock()
-        guard requests[.image(key)] === request else { lock.unlock(); return false }
+        guard requests[requestKey] === request else { lock.unlock(); return false }
+        if display != nil, case .required = request.sourcePublication { lock.unlock(); return false }
         if request.allowsCaching {
-            if let staged { _ = rename(staged.path, outputURL.path) }
             if let rawStaged, let sourceDataURL { _ = rename(rawStaged.path, sourceDataURL.path) }
-            if let image {
+            if let staged, let outputURL { _ = rename(staged.path, outputURL.path) }
+            if let display {
                 failureCache?.removeObject(forKey: key as NSString)
-                imageCache.setObject(image, forKey: key as NSString, cost: Self.memoryCost(of: image))
+                imageCache.setObject(display.image, forKey: key as NSString, cost: display.cost,
+                    pixels: display.pixels, nativeSize: display.nativeSize, crop: display.crop, signature: signature,
+                    preservingCompatibleResults: true)
             } else if cachesFailure { failureCache?.setObject(NSNumber(value: true), forKey: key as NSString) }
         }
+        let completions: [(NSImage?) -> Void]
+        if display != nil {
+            request.publishedImage = displayImage
+            completions = Array(request.imageCompletions.values)
+            request.imageCompletions.removeAll()
+        } else {
+            completions = retireImageLocked(request, key: requestKey)
+        }
+        lock.unlock()
+        completions.forEach { $0(displayImage) }
+        if display != nil {
+            lock.lock()
+            let allowsPersistence = requests[requestKey] === request && request.allowsCaching
+            lock.unlock()
+            if allowsPersistence { staged = stageEncodedData(encodedData()) }
+            lock.lock()
+            if requests[requestKey] === request {
+                if request.allowsCaching, let staged, let outputURL { _ = rename(staged.path, outputURL.path) }
+                _ = retireImageLocked(request, key: requestKey)
+            }
+            lock.unlock()
+        }
+        if staged != nil || rawStaged != nil { DispatchQueue.main.async { self.scheduleMaintenance() } }
+        return true
+    }
+
+    private func retireImageLocked(_ request: Request, key: RequestKey) -> [(NSImage?) -> Void] {
         let completions = Array(request.imageCompletions.values)
         request.imageCompletions.removeAll()
-        requests.removeValue(forKey: .image(key))
+        requests.removeValue(forKey: key)
         request.task = nil
-        lock.unlock()
-        DispatchQueue.main.async { [self] in
-            completions.forEach { $0(image) }
-            if staged != nil || rawStaged != nil { scheduleMaintenance() }
-        }
-        return true
+        request.publishedImage = nil
+        return completions
     }
 
     /// Original animated bytes stay on disk and are not retained as NSImage.
@@ -632,9 +731,10 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
 
     /// Explicitly clear this namespace as one transaction. Existing consumers
     /// still finish, while their old producers cannot refill any cache tier.
-    func clearAll(completion: (@Sendable () -> Void)? = nil) {
+    func clearAll(cancelInFlight: Bool = false, completion: (@Sendable () -> Void)? = nil) {
         lock.lock()
         for request in requests.values { request.allowsCaching = false }
+        let retire = cancelInFlight ? retireRequestsLocked(Array(requests.keys)) : {}
         imageCache.removeAllObjects()
         failureCache?.removeAllObjects()
         // Only constant-time same-volume metadata changes share publication's
@@ -643,6 +743,7 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
         let detached = rename(diskCacheDir.path, retired.path) == 0
         try? FileManager.default.createDirectory(at: diskCacheDir, withIntermediateDirectories: true)
         lock.unlock()
+        retire()
         maintenanceQueue.async {
             if detached { try? FileManager.default.removeItem(at: retired) }
             if let completion { DispatchQueue.main.async(execute: completion) }
@@ -654,23 +755,76 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
         defer { lock.unlock() }
         // Existing consumers may finish their shared fetch, but it cannot
         // repopulate an explicitly invalidated cache after this deletion.
-        requests[.image(key)]?.allowsCaching = false
-        requests[.raw(key)]?.allowsCaching = false
-        for request in requests.values where request.sourceDataKey == key { request.allowsCaching = false }
+        for (requestKey, request) in requests {
+            switch requestKey {
+            case .image(let source, _, _), .raw(let source):
+                if source == key || request.sourceDataKey == key { request.allowsCaching = false }
+            }
+        }
         imageCache.removeObject(forKey: key as NSString)
         failureCache?.removeObject(forKey: key as NSString)
         try? FileManager.default.removeItem(at: diskCacheURL(for: key))
     }
 
+    /// Scope invalidation only retires matching image requests and ready pixels.
+    func removeImages(withKeyPrefix prefix: String, cancelInFlight: Bool = false) {
+        lock.lock()
+        let keys = requests.keys.filter {
+            if case .image(let source, _, _) = $0 { return source.hasPrefix(prefix) }
+            return false
+        }
+        for key in keys { requests[key]?.allowsCaching = false }
+        let retire = cancelInFlight ? retireRequestsLocked(keys) : {}
+        imageCache.removeObjects(withKeyPrefix: prefix)
+        lock.unlock()
+        retire()
+    }
+
+    /// Called under the request lock; callbacks and cancellation run outside it.
+    private func retireRequestsLocked(_ keys: [RequestKey]) -> () -> Void {
+        let retired = keys.compactMap { requests.removeValue(forKey: $0) }
+        let identities = Set(retired.map { ObjectIdentifier($0) })
+        var abandoned: [@Sendable () -> Void] = []
+        func remove(_ queue: inout [Work]) {
+            queue.removeAll {
+                guard identities.contains(ObjectIdentifier($0.request)) else { return false }
+                if let handler = $0.onAbandon { abandoned.append(handler) }
+                return true
+            }
+        }
+        remove(&pendingDecode); remove(&pendingGeneration); remove(&pendingSource)
+        let tasks = retired.compactMap { $0.task }
+        let images = retired.flatMap { $0.imageCompletions.values }
+        let raw = retired.flatMap { $0.rawCompletions.values }
+        for request in retired {
+            request.task = nil; request.publishedImage = nil
+            request.imageCompletions.removeAll(); request.rawCompletions.removeAll()
+        }
+        return {
+            tasks.forEach { $0.cancel() }; abandoned.forEach { $0() }
+            images.forEach { $0(nil) }
+            DispatchQueue.main.async { raw.forEach { $0(nil) } }
+        }
+    }
+
     /// 同步读取内存缓存，不触发磁盘 IO。
-    func cachedImage(forKey key: String) -> NSImage? {
-        imageCache.object(forKey: key as NSString)
+    func cachedImage(forKey key: String, request: ThumbnailRequest? = nil) -> NSImage? {
+        imageCache.object(forKey: key as NSString, request: request)
+            ?? inFlightReadyImage(key: key, target: request)
+    }
+
+    private func inFlightReadyImage(key: String, target: ThumbnailRequest?, signature: Data? = nil) -> NSImage? {
+        lock.lock(); defer { lock.unlock() }
+        guard let request = requests[.image(key, target, signature)], request.allowsCaching else { return nil }
+        return request.publishedImage
     }
 
     /// A completed image or negative result is warm; an invalidated producer's
     /// uncached nil is retryable. This query never reads disk or starts work.
-    func hasCachedResult(forKey key: String) -> Bool {
-        imageCache.object(forKey: key as NSString) != nil || failureCache?.object(forKey: key as NSString) != nil
+    func hasCachedResult(forKey key: String, request: ThumbnailRequest? = nil) -> Bool {
+        imageCache.containsObject(forKey: key as NSString, request: request)
+            || inFlightReadyImage(key: key, target: request) != nil
+            || failureCache?.object(forKey: key as NSString) != nil
     }
 
     func hasCachedFailure(forKey key: String) -> Bool {
@@ -759,19 +913,6 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
         let hash = SHA256.hash(data: Data(key.utf8))
             .compactMap { String(format: "%02x", $0) }.joined()
         return diskCacheDir.appendingPathComponent(hash).appendingPathExtension("jpg")
-    }
-
-    /// 按已解码位图的像素字节数执行 LRU 字节上限淘汰。
-    private static func memoryCost(of image: NSImage) -> Int {
-        guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return 0 }
-        return cgImage.bytesPerRow * cgImage.height
-    }
-
-    private static func decodeStoredImage(_ data: Data) -> NSImage? {
-        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
-              let image = CGImageSourceCreateImageAtIndex(source, 0,
-                [kCGImageSourceShouldCacheImmediately: true] as CFDictionary) else { return nil }
-        return NSImage(cgImage: image, size: NSSize(width: image.width, height: image.height))
     }
 
     private static func pngData(_ image: NSImage) -> Data? {

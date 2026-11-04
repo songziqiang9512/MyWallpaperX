@@ -26,7 +26,7 @@ class WallpaperLibraryCellAdapterTests(unittest.TestCase):
             "Core/OnlineImages/OnlineImageModels.swift", "Core/OnlineImages/OnlineImageContentProjection.swift",
             "Shared/Components/ActionMenuItem.swift", "Shared/UI/WallpaperLibrarySheetPresentation.swift",
             "App/WallpaperLibraryCellAdapter.swift", "Shared/Components/WallpaperCardInteractionView.swift",
-            "Shared/UI/WallpaperGridScrollView.swift")]
+            "Shared/ThumbnailRequest.swift", "Shared/UI/GridThumbnailDecoder.swift", "Shared/UI/WallpaperGridScrollView.swift")]
         sources.append(ROOT / "script/tests/fixtures/OnlineImageLibraryAppStub.swift")
         sources.append(ROOT / "script/tests/fixtures/WallpaperLibraryCellAdapterHarness.swift")
         card = ROOT / "MyWallpaperX/Shared/UI/OnlineImageGridItem.swift"
@@ -46,7 +46,7 @@ class WallpaperLibraryCellAdapterTests(unittest.TestCase):
                     target.write_text(fixture)
                 elif source.name == "WallpaperLibraryCellAdapter.swift":
                     actual = source.read_text()
-                    entry = "    private func prefetchAssets(_ content: WallpaperContentItem, source: Source) -> [Data] {"
+                    entry = declaration(actual, "    private func prefetchAssets(").splitlines()[0]
                     self.assertEqual(actual.count(entry), 1)
                     target.write_text(actual.replace(entry, entry + "\n        AdapterPrefetchAssetsProbe.references.append(content.providerReference)", 1))
                 else:
@@ -63,6 +63,20 @@ class WallpaperLibraryCellAdapterTests(unittest.TestCase):
             self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
             checks = json.loads(run.stdout)
             self.assertGreaterEqual(len(checks), 27)
+            for surface in ["mixed", "picker"]:
+                self.assertTrue({f"{surface}-steam-257-backing-pixels-prefetches-512-tier",
+                                 f"{surface}-steam-same-800-tier-geometry-keeps-one-prefetch",
+                                 f"{surface}-steam-same-tier-source-replacement-revokes-old-interest",
+                                 f"{surface}-steam-preview-reload-revokes-same-source-and-tier"}.issubset(checks), checks)
+            self.assertTrue({"steam-synchronous-success-releases-nondisplay-state",
+                             "steam-asynchronous-success-releases-nondisplay-state",
+                             "steam-pending-preview-remains-owned-without-observation-registry",
+                             "steam-nil-presentation-keeps-state-for-original-retry-and-fallback",
+                             "steam-synchronous-eviction-keeps-best-effort-interest-without-decode-loop",
+                             "steam-asynchronous-eviction-keeps-best-effort-interest-without-decode-loop",
+                             "steam-pending-cancel-resets-and-releases-state",
+                             "steam-late-success-on-reset-state-cannot-retire-current-source-interest",
+                             "steam-late-reset-callback-leaves-current-cancel-effective"}.issubset(checks), checks)
             for name, passed in checks.items():
                 with self.subTest(name=name): self.assertIs(passed, True)
         self.assertEqual(hashes, {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in inputs})

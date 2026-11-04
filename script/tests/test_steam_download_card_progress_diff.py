@@ -58,6 +58,7 @@ SOURCES = [
     SHARED_UI / "NSViewExtensions.swift",
     SHARED_UI / "ThumbnailCache.swift",
 ]
+SOURCES.append(ROOT / "MyWallpaperX/Shared/ThumbnailRequest.swift")
 
 SUPPORT = r'''
 import AppKit

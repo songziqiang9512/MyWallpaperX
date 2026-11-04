@@ -5,7 +5,7 @@ private let inspectorHostSlideOutTiming = CAMediaTimingFunction(controlPoints: 0
 
 /// Layout and the existing Inspector host only. Page, selection and source
 /// services are injected by App composition, never inferred from module flags.
-final class AppKitMainSplitViewController: NSSplitViewController {
+final class AppKitMainSplitViewController: NSSplitViewController, WallpaperInspectorCardActionHandling {
     private enum LayoutConstants {
         static let defaultSidebarWidth: CGFloat = 220
         static let splitAutosaveName = "MainSplitViewV2"
@@ -137,6 +137,13 @@ final class AppKitMainSplitViewController: NSSplitViewController {
         )
     }
 
+    @objc func toggleInspectorFromCard(_ sender: NSView) {
+        guard let source = sender as? WallpaperInspectorCardSource else { return }
+        if detailContainerController.isOverlayPresented {
+            NotificationCenter.default.post(name: .inspectorHostCloseRequested, object: nil)
+        } else { source.openInspectorFromCard() }
+    }
+
     private func handleInspectorOpen(_ notification: Notification) {
         guard let request = InspectorHostRequest(userInfo: notification.userInfo) else { return }
         let wasPresented = inspectorStore.isPresented && detailContainerController.isOverlayPresented
@@ -147,16 +154,16 @@ final class AppKitMainSplitViewController: NSSplitViewController {
         }
 
         inspectorStore.present(request)
-        if wasPresented {
-            detailContainerController.updatePresentedPanelWidth(request.preferredWidth)
-        } else {
-            applyInspectorVisibility(isVisible: true, panelWidth: request.preferredWidth)
-        }
         NotificationCenter.default.post(
             name: .inspectorHostDidPresent,
             object: nil,
             userInfo: request.userInfo
         )
+        if wasPresented {
+            detailContainerController.updatePresentedPanelWidth(request.preferredWidth)
+        } else {
+            applyInspectorVisibility(isVisible: true, panelWidth: request.preferredWidth)
+        }
     }
 
     private func handleInspectorClose(_ notification: Notification) {
@@ -287,6 +294,7 @@ private final class InspectorDetailContainerViewController: NSViewController {
         overlayAnimationHostView.layer?.backgroundColor = NSColor.clear.cgColor
 
         view.addSubview(overlayView)
+        overlayView.contentView = contentController.view
         overlayView.addSubview(overlayAnimationHostView)
         overlayAnimationHostView.addSubview(inspectorView)
 
@@ -328,23 +336,25 @@ private final class InspectorDetailContainerViewController: NSViewController {
         onNoticeOcclusionChange?(isVisible ? hostWidth : 0)
 
         if isVisible {
+            if overlayView.isHidden { overlayTrailingConstraint.constant = panelOffset }
             overlayView.isHidden = false
             overlayController.view.isHidden = false
             overlayAnimationHostView.isHidden = false
             overlayView.isActive = true
             overlayWidthConstraint.constant = hostWidth
-            overlayTrailingConstraint.constant = panelOffset
             view.needsLayout = true
+            view.layoutSubtreeIfNeeded()
 
             let animations = {
-                overlayTrailingConstraint.animator().constant = 0
-                self.view.needsLayout = true
+                overlayTrailingConstraint.constant = 0
+                self.view.layoutSubtreeIfNeeded()
             }
 
             if animated {
                 NSAnimationContext.runAnimationGroup { context in
                     context.duration = inspectorHostAnimationDuration
                     context.timingFunction = inspectorHostSlideInTiming
+                    context.allowsImplicitAnimation = true
                     animations()
                 } completionHandler: {
                     completion?()
@@ -377,8 +387,9 @@ private final class InspectorDetailContainerViewController: NSViewController {
             NSAnimationContext.runAnimationGroup { context in
                 context.duration = inspectorHostAnimationDuration
                 context.timingFunction = inspectorHostSlideOutTiming
-                overlayTrailingConstraint.animator().constant = panelOffset
-                view.needsLayout = true
+                context.allowsImplicitAnimation = true
+                overlayTrailingConstraint.constant = panelOffset
+                view.layoutSubtreeIfNeeded()
             } completionHandler: {
                 finishHide()
             }
@@ -415,6 +426,7 @@ private final class InspectorDetailContainerViewController: NSViewController {
 
 private final class InspectorOverlayPassthroughView: NSView, ToolbarGridScrollDismissalSurface {
     var isActive = false
+    weak var contentView: NSView?
     var permitsNoticeInteraction: ((NSPoint) -> Bool)?
 
     override init(frame frameRect: NSRect) {
@@ -431,6 +443,15 @@ private final class InspectorOverlayPassthroughView: NSView, ToolbarGridScrollDi
     override func hitTest(_ point: NSPoint) -> NSView? {
         guard isActive else { return nil }
         let hitView = super.hitTest(point)
+        if hitView === self, NSApp.currentEvent?.type != .scrollWheel {
+            let hit = contentView?.hitTest(point)
+            var ancestor = hit
+            while let view = ancestor {
+                if let card = view as? WallpaperInspectorCardSource, card.inspectorCardButton === hit,
+                   card.inspectorCardButton.isEnabled { return nil }
+                ancestor = view.superview
+            }
+        }
         if hitView === self, NSApp.currentEvent?.type != .scrollWheel, let superview,
            permitsNoticeInteraction?(superview.convert(point, to: nil)) == true { return nil }
         return hitView === self ? self : hitView

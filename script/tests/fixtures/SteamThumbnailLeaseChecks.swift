@@ -239,7 +239,7 @@ nonisolated final class LeaseWriteSequence: @unchecked Sendable {
         cache.loadImageDataAsync(forKey: "legacy", loader: { await pinned.data() },
             decoder: steamWorkshopPreviewImage(from:), cancellation: pinnedToken) { _ in }
         checks["legacyJoinProducerWaiting"] = pump { pinned.waiting }
-        cache.loadImageData(forKey: "legacy", loader: { nil }, decoder: steamWorkshopPreviewImage(from:)) { legacyImage = $0 }
+        cache.loadImageDataAsync(forKey: "legacy", loader: { nil }, decoder: steamWorkshopPreviewImage(from:)) { legacyImage = $0 }
         pinnedToken.cancel(); pinned.resume(red)
         checks["uncancellableLegacyConsumerPinsSharedProducer"] = pump { legacyImage != nil } && !pinned.wasCancelled
         let rawGate = LeaseDataGate(), rawToken = SteamWorkshopPreviewLoadCancellation()
@@ -303,15 +303,16 @@ nonisolated final class LeaseWriteSequence: @unchecked Sendable {
             let gate = LeaseDiskWriteGate(), sequence = LeaseWriteSequence()
             let derived = ThumbnailCache(namespace: "derived-" + UUID().uuidString,
                 writeEncodedData: { data, url in try gate.write(data, to: url, blocking: sequence.isSecondWrite()) })
-            var completed = false
+            var completed = false, completions = 0
             derived.loadImageDataAsync(forKey: "still", sourceDataKey: "raw", loader: { red },
-                decoder: steamWorkshopPreviewImage(from:)) { completed = $0 != nil }
+                decoder: steamWorkshopPreviewImage(from:)) { completed = $0 != nil; completions += 1 }
             let label = clearDirectory ? "derivedDirectoryClear" : "derivedKeyInvalidation"
-            checks[label + "StagesBothFilesBeforePublication"] = pump { gate.waiting }
+            checks[label + "PublishesImageBeforeHeldDerivedWrite"] = pump { gate.waiting }
+                && pump { completed } && completions == 1 && !gate.finished
             if clearDirectory { derived.clearAll() }
             else { derived.remove(forKey: "still"); derived.remove(forKey: "raw") }
             gate.release()
-            checks[label + "PreservesExistingConsumer"] = pump { completed }
+            checks[label + "PreservesExistingConsumerExactlyOnce"] = pump { completed && gate.finished } && completions == 1
             var stillRead = false, rawRead = false
             var persistedStill: Data?, persistedRaw: Data?
             derived.loadRawDataAsync(forKey: "still", loader: { nil }) { persistedStill = $0; stillRead = true }
