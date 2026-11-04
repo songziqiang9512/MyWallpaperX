@@ -24,6 +24,30 @@ root local/world、layer/world/camera、attachment 与 child space 分别保身�
 | Control Points | 0…7 typed identity、已接入的静态/动态位置与 emitter/force consumer | 按 authored ID 而非数组位置；CP0/system origin 与其他 world source 不混用，未知 flags/angles/parent 不猜 |
 | Instance overrides | 已有颜色、发射、速度、播放及 typed 动态输入 | 新生 writer 与存量粒子不同；不以新属性自动改写既有粒子 |
 
+<a id="control-point-position"></a>
+### 控制点位置的取值职责
+
+普通控制点的位置按当前 typed 动态值、instance override、definition offset 的顺序取一个值；前两者覆盖 definition 位置，不与它相加。Emitter、Force 和位置 initializer 使用同一取值语义。组件自己的 origin/offset 仍在取得控制点之后叠加，emitter 的 origin 继续按原角度旋转，不能与 definition 的默认位置混为一项。
+
+鼠标绑定的 definition offset 是指针偏移，仍叠加当前有效指针；缺指针的真实消费者局部不可用，不回到系统原点。位置选择与空间转换分开：world 点经当前 `SceneParticleControlPointFrame` 的同一逆矩阵转到实际模拟空间，child 再复合原 origin/scale。冷计划和 typed 帧继续拥有字段、identity 与当前供货；没有位置 registry、缓存、第二时钟或每粒子的元数据校验。CP parent/angles 的未资格语义不能由位置覆盖实验外推。
+
+Emitter frame 与 Simulator 共享同一纯位置选择；被普通位置覆盖替代的数值 offset 不参与 emitter offset 幅度检查。组件的 RNG、出生顺序和显式发射事务仍由原 owner 执行。验收用真实 Parser/Simulator 的默认位置、静态与动态覆盖、组件额外 offset、Around 共用端点及缺指针反例，再核 Runtime/Metal 的实际位置。官方局部静态 CP 对照中，definition=(16,24)、instance=(48,0) 得到(48,0)，独立无 override 的正控仍为(16,24)；此证据不授全部空间或完整粒子效果一致。
+
+<a id="between-control-points"></a>
+### 双控制点位置与距离约束
+
+`mapsequencebetweencontrolpoints` 在原 initializer execution plan 中准备；Around 使用同一计划数组，没有第二份按 initializer 对齐的控制点数组。缺省 Count32、bounds0…1、CP0→1、Repeat。有限正 Count 不设编辑器范围上限；有效值不大于1时取首端。Repeat 的离散序列包含末端，Mirror 往返不重复转折端点。实例 Count 仅在 raw bit16 开启时参与，保小数；General 的 Count override 位仍由原统一倍率消费者决定，不把周期 cap 的向下取整套到路径序列。
+
+同一相位 u 产生项目包络 `4u(1−u)`：bit1作用位置扰动，bit2作用速度扰动，bit4按 `1−amount×(1−包络)` 缩放尺寸，amount缺省0.9。两个当前端点按 bounds 插值；只去掉当次 emitter 的 CP 平移，保 emitter 额外 origin、之前 writer 和位置噪声，不取第一个 emitter 猜来源。后续 writer 保作者顺序。该包络与官方局部位置/速度点位及尺寸顺序相容，精确全域公式和像素仍未资格，不能以本引擎数值回归宣称官方完整一致。
+
+raw flags 按消费者取位，没有组合许可表；未知附加字段和未消费选项不阻断已实现 writer。raw0x08和0x20当前只保未消费诊断，周期重启及弧向参数仍需真实消费者；非零arcamount尚无消费者，其与bit8的关联未资格，不能以缺该位宣称参数无效；坏的尺寸选项也只使该尺寸写入不可用，不撤位置/速度。缺真实端点只跳相关普通初始化，后继 writer 与健康 emitter 保持；显式 exact-n 沿原候选事务处理失败，不借旧普通帧的 world frame。有限性最终在原出生结果消费处检查。
+
+`maintaindistancebetweencontrolpoints` 按原 operator 顺序，以当前位置在上一对端点轴上的比例分配两端位移；保法向偏移、已有运动和原 lifecycle blend。每 operator 只有上一对端点，进入同一 Simulator 快照；每步统一推进一次，本步已按当前端点出生的粒子不再重复位移。旧轴无法计算比例或缺输入只影响相关操作，复供从当前端点建基线；端点不变时不遍历粒子。初始 typed CP/angles 在预热前进入原模拟器，普通帧和显式调用点各自供当前值。
+
+General world 根系统的约束端点先进入原 translation reference。world child 的约束使用 canonical root 空间：端点来自当前 origin/scale，存量粒子来自原出生 origin/scale，位移再转回 child；follow 移动不会额外拉动世界空间粒子。出生原点复用原 ChildSystem 表，构造预热存量也进入该表；本次帧值只沿函数参数传递，Simulator 不另存表。
+
+空间与生命周期职责见[架构合同](../architecture/runtime-architecture.md#particle-control-point-components)。验证区分真实 Parser/Simulator、Runtime→生产 Metal、实际作者捕获和官方局部对照；未覆盖的弧向、周期/显式序列、多 emitter、parent映射与更复杂 child 行为见[队列](../roadmap/scene-open-breakpoint-queue.md)。
+
 <a id="emitter-speed"></a>
 ### 发射速度数值
 
@@ -111,6 +135,6 @@ Surface 采用新 topology 才退出死 root/child GPU key；重建构造前过�
 <a id="limits"></a>
 ## 当前缺口与回归
 
-mapsequencebetweencontrolpoints、更多 CP 约束、Mirror、复杂 nested/event/非均匀 child 变换、Collision Bounds 与部分 Vortex/HSV/Position Around 数值仍有未实现或待资格边界。不能以非空 batch 或门禁通过替代方向、数量、相位和官方像素。普通粒子额外 combo 与用户材质输入尚无通用 shader 执行合同；通过 raster 状态编译不能作为这些输入已被消费的证据。
+双端点的弧向/周期重启、更多 CP 约束、Position Around 的 Mirror、复杂 nested/event/非均匀 child 变换、Collision Bounds 与部分 Vortex/HSV/Position Around 数值仍有未实现或待资格边界。不能以非空 batch 或门禁通过替代方向、数量、相位和官方像素。普通粒子额外 combo 与用户材质输入尚无通用 shader 执行合同；通过 raster 状态编译不能作为这些输入已被消费的证据。
 
 最近行为入口：[真实 CPU runtime](../../../script/tests/test_scene_particle_runtime.py)、[事务](../../../script/tests/test_scene_particle_playback_transaction.py)、[Metal renderer](../../../script/tests/test_scene_particle_rendering.py)、[App 生命周期](../../../script/tests/test_scene_particle_playback_integration.py)。具体下一资格见[队列](../roadmap/scene-open-breakpoint-queue.md)。

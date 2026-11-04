@@ -116,6 +116,17 @@ Coordinator 在原锁内提交 state/history/pin，GPU terminal 才提升完成�
 具体类型/算法和当前未支持形态查[组件合同](../capabilities/runtime-systems-reference.md)。新组件接入现有 identity、typed 值、资源、clock、graph 与 compositor；不预建通用 ECS、第二属性树或管理器。
 
 <a id="threads"></a>
+<a id="particle-control-point-components"></a>
+## 粒子控制点组件
+
+双控制点初始化与距离约束沿原 DefinitionParser → execution plan → Simulator → Runtime batch 执行。纯计划不依赖可变模拟器；各字段由实际消费者处理，不用 raw flags 组合、效果名或样本身份授播放许可。未知附加字段和未消费选项只保相关诊断，不伪称完整能力，也不阻断健康 writer、emitter 或整个系统。数值合同和已消费字段由[组件能力](../capabilities/particle-component-coverage.md#between-control-points)唯一维护。
+
+控制点位置选择与空间转换分开。原 typed 帧供当前值，原点 frame 负责 world→local；实际 prepared consumer 决定需求，不借 Force 的 parentless/无 child 许可。构造预热、普通帧与显式发射各用对应输入，显式命令不能偷用后来普通帧的变换。Child 在同一个 frame 复合原 origin/scale，不能把 root frame 原样当作 child frame；普通热路径按实际需求构造点转换，child 无需求时不派生 frame。
+
+每个 Maintain 操作的上一对端点只由原 Simulator 持有并进入原快照。General world 的存量粒子按原固定参考空间绘制；约束也在该空间比较端点与当前位置，不能把 follow 当前 origin 的变化当成端点运动。ChildRuntime 仅传本次 origin/scale 和原 birth-origin 表的只读值，沿 advance→step→operator 消费；预热存量进入原表，没有第二份每粒子历史、坐标树或时钟。该额外字典读取仅发生在实际需要的 world-child 约束中，普通路径保持直接计算。
+
+验收分真实 Parser/Simulator、Runtime→生产 Metal 和作者 batch→最终捕获；官方局部点位和定性尺寸顺序不能升级成全域公式、完整动画或逐像素一致。未消费选项及未资格组合留在[开放问题](../roadmap/scene-open-breakpoint-queue.md)，不能变成隐藏的整链许可。
+
 ## 线程与销毁
 
 - AppKit、Session cadence、QuickJS、输入及 Metal encode 在 daemon 主 RunLoop。VM 在激活时 adoptCurrentThread；搬线程必须连同 VM、输入与提交寿命迁移。

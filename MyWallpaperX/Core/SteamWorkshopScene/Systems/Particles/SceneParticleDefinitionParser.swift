@@ -171,6 +171,8 @@ nonisolated struct SceneParticleDefinitionParser {
         case "positionoffsetrandom": kind = .positionOffset
         case "mapsequencearoundcontrolpoint":
             kind = .positionAroundControlPoint(.init(root: root))
+        case "mapsequencebetweencontrolpoints":
+            kind = .positionBetweenControlPoints(.init(root: root))
         case "inheritinitialvaluefromevent":
             kind = .inheritEventColor(.init(root: root))
         default:

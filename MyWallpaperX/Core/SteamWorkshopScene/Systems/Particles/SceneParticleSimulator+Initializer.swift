@@ -56,9 +56,11 @@ nonisolated struct SceneParticleInitializerExecutionPlan: Sendable {
     let colorList: [SIMD3<Double>]?
     let turbulentVelocity: SceneParticleTurbulentVelocityPlan?
     let positionOffset: SceneParticlePositionOffsetPlan?
+    let positionAroundControlPoint: SceneParticlePositionAroundControlPointPlan?
+    let positionBetweenControlPoints: SceneParticlePositionBetweenControlPointsPlan?
     let inheritsEventColor: Bool
 
-    nonisolated init(_ value: SceneParticleInitializer) {
+    nonisolated init(_ value: SceneParticleInitializer, definition: SceneParticleDefinition) {
         var scalar: SceneParticleRandomScalarPlan?
         var vector: SceneParticleRandomVectorPlan?
         var color: SceneParticleRandomColorPlan?
@@ -66,6 +68,8 @@ nonisolated struct SceneParticleInitializerExecutionPlan: Sendable {
         var colorList: [SIMD3<Double>]?
         var turbulentVelocity: SceneParticleTurbulentVelocityPlan?
         var positionOffset: SceneParticlePositionOffsetPlan?
+        var positionAroundControlPoint: SceneParticlePositionAroundControlPointPlan?
+        var positionBetweenControlPoints: SceneParticlePositionBetweenControlPointsPlan?
         var inheritsEventColor = false
 
         switch value.kind {
@@ -96,6 +100,12 @@ nonisolated struct SceneParticleInitializerExecutionPlan: Sendable {
             )
         case .positionOffset:
             positionOffset = value.boundedPositionOffset
+        case .positionAroundControlPoint:
+            if definition.supportsBoundedPositionAroundControlPoint(value) {
+                positionAroundControlPoint = value.positionAroundControlPointPlan
+            }
+        case .positionBetweenControlPoints:
+            positionBetweenControlPoints = value.positionBetweenControlPointsPlan
         case let .inheritEventColor(declaration):
             inheritsEventColor = declaration.isBoundedSetColor
         default:
@@ -109,12 +119,17 @@ nonisolated struct SceneParticleInitializerExecutionPlan: Sendable {
         self.colorList = colorList
         self.turbulentVelocity = turbulentVelocity
         self.positionOffset = positionOffset
+        self.positionAroundControlPoint = positionAroundControlPoint
+        self.positionBetweenControlPoints = positionBetweenControlPoints
         self.inheritsEventColor = inheritsEventColor
     }
 }
 
 extension SceneParticleSimulator {
-    nonisolated func applyInitializers(to particle: inout SceneParticleState, strict: Bool = false) -> Bool {
+    nonisolated func applyInitializers(
+        to particle: inout SceneParticleState, strict: Bool = false,
+        emitterControlPointOrigin: SIMD3<Double> = .zero
+    ) -> Bool {
         for (initializerIndex, initializer) in definition.initializers.enumerated() {
             let executionPlan = initializerExecutionPlans[initializerIndex]
 #if DEBUG
@@ -247,7 +262,7 @@ extension SceneParticleSimulator {
                     else { SceneParticleSimulationMath.addFinite(delta, to: &particle.position) }
                 }
             case .positionAroundControlPoint:
-                guard let plan = positionAroundControlPointPlans[initializerIndex]
+                guard let plan = executionPlan.positionAroundControlPoint
                 else {
 #if DEBUG
                     componentObservation?.record("initializer", initializerIndex, "unavailable", reason: "prepared-plan-unavailable", time: simulationTime, particleID: particle.id)
@@ -258,6 +273,24 @@ extension SceneParticleSimulator {
 #if DEBUG
                 componentObservation?.record("initializer", initializerIndex, applied ? "evaluated" : "unavailable",
                     reason: applied ? "control-point-position-applied" : "control-point-position-unavailable", time: simulationTime, particleID: particle.id)
+#endif
+                if !applied, strict { return false }
+            case .positionBetweenControlPoints:
+                guard let plan = executionPlan.positionBetweenControlPoints else {
+#if DEBUG
+                    componentObservation?.record("initializer", initializerIndex, "unavailable", reason: "prepared-plan-unavailable", time: simulationTime, particleID: particle.id)
+#endif
+                    break
+                }
+                let applied = applyPositionBetweenControlPoints(
+                    plan, to: &particle, emitterControlPointOrigin: emitterControlPointOrigin
+                )
+#if DEBUG
+                componentObservation?.record("initializer", initializerIndex, applied ? "evaluated" : "unavailable",
+                    reason: applied ? "between-control-points-applied" : "control-point-position-unavailable", time: simulationTime, particleID: particle.id)
+                if plan.hasUnconsumedOptions {
+                    componentObservation?.record("initializer", initializerIndex, "partial", reason: "between-options-unconsumed", time: simulationTime, particleID: particle.id)
+                }
 #endif
                 if !applied, strict { return false }
             case .inheritEventColor:

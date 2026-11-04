@@ -19,6 +19,7 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleReduceMovement.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCollisionPlane.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePositionAroundControlPoint.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePositionBetweenControlPoints.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser+Operator.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser+InstanceOverride.swift",
@@ -688,6 +689,7 @@ enum Harness {
         case .turbulentVelocity: "turbulentvelocityrandom"
         case .positionOffset: "positionoffsetrandom"
         case .positionAroundControlPoint: "mapsequencearoundcontrolpoint"
+        case .positionBetweenControlPoints: "mapsequencebetweencontrolpoints"
         case .inheritEventColor: "inheritinitialvaluefromevent"
         case let .unsupported(name): name
         }
@@ -696,6 +698,7 @@ enum Harness {
     private static func operatorName(_ kind: SceneParticleOperatorKind) -> String {
         switch kind {
         case .movement: "movement"
+        case .maintainControlPointDistance: "maintaindistancebetweencontrolpoints"
         case .alphaFade: "alphafade"
         case .alphaChange: "alphachange"
         case .sizeChange: "sizechange"
@@ -765,20 +768,18 @@ class SceneParticleDefinitionTests(unittest.TestCase):
         if swiftc is None:
             raise unittest.SkipTest("swiftc is unavailable")
         cls.temporary_directory = tempfile.TemporaryDirectory(prefix="mwx-scene-particles-")
+        cls.addClassCleanup(cls.temporary_directory.cleanup)
         directory = Path(cls.temporary_directory.name)
         harness = directory / "Harness.swift"
         harness.write_text(HARNESS_SOURCE, encoding="utf-8")
         cls.binary = directory / "scene-particle-definitions"
-        subprocess.run(
+        compiled = subprocess.run(
             [swiftc, *(str(path) for path in SWIFT_SOURCES), str(harness), "-o", str(cls.binary)],
-            check=True,
             capture_output=True,
             text=True,
         )
-
-    @classmethod
-    def tearDownClass(cls) -> None:
-        cls.temporary_directory.cleanup()
+        if compiled.returncode:
+            raise RuntimeError(compiled.stdout + compiled.stderr)
 
     def run_harness(self, *arguments: str) -> dict[str, object]:
         result = subprocess.run(

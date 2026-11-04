@@ -15,7 +15,7 @@ nonisolated extension SceneParticleSimulator {
         switch plan.sourceSpace {
         case .local: target = source
         case .world:
-            guard let local = controlPointForceFrame?.localPosition(worldPoint: source)
+            guard let local = controlPointFrame?.localPosition(worldPoint: source)
             else { return }
             target = local
         }
@@ -32,36 +32,36 @@ nonisolated extension SceneParticleSimulator {
         }
     }
 
+    func controlPointLocalPosition(_ identity: Int) -> SIMD3<Double>? {
+        guard controlPointSourcesAreValid,
+              let position = controlPointPosition(identity, offset: .zero) else { return nil }
+        if (controlPointsByID[identity]?.rawFlags ?? 0) & 2 != 0 {
+            return controlPointFrame?.localPosition(worldPoint: position)
+        }
+        return position
+    }
+
     func controlPointPosition(
         _ identity: Int,
         offset: SIMD3<Double>
     ) -> SIMD3<Double>? {
-        var result = offset
         let point: SceneParticleControlPoint?
         if controlPointsByID.isEmpty {
             point = definition.controlPoints.first(where: { $0.id == identity })
         } else {
             point = controlPointsByID[identity]
         }
-        if let point {
-            result += SceneParticleSimulationMath.vector(point.offset, fallback: .zero)
-            // Pointer-linked control points have no authored static position. A missing
-            // or outside pointer must disable the bounded consumer instead of mapping
-            // particles to the system origin.
-            if point.hasBoundedPointerInput {
-                guard let dynamic = dynamicControlPoints[identity], dynamic.isFinite else {
-                    return nil
-                }
-                result += dynamic
-                return result.isFinite ? result : nil
-            }
-        }
-        if let dynamic = dynamicControlPoints[identity] {
-            result += dynamic
-        } else if let override = activeInstanceOverride?.controlPoints[identity] {
-            result += SceneParticleSimulationMath.vector(override.value, fallback: .zero)
-        }
-        return result.x.isFinite && result.y.isFinite && result.z.isFinite ? result : nil
+        let dynamic = dynamicControlPoints[identity]
+        let instance = dynamic == nil ? activeInstanceOverride?.controlPoints[identity] : nil
+        guard let position = SceneParticleSimulationMath.resolvedControlPointPosition(
+            authored: SceneParticleSimulationMath.vector(point?.offset, fallback: .zero),
+            dynamic: dynamic,
+            instance: (instance?.value).map { SceneParticleSimulationMath.vector($0, fallback: .zero) },
+            followsPointer: point?.followsPointer == true,
+            requiresPointerValue: point?.hasBoundedPointerInput == true
+        ) else { return nil }
+        let result = offset + position
+        return result.isFinite ? result : nil
     }
 }
 

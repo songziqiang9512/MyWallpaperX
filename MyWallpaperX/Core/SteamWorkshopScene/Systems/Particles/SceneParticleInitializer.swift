@@ -13,6 +13,7 @@ nonisolated enum SceneParticleInitializerKind: Equatable, Sendable {
     case turbulentVelocity
     case positionOffset
     case positionAroundControlPoint(SceneParticlePositionAroundControlPoint)
+    case positionBetweenControlPoints(SceneParticlePositionBetweenControlPoints)
     case inheritEventColor(SceneParticleEventColorDeclaration)
     case unsupported(String)
 }

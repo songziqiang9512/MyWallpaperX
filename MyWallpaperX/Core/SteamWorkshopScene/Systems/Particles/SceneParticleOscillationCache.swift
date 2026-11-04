@@ -151,6 +151,7 @@ nonisolated struct SceneParticleOperatorExecutionPlan: Sendable {
     let scalarSpeedRemap: SceneParticleScalarSpeedRemapPlan?
     let collisionPlane: SceneParticleCollisionPlanePlan?
     let controlPointForce: SceneParticleControlPointForcePlan?
+    let maintainControlPointDistance: SceneParticleMaintainControlPointDistancePlan?
     let reduceMovement: SceneParticleReduceMovementPlan?
 
     nonisolated init(
@@ -234,6 +235,11 @@ nonisolated struct SceneParticleOperatorExecutionPlan: Sendable {
         }
         controlPointForce = definition.controlPointForcePlan(
             for: value, environment: controlPointForceEnvironment)
+        if case let .maintainControlPointDistance(plan) = value.kind {
+            maintainControlPointDistance = plan
+        } else {
+            maintainControlPointDistance = nil
+        }
         if case .reduceMovement = value.kind,
            definition.supportsBoundedReduceMovement(value),
            let plan = value.reduceMovementPlan {

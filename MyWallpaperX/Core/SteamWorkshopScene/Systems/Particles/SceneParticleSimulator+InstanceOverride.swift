@@ -1,6 +1,10 @@
 import Foundation
 
 extension SceneParticleSimulator {
+    nonisolated var effectiveCountOverride: Double {
+        definition.flags.disablesCountOverrides ? 1 : max(0, overrideScalar(activeInstanceOverride?.count))
+    }
+
     nonisolated var effectiveSpeedOverride: Double {
         definition.flags.disablesSpeedOverrides ? 1 : overrideScalar(activeInstanceOverride?.speed)
     }

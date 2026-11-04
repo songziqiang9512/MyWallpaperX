@@ -51,24 +51,24 @@ import simd
         -> SceneParticleControlPointForceEnvironment {
         descriptor.particleControlPointForceEnvironment(for: descriptor.layers[0], definition: definition)
     }
-    static func frame(_ descriptor: SceneRenderDescriptor) -> SceneParticleControlPointForceFrame? {
+    static func frame(_ descriptor: SceneRenderDescriptor) -> SceneParticleControlPointFrame? {
         let byID = Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) })
         let matrix = SceneLayerWorldFrameResolver.compute(descriptor: descriptor, byID: byID)[descriptor.layers[0].id]!
-        return SceneParticleControlPointForceFrame(worldFrame: matrix, sceneOrthoHeight: descriptor.camera.orthoHeight ?? 0)
+        return SceneParticleControlPointFrame(worldFrame: matrix, sceneOrthoHeight: descriptor.camera.orthoHeight ?? 0)
     }
     static func forcePlan(_ definition: SceneParticleDefinition, _ environment: SceneParticleControlPointForceEnvironment)
         -> SceneParticleControlPointForcePlan? {
         definition.controlPointForcePlan(for: definition.operators[1], environment: environment)
     }
     static func simulator(_ definition: SceneParticleDefinition, _ environment: SceneParticleControlPointForceEnvironment,
-                          _ frame: SceneParticleControlPointForceFrame? = nil) -> SceneParticleSimulator {
+                          _ frame: SceneParticleControlPointFrame? = nil) -> SceneParticleSimulator {
         SceneParticleSimulator(definition: definition, seed: 81, fixedTimeStep: 1,
-                               controlPointForceEnvironment: environment, controlPointForceFrame: frame)
+                               controlPointForceEnvironment: environment, controlPointFrame: frame)
     }
     static func velocity(_ definition: SceneParticleDefinition, _ environment: SceneParticleControlPointForceEnvironment,
-                         _ frame: SceneParticleControlPointForceFrame? = nil) -> [Double] {
+                         _ frame: SceneParticleControlPointFrame? = nil) -> [Double] {
         let sim = simulator(definition, environment, frame)
-        sim.advance(by: 1, controlPointForceFrame: frame)
+        sim.advance(by: 1, controlPointFrame: frame)
         return sim.particles.first.map { vector($0.velocity) } ?? []
     }
     static func main() throws {
@@ -120,12 +120,12 @@ import simd
             let definition = parse(root(point: target, pointFlags: 2, material: "\(name)/white.json"))
             let e = environment(d, definition), f = frame(d)!
             let sim = simulator(definition, e, f)
-            sim.advance(by: 1, controlPointForceFrame: f)
+            sim.advance(by: 1, controlPointFrame: f)
             let before = sim.particles[0].velocity
             let saved = sim.frameSnapshot()
             let shifted = try descriptor(canvas, id: id, origin: [500, 500, 0],
                                          angles: [0, 0, angle], scale: [scale.x, scale.y, scale.z], name: name)
-            sim.advance(by: 1, controlPointForceFrame: frame(shifted))
+            sim.advance(by: 1, controlPointFrame: frame(shifted))
             let change = sim.particles[0].velocity - before
             let newTarget = frame(shifted)!.localPosition(worldPoint: target)!
             let toward = newTarget - saved.particles[0].position
@@ -141,15 +141,15 @@ import simd
         let shifted = try descriptor(canvas, origin: [140, 260, 0])
         let moving = parse(root(point: fixedTarget, pointFlags: 2))
         let live = simulator(moving, environment(base, moving), frame(base))
-        live.advance(by: 1, controlPointForceFrame: frame(base))
+        live.advance(by: 1, controlPointFrame: frame(base))
         let saved = live.frameSnapshot()
-        live.advance(by: 1, controlPointForceFrame: frame(shifted))
+        live.advance(by: 1, controlPointFrame: frame(shifted))
         live.restoreFrame(saved)
-        let rollback = live.frameSnapshot().controlPointForceFrame == saved.controlPointForceFrame
+        let rollback = live.frameSnapshot().controlPointFrame == saved.controlPointFrame
         var warmRoot = root(point: fixedTarget, pointFlags: 2); warmRoot["starttime"] = 1
         let warm = simulator(parse(warmRoot), environment(base, moving), frame(base))
         let cold = simulator(moving, environment(base, moving), frame(base))
-        cold.advance(by: 1, controlPointForceFrame: frame(base))
+        cold.advance(by: 1, controlPointFrame: frame(base))
         let prewarm = warm.particles == cold.particles && warm.simulationTime == cold.simulationTime
         var admissions: [[String: Any]] = []
         for kind in ["parent", "attachment", "bind", "declared-child", "actual-child", "perspective", "general-world", "general-perspective", "definition-child"] {
@@ -177,7 +177,7 @@ import simd
         unsafeFrames.append(("zero-height", matrix_identity_float4x4, 0))
         var invalidFrames: [[String: Any]] = []
         for (name, matrix, height) in unsafeFrames {
-            let rejected = SceneParticleControlPointForceFrame(worldFrame: matrix, sceneOrthoHeight: height)
+            let rejected = SceneParticleControlPointFrame(worldFrame: matrix, sceneOrthoHeight: height)
             var raw = root(point: fixedTarget, pointFlags: 2)
             var points = raw["controlpoint"] as! [[String: Any]]
             points.append(["id": 2, "flags": 0, "offset": "0 10 0"]); raw["controlpoint"] = points
@@ -185,9 +185,9 @@ import simd
             operators.append(["name": "controlpointattract", "controlpoint": 2, "scale": 1, "threshold": 20])
             raw["operator"] = operators
             let sim = simulator(parse(raw), env)
-            sim.advance(by: 1, controlPointForceFrame: rejected)
+            sim.advance(by: 1, controlPointFrame: rejected)
             let v = sim.particles[0].velocity
-            sim.advance(by: 1, controlPointForceFrame: frame(base))
+            sim.advance(by: 1, controlPointFrame: frame(base))
             invalidFrames.append(["name": name, "rejected": rejected == nil,
                 "particleCount": sim.particles.count, "velocity": vector(v), "worldRecovers": sim.particles[0].velocity.x > 0])
         }

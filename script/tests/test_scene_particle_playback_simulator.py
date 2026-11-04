@@ -835,6 +835,118 @@ import Foundation
             result["real-capacity-all-reservations-released"] = active==0
             FileHandle.standardError.write(Data("capacity peak=\(peak) actual1=\(actualArrayStorage(one.state)) actual2=\(actualArrayStorage(two.state)) work=\(chargedWork)\n".utf8))
         }
+        do {
+            func one(_ sim: SceneParticleSimulator, _ position: SIMD3<Double>,
+                     velocity: SIMD3<Double> = .zero) -> Bool {
+                guard sim.particles.count == 1 else { return false }
+                return sim.particles[0].position == position && sim.particles[0].velocity == velocity
+            }
+            let parser = SceneParticleDefinitionParser()
+            let sourceEmitter: [String: Any] = ["name": "sphererandom", "controlpoint": 1,
+                "origin": "3 5 0", "directions": "1 0 0", "distancemin": 0, "distancemax": 0,
+                "speedmin": 0, "speedmax": 0, "instantaneous": 1, "rate": 0]
+            let root: [String: Any] = ["material": "p.json", "maxcount": 4,
+                "controlpoint": [["id": 1, "flags": 0, "offset": "16 24 0"]],
+                "emitter": [sourceEmitter],
+                "initializer": [["name": "lifetimerandom", "min": 10, "max": 10]],
+                "renderer": [["name": "sprite"]]]
+            let definition = parser.parse(root: root)
+            let replacement = parser.parseInstanceOverride(["controlpoint1": ["value": "48 0 0"]])
+            let dynamic = [1: SIMD3<Double>(60, 8, 0)]
+            let authored = SceneParticleSimulator(definition: definition, seed: 71, fixedTimeStep: 0.25)
+            let instance = SceneParticleSimulator(definition: definition, instanceOverride: replacement, seed: 71, fixedTimeStep: 0.25)
+            let live = SceneParticleSimulator(definition: definition, instanceOverride: replacement, seed: 71, fixedTimeStep: 0.25)
+            authored.advance(by: 0.25); instance.advance(by: 0.25); live.advance(by: 0.25, dynamicControlPoints: dynamic)
+            result["cp-emitter-selects-position-before-extra-origin"] = one(authored, SIMD3(19, 29, 0))
+                && one(instance, SIMD3(51, 5, 0)) && one(live, SIMD3(63, 13, 0))
+            let emptyValue = parser.parseInstanceOverride(["controlpoint1": ["user": "unpublished"]])
+            let empty = SceneParticleSimulator(definition: definition, instanceOverride: emptyValue, fixedTimeStep: 0.25)
+            empty.advance(by: 0.25)
+            result["cp-absent-instance-position-keeps-authored-default"] = one(empty, SIMD3(19, 29, 0))
+                && empty.controlPointPosition(1, offset: .zero) == SIMD3(16, 24, 0)
+            result["cp-position-selection-preserves-birth-identity-rng-lifetime"] =
+                [authored, instance, live].allSatisfy { $0.particles.first?.id == 0 && $0.particles.first?.lifetime == 10 }
+                && authored.frameSnapshot().random.state == instance.frameSnapshot().random.state
+                && authored.frameSnapshot().random.state == live.frameSnapshot().random.state
+            var boundedRoot = root
+            boundedRoot["controlpoint"] = [["id": 1, "flags": 0, "offset": "2000000 24 0", "angles": "0 0 0"]]
+            let bounded = parser.parse(root: boundedRoot)
+            let defaultRejected = bounded.emitterControlPointFrame(for: bounded.emitters[0], instanceOverride: nil, dynamicControlPoints: [:])
+            let selectedInstance = bounded.emitterControlPointFrame(for: bounded.emitters[0], instanceOverride: replacement, dynamicControlPoints: [:])
+            let selectedDynamic = bounded.emitterControlPointFrame(for: bounded.emitters[0], instanceOverride: replacement, dynamicControlPoints: dynamic)
+            result["cp-angled-frame-checks-selected-position-only"] = defaultRejected == nil
+                && selectedInstance?.origin == SIMD3(51, 5, 0) && selectedDynamic?.origin == SIMD3(63, 13, 0)
+            result["cp-emitter-nonfinite-dynamic-position-is-unavailable"] = definition.emitterControlPointFrame(
+                for: definition.emitters[0], instanceOverride: replacement,
+                dynamicControlPoints: [1: SIMD3(Double.nan, 0, 0)]) == nil
+            var originEmitter = sourceEmitter
+            originEmitter.removeValue(forKey: "controlpoint")
+            var implicitRoot = root
+            implicitRoot["controlpoint"] = [] as [[String: Any]]
+            implicitRoot["emitter"] = [originEmitter]
+            let implicit = SceneParticleSimulator(definition: parser.parse(root: implicitRoot), instanceOverride: replacement, fixedTimeStep: 0.25)
+            implicit.advance(by: 0.25)
+            result["cp-implicit-system-origin-is-preserved"] = one(implicit, SIMD3(3, 5, 0))
+                && implicit.controlPointPosition(0, offset: SIMD3(7, 9, 0)) == SIMD3(7, 9, 0)
+            originEmitter["origin"] = "0 0 0"
+            var forceRoot = root
+            forceRoot["emitter"] = [originEmitter]
+            forceRoot["operator"] = [["name": "controlpointattract", "controlpoint": 1,
+                "origin": "-16 0 0", "scale": 40, "threshold": 100]]
+            let forceDefinition = parser.parse(root: forceRoot)
+            let defaultForce = SceneParticleSimulator(definition: forceDefinition, fixedTimeStep: 0.25)
+            let instanceForce = SceneParticleSimulator(definition: forceDefinition, instanceOverride: replacement, fixedTimeStep: 0.25)
+            let dynamicForce = SceneParticleSimulator(definition: forceDefinition, instanceOverride: replacement, fixedTimeStep: 0.25)
+            defaultForce.advance(by: 0.25); instanceForce.advance(by: 0.25)
+            dynamicForce.advance(by: 0.25, dynamicControlPoints: [1: SIMD3(16, -24, 0)])
+            result["cp-force-consumes-selected-target-and-component-origin"] =
+                one(defaultForce, .zero, velocity: SIMD3(0, 10, 0))
+                && one(instanceForce, .zero, velocity: SIMD3(10, 0, 0))
+                && one(dynamicForce, .zero, velocity: SIMD3(0, -10, 0))
+            var aroundRoot = root
+            var aroundEmitter = sourceEmitter
+            aroundEmitter["origin"] = "0 0 0"
+            aroundEmitter["distancemin"] = 2; aroundEmitter["distancemax"] = 2
+            aroundRoot["emitter"] = [aroundEmitter]
+            aroundRoot["initializer"] = [["name": "lifetimerandom", "min": 10, "max": 10],
+                ["name": "mapsequencearoundcontrolpoint", "controlpoint": 1, "count": 4,
+                 "bounds": "0 1", "speedmin": "0 0 0", "speedmax": "0 0 0"]]
+            let aroundDefinition = parser.parse(root: aroundRoot)
+            let defaultAround = SceneParticleSimulator(definition: aroundDefinition, fixedTimeStep: 0.25)
+            let instanceAround = SceneParticleSimulator(definition: aroundDefinition, instanceOverride: replacement, fixedTimeStep: 0.25)
+            let dynamicAround = SceneParticleSimulator(definition: aroundDefinition, instanceOverride: replacement, fixedTimeStep: 0.25)
+            defaultAround.advance(by: 0.25); instanceAround.advance(by: 0.25); dynamicAround.advance(by: 0.25, dynamicControlPoints: dynamic)
+            result["cp-around-consumes-the-same-selected-source"] = one(defaultAround, SIMD3(18, 24, 0))
+                && one(instanceAround, SIMD3(50, 0, 0)) && one(dynamicAround, SIMD3(62, 8, 0))
+            var pointerRoot = root
+            pointerRoot["controlpoint"] = [["id": 1, "flags": 1, "offset": "0 0 0"]]
+            let pointerDefinition = parser.parse(root: pointerRoot)
+            let pointer = SceneParticleSimulator(definition: pointerDefinition, instanceOverride: replacement, fixedTimeStep: 0.25)
+            let coldPointer = pointerDefinition.emitterControlPointFrame(for: pointerDefinition.emitters[0],
+                instanceOverride: replacement, dynamicControlPoints: [:], requiresLiveInput: false)
+            pointer.advance(by: 0.25)
+            result["cp-pointer-cold-preparation-does-not-supply-a-live-pointer"] = coldPointer?.origin == SIMD3(51, 5, 0)
+                && pointer.playbackHasWork == true && pointer.particles.isEmpty
+                && pointer.controlPointPosition(1, offset: .zero) == nil
+            pointer.advance(by: 0.25, dynamicControlPoints: [1: SIMD3(5, 6, 0)])
+            result["cp-pointer-consumes-live-sample-and-keeps-extra-offset"] = one(pointer, SIMD3(8, 11, 0))
+                && pointer.controlPointPosition(1, offset: SIMD3(7, -2, 0)) == SIMD3(12, 4, 0)
+            pointer.dynamicControlPoints[1] = SIMD3(Double.nan, 0, 0)
+            result["cp-pointer-nonfinite-sample-is-unavailable"] = pointer.controlPointPosition(1, offset: .zero) == nil
+            pointerRoot["controlpoint"] = [["id": 1, "flags": 1, "offset": "16 24 0"]]
+            let offsetPointer = SceneParticleSimulator(definition: parser.parse(root: pointerRoot))
+            offsetPointer.dynamicControlPoints[1] = SIMD3(5, 6, 0)
+            result["cp-existing-pointer-offset-addition-does-not-expand-demand"] =
+                offsetPointer.controlPointPosition(1, offset: SIMD3(1, 2, 0)) == SIMD3(22, 32, 0)
+                && offsetPointer.definition.emitterPointerControlPointIdentities.isEmpty
+            let manualCP = SceneParticleSimulator(definition: definition, initialPlayback: .init(intent: .stopped), seed: 71)
+            let manualBefore = manualCP.frameSnapshot()
+            let candidate = try explicit(manualCP, count: 1, context: .init(controlPoints: dynamic, instanceOverride: replacement))
+            result["cp-explicit-uses-call-time-source-and-original-transaction"] =
+                candidate.state.particles.first?.position == SIMD3(63, 13, 0) && candidate.state.particles.first?.id == 0
+                && manualCP.particles.isEmpty && manualCP.frameSnapshot().nextParticleID == manualBefore.nextParticleID
+                && manualCP.frameSnapshot().random.state == manualBefore.random.state
+        }
         print(String(decoding: try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]), as: UTF8.self))
     }
 }

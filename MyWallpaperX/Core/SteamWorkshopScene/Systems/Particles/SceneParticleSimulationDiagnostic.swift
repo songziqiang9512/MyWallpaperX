@@ -14,6 +14,9 @@ nonisolated enum SceneParticleSimulationDiagnosticKind: String, Hashable, Sendab
     case positionOffsetUnsupported
     case positionAroundControlPointBounded
     case positionAroundControlPointUnsupported
+    case positionBetweenControlPointsBounded
+    case positionBetweenControlPointsUnsupported
+    case positionBetweenControlPointsPartial
     case eventColorInitializerBounded
     case eventColorInitializerUnsupported
     case unsupportedOperator
@@ -180,7 +183,7 @@ extension SceneParticleSimulationMath {
                 definition.emitterControlPointFrame(
                     for: emitter, instanceOverride: instanceOverride,
                     dynamicControlPoints: [:],
-                    requiresDynamicPointerValue: false
+                    requiresLiveInput: false
                 ) != nil
             }) {
                 add(.controlPointEmitterBounded, "sources=\(controlPointEmitters.count)")
@@ -195,7 +198,7 @@ extension SceneParticleSimulationMath {
                     definition.emitterControlPointFrame(
                         for: $0, instanceOverride: instanceOverride,
                         dynamicControlPoints: [:],
-                        requiresDynamicPointerValue: false
+                        requiresLiveInput: false
                     ) != nil
                 }
                 add(supported ? .controlPointEmitterAnglesBounded
@@ -242,6 +245,13 @@ extension SceneParticleSimulationMath {
                     ? .positionAroundControlPointBounded
                     : .positionAroundControlPointUnsupported,
                     "mapsequencearoundcontrolpoint")
+            case .positionBetweenControlPoints:
+                let plan = initializer.positionBetweenControlPointsPlan
+                add(plan == nil ? .positionBetweenControlPointsUnsupported
+                    : .positionBetweenControlPointsBounded, "mapsequencebetweencontrolpoints")
+                if plan?.hasUnconsumedOptions == true {
+                    add(.positionBetweenControlPointsPartial, "between-options-unconsumed")
+                }
             case let .inheritEventColor(declaration):
                 add(declaration.isBoundedSetColor
                     && eventColorContext.initializerColor != nil

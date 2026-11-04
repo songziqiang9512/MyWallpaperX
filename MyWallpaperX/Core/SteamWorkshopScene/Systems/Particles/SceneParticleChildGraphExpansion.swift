@@ -14,6 +14,7 @@ struct SceneParticleChildTemplate {
     let definition: SceneParticleDefinition
     /// Prepared once per child template; do not rediscover operator topology per frame.
     let pointerControlPointIdentities: [Int]
+    let needsWorldControlPointFrame: Bool
     let trigger: SceneParticleChildTrigger
     let trail: SceneParticleTrailRenderPlan?
     let rope: SceneParticleRopePlan?
@@ -359,11 +360,22 @@ enum SceneParticleChildGraphExpansion {
         {
             return .rejected("\(path):ropeAggregateSegmentBudget")
         }
+        let worldPoints = Set(asset.definition.controlPoints.filter(\.isWorldSpace).compactMap(\.id))
+        let needsWorldPointFrame = asset.definition.emitters.contains {
+            asset.definition.emitterControlPointSource(for: $0).map(worldPoints.contains) == true
+        } || asset.definition.initializers.contains {
+            guard let plan = $0.positionBetweenControlPointsPlan else { return false }
+            return worldPoints.contains(plan.controlPointStart) || worldPoints.contains(plan.controlPointEnd)
+        } || asset.definition.operators.contains {
+            guard case let .maintainControlPointDistance(plan?) = $0.kind else { return false }
+            return worldPoints.contains(plan.start) || worldPoints.contains(plan.end)
+        }
         var template = SceneParticleChildTemplate(
                 index: templateIndex,
                 path: path,
                 definition: asset.definition,
                 pointerControlPointIdentities: asset.definition.pointerControlPointIdentities,
+                needsWorldControlPointFrame: needsWorldPointFrame,
                 trigger: trigger,
                 trail: render.trail,
                 rope: render.rope,
@@ -408,6 +420,10 @@ extension SceneParticleChildTemplate {
     func simulator(
         seed: UInt64,
         dynamicInstanceValues: SceneDynamicParticleValues? = nil,
+        origin: SIMD3<Double> = .zero,
+        controlPointFrame: SceneParticleControlPointFrame? = nil,
+        initialDynamicControlPoints: [Int: SIMD3<Double>] = [:],
+        initialDynamicControlPointAngles: [Int: SIMD3<Double>] = [:],
         maximumEmissionDuration: Double? = nil,
         eventColorContext: SceneParticleEventColorContext = .unavailable
     ) -> SceneParticleSimulator {
@@ -415,10 +431,20 @@ extension SceneParticleChildTemplate {
             definition: definition,
             instanceOverride: instanceOverride,
             initialDynamicInstanceOverride: instanceOverride?.resolving(dynamicInstanceValues),
+            initialDynamicControlPoints: initialDynamicControlPoints,
+            initialDynamicControlPointAngles: initialDynamicControlPointAngles,
             seed: seed,
             particleBudget: particleBudget,
             maximumEmissionDuration: maximumEmissionDuration,
             worldSpaceFrame: worldSpaceFrame,
+            controlPointFrame: needsWorldControlPointFrame
+                ? controlPointFrame?.childFrame(origin: origin, scale: transform.scale) : nil,
+            initialControlPointParticleSpace: definition.flags.isWorldSpace
+                && definition.operators.contains(where: {
+                    if case let .maintainControlPointDistance(plan) = $0.kind { return plan != nil }
+                    return false
+                })
+                ? .init(currentOrigin: origin, scale: transform.scale, birthOrigins: [:]) : nil,
             eventColorContext: eventColorContext
         )
 #if DEBUG

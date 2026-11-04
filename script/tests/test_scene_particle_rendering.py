@@ -44,6 +44,7 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleReduceMovement.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCollisionPlane.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePositionAroundControlPoint.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePositionBetweenControlPoints.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser+Operator.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleRenderSupport.swift",
@@ -725,6 +726,142 @@ class SceneParticleRenderingTests(unittest.TestCase):
         self.assertLess(nearest[2], 5)
         self.assertGreater(single_level[0], 240)
         self.assertLess(single_level[1], 5)
+
+
+class SceneParticleControlPointComponentsRenderingTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        from script.tests.test_scene_particle_material_coverage import (
+            BASE_HARNESS, NO_TIMESTAMP_OBSERVATION_SUPPORT, SWIFT_SOURCES as RUNTIME_SOURCES,
+        )
+        source = BASE_HARNESS.read_text()
+        start = source.index("    static func main() throws {")
+        end = source.index("    static func renderDescriptor(", start)
+        main = """    static func main() throws {
+        try printJSON(SceneParticleControlPointComponentsRenderingChecks.run())
+    }
+
+"""
+        sources = tuple(dict.fromkeys(path.resolve() for path in [*RUNTIME_SOURCES,
+            FIXTURE_ROOT / "SceneParticleControlPointComponentsRenderingChecks.swift",
+            FIXTURE_ROOT / "SceneParticleOffscreenReadbackHarness.swift"]))
+        cls.result = run_particle_harness(sources,
+            NO_TIMESTAMP_OBSERVATION_SUPPORT + source[:start] + main + source[end:])
+        cls.rows = {row["name"]: row for row in cls.result["rows"]}
+
+    def assert_draw(self, name, layer_id, population, instances):
+        row = self.rows[name]
+        self.assertEqual(self.result["sampleCount"], 1)
+        self.assertEqual(row["activeLayerIDs"], [layer_id, 201])
+        self.assertEqual(row["batchLayerIDs"], [layer_id, 201])
+        self.assertEqual(row["instances"], [instances, 1])
+        self.assertEqual(row["rootPopulation"], population)
+        self.assertEqual(row["encoded"], [True, True])
+        self.assertTrue(row["completed"])
+        self.assertEqual(row["textureExtents"], [[4, 4], [4, 4]])
+        return row
+
+    def test_world_between_count_size_and_instance_replacement_reach_production_vertices(self):
+        row = self.assert_draw("world-between23", 101, 5, 4)
+        self.assertTrue(row["hasPointFrame"])
+        for actual, expected in zip(row["positions"], [[0, 0, 0], [17.0666666667, 0, 0],
+                [34.1333333333, 0, 0], [51.2, 0, 0]], strict=True):
+            for value, wanted in zip(actual, expected, strict=True):
+                self.assertAlmostEqual(value, wanted, delta=0.0001)
+        for value, wanted in zip(row["sizes"], [1.6, 10.816, 15.424, 15.424], strict=True):
+            self.assertAlmostEqual(value, wanted, delta=0.0001)
+        # Literal pixel coordinates and extents are independent of the CPU mapper.
+        # GPUInstance uploads half the authored size against the unit quad.
+        for bounds, cx, sx, sy in zip(row["vertexBounds"][0], [192, 166.4, 140.8, 115.2],
+                [1.2, 8.112, 11.568, 11.568], [0.6, 4.056, 5.784, 5.784], strict=True):
+            self.assertAlmostEqual((bounds[0] + bounds[2]) / 2, cx, delta=0.001)
+            self.assertAlmostEqual((bounds[1] + bounds[3]) / 2, 80.5, delta=0.001)
+            self.assertAlmostEqual(bounds[2] - bounds[0], sx, delta=0.001)
+            self.assertAlmostEqual(bounds[3] - bounds[1], sy, delta=0.001)
+        self.assertEqual(row["rgba"], [[255, 0, 0, 255]] * 4 + [[0, 255, 0, 255], [0, 0, 0, 0]])
+        missing = self.assert_draw("world-missing-frame", 101, 7, 6)
+        self.assertFalse(missing["hasPointFrame"])
+        self.assertEqual(missing["positions"][-2:], [[0, 0, 0], [0, 0, 0]])
+        self.assertEqual(missing["sizes"][-2:], [16, 16])
+        self.assertEqual(missing["rgba"], [[255, 0, 0, 255], [0, 255, 0, 255], [0, 0, 0, 0]])
+
+    def test_dynamic_endpoints_preserve_motion_and_move_actual_pixels(self):
+        for name, expected, center, endpoints, samples in [
+            ("maintain-before", [16, 12, 0], [64, 52.5], {"0": [0, 0, 0], "1": [64, 0, 0]},
+             [[255, 0, 0, 255], [0, 0, 0, 0], [0, 255, 0, 255]]),
+            ("maintain-after", [48, 16, 0], [96, 48.5], {"0": [16, 0, 0], "1": [144, 0, 0]},
+             [[255, 0, 0, 255], [0, 0, 0, 0], [0, 255, 0, 255]]),
+        ]:
+            row = self.assert_draw(name, 102, 2, 1)
+            for value, wanted in zip(row["positions"][0], expected, strict=True):
+                self.assertAlmostEqual(value, wanted, delta=0.0001)
+            bounds = row["vertexBounds"][0][0]
+            self.assertAlmostEqual((bounds[0] + bounds[2]) / 2, center[0], delta=0.001)
+            self.assertAlmostEqual((bounds[1] + bounds[3]) / 2, center[1], delta=0.001)
+            self.assertEqual(row["dynamicControlPoints"], endpoints)
+            self.assertEqual(row["rgba"], samples)
+
+    def test_prewarm_uses_initial_typed_world_endpoint_before_any_live_step(self):
+        row = self.assert_draw("prewarm-initial-cp128", 103, 4, 3)
+        self.assertTrue(row["hasPointFrame"])
+        self.assertEqual(row["positions"], [[0, 0, 0], [64, 0, 0], [128, 0, 0]])
+        self.assertEqual(row["dynamicControlPoints"], {"0": [0, 0, 0], "1": [160, 127.5, 0]})
+        for bounds, x in zip(row["vertexBounds"][0], [32, 96, 160], strict=True):
+            self.assertAlmostEqual((bounds[0] + bounds[2]) / 2, x, delta=0.001)
+            self.assertAlmostEqual((bounds[1] + bounds[3]) / 2, 32.5, delta=0.001)
+        self.assertTrue(all(0.49 < age < 0.51 for age in row["ages"]))
+        self.assertEqual(row["rgba"], [[255, 0, 0, 255]] * 3 + [[0, 0, 0, 0], [0, 255, 0, 255]])
+
+    def test_static_child_world_endpoint_reaches_production_vertices_after_its_own_transform(self):
+        self.assertEqual(len(self.result["rows"]), 8)
+        row = self.assert_draw("static-child-world-between", 104, 1, 3)
+        self.assertEqual(row["rootTargetPopulation"], 0)
+        self.assertEqual(row["childPopulation"], 3)
+        self.assertEqual(row["childSystemCount"], 1)
+        self.assertEqual(row["childOrigins"], [[16, 12, 0]])
+        self.assertEqual(row["childHasPointFrame"], [True])
+        self.assertEqual(row["particlePaths"], ["particles/static-child.json", "particles/peer.json"])
+        for actual, expected in zip(row["childPositions"],
+                [[0, 0, 0], [17.3333333333, -3, 0], [34.6666666667, -6, 0]], strict=True):
+            for value, wanted in zip(actual, expected, strict=True):
+                self.assertAlmostEqual(value, wanted, delta=0.0001)
+        for bounds, center in zip(row["vertexBounds"][0], [[168, 71], [116, 75.5], [64, 80]], strict=True):
+            self.assertAlmostEqual((bounds[0] + bounds[2]) / 2, center[0], delta=0.001)
+            self.assertAlmostEqual((bounds[1] + bounds[3]) / 2, center[1], delta=0.001)
+            self.assertAlmostEqual(bounds[2] - bounds[0], 12, delta=0.001)
+            self.assertAlmostEqual(bounds[3] - bounds[1], 6, delta=0.001)
+        self.assertEqual(row["rgba"], [[255, 0, 0, 255]] * 3
+            + [[0, 255, 0, 255], [0, 0, 0, 0], [0, 0, 0, 0]])
+
+    def test_world_follow_child_keeps_its_birth_origin_when_parent_moves(self):
+        self.assertEqual(len(self.result["rows"]), 8)
+        for stage, parent_x in [(2, 20), (3, 30)]:
+            row = self.rows[f"follow-world-{stage}"]
+            self.assertEqual(row["activeLayerIDs"], [105, 201])
+            self.assertEqual(row["batchLayerIDs"], [105, 105, 201])
+            self.assertEqual(row["particlePaths"], ["particles/follow-world.json",
+                "particles/follow-parent.json", "particles/peer.json"])
+            self.assertEqual(row["instances"], [1, 1, 1])
+            self.assertEqual(row["encoded"], [True, True, True])
+            self.assertTrue(row["completed"])
+            self.assertEqual(row["rootPopulation"], 2)
+            self.assertEqual(row["rootAlpha"], [0])
+            self.assertAlmostEqual(row["positions"][0][0], parent_x, delta=0.0001)
+            self.assertEqual(row["childPopulation"], 1)
+            self.assertEqual(row["childSystemCount"], 1)
+            self.assertEqual(row["childIDs"], ["0"])
+            self.assertEqual(row["childHasPointFrame"], [True])
+            self.assertAlmostEqual(row["childOrigins"][0][0], parent_x, delta=0.0001)
+            self.assertEqual(set(row["childBirthOrigins"][0]), {"0"})
+            for actual, expected in zip(row["childBirthOrigins"][0]["0"], [20, 0, 0], strict=True):
+                self.assertAlmostEqual(actual, expected, delta=0.0001)
+            for field, expected in [("childPositions", [55, 80, 0]), ("childBatchPositions", [75, 80, 0])]:
+                for actual, wanted in zip(row[field][0], expected, strict=True):
+                    self.assertAlmostEqual(actual, wanted, delta=0.0001)
+            bounds = row["vertexBounds"][0][0]
+            self.assertAlmostEqual((bounds[0] + bounds[2]) / 2, 75, delta=0.001)
+            self.assertAlmostEqual((bounds[1] + bounds[3]) / 2, 80, delta=0.001)
+            self.assertEqual(row["rgba"], [[255, 0, 0, 255], [0, 0, 0, 0], [0, 255, 0, 255]])
 
 
 if __name__ == "__main__":

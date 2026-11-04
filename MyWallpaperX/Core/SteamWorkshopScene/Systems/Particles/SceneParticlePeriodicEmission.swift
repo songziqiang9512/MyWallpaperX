@@ -370,7 +370,7 @@ nonisolated extension SceneParticleDefinition {
         guard children.isEmpty, emitters.count == 1, let emitter = emitters.first,
               emitter.hasBoundedDirectionsAndSign, emitter.boundedSpeedRange != nil,
               emitterControlPointFrame(for: emitter, instanceOverride: instanceOverride,
-                  dynamicControlPoints: [:], requiresDynamicPointerValue: false) != nil
+                  dynamicControlPoints: [:], requiresLiveInput: false) != nil
         else { return nil }
         switch emitter.kind {
         case .sphereRandom, .boxRandom: break

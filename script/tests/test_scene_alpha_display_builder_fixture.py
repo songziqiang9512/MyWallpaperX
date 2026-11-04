@@ -162,6 +162,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Systems/Particles/SceneParticleReduceMovement.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticleCollisionPlane.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticlePositionAroundControlPoint.swift",
+    SOURCE_ROOT / "Systems/Particles/SceneParticlePositionBetweenControlPoints.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticleDefinitionParser.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticleDefinitionParser+Operator.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticleDefinitionParser+InstanceOverride.swift",

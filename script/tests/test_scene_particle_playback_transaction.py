@@ -743,7 +743,7 @@ final class SceneDesktopWallpaperSession {
             var saturated = SceneParticleSimulator.FrameSnapshot(playback:old.playback,particles:old.particles,
                 transientRenderBirths:old.transientRenderBirths,birthEvents:old.birthEvents,deathEvents:old.deathEvents,
                 simulationTime:old.simulationTime,activeInstanceOverride:old.activeInstanceOverride,activeWorldSpaceFrame:old.activeWorldSpaceFrame,
-                controlPointForceFrame:old.controlPointForceFrame,
+                controlPointFrame:old.controlPointFrame,
                 explicitBirthEventStart:old.explicitBirthEventStart,emitters:old.emitters,random:old.random,accumulator:old.accumulator,
                 nextParticleID:UInt64.max,normalizedLives:old.normalizedLives,dynamicControlPoints:old.dynamicControlPoints,
                 dynamicControlPointAngles:old.dynamicControlPointAngles,audioInput:old.audioInput,

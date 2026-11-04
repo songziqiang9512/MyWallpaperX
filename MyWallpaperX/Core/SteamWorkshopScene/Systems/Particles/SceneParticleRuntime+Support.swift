@@ -1,6 +1,48 @@
 import Foundation
+import simd
 
 extension SceneParticleRuntime {
+    var playbackSimulators: [(Int, SceneParticleSimulator)] {
+        layers.compactMap { layer in layer.rootRender.map { (layer.layerID, $0.simulator) } }
+    }
+    func playbackVisibility(layerID: Int, dynamicValues: SceneDynamicSnapshot)
+        -> SceneParticlePlaybackVisibility? {
+        guard let index = layers.firstIndex(where: { $0.layerID == layerID }) else { return nil }
+        let visible = SceneLayerVisibility.isEffectivelyVisible(layerID: layerID, in: descriptor,
+            layersByID: visibilityLayersByID, snapshot: dynamicValues)
+        return .init(isVisible: visible, resetsPopulation: !visible
+            || (layers[index].wasVisible != nil && layers[index].wasVisible != visible))
+    }
+    func emissionContext(layerID: Int, dynamicValues: SceneDynamicSnapshot,
+                         pointerLocalPosition: SIMD3<Double>?, audio: SceneParticleAudioInput,
+                         worldFrame: simd_float4x4?) throws -> SceneParticleSimulator.EmissionContext {
+        guard let layer = layers.first(where: { $0.layerID == layerID }), let root = layer.rootRender else {
+            throw SceneParticleEmissionFailure.unavailable
+        }
+        var points = dynamicValues.particleControlPoints(layerID: layerID)
+        points.merge(root.definition.pointerControlPointValues(at: pointerLocalPosition,
+            identities: root.pointerControlPointIdentities)) { _, pointer in pointer }
+        let world = worldFrame.flatMap { current in
+            if let plan = rootWorldTranslationPlans[layerID] {
+                return plan.frame(currentWorldFrame: current)
+            }
+            return SceneParticleWorldSpaceFrame(worldFrame: current)
+        }
+        if worldSpaceRequiringLayerIDs.contains(layerID), world == nil {
+            throw SceneParticleEmissionFailure.unavailable
+        }
+        return .init(controlPoints: points,
+            controlPointAngles: dynamicValues.particleControlPointAngles(layerID: layerID),
+            instanceOverride: SceneParticleInstanceOverride.resolving(authored: root.simulator.instanceOverride,
+                dynamic: dynamicValues.particleInstanceValues(layerID: layerID)),
+            audio: audio, worldFrame: world,
+            controlPointFrame: root.simulator.needsWorldControlPointFrame
+                ? .init(worldFrame: worldFrame, sceneOrthoHeight: descriptor.camera.orthoHeight) : nil)
+    }
+    func playbackObservation(layerID: Int) -> SceneParticlePlaybackObservation? {
+        layers.first { $0.layerID == layerID }?.rootRender?.simulator.playbackObservation
+    }
+
     /// Official particle containers parse `renderer` and `children` as
     /// independent collections. We admit only the bounded form whose root has
     /// no renderer and whose complete root-child set is static and executable;

@@ -23,7 +23,7 @@ nonisolated extension SceneParticleSimulator {
         /// Includes the current root birth offset; rollback never recomputes
         /// an emission from the callback's later transform prefix.
         let activeWorldSpaceFrame: SceneParticleWorldSpaceFrame?
-        let controlPointForceFrame: SceneParticleControlPointForceFrame?
+        let controlPointFrame: SceneParticleControlPointFrame?
         var explicitBirthEventStart: Int?
         let emitters: [SceneParticleEmitterState]
         let random: SceneParticleRandomGenerator
@@ -41,6 +41,7 @@ nonisolated extension SceneParticleSimulator {
         let eventColorContext: SceneParticleEventColorContext
         var stepSnapshotRecorder: SceneParticleStepSnapshotRecorder?
         var positionOscillationCache: [SceneParticleOscillationCacheKey: SceneParticlePositionOscillation]
+        var controlPointDistanceHistory: [SceneParticleControlPointEndpoints?] = []
     }
 
     /// Clear the population through the same rollback state as explicit emission.
@@ -54,6 +55,7 @@ nonisolated extension SceneParticleSimulator {
         state.explicitBirthEventStart = nil
         state.normalizedLives = []
         state.positionOscillationCache = [:]
+        state.controlPointDistanceHistory = Array(repeating: nil, count: controlPointDistanceHistory.count)
         state.stepSnapshotRecorder?.clear()
         restoreFrame(state)
     }
@@ -66,6 +68,7 @@ nonisolated extension SceneParticleSimulator {
         /// The caller resolves and validates this command's exact transform
         /// prefix, including a root-translation birth offset when applicable.
         var worldFrame: SceneParticleWorldSpaceFrame? = nil
+        var controlPointFrame: SceneParticleControlPointFrame? = nil
 
         var storageBytes: Int {
             MemoryLayout<Self>.stride + 256
@@ -126,8 +129,7 @@ nonisolated extension SceneParticleSimulator {
     /// bounded work, not time: noise octaves and selected audio bins are charged.
     static func explicitInitializerWork(
         definition: SceneParticleDefinition,
-        plans: [SceneParticleInitializerExecutionPlan],
-        controlPointPlans: [SceneParticlePositionAroundControlPointPlan?]
+        plans: [SceneParticleInitializerExecutionPlan]
     ) -> UInt64? {
         var work: UInt64 = 0
         for (index, value) in definition.initializers.enumerated() {
@@ -140,7 +142,9 @@ nonisolated extension SceneParticleSimulator {
                 guard let offset = plan.positionOffset else { return nil }
                 work += UInt64(32 + offset.octaves * 48)
             case .positionAroundControlPoint:
-                guard controlPointPlans[index] != nil else { return nil }; work += 32
+                guard plan.positionAroundControlPoint != nil else { return nil }; work += 32
+            case .positionBetweenControlPoints:
+                guard plan.positionBetweenControlPoints != nil else { return nil }; work += 32
             case .turbulentVelocity:
                 guard let turbulence = plan.turbulentVelocity,
                       !turbulence.audioResponseEnabled || turbulence.audioResponsePlan != nil else { return nil }
@@ -172,6 +176,7 @@ nonisolated extension SceneParticleSimulator.FrameSnapshot {
             + states(deathEvents) + states(transientRenderBirths)
             + 2 * normalizedLives.capacity * MemoryLayout<Double>.stride
             + 2 * emitters.capacity * MemoryLayout<SceneParticleEmitterState>.stride
+            + 2 * controlPointDistanceHistory.capacity * MemoryLayout<SceneParticleControlPointEndpoints?>.stride
         let buckets = (positionOscillationCache.capacity + dynamicControlPoints.capacity
             + dynamicControlPointAngles.capacity) * 512
 #if DEBUG

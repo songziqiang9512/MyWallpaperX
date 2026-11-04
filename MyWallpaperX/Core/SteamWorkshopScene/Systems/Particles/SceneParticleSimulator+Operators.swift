@@ -4,7 +4,9 @@ nonisolated extension SceneParticleSimulator {
     func apply(
         _ value: SceneParticleOperator,
         operatorIndex: Int,
-        duration: Double
+        duration: Double,
+        existingParticleIDUpperBound: UInt64 = .max,
+        controlPointParticleSpace: SceneParticleControlPointParticleSpace? = nil
     ) {
 #if DEBUG
         let observesParticles = componentObservation != nil && !particles.isEmpty
@@ -259,6 +261,19 @@ nonisolated extension SceneParticleSimulator {
                 componentObservation?.record("operator", operatorIndex, "evaluated", reason: "turbulence-evaluated", time: simulationTime, particleID: particles[0].id)
             }
 #endif
+        case .maintainControlPointDistance:
+#if DEBUG
+            if value.rawFlags != 0 {
+                componentObservation?.record("operator", operatorIndex, "unknown", reason: "unmodeled-operator-flags", time: simulationTime)
+            }
+#endif
+            applyMaintainControlPointDistance(
+                plan: operatorExecutionPlans[operatorIndex].maintainControlPointDistance,
+                operatorIndex: operatorIndex,
+                existingParticleIDUpperBound: existingParticleIDUpperBound,
+                blend: operatorExecutionPlans[operatorIndex].blend,
+                controlPointParticleSpace: controlPointParticleSpace
+            )
         case .controlPointAttract:
 #if DEBUG
             componentObservation?.record("operator", operatorIndex, "unknown", reason: "helper-evaluation-witness-unavailable", time: simulationTime)

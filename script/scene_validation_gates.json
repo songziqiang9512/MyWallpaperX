@@ -2430,7 +2430,10 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleUnaryOperatorPlans.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleVortex.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleWorldSpacePlan.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/**"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/**",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePositionBetweenControlPoints.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+PositionBetweenControlPoints.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+MaintainControlPointDistance.swift"
       ],
       "keywords": [
         "particle"
@@ -5689,6 +5692,30 @@
       ],
       "modules": [
         "test_scene_particle_layer_image_emitter"
+      ]
+    },
+    {
+      "id": "particle-control-point-components",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePositionBetweenControlPoints.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+PositionBetweenControlPoints.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+MaintainControlPointDistance.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleControlPointForce.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+ControlPointForce.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+Initializer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+Operators.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser+Operator.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+ExplicitEmission.swift",
+        "script/tests/test_scene_particle_control_point_components.py",
+        "script/tests/fixtures/SceneParticleControlPointComponentsHarness.swift",
+        "script/tests/fixtures/SceneParticleControlPointComponentsRenderingChecks.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRuntime+Support.swift"
+      ],
+      "modules": [
+        "test_scene_particle_control_point_components",
+        "test_scene_particle_rendering"
       ]
     }
   ],

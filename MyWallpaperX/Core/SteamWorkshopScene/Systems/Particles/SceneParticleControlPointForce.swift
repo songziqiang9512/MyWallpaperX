@@ -2,6 +2,18 @@ import Foundation
 import simd
 
 nonisolated extension SceneParticleSimulationMath {
+    static func resolvedControlPointPosition(
+        authored: SIMD3<Double>, dynamic: SIMD3<Double>?, instance: SIMD3<Double>?,
+        followsPointer: Bool, requiresPointerValue: Bool
+    ) -> SIMD3<Double>? {
+        if followsPointer {
+            // Cold preparation can inspect a pointer frame before a sample exists.
+            guard !requiresPointerValue || dynamic != nil else { return nil }
+            return authored + (dynamic ?? instance ?? .zero)
+        }
+        return dynamic ?? instance ?? authored
+    }
+
     static func supportsControlPointSource(
         _ source: Int,
         in definition: SceneParticleDefinition
@@ -40,8 +52,17 @@ nonisolated extension SceneParticleSimulationMath {
 
 nonisolated struct SceneParticleEmitterControlPointFrame {
     let origin: SIMD3<Double>
+    let controlPointOrigin: SIMD3<Double>
     let sine: SIMD3<Double>
     let cosine: SIMD3<Double>
+
+    init(origin: SIMD3<Double>, sine: SIMD3<Double>, cosine: SIMD3<Double>,
+         controlPointOrigin: SIMD3<Double> = .zero) {
+        self.origin = origin
+        self.sine = sine
+        self.cosine = cosine
+        self.controlPointOrigin = controlPointOrigin
+    }
 
     func position(for relative: SIMD3<Double>) -> SIMD3<Double> {
         origin + direction(for: relative)
@@ -74,12 +95,12 @@ nonisolated struct SceneParticleControlPointForceEnvironment: Sendable {
 }
 
 /// Current point conversion for this layer/cadence; unrelated to General-world birth anchoring.
-nonisolated struct SceneParticleControlPointForceFrame: Equatable, Sendable {
+nonisolated struct SceneParticleControlPointFrame: Equatable, Sendable {
     private let worldToLocal: simd_double4x4
     private let sceneOrthoHeight: Double
 
-    init?(worldFrame: simd_float4x4, sceneOrthoHeight: Float) {
-        guard sceneOrthoHeight.isFinite, sceneOrthoHeight > 0,
+    init?(worldFrame: simd_float4x4?, sceneOrthoHeight: Float?) {
+        guard let worldFrame, let sceneOrthoHeight, sceneOrthoHeight.isFinite, sceneOrthoHeight > 0,
               worldFrame.columns.0.w == 0, worldFrame.columns.1.w == 0,
               worldFrame.columns.2.w == 0, worldFrame.columns.3.w == 1 else { return nil }
         let source = simd_double4x4(columns: (
@@ -96,6 +117,23 @@ nonisolated struct SceneParticleControlPointForceFrame: Equatable, Sendable {
         else { return nil }
         worldToLocal = inverse
         self.sceneOrthoHeight = Double(sceneOrthoHeight)
+    }
+
+    private init(worldToLocal: simd_double4x4, sceneOrthoHeight: Double) {
+        self.worldToLocal = worldToLocal
+        self.sceneOrthoHeight = sceneOrthoHeight
+    }
+
+    func childFrame(origin: SIMD3<Double>, scale: SIMD3<Double>) -> Self {
+        // localPosition flips graphics Y after this matrix, so its child-origin
+        // subtraction has the opposite sign in the matrix's Y translation.
+        let rootToChild = simd_double4x4(columns: (
+            SIMD4(1 / scale.x, 0, 0, 0),
+            SIMD4(0, 1 / scale.y, 0, 0),
+            SIMD4(0, 0, 1 / scale.z, 0),
+            SIMD4(-origin.x / scale.x, origin.y / scale.y, -origin.z / scale.z, 1)
+        ))
+        return .init(worldToLocal: rootToChild * worldToLocal, sceneOrthoHeight: sceneOrthoHeight)
     }
 
     func localPosition(worldPoint: SIMD3<Double>) -> SIMD3<Double>? {
@@ -271,7 +309,8 @@ nonisolated extension SceneParticleDefinition {
         controlPointsByID: [Int: SceneParticleControlPoint]? = nil,
         controlPointSourcesAreValid: Bool? = nil,
         preparedOrigin: SIMD3<Double>? = nil,
-        requiresDynamicPointerValue: Bool = true
+        controlPointFrame: SceneParticleControlPointFrame? = nil,
+        requiresLiveInput: Bool = true
     ) -> SceneParticleEmitterControlPointFrame? {
         let localOrigin = preparedOrigin
             ?? SceneParticleSimulationMath.vector(emitter.origin, fallback: .zero)
@@ -290,25 +329,24 @@ nonisolated extension SceneParticleDefinition {
         } else {
             point = controlPoints.first(where: { $0.id == source })
         }
-        if requiresDynamicPointerValue,
-           point?.hasBoundedPointerInput == true,
-           dynamicControlPoints[source] == nil {
-            return nil
-        }
         let angleOverride = instanceOverride?.controlPointAngles[source]
         let dynamicAngle = dynamicControlPointAngles[source]
+        let dynamic = dynamicControlPoints[source]
+        let positionOverride = dynamic == nil ? instanceOverride?.controlPoints[source] : nil
         let usesAngles = point?.hasAuthoredAngles == true
             || angleOverride != nil || dynamicAngle != nil
-        var translation = SceneParticleSimulationMath.vector(point?.offset, fallback: .zero)
+        var authoredPosition = SceneParticleSimulationMath.vector(point?.offset, fallback: .zero)
         var angles = SIMD3<Double>.zero
         if usesAngles {
             guard emitter.kind == .sphereRandom || emitter.kind == .boxRandom,
                   localOrigin.isBounded else { return nil }
             if let point {
-                guard let offset = point.boundedEmitterOffset,
-                      let defaultAngles = point.boundedEmitterAngle(identity: source)
+                guard let defaultAngles = point.boundedEmitterAngle(identity: source)
                 else { return nil }
-                translation = offset
+                if point.followsPointer || (dynamic == nil && positionOverride?.value == nil) {
+                    guard let offset = point.boundedEmitterOffset else { return nil }
+                    authoredPosition = offset
+                }
                 angles = defaultAngles
             }
             if let dynamicAngle {
@@ -319,21 +357,31 @@ nonisolated extension SceneParticleDefinition {
                 angles = value.normalizedAngles
             }
         }
-        if let dynamic = dynamicControlPoints[source] {
+        if let dynamic {
             guard dynamic.isBounded else { return nil }
-            translation += dynamic
-        } else if let position = instanceOverride?.controlPoints[source] {
+        }
+        let instancePosition: SIMD3<Double>?
+        if let position = positionOverride {
             if usesAngles {
                 guard let value = position.boundedStaticVector else { return nil }
-                translation += value
-            } else {
-                translation += SceneParticleSimulationMath.vector(position.value, fallback: .zero)
-            }
+                instancePosition = value
+            } else if let value = position.value {
+                instancePosition = SceneParticleSimulationMath.vector(value, fallback: .zero)
+            } else { instancePosition = nil }
+        } else { instancePosition = nil }
+        guard var translation = SceneParticleSimulationMath.resolvedControlPointPosition(
+            authored: authoredPosition, dynamic: dynamic, instance: instancePosition,
+            followsPointer: point?.followsPointer == true,
+            requiresPointerValue: requiresLiveInput && point?.hasBoundedPointerInput == true
+        ) else { return nil }
+        if (point?.rawFlags ?? 0) & 2 != 0, requiresLiveInput || controlPointFrame != nil {
+            guard let local = controlPointFrame?.localPosition(worldPoint: translation) else { return nil }
+            translation = local
         }
         let sine = SIMD3(sin(angles.x), sin(angles.y), sin(angles.z))
         let cosine = SIMD3(cos(angles.x), cos(angles.y), cos(angles.z))
         let rotatedOrigin = SceneParticleSimulationMath.rotateXYZ(localOrigin, sine: sine, cosine: cosine)
-        return .init(origin: translation + rotatedOrigin, sine: sine, cosine: cosine)
+        return .init(origin: translation + rotatedOrigin, sine: sine, cosine: cosine, controlPointOrigin: translation)
     }
 
     func supportsBoundedControlPointForce(
@@ -384,6 +432,15 @@ nonisolated extension SceneParticleDefinition {
                       $0.id == plan.controlPoint && $0.hasBoundedPointerInput
                   }) else { return nil }
             return plan.controlPoint
+        })
+        let betweenPoints = initializers.compactMap(\.positionBetweenControlPointsPlan)
+            .flatMap { [$0.controlPointStart, $0.controlPointEnd] }
+        let maintainedPoints = operators.flatMap { value -> [Int] in
+            guard case let .maintainControlPointDistance(plan?) = value.kind else { return [] }
+            return [plan.start, plan.end]
+        }
+        identities.formUnion((betweenPoints + maintainedPoints).filter { identity in
+            controlPoints.contains { $0.id == identity && $0.hasBoundedPointerInput }
         })
         identities.formUnion(positionAroundPointerControlPointIdentities)
         identities.formUnion(emitterPointerControlPointIdentities)

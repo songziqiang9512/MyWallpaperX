@@ -18,6 +18,8 @@ extension SceneParticleDefinitionParser {
         case "oscillatealpha": kind = .oscillateAlpha
         case "oscillatesize": kind = .oscillateSize
         case "controlpointattract": kind = .controlPointAttract
+        case "maintaindistancebetweencontrolpoints":
+            kind = .maintainControlPointDistance(Self.maintainControlPointDistance(root))
         case "turbulence": kind = .turbulence
         case "boids": kind = .boids(Self.boids(root))
         case "vortex", "vortex_v2": kind = .vortex(Self.vortex(root,
@@ -66,6 +68,18 @@ extension SceneParticleDefinitionParser {
             speedMaximum: Self.number(root["speedmax"]),
             audioResponse: Self.audioResponse(root)
         )
+    }
+
+    private nonisolated static func maintainControlPointDistance(
+        _ root: [String: Any]
+    ) -> SceneParticleMaintainControlPointDistancePlan? {
+        let rawStart = root["controlpointstart"]
+        let rawEnd = root["controlpointend"]
+        let start: Int? = rawStart == nil || rawStart is NSNull ? 0 : integer(rawStart)
+        let end: Int? = rawEnd == nil || rawEnd is NSNull ? 1 : integer(rawEnd)
+        guard let start, let end,
+              (0 ... 7).contains(start), (0 ... 7).contains(end) else { return nil }
+        return .init(start: start, end: end)
     }
 
     private nonisolated static func boids(_ root: [String: Any]) -> SceneParticleBoids {

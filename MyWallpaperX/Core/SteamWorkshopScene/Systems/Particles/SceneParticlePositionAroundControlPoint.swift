@@ -58,18 +58,27 @@ nonisolated struct SceneParticlePositionAroundControlPointPlan: Equatable, Senda
     let controlPoint: Int
 
     nonisolated func sequence(particleID: UInt64) -> Double {
-        if let integerCount {
-            return Double(particleID % integerCount) / count
-        }
-        // Reduce exact 32-bit limbs before combining them. Converting the
-        // whole identity to Double first loses births above 2^53.
-        let highRemainder = (Double(particleID >> 32) * 4_294_967_296)
-            .truncatingRemainder(dividingBy: count)
-        let lowRemainder = Double(UInt32(truncatingIfNeeded: particleID))
-            .truncatingRemainder(dividingBy: count)
-        return (highRemainder + lowRemainder)
-            .truncatingRemainder(dividingBy: count) / count
+        sceneParticleSequenceRemainder(
+            particleID, divisor: count, integerDivisor: integerCount
+        ) / count
     }
+}
+
+nonisolated func sceneParticleSequenceRemainder(
+    _ particleID: UInt64, divisor: Double, integerDivisor: UInt64?
+) -> Double {
+    if let integerDivisor {
+        return Double(particleID % integerDivisor)
+    }
+    if divisor.isInfinite { return Double(particleID) }
+    // Reduce exact 32-bit limbs before combining them. Converting the
+    // whole identity to Double first loses births above 2^53.
+    let highRemainder = (Double(particleID >> 32) * 4_294_967_296)
+        .truncatingRemainder(dividingBy: divisor)
+    let lowRemainder = Double(UInt32(truncatingIfNeeded: particleID))
+        .truncatingRemainder(dividingBy: divisor)
+    return (highRemainder + lowRemainder)
+        .truncatingRemainder(dividingBy: divisor)
 }
 
 extension SceneParticleInitializer {

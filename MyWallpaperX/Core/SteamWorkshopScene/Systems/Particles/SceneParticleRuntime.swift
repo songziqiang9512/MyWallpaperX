@@ -6,20 +6,20 @@ import simd
 /// Positions remain local for legacy systems, or in one immutable reference
 /// for admitted root translations. The renderer applies that chosen frame once.
 final class SceneParticleRuntime {
-    private let descriptor: SceneRenderDescriptor
-    private let visibilityLayersByID: [Int: SceneRenderDescriptor.Layer]
+    let descriptor: SceneRenderDescriptor
+    let visibilityLayersByID: [Int: SceneRenderDescriptor.Layer]
 
     private let device: MTLDevice
-    private var layers: [SceneParticleLayerRuntime] = []
+    private(set) var layers: [SceneParticleLayerRuntime] = []
 #if DEBUG
     private(set) var diagnostics: [SceneParticleRuntimeDiagnostic] = []
 #endif
     /// Active world-space roots and their authored transform chains.
     private var worldSpaceChains: [Int: Set<Int>]
-    private var rootWorldTranslationPlans: [Int: SceneParticleRootWorldTranslationPlan] = [:]
+    private(set) var rootWorldTranslationPlans: [Int: SceneParticleRootWorldTranslationPlan] = [:]
     /// Only these root/child consumers freeze on a missing world frame;
     /// local-space peers still advance because their frame matters only at draw.
-    private var worldSpaceRequiringLayerIDs: Set<Int> = []
+    private(set) var worldSpaceRequiringLayerIDs: Set<Int> = []
     private var frozenWorldSpaceLayerIDs: Set<Int> = []
     /// Prepared root/child pointer demand retires with its owning layer.
     private(set) var pointerControlPointDemands: [Int: SceneParticlePointerDemand] = [:]
@@ -39,17 +39,6 @@ final class SceneParticleRuntime {
                 + (layer.childRuntime?.lifecycleParticleCount ?? 0)
         }
     }
-    var playbackSimulators: [(Int, SceneParticleSimulator)] {
-        layers.compactMap { layer in layer.rootRender.map { (layer.layerID, $0.simulator) } }
-    }
-    func playbackVisibility(layerID: Int, dynamicValues: SceneDynamicSnapshot)
-        -> SceneParticlePlaybackVisibility? {
-        guard let index = layers.firstIndex(where: { $0.layerID == layerID }) else { return nil }
-        let visible = SceneLayerVisibility.isEffectivelyVisible(layerID: layerID, in: descriptor,
-            layersByID: visibilityLayersByID, snapshot: dynamicValues)
-        return .init(isVisible: visible, resetsPopulation: !visible
-            || (layers[index].wasVisible != nil && layers[index].wasVisible != visible))
-    }
     /// The transaction has validated the complete surface/instance set. Install
     /// its simulator and visibility checkpoint together, without a second reset.
     func installPlaybackCandidate(layerID: Int, state: SceneParticleSimulator.FrameSnapshot,
@@ -68,39 +57,11 @@ final class SceneParticleRuntime {
         }
         layers[index].rootRender = root
     }
-    func emissionContext(layerID: Int, dynamicValues: SceneDynamicSnapshot,
-                         pointerLocalPosition: SIMD3<Double>?, audio: SceneParticleAudioInput,
-                         worldFrame: simd_float4x4?) throws -> SceneParticleSimulator.EmissionContext {
-        guard let layer = layers.first(where: { $0.layerID == layerID }), let root = layer.rootRender else {
-            throw SceneParticleEmissionFailure.unavailable
-        }
-        var points = dynamicValues.particleControlPoints(layerID: layerID)
-        points.merge(root.definition.pointerControlPointValues(at: pointerLocalPosition,
-            identities: root.pointerControlPointIdentities)) { _, pointer in pointer }
-        let world = worldFrame.flatMap { current in
-            if let plan = rootWorldTranslationPlans[layerID] {
-                return plan.frame(currentWorldFrame: current)
-            }
-            return SceneParticleWorldSpaceFrame(worldFrame: current)
-        }
-        if worldSpaceRequiringLayerIDs.contains(layerID), world == nil {
-            throw SceneParticleEmissionFailure.unavailable
-        }
-        return .init(controlPoints: points,
-            controlPointAngles: dynamicValues.particleControlPointAngles(layerID: layerID),
-            instanceOverride: SceneParticleInstanceOverride.resolving(authored: root.simulator.instanceOverride,
-                dynamic: dynamicValues.particleInstanceValues(layerID: layerID)),
-            audio: audio, worldFrame: world)
-    }
     func clearStoppedPlaybackCaches(_ layerIDs: Set<Int>) {
         for index in layers.indices where layerIDs.contains(layers[index].layerID) {
             layers[index].rootRender?.instances.removeAll(keepingCapacity: true)
             layers[index].rootRender?.ropeTrailHistory?.clear()
         }
-    }
-
-    func playbackObservation(layerID: Int) -> SceneParticlePlaybackObservation? {
-        layers.first { $0.layerID == layerID }?.rootRender?.simulator.playbackObservation
     }
 
     func validatePlaybackTransitions(_ transitions: [SceneParticlePlaybackTransition]) -> Bool {
@@ -246,7 +207,7 @@ final class SceneParticleRuntime {
         }
         // Prewarm consumes the initial typed transform, before the first advance.
         let initialPointFrames = graph.assetsByPath.values.contains(where: {
-            $0.definition.controlPoints.contains { $0.rawFlags == 2 }
+            $0.definition.controlPoints.contains { ($0.rawFlags ?? 0) & 2 != 0 }
         }) ? SceneLayerDynamicWorldFrameResolver.resolve(
             descriptor: descriptor, byID: visibilityLayersByID,
             snapshot: initialDynamicValues,
@@ -341,6 +302,8 @@ final class SceneParticleRuntime {
 #endif
                 continue
             }
+            let initialControlPointFrame = SceneParticleControlPointFrame(worldFrame: initialPointFrames[layer.id],
+                                                                        sceneOrthoHeight: descriptor.camera.orthoHeight)
             let childRuntime = SceneParticleChildRuntime(
                 layerID: layer.id,
                 rootAsset: asset,
@@ -350,7 +313,10 @@ final class SceneParticleRuntime {
                 device: device,
                 worldSpaceFrame: worldSpaceFrame,
                 rootInstanceOverride: layer.particleInstanceOverride,
-                initialDynamicInstanceValues: initialDynamicValues.particleInstanceValues(layerID: layer.id)
+                initialDynamicInstanceValues: initialDynamicValues.particleInstanceValues(layerID: layer.id),
+                controlPointFrame: initialControlPointFrame,
+                initialDynamicControlPoints: initialDynamicValues.particleControlPoints(layerID: layer.id),
+                initialDynamicControlPointAngles: initialDynamicValues.particleControlPointAngles(layerID: layer.id)
             )
 #if DEBUG
             for detail in childRuntime.unsupportedDetails {
@@ -412,7 +378,7 @@ final class SceneParticleRuntime {
                     worldSpaceFrame: worldSpaceFrame,
                     rootWorldTranslation: translation?.plan,
                     forceEnvironment: forceEnvironment,
-                    initialWorldFrame: initialPointFrames[layer.id],
+                    controlPointFrame: initialControlPointFrame,
                     initialDynamicValues: initialDynamicValues,
                     initialPlayback: initialPlayback[layer.id] ?? .init(),
                     textureLoader: textureLoader,
@@ -562,6 +528,10 @@ final class SceneParticleRuntime {
             layers[index].wasVisible = isVisible
             let layerDelta = frozenWorldSpaceLayerIDs.contains(layerID)
                 ? 0 : frameDelta
+            let needsPointFrame = layers[index].rootRender?.simulator.needsWorldControlPointFrame == true
+                || layers[index].childRuntime?.needsWorldControlPointFrame == true
+            let pointFrame = needsPointFrame ? SceneParticleControlPointFrame(
+                worldFrame: layerWorldFrames[layerID], sceneOrthoHeight: descriptor.camera.orthoHeight) : nil
             let worldSpaceFrameOverride = liveWorldSpaceFrames[layerID]
             var births: [SceneParticleState] = []
             var deaths: [SceneParticleState] = []
@@ -590,12 +560,7 @@ final class SceneParticleRuntime {
                     dynamicInstanceOverride: instanceOverride,
                     audioInput: audioInput,
                     worldSpaceFrameOverride: worldSpaceFrameOverride,
-                    controlPointForceFrame: root.simulator.hasWorldControlPointForce
-                        ? layerWorldFrames[layerID].flatMap { frame in
-                            descriptor.camera.orthoHeight.flatMap {
-                                SceneParticleControlPointForceFrame(worldFrame: frame, sceneOrthoHeight: $0)
-                            }
-                        } : nil
+                    controlPointFrame: pointFrame
                 )
 #if DEBUG
                 collectEvaluationObservations(layerID: layerID,
@@ -621,6 +586,7 @@ final class SceneParticleRuntime {
                     dynamicControlPointAngles: controlPointAngles,
                     audioInput: audioInput,
                     worldSpaceFrameOverride: worldSpaceFrameOverride,
+                    controlPointFrame: pointFrame,
                     isVisible: isVisible
                 )
 #if DEBUG
@@ -856,7 +822,7 @@ final class SceneParticleRuntime {
         worldSpaceFrame: SceneParticleWorldSpaceFrame?,
         rootWorldTranslation: SceneParticleRootWorldTranslationPlan?,
         forceEnvironment: SceneParticleControlPointForceEnvironment,
-        initialWorldFrame: simd_float4x4?,
+        controlPointFrame: SceneParticleControlPointFrame?,
         initialDynamicValues: SceneDynamicSnapshot,
         initialPlayback: SceneParticlePlaybackSnapshot,
         textureLoader: SceneTextureLoader,
@@ -939,15 +905,12 @@ final class SceneParticleRuntime {
         let initialInstanceOverride = SceneParticleInstanceOverride.resolving(
             authored: layer.particleInstanceOverride,
             dynamic: initialDynamicValues.particleInstanceValues(layerID: layer.id))
-        let forceFrame = forceEnvironment.allowsWorldSource ? initialWorldFrame.flatMap { frame in
-            descriptor.camera.orthoHeight.flatMap {
-                SceneParticleControlPointForceFrame(worldFrame: frame, sceneOrthoHeight: $0)
-            }
-        } : nil
         let simulator = SceneParticleSimulator(
             definition: asset.definition,
             instanceOverride: layer.particleInstanceOverride,
             initialDynamicInstanceOverride: initialInstanceOverride,
+            initialDynamicControlPoints: initialDynamicValues.particleControlPoints(layerID: layer.id),
+            initialDynamicControlPointAngles: initialDynamicValues.particleControlPointAngles(layerID: layer.id),
             initialPlayback: initialPlayback,
             seed: UInt64(bitPattern: Int64(layer.id)),
             prewarmStepBudget: 3_600,
@@ -955,7 +918,7 @@ final class SceneParticleRuntime {
             worldSpaceFrame: worldSpaceFrame,
             rootWorldTranslation: rootWorldTranslation,
             controlPointForceEnvironment: forceEnvironment,
-            controlPointForceFrame: forceFrame,
+            controlPointFrame: controlPointFrame,
             stepSnapshotPolicy: render.ropeTrail?.stepSnapshotPolicy
         )
         var root = SceneParticleRootRenderRuntime(
