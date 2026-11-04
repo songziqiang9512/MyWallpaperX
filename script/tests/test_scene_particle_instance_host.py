@@ -51,7 +51,7 @@ class SceneParticleInstanceHostTests(unittest.TestCase):
     def test_commit_rollback_reuse_and_cached_destroyed_instance(self):
         self.run_case("snapshot")
 
-    def test_exact_budget_and_caught_overflow_reject_partial_export(self):
+    def test_full_catalog_journal_survives_overwrites_and_caught_missing_layer(self):
         self.run_case("budget")
 
     def test_native_emit_hook_reads_each_call_prefix(self):

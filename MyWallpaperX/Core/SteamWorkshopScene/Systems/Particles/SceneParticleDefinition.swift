@@ -155,7 +155,7 @@ nonisolated struct SceneParticleEmitter: Equatable, Sendable {
         guard case .sphereRandom = kind, let signValues = Self.vectorComponents(sign) else {
             return false
         }
-        return signValues.allSatisfy { $0 == -1 || $0 == 0 || $0 == 1 }
+        return signValues.allSatisfy(\.isFinite)
     }
 
     private nonisolated static func vectorComponents(

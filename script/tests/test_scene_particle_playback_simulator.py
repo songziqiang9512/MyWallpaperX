@@ -265,13 +265,14 @@ import Foundation
                 revision:sim.playback.revision+1,count:count),context)],charge:{_,_ in},release:{_ in})
         }
         func radial(_ bounds: [String: Any], renamed: Bool = false, peer: Bool = false,
-                    streaming: Bool = false,
+                    streaming: Bool = false, omitsSign: Bool = false,
                     initial: SceneParticlePlaybackSnapshot = .init()) throws -> SceneParticleSimulator {
             var emitter: [String: Any] = ["id": renamed ? 823 : 17, "name": "sphererandom",
                 "origin": "4 2 0", "directions": "1 0 0", "sign": "1 0 0",
                 "distancemin": 8, "distancemax": 8, "rate": streaming ? 4 : 0,
                 "instantaneous": streaming ? 0 : 4]
             emitter.merge(bounds) { _, authored in authored }
+            if omitsSign { emitter.removeValue(forKey: "sign") }
             var emitters = [emitter]
             if peer { emitters.append(["name": "boxrandom", "rate": 4,
                 "origin": "40 2 0", "distancemin": 0, "distancemax": 0]) }
@@ -342,8 +343,82 @@ import Foundation
             result["signed-speed-\(label)-rejects-at-actual-numeric-boundary"] =
                 (sim.definition.emitters[0].boundedSpeedRange != nil) == (label == "final-float-overflow")
         }
-        let signedManual = try radial(["speedmin": -4, "speedmax": -4], initial: .init(intent: .paused))
+        let neutralSign = try radial(["sign": 0, "instantaneous": 32])
+        neutralSign.advance(by: 0.25)
+        result["sign-unit-axis-neutral-control-has-both-sides"] = neutralSign.particles.count == 32
+            && Set(neutralSign.birthEvents.map { $0.position.x }) == Set([-4.0, 12.0])
+        let equivalentSigns: [(String, Any?, Any, String, Bool)] = [
+            ("positive-ten", "10 0 0", "1 0 0", "1 0 0", false),
+            ("negative-ten", "-10 0 0", "-1 0 0", "1 0 0", false),
+            ("positive-fraction-over-one", "1.25 0 0", "1 0 0", "1 0 0", false),
+            ("negative-fraction-over-one", "-1.25 0 0", "-1 0 0", "1 0 0", false),
+            ("three-quarters", "0.75 0 0", "0 0 0", "1 0 0", false),
+            ("positive-half", 0.5, 0, "1 0 0", false),
+            ("negative-half", -0.5, 0, "1 0 0", false),
+            ("positive-tiny", "0.0000001 0 0", "0 0 0", "1 0 0", false),
+            ("negative-tiny", "-0.0000001 0 0", "0 0 0", "1 0 0", false),
+            ("omitted", nil, 0, "1 0 0", false),
+            ("scalar-number", 10, 1, "1 1 1", false),
+            ("scalar-text", "-10", "-1", "1 1 1", false),
+            ("finite-beyond-int", "1e300", 1, "1 0 0", false),
+            ("mixed-axes", "10 -1.25 0.75", "1 -1 0", "1 1 1", false),
+            ("fraction-before-active-y", "0.5 1 0", "0 1 0", "0 1 0", false),
+            // Resource/IDs and the cold wrapper key change independently of the numeric value.
+            ("renamed-wrapper", ["user": "otherCompass", "value": "10 -1.25 0.75"],
+             "1 -1 0", "1 1 1", true)]
+        for (label, rawSign, referenceSign, axes, renamed) in equivalentSigns {
+            var fields: [String: Any] = ["directions": axes, "instantaneous": 32]
+            if let rawSign { fields["sign"] = rawSign }
+            let actual = try radial(fields, renamed: renamed, omitsSign: rawSign == nil)
+            let reference = try radial(["directions": axes, "sign": referenceSign, "instantaneous": 32])
+            actual.advance(by: 0.25); reference.advance(by: 0.25)
+            result["sign-\(label)-same-real-state-events-rng-and-id"] = actual.particles.count == 32
+                && actual.particles == reference.particles && actual.birthEvents == reference.birthEvents
+                && actual.frameSnapshot().random.state == reference.frameSnapshot().random.state
+                && actual.frameSnapshot().nextParticleID == reference.frameSnapshot().nextParticleID
+                && (!renamed || (actual.definition.materialPath != reference.definition.materialPath
+                    && actual.definition.emitters[0].id != reference.definition.emitters[0].id))
+        }
+        let unsafeSigns: [(String, Any)] = [("nan", "nan"), ("infinity", "0 inf 0"),
+            ("negative-infinity", "0 0 -inf"), ("short-vector", "1 0"),
+            ("long-vector", "1 0 0 0"), ("garbage", "otherAxis"), ("bool", true)]
+        for (label, rawSign) in unsafeSigns {
+            let sim = try radial(["sign": rawSign], peer: true, streaming: true)
+            sim.advance(by: 0.25)
+            let first = sim.frameSnapshot()
+            _ = sim.consumeBirthEvents()
+            sim.advance(by: 0.25)
+            result["sign-\(label)-rejects-only-birth-keeps-peer-and-survivor"] =
+                !sim.definition.emitters[0].hasBoundedDirectionsAndSign
+                && first.particles.count == 1 && sim.particles.count == 2
+                && sim.particles[0].id == first.particles[0].id
+                && sim.particles[0].age == first.particles[0].age + 0.25
+                && sim.particles.allSatisfy { $0.position == SIMD3(40, 2, 0) && $0.velocity == .zero }
+                && sim.birthEvents.count == 1 && sim.birthEvents[0].position == SIMD3(40, 2, 0)
+            let before = sim.frameSnapshot()
+            do {
+                _ = try explicit(sim, count: 2)
+                result["sign-\(label)-exact-n-rejects-without-state-rng-id-commit"] = false
+            } catch {
+                let restored = sim.frameSnapshot()
+                result["sign-\(label)-exact-n-rejects-without-state-rng-id-commit"] =
+                    restored.particles == before.particles && restored.birthEvents == before.birthEvents
+                    && restored.playback == before.playback && restored.random.state == before.random.state
+                    && restored.nextParticleID == before.nextParticleID
+            }
+        }
+        let signedManual = try radial(["sign": "10 0 0", "speedmin": -4, "speedmax": -4],
+                                      initial: .init(intent: .paused))
         let signedCandidate = try explicit(signedManual, count: 2)
+        let unitManual = try radial(["sign": "1 0 0", "speedmin": -4, "speedmax": -4],
+                                    initial: .init(intent: .paused))
+        let unitCandidate = try explicit(unitManual, count: 2)
+        result["sign-exact-n-keeps-unit-state-events-rng-and-id"] =
+            signedCandidate.state.particles == unitCandidate.state.particles
+            && signedCandidate.state.birthEvents == unitCandidate.state.birthEvents
+            && signedCandidate.state.random.state == unitCandidate.state.random.state
+            && signedCandidate.state.nextParticleID == unitCandidate.state.nextParticleID
+            && signedManual.particles.isEmpty && unitManual.particles.isEmpty
         result["signed-speed-exact-n-uses-real-constructor"] = signedCandidate.state.particles.count == 2
             && signedCandidate.state.birthEvents.count == 2 && signedCandidate.state.particles.allSatisfy {
                 $0.position == SIMD3(12, 2, 0) && $0.velocity == SIMD3(-4, 0, 0)
@@ -352,7 +427,10 @@ import Foundation
         let signedBefore = signedManual.frameSnapshot()
         let overflowingSpeed = SceneParticleDefinitionParser().parseInstanceOverride(["speed": "1e39"])
         do {
-            _ = try explicit(signedManual, count: 3, context: .init(instanceOverride: overflowingSpeed))
+            _ = try signedManual.preparePlaybackCandidate(commands: [
+                (.init(layerID: 42, action: .emit, revision: signedBefore.playback.revision + 1, count: 1), .init()),
+                (.init(layerID: 42, action: .emit, revision: signedBefore.playback.revision + 2, count: 3),
+                 .init(instanceOverride: overflowingSpeed))], charge: { _, _ in }, release: { _ in })
             result["signed-speed-exact-n-multiplied-overflow-restores-state-rng-id"] = false
         } catch {
             let restored = signedManual.frameSnapshot()

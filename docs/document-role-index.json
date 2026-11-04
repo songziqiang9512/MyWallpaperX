@@ -1913,6 +1913,17 @@
       ],
       "authority": "docs/scene/capabilities/particle-component-coverage.md#emitter-speed",
       "owner": "Scene emitter SpawnPlan / Simulator"
+    },
+    {
+      "term": "粒子发射方向",
+      "aliases": [
+        "发射器sign",
+        "Sphere sign",
+        "非单位sign",
+        "方向选择"
+      ],
+      "authority": "docs/scene/capabilities/particle-component-coverage.md#emitter-sign",
+      "owner": "Scene emitter SpawnPlan / Simulator"
     }
   ],
   "pointerEntrypoints": [

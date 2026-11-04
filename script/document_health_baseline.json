@@ -121,16 +121,16 @@
       "bytes": 5938
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 94,
-      "bytes": 11753
+      "lines": 103,
+      "bytes": 13086
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 136,
       "bytes": 21117
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 66,
-      "bytes": 22592
+      "lines": 69,
+      "bytes": 24582
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 107,
@@ -161,8 +161,8 @@
       "bytes": 4260
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 164,
-      "bytes": 27144
+      "lines": 166,
+      "bytes": 28189
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -364,11 +364,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "09da070560da4b3e007d7a22f8658d7fd49ebc66eae4d16ef335ee449c404034",
-      "after": "8d4194171ab6343d6226a0170a7ace789100d3267907e84e222879947792e657",
-      "owner": "scene-emitter-signed-speed",
-      "reason": "Define finite signed emitter endpoints and independent defaults in the existing cold plan, preserving RNG, constructor order and final multiplied Float birth validation without new owners.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#emitter-speed"
+      "before": "8d4194171ab6343d6226a0170a7ace789100d3267907e84e222879947792e657",
+      "after": "965df1494f5733ecb42e3924b0b07a008f6cd538b7ed3d28a8381dc98885d526",
+      "owner": "scene-emitter-integer-sign",
+      "reason": "Define finite component-wise integer direction selection once in the original cold plan, preserving RNG and geometry consumers without a numeric enum or new owner.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#emitter-sign"
     },
     {
       "section": "bodies",
@@ -409,19 +409,19 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "86370b6078e9865636c769011d857936c00267c4d29bdbef7029feb183b413ba",
-      "after": "2fa0a3ca700fe99fc998e0186462425fa8f9abe814ef43413be347220cf6c9a9",
-      "owner": "scene-emitter-signed-speed",
-      "reason": "Bind the single-source signed Debug to staged CPU/transaction and actual Metal position/pixel evidence, exact target births/main output, controlled PCM limits and an independent Box neighbor.",
+      "before": "2fa0a3ca700fe99fc998e0186462425fa8f9abe814ef43413be347220cf6c9a9",
+      "after": "f59a4d74b5acc93d34c7af311e116e15b0ef48499e59995c126ecaa3256cd8c5",
+      "owner": "scene-emitter-integer-sign",
+      "reason": "Bind exact current source/App identities to native consumer, actual Metal, fixed-client geometry limitations and two-author/three-neighbor output evidence.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#coverage"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "a1727538bf295b9b9ce4f92b288281b576fe08af7af956d54aabfe87252c26af",
-      "after": "f2cc85db234098e9713d34b66304555c4e975d99b3f7841c3fe3a808f3e6790d",
-      "owner": "scene-emitter-signed-speed",
-      "reason": "Retire the two author-retested speed failures, identify the shared rain sign10 boundary without guessing magnitude semantics, and retain the exact existing oversized regression-fixture responsibility debt for a separate cleanup batch.",
+      "before": "f2cc85db234098e9713d34b66304555c4e975d99b3f7841c3fe3a808f3e6790d",
+      "after": "8a92f6a4ed02264e6779f716b541df9a43c026194bcc7588267e0585ec49e13a",
+      "owner": "scene-emitter-integer-sign",
+      "reason": "Remove obsolete sign assertions and retain current direction/unused-input, ancestor/child, prewarm and exact oversized regression-fixture responsibility boundaries.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     }
   ]

@@ -56,7 +56,12 @@ nonisolated struct SceneParticleEmitterSpawnPlan: Sendable {
         directions = SceneParticleSimulationMath.vector(
             value.directions, fallback: SIMD3(1, 1, 0)
         )
-        sign = SceneParticleSimulationMath.vector(value.sign, fallback: .zero)
+        var preparedSign = SceneParticleSimulationMath.vector(value.sign, fallback: .zero)
+        // Sign selects an integer direction; fractions truncate before sampling.
+        for component in 0..<3 {
+            preparedSign[component] = preparedSign[component].rounded(.towardZero)
+        }
+        sign = preparedSign
         sphereAxisMask = (abs(directions.x) > 1e-6 ? 1 : 0)
             | (abs(directions.y) > 1e-6 ? 2 : 0)
             | (abs(directions.z) > 1e-6 ? 4 : 0)

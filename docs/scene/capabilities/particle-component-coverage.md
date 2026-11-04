@@ -18,7 +18,7 @@ root local/world、layer/world/camera、attachment 与 child space 分别保身�
 
 | 组件 | 已有执行路径 | 限制 |
 |---|---|---|
-| Emitters | 已准入的有序发射/连续与一次性出生，Sphere/Box 原计划及[速度数值](#emitter-speed) | flags、空间、audio、CP 和 instance override 必须满足该计划，不能从组件名推全参数支持 |
+| Emitters | 已准入的有序发射/连续与一次性出生，Sphere/Box 原计划、[速度数值](#emitter-speed)及 Sphere [方向选择](#emitter-sign) | flags、空间、audio、CP 和 instance override 必须满足该计划，不能从组件名推全参数支持 |
 | Initializers | 位置、速度、旋转、尺寸、寿命、颜色、sequence 等 typed writer | 后写者及 General override 保作者顺序；未知字段只影响相关组件；HSV/Mirror/Position Around 等仍有未资格组合 |
 | Operators | movement、gravity/力、颜色/alpha/size/旋转、noise、Remap、Vortex、Plane Collision 等原计划 | 不支持操作不假装执行；与 child、CP、世界空间和 lifecycle blend 分别限定 |
 | Control Points | 0…7 typed identity、已接入的静态/动态位置与 emitter/force consumer | 按 authored ID 而非数组位置；CP0/system origin 与其他 world source 不混用，未知 flags/angles/parent 不猜 |
@@ -32,6 +32,15 @@ speedmin/speedmax 是原发射方向上的有符号数值；缺少的每个端�
 初始速度继续按原initializer顺序、CP frame、instance multiplier与world转换处理。最终出生状态在这些运算之后才检查正寿命及Float/GPU可表示性，有限Double不等于最终安全结果；失败局部丢弃该新生，保健康emitter和既有粒子。显式exact-n命令继续用原候选state事务回滚，不增加校验器、重试、许可、缓存或第二模拟器。Directions/sign、schedule、audio与空间仍由各原消费者的实际合同约束。
 
 验收经过真实Parser→冷计划→constructor→state/事件及Runtime→生产vertex/Metal：固定一轴/半径的负速度向内、正/逆序与单端缺省、改名、1e6以上但最终Float合法的输入；非有限端点、实际Float溢出及健康peer分别核。作者沿相同输入与有效rate/音频分支核accepted birth、目标batch与最终捕获，汇总PASS不代出生或draw；未做官方同条件对照时只声明本引擎已证数值合同。
+
+<a id="emitter-sign"></a>
+### Sphere 发射方向选择
+
+sign 在原冷 SpawnPlan 逐分量向零取整，零保持双侧，非零的符号选择该轴正/负侧；其幅度不乘入距离或速度。Definition 保作者有限数值及原有形状诊断，去除只准-1/0/1的数值枚举许可；不改变 Directions、半径分布、RNG、CP、instance override、world 转换或最终新生数值检查，不新增 owner、状态、缓存或普通帧工作。两个同源雨粒子的整数10因此可进入既有constructor；小数0.5不被误作强制正侧。
+
+此分量语义依据固定官方客户端的合法、非单位、小数及跨轴静止几何控制；取整后取符号与等价阈值实现的内部形式未区分。手工原生JPEG中心读数不是RGB阈值分析、精确计数、分布或全参数官方一致证明，具体运行范围见[证据](runtime-evidence-current.md)。
+
+验收在真实Parser→冷计划→constructor中核整数/小数、各轴、缺省、改名及非有限反例，保健康peer、RNG/事务；用原Runtime→生产vertex/Metal读回几何和像素，并复测原作者与独立邻例的birth→目标batch→main/seal/GPU捕获。未资格组合继续按实际消费者的最小失败单元处理，不能再扩一个数值白名单。
 
 <a id="operators"></a>
 ## 需要保留的数值边界

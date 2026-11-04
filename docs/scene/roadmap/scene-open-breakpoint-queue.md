@@ -26,7 +26,7 @@
 | source/模型 · 2804817823/28/32 | 9个资产已加载，两个Puppet source明确拒`MDLV0013`，不是两个纹理文件缺失。沿MDL/Puppet几何owner补格式/姿态资格。 |
 | layer source · 3292370168/239 | frame0真实`layer-source-not-ready`，选中frame18无239 sourceCapture/material/tail，整段无该层CPU调用；descriptor实际kind=image，parent/provider151为image/video，不能由composelayer_depthtest.json文件名归成group shader失败。沿真实base/video source准备定位；hidden505另有utility capture失败，209→147健康named链不代验239。 |
 | 音频composition · 3039882306/772 | 当前无对应CPU/graph/所选帧draw，需受控audio/source输入；hidden1084 pending失败、868 fallback不挪作当前可见层证明。 |
-| world-space动态祖先 · 3448877775/15706 | parent15705有origin script/timeline，RopeTrail definition flags1在模拟前被`dynamicSystemTransform`拒绝。原adapter仍只选root自身writer、排child；该作者还有ropeTrail/eventdeath child边界。沿ParticleRuntime的当帧world/reference与子资源消费者扩域，不能只删guard、改作者flags或延长播放。 |
+| world-space动态祖先 · 3448877775/15706 | parent15705有origin script/timeline，RopeTrail definition flags1在模拟前被`dynamicSystemTransform`拒绝；root starttime9走真实prewarm。原adapter只接root自身writer并排child，而ChildRuntime batch未传整层reference、静态CP target仍缺reference映射；冻结root时还须给child真实存活parent粒子，不能传空数组代替。该作者的eventdeath child声明rawFlags1另被ChildGraphExpansion拒绝，具体语义未资格。沿原Runtime/ChildRuntime/world frame供货闭合，不能只删guard、改作者flags或延长播放。 |
 | REFRACT normal空槽 · 3566323704/552/141 | material显式`[particle/drop,null]`被要求非空normal的planner拒绝，尚未进入缺文件lookup；缺省normal语义待资格，不造纹理补洞。 |
 | RopeTrail参数 · 3337494481、3527426897 | 前者活动10root先被renderer flags1拒绝；对应20层definition flags0，负subdivision=-16仍未资格。另224/251的definition flags1是静态hidden，不归动态祖先拒绝。后者637/1323缺length被拒。分别核renderer输入与隐式length语义，不取绝对值或猜默认。 |
 | Rope A2C可见轨迹 · 3807668787/958 | 原作者已进入实际A2C Rope，五个缩导出活动相位126/224/224/252/238段均编码并GPU完成，camera与几何沿原约定。另次原尺寸图仅两个pointer端点有弱色信号，完整轨迹仍未资格；缩图不能判原始像素缺失。静态核无重复alpha、后置opaque覆盖或TEX padding，sickle单图mask稀疏且mip峰值降低，实际LOD未知。alpha1/0仅私有诊断，不能改作者alpha或放大增益冒称修复。先用可区分的UV/LOD/coverage输入定位；官方precoverage数学与本机sampleCount1尚无同输入差异资格，不据名称新增MSAA/resolve。 |
@@ -34,7 +34,8 @@
 | 周期发射上限 · 3564173599/1987、3749463715/405/412 | `maxtoemitperperiod=32`被nil gate拒绝，22秒长窗无对应出生/draw。Plan无cap、State无逐周期计数，活跃时长先合并多窗；instance.count是否缩放上限、出生消费点及fraction/触顶换窗语义尚未证。先做定窗/count2/非整fraction/短命容量1的区分实验，再沿原emitter与值快照补调度，不能仅删guard或末端min32；explicit不随自然发射扩大资格。 |
 | 普通粒子材质语义 | AssetGraph仅核genericparticle basename；no-depth普通路径的额外CUTOUT/LIGHTING/UNKNOWN combo和user texture/value没有通用shader消费者，固定sceneParticleFrag仍输出原纹理×tint。RenderStateCompiler已将普通材质输入与几何许可分离，但其profile仍用于camera选择及当前depth/A2C输入限制，不能代替材质编译。沿原材质准备/实际shader或typed操作接入，区分已消费与未实现输入；不能以效果名或源码形状白名单扩张许可，也不能盲目忽略未消费输入。当前额外材质输入为代码链事实，尚无逐作者画面资格。 |
 | 粒子算子实际unsupported | 3749463715/3564173599的distance-between-CP、3742497499/135的`maintaindistancetocontrolpoint`、3527426897的map-sequence、3773747576的sphere collision、3780119725的bounds collision均有dispatcher事实（6样本10组件）。374是位置距离约束，原声明CP1/distance1000/variablestrength1，不是scalar remap；raw variablestrength与strengthfactor映射、坐标/scale及缺省需资格，不能把1/5直接当强度。当前App仍live unsupported。各原operator/initializer owner独立补语义；collision坐标与outside-born先取可区分输入。 |
-| 粒子发射sign · 3009275235/255、3746066933/85 | 两根定义字节相同，sphere directions=1/1/.3、sign=10/10/10、speed两端省略；原live真实directionsOrSign拒绝且无target draw。当前sign仅接0/±1；公开域不能决定raw10应取符号、放大还是忽略，不能据现消费端的signum直接当1。先以stock材质普通控制资格，再做同输入sign对照；Directions幅度cap与本身的数值/空间也分开核。 |
+| 发射器Directions数值域 | `SceneParticleEmitter.hasBoundedDirectionsAndSign`仍把有限Directions限制在abs≤1e6；原Sphere/Box消费及最终新生Float检查没有同名语义上限。应分别核零半径、有效大值、实际乘积溢出和健康peer后，清理无用的幅度许可。同owner还因非Sphere显式sign拒绝Box，而`randomBoxOffset`不消费该字段，应按实际consumer核无关输入。当前全量样本未见这两门独立活动拒绝，不以它们解释其他birth失败。 |
+| 粒子预热完成度 · 3009275235/35 | `SceneParticleSimulator`原prewarm计价按capacity及组件成本截步；请求10秒仅模拟4.016666…秒/241步，旧/新均保`prewarmBudgetExceeded`，该root随后仍有真实draw，不能称整层不可用。核准备期实际工作量与初始状态/密度，保RNG、事件排空和Trail历史；不把扩大时间窗当已完成作者预热。 |
 | 粒子零接纳 · 2866723317 | 正rate/capacity下只有zero-admitted-count、未见所选帧draw；没有已证delay，需当前count/capacity/consumer定位，不能无依据扩大等待。 |
 | 停止ledger · 3780119725 | 初次selected frame186成功，停止附近frame245有31个`lifecycle-cancellation-ledger-invariant-rejected`；22秒和10秒定向运行未复现。沿原submission/cancellation owner定位，保原失败，不因PNG正常宽泛忽略invariant。 |
 
@@ -49,9 +50,10 @@
 | 缺输入 · 3736952187、3763323436 | project.json不存在，未启动App；补合法输入后再跑，不作引擎失败。 |
 | named demand · 2069136288、3395777145、3829467967 | 未达静态planned的269/395/946无当前active consumer；需property分支输入，不能要求默认帧执行所有潜在capture。 |
 | activation读口 · 3639999624/84e1 | 实际`activation-passthrough:inactive-dependency-preproof-mismatch`被reader判malformed/missing；作者visible=false，有GPU完成及后续e2消费。对齐原producer/reader分类并保inactive资格，不能改渲染消报告；此问题与hidden provider的exact身份命名空间分开。 |
+| 粒子预热CP · 3799613625/321 | 旧/新均有emitter的prewarm `control-point-frame-unavailable`；首断点在`SceneParticleSimulator` emitter frame消费。核准备期CP source与首帧writer顺序，并按同emitter/CP身份补live恢复资格，不以其他root452/child的健康draw代该层，也不凭预热诊断断言全程缺图。 |
 | 来源阶段读口 | 17样本的19个source-not-ready subject均在Ready前，14样本后有同layer成功；2982559622/3800572533另有资源前置失败后同subject成功。只证layer后续成功，不证同slot恢复；2804817823/3186328539/3292370168无相同恢复，318的1045在frame1变hidden，不能要求必draw。 |
 | 纹理关联与最终贡献 | 全部声明有索引，但ordinary/geometry/particle部分实际draw未携带asset provenance，graph/provider引用也有未闭关联。不得解析Swift描述字符串猜identity；沿已存在Candidate/Resource carrier补最小typed映射。单帧bind/GPU/tail不证明全部实例或最终可见像素，动态输入、材质与render-target的未观测阶段仍保unknown。 |
-| 粒子回归夹具体量 | `script/tests/test_scene_particle_simulator.py`仍4433行，内嵌Swift准备/运行与多类组件断言共用大夹具；当前未达到自有代码1000行职责要求。按真实组件输入、共享准备与行为断言梳理现有fixture职责，保同一生产实现及独立失败反例，不靠wrapper、源码搬迁或复制模拟算法凑行数。 |
+| 粒子回归夹具体量 | `script/tests/test_scene_particle_simulator.py`仍4432行，内嵌Swift准备/运行与多类组件断言共用大夹具；当前未达到自有代码1000行职责要求。按真实组件输入、共享准备与行为断言梳理现有fixture职责，保同一生产实现及独立失败反例，不靠wrapper、源码搬迁或复制模拟算法凑行数。 |
 | 连续PNG读口 · 3577990983片头 | 7秒/.6秒捕获实际写出4PNG，另6项superseded、1项teardown，整次保CHECK。等待lane时pending request仍挂逐帧composition，CB地址可复用；两次actual capture有多个request/CB候选，现reader以len1拒绝。当前按encoded行→同CB completed记录及同帧uniform有界核对；自动读口应沿原reader保编码/事件顺序或原DEBUG传frame/stream/generation，不能取首个request匹配，导出背压原因另核。 |
 | 条件/周期分支 | 3042492564需click开关/父组，3768303048需day/night与pointer输入；延长秒数不能替代。3764725758的后续inactive事实、3830665420的10个鸟实例都不能证第二轮，首事实去重没有保完整周期回执；按实际模拟时刻/事件资格，不由墙钟授通过。 |
 

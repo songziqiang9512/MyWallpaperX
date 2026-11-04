@@ -1269,7 +1269,6 @@ enum Harness {
         let invalidEmitterShapes = [
             #""name":"sphererandom","directions":"nan 1 0""#,
             #""name":"sphererandom","directions":"1000001 1 0""#,
-            #""name":"sphererandom","directions":"1 1 0","sign":"2 0 0""#,
             #""name":"sphererandom","directions":"1 1""#,
             #""name":"sphererandom","directions":"bad""#,
             #""name":"boxrandom","directions":"1 1 0","sign":"1 0 0""#,
@@ -3938,10 +3937,10 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(
             self.results["boxDirectionsDiagnostics"], ["emitterShapeBounded"]
         )
-        self.assertEqual(self.results["invalidEmitterShapeCounts"], [0, 0, 0, 0, 0, 0])
+        self.assertEqual(self.results["invalidEmitterShapeCounts"], [0, 0, 0, 0, 0])
         self.assertEqual(
             self.results["invalidEmitterShapeDiagnostics"],
-            [["emitterShapeUnsupported"]] * 6,
+            [["emitterShapeUnsupported"]] * 5,
         )
 
     def test_change_angular_and_oscillation_operators_execute(self) -> None:

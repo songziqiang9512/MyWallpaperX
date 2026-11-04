@@ -81,7 +81,8 @@ enum SceneParticleCoverageRenderingHarness {
             pipeline: coveragePipeline, ordinaryPipeline: ordinaryPipeline, library: library)
         return ["device": device.name, "sampleCount": 1,
                 "coverage": coverage, "ordinary": ordinary, "missing": missing,
-                "runtime": runtime.0, "runtimeDepth": runtime.1, "signedBirth": runtime.2]
+                "runtime": runtime.0, "runtimeDepth": runtime.1, "signedBirth": runtime.2,
+                "signBirth": runtime.3]
     }
 
     private static func referenceState(
@@ -262,6 +263,8 @@ enum SceneParticleCoverageRenderingHarness {
         var depthTest = false
         var depthWrite = false
         var birthSpeed: Double? = nil
+        var birthSign: String? = nil
+        var birthDirections = "1 0 0"
     }
 
     private struct RuntimeProduct {
@@ -332,6 +335,13 @@ enum SceneParticleCoverageRenderingHarness {
                 emitter["speedmin"] = speed
                 emitter["speedmax"] = speed
             }
+            if let sign = input.birthSign {
+                emitter["directions"] = input.birthDirections
+                emitter["sign"] = sign
+                emitter["distancemin"] = 24
+                emitter["distancemax"] = 24
+                emitter["instantaneous"] = 16
+            }
             return emitter
         }
         let moves = input.shape == "moving" || input.birthSpeed != nil
@@ -359,12 +369,14 @@ enum SceneParticleCoverageRenderingHarness {
         guard let batch = batches.first else {
             throw failure("runtime-\(input.name)-\(runtime.diagnostics)")
         }
-        let birthFacts = input.birthSpeed == nil ? [] : runtime.consumeComponentObservations().filter {
+        let observesBirth = input.birthSpeed != nil || input.birthSign != nil
+        let birthFacts = !observesBirth ? [] : runtime.consumeComponentObservations().filter {
             $0.layerID == layerID && $0.childTemplateIndex == nil
                 && $0.particlePath.lowercased() == path.lowercased() && $0.evaluation.origin == "live"
         }
         return RuntimeProduct(batch: batch, input: input, facts: [
             "name": input.name, "layerID": layerID, "particlePath": path, "renderer": input.renderer,
+            "authoredMaterialPath": material, "authoredTexturePath": textureName,
             "actualRenderer": batch.debugRendererKind ?? "unknown", "shape": input.shape,
             "liveParticles": runtime.lifecycleSnapshot.rootParticleCount,
             "instances": batch.instances.count,
@@ -401,7 +413,7 @@ enum SceneParticleCoverageRenderingHarness {
     private static func runtimeCases(
         device: MTLDevice, queue: MTLCommandQueue, pipeline: SceneParticleMetalPipeline,
         ordinaryPipeline: SceneParticleMetalPipeline, library: MTLLibrary
-    ) throws -> ([[String: Any]], [[String: Any]], [[String: Any]]) {
+    ) throws -> ([[String: Any]], [[String: Any]], [[String: Any]], [[String: Any]]) {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(
             "mwx-particle-coverage-live-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -535,7 +547,28 @@ enum SceneParticleCoverageRenderingHarness {
             row["authoredSpeed"] = speed
             signedBirth.append(row)
         }
-        return (rows, depthRows, signedBirth)
+        // Radius24 and the authored axes fix these centers without consulting
+        // Runtime or the mesh replay: X40/88, +Y24/-Y72, around origin64/48.
+        let signPoints = [SIMD2(40, 48), SIMD2(88, 48), SIMD2(64, 24), SIMD2(64, 72),
+                          SIMD2(64, 48), SIMD2(116, 14), SIMD2(4, 4)]
+        var signBirth: [[String: Any]] = []
+        for (name, sign, directions) in [
+            ("positiveTenSign", "10 0 0", "1 0 0"),
+            ("negativeTenSign", "-10 0 0", "1 0 0"),
+            ("positiveFractionSign", "0.75 0 0", "1 0 0"),
+            ("negativeFractionSign", "-0.5 0 0", "1 0 0"),
+            ("positiveYAxisSign", "0 1 0", "0 1 0"),
+            ("renamedMixedYAxis", "0.5 1.25 -0.75", "0 1 0"),
+        ] {
+            let product = try make(.init(name: name, renderer: "sprite", shape: "signedBirth",
+                blend: .translucent, birthSign: sign, birthDirections: directions))
+            var row = try render(name, [runtimeDraw(product, camera: camera),
+                runtimeDraw(peer, camera: camera, origin: SIMD3(116, 14, 0))], frozenPoints: signPoints)
+            row["authoredSign"] = sign
+            row["authoredDirections"] = directions
+            signBirth.append(row)
+        }
+        return (rows, depthRows, signedBirth, signBirth)
     }
 
     private static func vertexProbe(device: MTLDevice) throws -> MTLRenderPipelineState {

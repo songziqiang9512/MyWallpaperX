@@ -296,6 +296,55 @@ class SceneParticleCoverageRenderingTests(unittest.TestCase):
         self.assertNotEqual(rows["inwardBirth"]["facts"][0]["particlePath"],
                             rows["renamedInwardBirth"]["facts"][0]["particlePath"])
 
+    def test_emitter_sign_selects_sides_after_fractional_input_and_keeps_same_encoder_peer(self) -> None:
+        rows = {row["name"]: row for row in self.result["signBirth"]}
+        controls = (
+            ("positiveTenSign", "10 0 0", "1 0 0", (1,), [84, 32, 92, 64]),
+            ("negativeTenSign", "-10 0 0", "1 0 0", (0,), [36, 32, 44, 64]),
+            ("positiveFractionSign", "0.75 0 0", "1 0 0", (0, 1), [36, 32, 92, 64]),
+            ("negativeFractionSign", "-0.5 0 0", "1 0 0", (0, 1), [36, 32, 92, 64]),
+            ("positiveYAxisSign", "0 1 0", "0 1 0", (2,), [60, 8, 68, 40]),
+            ("renamedMixedYAxis", "0.5 1.25 -0.75", "0 1 0", (2,), [60, 8, 68, 40]),
+        )
+        self.assertEqual(set(rows), {control[0] for control in controls})
+        clear, source, peer = [16, 24, 40, 102], [96, 160, 224, 255], [192, 96, 48, 255]
+        # Fixed radius24 around screen(64,48), no velocity: literal axis centers.
+        # The size16 Sprite with a4:16 texture spans width8/height32.
+        for name, sign, directions, active_points, bounds in controls:
+            row = rows[name]
+            with self.subTest(name=name):
+                self.assertEqual(row["authoredSign"], sign)
+                self.assertEqual(row["authoredDirections"], directions)
+                self.assertEqual(row["encoded"], [True, True], row)
+                self.assertTrue(row["completed"], row)
+                self.assertTrue(row["verticesFinite"], row)
+                self.assertEqual([fact["liveParticles"] for fact in row["facts"]], [16, 1])
+                self.assertEqual([fact["instances"] for fact in row["facts"]], [16, 1])
+                self.assertEqual([fact["actualRenderer"] for fact in row["facts"]], ["sprite", "sprite"])
+                self.assertTrue(row["facts"][0]["liveBirthAccepted"], row)
+                self.assertFalse(row["facts"][0]["liveBirthRejected"], row)
+                self.assertNotIn("emitterShapeUnsupported", row["facts"][0]["diagnostics"])
+                self.assertEqual(row["vertexCount"], 64)
+                self.assertEqual(row["frozenPoints"],
+                                 [[40, 48], [88, 48], [64, 24], [64, 72], [64, 48], [116, 14], [4, 4]])
+                expected = [clear, clear, clear, clear, clear, peer, clear]
+                for index in active_points:
+                    expected[index] = source
+                self.assertEqual(row["frozenPixels"], expected)
+                source_pixels = 256 * len(active_points)
+                self.assertEqual(row["histogram"], {
+                    "96,160,224,255": source_pixels, "192,96,48,255": 64,
+                    "16,24,40,102": 128 * 96 - source_pixels - 64,
+                })
+                for actual, wanted in zip(row["vertexBounds"], bounds, strict=True):
+                    self.assertAlmostEqual(actual, wanted, delta=.002, msg=name)
+                self.assertLessEqual(row["maximumByteError"], 1, row)
+        original, renamed = rows["positiveYAxisSign"], rows["renamedMixedYAxis"]
+        for field in ("histogram", "vertexBounds", "frozenPixels"):
+            self.assertEqual(original[field], renamed[field], field)
+        for field in ("layerID", "particlePath", "authoredMaterialPath", "authoredTexturePath"):
+            self.assertNotEqual(original["facts"][0][field], renamed["facts"][0][field], field)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -173,21 +173,32 @@ static void test_snapshot(MWXSceneQuickJSDomain *domain) {
 
 static void test_budget(MWXSceneQuickJSDomain *domain) {
     MWXSceneQuickJSOwner *owner = make_owner(domain,
-        "export function update(v){for(let i=0;i<v;++i){"
-        "try{thisScene.getLayer(i).instance.alpha=.25;}catch(e){}}return 1;}" );
+        "export function update(v){let caught=0;for(let i=0;i<v;++i){"
+        "try{thisScene.getLayer(i).instance.alpha=.25;}catch(e){++caught;}}"
+        "thisScene.getLayer(0).instance.alpha=.5;thisScene.getLayer(0).alpha=.75;"
+        "return caught;}" );
     if (owner == NULL) return;
     double output;
-    check(update(owner, 7, 256, &output) == MWX_SCENE_QUICKJS_OK &&
-        mwx_scene_quickjs_owner_layer_mutation_count(owner) == 256, "exact journal budget");
-    mwx_scene_quickjs_owner_discard_layer_mutations(owner);
-    check(update(owner, 7, 257, &output) == MWX_SCENE_QUICKJS_OK &&
-        mwx_scene_quickjs_owner_layer_mutation_count(owner) == SIZE_MAX, "caught overflow stays unsafe");
-    MWXSceneQuickJSLayerMutation mutation;
-    check(mwx_scene_quickjs_owner_layer_mutation_at(owner, 0, &mutation,
-        diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_MUTATION_OVERFLOW, "overflow cannot export partial journal");
+    for (uint32_t extra = 0; extra <= 1; ++extra) {
+        check(update(owner, 7, MWX_SCENE_QUICKJS_MAX_LAYERS + extra, &output) == MWX_SCENE_QUICKJS_OK &&
+            output == extra && mwx_scene_quickjs_owner_layer_mutation_count(owner) == MWX_SCENE_QUICKJS_MAX_LAYERS,
+            "full catalog and caught missing layer retain a complete journal");
+        for (uint32_t index = 0; index < MWX_SCENE_QUICKJS_MAX_LAYERS; ++index) {
+            MWXSceneQuickJSLayerMutation mutation;
+            uint32_t fields = MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_ALPHA;
+            if (index == 0) fields |= MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ALPHA;
+            check(mwx_scene_quickjs_owner_layer_mutation_at(owner, index, &mutation,
+                diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK &&
+                mutation.layer_id == 42 + index && mutation.fields == fields &&
+                mutation.particle_alpha == (index == 0 ? .5 : .25) &&
+                mutation.alpha == (index == 0 ? .75 : .6), "every valid target exports its final values");
+        }
+        mwx_scene_quickjs_owner_discard_layer_mutations(owner);
+        check(mwx_scene_quickjs_owner_layer_mutation_count(owner) == 0, "discard clears the full catalog journal");
+    }
     mwx_scene_quickjs_owner_discard_layer_mutations(owner);
     check(update(owner, 7, 1, &output) == MWX_SCENE_QUICKJS_OK &&
-        mwx_scene_quickjs_owner_layer_mutation_count(owner) == 1, "discard recovers owner budget");
+        output == 0 && mwx_scene_quickjs_owner_layer_mutation_count(owner) == 1, "discard preserves owner reuse");
     mwx_scene_quickjs_owner_discard_layer_mutations(owner);
     mwx_scene_quickjs_owner_destroy(owner);
 }
@@ -223,7 +234,7 @@ static void test_prefix(MWXSceneQuickJSDomain *domain) {
 
 int main(int argc, char **argv) {
     if (argc != 2) return 2;
-    MWXSceneQuickJSDomain *domain = make_domain(strcmp(argv[1], "budget") == 0 ? 257 : 2);
+    MWXSceneQuickJSDomain *domain = make_domain(strcmp(argv[1], "budget") == 0 ? MWX_SCENE_QUICKJS_MAX_LAYERS : 2);
     if (domain == NULL) return 1;
     if (strcmp(argv[1], "access") == 0) test_access(domain);
     else if (strcmp(argv[1], "invalid") == 0) test_invalid(domain);
