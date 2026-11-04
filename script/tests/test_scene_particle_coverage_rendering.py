@@ -260,6 +260,42 @@ class SceneParticleCoverageRenderingTests(unittest.TestCase):
             self.assertFalse(group["writeWithoutTest"]["facts"][0]["depthTest"])
             self.assertTrue(group["writeWithoutTest"]["facts"][0]["depthWrite"])
 
+    def test_signed_emitter_birth_reaches_inward_outward_and_stationary_gpu_positions(self) -> None:
+        rows = {row["name"]: row for row in self.result["signedBirth"]}
+        self.assertEqual(set(rows), {"inwardBirth", "stationaryBirth", "outwardBirth", "renamedInwardBirth"})
+        clear, source, peer = [16, 24, 40, 102], [96, 160, 224, 255], [192, 96, 48, 255]
+        # Literal oracle: fixed+X radius32, screen origin(64,48), 0.5seconds.
+        # Sprite's authored size16 becomes width8/height32 under the existing4:16 texture.
+        for name, speed, center_x, active_point in (
+            ("inwardBirth", -32, 80, 0), ("stationaryBirth", 0, 96, 1),
+            ("outwardBirth", 32, 112, 2), ("renamedInwardBirth", -32, 80, 0),
+        ):
+            row = rows[name]
+            with self.subTest(name=name):
+                self.assertEqual(row["authoredSpeed"], speed)
+                self.assertEqual(row["encoded"], [True, True], row)
+                self.assertTrue(row["completed"], row)
+                self.assertTrue(row["verticesFinite"], row)
+                self.assertEqual(row["vertexCount"], 4)
+                self.assertEqual([fact["liveParticles"] for fact in row["facts"]], [1, 1])
+                self.assertEqual([fact["instances"] for fact in row["facts"]], [1, 1])
+                self.assertEqual([fact["actualRenderer"] for fact in row["facts"]], ["sprite", "sprite"])
+                self.assertTrue(row["facts"][0]["liveBirthAccepted"], row)
+                self.assertFalse(row["facts"][0]["liveBirthRejected"], row)
+                self.assertEqual(row["frozenPoints"], [[80, 48], [96, 48], [112, 48], [116, 14], [4, 4]])
+                expected = [clear, clear, clear, peer, clear]
+                expected[active_point] = source
+                self.assertEqual(row["frozenPixels"], expected)
+                for actual, wanted in zip(row["vertexBounds"], [center_x - 4, 32, center_x + 4, 64], strict=True):
+                    self.assertAlmostEqual(actual, wanted, delta=.002, msg=name)
+                self.assertLessEqual(row["maximumByteError"], 1, row)
+        self.assertEqual(rows["inwardBirth"]["histogram"], rows["renamedInwardBirth"]["histogram"])
+        self.assertEqual(rows["inwardBirth"]["vertexBounds"], rows["renamedInwardBirth"]["vertexBounds"])
+        self.assertNotEqual(rows["inwardBirth"]["facts"][0]["layerID"],
+                            rows["renamedInwardBirth"]["facts"][0]["layerID"])
+        self.assertNotEqual(rows["inwardBirth"]["facts"][0]["particlePath"],
+                            rows["renamedInwardBirth"]["facts"][0]["particlePath"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -2316,12 +2316,14 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePeriodicEmission.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+Random.swift",
         "script/tests/test_scene_particle_simulator.py",
-        "script/tests/fixtures/SceneParticleSphereSamplingChecks.swift"
+        "script/tests/fixtures/SceneParticleSphereSamplingChecks.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinition.swift"
       ],
       "modules": [
         "test_scene_particle_simulator",
         "test_scene_particle_playback_simulator",
-        "test_scene_particle_playback_transaction"
+        "test_scene_particle_playback_transaction",
+        "test_scene_particle_coverage_rendering"
       ]
     },
     {

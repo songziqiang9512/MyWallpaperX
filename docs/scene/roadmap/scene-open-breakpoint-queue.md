@@ -34,7 +34,7 @@
 | 周期发射上限 · 3564173599/1987、3749463715/405/412 | `maxtoemitperperiod=32`被nil gate拒绝，22秒长窗无对应出生/draw。Plan无cap、State无逐周期计数，活跃时长先合并多窗；instance.count是否缩放上限、出生消费点及fraction/触顶换窗语义尚未证。先做定窗/count2/非整fraction/短命容量1的区分实验，再沿原emitter与值快照补调度，不能仅删guard或末端min32；explicit不随自然发射扩大资格。 |
 | 普通粒子材质语义 | AssetGraph仅核genericparticle basename；no-depth普通路径的额外CUTOUT/LIGHTING/UNKNOWN combo和user texture/value没有通用shader消费者，固定sceneParticleFrag仍输出原纹理×tint。RenderStateCompiler已将普通材质输入与几何许可分离，但其profile仍用于camera选择及当前depth/A2C输入限制，不能代替材质编译。沿原材质准备/实际shader或typed操作接入，区分已消费与未实现输入；不能以效果名或源码形状白名单扩张许可，也不能盲目忽略未消费输入。当前额外材质输入为代码链事实，尚无逐作者画面资格。 |
 | 粒子算子实际unsupported | 3749463715/3564173599的distance-between-CP、3742497499/135的`maintaindistancetocontrolpoint`、3527426897的map-sequence、3773747576的sphere collision、3780119725的bounds collision均有dispatcher事实（6样本10组件）。374是位置距离约束，原声明CP1/distance1000/variablestrength1，不是scalar remap；raw variablestrength与strengthfactor映射、坐标/scale及缺省需资格，不能把1/5直接当强度。当前App仍live unsupported。各原operator/initializer owner独立补语义；collision坐标与outside-born先取可区分输入。 |
-| 粒子出生拒绝 · 3009275235/255、3248220186/2157、3746066933/85、3799613625/452 | 有真实`birth-construction-rejected`，当前首事实未细分最终失败字段，原因未知；先核出生构造的真实失败，不猜finite或作者错误。 |
+| 粒子发射sign · 3009275235/255、3746066933/85 | 两根定义字节相同，sphere directions=1/1/.3、sign=10/10/10、speed两端省略；原live真实directionsOrSign拒绝且无target draw。当前sign仅接0/±1；公开域不能决定raw10应取符号、放大还是忽略，不能据现消费端的signum直接当1。先以stock材质普通控制资格，再做同输入sign对照；Directions幅度cap与本身的数值/空间也分开核。 |
 | 粒子零接纳 · 2866723317 | 正rate/capacity下只有zero-admitted-count、未见所选帧draw；没有已证delay，需当前count/capacity/consumer定位，不能无依据扩大等待。 |
 | 停止ledger · 3780119725 | 初次selected frame186成功，停止附近frame245有31个`lifecycle-cancellation-ledger-invariant-rejected`；22秒和10秒定向运行未复现。沿原submission/cancellation owner定位，保原失败，不因PNG正常宽泛忽略invariant。 |
 
@@ -51,6 +51,7 @@
 | activation读口 · 3639999624/84e1 | 实际`activation-passthrough:inactive-dependency-preproof-mismatch`被reader判malformed/missing；作者visible=false，有GPU完成及后续e2消费。对齐原producer/reader分类并保inactive资格，不能改渲染消报告；此问题与hidden provider的exact身份命名空间分开。 |
 | 来源阶段读口 | 17样本的19个source-not-ready subject均在Ready前，14样本后有同layer成功；2982559622/3800572533另有资源前置失败后同subject成功。只证layer后续成功，不证同slot恢复；2804817823/3186328539/3292370168无相同恢复，318的1045在frame1变hidden，不能要求必draw。 |
 | 纹理关联与最终贡献 | 全部声明有索引，但ordinary/geometry/particle部分实际draw未携带asset provenance，graph/provider引用也有未闭关联。不得解析Swift描述字符串猜identity；沿已存在Candidate/Resource carrier补最小typed映射。单帧bind/GPU/tail不证明全部实例或最终可见像素，动态输入、材质与render-target的未观测阶段仍保unknown。 |
+| 粒子回归夹具体量 | `script/tests/test_scene_particle_simulator.py`仍4433行，内嵌Swift准备/运行与多类组件断言共用大夹具；当前未达到自有代码1000行职责要求。按真实组件输入、共享准备与行为断言梳理现有fixture职责，保同一生产实现及独立失败反例，不靠wrapper、源码搬迁或复制模拟算法凑行数。 |
 | 连续PNG读口 · 3577990983片头 | 7秒/.6秒捕获实际写出4PNG，另6项superseded、1项teardown，整次保CHECK。等待lane时pending request仍挂逐帧composition，CB地址可复用；两次actual capture有多个request/CB候选，现reader以len1拒绝。当前按encoded行→同CB completed记录及同帧uniform有界核对；自动读口应沿原reader保编码/事件顺序或原DEBUG传frame/stream/generation，不能取首个request匹配，导出背压原因另核。 |
 | 条件/周期分支 | 3042492564需click开关/父组，3768303048需day/night与pointer输入；延长秒数不能替代。3764725758的后续inactive事实、3830665420的10个鸟实例都不能证第二轮，首事实去重没有保完整周期回执；按实际模拟时刻/事件资格，不由墙钟授通过。 |
 

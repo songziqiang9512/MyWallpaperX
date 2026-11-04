@@ -141,9 +141,8 @@ nonisolated struct SceneParticleEmitter: Equatable, Sendable {
     nonisolated var boundedSpeedRange: ClosedRange<Double>? {
         let minimum = speedMinimum ?? 0
         let maximum = speedMaximum ?? 0
-        guard minimum.isFinite, maximum.isFinite, minimum >= 0,
-              minimum <= maximum, maximum <= 1_000_000 else { return nil }
-        return minimum ... maximum
+        guard minimum.isFinite, maximum.isFinite else { return nil }
+        return min(minimum, maximum) ... max(minimum, maximum)
     }
 
     nonisolated var hasBoundedDirectionsAndSign: Bool {

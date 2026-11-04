@@ -81,7 +81,7 @@ enum SceneParticleCoverageRenderingHarness {
             pipeline: coveragePipeline, ordinaryPipeline: ordinaryPipeline, library: library)
         return ["device": device.name, "sampleCount": 1,
                 "coverage": coverage, "ordinary": ordinary, "missing": missing,
-                "runtime": runtime.0, "runtimeDepth": runtime.1]
+                "runtime": runtime.0, "runtimeDepth": runtime.1, "signedBirth": runtime.2]
     }
 
     private static func referenceState(
@@ -261,6 +261,7 @@ enum SceneParticleCoverageRenderingHarness {
         var cull: SceneParticlePipelineCullMode = .none
         var depthTest = false
         var depthWrite = false
+        var birthSpeed: Double? = nil
     }
 
     private struct RuntimeProduct {
@@ -299,7 +300,7 @@ enum SceneParticleCoverageRenderingHarness {
         switch input.shape {
         case "acute": origins = [[-42, -14, 0], [8, -14, 0], [-6, 12, 0], [38, 18, 0]]
         case "zero": origins = Array(repeating: [0, 0, 0], count: 4)
-        case "peer": origins = [[0, 0, 0]]
+        case "peer", "signedBirth": origins = [[0, 0, 0]]
         default: origins = [[-32, -12, 0]]
         }
         var initializers: [[String: Any]] = [
@@ -319,13 +320,26 @@ enum SceneParticleCoverageRenderingHarness {
             renderer["subdivision"] = 1
         }
         if input.renderer == "spritetrail" { renderer["length"] = 0.2 }
+        let emitters: [[String: Any]] = origins.map { origin in
+            var emitter: [String: Any] = ["name": "sphererandom", "rate": 0,
+                "instantaneous": 1, "distancemin": 0, "distancemax": 0,
+                "speedmin": 0, "speedmax": 0, "origin": origin]
+            if let speed = input.birthSpeed {
+                emitter["directions"] = [1, 0, 0]
+                emitter["sign"] = [1, 0, 0]
+                emitter["distancemin"] = 32
+                emitter["distancemax"] = 32
+                emitter["speedmin"] = speed
+                emitter["speedmax"] = speed
+            }
+            return emitter
+        }
+        let moves = input.shape == "moving" || input.birthSpeed != nil
         try Harness.writeJSON([
             "material": material, "maxcount": 16, "starttime": 0,
-            "emitter": origins.map { ["name": "sphererandom", "rate": 0,
-                "instantaneous": 1, "distancemin": 0, "distancemax": 0,
-                "speedmin": 0, "speedmax": 0, "origin": $0] as [String: Any] },
+            "emitter": emitters,
             "initializer": initializers,
-            "operator": input.shape == "moving" ? [["name": "movement", "drag": 0]] : [],
+            "operator": moves ? [["name": "movement", "drag": 0]] : [],
             "renderer": [renderer],
         ], to: root.appendingPathComponent(path))
         let constant = SceneDocument.ShaderValue(rawValue: String(input.overbright), valueKind: "number",
@@ -341,12 +355,16 @@ enum SceneParticleCoverageRenderingHarness {
             renderOrderLayerIDs: [layerID], materialPasses: [pass]),
             cacheDirectory: root, device: device, stockTextureBundleURL: nil)
         var batches = runtime.advance(by: 0)
-        for _ in 0..<(input.shape == "moving" ? 30 : 2) { batches = runtime.advance(by: 1.0 / 60) }
+        for _ in 0..<(moves ? 30 : 2) { batches = runtime.advance(by: 1.0 / 60) }
         guard let batch = batches.first else {
             throw failure("runtime-\(input.name)-\(runtime.diagnostics)")
         }
+        let birthFacts = input.birthSpeed == nil ? [] : runtime.consumeComponentObservations().filter {
+            $0.layerID == layerID && $0.childTemplateIndex == nil
+                && $0.particlePath.lowercased() == path.lowercased() && $0.evaluation.origin == "live"
+        }
         return RuntimeProduct(batch: batch, input: input, facts: [
-            "name": input.name, "renderer": input.renderer,
+            "name": input.name, "layerID": layerID, "particlePath": path, "renderer": input.renderer,
             "actualRenderer": batch.debugRendererKind ?? "unknown", "shape": input.shape,
             "liveParticles": runtime.lifecycleSnapshot.rootParticleCount,
             "instances": batch.instances.count,
@@ -358,6 +376,8 @@ enum SceneParticleCoverageRenderingHarness {
             "inheritsNativeSceneCamera": batch.inheritsNativeSceneCamera,
             "overbright": batch.renderState.overbright, "particleAlpha": input.particleAlpha,
             "textureRGBA": input.rgba.map(Int.init), "textureExtent": [batch.texture.width, batch.texture.height],
+            "liveBirthAccepted": birthFacts.contains { $0.evaluation.stage == "accepted-birth" },
+            "liveBirthRejected": birthFacts.contains { $0.evaluation.reason == "birth-construction-rejected" },
             "diagnostics": runtime.diagnostics.map { $0.kind.rawValue },
         ])
     }
@@ -381,7 +401,7 @@ enum SceneParticleCoverageRenderingHarness {
     private static func runtimeCases(
         device: MTLDevice, queue: MTLCommandQueue, pipeline: SceneParticleMetalPipeline,
         ordinaryPipeline: SceneParticleMetalPipeline, library: MTLLibrary
-    ) throws -> ([[String: Any]], [[String: Any]]) {
+    ) throws -> ([[String: Any]], [[String: Any]], [[String: Any]]) {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(
             "mwx-particle-coverage-live-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -416,10 +436,11 @@ enum SceneParticleCoverageRenderingHarness {
             return try runtimeProduct(input, layerID: layerID, root: root, device: device)
         }
         func render(_ name: String, _ draws: [RuntimeDraw], depth: Bool = false,
-                    missingPSO: Bool = false) throws -> [String: Any] {
+                    missingPSO: Bool = false, frozenPoints: [SIMD2<Int>] = []) throws -> [String: Any] {
             try renderRuntime(name, draws: draws, device: device, queue: queue,
                 pipeline: missingPSO ? ordinaryPipeline : pipeline,
-                probe: probe, references: references, depthStates: depthStates, depth: depth)
+                probe: probe, references: references, depthStates: depthStates, depth: depth,
+                frozenPoints: frozenPoints)
         }
         var rows: [[String: Any]] = []
         let inputs = [
@@ -498,7 +519,23 @@ enum SceneParticleCoverageRenderingHarness {
                 depthRows.append(row)
             }
         }
-        return (rows, depthRows)
+        // Preregistered independently of Runtime output: one +X sphere axis,
+        // sign+1 and fixed radius32 put birth atx32. Thirty1/60 movement steps
+        // with speed-32/0/+32 end at localx16/32/48, or screenx80/96/112.
+        // The Runtime, mesh probe and production draw supply all measured data.
+        let frozenPoints = [SIMD2(80, 48), SIMD2(96, 48), SIMD2(112, 48),
+                            SIMD2(116, 14), SIMD2(4, 4)]
+        var signedBirth: [[String: Any]] = []
+        for (name, speed) in [("inwardBirth", -32.0), ("stationaryBirth", 0.0),
+                              ("outwardBirth", 32.0), ("renamedInwardBirth", -32.0)] {
+            let product = try make(.init(name: name, renderer: "sprite", shape: "signedBirth",
+                blend: .translucent, birthSpeed: speed))
+            var row = try render(name, [runtimeDraw(product, camera: camera),
+                runtimeDraw(peer, camera: camera, origin: SIMD3(116, 14, 0))], frozenPoints: frozenPoints)
+            row["authoredSpeed"] = speed
+            signedBirth.append(row)
+        }
+        return (rows, depthRows, signedBirth)
     }
 
     private static func vertexProbe(device: MTLDevice) throws -> MTLRenderPipelineState {
@@ -522,7 +559,8 @@ enum SceneParticleCoverageRenderingHarness {
     private static func renderRuntime(
         _ name: String, draws: [RuntimeDraw], device: MTLDevice, queue: MTLCommandQueue,
         pipeline: SceneParticleMetalPipeline, probe: MTLRenderPipelineState,
-        references: [String: MTLRenderPipelineState], depthStates: [Int: MTLDepthStencilState], depth: Bool
+        references: [String: MTLRenderPipelineState], depthStates: [Int: MTLDepthStencilState], depth: Bool,
+        frozenPoints: [SIMD2<Int>] = []
     ) throws -> [String: Any] {
         let actual = try target(device: device, width: runtimeWidth, height: runtimeHeight)
         let expected = try target(device: device, width: runtimeWidth, height: runtimeHeight)
@@ -665,6 +703,8 @@ enum SceneParticleCoverageRenderingHarness {
             "changedPixels": runtimeWidth * runtimeHeight - (histogram["16,24,40,102"] ?? 0),
             "histogram": histogram, "nodePixels": nodePixels,
             "outsidePixels": [pixel(4, 4), pixel(123, 90)], "peerPixel": pixel(116, 14),
+            "frozenPoints": frozenPoints.map { [$0.x, $0.y] },
+            "frozenPixels": frozenPoints.map { pixel($0.x, $0.y) },
             "vertexCount": vertices.count, "vertexBounds": bounds,
             "verticesFinite": vertices.allSatisfy { $0.x.isFinite && $0.y.isFinite && $0.z.isFinite && $0.w.isFinite },
             "maximumJoinGapPixels": joinGap]

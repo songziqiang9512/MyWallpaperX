@@ -18,11 +18,20 @@ root local/world、layer/world/camera、attachment 与 child space 分别保身�
 
 | 组件 | 已有执行路径 | 限制 |
 |---|---|---|
-| Emitters | 已准入的有序发射/连续与一次性出生，Sphere/Box 等原 emitter 计划 | flags、空间、audio、CP 和 instance override 必须满足该计划，不能从组件名推全参数支持 |
+| Emitters | 已准入的有序发射/连续与一次性出生，Sphere/Box 原计划及[速度数值](#emitter-speed) | flags、空间、audio、CP 和 instance override 必须满足该计划，不能从组件名推全参数支持 |
 | Initializers | 位置、速度、旋转、尺寸、寿命、颜色、sequence 等 typed writer | 后写者及 General override 保作者顺序；未知字段只影响相关组件；HSV/Mirror/Position Around 等仍有未资格组合 |
 | Operators | movement、gravity/力、颜色/alpha/size/旋转、noise、Remap、Vortex、Plane Collision 等原计划 | 不支持操作不假装执行；与 child、CP、世界空间和 lifecycle blend 分别限定 |
 | Control Points | 0…7 typed identity、已接入的静态/动态位置与 emitter/force consumer | 按 authored ID 而非数组位置；CP0/system origin 与其他 world source 不混用，未知 flags/angles/parent 不猜 |
 | Instance overrides | 已有颜色、发射、速度、播放及 typed 动态输入 | 新生 writer 与存量粒子不同；不以新属性自动改写既有粒子 |
+
+<a id="emitter-speed"></a>
+### 发射速度数值
+
+speedmin/speedmax 是原发射方向上的有符号数值；缺少的每个端点独立取0。有限端点在原冷 SpawnPlan 入口准备有序区间，保负号与原值，不取绝对值、不夹到0或人为幅度上限。区间正规化不抽样；原 RNG 沿作者出生顺序取值，保每次出生的 seed/抽样协议，再经 `relative/length × speed` 消费；负值允许沿相对方向向内，作者逆序端点与其有序表达等价。
+
+初始速度继续按原initializer顺序、CP frame、instance multiplier与world转换处理。最终出生状态在这些运算之后才检查正寿命及Float/GPU可表示性，有限Double不等于最终安全结果；失败局部丢弃该新生，保健康emitter和既有粒子。显式exact-n命令继续用原候选state事务回滚，不增加校验器、重试、许可、缓存或第二模拟器。Directions/sign、schedule、audio与空间仍由各原消费者的实际合同约束。
+
+验收经过真实Parser→冷计划→constructor→state/事件及Runtime→生产vertex/Metal：固定一轴/半径的负速度向内、正/逆序与单端缺省、改名、1e6以上但最终Float合法的输入；非有限端点、实际Float溢出及健康peer分别核。作者沿相同输入与有效rate/音频分支核accepted birth、目标batch与最终捕获，汇总PASS不代出生或draw；未做官方同条件对照时只声明本引擎已证数值合同。
 
 <a id="operators"></a>
 ## 需要保留的数值边界

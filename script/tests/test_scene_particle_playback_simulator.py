@@ -264,6 +264,107 @@ import Foundation
             try sim.preparePlaybackCandidate(commands:[(.init(layerID:42,action:.emit,
                 revision:sim.playback.revision+1,count:count),context)],charge:{_,_ in},release:{_ in})
         }
+        func radial(_ bounds: [String: Any], renamed: Bool = false, peer: Bool = false,
+                    streaming: Bool = false,
+                    initial: SceneParticlePlaybackSnapshot = .init()) throws -> SceneParticleSimulator {
+            var emitter: [String: Any] = ["id": renamed ? 823 : 17, "name": "sphererandom",
+                "origin": "4 2 0", "directions": "1 0 0", "sign": "1 0 0",
+                "distancemin": 8, "distancemax": 8, "rate": streaming ? 4 : 0,
+                "instantaneous": streaming ? 0 : 4]
+            emitter.merge(bounds) { _, authored in authored }
+            var emitters = [emitter]
+            if peer { emitters.append(["name": "boxrandom", "rate": 4,
+                "origin": "40 2 0", "distancemin": 0, "distancemax": 0]) }
+            let root: [String: Any] = ["material": renamed ? "other/snow.json" : "p.json",
+                "maxcount": 32, "emitter": emitters,
+                "initializer": [["id": renamed ? 104 : 5, "name": "lifetimerandom", "min": 10, "max": 10]],
+                "operator": [["name": "movement", "gravity": "0 0 0", "drag": 0]],
+                "renderer": [["name": "sprite"]]]
+            let definition = try SceneParticleDefinitionParser().parse(
+                data: JSONSerialization.data(withJSONObject: root))
+            return SceneParticleSimulator(definition: definition, initialPlayback: initial,
+                                          seed: 81, fixedTimeStep: 0.25)
+        }
+        let fixedSpeeds: [(String, Double, Double)] = [
+            ("inward", -4, 11), ("above-old-cap", 1_000_001, 250_012.25),
+            ("negative-above-old-cap", -1_000_001, -249_988.25)]
+        for (label, speed, expectedX) in fixedSpeeds {
+            let sim = try radial(["speedmin": speed, "speedmax": speed])
+            sim.advance(by: 0.25)
+            result["signed-speed-\(label)-real-birth-and-motion"] = sim.particles.count == 4
+                && sim.birthEvents.count == 4 && sim.birthEvents.allSatisfy {
+                    $0.position == SIMD3(12, 2, 0) && $0.velocity == SIMD3(speed, 0, 0)
+                } && sim.particles.allSatisfy {
+                    $0.position == SIMD3(expectedX, 2, 0) && $0.age == 0.25
+                        && Float($0.velocity.x).isFinite && Float($0.position.x).isFinite
+                }
+        }
+        let equivalentSpeeds: [(String, [String: Any], [String: Any], Bool)] = [
+            ("negative-reversed", ["speedmin": 0, "speedmax": -1], ["speedmin": -1, "speedmax": 0], false),
+            ("mixed-reversed", ["speedmin": 1, "speedmax": -1], ["speedmin": -1, "speedmax": 1], false),
+            ("min-only-positive", ["speedmin": 1], ["speedmin": 0, "speedmax": 1], false),
+            ("min-only-negative", ["speedmin": -1], ["speedmin": -1, "speedmax": 0], false),
+            ("max-only-negative", ["speedmax": -1], ["speedmin": -1, "speedmax": 0], false),
+            ("max-only-positive", ["speedmax": 4], ["speedmin": 0, "speedmax": 4], false),
+            ("both-omitted", [:], ["speedmin": 0, "speedmax": 0], false),
+            // Only the cold numeric wrapper is compared; this does not claim a live property writer.
+            ("renamed-wrapper", ["speedmin": ["user": "winterDrift", "value": -1], "speedmax": "0"],
+             ["speedmin": -1, "speedmax": 0], true)]
+        for (label, bounds, ordered, renamed) in equivalentSpeeds {
+            let actual = try radial(bounds, renamed: renamed), reference = try radial(ordered)
+            actual.advance(by: 0.25); reference.advance(by: 0.25)
+            result["signed-speed-\(label)-same-state-events-and-rng"] = actual.particles.count == 4
+                && actual.particles == reference.particles && actual.birthEvents == reference.birthEvents
+                && actual.frameSnapshot().random.state == reference.frameSnapshot().random.state
+                && (!renamed || (actual.definition.materialPath != reference.definition.materialPath
+                    && actual.definition.emitters[0].id != reference.definition.emitters[0].id))
+        }
+        let unsafeSpeeds: [(String, [String: Any])] = [
+            ("nan-min", ["speedmin": "nan", "speedmax": 0]),
+            ("nan-max", ["speedmin": 0, "speedmax": "nan"]),
+            ("infinity-min", ["speedmin": "inf", "speedmax": 0]),
+            ("infinity-max", ["speedmin": 0, "speedmax": "inf"]),
+            ("negative-infinity-min", ["speedmin": "-inf", "speedmax": 0]),
+            ("negative-infinity-max", ["speedmin": 0, "speedmax": "-inf"]),
+            ("final-float-overflow", ["speedmin": "1e39", "speedmax": "1e39"])]
+        for (label, bounds) in unsafeSpeeds {
+            let sim = try radial(bounds, peer: true, streaming: true)
+            sim.advance(by: 0.25)
+            let first = sim.frameSnapshot()
+            _ = sim.consumeBirthEvents()
+            sim.advance(by: 0.25)
+            result["signed-speed-\(label)-rejects-only-birth-keeps-peer-and-survivor"] =
+                first.particles.count == 1 && sim.particles.count == 2
+                && sim.particles[0].id == first.particles[0].id
+                && sim.particles[0].age == first.particles[0].age + 0.25
+                && sim.particles.allSatisfy { $0.position == SIMD3(40, 2, 0) && $0.velocity == .zero }
+                && sim.birthEvents.count == 1 && sim.birthEvents[0].position == SIMD3(40, 2, 0)
+            result["signed-speed-\(label)-rejects-at-actual-numeric-boundary"] =
+                (sim.definition.emitters[0].boundedSpeedRange != nil) == (label == "final-float-overflow")
+        }
+        let signedManual = try radial(["speedmin": -4, "speedmax": -4], initial: .init(intent: .paused))
+        let signedCandidate = try explicit(signedManual, count: 2)
+        result["signed-speed-exact-n-uses-real-constructor"] = signedCandidate.state.particles.count == 2
+            && signedCandidate.state.birthEvents.count == 2 && signedCandidate.state.particles.allSatisfy {
+                $0.position == SIMD3(12, 2, 0) && $0.velocity == SIMD3(-4, 0, 0)
+            } && signedManual.particles.isEmpty
+        signedManual.restoreFrame(signedCandidate.state)
+        let signedBefore = signedManual.frameSnapshot()
+        let overflowingSpeed = SceneParticleDefinitionParser().parseInstanceOverride(["speed": "1e39"])
+        do {
+            _ = try explicit(signedManual, count: 3, context: .init(instanceOverride: overflowingSpeed))
+            result["signed-speed-exact-n-multiplied-overflow-restores-state-rng-id"] = false
+        } catch {
+            let restored = signedManual.frameSnapshot()
+            result["signed-speed-exact-n-multiplied-overflow-restores-state-rng-id"] =
+                restored.particles == signedBefore.particles && restored.birthEvents == signedBefore.birthEvents
+                && restored.random.state == signedBefore.random.state && restored.nextParticleID == signedBefore.nextParticleID
+                && restored.playback == signedBefore.playback && restored.activeInstanceOverride == signedBefore.activeInstanceOverride
+        }
+        let signedRetry = try explicit(signedManual, count: 1)
+        result["signed-speed-exact-n-retries-with-original-next-id"] = signedRetry.state.particles.count == 3
+            && signedRetry.state.particles.last?.id == signedBefore.nextParticleID
+            && signedRetry.state.particles.last?.velocity == SIMD3(-4, 0, 0)
         let manual=try make(initial:.init(intent:.stopped),maximum:1024,emitter:["name":"boxrandom","rate":0])
         let manualBefore=manual.frameSnapshot()
         let manualCandidate=try explicit(manual,count:1024)

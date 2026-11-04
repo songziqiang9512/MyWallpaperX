@@ -121,16 +121,16 @@
       "bytes": 5938
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 85,
-      "bytes": 10249
+      "lines": 94,
+      "bytes": 11753
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 136,
       "bytes": 21117
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 63,
-      "bytes": 20923
+      "lines": 66,
+      "bytes": 22592
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 107,
@@ -161,8 +161,8 @@
       "bytes": 4260
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 163,
-      "bytes": 26560
+      "lines": 164,
+      "bytes": 27144
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -364,11 +364,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "b93dc52ddc8787f46b02144f86e977d7f52bbe97cd4491730c3d32e462172b7a",
-      "after": "09da070560da4b3e007d7a22f8658d7fd49ebc66eae4d16ef335ee449c404034",
-      "owner": "scene-particle-material-raster",
-      "reason": "Separate actual material/raster inputs from geometry and camera selection; define existing depth ownership and finite backend overbright without renderer permissions.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#material-state"
+      "before": "09da070560da4b3e007d7a22f8658d7fd49ebc66eae4d16ef335ee449c404034",
+      "after": "8d4194171ab6343d6226a0170a7ace789100d3267907e84e222879947792e657",
+      "owner": "scene-emitter-signed-speed",
+      "reason": "Define finite signed emitter endpoints and independent defaults in the existing cold plan, preserving RNG, constructor order and final multiplied Float birth validation without new owners.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#emitter-speed"
     },
     {
       "section": "bodies",
@@ -409,19 +409,19 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "63ade58d48e5ec018534a5baa711a397af1306e2168a60e97cc1295839348296",
-      "after": "86370b6078e9865636c769011d857936c00267c4d29bdbef7029feb183b413ba",
-      "owner": "scene-quad-prepared-input",
-      "reason": "Bind two-source signed Debug to staged native tests, exact typed quad pixels, atomic visibility, independent author neighbors and retained untyped purpose failure limits.",
+      "before": "86370b6078e9865636c769011d857936c00267c4d29bdbef7029feb183b413ba",
+      "after": "2fa0a3ca700fe99fc998e0186462425fa8f9abe814ef43413be347220cf6c9a9",
+      "owner": "scene-emitter-signed-speed",
+      "reason": "Bind the single-source signed Debug to staged CPU/transaction and actual Metal position/pixel evidence, exact target births/main output, controlled PCM limits and an independent Box neighbor.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#coverage"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "9d853cfed4e990fb264c9a2b2f6c4791f624c1fbaa38e2231eb5c8aef5efa015",
-      "after": "a1727538bf295b9b9ce4f92b288281b576fe08af7af956d54aabfe87252c26af",
-      "owner": "scene-quad-prepared-input",
-      "reason": "Retire the now-tested quad restrictions; retain actual untyped whole-vector purpose and raw macro schema boundaries, plus the separately rechecked particle wire-strength unknown.",
+      "before": "a1727538bf295b9b9ce4f92b288281b576fe08af7af956d54aabfe87252c26af",
+      "after": "f2cc85db234098e9713d34b66304555c4e975d99b3f7841c3fe3a808f3e6790d",
+      "owner": "scene-emitter-signed-speed",
+      "reason": "Retire the two author-retested speed failures, identify the shared rain sign10 boundary without guessing magnitude semantics, and retain the exact existing oversized regression-fixture responsibility debt for a separate cleanup batch.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     }
   ]

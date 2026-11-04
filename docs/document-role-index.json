@@ -1901,6 +1901,18 @@
       ],
       "authority": "docs/scene/capabilities/effect-execution-coverage.md#source-free-quad",
       "owner": "Scene prepared material / hierarchy / group raster"
+    },
+    {
+      "term": "粒子发射速度",
+      "aliases": [
+        "负速度",
+        "emitter speed",
+        "speedmin",
+        "speedmax",
+        "发射速度"
+      ],
+      "authority": "docs/scene/capabilities/particle-component-coverage.md#emitter-speed",
+      "owner": "Scene emitter SpawnPlan / Simulator"
     }
   ],
   "pointerEntrypoints": [

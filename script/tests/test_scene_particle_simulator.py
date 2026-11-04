@@ -1243,26 +1243,10 @@ enum Harness {
             emitterSpeedJSON(#""speedmax":4"#, count: 16), seed: 1, step: 1
         )
         maxOnlyEmitterSpeed.advance(by: 1)
-        var negativeEmitterSpeed = simulator(
-            emitterSpeedJSON(#""speedmin":-1,"speedmax":1"#), seed: 1, step: 1
-        )
-        negativeEmitterSpeed.advance(by: 1)
-        var reversedEmitterSpeed = simulator(
-            emitterSpeedJSON(#""speedmin":5,"speedmax":1"#), seed: 1, step: 1
-        )
-        reversedEmitterSpeed.advance(by: 1)
-        var minOnlyEmitterSpeed = simulator(
-            emitterSpeedJSON(#""speedmin":1"#), seed: 1, step: 1
-        )
-        minOnlyEmitterSpeed.advance(by: 1)
         var nonfiniteEmitterSpeed = simulator(
             emitterSpeedJSON(#""speedmin":"nan","speedmax":1"#), seed: 1, step: 1
         )
         nonfiniteEmitterSpeed.advance(by: 1)
-        var overBudgetEmitterSpeed = simulator(
-            emitterSpeedJSON(#""speedmax":1000001"#), seed: 1, step: 1
-        )
-        overBudgetEmitterSpeed.advance(by: 1)
         var sphereDirectionSign = simulator(
             emitterShapeJSON(
                 #""name":"sphererandom","directions":"2 0 1","sign":"-1 0 1","distancemin":10,"distancemax":10"#
@@ -2252,14 +2236,9 @@ enum Harness {
             "maxOnlyEmitterSpeeds": maxOnlyEmitterSpeed.particles.map { $0.velocity.x },
             "maxOnlyEmitterSpeedDiagnostics":
                 maxOnlyEmitterSpeed.diagnostics.map(\.kind.rawValue),
-            "invalidEmitterSpeedCounts": [
-                negativeEmitterSpeed, reversedEmitterSpeed,
-                minOnlyEmitterSpeed, nonfiniteEmitterSpeed, overBudgetEmitterSpeed,
-            ].map { $0.particles.count },
-            "invalidEmitterSpeedDiagnostics": [
-                negativeEmitterSpeed, reversedEmitterSpeed,
-                minOnlyEmitterSpeed, nonfiniteEmitterSpeed, overBudgetEmitterSpeed,
-            ].map { $0.diagnostics.map(\.kind.rawValue) },
+            "nonfiniteEmitterSpeedCount": nonfiniteEmitterSpeed.particles.count,
+            "nonfiniteEmitterSpeedDiagnostics":
+                nonfiniteEmitterSpeed.diagnostics.map(\.kind.rawValue),
             "sphereDirectionSignBounded": sphereDirectionSign.particles.count == 64
                 && sphereDirectionSign.particles.allSatisfy { particle in
                     let position = particle.position
@@ -3928,7 +3907,7 @@ class SceneParticleSimulatorTests(unittest.TestCase):
             self.assertIn("controlPointEmitterUnsupported", diagnostics)
             self.assertIn("controlPointEmitterAnglesUnsupported", diagnostics)
 
-    def test_emitter_speed_uses_bounded_range_and_rejects_invalid_values(self) -> None:
+    def test_emitter_speed_applies_fixed_and_max_only_values_and_rejects_nonfinite(self) -> None:
         self.assertEqual(self.results["fixedEmitterSpeedPosition"], [5, 0, 0])
         self.assertEqual(self.results["fixedEmitterSpeedVelocity"], [3, 0, 0])
         self.assertEqual(
@@ -3941,10 +3920,9 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(
             self.results["maxOnlyEmitterSpeedDiagnostics"], ["emitterSpeedBounded"]
         )
-        self.assertEqual(self.results["invalidEmitterSpeedCounts"], [0, 0, 0, 0, 0])
+        self.assertEqual(self.results["nonfiniteEmitterSpeedCount"], 0)
         self.assertEqual(
-            self.results["invalidEmitterSpeedDiagnostics"],
-            [["emitterSpeedUnsupported"]] * 5,
+            self.results["nonfiniteEmitterSpeedDiagnostics"], ["emitterSpeedUnsupported"]
         )
 
     def test_emitter_directions_and_sign_are_bounded_and_fail_closed(self) -> None:
