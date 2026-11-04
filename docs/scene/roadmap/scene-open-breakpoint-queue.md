@@ -16,7 +16,7 @@
 | uniform const作用域 | `SceneGenericShaderRuntimeConstantNormalizer`仍用全文value-name表及exactReference之后的同名token计数；无关helper形参`pow`或`u_gain`会阻止纯uniform派生全局const降低。现有`pow-value-shadow`/`pow-uniform-shadow`回归保留原const，属于实现边界。沿初始化/调用token和真实读写复用binding facts，保纯度、out/inout与compile-time consumer限制；用基线、改名及无关同名形参的同Program A/B/A像素验证，尚无真实作者影响资格。 |
 | 通道与操作推导 | 无typed边界的颜色兼容、alpha-only/packed data及有序signal仍有有界source事实；反射中的vec4本身不能说明通道意图。沿原compiler/ABI补实际跨函数、条件合流与操作能力缺口，保持未取得的表示资格；不为效果写法追加识别名单。 |
 | linked timeline producer · 2999344788、3577990983 | bokeh的linked parent/children timeline在准备期报`dynamic-uniform-producer-unavailable`；原载荷未指出missing uniform，需沿BindingProgram/producer取得精确未接入字段。 |
-| named供货 · 2972071249/313e9→234 | 234是hidden、childless composition，e0/e1 inactive，当前无publication/transaction/binding；313前九段Program与tail健康，e9精确为`dependency-stage-reference-unavailable`。沿原utility source与实际供货截点接入，不能仅靠未带layerID的hidden拒绝总数归因。 |
+| named供货 · 2972071249/313e9→234 | 234 hidden/childless；作者两effect visible=true，真实两节点authored图存在；inactive来自layer-hidden execution route。313前九段Program/tail健康，e9=`dependency-stage-reference-unavailable`。copyBackground省略默认未官方资格；prefix普通资源/颜色未资格、取时未知，不能raw source冒充效果结果。 |
 | named/source执行截点 | `providerGraphIsAuthoredOrderIndependent`仍限定单引用/单上游，并检查潜在而非最终选中的背景路径；同源多槽、多上游与死lower candidate仍可能误拒。DependencyPlan的原始renderOrder与utility展开后的成员次序未统一；background proof也整体排除graph provider。沿实际prepared需求和原utility执行顺序建立唯一供货截点；forward闭包含可见上游时，还需保其作者位主输出，不能固定`isVisibleExecutionRoot:false`并跳过作者位。此为代码可构造边界，尚无逐作者缺图资格；分别核真实prefix、独立source与循环，不加member或效果例外。 |
 | 初始停用named准备 | DirectBool的startup-inactive准备仍从descriptor instance引用出发，与definition材质候选及实际Program需求未统一；当前为代码边界，尚无逐作者资格。沿原prepared需求保source和热启用，不要求作者重复填写override或另存许可状态。 |
 | subtree来源 · 3788897599/196 | project带child291仍缺project子树source消费者；沿原source与发布截点补能力，不因共用原因码合并其他group归因。 |
@@ -44,7 +44,6 @@
 |---|---|
 | 必需binding · 3556263543 | 五个文字psyhue e0在真实采样slot2缺authored/default binding而持续旁路，e1与终端健康。缺项已证，隐式phase默认语义仍未知；不是census注释里的slot3。不得随意填纹理，也不能把copy的GPU完成算原effect执行。 |
 | 隐藏分支shader | 3607684497/59e0的`v_TexCoordKernel`明确varying type/array拒绝；2887099508/257e0明确g_Point1 script attachment未资格；2932157836/299e1 node1/slot0、3745828537/1087e0 node0/slot1缺binding资格，2857410102/91e3仅有聚合purpose原因。均保never-visible边界；3042492564另有aa_gaussian/node3 stage-link失败，不能与blur slot0混因。 |
-| 活named provider · 3504669359/1030e0 | opacity仍`material-variant-envelope-texture-binding`局部旁路；该层虽hidden但被69真实采样，后续scroll/fisheye及publication健康。沿实际template/variant给出缺失slot/候选，不把隐藏等同未消费，也不抹掉真实opacity失败。 |
 | 作者脚本与VM边界 | 初次32样本、含长窗33样本有实际script诊断；初次TypeError涉及21样本45个target，不能按异常类批量归作者或引擎。2890473419四个origin脚本仅声明shadowLayer即写visible、2982559622把Vec3返回给alpha为已证输入问题；3504669359实际触及prepared Puppet metadata unavailable。其余按`task/full-script-failure-recon.json`逐target核上下文/producer/API/回调顺序。 |
 | 片头后的mutation · 3599986633/702.visibility | 长窗约Ready+7秒开始，5项layer mutation整批报`invalid authored layer destroy`并保previous-current，16秒窗重复557次。主体可见不证明callback成功；沿原SceneScript mutation/destroy边界核作者调用、退休对象及事务范围，不猜作者错或无差别吞错。 |
 | 缺输入 · 3736952187、3763323436 | project.json不存在，未启动App；补合法输入后再跑，不作引擎失败。 |

@@ -1786,7 +1786,7 @@
       "owner": "Scene Session / typed programs and component owners",
       "status": "approved",
       "designDoc": "docs/scene/architecture/runtime-architecture.md",
-      "design_notes": "",
+      "design_notes": "Source-channel layout design: docs/scene/capabilities/render-graph-shader-coverage.md#source-channel-layout. Replace fixed RGB4/gray2 admission in the existing image uploader with actual packed 8-bit RGB/RGBA/G/GA and alpha/padding facts. Direct data expansion preserves bytes, alpha and every authored mip without color raster/ICC or a new runtime owner; native loader/GPU, controlled output and original author consumer-chain evidence define acceptance.",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextScript*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextMediaPropertiesCompiler.swift",

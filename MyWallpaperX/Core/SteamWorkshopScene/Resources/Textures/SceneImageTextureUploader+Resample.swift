@@ -42,6 +42,22 @@ nonisolated extension SceneImageTextureUploader {
         destinationWidth: Int, destinationHeight: Int,
         pixel: (Int, Int) -> SIMD4<Double>
     ) -> Data {
+        if sourceWidth == destinationWidth, sourceHeight == destinationHeight {
+            var destination = Data(count: destinationWidth * destinationHeight * 4)
+            destination.withUnsafeMutableBytes { raw in
+                let output = raw.bindMemory(to: UInt8.self)
+                for y in 0..<destinationHeight {
+                    for x in 0..<destinationWidth {
+                        let value = pixel(x, y)
+                        for channel in 0..<4 {
+                            output[(y * destinationWidth + x) * 4 + channel] =
+                                UInt8(clamping: Int(value[channel].rounded()))
+                        }
+                    }
+                }
+            }
+            return destination
+        }
         // Per-axis tap tables: for each destination index the covered source
         // start, the tap count, and one overlap weight per covered source
         // index (the footprint intersection length).

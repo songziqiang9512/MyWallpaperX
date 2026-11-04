@@ -47,6 +47,15 @@ Material、instance、user texture、effect 显式 binding 及 shader default �
 - 真实空槽 Resolution 的名义 `[2,2,2,2]` 只用于已证明精确成对归一化、无 default 且 template/frame 都为空的路径；pending/nonempty 槽不能套用此值。
 - 纹理 reduction 改变工作采样域，不改变最终放置与原材质语义；source-sized raster、camera projection 与 terminal placement 分别消费各自准备事实。
 
+<a id="source-channel-layout"></a>
+### 数据图片的源通道布局
+
+数据用途由实际 sampler 决定，图片布局由解码结果决定；不能要求 mask、normal、noise 等输入先具有颜色图片的 RGB/四通道形状。原 `SceneImageTextureUploader.sourceRGBA` 在资源准备入口消费实际 packed 8-bit RGB/RGBA、灰度/灰度加 alpha 及既有 padding/字节序，直接写入原 RGBA8 上传数据：灰度复制到 RGB，无 alpha 补 255，实际 alpha 与透明 RGB 保留。此转换不经 ICC、颜色 raster、反关联或重新解码，不为效果名、文件名或作者样本选路；复用原 mip uploader、Candidate、Catalog 和 sampler，无新增 owner、纹理副本或普通帧工作。
+
+只替换原固定通道数量及灰度颜色用途限制；保持实际格式、stride/载荷边界、decode table、premultiplied、float、数据 resize 与未实现精度的消费边界。一个 authored mip 无法消费时仍不发布部分纹理，健康其他资源和后继保原局部失败。16-bit straight-albedo 的已有转换不扩大为数据精度资格。
+
+验收使用原 loader 的混合灰度 JPEG/RGB mip 链、每级实际 GPU 读回、资源改名、透明 GA/RGBA 与 RGB/灰度及坏后续 mip；随后核原作者失败槽恢复真实材质、publication、下游采样和 terminal，另用受控 mask 值及独立作者邻例验证可见输出。输入布局转换成功不授全部颜色格式、任意特效或逐资产最终贡献。
+
 <a id="named-input-ownership"></a>
 ### Named 输入与发布
 

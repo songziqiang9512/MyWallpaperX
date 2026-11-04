@@ -15,8 +15,12 @@ import struct
 import subprocess
 import tempfile
 import unittest
+import zlib
 
 from script.web_benchmark_capture import png_rgb_pixels
+from script.scene_wallpaper_graph_output_metrics import (
+    structured_runtime_observations, terminal_composition_snapshot,
+)
 from .scene_pkg_fixture import make_package
 
 CANVAS = (256, 192)
@@ -119,7 +123,68 @@ def changing_atlas(permute=False):
     return bytes(result)
 
 
+def data_layout_fixture(case):
+    renamed, broken = case == "data-layout-renamed", case == "data-layout-bad-mask"
+    prefix, word, shift = ("unseen_density", "amount", 1000) if renamed else ("own_channel_data", "density", 0)
+    palettes = {str(51 + shift): ((120, 90, 240),) * 4 if broken else
+                ((0, 0, 0), (40, 30, 80), (80, 60, 160), (120, 90, 240)),
+                str(52 + shift): ((0, 0, 0), (40, 30, 80), (80, 60, 160), (120, 90, 240)),
+                str(53 + shift): ((0, 255, 0),) * 4}
+    def mask_png(alpha):
+        raw = bytearray()
+        for y in range(16):
+            raw.append(0)
+            for x in range(16):
+                q = int(y >= 8) * 2 + int(x >= 8)
+                raw.append((0, 85, 170, 255)[q])
+                if alpha:
+                    raw.append((255, 0, 64, 255)[q])
+        def chunk(kind, data):
+            return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data) & 0xffffffff)
+        return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", 16, 16, 8, 4 if alpha else 0, 0, 0, 0))
+                + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b""))
+    def solid_tex(rgb):
+        pixels = bytes((*rgb, 255)) * 256
+        return (b"TEXV0005\0TEXI0001\0" + struct.pack("<7I", 0, 0, 16, 16, 16, 16, 0)
+                + b"TEXB0002\0" + struct.pack("<2I", 1, 1)
+                + struct.pack("<5I", 16, 16, 0, len(pixels), len(pixels)) + pixels)
+    entries, objects, panels = {}, [], []
+    for index, (name, x, y) in enumerate((("gray", 64, 64), ("gray-alpha", 192, 64), ("peer", 128, 144))):
+        layer, path = 51 + shift + index, f"{prefix}/{name}"
+        model, material, source = f"models/{path}.json", f"materials/{path}.json", f"materials/{path}.tex"
+        entries[model] = encoded({"material": material})
+        entries[material] = encoded({"passes": [{"shader": "genericimage", "textures": [source]}]})
+        entries[source] = solid_tex((0, 255, 0) if name == "peer" else (120, 180, 240))
+        obj = {"id": layer, "name": path, "image": model, "origin": f"{x} {CANVAS[1] - y} 0",
+               "size": "64 32", "visible": True}
+        if name != "peer":
+            mask = f"materials/{path}-values.png"
+            entries[mask] = b"owned invalid PNG" if broken and index == 0 else mask_png(index == 1)
+            effects = []
+            for stage_index, stage in enumerate(("scalar", "suffix")):
+                shader = f"{path}-{stage}"
+                slots = [None, None, mask] if stage == "scalar" else [None]
+                entries[f"effects/{shader}/effect.json"] = encoded({"passes": [{"material": f"materials/{shader}.json"}]})
+                entries[f"materials/{shader}.json"] = encoded({"passes": [{"shader": shader, "textures": slots,
+                    "blending": "normal", "depthtest": "disabled", "depthwrite": "disabled", "cullmode": "nocull"}]})
+                entries[f"shaders/{shader}.vert"] = VERTEX
+                body = (f"float {word}=texSample2D(g_Texture2,v_TexCoord).r;gl_FragColor=vec4(c.rgb,c.a*{word});"
+                        if stage == "scalar" else "gl_FragColor=vec4(c.r,c.g*0.5,c.b,c.a);")
+                declaration = 'uniform sampler2D g_Texture2; // {"mode":"opacitymask"}\n' if stage == "scalar" else ""
+                entries[f"shaders/{shader}.frag"] = ("uniform sampler2D g_Texture0;\n" + declaration
+                    + "varying vec2 v_TexCoord;\nvoid main(){vec4 c=texSample2D(g_Texture0,v_TexCoord);" + body + "}\n").encode()
+                effects.append({"id": layer * 10 + stage_index, "file": f"effects/{shader}/effect.json", "visible": True})
+            obj["effects"] = effects
+        objects.append(obj)
+        panels.append((layer, x, y, False))
+    entries["scene.json"] = encoded({"version": 3, "general": {
+        "orthogonalprojection": {"width": CANVAS[0], "height": CANVAS[1]}, "clearcolor": "0 0 0"}, "objects": objects})
+    return {"type": "scene", "file": "scene.json"}, entries, panels, palettes
+
+
 def case_fixture(case):
+    if case.startswith("data-layout"):
+        return data_layout_fixture(case)[:3]
     project, entries = fixture_entries()
     panels = list(PANELS)
     if case == "padding":
@@ -203,7 +268,7 @@ def preregistration(case="padding"):
     hashes = {name: hashlib.sha256(data).hexdigest() for name, data in entries.items()}
     hashes["project.json"] = hashlib.sha256(encoded(project)).hexdigest()
     hashes["scene.pkg"] = hashlib.sha256(make_package(list(entries.items()))).hexdigest()
-    return {"case": case, "inputSHA256": hashes, "canvas": CANVAS, "panelSize": [64, 32],
+    protocol = {"case": case, "inputSHA256": hashes, "canvas": CANVAS, "panelSize": [64, 32],
             "panels": [{"id": layer, "center": [x, y],
                         "quadrantRGB": [list((c[1], c[2], c[0]) if effect else c) for c in COLORS]}
                        for layer, x, y, effect in panels],
@@ -212,9 +277,16 @@ def preregistration(case="padding"):
                        "channelTolerance": 3, "outsideBoundaryOffsetCanvas": 2,
                        "outsideRGB": [0, 0, 0], "sentinelRGB": SENTINEL},
             "timingLimit": "ready/after PNG plus completed later frames; no strict adjacent-frame pixel binding"}
+    if case.startswith("data-layout"):
+        protocol["paletteByLayer"] = data_layout_fixture(case)[3]
+        protocol["maskSource"] = {"PNGColorTypes": [0, 4], "gray": [0, 85, 170, 255],
+                                  "GAAlpha": [255, 0, 64, 255], "purpose": "mask", "read": "r only"}
+        for panel in protocol["panels"]:
+            panel["quadrantRGB"] = protocol["paletteByLayer"][str(panel["id"])]
+    return protocol
 
 
-def measure_capture(path, panel_specs=PANELS, second_frame=False):
+def measure_capture(path, panel_specs=PANELS, second_frame=False, palettes=None):
     width, height, rows = png_rgb_pixels(path)
     scale = max(width / CANVAS[0], height / CANVAS[1])
     def point(x, y):
@@ -229,7 +301,9 @@ def measure_capture(path, panel_specs=PANELS, second_frame=False):
     panels = []
     for layer, cx, cy, effect in panel_specs:
         quadrants = []
-        for q, color in enumerate(SECOND_COLORS if second_frame and layer in (11, 12, 31) else COLORS):
+        palette = palettes[str(layer)] if palettes is not None else (
+            SECOND_COLORS if second_frame and layer in (11, 12, 31) else COLORS)
+        for q, color in enumerate(palette):
             expected = (color[1], color[2], color[0]) if effect else color
             left, top = cx - 32 + (q % 2) * 32, cy - 16 + (q // 2) * 16
             x0, y0 = point(left + 3, top + 3)
@@ -284,7 +358,8 @@ class SceneAuthoredSamplingIntegrationTests(unittest.TestCase):
                 preview = "\n".join(p.read_text() for p in evidence.glob("*preview*.log"))
                 captures = sorted(evidence.glob("*-window.png"))
                 measurements = {p.name: measure_capture(p, panel_specs,
-                    second_frame=case in ("new-frame", "companion-frame") and "after" in p.name)
+                    second_frame=case in ("new-frame", "companion-frame") and "after" in p.name,
+                    palettes=protocol.get("paletteByLayer"))
                     for p in captures}
                 (root / "measurements.json").write_bytes(encoded(measurements))
                 self.assertEqual(result.returncode, 0, log[-6000:])
@@ -294,6 +369,8 @@ class SceneAuthoredSamplingIntegrationTests(unittest.TestCase):
                 self.assertTrue(any("ready" in p.name for p in captures))
                 self.assertTrue(any("after" in p.name for p in captures))
                 effect_layers = (22,) if case == "raw-miss" else (12, 22, 31)
+                if case.startswith("data-layout"):
+                    effect_layers = ()
                 if case.startswith("invalid-companion-"):
                     effect_layers = (22, 31)
                     if case == "invalid-companion-array":
@@ -308,7 +385,42 @@ class SceneAuthoredSamplingIntegrationTests(unittest.TestCase):
                 for layer in effect_layers:
                     self.assertRegex(log + preview, rf"generic shader execution [^\n]*layer={layer} effect=0 ")
                 provider = 22 if case == "padding" else 12
-                if case == "raw-miss":
+                if case.startswith("data-layout"):
+                    shift = 1000 if case == "data-layout-renamed" else 0
+                    observations = structured_runtime_observations(log, "MWX SCENE COMPOSITION OBSERVATION: ")
+                    self.assertEqual(observations["parse_errors"], 0)
+                    self.assertEqual(set(measurements), {"scene-ready-window.png", "scene-after-window.png"})
+                    for layer in (51 + shift, 52 + shift):
+                        bad = case == "data-layout-bad-mask" and layer == 51
+                        for effect in (0, 1):
+                            outcome = "failed" if bad and effect == 0 else "encoded-output"
+                            self.assertRegex(log, rf"axis=effect-cpu-invocation [^\n]*layer={layer} effect={effect} "
+                                rf"[^\n]*backend=resolved-material-graph outcome={outcome} ")
+                            if outcome == "encoded-output":
+                                self.assertRegex(log + preview, rf"generic shader execution [^\n]*layer={layer} effect={effect} ")
+                    for capture in captures:
+                        reason = "ready" if "ready" in capture.name else "after"
+                        request = re.search(rf"phase=snapshot reason={reason} request=(\d+) source=metal path={re.escape(str(capture))}", log)
+                        self.assertIsNotNone(request)
+                        receipt = re.search(rf"phase=snapshot-encoded request={request[1]} commandBufferToken=(\d+) textureToken=(\d+) width=(\d+) height=(\d+)", log)
+                        self.assertIsNotNone(receipt)
+                        matched = terminal_composition_snapshot({"status": "captured", "request_id": int(request[1]),
+                            "command_buffer_token": receipt[1], "texture_token": receipt[2],
+                            "source_width": int(receipt[3]), "source_height": int(receipt[4])}, observations)
+                        self.assertTrue(matched["composition_receipt_matched"], matched)
+                        event = next(e for e in observations["events"] if e["captureRequestID"] == int(request[1]))
+                        self.assertEqual(event["truncatedRows"], 0)
+                        for layer in (51 + shift, 52 + shift):
+                            rows = [r for r in event["rows"] if r.get("layerID") == layer]
+                            self.assertTrue(any(r["kind"] == "sourceCapture" and r["outcome"] == "encoded" for r in rows))
+                            self.assertTrue(any(r["kind"] == "tail-consume" and r["outcome"] == "terminal-consumed" for r in rows))
+                            masks = [r for r in rows if r["kind"] == "material" and r.get("effectIndex") == 0
+                                     and r.get("slot") == 2 and r["outcome"] == "draw-encoded"
+                                     and r["access"] == "texture-bind"]
+                            self.assertEqual(bool(masks), not (case == "data-layout-bad-mask" and layer == 51))
+                            for mask in masks:
+                                self.assertEqual((mask["source"]["purpose"], mask["source"]["content"]), ("mask", "data"))
+                elif case == "raw-miss":
                     self.assertNotIn("phase=named-target-capture layer=12 status=succeeded", log)
                     self.assertNotIn("phase=named-target-binding layer=31 status=succeeded", log)
                     self.assertNotRegex(log, r"phase=(?:visible|named)-graph-output-publication layer=12 status=succeeded")
@@ -334,6 +446,8 @@ class SceneAuthoredSamplingIntegrationTests(unittest.TestCase):
             finally:
                 if destination := os.environ.get("MWX_SCENE_INTEGRATION_EVIDENCE"):
                     saved = Path(destination) / self._testMethodName
+                    if case.startswith("data-layout"):
+                        saved /= case
                     saved.mkdir(parents=True, exist_ok=True)
                     for name in ("content", "evidence"):
                         if (root / name).exists():
@@ -377,3 +491,8 @@ class SceneAuthoredSamplingIntegrationTests(unittest.TestCase):
 
     def test_companion_without_active_sampler_cannot_use_default(self):
         self.run_case("invalid-companion-inactive")
+
+    def test_gray_and_gray_alpha_data_drive_pixels_and_fail_locally(self):
+        for case in ("data-layout", "data-layout-renamed", "data-layout-bad-mask"):
+            with self.subTest(case=case):
+                self.run_case(case)

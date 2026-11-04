@@ -553,13 +553,8 @@ nonisolated enum SceneImageTextureUploader {
         guard let source = sourceRGBA(image) else {
             return .failure(.unsupportedPixelLayout)
         }
-        guard image.alphaInfo == .last || image.alphaInfo == .first
-                || image.alphaInfo == .noneSkipLast
-                || image.alphaInfo == .noneSkipFirst else {
-            if source.premultiplied { return .failure(.premultipliedPixelLayout) }
-            return .failure(.unsupportedPixelLayout)
-        }
-        guard !source.premultiplied else {
+        guard image.alphaInfo != .premultipliedFirst,
+              image.alphaInfo != .premultipliedLast else {
             return .failure(.premultipliedPixelLayout)
         }
         let maximum = encodedPreservedChannelsMaximumDimension
@@ -568,10 +563,10 @@ nonisolated enum SceneImageTextureUploader {
         let outputHeight = max(1, Int(Double(height) * scale))
         let outputRGBA: Data
         if outputWidth == width, outputHeight == height {
-            outputRGBA = source.data
+            outputRGBA = source
         } else {
             outputRGBA = resampledStraightRGBA(
-                source.data,
+                source,
                 sourceWidth: width,
                 sourceHeight: height,
                 destinationWidth: outputWidth,
@@ -749,7 +744,7 @@ nonisolated enum SceneImageTextureUploader {
             // preserves transparent RGB without an unpremultiply fallback or a
             // full-size intermediate allocation when a large image is reduced.
             return sourceRGBA(image, width: width, height: height,
-                              colorConversion: purpose == .straightAlbedo)?.data
+                              colorConversion: purpose == .straightAlbedo)
         }
         return rasterizedRGBA(
             image,
@@ -772,11 +767,14 @@ nonisolated enum SceneImageTextureUploader {
     private static func sourceRGBA(
         _ image: CGImage, width: Int? = nil, height: Int? = nil,
         colorConversion: Bool = false
-    ) -> (data: Data, premultiplied: Bool)? {
+    ) -> Data? {
         let rgb = image.colorSpace?.model == .rgb
         let gray = image.colorSpace?.model == .monochrome
         let bits = image.bitsPerComponent
-        let channels = rgb ? 4 : 2
+        let alpha = image.alphaInfo
+        let first = alpha == .first || alpha == .premultipliedFirst || alpha == .noneSkipFirst
+        let last = alpha == .last || alpha == .premultipliedLast || alpha == .noneSkipLast
+        let channels = (rgb ? 3 : 1) + (first || last ? 1 : 0)
         let bytesPerPixel = channels * (bits / 8)
         let outputWidth = width ?? image.width, outputHeight = height ?? image.height
         let rowBytes = image.width.multipliedReportingOverflow(by: bytesPerPixel)
@@ -785,25 +783,22 @@ nonisolated enum SceneImageTextureUploader {
         guard image.width > 0, image.height > 0, outputWidth > 0, outputHeight > 0,
               !rowBytes.overflow, !sourceBytes.overflow, !outputPixels.overflow,
               !outputPixels.partialValue.multipliedReportingOverflow(by: 4).overflow,
-              (rgb && bits == 8 || colorConversion && (rgb || gray) && (bits == 8 || bits == 16)),
+              (rgb || gray), (bits == 8 || colorConversion && bits == 16),
+              first || last || alpha == .none && bits == 8,
               image.bitsPerPixel == channels * bits,
               image.bytesPerRow >= rowBytes.partialValue,
               image.pixelFormatInfo == .packed, image.decode == nil,
               !image.bitmapInfo.contains(.floatComponents) else { return nil }
-        let alpha = image.alphaInfo
-        let first = alpha == .first || alpha == .premultipliedFirst || alpha == .noneSkipFirst
-        let last = alpha == .last || alpha == .premultipliedLast || alpha == .noneSkipLast
-        guard first || last else { return nil }
         let order = image.bitmapInfo.rawValue & CGBitmapInfo.byteOrderMask.rawValue
         let little: Bool
         switch order {
         case CGBitmapInfo.byteOrderDefault.rawValue:
             little = false
-        case CGBitmapInfo.byteOrder32Big.rawValue where bits == 8 && rgb,
-             CGBitmapInfo.byteOrder16Big.rawValue where bits == 16 || gray:
+        case CGBitmapInfo.byteOrder32Big.rawValue where bits == 8 && channels == 4,
+             CGBitmapInfo.byteOrder16Big.rawValue where bits == 16 || channels == 2:
             little = false
-        case CGBitmapInfo.byteOrder32Little.rawValue where bits == 8 && rgb,
-             CGBitmapInfo.byteOrder16Little.rawValue where bits == 16 || gray:
+        case CGBitmapInfo.byteOrder32Little.rawValue where bits == 8 && channels == 4,
+             CGBitmapInfo.byteOrder16Little.rawValue where bits == 16 || channels == 2:
             little = true
         default: return nil
         }
@@ -830,14 +825,14 @@ nonisolated enum SceneImageTextureUploader {
                     return Double(little ? a | (b << 8) : (a << 8) | b) / 257
                 }
                 let colorIndex = first ? 1 : 0
-                let alphaValue = alpha == .noneSkipFirst || alpha == .noneSkipLast
+                let alphaValue = alpha == .none || alpha == .noneSkipFirst || alpha == .noneSkipLast
                     ? 255 : channel(first ? 0 : channels - 1)
                 let red = channel(colorIndex)
                 return SIMD4(red, gray ? red : channel(colorIndex + 1),
                              gray ? red : channel(colorIndex + 2), alphaValue)
             }
         }
-        return (data, alpha == .premultipliedLast || alpha == .premultipliedFirst)
+        return data
     }
 
     /// Single rasterisation helper for straight-alpha RGBA uploads; the mip

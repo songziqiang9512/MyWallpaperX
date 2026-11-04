@@ -1828,6 +1828,18 @@
   ],
   "terminology": [
     {
+      "term": "数据图片通道布局",
+      "aliases": [
+        "灰度mask",
+        "data image",
+        "source channel",
+        "packed RGB",
+        "TEX灰度"
+      ],
+      "authority": "docs/scene/capabilities/render-graph-shader-coverage.md#source-channel-layout",
+      "owner": "Scene资源上传"
+    },
+    {
       "term": "named source taxonomy",
       "aliases": [
         "来源分类",
