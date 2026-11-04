@@ -12,13 +12,18 @@ import hashlib
 import json
 import math
 import os
+import re
 import shutil
 import subprocess
 import tempfile
 import unittest
 
 from script.web_benchmark_capture import png_rgb_pixels
+from script.scene_wallpaper_graph_output_metrics import (
+    structured_runtime_observations, terminal_composition_snapshot,
+)
 from .scene_pkg_fixture import make_package
+from .test_scene_authored_sampling_integration import solid_texture
 
 
 CANVAS = (256, 256)
@@ -51,7 +56,8 @@ def encoded(value):
 
 def fixture_entries(*, copy_background=None, order="baseline", enabled=True,
                     effect=True, childless=False, hide_child_next_frame=False,
-                    container=False, renamed=False, hide_container_next_frame=False, quad=False):
+                    container=False, renamed=False, hide_container_next_frame=False, quad=False,
+                    quad_input=None):
     """None omits the authored field; false and true remain distinct inputs."""
     if copy_background is not None and not isinstance(copy_background, bool):
         raise ValueError("copy_background must be omitted, false, or true")
@@ -132,12 +138,49 @@ def fixture_entries(*, copy_background=None, order="baseline", enabled=True,
                 "blending": "normal", "depthtest": "disabled", "depthwrite": "disabled", "cullmode": "nocull"}]}),
             "shaders/own_yellow.vert": VERTEX,
             "shaders/own_yellow.frag": b"void main(){gl_FragColor=vec4(1.0,1.0,0.0,1.0);}\n"})
-    return {"type": "scene", "file": "scene.json"}, entries
+    project = {"type": "scene", "file": "scene.json"}
+    if quad_input is not None:
+        slot, initial = quad_input["slot"], quad_input["initialVisible"]
+        key = "moved_quad_cohort" if renamed else "quad_cohort"
+        prefix = "moved_sampled_light" if renamed else "own_sampled_light"
+        path = f"materials/{prefix}/tiles.tex"
+        for layer in (child, nonchild):
+            layer["visible"] = {"user": key, "value": initial}
+        root["effects"][0]["id"] = ids["composition"] * 10
+        child["effects"] = [{"id": ids["child"] * 10,
+                             "file": f"effects/{prefix}/effect.json", "visible": True}]
+        project["general"] = {"properties": {key: {
+            "type": "bool", "text": "Owned quad and healthy peer", "value": initial}}}
+        palette = ((255, 0, 0, 255), (0, 255, 0, 255),
+                   (255, 0, 255, 0), (255, 255, 0, 255))
+        rgba = bytes(channel for y in range(16) for x in range(16)
+                     for channel in palette[int(y >= 8) * 2 + int(x >= 8)])
+        # Keep the existing tightly packed TEX writer's header; this input has
+        # no padding, atlas frame, resize, or sampler-UV mapping dependency.
+        packed = solid_texture((0, 0, 0))
+        entries[path] = packed[:-len(rgba)] + rgba
+        entries[f"effects/{prefix}/effect.json"] = encoded({
+            "passes": [{"material": f"materials/{prefix}.json"}]})
+        entries[f"materials/{prefix}.json"] = encoded({"passes": [{
+            "shader": prefix, "textures": [None] * slot + [path], "blending": "normal",
+            "depthtest": "disabled", "depthwrite": "disabled", "cullmode": "nocull"}]})
+        uv = "v_MovedUV" if renamed else "v_TexCoord"
+        entries[f"shaders/{prefix}.vert"] = VERTEX.replace(b"v_TexCoord", uv.encode())
+        entries[f"shaders/{prefix}.frag"] = (
+            f'uniform sampler2D g_Texture{slot}; // {{"material":"albedo"}}\nvarying vec2 {uv};\n'
+            f"void main(){{vec4 sampled=texSample2D(g_Texture{slot},{uv});"
+            "gl_FragColor=sampled;}\n").encode()
+        for path in ("effects/own_yellow/effect.json", "materials/own_yellow.json",
+                     "shaders/own_yellow.vert", "shaders/own_yellow.frag"):
+            del entries[path]
+        entries["scene.json"] = encoded(scene)
+    return project, entries
 
 
 def preregistration(*, copy_background=None, order="baseline", enabled=True,
                     effect=True, childless=False, hide_child_next_frame=False,
-                    container=False, renamed=False, hide_container_next_frame=False, quad=False):
+                    container=False, renamed=False, hide_container_next_frame=False, quad=False,
+                    quad_input=None):
     """The expected colors come from the approved contract, never the capture."""
     active_effect = effect and enabled
     copies = copy_background is not False
@@ -198,6 +241,47 @@ def preregistration(*, copy_background=None, order="baseline", enabled=True,
             "scene-after-window.png": {
                 name: {"canvasRect": rect, "expectedRGB": later_expected[name]}
                 for name, rect in rects.items()}}
+    if quad_input is not None:
+        key = "moved_quad_cohort" if renamed else "quad_cohort"
+        prefix = "moved_sampled_light" if renamed else "own_sampled_light"
+        samples = {
+            "sample0": ((28, 118, 40, 122), (0, 255, 0)),
+            "sample1": ((84, 118, 96, 122), (255, 0, 0)),
+            "sample2": ((28, 134, 40, 138), (255, 255, 0)),
+            "sample3": ((84, 134, 96, 138), (0, 0, 0)),
+        }
+        def oracle(visible):
+            values = {name: {"canvasRect": rect, "expectedRGB": color if visible else YELLOW}
+                      for name, (rect, color) in samples.items()}
+            values.update({"background": {"canvasRect": ROI_RECTS["background"], "expectedRGB": YELLOW},
+                           "verticalOutside": {"canvasRect": (60, 144, 68, 148), "expectedRGB": YELLOW},
+                           "nonchild": {"canvasRect": ROI_RECTS["nonchild"],
+                                        "expectedRGB": CYAN if visible else YELLOW}})
+            return values
+        initial = quad_input["initialVisible"]
+        protocol["quadInput"] = {**quad_input, "key": key,
+            "samplerMaterial": "albedo", "loadPurpose": "straightAlbedo",
+            "texturePath": f"materials/{prefix}/tiles.tex", "rgbaExtent": [16, 16],
+            "rgbaQuadrants": [[255, 0, 0, 255], [0, 255, 0, 255], [255, 0, 255, 0], [255, 255, 0, 255]],
+            "sequence": [{key: not initial}], "afterDelay": 3,
+            "cohortLayerIDs": [ids["child"], ids["nonchild"]]}
+        protocol["snapshotOracles"] = {
+            "scene-ready-window.png": oracle(initial),
+            "scene-after-window.png": oracle(not initial)}
+        protocol["oracle"] = oracle(initial)
+        protocol["quadGeometry"]["oracleBasis"] = (
+            "Opaque literal RGBA TEX quadrants add into copied blue, then the parent's existing "
+            "invert Program computes 1-rgb. Thus r/g become (0,255),(255,0),(255,255),(0,0), "
+            "with blue0. Alpha0 magenta retains no ink under the existing coverage boundary; "
+            "fractional alpha and representation-specific additive weighting are not qualified here. "
+            "Hidden child/peer leave freshly copied blue, inverted to yellow.")
+        protocol["timingBoundary"] = (
+            "ready readback precedes the existing +2s Bool edit; after readback uses delay3s; "
+            "each readback joins its exact request/CB/seal/completed event and bounded snapshot clock")
+        protocol["evidenceBoundary"] = (
+            "owned typed straight-albedo asset sampling and atomic live visibility through nearest group raster; "
+            "sampler purpose is explicitly authored as material=albedo, not inferred from whole-vector color flow; "
+            "no TEXS/atlas, implicit graph source, arbitrary parent alpha, or official parity claim")
     return protocol
 
 
@@ -248,6 +332,113 @@ class SceneCompositionAuthoredOrderIntegrationTests(unittest.TestCase):
         cls.app = Path(executable).resolve(strict=True)
         cls.frozen_app_hashes = app_hashes(cls.app)
 
+    def check_quad_input_captures(self, protocol, log, captures, evidence):
+        settings, ids = protocol["quadInput"], protocol["layerIDs"]
+        self.assertEqual(re.findall(
+            r"phase=live-property-sequence-step index=(\d+) accepted=(true|false)", log), [("0", "true")])
+        updates = re.findall(
+            r"phase=live-property-update accepted=true surfacesBefore=(\d+) surfacesAfter=(\d+) "
+            r"windowsBefore=(\S+) windowsAfter=(\S+)", log)
+        self.assertEqual(len(updates), 1)
+        before, after, window_before, window_after = updates[0]
+        self.assertEqual((before, after), ("1", "1"))
+        self.assertEqual(window_before, window_after)
+        self.assertNotEqual(window_before, "")
+        update_position = log.index("phase=live-property-update accepted=true ")
+        for layer in settings["cohortLayerIDs"]:
+            for visible in (False, True):
+                value = str(visible).lower()
+                self.assertRegex(log, rf"layer={layer} source=userProperty value={value} effective={value}")
+        observations = structured_runtime_observations(log, "MWX SCENE COMPOSITION OBSERVATION: ")
+        self.assertEqual(observations["parse_errors"], 0)
+        clock_prefix = "phase=timeline-frame-input json="
+        clocks = [json.loads(line.split(clock_prefix, 1)[1])
+                  for line in log.splitlines() if clock_prefix in line]
+        self.assertEqual({p.name for p in captures}, {"scene-ready-window.png", "scene-after-window.png"})
+        readout = []
+        for path in captures:
+            reason = "ready" if "ready" in path.name else "after"
+            request = re.findall(
+                rf"phase=snapshot reason={reason} request=(\d+) source=metal path={re.escape(str(path))}", log)
+            self.assertEqual(len(request), 1)
+            receipt_pattern = (rf"phase=snapshot-encoded request={request[0]} commandBufferToken=(\d+) "
+                               r"textureToken=(\d+) width=(\d+) height=(\d+)")
+            receipts = list(re.finditer(receipt_pattern, log))
+            self.assertEqual(len(receipts), 1)
+            receipt = receipts[0]
+            matched = terminal_composition_snapshot({"status": "captured", "request_id": int(request[0]),
+                "command_buffer_token": receipt[1], "texture_token": receipt[2],
+                "source_width": int(receipt[3]), "source_height": int(receipt[4])}, observations)
+            self.assertTrue(matched["composition_receipt_matched"], matched)
+            event = next(e for e in observations["events"]
+                         if e["captureRequestID"] == int(request[0]) and e["commandBufferToken"] == receipt[1])
+            self.assertEqual(event["truncatedRows"], 0)
+            self.assertEqual(event["gpuStatus"], "completed")
+            event_position = log.index("MWX SCENE COMPOSITION OBSERVATION: " + next(
+                line.split("MWX SCENE COMPOSITION OBSERVATION: ", 1)[1]
+                for line in log.splitlines() if "MWX SCENE COMPOSITION OBSERVATION: " in line
+                and json.loads(line.split("MWX SCENE COMPOSITION OBSERVATION: ", 1)[1]) == event))
+            self.assertLess(receipt.start(), event_position)
+            self.assertEqual(receipt.start() < update_position, reason == "ready")
+            frames = [c for c in clocks if c["kind"] == "frame" and c["stream"] == event["displayID"]]
+            lower = max((c for c in frames if c["frame"] <= event["frameIndex"]), key=lambda c: c["frame"])
+            upper = min((c for c in frames if c["frame"] >= event["frameIndex"]), key=lambda c: c["frame"])
+            self.assertTrue(lower["observationComplete"] and upper["observationComplete"])
+            self.assertEqual(lower["frame"], lower["snapshotFrame"])
+            self.assertEqual(upper["frame"], upper["snapshotFrame"])
+            self.assertEqual(lower["generation"], upper["generation"])
+            self.assertLessEqual(upper["sceneTime"] - lower["sceneTime"], .4)
+            visible = settings["initialVisible"] if reason == "ready" else not settings["initialVisible"]
+            rows = event["rows"]
+            root_rows = [r for r in rows if r.get("layerID") == ids["composition"]]
+            source = next(r for r in root_rows if r["kind"] == "sourceCapture" and r["outcome"] == "encoded")
+            material = next(r for r in root_rows if r["kind"] == "material" and r["outcome"] == "draw-encoded")
+            group = next(r for r in root_rows if r["kind"] == "group" and r["outcome"] == "draw-encoded")
+            tail = next(r for r in root_rows if r["kind"] == "tail-consume" and r["outcome"] == "terminal-consumed")
+            seal = next(r for r in rows if r["kind"] == "frame-seal" and r["outcome"] == "sealed")
+            self.assertEqual(source["target"]["textureToken"], material["source"]["textureToken"])
+            self.assertEqual(material["target"]["textureToken"], group["source"]["textureToken"])
+            self.assertEqual(material["target"]["textureToken"], tail["source"]["textureToken"])
+            self.assertEqual(group["target"]["textureToken"], seal["target"]["textureToken"])
+            self.assertNotEqual(source["source"]["width"], source["source"]["height"])
+            child_rows = [r for r in rows if r.get("layerID") == ids["child"]]
+            sampled = [r for r in child_rows if r["kind"] == "material" and r["outcome"] == "draw-encoded"]
+            peer = [r for r in rows if r.get("layerID") == ids["nonchild"]
+                    and r["kind"] == "ordinary" and r["outcome"] == "draw-encoded"]
+            self.assertEqual(bool(peer), visible)
+            if visible:
+                self.assertEqual(len(sampled), 1)
+                sample = sampled[0]
+                self.assertEqual(sample["slot"], settings["slot"])
+                self.assertIn(settings["texturePath"], sample["source"]["logical"])
+                self.assertEqual([sample["source"]["width"], sample["source"]["height"]], settings["rgbaExtent"])
+                draw = next(r for r in child_rows if r["kind"] == "ordinary" and r["outcome"] == "draw-encoded")
+                child_tail = next(r for r in child_rows if r["kind"] == "tail-consume"
+                                  and r["outcome"] == "terminal-consumed")
+                self.assertEqual(sample["target"]["textureToken"], draw["source"]["textureToken"])
+                self.assertEqual(sample["target"]["textureToken"], child_tail["source"]["textureToken"])
+                self.assertEqual(draw["target"]["textureToken"], source["source"]["textureToken"])
+                self.assertNotEqual(draw["target"]["textureToken"], seal["target"]["textureToken"])
+                self.assertLess(rows.index(draw), rows.index(source))
+            else:
+                self.assertFalse(sampled)
+                self.assertFalse([r for r in child_rows if r["kind"] in ("ordinary", "tail-consume")])
+                self.assertTrue(any(r["kind"] == "clear" and r["outcome"] == "encoded"
+                                    and r["target"]["textureToken"] == source["source"]["textureToken"] for r in rows))
+                self.assertTrue(any(r["kind"] == "group-background-capture" and r["outcome"] == "draw-encoded"
+                                    and r["target"]["textureToken"] == source["source"]["textureToken"] for r in rows))
+            readout.append({"capture": path.name, "visible": visible, "frame": event["frameIndex"],
+                "generation": lower["generation"], "clockBracket": [lower["sceneTime"], upper["sceneTime"]],
+                "request": int(request[0]), "commandBuffer": receipt[1], "surface": event["surfaceIdentity"],
+                "sealedTexture": receipt[2], "sourceExtent": [int(receipt[3]), int(receipt[4])],
+                "rows": [r for r in rows if r.get("layerID") in (ids["child"], ids["composition"], ids["nonchild"])
+                         or r["kind"] in ("clear", "group-background-capture", "frame-seal")]})
+        self.assertEqual(len({r["surface"] for r in readout}), 1)
+        by_capture = {r["capture"]: r for r in readout}
+        self.assertGreater(by_capture["scene-after-window.png"]["generation"],
+                           by_capture["scene-ready-window.png"]["generation"])
+        (evidence.parent / "quad-input-readout.json").write_bytes(encoded(readout))
+
     def run_case(self, **parameters):
         protocol = preregistration(**parameters)
         project, entries = fixture_entries(**parameters)
@@ -267,12 +458,22 @@ class SceneCompositionAuthoredOrderIntegrationTests(unittest.TestCase):
             (content / "scene.pkg").write_bytes(package)
             (root / "preregistration.json").write_bytes(encoded(protocol))
             env = os.environ.copy()
+            if "quadInput" in protocol:
+                for key in tuple(env):
+                    if key.startswith(("MWX_SCENE_", "MYWALLPAPERX_SCENE_DEBUG_")):
+                        del env[key]
+                env["MYWALLPAPERX_SCENE_DEBUG_TIMELINE_EVIDENCE"] = json.dumps({
+                    "layerIDs": protocol["quadInput"]["cohortLayerIDs"],
+                    "sceneTimeWindow": [0, 8], "interval": .25, "maxSamples": 32})
             env.update(HOME=str(home), CFFIXED_USER_HOME=str(home),
                        MWX_SCENE_DEBUG_SURFACE_COUNT="1",
                        MWX_SCENE_GENERIC_SHADER_CACHE=str(root / "shader-cache"))
             command = [str(self.app), "--mwx-debug-scene-root", str(content),
                        "--mwx-debug-scene-duration", "7",
                        "--mwx-debug-scene-evidence-dir", str(evidence)]
+            if settings := protocol.get("quadInput"):
+                command += ["--mwx-debug-scene-after-snapshot-delay", str(settings["afterDelay"]),
+                            "--mwx-debug-scene-live-property-sequence-json", json.dumps(settings["sequence"])]
             identity = {"command": command, "appSHA256": self.frozen_app_hashes,
                         "inputSHA256": inputs,
                         "testSHA256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
@@ -307,6 +508,8 @@ class SceneCompositionAuthoredOrderIntegrationTests(unittest.TestCase):
                     self.assertRegex(log + preview, rf"generic shader execution [^\n]*layer={quad_id} effect=0 ")
                 if transition := protocol.get("visibilityTransition"):
                     self.assertRegex(log, rf"layer={transition['layer']} source=sceneScript value=false effective=false")
+                if "quadInput" in protocol:
+                    self.check_quad_input_captures(protocol, log, captures, evidence)
                 for name, measurement in pixels.items():
                     for roi, value in measurement["rois"].items():
                         with self.subTest(capture=name, roi=roi):
@@ -385,6 +588,14 @@ class SceneCompositionAuthoredOrderIntegrationTests(unittest.TestCase):
 
     def test_parented_quad_program_uses_transform_container_raster(self):
         self.run_case(copy_background=True, container=True, quad=True)
+
+    def test_parented_quad_samples_slot0_and_enables_with_healthy_cohort(self):
+        self.run_case(copy_background=True, container=True, quad=True,
+                      quad_input={"slot": 0, "initialVisible": False})
+
+    def test_renamed_nested_quad_samples_slot3_and_clears_after_cohort_hides(self):
+        self.run_case(copy_background=True, container=True, quad=True, renamed=True,
+                      order="child-before-root", quad_input={"slot": 3, "initialVisible": True})
 
 
 if __name__ == "__main__":

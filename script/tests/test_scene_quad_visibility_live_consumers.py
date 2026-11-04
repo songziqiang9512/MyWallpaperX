@@ -1,4 +1,4 @@
-"""Independent quad visibility uses prepared claims and atomic property cohorts.
+"""Quad visibility uses prepared claims, hierarchy admission and atomic cohorts.
 
 Host, structural admission, token identity and LiveState code are production
 implementations. Descriptor and prepared-material dictionaries are input
@@ -65,6 +65,7 @@ struct SceneRenderDescriptor {
 }
 // Inputs are explicit prepared outcomes. Actual claim/resolve methods below
 // retain the product's immutable owner/capability/layer identity checks.
+enum SceneDependencyRenderPlan { struct Binding {} }
 final class SceneResolvedMaterialExecutionCapabilityCatalog {
     enum SourceRoute { case capturedLayerTexture, capturedMainTargetTexture, transparentDirectDraw }
     enum DependencyOwnership { case none, graphInternal, externalPrimary, externalAggregate }
@@ -77,7 +78,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
     __TOKEN_TYPES__
     private let ownerID = UUID()
     private let capabilitiesByLayerID: [Int: LayerCapability]
-    let admittedResolvedMaterialReferences: [Int] = []
+    let preparedNamedInputBindingsByConsumerLayerID: [Int: [SceneDependencyRenderPlan.Binding]] = [:]
     let liveConsumerTargets: Set<SceneDynamicTarget> = []
     init(_ values: [Int: LayerCapability] = [:]) { capabilitiesByLayerID = values }
     __CLAIM__
@@ -92,7 +93,7 @@ enum SceneUtilityLayerRuntimePlanner {
         var requiresNamedTarget = false
     }
     static func plans(in descriptor: SceneRenderDescriptor, resolvedMaterialLayerIDs: Set<Int>,
-                      admittedResolvedMaterialReferences: [Int]) -> [Int: Plan] {
+                      preparedNamedInputBindingsByConsumerLayerID: [Int: [SceneDependencyRenderPlan.Binding]] = [:]) -> [Int: Plan] {
         descriptor.preparedUtilityPlans
     }
 }
@@ -154,13 +155,17 @@ HARNESS = r'''
     static func same(_ a: ScenePropertyLiveUpdateState, _ b: ScenePropertyLiveUpdateState) -> Bool {
         a.userValues == b.userValues && a.effectiveValues == b.effectiveValues && a.revision == b.revision
     }
-    static func cohort(key: String, quad: Int, particle: Int, seed: Bool) -> [String: Bool] {
-        let descriptor = SceneRenderDescriptor(layers: [
+    static func cohort(key: String, quad: Int, particle: Int, seed: Bool,
+                       descriptor input: SceneRenderDescriptor? = nil) -> [String: Bool] {
+        let descriptor = input ?? SceneRenderDescriptor(layers: [
             .init(id: quad, contentKind: "quad", visible: seed, effects: [1]),
             .init(id: particle, contentKind: "particle", visible: seed, particlePath: "own-particle.json")])
         var current = state(descriptor, Catalog([quad: .init()]), key: key,
             ids: [quad, particle], seed: seed, particles: [particle])
         var facts: [String: Bool] = [:]
+        facts["structuralQuad"] = SceneDynamicLayerVisibilityRouteAdmission.targets(
+            in: descriptor, candidates: [target(quad)]).contains(target(quad))
+        facts["initialValues"] = bool(current, quad) == seed && bool(current, particle) == seed
         facts["preparedBoth"] = current.activeConsumerTargets.isSuperset(of: [target(quad), target(particle)])
         facts["firstAtomic"] = current.apply(.bool(!seed), forPropertyKey: key)
             && bool(current, quad) == !seed && bool(current, particle) == !seed && current.revision == 1
@@ -171,6 +176,55 @@ HARNESS = r'''
             unavailableConsumerTargets: [target(particle)]) && same(current, held)
         facts["quadUnavailable"] = !current.apply(.bool(!seed), forPropertyKey: key,
             unavailableConsumerTargets: [target(quad)]) && same(current, held)
+        return facts
+    }
+    static func parentedCohort(key: String, quad: Int, particle: Int, seed: Bool) -> [String: Bool] {
+        let composition = quad + 10_000, container = quad + 20_000
+        var descriptor = SceneRenderDescriptor(layers: [
+            .init(id: composition, contentKind: "composition", childLayerIDs: [container],
+                utilityLayer: .init(kind: .composition, copyBackground: false, passthrough: false)),
+            .init(id: container, contentKind: "container", parentID: composition, childLayerIDs: [quad]),
+            .init(id: quad, contentKind: "quad", visible: seed, parentID: container, effects: [1]),
+            // Keep the peer independent of the ancestor failures below.
+            .init(id: particle, contentKind: "particle", visible: seed, particlePath: "own-peer.json")])
+        descriptor.camera.authoredOrthographicProjectionActive = true
+        var facts = cohort(key: key, quad: quad, particle: particle, seed: seed, descriptor: descriptor)
+        var missing = state(descriptor, Catalog(), key: key, ids: [quad, particle], seed: seed,
+            particles: [particle])
+        let heldMissing = missing
+        facts["missingProgramKeepsWholeCohort"] = missing.activeConsumerTargets.contains(target(particle))
+            && !missing.activeConsumerTargets.contains(target(quad))
+            && !missing.apply(.bool(!seed), forPropertyKey: key) && same(missing, heldMissing)
+            && bool(missing, particle) == seed
+
+        var invalidAncestor = descriptor
+        invalidAncestor.layers[0].contentKind = "model"
+        invalidAncestor.layers[0].utilityLayer = nil
+        invalidAncestor.layers[0].staticModelPath = "own-ancestor.mdl"
+        var missingAncestor = descriptor
+        missingAncestor.layers.removeFirst()
+        var mismatchedComposition = descriptor
+        mismatchedComposition.layers[0].childLayerIDs = []
+        var mismatchedContainer = descriptor
+        mismatchedContainer.layers[1].childLayerIDs = []
+        var quadMember = descriptor
+        quadMember.layers[2].childLayerIDs = [particle]
+        var quadDependency = descriptor
+        quadDependency.layers[2].dependencyLayerIDs = [999]
+        quadDependency.layers[2].authoredDependencies = [999]
+        for (name, invalid) in [("invalidAncestor", invalidAncestor), ("missingAncestor", missingAncestor),
+            ("mismatchedComposition", mismatchedComposition), ("mismatchedContainer", mismatchedContainer),
+            ("quadMember", quadMember), ("quadDependency", quadDependency)] {
+            var current = state(invalid, Catalog([quad: .init()]), key: key, ids: [quad, particle],
+                seed: seed, particles: [particle])
+            let held = current
+            facts[name] = !SceneDynamicLayerVisibilityRouteAdmission.targets(
+                in: invalid, candidates: [target(quad)]).contains(target(quad))
+                && !current.activeConsumerTargets.contains(target(quad))
+                && current.activeConsumerTargets.contains(target(particle))
+                && !current.apply(.bool(!seed), forPropertyKey: key) && same(current, held)
+                && bool(current, particle) == seed
+        }
         return facts
     }
     static func rejectedPreparedFacts() -> [String: Bool] {
@@ -229,6 +283,8 @@ HARNESS = r'''
         let report: [String: Any] = [
             "originalOn": cohort(key: "sunrays", quad: 100, particle: 54, seed: true),
             "renamedOff": cohort(key: "renamedBeam", quad: 407, particle: 819, seed: false),
+            "parentedOn": parentedCohort(key: "ownNestedBeam", quad: 910, particle: 34, seed: true),
+            "parentedRenamedOff": parentedCohort(key: "differentNestedLight", quad: 2701, particle: 619, seed: false),
             "preparedRejections": rejectedPreparedFacts(), "existingBoundaries": existingBoundaries()]
         print(String(decoding: try JSONSerialization.data(withJSONObject: report), as: UTF8.self))
     }
@@ -288,6 +344,11 @@ class QuadVisibilityLiveConsumerTests(unittest.TestCase):
     def test_prepared_route_material_and_actual_token_identity_are_required(self) -> None:
         for name, passed in self.result["preparedRejections"].items():
             self.assertTrue(passed, name)
+
+    def test_parented_quad_cohorts_require_program_and_valid_ancestor_membership(self) -> None:
+        for name in ["parentedOn", "parentedRenamedOff"]:
+            for fact, passed in self.result[name].items():
+                self.assertTrue(passed, (name, fact))
 
     def test_existing_model_and_fullscreen_readiness_guards_remain(self) -> None:
         for name, passed in self.result["existingBoundaries"].items():

@@ -304,6 +304,104 @@ private enum ScenePreparedUniformQueryChecks {
             maximumVariantCount: 1).get()
         facts["source-free-unprepared-cache-is-not-executable"] = !unprepared.supportsTransparentDirectDraw
         for slot in [0, 3] {
+            for (renamed, materialKey) in [(false, "albedo"), (true, "albedo"), (true, "otherPigment")] {
+                let sampler = "g_Texture\(slot)"
+                let authoredSampler = renamed ? "u_MovedSource" : sampler
+                let path = SceneVFSAssetPath(renamed ? "textures/other/source.tex" : "textures/owned/source.tex")!
+                let reference = Template.TextureReference.asset(path)
+                let identity = SceneAssetTextureIdentity(path: path, purpose: .straightAlbedo)
+                let shader = contract(revision: "source-free-asset-\(slot)-\(renamed)", semanticProbes: false,
+                    vertexSourceOverride: """
+                        attribute vec3 a_Position;
+                        attribute vec2 a_TexCoord;
+                        varying vec2 \(renamed ? "otherUV" : "v_TexCoord");
+                        void main() {
+                            \(renamed ? "otherUV" : "v_TexCoord") = a_TexCoord;
+                            gl_Position = vec4(a_Position, 1.0);
+                        }
+                        """,
+                    fragmentSourceOverride: """
+                        \(renamed ? "#define \(authoredSampler) \(sampler)" : "")
+                        uniform sampler2D \(sampler); // {"material":"\(materialKey)"}
+                        varying vec2 \(renamed ? "otherUV" : "v_TexCoord");
+                        void main() {
+                            gl_FragColor = texSample2D(\(authoredSampler), \(renamed ? "otherUV" : "v_TexCoord"));
+                        }
+                        """)
+                let material = template(shader, slot: slot, primaryReference: reference,
+                    graphBindingsOverride: [])
+                let cache = try SceneResolvedMaterialVariantCache.launchValidated(template: material,
+                    textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: material),
+                    maximumVariantCount: 1).get()
+                try cache.precompileLaunchEnvelope(implicitFramebufferIdentity: nil,
+                    assetStates: [identity: .ready(.color(.resolved(.straightAlpha)))]).get()
+                let variants = cache.launchEnvelopeCapabilitySnapshot().variants
+                guard variants.count == 1, let variant = variants.first else {
+                    throw FixtureError(message: "one source-free asset variant required")
+                }
+                let frame = try input(snapshot)
+                let selection = try SceneResolvedMaterialTextureSelection.resolve(frame,
+                    textureSlots: material.textureSlots, samplers: variant.activeSamplers,
+                    reachableTexturePurposes: [:], channelUses: variant.preparedAssembly.samplerChannelUses,
+                    allowPresenceIndependentDefaults: true, restrictToSamplerSlots: true,
+                    textureSelectionFacts: variant.textureSelectionFacts,
+                    graphInputSourceSlotFacts: variant.graphInputSourceSlotFacts)
+                if materialKey == "otherPigment" {
+                    let prefix = "untyped-whole-vector-slot\(slot)"
+                    if case let .reference(actual, purpose, provenance, graphFact) = selection[slot] {
+                        facts[prefix + "-retains-asset-without-inventing-color-role"] = actual == reference
+                            && purpose == nil && provenance == .authored(.explicitBinding) && graphFact == nil
+                            && variant.activeSamplers[slot]?.materialKey == materialKey
+                            && variant.activeSamplers[slot]?.channelUse == .wholeVector
+                            && variant.activeSamplers[slot]?.sourceProvenPurpose == nil
+                    } else { facts[prefix + "-retains-asset-without-inventing-color-role"] = false }
+                    if case let .failure(failure) = SceneResolvedMaterialProgramFinalizer.finalize(frame, variantCache: cache) {
+                        facts[prefix + "-purpose-unproven-is-not-transparent-default"] =
+                            failure.phase == .texture && failure.code == .texturePurposeUnproven
+                            && failure.slot == slot && failure.effectLocalVisualFallback == nil
+                    } else { facts[prefix + "-purpose-unproven-is-not-transparent-default"] = false }
+                    continue
+                }
+                let prefix = "source-free-asset-slot\(slot)-\(renamed)"
+                facts[prefix + "-prepared-active-binding"] = cache.supportsTransparentDirectDraw
+                    && variant.frontendProgram.textureBindings.map(\.slot) == [slot]
+                    && variant.frontendProgram.textureBindings.map(\.name) == [sampler]
+                    && variant.activeSamplers[slot]?.materialKey == materialKey
+                    && variant.graphInputSourceSlotFacts.isEmpty
+                if case let .reference(actual, purpose, provenance, graphFact) = selection[slot] {
+                    facts[prefix + "-actual-selection-keeps-authored-asset"] = actual == reference
+                        && purpose == .straightAlbedo && provenance == .authored(.explicitBinding)
+                        && graphFact == nil
+                } else { facts[prefix + "-actual-selection-keeps-authored-asset"] = false }
+                // Launch content is not a concrete frame publication. This
+                // device-free gate must still fail at the actual resource read.
+                if case let .failure(failure) = SceneResolvedMaterialProgramFinalizer.finalize(frame, variantCache: cache) {
+                    facts[prefix + "-missing-frame-resource-is-not-transparent-default"] =
+                        failure.phase == .texture && failure.code == .resourceSnapshotUnresolved && failure.slot == slot
+                } else { facts[prefix + "-missing-frame-resource-is-not-transparent-default"] = false }
+                if !renamed {
+                    let graphMaterial = template(shader, slot: slot, graphBindingsOverride: [])
+                    let graphCache = try SceneResolvedMaterialVariantCache.launchValidated(template: graphMaterial,
+                        textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: graphMaterial),
+                        maximumVariantCount: 1).get()
+                    try graphCache.precompileLaunchEnvelope(implicitFramebufferIdentity: graphTexture()).get()
+                    facts["explicit-graph-candidate-slot\(slot)-still-needs-source"] =
+                        !graphCache.supportsTransparentDirectDraw
+                        && graphCache.launchEnvelopeCapabilitySnapshot().variants.first?
+                            .frontendProgram.textureBindings.map(\.slot) == [slot]
+                }
+            }
+        }
+        let implicitShader = contract(revision: "source-free-implicit-negative", semanticProbes: false)
+        let implicitMaterial = template(implicitShader, includePrimaryCandidate: false)
+        let implicitCache = try SceneResolvedMaterialVariantCache.launchValidated(template: implicitMaterial,
+            textureFormatSlots: SceneResolvedMaterialShaderSchema.textureFormatSlots(in: implicitMaterial),
+            maximumVariantCount: 1).get()
+        try implicitCache.precompileLaunchEnvelope(implicitFramebufferIdentity: graphTexture()).get()
+        facts["implicit-slot0-still-needs-source"] = !implicitCache.supportsTransparentDirectDraw
+            && implicitCache.launchEnvelopeCapabilitySnapshot().variants.first?
+                .graphInputSourceSlotFacts[0]?.inputIdentity == graphTexture()
+        for slot in [0, 3] {
             for combo in [0, 1] {
                 let shader = contract(revision: "graph-input-\(slot)-\(combo)", semanticProbes: false,
                     vertexSourceOverride: """

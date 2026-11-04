@@ -1889,6 +1889,18 @@
       ],
       "authority": "docs/development/repository-workflow.md#代码与知识交付",
       "owner": "仓库规则"
+    },
+    {
+      "term": "无源quad",
+      "aliases": [
+        "quad",
+        "source-free quad",
+        "source-less quad",
+        "父层quad",
+        "quad显隐"
+      ],
+      "authority": "docs/scene/capabilities/effect-execution-coverage.md#source-free-quad",
+      "owner": "Scene prepared material / hierarchy / group raster"
     }
   ],
   "pointerEntrypoints": [

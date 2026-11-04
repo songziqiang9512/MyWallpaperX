@@ -14,7 +14,7 @@
 | 定位 | 当前事实与下一步 |
 |---|---|
 | uniform const作用域 | `SceneGenericShaderRuntimeConstantNormalizer`仍用全文value-name表及exactReference之后的同名token计数；无关helper形参`pow`或`u_gain`会阻止纯uniform派生全局const降低。现有`pow-value-shadow`/`pow-uniform-shadow`回归保留原const，属于实现边界。沿初始化/调用token和真实读写复用binding facts，保纯度、out/inout与compile-time consumer限制；用基线、改名及无关同名形参的同Program A/B/A像素验证，尚无真实作者影响资格。 |
-| 通道与操作推导 | 无typed边界的颜色兼容、alpha-only/packed data及有序signal仍有有界source事实；反射中的vec4本身不能说明通道意图。沿原compiler/ABI补实际跨函数、条件合流与操作能力缺口，保持未取得的表示资格；不为效果写法追加识别名单。 |
+| 通道与操作推导 | 无typed边界的颜色兼容、alpha-only/packed data及有序signal仍有有界source事实；vec4类型本身不说明通道意图。自有whole-vector复制在无注解/otherPigment时，slot0/3实际选同资产但purpose=nil，Finalizer真实报texturePurposeUnproven；明确albedo的typed输入不是该缺口恢复。沿原冷准备汇合component来源、真实输出/资源用途，保data FBO、独立alpha及mixed-role反例，不再为效果写法追加识别名单。 |
 | 无 lane 联动值 · 2999344788/89e0 | Gamma在pass4仅有parent/preview/value5，无c0，Parser为`missingLanes`；Aperture声明child Gamma，连通分量不能发布真实producer，当前App仍局部旁路e0。无lane是否为纯控制或保原常量尚未资格，不借根值、preview或shader default补曲线。沿[数值联动合同](../capabilities/runtime-input-property-coverage.md#effect-linked-timeline)核真实值语义；健康waterflow/e1保持。 |
 | material default动画入口 | AssetCatalog的material ShaderValue未调用TimelineParser，Resolver再用instance覆盖；无override的动画wrapper可能被当staticExact冻结。typed material timeline和definition-only pass还缺完整producer/pass identity；这是静态代码边界，尚无作者运行资格。沿原解析及有效material/instance源接入，不另建资源owner。 |
 | named供货 · 2972071249/313e9→234 | 234 hidden/childless；作者两effect visible=true，真实两节点authored图存在；inactive来自layer-hidden execution route。313前九段Program/tail健康，e9=`dependency-stage-reference-unavailable`。copyBackground省略默认未官方资格；prefix普通资源/颜色未资格、取时未知，不能raw source冒充效果结果。 |
@@ -33,7 +33,7 @@
 | 粒子子资源 · 3788897599/568 | mouse=true活动复验中parent getsuga_tenshou与child0 red_fire均draw，另一个getsuga.json child仍有`textureLoadFailed`；尚无具体缺失texture键，不能合并归因A2C、project196或父树全部不可用。沿原AssetGraph/TextureLoader定位实际资源及作者缺省，保健康成员继续呈现。 |
 | 周期发射上限 · 3564173599/1987、3749463715/405/412 | `maxtoemitperperiod=32`被nil gate拒绝，22秒长窗无对应出生/draw。Plan无cap、State无逐周期计数，活跃时长先合并多窗；instance.count是否缩放上限、出生消费点及fraction/触顶换窗语义尚未证。先做定窗/count2/非整fraction/短命容量1的区分实验，再沿原emitter与值快照补调度，不能仅删guard或末端min32；explicit不随自然发射扩大资格。 |
 | 普通粒子材质语义 | AssetGraph仅核genericparticle basename；no-depth普通路径的额外CUTOUT/LIGHTING/UNKNOWN combo和user texture/value没有通用shader消费者，固定sceneParticleFrag仍输出原纹理×tint。RenderStateCompiler已将普通材质输入与几何许可分离，但其profile仍用于camera选择及当前depth/A2C输入限制，不能代替材质编译。沿原材质准备/实际shader或typed操作接入，区分已消费与未实现输入；不能以效果名或源码形状白名单扩张许可，也不能盲目忽略未消费输入。当前额外材质输入为代码链事实，尚无逐作者画面资格。 |
-| 粒子算子实际unsupported | 3749463715/3564173599的distance-between-CP、3742497499/135的`maintaindistancetocontrolpoint`、3527426897的map-sequence、3773747576的sphere collision、3780119725的bounds collision均有dispatcher事实（6样本10组件）。374是位置距离约束，原声明CP1/distance1000/variablestrength1，不是scalar remap；强度、坐标/scale与缺省需资格。各原operator/initializer owner独立补语义；collision坐标与outside-born先取可区分输入。 |
+| 粒子算子实际unsupported | 3749463715/3564173599的distance-between-CP、3742497499/135的`maintaindistancetocontrolpoint`、3527426897的map-sequence、3773747576的sphere collision、3780119725的bounds collision均有dispatcher事实（6样本10组件）。374是位置距离约束，原声明CP1/distance1000/variablestrength1，不是scalar remap；raw variablestrength与strengthfactor映射、坐标/scale及缺省需资格，不能把1/5直接当强度。当前App仍live unsupported。各原operator/initializer owner独立补语义；collision坐标与outside-born先取可区分输入。 |
 | 粒子出生拒绝 · 3009275235/255、3248220186/2157、3746066933/85、3799613625/452 | 有真实`birth-construction-rejected`，当前首事实未细分最终失败字段，原因未知；先核出生构造的真实失败，不猜finite或作者错误。 |
 | 粒子零接纳 · 2866723317 | 正rate/capacity下只有zero-admitted-count、未见所选帧draw；没有已证delay，需当前count/capacity/consumer定位，不能无依据扩大等待。 |
 | 停止ledger · 3780119725 | 初次selected frame186成功，停止附近frame245有31个`lifecycle-cancellation-ledger-invariant-rejected`；22秒和10秒定向运行未复现。沿原submission/cancellation owner定位，保原失败，不因PNG正常宽泛忽略invariant。 |
@@ -61,12 +61,12 @@
 | 定位 | 下一步 |
 |---|---|
 | composition · 2731896598 | childless透视与三维angles组合需真实几何/Camera/回绘资格，不以false-only代作者输入。 |
-| source-less quad | 已可见的parented quad走原group raster；`VisibilityAdmission`的quadLeaf仍要求parentID=nil，需原prepared capability下的隐藏/显示、组source清理及健康peer反例。`supportsTransparentDirectDraw`仍整体排除active slot0；显式资产slot0是否真正依赖graph应沿实际sampler/绑定资格，不按slot编号猜测。后者尚无真实输入运行资格。 |
 | source material · 3616476797/113、3679907516/71/74/83、3141464346 | 逐pass核source-only state/lookup/活动purpose；314重点232/277/321/386/416/420/481/719，不从VERSION2或translucent推通用接口。 |
 | static model / resolved render state | 任意shader、多pass与更广blend/depth/cull须原binding compiler和fullscreen/output用途资格；保深度、淡出与PMA。 |
 | Puppet · 3577990983、3822822401、3779107475 | auxiliary/reference、非中性通道、dense state1及多contributor姿态按真实reference/attachment坐标基资格，Reader识别不等于evaluator执行。 |
 | point volume · 3047405322、3437487219、3477054430 | 需实际volume consumer；现有spot plan和point表面光照不能代验。 |
 | Script动态特殊资源与typed callback | 特殊Puppet/composition创建字段、3028048463的531.alpha空数组/506.origin、3603711180跨callback Sound分别核prepared catalog及实际producer，不造空实例或无差别容错。 |
+| sampler宏声明接口 | canonical g_TextureN声明配宏采样read已准备通过；自有slot0将声明改为宏别名时，raw SchemaSeed未展开，unconditionalSamplers报authoredSamplerSchemaInvalid。当前没有作者缺图资格。沿原冷预处理/接口事实统一Schema，保真实slot/metadata，不新增别名许可表或忽略用途；后续资源目的仍需独立资格。 |
 | effect显隐错型 | Color key同时绑定effect.visible会保原重建要求；layer visibility已有的忽略规则不能代此入口。尚无作者运行资格。需按真实Bool fallback、启动投影、准备状态与合法Color热更核对，不能直接扩大ignored集合或绕开原事务；数值effectConstant的固定fallback职责不代显隐资格。 |
 | 粒子其他资格 | CP/child空间、Mirror、nested/event、HSV缺省（3585542943/253/257、3761159935/453/457）、Vortex flags2及absolute color字段各用出生/轨迹输入；normalizedColor不是absolute color。 |
 | dormant视频与输出扩域 | hidden仍被named采样与实际source停止分开；物理HDR/EDR、lighting/receiver、文字backgroundbrightness和HDR8bit裁剪分别资格。 |

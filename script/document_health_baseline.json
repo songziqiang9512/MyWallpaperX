@@ -113,8 +113,8 @@
       "bytes": 7033
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
-      "lines": 65,
-      "bytes": 8860
+      "lines": 75,
+      "bytes": 10249
     },
     "docs/scene/capabilities/material-video-assets.md": {
       "lines": 57,
@@ -129,8 +129,8 @@
       "bytes": 21117
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 61,
-      "bytes": 20062
+      "lines": 63,
+      "bytes": 20923
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 107,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 163,
-      "bytes": 26285
+      "bytes": 26560
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -373,11 +373,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/effect-execution-coverage.md",
-      "before": "a72a67b3f928f217472ed7aff6787b677ead62c5189c7b9695cc1d0069f52ba1",
-      "after": "4ed3989160b5a4579b885e841c9acacaabf2d85ce7b5cde4ff9e2abcdd1f50e5",
-      "owner": "scene-prepared-named-inputs",
-      "reason": "Route utility source execution and named versus visible output to the existing unique trigger/compositor contract.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-input-ownership"
+      "before": "4ed3989160b5a4579b885e841c9acacaabf2d85ce7b5cde4ff9e2abcdd1f50e5",
+      "after": "78a45a7b78afaaba262f100752dca29b0db0cf1a2ff93745dfec6048eabb2abe",
+      "owner": "scene-quad-prepared-input",
+      "reason": "Specify prepared typed asset inputs and existing parent/raster/live ownership; retire blanket slot0 and root-only permissions without adding runtime state.",
+      "decision": "docs/scene/capabilities/effect-execution-coverage.md#source-free-quad"
     },
     {
       "section": "bodies",
@@ -409,19 +409,19 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "ba444d48fe239d8189625813f7c2b6d6d7f3daf2215e9312f3ca62b4678f3c5a",
-      "after": "63ade58d48e5ec018534a5baa711a397af1306e2168a60e97cc1295839348296",
-      "owner": "scene-property-target-fallback",
-      "reason": "Bind six-source signed Debug to complete Document/App pixels, target-local capability/Metal negatives, real live values and exact author uniform/capture consumption; retain prepared versus draw proof limits.",
+      "before": "63ade58d48e5ec018534a5baa711a397af1306e2168a60e97cc1295839348296",
+      "after": "86370b6078e9865636c769011d857936c00267c4d29bdbef7029feb183b413ba",
+      "owner": "scene-quad-prepared-input",
+      "reason": "Bind two-source signed Debug to staged native tests, exact typed quad pixels, atomic visibility, independent author neighbors and retained untyped purpose failure limits.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#coverage"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "8a92e96081ad74aa067bd62515e933879e64ca844effb20d2ccfd27023748c5a",
-      "after": "9d853cfed4e990fb264c9a2b2f6c4791f624c1fbaa38e2231eb5c8aef5efa015",
-      "owner": "scene-property-target-fallback",
-      "reason": "Retire the current author-retested numeric-property failure, keep the distinct effect-visibility wrong-kind boundary, and identify the particle distance component without guessing its strength or coordinate semantics.",
+      "before": "9d853cfed4e990fb264c9a2b2f6c4791f624c1fbaa38e2231eb5c8aef5efa015",
+      "after": "a1727538bf295b9b9ce4f92b288281b576fe08af7af956d54aabfe87252c26af",
+      "owner": "scene-quad-prepared-input",
+      "reason": "Retire the now-tested quad restrictions; retain actual untyped whole-vector purpose and raw macro schema boundaries, plus the separately rechecked particle wire-strength unknown.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     }
   ]

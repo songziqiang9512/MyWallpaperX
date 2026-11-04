@@ -255,7 +255,6 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
         guard template.graphRole.bindings.isEmpty,
               hasCachedReachability,
               let reachable = cachedReachability?.samplers,
-              reachable[0] == nil,
               cachedLaunchEnvelopeKeys.allSatisfy({ key in
                   guard case let .ready(variant)? = entries[key] else {
                       return false

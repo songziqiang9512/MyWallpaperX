@@ -217,7 +217,7 @@ nonisolated enum SceneDynamicLayerVisibilityRouteAdmission {
                 // A source-less procedural quad reuses its prepared direct-draw
                 // Program. This admits preparation only; the Host still needs
                 // the actual capability before advertising a live consumer.
-                let quadLeaf = layer.contentKind == "quad" && layer.parentID == nil
+                let quadLeaf = layer.contentKind == "quad"
                     && layer.childLayerIDs.isEmpty && children[id, default: []].isEmpty
                     && layer.dependencyLayerIDs.isEmpty && layer.authoredDependencies.isEmpty
                 guard ["container", "image", "solid", "text"].contains(layer.contentKind)
