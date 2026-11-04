@@ -1851,6 +1851,18 @@
       "owner": "Scene Timeline准备与播放"
     },
     {
+      "term": "材质属性fallback",
+      "aliases": [
+        "属性回退",
+        "属性错型",
+        "typed property fallback",
+        "同key绑定",
+        "重建标记"
+      ],
+      "authority": "docs/scene/capabilities/runtime-input-property-coverage.md#property-target-fallback",
+      "owner": "Scene属性准备与uniform"
+    },
+    {
       "term": "named source taxonomy",
       "aliases": [
         "来源分类",

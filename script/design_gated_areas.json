@@ -497,7 +497,7 @@
       "owner": "Scene prepared material / graph / unique MainPass",
       "status": "approved",
       "designDoc": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "design_notes": "DesignDoc#named-input-ownership uses prepared sampler/resource and effective ABI facts instead of fixed pass/slot/combo/profile permission. Definition materials and instance overrides share one binding source; channel use belongs to each variant, not interface identity. Preserve authored order, one Binding vector, same-frame publication and local fallback. Utility executes once at its source trigger, publishing through the existing compositor; committed visibility chooses main or named-only output. Reuse Catalog, Program fold, DependencyPlan and ledger, without a new owner or duplicated allocation commit. Terminal sizing and replay contracts remain in the same document. DesignDoc#independent-named-source admits forward source capture by actual order independence: source textures and empty transparent composition keep the existing reservation/publication owner. Raw source capture never substitutes for an effect graph or an authored attachment prefix. No new runtime owner, Program or group target is introduced.",
+      "design_notes": "DesignDoc#named-input-ownership uses prepared sampler/resource and effective ABI facts instead of fixed pass/slot/combo/profile permission. Definition materials and instance overrides share one binding source; channel use belongs to each variant, not interface identity. Preserve authored order, one Binding vector, same-frame publication and local fallback. Utility executes once at its source trigger, publishing through the existing compositor; committed visibility chooses main or named-only output. Reuse Catalog, Program fold, DependencyPlan and ledger, without a new owner or duplicated allocation commit. Terminal sizing and replay contracts remain in the same document. DesignDoc#independent-named-source admits forward source capture by actual order independence: source textures and empty transparent composition keep the existing reservation/publication owner. Raw source capture never substitutes for an effect graph or an authored attachment prefix. No new runtime owner, Program or group target is introduced. Property fallback contract: docs/scene/capabilities/runtime-input-property-coverage.md#property-target-fallback. Parse original effect constants once, reuse the existing typed property snapshot and scope fallback by full target; uniform consumers retain ABI/source/value checks.",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight.swift",
@@ -528,7 +528,11 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+InputValidation.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerRenderer.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityPlanFrameRenderer.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+DependencyProviders.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+DependencyProviders.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneDocument.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+Stages.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+DynamicUniformRejection.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+ProgramFirstStages+InputContracts.swift"
       ],
       "contentPatterns": []
     },
@@ -1786,7 +1790,7 @@
       "owner": "Scene Session / typed programs and component owners",
       "status": "approved",
       "designDoc": "docs/scene/architecture/runtime-architecture.md",
-      "design_notes": "Existing component execution contracts: docs/scene/capabilities/render-graph-shader-coverage.md#source-channel-layout and docs/scene/capabilities/runtime-input-property-coverage.md#effect-linked-timeline. Preserve one prepared resource/value chain, clock and output; replace old admission or duplicate work in the responsible owner. Verification and limits belong to those contracts.",
+      "design_notes": "Existing component execution contracts: docs/scene/capabilities/render-graph-shader-coverage.md#source-channel-layout and docs/scene/capabilities/runtime-input-property-coverage.md#effect-linked-timeline. Preserve one prepared resource/value chain, clock and output; replace old admission or duplicate work in the responsible owner. Verification and limits belong to those contracts. Property target-local fallback and no-writer rebuild retirement: docs/scene/capabilities/runtime-input-property-coverage.md#property-target-fallback. Preserve other consumers rebuild marks and atomic live updates.",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextScript*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextMediaPropertiesCompiler.swift",

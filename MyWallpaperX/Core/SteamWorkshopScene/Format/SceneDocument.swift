@@ -292,11 +292,10 @@ nonisolated struct SceneDocumentLoader {
         guard let file = normalizedPath(root["file"] as? String) else { return nil }
         let authoredPasses = authoredRoot["passes"] as? [[String: Any]] ?? []
         let passes = (root["passes"] as? [[String: Any]] ?? []).enumerated().map { index, pass in
-            SceneDocument.SceneEffect.Pass(
+            let authoredPass = authoredPasses.indices.contains(index) ? authoredPasses[index] : pass
+            return SceneDocument.SceneEffect.Pass(
                 id: pass["id"] as? Int,
-                authoredValue: SceneJSONValue(jsonObject: authoredPasses.indices.contains(index)
-                    ? authoredPasses[index]
-                    : pass),
+                authoredValue: SceneJSONValue(jsonObject: authoredPass),
                 textures: texturePaths(in: pass),
                 textureSlots: (pass["textures"] as? [Any] ?? []).map { normalizedPath($0 as? String) },
                 userTextureInputs: (pass["usertextures"] as? [Any] ?? []).map {
@@ -304,8 +303,8 @@ nonisolated struct SceneDocumentLoader {
                         declaredTexturePropertyKeys: declaredTexturePropertyKeys)
                 },
                 combos: pass["combos"] as? [String: Int] ?? [:],
-                constantShaderValues: constantShaderValues(in: pass),
-                constantShaderValueKeys: constantShaderValueKeys(in: pass)
+                constantShaderValues: constantShaderValues(in: authoredPass),
+                constantShaderValueKeys: constantShaderValueKeys(in: authoredPass)
             )
         }
 

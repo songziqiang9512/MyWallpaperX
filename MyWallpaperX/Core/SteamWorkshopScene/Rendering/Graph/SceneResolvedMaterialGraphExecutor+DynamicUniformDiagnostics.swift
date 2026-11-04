@@ -4,8 +4,8 @@ import Foundation
 extension SceneResolvedMaterialGraphExecutor {
     /// Records a bounded evidence-window join for frame-driven uniforms. The
     /// prepared Program already owns the reflected field and encoded bytes;
-    /// this only proves that a Timeline or SceneScript snapshot value reached
-    /// that existing consumer. Ordinary playback never enters this loop.
+    /// this only proves that a typed snapshot value reached that consumer.
+    /// Ordinary playback never enters this loop.
     func recordTypedFrameDrivenUniformConsumptions(
         program: SceneResolvedMaterialProgram,
         effect: Graph.EffectKey,
@@ -27,18 +27,24 @@ extension SceneResolvedMaterialGraphExecutor {
                   effectIndex == effect.effectIndex else { continue }
 
             let target = dynamic.declaration.target
+            guard let resolved = frameInputs.dynamicValues[target],
+                  resolved.source == resolvedSource else { continue }
             let channel: String
             switch (dynamic.contributor, resolvedSource) {
             case (.timeline, .timeline):
                 channel = "timeline"
             case (.sceneScript, .sceneScript):
                 channel = "scene-script"
+            case (.userProperty, .authored):
+                channel = "authored-fallback"
+            case (.userProperty, .userProperty):
+                // Scalar and scalar-splat publications have their existing reader.
+                if case .scalar = resolved.value { continue }
+                channel = "user-property"
             default:
                 continue
             }
-            guard let resolved = frameInputs.dynamicValues[target],
-                  resolved.source == resolvedSource,
-                  let expected = SceneResolvedMaterialUniformEncoder.encode(
+            guard let expected = SceneResolvedMaterialUniformEncoder.encode(
                       resolved.value,
                       as: binding.field.type
                   ),

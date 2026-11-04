@@ -39,20 +39,6 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         return components.map(\.bitPattern)
     }
 
-    static func soleUserPropertyProducerMatches(
-        _ propertyKey: String,
-        dynamic: Template.DynamicUniform,
-        producers: DynamicProducerCatalog
-    ) -> Bool {
-        let targetProducers = producers.userProperties.filter {
-            $0.target == dynamic.target
-        }
-        guard targetProducers.count == 1,
-              let producer = targetProducers.first else { return false }
-        return producer.propertyKey == propertyKey
-            && userPropertyValueTypeMatches(producer.valueType, dynamic: dynamic)
-    }
-
     /// Exact direct bindings conserve the producer type before Program claims
     /// product output. Legacy/test catalogs without a type retain the previous
     /// identity-only behavior; product launch always publishes the real type.

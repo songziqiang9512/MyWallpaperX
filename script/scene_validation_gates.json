@@ -1268,7 +1268,8 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialStageActivation.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneRenderTargetVocabulary.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneResolvedMaterialExecutionCapabilityCatalog.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneResolvedMaterialExecutionCapabilityCatalog.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyBindingProgram.swift"
       ],
       "modules": [
         "test_scene_effect_render_graph",
@@ -1527,7 +1528,13 @@
       "id": "authored-sampling-integration",
       "patterns": [
         "script/tests/test_scene_authored_sampling_integration.py",
-        "script/tests/fixtures/scene_timeline_combined_cases.py"
+        "script/tests/fixtures/scene_timeline_combined_cases.py",
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneDocument.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyBindingProgram.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+DynamicUniformRejection.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+ProgramFirstStages+InputContracts.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+Stages.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+DynamicUniformDiagnostics.swift"
       ],
       "modules": [
         "test_scene_authored_sampling_integration"
@@ -4294,7 +4301,8 @@
         "script/tests/test_scene_resolved_material_graph_executor.py",
         "script/tests/scene_harness_io.py",
         "script/tests/fixtures/SceneGraphTexturePublicationHarness.swift",
-        "script/tests/fixtures/SceneProgramPreparationCancellationHarness.swift"
+        "script/tests/fixtures/SceneProgramPreparationCancellationHarness.swift",
+        "script/tests/fixtures/SceneGraphExecutorPropertyFallbackHarness.swift"
       ],
       "modules": [
         "test_scene_resolved_material_graph_visual_failure_contract",

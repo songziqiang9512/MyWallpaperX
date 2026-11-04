@@ -17,12 +17,22 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 name == declaration.name else {
                 return rejection("dynamic-uniform-unavailable")
             }
-            let hasProducer: (Template.DynamicUniformSource) -> Bool = { contributor in
+            let hasValueSource: (Template.DynamicUniformSource) -> Bool = { contributor in
                 switch contributor {
                 case let .userProperty(propertyKey):
-                    return soleUserPropertyProducerMatches(
-                        propertyKey, dynamic: dynamic, producers: producers
-                    )
+                    let targetProducers = producers.userProperties.filter {
+                        $0.target == dynamic.target
+                    }
+                    if targetProducers.isEmpty {
+                        return hasAuthoredUserPropertyFallback(
+                            dynamic: dynamic,
+                            authoredFallbackTargets: producers.authoredFallbackTargets
+                        )
+                    }
+                    guard targetProducers.count == 1,
+                          let producer = targetProducers.first else { return false }
+                    return producer.propertyKey == propertyKey
+                        && userPropertyValueTypeMatches(producer.valueType, dynamic: dynamic)
                 case .timeline:
                     return timelineDefinitionMatches(
                         dynamic,
@@ -30,18 +40,6 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     )
                 case .sceneScript:
                     return producers.sceneScriptTargets.contains(dynamic.target)
-                }
-            }
-            let hasMismatchedProducerIdentity: (
-                Template.DynamicUniformSource
-            ) -> Bool = { contributor in
-                switch contributor {
-                case let .userProperty(propertyKey):
-                    return producers.userProperties.contains {
-                        $0.propertyKey == propertyKey && $0.target != dynamic.target
-                    }
-                case .timeline, .sceneScript:
-                    return false
                 }
             }
             if dynamic.valueContributors.isEmpty {
@@ -52,33 +50,18 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 return rejection("material-dynamic-uniform-script-attachment-unproven")
             }
             guard dynamic.valueContributors.count == 1 else {
-                guard dynamic.scriptAttachments.isEmpty,
-                      !dynamic.valueContributors.contains(
-                          where: hasMismatchedProducerIdentity
-                      ) else {
+                guard dynamic.scriptAttachments.isEmpty else {
                     return rejection("dynamic-uniform-unavailable")
                 }
-                guard dynamic.valueContributors.allSatisfy(hasProducer) else {
+                guard dynamic.valueContributors.allSatisfy(hasValueSource) else {
                     return rejection(
                         "material-dynamic-uniform-contributor-producer-unavailable"
                     )
                 }
                 return rejection("material-dynamic-uniform-contributor-policy")
             }
-            guard let contributor = dynamic.valueContributors.first else {
-                return rejection("dynamic-uniform-unavailable")
-            }
-            if !hasProducer(contributor) {
-                if hasAuthoredUserPropertyFallback(
-                    contributor, dynamic: dynamic, producers: producers
-                ) {
-                    guard dynamic.scriptAttachments.isEmpty else {
-                        return rejection("dynamic-uniform-unavailable")
-                    }
-                    continue
-                }
-                guard dynamic.scriptAttachments.isEmpty,
-                      !hasMismatchedProducerIdentity(contributor) else {
+            if !hasValueSource(dynamic.valueContributors[0]) {
+                guard dynamic.scriptAttachments.isEmpty else {
                     return rejection("dynamic-uniform-unavailable")
                 }
                 return rejection("material-dynamic-uniform-producer-unavailable")

@@ -19,6 +19,19 @@ property key、原始 value、Combo value 和 condition 始终使用作者数据
 | Effect visibility | 准备好的安全 activation 可热更；未准备/无消费者/不支持结构不因 Bool 字段存在而强行接纳 |
 | User Shortcut | 原配置和真实输入 scope；不从合成 cursor 或脚本普通更新推定 OS 授权 |
 
+<a id="property-target-fallback"></a>
+### 材质属性的目标局部 fallback 合同
+
+effect pass 的数值常量从已有 authored pass 解析，保原 wrapper、fallback、Timeline 与来源声明。DocumentResolver 的启动 effective 投影继续服务显隐、资源、combo 等入口；有效数值由原 BindingProgram→liveState→DynamicSnapshot→uniform 消费，不再用 resolved pass 的启动属性值充当材质 authored fallback。沿 SceneDocument 原解析职责替换该投影，不增加值副本、类型推断器或每帧补偿；base-material 输入保持自身 owner。
+
+BindingCompiler 已形成合法 effectConstant definition、但拒绝 writer 时，该固定数值 fallback 不再依赖 effective 启动投影，因此不为它新增 key 的重建要求。同 key 的其他资源、combo 或启动消费者已有的重建标记继续保留；不能从集合删 key、按部分 mutation 绕开事务，或把尚无合法 definition 的输入一起放宽。合法同 key Bool writer 可沿原 ready/expected-target 门热更，其他真实消费者未准备时仍整体拒绝更新。
+
+准备阶段按完整 layer/effect/pass/name 查真实 writer。同 key 的合法 visibility、其他 layer/pass 或其他数值 target 不阻止本 target 使用已有合法 fallback；也不能借其值、类型或存在性作为本 target 的 producer。保原 authoredFallbackTargets 索引及直接 wrapper 合同，不另发许可、建立 registry 或复制状态。该索引只说明现有 definition 的目标归属；实际 type/ABI、来源和编码值与 fallback 对应仍由原 Program/uniform 消费者负责，不能把 Set membership 说成完整字节验证。
+
+缺少、错型或被拒的属性 writer 保本 target 的合法原值；本 target 有冲突 writer、缺真实 definition/fallback、非法 wrapper、非有限数、错误 ABI/来源或多 contributor 未获资格时，失败仍局部。移除跨 target 的同 key 冲突判定及其重复扫描，不把 Bool 强转颜色、不用 shader 默认白色补作者原色。合法属性初值与热更继续生效，错误热更保原已提交状态；不改变原混合键事务和 Script/Timeline 优先级。官方错误类型的隐式行为尚未资格，本合同只兑现本引擎现有 typed fallback 语义。
+
+验收须经过真实 Document/BindingProgram、producer catalog/capability、Program uniform 与最终 Metal 像素：同 key 的 Bool visibility 与 vec3 原色、改名/换资源/不同 pass、合法 Color 默认与热更、坏更新/冲突及健康 peer；冷索引与消费端的反例分别归实际阶段。不能以只执行 prepareUniformBindings 的门代替 capability 准入。原 DEBUG uniform 消费读口覆盖 authored fallback 和向量属性，复用现 frame/target/source/编码比对与身份集合；scalar/splat 保原 publication 读口，不重复记录或增加普通帧工作。原作者在默认与已接入的受控音频下核实际 material/输入/尾部消费，并用独立合法属性作者检查相邻链路；样本汇总 PASS 不替代目标层的准备、draw 或像素贡献。
+
 源码：[BindingProgram](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyBindingProgram.swift)、[当前状态](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyLiveUpdateState.swift)。
 
 <a id="timeline"></a>

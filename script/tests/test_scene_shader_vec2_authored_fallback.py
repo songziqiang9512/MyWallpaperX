@@ -70,7 +70,7 @@ enum Vec2FallbackHarness {
             "diagnostics": compilation.diagnostics.map { $0.code.rawValue }.sorted()]
     }
 
-    static func admission(_ definition: SceneDynamicTargetDefinition, key: String,
+    static func preparedBinding(_ definition: SceneDynamicTargetDefinition, key: String,
                           contributors: [Template.DynamicUniformSource]? = nil,
                           attachments: [Template.DynamicUniformScriptAttachment] = [],
                           wrongFallbackTarget: Bool = false,
@@ -141,14 +141,14 @@ enum Vec2FallbackHarness {
                     layerID: layer, effectIndex: 0, passIndex: 0, name: name)
                 row["noFakeLiveValue"] = compilation.program.evaluate(
                     effectiveValues: [key: .string("0.8 0.9")]).userValues.isEmpty
-                row["admission"] = admission(definition, key: key)
-                row["wrongLayer"] = admission(definition, key: key, wrongFallbackTarget: true)
-                row["timelineConflict"] = admission(definition, key: key,
+                row["preparedBinding"] = preparedBinding(definition, key: key)
+                row["wrongLayer"] = preparedBinding(definition, key: key, wrongFallbackTarget: true)
+                row["timelineConflict"] = preparedBinding(definition, key: key,
                     contributors: [.userProperty(key), .timeline])
-                row["scriptConflict"] = admission(definition, key: key,
+                row["scriptConflict"] = preparedBinding(definition, key: key,
                     contributors: [.userProperty(key), .sceneScript])
-                row["unprovedScriptAttachment"] = admission(definition, key: key, attachments: [.unproven])
-                row["producerWrapperKey"] = admission(definition, key: key,
+                row["unprovedScriptAttachment"] = preparedBinding(definition, key: key, attachments: [.unproven])
+                row["producerWrapperKey"] = preparedBinding(definition, key: key,
                     bindingKeys: ["script", "user", "value"])
             }
             positives.append(row)
@@ -253,7 +253,7 @@ class SceneShaderVec2AuthoredFallbackTests(unittest.TestCase):
             self.assertTrue(row["float2BytesExact"])
             self.assertTrue(row["fullTarget"])
             self.assertTrue(row["noFakeLiveValue"])
-            self.assertEqual(row["admission"], "accepted")
+            self.assertEqual(row["preparedBinding"], "accepted")
 
     def test_invalid_values_existing_kinds_and_duplicate_target_stay_bounded(self) -> None:
         # A single numeric string is an existing scalar fallback, not Vec2.

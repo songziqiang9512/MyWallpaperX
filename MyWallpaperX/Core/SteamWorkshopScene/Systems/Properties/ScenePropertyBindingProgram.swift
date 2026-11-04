@@ -615,7 +615,13 @@ nonisolated struct ScenePropertyBindingCompiler {
                 )
             ))
             guard isValid else {
-                rebuildRequiredKeys.insert(binding.reference.key)
+                switch mapped.target {
+                case .effectConstant:
+                    // This defined fallback no longer consumes startup effective values.
+                    break
+                default:
+                    rebuildRequiredKeys.insert(binding.reference.key)
+                }
                 continue
             }
             instructions.append(.init(

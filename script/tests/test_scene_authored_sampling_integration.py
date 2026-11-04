@@ -246,7 +246,66 @@ def timeline_layout_fixture(case):
     return {"type": "scene", "file": "scene.json"}, entries, [(61 + shift, 64, 96, False), (62 + shift, 192, 96, False)]
 
 
+def property_layout_fixture(case):
+    renamed, live = case == "property-layout-renamed", case == "property-layout-live"
+    prefix, key, name, uniform, shift = (("different_pigment", "drive", "Pigment", "u_pigment", 1000)
+        if renamed else ("own_property", "gate", "Tint", "u_tint", 0))
+    entries, objects, panels = {}, [], []
+    for index, x in enumerate((64, 192)):
+        layer, path = 71 + shift + index, f"{prefix}/card{index}"
+        entries[f"models/{path}.json"] = encoded({"material": f"materials/{path}.json"})
+        entries[f"materials/{path}.json"] = encoded({"passes": [{"shader": "genericimage",
+            "textures": [f"materials/{path}.tex"]}]})
+        entries[f"materials/{path}.tex"] = solid_texture((255, 255, 255) if index == 0 else (0, 255, 0))
+        obj = {"id": layer, "image": f"models/{path}.json", "origin": f"{x} 96 0",
+               "size": "64 32", "visible": True}
+        stages = ("tint", "suffix") if index == 0 else ("peer",)
+        effects = []
+        for ordinal, stage in enumerate(stages):
+            shader = f"{prefix}/{stage}"
+            entries[f"effects/{shader}/effect.json"] = encoded({"passes": [{"material": f"materials/{shader}.json"}]})
+            entries[f"materials/{shader}.json"] = encoded({"passes": [{"shader": shader, "textures": [None],
+                "blending": "normal", "depthtest": "disabled", "depthwrite": "disabled", "cullmode": "nocull"}]})
+            entries[f"shaders/{shader}.vert"] = VERTEX
+            declaration = f'uniform vec3 {uniform}; // {{"material":"{name}","default":"1 1 1"}}\n' if stage == "tint" else ""
+            body = f"vec4(c.rgb*{uniform},c.a)" if stage == "tint" else (
+                "vec4(c.bgr,c.a)" if stage == "suffix" else "vec4(c.grb,c.a)")
+            entries[f"shaders/{shader}.frag"] = ("uniform sampler2D g_Texture0;\n" + declaration
+                + "varying vec2 v_TexCoord;\nvoid main(){vec4 c=texSample2D(g_Texture0,v_TexCoord);"
+                + f"gl_FragColor={body};}}\n").encode()
+            effect = {"id": layer * 10 + ordinal, "file": f"effects/{shader}/effect.json", "visible": True}
+            if stage != "suffix" and not live:
+                effect["visible"] = {"user": key, "value": True}
+            if stage == "tint":
+                effect["passes"] = [{"constantshadervalues": {name: {"user": key, "value": "0.2 0.4 0.6"}}}]
+            effects.append(effect)
+        obj["effects"] = effects
+        objects.append(obj)
+        panels.append((layer, x, 96, False))
+    entries["scene.json"] = encoded({"version": 3, "general": {"orthogonalprojection": {
+        "width": CANVAS[0], "height": CANVAS[1]}, "clearcolor": "0 0 0"}, "objects": objects})
+    project = {"type": "scene", "file": "scene.json", "general": {"properties": {
+        key: {"type": "color" if live else "bool", "text": "Owned property input",
+              "value": "0.6 0.2 0.4" if live else True}}}}
+    before = {str(panels[0][0]): ((102, 51, 153) if live else (153, 102, 51),) * 4,
+              str(panels[1][0]): ((255, 0, 0),) * 4}
+    after = {str(panels[0][0]): ((51, 153, 204),) * 4, str(panels[1][0]): ((255, 0, 0),) * 4} if live else before
+    sequence = [{key: "0.8 0.6 0.2"}, {key: "bad color"}] if live else []
+    if case == "property-layout-off":
+        after = {str(panels[0][0]): ((255, 255, 255),) * 4, str(panels[1][0]): ((0, 255, 0),) * 4}
+        sequence = [{key: False}]
+    return project, entries, panels, {"key": key, "constant": name, "uniform": uniform,
+        "fallback": [.2, .4, .6], "beforePalette": before, "afterPalette": after,
+        "beforeUniform": [.6, .2, .4] if live else [.2, .4, .6],
+        "afterUniform": ([.8, .6, .2] if live else None if case == "property-layout-off" else [.2, .4, .6]),
+        "channel": "user-property" if live else "authored-fallback", "sequence": sequence,
+        "acceptedSequence": [True, False] if live else [True] if sequence else [],
+        "afterDelay": 5 if live else 3}
+
+
 def case_fixture(case):
+    if case.startswith("property-layout"):
+        return property_layout_fixture(case)[:3]
     if case.startswith("timeline-layout"):
         return timeline_layout_fixture(case)
     if case.startswith("data-layout"):
@@ -356,6 +415,10 @@ def preregistration(case="padding"):
             "passNodeIndices": [0, 1, 2, 3],
             "identity": "same stream/frame/generation; four full pass targets; no image-derived fitting",
             "badLinkRGB": [180, 90, 180], "peerRGB": [0, 255, 0]}
+    if case.startswith("property-layout"):
+        protocol["property"] = property_layout_fixture(case)[3]
+        protocol["paletteByLayer"] = protocol["property"]["beforePalette"]
+        protocol["afterPaletteByLayer"] = protocol["property"]["afterPalette"]
     return protocol
 
 
@@ -419,8 +482,7 @@ class SceneAuthoredSamplingIntegrationTests(unittest.TestCase):
         self.assertEqual(event["truncatedRows"], 0)
         return event
 
-    def timeline_palette(self, case, log, event):
-        layer = 1061 if case == "timeline-layout-renamed" else 61
+    def frame_clock(self, log, event):
         prefix = "MWX DEBUG SCENE: phase=timeline-frame-input json="
         records = [json.loads(line.split(prefix, 1)[1]) for line in log.splitlines() if prefix in line]
         frames = [r for r in records if r["kind"] == "frame" and r["stream"] == event["displayID"]]
@@ -430,6 +492,12 @@ class SceneAuthoredSamplingIntegrationTests(unittest.TestCase):
         lower = max((r for r in frames if r["frame"] <= frame), key=lambda r: r["frame"])
         upper = min((r for r in frames if r["frame"] >= frame), key=lambda r: r["frame"])
         self.assertLessEqual(upper["sceneTime"] - lower["sceneTime"], .4)
+        return lower, upper
+
+    def timeline_palette(self, case, log, event):
+        layer = 1061 if case == "timeline-layout-renamed" else 61
+        lower, upper = self.frame_clock(log, event)
+        frame = event["frameIndex"]
         values, generations = {}, set()
         for line in log.splitlines():
             if "MWX typed input consumption: channel=timeline consumer=material-uniform " not in line:
@@ -496,6 +564,66 @@ class SceneAuthoredSamplingIntegrationTests(unittest.TestCase):
             "frame": frame, "clockBracket": [lower["sceneTime"], upper["sceneTime"]],
             "uniformValues": values, "generations": sorted(generations), "expectedRGB": color}
 
+    def check_property_case(self, protocol, log, observations, captures, evidence):
+        settings, layer = protocol["property"], protocol["panels"][0]["id"]
+        runtime = json.loads((evidence / "scene-runtime-evidence.json").read_text())["runtimeInput"]
+        descriptor = next(r for r in runtime["renderDescriptor"]["layers"] if r["id"] == layer)
+        constant = descriptor["effects"][0]["passes"][0]["constantShaderValues"][settings["constant"]]
+        self.assertEqual(constant["components"], settings["fallback"])
+        self.assertEqual(constant["userBinding"], settings["key"])
+        self.assertEqual(observations["parse_errors"], 0)
+        self.assertEqual(len(captures), 2)
+        steps = re.findall(r"phase=live-property-sequence-step index=(\d+) accepted=(true|false)", log)
+        self.assertEqual(steps, [(str(i), str(value).lower()) for i, value in enumerate(settings["acceptedSequence"])])
+        updates = re.findall(r"phase=live-property-update accepted=\w+ surfacesBefore=(\d+) surfacesAfter=(\d+) windowsBefore=(\S+) windowsAfter=(\S+)", log)
+        self.assertEqual(len(updates), len(steps))
+        self.assertTrue(all(a == b == "1" and c == d for a, b, c, d in updates))
+        readout = []
+        for capture in captures:
+            after = "after" in capture.name
+            expected = settings["afterUniform" if after else "beforeUniform"]
+            event = self.capture_event(capture, log, observations)
+            lower, upper = self.frame_clock(log, event)
+            self.assertEqual(lower["generation"], upper["generation"])
+            generation, values = lower["generation"], []
+            for line in log.splitlines():
+                if "MWX typed input consumption:" not in line:
+                    continue
+                fields = dict(re.findall(r"(\w+)=([^\s]+)", line))
+                if (fields.get("layer"), fields.get("effect"), fields.get("pass"), fields.get("constant"),
+                    fields.get("generation"), fields.get("channel")) != (
+                        str(layer), "0", "0", settings["constant"], str(generation), settings["channel"]):
+                    continue
+                self.assertEqual(fields["uniform"], settings["uniform"])
+                self.assertEqual(fields["stage"], "fragment")
+                self.assertEqual(fields["descriptor"], f"{layer}#effect#{layer * 10}")
+                self.assertLessEqual(int(fields["frame"]), event["frameIndex"])
+                vector = re.search(r"value=vector3\(([^)]+)\)", line)
+                self.assertIsNotNone(vector)
+                values.append([float(v.strip()) for v in vector[1].split(",")])
+            self.assertEqual(values, [] if expected is None else [expected])
+            rows = [r for r in event["rows"] if r.get("layerID") == layer]
+            source = next(r for r in rows if r["kind"] == "sourceCapture" and r["outcome"] == "encoded")
+            tint = [r for r in rows if r["kind"] == "material" and r["effectIndex"] == 0 and r["outcome"] == "draw-encoded"]
+            self.assertEqual(len(tint), 0 if expected is None else 1)
+            middle = tint[0] if tint else next(r for r in rows if r["kind"] == "copy"
+                                              and r["effectIndex"] == 0 and r["outcome"] == "encoded")
+            suffix = next(r for r in rows if r["kind"] == "material" and r["effectIndex"] == 1 and r["outcome"] == "draw-encoded")
+            tail = next(r for r in rows if r["kind"] == "tail-consume" and r["outcome"] == "terminal-consumed")
+            ordinary = next(r for r in rows if r["kind"] == "ordinary" and r["outcome"] == "draw-encoded")
+            seal = next(r for r in event["rows"] if r["kind"] == "frame-seal" and r["outcome"] == "sealed")
+            for producer, consumer in ((source, middle), (middle, suffix), (suffix, tail)):
+                self.assertEqual(producer["target"]["textureToken"], consumer["source"]["textureToken"])
+            self.assertEqual(tail["source"]["textureToken"], ordinary["source"]["textureToken"])
+            self.assertEqual(ordinary["target"]["textureToken"], seal["target"]["textureToken"])
+            peer = [r for r in event["rows"] if r.get("layerID") == layer + 1 and r["kind"] == "material"
+                    and r["outcome"] == "draw-encoded"]
+            self.assertEqual(len(peer), 0 if expected is None else 1)
+            readout.append({"capture": capture.name, "frame": event["frameIndex"], "generation": generation,
+                "uniformValues": values, "channel": settings["channel"],
+                "proofLimit": "Verified prepared uniform deduplicated by stable snapshot generation; actual material/tail/GPU/capture joined separately."})
+        (evidence.parent / "property-consumption.json").write_bytes(encoded(readout))
+
     def run_case(self, case):
         protocol = preregistration(case)
         with tempfile.TemporaryDirectory(prefix="mwx-authored-sampling-") as temporary:
@@ -508,19 +636,26 @@ class SceneAuthoredSamplingIntegrationTests(unittest.TestCase):
             (content / "scene.pkg").write_bytes(make_package(list(entries.items())))
             (root / "preregistration.json").write_bytes(encoded(protocol))
             env = os.environ.copy()
-            if case.startswith("timeline-layout"):
+            if case.startswith(("timeline-layout", "property-layout")):
                 for key in tuple(env):
                     if key.startswith(("MWX_SCENE_", "MYWALLPAPERX_SCENE_DEBUG_")):
                         del env[key]
             env.update(HOME=str(home), CFFIXED_USER_HOME=str(home), MWX_SCENE_DEBUG_SURFACE_COUNT="1")
-            if case.startswith("timeline-layout"):
+            if case.startswith(("timeline-layout", "property-layout")):
                 env["MYWALLPAPERX_SCENE_DEBUG_TIMELINE_EVIDENCE"] = json.dumps({
-                    "layerIDs": [panel_specs[0][0]], "sceneTimeWindow": [0, 6], "interval": .2, "maxSamples": 32})
+                    "layerIDs": [panel_specs[0][0]],
+                    "sceneTimeWindow": [0, 10] if case.startswith("property-layout") else [0, 6],
+                    "interval": .3 if case.startswith("property-layout") else .2, "maxSamples": 32})
             command = [str(self.app), "--mwx-debug-scene-root", str(content),
                        "--mwx-debug-scene-duration", "8" if case == "resize" else "6",
                        "--mwx-debug-scene-evidence-dir", str(evidence)]
             if case == "resize":
                 command += ["--mwx-debug-scene-resize-sequence", "2:0.5,3:1"]
+            if case.startswith("property-layout"):
+                settings = protocol["property"]
+                command += ["--mwx-debug-scene-after-snapshot-delay", str(settings["afterDelay"])]
+                if settings["sequence"]:
+                    command += ["--mwx-debug-scene-live-property-sequence-json", json.dumps(settings["sequence"])]
             result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=60)
             log = result.stdout + result.stderr
             (root / "app.log").write_text(log)
@@ -533,6 +668,8 @@ class SceneAuthoredSamplingIntegrationTests(unittest.TestCase):
                 measurements = {}
                 for capture in captures:
                     palette = protocol.get("paletteByLayer")
+                    if case.startswith("property-layout") and "after" in capture.name:
+                        palette = protocol["afterPaletteByLayer"]
                     if case.startswith("timeline-layout"):
                         palette, timeline = self.timeline_palette(case, log, self.capture_event(capture, log, observations))
                     measurement = measure_capture(capture, panel_specs,
@@ -549,7 +686,7 @@ class SceneAuthoredSamplingIntegrationTests(unittest.TestCase):
                 self.assertTrue(any("ready" in p.name for p in captures))
                 self.assertTrue(any("after" in p.name for p in captures))
                 effect_layers = (22,) if case == "raw-miss" else (12, 22, 31)
-                if case.startswith(("data-layout", "timeline-layout")):
+                if case.startswith(("data-layout", "timeline-layout", "property-layout")):
                     effect_layers = ()
                 if case.startswith("invalid-companion-"):
                     effect_layers = (22, 31)
@@ -597,6 +734,8 @@ class SceneAuthoredSamplingIntegrationTests(unittest.TestCase):
                         outcome = "failed" if effect == 0 and case == "timeline-layout-bad-link" else "encoded-output"
                         self.assertRegex(log, rf"axis=effect-cpu-invocation [^\n]*layer={layer} effect={effect} "
                                              rf"[^\n]*backend=resolved-material-graph outcome={outcome} ")
+                elif case.startswith("property-layout"):
+                    self.check_property_case(protocol, log, observations, captures, evidence)
                 elif case == "raw-miss":
                     self.assertNotIn("phase=named-target-capture layer=12 status=succeeded", log)
                     self.assertNotIn("phase=named-target-binding layer=31 status=succeeded", log)
@@ -623,7 +762,7 @@ class SceneAuthoredSamplingIntegrationTests(unittest.TestCase):
             finally:
                 if destination := os.environ.get("MWX_SCENE_INTEGRATION_EVIDENCE"):
                     saved = Path(destination) / self._testMethodName
-                    if case.startswith(("data-layout", "timeline-layout")):
+                    if case.startswith(("data-layout", "timeline-layout", "property-layout")):
                         saved /= case
                     saved.mkdir(parents=True, exist_ok=True)
                     for name in ("content", "evidence"):
@@ -676,5 +815,10 @@ class SceneAuthoredSamplingIntegrationTests(unittest.TestCase):
 
     def test_linked_numeric_uniforms_share_clock_and_preserve_local_failure(self):
         for case in ("timeline-layout", "timeline-layout-renamed", "timeline-layout-bad-link"):
+            with self.subTest(case=case):
+                self.run_case(case)
+
+    def test_target_local_property_fallback_and_real_live_values(self):
+        for case in ("property-layout", "property-layout-renamed", "property-layout-off", "property-layout-live"):
             with self.subTest(case=case):
                 self.run_case(case)

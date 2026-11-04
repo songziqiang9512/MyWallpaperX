@@ -129,12 +129,12 @@
       "bytes": 21117
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 58,
-      "bytes": 18327
+      "lines": 61,
+      "bytes": 20062
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
-      "lines": 94,
-      "bytes": 11130
+      "lines": 107,
+      "bytes": 14261
     },
     "docs/scene/capabilities/runtime-systems-reference.md": {
       "lines": 65,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 163,
-      "bytes": 26296
+      "bytes": 26285
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -390,15 +390,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "844df4313c39f276ffba832976f0a628754cd7c0093eb67c72c50ead535a70ce",
-      "after": "241b690a78443ff2f4a1367c22f788b263b1107a98d44109baa0e8183fc12223",
-      "owner": "scene-linked-uniform-producers",
-      "reason": "Define generic per-effect linked targets, one actual root clock and own per-pass values; replace flat sampling with cold bit-preserving value groups.",
-      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#effect-linked-timeline"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/development/development-workflow.md",
       "before": "41b5d33a54c9db89cdd10ec70e1bb0c4590e08c2578d28b33f33e4a8f01e96d6",
       "after": "883d7a8a6ae402cf83934c6e86b85d4d8ebbf0c8e22914c55e0318fc5ca7a0b6",
@@ -408,20 +399,29 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "before": "241b690a78443ff2f4a1367c22f788b263b1107a98d44109baa0e8183fc12223",
+      "after": "cc1160d84465cd2115ff6be3950d632d30b61c009f831ee6111b98cd98acd27b",
+      "owner": "scene-property-target-fallback",
+      "reason": "Define one authored numeric fallback and typed current chain, target-local source admission and no-writer rebuild retirement while preserving other consumers and atomic updates.",
+      "decision": "docs/scene/capabilities/runtime-input-property-coverage.md#property-target-fallback"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "c2ef4f38ac21acb784c15430dff34bc28ebd1ad76b258d0b73a7349659abb1f7",
-      "after": "ba444d48fe239d8189625813f7c2b6d6d7f3daf2215e9312f3ca62b4678f3c5a",
-      "owner": "scene-linked-uniform-producers",
-      "reason": "Bind three-source signed Debug identity to native linked-target behavior, exact four-pass consumed values and six controlled PNGs; distinguish author material execution, intro coverage, partial periodic capture and unknown final contribution.",
+      "before": "ba444d48fe239d8189625813f7c2b6d6d7f3daf2215e9312f3ca62b4678f3c5a",
+      "after": "63ade58d48e5ec018534a5baa711a397af1306e2168a60e97cc1295839348296",
+      "owner": "scene-property-target-fallback",
+      "reason": "Bind six-source signed Debug to complete Document/App pixels, target-local capability/Metal negatives, real live values and exact author uniform/capture consumption; retain prepared versus draw proof limits.",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#coverage"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "25b198f08d3202445e30054f03122232b1fe2fc8cc11515e2b18698f5974dfff",
-      "after": "8a92e96081ad74aa067bd62515e933879e64ca844effb20d2ccfd27023748c5a",
-      "owner": "scene-linked-uniform-producers",
-      "reason": "Retain no-lane and material-default gaps, remove the restored complete-curve assertion, and locate actual property-target, destroy-owner, particle-flag and periodic-capture boundaries without claiming unexecuted repairs.",
+      "before": "8a92e96081ad74aa067bd62515e933879e64ca844effb20d2ccfd27023748c5a",
+      "after": "9d853cfed4e990fb264c9a2b2f6c4791f624c1fbaa38e2231eb5c8aef5efa015",
+      "owner": "scene-property-target-fallback",
+      "reason": "Retire the current author-retested numeric-property failure, keep the distinct effect-visibility wrong-kind boundary, and identify the particle distance component without guessing its strength or coordinate semantics.",
       "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#implementation-gaps"
     }
   ]

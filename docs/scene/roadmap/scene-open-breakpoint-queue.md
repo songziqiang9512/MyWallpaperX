@@ -23,7 +23,6 @@
 | subtree来源 · 3788897599/196 | project带child291仍缺project子树source消费者；沿原source与发布截点补能力，不因共用原因码合并其他group归因。 |
 | composition 其他绘制消费者 | `SceneUtilityLayerSourceRoute` 对 model/spotLight 仍整类拒绝；原绘制未消费局部 raster。核实际 nearest target 的投影、深度、光照及 viewport/local 模式，沿原 draw owner 接通，不以新组件/效果名单代缺失消费者。 |
 | composition 内 REFRACT 官方单位 | 当前粒子映射保本引擎 canonical 全局 screen-UV amount，宽窄画布与物理 extent 有内部资格。官方 owned loose fixture 的 amount0、neutral、mask0 仍有相同非背景卡片，尚不能据此区分 canvas/viewport 单位；先核官方背景输入、取景和控制，再做同 world 几何的尺寸/旋转对照，不能由现有 J 数学推为官方像素一致。 |
-| 属性错型覆盖 · 3511024658/73e0 | 原运行首缺按原始输入重建为pass0 `Bar Color`→vec3 `u_BarColor`；同key newproperty为Bool，实际控制effect visibility，DocumentResolver却将原颜色fallback覆盖成true。BindingProgram保vec3 definition但无该target instruction；另原fallback检查按全key已有producer拒绝其他target回退。沿类型与完整target保原色、健康Bool消费者及实际producer资格，不借同key代target；当前App需同输入定向复验，官方错型行为未知。 |
 | source/模型 · 2804817823/28/32 | 9个资产已加载，两个Puppet source明确拒`MDLV0013`，不是两个纹理文件缺失。沿MDL/Puppet几何owner补格式/姿态资格。 |
 | layer source · 3292370168/239 | frame0真实`layer-source-not-ready`，选中frame18无239 sourceCapture/material/tail，整段无该层CPU调用；descriptor实际kind=image，parent/provider151为image/video，不能由composelayer_depthtest.json文件名归成group shader失败。沿真实base/video source准备定位；hidden505另有utility capture失败，209→147健康named链不代验239。 |
 | 音频composition · 3039882306/772 | 当前无对应CPU/graph/所选帧draw，需受控audio/source输入；hidden1084 pending失败、868 fallback不挪作当前可见层证明。 |
@@ -34,7 +33,7 @@
 | 粒子子资源 · 3788897599/568 | mouse=true活动复验中parent getsuga_tenshou与child0 red_fire均draw，另一个getsuga.json child仍有`textureLoadFailed`；尚无具体缺失texture键，不能合并归因A2C、project196或父树全部不可用。沿原AssetGraph/TextureLoader定位实际资源及作者缺省，保健康成员继续呈现。 |
 | 周期发射上限 · 3564173599/1987、3749463715/405/412 | `maxtoemitperperiod=32`被nil gate拒绝，22秒长窗无对应出生/draw。Plan无cap、State无逐周期计数，活跃时长先合并多窗；instance.count是否缩放上限、出生消费点及fraction/触顶换窗语义尚未证。先做定窗/count2/非整fraction/短命容量1的区分实验，再沿原emitter与值快照补调度，不能仅删guard或末端min32；explicit不随自然发射扩大资格。 |
 | 普通粒子材质语义 | AssetGraph仅核genericparticle basename；no-depth普通路径的额外CUTOUT/LIGHTING/UNKNOWN combo和user texture/value没有通用shader消费者，固定sceneParticleFrag仍输出原纹理×tint。RenderStateCompiler已将普通材质输入与几何许可分离，但其profile仍用于camera选择及当前depth/A2C输入限制，不能代替材质编译。沿原材质准备/实际shader或typed操作接入，区分已消费与未实现输入；不能以效果名或源码形状白名单扩张许可，也不能盲目忽略未消费输入。当前额外材质输入为代码链事实，尚无逐作者画面资格。 |
-| 粒子算子实际unsupported | 3749463715/3564173599的distance-between-CP、3742497499的distance-to-CP、3527426897的map-sequence、3773747576的sphere collision、3780119725的bounds collision均有dispatcher事实（6样本10组件）。各原operator/initializer owner独立补语义；collision坐标与outside-born先取可区分输入。 |
+| 粒子算子实际unsupported | 3749463715/3564173599的distance-between-CP、3742497499/135的`maintaindistancetocontrolpoint`、3527426897的map-sequence、3773747576的sphere collision、3780119725的bounds collision均有dispatcher事实（6样本10组件）。374是位置距离约束，原声明CP1/distance1000/variablestrength1，不是scalar remap；强度、坐标/scale与缺省需资格。各原operator/initializer owner独立补语义；collision坐标与outside-born先取可区分输入。 |
 | 粒子出生拒绝 · 3009275235/255、3248220186/2157、3746066933/85、3799613625/452 | 有真实`birth-construction-rejected`，当前首事实未细分最终失败字段，原因未知；先核出生构造的真实失败，不猜finite或作者错误。 |
 | 粒子零接纳 · 2866723317 | 正rate/capacity下只有zero-admitted-count、未见所选帧draw；没有已证delay，需当前count/capacity/consumer定位，不能无依据扩大等待。 |
 | 停止ledger · 3780119725 | 初次selected frame186成功，停止附近frame245有31个`lifecycle-cancellation-ledger-invariant-rejected`；22秒和10秒定向运行未复现。沿原submission/cancellation owner定位，保原失败，不因PNG正常宽泛忽略invariant。 |
@@ -68,6 +67,7 @@
 | Puppet · 3577990983、3822822401、3779107475 | auxiliary/reference、非中性通道、dense state1及多contributor姿态按真实reference/attachment坐标基资格，Reader识别不等于evaluator执行。 |
 | point volume · 3047405322、3437487219、3477054430 | 需实际volume consumer；现有spot plan和point表面光照不能代验。 |
 | Script动态特殊资源与typed callback | 特殊Puppet/composition创建字段、3028048463的531.alpha空数组/506.origin、3603711180跨callback Sound分别核prepared catalog及实际producer，不造空实例或无差别容错。 |
+| effect显隐错型 | Color key同时绑定effect.visible会保原重建要求；layer visibility已有的忽略规则不能代此入口。尚无作者运行资格。需按真实Bool fallback、启动投影、准备状态与合法Color热更核对，不能直接扩大ignored集合或绕开原事务；数值effectConstant的固定fallback职责不代显隐资格。 |
 | 粒子其他资格 | CP/child空间、Mirror、nested/event、HSV缺省（3585542943/253/257、3761159935/453/457）、Vortex flags2及absolute color字段各用出生/轨迹输入；normalizedColor不是absolute color。 |
 | dormant视频与输出扩域 | hidden仍被named采样与实际source停止分开；物理HDR/EDR、lighting/receiver、文字backgroundbrightness和HDR8bit裁剪分别资格。 |
 

@@ -176,10 +176,9 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             }
             if targetProducers == [expectedProducer] {
                 target = expected
-            } else if hasAuthoredUserPropertyFallback(
-                .userProperty(propertyKey),
+            } else if targetProducers.isEmpty && hasAuthoredUserPropertyFallback(
                 dynamic: dynamic,
-                producers: dynamicProducers
+                authoredFallbackTargets: dynamicProducers.authoredFallbackTargets
             ) {
                 target = expected
             } else {
@@ -199,16 +198,12 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         )
     }
 
+    /// The caller already resolved this target's live user-property writers.
     static func hasAuthoredUserPropertyFallback(
-        _ contributor: Template.DynamicUniformSource,
         dynamic: Template.DynamicUniform,
-        producers: DynamicProducerCatalog
+        authoredFallbackTargets: Set<SceneDynamicTarget>
     ) -> Bool {
-        guard case let .userProperty(propertyKey) = contributor,
-              !producers.userProperties.contains(where: {
-                  $0.propertyKey == propertyKey || $0.target == dynamic.target
-              }),
-              producers.authoredFallbackTargets.contains(dynamic.target),
+        guard authoredFallbackTargets.contains(dynamic.target),
               let fallback = dynamic.authoredFallback,
               fallback.valueKind.localizedLowercase == "binding",
               SceneResolvedMaterialDirectUserBindingContract.matches(
