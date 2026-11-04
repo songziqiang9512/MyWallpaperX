@@ -127,6 +127,17 @@ Coordinator 在原锁内提交 state/history/pin，GPU terminal 才提升完成�
 
 验收分真实 Parser/Simulator、Runtime→生产 Metal 和作者 batch→最终捕获；官方局部点位和定性尺寸顺序不能升级成全域公式、完整动画或逐像素一致。未消费选项及未资格组合留在[开放问题](../roadmap/scene-open-breakpoint-queue.md)，不能变成隐藏的整链许可。
 
+<a id="particle-scalar-remap"></a>
+## 标量 Remap 合同
+
+Remap 的 input、range、transform、operation、output 和原 lifecycle blend 分别准备、消费；不得再以一组字段形状授执行许可，或另加“某input+某output+某flags”的样本式 profile。新增消费者沿原 Parser → OperatorExecutionPlan → Simulator → batch/GPU，不增加时钟、组件注册表或每帧解析。外层 blend 已由 Operator 解析，Remap 不重复将其判为未知字段。
+
+首个新增值源是原粒子系统时间，首个输出是 opacity。与源/目标无关的标量范围、变换及运算使用同一准备与求值路径；系统级时间变换每个操作每步只求一次，粒子只处理自身当前值、作者顺序和 blend。原 vector simplex 与 scalar speed FBM 的既有行为保留在同一执行计划中，替换平行可选计划，不增加第三份专用许可；超出已有真实消费者的源或值维度保持局部不可用。
+
+缺省 operation、input/output range、sine 的相位/单位/幅度及实际 clock 必须先有可区分证据，再写入数值合同，不能猜公式或沿用 noise 近似。先做一组有界官方控制：缺省与显式参数、常量输出运算、可见时钟与冻结相位、预热；无法区分时保留问题，重新评估下一项，不反复扩大矩阵。数值验收含有限值、0 scale、逆序范围、真正无效输入、改名与既有噪声/RNG邻例，不增加编辑器数值上限或整壁纸拒绝。
+
+完成条件是新值经实际 Simulator alpha、Rope/Sprite batch 与生产 Metal 消费，并在相同作者输入下核活动 Remap 与最终捕获；未取得同步像素或完整子束资格时保持对应边界。证据和当前能力仍由原组件与运行证据卡维护。
+
 ## 线程与销毁
 
 - AppKit、Session cadence、QuickJS、输入及 Metal encode 在 daemon 主 RunLoop。VM 在激活时 adoptCurrentThread；搬线程必须连同 VM、输入与提交寿命迁移。

@@ -85,8 +85,8 @@
       "bytes": 4068
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 145,
-      "bytes": 17866
+      "lines": 156,
+      "bytes": 19666
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -122,7 +122,7 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 140,
-      "bytes": 21237
+      "bytes": 21784
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 136,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 172,
-      "bytes": 31602
+      "bytes": 31751
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -399,24 +399,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "63aa361094d4eafdc4c24f13c2fef5aa020bf92a5d2f649f8b82fceb5bad806e",
-      "after": "89840e973b75ba8fc7d24af25ea350fafc74ef89d2a89107d602bfb2d65f92a3",
-      "owner": "Scene particle control-point components and runtime evidence",
-      "reason": "Keep one current component contract for Between/Maintain and CP space; replace stale unsupported assertions, bind bounded CPU/Metal/App evidence, and retain only unresolved arc, scheduling, parent and Remap gaps.",
-      "decision": "docs/scene/architecture/runtime-architecture.md#particle-control-point-components"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "ad6ba865c525ec66c957d7712c5d7890bac15d588c5f2cd114e8c40424c7aa06",
-      "after": "1c27afc37a54bd4e99bea91154e8c0d1a89a8e72295431a58ba4a2344ed528d2",
-      "owner": "Scene particle control-point components and runtime evidence",
-      "reason": "Keep one current component contract for Between/Maintain and CP space; replace stale unsupported assertions, bind bounded CPU/Metal/App evidence, and retain only unresolved arc, scheduling, parent and Remap gaps.",
-      "decision": "docs/scene/architecture/runtime-architecture.md#particle-control-point-components"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
       "before": "eeedc3ee2869bb96f5e3b16f56f8d55b3fe6a6259e8a42f768558d404cefc88f",
       "after": "4c58efdb79a3c2733f65f0585e890f8d4d7fbb5622c032fc33cbb54eee578684",
@@ -426,12 +408,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "89840e973b75ba8fc7d24af25ea350fafc74ef89d2a89107d602bfb2d65f92a3",
+      "after": "5b4468fcaa93b7c2c05549142d4c3cd9bb5b5d68d5dec8acc5d4ba3efda73739",
+      "owner": "Scene generic particle remap contract and bounded official controls",
+      "reason": "Save generic source/range/transform/operation/output ownership before implementation; replace the Remap entry with current consumers and measured unknowns, and link the queue to that single fact source. No new formula or runtime capability is claimed.",
+      "decision": "docs/scene/architecture/runtime-architecture.md#particle-scalar-remap"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "1c27afc37a54bd4e99bea91154e8c0d1a89a8e72295431a58ba4a2344ed528d2",
+      "after": "28953d056abc6e7ca2bf3fac0a88e92bd532bfbde9032f70ba2a23c96a6ed7d7",
+      "owner": "Scene generic particle remap contract and bounded official controls",
+      "reason": "Save generic source/range/transform/operation/output ownership before implementation; replace the Remap entry with current consumers and measured unknowns, and link the queue to that single fact source. No new formula or runtime capability is claimed.",
+      "decision": "docs/scene/architecture/runtime-architecture.md#particle-scalar-remap"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "87cd06ff91b63d7a2715c63122eecce00c3e9cb86de603a55b7d7c6481a40c6f",
-      "after": "39ea890fa0433378e6c05bf088f594bb62537c97b22a792b0949e1ce19fb6dfa",
-      "owner": "Scene particle control-point components and runtime evidence",
-      "reason": "Keep one current component contract for Between/Maintain and CP space; replace stale unsupported assertions, bind bounded CPU/Metal/App evidence, and retain only unresolved arc, scheduling, parent and Remap gaps.",
-      "decision": "docs/scene/architecture/runtime-architecture.md#particle-control-point-components"
+      "before": "39ea890fa0433378e6c05bf088f594bb62537c97b22a792b0949e1ce19fb6dfa",
+      "after": "b056207347f5d3e1dd0fa8f44724449ccd6f8a95ac33de8df7ecfeec10ee39e7",
+      "owner": "Scene generic particle remap contract and bounded official controls",
+      "reason": "Save generic source/range/transform/operation/output ownership before implementation; replace the Remap entry with current consumers and measured unknowns, and link the queue to that single fact source. No new formula or runtime capability is claimed.",
+      "decision": "docs/scene/architecture/runtime-architecture.md#particle-scalar-remap"
     }
   ]
 }

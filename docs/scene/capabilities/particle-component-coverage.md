@@ -82,7 +82,7 @@ Box 不消费 sign，解析入口把该无关字段投影为 nil，不因其合�
 <a id="operators"></a>
 ## 需要保留的数值边界
 
-- Remap 复用原 `SceneParticleRemapValue`：有界 velocity/simplex 与 scalar-speed/fbm 路径分别准备；显式输入通道、其他操作和生命周期 blends 不借已有路径开放。
+- Remap 复用原 `SceneParticleRemapValue`：有界 velocity/simplex 与 scalar-speed/fbm 路径分别准备；显式输入通道、其他操作和生命周期 blends 仍缺消费者。官方常量输出控制中，省略 operation 与 Multiply 表现相近，显式 `remap` 与 Assign 表现相近；这不是默认 Assign 的依据。三相位与预热控制只取得定性亮度、冻结稳定性和运动钟偏移，尚不能确定 sine 公式、范围缺省、处理顺序及 Remap 输入时钟。原始输入和独审保存在 `.artifacts/scene-goal-generic-consumer-followup-20261105`；新消费者遵守[标量 Remap 合同](../architecture/runtime-architecture.md#particle-scalar-remap)，不以猜测公式替换字段白名单。
 - Vortex classic 与 v2 有不同 flags/轴/CP/audio 资格。当前 v2 强度与保持半径属于项目有界响应，不是官方通用公式；缩放、外生与长时数值不能由名称或短轨迹外推。
 - Plane Collision 消费已准备平面及响应；wallpaper Collision Bounds 仍没有可接受的通用缩放/外生行为合同，不能拿 emitter 范围或自然 affine 反弹代替。
 - Color/normalized color 的来源、writer 优先级及新生/存量作用不同，未与官方定标的算法保持明确限制；不能靠调 gain、速度或 RNG 拟合样本。
