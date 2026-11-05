@@ -200,8 +200,12 @@ struct SceneDependencyRenderPlan {
     static func quadFacts() -> [String: Any] {
         var output: [String: Any] = [:]
         for (key, quadID, peerID) in [("sunrays", 100, 54), ("renamedBeam", 407, 819)] {
-            let d = SceneRenderDescriptor(layers: [
-                .init(id: quadID, contentKind: "quad", effects: [.init(visible: true)]),
+            let parentID: Int? = key == "renamedBeam" ? 408 : nil
+            let parent: [SceneRenderDescriptor.Layer] = parentID.map {
+                [.init(id: $0, visible: true, childLayerIDs: [quadID], contentKind: "container")]
+            } ?? []
+            let d = SceneRenderDescriptor(layers: parent + [
+                .init(id: quadID, parentID: parentID, contentKind: "quad", effects: [.init(visible: true)]),
                 .init(id: peerID, visible: true, contentKind: "particle", particlePath: "renamed.json")])
             let candidate: Set<SceneDynamicTarget> = [target(quadID)]
             let definition = SceneDynamicTargetDefinition(target: target(quadID),
@@ -216,14 +220,11 @@ struct SceneDependencyRenderPlan {
                 "publishedVisible": SceneLayerVisibility.visibleLayerIDs(in: d, snapshot: snapshot).contains(quadID)]
         }
         var rejected: [String: Bool] = [:]
-        for violation in ["parent", "children", "unlisted-child", "dependency", "authored-dependency", "duplicate", "utility"] {
+        for violation in ["children", "unlisted-child", "dependency", "authored-dependency", "duplicate", "utility"] {
             var quad = SceneRenderDescriptor.Layer(id: 100, contentKind: "quad",
                 effects: [.init(visible: true)])
             var extras: [SceneRenderDescriptor.Layer] = []
             switch violation {
-            case "parent":
-                quad.parentID = 90
-                extras = [.init(id: 90, childLayerIDs: [100], contentKind: "container")]
             case "children":
                 quad.childLayerIDs = [110]; extras = [.init(id: 110, parentID: 100)]
             case "unlisted-child": extras = [.init(id: 110, parentID: 100)]
@@ -352,7 +353,7 @@ struct SceneDependencyRenderPlan {
         output["rootInactiveFullscreenAdmitted"] = dormantTargets.contains(rootFullscreen)
         output["childInactiveFullscreenRejected"] = !dormantTargets.contains(childFullscreen)
         output["childProviderEffectRejected"] = !dormant(.init(requiredProviderLayerIDs: [31])).contains(childEffect)
-        output["childDependencyEffectRejected"] = !dormant(.init(requiredEffectConsumerLayerIDs: [31])).contains(childEffect)
+        output["childDependencyEffectCandidate"] = dormant(.init(requiredEffectConsumerLayerIDs: [31])).contains(childEffect)
         func inactiveComposition(_ violation: String? = nil, copyBackground: Bool = true,
                                  scriptOwned: Bool = false) -> Bool {
             var root = SceneRenderDescriptor.Layer(id: 700, visible: true,
@@ -776,17 +777,17 @@ class ScriptVisibleRootTests(unittest.TestCase):
         self.assertEqual(self.result['noScripts'], [])
         self.assertEqual(self.result['typedOwner'], [1])
 
-    def test_independent_quad_is_a_hidden_preparation_root_with_renamed_identity(self):
+    def test_root_and_parented_quad_keep_hidden_preparation_with_renamed_identity(self):
         for key, quad_id, peer_id in [('sunrays', 100, 54), ('renamedBeam', 407, 819)]:
             with self.subTest(key=key):
                 value = self.result['quadFacts'][key]
                 self.assertEqual(value['typed'], [quad_id])
-                self.assertEqual(value['scripts'], sorted([quad_id, peer_id]))
+                self.assertEqual(value['scripts'], sorted([quad_id, peer_id] + ([408] if key == 'renamedBeam' else [])))
                 self.assertEqual(value['preparation'], [quad_id])
                 self.assertTrue(value['initiallyHidden'])
                 self.assertTrue(value['publishedVisible'])
 
-    def test_quad_preparation_keeps_parent_children_dependency_and_identity_boundaries(self):
+    def test_quad_preparation_keeps_children_dependency_and_identity_boundaries(self):
         for name, passed in self.result['quadFacts']['rejected'].items():
             with self.subTest(case=name):
                 self.assertTrue(passed)
@@ -835,9 +836,9 @@ class ScriptVisibleRootTests(unittest.TestCase):
                 self.assertEqual(result['targets'], [])
                 self.assertEqual(result['preparation'], [])
 
-    def test_inactive_effect_admission_keeps_fullscreen_standalone_and_dependency_guards(self):
+    def test_inactive_effect_candidates_keep_fullscreen_and_provider_boundaries(self):
         for key in ('childInactiveEffectAdmitted', 'rootInactiveFullscreenAdmitted',
-                    'childInactiveFullscreenRejected', 'childProviderEffectRejected', 'childDependencyEffectRejected'):
+                    'childInactiveFullscreenRejected', 'childProviderEffectRejected', 'childDependencyEffectCandidate'):
             self.assertTrue(self.result[key], key)
 
     def test_startup_inactive_root_composition_keeps_both_background_source_routes(self):
@@ -875,10 +876,13 @@ class ScriptVisibleRootTests(unittest.TestCase):
                 self.assertFalse(facts['inactive'], facts)
                 self.assertFalse(facts['scriptInactive'], facts)
                 if name.split(':')[1] in ('model-member', 'spot-light-member', 'missing-child', 'wrong-parent',
-                                         'cycle', 'dependency', 'authored-dependency'):
+                                         'cycle'):
                     self.assertFalse(facts['sourceAccepted'], facts)
                     self.assertFalse(facts['local'], facts)
                     self.assertFalse(facts['layer'], facts)
+                elif name.split(':')[1] in ('dependency', 'authored-dependency'):
+                    self.assertTrue(facts['sourceAccepted'] and facts['local'], facts)
+                    self.assertFalse(facts['layer'] or facts['preparesMembers'], facts)
 
     def test_prepared_model_leaf_uses_actual_resources_without_opening_parent_or_effect_routes(self):
         self.assertEqual(self.result['modelPrepared'], [81])

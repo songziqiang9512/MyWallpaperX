@@ -13,11 +13,14 @@ struct SceneEffectExactRuntimeSubject: Hashable {
     let family: String
 }
 
-struct SceneEffectDefinition {
-    enum PerspectiveUVRole { case absent, quad(materialKeys: [String]), invalid }
-    let relativePath: String
-    let functions: SceneJSONValue?
-    var perspectiveUVRole: PerspectiveUVRole = .absent
+extension SceneEffectDefinition {
+    init(relativePath: String, functions: SceneJSONValue?) {
+        self.init(relativePath: relativePath, version: nil, replacementKey: nil,
+            name: nil, description: nil, group: nil, performance: nil,
+            previewPath: nil, editable: nil, passes: [], framebuffers: [],
+            dependencies: [], functions: functions, gizmos: nil,
+            extraFields: [:], unknownFieldPaths: [])
+    }
 }
 
 struct SceneUtilityLayer {
@@ -62,6 +65,7 @@ struct SceneRenderDescriptor {
         let id: String
         let materialPath: String
         let combos: [String: Int]
+        var shaderPath: String? = nil
     }
 
     let layers: [Layer]

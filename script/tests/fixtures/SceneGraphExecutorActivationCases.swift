@@ -26,7 +26,7 @@ private func runActivationCases(
     let unownedDormantRejected = dormantTargets(dormantLayer, owners: []).isEmpty
     let authoredVisibilityPreserved = !dormantLayer.visible
     dormantLayer.dependencyLayerIDs = [88]
-    let dependencyDormantRejected = dormantTargets(dormantLayer, owners: [dormantLayerTarget]).isEmpty
+    let dependencyDormantPrepared = dormantTargets(dormantLayer, owners: [dormantLayerTarget]) == [dormantTarget]
     dormantLayer.dependencyLayerIDs = []
     dormantLayer.parentID = 88
     let childDormantRejected = dormantTargets(dormantLayer, owners: [dormantLayerTarget]).isEmpty
@@ -215,167 +215,144 @@ private func runActivationCases(
             && executor.effectLocalFallbackCounts.isEmpty
     }()
 
-    // D2a: the media-toggle shape - a script-gated initially-inactive
-    // effect on an externalPrimary dependency consumer. The forced
-    // marking simulates the frozen D2b route carve-out (the current
-    // route filter rejects dependency-consumer targets). The stage
-    // consumes the provider texture through slot 1, so dependency
-    // finalization must match the externalPrimary binding exactly.
-    let dependencyActivationGraph = graph(
-        targets: [],
-        nodes: [material(0, ordinal: 0, target: output, read: input)]
-    )
-    let dependencyActivationChain = admittedGraph(dependencyActivationGraph)
+    // The cold DirectBool route supplies the real Planner; the authored
+    // definition-only pass must survive startup false before any frame runs.
     let dependencyActivationTarget = SceneDynamicTarget.effectVisibility(
-        layerID: effect.layerID,
-        effectIndex: effect.effectIndex
-    )
-    let dependencyNamedReference = SceneNamedTextureReference(
-        providerLayerID: 879,
-        variant: .primary
-    )
+        layerID: layerID, effectIndex: 0)
+    let dependencyNamedReference = SceneNamedTextureReference(providerLayerID: 879, variant: .primary)
     let dependencyExternalBinding = SceneDependencyRenderPlan.Binding(
-        consumerLayerID: layerID,
-        providerLayerID: dependencyNamedReference.providerLayerID,
-        slot: .init(
-            effectID: effect.descriptorID,
-            passIndex: 0,
-            slotIndex: 1
-        ),
-        blendMode: 0,
-        kind: .resolvedMaterial
-    )
-    let dependencyActivationCapabilities = capabilities(
-        dependencyActivationChain,
-        catalog: catalog(
-            for: dependencyActivationGraph,
-            namedProvidersByNode: [0: dependencyNamedReference]
-        ),
-        dynamicProducers: .init(
-            userProperties: [],
-            authoredFallbackTargets: [],
-            timelineTargets: [],
-            sceneScriptTargets: [dependencyActivationTarget]
-        ),
-        namedProvider: dependencyNamedReference,
-        dependencyBinding: dependencyExternalBinding,
-        forcedInitiallyInactiveEffectKeys: [effect]
-    )
-    let dependencyActivationClaim = dependencyActivationCapabilities
-        .claim(dependencyActivationChain)
-    let dependencyActivationCapability = dependencyActivationClaim
-        .flatMap {
-            dependencyActivationCapabilities.resolve(
-                $0.token,
-                for: dependencyActivationChain
-            )
-        }
+        consumerLayerID: layerID, providerLayerID: 879,
+        slot: .init(effectID: effect.descriptorID, passIndex: 0, slotIndex: 1),
+        blendMode: 0, kind: .resolvedMaterial)
+    let dependencyActivationGraph = graph(targets: [],
+        nodes: [material(0, ordinal: 0, target: output, read: input)])
+    let dependencyActivationChain = admittedGraph(dependencyActivationGraph)
+    let loader = SceneEffectDefinitionLoader()
+    func definition(_ path: String, material: String) throws -> SceneEffectDefinition {
+        try loader.load(data: JSONSerialization.data(withJSONObject: [
+            "passes": [["material": material, "bind": [["name": "previous", "index": 0]]]]
+        ]), relativePath: path)
+    }
+    var coldConsumer = SceneRenderDescriptor.Layer(id: layerID, effects: [
+        .init(id: effect.descriptorID, file: "effects/cold-gate.json", visible: false, passes: []),
+        .init(id: chainedSecondEffect.descriptorID, file: "effects/cold-suffix.json", visible: true,
+            passes: [.init(passIndex: 0, combos: [:])])
+    ])
+    coldConsumer.dependencyLayerIDs = [879]
+    coldConsumer.namedReferences = [.init(consumerLayerID: layerID, providerLayerID: 879,
+        slot: dependencyExternalBinding.slot, variant: .primary)]
+    coldConsumer.namedBindings = [dependencyExternalBinding]
+    let coldDescriptor = SceneRenderDescriptor(layers: [
+        .init(id: 879, effects: []), coldConsumer
+    ], materialPasses: [
+        .init(id: "cold-gate-material", materialPath: "materials/cold-gate.json", combos: [:]),
+        .init(id: "cold-suffix-material", materialPath: "materials/cold-suffix.json", combos: [:])
+    ], effectDefinitions: [
+        try definition("effects/cold-gate.json", material: "materials/cold-gate.json"),
+        try definition("effects/cold-suffix.json", material: "materials/cold-suffix.json")
+    ])
+    let startupTargets = SceneDirectBoolEffectVisibilityRouteAdmission.startupInactiveTargets(
+        in: coldDescriptor, candidates: [dependencyActivationTarget])
+    let coldPlans = SceneAuthoredEffectRenderPlanner.plans(for: coldDescriptor,
+        startupInactiveEffectVisibilityTargets: startupTargets)
+    let coldGraph = coldPlans.first!
+    let coldChain = coldGraph.effects.count > 1 ? orderedLayerGraph(coldGraph) : admittedGraph(coldGraph)
+    let directBoolProducers = Capabilities.DynamicProducerCatalog(
+        userProperties: [.init(propertyKey: "cold-visible", target: dependencyActivationTarget,
+            valueType: .bool)], authoredFallbackTargets: [dependencyActivationTarget],
+        timelineTargets: [], sceneScriptTargets: [])
+    let dependencyActivationCapabilities = capabilities(coldChain,
+        catalog: catalog(for: coldGraph, pixelTransformsByNode: [1: 1],
+            namedProvidersByNode: [0: dependencyNamedReference]),
+        dynamicProducers: directBoolProducers, startupInactiveTargets: startupTargets,
+        descriptorOverride: coldDescriptor)
+    let dependencyActivationClaim = dependencyActivationCapabilities.claim(coldChain)
+    let dependencyActivationCapability = dependencyActivationClaim.flatMap {
+        dependencyActivationCapabilities.resolve($0.token, for: coldChain)
+    }
     let dependencyActivationFinalized = {
         guard let capability = dependencyActivationCapability,
-              case let .externalPrimary(binding) =
-                capability.dependencyOwnership else { return false }
-        return binding == dependencyExternalBinding
+              case let .externalPrimary(binding) = capability.dependencyOwnership else { return false }
+        return startupTargets == [dependencyActivationTarget]
+            && coldGraph.blockers.isEmpty && coldGraph.effects.count == 2
+            && coldGraph.nodes.first?.instancePassIndex == nil
+            && binding == dependencyExternalBinding
             && capability.stages.first?.execution.activationPolicy?
                 .effectVisibilityTarget == dependencyActivationTarget
+            && dependencyActivationCapabilities.liveConsumerTargets.contains(dependencyActivationTarget)
+            && dependencyActivationCapabilities.preparedNamedInputBindingsByConsumerLayerID[layerID]
+                == [dependencyExternalBinding]
     }()
-
-    // Per-frame on the dependency consumer: the D1 seed (authored
-    // hidden) evaluates inactive and publishes previous-current without
-    // sampling the provider slot; the sceneScript lane overrides to
-    // active and the program continues.
-    // Only the inactive frame is exercised here: it is the permanent
-    // no-producer steady state and needs no provider publication. The
-    // active frame on a dependency consumer additionally samples the
-    // provider publication (renderer-layer machinery, D3).
-    func executeInactiveDependencyActivation(
-        generation: UInt64
-    ) -> (
-        prepared: Bool,
-        encoded: Bool,
-        gpu: Bool,
-        pixelsPreserved: Bool,
-        fallbackFree: Bool
-    ) {
-        guard let claim = dependencyActivationClaim,
-              let capability = dependencyActivationCapability,
-              let leases = makeChainedLeases(
-                  capability,
-                  device: device,
-                  generation: generation
-              ), let executor = Executor(
-                  device: device,
-                  capabilities: dependencyActivationCapabilities
-              ), let command = queue.makeCommandBuffer() else {
-            return (false, false, false, false, false)
+    let providerTexture = makeSource(device, width: 2, height: 2,
+        usage: [.shaderRead, .renderTarget], bgra: [0, 255, 0, 255])
+    let dependencyExecutor = Executor(device: device, capabilities: dependencyActivationCapabilities)
+    func executeDependencyActivation(visible: Bool, generation: UInt64) -> Bool {
+        var facts: [String: Any] = ["case": "cold-direct-bool-named", "visible": visible,
+            "generation": generation, "phase": "inputs"]
+        defer {
+            let bytes = try! JSONSerialization.data(withJSONObject: facts, options: [.sortedKeys])
+            FileHandle.standardError.write(bytes + Data([10]))
         }
-        // D1 seed semantics: the authored definition carries the
-        // prepared hidden seed and no sceneScript value is staged.
-        let dynamic = SceneDynamicSnapshotResolver().resolve(
-            frameIndex: generation,
-            generation: generation,
-            definitions: [.init(
-                target: dependencyActivationTarget,
-                valueType: .bool,
-                authoredValue: .bool(false)
-            )]
-        ).snapshot
-        let preparation = executor.prepare(
-            token: claim.token,
-            leases: leases,
-            historyRehydrateCopiesByEffect: [:],
-            frame: frame(generation),
-            sourceTexture: source,
-            sourceUniforms: .neutral(),
-            sourcePipeline: sourcePipeline,
-            frameInputs: .init(dynamicValues: dynamic),
-            commandBuffer: command,
-            previousStates: [:],
-            previousGraphResources: [:],
-            effectGeneration: generation,
-            resetGeneration: generation
-        )
+        guard let claim = dependencyActivationClaim, let capability = dependencyActivationCapability,
+              let executor = dependencyExecutor,
+              let leases = makeChainedLeases(capability, device: device, generation: generation),
+              let command = queue.makeCommandBuffer(),
+              let resource = SceneFrameTextureResource.reservedNamedLayerTarget(
+                reference: dependencyNamedReference, frameEpoch: generation, texture: providerTexture)
+        else { return false }
+        let dynamic = SceneDynamicSnapshotResolver().resolve(frameIndex: generation, generation: generation,
+            definitions: [.init(target: dependencyActivationTarget, valueType: .bool, authoredValue: .bool(false))],
+            userValues: [dependencyActivationTarget: .bool(visible)]).snapshot
+        let dependencies: [SceneDependencyEffectInput] = visible ? [.init(
+            consumerLayerID: layerID, providerLayerID: 879, slot: dependencyExternalBinding.slot,
+            frameEpoch: generation, texture: providerTexture, namedReference: dependencyNamedReference,
+            reservedMaterialResource: resource)] : []
+        let preparation = executor.prepare(token: claim.token, leases: leases,
+            historyRehydrateCopiesByEffect: [:], frame: frame(generation), sourceTexture: source,
+            sourceUniforms: .neutral(), sourcePipeline: sourcePipeline,
+            frameInputs: .init(dependencyEffects: dependencies, dynamicValues: dynamic),
+            commandBuffer: command, previousStates: [:], previousGraphResources: [:],
+            effectGeneration: 1, resetGeneration: 1)
+        facts["preparation"] = failureCode(preparation)
+        facts["phase"] = "prepared-stages"
+        if case let .success(prepared) = preparation {
+            facts["stageKeys"] = prepared.stages.map(\.programCacheKeys)
+            facts["activationReasons"] = prepared.stages.map { $0.effectLocalActivationBypassReasonCode ?? "none" }
+            facts["fallbackReasons"] = prepared.stages.map { $0.effectLocalFailureReasonCode ?? "none" }
+        }
+        guard case let .success(prepared) = preparation, prepared.stages.count == 2,
+              let first = prepared.stages.first, let suffix = prepared.stages.last,
+              suffix.effectLocalActivationBypassReasonCode == nil,
+              suffix.programCacheKeys.count == 1,
+              !suffix.programCacheKeys[0].contains("passthrough") else { return false }
         let reason = "effect-activation-visibility-disabled"
-        guard case let .success(preparedGraph) = preparation,
-              let stage = preparedGraph.stages.first else {
-            return (false, false, false, false, false)
-        }
-        let prepared = stage.effectLocalActivationBypassReasonCode == reason
-            && stage.effectLocalFailureReasonCode == nil
-            && stage.programCacheKeys == [
-                "activation-passthrough:" + reason
-            ]
-        let encoded = executor.encode(
-            preparedGraph,
-            commandBuffer: command
-        )
-        guard encoded,
-              let readback = appendReadback(
-                  preparedGraph.finalTexture,
-                  commandBuffer: command
-              ) else {
-            return (
-                prepared,
-                encoded,
-                false,
-                false,
-                executor.effectLocalFallbackCounts.isEmpty
-            )
-        }
+        // Readback retains BGRA: red source -> blue suffix; mixing named
+        // green first produces magenta after the suffix's GBR permutation.
+        let expected: [UInt8] = visible ? [128, 0, 128, 255] : [255, 0, 0, 255]
+        let correctStage = visible
+            ? first.effectLocalActivationBypassReasonCode == nil
+                && first.programCacheKeys.count == 1
+                && !first.programCacheKeys[0].contains("passthrough")
+            : first.effectLocalActivationBypassReasonCode == reason
+                && first.programCacheKeys == ["activation-passthrough:" + reason]
+        facts["correctStage"] = correctStage
+        facts["phase"] = "encode"
+        guard correctStage, executor.encode(prepared, commandBuffer: command),
+              let readback = appendReadback(prepared.finalTexture, commandBuffer: command)
+        else { return false }
         command.commit()
         command.waitUntilCompleted()
-        let gpu = command.status == .completed && command.error == nil
-        return (
-            prepared,
-            encoded,
-            gpu,
-            gpu && matches(readback.firstPixel, [0, 0, 255, 255])
-                && matches(readback.lastPixel, [0, 0, 255, 255]),
-            executor.effectLocalFallbackCounts.isEmpty
-        )
+        facts["phase"] = "completed"
+        facts["gpuCompleted"] = command.status == .completed && command.error == nil
+        facts["firstRGBA"] = [readback.firstPixel[2], readback.firstPixel[1], readback.firstPixel[0], readback.firstPixel[3]]
+        facts["lastBGRA"] = readback.lastPixel
+        return command.status == .completed && command.error == nil
+            && matches(readback.firstPixel, expected) && matches(readback.lastPixel, expected)
+            && executor.effectLocalFallbackCounts.isEmpty
     }
-    let inactiveDependencyActivation = executeInactiveDependencyActivation(
-        generation: 60
-    )
+    let coldOffPixels = executeDependencyActivation(visible: false, generation: 60)
+    let hotOnPixels = executeDependencyActivation(visible: true, generation: 61)
+    let hotOffPixels = executeDependencyActivation(visible: false, generation: 62)
 
     // Without a visibility producer the initially-inactive stage retains its
     // source; no compiled Program or external named demand may survive it.
@@ -387,7 +364,7 @@ private func runActivationCases(
         ),
         namedProvider: dependencyNamedReference,
         dependencyBinding: dependencyExternalBinding,
-        forcedInitiallyInactiveEffectKeys: [effect]
+        startupInactiveTargets: [dependencyActivationTarget]
     )
     let dependencyNoProducerClaim = dependencyNoProducerCapabilities
         .claim(dependencyActivationChain)
@@ -608,9 +585,9 @@ private func runActivationCases(
             == .externalPrimary(downgradeSiblingBinding)
     }()
 
-    // The script target remains correct; only the cold named carrier differs
+    // The Boolean target remains correct; only the cold named carrier differs
     // from the selected provider. Its inactive fallback cannot acquire a Program.
-    let mismatchedScriptStageCapabilities = capabilities(
+    let mismatchedBoolStageCapabilities = capabilities(
         dependencyActivationChain,
         catalog: catalog(
             for: dependencyActivationGraph,
@@ -619,31 +596,26 @@ private func runActivationCases(
                 variant: .primary
             )]
         ),
-        dynamicProducers: .init(
-            userProperties: [],
-            authoredFallbackTargets: [],
-            timelineTargets: [],
-            sceneScriptTargets: [dependencyActivationTarget]
-        ),
+        dynamicProducers: directBoolProducers,
         namedProvider: dependencyNamedReference,
         dependencyBinding: dependencyExternalBinding,
-        forcedInitiallyInactiveEffectKeys: [effect]
+        startupInactiveTargets: [dependencyActivationTarget]
     )
-    let mismatchedScriptStageClaim = mismatchedScriptStageCapabilities
+    let mismatchedBoolStageClaim = mismatchedBoolStageCapabilities
         .claim(dependencyActivationChain)
-    let mismatchedScriptStageCapability = mismatchedScriptStageClaim
+    let mismatchedBoolStageCapability = mismatchedBoolStageClaim
         .flatMap {
-            mismatchedScriptStageCapabilities.resolve(
+            mismatchedBoolStageCapabilities.resolve(
                 $0.token,
                 for: dependencyActivationChain
             )
         }
     let inactiveWrongProviderCarrierHasNoProgramOrNamedDemand = {
-        guard let capability = mismatchedScriptStageCapability,
+        guard let capability = mismatchedBoolStageCapability,
               capability.stages.count == 1,
               case .initiallyInactivePassthrough = capability.stages[0].execution else { return false }
         return capability.materials.isEmpty
-            && mismatchedScriptStageCapabilities.preparedNamedInputBindingsByConsumerLayerID[layerID] == []
+            && mismatchedBoolStageCapabilities.preparedNamedInputBindingsByConsumerLayerID[layerID] == []
     }()
 
     // Coverage gap (recorded): the passthrough predicate's
@@ -656,7 +628,7 @@ private func runActivationCases(
         "dormantLayerEffectPrepared": dormantPrepared,
         "unownedDormantLayerStillRejected": unownedDormantRejected,
         "preparationPreservesAuthoredVisibility": authoredVisibilityPreserved,
-        "dormantDependencyStillRejected": dependencyDormantRejected,
+        "dormantDependencyPreparesCandidate": dependencyDormantPrepared,
         "dormantChildStillRejected": childDormantRejected,
         "dormantUtilityStillRejected": utilityDormantRejected,
         "activationPolicyAttachedToResolvedStage":
@@ -678,13 +650,8 @@ private func runActivationCases(
             precomputedActivationPreservesCopyAndSuffix,
         "dependencyActivationStageCompileAndFinalizeClose":
             dependencyActivationFinalized,
-        "inactiveDependencyActivationPublishesPreviousCurrent":
-            dependencyActivationFinalized
-                && inactiveDependencyActivation.prepared
-                && inactiveDependencyActivation.encoded
-                && inactiveDependencyActivation.gpu
-                && inactiveDependencyActivation.pixelsPreserved
-                && inactiveDependencyActivation.fallbackFree,
+        "coldDirectBoolNamedOffOnOffUsesPreparedProgramAndHealthySuffix":
+            dependencyActivationFinalized && coldOffPixels && hotOnPixels && hotOffPixels,
         "unproducedNamedSlotConsumerStaysInactiveWithoutDemand":
             unproducedNamedSlotConsumerStaysInactiveWithoutDemand,
         "parallelStagePreparationPreservesAuthoredResult":

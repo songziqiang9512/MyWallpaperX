@@ -395,7 +395,7 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
     def run_case(self, *, three_candidates=False, cache_condition="normal",
                  named_control=None, initially_shown=True, live_shown=None, utility_provider=None,
                  source_control=None, forward_nested=False, visible_upstream=False, source_timing=None,
-                 provider_activation_sequence=None, slot_activation=None):
+                 provider_activation_sequence=None, slot_activation=None, cold_slot=False):
         parent = os.environ.get("MWX_SCENE_INTEGRATION_EVIDENCE")
         if parent:
             Path(parent).mkdir(parents=True, exist_ok=True)
@@ -415,6 +415,10 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
                                 provider_activation=provider_activation_sequence is not None,
                                 slot_activation=slot_activation) if named_control is not None
                                 else fixture_entries(three_candidates=three_candidates))
+        if cold_slot and named_control == "swapRename":
+            scene = json.loads(entries["scene.json"])
+            next(o for o in scene["objects"] if o["id"] == 1024)["effects"][1].pop("passes")
+            entries["scene.json"] = encoded(scene)
         (content / "project.json").write_bytes(encoded(project))
         (content / "scene.pkg").write_bytes(make_package(list(entries.items())))
         expected = (255, 255, 255) if three_candidates else EXPECTED_RGB
@@ -494,23 +498,33 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
         if source_control is not None:
             protocol = source_protocol
         if slot_activation is not None:
-            protocol["slotActivation"] = {"key": "extraSlot", "initial": not slot_activation, "after": slot_activation,
+            states = {"scene-ready-window.png": not slot_activation, "scene-after-window.png": slot_activation}
+            if cold_slot:
+                states = {"scene-ready-window.png": False, "scene-series-0002-window.png": True, "scene-after-window.png": False}
+            protocol["slotActivation"] = {"key": "extraSlot", "states": states,
                 "activeSlot": [0, 0, 2], "conditionalSlot": [1, 0, 5], "healthySuffixEffect": 2}
-            for key, active in (("oracle", not slot_activation), ("afterOracle", slot_activation)):
+            protocol["snapshotOracles"] = {}
+            for name, active in states.items():
+                oracle = {key: dict(value) for key, value in protocol["oracle"].items()}
                 if active:
-                    protocol[key]["sameProvider"]["expectedRGB"] = (30, 64, 52) if named_control == "swapRename" else (74, 32, 28)
+                    oracle["sameProvider"]["expectedRGB"] = (30, 64, 52) if named_control == "swapRename" else (74, 32, 28)
+                protocol["snapshotOracles"][name] = oracle
         properties = ({} if source_control is not None else
                       {"showVector": initially_shown} if named_control is not None else {"mode": "off"})
         if slot_activation is not None:
-            properties["extraSlot"] = not slot_activation
+            properties["extraSlot"] = False if cold_slot else not slot_activation
         command = [str(self.exe), "--mwx-debug-scene-root", str(content),
-                   "--mwx-debug-scene-duration", "9" if provider_activation_sequence is not None else "6",
+                   "--mwx-debug-scene-duration", "9" if provider_activation_sequence is not None or cold_slot else "6",
                    "--mwx-debug-scene-evidence-dir", str(evidence),
                    "--mwx-debug-scene-properties-json", json.dumps(properties)]
         if named_control is not None and live_shown is not None:
             command += ["--mwx-debug-scene-live-properties-json", json.dumps({"showVector": live_shown})]
         if slot_activation is not None:
-            command += ["--mwx-debug-scene-live-properties-json", json.dumps({"extraSlot": slot_activation})]
+            if cold_slot:
+                command += ["--mwx-debug-scene-after-snapshot-delay", "7", "--mwx-debug-scene-periodic-snapshot-interval", "1",
+                    "--mwx-debug-scene-live-property-sequence-json", json.dumps([{"extraSlot": True}, {"extraSlot": False}])]
+            else:
+                command += ["--mwx-debug-scene-live-properties-json", json.dumps({"extraSlot": slot_activation})]
         if provider_activation_sequence is not None:
             command += ["--mwx-debug-scene-after-snapshot-delay", "7",
                 "--mwx-debug-scene-live-property-sequence-json",
@@ -543,9 +557,18 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
         log = (root / "app.log").read_text()
         preview = "\n".join(path.read_text() for path in evidence.glob("*preview*.log"))
         captures = sorted(evidence.glob("*-window.png"))
+        if cold_slot:
+            runtime = json.loads((evidence / "scene-runtime-evidence.json").read_text())["runtimeInput"]
+            consumer = protocol["nestedChain"]["consumer"]
+            self.assertEqual(runtime["effectivePropertyValues"]["extraSlot"], {"kind": "bool", "bool": False})
+            layer = next(value for value in runtime["renderDescriptor"]["layers"] if value["id"] == consumer)
+            self.assertFalse(layer["effects"][1]["visible"])
+            plan = next(value for value in runtime["authoredEffectRenderPlans"] if value["layerID"] == consumer)
+            self.assertEqual({effect["key"]["effectIndex"] for effect in plan["effects"]}, {0, 1, 2})
+            captures = [path for path in captures if path.name in protocol["slotActivation"]["states"]]
         pixels = {path.name: measure_capture(path, {**protocol,
-            "oracle": protocol.get("afterOracle", protocol["oracle"])
-                if path.name == "scene-after-window.png" else protocol["oracle"]}) for path in captures}
+            "oracle": protocol.get("snapshotOracles", {}).get(path.name, protocol.get("afterOracle", protocol["oracle"])
+                if path.name == "scene-after-window.png" else protocol["oracle"])}) for path in captures}
         (root / "result.json").write_bytes(encoded({"exit": result.returncode, "pixels": pixels,
             "appAfter": app_hashes(self.exe), "inputsAfter": file_hashes(tuple(content.iterdir())),
             "boundary": "owned inputs and actual Metal/compositor, no official parity"}))
@@ -563,8 +586,10 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
         self.assertTrue(surfaces, log[-5000:])
         self.assertTrue(any(int(frame) > 0 and surface in surfaces for frame, surface in completions))
         self.assertIn("phase=stopped surfacesBefore=1 surfacesAfter=0 gpuDrained=true", log)
-        self.assertEqual(set(pixels), {"scene-ready-window.png", "scene-after-window.png"})
-        for reason in ("ready", "after"):
+        self.assertEqual(set(pixels), set(protocol["slotActivation"]["states"]) if slot_activation is not None
+                         else {"scene-ready-window.png", "scene-after-window.png"})
+        for name in pixels:
+            reason = name.removeprefix("scene-").removesuffix("-window.png")
             self.assertRegex(log, rf"phase=snapshot reason={reason} request=\d+ source=metal ")
         for capture, measured in pixels.items():
             for roi, value in measured["rois"].items():
@@ -631,7 +656,7 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
             self.assertRegex(log + preview, r"generic shader execution [^\n]*layer=22 effect=0 ")
 
     def selected_capture_event(self, capture, log, observations):
-        reason = "ready" if "ready" in capture.name else "after"
+        reason = capture.name.removeprefix("scene-").removesuffix("-window.png")
         request = re.search(rf"phase=snapshot reason={reason} request=(\d+) source=metal path={re.escape(str(capture))}", log)
         self.assertIsNotNone(request)
         encoding = re.search(rf"phase=snapshot-encoded request={request[1]} commandBufferToken=(\d+) textureToken=(\d+) width=(\d+) height=(\d+)", log)
@@ -814,7 +839,7 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
                 and r.get("layerID") == consumer and r.get("effectIndex") == (2 if activation else 1)
                 and r.get("outcome") == "draw-encoded" for r in rows))
             if activation:
-                active = activation["initial"] if "ready" in capture.name else activation["after"]
+                active = activation["states"][capture.name]
                 conditional = [r for r in rows if r["kind"] in ("material", "terminal-material-replay")
                     and r.get("layerID") == consumer and r.get("effectIndex") == 1
                     and r.get("slot") == 5 and r.get("outcome") == "draw-encoded"]
@@ -866,6 +891,7 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
         (captures[0].parent.parent / "nested-chain.json").write_bytes(encoded(receipts))
         if activation:
             self.assertNotIn("prepared-frame-consumption-rejected", log)
+            self.assertEqual(log.count("phase=live-property-update accepted=true"), len(activation["states"]) - 1)
             self.assertRegex(log, r"phase=live-property-update accepted=true surfacesBefore=1 surfacesAfter=1")
             self.assertEqual(len({row["surface"] for row in receipts}), 1)
         for effect in ((0, 2) if activation else (0, 1)):
@@ -908,6 +934,10 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
         for control, enabled in (("both", False), ("swapRename", False)):
             with self.subTest(control=control, enabled=enabled):
                 self.run_case(named_control=control, forward_nested=True, slot_activation=enabled)
+
+    def test_cold_inactive_named_program_reactivates_and_disables_with_definition_carriers(self):
+        for control in ("both", "swapRename"):
+            self.run_case(named_control=control, forward_nested=True, slot_activation=False, cold_slot=True)
 
     def test_visible_upstream_graph_publishes_once_and_composites_at_authored_position(self):
         self.run_case(named_control="both", forward_nested=True, visible_upstream=True)

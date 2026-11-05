@@ -27,10 +27,6 @@ HARNESS = r'''
 import Foundation
 import Metal
 
-extension SceneOffscreenTexturePool {
-    var maxDimension: Int { fatalError("GPU allocation is outside dependency planning") }
-}
-
 extension SceneMainPassEncoder {
     convenience init(commandBuffer: MTLCommandBuffer, target: MTLTexture,
                      clearColor: MTLClearColor, clearEnabled: Bool,
@@ -463,7 +459,7 @@ class SceneInactiveOptionalNamedDependencyTests(unittest.TestCase):
             "pass": 0, "slot": 1, "requiresProgram": True,
             "referenceEffects": ["optional-stage"],
         }
-        for name in ("inactiveSystem", "inactiveProperty", "activeSystem"):
+        for name in ("inactiveSystem", "inactiveProperty", "activeSystem", "providerChildren"):
             with self.subTest(name=name):
                 self.assertEqual(self.results[name]["potential"], [expected_reference])
                 self.assertEqual(self.results[name]["carriers"], [expected_carrier])
@@ -473,6 +469,15 @@ class SceneInactiveOptionalNamedDependencyTests(unittest.TestCase):
                 self.assertTrue(self.results[name]["admittedRequiresProgram"])
                 self.assertEqual(self.results[name]["admittedProviders"], [101])
                 self.assertEqual(self.results[name]["admittedEffectConsumers"], [202])
+                self.assertEqual(self.results[name]["preparedSlots"], [
+                    {"effect": "optional-stage", "pass": 0, "slot": 1},
+                ])
+                self.assertEqual(self.results[name]["preparedEffects"], ["optional-stage"])
+                self.assertEqual(self.results[name]["preparedProviders"], [101])
+                self.assertEqual(self.results[name]["preparedGraphProviders"], [])
+                self.assertTrue(self.results[name]["preparedRequiresProgram"])
+                self.assertEqual(self.results[name]["preparedForward"], [False])
+                self.assertEqual(self.results[name]["preparedEffectConsumers"], [202])
 
     def test_descriptor_candidates_do_not_grant_product_authority(self) -> None:
         for name in ("inactiveSystem", "inactiveProperty", "activeSystem"):
@@ -583,7 +588,7 @@ class SceneInactiveOptionalNamedDependencyTests(unittest.TestCase):
         self.assertEqual(before["preparedProviders"], [101])
 
     def test_source_boundaries_and_final_cycle_remain_distinct_from_program_permission(self) -> None:
-        for name in ("missingProvider", "secondary", "providerChildren", "unsupportedPath",
+        for name in ("missingProvider", "secondary", "unsupportedPath",
                      "unsupportedKind", "emptyOptional"):
             with self.subTest(name=name):
                 self.assertEqual(self.results[name]["carriers"], [])

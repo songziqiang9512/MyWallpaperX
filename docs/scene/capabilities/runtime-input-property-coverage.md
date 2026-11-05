@@ -19,6 +19,12 @@ property key、原始 value、Combo value 和 condition 始终使用作者数据
 | Effect visibility | 准备好的安全 activation 可热更；未准备/无消费者/不支持结构不因 Bool 字段存在而强行接纳 |
 | User Shortcut | 原配置和真实输入 scope；不从合成 cursor 或脚本普通更新推定 OS 授权 |
 
+### 冷启动关闭的 Effect 准备计划
+
+原 Effect visibility 准备入口统一普通层的 DirectBool 与 SceneScript 候选：合法 Bool 初值为 false 时，普通层存在 named 读取或依赖声明不再整层取消其 effect 准备。原 Planner 仍证明实际 graph 与停用时的 previous-current 拓扑，Catalog 仍编译真实 Program、匹配 activation owner 和有序 named Binding；保留候选不等于创建当前帧需求，也不以 Bool 字段代替可执行 consumer。
+
+热更沿同一已准备 stage 和原事务接纳。当前 DynamicSnapshot 的一次 activation Decision 决定本帧实际 slot 与来源截点；关闭的 effect 不读取自己的 named 输入，同 provider 的其他活动 slot 继续消费。开启后使用原 Program，不运行时补编译、不新增状态、token 或缓存。standalone utility、provider、真实缺 producer/错误 carrier 及 graph/资源身份边界仍由原 owner 承接。验收核真实 DirectBool 入口的冷 false→热 true→false、具名采样、健康后继和 literal 像素，不能以脚本旁路或仅 inactive 帧替代；当前结果见[运行证据](runtime-evidence-current.md)。
+
 <a id="property-target-fallback"></a>
 ### 材质属性的目标局部 fallback 合同
 

@@ -62,16 +62,18 @@ private func capabilities(
     contentKind: String = "image",
     parentID: Int? = nil,
     terminalReplayBlendMode: Int = 0,
-    forcedInitiallyInactiveEffectKeys: Set<Graph.EffectKey> = []
+    startupInactiveTargets: Set<SceneDynamicTarget> = [],
+    descriptorOverride: SceneRenderDescriptor? = nil
 ) -> Capabilities {
     let graph = admittedGraph.renderGraph
     let materialNodes = graph.nodes.filter { $0.kind == .material }
         .sorted { ($0.materialOrdinal ?? -1) < ($1.materialOrdinal ?? -1) }
     let instancePasses = Dictionary(grouping: materialNodes, by: \.effect)
         .mapValues { nodes in
-            nodes.map {
-                SceneRenderDescriptor.PassDescriptor(
-                    passIndex: $0.instancePassIndex!,
+            nodes.compactMap { node -> SceneRenderDescriptor.PassDescriptor? in
+                guard let passIndex = node.instancePassIndex else { return nil }
+                return SceneRenderDescriptor.PassDescriptor(
+                    passIndex: passIndex,
                     combos: [:]
                 )
             }
@@ -89,7 +91,8 @@ private func capabilities(
                 .init(
                     id: $0.key.descriptorID,
                     file: $0.definitionPath,
-                    visible: true,
+                    visible: !startupInactiveTargets.contains(.effectVisibility(
+                        layerID: $0.key.layerID, effectIndex: $0.key.effectIndex)),
                     passes: instancePasses[$0.key] ?? []
                 )
             }
@@ -173,7 +176,7 @@ private func capabilities(
             consumer,
         ]
     }
-    let descriptor = SceneRenderDescriptor(
+    let descriptor = descriptorOverride ?? SceneRenderDescriptor(
         layers: parentID.map { id in
             var parent = SceneRenderDescriptor.Layer(id: id, effects: [])
             parent.childLayerIDs = [consumer.id]
@@ -187,41 +190,15 @@ private func capabilities(
             )
         }
     )
-    var candidates = SceneResolvedMaterialExecutionCapabilityAdmission.compile(
+    let candidates = SceneResolvedMaterialExecutionCapabilityAdmission.compile(
         descriptor: descriptor,
         authoredPlans: [graph],
-        dynamicEffectVisibilityOwners: dynamicEffectVisibilityOwners
+        dynamicEffectVisibilityOwners: dynamicEffectVisibilityOwners,
+        startupInactiveEffectVisibilityTargets: startupInactiveTargets
     )
     for candidate in candidates {
         if case let .failure(failure) = candidate.result {
             debugLastCandidateFailureCode = failure.code
-        }
-    }
-    if !forcedInitiallyInactiveEffectKeys.isEmpty {
-        // D2a seam: simulates the frozen D2b route-admission carve-out, which
-        // will mark script-gated initially-inactive effects on dependency
-        // consumers that the current route filter still rejects.
-        candidates = candidates.map { candidate in
-            guard case let .success(admitted) = candidate.result else {
-                return candidate
-            }
-            let marked = SceneResolvedMaterialAdmittedLayer(
-                layerID: admitted.layerID,
-                products: admitted.products,
-                pairPlan: admitted.pairPlan,
-                dependencyOwnership: admitted.dependencyOwnership,
-                potentialExternalPrimaryBindings:
-                    admitted.potentialExternalPrimaryBindings,
-                initiallyInactiveEffectKeys:
-                    admitted.initiallyInactiveEffectKeys
-                    .union(forcedInitiallyInactiveEffectKeys),
-                sourceRoute: admitted.sourceRoute,
-                isTopLevelTextSource: admitted.isTopLevelTextSource,
-                isVisibleExecutionRoot: admitted.isVisibleExecutionRoot,
-                isGraphOutputProvider: admitted.isGraphOutputProvider,
-                terminalReplayBlendMode: admitted.terminalReplayBlendMode
-            )
-            return .init(layerID: candidate.layerID, result: .success(marked))
         }
     }
     return try! .init(

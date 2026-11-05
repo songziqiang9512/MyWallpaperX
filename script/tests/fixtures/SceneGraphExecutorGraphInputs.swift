@@ -248,8 +248,8 @@ private func fragmentSource(
         "vec4 color = texSample2D(g_Texture0, v_TexCoord);"
             + " color.rgb *= u_Alpha; gl_FragColor = color;"
     } else if hostUniformDeclarationConflict {
-        "float hostProbe = g_Time;"
-            + " gl_FragColor = texSample2D(g_Texture0, v_TexCoord);"
+        "vec4 color = texSample2D(g_Texture0, v_TexCoord);"
+            + " color.rgb *= g_Time; gl_FragColor = color;"
     } else if scalarProducerUnproven {
         "if (v_TexCoord.x > 0.5) gl_FragColor = vec4(0.25);"
     } else if scalarProducer {

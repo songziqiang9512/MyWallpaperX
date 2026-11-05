@@ -85,14 +85,6 @@ nonisolated enum SceneDirectBoolEffectVisibilityRouteAdmission {
                   (layer.effects[effectIndex].visible == false)
                     == requiresInitiallyInactiveEffect,
                   visibleLayerIDs.contains(layerID) else { return nil }
-            // D2b script lane: the dependency checks are waived for
-            // script-owned candidates only - the media toggle family lives
-            // on externalPrimary consumers whose dependency closure is
-            // captured unconditionally. The passthrough-blocked flag blocks
-            // the degraded layer-SOURCE route; an activation-gated
-            // script-gated stage does not use that route. Provider layers
-            // stay rejected.
-            let scriptOwned = scriptOwnedCandidates.contains(target)
             let standaloneFullscreen = layer.contentKind == "fullscreen"
                 && layer.parentID == nil && layer.childLayerIDs.isEmpty
                 && layer.utilityLayer?.kind == .fullscreen
@@ -121,7 +113,7 @@ nonisolated enum SceneDirectBoolEffectVisibilityRouteAdmission {
             guard standaloneUtility
                 || (["image", "solid", "text"].contains(layer.contentKind)
                     && layer.utilityLayer == nil && ordinaryHierarchy) else { return nil }
-            if !scriptOwned || standaloneUtility {
+            if standaloneUtility {
                 guard layer.dependencyLayerIDs.isEmpty,
                       layer.authoredDependencies.isEmpty,
                       !dependencyConsumerLayerIDs.contains(layerID),

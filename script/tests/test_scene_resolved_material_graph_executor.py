@@ -29,6 +29,15 @@ if EFFECT_INGRESS_SOURCE not in CONTRACT_FIXTURE["SWIFT_SOURCES"]:
 LIT_PIPELINE_SOURCE = Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneLitImageLayerPipeline.swift"
 if LIT_PIPELINE_SOURCE not in CONTRACT_FIXTURE["SWIFT_SOURCES"]:
     CONTRACT_FIXTURE["SWIFT_SOURCES"].append(LIT_PIPELINE_SOURCE)
+for relative in (
+    "Compilation/Material/SceneEffectDefinition.swift",
+    "Compilation/Graph/SceneAuthoredEffectRenderPlanner.swift",
+    "Compilation/Graph/SceneAuthoredEffectRenderPlanner+Resolution.swift",
+    "Compilation/Graph/SceneGraphConditionSchemaEvidenceCompiler.swift",
+):
+    source = CONTRACT_FIXTURE["SCENE_ROOT"] / relative
+    if source not in CONTRACT_FIXTURE["SWIFT_SOURCES"]:
+        CONTRACT_FIXTURE["SWIFT_SOURCES"].append(source)
 SCENE_METAL_SOURCES = [
     Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayer.metal",
     Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneLitImageLayer.metal",
