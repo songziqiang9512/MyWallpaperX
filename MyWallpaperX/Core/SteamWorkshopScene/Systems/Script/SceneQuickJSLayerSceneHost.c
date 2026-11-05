@@ -751,7 +751,7 @@ static JSValue destroy_layer(
         (uint32_t)(record - owner->domain->layers);
     if (!record->dynamic) {
         // Authored removal is deferred through the existing owner journal.
-        // Swift validates the prepared leaf and retires its script cohorts
+        // Swift admits the target and retires its script cohorts
         // only after the complete owner bundle is accepted.
         MWXSceneQuickJSAuthoredLayerMutationRecord *mutation =
             mwx_scene_quickjs_stage_authored_mutation(owner, record_index);

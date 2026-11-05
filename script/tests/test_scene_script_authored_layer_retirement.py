@@ -8,6 +8,7 @@ import tempfile
 import unittest
 
 from .scene_vector_vm_test_support import compile_vector_harness
+from . import test_scene_default_2d_camera_inputs as camera_fixture
 
 
 HARNESS = r'''
@@ -24,26 +25,39 @@ private func frame(_ time: Double) -> SceneScriptFrameInput {
         simulationFrameTime: 0.1, sceneTime: time))
 }
 
-private func descriptor(child: Bool = false) -> SceneRenderDescriptor {
-    var layers: [SceneRenderDescriptor.Layer] = [
-        .init(id: 10, layerIndex: 0, name: "controller", visible: true,
-            originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1], alpha: 1, effects: []),
-        .init(id: 20, layerIndex: 1, name: "victim", visible: true,
-            originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1], alpha: 1, effects: [],
-            contentKind: "text", text: "ready", textStyle: .init(fontPath: nil,
-                colorRGB: [1, 1, 1], pointSize: 32)),
-        .init(id: 30, layerIndex: 2, name: "cursor", visible: true,
-            originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1], alpha: 1, effects: []),
-        .init(id: 40, layerIndex: 3, name: "live", visible: true,
-            originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1], alpha: 1, effects: []),
+private func descriptor(child: Bool = false, grandchild: Bool = false,
+                        renamed: Bool = false) -> SceneRenderDescriptor {
+    let labels = renamed ? ["driver-alt", "parent-alt", "cursor-alt", "peer-alt", "child-alt", "grand-alt"]
+        : ["controller", "victim", "cursor", "live", "child", "grandchild"]
+    var objects: [[String: Any]] = [
+        ["id": 10, "name": labels[0], "image": "models/owned.json", "origin": "0 0 0"],
+        ["id": 20, "name": labels[1], "text": "ready", "origin": "100 50 0",
+            "font": "systemfont_arial", "pointsize": 32],
+        ["id": 30, "name": labels[2], "image": "models/owned.json", "origin": "0 0 0"],
+        ["id": 40, "name": labels[3], "image": "models/owned.json", "origin": "0 0 0"],
     ]
-    if child {
-        layers[1].childLayerIDs = [21]
-        layers.append(.init(id: 21, layerIndex: 4, name: "child", visible: true,
-            originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1], alpha: 1, effects: [], parentID: 20))
+    if child { objects.append(["id": 21, "name": labels[4], "parent": 20,
+        "image": "models/owned.json", "origin": "7 9 0"]) }
+    if grandchild { objects.append(["id": 22, "name": labels[5], "parent": 21,
+        "image": "models/owned.json", "origin": "3 4 0"]) }
+    for index in objects.indices {
+        objects[index]["size"] = "100 100"
+        objects[index]["visible"] = true
+        objects[index]["alpha"] = 1
     }
-    for index in layers.indices { layers[index].sizeWH = [100, 100] }
-    return .init(layers: layers)
+    let directory = URL(fileURLWithPath: CommandLine.arguments[1])
+    let url = directory.appendingPathComponent("owned-retirement-scene.json")
+    let root: [String: Any] = ["version": 3, "general": ["orthogonalprojection":
+        ["width": 640, "height": 480]], "objects": objects]
+    try! JSONSerialization.data(withJSONObject: root, options: [.sortedKeys]).write(to: url)
+    let document = try! SceneDocumentLoader().load(from: url)
+    return SceneRenderDescriptorBuilder().build(
+        project: SceneProject(rootURL: directory, entryPath: url.lastPathComponent, userProperties: .empty), sceneDocument: document,
+        assetCatalog: SceneAssetCatalog(models: [], materials: [], effectDefinitions: [],
+            effectDefinitionDiagnostics: [], shaderReferences: [], textureReferences: []),
+        resourceReferences: SceneResourceReferenceIndex(missingReferences: [],
+            builtInReferenceCount: 0, runtimeProvidedReferenceCount: 0),
+        capabilityProfile: SceneCapabilityProfile(firstStageRendererGaps: []))!
 }
 
 private func binding(_ source: String, _ id: Int, _ index: Int,
@@ -88,10 +102,7 @@ private func quiet(_ outcomes: [SceneScriptOwnerTeardownOutcome]) -> Bool {
 
 private func branchRetirementChecks() throws -> [String: Bool] {
     var facts: [String: Bool] = [:]
-    var branch = descriptor(child: true)
-    branch.layers[4].childLayerIDs = [22]
-    branch.layers.append(.init(id: 22, layerIndex: 5, name: "grandchild", visible: true,
-        originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1], alpha: 1, effects: [], parentID: 21))
+    let branch = descriptor(child: true, grandchild: true)
     let liveVisibility = SceneDynamicTarget.layer(layerID: 40, field: .visibility)
     func program(_ d: SceneRenderDescriptor, _ body: String) throws -> SceneScriptQuickJSProgramCandidate {
         try make(d, [
@@ -129,10 +140,42 @@ private func branchRetirementChecks() throws -> [String: Bool] {
         } else { facts["\(label)-duplicate-batch-rejected"] = false }
     }
 
+    for (label, body, retired) in [
+        ("parent-only", "thisScene.getLayer('child').alpha=.42;thisScene.destroyLayer('victim');", Set([20])),
+        ("parent-and-child", "thisScene.destroyLayer('victim');thisScene.destroyLayer('child');", Set([20, 21])),
+        ("child-only", "thisScene.destroyLayer('child');", Set([21])),
+        ("grandchild-only", "thisScene.destroyLayer('grandchild');", Set([22])),
+    ] {
+        let c = try program(branch, body), runtime = topology(branch)
+        let result = evaluate(c), plan = runtime.preflightOwnerEffects(result.ownerEffects)
+        facts["\(label)-exact-request-admitted"] = result.failures.isEmpty && plan.rejectedOwners.isEmpty
+            && Set(result.layerMutations.filter { $0.kind == .destroy }.map(\.layerID)) == retired
+        facts["\(label)-candidate-does-not-publish"] = runtime.snapshot().destroyedAuthoredLayerIDs.isEmpty
+        finish(c)
+        runtime.commit(plan.layerPlan)
+        let snapshot = runtime.snapshot(), projected = branch.applying(snapshot)
+        facts["\(label)-retires-only-requested"] = snapshot.destroyedAuthoredLayerIDs == retired
+            && projected.renderOrderLayerIDs == branch.renderOrderLayerIDs.filter { !retired.contains($0) }
+            && Set(projected.layers.map(\.id)) == Set(branch.layers.map(\.id)).subtracting(retired)
+        let byID = Dictionary(uniqueKeysWithValues: projected.layers.map { ($0.id, $0) })
+        if label == "parent-only" {
+            facts["parent-only-child-write-survives"] = snapshot.authoredLayerValues[
+                .layer(layerID: 21, field: .alpha)] == .scalar(0.42)
+            facts["parent-only-detaches-local-not-world"] = byID[21]?.parentID == nil
+                && projected.rootLayerIDs.contains(21) && byID[21]?.originXYZ == [7, 9, 0]
+                && byID[22]?.parentID == 21 && byID[21]?.childLayerIDs == [22]
+        } else if label == "parent-and-child" || label == "child-only" {
+            facts["\(label)-grandchild-becomes-root"] = byID[22]?.parentID == nil
+                && projected.rootLayerIDs.contains(22) && byID[22]?.originXYZ == [3, 4, 0]
+                && (byID[20] == nil || byID[20]?.childLayerIDs.isEmpty == true)
+        } else {
+            facts["grandchild-only-ancestors-unchanged"] = byID[21]?.parentID == 20
+                && byID[20]?.childLayerIDs == [21] && byID[21]?.childLayerIDs.isEmpty == true
+        }
+    }
     for (label, body) in [
-        ("parent-only", "thisScene.destroyLayer('victim');"),
-        ("missing-grandchild", "thisScene.destroyLayer('victim');thisScene.destroyLayer('child');"),
-        ("unknown-descendant", "thisScene.destroyLayer('victim');thisScene.destroyLayer('child');thisScene.destroyLayer('absent');"),
+        ("unknown-descendant", "thisScene.destroyLayer('victim');thisScene.destroyLayer('absent');"),
+        ("invalid-nonparent-write", "thisScene.destroyLayer('victim');thisScene.getLayer('cursor').alpha=NaN;"),
         ("throw-after-complete", complete + "throw Error('rollback');"),
     ] {
         let c = try program(branch, body), runtime = topology(branch)
@@ -172,10 +215,14 @@ private func branchRetirementChecks() throws -> [String: Bool] {
         "thisScene.destroyLayer('victim');thisScene.destroyLayer('child');")
     let unlistedRuntime = topology(unlisted), unlistedResult = evaluate(unlistedProgram)
     let unlistedPlan = unlistedRuntime.preflightOwnerEffects(unlistedResult.ownerEffects)
-    facts["unlisted-actual-child-rejected"] = unlistedResult.failures.isEmpty
-        && unlistedPlan.rejectedOwners.contains { $0.ownerTarget == controller }
-        && unlistedRuntime.snapshot().destroyedAuthoredLayerIDs.isEmpty
-    finish(unlistedProgram, rejected: [controller])
+    facts["unlisted-live-grandchild-admitted"] = unlistedResult.failures.isEmpty
+        && unlistedPlan.rejectedOwners.isEmpty
+    finish(unlistedProgram)
+    unlistedRuntime.commit(unlistedPlan.layerPlan)
+    let unlistedProjected = unlisted.applying(unlistedRuntime.snapshot())
+    facts["unlisted-grandchild-detaches-by-parent-identity"] =
+        unlistedProjected.layers.first { $0.id == 22 }?.parentID == nil
+        && unlistedProjected.rootLayerIDs.contains(22)
 
     // A downstream admission failure cannot publish the already validated
     // complete branch's tombstones or suppress an unrelated owner's write.
@@ -199,12 +246,12 @@ private func branchRetirementChecks() throws -> [String: Bool] {
     ])
     let splitRuntime = topology(pair), splitResult = evaluate(split)
     let splitPlan = splitRuntime.preflightOwnerEffects(splitResult.ownerEffects)
-    facts["cross-owner-requests-do-not-combine"] = splitResult.failures.isEmpty
-        && Set(splitPlan.rejectedOwners.compactMap(\.ownerTarget)) == [liveVisibility]
-    finish(split, rejected: [liveVisibility])
+    facts["cross-owner-independent-deletes-admitted"] = splitResult.failures.isEmpty
+        && splitPlan.rejectedOwners.isEmpty
+    finish(split)
     splitRuntime.commit(splitPlan.layerPlan)
-    facts["cross-owner-only-child-commits"] = splitRuntime.snapshot().destroyedAuthoredLayerIDs == [21]
-        && splitRuntime.snapshot().renderOrderLayerIDs.contains(20)
+    facts["cross-owner-only-explicit-targets-commit"] = splitRuntime.snapshot().destroyedAuthoredLayerIDs == [20, 21]
+        && splitRuntime.snapshot().renderOrderLayerIDs == [10, 30, 40]
 
     let sequential = try make(pair, [binding("""
         export function update(v) {
@@ -226,10 +273,104 @@ private func branchRetirementChecks() throws -> [String: Bool] {
     return facts
 }
 
+private func detachedLifetimeChecks() throws -> [String: Bool] {
+    var facts: [String: Bool] = [:]
+    for renamed in [false, true] {
+        let d = descriptor(child: true, grandchild: true, renamed: renamed)
+        let parent = renamed ? "parent-alt" : "victim"
+        let child = renamed ? "child-alt" : "child"
+        let grand = renamed ? "grand-alt" : "grandchild"
+        let source = """
+            let childHandle,grandHandle,removed=false;
+            export function init(){childHandle=thisScene.getLayer('\(child)');grandHandle=thisScene.getLayer('\(grand)');}
+            export function update(v){
+                if(!removed){removed=true;thisScene.destroyLayer('\(parent)');return true;}
+                const c=thisScene.getLayer('\(child)'),g=thisScene.getLayer('\(grand)');
+                if(thisScene.getLayer('\(parent)')!==null||c.id!==21||g.id!==22||childHandle.id!==21||grandHandle.id!==22)throw Error('selective identity');
+                if(c.getParent()!==undefined||childHandle.getParent()!==undefined||g.getParent().id!==21||grandHandle.getParent().id!==21)throw Error('parent relationships');
+                if(c.getChildren().length!==1||c.getChildren()[0].id!==22||g.getChildren().length!==0)throw Error('children');
+                if(c.origin.x!==7||c.origin.y!==9||g.origin.x!==3||g.origin.y!==4)throw Error('local changed');
+                if(shared.parentDestroyed!==1||shared.childDestroyed||shared.grandDestroyed)throw Error('lifetime');
+                return true;
+            }
+            """
+        let childAlpha = SceneDynamicTarget.layer(layerID: 21, field: .alpha)
+        let grandAlpha = SceneDynamicTarget.layer(layerID: 22, field: .alpha)
+        let c = try make(d, [
+            binding(source, 10, 0, "visible", .bool(true), .boolean),
+            binding("let n=0;export function update(v){return ++n/10;}export function destroy(){shared.parentDestroyed=(shared.parentDestroyed||0)+1;}",
+                20, 1, "alpha", .number(1), .number),
+            binding("let n=0;export function update(v){return ++n/10;}export function destroy(){shared.childDestroyed=true;}",
+                21, 4, "alpha", .number(1), .number),
+            binding("let n=0;export function update(v){return ++n/10;}export function destroy(){shared.grandDestroyed=true;}",
+                22, 5, "alpha", .number(1), .number),
+            binding("let n=0;export function update(v){return ++n/10;}",
+                40, 3, "alpha", .number(1), .number),
+        ])
+        let scalarInputs: [SceneDynamicTarget: SceneDynamicValue] = [victimAlpha: .scalar(1),
+            childAlpha: .scalar(1), grandAlpha: .scalar(1), liveAlpha: .scalar(1)]
+        let firstScalar = c.scalarProgram.evaluate(inputs: scalarInputs, frame: frame(0))
+        let first = c.vectorProgram.evaluate(inputs: [controller: .bool(true)],
+            effectivePropertyValues: [:], frame: frame(0))
+        let runtime = SceneScriptDynamicLayerRuntime(descriptor: d, authoredMutationLayerIDs: Set(d.layers.map(\.id)))
+        let plan = runtime.preflightOwnerEffects(first.ownerEffects)
+        finish(c)
+        runtime.commit(plan.layerPlan)
+        let projected = d.applying(runtime.snapshot())
+        let prefix = renamed ? "renamed" : "original"
+        facts["\(prefix)-first-callbacks-and-commit"] = first.failures.isEmpty && firstScalar.failures.isEmpty
+            && plan.rejectedOwners.isEmpty && runtime.snapshot().destroyedAuthoredLayerIDs == [20]
+            && Set(firstScalar.values.keys) == Set(scalarInputs.keys)
+        let retired = c.scalarProgram.retire(layerIDs: [20], frame: frame(0), userPropertiesJSON: "{}")
+            + c.vectorProgram.retire(layerIDs: [20], frame: frame(0), userPropertiesJSON: "{}")
+            + c.stringProgram.retire(layerIDs: [20], frame: frame(0), userPropertiesJSON: "{}")
+            + c.cursorProgram.retire(layerIDs: [20], frame: frame(0), userPropertiesJSON: "{}")
+        facts["\(prefix)-only-parent-owner-retires"] = retired.count == 1 && quiet(retired)
+        try c.domain!.publishLayerSnapshot(.empty(frameIndex: 2), descriptor: d,
+            destroyedAuthoredLayerIDs: runtime.snapshot().destroyedAuthoredLayerIDs)
+        let second = c.scalarProgram.evaluate(inputs: scalarInputs, frame: frame(1))
+        let observer = c.vectorProgram.evaluate(inputs: [controller: .bool(true)],
+            effectivePropertyValues: [:], frame: frame(1))
+        facts["\(prefix)-live-child-grandchild-peer-clocks"] = second.failures.isEmpty
+            && Set(second.values.keys) == [childAlpha, grandAlpha, liveAlpha]
+            && second.values[childAlpha] == .scalar(0.2) && second.values[grandAlpha] == .scalar(0.2)
+            && second.values[liveAlpha] == .scalar(0.2)
+        facts["\(prefix)-VM-relations-handles-local-values"] = observer.failures.isEmpty
+            && observer.values[controller] == .bool(true)
+        let worlds = SceneLayerWorldFrameResolver.compute(descriptor: projected,
+            byID: Dictionary(uniqueKeysWithValues: projected.layers.map { ($0.id, $0) }))
+        facts["\(prefix)-projected-world-keeps-local-not-parent-world"] =
+            worlds[21]?.columns.3.x == 7 && worlds[22]?.columns.3.x == 10
+        finish(c)
+    }
+    let d = descriptor(child: true, grandchild: true)
+    let retry = try make(d, [binding("export function update(v){thisScene.destroyLayer('victim');return true;}",
+        10, 0, "visible", .bool(true), .boolean)])
+    let runtime = SceneScriptDynamicLayerRuntime(descriptor: d, authoredMutationLayerIDs: Set(d.layers.map(\.id)))
+    let first = retry.vectorProgram.evaluate(inputs: [controller: .bool(true)],
+        effectivePropertyValues: [:], frame: frame(0))
+    let rejected = runtime.preflightOwnerEffectsToFixedPoint(first.ownerEffects,
+        rejectingExternally: { _, _ in [controller] })
+    finish(retry, accepted: false)
+    facts["retry-first-commit-rejection-is-read-only"] = rejected.externallyRejectedOwners == [controller]
+        && runtime.snapshot().destroyedAuthoredLayerIDs.isEmpty
+    let next = retry.vectorProgram.evaluate(inputs: [controller: .bool(true)],
+        effectivePropertyValues: [:], frame: frame(1))
+    let accepted = runtime.preflightOwnerEffects(next.ownerEffects)
+    facts["retry-VM-journal-and-admission"] = next.failures.isEmpty && accepted.rejectedOwners.isEmpty
+        && next.layerMutations.filter { $0.kind == .destroy }.map(\.layerID) == [20]
+    finish(retry)
+    runtime.commit(accepted.layerPlan)
+    facts["retry-only-parent-commits"] = runtime.snapshot().destroyedAuthoredLayerIDs == [20]
+        && d.applying(runtime.snapshot()).rootLayerIDs.contains(21)
+    return facts
+}
+
 @main enum Harness {
     static func main() throws {
         var out: [String: Any] = [:]
         out["branchRetirement"] = try branchRetirementChecks()
+        out["detachedLifetime"] = try detachedLifetimeChecks()
         // Name, handle and authored order resolve one target, while the
         // controller's Boolean stays true and lookup remains deferred.
         var forms: [[String: Any]] = []
@@ -271,8 +412,7 @@ private func branchRetirementChecks() throws -> [String: Bool] {
             "emptyJournal": failed.layerMutations.isEmpty, "healthy": peer.values[liveAlpha] == .scalar(0.7)]
         finish(throwing, rejected: [controller])
 
-        // Static children remain a typed Swift rejection, rather than a C
-        // API visibility restriction or a scene-wide failure.
+        // Parent-only removal is a typed admission; its live child is not retired.
         let childDescriptor = descriptor(child: true)
         let parentDelete = try make(childDescriptor, [
             binding("export function update(v){thisScene.destroyLayer('victim');return true;}",
@@ -282,10 +422,13 @@ private func branchRetirementChecks() throws -> [String: Bool] {
             effectivePropertyValues: [:], frame: frame(0))
         let childTopology = SceneScriptDynamicLayerRuntime(descriptor: childDescriptor,
             authoredMutationLayerIDs: [10, 20, 21, 30, 40])
-        let rejected = childTopology.preflightOwnerEffects(parentResult.ownerEffects)
-        out["children"] = parentResult.failures.isEmpty && rejected.rejectedOwners.count == 1
-            && rejected.admittedEffects.isEmpty && childTopology.snapshot().destroyedAuthoredLayerIDs.isEmpty
-        finish(parentDelete, rejected: [controller])
+        let accepted = childTopology.preflightOwnerEffects(parentResult.ownerEffects)
+        out["children"] = parentResult.failures.isEmpty && accepted.rejectedOwners.isEmpty
+            && !accepted.admittedEffects.isEmpty && childTopology.snapshot().destroyedAuthoredLayerIDs.isEmpty
+        finish(parentDelete)
+        childTopology.commit(accepted.layerPlan)
+        out["childrenCommitted"] = childTopology.snapshot().destroyedAuthoredLayerIDs == [20]
+            && childDescriptor.applying(childTopology.snapshot()).rootLayerIDs.contains(21)
 
         let valueDomain = try SceneScriptQuickJSDomain()
         try valueDomain.configureLayerCatalog(descriptor())
@@ -308,7 +451,7 @@ private func branchRetirementChecks() throws -> [String: Bool] {
             binding("export function init(v){\(interval)return v;}export function update(v){return v;}export function cursorDown(e){thisLayer.text='event';}\(destroy)",
                 20, 1, "text", .string("ready"), .string),
             binding("export function init(v){\(interval)return v;}export function update(v){return v;}export function cursorDown(e){thisLayer.origin=new Vec3(1,0,0);}\(destroy)",
-                20, 1, "origin", .string("0 0 0"), .string),
+                20, 1, "origin", .string("100 50 0"), .string),
             binding("let n=0;export function init(v){engine.setInterval(()=>n++,100);return v;}export function update(v){return n/10;}",
                 40, 3, "alpha", .number(1), .number),
         ])
@@ -324,12 +467,13 @@ private func branchRetirementChecks() throws -> [String: Bool] {
         ], overflowed: false)
         let initialStandalone = standalone.dispatch(batch: standaloneBatch, frame: frame(0), userPropertiesJSON: "{}")
         let initialCursor = cursor(c, down: true)
-        let initialVector = c.vectorProgram.evaluate(inputs: [victimOrigin: .vector3(0, 0, 0)],
+        let initialVector = c.vectorProgram.evaluate(inputs: [victimOrigin: .vector3(100, 50, 0)],
             effectivePropertyValues: [:], frame: frame(0))
         let initialScalar = c.scalarProgram.evaluate(inputs: [victimAlpha: .scalar(1), liveAlpha: .scalar(1)], frame: frame(0))
         let initialString = c.stringProgram.evaluate(inputs: [victimText: .string("ready")], frame: frame(0))
         out["initialized"] = initialStandalone.failures.isEmpty && initialCursor.failures.isEmpty && initialVector.failures.isEmpty
             && initialScalar.failures.isEmpty && initialString.failures.isEmpty
+            && initialVector.values[victimOrigin] == .vector3(100, 50, 0)
         finish(c)
         standalone.finalizeLayerMutations(committing: true)
         let standaloneEdges = standalone.edgeStateSnapshot()
@@ -362,7 +506,7 @@ private func branchRetirementChecks() throws -> [String: Bool] {
         c.vectorProgram.restoreTimerFrameState(vectorTimers)
         let afterStandalone = standalone.dispatch(batch: standaloneBatch, frame: frame(1), userPropertiesJSON: "{}")
         let afterCursor = cursor(c, time: 1, down: false)
-        let afterVector = c.vectorProgram.evaluate(inputs: [victimOrigin: .vector3(0, 0, 0)],
+        let afterVector = c.vectorProgram.evaluate(inputs: [victimOrigin: .vector3(100, 50, 0)],
             effectivePropertyValues: [:], frame: frame(1))
         let afterScalar = c.scalarProgram.evaluate(inputs: [victimAlpha: .scalar(1), liveAlpha: .scalar(1)], frame: frame(1))
         let afterString = c.stringProgram.evaluate(inputs: [victimText: .string("ready")], frame: frame(1))
@@ -402,8 +546,12 @@ class SceneScriptAuthoredLayerRetirementTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-authored-retirement-vm-") as temp:
-            binary = compile_vector_harness(Path(temp), HARNESS, "authored-retirement", whole_module_optimization=True)
-            result = subprocess.run([str(binary)], check=True, capture_output=True, text=True, timeout=30)
+            binary = compile_vector_harness(Path(temp), HARNESS, "authored-retirement",
+                preamble=camera_fixture.preamble(), extra_swift_sources=tuple(
+                    source for source in camera_fixture.EXTRA_SOURCES if source.name not in {
+                        "SceneMetalRenderer+Camera.swift", "SceneCameraShake.swift", "SceneLayerParallax.swift"}),
+                whole_module_optimization=True)
+            result = subprocess.run([str(binary), temp], check=True, capture_output=True, text=True, timeout=30)
             cls.result = json.loads(result.stdout)
 
     def test_name_handle_and_order_delete_defer_and_preserve_controller_boolean(self) -> None:
@@ -413,10 +561,11 @@ class SceneScriptAuthoredLayerRetirementTests(unittest.TestCase):
             for key in ("controller", "deferred", "admitted", "committed"):
                 self.assertTrue(result[key], key)
 
-    def test_throw_value_only_and_static_child_rejection_are_local(self) -> None:
+    def test_throw_value_only_and_parent_only_admission_are_local(self) -> None:
         self.assertTrue(all(self.result["throw"].values()))
         self.assertTrue(self.result["valueOnly"])
         self.assertTrue(self.result["children"])
+        self.assertTrue(self.result["childrenCommitted"])
 
     def test_retirement_deduplicates_borrowed_owners_and_runs_cleanup_once(self) -> None:
         self.assertTrue(self.result["initialized"])
@@ -431,7 +580,14 @@ class SceneScriptAuthoredLayerRetirementTests(unittest.TestCase):
     def test_retired_update_timer_and_cursor_work_cannot_revive_or_stop_peer(self) -> None:
         self.assertTrue(all(self.result["after"].values()), self.result["after"])
 
-    def test_complete_same_owner_branch_retirement_is_atomic_and_isolated(self) -> None:
+    def test_detached_child_handles_callbacks_and_commit_retry(self) -> None:
+        facts = self.result["detachedLifetime"]
+        self.assertTrue(facts)
+        for name, accepted in facts.items():
+            with self.subTest(fact=name):
+                self.assertTrue(accepted)
+
+    def test_requested_subsets_detach_survivors_and_keep_owner_atomicity(self) -> None:
         facts = self.result["branchRetirement"]
         self.assertTrue(facts)
         for name, accepted in facts.items():

@@ -6,19 +6,20 @@ nonisolated extension SceneRenderDescriptor {
             !topology.destroyedAuthoredLayerIDs.contains($0.id)
         }
         merged.append(contentsOf: topology.dynamicLayers)
-        // Destroyed children no longer belong to the projected descriptor.
-        // Refresh this index only at the existing topology revision boundary.
+        // Detachment preserves authored local transforms, not the old world pose.
         let liveLayerIDs = Set(merged.map(\.id))
         for index in merged.indices {
+            if let parentID = merged[index].parentID,
+               topology.destroyedAuthoredLayerIDs.contains(parentID) {
+                merged[index].parentID = nil
+            }
             merged[index].childLayerIDs.removeAll { !liveLayerIDs.contains($0) }
         }
         var descriptor = Self(
             entryPath: entryPath, camera: camera, lighting: lighting,
             hdrEnabled: hdrEnabled,
             layers: merged,
-            rootLayerIDs: rootLayerIDs.filter {
-                !topology.destroyedAuthoredLayerIDs.contains($0)
-            } + topology.dynamicLayers.map { $0.id },
+            rootLayerIDs: merged.filter { $0.parentID == nil }.map(\.id),
             renderOrderLayerIDs: topology.renderOrderLayerIDs,
             renderOrderPolicy: renderOrderPolicy,
             modelMaterialLinks: modelMaterialLinks, materialPasses: materialPasses,

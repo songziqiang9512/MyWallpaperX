@@ -204,6 +204,59 @@ def text_entries(case):
     return entries
 
 
+
+def destroy_entries(case):
+    shift, word = (1000, "renamed_retirement") if case == 16 else (0, "owned_retirement")
+    entries, objects = {}, []
+    for key, rgb, origin, parent in (
+        ("parent", (255, 0, 0), "64 128 0", None),
+        ("child", (0, 255, 0), "128 48 0", "parent"),
+        ("grandchild", (0, 0, 255), "128 48 0", "child"),
+        ("leaf", (255, 0, 255), "64 256 0", None),
+        ("peer", (0, 255, 0), "464 256 0", None),
+    ):
+        index = ("parent", "child", "grandchild", "leaf", "peer").index(key) + 10 + shift
+        path = f"{word}/{key}"
+        entries[f"materials/{path}.tex"] = solid_texture(rgb)
+        entries[f"materials/{path}.json"] = encoded({"passes": [{"shader": "genericimage", "textures": [path]}]})
+        entries[f"models/{path}.json"] = encoded({"material": f"materials/{path}.json", "width": 16, "height": 16})
+        obj = {"id": index, "name": f"{word} {key}", "image": f"models/{path}.json",
+               "origin": origin, "size": "24 24", "visible": True}
+        if parent:
+            obj["parent"] = 10 + shift if parent == "parent" else 11 + shift
+            parent_check = "parent===undefined" if key == "child" else f"parent && parent.name==='{word} child'"
+            x, y = (128, 48) if key == "child" else (256, 96)
+            obj["alpha"] = {"value": 1, "script": (
+                "export function update(value){if(engine.runtime<2.7)return 1;"
+                "const parent=thisLayer.getParent();const world=thisLayer.getTransformMatrix();"
+                f"return ({parent_check}) && Math.abs(world.m[12]-{x})<0.001"
+                f" && Math.abs(world.m[13]-{CANVAS[1] - y})<0.001 ? 1 : 0;}}")}
+        if key == "peer":
+            obj["visible"] = {"value": True, "script": (
+                "let removed=false;export function update(value){if(engine.runtime>2 && !removed){"
+                f"thisScene.destroyLayer('{word} parent');thisScene.destroyLayer('{word} leaf');"
+                "removed=true;}return true;}")}
+        objects.append(obj)
+    entries["scene.json"] = encoded({"version": 3, "general": {"orthogonalprojection": {
+        "width": CANVAS[0], "height": CANVAS[1]}, "clearcolor": "0 0 0"}, "objects": objects})
+    return entries
+
+
+def destroy_protocol(case, after):
+    colors = {"parent": (0, 0, 0) if after else (255, 0, 0),
+              "leaf": (0, 0, 0) if after else (255, 0, 255), "peer": (0, 255, 0),
+              "childBefore": (0, 0, 0) if after else (0, 255, 0),
+              "grandchildBefore": (0, 0, 0) if after else (0, 0, 255),
+              "childAfter": (0, 255, 0) if after else (0, 0, 0),
+              "grandchildAfter": (0, 0, 255) if after else (0, 0, 0)}
+    centers = {"parent": (64, 128), "leaf": (64, 256), "peer": (464, 256),
+               "childBefore": (192, 176), "grandchildBefore": (320, 224),
+               "childAfter": (128, 48), "grandchildAfter": (256, 96)}
+    return {"case": case, "after": after, "ROIs": {
+        key: {"world": centers[key], "RGB": color} for key, color in colors.items()},
+        "scope": "Actual VM parent and world Mat4 reads gate retained child alpha; two named destroy targets, preserved local child/grandchild geometry and independent peer. No official arbitrary-transform parity."}
+
+
 def text_protocol(case):
     return {"case": case, "source": 1020 if case in (8, 12, 14) else 20,
         "consumer": 1023 if case in (8, 12, 14) else 23, "slot": 2 if case in (8, 12, 14) else 5,
@@ -354,6 +407,28 @@ class SceneNamedParentSourceIntegrationTests(unittest.TestCase):
         for case in (13, 14):
             with self.subTest(case=case):
                 self.run_text_case(case)
+
+    def test_parent_destroy_detaches_children_with_live_script_world_frames(self):
+        for case in (15, 16):
+            with self.subTest(case=case):
+                word = "renamed_retirement" if case == 16 else "owned_retirement"
+                protocols = {name: destroy_protocol(case, name == "scene-after-window.png")
+                             for name in ("scene-ready-window.png", "scene-after-window.png")}
+                (self.evidence_root / f"destroy-protocol-{case}.json").write_bytes(encoded(protocols))
+                with patch.object(app_runner, "fixture_entries", destroy_entries), patch.object(
+                        app_runner, "measure_capture", lambda path: measure_capture(path, protocols[path.name])):
+                    result = app_runner.SceneReflectionHistoryIntegrationTests.run_case(self, case, capture=True,
+                        extra_arguments=("--mwx-debug-scene-after-snapshot-delay", "3.5"),
+                        material_input_path=f"materials/{word}/parent.json")
+                for name, regions in result["pixels"].items():
+                    for key, spec in protocols[name]["ROIs"].items():
+                        for actual, wanted in zip(regions[key]["mean"], spec["RGB"], strict=True):
+                            self.assertAlmostEqual(actual, wanted, delta=3, msg=str((case, name, key, regions[key])))
+                work = self.evidence_root / f"Ref{case}-capture-on"
+                log = (work / "app.log").read_text()
+                self.assertNotIn('invalid authored layer destroy', log)
+                self.assertNotIn('layer world transform is unavailable', log)
+                self.assertNotIn('layer parent identity is invalid', log)
 
     def run_text_case(self, case):
         requested = text_protocol(case)

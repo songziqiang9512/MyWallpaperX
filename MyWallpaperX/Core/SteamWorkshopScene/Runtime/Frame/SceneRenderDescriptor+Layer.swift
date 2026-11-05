@@ -27,7 +27,7 @@ nonisolated extension SceneRenderDescriptor {
         let utilityLayer: SceneUtilityLayer?
         let dependencyLayerIDs: [Int]
         var authoredDependencies: [SceneObjectDependency] = []
-        let parentID: Int?
+        var parentID: Int?
         var childLayerIDs: [Int]
         let attachmentName: String?
         let parentAttachmentBindFrame: [Float]?

@@ -129,6 +129,28 @@ extension SceneDesktopWallpaperSession {
             context, rejectedOwnerTargets: rejectedOwnerTargets
         )
         if !newlyDestroyedLayerIDs.isEmpty {
+            if let domain = context.propertyVectorScriptProgram.domain,
+               let catalogSignature = domain.layerCatalogSignature {
+                var descriptor = context.runtimeInput.renderDescriptor
+                var detachedLayerIDs: Set<Int> = []
+                for index in descriptor.layers.indices {
+                    if let parentID = descriptor.layers[index].parentID,
+                       plan.destroyedAuthoredLayerIDs.contains(parentID) {
+                        descriptor.layers[index].parentID = nil
+                        if newlyDestroyedLayerIDs.contains(parentID),
+                           !plan.destroyedAuthoredLayerIDs.contains(descriptor.layers[index].id) {
+                            detachedLayerIDs.insert(descriptor.layers[index].id)
+                        }
+                    }
+                }
+                if !detachedLayerIDs.isEmpty {
+                    domain.layerWorldTransformProjection = .init(descriptor: descriptor,
+                        catalogSignature: catalogSignature)
+                    // The changed basis needs one existing world-frame refresh;
+                    // snapshot commit/rollback consumes it without a new dirty flag.
+                    domain.committedDynamicWorldTransformLayerIDs.formUnion(detachedLayerIDs)
+                }
+            }
             for surface in surfaces.values {
                 surface.particlePlayback?.retire(layerIDs: newlyDestroyedLayerIDs)
             }

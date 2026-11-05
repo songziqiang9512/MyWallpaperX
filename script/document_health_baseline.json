@@ -129,8 +129,8 @@
       "bytes": 40357
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 112,
-      "bytes": 56771
+      "lines": 113,
+      "bytes": 58603
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 115,
@@ -145,8 +145,8 @@
       "bytes": 5973
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
-      "lines": 74,
-      "bytes": 7544
+      "lines": 83,
+      "bytes": 9743
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 106,
@@ -161,8 +161,8 @@
       "bytes": 4260
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 173,
-      "bytes": 32706
+      "lines": 172,
+      "bytes": 32230
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -502,21 +502,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "a55facc551681844d8247f0dab7d41c6cc88b6d36a0f42afc41105da7dfb307f",
+      "after": "bb615fc61c2bf3db6e609d9c66ade5ba88a626ccb573e92cf1195c7aa2c83c7f",
+      "owner": "scene-parent-destroy-detachment",
+      "reason": "Replace the invalid all-children destroy permission with target-only retirement and qualified direct-child local detachment; record exact official, native, App and author limits and remove the resolved queue assertion.",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#parent-destroy"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "7233e3d103ea2e2967d3c05065bf0f5f72af0df8309d5249b519204daa4fbb27",
-      "after": "ce9ea8b8690e3b20d3d265772d935cff1a823dcbe678680061d95e5102011dea",
-      "owner": "scene-generic-vector-array-interface",
-      "reason": "Replace element/count permission with the original complete stage shape and component budget; retain bounded, legacy and nonfloating limits; record actual CoreText/Metal output separately from the default-hidden author contract.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#generic-varying-array-budget"
+      "before": "ce9ea8b8690e3b20d3d265772d935cff1a823dcbe678680061d95e5102011dea",
+      "after": "3699cc42bf4a09a5f8a1f3dfefd3b7913de65d60581b2cac14af587665ee3bc4",
+      "owner": "scene-parent-destroy-detachment",
+      "reason": "Replace the invalid all-children destroy permission with target-only retirement and qualified direct-child local detachment; record exact official, native, App and author limits and remove the resolved queue assertion.",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#parent-destroy"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "a7091ca28a51996e8d6b1ce9079dd53ea55ef69e3d2d9c98adcf351264eb4c28",
-      "after": "60f34cb983c441695c3633ea5a148382fc0d926251037cf9bca82915146c5e21",
-      "owner": "scene-generic-vector-array-interface",
-      "reason": "Replace element/count permission with the original complete stage shape and component budget; retain bounded, legacy and nonfloating limits; record actual CoreText/Metal output separately from the default-hidden author contract.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#generic-varying-array-budget"
+      "before": "60f34cb983c441695c3633ea5a148382fc0d926251037cf9bca82915146c5e21",
+      "after": "9a2d1f0a349cb458b1420727238e939c7d258f3c785bf024e7cd44ed97aa0d6f",
+      "owner": "scene-parent-destroy-detachment",
+      "reason": "Replace the invalid all-children destroy permission with target-only retirement and qualified direct-child local detachment; record exact official, native, App and author limits and remove the resolved queue assertion.",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#parent-destroy"
     }
   ]
 }

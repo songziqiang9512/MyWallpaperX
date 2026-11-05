@@ -31,6 +31,15 @@ SceneScript 是 property-bound ECMAScript：脚本附着于一个有类型的属
 
 源码：[SceneHost](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerSceneHost.c)、[LayerHost](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerHost.c)。
 
+<a id="parent-destroy"></a>
+### 父层销毁与存活子层
+
+`destroyLayer` 沿原 owner journal、候选 topology、commit 与退休分发移除目标层；存在存活子层不构成非法请求，不递归销毁未声明的子孙。固定官方2.8.0.42的自有普通image平移链中，父和独立叶成功移除，直接子层脱父并保原local位置，孙层仍属于该子层；fresh枚举、getParent、destroy事件和双图回调见证相互核对。此观察不授rotation/scale/shear/attachment、其他类型或同callback延迟的完整一致性。
+
+原 `SceneScriptDynamicLayerRuntime` 只接纳请求的真实销毁目标，不要求同owner显式销毁全部children。原事务的非法值、未知目标、请求次序与原子回滚保持；不跨owner补销毁请求，不把creator退休误作父子关系，不增加persistent脱父表或第二topology。原 `SceneRenderDescriptor.applying(topology)` 在采用revision时按已销毁parent集合脱开仍存活的直接child、修正root/child索引，保作者当前local变换及孙链；prepared/VM/模拟/render消费者必须采用这同一结果。原资源、Timeline、粒子、脚本与GPU寿命只退休真正销毁的层，存活子层继续原clock、RNG、回调及资源。已提交的断父在原完整catalog投影重建一次，索引和签名不变；只有新脱父的存活层请求原下一snapshot世界矩阵刷新，成功及回滚由原发布事务消费。不在稳定帧重建整图或遍历认证。
+
+先用真实 journal→候选→commit、原VM及投影验证父子孙/peer和改名，核合法子层写入、同owner非法后继整体回滚、重复/先后销毁、跨owner及提交重试；再以签名App核完整帧与子层保local位置、孙链、被删层退出和健康peer。真实3599986633需Ready后约7秒进入销毁，四层更早已由Timeline透明，晚窗PNG不能代退休成功；按目标owner、同输入摘要、真实commit/后续回调和终端GPU核当前224次误拒是否消除，不把基础report PASS或透明画面记为修复。未得到资格的attachment、复杂utility拓扑及世界保持变换另保问题，不以该例新增类型/路径许可。
+
 <a id="commands"></a>
 ## 播放、事件与副作用
 

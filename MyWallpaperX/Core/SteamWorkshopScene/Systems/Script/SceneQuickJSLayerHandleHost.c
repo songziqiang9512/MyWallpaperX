@@ -189,8 +189,8 @@ static JSValue get_parent(
     MWXSceneQuickJSOwner *owner = handle->domain->active_owner;
     for (uint32_t index = 0; index < handle->domain->authored_layer_count; ++index) {
         MWXSceneQuickJSLayerRecord *parent = &handle->domain->layers[index];
-        if (parent->configured && !parent->destroyed &&
-            parent->layer_id == record->parent_id) {
+        if (parent->configured && parent->layer_id == record->parent_id) {
+            if (parent->destroyed) return JS_UNDEFINED;
             return mwx_scene_quickjs_layer_make_layer_handle(context, owner, index, true);
         }
     }
