@@ -446,36 +446,45 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
 #endif
             return
         }
-        // Preserve the existing 240-step envelope for frame-created children.
-        // Only root preparation requests more. The extension is deterministic,
-        // capped at 3,600 steps and four million weighted work units; this is a
-        // project admission policy, not a wall-clock or official fidelity bound.
-        var limit = min(max(stepBudget, 0), 240)
-        if stepBudget > 240, requestedSteps > 240 {
-            let capacity = Double(maximumParticleCount)
-            let initializerCost = definition.initializers.reduce(0.0) { cost, value in
-                cost + 32 + Double(value.boundedPositionOffset?.octaves ?? 0) * 24
+        // Frame-created children keep 240 steps. Root extensions charge actual
+        // births/live work after each whole step, so at most one step spills
+        // past the work budget; history remains conservatively weighted.
+        let count = min(Int(requestedSteps), min(max(stepBudget, 0), 3_600))
+        var initializerCost = 0.0
+        var operatorCost = 0.0
+        var boidsCount = 0.0
+        if count > 240 {
+            for value in definition.initializers {
+                initializerCost += 32 + Double(value.boundedPositionOffset?.octaves ?? 0) * 24
             }
-            let operatorCost = definition.operators.reduce(0.0) { cost, value in
-                if case .boids = value.kind { return cost + 32 + capacity }
-                return cost + 32
+            for value in definition.operators {
+                operatorCost += 32
+                if case .boids = value.kind { boidsCount += 1 }
             }
-            // A retained RopeTrail snapshot can convert and shift the bounded
-            // history on every step. Account for it without dropping that history.
-            let historyCost = Double(historyCapacity)
-            let workPerStep = max(1, Double(definition.emitters.count)
-                + Double(definition.operators.count)
-                + capacity * (32 + initializerCost + operatorCost + historyCost))
-            let extraSteps = Int(min(3_360, (4_000_000 / workPerStep).rounded(.down)))
-            limit = min(stepBudget, 240 + extraSteps)
         }
-        let count = min(Int(requestedSteps), limit)
+        var workRemaining = 4_000_000.0
+        var completedSteps = 0
         var remaining = duration
         for _ in 0..<count {
+            if completedSteps >= 240 && workRemaining <= 0 { break }
             for index in emitters.indices { emitters[index].beginFrame() }
             let slice = min(fixedTimeStep, remaining)
             guard slice > 0 else { break }
+            let previousID = nextParticleID
+            let previousTime = simulationTime
             step(by: slice, controlPointParticleSpace: controlPointParticleSpace)
+            completedSteps += 1
+            if completedSteps > 240 {
+                // IDs include failed births that reached initialization; lives
+                // still contains the actual pre-death-compaction population.
+                let births = Double(nextParticleID - previousID)
+                let live = simulationTime != previousTime ? Double(normalizedLives.count) : 0
+                let work = Double(definition.emitters.count + definition.operators.count)
+                    + births * initializerCost
+                    + live * (32 + operatorCost + Double(historyCapacity))
+                    + boidsCount * live * live
+                workRemaining -= max(1, work)
+            }
             // These events have never been replayed to children after warmup.
             // Drain per step so a long, short-lived emitter cannot retain its
             // entire prehistory. The bounded trail recorder remains intact.
@@ -484,10 +493,10 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             remaining -= slice
         }
 #if DEBUG
-        if Int(requestedSteps) > limit {
+        if completedSteps < Int(requestedSteps) {
             diagnostics.append(.init(
                 kind: .prewarmBudgetExceeded,
-                componentName: "requested=\(duration),simulated=\(simulationTime),steps=\(count)"
+                componentName: "requested=\(duration),simulated=\(simulationTime),steps=\(completedSteps)"
             ))
         }
 #endif

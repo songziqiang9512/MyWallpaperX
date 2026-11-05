@@ -2214,7 +2214,9 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRopeTrailPlan.swift",
         "script/tests/fixtures/SceneParticleRuntime*Harness.swift",
         "script/tests/scene_particle_runtime_*_cases.py",
-        "script/tests/test_scene_particle_runtime.py"
+        "script/tests/test_scene_particle_runtime.py",
+        "script/tests/test_scene_particle_prewarm_work.py",
+        "script/tests/fixtures/SceneParticlePrewarmWorkHarness.swift"
       ],
       "modules": [
         "test_scene_particle_playback_author",
@@ -2224,7 +2226,8 @@
         "test_scene_particle_instance_alpha",
         "test_scene_particle_runtime",
         "test_scene_particle_playback_integration",
-        "test_scene_particle_visibility_integration"
+        "test_scene_particle_visibility_integration",
+        "test_scene_particle_prewarm_work"
       ]
     },
     {

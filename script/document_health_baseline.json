@@ -121,16 +121,16 @@
       "bytes": 5938
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 140,
-      "bytes": 22076
+      "lines": 149,
+      "bytes": 23602
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 191,
       "bytes": 35296
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 104,
-      "bytes": 46804
+      "lines": 107,
+      "bytes": 48899
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 107,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 174,
-      "bytes": 32978
+      "bytes": 33090
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -485,29 +485,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "28953d056abc6e7ca2bf3fac0a88e92bd532bfbde9032f70ba2a23c96a6ed7d7",
-      "after": "f895b3baece5b12ba0a678cbdebd3c6cc110c6230d62e1823b6c1f8da40b516d",
-      "owner": "scene-particle-ancestor-translation",
-      "reason": "Use the original typed current/reference chain for ancestor translation, child creation and position consumers; retire component/renderer permission and unused pointer reference transport. Keep exact App/author composition evidence and current child/prewarm boundaries; replace stale CP/startup assertions.",
-      "decision": "docs/scene/architecture/runtime-architecture.md#particle-world-translation"
+      "before": "f895b3baece5b12ba0a678cbdebd3c6cc110c6230d62e1823b6c1f8da40b516d",
+      "after": "074243d72de115a961904136c8fa907009f212e4c30eb3488b06a1331b7c8e2c",
+      "owner": "scene-particle-prewarm-work",
+      "reason": "Charge original warmUp by entered births and processed population within original step/work envelope; preserve history, rate, RNG and event handoff. Keep bounded author/native evidence and current dense prewarm/child limits; remove retired truncation assertions.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#prewarm-work"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "5dd28b626485e6300654cae5dd80bb8c8e28828452cbab53e0d78f55c9c855a4",
-      "after": "d03157556ce18fbec649b9f6349e7b5f6fa17e6003aeb196556616b4ccf33229",
-      "owner": "scene-particle-ancestor-translation",
-      "reason": "Use the original typed current/reference chain for ancestor translation, child creation and position consumers; retire component/renderer permission and unused pointer reference transport. Keep exact App/author composition evidence and current child/prewarm boundaries; replace stale CP/startup assertions.",
-      "decision": "docs/scene/architecture/runtime-architecture.md#particle-world-translation"
+      "before": "d03157556ce18fbec649b9f6349e7b5f6fa17e6003aeb196556616b4ccf33229",
+      "after": "6abe10dda02a01e0911f116dd3ede60fedba957d8500da9fcb56f2c6dc47c642",
+      "owner": "scene-particle-prewarm-work",
+      "reason": "Charge original warmUp by entered births and processed population within original step/work envelope; preserve history, rate, RNG and event handoff. Keep bounded author/native evidence and current dense prewarm/child limits; remove retired truncation assertions.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#prewarm-work"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "c5917e05c1aef533942c587221a662e44bf244efd0f4c3960b424b11261ad007",
-      "after": "da12db280d04170d786111cbeb281bbec94ddaf18b35bbd9e69ffeb527fa58c7",
-      "owner": "scene-particle-ancestor-translation",
-      "reason": "Use the original typed current/reference chain for ancestor translation, child creation and position consumers; retire component/renderer permission and unused pointer reference transport. Keep exact App/author composition evidence and current child/prewarm boundaries; replace stale CP/startup assertions.",
-      "decision": "docs/scene/architecture/runtime-architecture.md#particle-world-translation"
+      "before": "da12db280d04170d786111cbeb281bbec94ddaf18b35bbd9e69ffeb527fa58c7",
+      "after": "bc9256305717071f27d1a2d6f2ce5b7d3fd6d8c581fc6e9f9f55864b147da4d0",
+      "owner": "scene-particle-prewarm-work",
+      "reason": "Charge original warmUp by entered births and processed population within original step/work envelope; preserve history, rate, RNG and event handoff. Keep bounded author/native evidence and current dense prewarm/child limits; remove retired truncation assertions.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#prewarm-work"
     }
   ]
 }

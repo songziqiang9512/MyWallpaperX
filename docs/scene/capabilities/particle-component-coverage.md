@@ -13,6 +13,15 @@ root local/world、layer/world/camera、attachment 与 child space 分别保身�
 
 源码：[Runtime](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRuntime.swift)、[PlaybackState](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePlaybackState.swift)。
 
+<a id="prewarm-work"></a>
+### 预热工作预算
+
+预热沿原 Simulator 固定步进、RNG、出生/死亡和 SnapshotRecorder 执行。首240步与frame-created child的既有步数范围保持；root扩展仍最多3,600步、四百万加权工作单位。扩展按每个实际完成步流式计价：进入初始化的出生次数承接原initializer权重，原normalizedLives的死亡压缩前数量承接常规/算子权重，Boids保实际数量平方的保守项；不把最大容量或每个存量粒子都当作每步重新初始化。
+
+本切片只调整原warmUp，Trail历史仍按实际处理数量乘原historyCapacity保守计价，不改Recorder、不跳历史或新增普通帧计数/持久预算。每步完整执行后计价，越预算便停止下一步；最多多一个完整步的估价，不为精确截断增加快照事务或回滚。原事件每步排空、部分末步、模拟rate与后续live随机序列均保留。缺省/无效时长、容量和资源的入口职责不扩张。
+
+starttime请求的wall-step序列与实际simulationTime分开：实例rate仍在原step内应用一次，验收按相同请求步序列与rate的正常模拟对照，不能强制simulationTime等于starttime。对稀疏大容量、密集/短命/失败出生、Boids、无粒子和Trail历史分别核实际状态、预算退出、初始画面与准备成本；预算耗尽保真实部分结果和诊断，不承诺所有作者都完成长预热。官方starttime单位与本地成本估计不是同一资格。
+
 <a id="components"></a>
 ## 当前组件面
 

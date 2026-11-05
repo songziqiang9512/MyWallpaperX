@@ -3681,10 +3681,9 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertFalse(value["exactLimited"])
         self.assertAlmostEqual(value["overTime"], 60)
         self.assertTrue(value["overLimited"])
-        self.assertGreaterEqual(value["capacityTime"], 4 - 1e-9)
-        self.assertLess(value["capacityTime"], 5)
-        self.assertLess(value["operatorTime"], 5)
-        self.assertLess(value["quadraticTime"], value["linearTime"])
+        self.assertAlmostEqual(value["capacityTime"], 60)
+        self.assertAlmostEqual(value["operatorTime"], 60)
+        self.assertAlmostEqual(value["quadraticTime"], value["linearTime"])
         self.assertEqual(value["hugeTime"], 0)
         self.assertTrue(value["hugeInvalid"])
         self.assertEqual(value["tinyStepTime"], 0)
@@ -3857,7 +3856,7 @@ class SceneParticleSimulatorTests(unittest.TestCase):
     def test_dynamic_control_point_replaces_only_the_current_frame_override(self) -> None:
         self.assertEqual(
             self.results["dynamicControlPointPositions"],
-            [[11, 21, 31], [-4, 7, 8], [3, 4, 5]],
+            [[10, 20, 30], [-5, 6, 7], [2, 3, 4]],
         )
 
     def test_control_point_emitters_bind_authored_ids_and_reject_invalid_identity(self) -> None:
