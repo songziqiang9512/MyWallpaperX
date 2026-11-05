@@ -1,6 +1,8 @@
 extension Harness {
     static func imageBlendResults() -> [String: Any] {
         let imageBlend = imageBlendBinding()
+        let parentBase = imageBlendBinding(providerVisible: true, providerChildLayerIDs: [305])
+        let forwardParentBase = imageBlendBinding(providerChildLayerIDs: [302], providerFirst: false)
         let puppetImageBlend = imageBlendBinding(
             providerPuppetMeshPath: "models/character.mdl"
         )
@@ -265,7 +267,9 @@ extension Harness {
                 "implicitVisible": imageBlendBinding(providerVisible: nil)?.providerLayerID == 300,
                 "effectfulNeverRaw": imageBlendBinding(providerVisible: true, providerEffectful: true)?.kind != .imageLayerBlend,
                 "puppetRejected": imageBlendBinding(providerVisible: true, providerPuppetMeshPath: "models/mesh.mdl") == nil,
-                "childrenRejected": imageBlendBinding(providerVisible: true, providerChildLayerIDs: [305]) == nil,
+                "parentOwnSource": ["provider": parentBase?.providerLayerID ?? -1,
+                    "slot": parentBase?.slot.slotIndex ?? -1,
+                    "kind": parentBase.map { String(describing: $0.kind) } ?? "none"],
                 "dependenciesRejected": imageBlendBinding(providerVisible: true, providerDependencies: [305]) == nil,
             ],
             "imageBlendRejects": [
@@ -311,6 +315,10 @@ extension Harness {
                     providerTexturePaths: ["assets/noise.tex"],
                     providerFirst: false
                 )?.providerLayerID == 300,
+            "forwardParentOwnSource": ["provider": forwardParentBase?.providerLayerID ?? -1,
+                "slot": forwardParentBase?.slot.slotIndex ?? -1,
+                "kind": forwardParentBase.map { String(describing: $0.kind) } ?? "none",
+                "forward": forwardParentBase?.requiresForwardCapture == true],
             "forwardImageBlendRejects": [
                 "inactiveEffect": imageBlendBinding(
                     providerEffectful: true,
@@ -319,9 +327,6 @@ extension Harness {
                 ) == nil,
                 "dependency": imageBlendBinding(
                     providerDependencies: [299], providerFirst: false
-                ) == nil,
-                "child": imageBlendBinding(
-                    providerChildLayerIDs: [302], providerFirst: false
                 ) == nil,
                 "secondary": imageBlendBinding(
                     variantSuffix: "b", providerFirst: false

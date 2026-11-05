@@ -1490,7 +1490,8 @@
         "script/tests/test_scene_dependency_frame_demand.py",
         "script/tests/test_scene_source_color_named_and_lit.py",
         "script/tests/fixtures/SceneDependencyRenderPlanTestSupport.swift",
-        "script/tests/fixtures/SceneDependencyRenderPlan*.swift"
+        "script/tests/fixtures/SceneDependencyRenderPlan*.swift",
+        "script/tests/test_scene_named_parent_source_integration.py"
       ],
       "modules": [
         "test_scene_dependency_capture_fault",
@@ -1501,7 +1502,8 @@
         "test_scene_named_render_target_pool",
         "test_scene_visible_graph_output_render_plan",
         "test_scene_utility_layers",
-        "test_scene_source_color_named_and_lit"
+        "test_scene_source_color_named_and_lit",
+        "test_scene_named_parent_source_integration"
       ]
     },
     {

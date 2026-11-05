@@ -91,7 +91,6 @@ extension SceneDependencyRenderPlan {
               reference.providerLayerID != layer.id,
               reference.variant == .primary,
               let provider = layersByID[reference.providerLayerID],
-              provider.childLayerIDs.isEmpty,
               provider.authoredDependencies.isEmpty,
               let providerOrder = order[provider.id],
               let consumerOrder = order[layer.id],
@@ -115,6 +114,7 @@ extension SceneDependencyRenderPlan {
         } else {
             return nil
         }
+        guard kind == .imageLayerBlend || provider.childLayerIDs.isEmpty else { return nil }
         let forward = providerOrder > consumerOrder
         if forward {
             let independentRawSource = provider.effects.isEmpty

@@ -428,14 +428,14 @@ extension SceneDependencyRenderPlan {
     /// Hidden image providers retain their existing dependency-plan route.
     /// A plain dependency-free image or text source has the same composite
     /// whether its separate main-pass display is visible or hidden.
+    /// Transform children do not enter an ordinary image's own base source.
     nonisolated static func isImageOrTextCompositeProvider(
         _ provider: SceneRenderDescriptor.Layer
     ) -> Bool {
         if provider.contentKind == "image" {
             return provider.puppetMeshPath == nil
                 && hasNoUtilityLayer(provider)
-                && provider.childLayerIDs.isEmpty
-                && (provider.visible == false
+                && ((provider.visible == false && provider.childLayerIDs.isEmpty)
                     || (provider.effects.isEmpty
                         && provider.dependencyLayerIDs.isEmpty
                         && provider.authoredDependencies.isEmpty))

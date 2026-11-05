@@ -4,7 +4,7 @@ extension Harness {
         let authored = multiProviderCompositionPlan(reverseEffectIDs: true)
         let declaredSubset = multiProviderCompositionPlan(dependencies: [601])
         let duplicate = multiProviderCompositionPlan(duplicateSlot: true)
-        let unsafe = multiProviderCompositionPlan(providerChildLayerIDs: [699])
+        let rawParent = multiProviderCompositionPlan(providerChildLayerIDs: [699])
         let visible = multiProviderCompositionPlan(providerVisible: true)
         let visibleGraph = multiProviderCompositionPlan(providerVisible: true,
             providerEffectful: true, providerTexturePaths: ["assets/provider-source.tex"])
@@ -40,7 +40,6 @@ extension Harness {
         ]
         let rejects: [String: Bool] = [
             "duplicateSlot": duplicate.multiProviderAggregatesByConsumerLayerID[603] == nil,
-            "unsafeProvider": unsafe.multiProviderAggregatesByConsumerLayerID[603] == nil,
             "missingProviderOrder": multiProviderCompositionPlan(omitRenderOrderID: 601)
                 .multiProviderAggregatesByConsumerLayerID[603] == nil,
             "missingConsumerOrder": multiProviderCompositionPlan(omitRenderOrderID: 603)
@@ -51,6 +50,7 @@ extension Harness {
             "forwardVisibleEffectfulGeometryProvider": forwardGeometry.multiProviderAggregatesByConsumerLayerID[603] == nil,
         ]
         let coldCarriers: [String: Any] = [
+            "rawParentProviderSlots": slots(rawParent),
             "declaredSubsetSlots": slots(declaredSubset),
             "declaredSubsetProviders": declaredSubset.requiredProviderLayerIDs.sorted(),
             "declaredSubsetRequiresProgram": declaredSubset
@@ -100,6 +100,7 @@ extension Harness {
             "nestedGeometryAggregate": nestedGeometry,
             "multiProviderInactiveSuperset": inactiveSuperset,
             "preparedNamedInputs": preparedNamedInputResults(),
+            "rawNamedParents": rawNamedParentResults(),
         ]
     }
 
@@ -462,5 +463,67 @@ extension Harness {
             visibleLayerIDs: [603],
             executableUtilityConsumerLayerIDs: [603]
         )
+    }
+}
+
+
+extension Harness {
+    static func rawNamedParentResults() -> [String: Any] {
+        var result: [String: Any] = [:]
+        for mode in ["ordinary", "renamed", "secondary", "effectful", "utility", "shaderCycle"] {
+            let renamed = mode == "renamed"
+            let p = renamed ? 3917 : 2310, c = p + 1, h = p + 2, d = p + 3
+            let slots = renamed ? [3, 6] : [2, 5]
+            let word = renamed ? "unseen_material" : "own_parent"
+            func reads(_ id: String, _ provider: Int, _ indices: [Int]) -> SceneRenderDescriptor.EffectDescriptor {
+                var paths = Array<String?>(repeating: nil, count: (indices.max() ?? 0) + 1)
+                for index in indices { paths[index] = "_rt_imageLayerComposite_\(provider)_\(mode == "secondary" ? "b" : "a")" }
+                return .init(id: id, file: "effects/\(word)/\(id).json", visible: true,
+                    passes: [.init(passIndex: renamed ? 1 : 0, texturePaths: paths.compactMap { $0 },
+                        textureSlots: paths, combos: [:], constantShaderValues: [:])])
+            }
+            let pEffects: [SceneRenderDescriptor.EffectDescriptor] = mode == "shaderCycle"
+                ? [reads("actual-cycle", c, [1])]
+                : mode == "effectful" ? [.init(id: "own-filter", file: "effects/\(word)/filter.json",
+                    visible: true, passes: [.init(passIndex: 0, texturePaths: [], textureSlots: [nil],
+                        combos: [:], constantShaderValues: [:])])] : []
+            let parent = SceneRenderDescriptor.Layer(id: p,
+                contentKind: mode == "utility" ? "composition" : "image",
+                utilityLayer: mode == "utility" ? .init(kind: .composition) : nil,
+                dependencyLayerIDs: mode == "shaderCycle" ? [c] : [], childLayerIDs: [h, c],
+                visible: true, effects: pEffects)
+            var child = SceneRenderDescriptor.Layer(id: c, contentKind: "image", utilityLayer: nil,
+                dependencyLayerIDs: [p], childLayerIDs: [], visible: true,
+                effects: [reads("child-reader", p, [renamed ? 3 : 1])])
+            child.parentID = p
+            var healthy = layer(h)
+            healthy.parentID = p
+            let external = SceneRenderDescriptor.Layer(id: d, contentKind: "solid", utilityLayer: nil,
+                dependencyLayerIDs: [p], childLayerIDs: [], visible: true,
+                effects: [reads("external-reader", p, slots)])
+            let descriptor = SceneRenderDescriptor(layers: [parent, healthy, child, external],
+                renderOrderLayerIDs: [p, h, c, d])
+            let visible: Set<Int> = [p, h, c, d]
+            let candidates = SceneDependencyRenderPlan.potentialNamedBindings(
+                descriptor: descriptor, visibleLayerIDs: visible)
+            let plan = SceneDependencyRenderPlan(descriptor: descriptor, visibleLayerIDs: visible,
+                preparedNamedInputBindingsByConsumerLayerID: candidates)
+            let childVector = plan.multiProviderAggregatesByConsumerLayerID[c]?.bindings
+                ?? plan.bindingsByConsumerLayerID[c].map { [$0] } ?? []
+            let externalVector = plan.multiProviderAggregatesByConsumerLayerID[d]?.bindings
+                ?? plan.bindingsByConsumerLayerID[d].map { [$0] } ?? []
+            result[mode] = [
+                "parent": p, "childCandidateCount": candidates[c]?.count ?? 0,
+                "externalCandidateCount": candidates[d]?.count ?? 0,
+                "childProviders": childVector.map(\.providerLayerID),
+                "externalProviders": externalVector.map(\.providerLayerID),
+                "externalSlots": externalVector.map { $0.slot.slotIndex },
+                "kinds": (childVector + externalVector).map { String(describing: $0.kind) },
+                "requiredProviders": plan.requiredProviderLayerIDs.sorted(),
+                "graphProviders": plan.requiredGraphOutputProviderLayerIDs.sorted(),
+                "cycles": plan.cyclicLayerIDs.sorted(),
+            ]
+        }
+        return result
     }
 }

@@ -95,6 +95,15 @@ Utility graph provider 在原 utility 触发点取 source、执行与发布，�
 
 回归沿[依赖计划](../../../script/tests/test_scene_dependency_render_plan.py)、[真实 Metal 执行](../../../script/tests/test_scene_resolved_material_graph_executor.py)、[提交生命周期](../../../script/tests/test_scene_resolved_material_runtime_bridge.py)和[签名 App 输入贡献](../../../script/tests/test_scene_mixed_provider_abi_integration.py)分别核对准备、供货、执行与像素。绑定或非黑不足以证明每个输入贡献；实际覆盖与未取得的资格归[运行证据](runtime-evidence-current.md#coverage)。
 
+<a id="named-parent-base"></a>
+### 普通父层的自身 named 来源
+
+普通 image 的 primary named 输入表示该层自身的本地输出，transform 子层不自动成为它的纹理成员；父子变换边与 shader 读取边分别归属。原准备链已确定可独立读取的无效果 image base，不因持有子层而失去来源。实际 effect 输出仍由原 graph 发布，不能借本条退回原图；普通 image、Puppet、utility composition 和显式 subtree 各沿自己的实际 source 消费者。
+
+冷准备在原 DependencyPlan 的来源谓词与 Binding 选择承接此区别，退出普通 base 的 leaf-only 限制及同职责的重复判断；不按父子数量建立许可，不新增来源类型、状态、renderer 或子树遍历。保真实 shader 自引用/依赖循环与 secondary、缺供货及不匹配资源边界。Runtime 复用同一 provider reservation、当帧 selected candidate、UV/sampling/颜色表示及原捕获/发布；只捕获父自身一次，父主合成及子层继续原作者次序，不重入读取父层的 child。视频由当前 candidate 内容代次供货，不额外复制视频池或重启播放。
+
+验收沿原依赖计划、真实 publication 与 App 门，覆盖含健康 child 的父层、child 与外部 reader、ID/资源/槽位改名、真实循环/缺源、原 leaf 邻例及健康后继；作者样本核实际纹理→sampler→main/GPU，动态视频另核当前帧更新。官方自有静态场景的无效果/颜色置换对照只授自身输出排除独立子层的范围，不授 alpha/tint、任意 graph-parent、utility subtree、视频时序或逐像素一致；实际结果由运行证据拥有。
+
 <a id="independent-named-source"></a>
 ### 独立来源的 named 发布
 

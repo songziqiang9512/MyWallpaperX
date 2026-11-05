@@ -695,12 +695,11 @@ extension SceneDependencyRenderPlan {
                   && provider.visible == false
                   && providerHasVisibleEffects)
         )
-        let noChildren = provider.childLayerIDs.isEmpty
         let activeDepsOk = providerActiveDependencies.isEmpty
             || providerHasVisibleEffects
         let orderGate = providerOrder < consumerOrder || supportsForwardCapture
-        guard kindSupported, visibilityShape, noChildren, activeDepsOk,
-              orderGate else {
+        guard kindSupported, visibilityShape, activeDepsOk, orderGate,
+              contract.kind == .imageLayerBlend || provider.childLayerIDs.isEmpty else {
             issues.append(Issue(
                 kind: .forwardUtilityProvider,
                 layerID: layer.id,

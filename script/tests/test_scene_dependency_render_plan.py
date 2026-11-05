@@ -479,7 +479,7 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
             "requiredProviders": [601, 602], "requiredEffect": True,
         })
         self.assertEqual(self.result["multiProviderRejects"], {
-            "duplicateSlot": True, "unsafeProvider": True,
+            "duplicateSlot": True,
             "missingProviderOrder": True, "missingConsumerOrder": True,
             "visibleEffectfulProvider": True,
             "forwardSafeProvider": True, "forwardUnsafeProvider": True,
@@ -488,6 +488,7 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
         # Cold carriers still require a Program. Consumer dependency metadata
         # and provider visibility do not replace its actual resource interface.
         self.assertEqual(self.result["multiProviderColdCarriers"], {
+            "rawParentProviderSlots": ["first:0:1", "second:0:1"],
             "declaredSubsetSlots": ["first:0:1", "second:0:1"],
             "declaredSubsetProviders": [601, 602],
             "declaredSubsetRequiresProgram": [True, True],
@@ -495,6 +496,22 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
             "visibleProviderKinds": ["imageLayerBlend", "imageLayerBlend"],
             "visibleProviderRequiresProgram": [True, True],
         })
+
+    def test_raw_named_parent_is_its_own_source_without_transform_child_cycles(self) -> None:
+        rows = self.result["rawNamedParents"]
+        for mode, slots in (("ordinary", [2, 5]), ("renamed", [3, 6])):
+            row = rows[mode]
+            parent = row["parent"]
+            self.assertEqual(row, {"parent": parent, "childCandidateCount": 1,
+                "externalCandidateCount": 2, "childProviders": [parent],
+                "externalProviders": [parent, parent], "externalSlots": slots,
+                "kinds": ["imageLayerBlend"] * 3, "requiredProviders": [parent],
+                "graphProviders": [], "cycles": []})
+        for mode in ("secondary", "effectful", "utility", "shaderCycle"):
+            row = rows[mode]
+            self.assertEqual(row["childProviders"], [], row)
+            self.assertEqual(row["externalProviders"], [], row)
+        self.assertEqual(rows["shaderCycle"]["cycles"], [2310, 2311])
 
     def test_geometry_and_nested_providers_keep_actual_order_and_demand(self) -> None:
         self.assertEqual(self.result["multiProviderGeometry"], {
@@ -844,7 +861,8 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
         self.assertEqual(self.result["visibleStaticImageBindings"], {
             "backward": True, "forward": True, "implicitVisible": True,
             "effectfulNeverRaw": True, "puppetRejected": True,
-            "childrenRejected": True, "dependenciesRejected": True,
+            "parentOwnSource": {"provider": 300, "slot": 1, "kind": "imageLayerBlend"},
+            "dependenciesRejected": True,
         })
 
     def test_exact_plain_image_blend_dependency_is_typed_and_fail_closed(self) -> None:
@@ -913,6 +931,8 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
         self.assertTrue(
             self.result["forwardImageBlendOrderIndependentAssetProvider"]
         )
+        self.assertEqual(self.result["forwardParentOwnSource"],
+            {"provider": 300, "slot": 1, "kind": "imageLayerBlend", "forward": True})
         self.assertTrue(all(self.result["forwardImageBlendRejects"].values()))
         self.assertEqual(
             self.result["nestedImageBlend"],

@@ -125,12 +125,12 @@
       "bytes": 21784
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 182,
-      "bytes": 32760
+      "lines": 191,
+      "bytes": 34452
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 95,
-      "bytes": 39911
+      "lines": 98,
+      "bytes": 42119
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 107,
@@ -161,8 +161,8 @@
       "bytes": 4260
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 173,
-      "bytes": 32453
+      "lines": 174,
+      "bytes": 32956
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -458,29 +458,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "cb781aeb3e04b01ecf003fe0540d5bee3f6e1ade389370fe37d9569d1b22e9f1",
-      "after": "c1d3e90a87ee9b940805fbff1034a8b34cdc27f328a60433fecd49e413cc4d4d",
-      "owner": "scene-prepared-dead-fragment-sampling",
-      "reason": "Reuse cold dead-local projection for both emission and resource ABI, preserving live input and side effects. Record exact compiler/App before-after pixels and the current author parent-stage breakpoint; replace obsolete slot3 and dormant capture diagnoses, without claiming author mask or performance recovery.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#prepared-dead-fragment-sampling"
+      "before": "c1d3e90a87ee9b940805fbff1034a8b34cdc27f328a60433fecd49e413cc4d4d",
+      "after": "6cf8903fe5441b84128958b7bdc444d9f7cf7e35a0f5b56c6a7e67d45bcdc6ce",
+      "owner": "scene-named-parent-own-base",
+      "reason": "Keep ordinary transform hierarchy separate from named own-source publication. Reuse the original cold provider/capture owners and retire leaf-only permission; record same-input Plan and exact App pixels, bounded official parent-output observations, recovered author sampling and current temporal-reporting boundaries. No video/frame/parent-graph or performance extrapolation.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-parent-base"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "025d781da6190e2eb713b5144325761b75aa219e17362154ac27632899e94471",
-      "after": "015cba0181594a8be7ad3d5ce8c4eb5067b616cf4ec69e161d0c678e57e6eb2a",
-      "owner": "scene-prepared-dead-fragment-sampling",
-      "reason": "Reuse cold dead-local projection for both emission and resource ABI, preserving live input and side effects. Record exact compiler/App before-after pixels and the current author parent-stage breakpoint; replace obsolete slot3 and dormant capture diagnoses, without claiming author mask or performance recovery.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#prepared-dead-fragment-sampling"
+      "before": "015cba0181594a8be7ad3d5ce8c4eb5067b616cf4ec69e161d0c678e57e6eb2a",
+      "after": "02cc09417d9b38f6708551d710176da86f5a047ebcfaffe39f0997f7b2f59915",
+      "owner": "scene-named-parent-own-base",
+      "reason": "Keep ordinary transform hierarchy separate from named own-source publication. Reuse the original cold provider/capture owners and retire leaf-only permission; record same-input Plan and exact App pixels, bounded official parent-output observations, recovered author sampling and current temporal-reporting boundaries. No video/frame/parent-graph or performance extrapolation.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-parent-base"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "283b7ef8a5ff4d739bb55d59120087d3c0efb6b84576255ccae20c102bbbeac6",
-      "after": "35e0c04fcfd713f6c44415782100dbc1e483a9965ec13a6fe58b6956544c46fa",
-      "owner": "scene-framebuffer-source-declarations",
-      "reason": "Distinguish raw dependency declarations from actual source samplers in the original descriptor/catalog owners. Keep exact native-world source/depth pixels and recovered author source/opacity chain; replace the resolved source queue item with the actual remaining slot3 binding and dormant utility boundaries.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#framebuffer-source-declarations"
+      "before": "0f524a9de567fb10a6ad48092a1f980e144df297c7e7bfc9fdcc43c671558148",
+      "after": "a364e987eeeae0ba5b750bb81f2834533753662290c763572af94a7264073316",
+      "owner": "scene-named-parent-own-base",
+      "reason": "Keep ordinary transform hierarchy separate from named own-source publication. Reuse the original cold provider/capture owners and retire leaf-only permission; record same-input Plan and exact App pixels, bounded official parent-output observations, recovered author sampling and current temporal-reporting boundaries. No video/frame/parent-graph or performance extrapolation.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-parent-base"
     }
   ]
 }
