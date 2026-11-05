@@ -496,7 +496,6 @@ nonisolated struct SceneRenderDescriptorBuilder {
               object.puppetAnimationLayers.isEmpty,
               object.shape == nil || object.shape == "quad",
               (object.colorBlendMode ?? 0) == 0,
-              object.dependencyLayerIDs.isEmpty, object.authoredDependencies.isEmpty,
               (childIDsByParentID[object.id] ?? []).isEmpty,
               object.effects.contains(where: { $0.visible != false }),
               let imagePath = object.imagePath,

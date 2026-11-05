@@ -452,7 +452,6 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                       utility.framebufferSource.map({ normalized($0.materialPath) }) == normalized(materialPath),
                       descriptor.camera.authoredOrthographicProjectionActive == false,
                       layer.usesPerspective != false, layer.childLayerIDs.isEmpty,
-                      layer.dependencyLayerIDs.isEmpty, layer.authoredDependencies.isEmpty,
                       layer.attachmentName == nil, (layer.colorBlendMode ?? 0) == 0,
                       layer.effects.contains(where: { $0.visible != false }) else {
                     result[layer.id] = reject("framebuffer-shape-unsupported"); continue

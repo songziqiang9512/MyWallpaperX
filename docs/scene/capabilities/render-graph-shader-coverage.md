@@ -56,6 +56,15 @@ Material、instance、user texture、effect 显式 binding 及 shader default �
 
 验收使用原 loader 的混合灰度 JPEG/RGB mip 链、每级实际 GPU 读回、资源改名、透明 GA/RGBA 与 RGB/灰度及坏后续 mip；随后核原作者失败槽恢复真实材质、publication、下游采样和 terminal，另用受控 mask 值及独立作者邻例验证可见输出。输入布局转换成功不授全部颜色格式、任意特效或逐资产最终贡献。
 
+<a id="framebuffer-source-declarations"></a>
+### Framebuffer 来源与声明依赖
+
+source 的角色由模型、材质及实际编译输入决定。已声明 passthrough、单一 source pass 和 typed framebuffer 输入的模型，由 RenderDescriptor 提名沿原 framebuffer source 路径准备；RuntimeCatalog 仍编译原 source Program，并要求它实际保留的候选只能是本层的 slot0 `sceneBackground`。普通资产、named layer、其他 framebuffer 或动态来源不能被当成本层当前主附件。原形状、render state、透视与 child 范围不因本条扩张。
+
+图层的 `dependencyLayerIDs` / `authoredDependencies` 不替换 source material 的输入，非空声明不能独立取消合法 source。effect 真正采样的 named 输入继续由已选 Program/DependencyPlan、当帧预约、供货及局部失败承接；不把当前 main prefix 冒充某个命名层的最终输出。声明指向较晚层也不移动本层 source 的作者捕获点。Descriptor 与 Catalog 的两处空依赖许可退出，其余准备、资源与实际读取仍归原 owner，不新建状态或普通帧校验。
+
+验证沿原角色解析门和完整 native-world App：无依赖、只声明早层、只声明晚层及资源改名保持同一 source/effect/父变换/深度像素和健康 peer；实际改成 named source 的材质必须保持自己的输入语义，不能借声明等价取得 framebuffer 身份。已有 named/late-miss 门各保自身供货范围，不能代 native-world 与任意 named 组合资格。带依赖 utility 的 effect 热显隐仍有原准入门；layer 显隐使用原消费者，本条不授 native-world 与声明依赖组合的热切换资格。
+
 <a id="named-input-ownership"></a>
 ### Named 输入与发布
 

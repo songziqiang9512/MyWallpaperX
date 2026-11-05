@@ -124,6 +124,13 @@ void main() {
 
 def fixture_entries(_label: int = 0) -> dict[str, bytes]:
     """One complete authored scene; the label is the existing runner's case ID."""
+    renamed = _label == 2
+    plane_model = "models/retitled/surface.json" if renamed else "models/local_plane.json"
+    source_material = "materials/retitled/current_view.json" if renamed else "materials/receiver.json"
+    source_shader = "retitled/current_view" if renamed else "owned_main_plane"
+    effect_path = "effects/retitled/output/effect.json" if renamed else "effects/invert/effect.json"
+    effect_material = "materials/retitled/output.json" if renamed else "materials/inverse.json"
+    effect_shader = "retitled/output" if renamed else "owned_inverse"
     scene = {
         "version": 3,
         "camera": {"eye": "0 0 6", "center": "0 0 0", "up": "0 1 0"},
@@ -142,23 +149,25 @@ def fixture_entries(_label: int = 0) -> dict[str, bytes]:
              "scale": " ".join(map(str, PARENT_SCALE)),
              "angles": " ".join(map(str, PARENT_ANGLES))},
             {"id": TARGET_LAYER, "name": "owned framebuffer Program plane",
-             "parent": 10, "image": "models/local_plane.json",
+             "parent": 10, "image": plane_model,
              "size": "128 96", "origin": "0 0 0",
              "scale": f"{PLANE_SIZE[0] / 128} {PLANE_SIZE[1] / 96} 1",
              "perspective": True, "visible": True,
-             "effects": [{"id": 200, "file": "effects/invert/effect.json", "visible": True}]},
+             "effects": [{"id": 200, "file": effect_path, "visible": True}]},
             # Behind the utility, before the background in depth, and authored
             # after it: green survives only if the utility did not write depth.
             {"id": 30, "model": "models/later_peer.mdl", "origin": "0 0 0",
              "perspective": True, "castshadow": False},
         ],
     }
+    if _label in (1, 2):
+        scene["objects"][3]["dependencies"] = [1 if _label == 1 else 30]
     source = {"passes": [{
-        "shader": "owned_main_plane", "textures": ["_rt_FullFrameBuffer"],
+        "shader": source_shader, "textures": ["_rt_FullFrameBuffer"],
         "constantshadervalues": {"localsize": " ".join(map(str, LOCAL_SIZE))},
         "blending": "translucent", "depthtest": "enabled",
         "depthwrite": "disabled", "cullmode": "nocull"}]}
-    effect = {"passes": [{"shader": "owned_inverse", "textures": [None],
+    effect = {"passes": [{"shader": effect_shader, "textures": [None],
                            "blending": "normal", "depthtest": "disabled",
                            "depthwrite": "disabled", "cullmode": "nocull"}]}
     return {
@@ -166,20 +175,20 @@ def fixture_entries(_label: int = 0) -> dict[str, bytes]:
         "models/main_prefix.mdl": mdl_quad(-9, 9, -6, 6, -2, "materials/grid.json"),
         "models/orange_writer.mdl": mdl_quad(-.65, .15, -1.2, 1.2, 1, "materials/orange.json"),
         "models/later_peer.mdl": mdl_quad(.67, .97, -.65, -.35, -1.2, "materials/green.json"),
-        "models/local_plane.json": encoded({"material": "materials/receiver.json", "passthrough": True}),
-        "materials/receiver.json": encoded(source),
+        plane_model: encoded({"material": source_material, "passthrough": True}),
+        source_material: encoded(source),
         "materials/grid.json": model_material("materials/grid.png"),
         "materials/orange.json": model_material("materials/orange.png"),
         "materials/green.json": model_material("materials/green.png"),
         "materials/grid.png": png(*GRID_SIZE, grid_color),
         "materials/orange.png": png(4, 4, lambda _x, _y: ORANGE),
         "materials/green.png": png(4, 4, lambda _x, _y: GREEN),
-        "shaders/owned_main_plane.vert": SOURCE_VERTEX,
-        "shaders/owned_main_plane.frag": SOURCE_FRAGMENT,
-        "effects/invert/effect.json": encoded({"passes": [{"material": "materials/inverse.json"}]}),
-        "materials/inverse.json": encoded(effect),
-        "shaders/owned_inverse.vert": EFFECT_VERTEX,
-        "shaders/owned_inverse.frag": EFFECT_FRAGMENT,
+        f"shaders/{source_shader}.vert": SOURCE_VERTEX,
+        f"shaders/{source_shader}.frag": SOURCE_FRAGMENT,
+        effect_path: encoded({"passes": [{"material": effect_material}]}),
+        effect_material: encoded(effect),
+        f"shaders/{effect_shader}.vert": EFFECT_VERTEX,
+        f"shaders/{effect_shader}.frag": EFFECT_FRAGMENT,
     }
 
 
@@ -281,18 +290,33 @@ class SceneNativeWorldCompositionTests(unittest.TestCase):
         entries = fixture_entries()
         protocol = {"app": cls.app_identity, "sources": cls.source_identity,
                     "entries": {k: hashlib.sha256(v).hexdigest() for k, v in entries.items()},
+                    "declaredDependencyControls": {str(label): {
+                        "dependencies": [] if label == 0 else [1 if label == 1 else 30],
+                        "renamedResources": label == 2,
+                        "entries": {k: hashlib.sha256(v).hexdigest()
+                                    for k, v in fixture_entries(label).items()}}
+                        for label in (0, 1, 2)},
                     "oracle": roi_protocol(), "realProductChain": "parser→typed role/source Program→ordered graph base/effect→same-frame depth→unique compositor",
                     "reusedCounterexamples": "Existing affine/source-color, read-only no-writer and cancel/resize/pending owners remain separate nearest gates."}
         (cls.evidence_root / "protocol.json").write_bytes(encoded(protocol))
         print(f"N03 native-world source App evidence: {cls.evidence_root}", flush=True)
 
     def test_authored_source_program_effect_and_terminal_readonly_depth(self):
+        self.run_source_case(0)
+
+    def test_unused_earlier_and_later_declared_dependencies_preserve_current_main_source(self):
+        for label in (1, 2):
+            with self.subTest(dependency=1 if label == 1 else 30, renamed=label == 2):
+                self.run_source_case(label)
+
+    def run_source_case(self, label):
         # The existing runner dispatches one real App and asserts immutable
         # inputs, actual Metal completion, no GPU error, normal stop and drain.
         with patch.object(app_runner, "fixture_entries", fixture_entries), patch.object(
                 app_runner, "measure_capture", measure_capture):
-            result = app_runner.SceneReflectionHistoryIntegrationTests.run_case(self, 0, capture=True)
-        work = self.evidence_root / "Ref0-capture-on"
+            result = app_runner.SceneReflectionHistoryIntegrationTests.run_case(self, label, capture=True,
+                material_input_path="materials/retitled/current_view.json" if label == 2 else "materials/receiver.json")
+        work = self.evidence_root / f"Ref{label}-capture-on"
         identity = json.loads((work / "identity.json").read_text())
         inputs_after = {"package": app_runner.sha256(work / "content/scene.pkg"),
                         "project": app_runner.sha256(work / "content/project.json")}

@@ -114,7 +114,7 @@
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 75,
-      "bytes": 10249
+      "bytes": 10382
     },
     "docs/scene/capabilities/material-video-assets.md": {
       "lines": 57,
@@ -125,12 +125,12 @@
       "bytes": 21784
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 162,
-      "bytes": 28837
+      "lines": 171,
+      "bytes": 30545
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 89,
-      "bytes": 36421
+      "lines": 92,
+      "bytes": 38362
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 107,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 173,
-      "bytes": 32440
+      "bytes": 32520
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -367,15 +367,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/effect-execution-coverage.md",
-      "before": "4ed3989160b5a4579b885e841c9acacaabf2d85ce7b5cde4ff9e2abcdd1f50e5",
-      "after": "78a45a7b78afaaba262f100752dca29b0db0cf1a2ff93745dfec6048eabb2abe",
-      "owner": "scene-quad-prepared-input",
-      "reason": "Specify prepared typed asset inputs and existing parent/raster/live ownership; retire blanket slot0 and root-only permissions without adding runtime state.",
-      "decision": "docs/scene/capabilities/effect-execution-coverage.md#source-free-quad"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/development/development-workflow.md",
       "before": "41b5d33a54c9db89cdd10ec70e1bb0c4590e08c2578d28b33f33e4a8f01e96d6",
       "after": "883d7a8a6ae402cf83934c6e86b85d4d8ebbf0c8e22914c55e0318fc5ca7a0b6",
@@ -457,30 +448,39 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/effect-execution-coverage.md",
+      "before": "78a45a7b78afaaba262f100752dca29b0db0cf1a2ff93745dfec6048eabb2abe",
+      "after": "e5b6f55653a82c812ba5d5924e1a33d38c9eea0eb4d690ec33a5e8c517d13884",
+      "owner": "scene-framebuffer-source-declarations",
+      "reason": "Distinguish raw dependency declarations from actual source samplers in the original descriptor/catalog owners. Keep exact native-world source/depth pixels and recovered author source/opacity chain; replace the resolved source queue item with the actual remaining slot3 binding and dormant utility boundaries.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#framebuffer-source-declarations"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "de19db6e16eb65b76b49002cb91f9009f5269305fbedbf7ac28707cf206c1766",
-      "after": "8273677cbd7156228140dde618f9a512715d2f40888c16e0bf26b5f7b0f3d3c3",
-      "owner": "scene-prepared-dependency-slots",
-      "reason": "Define one prepared-ledger slot projection for ready input resolution and remove bypass-only/duplicate consumption. Record bounded exact live-update pixels and recovered author first-frame chain; retain only actual remaining source/cold-program/utility issues and no broader parity claims.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-source-execution-cuts"
+      "before": "8273677cbd7156228140dde618f9a512715d2f40888c16e0bf26b5f7b0f3d3c3",
+      "after": "cb781aeb3e04b01ecf003fe0540d5bee3f6e1ade389370fe37d9569d1b22e9f1",
+      "owner": "scene-framebuffer-source-declarations",
+      "reason": "Distinguish raw dependency declarations from actual source samplers in the original descriptor/catalog owners. Keep exact native-world source/depth pixels and recovered author source/opacity chain; replace the resolved source queue item with the actual remaining slot3 binding and dormant utility boundaries.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#framebuffer-source-declarations"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "ebeddabdac1b71e8a7447345e067b1ba632b85bdaedbfaf138ebd54e10669d70",
-      "after": "0f1b55c8d69b0b6199b6a2024ed1e74a513e717a6078ae86cc847aa0c0a842d1",
-      "owner": "scene-prepared-dependency-slots",
-      "reason": "Define one prepared-ledger slot projection for ready input resolution and remove bypass-only/duplicate consumption. Record bounded exact live-update pixels and recovered author first-frame chain; retain only actual remaining source/cold-program/utility issues and no broader parity claims.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-source-execution-cuts"
+      "before": "0f1b55c8d69b0b6199b6a2024ed1e74a513e717a6078ae86cc847aa0c0a842d1",
+      "after": "025d781da6190e2eb713b5144325761b75aa219e17362154ac27632899e94471",
+      "owner": "scene-framebuffer-source-declarations",
+      "reason": "Distinguish raw dependency declarations from actual source samplers in the original descriptor/catalog owners. Keep exact native-world source/depth pixels and recovered author source/opacity chain; replace the resolved source queue item with the actual remaining slot3 binding and dormant utility boundaries.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#framebuffer-source-declarations"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "edae1aa6119903979c84c5fbdd83cb26621132f076363c22c32d980641220fb8",
-      "after": "283b7ef8a5ff4d739bb55d59120087d3c0efb6b84576255ccae20c102bbbeac6",
-      "owner": "scene-prepared-dependency-slots",
-      "reason": "Define one prepared-ledger slot projection for ready input resolution and remove bypass-only/duplicate consumption. Record bounded exact live-update pixels and recovered author first-frame chain; retain only actual remaining source/cold-program/utility issues and no broader parity claims.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-source-execution-cuts"
+      "before": "283b7ef8a5ff4d739bb55d59120087d3c0efb6b84576255ccae20c102bbbeac6",
+      "after": "35e0c04fcfd713f6c44415782100dbc1e483a9965ec13a6fe58b6956544c46fa",
+      "owner": "scene-framebuffer-source-declarations",
+      "reason": "Distinguish raw dependency declarations from actual source samplers in the original descriptor/catalog owners. Keep exact native-world source/depth pixels and recovered author source/opacity chain; replace the resolved source queue item with the actual remaining slot3 binding and dormant utility boundaries.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#framebuffer-source-declarations"
     }
   ]
 }
