@@ -129,8 +129,8 @@
       "bytes": 40357
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 113,
-      "bytes": 58603
+      "lines": 114,
+      "bytes": 60300
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 115,
@@ -145,8 +145,8 @@
       "bytes": 5973
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
-      "lines": 83,
-      "bytes": 9743
+      "lines": 92,
+      "bytes": 11270
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 106,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 172,
-      "bytes": 32230
+      "bytes": 32754
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -503,29 +503,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "a55facc551681844d8247f0dab7d41c6cc88b6d36a0f42afc41105da7dfb307f",
-      "after": "bb615fc61c2bf3db6e609d9c66ade5ba88a626ccb573e92cf1195c7aa2c83c7f",
-      "owner": "scene-parent-destroy-detachment",
-      "reason": "Replace the invalid all-children destroy permission with target-only retirement and qualified direct-child local detachment; record exact official, native, App and author limits and remove the resolved queue assertion.",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#parent-destroy"
+      "before": "bb615fc61c2bf3db6e609d9c66ade5ba88a626ccb573e92cf1195c7aa2c83c7f",
+      "after": "7afc6118b3ddc1d355c39b7279dd81922639a48f58bc5f91d33e7099965c567e",
+      "owner": "scene-player-editor-context",
+      "reason": "Qualify the public player-context query, real shared helper and downstream typed/Puppet command consumers while retaining independent metadata and origin failures; reconcile the untriggered particle cohort with current input/clock evidence.",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#host-context"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "ce9ea8b8690e3b20d3d265772d935cff1a823dcbe678680061d95e5102011dea",
-      "after": "3699cc42bf4a09a5f8a1f3dfefd3b7913de65d60581b2cac14af587665ee3bc4",
-      "owner": "scene-parent-destroy-detachment",
-      "reason": "Replace the invalid all-children destroy permission with target-only retirement and qualified direct-child local detachment; record exact official, native, App and author limits and remove the resolved queue assertion.",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#parent-destroy"
+      "before": "3699cc42bf4a09a5f8a1f3dfefd3b7913de65d60581b2cac14af587665ee3bc4",
+      "after": "54341e13925faefa5f225be17e45944db3ff7e2442b583c7e77cb3d996203b0e",
+      "owner": "scene-player-editor-context",
+      "reason": "Qualify the public player-context query, real shared helper and downstream typed/Puppet command consumers while retaining independent metadata and origin failures; reconcile the untriggered particle cohort with current input/clock evidence.",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#host-context"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "60f34cb983c441695c3633ea5a148382fc0d926251037cf9bca82915146c5e21",
-      "after": "9a2d1f0a349cb458b1420727238e939c7d258f3c785bf024e7cd44ed97aa0d6f",
-      "owner": "scene-parent-destroy-detachment",
-      "reason": "Replace the invalid all-children destroy permission with target-only retirement and qualified direct-child local detachment; record exact official, native, App and author limits and remove the resolved queue assertion.",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#parent-destroy"
+      "before": "9a2d1f0a349cb458b1420727238e939c7d258f3c785bf024e7cd44ed97aa0d6f",
+      "after": "5ae3e97d4d58a3b30ee65e121c96ec78fdca33afca3ec454bfce6e4bf94b44ec",
+      "owner": "scene-player-editor-context",
+      "reason": "Qualify the public player-context query, real shared helper and downstream typed/Puppet command consumers while retaining independent metadata and origin failures; reconcile the untriggered particle cohort with current input/clock evidence.",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#host-context"
     }
   ]
 }

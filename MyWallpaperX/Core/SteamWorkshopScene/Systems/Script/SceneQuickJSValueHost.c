@@ -14,7 +14,7 @@ static JSValue active_engine_getter(
     return JS_DupValue(context, domain->active_engine);
 }
 
-static JSValue is_screensaver(
+static JSValue wallpaper_host_query(
     JSContext *context,
     JSValueConst this_value,
     int argc,
@@ -24,7 +24,7 @@ static JSValue is_screensaver(
     (void)this_value;
     (void)argc;
     (void)argv;
-    // Scene hosts currently launch wallpapers; the screen saver accepts video only.
+    // This Scene host runs wallpapers, never editor or screen saver sessions.
     return JS_FALSE;
 }
 
@@ -116,13 +116,16 @@ bool mwx_scene_quickjs_bind_active_engine(
         JS_IsException(engine) || previous_engine == NULL) {
         return false;
     }
-    JSValue query = JS_NewCFunction(
-        domain->context, is_screensaver, "isScreensaver", 0
-    );
-    if (JS_IsException(query) || JS_DefinePropertyValueStr(
-            domain->context, engine, "isScreensaver", query, JS_PROP_ENUMERABLE
-        ) < 0) {
-        return false;
+    const char *queries[] = { "isScreensaver", "isRunningInEditor" };
+    for (size_t index = 0; index < sizeof(queries) / sizeof(queries[0]); ++index) {
+        JSValue query = JS_NewCFunction(
+            domain->context, wallpaper_host_query, queries[index], 0
+        );
+        if (JS_IsException(query) || JS_DefinePropertyValueStr(
+                domain->context, engine, queries[index], query, JS_PROP_ENUMERABLE
+            ) < 0) {
+            return false;
+        }
     }
     *previous_engine = domain->active_engine;
     domain->active_engine = engine;

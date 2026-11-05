@@ -31,6 +31,15 @@ SceneScript 是 property-bound ECMAScript：脚本附着于一个有类型的属
 
 源码：[SceneHost](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerSceneHost.c)、[LayerHost](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerHost.c)。
 
+<a id="host-context"></a>
+### 播放宿主的上下文查询
+
+原 IEngine 宿主在模块初始化、init、update和已有事件阶段提供[公开查询 `isRunningInEditor(): Boolean`](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IEngine.html#isrunningineditor-boolean)。本程序是Scene播放器、没有Scene编辑器，结果为false；DEBUG取证窗口、预览窗口和测试Host仍不是编辑器，不能以DEBUG/是否有窗口决定该值。查询由原engine安装与绑定owner提供，不猜脚本名称或源形状，不新增模式、配置、状态或普通帧诊断。
+
+先在原ValueHost承接并复用已有宿主查询安装流程，保持engine既有只读查询属性及绑定/恢复、真实VM异常和未知API的局部失败；不为补一个查询复制宿主或增加假Puppet metadata。真实3504669359的543共享库在top-level调用此API，未构造会让后续shared.offsetedStartAni不存在；166的clip700辅助轨解析拒绝属于另一断点，不能因共享初始化恢复而宣称所有动画恢复。
+
+验收使用原native VM/owner准入门核模块、init/update/事件中的严格Boolean、改名与等价调用、原isScreensaver和未知方法/写保护反例；实际App控制必须以共享初始化后的真实消费者输出或Puppet命令/pose到最终帧为结果。真实作者同输入复测精确543与下游target，不以整体report PASS或少一条异常授全部Puppet/完整画面一致；独立邻例保已有播放与资源寿命。
+
 <a id="parent-destroy"></a>
 ### 父层销毁与存活子层
 

@@ -20,8 +20,8 @@ except ImportError:
 
 SCREENSAVER_HARNESS = r'''
 extension Harness {
-    static func desktopScreensaverFacts() throws -> [String: Any] {
-        let sources = [
+    static func desktopScreensaverFacts(_ query: String = "isScreensaver") throws -> [String: Any] {
+        let templates = [
             """
             const moduleMode=engine.isScreensaver();
             if(typeof moduleMode!=='boolean'||moduleMode!==false)throw new Error('module mode');
@@ -42,6 +42,7 @@ extension Harness {
             "'use strict';engine.isScreensaver=()=>true;export function update(v){return v;}",
             "export function update(v){thisLayer.alpha=0.99;engine.isScreensaverUnknown();return false;}",
         ]
+        let sources = templates.map { $0.replacingOccurrences(of: "isScreensaver", with: query) }
         let descriptor = SceneRenderDescriptor(layers: sources.indices.map { index in
             .init(id: 700+index, layerIndex: index, name: "renamed-desktop-\(index)",
                 visible: true, originXYZ: [0,0,0], scaleXYZ: [1,1,1], scaleHasScript: false,
@@ -88,11 +89,66 @@ extension Harness {
 }
 '''
 
+SCREENSAVER_HARNESS += r'''
+extension Harness {
+    static func editorSharedPuppetFacts() throws -> [String: Any] {
+        let descriptor = SceneRenderDescriptor(layers: [
+            .init(id: 42, layerIndex: 0, name: "owned puppet", visible: true,
+                originXYZ: [0,0,0], scaleXYZ: [1,1,1], scaleHasScript: false,
+                alpha: 1, effects: [], contentKind: "image", sizeWH: [100,100])])
+        let domain = try SceneScriptQuickJSDomain()
+        try domain.configureLayerCatalog(descriptor)
+        let identity = ScenePuppetAnimationIdentity(layerID: 42, animationLayerIndex: 0, animationLayerID: 91)
+        let bootstrap = try SceneScriptValueOwner(domain: domain, source: """
+            const editor=engine.isRunningInEditor();
+            if(typeof editor!=='boolean'||editor!==false)throw Error('context');
+            shared.ownedStart=(animation,fraction)=>{animation.play();animation.setFrame(animation.frameCount*fraction);};
+            export function update(v){return !editor;}
+            """, target: .layer(layerID: 42, field: .visibility), valueType: .bool,
+            effectNames: [], allowsStatefulLayerSideEffects: true,
+            generation: 1, budget: .default)
+        let consumer = try SceneScriptValueOwner(domain: domain, source: """
+            let initialized=0;
+            export function init(v){if(++initialized!==1)throw Error('reinit');
+                shared.ownedStart(thisObject,.25);return v;}
+            export function update(v){return v;}
+            """, target: ScenePuppetAnimationPropertyTarget.visibility(layerID: 42, animationLayerID: 91),
+            valueType: .bool, effectNames: [], puppetAnimationIdentity: identity,
+            allowsStatefulLayerSideEffects: true, generation: 1, budget: .default)
+        try domain.publishPuppetAnimationSnapshot([.init(identity: identity, animationID: 77,
+            name: "Owned animation", framesPerSecond: 30, frameCount: 120, duration: 4,
+            currentFrame: 0, isPlaying: true, rate: 1, blend: 1, visible: true,
+            endedSequence: 0, supportsEndedCallbacks: true, endedFailure: nil)])
+        let frame = SceneScriptFrameInput(timing: .init(wallDate: Date(timeIntervalSince1970: 0),
+            simulationFrameTime: 1.0/60.0, sceneTime: 1))
+        let library = try bootstrap.evaluate(input: .bool(true), frame: frame,
+            scriptPropertiesJSON: "{}", userPropertiesJSON: "{}", expectedGeneration: 1,
+            interruptBudget: nil).get()
+        let initial = try consumer.evaluate(input: .bool(true), frame: frame,
+            scriptPropertiesJSON: "{}", userPropertiesJSON: "{}", expectedGeneration: 1,
+            interruptBudget: nil).get()
+        consumer.commitLayerMutations()
+        let next = try consumer.evaluate(input: .bool(true), frame: frame,
+            scriptPropertiesJSON: "{}", userPropertiesJSON: "{}", expectedGeneration: 1,
+            interruptBudget: nil).get()
+        let commands = initial.puppetAnimationCommands
+        let expected: [ScenePuppetAnimationCommand.Action] = [.play, .setFrame(30)]
+        return ["bootstrap": library.value == .bool(true), "consumer": initial.value == .bool(true),
+            "actions": commands.map(\.action) == expected,
+            "identities": commands.count == 2 && commands.allSatisfy { $0.identity == identity },
+            "notLayerWrites": initial.layerMutations.isEmpty,
+            "nextNoReplay": next.value == .bool(true) && next.puppetAnimationCommands.isEmpty]
+    }
+}
+'''
+
 # Extend the existing candidate binary; share its production VM build and peer gate.
 HARNESS = HARNESS.replace(
     '        let payload: [String: Any] = [\n',
     '        let payload: [String: Any] = [\n'
-    '            "desktopScreensaver": try desktopScreensaverFacts(),\n',
+    '            "desktopScreensaver": try desktopScreensaverFacts(),\n'
+    '            "editorContext": try desktopScreensaverFacts("isRunningInEditor"),\n'
+    '            "editorSharedPuppet": try editorSharedPuppetFacts(),\n',
     1,
 ) + SCREENSAVER_HARNESS
 
@@ -110,10 +166,11 @@ class SceneVectorOwnerAdmissionTests(unittest.TestCase):
         )
         completed = subprocess.run(
             [str(cls.binary)],
-            check=True,
             capture_output=True,
             text=True,
         )
+        if completed.returncode:
+            raise AssertionError(completed.stdout + completed.stderr)
         cls.value = json.loads(completed.stdout)
 
     @classmethod
@@ -121,14 +178,21 @@ class SceneVectorOwnerAdmissionTests(unittest.TestCase):
         cls.temporary_directory.cleanup()
 
     def test_desktop_screensaver_query_reaches_typed_visibility_and_alpha(self) -> None:
-        facts = self.value["desktopScreensaver"]
-        for key in ("committed", "complete", "methodPoisonRejected", "unknownRejected",
-                    "unknownNotPublished", "poisonNotPublished", "failedAlphaRolledBack"):
+        for query in ("desktopScreensaver", "editorContext"):
+            facts = self.value[query]
+            for key in ("committed", "complete", "methodPoisonRejected", "unknownRejected",
+                        "unknownNotPublished", "poisonNotPublished", "failedAlphaRolledBack"):
+                with self.subTest(query=query, key=key):
+                    self.assertIs(facts[key], True)
+            self.assertEqual(facts["firstVisibility"], [True, True])
+            self.assertEqual(facts["nextVisibility"], [True, True])
+            self.assertEqual(facts["alphas"], [[0.25, 700], [0.5, 701]])
+
+    def test_editor_query_bootstrap_reaches_real_native_puppet_commands(self) -> None:
+        facts = self.value["editorSharedPuppet"]
+        for key in ("bootstrap", "consumer", "actions", "identities", "notLayerWrites", "nextNoReplay"):
             with self.subTest(key=key):
                 self.assertIs(facts[key], True)
-        self.assertEqual(facts["firstVisibility"], [True, True])
-        self.assertEqual(facts["nextVisibility"], [True, True])
-        self.assertEqual(facts["alphas"], [[0.25, 700], [0.5, 701]])
 
     def test_only_material_consumers_construct_pass_owners(self) -> None:
         value = self.value

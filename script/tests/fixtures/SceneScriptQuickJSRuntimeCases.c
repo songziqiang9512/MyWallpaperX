@@ -171,12 +171,20 @@ void mwx_fixture_scalar_runtime_cases(MWXSceneScriptQuickJSFixture *fixture) {
         "'use strict'; const moduleMode=engine.isScreensaver();"
         "if(typeof engine.isScreensaver!=='function'||engine.isScreensaver.length!==0||"
         "typeof moduleMode!=='boolean'||moduleMode!==false)throw new Error('module mode');"
+        "const moduleEditor=engine.isRunningInEditor();"
+        "if(typeof engine.isRunningInEditor!=='function'||engine.isRunningInEditor.length!==0||"
+        "typeof moduleEditor!=='boolean'||moduleEditor!==false)throw new Error('module editor');"
         "let moduleWriteRejected=false;try{engine.isScreensaver=()=>true;}"
         "catch(e){moduleWriteRejected=e instanceof TypeError;}"
         "if(!moduleWriteRejected)throw new Error('module method writable');"
+        "let editorWriteRejected=false;try{engine.isRunningInEditor=()=>true;}"
+        "catch(e){editorWriteRejected=e instanceof TypeError;}"
+        "if(!editorWriteRejected)throw new Error('module editor method writable');"
         "let initialized=false,changed=false,fired=false;"
         "function desktop(){const mode=engine.isScreensaver();"
-        "if(typeof mode!=='boolean'||mode!==false)throw new Error('callback mode');return !mode;}"
+        "const editor=engine.isRunningInEditor();"
+        "if(typeof mode!=='boolean'||mode!==false||typeof editor!=='boolean'||editor!==false)"
+        "throw new Error('callback mode');return !mode&&!editor;}"
         "export function init(v){initialized=desktop();"
         "engine.setTimeout(()=>{fired=desktop();},50);return v;}"
         "export function applyUserProperties(){changed=desktop();}"
@@ -204,9 +212,11 @@ void mwx_fixture_scalar_runtime_cases(MWXSceneScriptQuickJSFixture *fixture) {
     }
     const char *renamed_screensaver_source =
         "const atLoad=engine.isScreensaver();if(atLoad!==false)throw new Error('renamed module');"
-        "let permitted=false;export function init(seed){permitted=!engine.isScreensaver();"
+        "const queryAlias=engine.isRunningInEditor;"
+        "if(queryAlias()!==false||typeof queryAlias()!=='boolean')throw new Error('renamed editor');"
+        "let permitted=false;export function init(seed){permitted=!engine.isScreensaver()&&!queryAlias();"
         "return seed+2;}export function update(seed){const hidden=engine.isScreensaver();"
-        "if(typeof hidden!=='boolean'||!permitted)throw new Error('renamed mode');"
+        "if(typeof hidden!=='boolean'||!permitted||queryAlias()!==false)throw new Error('renamed mode');"
         "if(hidden)return -100;else return seed+3;}";
     MWXSceneQuickJSOwner *renamed_screensaver = mwx_scene_quickjs_owner_create(
         fixture->domain,renamed_screensaver_source,strlen(renamed_screensaver_source),
@@ -224,6 +234,8 @@ void mwx_fixture_scalar_runtime_cases(MWXSceneScriptQuickJSFixture *fixture) {
         "'use strict';export function update(v){engine.isScreensaver=()=>true;return v;}",
         "'use strict';export function update(v){engine={isScreensaver:()=>true};return v;}",
         "export function update(v){return engine.isScreensaverUnknown()?v:0;}",
+        "'use strict';export function update(v){engine.isRunningInEditor=()=>true;return v;}",
+        "export function update(v){return engine.isRunningInEditorUnknown()?v:0;}",
     };
     for (size_t index=0;index<sizeof(screensaver_failures)/sizeof(screensaver_failures[0]);++index) {
         const char *source=screensaver_failures[index];

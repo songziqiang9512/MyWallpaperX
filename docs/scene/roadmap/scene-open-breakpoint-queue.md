@@ -40,17 +40,17 @@
 | 双控制点的弧向与周期序列 | Between的raw0x08、0x20及arc参数仍有未消费语义；partial只记录当前未知位/坏size选项，不包含flags23的arcamount，其余字段继续。固定官方周期输入的mask32显示新窗从首端恢复；落实需沿原emitter状态与跨窗出生批次定义序列，不能拿全局particleID减首ID猜多emitter/显式交错。arcamount/方向默认已取证，但非零arcamount尚无消费者，不能因flags23缺bit8便断言其无效；完整曲线、位关联与随机协议未资格；沿用当前组件证据包，补有效/零控制和改名邻例。自然本步新生与存量边界已执行，CP变化同cadence的显式新生/后续Maintain顺序仍需有界对照，不加整链许可。 |
 | 发射器Directions数值域 | `SceneParticleEmitter.hasBoundedDirectionsAndSign`仍把有限Directions限制在abs≤1e6；原Sphere/Box消费及最终新生Float检查没有同名语义上限。应分别核零半径、有效大值、实际乘积溢出和健康peer后，清理无用的幅度许可。当前全量样本未见该幅度门独立活动拒绝，不以它解释其他birth失败。准备期另有静态反例：Directions=(1e200,1e200,0)、固定radius=1e-200时，二维`pow(radius,2)`下溢0；若直接放域会出生在origin，最终Float有限检查抓不到错误零。先沿原径向准备/抽样明确数值语义，不再堆幅度名单或为极罕见输入新增运行防线。 |
 | 粒子预热完成度 · 3009275235/35、3448877775/1775 | 原warmUp已按实际初始化出生/参与模拟数量计价；当前300请求10秒仅模拟4.25秒/255步，344雪层1775请求15秒仅模拟7.6秒/456步，仍保`prewarmBudgetExceeded`且有后续draw。3745828537的51/65两层另请求200秒、实际9.1867秒/689步，当前短窗虽有输出且整场报告通过，预热仍为部分结果。它们是现预算内的真实部分结果；核实际准备成本与初始状态/密度，保RNG、事件排空和Trail历史，不只提高上限或把扩大播放窗当完成预热。成本与rate时钟合同见[预热工作预算](../capabilities/particle-component-coverage.md#prewarm-work)。 |
-| 粒子零接纳 · 2866723317 | 正rate/capacity下只有zero-admitted-count、未见所选帧draw；没有已证delay，需当前count/capacity/consumer定位，不能无依据扩大等待。 |
 | 停止ledger · 3780119725 | 初次selected frame186成功，停止附近frame245有31个`lifecycle-cancellation-ledger-invariant-rejected`；22秒和10秒定向运行未复现。沿原submission/cancellation owner定位，保原失败，不因PNG正常宽泛忽略invariant。 |
 
 ## 内容与观测资格
 
 | 定位 | 当前事实与下一步 |
 |---|---|
+| 粒子短窗触发 · 2866723317 | 当前四秒selected186/GPU完成，无particle draw；334/400/210/106均未进入自然constructor，accepted与construction-rejected均0。前三层确有选频非零供货，但bounds后幂响应与积分没有逐步读值，峰值非零不能断言应出生。106的rate.2及instance.rate.2使10秒预热加4秒live仅约.56个请求，尚不足整数出生；无delay，不改公式或盲延等待。后续按真实root及足够正输入核首次出生/实际batch，不能把该短窗归为构造拒绝。 |
 | effect执行阶段读口 · 3292370168/239e0 | 当前parent named来源已接通；frame0/1在视频首帧pending时局部未供，frame10/11实际执行并GPU完成，selected23有151→e0→e1→main/seal全链。现reader将不同帧同identity的失败/成功聚为矛盾并报unexpected recovery，整样本CHECK4还含505。沿原execution/frame读口区分时间阶段、当前selected结果与持续失败，保原失败事实及同帧真实冲突；不能为消报告改渲染或将短窗恢复授视频更新/全像素。 |
 | 必需binding · 3556263543 | 五个文字psyhue e0在真实采样slot2缺authored/default binding而持续旁路，e1与终端健康。缺项已证，隐式phase默认语义仍未知；不是census注释里的slot3。不得随意填纹理，也不能把copy的GPU完成算原effect执行。 |
 | 隐藏分支shader | 2887099508/257e0明确g_Point1 script attachment未资格；2932157836/299e1 node1/slot0缺binding资格，2857410102/91e3仅有聚合purpose原因。均保never-visible边界；3042492564另有aa_gaussian/node3 stage-link失败，不能与blur slot0混因。 |
-| 作者脚本与VM边界 | 初次32样本、含长窗33样本有实际script诊断；初次TypeError涉及21样本45个target，不能按异常类批量归作者或引擎。2890473419四个origin脚本仅声明shadowLayer即写visible、2982559622把Vec3返回给alpha为已证输入问题；3504669359实际触及prepared Puppet metadata unavailable。其余按`task/full-script-failure-recon.json`逐target核上下文/producer/API/回调顺序。 |
+| 作者脚本与VM边界 | 初次32样本、含长窗33样本有实际script诊断；初次TypeError涉及21样本45个target，不能按异常类批量归作者或引擎。2890473419四个origin脚本仅声明shadowLayer即写visible、2982559622把Vec3返回给alpha为已证输入问题；3504669359当前166的720/718/716仍缺prepared Puppet metadata，首producer为rw1_puppet的clip700辅助轨校验拒绝，已有bind-pose不代动画metadata；372/373/336的origin仍读取undefined.y，需独立实际producer。其余按`task/full-script-failure-recon.json`逐target核上下文/producer/API/回调顺序。 |
 | 缺输入 · 3736952187、3763323436 | project.json不存在，未启动App；补合法输入后再跑，不作引擎失败。 |
 | named demand · 2069136288、3395777145、3829467967 | 未达静态planned的269/395/946无当前active consumer；需property分支输入，不能要求默认帧执行所有潜在capture。 |
 | activation读口 · 3639999624/84e1 | 实际`activation-passthrough:inactive-dependency-preproof-mismatch`被reader判malformed/missing；作者visible=false，有GPU完成及后续e2消费。对齐原producer/reader分类并保inactive资格，不能改渲染消报告；此问题与hidden provider的exact身份命名空间分开。 |

@@ -257,6 +257,49 @@ def destroy_protocol(case, after):
         "scope": "Actual VM parent and world Mat4 reads gate retained child alpha; two named destroy targets, preserved local child/grandchild geometry and independent peer. No official arbitrary-transform parity."}
 
 
+
+def context_entries(case):
+    renamed = case == 18
+    word, shift = ("retitled_context", 1000) if renamed else ("owned_context", 0)
+    field = "retitledColorHelper" if renamed else "colorHelper"
+    entries, objects = {}, []
+    for index, key, rgb, origin in (
+        (10, "library", (255, 0, 255), "128 240 0"),
+        (11, "consumer", (255, 255, 255), "256 128 0"),
+        (12, "peer", (0, 255, 0), "416 240 0"),
+    ):
+        path = f"{word}/{key}"
+        entries[f"materials/{path}.tex"] = solid_texture(rgb)
+        entries[f"materials/{path}.json"] = encoded({"passes": [{"shader": "genericimage", "textures": [path]}]})
+        entries[f"models/{path}.json"] = encoded({"material": f"materials/{path}.json", "width": 16, "height": 16})
+        obj = {"id": index + shift, "name": f"{word} {key}", "image": f"models/{path}.json",
+               "origin": origin, "size": "64 48", "visible": True}
+        query = "engine['isRunningInEditor']()" if renamed else "engine.isRunningInEditor()"
+        if key == "library":
+            obj["visible"] = {"value": True, "script": (
+                f"'use strict';const atLoad={query};"
+                "if(atLoad!==false)throw new Error('editor module context');"
+                f"shared.{field}=function(value){{if({query}!==false)throw new Error('editor helper context');"
+                "return new Vec3(0,0.5,1);};"
+                f"export function init(value){{if({query}!==false)throw new Error('editor init context');return value;}}"
+                f"export function update(value){{if({query}!==false)throw new Error('editor update context');return value;}}")}
+        if key == "consumer":
+            obj["color"] = {"value": "1 0 0", "script": (
+                f"export function update(value){{return shared.{field}(value);}}")}
+        objects.append(obj)
+    entries["scene.json"] = encoded({"version": 3, "general": {"orthogonalprojection": {
+        "width": CANVAS[0], "height": CANVAS[1]}, "clearcolor": "0 0 0"}, "objects": objects})
+    return entries
+
+
+def context_protocol(case):
+    return {"case": case, "ROIs": {
+        "library": {"world": (128, 240), "RGB": (255, 0, 255)},
+        "consumer": {"world": (256, 128), "RGB": (0, 128, 255)},
+        "peer": {"world": (416, 240), "RGB": (0, 255, 0)}},
+        "scope": "Real engine query at module/init/update and cross-owner shared function -> typed image color -> final Metal pixels; preview remains a player, no editor or Puppet parity claim."}
+
+
 def text_protocol(case):
     return {"case": case, "source": 1020 if case in (8, 12, 14) else 20,
         "consumer": 1023 if case in (8, 12, 14) else 23, "slot": 2 if case in (8, 12, 14) else 5,
@@ -429,6 +472,26 @@ class SceneNamedParentSourceIntegrationTests(unittest.TestCase):
                 self.assertNotIn('invalid authored layer destroy', log)
                 self.assertNotIn('layer world transform is unavailable', log)
                 self.assertNotIn('layer parent identity is invalid', log)
+
+    def test_player_context_query_bootstraps_shared_color_consumer(self):
+        for case in (17, 18):
+            with self.subTest(case=case):
+                requested = context_protocol(case)
+                word = "retitled_context" if case == 18 else "owned_context"
+                (self.evidence_root / f"context-protocol-{case}.json").write_bytes(encoded(requested))
+                with patch.object(app_runner, "fixture_entries", context_entries), patch.object(
+                        app_runner, "measure_capture", lambda path: measure_capture(path, requested)):
+                    result = app_runner.SceneReflectionHistoryIntegrationTests.run_case(self, case, capture=True,
+                        extra_arguments=("--mwx-debug-scene-after-snapshot-delay", "3"),
+                        material_input_path=f"materials/{word}/consumer.json")
+                for name, regions in result["pixels"].items():
+                    for key, spec in requested["ROIs"].items():
+                        for actual, wanted in zip(regions[key]["mean"], spec["RGB"], strict=True):
+                            self.assertAlmostEqual(actual, wanted, delta=3, msg=str((case, name, key, regions[key])))
+                log = (self.evidence_root / f"Ref{case}-capture-on/app.log").read_text()
+                self.assertNotIn('TypeError: not a function', log)
+                self.assertNotIn('editor module context', log)
+                self.assertNotIn('editor helper context', log)
 
     def run_text_case(self, case):
         requested = text_protocol(case)

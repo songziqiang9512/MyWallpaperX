@@ -50,7 +50,7 @@
       "owner": "scene-e-route",
       "status": "approved",
       "designDoc": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "design_notes": "父层destroy合同见 designDoc#parent-destroy：原owner journal仅销毁目标，现役topology采用时直接child保local脱父、孙链/健康peer继续；去除必须同owner销毁全部children的错误许可。沿原commit/rollback/VM/资源退休唯一链，无递归cascade、持久脱父表或普通帧新认证。官方平移链观察与其他变换/类型资格分开。",
+      "design_notes": "播放器IEngine上下文合同见 designDoc#host-context：isRunningInEditor固定false由原宿主安装，模块/回调一致，不以DEBUG当编辑器、不新增模式状态；真实共享初始化和下游消费者与独立Puppet格式断点分别验收。 父层destroy合同见 designDoc#parent-destroy：原owner journal仅销毁目标，现役topology采用时直接child保local脱父、孙链/健康peer继续；去除必须同owner销毁全部children的错误许可。沿原commit/rollback/VM/资源退休唯一链，无递归cascade、持久脱父表或普通帧新认证。官方平移链观察与其他变换/类型资格分开。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/**/SceneScript*Component*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineTargetCompiler+Camera.swift",
@@ -61,7 +61,8 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptDynamicLayerRuntime+Values.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayer*.c",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSHandleHost.c",
-        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSInternal.h"
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSInternal.h",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSValueHost.c"
       ],
       "contentPatterns": [
         "registerSceneScriptComponent",
