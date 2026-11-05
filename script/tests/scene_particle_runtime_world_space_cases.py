@@ -215,6 +215,63 @@ class SceneParticleWorldSpaceCases:
                     for actual, value in zip(row[key], expected):
                         self.assertAlmostEqual(actual, value, delta=0.002, msg=str(row))
 
+        def points(actual, expected, label):
+            self.assertEqual(len(actual), len(expected), (label, actual))
+            for value, point in zip(actual, expected):
+                for coordinate, expected_coordinate in zip(value, point):
+                    self.assertAlmostEqual(coordinate, expected_coordinate, delta=0.003, msg=label)
+
+        for row, first, moved in zip(result["ancestry"], [[115, 573, 0], [19, 630, 0]],
+                                     [[155, 513, 0], [-51, 640, 0]]):
+            for fact in ["rootHasNoOwnWriter", "sameReference", "localNoReference"]:
+                self.assertTrue(row[fact], row)
+            self.assertEqual(len(row["active"]), 2, row)
+            points(row["first"], [first], row["name"] + " first")
+            points(row["world"], sorted([first, moved]), row["name"] + " world")
+            points(row["local"], [moved, moved], row["name"] + " local")
+        families = result["families"]
+        expected_families = {
+            "root": [[118, 573, 0], [156, 513, 0], [157, 513, 0]],
+            "static-world": [[123, 573, 0], [163, 513, 0], [163, 513, 0]],
+            "static-local": [[147, 513, 0]] * 3,
+            "spawn-world": [[117, 573, 0], [156, 513, 0]],
+            "spawn-local": [[158, 513, 0], [159, 513, 0], [160, 513, 0]],
+            "follow-world": [[117, 573, 0], [118, 573, 0], [157, 513, 0]],
+            "follow-local": [[118, 573, 0], [118, 573, 0], [157, 513, 0]],
+            "nested-spawn-world": [[115, 573, 0], [155, 513, 0]],
+            "nested-follow-world": [[116, 573, 0], [156, 513, 0]],
+            "nested-follow-local": [[117, 573, 0], [156, 513, 0]],
+        }
+        for name, expected in expected_families.items():
+            points(families["points"][name], expected, name)
+        for fact, value in families.items():
+            if fact != "points":
+                self.assertTrue(value, (fact, families))
+        for name, point in [("root", [155, 513, 0]), ("world", [163, 513, 0]),
+                            ("local", [147, 513, 0])]:
+            points(result["prewarm"][name], [point] * 3, "initial prewarm " + name)
+        rope = result["ropeTrail"]
+        for fact in ["active", "reference", "zeroStepPreservesHistory", "historyRetained"]:
+            self.assertTrue(rope[fact], rope)
+        points(rope["population"], [[118, 573, 0], [119, 573, 0], [120, 573, 0],
+                                     [156, 513, 0], [157, 513, 0]], "rope population")
+        self.assertTrue(rope["centers"], rope)
+        self.assertTrue(any(abs(p[1] - 573) < 0.003 for p in rope["centers"]), rope)
+        self.assertTrue(any(abs(p[1] - 513) < 0.003 for p in rope["centers"]), rope)
+        for x, y, z in rope["centers"]:
+            self.assertTrue((114 <= x <= 121 and abs(y - 573) < 0.003)
+                            or (154 <= x <= 158 and abs(y - 513) < 0.003), rope)
+            self.assertAlmostEqual(z, 0, delta=0.003)
+        for name, expected_position, expected_velocity in [
+            ("force", [40, 60, 0], [1, 0, 0]),
+            ("vortex", [50, 60, 0], [0, -0.72, 0]),
+            ("plane", [40, 60, 0], [0, 0, 0]),
+        ]:
+            row = result["spatialConsumers"][name]
+            self.assertTrue(row["active"], row)
+            points([row["position"]], [expected_position], name + " position")
+            points([row["velocity"]], [expected_velocity], name + " velocity")
+
     def test_root_translation_freezes_locally_recovers_and_rejects_adjacent_profiles(self) -> None:
         result = self.run_harness("worldspace-translation-edges")
         self.assertTrue(result["admitted"], result)

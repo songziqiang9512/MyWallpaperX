@@ -282,7 +282,8 @@ nonisolated extension SceneParticleSimulator {
                 plan: operatorExecutionPlans[operatorIndex].controlPointForce,
                 duration: duration,
                 normalizedLives: normalizedLives,
-                blend: operatorExecutionPlans[operatorIndex].blend
+                blend: operatorExecutionPlans[operatorIndex].blend,
+                controlPointParticleSpace: controlPointParticleSpace
             )
         case .boids:
 #if DEBUG
@@ -304,7 +305,8 @@ nonisolated extension SceneParticleSimulator {
             applyVortex(
                 plan: operatorExecutionPlans[operatorIndex].vortex,
                 duration: duration,
-                audioScale: audioScale
+                audioScale: audioScale,
+                controlPointParticleSpace: controlPointParticleSpace
             )
         case .capVelocity:
 #if DEBUG
@@ -365,7 +367,8 @@ nonisolated extension SceneParticleSimulator {
             componentObservation?.record("operator", operatorIndex, "unknown", reason: "helper-evaluation-witness-unavailable", time: simulationTime)
 #endif
             applyCollisionPlane(
-                plan: operatorExecutionPlans[operatorIndex].collisionPlane
+                plan: operatorExecutionPlans[operatorIndex].collisionPlane,
+                controlPointParticleSpace: controlPointParticleSpace
             )
         case let .inheritEventColor(declaration):
             guard declaration.isBoundedSetColor,

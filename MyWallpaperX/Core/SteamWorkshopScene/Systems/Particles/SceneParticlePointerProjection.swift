@@ -1,9 +1,5 @@
 import simd
 
-nonisolated struct SceneParticlePointerDemand {
-    let referenceWorldFrame: simd_float4x4?
-}
-
 enum SceneParticlePointerProjection {
     static func localPosition(
         mouseNormalized: SIMD2<Float>,

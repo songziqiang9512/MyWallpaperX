@@ -6,21 +6,17 @@ nonisolated extension SceneParticleSimulator {
     func applyVortex(
         plan: SceneParticleVortexPlan?,
         duration: Double,
-        audioScale: Double?
+        audioScale: Double?,
+        controlPointParticleSpace: SceneParticleControlPointParticleSpace? = nil
     ) {
         guard let plan else { return }
         let audioScale = audioScale ?? 1
         let speedScale = effectiveSpeedOverride
         guard speedScale.isFinite else { return }
-        let center: SIMD3<Double>
-        if plan.usesControlPointOrigin {
-            guard vortexOriginIsActive else { return }
-            center = .zero
-        } else {
-            center = .zero
-        }
+        if plan.usesControlPointOrigin && !vortexOriginIsActive { return }
 
         for index in particles.indices {
+            let center = positionReferenceOffset(for: particles[index], space: controlPointParticleSpace)
             let relative = particles[index].position - center
             let axial = plan.axis * dot(relative, plan.axis)
             let radial = relative - axial

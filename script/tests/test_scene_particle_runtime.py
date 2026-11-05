@@ -493,7 +493,7 @@ class SceneParticleRuntimeTests(
         self.assertEqual(result["activeLayerIDs"], [90])
         self.assertEqual(
             result["positions"],
-            [[11, 21, 31], [-4, 7, 8], [3, 4, 5]],
+            [[10, 20, 30], [-5, 6, 7], [2, 3, 4]],
         )
 
     def test_child_scaled_float_overflow_keeps_safe_peer_and_recovers(self) -> None:

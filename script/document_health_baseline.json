@@ -85,8 +85,8 @@
       "bytes": 4068
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 156,
-      "bytes": 19666
+      "lines": 171,
+      "bytes": 22851
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -122,15 +122,15 @@
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 140,
-      "bytes": 21784
+      "bytes": 22076
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 191,
       "bytes": 35296
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 101,
-      "bytes": 44440
+      "lines": 104,
+      "bytes": 46804
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 107,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 174,
-      "bytes": 33102
+      "bytes": 32978
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -385,24 +385,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "89840e973b75ba8fc7d24af25ea350fafc74ef89d2a89107d602bfb2d65f92a3",
-      "after": "5b4468fcaa93b7c2c05549142d4c3cd9bb5b5d68d5dec8acc5d4ba3efda73739",
-      "owner": "Scene generic particle remap contract and bounded official controls",
-      "reason": "Save generic source/range/transform/operation/output ownership before implementation; replace the Remap entry with current consumers and measured unknowns, and link the queue to that single fact source. No new formula or runtime capability is claimed.",
-      "decision": "docs/scene/architecture/runtime-architecture.md#particle-scalar-remap"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "1c27afc37a54bd4e99bea91154e8c0d1a89a8e72295431a58ba4a2344ed528d2",
-      "after": "28953d056abc6e7ca2bf3fac0a88e92bd532bfbde9032f70ba2a23c96a6ed7d7",
-      "owner": "Scene generic particle remap contract and bounded official controls",
-      "reason": "Save generic source/range/transform/operation/output ownership before implementation; replace the Remap entry with current consumers and measured unknowns, and link the queue to that single fact source. No new formula or runtime capability is claimed.",
-      "decision": "docs/scene/architecture/runtime-architecture.md#particle-scalar-remap"
-    },
-    {
-      "section": "bodies",
       "path": "docs/development/local-library-loading-design.md",
       "before": "e2c8785543860e0609127596471bc300ce652af3300693752f7e846c69e0f482",
       "after": "5cb4c9ebb29ae5864071b95ee6d4d0cd9e0aae543a6231481b39294e615d7848",
@@ -493,21 +475,39 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "5b4468fcaa93b7c2c05549142d4c3cd9bb5b5d68d5dec8acc5d4ba3efda73739",
+      "after": "8a9275d0dedc853ae8f18029f5085e6d88b38ad3d8db5e0c1bdf6543a5960c99",
+      "owner": "scene-particle-ancestor-translation",
+      "reason": "Use the original typed current/reference chain for ancestor translation, child creation and position consumers; retire component/renderer permission and unused pointer reference transport. Keep exact App/author composition evidence and current child/prewarm boundaries; replace stale CP/startup assertions.",
+      "decision": "docs/scene/architecture/runtime-architecture.md#particle-world-translation"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "28953d056abc6e7ca2bf3fac0a88e92bd532bfbde9032f70ba2a23c96a6ed7d7",
+      "after": "f895b3baece5b12ba0a678cbdebd3c6cc110c6230d62e1823b6c1f8da40b516d",
+      "owner": "scene-particle-ancestor-translation",
+      "reason": "Use the original typed current/reference chain for ancestor translation, child creation and position consumers; retire component/renderer permission and unused pointer reference transport. Keep exact App/author composition evidence and current child/prewarm boundaries; replace stale CP/startup assertions.",
+      "decision": "docs/scene/architecture/runtime-architecture.md#particle-world-translation"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "02cc09417d9b38f6708551d710176da86f5a047ebcfaffe39f0997f7b2f59915",
-      "after": "5dd28b626485e6300654cae5dd80bb8c8e28828452cbab53e0d78f55c9c855a4",
-      "owner": "scene-visible-parent-graph-output",
-      "reason": "Retire leaf-only permission for an already consumable visible image graph-final. Reuse original graph, named publication and authored main; record exact new graph controls, raw neighbors, independent real sample and absent static author match, preserving hidden/forward/other-source qualification boundaries.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-parent-base"
+      "before": "5dd28b626485e6300654cae5dd80bb8c8e28828452cbab53e0d78f55c9c855a4",
+      "after": "d03157556ce18fbec649b9f6349e7b5f6fa17e6003aeb196556616b4ccf33229",
+      "owner": "scene-particle-ancestor-translation",
+      "reason": "Use the original typed current/reference chain for ancestor translation, child creation and position consumers; retire component/renderer permission and unused pointer reference transport. Keep exact App/author composition evidence and current child/prewarm boundaries; replace stale CP/startup assertions.",
+      "decision": "docs/scene/architecture/runtime-architecture.md#particle-world-translation"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "a364e987eeeae0ba5b750bb81f2834533753662290c763572af94a7264073316",
-      "after": "c5917e05c1aef533942c587221a662e44bf244efd0f4c3960b424b11261ad007",
-      "owner": "scene-visible-parent-graph-output",
-      "reason": "Retire leaf-only permission for an already consumable visible image graph-final. Reuse original graph, named publication and authored main; record exact new graph controls, raw neighbors, independent real sample and absent static author match, preserving hidden/forward/other-source qualification boundaries.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-parent-base"
+      "before": "c5917e05c1aef533942c587221a662e44bf244efd0f4c3960b424b11261ad007",
+      "after": "da12db280d04170d786111cbeb281bbec94ddaf18b35bbd9e69ffeb527fa58c7",
+      "owner": "scene-particle-ancestor-translation",
+      "reason": "Use the original typed current/reference chain for ancestor translation, child creation and position consumers; retire component/renderer permission and unused pointer reference transport. Keep exact App/author composition evidence and current child/prewarm boundaries; replace stale CP/startup assertions.",
+      "decision": "docs/scene/architecture/runtime-architecture.md#particle-world-translation"
     }
   ]
 }

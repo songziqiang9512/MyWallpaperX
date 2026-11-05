@@ -7,7 +7,7 @@
 
 DefinitionParser 保作者顺序、已有字段解析与未知组件诊断；原组件 owner 准备 emitter/initializer/operator、control point、child 和 renderer 计划。每屏 PlaybackState 拥有模拟器、RNG、活动实例和轨迹历史，Session cadence 推进一次；View/GPU 重试不重新出生、执行事件或模拟。
 
-root local/world、layer/world/camera、attachment 与 child space 分别保身份。共享 canonical world/camera 供 emission 和 draw 使用，不能每粒子重解层级、把 Pointer force 的 reference origin 混作发射源，或用 abs/clamp 猜坐标。
+root local/world、layer/world/camera、attachment 与 child space 分别保身份。共享 canonical world/camera 供 emission 和 draw 使用；固定线性基的祖先 origin 平移沿同一 reference/current 链接入 root、child 和生产 model。Pointer/CP 先在当前局部空间取值，实际出生与位置操作各转换一次，不能把 reference 指针再次当新生位置加偏移；职责见[祖先平移合同](../architecture/runtime-architecture.md#particle-world-translation)。不逐粒子重解层级或用 abs/clamp 猜坐标。
 
 执行按准备好的作者顺序处理发射、初始化、操作、运动/死亡和 child，再产实例值与 draw batch。prewarm 执行真实模拟，不只移动 clock。snapshot/restore 属于原 CPU state，不复制 GPU 上传状态。
 

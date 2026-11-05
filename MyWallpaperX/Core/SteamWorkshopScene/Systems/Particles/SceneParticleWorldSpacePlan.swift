@@ -51,7 +51,7 @@ nonisolated struct SceneParticleWorldSpaceFrame: Equatable, Sendable {
     }
 }
 
-/// One immutable reference for the bounded canvas root-translation profile.
+/// One immutable reference for canvas translation under a fixed ancestor basis.
 /// Current transforms are supplied by the existing typed world-frame resolver.
 nonisolated struct SceneParticleRootWorldTranslationPlan: Equatable, Sendable {
     let referenceWorldFrame: simd_float4x4

@@ -10,7 +10,7 @@ final class SceneParticlePlaybackState {
     private let runtime: SceneParticleRuntime
     private var retainedLayerIDs: Set<Int>
     var preparedLayerIDs: Set<Int> { didTeardown ? [] : retainedLayerIDs }
-    var pointerControlPointDemands: [Int: SceneParticlePointerDemand] {
+    var pointerControlPointDemands: Set<Int> {
         runtime.pointerControlPointDemands
     }
     private(set) var batches: [SceneParticleDrawBatch]

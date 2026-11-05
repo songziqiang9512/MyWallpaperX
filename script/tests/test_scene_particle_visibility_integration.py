@@ -374,5 +374,139 @@ class SceneParticleVisibilityIntegrationTests(unittest.TestCase):
         self.run_case(parented=True, missing_texture=True, script_mode="return")
 
 
+def ancestor_translation_entries(case):
+    shift, prefix = (1000, "retitled") if case else (0, "ancestry")
+    ids = {name: value + shift for name, value in
+           {"parent": 10, "nested": 11, "world": 42, "local": 43, "marker": 2, "peer": 1}.items()}
+    condition = "2 <= engine.runtime" if case else "engine.runtime >= 2"
+    parent_script = "export function update(v){return new Vec3(" + condition + "?160:96,192,0);}"
+    marker_script = "export function update(v){return new Vec3(" + condition + "?176:112,256,0);}"
+    objects = [
+        {"id": ids["parent"], "name": prefix + " parent", "origin": {"value": "96 192 0", "script": parent_script}},
+        {"id": ids["nested"], "name": prefix + " nested", "parent": ids["parent"], "origin": "16 0 0"},
+        {"id": ids["marker"], "name": prefix + " phase", "image": f"models/{prefix}.json",
+         "origin": {"value": "112 256 0", "script": marker_script}, "size": "12 12", "color": "1 1 0"},
+        {"id": ids["peer"], "name": prefix + " peer", "image": f"models/{prefix}.json",
+         "origin": "400 192 0", "size": "12 12", "color": "0 1 0"},
+    ]
+    entries = {"materials/" + prefix + ".png": white_png(),
+        f"models/{prefix}.json": encoded({"solidlayer": True, "width": 512, "height": 320}),
+        f"materials/{prefix}.json": encoded({"passes": [{"shader": "genericparticle", "textures": [prefix + ".png"],
+            "blending": "translucent", "depthtest": "disabled", "depthwrite": "disabled", "cullmode": "nocull"}]})}
+    for name, world, y, color in (("world", True, 0, "32 64 224"), ("local", False, -64, "224 32 16")):
+        objects.append({"id": ids[name], "name": prefix + name, "parent": ids["nested"],
+            "particle": f"particles/{prefix}-{name}.json", "origin": f"0 {y} 0", "visible": True})
+        definition = {"material": f"materials/{prefix}.json", "maxcount": 8, "flags": int(world),
+            "emitter": [{"name": "boxrandom", "rate": 1, "instantaneous": 1, "distancemin": 0, "distancemax": 0}],
+            "initializer": [{"name": "lifetimerandom", "min": 100, "max": 100},
+                {"name": "sizerandom", "min": 12, "max": 12},
+                {"name": "colorrandom", "min": color, "max": color}],
+            "operator": [{"name": "movement", "gravity": "0 0 0"}], "renderer": [{"name": "sprite"}]}
+        entries[f"particles/{prefix}-{name}.json"] = encoded(definition)
+    entries["scene.json"] = encoded({"version": 3, "general": {"orthogonalprojection": {"width": 512, "height": 320},
+        "clearcolor": "0.031372549 0.047058824 0.078431373"}, "objects": objects})
+    return entries
+
+
+def ancestor_translation_pixels(path):
+    width, height, rows = png_rgb_pixels(path)
+    scale = max(width / 512, height / 320)
+    regions = {"worldOld": (112, 192), "worldNew": (176, 192), "localOld": (112, 128),
+               "localNew": (176, 128), "phaseOld": (112, 256), "phaseNew": (176, 256), "peer": (400, 192)}
+    result = {"size": [width, height], "regions": {}}
+    for name, (x, y) in regions.items():
+        px, py = round(width / 2 + (x - 256) * scale), round(height / 2 + (160 - y) * scale)
+        values = [rows[yy][xx * 3:xx * 3 + 3] for yy in range(py - 2, py + 3) for xx in range(px - 2, px + 3)]
+        result["regions"][name] = {"pixel": [px, py], "minimum": [min(v[c] for v in values) for c in range(3)],
+            "maximum": [max(v[c] for v in values) for c in range(3)]}
+    return result
+
+
+class SceneParticleAncestorTranslationIntegrationTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        from . import test_scene_reflection_history_integration as runner
+        configured = os.environ.get("MWX_SCENE_INTEGRATION_APP")
+        if not configured:
+            raise unittest.SkipTest("requires an explicitly frozen Debug App executable")
+        cls.app = Path(configured).resolve(strict=True)
+        cls.app_identity = app_hashes(cls.app)
+        paths = [Path(__file__), Path(runner.__file__), Path(__file__).with_name("scene_pkg_fixture.py"),
+                 Path(__file__).parents[1] / "web_benchmark_capture.py",
+                 Path(__file__).parents[1] / "scene_wallpaper_graph_output_metrics.py"]
+        cls.source_identity = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}
+        destination = os.environ.get("MWX_SCENE_INTEGRATION_EVIDENCE")
+        if destination:
+            Path(destination).mkdir(parents=True, exist_ok=True)
+        cls.evidence_root = Path(tempfile.mkdtemp(prefix="particle-ancestor-", dir=destination))
+        protocol = {"app": cls.app_identity, "sources": cls.source_identity,
+            "cases": {str(case): {name: hashlib.sha256(data).hexdigest() for name, data in ancestor_translation_entries(case).items()}
+                      for case in (0, 1)}, "canvas": [512, 320], "tolerance": 3,
+            "phase": "ready before2, after after2; same-frame yellow marker independently confirms phase",
+            "scope": "Two-level ordinary ancestry; actual old/new world births and local peer, no child-template/official parity"}
+        (cls.evidence_root / "protocol.json").write_bytes(encoded(protocol))
+        print("Particle ancestry App evidence: " + str(cls.evidence_root), flush=True)
+
+    def test_world_births_keep_reference_while_local_peer_follows_ancestor(self):
+        self.run_translation_case(0)
+
+    def test_renamed_resources_ids_and_equivalent_parent_script_keep_pixels(self):
+        self.run_translation_case(1)
+
+    def run_translation_case(self, case):
+        from unittest.mock import patch
+        from . import test_scene_reflection_history_integration as runner
+        from script.scene_wallpaper_graph_output_metrics import structured_runtime_observations, terminal_composition_snapshot
+        prefix = "retitled" if case else "ancestry"
+        with patch.object(runner, "fixture_entries", ancestor_translation_entries), patch.object(
+                runner, "measure_capture", ancestor_translation_pixels):
+            result = runner.SceneReflectionHistoryIntegrationTests.run_case(self, case, capture=True,
+                material_input_path=f"materials/{prefix}.json")
+        work = self.evidence_root / f"Ref{case}-capture-on"
+        log = (work / "app.log").read_text()
+        observations = structured_runtime_observations(log, "MWX SCENE COMPOSITION OBSERVATION: ")
+        self.assertEqual(observations["parse_errors"], 0)
+        clear, blue, red, yellow, green = (8, 12, 20), (32, 64, 224), (224, 32, 16), (255, 255, 0), (0, 255, 0)
+        receipts = []
+        for name, after in (("scene-ready-window.png", False), ("scene-after-window.png", True)):
+            colors = {"worldOld": blue, "worldNew": blue if after else clear, "localOld": clear if after else red,
+                "localNew": red if after else clear, "phaseOld": clear if after else yellow,
+                "phaseNew": yellow if after else clear, "peer": green}
+            for region, expected in colors.items():
+                measured = result["pixels"][name]["regions"][region]
+                for edge in ("minimum", "maximum"):
+                    self.assertTrue(all(abs(a - b) <= 3 for a, b in zip(measured[edge], expected)), (name, region, measured, expected))
+            png = work / "evidence" / name
+            reason = "after" if after else "ready"
+            capture = re.search(rf"phase=snapshot reason={reason} request=(\d+) source=metal path={re.escape(str(png))}", log)
+            self.assertIsNotNone(capture)
+            frame = re.search(rf"phase=snapshot-encoded request={capture[1]} commandBufferToken=(\d+) "
+                r"textureToken=(\d+) width=(\d+) height=(\d+)", log)
+            self.assertIsNotNone(frame)
+            matched = terminal_composition_snapshot({"status": "captured", "request_id": int(capture[1]),
+                "command_buffer_token": frame[1], "texture_token": frame[2],
+                "source_width": int(frame[3]), "source_height": int(frame[4])}, observations)
+            self.assertTrue(matched["composition_receipt_matched"], matched)
+            event = next(e for e in observations["events"] if e.get("captureRequestID") == int(capture[1])
+                and e.get("commandBufferToken") == frame[1])
+            self.assertEqual(event["gpuStatus"], "completed")
+            self.assertEqual(event["truncatedRows"], 0)
+            draw_rows = []
+            for identifier in (42, 43):
+                selected = [r for r in event["rows"] if r["kind"] == "particle"
+                    and r.get("layerID") == identifier + (1000 if case else 0) and r.get("outcome") == "draw-encoded"]
+                self.assertEqual(len(selected), 1, selected)
+                row = selected[0]
+                self.assertGreater(int(row["details"]["instanceCount"]), 0)
+                self.assertEqual(row["source"]["role"], "particle-color")
+                self.assertEqual([row["source"]["width"], row["source"]["height"]], [4, 4])
+                self.assertEqual(row["target"]["textureToken"], frame[2])
+                draw_rows.append(row)
+            receipts.append({"capture": name, "frame": event["frameIndex"], "request": event["captureRequestID"],
+                "Surface": event["surfaceIdentity"], "CB": event["commandBufferToken"], "expectedRGB": colors,
+                "particleDraws": draw_rows})
+        (work / "ancestry-chain.json").write_bytes(encoded(receipts))
+
+
 if __name__ == "__main__":
     unittest.main()

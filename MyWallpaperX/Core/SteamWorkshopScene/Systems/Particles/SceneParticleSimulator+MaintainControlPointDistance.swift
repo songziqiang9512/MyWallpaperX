@@ -38,8 +38,7 @@ nonisolated extension SceneParticleSimulator {
             current = .init(start: space.currentOrigin + space.scale * start,
                             end: space.currentOrigin + space.scale * end)
         } else {
-            let offset = rootWorldTranslation != nil
-                ? activeWorldSpaceFrame?.birthPositionOffset ?? .zero : .zero
+            let offset = referencePositionOffset
             current = .init(start: start + offset, end: end + offset)
         }
         let previous = controlPointDistanceHistory[operatorIndex]

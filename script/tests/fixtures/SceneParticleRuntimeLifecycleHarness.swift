@@ -347,7 +347,7 @@ extension Harness {
             let peer = playback.playbackSimulators.first { $0.0 == 43 }!.1
             let reference = control.playbackSimulators.first { $0.0 == 43 }!.1
             facts[trigger + "-real-two-root-qualification"] = playback.preparedLayerIDs == [42, 43]
-                && playback.pointerControlPointDemands[42] != nil && playback.pointerControlPointDemands[43] != nil
+                && playback.pointerControlPointDemands.contains(42) && playback.pointerControlPointDemands.contains(43)
                 && frozen.contains { $0.layerID == 42 && $0.childTemplateIndex == nil && !$0.instances.isEmpty }
             facts[trigger + "-child-qualified"] = trigger == "eventspawn"
                 ? playback.lifecycleSnapshot.childSystemCount > 0
@@ -363,7 +363,7 @@ extension Harness {
             facts[trigger + "-hidden-keeps-instance-and-demand"] = playback.preparedLayerIDs == [42, 43]
                 && playback.playbackSimulators.count == 2
                 && playback.playbackSimulators.first(where: { $0.0 == 42 }).map { ObjectIdentifier($0.1) } == victimIdentity
-                && playback.pointerControlPointDemands[42] != nil
+                && playback.pointerControlPointDemands.contains(42)
             _ = playback.advance(by: 1.0 / 30, pointerLocalPositions: pointers)
             _ = control.advance(by: 1.0 / 30, pointerLocalPositions: pointers)
             playback.retire(layerIDs: [42])
@@ -371,7 +371,7 @@ extension Harness {
             playback.retire(layerIDs: [42])
             facts[trigger + "-root-child-and-demands-retired"] = playback.preparedLayerIDs == [43]
                 && playback.playbackSimulators.count == 1 && playback.playbackObservation(layerID: 42) == nil
-                && Set(playback.pointerControlPointDemands.keys) == [43]
+                && Set(playback.pointerControlPointDemands) == [43]
                 && playback.lifecycleSnapshot.childSystemCount == 0
                 && playback.batches.allSatisfy { $0.layerID == 43 }
             facts[trigger + "-repeated-retirement-is-idempotent"] = lifecycleJSON(playback.lifecycleSnapshot) == retired
@@ -392,7 +392,7 @@ extension Harness {
                 device: device, destroyedAuthoredLayerIDs: [42])
             facts[trigger + "-rebuild-instantiates-only-live-root"] = rebuilt.preparedLayerIDs == [43]
                 && rebuilt.lifecycleSnapshot.rootSystemCount == 1 && rebuilt.lifecycleSnapshot.childSystemCount == 0
-                && Set(rebuilt.pointerControlPointDemands.keys) == [43]
+                && Set(rebuilt.pointerControlPointDemands) == [43]
                 && rebuilt.batches.allSatisfy { $0.layerID == 43 }
             _ = playback.teardown(reason: "retirement-test")
             _ = control.teardown(reason: "retirement-test")

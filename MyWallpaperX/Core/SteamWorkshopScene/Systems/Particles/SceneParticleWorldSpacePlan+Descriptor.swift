@@ -22,17 +22,27 @@ extension SceneRenderDescriptor {
         -> [Int: (plan: SceneParticleRootWorldTranslationPlan, frame: SceneParticleWorldSpaceFrame)] {
         guard let width = camera.orthoWidth, let height = camera.orthoHeight,
               width.isFinite, height.isFinite, width > 0, height > 0 else { return [:] }
-        let parents = Set(layers.compactMap(\.parentID))
+        let byID = Dictionary(uniqueKeysWithValues: layers.map { ($0.id, $0) })
         let candidates = layers.filter { layer in
-            layer.contentKind == "particle" && layer.parentID == nil
-                && layer.attachmentName == nil && layer.parentAttachmentBindFrame == nil
-                && layer.childLayerIDs.isEmpty && !parents.contains(layer.id)
-                && layer.usesPerspective != true && layer.hasTransformWriter(.origin)
-                && !layer.hasTransformWriter(.angles) && !layer.hasTransformWriter(.scale)
-                && !layer.timelineDiagnostics.contains { $0.hasPrefix("origin:") }
+            guard layer.contentKind == "particle" else { return false }
+            var current: Layer? = layer
+            var visited: Set<Int> = []
+            var hasOriginWriter = false
+            while let member = current {
+                guard visited.insert(member.id).inserted,
+                      member.attachmentName == nil, member.parentAttachmentBindFrame == nil,
+                      member.usesPerspective != true,
+                      !member.hasTransformWriter(.angles), !member.hasTransformWriter(.scale),
+                      !member.timelineDiagnostics.contains(where: { $0.hasPrefix("origin:") })
+                else { return false }
+                hasOriginWriter = hasOriginWriter || member.hasTransformWriter(.origin)
+                guard let parentID = member.parentID else { return hasOriginWriter }
+                guard let parent = byID[parentID] else { return false }
+                current = parent
+            }
+            return false
         }
         guard !candidates.isEmpty else { return [:] }
-        let byID = Dictionary(uniqueKeysWithValues: layers.map { ($0.id, $0) })
         let reference = SceneLayerWorldFrameResolver.compute(
             layers: layers, byID: byID, sceneOrthoHeight: camera.orthoHeight)
         let current = SceneLayerDynamicWorldFrameResolver.resolve(descriptor: self,
@@ -84,51 +94,6 @@ extension SceneRenderDescriptor {
                 hasAuthoredTransformMotion: layer.hasAuthoredTransformMotion
             )
         }
-    }
-}
-
-extension SceneParticleRootWorldTranslationPlan {
-    func supports(
-        definition: SceneParticleDefinition,
-        rope: SceneParticleRopePlan? = nil,
-        forceEnvironment: SceneParticleControlPointForceEnvironment = .unavailable
-    ) -> Bool {
-        guard definition.flags.isWorldSpace, !definition.flags.usesPerspective,
-              definition.children.isEmpty, definition.renderers.count == 1,
-              let renderer = definition.renderers.first,
-              definition.controlPoints.allSatisfy({
-                  ($0.rawFlags == 0 || $0.hasBoundedPointerInput)
-                    && $0.parentControlPoint == nil && !$0.hasMalformedFields
-              }),
-              definition.emitters.allSatisfy({ $0.kind == .sphereRandom || $0.kind == .boxRandom }),
-              definition.emitterPointerControlPointIdentities.isEmpty,
-              definition.positionAroundPointerControlPointIdentities.isEmpty,
-              !definition.diagnostics.contains(where: { $0.path.hasPrefix("child") }) else { return false }
-        switch renderer.kind {
-        case .sprite:
-            guard renderer.rawFlags == 0 || renderer.rawFlags == 1,
-                  renderer.axis == nil, !renderer.hasMalformedFields,
-                  renderer.unsupportedFieldNames.isEmpty,
-                  renderer.orientation.map({ $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() })
-                    .map({ $0.isEmpty || $0 == "screen" }) ?? true else { return false }
-        case .rope:
-            guard rope != nil else { return false }
-        default: return false
-        }
-        return definition.operators.allSatisfy { component in
-            switch component.kind {
-            case .movement, .alphaFade, .alphaChange, .sizeChange, .colorChange,
-                 .angularMovement, .oscillateAlpha, .oscillateSize: return true
-            case .controlPointAttract:
-                guard let plan = definition.controlPointForcePlan(
-                    for: component, environment: forceEnvironment
-                ), plan.origin == .zero else { return false }
-                return definition.controlPoints.contains {
-                    $0.id == plan.controlPoint && $0.hasBoundedPointerInput
-                }
-            default: return false
-            }
-        } && !definition.initializers.contains { if case .unsupported = $0.kind { return true }; return false }
     }
 }
 

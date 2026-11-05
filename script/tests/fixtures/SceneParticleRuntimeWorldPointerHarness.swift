@@ -97,28 +97,36 @@ extension Harness {
             let dynamic = input.runtime(forceDescriptor, initial: snapshots[0])
             let stationary = input.runtime(staticDescriptor)
             let pointer = SIMD3<Double>(40, 0, 0)
+            let movedPointer = angle == 0 ? SIMD3<Double>(20, -20, 0) : SIMD3<Double>(10, 40.0 / 3, 0)
             for index in 0..<2 {
+                let currentPointer = index == 0 ? pointer : movedPointer
                 _ = dynamic.advance(by: 1.0 / 60, dynamicValues: snapshots[index],
-                    pointerLocalPositions: [id: pointer], layerWorldFrames: input.frames(forceDescriptor, snapshots[index]))
+                    pointerLocalPositions: [id: currentPointer], layerWorldFrames: input.frames(forceDescriptor, snapshots[index]))
                 _ = stationary.advance(by: 1.0 / 60, pointerLocalPositions: [id: pointer],
                     layerWorldFrames: input.frames(staticDescriptor, .empty(frameIndex: 0)))
             }
             let movingSim = dynamic.playbackSimulators.first { $0.0 == id }?.1
             let fixedSim = stationary.playbackSimulators.first { $0.0 == id }?.1
+            var forceErrors: [Double] = []
             if let movingSim, let fixedSim, let moving = movingSim.particles.first, let fixed = fixedSim.particles.first {
+                let positionError = simd_distance(moving.position, fixed.position)
+                let velocityError = simd_distance(moving.velocity, fixed.velocity)
+                forceErrors = [positionError, velocityError]
+                // The authored pi/2 basis travels through Float world matrices;
+                // the independent current-local pointer is a Double literal.
                 checks[name + "-force-retained-in-reference"] = simd_length(moving.velocity) > 0
-                    && simd_distance(moving.position, fixed.position) < 1e-9
-                    && simd_distance(moving.velocity, fixed.velocity) < 1e-9
-                    && movingSim.dynamicControlPoints[1] == pointer
-                checks[name + "-prepared-pointer-reference"] = dynamic.pointerControlPointDemands[id]?.referenceWorldFrame == reference
-                    && stationary.pointerControlPointDemands[id] != nil && stationary.pointerControlPointDemands[id]?.referenceWorldFrame == nil
+                    && positionError < 1e-6 && velocityError < 1e-6
+                    && movingSim.dynamicControlPoints[1] == movedPointer
+                checks[name + "-current-model-pointer-demand"] = dynamic.pointerControlPointDemands.contains(id)
+                    && stationary.pointerControlPointDemands.contains(id)
                 let emission = try dynamic.emissionContext(layerID: id, dynamicValues: snapshots[1],
-                    pointerLocalPosition: pointer, audio: .silent,
+                    pointerLocalPosition: movedPointer, audio: .silent,
                     worldFrame: input.frames(forceDescriptor, snapshots[1])[id])
-                checks[name + "-explicit-force-target-reference"] = emission.controlPoints[1] == pointer
+                checks[name + "-explicit-force-target-reference"] = emission.controlPoints[1] == movedPointer
             } else { checks[name + "-force-retained-in-reference"] = false }
             rows.append(["name": name, "populations": populations.map { $0.map(vector) },
-                "ropeCenters": centers.map(vector), "dynamicPointerDemand": dynamic.pointerControlPointDemands.keys.sorted()])
+                "ropeCenters": centers.map(vector), "dynamicPointerDemand": dynamic.pointerControlPointDemands.sorted(),
+                "forceErrors": forceErrors])
         }
         try input.particle("particles/safe-peer.json", world: false)
         for mode in ["flags2", "nonzero-origin", "birth-pointer", "position-around", "refraction"] {
@@ -142,7 +150,17 @@ extension Harness {
                     shaderPath: "genericparticle", texturePaths: ["_rt_FullFrameBuffer"], blending: "translucent", combos: ["REFRACT": 1])]) : base
             descriptor.camera = base.camera
             let rejected = input.runtime(descriptor)
-            checks[mode + "-locally-rejected"] = !rejected.activeLayerIDs.contains(891) && rejected.activeLayerIDs.contains(892)
+            let batches = rejected.advance(by: 1.0 / 60, pointerLocalPositions: [891: SIMD3(40, 0, 0)],
+                layerWorldFrames: input.frames(descriptor, .empty(frameIndex: 0)))
+            if mode == "refraction" {
+                checks[mode + "-missing-color-stays-local"] = !rejected.activeLayerIDs.contains(891)
+                    && rejected.activeLayerIDs.contains(892)
+                    && batches.allSatisfy { $0.layerID != 891 }
+            } else {
+                checks[mode + "-root-remains-active"] = rejected.activeLayerIDs.contains(891)
+                    && rejected.activeLayerIDs.contains(892)
+                    && batches.contains { $0.layerID == 891 && $0.referenceWorldFrame != nil }
+            }
         }
         return ["checks": checks, "rows": rows]
     }
@@ -175,7 +193,7 @@ extension Harness {
             [$0.positionAndSize.x, $0.positionAndSize.y, $0.positionAndSize.z]
         } }
         var facts1: [String: Any] = [
-            "demandedLayerIDs": Array(runtime.pointerControlPointDemands.keys),
+            "demandedLayerIDs": runtime.pointerControlPointDemands.sorted(),
             "activeLayerIDs": runtime.activeLayerIDs,
             "positionCount": positions.count,
             "positions": positions,
@@ -260,7 +278,7 @@ extension Harness {
             [$0.positionAndSize.x, $0.positionAndSize.y, $0.positionAndSize.z]
         } ?? []
         var facts2: [String: Any] = [
-            "demandedLayerIDs": Array(runtime.pointerControlPointDemands.keys),
+            "demandedLayerIDs": runtime.pointerControlPointDemands.sorted(),
             "positions": positions,
         ]
 #if DEBUG
@@ -338,7 +356,7 @@ extension Harness {
             device: device
         )
         _ = runtime.advance(by: 1.0 / 60.0)
-        let demand = Array(runtime.pointerControlPointDemands.keys)
+        let demand = runtime.pointerControlPointDemands.sorted()
         // Pointer at +X with a negative-scale attract: particles near the
         // origin accelerate away from the pointer (negative X).
         let withPointer = positionsAfterAdvances(pointer: SIMD3(60, 0, 0))
@@ -415,7 +433,7 @@ extension Harness {
             "activeLayerIDs": runtime.activeLayerIDs,
             "instanceCount": ropeInstances.count,
             "firstPositions": positions,
-            "demandedLayerIDs": Array(runtime.pointerControlPointDemands.keys),
+            "demandedLayerIDs": runtime.pointerControlPointDemands.sorted(),
         ]
 #if DEBUG
         facts4["diagnosticKinds"] = runtime.diagnostics.map(\.kind.rawValue)
@@ -533,7 +551,7 @@ extension Harness {
             "modeCenterSilentCount": modeSilent.count,
             "modeCenterLoudCount": modeActive.count,
             "childPositions": childPositions,
-            "childPointerDemand": Array(childRuntime.pointerControlPointDemands.keys),
+            "childPointerDemand": childRuntime.pointerControlPointDemands.sorted(),
             "childHasAudioConsumer": childRuntime.hasAudioConsumer,
         ]
     }
@@ -591,7 +609,7 @@ extension Harness {
             [$0.positionAndSize.x, $0.positionAndSize.y, $0.positionAndSize.z]
         } ?? []
         var facts5: [String: Any] = [
-            "pointerDemandLayerIDs": Array(runtime.pointerControlPointDemands.keys),
+            "pointerDemandLayerIDs": runtime.pointerControlPointDemands.sorted(),
             "positions": positions,
         ]
 #if DEBUG

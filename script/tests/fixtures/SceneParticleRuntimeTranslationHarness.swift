@@ -117,7 +117,7 @@ extension Harness {
             }
             func points(_ batch: SceneParticleDrawBatch, _ matrix: simd_float4x4) -> [[Float]] {
                 batch.instances.map { value in
-                    let p = matrix * SIMD4(value.positionAndSize.x, value.positionAndSize.y, value.positionAndSize.z, 1)
+                    let p = matrix * SIMD4<Float>(value.positionAndSize.x, value.positionAndSize.y, value.positionAndSize.z, 1)
                     return [p.x, p.y, p.z]
                 }.sorted { $0[0] < $1[0] }
             }
@@ -148,7 +148,10 @@ extension Harness {
                 "cameraViewChanged": abs(p0.x / p0.w - p1.x / p1.w) > 0.01 || abs(p0.y / p0.w - p1.y / p1.w) > 0.01,
             ])
         }
-        return ["admitted": true, "rows": rows]
+        return ["admitted": true, "rows": rows,
+            "ancestry": try ancestryAnchoring(input), "families": try ancestryFamilies(input),
+            "prewarm": try ancestryPrewarm(input), "ropeTrail": try ancestryRopeTrail(input),
+            "spatialConsumers": try ancestrySpatialConsumers(input)]
     }
 
     static func translationEdges() throws -> [String: Any] {
@@ -249,7 +252,8 @@ extension Harness {
             }
             var d = input.descriptor([layer, peer])
             if mode == "native-camera" { d.camera.orthoWidth = nil; d.camera.orthoHeight = nil }
-            result["admission-\(mode)"] = !input.runtime(d).activeLayerIDs.contains(31)
+            let active = input.runtime(d).activeLayerIDs.contains(31)
+            result["admission-\(mode)"] = ["parent", "declared-child", "actual-child"].contains(mode) ? active : !active
         }
         for mode in ["trail", "child", "pointer-cp", "force", "unknown-operator"] {
             let path = "particles/reject-\(mode).json"
@@ -266,8 +270,267 @@ extension Harness {
             }
             let d = input.descriptor([input.layer(31, path), peer])
             let actual = input.runtime(d)
-            result["admission-\(mode)"] = !actual.activeLayerIDs.contains(31) && actual.activeLayerIDs.contains(32)
+            let batches = actual.advance(by: 1.0 / 60,
+                pointerLocalPositions: [31: SIMD3(40, 0, 0)], layerWorldFrames: input.frames(d, .empty(frameIndex: 0)))
+            result["component-does-not-revoke-root-\(mode)"] = actual.activeLayerIDs.contains(31)
+                && actual.activeLayerIDs.contains(32) && batches.contains { $0.layerID == 31 && $0.referenceWorldFrame != nil }
         }
         return result
+    }
+}
+
+extension TranslationInput {
+    func ancestry(_ id: Int, path: String, mirror: Bool = false,
+                  localPath: String? = nil) -> SceneRenderDescriptor {
+        func container(_ key: Int, parent: Int?, origin: [Float]) -> SceneRenderDescriptor.Layer {
+            var value = SceneRenderDescriptor.Layer(id: key, name: "ancestor-\(key)", contentKind: "container",
+                particlePath: nil, particleInstanceOverride: nil, parentID: parent, visible: true, alpha: nil)
+            value.originXYZ = origin; value.scaleXYZ = [1, 1, 1]; value.anglesXYZ = [0, 0, 0]
+            value.originHasScript = true
+            return value
+        }
+        var grand = container(id - 2, parent: nil, origin: [100, 200, 0])
+        if mirror { grand.scaleXYZ = [-2, 3, 1]; grand.anglesXYZ = [0, 0, .pi / 2] }
+        let parent = container(id - 1, parent: id - 2, origin: [10, 20, 0])
+        var root = layer(id, path, writer: false)
+        root.parentID = id - 1; root.originXYZ = [5, 7, 0]
+        var layers = [grand, parent, root]
+        if let localPath {
+            var local = layer(id + 1, localPath, writer: false)
+            local.parentID = id - 1; local.originXYZ = root.originXYZ
+            layers.append(local)
+        }
+        return descriptor(layers, authoredProjection: true)
+    }
+    func ancestrySnapshot(_ id: Int, moved: Bool) -> SceneDynamicSnapshot {
+        snapshot(moved ? [id - 2: SIMD3(120, 230, 0), id - 1: SIMD3(30, 50, 0)]
+                       : [id - 2: SIMD3(100, 200, 0), id - 1: SIMD3(10, 20, 0)])
+    }
+    func model(_ batch: SceneParticleDrawBatch, descriptor: SceneRenderDescriptor,
+               frames: [Int: simd_float4x4]) -> simd_float4x4 {
+        let renderer = SceneMetalRenderer(parallaxByLayerID: [:])
+        let config = SceneLayerParallax.Configuration(enabled: false, amount: 0, mouseInfluence: 0,
+            orthoSize: SIMD2(1000, 800), cameraPosition: SIMD2(500, 400), worldYDown: true)
+        return renderer.particleModelMatrix(for: descriptor.layers.first { $0.id == batch.layerID }!,
+            worldFramesByLayerID: frames, parallaxMouseNormalized: .zero,
+            configuration: config, referenceWorldFrame: batch.referenceWorldFrame)
+    }
+    func points(_ batches: [SceneParticleDrawBatch], descriptor: SceneRenderDescriptor,
+                frames: [Int: simd_float4x4], path: String) -> [[Float]] {
+        var result: [[Float]] = []
+        for batch in batches where batch.particlePath == path {
+            let transform: simd_float4x4 = model(batch, descriptor: descriptor, frames: frames)
+            for instance in batch.instances {
+                let position = instance.positionAndSize
+                let local = SIMD4<Float>(position.x, position.y, position.z, 1)
+                let world: SIMD4<Float> = simd_mul(transform, local)
+                result.append([world.x, world.y, world.z])
+            }
+        }
+        return result.sorted { a, b in a[0] == b[0] ? a[1] < b[1] : a[0] < b[0] }
+    }
+}
+
+extension Harness {
+    static func ancestryAnchoring(_ input: TranslationInput) throws -> [[String: Any]] {
+        var rows: [[String: Any]] = []
+        for (id, name, mirror) in [(1011, "plain-ancestor", false), (3011, "renamed-mirror", true)] {
+            let path = "particles/\(name).json", localPath = "particles/\(name)-local.json"
+            try input.particle(path); try input.particle(localPath, world: false)
+            let d = input.ancestry(id, path: path, mirror: mirror, localPath: localPath)
+            let s0 = input.ancestrySnapshot(id, moved: false), s1 = input.ancestrySnapshot(id, moved: true)
+            let f0 = input.frames(d, s0), f1 = input.frames(d, s1)
+            let runtime = input.runtime(d, initial: s0)
+            let first = runtime.advance(by: 1.0 / 60, dynamicValues: s0, layerWorldFrames: f0)
+            let second = runtime.advance(by: 1.0 / 60, dynamicValues: s1, layerWorldFrames: f1)
+            let ref = first.first { $0.layerID == id }?.referenceWorldFrame
+            rows.append(["name": name, "active": runtime.activeLayerIDs.sorted(),
+                "rootHasNoOwnWriter": d.layers.first { $0.id == id }!.originHasScript == false,
+                "sameReference": ref != nil && second.first { $0.layerID == id }?.referenceWorldFrame == ref,
+                "localNoReference": second.first { $0.layerID == id + 1 }?.referenceWorldFrame == nil,
+                "first": input.points(first, descriptor: d, frames: f0, path: path),
+                "world": input.points(second, descriptor: d, frames: f1, path: path),
+                "local": input.points(second, descriptor: d, frames: f1, path: localPath)])
+        }
+        return rows
+    }
+
+    static func sameTranslationSimulation(_ a: SceneParticleSimulator.FrameSnapshot,
+                                          _ b: SceneParticleSimulator.FrameSnapshot) -> Bool {
+        a.particles == b.particles && a.birthEvents == b.birthEvents && a.deathEvents == b.deathEvents
+            && a.random.state == b.random.state && a.nextParticleID == b.nextParticleID
+            && a.simulationTime == b.simulationTime && a.accumulator == b.accumulator
+    }
+    static func sameTranslationLayer(_ a: SceneParticleRuntime.FrameSnapshot.LayerSnapshot,
+                                     _ b: SceneParticleRuntime.FrameSnapshot.LayerSnapshot) -> Bool {
+        guard let ar = a.root, let br = b.root,
+              sameTranslationSimulation(ar.simulatorFrame, br.simulatorFrame),
+              let ac = a.child, let bc = b.child,
+              ac.nextSeed == bc.nextSeed, ac.nextSystemID == bc.nextSystemID,
+              ac.systems.count == bc.systems.count else { return false }
+        return zip(ac.systems, bc.systems).allSatisfy { x, y in
+            x.id == y.id && x.templateIndex == y.templateIndex && x.depth == y.depth
+                && x.spawnScopeID == y.spawnScopeID && x.parentParticleID == y.parentParticleID
+                && x.origin == y.origin && x.particleOrigins == y.particleOrigins
+                && sameTranslationSimulation(x.simulatorFrame, y.simulatorFrame)
+        }
+    }
+
+    static func ancestryFamilies(_ input: TranslationInput) throws -> [String: Any] {
+        let id = 5011, base = "particles/ancestry-family-"
+        let names = ["static-world", "static-local", "spawn-world", "spawn-local", "follow-world", "follow-local",
+                     "nested-spawn-world", "nested-follow-world", "nested-follow-local"]
+        for name in names {
+            let nested = name.hasPrefix("nested-"), spawn = name.hasPrefix("spawn-")
+            try input.particle(base + name + ".json", world: !name.hasSuffix("local"),
+                               start: spawn && name != "spawn-world" ? 0.05 : (nested ? 1.0 / 60 : 0)) { value in
+                if spawn || nested { value["emitter"] = [["name": "boxrandom", "rate": 0,
+                    "instantaneous": 1, "distancemin": 0, "distancemax": 0]] }
+                if spawn {
+                    var initializers = value["initializer"] as! [[String: Any]]
+                    initializers.append(["name": "velocityrandom", "min": "60 0 0", "max": "60 0 0"])
+                    value["initializer"] = initializers
+                }
+                if name == "spawn-world" {
+                    value["children"] = [["name": base + "nested-spawn-world.json", "type": "eventspawn"],
+                        ["name": base + "nested-follow-world.json", "type": "eventfollow"],
+                        ["name": base + "nested-follow-local.json", "type": "eventfollow"]]
+                }
+            }
+        }
+        let rootPath = base + "root.json", peerPath = base + "peer.json"
+        try input.particle(rootPath) { value in
+            var initializers = value["initializer"] as! [[String: Any]]
+            initializers.append(["name": "velocityrandom", "min": "60 0 0", "max": "60 0 0"])
+            value["initializer"] = initializers
+            value["children"] = [
+                ["name": base + "static-world.json", "type": "static", "origin": "8 0 0"],
+                ["name": base + "static-local.json", "type": "static", "origin": "-8 0 0"],
+                ["name": base + "spawn-world.json", "type": "eventspawn"],
+                ["name": base + "spawn-local.json", "type": "eventspawn"],
+                ["name": base + "follow-world.json", "type": "eventfollow"],
+                ["name": base + "follow-local.json", "type": "eventfollow"]]
+        }
+        try input.particle(peerPath, world: false)
+        let ancestry = input.ancestry(id, path: rootPath)
+        let d = input.descriptor(ancestry.layers + [input.layer(id + 1, peerPath, writer: false)],
+                                 authoredProjection: true)
+        let s0 = input.ancestrySnapshot(id, moved: false), s1 = input.ancestrySnapshot(id, moved: true)
+        let f0 = input.frames(d, s0), f1 = input.frames(d, s1)
+        let runtime = input.runtime(d, initial: s0)
+        let first = runtime.advance(by: 1.0 / 60, dynamicValues: s0, layerWorldFrames: f0)
+        _ = runtime.advance(by: 1.0 / 60, dynamicValues: s1, layerWorldFrames: f1)
+        let third = runtime.advance(by: 1.0 / 60, dynamicValues: s1, layerWorldFrames: f1)
+        let ref = first.first { $0.layerID == id }?.referenceWorldFrame
+        var points: [String: [[Float]]] = [:]
+        for name in names + ["root"] {
+            points[name] = input.points(third, descriptor: d, frames: f1, path: base + name + ".json")
+        }
+        guard let rootIndex = runtime.layers.firstIndex(where: { $0.layerID == id }),
+              let peer = runtime.playbackSimulators.first(where: { $0.0 == id + 1 })?.1 else {
+            return ["points": points, "allChildReferences": false]
+        }
+        let before = runtime.frameSnapshot(), peerTime = peer.simulationTime
+        var invalid = f1; invalid.removeValue(forKey: id)
+        let held = runtime.advance(by: 0.25, dynamicValues: s1, layerWorldFrames: invalid)
+        let frozen = runtime.frameSnapshot()
+        let recovered = runtime.advance(by: 1.0 / 60, dynamicValues: s1, layerWorldFrames: f1)
+        let recoveredState = runtime.frameSnapshot()
+        runtime.restoreFrame(frozen)
+        let replayed = runtime.advance(by: 1.0 / 60, dynamicValues: s1, layerWorldFrames: f1)
+        let replayedState = runtime.frameSnapshot()
+        let replayPoints = (names + ["root"]).allSatisfy { name in
+            input.points(recovered, descriptor: d, frames: f1, path: base + name + ".json")
+                == input.points(replayed, descriptor: d, frames: f1, path: base + name + ".json")
+        }
+        return ["points": points,
+            "allChildReferences": ref != nil && third.filter { $0.layerID == id }.allSatisfy { $0.referenceWorldFrame == ref },
+            "hasDepthTwo": before.layers[rootIndex].child?.systems.contains { $0.depth == 2 } == true,
+            "freezePopulationAndPendingEvents": sameTranslationLayer(before.layers[rootIndex], frozen.layers[rootIndex]),
+            "heldOutput": (names + ["root"]).allSatisfy { name in
+                input.points(third, descriptor: d, frames: f1, path: base + name + ".json")
+                    == input.points(held, descriptor: d, frames: invalid, path: base + name + ".json") },
+            "peerAdvanced": peer.simulationTime > peerTime,
+            "recoveryAdvanced": recoveredState.layers[rootIndex].root!.simulatorFrame.simulationTime
+                > frozen.layers[rootIndex].root!.simulatorFrame.simulationTime,
+            "rollbackStateAndOutput": replayPoints
+                && sameTranslationLayer(recoveredState.layers[rootIndex], replayedState.layers[rootIndex])]
+    }
+
+    static func ancestryPrewarm(_ input: TranslationInput) throws -> [String: Any] {
+        let id = 6011, rootPath = "particles/ancestor-prewarm.json"
+        let worldPath = "particles/ancestor-prewarm-world.json", localPath = "particles/ancestor-prewarm-local.json"
+        try input.particle(worldPath, start: 0.05)
+        try input.particle(localPath, world: false, start: 0.05)
+        try input.particle(rootPath, start: 0.05) { value in
+            value["children"] = [["name": worldPath, "type": "static", "origin": "8 0 0"],
+                ["name": localPath, "type": "static", "origin": "-8 0 0"]]
+        }
+        let d = input.ancestry(id, path: rootPath), s = input.ancestrySnapshot(id, moved: true)
+        let frames = input.frames(d, s), runtime = input.runtime(d, initial: s)
+        let batches = runtime.advance(by: 0, dynamicValues: s, layerWorldFrames: frames)
+        return ["root": input.points(batches, descriptor: d, frames: frames, path: rootPath),
+            "world": input.points(batches, descriptor: d, frames: frames, path: worldPath),
+            "local": input.points(batches, descriptor: d, frames: frames, path: localPath)]
+    }
+
+    static func ancestryRopeTrail(_ input: TranslationInput) throws -> [String: Any] {
+        let id = 7011, path = "particles/ancestor-history.json"
+        try input.particle(path, start: 0.05) { value in
+            value["renderer"] = [["name": "ropetrail", "length": 0.2]]
+            var initializers = value["initializer"] as! [[String: Any]]
+            initializers.append(["name": "velocityrandom", "min": "60 0 0", "max": "60 0 0"])
+            value["initializer"] = initializers
+        }
+        let d = input.ancestry(id, path: path), s0 = input.ancestrySnapshot(id, moved: false)
+        let s1 = input.ancestrySnapshot(id, moved: true), f0 = input.frames(d, s0), f1 = input.frames(d, s1)
+        let runtime = input.runtime(d, initial: s0)
+        let first = runtime.advance(by: 0, dynamicValues: s0, layerWorldFrames: f0)
+        let held = runtime.advance(by: 0, dynamicValues: s1, layerWorldFrames: f1)
+        _ = runtime.advance(by: 1.0 / 60, dynamicValues: s1, layerWorldFrames: f1)
+        let last = runtime.advance(by: 1.0 / 60, dynamicValues: s1, layerWorldFrames: f1)
+        guard let batch = last.first, let ref = batch.referenceWorldFrame,
+              let sim = runtime.playbackSimulators.first(where: { $0.0 == id })?.1 else {
+            return ["active": false]
+        }
+        let matrix = input.model(batch, descriptor: d, frames: f1)
+        let population = sim.particles.map { value -> [Float] in
+            let p = matrix * SIMD4(Float(value.position.x), Float(value.position.y), Float(value.position.z), 1)
+            return [p.x, p.y, p.z]
+        }.sorted { $0[0] < $1[0] }
+        let centers = input.points(last, descriptor: d, frames: f1, path: path)
+        return ["active": true, "population": population, "centers": centers,
+            "reference": first.first?.referenceWorldFrame == ref && held.first?.referenceWorldFrame == ref,
+            "zeroStepPreservesHistory": input.points(first, descriptor: d, frames: f0, path: path)
+                == input.points(held, descriptor: d, frames: f1, path: path),
+            "historyRetained": runtime.frameSnapshot().layers.first?.root?.ropeTrailHistory != nil]
+    }
+
+    static func ancestrySpatialConsumers(_ input: TranslationInput) throws -> [String: Any] {
+        let id = 8011
+        let operators: [(String, [String: Any], String)] = [
+            ("force", ["name": "controlpointattract", "controlpoint": 1, "scale": 60, "threshold": 512], "0 0 0"),
+            ("vortex", ["name": "vortex_v2", "distanceinner": 0, "distanceouter": 100,
+                "speedinner": 60, "speedouter": 60], "10 0 0"),
+            ("plane", ["name": "collisionplane", "plane": "0 1 0", "distance": 0, "bouncefactor": 1], "0 -2 0")]
+        var rows: [String: Any] = [:]
+        for (name, op, position) in operators {
+            let path = "particles/ancestor-consumer-\(name).json"
+            try input.particle(path) { value in
+                value["emitter"] = [["name": "boxrandom", "rate": 0, "instantaneous": 1,
+                    "distancemin": 0, "distancemax": 0, "origin": position]]
+                value["controlpoint"] = [["id": 0, "flags": 0, "offset": "0 0 0"],
+                    ["id": 1, "flags": 0, "offset": "10 0 0"]]
+                value["operator"] = [op]
+            }
+            let d = input.ancestry(id, path: path), moved = input.ancestrySnapshot(id, moved: true)
+            let runtime = input.runtime(d, initial: moved)
+            _ = runtime.advance(by: 1.0 / 60, dynamicValues: moved, layerWorldFrames: input.frames(d, moved))
+            guard let sim = runtime.playbackSimulators.first(where: { $0.0 == id })?.1,
+                  let particle = sim.particles.first else { rows[name] = ["active": false]; continue }
+            rows[name] = ["active": true, "position": [particle.position.x, particle.position.y, particle.position.z],
+                "velocity": [particle.velocity.x, particle.velocity.y, particle.velocity.z]]
+        }
+        return rows
     }
 }

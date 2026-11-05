@@ -12,13 +12,12 @@ extension SceneDesktopWallpaperSession.Surface {
             audioSpectrum: audio)
         let projection = metalView.renderer.resolveFrameWorldProjection(layerTopology: topology,
             dynamicValues: dynamicValues, puppetAttachmentFrames: attachments)
-        let pointers = particlePlayback.pointerControlPointDemands[layerID].map { demand in
-            metalView.renderer.particlePointerLocalPositions(frameContext: context,
+        let pointers = particlePlayback.pointerControlPointDemands.contains(layerID)
+            ? metalView.renderer.particlePointerLocalPositions(frameContext: context,
                 cameraFrame: metalView.renderer.makeCameraFrame(frameContext: context,
                     descriptor: projection.descriptor, layersByID: projection.layersByID,
                     worldFrames: projection.worldFrames), frameProjection: projection,
-                demands: CollectionOfOne((key: layerID, value: demand)))
-        } ?? [:]
+                demands: CollectionOfOne(layerID)) : [:]
         return try particlePlayback.emissionContext(layerID: layerID, dynamicValues: dynamicValues,
             pointerLocalPosition: pointers[layerID],
             audio: .init(left: audio.left, right: audio.right, generation: audio.generation),

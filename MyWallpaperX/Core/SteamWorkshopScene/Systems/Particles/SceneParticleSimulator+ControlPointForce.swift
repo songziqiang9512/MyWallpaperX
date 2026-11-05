@@ -5,7 +5,8 @@ nonisolated extension SceneParticleSimulator {
         plan: SceneParticleControlPointForcePlan?,
         duration: Double,
         normalizedLives: [Double],
-        blend: SceneParticleOperatorBlendPlan
+        blend: SceneParticleOperatorBlendPlan,
+        controlPointParticleSpace: SceneParticleControlPointParticleSpace? = nil
     ) {
         guard let plan,
               let source = controlPointPosition(plan.controlPoint, offset: plan.origin),
@@ -20,7 +21,8 @@ nonisolated extension SceneParticleSimulator {
             target = local
         }
         for index in particles.indices {
-            let delta = target - particles[index].position
+            let delta = target + positionReferenceOffset(for: particles[index], space: controlPointParticleSpace)
+                - particles[index].position
             let distance = SceneParticleSimulationMath.length(delta)
             guard distance.isFinite, distance > 1e-12,
                   distance <= plan.maximumDistance else { continue }
@@ -30,6 +32,19 @@ nonisolated extension SceneParticleSimulator {
                 to: &particles[index].velocity
             )
         }
+    }
+
+    var referencePositionOffset: SIMD3<Double> {
+        rootWorldTranslation != nil ? activeWorldSpaceFrame?.birthPositionOffset ?? .zero : .zero
+    }
+
+    // Child particles retain their birth origin while current point fields follow
+    // the system. Convert only the consumed point, never velocity or direction.
+    func positionReferenceOffset(
+        for particle: SceneParticleState, space: SceneParticleControlPointParticleSpace?
+    ) -> SIMD3<Double> {
+        guard let space else { return referencePositionOffset }
+        return (space.currentOrigin - (space.birthOrigins[particle.id] ?? space.currentOrigin)) / space.scale
     }
 
     func controlPointLocalPosition(_ identity: Int) -> SIMD3<Double>? {

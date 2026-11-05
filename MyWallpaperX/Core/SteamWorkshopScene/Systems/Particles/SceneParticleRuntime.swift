@@ -22,7 +22,7 @@ final class SceneParticleRuntime {
     private(set) var worldSpaceRequiringLayerIDs: Set<Int> = []
     private var frozenWorldSpaceLayerIDs: Set<Int> = []
     /// Prepared root/child pointer demand retires with its owning layer.
-    private(set) var pointerControlPointDemands: [Int: SceneParticlePointerDemand] = [:]
+    private(set) var pointerControlPointDemands: Set<Int> = []
     private(set) var requiredPipelineVariants: Set<SceneParticlePipelineVariant> = []
 #if DEBUG
     var pendingAudioEvaluationObservations:
@@ -242,7 +242,7 @@ final class SceneParticleRuntime {
 #endif
 
         let builtInTextureRegistry = SceneParticleBuiltInTextureRegistry(device: device)
-        var pointerDemands: [Int: SceneParticlePointerDemand] = [:]
+        var pointerDemands: Set<Int> = []
         var worldSpaceDemandLayerIDs = Set<Int>()
         for layer in particleLayers {
             guard let rawPath = layer.particlePath else {
@@ -274,10 +274,8 @@ final class SceneParticleRuntime {
             let forceEnvironment = descriptor.particleControlPointForceEnvironment(
                 for: layer, definition: asset.definition)
             let translation = staticWorldSpaceFrames[layer.id] == nil
-                ? preparedTranslations[layer.id].flatMap {
-                    $0.plan.supports(definition: asset.definition, rope: render?.rope,
-                        forceEnvironment: forceEnvironment) && asset.refraction == nil ? $0 : nil
-                } : nil
+                && asset.definition.flags.isWorldSpace && !asset.definition.flags.usesPerspective
+                ? preparedTranslations[layer.id] : nil
             let worldSpaceFrame = staticWorldSpaceFrames[layer.id] ?? translation?.frame
             guard !asset.definition.flags.isWorldSpace || worldSpaceFrame != nil else {
 #if DEBUG
@@ -315,6 +313,7 @@ final class SceneParticleRuntime {
                 rootInstanceOverride: layer.particleInstanceOverride,
                 initialDynamicInstanceValues: initialDynamicValues.particleInstanceValues(layerID: layer.id),
                 controlPointFrame: initialControlPointFrame,
+                rootTranslationOffset: translation?.frame.birthPositionOffset ?? .zero,
                 initialDynamicControlPoints: initialDynamicValues.particleControlPoints(layerID: layer.id),
                 initialDynamicControlPointAngles: initialDynamicValues.particleControlPointAngles(layerID: layer.id)
             )
@@ -351,8 +350,9 @@ final class SceneParticleRuntime {
                     rootRender: nil,
                     childRuntime: retainedChildRuntime
                 ))
+                if let translation { rootWorldTranslationPlans[layer.id] = translation.plan }
                 if childRuntime.hasPointerControlPointConsumer {
-                    pointerDemands[layer.id] = .init(referenceWorldFrame: nil)
+                    pointerDemands.insert(layer.id)
                 }
                 if asset.definition.flags.isWorldSpace
                     || asset.definition.operators.contains(where: \.isWorldSpaceMovement)
@@ -402,7 +402,7 @@ final class SceneParticleRuntime {
             if let translation { rootWorldTranslationPlans[layer.id] = translation.plan }
             if !rootRender.pointerControlPointIdentities.isEmpty
                 || childRuntime.hasPointerControlPointConsumer {
-                pointerDemands[layer.id] = .init(referenceWorldFrame: translation?.plan.referenceWorldFrame)
+                pointerDemands.insert(layer.id)
             }
             if asset.definition.flags.isWorldSpace
                 || asset.definition.operators.contains(where: \.isWorldSpaceMovement)
@@ -535,7 +535,7 @@ final class SceneParticleRuntime {
             let worldSpaceFrameOverride = liveWorldSpaceFrames[layerID]
             var births: [SceneParticleState] = []
             var deaths: [SceneParticleState] = []
-            var parentParticles: [SceneParticleState] = []
+            var parentParticles = layers[index].rootRender?.simulator.particles ?? []
             let dynamicControlPoints = dynamicValues.particleControlPoints(
                 layerID: layerID
             )
@@ -587,12 +587,19 @@ final class SceneParticleRuntime {
                     audioInput: audioInput,
                     worldSpaceFrameOverride: worldSpaceFrameOverride,
                     controlPointFrame: pointFrame,
+                    rootTranslationOffset: worldSpaceFrameOverride?.birthPositionOffset
+                        ?? layers[index].rootRender?.simulator.activeWorldSpaceFrame?.birthPositionOffset
+                        ?? childRuntime.lastWorldSpaceFrame?.birthPositionOffset ?? .zero,
+                    isFrozen: frozenWorldSpaceLayerIDs.contains(layerID),
                     isVisible: isVisible
                 )
 #if DEBUG
                 collectEvaluationObservations(layerID: layerID, childRuntime: childRuntime)
 #endif
-                batches.append(contentsOf: result.batches)
+                for var batch in result.batches {
+                    batch.referenceWorldFrame = rootWorldTranslationPlans[layerID]?.referenceWorldFrame
+                    batches.append(batch)
+                }
 #if DEBUG
                 for detail in result.limitationDetails {
                     addDiagnostic(
@@ -698,7 +705,7 @@ final class SceneParticleRuntime {
         for layerID in layerIDs {
             worldSpaceChains.removeValue(forKey: layerID)
             rootWorldTranslationPlans.removeValue(forKey: layerID)
-            pointerControlPointDemands.removeValue(forKey: layerID)
+            pointerControlPointDemands.remove(layerID)
         }
         worldSpaceRequiringLayerIDs.subtract(layerIDs)
         frozenWorldSpaceLayerIDs.subtract(layerIDs)

@@ -7,7 +7,7 @@ extension SceneMetalRenderer {
         cameraFrame: SceneParticleCameraFrame,
         frameProjection: SceneMetalRendererFrameWorldProjection,
         demands: Demands
-    ) -> [Int: SIMD3<Double>] where Demands.Element == (key: Int, value: SceneParticlePointerDemand) {
+    ) -> [Int: SIMD3<Double>] where Demands.Element == Int {
         guard frameContext.pointer.isInside, !demands.isEmpty else { return [:] }
         let viewportSize = frameContext.screenSize
         let configuration = parallaxConfiguration(
@@ -16,15 +16,14 @@ extension SceneMetalRenderer {
             viewportSize: viewportSize,
             dynamicValues: frameContext.dynamicValues
         )
-        return Dictionary(uniqueKeysWithValues: demands.compactMap { layerID, demand in
+        return Dictionary(uniqueKeysWithValues: demands.compactMap { layerID in
             guard let layer = frameProjection.layersByID[layerID] else { return nil }
             guard layer.contentKind == "particle" else { return nil }
             let model = particleModelMatrix(
                 for: layer,
                 worldFramesByLayerID: frameProjection.worldFrames,
                 parallaxMouseNormalized: frameContext.cameraParallaxPosition,
-                configuration: configuration,
-                referenceWorldFrame: demand.referenceWorldFrame
+                configuration: configuration
             )
             let mvp = cameraFrame.orthographicViewProjection * model
             guard let position = SceneParticlePointerProjection.localPosition(

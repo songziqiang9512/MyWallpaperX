@@ -1,10 +1,14 @@
 import Foundation
 
 extension SceneParticleSimulator {
-    nonisolated func applyCollisionPlane(plan: SceneParticleCollisionPlanePlan?) {
+    nonisolated func applyCollisionPlane(
+        plan: SceneParticleCollisionPlanePlan?,
+        controlPointParticleSpace: SceneParticleControlPointParticleSpace? = nil
+    ) {
         guard let plan else { return }
         for index in particles.indices {
-            let signedDistance = dot(particles[index].position, plan.normal)
+            let offset = positionReferenceOffset(for: particles[index], space: controlPointParticleSpace)
+            let signedDistance = dot(particles[index].position - offset, plan.normal)
                 - plan.distance
             guard signedDistance.isFinite, signedDistance < 0 else { continue }
 

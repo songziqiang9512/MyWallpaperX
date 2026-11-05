@@ -202,7 +202,7 @@ enum Harness {
         let camera = SceneParticleCameraFrame(orthographicViewProjection: matrix_identity_float4x4)
         let pointerLayer = SceneMetalRendererFrameWorldProjection.Layer(id: 7, contentKind: "particle")
         // Inputs below name final particle models; supply authored world frames to the real model builder.
-        func hostPositions(_ model: simd_float4x4, demand: [Int: SceneParticlePointerDemand] = [7: .init(referenceWorldFrame: nil)],
+        func hostPositions(_ model: simd_float4x4, demand: Set<Int> = [7],
                            inside: Bool = true) -> [Int: SIMD3<Double>] {
             host.particlePointerLocalPositions(
                 frameContext: .init(pointer: .init(current: normalized, isInside: inside)),
@@ -213,9 +213,7 @@ enum Harness {
                 demands: demand)
         }
         let hostFirst = hostPositions(transformedMVP)
-        let referenceDemand = SceneParticlePointerDemand(referenceWorldFrame:
-            transformedMVP * SceneMatrix.scale(SIMD3(1, -1, 1)))
-        func referencePositions(_ model: simd_float4x4, view: simd_float4x4 = matrix_identity_float4x4,
+        func currentPositions(_ model: simd_float4x4, view: simd_float4x4 = matrix_identity_float4x4,
                                 renderer: SceneMetalRenderer = .init(), inside: Bool = true,
                                 explicit: Bool = false) -> [Int: SIMD3<Double>] {
             let frame = SceneFrameContext(pointer: .init(current: normalized, isInside: inside),
@@ -225,25 +223,26 @@ enum Harness {
             let camera = SceneParticleCameraFrame(orthographicViewProjection: view)
             if explicit {
                 return renderer.particlePointerLocalPositions(frameContext: frame, cameraFrame: camera,
-                    frameProjection: projection, demands: CollectionOfOne((key: 7, value: referenceDemand)))
+                    frameProjection: projection, demands: CollectionOfOne(7))
             }
             return renderer.particlePointerLocalPositions(frameContext: frame, cameraFrame: camera,
-                frameProjection: projection, demands: [7: referenceDemand])
+                frameProjection: projection, demands: [7])
         }
         let movedFrame = SceneMatrix.translation(SIMD3(0.15, -0.12, 0)) * transformedMVP
         let hostNext = hostPositions(movedFrame)
-        let anchoredFirst = referencePositions(transformedMVP), anchoredNext = referencePositions(movedFrame)
+        let currentFirst = currentPositions(transformedMVP), currentNext = currentPositions(movedFrame)
         let changedView = SceneMatrix.translation(SIMD3(0.04, -0.06, 0)) * SceneMatrix.scale(SIMD3(0.8, 1.2, 1))
-        let viewed = referencePositions(movedFrame, view: changedView)
+        let viewed = currentPositions(movedFrame, view: changedView)
         let parallaxRenderer = SceneMetalRenderer(parallaxByLayerID: [7: .init(sourceLayerID: 7, depth: SIMD2(0.5, 0.25))],
             configuration: .init(enabled: true, amount: 0.4, mouseInfluence: 0.75,
                 orthoSize: SIMD2(1280, 720), cameraPosition: .zero, worldYDown: true))
-        let referenceProjection: [String: Bool] = [
-            "fixed-pointer-retains-reference": anchoredFirst[7] != nil && anchoredFirst[7] == anchoredNext[7],
-            "outside-stays-unavailable": referencePositions(movedFrame, inside: false).isEmpty,
-            "explicit-prefix-shares-reference": referencePositions(movedFrame, explicit: true)[7] == anchoredNext[7],
-            "parallax-uses-reference-origin": referencePositions(transformedMVP, renderer: parallaxRenderer)[7]
-                == referencePositions(movedFrame, renderer: parallaxRenderer)[7],
+        let currentProjection: [String: Bool] = [
+            "fixed-pointer-uses-current-local": currentFirst[7] != nil && currentNext[7] != nil && currentFirst[7] != currentNext[7],
+            "outside-stays-unavailable": currentPositions(movedFrame, inside: false).isEmpty,
+            "explicit-prefix-shares-current": currentPositions(movedFrame, explicit: true)[7] == currentNext[7],
+            "parallax-uses-current-origin": currentPositions(transformedMVP, renderer: parallaxRenderer)[7] != nil
+                && currentPositions(transformedMVP, renderer: parallaxRenderer)[7]
+                    != currentPositions(movedFrame, renderer: parallaxRenderer)[7],
         ]
         func screenError(_ position: SIMD3<Double>?, model: simd_float4x4) -> Float {
             guard let p = position else { return 1000 }
@@ -355,8 +354,8 @@ enum Harness {
             "staleFrameError": screenError(hostFirst[7], model: movedFrame),
             "hostRecovery": hostPositions(transformedMVP) == hostFirst,
             "hostOutside": hostPositions(transformedMVP, inside: false).isEmpty,
-            "hostNoDemand": hostPositions(transformedMVP, demand: [:]).isEmpty,
-            "hostInvalidDemand": hostPositions(transformedMVP, demand: [8: .init(referenceWorldFrame: nil), 99: .init(referenceWorldFrame: nil)]).isEmpty,
+            "hostNoDemand": hostPositions(transformedMVP, demand: []).isEmpty,
+            "hostInvalidDemand": hostPositions(transformedMVP, demand: [8, 99]).isEmpty,
             "hostSingular": hostPositions(singular).isEmpty,
             "boneCoordinateErrors": boneCoordinateErrors,
             "perspectiveBoneUnchanged": perspectiveBoneUnchanged,
@@ -429,8 +428,8 @@ enum Harness {
                     transformedMVP,
                     required: true
                 ) != nil,
-            "referenceProjection": referenceProjection,
-            "referenceViewError": screenError(viewed[7], model: changedView * transformedMVP),
+            "currentProjection": currentProjection,
+            "currentViewError": screenError(viewed[7], model: changedView * movedFrame),
             "particleLocalPosition": triple(SceneParticlePointerProjection.localPosition(
                 mouseNormalized: normalized,
                 isInside: true,
@@ -506,11 +505,11 @@ class SceneLayerCursorGeometryTests(unittest.TestCase):
         for actual_component, expected_component in zip(actual, expected):
             self.assertAlmostEqual(actual_component, expected_component, places=5)
 
-    def test_prepared_pointer_reference_keeps_world_target_and_uses_live_view(self):
-        for name, passed in self.result["referenceProjection"].items():
+    def test_prepared_pointer_uses_current_local_target_and_live_view(self):
+        for name, passed in self.result["currentProjection"].items():
             with self.subTest(case=name):
                 self.assertTrue(passed)
-        self.assertLess(self.result["referenceViewError"], 0.00001)
+        self.assertLess(self.result["currentViewError"], 0.00001)
 
     def test_particle_host_uses_current_draw_frame_and_recovers_after_change(self) -> None:
         self.assert_pair_almost_equal(self.result["hostFirst"], [0.1, -0.2, 0])

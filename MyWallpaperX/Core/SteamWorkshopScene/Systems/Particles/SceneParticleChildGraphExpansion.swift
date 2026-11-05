@@ -422,6 +422,8 @@ extension SceneParticleChildTemplate {
         dynamicInstanceValues: SceneDynamicParticleValues? = nil,
         origin: SIMD3<Double> = .zero,
         controlPointFrame: SceneParticleControlPointFrame? = nil,
+        worldSpaceFrameOverride: SceneParticleWorldSpaceFrame? = nil,
+        rootTranslationOffset: SIMD3<Double> = .zero,
         initialDynamicControlPoints: [Int: SIMD3<Double>] = [:],
         initialDynamicControlPointAngles: [Int: SIMD3<Double>] = [:],
         maximumEmissionDuration: Double? = nil,
@@ -436,14 +438,10 @@ extension SceneParticleChildTemplate {
             seed: seed,
             particleBudget: particleBudget,
             maximumEmissionDuration: maximumEmissionDuration,
-            worldSpaceFrame: worldSpaceFrame,
+            worldSpaceFrame: worldSpaceFrameOverride ?? worldSpaceFrame,
             controlPointFrame: needsWorldControlPointFrame
-                ? controlPointFrame?.childFrame(origin: origin, scale: transform.scale) : nil,
+                ? controlPointFrame?.childFrame(origin: origin - (definition.flags.isWorldSpace ? rootTranslationOffset : .zero), scale: transform.scale) : nil,
             initialControlPointParticleSpace: definition.flags.isWorldSpace
-                && definition.operators.contains(where: {
-                    if case let .maintainControlPointDistance(plan) = $0.kind { return plan != nil }
-                    return false
-                })
                 ? .init(currentOrigin: origin, scale: transform.scale, birthOrigins: [:]) : nil,
             eventColorContext: eventColorContext
         )

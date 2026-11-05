@@ -12,6 +12,7 @@ enum SceneParticleChildInstanceBuilder {
         systems: [SceneParticleChildSystem],
         renderOnlySystems: [SceneParticleChildSystem] = [],
         layerAlpha: Float,
+        rootTranslationOffset: SIMD3<Double> = .zero,
         into scratch: inout [Int: [SceneParticleGPUInstance]]
     ) {
         for template in templates {
@@ -19,7 +20,7 @@ enum SceneParticleChildInstanceBuilder {
         }
         if renderOnlySystems.isEmpty {
             for system in systems {
-                append(system, lookup: templatesByIndex, layerAlpha: layerAlpha, into: &scratch)
+                append(system, lookup: templatesByIndex, layerAlpha: layerAlpha, rootTranslationOffset: rootTranslationOffset, into: &scratch)
             }
             return
         }
@@ -41,7 +42,7 @@ enum SceneParticleChildInstanceBuilder {
                 system = renderOnlySystems[renderOnlyIndex]
                 renderOnlyIndex += 1
             }
-            append(system, lookup: templatesByIndex, layerAlpha: layerAlpha, into: &scratch)
+            append(system, lookup: templatesByIndex, layerAlpha: layerAlpha, rootTranslationOffset: rootTranslationOffset, into: &scratch)
         }
     }
 
@@ -49,13 +50,15 @@ enum SceneParticleChildInstanceBuilder {
         _ system: SceneParticleChildSystem,
         lookup: [Int: SceneParticleChildTemplate],
         layerAlpha: Float,
+        rootTranslationOffset: SIMD3<Double>,
         into scratch: inout [Int: [SceneParticleGPUInstance]]
     ) {
         guard let template = lookup[system.templateIndex] else { return }
+        let origin = system.origin + (system.isWorldSpace ? .zero : rootTranslationOffset)
         if let rope = template.rope {
             scratch[template.index, default: []].append(contentsOf: rope.instances(
                 particles: system.simulator.particles,
-                origin: system.origin,
+                origin: origin,
                 particleOrigins: system.isWorldSpace ? system.particleOrigins : [:],
                 scale: template.transform.scale,
                 layerAlpha: layerAlpha,
@@ -66,8 +69,8 @@ enum SceneParticleChildInstanceBuilder {
         for particle in system.simulator.renderParticlesForCurrentAdvance() {
             scratch[template.index, default: []].append(template.instance(
                 origin: system.isWorldSpace
-                    ? system.particleOrigins[particle.id] ?? system.origin
-                    : system.origin,
+                    ? system.particleOrigins[particle.id] ?? origin
+                    : origin,
                 particle: particle,
                 layerAlpha: layerAlpha
             ))

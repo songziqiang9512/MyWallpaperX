@@ -127,6 +127,21 @@ Coordinator 在原锁内提交 state/history/pin，GPU terminal 才提升完成�
 
 验收分真实 Parser/Simulator、Runtime→生产 Metal 和作者 batch→最终捕获；官方局部点位和定性尺寸顺序不能升级成全域公式、完整动画或逐像素一致。未消费选项及未资格组合留在[开放问题](../roadmap/scene-open-breakpoint-queue.md)，不能变成隐藏的整链许可。
 
+<a id="particle-world-translation"></a>
+## 粒子祖先平移与参考空间
+
+世界空间粒子的层级平移沿原 `SceneLayerWorldFrameResolver → SceneLayerDynamicWorldFrameResolver → SceneParticleRootWorldTranslationPlan → Simulator / ChildRuntime → DrawBatch → particleModelMatrix` 供货。reference 是作者静态世界矩阵，current 是同一 typed 帧解析的实际矩阵；平移只改变新生位置，存量世界粒子和 Trail 历史留在 reference。相机/parallax 仍由原 renderer 消费。不另建坐标树、时钟、出生历史或状态 owner。
+
+准备沿完整祖先链识别 origin writer，不能再以 parentless、childless 或 renderer 名称判断该平移能否执行。当前切片只接已有固定线性基下的画布平移：附件、perspective、角度/缩放 writer 及改变 basis/z 的当前值不借平移适配器授新行为；实际当前矩阵仍由原 plan 在消费处判断。renderer/材质/组件各自的真实准备与空间消费者保原职责，不借此放开尚未实现的空间操作或作者 child flags。
+
+Root 新生沿原 birthPositionOffset 进入 reference。Child 复用原系统 origin 和 birth-origin 表：world child 的 origin 以 reference 表达，静态系统的 current origin 随本帧层平移，存量保原出生 origin；local child 的系统 origin 仍以当前层本地空间表达，事件/follow 入厂先将 parent 的 reference 位置转换为本地值，组装实例时再投到 reference，不能重复加层平移。depth-two 读取 world parent 的存量或死亡事件时复用其原 birth-origin，不能一律借当前 system origin。child batch 使用与 root 一致的 reference；点转换用匹配的参考或当前 frame 和该 child origin/scale。构造预热、事件/follow 新建模拟器和普通 advance 都接对应调用时的 typed frame，不能偷用模板初始帧。原 child 预热 population 已初始化 birth-origin 表，复用即可。
+
+鼠标投影统一输出 current-local 坐标，需求只保 layer ID 集合；出生在原末端加一次偏移。Force 目标、Vortex 中心和 Plane 的距离比较在各自原消费者转换到粒子的参考空间，方向不平移；world child 复用原 birth-origin 差，不重复保存历史。noise 继续消费原 canonical 粒子字段，没有证据的域变换不猜。
+
+缺失或不相容 current 只冻结受影响层的原 root/child 模拟，不补出生或推进历史；向 child 仍提供真实存活 parent population，不能用空数组触发假死亡。恢复、pause/stop、rollback 和已提交历史继续由现有 owner 处理。
+
+验收须区分旧存量/新出生、world/local、root/static/event/follow/depth-two、初始预热和晚建预热；配旋转/非均匀静态基、改名、无效 frame 冻结/恢复及健康 peer。先用真实 Runtime/Simulator 与生产 model matrix 核世界坐标，再核实际 Metal/PNG。作者 3448877775/15706 的 root RopeTrail 是目标复现；其 eventdeath child rawFlags1 保独立未知边界，不能把 root 恢复写成整条 child 已恢复。未取得的组合继续留开放队列，不为通过控制改作者输入。
+
 <a id="particle-scalar-remap"></a>
 ## 标量 Remap 合同
 
