@@ -311,10 +311,10 @@ extension SceneImageLayerCompositor {
         resolvedMaterialRuntime?.preparedOutputTexturesByLayerID()
     }
 
-    func preparedResolvedMaterialExternalDependencyBypassReason(
+    func preparedResolvedMaterialExternalDependencySlots(
         layerID: Int
-    ) -> String? {
-        resolvedMaterialRuntime?.preparedExternalDependencyBypassReason(
+    ) -> Set<SceneEffectPassSlot>? {
+        resolvedMaterialRuntime?.preparedExternalDependencySlots(
             layerID: layerID
         )
     }

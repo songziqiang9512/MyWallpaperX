@@ -49,15 +49,15 @@ enum SceneUtilityPlanFrameRenderer {
                 modelViewProjection: mvp
             )
             let framePlan = resolvedMaterialFrameTargetPlans[layer.id]
-            let dependencyBypassReason = framePlan == nil ? nil : imageCompositor
-                .preparedResolvedMaterialExternalDependencyBypassReason(layerID: layer.id)
+            let preparedSlots = framePlan == nil ? nil : imageCompositor
+                .preparedResolvedMaterialExternalDependencySlots(layerID: layer.id)
             let requiresDependencyEffect = (framePlan?.consumesExternalPrimaryDependency
-                ?? dependencyRuntime.requiresEffect(for: layer.id)) && dependencyBypassReason == nil
+                ?? dependencyRuntime.requiresEffect(for: layer.id)) && preparedSlots?.isEmpty != true
             let dependencyResolution = renderer.resolveDependencyEffectInputs(
                 layerID: layer.id,
                 requiresDependencyEffect: requiresDependencyEffect,
                 hasResolvedFramePlan: framePlan != nil,
-                bypassReason: dependencyBypassReason,
+                preparedSlots: preparedSlots,
                 dependencyRuntime: dependencyRuntime,
                 textureRegistry: renderer.textureRegistry
             )

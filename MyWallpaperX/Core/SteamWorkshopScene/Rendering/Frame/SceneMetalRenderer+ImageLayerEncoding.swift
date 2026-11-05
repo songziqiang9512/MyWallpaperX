@@ -36,21 +36,21 @@ extension SceneMetalRenderer {
     ) -> (stop: Bool, outcome: SceneImageLayerCompositor.DrawOutcome?) {
         let texture = baseSource.texture
         let resolvedFramePlan = resolvedMaterialFrameTargetPlans[layer.id]
-        let dependencyBypassReason = resolvedFramePlan == nil
+        let preparedSlots = resolvedFramePlan == nil
             ? nil
             : imageCompositor
-                .preparedResolvedMaterialExternalDependencyBypassReason(
+                .preparedResolvedMaterialExternalDependencySlots(
                     layerID: layer.id
                 )
         let requiresDependencyEffect = (
             resolvedFramePlan?.consumesExternalPrimaryDependency
                 ?? dependencyRuntime.requiresEffect(for: layer.id)
-        ) && dependencyBypassReason == nil
+        ) && preparedSlots?.isEmpty != true
         let dependencyResolution = resolveDependencyEffectInputs(
             layerID: layer.id,
             requiresDependencyEffect: requiresDependencyEffect,
             hasResolvedFramePlan: resolvedFramePlan != nil,
-            bypassReason: dependencyBypassReason,
+            preparedSlots: preparedSlots,
             dependencyRuntime: dependencyRuntime,
             textureRegistry: textureRegistry
         )

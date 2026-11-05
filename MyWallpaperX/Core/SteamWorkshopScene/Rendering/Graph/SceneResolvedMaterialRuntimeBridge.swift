@@ -657,8 +657,8 @@ final class SceneResolvedMaterialRuntimeBridge {
         submissions.preparedOutputTexturesByLayerID()
     }
 
-    func preparedExternalDependencyBypassReason(layerID: Int) -> String? {
-        submissions.preparedExternalDependencyBypassReason(layerID: layerID)
+    func preparedExternalDependencySlots(layerID: Int) -> Set<SceneEffectPassSlot>? {
+        submissions.preparedExternalDependencySlots(layerID: layerID)
     }
 
     func markComposite(

@@ -86,7 +86,7 @@ def fixture_entries(*, three_candidates=False):
     return project, entries
 
 
-def named_vector_entries(control, *, utility_provider=None, forward_nested=False, visible_upstream=False, source_timing=None, provider_activation=False):
+def named_vector_entries(control, *, utility_provider=None, forward_nested=False, visible_upstream=False, source_timing=None, provider_activation=False, slot_activation=None):
     """Owned inputs; every consumer samples actual named publications."""
     renamed = control == "swapRename"
     shift, prefix, weight = (1000, "retitled_vector", "u_UnseenRatio") if renamed else (0, "own_vector", "g_OwnWeight")
@@ -167,6 +167,14 @@ def named_vector_entries(control, *, utility_provider=None, forward_nested=False
             "vec4 sampled = texSample2D(g_Texture0,v_TexCoord);"
             "gl_FragColor = vec4(sampled.rgb * vec3(1.0,0.5,1.0),sampled.a);", reads_previous=True)
         consumers[2].update(dependencies=[nested_id], effects=[read_nested, suffix])
+        if slot_activation is not None:
+            project["general"]["properties"]["extraSlot"] = {"type": "bool", "value": not slot_activation}
+            extra = effect("conditional-named", {5: nested_id},
+                "vec4 sampled=texSample2D(g_Texture5,v_TexCoord);"
+                "gl_FragColor=vec4(sampled.rgb*vec3(0.5,1.0,1.0),sampled.a);")
+            extra.update(visible={"user": "extraSlot", "value": not slot_activation},
+                passes=[{"id": 1600 + shift, "textures": [None] * 5 + [named(nested_id)]}])
+            consumers[2]["effects"] = [read_nested, extra, suffix]
         nested = {"id": nested_id, "name": f"{prefix} hidden effectful two-slot provider",
                   "image": f"models/{prefix}/entry.json", "origin": "24 92 0",
                   "size": "24 24", "visible": False, "effects": [paired]}
@@ -387,7 +395,7 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
     def run_case(self, *, three_candidates=False, cache_condition="normal",
                  named_control=None, initially_shown=True, live_shown=None, utility_provider=None,
                  source_control=None, forward_nested=False, visible_upstream=False, source_timing=None,
-                 provider_activation_sequence=None):
+                 provider_activation_sequence=None, slot_activation=None):
         parent = os.environ.get("MWX_SCENE_INTEGRATION_EVIDENCE")
         if parent:
             Path(parent).mkdir(parents=True, exist_ok=True)
@@ -404,7 +412,8 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
             project, entries = (named_vector_entries(named_control, utility_provider=utility_provider,
                                 forward_nested=forward_nested, visible_upstream=visible_upstream,
                                 source_timing=source_timing,
-                                provider_activation=provider_activation_sequence is not None) if named_control is not None
+                                provider_activation=provider_activation_sequence is not None,
+                                slot_activation=slot_activation) if named_control is not None
                                 else fixture_entries(three_candidates=three_candidates))
         (content / "project.json").write_bytes(encoded(project))
         (content / "scene.pkg").write_bytes(make_package(list(entries.items())))
@@ -484,14 +493,24 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
                                                    "interval": .3, "maxSamples": 32}}
         if source_control is not None:
             protocol = source_protocol
+        if slot_activation is not None:
+            protocol["slotActivation"] = {"key": "extraSlot", "initial": not slot_activation, "after": slot_activation,
+                "activeSlot": [0, 0, 2], "conditionalSlot": [1, 0, 5], "healthySuffixEffect": 2}
+            for key, active in (("oracle", not slot_activation), ("afterOracle", slot_activation)):
+                if active:
+                    protocol[key]["sameProvider"]["expectedRGB"] = (30, 64, 52) if named_control == "swapRename" else (74, 32, 28)
         properties = ({} if source_control is not None else
                       {"showVector": initially_shown} if named_control is not None else {"mode": "off"})
+        if slot_activation is not None:
+            properties["extraSlot"] = not slot_activation
         command = [str(self.exe), "--mwx-debug-scene-root", str(content),
                    "--mwx-debug-scene-duration", "9" if provider_activation_sequence is not None else "6",
                    "--mwx-debug-scene-evidence-dir", str(evidence),
                    "--mwx-debug-scene-properties-json", json.dumps(properties)]
         if named_control is not None and live_shown is not None:
             command += ["--mwx-debug-scene-live-properties-json", json.dumps({"showVector": live_shown})]
+        if slot_activation is not None:
+            command += ["--mwx-debug-scene-live-properties-json", json.dumps({"extraSlot": slot_activation})]
         if provider_activation_sequence is not None:
             command += ["--mwx-debug-scene-after-snapshot-delay", "7",
                 "--mwx-debug-scene-live-property-sequence-json",
@@ -771,6 +790,7 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
         consumer, provider, upstream = (chain[key] for key in ("consumer", "provider", "upstream"))
         missing = chain["missingResource"] is not None
         visible_upstream = chain.get("visibleUpstream", False)
+        activation = protocol.get("slotActivation")
         observations = structured_runtime_observations(log, "MWX SCENE COMPOSITION OBSERVATION: ")
         self.assertEqual(observations["parse_errors"], 0)
         receipts = []
@@ -791,8 +811,20 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
                        and r.get("slot") == 2 and r.get("outcome") == "draw-encoded"]
             self.assertEqual(len(c_reads), 1, c_reads)
             self.assertTrue(any(r["kind"] in ("material", "terminal-material-replay")
-                and r.get("layerID") == consumer and r.get("effectIndex") == 1
+                and r.get("layerID") == consumer and r.get("effectIndex") == (2 if activation else 1)
                 and r.get("outcome") == "draw-encoded" for r in rows))
+            if activation:
+                active = activation["initial"] if "ready" in capture.name else activation["after"]
+                conditional = [r for r in rows if r["kind"] in ("material", "terminal-material-replay")
+                    and r.get("layerID") == consumer and r.get("effectIndex") == 1
+                    and r.get("slot") == 5 and r.get("outcome") == "draw-encoded"]
+                self.assertEqual(len(conditional), int(active), conditional)
+                if active:
+                    self.assertEqual(conditional[0]["source"]["textureToken"], c_reads[0]["source"]["textureToken"])
+                c_main = [r for r in rows if r["kind"] == "tail-consume" and r.get("layerID") == consumer
+                    and r.get("access") != "named-publication-only" and r.get("outcome") == "terminal-consumed"]
+                self.assertEqual(len(c_main), 1, c_main)
+                self.assertLess(rows.index(c_reads[0]), rows.index(c_main[0]))
             if missing:
                 self.assertEqual(p_reads, [])
             else:
@@ -828,8 +860,15 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
                 "providerAssociationLimit": "provider IDs from authored slots and publication logs; no typed per-slot provider ID",
                 "providerTail": publications[0],
                 "providerReads": p_reads, "consumerRead": c_reads[0], "authoredMain": authored_main})
+            if activation:
+                receipts[-1]["conditionalReads"] = conditional
+                receipts[-1]["consumerMain"] = c_main[0]
         (captures[0].parent.parent / "nested-chain.json").write_bytes(encoded(receipts))
-        for effect in (0, 1):
+        if activation:
+            self.assertNotIn("prepared-frame-consumption-rejected", log)
+            self.assertRegex(log, r"phase=live-property-update accepted=true surfacesBefore=1 surfacesAfter=1")
+            self.assertEqual(len({row["surface"] for row in receipts}), 1)
+        for effect in ((0, 2) if activation else (0, 1)):
             self.assertRegex(log, rf"axis=effect-cpu-invocation [^\n]*layer={consumer} effect={effect} "
                 r"[^\n]*backend=resolved-material-graph outcome=encoded-output ")
         self.assertIn(f"phase=named-graph-output-publication layer={provider} status=succeeded", log)
@@ -864,6 +903,11 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
 
     def test_forward_nested_two_slot_provider_survives_rename(self):
         self.run_case(named_control="swapRename", forward_nested=True)
+
+    def test_same_named_provider_keeps_only_active_effect_slots_after_hot_update(self):
+        for control, enabled in (("both", False), ("swapRename", False)):
+            with self.subTest(control=control, enabled=enabled):
+                self.run_case(named_control=control, forward_nested=True, slot_activation=enabled)
 
     def test_visible_upstream_graph_publishes_once_and_composites_at_authored_position(self):
         self.run_case(named_control="both", forward_nested=True, visible_upstream=True)

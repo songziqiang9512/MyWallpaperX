@@ -8,6 +8,12 @@ struct SceneFrameTiming { let sceneTime: TimeInterval }
 // Harness stubs mirror the exact member surface the compiled product files
 // touch. Product files listed in STATIC_SOURCE_DRAW_ONLY_SOURCES stay verbatim.
 
+// Only the unused production preflight-result header names this schedule.
+// An uninhabited carrier cannot stand in for dependency planning behavior.
+enum SceneDependencyRenderPlan {
+    enum PreparationSchedule {}
+}
+
 enum SceneFrameTextureIdentity: Equatable { case layerSource(Int) }
 
 nonisolated struct SceneTextureProviderPublication {
@@ -64,7 +70,7 @@ struct SceneNamedTextureReference {
     let variant: Variant
 }
 
-struct SceneEffectPassSlot {
+struct SceneEffectPassSlot: Hashable {
     let slotIndex: Int
 }
 
@@ -393,6 +399,12 @@ final class SceneResolvedMaterialRuntimeBridge {
         texture: MTLTexture,
         consumed: Bool
     ) -> MarkOutcome { .consumed }
+    func markOutputReady(
+        _ ticket: ExecutionTicket,
+        texture: MTLTexture
+    ) -> MarkOutcome {
+        fatalError("graph output readiness is outside this static-source draw-only fixture")
+    }
     func markNamedPublication(
         _ ticket: ExecutionTicket,
         texture: MTLTexture,
@@ -415,7 +427,8 @@ final class SceneResolvedMaterialRuntimeBridge {
         return .ready
     }
     func preparedOutputTexturesByLayerID() -> [Int: MTLTexture]? { nil }
-    func preparedExternalDependencyBypassReason(layerID: Int) -> String? { nil }
+    // Prepared dependency ledgers are outside this static-source draw-only fixture.
+    func preparedExternalDependencySlots(layerID: Int) -> Set<SceneEffectPassSlot>? { nil }
     func installFrameLocalFallbacks(_ fallbacks: [Int: String]) -> Bool {
         fallbacks.isEmpty
     }

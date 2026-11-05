@@ -35,7 +35,8 @@ extension SceneDependencyFrameRuntime {
     /// stays local to its operation; existing resource identity drift is invalid.
     func aggregateEffectInputResolution(
         for aggregate: SceneDependencyRenderPlan.MultiProviderAggregate,
-        textureRegistry: SceneFrameTextureRegistry
+        textureRegistry: SceneFrameTextureRegistry,
+        selectedSlots: Set<SceneEffectPassSlot>? = nil
     ) -> SceneResolvedMaterialAggregateInputResolution {
         let frameEpoch = textureRegistry.frameEpoch
         guard frameEpoch > 0 else {
@@ -45,7 +46,7 @@ extension SceneDependencyFrameRuntime {
         }
         synchronizeReservations(to: frameEpoch)
         var inputs: [SceneDependencyEffectInput] = []
-        for binding in aggregate.bindings {
+        for binding in aggregate.bindings where selectedSlots?.contains(binding.slot) != false {
             let reference = SceneNamedTextureReference(
                 providerLayerID: binding.providerLayerID,
                 variant: .primary

@@ -59,7 +59,8 @@ enum SceneSubmissionTerminalReplayChecks {
             dependencyKind: SceneDependencyRenderPlan.Binding.Kind? = nil,
             providerUnavailable: Bool = false
         ) -> (outcome: String, calls: Int, consumed: Bool, dropped: Bool,
-              dependencyConsumed: Bool, bypassReason: String?) {
+              dependencyConsumed: Bool, dependencySlots: Set<SceneEffectPassSlot>?,
+              missingLedgerHasNoSlots: Bool) {
             let binding = dependencyKind.map {
                 externalPrimaryBinding(slotIndex: $0 == .solidLayer ? 3 : 1,
                     kind: $0)
@@ -142,8 +143,8 @@ enum SceneSubmissionTerminalReplayChecks {
                 blueprint: nil,
                 candidateTails: [:],
                 commit: makeCommit(generation: 1),
-                phase: binding == nil ? .encoded : .allocationCommitted,
-                claimConsumed: binding == nil, ticketConsumed: false,
+                phase: .allocationCommitted,
+                claimConsumed: false, ticketConsumed: false,
                 outputConsumed: false, compositorConsumed: false,
                 submissionID: nil
             )
@@ -158,7 +159,9 @@ enum SceneSubmissionTerminalReplayChecks {
                 terminalReplayBlendMode: blendMode,
                 terminalReadsCurrentAttachment: readsCurrentAttachment
             )
-            let bypassReason = coordinator.preparedExternalDependencyBypassReason(layerID: 7)
+            let dependencySlots = coordinator.preparedExternalDependencySlots(layerID: 7)
+            let missingLedgerHasNoSlots =
+                coordinator.preparedExternalDependencySlots(layerID: 999) == nil
             if binding != nil {
                 SceneResolvedMaterialGraphExecutor.encodeSucceeds = true
                 guard case let .claimed(claim) = coordinator.claim(layerID: 7),
@@ -167,9 +170,13 @@ enum SceneSubmissionTerminalReplayChecks {
                         commandBuffer: buffer
                       ) else {
                     return ("dependency-execution-rejected", 0, false,
-                            coordinator.frameRequiresDrop, false, bypassReason)
+                            coordinator.frameRequiresDrop, false,
+                            dependencySlots, missingLedgerHasNoSlots)
                 }
                 ticket = issuedTicket
+            } else {
+                coordinator.activeByID[1]?.phase = .encoded
+                coordinator.activeByID[1]?.claimConsumed = true
             }
             mutate(coordinator, &ticket)
             SceneSubmissionTerminalReplayFixture.expectedTarget = target
@@ -212,7 +219,8 @@ enum SceneSubmissionTerminalReplayChecks {
             if repeated { value = outcome() }
             return (value, SceneSubmissionTerminalReplayFixture.commandBuffers.count,
                     consumed, coordinator.frameRequiresDrop,
-                    ticket.consumesExternalPrimaryDependency, bypassReason)
+                    ticket.consumesExternalPrimaryDependency,
+                    dependencySlots, missingLedgerHasNoSlots)
         }
         // Exercise the real coordinator request/prepare/issue chain. The fake
         // executor transports the request mode; the seed deliberately has none.
@@ -285,6 +293,8 @@ enum SceneSubmissionTerminalReplayChecks {
         results["terminalReceiptConsumesOnceWithoutTextureSampling"] =
             success.outcome == "consumed" && success.calls == 1 && success.consumed && !success.dropped
                 && propagatedMode && propagatedAttachment
+        results["preparedNoExternalDemandProjectsEmptySlots"] = success.dependencySlots == []
+        results["missingLedgerDoesNotInventPreparedSlots"] = success.missingLedgerHasNoSlots
         let additive = scenario(blendMode: 31)
         results["additiveTerminalReceiptConsumesActualRoleOnce"] =
             additive.outcome == "consumed" && additive.calls == 1 && additive.consumed
@@ -296,9 +306,12 @@ enum SceneSubmissionTerminalReplayChecks {
         for kind in [SceneDependencyRenderPlan.Binding.Kind.imageLayerBlend,
                      .visibleImageGraphOutput, .solidLayer, .resolvedMaterial] {
             let ready = scenario(dependencyKind: kind)
+            let expectedSlot = SceneEffectPassSlot(effectID: "effect-7", passIndex: 0,
+                slotIndex: kind == .solidLayer ? 3 : 1)
             results["externalPrimaryReady_\(kind)_ConsumesTerminalReceipt"] =
                 ready.outcome == "consumed" && ready.calls == 1
                     && ready.consumed && !ready.dropped && ready.dependencyConsumed
+                    && ready.dependencySlots == Set([expectedSlot])
         }
         let hiddenDependency = scenario(mutate: { _, ticket in
             ticket = .init(identity: ticket.identity, epoch: ticket.epoch,
@@ -323,7 +336,7 @@ enum SceneSubmissionTerminalReplayChecks {
         let missing = scenario(replay: false, ordinaryAfterNotApplicable: true,
             dependencyKind: .resolvedMaterial, providerUnavailable: true)
         results["missingProviderKeepsOrdinaryLocalFallbackReceipt"] =
-            missing.bypassReason == "external-primary-provider-source-unavailable"
+            missing.dependencySlots == []
                 && !missing.dependencyConsumed && missing.outcome == "consumed"
                 && missing.calls == 0 && missing.consumed && !missing.dropped
         // Execution emits local passthrough diagnostics alongside a valid

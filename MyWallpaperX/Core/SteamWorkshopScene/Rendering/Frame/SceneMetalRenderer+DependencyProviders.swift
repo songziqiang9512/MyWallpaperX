@@ -9,14 +9,14 @@ extension SceneMetalRenderer {
         layerID: Int,
         requiresDependencyEffect: Bool,
         hasResolvedFramePlan: Bool,
-        bypassReason: String?,
+        preparedSlots: Set<SceneEffectPassSlot>?,
         dependencyRuntime: SceneDependencyFrameRuntime,
         textureRegistry: SceneFrameTextureRegistry
     ) -> (
         dependencyEffects: [SceneDependencyEffectInput],
         failure: String?
     ) {
-        if bypassReason != nil {
+        if preparedSlots?.isEmpty == true {
             return ([], nil)
         }
         if requiresDependencyEffect, hasResolvedFramePlan {
@@ -24,7 +24,8 @@ extension SceneMetalRenderer {
                 .multiProviderAggregatesByConsumerLayerID[layerID] {
                 switch dependencyRuntime.aggregateEffectInputResolution(
                     for: aggregate,
-                    textureRegistry: textureRegistry
+                    textureRegistry: textureRegistry,
+                    selectedSlots: preparedSlots
                 ) {
                 case let .ready(inputs):
                     return (inputs, nil)
@@ -77,48 +78,24 @@ extension SceneMetalRenderer {
         guard !isVisibleExecutionRoot else { return nil }
         // A visual frame-local fallback intentionally publishes nothing. Any
         // downstream consumer then takes the ordinary provider-miss path.
-        guard framePlan != nil else { return true }
+        guard let framePlan else { return true }
 
-        let dependencyBypassReason = imageCompositor
-            .preparedResolvedMaterialExternalDependencyBypassReason(
-                layerID: layer.id
-            )
-        var dependencyEffects: [SceneDependencyEffectInput] = []
-        if dependencyRuntime.requiresEffect(for: layer.id),
-           dependencyBypassReason == nil {
-            if let aggregate = dependencyRuntime.plan
-                .multiProviderAggregatesByConsumerLayerID[layer.id] {
-                switch dependencyRuntime.aggregateEffectInputResolution(
-                    for: aggregate,
-                    textureRegistry: textureRegistry
-                ) {
-                case let .ready(inputs):
-                    dependencyEffects = inputs
-                case let .invalid(reasonCode):
-                    dependencyRuntime.recordBindingFailure(for: layer.id)
-                    imageCompositor.recordResolvedMaterialFramePreflightFailure(
-                        reasonCode
-                    )
-                    return false
-                }
-            } else {
-                switch dependencyRuntime.resolvedMaterialEffectInputResolution(
-                    for: layer.id,
-                    textureRegistry: textureRegistry
-                ) {
-                case let .ready(input):
-                    dependencyEffects = [input]
-                case .unavailable:
-                    break
-                case let .invalid(reasonCode):
-                    dependencyRuntime.recordBindingFailure(for: layer.id)
-                    imageCompositor.recordResolvedMaterialFramePreflightFailure(
-                        reasonCode
-                    )
-                    return false
-                }
-            }
+        let preparedSlots = imageCompositor
+            .preparedResolvedMaterialExternalDependencySlots(layerID: layer.id)
+        let dependencyResolution = resolveDependencyEffectInputs(
+            layerID: layer.id,
+            requiresDependencyEffect: framePlan.consumesExternalPrimaryDependency,
+            hasResolvedFramePlan: true,
+            preparedSlots: preparedSlots,
+            dependencyRuntime: dependencyRuntime,
+            textureRegistry: textureRegistry
+        )
+        if let reasonCode = dependencyResolution.failure {
+            dependencyRuntime.recordBindingFailure(for: layer.id)
+            imageCompositor.recordResolvedMaterialFramePreflightFailure(reasonCode)
+            return false
         }
+        let dependencyEffects = dependencyResolution.dependencyEffects
 
         // Resolve available slots before consuming the claim; operations
         // reading missing publications retain their own effect entry.

@@ -126,11 +126,11 @@
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 162,
-      "bytes": 28092
+      "bytes": 28837
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 86,
-      "bytes": 34582
+      "lines": 89,
+      "bytes": 36421
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 107,
@@ -161,8 +161,8 @@
       "bytes": 4260
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 172,
-      "bytes": 31728
+      "lines": 173,
+      "bytes": 32440
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -458,19 +458,28 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "34e29bdf1610b8294ce19735e64eeb2e7d9a2558504f2a736dca1bb55a7add84",
-      "after": "de19db6e16eb65b76b49002cb91f9009f5269305fbedbf7ac28707cf206c1766",
-      "owner": "scene-named-source-execution",
-      "reason": "Replace overlapping preparation/prepass assumptions with one cached source DAG, actual layer activation decisions and shared execution cuts; retain bounded exact prefix, early/late and live-update evidence with explicit remaining limits.",
+      "before": "de19db6e16eb65b76b49002cb91f9009f5269305fbedbf7ac28707cf206c1766",
+      "after": "8273677cbd7156228140dde618f9a512715d2f40888c16e0bf26b5f7b0f3d3c3",
+      "owner": "scene-prepared-dependency-slots",
+      "reason": "Define one prepared-ledger slot projection for ready input resolution and remove bypass-only/duplicate consumption. Record bounded exact live-update pixels and recovered author first-frame chain; retain only actual remaining source/cold-program/utility issues and no broader parity claims.",
       "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-source-execution-cuts"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "fdb0ccaab29d87e462bb567ebac8ae4a22bffa40baf10e4f453736707b8bd1f3",
-      "after": "ebeddabdac1b71e8a7447345e067b1ba632b85bdaedbfaf138ebd54e10669d70",
-      "owner": "scene-named-source-execution",
-      "reason": "Replace overlapping preparation/prepass assumptions with one cached source DAG, actual layer activation decisions and shared execution cuts; retain bounded exact prefix, early/late and live-update evidence with explicit remaining limits.",
+      "before": "ebeddabdac1b71e8a7447345e067b1ba632b85bdaedbfaf138ebd54e10669d70",
+      "after": "0f1b55c8d69b0b6199b6a2024ed1e74a513e717a6078ae86cc847aa0c0a842d1",
+      "owner": "scene-prepared-dependency-slots",
+      "reason": "Define one prepared-ledger slot projection for ready input resolution and remove bypass-only/duplicate consumption. Record bounded exact live-update pixels and recovered author first-frame chain; retain only actual remaining source/cold-program/utility issues and no broader parity claims.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-source-execution-cuts"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "edae1aa6119903979c84c5fbdd83cb26621132f076363c22c32d980641220fb8",
+      "after": "283b7ef8a5ff4d739bb55d59120087d3c0efb6b84576255ccae20c102bbbeac6",
+      "owner": "scene-prepared-dependency-slots",
+      "reason": "Define one prepared-ledger slot projection for ready input resolution and remove bypass-only/duplicate consumption. Record bounded exact live-update pixels and recovered author first-frame chain; retain only actual remaining source/cold-program/utility issues and no broader parity claims.",
       "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-source-execution-cuts"
     }
   ]

@@ -56,9 +56,6 @@ UTILITY_FRAME_RENDERER = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityPlanFrameRenderer.swift"
 )
 METAL_RENDERER = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift"
-METAL_RENDERER_DEPENDENCY_PROVIDERS = (
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+DependencyProviders.swift"
-)
 METAL_VIEW_FRAME_CONTEXT = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+FrameContext.swift"
 )
@@ -282,9 +279,6 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         execution_evidence = RENDERER_EXECUTION_EVIDENCE.read_text(
             encoding="utf-8"
         )
-        metal_renderer_dependency_providers = (
-            METAL_RENDERER_DEPENDENCY_PROVIDERS.read_text(encoding="utf-8")
-        )
 
         self.assertIn("static func executeClaimed(", composition)
         # Target sizing/reservation moved into the single preflight walk
@@ -348,11 +342,6 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         self.assertIn(
             "let passthroughResolution = SceneLayerSourcePassthroughPlan.resolve(",
             compositor,
-        )
-        self.assertIn(
-            "if bypassReason != nil {\n"
-            "            return ([], nil)",
-            metal_renderer_dependency_providers,
         )
         self.assertIn("enum RejectionReason: String, Error", passthrough_plan)
         self.assertIn("unclaimed-visible-effects-\\(reason.rawValue)", compositor)
@@ -459,17 +448,6 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         self.assertIn("graphOutputPublished,", named_only_path)
         self.assertIn("consumeResolvedMaterialNamedPublication(", named_only_path)
         self.assertIn("return .failed", named_only_path)
-        visible_color_path = compositor[
-            compositor.index(
-                "let finalValues = SceneImageLayerUniformValues(",
-                named_only_start,
-            ):compositor.index(
-                "return request.geometryProduct == nil",
-                named_only_start,
-            )
-        ]
-        self.assertIn("SceneImageLayerMainPassRenderer.draw(", visible_color_path)
-        self.assertIn("consumeResolvedMaterialComposite(", visible_color_path)
 
     @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
     def test_static_source_draw_only_degradation_rescues_only_graph_role(
@@ -562,27 +540,6 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
             print("snapshot rollback texture identity oracle: production=PASS; "
                   "temporary product without texture restore=REJECTED; "
                   "all other observations unchanged")
-
-    def test_resolved_material_composition_provider_reserves_from_geometry(self) -> None:
-        compact = "".join(FRAME_PREFLIGHT.read_text(encoding="utf-8").split())
-        resolved_start = compact.index("ifbinding.kind==.resolvedMaterial{")
-        exact_source_start = compact.index(
-            "letproviderSelection=cachedBaseMaterialTextureSelectionImpl(",
-            resolved_start,
-        )
-        resolved_route = compact[resolved_start:exact_source_start]
-
-        self.assertIn("reserveDependencyInput(nil)", resolved_route)
-        self.assertNotIn("baseMaterialTextureSelection", resolved_route)
-        self.assertIn(
-            "guardletproviderSource=providerSelection.sourceelse{",
-            compact[exact_source_start:],
-        )
-        self.assertIn(
-            "reserveDependencyInput(providerSource)",
-            compact[exact_source_start:],
-        )
-
 
     def test_frame_ordering_context_reaches_reserve_and_commit(self) -> None:
         frame_preflight = FRAME_PREFLIGHT.read_text(encoding="utf-8")

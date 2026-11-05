@@ -418,7 +418,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         return activeByID[identity]
     }
 
-    func preparedExternalDependencyBypassReason(layerID: Int) -> String? {
+    func preparedExternalDependencySlots(layerID: Int) -> Set<SceneEffectPassSlot>? {
         lock.lock()
         defer { lock.unlock() }
         guard frameIsActive, framePreparationComplete,
@@ -427,10 +427,8 @@ extension SceneResolvedMaterialSubmissionCoordinator {
               let ledger = activeByID[identity],
               ledger.layerID == layerID,
               ledger.phase == .allocationCommitted,
-              !ledger.claimConsumed,
-              let unavailable = ledger.preparedDependencyUnavailability,
-              ledger.preparedDependencyEffects.isEmpty else { return nil }
-        return unavailable.rawValue
+              !ledger.claimConsumed else { return nil }
+        return Set(ledger.preparedDependencyEffects.map(\.slot))
     }
 
     private func sceneBackgroundTextureMatches(
