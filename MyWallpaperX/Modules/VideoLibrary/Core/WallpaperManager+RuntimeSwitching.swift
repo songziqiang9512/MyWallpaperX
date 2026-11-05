@@ -417,7 +417,7 @@ extension WallpaperManager {
                 lastWorkshopPlaybackRecordID = nil
                 isPlaying = false
                 stopAutoSwitchTimer()
-                persistCurrentWallpaperSnapshot()
+
 #if DEBUG
                 NSLog("MWX playback output lost %@: %@", ticket.id.uuidString, reason)
 #endif
@@ -456,7 +456,7 @@ extension WallpaperManager {
             case .systemStill:
                 currentWallpaper = nil; activeWallpaperRuntime = .systemStill; lastWorkshopPlaybackRecordID = nil
             }
-            persistCurrentWallpaperSnapshot()
+
             postWallpaperRuntimeWillSwitch(to: selection.ticket.runtime, recordID: lastWorkshopPlaybackRecordID)
         }
         isPlaying = selection.ticket.runtime != .systemStill && !PlaybackCommandMultiplexer.shared.isPlaybackPaused

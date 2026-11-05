@@ -98,7 +98,6 @@ final class PixabayService: ObservableObject {
     private var previousVisibleStart: Int?
     private var downloadedContentTask: Task<Void, Never>?
     private var downloadedContentGeneration: UInt64 = 0
-    private var initialDownloadedScanCompleted = false
     @Published private(set) var downloadedContent = PixabayDownloadedContentSnapshot(revision: 0, entries: [], status: .initial)
 
     private init() { refreshDownloadedContent() }
@@ -114,26 +113,22 @@ final class PixabayService: ObservableObject {
         let generation = downloadedContentGeneration
         publishDownloadedContent(downloadedContent.entries, status: .init(phase: .loading,
             hasSuccessfulScan: downloadedContent.status.hasSuccessfulScan))
-        let directory = Self.downloadDirectory, legacy = Self.legacyDownloadDirectory
+        let directory = Self.downloadDirectory
         let previous = downloadedContent.entries
         let worker = Task.detached(priority: .utility) {
-            try await PixabayDownloadedContent.scan(in: directory, reusing: previous, legacyDirectory: legacy)
+            try await PixabayDownloadedContent.scan(in: directory, reusing: previous)
         }
         let task = Task { [weak self] in
             do {
                 let result = try await withTaskCancellationHandler { try await worker.value } onCancel: { worker.cancel() }
                 guard !Task.isCancelled, let self, self.downloadedContentGeneration == generation else { return }
-                self.initialDownloadedScanCompleted = true
-                self.publishDownloadedContent(result.entries, completedScan: true,
-                    status: .init(phase: .ready(warnings: result.warnings), hasSuccessfulScan: true))
+                self.publishDownloadedContent(result, completedScan: true,
+                    status: .init(phase: .ready(warnings: []), hasSuccessfulScan: true))
             } catch is CancellationError {
                 // A cancelled/replaced scan owns no publication or error.
             } catch {
                 guard !Task.isCancelled, let self, self.downloadedContentGeneration == generation else { return }
-                self.initialDownloadedScanCompleted = true
-                // Failure ends the initial lookup wait, but does not turn an
-                // unknown source into a successful empty library or revoke a
-                // previous successful source's playback readiness.
+                // A failed scan preserves the last published source facts.
                 self.publishDownloadedContent(self.downloadedContent.entries, status: .init(
                     phase: .failed(message: "无法读取已下载 Pixabay 内容：" + error.localizedDescription),
                     hasSuccessfulScan: self.downloadedContent.status.hasSuccessfulScan))
@@ -157,13 +152,10 @@ final class PixabayService: ObservableObject {
     /// User-action fallback during the first async scan (and after external
     /// changes). This is deliberately not called by rendering or progress.
     private func existingDownloadedURL(id: Int) -> URL? {
-        let known = downloadedContent.entries.first { $0.id == id }?.localURL
-        let canonical = Self.downloadDirectory.appendingPathComponent("online_\(id).mp4")
-        for url in [known, canonical, Self.legacyDownloadDirectory.appendingPathComponent("online_\(id).mp4")].compactMap({ $0 }) {
-            var isDirectory: ObjCBool = false
-            if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),
-               !isDirectory.boolValue, FileManager.default.isReadableFile(atPath: url.path) { return url }
-        }
+        let url = Self.downloadDirectory.appendingPathComponent("online_\(id).mp4")
+        var isDirectory: ObjCBool = false
+        if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),
+           !isDirectory.boolValue, FileManager.default.isReadableFile(atPath: url.path) { return url }
         return nil
     }
 
@@ -340,15 +332,6 @@ final class PixabayService: ObservableObject {
                 downloadTasksDidChange.send()
             }
             do {
-                // Legacy filenames such as online_0007.mp4 are resolved only by
-                // the source scan. A click during that first scan must not create
-                // a second same-ID file merely because the canonical path is absent.
-                while !initialDownloadedScanCompleted, let pending = downloadedContentTask {
-                    try Task.checkCancellation()
-                    let generation = downloadedContentGeneration
-                    await pending.value
-                    if generation == downloadedContentGeneration { break }
-                }
                 try Task.checkCancellation()
                 if existingDownloadedURL(id: id) != nil { restoration?(); return }
                 let resolved: PixabayVideoItem
@@ -458,7 +441,6 @@ final class PixabayService: ObservableObject {
 
     // MARK: - 下载文件管理
 
-    /// New downloads use the brand directory; old files stay in their original location.
     static var downloadDirectory: URL {
         FileManager.default
             .urls(for: .moviesDirectory, in: .userDomainMask)[0]
@@ -466,10 +448,7 @@ final class PixabayService: ObservableObject {
             .appendingPathComponent("Pixabay", isDirectory: true)
     }
 
-    static var legacyDownloadDirectory: URL {
-        downloadDirectory.deletingLastPathComponent().appendingPathComponent("在线图库", isDirectory: true)
-    }
-    static var downloadRoots: [URL] { [downloadDirectory, legacyDownloadDirectory] }
+    static var downloadRoots: [URL] { [downloadDirectory] }
 
     /// Revoke the old scan before deletion; only successful removals leave
     /// the local publication. Missing files count as already removed.

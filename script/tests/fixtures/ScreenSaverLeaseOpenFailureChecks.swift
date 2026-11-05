@@ -55,7 +55,6 @@ nonisolated func open(_ path: String, _ flags: Int32, _ mode: mode_t) -> Int32 {
     @MainActor private static func run() async throws {
         let work = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
         let root = work.appendingPathComponent("root", isDirectory: true).standardizedFileURL
-        let installed = work.appendingPathComponent("installed/MyWallpaperX.saver", isDirectory: true)
         let component = work.appendingPathComponent("component/MyWallpaperXSystemWallpaper.appex", isDirectory: true)
         let media = root.appendingPathComponent("Media", isDirectory: true)
         try FileManager.default.createDirectory(at: media, withIntermediateDirectories: true)
@@ -75,7 +74,7 @@ nonisolated func open(_ path: String, _ flags: Int32, _ mode: mode_t) -> Int32 {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         }
         let mediaBefore = try FileManager.default.contentsOfDirectory(atPath: media.path).sorted()
-        let owner = ScreenSaverIntegration(rootURL: root, installationURL: installed, componentSourceURL: component)
+        let owner = ScreenSaverIntegration(rootURL: root, componentSourceURL: component)
         var callbackCount = 0
         let result: Result<ScreenSaverConfiguration, Error> = await withCheckedContinuation { continuation in
             owner.publish(.init(videoURL: work.appendingPathComponent("never-decoded.mov"), title: "candidate"),

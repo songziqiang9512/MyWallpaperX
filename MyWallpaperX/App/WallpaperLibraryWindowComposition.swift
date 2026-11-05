@@ -203,7 +203,10 @@ import Combine
                 })
             }
         }
-        workspace.presentation.$state.receive(on: DispatchQueue.main).sink { [weak self] _ in self?.render() }
+        workspace.presentation.$state.receive(on: DispatchQueue.main).sink { [weak self] state in
+            self?.workspace.prepareSources(for: state.page, query: state.query)
+            self?.render()
+        }
             .store(in: &subscriptions)
         workspace.catalog.visibleLocalFactsRefreshed.receive(on: DispatchQueue.main).sink { [weak self] in
             self?.adapter.repairVisiblePreviews()
@@ -772,6 +775,7 @@ import Combine
                 row.customCoverAssetID.map { (row.id, $0) }
             }), resolve: { [weak workspace] refs in
                 guard let workspace else { return [] }
+                workspace.prepareSources(Set(refs.map(\.provider)))
                 return (try? WallpaperLibraryQuery.resolve(refs, catalog: workspace.catalog.catalog, relationships: workspace.relationships)) ?? []
             })
         } catch { workspace.presentation.report(error) }
@@ -872,7 +876,9 @@ import Combine
             case .failed(let reason):
                 scanFailed = true
                 notices.append((scan.hasSuccessfulScan ? "刷新失败，保留现有内容。" : "") + reason)
-                noticeActions.append(action("重试载入在线图片") { _ in OnlineImageLibrary.shared.refreshLocal() })
+                noticeActions.append(action("重试载入在线图片") { _ in
+                    OnlineImageLibrary.shared.refreshLocal(Set(OnlineImageSource.allCases.filter { dependencies.contains($0.provider) }))
+                })
             }
         }
         if state.page == .playlists {

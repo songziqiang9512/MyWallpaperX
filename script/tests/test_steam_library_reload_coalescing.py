@@ -213,7 +213,6 @@ enum CacheClearOption {
         restoreInstalledLibrarySnapshot()
     }
     func referencedLibraryStorageIdentities() -> Set<String> { [] }
-    func scheduleLegacyLibraryPublicationMigration(from snapshots: [String: SteamWorkshopDownloadMetadataSnapshot]) {}
     func reconcileDownloadCommits(_ snapshots: [String: SteamWorkshopDownloadMetadataSnapshot]) {}
     func scheduleTerminalDownloadCleanup() {}
     func installedLibraryScanContext() -> SteamWorkshopInstalledLibraryScanContext {

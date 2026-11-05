@@ -24,8 +24,7 @@ extension Notification.Name { static let inspectorHostCloseRequested = Self("chr
 @MainActor private final class ChromeWorkspace {
     let presentation = ChromePresentation(), catalog = ChromeCatalog()
     var recoveryMessage: String?
-    var relationships = UserCollectionsSnapshot(revision: 0, resetEpoch: UUID(), migrationManifestID: nil,
-        playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
+    var relationships = UserCollectionsSnapshot(revision: 0, resetEpoch: UUID(), playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
 }
 @MainActor private final class ChromeCommands {
     var canImport = true, canOrganize = true
@@ -191,8 +190,7 @@ private final class ChromeToolbar: NSObject, NSToolbarDelegate {
         send(oldClear)
         checks["current-button-with-a-late-page-change-cannot-target-the-new-page"] = probe.workspace.presentation.queries.count == 1
         probe.workspace.presentation.state.page = .videos
-        probe.workspace.relationships = .init(revision: 0, resetEpoch: UUID(), migrationManifestID: nil,
-            playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
+        probe.workspace.relationships = .init(revision: 0, resetEpoch: UUID(), playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
         send(oldClear)
         checks["current-button-with-a-late-reset-cannot-run-the-old-action"] = probe.workspace.presentation.queries.count == 1
         probe.apply(state(.images)); settle(); send(oldClear)
@@ -251,8 +249,7 @@ private final class ChromeToolbar: NSObject, NSToolbarDelegate {
             && label("刷新失败，保留现有内容。" + warmFailure) != nil && !retry.isHiddenOrHasHiddenAncestor
         send(retry)
         checks["scan-retry-delegates-once-to-the-original-source-owner"] = probe.pixabay.refreshes == 1
-        probe.workspace.relationships = .init(revision: 0, resetEpoch: UUID(), migrationManifestID: nil,
-            playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
+        probe.workspace.relationships = .init(revision: 0, resetEpoch: UUID(), playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
         send(retry)
         checks["scan-retry-keeps-the-reset-epoch-captured-when-rendered"] = probe.pixabay.refreshes == 1
         probe.workspace.catalog.catalog.sourceScanStatuses[.pixabay] = .init(phase: .failed(message: coldFailure), hasSuccessfulScan: false)
@@ -463,8 +460,7 @@ private final class ChromeToolbar: NSObject, NSToolbarDelegate {
             && grid.scrollView.pullCountText == nil && grid.scrollView.accessibilityHelp() == nil
             && label("显示 2 / 共 3 张壁纸") == nil
         let lists = (0..<3).map { WallpaperPlaylist(name: "计数 \($0)", sidebarRank: $0) }
-        probe.workspace.relationships = .init(revision: 1, resetEpoch: UUID(), migrationManifestID: nil,
-            playlists: lists, members: [], favorites: [], recent: [], aliases: [], locators: [])
+        probe.workspace.relationships = .init(revision: 1, resetEpoch: UUID(), playlists: lists, members: [], favorites: [], recent: [], aliases: [], locators: [])
         var filteredDirectory = state(.playlists)
         filteredDirectory.directoryEntries = [.init(id: lists[0].id, name: lists[0].name, count: 0, coverReference: nil)]
         probe.apply(filteredDirectory)

@@ -18,111 +18,47 @@ import Foundation
     @MainActor static func main() throws {
         let root = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
         let mode = CommandLine.arguments[2]
-        // Match the product entry, which obtains NSApplication before choosing
-        // daemon/direct-product routing, but installs no delegate until ready.
         let applicationBeforeAdmission = mode == "appkit" ? NSApplication.shared : nil
-        let domain = ProcessInfo.processInfo.environment["MWX_STARTUP_TEST_DOMAIN"]!
-        let defaults = UserDefaults(suiteName: domain)!
-        defer { defaults.removePersistentDomain(forName: ProcessInfo.processInfo.environment["MWX_STARTUP_TEST_DOMAIN"]!) }
-        let paths = makePaths(root)
+        let database = root.appendingPathComponent("user-collections.sqlite3")
         let probe = StartupProbe()
-        let encoder = JSONEncoder()
-        let video = VideoWallpaper(id: "offline-video", title: "Video", path: "/offline/video.mp4", tags: ["Original"])
-        defaults.set(try encoder.encode([video]), forKey: "Wallpapers")
-        defaults.set(try encoder.encode(["Original"]), forKey: "WallpaperTags")
-        defaults.set("secret-must-not-be-backed-up", forKey: "SteamApiKey")
-        try Data("[{\"id\":\"image\",\"title\":\"Image\",\"path\":\"/offline/image.png\",\"tags\":[\"Original\"]}]".utf8)
-            .write(to: paths.staticImageURL)
         var checks: [String: Bool] = [:]
         func start() throws -> LibraryCollectionsStartupOutcome {
             try LibraryCollectionsStartupAdmission.waitForResult(timeout: 15) {
-                try await LibraryCollectionsStartupAdmission.prepare(paths: paths) {
-                    probe.freezes += 1
-                    return try LegacyLibraryFrozenDefaults.rawValues(defaults: UserDefaults(suiteName: domain)!)
-                }
+                try await LibraryCollectionsStartupAdmission.prepare(at: database)
             }
         }
-        switch mode {
-        case "wrong-defaults":
-            defaults.set("original wrong type", forKey: "Wallpapers")
-            let outcome = try start()
-            let raw = try Data(contentsOf: paths.backupDirectoryURL.appendingPathComponent("raw-defaults.plist"))
-            let values = try PropertyListSerialization.propertyList(from: raw, options: [], format: nil) as! [String: Any]
-            checks["wrongTypeIsRecoveryNotEmptySuccess"] = outcome.recoveryMessage != nil && !exists(paths.publication.finalDatabaseURL)
-            checks["rawOriginalTypeSavedBeforeTypedDecode"] = values["Wallpapers"] as? String == "original wrong type"
-            checks["rawWhitelistExcludesCredential"] = values["SteamApiKey"] == nil
-            checks["failureDoesNotPublishTypedInputOrCompletion"] = !exists(paths.publication.inputSnapshotURL)
-                && !exists(paths.backupDirectoryURL.appendingPathComponent("manifest.json"))
-        case "missing-stage", "missing-map", "missing-backup":
-            let residual = mode == "missing-stage" ? paths.publication.stagingDatabaseURL :
-                mode == "missing-map" ? paths.publication.mappingManifestURL : paths.backupDirectoryURL
-            if mode == "missing-backup" {
-                try FileManager.default.createDirectory(at: residual, withIntermediateDirectories: true)
-                try Data("original".utf8).write(to: residual.appendingPathComponent("sentinel"))
-            } else {
-                try FileManager.default.createDirectory(at: residual.deletingLastPathComponent(), withIntermediateDirectories: true)
-                try Data("original".utf8).write(to: residual)
-            }
-            let outcome = try start()
-            checks["orphanRecoveryStateNeverRecaptures"] = outcome.recoveryMessage != nil && probe.freezes == 0
-            checks["orphanRecoveryStatePreserved"] = try Data(contentsOf: mode == "missing-backup" ? residual.appendingPathComponent("sentinel") : residual) == Data("original".utf8)
-            checks["orphanHasNoPublishedDatabase"] = !exists(paths.publication.finalDatabaseURL)
-        case "capture-gap", "saved-map":
-            setenv("MWX_STARTUP_TEST_FAULT", mode == "capture-gap" ? "after-input" : "after-map", 1)
-            let first = try start()
-            unsetenv("MWX_STARTUP_TEST_FAULT")
-            let input = try Data(contentsOf: paths.publication.inputSnapshotURL)
-            let mapping = try? Data(contentsOf: paths.publication.mappingManifestURL)
-            checks["interruptionRetainsDurableInputBeforeCompletion"] = first.recoveryMessage != nil &&
-                (mode != "capture-gap" || !exists(paths.backupDirectoryURL.appendingPathComponent("manifest.json")))
-            defaults.set("live source changed after failed launch", forKey: "Wallpapers")
-            try FileManager.default.removeItem(at: paths.staticImageURL)
-            let second = try start()
-            if case .ready(let result) = second {
-                checks["retryUsesSavedInputWithoutRefreeze"] = probe.freezes == 1 && result.snapshot.members.count == 2
-                checks["savedInputBytesNotRewritten"] = try Data(contentsOf: paths.publication.inputSnapshotURL) == input
-                if let mapping {
-                    let saved = try JSONDecoder().decode(LibraryCollectionsMigrationManifest.self, from: mapping)
-                    checks["savedMappingPreservesUUIDs"] = result.snapshot.playlists.map(\.id) == saved.tagMappings.map(\.playlistID)
-                    checks["savedMappingBytesNotRewritten"] = try Data(contentsOf: paths.publication.mappingManifestURL) == mapping
-                }
-            } else { checks["retryUsesSavedInputWithoutRefreeze"] = false }
-        case "timeout":
+        if mode == "timeout" {
             do {
                 _ = try LibraryCollectionsStartupAdmission.waitForResult(timeout: 0.01) {
-                    try await Task.sleep(nanoseconds: 5_000_000_000)
+                    try await Task.sleep(for: .seconds(5))
                     throw CocoaError(.fileReadUnknown)
                 }
                 checks["timeoutStopsAdmission"] = false
             } catch { checks["timeoutStopsAdmission"] = true }
-            checks["timeoutNeverAdmitsOrCreatesAStore"] = !exists(paths.publication.finalDatabaseURL) && probe.freezes == 0
-        default:
-            let first = try start()
-            guard case .ready(let result) = first else { fatalError("first admission failed") }
-            checks["preCleanupCaptureRetainsOfflineReferences"] = result.snapshot.members.count == 2 && probe.freezes == 1
-            checks["durableInputPrecedesCompleteCapture"] = exists(paths.publication.inputSnapshotURL)
-                && exists(paths.backupDirectoryURL.appendingPathComponent("manifest.json"))
+            checks["timeoutDoesNotCreateDatabase"] = !FileManager.default.fileExists(atPath: database.path)
+        } else if mode == "invalid" {
+            let original = Data("not a SQLite database".utf8)
+            try original.write(to: database)
+            let result = try start()
+            checks["realReadFailureRequiresRecovery"] = result.recoveryMessage != nil
+            checks["failureDoesNotReplaceDatabase"] = try Data(contentsOf: database) == original
+        } else {
+            let oldInputs = ["old.sqlite3", "sil.json", "input.json", "map.json", "publication.lock"]
+            for name in oldInputs { try Data("obsolete input".utf8).write(to: root.appendingPathComponent(name)) }
+            guard case .ready(let store, let initial) = try start() else { fatalError("admission failed") }
+            checks["freshCurrentDatabaseStartsEmpty"] = initial.playlists.isEmpty && initial.members.isEmpty
+            checks["startupDoesNotReadOrPublishLegacyInputs"] = try oldInputs.allSatisfy {
+                try Data(contentsOf: root.appendingPathComponent($0)) == Data("obsolete input".utf8)
+            } && !FileManager.default.fileExists(atPath: root.appendingPathComponent("stage.sqlite3").path)
             if mode == "restart" || mode == "reset" {
-                let changed = try LibraryCollectionsStartupAdmission.waitForResult {
-                    let playlist = result.snapshot.playlists[0]
-                    var replacement = playlist.metadata; replacement.name = "User changed"
-                    let state = mode == "reset" ? try await result.store.reset(expectedEpoch: result.snapshot.resetEpoch) :
-                        try await result.store.apply(.editPlaylistMetadata(id: playlist.id, expected: playlist.metadata,
-                            replacement: replacement, coverAsset: nil, at: Date()), expectedEpoch: result.snapshot.resetEpoch)
-                    return .init(store: result.store, snapshot: state, disposition: result.disposition)
+                let saved = try LibraryCollectionsStartupAdmission.waitForResult {
+                    let created = try await store.apply(.createPlaylist(.init(name: "Current", sidebarRank: 0)), expectedEpoch: initial.resetEpoch)
+                    let snapshot = mode == "reset" ? try await store.reset(expectedEpoch: initial.resetEpoch) : created
+                    return .ready(store: store, snapshot: snapshot)
                 }
-                guard case .ready(let saved) = changed else { fatalError("edit failed") }
-                defaults.set("obsolete invalid fallback", forKey: "Wallpapers")
-                try FileManager.default.removeItem(at: paths.staticImageURL)
-                try FileManager.default.removeItem(at: paths.backupDirectoryURL)
-                try FileManager.default.removeItem(at: paths.publication.inputSnapshotURL)
-                try Data("obsolete broken map".utf8).write(to: paths.publication.mappingManifestURL)
-                let repeated = try start()
-                if case .ready(let reopened) = repeated {
-                    checks["existingFinalBypassesAllOldInputs"] = probe.freezes == 1 && reopened.snapshot == saved.snapshot
-                    checks["resetMarkerOrLaterEditRemainsAuthoritative"] = mode == "reset" ?
-                        reopened.snapshot.migrationManifestID == "reset-complete" : reopened.snapshot.playlists[0].name == "User changed"
-                } else { checks["existingFinalBypassesAllOldInputs"] = false }
+                guard case .ready(_, let expected) = saved, case .ready(_, let reopened) = try start() else { fatalError("restart failed") }
+                checks["restartReadsCurrentRowsAndEpochWithoutReseeding"] = reopened == expected
+                checks["resetRetainsEmptyCurrentState"] = mode != "reset" || reopened.playlists.isEmpty && reopened.resetEpoch != initial.resetEpoch
             }
             if mode == "appkit" {
                 let app = applicationBeforeAdmission!
@@ -143,16 +79,5 @@ import Foundation
             }
         }
         print(String(data: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
-    }
-
-    private static func exists(_ url: URL) -> Bool { FileManager.default.fileExists(atPath: url.path) }
-    private static func makePaths(_ root: URL) -> LibraryCollectionsStartupPaths {
-        let recovery = root.appendingPathComponent("recovery", isDirectory: true)
-        return .init(videoIndexURL: root.appendingPathComponent("old.sqlite3"), staticImageURL: root.appendingPathComponent("sil.json"),
-            backupDirectoryURL: recovery.appendingPathComponent("capture", isDirectory: true),
-            publication: .init(inputSnapshotURL: recovery.appendingPathComponent("input.json"),
-                mappingManifestURL: recovery.appendingPathComponent("map.json"),
-                stagingDatabaseURL: root.appendingPathComponent("stage.sqlite3"), finalDatabaseURL: root.appendingPathComponent("final.sqlite3"),
-                publicationLockURL: recovery.appendingPathComponent("publication.lock")))
     }
 }

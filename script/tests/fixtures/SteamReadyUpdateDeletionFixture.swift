@@ -35,12 +35,7 @@ extension SteamWorkshopService {
             ? steamDownloadLibraryRootURL.appendingPathComponent(
                 numericAlias ? "Video/2026.mp4" : "Video/renamed-wallpaper.mp4"
             )
-            : legacy
-                ? steamDownloadLibraryRootURL.appendingPathComponent("Web/123456", isDirectory: true)
-                : steamDownloadLibraryRootURL
-                .appendingPathComponent(SteamWorkshopLibraryTransaction.versionsName, isDirectory: true)
-                .appendingPathComponent(versionName, isDirectory: true)
-                .appendingPathComponent("content", isDirectory: true)
+            : steamDownloadLibraryRootURL.appendingPathComponent("Web/123456", isDirectory: true)
         SteamReadyUpdateDeletionFixtureState.legacyFolderURL = content
         SteamReadyUpdateDeletionFixtureState.contentType = legacyVideo ? .video : .web
         SteamReadyUpdateDeletionFixtureState.videoURL = legacyVideo ? content : nil
@@ -50,16 +45,17 @@ extension SteamWorkshopService {
         )
         try Data("old-ready".utf8).write(to: legacyVideo ? content : content.appendingPathComponent("index.html"))
         let commit = SteamWorkshopLibraryCommit(
-            version: 1,
+            version: 3,
             workshopId: "123456",
             jobId: "old-ready-job",
             attempt: 1,
-            directoryName: versionName,
+            directoryName: "123456",
             manifestId: "123",
             contentDigest: String(repeating: "a", count: 64),
             contentType: "web",
             entryPath: "index.html",
-            committedAt: Date(timeIntervalSince1970: 1_700_000_000)
+            committedAt: Date(timeIntervalSince1970: 1_700_000_000),
+            generation: versionName
         )
         var snapshot = SteamWorkshopDownloadMetadataSnapshot(
             fetchedAt: commit.committedAt,
@@ -70,6 +66,9 @@ extension SteamWorkshopService {
             legacyFolderURL: legacyVideo ? nil : content
         )
         if !legacy || commitBearingAlias { snapshot.commit = commit }
+        if !legacy {
+            try JSONEncoder().encode(commit).write(to: content.appendingPathComponent(SteamWorkshopLibraryTransaction.ownershipMarkerName))
+        }
         if legacyVideo {
             let canonical = downloadMetadataIndexDirectoryURL().appendingPathComponent("\(commit.workshopId).json")
             try? FileManager.default.removeItem(at: canonical)

@@ -240,14 +240,6 @@ nonisolated final class SystemAudioSpectrumService: NSObject, @unchecked Sendabl
             includesCurrentProcess: processScope == .includesCurrentProcess
         ) { return }
 #endif
-        guard #available(macOS 14.2, *) else {
-#if DEBUG
-            NSLog("MWX AUDIO CAPTURE: unavailable before macOS 14.2")
-#endif
-            resetConsumersAfterCaptureFailure()
-            return
-        }
-
         do {
             captureRetryWorkItem?.cancel()
             captureRetryWorkItem = nil
@@ -612,9 +604,6 @@ nonisolated final class SystemAudioSpectrumService: NSObject, @unchecked Sendabl
 #endif
         guard tapID != kAudioObjectUnknown else {
             return kAudioHardwareBadObjectError
-        }
-        guard #available(macOS 14.2, *) else {
-            return kAudioHardwareUnsupportedOperationError
         }
         return AudioHardwareDestroyProcessTap(tapID)
     }

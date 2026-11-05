@@ -35,8 +35,6 @@ class ImportedVideoAdmissionTests(unittest.TestCase):
     let staticFrameCacheDirectory = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true).appendingPathComponent("static-frames")
     var importSummaryCount = 0, recentRequests = 0, historyRequests = 0, unexpectedMissingFallbacks = 0
     var timerRefreshAudit = 0
-    var migrationRecoveryMessage: String?
-    var migrationWarnings = 0
     var importedAssetRequests: [URL] = []
     var pendingManualNavigationDirection: ManualNavigationDirection?
     var pendingManualNavigationWorkItem: DispatchWorkItem?
@@ -87,7 +85,6 @@ class ImportedVideoAdmissionTests(unittest.TestCase):
             '    @discardableResult\n    func setLocalFileAsWallpaper(',
             'private func existingDownloadedURL(', 'private func publishDownloadedContent(',
         ])
-        online_methods += '\n' + declaration(pixabay, '    static var legacyDownloadDirectory:')
         support = (ROOT / 'script/tests/fixtures/ImportedVideoAdmissionSupport.swift').read_text()
         support = support.replace('// IMPORT_AND_APPLY_METHODS', methods).replace('// ONLINE_METHODS', online_methods)
         support = support.replace('// IMPORT_CACHE_METHODS', video_import_cache_methods(ROOT))

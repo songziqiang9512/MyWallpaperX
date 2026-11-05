@@ -126,13 +126,13 @@
       "role": "current-state",
       "entrypoint": "docs/README.md",
       "purpose": "全仓任务到实际 owner 的导航与已知边界，不定义新的产品权威。",
-      "lastReviewed": "2026-11-03",
+      "lastReviewed": "2026-11-05",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5d6f7d48cc00f1891a959f5a969d4a919ca2141cd3a8ac558ba6bf4b7161965a",
+        "sourceSHA256": "39e1b0efd72d060d4c8dc069c4407d583ac8af637f71e2fa7e285b886121aafc",
         "method": "document_registry --audit + document_health --check",
-        "scope": "现役路线/专项卡优先级与剩余职责复核；移出已修或仅旧声明推断项，迁移/重复过程队列退役，保当前源码owner、长期合同与必要证据指针 合并UI主窗口职责、图片方格及显式Stop回执条款；仅正文与导航复核，不代替专项产品验收。",
-        "limitations": "文档与源码/已有中性证据复核，不是全样本重新普查、实际播放、账号/下载、Release、长稳或性能验收；旧观察明确待当前复验，unknown/STOP和用户PBX保持。"
+        "scope": "Current App data strategy, deleted migration owners and nearest validation links.",
+        "limitations": "Navigation and current source ownership audit; runtime results are recorded separately and do not establish Scene or system-host coverage."
       }
     },
     {
@@ -140,13 +140,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/architecture/repository-map.md",
-      "lastReviewed": "2026-10-29",
+      "lastReviewed": "2026-11-05",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "23c7dba3fa71a11e2ad804f70bcb32231a5d60e7af9a167b660c73284c5c886e",
+        "sourceSHA256": "3e919557fd4ed3fafa31fe38f942d98e98939ed29b3a8032c1baecda653ae2da",
         "method": "document_registry --audit + document_health --check",
-        "scope": "UI24同步下载按真实磁盘空间及在途预约准入、单一失败记录清除的源码/导航边界；具体红绿与运行验收归UI24卡，不扩大账号或发布证据。",
-        "limitations": "这是导航与文档治理复核，不代表源码、编译、运行、视觉、性能、真实账号或发布复验；不重授旧证据的适用范围。"
+        "scope": "Current App data strategy, deleted migration owners and nearest validation links.",
+        "limitations": "Navigation and current source ownership audit; runtime results are recorded separately and do not establish Scene or system-host coverage."
       }
     },
     {
@@ -179,7 +179,15 @@
       "path": "docs/development/code-slimming-program.md",
       "role": "active-plan",
       "entrypoint": "docs/README.md",
-      "retirementCondition": "已证候选按批验收或由用户结束专项后，稳定职责回归原合同，本页归档且退役专项设计登记。"
+      "retirementCondition": "已证候选按批验收或由用户结束专项后，稳定职责回归原合同，本页归档且退役专项设计登记。",
+      "lastReviewed": "2026-11-05",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "666dfab670361e588fb37087d54ea7ba9cdc70ec70932196393cceff1e8609b6",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "Current App data strategy, deleted migration owners and nearest validation links.",
+        "limitations": "Navigation and current source ownership audit; runtime results are recorded separately and do not establish Scene or system-host coverage."
+      }
     },
     {
       "path": "docs/development/local-library-loading-design.md",
@@ -191,13 +199,29 @@
       "path": "docs/development/lock-screen-screensaver-design.md",
       "role": "active-plan",
       "entrypoint": "docs/README.md",
-      "retirementCondition": "Video原生动态锁屏与屏保的单组件、唯一发布、App接线及分阶段真实宿主验收完成后由稳定合同接管；Scene/Web屏保继续退役。"
+      "retirementCondition": "Video原生动态锁屏与屏保的单组件、唯一发布、App接线及分阶段真实宿主验收完成后由稳定合同接管；Scene/Web屏保继续退役。",
+      "lastReviewed": "2026-11-05",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "ac90216fdac27c68bab5a394a9839b1125ea9975438828ad4e1fa3d840388080",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "Current App data strategy, deleted migration owners and nearest validation links.",
+        "limitations": "Navigation and current source ownership audit; runtime results are recorded separately and do not establish Scene or system-host coverage."
+      }
     },
     {
       "path": "docs/development/main-window-playlists-redesign.md",
       "role": "active-plan",
       "entrypoint": "docs/README.md",
-      "retirementCondition": "主界面、混合用户关系和轮换各阶段完成验收或由用户结束专项后，稳定职责交回所属合同并归档；未实施设计不宣称现有能力。"
+      "retirementCondition": "主界面、混合用户关系和轮换各阶段完成验收或由用户结束专项后，稳定职责交回所属合同并归档；未实施设计不宣称现有能力。",
+      "lastReviewed": "2026-11-05",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "b0a8d568b634f49ab75ad582be85169ecf2681bd58566294b5900a304f4db519",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "Current App data strategy, deleted migration owners and nearest validation links.",
+        "limitations": "Navigation and current source ownership audit; runtime results are recorded separately and do not establish Scene or system-host coverage."
+      }
     },
     {
       "path": "docs/development/pixiv-online-browser-design.md",

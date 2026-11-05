@@ -166,8 +166,7 @@
     func fixture(_ name: String, fixed: [WallpaperContentItem], current: [WallpaperContentItem],
                  aliases: [WallpaperReferenceAlias] = []) async throws -> (RemovalCommands, RemovalWorkspace, UserCollectionsController) {
         let store = UserCollectionsStore(url: root.appendingPathComponent("preflight-\(name).sqlite3")), initial = try await store.snapshot()
-        let snapshot = UserCollectionsSnapshot(revision: initial.revision, resetEpoch: initial.resetEpoch, migrationManifestID: nil,
-            playlists: [], members: [], favorites: [], recent: [], aliases: aliases, locators: [])
+        let snapshot = UserCollectionsSnapshot(revision: initial.revision, resetEpoch: initial.resetEpoch, playlists: [], members: [], favorites: [], recent: [], aliases: aliases, locators: [])
         let controller = UserCollectionsController(store: store, snapshot: snapshot)
         let suite = "mwx.removal.preflight." + UUID().uuidString, defaults = UserDefaults(suiteName: suite)!
         suites.append((defaults, suite))

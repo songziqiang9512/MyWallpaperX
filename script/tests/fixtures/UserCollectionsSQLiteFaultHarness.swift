@@ -32,7 +32,6 @@ nonisolated private func closeV2Count() -> Int32
         let reopened = try await store.snapshot()
         checks["same_owner_reopens_cleanly"] = reopened.revision == 0
             && reopened.playlists.isEmpty && reopened.members.isEmpty
-            && reopened.migrationManifestID == nil
         let playlist = WallpaperPlaylist(name: "恢复后可写",
             createdAt: Date(timeIntervalSince1970: 1_000), sidebarRank: 0)
         let written = try await store.apply(.createPlaylist(playlist), expectedEpoch: reopened.resetEpoch)

@@ -743,9 +743,10 @@ extension WallpaperLibraryCatalog { var catalog: Self { self } }
         filteredManual.statuses = [.unavailable]; filteredManual.sort = .name; filteredManual.preferredColumns = 4
         filteredManual.scrollAnchor = video.reference; filteredManual.scrollOffset = -13; filteredManual.scrollAtTop = false
         _ = workspace.presentation.setQueryState(filteredManual); controller.refresh()
-        invoke(menu("sort"), "手动顺序")
-        var expectedManual = filteredManual; expectedManual.sort = .sourceOrder
-        checks["ordinary-manual-sort-retains-filter-search-density-and-scroll"] = workspace.presentation.queryState == expectedManual
+        checks["playlist-sort-menu-matches-download-fields-plus-join-time"] = menu("sort").items.prefix(5).map(\.title) == ["创建时间", "文件名称", "文件大小", "最近使用", "加入时间"]
+        invoke(menu("sort"), "加入时间")
+        var expectedManual = filteredManual; expectedManual.sort = .addedAt; expectedManual.ascending = false
+        checks["join-time-descending-retains-filter-search-density-and-scroll"] = workspace.presentation.queryState == expectedManual
 
         checks["member-grid-never-advertises-internal-drag-ordering"] = !menu("sort").items.contains { $0.title == "切回手动并清除筛选以整理" }
 

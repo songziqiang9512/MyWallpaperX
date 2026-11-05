@@ -316,7 +316,9 @@ class WebAudioDemandTests(unittest.TestCase):
         interaction = (HOST / "DedicatedWebWallpaperHostCompatibilityScript+InteractionAndRuntimeMedia.swift").read_text()
         bridge = (HOST / "DedicatedWebWallpaperHostCompatibilityScript+HostBridge.swift").read_text()
         observers = (HOST / "DedicatedWebWallpaperHostCompatibilityScript+MediaObservers.swift").read_text()
-        blocks = [source_block(resource, marker) + ";" for marker in (
+        foundation = (HOST / "DedicatedWebWallpaperHostCompatibilityScript+BootstrapFoundation.swift").read_text()
+        blocks = [foundation[foundation.index("  const wallpaperHostVolume ="):foundation.index("  const nativeAudioConnect =")]]
+        blocks += [source_block(resource, marker) + ";" for marker in (
             "  window.__myWallpaperRewriteLocalFileURL = function",
             "  const myWallpaperIsMediaOrSourceElement =",
             "  window.__myWallpaperIsInvalidMediaSourceValue = function",
@@ -599,7 +601,8 @@ console.log(JSON.stringify({validSources, noSourceCases: 4, missingMarker: true,
         discovery = source_block((HOST / "DedicatedWebWallpaperHostCompatibilityScript+MediaDiscovery.swift").read_text(),
                                  "const wallpaperMediaNodes = () =>")
         foundation = (HOST / "DedicatedWebWallpaperHostCompatibilityScript+BootstrapFoundation.swift").read_text()
-        production = discovery + ";\n" + source_block(foundation, "window.wallpaperRegisterAudioStream = function(audio)")
+        volume_helpers = foundation[foundation.index("  const wallpaperHostVolume ="):foundation.index("  const nativeAudioConnect =")]
+        production = volume_helpers + discovery + ";\n" + source_block(foundation, "window.wallpaperRegisterAudioStream = function(audio)")
         for marker in ["window.__myWallpaperSetGlobalVolume = function(value)",
                        "window.__myWallpaperSetPlaybackRate = function(value)"]:
             production += ";\n" + source_block(bridge, marker)
@@ -623,7 +626,7 @@ function root(nodes, elements = []) {
 }
 function page(document) {
   const events = [], volumeCalls = [];
-  const context = { document, audioStreams: [], volumeListeners: [value => volumeCalls.push(value)],
+  const context = { document, audioStreams: [], audioContextInstances: [], volumeListeners: [value => volumeCalls.push(value)],
     CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail; } },
     dispatchEvent(event) { events.push(event); } };
   context.window = context; vm.createContext(context); vm.runInContext(PRODUCTION, context);

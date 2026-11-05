@@ -547,8 +547,6 @@ nonisolated final class ImageImportProbe: @unchecked Sendable {
     }
 }
 final class SILService {
-    var allowsLibraryMutation = true
-    var migrationRecoveryMessage: String?
     var metadataLoadGeneration: UInt64 = 0
     var currentContextTag: String?
     var wallpapers: [SILWallpaper] = []
@@ -558,15 +556,12 @@ final class SILService {
     var sortedWallpapers: [SILWallpaper] { wallpapers }
     let persistenceURL: URL
     init(_ url: URL) { persistenceURL = url }
-    func admitLibraryMutation(in window: NSWindow? = nil) -> Bool { allowsLibraryMutation }
     func syncSelectedWallpaperInspectorIfNeeded() {}
     func save() { try! persistWallpaperMetadata(wallpapers) }
     func resetForAudit() { metadataLoadGeneration &+= 1; wallpapers = []; save() }
     // PRODUCTION_IMAGE_METHODS
 }
 @MainActor final class WallpaperManager {
-    var allowsLibraryMutation = true
-    var migrationRecoveryMessage: String?
     var wallpaperIndexSaveEpoch: UInt64 = 0
     var wallpapers: [VideoWallpaper] = []
     let importPreparationQueue = DispatchQueue(label: "mwx.test.actual-import")
@@ -598,7 +593,6 @@ final class SILService {
     func acceptsImportedVideoPlayback(_ admission: ImportedVideoPlaybackAdmission) -> Bool { false }
     func setAsWallpaper(_ value: VideoWallpaper, admission: ImportedVideoPlaybackAdmission) { automaticPlays += 1 }
     func failImportedVideoPlayback(_ admission: ImportedVideoPlaybackAdmission, reason: String) {}
-    func reportMigrationReadOnly(in window: NSWindow?) {}
     func presentImportSummary(_ value: ImportSummary, in window: NSWindow?) { summaries.append(value); summaryAction?() }
     func holdQueue() -> (DispatchSemaphore, DispatchSemaphore) {
         let pair = (DispatchSemaphore(value: 0), DispatchSemaphore(value: 0))
@@ -905,7 +899,7 @@ struct ImportAlert { let title: String; let message: String }
         recent += (0..<48).map { .init(reference: .init(provider: .videoLibrary, sourceID: "v\($0)"), lastSuccessfulUseAt: nil,
                                      commitSequence: Int64(98 - $0), migrationOrder: nil) }
         recent.append(.init(reference: final, lastSuccessfulUseAt: nil, commitSequence: 1, migrationOrder: nil))
-        let relationship = UserCollectionsSnapshot(revision: 0, resetEpoch: UUID(), migrationManifestID: nil, playlists: [], members: [], favorites: [],
+        let relationship = UserCollectionsSnapshot(revision: 0, resetEpoch: UUID(), playlists: [], members: [], favorites: [],
             recent: recent, aliases: [.init(alias: alias, canonical: canonical, proof: .restoredSourceRecord)], locators: [])
         let required = try WallpaperLibraryQuery.requiredProviders(page: .recent, state: .init(), relationships: relationship)
         let visible = try WallpaperLibraryQuery.project(page: .recent, state: .init(), catalog: .init(), relationships: relationship)

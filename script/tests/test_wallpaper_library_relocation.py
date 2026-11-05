@@ -14,6 +14,7 @@ import unittest
 
 from script.tests.test_wallpaper_library_import import ROOT, actual_import_fixture
 from script.tests.test_video_thumbnail_prefetch import SWIFT_ISOLATION_FLAGS
+from script.tests.test_ui_library_algorithms import declaration
 
 
 class WallpaperLibraryRelocationTests(unittest.TestCase):
@@ -23,6 +24,9 @@ class WallpaperLibraryRelocationTests(unittest.TestCase):
         inputs += [fixture, Path(__file__), ROOT / "script/tests/test_wallpaper_library_import.py"]
         hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}
         prelude = assembled.split("@main struct WallpaperLibraryImportHarness")[0]
+        # Image-import scenarios extend the other executable's main type;
+        # this gate supplies its own main and reuses only the endpoint leaves.
+        prelude = prelude.replace(declaration(prelude, "extension WallpaperLibraryImportHarness {"), "", 1)
         with tempfile.TemporaryDirectory(prefix="mwx-library-relocation-", dir="/private/tmp") as directory:
             work = Path(directory)
             sources = []

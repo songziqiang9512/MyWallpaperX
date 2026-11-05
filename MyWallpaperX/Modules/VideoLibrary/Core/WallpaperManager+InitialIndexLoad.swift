@@ -20,10 +20,8 @@ extension WallpaperManager {
             } catch {
                 // Keep one exact, bounded recovery copy; never reinterpret it as
                 // an empty complete library or overwrite the existing SQLite DB.
-                if !preservesLegacyMigrationInputs {
-                    defaults.set(data, forKey: unreadableInitialIndexChangesKey)
-                    defaults.removeObject(forKey: initialIndexChangesKey)
-                }
+                defaults.set(data, forKey: unreadableInitialIndexChangesKey)
+                defaults.removeObject(forKey: initialIndexChangesKey)
                 reportUnreadableInitialIndexChanges()
             }
         }
@@ -91,7 +89,7 @@ extension WallpaperManager {
     }
 
     func persistInitialIndexChanges() {
-        guard !preservesLegacyMigrationInputs, !initialIndexChanges.isEmpty else { return }
+        guard !initialIndexChanges.isEmpty else { return }
         saveCodableValue(initialIndexChanges, forKey: initialIndexChangesKey)
     }
 
@@ -133,7 +131,7 @@ extension WallpaperManager {
         initialIndexLoadInFlight = false
         initialIndexInternalPublication = true
         defer { initialIndexInternalPublication = false }
-        let baseline = index.initialized ? index.wallpapers.map(migratedBundledVideoWallpaper) : initialIndexSeedWallpapers
+        let baseline = index.initialized ? index.wallpapers : initialIndexSeedWallpapers
         let merged = initialIndexChanges.merged(with: baseline, normalize: normalizedPath)
         let removed = initialIndexChanges.removedPaths
         didFinishInitialIndexLoad = true
@@ -192,7 +190,6 @@ extension WallpaperManager {
     }
 
     func clearInitialIndexRecoveryAfterSave() {
-        guard !preservesLegacyMigrationInputs else { return }
         defaults.removeObject(forKey: initialIndexChangesKey)
         initialIndexChanges = WallpaperIndexStartupChanges()
     }

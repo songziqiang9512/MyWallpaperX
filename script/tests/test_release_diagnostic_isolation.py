@@ -459,7 +459,7 @@ class ReleaseDiagnosticIsolationTests(unittest.TestCase):
                 precondition(!interaction.contains("installWallpaperMediaRuntimeLogging"))
                 precondition(!interaction.contains("media.event"))
                 precondition(media.contains("__mwxOriginalMediaPause"))
-                precondition(media.contains("node.volume = hostVolume"))
+                precondition(media.contains("applyWallpaperMediaVolume(node, wallpaperHostVolume())"))
                 precondition(media.contains("node.playbackRate = hostPlaybackRate"))
                 precondition(media.contains("attachWallpaperMediaNodesFromRoot"))
                 precondition(interaction.contains("originalPlay.apply(this, args)"))
@@ -517,7 +517,7 @@ class ReleaseDiagnosticIsolationTests(unittest.TestCase):
                                         capture_output=True, text=True, timeout=15)
                 self.assertEqual(replay.returncode, 0, replay.stdout + replay.stderr)
                 self.assertIn("web-pending-property-replay-pass", replay.stdout)
-                logger = foundation[foundation.index("  const hostLogger ="):foundation.index("  resumeAudioContexts();")]
+                logger = foundation[foundation.index("  const hostLogger ="):foundation.index("  installWallpaperAudioContexts();")]
                 audio_fixture = r"""
                 const reports=[], delivered=[], events=[];
                 const audioListeners=[()=>{throw Error('author-listener-error');}, value=>delivered.push(value.slice())];

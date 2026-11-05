@@ -43,19 +43,6 @@ nonisolated enum ScreenSaverPaths {
         return container.appendingPathComponent("ScreenSaver", isDirectory: true)
     }
 
-    static func currentUserRoot() throws -> URL {
-        var entry = passwd()
-        var resolved: UnsafeMutablePointer<passwd>?
-        let capacity = max(16_384, Int(sysconf(_SC_GETPW_R_SIZE_MAX)))
-        var storage = [CChar](repeating: 0, count: capacity)
-        let result = getpwuid_r(getuid(), &entry, &storage, storage.count, &resolved)
-        guard result == 0, let home = resolved?.pointee.pw_dir else {
-            throw CocoaError(.fileReadNoPermission)
-        }
-        return URL(fileURLWithPath: String(cString: home), isDirectory: true)
-            .appendingPathComponent("Library/Application Support/MyWallpaperX/ScreenSaver", isDirectory: true)
-    }
-
     static func mediaRoot(in root: URL, generation: String) throws -> URL {
         guard UUID(uuidString: generation) != nil else { throw CocoaError(.fileReadCorruptFile) }
         return root.appendingPathComponent("Media", isDirectory: true)

@@ -51,17 +51,7 @@ enum BundledVideoLibrary {
         return videoURL(forFileName: fileName)
     }
 
-    static func migratedURL(forPersistedPath path: String) -> URL? {
-        let oldURL = URL(fileURLWithPath: path).standardizedFileURL
-        guard expectedFileNames.contains(oldURL.lastPathComponent),
-              oldURL.path.contains(".app/Contents/Resources/") else {
-            return nil
-        }
-        let normalizedSourcePath = URL(fileURLWithPath: path)
-            .resolvingSymlinksInPath().standardizedFileURL.path
-        guard !FileManager.default.fileExists(atPath: normalizedSourcePath) else { return nil }
-        return videoURL(forFileName: oldURL.lastPathComponent)
-    }
+
 
     static func prepare(
         archiveURL: URL,

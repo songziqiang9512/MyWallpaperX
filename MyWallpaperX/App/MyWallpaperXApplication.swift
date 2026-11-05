@@ -96,10 +96,9 @@ enum MyWallpaperXApplication {
 #endif
         if !usesDirectPlaybackHarness {
             do {
-                let paths = try LibraryCollectionsStartupPaths.applicationPaths()
-                let needsViewPreferencesSeed = UserDefaults.standard.object(forKey: WallpaperLibraryPresentation.settingsKey) == nil
+                let url = try LibraryCollectionsStartupAdmission.databaseURL()
                 userCollectionsStartup = try LibraryCollectionsStartupAdmission.waitForResult {
-                    try await LibraryCollectionsStartupAdmission.prepare(paths: paths, needsViewPreferencesSeed: needsViewPreferencesSeed)
+                    try await LibraryCollectionsStartupAdmission.prepare(at: url)
                 }
             } catch {
                 let alert = NSAlert()
@@ -109,18 +108,14 @@ enum MyWallpaperXApplication {
                 return
             }
         }
-        if !usesDirectPlaybackHarness, let paths = try? LibraryCollectionsStartupPaths.applicationPaths() {
-            let recoveryURL = paths.publication.finalDatabaseURL.deletingLastPathComponent().appendingPathComponent("personal-settings-import.json")
+        if !usesDirectPlaybackHarness, let url = try? LibraryCollectionsStartupAdmission.databaseURL() {
+            let recoveryURL = url.deletingLastPathComponent().appendingPathComponent("personal-settings-import.json")
             personalSettingsRecoveryURL = recoveryURL
             let pending = FileManager.default.fileExists(atPath: recoveryURL.path)
             // Before either singleton can run destructive missing-file cleanup.
             WallpaperManager.defersMissingFileCleanupForPersonalSettingsRecovery = pending
             SILService.defersMissingFileCleanupForPersonalSettingsRecovery = pending
         }
-        let recoveryMessage = userCollectionsStartup?.recoveryMessage
-        WallpaperManager.startupMigrationRecoveryMessage = recoveryMessage
-        WallpaperIndexStore.startupMigrationReadOnly = recoveryMessage != nil
-        SILService.startupMigrationRecoveryMessage = recoveryMessage
         let delegate = AppDelegate()
         app.delegate = delegate
         let videoPlaybackHandler = VideoPlaybackCommandHandler()
@@ -228,10 +223,6 @@ enum MyWallpaperXApplication {
                     )
                 }
             }
-        // M0.2：公共静音权威从自身持久化值恢复；仅对旧版本 volume=0 做一次迁移。
-        PlaybackMuteState.shared.migrateLegacyVolumeMuteIfNeeded(
-            volume: WallpaperManager.shared.settings.volume
-        )
         WallpaperManager.shared.playbackIntentDidAdvance = { runtime in
             if runtime != .web {
                 (WallpaperEngine.shared.dedicatedWebHostAdapter as? WebDaemonHostAdapter)?.cancelIdlePreparation()

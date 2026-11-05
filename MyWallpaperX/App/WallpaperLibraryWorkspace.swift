@@ -31,11 +31,31 @@ import Foundation
             case .single(let reference): return [(try self.content(for: reference)).providerReference.provider]
             case .global: return Set(WallpaperProvider.allCases)
             }
-        }, report: { [weak self] in self?.presentation.report($0) })
+        }, prepareProviders: { [weak self] in self?.prepareSources($0) },
+        report: { [weak self] in self?.presentation.report($0) })
     private var personalSettingsReady = true
     private let defaults: UserDefaults
 
     var relationships: UserCollectionsSnapshot { collections?.snapshot ?? readOnlyRelationships }
+
+    func libraryHideRevisions(for references: Set<WallpaperReference>, downloads: Bool) throws -> [WallpaperReference: Int64] {
+        if downloads {
+            let canonical = try WallpaperLibraryQuery.canonicalReferences(catalog.catalog.sessionHiddenDownloadReferences.union(references), relationships: relationships)
+            return catalog.downloadHideRevisions(for: references, canonical: canonical)
+        }
+        return try WallpaperLibraryQuery.libraryExclusionRevisions(for: references, relationships: relationships)
+    }
+
+    func prepareSources(for page: WallpaperLibraryPage, query: WallpaperLibraryQueryState) {
+        var providers = (try? WallpaperLibraryQuery.requiredProviders(page: page, state: query, relationships: relationships)) ?? []
+        if page == .wallhaven { providers.insert(.wallhaven) }
+        if page == .pixiv { providers.insert(.pixiv) }
+        prepareSources(providers)
+    }
+
+    func prepareSources(_ providers: Set<WallpaperProvider>) {
+        OnlineImageLibrary.shared.prepareLocal(Set(OnlineImageSource.allCases.filter { providers.contains($0.provider) }))
+    }
 
     init(startup: LibraryCollectionsStartupOutcome, manager: WallpaperManager,
          images: SILService, steam: SteamWorkshopService, pixabay: PixabayService, defaults: UserDefaults) {
@@ -45,24 +65,12 @@ import Foundation
         self.steam = steam
         self.pixabay = pixabay
         recoveryMessage = startup.recoveryMessage
-        readOnlyRelationships = UserCollectionsSnapshot(revision: 0, resetEpoch: UUID(), migrationManifestID: nil,
-            playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
-        if case .ready(let publication) = startup {
-            collections = UserCollectionsController(store: publication.store, snapshot: publication.snapshot)
+        readOnlyRelationships = UserCollectionsSnapshot(revision: 0, resetEpoch: UUID(), playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
+        if case .ready(let store, let snapshot) = startup {
+            collections = UserCollectionsController(store: store, snapshot: snapshot)
         } else { collections = nil }
         catalog = WallpaperLibraryCatalogController(manager: manager, images: images, steam: steam, pixabay: pixabay)
-        var migratedQueries: [WallpaperLibraryPage: WallpaperLibraryQueryState] = [:]
-        var preferenceWarnings: [String] = []
-        if defaults.object(forKey: WallpaperLibraryPresentation.settingsKey) == nil, case .ready(let publication) = startup {
-            if let seed = publication.viewPreferencesSeed {
-                let mapped = WallpaperLibraryViewPreferencesMigration.map(seed, relationships: collections?.snapshot ?? readOnlyRelationships)
-                migratedQueries = mapped.queries
-                if !mapped.warnings.isEmpty { preferenceWarnings.append("部分旧版界面偏好无法恢复：" + mapped.warnings.joined(separator: "、")) }
-            }
-            if let warning = publication.viewPreferencesWarning { preferenceWarnings.append(warning) }
-        }
-        presentation = WallpaperLibraryPresentation(collections: collections, defaults: defaults,
-            migratedQueries: migratedQueries, migrationWarning: preferenceWarnings.isEmpty ? nil : preferenceWarnings.joined(separator: "\n"))
+        presentation = WallpaperLibraryPresentation(collections: collections, defaults: defaults)
         // Source rows can be warm while unresolved relationship members wait
         // for their own provider's first completed load.
         _ = presentation.update(catalog: catalog.catalog, relationships: relationships, relationshipsKnown: collections != nil)
@@ -105,6 +113,10 @@ import Foundation
     private func installPlaybackBindings() {
         manager.libraryPlaybackPendingChanged = { [weak self] in self?.playbackChanges.send() }
         let onlineImages = OnlineImageLibrary.shared
+        onlineImages.prepareExplicitLibraryRestoration = { [weak self] reference in
+            guard let self else { return nil }
+            return WallpaperLibraryCommands.makeExplicitLibraryRestorationReceipt(for: reference, in: self)
+        }
         onlineImages.requestLibraryPlayback = { [weak self] reference in self?.requestSingle(reference) }
         onlineImages.captureApplyIntent = { [weak self] in
             guard let self else { return { false } }
@@ -377,7 +389,7 @@ import Foundation
                 let canonical = try WallpaperLibraryQuery.canonicalReferences([alias.alias, alias.canonical],
                     relationships: collections.snapshot)
                 guard let previous = canonical[alias.alias], previous == alias.alias || previous == alias.canonical,
-                      canonical[alias.canonical] == alias.canonical else { throw UserCollectionsError.migrationConflict }
+                      canonical[alias.canonical] == alias.canonical else { throw UserCollectionsError.organizationConflict }
                 if previous == alias.canonical { return }
                 _ = try await collections.perform(.linkAlias(alias, Date()), expectedEpoch: epoch)
             } catch {

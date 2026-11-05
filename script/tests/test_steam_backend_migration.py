@@ -1,4 +1,4 @@
-"""SK6.2 single-backend routing and legacy acquisition retirement checks."""
+"""Single-backend routing without retired acquisition state or startup cleanup."""
 
 from pathlib import Path
 import unittest
@@ -49,7 +49,6 @@ class SteamBackendMigrationTests(unittest.TestCase):
         all_source = "\n".join(
             path.read_text(errors="ignore")
             for path in MODULE.rglob("*.swift")
-            if path.name != "SteamWorkshopLegacyAcquisitionRetirement.swift"
         )
         for symbol in (
             "SteamCommunitySessionController", "SteamWorkshopBrowseStub",
@@ -60,29 +59,10 @@ class SteamBackendMigrationTests(unittest.TestCase):
             self.assertNotIn(symbol, all_source)
 
 
-    def test_retirement_cleanup_is_exact_and_does_not_touch_wallpaper_libraries(self):
-        cleanup = (CORE / "SteamWorkshopLegacyAcquisitionRetirement.swift").read_text()
+    def test_retired_acquisition_cleanup_is_absent(self):
         service = (CORE / "SteamWorkshopService.swift").read_text()
-        self.assertIn('"com.songziqiang.MyWallpaperX.steam"', cleanup)
-        self.assertIn('"steamPassword"', cleanup)
-        self.assertIn('"8ED08F8C-9DC7-45E8-8F71-1EDDA4DD29C5"', cleanup)
-        self.assertIn('"SteamWorkshopRuntime"', cleanup)
-        self.assertIn('"SteamWorkshop.lastUsername"', cleanup)
-        self.assertIn('"SteamWorkshop.lastAuthenticatedAt"', cleanup)
-        self.assertIn("WKWebsiteDataStore.default()", cleanup)
-        self.assertIn("WKWebsiteDataStore.fetchAllDataStoreIdentifiers(", cleanup)
-        self.assertIn("identifiers.contains(webDataStoreIdentifier)", cleanup)
-        self.assertIn("WKWebsiteDataStore.remove(", cleanup)
-        self.assertIn("forIdentifier: webDataStoreIdentifier", cleanup)
-        self.assertNotIn("libraryRootURL", cleanup)
-        self.assertNotIn('"Video"', cleanup)
-        self.assertNotIn('"Web"', cleanup)
-        self.assertNotIn('"Scene"', cleanup)
-        initializer = service[service.index("    private init()"):]
-        self.assertLess(
-            initializer.index("SteamWorkshopLegacyAcquisitionRetirement.run"),
-            initializer.index("restoreSavedSteamSessionIfAuthorized()"),
-        )
+        self.assertNotIn("SteamWorkshopLegacyAcquisitionRetirement", service)
+        self.assertFalse((CORE / "SteamWorkshopLegacyAcquisitionRetirement.swift").exists())
 
     def test_structured_details_publish_dependency_and_creator_identity(self):
         helper = (ROOT / "SteamService/WorkshopQueries.cs").read_text()

@@ -33,8 +33,7 @@ import Foundation
                         item(pixabay, "Pixabay", size: nil)])
         func snapshot(recent: [WallpaperRecentUse] = [], aliases: [WallpaperReferenceAlias]? = nil,
                       excluded: [WallpaperLibraryExclusion] = []) -> UserCollectionsSnapshot {
-            UserCollectionsSnapshot(revision: 1, resetEpoch: UUID(), migrationManifestID: "test",
-                playlists: [playlist], members: [
+            UserCollectionsSnapshot(revision: 1, resetEpoch: UUID(), playlists: [playlist], members: [
                     .init(playlistID: playlist.id, reference: steam, position: 1, addedAt: Date(timeIntervalSince1970: 20)),
                     .init(playlistID: playlist.id, reference: image, position: 0, addedAt: Date(timeIntervalSince1970: 10)),
                     .init(playlistID: playlist.id, reference: offline, position: 2, addedAt: Date(timeIntervalSince1970: 30))],
@@ -74,16 +73,9 @@ import Foundation
         checks["pageStateRoundTripsWithoutSourceSingletons"] = try JSONDecoder().decode(WallpaperLibraryQueryState.self, from: JSONEncoder().encode(WallpaperLibraryQueryState(search: "夏天", preferredColumns: 3, scrollOffset: -5.25, scrollAtTop: false))) == WallpaperLibraryQueryState(search: "夏天", preferredColumns: 3, scrollOffset: -5.25, scrollAtTop: false)
         do {
             let decoder = JSONDecoder(), encoder = JSONEncoder()
-            let legacy = Data(#"{"search":"夏天","provider":"pixabay","kind":"video","status":"failed","ascending":false,"zoomOffset":2}"#.utf8)
-            let migrated = try decoder.decode(WallpaperLibraryQueryState.self, from: legacy)
-            checks["legacy-single-filters-decode-once-into-sets-and-retain-other-preferences"] = migrated
-                == WallpaperLibraryQueryState(search: "夏天", providers: [.pixabay], kinds: [.video], statuses: [.failed], ascending: false)
-            let unrestricted = Data(#"{"search":"","provider":null,"kind":null,"status":"all","ascending":true}"#.utf8)
-            checks["legacy-all-and-null-optional-filters-migrate-to-unrestricted-sets"] = try decoder.decode(
-                WallpaperLibraryQueryState.self, from: unrestricted) == WallpaperLibraryQueryState()
             let selected = WallpaperLibraryQueryState(search: "Café", providers: [.wallhaven, .steamWorkshop, .pixabay],
                 kinds: [.video, .scene, .image], statuses: [.transferring, .playable, .failed], sort: .name,
-                ascending: false, legacyTimeOrder: [steam], preferredColumns: 4, scrollAnchor: steam,
+                ascending: false, preferredColumns: 4, scrollAnchor: steam,
                 scrollOffset: -15.5, scrollAtTop: false, showsAdultContent: false)
             let encoded = try encoder.encode(selected)
             let object = try JSONSerialization.jsonObject(with: encoded) as! [String: Any]
@@ -101,13 +93,7 @@ import Foundation
             checks["new-filter-arrays-decode-to-one-selection-per-value"] = try decoder.decode(
                 WallpaperLibraryQueryState.self, from: repeated)
                 == WallpaperLibraryQueryState(providers: [.pixabay], kinds: [.video], statuses: [.failed])
-            for status in ["playable", "unavailable", "transferring", "failed"] {
-                let old = Data("{\"search\":\"\",\"status\":\"\(status)\",\"ascending\":true}".utf8)
-                checks["legacy-status-preserves-\(status)"] = try decoder.decode(WallpaperLibraryQueryState.self, from: old).statuses
-                    == [WallpaperLibraryStatusFilter(rawValue: status)!]
-            }
             for (name, json) in [
-                ("legacy-invalid", #"{"search":"","status":"unknown","ascending":true}"#),
                 ("new-invalid", #"{"search":"","providers":[],"kinds":[],"statuses":["unknown"],"ascending":true}"#),
                 ("new-retired-all", #"{"search":"","providers":[],"kinds":[],"statuses":["all"],"ascending":true}"#)
             ] {
@@ -121,7 +107,21 @@ import Foundation
         }
         checks["myVideosExcludesProvenDownloadBacking"] = try project(.videos).items.map(\.reference) == [v]
         checks["sameNumberAcrossProvidersDoesNotCollapse"] = try project(.downloads).items.map(\.reference) == [steam, pixabay]
-        let members = try project(.playlist(playlist.id))
+        checks["playlist-default-is-actual-join-time-descending"] = try project(.playlist(playlist.id)).items.map(\.reference) == [offline, steam, image]
+        checks["playlist-explicit-join-time-ascending-is-retained"] = try project(.playlist(playlist.id), .init(sort: .addedAt, ascending: true)).items.map(\.reference) == [image, steam, offline]
+        let joinedTogether = UserCollectionsSnapshot(revision: 1, resetEpoch: UUID(), playlists: [playlist], members: [steam, offline, image].enumerated().map {
+                .init(playlistID: playlist.id, reference: $0.element, position: $0.offset, addedAt: Date(timeIntervalSince1970: 20))
+            }, favorites: [], recent: [], aliases: relations.aliases, locators: relations.locators)
+        checks["same-batch-join-time-uses-member-position-instead-of-source-id"] = try WallpaperLibraryQuery.project(
+            page: .playlist(playlist.id), state: .init(), catalog: catalog, relationships: joinedTogether).items.map(\.reference) == [image, offline, steam]
+        catalog.sessionHiddenDownloadReferences = [steam]
+        checks["session-download-hide-is-canonical-and-keeps-playlist-and-explicit-playback"] = try project(.downloads).items.map(\.reference) == [pixabay]
+            && project(.playlist(playlist.id), .init(sort: .sourceOrder)).items.map(\.reference) == [image, steam, offline]
+            && WallpaperLibraryQuery.resolve([steam], catalog: catalog, relationships: relations)[0].capabilities.contains(.play)
+        catalog.sessionHiddenDownloadReferences = [backing]
+        checks["session-download-hide-follows-later-canonical-alias"] = try project(.downloads).items.allSatisfy { $0.reference != steam }
+        catalog.sessionHiddenDownloadReferences = []
+        let members = try project(.playlist(playlist.id), .init(sort: .sourceOrder))
         checks["playlistRetainsManualOrderAndOfflineMember"] = members.items.map(\.reference) == [image, steam, offline]
         checks["missingItemUsesStoredLocatorWithoutLosingRelation"] = members.items.last?.title == "Offline" && members.items.last?.kind == .web
         checks["missingItemCannotPlayOrOrganize"] = members.items.last?.publishedAvailability == .unavailable && members.items.last?.capabilities == [.inspect]
@@ -129,25 +129,25 @@ import Foundation
         checks["queryDoesNotMutateSourceCollections"] = catalog.videos.count == 2 && catalog.downloads.count == 2 && relations.members.count == 3
         catalog.excludedDownloadReferences = [steam]
         checks["sourceTaskAndAccountExclusionsFilterOnlyMyDownloads"] = try project(.downloads).items.map(\.reference) == [pixabay]
-            && project(.playlist(playlist.id)).items.map(\.reference) == [image, steam, offline]
+            && project(.playlist(playlist.id), .init(sort: .sourceOrder)).items.map(\.reference) == [image, steam, offline]
             && project(.favorites).items.contains { $0.reference == steam }
             && WallpaperLibraryQuery.resolve([steam], catalog: catalog, relationships: relations)[0].capabilities.contains(.play)
         catalog.excludedDownloadReferences = []
         let hiddenBacking = snapshot(excluded: [.init(reference: backing, revision: 7)])
-        checks["library-exclusion-follows-only-proven-alias-not-same-number-or-path"] = try WallpaperLibraryQuery.project(page: .downloads,
-            state: .init(), catalog: catalog, relationships: hiddenBacking).items.map(\.reference) == [pixabay]
+        checks["old-sql-download-exclusion-no-longer-hides-disk-content-or-other-sources"] = try WallpaperLibraryQuery.project(page: .downloads,
+            state: .init(), catalog: catalog, relationships: hiddenBacking).items.map(\.reference) == [steam, pixabay]
             && WallpaperLibraryQuery.project(page: .videos, state: .init(), catalog: catalog, relationships: hiddenBacking).items.map(\.reference) == [v]
             && WallpaperLibraryQuery.project(page: .images, state: .init(), catalog: catalog, relationships: hiddenBacking).items.map(\.reference) == [image]
         let hidden = snapshot(recent: [.init(reference: steam, lastSuccessfulUseAt: nil, commitSequence: 1, migrationOrder: nil)],
             excluded: [backing, v, image, pixabay].enumerated().map { .init(reference: $0.element, revision: Int64(7 + $0.offset)) })
-        checks["durable-exclusion-filters-only-three-source-pages"] = try [WallpaperLibraryPage.videos, .images, .downloads].allSatisfy {
+        checks["durable-exclusion-retains-local-video-and-image-page-semantics"] = try [WallpaperLibraryPage.videos, .images].allSatisfy {
             let page = try WallpaperLibraryQuery.project(page: $0, state: .init(), catalog: catalog, relationships: hidden)
             return page.items.isEmpty && page.unfilteredCount == 0
         }
         checks["excluded-library-items-retain-all-existing-relationships-and-explicit-playback"] = try WallpaperLibraryQuery.project(page: .favorites,
             state: .init(), catalog: catalog, relationships: hidden).items.count == 3
             && WallpaperLibraryQuery.project(page: .recent, state: .init(), catalog: catalog, relationships: hidden).items.map(\.reference) == [steam]
-            && WallpaperLibraryQuery.project(page: .playlist(playlist.id), state: .init(), catalog: catalog, relationships: hidden).items.map(\.reference) == [image, steam, offline]
+            && WallpaperLibraryQuery.project(page: .playlist(playlist.id), state: .init(sort: .sourceOrder), catalog: catalog, relationships: hidden).items.map(\.reference) == [image, steam, offline]
             && WallpaperLibraryQuery.resolve([steam, image, v, pixabay], catalog: catalog, relationships: hidden).allSatisfy { $0.capabilities.contains(.play) }
         let admitted = try WallpaperLibraryQuery.libraryExclusionRevisions(for: [backing, steam, v], relationships: hiddenBacking)
         checks["restore-receipt-uses-canonical-admission-revision-and-keeps-absent-as-nil"] = admitted[backing] == 7 && admitted[steam] == 7 && admitted[v] == nil
@@ -231,7 +231,7 @@ import Foundation
         // The original source command and title win over its video backing.
         checks["canonicalSourceRetainsOwnerTargetAndMetadata"] = members.items[1].providerReference == steam && members.items[1].title == "Workshop"
         catalog.downloads.removeAll { $0.reference == steam }
-        let fallback = try project(.playlist(playlist.id)).items[1]
+        let fallback = try project(.playlist(playlist.id), .init(sort: .sourceOrder)).items[1]
         checks["backingFallbackUsesCanonicalRelationButOriginalOwnerCommand"] = fallback.reference == steam && fallback.providerReference == backing && fallback.title == "Backing"
         let oldID = ref(.videoLibrary, "old"), newID = ref(.videoLibrary, "new")
         catalog.downloads = [item(steam, "Used", size: 1),
@@ -286,8 +286,7 @@ import Foundation
                              summary: "Short Teaser", description: "Full River Delta Description", tags: ["Retrowave"]),
                         item(searchPixabay, "Stock Film", path: "/pixabay-private-path/movie.mp4", author: "Zoë Author",
                              summary: "Short Teaser", description: "Full River Delta Description", tags: ["Retrowave"])])
-        let searchRelations = UserCollectionsSnapshot(revision: 1, resetEpoch: UUID(), migrationManifestID: nil,
-            playlists: [searchList], members: searchRefs.enumerated().map {
+        let searchRelations = UserCollectionsSnapshot(revision: 1, resetEpoch: UUID(), playlists: [searchList], members: searchRefs.enumerated().map {
                 .init(playlistID: searchList.id, reference: $0.element, position: $0.offset, addedAt: Date())
             }, favorites: searchRefs.map { .init(reference: $0, favoritedAt: nil, migrationOrder: nil) },
             recent: searchRefs.enumerated().map {
@@ -433,7 +432,7 @@ import Foundation
                 images: [item(healthy, "Healthy", kind: .image)], downloads: [item(canonical, "Native")])
             func directorySnapshot(_ values: [(WallpaperReference, Int)], aliases: [WallpaperReferenceAlias] = [],
                                    locators: [WallpaperReferenceLocator] = []) -> UserCollectionsSnapshot {
-                .init(revision: 9, resetEpoch: relations.resetEpoch, migrationManifestID: nil, playlists: [list, empty],
+                .init(revision: 9, resetEpoch: relations.resetEpoch, playlists: [list, empty],
                     members: values.map { .init(playlistID: list.id, reference: $0.0, position: $0.1, addedAt: date) },
                     favorites: [], recent: [], aliases: aliases, locators: locators)
             }
@@ -559,8 +558,7 @@ import Foundation
             func batchRelationships(aliases: [WallpaperReferenceAlias] = [],
                                     locators: [WallpaperReferenceLocator] = [], favorites: [WallpaperFavorite] = [],
                                     playlists: [WallpaperPlaylist] = [], members: [WallpaperPlaylistMember] = []) -> UserCollectionsSnapshot {
-                UserCollectionsSnapshot(revision: 1, resetEpoch: UUID(), migrationManifestID: nil,
-                    playlists: playlists, members: members, favorites: favorites, recent: [], aliases: aliases, locators: locators)
+                UserCollectionsSnapshot(revision: 1, resetEpoch: UUID(), playlists: playlists, members: members, favorites: favorites, recent: [], aliases: aliases, locators: locators)
             }
             let sourceCatalog = WallpaperLibraryCatalog(videos: [item(video, "Batch Video"), item(backing, "Backing")],
                 images: [item(image, "Batch Image", kind: .image)], downloads: [
@@ -692,8 +690,7 @@ import Foundation
             let absentImage = ref(.staticImageLibrary, "pending-image"), id = UUID()
             let requested = [absentVideo, local, warmBacking, absentImage]
             let expectedStrict = [absentVideo, local, canonical, absentImage]
-            let pendingRelations = UserCollectionsSnapshot(revision: 1, resetEpoch: UUID(), migrationManifestID: nil,
-                playlists: [.init(id: id, name: "Pending sources", createdAt: Date(), modifiedAt: Date(), sidebarRank: 0)],
+            let pendingRelations = UserCollectionsSnapshot(revision: 1, resetEpoch: UUID(), playlists: [.init(id: id, name: "Pending sources", createdAt: Date(), modifiedAt: Date(), sidebarRank: 0)],
                 members: requested.enumerated().map { .init(playlistID: id, reference: $0.element, position: $0.offset, addedAt: Date()) },
                 favorites: requested.enumerated().map { .init(reference: $0.element, favoritedAt: nil, migrationOrder: $0.offset) },
                 recent: requested.enumerated().map { .init(reference: $0.element, lastSuccessfulUseAt: nil, commitSequence: Int64(4 - $0.offset), migrationOrder: nil) },
@@ -726,7 +723,7 @@ import Foundation
             checks["batch-default-still-retains-pending-members-for-each-page"] = try WallpaperLibraryQuery.project(
                 pages: pages.map { $0.1 }, state: .init(sort: .sourceOrder), catalog: empty, relationships: pendingRelations).map(\.reference)
                 == expectedStrict + expectedStrict + expectedStrict
-            let warmItems = try WallpaperLibraryQuery.project(page: .playlist(id), state: .init(), catalog: warm,
+            let warmItems = try WallpaperLibraryQuery.project(page: .playlist(id), state: .init(sort: .sourceOrder), catalog: warm,
                 relationships: pendingRelations, omitsPendingMembers: true).items
             checks["unloaded-canonical-provider-does-not-hide-a-real-backing-owner"] = warmItems.last?.reference == canonical
                 && warmItems.last?.providerReference == warmBacking && warm.loadedProviders.isEmpty
@@ -753,8 +750,7 @@ import Foundation
         do {
             func resolutionRelationships(aliases: [WallpaperReferenceAlias] = [],
                                          locators: [WallpaperReferenceLocator] = []) -> UserCollectionsSnapshot {
-                .init(revision: 1, resetEpoch: relations.resetEpoch, migrationManifestID: nil,
-                      playlists: [], members: [], favorites: [], recent: [], aliases: aliases, locators: locators)
+                .init(revision: 1, resetEpoch: relations.resetEpoch, playlists: [], members: [], favorites: [], recent: [], aliases: aliases, locators: locators)
             }
             func resolveMeasured(_ name: String, _ references: [WallpaperReference], catalog: WallpaperLibraryCatalog,
                                  relationships: UserCollectionsSnapshot) throws -> (items: [WallpaperContentItem], work: [Int], locatorReads: Int) {

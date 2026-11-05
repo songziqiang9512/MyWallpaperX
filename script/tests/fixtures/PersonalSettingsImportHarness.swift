@@ -15,8 +15,6 @@ import SQLite3
 
 @MainActor final class SILService {
     static var defersMissingFileCleanupForPersonalSettingsRecovery = false
-    var migrationRecoveryMessage: String?
-    var allowsLibraryMutation: Bool { migrationRecoveryMessage == nil }
     private var metadataLoadGeneration: UInt64 = 0
     var wallpapers: [SILWallpaper] = []
     var selectedIDs = Set<String>()
@@ -39,9 +37,6 @@ final class ProfileDefaults: UserDefaults {
     override func synchronize() -> Bool { failSynchronization ? false : super.synchronize() }
 }
 @MainActor final class WallpaperManager {
-    var migrationRecoveryMessage: String?
-    var preservesLegacyMigrationInputs: Bool { migrationRecoveryMessage != nil }
-    var allowsLibraryMutation: Bool { !preservesLegacyMigrationInputs }
     var didFinishInitialIndexLoad = true
     var initialIndexInternalPublication = false
     @Published var wallpapers: [VideoWallpaper] = []
@@ -121,8 +116,8 @@ extension Notification.Name {
             checks["MissingOrUnknownBackgroundStyleDefaultsLocally-\(value)"] = decoded.libraryBackgroundStyle == .listCoverTint
                 && decoded.volume == (value == "{}" ? 50 : 31)
         }
-        let oldPreferences = try JSONDecoder().decode(PersonalSettingsPreferences.self, from: Data("{}".utf8))
-        checks["OldProfilePreservesLocalBackgroundStyle"] = oldPreferences.applying(to: nativeBackground).libraryBackgroundStyle == .macOSNative
+        let partialPreferences = try JSONDecoder().decode(PersonalSettingsPreferences.self, from: Data("{}".utf8))
+        checks["CurrentPartialProfilePreservesLocalBackgroundStyle"] = partialPreferences.applying(to: nativeBackground).libraryBackgroundStyle == .macOSNative
         let exportedBackground = try JSONDecoder().decode(PersonalSettingsPreferences.self,
             from: JSONEncoder().encode(PersonalSettingsPreferences(from: nativeBackground)))
         checks["ProfileRoundTripRestoresExplicitBackgroundStyle"] = exportedBackground.applying(to: WallpaperSettings()).libraryBackgroundStyle == .macOSNative
@@ -146,12 +141,10 @@ extension Notification.Name {
             from: JSONEncoder().encode(PersonalSettingsPreferences(from: clickSettings)))
         checks["ProfileRestoresExplicitCardClickChoice"] = clickProfile.applying(to: WallpaperSettings()).libraryCardClickAction == .openDetails
         var laterClickSettings = clickSettings; laterClickSettings.libraryCardClickAction = .selectOnly
-        checks["ExplicitCardClickRecoverySnapshotStillRejectsLaterLocalEdit"] = !clickProfile.matchesForRecovery(.init(from: laterClickSettings))
-        var legacyClickSnapshot = clickProfile; legacyClickSnapshot.libraryCardClickAction = nil
-        checks["LegacyRecoverySnapshotIgnoresOnlyItsMissingCardClickField"] = legacyClickSnapshot.matchesForRecovery(.init(from: laterClickSettings))
-        laterClickSettings.volume = 11
-        checks["LegacyRecoveryCardClickCompatibilityDoesNotIgnoreOtherPreferenceConflicts"] = !legacyClickSnapshot.matchesForRecovery(.init(from: laterClickSettings))
-        checks["OldProfilePreservesLocalCardClickChoice"] = oldPreferences.applying(to: clickSettings).libraryCardClickAction == .openDetails
+        checks["ExplicitCardClickRecoverySnapshotStillRejectsLaterLocalEdit"] = clickProfile != .init(from: laterClickSettings)
+        var incompleteClickSnapshot = clickProfile; incompleteClickSnapshot.libraryCardClickAction = nil
+        checks["IncompleteRecoverySnapshotDoesNotBorrowTheCurrentCardClickField"] = incompleteClickSnapshot != .init(from: laterClickSettings)
+        checks["CurrentPartialProfilePreservesLocalCardClickChoice"] = partialPreferences.applying(to: clickSettings).libraryCardClickAction == .openDetails
         var shortcutSettings = clickSettings
         shortcutSettings.systemHotkeysEnabled = true
         shortcutSettings.previousWallpaperHotkey = .f2; shortcutSettings.nextWallpaperHotkey = .f4
@@ -162,14 +155,10 @@ extension Notification.Name {
         checks["PortableShortcutEnableAndBindingsRoundTripThroughTheOriginalPreferences"] = shortcutRestored.systemHotkeysEnabled
             && shortcutRestored.previousWallpaperHotkey == .f2 && shortcutRestored.nextWallpaperHotkey == .f4
             && shortcutRestored.togglePlaybackHotkey == .f6 && shortcutRestored.toggleMuteHotkey == .f8
-        checks["OldProfilesDoNotClaimExistingShortcutPreferences"] = oldPreferences.applying(to: shortcutSettings).previousWallpaperHotkey == .f2
-            && oldPreferences.applying(to: shortcutSettings).systemHotkeysEnabled
-        var legacyShortcutRecovery = shortcutProfile
-        legacyShortcutRecovery.systemHotkeysEnabled = nil; legacyShortcutRecovery.previousWallpaperHotkey = nil
-        legacyShortcutRecovery.nextWallpaperHotkey = nil; legacyShortcutRecovery.togglePlaybackHotkey = nil; legacyShortcutRecovery.toggleMuteHotkey = nil
-        var changedShortcutSettings = shortcutSettings; changedShortcutSettings.toggleMuteHotkey = .f10
-        checks["LegacyRecoveryIgnoresOnlyItsUnrepresentedShortcutFields"] = legacyShortcutRecovery.matchesForRecovery(.init(from: changedShortcutSettings))
-            && !shortcutProfile.matchesForRecovery(.init(from: changedShortcutSettings))
+        checks["CurrentPartialProfilesDoNotClaimExistingShortcutPreferences"] = partialPreferences.applying(to: shortcutSettings).previousWallpaperHotkey == .f2
+            && partialPreferences.applying(to: shortcutSettings).systemHotkeysEnabled
+        var incompleteShortcutSnapshot = shortcutProfile; incompleteShortcutSnapshot.toggleMuteHotkey = nil
+        checks["IncompleteRecoverySnapshotCannotMatchACompleteCurrentPreferenceSnapshot"] = incompleteShortcutSnapshot != .init(from: shortcutSettings)
         let unknownClickProfile = try JSONDecoder().decode(PersonalSettingsPreferences.self,
             from: Data("{\"libraryCardClickAction\":\"future-action\",\"volume\":19}".utf8))
         let unknownApplied = unknownClickProfile.applying(to: clickSettings)
@@ -282,8 +271,7 @@ extension Notification.Name {
         }
         let onlineLocators = onlineRefs.map { WallpaperReferenceLocator(reference: $0,
             locator: .init(path: "/offline/" + $0.storageKey, titleHint: "Saved image", mediaKind: .image)) }
-        let onlineState = UserCollectionsSnapshot(revision: 1, resetEpoch: UUID(), migrationManifestID: nil,
-            playlists: [onlineList], members: onlineMembers,
+        let onlineState = UserCollectionsSnapshot(revision: 1, resetEpoch: UUID(), playlists: [onlineList], members: onlineMembers,
             favorites: onlineRefs.map { .init(reference: $0, favoritedAt: originalDate) }, recent: [], aliases: [], locators: onlineLocators)
         let onlinePayload = try LibraryPersonalSettings.export(sources: [], preferences: .init(from: manager.settings), state: onlineState)
         let onlineBytes = try LibraryPersonalSettings.encode(onlinePayload)
@@ -307,29 +295,29 @@ extension Notification.Name {
         } catch PersonalSettingsError.unsupportedSchema(9) { checks["NextPersonalSettingsSchemaIsRejected"] = true }
         manager.settings.systemHotkeysEnabled = true; manager.settings.previousWallpaperHotkey = .f3
         manager.settings.restorePlaybackOnLaunch = false
-        for version in 1...5 {
-            let bytes = Data("""
-                {"schemaVersion":\(version),"preferences":{"volume":17},"entries":[],"tags":[]}
-                """.utf8)
-            let payload = try LibraryPersonalSettings.decode(bytes)
-            let restored = payload.preferences.applying(to: manager.settings)
-            checks["v\(version)AbsentPreferencesAndLocalHotkeysSurvive"] = restored.volume == 17
-                && !restored.restorePlaybackOnLaunch && restored.systemHotkeysEnabled && restored.previousWallpaperHotkey == .f3
-            let legacySources = try LibraryPersonalSettings.decode(Data("""
-                {"schemaVersion":\(version),"preferences":{},"entries":[
-                {"path":"\(a.path)","title":"Original"},{"path":"/offline/v\(version).mp4","title":"Recovered unknown"}],"tags":[]}
-                """.utf8))
-            let legacyPlan = try LibraryPersonalSettings.plan(legacySources, sources: manager.personalSettingsSources,
-                beforePreferences: .init(from: manager.settings), targetPreferences: .init(from: manager.settings),
-                state: controller.snapshot, normalizedPaths: [:], missingPathCount: 2)
-            checks["v\(version)MissingAdmissionPreservesKnownAndRestoresUnknown"] = legacyPlan.sourcePatches.count == 2
-                && legacyPlan.sourcePatches.first?.target.firstIndexedAt == a.firstIndexedAt
-                && legacyPlan.sourcePatches.last?.target.firstIndexedAt == nil
+        let partialPayload = PersonalSettingsPayload(exportedAt: originalDate,
+            preferences: try JSONDecoder().decode(PersonalSettingsPreferences.self, from: Data("{\"volume\":17}".utf8)),
+            sources: [], collections: .init())
+        let partialBytes = try LibraryPersonalSettings.encode(partialPayload)
+        let partial = try LibraryPersonalSettings.decode(partialBytes).preferences.applying(to: manager.settings)
+        checks["CurrentPartialPreferencesPreserveUnselectedValues"] = partial.volume == 17
+            && !partial.restorePlaybackOnLaunch && partial.systemHotkeysEnabled && partial.previousWallpaperHotkey == .f3
+        for version in 1...7 {
+            var old = try JSONSerialization.jsonObject(with: partialBytes) as! [String: Any]
+            old["schemaVersion"] = version
+            let bytes = try JSONSerialization.data(withJSONObject: old), file = root.appendingPathComponent("unsupported-\(version).json")
+            try bytes.write(to: file)
+            let sourceBefore = manager.wallpapers, organizationBefore = controller.snapshot, settingsBefore = manager.settings
+            do { _ = try await makeCoordinator(root.appendingPathComponent("unsupported-recovery.json")).importPersonalSettings(from: file); checks["Schema\(version)RejectsWithoutMutation"] = false }
+            catch PersonalSettingsError.unsupportedSchema(let found) {
+                checks["Schema\(version)RejectsWithoutMutation"] = try Data(contentsOf: file) == bytes
+                    && found == version && manager.wallpapers == sourceBefore && controller.snapshot == organizationBefore && manager.settings == settingsBefore
+            }
         }
-        let extreme = try LibraryPersonalSettings.decode(Data("""
-            {"schemaVersion":5,"preferences":{"idleTimeoutMinutes":-9223372036854775808,"systemAudioSpectrumBarCount":9223372036854775807,
-            "volume":900,"playbackRate":99,"systemAudioSpectrumOffsetX":9,"systemAudioSpectrumOffsetY":-9},"entries":[]}
-            """.utf8)).preferences.applying(to: manager.settings)
+        let extreme = try JSONDecoder().decode(PersonalSettingsPreferences.self, from: Data("""
+            {"idleTimeoutMinutes":-9223372036854775808,"systemAudioSpectrumBarCount":9223372036854775807,
+            "volume":900,"playbackRate":99,"systemAudioSpectrumOffsetX":9,"systemAudioSpectrumOffsetY":-9}
+            """.utf8)).applying(to: manager.settings)
         checks["ExternalPreferenceBoundsHaveNoIntegerOverflow"] = extreme.idleTimeoutMinutes == 5 && extreme.systemAudioSpectrumBarCount == 48
             && extreme.volume == 100 && extreme.playbackRate == 2 && extreme.systemAudioSpectrumOffsetX == 0.3 && extreme.systemAudioSpectrumOffsetY == -0.2
         let exportURL = root.appendingPathComponent("export.json")
@@ -345,7 +333,7 @@ extension Notification.Name {
             && (exportedPreferences?["systemHotkeysEnabled"] as? Bool) == manager.settings.systemHotkeysEnabled
             && object["pixivCookie"] == nil && object["wallhavenAPIKey"] == nil
             && !exportedJSON.contains("/derived/thumbnail")
-        checks["ExportIncludesExplicitFalseForUnfavoritedReferences"] = exported.collections?.favoriteStates.contains { $0.reference == ref("plain", .pixabay) && !$0.isFavorite } == true
+        checks["ExportIncludesExplicitFalseForUnfavoritedReferences"] = exported.collections.favoriteStates.contains { $0.reference == ref("plain", .pixabay) && !$0.isFavorite } == true
         checks["SourceAdmissionExportsSeparatelyFromPlaybackHistory"] = exported.sources.first?.firstIndexedAt == a.firstIndexedAt
             && exported.sources.first?.firstIndexedAt != a.lastUsed
             && ((object["sources"] as? [[String: Any]])?.first?["firstIndexedAtReferenceDate"] as? Double) == a.firstIndexedAt?.timeIntervalSinceReferenceDate
@@ -399,7 +387,7 @@ extension Notification.Name {
         checks["ExternalPortablePreferencesAreIncludedInTheOriginalProfileExport"] = portableExport.sceneHDRDisplayEnabled == !hdrBefore
             && portableExport.sceneMediaInfoEnabled == !mediaBefore && portableExport.playbackPerformanceProfile == PlaybackPerformanceProfile.current.rawValue
         let result = try await coordinator.importPersonalSettings(from: profile)
-        checks["OlderProfilesLeaveUnrepresentedExternalPreferencesWithTheirOwners"] = SceneHDRDisplayPreference.isEnabled == !hdrBefore
+        checks["CurrentPartialProfilesLeaveUnselectedExternalPreferencesWithTheirOwners"] = SceneHDRDisplayPreference.isEnabled == !hdrBefore
             && SceneMediaSourcePreference.isEnabled == !mediaBefore && PlaybackPerformanceProfile.current.rawValue == completePreferences.playbackPerformanceProfile
         checks["SameNameDifferentUUIDAndMixedOfflineMembersSurvive"] = controller.snapshot.playlists.count == 2
             && controller.snapshot.members.filter { $0.playlistID == second.id }.map(\.reference) == [ref("video:offline-scene", .steamWorkshop), ref("77", .pixabay)]
@@ -432,10 +420,10 @@ extension Notification.Name {
             checks["FutureSchemaRejectedBeforeAnyOwnerWrite"] = manager.wallpapers == beforeUnknown
                 && afterFutureBytes == futureBytes && !FileManager.default.fileExists(atPath: recoveryURL.path)
         }
-        manager.migrationRecoveryMessage = "Recovery input must remain read only"
-        do { _ = try await coordinator.importPersonalSettings(from: root.appendingPathComponent("does-not-exist")); checks["RecoveryDeniesBeforeReadingProfile"] = false }
-        catch let error as CocoaError { checks["RecoveryDeniesBeforeReadingProfile"] = error.code == .fileWriteNoPermission }
-        manager.migrationRecoveryMessage = nil
+        manager.didFinishInitialIndexLoad = false
+        do { _ = try await coordinator.importPersonalSettings(from: root.appendingPathComponent("does-not-exist")); checks["PendingCurrentIndexDeniesBeforeReadingProfile"] = false }
+        catch PersonalSettingsError.indexLoading { checks["PendingCurrentIndexDeniesBeforeReadingProfile"] = true }
+        manager.didFinishInitialIndexLoad = true
 
         // Real original IndexStore fails; the source array is not published and
         // the prepared recovery remains retryable, with no fallback fake commit.
@@ -524,111 +512,66 @@ extension Notification.Name {
         checks["ResetEpochRetiresOldRecoveryWithoutReimport"] = restarted.allowsEditing
             && !FileManager.default.fileExists(atPath: recoveryURL.path) && controller.snapshot.playlists.isEmpty
 
-        // Reopen an actual failed import journal with exactly the pre-T07
-        // preference shape. No background key was present in either snapshot.
+        // Current recovery owns complete per-owner snapshots. A missing field
+        // is corruption, not permission to borrow a later local preference.
         do {
             let originalSettings = manager.settings
             defer { manager.settings = originalSettings; manager.defaults.failSynchronization = false }
-            let compatibilityURL = root.appendingPathComponent("background-recovery.json")
-            let compatibilityProfile = root.appendingPathComponent("background-profile.json")
-            manager.settings.libraryBackgroundStyle = .listCoverTint
-            let compatibility = makeCoordinator(compatibilityURL)
-            var oldTarget = PersonalSettingsPreferences(from: manager.settings); oldTarget.volume = 24
-            try write(.init(exportedAt: originalDate, preferences: oldTarget, sources: [], collections: .init()), to: compatibilityProfile)
+            let journalURL = root.appendingPathComponent("background-recovery.json")
+            let inputURL = root.appendingPathComponent("background-profile.json")
+            manager.settings.libraryBackgroundStyle = .macOSNative
+            let beforeStyleEdit = PersonalSettingsPreferences(from: manager.settings)
+            let importer = makeCoordinator(journalURL)
+            var target = beforeStyleEdit; target.volume = 25
+            try write(.init(exportedAt: originalDate, preferences: target, sources: [], collections: .init()), to: inputURL)
             manager.defaults.failSynchronization = true
-            var oldWriteFailed = false
-            do { _ = try await compatibility.importPersonalSettings(from: compatibilityProfile) }
-            catch { oldWriteFailed = true }
+            do { _ = try await importer.importPersonalSettings(from: inputURL) } catch {}
             manager.defaults.failSynchronization = false
-            checks["OldJournalComesFromRealFailedPreferenceDurability"] = oldWriteFailed
-                && manager.settings.volume == originalSettings.volume && !compatibility.allowsEditing
-            var oldJournal = try JSONSerialization.jsonObject(with: Data(contentsOf: compatibilityURL)) as! [String: Any]
-            var oldPlan = oldJournal["plan"] as! [String: Any]
+            let intact = try Data(contentsOf: journalURL)
+            var object = try JSONSerialization.jsonObject(with: intact) as! [String: Any]
+            var plan = object["plan"] as! [String: Any]
             for key in ["beforePreferences", "targetPreferences"] {
-                var preferences = oldPlan[key] as! [String: Any]
+                var preferences = plan[key] as! [String: Any]
                 preferences.removeValue(forKey: "libraryBackgroundStyle")
                 preferences.removeValue(forKey: "libraryCardClickAction")
-                oldPlan[key] = preferences
+                plan[key] = preferences
             }
-            oldJournal["plan"] = oldPlan
-            try JSONSerialization.data(withJSONObject: oldJournal).write(to: compatibilityURL, options: .atomic)
-            manager.settings.libraryBackgroundStyle = .macOSNative
-            manager.settings.libraryCardClickAction = .openDetails
-            let oldRelaunch = makeCoordinator(compatibilityURL)
-            checks["OldJournalReopenKeepsRecoveryBarrierBeforeResume"] = !oldRelaunch.allowsEditing
-                && (oldPlan["beforePreferences"] as? [String: Any])?["libraryBackgroundStyle"] == nil
-                && (oldPlan["targetPreferences"] as? [String: Any])?["libraryBackgroundStyle"] == nil
-                && (oldPlan["beforePreferences"] as? [String: Any])?["libraryCardClickAction"] == nil
-                && (oldPlan["targetPreferences"] as? [String: Any])?["libraryCardClickAction"] == nil
-            let oldJournalBytes = try Data(contentsOf: compatibilityURL)
-            manager.settings.volume = originalSettings.volume + 1
-            do { _ = try await oldRelaunch.resumeIfNeeded(); checks["OldJournalStillRejectsLaterEditsToExistingPreferenceFields"] = false }
+            object["plan"] = plan
+            let incomplete = try JSONSerialization.data(withJSONObject: object)
+            try incomplete.write(to: journalURL)
+            let incompleteOwner = makeCoordinator(journalURL)
+            do { _ = try await incompleteOwner.resumeIfNeeded(); checks["IncompleteCurrentJournalCannotBorrowMissingFields"] = false }
             catch PersonalSettingsError.preferencesChanged {
-                let afterConflict = try Data(contentsOf: compatibilityURL)
-                checks["OldJournalStillRejectsLaterEditsToExistingPreferenceFields"] = manager.settings.volume == originalSettings.volume + 1
-                    && manager.settings.libraryBackgroundStyle == .macOSNative && afterConflict == oldJournalBytes
+                checks["IncompleteCurrentJournalCannotBorrowMissingFields"] = try Data(contentsOf: journalURL) == incomplete
+                    && manager.settings.volume == originalSettings.volume && !incompleteOwner.allowsEditing
             }
-            manager.settings.volume = originalSettings.volume
-            _ = try await oldRelaunch.resumeIfNeeded()
-            let savedAfterOldRecovery = try JSONDecoder().decode(WallpaperSettings.self, from: manager.defaults.data(forKey: manager.settingsKey)!)
-            checks["OldJournalResumePreservesLocalBackgroundAndDurablyAppliesOtherPreferences"] = oldRelaunch.allowsEditing
-                && manager.settings.libraryBackgroundStyle == .macOSNative && manager.settings.volume == 24
-                && savedAfterOldRecovery.libraryBackgroundStyle == .macOSNative && savedAfterOldRecovery.volume == 24
-                && manager.settings.libraryCardClickAction == .openDetails && savedAfterOldRecovery.libraryCardClickAction == .openDetails
-                && !FileManager.default.fileExists(atPath: compatibilityURL.path)
-
-            // A current journal explicitly owns its background choice. A later
-            // local edit must still fail both CAS boundaries without rewriting.
-            var explicitTarget = PersonalSettingsPreferences(from: manager.settings); explicitTarget.volume = 25
-            try write(.init(exportedAt: originalDate, preferences: explicitTarget, sources: [], collections: .init()), to: compatibilityProfile)
-            manager.defaults.failSynchronization = true
-            var explicitWriteFailed = false
-            do { _ = try await oldRelaunch.importPersonalSettings(from: compatibilityProfile) }
-            catch { explicitWriteFailed = true }
-            manager.defaults.failSynchronization = false
-            let explicitJournal = try Data(contentsOf: compatibilityURL)
-            checks["ExplicitStyleJournalAlsoComesFromRealFailedDurability"] = explicitWriteFailed && !oldRelaunch.allowsEditing
-            let beforeStyleEdit = PersonalSettingsPreferences(from: manager.settings)
+            try intact.write(to: journalURL)
             manager.settings.libraryBackgroundStyle = .listCoverTint
-            let explicitRelaunch = makeCoordinator(compatibilityURL)
-            do { _ = try await explicitRelaunch.resumeIfNeeded(); checks["ExplicitJournalRejectsLaterBackgroundEditWithoutChangingRecovery"] = false }
+            let explicitOwner = makeCoordinator(journalURL)
+            do { _ = try await explicitOwner.resumeIfNeeded(); checks["ExplicitJournalRejectsLaterBackgroundEditWithoutChangingRecovery"] = false }
             catch PersonalSettingsError.preferencesChanged {
-                let afterConflict = try Data(contentsOf: compatibilityURL)
-                checks["ExplicitJournalRejectsLaterBackgroundEditWithoutChangingRecovery"] = manager.settings.libraryBackgroundStyle == .listCoverTint
-                    && manager.settings.volume == 24 && !explicitRelaunch.allowsEditing
-                    && afterConflict == explicitJournal
+                checks["ExplicitJournalRejectsLaterBackgroundEditWithoutChangingRecovery"] = try Data(contentsOf: journalURL) == intact
+                    && manager.settings.volume == originalSettings.volume && !explicitOwner.allowsEditing
             }
-            do {
-                try manager.applyPersonalSettingsPreferences(expected: beforeStyleEdit, target: explicitTarget)
-                checks["DirectPreferenceOwnerAlsoRejectsExplicitLaterBackgroundEdit"] = false
-            } catch PersonalSettingsError.preferencesChanged {
-                checks["DirectPreferenceOwnerAlsoRejectsExplicitLaterBackgroundEdit"] = manager.settings.libraryBackgroundStyle == .listCoverTint
-                    && manager.settings.volume == 24
-            }
+            do { try manager.applyPersonalSettingsPreferences(expected: beforeStyleEdit, target: target); checks["DirectPreferenceOwnerAlsoRejectsExplicitLaterBackgroundEdit"] = false }
+            catch PersonalSettingsError.preferencesChanged { checks["DirectPreferenceOwnerAlsoRejectsExplicitLaterBackgroundEdit"] = manager.settings.libraryBackgroundStyle == .listCoverTint }
             manager.settings.libraryBackgroundStyle = .macOSNative
-            _ = try await explicitRelaunch.resumeIfNeeded()
-            checks["ExplicitJournalResumesAfterOriginalBackgroundChoiceIsRestored"] = explicitRelaunch.allowsEditing
+            _ = try await explicitOwner.resumeIfNeeded()
+            checks["CurrentJournalResumesAfterItsExactBackgroundChoiceIsRestored"] = explicitOwner.allowsEditing
                 && manager.settings.libraryBackgroundStyle == .macOSNative && manager.settings.volume == 25
         }
 
-        // Legacy tags include empty, isolated, NFC-equivalent and case distinct.
-        let legacy = try LibraryPersonalSettings.decode(Data("""
-            {"schemaVersion":3,"preferences":{},"tags":[" Empty ","Café","Case"],"entries":[
-            {"path":"\(a.path)","title":"Legacy title","isFavorite":false,"tags":["Café","Case"]}],
-            "silTags":["Café","case"],"silEntries":[{"path":"\(incomingImage.path)","title":"Legacy image","tags":["case"]}]}
-            """.utf8))
-        let legacyURL = root.appendingPathComponent("legacy.json"); try write(legacy, to: legacyURL)
         let fresh = makeCoordinator(recoveryURL)
-        _ = try await fresh.importPersonalSettings(from: legacyURL)
+        var retainedRelations = incoming
+        retainedRelations.playlists.insert(existing, at: 0)
+        retainedRelations.members.insert(.init(playlistID: existing.id, reference: ref("A"), position: 0, addedAt: originalDate), at: 0)
+        let retainedProfile = root.appendingPathComponent("retained-current-relations.json")
+        try write(.init(exportedAt: originalDate, preferences: .init(from: manager.settings), sources: [], collections: retainedRelations), to: retainedProfile)
+        _ = try await fresh.importPersonalSettings(from: retainedProfile)
         let firstIDs = controller.snapshot.playlists.map(\.id)
-        _ = try await fresh.importPersonalSettings(from: legacyURL)
-        checks["LegacySamePathTitleFalseFavoriteAndNFCMergeUseNewRelations"] = manager.wallpapers[0].title == "Legacy title"
-            && !controller.snapshot.favorites.contains { $0.reference == ref("A") }
-            && controller.snapshot.playlists.map(\.name).sorted() == ["Café", "Case", "Empty", "case"].sorted()
-        checks["LegacyRepeatedImportReusesDurablePlaylistUUIDs"] = controller.snapshot.playlists.map(\.id) == firstIDs
-            && controller.snapshot.members.count == 3 && manager.wallpapers[0].tags == ["retired"]
-        checks["LegacyProfileDoesNotInventOrReplaceSourceAdmission"] = manager.wallpapers[0].firstIndexedAt == a.firstIndexedAt
-
+        _ = try await fresh.importPersonalSettings(from: retainedProfile)
+        checks["RepeatedCurrentRelationImportPreservesUUIDsAndMemberCount"] = controller.snapshot.playlists.map(\.id) == firstIDs
+            && controller.snapshot.members.count == 3
         let nfc = source("é", "/opaque/NFC.mp4", "First"), nfd = source("é", "/opaque/NFD.mp4", "Second")
         let emptyCollections = LibraryCollectionsPersonalSettingsImport()
         let opaquePlan = try LibraryPersonalSettings.plan(
@@ -776,7 +719,7 @@ extension Notification.Name {
                 && controller.snapshot.playlists.isEmpty && manager.settings.volume == oldVolume
         }
         try cancellation.clearRecoveryAfterReset()
-        checks["ResetCleanupDoesNotResumeOldProfileOrRetainPendingMarker"] = cancellation.allowsEditing
+        checks["ResetCleanupDoesNotResumeCurrentPartialProfileOrRetainPendingMarker"] = cancellation.allowsEditing
             && !FileManager.default.fileExists(atPath: recoveryURL.path)
 
         WallpaperManager.defersMissingFileCleanupForPersonalSettingsRecovery = true
@@ -838,7 +781,7 @@ extension Notification.Name {
         let fractionalDate = Date(timeIntervalSince1970: 1234.375)
         let id = try await controller.createPlaylist(metadata: .init(name: "Portable cover", descriptionText: "A description", customCoverAssetID: asset.id),
             coverAsset: asset, at: fractionalDate)
-        let hidden = ref("hidden", .pixabay)
+        let hidden = ref("hidden", .videoLibrary)
         let member = WallpaperOrganizationItem(reference: hidden, locator: .init(), isPublishedLocally: true, isAvailable: true)
         _ = try await controller.perform([.addMembers(id, [member], fractionalDate), .setFavorite(member, true, fractionalDate), .setLibraryExcluded([hidden], true)])
         let profile = root.appendingPathComponent("cover-profile.json")
@@ -846,44 +789,29 @@ extension Notification.Name {
         let portableBytes = try Data(contentsOf: profile)
         let portable = try LibraryPersonalSettings.decode(portableBytes)
         checks["SchemaEightExportsOnlyReferencedControlledCoverCopiesAndExplicitHideStates"] = portable.schemaVersion == 8
-            && portable.collections?.coverAssets == [asset] && portable.collections?.playlists.first?.descriptionText == "A description"
-            && portable.collections?.libraryExclusionStates?.contains { $0.reference == hidden && $0.isExcluded } == true
-            && portable.collections?.expectedLibraryExclusions == nil
-        var schemaSeven = try JSONSerialization.jsonObject(with: portableBytes) as! [String: Any]
-        schemaSeven["schemaVersion"] = 7
-        let schemaSevenBytes = try JSONSerialization.data(withJSONObject: schemaSeven)
-        try schemaSevenBytes.write(to: profile)
-        _ = try await importer.importPersonalSettings(from: profile)
-        checks["SchemaSevenStillImportsExplicitCoverDescriptionAndHideStatesWithoutRewritingInput"] = try controller.snapshot.playlists.first { $0.id == id }?.customCoverAssetID == asset.id
-            && controller.snapshot.playlists.first { $0.id == id }?.descriptionText == "A description"
-            && controller.snapshot.excludedLibraryReferences.contains { $0.reference == hidden }
-            && Data(contentsOf: profile) == schemaSevenBytes
-        for version in 1...5 {
-            try Data("{\"schemaVersion\":\(version),\"preferences\":{},\"tags\":[\"Portable cover\"],\"entries\":[]}".utf8).write(to: profile)
-            _ = try await importer.importPersonalSettings(from: profile)
-            let current = controller.snapshot.playlists.first { $0.id == id }
-            checks["v\(version)ProfileMissingCoverDescriptionAndHideFieldsPreservesThem"] = current?.customCoverAssetID == asset.id
-                && current?.descriptionText == "A description" && controller.snapshot.excludedLibraryReferences.contains { $0.reference == hidden }
+            && portable.collections.coverAssets == [asset] && portable.collections.playlists.first?.descriptionText == "A description"
+            && portable.collections.libraryExclusionStates.contains { $0.reference == hidden && $0.isExcluded } == true
+            && portable.collections.expectedLibraryExclusions == nil
+        let downloads = [WallpaperProvider.steamWorkshop, .pixabay, .wallhaven, .pixiv].map { ref($0 == .pixiv ? "123:p0" : "old-download-hide", $0) }
+        _ = try await controller.perform(.setLibraryExcluded(downloads, true))
+        let exported = try LibraryPersonalSettings.export(sources: [], preferences: portable.preferences, state: controller.snapshot, coverAssets: [asset])
+        checks["DownloadProviderHidesAreNotExportedButLocalSourceHideRemainsPortable"] = exported.collections.libraryExclusionStates.contains { downloads.contains($0.reference) } == false
+            && exported.collections.libraryExclusionStates.contains { $0.reference == hidden && $0.isExcluded } == true
+        var collectionsWithDownloadHides = portable.collections
+        collectionsWithDownloadHides.libraryExclusionStates = downloads.map { .init(reference: $0, isExcluded: true) }
+            + [.init(reference: hidden, isExcluded: true)]
+        for provider in [WallpaperProvider.steamWorkshop, .pixabay, .wallhaven, .pixiv] {
+            let backing = ref("aliased-download-hide", provider == .pixiv ? .staticImageLibrary : .videoLibrary)
+            var aliased = collectionsWithDownloadHides
+            aliased.aliases = [.init(alias: backing, canonical: downloads.first { $0.provider == provider }!, proof: .restoredSourceRecord)]
+            aliased.libraryExclusionStates.append(.init(reference: backing, isExcluded: true))
+            let object = try JSONSerialization.jsonObject(with: LibraryPersonalSettings.encode(.init(exportedAt: Date(), preferences: portable.preferences, sources: [], collections: aliased))) as! [String: Any]
+            let input = try LibraryPersonalSettings.decode(JSONSerialization.data(withJSONObject: object))
+            let mapped = try LibraryPersonalSettings.plan(input, sources: [], beforePreferences: portable.preferences,
+                targetPreferences: portable.preferences, state: controller.snapshot, normalizedPaths: [:], missingPathCount: 0)
+            checks["SchemaEightRejectsAliased\(provider.rawValue)DownloadHideButKeepsLocalSource"] = mapped.collections.libraryExclusionStates.map(\.reference) == [hidden]
         }
-        var oldObject = try JSONSerialization.jsonObject(with: portableBytes) as! [String: Any]
-        oldObject["schemaVersion"] = 6
-        var oldCollections = oldObject["collections"] as! [String: Any]
-        for key in ["playlistMetadataIsExplicit", "coverAssets", "libraryExclusionStates", "expectedLibraryExclusions"] { oldCollections.removeValue(forKey: key) }
-        oldCollections["playlists"] = (oldCollections["playlists"] as! [[String: Any]]).map { entry in
-            var entry = entry
-            entry.removeValue(forKey: "descriptionText"); entry.removeValue(forKey: "customCoverAssetID")
-            entry.removeValue(forKey: "createdAtReferenceDate"); entry.removeValue(forKey: "modifiedAtReferenceDate")
-            entry["createdAt"] = "1970-01-01T00:20:34Z"; entry["modifiedAt"] = "1970-01-01T00:20:34Z"
-            return entry
-        }
-        oldCollections["members"] = []; oldCollections["favoriteStates"] = []
-        oldCollections["locators"] = []; oldCollections["aliases"] = []
-        oldObject["collections"] = oldCollections
-        try JSONSerialization.data(withJSONObject: oldObject).write(to: profile)
-        _ = try await importer.importPersonalSettings(from: profile)
-        checks["GenuineSchemaSixMissingAppearanceAndHideFieldsPreservesExistingValues"] = controller.snapshot.playlists.first { $0.id == id }?.customCoverAssetID == asset.id
-            && controller.snapshot.playlists.first { $0.id == id }?.descriptionText == "A description"
-            && controller.snapshot.excludedLibraryReferences.contains { $0.reference == hidden }
+        _ = try await controller.perform(.setLibraryExcluded(downloads, false))
         func transparentPNG(width: Int, height: Int) -> Data {
             let copy = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height, bitsPerSample: 8,
                 samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
@@ -894,7 +822,7 @@ extension Notification.Name {
         }
         for (label, width, height) in [("Boundary512x256", 512, 256), ("TransparentTinyPNG", 2, 2)] {
             let copy = WallpaperPlaylistCoverAsset(imageData: transparentPNG(width: width, height: height), pixelWidth: width, pixelHeight: height)
-            var incoming = portable.collections!
+            var incoming = portable.collections
             incoming.playlists[0].customCoverAssetID = copy.id; incoming.coverAssets = [copy]
             try write(.init(exportedAt: Date(), preferences: .init(from: manager.settings), sources: [], collections: incoming), to: profile)
             _ = try await importer.importPersonalSettings(from: profile)
@@ -904,9 +832,7 @@ extension Notification.Name {
                 && controller.snapshot.playlists.first { $0.id == id }?.customCoverAssetID == copy.id
                 && pixels?.pixelsWide == width && pixels?.pixelsHigh == height && pixels?.colorAt(x: 0, y: 0)?.alphaComponent == 0
         }
-        // Use a real fractional source state at the recovery boundary, rather
-        // than letting the old profile's whole-second compatibility fields
-        // accidentally hide an expected-organization codec regression.
+        // Fractional dates must survive the actual recovery snapshot exactly.
         _ = try await controller.editPlaylistMetadata(id: id, expected: controller.snapshot.playlists[0].metadata,
             replacement: .init(name: "Portable cover", descriptionText: "A description", customCoverAssetID: asset.id),
             at: fractionalDate, expectedEpoch: controller.snapshot.resetEpoch)
@@ -926,7 +852,7 @@ extension Notification.Name {
             try exactDecoder.decode(LibraryCollectionsOrganizationState.self, from: exactEncoder.encode(beforeBad.organizationState)) == beforeBad.organizationState
                 && beforeBad.playlists[0].modifiedAt == fractionalDate && beforeBad.members[0].addedAt == fractionalDate
                 && beforeBad.favorites[0].favoritedAt == fractionalDate
-        var badCollections = portable.collections!
+        var badCollections = portable.collections
         badCollections.coverAssets = [.init(id: asset.id, imageData: Data("not-an-image".utf8), pixelWidth: 2, pixelHeight: 2)]
         try write(.init(exportedAt: Date(), preferences: .init(from: manager.settings), sources: [], collections: badCollections), to: profile)
         do {

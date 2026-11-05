@@ -1,5 +1,6 @@
 """Production command dispatch must observe concrete playback state."""
 from pathlib import Path
+import os
 import subprocess
 import tempfile
 import unittest
@@ -57,10 +58,17 @@ final class Handler: PlaybackEngineControlling {
         precondition(restoredMute.isMuted)
         restoredMute.setMuted(false)
         precondition(!suite.bool(forKey: PlaybackMuteState.persistenceKey))
-        let legacyMute = PlaybackMuteState(defaults: UserDefaults())
-        legacyMute.migrateLegacyVolumeMuteIfNeeded(volume: 0)
-        precondition(legacyMute.isMuted)
         suite.removePersistentDomain(forName: suiteName)
+        let freshMute = PlaybackMuteState(defaults: suite)
+        precondition(!freshMute.isMuted, "absent current mute intent defaults to unmuted")
+        let defaults = UserDefaults.standard
+        defaults.removeObject(forKey: SceneMediaSourcePreference.key)
+        defaults.set("music", forKey: "sceneMediaPlayerSource")
+        precondition(!SceneMediaSourcePreference.isEnabled, "retired source selection cannot enable current media info")
+        defaults.set(true, forKey: SceneMediaSourcePreference.key)
+        precondition(SceneMediaSourcePreference.isEnabled)
+        defaults.set(false, forKey: SceneMediaSourcePreference.key)
+        precondition(!SceneMediaSourcePreference.isEnabled)
         // E2c: alias registration — the same handler under .web executes
         // exactly once per broadcast (identity dedup).
         mux.register(video, as: .web)
@@ -163,15 +171,18 @@ class PlaybackCommandMultiplexerTests(unittest.TestCase):
     def test_existential_state_tracks_registered_engine_and_commands(self):
         with tempfile.TemporaryDirectory(prefix='mwx-playback-dispatch-') as directory:
             path = Path(directory)
+            home = path / 'home'; home.mkdir()
+            environment = dict(os.environ, HOME=str(home), CFFIXED_USER_HOME=str(home))
             harness = path / 'Harness.swift'
             harness.write_text(HARNESS)
             binary = path / 'harness'
             result = subprocess.run(['xcrun', 'swiftc', '-parse-as-library',
                 str(PROPERTY), str(ROOT / "MyWallpaperX/Core/SteamWorkshopStorage/ScenePlaybackSource.swift"),
+                str(ROOT / "MyWallpaperX/Shared/Settings/SceneMediaSourcePreference.swift"),
                 *[str(SOURCES / name) for name in ['ScenePlaybackShortcut.swift', 'WallpaperEngineCommand.swift', 'PlaybackEngineControlling.swift', 'PlaybackCommandMultiplexer.swift', 'PlaybackIntentEpoch.swift']],
                 str(harness), '-o', str(binary)], capture_output=True, text=True, timeout=60)
             self.assertEqual(result.returncode, 0, result.stderr)
-            result = subprocess.run([str(binary)], capture_output=True, text=True, timeout=10)
+            result = subprocess.run([str(binary)], env=environment, capture_output=True, text=True, timeout=10)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn('playback-dispatch-pass', result.stdout)
 

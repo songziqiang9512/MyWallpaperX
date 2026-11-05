@@ -298,8 +298,7 @@ struct SILSquareCardHarness {
             let playlist = WallpaperPlaylist(name: "Image membership", sidebarRank: 0)
             let source = try WallpaperPlaybackSequence.Snapshot(source: .page(.playlist(playlist.id)), revision: 2,
                 entries: [.init(reference: reference, runtime: .systemStill, isPlayable: true)])
-            let relationships = UserCollectionsSnapshot(revision: 3, resetEpoch: UUID(), migrationManifestID: nil,
-                playlists: [playlist], members: [.init(playlistID: playlist.id, reference: reference, position: 0, addedAt: Date())],
+            let relationships = UserCollectionsSnapshot(revision: 3, resetEpoch: UUID(), playlists: [playlist], members: [.init(playlistID: playlist.id, reference: reference, position: 0, addedAt: Date())],
                 favorites: [.init(reference: reference, favoritedAt: nil)], recent: [], aliases: [], locators: [])
             let manager = WallpaperManager()
             let proposal = manager.libraryPlaybackSequence.proposeSelection(reference, from: source)!

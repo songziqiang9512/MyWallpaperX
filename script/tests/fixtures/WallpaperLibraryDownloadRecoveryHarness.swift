@@ -17,8 +17,7 @@ import Foundation
     let presentation = RecoveryPresentation()
     var plays: [WallpaperReference] = []
     init(_ reference: WallpaperReference) {
-        relationships = .init(revision: 1, resetEpoch: UUID(), migrationManifestID: nil,
-            playlists: [], members: [], favorites: [.init(reference: reference, favoritedAt: nil)],
+        relationships = .init(revision: 1, resetEpoch: UUID(), playlists: [], members: [], favorites: [.init(reference: reference, favoritedAt: nil)],
             recent: [], aliases: [], locators: [.init(reference: reference,
                 locator: .init(titleHint: "Saved title", mediaKind: .video))])
     }
@@ -115,8 +114,7 @@ struct PixabayVideoItem: Equatable { let id: Int; let metadataVersion: Int }
                 let (workspace, steam, pixabay) = setup(reference)
                 let backing = WallpaperReference(provider: .videoLibrary, sourceID: "Retained missing backing")
                 let old = workspace.relationships
-                workspace.relationships = .init(revision: old.revision + 1, resetEpoch: old.resetEpoch, migrationManifestID: nil,
-                    playlists: [], members: [], favorites: old.favorites, recent: [],
+                workspace.relationships = .init(revision: old.revision + 1, resetEpoch: old.resetEpoch, playlists: [], members: [], favorites: old.favorites, recent: [],
                     aliases: [.init(alias: backing, canonical: reference, proof: .publishedDownload)], locators: old.locators)
                 let missing = WallpaperContentItem(reference: backing, providerReference: backing,
                     locator: .init(path: "/isolated/missing-video.mp4", mediaKind: .video), title: "Missing backing", kind: .video,
@@ -170,8 +168,7 @@ struct PixabayVideoItem: Equatable { let id: Int; let metadataVersion: Int }
         do {
             let (workspace, steam, pixabay) = setup()
             let original = try menu(workspace, steam, pixabay)!
-            workspace.relationships = .init(revision: 2, resetEpoch: UUID(), migrationManifestID: nil,
-                playlists: [], members: [], favorites: workspace.relationships.favorites, recent: [], aliases: [], locators: [])
+            workspace.relationships = .init(revision: 2, resetEpoch: UUID(), playlists: [], members: [], favorites: workspace.relationships.favorites, recent: [], aliases: [], locators: [])
             invoke(original, "重新下载"); invoke(original, "查看创意工坊页面")
             checks["reset-revokes-all-held-download-recovery-actions"] = steam.downloads.isEmpty && steam.pages.isEmpty
         }
@@ -193,8 +190,7 @@ struct PixabayVideoItem: Equatable { let id: Int; let metadataVersion: Int }
             let (workspace, steam, pixabay) = setup()
             let original = try menu(workspace, steam, pixabay)!
             let other = WallpaperReference(provider: .steamWorkshop, sourceID: "700000002")
-            workspace.relationships = .init(revision: 2, resetEpoch: workspace.relationships.resetEpoch, migrationManifestID: nil,
-                playlists: [], members: [], favorites: workspace.relationships.favorites, recent: [],
+            workspace.relationships = .init(revision: 2, resetEpoch: workspace.relationships.resetEpoch, playlists: [], members: [], favorites: workspace.relationships.favorites, recent: [],
                 aliases: [.init(alias: steamRef, canonical: other, proof: .restoredSourceRecord)], locators: [])
             invoke(original, "重新下载")
             checks["late-alias-cannot-retarget-a-held-download-command"] = steam.downloads.isEmpty
@@ -202,8 +198,7 @@ struct PixabayVideoItem: Equatable { let id: Int; let metadataVersion: Int }
         do {
             let (workspace, steam, pixabay) = setup()
             let original = try menu(workspace, steam, pixabay)!
-            workspace.relationships = .init(revision: 2, resetEpoch: workspace.relationships.resetEpoch, migrationManifestID: nil,
-                playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: workspace.relationships.locators)
+            workspace.relationships = .init(revision: 2, resetEpoch: workspace.relationships.resetEpoch, playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: workspace.relationships.locators)
             invoke(original, "重新下载")
             checks["locator-alone-does-not-authorize-recovering-unrelated-remote-items"] = try steam.downloads.isEmpty && (try menu(workspace, steam, pixabay)) == nil
         }
@@ -225,8 +220,7 @@ struct PixabayVideoItem: Equatable { let id: Int; let metadataVersion: Int }
         }
         do {
             let (workspace, steam, pixabay) = setup()
-            workspace.relationships = .init(revision: 1, resetEpoch: UUID(), migrationManifestID: nil,
-                playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
+            workspace.relationships = .init(revision: 1, resetEpoch: UUID(), playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
             let failed = WallpaperContentItem(reference: steamRef, providerReference: steamRef,
                 locator: .init(mediaKind: .video), title: "Failed original task", kind: .video,
                 publishedAvailability: .remote, capabilities: [.inspect, .retryDownload], metadata: .init(),
@@ -268,15 +262,13 @@ struct PixabayVideoItem: Equatable { let id: Int; let metadataVersion: Int }
             invoke(original, "重新下载")
             checks["expired-pixabay-browse-metadata-retries-fixed-id-without-borrowing-another-item"] = pixabay.retriedIDs == [125, 125, 125]
                 && pixabay.items == [.init(id: 126, metadataVersion: 4)]
-            workspace.relationships = .init(revision: 2, resetEpoch: workspace.relationships.resetEpoch, migrationManifestID: nil,
-                playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
+            workspace.relationships = .init(revision: 2, resetEpoch: workspace.relationships.resetEpoch, playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
             invoke(pageOnly, "查看 Pixabay 原网页")
             checks["removed-pixabay-relationship-revokes-held-source-page-action"] = pixabay.pages.count == 1
         }
         do {
             let (workspace, steam, pixabay) = setup(pixabayRef)
-            workspace.relationships = .init(revision: 1, resetEpoch: UUID(), migrationManifestID: nil,
-                playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
+            workspace.relationships = .init(revision: 1, resetEpoch: UUID(), playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
             let failed = WallpaperContentItem(reference: pixabayRef, providerReference: pixabayRef,
                 locator: .init(mediaKind: .video), title: "Failed Pixabay task", kind: .video,
                 publishedAvailability: .remote, capabilities: [.inspect, .retryDownload], metadata: .init(),
@@ -299,8 +291,7 @@ struct PixabayVideoItem: Equatable { let id: Int; let metadataVersion: Int }
             workspace.catalog = .init(downloads: [failed])
             let resetBound = commands.makePrimaryAction(for: failed)
             let before = workspace.relationships
-            workspace.relationships = .init(revision: before.revision + 1, resetEpoch: UUID(), migrationManifestID: nil,
-                playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
+            workspace.relationships = .init(revision: before.revision + 1, resetEpoch: UUID(), playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
             resetBound?()
             checks["held-pixabay-retry-is-revoked-by-reset"] = resetBound != nil && pixabay.retriedIDs == [125]
             let pageBound = commands.makePrimaryAction(for: failed)
@@ -323,13 +314,11 @@ struct PixabayVideoItem: Equatable { let id: Int; let metadataVersion: Int }
                 && library.retries == [record.id.reference] && pixabay.items.isEmpty && workspace.plays.isEmpty
                 && recoveryMenu?.items.map(\.title) == ["重新下载", "查看原网页"]
             let before = workspace.relationships
-            workspace.relationships = .init(revision: before.revision + 1, resetEpoch: UUID(), migrationManifestID: nil,
-                playlists: [], members: [], favorites: before.favorites, recent: [], aliases: [], locators: before.locators)
+            workspace.relationships = .init(revision: before.revision + 1, resetEpoch: UUID(), playlists: [], members: [], favorites: before.favorites, recent: [], aliases: [], locators: before.locators)
             action?()
             checks["online-image-recovery-held-action-is-revoked-by-reset-" + source.rawValue] = library.retries == [record.id.reference]
             let epoch = workspace.relationships.resetEpoch
-            workspace.relationships = .init(revision: before.revision + 2, resetEpoch: epoch, migrationManifestID: nil,
-                playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: before.locators)
+            workspace.relationships = .init(revision: before.revision + 2, resetEpoch: epoch, playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: before.locators)
             let manifestOnly = WallpaperLibraryDownloadRecovery.makePrimaryAction(for: try workspace.content(for: record.id.reference),
                 workspace: workspace, steam: steam, pixabay: pixabay)
             let manifestMenu = try menu(workspace, steam, pixabay, record.id.reference)

@@ -347,7 +347,7 @@ struct SteamWorkshopDownloadRecord {
             checks["lateAliasRequiresUniqueRelationshipProof"] =  !WallpaperLibraryPlaybackRouting.dispatch(pending,content:item,
                 manager:manager,workshop:steam,pixabay:pixabay,images:images)
             func relationships(_ target:WallpaperReference)->UserCollectionsSnapshot {
-                .init(revision:1,resetEpoch:UUID(),migrationManifestID:nil,playlists:[],members:[],favorites:[],recent:[],
+                .init(revision:1,resetEpoch:UUID(),playlists:[],members:[],favorites:[],recent:[],
                     aliases:[.init(alias:old,canonical:target,proof:.publishedDownload)],locators:[])
             }
             checks["sameOpaqueIDInWrongProviderCannotAuthorizeLateAlias"] =  !WallpaperLibraryPlaybackRouting.dispatch(pending,content:item,

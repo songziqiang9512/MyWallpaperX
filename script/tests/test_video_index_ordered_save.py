@@ -52,7 +52,6 @@ def prepare_asset_path_publication_sources(tree, work, cache_assets_override=Non
         "    private func decode<", "    private func encode<",
     ])
     imports = (core / "WallpaperManager+ImportProcessing.swift").read_text()
-    bundled = (core / "WallpaperManager+BundledVideos.swift").read_text()
     presentation = (core / "WallpaperManager+ImportPresentation.swift").read_text()
     for signature in ["    private struct ImportCounters", "    private struct PreparedImportEntry",
                       "    private struct ImportPreparationResult", "    private func applyPreparedImportResult(",
@@ -75,7 +74,7 @@ def prepare_asset_path_publication_sources(tree, work, cache_assets_override=Non
     methods = methods.replace("var defaults: UserDefaults { .standard }",
                               'var defaults: UserDefaults { UserDefaults(suiteName: ProcessInfo.processInfo.environment["MWX_VIDEO_INDEX_TEST_DOMAIN"]!)! }')
     store = store.replace(declaration(store, "    private init("),
-                          '    private init() { migrationReadOnly = Self.startupMigrationReadOnly; dbURL = URL(fileURLWithPath: ProcessInfo.processInfo.environment["MWX_VIDEO_INDEX_TEST_ROOT"]!).appendingPathComponent("index.sqlite3") }')
+                          '    private init() { dbURL = URL(fileURLWithPath: ProcessInfo.processInfo.environment["MWX_VIDEO_INDEX_TEST_ROOT"]!).appendingPathComponent("index.sqlite3") }')
     # Observe transaction entry and control only the storage queue / SQLite
     # connection in the test copy. The production transaction body is intact.
     marker = "    private func saveWallpapersInternal(_ wallpapers: [VideoWallpaper]) throws {"
@@ -143,7 +142,7 @@ extension WallpaperIndexStore {
         methods += "\n" + "\n".join(declaration(asset_path.read_text(), marker) for marker in (
             "    func updateWallpaperAssetPaths(", "    private func applyAssetPaths("))
         methods = methods.replace("    func scheduleWallpapersAutoPersist() {", "    func scheduleWallpapersAutoPersist() {\n        auditScheduleEntries += 1")
-    source = startup.replace("import AppKit\n", "") + "\n" + import_types + "\n" + bundled + "\n" + fixture.replace("// PRODUCTION_STATE", state).replace("// PRODUCTION_METHODS", methods)
+    source = startup.replace("import AppKit\n", "") + "\n" + import_types + "\n" + fixture.replace("// PRODUCTION_STATE", state).replace("// PRODUCTION_METHODS", methods)
     swift = work / "Checks.swift"
     actual_store = work / "WallpaperIndexStore.swift"
     swift.write_text(source)
@@ -152,7 +151,7 @@ extension WallpaperIndexStore {
     inputs = [core / name for name in (
         "WallpaperManager+Persistence.swift", "WallpaperManager.swift", "WallpaperIndexStore.swift",
         "WallpaperManager+InitialIndexLoad.swift", "WallpaperManager+ImportProcessing.swift",
-        "WallpaperManager+BundledVideos.swift", "WallpaperManager+ImportPresentation.swift", "WallpaperLibrarySupport.swift")]
+        "WallpaperManager+ImportPresentation.swift", "WallpaperLibrarySupport.swift")]
     inputs += [Path(__file__).resolve(), fixture_path, model, tree / "MyWallpaperX/Models/WallpaperIndexStartupChanges.swift",
         tree / "MyWallpaperX/Models/WallpaperReference.swift", tree / "MyWallpaperX/Models/WallpaperContent.swift",
         tree / "MyWallpaperX/Models/WallpaperSourceImportResult.swift"]
@@ -185,23 +184,10 @@ class VideoIndexOrderedSaveTests(unittest.TestCase):
                           ["empty-write", "empty-read"], ["bad-fallback"], ["startup-merge"],
                           ["startup-failure-write", "startup-failure-read"], ["startup-retry"],
                           ["startup-empty"], ["startup-global"], ["startup-import-context"], ["startup-size"], ["startup-corrupt"], ["read-interrupt"],
-                          ["migration-readonly"], ["migration-legacy-index"], ["migration-missing-index"],
                           ["first-indexed"], ["first-indexed-sql-write", "first-indexed-sql-read"],
-                          ["first-indexed-fallback-write", "first-indexed-fallback-read"], ["first-indexed-legacy"],
-                          ["startup-bundled-write", "startup-bundled-read"]]:
+                          ["first-indexed-fallback-write", "first-indexed-fallback-read"]]:
                 home = work / modes[0]
                 home.mkdir()
-                if modes[0] in ["migration-readonly", "migration-legacy-index", "first-indexed-legacy"]:
-                    with sqlite3.connect(home / "index.sqlite3") as db:
-                        db.executescript("""CREATE TABLE wallpapers(sort_index INTEGER,id TEXT PRIMARY KEY,title TEXT,path TEXT,
-                            thumbnail_path TEXT,static_frame_path TEXT,is_favorite INTEGER,last_used REAL,tags_json TEXT,
-                            file_size INTEGER,duration REAL,resolution TEXT);CREATE TABLE meta(key TEXT PRIMARY KEY,value TEXT);
-                            INSERT INTO meta VALUES('library_initialized','1');
-                            INSERT INTO wallpapers VALUES(0,'A','A','/fixture/A.mp4',NULL,NULL,0,0,'[]',1,NULL,NULL);
-                            INSERT INTO wallpapers VALUES(1,'B','B','/fixture/B.mp4',NULL,NULL,0,0,'[]',1,NULL,NULL);""")
-                        if modes[0] == "migration-legacy-index":
-                            db.executescript("ALTER TABLE wallpapers DROP COLUMN file_size;ALTER TABLE wallpapers DROP COLUMN duration;"
-                                             "ALTER TABLE wallpapers DROP COLUMN resolution;DROP TABLE meta;")
                 env = dict(os.environ, HOME=str(home), CFFIXED_USER_HOME=str(home),
                            MWX_VIDEO_INDEX_TEST_ROOT=str(home), MWX_VIDEO_INDEX_TEST_DOMAIN="MWX.VideoIndex.Test." + uuid.uuid4().hex)
                 for mode in modes:
@@ -223,7 +209,7 @@ class VideoIndexOrderedSaveTests(unittest.TestCase):
             "changedBatch": (2, 2, 2, 1), "pendingThenNoop": (1, 1, 1, 1),
             "currentOnly": (0, 1, 0, 0), "absentRowCurrent": (0, 1, 0, 0),
             "removedBeforeCallback": (1, 0, 1, 1), "aliasFirstMatch": (1, 1, 1, 1),
-            "emptyString": (1, 1, 1, 1), "initialLoad": (2, 2, 2, 2), "readOnly": (1, 1, 1, 0),
+            "emptyString": (1, 1, 1, 1), "initialLoad": (2, 2, 2, 2),
             "initialSizeBatch": (1, 0, 1, 1), "initialSizeCurrentRows": (1, 0, 1, 1),
             "initialSizeMetadataWins": (0, 0, 0, 0), "initialSizeRemoved": (0, 0, 0, 0),
             "initialSizeRevoked": (0, 0, 0, 0),

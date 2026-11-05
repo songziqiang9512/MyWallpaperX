@@ -49,6 +49,7 @@ import Foundation
             var loadingCatalog = WallpaperLibraryCatalog(revision: 1)
             _ = loadingView.update(catalog: loadingCatalog, relationships: relations)
             _ = loadingView.switchPage(.playlist(first))
+            loadingView.setQueryState(.init(sort: .sourceOrder))
             var loadingStates: [WallpaperLibraryPresentationState] = []
             let loadingObservation = loadingView.$state.sink { loadingStates.append($0) }
             defer { loadingObservation.cancel() }
@@ -59,10 +60,10 @@ import Foundation
             _ = loadingView.update(catalog: loadingCatalog, relationships: relations)
             checks["startup-warm-real-rows-show-with-their-original-provider-owner"] = loadingView.queryResult.items.map(\.reference) == [steam, a]
                 && loadingView.queryResult.items.first?.providerReference == backing && loadingCatalog.loadedProviders.isEmpty
-            _ = loadingView.setQueryState(.init(kinds: [.image]))
+            _ = loadingView.setQueryState(.init(kinds: [.image], sort: .sourceOrder))
             checks["startup-type-facets-share-the-pending-member-policy"] = loadingView.queryResult.items.isEmpty
                 && loadingView.mediaKindCounts == [.video: 2]
-            _ = loadingView.setQueryState(.init())
+            _ = loadingView.setQueryState(.init(sort: .sourceOrder))
             checks["startup-raw-page-publications-never-flash-fabricated-unavailable-members"] = loadingStates.allSatisfy {
                 $0.queryResult.items.allSatisfy { $0.publishedAvailability != .unavailable }
             }
@@ -179,8 +180,7 @@ import Foundation
                 if member.playlistID == first { copy.position = member.reference == reference ? -1 : member.position }
                 return copy
             }
-            return .init(revision: relations.revision, resetEpoch: relations.resetEpoch, migrationManifestID: relations.migrationManifestID,
-                playlists: relations.playlists, members: reordered, favorites: relations.favorites, recent: relations.recent,
+            return .init(revision: relations.revision, resetEpoch: relations.resetEpoch, playlists: relations.playlists, members: reordered, favorites: relations.favorites, recent: relations.recent,
                 aliases: relations.aliases, locators: relations.locators)
         }
         // The real Store has already merged the alias member into its
@@ -237,8 +237,7 @@ import Foundation
             && model.queryState.scrollOffset == -17.25 && model.queryState.scrollAtTop == false
         let beforeItems = model.queryResult.items
         let beforeSelection = model.selectionState
-        let invalid = UserCollectionsSnapshot(revision: relations.revision + 5, resetEpoch: relations.resetEpoch, migrationManifestID: nil,
-            playlists: relations.playlists, members: relations.members, favorites: [], recent: [],
+        let invalid = UserCollectionsSnapshot(revision: relations.revision + 5, resetEpoch: relations.resetEpoch, playlists: relations.playlists, members: relations.members, favorites: [], recent: [],
             aliases: [.init(alias: b, canonical: a, proof: .explicitUserRelocation), .init(alias: b, canonical: image, proof: .explicitUserRelocation)], locators: [])
         checks["queryFailureKeepsLastValidItemsPageAndSelection"] = !model.update(catalog: .init(), relationships: invalid)
             && model.relationshipsRevision == relations.revision && model.queryResult.items == beforeItems && model.selectionState == beforeSelection && model.page == .videos
@@ -284,50 +283,43 @@ import Foundation
         checks["laterKnownRelationshipsRestoreSavedPlaylistWithoutFalseDeletion"] = recovering.page == .playlist(second)
             && recovering.queryState.search == "preserve on recovery"
         model.switchPage(.playlists)
-        let raw = defaults.data(forKey: WallpaperLibraryPresentation.settingsKey)!
-        for retired in [WallpaperLibraryStatusFilter.transferring, .failed] {
-            let downloadsPage = try JSONSerialization.jsonObject(with: JSONEncoder().encode(WallpaperLibraryPage.downloads))
-            let favoritesPage = try JSONSerialization.jsonObject(with: JSONEncoder().encode(WallpaperLibraryPage.favorites))
-            var oldQuery = try JSONSerialization.jsonObject(with: JSONEncoder().encode(WallpaperLibraryQueryState(
-                search: "retained text", preferredColumns: 4))) as! [String: Any]
-            for key in ["providers", "kinds", "statuses"] { oldQuery.removeValue(forKey: key) }
-            oldQuery["status"] = retired.rawValue
-            oldQuery.removeValue(forKey: "showsAdultContent")
-            let oldState: [String: Any] = ["version": 2, "page": downloadsPage,
-                "queries": [["page": downloadsPage, "query": oldQuery], ["page": favoritesPage, "query": oldQuery]]]
-            defaults.set(try JSONSerialization.data(withJSONObject: oldState), forKey: WallpaperLibraryPresentation.settingsKey)
-            let migrated = WallpaperLibraryPresentation(collections: controller, defaults: defaults)
-            migrated.update(catalog: catalog, relationships: controller.snapshot)
-            checks["old-downloads-\(retired.rawValue)-migrates-to-all-with-query-and-geometry-intact"] = migrated.page == .downloads
-                && migrated.queryState.statuses.isEmpty && migrated.queryState.search == "retained text"
-                && migrated.queryState.preferredColumns == 4 && migrated.queryState.showsAdultContent && migrated.lastError == nil
-            migrated.switchPage(.favorites)
-            checks["retired-task-filter-migration-does-not-rewrite-another-page-\(retired.rawValue)"] = migrated.queryState.statuses == [retired]
-            migrated.switchPage(.downloads)
-            migrated.setQueryState(.init(showsAdultContent: false))
-            let reopened = WallpaperLibraryPresentation(collections: controller, defaults: defaults)
-            reopened.update(catalog: catalog, relationships: controller.snapshot)
-            checks["adult-filter-persists-through-the-original-page-settings-owner-\(retired.rawValue)"] = reopened.page == .downloads
-                && !reopened.queryState.showsAdultContent && reopened.queryState.statuses.isEmpty
+        for version in [1, 2, 3] {
+            let isolated = UserDefaults(suiteName: suite + ".obsolete-ui-\(version)")!
+            defer { isolated.removePersistentDomain(forName: suite + ".obsolete-ui-\(version)") }
+            let page = try JSONSerialization.jsonObject(with: JSONEncoder().encode(WallpaperLibraryPage.playlist(second)))
+            let oldQuery = WallpaperLibraryQueryState(search: "obsolete", sort: .sourceOrder, preferredColumns: 4)
+            let query = try JSONSerialization.jsonObject(with: JSONEncoder().encode(oldQuery))
+            let bytes = try JSONSerialization.data(withJSONObject: ["version": version, "page": page,
+                "queries": [["page": page, "query": query]]])
+            isolated.set(bytes, forKey: WallpaperLibraryPresentation.settingsKey)
+            let fresh = WallpaperLibraryPresentation(collections: controller, defaults: isolated)
+            checks["obsolete-v\(version)-ui-cache-is-not-migrated"] = fresh.page == .videos && fresh.queryState == .init()
+                && fresh.lastError == nil && isolated.data(forKey: WallpaperLibraryPresentation.settingsKey) == bytes
+            fresh.switchPage(.playlist(second))
+            fresh.setQueryState(.init(sort: .addedAt, ascending: true, preferredColumns: 4))
+            let reopened = WallpaperLibraryPresentation(collections: controller, defaults: isolated)
+            checks["current-ui-cache-keeps-explicit-join-time-ascending-after-obsolete-v\(version)"] = reopened.page == .playlist(second)
+                && reopened.queryState == .init(sort: .addedAt, ascending: true, preferredColumns: 4)
         }
+        let raw = defaults.data(forKey: WallpaperLibraryPresentation.settingsKey)!
         let mixedFilter = WallpaperLibraryQueryState(search: "mixed filters", providers: [.steamWorkshop, .pixabay], kinds: [.video, .scene],
-            statuses: [.playable, .transferring, .failed], sort: .name, preferredColumns: 4, scrollOffset: -7, scrollAtTop: false,
+            statuses: [.playable], sort: .name, preferredColumns: 4, scrollOffset: -7, scrollAtTop: false,
             showsAdultContent: false)
         let mixedDownloadsPage = try JSONSerialization.jsonObject(with: JSONEncoder().encode(WallpaperLibraryPage.downloads))
         let mixedFavoritesPage = try JSONSerialization.jsonObject(with: JSONEncoder().encode(WallpaperLibraryPage.favorites))
         let mixedQueryObject = try JSONSerialization.jsonObject(with: JSONEncoder().encode(mixedFilter))
-        let mixedState: [String: Any] = ["version": 2, "page": mixedDownloadsPage,
+        let mixedState: [String: Any] = ["version": 4, "page": mixedDownloadsPage,
             "queries": [["page": mixedDownloadsPage, "query": mixedQueryObject], ["page": mixedFavoritesPage, "query": mixedQueryObject]]]
         defaults.set(try JSONSerialization.data(withJSONObject: mixedState), forKey: WallpaperLibraryPresentation.settingsKey)
         let migratedMixed = WallpaperLibraryPresentation(collections: controller, defaults: defaults)
         migratedMixed.update(catalog: catalog, relationships: controller.snapshot)
         var expectedDownloads = mixedFilter; expectedDownloads.statuses = [.playable]
-        checks["downloads-removes-only-retired-statuses-and-preserves-composed-filters-and-geometry"] =
+        checks["current-downloads-cache-preserves-composed-filters-and-geometry"] =
             migratedMixed.queryState == expectedDownloads && migratedMixed.lastError == nil
         migratedMixed.switchPage(.favorites)
-        checks["downloads-status-migration-never-truncates-another-pages-multiselect-filters"] = migratedMixed.queryState == mixedFilter
+        checks["current-cache-keeps-another-pages-multiselect-filters"] = migratedMixed.queryState == mixedFilter
         let reopenedMixed = WallpaperLibraryPresentation(collections: controller, defaults: defaults)
-        checks["multiselect-page-settings-retain-all-facets-and-per-page-migration-after-reopening"] =
+        checks["current-multiselect-page-settings-retain-all-facets-after-reopening"] =
             reopenedMixed.page == .favorites && reopenedMixed.queryState == mixedFilter
             && reopenedMixed.switchPage(.downloads) && reopenedMixed.queryState == expectedDownloads
         defaults.set(raw, forKey: WallpaperLibraryPresentation.settingsKey)
@@ -428,7 +420,7 @@ import Foundation
             && resetModel.queryState == .init() && resetModel.queryResult.items.map(\.reference) == [backing, nfc, nfd]
             && resetModel.selectionState.references.isEmpty && !resetModel.selectionState.isSelecting
         let resetBadInput = UserCollectionsSnapshot(revision: controller.snapshot.revision, resetEpoch: controller.snapshot.resetEpoch,
-            migrationManifestID: nil, playlists: [], members: [], favorites: [], recent: [],
+            playlists: [], members: [], favorites: [], recent: [],
             aliases: [.init(alias: nfc, canonical: nfd, proof: .explicitUserRelocation),
                       .init(alias: nfc, canonical: image, proof: .explicitUserRelocation)], locators: [])
         _ = resetModel.update(catalog: .init(), relationships: resetBadInput)
@@ -603,6 +595,24 @@ import Foundation
         model.report(repeated)
         checks["eachExplicitReportCreatesANewErrorEventWithoutDuplicatingMessageState"] = model.lastError == "重复错误"
             && firstErrorEvent == priorErrorEvent &+ 1 && model.state.lastErrorEvent == firstErrorEvent &+ 1
+        let joined = try await controller.createPlaylist(name: "Join time regression")
+        _ = try await controller.perform(.addMembers(joined, [item(a).organizationItem], Date(timeIntervalSince1970: 100)))
+        _ = try await controller.perform(.addMembers(joined, [item(b).organizationItem], Date(timeIntervalSince1970: 200)))
+        _ = try await controller.perform(.addMembers(joined, [item(a).organizationItem], Date(timeIntervalSince1970: 250)))
+        let persistedMembers = try await store.snapshot()
+        checks["actual-sql-join-date-is-original-operation-not-duplicate-or-file-date"] = persistedMembers.members.first {
+            $0.playlistID == joined && $0.reference == a
+        }?.addedAt == Date(timeIntervalSince1970: 100)
+        checks["actual-sql-newest-join-first"] = try WallpaperLibraryQuery.project(page: .playlist(joined), state: .init(),
+            catalog: catalog, relationships: persistedMembers).items.map(\.reference) == [b, a]
+        _ = try await controller.perform(.removeMembers(joined, [a], Date(timeIntervalSince1970: 275)))
+        _ = try await controller.perform(.addMembers(joined, [item(a).organizationItem], Date(timeIntervalSince1970: 300)))
+        let rejoined = try await store.snapshot()
+        checks["actual-sql-remove-and-rejoin-gets-current-join-time"] = rejoined.members.first {
+            $0.playlistID == joined && $0.reference == a
+        }?.addedAt == Date(timeIntervalSince1970: 300)
+        checks["actual-sql-rejoined-member-sorts-first"] = try WallpaperLibraryQuery.project(page: .playlist(joined), state: .init(),
+            catalog: catalog, relationships: rejoined).items.map(\.reference) == [a, b]
         print(String(data: try JSONEncoder().encode(checks), encoding: .utf8)!)
         if checks.values.contains(false) { exit(1) }
     }

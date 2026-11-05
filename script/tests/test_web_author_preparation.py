@@ -258,11 +258,14 @@ CHECKS = r'''
 
         // The actual registry retains the sole version token through a canceled
         // worker's join and transfers it until the playback consumer releases.
-        let managed = service.steamDownloadLibraryRootURL.appendingPathComponent(SteamWorkshopLibraryTransaction.versionsName)
-            .appendingPathComponent(UUID().uuidString).appendingPathComponent("content")
+        let managed = service.steamDownloadLibraryRootURL.appendingPathComponent("Web/123456", isDirectory: true)
         try fm.createDirectory(at: managed, withIntermediateDirectories: true)
         try write(#"{"file":"index.html"}"#, "project.json", managed); try write("<html>managed</html>", "index.html", managed)
-        let managedRecord = SteamWorkshopDownloadRecord(id: "managed", folderURL: managed, projectFileURL: managed.appendingPathComponent("project.json"), entryURL: managed.appendingPathComponent("index.html"))
+        let managedCommit = SteamWorkshopLibraryCommit(version: 3, workshopId: "123456", jobId: "fixture", attempt: 1,
+            directoryName: "123456", manifestId: "1", contentDigest: String(repeating: "a", count: 64), contentType: "web",
+            entryPath: "index.html", committedAt: Date(), generation: UUID().uuidString.lowercased())
+        try JSONEncoder().encode(managedCommit).write(to: managed.appendingPathComponent(SteamWorkshopLibraryTransaction.ownershipMarkerName))
+        let managedRecord = SteamWorkshopDownloadRecord(id: "123456", folderURL: managed, projectFileURL: managed.appendingPathComponent("project.json"), entryURL: managed.appendingPathComponent("index.html"))
         let storage = SteamWorkshopLibraryTransaction.storageIdentity(containing: managed, libraryRoot: service.steamDownloadLibraryRootURL)!
         trace.reset(); let slow = Gate(); trace.readGate = slow
         let canceled = Task { await service.prepareWebPlaybackContext(for: managedRecord) }

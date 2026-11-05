@@ -35,13 +35,7 @@ class WallpaperManager: ObservableObject {
         }
     }
 
-    /// Transitional startup disposition, set by App before shared construction.
-    /// W20 retires this with the old relationship writers.
-    static var startupMigrationRecoveryMessage: String?
     static let shared = WallpaperManager()
-    let migrationRecoveryMessage: String?
-    var preservesLegacyMigrationInputs: Bool { migrationRecoveryMessage != nil }
-    var allowsLibraryMutation: Bool { !preservesLegacyMigrationInputs }
 
     @Published var wallpapers: [VideoWallpaper] = [] {
         didSet { recordInitialIndexChanges(from: oldValue, to: wallpapers) }
@@ -49,19 +43,8 @@ class WallpaperManager: ObservableObject {
     @Published var settings: WallpaperSettings = WallpaperSettings()
     @Published var currentWallpaper: VideoWallpaper? = nil
     /// 上次播放的工坊单品（web/scene）身份；启动重放按 recordID 走原
-    /// 工坊 launch 入口。video/静态图播放时清空。nil 清键而非写 null
-    /// data，读侧用 loadCodableValue 与写侧 JSON 编码对称。
-    @Published var lastWorkshopPlaybackRecordID: String? = nil {
-        didSet {
-            guard lastWorkshopPlaybackRecordID != oldValue else { return }
-            if let recordID = lastWorkshopPlaybackRecordID {
-                saveCodableValue(recordID, forKey: lastWorkshopPlaybackRecordIDKey)
-            } else {
-                defaults.removeObject(forKey: lastWorkshopPlaybackRecordIDKey)
-            }
-        }
-    }
-    @Published var isPlaying: Bool = true
+    @Published var lastWorkshopPlaybackRecordID: String?
+    @Published var isPlaying: Bool = false
     @Published var activeWallpaperRuntime: ActiveWallpaperRuntime = .video
     // E2a-3: requested 层选择（立即写，UI 高亮读 effectiveCurrentWallpaper）；
     // committed currentWallpaper 延后到 daemon ready 提交——失败项真值不落地。
@@ -195,10 +178,6 @@ class WallpaperManager: ObservableObject {
     // UserDefaults 键
     let settingsKey = "WallpaperSettings"
     let wallpapersKey = "Wallpapers"
-    let currentWallpaperKey = "CurrentWallpaper"
-    let lastWorkshopPlaybackRecordIDKey = "LastWorkshopPlaybackRecordID"
-    let playbackStateKey = "PlaybackState"
-    let activeWallpaperRuntimeKey = "ActiveWallpaperRuntime"
     
     // 用于存储 Combine 订阅
     private var cancellables = Set<AnyCancellable>()
@@ -228,13 +207,11 @@ class WallpaperManager: ObservableObject {
     }()
     
     init() {
-        migrationRecoveryMessage = Self.startupMigrationRecoveryMessage
         // Publish source facts before App resolves saved runtime intent; Store owns relationships/history.
         loadSettings()
         normalizePlaybackSettings()
         loadWallpapers()
-        if !preservesLegacyMigrationInputs { loadSampleData() }
-        loadSavedState()
+        loadSampleData()
         // Actual playback starts after App has installed the three endpoints.
         // Loading persisted selection must not race their commit callbacks.
 
@@ -268,31 +245,6 @@ class WallpaperManager: ObservableObject {
         .sink { [weak self] _ in
             guard let self else { return }
             self.scheduleWallpapersAutoPersist()
-        }
-        .store(in: &cancellables)
-
-        // 监听当前壁纸变化，自动保存
-        $currentWallpaper
-        .dropFirst()
-        .sink {[weak self] _ in
-            self?.saveCurrentWallpaper()
-        }
-        .store(in: &cancellables)
-        
-        // 监听播放状态变化，自动保存
-        $isPlaying
-        .dropFirst()
-        .sink {[weak self] value in
-            guard let self else { return }
-            self.defaults.set(value, forKey: self.playbackStateKey)
-        }
-        .store(in: &cancellables)
-
-        $activeWallpaperRuntime
-        .dropFirst()
-        .sink { [weak self] value in
-            guard let self else { return }
-            self.saveCodableValue(value, forKey: self.activeWallpaperRuntimeKey)
         }
         .store(in: &cancellables)
 

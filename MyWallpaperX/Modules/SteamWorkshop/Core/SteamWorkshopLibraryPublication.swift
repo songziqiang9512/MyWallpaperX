@@ -4,11 +4,6 @@ import Darwin
 nonisolated extension SteamWorkshopLibraryTransaction {
     static func contentURL(for commit: SteamWorkshopLibraryCommit, libraryRoot: URL) throws -> URL {
         try require(storageIdentity(for: commit) != nil)
-        if commit.version == 1 {
-            return libraryRoot.appendingPathComponent(versionsName)
-                .appendingPathComponent(commit.directoryName)
-                .appendingPathComponent("content", isDirectory: true)
-        }
         return libraryRoot.appendingPathComponent(try publicTypeDirectoryName(for: commit.contentType), isDirectory: true)
             .appendingPathComponent(commit.directoryName, isDirectory: true)
     }
@@ -17,21 +12,6 @@ nonisolated extension SteamWorkshopLibraryTransaction {
         guard url.isFileURL,
               let configuredLibrary = try? configuredRoot(libraryRoot) else { return nil }
         let resolvedURL = url.resolvingSymlinksInPath().standardizedFileURL
-
-        // Version 1 compatibility: hidden UUID/content trees are read only and
-        // remain leaseable until migration plus reclamation have both finished.
-        let versions = configuredLibrary.appendingPathComponent(versionsName, isDirectory: true)
-        let resolvedVersions = versions.resolvingSymlinksInPath().standardizedFileURL
-        let prefix = resolvedVersions.path + "/"
-        if resolvedURL.path.hasPrefix(prefix) {
-            let remainder = resolvedURL.path.dropFirst(prefix.count)
-            if let first = remainder.split(separator: "/", omittingEmptySubsequences: true).first {
-                let name = String(first)
-                if name.utf8.count == 36, UUID(uuidString: name) != nil {
-                    return "v1:" + name.lowercased()
-                }
-            }
-        }
 
         for (contentType, typeDirectoryName) in publicTypeDirectories {
             let configuredTypeRoot = configuredLibrary.appendingPathComponent(typeDirectoryName, isDirectory: true)
@@ -258,14 +238,6 @@ nonisolated extension SteamWorkshopLibraryTransaction {
     static func removeContent(at url: URL, itemID: String, libraryRoot: URL,
                               expectedCommit: SteamWorkshopLibraryCommit?) throws {
         let library = try configuredRoot(libraryRoot)
-        if let commit = expectedCommit, commit.version == 1 {
-            try require(try contentURL(for: commit, libraryRoot: library) == url)
-            let parent = try directory(absoluteDirectory(library), versionsName)
-            let target = try directory(parent, commit.directoryName)
-            try removeOwnedTree(parent: parent, name: commit.directoryName,
-                expectedIdentity: validatedFilesystemIdentity(info(target, regular: false)))
-            return
-        }
         let parentURL = url.deletingLastPathComponent().standardizedFileURL
         try require(["Scene", "Web", "Video"].contains(parentURL.lastPathComponent)
             && (try configuredRoot(parentURL.deletingLastPathComponent())) == library)

@@ -233,15 +233,11 @@ final class AppKitSettingsContainerView: NSView {
         // 或面板（重新）成为 key 作废缓存后执行（observePanelActivation）；
         // 同一 key 周期内的无关刷新沿用缓存，期间系统侧登录项变化延迟到
         // 下次成为 key 时才对账——这是差分刷新的明确取舍。
-        if #available(macOS 13.0, *) {
-            if settings.startOnBoot != lastStartOnBootSetting || lastKnownStartOnBootSystemEnabled == nil {
-                lastStartOnBootSetting = settings.startOnBoot
-                lastKnownStartOnBootSystemEnabled = (SMAppService.mainApp.status == .enabled)
-            }
-            startOnBootSwitch.state = (lastKnownStartOnBootSystemEnabled ?? false) ? .on : .off
-        } else {
-            startOnBootSwitch.state = settings.startOnBoot ? .on : .off
+        if settings.startOnBoot != lastStartOnBootSetting || lastKnownStartOnBootSystemEnabled == nil {
+            lastStartOnBootSetting = settings.startOnBoot
+            lastKnownStartOnBootSystemEnabled = (SMAppService.mainApp.status == .enabled)
         }
+        startOnBootSwitch.state = (lastKnownStartOnBootSystemEnabled ?? false) ? .on : .off
         restorePlaybackOnLaunchSwitch.state = settings.restorePlaybackOnLaunch ? .on : .off
         syncSystemWallpaperSwitch.state = settings.syncSystemWallpaper ? .on : .off
         systemAudioSpectrumSwitch.state = settings.systemAudioSpectrumEnabled ? .on : .off

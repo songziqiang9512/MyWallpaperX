@@ -61,6 +61,7 @@ struct SteamWorkshopDownloadMetadataSnapshot: Codable {
     var legacyFolderURL: URL? = nil
     var exportedVideoURL: URL? = nil
     var commit: SteamWorkshopLibraryCommit? = nil
+    var legacyRemoved: Bool? = nil
 }
 @MainActor final class SteamWorkshopService {
     let downloadJobStore: SteamDownloadJobStore
@@ -74,9 +75,6 @@ struct SteamWorkshopDownloadMetadataSnapshot: Codable {
         downloadJobStore = SteamDownloadJobStore(persistenceURL: root.appendingPathComponent("jobs.json"))
         libraryRoot = root.appendingPathComponent("library", isDirectory: true)
     }
-    func loadManagedDownloadSnapshots(
-        requireComplete: Bool
-    ) throws -> [String: SteamWorkshopDownloadMetadataSnapshot] { [:] }
     func referencedLibraryStorageIdentities() -> Set<String> { [] }
 '''
 
@@ -93,6 +91,40 @@ HARNESS_MAIN = r'''
         let exists = { FileManager.default.fileExists(atPath: entry("123456").path) }
         let service = SteamWorkshopService(base)
 
+        if mode == "gc-published-generation" {
+            let generation = "11111111-1111-4111-8111-111111111111"
+            var protectedFiles: [URL: Data] = [:]
+            var unindexed: URL?
+            for id in ["123456", "654321"] {
+                let commit = SteamWorkshopLibraryCommit(version: 2, workshopId: id, jobId: "fixture", attempt: 1,
+                    directoryName: id + "-" + generation, manifestId: "1", contentDigest: String(repeating: "a", count: 64),
+                    contentType: "web", entryPath: "index.html", committedAt: Date(timeIntervalSince1970: 1_600_000_000))
+                let content = try SteamWorkshopLibraryTransaction.contentURL(for: commit, libraryRoot: library)
+                try FileManager.default.createDirectory(at: content, withIntermediateDirectories: true)
+                let payload = content.appendingPathComponent("index.html")
+                let marker = content.appendingPathComponent(SteamWorkshopLibraryTransaction.ownershipMarkerName)
+                try Data("owned media".utf8).write(to: payload)
+                try JSONEncoder().encode(commit).write(to: marker)
+                if id == "123456" {
+                    let snapshot = SteamWorkshopDownloadMetadataSnapshot(fetchedAt: commit.committedAt, item: .init(id: id),
+                        legacyFolderURL: content, exportedVideoURL: nil, commit: commit)
+                    try SteamWorkshopLibraryTransaction.publish(metadata: JSONEncoder().encode(snapshot), itemID: id, libraryRoot: library)
+                    for file in [payload, marker, entry(id)] { protectedFiles[file] = try Data(contentsOf: file) }
+                } else { unindexed = content }
+                try FileManager.default.setAttributes([.modificationDate: commit.committedAt], ofItemAtPath: content.path)
+            }
+            let admitted = try service.loadManagedDownloadSnapshots(requireComplete: true)
+            precondition(admitted.isEmpty, "deletion protection must not restore the retired playback admission")
+            service.scheduleLibraryVersionReclamation()
+            while service.libraryVersionReclamationTask != nil { await Task.yield() }
+            for (file, bytes) in protectedFiles {
+                let retained = try Data(contentsOf: file)
+                precondition(retained == bytes, "published generation and pointer must stay byte-for-byte intact")
+            }
+            precondition(!FileManager.default.fileExists(atPath: unindexed!.path), "unindexed prepared generation still needs normal GC")
+            print("PUBLISHED GENERATION KEPT; UNINDEXED PREPARED RECLAIMED")
+            return
+        }
         if mode == "gc-aged-orphan" {
             let candidates = SteamWorkshopService.scanOrphanedMetadataEntries(
                 libraryRoot: library, minimumAge: 3_600)
@@ -194,13 +226,13 @@ class SteamLibraryIndexGCTests(unittest.TestCase):
             reclamation, '    func removeOrphanedMetadataEntries(')
         cls.schedule = method(
             reclamation, '    func scheduleLibraryVersionReclamation(')
-        cls.retire = method(
-            reclamation, '    nonisolated static func retireLegacyVersionsRoot(')
+        cls.load = method((CORE / 'SteamWorkshopService+DownloadLibrarySync.swift').read_text(),
+                          '    func loadManagedDownloadSnapshots(')
         cls.build = tempfile.TemporaryDirectory(prefix='mwx-steam-index-gc-', dir='/private/tmp')
         folder = pathlib.Path(cls.build.name)
         source = folder / 'Harness.swift'
         source.write_text(HARNESS_HEAD + cls.candidate_type + '\n' + cls.scan + '\n'
-                          + cls.delete + '\n' + cls.retire + '\n'
+                          + cls.delete + '\n' + cls.load + '\n'
                           + cls.schedule + HARNESS_MAIN)
         cls.binary = folder / 'index-gc'
         result = subprocess.run(['xcrun', 'swiftc', '-parse-as-library', *map(str, SOURCES), str(source),
@@ -226,6 +258,7 @@ class SteamLibraryIndexGCTests(unittest.TestCase):
                 'gc-replaced-during-scan': 'REPLACED DURING SCAN KEPT',
                 'gc-active-after-scan': 'ACTIVE AFTER SCAN KEPT',
                 'gc-scheduled': 'SCHEDULED GC RECLAIMED',
+                'gc-published-generation': 'PUBLISHED GENERATION KEPT; UNINDEXED PREPARED RECLAIMED',
             }[mode], result.stdout)
             verify(root)
 
@@ -240,6 +273,14 @@ class SteamLibraryIndexGCTests(unittest.TestCase):
             self.assertFalse((root / 'library/.mywallpaperx-steam-metadata/123456.json').exists())
             self.assertTrue((root / 'library/.mywallpaperx-steam-metadata/654321.json').exists())
         self.run_mode('gc-scheduled', [('123456', True), ('654321', False)], verify)
+
+    def test_gc_protects_published_generation_without_reenabling_its_playback_format(self):
+        def verify(root):
+            generation = '11111111-1111-4111-8111-111111111111'
+            self.assertTrue((root / f'library/Web/123456-{generation}/index.html').is_file())
+            self.assertTrue((root / 'library/.mywallpaperx-steam-metadata/123456.json').is_file())
+            self.assertFalse((root / f'library/Web/654321-{generation}').exists())
+        self.run_mode('gc-published-generation', [], verify)
 
     def test_index_gc_keeps_entry_replaced_during_scan(self):
         def verify(root):

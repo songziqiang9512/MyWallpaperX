@@ -49,9 +49,9 @@ class PixabayDownloadedContentTests(unittest.TestCase):
                            for signature in field_signatures)
         fields = re.sub(r"\bprivate\(set\)\s+", "", fields)
         content = CONTENT.read_text()
-        enumeration = "FileManager.default.contentsOfDirectory(at: source,"
+        enumeration = "FileManager.default.contentsOfDirectory(at: directory,"
         self.assertEqual(content.count(enumeration), 1)
-        content = content.replace(enumeration, "observedDownloadedDirectoryContents(at: source,", 1)
+        content = content.replace(enumeration, "observedDownloadedDirectoryContents(at: directory,", 1)
         content += r"""
 nonisolated private func observedDownloadedDirectoryContents(at directory: URL,
     includingPropertiesForKeys keys: [URLResourceKey]?, options: FileManager.DirectoryEnumerationOptions) throws -> [URL] {
@@ -66,10 +66,10 @@ nonisolated private func observedDownloadedDirectoryContents(at directory: URL,
         metadata = "    static func load(from url: URL) async -> Self {"
         self.assertEqual(content.count(metadata), 1)
         content = content.replace(metadata, metadata + "\n        await DownloadedSourceProbe.shared.metadataRead()")
-        ending = "        return Scan(entries: entries, warnings: warnings)"
+        ending = "        return entries"
         self.assertEqual(content.count(ending), 1)
         content = content.replace(ending, "        await DownloadedSourceProbe.shared.finishedScan()\n" + ending)
-        beginning = "    static func scan(in directory: URL, reusing previous: [PixabayDownloadedEntry], legacyDirectory: URL? = nil) async throws -> Scan {"
+        beginning = "    static func scan(in directory: URL, reusing previous: [PixabayDownloadedEntry]) async throws -> [PixabayDownloadedEntry] {"
         self.assertEqual(content.count(beginning), 1)
         content = content.replace(beginning, beginning + "\n        try await DownloadedSourceProbe.shared.startedScan()")
         fixture = FIXTURE.read_text().replace("// SOURCE_FIELDS", fields).replace("// SOURCE_OWNER", source_owner)

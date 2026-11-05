@@ -228,7 +228,10 @@ final class PageHost {
         networkStub: NetworkBridgeStub? = nil,
         crossOriginChildHTML: String? = nil,
         adapter: Adapter? = nil,
-        diagnosticsEnabled: Bool = true
+        diagnosticsEnabled: Bool = true,
+        beforeCompatibilityScript: String? = nil,
+        initialVolume: Float = 1,
+        documentURL: URL? = nil
     ) {
         let configuration = WKWebViewConfiguration()
         let generationToken = "mwx-parity-\(UUID().uuidString)"
@@ -263,6 +266,13 @@ final class PageHost {
         configuration.userContentController.addUserScript(WKUserScript(
             source: "window.__mwxNativeFetch = window.fetch.bind(window);",
             injectionTime: .atDocumentStart, forMainFrameOnly: false))
+        configuration.userContentController.addUserScript(WKUserScript(
+            source: "window.__mwxNativeMediaVolume = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'volume');",
+            injectionTime: .atDocumentStart, forMainFrameOnly: false))
+        if let beforeCompatibilityScript {
+            configuration.userContentController.addUserScript(WKUserScript(source: beforeCompatibilityScript,
+                injectionTime: .atDocumentStart, forMainFrameOnly: false))
+        }
         if stubNativeFetch {
             // 生产里 fetch 代理的触发点是原生 fetch 的跨域失败；这里用同样必然
             // 失败的桩替换原生 fetch，令用例完全不发真实网络请求。
@@ -275,7 +285,7 @@ final class PageHost {
             injectionTime: .atDocumentStart, forMainFrameOnly: false))
         configuration.userContentController.addUserScript(WKUserScript(
             source: Adapter.webCompatibilityScript(for: nil, generalPropertiesJSON: "{}",
-                volume: 1, playbackRate: 1, paused: false),
+                volume: initialVolume, playbackRate: 1, paused: false),
             injectionTime: .atDocumentStart, forMainFrameOnly: false))
         view = WKWebView(frame: NSRect(x: 0, y: 0, width: 480, height: 320), configuration: configuration)
         window = NSWindow(contentRect: view.frame, styleMask: .borderless, backing: .buffered, defer: false)
@@ -283,7 +293,8 @@ final class PageHost {
         window.orderFrontRegardless()
         endpointStub.webView = view
         networkStub?.webView = view
-        view.loadHTMLString(html, baseURL: nil)
+        if let documentURL { view.load(URLRequest(url: documentURL)) }
+        else { view.loadHTMLString(html, baseURL: nil) }
     }
 
     func script(_ source: String) async throws -> Any {
@@ -332,6 +343,7 @@ enum Scenarios {
         case "f01": try await shadowRootMediaTakeover()
         case "f40": try await domContentLoadedListenerIdentity()
         case "f29": try await dynamicMediaVolumeBackfill()
+        case "audio-output": try await audioOutputVolume()
         case "f19": try await networkBridgeBinaryRestore()
         case "native-abort-matrix": try await nativeAbortMatrix()
         case "native-xhr-lifecycle": try await nativeXHRLifecycle()
@@ -702,7 +714,7 @@ enum Scenarios {
             "(() => { const late = document.createElement('mwx-shadow-host'); late.id = 'f01-late-host'; document.getElementById('f01-root').appendChild(late); })();"
         )
         try await host.waitUntil(
-            "document.getElementById('f01-late-host').shadowRoot.querySelector('audio').volume === 0.25",
+            "window.__mwxNativeMediaVolume.get.call(document.getElementById('f01-late-host').shadowRoot.querySelector('audio')) === 0.25",
             label: "shadow root media takeover"
         )
     }
@@ -764,7 +776,7 @@ enum Scenarios {
         })();
         """)
         try await host.waitUntil(
-            "document.getElementById('f29-late-media') !== null && document.getElementById('f29-late-media').volume === 0",
+            "document.getElementById('f29-late-media') !== null && window.__mwxNativeMediaVolume.get.call(document.getElementById('f29-late-media')) === 0",
             label: "dynamic media volume backfill"
         )
     }

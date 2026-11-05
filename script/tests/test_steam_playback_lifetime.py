@@ -203,18 +203,18 @@ struct SteamWorkshopDownloadMetadataSnapshot: Codable {
     @MainActor static func main() async throws {
         let root = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
         typealias T = SteamWorkshopLibraryTransaction
-        let prepared = SteamWorkshopLibraryCommit(version: 2, workshopId: "123456", jobId: "job",
-            attempt: 1, directoryName: "123456-" + UUID().uuidString.lowercased(), manifestId: "123",
+        let current = SteamWorkshopLibraryCommit(version: 3, workshopId: "123456", jobId: "job",
+            attempt: 1, directoryName: "123456", manifestId: "123",
             contentDigest: String(repeating: "a", count: 64), contentType: "scene", entryPath: nil,
-            committedAt: Date())
-        let folder = try T.contentURL(for: prepared, libraryRoot: root)
+            committedAt: Date(), generation: UUID().uuidString.lowercased())
+        let folder = try T.contentURL(for: current, libraryRoot: root)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        try JSONEncoder().encode(prepared).write(to: folder.appendingPathComponent(T.ownershipMarkerName))
+        try JSONEncoder().encode(current).write(to: folder.appendingPathComponent(T.ownershipMarkerName))
         try T.publish(metadata: JSONEncoder().encode(SteamWorkshopDownloadMetadataSnapshot(
-            commit: prepared, legacyFolderURL: folder)), itemID: prepared.workshopId, libraryRoot: root)
+            commit: current, legacyFolderURL: folder)), itemID: current.workshopId, libraryRoot: root)
         let service = SteamWorkshopService(root)
         let leases = service.steamLibraryVersionLeaseRegistry
-        let identity = T.storageIdentity(for: prepared)!
+        let identity = T.storageIdentity(for: current)!
         let record = SteamWorkshopDownloadRecord(id: "123456", title: "fixture", folderURL: folder)
         let daemon = SceneDaemonClient()
         var loads = 0

@@ -116,8 +116,19 @@ nonisolated struct OnlineImageLocalRecord: Codable, Equatable, Sendable, Identif
 nonisolated struct OnlineImageLocalSnapshot: Equatable, Sendable {
     var records: [OnlineImageLocalRecord] = []
     var unavailable: Set<OnlineImageAssetID> = []
-    var status: WallpaperSourceScanStatus = .initial
+    var sourceStatuses: [OnlineImageSource: WallpaperSourceScanStatus] = [:]
     var revision: UInt64 = 0
+
+    var status: WallpaperSourceScanStatus {
+        guard !sourceStatuses.isEmpty else { return .initial }
+        let values = OnlineImageSource.allCases.map { sourceStatuses[$0] ?? .initial }
+        let ready = values.allSatisfy(\.hasSuccessfulScan)
+        if let failure = values.first(where: { if case .failed = $0.phase { return true }; return false }) {
+            return .init(phase: failure.phase, hasSuccessfulScan: ready)
+        }
+        if !ready { return .init(phase: .loading, hasSuccessfulScan: false) }
+        return .init(phase: .ready(warnings: []), hasSuccessfulScan: true)
+    }
 }
 
 nonisolated enum OnlineImageError: LocalizedError, Sendable {

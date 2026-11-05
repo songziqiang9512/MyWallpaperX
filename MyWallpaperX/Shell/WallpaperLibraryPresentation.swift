@@ -74,34 +74,34 @@ nonisolated struct WallpaperLibrarySelectionReceipt: Sendable {
     private struct SavedQuery: Codable {
         let page: WallpaperLibraryPage
         let query: WallpaperLibraryQueryState
-        let wasSubscriptions: Bool
-        private enum CodingKeys: String, CodingKey { case page, query }
-        private enum LegacyPageKey: String, CodingKey { case workshopSubscriptions }
-        init(page: WallpaperLibraryPage, query: WallpaperLibraryQueryState) {
-            self.page = page; self.query = query; wasSubscriptions = false
-        }
-        init(from decoder: Decoder) throws {
-            let values = try decoder.container(keyedBy: CodingKeys.self)
-            let pageDecoder = try values.superDecoder(forKey: .page)
-            wasSubscriptions = try pageDecoder.container(keyedBy: LegacyPageKey.self).contains(.workshopSubscriptions)
-            page = try WallpaperLibraryPage(from: pageDecoder)
-            var restored = try values.decode(WallpaperLibraryQueryState.self, forKey: .query)
-            if page == .downloads { restored.statuses.subtract([.transferring, .failed]) }
-            query = restored
-        }
-        func encode(to encoder: Encoder) throws {
-            var values = encoder.container(keyedBy: CodingKeys.self)
-            try values.encode(page, forKey: .page)
-            try values.encode(query, forKey: .query)
-        }
     }
     private struct SavedState: Codable {
-        let version: Int
+        let version = 4
         let page: WallpaperLibraryPage
         let queries: [SavedQuery]
         let directoryScrollAnchor: UUID?
         let directoryScrollOffset: Double?
         let directoryScrollAtTop: Bool?
+
+        private enum CodingKeys: String, CodingKey {
+            case version, page, queries, directoryScrollAnchor, directoryScrollOffset, directoryScrollAtTop
+        }
+
+        init(page: WallpaperLibraryPage, queries: [SavedQuery], directoryScrollAnchor: UUID?, directoryScrollOffset: Double?, directoryScrollAtTop: Bool?) {
+            self.page = page; self.queries = queries; self.directoryScrollAnchor = directoryScrollAnchor
+            self.directoryScrollOffset = directoryScrollOffset; self.directoryScrollAtTop = directoryScrollAtTop
+        }
+
+        init(from decoder: Decoder) throws {
+            let values = try decoder.container(keyedBy: CodingKeys.self)
+            let version = try values.decode(Int.self, forKey: .version)
+            guard version == 4 else { throw SettingsFailure.unsupportedFormat(version) }
+            page = try values.decode(WallpaperLibraryPage.self, forKey: .page)
+            queries = try values.decode([SavedQuery].self, forKey: .queries)
+            directoryScrollAnchor = try values.decodeIfPresent(UUID.self, forKey: .directoryScrollAnchor)
+            directoryScrollOffset = try values.decodeIfPresent(Double.self, forKey: .directoryScrollOffset)
+            directoryScrollAtTop = try values.decodeIfPresent(Bool.self, forKey: .directoryScrollAtTop)
+        }
     }
     private let defaults: UserDefaults
     private var sessions: [WallpaperLibraryPage: Session] = [:]
@@ -114,18 +114,10 @@ nonisolated struct WallpaperLibrarySelectionReceipt: Sendable {
     private var relationshipsKnown = true
     private var pendingRemovals: [UUID: PendingSelectionOperation] = [:]
 
-    init(collections: UserCollectionsController?, defaults: UserDefaults,
-         migratedQueries: [WallpaperLibraryPage: WallpaperLibraryQueryState] = [:], migrationWarning: String? = nil) {
+    init(collections: UserCollectionsController?, defaults: UserDefaults) {
         self.collections = collections
         self.defaults = defaults
-        if defaults.object(forKey: Self.settingsKey) == nil {
-            sessions = migratedQueries.mapValues { Session(query: $0) }
-            var next = state
-            next.query = sessions[next.page]?.query ?? .init()
-            next.lastError = migrationWarning
-            state = next
-            settingsError = migrationWarning
-        } else { restoreSettings() }
+        restoreSettings()
     }
 
     /// A failed query leaves the last valid page, items and relationship input
@@ -207,8 +199,7 @@ nonisolated struct WallpaperLibrarySelectionReceipt: Sendable {
         guard let mode = WallpaperLibraryVideoSortPreference.Mode(rawValue: (query.sort ?? .sourceOrder).rawValue) else {
             throw WallpaperLibraryVideoSortError.unsupported
         }
-        return WallpaperLibraryVideoSortPreference(mode: mode, ascending: query.ascending,
-            legacyTimeOrder: mode == .legacyTime ? (query.legacyTimeOrder ?? []) : nil)
+        return WallpaperLibraryVideoSortPreference(mode: mode, ascending: query.ascending)
     }
 
     func validateVideoSortPatch(_ patch: WallpaperLibraryVideoSortPatch, resetEpoch: UUID) throws {
@@ -228,7 +219,6 @@ nonisolated struct WallpaperLibrarySelectionReceipt: Sendable {
             var session = sessions[.videos] ?? Session()
             session.query.sort = WallpaperLibrarySort(rawValue: patch.target.mode.rawValue)
             session.query.ascending = patch.target.ascending
-            session.query.legacyTimeOrder = patch.target.legacyTimeOrder
             if page == .videos {
                 guard present(.videos, query: session.query, entering: false) else {
                     throw WallpaperLibraryVideoSortError.unsupported
@@ -513,22 +503,11 @@ nonisolated struct WallpaperLibrarySelectionReceipt: Sendable {
         do {
             guard let data = raw as? Data else { throw SettingsFailure.invalid }
             let saved = try JSONDecoder().decode(SavedState.self, from: data)
-            guard saved.version == 1 || saved.version == 2, saved.directoryScrollOffset?.isFinite != false else { throw SettingsFailure.invalid }
+            guard saved.directoryScrollOffset?.isFinite != false else { throw SettingsFailure.invalid }
             var restored: [WallpaperLibraryPage: Session] = [:]
-            var legacySubscriptions: WallpaperLibraryQueryState?
             for item in saved.queries {
-                guard item.query.scrollAnchor?.sourceID.isEmpty != true else { throw SettingsFailure.invalid }
-                if item.wasSubscriptions {
-                    guard legacySubscriptions == nil else { throw SettingsFailure.invalid }
-                    legacySubscriptions = item.query
-                    continue
-                }
-                guard restored[item.page] == nil else { throw SettingsFailure.invalid }
+                guard item.query.scrollAnchor?.sourceID.isEmpty != true, restored[item.page] == nil else { throw SettingsFailure.invalid }
                 restored[item.page] = Session(query: item.query)
-            }
-            if restored[.workshop] == nil, let legacy = legacySubscriptions {
-                restored[.workshop] = Session(query: .init(preferredColumns: legacy.preferredColumns,
-                    scrollAnchor: legacy.scrollAnchor, scrollOffset: legacy.scrollOffset, scrollAtTop: legacy.scrollAtTop))
             }
             sessions = restored
             lastSavedData = data
@@ -536,10 +515,11 @@ nonisolated struct WallpaperLibrarySelectionReceipt: Sendable {
             next.page = saved.page
             next.query = sessions[saved.page]?.query ?? .init()
             next.directoryScrollAnchor = saved.directoryScrollAnchor
-            next.directoryScrollOffset = saved.version == 1 ? nil : saved.directoryScrollOffset
-            next.directoryScrollAtTop = saved.version == 1 ? nil : saved.directoryScrollAtTop
+            next.directoryScrollOffset = saved.directoryScrollOffset
+            next.directoryScrollAtTop = saved.directoryScrollAtTop
             state = next
-            if saved.version == 1 || legacySubscriptions != nil { persistSettings() }
+        } catch SettingsFailure.unsupportedFormat(let version) where version < 4 {
+            return
         } catch {
             // Keep the original bytes for a future supported reader/recovery.
             mayWriteSettings = false
@@ -553,7 +533,7 @@ nonisolated struct WallpaperLibrarySelectionReceipt: Sendable {
     private func persistSettings() {
         guard mayWriteSettings else { return }
         let values = sessions.sorted { $0.key.persistenceKey < $1.key.persistenceKey }.map { SavedQuery(page: $0.key, query: $0.value.query) }
-        let saved = SavedState(version: 2, page: page, queries: values, directoryScrollAnchor: directoryScrollAnchor,
+        let saved = SavedState(page: page, queries: values, directoryScrollAnchor: directoryScrollAnchor,
             directoryScrollOffset: directoryScrollOffset, directoryScrollAtTop: directoryScrollAtTop)
         do {
             let encoder = JSONEncoder()
@@ -594,5 +574,5 @@ nonisolated struct WallpaperLibrarySelectionReceipt: Sendable {
         state = next
     }
 
-    private enum SettingsFailure: Error { case invalid }
+    private enum SettingsFailure: Error { case invalid, unsupportedFormat(Int) }
 }

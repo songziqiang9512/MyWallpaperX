@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import json
-import hashlib
 import os
-import plistlib
 import shutil
 import subprocess
 import tempfile
@@ -13,7 +11,6 @@ import unittest
 import zipfile
 from pathlib import Path
 
-from script.tests.test_ui_library_algorithms import declaration
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -23,8 +20,6 @@ SWIFT_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Modules/VideoLibrary/Core/BundledVideoLibrary.swift"
 )
-MIGRATION_SOURCE = SWIFT_SOURCE.with_name("WallpaperManager+BundledVideos.swift")
-MODEL_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Models/VideoWallpaper.swift"
 
 HARNESS_SOURCE = r'''
 import Foundation
@@ -88,87 +83,6 @@ enum Harness {
 }
 '''
 
-MIGRATION_HARNESS = r'''
-import Foundation
-
-@MainActor final class WallpaperManager {}
-// ACTUAL_BUNDLED_MIGRATION
-
-@main enum MigrationHarness {
-    @MainActor static func main() throws {
-        let mode = CommandLine.arguments[1]
-        let root = URL(fileURLWithPath: CommandLine.arguments[2], isDirectory: true)
-        let archive = URL(fileURLWithPath: CommandLine.arguments[3])
-        let manager = WallpaperManager(), fm = FileManager.default
-        let home = root.appendingPathComponent("home", isDirectory: true)
-        precondition(fm.homeDirectoryForCurrentUser.resolvingSymlinksInPath().path == home.resolvingSymlinksInPath().path)
-        let support = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        precondition(support.resolvingSymlinksInPath().path.hasPrefix(home.resolvingSymlinksInPath().path + "/"))
-        let destination = support.appendingPathComponent(Bundle.main.bundleIdentifier!)
-            .appendingPathComponent("BundledVideos", isDirectory: true)
-        let resources = root.appendingPathComponent("Existing.app/Contents/Resources", isDirectory: true)
-        try fm.createDirectory(at: resources, withIntermediateDirectories: true)
-        let existing = resources.appendingPathComponent("Video2.mp4")
-        try Data("existing-owned".utf8).write(to: existing)
-        let linked = root.appendingPathComponent("linked-original.mov")
-        try Data("linked-owned".utf8).write(to: linked)
-        let symlink = resources.appendingPathComponent("Video3.mp4")
-        try fm.createSymbolicLink(at: symlink, withDestinationURL: linked)
-        let ordinary = ["movies/ordinary.mp4", "movies/Video2.mp4",
-            "Old.app/Contents/Resources/Renamed.mp4", "Old.app/Contents/Resources/Video2.MP4",
-            "Old.app/Contents/Resource/Video2.mp4", "Old.app/Contents/Resources2/Video2.mp4",
-            "Old.appx/Contents/Resources/Video2.mp4"].map { root.appendingPathComponent($0).path }
-        let untouched = (ordinary + [existing.path, symlink.path]).map { record($0) }
-        for value in untouched {
-            precondition(BundledVideoLibrary.migratedURL(forPersistedPath: value.path) == nil)
-            precondition(manager.migratedBundledVideoWallpaper(value) == value)
-        }
-        precondition(untouched.map(manager.migratedBundledVideoWallpaper) == untouched)
-        precondition(!fm.fileExists(atPath: destination.path))
-        let retired = root.appendingPathComponent("Retired.app/Contents/Resources", isDirectory: true)
-        try fm.createDirectory(at: retired, withIntermediateDirectories: true)
-        let missing = retired.appendingPathComponent("Video2.mp4").path
-        if mode == "missing-archive" {
-            precondition(BundledVideoLibrary.migratedURL(forPersistedPath: missing) == nil)
-            precondition([record(missing)].map(manager.migratedBundledVideoWallpaper) == [record(missing)])
-            precondition(!fm.fileExists(atPath: destination.path))
-        } else {
-            // Lazy prepare must not have cached a failure during the probes above.
-            try fm.copyItem(at: archive, to: Bundle.main.resourceURL!.appendingPathComponent("Videos.zip"))
-            let migrated = BundledVideoLibrary.migratedURL(forPersistedPath: missing)!
-            precondition(migrated.resolvingSymlinksInPath().path == destination.appendingPathComponent("Video2.mp4").resolvingSymlinksInPath().path)
-            let migratedContent = try String(contentsOf: migrated, encoding: .utf8)
-            precondition(migratedContent == "migrated-owned")
-            let equivalent = retired.path + "//./Video2.mp4"
-            precondition(BundledVideoLibrary.migratedURL(forPersistedPath: equivalent) == migrated)
-            let broken = retired.appendingPathComponent("Video3.mp4")
-            try fm.createSymbolicLink(at: broken, withDestinationURL: root.appendingPathComponent("absent.mov"))
-            let brokenMigration = BundledVideoLibrary.migratedURL(forPersistedPath: broken.path)!
-            precondition(brokenMigration.lastPathComponent == "Video3.mp4")
-            let brokenContent = try String(contentsOf: brokenMigration, encoding: .utf8)
-            precondition(brokenContent == "migrated-owned")
-            let input = untouched + [record(missing), record(equivalent, dated: false), record(broken.path)]
-            let expected = untouched + [record(migrated.path), record(migrated.path, dated: false), record(brokenMigration.path)]
-            precondition(input.map(manager.migratedBundledVideoWallpaper) == expected)
-            precondition(expected.map(manager.migratedBundledVideoWallpaper) == expected)
-        }
-        let existingContent = try String(contentsOf: existing, encoding: .utf8)
-        let linkedContent = try String(contentsOf: symlink, encoding: .utf8)
-        precondition(existingContent == "existing-owned" && linkedContent == "linked-owned")
-        print("{\"mode\":\"\(mode)\",\"untouched\":\(untouched.count),\"passed\":true}")
-    }
-
-    static func record(_ path: String, dated: Bool = true) -> VideoWallpaper {
-        VideoWallpaper(id: "owned-id", title: "Owned title", path: path,
-            thumbnailPath: "thumb", staticFramePath: "frame", isFavorite: true,
-            lastUsed: Date(timeIntervalSince1970: 123), tags: ["owned", "renamed"],
-            fileSize: 456, duration: 78, resolution: "640x480",
-            firstIndexedAt: dated ? Date(timeIntervalSince1970: 42) : nil)
-    }
-}
-'''
-
-
 class BundledVideoLibraryTests(unittest.TestCase):
     def test_repository_contains_only_the_fixed_video_archive(self) -> None:
         self.assertTrue(ARCHIVE_PATH.is_file())
@@ -225,55 +139,6 @@ class BundledVideoLibraryTests(unittest.TestCase):
             self.assertTrue(result["reusedDirectory"])
             self.assertEqual(result["updatedContent"], "version-two")
             self.assertEqual(result["files"], ["Video2.mp4", "Video3.mp4"])
-
-    def test_real_migration_waits_for_missing_legacy_source_and_preserves_metadata(self) -> None:
-        evidence = os.environ.get("MWX_BUNDLED_VIDEO_EVIDENCE")
-        if evidence:
-            Path(evidence).mkdir(parents=True, exist_ok=True)
-        root = Path(tempfile.mkdtemp(prefix="mwx-bundled-migration-", dir=evidence))
-        if not evidence:
-            self.addCleanup(shutil.rmtree, root)
-        template = root / "Template.app/Contents"
-        (template / "MacOS").mkdir(parents=True)
-        (template / "Resources").mkdir()
-        (template / "Info.plist").write_bytes(plistlib.dumps({
-            "CFBundleIdentifier": "org.mywallpaperx.tests.bundled-migration",
-            "CFBundlePackageType": "APPL", "CFBundleExecutable": "MigrationHarness",
-            "CFBundleVersion": "1", "CFBundleName": "Owned migration fixture",
-        }))
-        harness = root / "MigrationHarness.swift"
-        migration = declaration(MIGRATION_SOURCE.read_text(), "    func migratedBundledVideoWallpaper(")
-        harness.write_text(MIGRATION_HARNESS.replace("// ACTUAL_BUNDLED_MIGRATION",
-            "extension WallpaperManager {\n" + migration + "\n}"))
-        inputs = [Path(__file__), SWIFT_SOURCE, MIGRATION_SOURCE, MODEL_SOURCE, harness,
-            REPOSITORY_ROOT / "script/tests/test_ui_library_algorithms.py"]
-        before = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}
-        environment = dict(os.environ, CLANG_MODULE_CACHE_PATH=str(root / "clang-cache"))
-        command = ["xcrun", "swiftc", "-parse-as-library", "-O", str(SWIFT_SOURCE),
-            str(MODEL_SOURCE), str(harness),
-            "-module-cache-path", str(root / "modules"), "-o", str(template / "MacOS/MigrationHarness")]
-        built = subprocess.run(command, env=environment, capture_output=True, text=True, timeout=120)
-        (root / "compile.json").write_text(json.dumps({"command": command, "returncode": built.returncode,
-            "stdout": built.stdout, "stderr": built.stderr, "inputSHA256": before}, indent=2))
-        self.assertEqual(built.returncode, 0, built.stderr)
-        archive = root / "owned.zip"
-        self.write_fixture_archive(archive, "migrated-owned", (2, 3))
-        for mode in ("archive", "missing-archive"):
-            with self.subTest(mode=mode):
-                app = root / (mode + ".app")
-                shutil.copytree(template.parent, app)
-                work = root / mode
-                (work / "home").mkdir(parents=True)
-                env = dict(environment, HOME=str(work / "home"), CFFIXED_USER_HOME=str(work / "home"))
-                ran = subprocess.run([str(app / "Contents/MacOS/MigrationHarness"), mode, str(work), str(archive)],
-                    env=env, capture_output=True, text=True, timeout=30)
-                (root / (mode + ".json")).write_text(json.dumps({"returncode": ran.returncode,
-                    "stdout": ran.stdout, "stderr": ran.stderr}, indent=2))
-                self.assertEqual(ran.returncode, 0, ran.stderr)
-                report = json.loads(ran.stdout)
-                self.assertTrue(report["passed"])
-                self.assertEqual(report["untouched"], 9)
-        self.assertEqual({str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}, before)
 
     @staticmethod
     def write_fixture_archive(path: Path, content: str, indices) -> None:

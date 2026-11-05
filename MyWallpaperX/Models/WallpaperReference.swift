@@ -105,7 +105,7 @@ nonisolated struct WallpaperPlaylist: Identifiable, Codable, Equatable, Sendable
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, createdAt, modifiedAt, sidebarRank, descriptionText, customCoverAssetID
+        case id, name, sidebarRank, descriptionText, customCoverAssetID
         case createdAtReferenceDate, modifiedAtReferenceDate
     }
 
@@ -113,10 +113,8 @@ nonisolated struct WallpaperPlaylist: Identifiable, Codable, Equatable, Sendable
         let values = try decoder.container(keyedBy: CodingKeys.self)
         id = try values.decode(UUID.self, forKey: .id)
         name = try values.decode(String.self, forKey: .name)
-        createdAt = try values.decodeIfPresent(Double.self, forKey: .createdAtReferenceDate)
-            .map(Date.init(timeIntervalSinceReferenceDate:)) ?? values.decode(Date.self, forKey: .createdAt)
-        modifiedAt = try values.decodeIfPresent(Double.self, forKey: .modifiedAtReferenceDate)
-            .map(Date.init(timeIntervalSinceReferenceDate:)) ?? values.decode(Date.self, forKey: .modifiedAt)
+        createdAt = Date(timeIntervalSinceReferenceDate: try values.decode(Double.self, forKey: .createdAtReferenceDate))
+        modifiedAt = Date(timeIntervalSinceReferenceDate: try values.decode(Double.self, forKey: .modifiedAtReferenceDate))
         sidebarRank = try values.decode(Int.self, forKey: .sidebarRank)
         descriptionText = WallpaperPlaylistMetadata.normalizedDescription(try values.decodeIfPresent(String.self, forKey: .descriptionText))
         customCoverAssetID = try values.decodeIfPresent(UUID.self, forKey: .customCoverAssetID)
@@ -194,14 +192,13 @@ nonisolated struct WallpaperPlaylistMember: Codable, Equatable, Sendable {
         self.playlistID = playlistID; self.reference = reference; self.position = position; self.addedAt = addedAt
     }
 
-    private enum CodingKeys: String, CodingKey { case playlistID, reference, position, addedAt, addedAtReferenceDate }
+    private enum CodingKeys: String, CodingKey { case playlistID, reference, position, addedAtReferenceDate }
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         playlistID = try values.decode(UUID.self, forKey: .playlistID)
         reference = try values.decode(WallpaperReference.self, forKey: .reference)
         position = try values.decode(Int.self, forKey: .position)
-        addedAt = try values.decodeIfPresent(Double.self, forKey: .addedAtReferenceDate)
-            .map(Date.init(timeIntervalSinceReferenceDate:)) ?? values.decode(Date.self, forKey: .addedAt)
+        addedAt = Date(timeIntervalSinceReferenceDate: try values.decode(Double.self, forKey: .addedAtReferenceDate))
     }
     func encode(to encoder: Encoder) throws {
         var values = encoder.container(keyedBy: CodingKeys.self)
@@ -219,12 +216,12 @@ nonisolated struct WallpaperFavorite: Codable, Equatable, Sendable {
     init(reference: WallpaperReference, favoritedAt: Date? = nil, migrationOrder: Int? = nil) {
         self.reference = reference; self.favoritedAt = favoritedAt; self.migrationOrder = migrationOrder
     }
-    private enum CodingKeys: String, CodingKey { case reference, favoritedAt, favoritedAtReferenceDate, migrationOrder }
+    private enum CodingKeys: String, CodingKey { case reference, favoritedAtReferenceDate, migrationOrder }
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         reference = try values.decode(WallpaperReference.self, forKey: .reference)
         favoritedAt = try values.decodeIfPresent(Double.self, forKey: .favoritedAtReferenceDate)
-            .map(Date.init(timeIntervalSinceReferenceDate:)) ?? values.decodeIfPresent(Date.self, forKey: .favoritedAt)
+            .map(Date.init(timeIntervalSinceReferenceDate:))
         migrationOrder = try values.decodeIfPresent(Int.self, forKey: .migrationOrder)
     }
     func encode(to encoder: Encoder) throws {
@@ -264,7 +261,6 @@ nonisolated struct WallpaperOrganizationItem: Sendable {
 nonisolated struct UserCollectionsSnapshot: Sendable, Equatable {
     let revision: Int64
     let resetEpoch: UUID
-    let migrationManifestID: String?
     let playlists: [WallpaperPlaylist]
     let members: [WallpaperPlaylistMember]
     let favorites: [WallpaperFavorite]
@@ -273,26 +269,14 @@ nonisolated struct UserCollectionsSnapshot: Sendable, Equatable {
     let locators: [WallpaperReferenceLocator]
     let excludedLibraryReferences: [WallpaperLibraryExclusion]
 
-    init(revision: Int64, resetEpoch: UUID, migrationManifestID: String?, playlists: [WallpaperPlaylist],
+    init(revision: Int64, resetEpoch: UUID, playlists: [WallpaperPlaylist],
          members: [WallpaperPlaylistMember], favorites: [WallpaperFavorite], recent: [WallpaperRecentUse],
          aliases: [WallpaperReferenceAlias], locators: [WallpaperReferenceLocator],
          excludedLibraryReferences: [WallpaperLibraryExclusion] = []) {
-        self.revision = revision; self.resetEpoch = resetEpoch; self.migrationManifestID = migrationManifestID
+        self.revision = revision; self.resetEpoch = resetEpoch
         self.playlists = playlists; self.members = members; self.favorites = favorites; self.recent = recent
         self.aliases = aliases; self.locators = locators; self.excludedLibraryReferences = excludedLibraryReferences
     }
-}
-
-/// Metadata-only payload. It neither imports files nor starts playback.
-/// The settings exporter deliberately excludes `recent`; migration backups
-/// retain it. The formal settings schema/version is owned by that exporter.
-nonisolated struct LibraryCollectionsImport: Codable, Equatable, Sendable {
-    var playlists: [WallpaperPlaylist] = []
-    var members: [WallpaperPlaylistMember] = []
-    var favorites: [WallpaperFavorite] = []
-    var recent: [WallpaperRecentUse] = []
-    var aliases: [WallpaperReferenceAlias] = []
-    var locators: [WallpaperReferenceLocator] = []
 }
 
 /// A bounded Undo/import precondition. Playback history, cache/source hints and
@@ -313,7 +297,7 @@ extension UserCollectionsSnapshot {
 
 /// Explicit settings restore can retain offline references. This value cannot
 /// contain recent history, playback/session state, credentials or wallpaper
-/// media. Schema 7 and later carry only the App-owned, bounded custom cover copies.
+/// media. Only the App-owned, bounded custom cover copies are portable.
 nonisolated struct LibraryCollectionsPersonalSettingsImport: Codable, Equatable, Sendable {
     struct FavoriteState: Codable, Equatable, Sendable {
         let reference: WallpaperReference
@@ -323,13 +307,13 @@ nonisolated struct LibraryCollectionsPersonalSettingsImport: Codable, Equatable,
         init(reference: WallpaperReference, isFavorite: Bool, favoritedAt: Date? = nil) {
             self.reference = reference; self.isFavorite = isFavorite; self.favoritedAt = favoritedAt
         }
-        private enum CodingKeys: String, CodingKey { case reference, isFavorite, favoritedAt, favoritedAtReferenceDate }
+        private enum CodingKeys: String, CodingKey { case reference, isFavorite, favoritedAtReferenceDate }
         init(from decoder: Decoder) throws {
             let values = try decoder.container(keyedBy: CodingKeys.self)
             reference = try values.decode(WallpaperReference.self, forKey: .reference)
             isFavorite = try values.decode(Bool.self, forKey: .isFavorite)
             favoritedAt = try values.decodeIfPresent(Double.self, forKey: .favoritedAtReferenceDate)
-                .map(Date.init(timeIntervalSinceReferenceDate:)) ?? values.decodeIfPresent(Date.self, forKey: .favoritedAt)
+                .map(Date.init(timeIntervalSinceReferenceDate:))
         }
         func encode(to encoder: Encoder) throws {
             var values = encoder.container(keyedBy: CodingKeys.self)
@@ -337,11 +321,7 @@ nonisolated struct LibraryCollectionsPersonalSettingsImport: Codable, Equatable,
             try values.encodeIfPresent(favoritedAt?.timeIntervalSinceReferenceDate, forKey: .favoritedAtReferenceDate)
         }
     }
-    struct LegacyPlaylistOrigin: Codable, Equatable, Sendable {
-        let playlistID: UUID
-        let sourceKey: String
-        let tag: String
-    }
+
     struct LibraryExclusionState: Codable, Equatable, Sendable {
         let reference: WallpaperReference
         let isExcluded: Bool
@@ -350,32 +330,29 @@ nonisolated struct LibraryCollectionsPersonalSettingsImport: Codable, Equatable,
     var members: [WallpaperPlaylistMember] = []
     var favoriteStates: [FavoriteState] = []
     var locators: [WallpaperReferenceLocator] = []
-    var legacyOrigins: [LegacyPlaylistOrigin] = []
     /// Explicitly declared backup provenance, never inferred from a filename.
     var aliases: [WallpaperReferenceAlias] = []
-    var playlistMetadataIsExplicit = false
     var coverAssets: [WallpaperPlaylistCoverAsset] = []
-    /// nil is an older profile/recovery: preserve all existing hide state.
-    var libraryExclusionStates: [LibraryExclusionState]?
+    var libraryExclusionStates: [LibraryExclusionState] = []
     /// Set by the import planner, never exported. A later hide intent must not
     /// be overwritten by recovery of an earlier multi-owner import.
     var expectedLibraryExclusions: [WallpaperLibraryExclusion]?
 
     init(playlists: [WallpaperPlaylist] = [], members: [WallpaperPlaylistMember] = [],
          favoriteStates: [FavoriteState] = [], locators: [WallpaperReferenceLocator] = [],
-         legacyOrigins: [LegacyPlaylistOrigin] = [], aliases: [WallpaperReferenceAlias] = [],
-         playlistMetadataIsExplicit: Bool = false, coverAssets: [WallpaperPlaylistCoverAsset] = [],
-         libraryExclusionStates: [LibraryExclusionState]? = nil,
+         aliases: [WallpaperReferenceAlias] = [],
+         coverAssets: [WallpaperPlaylistCoverAsset] = [],
+         libraryExclusionStates: [LibraryExclusionState] = [],
          expectedLibraryExclusions: [WallpaperLibraryExclusion]? = nil) {
         self.playlists = playlists; self.members = members; self.favoriteStates = favoriteStates
-        self.locators = locators; self.legacyOrigins = legacyOrigins; self.aliases = aliases
-        self.playlistMetadataIsExplicit = playlistMetadataIsExplicit; self.coverAssets = coverAssets
+        self.locators = locators; self.aliases = aliases
+        self.coverAssets = coverAssets
         self.libraryExclusionStates = libraryExclusionStates; self.expectedLibraryExclusions = expectedLibraryExclusions
     }
 
     private enum CodingKeys: String, CodingKey {
-        case playlists, members, favoriteStates, locators, legacyOrigins, aliases
-        case playlistMetadataIsExplicit, coverAssets, libraryExclusionStates, expectedLibraryExclusions
+        case playlists, members, favoriteStates, locators, aliases
+        case coverAssets, libraryExclusionStates, expectedLibraryExclusions
     }
 
     init(from decoder: Decoder) throws {
@@ -384,11 +361,9 @@ nonisolated struct LibraryCollectionsPersonalSettingsImport: Codable, Equatable,
         members = try values.decodeIfPresent([WallpaperPlaylistMember].self, forKey: .members) ?? []
         favoriteStates = try values.decodeIfPresent([FavoriteState].self, forKey: .favoriteStates) ?? []
         locators = try values.decodeIfPresent([WallpaperReferenceLocator].self, forKey: .locators) ?? []
-        legacyOrigins = try values.decodeIfPresent([LegacyPlaylistOrigin].self, forKey: .legacyOrigins) ?? []
         aliases = try values.decodeIfPresent([WallpaperReferenceAlias].self, forKey: .aliases) ?? []
-        playlistMetadataIsExplicit = try values.decodeIfPresent(Bool.self, forKey: .playlistMetadataIsExplicit) ?? false
         coverAssets = try values.decodeIfPresent([WallpaperPlaylistCoverAsset].self, forKey: .coverAssets) ?? []
-        libraryExclusionStates = try values.decodeIfPresent([LibraryExclusionState].self, forKey: .libraryExclusionStates)
+        libraryExclusionStates = try values.decode([LibraryExclusionState].self, forKey: .libraryExclusionStates)
         expectedLibraryExclusions = try values.decodeIfPresent([WallpaperLibraryExclusion].self, forKey: .expectedLibraryExclusions)
     }
 }
@@ -434,8 +409,6 @@ nonisolated enum UserCollectionsError: Error, LocalizedError, Equatable {
     case invalidOrder
     case unavailableForOrganization
     case staleResetEpoch
-    case migrationConflict
-    case closedForPublication
     case organizationConflict
     case personalSettingsConflict
     case playlistMetadataConflict
@@ -444,7 +417,7 @@ nonisolated enum UserCollectionsError: Error, LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .database(let message): return "用户资料库读写失败：\(message)"
-        case .unsupportedSchema(let version): return "用户资料库版本 \(version) 高于本 App 支持范围，请保留原文件。"
+        case .unsupportedSchema(let version): return "用户资料库版本 \(version) 不受本 App 支持，请保留原文件。"
         case .corruptData(let field): return "用户资料库内容无法读取：\(field)"
         case .invalidReference: return "壁纸引用无效。"
         case .invalidName: return "播放列表名称不能为空。"
@@ -452,8 +425,6 @@ nonisolated enum UserCollectionsError: Error, LocalizedError, Equatable {
         case .invalidOrder: return "播放列表成员已变化，请重新排序。"
         case .unavailableForOrganization: return "仅可添加已下载或本地可用的壁纸。"
         case .staleResetEpoch: return "该操作已被资料库重置撤销。"
-        case .migrationConflict: return "用户资料库已修改，不能覆盖为旧版本迁移数据。"
-        case .closedForPublication: return "迁移暂存连接已关闭，请使用已发布的资料库。"
         case .organizationConflict: return "列表、喜爱或身份关系已变化，无法安全恢复该次整理操作。"
         case .personalSettingsConflict: return "个人设置导入的恢复状态已变化，请保留恢复文件后重新检查。"
         case .playlistMetadataConflict: return "播放列表信息已变化，请重新打开编辑窗口。"

@@ -59,11 +59,11 @@ nonisolated final class LegacyDiscoveryObservation: @unchecked Sendable {
                 lifetimeSubscriptionsText: nil, visibilityText: nil, moderationText: nil, detailFields: [],
                 detailURL: URL(string: "https://steamcommunity.com/sharedfiles/filedetails/?id=\(id)")!)
         }
-        let compatibilityName = "11111111-2222-4333-8444-555555555555"
-        let managedRoot = library.appendingPathComponent(".mywallpaperx-steam-versions/\(compatibilityName)/content", isDirectory: true)
-        let managedCommit = SteamWorkshopLibraryCommit(version: 1, workshopId: managedID, jobId: "owned-job",
-            attempt: 1, directoryName: compatibilityName, manifestId: "77", contentDigest: String(repeating: "a", count: 64),
-            contentType: "web", entryPath: "index.html", committedAt: fixedDate)
+        let generation = "11111111-2222-4333-8444-555555555555"
+        let managedRoot = web.appendingPathComponent(managedID, isDirectory: true)
+        let managedCommit = SteamWorkshopLibraryCommit(version: 3, workshopId: managedID, jobId: "owned-job",
+            attempt: 1, directoryName: managedID, manifestId: "77", contentDigest: String(repeating: "a", count: 64),
+            contentType: "web", entryPath: "index.html", committedAt: fixedDate, generation: generation)
         func snapshot(_ id: String, folder: URL, source: String? = nil, exported: URL? = nil,
                       commit: SteamWorkshopLibraryCommit? = nil) -> SteamWorkshopDownloadMetadataSnapshot {
             SteamWorkshopDownloadMetadataSnapshot(fetchedAt: fixedDate, item: item(id), sourceVideoRelativePath: source,
@@ -84,14 +84,15 @@ nonisolated final class LegacyDiscoveryObservation: @unchecked Sendable {
             try text("library/Web/metadata-video/clips/picked.mov", "small owned movie path")
             try text("library/Web/metadata-video/big.mp4", String(repeating: "v", count: 100))
             let local = snapshot("metadata-video", folder: directory("metadata-video"), source: "clips/picked.mov")
-            try put("library/Web/metadata-video/.mywallpaperx-steam-metadata.json", JSONEncoder().encode(local))
+            try put("library/.mywallpaperx-steam-metadata/metadata-video.json", JSONEncoder().encode(local))
+            try json("library/Web/metadata-video/project.json", [:])
             try text("library/Web/\(packageID)/scene.pkg", "owned package presence, not a Scene decoder fixture")
             try text("library/Web/html-only/index.html", "<html>root</html>")
             try text("library/Web/html-only/nested/default.html", "<html>secondary</html>")
             try text("library/Web/video-only/clip.mp4", "owned video path")
             try fm.createDirectory(at: directory("empty"), withIntermediateDirectories: true)
             try json("library/Web/project-ghost/project.json", ["type": "web", "file": "missing.html"])
-            try put("library/Web/metadata-ghost/.mywallpaperx-steam-metadata.json",
+            try put("library/.mywallpaperx-steam-metadata/metadata-ghost.json",
                     JSONEncoder().encode(snapshot("metadata-ghost", folder: directory("metadata-ghost"))))
             try fm.createDirectory(at: directory("package-ghost").appendingPathComponent("scene.pkg"), withIntermediateDirectories: true)
             try text("library/Web/malformed-project/project.json", "not JSON")
@@ -137,17 +138,20 @@ nonisolated final class LegacyDiscoveryObservation: @unchecked Sendable {
             try text("library/Web/49065/index.html", "unselected root alias")
             try json("library/Web/relocated-host/project.json", ["type": "web", "file": "index.html"])
             try text("library/Web/relocated-host/index.html", "metadata-selected actual host")
-            try put("library/Web/49065/.mywallpaperx-steam-metadata.json",
+            try put("library/.mywallpaperx-steam-metadata/49065.json",
                     JSONEncoder().encode(snapshot("49065", folder: directory("relocated-host"))))
             try json("library/Web/49066/project.json", ["file": "authored.json"])
             try text("library/Web/49066/authored.json", "browser Scene classification admits actual loose entry")
             try json("library/Web/49067/project.json", ["type": "web", "file": "missing.html"])
             try json("library/Web/self-shell/project.json", ["type": "web", "dependency": "self-shell"])
-            try json("library/Web/\(managedID)/project.json", ["type": "web", "file": "alias.html"])
-            try text("library/Web/\(managedID)/alias.html", "<html>unselected legacy alias</html>")
-            try put("library/.mywallpaperx-steam-versions/\(compatibilityName)/content/project.json",
+            try json("library/Scene/\(managedID)/project.json", ["type": "web", "file": "alias.html"])
+            try text("library/Scene/\(managedID)/alias.html", "<html>unselected legacy alias</html>")
+            try put("library/Web/\(managedID)/project.json",
                     JSONSerialization.data(withJSONObject: ["type": "web", "file": "index.html"]))
-            try text("library/.mywallpaperx-steam-versions/\(compatibilityName)/content/index.html", "<html>managed source</html>")
+            try text("library/Web/\(managedID)/index.html", "<html>managed source</html>")
+            try put("library/Web/\(managedID)/" + SteamWorkshopLibraryTransaction.ownershipMarkerName, JSONEncoder().encode(managedCommit))
+            try put("library/Web/sidecar-only/.mywallpaperx-steam-metadata.json",
+                    JSONEncoder().encode(snapshot("sidecar-only", folder: directory(hostID))))
             try json("library/Web/escape-web/project.json", ["type": "web", "file": "escape.html"])
             try text("outside.html", "owned out-of-root HTML must not be selected")
             try fm.createSymbolicLink(at: directory("escape-web").appendingPathComponent("escape.html"),
@@ -156,7 +160,7 @@ nonisolated final class LegacyDiscoveryObservation: @unchecked Sendable {
             try text("library/Exports/exported.mov", "owned current exported video path")
             let exported = snapshot("exported-video", folder: directory("exported-video"), source: "source.mov",
                                     exported: library.appendingPathComponent("Exports/exported.mov"))
-            try put("library/Web/exported-video/.mywallpaperx-steam-metadata.json", JSONEncoder().encode(exported))
+            try put("library/.mywallpaperx-steam-metadata/exported-video.json", JSONEncoder().encode(exported))
             print("{\"setup\":true}")
             return
         }
@@ -259,7 +263,7 @@ nonisolated final class LegacyDiscoveryObservation: @unchecked Sendable {
         }
         func build(_ name: String, folder: String? = nil,
                    managed: [String: SteamWorkshopDownloadMetadataSnapshot] = [:],
-                   from metadata: SteamWorkshopDownloadMetadataSnapshot? = nil) throws -> SteamWorkshopDownloadRecord? {
+                   from metadata: SteamWorkshopDownloadMetadataSnapshot? = nil, root: URL? = nil) throws -> SteamWorkshopDownloadRecord? {
             _ = LegacyDiscoveryObservation.shared.take()
             let record: SteamWorkshopDownloadRecord?
             if let metadata {
@@ -267,7 +271,7 @@ nonisolated final class LegacyDiscoveryObservation: @unchecked Sendable {
                     legacyDirectory: directory(folder ?? name), fallbackProject: nil,
                     fallbackIdentifier: name, resolvingIDs: [], managedSnapshots: managed, context: context)
             } else {
-                record = SteamWorkshopService.scanBuildInstalledRecord(at: directory(folder ?? name),
+                record = SteamWorkshopService.scanBuildInstalledRecord(at: root ?? directory(folder ?? name),
                     resolvingIDs: [], managedSnapshots: managed, context: context)
             }
             records[name] = try recordValue(record)
@@ -321,14 +325,19 @@ nonisolated final class LegacyDiscoveryObservation: @unchecked Sendable {
         checks["dependencyCycleStopsWithoutInventingEntry"] = cycle?.status == .ready
             && cycle?.dependencyStatus == .missing(itemID: "49022") && cycle?.entryHTMLURL == nil
         let managed = snapshot(managedID, folder: managedRoot, commit: managedCommit)
-        let selected = try build("managed", folder: managedID, managed: [managedID: managed])
+        let alias = scene.appendingPathComponent(managedID, isDirectory: true)
+        let selected = try build("managed", folder: managedID, managed: [managedID: managed], root: alias)
         checks["managedSnapshotReturnsBeforeLegacyProbe"] = SteamWorkshopLibraryTransaction.isAvailable(managedCommit, libraryRoot: library)
             && samePath(selected?.folderURL, managedRoot) && samePath(selected?.entryHTMLURL, managedRoot.appendingPathComponent("index.html"))
         var removedCommit = managedCommit; removedCommit.removed = true
         checks["removedManagedSnapshotDoesNotReviveAlias"] = try build("removed-managed", folder: managedID,
-            managed: [managedID: snapshot(managedID, folder: managedRoot, commit: removedCommit)]) == nil
+            managed: [managedID: snapshot(managedID, folder: managedRoot, commit: removedCommit)], root: alias) == nil
         checks["managedWithoutCommitDoesNotReviveAlias"] = try build("uncommitted-managed", folder: managedID,
-            managed: [managedID: snapshot(managedID, folder: managedRoot)]) == nil
+            managed: [managedID: snapshot(managedID, folder: managedRoot)], root: alias) == nil
+        let oldSidecar = directory("sidecar-only").appendingPathComponent(".mywallpaperx-steam-metadata.json")
+        let oldSidecarBytes = try Data(contentsOf: oldSidecar)
+        checks["oldSidecarCannotCreateRecordAndRemainsUntouched"] = try build("sidecar-only") == nil
+            && Data(contentsOf: oldSidecar) == oldSidecarBytes
         checks["outsideHTMLSymlinkRemainsUnavailable"] = try build("escape-web") == nil
         let exported = try build("exported-video")
         checks["exportedVideoUsesCurrentExistingFile"] = changed
@@ -404,20 +413,18 @@ nonisolated final class LegacyDiscoveryObservation: @unchecked Sendable {
         workChecks["emptyRetainsNecessaryDiscovery"] = count("empty", "HTML") == 1 && count("empty", "Video") == 1
         workChecks["metadataSourceAvoidsVideoDiscoveryUntilMissing"] = count("metadata-video", "HTML") == 1
             && count("metadata-video", "Video") == (changed ? 1 : 0)
-        workChecks["managedAliasNeverProbesLegacyDirectory"] = count("managed", "HTML", at: directory(managedID)) == 0
-            && count("managed", "Video", at: directory(managedID)) == 0
+        workChecks["managedAliasNeverProbesLegacyDirectory"] = count("managed", "HTML", at: alias) == 0
+            && count("managed", "Video", at: alias) == 0
             && observations["removed-managed"]?.isEmpty == true && observations["uncommitted-managed"]?.isEmpty == true
         let preferredCalls = (observations["project-web"] ?? []).filter { $0["kind"] == "HTML" || $0["kind"] == "Video" }
         workChecks["preferredNameReachesActualResolvers"] = preferredCalls.count == 2
             && preferredCalls.allSatisfy { $0["preferred"] == "nested/preferred.htm" }
         workChecks["dependencyHostStillResolvesOnce"] = count("shell", "HTML", at: directory(hostID)) == 1
             && count("shell", "Video", at: directory(hostID)) == 1
-        workChecks["markerExistsShortCircuitsInOrder"] = ["project-web", "project-ghost", "malformed-project"].allSatisfy {
-            count($0, "exists-project") == 1 && count($0, "exists-metadata") == 0 && count($0, "exists-package") == 0
-        } && ["metadata-video", "metadata-ghost"].allSatisfy {
-            count($0, "exists-project") == 1 && count($0, "exists-metadata") == 1 && count($0, "exists-package") == 0
-        } && [packageID, "html-only", "video-only", "empty"].allSatisfy {
-            count($0, "exists-project") == 1 && count($0, "exists-metadata") == 1 && count($0, "exists-package") == 1
+        workChecks["markerExistsShortCircuitsInOrder"] = ["project-web", "project-ghost", "malformed-project", "metadata-video"].allSatisfy {
+            count($0, "exists-project") == 1 && count($0, "exists-package") == 0
+        } && ["metadata-ghost", packageID, "html-only", "video-only", "empty"].allSatisfy {
+            count($0, "exists-project") == 1 && count($0, "exists-package") == 1
         }
         workChecks["dependencyEdgesDoNotProjectHostRows"] = ["shell", "shared-shell-a", "shared-shell-b"].allSatisfy {
             count($0, "Preview", at: directory(hostID)) == 0 && count($0, "Statistics", at: directory(hostID)) == 0

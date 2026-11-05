@@ -840,12 +840,7 @@ final class WebWallpaperDataStoreReclaimer {
         removing removedIdentifiers: Set<UUID>,
         recordID: String
     ) {
-        guard #available(macOS 14.0, *) else {
-            removalAttemptsByRecordID.removeValue(forKey: recordID)
-            return
-        }
-        // 与 SteamWorkshopLegacyAcquisitionRetirement 的 web store 退役同法：WebKit
-        // 的类级 store API 会分发回自己的 run loop，先初始化该 owner 再枚举标识。
+        // WebKit 的类级 store API 会分发回自己的 run loop，先初始化该 owner 再枚举标识。
         _ = WKWebsiteDataStore.default()
         WKWebsiteDataStore.fetchAllDataStoreIdentifiers { [weak self] identifiers in
             guard let self else { return }

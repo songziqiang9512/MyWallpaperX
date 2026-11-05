@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 
 @MainActor enum MainWindowCoordinator {
     static var host: NSWindow?
@@ -9,6 +10,34 @@ import AppKit
     func alertShowHelp(_ alert: NSAlert) -> Bool { calls += 1; return true }
 }
 @MainActor private final class ModalObservation { var wasVisible = false }
+
+@MainActor private final class DownloadFailureSource {
+    // ACTUAL_DOWNLOAD_ERROR_DECLARATION
+}
+@MainActor private final class DownloadFailureConsumer {
+    private let steam: DownloadFailureSource
+    private var subscriptions = Set<AnyCancellable>()
+    init(steam: DownloadFailureSource) {
+        self.steam = steam
+        // ACTUAL_DOWNLOAD_FEEDBACK_SUBSCRIPTION
+    }
+}
+@MainActor private final class FeedbackBackground: NSView {
+    var clicks = 0
+    let button = NSButton(title: "真实背景操作", target: nil, action: nil)
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        button.target = self; button.action = #selector(clicked)
+        button.frame = NSRect(x: 25, y: 25, width: 160, height: 32)
+        addSubview(button)
+    }
+    required init?(coder: NSCoder) { nil }
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor(srgbRed: 0.35, green: 0.65, blue: 0.85, alpha: 1).setFill()
+        dirtyRect.fill()
+    }
+    @objc private func clicked() { clicks += 1 }
+}
 
 @MainActor private final class NativeAlertTransitionProbe: NSObject {
     weak var host: NSWindow?
@@ -163,6 +192,153 @@ import AppKit
         }
         try await Task.sleep(for: .milliseconds(40))
     }
+    @MainActor private static func texts(in window: NSWindow) -> [String] {
+        var views = window.contentView.map { [$0] } ?? [], result: [String] = []
+        while let view = views.popLast() {
+            if let field = view as? NSTextField { result.append(field.stringValue) }
+            views.append(contentsOf: view.subviews)
+        }
+        return result
+    }
+    @MainActor private static func backgroundPixels(_ view: NSView) throws -> [Double] {
+        let rect = view.window!.convertToScreen(view.convert(NSRect(x: 25, y: 85, width: 48, height: 32), to: nil))
+        let region = "\(Int(rect.minX)),\(Int(NSScreen.screens[0].frame.maxY - rect.maxY)),48,32"
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".png")
+        defer { try? FileManager.default.removeItem(at: file) }
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+        process.arguments = ["-x", "-R" + region, file.path]
+        try process.run(); process.waitUntilExit()
+        guard process.terminationStatus == 0, let image = NSBitmapImageRep(data: try Data(contentsOf: file)) else {
+            throw NSError(domain: "AppModalFixture", code: 2, userInfo: [NSLocalizedDescriptionKey: "real desktop patch capture failed"])
+        }
+        var result = [0.0, 0.0, 0.0]
+        for y in 0..<image.pixelsHigh {
+            for x in 0..<image.pixelsWide {
+                let color = image.colorAt(x: x, y: y)!.usingColorSpace(.deviceRGB)!
+                result[0] += color.redComponent; result[1] += color.greenComponent; result[2] += color.blueComponent
+            }
+        }
+        return result.map { $0 / Double(image.pixelsWide * image.pixelsHigh) }
+    }
+    @MainActor private static func checkDownloadFeedback(in host: NSWindow) async throws -> [String: Bool] {
+        let source = DownloadFailureSource(), consumer = DownloadFailureConsumer(steam: source)
+        defer { withExtendedLifetime(consumer) {} }
+        let background = FeedbackBackground(frame: host.contentView!.bounds)
+        host.contentView = background
+        host.makeKeyAndOrderFront(nil)
+        try await wait("download feedback host did not resume") { host.isKeyWindow }
+        background.displayIfNeeded()
+        var checks: [String: Bool] = [:]
+        let canCapture = CGPreflightScreenCaptureAccess()
+        let before = canCapture ? try backgroundPixels(background) : []
+        for message in ["下载失败 A", "下载失败 B", "下载失败 B"] { source.downloadError = message }
+        try await wait("immutable failures were not all enqueued") { host.sheets.count == 3 && source.downloadError == nil }
+        let panels = host.sheets
+        checks["download-failure-payloads-keep-order-including-repeated-text"] = zip(panels, ["下载失败 A", "下载失败 B", "下载失败 B"])
+            .allSatisfy { texts(in: $0.0).contains($0.1) }
+        checks["independent-failures-share-document-native-queue-without-alert-children"] = panels.allSatisfy {
+            $0.sheetParent === host && $0.attachedSheet == nil
+        } && host.attachedSheet === panels[0] && panels.dropFirst().allSatisfy { !$0.isVisible }
+        try await wait("first native failure never became key") { panels[0].isKeyWindow }
+        let blockedPixels = canCapture ? try backgroundPixels(background) : []
+        let previousClicks = background.clicks
+        try await click(background.button)
+        checks["download-failure-native-sheet-blocks-real-background-click"] = background.clicks == previousClicks
+        try await pressReturn(in: panels[0])
+        try await wait("closing one failure discarded the next") { host.attachedSheet === panels[1] && panels[1].isKeyWindow }
+        source.downloadError = "下载失败 C"
+        try await wait("new failure while a sheet is retiring was lost") { host.sheets.count == 3 && source.downloadError == nil }
+        let last = host.sheets.last!
+        checks["old-completion-cannot-clear-a-later-failure"] = texts(in: last).contains("下载失败 C")
+            && panels[1].attachedSheet == nil && panels[2].sheetParent === host && last.sheetParent === host
+        for panel in [panels[1], panels[2], last] {
+            try await wait("native FIFO did not present its next original failure") { panel.isKeyWindow && host.attachedSheet === panel }
+            try await pressReturn(in: panel)
+            try await wait("native failure did not retire") { panel.sheetParent == nil && !panel.isVisible }
+        }
+        try await wait("failure queue left its document blocked") { host.sheets.isEmpty && host.attachedSheet == nil && host.isKeyWindow }
+        try await click(background.button)
+        var after: [Double] = []
+        if canCapture {
+            try await wait("real desktop background pixels did not recover after the native FIFO drained") {
+                guard let pixels = try? backgroundPixels(background) else { return false }
+                after = pixels
+                return zip(before, pixels).allSatisfy { abs($0 - $1) < 0.02 }
+            }
+        }
+        checks["download-failure-queue-drains-with-no-modal-or-floating-alert"] = panels.allSatisfy { !$0.isVisible && $0.sheetParent == nil }
+            && last.sheetParent == nil && !last.isVisible && NSApp.modalWindow == nil
+            && background.clicks == previousClicks + 1 && WallpaperLibrarySheetPresentation.permitsInput(in: host)
+        if canCapture {
+            checks["real-desktop-background-dimming-is-observable-and-recovers"] = zip(before, blockedPixels).contains { abs($0 - $1) > 0.02 }
+                && zip(before, after).allSatisfy { abs($0 - $1) < 0.02 }
+            FileHandle.standardError.write(Data("NativeFeedbackPixels before=\(before) blocked=\(blockedPixels) after=\(after)\n".utf8))
+        } else {
+            FileHandle.standardError.write(Data("NativeFeedbackPixels unavailable: screen capture permission denied; pixel dimming/recovery was not verified.\n".utf8))
+        }
+
+        host.orderOut(nil)
+        source.downloadError = "主窗隐藏时仅历史"
+        try await wait("hidden-host error source was not consumed") { source.downloadError == nil }
+        checks["hidden-main-window-does-not-queue-or-reopen-background-feedback"] = !host.isVisible && host.sheets.isEmpty
+        host.makeKeyAndOrderFront(nil)
+        host.miniaturize(nil)
+        try await wait("main host did not minimize") { host.isMiniaturized }
+        source.downloadError = "主窗最小化时仅历史"
+        try await wait("minimized-host error source was not consumed") { source.downloadError == nil }
+        checks["miniaturized-main-window-does-not-queue-or-reopen-feedback"] = host.isMiniaturized && host.sheets.isEmpty
+        host.deminiaturize(nil); host.makeKeyAndOrderFront(nil)
+        try await wait("main host did not restore") { host.isKeyWindow && !host.isMiniaturized }
+        MainWindowCoordinator.host = nil
+        source.downloadError = "主窗关闭后仅历史"
+        try await wait("absent-host error source was not consumed") { source.downloadError == nil }
+        MainWindowCoordinator.host = host
+        checks["absent-main-window-does-not-use-key-window-or-replay-old-feedback"] = host.sheets.isEmpty && NSApp.modalWindow == nil
+
+
+        let editor = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 350, height: 200),
+            styleMask: [.titled], backing: .buffered, defer: false)
+        host.beginSheet(editor) { _ in }
+        try await wait("editor did not become key") { editor.isKeyWindow }
+        source.downloadError = "编辑期间后台失败"
+        try await wait("background failure was not queued behind editor") { host.sheets.count == 2 && source.downloadError == nil }
+        let queued = host.sheets.last!
+        checks["background-feedback-stays-on-document-behind-editor"] = queued.sheetParent === host
+            && !queued.isVisible && editor.attachedSheet == nil && host.attachedSheet === editor
+        var childResponses: [NSApplication.ModalResponse] = []
+        let child = presentAppAlert(makeAppAlert(title: "编辑器自己的确认"), in: host) { childResponses.append($0) }
+        try await wait("legal editor child confirmation stopped following top sheet") { child.isKeyWindow && child.sheetParent === editor }
+        try await pressReturn(in: child)
+        try await wait("editor child did not settle") { childResponses == [.alertFirstButtonReturn] && editor.attachedSheet == nil }
+        host.endSheet(editor); editor.orderOut(nil)
+        try await wait("queued failure did not follow retiring editor") { queued.isKeyWindow && queued.sheetParent === host }
+        try await pressReturn(in: queued)
+        try await wait("editor's queued background feedback did not drain") { host.sheets.isEmpty }
+        checks["default-editor-child-confirmation-and-background-fifo-coexist"] = childResponses == [.alertFirstButtonReturn]
+            && child.sheetParent == nil && !child.isVisible && queued.sheetParent == nil && !queued.isVisible
+
+        var reentrantResponses: [Int] = []
+        let reentrant = presentAppAlert(makeAppAlert(title: "回调重入之前"), in: host, useProvidedWindowAsHost: true) { _ in
+            reentrantResponses.append(1); source.downloadError = "完成回调里的新失败"
+        }
+        let second = presentAppAlert(makeAppAlert(title: "已经排队"), in: host, useProvidedWindowAsHost: true) { _ in reentrantResponses.append(2) }
+        try await wait("reentrant FIFO first sheet not ready") { reentrant.isKeyWindow && host.sheets.count == 2 }
+        try await pressReturn(in: reentrant)
+        try await wait("completion-reentrant failure did not preserve queue order") {
+            reentrantResponses == [1] && second.isKeyWindow && host.sheets.count == 2 && source.downloadError == nil
+        }
+        let fromCompletion = host.sheets.last!
+        checks["completion-reentry-enqueues-immutable-error-after-existing-native-sheet"] = texts(in: fromCompletion).contains("完成回调里的新失败")
+            && second.sheetParent === host && fromCompletion.sheetParent === host && second.attachedSheet == nil
+        try await pressReturn(in: second)
+        try await wait("completion failure did not become key") { fromCompletion.isKeyWindow }
+        try await pressReturn(in: fromCompletion)
+        try await wait("completion reentry left a native queue behind") { host.sheets.isEmpty && host.isKeyWindow }
+        checks["completion-reentry-completes-existing-responses-once"] = reentrantResponses == [1, 2]
+            && [reentrant, second, fromCompletion].allSatisfy { $0.sheetParent == nil && !$0.isVisible }
+        return checks
+    }
     @MainActor static func main() {
         initializeNativeAppHarness()
         Task { @MainActor in
@@ -178,7 +354,7 @@ import AppKit
     }
     @MainActor static func run() async throws {
         let host = NSWindow(contentRect: NSRect(x: 120, y: 120, width: 900, height: 650),
-            styleMask: [.titled, .closable], backing: .buffered, defer: false)
+            styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
         host.isReleasedWhenClosed = false
         MainWindowCoordinator.host = host
         host.center()
@@ -402,16 +578,31 @@ import AppKit
         checks["source-owned-external-end-sheet-preserves-cancel-and-original-accessory"] = externalResponses == [.cancel]
             && field.stringValue == "取消前附件值" && !externalPanel.isVisible
 
+        checks.merge(try await checkDownloadFeedback(in: host)) { _, new in new }
+
         let closingHost = NSWindow(contentRect: NSRect(x: 180, y: 180, width: 500, height: 500),
             styleMask: [.titled, .closable], backing: .buffered, defer: false)
         closingHost.isReleasedWhenClosed = false; closingHost.makeKeyAndOrderFront(nil)
         var closingResponses: [NSApplication.ModalResponse] = []
-        let closingPanel = presentAppAlert(makeAppAlert(title: "父窗口关闭", buttons: ["保留", "删除样本"]), in: closingHost) { closingResponses.append($0) }
-        try await wait("closing-host sheet never displayed") { closingPanel.isKeyWindow }
+        let closingPanels = (0..<3).map { index in
+            presentAppAlert(makeAppAlert(title: "父窗口关闭 \(index)", buttons: ["保留", "删除样本"]),
+                in: closingHost, useProvidedWindowAsHost: true) { closingResponses.append($0) }
+        }
+        var independentResponses: [NSApplication.ModalResponse] = []
+        let independent = presentAppAlert(makeAppAlert(title: "另一个文档的独立反馈"),
+            in: host, useProvidedWindowAsHost: true) { independentResponses.append($0) }
+        try await wait("two documents did not keep separate native queues") { closingHost.sheets.count == 3 && independent.isKeyWindow }
+        checks["independent-documents-do-not-nest-or-share-native-error-queues"] = closingPanels.allSatisfy { $0.sheetParent === closingHost }
+            && independent.sheetParent === host && host.sheets == [independent] && closingPanels[0].attachedSheet == nil
         closingHost.close()
-        try await wait("parent close left feedback or its callback alive") { closingResponses.count == 1 && !closingPanel.isVisible }
-        checks["parent-window-close-cancels-native-feedback-once-without-a-floating-panel"] = closingResponses == [.cancel]
-            && closingHost.attachedSheet == nil
+        try await wait("parent close left active or queued feedback alive") {
+            closingResponses.count == 3 && closingPanels.allSatisfy { !$0.isVisible && $0.sheetParent == nil }
+                && closingHost.sheets.isEmpty && closingHost.attachedSheet == nil
+        }
+        checks["parent-window-close-cancels-active-and-queued-feedback-once-without-floating-panels"] = closingResponses == [.cancel, .cancel, .cancel]
+            && independentResponses.isEmpty && independent.sheetParent === host && independent.isVisible
+        try await pressReturn(in: independent)
+        try await wait("other document feedback did not survive and retire normally") { independentResponses == [.alertFirstButtonReturn] && host.sheets.isEmpty }
 
         let startup = makeAppAlert(title: "启动失败", buttons: ["好"])
         let observation = ModalObservation()
@@ -443,6 +634,13 @@ import AppKit
         noCompletionClick.invalidate()
         checks["no-completion-feedback-still-runs-the-native-app-modal-session"] = noCompletionPanel === noCompletion.window
             && noCompletionObservation.wasVisible && !noCompletionPanel.isVisible && NSApp.modalWindow == nil
+        let hiddenSource = DownloadFailureSource(), hiddenConsumer = DownloadFailureConsumer(steam: hiddenSource)
+        NSApp.hide(nil)
+        try await wait("native app did not hide") { NSApp.isHidden }
+        hiddenSource.downloadError = "应用隐藏时仅历史"
+        try await wait("hidden-app error source was not consumed") { hiddenSource.downloadError == nil }
+        checks["hidden-application-does-not-reopen-its-main-document-for-feedback"] = NSApp.isHidden && host.sheets.isEmpty
+        withExtendedLifetime(hiddenConsumer) {}
         print(String(data: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
     }
 }

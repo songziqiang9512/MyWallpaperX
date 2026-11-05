@@ -276,31 +276,126 @@ let webCompatibilityScriptBootstrapFoundation = #"""
   let wallpaperPropertyListenerValue = window.wallpaperPropertyListener && typeof window.wallpaperPropertyListener === 'object'
     ? window.wallpaperPropertyListener
     : {};
-  const resumeAudioContexts = () => {
-    const constructors = [window.AudioContext, window.webkitAudioContext].filter(Boolean);
-    for (const Ctor of constructors) {
-      try {
-        if (!Ctor || !Ctor.prototype || typeof Ctor.prototype.resume !== 'function') continue;
-        const originalResume = Ctor.prototype.resume;
-        if (Ctor.prototype.__mwxResumeWrapped) continue;
-        Ctor.prototype.__mwxResumeWrapped = true;
-        Ctor.prototype.resume = function(...args) {
-          try { audioContextInstances.add(this); } catch (_) {}
-          return originalResume.apply(this, args).catch((error) => {
-            hostLogger?.post('audio.resume.error', error && error.message ? error.message : error);
-            throw error;
-          });
-        };
-      } catch (_) {}
-    }
+  const wallpaperHostVolume = () => window.__myWallpaperLastHostVolume ?? window.__myWallpaperInitialVolume ?? 1;
+  const activeWallpaperMedia = new Set();
+  const mediaVolumeDescriptor = window.HTMLMediaElement
+    ? Object.getOwnPropertyDescriptor(window.HTMLMediaElement.prototype, 'volume') : null;
+  // Native conversion keeps WebIDL errors without first unmuting the actual source.
+  const mediaVolumeInput = mediaVolumeDescriptor ? document.createElement('audio') : null;
+  const wallpaperMediaVolumeRecord = (node) => {
+    if (!mediaVolumeDescriptor) return null;
+    if (node.__mwxMediaVolume) return node.__mwxMediaVolume;
+    let authorVolume;
+    try { authorVolume = mediaVolumeDescriptor.get.call(node); } catch (_) { return null; }
+    const reference = new WeakRef(node);
+    const record = {
+      authorVolume, viaWebAudio: false, lastAppliedNative: authorVolume,
+      apply(volume) {
+        const media = reference.deref();
+        if (!media) return;
+        const effective = record.authorVolume * (record.viaWebAudio ? 1 : volume);
+        mediaVolumeDescriptor.set.call(media, effective);
+        record.lastAppliedNative = effective;
+      },
+      activate() {
+        activeWallpaperMedia.add(reference);
+        record.apply(wallpaperHostVolume());
+      }
+    };
+    node.__mwxMediaVolume = record;
+    node.addEventListener('volumechange', () => {
+      const media = reference.deref();
+      if (!media) return;
+      const actual = mediaVolumeDescriptor.get.call(media);
+      if (actual === record.lastAppliedNative) return;
+      record.authorVolume = actual;
+      record.apply(wallpaperHostVolume());
+    });
+    node.addEventListener('play', record.activate);
+    node.addEventListener('playing', record.activate);
+    const deactivate = () => activeWallpaperMedia.delete(reference);
+    node.addEventListener('pause', deactivate);
+    node.addEventListener('ended', deactivate);
+    node.addEventListener('error', deactivate);
+    return record;
   };
-  const wrapAudioContextConstructor = (name) => {
+  const applyWallpaperMediaVolume = (node, volume) => {
+    const record = wallpaperMediaVolumeRecord(node);
+    if (record) record.apply(volume);
+    else node.volume = volume;
+  };
+  const prepareWallpaperMediaPlayback = (node) => {
+    const record = wallpaperMediaVolumeRecord(node);
+    if (record) record.apply(wallpaperHostVolume());
+  };
+  const wallpaperActiveMediaNodes = () => {
+    const nodes = [];
+    for (const reference of activeWallpaperMedia) {
+      const node = reference.deref();
+      if (!node || node.paused || node.ended) activeWallpaperMedia.delete(reference);
+      else nodes.push(node);
+    }
+    return nodes;
+  };
+  if (mediaVolumeDescriptor) {
+    Object.defineProperty(window.HTMLMediaElement.prototype, 'volume', {
+      ...mediaVolumeDescriptor,
+      get() {
+        const actual = mediaVolumeDescriptor.get.call(this);
+        return this.__mwxMediaVolume ? this.__mwxMediaVolume.authorVolume : actual;
+      },
+      set(value) {
+        mediaVolumeDescriptor.get.call(this);
+        mediaVolumeDescriptor.set.call(mediaVolumeInput, value);
+        const volume = mediaVolumeDescriptor.get.call(mediaVolumeInput);
+        const record = wallpaperMediaVolumeRecord(this);
+        record.authorVolume = volume;
+        record.apply(wallpaperHostVolume());
+      }
+    });
+  }
+  const nativeAudioConnect = window.AudioNode && window.AudioNode.prototype.connect;
+  const nativeAudioDisconnect = window.AudioNode && window.AudioNode.prototype.disconnect;
+  const nativeAudioNodeContext = window.AudioNode
+    && Object.getOwnPropertyDescriptor(window.AudioNode.prototype, 'context').get;
+  const registerWallpaperAudioContext = (context) => {
+    audioContextInstances.add(context);
+    if (context.__mwxAudioOutput) return;
+    const gain = context.createGain(), destination = context.destination;
+    gain.gain.value = wallpaperHostVolume();
+    nativeAudioConnect.call(gain, destination);
+    context.__mwxAudioOutput = { gain, destination };
+  };
+  if (nativeAudioConnect && nativeAudioDisconnect) {
+    window.AudioNode.prototype.connect = function(...args) {
+      const context = nativeAudioNodeContext.call(this), output = context.__mwxAudioOutput;
+      if (output && args[0] === output.destination) {
+        const destination = args[0];
+        args[0] = output.gain;
+        nativeAudioConnect.apply(this, args);
+        return destination;
+      }
+      return nativeAudioConnect.apply(this, args);
+    };
+    window.AudioNode.prototype.disconnect = function(...args) {
+      const context = nativeAudioNodeContext.call(this), output = context.__mwxAudioOutput;
+      if (output && args[0] === output.destination) args[0] = output.gain;
+      return nativeAudioDisconnect.apply(this, args);
+    };
+  }
+  const registerWallpaperMediaSource = (source) => {
+    registerWallpaperAudioContext(source.context);
+    const record = wallpaperMediaVolumeRecord(source.mediaElement);
+    record.viaWebAudio = true;
+    record.apply(wallpaperHostVolume());
+  };
+  const wrapWallpaperAudioConstructor = (name, register) => {
     try {
       const OriginalCtor = window[name];
       if (!OriginalCtor || OriginalCtor.__mwxConstructorWrapped) return;
       const WrappedCtor = function(...args) {
-        const instance = new OriginalCtor(...args);
-        try { audioContextInstances.add(instance); } catch (_) {}
+        const instance = new.target ? Reflect.construct(OriginalCtor, args, new.target) : OriginalCtor.apply(this, args);
+        register(instance);
         return instance;
       };
       WrappedCtor.prototype = OriginalCtor.prototype;
@@ -308,6 +403,30 @@ let webCompatibilityScriptBootstrapFoundation = #"""
       WrappedCtor.__mwxConstructorWrapped = true;
       window[name] = WrappedCtor;
     } catch (_) {}
+  };
+  const installWallpaperAudioContexts = () => {
+    const prototypes = new Set([window.AudioContext, window.webkitAudioContext].filter(Boolean).map((Ctor) => Ctor.prototype));
+    for (const prototype of prototypes) {
+      const originalResume = prototype.resume;
+      prototype.resume = function(...args) {
+        const result = originalResume.apply(this, args);
+        registerWallpaperAudioContext(this);
+        return result.catch((error) => {
+          hostLogger?.post('audio.resume.error', error && error.message ? error.message : error);
+          throw error;
+        });
+      };
+      const createMediaElementSource = prototype.createMediaElementSource;
+      prototype.createMediaElementSource = function(...args) {
+        const source = createMediaElementSource.apply(this, args);
+        registerWallpaperMediaSource(source);
+        return source;
+      };
+    }
+    wrapWallpaperAudioConstructor('AudioContext', registerWallpaperAudioContext);
+    wrapWallpaperAudioConstructor('webkitAudioContext', registerWallpaperAudioContext);
+    wrapWallpaperAudioConstructor('MediaElementAudioSourceNode', registerWallpaperMediaSource);
+    wrapWallpaperAudioConstructor('Audio', (audio) => applyWallpaperMediaVolume(audio, wallpaperHostVolume()));
   };
   const defineVisibilityProperty = (target, name, getter) => {
     if (!target) return false;
@@ -323,9 +442,7 @@ let webCompatibilityScriptBootstrapFoundation = #"""
     }
   };
 \#(webCompatibilityScriptHostLogger)
-  resumeAudioContexts();
-  wrapAudioContextConstructor('AudioContext');
-  wrapAudioContextConstructor('webkitAudioContext');
+  installWallpaperAudioContexts();
   window.wallpaperEngine_mouseover = false;
   window.wallpaperEngine_cursor = { x: 0, y: 0, normalizedX: 0, normalizedY: 0, buttons: 0 };
   if (typeof window.updateCircleSize !== 'function') {
@@ -338,6 +455,8 @@ let webCompatibilityScriptBootstrapFoundation = #"""
   window.wallpaperRegisterAudioStream = function(audio) {
     if (audio) {
       audioStreams.push(audio);
+      const record = wallpaperMediaVolumeRecord(audio);
+      if (record) record.apply(wallpaperHostVolume());
     }
   };
   window.wallpaperRegisterAudio = window.wallpaperRegisterAudioStream;

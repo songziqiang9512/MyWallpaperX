@@ -26,6 +26,18 @@
 - 系统歌曲信息仍由主 App 的唯一 SystemMediaService 采集。子进程只聚合页面 demand、接收可还原完整状态的 Web 投影并投递各 frame；不传 Scene 原始封面，缩图仅在身份变化时传递，缺少同身份基线时有界请求完整重放。频谱也不在子进程新建采集器。
 - 父 adapter 投影每个存活子进程的持久 store 使用与记录 identity；回收不能误删尚在运行或准备的 store。diagnostics 回传到原 store；网络授权沿用原声明白名单，不扩大根目录。
 
+## Web 输出音量控制（2026-11-05修复设计）
+
+已查静态链：设置/状态栏→共享Volume/Muted→Multiplexer→Engine→Web daemon→frame桥完整；页面旧逻辑只绝对改HTML媒体volume，实时WebAudio未受控，作者后写/离DOM Audio可绕过。修复继续复用此App/IPC权威，不加音量字段、transport、输出宿主或频谱采集器；以下实现已落地；本轮实际验证与未覆盖范围归[当前修复收尾](../development/code-slimming-program.md)。
+
+同一兼容owner将宿主值作为输出master：普通HTML输出为作者局部volume×master，作者muted保留；实时AudioContext只在原生destination前接一个终端Gain。只映射指向该destination的connect/disconnect节点参数，保作者原destination对象、返回值、原生异常/重载；普通节点、AudioParam和OfflineAudioContext不改变。MediaElementSource成功创建后才标记该element已走WebAudio，恢复作者volume，由终端master施加一次系数，避免h²；不主动把HTML转WebAudio或改变CORS。
+
+HTML沿现媒体record保存作者volume、viaWebAudio和实际lastAppliedNative写收据，getter供作者读取局部值；原生accessor读取实际输出。setter入口使用原生brand检查及每document一个无src/不挂DOM/永不play的原生audio转换叶，成功才对实际音源写一次；代价是一个无输出元素和入口原生转换，防止先写作者值导致静音短暂被绕过，不手抄WebIDL或在内部反复校验。原生controls的volumechange仅在值不同于lastAppliedNative时更新作者值，避免重复乘；不承诺采样级或跨frame原子静音。
+
+原构造/resume/play入口承接late context、new Audio与正常detached播放；活动离DOM元素弱登记，pause/ended/原teardown退役，无新定时器或长期强持。父/子重复接触同一element复用同一record，各frame仍按现endpoint/序号接收当前host值；逐surface收到的master（含候选静音0）、重载/恢复的原snapshot与volume listeners/事件保留，不按listener存在猜测作者混音。普通作者通过通知进一步改变局部gain属于其混音，不做启发式补偿。
+
+验收使用受控loopback同源HTML/WAV、真实WK及只向设备输出零样本的主动拉取sink：测host Gain后的真实PCM比值与HTML有效原生值，覆盖HTML/WebAudio/混合只乘一次、作者改写、mute恢复、late/detached、同源frame重复/导航、connect返回/disconnect重载/异常与Offline反例；测试sink主动消费实际输入并写零输出，不向设备输出测试声；不把静音输出优化导致的零基线当作通过。UI动作/Mux/IPC邻门保持，候选新宿主与原暂停/采集退役不变。新增局部记录只服务原生输出投影，替换旧绝对volume链；若串音、h²、对象保活或接口语义回退则停止候选并复核，不以callback通知当实际声音证明。
+
 ## 三引擎共同隔离合同
 
 - 主 App 只拥有用户意图、设置、共享采集、异步控制与状态投影。Video、Web、Scene 子进程各自拥有窗口、播放时钟、渲染、输入及本地暂停状态；持续播放不需要主 App 心跳或逐帧许可。

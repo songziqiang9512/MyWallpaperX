@@ -511,8 +511,7 @@ final class DimmingSurface: NSView, ToolbarGridScrollDismissalSurface {}
                     metadata: .init(fileSizeBytes: record.sizeBytes, createdAt: record.createdAt,
                                     modifiedAt: record.updatedAt), acquisition: .idle, update: .idle, aliases: [])
             }
-            let relationships = UserCollectionsSnapshot(revision: 1, resetEpoch: UUID(), migrationManifestID: "fixture",
-                playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
+            let relationships = UserCollectionsSnapshot(revision: 1, resetEpoch: UUID(), playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
             return try WallpaperLibraryQuery.project(page: .downloads, state: queryState,
                 catalog: .init(downloads: items), relationships: relationships).items.map { $0.reference.sourceID }
         }

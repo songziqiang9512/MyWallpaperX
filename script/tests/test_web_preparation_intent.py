@@ -43,12 +43,15 @@ nonisolated final class ReadyReceiver: @unchecked Sendable {
         let fm = FileManager.default
         let root = URL(fileURLWithPath: fm.currentDirectoryPath).resolvingSymlinksInPath()
         let service = SteamWorkshopService(); service.steamDownloadLibraryRootURL = root.appendingPathComponent("library")
-        let folder = service.steamDownloadLibraryRootURL.appendingPathComponent(SteamWorkshopLibraryTransaction.versionsName)
-            .appendingPathComponent(UUID().uuidString).appendingPathComponent("content")
+        let folder = service.steamDownloadLibraryRootURL.appendingPathComponent("Web/123456", isDirectory: true)
         try fm.createDirectory(at: folder, withIntermediateDirectories: true)
         try Data(#"{"file":"missing-declaration.html","preset":{"speed":1}}"#.utf8).write(to: folder.appendingPathComponent("project.json"))
         try Data("<html></html>".utf8).write(to: folder.appendingPathComponent("index.html"))
-        let record = SteamWorkshopDownloadRecord(id: "A", folderURL: folder,
+        let managedCommit = SteamWorkshopLibraryCommit(version: 3, workshopId: "123456", jobId: "fixture", attempt: 1,
+            directoryName: "123456", manifestId: "1", contentDigest: String(repeating: "a", count: 64), contentType: "web",
+            entryPath: "index.html", committedAt: Date(), generation: UUID().uuidString.lowercased())
+        try JSONEncoder().encode(managedCommit).write(to: folder.appendingPathComponent(SteamWorkshopLibraryTransaction.ownershipMarkerName))
+        let record = SteamWorkshopDownloadRecord(id: "123456", folderURL: folder,
             projectFileURL: folder.appendingPathComponent("project.json"), entryURL: folder.appendingPathComponent("index.html"))
         let receiver = ReadyReceiver()
         let token = NotificationCenter.default.addObserver(forName: .steamWorkshopWebWallpaperReadyToPlay, object: nil, queue: nil) { notification in
@@ -92,8 +95,8 @@ nonisolated final class ReadyReceiver: @unchecked Sendable {
         check(service.canLaunchDownloadRecord(record), "restored regular entry re-enables admission")
         try select(record)
         await service.webLaunchPreparationTask!.value
-        check(receiver.ids == ["A"] && service.webLaunchPreparationTask == nil, "new Web survives its own intent callback and releases only its handle")
-        check(receiver.hosts("A") == ["cdn.intent.test"], "actual ready publication carries the prepared author hosts")
+        check(receiver.ids == ["123456"] && service.webLaunchPreparationTask == nil, "new Web survives its own intent callback and releases only its handle")
+        check(receiver.hosts("123456") == ["cdn.intent.test"], "actual ready publication carries the prepared author hosts")
         let activeStorage = SteamWorkshopLibraryTransaction.storageIdentity(containing: folder, libraryRoot: service.steamDownloadLibraryRootURL)!
         check(service.steamLibraryVersionLeaseRegistry.protectedStorageIdentities().contains(activeStorage), "actual ready notification consumer retains captured-root token after producer exits")
         receiver.releaseTokens()
@@ -116,9 +119,9 @@ nonisolated final class ReadyReceiver: @unchecked Sendable {
         await nextGate.wait()
         check(old.isCancelled && service.steamLibraryVersionLeaseRegistry.protectedStorageIdentities().contains(storage), "new selection actually cancels stored old preparation while joined read owns lease")
         oldGate.release.signal(); await old.value
-        check(service.webLaunchPreparationTask != nil && receiver.ids == ["A"], "old defer cannot clear new handle or emit stale ready")
+        check(service.webLaunchPreparationTask != nil && receiver.ids == ["123456"], "old defer cannot clear new handle or emit stale ready")
         nextGate.release.signal(); await current.value
-        check(receiver.ids == ["A", "B"] && service.webLaunchPreparationTask == nil, "only newest selection publishes real prepared output")
+        check(receiver.ids == ["123456", "B"] && service.webLaunchPreparationTask == nil, "only newest selection publishes real prepared output")
         receiver.releaseTokens()
         service.removeWebRuntimeCaches(for: next.id)
         trace.reset(); let crossGate = Gate(); trace.readGate = crossGate
@@ -127,7 +130,7 @@ nonisolated final class ReadyReceiver: @unchecked Sendable {
         await crossGate.wait()
         service.advanceWebLaunchIntentGeneration() // real callback target for non-Web intents/stop
         crossGate.release.signal(); await cross.value
-        check(cross.isCancelled && receiver.ids == ["A", "B"], "non-Web/stop callback target cancels real IO and blocks ready")
+        check(cross.isCancelled && receiver.ids == ["123456", "B"], "non-Web/stop callback target cancels real IO and blocks ready")
         check(service.steamLibraryVersionLeaseRegistry.protectedStorageIdentities().isEmpty && processCancels >= 3,
             "renderer preparation and sole source lease release only after joins")
         NotificationCenter.default.removeObserver(token)

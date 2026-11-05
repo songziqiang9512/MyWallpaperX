@@ -53,9 +53,6 @@ import ImageIO
         let sources = manager.personalSettingsSources + images.personalSettingsSources
         var preferences = currentPreferences()
         preferences.videoLibrarySort = try readVideoSort()
-        // Legacy fields remain readable, but cannot export a retired/stale UI
-        // value or mislabel createdAt/lastUsed as the old dateAdded behavior.
-        preferences.sortMode = nil; preferences.sortAscending = nil
         let state = collections.snapshot
         let covers = try await collections.playlistCoverAssets(ids: Set(state.playlists.compactMap(\.customCoverAssetID)),
                                                                expectedEpoch: state.resetEpoch)
@@ -65,8 +62,8 @@ import ImageIO
             try LibraryPersonalSettings.encode(payload).write(to: url, options: .atomic)
         }
         try await worker.value
-        return .init(wallpaperCount: payload.collections?.favoriteStates.count ?? sources.count,
-                     tagCount: payload.collections?.playlists.count ?? 0)
+        return .init(wallpaperCount: payload.collections.favoriteStates.count,
+                     tagCount: payload.collections.playlists.count)
     }
 
     func importPersonalSettings(from url: URL) async throws -> PersonalSettingsImportSummary {
@@ -84,24 +81,20 @@ import ImageIO
         let sources = manager.personalSettingsSources + images.personalSettingsSources
         let preferences = currentPreferences()
         let videoSortBefore = try readVideoSort()
-        let legacyVideos = manager.wallpapers
         let worker = Task.detached(priority: .utility) {
             let payload = try LibraryPersonalSettings.decode(Data(contentsOf: url))
-            if payload.schemaVersion >= 7 { try Self.validateCustomCoverCopies(payload.collections?.coverAssets ?? []) }
+            try Self.validateCustomCoverCopies(payload.collections.coverAssets)
             let paths = LibraryPersonalSettings.paths(in: payload, sources: sources)
             var normalized: [String: String] = [:]
             for path in paths where normalized[path] == nil {
                 normalized[path] = URL(fileURLWithPath: path).resolvingSymlinksInPath().standardizedFileURL.path
             }
-            let importedPaths = Set((payload.sources.map(\.path) + payload.entries.map(\.path) + payload.silEntries.map(\.path)
-                + (payload.collections?.locators.compactMap { $0.locator.path } ?? [])).map { normalized[$0] ?? $0 })
+            let importedPaths = Set((payload.sources.map(\.path)
+                + payload.collections.locators.compactMap { $0.locator.path }).map { normalized[$0] ?? $0 })
             let missing = importedPaths.filter { !FileManager.default.fileExists(atPath: $0) }.count
-            let legacyOrder = legacyVideos.enumerated().sorted {
-                $0.element.lastUsed == $1.element.lastUsed ? $0.offset < $1.offset : $0.element.lastUsed < $1.element.lastUsed
-            }.map { WallpaperReference(provider: .videoLibrary, sourceID: $0.element.id) }
-            return (payload, normalized, missing, legacyOrder)
+            return (payload, normalized, missing)
         }
-        let (payload, paths, missing, legacyOrder) = try await worker.value
+        let (payload, paths, missing) = try await worker.value
         try requireGeneration(epoch, resetEpoch: state.resetEpoch)
         let target = payload.preferences.applying(to: manager.settings)
         var targetPreferences = PersonalSettingsPreferences(from: target)
@@ -111,28 +104,13 @@ import ImageIO
             .flatMap(PlaybackPerformanceProfile.init(rawValue:))?.rawValue ?? preferences.playbackPerformanceProfile
         let plan = try LibraryPersonalSettings.plan(payload, sources: sources, beforePreferences: preferences,
             targetPreferences: targetPreferences, state: state, normalizedPaths: paths, missingPathCount: missing)
-        var referencesByPath: [WallpaperProvider: [String: WallpaperReference]] = [:]
-        for patch in plan.sourcePatches {
-            let reference = patch.target.reference
-            let path = paths[patch.target.path] ?? patch.target.path
-            if referencesByPath[reference.provider]?[path] == nil {
-                referencesByPath[reference.provider, default: [:]][path] = reference
-            }
-        }
-        var remapping: [WallpaperReference: WallpaperReference] = [:]
-        for declared in payload.sources {
-            if let reference = referencesByPath[declared.reference.provider]?[paths[declared.path] ?? declared.path] {
-                remapping[declared.reference] = reference
-            }
-        }
-        let videoSortPatch = try payload.preferences.videoSortPatch(before: videoSortBefore,
-            legacyTimeOrder: legacyOrder, remapping: remapping)
+        let videoSortPatch = payload.preferences.videoSortPatch(before: videoSortBefore)
         if let videoSortPatch { try validateVideoSort(videoSortPatch, state.resetEpoch) }
         // Parse/mapping/preconditions complete before the first persistent edit.
         guard collections.snapshot.organizationState == state.organizationState else { throw UserCollectionsError.organizationConflict }
         try validateSources(plan)
         guard currentPreferences() == preferences else { throw PersonalSettingsError.preferencesChanged }
-        var recovery = Recovery(schemaVersion: 2, stage: .prepared, importedAt: Date(), plan: plan, videoSortPatch: videoSortPatch)
+        var recovery = Recovery(schemaVersion: 3, stage: .prepared, importedAt: Date(), plan: plan, videoSortPatch: videoSortPatch)
         try writeRecovery(recovery)
         recoveryMessage = PersonalSettingsError.recoveryRequired("prepared").localizedDescription
         return try await apply(&recovery, generation: epoch)
@@ -208,9 +186,8 @@ import ImageIO
 
     private func admitImport() throws {
         guard !isApplying else { throw PersonalSettingsError.importInProgress }
-        guard manager.allowsLibraryMutation, images.allowsLibraryMutation, !collections.isResetting else {
-            throw CocoaError(.fileWriteNoPermission, userInfo: [NSLocalizedDescriptionKey: manager.migrationRecoveryMessage
-                ?? images.migrationRecoveryMessage ?? "资料库需要恢复"])
+        guard !collections.isResetting else {
+            throw CocoaError(.fileWriteNoPermission, userInfo: [NSLocalizedDescriptionKey: "资料库正在重置，请稍后重试。"])
         }
         guard manager.didFinishInitialIndexLoad else { throw PersonalSettingsError.indexLoading }
     }
@@ -225,7 +202,7 @@ import ImageIO
             before.sceneHDRDisplayEnabled = nil; target.sceneHDRDisplayEnabled = nil
             before.sceneMediaInfoEnabled = nil; target.sceneMediaInfoEnabled = nil
             before.playbackPerformanceProfile = nil; target.playbackPerformanceProfile = nil
-            guard before.matchesForRecovery(current) || target.matchesForRecovery(current) else {
+            guard before == current || target == current else {
                 throw PersonalSettingsError.preferencesChanged
             }
             if let patch = recovery.videoSortPatch { try validateVideoSort(patch, recovery.plan.resetEpoch) }
@@ -254,7 +231,7 @@ import ImageIO
                 recovery.stage = .preferences; try writeRecovery(recovery)
             }
             try requireGeneration(epoch, resetEpoch: recovery.plan.resetEpoch)
-            if recovery.schemaVersion >= 2, recovery.stage.rawValue < Stage.viewSort.rawValue {
+            if recovery.stage.rawValue < Stage.viewSort.rawValue {
                 if let patch = recovery.videoSortPatch { try applyVideoSort(patch, recovery.plan.resetEpoch) }
                 recovery.stage = .viewSort; try writeRecovery(recovery)
             }
@@ -331,7 +308,7 @@ import ImageIO
         do { data = try Data(contentsOf: recoveryURL) }
         catch let error as CocoaError where error.code == .fileReadNoSuchFile { return nil }
         let record = try JSONDecoder().decode(Recovery.self, from: data)
-        guard (1...2).contains(record.schemaVersion), record.schemaVersion != 1 || record.videoSortPatch == nil && record.stage.rawValue <= Stage.preferences.rawValue else {
+        guard record.schemaVersion == 3 else {
             throw PersonalSettingsError.invalidPayload("导入恢复版本")
         }
         return record

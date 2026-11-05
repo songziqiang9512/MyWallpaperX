@@ -191,6 +191,7 @@ let webCompatibilityScriptMediaObservers = #"""
       const _originalPlay = HTMLMediaElement.prototype.play;
       HTMLMediaElement.prototype.play = function() {
         try { this.__myWallpaperAuthorPaused = false; } catch (_) {}
+        prepareWallpaperMediaPlayback(this);
         return _originalPlay.apply(this, arguments);
       };
     }
@@ -208,8 +209,8 @@ let webCompatibilityScriptMediaObservers = #"""
       if (!node || registeredMediaNodes.has(node)) return;
       registeredMediaNodes.add(node);
       try {
-        const hostVolume = Number(window.__myWallpaperLastHostVolume);
-        if (Number.isFinite(hostVolume)) node.volume = hostVolume;
+        applyWallpaperMediaVolume(node, wallpaperHostVolume());
+        if (!node.paused) prepareWallpaperMediaPlayback(node);
       } catch (_) {}
       try {
         const hostPlaybackRate = Number(window.__myWallpaperLastHostPlaybackRate);

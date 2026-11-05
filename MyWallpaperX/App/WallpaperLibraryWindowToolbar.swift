@@ -536,12 +536,11 @@ import Combine
     private func sortOptions(page: WallpaperLibraryPage, query: WallpaperLibraryQueryState) -> [(WallpaperLibrarySort, String)] {
         var sorts: [(WallpaperLibrarySort, String)]
         switch page {
-        case .playlist: sorts = [(.sourceOrder, "手动顺序"), (.name, "文件名称"), (.addedAt, "加入列表时间"), (.lastUsed, "最近使用"), (.fileSize, "文件大小")]
+        case .playlist: sorts = [(.createdAt, "创建时间"), (.name, "文件名称"), (.fileSize, "文件大小"), (.lastUsed, "最近使用"), (.addedAt, "加入时间")]
         case .favorites: sorts = [(.favoritedAt, "标记喜爱时间"), (.name, "文件名称"), (.lastUsed, "最近使用"), (.fileSize, "文件大小")]
         case .downloads: sorts = [(.createdAt, "创建时间"), (.name, "文件名称"), (.fileSize, "文件大小"), (.lastUsed, "最近使用")]
         default: sorts = [(.sourceOrder, "默认顺序"), (.name, "文件名称"), (.fileSize, "文件大小"), (.createdAt, "创建时间"), (.lastUsed, "最近使用")]
         }
-        if query.sort == .legacyTime, query.legacyTimeOrder != nil { sorts.insert((.legacyTime, "旧版时间顺序"), at: 0) }
         return sorts
     }
 
@@ -554,9 +553,8 @@ import Combine
         if let button = items[.filter]?.view as? NSButton {
             button.toolTip = description; button.setAccessibilityLabel(description)
         }
-        let sort = query.sort ?? WallpaperLibraryQuery.defaultSort(page)
+        let (sort, ascending) = WallpaperLibraryQuery.resolvedSort(page: page, state: query)
         let name = sortOptions(page: page, query: query).first { $0.0 == sort }?.1 ?? "默认顺序"
-        let ascending = query.sort == nil && (page == .downloads || page == .favorites) ? false : query.ascending
         items[.sort]?.toolTip = "排序：\(name)" + (sort == .sourceOrder ? "" : (ascending ? "，升序" : "，降序"))
     }
 
@@ -578,8 +576,7 @@ import Combine
     private func makeSortMenu() -> NSMenu {
         let page = workspace.presentation.page, captured = workspace.presentation.queryState
         let sorts = sortOptions(page: page, query: captured)
-        let effective = captured.sort ?? WallpaperLibraryQuery.defaultSort(page)
-        let ascending = captured.sort == nil && (page == .downloads || page == .favorites) ? false : captured.ascending
+        let (effective, ascending) = WallpaperLibraryQuery.resolvedSort(page: page, state: captured)
         let epoch = workspace.relationships.resetEpoch
         let menu = NSMenu()
         for (sort, title) in sorts {
@@ -587,8 +584,8 @@ import Combine
                 guard let workspace, workspace.presentation.page == page, workspace.relationships.resetEpoch == epoch else { return }
                 var query = workspace.presentation.queryState
                 query.sort = sort
-                if sort != .legacyTime { query.legacyTimeOrder = nil }
-                if captured.sort == nil { query.ascending = ascending }
+                if sort == .addedAt { query.ascending = false }
+                else if captured.sort == nil { query.ascending = ascending }
                 _ = workspace.presentation.setQueryState(query)
             }
             item.state = effective == sort ? .on : .off

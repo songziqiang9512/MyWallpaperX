@@ -205,37 +205,15 @@ enum SteamDownloadJobReducer {
 
 @MainActor
 final class SteamDownloadJobStore: ObservableObject {
-    private enum PersistenceLoadResult {
-        case absent
-        case loaded
-        case rejected
-    }
-
     struct PersistedState: Codable {
         var version: Int
         var jobs: [SteamDownloadJob]
         var history: [SteamDownloadHistoryEntry]
 
-        private enum CodingKeys: String, CodingKey {
-            case version
-            case jobs
-            case history
-        }
-
         init(version: Int, jobs: [SteamDownloadJob], history: [SteamDownloadHistoryEntry] = []) {
             self.version = version
             self.jobs = jobs
             self.history = history
-        }
-
-        init(from decoder: Decoder) throws {
-            let container = try decoder.container(keyedBy: CodingKeys.self)
-            version = try container.decode(Int.self, forKey: .version)
-            jobs = try container.decode([SteamDownloadJob].self, forKey: .jobs)
-            history = try container.decodeIfPresent(
-                [SteamDownloadHistoryEntry].self,
-                forKey: .history
-            ) ?? []
         }
     }
 
@@ -249,65 +227,24 @@ final class SteamDownloadJobStore: ObservableObject {
     private(set) var lastSaveSucceeded = true
 
     private var ordinal = 0
-    /// An unreadable current file or selected predecessor is still authoritative.
+    /// An unreadable current file is still authoritative.
     /// Keep it in place and reject every mutation for this store lifetime.
     private var persistenceMutationAllowed = true
     private let persistenceURL: URL
-    /// Rollback boundary: the current owner never writes or quarantines an
-    /// earlier schema filename. It may import the newest readable snapshot once
-    /// when the v5 sidecar is absent, leaving older apps byte-for-byte sources.
-    private let legacyImportURLs: [URL]
     private let now: () -> Date
 
     init(
         persistenceURL: URL? = nil,
-        legacyImportURL: URL? = nil,
-        olderLegacyImportURL: URL? = nil,
-        oldestLegacyImportURL: URL? = nil,
         now: @escaping () -> Date = Date.init
     ) {
         self.now = now
-        if let persistenceURL {
-            self.persistenceURL = persistenceURL
-            self.legacyImportURLs = [
-                legacyImportURL,
-                olderLegacyImportURL,
-                oldestLegacyImportURL,
-            ].compactMap { $0 }
-        } else {
-            let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
-                .first!
-                .appendingPathComponent("MyWallpaperX/SteamJobs", isDirectory: true)
-            self.persistenceURL = base.appendingPathComponent("jobs-v5.json")
-            self.legacyImportURLs = [
-                base.appendingPathComponent("jobs-v4.json"),
-                base.appendingPathComponent("jobs-v3.json"),
-                base.appendingPathComponent("jobs.json"),
-            ]
-        }
+        self.persistenceURL = persistenceURL ?? Self.defaultPersistenceURL()
         // 注入路径与默认路径统一确保父目录存在，否则原子写入会静默失败。
         try? FileManager.default.createDirectory(
             at: self.persistenceURL.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
-        switch loadPersistedJobs(from: self.persistenceURL) {
-        case .loaded, .rejected:
-            break
-        case .absent:
-            legacySearch: for legacyImportURL in legacyImportURLs {
-                switch loadPersistedJobs(from: legacyImportURL) {
-                case .absent:
-                    continue
-                case .loaded:
-                    // Import is copy-on-read. Persist only to the v5 sidecar and
-                    // leave the old snapshot intact for whole-version rollback.
-                    save(jobs, history: history)
-                    break legacySearch
-                case .rejected:
-                    break legacySearch
-                }
-            }
-        }
+        loadPersistedJobs()
     }
 
     static func defaultPersistenceURL() -> URL {
@@ -558,15 +495,15 @@ final class SteamDownloadJobStore: ObservableObject {
         }
     }
 
-    private func loadPersistedJobs(from sourceURL: URL) -> PersistenceLoadResult {
+    private func loadPersistedJobs() {
         let descriptor = Darwin.open(
-            sourceURL.path,
+            persistenceURL.path,
             O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK
         )
         guard descriptor >= 0 else {
-            if errno == ENOENT { return .absent }
+            if errno == ENOENT { return }
             rejectUnreadableAuthoritativeState()
-            return .rejected
+            return
         }
         var fileInfo = stat()
         guard fstat(descriptor, &fileInfo) == 0,
@@ -574,7 +511,7 @@ final class SteamDownloadJobStore: ObservableObject {
               fileInfo.st_nlink == 1 else {
             _ = Darwin.close(descriptor)
             rejectUnreadableAuthoritativeState()
-            return .rejected
+            return
         }
         let handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
         let data: Data
@@ -584,12 +521,12 @@ final class SteamDownloadJobStore: ObservableObject {
         } catch {
             try? handle.close()
             rejectUnreadableAuthoritativeState()
-            return .rejected
+            return
         }
         guard let state = try? JSONDecoder().decode(PersistedState.self, from: data),
-              (1...Self.persistenceVersion).contains(state.version) else {
+              state.version == Self.persistenceVersion else {
             rejectUnreadableAuthoritativeState()
-            return .rejected
+            return
         }
         jobs = state.jobs
         let stamp = now()
@@ -597,9 +534,8 @@ final class SteamDownloadJobStore: ObservableObject {
         var recoveredFailureIDs: Set<String> = []
         ordinal = jobs.map(\.queueOrdinal).max() ?? 0
         // A partial is resumable only when path, manifest and descriptor identity
-        // were durably captured as one unit. Earlier jobs-v4 snapshots lacked
-        // birth time; keep their logical intent but never resume, clean or adopt
-        // the lexical staging name from only device+inode.
+        // were durably captured as one unit. An incomplete tuple cannot resume,
+        // clean or adopt the lexical staging name from only device+inode.
         for index in jobs.indices {
             let stagingIdentityIsComplete = jobs[index].stagingLeaseIdentity?.isComplete == true
             let receiptIdentityIsIncomplete = jobs[index].receipt != nil
@@ -612,7 +548,7 @@ final class SteamDownloadJobStore: ObservableObject {
                 jobs[index].receipt = nil
                 if jobs[index].state == .staged {
                     jobs[index].state = .failed
-                    jobs[index].failureMessage = "旧暂存身份缺少创建时间；已保留任务意图，请重新下载。"
+                    jobs[index].failureMessage = "暂存身份缺少创建时间；已保留任务意图，请重新下载。"
                     jobs[index].updatedAt = stamp
                     recoveredFailureIDs.insert(jobs[index].id)
                 }
@@ -647,20 +583,16 @@ final class SteamDownloadJobStore: ObservableObject {
                 jobs[index].stagingLeaseIdentity = nil
             }
         }
-        // v1/v2 had no history field. Preserve their retryable failures as one
-        // terminal attempt, and make crash recovery idempotent by the same key.
-        for job in jobs where job.state == .failed
-            && (state.version < Self.persistenceVersion || recoveredFailureIDs.contains(job.id)) {
+        for job in jobs where job.state == .failed && recoveredFailureIDs.contains(job.id) {
             restoredHistory = upsertingHistoryEntry(for: job, into: restoredHistory)
         }
         history = normalizedHistory(restoredHistory, now: stamp)
 
-        if state.version != Self.persistenceVersion || history != state.history || jobs != state.jobs {
+        if history != state.history || jobs != state.jobs {
             save(jobs, history: history)
         } else {
             lastSaveSucceeded = true
         }
-        return .loaded
     }
 
     private func upsertingHistoryEntry(

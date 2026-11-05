@@ -102,49 +102,28 @@ nonisolated enum PixabayDownloadedFileIdentity {
 }
 
 nonisolated enum PixabayDownloadedContent {
-    struct Scan: Sendable { let entries: [PixabayDownloadedEntry]; let warnings: [String] }
-
-    /// Preserve the legacy accepted filenames, including 0, negatives and
-    /// leading zeroes. Duplicate numeric identities are reported explicitly.
     static func itemID(for url: URL) -> Int? {
         let name = url.lastPathComponent
-        guard name.hasPrefix("online_"), name.hasSuffix(".mp4") else { return nil }
-        return Int(name.dropFirst("online_".count).dropLast(".mp4".count))
+        guard name.hasPrefix("online_"), name.hasSuffix(".mp4"),
+              let id = Int(name.dropFirst("online_".count).dropLast(".mp4".count)),
+              name == "online_\(id).mp4" else { return nil }
+        return id
     }
 
-    static func scan(in directory: URL, reusing previous: [PixabayDownloadedEntry], legacyDirectory: URL? = nil) async throws -> Scan {
-        var files: [URL] = []
-        for source in [directory, legacyDirectory].compactMap({ $0 }) {
-            do {
-                files += try FileManager.default.contentsOfDirectory(at: source,
-                    includingPropertiesForKeys: [],
-                    options: [.skipsHiddenFiles])
-            } catch let error as CocoaError where error.code == .fileReadNoSuchFile || error.code == .fileNoSuchFile {
-                guard !previous.contains(where: { $0.localURL.deletingLastPathComponent().standardizedFileURL.path == source.standardizedFileURL.path }) else { throw error }
-            }
+    static func scan(in directory: URL, reusing previous: [PixabayDownloadedEntry]) async throws -> [PixabayDownloadedEntry] {
+        let files: [URL]
+        do {
+            files = try FileManager.default.contentsOfDirectory(at: directory,
+                includingPropertiesForKeys: [], options: [.skipsHiddenFiles])
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile || error.code == .fileNoSuchFile {
+            guard previous.isEmpty else { throw error }
+            files = []
         }
         let prior = Dictionary(previous.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-        var filesByID: [Int: [URL]] = [:]
-        for url in files {
-            if let id = itemID(for: url) { filesByID[id, default: []].append(url) }
-        }
-        var entries: [PixabayDownloadedEntry] = [], warnings: [String] = []
-        for id in filesByID.keys.sorted() {
+        let candidates = files.compactMap { url in itemID(for: url).map { (id: $0, url: url) } }.sorted { $0.id < $1.id }
+        var entries: [PixabayDownloadedEntry] = []
+        for (id, url) in candidates {
             try Task.checkCancellation()
-            let choices = filesByID[id]!.sorted {
-                let leftIsNew = $0.deletingLastPathComponent().standardizedFileURL.path == directory.standardizedFileURL.path
-                let rightIsNew = $1.deletingLastPathComponent().standardizedFileURL.path == directory.standardizedFileURL.path
-                if leftIsNew != rightIsNew { return leftIsNew }
-                let canonical = "online_\(id).mp4"
-                if ($0.lastPathComponent == canonical) != ($1.lastPathComponent == canonical) {
-                    return $0.lastPathComponent == canonical
-                }
-                return $0.path.utf8.lexicographicallyPrecedes($1.path.utf8)
-            }
-            let url = choices[0]
-            if choices.count > 1 {
-                warnings.append("Pixabay #\(id) 有多个同号文件；当前使用 \(url.lastPathComponent)，其余文件已保留。")
-            }
             var freshURL = url
             freshURL.removeAllCachedResourceValues()
             // A failed per-file read is not an empty successful library scan.
@@ -169,6 +148,6 @@ nonisolated enum PixabayDownloadedContent {
                 resolutionString: metadata?.resolutionString ?? reused?.resolutionString, thumbnailSourceKey: key,
                 creationDate: values.creationDate, modificationDate: values.contentModificationDate, isAvailable: available))
         }
-        return Scan(entries: entries, warnings: warnings)
+        return entries
     }
 }

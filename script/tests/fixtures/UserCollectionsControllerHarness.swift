@@ -87,7 +87,7 @@ import SQLite3
         checks["newSuccessAfterResetAcquiresFreshPublisher"] = controller.snapshot.recent.map(\.reference) == [b]
         try await controller.reset()
         try await controller.reset()
-        checks["repeatedResetsDoNotResurrectHistoryOrRows"] = controller.snapshot.recent.isEmpty && controller.snapshot.playlists.isEmpty && controller.snapshot.migrationManifestID == "reset-complete"
+        checks["repeatedResetsDoNotResurrectHistoryOrRows"] = controller.snapshot.recent.isEmpty && controller.snapshot.playlists.isEmpty
         let reopened = UserCollectionsStore(url: url, allowCreate: false)
         checks["independentReopenSeesExactlyPublishedFinalState"] = try await reopened.snapshot() == controller.snapshot
         let source = try await controller.createPlaylist(name: "Offline mix", members: [local])

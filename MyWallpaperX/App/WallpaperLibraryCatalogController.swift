@@ -28,6 +28,8 @@ import Foundation
     private var visibleReferences: [UUID: Set<WallpaperReference>] = [:]
     private var visibleAvailabilityTask: Task<Void, Never>?
     private var visibleAvailabilityGeneration = UUID()
+    private var downloadHides: [WallpaperReference: Int64] = [:]
+    private var downloadHideRevision: Int64 = 0
 
     init(manager: WallpaperManager, images: SILService, steam: SteamWorkshopService, pixabay: PixabayService) {
         self.manager = manager
@@ -74,6 +76,38 @@ import Foundation
     }
 
     deinit { videoTask?.cancel(); imageTask?.cancel(); steamTask?.cancel(); visibleAvailabilityTask?.cancel() }
+
+    func hideDownloads(_ references: Set<WallpaperReference>) {
+        guard !references.isEmpty else { return }
+        downloadHideRevision += 1
+        for reference in references { downloadHides[reference] = downloadHideRevision }
+        publishDownloadHides()
+    }
+
+    func downloadHideRevisions(for references: Set<WallpaperReference>, canonical: [WallpaperReference: WallpaperReference]) -> [WallpaperReference: Int64] {
+        var revisions: [WallpaperReference: Int64] = [:]
+        for (reference, revision) in downloadHides {
+            let key = canonical[reference]!
+            revisions[key] = max(revisions[key] ?? revision, revision)
+        }
+        var result: [WallpaperReference: Int64] = [:]
+        for reference in references { result[reference] = revisions[canonical[reference]!] }
+        return result
+    }
+
+    func restoreDownload(_ reference: WallpaperReference, expectedRevision: Int64?, canonical: [WallpaperReference: WallpaperReference]) {
+        let current = downloadHideRevisions(for: [reference], canonical: canonical)[reference]
+        guard let current, current == expectedRevision else { return }
+        downloadHides = downloadHides.filter { canonical[$0.key] != canonical[reference] }
+        publishDownloadHides()
+    }
+
+    private func publishDownloadHides() {
+        var next = catalog
+        next.sessionHiddenDownloadReferences = Set(downloadHides.keys)
+        next.revision &+= 1
+        catalog = next
+    }
 
     /// Visibility is a consumer lease, not another source index. One cadence
     /// replaces the retired Video/SIL grids' visible-file probes. Hidden pages
@@ -185,7 +219,7 @@ import Foundation
         refreshImages = true
         refreshSteam = true
         pixabay.refreshDownloadedContent()
-        onlineImages.refreshLocal()
+        onlineImages.refreshLocal(Set(OnlineImageSource.allCases.filter { catalog.sourceScanStatuses[$0.provider] != nil }))
         replaceVideos(manager.wallpapers, loaded: manager.didFinishInitialIndexLoad)
         replaceImages(images.wallpapers)
         replaceSteam(steam.downloads, jobs: steam.downloadJobStore.jobs, account: steam.steamAuth.steamId,
@@ -317,13 +351,14 @@ import Foundation
         var sources = Dictionary(grouping: catalog.downloads, by: { $0.providerReference.provider })
         var next = catalog
         for source in OnlineImageSource.allCases {
+            guard let status = snapshot.sourceStatuses[source] else { continue }
             sources[source.provider] = (records[source] ?? []).compactMap { record -> WallpaperContentItem? in
                 guard let url = onlineImages.localURL(for: record) else { return nil }
                 return OnlineImageContentProjection.local(record, url: url, available: !snapshot.unavailable.contains(record.id))
             }
             publishedRevisions[source.provider] = nextRevision(source.provider)
-            if snapshot.status.hasSuccessfulScan { next.loadedProviders.insert(source.provider) }
-            next.sourceScanStatuses[source.provider] = snapshot.status
+            if status.hasSuccessfulScan { next.loadedProviders.insert(source.provider) }
+            next.sourceScanStatuses[source.provider] = status
         }
         next.downloads = [.steamWorkshop, .pixabay, .wallhaven, .pixiv].flatMap { sources[$0] ?? [] }
         install(next)

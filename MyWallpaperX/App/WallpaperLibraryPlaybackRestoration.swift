@@ -8,13 +8,9 @@ private nonisolated struct WallpaperPlaybackRestorationEnvelope: Codable, Equata
     let sourceQuery: WallpaperLibraryQueryState?
     let reference: WallpaperReference?
     let userPaused: Bool
-    var legacyAdmission: Bool? = nil
 
     var isValid: Bool {
-        guard schema == 1 else { return false }
-        if legacyAdmission == true {
-            guard status == .selection, let source, case .single = source, sourceQuery == nil else { return false }
-        }
+        guard schema == 2 else { return false }
         switch status {
         case .stopped where source == nil && sourceQuery == nil && reference == nil: return true
         case .selection, .stopped:
@@ -22,7 +18,7 @@ private nonisolated struct WallpaperPlaybackRestorationEnvelope: Codable, Equata
             switch source {
             case .single(let value): return value == reference && sourceQuery == nil
             case .global: return sourceQuery == nil
-            case .page(let page): return !page.isRemoteBrowse && page != .playlists
+            case .page(let page): return !page.isRemoteBrowse && page != .playlists && sourceQuery != nil
             }
         }
     }
@@ -43,6 +39,7 @@ private nonisolated struct WallpaperPlaybackRestorationEnvelope: Codable, Equata
     private let snapshotProvider: (Source, WallpaperLibraryQueryState?) throws -> Snapshot?
     private let contentResolver: (WallpaperReference) throws -> WallpaperContentItem?
     private let dependencyProvider: (Source, WallpaperLibraryQueryState?) throws -> Set<WallpaperProvider>
+    private let prepareProviders: (Set<WallpaperProvider>) -> Void
     private let report: (Error) -> Void
     private var envelope: WallpaperPlaybackRestorationEnvelope?
     private var preservesUnrecognizedInput = false
@@ -53,9 +50,6 @@ private nonisolated struct WallpaperPlaybackRestorationEnvelope: Codable, Equata
     private var latestCatalogRevision: UInt64 = 0
     private var resetBarrier: (epoch: UUID?, revision: UInt64)?
     private var existingPlaylistIDs = Set<UUID>()
-    private var legacyReplayReference: WallpaperReference?
-    private var legacyFallbackAvailable = false
-    private var legacyRememberedReference: WallpaperReference?
     private var loadedProviders = Set<WallpaperProvider>()
     private var relationshipsReady = false
     private var manualReplayFailure: (ticket: PlaybackSwitchTicket, notify: () -> Void)?
@@ -64,52 +58,40 @@ private nonisolated struct WallpaperPlaybackRestorationEnvelope: Codable, Equata
     /// descriptor retains identity without granting automatic launch admission.
     var rememberedReference: WallpaperReference? {
         guard !preservesUnrecognizedInput else { return nil }
-        if let envelope { return envelope.reference }
-        return legacyRememberedReference
+        return envelope?.reference
     }
 
     init(manager: WallpaperManager, defaults: UserDefaults,
          snapshotProvider: @escaping (Source, WallpaperLibraryQueryState?) throws -> Snapshot?,
          contentResolver: @escaping (WallpaperReference) throws -> WallpaperContentItem?,
          dependencyProvider: @escaping (Source, WallpaperLibraryQueryState?) throws -> Set<WallpaperProvider> = { _, _ in Set(WallpaperProvider.allCases) },
+         prepareProviders: @escaping (Set<WallpaperProvider>) -> Void = { _ in },
          report: @escaping (Error) -> Void = { _ in }) {
         self.manager = manager
         self.defaults = defaults
         self.snapshotProvider = snapshotProvider
         self.contentResolver = contentResolver
         self.dependencyProvider = dependencyProvider
+        self.prepareProviders = prepareProviders
         self.report = report
-        if (manager.activeWallpaperRuntime == .web || manager.activeWallpaperRuntime == .scene),
-           let id = manager.lastWorkshopPlaybackRecordID, !id.isEmpty {
-            legacyRememberedReference = .init(provider: .steamWorkshop, sourceID: id)
-        } else if manager.activeWallpaperRuntime == .video, let video = manager.currentWallpaper {
-            legacyRememberedReference = .init(provider: .videoLibrary, sourceID: video.id)
-        } else { legacyRememberedReference = nil }
         waitingIntentEpoch = manager.playbackIntentEpoch
         readEnvelope()
-        if envelope == nil, !preservesUnrecognizedInput, let reference = legacyRememberedReference {
-            // Preserve the old success before launch-off clears CurrentWallpaper.
-            // The explicit migration bit retains only the original first-upgrade
-            // auto-replay policy; a real commit/Stop clears that admission.
-            write(.init(schema: 1, status: .selection, source: .single(reference), sourceQuery: nil,
-                        reference: reference, userPaused: legacyUserPaused, legacyAdmission: true))
-        }
     }
 
     @discardableResult func resumeLastSelection(onFailure: @escaping () -> Void = {}) -> Bool {
         guard manager.playbackSwitch.committed == nil, manager.playbackSwitch.pending == nil,
               manager.libraryPlaybackSequence.pending == nil,
-              let reference = rememberedReference else { return false }
+              let saved = envelope, rememberedReference != nil else { return false }
         do {
-            guard relationshipsReady, try requiredProviders(allowLegacyFallback: false).isSubset(of: loadedProviders) else {
+            let providers = try requiredProviders(includingStopped: true)
+            prepareProviders(providers)
+            guard relationshipsReady, providers.isSubset(of: loadedProviders) else {
                 report(Failure.message("资料库仍在载入，请稍后重试。"))
                 return false
             }
         } catch { report(error); return false }
         waiting = false
         manualReplayFailure = nil
-        let saved = envelope ?? .init(schema: 1, status: .selection, source: .single(reference),
-                                     sourceQuery: nil, reference: reference, userPaused: false)
         guard restore(saved, userPaused: false) else { return false }
         if let pending = manager.libraryPlaybackSequence.pending, pending.proposal.cause == .restore {
             manualReplayFailure = (pending.ticket, onFailure)
@@ -138,7 +120,11 @@ private nonisolated struct WallpaperPlaybackRestorationEnvelope: Codable, Equata
         }
         guard relationshipsReady else { return }
         if manager.settings.restorePlaybackOnLaunch && !preservesUnrecognizedInput {
-            do { if try !requiredProviders().isSubset(of: loadedProviders) { return } }
+            do {
+                let providers = try requiredProviders()
+                prepareProviders(providers)
+                if !providers.isSubset(of: loadedProviders) { return }
+            }
             catch { waiting = false; report(error); return }
         }
         if let barrier = resetBarrier {
@@ -161,20 +147,14 @@ private nonisolated struct WallpaperPlaybackRestorationEnvelope: Codable, Equata
             }
             return
         }
-        if let envelope {
-            guard envelope.status == .selection else {
-                manager.stopAutoSwitchTimer()
-                manager.currentWallpaper = nil
-                manager.isPlaying = false
-                return
-            }
-            if envelope.legacyAdmission == true { restoreLegacy() }
-            else { restore(envelope) }
-        } else {
-            // Absence of the new descriptor is the sole legacy admission.
-            // A new empty/deleted source, Stop or corrupt descriptor never uses it.
-            restoreLegacy()
+        guard let envelope else { return }
+        guard envelope.status == .selection else {
+            manager.stopAutoSwitchTimer()
+            manager.currentWallpaper = nil
+            manager.isPlaying = false
+            return
         }
+        restore(envelope)
     }
 
     func onCommitted(_ commit: WallpaperPlaybackSequence.Commit) {
@@ -183,9 +163,8 @@ private nonisolated struct WallpaperPlaybackRestorationEnvelope: Codable, Equata
               session.ticket == commit.ticket, session.reference == commit.reference else { return }
         waiting = false
         manualReplayFailure = nil
-        legacyReplayReference = nil
-        legacyFallbackAvailable = false
-        write(.init(schema: 1, status: .selection, source: session.snapshot.source,
+        preservesUnrecognizedInput = false
+        write(.init(schema: 2, status: .selection, source: session.snapshot.source,
             sourceQuery: session.snapshot.sourceQuery, reference: session.reference,
             userPaused: PlaybackCommandMultiplexer.shared.isUserPaused))
     }
@@ -195,10 +174,8 @@ private nonisolated struct WallpaperPlaybackRestorationEnvelope: Codable, Equata
     func onStopped() {
         waiting = false
         manualReplayFailure = nil
-        legacyReplayReference = nil
-        legacyFallbackAvailable = false
         let remembered = rememberedReference
-        write(.init(schema: 1, status: .stopped, source: envelope?.source ?? remembered.map { .single($0) },
+        write(.init(schema: 2, status: .stopped, source: envelope?.source,
                     sourceQuery: envelope?.sourceQuery, reference: remembered,
                     userPaused: PlaybackCommandMultiplexer.shared.isUserPaused))
     }
@@ -212,22 +189,12 @@ private nonisolated struct WallpaperPlaybackRestorationEnvelope: Codable, Equata
                     sourceQuery: envelope.sourceQuery, reference: envelope.reference, userPaused: isPaused))
     }
 
-    /// Only the admitted first-upgrade workshop replay has a video fallback.
-    /// The Manager has already settled the failed ticket before this callback.
     func onFailed(_ pending: WallpaperPlaybackSequence.Pending) {
-        if let failure = manualReplayFailure, failure.ticket == pending.ticket,
-           manager.playbackIntentEpoch == pending.ticket.epoch {
-            manualReplayFailure = nil
-            report(Failure.message("上次成功播放的壁纸恢复失败，请重新选择壁纸。"))
-            failure.notify()
-            return
-        }
-        guard legacyFallbackAvailable, pending.proposal.cause == .restore,
-              legacyReplayReference == pending.proposal.entry.reference,
+        guard let failure = manualReplayFailure, failure.ticket == pending.ticket,
               manager.playbackIntentEpoch == pending.ticket.epoch else { return }
-        legacyReplayReference = nil
-        legacyFallbackAvailable = false
-        restoreLegacyVideo(userPaused: PlaybackCommandMultiplexer.shared.isUserPaused)
+        manualReplayFailure = nil
+        report(Failure.message("上次成功播放的壁纸恢复失败，请重新选择壁纸。"))
+        failure.notify()
     }
 
     /// The original reset owner already stops output and clears the media index.
@@ -236,58 +203,35 @@ private nonisolated struct WallpaperPlaybackRestorationEnvelope: Codable, Equata
         resetBarrier = (lastResetEpoch, latestCatalogRevision)
         waitingIntentEpoch = manager.playbackIntentEpoch
         waiting = true
-        legacyReplayReference = nil
-        legacyFallbackAvailable = false
         envelope = nil
         manualReplayFailure = nil
-        legacyRememberedReference = nil
         preservesUnrecognizedInput = false
         didReportUnrecognizedInput = false
         defaults.removeObject(forKey: Self.storageKey)
     }
 
-    private func requiredProviders(allowLegacyFallback: Bool = true) throws -> Set<WallpaperProvider> {
-        if let saved = envelope, saved.legacyAdmission != true || !allowLegacyFallback {
-            guard saved.status == .selection || !allowLegacyFallback,
-                  let reference = saved.reference, let source = saved.source else { return [] }
-            let resolved = try? contentResolver(reference)
-            let owner = resolved?.providerReference.provider ?? reference.provider
-            let targetIsReady = resolved?.publishedAvailability.isAvailable == true
-                && resolved?.capabilities.contains(.play) == true && resolved.flatMap({ runtime($0.kind) }) != nil
-            if sourceWasDeleted(source) || isPageWithoutQuery(source, saved.sourceQuery) {
-                return targetIsReady ? [] : [owner]
+    private func requiredProviders(includingStopped: Bool = false) throws -> Set<WallpaperProvider> {
+        guard let saved = envelope, saved.status == .selection || includingStopped,
+              let reference = saved.reference, let source = saved.source else { return [] }
+        let resolved = try? contentResolver(reference)
+        let owner = resolved?.providerReference.provider ?? reference.provider
+        let targetIsReady = resolved?.publishedAvailability.isAvailable == true
+            && resolved?.capabilities.contains(.play) == true && resolved.flatMap({ runtime($0.kind) }) != nil
+        if sourceWasDeleted(source) { return targetIsReady ? [] : [owner] }
+        var providers: Set<WallpaperProvider>
+        switch source {
+        case .single: return targetIsReady ? [] : [owner]
+        case .global: providers = Set(WallpaperProvider.allCases)
+        case .page(let page):
+            switch page {
+            case .videos: providers = [.videoLibrary]
+            case .images: providers = [.staticImageLibrary]
+            case .downloads: providers = [.steamWorkshop, .pixabay, .wallhaven, .pixiv]
+            default: providers = try dependencyProvider(source, saved.sourceQuery)
             }
-            var providers: Set<WallpaperProvider>
-            switch source {
-            case .single: return targetIsReady ? [] : [owner]
-            case .global: providers = Set(WallpaperProvider.allCases)
-            case .page(let page):
-                switch page {
-                case .videos: providers = [.videoLibrary]
-                case .images: providers = [.staticImageLibrary]
-                case .downloads: providers = [.steamWorkshop, .pixabay, .wallhaven, .pixiv]
-                default: providers = try dependencyProvider(source, saved.sourceQuery)
-                }
-                if let filtered = saved.sourceQuery?.providers, !filtered.isEmpty { providers.formIntersection(filtered) }
-            }
-            if !targetIsReady { providers.insert(owner) }
-            return providers
+            if let filtered = saved.sourceQuery?.providers, !filtered.isEmpty { providers.formIntersection(filtered) }
         }
-        guard manager.activeWallpaperRuntime != .systemStill else { return [] }
-        var providers: Set<WallpaperProvider> = [.videoLibrary]
-        for video in manager.wallpapers {
-            let reference = WallpaperReference(provider: .videoLibrary, sourceID: video.id)
-            let owner = (try? contentResolver(reference))?.providerReference.provider ?? .videoLibrary
-            providers.insert(owner)
-        }
-        if manager.activeWallpaperRuntime == .web || manager.activeWallpaperRuntime == .scene,
-           let id = manager.lastWorkshopPlaybackRecordID, !id.isEmpty {
-            let reference = WallpaperReference(provider: .steamWorkshop, sourceID: id)
-            let content = try? contentResolver(reference)
-            if content?.publishedAvailability.isAvailable != true || content?.capabilities.contains(.play) != true {
-                providers.insert(.steamWorkshop)
-            }
-        }
+        if !targetIsReady { providers.insert(owner) }
         return providers
     }
 
@@ -321,7 +265,7 @@ private nonisolated struct WallpaperPlaybackRestorationEnvelope: Codable, Equata
             }
             let target = content.reference
             let snapshot: Snapshot
-            if sourceWasDeleted(source) || isPageWithoutQuery(source, saved.sourceQuery) {
+            if sourceWasDeleted(source) {
                 snapshot = try single(content)
             } else if case .single = source {
                 snapshot = try single(content)
@@ -342,89 +286,6 @@ private nonisolated struct WallpaperPlaybackRestorationEnvelope: Codable, Equata
             }
             return true
         } catch { report(error); return false }
-    }
-
-    private var legacyUserPaused: Bool {
-        defaults.object(forKey: manager.playbackStateKey) != nil && !defaults.bool(forKey: manager.playbackStateKey)
-    }
-
-    private func restoreLegacy() {
-        let intentEpoch = manager.playbackIntentEpoch
-        let paused: Bool
-        if let envelope, envelope.legacyAdmission == true { paused = envelope.userPaused }
-        else { paused = legacyUserPaused }
-        if manager.activeWallpaperRuntime == .web || manager.activeWallpaperRuntime == .scene,
-           let id = manager.lastWorkshopPlaybackRecordID, !id.isEmpty {
-            do {
-                let reference = WallpaperReference(provider: .steamWorkshop, sourceID: id)
-                if let content = try playableContent(reference),
-                   (manager.activeWallpaperRuntime == .web && content.kind == .web)
-                    || (manager.activeWallpaperRuntime == .scene && content.kind == .scene) {
-                    let snapshot = try single(content)
-                    guard manager.playbackIntentEpoch == intentEpoch else { return }
-                    legacyReplayReference = content.reference
-                    legacyFallbackAvailable = true
-                    applyUserPause(paused)
-                    guard manager.playbackIntentEpoch == intentEpoch else {
-                        legacyReplayReference = nil
-                        legacyFallbackAvailable = false
-                        return
-                    }
-                    let ticket = manager.requestLibraryPlayback(reference: content.reference, from: snapshot, cause: .restore)
-                    // A synchronous provider failure may already have run onFailed.
-                    if ticket == nil, legacyFallbackAvailable {
-                        legacyReplayReference = nil
-                        legacyFallbackAvailable = false
-                        restoreLegacyVideo(userPaused: paused)
-                    }
-                    return
-                }
-            } catch { report(error) }
-        } else if manager.activeWallpaperRuntime == .systemStill {
-            // The old format had no image identity. Preserve the OS wallpaper.
-            return
-        }
-        guard manager.playbackIntentEpoch == intentEpoch else { return }
-        restoreLegacyVideo(userPaused: paused)
-    }
-
-    private func restoreLegacyVideo(userPaused: Bool) {
-        let intentEpoch = manager.playbackIntentEpoch
-        do {
-            // Only rows in the original authoritative in-memory index are eligible.
-            // No snapshot upsert, path matching, SQLite reread or library expansion.
-            var candidates: [WallpaperContentItem] = []
-            var seen = Set<WallpaperReference>()
-            for video in manager.wallpapers {
-                if let content = try playableContent(.init(provider: .videoLibrary, sourceID: video.id)),
-                   content.kind == .video, seen.insert(content.reference).inserted { candidates.append(content) }
-            }
-            var preferred: [WallpaperReference] = []
-            let migrated = envelope?.legacyAdmission == true ? envelope?.reference : nil
-            let savedVideo = migrated?.provider == .videoLibrary ? migrated
-                : manager.currentWallpaper.map { WallpaperReference(provider: .videoLibrary, sourceID: $0.id) }
-            if manager.activeWallpaperRuntime == .video, let savedVideo,
-               manager.wallpapers.contains(where: { $0.id.utf8.elementsEqual(savedVideo.sourceID.utf8) }),
-               let content = try playableContent(savedVideo) {
-                preferred.append(content.reference)
-            }
-            // Migration already captured the legacy history before source
-            // cleanup. Reuse its sole Store projection, restricted to the same
-            // authoritative Video index candidates; history cannot upsert files.
-            if let recent = try snapshotProvider(.page(.recent), nil) {
-                let eligible = Set(candidates.map(\.reference))
-                preferred.append(contentsOf: recent.entries.map(\.reference).filter { eligible.contains($0) })
-            }
-            guard let target = preferred.first(where: { id in candidates.contains(where: { $0.reference == id }) })
-                ?? candidates.first?.reference else { return }
-            let snapshot = try Snapshot(source: .global, revision: latestCatalogRevision, entries: candidates.map(entry))
-            guard manager.playbackIntentEpoch == intentEpoch else { return }
-            applyUserPause(userPaused)
-            guard manager.playbackIntentEpoch == intentEpoch else { return }
-            if manager.requestLibraryPlayback(reference: target, from: snapshot, cause: .restore) == nil {
-                report(Failure.message("旧版视频播放状态恢复失败；请手动选择壁纸。"))
-            }
-        } catch { report(error) }
     }
 
     private func playableContent(_ reference: WallpaperReference) throws -> WallpaperContentItem? {
@@ -454,11 +315,6 @@ private nonisolated struct WallpaperPlaybackRestorationEnvelope: Codable, Equata
 
     private func sourceWasDeleted(_ source: Source) -> Bool {
         if case .page(.playlist(let id)) = source { return !existingPlaylistIDs.contains(id) }
-        return false
-    }
-
-    private func isPageWithoutQuery(_ source: Source, _ query: WallpaperLibraryQueryState?) -> Bool {
-        if case .page = source { return query == nil }
         return false
     }
 

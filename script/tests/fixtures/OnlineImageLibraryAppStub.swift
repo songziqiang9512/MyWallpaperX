@@ -16,9 +16,11 @@ nonisolated struct OnlineImageFixtureThumbnailRequest: Sendable {
     @Published var progress: [OnlineImageAssetID: Double] = [:]
     var root = URL(fileURLWithPath: "/fixture-owned-online-images", isDirectory: true)
     var downloadRoots: [URL] { [root] }
+    var prepareExplicitLibraryRestoration: ((WallpaperReference) -> (() -> Void)?)?
     var requestLibraryPlayback: ((WallpaperReference) -> Void)?
     var captureApplyIntent: (() -> (() -> Bool))?
     var isFileInUse: ((String) -> Bool)?
+    var preparedSources = Set<OnlineImageSource>()
     var refreshes = 0
     var retries: [WallpaperReference] = []
     var deletions: [WallpaperReference] = []
@@ -67,7 +69,8 @@ nonisolated struct OnlineImageFixtureThumbnailRequest: Sendable {
         downloadApplyFlags.append(apply)
     }
     func download(_ asset: OnlineImageAsset, apply: Bool = false) { downloads.append(asset.id); downloadApplyFlags.append(apply) }
-    @discardableResult func refreshLocal() -> Task<Void, Never> {
+    func prepareLocal(_ sources: Set<OnlineImageSource>) { preparedSources.formUnion(sources) }
+    @discardableResult func refreshLocal(_ sources: Set<OnlineImageSource> = Set(OnlineImageSource.allCases)) -> Task<Void, Never> {
         refreshes += 1
         let refresh = refresh
         return Task { await refresh?() }

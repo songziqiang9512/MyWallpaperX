@@ -34,6 +34,7 @@ class OnlineImageLibraryTests(unittest.TestCase):
             "MyWallpaperX/Shared/WallpaperNetworkSession.swift",
             "MyWallpaperX/Core/PlaybackControl/ImportedVideoAutoplayGate.swift",
             "script/tests/fixtures/OnlineImageLibraryHarness.swift",
+            "script/tests/fixtures/OnlineImageLocalDiscoveryChecks.swift",
             "script/tests/fixtures/OnlineImageAccountMetadataChecks.swift",
             "script/tests/fixtures/OnlineImageOriginalCacheChecks.swift",
         ]
@@ -49,6 +50,13 @@ class OnlineImageLibraryTests(unittest.TestCase):
                     copy_leaf = b"try FileManager.default.copyItem(at: cachedURL, to: staging)"
                     self.assertEqual(data.count(copy_leaf), 1)
                     data = data.replace(copy_leaf, b"try OriginalCacheCopyProbe.shared.copyItem(at: cachedURL, to: staging)")
+                if path.endswith("/OnlineImageLibraryStore.swift"):
+                    scan = b"        do { entries = try FileManager.default.contentsOfDirectory(at: directory,"
+                    read = b"        do { bytes = try Data(contentsOf: url) }"
+                    self.assertEqual(data.count(scan), 1)
+                    self.assertEqual(data.count(read), 1)
+                    data = data.replace(scan, b"        OnlineImageLocalScanProbe.shared.pause(at: directory)\n" + scan)
+                    data = data.replace(read, b"        OnlineImageLocalScanProbe.shared.recordIndex(url)\n" + read)
                 target = sources / Path(path).name
                 target.write_bytes(data)
                 frozen.append(str(target))

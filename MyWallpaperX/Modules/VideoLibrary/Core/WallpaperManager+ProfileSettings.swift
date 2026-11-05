@@ -19,9 +19,6 @@ extension WallpaperManager {
     /// Source metadata only. Relationships, history and playback remain with
     /// their existing owners; profiles never write retired tag/favorite fields.
     func applyPersonalSettingsSources(_ patches: [PersonalSettingsSourcePatch]) throws {
-        guard allowsLibraryMutation else {
-            throw CocoaError(.fileWriteNoPermission, userInfo: [NSLocalizedDescriptionKey: migrationRecoveryMessage ?? "资料库需要恢复"])
-        }
         guard didFinishInitialIndexLoad else { throw PersonalSettingsError.indexLoading }
         guard patches.contains(where: { $0.target.reference.provider == .videoLibrary }) else { return }
         var target = wallpapers
@@ -53,11 +50,8 @@ extension WallpaperManager {
     }
 
     func applyPersonalSettingsPreferences(expected: PersonalSettingsPreferences, target: PersonalSettingsPreferences) throws {
-        guard allowsLibraryMutation else {
-            throw CocoaError(.fileWriteNoPermission, userInfo: [NSLocalizedDescriptionKey: migrationRecoveryMessage ?? "资料库需要恢复"])
-        }
         let current = PersonalSettingsPreferences(from: settings)
-        guard expected.matchesForRecovery(current) || target.matchesForRecovery(current) else { throw PersonalSettingsError.preferencesChanged }
+        guard expected == current || target == current else { throw PersonalSettingsError.preferencesChanged }
         let updated = target.applying(to: settings)
         try persistSettingsNow(updated)
         settings = updated

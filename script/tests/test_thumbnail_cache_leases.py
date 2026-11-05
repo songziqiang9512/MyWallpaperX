@@ -42,6 +42,10 @@ class ThumbnailCacheLeaseTests(unittest.TestCase):
             self.assertNotIn("warning:", build.stderr, build.stdout + build.stderr)
             home = work / "home"
             home.mkdir()
+            retired_cache = home / "Library/Application Support/MyWallpaperX/thumbnails"
+            retired_cache.mkdir(parents=True)
+            sentinel = retired_cache / "untouched-cache"
+            sentinel.write_bytes(b"retired cache is outside the current owner")
             result = subprocess.run([str(binary)], env=dict(os.environ, HOME=str(home), CFFIXED_USER_HOME=str(home)),
                 capture_output=True, text=True, timeout=45)
             if proof := os.environ.get("MWX_LEASE_PROOF_DIR"):
@@ -49,6 +53,8 @@ class ThumbnailCacheLeaseTests(unittest.TestCase):
                 (target / "runtime.log").write_text(result.stderr)
                 (target / "stdout.log").write_text(result.stdout)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(sentinel.read_bytes(), b"retired cache is outside the current owner")
+            self.assertTrue((home / "Library/Caches/MyWallpaperX/thumbnails").is_dir())
             checks = json.loads(result.stdout)
             counts = [json.loads(line.removeprefix("Lease request counts: "))
                 for line in result.stderr.splitlines() if line.startswith("Lease request counts: ")]

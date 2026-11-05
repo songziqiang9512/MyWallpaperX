@@ -1,4 +1,4 @@
-"""Real App restoration + original Manager admission/commit/failure owners.
+"""Current schema-two restoration + original Manager admission/commit/failure owners.
 
 Persistence uses isolated UserDefaults suites. Rendering, source facts and native
 endpoint delivery are controlled leaves; no actual desktop or media is changed.
@@ -9,15 +9,14 @@ import subprocess
 import tempfile
 import unittest
 
-from script.tests.test_imported_video_autoplay_gate import GATE_SOURCES, MANAGER, product_harness
-from script.tests.test_ui_library_algorithms import declaration
+from script.tests.test_imported_video_autoplay_gate import GATE_SOURCES, product_harness
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
 class WallpaperPlaybackRestorationTests(unittest.TestCase):
     def test_readiness_metadata_legacy_and_original_ticket_boundaries(self):
-        source = product_harness().replace('struct VideoWallpaper {', 'struct VideoWallpaper:Codable {')
+        source = product_harness()
         source = source.replace('var autoSwitchEnabled=true,randomInterval=',
                                 'var restorePlaybackOnLaunch=true\n        var autoSwitchEnabled=true,randomInterval=')
         source = source.replace('static let shared=PlaybackCommandMultiplexer();var isPlaybackPaused=false', '''
@@ -27,19 +26,6 @@ class WallpaperPlaybackRestorationTests(unittest.TestCase):
     enum Command {case pause,resume}
     func dispatch(_ command:Command){isUserPaused = command == .pause;isPlaybackPaused=isUserPaused || isSystemPaused;onDispatch?()}
 ''')
-        source = source.replace('var isPlaying=false', '''
-    var isPlaying=false
-    let playbackStateKey="PlaybackState"
-    var recentlyUsedWallpapers:[VideoWallpaper]=[]
-    var testDefaults:UserDefaults?
-    let currentWallpaperKey="CurrentWallpaper"
-    func migratedBundledVideoWallpaper(_ value:VideoWallpaper)->VideoWallpaper{value}
-    private func loadCodableValue<T:Decodable>(forKey key:String)->T?{
-        testDefaults?.data(forKey:key).flatMap{try? JSONDecoder().decode(T.self,from:$0)}
-    }
-''')
-        persistence = (MANAGER / 'WallpaperManager+Persistence.swift').read_text()
-        source += '\nextension WallpaperManager {\n' + declaration(persistence, '    func loadCurrentWallpaper(') + '\n}\n'
         component = ROOT / 'MyWallpaperX/App/WallpaperLibraryPlaybackRestoration.swift'
         fixture = ROOT / 'script/tests/fixtures/WallpaperPlaybackRestorationHarness.swift'
         with tempfile.TemporaryDirectory(prefix='mwx-playback-restoration-', dir='/private/tmp') as directory:

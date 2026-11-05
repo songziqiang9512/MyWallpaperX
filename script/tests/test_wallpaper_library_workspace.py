@@ -21,8 +21,6 @@ class WallpaperLibraryWorkspaceTests(unittest.TestCase):
                  "MyWallpaperX/Core/LibraryCollections/UserCollectionsStore.swift",
                  "MyWallpaperX/Core/LibraryCollections/UserCollectionsController.swift",
                  "MyWallpaperX/Core/LibraryCollections/WallpaperLibraryQuery.swift",
-                 "MyWallpaperX/Core/LibraryCollections/LibraryCollectionsMigration.swift",
-                 "MyWallpaperX/Core/LibraryCollections/WallpaperLibraryViewPreferencesMigration.swift",
                  "MyWallpaperX/Core/PlaybackControl/WallpaperRuntimeSwitch.swift",
                  "MyWallpaperX/Core/PlaybackControl/PlaybackSwitchTransaction.swift",
                  "MyWallpaperX/Core/PlaybackControl/WallpaperPlaybackSequence.swift",
@@ -34,7 +32,6 @@ class WallpaperLibraryWorkspaceTests(unittest.TestCase):
                  "MyWallpaperX/App/WallpaperLibraryWorkspace.swift",
                  "script/tests/fixtures/WallpaperLibraryWorkspaceHarness.swift"]
         extra = ["MyWallpaperX/Core/LibraryCollections/LibraryCollectionsStartupAdmission.swift",
-                 "MyWallpaperX/Core/LibraryCollections/LibraryCollectionsMigrationPublication.swift",
                  "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+PlaybackControl.swift",
                  "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+PlaybackSettings.swift",
                  "script/tests/fixtures/WallpaperLibraryRotationSourceChecks.swift",
@@ -42,8 +39,7 @@ class WallpaperLibraryWorkspaceTests(unittest.TestCase):
                  "script/tests/test_wallpaper_library_query.py"]
         hashes = {p: hashlib.sha256((ROOT / p).read_bytes()).hexdigest() for p in paths + extra}
         fixture = (ROOT / paths[-1]).read_text().replace("// STARTUP_OUTCOME", declaration((ROOT / extra[0]).read_text(), "nonisolated enum LibraryCollectionsStartupOutcome:"))
-        fixture = fixture.replace("// PUBLICATION_VALUE", declaration((ROOT / extra[1]).read_text(), "nonisolated struct LibraryCollectionsMigrationPublicationResult:"))
-        navigation, settings = (ROOT / extra[2]).read_text(), (ROOT / extra[3]).read_text()
+        navigation, settings = (ROOT / extra[1]).read_text(), (ROOT / extra[2]).read_text()
         advance_signature = '    @discardableResult\n    func advanceLibraryPlayback('
         self.assertEqual(navigation.count(advance_signature), 1)
         rotation = '\n'.join(declaration(navigation, signature) for signature in (
@@ -58,8 +54,8 @@ class WallpaperLibraryWorkspaceTests(unittest.TestCase):
         rotation = rotation.replace('RunLoop.main.add(timer, forMode: .common)', 'WorkspaceRotationTimer.add(timer)')
         rotation = rotation.replace('CACurrentMediaTime()', 'WorkspaceRotationClock.now')
         fixture = fixture.replace('// ACTUAL_SOURCE_ROTATION', rotation)
-        fixture += '\n' + (ROOT / extra[4]).read_text()
-        fixture = fixture.replace("// IMPORT_GATE", declaration((ROOT / extra[5]).read_text(), "final class ImportedVideoAutoplayGate:"))
+        fixture += '\n' + (ROOT / extra[3]).read_text()
+        fixture = fixture.replace("// IMPORT_GATE", declaration((ROOT / extra[4]).read_text(), "final class ImportedVideoAutoplayGate:"))
         with tempfile.TemporaryDirectory(prefix="mwx-library-workspace-", dir="/private/tmp") as directory:
             work = Path(directory)
             for path in paths[:-1]:

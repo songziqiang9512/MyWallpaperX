@@ -72,64 +72,12 @@ import SQLite3
             modifiedAt: date.addingTimeInterval(20), sidebarRank: 4)
         try legacyDatabase(legacyURL, epoch: legacyEpoch, playlist: old)
         let legacy = UserCollectionsStore(url: legacyURL, allowCreate: false)
-        failNextCommit()
+        let originalDatabase = try Data(contentsOf: legacyURL)
         do {
             _ = try await legacy.snapshot()
-            checks["schema-upgrade-commit-failure-is-reported"] = false
-        } catch { checks["schema-upgrade-commit-failure-is-reported"] = true }
-        let failedVersion = try sql(legacyURL, "PRAGMA user_version")
-        let failedColumns = try sql(legacyURL, "PRAGMA table_info(playlists)")
-        let failedRows = try sql(legacyURL, "SELECT name,sidebar_rank FROM playlists")
-        let failedMarker = try sql(legacyURL, "SELECT value FROM collections_meta WHERE key='migration_manifest'")
-        let failedNewTables = try sql(legacyURL, "SELECT name FROM sqlite_master WHERE name IN ('playlist_cover_assets','library_exclusions')")
-        checks["failed-v1-upgrade-keeps-original-schema-rows-and-marker"] = failedVersion == [["1"]]
-            && failedColumns.count == 5 && failedRows == [["Legacy", "4"]] && failedMarker == [["legacy-kept"]] && failedNewTables.isEmpty
-        let upgraded = try await legacy.snapshot()
-        let upgradedVersion = try sql(legacyURL, "PRAGMA user_version")
-        checks["known-v1-upgrade-retains-uuid-rank-epoch-revision-and-migration-marker"] = upgraded.playlists == [old]
-            && upgraded.resetEpoch == legacyEpoch && upgraded.revision == 7 && upgraded.migrationManifestID == "legacy-kept"
-            && upgradedVersion == [["2"]]
-        checks["old-playlist-and-snapshot-default-to-no-description-auto-cover-and-no-exclusions"] = upgraded.playlists[0].descriptionText == nil
-            && upgraded.playlists[0].customCoverAssetID == nil && upgraded.excludedLibraryReferences.isEmpty
-        let oldCanonical = WallpaperReference(provider: .steamWorkshop, sourceID: "42")
-        let oldMembers: [WallpaperPlaylistMember] = [.init(playlistID: old.id, reference: oldCanonical, position: 0, addedAt: Date(timeIntervalSince1970: 110))]
-        let oldFavorites: [WallpaperFavorite] = [.init(reference: oldCanonical, favoritedAt: Date(timeIntervalSince1970: 90), migrationOrder: nil)]
-        let oldRecent: [WallpaperRecentUse] = [.init(reference: oldCanonical, lastSuccessfulUseAt: Date(timeIntervalSince1970: 115), commitSequence: 3, migrationOrder: nil)]
-        let oldAliases: [WallpaperReferenceAlias] = [.init(alias: .init(provider: .videoLibrary, sourceID: "legacy-backing"), canonical: oldCanonical, proof: .publishedDownload)]
-        let oldLocators: [WallpaperReferenceLocator] = [.init(reference: oldCanonical, locator: .init(path: "/offline/legacy", mediaKind: .scene))]
-        checks["v1-upgrade-retains-member-favorite-recent-alias-and-locator-fields"] = upgraded.members == oldMembers
-            && upgraded.favorites == oldFavorites && upgraded.recent == oldRecent && upgraded.aliases == oldAliases && upgraded.locators == oldLocators
-        for (name, corruption) in [
-            ("missing-members-table", "DROP TABLE members;"),
-            ("invalid-reference", "UPDATE favorites SET ref_key='not-a-reference';"),
-            ("invalid-alias-proof", "UPDATE aliases SET proof='unsupported-proof';")
-        ] {
-            let corruptURL = root.appendingPathComponent(name + ".sqlite")
-            try legacyDatabase(corruptURL, epoch: legacyEpoch, playlist: old)
-            _ = try sql(corruptURL, corruption)
-            let schemaQuery = "SELECT type,name,tbl_name,sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type,name"
-            let originalSchema = try sql(corruptURL, schemaQuery)
-            let originalTables = try sql(corruptURL, "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
-            var originalRows: [String: [[String]]] = [:]
-            for table in originalTables { originalRows[table[0]] = try sql(corruptURL, "SELECT * FROM \(table[0]) ORDER BY rowid") }
-            let corruptStore = UserCollectionsStore(url: corruptURL, allowCreate: false)
-            do {
-                _ = try await corruptStore.snapshot()
-                checks["v1-" + name + "-rejects-before-upgrade-commit"] = false
-            } catch { checks["v1-" + name + "-rejects-before-upgrade-commit"] = true }
-            var retainedRows: [String: [[String]]] = [:]
-            for table in originalTables { retainedRows[table[0]] = try sql(corruptURL, "SELECT * FROM \(table[0]) ORDER BY rowid") }
-            // WAL coordination may change physical bytes. The failed upgrade
-            // must commit no schema/version or relationship-row changes.
-            let retainedSchema = try sql(corruptURL, schemaQuery)
-            let retainedVersion = try sql(corruptURL, "PRAGMA user_version")
-            let retainedIdentity = try sql(corruptURL, "PRAGMA application_id")
-            checks["v1-" + name + "-rolls-back-schema-version-and-all-original-rows"] = retainedVersion == [["1"]]
-                && retainedIdentity == [["1297569859"]] && retainedSchema == originalSchema && retainedRows == originalRows
-        }
-        let oldJSON = Data("{\"id\":\"\(old.id.uuidString)\",\"name\":\"Legacy\",\"createdAt\":0,\"modifiedAt\":0,\"sidebarRank\":4}".utf8)
-        let oldDecoded = try JSONDecoder().decode(WallpaperPlaylist.self, from: oldJSON)
-        checks["genuinely-old-playlist-json-decodes-missing-new-fields"] = oldDecoded.descriptionText == nil && oldDecoded.customCoverAssetID == nil
+            checks["old-schema-is-unsupported"] = false
+        } catch UserCollectionsError.unsupportedSchema { checks["old-schema-is-unsupported"] = true }
+        checks["unsupported-schema-is-not-rewritten"] = try Data(contentsOf: legacyURL) == originalDatabase
 
         let budgetStore = UserCollectionsStore(url: root.appendingPathComponent("cover-budget.sqlite"))
         let budgetEpoch = try await budgetStore.snapshot().resetEpoch
@@ -261,12 +209,8 @@ import SQLite3
         state = try await controller.restoreOrganization(expected: expectedUndo, replacement: beforeUndo.organizationState, expectedEpoch: epoch)
         checks["organization-undo-restores-cover-without-undoing-independent-library-hides"] = state.playlists == beforeUndo.playlists
             && state.excludedLibraryReferences.count == 3
-        let oldProfile = LibraryCollectionsPersonalSettingsImport(playlists: [WallpaperPlaylist(id: id, name: "Old profile", createdAt: date, sidebarRank: 0)])
-        state = try await controller.applyPersonalSettings(oldProfile, commandID: UUID(), expectedOrganization: state.organizationState, expectedEpoch: epoch)
-        checks["old-profile-missing-new-fields-preserves-existing-cover-description-and-hides"] = state.playlists.first { $0.id == id }?.customCoverAssetID == firstCover.id
-            && state.playlists.first { $0.id == id }?.descriptionText == "Notes" && state.excludedLibraryReferences.count == 3
         var profile = LibraryCollectionsPersonalSettingsImport(playlists: [WallpaperPlaylist(id: id, name: "Explicit automatic", createdAt: date, sidebarRank: 0)],
-            playlistMetadataIsExplicit: true, libraryExclusionStates: [.init(reference: b, isExcluded: false)],
+            libraryExclusionStates: [.init(reference: b, isExcluded: false)],
             expectedLibraryExclusions: state.excludedLibraryReferences)
         _ = try await controller.perform(.setLibraryExcluded([b], true))
         let laterHide = controller.snapshot
@@ -305,7 +249,7 @@ import SQLite3
             _ = try await controller.editPlaylistMetadata(id: id, expected: expected, replacement: .init(name: "Late"), expectedEpoch: epoch)
             checks["late-editor-after-reset-cannot-recreate-a-deleted-playlist"] = false
         } catch UserCollectionsError.staleResetEpoch { checks["late-editor-after-reset-cannot-recreate-a-deleted-playlist"] = controller.snapshot == resetState }
-        checks["both-injected-commit-failures-reached-real-rollback-boundaries"] = commitFailureCount() == 2
+        checks["injected-current-commit-failure-reaches-real-rollback-boundary"] = commitFailureCount() == 1
         print(String(decoding: try JSONEncoder().encode(checks), as: UTF8.self))
     }
 }

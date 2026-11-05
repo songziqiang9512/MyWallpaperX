@@ -69,13 +69,22 @@ class WallpaperLibraryCommandTransactionsTests(unittest.TestCase):
             '        admittedWrites += 1\n        let epoch = collections.snapshot.resetEpoch', 1)
         fixture = fixture.replace('// ACTUAL_REMOVAL_COMMANDS', removal_methods + '\n' + perform)
         restoration = '\n'.join(declaration(commands, signature) for signature in (
-            '    func makeRestoreLibraryAction(', '    func makeExplicitLibraryRestorationReceipt(',
+            '    func makeRestoreLibraryAction(',
             '    static func makeExplicitLibraryRestorationReceipt('))
         fixture = fixture.replace('// ACTUAL_RESTORATION_COMMANDS', restoration.replace(
             'in workspace: WallpaperLibraryWorkspace', 'in workspace: RemovalWorkspace'))
+        catalog_path = ROOT / 'MyWallpaperX/App/WallpaperLibraryCatalogController.swift'
+        catalog = catalog_path.read_text()
+        hides = '\n'.join(next(line for line in catalog.splitlines() if line.startswith(signature)) for signature in (
+            '    private var downloadHides:', '    private var downloadHideRevision:'))
+        hides += '\n' + '\n'.join(declaration(catalog, signature) for signature in (
+            '    func hideDownloads(', '    func downloadHideRevisions(', '    func restoreDownload(', '    private func publishDownloadHides('))
+        workspace_path = ROOT / 'MyWallpaperX/App/WallpaperLibraryWorkspace.swift'
         restoration_fixture = ROOT / 'script/tests/fixtures/WallpaperLibraryRestorationChecks.swift'
         image_removal_fixture = ROOT / 'script/tests/fixtures/OnlineImageCommandRemovalChecks.swift'
         fixture += '\n' + restoration_fixture.read_text() + '\n' + image_removal_fixture.read_text()
+        fixture = fixture.replace('// ACTUAL_DOWNLOAD_HIDES', hides)
+        fixture = fixture.replace('// ACTUAL_HIDE_REVISIONS', declaration(workspace_path.read_text(), '    func libraryHideRevisions('))
         organization_path = ROOT / 'MyWallpaperX/Shell/PlaylistOrganizationActions.swift'
         completion_fixture = ROOT / 'script/tests/fixtures/WallpaperLibraryOrganizationCompletionChecks.swift'
         recent_sidebar_fixture = ROOT / 'script/tests/fixtures/WallpaperLibraryRecentMenuChecks.swift'
@@ -130,7 +139,7 @@ class WallpaperLibraryCommandTransactionsTests(unittest.TestCase):
         inputs = paths + [ROOT / 'MyWallpaperX/App/WallpaperLibraryCommands.swift',
                           ROOT / 'script/tests/fixtures/WallpaperLibraryCommandTransactionsHarness.swift', composition_path, steam_path,
                           grid_path, grid_fixture_path, restoration_fixture, image_removal_fixture, projection_fixture,
-                          organization_path, completion_fixture, recent_sidebar_fixture, Path(__file__),
+                          organization_path, completion_fixture, recent_sidebar_fixture, catalog_path, workspace_path, Path(__file__),
                           ROOT / 'script/tests/test_wallpaper_library_query.py']
         identities = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in inputs}
         with tempfile.TemporaryDirectory(prefix='mwx-command-transactions-', dir='/private/tmp') as directory:

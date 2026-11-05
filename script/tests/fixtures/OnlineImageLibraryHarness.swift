@@ -305,7 +305,7 @@ nonisolated final class WallpaperFileTransfer: @unchecked Sendable {
           originalURL: URL(string: "https://example.invalid/original/" + id)!, kind: .image)
 }
 
-@MainActor private func asset(_ source: OnlineImageSource, _ id: String, page: Int = 0) -> OnlineImageAsset {
+@MainActor func asset(_ source: OnlineImageSource, _ id: String, page: Int = 0) -> OnlineImageAsset {
     .init(id: .init(source: source, artworkID: id, pageIndex: page), title: "fixture-" + id,
           sourceURL: URL(string: "https://example.invalid/work/" + id)!,
           originalURL: URL(string: "https://example.invalid/original/" + id)!)
@@ -333,6 +333,7 @@ nonisolated final class WallpaperFileTransfer: @unchecked Sendable {
 
     static func library(_ name: String) async throws -> OnlineImageLibrary {
         let value = OnlineImageLibrary(root: root.appendingPathComponent(name, isDirectory: true))
+        value.prepareLocal(Set(OnlineImageSource.allCases))
         try await eventually("initial scan " + name) { value.snapshot.status.hasSuccessfulScan }
         return value
     }
@@ -479,14 +480,14 @@ nonisolated final class WallpaperFileTransfer: @unchecked Sendable {
         transfer.finish("duplicate", bytes: png)
         try await drained(value, "duplicate")
         guard let old = value.record(for: item.id.reference), let file = value.localURL(for: old) else { throw Failure(description: "missing old receipt") }
-        let goodManifest = try Data(contentsOf: value.root.appendingPathComponent("manifest.json"))
+        let goodManifest = try Data(contentsOf: value.root.appendingPathComponent("Wallhaven/.wallhaven.json"))
         let bad = asset(.wallhaven, "bad-image")
         value.download(bad)
         try await eventually("bad-image transfer") { transfer.starts("bad-image") == 1 }
         transfer.finish("bad-image", bytes: Data("<html>not an image</html>".utf8))
         try await drained(value, "bad image")
         check("bad-image-does-not-create-local-receipt", value.record(for: bad.id.reference) == nil && value.errorMessage != nil)
-        check("bad-image-leaves-existing-manifest-and-bytes-unchanged", try Data(contentsOf: value.root.appendingPathComponent("manifest.json")) == goodManifest && Data(contentsOf: file) == png)
+        check("bad-image-leaves-existing-manifest-and-bytes-unchanged", try Data(contentsOf: value.root.appendingPathComponent("Wallhaven/.wallhaven.json")) == goodManifest && Data(contentsOf: file) == png)
 
         try FileManager.default.removeItem(at: file)
         value.refreshLocal()
@@ -554,6 +555,7 @@ nonisolated final class WallpaperFileTransfer: @unchecked Sendable {
         let warm = try await value.originalPreviewURL(item)
         check("warm-original-preview-reuses-bytes-without-transfer", warm == cached && transfer.starts(item.id.artworkID) == 1)
         let restarted = OnlineImageLibrary(root: value.root)
+        restarted.prepareLocal(Set(OnlineImageSource.allCases))
         try await eventually("restarted cache owner") { restarted.snapshot.status.hasSuccessfulScan }
         let sourceEvents = source.events.count
         restarted.downloadArtwork(artwork(.wallhaven, item.id.artworkID))
@@ -572,6 +574,7 @@ nonisolated final class WallpaperFileTransfer: @unchecked Sendable {
               && source.events.count == sourceEvents && transfer.starts(item.id.artworkID) == 1 && (try? Data(contentsOf: metadataURL)) == legacyBytes)
         let upgraded = OnlineImageLibrary(root: value.root.appendingPathComponent("legacy-rating-publication"),
             originalCacheRoot: cached.deletingLastPathComponent().deletingLastPathComponent())
+        upgraded.prepareLocal(Set(OnlineImageSource.allCases))
         try await eventually("new publication owner for old cache") { upgraded.snapshot.status.hasSuccessfulScan }
         var currentArtwork = artwork(.wallhaven, item.id.artworkID); currentArtwork.rating = .adult
         upgraded.downloadArtwork(currentArtwork)
@@ -680,10 +683,10 @@ nonisolated final class WallpaperFileTransfer: @unchecked Sendable {
         try await drained(value, "retry restored")
         check("missing-local-retry-restores-exact-page-identity", value.record(for: item.id.reference)?.id == item.id && value.record(for: item.id.reference)?.revision != old.revision && !value.snapshot.unavailable.contains(item.id) && value.snapshot.records.count == 1)
 
-        let manifestURL = value.root.appendingPathComponent("manifest.json"), goodManifest = try Data(contentsOf: manifestURL)
+        let manifestURL = value.root.appendingPathComponent("Pixiv/.pixiv.json"), goodManifest = try Data(contentsOf: manifestURL)
         let revision = value.snapshot.revision, records = value.snapshot.records
         try Data("broken manifest".utf8).write(to: manifestURL)
-        value.refreshLocal()
+        value.refreshLocal([.pixiv])
         try await eventually("failed scan status") { if case .failed = value.snapshot.status.phase { return true }; return false }
         check("failed-scan-does-not-invent-store-revision", value.snapshot.revision == revision && value.snapshot.records == records && value.snapshot.status.hasSuccessfulScan)
         try goodManifest.write(to: manifestURL)
@@ -942,6 +945,7 @@ nonisolated final class WallpaperFileTransfer: @unchecked Sendable {
         do {
             root = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
             png = try makePNG()
+            try await localIndexDeliveryAndDiscovery()
             try await wallhavenAccountMetadata()
             try await detailConsumers()
             try await concurrentDownloads()

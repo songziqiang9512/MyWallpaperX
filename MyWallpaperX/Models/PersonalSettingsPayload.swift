@@ -23,7 +23,7 @@ nonisolated enum PersonalSettingsError: Error, LocalizedError, Equatable {
 
     var errorDescription: String? {
         switch self {
-        case .unsupportedSchema(let version): return "个人设置版本 \(version) 高于本 App 支持范围，请保留原文件。"
+        case .unsupportedSchema(let version): return "个人设置版本 \(version) 不受支持，请使用当前版本导出的文件。"
         case .invalidPayload(let field): return "个人设置内容无效：\(field)"
         case .importInProgress: return "个人设置正在导入，请等待完成。"
         case .recoveryRequired(let stage): return "个人设置导入未完成（\(stage)）。恢复依据已保留，暂不能继续整理资料库。"
@@ -34,7 +34,7 @@ nonisolated enum PersonalSettingsError: Error, LocalizedError, Equatable {
     }
 }
 
-/// Optional fields preserve local preferences when reading older profiles.
+/// Optional fields describe explicitly selected preferences in the current format.
 /// Current playback, history, credentials and window state are not preferences.
 nonisolated struct PersonalSettingsPreferences: Codable, Equatable, Sendable {
     var loopPlayback: Bool?
@@ -64,8 +64,6 @@ nonisolated struct PersonalSettingsPreferences: Codable, Equatable, Sendable {
     var syncSystemWallpaper: Bool?
     var playbackRate: Double?
     var playbackRateEnabled: Bool?
-    var sortMode: String?
-    var sortAscending: Bool?
     var libraryBackgroundStyle: String?
     var libraryCardClickAction: String?
     var screenSaver: ScreenSaverPreferences?
@@ -104,8 +102,6 @@ nonisolated struct PersonalSettingsPreferences: Codable, Equatable, Sendable {
         syncSystemWallpaper = settings.syncSystemWallpaper
         playbackRate = settings.playbackRate
         playbackRateEnabled = settings.playbackRateEnabled
-        sortMode = settings.sortMode.rawValue
-        sortAscending = settings.sortAscending
         libraryBackgroundStyle = settings.libraryBackgroundStyle.rawValue
         libraryCardClickAction = settings.libraryCardClickAction.rawValue
         screenSaver = settings.screenSaver
@@ -117,47 +113,6 @@ nonisolated struct PersonalSettingsPreferences: Codable, Equatable, Sendable {
         systemAudioSpectrumOffsetY = settings.systemAudioSpectrumOffsetY
         systemAudioSpectrumBarCount = settings.systemAudioSpectrumBarCount
         systemAudioSpectrumPeakCapsEnabled = settings.systemAudioSpectrumPeakCapsEnabled
-    }
-
-    /// Recovery written before the background preference existed has no claim
-    /// over that field. All older fields and explicit background values retain
-    /// the original full-snapshot conflict check.
-    func matchesForRecovery(_ current: Self) -> Bool {
-        var expected = self
-        expected.previousWallpaperHotkey = previousWallpaperHotkey ?? current.previousWallpaperHotkey
-        expected.nextWallpaperHotkey = nextWallpaperHotkey ?? current.nextWallpaperHotkey
-        expected.togglePlaybackHotkey = togglePlaybackHotkey ?? current.togglePlaybackHotkey
-        expected.toggleMuteHotkey = toggleMuteHotkey ?? current.toggleMuteHotkey
-        var comparable = current
-        // Unowned keys still participate in priority; unknown raw values retain strict comparison.
-        if let expectedKeys = expected.normalizedHotkeyBindings, let currentKeys = comparable.normalizedHotkeyBindings {
-            (expected.previousWallpaperHotkey, expected.nextWallpaperHotkey,
-             expected.togglePlaybackHotkey, expected.toggleMuteHotkey) = expectedKeys
-            (comparable.previousWallpaperHotkey, comparable.nextWallpaperHotkey,
-             comparable.togglePlaybackHotkey, comparable.toggleMuteHotkey) = currentKeys
-        }
-        if libraryBackgroundStyle == nil { comparable.libraryBackgroundStyle = nil }
-        if libraryCardClickAction == nil { comparable.libraryCardClickAction = nil }
-        if screenSaver == nil { comparable.screenSaver = nil }
-        if systemHotkeysEnabled == nil { comparable.systemHotkeysEnabled = nil }
-        if previousWallpaperHotkey == nil { expected.previousWallpaperHotkey = nil; comparable.previousWallpaperHotkey = nil }
-        if nextWallpaperHotkey == nil { expected.nextWallpaperHotkey = nil; comparable.nextWallpaperHotkey = nil }
-        if togglePlaybackHotkey == nil { expected.togglePlaybackHotkey = nil; comparable.togglePlaybackHotkey = nil }
-        if toggleMuteHotkey == nil { expected.toggleMuteHotkey = nil; comparable.toggleMuteHotkey = nil }
-        if sceneHDRDisplayEnabled == nil { comparable.sceneHDRDisplayEnabled = nil }
-        if sceneMediaInfoEnabled == nil { comparable.sceneMediaInfoEnabled = nil }
-        if playbackPerformanceProfile == nil { comparable.playbackPerformanceProfile = nil }
-        return expected == comparable
-    }
-
-    private var normalizedHotkeyBindings: (String, String, String, String)? {
-        guard let previous = previousWallpaperHotkey.flatMap(FunctionKeyShortcut.init(rawValue:)),
-              let next = nextWallpaperHotkey.flatMap(FunctionKeyShortcut.init(rawValue:)),
-              let playPause = togglePlaybackHotkey.flatMap(FunctionKeyShortcut.init(rawValue:)),
-              let muteToggle = toggleMuteHotkey.flatMap(FunctionKeyShortcut.init(rawValue:)) else { return nil }
-        let bindings = WallpaperSettings.normalizedHotkeyBindings(
-            previous: previous, next: next, playPause: playPause, muteToggle: muteToggle)
-        return (bindings.previous.rawValue, bindings.next.rawValue, bindings.playPause.rawValue, bindings.muteToggle.rawValue)
     }
 
     @MainActor func applying(to current: WallpaperSettings) -> WallpaperSettings {
@@ -191,8 +146,6 @@ nonisolated struct PersonalSettingsPreferences: Codable, Equatable, Sendable {
         if let syncSystemWallpaper { result.syncSystemWallpaper = syncSystemWallpaper }
         if let playbackRate { result.playbackRate = min(max(playbackRate, 0.25), 2) }
         if let playbackRateEnabled { result.playbackRateEnabled = playbackRateEnabled }
-        if let sortMode, let value = WallpaperSortMode(rawValue: sortMode) { result.sortMode = value }
-        if let sortAscending { result.sortAscending = sortAscending }
         if let libraryBackgroundStyle, let value = LibraryBackgroundStyle(rawValue: libraryBackgroundStyle) {
             result.libraryBackgroundStyle = value
         }
@@ -222,38 +175,8 @@ nonisolated struct PersonalSettingsPreferences: Codable, Equatable, Sendable {
         return result
     }
 
-    /// Legacy dateAdded was actually Video.lastUsed order. Preserve the one
-    /// pre-import reference sequence without inventing an admission/use time.
-    func videoSortPatch(before: WallpaperLibraryVideoSortPreference, legacyTimeOrder: [WallpaperReference],
-                        remapping: [WallpaperReference: WallpaperReference]) throws -> WallpaperLibraryVideoSortPatch? {
-        var target = before
-        if let imported = videoLibrarySort {
-            target = imported
-            if imported.mode == .legacyTime {
-                guard let order = imported.legacyTimeOrder else { throw PersonalSettingsError.invalidPayload("旧时间排序缺少固定顺序") }
-                var seen = Set<WallpaperReference>()
-                target.legacyTimeOrder = order.map { remapping[$0] ?? $0 }.filter { seen.insert($0).inserted }
-            } else { target.legacyTimeOrder = nil }
-        } else {
-            var mode: WallpaperLibraryVideoSortPreference.Mode?
-            switch sortMode {
-            case "none": mode = .sourceOrder
-            case "name": mode = .name
-            case "size": mode = .fileSize
-            case "dateAdded": mode = .legacyTime
-            default: break
-            }
-            guard mode != nil || sortAscending != nil else { return nil }
-            if let mode {
-                target.mode = mode
-                target.legacyTimeOrder = mode == .legacyTime ? legacyTimeOrder : nil
-            }
-            if let sortAscending { target.ascending = sortAscending }
-        }
-        guard target.legacyTimeOrder?.contains(where: { $0.sourceID.isEmpty }) != true else {
-            throw PersonalSettingsError.invalidPayload("排序引用")
-        }
-        return WallpaperLibraryVideoSortPatch(before: before, target: target)
+    func videoSortPatch(before: WallpaperLibraryVideoSortPreference) -> WallpaperLibraryVideoSortPatch? {
+        videoLibrarySort.map { WallpaperLibraryVideoSortPatch(before: before, target: $0) }
     }
 
     private static func nearest(_ allowed: [Int], to value: Int) -> Int {
@@ -269,7 +192,7 @@ nonisolated struct PersonalSettingsLocalSource: Codable, Equatable, Sendable {
     let reference: WallpaperReference
     let path: String
     let title: String
-    /// Video source metadata; omitted by legacy profiles and for still images.
+    /// Video source metadata; unknown values and still images omit it.
     let firstIndexedAt: Date?
 
     init(reference: WallpaperReference, path: String, title: String, firstIndexedAt: Date? = nil) {
@@ -307,21 +230,11 @@ nonisolated struct PersonalSettingsSourcePatch: Codable, Equatable, Sendable {
 }
 
 nonisolated struct PersonalSettingsPayload: Codable, Sendable {
-    struct LegacyEntry: Codable, Sendable {
-        let path: String
-        let title: String?
-        let isFavorite: Bool?
-        let tags: [String]?
-    }
     let schemaVersion: Int
     let exportedAt: Date
     let preferences: PersonalSettingsPreferences
     let sources: [PersonalSettingsLocalSource]
-    let collections: LibraryCollectionsPersonalSettingsImport?
-    let tags: [String]
-    let entries: [LegacyEntry]
-    let silTags: [String]
-    let silEntries: [LegacyEntry]
+    let collections: LibraryCollectionsPersonalSettingsImport
 
     init(exportedAt: Date, preferences: PersonalSettingsPreferences,
          sources: [PersonalSettingsLocalSource], collections: LibraryCollectionsPersonalSettingsImport) {
@@ -330,32 +243,21 @@ nonisolated struct PersonalSettingsPayload: Codable, Sendable {
         self.preferences = preferences
         self.sources = sources
         var portable = collections
-        portable.playlistMetadataIsExplicit = true
-        portable.libraryExclusionStates = portable.libraryExclusionStates ?? []
         portable.expectedLibraryExclusions = nil
         self.collections = portable
-        tags = []; entries = []; silTags = []; silEntries = []
     }
 
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
-        schemaVersion = try values.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
-        guard (1...8).contains(schemaVersion) else { throw PersonalSettingsError.unsupportedSchema(schemaVersion) }
-        exportedAt = try values.decodeIfPresent(Date.self, forKey: .exportedAt) ?? .distantPast
+        schemaVersion = try values.decode(Int.self, forKey: .schemaVersion)
+        guard schemaVersion == 8 else { throw PersonalSettingsError.unsupportedSchema(schemaVersion) }
+        exportedAt = try values.decode(Date.self, forKey: .exportedAt)
         preferences = try values.decode(PersonalSettingsPreferences.self, forKey: .preferences)
-        sources = try values.decodeIfPresent([PersonalSettingsLocalSource].self, forKey: .sources) ?? []
-        collections = try values.decodeIfPresent(LibraryCollectionsPersonalSettingsImport.self, forKey: .collections)
-        if schemaVersion >= 6, collections == nil { throw PersonalSettingsError.invalidPayload("collections") }
-        if schemaVersion >= 7, collections?.playlistMetadataIsExplicit != true || collections?.libraryExclusionStates == nil {
-            throw PersonalSettingsError.invalidPayload("列表元数据或库隐藏状态")
-        }
-        tags = try values.decodeIfPresent([String].self, forKey: .tags) ?? []
-        entries = try values.decodeIfPresent([LegacyEntry].self, forKey: .entries) ?? []
-        silTags = try values.decodeIfPresent([String].self, forKey: .silTags) ?? []
-        silEntries = try values.decodeIfPresent([LegacyEntry].self, forKey: .silEntries) ?? []
+        sources = try values.decode([PersonalSettingsLocalSource].self, forKey: .sources)
+        collections = try values.decode(LibraryCollectionsPersonalSettingsImport.self, forKey: .collections)
     }
 
     private enum CodingKeys: String, CodingKey {
-        case schemaVersion, exportedAt, preferences, sources, collections, tags, entries, silTags, silEntries
+        case schemaVersion, exportedAt, preferences, sources, collections
     }
 }

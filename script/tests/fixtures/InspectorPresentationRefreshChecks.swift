@@ -141,7 +141,7 @@ private final class InspectorCardRouteProbe {
     let list = WallpaperPlaylist(name: "Updated membership", sidebarRank: 0)
     let previous = workspace.relationships
     workspace.relationships = .init(revision: previous.revision + 1, resetEpoch: previous.resetEpoch,
-        migrationManifestID: nil, playlists: [list],
+        playlists: [list],
         members: [.init(playlistID: list.id, reference: reference, position: 0, addedAt: Date())],
         favorites: [], recent: [], aliases: [], locators: [])
     workspace.publishPresentation(); await WallpaperLibraryInspectorHarness.pump()

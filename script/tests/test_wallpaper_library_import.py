@@ -219,7 +219,6 @@ class WallpaperLibraryImportTests(unittest.TestCase):
             'Models/WallpaperReference.swift', 'Models/WallpaperContent.swift', 'Models/WallpaperLibraryPage.swift',
             'Core/OnlineImages/OnlineImageModels.swift', 'Core/OnlineImages/OnlineImageContentProjection.swift',
             'Core/LibraryCollections/UserCollectionsStore.swift', 'Core/LibraryCollections/UserCollectionsController.swift',
-            'Core/LibraryCollections/LibraryCollectionsMigration.swift', 'Core/LibraryCollections/WallpaperLibraryViewPreferencesMigration.swift',
             'Core/LibraryCollections/WallpaperLibraryQuery.swift', 'Core/PlaybackControl/WallpaperRuntimeSwitch.swift',
             'Core/PlaybackControl/PlaybackSwitchTransaction.swift', 'Core/PlaybackControl/WallpaperPlaybackSequence.swift',
             'Core/PlaybackControl/WallpaperRotationDeadline.swift',
@@ -228,17 +227,15 @@ class WallpaperLibraryImportTests(unittest.TestCase):
         leaf_path = ROOT / 'script/tests/fixtures/WallpaperLibraryWorkspaceHarness.swift'
         fixture_path = ROOT / 'script/tests/fixtures/WallpaperLibraryWorkspaceAliasHarness.swift'
         startup_path = ROOT / 'MyWallpaperX/Core/LibraryCollections/LibraryCollectionsStartupAdmission.swift'
-        publication_path = ROOT / 'MyWallpaperX/Core/LibraryCollections/LibraryCollectionsMigrationPublication.swift'
         gate_path = ROOT / 'MyWallpaperX/Core/PlaybackControl/ImportedVideoAutoplayGate.swift'
         navigation_path = ROOT / 'MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+PlaybackControl.swift'
         settings_path = ROOT / 'MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+PlaybackSettings.swift'
         rotation_path = ROOT / 'script/tests/fixtures/WallpaperLibraryRotationSourceChecks.swift'
-        inputs = [ROOT / p for p in paths] + [leaf_path, fixture_path, startup_path, publication_path, gate_path,
+        inputs = [ROOT / p for p in paths] + [leaf_path, fixture_path, startup_path, gate_path,
                                             navigation_path, settings_path, rotation_path]
         hashes = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in inputs}
         prelude = leaf_path.read_text().split('@main struct WallpaperLibraryWorkspaceHarness')[0]
         prelude = prelude.replace('// STARTUP_OUTCOME', declaration(startup_path.read_text(), 'nonisolated enum LibraryCollectionsStartupOutcome:'))
-        prelude = prelude.replace('// PUBLICATION_VALUE', declaration(publication_path.read_text(), 'nonisolated struct LibraryCollectionsMigrationPublicationResult:'))
         prelude = prelude.replace('// IMPORT_GATE', declaration(gate_path.read_text(), 'final class ImportedVideoAutoplayGate:'))
         navigation, settings = navigation_path.read_text(), settings_path.read_text()
         rotation = '\n'.join(declaration(navigation, signature) for signature in (

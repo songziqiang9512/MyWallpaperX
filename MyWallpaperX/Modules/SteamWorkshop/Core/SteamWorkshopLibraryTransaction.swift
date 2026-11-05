@@ -3,9 +3,8 @@ import Darwin
 
 /// The existing metadata index publishes this pointer. Version directories alone are never ready.
 ///
-/// Version 1 commits point into the retired hidden-version layout and remain readable only so the
-/// service can migrate them without touching a playing path. Version 2 commits point at immutable
-/// direct children of Video/Web/Scene. The metadata rename remains the only ready commit point.
+/// Version 2 describes prepared and retired generations. Version 3 is the current ready pointer
+/// in Video/Web/Scene; the metadata rename remains the only ready commit point.
 nonisolated struct SteamWorkshopLibraryCommit: Codable, Equatable, Sendable {
     let version: Int
     let workshopId: String
@@ -25,8 +24,6 @@ nonisolated struct SteamWorkshopLibraryCommit: Codable, Equatable, Sendable {
 /// Disk preparation is detached from UI. Publication is a small, synchronous operation performed
 /// by the service after checking the live account and job attempt. No old content is deleted.
 nonisolated enum SteamWorkshopLibraryTransaction {
-    /// Read-only compatibility root for version 1 commits. New content is never prepared here.
-    static let versionsName = ".mywallpaperx-steam-versions"
     static let incomingName = ".mywallpaperx-steam-incoming"
     static let metadataName = ".mywallpaperx-steam-metadata"
     static let ownershipMarkerName = SteamWorkshopStorageTree.ownershipMarkerName
@@ -100,17 +97,9 @@ nonisolated enum SteamWorkshopLibraryTransaction {
 
     private static func storageIdentity(forVersion version: Int, contentType: String,
                                         workshopId: String, directoryName: String) -> String? {
-        switch version {
-        case 1:
-            guard directoryName.utf8.count == 36, UUID(uuidString: directoryName) != nil else { return nil }
-            return "v1:" + directoryName.lowercased()
-        case 2:
-            guard publicTypeDirectories[contentType] != nil,
-                  validID(workshopId), validPublicDirectoryName(directoryName, workshopId: workshopId) else { return nil }
-            return "v2:\(contentType):\(directoryName.lowercased())"
-        default:
-            return nil
-        }
+        guard version == 2, publicTypeDirectories[contentType] != nil,
+              validID(workshopId), validPublicDirectoryName(directoryName, workshopId: workshopId) else { return nil }
+        return "v2:\(contentType):\(directoryName.lowercased())"
     }
 
     static func storageIdentity(for commit: SteamWorkshopLibraryCommit) -> String? {
@@ -125,7 +114,7 @@ nonisolated enum SteamWorkshopLibraryTransaction {
 
     static func isValidStorageIdentity(_ identity: String) -> Bool {
         let parts = identity.split(separator: ":", omittingEmptySubsequences: false).map(String.init)
-        if parts.count == 2, parts[0] == "v1" || parts[0] == "incoming" {
+        if parts.count == 2, parts[0] == "incoming" {
             return parts[1].utf8.count == 36 && UUID(uuidString: parts[1]) != nil
         }
         guard parts.count == 3, parts[0] == "v2", publicTypeDirectories[parts[1]] != nil else { return false }
@@ -334,9 +323,7 @@ nonisolated enum SteamWorkshopLibraryTransaction {
         guard !commit.removed, let url = try? contentURL(for: commit, libraryRoot: libraryRoot),
               let root = try? absoluteDirectory(url), let project = try? openFile(root, "project.json"),
               let size = try? info(project, regular: true).st_size, size > 0, size <= 1024 * 1024 else { return false }
-        if commit.version >= 2 {
-            guard (try? markerCommit(in: root)) == commit else { return false }
-        }
+        guard (try? markerCommit(in: root)) == commit else { return false }
         if let entry = commit.entryPath, (try? openFile(root, entry)) != nil { return true }
         if commit.contentType == "scene" { return (try? openFile(root, "scene.pkg")) != nil }
         return commit.contentType == "web" && commit.entryPath == nil
@@ -416,11 +403,12 @@ nonisolated enum SteamWorkshopLibraryTransaction {
 
     static func prepare(receipt: SteamWorkshopStagedReceipt, attempt: Int,
                         libraryRoot: URL) throws -> SteamWorkshopLibraryCommit {
-        try require(receipt.version == 2 && receipt.stagingLeaseIdentity?.isComplete == true,
-                    "下载凭证缺少稳定的暂存目录身份。")
+        guard receipt.version == 2, let sourceIdentity = receipt.stagingLeaseIdentity, sourceIdentity.isComplete else {
+            throw Failure(message: "下载凭证缺少稳定的暂存目录身份。")
+        }
         return try prepareSource(
             sourceURL: receipt.stagingURL,
-            expectedSourceIdentity: receipt.stagingLeaseIdentity,
+            expectedSourceIdentity: sourceIdentity,
             verifiedBytes: Int64(receipt.verifiedBytes),
             expectedDigest: receipt.contentDigest,
             workshopId: receipt.workshopId,
@@ -432,47 +420,9 @@ nonisolated enum SteamWorkshopLibraryTransaction {
         )
     }
 
-    /// Copy a retired hidden v1 commit into the public immutable layout. The caller publishes the
-    /// returned v2 commit only after re-reading the current metadata pointer; the v1 tree remains
-    /// available to an existing player until lifecycle-aware reclamation proves it is unused.
-    static func migrationRequiredBytes(
-        for commit: SteamWorkshopLibraryCommit,
-        libraryRoot: URL
-    ) throws -> Int64 {
-        try require(commit.version == 1 && !commit.removed && storageIdentity(for: commit) != nil,
-                    "旧下载版本身份无效，无法迁移。")
-        let source = try absoluteDirectory(try contentURL(for: commit, libraryRoot: libraryRoot))
-        let inventory = try SteamWorkshopStorageTree.files(source,
-            checkCancellation: { try Task.checkCancellation() })
-        try require(!inventory.contains { $0.path == ownershipMarkerName }, "旧下载版本包含保留标记名。")
-        return try inventory.reduce(Int64(0)) { partial, entry in
-            try require(entry.size <= Int64(maxBytes) - partial)
-            return partial + entry.size
-        }
-    }
-
-    static func migrateLegacyCommit(_ commit: SteamWorkshopLibraryCommit,
-                                    libraryRoot: URL) throws -> SteamWorkshopLibraryCommit {
-        let sourceURL = try contentURL(for: commit, libraryRoot: libraryRoot)
-        let total = try migrationRequiredBytes(for: commit, libraryRoot: libraryRoot)
-        // Migrate the current files; the old commit digest is not their identity.
-        return try prepareSource(
-            sourceURL: sourceURL,
-            expectedSourceIdentity: nil,
-            verifiedBytes: total,
-            expectedDigest: nil,
-            workshopId: commit.workshopId,
-            jobId: commit.jobId,
-            attempt: commit.attempt,
-            manifestId: commit.manifestId,
-            committedAt: commit.committedAt,
-            libraryRoot: libraryRoot
-        )
-    }
-
     private static func prepareSource(sourceURL: URL,
-                                      expectedSourceIdentity: SteamWorkshopStagingLeaseIdentity?,
-                                      verifiedBytes: Int64, expectedDigest: String?,
+                                      expectedSourceIdentity: SteamWorkshopStagingLeaseIdentity,
+                                      verifiedBytes: Int64, expectedDigest: String,
                                       workshopId: String, jobId: String, attempt: Int,
                                       manifestId: String, committedAt: Date,
                                       libraryRoot: URL) throws -> SteamWorkshopLibraryCommit {
@@ -480,11 +430,9 @@ nonisolated enum SteamWorkshopLibraryTransaction {
         try require(validID(workshopId) && !jobId.isEmpty && attempt > 0
             && verifiedBytes > 0 && verifiedBytes <= Int64(maxBytes))
         let source = try absoluteDirectory(sourceURL)
-        if let expectedSourceIdentity {
-            let sourceInfo = try info(source, regular: false)
-            try require(sameDirectory(sourceInfo, as: expectedSourceIdentity),
-                        "下载暂存目录已被同名替换，拒绝入库。")
-        }
+        let sourceInfo = try info(source, regular: false)
+        try require(sameDirectory(sourceInfo, as: expectedSourceIdentity),
+                    "下载暂存目录已被同名替换，拒绝入库。")
         let inventory = try SteamWorkshopStorageTree.files(source,
             checkCancellation: { try Task.checkCancellation() })
         try require(!inventory.contains { $0.path == ownershipMarkerName }, "下载内容使用了保留标记名。")
@@ -554,9 +502,7 @@ nonisolated enum SteamWorkshopLibraryTransaction {
         }
         let digest = try SteamWorkshopStorageTree.treeDigest(fileFacts)
         try require(total == verifiedBytes, "下载内容在入库前发生变化。")
-        if let expectedDigest {
-            try require(digest == expectedDigest, "下载内容在入库前发生变化。")
-        }
+        try require(digest == expectedDigest, "下载内容在入库前发生变化。")
         let entry = (project["file"] as? String)?
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .replacingOccurrences(of: "\\", with: "/")
@@ -674,25 +620,6 @@ nonisolated enum SteamWorkshopLibraryTransaction {
                 throw error
             }
             removedIdentities.append(identity)
-        }
-
-        if let versions = try? directory(library, versionsName) {
-            for name in try childNames(versions) {
-                try Task.checkCancellation()
-                guard name.utf8.count == 36, UUID(uuidString: name) != nil else {
-                    skippedEntries.append(versionsName + "/" + name)
-                    continue
-                }
-                var value = stat()
-                guard fstatat(versions.value, name, &value, AT_SYMLINK_NOFOLLOW) == 0,
-                      (value.st_mode & S_IFMT) == S_IFDIR else {
-                    skippedEntries.append(versionsName + "/" + name)
-                    continue
-                }
-                try await removeIfAdmitted(parent: versions, name: name,
-                    identity: "v1:" + name.lowercased(), value: value,
-                    entryLabel: versionsName + "/" + name)
-            }
         }
 
         if let incoming = try? directory(library, incomingName) {

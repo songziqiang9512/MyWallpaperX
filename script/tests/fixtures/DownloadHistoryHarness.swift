@@ -19,38 +19,37 @@ import Foundation
         try history.record(failed)
         try history.record(failed)
         precondition(history.entries.count == 2, "same terminal receipt cannot duplicate an attempt")
-        var seedCalls = 0
-        try history.importExistingSuccesses {
-            seedCalls += 1
-            return [receipt(.pixabay, "7", "existing-local", .existingLocal, 10),
-                    receipt(.pixiv, "7:p2", "existing-local", .existingLocal, 20),
-                    receipt(.wallhaven, "7", "existing-local", .existingLocal)]
-        }
-        precondition(history.entries.count == 4 && history.entries.contains(success) && history.entries.contains(failed),
-                     "late initial scans must retain early terminals without adding a second success for their publication")
-        precondition(history.entries.filter { $0.id.reference == success.id.reference }.count == 1)
-        try history.importExistingSuccesses { seedCalls += 1; return [] }
-        precondition(seedCalls == 1)
+        let object = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
+        precondition(Set(object.keys) == ["entries"], "current history writes only real entries")
         let reloaded = try DownloadHistoryStore(persistenceURL: url)
         precondition(reloaded.entries == history.entries)
+        try reloaded.remove(failed.id)
+        precondition(reloaded.entries == [success])
+        try reloaded.record(failed)
         try reloaded.clear()
         let cleared = try DownloadHistoryStore(persistenceURL: url)
-        try cleared.importExistingSuccesses { preconditionFailure("clear must prevent seed resurrection") }
         precondition(cleared.entries.isEmpty)
+        let clearedBytes = try Data(contentsOf: url)
+        try cleared.clear()
+        let unchangedClear = try Data(contentsOf: url)
+        precondition(unchangedClear == clearedBytes)
 
         let earlyClear = try DownloadHistoryStore(persistenceURL: root.appendingPathComponent("early-clear.json"))
         try earlyClear.clear()
         try earlyClear.record(failed)
-        try earlyClear.importExistingSuccesses { preconditionFailure("early clear must survive later real terminals") }
         precondition(earlyClear.entries == [failed])
         let emptyURL = root.appendingPathComponent("empty.json")
         try Data().write(to: emptyURL)
-        let empty = try DownloadHistoryStore(persistenceURL: emptyURL)
-        try empty.importExistingSuccesses { preconditionFailure("an existing empty file is already initialized") }
+        do { _ = try DownloadHistoryStore(persistenceURL: emptyURL); preconditionFailure("empty bytes are not current history") }
+        catch { let retainedBytes = try Data(contentsOf: emptyURL); precondition(retainedBytes.isEmpty) }
 
-        let many = try DownloadHistoryStore(persistenceURL: root.appendingPathComponent("many.json"))
-        try many.importExistingSuccesses { (0..<150).map { receipt(.pixabay, String($0), "existing-local", .existingLocal, Double($0)) } }
-        precondition(many.entries.count == 150, "legacy source publications must not be silently truncated")
+        let manyURL = root.appendingPathComponent("many.json")
+        let retained = receipt(.wallhaven, "kept", "existing-local", .existingLocal)
+        let currentEntries = [retained] + (0..<150).map { receipt(.pixabay, String($0), "real-attempt", .completed, Double($0)) }
+        let bytes = try JSONEncoder().encode(currentEntries)
+        try (Data("{\"entries\":".utf8) + bytes + Data("}".utf8)).write(to: manyURL)
+        let many = try DownloadHistoryStore(persistenceURL: manyURL)
+        precondition(many.entries == currentEntries, "current stored entries remain intact without a source seed")
         let durable = try Data(contentsOf: url)
         try FileManager.default.removeItem(at: url)
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: false)
@@ -72,8 +71,8 @@ import Foundation
             receipt(.pixabay, "7", "actual-first", .cancelled, 999), unknownFirst, unknownSecond,
             receipt(.pixabay, "7", "actual-next", .failed, 999)]
         let encodedEntries = try JSONEncoder().encode(duplicates)
-        let seededJSON = "{\"legacyImported\":true,\"entries\":" + String(decoding: encodedEntries, as: UTF8.self) + "}"
-        try Data(seededJSON.utf8).write(to: replacementURL)
+        let storedJSON = "{\"entries\":" + String(decoding: encodedEntries, as: UTF8.self) + "}"
+        try Data(storedJSON.utf8).write(to: replacementURL)
         let replacement = try DownloadHistoryStore(persistenceURL: replacementURL)
         let updated = DownloadTerminalReceipt(id: success.id, title: "updated terminal", outcome: .failed,
             recordedAt: nextAttempt.recordedAt, failureMessage: "updated failure")

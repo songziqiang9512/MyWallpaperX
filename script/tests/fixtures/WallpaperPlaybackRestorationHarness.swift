@@ -18,6 +18,7 @@ private struct SavedPlayback: Codable {
     var recentSnapshot:WallpaperPlaybackSequence.Snapshot?
     var snapshotQueries:[WallpaperLibraryQueryState?]=[]
     var requests:[WallpaperPlaybackSequence.Pending]=[]
+    var preparedProviders:[Set<WallpaperProvider>]=[]
     var endpoints:[NativeEndpoint]=[]
     var errors:[String]=[]
     var resolverAction:(()->Void)?
@@ -46,7 +47,7 @@ private struct SavedPlayback: Codable {
             snapshotQueries.append(query);return source == .page(.recent) ? recentSnapshot : snapshot
         },contentResolver:{[unowned self] ref in
             let action=resolverAction;resolverAction=nil;action?();return items[ref]
-        },dependencyProvider:{[unowned self] _,_ in dependencies},report:{[unowned self] error in errors.append(error.localizedDescription)})
+        },dependencyProvider:{[unowned self] _,_ in dependencies},prepareProviders:{[unowned self] in preparedProviders.append($0)},report:{[unowned self] error in errors.append(error.localizedDescription)})
         manager.libraryPlaybackDispatcher={[unowned self] pending in
             requests.append(pending)
             if rejects{return false}
@@ -68,7 +69,7 @@ private struct SavedPlayback: Codable {
             resetEpoch:reset ?? epoch,catalogRevision:revision)
     }
     func save(source:WallpaperPlaybackSequence.Source,ref:WallpaperReference,query:WallpaperLibraryQueryState?=nil,paused:Bool=false){
-        let value=SavedPlayback(schema:1,status:"selection",source:source,sourceQuery:query,reference:ref,userPaused:paused)
+        let value=SavedPlayback(schema:2,status:"selection",source:source,sourceQuery:query,reference:ref,userPaused:paused)
         defaults.set(try! JSONEncoder().encode(value),forKey:WallpaperLibraryPlaybackRestoration.storageKey)
     }
     func stored()->SavedPlayback?{
@@ -89,6 +90,7 @@ private struct SavedPlayback: Codable {
             let p=RestorationProbe();defer{p.close()}
             p.save(source:.single(p.a),ref:p.a);p.items[p.a]=nil;p.start()
             p.ready([]);checks["initial-empty-projections-never-restore"] = p.requests.isEmpty
+            checks["auto-replay-prepares-its-unloaded-source-before-waiting"] = p.preparedProviders == [[.videoLibrary]]
             p.add(p.a,.video);p.ready([.videoLibrary]);checks["only-required-owner-readiness-restores-exact-ref"] = p.requests.count == 1 && p.requests[0].proposal.entry.reference == p.a
             checks["restore-uses-original-ticket-and-no-recent-cause"] = p.manager.playbackSwitch.pending?.selection.ticket == p.requests[0].ticket && !p.requests[0].proposal.cause.shouldRecordRecent
             p.ready();checks["readiness-repeated-once-only"] = p.requests.count == 1
@@ -128,8 +130,11 @@ private struct SavedPlayback: Codable {
         }
         do {
             let p=RestorationProbe();defer{p.close()}
-            p.save(source:.page(.favorites),ref:p.a);p.start();p.ready()
-            checks["missing-page-query-never-broadens-to-default"] = p.requests.first?.proposal.snapshot.source == .single(p.a) && p.snapshotQueries.isEmpty
+            p.save(source:.page(.favorites),ref:p.a)
+            let raw=p.defaults.data(forKey:WallpaperLibraryPlaybackRestoration.storageKey)
+            p.start();p.ready()
+            checks["page-descriptor-without-current-query-is-rejected-without-rewrite"] = p.requests.isEmpty
+                && p.errors.count == 1 && p.snapshotQueries.isEmpty && p.defaults.data(forKey:WallpaperLibraryPlaybackRestoration.storageKey) == raw
         }
         do {
             let p=RestorationProbe();defer{p.close()}
@@ -156,6 +161,34 @@ private struct SavedPlayback: Codable {
             checks["unknown-schema-preserves-raw-and-no-legacy"] = p.requests.isEmpty && p.errors.count == 1 && p.defaults.data(forKey:WallpaperLibraryPlaybackRestoration.storageKey) == raw
             p.ready();checks["corrupt-schema-reports-once"] = p.errors.count == 1
         }
+        for carriesAdmission in [false, true] {
+            let p=RestorationProbe();defer{p.close()}
+            let old=SavedPlayback(schema:1,status:"selection",source:.single(p.a),sourceQuery:nil,reference:p.a,userPaused:true)
+            var object=try JSONSerialization.jsonObject(with:JSONEncoder().encode(old)) as! [String:Any]
+            if carriesAdmission { object["legacyAdmission"]=true }
+            let raw=try JSONSerialization.data(withJSONObject:object,options:[.sortedKeys])
+            p.defaults.set(raw,forKey:WallpaperLibraryPlaybackRestoration.storageKey);p.start();p.ready()
+            checks["schema-one-is-rejected-without-replay-or-rewrite-\(carriesAdmission)"] = p.requests.isEmpty
+                && p.errors.count == 1 && p.restoration.rememberedReference == nil
+                && p.defaults.data(forKey:WallpaperLibraryPlaybackRestoration.storageKey) == raw
+            p.restoration.onStopped()
+            checks["schema-one-stop-does-not-convert-the-unread-record-\(carriesAdmission)"] = p.requests.isEmpty
+                && p.defaults.data(forKey:WallpaperLibraryPlaybackRestoration.storageKey) == raw
+            let snapshot=try WallpaperPlaybackSequence.Snapshot(source:.single(p.b),revision:1,
+                entries:[.init(reference:p.b,runtime:.video,isPlayable:true)])
+            let ticket=p.manager.requestLibraryPlayback(reference:p.b,from:snapshot,cause:.userSelection)
+            p.endpoints.last?.show(p.manager)
+            checks["real-manual-success-replaces-rejected-schema-one-with-schema-two-\(carriesAdmission)"] = ticket != nil
+                && p.requests.count == 1 && p.stored()?.schema == 2 && p.stored()?.reference == p.b
+                && p.stored()?.source == .single(p.b)
+            let reopened=RestorationProbe();defer{reopened.close()}
+            reopened.defaults.set(p.defaults.data(forKey:WallpaperLibraryPlaybackRestoration.storageKey),
+                forKey:WallpaperLibraryPlaybackRestoration.storageKey)
+            reopened.start();reopened.ready()
+            checks["rebuilt-selection-restores-on-next-launch-\(carriesAdmission)"] = reopened.restoration.rememberedReference == reopened.b
+                && reopened.requests.count == 1 && reopened.requests.first?.proposal.entry.reference == reopened.b
+                && reopened.requests.first?.proposal.cause == .restore && reopened.errors.isEmpty
+        }
         do {
             let p=RestorationProbe();defer{p.close()}
             p.start();p.restoration.onStopped();let raw=p.defaults.data(forKey:WallpaperLibraryPlaybackRestoration.storageKey)
@@ -164,26 +197,8 @@ private struct SavedPlayback: Codable {
         }
         do {
             let p=RestorationProbe();defer{p.close()}
-            p.manager.activeWallpaperRuntime = .web;p.manager.lastWorkshopPlaybackRecordID="missing";p.recentSnapshot=try .init(source:.page(.recent),revision:1,entries:[.init(reference:p.b,runtime:.video,isPlayable:true)])
-            p.defaults.set(false,forKey:p.manager.playbackStateKey);p.start();p.ready()
-            checks["legacy-workshop-missing-uses-original-recent-video"] = p.requests.first?.proposal.entry.reference == p.b && p.requests.first?.proposal.snapshot.source == .global
-            checks["legacy-paused-restored-before-request"] = PlaybackCommandMultiplexer.shared.isUserPaused
-            checks["legacy-video-queue-keeps-original-order"] = p.requests.first?.proposal.snapshot.entries.map(\.reference) == [p.a,p.b]
-        }
-        do {
-            let p=RestorationProbe();defer{p.close()}
-            p.manager.activeWallpaperRuntime = .web;p.manager.lastWorkshopPlaybackRecordID="web";p.start();p.ready()
-            let failed=p.requests[0];p.manager.switchFailed(failed.ticket,reason:"injected replay failure")
-            checks["legacy-async-replay-failure-falls-back-exactly-once"] = p.requests.count == 2 && p.requests.last?.proposal.snapshot.source == .global
-            p.restoration.onFailed(failed)
-            checks["duplicate-replay-failure-cannot-retry-fallback"] = p.requests.count == 2
-            p.endpoints.last?.show(p.manager)
-            checks["first-legacy-success-publishes-new-source-envelope"] = p.stored()?.source == .global && p.stored()?.reference == p.a
-        }
-        do {
-            let p=RestorationProbe();defer{p.close()}
             p.save(source:.single(p.web),ref:p.web);p.start();p.ready();p.manager.switchFailed(p.requests[0].ticket,reason:"new-state failure")
-            checks["new-workshop-failure-cannot-enter-legacy-fallback"] = p.requests.count == 1
+            checks["current-workshop-failure-never-chooses-a-different-target"] = p.requests.count == 1
         }
         do {
             let p=RestorationProbe();defer{p.close()}
@@ -208,11 +223,24 @@ private struct SavedPlayback: Codable {
             p.ready();checks["pause-subscriber-reentry-cannot-overwrite-new-intent"] = p.requests.isEmpty && p.manager.requestedRuntime == .scene
         }
         do {
-            let p=RestorationProbe();defer{p.close()}
-            p.start();p.ready();p.manager.beginPlaybackIntent();p.restoration.reset()
-            let newEpoch=UUID();p.ready(revision:1,reset:newEpoch)
-            let before=p.requests.count;p.ready(revision:2,reset:newEpoch)
-            checks["reset-requires-new-catalog-and-new-relationship-epoch"] = before == 1 && p.requests.count == 2
+            var waitsForBoth = true
+            for epochFirst in [false, true] {
+                let p=RestorationProbe();defer{p.close()}
+                p.save(source:.single(p.a),ref:p.a);p.start();p.ready();p.endpoints.last?.show(p.manager)
+                p.manager.stopCurrentPlayback();p.restoration.reset()
+                let newEpoch=UUID(), preparations=p.preparedProviders.count
+                p.ready(revision:epochFirst ? 1 : 2,reset:epochFirst ? newEpoch : p.epoch)
+                let partial=p.preparedProviders.count
+                p.ready(revision:2,reset:newEpoch)
+                let complete=p.preparedProviders.count
+                p.ready(revision:3,reset:newEpoch)
+                waitsForBoth = waitsForBoth && partial == preparations + 1 && complete == partial + 1
+                    && p.preparedProviders.count == complete
+                checks["reset-clears-current-selection-without-new-admission-\(epochFirst)"] = p.requests.count == 1
+                    && p.restoration.rememberedReference == nil && p.stored() == nil
+                    && p.manager.libraryPlaybackSequence.pending == nil && p.manager.libraryPlaybackSequence.committed == nil
+            }
+            checks["reset-requires-new-catalog-and-new-relationship-epoch"] = waitsForBoth
         }
         do {
             let p=RestorationProbe();defer{p.close()}
@@ -223,29 +251,6 @@ private struct SavedPlayback: Codable {
             let p=RestorationProbe();defer{p.close()}
             p.save(source:.single(p.web),ref:p.web);p.items[p.web]=nil;p.start();p.ready([.videoLibrary])
             checks["unknown-steam-target-cannot-trigger-new-or-legacy-fallback"] = p.requests.isEmpty && p.errors.isEmpty
-        }
-        do {
-            let p=RestorationProbe();defer{p.close()}
-            p.manager.activeWallpaperRuntime = .web;p.manager.lastWorkshopPlaybackRecordID="web";p.items[p.web]=nil;p.start();p.ready([.videoLibrary])
-            checks["unknown-legacy-steam-replay-waits-before-video-fallback"] = p.requests.isEmpty
-            p.ready([.videoLibrary,.steamWorkshop])
-            checks["known-missing-legacy-steam-may-use-video-fallback"] = p.requests.first?.proposal.entry.reference == p.a
-        }
-        do {
-            let p=RestorationProbe();defer{p.close()}
-            p.manager.activeWallpaperRuntime = .web;p.manager.lastWorkshopPlaybackRecordID="web";p.start();p.ready()
-            PlaybackCommandMultiplexer.shared.isUserPaused=true
-            p.manager.switchFailed(p.requests[0].ticket,reason:"failure after user pauses")
-            checks["legacy-async-fallback-preserves-new-user-pause-intent"] = p.requests.count == 2 && PlaybackCommandMultiplexer.shared.isUserPaused
-        }
-        do {
-            let p=RestorationProbe();defer{p.close()}
-            p.manager.wallpapers=[];p.manager.testDefaults=p.defaults
-            p.defaults.set(try JSONEncoder().encode(VideoWallpaper(path:"/old-video")),forKey:p.manager.currentWallpaperKey)
-            p.manager.loadCurrentWallpaper()
-            checks["actual-legacy-current-load-never-upserts-deleted-index-row"] = p.manager.wallpapers.isEmpty && p.manager.currentWallpaper?.id == p.a.sourceID
-            p.start();p.ready()
-            checks["actual-loaded-stale-current-cannot-bypass-complete-empty-index"] = p.requests.isEmpty && p.manager.wallpapers.isEmpty
         }
         do {
             let p=RestorationProbe();defer{p.close()}
@@ -287,37 +292,9 @@ private struct SavedPlayback: Codable {
         }
         do {
             let p=RestorationProbe();defer{p.close()}
-            p.manager.settings.restorePlaybackOnLaunch=false;p.manager.currentWallpaper = .init(path:p.a.sourceID)
-            p.start();p.ready();p.restoration.resumeLastSelection()
-            checks["legacy-success-manual-replay-does-not-need-a-second-storage-key"] = p.requests.count == 1
-                && p.requests[0].proposal.entry.reference == p.a && p.requests[0].proposal.snapshot.source == .single(p.a)
-        }
-        do {
-            let p=RestorationProbe();defer{p.close()}
             p.save(source:.single(p.a),ref:p.a);p.items[p.a]=nil
             p.manager.settings.restorePlaybackOnLaunch=false;p.start();p.ready();p.restoration.resumeLastSelection()
             checks["unavailable-manual-replay-never-substitutes-another-target"] = p.requests.isEmpty && p.errors.count == 1
-        }
-        do {
-            let p=RestorationProbe();defer{p.close()}
-            p.manager.settings.restorePlaybackOnLaunch=false;p.manager.currentWallpaper = .init(path:p.a.sourceID)
-            p.start();p.ready();p.manager.currentWallpaper=nil
-            p.defaults.removeObject(forKey:p.manager.currentWallpaperKey)
-            p.start();p.ready();let accepted=p.restoration.resumeLastSelection()
-            checks["legacy-launch-off-exit-and-relaunch-retains-the-single-migrated-success"] = accepted
-                && p.requests.count == 1 && p.requests[0].proposal.entry.reference == p.a
-        }
-        do {
-            let p=RestorationProbe();defer{p.close()}
-            p.manager.wallpapers = [.init(path:p.a.sourceID)]
-            p.manager.currentWallpaper = .init(path:p.a.sourceID)
-            p.manager.settings.restorePlaybackOnLaunch=false
-            p.defaults.set(true,forKey:p.manager.playbackStateKey)
-            p.start();p.ready()
-            p.defaults.set(false,forKey:p.manager.playbackStateKey)
-            p.manager.settings.restorePlaybackOnLaunch=true;p.start();p.ready()
-            checks["migrated-pause-intent-survives-launch-off-exit-rewriting-legacy-key"] = p.requests.count == 1
-                && !PlaybackCommandMultiplexer.shared.isUserPaused && p.stored()?.userPaused == false
         }
         do {
             let p=RestorationProbe();defer{p.close()}
@@ -346,6 +323,7 @@ private struct SavedPlayback: Codable {
                 .init(reference:p.b,runtime:.video,isPlayable:true)])
             p.start();p.ready([.videoLibrary]);let saved=p.defaults.data(forKey:WallpaperLibraryPlaybackRestoration.storageKey)
             let early=p.restoration.resumeLastSelection()
+            checks["manual-replay-requests-source-preparation-before-readiness-check"] = p.preparedProviders.last == Set(WallpaperProvider.allCases)
             checks["manual-global-replay-does-not-degrade-a-partially-loaded-source"] = !early && p.requests.isEmpty
                 && p.defaults.data(forKey:WallpaperLibraryPlaybackRestoration.storageKey) == saved
             p.ready();let ready=p.restoration.resumeLastSelection()
@@ -390,6 +368,21 @@ private struct SavedPlayback: Codable {
             p.ready([.steamWorkshop, .pixabay, .wallhaven, .pixiv])
             checks["successful-empty-local-image-scan-unblocks-original-download-restoration"] = p.requests.count == 1
                 && p.requests[0].proposal.entry.reference == p.web
+        }
+        for runtime in [WallpaperRuntimeKind.video, .web, .scene] {
+            let p=RestorationProbe();defer{p.close()}
+            p.manager.activeWallpaperRuntime=runtime;p.manager.lastWorkshopPlaybackRecordID="web"
+            p.manager.currentWallpaper = .init(path:p.a.sourceID)
+            p.recentSnapshot=try .init(source:.page(.recent),revision:1,entries:[.init(reference:p.b,runtime:.video,isPlayable:true)])
+            p.defaults.set(Data("old success".utf8),forKey:"CurrentWallpaper")
+            p.defaults.set(false,forKey:"PlaybackState")
+            p.start();p.ready()
+            checks["old-manager-state-without-current-envelope-is-not-replayed-" + runtime.rawValue] = p.requests.isEmpty
+                && p.restoration.rememberedReference == nil && p.stored() == nil && p.preparedProviders.allSatisfy(\.isEmpty)
+            checks["old-manager-state-cannot-create-manual-replay-admission-" + runtime.rawValue] = !p.restoration.resumeLastSelection()
+            p.save(source:.single(p.b),ref:p.b,paused:true);p.start();p.ready()
+            checks["current-envelope-is-the-only-replay-authority-" + runtime.rawValue] = p.requests.count == 1
+                && p.requests[0].proposal.entry.reference == p.b && PlaybackCommandMultiplexer.shared.isUserPaused
         }
         print(String(data:try JSONSerialization.data(withJSONObject:checks,options:[.sortedKeys]),encoding:.utf8)!)
     }

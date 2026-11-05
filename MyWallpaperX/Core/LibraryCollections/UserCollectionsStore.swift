@@ -7,7 +7,6 @@ import SQLite3
 actor UserCollectionsStore {
     private let url: URL
     private let allowCreate: Bool
-    private var sealedForPublication = false
     private var database: OpaquePointer?
     private static let applicationID: Int32 = 0x4D575843
     private static let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
@@ -167,11 +166,11 @@ actor UserCollectionsStore {
             }
             let before = try readSnapshot()
             guard before.organizationState == expectedOrganization else { throw UserCollectionsError.organizationConflict }
-            if payload.libraryExclusionStates != nil {
+            if !payload.libraryExclusionStates.isEmpty {
                 guard payload.expectedLibraryExclusions == before.excludedLibraryReferences else { throw UserCollectionsError.personalSettingsConflict }
             }
             let referencedCovers = Set(payload.playlists.compactMap(\.customCoverAssetID))
-            guard payload.coverAssets.allSatisfy({ payload.playlistMetadataIsExplicit && referencedCovers.contains($0.id) }) else {
+            guard payload.coverAssets.allSatisfy({ referencedCovers.contains($0.id) }) else {
                 throw UserCollectionsError.personalSettingsConflict
             }
             for asset in payload.coverAssets { try saveCoverAsset(asset) }
@@ -199,43 +198,8 @@ actor UserCollectionsStore {
             }
             for alias in payload.aliases { try link(alias) }
             let incomingIDs = Set(payload.playlists.map(\.id))
-            guard incomingIDs.count == payload.playlists.count,
-                  Set(payload.legacyOrigins.map(\.playlistID)).count == payload.legacyOrigins.count,
-                  payload.legacyOrigins.allSatisfy({ incomingIDs.contains($0.playlistID) }) else {
-                throw UserCollectionsError.personalSettingsConflict
-            }
-            var resolvedIDs: [UUID: UUID] = [:]
-            for origin in payload.legacyOrigins {
-                let name = normalizedLegacyTag(origin.tag)
-                guard !origin.sourceKey.isEmpty, !name.isEmpty,
-                      payload.playlists.first(where: { $0.id == origin.playlistID }).map({ normalizedLegacyTag($0.name) == name }) == true else {
-                    throw UserCollectionsError.personalSettingsConflict
-                }
-                let key = "profile-legacy:" + Data(origin.sourceKey.utf8).base64EncodedString() + ":" + Data(name.utf8).base64EncodedString()
-                let id: UUID
-                if let raw = try meta(key) {
-                    guard let saved = UUID(uuidString: raw) else { throw UserCollectionsError.corruptData("profile legacy UUID") }
-                    id = saved
-                } else {
-                    id = before.playlists.first(where: { normalizedLegacyTag($0.name) == name })?.id ?? origin.playlistID
-                    try setMeta(key, id.uuidString)
-                }
-                resolvedIDs[origin.playlistID] = id
-            }
-            let legacyIDs = Set(payload.legacyOrigins.map(\.playlistID))
-            let legacyTargetIDs = Set(resolvedIDs.values)
-            var playlistMetadata = Dictionary(uniqueKeysWithValues: before.playlists.map { ($0.id, $0) })
-            for imported in payload.playlists {
-                let id = resolvedIDs[imported.id] ?? imported.id
-                // Old profiles declared tag names, not UUID metadata/order.
-                // Preserve a mapped user's later name and original placement.
-                let prior = playlistMetadata[id]
-                let existing = legacyIDs.contains(imported.id) ? prior : nil
-                let playlist = WallpaperPlaylist(id: id, name: existing?.name ?? imported.name,
-                    createdAt: existing?.createdAt ?? imported.createdAt,
-                    modifiedAt: existing?.modifiedAt ?? imported.modifiedAt, sidebarRank: existing?.sidebarRank ?? imported.sidebarRank,
-                    descriptionText: payload.playlistMetadataIsExplicit ? imported.descriptionText : prior?.descriptionText,
-                    customCoverAssetID: payload.playlistMetadataIsExplicit ? imported.customCoverAssetID : prior?.customCoverAssetID)
+            guard incomingIDs.count == payload.playlists.count else { throw UserCollectionsError.personalSettingsConflict }
+            for playlist in payload.playlists {
                 try validateName(playlist.name)
                 guard playlist.sidebarRank >= 0 else { throw UserCollectionsError.personalSettingsConflict }
                 try requireFinite(playlist.createdAt); try requireFinite(playlist.modifiedAt)
@@ -245,7 +209,6 @@ actor UserCollectionsStore {
                     name=excluded.name,created_at=excluded.created_at,modified_at=excluded.modified_at,sidebar_rank=excluded.sidebar_rank,
                     description_text=excluded.description_text,custom_cover_asset_id=excluded.custom_cover_asset_id
                     """, playlistValues(playlist))
-                playlistMetadata[id] = playlist
             }
             for item in payload.locators { try remember(try canonical(item.reference), locator: item.locator, replacing: true) }
             // Existing member order/added dates are retained. Imported positions
@@ -256,7 +219,7 @@ actor UserCollectionsStore {
             }
             var nextPositions: [UUID: Int64] = [:]
             for (_, member) in ordered {
-                let id = resolvedIDs[member.playlistID] ?? member.playlistID
+                let id = member.playlistID
                 guard member.position >= 0 else { throw UserCollectionsError.personalSettingsConflict }
                 try requirePlaylist(id); try requireFinite(member.addedAt)
                 let key = try canonical(member.reference).storageKey
@@ -264,7 +227,6 @@ actor UserCollectionsStore {
                 try execute("INSERT OR IGNORE INTO members VALUES(?,?,?,?)", [.text(id.uuidString), .text(key), .integer(position), .real(member.addedAt.timeIntervalSince1970)])
                 let inserted = sqlite3_changes(database) > 0
                 nextPositions[id] = inserted ? min(position, Int64.max - 1) + 1 : position
-                if legacyTargetIDs.contains(id), inserted { try touchPlaylist(id, at: member.addedAt) }
             }
             var seenFavorites: [WallpaperReference: Bool] = [:]
             for favorite in payload.favoriteStates {
@@ -278,7 +240,7 @@ actor UserCollectionsStore {
                 } else { try execute("DELETE FROM favorites WHERE ref_key=?", [.text(reference.storageKey)]) }
             }
             var exclusions: [WallpaperReference: Bool] = [:]
-            for state in payload.libraryExclusionStates ?? [] {
+            for state in payload.libraryExclusionStates {
                 let reference = try canonical(state.reference)
                 if let previous = exclusions.updateValue(state.isExcluded, forKey: reference), previous != state.isExcluded {
                     throw UserCollectionsError.personalSettingsConflict
@@ -331,40 +293,9 @@ actor UserCollectionsStore {
         }
     }
 
-    /// Install into a new/untouched relationship database. The marker and all
-    /// relationships commit together; an interrupted transaction is retryable.
-    func installMigration(_ payload: LibraryCollectionsImport, manifestID: String,
-                          expectedEpoch: UUID) throws -> UserCollectionsSnapshot {
-        try open()
-        return try transaction {
-            try requireEpoch(expectedEpoch)
-            if let installed = try meta("migration_manifest") {
-                guard installed == manifestID else { throw UserCollectionsError.migrationConflict }
-                return try readSnapshot()
-            }
-            guard try metaInteger("revision") == 0 else { throw UserCollectionsError.migrationConflict }
-            for playlist in payload.playlists {
-                try insertPlaylist(playlist)
-            }
-            for item in payload.locators { try remember(item.reference, locator: item.locator, replacing: false) }
-            for alias in payload.aliases { try link(alias) }
-            for member in payload.members {
-                try requirePlaylist(member.playlistID)
-                try execute("INSERT INTO members VALUES(?,?,?,?) ON CONFLICT(playlist_id,ref_key) DO UPDATE SET position=MIN(position,excluded.position),added_at=MIN(added_at,excluded.added_at)", [.text(member.playlistID.uuidString), .text(try canonical(member.reference).storageKey), .integer(Int64(member.position)), .real(member.addedAt.timeIntervalSince1970)])
-            }
-            for favorite in payload.favorites { try mergeFavorite(favorite) }
-            for recent in payload.recent { try mergeRecent(recent) }
-            for playlist in payload.playlists { try normalizePositions(playlist.id) }
-            try execute("DELETE FROM recent WHERE ref_key NOT IN (SELECT ref_key FROM recent ORDER BY commit_sequence DESC,migration_order ASC LIMIT 50)")
-            try setMeta("recent_sequence", String(try integer("SELECT COALESCE(MAX(commit_sequence),0) FROM recent")))
-            try setMeta("migration_manifest", manifestID)
-            try advanceRevision()
-            return try readSnapshot()
-        }
-    }
 
-    /// A reset completion marker prevents old snapshots/journals from being
-    /// interpreted as a first install. Late commands carry the former epoch.
+
+    /// Late commands carry the former epoch and cannot repopulate a reset.
     func reset(expectedEpoch: UUID) throws -> UserCollectionsSnapshot {
         try open()
         return try transaction {
@@ -372,7 +303,6 @@ actor UserCollectionsStore {
             for table in ["members", "playlists", "playlist_cover_assets", "library_exclusions", "favorites", "recent", "aliases", "locators"] { try execute("DELETE FROM \(table)") }
             try execute("DELETE FROM collections_meta WHERE key LIKE 'profile-%'")
             try setMeta("reset_epoch", UUID().uuidString)
-            try setMeta("migration_manifest", "reset-complete")
             try setMeta("history_publisher", "")
             try setMeta("history_high_water", "")
             try setMeta("recent_sequence", "0")
@@ -381,18 +311,7 @@ actor UserCollectionsStore {
         }
     }
 
-    /// A staging owner cannot be reused after its file has been published.
-    /// Checkpoint before closing so publication moves exactly one SQLite file.
-    func finishMigrationPublication() throws {
-        try open()
-        var pages: Int32 = 0
-        var completed: Int32 = 0
-        guard sqlite3_wal_checkpoint_v2(database, nil, SQLITE_CHECKPOINT_TRUNCATE, &pages, &completed) == SQLITE_OK,
-              completed == pages else { throw databaseError() }
-        guard sqlite3_close(database) == SQLITE_OK else { throw databaseError() }
-        database = nil
-        sealedForPublication = true
-    }
+
 
     // MARK: Identity and relationship transactions
 
@@ -476,10 +395,6 @@ actor UserCollectionsStore {
 
     private func requireFinite(_ date: Date) throws {
         guard date.timeIntervalSince1970.isFinite else { throw UserCollectionsError.personalSettingsConflict }
-    }
-
-    private func normalizedLegacyTag(_ name: String) -> String {
-        name.trimmingCharacters(in: .whitespacesAndNewlines).precomposedStringWithCanonicalMapping
     }
 
     private func replaceOrganization(_ state: LibraryCollectionsOrganizationState) throws {
@@ -705,7 +620,7 @@ actor UserCollectionsStore {
             guard revision > 0 else { throw UserCollectionsError.corruptData("exclusion revision") }
             exclusions.append(.init(reference: try reference(statement, 0), revision: revision))
         }
-        return UserCollectionsSnapshot(revision: try metaInteger("revision"), resetEpoch: epoch, migrationManifestID: try meta("migration_manifest"), playlists: playlists, members: members, favorites: favorites, recent: recent, aliases: aliases, locators: locators, excludedLibraryReferences: exclusions)
+        return UserCollectionsSnapshot(revision: try metaInteger("revision"), resetEpoch: epoch, playlists: playlists, members: members, favorites: favorites, recent: recent, aliases: aliases, locators: locators, excludedLibraryReferences: exclusions)
     }
 
     private func validateAliasGraph(_ aliases: [WallpaperReferenceAlias]) throws {
@@ -726,7 +641,6 @@ actor UserCollectionsStore {
     }
 
     private func open() throws {
-        guard !sealedForPublication else { throw UserCollectionsError.closedForPublication }
         guard database == nil else { return }
         if allowCreate { try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true) }
         var handle: OpaquePointer?
@@ -739,7 +653,7 @@ actor UserCollectionsStore {
         do {
             sqlite3_busy_timeout(handle, 2500)
             let version = Int32(try integer("PRAGMA user_version"))
-            guard (0...2).contains(version) else { throw UserCollectionsError.unsupportedSchema(version) }
+            guard version == 0 || version == 2 else { throw UserCollectionsError.unsupportedSchema(version) }
             let identity = Int32(try integer("PRAGMA application_id"))
             if version == 0 {
                 guard allowCreate, identity == 0, try integer("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'") == 0 else { throw UserCollectionsError.corruptData("unrecognized database") }
@@ -763,18 +677,6 @@ actor UserCollectionsStore {
                     try setMeta("revision", "0")
                     try setMeta("reset_epoch", UUID().uuidString)
                     try setMeta("recent_sequence", "0")
-                }
-            } else if version == 1 {
-                try transaction {
-                    try execute("CREATE TABLE playlist_cover_assets(id TEXT PRIMARY KEY,image_data BLOB NOT NULL,pixel_width INTEGER NOT NULL,pixel_height INTEGER NOT NULL)")
-                    try execute("ALTER TABLE playlists ADD COLUMN description_text TEXT")
-                    try execute("ALTER TABLE playlists ADD COLUMN custom_cover_asset_id TEXT REFERENCES playlist_cover_assets(id)")
-                    try execute("CREATE TABLE library_exclusions(ref_key TEXT PRIMARY KEY,revision INTEGER NOT NULL)")
-                    try execute("PRAGMA user_version=2")
-                    // Do not commit an upgrade whose original relationships
-                    // cannot be read. DDL/version and rows roll back together.
-                    guard try strings("PRAGMA quick_check(1)") == ["ok"] else { throw UserCollectionsError.corruptData("SQLite integrity") }
-                    _ = try readSnapshot()
                 }
             }
         } catch {

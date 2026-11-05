@@ -6,8 +6,10 @@ nonisolated enum OnlineImageContentProjection {
             canPlay: true, canDelete: true, canQuickLook: true, canExport: true, localURL: url,
             resourceRevision: record.revision.uuidString)
         var capabilities = facts.capabilities
-        capabilities.insert(.openSource)
-        if !available { capabilities.insert(.retryDownload) }
+        if !record.sourceURL.isFileURL {
+            capabilities.insert(.openSource)
+            if !available { capabilities.insert(.retryDownload) }
+        }
         return make(reference: record.assetID.reference, title: record.title,
             locator: .init(path: url.path, titleHint: record.title, mediaKind: .image, provenance: record.sourceURL.absoluteString),
             availability: facts.availability, capabilities: capabilities,

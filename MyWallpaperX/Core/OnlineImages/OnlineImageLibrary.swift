@@ -1,8 +1,6 @@
 import Combine
 import CryptoKit
 import Foundation
-import ImageIO
-import UniformTypeIdentifiers
 
 /// The two image sources share one publication owner. Browser rows are never a second local index.
 @MainActor final class OnlineImageLibrary: ObservableObject {
@@ -16,8 +14,7 @@ import UniformTypeIdentifiers
     @Published private(set) var wallhavenAccount: WallhavenAccountInfo = .unread
     private var wallhavenAccountTask: Task<Void, Never>?
     let root: URL
-    private let legacyRoot: URL?
-    var downloadRoots: [URL] { [root.appendingPathComponent("Wallhaven"), root.appendingPathComponent("Pixiv")] + [legacyRoot].compactMap { $0 } }
+    var downloadRoots: [URL] { OnlineImageSource.allCases.map { root.appendingPathComponent($0.displayName) } }
     let wallhaven = WallhavenClient()
     private(set) var pixiv: PixivClient?
     @Published private(set) var pixivSession: PixivSession?
@@ -85,30 +82,41 @@ import UniformTypeIdentifiers
     private var waitingDownloads: [(UUID, CheckedContinuation<Bool, Never>)] = []
     var requestLibraryPlayback: ((WallpaperReference) -> Void)?
     var captureApplyIntent: (() -> (() -> Bool))?
+    var prepareExplicitLibraryRestoration: ((WallpaperReference) -> (() -> Void)?)?
     var isFileInUse: ((String) -> Bool)?
+    private var localTasks: [OnlineImageSource: Task<Void, Never>] = [:]
 
     init(root: URL? = nil, originalCacheRoot: URL? = nil) {
         self.root = root ?? FileManager.default.urls(for: .moviesDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("MyWallpaperX", isDirectory: true)
-        legacyRoot = root == nil ? self.root.appendingPathComponent("在线图片", isDirectory: true) : nil
-        store = OnlineImageLibraryStore(root: self.root, legacyRoot: legacyRoot,
-            manifestName: root == nil ? "online-images.json" : "manifest.json")
+        store = OnlineImageLibraryStore(root: self.root)
         self.originalCacheRoot = originalCacheRoot ?? root?.appendingPathComponent(".quick-look-cache", isDirectory: true)
             ?? FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
                 .appendingPathComponent("MyWallpaperX/OriginalPreviews", isDirectory: true)
-        refreshLocal()
+    }
+
+    func prepareLocal(_ sources: Set<OnlineImageSource>) {
+        for source in sources where snapshot.sourceStatuses[source] == nil { _ = loadLocal(source) }
     }
 
     @discardableResult
-    func refreshLocal() -> Task<Void, Never> {
-        Task { [weak self, store] in
-            do { let value = try await store.load(); self?.accept(value) }
-            catch {
-                guard let self else { return }
-                snapshot.status = .init(phase: .failed(message: error.localizedDescription),
-                    hasSuccessfulScan: snapshot.status.hasSuccessfulScan)
-            }
+    func refreshLocal(_ sources: Set<OnlineImageSource> = Set(OnlineImageSource.allCases)) -> Task<Void, Never> {
+        let tasks = sources.map { loadLocal($0) }
+        return Task { for task in tasks { await task.value } }
+    }
+
+    private func loadLocal(_ source: OnlineImageSource) -> Task<Void, Never> {
+        if let task = localTasks[source] { return task }
+        let task = Task { [weak self, store] in
+            defer { self?.localTasks[source] = nil }
+            do {
+                self?.accept(try await store.load([source]))
+                await Task.yield()
+                self?.accept(try await store.scan(source))
+            } catch { self?.accept(await store.failed(source, message: error.localizedDescription)) }
         }
+        localTasks[source] = task
+        return task
     }
 
     func prepareWallhaven() async -> WallhavenClient {
@@ -351,7 +359,10 @@ import UniformTypeIdentifiers
     private func startDownload(id: OnlineImageAssetID, title: String, previewURL: URL?, apply: Bool,
                                resolve: @escaping @MainActor () async throws -> (OnlineImageAsset, URL?)) {
         guard transfers[id] == nil else { return }
+        prepareLocal([id.source])
+        let restoration = prepareExplicitLibraryRestoration?(id.reference)
         if !snapshot.unavailable.contains(id), let record = record(for: id.reference) {
+            restoration?()
             if apply { requestLibraryPlayback?(record.id.reference) }
             return
         }
@@ -361,14 +372,24 @@ import UniformTypeIdentifiers
         progress[id] = 0
         let task = Task { [weak self] in
             guard let self else { return }
-            var outcome: DownloadTerminalOutcome = .cancelled
+            var outcome: DownloadTerminalOutcome? = .cancelled
             var failure: String?
             var terminalTitle = title
             defer {
                 if transfers[id]?.id == token { transfers.removeValue(forKey: id); progress.removeValue(forKey: id) }
-                downloadTerminals.send(.init(id: .init(reference: id.reference, attemptID: token.uuidString),
-                    title: terminalTitle, outcome: outcome, recordedAt: Date(), failureMessage: failure))
+                if let outcome {
+                    downloadTerminals.send(.init(id: .init(reference: id.reference, attemptID: token.uuidString),
+                        title: terminalTitle, outcome: outcome, recordedAt: Date(), failureMessage: failure))
+                }
                 downloadTasksDidChange.send()
+            }
+            await localTasks[id.source]?.value
+            guard !Task.isCancelled else { return }
+            if !snapshot.unavailable.contains(id), let record = record(for: id.reference) {
+                outcome = nil
+                restoration?()
+                if !Task.isCancelled, applyIntent?() == true { requestLibraryPlayback?(record.id.reference) }
+                return
             }
             guard await waitForDownloadSlot(token) else { return }
             defer { releaseDownloadSlot(token) }
@@ -405,7 +426,7 @@ import UniformTypeIdentifiers
                 transfers[id]?.phase = .saving
                 downloadTasksDidChange.send()
                 let info: (width: Int, height: Int, bytes: Int64, extensionName: String)
-                do { info = try await Task.detached(priority: .utility) { try Self.imageInfo(staging) }.value }
+                do { info = try await Task.detached(priority: .utility) { try OnlineImageLibraryStore.imageInfo(staging) }.value }
                 catch {
                     if let cachedURL {
                         await Task.detached(priority: .utility) { try? FileManager.default.removeItem(at: cachedURL.deletingLastPathComponent()) }.value
@@ -418,6 +439,7 @@ import UniformTypeIdentifiers
                     height: info.height, fileSizeBytes: info.bytes, fileExtension: info.extensionName)
                 outcome = .completed
                 accept(value)
+                restoration?()
                 if !Task.isCancelled, scope == requestScope(id.source),
                    applyIntent?() == true { requestLibraryPlayback?(asset.id.reference) }
             } catch is CancellationError { }
@@ -630,7 +652,7 @@ import UniformTypeIdentifiers
             if let message = sync.failureMessage { errorMessage = message }
         }
         do { accept(try await store.removeRecord(id: record.id, expectedRevision: record.revision)) }
-        catch { refreshLocal(); throw error }
+        catch { refreshLocal([record.id.source]); throw error }
     }
 
     private func accept(_ value: OnlineImageLocalSnapshot) {
@@ -657,18 +679,4 @@ import UniformTypeIdentifiers
         }
     }
 
-    private nonisolated static func imageInfo(_ url: URL) throws -> (width: Int, height: Int, bytes: Int64, extensionName: String) {
-        guard let source = CGImageSourceCreateWithURL(url as CFURL, [kCGImageSourceShouldCache: false] as CFDictionary),
-              CGImageSourceGetCount(source) == 1, let type = CGImageSourceGetType(source),
-              let utType = UTType(type as String), utType.conforms(to: .image), let ext = utType.preferredFilenameExtension,
-              let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
-              let width = props[kCGImagePropertyPixelWidth] as? Int, width > 0,
-              let height = props[kCGImagePropertyPixelHeight] as? Int, height > 0,
-              CGImageSourceCreateThumbnailAtIndex(source, 0, [kCGImageSourceCreateThumbnailFromImageAlways: true,
-                kCGImageSourceThumbnailMaxPixelSize: 32, kCGImageSourceShouldCacheImmediately: true] as CFDictionary) != nil else {
-            throw OnlineImageError.message("下载内容不是可读取的静态原图，未加入资料库。")
-        }
-        let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
-        return (width, height, Int64(size), ext)
-    }
 }

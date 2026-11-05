@@ -64,10 +64,6 @@ extension SteamWorkshopService {
         detailCacheDirectoryURL().appendingPathComponent("\(id).json")
     }
 
-    nonisolated static func legacyDownloadMetadataFileURL(for directory: URL) -> URL {
-        directory.appendingPathComponent(".mywallpaperx-steam-metadata.json")
-    }
-
     nonisolated static func preferredPreviewRelativePath(
         in directory: URL,
         project: SteamWorkshopProject?,
@@ -253,9 +249,7 @@ extension SteamWorkshopService {
                 fallbackProject: nil, fallbackIdentifier: snapshot.item.id, resolvingIDs: resolvingIDs, managedSnapshots: managed, context: context)
         }
         let projectURL = directory.appendingPathComponent("project.json")
-        let metadataURL = Self.legacyDownloadMetadataFileURL(for: directory)
         guard FileManager.default.fileExists(atPath: projectURL.path)
-            || FileManager.default.fileExists(atPath: metadataURL.path)
             || FileManager.default.fileExists(atPath: directory.appendingPathComponent("scene.pkg").path)
             || resolveHTMLURL(in: directory, preferredFileName: nil) != nil
             || resolveVideoURL(in: directory, preferredFileName: nil) != nil else {
@@ -881,14 +875,6 @@ extension SteamWorkshopService {
     nonisolated static private func scanLoadDownloadMetadataSnapshot(legacyDirectory: URL?, id: String, context: SteamWorkshopInstalledLibraryScanContext) -> SteamWorkshopDownloadMetadataSnapshot? {
         if let entry = Self.scanLoadDownloadMetadataEntry(forItemID: id, metadataIndexDirectory: context.metadataIndexDirectory) {
             return entry.snapshot
-        }
-
-        if let legacyDirectory {
-            let metadataURL = Self.legacyDownloadMetadataFileURL(for: legacyDirectory)
-            if let data = try? Data(contentsOf: metadataURL),
-               let snapshot = try? JSONDecoder().decode(SteamWorkshopDownloadMetadataSnapshot.self, from: data) {
-                return snapshot
-            }
         }
 
         guard let item = context.fallbackItemsByID[id] ?? Self.loadDetailCache(id: id) else { return nil }

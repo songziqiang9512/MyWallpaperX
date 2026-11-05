@@ -44,14 +44,17 @@ import UniformTypeIdentifiers
             let store = UserCollectionsStore(url: folder.appendingPathComponent("relationships.sqlite3"))
             let initial = try await store.snapshot()
             let list = WallpaperPlaylist(name: "Original list", createdAt: Date(timeIntervalSince1970: 10), sidebarRank: 0)
-            var payload = LibraryCollectionsImport(playlists: [list],
+            let payload = LibraryCollectionsPersonalSettingsImport(playlists: [list],
                 members: [.init(playlistID: list.id, reference: old, position: 0, addedAt: Date(timeIntervalSince1970: 20))],
-                favorites: [.init(reference: old, favoritedAt: Date(timeIntervalSince1970: 30))],
-                recent: [.init(reference: old, lastSuccessfulUseAt: Date(timeIntervalSince1970: 40), commitSequence: 42, migrationOrder: nil)])
-            if !minimalLocator {
-                payload.locators = [.init(reference: old, locator: .init(path: folder.appendingPathComponent("missing").path, titleHint: "Original title", mediaKind: kind))]
-            }
-            let snapshot = try await store.installMigration(payload, manifestID: "relocation-fixture", expectedEpoch: initial.resetEpoch)
+                favoriteStates: [.init(reference: old, isFavorite: true, favoritedAt: Date(timeIntervalSince1970: 30))],
+                locators: minimalLocator ? [] : [.init(reference: old, locator: .init(path: folder.appendingPathComponent("missing").path,
+                    titleHint: "Original title", mediaKind: kind))], expectedLibraryExclusions: initial.excludedLibraryReferences)
+            _ = try await store.applyPersonalSettings(payload, commandID: UUID(),
+                expectedOrganization: initial.organizationState, expectedEpoch: initial.resetEpoch)
+            let history = try await store.startHistorySession(expectedEpoch: initial.resetEpoch)
+            let recorded = try await store.recordSuccessfulUse(old, locator: nil, token: history, sequence: 42, at: Date(timeIntervalSince1970: 40))
+            let snapshot = try await store.snapshot()
+            precondition(recorded && snapshot.recent.count == 1 && snapshot.recent[0].commitSequence == 1)
             let controller = UserCollectionsController(store: store, snapshot: snapshot)
             let workspace = WallpaperLibraryWorkspace(controller)
             workspace.contentValues[old] = try WallpaperLibraryQuery.resolve([old], catalog: .init(), relationships: snapshot)[0]
@@ -86,7 +89,8 @@ import UniformTypeIdentifiers
                 && state.members.count == 1 && state.members[0].reference == new && state.members[0].position == 0
                 && state.members[0].addedAt == before.members[0].addedAt && state.favorites.count == 1
                 && state.favorites[0].reference == new && state.favorites[0].favoritedAt == before.favorites[0].favoritedAt
-                && state.recent.count == 1 && state.recent[0].reference == new && state.recent[0].commitSequence == 42
+                && state.recent.count == 1 && state.recent[0].reference == new && state.recent[0].commitSequence == before.recent[0].commitSequence
+                && state.recent[0].lastSuccessfulUseAt == before.recent[0].lastSuccessfulUseAt
             let selectedPath = Data(file.resolvingSymlinksInPath().standardizedFileURL.path.utf8)
             let storedPath = state.locators[0].locator.path.map { Data(URL(fileURLWithPath: $0).resolvingSymlinksInPath().standardizedFileURL.path.utf8) }
             checks["\(provider.rawValue)-target-locator-replaces-old-missing-locator"] = state.locators.count == 1

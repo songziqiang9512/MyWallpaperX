@@ -8,7 +8,6 @@ import CoreAudio
 import Foundation
 
 nonisolated enum SystemAudioCaptureDeviceFactory {
-    @available(macOS 14.2, *)
     static func createProcessTap(description: CATapDescription) throws -> AudioObjectID {
         var tapID = AudioObjectID(kAudioObjectUnknown)
         let status = AudioHardwareCreateProcessTap(description, &tapID)

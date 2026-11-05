@@ -68,8 +68,7 @@
     }
     var state = WallpaperLibraryPresentationState()
     state.queryResult = .init(items: [content(a), content(b)], unfilteredCount: 2)
-    let relationships = UserCollectionsSnapshot(revision: 7, resetEpoch: epoch, migrationManifestID: nil,
-        playlists: [], members: [], favorites: [.init(reference: a, favoritedAt: nil)], recent: [], aliases: [], locators: [])
+    let relationships = UserCollectionsSnapshot(revision: 7, resetEpoch: epoch, playlists: [], members: [], favorites: [.init(reference: a, favoritedAt: nil)], recent: [], aliases: [], locators: [])
     var catalog = WallpaperLibraryCatalog(videos: state.queryResult.items, downloads: [content(download)], revision: 2)
     func signature(_ state: WallpaperLibraryPresentationState, catalogRevision: UInt64 = 2, projectionRevision: UInt64 = 3,
                    relationshipsRevision: Int64 = 7, resetEpoch: UUID? = nil, sequenceReference: WallpaperReference? = nil,
@@ -163,7 +162,6 @@
     query = state.query; query.statuses = [.unavailable, .failed]; queryVariants.append(query)
     query = state.query; query.sort = .name; queryVariants.append(query)
     query = state.query; query.ascending = false; queryVariants.append(query)
-    query = state.query; query.legacyTimeOrder = [b, a]; queryVariants.append(query)
     checks["card-data-key-keeps-every-playback-query-field"] = queryVariants.allSatisfy { query in
         var next = state; next.query = query
         return signature(next) != scrolled
@@ -191,8 +189,7 @@
     let hiddenAlias = WallpaperReference(provider: .videoLibrary, sourceID: "projection-unseen-alias")
     let listID = UUID()
     func ticketRelationships(revision: Int64 = 7, reset: UUID? = nil, name: String = "Projection playlist") -> UserCollectionsSnapshot {
-        .init(revision: revision, resetEpoch: reset ?? epoch, migrationManifestID: nil,
-            playlists: [.init(id: listID, name: name, sidebarRank: 0)],
+        .init(revision: revision, resetEpoch: reset ?? epoch, playlists: [.init(id: listID, name: name, sidebarRank: 0)],
             members: [.init(playlistID: listID, reference: alias, position: 0, addedAt: .distantPast)],
             favorites: [.init(reference: alias, favoritedAt: nil)], recent: [],
             aliases: [.init(alias: alias, canonical: a, proof: .publishedDownload),
@@ -509,8 +506,7 @@
     let content = WallpaperContentItem(reference: ref, providerReference: ref, locator: .init(),
         title: "Same card in public and personal feeds", kind: .video, publishedAvailability: .available,
         capabilities: [.play, .organize], metadata: .init(), acquisition: .idle, update: .idle, aliases: [])
-    let relationships = UserCollectionsSnapshot(revision: 1, resetEpoch: UUID(), migrationManifestID: nil,
-        playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
+    let relationships = UserCollectionsSnapshot(revision: 1, resetEpoch: UUID(), playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
     let source = try WallpaperPlaybackSequence.Snapshot(source: .single(ref), revision: 1,
         entries: [.init(reference: ref, runtime: .video, isPlayable: true)])
     let manager = WallpaperManager(), workspace = RemoteWorkspace(relationships)

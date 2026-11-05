@@ -107,9 +107,6 @@ extension Notification.Name { static let pixabayVideoReadyToPlay = Notification.
     var prepareExplicitLibraryRestoration: ((WallpaperReference) -> (() -> Void)?)?
     var prepareVideoPlaybackIntent: ((WallpaperReference, WallpaperPlaybackSequence.Pending?) -> ImportedVideoPlaybackAdmission?)? = { _, _ in .init() }
     var downloadedContent = DownloadedContent()
-    var downloadedContentTask: Task<Void, Never>?
-    var downloadedContentGeneration: UInt64 = 0
-    var initialDownloadedScanCompleted = true
 
     init() {
         requestLibraryPlayback = { [weak self] reference in

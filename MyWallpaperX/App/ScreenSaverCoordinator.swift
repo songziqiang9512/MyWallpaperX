@@ -137,9 +137,6 @@ public final class ScreenSaverCoordinator: ObservableObject {
     }
 
     private func persist(_ preferences: ScreenSaverPreferences) throws {
-        guard manager.allowsLibraryMutation else {
-            throw Failure.message(manager.migrationRecoveryMessage ?? "当前资料库需要恢复，暂不能修改屏保设置。")
-        }
         guard manager.settings.screenSaver != preferences else { return }
         var settings = manager.settings
         settings.screenSaver = preferences

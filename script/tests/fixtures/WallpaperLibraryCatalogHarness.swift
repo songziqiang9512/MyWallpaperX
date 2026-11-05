@@ -159,6 +159,10 @@ final class SteamWorkshopService {
 // consumes its existing launch predicate; these cases exercise video and Web.
 extension SteamWorkshopDownloadRecord { var isSceneLaunchable: Bool { false } }
 
+nonisolated private func onlineStatuses(_ status: WallpaperSourceScanStatus) -> [OnlineImageSource: WallpaperSourceScanStatus] {
+    Dictionary(uniqueKeysWithValues: OnlineImageSource.allCases.map { ($0, status) })
+}
+
 @main struct WallpaperLibraryCatalogHarness {
     @MainActor static func main() async throws {
         let root = URL(fileURLWithPath: CommandLine.arguments[1])
@@ -210,7 +214,10 @@ extension SteamWorkshopDownloadRecord { var isSceneLaunchable: Bool { false } }
         manager.didFinishInitialIndexLoad = true
         steam.hasCompletedInstalledLibraryLoad = true
         pixabay.downloadedContent = .init(revision: 1, entries: [], status: .init(phase: .ready(warnings: []), hasSuccessfulScan: true))
-        OnlineImageLibrary.shared.snapshot = .init(status: .init(phase: .ready(warnings: []), hasSuccessfulScan: true), revision: 1)
+        OnlineImageLibrary.shared.snapshot = .init(sourceStatuses: [.wallhaven: .init(phase: .ready(warnings: []), hasSuccessfulScan: true)], revision: 1)
+        checks["one-image-source-completion-does-not-declare-unread-peer-ready"] = controller.catalog.loadedProviders.contains(.wallhaven)
+            && !controller.catalog.loadedProviders.contains(.pixiv) && !OnlineImageLibrary.shared.snapshot.status.hasSuccessfulScan
+        OnlineImageLibrary.shared.snapshot = .init(sourceStatuses: onlineStatuses(.init(phase: .ready(warnings: []), hasSuccessfulScan: true)), revision: 2)
         checks["source-completion-including-a-successfully-empty-online-library-publishes-one-consistent-value"] = await wait {
             controller.catalog.loadedProviders == Set(WallpaperProvider.allCases) && controller.catalog.revision > beforeReadiness
         }
@@ -781,7 +788,7 @@ extension SteamWorkshopDownloadRecord { var isSceneLaunchable: Bool { false } }
         let imagePublicationObserver = controller.$catalog.dropFirst().sink { imagePublications.append($0) }
         let earlierDownloads = Set(controller.catalog.downloads.map(\.reference))
         OnlineImageLibrary.shared.snapshot = .init(records: [wallhaven, pixiv], unavailable: [pixiv.id],
-            status: .init(phase: .ready(warnings: []), hasSuccessfulScan: true), revision: 2)
+            sourceStatuses: onlineStatuses(.init(phase: .ready(warnings: []), hasSuccessfulScan: true)), revision: 2)
         checks["online-image-snapshot-publishes-each-provider-without-dropping-existing-downloads"] =
             earlierDownloads.isSubset(of: Set(controller.catalog.downloads.map(\.reference)))
             && controller.catalog.downloads.contains { $0.reference == wallhaven.id.reference && $0.kind == .image && $0.capabilities.contains(.play) }
@@ -797,14 +804,14 @@ extension SteamWorkshopDownloadRecord { var isSceneLaunchable: Bool { false } }
         checks["later-steam-and-pixabay-publications-preserve-new-image-provider-subsets"] = controller.catalog.downloads.contains { $0.reference == wallhaven.id.reference }
             && controller.catalog.downloads.contains { $0.reference == pixiv.id.reference }
         let otherProviders = controller.catalog.downloads.filter { $0.reference.provider != .wallhaven && $0.reference.provider != .pixiv }
-        OnlineImageLibrary.shared.snapshot = .init(status: .init(phase: .ready(warnings: []), hasSuccessfulScan: true), revision: 3)
+        OnlineImageLibrary.shared.snapshot = .init(sourceStatuses: onlineStatuses(.init(phase: .ready(warnings: []), hasSuccessfulScan: true)), revision: 3)
         checks["successful-empty-image-scan-clears-only-image-subsets-without-network-readiness"] = controller.catalog.downloads == otherProviders
             && controller.catalog.loadedProviders.isSuperset(of: [.wallhaven, .pixiv])
         await controller.steamTask?.value
         await controller.videoTask?.value; await controller.imageTask?.value
         let preservedVideos = controller.catalog.videos, preservedImages = controller.catalog.images
         var imageSnapshot = OnlineImageLocalSnapshot(records: [pixiv, wallhaven], unavailable: [pixiv.id],
-            status: .init(phase: .ready(warnings: []), hasSuccessfulScan: true), revision: 4)
+            sourceStatuses: onlineStatuses(.init(phase: .ready(warnings: []), hasSuccessfulScan: true)), revision: 4)
         imagePublications.removeAll()
         OnlineImageLibrary.shared.snapshot = imageSnapshot
         checks["two-image-provider-replacements-publish-once-in-the-original-source-order"] = imagePublications.count == 1
@@ -812,7 +819,7 @@ extension SteamWorkshopDownloadRecord { var isSceneLaunchable: Bool { false } }
             && imagePublications.first?.downloads == controller.catalog.downloads
         let imageDownloads = controller.catalog.downloads
         imagePublications.removeAll()
-        imageSnapshot.status = .init(phase: .failed(message: "Shared image scan failed"), hasSuccessfulScan: true)
+        imageSnapshot.sourceStatuses = onlineStatuses(.init(phase: .failed(message: "Shared image scan failed"), hasSuccessfulScan: true))
         imageSnapshot.revision += 1
         OnlineImageLibrary.shared.snapshot = imageSnapshot
         checks["shared-image-scan-failure-publishes-one-complete-status-without-losing-content-or-readiness"] = imagePublications.count == 1
@@ -845,7 +852,7 @@ extension SteamWorkshopDownloadRecord { var isSceneLaunchable: Bool { false } }
             }
         imagePublications.removeAll()
         imageSnapshot.records = []; imageSnapshot.unavailable = []
-        imageSnapshot.status = .init(phase: .ready(warnings: []), hasSuccessfulScan: true)
+        imageSnapshot.sourceStatuses = onlineStatuses(.init(phase: .ready(warnings: []), hasSuccessfulScan: true))
         imageSnapshot.revision += 1
         OnlineImageLibrary.shared.snapshot = imageSnapshot
         checks["successful-empty-image-rescan-publishes-both-ready-subsets-once-and-preserves-other-sources"] = imagePublications.count == 1

@@ -111,7 +111,6 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
 
     /// 磁盘缓存根目录：~/Library/Caches/<bundleID>/thumbnails/<namespace>/
     /// 放 Caches 与 OnlineImageThumbnailCache、Steam 下载管线两处磁盘缓存对齐（系统可回收、不进备份）。
-    /// 旧的 Application Support/thumbnails 平铺目录是可再生缓存，迁移进 Caches 后一次性删除。
     private static let diskCacheRoot: URL = {
         let bundleID = Bundle.main.bundleIdentifier ?? "MyWallpaperX"
         let caches = FileManager.default
@@ -119,13 +118,6 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
             .appendingPathComponent(bundleID)
             .appendingPathComponent("thumbnails")
         try? FileManager.default.createDirectory(at: caches, withIntermediateDirectories: true)
-        if let appSupport = FileManager.default
-            .urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
-            let legacy = appSupport
-                .appendingPathComponent(bundleID)
-                .appendingPathComponent("thumbnails")
-            try? FileManager.default.removeItem(at: legacy)
-        }
         return caches
     }()
 

@@ -17,7 +17,7 @@
         let defaults = UserDefaults(suiteName: domain)!
         defer { defaults.removePersistentDomain(forName: domain) }
         let manager = WallpaperManager()
-        let workspace = WallpaperLibraryWorkspace(startup: .ready(.init(store: store, snapshot: initial, disposition: .published)),
+        let workspace = WallpaperLibraryWorkspace(startup: .ready(store: store, snapshot: initial),
             manager: manager, images: SILService(), steam: SteamWorkshopService(), pixabay: PixabayService(), defaults: defaults)
         let backing = WallpaperReference(provider: .videoLibrary, sourceID: "backing")
         let canonical = WallpaperReference(provider: .pixabay, sourceID: "9")

@@ -1,7 +1,9 @@
 import Foundation
+import ImageIO
+import UniformTypeIdentifiers
 
-/// The online-image publisher's disk boundary. Only this manifest declares
-/// local assets; directory contents never manufacture a publication.
+/// One metadata writer for both providers. Remote identities come from their
+/// index; discovered ordinary images receive local-only identities.
 actor OnlineImageLibraryStore {
     nonisolated enum StoreError: Error, LocalizedError {
         case unsupportedSchema(Int)
@@ -38,44 +40,68 @@ actor OnlineImageLibraryStore {
     }
 
     nonisolated private let root: URL
-    nonisolated private let legacyRoot: URL?
-    nonisolated private let manifestName: String
-    private var manifest: Manifest?
+    private var manifests: [OnlineImageSource: Manifest] = [:]
     private var unavailable = Set<OnlineImageAssetID>()
+    private var sourceStatuses: [OnlineImageSource: WallpaperSourceScanStatus] = [:]
     private var snapshotRevision: UInt64 = 0
 
-    init(root: URL, legacyRoot: URL? = nil, manifestName: String = "manifest.json") {
+    init(root: URL) {
         self.root = Self.resolvingExistingAncestor(of: root).url
-        self.legacyRoot = legacyRoot.map { Self.resolvingExistingAncestor(of: $0).url }
-        self.manifestName = manifestName
     }
 
-    /// A missing manifest is a successful empty library. Invalid input never
-    /// becomes an empty success or grants permission to replace that input.
-    func load() throws -> OnlineImageLocalSnapshot {
-        manifest = nil
-        let manifestURL = try containedURL(relativePath: manifestName).url
-        let bytes: Data?
-        do { bytes = try Data(contentsOf: manifestURL) }
-        catch let error as CocoaError where error.code == .fileReadNoSuchFile {
-            if let legacyRoot {
-                let previous = try containedURL(relativePath: "manifest.json", base: legacyRoot).url
-                do { bytes = try Data(contentsOf: previous) }
-                catch let error as CocoaError where error.code == .fileReadNoSuchFile { bytes = nil }
-            } else { bytes = nil }
+    /// Decode first so existing rows do not wait for directory/stat work.
+    /// Missing and corrupt indexes remain distinct; failed reads never replace
+    /// a previously admitted in-memory partition.
+    func load(_ sources: Set<OnlineImageSource> = Set(OnlineImageSource.allCases)) throws -> OnlineImageLocalSnapshot {
+        for source in OnlineImageSource.allCases where sources.contains(source) {
+            let url = try indexURL(source)
+            manifests[source] = try readManifest(url, source: source) ?? Manifest()
+            sourceStatuses[source] = .init(phase: .loading,
+                hasSuccessfulScan: sourceStatuses[source]?.hasSuccessfulScan == true)
         }
-        let decoded: Manifest
-        if let bytes {
-            do { decoded = try JSONDecoder().decode(Manifest.self, from: bytes) }
-            catch let error as StoreError { throw error }
-            catch { throw StoreError.invalidManifest }
-        } else { decoded = Manifest() }
-        try validate(decoded)
-        let nextRevision = snapshotRevision &+ 1
-        let snapshot = try scan(decoded, revision: nextRevision)
-        manifest = decoded
-        unavailable = snapshot.unavailable
-        snapshotRevision = nextRevision
+        snapshotRevision &+= 1
+        return snapshot
+    }
+
+    func scan(_ source: OnlineImageSource) throws -> OnlineImageLocalSnapshot {
+        try ensureLoaded(source)
+        var next = manifests[source]!
+        var missing = unavailable.filter { $0.source != source }
+        for record in next.records {
+            if try containedURL(relativePath: record.relativePath).leafAttributes?[.type] as? FileAttributeType != .typeRegular {
+                missing.insert(record.id)
+            }
+        }
+        let excluded = Set(next.records.map(\.relativePath) + next.retiredPaths)
+        let relativeDirectory = source.displayName
+        let directory = try containedURL(relativePath: relativeDirectory).url
+        let entries: [URL]
+        do { entries = try FileManager.default.contentsOfDirectory(at: directory,
+            includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) }
+        catch let error as CocoaError where error.code == .fileReadNoSuchFile { entries = [] }
+        for url in entries.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
+            let path = relativeDirectory + "/" + url.lastPathComponent
+            guard !excluded.contains(path), !["pending", "staging", "part", "tmp"].contains(url.pathExtension.lowercased()),
+                  let resolved = try? containedURL(relativePath: path),
+                  resolved.leafAttributes?[.type] as? FileAttributeType == .typeRegular,
+                  let info = try? Self.imageInfo(url) else { continue }
+            let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+            next.records.append(.init(assetID: .init(source: source, artworkID: "local:" + path),
+                title: url.deletingPathExtension().lastPathComponent, sourceURL: url, author: nil, authorID: nil,
+                tags: [], relativePath: path, pixelWidth: info.width, pixelHeight: info.height,
+                fileSizeBytes: info.bytes, firstDownloadedAt: attributes[.creationDate] as? Date ?? Date(),
+                revision: UUID()))
+        }
+        if next.records != manifests[source]!.records { return try commit(next, source: source, unavailable: missing) }
+        unavailable = missing
+        sourceStatuses[source] = .init(phase: .ready(warnings: []), hasSuccessfulScan: true)
+        snapshotRevision &+= 1
+        return snapshot
+    }
+
+    func failed(_ source: OnlineImageSource, message: String) -> OnlineImageLocalSnapshot {
+        sourceStatuses[source] = .init(phase: .failed(message: message),
+            hasSuccessfulScan: sourceStatuses[source]?.hasSuccessfulScan == true)
         return snapshot
     }
 
@@ -83,7 +109,7 @@ actor OnlineImageLibraryStore {
     /// revision never overwrites the bytes referenced by a current desktop.
     func publish(stagingURL: URL, asset: OnlineImageAsset, width: Int, height: Int,
                  fileSizeBytes: Int64, fileExtension: String) throws -> OnlineImageLocalSnapshot {
-        try ensureLoaded()
+        try ensureLoaded(asset.id.source)
         try Task.checkCancellation()
         guard !asset.id.artworkID.isEmpty, asset.id.pageIndex >= 0,
               asset.id.source != .wallhaven || asset.id.pageIndex == 0,
@@ -92,7 +118,7 @@ actor OnlineImageLibraryStore {
               fileExtension.utf8.allSatisfy({ (48...57).contains($0) || (65...90).contains($0) || (97...122).contains($0) }) else {
             throw StoreError.invalidManifest
         }
-        var next = manifest!
+        var next = manifests[asset.id.source]!
         let oldIndex = next.records.firstIndex { $0.assetID == asset.id }
         let old = oldIndex.map { next.records[$0] }
         let revision = UUID()
@@ -111,7 +137,7 @@ actor OnlineImageLibraryStore {
                 next.records[oldIndex] = record
                 if let old { next.retiredPaths.append(old.relativePath) }
             } else { next.records.append(record) }
-            return try commit(next, unavailable: unavailable.subtracting([asset.id]))
+            return try commit(next, source: asset.id.source, unavailable: unavailable.subtracting([asset.id]))
         } catch {
             // This UUID belongs only to this uncommitted attempt. Old records,
             // old revisions and service-owned staging are never cleaned here.
@@ -123,40 +149,62 @@ actor OnlineImageLibraryStore {
     /// The service has already confirmed source unlink. This operation only
     /// removes its exact captured record, never a newer replacement or a file.
     func removeRecord(id: OnlineImageAssetID, expectedRevision: UUID) throws -> OnlineImageLocalSnapshot {
-        try ensureLoaded()
-        var next = manifest!
+        try ensureLoaded(id.source)
+        var next = manifests[id.source]!
         guard let index = next.records.firstIndex(where: { $0.assetID == id }),
               next.records[index].revision == expectedRevision else { throw StoreError.changedRecord }
         next.records.remove(at: index)
-        return try commit(next, unavailable: unavailable.subtracting([id]))
+        return try commit(next, source: id.source, unavailable: unavailable.subtracting([id]))
     }
 
     /// Locator projection does no filesystem work. Disk consumption performs
     /// the symbolic-link and ordinary-file checks in load/publish instead.
     nonisolated func fileURL(for record: OnlineImageLocalRecord) throws -> URL {
-        try relativeURL(relativePath: record.relativePath).url
+        try relativeURL(relativePath: record.relativePath)
     }
 
-    private func ensureLoaded() throws {
-        if manifest == nil { _ = try load() }
+    private func ensureLoaded(_ source: OnlineImageSource) throws {
+        if manifests[source] == nil { _ = try load([source]) }
     }
 
-    private func commit(_ next: Manifest, unavailable nextUnavailable: Set<OnlineImageAssetID>) throws -> OnlineImageLocalSnapshot {
-        let manifestURL = try containedURL(relativePath: manifestName).url
-        let nextRevision = snapshotRevision &+ 1
-        let snapshot = OnlineImageLocalSnapshot(records: next.records, unavailable: nextUnavailable,
-            status: .init(phase: .ready(warnings: []), hasSuccessfulScan: true), revision: nextRevision)
+    private func commit(_ next: Manifest, source: OnlineImageSource,
+                        unavailable nextUnavailable: Set<OnlineImageAssetID>) throws -> OnlineImageLocalSnapshot {
+        let manifestURL = try indexURL(source)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         let data = try encoder.encode(next)
         // This is the final cancellation boundary. After atomic publication,
         // cancellation cannot turn a committed asset into failure or unlink it.
         try Task.checkCancellation()
+        try FileManager.default.createDirectory(at: manifestURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         try data.write(to: manifestURL, options: .atomic)
-        manifest = next
+        manifests[source] = next
         unavailable = nextUnavailable
-        snapshotRevision = nextRevision
+        sourceStatuses[source] = .init(phase: .ready(warnings: []), hasSuccessfulScan: true)
+        snapshotRevision &+= 1
         return snapshot
+    }
+
+    private var snapshot: OnlineImageLocalSnapshot {
+        return .init(records: OnlineImageSource.allCases.flatMap { manifests[$0]?.records ?? [] },
+            unavailable: unavailable, sourceStatuses: sourceStatuses, revision: snapshotRevision)
+    }
+
+    private func indexURL(_ source: OnlineImageSource) throws -> URL {
+        try containedURL(relativePath: source.displayName + "/." + source.rawValue + ".json").url
+    }
+
+    private func readManifest(_ url: URL, source: OnlineImageSource) throws -> Manifest? {
+        let bytes: Data
+        do { bytes = try Data(contentsOf: url) }
+        catch let error as CocoaError where error.code == .fileReadNoSuchFile { return nil }
+        let value: Manifest
+        do { value = try JSONDecoder().decode(Manifest.self, from: bytes) }
+        catch let error as StoreError { throw error }
+        catch { throw StoreError.invalidManifest }
+        try validate(value)
+        guard value.records.allSatisfy({ $0.id.source == source }) else { throw StoreError.invalidManifest }
+        return value
     }
 
     private func validate(_ value: Manifest) throws {
@@ -168,6 +216,7 @@ actor OnlineImageLibraryStore {
                   assets.insert(record.assetID).inserted, paths.insert(record.relativePath).inserted else {
                 throw StoreError.invalidManifest
             }
+            _ = try relativeURL(relativePath: record.relativePath)
         }
         for path in value.retiredPaths {
             guard paths.insert(path).inserted else { throw StoreError.invalidManifest }
@@ -175,32 +224,30 @@ actor OnlineImageLibraryStore {
         }
     }
 
-    private func scan(_ value: Manifest, revision: UInt64) throws -> OnlineImageLocalSnapshot {
-        var unavailable = Set<OnlineImageAssetID>()
-        for record in value.records {
-            let resolved = try containedURL(relativePath: record.relativePath)
-            if resolved.leafAttributes?[.type] as? FileAttributeType != .typeRegular { unavailable.insert(record.assetID) }
+    nonisolated static func imageInfo(_ url: URL) throws -> (width: Int, height: Int, bytes: Int64, extensionName: String) {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, [kCGImageSourceShouldCache: false] as CFDictionary),
+              CGImageSourceGetCount(source) == 1, let type = CGImageSourceGetType(source),
+              let utType = UTType(type as String), utType.conforms(to: .image), let ext = utType.preferredFilenameExtension,
+              let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let width = props[kCGImagePropertyPixelWidth] as? Int, width > 0,
+              let height = props[kCGImagePropertyPixelHeight] as? Int, height > 0,
+              CGImageSourceCreateThumbnailAtIndex(source, 0, [kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceThumbnailMaxPixelSize: 32, kCGImageSourceShouldCacheImmediately: true] as CFDictionary) != nil else {
+            throw OnlineImageError.message("下载内容不是可读取的静态原图，未加入资料库。")
         }
-        return OnlineImageLocalSnapshot(records: value.records, unavailable: unavailable,
-            status: .init(phase: .ready(warnings: []), hasSuccessfulScan: true), revision: revision)
+        let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+        return (width, height, Int64(size), ext)
     }
 
-    nonisolated private func relativeURL(relativePath: String) throws -> (url: URL, root: URL) {
+    nonisolated private func relativeURL(relativePath: String) throws -> URL {
         let components = relativePath.split(separator: "/", omittingEmptySubsequences: false)
         guard root.isFileURL, !components.isEmpty, !relativePath.utf8.contains(0),
               components.allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." }) else { throw StoreError.invalidPath }
-        // Existing schema-one records keep their old lowercase source paths.
-        // New records use the brand-named sibling directories; media never moves.
-        let base = legacyRoot.flatMap { legacy in
-            components.first == "wallhaven" || components.first == "pixiv" ? legacy : nil
-        } ?? root
-        return (base.appendingPathComponent(relativePath).standardizedFileURL, base)
+        return root.appendingPathComponent(relativePath).standardizedFileURL
     }
 
-    nonisolated private func containedURL(relativePath: String, base: URL? = nil) throws -> (url: URL, leafAttributes: [FileAttributeKey: Any]?) {
-        let destination = try relativeURL(relativePath: relativePath)
-        let root = base ?? destination.root
-        let url = base?.appendingPathComponent(relativePath).standardizedFileURL ?? destination.url
+    nonisolated private func containedURL(relativePath: String) throws -> (url: URL, leafAttributes: [FileAttributeKey: Any]?) {
+        let url = try relativeURL(relativePath: relativePath)
         let resolved = Self.resolvingExistingAncestor(of: url)
         let prefix = root.path.hasSuffix("/") ? root.path : root.path + "/"
         guard !resolved.unresolvedSymbolicLink, resolved.url.path.hasPrefix(prefix), resolved.url.path != root.path else {

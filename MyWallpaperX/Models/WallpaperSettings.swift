@@ -215,17 +215,7 @@ public enum VideoFillMode: String, Codable, CaseIterable, Identifiable {
         }
     }
 
-    /// 从 IPC 协议值恢复枚举，找不到时回退到默认填充模式。
-    public static func fromIPC(_ value: String) -> VideoFillMode {
-        switch value {
-        case "aspectFit":  return .aspectFit
-        case "aspectFill": return .aspectFill
-        // 兼容旧版本直接传 rawValue（中文字符串）的情况
-        case "保持原尺寸":    return .aspectFit
-        case "填充屏幕":     return .aspectFill
-        default:           return .aspectFill
-        }
-    }
+
 }
 
 public enum WallpaperSortMode: String, Codable, CaseIterable, Identifiable {

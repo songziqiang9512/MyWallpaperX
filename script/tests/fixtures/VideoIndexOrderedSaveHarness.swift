@@ -8,18 +8,9 @@ nonisolated enum WallpaperPlaybackSequence {
     struct Pending: Equatable, Sendable {}
 }
 
-enum BundledVideoLibrary {
-    static func migratedURL(forPersistedPath path: String) -> URL? {
-        path == "/fixture/bundled-old.mp4" ? URL(fileURLWithPath: "/fixture/bundled-current.mp4") : nil
-    }
-}
-
-/// Only unrelated settings/playback and bundled-resource leaves are replaced.
+/// Only unrelated settings/playback leaves are replaced.
 /// Save/load/flush/revocation bodies and the SQLite store come from production.
 @MainActor final class WallpaperManager {
-    var migrationRecoveryMessage: String?
-    var preservesLegacyMigrationInputs: Bool { migrationRecoveryMessage != nil }
-    var allowsLibraryMutation: Bool { !preservesLegacyMigrationInputs }
     static var defersMissingFileCleanupForPersonalSettingsRecovery = false
     enum RuntimeSwitchSelection { case video(VideoWallpaper); case other }
     var switchSelections: [UUID: RuntimeSwitchSelection] = [:]
@@ -107,10 +98,8 @@ enum BundledVideoLibrary {
     @MainActor static func pump() { RunLoop.main.run(until: Date().addingTimeInterval(0.04)) }
     @MainActor static func main() throws {
         let mode = CommandLine.arguments[1]
-        WallpaperIndexStore.startupMigrationReadOnly = mode.hasPrefix("migration-")
         let store = WallpaperIndexStore.shared
         let manager = WallpaperManager()
-        if mode.hasPrefix("migration-") { manager.migrationRecoveryMessage = "Startup migration failed" }
         defer {
             if ProcessInfo.processInfo.environment["MWX_VIDEO_INDEX_TEST_CLEANUP"] == "1" {
                 manager.defaults.removePersistentDomain(forName: ProcessInfo.processInfo.environment["MWX_VIDEO_INDEX_TEST_DOMAIN"]!)
@@ -142,64 +131,6 @@ enum BundledVideoLibrary {
             manager.didFinishInitialIndexLoad = true
         }
         switch mode {
-        case "migration-readonly", "migration-legacy-index":
-            let url = URL(fileURLWithPath: ProcessInfo.processInfo.environment["MWX_VIDEO_INDEX_TEST_ROOT"]!).appendingPathComponent("index.sqlite3")
-            let before = try Data(contentsOf: url)
-            var journal = WallpaperIndexStartupChanges()
-            journal.record(path: b.path, old: b, new: nil)
-            journal.record(path: c.path, old: nil, new: c)
-            let encoded = try JSONEncoder().encode(journal)
-            let recent = try JSONEncoder().encode([a, b])
-            manager.defaults.set(encoded, forKey: manager.initialIndexChangesKey)
-            manager.defaults.set(recent, forKey: manager.recentWallpapersKey)
-            sentinelValues[manager.recentWallpapersKey] = recent
-            manager.startInitialLoad()
-            wait("recovery read-only did not materialize old index") { manager.didFinishInitialIndexLoad }
-            checks["failedMigrationStillReadsAndMergesJournal"] = manager.wallpapers.map(\.id) == ["A", "C"]
-            let afterReadonlyRead = try Data(contentsOf: url)
-            checks["readonlyLegacySchemaDoesNotInventAdmissionOrAlterDatabase"] = manager.wallpapers.allSatisfy { $0.firstIndexedAt == nil }
-                && afterReadonlyRead == before
-            manager.saveWallpapers(); manager.flushPersistentState()
-            checks["failedMigrationFlushCannotRewriteSourceIndex"] = try Data(contentsOf: url) == before
-            checks["failedMigrationKeepsOriginalJournalAndRecentBytes"] = manager.defaults.data(forKey: manager.initialIndexChangesKey) == encoded
-                && manager.defaults.data(forKey: manager.recentWallpapersKey) == recent
-            do { try store.saveWallpapers([]); checks["failedMigrationIndexRejectsExplicitWrite"] = false }
-            catch { checks["failedMigrationIndexRejectsExplicitWrite"] = true }
-            store.resetStore()
-            checks["failedMigrationIndexResetDoesNotDeleteSource"] = try Data(contentsOf: url) == before
-        case "migration-missing-index":
-            manager.startInitialLoad(); _ = try? store.loadWallpapers(); pump()
-            manager.saveWallpapers(); manager.flushPersistentState()
-            let url = URL(fileURLWithPath: ProcessInfo.processInfo.environment["MWX_VIDEO_INDEX_TEST_ROOT"]!).appendingPathComponent("index.sqlite3")
-            checks["failedMigrationReadDoesNotCreateMissingOldIndex"] = !FileManager.default.fileExists(atPath: url.path)
-                && !manager.didFinishInitialIndexLoad && manager.fallback == nil
-        case "startup-bundled-write", "startup-bundled-read":
-            let migrated = VideoWallpaper(id: "bundled-metadata", title: "Bundled metadata", path: "/fixture/bundled-current.mp4",
-                thumbnailPath: "/fixture/custom-thumb.jpg", staticFramePath: "/fixture/custom-frame.png", isFavorite: true,
-                lastUsed: Date(timeIntervalSince1970: 123.25), tags: ["原有", "metadata"], fileSize: 456,
-                duration: 78, resolution: "640x480", firstIndexedAt: Date(timeIntervalSince1970: 42.5))
-            let ordinaryZ = record("ordinary-z")
-            let ordinaryA = record("ordinary-a")
-            let expected = [ordinaryZ, migrated, ordinaryA]
-            if mode == "startup-bundled-write" {
-                let legacy = VideoWallpaper(id: "bundled-metadata", title: "Bundled metadata", path: "/fixture/bundled-old.mp4",
-                    thumbnailPath: "/fixture/custom-thumb.jpg", staticFramePath: "/fixture/custom-frame.png", isFavorite: true,
-                    lastUsed: Date(timeIntervalSince1970: 123.25), tags: ["原有", "metadata"], fileSize: 456,
-                    duration: 78, resolution: "640x480", firstIndexedAt: Date(timeIntervalSince1970: 42.5))
-                try store.saveWallpapers([ordinaryZ, legacy, ordinaryA])
-                checks["bundledMigrationStartsFromInitializedLegacySQLite"] = try store.loadInitialIndex().initialized
-                    && store.loadWallpapers() == [ordinaryZ, legacy, ordinaryA]
-            } else {
-                checks["restartSQLiteAlreadyContainsCompleteMigratedRows"] = try store.loadWallpapers() == expected
-            }
-            store.clearAudit()
-            manager.startInitialLoad()
-            wait("bundled initial migration did not settle and save") { manager.didFinishInitialIndexLoad && manager.idle }
-            checks["initialBundledMigrationKeepsAllMetadataAndNeighborOrder"] = manager.wallpapers == expected
-            checks["initialBundledMigrationDoesNotLeaveAutomaticPersistenceWork"] = manager.wallpapersAutoSaveWorkItem == nil
-                && !manager.initialIndexInternalPublication
-            checks["initialExplicitSaveCommitsTheCompleteMigratedSnapshot"] = try store.loadWallpapers() == expected
-                && store.savedIDsForAudit() == [expected.map(\.id)]
         case "first-indexed":
             let date = Date(timeIntervalSince1970: 1_700_000_000.375)
             var dated = record("dated"); dated.firstIndexedAt = date
@@ -222,12 +153,6 @@ enum BundledVideoLibrary {
             var mergedKnown = dated, mergedUnknown = a
             manager.mergeForAudit(imported, into: &mergedKnown); manager.mergeForAudit(imported, into: &mergedUnknown)
             checks["ordinaryUpsertAndDerivedUpdatesKeepKnownAndUnknownAdmission"] = mergedKnown.firstIndexedAt == date && mergedUnknown.firstIndexedAt == nil
-            var oldBundled = record("dated", path: "/fixture/bundled-old.mp4"); oldBundled.firstIndexedAt = date
-            let bundledCopy = manager.migratedBundledVideoWallpaper(oldBundled)
-            var expectedBundled = record("dated", path: "/fixture/bundled-current.mp4"); expectedBundled.firstIndexedAt = date
-            oldBundled.firstIndexedAt = nil
-            checks["bundledPathMigrationPreservesKnownAndUnknownSourceMetadata"] = bundledCopy == expectedBundled
-                && manager.migratedBundledVideoWallpaper(oldBundled).firstIndexedAt == nil
             var early = record("provisional", path: a.path); early.firstIndexedAt = date
             var journal = WallpaperIndexStartupChanges(); journal.record(path: a.path, old: nil, new: early)
             journal = try JSONDecoder().decode(WallpaperIndexStartupChanges.self, from: JSONEncoder().encode(journal))
@@ -271,12 +196,6 @@ enum BundledVideoLibrary {
             wait("admission fallback did not commit") { manager.idle && manager.fallback == nil }
             checks["completeFallbackAdmissionSurvivesSQLitePublication"] = try store.loadWallpapers().first?.firstIndexedAt == expected
                 && manager.wallpapers.first?.firstIndexedAt == expected
-        case "first-indexed-legacy":
-            let original = try store.loadWallpapers()
-            checks["writableLegacySchemaAddsNullableAdmissionWithoutInventingHistory"] = original.count == 2 && original.allSatisfy { $0.firstIndexedAt == nil }
-            var dated = original[0]; dated.firstIndexedAt = Date(timeIntervalSince1970: 10)
-            try store.saveWallpapers([dated, original[1]])
-            checks["upgradedLegacySchemaPersistsKnownAndUnknownAdmission"] = try store.loadWallpapers() == [dated, original[1]]
         case "startup":
             try store.saveWallpapers([a])
             let entered = DispatchSemaphore(value: 0), release = DispatchSemaphore(value: 0)
@@ -684,7 +603,7 @@ extension VideoIndexOrderedSaveChecks {
         func seed(_ rows: [VideoWallpaper], current: VideoWallpaper?) throws {
             manager.cancellables.removeAll()
             manager.wallpapersAutoSaveWorkItem?.cancel(); manager.wallpapersAutoSaveWorkItem = nil
-            manager.migrationRecoveryMessage = nil; manager.didFinishInitialIndexLoad = true
+            manager.didFinishInitialIndexLoad = true
             manager.initialIndexChanges = WallpaperIndexStartupChanges()
             manager.initialIndexSeedWallpapers = []; manager.initialIndexLoadInFlight = false
             manager.wallpapers = rows; manager.currentWallpaper = current
@@ -787,11 +706,6 @@ extension VideoIndexOrderedSaveChecks {
         try capture("initialLoad", expectedRows: [frameChanged, b], expectedCurrent: frameChanged,
             extra: ["sameValueCreatesNoDelta": noFalseDelta, "changedValueCreatesDelta": trueDelta,
                 "journalClearedAfterDurableSave": manager.defaults.data(forKey: manager.initialIndexChangesKey) == nil])
-
-        try seed([a, b], current: a)
-        manager.migrationRecoveryMessage = "owned recovery-mode fixture"
-        manager.updateWallpaperAssetPaths(forPath: a.path, staticFramePath: frameChanged.staticFramePath)
-        try capture("readOnly", expectedRows: [frameChanged, b], expectedCurrent: frameChanged, expectedDatabase: [a, b])
 
         try Data(repeating: 3, count: 19).write(to: source)
         try Data(repeating: 5, count: 31).write(to: URL(fileURLWithPath: b.path))

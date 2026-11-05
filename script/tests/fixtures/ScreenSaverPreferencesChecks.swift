@@ -11,7 +11,7 @@ func screenSaverPreferenceChecks(state: UserCollectionsSnapshot) throws -> [Stri
     let decoded = try JSONDecoder().decode(WallpaperSettings.self, from: JSONEncoder().encode(settings))
     checks["ScreenSaverIntentRoundTripsThroughOriginalSettings"] = decoded == settings
     let oldSettings = try JSONDecoder().decode(WallpaperSettings.self, from: Data("{}".utf8))
-    checks["OldLocalSettingsAndResetDefaultsRemainUnconfigured"] = oldSettings.screenSaver == ScreenSaverPreferences()
+    checks["EmptyLocalSettingsAndResetDefaultsRemainUnconfigured"] = oldSettings.screenSaver == ScreenSaverPreferences()
         && WallpaperSettings.defaults.screenSaver == ScreenSaverPreferences()
     let oldProfile = try JSONDecoder().decode(PersonalSettingsPreferences.self, from: Data("{}".utf8))
     checks["AbsentProfileScreenSaverPreservesLocalIntent"] = oldProfile.screenSaver == nil
@@ -26,8 +26,8 @@ func screenSaverPreferenceChecks(state: UserCollectionsSnapshot) throws -> [Stri
     previous.screenSaver = nil
     var changed = settings
     changed.screenSaver.reference = missing
-    checks["OldRecoveryDoesNotClaimNewScreenSaverField"] = previous.matchesForRecovery(.init(from: changed))
-        && !profileRoundTrip.matchesForRecovery(.init(from: changed))
+    checks["RecoveryCannotBorrowAMissingScreenSaverField"] = previous != .init(from: changed)
+        && profileRoundTrip != .init(from: changed)
     let localSource = PersonalSettingsLocalSource(reference: local, path: "/offline/screen-saver.mp4", title: "Same title")
     let importedSource = PersonalSettingsLocalSource(reference: imported, path: localSource.path, title: localSource.title)
     var preferences = PersonalSettingsPreferences(from: settings)
@@ -53,6 +53,6 @@ func screenSaverPreferenceChecks(state: UserCollectionsSnapshot) throws -> [Stri
     let oldPlan = try LibraryPersonalSettings.plan(oldPayload, sources: [localSource],
         beforePreferences: .init(from: settings), targetPreferences: .init(from: oldProfile.applying(to: settings)),
         state: state, normalizedPaths: [:], missingPathCount: 1)
-    checks["OldProfileSourceRemapDoesNotClaimLocalScreenSaverIntent"] = oldPlan.targetPreferences.screenSaver == settings.screenSaver
+    checks["PartialProfileSourceRemapDoesNotClaimLocalScreenSaverIntent"] = oldPlan.targetPreferences.screenSaver == settings.screenSaver
     return checks
 }

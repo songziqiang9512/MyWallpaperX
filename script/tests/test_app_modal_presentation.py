@@ -22,7 +22,9 @@ class AppModalPresentationTests(unittest.TestCase):
             'script/tests/fixtures/AppModalPresentationHarness.swift',
             'script/tests/fixtures/NativeAppHarness.swift')]
         settings = ROOT / 'MyWallpaperX/Shared/Settings/AppKitSettingsView.swift'
-        observed = [*sources, settings, Path(__file__), ROOT / 'script/tests/native_app_harness.py',
+        tasks = ROOT / 'MyWallpaperX/App/DownloadTasksController.swift'
+        steam = ROOT / 'MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService.swift'
+        observed = [*sources, settings, tasks, steam, Path(__file__), ROOT / 'script/tests/native_app_harness.py',
                     ROOT / 'script/tests/test_ui_library_algorithms.py']
         hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in observed}
         with tempfile.TemporaryDirectory(prefix='mwx-app-modal-', dir='/private/tmp') as directory:
@@ -38,6 +40,16 @@ class AppModalPresentationTests(unittest.TestCase):
                             '    private func preferredHostWindow()',
                             '    private func presentOpenPanel(',
                             '    private func presentSavePanel(')))
+                    controller = tasks.read_text()
+                    start = controller.index('        steam.$downloadError')
+                    feedback = controller[start:controller.index('        let publishers:', start)]
+                    for marker, content in {
+                        '    // ACTUAL_DOWNLOAD_ERROR_DECLARATION': next(line for line in steam.read_text().splitlines()
+                            if line.startswith('    @Published var downloadError:')),
+                        '        // ACTUAL_DOWNLOAD_FEEDBACK_SUBSCRIPTION': feedback,
+                    }.items():
+                        self.assertEqual(fixture.count(marker), 1)
+                        fixture = fixture.replace(marker, content)
                     target.write_text(fixture)
                 else:
                     shutil.copy2(path, target)
@@ -46,10 +58,12 @@ class AppModalPresentationTests(unittest.TestCase):
             build = subprocess.run(['xcrun', 'swiftc', *SWIFT_ISOLATION_FLAGS, '-warnings-as-errors', '-parse-as-library',
                 *copied, '-module-cache-path', str(work / 'modules'), '-o', str(binary)], capture_output=True, text=True, timeout=120)
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
-            run = run_native_app(binary, timeout=40)
+            run = run_native_app(binary, timeout=60)
             diagnostic = f'LaunchServices={run.launch_returncode}\nstdout:\n{run.stdout}\nstderr:\n{run.stderr}'
             self.assertEqual(run.launch_returncode, 0, diagnostic)
             self.assertTrue(run.stdout.strip().startswith('{'), diagnostic)
+            if "NativeFeedbackPixels unavailable:" in run.stderr:
+                print(next(line for line in run.stderr.splitlines() if line.startswith("NativeFeedbackPixels unavailable:")))
             checks = json.loads(run.stdout)
             print(json.dumps(checks, sort_keys=True))
             self.assertTrue(checks)

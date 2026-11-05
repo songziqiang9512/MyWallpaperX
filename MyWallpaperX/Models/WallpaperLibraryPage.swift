@@ -68,65 +68,11 @@ nonisolated enum WallpaperLibraryPage: Hashable, Codable, Sendable {
         }
     }
 
-    // The retired subscriptions page is read-only compatibility. Personal
-    // browsing now belongs to Steam's existing context, not a Shell page.
-    private enum CodingKeys: String, CodingKey {
-        case videos, images, downloads, recent, workshop, workshopSubscriptions, pixabay, wallhaven, pixiv, playlists, favorites, playlist
-    }
-    private enum PlaylistKey: String, CodingKey { case _0 }
-    private struct Empty: Codable {}
 
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        guard container.allKeys.count == 1, let key = container.allKeys.first else {
-            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Invalid library page"))
-        }
-        if key == .playlist {
-            let value = try container.nestedContainer(keyedBy: PlaylistKey.self, forKey: key)
-            self = .playlist(try value.decode(UUID.self, forKey: ._0))
-            return
-        }
-        _ = try container.nestedContainer(keyedBy: PlaylistKey.self, forKey: key)
-        switch key {
-        case .videos: self = .videos
-        case .images: self = .images
-        case .downloads: self = .downloads
-        case .recent: self = .recent
-        case .workshop, .workshopSubscriptions: self = .workshop
-        case .pixabay: self = .pixabay
-        case .wallhaven: self = .wallhaven
-        case .pixiv: self = .pixiv
-        case .playlists: self = .playlists
-        case .favorites: self = .favorites
-        case .playlist: preconditionFailure("handled above")
-        }
-    }
-
-    func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        let key: CodingKeys
-        switch self {
-        case .videos: key = .videos
-        case .images: key = .images
-        case .downloads: key = .downloads
-        case .recent: key = .recent
-        case .workshop: key = .workshop
-        case .pixabay: key = .pixabay
-        case .wallhaven: key = .wallhaven
-        case .pixiv: key = .pixiv
-        case .playlists: key = .playlists
-        case .favorites: key = .favorites
-        case .playlist(let id):
-            var value = container.nestedContainer(keyedBy: PlaylistKey.self, forKey: .playlist)
-            try value.encode(id, forKey: ._0)
-            return
-        }
-        try container.encode(Empty(), forKey: key)
-    }
 }
 
 nonisolated enum WallpaperLibrarySort: String, Codable, Sendable {
-    case sourceOrder, name, fileSize, createdAt, modifiedAt, lastUsed, addedAt, favoritedAt, legacyTime
+    case sourceOrder, name, fileSize, createdAt, modifiedAt, lastUsed, addedAt, favoritedAt
 }
 
 nonisolated enum WallpaperLibraryStatusFilter: String, Codable, Sendable {
@@ -142,62 +88,38 @@ nonisolated struct WallpaperLibraryQueryState: Codable, Equatable, Sendable {
     /// nil selects the page's default. Recent always retains success order.
     var sort: WallpaperLibrarySort? = nil
     var ascending = true
-    /// One frozen compatibility sequence, never a successful-use timestamp or
-    /// a mutation of playlist membership. Choosing a new sort retires it.
-    var legacyTimeOrder: [WallpaperReference]? = nil
     var preferredColumns = 5
     var scrollAnchor: WallpaperReference? = nil
-    /// nil retains v1's explicitly unknown scroll geometry. Native consumers
-    /// decide its documented first-item fallback once their items are known.
+    /// A missing offset uses the native grid's first-item fallback.
     var scrollOffset: Double? = nil
     var scrollAtTop: Bool? = nil
 
     init(search: String = "", providers: Set<WallpaperProvider> = [], kinds: Set<WallpaperMediaKind> = [],
          statuses: Set<WallpaperLibraryStatusFilter> = [], sort: WallpaperLibrarySort? = nil,
-         ascending: Bool = true, legacyTimeOrder: [WallpaperReference]? = nil,
+         ascending: Bool = true,
          preferredColumns: Int = 5, scrollAnchor: WallpaperReference? = nil,
          scrollOffset: Double? = nil, scrollAtTop: Bool? = nil, showsAdultContent: Bool = true) {
         self.search = search; self.providers = providers; self.kinds = kinds; self.statuses = statuses
-        self.sort = sort; self.ascending = ascending; self.legacyTimeOrder = legacyTimeOrder
+        self.sort = sort; self.ascending = ascending
         self.preferredColumns = preferredColumns; self.scrollAnchor = scrollAnchor
         self.scrollOffset = scrollOffset; self.scrollAtTop = scrollAtTop
         self.showsAdultContent = showsAdultContent
     }
 
     private enum CodingKeys: String, CodingKey {
-        case search, providers, kinds, statuses, showsAdultContent, sort, ascending, legacyTimeOrder
-        case provider, kind, status // Read-only single-selection fields.
+        case search, providers, kinds, statuses, showsAdultContent, sort, ascending
         case preferredColumns, scrollAnchor, scrollOffset, scrollAtTop
     }
 
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         search = try values.decode(String.self, forKey: .search)
-        if values.contains(.providers) {
-            providers = try values.decode(Set<WallpaperProvider>.self, forKey: .providers)
-        } else if let provider = try values.decodeIfPresent(WallpaperProvider.self, forKey: .provider) {
-            providers = [provider]
-        }
-        if values.contains(.kinds) {
-            kinds = try values.decode(Set<WallpaperMediaKind>.self, forKey: .kinds)
-        } else if let kind = try values.decodeIfPresent(WallpaperMediaKind.self, forKey: .kind) {
-            kinds = [kind]
-        }
-        if values.contains(.statuses) {
-            statuses = try values.decode(Set<WallpaperLibraryStatusFilter>.self, forKey: .statuses)
-        } else {
-            let legacyStatus = try values.decode(String.self, forKey: .status)
-            if legacyStatus != "all" {
-                guard let status = WallpaperLibraryStatusFilter(rawValue: legacyStatus) else {
-                    throw DecodingError.dataCorruptedError(forKey: .status, in: values, debugDescription: "Invalid library status filter")
-                }
-                statuses = [status]
-            }
-        }
+        providers = try values.decode(Set<WallpaperProvider>.self, forKey: .providers)
+        kinds = try values.decode(Set<WallpaperMediaKind>.self, forKey: .kinds)
+        statuses = try values.decode(Set<WallpaperLibraryStatusFilter>.self, forKey: .statuses)
         showsAdultContent = try values.decodeIfPresent(Bool.self, forKey: .showsAdultContent) ?? true
         sort = try values.decodeIfPresent(WallpaperLibrarySort.self, forKey: .sort)
         ascending = try values.decode(Bool.self, forKey: .ascending)
-        legacyTimeOrder = try values.decodeIfPresent([WallpaperReference].self, forKey: .legacyTimeOrder)
         preferredColumns = try values.decodeIfPresent(Int.self, forKey: .preferredColumns) ?? 5
         scrollAnchor = try values.decodeIfPresent(WallpaperReference.self, forKey: .scrollAnchor)
         scrollOffset = try values.decodeIfPresent(Double.self, forKey: .scrollOffset)
@@ -216,7 +138,6 @@ nonisolated struct WallpaperLibraryQueryState: Codable, Equatable, Sendable {
         try values.encode(showsAdultContent, forKey: .showsAdultContent)
         try values.encodeIfPresent(sort, forKey: .sort)
         try values.encode(ascending, forKey: .ascending)
-        try values.encodeIfPresent(legacyTimeOrder, forKey: .legacyTimeOrder)
         try values.encode(preferredColumns, forKey: .preferredColumns)
         try values.encodeIfPresent(scrollAnchor, forKey: .scrollAnchor)
         try values.encodeIfPresent(scrollOffset, forKey: .scrollOffset)
@@ -256,11 +177,10 @@ nonisolated struct WallpaperLibrarySelectionState: Equatable, Sendable {
 /// One video-library sort preference; no navigation, filters, zoom or history.
 nonisolated struct WallpaperLibraryVideoSortPreference: Codable, Equatable, Sendable {
     enum Mode: String, Codable, Sendable {
-        case sourceOrder, name, fileSize, createdAt, lastUsed, legacyTime
+        case sourceOrder, name, fileSize, createdAt, lastUsed
     }
     var mode: Mode
     var ascending: Bool
-    var legacyTimeOrder: [WallpaperReference]? = nil
 }
 
 nonisolated struct WallpaperLibraryVideoSortPatch: Codable, Equatable, Sendable {

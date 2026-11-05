@@ -108,7 +108,7 @@ class PixabayDownloadTransferTests(unittest.TestCase):
             '    private func startDownload(id:', '    func retryDownload(', '    func cancelDownload(',
             '    private func resolveDownloadItem(', '    private func downloadFailure(',
             '    private func fetchAndMove(', '    private func downloadFile(',
-            '    private func existingDownloadedURL(', '    static var downloadDirectory:', '    static var legacyDownloadDirectory:',
+            '    private func existingDownloadedURL(', '    static var downloadDirectory:',
         ])
         state = '\n'.join(declaration(service, signature) for signature in (
             '    struct DownloadActivity {', '    private struct DownloadSlot {'))

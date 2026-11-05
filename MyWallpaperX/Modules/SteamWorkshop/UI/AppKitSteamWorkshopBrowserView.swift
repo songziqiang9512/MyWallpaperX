@@ -53,7 +53,6 @@ final class AppKitSteamWorkshopBrowserView: NSView, ListThumbnailTintProviding {
     private var visibleCardID: String?
     private var latestInspectorItem: SteamWorkshopBrowserItem?
     private var isHandlingHostClose = false
-    private var isShowingDownloadError = false
     /// One visible demand per view, balanced across hiding, minimization and detachment.
     private var isBrowsePanelActive = false
     private var visibilitySubscription: AnyCancellable?
@@ -125,7 +124,6 @@ final class AppKitSteamWorkshopBrowserView: NSView, ListThumbnailTintProviding {
         gridView.opensDetailsOnSingleClick = { [weak self] in self?.opensDetailsOnSingleClick() == true }
         if isEntry || service.browserState == .idle || service.browserState == .loading { service.prepareForBrowserEntry() }
         syncContent(force: true)
-        presentPendingDownloadErrorIfNeeded()
         syncSelectedInspectorItem(service.selectedBrowserItem)
     }
 
@@ -174,12 +172,6 @@ final class AppKitSteamWorkshopBrowserView: NSView, ListThumbnailTintProviding {
                 self.syncSelectedInspectorItem(self.service.selectedBrowserItem)
             }
             .store(in: &cancellables)
-
-        service.$downloadError
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.presentPendingDownloadErrorIfNeeded() }
-            .store(in: &cancellables)
-
     }
 
     private func observeInspectorHost() {
@@ -422,31 +414,6 @@ final class AppKitSteamWorkshopBrowserView: NSView, ListThumbnailTintProviding {
     private func removeInspectorContent() {
         inspectorDetailView?.removeFromSuperview()
         inspectorDetailView = nil
-    }
-
-    private func presentPendingDownloadErrorIfNeeded() {
-        guard let message = service.downloadError, !message.isEmpty else { return }
-        guard !isShowingDownloadError else { return }
-        guard let window else { return }
-
-        isShowingDownloadError = true
-        let revisionAtPresentation = service.downloadErrorRevision
-        let alert = NSAlert()
-        alert.messageText = "操作失败"
-        alert.informativeText = message
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: "确定")
-        presentAppAlert(alert, in: window) { [weak self] _ in
-            guard let self else { return }
-            self.isShowingDownloadError = false
-            // 弹窗展示期间到达的新失败会推进失败代数；按代数而非文本判定，
-            // 同根因同文的两条并发失败不再被误判为「无新失败」而吞掉。
-            if self.service.downloadErrorRevision != revisionAtPresentation {
-                self.presentPendingDownloadErrorIfNeeded()
-            } else {
-                self.service.downloadError = nil
-            }
-        }
     }
 
     @objc private func retryBrowserFetch() {

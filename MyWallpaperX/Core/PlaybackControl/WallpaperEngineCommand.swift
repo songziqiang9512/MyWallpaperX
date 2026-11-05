@@ -99,14 +99,6 @@ final class PlaybackMuteState {
             name: .playbackMuteStateDidChange, object: nil
         )
     }
-
-    /// 为升级自旧版本 `settings.volume == 0` 的用户提供一次性迁移。
-    /// 新版本之后，静音意图只由本对象持久化，不再从主音量反推。
-    func migrateLegacyVolumeMuteIfNeeded(volume: Double) {
-        guard defaults.object(forKey: Self.persistenceKey) == nil,
-              volume.isFinite else { return }
-        setMuted(volume <= 0)
-    }
 }
 
 /// 跨引擎主音量公共权威。值为 0...1 的归一化增益，避免 Video/Web

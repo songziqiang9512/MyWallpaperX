@@ -173,8 +173,7 @@ import Combine
         try await wait("restored local binding") { restored.boundActions?.0 == ids[2].reference }
         let epochAction = restored.boundActions?.1.onPrimary, beforeEpoch = applied.count
         let previous = workspace.relationships
-        workspace.relationships = .init(revision: previous.revision + 1, resetEpoch: UUID(), migrationManifestID: nil,
-            playlists: previous.playlists, members: previous.members, favorites: previous.favorites,
+        workspace.relationships = .init(revision: previous.revision + 1, resetEpoch: UUID(), playlists: previous.playlists, members: previous.members, favorites: previous.favorites,
             recent: previous.recent, aliases: previous.aliases, locators: previous.locators)
         epochAction?()
         checks["reset-epoch-still-revokes-the-initially-bound-action"] = epochAction != nil && applied.count == beforeEpoch

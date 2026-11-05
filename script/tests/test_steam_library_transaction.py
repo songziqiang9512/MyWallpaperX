@@ -173,68 +173,6 @@ import Darwin
             }
             return
         }
-        if mode == "reclaim" {
-            let library = base.appendingPathComponent("library")
-            let retained = Set(CommandLine.arguments.dropFirst(3).map { "v1:" + $0.lowercased() })
-            let result = try await SteamWorkshopLibraryTransaction.reclaimVersions(
-                libraryRoot: library,
-                retaining: retained,
-                minimumAge: 3_600
-            )
-            precondition(result.removedStorageIdentities.count == 1)
-            // Snapshot retention was frozen before this playback lease arrived.
-            let leases = SteamWorkshopLibraryVersionLeaseRegistry()
-            let protected = retained.first!
-            let lateLease = leases.acquire(storageIdentities: [protected])!
-            let denied = try await SteamWorkshopLibraryTransaction.reclaimVersions(
-                libraryRoot: library, retaining: [], minimumAge: 3_600,
-                admitRemoval: { await leases.beginReclamation($0) },
-                removalFailed: { await leases.reclamationFailed($0) }
-            )
-            precondition(denied.removedStorageIdentities.isEmpty)
-            withExtendedLifetime(lateLease) {}
-            if let protected = retained.first {
-                let name = String(protected.dropFirst("v1:".count))
-                let content = library.appendingPathComponent(".mywallpaperx-steam-versions")
-                    .appendingPathComponent(name).appendingPathComponent("content/index.html")
-                precondition(SteamWorkshopLibraryTransaction.storageIdentity(
-                    containing: content,
-                    libraryRoot: library
-                ) == protected)
-            }
-            print("RECLAIMED: \(result.removedStorageIdentities.joined(separator: ","))")
-            return
-        }
-        if mode == "migrate" {
-            let library = base.appendingPathComponent("library")
-            let legacy = try JSONDecoder().decode(
-                SteamWorkshopLibraryCommit.self,
-                from: Data(contentsOf: base.appendingPathComponent("legacy.json"))
-            )
-            let migrated = try await Task.detached {
-                try SteamWorkshopLibraryTransaction.migrateLegacyCommit(legacy, libraryRoot: library)
-            }.value
-            precondition(migrated.version == 2 && migrated.directoryName.hasPrefix(legacy.workshopId + "-"))
-            precondition(SteamWorkshopLibraryTransaction.isAvailable(legacy, libraryRoot: library))
-            precondition(SteamWorkshopLibraryTransaction.isAvailable(migrated, libraryRoot: library))
-            precondition(SteamWorkshopLibraryTransaction.storageIdentity(for: legacy)
-                != SteamWorkshopLibraryTransaction.storageIdentity(for: migrated))
-            let publicURL = try SteamWorkshopLibraryTransaction.contentURL(for: migrated, libraryRoot: library)
-            precondition(publicURL == library.appendingPathComponent("Scene", isDirectory: true)
-                .appendingPathComponent(migrated.directoryName, isDirectory: true))
-            precondition(SteamWorkshopLibraryTransaction.storageIdentity(
-                containing: publicURL.appendingPathComponent("scene.pkg"), libraryRoot: library
-            ) == SteamWorkshopLibraryTransaction.storageIdentity(for: migrated))
-            precondition(SteamWorkshopLibraryTransaction.isManagedPublicDirectory(
-                publicURL, libraryRoot: library
-            ))
-            precondition(SteamWorkshopLibraryTransaction.isReservedManagedPublicDirectory(
-                publicURL, libraryRoot: library
-            ))
-            try JSONEncoder().encode(migrated).write(to: base.appendingPathComponent("migrated.json"))
-            print("MIGRATED")
-            return
-        }
         if mode == "reclaim-public" {
             let result = try await SteamWorkshopLibraryTransaction.reclaimVersions(
                 libraryRoot: base.appendingPathComponent("library"),
@@ -379,7 +317,7 @@ import Darwin
             try verifyJobRecovery(frame: frame, commit: commit, base: base)
             let leases = SteamWorkshopLibraryVersionLeaseRegistry()
             let commitIdentity = SteamWorkshopLibraryTransaction.storageIdentity(for: commit)!
-            let dependencyVersion = "v1:11111111-1111-4111-8111-111111111111"
+            let dependencyVersion = "v2:web:654321-11111111-1111-4111-8111-111111111111"
             var lifetime: PlaybackResourceLifetime? = leases.acquire(
                 storageIdentities: [commitIdentity, dependencyVersion]
             )
@@ -693,50 +631,36 @@ class SteamLibraryTransactionTests(unittest.TestCase):
     def test_reclaimed_identity_is_not_reused_by_same_process_redownload(self):
         self.scenario(mode='generation-lease')
 
-    def test_hidden_v1_migration_copies_current_content_and_preserves_old_path_and_gc(self):
+    def test_current_prepared_generation_replacement_and_reclamation(self):
         files = {'project.json': b'{"type":"scene","file":"scene.pkg"}',
                  'scene.pkg': b'package-fixture'}
-        with tempfile.TemporaryDirectory(prefix='mwx-steam-migrate-', dir='/private/tmp') as temporary:
+        with tempfile.TemporaryDirectory(prefix='mwx-steam-public-gc-', dir='/private/tmp') as temporary:
             root = pathlib.Path(temporary)
-            version = '11111111-1111-4111-8111-111111111111'
-            legacy_content = root / 'library' / '.mywallpaperx-steam-versions' / version / 'content'
-            legacy_content.mkdir(parents=True)
+            stage = root / 'staging' / ('job-' + 'a' * 32)
+            stage.mkdir(parents=True)
             for name, data in files.items():
-                (legacy_content / name).write_bytes(data)
-            legacy = {
-                'version': 1,
-                'workshopId': '123456',
-                'jobId': 'legacy-job-1',
-                'attempt': 1,
-                'directoryName': version,
-                'manifestId': '789',
-                'contentDigest': digest(files),
-                'contentType': 'scene',
-                'entryPath': 'scene.pkg',
-                'committedAt': 0,
-                'removed': False,
-            }
-            (root / 'legacy.json').write_text(json.dumps(legacy))
-            files |= {'shader-cache.bin': b'generated after import', 'scene.pkg': b'updated-fixture'}
-            for name, data in files.items():
-                (legacy_content / name).write_bytes(data)
-            self.assertNotEqual(digest(files), legacy['contentDigest'])
-            result = subprocess.run(
-                [str(self.binary), str(root), 'migrate'], capture_output=True, text=True, timeout=30,
-            )
+                (stage / name).write_bytes(data)
+            receipt = {'v': 1, 'type': 'result', 'requestId': 'r', 'ok': True, 'accountEpoch': 7,
+                       'data': {'receiptVersion': 2, 'contentDigest': digest(files), 'jobId': 'test-job-1',
+                       'workshopId': '123456', 'accountSteamId': '76561198000000000', 'stagedComplete': True,
+                       'projectJsonPresent': True, 'manifestId': '123', 'stagingPath': str(stage),
+                       'stagingDevice': str(stage.stat().st_dev), 'stagingInode': str(stage.stat().st_ino),
+                       'verifiedBytes': sum(map(len, files.values())), 'totalBytes': sum(map(len, files.values()))}}
+            (root / 'receipt.json').write_text(json.dumps(receipt))
+            result = subprocess.run([str(self.binary), str(root), 'prepare-only'],
+                                    capture_output=True, text=True, timeout=30)
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn('MIGRATED', result.stdout)
-            migrated = json.loads((root / 'migrated.json').read_text())
-            self.assertEqual(migrated['version'], 2)
-            self.assertEqual(migrated['contentDigest'], digest(files))
-            self.assertRegex(migrated['directoryName'], r'^123456-[0-9a-f-]{36}$')
-            public = root / 'library' / 'Scene' / migrated['directoryName']
+            self.assertIn('ACCEPTED', result.stdout)
+            prepared = json.loads((root / 'prepared.json').read_text())
+            self.assertEqual(prepared['version'], 2)
+            self.assertEqual(prepared['contentDigest'], digest(files))
+            public = root / 'library' / 'Scene' / prepared['directoryName']
             for name, data in files.items():
                 self.assertEqual((public / name).read_bytes(), data)
-                self.assertEqual((legacy_content / name).read_bytes(), data)
             self.assertTrue((public / '.mywallpaperx-steam-version.json').is_file())
-            incoming = root / 'library' / '.mywallpaperx-steam-incoming'
-            self.assertTrue(not incoming.exists() or not any(incoming.iterdir()))
+            old_root = root / 'library' / '.mywallpaperx-steam-versions' / '11111111-1111-4111-8111-111111111111'
+            old_root.mkdir(parents=True)
+            (old_root / 'sentinel').write_bytes(b'old unimported content')
             user_directory = root / 'library' / 'Scene' / '654321'
             user_directory.mkdir()
             (user_directory / 'project.json').write_text('{"type":"scene"}')
@@ -763,8 +687,9 @@ class SteamLibraryTransactionTests(unittest.TestCase):
                 [str(self.binary), str(root), 'reclaim-public'], capture_output=True, text=True, timeout=30,
             )
             self.assertEqual(reclaimed.returncode, 0, reclaimed.stderr)
-            self.assertIn('v2:scene:' + migrated['directoryName'], reclaimed.stdout)
+            self.assertIn('v2:scene:' + prepared['directoryName'], reclaimed.stdout)
             self.assertFalse(public.exists())
+            self.assertEqual((old_root / 'sentinel').read_bytes(), b'old unimported content')
             self.assertTrue(user_directory.is_dir())
             self.assertTrue((root / 'library' / 'Scene' / '999999').is_symlink())
             self.assertEqual((outside / 'sentinel').read_text(), 'untouched')
@@ -840,44 +765,6 @@ class SteamLibraryTransactionTests(unittest.TestCase):
             for i in range(64):
                 (versions / str(i)).mkdir()
         self.scenario(mutate=mutate, preserved=tuple(f'library/.mywallpaperx-steam-incoming/{i}' for i in range(64)))
-
-    def test_reclaim_only_old_unreferenced_uuid_version(self):
-        with tempfile.TemporaryDirectory(prefix='mwx-steam-reclaim-', dir='/private/tmp') as temporary:
-            root = pathlib.Path(temporary)
-            versions = root / 'library' / '.mywallpaperx-steam-versions'
-            versions.mkdir(parents=True)
-            retained = '11111111-1111-4111-8111-111111111111'
-            old = '22222222-2222-4222-8222-222222222222'
-            young = '33333333-3333-4333-8333-333333333333'
-            linked = '44444444-4444-4444-8444-444444444444'
-            for name in (retained, old, young):
-                content = versions / name / 'content'
-                content.mkdir(parents=True)
-                (content / 'index.html').write_text(name)
-            unknown = versions / 'owned-but-unknown'
-            unknown.mkdir()
-            outside = root / 'outside'
-            outside.mkdir()
-            (outside / 'sentinel').write_text('untouched')
-            (versions / linked).symlink_to(outside, target_is_directory=True)
-            old_stamp = 1_600_000_000
-            for name in (retained, old):
-                os.utime(versions / name, (old_stamp, old_stamp))
-
-            result = subprocess.run(
-                [str(self.binary), str(root), 'reclaim', retained],
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn(old, result.stdout)
-            self.assertFalse((versions / old).exists())
-            self.assertTrue((versions / retained).is_dir())
-            self.assertTrue((versions / young).is_dir())
-            self.assertTrue(unknown.is_dir())
-            self.assertTrue((versions / linked).is_symlink())
-            self.assertEqual((outside / 'sentinel').read_text(), 'untouched')
 
     def test_reclaim_only_old_owned_incoming_copy(self):
         with tempfile.TemporaryDirectory(prefix='mwx-steam-incoming-reclaim-', dir='/private/tmp') as temporary:

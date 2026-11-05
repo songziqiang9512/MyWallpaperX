@@ -3074,8 +3074,7 @@
     {
       "id": "bundled-video-import",
       "patterns": [
-        "MyWallpaperX/Modules/VideoLibrary/Core/BundledVideoLibrary.swift",
-        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+BundledVideos.swift"
+        "MyWallpaperX/Modules/VideoLibrary/Core/BundledVideoLibrary.swift"
       ],
       "modules": [
         "test_bundled_video_library"
@@ -4660,7 +4659,6 @@
         "MyWallpaperX/Shell/WallpaperLibraryGridController.swift",
         "MyWallpaperX/Shell/WallpaperLibraryPresentation.swift",
         "MyWallpaperX/Core/LibraryCollections/WallpaperLibraryQuery.swift",
-        "MyWallpaperX/Core/LibraryCollections/WallpaperLibraryViewPreferencesMigration.swift",
         "script/tests/test_library_keyboard_navigation.py",
         "script/tests/fixtures/LibraryKeyboardNavigationHarness.swift",
         "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+Selection.swift"
@@ -4894,17 +4892,11 @@
         "MyWallpaperX/Modules/Pixabay/Core/PixabayLibraryContentProjection.swift",
         "script/tests/test_user_collections_store.py",
         "script/tests/test_user_collections_sqlite_fault.py",
-        "script/tests/test_legacy_library_snapshot.py",
-        "script/tests/test_library_collections_migration.py",
-        "script/tests/test_library_collections_publication.py",
         "script/tests/test_wallpaper_content_projection.py",
         "script/tests/test_video_index_ordered_save.py",
         "script/tests/fixtures/UserCollectionsStoreHarness.swift",
         "script/tests/fixtures/UserCollectionsSQLiteFault.c",
         "script/tests/fixtures/UserCollectionsSQLiteFaultHarness.swift",
-        "script/tests/fixtures/LegacyLibrarySnapshotHarness.swift",
-        "script/tests/fixtures/LibraryCollectionsMigrationHarness.swift",
-        "script/tests/fixtures/LibraryCollectionsPublicationHarness.swift",
         "script/tests/fixtures/WallpaperContentProjectionHarness.swift",
         "MyWallpaperX/Models/WallpaperLibraryPage.swift",
         "script/tests/test_wallpaper_library_query.py",
@@ -4920,9 +4912,6 @@
       "modules": [
         "test_user_collections_store",
         "test_user_collections_sqlite_fault",
-        "test_legacy_library_snapshot",
-        "test_library_collections_migration",
-        "test_library_collections_publication",
         "test_wallpaper_content_projection",
         "test_video_index_ordered_save",
         "test_wallpaper_library_query",
@@ -5016,7 +5005,6 @@
         "script/tests/fixtures/WallpaperLibrarySidebarHarness.swift",
         "script/tests/test_wallpaper_library_grid.py",
         "script/tests/fixtures/WallpaperLibraryGridHarness.swift",
-        "MyWallpaperX/Core/LibraryCollections/WallpaperLibraryViewPreferencesMigration.swift",
         "script/tests/test_wallpaper_library_view_preferences.py",
         "script/tests/fixtures/WallpaperLibraryViewPreferencesHarness.swift",
         "script/tests/test_ui_visible_path_probe.py",
@@ -5620,7 +5608,10 @@
         "script/tests/fixtures/OnlineImageOriginalCacheChecks.swift",
         "script/tests/fixtures/PixivClientHarness.swift",
         "script/tests/fixtures/WallhavenClientHarness.swift",
-        "script/tests/fixtures/WallpaperNetworkSessionHarness.swift"
+        "script/tests/fixtures/WallpaperNetworkSessionHarness.swift",
+        "MyWallpaperX/Core/OnlineImages/OnlineImageModels.swift",
+        "MyWallpaperX/Core/OnlineImages/OnlineImageLibraryStore.swift",
+        "MyWallpaperX/Core/OnlineImages/OnlineImageContentProjection.swift"
       ],
       "modules": [
         "test_online_image_inspector",
@@ -5631,7 +5622,8 @@
         "test_pixabay_pagination",
         "test_wallhaven_client",
         "test_pixiv_client",
-        "test_wallpaper_network_session"
+        "test_wallpaper_network_session",
+        "test_online_image_library_store"
       ]
     },
     {

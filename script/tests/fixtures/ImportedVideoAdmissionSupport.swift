@@ -35,12 +35,9 @@ struct PixabayVideoItem { let id: Int }
 }
 
 extension WallpaperManager {
-    var allowsLibraryMutation: Bool { migrationRecoveryMessage == nil }
-    var preservesLegacyMigrationInputs: Bool { migrationRecoveryMessage != nil }
     var defaults: UserDefaults { UserDefaults(suiteName: ProcessInfo.processInfo.environment["MWX_IMPORT_ADMISSION_DOMAIN"]!)! }
     var wallpapersKey: String { "Wallpapers" }
     var initialIndexChangesKey: String { "WallpaperIndexStartupChangesV1" }
-    func reportMigrationReadOnly(in window: NSWindow? = nil) { migrationWarnings += 1 }
     func pathExists(_ path: String) -> Bool { FileManager.default.fileExists(atPath: path) }
     func isReadablePath(_ path: String) -> Bool { FileManager.default.isReadableFile(atPath: path) }
     // IMPORT_CACHE_METHODS

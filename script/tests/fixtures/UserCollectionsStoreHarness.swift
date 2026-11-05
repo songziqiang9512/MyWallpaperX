@@ -8,7 +8,13 @@ import SQLite3
         var checks: [String: Bool] = [:]
         let initial = try await store.snapshot()
         let epoch = initial.resetEpoch
-        checks["freshDatabaseHasNoMigrationOrRelationships"] = initial.revision == 0 && initial.migrationManifestID == nil && initial.playlists.isEmpty
+        checks["freshDatabaseHasNoMigrationOrRelationships"] = initial.revision == 0 && initial.playlists.isEmpty
+        var schemaDB: OpaquePointer?, schemaStatement: OpaquePointer?
+        precondition(sqlite3_open_v2(root.appendingPathComponent("relations.sqlite3").path, &schemaDB, SQLITE_OPEN_READONLY, nil) == SQLITE_OK)
+        precondition(sqlite3_prepare_v2(schemaDB, "PRAGMA user_version", -1, &schemaStatement, nil) == SQLITE_OK)
+        precondition(sqlite3_step(schemaStatement) == SQLITE_ROW)
+        checks["freshDatabaseUsesCurrentSchema2"] = sqlite3_column_int(schemaStatement, 0) == 2
+        sqlite3_finalize(schemaStatement); sqlite3_close(schemaDB)
         let a = WallpaperReference(provider: .videoLibrary, sourceID: "42")
         let b = WallpaperReference(provider: .steamWorkshop, sourceID: "42")
         let synthetic = WallpaperReference(provider: .steamWorkshop, sourceID: "video:风景:α/part")
@@ -92,7 +98,7 @@ import SQLite3
         let reopened = UserCollectionsStore(url: root.appendingPathComponent("relations.sqlite3"))
         checks["durableReopenMatchesThePublishedSnapshot"] = try await reopened.snapshot() == state
         let reset = try await reopened.reset(expectedEpoch: epoch)
-        checks["resetRevokesEpochAndPreservesCompletionMarker"] = reset.resetEpoch != epoch && reset.playlists.isEmpty && reset.recent.isEmpty && reset.aliases.isEmpty && reset.migrationManifestID == "reset-complete"
+        checks["resetRevokesEpochWithoutWritingMigrationMarker"] = reset.resetEpoch != epoch && reset.playlists.isEmpty && reset.recent.isEmpty && reset.aliases.isEmpty
         do {
             _ = try await store.apply(.createPlaylist(playlist), expectedEpoch: epoch)
             checks["otherConnectionCannotWriteUsingPreResetEpoch"] = false
@@ -101,25 +107,14 @@ import SQLite3
             _ = try await store.recordSuccessfulUse(a, locator: nil, token: replacement, sequence: 2, at: date)
             checks["resetRejectsLateHistory"] = false
         } catch UserCollectionsError.staleResetEpoch { checks["resetRejectsLateHistory"] = true }
-        let migration = UserCollectionsStore(url: root.appendingPathComponent("migration.sqlite3"))
-        let start = try await migration.snapshot()
-        var payload = LibraryCollectionsImport()
-        payload.playlists = [playlist]
-        payload.members = [WallpaperPlaylistMember(playlistID: UUID(), reference: a, position: 0, addedAt: date)]
+        let atomicStore = UserCollectionsStore(url: root.appendingPathComponent("atomic-batch.sqlite3"))
+        let atomicStart = try await atomicStore.snapshot()
         do {
-            _ = try await migration.installMigration(payload, manifestID: "input-A", expectedEpoch: start.resetEpoch)
-            checks["failedMigrationPublishesNeitherPartialRowsNorMarker"] = false
-        } catch UserCollectionsError.missingPlaylist { checks["failedMigrationPublishesNeitherPartialRowsNorMarker"] = try await migration.snapshot() == start }
-        payload.members[0] = WallpaperPlaylistMember(playlistID: playlist.id, reference: a, position: 0, addedAt: date)
-        payload.favorites = [WallpaperFavorite(reference: a, favoritedAt: nil, migrationOrder: 0)]
-        payload.recent = [WallpaperRecentUse(reference: a, lastSuccessfulUseAt: nil, commitSequence: 1, migrationOrder: 0)]
-        let installed = try await migration.installMigration(payload, manifestID: "input-A", expectedEpoch: start.resetEpoch)
-        checks["offlineMigrationPreservesUnknownTimes"] = installed.favorites.first?.favoritedAt == nil && installed.recent.first?.lastSuccessfulUseAt == nil && installed.members.count == 1
-        checks["sameManifestMigrationIsExactlyIdempotent"] = try await migration.installMigration(payload, manifestID: "input-A", expectedEpoch: start.resetEpoch) == installed
-        do {
-            _ = try await migration.installMigration(payload, manifestID: "input-B", expectedEpoch: start.resetEpoch)
-            checks["differentMigrationCannotOverwriteRelationships"] = false
-        } catch UserCollectionsError.migrationConflict { checks["differentMigrationCannotOverwriteRelationships"] = try await migration.snapshot() == installed }
+            _ = try await atomicStore.apply([.createPlaylist(playlist), .addMembers(UUID(), [item(a)], date)], expectedEpoch: atomicStart.resetEpoch)
+            checks["failedCurrentBatchPublishesNeitherPlaylistNorMembers"] = false
+        } catch UserCollectionsError.missingPlaylist {
+            checks["failedCurrentBatchPublishesNeitherPlaylistNorMembers"] = try await atomicStore.snapshot() == atomicStart
+        }
         let concurrent = UserCollectionsStore(url: root.appendingPathComponent("concurrent.sqlite3"))
         let concurrentEpoch = try await concurrent.snapshot().resetEpoch
         try await withThrowingTaskGroup(of: Bool.self) { group in
@@ -160,22 +155,15 @@ import SQLite3
             && edited.members.map(\.reference) == [b,a] && edited.members.map(\.position) == [0,1]
         edited = try await edits.apply(.removeMembers(named.id, [a], t3), expectedEpoch: editsEpoch)
         checks["removalUpdatesModificationTimeAndKeepsSurvivorPosition"] = edited.playlists[0].modifiedAt == t3 && edited.members.map(\.reference) == [b] && edited.members[0].position == 0
-        let aliasInstall = UserCollectionsStore(url: root.appendingPathComponent("alias-import.sqlite3"))
-        let aliasEpoch = try await aliasInstall.snapshot().resetEpoch
+        let aliasStore = UserCollectionsStore(url: root.appendingPathComponent("alias-members.sqlite3"))
+        let aliasEpoch = try await aliasStore.snapshot().resetEpoch
         let x = WallpaperReference(provider: .videoLibrary, sourceID: "x")
-        var noncanonical = LibraryCollectionsImport()
-        noncanonical.playlists = [playlist]
-        noncanonical.aliases = [WallpaperReferenceAlias(alias: a, canonical: b, proof: .publishedDownload)]
-        noncanonical.members = [WallpaperPlaylistMember(playlistID: playlist.id, reference: a, position: 3, addedAt: t0),
-            WallpaperPlaylistMember(playlistID: playlist.id, reference: b, position: 1, addedAt: t1),
-            WallpaperPlaylistMember(playlistID: playlist.id, reference: x, position: 2, addedAt: t2)]
-        let canonicalImport = try await aliasInstall.installMigration(noncanonical, manifestID: "alias-input", expectedEpoch: aliasEpoch)
-        checks["noncanonicalImportMergesEarliestPositionAndAddedTime"] = canonicalImport.members.map(\.reference) == [b,x] && canonicalImport.members[0].addedAt == t0
-        try await aliasInstall.finishMigrationPublication()
-        do {
-            _ = try await aliasInstall.snapshot()
-            checks["sealedStagingOwnerCannotReopenItsOldPath"] = false
-        } catch UserCollectionsError.closedForPublication { checks["sealedStagingOwnerCannotReopenItsOldPath"] = true }
+        _ = try await aliasStore.apply([.createPlaylist(playlist),
+            .addMembers(playlist.id, [item(b)], t1), .addMembers(playlist.id, [item(x)], t2),
+            .addMembers(playlist.id, [item(a)], t0)], expectedEpoch: aliasEpoch)
+        let canonical = try await aliasStore.apply(.linkAlias(.init(alias: a, canonical: b, proof: .publishedDownload), t3), expectedEpoch: aliasEpoch)
+        checks["currentAliasMergesEarliestPositionAndAddedTime"] = canonical.members.map(\.reference) == [b,x]
+            && canonical.members[0].addedAt == t0
         let emptyURL = root.appendingPathComponent("empty-existing.sqlite3")
         try Data().write(to: emptyURL)
         do {
@@ -206,6 +194,18 @@ import SQLite3
             _ = try await cycleStore.snapshot()
             checks["snapshotRejectsAliasCycleBeforePublishingValues"] = false
         } catch UserCollectionsError.corruptData { checks["snapshotRejectsAliasCycleBeforePublishingValues"] = true }
+        let previous = root.appendingPathComponent("schema1.sqlite3")
+        var previousDB: OpaquePointer?
+        precondition(sqlite3_open(previous.path, &previousDB) == SQLITE_OK)
+        precondition(sqlite3_exec(previousDB, "CREATE TABLE keep(value TEXT); INSERT INTO keep VALUES('retain'); PRAGMA user_version=1", nil, nil, nil) == SQLITE_OK)
+        sqlite3_close(previousDB)
+        let previousBytes = try Data(contentsOf: previous)
+        do {
+            _ = try await UserCollectionsStore(url: previous).snapshot()
+            checks["schema1IsRejectedWithoutRewritingOriginalDatabase"] = false
+        } catch UserCollectionsError.unsupportedSchema(1) {
+            checks["schema1IsRejectedWithoutRewritingOriginalDatabase"] = try Data(contentsOf: previous) == previousBytes
+        }
         let future = root.appendingPathComponent("future.sqlite3")
         var db: OpaquePointer?
         sqlite3_open(future.path, &db)

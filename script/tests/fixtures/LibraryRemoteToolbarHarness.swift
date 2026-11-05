@@ -121,6 +121,7 @@ struct ToolbarActivity {
     func refresh() { refreshes += 1 }
 }
 @MainActor final class ToolbarImages {
+    func prepareLocal(_ sources: Set<OnlineImageSource>) {}
     var snapshot = OnlineImageLocalSnapshot()
     var downloadActivities: [ToolbarActivity] = []
     var progress: [OnlineImageAssetID: Double] = [:]

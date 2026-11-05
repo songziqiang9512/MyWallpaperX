@@ -48,13 +48,14 @@ nonisolated enum LibraryPersonalSettings {
         }
         collections.locators = state.locators
         collections.aliases = state.aliases
-        collections.playlistMetadataIsExplicit = true
         let covers = try checkedCoverAssets(coverAssets)
         let needed = Set(state.playlists.compactMap(\.customCoverAssetID))
         guard needed.isSubset(of: Set(covers.keys)) else { throw PersonalSettingsError.invalidPayload("列表封面副本缺失") }
         collections.coverAssets = needed.sorted { $0.uuidString < $1.uuidString }.compactMap { covers[$0] }
         let excluded = Set(state.excludedLibraryReferences.map { canonical[$0.reference] ?? $0.reference })
-        collections.libraryExclusionStates = references.map { .init(reference: $0, isExcluded: excluded.contains($0)) }
+        collections.libraryExclusionStates = references.filter {
+            $0.provider == .videoLibrary || $0.provider == .staticImageLibrary
+        }.map { .init(reference: $0, isExcluded: excluded.contains($0)) }
         var preferences = preferences
         if let reference = preferences.screenSaver?.reference {
             preferences.screenSaver?.reference = canonical[reference] ?? reference
@@ -65,7 +66,7 @@ nonisolated enum LibraryPersonalSettings {
     static func plan(_ payload: PersonalSettingsPayload, sources: [PersonalSettingsLocalSource],
                      beforePreferences: PersonalSettingsPreferences, targetPreferences: PersonalSettingsPreferences,
                      state: UserCollectionsSnapshot, normalizedPaths: [String: String], missingPathCount: Int,
-                     commandID: UUID = UUID(), at date: Date = Date()) throws -> LibraryPersonalSettingsPlan {
+                     commandID: UUID = UUID()) throws -> LibraryPersonalSettingsPlan {
         var sourceByRef: [WallpaperReference: PersonalSettingsLocalSource] = [:]
         var sourceByPath: [WallpaperProvider: [String: PersonalSettingsLocalSource]] = [:]
         for source in sources {
@@ -102,85 +103,33 @@ nonisolated enum LibraryPersonalSettings {
             return reference
         }
 
-        var collections: LibraryCollectionsPersonalSettingsImport
-        if payload.schemaVersion >= 6 {
-            guard let incoming = payload.collections else { throw PersonalSettingsError.invalidPayload("collections") }
-            var declarations: [WallpaperReference: PersonalSettingsLocalSource] = [:]
-            for source in payload.sources {
-                if let previous = declarations[source.reference], previous != source {
-                    throw PersonalSettingsError.invalidPayload("来源 ID 声明冲突")
-                }
-                declarations[source.reference] = source
-                _ = try merge(source)
+        let incoming = payload.collections
+        var declarations: [WallpaperReference: PersonalSettingsLocalSource] = [:]
+        for source in payload.sources {
+            if let previous = declarations[source.reference], previous != source {
+                throw PersonalSettingsError.invalidPayload("来源 ID 声明冲突")
             }
-            func mapped(_ reference: WallpaperReference) -> WallpaperReference { remapping[reference] ?? reference }
-            collections = incoming
-            collections.legacyOrigins = []
-            collections.members = incoming.members.map {
-                .init(playlistID: $0.playlistID, reference: mapped($0.reference), position: $0.position, addedAt: $0.addedAt)
-            }
-            collections.favoriteStates = incoming.favoriteStates.map {
-                .init(reference: mapped($0.reference), isFavorite: $0.isFavorite, favoritedAt: $0.favoritedAt)
-            }
-            collections.locators = incoming.locators.map { .init(reference: mapped($0.reference), locator: $0.locator) }
-            collections.aliases = incoming.aliases.compactMap {
-                let alias = mapped($0.alias), canonical = mapped($0.canonical)
-                return alias == canonical ? nil : .init(alias: alias, canonical: canonical, proof: .restoredSourceRecord)
-            }
-            if payload.schemaVersion >= 7 {
-                collections.playlistMetadataIsExplicit = true
-                collections.libraryExclusionStates = incoming.libraryExclusionStates?.map {
-                    .init(reference: mapped($0.reference), isExcluded: $0.isExcluded)
-                }
-                collections.expectedLibraryExclusions = state.excludedLibraryReferences
-            } else {
-                // Older profiles never declared these values. A missing field
-                // cannot clear a cover, description or a later hide intent.
-                collections.playlistMetadataIsExplicit = false
-                collections.coverAssets = []
-                collections.libraryExclusionStates = nil
-                collections.expectedLibraryExclusions = nil
-            }
-        } else {
-            collections = LibraryCollectionsPersonalSettingsImport()
-            var names: [String] = [], playlistByName: [String: UUID] = [:]
-            func addTag(_ raw: String) {
-                let name = normalizedTag(raw)
-                guard !name.isEmpty, playlistByName[name] == nil else { return }
-                let id = UUID()
-                playlistByName[name] = id; names.append(name)
-            }
-            payload.tags.forEach(addTag)
-            payload.entries.flatMap { $0.tags ?? [] }.forEach(addTag)
-            payload.silTags.forEach(addTag)
-            payload.silEntries.flatMap { $0.tags ?? [] }.forEach(addTag)
-            collections.playlists = names.enumerated().map {
-                .init(id: playlistByName[$0.element]!, name: $0.element, createdAt: date, sidebarRank: state.playlists.count + $0.offset)
-            }
-            collections.legacyOrigins = names.map {
-                .init(playlistID: playlistByName[$0]!, sourceKey: "personal-settings-v1-v5", tag: $0)
-            }
-            var memberSets: [UUID: Set<WallpaperReference>] = [:]
-            var favoriteOrder: [WallpaperReference] = [], favorites: [WallpaperReference: Bool] = [:]
-            for (provider, entries) in [(WallpaperProvider.videoLibrary, payload.entries), (.staticImageLibrary, payload.silEntries)] {
-                for entry in entries {
-                    let source = PersonalSettingsLocalSource(reference: .init(provider: provider, sourceID: UUID().uuidString),
-                                                            path: entry.path, title: entry.title ?? "")
-                    let reference = try merge(source)
-                    for raw in entry.tags ?? [] {
-                        guard let id = playlistByName[normalizedTag(raw)],
-                              memberSets[id, default: []].insert(reference).inserted else { continue }
-                        collections.members.append(.init(playlistID: id, reference: reference,
-                            position: memberSets[id]!.count - 1, addedAt: date))
-                    }
-                    if provider == .videoLibrary, let favorite = entry.isFavorite {
-                        if favorites[reference] == nil { favoriteOrder.append(reference) }
-                        favorites[reference] = favorite
-                    }
-                }
-            }
-            collections.favoriteStates = favoriteOrder.map { .init(reference: $0, isFavorite: favorites[$0]!) }
+            declarations[source.reference] = source
+            _ = try merge(source)
         }
+        func mapped(_ reference: WallpaperReference) -> WallpaperReference { remapping[reference] ?? reference }
+        var collections = incoming
+        collections.members = incoming.members.map {
+            .init(playlistID: $0.playlistID, reference: mapped($0.reference), position: $0.position, addedAt: $0.addedAt)
+        }
+        collections.favoriteStates = incoming.favoriteStates.map {
+            .init(reference: mapped($0.reference), isFavorite: $0.isFavorite, favoritedAt: $0.favoritedAt)
+        }
+        collections.locators = incoming.locators.map { .init(reference: mapped($0.reference), locator: $0.locator) }
+        collections.aliases = incoming.aliases.compactMap {
+            let alias = mapped($0.alias), canonical = mapped($0.canonical)
+            return alias == canonical ? nil : .init(alias: alias, canonical: canonical, proof: .restoredSourceRecord)
+        }
+        collections.libraryExclusionStates = incoming.libraryExclusionStates.filter {
+            ($0.reference.provider == .videoLibrary || $0.reference.provider == .staticImageLibrary)
+                && (mapped($0.reference).provider == .videoLibrary || mapped($0.reference).provider == .staticImageLibrary)
+        }.map { .init(reference: mapped($0.reference), isExcluded: $0.isExcluded) }
+        collections.expectedLibraryExclusions = state.excludedLibraryReferences
         var locatedReferences = Set(collections.locators.map(\.reference))
         for reference in patchOrder {
             guard let target = patches[reference]?.target else { continue }
@@ -189,10 +138,14 @@ nonisolated enum LibraryPersonalSettings {
                     mediaKind: reference.provider == .videoLibrary ? .video : .image, provenance: "personal-settings")))
             }
         }
-        try validate(collections, state: state)
+        let canonical = try validate(collections, state: state)
+        collections.libraryExclusionStates.removeAll {
+            let provider = (canonical[$0.reference] ?? $0.reference).provider
+            return provider != .videoLibrary && provider != .staticImageLibrary
+        }
         var targetPreferences = targetPreferences
         // Only an explicitly imported intent follows the import's source map.
-        // A missing old-profile field must not remap the existing local choice.
+        // An unselected preference must not remap the existing local choice.
         if var screenSaver = payload.preferences.screenSaver {
             if let reference = screenSaver.reference {
                 screenSaver.reference = remapping[reference] ?? reference
@@ -207,12 +160,7 @@ nonisolated enum LibraryPersonalSettings {
     }
 
     static func paths(in payload: PersonalSettingsPayload, sources: [PersonalSettingsLocalSource]) -> [String] {
-        sources.map(\.path) + payload.sources.map(\.path) + payload.entries.map(\.path)
-            + payload.silEntries.map(\.path) + (payload.collections?.locators.compactMap { $0.locator.path } ?? [])
-    }
-
-    private static func normalizedTag(_ value: String) -> String {
-        value.trimmingCharacters(in: .whitespacesAndNewlines).precomposedStringWithCanonicalMapping
+        sources.map(\.path) + payload.sources.map(\.path) + payload.collections.locators.compactMap { $0.locator.path }
     }
 
     private static func validate(_ source: PersonalSettingsLocalSource) throws {
@@ -222,15 +170,15 @@ nonisolated enum LibraryPersonalSettings {
         }
     }
 
-    private static func validate(_ payload: LibraryCollectionsPersonalSettingsImport, state: UserCollectionsSnapshot) throws {
+    private static func validate(_ payload: LibraryCollectionsPersonalSettingsImport, state: UserCollectionsSnapshot) throws -> [WallpaperReference: WallpaperReference] {
         let covers = try checkedCoverAssets(payload.coverAssets)
         var ids = Set<UUID>()
         for playlist in payload.playlists {
-            guard ids.insert(playlist.id).inserted, !normalizedTag(playlist.name).isEmpty, playlist.sidebarRank >= 0,
+            guard ids.insert(playlist.id).inserted, !playlist.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, playlist.sidebarRank >= 0,
                   playlist.createdAt.timeIntervalSince1970.isFinite, playlist.modifiedAt.timeIntervalSince1970.isFinite else {
                 throw PersonalSettingsError.invalidPayload("播放列表")
             }
-            if payload.playlistMetadataIsExplicit, let id = playlist.customCoverAssetID, covers[id] == nil {
+            if let id = playlist.customCoverAssetID, covers[id] == nil {
                 throw PersonalSettingsError.invalidPayload("列表封面副本缺失")
             }
         }
@@ -264,13 +212,14 @@ nonisolated enum LibraryPersonalSettings {
         }
         guard payload.locators.allSatisfy({ !$0.reference.sourceID.isEmpty }) else { throw PersonalSettingsError.invalidPayload("来源提示") }
         var exclusions: [WallpaperReference: Bool] = [:]
-        for item in payload.libraryExclusionStates ?? [] {
+        for item in payload.libraryExclusionStates {
             guard !item.reference.sourceID.isEmpty else { throw PersonalSettingsError.invalidPayload("库隐藏引用") }
             let reference = canonical[item.reference] ?? item.reference
             if let previous = exclusions.updateValue(item.isExcluded, forKey: reference), previous != item.isExcluded {
                 throw PersonalSettingsError.invalidPayload("库隐藏状态冲突")
             }
         }
+        return canonical
     }
 
     private static func checkedCoverAssets(_ assets: [WallpaperPlaylistCoverAsset]) throws -> [UUID: WallpaperPlaylistCoverAsset] {

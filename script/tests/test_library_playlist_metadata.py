@@ -1,4 +1,4 @@
-"""Real schema upgrade, cover/metadata transactions, Undo and hide receipts.
+"""Current schema, cover/metadata transactions, Undo and hide receipts.
 
 The only injected leaf is one SQLite COMMIT error; no media/source owner,
 relationship writer or database method is doubled. No native App is launched.
@@ -23,7 +23,7 @@ SHIM = ROOT / "script/tests/fixtures/PlaylistMetadataSQLiteFault.c"
 
 
 class LibraryPlaylistMetadataTests(unittest.TestCase):
-    def test_real_metadata_assets_schema_upgrade_undo_and_conditional_exclusion(self):
+    def test_real_metadata_assets_unsupported_schema_undo_and_conditional_exclusion(self):
         paths = SOURCES + [FIXTURE, SHIM]
         before = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in paths}
         with tempfile.TemporaryDirectory(prefix="mwx-playlist-metadata-", dir="/private/tmp") as directory:

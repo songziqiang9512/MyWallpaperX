@@ -289,13 +289,7 @@ final class SteamWorkshopService: ObservableObject {
     // MARK: - Download and Inspector state
 
     @Published var activeDownloadItemIDs: Set<String> = []
-    /// F15 残留修复：失败提示以代数而非文本区分——并发同根因的两条同文
-    /// 失败也会各自推进 revision，弹窗完成回调按 revision 判定续播/清空，
-    /// 不再依赖「文本不同 = 新失败」。
-    @Published var downloadError: String? {
-        didSet { downloadErrorRevision += 1 }
-    }
-    private(set) var downloadErrorRevision = 0
+    @Published var downloadError: String?
     @Published var selectedDownloadInspectorItem: SteamWorkshopBrowserItem?
     @Published var selectedDownloadDetailItem: SteamWorkshopBrowserItem?
     @Published var selectedBrowserItem: SteamWorkshopBrowserItem?
@@ -351,7 +345,6 @@ final class SteamWorkshopService: ObservableObject {
     let downloadProgressStore = SteamWorkshopDownloadProgressStore()
     let steamLibraryVersionLeaseRegistry = SteamWorkshopLibraryVersionLeaseRegistry()
     var libraryVersionReclamationTask: Task<Void, Never>?
-    var legacyLibraryPublicationMigrationTask: Task<Void, Never>?
     var terminalDownloadCleanupTask: Task<Void, Never>?
     /// Coalesces overlapping installed-library scans: only the newest
     /// scan's result is published (see reloadInstalledItems).
@@ -394,16 +387,6 @@ final class SteamWorkshopService: ObservableObject {
     // MARK: - Lifecycle
 
     private init() {
-        if Self.isolatedDebugDefaultsSuiteName() == nil {
-            SteamWorkshopLegacyAcquisitionRetirement.run(defaults: defaults)
-        } else {
-            // Runtime gates intentionally use a private defaults suite. Never
-            // let that fresh marker namespace trigger deletion in the user's
-            // real login Keychain, WebKit store, caches or runtime directory.
-#if DEBUG
-            NSLog("MWX DEBUG RETIREMENT: skipped for isolated defaults suite")
-#endif
-        }
 #if DEBUG
         let isIsolatedWebSampleRun = ProcessInfo.processInfo.arguments.contains("--mwx-debug-run-web-workshop-id")
             || ProcessInfo.processInfo.arguments.contains("--mwx-debug-web-startup-report")

@@ -119,7 +119,7 @@ final class StatusBarPanelViewController: NSViewController {
     }
 
     private func loadVideoCover(_ item: VideoWallpaper, generation: UInt64) {
-        // The existing cache may create/migrate its directory on first access.
+        // The existing cache may create its directory on first access.
         // Warm that owner off-main before constructing the lightweight provider.
         let preparation = ThumbnailCacheRequestCancellation()
         videoCancellation = preparation

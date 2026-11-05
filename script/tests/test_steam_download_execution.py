@@ -51,8 +51,6 @@ class SteamDownloadExecutionTests(unittest.TestCase):
         methods.append(extract_function(
             source, '    func downloadMetadataFileURL(forVideoURL videoURL:'
         ))
-        migration = extract_function(source, '    private func scheduleLegacyLibraryPublicationMigration(')
-        methods.append(migration.replace('    private func ', '    func ', 1))
         for signature in ('    private func applyInstalledLibraryRecords(', '    private func finishInstalledLibraryScan('):
             methods.append(extract_function(source, signature).replace('    private func ', '    func ', 1))
         snapshot_type = extract_function(source, 'nonisolated private struct SteamWorkshopInstalledLibrarySnapshot:')
@@ -293,9 +291,6 @@ class SteamDownloadExecutionTests(unittest.TestCase):
     def test_first_progress_rejects_same_name_replacement_before_binding(self):
         self.run_case('prebind-replacement')
 
-    def test_v4_device_inode_partial_does_not_resume_or_adopt_replacement(self):
-        self.run_case('legacy-v4-partial-retry')
-
     def test_cancel_one_of_two_active_jobs_does_not_retire_the_other(self):
         self.run_case('concurrent-cancel')
 
@@ -305,17 +300,8 @@ class SteamDownloadExecutionTests(unittest.TestCase):
     def test_two_successes_serialize_library_copy_and_publish_both(self):
         self.run_case('concurrent-success')
 
-    def test_legacy_publication_migration_runs_through_service_owner(self):
-        self.run_case('migration-success')
-
-    def test_legacy_publication_waits_for_shared_copy_capacity(self):
-        self.run_case('migration-capacity')
-
-    def test_legacy_publication_cas_preserves_newer_pointer(self):
-        self.run_case('migration-cas')
-
-    def test_legacy_publication_retries_transient_type_root_failure(self):
-        self.run_case('migration-retry')
+    def test_old_published_metadata_is_not_imported_or_rewritten(self):
+        self.run_case('current-only-metadata')
 
     def test_late_cleanup_cannot_project_into_new_request_or_new_attempt(self):
         for mode in ('late-cleanup-new-job', 'late-cleanup-new-attempt', 'late-cleanup-new-account'):

@@ -42,8 +42,7 @@ import Foundation
     var displayed:WallpaperPlaybackSequence.Snapshot
     var plays:[(WallpaperReference,WallpaperPlaybackSequence.Snapshot?)]=[]
     var playingQueries = 0
-    var relationships = UserCollectionsSnapshot(revision: 0, resetEpoch: UUID(), migrationManifestID: nil,
-        playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
+    var relationships = UserCollectionsSnapshot(revision: 0, resetEpoch: UUID(), playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
     let presentation = RemotePresentation()
     init(_ manager:WallpaperManager,_ source:WallpaperPlaybackSequence.Snapshot){self.manager=manager;displayed=source}
     func isPlaying(_ ref:WallpaperReference)->Bool {
@@ -298,35 +297,6 @@ private struct RemovalFileResult {
         }
     }
 }
-@MainActor private final class RemovalCatalog {
-    var catalog: WallpaperLibraryCatalog
-    var refreshes = 0
-    init(_ catalog: WallpaperLibraryCatalog) { self.catalog = catalog }
-    func refreshAvailability() { refreshes += 1 }
-}
-@MainActor private final class RemovalWorkspace {
-    let collections: UserCollectionsController?
-    let presentation: WallpaperLibraryPresentation
-    let catalog: RemovalCatalog
-    var relationships: UserCollectionsSnapshot { collections!.snapshot }
-    var edited: [WallpaperLibraryPage] = []
-    init(_ collections: UserCollectionsController, _ catalog: WallpaperLibraryCatalog, defaults: UserDefaults) {
-        self.collections = collections; self.catalog = RemovalCatalog(catalog)
-        presentation = WallpaperLibraryPresentation(collections: collections, defaults: defaults)
-        presentation.update(catalog: catalog, relationships: collections.snapshot)
-    }
-    func publish(_ next: WallpaperLibraryCatalog) {
-        catalog.catalog = next
-        presentation.update(catalog: next, relationships: relationships)
-    }
-    func didEditMembers(of page: WallpaperLibraryPage) {
-        edited.append(page)
-        presentation.update(catalog: catalog.catalog, relationships: relationships)
-    }
-    func content(for reference: WallpaperReference) throws -> WallpaperContentItem {
-        try WallpaperLibraryQuery.resolve([reference], catalog: catalog.catalog, relationships: relationships)[0]
-    }
-}
 @MainActor private final class RemovalCommands {
     let workspace: RemovalWorkspace
     let manager = RemovalManager()
@@ -387,7 +357,7 @@ private struct RemovalFileResult {
             }
             checks["playlist-random-never-replays-current-and-retains-one-mode-owner"] = distinct && manager.randomRequests == 30
             _ = manager.select(a, source: source)
-            view.relationships = .init(revision: 1, resetEpoch: UUID(), migrationManifestID: nil, playlists: [], members: [], favorites: [], recent: [], aliases: [.init(alias: a, canonical: b, proof: .publishedDownload)], locators: [])
+            view.relationships = .init(revision: 1, resetEpoch: UUID(), playlists: [], members: [], favorites: [], recent: [], aliases: [.init(alias: a, canonical: b, proof: .publishedDownload)], locators: [])
             view.presentation.queryResult.items = [content(b), content(c)]
             commands.playDisplayed(random: true)
             checks["playlist-random-excludes-current-canonical-backing-after-alias-publication"] = view.plays.last?.0 == c
@@ -445,8 +415,7 @@ private struct RemovalFileResult {
             let nfd = WallpaperReference(provider: .videoLibrary, sourceID: "e\u{301}")
             let items = (0..<300).map { content(.init(provider: .videoLibrary, sourceID: "row-\($0)")) }
                 + [content(raw), content(target), content(nfc), content(nfd)]
-            let relationships = UserCollectionsSnapshot(revision: 1, resetEpoch: UUID(), migrationManifestID: nil,
-                playlists: [], members: [], favorites: [.init(reference: raw, favoritedAt: nil), .init(reference: nfc, favoritedAt: nil)],
+            let relationships = UserCollectionsSnapshot(revision: 1, resetEpoch: UUID(), playlists: [], members: [], favorites: [.init(reference: raw, favoritedAt: nil), .init(reference: nfc, favoritedAt: nil)],
                 recent: [], aliases: [.init(alias: raw, canonical: target, proof: .publishedDownload)], locators: [])
             let ticket = PlaybackSwitchTicket(epoch: 42, id: UUID(), runtime: .video)
             let before = WallpaperLibraryQuery.resolverInitializationCount
@@ -473,8 +442,7 @@ private struct RemovalFileResult {
         do {
             let remote = WallpaperReference(provider: .steamWorkshop, sourceID: "ready-download")
             let item = SteamWorkshopBrowserItem(id: remote.sourceID)
-            let relationships = UserCollectionsSnapshot(revision: 7, resetEpoch: UUID(), migrationManifestID: nil,
-                playlists: [], members: [], favorites: [.init(reference: remote, favoritedAt: nil)], recent: [], aliases: [], locators: [])
+            let relationships = UserCollectionsSnapshot(revision: 7, resetEpoch: UUID(), playlists: [], members: [], favorites: [.init(reference: remote, favoritedAt: nil)], recent: [], aliases: [], locators: [])
             let source = try WallpaperPlaybackSequence.Snapshot(source: .single(remote), revision: 1,
                 entries: [.init(reference: remote, runtime: .video, isPlayable: true)])
             let manager = WallpaperManager(), remoteWorkspace = RemoteWorkspace(relationships)
@@ -516,8 +484,7 @@ private struct RemovalFileResult {
             play.onFavorite?(); play.onPrimary?()
             checks["remote-navigation-session-revokes-old-render-callbacks"] = commands.favoriteActions.count == 1 && remoteWorkspace.requests == [remote]
             let beforeReset = composition.organization(item)!
-            remoteWorkspace.relationships = UserCollectionsSnapshot(revision: relationships.revision, resetEpoch: UUID(), migrationManifestID: nil,
-                playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
+            remoteWorkspace.relationships = UserCollectionsSnapshot(revision: relationships.revision, resetEpoch: UUID(), playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
             beforeReset.onFavorite?(); beforeReset.onPrimary?()
             checks["remote-reset-epoch-revokes-old-render-callbacks"] = commands.favoriteActions.count == 1 && remoteWorkspace.requests == [remote]
             composition.downloadedContent[remote] = WallpaperContentItem(reference: remote, providerReference: remote, locator: .init(),
@@ -531,8 +498,7 @@ private struct RemovalFileResult {
             let ref = WallpaperReference(provider: .steamWorkshop, sourceID: "menu-download")
             let other = WallpaperReference(provider: .steamWorkshop, sourceID: "other-detail")
             let item = SteamWorkshopBrowserItem(id: ref.sourceID)
-            let relationships = UserCollectionsSnapshot(revision: 1, resetEpoch: UUID(), migrationManifestID: nil,
-                playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
+            let relationships = UserCollectionsSnapshot(revision: 1, resetEpoch: UUID(), playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
             let source = try WallpaperPlaybackSequence.Snapshot(source: .single(ref), revision: 1,
                 entries: [.init(reference: ref, runtime: .video, isPlayable: true)])
             let manager = WallpaperManager(), workspace = RemoteWorkspace(relationships)
@@ -582,8 +548,7 @@ private struct RemovalFileResult {
         }
         do {
             let ref = WallpaperReference(provider: .pixabay, sourceID: "7")
-            let relationships = UserCollectionsSnapshot(revision: 1, resetEpoch: UUID(), migrationManifestID: nil,
-                playlists: [], members: [], favorites: [.init(reference: ref, favoritedAt: nil)], recent: [], aliases: [], locators: [])
+            let relationships = UserCollectionsSnapshot(revision: 1, resetEpoch: UUID(), playlists: [], members: [], favorites: [.init(reference: ref, favoritedAt: nil)], recent: [], aliases: [], locators: [])
             let source = try WallpaperPlaybackSequence.Snapshot(source: .single(ref), revision: 1,
                 entries: [.init(reference: ref, runtime: .video, isPlayable: true)])
             let manager = WallpaperManager(), workspace = RemoteWorkspace(relationships)
@@ -621,8 +586,7 @@ private struct RemovalFileResult {
                 && commands.playlistActions.count == 2 && workspace.requests == [ref]
         }
         do {
-            let relationships = UserCollectionsSnapshot(revision: 1, resetEpoch: UUID(), migrationManifestID: nil,
-                playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
+            let relationships = UserCollectionsSnapshot(revision: 1, resetEpoch: UUID(), playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
             let workspace = RemoteWorkspace(relationships), composition = FileDropComposition(workspace)
             let board = NSPasteboard.withUniqueName()
             defer { board.releaseGlobally() }
@@ -658,8 +622,7 @@ private struct RemovalFileResult {
             checks["late-file-drop-cannot-redirect-to-a-new-import-capable-page"] = !composition.grid.accept(drag)
                 && composition.commands.imports.count == before
             composition.configure(.videos)
-            workspace.relationships = UserCollectionsSnapshot(revision: 2, resetEpoch: UUID(), migrationManifestID: nil,
-                playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
+            workspace.relationships = UserCollectionsSnapshot(revision: 2, resetEpoch: UUID(), playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
             checks["late-file-drop-cannot-use-a-new-reset-epoch"] = !composition.grid.accept(drag)
                 && composition.commands.imports.count == before
             composition.configure(.videos)
@@ -910,8 +873,9 @@ private struct RemovalFileResult {
             commands.remove(); (RecentAlertProbe.alert?.suppressionButton)?.state = .on
             RecentAlertProbe.finish(.alertFirstButtonReturn)
             _ = await wait { view.presentation.selectionState.references == [last] }
-            checks["successful-source-delete-uses-real-store-exclusion-projection"] = !FileManager.default.fileExists(atPath: firstURL.path)
-                && controller.snapshot.excludedLibraryReferences.contains { $0.reference == pixabay }
+            checks["successful-source-delete-uses-session-hide-without-store-exclusion"] = !FileManager.default.fileExists(atPath: firstURL.path)
+                && view.catalog.catalog.sessionHiddenDownloadReferences.contains(pixabay)
+                && !controller.snapshot.excludedLibraryReferences.contains { $0.reference == pixabay }
             view.publish(.init(downloads: [rows[2]], revision: 102))
             checks["successful-single-delete-restores-adjacent-card-through-real-commands"] = view.presentation.queryResult.items.map(\.reference) == [last]
                 && view.presentation.selectionState.references == [last] && view.presentation.selectionState.focusedReference == last
@@ -924,7 +888,8 @@ private struct RemovalFileResult {
             commands.remove(); RecentAlertProbe.finish(.alertFirstButtonReturn)
             _ = await wait { view.presentation.queryResult.items.isEmpty }
             let keptDownloadBytes = try Data(contentsOf: lastURL)
-            checks["default-off-download-removal-persists-without-source-delete"] = controller.snapshot.excludedLibraryReferences.contains { $0.reference == last }
+            checks["default-off-download-removal-is-session-only-without-source-delete"] = view.catalog.catalog.sessionHiddenDownloadReferences.contains(last)
+                && !controller.snapshot.excludedLibraryReferences.contains { $0.reference == last }
                 && keptDownloadBytes == Data([3]) && commands.steam.requested == priorSteam && commands.pixabay.requested == priorPixabay
 
             let va = WallpaperReference(provider: .videoLibrary, sourceID: "video-A")

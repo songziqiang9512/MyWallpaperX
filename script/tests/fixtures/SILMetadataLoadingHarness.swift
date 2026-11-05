@@ -43,8 +43,6 @@ nonisolated func ProbeFileExists(_ path: String) -> Bool {
 @MainActor var completedMissingBatches = 0
 @MainActor var completedBatches = 0
 @MainActor final class MetadataProbe {
-    var migrationRecoveryMessage: String?
-    var allowsLibraryMutation: Bool { migrationRecoveryMessage == nil }
     static var defersMissingFileCleanupForPersonalSettingsRecovery = false
     var selectedIDs: Set<String> = []
     var selectedID: String?
@@ -283,12 +281,6 @@ nonisolated func ProbeFileExists(_ path: String) -> Bool {
         checks["reloadGenerationRevokesPendingMissingReceipt"] = newLoad.wallpapers == [complete]
             && newLoad.saves == 0 && newLoad.missingAlerts.isEmpty
 
-        let (becameReadOnly, readOnlyRead, readOnlyBatch) = try heldCleanup([gone])
-        becameReadOnly.migrationRecoveryMessage = "Recovery began during scan"
-        readOnlyRead.release.signal()
-        wait("read-only missing cleanup did not finish") { completedMissingBatches > readOnlyBatch }
-        checks["pendingMissingReceiptRespectsCurrentRecoveryBoundary"] = becameReadOnly.wallpapers == [gone]
-            && becameReadOnly.saves == 0 && becameReadOnly.missingAlerts.isEmpty
         checks["allStartupMissingFileProbesRunOffMain"] = HeaderProbe.shared.allReadsOffMain
 
         _ = NSApplication.shared
@@ -363,17 +355,6 @@ nonisolated func ProbeFileExists(_ path: String) -> Bool {
         checks["rapidTopologyChangesPublishTheLatestNativeOrderAndMetadata"] = grid.items == [patched[1], patched[0]]
             && afterTopology == beforeTopology + 2 && grid.collection.reloads == afterTopology
             && grid.items[1].metadata.resolutionText == "8×12" && grid.collection.reloaded.isEmpty
-        let offline = record("offline-recovery", index.deletingLastPathComponent().appendingPathComponent("missing-image.png").path)
-        try persist([offline], at: index)
-        let preserved = try Data(contentsOf: index)
-        let recovery = MetadataProbe(index), recoveryBatch = completedBatches
-        recovery.migrationRecoveryMessage = "Migration needs recovery"
-        recovery.load()
-        wait("read-only metadata callback did not settle") { completedBatches > recoveryBatch }
-        recovery.reconcileForAudit()
-        recovery.save()
-        checks["failedMigrationSILKeepsOfflineRecordAndOriginalBytes"] = try recovery.wallpapers == [offline]
-            && Data(contentsOf: index) == preserved
         print(String(data: try JSONEncoder().encode(checks), encoding: .utf8)!)
     }
 }

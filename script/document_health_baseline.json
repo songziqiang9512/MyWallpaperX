@@ -14,11 +14,11 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 37,
-      "bytes": 9353
+      "bytes": 9355
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 80,
-      "bytes": 18401
+      "bytes": 18327
     },
     "docs/architecture/system-audio-spectrum-design.md": {
       "lines": 40,
@@ -33,20 +33,20 @@
       "bytes": 77975
     },
     "docs/development/code-slimming-program.md": {
-      "lines": 172,
-      "bytes": 46096
+      "lines": 212,
+      "bytes": 54430
     },
     "docs/development/local-library-loading-design.md": {
       "lines": 173,
       "bytes": 38760
     },
     "docs/development/lock-screen-screensaver-design.md": {
-      "lines": 117,
-      "bytes": 23214
+      "lines": 118,
+      "bytes": 22539
     },
     "docs/development/main-window-playlists-redesign.md": {
-      "lines": 598,
-      "bytes": 111928
+      "lines": 555,
+      "bytes": 102538
     },
     "docs/development/pixiv-online-browser-design.md": {
       "lines": 166,
@@ -70,7 +70,7 @@
     },
     "docs/development/wallhaven-online-browser-design.md": {
       "lines": 262,
-      "bytes": 38398
+      "bytes": 38884
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -181,8 +181,8 @@
       "bytes": 53460
     },
     "docs/web/dedicated-host-process-design.md": {
-      "lines": 80,
-      "bytes": 16652
+      "lines": 92,
+      "bytes": 19594
     },
     "docs/web/mediaremote-nowplaying-design.md": {
       "lines": 76,
@@ -413,11 +413,11 @@
     {
       "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
-      "before": "182c167688ef2bcf6d2a2f669659990937319b6af70382e7d82e6c030e93f8ae",
-      "after": "1d36f94fc8a43e30915c18130dfb5f81d1763ddeb34e83f5571ff5efc97f98a4",
-      "owner": "repository-maintainer",
-      "reason": "Complete Ready-before-optional-persistence delivery in the original bounded worker, source/hook ordering, invalidation and transient ready reuse; record exact synthetic before/after evidence, cross-target tail-window tradeoff, real AV and consumer gates. Synchronize the user-authorized workspace closeout; no new product cache/queue or whole-App FPS claim.",
-      "decision": "docs/development/thumbnail-delivery-design.md#decision"
+      "before": "1d36f94fc8a43e30915c18130dfb5f81d1763ddeb34e83f5571ff5efc97f98a4",
+      "after": "cebc0744aec0d90f0a22a3cd7514b1e71ad29043dbbe5571f9cb5e34499827d0",
+      "owner": "app-current-strategy",
+      "reason": "Record current-only state reconstruction accepted by the user, retire legacy App conversion paths, and bind the bounded rebuild verification and commit authorization to the existing design.",
+      "decision": "docs/development/main-window-playlists-redesign.md#9-当前格式数据与旧版兼容退出"
     },
     {
       "section": "bodies",
@@ -436,15 +436,6 @@
       "owner": "repository-maintainer",
       "reason": "Keep current non-displaying Steam prefetch ownership and measured 96-image retirement; preserve fallback/retry/display state and prior target-size scope. Reject the ambiguous static-animation terminal candidate using actual ImageIO counterexamples; retain native timeout evidence and explicit FPS/RSS limits.",
       "decision": "docs/development/thumbnail-delivery-design.md#decision"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/main-window-playlists-redesign.md",
-      "before": "0908fea04b7a33166d77e1645d34a45431db478725c3c79613e83d4a1d06fd71",
-      "owner": "repository-maintainer",
-      "after": "003818c59b91071d97feef612a8ce228b3e9748399b5a9887aeabb38b5a52f84",
-      "reason": "Replace full-history native controls with diffable table reuse and one lightweight task presentation lifetime; preserve all source preparation, progress, warm revisit and close behavior. Record paired 100/1000 native resource counts, corrected fixture lifetimes and actual scoped validation; compact prior target-size results without changing proof ceilings.",
-      "decision": "docs/development/main-window-playlists-redesign.md#page-catalog"
     },
     {
       "section": "bodies",
@@ -481,6 +472,42 @@
       "owner": "scene-named-parent-own-base",
       "reason": "Keep ordinary transform hierarchy separate from named own-source publication. Reuse the original cold provider/capture owners and retire leaf-only permission; record same-input Plan and exact App pixels, bounded official parent-output observations, recovered author sampling and current temporal-reporting boundaries. No video/frame/parent-graph or performance extrapolation.",
       "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-parent-base"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/web/dedicated-host-process-design.md",
+      "before": "a3ca3489e93d45f5b4eb0fd6b8333f09743b3e07f733391fac9849099c305ee1",
+      "after": "d6407fadb1a3e0d8a3a57e010fa8b551f310daa607a2e1fd1174d2eda23e1f18",
+      "owner": "repository-maintainer",
+      "reason": "Keep five requested audio, native modal, session removal, provider index migration and join-time sorting contracts and bounded verification current; replace obsolete historical process prose. No new product owner or Scene change.",
+      "decision": "docs/web/dedicated-host-process-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/wallhaven-online-browser-design.md",
+      "before": "2690d9776ded0dc0220a0e3860595bdbccc850cb500190dfe3caa6ca9b831070",
+      "after": "bd9be1c312fa4322cf4f2fead58c436b666b9f256b0848596c76398e3aa2cf41",
+      "owner": "repository-maintainer",
+      "reason": "Apply user decision to retire old online index/path migration and obsolete UI-cache conversion. Record bounded non-Scene legacy consumer audit, actual costs, current-function exclusions and removal consequences; preserve previous five requested fixes and concurrent Scene work.",
+      "decision": "docs/development/code-slimming-program.md#legacy-app-data-audit"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/repository-map.md",
+      "before": "8d783765e1b2faa6a41c25617a84fe82d81119c9c9a45bb331d893cc14f5795f",
+      "after": "42ed5f2ea24d816a8426b8dc937a59b02d9a53ce8574e6f8f36e509f06d6886b",
+      "owner": "app-current-strategy",
+      "reason": "Replace old App migration policy with current format startup, import, restoration and shared-root ownership. Preserve current data and failures; retire obsolete entry points and tests.",
+      "decision": "docs/development/main-window-playlists-redesign.md#9-当前格式数据与旧版兼容退出"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/lock-screen-screensaver-design.md",
+      "before": "f521826674cfca7a3f1509b4a92681788f54cfbfa57a30c460e23ffed0270b6c",
+      "after": "35afd09387393a02cfefd7dad02a2dc54f1f94ac28fdd814e5e9f44de124ebf9",
+      "owner": "app-current-strategy",
+      "reason": "Replace old App migration policy with current format startup, import, restoration and shared-root ownership. Preserve current data and failures; retire obsolete entry points and tests.",
+      "decision": "docs/development/main-window-playlists-redesign.md#9-当前格式数据与旧版兼容退出"
     }
   ]
 }

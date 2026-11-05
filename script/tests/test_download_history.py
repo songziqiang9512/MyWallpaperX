@@ -1,4 +1,4 @@
-"""Real terminal ledger and read projection; no network, App or user media."""
+"""Current terminal-only ledger and projection; no source seeding or user media."""
 import hashlib
 import os
 from pathlib import Path

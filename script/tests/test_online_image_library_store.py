@@ -1,7 +1,7 @@
 """Real online-image disk publication with isolated files and cancellation probes.
 
-The fixture supplies already-validated bytes: no image decoding, network, login,
-App build, user media or desktop mutation is performed here.
+Publication supplies validated bytes; directory discovery admits real isolated
+PNG inputs through ImageIO. No network, login, App build or user media.
 """
 import hashlib
 import json
@@ -21,6 +21,7 @@ class OnlineImageLibraryStoreTests(unittest.TestCase):
     def test_local_manifest_revision_publication_and_cancellation(self):
         paths = ["MyWallpaperX/Models/WallpaperReference.swift", "MyWallpaperX/Models/WallpaperContent.swift",
                  "MyWallpaperX/Core/OnlineImages/OnlineImageModels.swift",
+                 "MyWallpaperX/Core/OnlineImages/OnlineImageContentProjection.swift",
                  "MyWallpaperX/Core/OnlineImages/OnlineImageLibraryStore.swift",
                  "script/tests/fixtures/OnlineImageLibraryStoreHarness.swift"]
         identities = {path: hashlib.sha256((ROOT / path).read_bytes()).hexdigest() for path in paths}
@@ -30,11 +31,16 @@ class OnlineImageLibraryStoreTests(unittest.TestCase):
                 shutil.copy2(ROOT / path, work / Path(path).name)
             actual = work / "OnlineImageLibraryStore.swift"
             source = actual.read_text()
-            marker = "        try Task.checkCancellation()\n        try data.write(to: manifestURL, options: .atomic)"
+            marker = ("        try Task.checkCancellation()\n"
+                      "        try FileManager.default.createDirectory(at: manifestURL.deletingLastPathComponent(), withIntermediateDirectories: true)\n"
+                      "        try data.write(to: manifestURL, options: .atomic)")
             self.assertEqual(source.count(marker), 1)
             source = source.replace(marker,
-                "        OnlineImageCommitProbe.shared.pause(at: .beforeCheck)\n" + marker +
-                "\n        OnlineImageCommitProbe.shared.pause(at: .afterWrite)", 1)
+                "        OnlineImageStoreProbe.shared.pause(at: .beforeCheck)\n" + marker +
+                "\n        OnlineImageStoreProbe.shared.pause(at: .afterWrite)", 1)
+            read = "        do { bytes = try Data(contentsOf: url) }"
+            self.assertEqual(source.count(read), 1)
+            source = source.replace(read, "        OnlineImageStoreProbe.shared.recordRead(url)\n" + read)
             actual.write_text(source)
             home = work / "home"; home.mkdir()
             environment = dict(os.environ, HOME=str(home), CFFIXED_USER_HOME=str(home))

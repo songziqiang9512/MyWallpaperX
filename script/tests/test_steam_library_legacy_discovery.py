@@ -31,7 +31,6 @@ MEMBERS = (
     '    nonisolated static func loadWorkshopProject(',
     '    nonisolated static func detailCacheDirectoryURL(',
     '    nonisolated static func detailCacheFileURL(',
-    '    nonisolated static func legacyDownloadMetadataFileURL(',
     '    nonisolated static func preferredPreviewRelativePath(',
     '    nonisolated static func loadDetailCache(id:',
     '    nonisolated static func loadDetailCacheSnapshot(',
@@ -87,7 +86,7 @@ CHECKS = {
     'browserClassificationStillAdmitsLooseSceneHost',
     'managedDependencyKeepsCommitAndNoAliasRules',
     'ghostAndSelfDependencyDoNotInventHosts',
-    'directMetadataBuilderKeepsSelectedRootAndFields',
+    'directMetadataBuilderKeepsSelectedRootAndFields', 'oldSidecarCannotCreateRecordAndRemainsUntouched',
 }
 WORK_CHECKS = {
     'markedDirectoriesHaveOnlyActualResolverCalls', 'HTMLOnlySkipsUnusedVideoPreflight',
@@ -138,8 +137,7 @@ def prepare_legacy_discovery_sources(tree, work, fixture_tree=None):
                      if PREPARATION_MEMBERS[0] in signatures else
                      '    nonisolated static func scanBuildInstalledRecord(at directory:')
         if signature == preflight:
-            for kind, path in [('project', 'projectURL.path'), ('metadata', 'metadataURL.path'),
-                               ('package', 'directory.appendingPathComponent("scene.pkg").path')]:
+            for kind, path in [('project', 'projectURL.path'), ('package', 'directory.appendingPathComponent("scene.pkg").path')]:
                 original = 'FileManager.default.fileExists(atPath: ' + path + ')'
                 if member.count(original) != 1:
                     raise ValueError('unique original preflight fileExists required: ' + kind)
@@ -170,7 +168,7 @@ def prepare_legacy_discovery_sources(tree, work, fixture_tree=None):
                                       for signature, member in zip(SCAN_MEMBERS, scans)},
         'observations': ['entry of actual resolveHTMLURL', 'entry of actual resolveVideoURL',
                          'entry of actual preferredPreviewRelativePath and localDownloadStatistics',
-                         'three original preflight fileExists calls delegated to Foundation through test observer'],
+                         'two current preflight fileExists calls delegated to Foundation through test observer'],
         'scope': __doc__, 'generatedSHA256': {path.name: digest(path) for path in (generated, facts, harness)},
     }
 

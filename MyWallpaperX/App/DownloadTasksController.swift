@@ -28,6 +28,15 @@ import Combine
             do { try history.record(receipt); historyError = nil }
             catch { historyError = "下载已结算，但历史无法保存：" + error.localizedDescription; changed.send() }
         }.store(in: &subscriptions)
+        steam.$downloadError.compactMap { $0 }.filter { !$0.isEmpty }
+            .receive(on: DispatchQueue.main).sink { [weak self] message in
+                guard let self else { return }
+                self.steam.downloadError = nil
+                guard !NSApp.isHidden, let window = MainWindowCoordinator.mainWindow(),
+                      window.isVisible, !window.isMiniaturized else { return }
+                presentAppAlert(makeAppAlert(title: "操作失败", message: message, style: .warning),
+                    in: window, useProvidedWindowAsHost: true)
+            }.store(in: &subscriptions)
         let publishers: [AnyPublisher<Void, Never>] = [
             steam.$downloads.map { _ in () }.eraseToAnyPublisher(),
             steam.downloadJobStore.$jobs.map { _ in () }.eraseToAnyPublisher(),
@@ -42,13 +51,13 @@ import Combine
             images.$pixivSession.map { _ in () }.eraseToAnyPublisher()
         ]
         Publishers.MergeMany(publishers).receive(on: RunLoop.main).sink { [weak self] in
-            self?.sourceChanged()
+            self?.changed.send()
         }.store(in: &subscriptions)
-        sourceChanged()
     }
 
     func makePopoverController() -> DownloadTasksPopoverController {
-        DownloadTasksPopoverController(snapshot: { [weak self] in self?.snapshot() ?? .init() }, changes: changes,
+        images.prepareLocal(Set((history?.entries ?? []).compactMap { OnlineImageAssetID(reference: $0.id.reference)?.source }))
+        return DownloadTasksPopoverController(snapshot: { [weak self] in self?.snapshot() ?? .init() }, changes: changes,
             bindings: .init(perform: { [weak self] row, action in self?.perform(row, action: action) },
                 loadThumbnail: { [weak self] row, request, receive in self?.loadThumbnail(row, request: request, receive: receive) },
                 observeProgress: { [weak self] row, receive in self?.observeProgress(row, receive: receive) }),
@@ -56,23 +65,6 @@ import Combine
                 guard let self else { return }
                 for row in rows { perform(row, action: .retry) }
             }, clearHistory: { [weak self] in self?.clearHistory() })
-    }
-
-    private func sourceChanged() {
-        if let history, pixabay.downloadedContent.status.hasSuccessfulScan, images.snapshot.status.hasSuccessfulScan {
-            do {
-                try history.importExistingSuccesses {
-                    pixabay.downloadedContent.entries.map { entry in
-                        .init(id: .init(reference: .init(provider: .pixabay, sourceID: String(entry.id)), attemptID: "existing-local"),
-                            title: entry.displayTitle, outcome: .existingLocal, recordedAt: entry.creationDate)
-                    } + images.snapshot.records.map { record in
-                        .init(id: .init(reference: record.id.reference, attemptID: "existing-local"), title: record.title,
-                              outcome: .existingLocal, recordedAt: record.firstDownloadedAt)
-                    }
-                }
-            } catch { historyError = "旧下载历史无法保存：" + error.localizedDescription }
-        }
-        changed.send()
     }
 
     private func snapshot() -> DownloadTaskSnapshot {

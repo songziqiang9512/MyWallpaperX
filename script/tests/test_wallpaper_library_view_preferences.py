@@ -1,4 +1,4 @@
-"""Real page sessions/query/directory consume snapshots without source services."""
+"""Current page preferences, geometry and facet sessions use the actual codec/query."""
 import hashlib
 import json
 from pathlib import Path
@@ -20,8 +20,6 @@ class WallpaperLibraryViewPreferencesTests(unittest.TestCase):
                  "MyWallpaperX/Core/LibraryCollections/UserCollectionsStore.swift",
                  "MyWallpaperX/Core/LibraryCollections/UserCollectionsController.swift",
                  "MyWallpaperX/Core/LibraryCollections/WallpaperLibraryQuery.swift",
-                 "MyWallpaperX/Core/LibraryCollections/LibraryCollectionsMigration.swift",
-                 "MyWallpaperX/Core/LibraryCollections/WallpaperLibraryViewPreferencesMigration.swift",
                  "MyWallpaperX/Shell/WallpaperLibraryPresentation.swift",
                  "script/tests/fixtures/WallpaperLibraryViewPreferencesHarness.swift"]
         observed = paths + ['script/tests/test_wallpaper_library_view_preferences.py', 'script/tests/test_wallpaper_library_query.py']

@@ -40,14 +40,15 @@ import AppKit
 @discardableResult @MainActor func presentAppAlert(
     _ alert: NSAlert,
     in window: NSWindow? = nil,
+    useProvidedWindowAsHost: Bool = false,
     completion: ((NSApplication.ModalResponse) -> Void)? = nil
 ) -> NSWindow {
     let cancelMonitor = prepareAppAlert(alert)
     if let window {
-        let host = WallpaperLibrarySheetPresentation.topWindow(in: window)
+        let host = useProvidedWindowAsHost ? window : WallpaperLibrarySheetPresentation.topWindow(in: window)
         let sheet = alert.window
-        // A source window can close while its feedback is open. Cancel the
-        // native sheet through its actual host; never leave a floating alert.
+        // This also retires queued sheets: sheetParent exists from beginSheet
+        // until orderOut, including while another sheet is presented.
         let closeObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.willCloseNotification, object: host, queue: .main
         ) { [weak host, weak sheet] _ in

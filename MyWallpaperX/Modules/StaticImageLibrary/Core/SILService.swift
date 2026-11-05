@@ -65,19 +65,8 @@ struct SILWallpaper: Identifiable, Codable, Hashable {
 
 final class SILService: ObservableObject {
 
-    static var startupMigrationRecoveryMessage: String?
     static var defersMissingFileCleanupForPersonalSettingsRecovery = false
     static let shared = SILService()
-    let migrationRecoveryMessage: String?
-    var allowsLibraryMutation: Bool { migrationRecoveryMessage == nil }
-
-    private func admitLibraryMutation(in window: NSWindow? = nil) -> Bool {
-        guard let migrationRecoveryMessage else { return true }
-        let alert = makeAppAlert(title: "资料库需要恢复", message: migrationRecoveryMessage + "\n仍可浏览和播放，恢复资料库后再导入或整理。",
-                                 style: .warning, buttons: ["知道了"])
-        presentAppAlert(alert, in: window)
-        return false
-    }
 
     @Published var wallpapers: [SILWallpaper] = []
     private let persistenceURL: URL
@@ -94,7 +83,6 @@ final class SILService: ObservableObject {
     var silPersistenceURL: URL { persistenceURL }
 
     private init() {
-        migrationRecoveryMessage = Self.startupMigrationRecoveryMessage
         let appSupport = FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
             .appendingPathComponent(Bundle.main.bundleIdentifier ?? "MyWallpaperX")
@@ -164,15 +152,11 @@ final class SILService: ObservableObject {
     }
 
     func save() {
-        guard migrationRecoveryMessage == nil else { return }
         try? persistWallpaperMetadata(wallpapers)
     }
 
     /// Same JSON owner for normal saves and an acknowledged settings import.
     func persistWallpaperMetadata(_ values: [SILWallpaper], synchronize: Bool = false) throws {
-        guard allowsLibraryMutation else {
-            throw CocoaError(.fileWriteNoPermission, userInfo: [NSLocalizedDescriptionKey: migrationRecoveryMessage ?? "资料库需要恢复"])
-        }
         let data = try JSONEncoder().encode(values)
         try data.write(to: persistenceURL, options: .atomic)
         guard synchronize else { return }
@@ -182,7 +166,7 @@ final class SILService: ObservableObject {
     }
 
     private func reconcileMissingFilesOnLaunch() {
-        guard migrationRecoveryMessage == nil, !Self.defersMissingFileCleanupForPersonalSettingsRecovery else { return }
+        guard !Self.defersMissingFileCleanupForPersonalSettingsRecovery else { return }
         let generation = metadataLoadGeneration
         let inputs = wallpapers.map { (id: Data($0.id.utf8), path: $0.path) }
         DispatchQueue.global(qos: .utility).async { [weak self] in
@@ -195,7 +179,6 @@ final class SILService: ObservableObject {
             let removedPaths = missing
             DispatchQueue.main.async { [weak self] in
                 guard let self, generation == self.metadataLoadGeneration,
-                      self.migrationRecoveryMessage == nil,
                       !Self.defersMissingFileCleanupForPersonalSettingsRecovery else { return }
                 let removed = self.wallpapers.filter {
                     removedPaths[Data($0.id.utf8)]?.contains(Data($0.path.utf8)) == true
@@ -265,7 +248,6 @@ final class SILService: ObservableObject {
 
     func importImages(from urls: [URL], presentingIn window: NSWindow? = nil,
                       presentsSummary: Bool = true, completion: ((WallpaperSourceImportResult) -> Void)? = nil) {
-        guard admitLibraryMutation(in: window) else { return }
         let importEpoch = metadataLoadGeneration
         // 枚举目录、逐文件读元数据都在后台执行，主线程只做落库与 UI 刷新
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
@@ -445,7 +427,6 @@ final class SILService: ObservableObject {
             let reference = WallpaperReference(provider: .staticImageLibrary, sourceID: item.id)
             let url = URL(fileURLWithPath: item.path).standardizedFileURL
             do {
-                guard allowsLibraryMutation else { throw CocoaError(.fileWriteNoPermission) }
                 guard !isInUse(url) else {
                     throw CocoaError(.fileWriteNoPermission, userInfo: [NSLocalizedDescriptionKey: "源图片正在播放或准备，请先停止播放后重试"])
                 }
@@ -463,7 +444,7 @@ final class SILService: ObservableObject {
             for (reference, request) in requests {
                 let key = Data(request.url.path.utf8), prior = outcomes[key]
                 let unlinked = DispatchQueue.main.sync {
-                    guard self.metadataLoadGeneration == generation && self.allowsLibraryMutation
+                    guard self.metadataLoadGeneration == generation
                         && self.wallpapers.contains(where: { $0.id.utf8.elementsEqual(reference.sourceID.utf8) && Self.normalizedPath($0.path) == Self.normalizedPath(request.url.path) })
                         && !isInUse(request.url) else {
                         return WallpaperSourceFileDeletion.Outcome(sourceFileDeleted: false,

@@ -65,28 +65,6 @@ extension WallpaperManager {
                                admission: ImportedVideoPlaybackAdmission? = nil,
                                resourceLifetime: PlaybackResourceLifetime? = nil,
                                presentsSummary: Bool = true, completion: ((WallpaperSourceImportResult) -> Void)? = nil) {
-        guard allowsLibraryMutation else {
-            if let admission {
-                guard acceptsImportedVideoPlayback(admission) else {
-                    failImportedVideoPlayback(admission, reason: "视频播放请求已取消")
-                    return
-                }
-                let matchesSource = (context == .pixabayPlayback && admission.reference.provider == .pixabay)
-                    || (context == .steamPlayback && admission.reference.provider == .steamWorkshop)
-                if matchesSource, urls.count == 1, let url = urls.first,
-                   let existing = wallpapers.first(where: { normalizedPath($0.path) == normalizedPath(url.path) }) {
-                    // Reuse the existing indexed resource and the original
-                    // ticket; recovery mode must not import or rewrite history.
-                    withExtendedLifetime(resourceLifetime) {
-                        setAsWallpaper(existing, admission: admission)
-                    }
-                    return
-                }
-                failImportedVideoPlayback(admission, reason: "需要先恢复资料库再导入播放。")
-            }
-            reportMigrationReadOnly(in: window)
-            return
-        }
         guard !urls.isEmpty else {
             if let admission { failImportedVideoPlayback(admission, reason: "没有可导入的视频，已保留原壁纸") }
             return
@@ -395,7 +373,7 @@ extension WallpaperManager {
         resourceLifetime: PlaybackResourceLifetime?,
         presentsSummary: Bool, completion: ((WallpaperSourceImportResult) -> Void)?
     ) {
-        guard wallpaperIndexSaveEpoch == indexEpoch, allowsLibraryMutation else { return }
+        guard wallpaperIndexSaveEpoch == indexEpoch else { return }
         // 应用阶段只在主线程改模型，后台预处理结果不直接碰 @Published 属性。
         var counters = prepared.counters
         var playableExistingPaths = prepared.existingPathsToLink

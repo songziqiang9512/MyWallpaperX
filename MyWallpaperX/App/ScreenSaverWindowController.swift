@@ -17,7 +17,6 @@ import Combine
     private var actionFeedback = ""
     private let saveButton = NSButton(title: "保存屏保", target: nil, action: nil)
     private let chooseButton = NSButton(title: "选择视频", target: nil, action: nil)
-    private var legacyRemovalButton: NSButton?
     private lazy var artworkLoader = WallpaperLibraryArtworkProvider.liveLoader(manager: .shared, images: .shared, steam: .shared, pixabay: .shared)
     private let posterLoader = SILThumbnailProvider()
     private var selectedArtworkIdentity: WallpaperLibraryArtworkProvider.Identity?
@@ -121,14 +120,11 @@ import Combine
         WallpaperLibraryControlStyle.sheetCapsule(saveButton)
         let buttons = NSStackView(views: [cancel, saveButton])
         buttons.orientation = .horizontal; buttons.alignment = .centerY; buttons.spacing = 12
-        let legacyRemoval = button("移除旧组件", #selector(uninstallAction))
-        legacyRemovalButton = legacyRemoval
-        let management = NSStackView(views: [button("清除内容", #selector(clearAction)), legacyRemoval])
-        management.orientation = .horizontal; management.alignment = .centerY; management.spacing = 8
-        let footer = NSStackView(views: [management, NSView(), buttons])
+        let clear = button("清除内容", #selector(clearAction))
+        let footer = NSStackView(views: [clear, NSView(), buttons])
         footer.orientation = .horizontal; footer.alignment = .centerY
         footer.distribution = .fill; footer.spacing = 12
-        for group in [management, buttons] {
+        for group in [clear as NSView, buttons] {
             group.setContentHuggingPriority(.required, for: .horizontal)
             group.setContentCompressionResistancePriority(.required, for: .horizontal)
         }
@@ -272,7 +268,6 @@ import Combine
             : (matchesSaved ? "当前屏保视频" : "所选视频 · 尚未保存")
         chooseButton.isEnabled = !isSaving
         status.stringValue = integration.hasBundledComponent ? "系统组件随 App 提供" : "系统组件缺失"
-        legacyRemovalButton?.isHidden = !integration.isInstalled
         refreshArtwork(content: content)
         let coordinator = ScreenSaverCoordinator.shared
         if isSaving { feedback.stringValue = actionFeedback }
@@ -404,37 +399,31 @@ import Combine
         }
     }
 
-    @objc private func clearAction() { confirmRemoval(uninstall: false) }
-    @objc private func uninstallAction() { confirmRemoval(uninstall: true) }
-    private func confirmRemoval(uninstall: Bool) {
+    @objc private func clearAction() {
         guard let window else { return }
         let presentation = presentationEpoch
-        let alert = makeAppAlert(title: uninstall ? "移除旧版屏保组件？" : "清除屏保内容？",
-            message: uninstall ? "请先在系统设置选择 MyWallpaperX 新分组中的视频。这里只移除旧版组件，已保存视频和新组件会保留。"
-                : "将停止跟随并清除已发布视频。系统的墙纸与屏保选择请在系统设置中调整。",
-            style: .warning, buttons: [uninstall ? "移除旧组件" : "清除", "取消"])
+        let alert = makeAppAlert(title: "清除屏保内容？",
+            message: "将停止跟随并清除已发布视频。系统的墙纸与屏保选择请在系统设置中调整。",
+            style: .warning, buttons: ["清除", "取消"])
         presentAppAlert(alert, in: window) { [weak self] response in
             guard let self, self.presentationEpoch == presentation, response == .alertFirstButtonReturn else { return }
             self.presentationEpoch &+= 1
             let operation = self.presentationEpoch
             self.isSaving = true
-            self.actionFeedback = uninstall ? "正在移除旧组件…" : "正在清除内容…"
+            self.actionFeedback = "正在清除内容…"
             self.refresh()
             let finished: @MainActor (Result<Void, Error>) -> Void = { [weak self] result in
                 guard let self, self.presentationEpoch == operation else { return }
                 self.isSaving = false
-                if !uninstall {
-                    self.original = WallpaperManager.shared.settings.screenSaver; self.draft = self.original
-                    self.mode.selectItem(at: 0)
-                    self.fill.selectItem(at: self.draft.fillMode == "aspectFit" ? 0 : 1)
-                    self.battery.state = self.draft.playsOnBattery ? .on : .off
-                }
+                self.original = WallpaperManager.shared.settings.screenSaver; self.draft = self.original
+                self.mode.selectItem(at: 0)
+                self.fill.selectItem(at: self.draft.fillMode == "aspectFit" ? 0 : 1)
+                self.battery.state = self.draft.playsOnBattery ? .on : .off
                 if case .failure(let error) = result { self.actionFeedback = error.localizedDescription }
-                else { self.actionFeedback = uninstall ? "已移除旧组件。" : "已清除内容。" }
+                else { self.actionFeedback = "已清除内容。" }
                 self.refresh()
             }
-            if uninstall { self.integration.uninstallLegacy(completion: finished) }
-            else { ScreenSaverCoordinator.shared.clear(completion: finished) }
+            ScreenSaverCoordinator.shared.clear(completion: finished)
         }
     }
 }

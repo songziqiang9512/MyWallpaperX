@@ -47,7 +47,7 @@ extension SceneDaemonClient { func stop() {} }
     let collections: RecordedCollections? = RecordedCollections()
     let restoration = RecordedRestoration()
     let playbackChanges = PassthroughSubject<Void, Never>()
-    var relationships = UserCollectionsSnapshot(revision: 0, resetEpoch: UUID(), migrationManifestID: nil, playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
+    var relationships = UserCollectionsSnapshot(revision: 0, resetEpoch: UUID(), playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
     let items: [WallpaperContentItem]
     init(_ manager: WallpaperManager, items: [WallpaperContentItem]) { self.manager = manager; self.items = items; installPlaybackBindings() }
     func playbackSnapshot(reference: WallpaperReference?, source: WallpaperPlaybackSequence.Source,

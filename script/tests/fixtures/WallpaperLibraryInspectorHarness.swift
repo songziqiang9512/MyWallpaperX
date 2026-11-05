@@ -152,8 +152,7 @@ private final class ImageSelectionAssemblyProbe {
 final class WallpaperLibraryWorkspace {
     let presentation = InspectorPresentation()
     let playbackChanges = PassthroughSubject<Void, Never>()
-    var relationships = UserCollectionsSnapshot(revision: 0, resetEpoch: UUID(), migrationManifestID: nil,
-        playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
+    var relationships = UserCollectionsSnapshot(revision: 0, resetEpoch: UUID(), playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
     let catalog = InspectorCatalog()
     var playing: WallpaperReference?
     private(set) var contentReads = 0
@@ -401,8 +400,7 @@ final class ForeignPreviewOwner: NSObject, QLPreviewPanelDataSource {
         checks["catalog-publish-never-reopens-closed-inspector"] = coordinator.inspectorToken == nil && probe.opens.count == openCount
         workspace.presentation.canEditCollections = true
         let list = WallpaperPlaylist(name: "Mixed", sidebarRank: 0)
-        workspace.relationships = .init(revision: 1, resetEpoch: workspace.relationships.resetEpoch, migrationManifestID: nil,
-            playlists: [list], members: [.init(playlistID: list.id, reference: video, position: 0, addedAt: Date())], favorites: [], recent: [],
+        workspace.relationships = .init(revision: 1, resetEpoch: workspace.relationships.resetEpoch, playlists: [list], members: [.init(playlistID: list.id, reference: video, position: 0, addedAt: Date())], favorites: [], recent: [],
             aliases: [.init(alias: video, canonical: remote, proof: .publishedDownload)], locators: [])
         coordinator.inspect(content: videoValue); await pump()
         let aliasView = probe.mounts.last!.1 as! PixabayDownloadsInspectorView
@@ -827,8 +825,7 @@ final class ForeignPreviewOwner: NSObject, QLPreviewPanelDataSource {
         coordinator.inspect(content: remoteValue); await pump()
         let beforeReset = probe.mounts.last!.1 as! PixabayDownloadsInspectorView
         let previousEpoch = workspace.relationships
-        workspace.relationships = .init(revision: 2, resetEpoch: UUID(), migrationManifestID: nil,
-            playlists: previousEpoch.playlists, members: previousEpoch.members, favorites: [], recent: [], aliases: previousEpoch.aliases, locators: [])
+        workspace.relationships = .init(revision: 2, resetEpoch: UUID(), playlists: previousEpoch.playlists, members: previousEpoch.members, favorites: [], recent: [], aliases: previousEpoch.aliases, locators: [])
         let favoritesBeforeReset = favorites
         beforeReset.actions.onToggleFavorite()
         checks["reset-revokes-old-actions-before-asynchronous-view-echo"] = favorites == favoritesBeforeReset
@@ -848,8 +845,7 @@ final class ForeignPreviewOwner: NSObject, QLPreviewPanelDataSource {
             locator: webValue.locator, title: "Offline workshop", kind: .web, publishedAvailability: .unavailable,
             capabilities: [.inspect], metadata: .init(), acquisition: .idle, update: .idle, aliases: [])
         policyWorkspace.catalog.catalog = .init(videos: [offlineVideo], downloads: [offlineWeb])
-        policyWorkspace.relationships = .init(revision: 1, resetEpoch: UUID(), migrationManifestID: nil,
-            playlists: [], members: [], favorites: [.init(reference: video, favoritedAt: nil), .init(reference: web, favoritedAt: nil)],
+        policyWorkspace.relationships = .init(revision: 1, resetEpoch: UUID(), playlists: [], members: [], favorites: [.init(reference: video, favoritedAt: nil), .init(reference: web, favoritedAt: nil)],
             recent: [], aliases: [], locators: [])
         var policyFavorites: [WallpaperReference] = [], policyMemberships: [WallpaperReference] = []
         func canEditPolicy() -> Bool { policyWorkspace.presentation.canEditCollections && !policyUndo.isApplyingTransaction }
@@ -912,8 +908,7 @@ final class ForeignPreviewOwner: NSObject, QLPreviewPanelDataSource {
         checks["disabled-rendered-heart-does-not-borrow-action-after-undo-completes"] = policyFavorites == beforeBusyFavorites
         let beforePolicyReset = livePolicyView.actions
         let policyRelations = policyWorkspace.relationships
-        policyWorkspace.relationships = .init(revision: 2, resetEpoch: UUID(), migrationManifestID: nil,
-            playlists: [], members: [], favorites: policyRelations.favorites, recent: [], aliases: [], locators: [])
+        policyWorkspace.relationships = .init(revision: 2, resetEpoch: UUID(), playlists: [], members: [], favorites: policyRelations.favorites, recent: [], aliases: [], locators: [])
         beforePolicyReset.onToggleFavorite(); beforePolicyReset.onChoosePlaylist(nil)
         checks["policy-actions-still-reject-reset-before-any-availability-or-state-echo"] = policyFavorites == beforeBusyFavorites
             && policyMemberships.isEmpty

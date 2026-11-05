@@ -72,7 +72,7 @@ import OSLog
                 lastPublished = nil
                 publish()
                 do {
-                    let root = try explicitRoot ?? ScreenSaverActivityWire.canonicalRoot(ScreenSaverPaths.currentUserRoot())
+                    let root = try explicitRoot ?? ScreenSaverActivityWire.canonicalRoot(ScreenSaverPaths.sharedRoot())
                     try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true,
                                                             attributes: [.posixPermissions: 0o700])
                     // Preserve this inode. flock releases on process failure;

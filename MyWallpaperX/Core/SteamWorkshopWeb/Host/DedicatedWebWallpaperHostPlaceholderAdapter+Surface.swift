@@ -139,9 +139,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         webView.setValue(false, forKey: "drawsBackground")
         webView.allowsMagnification = false
 #if DEBUG
-        if #available(macOS 13.0, *) {
-            webView.isInspectable = request?.runtimeProfile.diagnosticsEnabled ?? true
-        }
+        webView.isInspectable = request?.runtimeProfile.diagnosticsEnabled ?? true
 #endif
         contentView.addSubview(webView)
         let surface = HostSurface(
@@ -374,8 +372,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         case .ephemeral:
             return .nonPersistent()
         case .workshopPersistent, .scopedPersistent:
-            if #available(macOS 14.0, *),
-               let identifier = persistentDataStoreIdentifier(for: request, screenID: screenID) {
+            if let identifier = persistentDataStoreIdentifier(for: request, screenID: screenID) {
                 return WKWebsiteDataStore(forIdentifier: identifier)
             }
             return .nonPersistent()

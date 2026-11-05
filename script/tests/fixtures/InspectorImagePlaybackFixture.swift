@@ -16,8 +16,7 @@ import AppKit
     _ = manager.playbackSwitch.prepared(ticket, executionID: execution)
     _ = manager.playbackSwitch.visible(ticket, executionID: execution)
     precondition(manager.libraryPlaybackSequence.commit(ticket) != nil)
-    let relationships = UserCollectionsSnapshot(revision: 1, resetEpoch: UUID(), migrationManifestID: nil,
-        playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
+    let relationships = UserCollectionsSnapshot(revision: 1, resetEpoch: UUID(), playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
     let workspace = AppliedImageWorkspace(manager, snapshot: snapshot, relationships: relationships)
     let content = WallpaperContentItem(reference: reference, providerReference: reference, locator: .init(mediaKind: .image),
         title: "Playing image", kind: .image, publishedAvailability: .available,

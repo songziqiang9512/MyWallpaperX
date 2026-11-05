@@ -611,13 +611,12 @@ let webCompatibilityScriptHostBridge = #"""
   window.__myWallpaperSetGlobalVolume = function(value) {
     const volume = Math.max(0, Math.min(1, Number(value) || 0));
     window.__myWallpaperLastHostVolume = volume;
-    // 全量穿透（shadow root + 同源 iframe）：querySelectorAll 不穿 shadow
-    // 边界，自定义元素内的 <video> 只有挂接时的一次性回填，宿主音量调整
-    // 永远到不了——与媒体状态 payload 共用同一遍历器（MediaDiscovery 段
-    // 在 HostBridge 之前拼接，const 先于本段的种子调用与宿主调用求值）。
-    for (const node of new Set(wallpaperMediaNodes().concat(audioStreams))) {
+    for (const context of audioContextInstances) {
+      if (context.__mwxAudioOutput) context.__mwxAudioOutput.gain.gain.value = volume;
+    }
+    for (const node of new Set(wallpaperMediaNodes().concat(audioStreams, wallpaperActiveMediaNodes()))) {
       if (!node) continue;
-      try { node.volume = volume; } catch (_) {}
+      try { applyWallpaperMediaVolume(node, volume); } catch (_) {}
     }
     try {
       window.dispatchEvent(new CustomEvent('wallpaper-volume-changed', { detail: volume }));

@@ -57,18 +57,8 @@ extension SteamWorkshopService {
                     root.resolvingSymlinksInPath().standardizedFileURL.path,
                   snapshot?.legacyFolderURL?.standardizedFileURL == expectedRoot.standardizedFileURL else { throw rejected }
             let directory = try Transaction.absoluteDirectory(root)
-            if commit.version >= 2 {
-                guard try Transaction.markerCommit(in: directory) == commit else { throw rejected }
-            }
-            let generation: String
-            switch commit.version {
-            case 1: generation = commit.directoryName
-            case 2: generation = String(commit.directoryName.suffix(36))
-            case 3:
-                guard let value = commit.generation else { throw rejected }
-                generation = value
-            default: throw rejected
-            }
+            guard try Transaction.markerCommit(in: directory) == commit,
+                  let generation = commit.generation else { throw rejected }
             let source = ScenePlaybackSource(rootURL: root, managed: .init(
                 storageIdentity: storageIdentity, generation: generation.lowercased()))
             guard source.isValid else { throw rejected }
@@ -92,7 +82,18 @@ extension SteamWorkshopService {
         let library = steamDownloadLibraryRootURL
         let snapshots: [String: SteamWorkshopDownloadMetadataSnapshot]
         do {
-            snapshots = try loadManagedDownloadSnapshots(requireComplete: true)
+            // Publication still owns its generation when the player no longer admits that format.
+            snapshots = try SteamWorkshopLibraryTransaction.publishedMetadata(libraryRoot: library,
+                requireComplete: true).mapValues {
+                    try JSONDecoder().decode(SteamWorkshopDownloadMetadataSnapshot.self, from: $0)
+                }
+            for (itemID, snapshot) in snapshots {
+                if let commit = snapshot.commit {
+                    guard snapshot.item.id == itemID, commit.workshopId == itemID else {
+                        throw SteamWorkshopLibraryTransaction.Failure(message: "下载索引身份无效，已暂停版本回收。")
+                    }
+                }
+            }
         } catch {
 #if DEBUG
             NSLog("MWX Steam library: incomplete index; reclamation deferred: %@", error.localizedDescription)
@@ -133,8 +134,7 @@ extension SteamWorkshopService {
 #endif
             }
             // 索引 GC：元数据索引只增不减（墓碑与孤儿 legacy 条目永久累
-            // 积），与版本回收同节奏清理内容已不存在的超龄条目；v1 兼容
-            // 根同步退役（内容与超龄杂项清空后撤掉空目录）。删除阶段回
+            // 积），与版本回收同节奏清理内容已不存在的超龄条目。删除阶段回
             // 到主 actor 无悬挂点执行：全部发布路径（publishCanonical/
             // publish/恢复/元数据更新）都在主 actor 同步 rename，与删除
             // 天然串行；事务层身份复核再挡住 actor 序列化之外的替换。
@@ -142,10 +142,7 @@ extension SteamWorkshopService {
                 let candidates = await Task.detached(priority: .utility) {
                     Self.scanOrphanedMetadataEntries(libraryRoot: library, minimumAge: 24 * 60 * 60)
                 }.value
-                var reclaimed = self.removeOrphanedMetadataEntries(candidates, libraryRoot: library)
-                reclaimed += await Task.detached(priority: .utility) {
-                    Self.retireLegacyVersionsRoot(libraryRoot: library, minimumAge: 24 * 60 * 60)
-                }.value
+                let reclaimed = self.removeOrphanedMetadataEntries(candidates, libraryRoot: library)
                 if reclaimed > 0 {
 #if DEBUG
                     NSLog("MWX Steam library: reclaimed %d orphaned metadata entr(ies)", reclaimed)
@@ -154,40 +151,6 @@ extension SteamWorkshopService {
             }
             self?.libraryVersionReclamationTask = nil
         }
-    }
-
-    /// v1 兼容根（只读遗留）退役：UUID 内容目录由 reclaimVersions 的常规
-    /// 路径处理，这里只清掉应用私有根内的超龄杂项文件（Finder 残留），
-    /// 根完全清空后整体撤掉。所有读点容忍目录缺席；非空（仍有未到期内
-    /// 容或杂项）时不做任何删除。
-    nonisolated static func retireLegacyVersionsRoot(libraryRoot: URL, minimumAge: TimeInterval) -> Int {
-        guard let configured = try? SteamWorkshopLibraryTransaction.configuredRoot(libraryRoot) else { return 0 }
-        let versions = configured.appendingPathComponent(
-            SteamWorkshopLibraryTransaction.versionsName, isDirectory: true
-        )
-        let children = (try? FileManager.default.contentsOfDirectory(
-            at: versions, includingPropertiesForKeys: [.isRegularFileKey, .contentModificationDateKey],
-            options: []
-        )) ?? []
-        guard !children.isEmpty else { return 0 }
-        let cutoff = Date().timeIntervalSince1970 - minimumAge
-        var removed = 0
-        for url in children where !(url.lastPathComponent.utf8.count == 36
-            && UUID(uuidString: url.lastPathComponent) != nil) {
-            let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .contentModificationDateKey])
-            if values?.isRegularFile == true,
-               (values?.contentModificationDate?.timeIntervalSince1970 ?? 0) < cutoff,
-               (try? FileManager.default.removeItem(at: url)) != nil {
-                removed += 1
-            }
-        }
-        // 只有确认已完全清空才移除目录本身：removeItem 对非空目录是递归
-        // 删除，绝不能在还有内容时调用。
-        let remaining = (try? FileManager.default.contentsOfDirectory(atPath: versions.path)) ?? []
-        if remaining.isEmpty {
-            try? FileManager.default.removeItem(at: versions)
-        }
-        return removed
     }
 
     /// 索引孤儿候选：扫描阶段判定的全部身份——索引文件名、条目 itemID、

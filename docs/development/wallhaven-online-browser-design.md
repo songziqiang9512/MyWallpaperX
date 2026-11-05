@@ -2,8 +2,8 @@
 
 <!-- document-role: active-plan -->
 
-更新日期：2026-10-27。最初侦查基线：`8f71545d8962e16d401c79c5866e97ca9ddc554b`；本轮整合基线：`2fb50b5f14b53410a7479ce474c9999376b4e174`。
-工作树：`MWX/status-menu-design`。设计与共享合同见§1–8，已实施范围、实证和未覆盖项见§9；基于目标分支最新UI与启动专项提交整合，未改主仓工作区。
+更新日期：2026-11-05。最初侦查基线：`8f71545d8962e16d401c79c5866e97ca9ddc554b`；本轮整合基线：`2fb50b5f14b53410a7479ce474c9999376b4e174`。
+工作分支：`codex/engine-refactor-program`。设计与共享合同见§1–8；本批分源隐藏索引和按需读取见§4.2/§4.4，旧实现记录仅证明其当时范围。
 
 ## 1. 用户结果与首版范围
 
@@ -96,10 +96,10 @@ flowchart LR
 
 - Wallhaven：`WallpaperReference(provider:.wallhaven, sourceID:原始作品ID)`；不把数字化、大小写改写或URL文件名作为归一化捷径。
 - Pixiv：作品ID与图片页分开；本地资产为`.pixiv / "{illustID}:p{0-based}"`。浏览作品壳不能伪装本地已发布图片，细则见Pixiv方案。
-- 共用本地版本化manifest，记录provider、资产ID、作品/作者/来源页、相对本地路径、像素/字节大小、首次成功下载时间、当前发布revision。API key、Cookie、登录身份私有响应不进入记录或个人设置。
-- 文件按来源分目录，路径只作locator；发布用记录里的身份，不扫描文件名猜来源。记录只由该owner写，用户关系仍只写原Store；不保存第二份喜爱、最近或队列。
-- manifest损坏保留原件并报告；不得把目录里任意图片当成成功下载。既有有效本地发布不因API离线、key丢失、Cookie失效而失去播放资格。
-- 当前关系DB v2存储通用ref_key，没有四来源SQL白名单；不为加枚举无故升级DB。个人设置目前schema7：新增来源/页类型必须做旧1–7导入与新格式往返；输出使用新schema8，让不理解新来源的旧版明确拒绝且保留原文件。同步审查所有`==7`分支为等价版本范围，不只改版本常量；不迁移媒体文件。
+- 现OnlineImageLibraryStore唯一actor按来源管理版本化隐藏索引：`Wallhaven/.wallhaven.json`、`Pixiv/.pixiv.json`；记录ID、元数据、相对路径、首下载时间和revision保持。正常需求只读所需来源，未加载来源不冒充ready；聚合下载/播放恢复显式请求所需来源。API key、Cookie、私有响应不持久化。
+- 文件按来源目录发现，路径只作locator；已记录项保原远端身份。索引外有效图片经现图片准入生成稳定本地命名空间身份和file来源URL，不猜UUID对应哪个远端作品；此类local-only记录没有原站/重下能力。原索引owner写记录，关系仍归原Store。当前记录路径、retiredPaths、隐藏/pending/staging不重收，避免旧修订复活和同源重复。
+- 索引损坏保留原件和已知内存状态并按来源报告，不能写空库替代；新发现的local-only文件只证明本地可用，不伪造下载成功history。已有有效本地文件不因网络/凭据失效而不可播放。先读索引交已有内容，再后台检查/发现；各来源readiness独立，扫描失败不清另一源。
+- 当前关系DB v2存储通用ref_key，没有四来源SQL白名单；不为加枚举无故升级DB。个人设置使用schema8：保旧1–8导入与现格式往返，让不理解新来源的旧版明确拒绝且保留原文件。同步审查所有`==7`分支为等价版本范围，不只改版本常量；不迁移媒体文件。
 - reset/个人设置导入、来源缺失、移除/重新下载及aliases沿原合同验收。缺少下载资产的关系显示不可用，不能按标题/路径重新绑定其他作品。
 
 ### 4.3 请求、分页和缓存
@@ -129,7 +129,7 @@ flowchart LR
 
 首版不实现跨重启断点续传；退出撤销未提交任务，保留成功记录，重启不自动重下。短期签名URL/认证头不持久保存，重试按身份从来源重新解析；不把会过期的下载URL升级为本地播放许可。
 
-新下载写入 `~/Movies/MyWallpaperX/Wallhaven`、`~/Movies/MyWallpaperX/Pixiv`，共用原publication owner独有的 `online-images.json`；旧 `在线图片/manifest.json` 与旧文件路径保留零复制兼容，首次真实发布才写新manifest。不把绝对路径写成身份。普通启动只读取本地manifest/必要来源事实，新来源的loadedProviders不能依赖网络或登录；否则新增provider会阻塞原全局恢复。初始为空、扫描失败及成功空库必须区分。
+2026-11-05用户裁决：只读写 `Wallhaven/.wallhaven.json`、`Pixiv/.pixiv.json`。退出根 `online-images.json`、测试根 `manifest.json`、旧 `在线图片/manifest.json` 的读取/迁移/删除与旧目录回退；不再保留迁移状态、warning或双来源根。旧文件不触碰，Brand目录中的合法未索引图片仍由现发现链收录为local-only，不能从文件名恢复远端身份。当前记录与retiredPaths、原图及原发布/删除事务不变。来源需求仍先读本源隐藏索引，再后台扫描，不依赖登录或网络。
 
 ## 5. Wallhaven页面和详情
 

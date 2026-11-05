@@ -76,7 +76,7 @@ import SQLite3
         && commands.admittedWrites == 0 && controller.snapshot == initialSnapshot
     preparations.append(("nonempty-current", 1, WallpaperLibraryQuery.fullResolverInitializations - beforeNonempty))
     let brokenSnapshot = UserCollectionsSnapshot(revision: initialSnapshot.revision, resetEpoch: initialSnapshot.resetEpoch,
-        migrationManifestID: nil, playlists: [], members: [], favorites: [], recent: [], aliases: [
+        playlists: [], members: [], favorites: [], recent: [], aliases: [
             .init(alias: refs[0], canonical: refs[1], proof: .publishedDownload),
             .init(alias: refs[1], canonical: refs[0], proof: .publishedDownload)], locators: [])
     let brokenController = UserCollectionsController(store: store, snapshot: brokenSnapshot)

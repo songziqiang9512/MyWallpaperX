@@ -1,15 +1,21 @@
 import Foundation
+import ImageIO
+import UniformTypeIdentifiers
 
 /// Only the copied Store's two commit boundaries call this test probe. The
 /// production move, encode, cancellation check and atomic-write bodies remain.
-nonisolated final class OnlineImageCommitProbe: @unchecked Sendable {
+nonisolated final class OnlineImageStoreProbe: @unchecked Sendable {
     enum Phase { case beforeCheck, afterWrite }
-    static let shared = OnlineImageCommitProbe()
+    static let shared = OnlineImageStoreProbe()
     private let lock = NSLock()
     private var phase: Phase?
     private let entered = DispatchSemaphore(value: 0)
     private let resume = DispatchSemaphore(value: 0)
+    private var reads: [URL] = []
 
+    func recordRead(_ url: URL) { lock.lock(); reads.append(url); lock.unlock() }
+    func resetReads() { lock.lock(); reads = []; lock.unlock() }
+    var readPaths: [String] { lock.lock(); defer { lock.unlock() }; return reads.map(\.path) }
     func arm(_ phase: Phase) { lock.lock(); self.phase = phase; lock.unlock() }
     func waitUntilEntered() -> Bool { entered.wait(timeout: .now() + 5) == .success }
     func release() { resume.signal() }
@@ -22,7 +28,25 @@ nonisolated final class OnlineImageCommitProbe: @unchecked Sendable {
     }
 }
 
+nonisolated private struct SourceImageIndex: Encodable {
+    let schemaVersion = 1
+    var records: [OnlineImageLocalRecord]
+    var retiredPaths: [String] = []
+}
+
 @main struct OnlineImageLibraryStoreHarness {
+    static func imageBytes() throws -> Data {
+        let context = CGContext(data: nil, width: 3, height: 2, bitsPerComponent: 8, bytesPerRow: 12,
+            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        context.setFillColor(CGColor(red: 0.2, green: 0.5, blue: 0.8, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: 3, height: 2))
+        let bytes = NSMutableData()
+        let destination = CGImageDestinationCreateWithData(bytes, UTType.png.identifier as CFString, 1, nil)!
+        CGImageDestinationAddImage(destination, context.makeImage()!, nil)
+        guard CGImageDestinationFinalize(destination) else { throw CocoaError(.fileWriteUnknown) }
+        return bytes as Data
+    }
+
     static func main() async throws {
         let work = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
         let root = work.appendingPathComponent("library", isDirectory: true)
@@ -30,8 +54,13 @@ nonisolated final class OnlineImageCommitProbe: @unchecked Sendable {
         let store = OnlineImageLibraryStore(root: root)
         var checks: [String: Bool] = [:]
         let first = try await store.load()
-        checks["absent-manifest-is-local-ready-empty-without-creating-a-directory"] = first.status.hasSuccessfulScan
+        checks["absent-index-load-is-unconfirmed-empty-without-creating-a-directory"] = !first.status.hasSuccessfulScan
             && first.records.isEmpty && !files.fileExists(atPath: root.path)
+            && Set(first.sourceStatuses.keys) == Set(OnlineImageSource.allCases)
+        _ = try await store.scan(.wallhaven)
+        let empty = try await store.scan(.pixiv)
+        checks["absent-source-directories-scan-ready-empty-without-materializing-them"] = empty.status.hasSuccessfulScan
+            && empty.records.isEmpty && !files.fileExists(atPath: root.path)
 
         func asset(_ source: OnlineImageSource, _ id: String, _ page: Int = 0) -> OnlineImageAsset {
             OnlineImageAsset(id: .init(source: source, artworkID: id, pageIndex: page), title: "Saved original",
@@ -52,7 +81,7 @@ nonisolated final class OnlineImageCommitProbe: @unchecked Sendable {
         let original = try await publish(a, bytes: "old-validated-image")
         let oldRecord = original.records[0]
         let oldURL = try store.fileURL(for: oldRecord)
-        let manifestURL = root.appendingPathComponent("manifest.json")
+        let manifestURL = root.appendingPathComponent("Wallhaven/.wallhaven.json")
         let firstBytes = try Data(contentsOf: manifestURL)
         let replaced = try await publish(a, bytes: "new-validated-image")
         let replacement = replaced.records[0]
@@ -61,19 +90,18 @@ nonisolated final class OnlineImageCommitProbe: @unchecked Sendable {
         let replacementObject = try JSONSerialization.jsonObject(with: replacementBytes) as! [String: Any]
         checks["official-download-rating-survives-original-commit-and-replacement"] = oldRecord.rating == .adult && replacement.rating == .adult
         do {
-            let legacyRoot = work.appendingPathComponent("legacy-library", isDirectory: true)
-            try files.createDirectory(at: legacyRoot, withIntermediateDirectories: true)
-            var legacyManifest = replacementObject
-            legacyManifest["records"] = (legacyManifest["records"] as! [[String: Any]]).map { entry in
-                var value = entry; value.removeValue(forKey: "rating"); return value
+            let unratedRoot = work.appendingPathComponent("unrated-source", isDirectory: true)
+            let unratedIndex = unratedRoot.appendingPathComponent("Wallhaven/.wallhaven.json")
+            try files.createDirectory(at: unratedIndex.deletingLastPathComponent(), withIntermediateDirectories: true)
+            var value = replacementObject
+            value["records"] = (value["records"] as! [[String: Any]]).map { entry in
+                var record = entry; record.removeValue(forKey: "rating"); return record
             }
-            let legacyBytes = try JSONSerialization.data(withJSONObject: legacyManifest)
-            let legacyURL = legacyRoot.appendingPathComponent("manifest.json")
-            try legacyBytes.write(to: legacyURL)
-            let legacy = try await OnlineImageLibraryStore(root: legacyRoot).load()
-            let unchangedLegacy = try Data(contentsOf: legacyURL)
-            checks["old-unrated-manifest-remains-readable-without-rewrite-or-rating-guess"] = legacy.records.count == 1
-                && legacy.records[0].rating == nil && unchangedLegacy == legacyBytes
+            let bytes = try JSONSerialization.data(withJSONObject: value)
+            try bytes.write(to: unratedIndex)
+            let loaded = try await OnlineImageLibraryStore(root: unratedRoot).load([.wallhaven])
+            checks["current-source-without-rating-remains-unknown-without-rewrite"] = try loaded.records.count == 1
+                && loaded.records[0].rating == nil && Data(contentsOf: unratedIndex) == bytes
         }
         let oldImageBytes = try Data(contentsOf: oldURL), newImageBytes = try Data(contentsOf: replacementURL)
         checks["replacement-uses-independent-revision-and-retains-active-old-bytes"] = replacement.revision != oldRecord.revision
@@ -91,35 +119,36 @@ nonisolated final class OnlineImageCommitProbe: @unchecked Sendable {
         let unrelated = root.appendingPathComponent("unrelated-user-file.png")
         try Data("unrelated".utf8).write(to: unrelated)
         let reopened = try await OnlineImageLibraryStore(root: root).load()
-        checks["restart-reads-manifest-only-without-login-or-directory-import"] = reopened.status.hasSuccessfulScan
+        checks["restart-load-reads-index-before-directory-confirmation"] = !reopened.status.hasSuccessfulScan
             && reopened.records == pages.records && reopened.unavailable.isEmpty && files.fileExists(atPath: unrelated.path)
             && files.fileExists(atPath: oldURL.path)
 
         let missingRecord = pages.records.first { $0.assetID == p0.id }!
         let missingURL = try store.fileURL(for: missingRecord)
         try files.removeItem(at: missingURL)
-        let missing = try await store.load()
+        _ = try await store.load([.pixiv])
+        let missing = try await store.scan(.pixiv)
         checks["missing-file-retains-identity-and-local-readiness-as-unavailable"] = missing.records == pages.records
             && missing.unavailable == [p0.id] && missing.status.hasSuccessfulScan
         try files.createDirectory(at: missingURL, withIntermediateDirectories: false)
-        let directory = try await store.load()
+        let directory = try await store.scan(.pixiv)
         checks["directory-at-record-path-never-becomes-an-available-image"] = directory.unavailable == [p0.id]
         try files.removeItem(at: missingURL)
         try files.createSymbolicLink(at: missingURL, withDestinationURL: replacementURL)
-        let linked = try await store.load()
+        let linked = try await store.scan(.pixiv)
         checks["in-root-symlink-is-not-an-ordinary-image-leaf"] = linked.unavailable == [p0.id]
         try files.removeItem(at: missingURL)
         try files.createSymbolicLink(at: missingURL, withDestinationURL: root.appendingPathComponent("absent/image.png"))
         do {
-            let dangling = try await store.load()
+            let dangling = try await store.scan(.pixiv)
             checks["in-root-dangling-symlink-does-not-inherit-ancestor-availability"] = dangling.unavailable == [p0.id]
         } catch OnlineImageLibraryStore.StoreError.invalidPath {
             checks["in-root-dangling-symlink-does-not-inherit-ancestor-availability"] = true
         }
         try files.removeItem(at: missingURL)
         try Data("restored-page-zero".utf8).write(to: missingURL)
-        let restored = try await store.load()
-        checks["next-load-recaptures-the-now-regular-leaf"] = restored.records == pages.records && restored.unavailable.isEmpty
+        let restored = try await store.scan(.pixiv)
+        checks["next-scan-recaptures-the-now-regular-leaf"] = restored.records == pages.records && restored.unavailable.isEmpty
         try files.removeItem(at: missingURL)
 
         func record(at path: String) -> OnlineImageLocalRecord {
@@ -142,8 +171,11 @@ nonisolated final class OnlineImageCommitProbe: @unchecked Sendable {
         var blockedRecords = blockedObject["records"] as! [[String: Any]]
         blockedRecords[0]["relativePath"] = "parent/missing.png"
         blockedObject["records"] = blockedRecords
-        try JSONSerialization.data(withJSONObject: blockedObject).write(to: blockedRoot.appendingPathComponent("manifest.json"))
-        let blocked = try await OnlineImageLibraryStore(root: blockedRoot).load()
+        try files.createDirectory(at: blockedRoot.appendingPathComponent("Wallhaven"), withIntermediateDirectories: true)
+        try JSONSerialization.data(withJSONObject: blockedObject).write(to: blockedRoot.appendingPathComponent("Wallhaven/.wallhaven.json"))
+        let blockedStore = OnlineImageLibraryStore(root: blockedRoot)
+        _ = try await blockedStore.load()
+        let blocked = try await blockedStore.scan(.wallhaven)
         checks["missing-leaf-never-inherits-an-existing-regular-ancestor-type"] = blocked.unavailable == [a.id]
 
         let beforeWriteFailure = try Data(contentsOf: manifestURL)
@@ -165,14 +197,14 @@ nonisolated final class OnlineImageCommitProbe: @unchecked Sendable {
 
         let beforeCancellation = try Data(contentsOf: manifestURL)
         let sourceFilesBeforeCancellation = try files.contentsOfDirectory(atPath: root.appendingPathComponent("Wallhaven").path).sorted()
-        OnlineImageCommitProbe.shared.arm(.beforeCheck)
+        OnlineImageStoreProbe.shared.arm(.beforeCheck)
         let cancelledStage = try staging("cancel-before-commit")
         let cancelTask = Task.detached {
             try await store.publish(stagingURL: cancelledStage, asset: a, width: 80, height: 60,
                 fileSizeBytes: 20, fileExtension: "png")
         }
-        guard OnlineImageCommitProbe.shared.waitUntilEntered() else { fatalError("precommit probe did not run") }
-        cancelTask.cancel(); OnlineImageCommitProbe.shared.release()
+        guard OnlineImageStoreProbe.shared.waitUntilEntered() else { fatalError("precommit probe did not run") }
+        cancelTask.cancel(); OnlineImageStoreProbe.shared.release()
         do { _ = try await cancelTask.value; checks["cancellation-before-manifest-commit-publishes-nothing"] = false }
         catch is CancellationError {
             checks["cancellation-before-manifest-commit-publishes-nothing"] = try Data(contentsOf: manifestURL) == beforeCancellation
@@ -181,14 +213,14 @@ nonisolated final class OnlineImageCommitProbe: @unchecked Sendable {
         }
         let afterCancel = try await store.load()
         let activeBeforeCommittedCancel = afterCancel.records.first { $0.assetID == a.id }!
-        OnlineImageCommitProbe.shared.arm(.afterWrite)
+        OnlineImageStoreProbe.shared.arm(.afterWrite)
         let committedStage = try staging("cancel-after-commit")
         let committedTask = Task.detached {
             try await store.publish(stagingURL: committedStage, asset: a, width: 80, height: 60,
                 fileSizeBytes: 19, fileExtension: "png")
         }
-        guard OnlineImageCommitProbe.shared.waitUntilEntered() else { fatalError("postcommit probe did not run") }
-        committedTask.cancel(); OnlineImageCommitProbe.shared.release()
+        guard OnlineImageStoreProbe.shared.waitUntilEntered() else { fatalError("postcommit probe did not run") }
+        committedTask.cancel(); OnlineImageStoreProbe.shared.release()
         let committed = try await committedTask.value
         let committedRecord = committed.records.first { $0.assetID == a.id }!
         let restartedCommit = try await OnlineImageLibraryStore(root: root).load()
@@ -209,7 +241,8 @@ nonisolated final class OnlineImageCommitProbe: @unchecked Sendable {
         for (name, bytes) in [("bad-json", Data("{".utf8)), ("unknown-version", Data("{\"schemaVersion\":2}".utf8))] {
             let invalidRoot = work.appendingPathComponent(name, isDirectory: true)
             try files.createDirectory(at: invalidRoot, withIntermediateDirectories: true)
-            let invalidManifest = invalidRoot.appendingPathComponent("manifest.json")
+            let invalidManifest = invalidRoot.appendingPathComponent("Wallhaven/.wallhaven.json")
+            try files.createDirectory(at: invalidManifest.deletingLastPathComponent(), withIntermediateDirectories: true)
             try bytes.write(to: invalidManifest)
             let invalidStore = OnlineImageLibraryStore(root: invalidRoot)
             var refusedLoad = false, refusedWrite = false
@@ -230,54 +263,114 @@ nonisolated final class OnlineImageCommitProbe: @unchecked Sendable {
             escapeObject["records"] = escapeRecords
             let escapeBytes = try JSONSerialization.data(withJSONObject: escapeObject)
             let escapeRoot = work.appendingPathComponent("manifest-escape-" + name, isDirectory: true)
-            try files.createDirectory(at: escapeRoot, withIntermediateDirectories: true)
+            try files.createDirectory(at: escapeRoot.appendingPathComponent("Wallhaven"), withIntermediateDirectories: true)
             try files.createSymbolicLink(at: escapeRoot.appendingPathComponent("link"), withDestinationURL: target)
-            let escapeManifest = escapeRoot.appendingPathComponent("manifest.json")
+            let escapeManifest = escapeRoot.appendingPathComponent("Wallhaven/.wallhaven.json")
             try escapeBytes.write(to: escapeManifest)
             do {
-                _ = try await OnlineImageLibraryStore(root: escapeRoot).load()
+                let escapedStore = OnlineImageLibraryStore(root: escapeRoot)
+                _ = try await escapedStore.load()
+                _ = try await escapedStore.scan(.wallhaven)
                 checks["manifest-" + name + "-escape-is-rejected-without-overwrite"] = false
             } catch OnlineImageLibraryStore.StoreError.invalidPath {
                 checks["manifest-" + name + "-escape-is-rejected-without-overwrite"] = try Data(contentsOf: escapeManifest) == escapeBytes
             }
         }
         let sharedRoot = work.appendingPathComponent("module-paths", isDirectory: true)
-        let legacyRoot = sharedRoot.appendingPathComponent("在线图片", isDirectory: true)
-        // Preserve the bytes of the old Date fields, as a real schema-one
-        // manifest did. JSONSerialization's number formatter can round them.
-        let oldPathJSON = String(decoding: try JSONEncoder().encode(replacement.relativePath), as: UTF8.self)
-        let legacyPathJSON = String(decoding: try JSONEncoder().encode("wallhaven/legacy.png"), as: UTF8.self)
-        let legacyManifest = String(decoding: replacementBytes, as: UTF8.self).replacingOccurrences(of: oldPathJSON, with: legacyPathJSON)
-        try files.createDirectory(at: legacyRoot.appendingPathComponent("wallhaven"), withIntermediateDirectories: true)
-        let legacyImage = legacyRoot.appendingPathComponent("wallhaven/legacy.png")
-        try Data("legacy-original".utf8).write(to: legacyImage)
-        try Data(legacyManifest.utf8).write(to: legacyRoot.appendingPathComponent("manifest.json"))
-        let upgraded = OnlineImageLibraryStore(root: sharedRoot, legacyRoot: legacyRoot, manifestName: "online-images.json")
-        let legacyLoaded = try await upgraded.load()
-        let legacyRecord = legacyLoaded.records[0]
-        let legacyURL = try upgraded.fileURL(for: legacyRecord)
-        checks["legacy-manifest-load-preserves-id-revision-time-and-file-without-copy-or-new-manifest"] =
-            legacyRecord.assetID == replacement.assetID && legacyRecord.revision == replacement.revision
-            && legacyRecord.firstDownloadedAt == replacement.firstDownloadedAt && legacyURL.standardizedFileURL.path == legacyImage.standardizedFileURL.path
+        let current = OnlineImageLibraryStore(root: sharedRoot)
+        let brandRecord = try await current.publish(stagingURL: staging("brand-new-pixiv"), asset: p0,
+            width: 80, height: 60, fileSizeBytes: 15, fileExtension: "png").records[0]
+        checks["new-publication-writes-only-its-hidden-source-index"] = brandRecord.relativePath.hasPrefix("Pixiv/")
+            && files.fileExists(atPath: sharedRoot.appendingPathComponent("Pixiv/.pixiv.json").path)
+            && !files.fileExists(atPath: sharedRoot.appendingPathComponent("Wallhaven/.wallhaven.json").path)
             && !files.fileExists(atPath: sharedRoot.appendingPathComponent("online-images.json").path)
-        if checks["legacy-manifest-load-preserves-id-revision-time-and-file-without-copy-or-new-manifest"] != true {
-            let mismatch = "legacy preservation id=\(legacyRecord.assetID == replacement.assetID) revision=\(legacyRecord.revision == replacement.revision) dateDelta=\(legacyRecord.firstDownloadedAt.timeIntervalSince(replacement.firstDownloadedAt)) path=\(legacyURL.path) expected=\(legacyImage.path)\n"
-            FileHandle.standardError.write(Data(mismatch.utf8))
-        }
-        let mixed = try await upgraded.publish(stagingURL: staging("brand-new-pixiv"), asset: p0,
-            width: 80, height: 60, fileSizeBytes: 15, fileExtension: "png")
-        checks["new-publication-uses-brand-directory-and-unique-shared-manifest-with-old-reference-intact"] =
-            mixed.records.contains { $0.relativePath.hasPrefix("Pixiv/") }
-            && mixed.records.contains { $0.assetID == legacyRecord.assetID && $0.relativePath == legacyRecord.relativePath }
-            && files.fileExists(atPath: legacyImage.path)
-            && files.fileExists(atPath: sharedRoot.appendingPathComponent("online-images.json").path)
             && !files.fileExists(atPath: sharedRoot.appendingPathComponent("manifest.json").path)
-        try Data("old manifest now obsolete".utf8).write(to: legacyRoot.appendingPathComponent("manifest.json"))
-        let mixedRestart = try await OnlineImageLibraryStore(root: sharedRoot, legacyRoot: legacyRoot, manifestName: "online-images.json").load()
-        checks["new-manifest-is-the-only-authority-after-first-real-commit"] = mixedRestart.records == mixed.records
-        let removedLegacy = try await upgraded.removeRecord(id: legacyRecord.assetID, expectedRevision: legacyRecord.revision)
-        checks["removing-legacy-record-preserves-new-brand-records"] = removedLegacy.records.count == mixed.records.count - 1
-            && removedLegacy.records.contains { $0.assetID == p0.id }
+        let restarted = try await OnlineImageLibraryStore(root: sharedRoot).load([.pixiv])
+        checks["source-index-restart-preserves-exact-record-identity-date-and-revision"] = restarted.records == [brandRecord]
+
+        let discoveryRoot = work.appendingPathComponent("real-discovery", isDirectory: true)
+        let discovery = OnlineImageLibraryStore(root: discoveryRoot), image = try imageBytes()
+        func imageStage() throws -> URL {
+            let url = work.appendingPathComponent(UUID().uuidString + ".pending")
+            try image.write(to: url)
+            return url
+        }
+        let oldImage = try await discovery.publish(stagingURL: imageStage(), asset: a,
+            width: 3, height: 2, fileSizeBytes: Int64(image.count), fileExtension: "png").records[0]
+        let imageReplacement = try await discovery.publish(stagingURL: imageStage(), asset: a,
+            width: 3, height: 2, fileSizeBytes: Int64(image.count), fileExtension: "png").records[0]
+        _ = try await discovery.publish(stagingURL: imageStage(), asset: p0,
+            width: 3, height: 2, fileSizeBytes: Int64(image.count), fileExtension: "png")
+        let wallDirectory = discoveryRoot.appendingPathComponent("Wallhaven")
+        let looseURL = wallDirectory.appendingPathComponent("an ordinary image.png")
+        try image.write(to: looseURL)
+        for name in [".hidden.png", "image.pending", "image.staging", "image.part", "image.tmp"] {
+            try image.write(to: wallDirectory.appendingPathComponent(name))
+        }
+        try Data("<html>not a static image</html>".utf8).write(to: wallDirectory.appendingPathComponent("invalid.png"))
+        let cold = OnlineImageLibraryStore(root: discoveryRoot)
+        OnlineImageStoreProbe.shared.resetReads()
+        let indexed = try await cold.load([.wallhaven])
+        checks["requested-source-load-is-lazy-and-delivers-only-existing-index-records"] = indexed.records == [imageReplacement]
+            && indexed.sourceStatuses[.pixiv] == nil && indexed.sourceStatuses[.wallhaven]?.hasSuccessfulScan == false
+            && !OnlineImageStoreProbe.shared.readPaths.contains { $0.hasSuffix("/.pixiv.json") }
+        let discovered = try await cold.scan(.wallhaven)
+        let loose = discovered.records.first { $0.sourceURL.isFileURL }!
+        let looseContent = OnlineImageContentProjection.local(loose, url: looseURL, available: true)
+        checks["real-image-discovery-assigns-local-only-identity-and-no-remote-permissions"] = discovered.records.count == 2
+            && loose.id.source == .wallhaven && loose.id.artworkID.hasPrefix("local:") && loose.sourceURL == looseURL
+            && loose.pixelWidth == 3 && loose.pixelHeight == 2 && loose.fileSizeBytes == Int64(image.count)
+            && looseContent.capabilities.contains([.play, .organize, .export])
+            && !looseContent.capabilities.contains(.openSource) && !looseContent.capabilities.contains(.retryDownload)
+        let retiredImageURL = try discovery.fileURL(for: oldImage)
+        checks["discovery-never-revives-retired-hidden-pending-or-invalid-files"] = !discovered.records.contains { $0.relativePath == oldImage.relativePath }
+            && discovered.records.filter { $0.sourceURL.isFileURL }.map(\.sourceURL) == [looseURL]
+            && files.fileExists(atPath: retiredImageURL.path)
+        let stable = try await OnlineImageLibraryStore(root: discoveryRoot).load([.wallhaven])
+        checks["discovered-local-identity-revision-and-time-survive-real-index-reload"] = stable.records == discovered.records
+        try files.removeItem(at: looseURL)
+        let unavailableLoose = try await cold.scan(.wallhaven)
+        let missingLoose = OnlineImageContentProjection.local(loose, url: looseURL, available: false)
+        checks["missing-discovered-image-retains-local-identity-without-fake-redownload"] = unavailableLoose.unavailable.contains(loose.id)
+            && unavailableLoose.records.contains(loose) && !missingLoose.capabilities.contains(.play)
+            && !missingLoose.capabilities.contains(.retryDownload) && !missingLoose.capabilities.contains(.openSource)
+        let pixivIndex = discoveryRoot.appendingPathComponent("Pixiv/.pixiv.json")
+        let goodPixiv = try Data(contentsOf: pixivIndex)
+        try Data("broken source index".utf8).write(to: pixivIndex)
+        var rejectedPartition = false
+        do { _ = try await cold.load([.pixiv]) } catch { rejectedPartition = true }
+        let sourceFailure = await cold.failed(.pixiv, message: "fixture corrupt partition")
+        checks["one-corrupt-source-preserves-the-other-admitted-records-and-revision"] = rejectedPartition
+            && sourceFailure.records == unavailableLoose.records && sourceFailure.revision == unavailableLoose.revision
+            && sourceFailure.sourceStatuses[.wallhaven]?.hasSuccessfulScan == true
+        try goodPixiv.write(to: pixivIndex)
+
+        let obsoleteRoot = work.appendingPathComponent("obsolete-indices", isDirectory: true)
+        let oldDirectory = obsoleteRoot.appendingPathComponent("在线图片", isDirectory: true)
+        try files.createDirectory(at: oldDirectory, withIntermediateDirectories: true)
+        let oldBytes = Data("obsolete index is neither read nor deleted".utf8)
+        let oldFiles = [obsoleteRoot.appendingPathComponent("online-images.json"),
+            obsoleteRoot.appendingPathComponent("manifest.json"), oldDirectory.appendingPathComponent("manifest.json")]
+        for file in oldFiles { try oldBytes.write(to: file) }
+        let obsoleteStore = OnlineImageLibraryStore(root: obsoleteRoot)
+        let emptyCurrent = try await obsoleteStore.load()
+        checks["obsolete-root-indices-are-ignored-without-migration-or-deletion"] = try emptyCurrent.records.isEmpty
+            && oldFiles.allSatisfy { try Data(contentsOf: $0) == oldBytes }
+            && !files.fileExists(atPath: obsoleteRoot.appendingPathComponent("Wallhaven/.wallhaven.json").path)
+            && !files.fileExists(atPath: obsoleteRoot.appendingPathComponent("Pixiv/.pixiv.json").path)
+
+        let wrongSourceRoot = work.appendingPathComponent("wrong-source-partition", isDirectory: true)
+        try files.createDirectory(at: wrongSourceRoot.appendingPathComponent("Pixiv"), withIntermediateDirectories: true)
+        let wrongSourceIndex = wrongSourceRoot.appendingPathComponent("Pixiv/.pixiv.json")
+        let wrongSourceBytes = try JSONEncoder().encode(SourceImageIndex(records: [imageReplacement]))
+        try wrongSourceBytes.write(to: wrongSourceIndex)
+        let wrongSourceStore = OnlineImageLibraryStore(root: wrongSourceRoot)
+        var rejectedWrongSource = false
+        do { _ = try await wrongSourceStore.load([.pixiv]) } catch { rejectedWrongSource = true }
+        let otherSource = try await wrongSourceStore.load([.wallhaven])
+        checks["wrong-source-index-is-rejected-without-affecting-other-source"] = try rejectedWrongSource
+            && otherSource.records.isEmpty && Data(contentsOf: wrongSourceIndex) == wrongSourceBytes
+
         print(String(data: try JSONEncoder().encode(checks), encoding: .utf8)!)
         if checks.values.contains(false) { exit(1) }
     }

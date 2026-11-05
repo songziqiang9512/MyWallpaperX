@@ -754,6 +754,8 @@ enum SILThumbnailLoadResult { case image(NSImage), unavailable }
     struct Snapshot { var unavailable = Set<OnlineImageAssetID>() }
     var snapshot = Snapshot(), records: [WallpaperReference: RouteRecord] = [:]
     var activity: RouteActivity?, requestedSources: [OnlineImageSource] = []
+    var preparedSources = Set<OnlineImageSource>()
+    func prepareLocal(_ sources: Set<OnlineImageSource>) { preparedSources.formUnion(sources) }
     let session = WallpaperNetworkSession()
     func record(for reference: WallpaperReference) -> RouteRecord? { records[reference] }
     func localURL(for record: RouteRecord) -> URL? { record.url }
@@ -792,6 +794,8 @@ enum SILThumbnailLoadResult { case image(NSImage), unavailable }
 }
 @MainActor final class RouteController {
     let steam = RouteSteam(), pixabay = RoutePixabay(), images = RouteImages(), localThumbnails = SILThumbnailProvider()
+    final class History { var entries: [DownloadTerminalReceipt] = [] }
+    let history: History? = .init()
     let changes = PassthroughSubject<Void, Never>().eraseToAnyPublisher()
     func snapshot() -> DownloadTaskSnapshot { .init() }
     func perform(_ row: DownloadTaskRow, action: DownloadTaskAction) {}
@@ -805,7 +809,10 @@ enum GridThumbnailDecoder {
 @main struct Harness {
     @MainActor static func main() async {
         _ = NSApplication.shared
-        let controller = RouteController(), binding = controller.makePopoverController().bindings.loadThumbnail!
+        let controller = RouteController()
+        controller.history?.entries = [.init(id: .init(reference: .init(provider: .pixiv, sourceID: "42:p0"), attemptID: "past"),
+            title: "retained", outcome: .completed, recordedAt: nil, failureMessage: nil)]
+        let binding = controller.makePopoverController().bindings.loadThumbnail!
         let published = URL(fileURLWithPath: "/controlled/published.jpg"), browser = URL(string: "https://fixture.invalid/browser.jpg")!
         controller.steam.published = published; controller.steam.browser = browser
         func row(_ provider: WallpaperProvider, _ id: String) -> DownloadTaskRow {
@@ -814,6 +821,7 @@ enum GridThumbnailDecoder {
         }
         var checks = 0
         func check(_ passed: Bool, _ message: String) { checks += 1; precondition(passed, message) }
+        check(controller.images.preparedSources == [.pixiv], "opening the panel prepares only the retained history's real image provider")
         func wait(_ condition: () -> Bool) async {
             let end = Date().addingTimeInterval(3)
             while !condition(), Date() < end { await Task.yield() }

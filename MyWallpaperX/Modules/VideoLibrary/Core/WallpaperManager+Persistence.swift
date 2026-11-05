@@ -20,7 +20,7 @@ extension WallpaperManager {
     }
 
     func scheduleWallpapersAutoPersist() {
-        guard !preservesLegacyMigrationInputs else { return }
+
         // Initial publication already commits one complete snapshot explicitly.
         guard !initialIndexInternalPublication else { return }
         wallpapersAutoSaveWorkItem?.cancel()
@@ -40,24 +40,12 @@ extension WallpaperManager {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: workItem)
     }
 
-
-    func loadSavedState() {
-        // App restoration resolves the saved runtime after source publication.
-        loadCurrentWallpaper()
-
-        // 加载播放状态
-        loadPlaybackState()
-        loadActiveWallpaperRuntime()
-        loadLastWorkshopPlaybackRecordID()
-    }
-
-
     func loadWallpapers() {
         beginInitialIndexLoad()
         if let fallback: [VideoWallpaper] = loadCodableValue(forKey: wallpapersKey) {
             // A complete failed-save snapshot (including []) supersedes SQLite.
             didFinishInitialIndexLoad = true
-            wallpapers = deduplicatedWallpapersByPath(fallback.map(migratedBundledVideoWallpaper))
+            wallpapers = deduplicatedWallpapersByPath(fallback)
             scheduleMissingIndexedSourceFilesScan()
             return
         }
@@ -68,7 +56,7 @@ extension WallpaperManager {
 
     func scheduleMissingIndexedSourceFilesScan() {
         missingIndexedSourceScanWorkItem?.cancel()
-        guard !preservesLegacyMigrationInputs,
+        guard
               !Self.defersMissingFileCleanupForPersonalSettingsRecovery else { return }
 
         let workItem = DispatchWorkItem { [weak self] in
@@ -96,7 +84,7 @@ extension WallpaperManager {
     }
 
     func deduplicatedWallpapersByPath(_ source: [VideoWallpaper]) -> [VideoWallpaper] {
-        // 旧索引或迁移数据可能带重复项，启动时先按标准化路径去重。
+        // 按标准化路径合并索引中的重复项。
         var loaded: [VideoWallpaper] = []
         loaded.reserveCapacity(source.count)
         var seenPaths = Set<String>()
@@ -119,7 +107,7 @@ extension WallpaperManager {
     }
 
     func saveWallpapers() {
-        guard !preservesLegacyMigrationInputs else { return }
+
         guard didFinishInitialIndexLoad else {
             persistInitialIndexChanges()
             retryInitialIndexLoadIfNeeded()
@@ -133,7 +121,7 @@ extension WallpaperManager {
     }
 
     private func submitPendingWallpaperIndexSave() {
-        guard !preservesLegacyMigrationInputs else { return }
+
         guard wallpaperIndexSaveInFlight == nil, let request = pendingWallpaperIndexSave else { return }
         pendingWallpaperIndexSave = nil
         wallpaperIndexSaveInFlight = request
@@ -160,7 +148,7 @@ extension WallpaperManager {
     }
 
     private func flushWallpaperIndex() {
-        guard !preservesLegacyMigrationInputs else { return }
+
         // Settled saves need no second full-table write at exit. Retain the
         // original barrier for a debounced edit, unfinished write or recovery.
         guard !didFinishInitialIndexLoad || wallpapersAutoSaveWorkItem != nil
@@ -182,9 +170,6 @@ extension WallpaperManager {
     /// Revoke the old MainActor completion slots before the synchronous queue
     /// barrier, so an older pending snapshot cannot overwrite the imported one.
     func persistWallpaperIndexNow(_ snapshot: [VideoWallpaper]) throws {
-        guard allowsLibraryMutation else {
-            throw CocoaError(.fileWriteNoPermission, userInfo: [NSLocalizedDescriptionKey: migrationRecoveryMessage ?? "资料库需要恢复"])
-        }
         guard didFinishInitialIndexLoad else {
             throw CocoaError(.fileReadUnknown, userInfo: [NSLocalizedDescriptionKey: "资料库仍在载入，请载入完成后再保存完整索引。"])
         }
@@ -240,48 +225,8 @@ extension WallpaperManager {
         }
     }
 
-    func loadCurrentWallpaper() {
-        // A legacy success snapshot is a replay hint, never an import command.
-        // The App waits for the authoritative index before resolving its ID.
-        guard let savedWallpaper: VideoWallpaper = loadCodableValue(forKey: currentWallpaperKey) else { return }
-        currentWallpaper = migratedBundledVideoWallpaper(savedWallpaper)
-    }
-
-    func saveCurrentWallpaper() {
-        // 当前壁纸只保存快照，不在这里额外改库内容。
-        persistCurrentWallpaperSnapshot()
-    }
-
-
-
-
-    func loadPlaybackState() {
-        // 播放状态只有在持久化键存在时才覆盖内存态，避免首次启动被默认 false 误伤。
-        guard defaults.object(forKey: playbackStateKey) != nil else { return }
-        isPlaying = defaults.bool(forKey: playbackStateKey)
-    }
-
-    func savePlaybackState() {
-        // 播放状态只记录开关，不额外记录引擎内部细节。
-        defaults.set(isPlaying, forKey: playbackStateKey)
-    }
-
-    func loadActiveWallpaperRuntime() {
-        guard let savedRuntime: ActiveWallpaperRuntime = loadCodableValue(forKey: activeWallpaperRuntimeKey) else {
-            return
-        }
-        activeWallpaperRuntime = savedRuntime
-    }
-
     /// 与写侧的 JSON 编码对称：loadCodableValue 解码 String?（历史遗留
     /// 的 null data 也解码为 nil）。
-    func loadLastWorkshopPlaybackRecordID() {
-        lastWorkshopPlaybackRecordID = loadCodableValue(forKey: lastWorkshopPlaybackRecordIDKey)
-    }
-
-    func saveActiveWallpaperRuntime() {
-        saveCodableValue(activeWallpaperRuntime, forKey: activeWallpaperRuntimeKey)
-    }
 
     func flushPersistentState() {
         // Flush source index, runtime intent and preferences. Store flushes relationships/history separately.
@@ -289,18 +234,6 @@ extension WallpaperManager {
         settingsAutoSaveWorkItem = nil
         saveSettings()
         flushWallpaperIndex()
-        savePlaybackState()
-        saveActiveWallpaperRuntime()
-        persistCurrentWallpaperSnapshot()
-    }
-
-    func persistCurrentWallpaperSnapshot() {
-        // 当前壁纸只写一份可恢复快照；没有当前项时移除键值，避免旧值残留。
-        if let currentWallpaper {
-            saveCodableValue(currentWallpaper, forKey: currentWallpaperKey)
-            return
-        }
-        defaults.removeObject(forKey: currentWallpaperKey)
     }
 
     private func loadCodableValue<T: Decodable>(forKey key: String) -> T? {
@@ -309,8 +242,6 @@ extension WallpaperManager {
     }
 
     func saveCodableValue<T: Encodable>(_ value: T, forKey key: String) {
-        if preservesLegacyMigrationInputs,
-           [wallpapersKey, initialIndexChangesKey].contains(key) { return }
         // 写盘前先做编码和去重，减少相同数据反复写入。
         guard let data = encode(value) else { return }
         if defaults.data(forKey: key) == data {
@@ -328,7 +259,6 @@ extension WallpaperManager {
     }
 
     func resetToFreshInstallState() {
-        guard allowsLibraryMutation else { reportMigrationReadOnly(); return }
         // 这里的语义是“重新安装级重置”，所以必须清掉库、缓存、最近使用、标签和运行中状态。
         invalidateWallpaperIndexPersistence()
         settingsAutoSaveWorkItem?.cancel()

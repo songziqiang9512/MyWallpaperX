@@ -75,8 +75,7 @@ extension Notification.Name { static let pixabayVideoReadyToPlay = Self("source-
     static var instance: PixabayService!
     static var shared: PixabayService { instance }
     static var downloadDirectory = URL(fileURLWithPath: "/unused")
-    static var legacyDownloadDirectory: URL { downloadDirectory.deletingLastPathComponent().appendingPathComponent("在线图库", isDirectory: true) }
-    static var downloadRoots: [URL] { [downloadDirectory, legacyDownloadDirectory] }
+    static var downloadRoots: [URL] { [downloadDirectory] }
     var requestLibraryPlayback: ((WallpaperReference) -> Void)?
     var prepareExplicitLibraryRestoration: ((WallpaperReference) -> (() -> Void)?)?
     var prepareVideoPlaybackIntent: ((WallpaperReference, WallpaperPlaybackSequence.Pending?) -> ImportedVideoPlaybackAdmission?)?
@@ -146,15 +145,14 @@ extension Notification.Name { static let pixabayVideoReadyToPlay = Self("source-
                 $0.creationDate != nil && $0.modificationDate != nil && $0.thumbnailSourceKey == PixabayDownloadedFileIdentity.key(for: $0.localURL)
             }
         checks["initial-success-publishes-ready-with-the-same-atomic-entries-and-success-fact"] =
-            publications.first?.status == .initial && service.initialDownloadedScanCompleted
+            publications.first?.status == .initial
             && service.downloadedContent.status == .init(phase: .ready(warnings: []), hasSuccessfulScan: true)
             && publications.last == service.downloadedContent
         let sourceRow = service.downloadedContent.entries.first { $0.id == 1 }!
         let explicitPublished = service.libraryContentItemForExplicitPlayback(id: 1)
         checks["explicit-action-reuses-source-metadata-and-never-infers-a-backing-alias"] = explicitPublished?.metadata.fileSizeBytes == Int64(sourceRow.fileSize)
             && explicitPublished?.metadata.createdAt == sourceRow.creationDate && explicitPublished?.aliases.isEmpty == true
-        let relationships = UserCollectionsSnapshot(revision: 0, resetEpoch: UUID(), migrationManifestID: nil,
-            playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
+        let relationships = UserCollectionsSnapshot(revision: 0, resetEpoch: UUID(), playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
         // The new downloads page consumes the same source values through the
         // production pure query. Progress, sorting and searching never rescan.
         func projectedIDs(_ entries: [PixabayDownloadedEntry]? = nil, sort: WallpaperLibrarySort,
@@ -229,7 +227,7 @@ extension Notification.Name { static let pixabayVideoReadyToPlay = Self("source-
         await initiallyFailed.downloadedContentTask?.value
         checks["initial-scan-failure-is-explicit-rather-than-a-successful-empty-publication"] = initiallyFailed.downloadedContent.revision == 0
             && failed(initiallyFailed.downloadedContent) && initiallyFailed.downloadedIDs.isEmpty
-            && !initiallyFailed.downloadedContent.status.hasSuccessfulScan && initiallyFailed.initialDownloadedScanCompleted
+            && !initiallyFailed.downloadedContent.status.hasSuccessfulScan
         let postsBeforeFailureDownload = ImportedVideoPlaybackRequest.posted.count
         initiallyFailed.download(item: .init(id: 999))
         let failureDownloadDeadline = Date().addingTimeInterval(3)
@@ -368,13 +366,10 @@ extension Notification.Name { static let pixabayVideoReadyToPlay = Self("source-
         try Data([0]).write(to: root.appendingPathComponent(".online_4.mp4"))
         try Data([0]).write(to: root.appendingPathComponent("online_5.MP4"))
         service.refreshDownloadedContent(); await service.downloadedContentTask?.value
-        let duplicateWarnings: [String]
-        if case .ready(let warnings) = service.downloadedContent.status.phase { duplicateWarnings = warnings }
-        else { duplicateWarnings = [] }
-        checks["legacy-zero-negative-leading-zero-and-case-boundaries-are-preserved"] = Set(service.downloadedContent.entries.map(\.id)) == [-1, 0, 3, 9, 33]
+        checks["publisher-canonical-names-exclude-leading-zero-hidden-and-case-variants"] = Set(service.downloadedContent.entries.map(\.id)) == [-1, 0, 3, 9, 33]
             && service.downloadedContent.entries.first { $0.id == 3 }?.localURL == three
-            && duplicateWarnings.contains { $0.contains("多个同号文件") }
-            && service.downloadedContent.status.hasSuccessfulScan
+            && service.downloadedContent.status == .init(phase: .ready(warnings: []), hasSuccessfulScan: true)
+            && FileManager.default.fileExists(atPath: root.appendingPathComponent("online_0003.mp4").path)
         checks["a-matching-directory-remains-visible-but-is-never-advertised-as-playable"] = !service.downloadedIDs.contains(9)
             && service.downloadedContent.entries.first { $0.id == 9 }?.isAvailable == false
         let thirtyThree = root.appendingPathComponent("online_33.mp4")
@@ -402,25 +397,22 @@ extension Notification.Name { static let pixabayVideoReadyToPlay = Self("source-
             && ImportedVideoPlaybackRequest.posted.count == 1 && references == ["1"]
         let initialAlternative = root.appendingPathComponent("initial-alternative", isDirectory: true)
         try FileManager.default.createDirectory(at: initialAlternative, withIntermediateDirectories: true)
-        let leadingZero = initialAlternative.appendingPathComponent("online_0007.mp4")
-        try Data([1]).write(to: leadingZero)
+        let canonical = initialAlternative.appendingPathComponent("online_7.mp4")
+        try Data([1]).write(to: canonical)
         PixabayService.downloadDirectory = initialAlternative
         let alternativeService = PixabayService()
-        checks["explicit-leadingzero-file-waits-for-the-original-worker-identity"] = alternativeService.libraryContentItemForExplicitPlayback(id: 7) == nil
+        checks["explicit-current-file-does-not-wait-for-the-initial-scan"] = alternativeService.libraryContentItemForExplicitPlayback(id: 7)?.locator.path == canonical.path
         alternativeService.prepareVideoPlaybackIntent = { _, _ in preconditionFailure("download-only initial lookup must not claim playback") }
-        alternativeService.downloadAndSet(item: .init(id: 7))
-        // Replacing the still-pending initial scan must not let its cancelled
-        // predecessor release the download before the current lookup finishes.
+        alternativeService.download(item: .init(id: 7))
         alternativeService.refreshDownloadedContent()
         await alternativeService.downloadedContentTask?.value
         try? await Task.sleep(for: .milliseconds(10))
-        checks["initial-legacy-filename-lookup-does-not-redownload-or-autoplay-after-scan-replacement"] = alternativeService.networkStarts == 0
+        checks["current-file-lookup-does-not-redownload-or-autoplay-after-scan-replacement"] = alternativeService.networkStarts == 0
             && alternativeService.downloadedIDs == [7] && alternativeService.downloadingIDs.isEmpty
-            && alternativeService.downloadedContent.entries.first?.localURL == leadingZero
-            && !FileManager.default.fileExists(atPath: initialAlternative.appendingPathComponent("online_7.mp4").path)
-        let explicitLeadingZero = alternativeService.libraryContentItemForExplicitPlayback(id: 7)
-        checks["explicit-leadingzero-file-is-playable-after-original-worker-publication"] = explicitLeadingZero?.capabilities.contains(.play) == true
-            && explicitLeadingZero?.locator.path == leadingZero.path && explicitLeadingZero?.reference.sourceID == "7"
+            && alternativeService.downloadedContent.entries.first?.localURL == canonical
+        let explicitCurrent = alternativeService.libraryContentItemForExplicitPlayback(id: 7)
+        checks["explicit-current-file-is-playable-after-original-worker-publication"] = explicitCurrent?.capabilities.contains(.play) == true
+            && explicitCurrent?.locator.path == canonical.path && explicitCurrent?.reference.sourceID == "7"
         var restoreAdmissions: [WallpaperReference] = [], restoreSuccesses: [WallpaperReference] = []
         alternativeService.prepareExplicitLibraryRestoration = { reference in
             restoreAdmissions.append(reference)
@@ -447,10 +439,10 @@ extension Notification.Name { static let pixabayVideoReadyToPlay = Self("source-
         entryOnlySource.publishDownloadedContent(alternativeService.downloadedContent.entries)
         checks["a-direct-entry-publication-does-not-claim-a-completed-or-successful-full-scan"] =
             entryOnlySource.downloadedContent.revision > 0 && !entryOnlySource.downloadedContent.entries.isEmpty
-            && entryOnlySource.downloadedContent.status == .initial && !entryOnlySource.initialDownloadedScanCompleted
+            && entryOnlySource.downloadedContent.status == .initial
         await entryOnlySource.downloadedContentTask?.value
         checks["the-first-real-scan-can-publish-success-after-an-entry-only-content-revision"] =
-            entryOnlySource.initialDownloadedScanCompleted && entryOnlySource.downloadedContent.status.hasSuccessfulScan
+            entryOnlySource.downloadedContent.status.hasSuccessfulScan
             && entryOnlySource.downloadedIDs == [7]
         let empty = root.appendingPathComponent("successfully-empty", isDirectory: true)
         try FileManager.default.createDirectory(at: empty, withIntermediateDirectories: true)
@@ -458,7 +450,7 @@ extension Notification.Name { static let pixabayVideoReadyToPlay = Self("source-
         let emptySource = PixabayService()
         emptySource.publishDownloadedContent([])
         checks["non-scan-empty-mutation-does-not-claim-an-initial-source-publication"] = emptySource.downloadedContent.revision == 0
-            && emptySource.downloadedContent.status == .initial && !emptySource.initialDownloadedScanCompleted
+            && emptySource.downloadedContent.status == .initial
         await emptySource.downloadedContentTask?.value
         checks["a-successful-empty-first-scan-publishes-known-empty-once"] = emptySource.downloadedContent.revision == 1
             && emptySource.downloadedContent.entries.isEmpty
@@ -467,21 +459,27 @@ extension Notification.Name { static let pixabayVideoReadyToPlay = Self("source-
         checks["unchanged-empty-refresh-does-not-publish-redundant-generations"] = emptySource.downloadedContent.revision == 1
         let modern = root.appendingPathComponent("module-paths/Pixabay", isDirectory: true)
         PixabayService.downloadDirectory = modern
-        let legacy = PixabayService.legacyDownloadDirectory
+        let legacy = modern.deletingLastPathComponent().appendingPathComponent("在线图库", isDirectory: true)
         try FileManager.default.createDirectory(at: modern, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: legacy, withIntermediateDirectories: true)
         try Data([3]).write(to: legacy.appendingPathComponent("online_91.mp4"))
         try Data([4]).write(to: modern.appendingPathComponent("online_92.mp4"))
         try Data([5]).write(to: legacy.appendingPathComponent("online_92.mp4"))
+        let oldName = modern.appendingPathComponent("online_0093.mp4")
+        try Data([6]).write(to: oldName)
         let mixed = PixabayService()
         await mixed.downloadedContentTask?.value
-        checks["module-directory-reads-old-files-without-copying-and-prefers-new-duplicate"] = mixed.downloadedIDs == [91, 92]
-            && mixed.downloadedContent.entries.first { $0.id == 91 }?.localURL.deletingLastPathComponent() == legacy
+        checks["only-brand-directory-is-scanned-and-old-files-are-left-untouched"] = mixed.downloadedIDs == [92]
+            && mixed.downloadedContent.entries.allSatisfy { $0.localURL.deletingLastPathComponent() == modern }
             && mixed.downloadedContent.entries.first { $0.id == 92 }?.localURL.deletingLastPathComponent() == modern
+            && mixed.libraryContentItemForExplicitPlayback(id: 91) == nil && mixed.libraryContentItemForExplicitPlayback(id: 93) == nil
             && !FileManager.default.fileExists(atPath: modern.appendingPathComponent("online_91.mp4").path)
         let legacyDeleted = mixed.deleteLocalFiles(at: [legacy.appendingPathComponent("online_91.mp4")])
-        checks["legacy-delete-remains-owned-without-touching-modern-files"] = legacyDeleted.first?.sourceFileDeleted == true
+        checks["old-directory-is-not-a-delete-root-and-modern-files-remain"] = legacyDeleted.first?.succeeded == false
+            && FileManager.default.fileExists(atPath: legacy.appendingPathComponent("online_91.mp4").path)
             && FileManager.default.fileExists(atPath: modern.appendingPathComponent("online_92.mp4").path)
+        checks["old-file-name-is-not-an-owned-delete-target"] = mixed.deleteLocalFiles(at: [oldName]).first?.succeeded == false
+            && FileManager.default.fileExists(atPath: oldName.path)
         await mixed.downloadedContentTask?.value
         PixabayService.downloadDirectory = root
         print(String(decoding: try JSONEncoder().encode(checks), as: UTF8.self))

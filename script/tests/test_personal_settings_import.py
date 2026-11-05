@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class PersonalSettingsImportTests(unittest.TestCase):
-    def test_schema_six_and_recovered_cross_owner_import(self):
+    def test_schema_eight_and_recovered_cross_owner_import(self):
         self.run_profile_harness()
 
     def test_video_sort_profile_bridges_live_view_and_recovers_without_overwriting_later_edits(self):
@@ -81,7 +81,6 @@ class PersonalSettingsImportTests(unittest.TestCase):
         index = index_path.read_text()
         index = index.replace(declaration(index, '    private init('), '''
     private init() {
-        migrationReadOnly = false
         dbURL = URL(fileURLWithPath: ProcessInfo.processInfo.environment["MWX_PROFILE_TEST_ROOT"]!).appendingPathComponent("video.sqlite3")
     }
 ''')

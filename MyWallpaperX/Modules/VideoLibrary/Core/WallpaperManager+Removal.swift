@@ -32,7 +32,6 @@ extension WallpaperManager {
             guard seen.insert(reference).inserted else { continue }
             let url = URL(fileURLWithPath: target.path).standardizedFileURL
             do {
-                guard allowsLibraryMutation else { throw CocoaError(.fileWriteNoPermission) }
                 guard !isLocalSourceFileInUse(url.path) else {
                     throw CocoaError(.fileWriteNoPermission, userInfo: [NSLocalizedDescriptionKey: "源视频正在播放或准备，请先停止播放后重试"])
                 }
@@ -50,7 +49,7 @@ extension WallpaperManager {
             for (reference, request) in requests {
                 let key = Data(request.url.path.utf8), prior = outcomes[key]
                 let unlinked = DispatchQueue.main.sync {
-                    guard self.wallpaperIndexSaveEpoch == epoch && self.allowsLibraryMutation
+                    guard self.wallpaperIndexSaveEpoch == epoch
                         && self.wallpapers.contains(where: { $0.id.utf8.elementsEqual(reference.sourceID.utf8) && self.normalizedPath($0.path) == self.normalizedPath(request.url.path) })
                         && !self.isLocalSourceFileInUse(request.url.path) else {
                         return WallpaperSourceFileDeletion.Outcome(sourceFileDeleted: false,
@@ -107,7 +106,7 @@ extension WallpaperManager {
         _ wallpapersToPurge: [VideoWallpaper],
         notifyUser: Bool
     ) {
-        guard !preservesLegacyMigrationInputs else { return }
+
         let uniqueWallpapers = wallpapersToPurge.reduce(into: [String: VideoWallpaper]()) { result, wallpaper in
             result[normalizedPath(wallpaper.path)] = wallpaper
         }
@@ -147,7 +146,7 @@ extension WallpaperManager {
         // E2a-3: requested 层一并撤销（web/scene/systemStill 切换入口经
         // 此清引用，残留 pending 会让高亮谎报播放中）。
         pendingWallpaper = nil
-        persistCurrentWallpaperSnapshot()
+
     }
 
     /// E2a-2: 用户请求的停止入口——选择权威回收真值（引用清空、

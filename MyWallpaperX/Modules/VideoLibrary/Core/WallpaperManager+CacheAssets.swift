@@ -31,7 +31,7 @@ extension WallpaperManager {
             }
 
             saveWallpapers()
-            persistCurrentWallpaperSnapshot()
+
         }
     }
 

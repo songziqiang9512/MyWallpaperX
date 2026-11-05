@@ -269,7 +269,6 @@ final class Transport: SteamServiceTransporting {
     var activeDownloadTasks: [String: Task<Void, Never>] = [:]
     var cancellationFeedbackByDownloadJobKey: [String: Bool] = [:]
     var reservedLibraryCopyBytesByJobKey: [String: Int64] = [:]
-    var legacyLibraryPublicationMigrationTask: Task<Void, Never>?
     var statusMessage = ""; var downloadError: String?
     var isAuthenticating = false; var isLoginSheetPresented = false
     enum Phase { case credentials, awaitingGuardCode }; var authPhase = Phase.credentials
@@ -349,157 +348,49 @@ final class Transport: SteamServiceTransporting {
         transport.allocatedEventHasWrongAccountEpoch = mode == "allocated-wrong-account-epoch"; transport.allocatedEventOmitsAccountEpoch = mode == "allocated-missing-account-epoch"
         transport.allocatedEventHasWrongBirth = mode == "allocated-wrong-birth"; transport.terminalReceiptHasWrongBirth = mode == "terminal-wrong-birth"
         transport.hold = mode.hasPrefix("late-cleanup-") || mode.hasPrefix("ready-update-delete") || ["cancel", "switch", "concurrent-cancel", "concurrent-success",
-            "prebind-replacement", "legacy-v4-partial-retry", "allocated-wrong-account-epoch",
+            "prebind-replacement", "allocated-wrong-account-epoch",
             "allocated-missing-account-epoch", "allocated-wrong-birth"].contains(mode)
         transport.replaceStagingBeforeProgress = mode == "prebind-replacement"
         transport.startErrorCode = ["network-failure", "missing-resume-fresh", "busy-retry", "abandon"].contains(mode) ? "network" : mode == "manifest-mismatch" ? "integrity" : mode == "disk-full" ? "diskFull" : nil
-        if mode == "legacy-v4-partial-retry" {
-            let legacyURL = base.appendingPathComponent("jobs.json")
-            let legacyStore = SteamDownloadJobStore(persistenceURL: legacyURL)
-            let legacyJob = legacyStore.enqueue(
-                workshopItemId: "123456",
-                title: "legacy partial",
-                accountSteamId: "76561198000000000"
-            ).job
-            precondition(legacyStore.apply(.started, toID: legacyJob.id) != nil)
-            let oldPath = transport.receipt["stagingPath"] as! String
-            let oldIdentity = try SteamWorkshopLibraryTransaction.stagingLeaseIdentity(
-                stagingURL: URL(fileURLWithPath: oldPath, isDirectory: true),
-                stagingRoot: base.appendingPathComponent("staging", isDirectory: true)
-            )
-            precondition(legacyStore.apply(.stagingAllocated(
-                path: oldPath,
-                manifestId: transport.receipt["manifestId"] as! String,
-                leaseIdentity: oldIdentity
-            ), toID: legacyJob.id) != nil)
-            var persisted = try JSONSerialization.jsonObject(
-                with: Data(contentsOf: legacyURL)
-            ) as! [String: Any]
-            persisted["version"] = 4
-            var jobs = persisted["jobs"] as! [[String: Any]]
-            var oldIdentityObject = jobs[0]["stagingLeaseIdentity"] as! [String: Any]
-            oldIdentityObject.removeValue(forKey: "birthSeconds")
-            oldIdentityObject.removeValue(forKey: "birthNanoseconds")
-            jobs[0]["stagingLeaseIdentity"] = oldIdentityObject
-            persisted["jobs"] = jobs
-            try JSONSerialization.data(withJSONObject: persisted, options: [.sortedKeys])
-                .write(to: legacyURL, options: .atomic)
-            let oldURL = URL(fileURLWithPath: oldPath, isDirectory: true)
-            try FileManager.default.moveItem(
-                at: oldURL,
-                to: base.appendingPathComponent("legacy-partial-original", isDirectory: true)
-            )
-            try FileManager.default.createDirectory(at: oldURL, withIntermediateDirectories: false)
-            try Data("replacement".utf8).write(to: oldURL.appendingPathComponent("sentinel"))
-        }
         let service = SteamWorkshopService(base: base, transport: transport)
         if mode.hasPrefix("ready-update-delete") || mode == "opaque-source-delete" { service.hasCompletedInstalledLibraryLoad = true }
         if try await service.runOpaqueDeletionFixtureIfNeeded(mode: mode) { return }
         if try await service.runReadyUpdateDeletionFixtureIfNeeded(mode: mode, transport: transport) { return }
         if try await service.runLateCleanupFixtureIfNeeded(mode: mode, transport: transport) { return }
-        if mode.hasPrefix("migration-") {
-            let library = service.steamDownloadLibraryRootURL
-            let legacyName = "11111111-1111-4111-8111-111111111111"
-            let legacyContent = library
-                .appendingPathComponent(SteamWorkshopLibraryTransaction.versionsName, isDirectory: true)
-                .appendingPathComponent(legacyName, isDirectory: true)
-                .appendingPathComponent("content", isDirectory: true)
-            try FileManager.default.createDirectory(at: legacyContent, withIntermediateDirectories: true)
-            let staged = URL(
-                fileURLWithPath: transport.receipt["stagingPath"] as! String,
-                isDirectory: true
-            )
-            for name in ["project.json", "index.html"] {
-                try Data(contentsOf: staged.appendingPathComponent(name))
-                    .write(to: legacyContent.appendingPathComponent(name))
+        if mode == "current-only-metadata" {
+            for version in [1, 2] {
+                let id = "12345\(version)", generation = "11111111-1111-4111-8111-111111111111"
+                let content = service.steamDownloadLibraryRootURL.appendingPathComponent(
+                    version == 1 ? ".mywallpaperx-steam-versions/\(generation)/content" : "Web/\(id)-\(generation)", isDirectory: true)
+                try FileManager.default.createDirectory(at: content, withIntermediateDirectories: true)
+                let sentinel = content.appendingPathComponent("index.html")
+                try Data("old unimported content".utf8).write(to: sentinel)
+                var snapshot = SteamWorkshopDownloadMetadataSnapshot(fetchedAt: Date(), item: .init(id: id, title: "Old"),
+                    sourceVideoRelativePath: nil, previewRelativePath: nil, exportedVideoURL: nil, legacyFolderURL: content)
+                snapshot.commit = SteamWorkshopLibraryCommit(version: version, workshopId: id, jobId: "old", attempt: 1,
+                    directoryName: version == 1 ? generation : id + "-" + generation, manifestId: "1",
+                    contentDigest: String(repeating: "a", count: 64), contentType: "web", entryPath: "index.html", committedAt: Date())
+                let bytes = try JSONEncoder().encode(snapshot)
+                try SteamWorkshopLibraryTransaction.publish(metadata: bytes, itemID: id, libraryRoot: service.steamDownloadLibraryRootURL)
+                let loaded = try service.loadManagedDownloadSnapshots(requireComplete: true, matchingItemID: id)
+                precondition(loaded.isEmpty,
+                    "old published metadata must not become current ready intent")
+                let stored = try Data(contentsOf: service.downloadMetadataIndexDirectoryURL().appendingPathComponent(id + ".json"))
+                let contentBytes = try Data(contentsOf: sentinel)
+                precondition(stored == bytes && contentBytes == Data("old unimported content".utf8))
             }
-            let legacy = SteamWorkshopLibraryCommit(
-                version: 1,
-                workshopId: "123456",
-                jobId: "legacy-job-1",
-                attempt: 1,
-                directoryName: legacyName,
-                manifestId: "123",
-                contentDigest: transport.receipt["contentDigest"] as! String,
-                contentType: "web",
-                entryPath: "index.html",
-                committedAt: Date(timeIntervalSince1970: 1_700_000_000)
-            )
-            var snapshot = SteamWorkshopDownloadMetadataSnapshot(
-                fetchedAt: legacy.committedAt,
-                item: SteamWorkshopBrowserItem(id: "123456", title: "legacy"),
-                sourceVideoRelativePath: nil,
-                previewRelativePath: nil,
-                exportedVideoURL: nil,
-                legacyFolderURL: legacyContent
-            )
-            snapshot.commit = legacy
-            try SteamWorkshopLibraryTransaction.publish(
-                metadata: JSONEncoder().encode(snapshot),
-                itemID: legacy.workshopId,
-                libraryRoot: library
-            )
-            let candidates = try service.loadManagedDownloadSnapshots(requireComplete: true)
-            if mode == "migration-cas" {
-                var removed = legacy
-                removed.removed = true
-                var newer = snapshot
-                newer.commit = removed
-                try SteamWorkshopLibraryTransaction.publish(
-                    metadata: JSONEncoder().encode(newer),
-                    itemID: legacy.workshopId,
-                    libraryRoot: library
-                )
+            let invalidPointer = service.downloadMetadataIndexDirectoryURL().appendingPathComponent("123456.json")
+            let invalidBytes = try Data(contentsOf: invalidPointer)
+            precondition(invalidBytes == Data("OLD READY POINTER".utf8))
+            var rejectedIncompleteIndex = false
+            do {
+                _ = try service.loadManagedDownloadSnapshots(requireComplete: true)
+            } catch let failure as SteamWorkshopLibraryTransaction.Failure where failure.message == "下载索引不完整，已暂停版本回收。" {
+                rejectedIncompleteIndex = true
             }
-            if mode == "migration-capacity" {
-                service.reservedLibraryCopyBytesByJobKey["fixture-blocker"] = 0
-            }
-            var unblock: Task<Void, Error>?
-            if mode == "migration-retry" {
-                let blocker = library.appendingPathComponent("Web")
-                try Data("temporary-blocker".utf8).write(to: blocker)
-                unblock = Task.detached {
-                    try await Task.sleep(nanoseconds: 100_000_000)
-                    try FileManager.default.removeItem(at: blocker)
-                }
-            }
-            service.scheduleLegacyLibraryPublicationMigration(from: candidates)
-            guard let migrationTask = service.legacyLibraryPublicationMigrationTask else {
-                fatalError("migration task was not scheduled")
-            }
-            if mode == "migration-capacity" {
-                try await Task.sleep(nanoseconds: 150_000_000)
-                let waiting = try service.loadManagedDownloadSnapshots(requireComplete: true)["123456"]
-                precondition(waiting?.commit == legacy,
-                    "migration must wait behind the shared copy-capacity owner")
-                service.reservedLibraryCopyBytesByJobKey["fixture-blocker"] = nil
-            }
-            await migrationTask.value
-            if let unblock { try await unblock.value }
-            let current = try service.loadManagedDownloadSnapshots(requireComplete: true)["123456"]
-            if mode == "migration-cas" {
-                precondition(current?.commit?.removed == true && current?.commit?.version == 1,
-                    "a newer metadata pointer must win before migration publication")
-                precondition(service.reloads == 0)
-            } else {
-                guard let migrated = current?.commit else { fatalError("missing migrated pointer") }
-                precondition(migrated.version == 3 && migrated.workshopId == legacy.workshopId)
-                precondition(SteamWorkshopLibraryTransaction.isAvailable(
-                    migrated, libraryRoot: library
-                ))
-                precondition(SteamWorkshopLibraryTransaction.isAvailable(
-                    legacy, libraryRoot: library
-                ), "migration must not move or delete the previous-current v1 tree")
-                let publicDirectories = try FileManager.default.contentsOfDirectory(
-                    at: library.appendingPathComponent("Web", isDirectory: true),
-                    includingPropertiesForKeys: nil
-                ).filter { $0.lastPathComponent == "123456" }
-                precondition(publicDirectories.count == 1,
-                    "one service migration must publish exactly one public generation")
-                precondition(service.reloads == 1)
-            }
-            precondition(service.legacyLibraryPublicationMigrationTask == nil)
-            precondition(service.reservedLibraryCopyBytesByJobKey.isEmpty)
+            let retainedInvalidBytes = try Data(contentsOf: invalidPointer)
+            precondition(rejectedIncompleteIndex && retainedInvalidBytes == invalidBytes)
+            precondition(service.reservedLibraryCopyBytesByJobKey.isEmpty && service.reloads == 0)
             await service.steamServiceClient.stop(shutdownTimeout: 0)
             print("EXECUTION PASS: \(mode)")
             return
@@ -679,7 +570,7 @@ final class Transport: SteamServiceTransporting {
             precondition(!service.activeDownloadTasks.isEmpty, "epoch change dropped the physical-drain waiter")
             transport.finishHeldSuccess()
         }
-        if mode == "prebind-replacement" || mode == "legacy-v4-partial-retry" {
+        if mode == "prebind-replacement" {
             while !transport.commands.contains(where: {
                 $0["command"] as? String == "cancelDownload" && $0["jobId"] as? String == key
             }) { await Task.yield() }
@@ -812,29 +703,6 @@ final class Transport: SteamServiceTransporting {
                 precondition(FileManager.default.fileExists(
                     atPath: base.appendingPathComponent("original-prebind").path
                 ), "the original helper lease remains separately attributable")
-            }
-            if mode == "legacy-v4-partial-retry" {
-                let start = transport.commands.first { $0["command"] as? String == "startDownload" }!
-                let payload = start["payload"] as! [String: Any]
-                precondition(payload["resumeStagingPath"] == nil
-                    && payload["resumeManifestId"] == nil
-                    && payload["resumeStagingDevice"] == nil
-                    && payload["resumeStagingInode"] == nil
-                    && payload["resumeStagingBirthSeconds"] == nil
-                    && payload["resumeStagingBirthNanoseconds"] == nil,
-                    "device+inode-only v4 partial must start a fresh helper lease")
-                let replacement = URL(
-                    fileURLWithPath: transport.receipt["stagingPath"] as! String,
-                    isDirectory: true
-                )
-                let sentinel = try String(
-                    contentsOf: replacement.appendingPathComponent("sentinel"),
-                    encoding: .utf8
-                )
-                precondition(sentinel == "replacement")
-                precondition(FileManager.default.fileExists(
-                    atPath: base.appendingPathComponent("legacy-partial-original").path
-                ))
             }
         } else if ["network-failure", "missing-resume-fresh", "busy-retry", "abandon", "publish-failure"].contains(mode) {
             let oldMarker = try String(contentsOf: marker, encoding: .utf8)

@@ -7,7 +7,6 @@ import Foundation
 import SQLite3
 
 final class WallpaperIndexStore {
-    static var startupMigrationReadOnly = false
     static let shared = WallpaperIndexStore()
 
     nonisolated struct LoadedIndex {
@@ -21,11 +20,9 @@ final class WallpaperIndexStore {
         case statementStepFailed(String)
         case transactionFailed(String)
         case invalidDatabasePath
-        case migrationRecoveryReadOnly
     }
 
     private let dbURL: URL
-    private let migrationReadOnly: Bool
     // SQLite 只承载壁纸索引主表；设置仍留 UserDefaults，避免把轻量配置也拖进数据库事务。
     private let queue = DispatchQueue(label: "com.mywallpaper.persistence.wallpaper-index", qos: .utility)
     private var db: OpaquePointer?
@@ -33,11 +30,10 @@ final class WallpaperIndexStore {
     private let sqliteTransient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
 
     private init() {
-        migrationReadOnly = Self.startupMigrationReadOnly
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
         let appDir = (appSupport ?? URL(fileURLWithPath: NSTemporaryDirectory()))
             .appendingPathComponent("MyWallpaperX", isDirectory: true)
-        if !migrationReadOnly { try? FileManager.default.createDirectory(at: appDir, withIntermediateDirectories: true) }
+        try? FileManager.default.createDirectory(at: appDir, withIntermediateDirectories: true)
         dbURL = appDir.appendingPathComponent("wallpaper_index.sqlite3", isDirectory: false)
     }
 
@@ -66,12 +62,6 @@ final class WallpaperIndexStore {
 
     private func loadInitialIndexInternal() throws -> LoadedIndex {
         let wallpapers = try loadWallpapersInternal()
-        if migrationReadOnly {
-            // Old readable rows remain useful even when their optional meta
-            // table predates schema repair, which is forbidden in recovery.
-            let initialized = (try? selectMetaValue(forKey: "library_initialized")) == "1" || !wallpapers.isEmpty
-            return LoadedIndex(wallpapers: wallpapers, initialized: initialized)
-        }
         let initialized = try selectMetaValue(forKey: "library_initialized") == "1" || !wallpapers.isEmpty
         return LoadedIndex(wallpapers: wallpapers, initialized: initialized)
     }
@@ -79,11 +69,8 @@ final class WallpaperIndexStore {
     // 完整 SQL 读取由同步查询和初始索引加载共用。
     private func loadWallpapersInternal() throws -> [VideoWallpaper] {
         try openIfNeeded()
-        let metadataColumns = ["file_size", "duration", "resolution", "first_indexed_at_reference"].map {
-            migrationReadOnly && !hasColumn($0, inTable: "wallpapers") ? "NULL" : $0
-        }.joined(separator: ",")
         let sql = """
-        SELECT id, title, path, thumbnail_path, static_frame_path, is_favorite, last_used, tags_json, \(metadataColumns)
+        SELECT id, title, path, thumbnail_path, static_frame_path, is_favorite, last_used, tags_json, file_size, duration, resolution, first_indexed_at_reference
         FROM wallpapers
         ORDER BY sort_index ASC;
         """
@@ -141,7 +128,6 @@ final class WallpaperIndexStore {
     }
 
     private func saveWallpapersInternal(_ wallpapers: [VideoWallpaper]) throws {
-        guard !migrationReadOnly else { throw StoreError.migrationRecoveryReadOnly }
         // 全量替换采用显式事务，避免中途失败写出半截索引。
         try openIfNeeded()
         // 全量替换 + sort_index 持久化，保证重排后的顺序可跨启动稳定恢复。
@@ -158,7 +144,6 @@ final class WallpaperIndexStore {
     }
 
     func resetStore() {
-        guard !migrationReadOnly else { return }
         // queue.async 避免在已持有队列锁的调用链上 sync 造成死锁。
         queue.async {
             if let db = self.db {
@@ -185,7 +170,7 @@ final class WallpaperIndexStore {
         }
 
         var openedDB: OpaquePointer?
-        let flags = migrationReadOnly ? SQLITE_OPEN_READONLY : SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE
+        let flags = SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE
         if sqlite3_open_v2(dbURL.path, &openedDB, flags | SQLITE_OPEN_FULLMUTEX, nil) != SQLITE_OK {
             let message = openedDB.map { String(cString: sqlite3_errmsg($0)) } ?? "open database failed"
             if let openedDB {
@@ -194,7 +179,6 @@ final class WallpaperIndexStore {
             throw StoreError.openFailed(message)
         }
         db = openedDB
-        guard !migrationReadOnly else { return }
 
         try exec("PRAGMA journal_mode=WAL;")
         try exec("PRAGMA synchronous=NORMAL;")
@@ -223,20 +207,6 @@ final class WallpaperIndexStore {
             );
             """
         )
-        // 兼容旧库：file_size 列可能已存在，先检查再补加，避免重复执行时报错。
-        let needsFileSizeColumn = !hasColumn("file_size", inTable: "wallpapers")
-        if needsFileSizeColumn {
-            try exec("ALTER TABLE wallpapers ADD COLUMN file_size INTEGER;")
-        }
-        if !hasColumn("duration", inTable: "wallpapers") {
-            try exec("ALTER TABLE wallpapers ADD COLUMN duration INTEGER;")
-        }
-        if !hasColumn("resolution", inTable: "wallpapers") {
-            try exec("ALTER TABLE wallpapers ADD COLUMN resolution TEXT;")
-        }
-        if !hasColumn("first_indexed_at_reference", inTable: "wallpapers") {
-            try exec("ALTER TABLE wallpapers ADD COLUMN first_indexed_at_reference REAL;")
-        }
         try exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_wallpapers_path ON wallpapers(path);")
         try exec("CREATE INDEX IF NOT EXISTS idx_wallpapers_sort ON wallpapers(sort_index);")
         try exec(
@@ -401,20 +371,7 @@ final class WallpaperIndexStore {
         return tags
     }
 
-    private func hasColumn(_ column: String, inTable table: String) -> Bool {
-        // PRAGMA table_info 返回每列的元数据，name 字段在 index 1。
-        let sql = "PRAGMA table_info(\(table));"
-        var statement: OpaquePointer?
-        guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else { return false }
-        defer { sqlite3_finalize(statement) }
-        while sqlite3_step(statement) == SQLITE_ROW {
-            if let cName = sqlite3_column_text(statement, 1),
-               String(cString: cName) == column {
-                return true
-            }
-        }
-        return false
-    }
+
 
     private func lastSQLiteErrorMessage() -> String {
         guard let db else { return "sqlite error" }

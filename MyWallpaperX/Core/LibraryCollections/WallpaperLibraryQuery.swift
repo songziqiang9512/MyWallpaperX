@@ -9,6 +9,7 @@ nonisolated struct WallpaperLibraryCatalog: Sendable {
     /// Original source task/account exclusions affect only My Downloads.
     /// Keep full source facts for explicit playback and mixed playlists.
     var excludedDownloadReferences: Set<WallpaperReference> = []
+    var sessionHiddenDownloadReferences: Set<WallpaperReference> = []
     var revision: UInt64 = 0
     /// A successful empty source is different from its initial empty value.
     var loadedProviders: Set<WallpaperProvider> = []
@@ -116,13 +117,13 @@ nonisolated enum WallpaperLibraryQuery {
             if omitsPendingMembers { return try resolver.resolveForPresentation(reference, loadedProviders: catalog.loadedProviders) }
             return try resolver.resolve(reference)
         }
-        let sort = state.sort ?? defaultSort(page)
+        let (sort, ascending) = resolvedSort(page: page, state: state)
         let sortsItems = page != .recent && sort != .sourceOrder
         // This is a user-owned source-page exclusion, not an availability
         // fact. Retained relationships and explicit playback still resolve
         // against the complete catalog above.
         let excluded: Set<WallpaperReference>
-        if page == .videos || page == .images || page == .downloads {
+        if page == .videos || page == .images {
             excluded = Set(try relationships.excludedLibraryReferences.map { try canonical($0.reference) })
         } else { excluded = [] }
         func unique(_ items: [WallpaperContentItem]) -> [WallpaperContentItem] {
@@ -130,6 +131,7 @@ nonisolated enum WallpaperLibraryQuery {
             return items.filter { seen.insert($0.reference).inserted }
         }
         var addedAt: [WallpaperReference: Date] = [:]
+        var memberPositions: [WallpaperReference: Int] = [:]
         var favoritedAt: [WallpaperReference: Date] = [:]
         if sortsItems, sort == .favoritedAt {
             for favorite in relationships.favorites {
@@ -151,11 +153,12 @@ nonisolated enum WallpaperLibraryQuery {
             candidates = try unique(catalog.images.map { try resolve($0.reference) })
                 .filter { !excluded.contains($0.reference) }
         case .downloads:
+            let hidden = Set(try catalog.sessionHiddenDownloadReferences.map { try canonical($0) })
             candidates = try unique(catalog.downloads.filter {
                 !catalog.excludedDownloadReferences.contains($0.providerReference)
                     && (state.showsAdultContent || $0.metadata.contentRating != .adult)
             }
-                .map { try resolve($0.reference) }).filter { !excluded.contains($0.reference) }
+                .map { try resolve($0.reference) }).filter { !hidden.contains($0.reference) }
         case .recent:
             // Filter/search only these 50; never refill from older history.
             candidates = try recentReferences(relationships, resolver: resolver).compactMap(resolveMember)
@@ -164,7 +167,11 @@ nonisolated enum WallpaperLibraryQuery {
             guard relationships.playlists.contains(where: { $0.id == id }) else { throw UserCollectionsError.missingPlaylist }
             let members = relationships.members.filter { $0.playlistID == id }.sorted { $0.position < $1.position }
             if sortsItems, sort == .addedAt {
-                for member in members { addedAt[try canonical(member.reference)] = member.addedAt }
+                for member in members {
+                    let reference = try canonical(member.reference)
+                    addedAt[reference] = min(addedAt[reference] ?? member.addedAt, member.addedAt)
+                    memberPositions[reference] = min(memberPositions[reference] ?? member.position, member.position)
+                }
             }
             candidates = try unique(members.compactMap { try resolveMember($0.reference) })
         case .playlists, .workshop, .pixabay, .wallhaven, .pixiv:
@@ -204,20 +211,14 @@ nonisolated enum WallpaperLibraryQuery {
             }
         }
         if sortsItems {
-            let ascending = state.sort == nil && (page == .downloads || page == .favorites) ? false : state.ascending
-            let originalPositions = sort == .legacyTime || sort == .favoritedAt
+            let usesFileOrder: Bool
+            switch page { case .downloads, .playlist: usesFileOrder = true; default: usesFileOrder = false }
+            let originalPositions = sort == .favoritedAt
                 ? Dictionary(candidates.enumerated().map { ($0.element.reference, $0.offset) }, uniquingKeysWith: { first, _ in first }) : [:]
-            var legacyPositions: [WallpaperReference: Int] = [:]
-            if sort == .legacyTime {
-                for reference in state.legacyTimeOrder ?? [] {
-                    let key = try canonical(reference)
-                    if legacyPositions[key] == nil { legacyPositions[key] = legacyPositions.count }
-                }
-            }
             let locale = Locale(identifier: "en_US_POSIX")
             var foldedTitles: [String: String] = [:]
             func titleComparison(_ left: WallpaperContentItem, _ right: WallpaperContentItem) -> ComparisonResult {
-                guard page == .downloads else { return left.title.localizedStandardCompare(right.title) }
+                guard usesFileOrder else { return left.title.localizedStandardCompare(right.title) }
                 func folded(_ title: String) -> String {
                     if let cached = foldedTitles[title] { return cached }
                     let value = title.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: locale)
@@ -230,7 +231,7 @@ nonisolated enum WallpaperLibraryQuery {
                 return identity == .orderedSame ? stableKey(left).compare(stableKey(right), options: [.literal]) : identity
             }
             func tieBefore(_ left: WallpaperContentItem, _ right: WallpaperContentItem) -> Bool {
-                guard page == .downloads else { return stableKey(left) < stableKey(right) }
+                guard usesFileOrder else { return stableKey(left) < stableKey(right) }
                 return titleComparison(left, right) == (ascending ? .orderedAscending : .orderedDescending)
             }
             visible.sort { left, right in
@@ -241,14 +242,13 @@ nonisolated enum WallpaperLibraryQuery {
                 case .createdAt: return compareOptional(left.metadata.createdAt, right.metadata.createdAt, ascending: ascending, tieBefore: { tieBefore(left, right) })
                 case .modifiedAt: return compareOptional(left.metadata.modifiedAt, right.metadata.modifiedAt, ascending: ascending, tieBefore: { tieBefore(left, right) })
                 case .lastUsed: return compareOptional(recentAt[left.reference], recentAt[right.reference], ascending: ascending, tieBefore: { tieBefore(left, right) })
-                case .addedAt: return compareOptional(addedAt[left.reference], addedAt[right.reference], ascending: ascending, tieBefore: { tieBefore(left, right) })
-                case .legacyTime:
-                    switch (legacyPositions[left.reference], legacyPositions[right.reference]) {
-                    case let (a?, b?): return ascending ? a < b : a > b
-                    case (.some, nil): return true
-                    case (nil, .some): return false
-                    case (nil, nil): return (originalPositions[left.reference] ?? 0) < (originalPositions[right.reference] ?? 0)
-                    }
+                case .addedAt:
+                    return compareOptional(addedAt[left.reference], addedAt[right.reference], ascending: ascending, tieBefore: {
+                        if let lhs = memberPositions[left.reference], let rhs = memberPositions[right.reference], lhs != rhs {
+                            return ascending ? lhs < rhs : lhs > rhs
+                        }
+                        return tieBefore(left, right)
+                    })
                 case .favoritedAt:
                     if favoritedAt[left.reference] == nil, favoritedAt[right.reference] == nil {
                         return (originalPositions[left.reference] ?? 0) < (originalPositions[right.reference] ?? 0)
@@ -375,7 +375,17 @@ nonisolated enum WallpaperLibraryQuery {
         switch page {
         case .downloads: return .createdAt
         case .favorites: return .favoritedAt
+        case .playlist: return .addedAt
         default: return .sourceOrder
+        }
+    }
+
+    static func resolvedSort(page: WallpaperLibraryPage, state: WallpaperLibraryQueryState) -> (sort: WallpaperLibrarySort, ascending: Bool) {
+        let sort = state.sort ?? defaultSort(page)
+        guard state.sort == nil else { return (sort, state.ascending) }
+        switch page {
+        case .downloads, .favorites, .playlist: return (sort, false)
+        default: return (sort, state.ascending)
         }
     }
 

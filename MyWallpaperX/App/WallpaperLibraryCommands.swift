@@ -250,10 +250,12 @@ import Combine
     /// The browser exposes a real way back for retained local downloads. This
     /// action neither downloads again nor starts playback.
     func makeRestoreLibraryAction(for content: WallpaperContentItem) -> (() -> Void)? {
+        let isDownload = content.reference.provider != .videoLibrary && content.reference.provider != .staticImageLibrary
+            || content.providerReference.provider != .videoLibrary && content.providerReference.provider != .staticImageLibrary
         guard canOrganize, content.publishedAvailability == .available,
-              let revisions = try? WallpaperLibraryQuery.libraryExclusionRevisions(for: [content.reference], relationships: workspace.relationships),
+              let revisions = try? workspace.libraryHideRevisions(for: [content.reference], downloads: isDownload),
               let revision = revisions[content.reference],
-              let restore = makeExplicitLibraryRestorationReceipt(for: content.reference) else { return nil }
+              let restore = Self.makeExplicitLibraryRestorationReceipt(for: content.reference, in: workspace, downloads: isDownload) else { return nil }
         let page = workspace.presentation.page, epoch = workspace.relationships.resetEpoch
         let session = workspace.presentation.selectionState.sessionID
         return { [weak self] in
@@ -261,40 +263,37 @@ import Combine
                   self.workspace.presentation.page == page, self.workspace.presentation.selectionState.sessionID == session,
                   let current = try? self.workspace.content(for: content.reference), current.reference == content.reference,
                   current.publishedAvailability == .available,
-                  let latest = try? WallpaperLibraryQuery.libraryExclusionRevisions(for: [content.reference], relationships: self.workspace.relationships),
+                  let latest = try? self.workspace.libraryHideRevisions(for: [content.reference], downloads: isDownload),
                   latest[content.reference] == revision else { return }
             restore()
         }
     }
 
-    /// Injected into the source's explicit download admission. Its callback is
-    /// carried by that original request/queue payload, never made by a scan.
-    func makeExplicitLibraryRestorationReceipt(for reference: WallpaperReference) -> (() -> Void)? {
-        guard canOrganize else { return nil }
-        return Self.makeExplicitLibraryRestorationReceipt(for: reference, in: workspace)
-    }
-
-    /// Runtime download retries may outlive or precede any main window. The
-    /// existing workspace/Store own admission; a window is only an optional echo.
+    /// Runtime download retries may outlive any main window. The Catalog owns
+    /// their session hides; local source-page hides remain in the Store.
     static func makeExplicitLibraryRestorationReceipt(for reference: WallpaperReference,
-                                                       in workspace: WallpaperLibraryWorkspace) -> (() -> Void)? {
+                                                       in workspace: WallpaperLibraryWorkspace, downloads: Bool? = nil) -> (() -> Void)? {
+        let isDownload = downloads ?? (reference.provider != .videoLibrary && reference.provider != .staticImageLibrary)
         guard workspace.presentation.canEditCollections, let collections = workspace.collections,
-              let revisions = try? WallpaperLibraryQuery.libraryExclusionRevisions(for: [reference], relationships: collections.snapshot) else { return nil }
+              let revisions = try? workspace.libraryHideRevisions(for: [reference], downloads: isDownload) else { return nil }
         let epoch = collections.snapshot.resetEpoch, expected = revisions[reference]
         return { [weak workspace, collections] in
             guard collections.snapshot.resetEpoch == epoch, !collections.isResetting else { return }
+            if isDownload {
+                guard let workspace else { return }
+                do {
+                    let canonical = try WallpaperLibraryQuery.canonicalReferences(workspace.catalog.catalog.sessionHiddenDownloadReferences.union([reference]), relationships: collections.snapshot)
+                    workspace.catalog.restoreDownload(reference, expectedRevision: expected, canonical: canonical)
+                }
+                catch { workspace.presentation.report(error) }
+                return
+            }
             Task { @MainActor [weak workspace, collections] in
                 guard collections.snapshot.resetEpoch == epoch, !collections.isResetting else { return }
                 do {
                     try await collections.perform(.clearLibraryExclusion(reference, expectedRevision: expected), expectedEpoch: epoch)
                     guard collections.snapshot.resetEpoch == epoch else { return }
-                    let page: WallpaperLibraryPage
-                    switch reference.provider {
-                    case .videoLibrary: page = .videos
-                    case .staticImageLibrary: page = .images
-                    case .steamWorkshop, .pixabay, .wallhaven, .pixiv: page = .downloads
-                    }
-                    workspace?.didEditMembers(of: page)
+                    workspace?.didEditMembers(of: reference.provider == .videoLibrary ? .videos : .images)
                 } catch {
                     guard collections.snapshot.resetEpoch == epoch, !collections.isResetting else { return }
                     workspace?.presentation.report(error)
@@ -378,7 +377,7 @@ import Combine
             case .videos, .images, .downloads: break
             default: self.workspace.presentation.completeRemoval(receipt, succeeded: []); return
             }
-            if deleteSourceFiles || page == .videos || page == .images || page == .downloads {
+            if page != .downloads && (deleteSourceFiles || page == .videos || page == .images) {
                 commands.append(.setLibraryExcluded(accepted.map(\.reference), true))
             }
             commands.append(.removeRecent(accepted.map(\.reference)))
@@ -387,6 +386,7 @@ import Combine
                     try await collections.perform(commands, undoName: deleteSourceFiles ? nil : undoName, expectedEpoch: epoch)
                 }
                 guard collections.snapshot.resetEpoch == epoch, !collections.isResetting else { return }
+                if page == .downloads { self.workspace.catalog.hideDownloads(Set(accepted.map(\.reference))) }
                 self.workspace.presentation.completeRemoval(receipt, succeeded: succeeded)
                 self.workspace.didEditMembers(of: page)
             } catch {

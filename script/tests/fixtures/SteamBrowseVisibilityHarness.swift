@@ -24,7 +24,6 @@ private enum VisibilityModule { case steamWorkshop }
     init(service: VisibilityService) { self.service = service; super.init(frame: .zero) }
     required init?(coder: NSCoder) { nil }
     func syncContent(force: Bool) {}
-    func presentPendingDownloadErrorIfNeeded() {}
     func syncSelectedInspectorItem(_ item: String?) {}
     // ACTUAL_VISIBILITY_METHODS
 }

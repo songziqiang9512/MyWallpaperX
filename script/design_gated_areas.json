@@ -1460,7 +1460,7 @@
       "owner": "App/Shell and shared user-library relationships",
       "status": "approved",
       "designDoc": "docs/development/main-window-playlists-redesign.md",
-      "design_notes": "2026-10-27用户16项专项以99ba1fa85为基线在隔离树实施，当前设计/工作卡唯一归主界面方案§20 M01-M16，不提交不推送。两键bar/原图临时QL、工具栏/作者返回与27原生刷新、原偏好与模态owner内收口；Downloads只统一呈现与非Steam终态历史，不增下载队列；Pixabay重命名保旧数据raw。每个共享抽象有实际消费者，退旧链及无用校验/重复计算，不以补丁叠第二状态树。设备独占和最近门/最终Debug须协调启动专项；历史通过不冒认新代码验收。 UI22九项补充的数据分级兼容/NSWorkspace打开方式/共享hover和设置消费边界见设计文档链接的ui-quality-audit.md#ui22-scope；重置按用户确认保重新安装级语义，仅明确清App记录/关系和设置、保磁盘媒体。UI22后获用户明确合入授权，以主仓571a874a2为基线整合至codex/engine-refactor-program，补尾修与冲突近门及Debug编译；不安装、不推送，结算归同一工作卡。",
+      "design_notes": "Current-format retirement authorized 2026-11-05; see section 9. Keep current database/profile/playback/download/system publication semantics, retire historical App-format conversion, source-wide migration locks and old cleanup owners. No Scene engine changes.",
       "matchPatterns": [
         "MyWallpaperX/Core/LibraryCollections/*",
         "MyWallpaperX/Models/WallpaperReference*.swift",
@@ -1610,7 +1610,7 @@
       "owner": "Modules/Downloads presentation/history; source-native execution",
       "status": "approved",
       "designDoc": "docs/development/main-window-playlists-redesign.md",
-      "design_notes": "用户M05/M06/M11授权。原来源拥有执行/进度/发布/账号准入，Steam JobStore保唯一历史，非Steam仅真实终态ledger；无登录可读本地历史，跨账号修改不得借当前账号。通用任务面板不加来源筛选，无第二执行队列或播放许可。清历史不重新seed复活；固定身份重试不改浏览query；commit后取消保完成事实。 长历史按主界面现役设计使用原生Table复用，唯一行呈现状态替换每行重型View状态；保原预热/保图与进度/身份动作，不新增执行/图片缓存owner或截断历史。",
+      "design_notes": "Current-format retirement authorized 2026-11-05; see section 9. Keep current database/profile/playback/download/system publication semantics, retire historical App-format conversion, source-wide migration locks and old cleanup owners. No Scene engine changes.",
       "matchPatterns": [
         "MyWallpaperX/Modules/Downloads/*",
         "MyWallpaperX/App/DownloadTasksController.swift",
