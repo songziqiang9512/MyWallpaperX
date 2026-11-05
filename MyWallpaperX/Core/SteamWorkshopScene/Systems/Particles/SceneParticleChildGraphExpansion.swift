@@ -363,8 +363,13 @@ enum SceneParticleChildGraphExpansion {
             guard let plan = $0.positionBetweenControlPointsPlan else { return false }
             return worldPoints.contains(plan.controlPointStart) || worldPoints.contains(plan.controlPointEnd)
         } || asset.definition.operators.contains {
-            guard case let .maintainControlPointDistance(plan?) = $0.kind else { return false }
-            return worldPoints.contains(plan.start) || worldPoints.contains(plan.end)
+            switch $0.kind {
+            case let .maintainControlPointDistance(plan?):
+                return worldPoints.contains(plan.start) || worldPoints.contains(plan.end)
+            case let .controlPointRadius(plan?):
+                return worldPoints.contains(plan.controlPoint)
+            default: return false
+            }
         }
         var template = SceneParticleChildTemplate(
                 index: templateIndex,

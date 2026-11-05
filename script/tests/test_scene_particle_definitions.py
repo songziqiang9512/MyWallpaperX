@@ -699,6 +699,7 @@ enum Harness {
         switch kind {
         case .movement: "movement"
         case .maintainControlPointDistance: "maintaindistancebetweencontrolpoints"
+        case .controlPointRadius: "maintaindistancetocontrolpoint"
         case .alphaFade: "alphafade"
         case .alphaChange: "alphachange"
         case .sizeChange: "sizechange"

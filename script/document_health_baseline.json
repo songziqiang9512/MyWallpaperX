@@ -85,8 +85,8 @@
       "bytes": 4068
     },
     "docs/scene/architecture/runtime-architecture.md": {
-      "lines": 171,
-      "bytes": 22851
+      "lines": 173,
+      "bytes": 23626
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 23,
@@ -121,16 +121,16 @@
       "bytes": 5938
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 158,
-      "bytes": 24855
+      "lines": 169,
+      "bytes": 27563
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 215,
       "bytes": 40357
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 115,
-      "bytes": 61464
+      "lines": 116,
+      "bytes": 63323
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 115,
@@ -161,8 +161,8 @@
       "bytes": 4260
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 173,
-      "bytes": 33068
+      "lines": 175,
+      "bytes": 34230
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -440,11 +440,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "5b4468fcaa93b7c2c05549142d4c3cd9bb5b5d68d5dec8acc5d4ba3efda73739",
-      "after": "8a9275d0dedc853ae8f18029f5085e6d88b38ad3d8db5e0c1bdf6543a5960c99",
-      "owner": "scene-particle-ancestor-translation",
-      "reason": "Use the original typed current/reference chain for ancestor translation, child creation and position consumers; retire component/renderer permission and unused pointer reference transport. Keep exact App/author composition evidence and current child/prewarm boundaries; replace stale CP/startup assertions.",
-      "decision": "docs/scene/architecture/runtime-architecture.md#particle-world-translation"
+      "before": "8a9275d0dedc853ae8f18029f5085e6d88b38ad3d8db5e0c1bdf6543a5960c99",
+      "after": "61963b6c5a720ac5e09f6ee63f96e959a610d9bd38615bf6ce2fc8e2b05aced1",
+      "owner": "scene-control-point-radius",
+      "reason": "Add the actual single-CP radius consumer, original snapshot-owned point transport and bounded numeric/state qualification. Keep exact official/native/GPU/author evidence and unqualified boundaries; replace stale missing-consumer assertions, preserve death-child and proven pre-existing gate debt. No new document.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#control-point-radius"
     },
     {
       "section": "bodies",
@@ -467,11 +467,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "074243d72de115a961904136c8fa907009f212e4c30eb3488b06a1331b7c8e2c",
-      "after": "e5e10cb514963e4fbf3396a34ca3fd4db6fc2ee7939eb8233a6a07d802f4b076",
-      "owner": "scene-rope-whole-image",
-      "reason": "Retire atlas profile permission, unused SpriteAnimation and a duplicate post-parser frame scan in the original loader. Keep bounded official/native/App/author evidence, retire the resolved child-texture issue and preserve independent current utility-stage/untouched-compositor structure failures.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#rope-source"
+      "before": "e5e10cb514963e4fbf3396a34ca3fd4db6fc2ee7939eb8233a6a07d802f4b076",
+      "after": "e8c950e30979b95625f7c14a7b064dc8d41ddc81e1d1aed8944f651ecb39f55e",
+      "owner": "scene-control-point-radius",
+      "reason": "Add the actual single-CP radius consumer, original snapshot-owned point transport and bounded numeric/state qualification. Keep exact official/native/GPU/author evidence and unqualified boundaries; replace stale missing-consumer assertions, preserve death-child and proven pre-existing gate debt. No new document.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#control-point-radius"
     },
     {
       "section": "bodies",
@@ -512,11 +512,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "3fb4fa56e974e9d3075ae2abb32cd2096866985c679bb37745d9e0218b77d97e",
-      "after": "c9ecec73129b85fe43abcf5b9087188757a5c546d8451f2507651db97265a753",
-      "owner": "scene-legacy-puppet-animation",
-      "reason": "Replace static-only version13 conclusions with current fullTRS playback and unchanged-layout qualification; document explicit existing bone-target transport and preserve actual evidence-root debt. Keep all unrelated authority transitions.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#legacy-bind-mesh"
+      "before": "c9ecec73129b85fe43abcf5b9087188757a5c546d8451f2507651db97265a753",
+      "after": "608c83b946b1bacb4b843887256efd3bb2e8112019cc44059ff6452bb9927dfa",
+      "owner": "scene-control-point-radius",
+      "reason": "Add the actual single-CP radius consumer, original snapshot-owned point transport and bounded numeric/state qualification. Keep exact official/native/GPU/author evidence and unqualified boundaries; replace stale missing-consumer assertions, preserve death-child and proven pre-existing gate debt. No new document.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#control-point-radius"
     },
     {
       "section": "bodies",
@@ -530,11 +530,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "5536b8fd413b254b8aa19c5817fa3a9ee7677b12b25d48ee84fa4d5ec199cbb2",
-      "after": "d2c5b62f27ed7e483e9dce805de69246c81ea4c3f8c0753cebcd207b27486e51",
-      "owner": "scene-legacy-puppet-animation",
-      "reason": "Replace static-only version13 conclusions with current fullTRS playback and unchanged-layout qualification; document explicit existing bone-target transport and preserve actual evidence-root debt. Keep all unrelated authority transitions.",
-      "decision": "docs/scene/capabilities/advanced-object-coverage.md#legacy-bind-mesh"
+      "before": "d2c5b62f27ed7e483e9dce805de69246c81ea4c3f8c0753cebcd207b27486e51",
+      "after": "04b79d4b0beb86eb3a914b391eb32d166d8ebc8345f7b569dd1a6d3506c6d314",
+      "owner": "scene-control-point-radius",
+      "reason": "Add the actual single-CP radius consumer, original snapshot-owned point transport and bounded numeric/state qualification. Keep exact official/native/GPU/author evidence and unqualified boundaries; replace stale missing-consumer assertions, preserve death-child and proven pre-existing gate debt. No new document.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#control-point-radius"
     }
   ]
 }

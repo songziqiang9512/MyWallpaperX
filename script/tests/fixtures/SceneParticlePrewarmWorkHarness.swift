@@ -35,7 +35,7 @@ import simd
         guard x.particles == y.particles, x.random.state == y.random.state,
               x.nextParticleID == y.nextParticleID, x.simulationTime == y.simulationTime,
               x.accumulator == y.accumulator, x.normalizedLives == y.normalizedLives,
-              x.controlPointDistanceHistory == y.controlPointDistanceHistory,
+              x.controlPointConstraintHistory == y.controlPointConstraintHistory,
               x.emitters.count == y.emitters.count else { return false }
         return zip(x.emitters, y.emitters).allSatisfy { left, right in
             left.elapsed == right.elapsed && left.remainder == right.remainder

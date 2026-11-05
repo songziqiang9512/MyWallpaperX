@@ -6,6 +6,7 @@ extension SceneParticleDefinitionParser {
         diagnostics: inout [SceneParticleDiagnostic]
     ) -> SceneParticleOperator {
         let name = Self.componentName(root)
+        let controlPoint = Self.integer(root["controlpoint"])
         let kind: SceneParticleOperatorKind
         switch name {
         case "movement": kind = .movement
@@ -18,6 +19,8 @@ extension SceneParticleDefinitionParser {
         case "oscillatealpha": kind = .oscillateAlpha
         case "oscillatesize": kind = .oscillateSize
         case "controlpointattract": kind = .controlPointAttract
+        case "maintaindistancetocontrolpoint":
+            kind = .controlPointRadius(Self.controlPointRadius(root, controlPoint: controlPoint))
         case "maintaindistancebetweencontrolpoints":
             kind = .maintainControlPointDistance(Self.maintainControlPointDistance(root))
         case "turbulence": kind = .turbulence
@@ -58,7 +61,7 @@ extension SceneParticleDefinitionParser {
             blendInEnd: Self.number(root["blendinend"]),
             blendOutStart: Self.number(root["blendoutstart"]),
             blendOutEnd: Self.number(root["blendoutend"]),
-            controlPoint: Self.integer(root["controlpoint"]),
+            controlPoint: controlPoint,
             origin: Self.numericValue(root["origin"]), scale: Self.numericValue(root["scale"]),
             timeScale: Self.number(root["timescale"]),
             threshold: Self.number(root["threshold"]),
@@ -68,6 +71,21 @@ extension SceneParticleDefinitionParser {
             speedMaximum: Self.number(root["speedmax"]),
             audioResponse: Self.audioResponse(root)
         )
+    }
+
+    private nonisolated static func controlPointRadius(
+        _ root: [String: Any], controlPoint: Int?
+    ) -> SceneParticleControlPointRadiusPlan? {
+        let rawPoint = root["controlpoint"]
+        let point: Int? = rawPoint == nil || rawPoint is NSNull ? 0 : controlPoint
+        let rawDistance = root["distance"]
+        let rawStrength = root["variablestrength"]
+        let distance: Double? = rawDistance == nil || rawDistance is NSNull ? 200 : number(rawDistance)
+        let strength: Double? = rawStrength == nil || rawStrength is NSNull ? 0 : number(rawStrength)
+        guard let point, (0 ... 7).contains(point),
+              let distance, distance.isFinite,
+              let strength, strength.isFinite else { return nil }
+        return .init(controlPoint: point, distance: distance, variableStrength: strength)
     }
 
     private nonisolated static func maintainControlPointDistance(

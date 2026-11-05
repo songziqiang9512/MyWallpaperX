@@ -13,10 +13,11 @@ enum SceneParticleControlPointComponentsHarness {
     static func root(
         between: [String: Any]? = nil, instantaneous: Int = 3, rate: Double = 0,
         origin: String = "0 0 0", velocity: String? = nil, size: Double = 24,
-        controlPoints: [[String: Any]]? = nil, operators: [[String: Any]] = [], flags: Int = 0
+        controlPoints: [[String: Any]]? = nil, operators: [[String: Any]] = [], flags: Int = 0,
+        lifetime: Double = 3600
     ) -> [String: Any] {
         var writers: [[String: Any]] = [
-            ["id": 2, "name": "lifetimerandom", "min": 3600, "max": 3600],
+            ["id": 2, "name": "lifetimerandom", "min": lifetime, "max": lifetime],
             ["id": 3, "name": "sizerandom", "min": size, "max": size],
             ["id": 4, "name": "colorrandom", "min": "255 255 255", "max": "255 255 255"],
             ["id": 5, "name": "alpharandom", "min": 1, "max": 1],
@@ -40,6 +41,8 @@ enum SceneParticleControlPointComponentsHarness {
         frame: SceneParticleControlPointFrame? = nil,
         initialParticleSpace: SceneParticleControlPointParticleSpace? = nil,
         initialPoints: [Int: SIMD3<Double>] = [:], initialAngles: [Int: SIMD3<Double>] = [:],
+        worldFrame: SceneParticleWorldSpaceFrame? = nil,
+        rootTranslation: SceneParticleRootWorldTranslationPlan? = nil,
         stopped: Bool = false,
         step: Double = 0.25
     ) throws -> SceneParticleSimulator {
@@ -49,7 +52,8 @@ enum SceneParticleControlPointComponentsHarness {
             initialDynamicControlPoints: initialPoints,
             initialDynamicControlPointAngles: initialAngles,
             initialPlayback: .init(intent: stopped ? .stopped : .playing),
-            seed: 71, fixedTimeStep: step, controlPointFrame: frame,
+            seed: 71, fixedTimeStep: step, worldSpaceFrame: worldFrame,
+            rootWorldTranslation: rootTranslation, controlPointFrame: frame,
             initialControlPointParticleSpace: initialParticleSpace
         )
     }
@@ -480,6 +484,237 @@ enum SceneParticleControlPointComponentsHarness {
         record("world-follow-moved-endpoint", sim); record("world-follow-prewarm", warm)
     }
 
+    static func radius(_ fields: [String: Any] = [:]) -> [String: Any] {
+        var value: [String: Any] = ["id": 30, "name": "maintaindistancetocontrolpoint"]
+        value.merge(fields) { _, replacement in replacement }
+        return value
+    }
+
+    static func radiusScalarCases() throws {
+        let defaults = try simulator(root(instantaneous: 1, origin: "80 0 0",
+            controlPoints: localEndpoints, operators: [radius()]))
+        let explicit = try simulator(root(instantaneous: 1, origin: "80 0 0",
+            controlPoints: localEndpoints,
+            operators: [radius(["controlpoint": 0, "distance": 200, "variablestrength": 0])]))
+        let cp1 = try simulator(root(instantaneous: 1, origin: "80 0 0",
+            controlPoints: localEndpoints, operators: [radius(["controlpoint": 1])]))
+        for sim in [defaults, explicit, cp1] { sim.advance(by: 0.25) }
+        var defaultPlan = false
+        if case let .controlPointRadius(plan) = defaults.definition.operators[0].kind, let plan {
+            defaultPlan = plan.controlPoint == 0 && plan.distance == 200 && plan.variableStrength == 0
+        }
+        results["radius-parse/actual-default-plan-and-direct-distance200"] = defaultPlan
+            && defaults.particles == explicit.particles
+            && matches(points(defaults.particles), [[200, 0, 0]])
+            && matches(points(cp1.particles), [[264, 0, 0]])
+        let one = try simulator(root(instantaneous: 1, controlPoints: localEndpoints,
+            operators: [radius(["controlpoint": 1, "distance": 32, "variablestrength": 1])]))
+        one.advance(by: 0.25)
+        let firstOne = matches(points(one.particles), [[8, 0, 0]])
+        one.advance(by: 0.25)
+        results["radius-step/strength1-two-literal-fixed-steps"] = firstOne
+            && matches(points(one.particles), [[14, 0, 0]])
+        let fiveRoot = root(instantaneous: 1, controlPoints: localEndpoints,
+            operators: [radius(["controlpoint": 1, "distance": 32, "variablestrength": 5])])
+        let five = try simulator(fiveRoot, step: 0.1)
+        five.advance(by: 0.1)
+        let firstFive = matches(points(five.particles), [[16, 0, 0]])
+        five.advance(by: 0.1)
+        results["radius-step/strength5-two-literal-fixed-steps"] = firstFive
+            && matches(points(five.particles), [[24, 0, 0]])
+        let capped = try simulator(fiveRoot)
+        let high = try simulator(root(instantaneous: 1, controlPoints: localEndpoints,
+            operators: [radius(["controlpoint": 1, "distance": 32, "variablestrength": 40])]), step: 0.1)
+        capped.advance(by: 0.25); high.advance(by: 0.1)
+        results["radius-step/high-step-gain-stops-at-the-shell"] =
+            matches(points(capped.particles), [[32, 0, 0]])
+            && matches(points(high.particles), [[32, 0, 0]])
+        var renamed = fiveRoot
+        renamed["material"] = "renamed/another/pigment.json"
+        renamed["operator"] = [radius(["id": 731, "controlpoint": ["value": "1"],
+            "distance": ["value": "32"], "variablestrength": ["value": "5"],
+            "flags": 1048576, "unusedEditorOption": ["arbitrary": [false, "garbage"]]])]
+        let equivalent = try simulator(renamed, step: 0.1); equivalent.advance(by: 0.2)
+        results["radius-parse/wrappers-renaming-and-unconsumed-flags-keep-real-state"] =
+            equivalent.particles == five.particles
+            && equivalent.frameSnapshot().random.state == five.frameSnapshot().random.state
+            && equivalent.frameSnapshot().nextParticleID == five.frameSnapshot().nextParticleID
+            && equivalent.definition.operators[0].rawFlags == 1048576
+        var prewarmRoot = fiveRoot; prewarmRoot["starttime"] = 0.5
+        let warm = try simulator(prewarmRoot, initialPoints: [1: SIMD3(128, 0, 0)])
+        results["radius-step/prewarm-consumes-initial-typed-point"] =
+            matches(points(warm.particles), [[96, 0, 0]]) && warm.simulationTime == 0.5
+        var consumed = true
+#if DEBUG
+        let facts = five.consumeComponentObservations()
+        consumed = facts.contains { $0.category == "operator" && $0.componentIndex == 0
+            && $0.stage == "evaluated" && $0.particleID == 0 }
+            && !facts.contains { $0.category == "operator" && $0.stage == "unsupported" }
+#endif
+        results["radius-parse/debug-observes-the-actual-operator-consumer"] = consumed
+        record("radius-strength1", one); record("radius-strength5", five)
+        record("radius-defaults", defaults); record("radius-prewarm", warm)
+    }
+
+    static func radiusHistoryCases() throws {
+        let direct = radius(["controlpoint": 1, "distance": 32, "variablestrength": 0])
+        let sim = try simulator(root(instantaneous: 1, origin: "64 32 0",
+            controlPoints: localEndpoints, operators: [direct]))
+        sim.advance(by: 0.25)
+        let saved = sim.frameSnapshot()
+        sim.advance(by: 0.25, dynamicControlPoints: [1: SIMD3(128, 32, 0)])
+        results["radius-history/cp-carry-is-distinct-from-current-only-projection"] =
+            matches(points(sim.particles), [[128, 64, 0]])
+        let accepted = sim.frameSnapshot()
+        sim.restoreFrame(saved)
+        sim.advance(by: 0.25, dynamicControlPoints: [1: SIMD3(128, 32, 0)])
+        results["radius-history/snapshot-replays-the-same-history-and-state"] =
+            sim.particles == accepted.particles
+            && sim.frameSnapshot().controlPointConstraintHistory == accepted.controlPointConstraintHistory
+            && sim.frameSnapshot().random.state == accepted.random.state
+        sim.restoreFrame(saved)
+        sim.advance(by: 0.25, dynamicControlPoints: [1: SIMD3(192, 64, 0)])
+        results["radius-history/restore-removes-the-abandoned-point-delta"] =
+            matches(points(sim.particles), [[192, 96, 0]])
+        var birthRoot = root(instantaneous: 0, rate: 1, origin: "0 32 0",
+            controlPoints: localEndpoints, operators: [direct])
+        var emitters = birthRoot["emitter"] as! [[String: Any]]
+        emitters[0]["controlpoint"] = 1; birthRoot["emitter"] = emitters
+        let empty = try simulator(birthRoot)
+        empty.advance(by: 0.25)
+        let emptyBaseline = empty.frameSnapshot().controlPointConstraintHistory == [.single(SIMD3(64, 0, 0))]
+        empty.advance(by: 0.75, dynamicControlPoints: [1: SIMD3(128, 32, 0)])
+        results["radius-history/empty-steps-advance-the-baseline-before-first-birth"] = emptyBaseline
+            && matches(points(empty.particles), [[128, 64, 0]])
+        let newborn = try simulator(birthRoot, step: 1)
+        newborn.advance(by: 1)
+        newborn.advance(by: 1, dynamicControlPoints: [1: SIMD3(128, 32, 0)])
+        results["radius-history/natural-newborn-radial-pass-does-not-double-carry"] =
+            matches(points(newborn.particles), [[128, 64, 0], [128, 64, 0]])
+            && newborn.particles.map(\.id) == [0, 1]
+        let movingFirst = try simulator(root(instantaneous: 1, origin: "64 0 0", velocity: "4 0 0",
+            operators: [movement, radius(["distance": 32])]))
+        let movingLast = try simulator(root(instantaneous: 1, origin: "64 0 0", velocity: "4 0 0",
+            operators: [radius(["distance": 32]), movement]))
+        movingFirst.advance(by: 0.25); movingLast.advance(by: 0.25)
+        results["radius-history/author-order-preserves-velocity-and-distinguishes-final-position"] =
+            matches(points(movingFirst.particles), [[32, 0, 0]])
+            && matches(points(movingLast.particles), [[33, 0, 0]])
+            && velocities(movingFirst, [[4, 0, 0]]) && velocities(movingLast, [[4, 0, 0]])
+        let exited = try simulator(root(instantaneous: 1, origin: "64 0 0", velocity: "4 0 0",
+            operators: [movement, radius(["distance": 32, "blendoutstart": 0.1875, "blendoutend": 0.1875])],
+            lifetime: 2))
+        exited.advance(by: 0.25)
+        let activeAt32 = matches(points(exited.particles), [[32, 0, 0]])
+        exited.advance(by: 0.5)
+        results["radius-history/lifecycle-exit-leaves-the-existing-velocity-live"] = activeAt32
+            && matches(points(exited.particles), [[34, 0, 0]]) && velocities(exited, [[4, 0, 0]])
+        let blended = try simulator(root(instantaneous: 1, origin: "64 0 0",
+            operators: [radius(["distance": 32, "blendinstart": 0, "blendinend": 0.5])], lifetime: 1))
+        blended.advance(by: 0.25)
+        results["radius-history/half-lifecycle-weight-applies-to-the-radial-result"] =
+            matches(points(blended.particles), [[48, 0, 0]])
+        record("radius-carry-restored", sim); record("radius-natural-newborn", newborn)
+        record("radius-exited", exited)
+    }
+
+    static func radiusSpaceCases() throws {
+        var matrix = matrix_identity_float4x4; matrix.columns.3 = SIMD4(0, 256, 0, 1)
+        guard let first = SceneParticleControlPointFrame(worldFrame: matrix, sceneOrthoHeight: 256),
+              let translation = SceneParticleRootWorldTranslationPlan(referenceWorldFrame: matrix),
+              let firstWorld = translation.frame(currentWorldFrame: matrix) else {
+            results["radius-space/real-root-frame-construction"] = false; return
+        }
+        let worldCP: [[String: Any]] = [["id": 1, "flags": 2, "offset": "50 0 0"]]
+        let rootRaw = root(instantaneous: 1, origin: "82 0 0", controlPoints: worldCP,
+            operators: [radius(["controlpoint": 1, "distance": 32])], flags: 1)
+        let reference = try simulator(rootRaw, frame: first, worldFrame: firstWorld, rootTranslation: translation)
+        reference.advance(by: 0.25, worldSpaceFrameOverride: firstWorld, controlPointFrame: first)
+        var movedMatrix = matrix; movedMatrix.columns.3.x = 10
+        guard let moved = SceneParticleControlPointFrame(worldFrame: movedMatrix, sceneOrthoHeight: 256),
+              let movedWorld = translation.frame(currentWorldFrame: movedMatrix) else {
+            results["radius-space/real-current-frame-construction"] = false; return
+        }
+        reference.advance(by: 0.25, worldSpaceFrameOverride: movedWorld, controlPointFrame: moved)
+        results["radius-space/root-reference-offset-is-applied-to-current-cp-once"] =
+            matches(points(reference.particles), [[82, 0, 0]])
+        let scale = SIMD3<Double>(-2, 4, 1)
+        let firstChild = first.childFrame(origin: SIMD3(10, 0, 0), scale: scale)
+        let movedChild = first.childFrame(origin: SIMD3(20, 0, 0), scale: scale)
+        let childRaw = root(instantaneous: 1, origin: "-12 0 0", controlPoints: worldCP,
+            operators: [radius(["controlpoint": 1, "distance": 8])], flags: 1)
+        let firstSpace = SceneParticleControlPointParticleSpace(currentOrigin: SIMD3(10, 0, 0),
+            scale: scale, birthOrigins: [:])
+        let child = try simulator(childRaw, frame: firstChild, initialParticleSpace: firstSpace)
+        child.advance(by: 0.25, controlPointFrame: firstChild, controlPointParticleSpace: firstSpace)
+        let movedSpace = SceneParticleControlPointParticleSpace(currentOrigin: SIMD3(20, 0, 0),
+            scale: scale, birthOrigins: [0: SIMD3(10, 0, 0)])
+        child.advance(by: 0.25, controlPointFrame: movedChild, controlPointParticleSpace: movedSpace)
+        results["radius-space/signed-child-follow-keeps-the-old-birth-origin"] =
+            matches(points(child.particles), [[-12, 0, 0]])
+        child.advance(by: 0.25, dynamicControlPoints: [1: SIMD3(58, 0, 0)],
+            controlPointFrame: movedChild, controlPointParticleSpace: movedSpace)
+        results["radius-space/signed-child-canonical-carry-returns-to-local-distance-units"] =
+            matches(points(child.particles), [[-16, 0, 0]]) && velocities(child, [[0, 0, 0]])
+        let supply = try simulator(root(instantaneous: 1, origin: "64 32 0",
+            controlPoints: [["id": 1, "flags": 2, "offset": "64 0 0"]],
+            operators: [radius(["controlpoint": 1, "distance": 32])]))
+        supply.advance(by: 0.25, controlPointFrame: first)
+        supply.advance(by: 0.25, controlPointFrame: nil)
+        let cleared = supply.frameSnapshot().controlPointConstraintHistory == [.unavailable]
+        supply.advance(by: 0.25, dynamicControlPoints: [1: SIMD3(128, 32, 0)], controlPointFrame: first)
+        let recovered = matches(points(supply.particles), [[96, 32, 0]])
+        supply.advance(by: 0.25, dynamicControlPoints: [1: SIMD3(192, 32, 0)], controlPointFrame: first)
+        results["radius-space/missing-world-supply-clears-history-and-recovers-without-gap-carry"] =
+            cleared && recovered && matches(points(supply.particles), [[160, 32, 0]])
+        record("radius-root-reference", reference); record("radius-world-child", child)
+        record("radius-world-recovered", supply)
+    }
+
+    static func radiusFailureCases() throws {
+        for (name, fields) in [
+            ("identity", ["controlpoint": 8] as [String: Any]),
+            ("distance", ["distance": "nan"]), ("strength", ["variablestrength": false]),
+        ] {
+            let sim = try simulator(root(instantaneous: 1, origin: "16 0 0", velocity: "4 0 0",
+                operators: [radius(fields), movement]))
+            sim.advance(by: 0.25)
+            var rejectedPlan = false
+            if case let .controlPointRadius(plan) = sim.definition.operators[0].kind { rejectedPlan = plan == nil }
+            var observedUnavailable = true
+#if DEBUG
+            let facts = sim.consumeComponentObservations()
+            observedUnavailable = facts.contains { $0.category == "operator" && $0.componentIndex == 0 && $0.stage == "unavailable" }
+                && !facts.contains { $0.category == "operator" && $0.componentIndex == 0 && $0.stage == "evaluated" }
+#endif
+            results["radius-failure/invalid-consumed-\(name)-keeps-healthy-movement"] = rejectedPlan
+                && observedUnavailable && matches(points(sim.particles), [[17, 0, 0]])
+                && velocities(sim, [[4, 0, 0]])
+        }
+        var raw = root(instantaneous: 1, origin: "32 0 0", velocity: "4 0 0",
+            operators: [radius(["distance": 1e39]), movement])
+        var emitters = raw["emitter"] as! [[String: Any]]
+        var peer = emitters[0]; peer["id"] = 42; peer["origin"] = "0 0 0"
+        emitters.append(peer); raw["emitter"] = emitters
+        let overflow = try simulator(raw); overflow.advance(by: 0.25)
+        var localRejection = true
+#if DEBUG
+        localRejection = overflow.diagnostics.contains { $0.kind == .invalidOperatorState
+            && $0.componentName == "maintaindistancetocontrolpoint" }
+        let facts = overflow.consumeComponentObservations()
+        localRejection = localRejection && facts.contains { $0.category == "operator" && $0.componentIndex == 0 && $0.stage == "rejected" }
+            && facts.contains { $0.category == "operator" && $0.componentIndex == 1 && $0.stage == "evaluated" }
+#endif
+        results["radius-failure/final-float-overflow-is-local-and-zero-radius-peer-survives"] = localRejection
+            && matches(points(overflow.particles), [[33, 0, 0], [1, 0, 0]])
+            && velocities(overflow, [[4, 0, 0], [4, 0, 0]]) && overflow.particles.map(\.id) == [0, 1]
+        let ordinary = try simulator(root(instantaneous: 1, operators: [movement]))
+        ordinary.advance(by: 0.25)
+        results["radius-failure/no-constraint-has-no-history-storage"] =
+            ordinary.frameSnapshot().controlPointConstraintHistory.isEmpty
+        record("radius-local-overflow", overflow)
+    }
+
     static func main() throws {
         try parseCases()
         try sequenceCases()
@@ -489,6 +724,10 @@ enum SceneParticleControlPointComponentsHarness {
         try worldCases()
         try worldFollowCases()
         try explicitCases()
+        try radiusScalarCases()
+        try radiusHistoryCases()
+        try radiusSpaceCases()
+        try radiusFailureCases()
         let data = try JSONSerialization.data(withJSONObject: ["results": results, "observed": observed], options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
     }

@@ -164,6 +164,62 @@ enum SceneParticleControlPointComponentsRenderingChecks {
                 .flatMap(\.instances).map { [$0.positionAndSize.x, $0.positionAndSize.y, $0.positionAndSize.z] }
             rows.append(row)
         }
+        let radiusOperation: [String: Any] = ["name": "maintaindistancetocontrolpoint",
+            "controlpoint": 1, "distance": 32, "variablestrength": 30]
+        let movement: [String: Any] = ["name": "movement", "drag": 0, "gravity": "0 0 0"]
+        try Harness.writeJSON(definition(origin: "16 0 0", points: localCP, velocity: "12 0 0",
+            operators: [movement, radiusOperation]),
+            to: directory.appendingPathComponent("particles/radius.json"))
+        var radiusLayer = Harness.layer(106, "particles/radius.json")
+        radiusLayer.originXYZ = [48, 79.5, 0]
+        let radiusDescriptor = descriptor(radiusLayer), radiusFrames = frames(radiusDescriptor)
+        let radius = SceneParticleRuntime(descriptor: radiusDescriptor, cacheDirectory: directory,
+            device: device, stockTextureBundleURL: nil)
+        let radiusFirst = snapshot(layerID: 106, start: .zero, end: SIMD3(64, 0, 0), frame: 1)
+        let radiusNext = snapshot(layerID: 106, start: .zero, end: SIMD3(96, 0, 0), frame: 2)
+        batches = radius.advance(by: 1.0 / 60, dynamicValues: radiusFirst, layerWorldFrames: radiusFrames)
+        rows.append(try draw("radius-positive-step", runtime: radius, batches: batches,
+            descriptor: radiusDescriptor, worldFrames: radiusFrames, device: device, queue: queue,
+            pipeline: pipeline, probe: probe, pixels: [[71, 79], [72, 79], [73, 79],
+                [71, 80], [72, 80], [73, 80], [71, 81], [72, 81], [73, 81], [64, 80], [32, 130]]))
+        batches = radius.advance(by: 1.0 / 60, dynamicValues: radiusNext, layerWorldFrames: radiusFrames)
+        rows.append(try draw("radius-dynamic-carry", runtime: radius, batches: batches,
+            descriptor: radiusDescriptor, worldFrames: radiusFrames, device: device, queue: queue,
+            pipeline: pipeline, probe: probe, pixels: [[107, 79], [108, 79], [109, 79],
+                [107, 80], [108, 80], [109, 80], [107, 81], [108, 81], [109, 81],
+                [72, 80], [92, 80], [32, 130]]))
+
+        let radiusWorldCP: [[String: Any]] = [["id": 0, "flags": 0, "offset": "0 0 0"],
+                                            ["id": 1, "flags": 2, "offset": "80 79.5 0"]]
+        try Harness.writeJSON(definition(start: 0.5, points: radiusWorldCP,
+            operators: [["name": "maintaindistancetocontrolpoint", "controlpoint": 1, "distance": 8]]),
+            to: directory.appendingPathComponent("particles/renamed-radius-warm.json"))
+        var radiusWarmLayer = Harness.layer(107, "particles/renamed-radius-warm.json")
+        radiusWarmLayer.originXYZ = [48, 79.5, 0]; radiusWarmLayer.scaleXYZ = [2, 1, 1]
+        let radiusWarmDescriptor = descriptor(radiusWarmLayer), radiusWarmFrames = frames(radiusWarmDescriptor)
+        let radiusInitial = snapshot(layerID: 107, start: .zero, end: SIMD3(96, 79.5, 0), frame: 0)
+        let radiusWarm = SceneParticleRuntime(descriptor: radiusWarmDescriptor, cacheDirectory: directory,
+            device: device, stockTextureBundleURL: nil, initialDynamicValues: radiusInitial)
+        batches = radiusWarm.advance(by: 0, dynamicValues: radiusInitial, layerWorldFrames: radiusWarmFrames)
+        rows.append(try draw("radius-prewarm-world-override", runtime: radiusWarm, batches: batches,
+            descriptor: radiusWarmDescriptor, worldFrames: radiusWarmFrames, device: device, queue: queue,
+            pipeline: pipeline, probe: probe, pixels: [[79, 79], [80, 79], [81, 79],
+                [79, 80], [80, 80], [81, 80], [79, 81], [80, 81], [81, 81], [64, 80], [32, 130]]))
+
+        try Harness.writeJSON(definition(origin: "16 0 0", points: localCP, velocity: "12 0 0",
+            operators: [["name": "maintaindistancetocontrolpoint", "controlpoint": 1,
+                         "distance": "unavailable", "variablestrength": 0], movement]),
+            to: directory.appendingPathComponent("particles/bad-radius.json"))
+        var badRadiusLayer = Harness.layer(108, "particles/bad-radius.json")
+        badRadiusLayer.originXYZ = [48, 79.5, 0]
+        let badRadiusDescriptor = descriptor(badRadiusLayer), badRadiusFrames = frames(badRadiusDescriptor)
+        let badRadius = SceneParticleRuntime(descriptor: badRadiusDescriptor, cacheDirectory: directory,
+            device: device, stockTextureBundleURL: nil)
+        batches = badRadius.advance(by: 1.0 / 60, layerWorldFrames: badRadiusFrames)
+        rows.append(try draw("radius-bad-plan-keeps-suffix", runtime: badRadius, batches: batches,
+            descriptor: badRadiusDescriptor, worldFrames: badRadiusFrames, device: device, queue: queue,
+            pipeline: pipeline, probe: probe, pixels: [[63, 79], [64, 79], [65, 79],
+                [63, 80], [64, 80], [65, 80], [63, 81], [64, 81], [65, 81], [72, 80], [32, 130]]))
         return ["device": device.name, "sampleCount": 1, "rows": rows]
     }
 
@@ -297,6 +353,7 @@ enum SceneParticleControlPointComponentsRenderingChecks {
                 "batchLayerIDs": prepared.map { $0.draw.layerID },
                 "instances": prepared.map { $0.draw.instances.count }, "vertexBounds": geometry,
                 "positions": state.particles.map { [$0.position.x, $0.position.y, $0.position.z] },
+                "velocities": state.particles.map { [$0.velocity.x, $0.velocity.y, $0.velocity.z] },
                 "sizes": state.particles.map(\.size), "ages": state.particles.map(\.age),
                 "hasPointFrame": state.controlPointFrame != nil,
                 "dynamicControlPoints": Dictionary(uniqueKeysWithValues: state.dynamicControlPoints.map {

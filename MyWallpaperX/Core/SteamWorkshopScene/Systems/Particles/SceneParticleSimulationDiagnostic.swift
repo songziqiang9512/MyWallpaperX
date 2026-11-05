@@ -39,6 +39,8 @@ nonisolated enum SceneParticleSimulationDiagnosticKind: String, Hashable, Sendab
     case collisionPlaneUnsupported
     case controlPointForceBounded
     case controlPointForceUnsupported
+    case controlPointRadiusBounded
+    case controlPointRadiusUnsupported
     case unsupportedRenderer
     case trailRendererIgnored
     case childSystemsIgnored
@@ -266,6 +268,9 @@ extension SceneParticleSimulationMath {
         }
         for value in definition.operators {
             switch value.kind {
+            case let .controlPointRadius(plan):
+                add(plan == nil ? .controlPointRadiusUnsupported : .controlPointRadiusBounded,
+                    "maintaindistancetocontrolpoint")
             case .controlPointAttract:
                 add(definition.supportsBoundedControlPointForce(value, environment: controlPointForceEnvironment)
                     ? .controlPointForceBounded : .controlPointForceUnsupported, "controlpointattract")

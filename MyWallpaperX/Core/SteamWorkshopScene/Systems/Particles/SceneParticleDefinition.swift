@@ -175,6 +175,12 @@ nonisolated struct SceneParticleMaintainControlPointDistancePlan: Equatable, Sen
     let end: Int
 }
 
+nonisolated struct SceneParticleControlPointRadiusPlan: Equatable, Sendable {
+    let controlPoint: Int
+    let distance: Double
+    let variableStrength: Double
+}
+
 nonisolated enum SceneParticleOperatorKind: Equatable, Sendable {
     case movement
     case alphaFade
@@ -186,6 +192,7 @@ nonisolated enum SceneParticleOperatorKind: Equatable, Sendable {
     case oscillateAlpha
     case oscillateSize
     case controlPointAttract
+    case controlPointRadius(SceneParticleControlPointRadiusPlan?)
     case maintainControlPointDistance(SceneParticleMaintainControlPointDistancePlan?)
     case turbulence
     case boids(SceneParticleBoids)

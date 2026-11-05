@@ -98,7 +98,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
 #endif
     var eventColorContext: SceneParticleEventColorContext
     private var stepSnapshotRecorder: SceneParticleStepSnapshotRecorder?
-    var controlPointDistanceHistory: [SceneParticleControlPointEndpoints?]
+    var controlPointConstraintHistory: [SceneParticleControlPointConstraintHistory]
     var positionOscillationCache: [SceneParticleOscillationCacheKey: SceneParticlePositionOscillation] = [:]
 
     nonisolated init(
@@ -174,15 +174,21 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
                 pointConsumers.append(contentsOf: [between.controlPointStart, between.controlPointEnd])
             }
         }
-        for plan in operatorExecutionPlans {
+        var needsConstraintHistory = false
+        for (index, plan) in operatorExecutionPlans.enumerated() {
             if let maintain = plan.maintainControlPointDistance {
                 pointConsumers.append(contentsOf: [maintain.start, maintain.end])
+                needsConstraintHistory = true
+            }
+            if case let .controlPointRadius(radius?) = definition.operators[index].kind {
+                pointConsumers.append(radius.controlPoint)
+                needsConstraintHistory = true
             }
         }
         needsWorldControlPointFrame = operatorExecutionPlans.contains { $0.controlPointForce?.sourceSpace == .world }
             || pointConsumers.contains { (controlPointsByID[$0]?.rawFlags ?? 0) & 2 != 0 }
-        controlPointDistanceHistory = operatorExecutionPlans.contains { $0.maintainControlPointDistance != nil }
-            ? Array(repeating: nil, count: definition.operators.count) : []
+        controlPointConstraintHistory = needsConstraintHistory
+            ? Array(repeating: .unavailable, count: definition.operators.count) : []
         emitterSpawnPlans = definition.emitters.map(SceneParticleEmitterSpawnPlan.init)
         positionOscillationOperatorIndices = definition.operators.indices.filter {
             definition.operators[$0].kind == .oscillatePosition
@@ -345,7 +351,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             eventColorContext: eventColorContext,
             stepSnapshotRecorder: stepSnapshotRecorder,
             positionOscillationCache: positionOscillationCache,
-            controlPointDistanceHistory: controlPointDistanceHistory
+            controlPointConstraintHistory: controlPointConstraintHistory
         )
 #if DEBUG
         snapshot.diagnostics = diagnostics
@@ -384,7 +390,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         eventColorContext = snapshot.eventColorContext
         stepSnapshotRecorder = snapshot.stepSnapshotRecorder
         positionOscillationCache = snapshot.positionOscillationCache
-        controlPointDistanceHistory = snapshot.controlPointDistanceHistory
+        controlPointConstraintHistory = snapshot.controlPointConstraintHistory
     }
 
     private nonisolated func publishTransientRenderBirths(

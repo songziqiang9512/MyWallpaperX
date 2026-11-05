@@ -29,18 +29,29 @@ starttime请求的wall-step序列与实际simulationTime分开：实例rate仍�
 |---|---|---|
 | Emitters | 已准入的有序发射/连续与一次性出生，Sphere/Box 原计划、[速度数值](#emitter-speed)及 Sphere [方向选择](#emitter-sign) | flags、空间、audio、CP 和 instance override 必须满足该计划，不能从组件名推全参数支持 |
 | Initializers | 位置、速度、旋转、尺寸、寿命、颜色、sequence 等 typed writer | 后写者及 General override 保作者顺序；未知字段只影响相关组件；HSV/Mirror/Position Around 等仍有未资格组合 |
-| Operators | movement、gravity/力、颜色/alpha/size/旋转、noise、Remap、Vortex、Plane Collision 等原计划 | 不支持操作不假装执行；与 child、CP、世界空间和 lifecycle blend 分别限定 |
-| Control Points | 0…7 typed identity、已接入的静态/动态位置与 emitter/force consumer | 按 authored ID 而非数组位置；CP0/system origin 与其他 world source 不混用，未知 flags/angles/parent 不猜 |
+| Operators | movement、gravity/力、颜色/alpha/size/旋转、noise、Remap、Vortex、Plane Collision、[单点半径](#control-point-radius)与[双点搬移](#between-control-points)等原计划 | 不支持操作不假装执行；与 child、CP、世界空间和 lifecycle blend 分别限定 |
+| Control Points | 0…7 typed identity、静态/动态位置及 emitter、initializer、force、约束消费者 | 按 authored ID 而非数组位置；CP0/system origin 与其他 world source 不混用，未知 flags/angles/parent 不猜 |
 | Instance overrides | 已有颜色、发射、速度、播放及 typed 动态输入 | 新生 writer 与存量粒子不同；不以新属性自动改写既有粒子 |
 
 <a id="control-point-position"></a>
 ### 控制点位置的取值职责
 
-普通控制点的位置按当前 typed 动态值、instance override、definition offset 的顺序取一个值；前两者覆盖 definition 位置，不与它相加。Emitter、Force 和位置 initializer 使用同一取值语义。组件自己的 origin/offset 仍在取得控制点之后叠加，emitter 的 origin 继续按原角度旋转，不能与 definition 的默认位置混为一项。
+普通控制点的位置按当前 typed 动态值、instance override、definition offset 的顺序取一个值；前两者覆盖 definition 位置，不与它相加。Emitter、Force、位置 initializer 与距离约束使用同一取值语义。组件自己的 origin/offset 仍在取得控制点之后叠加，emitter 的 origin 继续按原角度旋转，不能与 definition 的默认位置混为一项。
 
 鼠标绑定的 definition offset 是指针偏移，仍叠加当前有效指针；缺指针的真实消费者局部不可用，不回到系统原点。位置选择与空间转换分开：world 点经当前 `SceneParticleControlPointFrame` 的同一逆矩阵转到实际模拟空间，child 再复合原 origin/scale。冷计划和 typed 帧继续拥有字段、identity 与当前供货；没有位置 registry、缓存、第二时钟或每粒子的元数据校验。CP parent/angles 的未资格语义不能由位置覆盖实验外推。
 
 Emitter frame 与 Simulator 共享同一纯位置选择；被普通位置覆盖替代的数值 offset 不参与 emitter offset 幅度检查。组件的 RNG、出生顺序和显式发射事务仍由原 owner 执行。验收用真实 Parser/Simulator 的默认位置、静态与动态覆盖、组件额外 offset、Around 共用端点及缺指针反例，再核 Runtime/Metal 的实际位置。官方局部静态 CP 对照中，definition=(16,24)、instance=(48,0) 得到(48,0)，独立无 override 的正控仍为(16,24)；此证据不授全部空间或完整粒子效果一致。
+
+<a id="control-point-radius"></a>
+### 单控制点半径约束合同
+
+`maintaindistancetocontrolpoint` 在原 Parser 一次准备 CP、distance 与 variablestrength，按作者 operator 顺序调整位置。CP 缺省0、distance缺省200；零或缺省强度采用直接半径约束，正强度使用每步 `min(strength × duration, 1)`，再应用原生命周期混合，不把编辑器显示的0…1范围当存储许可。未消费的附加字段与 raw flags 不阻断这些已实现输入。距离和强度只要求入口数值有限，不增加幅度白名单或逐粒子重复解析。
+
+先把已有粒子随控制点相对上一步的位移搬移，再由当前位置朝 `CP + normalize(P − CP) × distance` 插值；保留已有 velocity。上一控制点与双点端点共用原 Simulator 的 typed 约束历史及快照，不增加另一个状态表。空粒子步仍推进点基线，首次供货不虚构初始位移；当前自然出生不重复搬移，半径操作照常执行。缺当前点只跳本操作并清其基线，复供从当前点开始。零径向长度不猜方向或删除粒子，已有安全位置保持；最终数值沿原 `acceptsMotionResult` 接纳，单粒子失败不撤健康后继。
+
+控制点取值和 world→local 复用[位置职责](#control-point-position)。历史点以原 root reference 或 child canonical 空间保存，搬移量只转换一次；半径比较使用实际粒子的出生参考偏移，距离保局部单位，祖先与 child 的缩放由原转换和绘制消费。普通帧、构造预热及显式调用仍走原 typed 输入，实际 consumer 驱动 pointer/world frame 需求，不借 Force 的环境许可。
+
+公开[组件说明](https://docs.wallpaperengine.io/en/scene/particles/component/operator.html#maintain-distance-to-control-point)和[实例API](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IParticleSystemInstance.html#controlpoint1-vec3)定义参数与供值入口；数值、步长和缺省行为来自固定官方客户端对照。该对照支持正强度逐步插值、单步上限、零/缺省强度的直接约束、缺省距离与显式200的有界等价、当前局部控制点搬移及已有速度保留；运行身份和原始资格归[运行证据](runtime-evidence-current.md)。负强度、零径向长度的官方行为、分数 lifecycle 混合与搬移的精确组合，以及同 cadence 改CP后显式发射的旧/新 cohort 顺序仍未资格。复用现空间合同不等于官方全部 world/child 组合一致，不能从一个作者恢复外推完整粒子兼容。
 
 <a id="between-control-points"></a>
 ### 双控制点位置与距离约束

@@ -261,6 +261,18 @@ nonisolated extension SceneParticleSimulator {
                 componentObservation?.record("operator", operatorIndex, "evaluated", reason: "turbulence-evaluated", time: simulationTime, particleID: particles[0].id)
             }
 #endif
+        case let .controlPointRadius(plan):
+#if DEBUG
+            if value.rawFlags != 0 {
+                componentObservation?.record("operator", operatorIndex, "unknown", reason: "unmodeled-operator-flags", time: simulationTime)
+            }
+#endif
+            applyControlPointRadius(
+                plan: plan, operatorIndex: operatorIndex, duration: duration,
+                existingParticleIDUpperBound: existingParticleIDUpperBound,
+                blend: operatorExecutionPlans[operatorIndex].blend,
+                controlPointParticleSpace: controlPointParticleSpace
+            )
         case .maintainControlPointDistance:
 #if DEBUG
             if value.rawFlags != 0 {

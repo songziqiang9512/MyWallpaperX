@@ -41,7 +41,7 @@ nonisolated extension SceneParticleSimulator {
         let eventColorContext: SceneParticleEventColorContext
         var stepSnapshotRecorder: SceneParticleStepSnapshotRecorder?
         var positionOscillationCache: [SceneParticleOscillationCacheKey: SceneParticlePositionOscillation]
-        var controlPointDistanceHistory: [SceneParticleControlPointEndpoints?] = []
+        var controlPointConstraintHistory: [SceneParticleControlPointConstraintHistory] = []
     }
 
     /// Clear the population through the same rollback state as explicit emission.
@@ -55,7 +55,7 @@ nonisolated extension SceneParticleSimulator {
         state.explicitBirthEventStart = nil
         state.normalizedLives = []
         state.positionOscillationCache = [:]
-        state.controlPointDistanceHistory = Array(repeating: nil, count: controlPointDistanceHistory.count)
+        state.controlPointConstraintHistory = Array(repeating: .unavailable, count: controlPointConstraintHistory.count)
         state.stepSnapshotRecorder?.clear()
         restoreFrame(state)
     }
@@ -176,7 +176,7 @@ nonisolated extension SceneParticleSimulator.FrameSnapshot {
             + states(deathEvents) + states(transientRenderBirths)
             + 2 * normalizedLives.capacity * MemoryLayout<Double>.stride
             + 2 * emitters.capacity * MemoryLayout<SceneParticleEmitterState>.stride
-            + 2 * controlPointDistanceHistory.capacity * MemoryLayout<SceneParticleControlPointEndpoints?>.stride
+            + 2 * controlPointConstraintHistory.capacity * MemoryLayout<SceneParticleControlPointConstraintHistory>.stride
         let buckets = (positionOscillationCache.capacity + dynamicControlPoints.capacity
             + dynamicControlPointAngles.capacity) * 512
 #if DEBUG

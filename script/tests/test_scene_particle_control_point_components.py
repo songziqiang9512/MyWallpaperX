@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Authored Between/Maintain inputs through the production parser and simulator."""
+"""Authored control-point components through the production parser and simulator."""
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import tempfile
@@ -34,7 +35,10 @@ class SceneParticleControlPointComponentsTests(unittest.TestCase):
             )
             if compiled.returncode:
                 raise RuntimeError(f"{mode} compilation failed:\n{compiled.stdout}\n{compiled.stderr}")
-            actual = subprocess.run([str(binary)], capture_output=True, text=True, timeout=30)
+            actual = subprocess.run(
+                [str(binary)], capture_output=True, text=True, timeout=30,
+                env={**os.environ, "MWX_SCENE_PARTICLE_COMPONENT_OBSERVATION": "1"},
+            )
             if actual.returncode:
                 raise RuntimeError(f"{mode} execution failed:\n{actual.stdout}\n{actual.stderr}")
             print(f"{mode}: {actual.stdout}{actual.stderr}")
@@ -65,6 +69,17 @@ class SceneParticleControlPointComponentsTests(unittest.TestCase):
 
     def test_world_points_use_the_supplied_transform(self) -> None:
         self.assertCases("world/")
+
+    def test_radius_literals_defaults_and_real_parser_consumption(self) -> None:
+        self.assertCases("radius-parse/")
+        self.assertCases("radius-step/")
+
+    def test_radius_history_lifecycle_and_local_failures(self) -> None:
+        self.assertCases("radius-history/")
+        self.assertCases("radius-failure/")
+
+    def test_radius_root_reference_and_signed_child_birth_space(self) -> None:
+        self.assertCases("radius-space/")
 
     def test_explicit_prefix_context_and_transaction_restore(self) -> None:
         self.assertCases("explicit/")

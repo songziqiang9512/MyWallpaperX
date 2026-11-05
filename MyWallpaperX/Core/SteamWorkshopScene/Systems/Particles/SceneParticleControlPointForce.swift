@@ -436,8 +436,11 @@ nonisolated extension SceneParticleDefinition {
         let betweenPoints = initializers.compactMap(\.positionBetweenControlPointsPlan)
             .flatMap { [$0.controlPointStart, $0.controlPointEnd] }
         let maintainedPoints = operators.flatMap { value -> [Int] in
-            guard case let .maintainControlPointDistance(plan?) = value.kind else { return [] }
-            return [plan.start, plan.end]
+            switch value.kind {
+            case let .maintainControlPointDistance(plan?): return [plan.start, plan.end]
+            case let .controlPointRadius(plan?): return [plan.controlPoint]
+            default: return []
+            }
         }
         identities.formUnion((betweenPoints + maintainedPoints).filter { identity in
             controlPoints.contains { $0.id == identity && $0.hasBoundedPointerInput }
