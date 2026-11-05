@@ -5,53 +5,6 @@ extension SceneDependencyRenderPlan {
         staticLayerSourcePassthroughBlockedLayerIDs.contains(layerID)
     }
 
-    /// Restricts prepared graph work to roots that are visible in the current
-    /// committed frame plus the effectful provider closure they actually use.
-    /// Static image providers are captured through this plan's named target
-    /// path and therefore never acquire a graph execution identity here.
-    nonisolated func resolvedMaterialExecutionLayerIDs(
-        visibleRootLayerIDs: Set<Int>,
-        availableExecutionLayerIDs: Set<Int>
-    ) -> Set<Int> {
-        var reachable = visibleRootLayerIDs.intersection(
-            availableExecutionLayerIDs
-        )
-        // A model is a visible consumer without an executable effect graph.
-        // Its typed material demand activates only the available provider
-        // graph; hidden models contribute no frame execution requirement.
-        for binding in staticModelBindingsByConsumerLayerID.values
-        where visibleRootLayerIDs.contains(binding.consumerLayerID)
-            && requiredGraphOutputProviderLayerIDs.contains(binding.providerLayerID)
-            && availableExecutionLayerIDs.contains(binding.providerLayerID) {
-            reachable.insert(binding.providerLayerID)
-        }
-        var changed = true
-        while changed {
-            changed = false
-            for binding in bindingsByConsumerLayerID.values
-            where reachable.contains(binding.consumerLayerID)
-                && requiredGraphOutputProviderLayerIDs.contains(
-                    binding.providerLayerID
-                )
-                && availableExecutionLayerIDs.contains(
-                    binding.providerLayerID
-                )
-            {
-                changed = reachable.insert(binding.providerLayerID).inserted
-                    || changed
-            }
-            for aggregate in multiProviderAggregatesByConsumerLayerID.values
-            where reachable.contains(aggregate.consumerLayerID) {
-                for binding in aggregate.bindings
-                where requiredGraphOutputProviderLayerIDs.contains(binding.providerLayerID)
-                    && availableExecutionLayerIDs.contains(binding.providerLayerID) {
-                    changed = reachable.insert(binding.providerLayerID).inserted
-                        || changed
-                }
-            }
-        }
-        return reachable
-    }
     /// A forward graph runs before any authored compositor layer. It may use
     /// its own layer source, static assets, frame inputs and primary named
     /// inputs from one upstream that the same dependency plan schedules

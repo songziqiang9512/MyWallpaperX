@@ -21,8 +21,8 @@ SCENE = REPO/'MyWallpaperX/Core/SteamWorkshopScene'
 APP_CASES = ('static', 'named-early', 'named-late', 'middle-image-alpha', 'solid-late', 'forward-graph-neighbor', 'hidden-normal-consumer')
 ROI = {'shadow': (60,48), 'caster': (80,48), 'control': (140,48),
        'peer-shadow': (20,48), 'peer-caster': (40,48)}
-EXPECTED = {'shadow': [9,9,9], 'caster': [0,95,0], 'control': [85,85,85],
-            'peer-shadow': [9,9,9], 'peer-caster': [0,95,0]}
+EXPECTED = {'shadow': [4.5] * 3, 'caster': [0,200 * (.025 + .6 / 2**.5),0], 'control': [180 * (.025 + .6 / 2**.5)] * 3,
+            'peer-shadow': [4.5] * 3, 'peer-caster': [0,200 * (.025 + .6 / 2**.5),0]}  # +Z halves authored ambient: .05 * (.5 + .5 * normal.y).
 TOLERANCE = 3
 
 

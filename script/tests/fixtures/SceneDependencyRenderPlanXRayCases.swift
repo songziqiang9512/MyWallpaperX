@@ -221,15 +221,15 @@ extension Harness {
                 "consumerRequiresEffect": hiddenVideoXRayPlan
                     .requiredEffectConsumerLayerIDs.contains(261),
                 "activeExecution": admittedHiddenVideoXRayPlan
-                    .resolvedMaterialExecutionLayerIDs(
-                        visibleRootLayerIDs: [261],
-                        availableExecutionLayerIDs: [261]
-                    ).sorted(),
+                    .sourcePreparationPlan(authoredLayerIDs: hiddenVideoXRayDescriptor.renderOrderLayerIDs,
+                        availableExecutionLayerIDs: [261], visibleRootLayerIDs: [261],
+                        activeStaticModelConsumerLayerIDs: [], sourceAfterLayerIDByLayerID: [:])?.preparationSchedule()
+                    .preparationLayerIDs.sorted() ?? [-1],
                 "inactiveExecution": admittedHiddenVideoXRayPlan
-                    .resolvedMaterialExecutionLayerIDs(
-                        visibleRootLayerIDs: [],
-                        availableExecutionLayerIDs: [261]
-                    ).sorted(),
+                    .sourcePreparationPlan(authoredLayerIDs: hiddenVideoXRayDescriptor.renderOrderLayerIDs,
+                        availableExecutionLayerIDs: [261], visibleRootLayerIDs: [],
+                        activeStaticModelConsumerLayerIDs: [], sourceAfterLayerIDByLayerID: [:])?.preparationSchedule()
+                    .preparationLayerIDs.sorted() ?? [-1],
             ],
         ]
     }

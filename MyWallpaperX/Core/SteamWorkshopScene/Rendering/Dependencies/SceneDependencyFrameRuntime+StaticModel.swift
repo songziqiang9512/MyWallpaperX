@@ -28,10 +28,6 @@ extension SceneDependencyFrameRuntime {
         return (candidate.uvTransform, candidate.sampling, candidate.content)
     }
 
-    func requiresForwardCapture(for providerLayerID: Int) -> Bool {
-        forwardCaptureProviderLayerIDs.contains(providerLayerID)
-    }
-
     static func staticModelCaptureExtent(
         providerLayer: SceneRenderDescriptor.Layer,
         providerTexture: MTLTexture?,

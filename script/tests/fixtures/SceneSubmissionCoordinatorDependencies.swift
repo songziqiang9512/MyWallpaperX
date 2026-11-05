@@ -482,10 +482,18 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         let subjects: [ExactEffectSubject]
     }
     struct StageCapability {
-        struct Execution { let visualFailureReasonCode: String? }
+        struct Execution {
+            let visualFailureReasonCode: String?
+            let activationPolicy: SceneResolvedMaterialStageActivationPolicy? = nil
+        }
         let subject: ExactEffectSubject?
         let dedicatedExecutionPlan: SceneEffectStageExecutionPlan?
         let execution: Execution
+        let supportsEffectEntryPassthrough = false
+        let preEncodeVisualFailureSlots: [SceneEffectPassSlot]? = nil
+        var product: AdmittedProduct {
+            fatalError("legacy coordinator stage has no activation product")
+        }
 
         init(
             subject: ExactEffectSubject?,
@@ -713,7 +721,9 @@ struct SceneDependencyEffectInput {
 }
 struct SceneResolvedMaterialFailure: Error {}
 struct SceneFrameTextureRegistrySnapshot { let frameIndex: UInt64; let valid: Bool; var frameEpoch: UInt64 { frameIndex } }
-struct SceneDynamicSnapshot {}
+extension SceneDynamicSnapshot {
+    init() { self = .empty(frameIndex: 0) }
+}
 struct SceneAuthoredShaderFrameInputs {}
 struct SceneResolvedMaterialFrameSnapshot {
     let frameIndex: UInt64

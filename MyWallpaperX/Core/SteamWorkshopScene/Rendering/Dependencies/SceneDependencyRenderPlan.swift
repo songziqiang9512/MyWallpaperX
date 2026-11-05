@@ -29,10 +29,9 @@ nonisolated struct SceneDependencyRenderPlan {
         let referenceSlots: [SceneEffectPassSlot]
         let blendMode: Int
         let kind: Kind
-        /// The exact image provider appears after its consumer in authored
-        /// compositor order and must publish in the offscreen prepass. A
-        /// static provider captures its source; an effectful provider executes
-        /// its already-admitted graph. Neither changes final composition order.
+        /// The exact provider follows its consumer in authored order. The
+        /// preparation schedule chooses a legal supply point from its actual
+        /// source; this declaration never changes final composition order.
         let requiresForwardCapture: Bool
         /// The binding is resource ownership only. UV transform or additional
         /// graph-internal provenance must be consumed by an admitted
@@ -70,6 +69,13 @@ nonisolated struct SceneDependencyRenderPlan {
             Set(bindings.map(\.providerLayerID))
         }
 
+    }
+
+    nonisolated struct PreparationSchedule: Equatable {
+        let preparationLayerIDs: [Int]
+        let prepassProviderLayerIDs: [Int]
+        let providersBeforeLayerID: [Int: [Int]]
+        let scheduledGraphProviderLayerIDs: Set<Int>
     }
 
     nonisolated enum IssueKind: String {

@@ -33,6 +33,7 @@ enum SceneResolvedMaterialGraphComposition {
     enum FramePreflightResult {
         case ready(
             plans: [Int: SceneResolvedMaterialFrameTargetPlan],
+            preparationSchedule: SceneDependencyRenderPlan.PreparationSchedule,
             localFallbacks: [Int: String],
             preparationRequests: [
                 SceneResolvedMaterialRuntimeBridge.FramePreparationRequest

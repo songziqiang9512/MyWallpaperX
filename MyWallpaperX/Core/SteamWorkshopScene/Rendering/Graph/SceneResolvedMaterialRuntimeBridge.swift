@@ -202,12 +202,14 @@ final class SceneResolvedMaterialRuntimeBridge {
         /// Ordered external dependency inputs for the consumer: a one-element
         /// vector for a single-provider owner, the authored slot order for a
         /// multi-provider aggregate, and empty when there is no dependency.
-        let dependencyEffects: [SceneDependencyEffectInput]
+        var dependencyEffects: [SceneDependencyEffectInput]
         let directDrawGeometry: SceneDirectDrawOutputGeometry.Resolved?
         let directDrawSourceMaterialKey: SceneResolvedMaterialExecutionCapabilityCatalog.MaterialKey?
         var vertexCoordinates: SceneShaderQuadCoordinates { directDrawGeometry?.coordinates ?? .unit }
         var vertexInputSize: CGSize? { directDrawGeometry?.vertexInputSize }
         var dependencyUnavailability: DependencyUnavailability? = nil
+        var stageActivationDecisions: [Graph.EffectKey:
+            SceneResolvedMaterialStageActivationPolicy.Decision] = [:]
 
         init(
             dynamicValues: SceneDynamicSnapshot,
@@ -256,35 +258,10 @@ final class SceneResolvedMaterialRuntimeBridge {
             self.directDrawSourceMaterialKey = directDrawSourceMaterialKey
         }
 
-        func withDependencyEffects(
-            _ dependencyEffects: [SceneDependencyEffectInput]
-        ) -> Self {
-            .init(
-                dynamicValues: dynamicValues,
-                cursorUV: cursorUV,
-                previousCursorUV: previousCursorUV,
-                pointerIsInside: pointerIsInside,
-                previousPointerIsInside: previousPointerIsInside,
-                pointerMovement: pointerMovement,
-                primaryButtonIsDown: primaryButtonIsDown,
-                layerModelMatrix: layerModelMatrix,
-                effectOutputModelViewProjection:
-                    effectOutputModelViewProjection,
-                effectUnitModelMatrix: effectUnitModelMatrix,
-                terminalReplayModelViewProjection:
-                    terminalReplayModelViewProjection,
-                effectTextureProjectionMatrixInverse:
-                    effectTextureProjectionMatrixInverse,
-                effectDrawAlpha: effectDrawAlpha,
-                effectDrawColor: effectDrawColor,
-                frameTime: frameTime,
-                time: time,
-                audioSpectrum: audioSpectrum,
-                dependencyEffects: dependencyEffects,
-                dependencyUnavailability: dependencyUnavailability,
-                directDrawGeometry: directDrawGeometry,
-                directDrawSourceMaterialKey: directDrawSourceMaterialKey
-            )
+        func withDependencyEffects(_ effects: [SceneDependencyEffectInput]) -> Self {
+            var result = self
+            result.dependencyEffects = effects
+            return result
         }
     }
 
@@ -435,6 +412,25 @@ final class SceneResolvedMaterialRuntimeBridge {
 
     var executionLayerIDs: Set<Int> {
         capabilities.executionLayerIDs
+    }
+
+    func resolveStageActivations(
+        claim: ClaimedExecution, frameInputs: inout FrameInputs
+    ) -> Set<SceneEffectPassSlot> {
+        guard let capability = capabilities.resolve(claim.token) else { return [] }
+        var excluded = Set<SceneEffectPassSlot>()
+        for stage in capability.stages {
+            guard let activation = stage.execution.activationPolicy,
+                  let effect = stage.product.graph.effects.first?.key else { continue }
+            let decision = activation.evaluate(dynamicValues: frameInputs.dynamicValues,
+                pointerIsInside: frameInputs.pointerIsInside)
+            frameInputs.stageActivationDecisions[effect] = decision
+            if case .active = decision { continue }
+            if stage.supportsEffectEntryPassthrough {
+                excluded.formUnion(stage.preEncodeVisualFailureSlots ?? [])
+            }
+        }
+        return excluded
     }
 
     var preparedNamedInputBindingsByConsumerLayerID:

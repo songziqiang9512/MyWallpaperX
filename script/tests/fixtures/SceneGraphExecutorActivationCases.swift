@@ -162,6 +162,58 @@ private func runActivationCases(
         visible: true,
         generation: 51
     )
+    let precomputedActivationPreservesCopyAndSuffix: Bool = {
+        let graph = chainedGraph()
+        let chain = orderedLayerGraph(graph)
+        let target = SceneDynamicTarget.effectVisibility(
+            layerID: layerID, effectIndex: chainedSecondEffect.effectIndex)
+        let caps = capabilities(chain, catalog: catalog(for: graph), dynamicProducers: .init(
+            userProperties: [.init(propertyKey: "snapshot-visible", target: target, valueType: .bool)],
+            authoredFallbackTargets: [target], timelineTargets: [], sceneScriptTargets: []))
+        guard let claim = caps.claim(chain),
+              let capability = caps.resolve(claim.token, for: chain),
+              let leases = makeChainedLeases(capability, device: device, generation: 52),
+              let executor = Executor(device: device, capabilities: caps),
+              let command = queue.makeCommandBuffer() else { return false }
+        let dynamic = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 52, generation: 52,
+            definitions: [.init(target: target, valueType: .bool, authoredValue: .bool(true))],
+            userValues: [target: .bool(false)]).snapshot
+        var inputs = SceneResolvedMaterialRuntimeBridge.FrameInputs(dynamicValues: dynamic)
+        let reason = "fixture-snapshot-inactive-decision"
+        inputs.stageActivationDecisions[chainedSecondEffect] = .inactive(reasonCode: reason)
+        let preparation = executor.prepare(
+            token: claim.token, leases: leases, historyRehydrateCopiesByEffect: [:],
+            frame: frame(52), sourceTexture: source, sourceUniforms: .neutral(),
+            sourcePipeline: sourcePipeline, frameInputs: inputs, commandBuffer: command,
+            previousStates: [:], previousGraphResources: [:], effectGeneration: 52, resetGeneration: 52)
+        guard case let .success(prepared) = preparation,
+              prepared.stages.map(\.effect) == [chainedFirstEffect, chainedSecondEffect, chainedThirdEffect],
+              prepared.stages[1].effectLocalActivationBypassReasonCode == reason,
+              prepared.stages[1].programCacheKeys == ["activation-passthrough:" + reason],
+              prepared.stages.allSatisfy({ $0.effectLocalFailureReasonCode == nil }),
+              prepared.stages[0].effectLocalActivationBypassReasonCode == nil,
+              prepared.stages[2].effectLocalActivationBypassReasonCode == nil else { return false }
+        var indices: [Int] = []
+        var readbacks: [Readback] = []
+        guard executor.encode(prepared, commandBuffer: command, stageBoundaryObserver: { index, transition, buffer in
+            guard let readback = appendReadback(transition.effectOutputResource.publication.texture,
+                                                commandBuffer: buffer) else { return false }
+            indices.append(index)
+            readbacks.append(readback)
+            return true
+        }), let final = appendReadback(prepared.finalTexture, commandBuffer: command) else { return false }
+        command.commit()
+        command.waitUntilCompleted()
+        let expected: [[UInt8]] = [[255, 0, 0, 255], [255, 0, 0, 255], [0, 255, 0, 255]]
+        return command.status == .completed && command.error == nil
+            && indices == [0, 1, 2] && readbacks.count == 3
+            && zip(readbacks, expected).allSatisfy {
+                matches($0.firstPixel, $1) && matches($0.lastPixel, $1)
+            }
+            && matches(final.firstPixel, expected[2]) && matches(final.lastPixel, expected[2])
+            && executor.effectLocalFallbackCounts.isEmpty
+    }()
 
     // D2a: the media-toggle shape - a script-gated initially-inactive
     // effect on an externalPrimary dependency consumer. The forced
@@ -622,6 +674,8 @@ private func runActivationCases(
                 && activeActivation.gpu
                 && activeActivation.pixelsPreserved
                 && activeActivation.fallbackFree,
+        "precomputedActivationDecisionPreservesCopyAndHealthySuffix":
+            precomputedActivationPreservesCopyAndSuffix,
         "dependencyActivationStageCompileAndFinalizeClose":
             dependencyActivationFinalized,
         "inactiveDependencyActivationPublishesPreviousCurrent":

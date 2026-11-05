@@ -25,10 +25,6 @@ enum SceneGraphOutputPublicationResult: Equatable {
 }
 
 final class SceneDependencyFrameRuntime {
-    struct ResolvedMaterialFrameDemand {
-        let activeExecutionLayerIDs: Set<Int>
-    }
-
     enum GraphOutputPublicationRole {
         /// The authored visible layer publishes before its normal main-pass
         /// composite consumes the same graph execution ticket.
@@ -77,14 +73,12 @@ final class SceneDependencyFrameRuntime {
     let plan: SceneDependencyRenderPlan
     let targetPool: SceneNamedRenderTargetPool
     /// Launch-invariant reverse indexes over the plan's consumer-keyed
-    /// binding maps. Provider-keyed seams (raw capture, forward-capture
-    /// queries) would otherwise rescan every binding map on each call; the
+    /// binding maps. Provider-keyed capture and publication queries would otherwise rescan every binding map on each call; the
     /// plan is immutable after construction, so these are built once here.
     let providerBindingsByLayerID: [Int: [SceneDependencyRenderPlan.Binding]]
     let nonStaticModelProviderLayerIDs: Set<Int>
     let staticModelProviderLayerIDs: Set<Int>
     let staticModelConsumerLayerIDsByProviderLayerID: [Int: Set<Int>]
-    let forwardCaptureProviderLayerIDs: Set<Int>
     private let captureTelemetry = SceneGPUCompletionTelemetry(phase: "named-target-capture")
     private let namedGraphOutputPublicationTelemetry = SceneGPUCompletionTelemetry(
         phase: "named-graph-output-publication"
@@ -96,22 +90,17 @@ final class SceneDependencyFrameRuntime {
     private var reservationFrameEpoch: UInt64?
     var demandedGraphOutputProviderLayerIDs: Set<Int> = []
     var reservationsByProviderLayerID: [Int: EffectTargetReservation] = [:]
-    /// Ordinary frames repeat the same launch-invariant inputs to the pure
-    /// plan derivations below. Memoize the input identity so a steady frame
-    /// returns the cached result instead of rebuilding the fixed point.
-    private var forwardPreparationMemo: (
-        authoredLayerIDs: [Int],
-        activeExecutionLayerIDs: Set<Int>,
-        activeStaticModelConsumerLayerIDs: Set<Int>,
-        result: [Int]?
-    )?
-    private var resolvedMaterialDemandMemo: (
-        visibleRootLayerIDs: Set<Int>,
-        availableExecutionLayerIDs: Set<Int>,
-        liveLayerIDs: Set<Int>,
-        activeStaticModelConsumerLayerIDs: Set<Int>,
-        result: ResolvedMaterialFrameDemand
-    )?
+    private struct PreparationMemo {
+        let authoredLayerIDs: [Int]
+        let availableExecutionLayerIDs: Set<Int>
+        let visibleRootLayerIDs: Set<Int>
+        let activeStaticModelConsumerLayerIDs: Set<Int>
+        let topologyRevision: UInt64
+        let sourcePlan: SceneDependencyRenderPlan.SourcePreparationPlan?
+        var excludedSlots: [Int: Set<SceneEffectPassSlot>]?
+        var schedule: SceneDependencyRenderPlan.PreparationSchedule?
+    }
+    private var preparationMemo: PreparationMemo?
     /// Defensive same-frame publication identity. The claim/ticket bridge
     /// executes one graph per layer per frame, so a repeated
     /// `publishGraphOutputIfRequired` for the same layer is either the same
@@ -150,14 +139,10 @@ final class SceneDependencyFrameRuntime {
         )
         var providerBindings: [Int: [SceneDependencyRenderPlan.Binding]] = [:]
         var nonStaticModelProviders = Set<Int>()
-        var forwardCaptureProviders = Set<Int>()
         func admit(_ binding: SceneDependencyRenderPlan.Binding) {
             providerBindings[binding.providerLayerID, default: []]
                 .append(binding)
             nonStaticModelProviders.insert(binding.providerLayerID)
-            if binding.requiresForwardCapture {
-                forwardCaptureProviders.insert(binding.providerLayerID)
-            }
         }
         for binding in self.plan.bindingsByConsumerLayerID.values {
             admit(binding)
@@ -174,15 +159,11 @@ final class SceneDependencyFrameRuntime {
             staticModelProviders.insert(binding.providerLayerID)
             staticModelConsumersByProvider[binding.providerLayerID, default: []]
                 .insert(binding.consumerLayerID)
-            if binding.requiresForwardCapture {
-                forwardCaptureProviders.insert(binding.providerLayerID)
-            }
         }
         providerBindingsByLayerID = providerBindings
         nonStaticModelProviderLayerIDs = nonStaticModelProviders
         staticModelProviderLayerIDs = staticModelProviders
         staticModelConsumerLayerIDsByProviderLayerID = staticModelConsumersByProvider
-        forwardCaptureProviderLayerIDs = forwardCaptureProviders
     }
 
     func requiresEffect(for consumerLayerID: Int) -> Bool {
@@ -201,77 +182,43 @@ final class SceneDependencyFrameRuntime {
         demandedGraphOutputProviderLayerIDs.contains(providerLayerID)
     }
 
-    func resolvedMaterialPreparationOrder(
-        authoredLayerIDs: [Int]
-    ) -> [Int]? {
-        plan.resolvedMaterialPreparationOrder(
-            authoredLayerIDs: authoredLayerIDs
-        )
-    }
-
-    func resolvedMaterialFrameDemand(
-        visibleRootLayerIDs: Set<Int>,
-        availableExecutionLayerIDs: Set<Int>,
-        liveLayerIDs: Set<Int>,
-        activeStaticModelConsumerLayerIDs: Set<Int> = []
-    ) -> ResolvedMaterialFrameDemand {
-        if let memo = resolvedMaterialDemandMemo,
-           memo.visibleRootLayerIDs == visibleRootLayerIDs,
-           memo.availableExecutionLayerIDs == availableExecutionLayerIDs,
-           memo.liveLayerIDs == liveLayerIDs,
-           memo.activeStaticModelConsumerLayerIDs == activeStaticModelConsumerLayerIDs {
-            return memo.result
-        }
-        // Model visibility alone is not an executable demand: mesh/material
-        // preparation may have failed. Match the exact consumers used by the
-        // forward prepass so no orphan graph transaction blocks healthy peers.
-        let modelConsumers = Set(plan.staticModelBindingsByConsumerLayerID.keys)
-        let executionRoots = visibleRootLayerIDs.subtracting(modelConsumers)
-            .union(visibleRootLayerIDs.intersection(activeStaticModelConsumerLayerIDs)
-                .intersection(modelConsumers))
-        let available = availableExecutionLayerIDs.intersection(liveLayerIDs)
-        let active = plan.resolvedMaterialExecutionLayerIDs(
-            visibleRootLayerIDs: executionRoots,
-            availableExecutionLayerIDs: available
-        )
-        let result = ResolvedMaterialFrameDemand(
-            activeExecutionLayerIDs: active
-        )
-        resolvedMaterialDemandMemo = (
-            visibleRootLayerIDs,
-            availableExecutionLayerIDs,
-            liveLayerIDs,
-            activeStaticModelConsumerLayerIDs,
-            result
-        )
-        return result
-    }
-
-    func forwardDependencyPreparationOrder(
-        authoredLayerIDs: [Int],
-        activeExecutionLayerIDs: Set<Int>,
-        activeStaticModelConsumerLayerIDs: Set<Int> = []
-    ) -> [Int]? {
-        if let memo = forwardPreparationMemo,
+    func sourcePreparationPlan(
+        authoredLayerIDs: [Int], availableExecutionLayerIDs: Set<Int>,
+        visibleRootLayerIDs: Set<Int>, activeStaticModelConsumerLayerIDs: Set<Int>,
+        topologyRevision: UInt64, sourceAfterLayerIDByLayerID: () -> [Int: Int]
+    ) -> SceneDependencyRenderPlan.SourcePreparationPlan? {
+        if let memo = preparationMemo,
            memo.authoredLayerIDs == authoredLayerIDs,
-           memo.activeExecutionLayerIDs == activeExecutionLayerIDs,
-           memo.activeStaticModelConsumerLayerIDs
-               == activeStaticModelConsumerLayerIDs {
-            return memo.result
+           memo.availableExecutionLayerIDs == availableExecutionLayerIDs,
+           memo.visibleRootLayerIDs == visibleRootLayerIDs,
+           memo.activeStaticModelConsumerLayerIDs == activeStaticModelConsumerLayerIDs,
+           memo.topologyRevision == topologyRevision { return memo.sourcePlan }
+        let plan = plan.sourcePreparationPlan(authoredLayerIDs: authoredLayerIDs,
+            availableExecutionLayerIDs: availableExecutionLayerIDs,
+            visibleRootLayerIDs: visibleRootLayerIDs,
+            activeStaticModelConsumerLayerIDs: activeStaticModelConsumerLayerIDs,
+            sourceAfterLayerIDByLayerID: sourceAfterLayerIDByLayerID())
+        preparationMemo = .init(authoredLayerIDs: authoredLayerIDs,
+            availableExecutionLayerIDs: availableExecutionLayerIDs,
+            visibleRootLayerIDs: visibleRootLayerIDs,
+            activeStaticModelConsumerLayerIDs: activeStaticModelConsumerLayerIDs,
+            topologyRevision: topologyRevision, sourcePlan: plan)
+        return plan
+    }
+
+    func preparationSchedule(
+        sourcePlan: SceneDependencyRenderPlan.SourcePreparationPlan,
+        excludingSlotsByConsumerLayerID slots: [Int: Set<SceneEffectPassSlot>]
+    ) -> SceneDependencyRenderPlan.PreparationSchedule? {
+        if var memo = preparationMemo, memo.sourcePlan === sourcePlan {
+            if memo.excludedSlots == slots { return memo.schedule }
+            let schedule = sourcePlan.preparationSchedule(excludingSlotsByConsumerLayerID: slots)
+            memo.excludedSlots = slots
+            memo.schedule = schedule
+            preparationMemo = memo
+            return schedule
         }
-        let result = plan.forwardDependencyPreparationOrder(
-            authoredLayerIDs: authoredLayerIDs,
-            activeExecutionLayerIDs: activeExecutionLayerIDs,
-            activeStaticModelConsumerLayerIDs:
-                activeStaticModelConsumerLayerIDs
-        )
-        forwardPreparationMemo = (
-            authoredLayerIDs,
-            activeExecutionLayerIDs,
-            activeStaticModelConsumerLayerIDs,
-            result
-        )
-        return result
+        return sourcePlan.preparationSchedule(excludingSlotsByConsumerLayerID: slots)
     }
 
     func blocksStaticLayerSourcePassthrough(for layerID: Int) -> Bool {

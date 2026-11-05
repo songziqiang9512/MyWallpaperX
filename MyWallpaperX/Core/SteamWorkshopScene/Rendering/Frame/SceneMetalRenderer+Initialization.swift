@@ -97,10 +97,6 @@ extension SceneMetalRenderer {
             in: renderDescriptor, plans: utilityPlans
         )
         self.utilityExecution = utilityExecution
-        let preparationLayerIDs = dependencyRuntime
-            .resolvedMaterialPreparationOrder(
-                authoredLayerIDs: utilityExecution.orderedLayerIDs
-            )
         let byID = Dictionary(
             uniqueKeysWithValues: renderDescriptor.layers.map { ($0.id, $0) }
         )
@@ -109,13 +105,8 @@ extension SceneMetalRenderer {
         }
         self.authoredLayers = authoredLayers
         self.orderedLayerIDs = authoredLayers.map(\.id)
-        let preparationLayers = preparationLayerIDs.flatMap { ids in
-            let layers = ids.compactMap { byID[$0] }
-            return layers.count == ids.count ? layers : nil
-        }
-        self.resolvedMaterialPreparationLayers = preparationLayers
-        self.preparationLayerIDs = Set((preparationLayers ?? []).map(\.id))
-        self.framebufferSourceLayerIDs = Set((preparationLayers ?? []).compactMap {
+        self.renderLayerIDs = Set(self.orderedLayerIDs)
+        self.framebufferSourceLayerIDs = Set(authoredLayers.compactMap {
             $0.utilityLayer?.framebufferSource == nil ? nil : $0.id
         })
         self.layersByID = byID

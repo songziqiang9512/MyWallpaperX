@@ -36,7 +36,6 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
                 "sameRevisionKeepsPreparedMembership": True,
                 "sameRevisionKeepsPreparedBirthValues": True,
                 "newRevisionRebuildsMembership": True,
-                "missingPreparationRemainsInvalid": True,
             })
 
     def test_static_graph_work_is_reused_for_stable_generations(self) -> None:

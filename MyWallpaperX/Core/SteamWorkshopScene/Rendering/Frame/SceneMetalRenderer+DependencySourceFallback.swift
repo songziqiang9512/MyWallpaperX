@@ -5,7 +5,7 @@ extension SceneMetalRenderer {
     /// Preserves a graph provider's exact current source when its visible
     /// effects have no executable Program. The existing dependency runtime
     /// remains the sole named-target reservation and publication owner.
-    func captureForwardGraphSourceFallback(
+    func captureDependencyGraphSourceFallback(
         provider: SceneRenderDescriptor.Layer,
         imageTextures: SceneBaseImageTextureSnapshot,
         imagePipeline: SceneImageLayerPipeline,

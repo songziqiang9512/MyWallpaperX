@@ -209,6 +209,8 @@ final class SceneResolvedMaterialRuntimeBridge {
         // single-provider dependency is reserved, empty otherwise.
         let dependencyEffects: [SceneDependencyEffectInput]
         let dependencyUnavailability: DependencyUnavailability?
+        var stageActivationDecisions: [SceneAuthoredEffectRenderPlan.EffectKey:
+            SceneResolvedMaterialStageActivationPolicy.Decision] = [:]
 
         init(
             dependencyEffects: [SceneDependencyEffectInput] = [],

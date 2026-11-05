@@ -3,6 +3,25 @@ import Metal
 import simd
 
 extension SceneMetalRenderer {
+    struct ResolvedMaterialFrameSourceFacts {
+        let claim: SceneResolvedMaterialRuntimeBridge.ClaimedExecution
+        let requestedWidth: Int
+        let requestedHeight: Int
+        let extentPolicy: SceneFullFrameExtentPolicy
+        let materialFunctionTargetsByEffect: [SceneAuthoredEffectRenderPlan.EffectKey:
+            Set<SceneAuthoredEffectRenderPlan.TextureIdentity>]
+        let materialFunctionInvocations: [SceneGraphMaterialFunctionInvocationRequest]
+        let directDrawOutputModelViewProjection: simd_float4x4?
+        let sceneBackgroundResource: SceneFrameTextureResource?
+        let sourceTexture: MTLTexture?
+        let sourceUniforms: SceneLayerFragmentUniforms?
+        let sourcePipeline: SceneImageLayerPipeline
+        let framebufferSourceMaterial: SceneResolvedMaterialRuntimeBridge.FramebufferSourceMaterial?
+        let sourceLighting: SceneBaseMaterialLitCapturePayload?
+        let terminalReplayTarget: MTLTexture?
+        var frameInputs: SceneResolvedMaterialRuntimeBridge.FrameInputs
+    }
+
     func preflightResolvedMaterialFrameTargets(
         imageTextures: SceneBaseImageTextureSnapshot,
         spriteAnimations: [Int: SceneSpriteAnimation],
@@ -12,7 +31,7 @@ extension SceneMetalRenderer {
         imagePipeline: SceneImageLayerPipeline?,
         offscreenTexturePool: SceneOffscreenTexturePool?,
         frameVisibleLayerIDs: Set<Int>,
-        authoredLayerIDs: [Int],
+        sourcePlan: SceneDependencyRenderPlan.SourcePreparationPlan,
         frameContext: SceneFrameContext,
         worldFramesByLayerID: [Int: simd_float4x4],
         cameraFrame: SceneParticleCameraFrame,
@@ -23,7 +42,7 @@ extension SceneMetalRenderer {
         environmentSource: ((MTLCommandBuffer) -> SceneFrameTextureResource?)?,
         frameLightSnapshot: SceneLightSnapshot? = nil,
         compositionGroupRuntime: SceneCompositionGroupFrameRuntime? = nil,
-        preparationLayers: [SceneRenderDescriptor.Layer]?,
+        layersByID: [Int: SceneRenderDescriptor.Layer],
         liveLayerIDs: Set<Int>,
         utilityExecution: SceneUtilityLayerRuntimePlanner.Execution
     ) -> SceneResolvedMaterialGraphComposition.FramePreflightResult {
@@ -36,38 +55,14 @@ extension SceneMetalRenderer {
 #endif
 
         let viewportSize = frameContext.screenSize
-        guard let orderedLayers = preparationLayers else {
-            return .rejected(
-                reasonCode: "resolved-material-preparation-order-invalid"
-            )
-        }
-        let availableExecutionLayerIDs = (imageCompositor.resolvedMaterialRuntime?
-            .executionLayerIDs ?? []).intersection(liveLayerIDs)
-        let activeStaticModelConsumerLayerIDs = frameVisibleLayerIDs
-            .intersection(staticModelResources.namedAlbedoLayerIDs)
-        let demand = dependencyRuntime.resolvedMaterialFrameDemand(
-            visibleRootLayerIDs: frameVisibleLayerIDs,
-            availableExecutionLayerIDs: availableExecutionLayerIDs,
-            liveLayerIDs: liveLayerIDs,
-            activeStaticModelConsumerLayerIDs: activeStaticModelConsumerLayerIDs
-        )
-        let activeExecutionLayerIDs = demand.activeExecutionLayerIDs
-        guard let forwardLayerIDs = dependencyRuntime.forwardDependencyPreparationOrder(
-            authoredLayerIDs: authoredLayerIDs,
-            activeExecutionLayerIDs: activeExecutionLayerIDs,
-            activeStaticModelConsumerLayerIDs: activeStaticModelConsumerLayerIDs
-        ) else { return .rejected(reasonCode: "resolved-material-preparation-order-invalid") }
-        let deferredCompositeLayerIDs = Set(forwardLayerIDs).intersection(frameVisibleLayerIDs)
+        let orderedLayers = sourcePlan.preparationLayerIDs.compactMap { layersByID[$0] }
         compositionGroupRuntime?.reserveSources(
             orderedRootIDs: utilityExecution.orderedRootIDs,
             visibleLayerIDs: frameVisibleLayerIDs,
-            requiredExecutionLayerIDs: activeExecutionLayerIDs
+            requiredExecutionLayerIDs: Set(sourcePlan.preparationLayerIDs)
         )
         var byLayerID: [Int: SceneResolvedMaterialFrameTargetPlan] = [:]
-        var allocationPlans: [ScenePersistentGraphTargetFramePlan] = []
-        var preparationRequests: [
-            SceneResolvedMaterialRuntimeBridge.FramePreparationRequest
-        ] = []
+        var sources: [Int: ResolvedMaterialFrameSourceFacts] = [:]
         var sourceCoverageFallbacks: [Int: String] = [:]
         var graphTargetFallbacks: [Int: String] = [:]
         let materialFunctionMutationsByLayerID = Dictionary(
@@ -173,15 +168,6 @@ extension SceneMetalRenderer {
             if layer.contentKind == "composition",
                layer.utilityLayer?.kind == .composition,
                !utilityExecution.captureLayerIDs.contains(layer.id) {
-                continue
-            }
-            // An accepted dynamic root that is false in the committed frame
-            // owns no graph transaction and cannot make its hidden provider
-            // reject unrelated visible output. Product-authority rejections
-            // are intentionally not in `availableExecutionLayerIDs` and still
-            // flow through the ordinary fail-closed claim path below.
-            if availableExecutionLayerIDs.contains(layer.id),
-               !activeExecutionLayerIDs.contains(layer.id) {
                 continue
             }
             let route = imageCompositor.preflightResolvedMaterialClaim(
@@ -443,245 +429,8 @@ extension SceneMetalRenderer {
                 graphTargetFallbacks[claim.layerID] = "frame-target-plan-rejected"
                 continue
             }
-            guard let offscreenTexturePool else {
-                return .rejected(reasonCode: "frame-target-pool-unavailable")
-            }
-            let allocation: ScenePersistentGraphTargetFramePlan
-            switch offscreenTexturePool.framePlanResultForPersistentGraphTargets(
-                admittedGraphs: claim.admittedGraphs,
-                materialFunctionTargetsByEffect: materialFunctionTargetsByEffect,
-                pairPlan: claim.pairPlan,
-                extentPolicy: effectSourceExtentContract.targetPolicy,
-                requestedWidth: requestedWidth,
-                requestedHeight: requestedHeight,
-                // Later graphs may overwrite shared scratch before this layer's authored draw.
-                usesSharedFullFrameWorkingPair: !deferredCompositeLayerIDs.contains(layerID),
-                orderingContext: orderingContext,
-                plansMemoIdentity: .init(
-                    capabilityToken: claim.token,
-                    layerID: claim.layerID
-                )
-            ) {
-            case let .success(value): allocation = value
-            case let .failure(failure):
-                graphTargetFallbacks[claim.layerID] =
-                    failure.localFallbackReasonCode
-                continue
-            }
-            let consumesExternalPrimaryDependency: Bool
-            switch claim.dependencyOwnership {
-            case .externalPrimary, .externalAggregate:
-                consumesExternalPrimaryDependency = true
-            default:
-                consumesExternalPrimaryDependency = false
-            }
-            let frameTargetPlan = SceneResolvedMaterialFrameTargetPlan(
-                token: claim.token,
-                allocation: allocation,
-                consumesExternalPrimaryDependency: consumesExternalPrimaryDependency,
-                directDrawOutputModelViewProjection:
-                    directDrawOutputModelViewProjection,
-                directDrawGeometry: directDrawGeometry
-            )
-            guard allocation.graphPlan.key.layerID == claim.layerID,
-                  byLayerID.updateValue(frameTargetPlan, forKey: claim.layerID) == nil
-            else {
-                graphTargetFallbacks[claim.layerID] = "frame-target-plan-rejected"
-                continue
-            }
-            if dependencyRuntime.isStaticModelSourceProvider(layerID),
-               dependencyRuntime.requiresGraphOutputCapture(for: layerID) {
-                guard let extent = preparedGraphOutputExtent(
-                    for: layerID, plans: byLayerID
-                ) else { return invalid("model-provider-output-extent-missing") }
-                var failureReason: String?
-                guard dependencyRuntime.reserveStaticModelGraphOutput(
-                    providerLayer: layer,
-                    preparedOutputExtent: extent,
-                    frameEpoch: textureRegistry.frameEpoch,
-                    failureReason: &failureReason
-                ) else {
-                    guard failureReason == "target-pool-unavailable" else {
-                        return invalid(failureReason ?? "model-provider-reservation-invalid")
-                    }
-                    byLayerID.removeValue(forKey: layerID)
-                    graphTargetFallbacks[layerID] = "model-provider-target-unavailable"
-                    continue
-                }
-            }
-            allocationPlans.append(allocation)
-            // The preparation request for this layer is assembled in the same
-            // pass; dependency providers precede consumers in the preparation
-            // order, so every `preparedGraphOutputExtent` lookup below sees
-            // the same projection the former second walk read from the
-            // completed plan dictionary.
             guard let layerModelMatrix = worldFramesByLayerID[layerID] else {
                 return invalid("layer-\(layerID)-world-frame-missing")
-            }
-            var dependencyEffects: [SceneDependencyEffectInput] = []
-            let dependencyUnavailability:
-                SceneResolvedMaterialRuntimeBridge.FrameInputs
-                    .DependencyUnavailability?
-            switch claim.dependencyOwnership {
-            case .none, .graphInternal:
-                dependencyUnavailability = nil
-            case .externalPrimary(let binding):
-                guard liveLayerIDs.contains(binding.providerLayerID),
-                      !dependencyRuntime.plan.cyclicLayerIDs.contains(binding.providerLayerID),
-                      let providerLayer = layersByID[binding.providerLayerID] else {
-                    dependencyEffects = []
-                    dependencyUnavailability = .providerSourceUnavailable
-                    break
-                }
-                let providerPlacement = dependencyProviderPlacement(providerLayer)
-                let preparedOutputExtent = preparedGraphOutputExtent(
-                    for: binding.providerLayerID,
-                    plans: byLayerID
-                )
-                var dependencyFailureReason: String?
-                func reserveDependencyInput(
-                    _ source: SceneBaseMaterialTextureSource?
-                ) -> SceneDependencyEffectInput? {
-                    let geometryProduct: SceneGeometryProduct?
-                    let providerOutputMVP: simd_float4x4?
-                    let consumerOutputMVP: simd_float4x4?
-                    if binding.kind == .geometryLayer,
-                       let source,
-                       let product = imageTextures.geometryProduct(
-                           for: providerLayer.id,
-                           matching: source.texture
-                       ) {
-                        geometryProduct = product
-                        providerOutputMVP = geometryMVP(providerLayer, product)
-                            * SceneMatrix.scale(SIMD3(
-                                product.authoredSize.x,
-                                product.authoredSize.y,
-                                1
-                            ))
-                        if let consumerProduct = imageTextures.geometryProducts[
-                            layer.id
-                        ] {
-                            consumerOutputMVP = geometryMVP(
-                                layer,
-                                consumerProduct
-                            ) * SceneMatrix.scale(SIMD3(
-                                consumerProduct.authoredSize.x,
-                                consumerProduct.authoredSize.y,
-                                1
-                            ))
-                        } else {
-                            consumerOutputMVP = imageMVP(
-                                layer,
-                                imageTextures.layerSourceRenderSize(
-                                    for: layer.id
-                                )
-                            )
-                        }
-                    } else {
-                        geometryProduct = nil
-                        providerOutputMVP = nil
-                        consumerOutputMVP = nil
-                    }
-                    return dependencyRuntime.reserveEffectInput(
-                        for: binding,
-                        providerLayer: providerLayer,
-                        providerTexture: source?.texture,
-                        providerCandidate: source?.candidate,
-                        layerMVP: providerPlacement.mvp,
-                        viewportSize: providerPlacement.viewport,
-                        preparedOutputExtent: preparedOutputExtent,
-                        geometryProduct: geometryProduct,
-                        providerOutputMVP: providerOutputMVP,
-                        consumerOutputMVP: consumerOutputMVP,
-                        frameEpoch: textureRegistry.frameEpoch,
-                        failureReason: &dependencyFailureReason
-                    )
-                }
-                if binding.kind == .resolvedMaterial {
-                    // A composition provider captures the readable main target.
-                    // Its reservation extent comes from typed utility geometry,
-                    // so requiring an unrelated base texture would suppress a
-                    // provider that can publish later in this same frame.
-                    guard let reservedInput = reserveDependencyInput(nil) else {
-                        return invalid(
-                            "layer-\(layerID)-dependency-input-invalid"
-                                + (dependencyFailureReason.map { "-\($0)" } ?? "")
-                        )
-                    }
-                    dependencyEffects = [reservedInput]
-                    dependencyUnavailability = nil
-                    break
-                }
-                let providerSelection = cachedBaseMaterialTextureSelectionImpl(
-                    for: providerLayer,
-                    imageTextures: imageTextures,
-                    readyProviderUsesAuthoredLayerColor:
-                        baseMaterialReadyProviderUsesAuthoredLayerColor(
-                            for: providerLayer,
-                            dynamicValues: frameContext.dynamicValues
-                        ),
-                    cache: &baseMaterialSelections
-                )
-                guard let providerSource = providerSelection.source else {
-                    switch providerSelection {
-                    case .missing, .pendingAuthoredVideo:
-                        dependencyEffects = []
-                        dependencyUnavailability = .providerSourceUnavailable
-                    case let .rejected(reasonCode):
-                        return invalid(
-                            "layer-\(layerID)-dependency-provider-source-"
-                                + reasonCode
-                        )
-                    case .source:
-                        return invalid(
-                            "layer-\(layerID)-dependency-provider-source-invariant"
-                        )
-                    }
-                    break
-                }
-                if binding.kind == .geometryLayer,
-                   imageTextures.geometryProducts[providerLayer.id] == nil {
-                    dependencyEffects = []
-                    dependencyUnavailability = .providerSourceUnavailable
-                    break
-                }
-                guard let reservedInput = reserveDependencyInput(
-                    providerSource
-                ) else {
-                    if dependencyFailureReason == "image-provider-mapping-unavailable" {
-                        dependencyEffects = []
-                        dependencyUnavailability = .providerSourceUnavailable
-                        break
-                    }
-                    return invalid(
-                        "layer-\(layerID)-dependency-input-invalid"
-                            + (dependencyFailureReason.map { "-\($0)" } ?? "")
-                    )
-                }
-                dependencyEffects = [reservedInput]
-                dependencyUnavailability = nil
-            case let .externalAggregate(aggregate):
-                var aggregateFailureReason: String?
-                guard let reservedInputs =
-                    reserveExternalAggregateDependencyInputs(
-                        aggregate: aggregate,
-                        liveLayerIDs: liveLayerIDs,
-                        plans: byLayerID,
-                        imageTextures: imageTextures,
-                        frameContext: frameContext,
-                        imageMVP: imageMVP,
-                        providerPlacement: dependencyProviderPlacement,
-                        geometryMVP: geometryMVP,
-                        baseMaterialSelections: &baseMaterialSelections,
-                        failureReason: &aggregateFailureReason
-                    ) else {
-                    return invalid(
-                        aggregateFailureReason
-                            ?? "multi-provider-reservation-invalid"
-                    )
-                }
-                dependencyEffects = reservedInputs
-                dependencyUnavailability = nil
             }
             let sourceMVP: simd_float4x4
             let outputMVP: simd_float4x4
@@ -729,10 +478,17 @@ extension SceneMetalRenderer {
                 if layer.contentKind == "solid" {
                     // Use the accepted solid target, including the authored
                     // source floor retained for zero-area data helpers.
-                    let size = frameTargetPlan.allocation.graphPlan.fullFramePair
-                        .descriptor.extent
+                    guard let pool = offscreenTexturePool,
+                          let size = SceneOffscreenResolutionPolicy.resolvedDimensions(
+                            width: requestedWidth, height: requestedHeight,
+                            hardLimit: pool.maxDimension,
+                            policy: SceneOffscreenResolutionPolicy.chainPlanningPolicy(
+                                effectSourceExtentContract.targetPolicy)) else {
+                        graphTargetFallbacks[layerID] = "frame-target-plan-rejected"
+                        continue
+                    }
                     effectSourceExtent = SceneLayerEffectSourceExtent(pixelSize: CGSize(
-                        width: size.width, height: size.height
+                        width: size.0, height: size.1
                     ))
                 }
             case .capturedMainTargetTexture:
@@ -884,8 +640,6 @@ extension SceneMetalRenderer {
                 frameTime: Float(frameContext.frameTime),
                 time: time,
                 audioSpectrum: frameContext.audioSpectrum,
-                dependencyEffects: dependencyEffects,
-                dependencyUnavailability: dependencyUnavailability,
                 directDrawGeometry: directDrawGeometry,
                 directDrawSourceMaterialKey: claim.frameInputContract.directDrawGeometry?.sourceMaterialKey
             )
@@ -936,20 +690,145 @@ SceneBaseMaterialLitCaptureMissLog.record(
 
                 }
             }
-            preparationRequests.append(.init(
-                claim: claim,
-                targetPlan: frameTargetPlan,
+            sources[layerID] = .init(
+                claim: claim, requestedWidth: requestedWidth, requestedHeight: requestedHeight,
+                extentPolicy: effectSourceExtentContract.targetPolicy,
+                materialFunctionTargetsByEffect: materialFunctionTargetsByEffect,
                 materialFunctionInvocations: invocations,
+                directDrawOutputModelViewProjection: directDrawOutputModelViewProjection,
                 sceneBackgroundResource: sceneBackgroundResource,
-                sourceTexture: sourceTexture,
-                sourceUniforms: sourceUniforms,
-                sourcePipeline: imagePipeline,
-                framebufferSourceMaterial: framebufferSourceMaterial,
-                sourceLighting: sourceLighting,
-                terminalReplayTarget: terminalReplayTarget,
+                sourceTexture: sourceTexture, sourceUniforms: sourceUniforms,
+                sourcePipeline: imagePipeline, framebufferSourceMaterial: framebufferSourceMaterial,
+                sourceLighting: sourceLighting, terminalReplayTarget: terminalReplayTarget,
+                frameInputs: frameInputs
+            )
+        }
+        var excludedSlotsByConsumerLayerID: [Int: Set<SceneEffectPassSlot>] = [:]
+        if let runtime = imageCompositor.resolvedMaterialRuntime {
+            for layerID in sourcePlan.preparationLayerIDs {
+                guard var source = sources[layerID] else { continue }
+                excludedSlotsByConsumerLayerID[layerID] = runtime.resolveStageActivations(
+                    claim: source.claim, frameInputs: &source.frameInputs)
+                sources[layerID] = source
+            }
+        }
+        guard let preparationSchedule = dependencyRuntime.preparationSchedule(
+            sourcePlan: sourcePlan,
+            excludingSlotsByConsumerLayerID: excludedSlotsByConsumerLayerID) else {
+            return .rejected(reasonCode: "resolved-material-preparation-order-invalid")
+        }
+        let deferredCompositeLayerIDs = preparationSchedule.scheduledGraphProviderLayerIDs
+            .intersection(frameVisibleLayerIDs)
+        var allocationPlans: [ScenePersistentGraphTargetFramePlan] = []
+        for layerID in preparationSchedule.preparationLayerIDs {
+            guard let source = sources[layerID], let layer = layersByID[layerID] else { continue }
+            let claim = source.claim
+            let requestedWidth = source.requestedWidth
+            let requestedHeight = source.requestedHeight
+            let materialFunctionTargetsByEffect = source.materialFunctionTargetsByEffect
+            let directDrawOutputModelViewProjection = source.directDrawOutputModelViewProjection
+            let directDrawGeometry = source.frameInputs.directDrawGeometry
+            guard let offscreenTexturePool else {
+                return .rejected(reasonCode: "frame-target-pool-unavailable")
+            }
+            let allocation: ScenePersistentGraphTargetFramePlan
+            switch offscreenTexturePool.framePlanResultForPersistentGraphTargets(
+                admittedGraphs: claim.admittedGraphs,
+                materialFunctionTargetsByEffect: materialFunctionTargetsByEffect,
+                pairPlan: claim.pairPlan,
+                extentPolicy: source.extentPolicy,
+                requestedWidth: requestedWidth,
+                requestedHeight: requestedHeight,
+                // Later graphs may overwrite shared scratch before this layer's authored draw.
+                usesSharedFullFrameWorkingPair: !deferredCompositeLayerIDs.contains(layerID),
+                orderingContext: orderingContext,
+                plansMemoIdentity: .init(
+                    capabilityToken: claim.token,
+                    layerID: claim.layerID
+                )
+            ) {
+            case let .success(value): allocation = value
+            case let .failure(failure):
+                graphTargetFallbacks[claim.layerID] =
+                    failure.localFallbackReasonCode
+                continue
+            }
+            let consumesExternalPrimaryDependency: Bool
+            switch claim.dependencyOwnership {
+            case .externalPrimary, .externalAggregate:
+                consumesExternalPrimaryDependency = true
+            default:
+                consumesExternalPrimaryDependency = false
+            }
+            let frameTargetPlan = SceneResolvedMaterialFrameTargetPlan(
+                token: claim.token,
+                allocation: allocation,
+                consumesExternalPrimaryDependency: consumesExternalPrimaryDependency,
+                directDrawOutputModelViewProjection:
+                    directDrawOutputModelViewProjection,
+                directDrawGeometry: directDrawGeometry
+            )
+            guard allocation.graphPlan.key.layerID == claim.layerID,
+                  byLayerID.updateValue(frameTargetPlan, forKey: claim.layerID) == nil
+            else {
+                graphTargetFallbacks[claim.layerID] = "frame-target-plan-rejected"
+                continue
+            }
+            if dependencyRuntime.isStaticModelSourceProvider(layerID),
+               dependencyRuntime.requiresGraphOutputCapture(for: layerID) {
+                guard let extent = preparedGraphOutputExtent(
+                    for: layerID, plans: byLayerID
+                ) else { return invalid("model-provider-output-extent-missing") }
+                var failureReason: String?
+                guard dependencyRuntime.reserveStaticModelGraphOutput(
+                    providerLayer: layer,
+                    preparedOutputExtent: extent,
+                    frameEpoch: textureRegistry.frameEpoch,
+                    failureReason: &failureReason
+                ) else {
+                    guard failureReason == "target-pool-unavailable" else {
+                        return invalid(failureReason ?? "model-provider-reservation-invalid")
+                    }
+                    byLayerID.removeValue(forKey: layerID)
+                    graphTargetFallbacks[layerID] = "model-provider-target-unavailable"
+                    continue
+                }
+            }
+            allocationPlans.append(allocation)
+        }
+        var preparationRequests: [SceneResolvedMaterialRuntimeBridge.FramePreparationRequest] = []
+        var pendingGraphLayerIDs = Set(sourcePlan.preparationLayerIDs)
+        for layerID in preparationSchedule.preparationLayerIDs {
+            pendingGraphLayerIDs.remove(layerID)
+            guard var source = sources[layerID], let frameTargetPlan = byLayerID[layerID],
+                  let layer = layersByID[layerID] else { continue }
+            let claim = source.claim
+            var dependencyFailureReason: String?
+            guard let dependencies = reserveResolvedMaterialDependencyInputs(
+                ownership: claim.dependencyOwnership,
+                excludingSlots: excludedSlotsByConsumerLayerID[layerID] ?? [], layer: layer,
+                liveLayerIDs: liveLayerIDs, pendingGraphLayerIDs: pendingGraphLayerIDs,
+                layersByID: layersByID, plans: byLayerID,
+                imageTextures: imageTextures, frameContext: frameContext,
+                imageMVP: imageMVP, providerPlacement: dependencyProviderPlacement,
+                geometryMVP: geometryMVP, baseMaterialSelections: &baseMaterialSelections,
+                failureReason: &dependencyFailureReason) else {
+                return invalid(dependencyFailureReason ?? "dependency-input-invalid")
+            }
+            source.frameInputs.dependencyEffects = dependencies.effects
+            source.frameInputs.dependencyUnavailability = dependencies.unavailable
+            preparationRequests.append(.init(
+                claim: claim, targetPlan: frameTargetPlan,
+                materialFunctionInvocations: source.materialFunctionInvocations,
+                sceneBackgroundResource: source.sceneBackgroundResource,
+                sourceTexture: source.sourceTexture, sourceUniforms: source.sourceUniforms,
+                sourcePipeline: source.sourcePipeline,
+                framebufferSourceMaterial: source.framebufferSourceMaterial,
+                sourceLighting: source.sourceLighting,
+                terminalReplayTarget: source.terminalReplayTarget,
                 terminalReplayBlendMode: layer.colorBlendMode ?? 0,
                 terminalReplayIsOptional: layer.contentKind == "image",
-                frameInputs: frameInputs
+                frameInputs: source.frameInputs
             ))
         }
         guard !byLayerID.isEmpty else {
@@ -962,7 +841,7 @@ SceneBaseMaterialLitCaptureMissLog.record(
                 graphReason
             }
             return .ready(
-                plans: [:],
+                plans: [:], preparationSchedule: preparationSchedule,
                 localFallbacks: mergedFallbacks,
                 preparationRequests: []
             )
@@ -979,7 +858,7 @@ SceneBaseMaterialLitCaptureMissLog.record(
                 graphReason
             }
             return .ready(
-                plans: byLayerID,
+                plans: byLayerID, preparationSchedule: preparationSchedule,
                 localFallbacks: mergedFallbacks,
                 preparationRequests: preparationRequests
             )

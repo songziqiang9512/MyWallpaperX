@@ -37,31 +37,28 @@ extension Harness {
         let forwardNestedImageBlend = nestedImageBlendPlan(
             forwardToConsumer: true
         )
-        let forwardNestedPreparationOrder = forwardNestedImageBlend
-            .resolvedMaterialPreparationOrder(
-                authoredLayerIDs: [399, 402, 400, 401]
-            )
-        let forwardNestedProviders = forwardNestedImageBlend
-            .forwardDependencyPreparationOrder(
-                authoredLayerIDs: [399, 402, 400, 401],
-                activeExecutionLayerIDs: [400, 401, 402]
-            )
+        let forwardNestedSchedule = forwardNestedImageBlend.sourcePreparationPlan(
+            authoredLayerIDs: [399, 402, 400, 401],
+            availableExecutionLayerIDs: forwardNestedImageBlend.requiredGraphOutputProviderLayerIDs.union([402]),
+            visibleRootLayerIDs: [402], activeStaticModelConsumerLayerIDs: [],
+            sourceAfterLayerIDByLayerID: [:])?.preparationSchedule()
         let brokenNestedImageBlend = nestedImageBlendPlan(
             middleDependencyMismatch: true,
             forwardToConsumer: true
         )
         let forwardPreparation = forwardPreparationPlan()
-        let forwardPreparationOrder = forwardPreparation.plan
-            .resolvedMaterialPreparationOrder(
-                authoredLayerIDs: forwardPreparation.authoredLayerIDs
-            )
+        let forwardSchedule = forwardPreparation.plan.sourcePreparationPlan(
+            authoredLayerIDs: forwardPreparation.authoredLayerIDs,
+            availableExecutionLayerIDs: forwardPreparation.plan.requiredGraphOutputProviderLayerIDs.union([301]),
+            visibleRootLayerIDs: [800, 301, 850, 900], activeStaticModelConsumerLayerIDs: [],
+            sourceAfterLayerIDByLayerID: [:])?.preparationSchedule()
         let forwardStaticPreparation = forwardPreparationPlan(
             providerEffectful: false
         )
-        let forwardStaticPreparationOrder = forwardStaticPreparation.plan
-            .resolvedMaterialPreparationOrder(
-                authoredLayerIDs: forwardStaticPreparation.authoredLayerIDs
-            )
+        let forwardStaticSchedule = forwardStaticPreparation.plan.sourcePreparationPlan(
+            authoredLayerIDs: forwardStaticPreparation.authoredLayerIDs,
+            availableExecutionLayerIDs: [301], visibleRootLayerIDs: [800, 301, 850, 900],
+            activeStaticModelConsumerLayerIDs: [], sourceAfterLayerIDByLayerID: [:])?.preparationSchedule()
         let modelProvider = SceneRenderDescriptor.Layer(
             id: 611,
             contentKind: "solid",
@@ -101,18 +98,14 @@ extension Harness {
             ),
             visibleLayerIDs: []
         )
-        let activeModelForwardProviders = modelDependencyPlan
-            .forwardDependencyPreparationOrder(
-                authoredLayerIDs: [610, 611],
-                activeExecutionLayerIDs: [],
-                activeStaticModelConsumerLayerIDs: [610]
-            )
-        let inactiveModelForwardProviders = modelDependencyPlan
-            .forwardDependencyPreparationOrder(
-                authoredLayerIDs: [610, 611],
-                activeExecutionLayerIDs: [],
-                activeStaticModelConsumerLayerIDs: []
-        )
+        let activeModelForwardProviders = modelDependencyPlan.sourcePreparationPlan(
+            authoredLayerIDs: [610, 611], availableExecutionLayerIDs: [],
+            visibleRootLayerIDs: [610], activeStaticModelConsumerLayerIDs: [610],
+            sourceAfterLayerIDByLayerID: [:])?.preparationSchedule().prepassProviderLayerIDs
+        let inactiveModelForwardProviders = modelDependencyPlan.sourcePreparationPlan(
+            authoredLayerIDs: [610, 611], availableExecutionLayerIDs: [],
+            visibleRootLayerIDs: [610], activeStaticModelConsumerLayerIDs: [],
+            sourceAfterLayerIDByLayerID: [:])?.preparationSchedule().prepassProviderLayerIDs
         let modelEffectConsumer = consumer(612, provider: 611)
         let mixedModelProvider = SceneRenderDescriptor.Layer(
             id: 611,
@@ -201,34 +194,41 @@ extension Harness {
                     .requiresForwardCapture ?? false,
             ],
             "retiredForwardProviders": [
-                "direct": forwardPreparation.plan.forwardDependencyPreparationOrder(
+                "direct": forwardPreparation.plan.sourcePreparationPlan(
                     authoredLayerIDs: [800, 301, 850, 900],
-                    activeExecutionLayerIDs: [800, 301, 850, 900]) ?? [-1],
-                "upstream": forwardNestedImageBlend.forwardDependencyPreparationOrder(
+                    availableExecutionLayerIDs: [301], visibleRootLayerIDs: [800, 301, 850, 900],
+                    activeStaticModelConsumerLayerIDs: [], sourceAfterLayerIDByLayerID: [:])?.preparationSchedule()
+                    .prepassProviderLayerIDs ?? [-1],
+                "upstream": forwardNestedImageBlend.sourcePreparationPlan(
                     authoredLayerIDs: [399, 402, 401],
-                    activeExecutionLayerIDs: [401, 402]) ?? [-1],
-                "middle": forwardNestedImageBlend.forwardDependencyPreparationOrder(
+                    availableExecutionLayerIDs: [401, 402], visibleRootLayerIDs: [399, 402],
+                    activeStaticModelConsumerLayerIDs: [], sourceAfterLayerIDByLayerID: [:])?.preparationSchedule()
+                    .prepassProviderLayerIDs ?? [-1],
+                "middle": forwardNestedImageBlend.sourcePreparationPlan(
                     authoredLayerIDs: [399, 402, 400],
-                    activeExecutionLayerIDs: [402]) ?? [-1],
-                "model": modelDependencyPlan.forwardDependencyPreparationOrder(
-                    authoredLayerIDs: [610], activeExecutionLayerIDs: [],
-                    activeStaticModelConsumerLayerIDs: [610]) ?? [-1],
-                "duplicateRejected": forwardPreparation.plan.forwardDependencyPreparationOrder(
+                    availableExecutionLayerIDs: [400, 402], visibleRootLayerIDs: [399, 402],
+                    activeStaticModelConsumerLayerIDs: [], sourceAfterLayerIDByLayerID: [:])?.preparationSchedule()
+                    .prepassProviderLayerIDs ?? [-1],
+                "model": modelDependencyPlan.sourcePreparationPlan(
+                    authoredLayerIDs: [610], availableExecutionLayerIDs: [], visibleRootLayerIDs: [610],
+                    activeStaticModelConsumerLayerIDs: [610], sourceAfterLayerIDByLayerID: [:])?.preparationSchedule()
+                    .prepassProviderLayerIDs ?? [-1],
+                "duplicateRejected": forwardPreparation.plan.sourcePreparationPlan(
                     authoredLayerIDs: [800, 301, 301],
-                    activeExecutionLayerIDs: [301]) == nil,
+                    availableExecutionLayerIDs: [301], visibleRootLayerIDs: [800, 301],
+                    activeStaticModelConsumerLayerIDs: [], sourceAfterLayerIDByLayerID: [:]) == nil,
             ],
             "forwardEffectfulPreparationOrder": [
                 "authored": forwardPreparation.authoredLayerIDs,
-                "prepared": forwardPreparationOrder ?? [],
+                "prepared": forwardSchedule?.preparationLayerIDs ?? [-1],
                 "duplicateRejected": forwardPreparation.plan
-                    .resolvedMaterialPreparationOrder(
-                        authoredLayerIDs:
-                            forwardPreparation.authoredLayerIDs + [900]
-                    ) == nil,
+                    .sourcePreparationPlan(authoredLayerIDs: forwardPreparation.authoredLayerIDs + [900],
+                        availableExecutionLayerIDs: [300, 301], visibleRootLayerIDs: [301],
+                        activeStaticModelConsumerLayerIDs: [], sourceAfterLayerIDByLayerID: [:]) == nil,
             ],
             "forwardStaticPreparationOrder": [
                 "authored": forwardStaticPreparation.authoredLayerIDs,
-                "prepared": forwardStaticPreparationOrder ?? [],
+                "prepared": forwardStaticSchedule?.preparationLayerIDs ?? [-1],
             ],
             "transformedImageBlendBinding": [
                 "provider": transformedImageBlend?.providerLayerID ?? -1,
@@ -374,8 +374,8 @@ extension Harness {
                     .requiredProviderLayerIDs.sorted(),
                 "graphProviders": forwardNestedImageBlend
                     .requiredGraphOutputProviderLayerIDs.sorted(),
-                "forwardProviders": forwardNestedProviders ?? [],
-                "prepared": forwardNestedPreparationOrder ?? [],
+                "forwardProviders": forwardNestedSchedule?.prepassProviderLayerIDs ?? [-1],
+                "prepared": forwardNestedSchedule?.preparationLayerIDs ?? [-1],
                 "issues": forwardNestedImageBlend.issues.map {
                     "\($0.layerID):\($0.kind.rawValue):\($0.providerLayerID ?? -1)"
                 },

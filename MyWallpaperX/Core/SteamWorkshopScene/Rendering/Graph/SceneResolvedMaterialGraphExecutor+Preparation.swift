@@ -106,7 +106,8 @@ extension SceneResolvedMaterialGraphExecutor {
         commands: inout [Command]
     ) -> StagePreparationResult {
         if let activation = stageCapability.execution.activationPolicy {
-            let decision = activation.evaluate(
+            let effect = stageCapability.product.graph.effects[0].key
+            let decision = frameInputs.stageActivationDecisions[effect] ?? activation.evaluate(
                 dynamicValues: frameInputs.dynamicValues,
                 pointerIsInside: frameInputs.pointerIsInside
             )
@@ -122,11 +123,7 @@ extension SceneResolvedMaterialGraphExecutor {
             case .active:
                 break
             case let .inactive(reasonCode):
-                guard activationBypassIsProvable(
-                    stageCapability: stageCapability,
-                    pairStep: pairStep,
-                    snapshot: visualFailureSnapshot
-                ) else {
+                guard stageCapability.supportsEffectEntryPassthrough else {
                     // Optional visibility must not drop the whole frame. Keep
                     // this effect executed until its bypass is provable.
                     break

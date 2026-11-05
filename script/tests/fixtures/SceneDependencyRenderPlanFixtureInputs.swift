@@ -1,9 +1,6 @@
 import Foundation
 import Metal
 
-extension SceneOffscreenTexturePool {
-    var maxDimension: Int { fatalError("GPU allocation is outside dependency planning") }
-}
 
 // Dependency planning never encodes GPU work. Match the current constructor
 // contract while retaining the fixture's fail-fast encoding boundary.

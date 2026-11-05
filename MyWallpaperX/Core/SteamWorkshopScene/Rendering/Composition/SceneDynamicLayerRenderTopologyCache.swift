@@ -14,8 +14,7 @@ final class SceneDynamicLayerRenderTopologyCache {
         let lightLayerIDs: [Int]
         let imageMaterialStateLayerIDs: Set<Int>
         let utilityExecution: SceneUtilityLayerRuntimePlanner.Execution
-        let preparationLayers: [SceneRenderDescriptor.Layer]?
-        let preparationLayerIDs: Set<Int>
+        let renderLayerIDs: Set<Int>
         let framebufferSourceLayerIDs: Set<Int>
     }
 
@@ -61,13 +60,6 @@ final class SceneDynamicLayerRenderTopologyCache {
             descriptor: descriptor,
             layersByID: layersByID
         )
-        let preparationLayerIDs = dependencyRuntime.resolvedMaterialPreparationOrder(
-            authoredLayerIDs: executionLayerIDs
-        )
-        let preparationLayers = preparationLayerIDs.flatMap { ids in
-            let layers = ids.compactMap { layersByID[$0] }
-            return layers.count == ids.count ? layers : nil
-        }
         let projection = Projection(
             descriptor: descriptor,
             layersByID: layersByID,
@@ -82,9 +74,8 @@ final class SceneDynamicLayerRenderTopologyCache {
                 $0.imageMaterialRenderState == nil ? nil : $0.id
             }),
             utilityExecution: utilityExecution,
-            preparationLayers: preparationLayers,
-            preparationLayerIDs: Set((preparationLayers ?? []).map(\.id)),
-            framebufferSourceLayerIDs: Set((preparationLayers ?? []).compactMap {
+            renderLayerIDs: Set(executionLayerIDs),
+            framebufferSourceLayerIDs: Set(orderedLayers.compactMap {
                 $0.utilityLayer?.framebufferSource == nil ? nil : $0.id
             })
         )

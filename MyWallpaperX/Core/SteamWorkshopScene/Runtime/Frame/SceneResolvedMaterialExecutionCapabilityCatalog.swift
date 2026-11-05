@@ -71,6 +71,10 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         let execution: Execution
         let passthroughTopologies: Set<PassthroughTopology>
         let preEncodeVisualFailureSlots: [SceneEffectPassSlot]?
+        var supportsEffectEntryPassthrough: Bool {
+            passthroughTopologies.contains(.dependencyStage)
+                || passthroughTopologies.contains(.preEncodeGraph)
+        }
     }
 
     typealias FrameInputContract = SceneResolvedMaterialFrameInputContract

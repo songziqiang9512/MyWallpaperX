@@ -128,9 +128,10 @@ enum Harness {
             in: descriptor, plans: plans
         )
         func execution(_ visible: Set<Int>) -> [Int] {
-            plan.resolvedMaterialExecutionLayerIDs(
-                visibleRootLayerIDs: visible, availableExecutionLayerIDs: available
-            ).sorted()
+            plan.sourcePreparationPlan(authoredLayerIDs: order,
+                availableExecutionLayerIDs: available, visibleRootLayerIDs: visible,
+                activeStaticModelConsumerLayerIDs: [], sourceAfterLayerIDByLayerID: [:])?.preparationSchedule()
+                .preparationLayerIDs.sorted() ?? [-1]
         }
         return [
             "binding": binding != nil,
@@ -153,9 +154,10 @@ enum Harness {
             "currentExecution": execution(consumerVisible ? [consumerID] : []),
             "shownExecution": execution([consumerID]),
             "hiddenExecution": execution([]),
-            "preparationOrder": plan.resolvedMaterialPreparationOrder(
-                authoredLayerIDs: [consumerID, providerID] + children.map(\.id)
-            ) ?? [],
+            "preparationOrder": plan.sourcePreparationPlan(authoredLayerIDs: order,
+                availableExecutionLayerIDs: available, visibleRootLayerIDs: [consumerID],
+                activeStaticModelConsumerLayerIDs: [], sourceAfterLayerIDByLayerID: [:])?.preparationSchedule()
+                .preparationLayerIDs ?? [-1],
         ]
     }
 
@@ -228,7 +230,7 @@ class SceneHiddenSolidProviderTests(unittest.TestCase):
         self.assertEqual(result["effectConsumers"], [52])
         self.assertTrue(result["blocksRawProvider"])
         self.assertFalse(result["forward"])
-        self.assertEqual(result["preparationOrder"], [41, 52] + result["childIDs"])
+        self.assertEqual(result["preparationOrder"], [41, 52])
 
     def test_ordinary_consumers_share_the_same_admitted_graph_carrier(self) -> None:
         for name in ("image", "text", "solid", "puppetChildren", "assetSlots", "independentEffect"):

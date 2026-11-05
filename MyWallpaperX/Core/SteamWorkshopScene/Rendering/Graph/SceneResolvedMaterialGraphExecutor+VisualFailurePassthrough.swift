@@ -27,10 +27,8 @@ extension SceneResolvedMaterialGraphExecutor {
         let isActivation: Bool
         switch passthrough {
         case let .activation(reason, bypassProven):
-            guard bypassProven || activationBypassIsProvable(
-                stageCapability: stageCapability,
-                pairStep: pairStep, snapshot: snapshot
-            ) else { return .graphStructureRejected }
+            guard bypassProven || stageCapability.supportsEffectEntryPassthrough
+            else { return .graphStructureRejected }
             reasonCode = reason
             boundedDetail = nil
             rejection = .graphStructureRejected
@@ -42,11 +40,7 @@ extension SceneResolvedMaterialGraphExecutor {
             isActivation = false
         }
         if !isActivation {
-            guard visualFailureTopologyIsSupported(
-                stageCapability: stageCapability,
-                pairStep: pairStep,
-                snapshot: snapshot
-            ) else { return rejection }
+            guard stageCapability.supportsEffectEntryPassthrough else { return rejection }
         }
         let failure = prepareStagePassthrough(
             pairStep: pairStep,
@@ -77,20 +71,6 @@ extension SceneResolvedMaterialGraphExecutor {
 #endif
         }
         return nil
-    }
-
-    /// The typed activation decision has already selected inactivity. The
-    /// prepared topology owns static safety; only the current pair can differ.
-    func activationBypassIsProvable(
-        stageCapability: SceneResolvedMaterialExecutionCapabilityCatalog.StageCapability,
-        pairStep: Pair.EffectStep,
-        snapshot: VisualFailureSnapshot
-    ) -> Bool {
-        visualFailureTopologyIsSupported(
-            stageCapability: stageCapability,
-            pairStep: pairStep,
-            snapshot: snapshot
-        )
     }
 
     private func prepareStagePassthrough(
@@ -143,15 +123,6 @@ extension SceneResolvedMaterialGraphExecutor {
         return nil
     }
 
-    private func visualFailureTopologyIsSupported(
-        stageCapability: SceneResolvedMaterialExecutionCapabilityCatalog.StageCapability,
-        pairStep: Pair.EffectStep,
-        snapshot: VisualFailureSnapshot
-    ) -> Bool {
-        (stageCapability.passthroughTopologies.contains(.dependencyStage)
-            || stageCapability.passthroughTopologies.contains(.preEncodeGraph))
-            && pairStep.inputMember == snapshot.pair.member
-    }
 #if DEBUG
     private func recordEffectLocalFramePreparationFallback(
         reasonCode: String,

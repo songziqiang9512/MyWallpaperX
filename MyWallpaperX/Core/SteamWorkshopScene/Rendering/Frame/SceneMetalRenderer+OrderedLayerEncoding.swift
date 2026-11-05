@@ -10,6 +10,7 @@ extension SceneMetalRenderer {
         orderedLayers: [SceneRenderDescriptor.Layer],
         initiallyStopped: Bool,
         forwardGraphProviderLayerIDs: Set<Int>,
+        preparationSchedule: SceneDependencyRenderPlan.PreparationSchedule,
         frameVisibleLayerIDs: Set<Int>,
         activeStaticModelNamedAlbedoLayerIDs: Set<Int>,
         imageTextures: SceneBaseImageTextureSnapshot,
@@ -53,6 +54,7 @@ extension SceneMetalRenderer {
         var dynamicPassthroughLayerCount = 0
         var pointLitStaticModelLayerIDs: [Int] = []
 #endif
+        var graphProviderLayerIDs = forwardGraphProviderLayerIDs
         var stopsAfterClaimedFailure = initiallyStopped
         var lastLayerPass: SceneMainPassEncoder?
 #if DEBUG
@@ -96,22 +98,43 @@ extension SceneMetalRenderer {
             // composites. Only one render encoder may be open per command
             // buffer, so switching passes closes the previous layer's pass.
             let layerMainPass: SceneMainPassEncoder
+            let skipsGroupMember: Bool
             if let compositionGroupRuntime,
                let groupPass = compositionGroupRuntime.renderPass(
                    forLayerID: layer.id, beginsRendering: true
                ), groupPass !== mainPass {
                 layerMainPass = groupPass
-            } else if compositionGroupRuntime != nil,
-                      frameProjection.utilityExecution.memberRootsByLayerID[layer.id] != nil {
-                continue
+                skipsGroupMember = false
             } else {
                 layerMainPass = mainPass
+                skipsGroupMember = compositionGroupRuntime != nil
+                    && frameProjection.utilityExecution.memberRootsByLayerID[layer.id] != nil
             }
+            let providerIDs = preparationSchedule.providersBeforeLayerID[layer.id]
+            if skipsGroupMember && providerIDs == nil { continue }
             if layerMainPass !== lastLayerPass {
                 lastLayerPass?.closeForOffscreen()
             }
             lastLayerPass = layerMainPass
-            let reusesForwardOutput = forwardGraphProviderLayerIDs.contains(layer.id)
+            if let imagePipeline, let providerIDs {
+                guard let prepared = prepareDependencyProviders(
+                    providerLayerIDs: providerIDs, layersByID: frameProjection.layersByID,
+                    frameVisibleLayerIDs: frameVisibleLayerIDs, imageTextures: imageTextures,
+                    imagePipeline: imagePipeline, frameContext: frameContext,
+                    worldFramesByLayerID: frameWorldFrames, cameraFrame: cameraFrame,
+                    parallaxConfiguration: parallaxConfiguration, viewportSize: viewportSize,
+                    mainPass: layerMainPass, framePlans: resolvedMaterialFrameTargetPlans,
+                    commandBuffer: commandBuffer, executionTrace: effectExecutionTrace
+                ) else {
+                    stopsAfterClaimedFailure = true
+                    break frameLayers
+                }
+                graphProviderLayerIDs.formUnion(prepared)
+            }
+            if skipsGroupMember { continue }
+            let reusesForwardOutput = graphProviderLayerIDs.contains(layer.id)
+            if !reusesForwardOutput, !frameVisibleLayerIDs.contains(layer.id),
+               preparationSchedule.scheduledGraphProviderLayerIDs.contains(layer.id) { continue }
             if reusesForwardOutput && !frameVisibleLayerIDs.contains(layer.id) { continue }
             let baseSelection: SceneBaseMaterialTextureSelection
             switch layer.contentKind {

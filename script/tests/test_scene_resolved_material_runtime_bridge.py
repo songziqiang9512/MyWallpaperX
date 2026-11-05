@@ -115,6 +115,8 @@ RESOURCE_PHASE_UNAVAILABLE_HANDLE_SUPPORT = RESOURCE_PHASE_UNAVAILABLE_SUPPORT.s
     "// COORDINATOR_RESOURCE_PHASE_UNAVAILABLE", 1
 )[0]
 SUBMISSION_SWIFT_SOURCES = [
+    SCENE_ROOT / "Systems/Properties/SceneDynamicSnapshot.swift",
+    SCENE_ROOT / "Rendering/Graph/SceneResolvedMaterialStageActivation.swift",
     SCENE_ROOT / "Diagnostics/SceneEffectExecutionFrameTrace.swift",
     SCENE_ROOT / "Diagnostics/SceneEffectExecutionTelemetry.swift",
     SCENE_ROOT / "Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator+SceneColor.swift",

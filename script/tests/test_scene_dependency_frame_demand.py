@@ -1,4 +1,4 @@
-"""One runtime demand memo retains local deletion fallback and healthy demand."""
+"""The real schedule memo keeps source timing and current demand together."""
 from pathlib import Path
 import json
 import shutil
@@ -9,16 +9,8 @@ import unittest
 from . import test_scene_dependency_graph_output_runtime as support
 
 
-# Reuse the existing runtime scaffold. Only the plan projection is instrumented;
-# the production owner and its memo are compiled unchanged, without telemetry.
-SCAFFOLD = support.GEOMETRY_HARNESS_SOURCE.split("@main", 1)[0].replace(
-    "extension SceneDependencyRenderPlan {",
-    "extension SceneDependencyRenderPlan {\n    static var demandProjectionCount = 0;", 1
-).replace(
-    "        var reachable = visibleRootLayerIDs.intersection(",
-    "        Self.demandProjectionCount += 1\n"
-    "        var reachable = visibleRootLayerIDs.intersection(", 1
-)
+# The shared scaffold includes the production Plan projections and schedule.
+SCAFFOLD = support.GEOMETRY_HARNESS_SOURCE.split("@main", 1)[0]
 
 HARNESS = r'''
 @main enum Harness {
@@ -45,17 +37,57 @@ HARNESS = r'''
             staticModelConsumerProviders: [77: 66]),
             visibleLayerIDs: visible, executableUtilityConsumerLayerIDs: [], device: device)
         var rows: [String: [String: Any]] = [:]
-        func query(_ label: String, roots: Set<Int>, liveIDs: Set<Int>, graph: Set<Int>,
-                   models: Set<Int> = [], repetitions: Int = 1) {
-            var demand: SceneDependencyFrameRuntime.ResolvedMaterialFrameDemand!
+        var sourceProjections = 0
+        let order = [40, 44, 55, 22, 11, 12, 66, 77]
+        @discardableResult func query(_ label: String, roots: Set<Int>, liveIDs: Set<Int>, graph: Set<Int>,
+                   models: Set<Int> = [], revision: UInt64 = 0,
+                   sources: [Int: Int] = [:], excluded: [Int: Set<SceneEffectPassSlot>] = [:],
+                   repetitions: Int = 1) -> SceneDependencyRenderPlan.SourcePreparationPlan {
+            var schedule: SceneDependencyRenderPlan.PreparationSchedule!
+            var sourcePlan: SceneDependencyRenderPlan.SourcePreparationPlan!
             for _ in 0..<repetitions {
-                demand = runtime.resolvedMaterialFrameDemand(visibleRootLayerIDs: roots,
-                    availableExecutionLayerIDs: graph, liveLayerIDs: liveIDs,
-                    activeStaticModelConsumerLayerIDs: models)
+                sourcePlan = runtime.sourcePreparationPlan(
+                    authoredLayerIDs: order.filter { liveIDs.contains($0) },
+                    availableExecutionLayerIDs: graph.intersection(liveIDs),
+                    visibleRootLayerIDs: roots, activeStaticModelConsumerLayerIDs: models,
+                    topologyRevision: revision, sourceAfterLayerIDByLayerID: {
+                        sourceProjections += 1
+                        return sources
+                    })
+                schedule = sourcePlan.flatMap {
+                    runtime.preparationSchedule(sourcePlan: $0, excludingSlotsByConsumerLayerID: excluded)
+                }
             }
-            rows[label] = ["active": demand.activeExecutionLayerIDs.sorted(),
-                "projections": SceneDependencyRenderPlan.demandProjectionCount]
+            guard let schedule else { fatalError("schedule unavailable: \(label)") }
+            rows[label] = ["active": schedule.preparationLayerIDs.sorted(),
+                "projections": sourceProjections,
+                "preparation": schedule.preparationLayerIDs,
+                "prepass": schedule.prepassProviderLayerIDs,
+                "before": Dictionary(uniqueKeysWithValues:
+                    schedule.providersBeforeLayerID.map { (String($0.key), $0.value) }),
+                "scheduled": schedule.scheduledGraphProviderLayerIDs.sorted()]
+            return sourcePlan
         }
+        let registry = SceneFrameTextureRegistry(frameEpoch: 1)
+        let source = texture(device, label: "unpublished-provider-source")
+        let sourceCandidate = SceneTextureCandidate(texture: source, purpose: .premultipliedColor,
+            content: .color(.resolved(.premultipliedAlpha)), sampling: .linearClamp,
+            uvTransform: .identity)
+        var reservationFailure: String?
+        guard runtime.reserveEffectInput(for: binding(55, 11),
+            providerLayer: .init(id: 11, contentKind: "image", utilityLayer: nil,
+                alpha: 1, colorRGB: [1, 1, 1]),
+            providerTexture: source, providerCandidate: sourceCandidate, layerMVP: matrix_identity_float4x4,
+            viewportSize: CGSize(width: 2, height: 2), preparedOutputExtent: (2, 2),
+            frameEpoch: 1, failureReason: &reservationFailure) != nil else {
+            fatalError("reservation unavailable: \(reservationFailure ?? "unknown")")
+        }
+        func namedSourceUnavailable() -> Bool {
+            if case .unavailable = runtime.resolvedMaterialEffectInputResolution(
+                for: 55, textureRegistry: registry) { return true }
+            return false
+        }
+        let missingBefore = namedSourceUnavailable()
         query("initial", roots: visible, liveIDs: live, graph: available)
         query("stable", roots: visible, liveIDs: live, graph: available, repetitions: 64)
         let deletedStatic = live.subtracting([12])
@@ -76,6 +108,43 @@ HARNESS = r'''
         query("modelGraphUnavailable", roots: [77, 40], liveIDs: live,
               graph: available.subtracting([66]), models: [77])
         query("modelGraphRestored", roots: [77, 40], liveIDs: live, graph: available, models: [77])
+        query("prefixVisible", roots: visible.union([22]), liveIDs: live, graph: available,
+              revision: 1, sources: [12: 12])
+        let prefixPlan = query("prefixHidden", roots: visible, liveIDs: live, graph: available,
+              revision: 1, sources: [12: 12])
+        query("prefixHiddenStable", roots: visible, liveIDs: live, graph: available,
+              revision: 1, sources: [12: 12], repetitions: 64)
+        let inactivePlan = query("prefixInactive", roots: visible, liveIDs: live, graph: available,
+              revision: 1, sources: [12: 12], excluded: [22: [binding(22, 12).slot]])
+        let activeAgain = query("prefixReactivated", roots: visible, liveIDs: live, graph: available,
+              revision: 1, sources: [12: 12])
+        let wrongSlots: [(String, SceneEffectPassSlot)] = [
+            ("wrongExcludedSlot", .init(effectID: "22-12", passIndex: 0, slotIndex: 3)),
+            ("wrongExcludedPass", .init(effectID: "22-12", passIndex: 1, slotIndex: 1)),
+            ("wrongExcludedEffect", .init(effectID: "other", passIndex: 0, slotIndex: 1))]
+        for (label, slot) in wrongSlots {
+            query(label, roots: visible, liveIDs: live, graph: available,
+                  revision: 1, sources: [12: 12], excluded: [22: [slot]])
+        }
+        rows["sameSourcePlan"] = ["inactive": prefixPlan === inactivePlan,
+            "reactivated": prefixPlan === activeAgain]
+        query("sourceRevised", roots: visible, liveIDs: live, graph: available, revision: 2)
+        rows["actualMissing"] = ["before": missingBefore, "after": namedSourceUnavailable()]
+        let prefixModelRuntime = SceneDependencyFrameRuntime(descriptor: .init(
+            layers: [77, 12, 22, 88].map { .init(id: $0, contentKind: "image", utilityLayer: nil,
+                alpha: 1, colorRGB: [1, 1, 1]) },
+            bindings: [22: binding(22, 12), 88: binding(88, 22)],
+            graphOutputProviderLayerIDs: [22], staticModelConsumerProviders: [77: 22]),
+            visibleLayerIDs: [77, 88], executableUtilityConsumerLayerIDs: [], device: device)
+        let modelSourcePlan = prefixModelRuntime.sourcePreparationPlan(authoredLayerIDs: [77, 12, 22, 88],
+            availableExecutionLayerIDs: [22, 88], visibleRootLayerIDs: [77, 88],
+            activeStaticModelConsumerLayerIDs: [77], topologyRevision: 0,
+            sourceAfterLayerIDByLayerID: { [12: 12] })!
+        let prefixModel = prefixModelRuntime.preparationSchedule(sourcePlan: modelSourcePlan,
+            excludingSlotsByConsumerLayerID: [:])!
+        rows["modelPrefix"] = ["preparation": prefixModel.preparationLayerIDs,
+            "prepass": prefixModel.prepassProviderLayerIDs,
+            "scheduled": prefixModel.scheduledGraphProviderLayerIDs.sorted()]
         print(String(decoding: try JSONSerialization.data(withJSONObject: rows, options: [.sortedKeys]), as: UTF8.self))
     }
 }
@@ -111,7 +180,8 @@ class SceneDependencyFrameDemandTests(unittest.TestCase):
             raise unittest.SkipTest("Metal unavailable")
 
     def assert_row(self, name, active, projections):
-        self.assertEqual(self.rows[name], {"active": active, "projections": projections})
+        self.assertEqual(self.rows[name]["active"], active)
+        self.assertEqual(self.rows[name]["projections"], projections)
 
     def test_stable_and_deleted_provider_frames_reuse_one_memo(self):
         for name in ("initial", "stable"):
@@ -142,6 +212,29 @@ class SceneDependencyFrameDemandTests(unittest.TestCase):
         self.assert_row("modelProviderDeleted", [40], 11)
         self.assert_row("modelGraphUnavailable", [40], 12)
         self.assert_row("modelGraphRestored", [40, 66], 13)
+
+    def test_visibility_deadline_and_source_revision_are_memo_inputs(self):
+        self.assertIn(22, self.rows["prefixVisible"]["active"])
+        self.assertEqual(self.rows["prefixVisible"]["projections"], 14)
+        for name in ("prefixHidden", "prefixHiddenStable"):
+            self.assertNotIn(22, self.rows[name]["active"])
+            self.assertEqual(self.rows[name]["projections"], 15)
+        self.assert_row("sourceRevised", [11, 22, 40, 44, 55], 16)
+
+    def test_schedule_progress_does_not_publish_an_absent_resource(self):
+        self.assertEqual(self.rows["actualMissing"], {"before": True, "after": True})
+
+    def test_exact_inactive_slot_updates_cuts_without_rebuilding_source_plan(self):
+        self.assert_row("prefixInactive", [11, 22, 40, 44, 55], 15)
+        self.assertEqual(self.rows["prefixInactive"]["prepass"], [11, 22])
+        for name in ("prefixReactivated", "wrongExcludedSlot", "wrongExcludedPass", "wrongExcludedEffect"):
+            self.assertNotIn(22, self.rows[name]["active"])
+            self.assertEqual(self.rows[name]["projections"], 15)
+        self.assertEqual(self.rows["sameSourcePlan"], {"inactive": True, "reactivated": True})
+
+    def test_unavailable_shadow_supply_does_not_claim_later_prefix_graph(self):
+        self.assertEqual(self.rows["modelPrefix"], {
+            "preparation": [22, 88], "prepass": [], "scheduled": []})
 
 
 if __name__ == "__main__":

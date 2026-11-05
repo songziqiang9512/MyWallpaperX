@@ -192,6 +192,7 @@ final class SceneMainPassEncoder {
 }
 
 final class SceneOffscreenTexturePool {
+    var maxDimension: Int { fatalError("GPU allocation is outside dependency planning") }
     let sceneColorResetEpoch = UUID()
     struct Target { let texture: MTLTexture; let pin: SceneGraphRenderTargetResidencyPin }
     func compositionGroupTarget(layerID: Int, width: Int, height: Int, commandBuffer: MTLCommandBuffer) -> Target? {

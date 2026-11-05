@@ -86,7 +86,7 @@ def fixture_entries(*, three_candidates=False):
     return project, entries
 
 
-def named_vector_entries(control, *, utility_provider=None, forward_nested=False, visible_upstream=False):
+def named_vector_entries(control, *, utility_provider=None, forward_nested=False, visible_upstream=False, source_timing=None, provider_activation=False):
     """Owned inputs; every consumer samples actual named publications."""
     renamed = control == "swapRename"
     shift, prefix, weight = (1000, "retitled_vector", "u_UnseenRatio") if renamed else (0, "own_vector", "g_OwnWeight")
@@ -174,7 +174,44 @@ def named_vector_entries(control, *, utility_provider=None, forward_nested=False
         objects = [item for item in objects if item["id"] != pid]
         # C precedes P, which precedes its shared upstream; P has no authored
         # dependencies, so its two live sampler slots own the nested demand.
-        if visible_upstream:
+        if source_timing is not None:
+            pattern[0].update(image="models/util/composelayer.json", origin="104 72 0",
+                              copybackground=source_timing != "transparent-forward")
+            entries["models/util/composelayer.json"] = encoded({"width": 24, "height": 24, "autosize": False})
+            nested["effects"] = [effect("timing-provider", {2: pid, 5: pid},
+                f"vec4 firstUV=texSample2D(g_Texture2,vec2({left},0.5));"
+                f"vec4 secondUV=texSample2D(g_Texture5,vec2({right},0.5));"
+                f"vec4 value={weight}*firstUV+(1.0-{weight})*secondUV;"
+                "gl_FragColor=vec4(value.a,value.r,value.b,1.0);")]
+            if provider_activation:
+                project["general"]["properties"]["timingActivation"] = {"type": "bool", "value": True}
+                activation = {"user": "timingActivation", "value": True}
+                nested["effects"][0]["visible"] = activation
+                nested["effects"].append(effect("timing-independent-suffix", {},
+                    "vec4 sampled=texSample2D(g_Texture0,v_TexCoord);"
+                    "gl_FragColor=vec4(vec3(40.0,100.0,160.0)/255.0,sampled.a);", reads_previous=True))
+                # This existing peer observes the Bool even while the cycle
+                # prevents P from preparing an active stage.
+                peer_effect = effect("timing-bool-peer", {},
+                    "gl_FragColor=texSample2D(g_Texture0,v_TexCoord);", reads_previous=True)
+                peer_effect["visible"] = activation
+                consumers[-1]["effects"] = [peer_effect]
+            opaque = {"id": 40 + shift, "name": f"{prefix} opaque prefix graph",
+                      "image": "models/util/solidlayer.json", "origin": "104 72 0", "size": "40 24",
+                      "color": "0.125490196 0.376470588 0.62745098",
+                      "effects": [effect("opaque-identity", {},
+                          "gl_FragColor=texSample2D(g_Texture0,v_TexCoord);", reads_previous=True)]}
+            cover = {"id": 41 + shift, "name": f"{prefix} later prefix cover",
+                     "image": "models/util/solidlayer.json", "origin": "104 72 0",
+                     "size": "32 24", "color": "0.878431373 0.250980392 0.062745098"}
+            base = objects + consumers[:2] + [opaque]
+            timed = (pattern + [cover, consumers[2], nested] if source_timing == "prefix-before"
+                     else [cover, consumers[2]] + pattern + [nested])
+            if source_timing == "early-late":
+                timed.append(dict(consumers[2], id=26 + shift, name=f"{prefix} late named consumer",
+                                  origin="104 92 0"))
+            scene["objects"] = base + timed + consumers[3:]
+        elif visible_upstream:
             pattern[0].update(visible=True, effects=[effect("upstream-gbra", {},
                 "vec4 sampled = texSample2D(g_Texture0,v_TexCoord);gl_FragColor = sampled.gbra;",
                 reads_previous=True)])
@@ -203,7 +240,7 @@ def named_vector_entries(control, *, utility_provider=None, forward_nested=False
     return project, entries
 
 
-def named_vector_oracle(control, shown, *, utility_provider=None, forward_nested=False, visible_upstream=False):
+def named_vector_oracle(control, shown, *, utility_provider=None, forward_nested=False, visible_upstream=False, source_timing=None, provider_activation_active=None):
     mixed = {"both": (148, 64, 28), "A0": (4, 40, 16), "B0": (144, 24, 12),
              "swapRename": (60, 128, 52), "missing": (148, 64, 28)}[control]
     a = (0, 0, 0) if control == "A0" else (192, 32, 16)
@@ -231,6 +268,15 @@ def named_vector_oracle(control, shown, *, utility_provider=None, forward_nested
                                    "expectedRGB": (0, 0, 0) if control == "A0" else (32, 16, 192)},
                       upstreamRight={"canvasRect": (216, 64, 218, 80), "expectedRGB": (160, 64, 16)},
                       upstreamCovered={"canvasRect": (224, 64, 228, 80), "expectedRGB": (255, 255, 0)})
+    if source_timing is not None:
+        oracle["sameProvider"]["expectedRGB"] = {"prefix-before": (255, 16, 160),
+            "prefix-cycle": (24, 20, 56), "transparent-forward": (0, 0, 0), "early-late": (24, 20, 56)}[source_timing]
+        oracle.update(prefixWing={"canvasRect": (170, 104, 174, 120), "expectedRGB": (32, 96, 160)},
+                      coverWing={"canvasRect": (178, 104, 182, 120), "expectedRGB": (224, 64, 16)})
+        if source_timing == "early-late":
+            oracle["hiddenPattern"] = {"canvasRect": (200, 64, 216, 80), "expectedRGB": (255, 12, 56)}
+        if provider_activation_active is False:
+            oracle["sameProvider"]["expectedRGB"] = (40, 50, 160)
     return oracle
 
 
@@ -340,7 +386,8 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
 
     def run_case(self, *, three_candidates=False, cache_condition="normal",
                  named_control=None, initially_shown=True, live_shown=None, utility_provider=None,
-                 source_control=None, forward_nested=False, visible_upstream=False):
+                 source_control=None, forward_nested=False, visible_upstream=False, source_timing=None,
+                 provider_activation_sequence=None):
         parent = os.environ.get("MWX_SCENE_INTEGRATION_EVIDENCE")
         if parent:
             Path(parent).mkdir(parents=True, exist_ok=True)
@@ -355,7 +402,9 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
             project, entries, source_protocol = independent_source_entries(source_control)
         else:
             project, entries = (named_vector_entries(named_control, utility_provider=utility_provider,
-                                forward_nested=forward_nested, visible_upstream=visible_upstream) if named_control is not None
+                                forward_nested=forward_nested, visible_upstream=visible_upstream,
+                                source_timing=source_timing,
+                                provider_activation=provider_activation_sequence is not None) if named_control is not None
                                 else fixture_entries(three_candidates=three_candidates))
         (content / "project.json").write_bytes(encoded(project))
         (content / "scene.pkg").write_bytes(make_package(list(entries.items())))
@@ -387,10 +436,15 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
                 "channelTolerance": 2, "minimumCorrectFraction": .99,
                 "forwardNested": forward_nested,
                 "visibleUpstream": visible_upstream,
+                "sourceTiming": source_timing,
                 "oracle": named_vector_oracle(named_control, initially_shown,
-                    utility_provider=utility_provider, forward_nested=forward_nested, visible_upstream=visible_upstream),
+                    utility_provider=utility_provider, forward_nested=forward_nested,
+                    visible_upstream=visible_upstream, source_timing=source_timing),
                 "afterOracle": named_vector_oracle(named_control, later_shown,
-                    utility_provider=utility_provider, forward_nested=forward_nested, visible_upstream=visible_upstream),
+                    utility_provider=utility_provider, forward_nested=forward_nested,
+                    visible_upstream=visible_upstream, source_timing=source_timing,
+                    provider_activation_active=provider_activation_sequence[-1]
+                        if provider_activation_sequence is not None else None),
                 "colorBoundary": "owned opaque color inputs; actual named samples, no output color substitution"}
             if forward_nested:
                 scene = json.loads(entries["scene.json"])
@@ -410,15 +464,38 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
                         upstreamEffect="sampled.gbra", upstreamSize=(24, 24),
                         underlayRGB=(0, 255, 255), occluderRGB=(255, 255, 0),
                         beforeVisibleMainRGB=(0, 255, 255))
+                if source_timing is not None:
+                    chain = protocol["nestedChain"]
+                    chain.pop("beforeGateConsumerRGB")
+                    chain.update(sourceTiming=source_timing, opaque=40 + (1000 if named_control == "swapRename" else 0),
+                        cover=41 + (1000 if named_control == "swapRename" else 0),
+                        lateConsumer=26 + (1000 if named_control == "swapRename" else 0)
+                            if source_timing == "early-late" else None,
+                        copyBackground=source_timing != "transparent-forward",
+                        opaqueRGB=(32, 96, 160), coverRGB=(224, 64, 16),
+                        UHasEffects=False, UHasChildren=False, PHasAuthoredDependencies=False,
+                        emptyOpaquePrefixRGB=(255, 0, 0), defaultWhiteRGB=(255, 128, 255))
+                    if provider_activation_sequence is not None:
+                        chain["activation"] = {"key": "timingActivation", "authored": True,
+                            "sequence": provider_activation_sequence, "peer": 33,
+                            "activeConsumerRGB": (24, 20, 56), "inactiveConsumerRGB": (40, 50, 160),
+                            "providerSuffixRGBA": (40, 100, 160, 255),
+                            "frameClockEvidence": {"layerIDs": [24], "sceneTimeWindow": [0, 10],
+                                                   "interval": .3, "maxSamples": 32}}
         if source_control is not None:
             protocol = source_protocol
         properties = ({} if source_control is not None else
                       {"showVector": initially_shown} if named_control is not None else {"mode": "off"})
         command = [str(self.exe), "--mwx-debug-scene-root", str(content),
-                   "--mwx-debug-scene-duration", "6", "--mwx-debug-scene-evidence-dir", str(evidence),
+                   "--mwx-debug-scene-duration", "9" if provider_activation_sequence is not None else "6",
+                   "--mwx-debug-scene-evidence-dir", str(evidence),
                    "--mwx-debug-scene-properties-json", json.dumps(properties)]
         if named_control is not None and live_shown is not None:
             command += ["--mwx-debug-scene-live-properties-json", json.dumps({"showVector": live_shown})]
+        if provider_activation_sequence is not None:
+            command += ["--mwx-debug-scene-after-snapshot-delay", "7",
+                "--mwx-debug-scene-live-property-sequence-json",
+                json.dumps([{"timingActivation": value} for value in provider_activation_sequence])]
         before_inputs = file_hashes(tuple(content.iterdir()))
         identity = {"command": command, "appSHA256": self.app_identity,
                     "inputSHA256": before_inputs,
@@ -438,6 +515,9 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
             self.assertFalse(os.access(cache_root, os.W_OK), "readonly cache fixture is still writable")
         env.update(HOME=str(home), CFFIXED_USER_HOME=str(home), MWX_SCENE_DEBUG_SURFACE_COUNT="1",
                    MWX_SCENE_GENERIC_SHADER_CACHE=str(cache_root))
+        if provider_activation_sequence is not None:
+            env["MYWALLPAPERX_SCENE_DEBUG_TIMELINE_EVIDENCE"] = json.dumps(
+                protocol["nestedChain"]["activation"]["frameClockEvidence"])
         with (root / "app.log").open("w") as output:
             result = subprocess.run(command, cwd=REPO, env=env, stdout=output,
                                     stderr=subprocess.STDOUT, timeout=90)
@@ -502,6 +582,9 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
             return
         if named_control is not None:
             shift = 1000 if named_control == "swapRename" else 0
+            if source_timing is not None:
+                self.assert_source_timing_capture_chain(log, captures, protocol)
+                return
             if forward_nested:
                 self.assert_nested_capture_chain(log, captures, protocol)
                 return
@@ -528,6 +611,161 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
             self.assertIn(binding_event, log)
             self.assertRegex(log + preview, r"generic shader execution [^\n]*layer=22 effect=0 ")
 
+    def selected_capture_event(self, capture, log, observations):
+        reason = "ready" if "ready" in capture.name else "after"
+        request = re.search(rf"phase=snapshot reason={reason} request=(\d+) source=metal path={re.escape(str(capture))}", log)
+        self.assertIsNotNone(request)
+        encoding = re.search(rf"phase=snapshot-encoded request={request[1]} commandBufferToken=(\d+) textureToken=(\d+) width=(\d+) height=(\d+)", log)
+        self.assertIsNotNone(encoding)
+        receipt = terminal_composition_snapshot({"status": "captured", "request_id": int(request[1]),
+            "command_buffer_token": encoding[1], "texture_token": encoding[2],
+            "source_width": int(encoding[3]), "source_height": int(encoding[4])}, observations)
+        self.assertTrue(receipt["composition_receipt_matched"], receipt)
+        event = next(e for e in observations["events"] if e.get("captureRequestID") == int(request[1])
+                     and e.get("commandBufferToken") == encoding[1])
+        self.assertEqual(event["truncatedRows"], 0)
+        return event
+
+    def assert_source_timing_capture_chain(self, log, captures, protocol):
+        chain = protocol["nestedChain"]
+        mode = chain["sourceTiming"]
+        c, p, u, o, m = (chain[key] for key in ("consumer", "provider", "upstream", "opaque", "cover"))
+        late = chain["lateConsumer"]
+        activation = chain.get("activation")
+        observations = structured_runtime_observations(log, "MWX SCENE COMPOSITION OBSERVATION: ")
+        self.assertEqual(observations["parse_errors"], 0)
+        if activation:
+            runtime = json.loads((captures[0].parent / "scene-runtime-evidence.json").read_text())["runtimeInput"]
+            descriptor = next(r for r in runtime["renderDescriptor"]["layers"] if r["id"] == p)
+            self.assertEqual([e["visible"] for e in descriptor["effects"]], [True, True])
+            self.assertEqual(descriptor["initialConfiguration"]["effects"][0]["visible"],
+                             {"user": activation["key"], "value": True})
+            prepared = next(r for r in runtime["authoredEffectRenderPlans"] if r["layerID"] == p)
+            self.assertEqual([n["effect"]["effectIndex"] for n in prepared["nodes"]], [0, 1])
+            program = runtime["propertyBindingProgram"]
+            targets = [i["target"] for i in program["instructions"] if i["propertyKey"] == activation["key"]]
+            self.assertCountEqual(targets, [{"effectVisibility": {"layerID": layer, "effectIndex": 0}}
+                                             for layer in (p, activation["peer"])])
+            self.assertNotIn(activation["key"], program["rebuildRequiredPropertyKeys"])
+            self.assertEqual(runtime["effectivePropertyValues"][activation["key"]], {"kind": "bool", "bool": True})
+            steps = re.findall(r"phase=live-property-sequence-step index=(\d+) accepted=(true|false)", log)
+            self.assertEqual(steps, [(str(i), "true") for i in range(len(activation["sequence"]))])
+            updates = re.findall(r"phase=live-property-update accepted=true surfacesBefore=(\d+) surfacesAfter=(\d+) "
+                                 r"windowsBefore=(\S+) windowsAfter=(\S+)", log)
+            self.assertEqual(len(updates), len(steps))
+            self.assertTrue(all(a == b == "1" and c == d for a, b, c, d in updates))
+            prefix = "MWX DEBUG SCENE: phase=timeline-frame-input json="
+            clocks = [json.loads(line.split(prefix, 1)[1]) for line in log.splitlines() if prefix in line]
+            publications = [dict(re.findall(r"(\w+)=([^\s]+)", line)) for line in log.splitlines()
+                if "MWX typed input publication: channel=user-property consumer=effect-activation " in line]
+            publications = [r for r in publications if r.get("property") == activation["key"]]
+            (captures[0].parent.parent / "source-timing-activation.json").write_bytes(encoded({
+                "preparedEffectIndices": [0, 1], "targets": targets, "acceptedSteps": steps,
+                "updates": updates, "publications": publications,
+                "publicationCeiling": "deduplicated per prepared Bool value/decision, not a new event each captured frame"}))
+        receipts = []
+        for capture in captures:
+            event = self.selected_capture_event(capture, log, observations)
+            unavailable_early = mode in ("prefix-cycle", "early-late") and not (activation and "after" in capture.name)
+            clock_bracket = None
+            if activation:
+                frames = [r for r in clocks if r["kind"] == "frame" and r["stream"] == event["displayID"]]
+                lower = max((r for r in frames if r["frame"] <= event["frameIndex"]), key=lambda r: r["frame"])
+                upper = min((r for r in frames if r["frame"] >= event["frameIndex"]), key=lambda r: r["frame"])
+                self.assertTrue(all(r["observationComplete"] and r["frame"] == r["snapshotFrame"] for r in (lower, upper)))
+                self.assertLessEqual(upper["sceneTime"] - lower["sceneTime"], .4)
+                self.assertEqual(lower["generation"], upper["generation"])
+                after = "after" in capture.name
+                self.assertEqual(lower["generation"], 4 if after else 1)
+                value, decision = ("false", "inactive") if after else ("true", "active")
+                for layer in ((p, activation["peer"]) if after else (activation["peer"],)):
+                    matching = [r for r in publications if (r.get("layer"), r.get("effect"), r.get("type"),
+                        r.get("value"), r.get("decision")) == (str(layer), "0", "bool", value, decision)
+                        and int(r["frame"]) <= event["frameIndex"] and int(r["generation"]) <= lower["generation"]]
+                    self.assertTrue(matching, {"layer": layer, "capture": capture.name, "publications": publications})
+                clock_bracket = [{k: r[k] for k in ("frame", "generation", "sceneTime", "stream")} for r in (lower, upper)]
+            rows = event["rows"]
+            material = [r for r in rows if r["kind"] in ("material", "terminal-material-replay")
+                        and r.get("outcome") == "draw-encoded"]
+            o_draws = [r for r in material if r.get("layerID") == o]
+            self.assertEqual(len(o_draws), 1, o_draws)
+            for layer in (o, c):
+                self.assertEqual(sum(r["kind"] == "graph-transaction" and r.get("layerID") == layer
+                                     for r in rows), 1)
+            self.assertFalse(any(r.get("layerID") == u and r["kind"] in
+                ("graph-transaction", "material", "terminal-material-replay", "ordinary", "group") for r in rows))
+            c_suffix = [r for r in material if r.get("layerID") == c and r.get("effectIndex") == 1]
+            self.assertEqual(len(c_suffix), 1, c_suffix)
+            c_first = [r for r in material if r.get("layerID") == c and r.get("effectIndex") == 0]
+            self.assertEqual(len(c_first), 0 if unavailable_early else 1, c_first)
+            c_main = [r for r in rows if r["kind"] == "tail-consume" and r.get("layerID") == c
+                      and r.get("access") != "named-publication-only" and r.get("outcome") == "terminal-consumed"]
+            self.assertEqual(len(c_main), 1, c_main)
+            cover = [r for r in rows if r["kind"] == "ordinary" and r.get("layerID") == m
+                     and r.get("outcome") == "draw-encoded"]
+            self.assertEqual(len(cover), 1, cover)
+            self.assertLess(rows.index(o_draws[0]), rows.index(cover[0]))
+            self.assertLess(rows.index(cover[0]), rows.index(c_main[0]))
+            p_reads = [r for r in material if r.get("layerID") == p]
+            p_count = sum(r["kind"] == "graph-transaction" and r.get("layerID") == p for r in rows)
+            self.assertLessEqual(p_count, 1)
+            if activation:
+                if unavailable_early:
+                    if p_reads:
+                        self.assertLess(rows.index(c_main[0]), rows.index(p_reads[0]))
+                else:
+                    self.assertEqual(p_count, 1)
+                    self.assertEqual([(r["effectIndex"], r["slot"]) for r in p_reads], [(1, 0)])
+                    tail = [r for r in rows if r["kind"] == "tail-consume" and r.get("layerID") == p]
+                    self.assertEqual(len(tail), 1, tail)
+                    self.assertEqual(tail[0]["access"], "named-publication-only")
+                    self.assertEqual(tail[0]["outcome"], "terminal-consumed")
+                    self.assertEqual(p_reads[0]["target"]["textureToken"], tail[0]["source"]["textureToken"])
+                    # Named publication copies out before this graph pair is reused.
+                    self.assertNotEqual(tail[0]["source"]["textureToken"], c_first[0]["source"]["textureToken"])
+                    self.assertEqual(c_first[0]["slot"], 2)
+                    self.assertEqual(c_first[0]["source"]["provenance"], "authored.material")
+                    self.assertIsInstance(c_first[0]["source"]["generation"], int)
+                    self.assertEqual(c_first[0]["source"]["generation"], c_first[0]["source"]["contentGeneration"])
+                    self.assertLess(rows.index(p_reads[0]), rows.index(tail[0]))
+                    self.assertLess(rows.index(tail[0]), rows.index(c_first[0]))
+            elif mode != "prefix-cycle" or p_reads:
+                self.assertEqual(p_count, 1)
+                self.assertEqual(len(p_reads), 2, p_reads)
+                self.assertEqual({r["slot"] for r in p_reads}, {2, 5})
+                for field in ("textureToken", "generation", "contentGeneration"):
+                    self.assertEqual(p_reads[0]["source"][field], p_reads[1]["source"][field])
+                if unavailable_early:
+                    self.assertLess(rows.index(c_main[0]), rows.index(p_reads[0]))
+                elif mode == "prefix-before":
+                    self.assertLess(rows.index(o_draws[0]), rows.index(p_reads[0]))
+                    self.assertLess(rows.index(p_reads[0]), rows.index(c_first[0]))
+            if late is not None:
+                late_reads = [r for r in material if r.get("layerID") == late]
+                self.assertEqual({r["effectIndex"] for r in late_reads}, {0, 1})
+                self.assertEqual(len(late_reads), 2, late_reads)
+                self.assertEqual(sum(r["kind"] == "graph-transaction" and r.get("layerID") == late for r in rows), 1)
+                self.assertLess(rows.index(p_reads[-1]), rows.index(late_reads[0]))
+            self.assertFalse(any(r["kind"] == "ordinary" and r.get("layerID") == p for r in rows))
+            receipts.append({"capture": capture.name, "frame": event["frameIndex"],
+                "request": event["captureRequestID"], "CB": event["commandBufferToken"],
+                "surface": event["surfaceIdentity"], "opaqueGraph": o_draws,
+                "providerReads": p_reads, "earlyFirstRead": c_first, "healthySuffix": c_suffix,
+                "activationClockBracket": clock_bracket})
+        (captures[0].parent.parent / "source-timing-chain.json").write_bytes(encoded(receipts))
+        if activation:
+            self.assertEqual(len({r["surface"] for r in receipts}), 1)
+        for outcome in (("failed", "encoded-output") if activation else
+                        ("failed" if unavailable_early else "encoded-output",)):
+            self.assertRegex(log, rf"axis=effect-cpu-invocation [^\n]*layer={c} effect=0 "
+                rf"[^\n]*backend=resolved-material-graph outcome={outcome} ")
+        if activation:
+            self.assertIn(f"phase=named-graph-output-publication layer={p} status=succeeded", log)
+            self.assertIn(f"phase=named-target-binding layer={c} status=succeeded", log)
+        if mode != "prefix-cycle":
+            self.assertIn(f"phase=named-target-capture layer={u} status=succeeded", log)
+            self.assertIn(f"phase=named-graph-output-publication layer={p} status=succeeded", log)
+
     def assert_nested_capture_chain(self, log, captures, protocol):
         chain = protocol["nestedChain"]
         consumer, provider, upstream = (chain[key] for key in ("consumer", "provider", "upstream"))
@@ -537,18 +775,7 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
         self.assertEqual(observations["parse_errors"], 0)
         receipts = []
         for capture in captures:
-            reason = "ready" if "ready" in capture.name else "after"
-            request = re.search(rf"phase=snapshot reason={reason} request=(\d+) source=metal path={re.escape(str(capture))}", log)
-            self.assertIsNotNone(request)
-            encoding = re.search(rf"phase=snapshot-encoded request={request[1]} commandBufferToken=(\d+) textureToken=(\d+) width=(\d+) height=(\d+)", log)
-            self.assertIsNotNone(encoding)
-            receipt = terminal_composition_snapshot({"status": "captured", "request_id": int(request[1]),
-                "command_buffer_token": encoding[1], "texture_token": encoding[2],
-                "source_width": int(encoding[3]), "source_height": int(encoding[4])}, observations)
-            self.assertTrue(receipt["composition_receipt_matched"], receipt)
-            event = next(e for e in observations["events"] if e.get("captureRequestID") == int(request[1])
-                         and e.get("commandBufferToken") == encoding[1])
-            self.assertEqual(event["truncatedRows"], 0)
+            event = self.selected_capture_event(capture, log, observations)
             rows = event["rows"]
             for layer in ((upstream, provider, consumer) if visible_upstream else (provider, consumer)):
                 self.assertEqual(sum(r["kind"] == "graph-transaction" and r.get("layerID") == layer
@@ -597,7 +824,7 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
                 authored_main = {"graphMaterial": u_material[0], "underlay": underlay,
                     "upstream": u_main, "occluder": occluder}
             receipts.append({"capture": capture.name, "frame": event["frameIndex"],
-                "request": int(request[1]), "commandBuffer": encoding[1], "surface": event["surfaceIdentity"],
+                "request": event["captureRequestID"], "commandBuffer": event["commandBufferToken"], "surface": event["surfaceIdentity"],
                 "providerAssociationLimit": "provider IDs from authored slots and publication logs; no typed per-slot provider ID",
                 "providerTail": publications[0],
                 "providerReads": p_reads, "consumerRead": c_reads[0], "authoredMain": authored_main})
@@ -645,6 +872,21 @@ class SceneMixedProviderABIIntegrationTests(unittest.TestCase):
         for control in ("A0", "swapRename"):
             with self.subTest(control=control):
                 self.run_case(named_control=control, forward_nested=True, visible_upstream=True)
+
+    def test_named_prefix_source_is_captured_before_later_cover_and_consumer(self):
+        self.run_case(named_control="both", forward_nested=True, source_timing="prefix-before")
+
+    def test_prefix_cycle_is_local_and_false_background_keeps_transparent_source(self):
+        for mode in ("prefix-cycle", "transparent-forward"):
+            with self.subTest(sourceTiming=mode):
+                self.run_case(named_control="both", forward_nested=True, source_timing=mode)
+
+    def test_early_consumer_stays_local_and_late_renamed_consumer_reads_correct_provider(self):
+        self.run_case(named_control="swapRename", forward_nested=True, source_timing="early-late")
+
+    def test_prefix_cycle_recomputes_cut_after_provider_activation_hot_updates(self):
+        self.run_case(named_control="both", forward_nested=True, source_timing="prefix-cycle",
+                      provider_activation_sequence=(False, True, False))
 
     def test_forward_nested_two_slot_inputs_contribute_and_missing_upstream_is_local(self):
         for control in ("A0", "B0", "missing"):

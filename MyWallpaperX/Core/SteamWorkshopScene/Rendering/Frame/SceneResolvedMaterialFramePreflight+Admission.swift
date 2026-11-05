@@ -35,7 +35,7 @@ extension SceneMetalRenderer {
         spriteAnimations: [Int: SceneSpriteAnimation],
         spriteAnimationPlaybackTimes: [Int: Float],
         frameVisibleLayerIDs: Set<Int>,
-        authoredLayerIDs: [Int],
+        sourcePlan: SceneDependencyRenderPlan.SourcePreparationPlan,
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil,
         specializedBaseTextureSamplings: [Int: SceneTextureSampling] = [:],
         imagePipeline: SceneImageLayerPipeline?,
@@ -54,7 +54,7 @@ extension SceneMetalRenderer {
         environmentSource: ((MTLCommandBuffer) -> SceneFrameTextureResource?)?,
         frameLightSnapshot: SceneLightSnapshot? = nil,
         compositionGroupRuntime: SceneCompositionGroupFrameRuntime? = nil,
-        preparationLayers: [SceneRenderDescriptor.Layer]?,
+        layersByID: [Int: SceneRenderDescriptor.Layer],
         liveLayerIDs: Set<Int>,
         utilityExecution: SceneUtilityLayerRuntimePlanner.Execution
     ) -> SceneMetalRenderer.ResolvedMaterialFrameAdmission {
@@ -71,7 +71,7 @@ extension SceneMetalRenderer {
             imagePipeline: imagePipeline,
             offscreenTexturePool: offscreenTexturePool,
             frameVisibleLayerIDs: frameVisibleLayerIDs,
-            authoredLayerIDs: authoredLayerIDs,
+            sourcePlan: sourcePlan,
             frameContext: frameContext,
             worldFramesByLayerID: worldFramesByLayerID,
             cameraFrame: cameraFrame,
@@ -82,11 +82,11 @@ extension SceneMetalRenderer {
             environmentSource: environmentSource,
             frameLightSnapshot: frameLightSnapshot,
             compositionGroupRuntime: compositionGroupRuntime,
-            preparationLayers: preparationLayers,
+            layersByID: layersByID,
             liveLayerIDs: liveLayerIDs,
             utilityExecution: utilityExecution
         ) {
-        case let .ready(plans, localFallbacks, preparationRequests):
+        case let .ready(plans, preparationSchedule, localFallbacks, preparationRequests):
             guard imageCompositor.installResolvedMaterialFrameLocalFallbacks(
                 localFallbacks
             ) else {
@@ -113,8 +113,8 @@ extension SceneMetalRenderer {
                 }
                 resourceBundle = bundle
             }
-            return .ready(plans: plans, preparationRequests: preparationRequests,
-                resourceBundle: resourceBundle)
+            return .ready(plans: plans, preparationSchedule: preparationSchedule,
+                preparationRequests: preparationRequests, resourceBundle: resourceBundle)
         case .deferred:
             _ = imageCompositor.deferResolvedMaterialFrame()
             _ = imageCompositor.endResolvedMaterialFrame(on: commandBuffer)

@@ -125,12 +125,12 @@
       "bytes": 21784
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 149,
-      "bytes": 23794
+      "lines": 162,
+      "bytes": 28092
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 83,
-      "bytes": 32465
+      "lines": 86,
+      "bytes": 34582
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 107,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 172,
-      "bytes": 31797
+      "bytes": 31728
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -458,29 +458,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "010d6acb9f76fb0e624727704f9b606ca8423a9b44a9eab177f97d2f2495d179",
-      "after": "34e29bdf1610b8294ce19735e64eeb2e7d9a2558504f2a736dca1bb55a7add84",
-      "owner": "Scene original forward graph output and frame target lifetime owners",
-      "reason": "Keep current authored-position output, content-lifetime and bounded source/failure contracts; record final signed-App pixels and actual protocol/GPU write-read coverage in their unique authority, and retain only unresolved source-order/multi-upstream gaps. No new cache or runtime owner.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#forward-graph-output-consumption"
+      "before": "34e29bdf1610b8294ce19735e64eeb2e7d9a2558504f2a736dca1bb55a7add84",
+      "after": "de19db6e16eb65b76b49002cb91f9009f5269305fbedbf7ac28707cf206c1766",
+      "owner": "scene-named-source-execution",
+      "reason": "Replace overlapping preparation/prepass assumptions with one cached source DAG, actual layer activation decisions and shared execution cuts; retain bounded exact prefix, early/late and live-update evidence with explicit remaining limits.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-source-execution-cuts"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "6715e3a071b674eb1ae7a46d01bc6d40e836ae032b3ce9aea53a3d3ae41ae1f6",
-      "after": "fdb0ccaab29d87e462bb567ebac8ae4a22bffa40baf10e4f453736707b8bd1f3",
-      "owner": "Scene original forward graph output and frame target lifetime owners",
-      "reason": "Keep current authored-position output, content-lifetime and bounded source/failure contracts; record final signed-App pixels and actual protocol/GPU write-read coverage in their unique authority, and retain only unresolved source-order/multi-upstream gaps. No new cache or runtime owner.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#forward-graph-output-consumption"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "b5aa07abdd2be86cb1515419100868ba6f41333630b5ebfb2aa7fe10dcf8ba52",
-      "after": "0560b773731d61b9e49da08f06c42848488ef6653292aa0d25564f11ab111e5e",
-      "owner": "Scene original forward graph output and frame target lifetime owners",
-      "reason": "Keep current authored-position output, content-lifetime and bounded source/failure contracts; record final signed-App pixels and actual protocol/GPU write-read coverage in their unique authority, and retain only unresolved source-order/multi-upstream gaps. No new cache or runtime owner.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#forward-graph-output-consumption"
+      "before": "fdb0ccaab29d87e462bb567ebac8ae4a22bffa40baf10e4f453736707b8bd1f3",
+      "after": "ebeddabdac1b71e8a7447345e067b1ba632b85bdaedbfaf138ebd54e10669d70",
+      "owner": "scene-named-source-execution",
+      "reason": "Replace overlapping preparation/prepass assumptions with one cached source DAG, actual layer activation decisions and shared execution cuts; retain bounded exact prefix, early/late and live-update evidence with explicit remaining limits.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#named-source-execution-cuts"
     }
   ]
 }

@@ -172,6 +172,7 @@ extension SceneMetalRenderer {
 
     enum ResolvedMaterialFrameAdmission {
         case ready(plans: [Int: SceneResolvedMaterialFrameTargetPlan],
+                   preparationSchedule: SceneDependencyRenderPlan.PreparationSchedule,
                    preparationRequests: [SceneResolvedMaterialRuntimeBridge.FramePreparationRequest],
                    resourceBundle: SceneResolvedMaterialFrameResourceBundle?)
         case deferred(reasonCode: String)

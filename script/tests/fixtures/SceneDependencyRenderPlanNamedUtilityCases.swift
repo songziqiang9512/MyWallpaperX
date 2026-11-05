@@ -385,9 +385,11 @@ extension Harness {
                 dependencyPlan: plan, resolvedMaterialLayerIDs: [])
             let noDemand: [String: Any] = [
                 "providers": unused.requiredProviderLayerIDs.sorted(),
-                "prepass": unused.forwardDependencyPreparationOrder(
+                "prepass": unused.sourcePreparationPlan(
                     authoredLayerIDs: descriptor.renderOrderLayerIDs,
-                    activeExecutionLayerIDs: [consumer]) ?? [-1],
+                    availableExecutionLayerIDs: [consumer], visibleRootLayerIDs: visible,
+                    activeStaticModelConsumerLayerIDs: [], sourceAfterLayerIDByLayerID: [:])?.preparationSchedule()
+                    .prepassProviderLayerIDs ?? [-1],
                 "requiresEffect": unused.requiredEffectConsumerLayerIDs.contains(consumer),
                 "references": unused.references.filter { $0.consumerLayerID == consumer }.count,
             ]
@@ -402,9 +404,11 @@ extension Harness {
             result["forward"] = inputs.map(\.requiresForwardCapture)
             result["providers"] = plan.requiredProviderLayerIDs.sorted()
             result["graphProviders"] = plan.requiredGraphOutputProviderLayerIDs.sorted()
-            result["prepass"] = plan.forwardDependencyPreparationOrder(
+            result["prepass"] = plan.sourcePreparationPlan(
                 authoredLayerIDs: descriptor.renderOrderLayerIDs,
-                activeExecutionLayerIDs: [consumer]) ?? [-1]
+                availableExecutionLayerIDs: plan.requiredGraphOutputProviderLayerIDs.union([consumer]),
+                visibleRootLayerIDs: visible, activeStaticModelConsumerLayerIDs: [],
+                sourceAfterLayerIDByLayerID: [:])?.preparationSchedule().prepassProviderLayerIDs ?? [-1]
             result["utilityCaptures"] = utilities.values.filter(\.shouldCapture).map(\.layerID).sorted()
             result["providerDisposition"] = utilities[provider]?.disposition.rawValue ?? "none"
             result["noDemand"] = noDemand

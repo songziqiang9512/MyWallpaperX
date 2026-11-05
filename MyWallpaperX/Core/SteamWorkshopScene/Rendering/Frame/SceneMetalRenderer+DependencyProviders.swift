@@ -212,12 +212,8 @@ extension SceneMetalRenderer {
         }
     }
 
-    /// Publishes the plan-proven image providers whose authored position is
-    /// later than their consumer. Static providers use the existing source
-    /// capture; effectful providers consume their prepared graph claim. Both
-    /// remain offscreen and preserve authored final composition order.
-    /// The original forward and authored calls share the exact raw source inputs.
-    /// Capacity-only returns nil on success; it never reports a publication.
+    /// Raw captures use the same source atom at the planned and authored
+    /// call sites. Capacity-only never publishes content.
     func captureRawDependencyProvider(
         layer: SceneRenderDescriptor.Layer, source: SceneBaseMaterialTextureSource?,
         imageTextures: SceneBaseImageTextureSnapshot, imagePipeline: SceneImageLayerPipeline,
@@ -254,8 +250,9 @@ extension SceneMetalRenderer {
             geometryProduct: imageTextures.geometryProducts[layer.id])
     }
 
-    func prepareForwardDependencyProviders(
-        orderedLayerIDs: [Int],
+    /// Executes this source cut without moving final main composition.
+    func prepareDependencyProviders(
+        providerLayerIDs: [Int],
         layersByID: [Int: SceneRenderDescriptor.Layer],
         frameVisibleLayerIDs: Set<Int>,
         imageTextures: SceneBaseImageTextureSnapshot,
@@ -267,29 +264,15 @@ extension SceneMetalRenderer {
         viewportSize: CGSize,
         mainPass: SceneMainPassEncoder,
         framePlans: [Int: SceneResolvedMaterialFrameTargetPlan],
-        activeStaticModelConsumerLayerIDs: Set<Int>,
         commandBuffer: MTLCommandBuffer,
         executionTrace: SceneEffectExecutionFrameTrace?
     ) -> Set<Int>? {
         var graphProviderLayerIDs: Set<Int> = []
-        let activeExecutionLayerIDs = Set(framePlans.keys)
-        guard let preparationLayerIDs = dependencyRuntime
-                .forwardDependencyPreparationOrder(
-                    authoredLayerIDs: orderedLayerIDs,
-                    activeExecutionLayerIDs: activeExecutionLayerIDs,
-                    activeStaticModelConsumerLayerIDs:
-                        activeStaticModelConsumerLayerIDs
-                ) else { return nil }
-        let preparationLayers = preparationLayerIDs.compactMap {
-            layersByID[$0]
-        }
-        guard preparationLayers.count == preparationLayerIDs.count else {
-            return nil
-        }
+        let preparationLayers = providerLayerIDs.compactMap { layersByID[$0] }
         for provider in preparationLayers {
             if dependencyRuntime.requiresGraphOutputCapture(for: provider.id) {
                 if framePlans[provider.id] == nil {
-                    guard captureForwardGraphSourceFallback(
+                    guard captureDependencyGraphSourceFallback(
                         provider: provider,
                         imageTextures: imageTextures,
                         imagePipeline: imagePipeline,

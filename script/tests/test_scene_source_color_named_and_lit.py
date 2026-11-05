@@ -77,7 +77,7 @@ def local_named_support(frozen):
     support = support.replace("enum Kind { case composition }", "enum Kind { case composition, fullscreen, project }")
     source = frozen[PROVIDER_HELPER].read_text()
     method = source[source.index("    func captureRawDependencyProvider("):
-                    source.index("    func prepareForwardDependencyProviders(")]
+                    source.index("    /// Executes this source cut without moving final main composition.")]
     uniforms = frozen[COMPLETED_SOURCE_UNIFORMS].read_text().split("extension SceneImageLayerCompositor {", 1)[0]
     return support + uniforms + LOCAL_NAMED_DTOS + "\nextension SceneMetalRenderer {\n" + method + "}\n" + LOCAL_NAMED_MAIN
 
@@ -446,8 +446,11 @@ class SceneSourceColorNamedAndLitTests(unittest.TestCase):
         self.assertTrue(all(report.values()), report)
 
     def test_actual_named_capture_readiness_model_representation_and_data_rejection(self):
-        report = run_frozen(named.DEPENDENCY_SOURCES, named.dependency_support() + NAMED_MAIN,
-                            "named-source-color", [SCENE / "Rendering/Composition/SceneImageLayer.metal"])
+        report = run_frozen(named.DEPENDENCY_SOURCES,
+            lambda frozen: named.dependency_support() + frozen[COMPLETED_SOURCE_UNIFORMS]
+                .read_text().split("extension SceneImageLayerCompositor {", 1)[0] + NAMED_MAIN,
+            "named-source-color", [SCENE / "Rendering/Composition/SceneImageLayer.metal"],
+            read_inputs=[COMPLETED_SOURCE_UNIFORMS])
         self.assertEqual(len(report["rows"]), 42)
         for row in report["rows"]:
             for key, value in row.items():

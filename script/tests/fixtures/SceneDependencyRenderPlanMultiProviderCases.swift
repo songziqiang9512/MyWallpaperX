@@ -158,9 +158,11 @@ extension Harness {
                 "referenceProviders": Set(plan.references.filter { $0.consumerLayerID == consumerID }.map(\.providerLayerID)).sorted(),
                 "forward": vector.map(\.requiresForwardCapture),
                 "requiresProgram": vector.allSatisfy(\.requiresResolvedMaterialProgram),
-                "execution": plan.resolvedMaterialExecutionLayerIDs(
-                    visibleRootLayerIDs: visible ? [consumerID] : [],
-                    availableExecutionLayerIDs: Set(providers + [consumerID])).sorted(),
+                "execution": plan.sourcePreparationPlan(
+                    authoredLayerIDs: providerFirst ? providers + [consumerID] : [consumerID] + providers,
+                    availableExecutionLayerIDs: [consumerID], visibleRootLayerIDs: visible ? [consumerID] : [],
+                    activeStaticModelConsumerLayerIDs: [], sourceAfterLayerIDByLayerID: [:])?.preparationSchedule()
+                    .preparationLayerIDs.sorted() ?? [-1],
                 "issues": plan.issues.filter { $0.layerID == consumerID }.map(\.kind.rawValue).sorted(),
             ]
         }

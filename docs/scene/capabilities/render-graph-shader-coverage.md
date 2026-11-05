@@ -80,16 +80,29 @@ Utility graph provider 在原 utility 触发点取 source、执行与发布，�
 
 来源是否依赖合成顺序，由它真正读取的内容决定。普通图片、文字、solid 的独立来源与 geometry 沿原捕获器发布；没有成员、没有效果的 composition 在 `copyBackground=false` 时拥有透明空来源。它不读取 enclosing attachment，按需直接清原 reserved named target 并发布，不造空 Program、graph ticket、group target 或第二份纹理。已预约的空来源只消费原 target 尺寸，不因局部画布与主屏投影不同而重算捕获尺寸。solid 消费 candidate 的真实颜色表示，straight RGB 在捕获时关联自身 alpha 后发布 PMA；已有 PMA 不重复关联，并保真实 source texture 与本帧 tint/alpha。不能因 provider 位于 consumer 后面就被 kind 白名单拒绝。effectful provider 仍消费实际 graph 输出，不能以清空或 base texture 冒充材质结果。
 
-这些独立来源可由原 forward prepass 供货，实际顺序点再次遇到时复用原 frame epoch 的已发布 target，不二次捕获。读取 attachment prefix 或成员 subtree 的来源保原取源截点；不能为满足前向引用而挪到全局 prepass、借父组背景或使用上一帧。当前 utility 展开顺序与 cold candidate 的 raw order 仍有独立调度缺口，本设计不声称统一它们；独立来源的提前准备不改变作者主合成顺序。
+这些独立来源可由原 forward prepass 供货，实际顺序点再次遇到时复用原 frame epoch 的已发布 target，不二次捕获。读取 attachment prefix 或成员 subtree 的来源保原取源截点；不能为满足前向引用而挪到全局 prepass、借父组背景或使用上一帧。执行计划使用 utility 展开顺序与原捕获 trigger；cold candidate 的准入仍使用原始 renderOrder，二者的准入差异尚未统一。独立来源的提前准备不改变作者主合成顺序。
 
 缺 source 或普通编码失败只使消费它的 operation 保 previous-current，健康后继继续；错误 epoch、resource、content、extent 与 pin 仍由原发布/资源入口拒绝。验收沿现有依赖计划、composition source 与签名 App 门：前/后置 solid 同像素，资源/ID/槽位改名、真实 alpha/tint、无效果透明来源与彩色 enclosing prefix 可区分，缺源及健康 peer 有正反例。无需求不分配或发布；原作者定向复验只授实际 source→publication→sampler→terminal 链，不外推背景前缀取时或逐资产最终贡献。
+
+<a id="named-source-execution-cuts"></a>
+### Named 来源的执行截点设计
+
+来源的资源预约与内容就绪是两件事。读取 enclosing attachment 的 raw 来源只能在原作者捕获位置取得 prefix；独立图像、solid 和透明来源可以提前准备。目标是让 `O → U(prefix) → C → P(hidden)` 在 U 捕获后、C 编码前执行 P，而 `C → U → P → D` 中早 C 局部缺 P，晚 D 仍取得 P 的正确结果。不能为了早 C 提前执行并发布降级 P，污染后面的合法消费者。
+
+原 DependencyPlan 与 FrameRuntime 缓存当前根可达的 prepared DAG，使用 utility 展开后的实际顺序、已选 Binding、当前可见 graph 和 model 需求；候选来源准备顺序不是提交或编码顺序。来源准备阶段一次取得原 source、尺寸、MVP/cursor 与 FrameInputs，沿原路径预约 group source 容量，但不创建 graph ledger、bundle 或命令；所有 activation 依原 policy 使用这个实际逐层 pointer 输入求值一次。原 StageCapability 的 prepared passthrough 事实与精确 slot 投影决定本帧不读取的依赖，不能把任意 false 或全局 pointer inside 当作局部取源证明。同一份 Decision 交 Executor 消费，不重新求值。实际截点计划同时给出 graph request/ledger 顺序、原预处理供货及每个作者位置前的供货列表，替代互相重叠的 preparation/global-forward 排序。普通 layer loop 只取本位置的列表，不做依赖遍历、source 分析或重复准备，不增加 phase registry、等待状态、第二份 graph 输出或历史分支。
+
+计划只移除该消费者 Binding 的所有 referenceSlots 本帧均不被读取的边；同来源还有一个活跃槽就保留依赖。DAG 准备事实保持，实际截点 memo 比较这个小投影。计划先沿本帧无环绑定确定真实来源最早可用位置，再从消费者向上游传播可满足的请求。raw prefix 位置在 U 原捕获之后；没有合成顺序依赖的来源可用于预处理。可见 graph 自己的作者主位是执行期限，不能为等待更晚输入而推迟或丢弃其主输出；尚未可用的输入保持该消费者原局部失败语义。hidden graph 不为一个过早请求生成临时降级输出，保留给后续可满足的请求。model 的提前需求不能越过真实来源位置；独立 albedo 仍保原提前准备。
+
+完成来源和 activation 准备后，才对实际选中的请求确定 shared/owned、预约外部输入并构建资源 bundle；未选中的候选不创建 ledger/命令。尺寸复用原 extent resolver 与 target policy，不以 desired size 冒充已接受 extent，不重复构建 graph。 同位置供货按原依赖顺序执行，ledger、tail 和实际 encode 使用同一顺序。只有实际 graph 提前执行而主合成在后的可见结果需要已有 owned pair；其他路径保原共享策略。原 raw 捕获器只在来源位置采样，提前列表不能读取空 prefix；较早消费者使用原 unavailable/strict-subset 路径，错误 epoch、纹理、pin 或回执仍由实际资源 owner 处理。正常晚到的同一预约纹理只填内容、一次执行，不触发重编译、二次 allocation 或重准备。准备期尚未到达的 graph 输入局部 unavailable，不以 provider 原图尺寸预约其未来 graph；已尝试但没有 graph plan 的来源仍保原 source fallback。aggregate 消费当帧层快照并保其他健康槽。
+
+验收沿原 Plan、Coordinator 和签名 App 门：有 graph 的前景 O、U 后另一个改变当前背景的图层、早 C/晚 D、真实取时环、`copyBackground=false` 独立邻例及资源/ID 改名。固定 literal ROI 区分 U 的 prefix、全局空 prefix 与 C 当时背景，保健康后继；核 P 一次执行及最终 GPU/终端捕获。graph-background、utility 成员图的来源消费者及官方默认背景语义仍须各自取得实际资格，不能借调度设计放开它们。普通 provider 使用原 layer 前截点；utility 保原 trigger 后执行，同 trigger 后再运行普通 provider 的组合未接入。degraded member 的绘制跳过不跳过其已计划供货，供货只执行 offscreen 内容，成员继续原局部跳过。
 
 <a id="forward-graph-output-consumption"></a>
 ### 图输出的供货与作者位合成
 
 同帧 graph 结果完成 named 供货，不代表可见层已经完成作者位的主合成。原 Coordinator ledger 保留唯一 texture、content、ticket、history 与 pin；提前供货后的可见层在自己的作者位置借用该结果，沿原 final-composite 消费当前 placement、alpha、depth 和 fog。晚消费不重新 claim、解析依赖、取 layer source、执行 graph、分配或发布，不增加结果缓存、持久标志或第二输出 owner。原 `compositorConsumed` 区分主合成是否完成；晚到的主合成回执只接纳这一消费，不能用上游旧 candidate tails 覆盖已包含后继的 scheduled tails。
 
-强引用和 submission pin 只保 GPU 对象寿命，不能阻止同 command buffer 的后继写入共享工作 pair。原 Preflight 在准备入口复用原 forward-order memo，以真实作者顺序、活动 graph 和当前可见集合确定晚消费需求；仅这部分 graph 选择已有 owned pair，其余保持共享。原 `pairStorage` key、预算、memo、lease、回滚和 pin 承接这项寿命，不复制结果或新增缓存，也不把所有可见 graph 一律私有化。合法同需求帧复用同一供货顺序；实际准备失败导致需求改变时，再按已成功计划求值。
+强引用和 submission pin 只保 GPU 对象寿命，不能阻止同 command buffer 的后继写入共享工作 pair。Preflight 复用 FrameRuntime 的候选 DAG，在实际来源与 activation 准备后解析唯一截点计划，并返回 SceneDrawing 供 layer loop 消费；仅实际提前执行、主合成在后的可见 graph 选择已有 owned pair，其余保持共享。原 `pairStorage` key、预算、memo、lease、回滚和 pin 承接这项寿命，不复制结果或新增缓存，也不把所有可见 graph 一律私有化。实际准备失败保原局部 fallback，不生成另一份执行排序。
 
 静态 material 的 data 存储只描述成功输出，activation 或局部失败仍可保留之前的 color；分配前不能用它取消可见闭包的 owned 保护。最终内容在 Executor 准备完成后才确定，当前沿原有界 pair 分配保这一潜在消费，不增加扫描、内容缓存或后置复制。
 

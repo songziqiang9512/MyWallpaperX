@@ -29,10 +29,7 @@ struct SceneScriptLayerTopologySnapshot {
 }
 final class SceneDependencyFrameRuntime {
     let plan = 0
-    var rejectsPreparation = false
-    func resolvedMaterialPreparationOrder(authoredLayerIDs: [Int]) -> [Int]? {
-        rejectsPreparation ? nil : Array(authoredLayerIDs.reversed())
-    }
+
 }
 enum SceneUtilityLayerRuntimePlanner {
     struct Execution { let orderedLayerIDs: [Int] }
@@ -79,32 +76,24 @@ enum SceneLightSnapshot {
                 renderOrderLayerIDs: [2, 4]), dependencyRuntime: runtime,
             resolvedMaterialLayerIDs: [1])
         let changedWasMiss = !cache.lastResolveWasCacheHit
-        runtime.rejectsPreparation = true
-        let rejected = cache.resolve(baseDescriptor: base,
-            topology: .init(topologyRevision: 9, dynamicLayers: [], renderOrderLayerIDs: [1, 2]),
-            dependencyRuntime: runtime, resolvedMaterialLayerIDs: [1])
         let checks: [String: Bool] = [
             "sameRevisionKeepsPreparedMembership": firstWasMiss && sameRevisionWasHit
                 && first.orderedLayerIDs == [1, 2, 3]
                 && second.orderedLayerIDs == first.orderedLayerIDs
-                && first.preparationLayerIDs == [1, 2, 3]
-                && second.preparationLayerIDs == first.preparationLayerIDs
+                && first.renderLayerIDs == [1, 2, 3]
+                && second.renderLayerIDs == first.renderLayerIDs
                 && first.framebufferSourceLayerIDs == [1]
                 && second.framebufferSourceLayerIDs == first.framebufferSourceLayerIDs,
             "sameRevisionKeepsPreparedBirthValues": second.layersByID[3]?.stamp == 10
                 && second.descriptor.layers.first(where: { $0.id == 3 })?.stamp == 10
                 && second.orderedLayers.first(where: { $0.id == 3 })?.stamp == 10
-                && second.preparationLayers?.first?.stamp == 10
                 && first.layersByID[3]?.stamp == 10,
             "newRevisionRebuildsMembership": changedWasMiss && changed.orderedLayerIDs == [2, 4]
-                && changed.preparationLayerIDs == [2, 4]
+                && changed.renderLayerIDs == [2, 4]
                 && changed.framebufferSourceLayerIDs == [4]
                 && changed.imageMaterialStateLayerIDs == [2] && changed.lightLayerIDs == [2]
                 && changed.layersByID[4]?.stamp == 30
-                && changed.orderedLayers.last?.stamp == 30
-                && changed.preparationLayers?.first?.stamp == 30,
-            "missingPreparationRemainsInvalid": rejected.preparationLayers == nil
-                && rejected.preparationLayerIDs.isEmpty && rejected.framebufferSourceLayerIDs.isEmpty,
+                && changed.orderedLayers.last?.stamp == 30,
         ]
         FileHandle.standardOutput.write(try JSONSerialization.data(withJSONObject: checks))
     }

@@ -18,6 +18,7 @@ import unittest
 from script.tests.test_scene_dependency_render_plan import SWIFT_SOURCES
 from script.tests.test_scene_directional_shadow_integration import fixture_entries as shadow_fixture, png, quad
 from script.tests.test_scene_fullscreen_visibility_integration import app_hashes, file_hashes
+from script.tests.scene_color_blend_capture_test_support import UNIFORMS_SOURCE, completed_source_uniforms_support
 from script.tests.scene_pkg_fixture import make_package
 from script.scene_swift_source_sets import scene_swift_sources
 
@@ -33,7 +34,7 @@ PLATFORMS = {"dim": [0, 50, 0], "bright": [0, 100, 0], "transparent": RECEIVER_R
 SOURCES = tuple(REPO / "script/tests" / name for name in (
     "test_scene_model_graph_albedo.py", "test_scene_directional_shadow_integration.py",
     "test_scene_static_model_reader.py", "scene_pkg_fixture.py",
-    "test_scene_fullscreen_visibility_integration.py"))
+    "test_scene_fullscreen_visibility_integration.py", "scene_color_blend_capture_test_support.py")) + (UNIFORMS_SOURCE,)
 VERTEX = b"attribute vec3 a_Position;\nattribute vec2 a_TexCoord;\nvarying vec2 v_TexCoord;\nvoid main(){gl_Position=vec4(a_Position,1.0);v_TexCoord=a_TexCoord;}\n"
 FRAGMENT = b'''uniform sampler2D g_Texture0;
 uniform float g_Time;
@@ -63,7 +64,11 @@ def fixture_entries(*, early=False, source_only=False, visibility=False, bad_mat
     if visibility:
         caster["visible"] = {"user": {"name": "mode", "condition": "shown"}, "value": True}
     material = json.loads(entries["materials/caster.json"])
-    material["passes"][0].update(textures=["_rt_imageLayerComposite_11_a"], blending="translucent")
+    material["passes"][0].update(textures=["_rt_imageLayerComposite_11_a"], blending="normal")
+    if not source_only:
+        # Opaque model color ignores texture alpha; layer coverage owns the graph disappearance phase.
+        caster["alpha"] = {"value": 1, "script":
+            "export function update(value) { return engine.runtime >= 4 && engine.runtime < 6 ? 0 : 1; }"}
     if bad_material:
         material["passes"][0].update(shader="own_model_interface", constantshadervalues={
             "Alpha": "1 2", "Color": "1 1 1", "Brigtness": 1})
@@ -84,7 +89,7 @@ void main(){gl_FragColor=vec4(1.0);}
         {"id": 40, "image": "models/provider.json", "origin": "120 24 0", "size": "8 8",
          "effects": [{**effect, "id": 400}]},
         {"id": 41, "model": "models/healthy.mdl", "origin": "0 96 0",
-         "perspective": False, "castshadow": False}]
+         "scale": "1 -1 1", "perspective": False, "castshadow": False}]
     if bad_material:
         # The rejected model is followed by a healthy graph before its hidden
         # provider. An orphan provider transaction must not block that graph.
@@ -149,9 +154,6 @@ def app_identity(executable):
 PLAN_HARNESS = r'''
 import Foundation
 import Metal
-extension SceneOffscreenTexturePool {
-    var maxDimension: Int { fatalError("GPU allocation is outside dependency planning") }
-}
 extension SceneMainPassEncoder {
     convenience init(commandBuffer: MTLCommandBuffer, target: MTLTexture,
                      clearColor: MTLClearColor, clearEnabled: Bool,
@@ -192,19 +194,22 @@ extension SceneMainPassEncoder {
                 texturePaths: [named], textureSlots: [named], userTextureInputs: [])])
         let plan = SceneDependencyRenderPlan(descriptor: descriptor, visibleLayerIDs: kind == "mixed" ? [40, 50] : [40],
             admittedResolvedMaterialReferences: Set(SceneDependencyGraphAnalysis.references(in: layers)))
+        let available: Set<Int> = sourceOnly ? [40] : [11, 40]
+        let activeSchedule = plan.sourcePreparationPlan(authoredLayerIDs: order,
+            availableExecutionLayerIDs: available, visibleRootLayerIDs: [2, 40],
+            activeStaticModelConsumerLayerIDs: [2], sourceAfterLayerIDByLayerID: [:])?.preparationSchedule()
+        let inactiveSchedule = plan.sourcePreparationPlan(authoredLayerIDs: order,
+            availableExecutionLayerIDs: available, visibleRootLayerIDs: [40],
+            activeStaticModelConsumerLayerIDs: [], sourceAfterLayerIDByLayerID: [:])?.preparationSchedule()
         return ["binding": plan.staticModelBindingsByConsumerLayerID[2] != nil,
             "effectBinding": plan.bindingsByConsumerLayerID[50] != nil,
             "required": plan.requiredProviderLayerIDs.sorted(),
             "graph": plan.requiredGraphOutputProviderLayerIDs.sorted(),
-            "active": plan.resolvedMaterialExecutionLayerIDs(visibleRootLayerIDs: [2, 40],
-                availableExecutionLayerIDs: [11, 40]).sorted(),
-            "inactive": plan.resolvedMaterialExecutionLayerIDs(visibleRootLayerIDs: [40],
-                availableExecutionLayerIDs: [11, 40]).sorted(),
-            "forward": plan.forwardDependencyPreparationOrder(authoredLayerIDs: order,
-                activeExecutionLayerIDs: [11, 40], activeStaticModelConsumerLayerIDs: [2]) ?? [],
-            "inactiveForward": plan.forwardDependencyPreparationOrder(authoredLayerIDs: order,
-                activeExecutionLayerIDs: [40], activeStaticModelConsumerLayerIDs: []) ?? [],
-            "preparation": plan.resolvedMaterialPreparationOrder(authoredLayerIDs: [40, 11]) ?? [],
+            "active": activeSchedule?.preparationLayerIDs.sorted() ?? [-1],
+            "inactive": inactiveSchedule?.preparationLayerIDs.sorted() ?? [-1],
+            "forward": activeSchedule?.prepassProviderLayerIDs ?? [-1],
+            "inactiveForward": inactiveSchedule?.prepassProviderLayerIDs ?? [-1],
+            "preparation": activeSchedule?.preparationLayerIDs ?? [-1],
             "authored": descriptor.renderOrderLayerIDs]
     }
     static func main() throws {
@@ -257,7 +262,7 @@ class SceneModelGraphAlbedoPlanTests(unittest.TestCase):
         self.assertEqual(row["graph"], [])
         self.assertEqual(row["active"], [40])
         self.assertEqual(row["forward"], [11])
-        self.assertEqual(row["preparation"], [40, 11])
+        self.assertEqual(row["preparation"], [40])
         for name in ("background", "secondary", "dependency", "child", "visible"):
             with self.subTest(case=name):
                 row = self.rows[name]
@@ -335,13 +340,14 @@ NATIVE_MAIN = r'''
             result == .published
         }
         var rows: [[String: Any]] = []
-        // The prepared-plan scaffold returns the intersected roots. Listing a
-        // model as available here observes only wrapper input projection/memo;
-        // the real plan test above proves models never gain graph identities.
+        // Prepared model demand activates its provider, not a model graph.
         let memoRoots = [[2], [], [2]].map { prepared -> [Int] in
-            runtime.resolvedMaterialFrameDemand(visibleRootLayerIDs: [2, 40],
-                availableExecutionLayerIDs: [2, 40], liveLayerIDs: [2, 11, 40],
-                activeStaticModelConsumerLayerIDs: Set(prepared)).activeExecutionLayerIDs.sorted()
+            runtime.sourcePreparationPlan(authoredLayerIDs: [2, 40, 11],
+                availableExecutionLayerIDs: [11, 40], visibleRootLayerIDs: [2, 40],
+                activeStaticModelConsumerLayerIDs: Set(prepared), topologyRevision: 0,
+                sourceAfterLayerIDByLayerID: { [:] }).flatMap {
+                    runtime.preparationSchedule(sourcePlan: $0, excludingSlotsByConsumerLayerID: [:])
+                }?.preparationLayerIDs.sorted() ?? [-1]
         }
         for frame in 1...2 {
             let epoch = registry.beginFrame(frameIndex: UInt64(frame), layerSources: [:])
@@ -406,17 +412,32 @@ class SceneModelGraphAlbedoNativeTests(unittest.TestCase):
         parent = os.environ.get("MWX_SCENE_INTEGRATION_EVIDENCE")
         previous = os.environ.get("MWX_DIRECTIONAL_SHADOW_EVIDENCE")
         if parent:
+            Path(parent).mkdir(parents=True, exist_ok=True)
             os.environ["MWX_DIRECTIONAL_SHADOW_EVIDENCE"] = parent
+        identity_paths = [*SOURCES, Path(native.__file__)]
+        source_identity = file_hashes(identity_paths)
+        prefix = completed_source_uniforms_support()
+        native_sources = [*native.DEPENDENCY_SOURCES, *(native.SCENE / "Diagnostics" / name for name in (
+            "SceneEffectExecutionFrameTrace.swift", "SceneEffectExecutionTelemetry.swift",
+            "SceneFramePerformanceTelemetry.swift", "SceneGPUStageTimestampObservation.swift"))]
+        identity_receipt = {"before": source_identity,
+            "compiledUniformsPrefixSHA256": hashlib.sha256(prefix.encode()).hexdigest()}
+        if parent:
+            (Path(parent) / "model-graph-epoch-source-prefix.json").write_bytes(encoded(identity_receipt))
         try:
-            report = run_swift(native.DEPENDENCY_SOURCES, native.dependency_support() + NATIVE_MAIN,
-                label="model-graph-epoch")
+            report = run_swift(native_sources, prefix + native.dependency_support() + NATIVE_MAIN,
+                label="model-graph-epoch", swift_flags=("-DDEBUG",))
         finally:
             if previous is None:
                 os.environ.pop("MWX_DIRECTIONAL_SHADOW_EVIDENCE", None)
             else:
                 os.environ["MWX_DIRECTIONAL_SHADOW_EVIDENCE"] = previous
+            identity_receipt["after"] = file_hashes(identity_paths)
+            if parent:
+                (Path(parent) / "model-graph-epoch-source-prefix.json").write_bytes(encoded(identity_receipt))
+            self.assertEqual(identity_receipt["after"], source_identity)
         self.assertEqual([row["extent"] for row in report["frames"]], [[8, 4], [16, 8]])
-        self.assertEqual(report["memoRoots"], [[2, 40], [40], [2, 40]])
+        self.assertEqual(report["memoRoots"], [[11, 40], [40], [11, 40]])
         self.assertLess(report["frames"][0]["epoch"], report["frames"][1]["epoch"])
         for row in report["frames"]:
             self.assertEqual(row["copies"], 1, row)
@@ -474,7 +495,7 @@ class SceneModelGraphAlbedoAppTests(unittest.TestCase):
             "rawSourceRGB": [0, 200, 0], "platforms": PLATFORMS, "tolerance": TOLERANCE,
             "shadowOpaqueMaximum": 15, "sourceOnly": options.get("source_only", False),
             "oracle": "same-frame owned image witness gives dynamic graph-final phase; model z20 shadows receiver x60",
-            "boundary": "owned effectful named static model slice, no official parity"}))
+            "boundary": "owned named albedo plus explicit layer coverage; no texture-alpha-only shadow or official parity"}))
         self.assertEqual(app_identity(self.exe), self.app_identity)
         self.assertEqual(file_hashes(SOURCES), self.source_identity)
         env = {key: value for key, value in os.environ.items()

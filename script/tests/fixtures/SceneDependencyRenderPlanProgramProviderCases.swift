@@ -403,13 +403,18 @@ extension Harness {
             "graphProviders": preparedForwardPlan.requiredGraphOutputProviderLayerIDs.sorted(),
             "consumerBindingRetained": preparedForwardPlan.bindingsByConsumerLayerID[100]?
                 .providerLayerID == 110,
-            "activeExecution": preparedForwardPlan.resolvedMaterialExecutionLayerIDs(
-                visibleRootLayerIDs: [100, 200],
-                availableExecutionLayerIDs: [100, 110, 120, 200]).sorted(),
-            "cycleOnlyForward": preparedForwardPlan.forwardDependencyPreparationOrder(
-                authoredLayerIDs: forwardLayerIDs, activeExecutionLayerIDs: [100]) ?? [-1],
-            "withHealthyForward": preparedForwardPlan.forwardDependencyPreparationOrder(
-                authoredLayerIDs: forwardLayerIDs, activeExecutionLayerIDs: [100, 200]) ?? [-1],
+            "activeExecution": preparedForwardPlan.sourcePreparationPlan(
+                authoredLayerIDs: forwardLayerIDs, availableExecutionLayerIDs: [100, 110, 120, 200],
+                visibleRootLayerIDs: [100, 200], activeStaticModelConsumerLayerIDs: [],
+                sourceAfterLayerIDByLayerID: [:])?.preparationSchedule().preparationLayerIDs.sorted() ?? [-1],
+            "cycleOnlyForward": preparedForwardPlan.sourcePreparationPlan(
+                authoredLayerIDs: forwardLayerIDs, availableExecutionLayerIDs: [100],
+                visibleRootLayerIDs: [100], activeStaticModelConsumerLayerIDs: [],
+                sourceAfterLayerIDByLayerID: [:])?.preparationSchedule().prepassProviderLayerIDs ?? [-1],
+            "withHealthyForward": preparedForwardPlan.sourcePreparationPlan(
+                authoredLayerIDs: forwardLayerIDs, availableExecutionLayerIDs: [100, 200],
+                visibleRootLayerIDs: [100, 200], activeStaticModelConsumerLayerIDs: [],
+                sourceAfterLayerIDByLayerID: [:])?.preparationSchedule().prepassProviderLayerIDs ?? [-1],
         ]
         return [
             "shadowedNamedReferences": shadowedNamedReferences,
@@ -422,6 +427,7 @@ extension Harness {
             "preparedForwardCycle": preparedForwardCycle,
             "definitionMaterialProviders": definitionMaterialProviderResults(),
             "forwardRepeatedProvider": forwardRepeatedProviderResults(),
+            "sourceTiming": sourceTimingResults(),
         ]
     }
 
@@ -466,14 +472,87 @@ extension Harness {
                 "middleBindings": bindings.map { "\($0.slot.effectID):\($0.slot.passIndex):\($0.slot.slotIndex)=\($0.providerLayerID)" },
                 "middleProviders": bindings.map(\.providerLayerID),
                 "requiredProviders": plan.requiredProviderLayerIDs.sorted(),
-                "forwardOrder": plan.forwardDependencyPreparationOrder(
-                    authoredLayerIDs: order, activeExecutionLayerIDs: [consumerID]) ?? [-1],
+                "forwardOrder": plan.sourcePreparationPlan(authoredLayerIDs: order,
+                    availableExecutionLayerIDs: plan.requiredGraphOutputProviderLayerIDs.union([consumerID]),
+                    visibleRootLayerIDs: visible, activeStaticModelConsumerLayerIDs: [],
+                    sourceAfterLayerIDByLayerID: [:])?.preparationSchedule().prepassProviderLayerIDs ?? [-1],
             ]
         }
         let foreign = SceneDependencyRenderPlan.Reference(consumerLayerID: 77, providerLayerID: 1901,
             slot: .init(effectID: "foreign", passIndex: 0, slotIndex: 2), variant: .primary)
         rows["foreignConsumerAccepted"] = SceneDependencyRenderPlan.providerGraphIsAuthoredOrderIndependent(
             layer(1903, dependencies: [1901], visible: false), references: [foreign], texturePaths: [])
+        return rows
+    }
+
+    static func sourceTimingResults() -> [String: Any] {
+        var rows: [String: Any] = [:]
+        for renamed in [false, true] {
+            let base = renamed ? 2300 : 1300
+            let o = base, u = base + 1, c = base + 2, p = base + 3, d = base + 4
+            for mode in ["prefix", "earlyLate", "visibleDeadline", "independent", "inactive", "sameProviderActiveSlot"] {
+                let early = ["earlyLate", "inactive", "sameProviderActiveSlot"].contains(mode)
+                let order = early ? [c, u, p, d]
+                    : mode == "visibleDeadline" ? [p, u, d] : [o, u, c, p]
+                let visible: Set<Int> = early ? [c, d]
+                    : mode == "visibleDeadline" ? [p, d] : [o, c]
+                let available = Set(order).subtracting([u])
+                let ordinary = SceneRenderDescriptor.Layer(id: o, contentKind: "image", utilityLayer: nil,
+                    dependencyLayerIDs: [], childLayerIDs: [], visible: true,
+                    effects: localEffects(layerID: o, count: 1, suffix: "prefix"))
+                var utility = SceneUtilityLayer(kind: .composition)
+                utility.copyBackground = mode != "independent"
+                let source = SceneRenderDescriptor.Layer(id: u, contentKind: "composition",
+                    utilityLayer: utility, dependencyLayerIDs: [], childLayerIDs: [],
+                    visible: false, effects: [])
+                let resource = renamed ? "effects/retitled/chain.json" : "effects/owned/read.json"
+                let named = "_rt_imageLayerComposite_\(u)_a"
+                let middle = mode == "sameProviderActiveSlot"
+                    ? SceneRenderDescriptor.Layer(id: p, contentKind: "image", utilityLayer: nil,
+                        dependencyLayerIDs: [u], childLayerIDs: [], visible: false,
+                        effects: [.init(id: "effect-\(p)", file: resource, visible: true,
+                            passes: [.init(passIndex: 0, texturePaths: [named, named],
+                                textureSlots: [nil, named, nil, named], combos: [:], constantShaderValues: [:])])])
+                    : consumer(p, provider: u, visible: mode == "visibleDeadline", effectPath: resource)
+                let all = [ordinary, source, consumer(c, provider: p, effectPath: resource),
+                    middle, consumer(d, provider: p, effectPath: resource)]
+                let descriptor = SceneRenderDescriptor(layers: all.filter { order.contains($0.id) },
+                    renderOrderLayerIDs: order)
+                var bindings = SceneDependencyRenderPlan.potentialNamedBindings(
+                    descriptor: descriptor, visibleLayerIDs: visible)
+                if mode == "visibleDeadline" {
+                    // This seam supplies the selected Program input; source
+                    // admission and actual publication are separate owners.
+                    bindings[p] = [.init(consumerLayerID: p, providerLayerID: u,
+                        slot: .init(effectID: "effect-\(p)", passIndex: 0, slotIndex: 1),
+                        blendMode: 0, kind: .resolvedMaterial, requiresForwardCapture: true,
+                        requiresResolvedMaterialProgram: true)]
+                    bindings[d] = [.init(consumerLayerID: d, providerLayerID: p,
+                        slot: .init(effectID: "effect-\(d)", passIndex: 0, slotIndex: 1),
+                        blendMode: 0, kind: .visibleImageGraphOutput,
+                        requiresResolvedMaterialProgram: true)]
+                }
+                let plan = SceneDependencyRenderPlan(descriptor: descriptor, visibleLayerIDs: visible,
+                    preparedNamedInputBindingsByConsumerLayerID: bindings)
+                guard let sourcePlan = plan.sourcePreparationPlan(authoredLayerIDs: order,
+                    availableExecutionLayerIDs: available, visibleRootLayerIDs: visible,
+                    activeStaticModelConsumerLayerIDs: [],
+                    sourceAfterLayerIDByLayerID: mode == "independent" ? [:] : [u: u]) else {
+                    fatalError("source timing schedule unavailable")
+                }
+                let excluded: [Int: Set<SceneEffectPassSlot>] = mode == "inactive" || mode == "sameProviderActiveSlot"
+                    ? [p: [.init(effectID: "effect-\(p)", passIndex: 0, slotIndex: 1)]] : [:]
+                let schedule = sourcePlan.preparationSchedule(excludingSlotsByConsumerLayerID: excluded)
+                rows["\(mode)\(renamed ? "Renamed" : "")"] = [
+                    "preparation": schedule.preparationLayerIDs,
+                    "prepass": schedule.prepassProviderLayerIDs,
+                    "before": Dictionary(uniqueKeysWithValues:
+                        schedule.providersBeforeLayerID.map { (String($0.key), $0.value) }),
+                    "scheduled": schedule.scheduledGraphProviderLayerIDs.sorted(),
+                    "providers": plan.requiredProviderLayerIDs.sorted(),
+                ]
+            }
+        }
         return rows
     }
 

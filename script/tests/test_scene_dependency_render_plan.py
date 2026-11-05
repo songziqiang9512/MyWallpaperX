@@ -783,48 +783,23 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
             },
         )
 
-    def test_forward_image_provider_preparation_precedes_authored_layer_loop(self) -> None:
-        renderer = read_source_family(METAL_RENDERER_SOURCE)
-        dependency_provider = DEPENDENCY_PROVIDER_SOURCE.read_text(
-            encoding="utf-8"
-        )
-        dependency_runtime = DEPENDENCY_RUNTIME_SOURCE.read_text(encoding="utf-8")
-        static_model_dependency_runtime = (
-            STATIC_MODEL_DEPENDENCY_RUNTIME_SOURCE.read_text(encoding="utf-8")
-        )
-        main_pass = renderer.index("let (mainPass, groups) = makeScenePass(")
-        forward_preparation = renderer.index(
-            "prepareForwardDependencyProviders(", main_pass
-        )
-        authored_loop = renderer.index("frameLayers: for layer in orderedLayers")
-        self.assertLess(main_pass, forward_preparation)
-        self.assertLess(forward_preparation, authored_loop)
-        prepass = renderer[forward_preparation:authored_loop]
-        self.assertIn("framePlans: resolvedMaterialFrameTargetPlans", prepass)
-        self.assertIn("layersByID: frameLayersByID", prepass)
-        self.assertIn(
-            ".forwardDependencyPreparationOrder(\n"
-            "                    authoredLayerIDs: orderedLayerIDs,\n"
-            "                    activeExecutionLayerIDs: activeExecutionLayerIDs,\n"
-            "                    activeStaticModelConsumerLayerIDs:",
-            dependency_provider,
-        )
-        self.assertIn(
-            "resolvedMaterialExecutionLayerIDs(",
-            dependency_runtime,
-        )
-        self.assertIn(
-            "executeDependencyGraphProviderIfRequired(",
-            dependency_provider,
-        )
-        self.assertIn(
-            "forwardGraphProviderLayerIDs.contains(layer.id)",
-            renderer,
-        )
-        self.assertIn(
-            "forwardCaptureProviderLayerIDs.contains(providerLayerID)",
-            static_model_dependency_runtime,
-        )
+    def test_named_source_cuts_keep_early_misses_and_later_supply_separate(self) -> None:
+        for suffix, base in (("", 1300), ("Renamed", 2300)):
+            o, u, c, p, d = range(base, base + 5)
+            expected = {
+                "prefix": ([o, p, c], [], {str(c): [p]}, [p]),
+                "earlyLate": ([c, p, d], [], {}, []),
+                "visibleDeadline": ([p, d], [], {}, []),
+                "independent": ([p, o, c], [u, p], {}, [p]),
+                "inactive": ([p, c, d], [p], {}, [p]),
+                "sameProviderActiveSlot": ([c, p, d], [], {}, []),
+            }
+            for mode, (preparation, prepass, before, scheduled) in expected.items():
+                with self.subTest(mode=mode, renamed=bool(suffix)):
+                    self.assertEqual(self.result["sourceTiming"][mode + suffix], {
+                        "preparation": preparation, "prepass": prepass,
+                        "before": before, "scheduled": scheduled, "providers": [u, p],
+                    })
 
     def test_puppet_atlas_cannot_publish_as_flat_image_provider(self) -> None:
         self.assertTrue(self.result["puppetImageBlendRejected"])
@@ -908,7 +883,7 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
             self.result["forwardEffectfulPreparationOrder"],
             {
                 "authored": [800, 301, 850, 300, 900],
-                "prepared": [300, 800, 301, 850, 900],
+                "prepared": [300, 301],
                 "duplicateRejected": True,
             },
         )
@@ -916,7 +891,7 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
             self.result["forwardStaticPreparationOrder"],
             {
                 "authored": [800, 301, 850, 300, 900],
-                "prepared": [800, 301, 850, 300, 900],
+                "prepared": [301],
             },
         )
         self.assertEqual(
@@ -970,7 +945,7 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
                 "providers": [400, 401],
                 "graphProviders": [400, 401],
                 "forwardProviders": [400, 401],
-                "prepared": [400, 401, 399, 402],
+                "prepared": [400, 401, 402],
                 "issues": [],
             },
         )

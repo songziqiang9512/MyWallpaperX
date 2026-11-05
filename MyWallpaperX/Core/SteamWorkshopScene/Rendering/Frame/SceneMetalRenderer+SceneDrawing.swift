@@ -212,12 +212,42 @@ extension SceneMetalRenderer {
 #if DEBUG
         let hubFrameAdmissionStart = ProcessInfo.processInfo.systemUptime
 #endif
+        let liveLayerIDs = frameProjection.renderLayerIDs.subtracting(unavailableTerminalLayers)
+        let availableExecutionLayerIDs = (imageCompositor.resolvedMaterialRuntime?
+            .executionLayerIDs ?? []).intersection(liveLayerIDs)
+        guard let sourcePlan = dependencyRuntime.sourcePreparationPlan(
+            authoredLayerIDs: frameProjection.orderedLayerIDs,
+            availableExecutionLayerIDs: availableExecutionLayerIDs,
+            visibleRootLayerIDs: frameVisibleLayerIDs,
+            activeStaticModelConsumerLayerIDs: activeStaticModelNamedAlbedoLayerIDs,
+            topologyRevision: layerTopology?.topologyRevision ?? 0,
+            sourceAfterLayerIDByLayerID: {
+                var points: [Int: Int] = [:]
+                for layer in orderedLayers where layer.utilityLayer != nil {
+                    if layer.utilityLayer?.copyBackground == true
+                        || availableExecutionLayerIDs.contains(layer.id) {
+                        points[layer.id] = layer.id
+                    }
+                }
+                for plans in frameProjection.utilityExecution.plansByTriggerLayerID.values {
+                    for plan in plans where availableExecutionLayerIDs.contains(plan.layerID) {
+                        points[plan.layerID] = plan.triggerLayerID
+                    }
+                }
+                return points
+            }
+        ) else {
+            imageCompositor.recordResolvedMaterialFramePreflightFailure(
+                "resolved-material-preparation-order-invalid")
+            _ = imageCompositor.endResolvedMaterialFrame(on: commandBuffer)
+            return .dropped(reasonCode: "resolved-material-preparation-order-invalid")
+        }
         let resolvedMaterialFrameAdmission = admitResolvedMaterialFrameTargets(
             imageTextures: imageTextures,
             spriteAnimations: spriteAnimations,
             spriteAnimationPlaybackTimes: spriteAnimationPlaybackTimes,
             frameVisibleLayerIDs: frameVisibleLayerIDs,
-            authoredLayerIDs: frameProjection.orderedLayerIDs,
+            sourcePlan: sourcePlan,
             performanceTelemetry: performanceTelemetry,
             specializedBaseTextureSamplings: specializedBaseTextureSamplings,
             imagePipeline: imagePipeline,
@@ -234,11 +264,8 @@ extension SceneMetalRenderer {
             environmentSource: environmentSource,
             frameLightSnapshot: frameLightSnapshot,
             compositionGroupRuntime: compositionGroupRuntime,
-            preparationLayers: unavailableTerminalLayers.isEmpty
-                ? frameProjection.preparationLayers : frameProjection.preparationLayers?.filter {
-                !unavailableTerminalLayers.contains($0.id)
-            },
-            liveLayerIDs: frameProjection.preparationLayerIDs.subtracting(unavailableTerminalLayers),
+            layersByID: frameLayersByID,
+            liveLayerIDs: liveLayerIDs,
             utilityExecution: frameProjection.utilityExecution
         )
 #if DEBUG
@@ -249,11 +276,13 @@ extension SceneMetalRenderer {
         hubStage(.frameAdmissionMicros, hubFrameAdmissionStart)
 #endif
         let resolvedMaterialFrameTargetPlans: [Int: SceneResolvedMaterialFrameTargetPlan]
+        let preparationSchedule: SceneDependencyRenderPlan.PreparationSchedule
         var preparationRequests: [SceneResolvedMaterialRuntimeBridge.FramePreparationRequest]
         let resourceBundle: SceneResolvedMaterialFrameResourceBundle?
         switch resolvedMaterialFrameAdmission {
-        case let .ready(plans, requests, bundle):
+        case let .ready(plans, schedule, requests, bundle):
             resolvedMaterialFrameTargetPlans = plans
+            preparationSchedule = schedule
             preparationRequests = requests
             resourceBundle = bundle
         case let .deferred(reasonCode):
@@ -460,8 +489,9 @@ extension SceneMetalRenderer {
             performanceTelemetry?.beginStage("prepass-forward-providers")
 #endif
 
-            if let prepared = prepareForwardDependencyProviders(
-                orderedLayerIDs: frameProjection.orderedLayerIDs, layersByID: frameLayersByID,
+            if let prepared = prepareDependencyProviders(
+                providerLayerIDs: preparationSchedule.prepassProviderLayerIDs,
+                layersByID: frameLayersByID,
                 frameVisibleLayerIDs: frameVisibleLayerIDs,
                 imageTextures: imageTextures,
                 imagePipeline: imagePipeline,
@@ -472,8 +502,6 @@ extension SceneMetalRenderer {
                 viewportSize: viewportSize,
                 mainPass: mainPass,
                 framePlans: resolvedMaterialFrameTargetPlans,
-                activeStaticModelConsumerLayerIDs:
-                    activeStaticModelNamedAlbedoLayerIDs,
                 commandBuffer: commandBuffer,
                 executionTrace: effectExecutionTrace
             ) {
@@ -534,6 +562,7 @@ extension SceneMetalRenderer {
             orderedLayers: orderedLayers,
             initiallyStopped: stopsAfterClaimedFailure,
             forwardGraphProviderLayerIDs: forwardGraphProviderLayerIDs,
+            preparationSchedule: preparationSchedule,
             frameVisibleLayerIDs: frameVisibleLayerIDs,
             activeStaticModelNamedAlbedoLayerIDs: activeStaticModelNamedAlbedoLayerIDs,
             imageTextures: imageTextures,
