@@ -278,6 +278,26 @@ class SceneMdlPuppetMeshReaderTests(unittest.TestCase):
             "bad-attachment-bone.mdl": build_attachment_mdl(attachment_bone=9),
             "duplicate-attachment.mdl": build_attachment_mdl(duplicate_name=True),
         }
+        legacy13 = dict(magic=b"MDLV0013", stride=52)
+        cls.legacy13_vertices = [(-6.5, 13.25, 2, 0.125, 0.875),
+                                 (18.75, -5.5, 2, 0.75, 0.125), (4.25, 31.5, 2, 0.375, 0.625)]
+        cls.legacy13_prefix = b"owned/renamed-model/arm-52" + bytes(17)
+        cls.fixtures.update({
+            "mdlv0013.mdl": build_mdl(**legacy13),
+            "renamed-sleeve52.mdl": build_mdl(**legacy13),
+            "moved-owned-arm52.mdl": build_mdl(**legacy13, vertices=cls.legacy13_vertices,
+                indices=[2, 0, 1], prefix_noise=cls.legacy13_prefix),
+            "v13-bad-index.mdl": build_mdl(**legacy13, indices=[0, 1, 3]),
+            "v13-nontriangle.mdl": build_mdl(**legacy13, indices=[0, 1]),
+            "v13-nan.mdl": build_mdl(**legacy13, vertices=[
+                (float("nan"), 0, 0, 0, 0), (1, 0, 0, 1, 0), (0, 1, 0, 0, 1)]),
+        })
+        terminal13 = build_mdl(**legacy13, include_mdls=False)
+        cls.fixtures["v13-short-vertices.mdl"] = terminal13[:9 + 24 + 8 + 3 * 52 - 1]
+        cls.fixtures["v13-short-indices.mdl"] = terminal13[:-1]
+        for wrong_stride in (20, 48, 80, 84):
+            cls.fixtures[f"v13-wrong-stride{wrong_stride}.mdl"] = build_mdl(
+                magic=b"MDLV0013", stride=wrong_stride)
         attachment19 = dict(magic=b"MDLV0019", skeleton_marker=b"MDLS0002")
         socket = [0, 2, 0, 0, -3, 0, 0, 0, 0, 0, 1, 0, 8, -11, 0, 1]
         renamed_socket = dict(attachment_local=socket, attachment_names=("socket-renamed", "root-renamed"))
@@ -507,6 +527,33 @@ class SceneMdlPuppetMeshReaderTests(unittest.TestCase):
         for version in ("MDLV0014", "MDLV0017", "MDLV0019", "MDLV0021", "MDLV0023"):
             with self.subTest(version=version):
                 self.assertFalse(self.results[version + "-uv20.mdl"]["ok"])
+
+    def test_mdlv0013_bind_mesh_preserves_geometry_resource_rename_and_block_offset(self):
+        for name in ("mdlv0013.mdl", "renamed-sleeve52.mdl", "moved-owned-arm52.mdl"):
+            with self.subTest(name=name):
+                entry = self.results[name]
+                self.assertTrue(entry["ok"], entry)
+                self.assertEqual((entry["version"], entry["stride"]), ("MDLV0013", 52))
+                self.assertEqual(entry["vertexCount"], 3)
+                changed = name == "moved-owned-arm52.mdl"
+                self.assertEqual(entry["indices"], [2, 0, 1] if changed else [0, 1, 2, 2, 1, 0])
+                self.assertEqual(entry["triangleCount"], 1 if changed else 2)
+                self.assertEqual(entry["blockOffset"], 9 + (len(self.legacy13_prefix) if changed else 24))
+                expected = self.legacy13_vertices if changed else [
+                    (-10, -20, 0, 0.25, 0.75), (10, -20, 0, 0.5, 0.75), (0, 20, 0, 0.375, 0.25)]
+                self.assertEqual(entry["vertices"], [list(vertex) for vertex in expected])
+                # No MDAT is present; empty attachments do not qualify rig or animation readers.
+                self.assertEqual(entry["attachments"], [])
+
+    def test_mdlv0013_does_not_accept_other_strides_or_invalid_mesh_data(self):
+        rejected = ["v13-bad-index.mdl", "v13-nontriangle.mdl", "v13-short-vertices.mdl",
+                    "v13-short-indices.mdl"] + [f"v13-wrong-stride{stride}.mdl" for stride in (20, 48, 80, 84)]
+        for name in rejected:
+            with self.subTest(name=name):
+                self.assertFalse(self.results[name]["ok"], self.results[name])
+                self.assertIn("no strict bind-pose mesh block", self.results[name]["error"])
+        self.assertFalse(self.results["v13-nan.mdl"]["ok"])
+        self.assertIn("non-finite vertex data", self.results["v13-nan.mdl"]["error"])
 
     def test_mdlv0014_reads_only_the_verified_stride_52_mesh(self):
         entry = self.results["mdlv0014.mdl"]

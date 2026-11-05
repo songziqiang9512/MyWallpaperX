@@ -24,7 +24,7 @@
 | subtree来源 · 3788897599/196 | project带child291仍缺project子树source消费者；沿原source与发布截点补能力，不因共用原因码合并其他group归因。 |
 | composition 其他绘制消费者 | `SceneUtilityLayerSourceRoute` 对 model/spotLight 仍整类拒绝；原绘制未消费局部 raster。核实际 nearest target 的投影、深度、光照及 viewport/local 模式，沿原 draw owner 接通，不以新组件/效果名单代缺失消费者。 |
 | composition 内 REFRACT 官方单位 | 当前粒子映射保本引擎 canonical 全局 screen-UV amount，宽窄画布与物理 extent 有内部资格。官方 owned loose fixture 的 amount0、neutral、mask0 仍有相同非背景卡片，尚不能据此区分 canvas/viewport 单位；先核官方背景输入、取景和控制，再做同 world 几何的尺寸/旋转对照，不能由现有 J 数学推为官方像素一致。 |
-| source/模型 · 2804817823/28/32 | 9个资产已加载，两个Puppet source明确拒`MDLV0013`，不是两个纹理文件缺失。沿MDL/Puppet几何owner补格式/姿态资格。 |
+| 旧版 Puppet 动画 · 2804817823/28/32 | MDLV0013独立bind网格及两层最终输出已有资格；两层活动Animacja1仍使用MDLS0001/MDLA0001，原Rig/Animation Reader尚不支持，当前只绘bind pose并保动画不可用原因。沿原骨骼/权重/动画消费者补真实旧格式，不能把静态双臂恢复当作动画恢复。 |
 | framebuffer需求记账 · 3292370168/505 | 505 dormant/currentHidden、无named target且无当帧capture plan；SceneDrawing先将全部未requested的framebuffer source加入unavailable并记encoded=false，实际EffectExecution已过滤无target plan，505没有执行捕获。当前CHECK来自无需求被记失败；沿原drawing owner区分排除与真实preflight/capture失败，保visible depth拒绝、活动需求和hidden named，不以总数抵消失败。不能将该记账修正称GPU或可见画面恢复。 |
 | 音频composition · 3039882306/772 | 当前无对应CPU/graph/所选帧draw，需受控audio/source输入；hidden1084 pending失败、868 fallback不挪作当前可见层证明。 |
 | Child事件flags · 3448877775/15706 | eventdeath shootingstarglow声明rawFlags1，`SceneParticleChildGraphExpansion`仍在子资产执行前局部拒绝；该字段与root General world flags并非同一语义。需有可区分的官方事件/父子空间控制后沿原child消费者落实，不能把未知child当整root许可或改作者flags。当前root的祖先平移与实际RopeTrail结果归[运行证据](../capabilities/runtime-evidence-current.md)，child不因此取得恢复资格。 |
@@ -50,7 +50,7 @@
 | effect执行阶段读口 · 3292370168/239e0 | 当前parent named来源已接通；frame0/1在视频首帧pending时局部未供，frame10/11实际执行并GPU完成，selected23有151→e0→e1→main/seal全链。现reader将不同帧同identity的失败/成功聚为矛盾并报unexpected recovery，整样本CHECK4还含505。沿原execution/frame读口区分时间阶段、当前selected结果与持续失败，保原失败事实及同帧真实冲突；不能为消报告改渲染或将短窗恢复授视频更新/全像素。 |
 | 必需binding · 3556263543 | 五个文字psyhue e0在真实采样slot2缺authored/default binding而持续旁路，e1与终端健康。缺项已证，隐式phase默认语义仍未知；不是census注释里的slot3。不得随意填纹理，也不能把copy的GPU完成算原effect执行。 |
 | 隐藏分支shader | 2887099508/257e0明确g_Point1 script attachment未资格；2932157836/299e1 node1/slot0缺binding资格，2857410102/91e3仅有聚合purpose原因。均保never-visible边界；3042492564另有aa_gaussian/node3 stage-link失败，不能与blur slot0混因。 |
-| 作者脚本与VM边界 | 初次32样本、含长窗33样本有实际script诊断；初次TypeError涉及21样本45个target，不能按异常类批量归作者或引擎。2890473419四个origin脚本仅声明shadowLayer即写visible、2982559622把Vec3返回给alpha为已证输入问题；3504669359当前166的720/718/716仍缺prepared Puppet metadata，首producer为rw1_puppet的clip700辅助轨校验拒绝，已有bind-pose不代动画metadata；372/373/336的origin仍读取undefined.y，需独立实际producer。其余按`task/full-script-failure-recon.json`逐target核上下文/producer/API/回调顺序。 |
+| 作者脚本与VM边界 | 初次32样本、含长窗33样本有实际script诊断；初次TypeError涉及21样本45个target，不能按异常类批量归作者或引擎。2890473419四个origin脚本仅声明shadowLayer即写visible、2982559622把Vec3返回给alpha为已证输入问题。3504669359的166/720/718/716缺prepared Puppet metadata：clip700在bounds前的双曲线与后方MDMP字段关联，七骨TRS恒定，现无morph消费者；不能将扩Reader或补metadata称作眼睛动作恢复。372/373/336的init读取`thisLayer.position.y`，公开属性为origin，三层默认hidden；官方runtime别名未知，不造默认值。其余按`task/full-script-failure-recon.json`逐target核上下文/producer/API/回调顺序。 |
 | 缺输入 · 3736952187、3763323436 | project.json不存在，未启动App；补合法输入后再跑，不作引擎失败。 |
 | named demand · 2069136288、3395777145、3829467967 | 未达静态planned的269/395/946无当前active consumer；需property分支输入，不能要求默认帧执行所有潜在capture。 |
 | activation读口 · 3639999624/84e1 | 实际`activation-passthrough:inactive-dependency-preproof-mismatch`被reader判malformed/missing；作者visible=false，有GPU完成及后续e2消费。对齐原producer/reader分类并保inactive资格，不能改渲染消报告；此问题与hidden provider的exact身份命名空间分开。 |

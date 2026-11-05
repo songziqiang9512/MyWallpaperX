@@ -109,8 +109,8 @@
       "bytes": 3634
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 63,
-      "bytes": 7033
+      "lines": 73,
+      "bytes": 8210
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 75,
@@ -129,8 +129,8 @@
       "bytes": 40357
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 114,
-      "bytes": 60300
+      "lines": 115,
+      "bytes": 61265
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 115,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 172,
-      "bytes": 32754
+      "bytes": 33045
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -511,21 +511,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/advanced-object-coverage.md",
+      "before": "3618151dce951965b5eb430dfa3364edbc787f61ca3475b1e1c836d5a24244d4",
+      "after": "da0c047c1bcbaa4fde4ab2a407f8db1d01fe51cd726527ddb2e87057d65017ca",
+      "owner": "scene-legacy-bind-mesh",
+      "reason": "Keep the existing independent mesh/optional animation design and measured MDLV0013 terminal contribution; replace unsupported-format and guessed auxiliary/origin causes with exact remaining producer facts. Preserve all unrelated authority records.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#legacy-bind-mesh"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "3699cc42bf4a09a5f8a1f3dfefd3b7913de65d60581b2cac14af587665ee3bc4",
-      "after": "54341e13925faefa5f225be17e45944db3ff7e2442b583c7e77cb3d996203b0e",
-      "owner": "scene-player-editor-context",
-      "reason": "Qualify the public player-context query, real shared helper and downstream typed/Puppet command consumers while retaining independent metadata and origin failures; reconcile the untriggered particle cohort with current input/clock evidence.",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#host-context"
+      "before": "54341e13925faefa5f225be17e45944db3ff7e2442b583c7e77cb3d996203b0e",
+      "after": "3fb4fa56e974e9d3075ae2abb32cd2096866985c679bb37745d9e0218b77d97e",
+      "owner": "scene-legacy-bind-mesh",
+      "reason": "Keep the existing independent mesh/optional animation design and measured MDLV0013 terminal contribution; replace unsupported-format and guessed auxiliary/origin causes with exact remaining producer facts. Preserve all unrelated authority records.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#legacy-bind-mesh"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "9a2d1f0a349cb458b1420727238e939c7d258f3c785bf024e7cd44ed97aa0d6f",
-      "after": "5ae3e97d4d58a3b30ee65e121c96ec78fdca33afca3ec454bfce6e4bf94b44ec",
-      "owner": "scene-player-editor-context",
-      "reason": "Qualify the public player-context query, real shared helper and downstream typed/Puppet command consumers while retaining independent metadata and origin failures; reconcile the untriggered particle cohort with current input/clock evidence.",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md#host-context"
+      "before": "5ae3e97d4d58a3b30ee65e121c96ec78fdca33afca3ec454bfce6e4bf94b44ec",
+      "after": "5536b8fd413b254b8aa19c5817fa3a9ee7677b12b25d48ee84fa4d5ec199cbb2",
+      "owner": "scene-legacy-bind-mesh",
+      "reason": "Keep the existing independent mesh/optional animation design and measured MDLV0013 terminal contribution; replace unsupported-format and guessed auxiliary/origin causes with exact remaining producer facts. Preserve all unrelated authority records.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#legacy-bind-mesh"
     }
   ]
 }

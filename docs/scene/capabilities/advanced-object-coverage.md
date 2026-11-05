@@ -13,6 +13,16 @@ Direct bind 几何沿原 MDL reader、准备资源和 StaticModel draw。不同 
 
 源码：[静态模型资源](../../../MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/ScenePreparedStaticModelResources.swift)、[DirectModel playback](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetPlaybackState+DirectModel.swift)。
 
+
+<a id="legacy-bind-mesh"></a>
+### 旧版 Puppet 的独立网格
+
+MDLV0013 的 52 字节顶点布局与已有 position/UV bind mesh 消费者相容；沿原 MeshReader 读取真实顶点、UV 与索引，再经原 LayerLoad、GeometryProduct、effect graph 和 compositor 输出。版本描述只选择已知存储布局，不以资源名、样本或摘要许可绘制；不增加第二 importer、资源 owner 或逐帧解析。
+
+网格与动画分别准备：MDLS0001/MDLA0001 的骨骼、权重求值和动画尚未支持时，原 LayerLoad 保留已读 bind mesh 与明确的动画不可用原因，不伪造 clips、metadata 或 atlas quad。越界索引、截断、非有限顶点和不匹配布局仍只拒绝对应 mesh，独立层保持。
+
+验收包括原 Reader 的改名/偏移/不同几何正例及坏数据反例、真实可见层的 mesh → effect → 所选帧最终合成与像素贡献，并保留旧骨骼/动画诊断及独立相邻样本；静态网格恢复不代表旧版动画、变形或官方完整一致。
+
 <a id="puppet"></a>
 ## Puppet 动画与当前 pose
 
@@ -58,6 +68,6 @@ main/named consumer 分别按实际 extent/MVP、target bounds 和采样密度�
 <a id="limits"></a>
 ## 当前缺口与最近门
 
-MDLA6 `modernBoundsAuxiliary` 的 framing/presence 被 Reader 保留，但未消费的 scalar/shape 仍由 Selection/Evaluator 拒绝；某个恒定数值不能证明它是深度或绘制顺序。更广 dense/reference composition、多 opaque alpha、Direct attachment/多 part 动画、fractional source clipping、未知 MDL profiles、全部光照/物理/阴影组合仍有边界。
+MDLA6 `modernBoundsAuxiliary` 的 framing/presence 被 Reader 保留，但未消费的 scalar/shape 仍由 Selection/Evaluator 拒绝；某个恒定数值不能证明它是深度或绘制顺序。bounds 前的 timed morph 曲线与 MDMP 几何尚无 prepared/evaluator 消费者，不能丢弃曲线后把静态 TRS 视为完整动画。更广 dense/reference composition、多 opaque alpha、Direct attachment/多 part 动画、fractional source clipping、未知 MDL profiles、全部光照/物理/阴影组合仍有边界。
 
 最近行为入口：[bind 几何](../../../script/tests/test_scene_direct_model_bind_geometry.py)、[动画消费者](../../../script/tests/test_scene_direct_model_animation_live_consumers.py)、[裁剪 GPU](../../../script/tests/test_scene_puppet_clipping_render.py)、[普通 effect 受光](../../../script/tests/test_scene_ordinary_effect_lighting.py)。未闭项的下一资格见[队列](../roadmap/scene-open-breakpoint-queue.md)。

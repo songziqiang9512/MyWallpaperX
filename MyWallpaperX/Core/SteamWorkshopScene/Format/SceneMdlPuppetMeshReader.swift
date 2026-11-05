@@ -103,6 +103,7 @@ enum SceneMdlPuppetMeshReadError: Error, CustomStringConvertible, Equatable {
 /// bounds here; this reader never interprets them.
 enum SceneMdlPuppetMeshReader {
     private static let vertexStridesByMagic = [
+        "MDLV0013": [52],
         "MDLV0014": [52],
         "MDLV0016": [52],
         "MDLV0017": [80, 84],
@@ -117,7 +118,7 @@ enum SceneMdlPuppetMeshReader {
     // Magic + trailing NUL, matching the audited player's marker size.
     private static let markerSize = 9
     private static let meshHeaderSize = 8
-    // Verified vertex layouts: 52 bytes across MDLV0014/0016 assets, 80 bytes
+    // Verified vertex layouts: 52 bytes across MDLV0013/0014/0016 assets, 80 bytes
     // across MDLV0017/0023 assets, 84 bytes for the verified skinned base
     // asset, and 48 bytes proven by the real Workshop puppet asset in sample
     // 3767232084 (224 vertices, indices 0...223 with full coverage, finite

@@ -421,11 +421,11 @@
     },
     {
       "id": "scene-puppet-static-position-uv",
-      "title": "Puppet无权重静态position/UV几何",
-      "owner": "scene-p-route",
+      "title": "Puppet独立bind position/UV几何",
+      "owner": "SceneMdlPuppetMeshReader / ScenePuppetLayerLoad",
       "status": "approved",
-      "designDoc": "docs/scene/capabilities/runtime-systems-reference.md",
-      "design_notes": "",
+      "designDoc": "docs/scene/capabilities/advanced-object-coverage.md",
+      "design_notes": "Independent bind mesh and optional animation qualification: docs/scene/capabilities/advanced-object-coverage.md#legacy-bind-mesh. Reuse original layout reader, prepared asset and compositor; preserve malformed mesh rejection and local unsupported rig/clip diagnostics. No fabricated animation metadata or atlas quad.",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlPuppetMeshReader.swift"
       ],
