@@ -110,7 +110,7 @@
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
       "lines": 73,
-      "bytes": 8210
+      "bytes": 8522
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 75,
@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 115,
-      "bytes": 61265
+      "bytes": 61464
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 115,
@@ -150,7 +150,7 @@
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 106,
-      "bytes": 13025
+      "bytes": 13141
     },
     "docs/scene/development/official-client-behavior-research-workflow.md": {
       "lines": 70,
@@ -161,8 +161,8 @@
       "bytes": 4260
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 172,
-      "bytes": 33045
+      "lines": 173,
+      "bytes": 33068
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -367,15 +367,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/development/development-workflow.md",
-      "before": "41b5d33a54c9db89cdd10ec70e1bb0c4590e08c2578d28b33f33e4a8f01e96d6",
-      "after": "883d7a8a6ae402cf83934c6e86b85d4d8ebbf0c8e22914c55e0318fc5ca7a0b6",
-      "owner": "scene-linked-uniform-producers",
-      "reason": "Document the per-sample existing clock observation transport and active-phase capture join required for short Single controls.",
-      "decision": "docs/scene/development/development-workflow.md#corpus-runtime-measurement"
-    },
-    {
-      "section": "bodies",
       "path": "docs/development/local-library-loading-design.md",
       "before": "e2c8785543860e0609127596471bc300ce652af3300693752f7e846c69e0f482",
       "after": "5cb4c9ebb29ae5864071b95ee6d4d0cd9e0aae543a6231481b39294e615d7848",
@@ -512,28 +503,37 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "3618151dce951965b5eb430dfa3364edbc787f61ca3475b1e1c836d5a24244d4",
-      "after": "da0c047c1bcbaa4fde4ab2a407f8db1d01fe51cd726527ddb2e87057d65017ca",
-      "owner": "scene-legacy-bind-mesh",
-      "reason": "Keep the existing independent mesh/optional animation design and measured MDLV0013 terminal contribution; replace unsupported-format and guessed auxiliary/origin causes with exact remaining producer facts. Preserve all unrelated authority records.",
+      "before": "da0c047c1bcbaa4fde4ab2a407f8db1d01fe51cd726527ddb2e87057d65017ca",
+      "after": "26bce920dd794cffc3f7fbf156ce6429a1688e34c74ea159ffcbce2d284e4502",
+      "owner": "scene-legacy-puppet-animation",
+      "reason": "Replace static-only version13 conclusions with current fullTRS playback and unchanged-layout qualification; document explicit existing bone-target transport and preserve actual evidence-root debt. Keep all unrelated authority transitions.",
       "decision": "docs/scene/capabilities/advanced-object-coverage.md#legacy-bind-mesh"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "54341e13925faefa5f225be17e45944db3ff7e2442b583c7e77cb3d996203b0e",
-      "after": "3fb4fa56e974e9d3075ae2abb32cd2096866985c679bb37745d9e0218b77d97e",
-      "owner": "scene-legacy-bind-mesh",
-      "reason": "Keep the existing independent mesh/optional animation design and measured MDLV0013 terminal contribution; replace unsupported-format and guessed auxiliary/origin causes with exact remaining producer facts. Preserve all unrelated authority records.",
+      "before": "3fb4fa56e974e9d3075ae2abb32cd2096866985c679bb37745d9e0218b77d97e",
+      "after": "c9ecec73129b85fe43abcf5b9087188757a5c546d8451f2507651db97265a753",
+      "owner": "scene-legacy-puppet-animation",
+      "reason": "Replace static-only version13 conclusions with current fullTRS playback and unchanged-layout qualification; document explicit existing bone-target transport and preserve actual evidence-root debt. Keep all unrelated authority transitions.",
+      "decision": "docs/scene/capabilities/advanced-object-coverage.md#legacy-bind-mesh"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/development/development-workflow.md",
+      "before": "883d7a8a6ae402cf83934c6e86b85d4d8ebbf0c8e22914c55e0318fc5ca7a0b6",
+      "after": "aab7cee49e905774c6811507867e3cf7ea39ae8d1ed54107ec4827c2e2d29530",
+      "owner": "scene-legacy-puppet-animation",
+      "reason": "Replace static-only version13 conclusions with current fullTRS playback and unchanged-layout qualification; document explicit existing bone-target transport and preserve actual evidence-root debt. Keep all unrelated authority transitions.",
       "decision": "docs/scene/capabilities/advanced-object-coverage.md#legacy-bind-mesh"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "5ae3e97d4d58a3b30ee65e121c96ec78fdca33afca3ec454bfce6e4bf94b44ec",
-      "after": "5536b8fd413b254b8aa19c5817fa3a9ee7677b12b25d48ee84fa4d5ec199cbb2",
-      "owner": "scene-legacy-bind-mesh",
-      "reason": "Keep the existing independent mesh/optional animation design and measured MDLV0013 terminal contribution; replace unsupported-format and guessed auxiliary/origin causes with exact remaining producer facts. Preserve all unrelated authority records.",
+      "before": "5536b8fd413b254b8aa19c5817fa3a9ee7677b12b25d48ee84fa4d5ec199cbb2",
+      "after": "d2c5b62f27ed7e483e9dce805de69246c81ea4c3f8c0753cebcd207b27486e51",
+      "owner": "scene-legacy-puppet-animation",
+      "reason": "Replace static-only version13 conclusions with current fullTRS playback and unchanged-layout qualification; document explicit existing bone-target transport and preserve actual evidence-root debt. Keep all unrelated authority transitions.",
       "decision": "docs/scene/capabilities/advanced-object-coverage.md#legacy-bind-mesh"
     }
   ]

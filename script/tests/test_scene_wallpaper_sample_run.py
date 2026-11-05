@@ -384,6 +384,7 @@ class SceneWallpaperSampleRunTests(unittest.TestCase):
         inherited = {"MWX_SCENE_DEBUG_EXECUTOR_INVALIDATE_AFTER": "2", "MWX_SCENE_PARTICLE_COMPONENT_OBSERVATION": "old",
                      "MYWALLPAPERX_SCENE_DEBUG_POINTER_SECOND": "59", "MWX_SCENE_GPU_STAGE_TIMESTAMPS_OUTPUT": "/tmp/foreign",
                      "MYWALLPAPERX_SCENE_DEBUG_TIMELINE_EVIDENCE": "foreign timeline configuration",
+                     "MYWALLPAPERX_SCENE_DEBUG_PUPPET_BONE_EVIDENCE": "999,1000",
                      "MWX_SCENE_DEBUG_SCENE_SWITCH_ROOT": "/tmp/foreign", "MWX_SCENE_DEBUG_SCENE_SWITCH_AFTER": "2",
                      "USER_TOOL_FIXTURE": "preserved"}
         for terminal in (False, True):
@@ -405,6 +406,38 @@ class SceneWallpaperSampleRunTests(unittest.TestCase):
             self.assertEqual(observed["MYWALLPAPERX_SCENE_DEBUG_POINTER_SECOND"], "12.0")
             self.assertEqual(observed.get("MWX_SCENE_PARTICLE_COMPONENT_OBSERVATION"), "1" if terminal else None)
             self.assertNotIn("timeline_frame_evidence", result)
+
+    def test_explicit_puppet_bone_targets_reach_non_cursor_child_environment(self):
+        key = "MYWALLPAPERX_SCENE_DEBUG_PUPPET_BONE_EVIDENCE"
+        for layers in ([28, 32], [71, 93]):
+            observed = {}
+            with self.subTest(layers=layers), mock.patch.dict(os.environ, {key: "999"}):
+                result, command = run_sample_fixture(benchmark, log_only=True,
+                    sample_overrides={"puppet_interaction_layer_ids": layers},
+                    control={"observed_environment": observed})
+            self.assertTrue(result["passed"], result["failures"])
+            self.assertEqual(observed[key], ",".join(map(str, layers)))
+            self.assertNotIn("--mwx-debug-scene-cursor-drag-to-json", command)
+            self.assertNotIn("--mwx-debug-scene-hover-pointer-json", command)
+
+    def test_puppet_bone_targets_keep_cursor_requirement_and_reject_non_integer_before_launch(self):
+        cursor = {"cursor_drag_response": "spring-return",
+                  "hover_pointer_normalized": [0, 0], "cursor_drag_to_normalized": [0.25, 0]}
+        for response in ("spring-return", "no-capture"):
+            observed = {}
+            with self.subTest(response=response), self.assertRaisesRegex(ValueError, "integer layer IDs"):
+                run_sample_fixture(benchmark, log_only=True,
+                    sample_overrides={**cursor, "cursor_drag_response": response},
+                    control={"observed_environment": observed})
+            self.assertEqual(observed, {})
+        for layers in (["28"], [28.0], [True], [28, None]):
+            for dragging in (False, True):
+                observed = {}
+                with self.subTest(layers=layers, dragging=dragging), self.assertRaisesRegex(ValueError, "integer layer IDs"):
+                    run_sample_fixture(benchmark, log_only=True,
+                        sample_overrides={**(cursor if dragging else {}), "puppet_interaction_layer_ids": layers},
+                        control={"observed_environment": observed})
+                self.assertEqual(observed, {})
 
     def test_explicit_timeline_evidence_uses_existing_environment_transport_and_report(self):
         key = "MYWALLPAPERX_SCENE_DEBUG_TIMELINE_EVIDENCE"

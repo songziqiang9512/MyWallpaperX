@@ -84,7 +84,7 @@ python3.12 -B script/scene_sample_debug_archive.py \
 
 固定属性、时间、指针、音源、媒体状态、viewport 与随机条件后再比较画面。`--after-snapshot-delay` 约束 ready 后开始安排截图的单调时钟；指针交互还要完成退出和稳定步骤，after 取两者较晚时刻。请求时刻、实际 GPU 捕获和文件写出是不同阶段，比较时核对实际日志与捕获身份。
 
-benchmark 清除继承的 Scene DEBUG 配置；样本的 `timeline_frame_evidence` 显式携带原 `SceneTimelineFrameEvidence` 配置对象，并记入运行报告。它只选择已有 layer/context 时间读口，不把 transform 值当 effect uniform。先核配置确实到达 App，再按 stream/frame/snapshot generation 关联实际 uniform 消费与捕获；窗口外或无记录保未知。log-only 不支持 periodic；短 Single 动画可先用 early terminal capture，按实际 sceneTime/elapsed frame 判活动相位。
+benchmark 清除继承的 Scene DEBUG 配置；样本的 `timeline_frame_evidence` 显式携带原 `SceneTimelineFrameEvidence` 配置对象，并记入运行报告。它只选择已有 layer/context 时间读口，不把 transform 值当 effect uniform。样本显式整数数组 `puppet_interaction_layer_ids` 可在无 cursor 输入时选择原骨骼/geometry 读口。先核配置确实到达 App，再按 stream/frame/snapshot generation 关联实际 uniform 消费与捕获；窗口外或无记录保未知。log-only 不支持 periodic；短 Single 动画可先用 early terminal capture，按实际 sceneTime/elapsed frame 判活动相位。
 
 停止或取消后不再请求新截图；收尾须确认准备、CPU worker、GPU、导出和进程分别完成。证据保留与清理按[产物规则](../../../.agents/skills/mywallpaperx-maintainer/references/artifact-governance.md)，只保必要日志、报告和画面。
 

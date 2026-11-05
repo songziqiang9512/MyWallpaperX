@@ -15,13 +15,13 @@ Direct bind 几何沿原 MDL reader、准备资源和 StaticModel draw。不同 
 
 
 <a id="legacy-bind-mesh"></a>
-### 旧版 Puppet 的独立网格
+### 旧版 Puppet 的网格与动画
 
 MDLV0013 的 52 字节顶点布局与已有 position/UV bind mesh 消费者相容；沿原 MeshReader 读取真实顶点、UV 与索引，再经原 LayerLoad、GeometryProduct、effect graph 和 compositor 输出。版本描述只选择已知存储布局，不以资源名、样本或摘要许可绘制；不增加第二 importer、资源 owner 或逐帧解析。
 
-网格与动画分别准备：MDLS0001/MDLA0001 的骨骼、权重求值和动画尚未支持时，原 LayerLoad 保留已读 bind mesh 与明确的动画不可用原因，不伪造 clips、metadata 或 atlas quad。越界索引、截断、非有限顶点和不匹配布局仍只拒绝对应 mesh，独立层保持。
+网格与动画分别准备：MDLV0013 配对 MDLS0001 的 bind-local 矩阵、父索引与四路权重，以及 MDLA0001 的完整 TRS 轨道、frameCount+1 采样和四字节零尾；沿原 Reader、Selector/Evaluator、AnimationPlaybackRuntime 及 Surface geometry 执行。空骨名保数值骨索引，不伪造名称或重排。无 reference、alpha、event 或 morph 数据时不另建通道；各版本仍消费自己的实际 trailer，不用旧版四字节放宽其他格式。
 
-验收包括原 Reader 的改名/偏移/不同几何正例及坏数据反例、真实可见层的 mesh → effect → 所选帧最终合成与像素贡献，并保留旧骨骼/动画诊断及独立相邻样本；静态网格恢复不代表旧版动画、变形或官方完整一致。
+坏 mesh 保对应 draw 失败；坏权重/rig/clip 由原 LayerLoad 保独立 bind mesh 与明确原因，不发布假动画 metadata 或 atlas quad。验收覆盖原 Reader 的改名/偏移、矩阵/权重、轨道/下一 clip 与截断/错配反例，实际不同 phase 的 pose、动态 geometry 及所选帧最终贡献；纯 bind 正例不代替动画资格，更广旧格式和官方像素一致仍需独立验证。
 
 <a id="puppet"></a>
 ## Puppet 动画与当前 pose

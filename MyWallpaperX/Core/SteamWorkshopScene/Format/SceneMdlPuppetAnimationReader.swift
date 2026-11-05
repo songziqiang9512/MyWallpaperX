@@ -63,7 +63,8 @@ enum SceneMdlPuppetAnimationReadError: Error, CustomStringConvertible, Equatable
     }
 }
 
-/// Restricted version-matched MDLA reader. MDLV0016/MDLS0002/MDLA0003,
+/// Version-matched MDLA reader. MDLV0013/MDLS0001/MDLA0001,
+/// MDLV0016/MDLS0002/MDLA0003,
 /// MDLV0017/MDLS0002/MDLA0004, MDLV0019/MDLS0002/MDLA0005,
 /// MDLV0021/MDLS0003/MDLA0006 and
 /// MDLV0023/MDLS0004/MDLA0006 share the same
@@ -74,9 +75,9 @@ enum SceneMdlPuppetAnimationReadError: Error, CustomStringConvertible, Equatable
 /// components are retained. The three authored playback modes are kept in the
 /// loss-preserving IR; the evaluator applies their bounded frame schedule.
 nonisolated enum SceneMdlPuppetAnimationReader {
-    private enum TrailerContract {
+    private enum TrailerContract: Equatable {
         case perBoneAuxiliary
-        case legacyZeros10
+        case legacyZeros(Int)
         case perBoneAlphaZeros29
         case modernAuxiliary
         case modernBoundsAuxiliary
@@ -89,6 +90,11 @@ nonisolated enum SceneMdlPuppetAnimationReader {
     }
 
     private static let versionContracts = [
+        "MDLV0013": VersionContract(
+            skeletonMarker: Data("MDLS0001\0".utf8),
+            animationMarker: Data("MDLA0001\0".utf8),
+            trailer: .legacyZeros(4)
+        ),
         "MDLV0016": VersionContract(
             skeletonMarker: Data("MDLS0002\0".utf8),
             animationMarker: Data("MDLA0003\0".utf8),
@@ -97,7 +103,7 @@ nonisolated enum SceneMdlPuppetAnimationReader {
         "MDLV0017": VersionContract(
             skeletonMarker: Data("MDLS0002\0".utf8),
             animationMarker: Data("MDLA0004\0".utf8),
-            trailer: .legacyZeros10
+            trailer: .legacyZeros(10)
         ),
         "MDLV0019": VersionContract(
             skeletonMarker: Data("MDLS0002\0".utf8),
@@ -116,6 +122,7 @@ nonisolated enum SceneMdlPuppetAnimationReader {
         ),
     ]
     private static let knownAnimationMarkers = [
+        Data("MDLA0001\0".utf8),
         Data("MDLA0003\0".utf8),
         Data("MDLA0004\0".utf8),
         Data("MDLA0005\0".utf8),
@@ -441,8 +448,8 @@ nonisolated enum SceneMdlPuppetAnimationReader {
         hasPostBoundsScalarTrack: Bool,
         derivedSource: SceneMdlPuppetAnimation.DerivedSource?
     ) {
-        if contract == .legacyZeros10 {
-            guard consumeZeros(data: data, cursor: &cursor, bound: bound, count: 10) else {
+        if case let .legacyZeros(count) = contract {
+            guard consumeZeros(data: data, cursor: &cursor, bound: bound, count: count) else {
                 throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
             }
             return (nil, [], nil, false, false, nil)

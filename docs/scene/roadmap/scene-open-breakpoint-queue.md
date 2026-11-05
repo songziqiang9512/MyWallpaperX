@@ -24,7 +24,6 @@
 | subtree来源 · 3788897599/196 | project带child291仍缺project子树source消费者；沿原source与发布截点补能力，不因共用原因码合并其他group归因。 |
 | composition 其他绘制消费者 | `SceneUtilityLayerSourceRoute` 对 model/spotLight 仍整类拒绝；原绘制未消费局部 raster。核实际 nearest target 的投影、深度、光照及 viewport/local 模式，沿原 draw owner 接通，不以新组件/效果名单代缺失消费者。 |
 | composition 内 REFRACT 官方单位 | 当前粒子映射保本引擎 canonical 全局 screen-UV amount，宽窄画布与物理 extent 有内部资格。官方 owned loose fixture 的 amount0、neutral、mask0 仍有相同非背景卡片，尚不能据此区分 canvas/viewport 单位；先核官方背景输入、取景和控制，再做同 world 几何的尺寸/旋转对照，不能由现有 J 数学推为官方像素一致。 |
-| 旧版 Puppet 动画 · 2804817823/28/32 | MDLV0013独立bind网格及两层最终输出已有资格；两层活动Animacja1仍使用MDLS0001/MDLA0001，原Rig/Animation Reader尚不支持，当前只绘bind pose并保动画不可用原因。沿原骨骼/权重/动画消费者补真实旧格式，不能把静态双臂恢复当作动画恢复。 |
 | framebuffer需求记账 · 3292370168/505 | 505 dormant/currentHidden、无named target且无当帧capture plan；SceneDrawing先将全部未requested的framebuffer source加入unavailable并记encoded=false，实际EffectExecution已过滤无target plan，505没有执行捕获。当前CHECK来自无需求被记失败；沿原drawing owner区分排除与真实preflight/capture失败，保visible depth拒绝、活动需求和hidden named，不以总数抵消失败。不能将该记账修正称GPU或可见画面恢复。 |
 | 音频composition · 3039882306/772 | 当前无对应CPU/graph/所选帧draw，需受控audio/source输入；hidden1084 pending失败、868 fallback不挪作当前可见层证明。 |
 | Child事件flags · 3448877775/15706 | eventdeath shootingstarglow声明rawFlags1，`SceneParticleChildGraphExpansion`仍在子资产执行前局部拒绝；该字段与root General world flags并非同一语义。需有可区分的官方事件/父子空间控制后沿原child消费者落实，不能把未知child当整root许可或改作者flags。当前root的祖先平移与实际RopeTrail结果归[运行证据](../capabilities/runtime-evidence-current.md)，child不因此取得恢复资格。 |
@@ -155,6 +154,8 @@
 
 <a id="properties"></a>
 ## 属性与工具资格
+
+全量635目录测量的本机证据仍在 `~/.codex/worktrees/scene-architecture-governance/MyWallpaperX/.artifacts/scene-goal-full-sample-retest-20261103/`，当前主仓没有同名目录。后续整理按现有有界归档方法统一定位，保留原输入/报告/源码冻结和唯一失败证据，避免将正文的任务名直接当成当前主仓相对路径。
 
 | 定位 | 下一步 |
 |---|---|

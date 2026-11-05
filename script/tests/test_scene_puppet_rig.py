@@ -42,6 +42,7 @@ enum Harness {
                 let rig = try SceneMdlPuppetRigReader.read(data: data, mesh: mesh)
                 entry["ok"] = true
                 entry["stride"] = mesh.vertexStride
+                entry["blockOffset"] = mesh.meshBlockOffset
                 entry["vertexCount"] = mesh.vertices.count
                 entry["boneCount"] = rig.bones.count
                 entry["boneNames"] = rig.bones.map(\.name)
@@ -104,6 +105,9 @@ def build_rig_mdl(
     nan_weight: bool = False,
     bind_matrices: list[list[float]] | None = None,
     skeleton_tail: bytes = b"",
+    bone_names: tuple[str, ...] | None = None,
+    bone_metadata: bytes = b"{}",
+    prefix_noise: bytes = b"\0" * 24,
 ) -> bytes:
     vertices = [
         (-10.0, -20.0, 0.0, [0, 0, 0, 0], [1.0, 0.0, 0.0, 0.0], 0.0, 1.0),
@@ -125,7 +129,7 @@ def build_rig_mdl(
         struct.pack_into("<2f", record, stride - 8, u, v)
         vertex_blob += record
     index_blob = struct.pack("<6H", 0, 1, 2, 2, 1, 0)
-    body = bytearray(magic + b"\0" + b"\0" * 24)
+    body = bytearray(magic + b"\0" + prefix_noise)
     body += struct.pack("<II", 0, len(vertex_blob))
     body += vertex_blob
     body += struct.pack("<I", len(index_blob)) + index_blob
@@ -135,7 +139,8 @@ def build_rig_mdl(
         parent = -1 if bone == 0 else bone - 1
         if bad_parent and bone == 1:
             parent = 1
-        bone_name = b"root" if bone == 0 else b"MouseBone"
+        bone_name = (bone_names[bone].encode("utf-8") if bone_names is not None
+                     else b"root" if bone == 0 else b"MouseBone")
         mdls += bone_name + b"\0"
         mdls += struct.pack(
             "<IiI16f",
@@ -145,7 +150,7 @@ def build_rig_mdl(
             *(bind_matrices[bone] if bind_matrices is not None else
               matrix(bone * 10, bone * 20, nan=bad_matrix and bone == 0)),
         )
-        mdls += b"{}\0"
+        mdls += bone_metadata + b"\0"
     mdls += skeleton_tail
     mdla_offset = len(body) + len(mdls)
     struct.pack_into("<I", mdls, 9, mdla_offset)
@@ -201,8 +206,26 @@ class SceneMdlPuppetRigReaderTests(unittest.TestCase):
             "bad-bone-index.mdl": build_rig_mdl(bad_bone_index=True),
             "nan-weight.mdl": build_rig_mdl(nan_weight=True),
         }
+        legacy13 = dict(magic=b"MDLV0013", stride=52, skeleton_marker=b"MDLS0001\0",
+                        animation_marker=b"MDLA0001\0", bone_names=("", ""), bone_metadata=b"")
+        cls.legacy13_matrices = [matrix(-14.25, 3.5), matrix(6.75, 12.125)]
+        cls.legacy13_prefix = b"owned/cuff-renamed-52" + bytes(11)
+        cls.fixtures["mdlv0013-rig.mdl"] = build_rig_mdl(**legacy13)
+        cls.fixtures["moved-cuff52-rig.mdl"] = build_rig_mdl(
+            **{**legacy13, "bone_names": ("origin-renamed", "hinge-ε")},
+            bind_matrices=cls.legacy13_matrices, prefix_noise=cls.legacy13_prefix)
+        cls.fixtures["v13-wrong-skeleton.mdl"] = build_rig_mdl(
+            **{**legacy13, "skeleton_marker": b"MDLS0002\0"})
+        cls.fixtures["v14-wrong-legacy-skeleton.mdl"] = build_rig_mdl(
+            **{**legacy13, "magic": b"MDLV0014"})
+        for label, option in (("parent", "bad_parent"), ("matrix", "bad_matrix"),
+                              ("sum", "bad_weight_sum"), ("index", "bad_bone_index"),
+                              ("nan-weight", "nan_weight")):
+            cls.fixtures[f"v13-bad-{label}.mdl"] = build_rig_mdl(**legacy13, **{option: True})
         reference_matrices = [matrix(20, 30), matrix(7, 9)]
         reference_tail = b"\0\0\1" + struct.pack("<32f", *reference_matrices[0], *reference_matrices[1])
+        cls.fixtures["v13-unsupported-reference.mdl"] = build_rig_mdl(
+            **legacy13, skeleton_tail=reference_tail)
         legacy = dict(magic=b"MDLV0017", skeleton_marker=b"MDLS0002\0", animation_marker=b"MDLA0004\0")
         cls.affine_matrices = [[1.25, .5, -.25, 0, -.75, 2.5, .125, 0,
                                 .375, -.5, 3, 0, 17.25, -9.5, 4.75, 1], matrix(10, 20)]
@@ -292,6 +315,45 @@ class SceneMdlPuppetRigReaderTests(unittest.TestCase):
         self.assertEqual((entry["stride"], entry["boneCount"]), (52, 2))
         self.assertEqual(entry["parents"], [-1, 0])
         self.assertEqual(entry["weights"][1]["indices"], [0, 1, 0, 0])
+
+    def test_mdlv0013_preserves_unnamed_identity_matrices_weights_and_resource_rename(self):
+        for name, names, matrices, offset in (
+            ("mdlv0013-rig.mdl", ["", ""], [matrix(), matrix(10, 20)], 33),
+            ("moved-cuff52-rig.mdl", ["origin-renamed", "hinge-ε"], self.legacy13_matrices,
+             9 + len(self.legacy13_prefix)),
+        ):
+            with self.subTest(name=name):
+                row = self.results[name]
+                self.assertTrue(row["ok"], row)
+                self.assertEqual((row["stride"], row["vertexCount"], row["boneCount"]), (52, 3, 2))
+                self.assertEqual(row["blockOffset"], offset)
+                self.assertEqual(row["boneNames"], names)
+                self.assertEqual(row["parents"], [-1, 0])
+                self.assertEqual(row["bindMatrices"], matrices)
+                self.assertEqual(row["weights"], [
+                    {"indices": [0, 0, 0, 0], "weights": [1, 0, 0, 0]},
+                    {"indices": [0, 1, 0, 0], "weights": [0.25, 0.75, 0, 0]},
+                    {"indices": [1, 0, 0, 0], "weights": [1, 0, 0, 0]},
+                ])
+                self.assertIsNone(row["referenceTranslations"])
+                self.assertEqual(row["referenceDiagnostic"], "")
+
+    def test_mdlv0013_keeps_version_parent_matrix_and_weight_rejections(self):
+        cases = {
+            "v13-wrong-skeleton.mdl": "version-matched skeleton block",
+            "v14-wrong-legacy-skeleton.mdl": "version-matched skeleton block",
+            "v13-bad-parent.mdl": "invalid rig parent",
+            "v13-bad-matrix.mdl": "invalid bind matrix",
+            "v13-bad-sum.mdl": "invalid puppet vertex weights",
+            "v13-bad-index.mdl": "invalid puppet vertex weights",
+            "v13-bad-nan-weight.mdl": "invalid puppet vertex weights",
+            "v13-unsupported-reference.mdl": "reference pose is unverified",
+        }
+        for name, diagnostic in cases.items():
+            with self.subTest(name=name):
+                row = self.results[name]
+                self.assertFalse(row["ok"], row)
+                self.assertIn(diagnostic, row["error"])
 
     def test_mdlv0017_reads_only_the_version_matched_mdls0002_rig(self):
         entry = self.results["mdlv0017-rig.mdl"]

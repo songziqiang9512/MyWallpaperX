@@ -346,10 +346,12 @@ def run_sample(
         if not math.isfinite(second) or not 0 <= second < 60:
             raise ValueError("cursor_start_second must be in [0, 60)")
         environment["MYWALLPAPERX_SCENE_DEBUG_POINTER_SECOND"] = str(second)
-    if sample.get("cursor_drag_response") in {"spring-return", "no-capture"}:
-        layers = sample.get("puppet_interaction_layer_ids", [])
-        if not layers or any(type(layer) is not int for layer in layers):
-            raise ValueError("Puppet interaction requires explicit integer layer IDs")
+    layers = sample.get("puppet_interaction_layer_ids", [])
+    if sample.get("cursor_drag_response") in {"spring-return", "no-capture"} and not layers:
+        raise ValueError("Puppet interaction requires explicit integer layer IDs")
+    if layers:
+        if any(type(layer) is not int for layer in layers):
+            raise ValueError("Puppet bone evidence requires integer layer IDs")
         environment["MYWALLPAPERX_SCENE_DEBUG_PUPPET_BONE_EVIDENCE"] = ",".join(map(str, layers))
     if require_cursor_ripple_persistence:
         environment["MYWALLPAPERX_SCENE_DEBUG_CURSOR_RIPPLE_EVIDENCE"] = "1"
