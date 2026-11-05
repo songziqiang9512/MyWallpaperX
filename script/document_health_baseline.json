@@ -121,16 +121,16 @@
       "bytes": 5938
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 149,
-      "bytes": 23602
+      "lines": 158,
+      "bytes": 24855
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 191,
       "bytes": 35296
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 107,
-      "bytes": 48899
+      "lines": 108,
+      "bytes": 50384
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 107,
@@ -161,8 +161,8 @@
       "bytes": 4260
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 174,
-      "bytes": 33090
+      "lines": 175,
+      "bytes": 33763
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -485,29 +485,29 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "f895b3baece5b12ba0a678cbdebd3c6cc110c6230d62e1823b6c1f8da40b516d",
-      "after": "074243d72de115a961904136c8fa907009f212e4c30eb3488b06a1331b7c8e2c",
-      "owner": "scene-particle-prewarm-work",
-      "reason": "Charge original warmUp by entered births and processed population within original step/work envelope; preserve history, rate, RNG and event handoff. Keep bounded author/native evidence and current dense prewarm/child limits; remove retired truncation assertions.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#prewarm-work"
+      "before": "074243d72de115a961904136c8fa907009f212e4c30eb3488b06a1331b7c8e2c",
+      "after": "e5e10cb514963e4fbf3396a34ca3fd4db6fc2ee7939eb8233a6a07d802f4b076",
+      "owner": "scene-rope-whole-image",
+      "reason": "Retire atlas profile permission, unused SpriteAnimation and a duplicate post-parser frame scan in the original loader. Keep bounded official/native/App/author evidence, retire the resolved child-texture issue and preserve independent current utility-stage/untouched-compositor structure failures.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#rope-source"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "d03157556ce18fbec649b9f6349e7b5f6fa17e6003aeb196556616b4ccf33229",
-      "after": "6abe10dda02a01e0911f116dd3ede60fedba957d8500da9fcb56f2c6dc47c642",
-      "owner": "scene-particle-prewarm-work",
-      "reason": "Charge original warmUp by entered births and processed population within original step/work envelope; preserve history, rate, RNG and event handoff. Keep bounded author/native evidence and current dense prewarm/child limits; remove retired truncation assertions.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#prewarm-work"
+      "before": "6abe10dda02a01e0911f116dd3ede60fedba957d8500da9fcb56f2c6dc47c642",
+      "after": "4fa6e00012ca0fa2e546bac570087320887ce4c8caaceb9d866b743e0c764158",
+      "owner": "scene-rope-whole-image",
+      "reason": "Retire atlas profile permission, unused SpriteAnimation and a duplicate post-parser frame scan in the original loader. Keep bounded official/native/App/author evidence, retire the resolved child-texture issue and preserve independent current utility-stage/untouched-compositor structure failures.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#rope-source"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "da12db280d04170d786111cbeb281bbec94ddaf18b35bbd9e69ffeb527fa58c7",
-      "after": "bc9256305717071f27d1a2d6f2ce5b7d3fd6d8c581fc6e9f9f55864b147da4d0",
-      "owner": "scene-particle-prewarm-work",
-      "reason": "Charge original warmUp by entered births and processed population within original step/work envelope; preserve history, rate, RNG and event handoff. Keep bounded author/native evidence and current dense prewarm/child limits; remove retired truncation assertions.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#prewarm-work"
+      "before": "bc9256305717071f27d1a2d6f2ce5b7d3fd6d8c581fc6e9f9f55864b147da4d0",
+      "after": "b4e9a1d7cee3e07e3c4112c1963894db601256904f579fd16b0d62603ad66a70",
+      "owner": "scene-rope-whole-image",
+      "reason": "Retire atlas profile permission, unused SpriteAnimation and a duplicate post-parser frame scan in the original loader. Keep bounded official/native/App/author evidence, retire the resolved child-texture issue and preserve independent current utility-stage/untouched-compositor structure failures.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#rope-source"
     }
   ]
 }

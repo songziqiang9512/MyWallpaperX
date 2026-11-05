@@ -657,11 +657,13 @@ class SceneParticleRuntimeTests(
         for variant in result["atlasProfile"]:
             base = variant["baseID"]
             with self.subTest(atlas=variant["variant"]):
-                self.assertEqual(variant["activeLayerIDs"], [base, base+1, base+4, base+5])
+                self.assertEqual(variant["activeLayerIDs"], [base, base+1, *range(base+4, base+13)])
+                self.assertIn(f"ropeRendererUnsupported:{base+13}:rope:animatedTexture", variant["diagnostics"])
+                self.assertIn(f"trailRendererUnsupported:{base+3}:ropetrail:animatedTexture", variant["diagnostics"])
                 self.assertTrue(variant["inputIdentities"])
                 self.assertTrue(all(len(i["sha256"]) == 64 for i in variant["inputIdentities"]))
                 self.assertEqual(len(variant["phases"]), 2)
-                for phase in variant["phases"]:
+                for phase_index, phase in enumerate(variant["phases"]):
                     self.assertGreater(phase["ropeCount"], 0)
                     self.assertEqual(phase["ropeTextureSize"], [16, 4])
                     self.assertEqual(phase["ropeUVScale"], [1, 1])
@@ -677,6 +679,19 @@ class SceneParticleRuntimeTests(
                     # Independent color oracle: four known source plateaus coexist
                     # in one actual draw; the Sprite control samples one cell.
                     self.assertEqual(sorted(phase["ropePixels"]), palette)
+                    self.assertEqual(sorted(phase["childPixels"]), palette)
+                    self.assertEqual([r["name"] for r in phase["neighbors"]],
+                                     ["author-domain", "world-default", "no-frame-blend", "perspective", "repeat", "scroll", "smooth"])
+                    for row in phase["neighbors"]:
+                        with self.subTest(neighbor=row["name"], phase=phase_index):
+                            self.assertGreater(row["count"], 0, row)
+                            self.assertEqual(sorted(row["pixels"]), palette)
+                            self.assertTrue(all(f[0] == 0 and f[2:] == [1, 0] for f in row["wholeFrames"]))
+                            endpoints = [row["ranges"][0][0], row["ranges"][-1][-1]]
+                            expected = {"repeat": [0, 2], "scroll": ([.75, 1.75] if phase_index == 0 else [.25, 1.25]),
+                                        "smooth": ([.9354166667, .9979166667] if phase_index == 0 else [.8729166667, .9979166667])}.get(row["name"], [0, 1])
+                            for actual, value in zip(endpoints, expected):
+                                self.assertAlmostEqual(actual, value, delta=1e-6, msg=str(row))
                     sprite_pixels = phase["spritePixels"]
                     self.assertEqual(len(sprite_pixels), 4)
                     self.assertTrue(all(p == sprite_pixels[0] for p in sprite_pixels))

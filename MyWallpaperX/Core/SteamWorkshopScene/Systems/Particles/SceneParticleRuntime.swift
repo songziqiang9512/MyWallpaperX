@@ -842,7 +842,6 @@ final class SceneParticleRuntime {
         let colorUVScale: SIMD2<Float>
         let colorSampling: SceneParticleTextureSampling
         let refraction: SceneParticleRefractionBinding?
-        let wholeSourceRope: Bool
         do {
             if let declaration = asset.refraction {
                 guard let loaded = try SceneParticleRefractionTextureLoader.load(
@@ -867,15 +866,13 @@ final class SceneParticleRuntime {
                 colorUVScale = loaded.colorUVScale
                 colorSampling = loaded.colorSampling
                 refraction = loaded.binding
-                wholeSourceRope = false
             } else {
                 guard let loaded = try SceneParticleChildTemplateSupport.loadTexture(
                     textureSource,
                     textureLoader: textureLoader,
                     builtInTextureRegistry: builtInTextureRegistry,
                     device: device,
-                    rope: render.rope,
-                    definition: asset.definition
+                    usesWholeImage: render.rope != nil
                 ) else {
 #if DEBUG
                     addDiagnostic(
@@ -891,7 +888,6 @@ final class SceneParticleRuntime {
                 colorSampling = loaded.sampling
                 colorUVScale = loaded.uvScale
                 refraction = nil
-                wholeSourceRope = loaded.wholeSourceRope
             }
         } catch {
 #if DEBUG
@@ -904,7 +900,6 @@ final class SceneParticleRuntime {
             rope: render.rope,
             ropeTrail: render.ropeTrail,
             animation: spriteAnimation,
-            wholeSourceRope: wholeSourceRope,
             layerID: layer.id,
             path: path
         ) else { return nil }

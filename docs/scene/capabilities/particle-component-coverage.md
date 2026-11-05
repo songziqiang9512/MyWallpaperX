@@ -121,6 +121,15 @@ Surface 采用新 topology 才退出死 root/child GPU key；重建构造前过�
 
 材质剔除由原 Metal raster 状态消费：`normal` 编译为 back-cull，`noCull` 保双面，共用已有三角绕序与 vertex。其资格不依赖 renderer 名称或 REFRACT 组合，不改变相机、basis、尺寸与变换、纹理 UV、snapshot 或输出 owner。镜像是否翻面按实际几何投影决定，不改 front-facing 补偿作者变换。
 
+<a id="rope-source"></a>
+### 单图 Rope 纹理
+
+原 `SceneParticleChildTemplateSupport.loadTexture` 为 root/child 统一准备整图纹理：TEX 只要求实际单 image；SpriteFrame 索引由 TEX 解析入口一次验证，内部不重扫帧表。尺寸、解码和上传由原 loader 检查。General flags、renderer flags、animationmode、sequencemultiplier 与 Rope UV 选项不授纹理播放许可；UV 和几何继续由原 RopePlan 消费。
+
+Rope 整图路径不构造 SpriteAnimation，只传整图消费选择和原纹理/采样结果；不传完整 definition、RopePlan 或 profile 证明。Sprite/SpriteTrail 保原帧选择；RopeTrail、多 image 和 refraction 的独立资源/帧边界保持。资源失败只使受影响 root/child-template 不可用，不补默认纹理，不新增状态、时钟或资源 owner。
+
+固定官方 2.8.0.42 的两场 A/B 在 General0/renderer0 与 General7/renderer1 下，省略动画字段和 randomframe/111 的 Rope 都呈整张四色图集，Sprite 正控与移动时钟/peer 同场成立。此为单图整张 source 的定性依据，不授多 image、RopeTrail、精确官方 RGBA 或完整 UV 公式；原生与 App 的实际消费资格见[运行证据](runtime-evidence-current.md)。
+
 <a id="material-state"></a>
 ### 材质状态与几何职责
 

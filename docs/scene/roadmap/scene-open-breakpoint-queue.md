@@ -13,6 +13,7 @@
 
 | 定位 | 当前事实与下一步 |
 |---|---|
+| 结构门singular分类 | 当前`test_scene_semantics_coverage`的authority/completion两门在`SceneImageLayerCompositor.swift`的518/670/702/706报5个未分类引用，总6处对baseline1；涉及原`dependencyEffect`的参数/转发/末端消费。该文件与本批前HEAD一致，不归Rope纹理回归。先核原owner实际单数主依赖消费与分类范围，修正失效分类或退役真正重复route后再收紧基线；不为通过直接将1升6。 |
 | uniform const作用域 | `SceneGenericShaderRuntimeConstantNormalizer`仍用全文value-name表及exactReference之后的同名token计数；无关helper形参`pow`或`u_gain`会阻止纯uniform派生全局const降低。现有`pow-value-shadow`/`pow-uniform-shadow`回归保留原const，属于实现边界。沿初始化/调用token和真实读写复用binding facts，保纯度、out/inout与compile-time consumer限制；用基线、改名及无关同名形参的同Program A/B/A像素验证，尚无真实作者影响资格。 |
 | 通道与操作推导 | 无typed边界的颜色兼容、alpha-only/packed data及有序signal仍有有界source事实；vec4类型本身不说明通道意图。自有whole-vector复制在无注解/otherPigment时，slot0/3实际选同资产但purpose=nil，Finalizer真实报texturePurposeUnproven；明确albedo的typed输入不是该缺口恢复。沿原冷准备汇合component来源、真实输出/资源用途，保data FBO、独立alpha及mixed-role反例，不再为效果写法追加识别名单。 |
 | source fallback 的路径/摘要许可 | `SceneAuthoredXRayPlanner+StockIdentity`仍以固定路径、UI字段及两个摘要profile授source-passthrough豁免；`SceneImageLayerDrawRequest`仍以Pulse/Blur/Waterwaves路径、pass/slot/combo形状判source coverage。两者影响源图降级，不是通用Program执行许可，尚无当前作者被误挡的画面归因。沿原prepared Program的coverage、颜色边界及发布依赖事实替换并退役旧许可；核等价资源改名、真实alpha改变、PMA、mask与named发布反例，不能直接通放base source冒充效果结果。 |
@@ -31,7 +32,6 @@
 | REFRACT normal空槽 · 3566323704/552/141 | material显式`[particle/drop,null]`被要求非空normal的planner拒绝，尚未进入缺文件lookup；缺省normal语义待资格，不造纹理补洞。 |
 | RopeTrail参数 · 3337494481、3527426897 | 前者活动10root先被renderer flags1拒绝；对应20层definition flags0，负subdivision=-16仍未资格。另224/251的definition flags1是静态hidden，不归动态祖先拒绝。后者637/1323缺length被拒。分别核renderer输入与隐式length语义，不取绝对值或猜默认。 |
 | Rope A2C可见轨迹 · 3807668787/958 | 原作者已进入实际A2C Rope，五个缩导出活动相位126/224/224/252/238段均编码并GPU完成，camera与几何沿原约定。另次原尺寸图仅两个pointer端点有弱色信号，完整轨迹仍未资格；缩图不能判原始像素缺失。静态核无重复alpha、后置opaque覆盖或TEX padding，sickle单图mask稀疏且mip峰值降低，实际LOD未知。alpha1/0仅私有诊断，不能改作者alpha或放大增益冒称修复。先用可区分的UV/LOD/coverage输入定位；官方precoverage数学与本机sampleCount1尚无同输入差异资格，不据名称新增MSAA/resolve。 |
-| 粒子子资源 · 3788897599/568 | mouse=true活动复验中parent getsuga_tenshou与child0 red_fire均draw，另一个getsuga.json child仍有`textureLoadFailed`；尚无具体缺失texture键，不能合并归因A2C、project196或父树全部不可用。沿原AssetGraph/TextureLoader定位实际资源及作者缺省，保健康成员继续呈现。 |
 | 满容量的自然调度 | 官方maxcount2、两个life4初始fillers、rate.4周期发射在T8.2只有约6.5出生；容量64对照约5/7.5。无上限本身也延后，原5/7.5判别前提失败，周期quota按请求或接纳计费尚未知。沿原Simulator核满槽期间fraction/窗口与死亡释放顺序；不以这个未知拒绝普通或capped发射，不增加调度owner。 |
 | 显式命令与自然相位 | 官方rate.4、on10/gap10、cap2，约t1 emit1后可见出生1/5/7.5；约t6 emit1后为2.5/5/6。显式在自然额度耗尽后仍贡献，但早期命令会改变后续自然出生相位，不能宣称与调度完全独立。沿原exact-n命令/EmitterState核交互，不挂共用appendBirth扣自然quota，不把未知变成整组play/pause/stop的禁令。 |
 | 普通粒子材质语义 | AssetGraph仅核genericparticle basename；no-depth普通路径的额外CUTOUT/LIGHTING/UNKNOWN combo和user texture/value没有通用shader消费者，固定sceneParticleFrag仍输出原纹理×tint。RenderStateCompiler已将普通材质输入与几何许可分离，但其profile仍用于camera选择及当前depth/A2C输入限制，不能代替材质编译。沿原材质准备/实际shader或typed操作接入，区分已消费与未实现输入；不能以效果名或源码形状白名单扩张许可，也不能盲目忽略未消费输入。当前额外材质输入为代码链事实，尚无逐作者画面资格。 |
@@ -51,6 +51,7 @@
 | effect执行阶段读口 · 3292370168/239e0 | 当前parent named来源已接通；frame0/1在视频首帧pending时局部未供，frame10/11实际执行并GPU完成，selected23有151→e0→e1→main/seal全链。现reader将不同帧同identity的失败/成功聚为矛盾并报unexpected recovery，整样本CHECK4还含505。沿原execution/frame读口区分时间阶段、当前selected结果与持续失败，保原失败事实及同帧真实冲突；不能为消报告改渲染或将短窗恢复授视频更新/全像素。 |
 | 必需binding · 3556263543 | 五个文字psyhue e0在真实采样slot2缺authored/default binding而持续旁路，e1与终端健康。缺项已证，隐式phase默认语义仍未知；不是census注释里的slot3。不得随意填纹理，也不能把copy的GPU完成算原effect执行。 |
 | 隐藏分支shader | 3607684497/59e0的`v_TexCoordKernel`明确varying type/array拒绝；2887099508/257e0明确g_Point1 script attachment未资格；2932157836/299e1 node1/slot0、3745828537/1087e0 node0/slot1缺binding资格，2857410102/91e3仅有聚合purpose原因。均保never-visible边界；3042492564另有aa_gaussian/node3 stage-link失败，不能与blur slot0混因。 |
+| utility阶段依赖 · 3745828537/1165e0 | 当前同三输入摘要4秒复验，4个粒子root均加载且捕获/GPU完成；utility-composition的frame3/4仍为`dependency-stage-reference-unavailable`，整场报CPU invocation failed与unexpected effect-local passthrough。该局部拒绝不能算粒子纹理回归或整场PASS。沿原StageDependency/GraphRuntime核实际producer和阶段引用；原始相位、输入与PNG在`scene-goal-particle-child-texture-20261105/neighbor-after`，1087 hidden binding缺口另列，不凭同样本合并归因。 |
 | 作者脚本与VM边界 | 初次32样本、含长窗33样本有实际script诊断；初次TypeError涉及21样本45个target，不能按异常类批量归作者或引擎。2890473419四个origin脚本仅声明shadowLayer即写visible、2982559622把Vec3返回给alpha为已证输入问题；3504669359实际触及prepared Puppet metadata unavailable。其余按`task/full-script-failure-recon.json`逐target核上下文/producer/API/回调顺序。 |
 | 片头后的mutation · 3599986633/702.visibility | 约Ready+7秒，702脚本hide后destroy“片头”，同owner合并为一项destroy；三个authored children650/654/700未同时声明销毁，被原guard拒绝，702保previous-current，16秒窗重复557次。总数5另含175对四文字层的显隐，按owner隔离。沿原destroy/subtree核父销毁时子层寿命；官方只明示延迟移除，递归退休或脱父仍需资格，不拆owner原子性吞错。 |
 | 缺输入 · 3736952187、3763323436 | project.json不存在，未启动App；补合法输入后再跑，不作引擎失败。 |

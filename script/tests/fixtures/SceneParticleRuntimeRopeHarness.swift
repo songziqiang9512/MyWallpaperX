@@ -662,26 +662,32 @@ extension Harness {
                 layers.append(layer(baseID + offset, path))
             }
             let child = "particles/\(stem)-child.json", parent = "particles/\(stem)-parent.json"
-            try writeJSON(definition("rope", material), to: directory.appendingPathComponent(child))
+            var childDefinition = definition("rope", material, flags: 7)
+            childDefinition["animationmode"] = "randomframe"; childDefinition["sequencemultiplier"] = 111
+            var childRenderer = (childDefinition["renderer"] as! [[String: Any]])[0]
+            childRenderer["flags"] = 1; childDefinition["renderer"] = [childRenderer]
+            try writeJSON(childDefinition, to: directory.appendingPathComponent(child))
             var parentDefinition = definition("sprite", material, flags: 2)
             parentDefinition["children"] = [["name": child, "origin": [0,0,0]]]
             try writeJSON(parentDefinition, to: directory.appendingPathComponent(parent))
             layers.append(layer(baseID + 5, parent))
-            let systemNeighbors: [(String, String, Any)] = [
-                ("flags", "flags", 2), ("mode", "animationmode", "randomframe"),
-                ("multiplier", "sequencemultiplier", 2)]
-            let renderNeighbors: [(String, String, Any)] = [
-                ("world", "flags", 1), ("uvscale", "uvscale", 2),
-                ("scroll", "uvscrolling", true), ("smooth", "uvsmoothing", true)]
-            for (offset, item) in (systemNeighbors + renderNeighbors).enumerated() {
-                var bad = definition("rope", material)
-                if offset < systemNeighbors.count { bad[item.1] = item.2 }
-                else {
-                    var renderer = (bad["renderer"] as! [[String: Any]])[0]
-                    renderer[item.1] = item.2; bad["renderer"] = [renderer]
+            let neighbors: [(String, [String: Any], [String: Any])] = [
+                ("author-domain", ["flags": 7, "animationmode": "randomframe", "sequencemultiplier": 111], ["flags": 1]),
+                ("world-default", ["flags": 1, "animationmode": NSNull(), "sequencemultiplier": NSNull()], ["flags": 1]),
+                ("no-frame-blend", ["flags": 2], [:]),
+                ("perspective", ["flags": 4, "animationmode": "randomframe", "sequencemultiplier": 111], [:]),
+                ("repeat", [:], ["flags": 1, "uvscale": 2]),
+                ("scroll", ["animationmode": NSNull(), "sequencemultiplier": NSNull()], ["uvscrolling": true]),
+                ("smooth", ["animationmode": "randomframe", "sequencemultiplier": 111], ["uvsmoothing": true])]
+            for (offset, item) in neighbors.enumerated() {
+                var input = definition("rope", material)
+                for (key, value) in item.1 {
+                    if value is NSNull { input.removeValue(forKey: key) } else { input[key] = value }
                 }
-                let path = "particles/\(stem)-unsupported-\(item.0).json"
-                try writeJSON(bad, to: directory.appendingPathComponent(path))
+                var renderer = (input["renderer"] as! [[String: Any]])[0]
+                renderer.merge(item.2, uniquingKeysWith: { _, value in value }); input["renderer"] = [renderer]
+                let path = "particles/\(stem)-\(item.0).json"
+                try writeJSON(input, to: directory.appendingPathComponent(path))
                 layers.append(layer(baseID + 6 + offset, path))
             }
             let refracted = "materials/\(stem)-refraction.json"
@@ -708,6 +714,14 @@ extension Harness {
                 func spans(_ batch: SceneParticleDrawBatch?) -> [[Float]] {
                     (batch?.instances ?? []).map { [$0.frame0A.z,$0.frame0A.w,$0.frame0B.x,$0.frame0B.y] }
                 }
+                var neighborRows: [[String: Any]] = []
+                for (offset, item) in neighbors.enumerated() {
+                    let batch = batches.first { $0.layerID == baseID + 6 + offset }
+                    let ranges = batch?.instances.map { [$0.frame0B.z, $0.frame0B.w] } ?? []
+                    neighborRows.append(["name": item.0, "count": batch?.instances.count ?? 0,
+                        "wholeFrames": spans(batch), "ranges": ranges,
+                        "pixels": try batch.map { try ropeAtlasPixels($0, device: device, pipeline: pipeline, queue: queue) } ?? []])
+                }
                 phases.append(["ropeCount": rope?.instances.count ?? 0,
                     "ropeFrames": spans(rope), "childFrames": spans(childBatch),
                     "spriteFrames": spans(sprite), "trailFrames": spans(trail),
@@ -715,6 +729,8 @@ extension Harness {
                     "ropeTextureSize": rope.map { [$0.texture.width, $0.texture.height] } ?? [],
                     "ropeUVScale": rope.map { [$0.colorUVScale.x,$0.colorUVScale.y] } ?? [],
                     "ropePixels": try rope.map { try ropeAtlasPixels($0, device: device, pipeline: pipeline, queue: queue) } ?? [],
+                    "childPixels": try childBatch.map { try ropeAtlasPixels($0, device: device, pipeline: pipeline, queue: queue) } ?? [],
+                    "neighbors": neighborRows,
                     "spritePixels": try sprite.map { try ropeAtlasPixels($0, device: device, pipeline: pipeline, queue: queue, firstOnly: true) } ?? []])
             }
             let identities = try FileManager.default.subpathsOfDirectory(atPath: directory.path)

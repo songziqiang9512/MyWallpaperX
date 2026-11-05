@@ -371,8 +371,9 @@ enum Harness {
             "depthTestEnabled": depth?.pipelineState?.depthTestEnabled ?? false,
             "depthWriteEnabled": depth?.pipelineState?.depthWriteEnabled ?? false,
             "depthOverbright": depth?.pipelineState?.overbright ?? -1,
-            "depthFixedRejected": depthFixed?.pipelineState == nil
-                && depthFixed?.renderState == nil,
+            "depthFixedState": depthFixed?.pipelineState.map {
+                [$0.depthTestEnabled, $0.depthWriteEnabled, $0.usesSceneCamera]
+            } ?? [],
             "rootCull": root?.pipelineState?.cullMode.rawValue ?? "",
             "normalCull": normalCull?.pipelineState?.cullMode.rawValue ?? "",
             "normalCullFixed": normalCullFixed?.pipelineState?.cullMode.rawValue ?? "",
@@ -507,28 +508,29 @@ enum Harness {
                 combos: ["REFRACT": 1], cameraProfile: false)
         }
         try add("coverage-no-cull", state: ("plain", false, false, "nocull"), allowed: true, blending: "alphatocoverage")
-        try add("coverage-normal-cull", state: ("plain", false, false, "normal"), blending: "alphatocoverage")
+        try add("coverage-normal-cull", state: ("plain", false, false, "normal"), allowed: true, blending: "alphatocoverage")
         try add("default-world-screen", allowed: true)
+        let geometryStart = roots.count
         for orientation in ["fixed", "upright"] {
-            try add(orientation, renderers: [["name": "sprite", "flags": 1, "orientation": orientation]])
+            try add(orientation, renderers: [["name": "sprite", "flags": 1, "orientation": orientation]], allowed: true, cameraProfile: false)
         }
         for name in ["spritetrail", "rope", "ropetrail"] {
-            try add(name, renderers: [["name": name, "flags": 1]])
+            try add(name, renderers: [["name": name, "flags": 1]], allowed: true, cameraProfile: false)
         }
-        try add("multiple", renderers: [["name": "sprite"], ["name": "sprite"]])
-        try add("axis", renderers: [["name": "sprite", "flags": 1, "axis": "0 0 1"]])
-        try add("unknown-flags", renderers: [["name": "sprite", "flags": 3]])
-        try add("malformed-flags", renderers: [["name": "sprite", "flags": "invalid"]])
-        try add("malformed-orientation", renderers: [["name": "sprite", "orientation": 17]])
-        try add("unknown-field", renderers: [["name": "sprite", "unrecognized": true]])
+        try add("multiple", renderers: [["name": "sprite"], ["name": "sprite"]], allowed: true, cameraProfile: false)
+        try add("axis", renderers: [["name": "sprite", "flags": 1, "axis": "0 0 1"]], allowed: true, cameraProfile: false)
+        try add("unknown-flags", renderers: [["name": "sprite", "flags": 3]], allowed: true, cameraProfile: false)
+        try add("malformed-flags", renderers: [["name": "sprite", "flags": "invalid"]], allowed: true, cameraProfile: false)
+        try add("malformed-orientation", renderers: [["name": "sprite", "orientation": 17]], allowed: true, cameraProfile: false)
+        try add("unknown-field", renderers: [["name": "sprite", "unrecognized": true]], allowed: true, cameraProfile: false)
+        let geometryPaths = Set(roots[geometryStart...])
         for combo in ["REFRACT", "CUTOUT", "LIGHTING", "UNKNOWN"] {
             try add(combo.lowercased(), combos: [combo: 1])
         }
         try add("user-texture", userTexture: true)
         try add("user-values", userValues: true)
-        // Existing unrestricted no-depth routes stay available, but must not
-        // acquire the ordinary Sprite camera policy from a permissive draw state.
-        for path in roots.filter({ expected[$0]?.0 == false }) {
+        // Material state does not grant renderer execution or camera selection.
+        for path in roots.filter({ expected[$0]?.0 == false || geometryPaths.contains($0) }) {
             let definition = try JSONSerialization.jsonObject(
                 with: Data(contentsOf: directory.appendingPathComponent(path))) as! [String: Any]
             let pass = passes.first { $0.materialPath == definition["material"] as? String }!
@@ -541,7 +543,7 @@ enum Harness {
             if pass.combos != ["REFRACT": 1] {
                 try add("refract-read-only-\(URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent)",
                     renderers: definition["renderer"] as! [[String: Any]],
-                    state: ("read-only", true, false, "nocull"),
+                    state: ("read-only", true, false, "nocull"), allowed: expected[path]!.0,
                     combos: pass.combos.merging(["REFRACT": 1]) { _, selected in selected },
                     userTexture: pass.hasUserTextureInputs, userValues: pass.hasUserShaderValues,
                     cameraProfile: false)
@@ -891,7 +893,7 @@ class SceneParticleAssetTests(unittest.TestCase):
         )
         return json.loads(result.stdout)
 
-    def test_single_screen_sprite_depth_cull_profiles_preserve_authored_spaces(self) -> None:
+    def test_material_state_keeps_authored_depth_cull_and_separate_camera_selection(self) -> None:
         result = self.run_harness("render-state-profiles")
         rows = result["rows"]
         self.assertEqual(result["variantPrimitive"], {"readOnly": True, "mixed": True})
@@ -959,7 +961,7 @@ class SceneParticleAssetTests(unittest.TestCase):
         self.assertTrue(result["depthTestEnabled"])
         self.assertTrue(result["depthWriteEnabled"])
         self.assertAlmostEqual(result["depthOverbright"], 1.19, places=6)
-        self.assertTrue(result["depthFixedRejected"])
+        self.assertEqual(result["depthFixedState"], [True, True, False])
         self.assertEqual(result["rootCull"], "none")
         self.assertEqual(result["normalCull"], "back")
         self.assertEqual(result["normalCullFixed"], "back")
@@ -981,7 +983,7 @@ class SceneParticleAssetTests(unittest.TestCase):
                 "missingTextureFile": 1,
                 "missingTextureReference": 1,
                 "unsupportedBlendMode": 1,
-                "unsupportedRenderState": 2,
+                "unsupportedRenderState": 1,
                 "unsupportedShader": 2,
             },
         )

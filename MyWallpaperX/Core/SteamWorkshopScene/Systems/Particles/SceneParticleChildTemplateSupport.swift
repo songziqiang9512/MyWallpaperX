@@ -237,40 +237,30 @@ enum SceneParticleChildTemplateSupport {
         textureLoader: SceneTextureLoader,
         builtInTextureRegistry: SceneParticleBuiltInTextureRegistry,
         device: MTLDevice,
-        rope: SceneParticleRopePlan? = nil,
-        definition: SceneParticleDefinition
+        usesWholeImage: Bool
     ) throws -> (
         texture: MTLTexture,
         animation: SceneSpriteAnimation?,
         sampling: SceneParticleTextureSampling,
         uvScale: SIMD2<Float>,
-        staticAspect: Float,
-        wholeSourceRope: Bool
+        staticAspect: Float
     )? {
         switch source {
         case let .file(input):
             let prepared = try textureLoader.prepareTexSource(from: input)
             if input.pathExtension.lowercased() == "tex", prepared == nil { return nil }
             let container = prepared?.container
-            let wholeSourceRope: Bool
-            if let rope, let container {
-                // Rope consumes the uploaded image, not an age-selected cell.
-                // Check actual metadata even if SpriteAnimation would be nil.
-                guard container.imageCount == 1,
-                      container.spriteFrames.allSatisfy({ $0.imageIndex == 0 }) else { return nil }
-                wholeSourceRope = !container.spriteFrames.isEmpty
-                if wholeSourceRope {
-                    guard definition.flags.rawValue == 0,
-                          definition.renderers.first?.rawFlags == 0,
-                          definition.animationMode == nil || definition.animationMode == "sequence",
-                          definition.sequenceMultiplier ?? 1 == 1,
-                          rope.uvScale == 1, !rope.smoothsUV, !rope.scrollsUV else { return nil }
-                }
-            } else {
-                wholeSourceRope = false
+            if usesWholeImage, let container {
+                // Rope samples the uploaded image without a sprite-frame clock.
+                guard container.imageCount == 1 else { return nil }
             }
-            let animation = try container.flatMap {
-                try SceneSpriteAnimation(container: $0, sourceInput: input)
+            let animation: SceneSpriteAnimation?
+            if usesWholeImage {
+                animation = nil
+            } else {
+                animation = try container.flatMap {
+                    try SceneSpriteAnimation(container: $0, sourceInput: input)
+                }
             }
             var uvScale = SIMD2<Float>(repeating: 1)
             var staticAspect: Float = 1
@@ -319,12 +309,12 @@ enum SceneParticleChildTemplateSupport {
                 colorTexture, animation,
                 container.map { SceneParticleTextureSampling(texFlags: $0.flags) }
                     ?? .directImageFallback,
-                uvScale, staticAspect, wholeSourceRope
+                uvScale, staticAspect
             )
         case let .builtIn(key):
             guard let texture = builtInTextureRegistry.texture(for: key) else { return nil }
             return (texture, nil, .directImageFallback, SIMD2(repeating: 1),
-                    Float(texture.width) / Float(texture.height), false)
+                    Float(texture.width) / Float(texture.height))
         }
     }
 }
