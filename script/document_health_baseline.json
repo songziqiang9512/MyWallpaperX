@@ -125,12 +125,12 @@
       "bytes": 24855
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 206,
-      "bytes": 38784
+      "lines": 215,
+      "bytes": 40357
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 111,
-      "bytes": 55133
+      "lines": 112,
+      "bytes": 56771
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 115,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 173,
-      "bytes": 32775
+      "bytes": 32706
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -484,15 +484,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "4e00035ae3de6aecb65130c906c66e758a2eb34a9100cc981c5840c1342c3443",
-      "after": "6bd0958fa5825bb8b839e503338a043593e4de4ba2384a35071bba59a920e97f",
-      "owner": "scene-unbound-optional-resolution",
-      "reason": "Implement the existing prepared no-source/off contract with a shared numeric lowering, retain explicit/default/pending resource boundaries, replace the resolved author rejection with qualified Program/pixel evidence and retain measured partial prewarm facts.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#unbound-texture-resolution"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
       "before": "da0bcc1aa70fe3a57b5db73d09853891f237a33a932afbb383123e9b7ea13ede",
       "after": "1cb43cf9ed6bee49f1f88d8e441a3cb39aa976c0866df41222adcff6fcc46ea2",
@@ -502,21 +493,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
+      "before": "6bd0958fa5825bb8b839e503338a043593e4de4ba2384a35071bba59a920e97f",
+      "after": "e093fdc0426a6a39b45315951510bcf037e2547c084dc85aa55baee92ba05e90",
+      "owner": "scene-generic-vector-array-interface",
+      "reason": "Replace element/count permission with the original complete stage shape and component budget; retain bounded, legacy and nonfloating limits; record actual CoreText/Metal output separately from the default-hidden author contract.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#generic-varying-array-budget"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "cde1dde0c503b1b5a6f1e2687ee2c6f25a52eef60a32a4bc6d17d9d33d1ed59c",
-      "after": "7233e3d103ea2e2967d3c05065bf0f5f72af0df8309d5249b519204daa4fbb27",
-      "owner": "scene-unbound-optional-resolution",
-      "reason": "Implement the existing prepared no-source/off contract with a shared numeric lowering, retain explicit/default/pending resource boundaries, replace the resolved author rejection with qualified Program/pixel evidence and retain measured partial prewarm facts.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#unbound-texture-resolution"
+      "before": "7233e3d103ea2e2967d3c05065bf0f5f72af0df8309d5249b519204daa4fbb27",
+      "after": "ce9ea8b8690e3b20d3d265772d935cff1a823dcbe678680061d95e5102011dea",
+      "owner": "scene-generic-vector-array-interface",
+      "reason": "Replace element/count permission with the original complete stage shape and component budget; retain bounded, legacy and nonfloating limits; record actual CoreText/Metal output separately from the default-hidden author contract.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#generic-varying-array-budget"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "3300d4a65c17ae58e26846f914c6fc7e59b51bdd3898bd6a1e8e66e2e6fa6093",
-      "after": "a7091ca28a51996e8d6b1ce9079dd53ea55ef69e3d2d9c98adcf351264eb4c28",
-      "owner": "scene-unbound-optional-resolution",
-      "reason": "Implement the existing prepared no-source/off contract with a shared numeric lowering, retain explicit/default/pending resource boundaries, replace the resolved author rejection with qualified Program/pixel evidence and retain measured partial prewarm facts.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#unbound-texture-resolution"
+      "before": "a7091ca28a51996e8d6b1ce9079dd53ea55ef69e3d2d9c98adcf351264eb4c28",
+      "after": "60f34cb983c441695c3633ea5a148382fc0d926251037cf9bca82915146c5e21",
+      "owner": "scene-generic-vector-array-interface",
+      "reason": "Replace element/count permission with the original complete stage shape and component budget; retain bounded, legacy and nonfloating limits; record actual CoreText/Metal output separately from the default-hidden author contract.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#generic-varying-array-budget"
     }
   ]
 }

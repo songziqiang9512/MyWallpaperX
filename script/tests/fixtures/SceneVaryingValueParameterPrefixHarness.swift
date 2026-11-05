@@ -7,7 +7,9 @@ private struct SourcePair: Decodable {
 }
 
 private struct ActualContract: Decodable {
-    let contract: SceneShaderContract
+    let contract: SceneShaderContract?
+    let identity: String?
+    let sourceRoot: String?
     let materialCombos: [String: Int]
     let compatibilityTarget: SceneShaderCompatibilityTarget?
     let textureReadiness: [Int: Bool]?
@@ -93,17 +95,31 @@ private enum VaryingValueParameterPrefixHarness {
     private static func actual(_ path: String) throws -> [String: Any] {
         let input = try JSONDecoder().decode(ActualContract.self,
             from: Data(contentsOf: URL(fileURLWithPath: path)))
-        guard let graph = input.contract.sourceGraph else {
+        let contract: SceneShaderContract
+        if let supplied = input.contract {
+            contract = supplied
+        } else if let identity = input.identity, let sourceRoot = input.sourceRoot {
+            let root = URL(fileURLWithPath: sourceRoot,
+                relativeTo: URL(fileURLWithPath: path).deletingLastPathComponent())
+            let loaded = try SceneShaderContractLoader().load(shaderReferences: [identity], rootURL: root)
+            guard loaded.count == 1, loaded[0].diagnostics.isEmpty else {
+                throw NSError(domain: "actual-source-contract-invalid", code: 1)
+            }
+            contract = loaded[0]
+        } else {
+            throw NSError(domain: "actual-contract-input-missing", code: 1)
+        }
+        guard let graph = contract.sourceGraph else {
             throw NSError(domain: "missing-actual-source-graph", code: 1)
         }
         let target = input.compatibilityTarget ?? .unprofiledMetal
         var prepared: [String: String] = [:]
         for kind in [SceneShaderContract.StageKind.vertex, .fragment] {
-            guard let stage = input.contract.stages.first(where: { $0.kind == kind }) else {
+            guard let stage = contract.stages.first(where: { $0.kind == kind }) else {
                 throw NSError(domain: "missing-actual-stage", code: 1)
             }
             let environment = try SceneShaderVariantResolver.resolve(
-                stage: kind, stages: input.contract.stages,
+                stage: kind, stages: contract.stages,
                 compatibilityTarget: target, explicitCombos: input.materialCombos,
                 inactiveComboProviders: input.inactiveComboProviders ?? [],
                 textureReadiness: input.textureReadiness ?? [:]
@@ -119,6 +135,8 @@ private enum VaryingValueParameterPrefixHarness {
         var result = analyze(.init(vertex: vertex, fragment: fragment))
         result["preprocessedVertex"] = vertex
         result["preprocessedFragment"] = fragment
+        result["sourceSHA256"] = Dictionary(uniqueKeysWithValues:
+            contract.stages.map { ($0.relativePath, $0.rawSHA256) })
         result["compatibilityTarget"] = target.rawValue
         result["stage"] = "actual-contract-variant-preprocessor-before-shared-proof"
         return result
@@ -147,6 +165,8 @@ private enum VaryingValueParameterPrefixHarness {
         guard (1...8).contains(draws.count) else {
             throw NSError(domain: "uniform-draw-limit", code: 1)
         }
+        // std140: render size at 0, then the two production quad pairs at 16/32.
+        let geometry: [Float] = [2, 2, 0, 0, 0, 1, 1, 1, 0, 0, 1, 0]
         var result: [[Float]] = []
         for draw in draws {
             guard let texture = device.makeTexture(descriptor: textureDescriptor),
@@ -161,10 +181,11 @@ private enum VaryingValueParameterPrefixHarness {
                 throw NSError(domain: "metal-encoder", code: 1)
             }
             encoder.setRenderPipelineState(pipeline)
-            var resolution = SIMD2<Float>(2, 2)
-            for index in [0, 8] {
-                encoder.setVertexBytes(&resolution, length: MemoryLayout<SIMD2<Float>>.stride, index: index)
-                encoder.setFragmentBytes(&resolution, length: MemoryLayout<SIMD2<Float>>.stride, index: index)
+            geometry.withUnsafeBytes { bytes in
+                for index in [0, 8] {
+                    encoder.setVertexBytes(bytes.baseAddress!, length: bytes.count, index: index)
+                    encoder.setFragmentBytes(bytes.baseAddress!, length: bytes.count, index: index)
+                }
             }
             for (buffers, vertexStage) in [(draw.vertexBuffers, true), (draw.fragmentBuffers, false)] {
                 for buffer in buffers {

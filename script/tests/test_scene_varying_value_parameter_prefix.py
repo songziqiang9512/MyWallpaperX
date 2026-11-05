@@ -32,6 +32,9 @@ FIXTURE = Path(__file__).with_name("fixtures") / "SceneVaryingValueParameterPref
 SWIFT_SOURCES = list(dict.fromkeys([
     *CANONICALIZER_SOURCES,
     *PREPROCESSOR_SOURCES,
+    *(REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract" / name
+      for name in ("SceneBuiltinShaderIdentity.swift", "SceneShaderContractLoader.swift",
+                   "SceneShaderContractLoader+SourceGraph.swift")),
 ]))
 GPU_ENABLED = os.environ.get("MWX_SCENE_VARYING_PREFIX_GPU", "1") == "1"
 EXPECTED_COPY_PIXELS = [
@@ -223,7 +226,9 @@ class SceneVaryingValueParameterPrefixTests(unittest.TestCase):
         for backend, packet in packets.items():
             (root / (backend + "-pixels.json")).write_text(json.dumps(packet, indent=2))
             if uniforms:
-                values = {**uniforms, "mwxRenderSize": [2.0, 2.0]}
+                values = {**uniforms, "mwxRenderSize": [2.0, 2.0],
+                          "mwxVertexCoordinates01": [0.0, 1.0, 1.0, 1.0],
+                          "mwxVertexCoordinates23": [0.0, 0.0, 1.0, 0.0]}
                 if backend == "bounded":
                     buffer = pack_uniforms(output["boundedUniformFields"], output["boundedUniformByteSize"],
                                            output["boundedUniformBufferIndex"], values)

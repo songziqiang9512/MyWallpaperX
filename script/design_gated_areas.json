@@ -879,7 +879,7 @@
       "owner": "Scene existing shader preparation / generic compiler",
       "status": "approved",
       "designDoc": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "design_notes": "",
+      "design_notes": "固定数组扩展合同见 designDoc#generic-varying-array-budget：沿原Generic SourceNormalizer完整stage shape与124分量预算、严格联合链接及Metal执行承接vec2[49]等真实接口，替换16/32项与元素类型许可。不缩作者活数组、不新增重写/状态/ABI/帧检查；原≤16路径保持，非浮点插值语义不预支。真实作者默认隐藏与实际可见证据分别验收。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderSourceNormalizer.swift"
       ],

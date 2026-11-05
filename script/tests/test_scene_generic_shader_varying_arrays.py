@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fixed scalar varying arrays through maintained preparation and strict tools.
+"""Fixed varying arrays through maintained preparation and strict tools.
 
 CPU methods reuse the existing frontend/preprocessor fixture without creating a
 Metal device. The opt-in pixel method consumes their exact generated packet.
@@ -58,16 +58,58 @@ void main() {{
     }
 
 
+def vector_array_pair(renamed: bool = False) -> dict[str, str]:
+    carrier, coordinate = ("neighborUVs", "surfaceSample") if renamed else ("kernel", "coordinate")
+    assignment = (f"{carrier}[index] = vec2(a_TexCoord.x * 0.5 + float(index) / 128.0, "
+                  "a_TexCoord.y * 0.5 + float(48 - index) / 128.0);")
+    write = f"for (int index = 0; index < 49; index++) {{ {assignment} }}"
+    read = (f"for (int index = 0; index < 49; index++) {{ "
+            f"total += {carrier}[index] * float(index + 1); }}")
+    if renamed:
+        write = ("for (int row = 0; row < 7; row++) { for (int column = 0; column < 7; column++) { "
+                 f"int index = row * 7 + column; {assignment} }} }}")
+        read = (f"for (int index = 48; index >= 0; index--) {{ "
+                f"total += float(index + 1) * {carrier}[index]; }}")
+    return {
+        "vertex": f"""attribute vec3 a_Position;
+attribute vec2 a_TexCoord;
+varying vec2 {coordinate};
+varying vec2 {carrier}[49];
+void main() {{
+    gl_Position = vec4(a_Position, 1.0);
+    {coordinate} = a_TexCoord;
+    {write}
+}}
+""",
+        "fragment": f"""varying vec2 {coordinate};
+varying vec2 {carrier}[49];
+void main() {{
+    vec2 total = vec2(0.0);
+    {read}
+    int selected = clamp(int(floor({coordinate}.y * 49.0)), 0, 48);
+    gl_FragColor = vec4(total / 1225.0, {carrier}[selected].x, 1.0);
+}}
+""",
+    }
+
+
 def pixel_cases() -> list[tuple[str, dict[str, str]]]:
     return [
         ("scalar32", array_pair()),
         ("renamed-parenthesized", array_pair(
             name="frequencyCarrier", coordinate="rasterCoordinate", parenthesized=True
         )),
+        ("vector49", vector_array_pair()),
+        ("vector49-renamed-equivalent-loops", vector_array_pair(renamed=True)),
     ]
 
 
-def expected_pixels() -> list[float]:
+def expected_pixels(name: str = "scalar32") -> list[float]:
+    if name.startswith("vector49"):
+        # Weights 1..49 sum to 1225 and have mean index 32. All 49 values
+        # contribute; truncating at 16/32 or keeping only element zero differs.
+        return [.375, .25, .21875, 1.0, .625, .25, .46875, 1.0,
+                .375, .5, .40625, 1.0, .625, .5, .65625, 1.0]
     # Independent arithmetic for the self-owned carrier at four pixel centers.
     return [component for y in (0.25, 0.75) for x in (0.25, 0.75)
             for component in (x * 0.5 + int(y * 32) / 128.0, x * 0.5, y, 1.0)]
@@ -149,7 +191,7 @@ class SceneGenericShaderVaryingArrayTests(unittest.TestCase):
         self.assertTrue(output["idempotent"], name)
         return root, output
 
-    def compile_generic(self, root: Path, output: dict) -> dict:
+    def compile_generic(self, root: Path, output: dict, *, expect_link_failure: bool = False) -> dict:
         self.assertNotIn("normalizerFailure", output)
         for suffix, field in (("vert", "normalizedVertex"), ("frag", "normalizedFragment")):
             (root / ("source." + suffix)).write_text(output[field])
@@ -167,13 +209,17 @@ class SceneGenericShaderVaryingArrayTests(unittest.TestCase):
             result = subprocess.run(command, cwd=root, capture_output=True, text=True, timeout=30)
             (root / (phase + ".stdout")).write_text(result.stdout)
             (root / (phase + ".stderr")).write_text(result.stderr)
+            if phase == "link" and expect_link_failure:
+                self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertTrue(result.stdout or result.stderr)
+                return {"strictLinkRejected": True}
             self.assertEqual(result.returncode, 0, phase + result.stdout + result.stderr)
         return {"vertexMSL": (root / "vert.metal").read_text(),
                 "fragmentMSL": (root / "frag.metal").read_text(),
                 "vertexFunction": "arrayVertex", "fragmentFunction": "arrayFragment"}
 
     def test_fixed_scalar_arrays_reach_strict_generic_backend(self) -> None:
-        for name, pair in [*pixel_cases(), ("scalar17", array_pair(17))]:
+        for name, pair in [*pixel_cases()[:2], ("scalar17", array_pair(17))]:
             with self.subTest(name=name):
                 root, output = self.analyze(name, pair)
                 self.assertIn("unsupportedType", output["boundedDiagnosticCodes"], name)
@@ -190,6 +236,18 @@ void main() { gl_FragColor = vec4(carried[0], carried[3], coordinate.y, 1.0); }
         self.assertEqual(output["boundedDiagnosticCodes"], [])
         self.assertIn("boundedMSL", output)
         self.compile_generic(root, output)
+
+    def test_complete_vector_arrays_and_neighboring_lengths_reach_strict_backend(self) -> None:
+        neighbors = [("scalar33", array_pair(33)), ("vector17", array_pair(17, element="vec2")),
+                     ("vector3-40", array_pair(40, element="vec3")),
+                     ("vector4-30", array_pair(30, element="vec4"))]
+        for name, pair in [*pixel_cases()[2:], *neighbors]:
+            with self.subTest(name=name):
+                root, output = self.analyze(name, pair)
+                packet = self.compile_generic(root, output)
+                if name.startswith("vector49"):
+                    (root / "generic-pixels.json").write_text(json.dumps(packet, indent=2))
+                    (root / "expected.json").write_text(json.dumps(expected_pixels(name)))
 
     def test_interface_shape_and_component_budget_boundaries(self) -> None:
         exact = [("vec4", "padding", 16), ("vec3", "detail", 8), ("vec2", "edge", None)]
@@ -209,6 +267,10 @@ void main() { gl_FragColor = vec4(carried[0], carried[3], coordinate.y, 1.0); }
             array_pair(), [("mat3", "basis", 11)]
         ))
         self.assertEqual(matrix_overflow.get("normalizerFailure"), "varyingUnsupported")
+        root, vector_exact = self.analyze("vector-exact-124", array_pair(61, element="vec2"))
+        self.compile_generic(root, vector_exact)
+        _, vector_overflow = self.analyze("vector-over-124", array_pair(62, element="vec2"))
+        self.assertEqual(vector_overflow.get("normalizerFailure"), "varyingUnsupported")
         root, dead = self.analyze("dead-fragment-not-retained", with_extra_interface(
             array_pair(), [("mat4", "unusedMatrices", 16)],
             stages=("fragment",), read_fragment=False
@@ -241,10 +303,6 @@ void main(){gl_Position=vec4(a_Position,1.0);coordinate=a_TexCoord;}
             "different-element-type": type_mismatch,
             "no-retained-fragment-pair": absent_fragment,
             "missing-vertex-pair": absent_vertex,
-            "scalar33": array_pair(33),
-            "vector17": array_pair(17, element="vec2"),
-            "integer32": array_pair(32, element="int"),
-            "boolean32": array_pair(32, element="bool"),
             "unknown32": array_pair(32, element="Unknown"),
             "zero-count": array_pair(0),
         }
@@ -266,15 +324,24 @@ void main(){gl_Position=vec4(a_Position,1.0);coordinate=a_TexCoord;}
                 _, output = self.analyze(name, pair)
                 self.assertEqual(output.get("normalizerFailure"),
                                  other_failures.get(name, "varyingUnsupported"), name)
+        for name, element in (("integer32", "int"), ("boolean32", "bool")):
+            with self.subTest(name=name):
+                root, output = self.analyze(name, array_pair(32, element=element))
+                self.compile_generic(root, output, expect_link_failure=True)
 
     def test_original_contract_uses_maintained_preparation_and_strict_tools(self) -> None:
         if not (path := os.environ.get("MWX_SCENE_VARYING_ARRAY_ACTUAL_CONTRACT")):
             self.skipTest("actual contract qualification requires an explicit frozen input")
         source = Path(path).resolve()
         data = json.loads(source.read_text())
-        for stage in data["contract"]["stages"]:
+        for stage in data.get("contract", {}).get("stages", []):
             self.assertEqual(hashlib.sha256(stage["source"].encode()).hexdigest(),
                              stage["rawSHA256"])
+        if "sourceRoot" in data:
+            for relative, expected in data["sourceSHA256"].items():
+                self.assertEqual(hashlib.sha256((source.parent / data["sourceRoot"] / relative).read_bytes()).hexdigest(), expected)
+            self.assertEqual(data["author"]["visible"], data["qualification"]["expectedAuthorVisible"])
+            self.assertFalse(data["qualification"]["defaultPlaybackRecoveryClaim"])
         root = self.work / "actual-contract"
         root.mkdir(parents=True, exist_ok=True)
         result = subprocess.run([str(self.binary), "--actual-contract", str(source)],
@@ -285,12 +352,15 @@ void main(){gl_Position=vec4(a_Position,1.0);coordinate=a_TexCoord;}
         output = json.loads(result.stdout)
         (root / "analysis.json").write_text(json.dumps(output, indent=2))
         self.assertEqual(output["stage"], "actual-contract-variant-preprocessor-before-shared-proof")
+        if "sourceSHA256" in data:
+            self.assertEqual(output["sourceSHA256"], data["sourceSHA256"])
         self.assertIn("unsupportedType", output["boundedDiagnosticCodes"])
         self.compile_generic(root, output)
         manifest = {"input": str(source), "inputSHA256": hashlib.sha256(source.read_bytes()).hexdigest(),
-                    "identity": data["contract"]["identity"],
+                    "identity": data.get("identity") or data["contract"]["identity"],
                     "materialCombos": data["materialCombos"],
                     "textureReadiness": data.get("textureReadiness"),
+                    "qualification": data.get("qualification"),
                     "phase": output["stage"], "MetalOrAppExecuted": False}
         (root / "result.json").write_text(json.dumps(manifest, indent=2))
 

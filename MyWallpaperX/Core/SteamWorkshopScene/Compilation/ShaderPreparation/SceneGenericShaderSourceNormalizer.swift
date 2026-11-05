@@ -185,10 +185,7 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                         try insert(shape, name: item.name, into: &attributes,
                                    failure: .attributeUnsupported)
                     case "varying":
-                        guard valueTypes.contains(item.type),
-                              item.count.map({
-                                  (1 ... (item.type == "float" ? 32 : 16)).contains($0)
-                              }) ?? true else {
+                        guard valueTypes.contains(item.type) else {
                             throw Failure.varyingUnsupported
                         }
                         // A fragment declaration that is never referenced is
@@ -264,8 +261,7 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
             // do not enter the bounded prefix/zero-fill or loop emitter paths.
             if !expandedArrays.isEmpty {
                 guard expandedArrays.allSatisfy({ name in
-                    vertexVaryings[name]?.type == "float"
-                        && vertexVaryings[name] == fragmentVaryings[name]
+                    vertexVaryings[name] == fragmentVaryings[name]
                 }), varyingComponentsFit(vertexVaryings),
                     varyingComponentsFit(fragmentVaryings) else {
                     throw Failure.varyingUnsupported

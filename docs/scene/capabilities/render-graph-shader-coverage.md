@@ -15,7 +15,16 @@
 - backend 已删除的纹理参数只有在实际 MSL 接口缺席且没有 Resolution 活读时才退出绑定。fragment-dead varying 的纯顶点计算按既有数据流证明投影；live `gl_Position`、副作用、歧义和实际 inverse 消费不能被删或补 identity。
 - uniform 派生只读常量由原 frontend/normalizer 降低。实际资源、类型、反射及 ABI 仍在原入口验证，不能用 metadata 推出整段 shader 已可执行。
 
-Generic 当前有固定 float varying 数组的有界路径，较宽数组要求双 stage 完整匹配并受实际接口预算；bounded 的类型、索引和展开限制独立。未支持的语法局部拒绝，不交另一个 backend 猜执行。
+Generic 的固定一维 varying 数组沿真实双 stage 完整匹配和组件预算准备，不以float/向量元素类型或16/32项数量授播放许可；大于16项接口保原124分量预算，bounded 的类型、索引和展开限制独立。未支持的语法局部拒绝，不交另一个 backend 猜执行。
+
+<a id="generic-varying-array-budget"></a>
+### 固定数组接口的准入设计
+
+原 Generic SourceNormalizer、glslang 联合链接与 SPIR-V→MSL→Metal 承接合法固定数组，以真实接口能力准入。作者接口有完整活读的 `vec2[49]` 与独立 `vec2`，共100个浮点分量；保全部邻域，不缩数组前缀。该层默认隐藏，原源码恢复准备不等于默认画面恢复。
+
+现有大于16项的扩展路径不设独立的元素数量许可；保持双阶段同名、同元素类型、同维度与同长度，由原 Shape 表与组件预算核实际完整接口。原解析入口仍限制固定一维数组及有界输入，扩展路径沿原124分量预算计价，真实编译与 Metal 库/管线仍决定后端执行能力。原不大于16项路径保持，不为此次扩展增加普通帧检查、shader重写、展开器、ABI字段、缓存或第二接口owner。非浮点插值的限定符和其他语言能力不由本批预支。
+
+验收包括 `vec2[49]` 的全部元素、动态索引/插值与多点独立数值，改名及等价循环、标量/向量相邻输入、双阶段不匹配、越预算与真实编译失败反例；经原 Program→Executor→Metal 或签名 App 核最终像素，不能以 normalizer 通过代后端支持。真实作者原 contract 使用同输入准备并保实际激活边界，另取未参与修复的活动样本核播放。新增规则失败局部沿原 effect 旁路，bounded 限制不反向成为 Generic 许可。
 
 源码：[Shader preparation](../../../MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneAuthoredShaderPreparation.swift)、[frontend](../../../MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderFrontend.swift)、[TemplateCompiler](../../../MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialTemplateCompiler.swift)。
 

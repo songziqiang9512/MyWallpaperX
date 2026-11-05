@@ -49,7 +49,7 @@
 |---|---|
 | effect执行阶段读口 · 3292370168/239e0 | 当前parent named来源已接通；frame0/1在视频首帧pending时局部未供，frame10/11实际执行并GPU完成，selected23有151→e0→e1→main/seal全链。现reader将不同帧同identity的失败/成功聚为矛盾并报unexpected recovery，整样本CHECK4还含505。沿原execution/frame读口区分时间阶段、当前selected结果与持续失败，保原失败事实及同帧真实冲突；不能为消报告改渲染或将短窗恢复授视频更新/全像素。 |
 | 必需binding · 3556263543 | 五个文字psyhue e0在真实采样slot2缺authored/default binding而持续旁路，e1与终端健康。缺项已证，隐式phase默认语义仍未知；不是census注释里的slot3。不得随意填纹理，也不能把copy的GPU完成算原effect执行。 |
-| 隐藏分支shader | 3607684497/59e0的`v_TexCoordKernel`明确varying type/array拒绝；2887099508/257e0明确g_Point1 script attachment未资格；2932157836/299e1 node1/slot0缺binding资格，2857410102/91e3仅有聚合purpose原因。均保never-visible边界；3042492564另有aa_gaussian/node3 stage-link失败，不能与blur slot0混因。 |
+| 隐藏分支shader | 2887099508/257e0明确g_Point1 script attachment未资格；2932157836/299e1 node1/slot0缺binding资格，2857410102/91e3仅有聚合purpose原因。均保never-visible边界；3042492564另有aa_gaussian/node3 stage-link失败，不能与blur slot0混因。 |
 | 作者脚本与VM边界 | 初次32样本、含长窗33样本有实际script诊断；初次TypeError涉及21样本45个target，不能按异常类批量归作者或引擎。2890473419四个origin脚本仅声明shadowLayer即写visible、2982559622把Vec3返回给alpha为已证输入问题；3504669359实际触及prepared Puppet metadata unavailable。其余按`task/full-script-failure-recon.json`逐target核上下文/producer/API/回调顺序。 |
 | 片头后的mutation · 3599986633/702.visibility | 约Ready+7秒，702脚本hide后destroy“片头”，同owner合并为一项destroy；三个authored children650/654/700未同时声明销毁，被原guard拒绝，702保previous-current，16秒窗重复557次。总数5另含175对四文字层的显隐，按owner隔离。沿原destroy/subtree核父销毁时子层寿命；官方只明示延迟移除，递归退休或脱父仍需资格，不拆owner原子性吞错。 |
 | 缺输入 · 3736952187、3763323436 | project.json不存在，未启动App；补合法输入后再跑，不作引擎失败。 |
