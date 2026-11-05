@@ -19,6 +19,17 @@ Generic 当前有固定 float varying 数组的有界路径，较宽数组要求
 
 源码：[Shader preparation](../../../MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneAuthoredShaderPreparation.swift)、[frontend](../../../MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderFrontend.swift)、[TemplateCompiler](../../../MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialTemplateCompiler.swift)。
 
+<a id="prepared-dead-fragment-sampling"></a>
+### 准备期无输出消费者的采样
+
+资源需求来自本变体真正保留的计算。对 main 顶层、初始化无副作用且结果没有任何存留消费者的局部值，原冷编译投影可沿已有逆序局部闭包删除其纯采样和中间计算；emission、sampler/uniform ABI 与资源需求必须同源退出。不能只放宽缺绑定检查、删除某个纹理参数或按 shader、material 属性名、路径、样本识别，不能为隐藏 sampler 猜 background/previous 或补默认纹理。
+
+复用 DeadBindingAnalyzer 的 statement、binding 与副作用事实，在 BackendCanonicalizer 的共同 vertex/fragment 输入和有界 frontend emitter 承接同一删除结果；保原作者源码、身份与诊断位置，不建另一套 IR/SSA、Program 字段、native probe、状态或普通帧分析。只是物理纹理接口缺席仍不足以取消 Resolution、vertex/varying 或 attachment 的逻辑输入。已有顶点死 varying 投影和相邻准备语义保持。
+
+采样结果若到达颜色/alpha、position、varying、discard/控制条件或其他活读，其来源仍必需。初始化含 mutation、out/inout、全局写、未知/被遮蔽的调用、宏或无法证明的控制流时保原语义与需求，不为证明不足新拒 shader；纯性必须识别实际语言内建和作用域，不能把同名作者函数当内建。非法写入、类型/调用与源位置边界不因删除优化绕过原语义检查。
+
+原 dead-binding 行为门覆盖改局部/资源/槽位名、等价纯表达式及死值链，同时核两 backend 的 emission 和 ABI；活读、alpha-only、Resolution-only、vertex/varying、branch/discard、坐标副作用及 helper/global 写保持原语义。bounded 不支持的 discard 仍保原边界；非法调用分别核 AST/发射与实际 Metal 库编译，不能以存在接口当完整接纳。签名 App 的 source 与 effect 死采样控制已核可区分像素，活缺资源仍只回退当前 effect 并让健康后继完成。具体作者断点与验证范围由[运行证据](runtime-evidence-current.md#coverage)维护，不授任意控制流 DCE、官方像素或性能。
+
 <a id="intrinsic-argument-conversion"></a>
 ### Intrinsic 参数转换
 

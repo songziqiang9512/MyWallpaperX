@@ -12,6 +12,7 @@ import json
 import math
 import os
 from pathlib import Path
+import re
 import struct
 import tempfile
 import unittest
@@ -21,6 +22,9 @@ import zlib
 from script.tests import test_scene_reflection_history_integration as app_runner
 from script.tests.test_scene_static_model_reader import build_model
 from script.web_benchmark_capture import png_rgb_pixels
+from script.scene_wallpaper_graph_output_metrics import (
+    structured_runtime_observations, terminal_composition_snapshot,
+)
 
 
 REPO = Path(__file__).resolve().parents[2]
@@ -124,6 +128,8 @@ void main() {
 
 def fixture_entries(_label: int = 0) -> dict[str, bytes]:
     """One complete authored scene; the label is the existing runner's case ID."""
+    binding_case = _label
+    _label = 2 if _label == 4 else 0 if _label in (3, 5) else _label
     renamed = _label == 2
     plane_model = "models/retitled/surface.json" if renamed else "models/local_plane.json"
     source_material = "materials/retitled/current_view.json" if renamed else "materials/receiver.json"
@@ -170,7 +176,7 @@ def fixture_entries(_label: int = 0) -> dict[str, bytes]:
     effect = {"passes": [{"shader": effect_shader, "textures": [None],
                            "blending": "normal", "depthtest": "disabled",
                            "depthwrite": "disabled", "cullmode": "nocull"}]}
-    return {
+    entries = {
         "scene.json": encoded(scene),
         "models/main_prefix.mdl": mdl_quad(-9, 9, -6, 6, -2, "materials/grid.json"),
         "models/orange_writer.mdl": mdl_quad(-.65, .15, -1.2, 1.2, 1, "materials/orange.json"),
@@ -190,6 +196,43 @@ def fixture_entries(_label: int = 0) -> dict[str, bytes]:
         f"shaders/{effect_shader}.vert": EFFECT_VERTEX,
         f"shaders/{effect_shader}.frag": EFFECT_FRAGMENT,
     }
+    if binding_case in (3, 4):
+        slot = 3 if binding_case == 3 else 5
+        if binding_case == 4:
+            for shader in (source_shader, effect_shader):
+                for stage in ("vert", "frag"):
+                    key = f"shaders/{shader}.{stage}"
+                    entries[key] = entries[key].replace(b"v_MainPlane", b"v_ProjectedSample").replace(
+                        b"v_TexCoord", b"v_OutputCoord").replace(b"mainUV", b"retitledUV").replace(
+                        b"before", b"currentInput")
+        for shader, coordinate, local in (
+            (source_shader, "mainUV" if slot == 3 else "retitledUV", "unusedSource" if slot == 3 else "forgottenView"),
+            (effect_shader, "v_TexCoord" if slot == 3 else "v_OutputCoord", "unusedEffect" if slot == 3 else "forgottenPaint"),
+        ):
+            key = f"shaders/{shader}.frag"
+            body, end = entries[key].rsplit(b"}", 1)
+            entries[key] = (f"uniform sampler2D g_Texture{slot};\n".encode() + body
+                + f"vec4 {local}=texSample2D(g_Texture{slot},{coordinate});\n}}".encode() + end)
+    elif binding_case == 5:
+        for ordinal, name, fragment in (
+            (1, "owned_live_missing", b'''uniform sampler2D g_Texture3; // {"material":"albedo"}
+varying vec2 v_TexCoord;
+void main(){gl_FragColor=texSample2D(g_Texture3,v_TexCoord);}
+'''),
+            (2, "owned_healthy_suffix", b'''uniform sampler2D g_Texture0;
+varying vec2 v_TexCoord;
+void main(){gl_FragColor=texSample2D(g_Texture0,v_TexCoord);}
+'''),
+        ):
+            path = f"effects/{name}/effect.json"
+            scene["objects"][3]["effects"].append({"id": 200 + ordinal, "file": path, "visible": True})
+            entries[path] = encoded({"passes": [{"material": f"materials/{name}.json"}]})
+            entries[f"materials/{name}.json"] = encoded({"passes": [{"shader": name, "textures": [None],
+                "blending": "normal", "depthtest": "disabled", "depthwrite": "disabled", "cullmode": "nocull"}]})
+            entries[f"shaders/{name}.vert"] = EFFECT_VERTEX
+            entries[f"shaders/{name}.frag"] = fragment
+        entries["scene.json"] = encoded(scene)
+    return entries
 
 
 def plane_world(local):
@@ -298,6 +341,15 @@ class SceneNativeWorldCompositionTests(unittest.TestCase):
                         for label in (0, 1, 2)},
                     "oracle": roi_protocol(), "realProductChain": "parser→typed role/source Program→ordered graph base/effect→same-frame depth→unique compositor",
                     "reusedCounterexamples": "Existing affine/source-color, read-only no-writer and cancel/resize/pending owners remain separate nearest gates."}
+        protocol["materialTextureBindingControls"] = {str(label): {
+            "deadSlot": 3 if label == 3 else 5 if label == 4 else None,
+            "activeMissingSlot": 3 if label == 5 else None,
+            "renamedResourcesAndVariables": label == 4,
+            "sourceAndEffectDeadSample": label != 5,
+            "extraSamplerHasDefaultOrResource": False,
+            "healthySuffixEffect": 2 if label == 5 else None,
+            "entries": {k: hashlib.sha256(v).hexdigest() for k, v in fixture_entries(label).items()}}
+            for label in (3, 4, 5)}
         (cls.evidence_root / "protocol.json").write_bytes(encoded(protocol))
         print(f"N03 native-world source App evidence: {cls.evidence_root}", flush=True)
 
@@ -309,13 +361,21 @@ class SceneNativeWorldCompositionTests(unittest.TestCase):
             with self.subTest(dependency=1 if label == 1 else 30, renamed=label == 2):
                 self.run_source_case(label)
 
+    def test_dead_unbound_source_and_effect_samplers_preserve_native_world_pixels(self):
+        for label in (3, 4):
+            with self.subTest(slot=3 if label == 3 else 5, renamed=label == 4):
+                self.run_source_case(label)
+
+    def test_live_unbound_sampler_falls_back_locally_before_healthy_suffix(self):
+        self.run_source_case(5)
+
     def run_source_case(self, label):
         # The existing runner dispatches one real App and asserts immutable
         # inputs, actual Metal completion, no GPU error, normal stop and drain.
         with patch.object(app_runner, "fixture_entries", fixture_entries), patch.object(
                 app_runner, "measure_capture", measure_capture):
             result = app_runner.SceneReflectionHistoryIntegrationTests.run_case(self, label, capture=True,
-                material_input_path="materials/retitled/current_view.json" if label == 2 else "materials/receiver.json")
+                material_input_path="materials/retitled/current_view.json" if label in (2, 4) else "materials/receiver.json")
         work = self.evidence_root / f"Ref{label}-capture-on"
         identity = json.loads((work / "identity.json").read_text())
         inputs_after = {"package": app_runner.sha256(work / "content/scene.pkg"),
@@ -324,22 +384,78 @@ class SceneNativeWorldCompositionTests(unittest.TestCase):
         self.assertEqual(inputs_after["project"], identity["project"], inputs_after)
         regions = roi_protocol()["regions"]
         for phase in ["scene-ready-window.png", "scene-after-window.png"]:
-            for label, region in regions.items():
-                measurement = result["pixels"][phase][label]
-                self.assertGreater(measurement["count"], 0, (phase, label))
+            for region_name, region in regions.items():
+                measurement = result["pixels"][phase][region_name]
+                self.assertGreater(measurement["count"], 0, (phase, region_name))
                 for actual, expected in zip(measurement["mean"], region["expectedRGB"], strict=True):
                     self.assertAlmostEqual(actual, expected, delta=TOLERANCE,
-                                           msg=str((phase, label, measurement, region)))
+                                           msg=str((phase, region_name, measurement, region)))
         log = (work / "app.log").read_text()
         completed = re_graph_frames(log)
         self.assertGreaterEqual(len(completed), 2, completed)
         self.assertNotRegex(log, r"entries=[^\n]*20:layer-source-not-ready")
+        if label in (3, 4, 5):
+            self.check_material_binding_captures(work, log, label)
         (work / "native-world-checks.json").write_bytes(encoded({
             "inputAfter": inputs_after, "inputImmutable": True,
             "completedTargetGraphFrames": sorted(completed),
             "targetGraphSourceExtent": list(LOCAL_SIZE),
             "oracle": roi_protocol(), "pixels": result["pixels"],
             "scope": "One full product-chain scene; two settled captures and completed graph frames, not adjacent-frame pixel pairing or official parity."}))
+
+    def check_material_binding_captures(self, work, log, label):
+        observations = structured_runtime_observations(log, "MWX SCENE COMPOSITION OBSERVATION: ")
+        self.assertEqual(observations["parse_errors"], 0)
+        if label == 5:
+            self.assertRegex(log, r"MWX resolved material envelope rejection: [^\n]* node=1 "
+                r"kind=texture-binding reason=texture/textureBindingInvalid slot=3(?: |$)")
+            self.assertRegex(log, r"axis=effect-cpu-invocation [^\n]*layer=20 effect=1 "
+                r"[^\n]*backend=resolved-material-graph outcome=failed ")
+        receipts = []
+        for path in sorted((work / "evidence").glob("*-window.png")):
+            reason = "ready" if "ready" in path.name else "after"
+            request = re.search(rf"phase=snapshot reason={reason} request=(\d+) source=metal path={re.escape(str(path))}", log)
+            self.assertIsNotNone(request)
+            encoding = re.search(rf"phase=snapshot-encoded request={request[1]} commandBufferToken=(\d+) "
+                r"textureToken=(\d+) width=(\d+) height=(\d+)", log)
+            self.assertIsNotNone(encoding)
+            receipt = terminal_composition_snapshot({"status": "captured", "request_id": int(request[1]),
+                "command_buffer_token": encoding[1], "texture_token": encoding[2],
+                "source_width": int(encoding[3]), "source_height": int(encoding[4])}, observations)
+            self.assertTrue(receipt["composition_receipt_matched"], receipt)
+            event = next(e for e in observations["events"] if e.get("captureRequestID") == int(request[1])
+                and e.get("commandBufferToken") == encoding[1])
+            self.assertEqual(event["truncatedRows"], 0)
+            self.assertEqual(event["gpuStatus"], "completed")
+            rows = event["rows"]
+            material = [r for r in rows if r["kind"] == "material" and r.get("layerID") == TARGET_LAYER
+                        and r.get("outcome") == "draw-encoded"]
+            source = [r for r in material if "effectIndex" not in r]
+            self.assertEqual(len(source), 1, source)
+            self.assertEqual(source[0]["slot"], 0)
+            self.assertEqual([(r["effectIndex"], r["slot"]) for r in material if "effectIndex" in r],
+                             [(0, 0), (2, 0)] if label == 5 else [(0, 0)])
+            self.assertEqual(source[0]["target"]["textureToken"], material[1]["source"]["textureToken"])
+            copies = [r for r in rows if r["kind"] == "copy" and r.get("layerID") == TARGET_LAYER
+                      and r.get("effectIndex") == 1 and r.get("outcome") == "encoded"]
+            self.assertEqual(len(copies), int(label == 5), copies)
+            if label == 5:
+                self.assertEqual(material[1]["target"]["textureToken"], copies[0]["source"]["textureToken"])
+                self.assertEqual(copies[0]["target"]["textureToken"], material[2]["source"]["textureToken"])
+                self.assertLess(rows.index(material[1]), rows.index(copies[0]))
+                self.assertLess(rows.index(copies[0]), rows.index(material[2]))
+            self.assertEqual(sum(r["kind"] == "graph-transaction" and r.get("layerID") == TARGET_LAYER for r in rows), 1)
+            group = [r for r in rows if r["kind"] == "group" and r.get("layerID") == TARGET_LAYER
+                     and r.get("outcome") == "draw-encoded"]
+            self.assertEqual(len(group), 1, group)
+            self.assertEqual(material[-1]["target"]["textureToken"], group[0]["source"]["textureToken"])
+            self.assertEqual(source[0]["source"]["textureToken"], group[0]["target"]["textureToken"])
+            receipts.append({"capture": path.name, "frame": event["frameIndex"], "request": event["captureRequestID"],
+                "commandBuffer": event["commandBufferToken"], "Surface": event["surfaceIdentity"],
+                "sourceAndEffectSlots": [[r.get("effectIndex"), r["slot"]] for r in material],
+                "missingEffectCopies": copies,
+                "scope": "actual binding/encode and pixels; emitted-MSL/schema retirement is separately tested by the compiler gate"})
+        (work / "material-binding-checks.json").write_bytes(encoded(receipts))
 
 
 def re_graph_frames(log: str) -> set[int]:

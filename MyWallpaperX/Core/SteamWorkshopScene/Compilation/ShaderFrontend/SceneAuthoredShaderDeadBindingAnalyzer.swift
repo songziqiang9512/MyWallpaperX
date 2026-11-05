@@ -1,7 +1,6 @@
 import Foundation
 
-/// Removes prepared-variant resource bindings only when their remaining
-/// vertex work is proven to feed fragment-dead varying components.
+/// Projects pure dead computations before emission and resource ABI selection.
 nonisolated enum SceneAuthoredShaderDeadBindingAnalyzer {
     private static let maximumProjectionStatements = 512
     private static let maximumProjectionWork = 1_000_000
@@ -9,6 +8,7 @@ nonisolated enum SceneAuthoredShaderDeadBindingAnalyzer {
         let activeSamplerNames: Set<String>
         let omittedUniformNames: Set<String>
         let omittedVertexStatementRanges: [Range<Int>]
+        let omittedFragmentStatementRanges: [Range<Int>]
     }
 
     static func analyze(
@@ -17,6 +17,24 @@ nonisolated enum SceneAuthoredShaderDeadBindingAnalyzer {
         boundTextureSlots: Set<Int> = []
     ) -> Projection {
         let units = [vertex, fragment]
+        let fragmentRanges = removableMainStatements(
+            vertex: fragment, vertexVaryings: [:], fragmentReads: [:],
+            discardingTextureReads: true
+        )
+        let fragmentUniforms = Set(fragment.declarations.compactMap { declaration in
+            declaration.storage == .uniform && declaration.typeName != "sampler2D"
+                ? declaration.name : nil
+        }.filter { name in
+            !referenced(name, in: vertex)
+                && !referenced(name, in: fragment, excluding: fragmentRanges)
+        })
+        func result(_ active: Set<String>, _ uniforms: Set<String> = [],
+                    _ vertexRanges: [Range<Int>] = []) -> Projection {
+            .init(activeSamplerNames: active,
+                  omittedUniformNames: uniforms.union(fragmentUniforms),
+                  omittedVertexStatementRanges: vertexRanges,
+                  omittedFragmentStatementRanges: fragmentRanges)
+        }
         let samplerNames = Set(units.flatMap { unit in
             unit.declarations.compactMap { declaration in
                 declaration.storage == .uniform && declaration.typeName == "sampler2D"
@@ -25,7 +43,8 @@ nonisolated enum SceneAuthoredShaderDeadBindingAnalyzer {
             }
         })
         var activeSamplerNames = Set(samplerNames.filter { name in
-            units.contains { referenced(name, in: $0) }
+            referenced(name, in: vertex)
+                || referenced(name, in: fragment, excluding: fragmentRanges)
         })
         let inactiveSamplerNames = samplerNames.subtracting(activeSamplerNames)
         let resolutionSamplers = Dictionary(uniqueKeysWithValues:
@@ -36,10 +55,7 @@ nonisolated enum SceneAuthoredShaderDeadBindingAnalyzer {
                   !samplerNames.contains(declaration.name) else { return nil }
             return declaration.name
         }).union(resolutionSamplers.keys)
-        guard !uniformNames.isEmpty else {
-            return .init(activeSamplerNames: activeSamplerNames,
-                         omittedUniformNames: [], omittedVertexStatementRanges: [])
-        }
+        guard !uniformNames.isEmpty else { return result(activeSamplerNames) }
         let directlyActiveSlots = Set(activeSamplerNames.compactMap(textureSlot))
         let neutralTextureResolution = inactiveSamplerNames.isEmpty ? nil :
             SceneAuthoredShaderNeutralTextureResolutionAnalyzer.analyze(
@@ -50,7 +66,7 @@ nonisolated enum SceneAuthoredShaderDeadBindingAnalyzer {
         var candidates: [(name: String, references: [Int], sampler: String?)] = []
         for name in uniformNames.sorted() {
             let samplerName = resolutionSamplers[name]
-            guard !SceneAuthoredShaderGlobalReferenceAnalyzer.isReferenced(name, in: fragment),
+            guard !referenced(name, in: fragment, excluding: fragmentRanges),
                   let references = SceneAuthoredShaderGlobalReferenceAnalyzer
                     .exactReferenceIndices(name, in: vertex) else {
                 if let samplerName { activeSamplerNames.insert(samplerName) }
@@ -63,10 +79,7 @@ nonisolated enum SceneAuthoredShaderDeadBindingAnalyzer {
             }
             candidates.append((name, references, samplerName))
         }
-        guard !candidates.isEmpty else {
-            return .init(activeSamplerNames: activeSamplerNames,
-                         omittedUniformNames: [], omittedVertexStatementRanges: [])
-        }
+        guard !candidates.isEmpty else { return result(activeSamplerNames) }
         let vertexVaryings = Dictionary(uniqueKeysWithValues: vertex.declarations.compactMap {
             declaration -> (String, Int)? in
             guard declaration.storage == .varying, declaration.arraySize == nil,
@@ -75,7 +88,7 @@ nonisolated enum SceneAuthoredShaderDeadBindingAnalyzer {
         })
         let removableRanges = removableMainStatements(
             vertex: vertex, vertexVaryings: vertexVaryings,
-            fragmentReads: varyingComponentReads(in: fragment)
+            fragmentReads: varyingComponentReads(in: fragment, excluding: fragmentRanges)
         )
         var omittedUniformNames: Set<String> = []
         for candidate in candidates {
@@ -87,11 +100,8 @@ nonisolated enum SceneAuthoredShaderDeadBindingAnalyzer {
             }
             omittedUniformNames.insert(candidate.name)
         }
-        return Projection(
-            activeSamplerNames: activeSamplerNames,
-            omittedUniformNames: omittedUniformNames,
-            omittedVertexStatementRanges: omittedUniformNames.isEmpty ? [] : removableRanges
-        )
+        return result(activeSamplerNames, omittedUniformNames,
+                      omittedUniformNames.isEmpty ? [] : removableRanges)
     }
 
     static func activeSamplerNames(
@@ -278,7 +288,8 @@ nonisolated enum SceneAuthoredShaderDeadBindingAnalyzer {
     private static func removableMainStatements(
         vertex: SceneAuthoredShaderSyntaxUnit,
         vertexVaryings: [String: Int],
-        fragmentReads: [String: Set<Int>]
+        fragmentReads: [String: Set<Int>],
+        discardingTextureReads: Bool = false
     ) -> [Range<Int>] {
         guard let main = vertex.functions.first(where: { $0.name == "main" }) else {
             return []
@@ -356,9 +367,15 @@ nonisolated enum SceneAuthoredShaderDeadBindingAnalyzer {
                   SceneAuthoredShaderTokenScanner.split(
                     initializer, separator: ",", tokens: tokens
                   )?.count == 1,
-                  discardable(initializer, in: vertex) else { return nil }
+                  discardable(initializer, in: vertex,
+                              discardingTextureReads: discardingTextureReads),
+                  !discardingTextureReads || discardableExpressionType(
+                    initializer, in: vertex, work: &remainingWork
+                  ) == SceneAuthoredShaderValueType(authoredName: tokens[start].text)
+            else { return nil }
             return (name, range)
         }
+        guard remainingWork >= 0 else { return [] }
         var localReferences: [String: [Int]] = [:]
         let localNames = Set(locals.map(\.name))
         for index in main.bodyRange where localNames.contains(tokens[index].text) {
@@ -379,19 +396,137 @@ nonisolated enum SceneAuthoredShaderDeadBindingAnalyzer {
     }
 
     private static func discardable(
-        _ range: Range<Int>, in unit: SceneAuthoredShaderSyntaxUnit
+        _ range: Range<Int>, in unit: SceneAuthoredShaderSyntaxUnit,
+        discardingTextureReads: Bool = false
     ) -> Bool {
         SceneAuthoredShaderColorTransferAnalyzer.helperCallsArePureAndUnsampled(
-            fragment: unit, expressionRanges: [range], discardingExpression: true
+            fragment: unit, expressionRanges: [range], discardingExpression: true,
+            discardingTextureReads: discardingTextureReads
         )
+    }
+
+    /// Deletion must not hide an invalid initializer before the compiler sees
+    /// it. Type queries alone intentionally leave constructor children unchecked.
+    private static func discardableExpressionType(
+        _ rawRange: Range<Int>, in unit: SceneAuthoredShaderSyntaxUnit,
+        work: inout Int
+    ) -> SceneAuthoredShaderValueType? {
+        work -= rawRange.count
+        guard work >= 0, !rawRange.isEmpty else { return nil }
+        let tokens = unit.tokens
+        var range = rawRange
+        while range.count > 1, ["+", "-"].contains(tokens[range.lowerBound].text) {
+            range = (range.lowerBound + 1)..<range.upperBound
+        }
+        if range.count >= 2, tokens[range.lowerBound].text == "(",
+           SceneAuthoredShaderTokenScanner.matchingParenthesis(
+            tokens: tokens, opening: range.lowerBound
+           ) == range.upperBound - 1 {
+            return discardableExpressionType(
+                (range.lowerBound + 1)..<(range.upperBound - 1), in: unit, work: &work
+            )
+        }
+        if range.count > 2, tokens[range.upperBound - 2].text == ".",
+           let base = discardableExpressionType(
+            range.lowerBound..<(range.upperBound - 2), in: unit, work: &work
+           ), let width = componentCount(base.rawValue) {
+            let swizzle = tokens[range.upperBound - 1].text
+            guard ["xyzw", "rgba", "stpq"].contains(where: { family in
+                swizzle.allSatisfy { family.contains($0) }
+            }), componentMask(swizzle, componentCount: width) != nil else { return nil }
+            return SceneAuthoredShaderValueType(
+                authoredName: swizzle.count == 1 ? "float" : "vec\(swizzle.count)"
+            )
+        }
+        if range.count >= 3, tokens[range.lowerBound].kind == .identifier,
+           tokens[range.lowerBound + 1].text == "(",
+           SceneAuthoredShaderTokenScanner.matchingParenthesis(
+            tokens: tokens, opening: range.lowerBound + 1
+           ) == range.upperBound - 1 {
+            let index = range.lowerBound
+            let name = tokens[index].text
+            guard unit.defines[name] == nil,
+                  !unit.functions.contains(where: { $0.name == name }),
+                  let references = SceneAuthoredShaderGlobalReferenceAnalyzer
+                    .exactReferenceIndices(name, in: unit), references.contains(index),
+                  !references.contains(where: { reference in
+                      guard reference > 0, reference + 1 < tokens.count,
+                            tokens[reference + 1].text == "(" else { return false }
+                      return tokens[reference - 1].text == "void"
+                          || SceneAuthoredShaderValueType(
+                            authoredName: tokens[reference - 1].text
+                          ) != nil
+                          || SceneAuthoredShaderGlobalReferenceAnalyzer
+                            .structureTypeNames(in: unit).contains(tokens[reference - 1].text)
+                  }),
+                  let arguments = SceneAuthoredShaderBuiltInVectorConversion.argumentRanges(
+                    opening: index + 1, closing: range.upperBound - 1, tokens: tokens
+                  ) else { return nil }
+            if let count = SceneAuthoredShaderMetalEmitter.textureSampleArgumentCount(
+                name, functionNames: []
+            ) {
+                guard arguments.count == count, arguments[0].count == 1 else { return nil }
+                let samplerIndex = arguments[0].lowerBound
+                let sampler = tokens[samplerIndex].text
+                guard unit.defines[sampler] == nil,
+                      unit.declarations.contains(where: {
+                          $0.storage == .uniform && $0.typeName == "sampler2D"
+                              && $0.name == sampler && $0.arraySize == nil
+                      }), SceneAuthoredShaderGlobalReferenceAnalyzer.exactReferenceIndices(
+                        sampler, in: unit
+                      )?.contains(samplerIndex) == true,
+                      discardableExpressionType(arguments[1], in: unit, work: &work) == .float2
+                else { return nil }
+                if count == 3 {
+                    guard discardableExpressionType(
+                        arguments[2], in: unit, work: &work
+                    ) == .float || (arguments[2].count == 1
+                        && tokens[arguments[2].lowerBound].kind == .number)
+                    else { return nil }
+                }
+                return .float4
+            }
+            var argumentTypes: [SceneAuthoredShaderValueType] = []
+            for argument in arguments {
+                guard let type = discardableExpressionType(argument, in: unit, work: &work)
+                else { return nil }
+                argumentTypes.append(type)
+            }
+            if let type = SceneAuthoredShaderValueType(authoredName: name),
+               let width = componentCount(type.rawValue) {
+                let widths = argumentTypes.compactMap { value -> Int? in
+                    if [.int, .uint].contains(value) { return 1 }
+                    return componentCount(value.rawValue)
+                }
+                guard widths.count == arguments.count, !widths.isEmpty,
+                      (widths.count == 1 && (widths[0] == 1 || widths[0] >= width))
+                        || widths.reduce(0, +) == width else { return nil }
+                return type
+            }
+        } else {
+            var index = range.lowerBound
+            while index + 1 < range.upperBound {
+                if tokens[index].kind == .identifier, tokens[index + 1].text == "(",
+                   let closing = SceneAuthoredShaderTokenScanner.matchingParenthesis(
+                    tokens: tokens, opening: index + 1
+                   ), closing < range.upperBound {
+                    guard discardableExpressionType(index..<(closing + 1), in: unit, work: &work) != nil
+                    else { return nil }
+                    index = closing + 1
+                } else { index += 1 }
+            }
+        }
+        return SceneAuthoredShaderBuiltInVectorConversion.componentExpression(
+            range, tokens: tokens, unit: unit
+        )?.type
     }
 
     /// Blank proven token ranges without shifting diagnostics or fragment
     /// source. A token/source mismatch (for example macro expansion) keeps the
     /// original input instead of applying offsets to unproven text.
-    static func projectVertexSource(
+    static func projectSources(
         vertex: String, fragment: String, boundTextureSlots: Set<Int> = []
-    ) -> String {
+    ) -> (vertex: String, fragment: String) {
         let outputs = (
             vertex: SceneAuthoredShaderSyntaxAnalyzer.analyzeForTypeConversions(
                 lexerOutput: SceneAuthoredShaderLexer.lex(source: vertex, stage: .vertex),
@@ -404,32 +539,41 @@ nonisolated enum SceneAuthoredShaderDeadBindingAnalyzer {
         )
         guard outputs.vertex.diagnostics.isEmpty, outputs.fragment.diagnostics.isEmpty,
               let vertexUnit = outputs.vertex.unit, let fragmentUnit = outputs.fragment.unit else {
-            return vertex
+            return (vertex, fragment)
         }
         let projection = analyze(vertex: vertexUnit, fragment: fragmentUnit,
                                  boundTextureSlots: boundTextureSlots)
-        guard !projection.omittedVertexStatementRanges.isEmpty else { return vertex }
-        var scalars = Array(vertex.unicodeScalars)
+        return (
+            projectSource(vertex, unit: vertexUnit, ranges: projection.omittedVertexStatementRanges),
+            projectSource(fragment, unit: fragmentUnit, ranges: projection.omittedFragmentStatementRanges)
+        )
+    }
+
+    private static func projectSource(
+        _ source: String, unit: SceneAuthoredShaderSyntaxUnit, ranges omitted: [Range<Int>]
+    ) -> String {
+        guard !omitted.isEmpty else { return source }
+        var scalars = Array(source.unicodeScalars)
         var lineStarts = [0]
         for index in scalars.indices where scalars[index] == "\n" {
             lineStarts.append(index + 1)
         }
         var ranges: [Range<Int>] = []
-        for range in projection.omittedVertexStatementRanges {
-            let tokens = vertexUnit.tokens[range]
+        for range in omitted {
+            let tokens = unit.tokens[range]
             guard let first = tokens.first, let last = tokens.last,
                   lineStarts.indices.contains(first.line - 1),
-                  lineStarts.indices.contains(last.line - 1) else { return vertex }
+                  lineStarts.indices.contains(last.line - 1) else { return source }
             let start = lineStarts[first.line - 1] + first.column - 1
             let end = lineStarts[last.line - 1] + last.column - 1 + last.text.unicodeScalars.count
-            guard start >= 0, end <= scalars.count, start < end else { return vertex }
+            guard start >= 0, end <= scalars.count, start < end else { return source }
             for token in tokens {
-                guard lineStarts.indices.contains(token.line - 1) else { return vertex }
+                guard lineStarts.indices.contains(token.line - 1) else { return source }
                 let offset = lineStarts[token.line - 1] + token.column - 1
                 let spelling = Array(token.text.unicodeScalars)
                 guard offset >= start, offset + spelling.count <= end,
                       Array(scalars[offset..<(offset + spelling.count)]) == spelling else {
-                    return vertex
+                    return source
                 }
             }
             ranges.append(start..<end)
@@ -443,13 +587,15 @@ nonisolated enum SceneAuthoredShaderDeadBindingAnalyzer {
     }
 
     private static func varyingComponentReads(
-        in unit: SceneAuthoredShaderSyntaxUnit
+        in unit: SceneAuthoredShaderSyntaxUnit,
+        excluding omitted: [Range<Int>] = []
     ) -> [String: Set<Int>] {
         var result: [String: Set<Int>] = [:]
         for declaration in unit.declarations where declaration.storage == .varying {
             guard declaration.arraySize == nil,
                   let count = componentCount(declaration.typeName) else { continue }
-            for index in referenceIndices(declaration.name, in: unit) {
+            for index in referenceIndices(declaration.name, in: unit)
+            where !omitted.contains(where: { $0.contains(index) }) {
                 result[declaration.name, default: []].formUnion(
                     componentMask(at: index, in: unit, componentCount: count)
                 )
@@ -501,9 +647,12 @@ nonisolated enum SceneAuthoredShaderDeadBindingAnalyzer {
 
     private static func referenced(
         _ name: String,
-        in unit: SceneAuthoredShaderSyntaxUnit
+        in unit: SceneAuthoredShaderSyntaxUnit,
+        excluding omitted: [Range<Int>] = []
     ) -> Bool {
-        !referenceIndices(name, in: unit).isEmpty
+        referenceIndices(name, in: unit).contains { index in
+            !omitted.contains(where: { $0.contains(index) })
+        }
     }
 
     private static func referenceIndices(

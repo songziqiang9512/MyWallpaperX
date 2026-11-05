@@ -104,13 +104,11 @@ nonisolated enum SceneAuthoredShaderBackendCanonicalizer {
               result.fragment.utf8.count <= maximumSourceBytes else {
             return original
         }
-        return Pair(
-            vertex: SceneAuthoredShaderDeadBindingAnalyzer.projectVertexSource(
-                vertex: result.vertex, fragment: result.fragment,
-                boundTextureSlots: boundTextureSlots
-            ),
-            fragment: result.fragment
+        let projected = SceneAuthoredShaderDeadBindingAnalyzer.projectSources(
+            vertex: result.vertex, fragment: result.fragment,
+            boundTextureSlots: boundTextureSlots
         )
+        return Pair(vertex: projected.vertex, fragment: projected.fragment)
     }
 
     /// Both compiler backends consume the same explicit scalar assignment

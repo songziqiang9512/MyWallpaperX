@@ -62,6 +62,14 @@ varying vec4 v_Coordinates;
 """ + helpers + "\nvoid main() {\n" + body + "\n}\n"
 
 
+def fragment_sample(body: str, helpers: str = "", *, slot: int = 3,
+                    resource: str = "backgroundBuffer", uniforms: str = "") -> str:
+    annotation = json.dumps({"material": resource, "hidden": True})
+    return (f"uniform sampler2D g_Texture0;\nuniform sampler2D g_Texture{slot}; // {annotation}\n"
+            + uniforms + "varying vec4 v_Coordinates;\n" + helpers
+            + "\nvoid main() {\n" + body + "\n}\n")
+
+
 class SceneShaderDeadBindingProjectionTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -469,6 +477,131 @@ gl_Position = vec4(a_Position, 1.0);""")
                 result = self.compile(source, metadata={"projectionOnly": True})
                 self.assertEqual(result["vertex"], source)
                 self.assertEqual(result["samplerNames"], names)
+
+    def test_dead_fragment_sample_pure_chain_projects_both_compiled_interfaces(self) -> None:
+        source = vertex("""v_Coordinates.xy = a_TexCoord;
+gl_Position = vec4(a_Position, 1.0);""", uniforms="")
+        control = self.compile(source, ACTIVE_FRAGMENT, metadata={"boundTextureSlots": [0]})
+        self.assert_compiled_slots(control, [0])
+        for slot, resource, local, coordinate in (
+            (3, "backgroundBuffer", "unusedColor",
+             "(v_Coordinates.xy + g_Texture3Resolution.zw) * 0.5"),
+            (5, "owned/renamed-pigment", "independentColor",
+             "0.5 * v_Coordinates.xy + g_Texture5Resolution.zw / 2.0"),
+        ):
+            with self.subTest(slot=slot, resource=resource):
+                fragment = fragment_sample(f"""vec2 unusedUV = {coordinate};
+vec4 {local} = texSample2D(g_Texture{slot}, unusedUV);
+vec3 unusedTint = clamp({local}.rgb * vec3(0.5) + vec3(0.125), 0.0, 1.0);
+float unusedEnergy = dot(unusedTint, vec3(1.0));
+gl_FragColor = texSample2D(g_Texture0, v_Coordinates.xy);""",
+                    slot=slot, resource=resource,
+                    uniforms=f"uniform vec4 g_Texture{slot}Resolution;\n")
+                result = self.compile(source, fragment, metadata={
+                    "boundTextureSlots": [0], "verifyRepeatedCompilation": True})
+                self.assert_compiled_slots(result, [0])
+                for backend in ("bounded", "generic"):
+                    self.assert_layout_uniform(result, f"g_Texture{slot}Resolution",
+                                               present=False, backends=(backend,))
+                    self.assertEqual(result[f"{backend}Layout"], control[f"{backend}Layout"])
+                    self.assertRegex(result[f"{backend}Metal"], r"\[\[\s*texture\(\s*0\s*\)\s*\]\]")
+                    self.assertNotRegex(result[f"{backend}Metal"],
+                                        rf"\[\[\s*texture\(\s*{slot}\s*\)\s*\]\]")
+                self.assertEqual(result["genericRepeatedLayout"], result["genericLayout"])
+                self.assertTrue(result["genericRepeatedArtifactEqual"])
+
+    def test_fragment_rgb_alpha_branch_and_discard_keep_sample_demand(self) -> None:
+        source = vertex("""v_Coordinates.xy = a_TexCoord;
+gl_Position = vec4(a_Position, 1.0);""", uniforms="")
+        for body, bounded in (
+            ("gl_FragColor = vec4(base.rgb + sampled.rgb * 0.25, base.a);", True),
+            ("gl_FragColor = vec4(base.rgb, sampled.a);", True),
+            ("if (sampled.r > 0.5) { gl_FragColor = base; } else { gl_FragColor = vec4(0.0); }", True),
+            ("if (sampled.a < 0.5) discard; gl_FragColor = base;", False),
+        ):
+            with self.subTest(body=body):
+                fragment = fragment_sample("""vec4 sampled = texSample2D(g_Texture3, v_Coordinates.xy);
+vec4 base = texSample2D(g_Texture0, v_Coordinates.xy);
+""" + body)
+                result = self.compile(source, fragment, metadata={"boundTextureSlots": [0]})
+                if bounded:
+                    self.assert_compiled_slots(result, [0, 3])
+                else:
+                    self.assertEqual(result["fragment"], fragment)
+                    self.assertEqual(result["boundedDiagnostics"], ["unsupportedControlFlow"])
+                    self.assertNotIn("boundedSlots", result)
+                    self.assertEqual(result.get("genericSlots"), [0, 3], result)
+                    self.assertEqual(result["genericMetalError"], "")
+
+    def test_dead_fragment_sample_keeps_vertex_resolution_consumers(self) -> None:
+        fragment = fragment_sample("""vec4 unusedSample = texSample2D(g_Texture3, v_Coordinates.xy);
+gl_FragColor = texSample2D(g_Texture0, v_Coordinates.xy + vec2(v_Coordinates.z));""")
+        for body in (
+            """v_Coordinates.xy = a_TexCoord;
+v_Coordinates.zw = vec2(0.0);
+gl_Position = vec4(a_Position + vec3(g_Texture3Resolution.x * 0.001), 1.0);""",
+            """v_Coordinates.xy = a_TexCoord;
+v_Coordinates.zw = g_Texture3Resolution.xy * 0.001;
+gl_Position = vec4(a_Position, 1.0);""",
+        ):
+            with self.subTest(body=body):
+                result = self.compile(vertex(body, uniforms="uniform vec4 g_Texture3Resolution;\n"),
+                                      fragment, metadata={"boundTextureSlots": [0]})
+                self.assert_compiled_slots(result, [0, 3])
+                self.assert_layout_uniform(result, "g_Texture3Resolution", present=True)
+
+    def test_fragment_sample_coordinate_mutations_are_not_projected(self) -> None:
+        source = vertex("""v_Coordinates.xy = a_TexCoord;
+gl_Position = vec4(a_Position, 1.0);""", uniforms="")
+        for mutation in ("coordinate.x++", "(coordinate.x += 0.125)"):
+            with self.subTest(mutation=mutation):
+                fragment = fragment_sample(f"""vec2 coordinate = v_Coordinates.xy;
+vec4 unusedSample = texSample2D(g_Texture3, vec2({mutation}, coordinate.y));
+gl_FragColor = texSample2D(g_Texture0, coordinate);""")
+                result = self.compile(source, fragment, metadata={"boundTextureSlots": [0]})
+                self.assertEqual(result["fragment"], fragment)
+                self.assertEqual(result.get("boundedSlots"), [0, 3], result)
+                self.assertEqual(result["boundedMetalError"], "")
+                self.assertIn(0, result.get("genericSlots", []), result)
+                self.assertEqual(result["genericMetalError"], "")
+                # Generic optimization may remove a pure texture read while
+                # retaining its coordinate mutation; the cold projection may not.
+
+    def test_fragment_authored_helper_writes_reach_output(self) -> None:
+        source = vertex("""v_Coordinates.xy = a_TexCoord;
+gl_Position = vec4(a_Position, 1.0);""", uniforms="")
+        for qualifier, write in (("out", "carried = sampled;"),
+                                 ("inout", "carried += sampled;")):
+            with self.subTest(qualifier=qualifier):
+                helpers = (f"vec4 transfer(vec4 sampled, {qualifier} vec4 carried) {{ "
+                           + write + " return vec4(0.0); }")
+                fragment = fragment_sample("""vec4 carried = vec4(0.0);
+vec4 unusedResult = transfer(texSample2D(g_Texture3, v_Coordinates.xy), carried);
+gl_FragColor = texSample2D(g_Texture0, v_Coordinates.xy) * 0.5 + carried * 0.5;""", helpers)
+                result = self.compile(source, fragment, metadata={"boundTextureSlots": [0]})
+                self.assertEqual(result["fragment"], fragment)
+                self.assert_compiled_slots(result, [0, 3])
+
+    def test_fragment_unproven_or_invalid_calls_are_not_hidden_by_projection(self) -> None:
+        source = vertex("""v_Coordinates.xy = a_TexCoord;
+gl_Position = vec4(a_Position, 1.0);""", uniforms="")
+        for helpers, call in (
+            ("", "unknownFunction(sampled)"),
+            ("#define normalize 4", "normalize(sampled)"),
+        ):
+            with self.subTest(helpers=helpers, call=call):
+                fragment = fragment_sample(f"""vec4 sampled = texSample2D(g_Texture3, v_Coordinates.xy);
+vec4 unusedResult = {call};
+gl_FragColor = texSample2D(g_Texture0, v_Coordinates.xy);""", helpers)
+                result = self.compile(source, fragment, metadata={"boundTextureSlots": [0]})
+                self.assertEqual(result["fragment"], fragment)
+                if "boundedSlots" in result:
+                    self.assertEqual(result["boundedSlots"], [0, 3], result)
+                    self.assertIn("error:", result.get("boundedMetalError", ""), result)
+                else:
+                    self.assertTrue(result["boundedDiagnostics"], result)
+                self.assertNotIn("genericSlots", result)
+                self.assertIn("stage-link:rejected", result.get("genericFailure", ""), result)
 
     def test_authored_requests_have_no_dead_resolution_binding(self) -> None:
         directory = os.environ.get("MWX_DEAD_BINDING_AUTHORED_REQUESTS")

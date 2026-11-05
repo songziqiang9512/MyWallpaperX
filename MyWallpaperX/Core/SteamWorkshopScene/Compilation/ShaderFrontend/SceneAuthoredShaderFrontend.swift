@@ -274,6 +274,7 @@ nonisolated enum SceneAuthoredShaderFrontend {
         let varyings: [(String, SceneAuthoredShaderValueType, Int?)]
         let varyingPrefixFacts: [String: SceneAuthoredShaderVaryingPrefixLink.Fact]
         let omittedVertexStatementRanges: [Range<Int>]
+        let omittedFragmentStatementRanges: [Range<Int>]
         let diagnostics: [SceneAuthoredShaderFrontendDiagnostic]
     }
 
@@ -374,6 +375,7 @@ nonisolated enum SceneAuthoredShaderFrontend {
             varyings: validation.varyings,
             varyingPrefixFacts: validation.varyingPrefixFacts,
             omittedVertexStatementRanges: validation.omittedVertexStatementRanges,
+            omittedFragmentStatementRanges: validation.omittedFragmentStatementRanges,
             colorTransfer: colorTransfer,
             premultipliedColorInputSlots: premultipliedColorInputSlots,
             colorBoundary: colorBoundary
@@ -497,10 +499,11 @@ nonisolated enum SceneAuthoredShaderFrontend {
             ($0.0, ($0.1, $0.2))
         })
         let activeFragmentVaryings = fragmentVaryings.filter {
-            SceneAuthoredShaderGlobalReferenceAnalyzer.isReferenced(
-                $0.0,
-                in: fragment
-            )
+            guard let references = SceneAuthoredShaderGlobalReferenceAnalyzer
+                .exactReferenceIndices($0.0, in: fragment) else { return true }
+            return references.contains { index in
+                !deadBindings.omittedFragmentStatementRanges.contains(where: { $0.contains(index) })
+            }
         }
         var varyingPrefixFacts: [String: SceneAuthoredShaderVaryingPrefixLink.Fact] = [:]
         let hasLinkMismatch = activeFragmentVaryings.contains { fragmentVarying in
@@ -638,6 +641,7 @@ nonisolated enum SceneAuthoredShaderFrontend {
             varyings: vertexVaryings,
             varyingPrefixFacts: varyingPrefixFacts,
             omittedVertexStatementRanges: deadBindings.omittedVertexStatementRanges,
+            omittedFragmentStatementRanges: deadBindings.omittedFragmentStatementRanges,
             diagnostics: diagnostics
         )
     }

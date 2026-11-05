@@ -125,12 +125,12 @@
       "bytes": 21784
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
-      "lines": 171,
-      "bytes": 30545
+      "lines": 182,
+      "bytes": 32760
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 92,
-      "bytes": 38362
+      "lines": 95,
+      "bytes": 39911
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 107,
@@ -162,7 +162,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 173,
-      "bytes": 32520
+      "bytes": 32453
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -458,20 +458,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "8273677cbd7156228140dde618f9a512715d2f40888c16e0bf26b5f7b0f3d3c3",
-      "after": "cb781aeb3e04b01ecf003fe0540d5bee3f6e1ade389370fe37d9569d1b22e9f1",
-      "owner": "scene-framebuffer-source-declarations",
-      "reason": "Distinguish raw dependency declarations from actual source samplers in the original descriptor/catalog owners. Keep exact native-world source/depth pixels and recovered author source/opacity chain; replace the resolved source queue item with the actual remaining slot3 binding and dormant utility boundaries.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#framebuffer-source-declarations"
+      "before": "cb781aeb3e04b01ecf003fe0540d5bee3f6e1ade389370fe37d9569d1b22e9f1",
+      "after": "c1d3e90a87ee9b940805fbff1034a8b34cdc27f328a60433fecd49e413cc4d4d",
+      "owner": "scene-prepared-dead-fragment-sampling",
+      "reason": "Reuse cold dead-local projection for both emission and resource ABI, preserving live input and side effects. Record exact compiler/App before-after pixels and the current author parent-stage breakpoint; replace obsolete slot3 and dormant capture diagnoses, without claiming author mask or performance recovery.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#prepared-dead-fragment-sampling"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "0f1b55c8d69b0b6199b6a2024ed1e74a513e717a6078ae86cc847aa0c0a842d1",
-      "after": "025d781da6190e2eb713b5144325761b75aa219e17362154ac27632899e94471",
-      "owner": "scene-framebuffer-source-declarations",
-      "reason": "Distinguish raw dependency declarations from actual source samplers in the original descriptor/catalog owners. Keep exact native-world source/depth pixels and recovered author source/opacity chain; replace the resolved source queue item with the actual remaining slot3 binding and dormant utility boundaries.",
-      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#framebuffer-source-declarations"
+      "before": "025d781da6190e2eb713b5144325761b75aa219e17362154ac27632899e94471",
+      "after": "015cba0181594a8be7ad3d5ce8c4eb5067b616cf4ec69e161d0c678e57e6eb2a",
+      "owner": "scene-prepared-dead-fragment-sampling",
+      "reason": "Reuse cold dead-local projection for both emission and resource ABI, preserving live input and side effects. Record exact compiler/App before-after pixels and the current author parent-stage breakpoint; replace obsolete slot3 and dormant capture diagnoses, without claiming author mask or performance recovery.",
+      "decision": "docs/scene/capabilities/render-graph-shader-coverage.md#prepared-dead-fragment-sampling"
     },
     {
       "section": "bodies",

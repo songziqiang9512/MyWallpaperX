@@ -309,6 +309,7 @@ nonisolated extension SceneAuthoredShaderColorTransferAnalyzer {
         fragment: SceneAuthoredShaderSyntaxUnit,
         expressionRanges: [Range<Int>],
         discardingExpression: Bool = false,
+        discardingTextureReads: Bool = false,
         permitsUnexpandedBlendingHelper: Bool = true,
         permitsAuthoredHelpers: Bool = true
     ) -> Bool {
@@ -354,6 +355,10 @@ nonisolated extension SceneAuthoredShaderColorTransferAnalyzer {
                     || (discardingExpression
                         && (name == "mul"
                             || SceneAuthoredShaderValueType(authoredName: name) != nil))
+                    || (discardingExpression && discardingTextureReads
+                        && SceneAuthoredShaderMetalEmitter.textureSampleArgumentCount(
+                            name, functionNames: []
+                        ) != nil)
                     || (!discardingExpression && permitsUnexpandedBlendingHelper
                         && name == "ApplyBlending") else {
                     return false

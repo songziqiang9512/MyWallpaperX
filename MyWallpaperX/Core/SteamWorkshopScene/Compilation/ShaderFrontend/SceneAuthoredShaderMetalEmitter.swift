@@ -31,6 +31,7 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
         varyings: [(String, SceneAuthoredShaderValueType, Int?)],
         varyingPrefixFacts: [String: SceneAuthoredShaderVaryingPrefixLink.Fact],
         omittedVertexStatementRanges: [Range<Int>],
+        omittedFragmentStatementRanges: [Range<Int>],
         colorTransfer: SceneShaderColorTransfer,
         premultipliedColorInputSlots: Set<Int> = [],
         colorBoundary: SceneShaderColorBoundary? = nil
@@ -132,7 +133,7 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
                 .subtracting(fragment.defines.keys),
             unpremultipliedTextureSlots: unpremultipliedTextureSlots,
             colorBoundary: colorBoundary,
-            omittedStatementRanges: []
+            omittedStatementRanges: omittedFragmentStatementRanges
         )
         let vertexEmission = emitStage(context: vertexContext, textures: textures)
         let fragmentEmission = emitStage(context: fragmentContext, textures: textures)
