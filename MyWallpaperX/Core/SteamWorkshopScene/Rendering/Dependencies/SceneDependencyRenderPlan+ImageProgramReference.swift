@@ -222,7 +222,7 @@ extension SceneDependencyRenderPlan {
     /// A visible image can publish only its already-admitted graph-final output
     /// into the named target registry. Keep this predicate independent of the
     /// consumer so hidden nested providers can use the same publication owner.
-    /// Static visible images, child/utility layers, and any provider with an
+    /// Static visible images, utility layers, and any provider with an
     /// authored dependency stay out of this route.
     nonisolated static func isVisibleGraphOutputProvider(
         _ layer: SceneRenderDescriptor.Layer,
@@ -233,7 +233,6 @@ extension SceneDependencyRenderPlan {
             && hasNoUtilityLayer(layer)
             && layer.visible != false
             && visibleLayerIDs.contains(layer.id)
-            && layer.childLayerIDs.isEmpty
             && layer.authoredDependencies.isEmpty
             && layer.dependencyLayerIDs.isEmpty
             && layer.effects.contains(where: { $0.visible != false })

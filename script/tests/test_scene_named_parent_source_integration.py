@@ -3,7 +3,8 @@
 
 The existing reflection-history runner owns the process, immutable identities,
 Metal snapshots and stop/drain. These owned data distinguish parent base from
-healthy descendants; they do not authorize effectful parent/subtree semantics.
+healthy descendants, and distinguish an ordinary parent's graph-final output.
+They do not authorize utility/subtree or dynamic-video semantics.
 """
 from __future__ import annotations
 
@@ -36,7 +37,8 @@ def encoded(value):
 
 
 def fixture_entries(case):
-    renamed = case == 1
+    base_case, graph_parent = case % 3, case >= 3
+    renamed = base_case == 1
     shift, word = (1000, "retitled_source") if renamed else (0, "own_parent")
     ids = {name: value + shift for name, value in
            {"parent": 20, "child": 22, "external": 23, "healthy": 21,
@@ -59,22 +61,31 @@ def fixture_entries(case):
         f"uniform mat4 g_ModelViewProjectionMatrix;\nvarying vec2 {uv};\n"
         f"void main(){{gl_Position=mul(vec4(a_Position,1.0),g_ModelViewProjectionMatrix);{uv}=a_TexCoord;}}\n").encode()
 
-    def effect(name, identifier, *, provider=None, slot=0, fixed=False, suffix=False):
-        textures = [None] * (slot + 1)
+    def effect(name, identifier, *, provider=None, slot=0, fixed=False, suffix=False,
+               permute=False, paired=False):
+        textures = [None] * (6 if paired else slot + 1)
         if provider is not None:
             textures[slot] = f"_rt_imageLayerComposite_{provider}_a"
         coordinate = "vec2(0.25,0.5)" if fixed else uv
         result = f"vec4({sample}.rgb*vec3(1.0,0.5,1.0),{sample}.a)" if suffix else sample
-        material_key = "previous" if suffix else "albedo"
+        if permute:
+            result = f"vec4({sample}.gbr,{sample}.a)"
+        material_key = "previous" if suffix or permute else "albedo"
+        declarations = f'uniform sampler2D g_Texture{slot}; // {{"material":"{material_key}"}}\n'
+        body = f"vec4 {sample}=texSample2D(g_Texture{slot},{coordinate});gl_FragColor={result};"
+        if paired:
+            textures[5] = textures[slot]
+            declarations += 'uniform sampler2D g_Texture5; // {"material":"albedo"}\n'
+            body = (f"vec4 {sample}=texSample2D(g_Texture{slot},vec2(0.75,0.5));"
+                    f"vec4 other=texSample2D(g_Texture5,vec2(0.25,0.5));"
+                    f"gl_FragColor=vec4(0.25*{sample}.rgb+0.75*other.rgb,1.0);")
         path = f"{word}/{name}"
         entries[f"effects/{path}/effect.json"] = encoded({"passes": [{"material": f"materials/{path}.json"}]})
         entries[f"materials/{path}.json"] = encoded({"passes": [{"shader": path,
             "textures": textures, "blending": "normal", "depthtest": "disabled",
             "depthwrite": "disabled", "cullmode": "nocull"}]})
         entries[f"shaders/{path}.vert"] = vertex
-        entries[f"shaders/{path}.frag"] = (f'uniform sampler2D g_Texture{slot}; // {{"material":"{material_key}"}}\n'
-            f"varying vec2 {uv};\nvoid main(){{vec4 {sample}=texSample2D(g_Texture{slot},{coordinate});"
-            f"gl_FragColor={result};}}\n").encode()
+        entries[f"shaders/{path}.frag"] = (declarations + f"varying vec2 {uv};\nvoid main(){{{body}}}\n").encode()
         return {"id": identifier, "file": f"effects/{path}/effect.json", "visible": True}
 
     def card(name, model, x, y, width, height, **extra):
@@ -86,31 +97,35 @@ def fixture_entries(case):
             effect("read-child", ids["child"] * 10, provider=ids["parent"], slot=slots["child"], fixed=True),
             effect("child-suffix", ids["child"] * 10 + 1, suffix=True)])
     external = card("external", "fallback", 384, 128, 128, 64, dependencies=[ids["parent"]], effects=[
-        effect("read-external", ids["external"] * 10, provider=ids["parent"], slot=slots["external"]),
+        effect("read-external", ids["external"] * 10, provider=ids["parent"], slot=slots["external"], paired=case == 4),
         effect("external-suffix", ids["external"] * 10 + 1, suffix=True)])
     leaf_reader = card("leafReader", "fallback", 384, 48, 128, 32, dependencies=[ids["leaf"]], effects=[
         effect("read-leaf", ids["leafReader"] * 10, provider=ids["leaf"], slot=slots["leafReader"])])
+    parent = card("parent", "parent", 128, 128, 128, 64)
+    if graph_parent:
+        parent["effects"] = [effect("parent-gbr", ids["parent"] * 10, permute=True)]
     scene = {"version": 3, "general": {"orthogonalprojection": {"width": CANVAS[0], "height": CANVAS[1]},
         "clearcolor": " ".join(str(c / 255) for c in CLEAR)}, "objects": [
             card("leaf", "leaf", 128, 48, 128, 32), leaf_reader,
-            card("parent", "parent", 128, 128, 128, 64),
+            parent,
             card("healthy", "sentinel", -32, 0, 24, 24, parent=ids["parent"]), child, external,
             card("peer", "green", 464, 48, 12, 12)]}
     entries["scene.json"] = encoded(scene)
-    if case == 2:
+    if base_case == 2:
         del entries[f"materials/{word}/parent.tex"]
     return entries
 
 
 def protocol(case):
-    shift = 1000 if case == 1 else 0
-    good = case != 2
-    return {"case": ("ordinary", "renamed", "missing-parent-source")[case],
+    base_case = case % 3
+    shift = 1000 if base_case == 1 else 0
+    good = base_case != 2
+    requested = {"case": ("ordinary", "renamed", "missing-parent-source")[base_case],
         "canvas": CANVAS, "tolerance": TOLERANCE, "radiusPixels": 2,
         "ids": {k: v + shift for k, v in {"parent": 20, "child": 22, "external": 23,
             "healthy": 21, "leaf": 30, "leafReader": 31, "peer": 40}.items()},
-        "slots": {"child": 3 if case == 1 else 1, "external": 2 if case == 1 else 5,
-                  "leafReader": 4 if case == 1 else 1},
+        "slots": {"child": 3 if base_case == 1 else 1, "external": 2 if base_case == 1 else 5,
+                  "leafReader": 4 if base_case == 1 else 1},
         "missingParentTexture": not good,
         "sourceRole": "ordinary image owns its base; transform children are not texture members",
         "ROIs": {
@@ -127,6 +142,20 @@ def protocol(case):
         }, "ceilings": ["No parent effect, alpha/tint, hidden lifecycle or video qualification",
             "Raw capture completion log is sticky; shared input tokens do not alone count physical captures",
             "Typed source fields only; Swift identity descriptions are not parsed"]}
+    if case >= 3:
+        requested.update(case=("graph", "graph-renamed-paired", "graph-missing-source")[base_case],
+            parentGraph=True, sourceRole="ordinary parent own graph-final, excluding transform descendants")
+        requested["ceilings"][0] = "No alpha/tint, utility/subtree, forward/hidden or video qualification"
+        requested["ceilings"][1] = "Graph publication copies to a reserved target; no selected typed copy edge or physical-copy count"
+        if good:
+            colors = {"parentRight": (160, 64, 16), "childReader": (32, 8, 192),
+                      "externalLeft": (32, 8, 192), "externalRight": (160, 32, 16)}
+            if case == 4:
+                colors.update(externalLeft=(64, 14, 148), externalRight=(64, 14, 148))
+                requested["externalSlots"] = [2, 5]
+            for region, color in colors.items():
+                requested["ROIs"][region]["RGB"] = color
+    return requested
 
 
 def measure_capture(path, requested):
@@ -170,7 +199,7 @@ class SceneNamedParentSourceIntegrationTests(unittest.TestCase):
             REPO / "script/tests/scene_pkg_fixture.py", REPO / "script/web_benchmark_capture.py"]
         cls.source_identity = {str(p): app_runner.sha256(p) for p in sources}
         preregistered = {str(i): {"protocol": protocol(i), "entries": {
-            name: hashlib.sha256(data).hexdigest() for name, data in fixture_entries(i).items()}} for i in range(3)}
+            name: hashlib.sha256(data).hexdigest() for name, data in fixture_entries(i).items()}} for i in range(6)}
         (cls.evidence_root / "protocol.json").write_bytes(encoded({"cases": preregistered,
             "app": cls.app_identity, "sources": cls.source_identity}))
         print(f"Named parent source App evidence: {cls.evidence_root}", flush=True)
@@ -183,9 +212,17 @@ class SceneNamedParentSourceIntegrationTests(unittest.TestCase):
             with self.subTest(case=case):
                 self.run_parent_case(case)
 
+    def test_parent_graph_final_supplies_child_and_external_without_descendants(self):
+        self.run_parent_case(3)
+
+    def test_parent_graph_paired_renaming_and_missing_source_stay_local(self):
+        for case in (4, 5):
+            with self.subTest(case=case):
+                self.run_parent_case(case)
+
     def run_parent_case(self, case):
         requested = protocol(case)
-        word = "retitled_source" if case == 1 else "own_parent"
+        word = "retitled_source" if case % 3 == 1 else "own_parent"
         with patch.object(app_runner, "fixture_entries", fixture_entries), patch.object(
                 app_runner, "measure_capture", lambda path: measure_capture(path, requested)):
             result = app_runner.SceneReflectionHistoryIntegrationTests.run_case(self, case, capture=True,
@@ -237,8 +274,9 @@ class SceneNamedParentSourceIntegrationTests(unittest.TestCase):
                 self.assertEqual(len(graph), 1, (name, graph))
                 self.assertEqual(len(tail), 1, (name, tail))
                 failed = missing and name != "leafReader"
+                read_slots = requested.get("externalSlots", [slots[name]]) if name == "external" else [slots[name]]
                 self.assertEqual([(r["effectIndex"], r["slot"]) for r in material],
-                    [(1, 0)] if failed else [(0, slots[name])] + ([] if name == "leafReader" else [(1, 0)]))
+                    [(1, 0)] if failed else [(0, slot) for slot in read_slots] + ([] if name == "leafReader" else [(1, 0)]))
                 copies = [r for r in rows if r["kind"] == "copy" and r.get("layerID") == identifier
                           and r.get("effectIndex") == 0 and r.get("outcome") == "encoded"]
                 self.assertEqual(len(copies), int(failed), (name, copies))
@@ -246,13 +284,14 @@ class SceneNamedParentSourceIntegrationTests(unittest.TestCase):
                     self.assertEqual(copies[0]["target"]["textureToken"], material[0]["source"]["textureToken"])
                     self.assertLess(rows.index(copies[0]), rows.index(material[0]))
                 else:
-                    first = material[0]["source"]
-                    self.assertEqual(first["provenance"], "authored.material")
-                    self.assertEqual(first["generation"], first["contentGeneration"])
-                    inputs.append({"reader": name, "slot": slots[name], "texture": first["textureToken"],
-                                   "generation": first["generation"], "contentGeneration": first["contentGeneration"]})
-                    if name != "leafReader":
-                        self.assertEqual(material[0]["target"]["textureToken"], material[1]["source"]["textureToken"])
+                    for binding in material[:len(read_slots)]:
+                        first = binding["source"]
+                        self.assertEqual(first["provenance"], "authored.material")
+                        self.assertEqual(first["generation"], first["contentGeneration"])
+                        inputs.append({"reader": name, "slot": binding["slot"], "texture": first["textureToken"],
+                                       "generation": first["generation"], "contentGeneration": first["contentGeneration"]})
+                        if name != "leafReader":
+                            self.assertEqual(binding["target"]["textureToken"], material[-1]["source"]["textureToken"])
                 composite = [r for r in rows if r["kind"] in ("ordinary", "group")
                              and r.get("layerID") == identifier and r.get("outcome") == "draw-encoded"]
                 if replay:
@@ -272,10 +311,35 @@ class SceneNamedParentSourceIntegrationTests(unittest.TestCase):
             if not missing:
                 parent_inputs = [r for r in inputs if r["reader"] in ("child", "external")]
                 self.assertEqual(len({(r["texture"], r["generation"]) for r in parent_inputs}), 1, parent_inputs)
-            self.assertFalse(any(r["kind"] == "graph-transaction" and r.get("layerID") == ids["parent"] for r in rows))
+            parent_graph = [r for r in rows if r["kind"] == "graph-transaction" and r.get("layerID") == ids["parent"]]
             parent_draws = [r for r in rows if r.get("layerID") == ids["parent"]
+                            and r["kind"] in ("ordinary", "group", "terminal-material-replay")
                             and r.get("outcome") == "draw-encoded"]
             self.assertEqual(len(parent_draws), 0 if missing else 1, parent_draws)
+            if requested.get("parentGraph"):
+                parent_material = [r for r in rows if r["kind"] == "material" and r.get("layerID") == ids["parent"]
+                                   and r.get("outcome") == "draw-encoded"]
+                self.assertEqual([(r.get("effectIndex"), r.get("slot")) for r in parent_material],
+                                 [] if missing else [(0, 0)])
+                if not missing:
+                    self.assertEqual(len(parent_graph), 1)
+                    main = parent_draws[0]
+                    parent_tail = [r for r in rows if r["kind"] == "tail-consume"
+                                   and r.get("layerID") == ids["parent"] and r.get("outcome") == "terminal-consumed"]
+                    self.assertEqual(len(parent_tail), 1)
+                    self.assertEqual(parent_tail[0]["access"], "terminal-material-replay"
+                        if main["kind"] == "terminal-material-replay" else "output-texture-composite")
+                    self.assertLess(rows.index(parent_material[0]), rows.index(main))
+                    self.assertLess(rows.index(main), rows.index(parent_tail[0]))
+                    source = parent_material[0]["source"] if main["kind"] == "terminal-material-replay" else parent_material[0]["target"]
+                    self.assertEqual(main["source"]["textureToken"], source["textureToken"])
+                    self.assertEqual(main["target"]["textureToken"], encoded_frame[2])
+                    for reader in ("child", "external"):
+                        first = next(r for r in rows if r["kind"] == "material" and r.get("layerID") == ids[reader]
+                                     and r.get("effectIndex") == 0)
+                        self.assertLess(rows.index(main), rows.index(first))
+            else:
+                self.assertEqual(parent_graph, [])
             for name in ("healthy", "peer"):
                 self.assertTrue(any(r.get("layerID") == ids[name] and r.get("outcome") == "draw-encoded" for r in rows), name)
             receipts.append({"capture": png.name, "frame": event["frameIndex"], "request": event["captureRequestID"],
@@ -290,7 +354,10 @@ class SceneNamedParentSourceIntegrationTests(unittest.TestCase):
             else:
                 self.assertIn(binding, log)
         if not missing:
-            self.assertIn(f"phase=named-target-capture layer={ids['parent']} status=succeeded", log)
+            phase = "visible-graph-output-publication" if requested.get("parentGraph") else "named-target-capture"
+            self.assertIn(f"phase={phase} layer={ids['parent']} status=succeeded", log)
+        if requested.get("parentGraph"):
+            self.assertNotIn(f"phase=named-target-capture layer={ids['parent']} status=succeeded", log)
         (work / "named-parent-chain.json").write_bytes(encoded(receipts))
 
 

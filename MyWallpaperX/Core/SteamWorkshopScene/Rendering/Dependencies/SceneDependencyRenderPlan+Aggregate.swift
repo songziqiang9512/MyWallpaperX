@@ -114,7 +114,8 @@ extension SceneDependencyRenderPlan {
         } else {
             return nil
         }
-        guard kind == .imageLayerBlend || provider.childLayerIDs.isEmpty else { return nil }
+        guard kind == .imageLayerBlend || kind == .visibleImageGraphOutput
+                || provider.childLayerIDs.isEmpty else { return nil }
         let forward = providerOrder > consumerOrder
         if forward {
             let independentRawSource = provider.effects.isEmpty

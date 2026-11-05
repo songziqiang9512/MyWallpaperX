@@ -699,7 +699,8 @@ extension SceneDependencyRenderPlan {
             || providerHasVisibleEffects
         let orderGate = providerOrder < consumerOrder || supportsForwardCapture
         guard kindSupported, visibilityShape, activeDepsOk, orderGate,
-              contract.kind == .imageLayerBlend || provider.childLayerIDs.isEmpty else {
+              contract.kind == .imageLayerBlend || contract.kind == .visibleImageGraphOutput
+                || provider.childLayerIDs.isEmpty else {
             issues.append(Issue(
                 kind: .forwardUtilityProvider,
                 layerID: layer.id,

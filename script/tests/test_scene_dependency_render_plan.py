@@ -497,17 +497,19 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
             "visibleProviderRequiresProgram": [True, True],
         })
 
-    def test_raw_named_parent_is_its_own_source_without_transform_child_cycles(self) -> None:
+    def test_named_parent_keeps_base_and_graph_owners_without_transform_child_cycles(self) -> None:
         rows = self.result["rawNamedParents"]
-        for mode, slots in (("ordinary", [2, 5]), ("renamed", [3, 6])):
+        for mode, slots in (("ordinary", [2, 5]), ("renamed", [3, 6]),
+                            ("effectful", [2, 5]), ("graphRenamed", [3, 6])):
             row = rows[mode]
             parent = row["parent"]
             self.assertEqual(row, {"parent": parent, "childCandidateCount": 1,
                 "externalCandidateCount": 2, "childProviders": [parent],
                 "externalProviders": [parent, parent], "externalSlots": slots,
-                "kinds": ["imageLayerBlend"] * 3, "requiredProviders": [parent],
-                "graphProviders": [], "cycles": []})
-        for mode in ("secondary", "effectful", "utility", "shaderCycle"):
+                "kinds": ["visibleImageGraphOutput" if mode in ("effectful", "graphRenamed")
+                          else "imageLayerBlend"] * 3, "requiredProviders": [parent],
+                "graphProviders": [parent] if mode in ("effectful", "graphRenamed") else [], "cycles": []})
+        for mode in ("secondary", "utility", "shaderCycle", "forwardGraph", "hiddenGraph"):
             row = rows[mode]
             self.assertEqual(row["childProviders"], [], row)
             self.assertEqual(row["externalProviders"], [], row)

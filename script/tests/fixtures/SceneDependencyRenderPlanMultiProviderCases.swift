@@ -470,8 +470,9 @@ extension Harness {
 extension Harness {
     static func rawNamedParentResults() -> [String: Any] {
         var result: [String: Any] = [:]
-        for mode in ["ordinary", "renamed", "secondary", "effectful", "utility", "shaderCycle"] {
-            let renamed = mode == "renamed"
+        for mode in ["ordinary", "renamed", "effectful", "graphRenamed", "secondary", "utility", "shaderCycle", "forwardGraph", "hiddenGraph"] {
+            let renamed = mode == "renamed" || mode == "graphRenamed"
+            let hasGraph = ["effectful", "graphRenamed", "forwardGraph", "hiddenGraph"].contains(mode)
             let p = renamed ? 3917 : 2310, c = p + 1, h = p + 2, d = p + 3
             let slots = renamed ? [3, 6] : [2, 5]
             let word = renamed ? "unseen_material" : "own_parent"
@@ -484,14 +485,14 @@ extension Harness {
             }
             let pEffects: [SceneRenderDescriptor.EffectDescriptor] = mode == "shaderCycle"
                 ? [reads("actual-cycle", c, [1])]
-                : mode == "effectful" ? [.init(id: "own-filter", file: "effects/\(word)/filter.json",
+                : hasGraph ? [.init(id: "own-filter", file: "effects/\(word)/filter.json",
                     visible: true, passes: [.init(passIndex: 0, texturePaths: [], textureSlots: [nil],
                         combos: [:], constantShaderValues: [:])])] : []
             let parent = SceneRenderDescriptor.Layer(id: p,
                 contentKind: mode == "utility" ? "composition" : "image",
                 utilityLayer: mode == "utility" ? .init(kind: .composition) : nil,
                 dependencyLayerIDs: mode == "shaderCycle" ? [c] : [], childLayerIDs: [h, c],
-                visible: true, effects: pEffects)
+                visible: mode != "hiddenGraph", effects: pEffects)
             var child = SceneRenderDescriptor.Layer(id: c, contentKind: "image", utilityLayer: nil,
                 dependencyLayerIDs: [p], childLayerIDs: [], visible: true,
                 effects: [reads("child-reader", p, [renamed ? 3 : 1])])
@@ -502,8 +503,8 @@ extension Harness {
                 dependencyLayerIDs: [p], childLayerIDs: [], visible: true,
                 effects: [reads("external-reader", p, slots)])
             let descriptor = SceneRenderDescriptor(layers: [parent, healthy, child, external],
-                renderOrderLayerIDs: [p, h, c, d])
-            let visible: Set<Int> = [p, h, c, d]
+                renderOrderLayerIDs: mode == "forwardGraph" ? [h, c, d, p] : [p, h, c, d])
+            let visible: Set<Int> = mode == "hiddenGraph" ? [h, c, d] : [p, h, c, d]
             let candidates = SceneDependencyRenderPlan.potentialNamedBindings(
                 descriptor: descriptor, visibleLayerIDs: visible)
             let plan = SceneDependencyRenderPlan(descriptor: descriptor, visibleLayerIDs: visible,

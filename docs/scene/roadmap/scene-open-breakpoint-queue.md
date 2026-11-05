@@ -69,7 +69,7 @@
 
 | 定位 | 下一步 |
 |---|---|
-| 含子层的父graph named输出 | 普通无效果image base已有child时可沿原raw来源供货；有effects的父层仍受image/visibleGraph来源与kind的leaf范围约束。固定官方自有静态场景显示primary包含父effect结果且排除独立child；沿原Coordinator/graph publication和作者位主输出补实际App消费，不能用raw base顶替effect结果或裸放行utility/Puppet子树。 |
+| hidden/forward父graph named输出 | 可见、已可满足的普通image graph-final已有transform children时可复用原graph发布；hidden FX父仍在image来源谓词保leaf范围，forward可见来源仍受原执行期限准入。hidden claim/execute/named-only消费者已存在，需独立父子/多reader及生命周期对照；forward沿实际source独立性与作者位main期限核，不能由新visible正例裸开utility/Puppet或用raw替身。当前最新静态parent筛选无精确作者命中，保能力边界，不造默认缺图归因。 |
 | composition · 2731896598 | childless透视与三维angles组合需真实几何/Camera/回绘资格，不以false-only代作者输入。 |
 | source material · 3616476797/113、3679907516/71/74/83、3141464346 | 逐pass核source-only state/lookup/活动purpose；314重点232/277/321/386/416/420/481/719，不从VERSION2或translucent推通用接口。 |
 | static model / resolved render state | 任意shader、多pass与更广blend/depth/cull须原binding compiler和fullscreen/output用途资格；保深度、淡出与PMA。 |
